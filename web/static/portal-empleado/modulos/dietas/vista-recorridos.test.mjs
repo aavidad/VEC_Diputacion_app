@@ -139,3 +139,79 @@ test("sin fuente de competencia no ofrece pestañas del circuito ni consulta ban
   assert.equal(listados, 0);
   vista.desmontar();
 });
+
+test("un fallo de competencias permite reintentar una sola lectura y acredita las pestañas una vez", async () => {
+  const contenedor = raiz(); let competencias = 0; let listados = 0; let resolver;
+  const clienteCircuito = {
+    competencias: () => {
+      competencias += 1;
+      if (competencias === 1) return Promise.reject(Object.assign(new Error("red"), { codigo: "red_no_disponible" }));
+      return new Promise((completar) => { resolver = completar; });
+    },
+    listar: async () => { listados += 1; return { items: [], competencia: "acreditada" }; },
+  };
+  const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores: clienteBorradores(), clienteCircuito });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-recorridos]");
+  const estado = panel.querySelector("[data-dietas-estado-competencias]");
+  const boton = panel.querySelector("[data-dietas-reintentar-competencias]");
+  assert.equal(estado.hidden, false);
+  assert.match(texto(estado), /No se han podido comprobar sus bandejas/u);
+  assert.equal(panel.querySelector("[data-dietas-area-borradores]") !== null, true);
+  assert.equal(listados, 0);
+  boton.focus();
+  panel.listeners.click({ target: boton }); panel.listeners.click({ target: boton });
+  assert.equal(competencias, 2);
+  assert.equal(boton.disabled, true);
+  resolver({ fuente: "acreditada", etapas: ["revision", "autorizacion"] });
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(estado.hidden, true);
+  assert.deepEqual(panel.querySelectorAll("[data-dietas-cambiar-etapa]").map((paso) => paso.dataset.dietasCambiarEtapa),
+    ["solicitante", "revision", "autorizacion", "control"]);
+  assert.equal(contenedor.ownerDocument.activeElement.dataset.dietasCambiarEtapa, "revision");
+  panel.listeners.click({ target: boton });
+  assert.equal(competencias, 2);
+  assert.equal(listados, 0);
+  vista.desmontar();
+});
+
+test("la denegación de competencias no ofrece reintento ni consulta bandejas", async () => {
+  const contenedor = raiz(); let listados = 0;
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: clienteBorradores(),
+    clienteCircuito: {
+      competencias: async () => { throw Object.assign(new Error("denegado"), { codigo: "acceso_denegado", estado: 403 }); },
+      listar: async () => { listados += 1; return { items: [] }; },
+    },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const estado = contenedor.querySelector("[data-dietas-estado-competencias]");
+  assert.match(texto(estado), /No tiene permiso para consultar las bandejas/u);
+  assert.equal(estado.querySelector("[data-dietas-reintentar-competencias]").hidden, true);
+  assert.equal(contenedor.querySelectorAll("[data-dietas-cambiar-etapa]").length, 0);
+  assert.equal(listados, 0);
+  vista.desmontar();
+});
+
+test("una respuesta tardía tras desmontar no monta pasos y las etapas vacías son válidas", async () => {
+  const contenedor = raiz(); let resolver; let signal;
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: clienteBorradores(),
+    clienteCircuito: { competencias: ({ signal: recibido }) => { signal = recibido; return new Promise((completar) => { resolver = completar; }); } },
+  });
+  vista.desmontar();
+  assert.equal(signal.aborted, true);
+  resolver({ fuente: "acreditada", etapas: ["revision"] });
+  await Promise.resolve();
+  assert.equal(contenedor.querySelector("[data-dietas-recorridos]"), null);
+
+  const otra = raiz();
+  const vistaVacia = montarVistaRecorridosDietas(otra, {
+    clienteBorradores: clienteBorradores(),
+    clienteCircuito: { competencias: async () => ({ fuente: "acreditada", etapas: [] }) },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(otra.querySelector("[data-dietas-estado-competencias]").hidden, true);
+  assert.equal(otra.querySelectorAll("[data-dietas-cambiar-etapa]").length, 0);
+  vistaVacia.desmontar();
+});

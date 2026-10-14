@@ -413,6 +413,11 @@ recorrido real en cidonia. Necesita las respuestas a las dudas 19 a 21, 41,
 
 ### Fase 4. Dietas
 
+Reanudado por encargo de dirección del 14/10/2026, equipo D: recorrido en copia
+local propia, con preparación de candidata; todavía sin activación acreditada
+en cidonia. Detalle y límites en `docs/plan_modulos/dietas.md` y
+`deploy/principal/candidata_dietas/`.
+
 Comisiones de servicio: solicitud, autorización, justificación y liquidación
 (`docs/estudio_requisitos/ficha_dietas_2026-09-23.md`). Criterio: una comisión
 sintética recorre las tres perspectivas (persona, jefatura que autoriza, RRHH
@@ -604,7 +609,7 @@ documento (apartado 13).
 | Personal | `personal.md` | Ficha propia y actos de RRHH parciales; recibe de CT | 1 y 2 |
 | Portal del empleado | `portal_empleado.md` (04/10) | Inicio y «Mis trámites» montados | 2 |
 | Cronos | `cronos.md` (07/10) | Aparcado; 0 de 12 capacidades | 3 |
-| Dietas | `dietas.md` (07/10) | Aparcado | 4 |
+| Dietas | `dietas.md` (14/10) | En curso en copia local, equipo D; liquidación y justificantes pendientes | 4 |
 | Procesos selectivos | `selectivos.md` (07/10) | Aparcado; preparadores locales sin acta firmada | 5 |
 | Provisión | `provision.md` (07/10) | Aparcado; bases transcritas | 5 |
 | Carrera y Formación | `carrera_formacion.md` (02/10) | Aparcado | 5 y 6 |

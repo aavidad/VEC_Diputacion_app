@@ -236,6 +236,11 @@
     "comision_devolucion_etapa_fiscalizacion": "Audit"
   },
   "circuito": {
+    "circuito_competencias_cargando": "Checking your inboxes…",
+    "circuito_competencias_error": "Your inboxes could not be checked. You can retry the request.",
+    "circuito_competencias_denegadas": "You do not have permission to view Dietas inboxes.",
+    "circuito_competencias_sesion": "Your session does not allow access to Dietas inboxes.",
+    "circuito_competencias_reintentar": "Retry request",
     "circuito_etapa": "Inbox",
     "circuito_etapa_revision": "Administrative review",
     "circuito_etapa_autorizacion": "Authorisation",

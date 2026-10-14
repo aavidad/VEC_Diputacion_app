@@ -967,7 +967,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal-eventos.js", "modulos/cronos/vista-saldo-conectado.js", "modulos/cronos/vista-remoto.js"])
     versionesEspeciales.set(ruta, "20261014-cronos-activacion-v1");
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js"])
-    versionesEspeciales.set(ruta, "20261014-ginpix-cronos-v1");
+    versionesEspeciales.set(ruta, "20261014-dietas-ginpix-cronos-v2");
+  versionesEspeciales.set("modulos/dietas/vista-recorridos.js", "20261014-dietas-recuperar-bandejas-v1");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
@@ -1107,6 +1108,7 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
+  const versionRecorridos = "20261014-dietas-recuperar-bandejas-v1";
   const versionRaiz = versionDe(html, "/portal-empleado/portal.js");
   const versionCoordinador = versionDe(portal, "./portal-modulos-coordinador.js");
   const comun = "20261007-pantallas-textos-final-v1";
@@ -1115,7 +1117,7 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionRaiz);
   assert.equal(versionDe(html, "/portal-empleado/portal-modulos-coordinador.js"), versionCoordinador);
   assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionCoordinador);
-  assert.equal(versionDe(coordinador, "./modulos/dietas/vista-recorridos.js"), version);
+  assert.equal(versionDe(coordinador, "./modulos/dietas/vista-recorridos.js"), versionRecorridos);
   assert.equal(versionDe(coordinador, "./modulos/dietas/mapa-ruta.js"), version);
   assert.equal(versionDe(recorridos, "./vista-borradores-propios.js"), version);
   assert.equal(versionDe(borradores, "./vista-mapa-comision.js"), version);
