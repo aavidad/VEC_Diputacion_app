@@ -66,6 +66,12 @@ func (c *Cliente) VerificarFirmas(ctx context.Context, s ports.SolicitudVerifica
 		}
 		r.Firmas = append(r.Firmas, p)
 	}
+	if r.Estado == ports.EstadoVerificacionValida && r.CambiosPosteriores.BytesNoFirmados == nil && len(r.Firmas) > 0 {
+		// El dictamen V2 ya ligó cada revisión y su huella a estos bytes.
+		// La longitud de la última revisión permite completar el campo opcional.
+		n := uint64(len(s.ContenidoFirmado)) - r.Firmas[len(r.Firmas)-1].RevisionLongitud
+		r.CambiosPosteriores.BytesNoFirmados = &n
+	}
 	return r, nil
 }
 
