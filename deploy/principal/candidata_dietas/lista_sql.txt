@@ -11,6 +11,8 @@
 # Después: 000014 (diez acciones de auditoría) y 000015 (cuatro rutas).
 # Ambas instaladas una vez en la copia; dos revisiones sobre 1134c6076.
 # Después: 000018 corrige el esquema V2 en dos cotejos de identidad instalados.
-# Pendiente de revisión e instalación; no requiere 000013, 000016 ni 000017.
+# Dos revisiones sobre 56f7e0101; instalada una vez en la copia D.
+# SHA256 7802a12aba4ceb2ff22fc7052e8c4af4e9953567aa149da67900e745219e7edd.
+# No requiere 000013, 000016 ni 000017.
 # Rutas causales: ../lista_sql_codexd_dietas_20261014.txt.
 # La lista final incluirá también la liquidación nominal cuando esté terminada.

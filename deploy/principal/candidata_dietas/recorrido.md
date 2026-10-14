@@ -48,7 +48,13 @@ no permiten iniciar sesión; las tres cuentas adicionales de F4b no existían.
   vigencia; la prueba del caso vigente y del límite de caducidad pasa y dos
   revisiones dieron el visto bueno. En el proceso real, Personal responde
   200. Tras añadir una relación ficticia con el empleado canónico, devuelve
-  una relación autorizada. La lista de comisiones todavía devuelve 403.
+  una relación autorizada.
+- La lista de comisiones seguía devolviendo 403: dos cotejos SQL esperaban un
+  identificador de esquema de autenticación distinto del contrato vigente.
+  Dietas 000018 corrige ese literal y fija `search_path` en `pg_catalog,
+  pg_temp`. Dos revisiones sobre `56f7e0101` dieron el visto bueno. Su
+  instalación única terminó en `COMMIT`; el empleado ya obtiene 200 y una
+  lista vacía, coherente con la ausencia de comisiones en la copia.
 
 ## Código comprobado
 
