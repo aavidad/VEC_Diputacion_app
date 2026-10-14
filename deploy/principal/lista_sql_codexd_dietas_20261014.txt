@@ -7,3 +7,4 @@ deploy/postgresql/dietas_borradores/migraciones/000009_otros_gastos_justificados
 # deploy/principal/04_dietas_migraciones.sh --incremental tras AD268.
 deploy/postgresql/dietas_borradores/migraciones/000010_devolucion_reenvio_comision.up.sql
 deploy/postgresql/dietas_borradores/migraciones/000011_campo_devolucion_decision.up.sql
+deploy/postgresql/dietas_borradores/migraciones/000014_auditoria_frontera_circuito.up.sql
