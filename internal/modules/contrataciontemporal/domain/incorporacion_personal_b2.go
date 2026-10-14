@@ -58,6 +58,39 @@ type SelectorBolsaPlanB2 struct {
 	PropuestaRef             string `json:"propuesta_ref"`
 }
 
+func (s SelectorBolsaPlanB2) IsZero() bool { return s == (SelectorBolsaPlanB2{}) }
+
+// SelectorBolsaPlanB2Nativo conserva las referencias reales B110/B7/B30.
+// Es excluyente con SelectorBolsaPlanB2, cuyo canon histórico no se altera.
+type SelectorBolsaPlanB2Nativo struct {
+	OrganizacionRef    string `json:"organizacion_ref"`
+	ExpedienteRef      string `json:"expediente_ref"`
+	ClaveCT            string `json:"clave_ct"`
+	UnidadRef          string `json:"unidad_ref"`
+	CategoriaRef       string `json:"categoria_ref"`
+	NecesidadRef       string `json:"necesidad_ref"`
+	BolsaRef           string `json:"bolsa_ref"`
+	LlamamientoRef     string `json:"llamamiento_ref"`
+	ReciboEmisionRef   string `json:"recibo_emision_ref"`
+	ReciboRespuestaRef string `json:"recibo_respuesta_ref"`
+}
+
+func (s SelectorBolsaPlanB2Nativo) IsZero() bool { return s == (SelectorBolsaPlanB2Nativo{}) }
+
+func (s SelectorBolsaPlanB2Nativo) Valido() bool {
+	if !UUIDPlanPersonalB2Valido(s.ClaveCT) {
+		return false
+	}
+	for _, r := range []string{s.OrganizacionRef, s.ExpedienteRef, s.UnidadRef,
+		s.CategoriaRef, s.NecesidadRef, s.BolsaRef, s.LlamamientoRef,
+		s.ReciboEmisionRef, s.ReciboRespuestaRef} {
+		if !ReferenciaOpacaValida(r) {
+			return false
+		}
+	}
+	return true
+}
+
 // PlanIncorporacionPersonalB2 es el acto prospectivo de RRHH: queda inmutable
 // antes de cualquier efecto de Personal. Sus referencias proceden de fuentes
 // autorizadas. Un conjunto sintético conserva el protocolo B2 independiente.
@@ -72,7 +105,8 @@ type PlanIncorporacionPersonalB2 struct {
 	PropuestaReciboRef    string                    `json:"propuesta_recibo_ref"`
 	AceptacionRef         string                    `json:"aceptacion_ref"`
 	AceptacionReciboRef   string                    `json:"aceptacion_recibo_ref"`
-	Bolsa                 SelectorBolsaPlanB2       `json:"bolsa"`
+	Bolsa                 SelectorBolsaPlanB2       `json:"bolsa,omitzero"`
+	BolsaNativa           SelectorBolsaPlanB2Nativo `json:"bolsa_nativa,omitzero"`
 	PersonaRef            string                    `json:"persona_ref"`
 	PersonaVersion        uint64                    `json:"persona_version"`
 	PersonaFuente         FuentePlanPersonalB2      `json:"persona_fuente"`
@@ -115,7 +149,7 @@ func (f FuentePlanPersonalB2) Valida() bool {
 	return ReferenciaOpacaValida(f.Ref) && VersionPlanPersonalB2Valida(f.Version) && HuellaPlanPersonalB2Valida(f.SHA256)
 }
 func (p PlanIncorporacionPersonalB2) Validar() error {
-	for _, r := range []string{p.OrganizacionRef, p.UnidadCTRef, p.ExpedienteRef, p.AnalisisReciboRef, p.PropuestaReciboRef, p.AceptacionRef, p.AceptacionReciboRef, p.PersonaRef, p.PersonaReciboBolsaRef, p.OrganismoRef, p.UnidadRef, p.VersionPlazaRef, p.VersionPuestoRef, p.PuestoRef, p.PlazaRef, p.CatalogoRPTID, p.CatalogoRPTModulo, p.CategoriaRef, p.VinculoReciboRef, p.DocumentoRef, p.Regimen.Ref, p.Modalidad.Ref, p.Bolsa.UnidadRef, p.Bolsa.CategoriaRef, p.Bolsa.NecesidadRef, p.Bolsa.AceptacionOperacionRef, p.Bolsa.AperturaOperacionRef, p.Bolsa.LlamamientoRef, p.Bolsa.PropuestaRef} {
+	for _, r := range []string{p.OrganizacionRef, p.UnidadCTRef, p.ExpedienteRef, p.AnalisisReciboRef, p.PropuestaReciboRef, p.AceptacionRef, p.AceptacionReciboRef, p.PersonaRef, p.PersonaReciboBolsaRef, p.OrganismoRef, p.UnidadRef, p.VersionPlazaRef, p.VersionPuestoRef, p.PuestoRef, p.PlazaRef, p.CatalogoRPTID, p.CatalogoRPTModulo, p.CategoriaRef, p.VinculoReciboRef, p.DocumentoRef, p.Regimen.Ref, p.Modalidad.Ref} {
 		if !ReferenciaOpacaValida(r) {
 			return ErrPlanIncorporacionPersonalB2
 		}
@@ -125,14 +159,31 @@ func (p PlanIncorporacionPersonalB2) Validar() error {
 			return ErrPlanIncorporacionPersonalB2
 		}
 	}
-	for _, h := range []string{p.AnalisisSHA256, p.CatalogoRPTSHA256, p.DocumentoSHA256, p.Bolsa.AceptacionRegistroSHA256, p.Bolsa.AperturaRegistroSHA256} {
+	for _, h := range []string{p.AnalisisSHA256, p.CatalogoRPTSHA256, p.DocumentoSHA256} {
 		if !HuellaPlanPersonalB2Valida(h) {
 			return ErrPlanIncorporacionPersonalB2
 		}
 	}
+	if p.BolsaNativa.IsZero() {
+		for _, r := range []string{p.Bolsa.UnidadRef, p.Bolsa.CategoriaRef, p.Bolsa.NecesidadRef,
+			p.Bolsa.AceptacionOperacionRef, p.Bolsa.AperturaOperacionRef, p.Bolsa.LlamamientoRef,
+			p.Bolsa.PropuestaRef} {
+			if !ReferenciaOpacaValida(r) {
+				return ErrPlanIncorporacionPersonalB2
+			}
+		}
+		if !HuellaPlanPersonalB2Valida(p.Bolsa.AceptacionRegistroSHA256) ||
+			!HuellaPlanPersonalB2Valida(p.Bolsa.AperturaRegistroSHA256) {
+			return ErrPlanIncorporacionPersonalB2
+		}
+	} else if !p.Bolsa.IsZero() || !p.BolsaNativa.Valido() ||
+		p.BolsaNativa.OrganizacionRef != p.OrganizacionRef || p.BolsaNativa.ExpedienteRef != p.ExpedienteRef ||
+		p.BolsaNativa.UnidadRef != p.UnidadCTRef || p.BolsaNativa.CategoriaRef != p.CategoriaRef {
+		return ErrPlanIncorporacionPersonalB2
+	}
 	d, e := time.Parse(time.DateOnly, p.Desde)
 	h, eh := time.Parse(time.DateOnly, p.Hasta)
-	if !ClaseOcupacionPlanPersonalB2Valida(p.ClaseOcupacion) || e != nil || d.Year() <= 0 || d.Format(time.DateOnly) != p.Desde || p.Hasta != "" && (eh != nil || h.Year() <= 0 || h.Format(time.DateOnly) != p.Hasta || !h.After(d)) || !ClaveCatalogo(p.MotivoClave).Valida() || p.AnalisisVersion > p.VersionExpediente || p.CategoriaRef != p.Bolsa.CategoriaRef || !p.PersonaFuente.Valida() || !p.FuenteOrganizacion.Valida() || !p.FuentePlantilla.Valida() || !p.FuenteRPT.Valida() {
+	if !ClaseOcupacionPlanPersonalB2Valida(p.ClaseOcupacion) || e != nil || d.Year() <= 0 || d.Format(time.DateOnly) != p.Desde || p.Hasta != "" && (eh != nil || h.Year() <= 0 || h.Format(time.DateOnly) != p.Hasta || !h.After(d)) || !ClaveCatalogo(p.MotivoClave).Valida() || p.AnalisisVersion > p.VersionExpediente || (p.BolsaNativa.IsZero() && p.CategoriaRef != p.Bolsa.CategoriaRef) || !p.PersonaFuente.Valida() || !p.FuenteOrganizacion.Valida() || !p.FuentePlantilla.Valida() || !p.FuenteRPT.Valida() {
 		return ErrPlanIncorporacionPersonalB2
 	}
 	return nil

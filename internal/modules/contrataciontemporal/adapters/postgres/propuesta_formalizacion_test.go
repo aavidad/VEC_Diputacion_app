@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	domainct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -120,14 +121,16 @@ func TestPropuestaFormalizacionPGConsultaConfirmacionYReplay(t *testing.T) {
 	}
 	for i, args := range tx.argumentos {
 		material := m
+		funcion := "registrar_propuesta_formalizacion_v1("
 		if i == 0 {
 			material = ports.MaterialPropuestaFormalizacion{Etapa: "consulta", Solicitud: s}
+			funcion = "leer_antecedente_propuesta_formalizacion_ct211_v1("
 		}
 		canon, _ := json.Marshal(material)
 		h := sha256.Sum256(canon)
 		recurso, _ := RecursoPropuestaFormalizacion(material)
 		if len(args) != 11 || args[0] != string(canon) || recurso.Atributos["material_sha256"] != hex.EncodeToString(h[:]) ||
-			!strings.Contains(tx.consultas[i], "registrar_propuesta_formalizacion_v1(") {
+			!strings.Contains(tx.consultas[i], funcion) {
 			t.Fatal("bytes/función divergentes")
 		}
 	}
@@ -152,6 +155,34 @@ func TestPropuestaFormalizacionPGDespachaV2SoloParaVersionPosterior(t *testing.T
 		!strings.Contains(tx.consultas[0], "registrar_propuesta_formalizacion_v2(") ||
 		strings.Contains(tx.consultas[0], "registrar_propuesta_formalizacion_v1(") {
 		t.Fatal("despacho v2", err)
+	}
+}
+
+func TestPropuestaFormalizacionPGDespachaNativaDesdeV6(t *testing.T) {
+	s, _, m, resultado := datosPropuestaPGPrueba(t)
+	m.AceptacionBolsa = nil
+	m.AceptacionBolsaNativa = &ports.EvidenciaAceptacionBolsaNativa{
+		Selector: domainct.SelectorBolsaPlanB2Nativo{
+			OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
+			ClaveCT:   "44444444-4444-4444-8444-444444444444",
+			UnidadRef: "unidad:rrhh", CategoriaRef: "categoria:uno", NecesidadRef: "necesidad:uno",
+			BolsaRef: "bolsa:uno", LlamamientoRef: s.LlamamientoRef,
+			ReciboEmisionRef: "recibo:emision:uno", ReciboRespuestaRef: "recibo:respuesta:uno",
+		},
+		RespuestaRef: "respuesta:uno", RespondidaEn: resultado.ConfirmadaEn.Add(-time.Second),
+	}
+	if m.Validar() != nil {
+		t.Fatal("material B113 nativo inválido")
+	}
+	jsonResultado, _ := json.Marshal(resultado)
+	tx := &transaccionEjecucionSeleccionO6Prueba{fila: filaEjecucionSeleccionO6Prueba{valores: []any{string(jsonResultado)}}}
+	p := &proveedorPropuestaPGPrueba{material: m, autorizar: func(_ context.Context, material ports.MaterialPropuestaFormalizacion) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+		return materialPropuestaPGPrueba(t, material, AccionPropuestaFormalizacion), nil
+	}}
+	repo := &RegistroPropuestaFormalizacionPostgreSQL{pool: &iniciadorEjecucionSeleccionO6Prueba{tx: tx}, proveedor: p}
+	if _, err := repo.ConfirmarPropuesta(context.Background(), s); err != nil || len(tx.consultas) != 1 ||
+		!strings.Contains(tx.consultas[0], "registrar_propuesta_formalizacion_nativa_ct211_v1(") {
+		t.Fatal("CT211 nativa debe registrarse sin CT96 legado", err)
 	}
 }
 

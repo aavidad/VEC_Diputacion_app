@@ -66,25 +66,26 @@ type PreparacionGobiernoUsuariosAdmin struct {
 }
 
 type instantaneaGobiernoUsuarios struct {
-	Revision    string    `json:"revision"`
-	Secuencia   uint64    `json:"secuencia"`
-	SPKI        string    `json:"spki"`
-	ClaveID     string    `json:"clave_id"`
-	Version     uint64    `json:"version"`
-	Audiencia   string    `json:"audiencia"`
-	Desde       time.Time `json:"desde"`
-	Hasta       time.Time `json:"hasta"`
-	Orden       uint64    `json:"orden"`
-	MaxVersion  uint64    `json:"max_version"`
-	MaxRevision uint64    `json:"max_revision"`
-	PreSHA      string    `json:"pre_sha"`
+	SecuenciaGlobalSiguiente uint64    `json:"secuencia_global_siguiente"`
+	Revision                 string    `json:"revision"`
+	Secuencia                uint64    `json:"secuencia"`
+	SPKI                     string    `json:"spki"`
+	ClaveID                  string    `json:"clave_id"`
+	Version                  uint64    `json:"version"`
+	Audiencia                string    `json:"audiencia"`
+	Desde                    time.Time `json:"desde"`
+	Hasta                    time.Time `json:"hasta"`
+	Orden                    uint64    `json:"orden"`
+	MaxVersion               uint64    `json:"max_version"`
+	MaxRevision              uint64    `json:"max_revision"`
+	PreSHA                   string    `json:"pre_sha"`
 }
 
 // Desde AD235 preparar y verificar leen por dos fachadas SECURITY DEFINER de
 // solo lectura, con EXECUTE solo para el grupo NOLOGIN
 // vec_autorizacion_atestada_v3_lector_gobierno: el LOGIN de dsn_lectura ya no
-// tiene que ser superusuario ni leer tablas privadas. Devuelven el mismo jsonb
-// que las consultas anteriores (lo comprueba el ensayo con base real). La
+// tiene que ser superusuario ni leer tablas privadas. La instantánea conserva
+// la raíz CT y su preimagen; AD266 añade la siguiente secuencia global. La
 // instantánea lleva solo la huella de la preimagen de AD188 (conjunto 0) o de
 // AD198 (conjunto 1 o más), nunca la preimagen ni secretos.
 const (
@@ -146,6 +147,9 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 	if decodificarGobiernoUsuarios(raw, &actual) != nil || !shaGobiernoUsuarios.MatchString(actual.PreSHA) {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
+	if actual.SecuenciaGlobalSiguiente <= actual.Secuencia {
+		return vacio, fmt.Errorf("%w: secuencia_global_siguiente actual=%d esperado=mayor_que_%d", ErrGobiernoUsuariosAdmin, actual.SecuenciaGlobalSiguiente, actual.Secuencia)
+	}
 	pub, err := publicaRaizGobiernoUsuarios(actual.SPKI)
 	if err != nil {
 		return vacio, err
@@ -153,7 +157,7 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 	now := reloj.Ahora().UTC().Truncate(time.Microsecond)
 	dia := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	cfg := ConfiguracionMaterialUsuariosAdmin{DirectorioMaterial: origen.DirectorioMaterial, RutaConfiguracionHMAC: origen.RutaConfiguracionHMAC, ArchivoSemillaRaiz: origen.ArchivoSemillaRaiz, PrefijoEvidencia: "evidencia:firma:admin:usuarios:", Raiz: administracion.MaterialRaizPerfilesV3{ClaveID: actual.ClaveID, Version: actual.Version, Audiencia: actual.Audiencia, Publica: pub, Estado: confianza.EstadoClaveAtestacionAutorizacionV3Activa, ValidaDesde: actual.Desde.UTC(), ValidaHasta: actual.Hasta.UTC()}}
-	cfg.Gobierno = administracion.GobiernoConfianzaPerfilesV3{Revision: "confianza:atestacion:ct:desarrollo:" + dia.Format("2006-01-02") + ":r" + strconv.FormatUint(actual.Secuencia+1, 10), Secuencia: actual.Secuencia + 1, PublicadaEn: dia, ExpiraEn: dia.Add(24 * time.Hour)}
+	cfg.Gobierno = administracion.GobiernoConfianzaPerfilesV3{Revision: "confianza:atestacion:ct:desarrollo:" + dia.Format("2006-01-02") + ":r" + strconv.FormatUint(actual.SecuenciaGlobalSiguiente, 10), Secuencia: actual.SecuenciaGlobalSiguiente, PublicadaEn: dia, ExpiraEn: dia.Add(24 * time.Hour)}
 	raiz, err := confianza.NuevaRaizPublicaAtestacionAutorizacionV3EdDSA(cfg.Raiz.ClaveID, cfg.Raiz.Version, pub, cfg.Raiz.Audiencia, cfg.Raiz.Estado, cfg.Raiz.ValidaDesde, cfg.Raiz.ValidaHasta, time.Time{})
 	if err != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
