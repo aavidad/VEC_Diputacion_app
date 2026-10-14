@@ -36,7 +36,7 @@ func efectosADMIN() []efectoADMIN {
 			grupo: "vec_personal_ejecutor", utc: true, ruta: api.RutaPublicacionCargoCompetencial,
 			maximo: personalpg.MaximoMaterialPublicacionCargo, contrato: personalpg.ContratoPublicacionCargoCompetencial},
 		{nombre: "certificados", variable: "VEC_ADMIN_CERTIFICADOS_CONFIG_FILE", audiencia: administracion.AudienciaCertificadoNominalV3,
-			grupo: "vec_autorizacion_certificado_nominal_ejecutor", ruta: api.RutaPublicacionCertificadoNominal,
+			grupo: "vec_autorizacion_certificado_nominal_ejecutor", utc: true, ruta: api.RutaPublicacionCertificadoNominal,
 			maximo: certificadonominal.MaximoDescriptor, contrato: certificadonominal.Contrato},
 	}
 }

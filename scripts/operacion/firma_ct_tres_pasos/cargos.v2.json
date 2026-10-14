@@ -21,7 +21,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_tecnico_consulta_dev",
@@ -38,7 +38,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_tecnico_documentos_dev",
@@ -57,7 +57,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_tecnico_circuito_dev",
@@ -72,7 +72,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_jefatura_firma_dev",
@@ -114,7 +114,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_jefatura_consulta_dev",
@@ -131,7 +131,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_jefatura_documentos_dev",
@@ -147,7 +147,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_jefatura_circuito_dev",
@@ -162,7 +162,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_diputacion_firma_dev",
@@ -184,7 +184,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_diputacion_consulta_dev",
@@ -201,7 +201,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_diputacion_documentos_dev",
@@ -217,7 +217,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_diputacion_circuito_dev",
@@ -232,7 +232,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_secretaria_firma_dev",
@@ -264,7 +264,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_secretaria_consulta_dev",
@@ -281,7 +281,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_secretaria_documentos_dev",
@@ -297,7 +297,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     },
     {
       "rol_id": "ct_cargo_secretaria_circuito_dev",
@@ -312,7 +312,7 @@
       "organizacion_ref": "organizacion:desarrollo:dipgra",
       "vigente_desde": "2026-10-12T00:00:00Z",
       "vigente_hasta": "2027-12-31T00:00:00Z",
-      "duracion_propuesta_segundos": 86400
+      "duracion_propuesta_segundos": 7776000
     }
   ]
 }
