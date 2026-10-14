@@ -380,19 +380,13 @@ func nuevoServidorDesarrollo(
 		return nil, nil, marcarFalloComponenteArranque("firma_documento", err)
 	}
 	rutasContratacion = append(rutasContratacion, rutasFirma...)
-	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
-	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("dietas_rutas", err)
-	}
+	dietas := componerDietasAisladasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDietas)
 	defer func() {
 		if !completa {
-			cerrarDietas()
+			dietas.cerrarRutas()
 		}
 	}()
-	comisionesDietas, err := nuevasComisionesDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDietas)
-	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("dietas_comisiones", err)
-	}
+	comisionesDietas := dietas.comisiones
 	if comisionesDietas != nil {
 		defer func() {
 			if !completa {
@@ -529,13 +523,16 @@ func nuevoServidorDesarrollo(
 		return nil, nil, marcarFalloComponenteArranque("cobertura_rutas_ct", err)
 	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
-		cfg, emisor, resolvedorCarcasaFirmaCT(resolvedor, autoridadContratacion.firmaVecR5), categoriasPersonal, rutasContratacion, autoridadExactas,
-		registradorFrontera, autoridadDietas, coleccionesBolsasRRHH...,
+		dietas.cfgShell, emisor, resolvedorCarcasaFirmaCT(resolvedor, autoridadContratacion.firmaVecR5), categoriasPersonal, rutasContratacion, autoridadExactas,
+		registradorFrontera, dietas.rutas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("vec_shell", err)
 	}
 	vecAPI = autoridadContratacion.proteger(vecAPI)
+	if dietas.denegar || dietas.rutas == nil && dietas.comisiones == nil {
+		vecAPI = denegarDietasNoDisponibles(vecAPI)
+	}
 	if comisionesDietas != nil {
 		vecAPI = comisionesDietas.proteger(vecAPI)
 	}
@@ -565,7 +562,7 @@ func nuevoServidorDesarrollo(
 		return nil, nil, marcarFalloComponenteArranque("configuracion_tls", err)
 	}
 	servidor.RegisterOnShutdown(cerrarContratacion)
-	servidor.RegisterOnShutdown(cerrarDietas)
+	servidor.RegisterOnShutdown(dietas.cerrarRutas)
 	servidor.RegisterOnShutdown(cerrarCalendarios)
 	if comisionesDietas != nil {
 		servidor.RegisterOnShutdown(comisionesDietas.cerrar)

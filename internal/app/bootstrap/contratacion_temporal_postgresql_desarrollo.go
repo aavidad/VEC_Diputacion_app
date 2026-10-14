@@ -557,17 +557,22 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	etapa = "material_dietas"
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
 		proveedoresDietas := make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo)
-		for _, descriptor := range descriptoresMaterialDietasDesarrollo() {
-			proveedoresDietas[descriptor.Audiencia], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia)
-			if err != nil {
-				return vacias, err
+		descriptoresDietas := descriptoresMaterialDietasDesarrollo()
+		for _, descriptor := range descriptoresDietas {
+			proveedor, fallo := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia)
+			if fallo != nil {
+				registrarFalloDietasArranque("material", fallo)
+				break
 			}
+			proveedoresDietas[descriptor.Audiencia] = proveedor
 		}
-		dependencias.materialDietas = materialDietasDesdeCTDesarrollo{
-			personal:    proveedoresDietas[audienciaConsumoPersonalDietasDesarrollo],
-			crear:       proveedoresDietas[audienciaConsumoCrearDietasDesarrollo],
-			consultar:   proveedoresDietas[audienciaConsumoConsultarDietasDesarrollo],
-			adicionales: proveedoresDietas,
+		if len(proveedoresDietas) == len(descriptoresDietas) {
+			dependencias.materialDietas = materialDietasDesdeCTDesarrollo{
+				personal:    proveedoresDietas[audienciaConsumoPersonalDietasDesarrollo],
+				crear:       proveedoresDietas[audienciaConsumoCrearDietasDesarrollo],
+				consultar:   proveedoresDietas[audienciaConsumoConsultarDietasDesarrollo],
+				adicionales: proveedoresDietas,
+			}
 		}
 	}
 	etapa = "material_cronos"
