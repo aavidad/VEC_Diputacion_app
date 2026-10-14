@@ -1,0 +1,9 @@
+# Inventario de activación; todavía no es una lista completa instalable.
+# HZ37: Dietas 000001–000008 presentes según objetos y huellas de la copia.
+# AD81: instalada una vez en la copia; estaba ausente al restaurar.
+# AD75 histórica: no instalar; su preimagen no admite el entorno endurecido.
+# AD268 prospectiva: ensayada, con dos revisiones independientes sobre 58cdfe06f.
+# Después de AD268: Dietas 000009, 000010 y 000011, sin repetir las anteriores.
+# 000010 y 000011 deben instalarse juntas dentro de la misma transacción.
+# Rutas causales: ../lista_sql_codexd_dietas_20261014.txt.
+# La lista final incluirá también la liquidación nominal cuando esté terminada.
