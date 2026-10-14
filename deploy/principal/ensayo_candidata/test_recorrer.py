@@ -151,16 +151,13 @@ class GuionHZ39(unittest.TestCase):
         with self.assertRaises(runner.EntradaInvalida):
             runner.comprobar_documentos(paso, alterado)
 
-    def test_aceptacion_confirma_y_recuperacion_descarga_los_mismos_documentos(self):
+    def test_aceptacion_unica_y_recuperacion_descarga_los_mismos_documentos(self):
         pasos = {p["id"]: p for p in runner.catalogo(ROOT / "pasos_hz39.json")}
         acciones_aceptacion = pasos["10"]["acciones"]
         formulario = '[data-portal-mi-bolsa="responder"][data-bolsa="$bolsa_ref"]'
         self.assertEqual(
-            acciones_aceptacion[-2:],
-            [
-                {"tipo": "click", "selector": formulario + " [data-portal-iniciar-revision]"},
-                {"tipo": "click", "selector": formulario + ' [data-portal-revision] button[type="submit"]'},
-            ],
+            [a for a in acciones_aceptacion if a["tipo"] == "click"],
+            [{"tipo": "click", "selector": formulario + " [data-portal-iniciar-revision]"}],
         )
 
         iniciales = [

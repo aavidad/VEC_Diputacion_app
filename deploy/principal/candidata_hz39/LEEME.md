@@ -1,6 +1,6 @@
 # Candidata HZ39
 
-Versión candidata congelada para la presentación. Se ensaya entera en una copia
+Versión candidata en preparación. Se ensaya entera en una copia
 de cidonia y, si sale bien, se instala en cidonia exactamente igual (regla 1 de
 `AGENTS.md`, «Entrega y subida»). Caso de aceptación: `docs/producto/FLUJO_APP.md`,
 apartado 4.0.
