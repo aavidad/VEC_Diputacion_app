@@ -51,7 +51,7 @@
 1172 internal/modules/bolsa/ports/idempotencia_semantica_baremacion_externo_test.go
 3864 internal/modules/bolsa/ports/idempotencia_semantica_baremacion.go
 3888 internal/modules/bolsa/ports/idempotencia_semantica_baremacion_test.go
-998 internal/vec/adapters/almacen/ficheros/almacen.go
+1009 internal/vec/adapters/almacen/ficheros/almacen.go
 1397 internal/vec/adapters/almacen/s3/almacen.go
 1179 internal/vec/adapters/almacen/s3/almacen_test.go
 1136 internal/vec/adapters/httpseguridad/identidad.go
@@ -74,7 +74,7 @@
 2723 internal/vec/domain/pagos.go
 1464 internal/vec/domain/pagos_test.go
 861 internal/vec/ports/almacen_objetos_carga_test.go
-1294 internal/vec/ports/almacen_objetos.go
+1357 internal/vec/ports/almacen_objetos.go
 847 internal/vec/ports/autorizacion_almacen.go
 802 internal/vec/ports/autorizacion_solicitud_ligada_v3.go
 1154 internal/vec/ports/ejecucion_componentes_documentales_atestada.go

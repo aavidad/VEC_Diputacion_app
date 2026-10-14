@@ -25,20 +25,20 @@ type AutoridadSubidaLocal struct {
 }
 
 type EmisorMaterialSubidaLocalV3 interface {
-	EmitirMaterialAutorizacionAtestadaV3(context.Context,vecdomain.SolicitudAutorizacionLigadaV3,
+	EmitirMaterialAutorizacionAtestadaV3(context.Context, vecdomain.SolicitudAutorizacionLigadaV3,
 		vecdomain.ResultadoContextoActorRegistradoV2) (vecdomain.DecisionAutorizacionLigadaV3,
 		vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
-		vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3,error)
+		vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
 type VinculoSubidaLocalCertificadoV3 interface {
-	VinculoCargaLocalCertificado(context.Context,vecdomain.ResultadoContextoActorRegistradoV2) (vecdomain.VinculoAutenticacionActorV2,error)
+	VinculoCargaLocalCertificado(context.Context, vecdomain.ResultadoContextoActorRegistradoV2) (vecdomain.VinculoAutenticacionActorV2, error)
 }
 
 type correlacionSubidaLocalConservada struct{ ref string }
 
-func (g correlacionSubidaLocalConservada) NuevaReferenciaCorrelacionAutorizacionV2(context.Context) (string,error) {
-	return g.ref,nil
+func (g correlacionSubidaLocalConservada) NuevaReferenciaCorrelacionAutorizacionV2(context.Context) (string, error) {
+	return g.ref, nil
 }
 
 func NuevaAutoridadSubidaLocal(emisor EmisorMaterialSubidaLocalV3,

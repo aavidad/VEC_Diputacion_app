@@ -28,9 +28,11 @@ type RepositorioSubidaLocal struct{ base *Repositorio }
 // El pool debe usar exclusivamente LOGIN vec_externo_documentos_datos. D20
 // revalida session_user y su único grupo en cada fachada; el constructor no
 // toma ni deriva credenciales del repositorio D17 de Méritos/Mayan.
-func NuevoRepositorioSubidaLocalConPool(db *pgxpool.Pool) (*RepositorioSubidaLocal,error) {
-	if db==nil { return nil,ErrRepositorioNoDisponible }
-	return &RepositorioSubidaLocal{base:&Repositorio{db:db}},nil
+func NuevoRepositorioSubidaLocalConPool(db *pgxpool.Pool) (*RepositorioSubidaLocal, error) {
+	if db == nil {
+		return nil, ErrRepositorioNoDisponible
+	}
+	return &RepositorioSubidaLocal{base: &Repositorio{db: db}}, nil
 }
 
 // El hecho aún no existe al subir el PDF. El acto reservado corresponde a
@@ -38,9 +40,11 @@ func NuevoRepositorioSubidaLocalConPool(db *pgxpool.Pool) (*RepositorioSubidaLoc
 // del contexto en la misma transacción de reserva.
 type ResolutorActoSubidaLocalMeritos struct{ base *Repositorio }
 
-func NuevoResolutorActoSubidaLocalMeritosConPool(db *pgxpool.Pool) (*ResolutorActoSubidaLocalMeritos,error) {
-	if db==nil { return nil,ErrRepositorioNoDisponible }
-	return &ResolutorActoSubidaLocalMeritos{base:&Repositorio{db:db}},nil
+func NuevoResolutorActoSubidaLocalMeritosConPool(db *pgxpool.Pool) (*ResolutorActoSubidaLocalMeritos, error) {
+	if db == nil {
+		return nil, ErrRepositorioNoDisponible
+	}
+	return &ResolutorActoSubidaLocalMeritos{base: &Repositorio{db: db}}, nil
 }
 
 func NuevoResolutorActoSubidaLocalMeritos(base *Repositorio) (*ResolutorActoSubidaLocalMeritos, error) {

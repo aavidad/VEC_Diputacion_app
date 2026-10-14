@@ -13,7 +13,7 @@ func TestSubidaLocalRepositorioRechazaPostimagenIncompleta(t *testing.T) {
 			Estado: docports.EstadoSubidaLocalReservada},
 		RecursoRef: "ref:" + strings.Repeat("2", 64), PersonaRef: "per_0123456789abcdefghijkl",
 		CorrelacionRef: "correlacion_" + strings.Repeat("3", 32),
-		Clasificacion: "confidencial", HuellaSolicitudHMAC: "hmac-sha256:local_v1:" + strings.Repeat("4", 64),
+		Clasificacion:  "confidencial", HuellaSolicitudHMAC: "hmac-sha256:local_v1:" + strings.Repeat("4", 64),
 		HuellaPDFSHA256: strings.Repeat("5", 64), MIME: "application/pdf", Tamano: 1234, Version: 1,
 	}
 	if !instantaneaSubidaLocalValida(base) {
