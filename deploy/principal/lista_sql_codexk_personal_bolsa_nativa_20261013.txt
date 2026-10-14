@@ -1,0 +1,10 @@
+# Dependencia previa: AUT89→B110→AD261 de fuente1088.
+# Instalar sólo pendientes; no DOWN ni reaplicar SQL con historia.
+deploy/postgresql/contexto_actor_v1/migraciones/000044_persona_candidato_ct_b113.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000113_aceptacion_nativa_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000211_formalizacion_bolsa_nativa_b2.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000212_plan_personal_bolsa_nativa_b2.up.sql
+deploy/postgresql/personal/migraciones/000048_prueba_cierre_cese_ct.up.sql
+deploy/postgresql/personal/migraciones/000049_prueba_vigente_alta_b2_bolsa.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000213_origen_cese_b2_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000115_cese_nativo_ct.up.sql
