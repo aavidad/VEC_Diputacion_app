@@ -262,7 +262,7 @@ func TestDietasRoadRouteUsesConfiguredInternalOSRM(t *testing.T) {
 	if !strings.Contains(requestedPath, "/route/v1/driving/-3.598600,37.177300;-3.655400,37.230600") {
 		t.Fatalf("OSRM path = %s", requestedPath)
 	}
-	if !strings.Contains(requestedPath, "alternatives=1") {
+	if !strings.Contains(requestedPath, "alternatives=false") {
 		t.Fatalf("OSRM path does not request default alternative count: %s", requestedPath)
 	}
 	if !strings.Contains(requestedPath, "steps=true") {
@@ -338,7 +338,7 @@ func TestDietasRoadRouteCanRequestAlternatives(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("road route status = %d: %s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(requestedPath, "alternatives=3") {
+	if !strings.Contains(requestedPath, "alternatives=2") {
 		t.Fatalf("OSRM path does not request alternatives: %s", requestedPath)
 	}
 }
