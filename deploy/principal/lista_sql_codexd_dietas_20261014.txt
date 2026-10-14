@@ -9,3 +9,5 @@ deploy/postgresql/dietas_borradores/migraciones/000010_devolucion_reenvio_comisi
 deploy/postgresql/dietas_borradores/migraciones/000011_campo_devolucion_decision.up.sql
 deploy/postgresql/dietas_borradores/migraciones/000014_auditoria_frontera_circuito.up.sql
 deploy/postgresql/dietas_borradores/migraciones/000015_rutas_auditoria_frontera_circuito.up.sql
+# Independiente de la liquidación nueva: contrato canónico V2 de autenticación.
+deploy/postgresql/dietas_borradores/migraciones/000018_esquema_vinculo_canonico.up.sql

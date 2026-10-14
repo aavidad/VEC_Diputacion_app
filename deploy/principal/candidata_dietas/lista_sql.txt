@@ -10,5 +10,7 @@
 # 000010 y 000011 deben instalarse juntas dentro de la misma transacción.
 # Después: 000014 (diez acciones de auditoría) y 000015 (cuatro rutas).
 # Ambas instaladas una vez en la copia; dos revisiones sobre 1134c6076.
+# Después: 000018 corrige el esquema V2 en dos cotejos de identidad instalados.
+# Pendiente de revisión e instalación; no requiere 000013, 000016 ni 000017.
 # Rutas causales: ../lista_sql_codexd_dietas_20261014.txt.
 # La lista final incluirá también la liquidación nominal cuando esté terminada.
