@@ -493,6 +493,16 @@ func nuevoServidorDesarrollo(
 		rutasContratacion = append(rutasContratacion, rutaUsuariosPreferencias(usuariosPreferencias)...)
 	}
 	identidadPersonal, _ := resolvedor.(*resolvedorIdentidadDesarrollo)
+	preferenciasBolsasInternas, cerrarPreferenciasBolsasInternas := nuevaRutaPreferenciasBolsasInternas(cfg,
+		identidadPersonal, usuariosPreferencias, composicion.derivadorIdempotencia)
+	defer func() {
+		if !completa {
+			cerrarPreferenciasBolsasInternas()
+		}
+	}()
+	if preferenciasBolsasInternas != nil {
+		rutasContratacion = append(rutasContratacion, *preferenciasBolsasInternas)
+	}
 	bolsaPersonal, inscripcionExterna, cerrarInscripcionExterna := componerBolsaPersonalExternaOpcionalDesarrollo(cfg, identidadPersonal, emisor)
 	defer func() {
 		if !completa {
@@ -575,6 +585,7 @@ func nuevoServidorDesarrollo(
 		servidor.RegisterOnShutdown(inscripcionRRHH.cerrar)
 	}
 	servidor.RegisterOnShutdown(cerrarInscripcionExterna)
+	servidor.RegisterOnShutdown(cerrarPreferenciasBolsasInternas)
 	if personalEmpleado != nil {
 		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
 	}
