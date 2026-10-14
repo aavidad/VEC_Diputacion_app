@@ -948,8 +948,30 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js", "modulos/contratacion-temporal/vista-expedientes-borrador.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
   ]) versionesEspeciales.set(ruta, "20261013-ct-firma-tres-v3");
-  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "modulos/dietas/vista-recorridos.js"])
-    versionesEspeciales.set(ruta, "20261014-dietas-recuperar-bandejas-v1");
+  // La ficha B2 renueva esta cadena concreta; las demás hojas CT mantienen
+  // la URL publicada del circuito de firma.
+  for (const ruta of [
+    "categorias-rpt/montaje.js", "categorias-rpt/cliente.js",
+    "modulos/bolsa/carga-convoca/arranque.js",
+    "modulos/contratacion-temporal/cliente-http.js", "modulos/contratacion-temporal/cliente-http-ficha-ginpix.js",
+    "modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http-transporte.js",
+    "modulos/contratacion-temporal/circuito-firma.js", "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js", "modulos/contratacion-temporal/contrato-ficha-ginpix.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js", "modulos/contratacion-temporal/formulario-cobertura.js",
+    "modulos/contratacion-temporal/vista-expedientes.js", "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+  ]) versionesEspeciales.set(ruta, "20261014-ginpix-personal-b2-v1");
+  for (const ruta of ["portal-eventos.js", "modulos/cronos/vista-saldo-conectado.js", "modulos/cronos/vista-remoto.js"])
+    versionesEspeciales.set(ruta, "20261014-cronos-activacion-v1");
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js"])
+    versionesEspeciales.set(ruta, "20261014-dietas-tarifa-publicada-web-v5");
+  for (const ruta of ["portal-composicion-empleado.js", "modulos/dietas/vista-recorridos.js",
+    "modulos/dietas/vista-borradores-propios.js", "modulos/dietas/vista-bandeja-circuito.js",
+    "modulos/dietas/vista-liquidacion-economica.js"])
+    versionesEspeciales.set(ruta, "20261014-dietas-tarifa-publicada-web-v5");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
@@ -1089,7 +1111,7 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
-  const versionRecorridos = "20261014-dietas-recuperar-bandejas-v1";
+  const versionRecorridos = "20261014-dietas-tarifa-publicada-web-v5";
   const versionRaiz = versionDe(html, "/portal-empleado/portal.js");
   const versionCoordinador = versionDe(portal, "./portal-modulos-coordinador.js");
   const comun = "20261007-pantallas-textos-final-v1";
@@ -1100,7 +1122,7 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionCoordinador);
   assert.equal(versionDe(coordinador, "./modulos/dietas/vista-recorridos.js"), versionRecorridos);
   assert.equal(versionDe(coordinador, "./modulos/dietas/mapa-ruta.js"), version);
-  assert.equal(versionDe(recorridos, "./vista-borradores-propios.js"), version);
+  assert.equal(versionDe(recorridos, "./vista-borradores-propios.js"), versionRecorridos);
   assert.equal(versionDe(borradores, "./vista-mapa-comision.js"), version);
   assert.equal(versionDe(borradores, "./vista-rectificacion-dietas.js"), comun);
   assert.equal(versionDe(portal, "./portal-i18n.js"), comun);

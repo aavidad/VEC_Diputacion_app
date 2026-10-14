@@ -1,6 +1,6 @@
 import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20261014-dietas-tarifa-publicada-web-v4";
-import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261014-dietas-tarifa-publicada-web-v4";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20261014-dietas-tarifa-publicada-web-v5";
+import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261014-dietas-tarifa-publicada-web-v5";
 
 import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260929-i18n-dietas-v1";
 

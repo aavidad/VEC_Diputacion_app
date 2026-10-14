@@ -175,8 +175,18 @@ func (r *RegistroPropuestaFormalizacionPostgreSQL) ejecutar(ctx context.Context,
 		}
 	}()
 	funcion := "vec_contratacion_temporal.registrar_propuesta_formalizacion_v1"
+	if m.Etapa == "consulta" {
+		// CT211 decide el origen tras consumir una sola autorización, también
+		// para la primera propuesta desde la versión fiscalizada v6.
+		funcion = "vec_contratacion_temporal.leer_antecedente_propuesta_formalizacion_ct211_v1"
+	}
 	if m.Solicitud.VersionEsperada > 6 {
-		funcion = "vec_contratacion_temporal.registrar_propuesta_formalizacion_v2"
+		if m.Etapa != "consulta" {
+			funcion = "vec_contratacion_temporal.registrar_propuesta_formalizacion_v2"
+		}
+	}
+	if m.AceptacionBolsaNativa != nil {
+		funcion = "vec_contratacion_temporal.registrar_propuesta_formalizacion_nativa_ct211_v1"
 	}
 	var salida string
 	err = tx.QueryRow(ctx, `SELECT `+funcion+`(

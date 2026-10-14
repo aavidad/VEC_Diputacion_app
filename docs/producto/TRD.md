@@ -299,6 +299,13 @@ cerrada (404 o 503) y, en pantalla, explica que no está disponible.
 - Lo que exija configuración o actos previos se prepara y se ensaya en una copia
   antes de subirlo, no a ciegas en la principal.
 
+Cronos comprueba su configuración y conexiones antes de añadir sus audiencias
+al gobierno común. Si falla una dependencia propia, cierra sus rutas con 503
+y conserva el montaje del resto de la aplicación. Su material se publica en
+una transacción, al final de la preparación de Contratación, con plazo propio.
+El selector apagado no lee el fichero privado ni abre conexiones de Cronos
+(`internal/app/bootstrap/cronos_arranque.go`).
+
 **Lo que falta.** El código no cumple la regla en todos los casos. `main.go`
 termina el proceso (`log.Fatalf`) si falla la composición de cualquier
 componente. El 13/10, `main` no arrancaba en cidonia porque fallaba el componente

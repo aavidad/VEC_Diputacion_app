@@ -44,7 +44,7 @@ export function renderizarVistaRemotoCronos({ disponibilidad = null, estado = "c
     : !disponible ? (estado === "consultando" ? "remoto_consultando" : "remoto_error_consulta")
       : autorizado ? (disponible.movimientos_permitidos.length ? null : "remoto_sin_movimientos")
         : MENSAJE_MOTIVO[disponible.motivo];
-  const periodo = disponible?.periodo
+  const periodo = !disponible || ["consultando", "error", "servicio", "no_disponible", "autenticacion", "acceso_denegado"].includes(estado) ? "" : disponible.periodo
     ? t("remoto_periodo", { desde: instanteVisible(disponible.periodo.desde, locale, zonaHoraria),
       hasta: instanteVisible(disponible.periodo.hasta, locale, zonaHoraria) }) : t("remoto_sin_periodo");
   const etiquetaEstado = estado === "consultando" ? "remoto_consultando"
@@ -85,7 +85,7 @@ export function renderizarVistaRemotoCronos({ disponibilidad = null, estado = "c
     <div class="cabecera-panel cronos-cabecera-compacta"><div><h3 id="cronos-remoto-titulo">${traducir(t, "remoto_titulo")}</h3>
       <p>${traducir(t, "remoto_origen")}</p></div>
       <button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${traducir(t, "abrir_ayuda", { asunto: t("remoto_titulo") })}" title="${traducir(t, "abrir_ayuda", { asunto: t("remoto_titulo") })}">?</button></div>
-    <div class="cuerpo-panel"><p>${escapar(periodo)}</p>
+    <div class="cuerpo-panel">${periodo ? `<p>${escapar(periodo)}</p>` : ""}
       <p data-cronos-remoto-estado tabindex="-1" class="${estado === "no_disponible" ? "cronos-vacio" : `cronos-estado cronos-estado-${autorizado && estado === "listo" && disponible.movimientos_permitidos.length ? "exito" : "aviso"}`}" role="status" aria-live="polite">${mensajeEstado}${estado === "servicio_incierto" ? ` ${traducir(t, "remoto_incierto")}` : ""}</p>
       ${avisoSecuencia ? `<p role="status">${traducir(t, "remoto_secuencia_no_permitida")}</p>` : ""}
       <div class="cronos-acciones">${estado === "no_disponible" ? "" : acciones}${reintento}

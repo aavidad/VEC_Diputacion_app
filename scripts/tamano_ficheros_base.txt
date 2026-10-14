@@ -110,7 +110,7 @@
 1521 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1145 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-1133 web/static/portal-empleado/portal-i18n.test.mjs
+1155 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 952 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
@@ -118,9 +118,9 @@
 780 internal/app/server/server_test.go
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1792 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1859 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
-1080 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
+1038 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 983 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 623 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
@@ -189,3 +189,4 @@
 334 web/static/textos/es/peticiones-centro.json
 1150 deploy/postgresql/dietas_borradores/migraciones/000013_liquidacion_economica.up.sql
 982 deploy/postgresql/dietas_borradores/migraciones/000017_tarifa_publicada_comision.up.sql
+806 scripts/operacion/preparar_expediente_alta_b2/preparar.py

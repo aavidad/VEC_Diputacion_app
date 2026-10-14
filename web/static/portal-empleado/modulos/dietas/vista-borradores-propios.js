@@ -6,7 +6,7 @@ import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGas
 import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20261007-u-dietas-catalogo-v1";
 import { validarCatalogoRutasDietas } from "./contrato.js";
 import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20261007-pantallas-textos-final-v1";
-import { montarVistaLiquidacionEconomica } from "./vista-liquidacion-economica.js?v=20261014-dietas-tarifa-publicada-web-v4";
+import { montarVistaLiquidacionEconomica } from "./vista-liquidacion-economica.js?v=20261014-dietas-tarifa-publicada-web-v5";
 
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.

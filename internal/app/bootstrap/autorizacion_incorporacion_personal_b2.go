@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
+	bp "vec-diputacion-granada/internal/modules/bolsa/ports"
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	domct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -205,7 +206,8 @@ type autoridadIncorporacionPersonalB2 struct {
 }
 
 func (a *autoridadIncorporacionPersonalB2) contexto(ctx context.Context, accion string) (ct.ContextoAutorizacionAltaV3, error) {
-	if a == nil || a.perfiles == nil || ctx == nil || !operacionPermitidaEnRutaIncorporacionB2(ctx, accion) {
+	if a == nil || a.perfiles == nil || ctx == nil ||
+		(!operacionPermitidaEnRutaIncorporacionB2(ctx, accion) && !a.anclajeNativoPropuestaPermitido(ctx, accion)) {
 		return ct.ContextoAutorizacionAltaV3{}, ct.ErrAutorizacionDenegada
 	}
 	p := a.perfiles.b2[accion]
@@ -220,6 +222,31 @@ func (a *autoridadIncorporacionPersonalB2) contexto(ctx context.Context, accion 
 		return ct.ContextoAutorizacionAltaV3{}, e
 	}
 	return c, nil
+}
+
+// La propuesta usa su ruta CT real y el mismo actor mTLS. Sólo su consulta
+// B113 de anclaje, ligada a la preparación CT y a la selección validada,
+// puede consumir el perfil nominal Bolsa ya configurado; nunca se simula una
+// petición HTTP del plan B2 ni se amplían las demás operaciones.
+func (a *autoridadIncorporacionPersonalB2) anclajeNativoPropuestaPermitido(ctx context.Context, accion string) bool {
+	if a == nil || a.perfiles == nil || a.perfiles.soporte == nil || ctx == nil ||
+		accion != bp.AccionConsultaAnclajeAceptacionNativaCT ||
+		ctx.Value(claveIncorporacionV2Desarrollo{}) != a.perfiles.soporte.sello {
+		return false
+	}
+	capacidad, ok := a.perfiles.soporte.capacidadValida(ctx)
+	if !ok || capacidad.ruta != httpct.RutaPropuestaFormalizacion {
+		return false
+	}
+	selector, presente := ctx.Value(claveAnclajeNativoPropuestaCT{}).(bp.SelectorAceptacionNativaCT)
+	preparacion, preparada := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
+	expediente := preparacion.expediente.Fiscalizado
+	return presente && preparada && expediente.Validar() == nil &&
+		selector.OrganizacionRef == expediente.OrganizacionRef &&
+		selector.ExpedienteRef == expediente.Referencia &&
+		selector.ClaveCT == preparacion.clave && selector.UnidadRef == preparacion.unidad &&
+		selector.CategoriaRef == preparacion.categoria && selector.NecesidadRef == preparacion.necesidad &&
+		selector.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo
 }
 func (a *autoridadIncorporacionPersonalB2) actor(ctx context.Context, accion string) (core.ContextoActor, error) {
 	c, e := a.contexto(ctx, accion)
@@ -707,6 +734,21 @@ func operacionPermitidaEnRutaIncorporacionB2(ctx context.Context, accion string)
 		switch accion {
 		case ct.AccionConsultarDetalleRRHH, ct.AccionLeerPlanNominalB2, personal.AccionFichaEmpleadoB2, personal.AccionHechoEmpleadoB2:
 			return ruta.metodo == "POST"
+		case bp.AccionConsultaAnclajeAceptacionNativaCT:
+			anclaje, ok := ctx.Value(claveAnclajeNativoCeseB115{}).(anclajeNativoCeseB115)
+			return ruta.metodo == "POST" && ok &&
+				ct.ReciboOrigenIncorporacionPersonalB2(anclaje.incorporacion) &&
+				anclaje.recibo.ValidoPara(ct.OperacionRegistrarCese,
+					anclaje.recibo.OrganizacionRef, anclaje.recibo.ExpedienteRef,
+					anclaje.recibo.VersionAnterior)
+		}
+		return false
+	}
+	if ruta.ruta == httpct.RutaFichaGINPIXV2 && ruta.metodo == http.MethodGet {
+		switch accion {
+		case ct.AccionConsultarDetalleRRHH, ct.AccionLeerPlanNominalB2, personal.AccionFichaEmpleadoB2,
+			"personal.plan_incorporacion_ct.consultar", "vec.catalogos.categorias.consultar_uso":
+			return true
 		}
 		return false
 	}

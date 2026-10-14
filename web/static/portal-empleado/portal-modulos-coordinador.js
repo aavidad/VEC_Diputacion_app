@@ -16,7 +16,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261014-dietas-tarifa-publicada-web-v4";
+} from "./portal-composicion-empleado.js?v=20261014-dietas-tarifa-publicada-web-v5";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-alegaciones-v2";
 import { cargarTextos } from "../comun/textos.js";
 import { INDICE_IDIOMAS } from "../comun/idioma.js";
@@ -105,8 +105,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
       bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones] = await Promise.all([
-      import("./modulos/cronos/vista-saldo-conectado.js?v=20261001-cronos-saldo-explicado-v1"),
-      import("./modulos/cronos/vista-remoto.js?v=20261001-cronos-grafo-bandeja-v5"),
+      import("./modulos/cronos/vista-saldo-conectado.js?v=20261014-cronos-activacion-v1"),
+      import("./modulos/cronos/vista-remoto.js?v=20261014-cronos-activacion-v1"),
       import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-movimientos-consulta-v1"),
       import("./modulos/cronos/vista-movimientos-propios.js?v=20261007-u-dietas-catalogo-v1"),
       import("./modulos/cronos/vista-permisos-propios.js?v=20261007-pantallas-textos-final-v1"),
@@ -130,7 +130,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261013-ct-firma-tres-v3"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261013-ct-firma-tres-v3"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261014-ginpix-personal-b2-v1"),
 
     ]);
     let completos;
@@ -138,7 +138,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       completos ??= Promise.all([
         import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261011-ct-bolsa-vinculo-v1"),
         import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261013-ct-firma-tres-v3"),
-        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261011-ct-bolsa-vinculo-v1"),
+        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261014-ginpix-personal-b2-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
       return completos;
@@ -148,7 +148,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261013-ct-firma-tres-v3");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261014-ginpix-personal-b2-v1");
       const [auditoriaVista, auditoriaCliente, original, preflight, firmaVec, autoFirma, documentos] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),
@@ -207,8 +207,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito, clienteRectificacion, clienteLiquidacion] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20261014-dietas-tarifa-publicada-web-v4"),
-      import("./modulos/dietas/cliente-borradores-http.js?v=20261014-dietas-tarifa-publicada-web-v4"),
+      import("./modulos/dietas/vista-recorridos.js?v=20261014-dietas-tarifa-publicada-web-v5"),
+      import("./modulos/dietas/cliente-borradores-http.js?v=20261014-dietas-tarifa-publicada-web-v5"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/mapa-ruta.js?v=20261007-u-dietas-catalogo-v1"),
@@ -1359,7 +1359,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261013-ct-firma-tres-v3");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261014-ginpix-personal-b2-v1");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
