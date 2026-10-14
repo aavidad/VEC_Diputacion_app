@@ -17,6 +17,7 @@ apartado 4.0.
 1. **SQL**: `lista_sql.txt`, en ese orden, cada una una vez y con
    `ON_ERROR_STOP`. Comprobar el SHA-256 de cada fichero antes de aplicarlo.
    La lista incluye AD266, después de AD265; AUT235 ya forma parte de HZ37.
+   Después se aplican las ocho SQL de `personal/lista_sql.txt`, en su orden.
    Al restaurar la copia, aplicar también las ACL de tipos y las ACL de la
    base entregadas por dirección. El dump de datos no conserva las ACL de
    la base: sin ellas faltan los permisos nominales de conexión y vuelve el
@@ -46,12 +47,14 @@ apartado 4.0.
 
 | Pieza | Estado |
 | --- | --- |
-| SQL (12) | Once SQL iniciales y AD266 aplicadas una vez, sin error, en la copia nueva de P; ACL de tipos y base restauradas |
+| SQL (20) | Once SQL iniciales, AD266 y ocho SQL de Personal aplicadas una vez, sin error; ACL de tipos y base restauradas |
 | Datos del recorrido | Recetas #1135 aplicadas: plantilla existente, Antonio disponible y primer turno; manifiesto con la nueva referencia de candidato |
 | Vía del aspirante | Mi Bolsa interna; inscripción RRHH opcional apagada por dirección |
-| Plan de firma y cinco firmas | Pendientes (H); el registro y el verificador siguen activados en la configuración |
-| Arranque | Composición en 3,443 segundos y salud HTTPS con certificado; firma y Mi Bolsa activas, inscripción RRHH apagada |
-| Recorrido completo y reinicio | En curso; petición completa hasta Revisar/Confirmar en Chrome, sin presentar todavía |
+| Plan de firma y cinco firmas | Pendientes; kit nominal de H disponible para producir actos y recibos propios de P |
+| Arranque | Último reinicio: composición en 2,614 segundos; firma y Mi Bolsa activas, inscripción RRHH apagada |
+| Recorrido completo y reinicio | Pasos 1–7 con respuestas y recibos reales; informe preparado, firma 7b pendiente. Falta el recorrido final en copia limpia |
+| Administración propia | Fuentes, unidad y arranque con tres recibos propios. Gobierno confirmado; comprobación de cadena pendiente (`manifiesto_checkpoint_limite`) |
+| Mi Bolsa | Chrome muestra Administrativo, Disponible y orden inicial 1 de 12; lectura e historial responden 200. Preferencias devuelve 404 y se ha comunicado a su dueño |
 
 Lo que no se haya ensayado en la copia no se instala en cidonia.
 
@@ -69,7 +72,17 @@ frontera rechaza. La búsqueda espera
 el código RPT `9`; `9/01` es el código del puesto individual. El formulario
 también exige plaza y datos presupuestarios, ya incluidos en el guion. El
 centro presenta sin retención de crédito y RRHH la recoge en el análisis,
-por decisión de dirección del 14/10. Ninguna petición nueva se ha presentado.
+por decisión de dirección del 14/10. La petición presentada y ratificada originó
+un único expediente, con referencia MOAD `2026/39014`. Se registraron análisis,
+vía Bolsa, asignación de unidad e informe jurídico mediante la pantalla y sus
+confirmaciones. El informe necesita su firma antes del tramo siguiente.
+
+La copia usa ahora el código `25547f2fbc50906f584d1ff8dc3f2621e8c69b6e`;
+el guion está en `590532615e630de17abd78e0d5514531b5eaf523`. Son versiones
+de preparación, todavía sin congelación final. La receta `mi_bolsa/` corrige
+el ámbito ficticio de Antonio exclusivamente en la copia P; no se instala en
+cidonia. El ensayo final aplicará los datos antes de comenzar los actos del
+recorrido y conservará los recibos que produzca.
 
 La congelación del código, el plan nominal de firma, el tramo Personal/cese
 y la recuperación completa tras reiniciar siguen pendientes. El arranque y
