@@ -184,8 +184,6 @@ BEGIN
   'version_ct',c.version_esperada+1,'actor_ref',c.actor_ref,
   'relacion_ref',i.relacion_ref,'ocupacion_ref',i.ocupacion_ref,
   'empleado_ref',h->>'empleado_ref',
-  'relacion_recibo_ref',h->>'relacion_recibo_ref',
-  'ocupacion_recibo_ref',h->>'ocupacion_recibo_ref',
   'modalidad_clave',c.expediente_siguiente_json#>>'{analisis,modalidad_clave}',
   'causa_contrato_clave',c.expediente_siguiente_json#>>'{analisis,causa_clave}',
   'fuente_tipo',c.justificante_tipo,'fuente_ref',c.justificante_ref,

@@ -1,4 +1,5 @@
 import json
+import hashlib
 import os
 import subprocess
 import tempfile
@@ -7,10 +8,86 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from preparar import Corte, comando_catalogo_faltante, comando_psql, comprobar_fuente_bolsa_ct, cuerpo_canonico, data_http, efecto, guardar, cargar, http, lectura_db, nuevo_numero, serializar_cuerpo, vincular_emision_nativa
+from preparar import Corte, RPT_PUBLICA, comando_catalogo_faltante, comando_psql, comprobar_ct215, comprobar_fuente_bolsa_ct, comprobar_relevo_cese, data_http, datos_ejercicio, guardar, cargar, http, lectura_db, necesidad_contexto_centro, necesidad_rpt_publicada, nueva_peticion, nuevo_numero, preparar_rpt, vacante_personal_compatible
 
 
 class CanonTrasReinicio(unittest.TestCase):
+    def test_huella_rpt_publicada_procede_del_fichero_real(self):
+        publicado = necesidad_rpt_publicada()
+        self.assertEqual(publicado["rpt_catalogo_huella_sha256"], hashlib.sha256(RPT_PUBLICA.read_bytes()).hexdigest())
+
+    def test_ct215_exige_huellas_prosrc_y_frontera_instalada(self):
+        from preparar import CT215_PROSRC
+        filas = [f"{nombre}|{huella}|11|t|vec_contratacion_temporal_propietario|t|t"
+                 for nombre, huella in sorted(CT215_PROSRC.items())]
+        with patch("preparar.lectura_db", return_value=filas):
+            comprobar_ct215(None)
+        with patch("preparar.lectura_db", return_value=[fila.replace("|11|", "|10|") for fila in filas]):
+            with self.assertRaisesRegex(Corte, "firma o ACL"):
+                comprobar_ct215(None)
+
+    def test_peticion_v3_conserva_necesidad_original_tras_respuesta_incierta(self):
+        datos = {"plaza_codigo": "0033", "organica_codigo": "520", "funcional_codigo": "920",
+                 "proyecto_gasto_codigo": "2026-520", "porcentaje_financiacion": "100"}
+        rpt = {"puesto_codigo": "9", "rpt_catalogo_ref": "rpt:publicada", "rpt_catalogo_huella_sha256": "b" * 64,
+               "denominacion": "ADMINISTRATIVO"}
+        obligatorios = ["numero_personas", *datos, "puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]
+        contexto = {"actor": {"puede_presentar": True}, "catalogos": {
+            "esquema": "vec.contratacion_temporal.catalogos_alta.v2", "necesidades": {
+                "referencia": "catalogo:ct:necesidades", "version": 3, "huella_sha256": "a" * 64,
+                "jornada_referencia_minutos": 2250, "causas": [{"clave": "vacante", "campos_obligatorios": obligatorios}]}},
+            "vinculos_rpt": {"categorias": [{"categoria_ref": "categoria:rpt:administrativo", "rpt_categoria_clave": "administrativo"}],
+                             "centros": [{"centro_ref": "centro-520", "rpt_centro_codigo": "520"}]}}
+        with tempfile.TemporaryDirectory() as folder:
+            ruta = Path(folder) / "estado.json"
+            args = SimpleNamespace(estado=ruta)
+            state = {"esquema": "vec.preparar-alta-b2.v1", "operaciones": {},
+                     "valores": {"rpt_necesidad": rpt, "datos_ejercicio": datos}}
+            with patch("preparar.data_http", side_effect=[contexto, Corte("sin respuesta")]):
+                with self.assertRaises(Corte):
+                    nueva_peticion(args, state)
+            congelado = cargar(ruta)
+            cuerpo = congelado["operaciones"]["presentar"]["cuerpo"]
+            self.assertEqual(cuerpo["esquema"], "vec.ct.alta_necesidad.v1")
+            self.assertEqual(set(cuerpo["necesidad"]), {"esquema", "catalogo_ref", "catalogo_version", "catalogo_huella_sha256", "causa_clave", "jornada_minutos", "campos"})
+            self.assertEqual(cuerpo["necesidad"]["campos"]["rpt_catalogo_huella_sha256"], "b" * 64)
+            with patch("preparar.data_http", return_value={"peticion_ref": "peticion:centro:uno"}) as post:
+                nueva_peticion(args, congelado)
+            self.assertEqual(post.call_count, 1)
+            self.assertEqual(post.call_args.args[4], cuerpo)
+            self.assertEqual(necesidad_contexto_centro(contexto, cuerpo["solicitud"], rpt, datos), cuerpo["necesidad"])
+
+    def test_vacante_de_plaza_ajena_no_habilita_peticion(self):
+        pagina = {"pagina": {"cobertura": "completa", "vacantes": [{
+            "codigo_plaza_fuente": "2026/9999", "unidad_ref": "unidad:centro:520",
+            "puesto_ref": "puesto:uno", "version_plantilla_ref": "version:uno",
+            "version_rpt_ref": "version:rpt", "estado_cobertura": "vacante_sin_ocupacion"}]}}
+        with patch("preparar.data_http", return_value=pagina):
+            with self.assertRaisesRegex(Corte, "plaza del ejercicio"):
+                vacante_personal_compatible(None, "0033", __import__("datetime").date(2026, 12, 1))
+
+    def test_vacante_personal_de_otro_puesto_no_pasa_anclaje_historico(self):
+        state = {"operaciones": {}, "valores": {}}
+        with patch("preparar.rpt_compatible", return_value=(1, "org:uno", ("puesto:9", "plaza:33"))), \
+             patch("preparar.necesidad_rpt_publicada", return_value={"puesto_codigo": "9"}), \
+             patch("preparar.datos_ejercicio", return_value={"plaza_codigo": "0033"}), \
+             patch("preparar.vacante_personal_compatible", return_value={"puesto_ref": "puesto:otro", "plaza_ref": "plaza:33"}):
+            with self.assertRaisesRegex(Corte, "no coincide"):
+                preparar_rpt(None, state)
+
+    def test_cinco_datos_privados_no_aceptan_campos_extra(self):
+        with tempfile.TemporaryDirectory() as folder:
+            ruta = Path(folder) / "necesidad_ejemplo_b2.json"
+            args = SimpleNamespace(config=Path(folder) / "personal-b2/servidor.json")
+            valores = {"plaza_codigo": "0033", "organica_codigo": "520", "funcional_codigo": "920",
+                       "proyecto_gasto_codigo": "2026-520", "porcentaje_financiacion": "100"}
+            ruta.write_text(json.dumps(valores))
+            ruta.chmod(0o600)
+            self.assertEqual(datos_ejercicio(args), valores)
+            ruta.write_text(json.dumps({**valores, "rpt_catalogo_ref": "otro"}))
+            with self.assertRaisesRegex(Corte, "cinco códigos"):
+                datos_ejercicio(args)
+
     def test_fuente_nativa_exige_b110_ad261_bolsa_unica_y_m10(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -27,37 +104,25 @@ class CanonTrasReinicio(unittest.TestCase):
             with patch("preparar.lectura_db", return_value=["1|1|1"]) as lectura:
                 comprobar_fuente_bolsa_ct(args)
             self.assertIn("sustitucion_bolsa", lectura.call_args.args[1])
+            self.assertIn("bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk", lectura.call_args.args[1])
             with patch("preparar.lectura_db", return_value=["1|1|2"]):
                 with self.assertRaisesRegex(Corte, "Bolsa Administrativo"):
                     comprobar_fuente_bolsa_ct(args)
 
-    def test_vinculo_ct201_y_respuesta_portal_reusan_claves(self):
-        with tempfile.TemporaryDirectory() as folder:
-            ruta = Path(folder) / "estado.json"
-            state = {"esquema": "vec.preparar-alta-b2.v1", "operaciones": {
-                "seleccion": {"cuerpo": {"clave_idempotencia": "11111111-1111-4111-8111-111111111111"}}}, "valores": {}}
-            args = SimpleNamespace(estado=ruta)
-            seleccionado = {"llamamiento_ref": "llamamiento:uno", "recibo_ref": "recibo:uno"}
-            with patch("preparar.lectura_db", return_value=["bolsa:uno|recibo:uno|6"]), \
-                 patch("preparar.data_http", side_effect=Corte("respuesta incierta")):
-                with self.assertRaises(Corte):
-                    vincular_emision_nativa(args, state, "expediente:uno", seleccionado)
-            congelado = cargar(ruta)
-            clave = congelado["operaciones"]["vinculo_bolsa"]["cuerpo"]["clave_idempotencia"]
-            with patch("preparar.lectura_db", return_value=["bolsa:uno|recibo:uno|6"]), \
-                 patch("preparar.data_http", return_value={"recibo_vinculo_ref": "recibo:vinculo", "bolsa_ref": "bolsa:uno"}) as post:
-                vincular_emision_nativa(args, congelado, "expediente:uno", seleccionado)
-            self.assertEqual(post.call_args.args[4]["clave_idempotencia"], clave)
-            self.assertEqual(post.call_args.args[4]["version_esperada"], 6)
-            recuperado = cargar(ruta)["operaciones"]["vinculo_bolsa"]["cuerpo"]
-            wire = serializar_cuerpo(cuerpo_canonico("vinculo_bolsa", recuperado))
-            self.assertLess(wire.index(b'"expediente_ref"'), wire.index(b'"bolsa_ref"'))
-            with patch("preparar.data_http", side_effect=Corte("respuesta incierta")):
-                with self.assertRaises(Corte):
-                    efecto(args, congelado, "respuesta_portal", lambda: {"bolsa": "bolsa:uno", "respuesta": "acepta", "causa": "", "justificante_ref": "", "justificante_sha256": ""})
-            cuerpo = cargar(ruta)["operaciones"]["respuesta_portal"]["cuerpo"]
-            self.assertIn("clave", cuerpo)
-            self.assertNotIn("clave_idempotencia", cuerpo)
+    def test_relevo_cese_exige_selectores_y_dsn_sin_imprimirlo(self):
+        lanzador = """export VEC_CT_SEGUIMIENTO_CESE_ENABLED=true
+export VEC_BOLSA_CESE_CT_ENABLED=true
+export VEC_BOLSA_CESE_CT_DATABASE_URL=postgres://privado
+"""
+        comprobar_relevo_cese(lanzador)
+        with self.assertRaisesRegex(Corte, "relevo de cese"):
+            comprobar_relevo_cese(lanzador + "export VEC_BOLSA_CONTRATOS_CT_INTERVALO=0\n")
+        with self.assertRaisesRegex(Corte, "relevo de cese"):
+            comprobar_relevo_cese(lanzador + "export VEC_BOLSA_CONTRATOS_CT_INTERVALO=0s\n")
+        with self.assertRaisesRegex(Corte, "varias asignaciones"):
+            comprobar_relevo_cese(lanzador + "export VEC_BOLSA_CESE_CT_ENABLED=false\n")
+        with self.assertRaisesRegex(Corte, "DSN nominal"):
+            comprobar_relevo_cese(lanzador.replace("VEC_BOLSA_CESE_CT_DATABASE_URL", "OTRA_VARIABLE"))
 
     def test_error_http_malformado_conserva_corte_nominal(self):
         for error in (None, "cadena", [], 4):
@@ -68,77 +133,17 @@ class CanonTrasReinicio(unittest.TestCase):
     def test_numero_usa_politica_y_cuatro_fuentes_sin_repetir_consulta(self):
         from datetime import date
         year = date.today().year
-        politica = {"numero_expediente_moad": {"patron": rf"^{year}/CT-[0-9]{{4}}$", "ejemplo": f"{year}/CT-0001"}}
+        politica = {"numero_expediente_moad": {"patron": rf"^{year}/[1-9][0-9]{{0,9}}$", "ejemplo": f"{year}/5487"}}
         state = {"valores": {}}
         with patch("preparar.data_http", return_value=politica) as catalogo, \
              patch("preparar.lectura_db", return_value=["15"]) as lectura:
-            self.assertEqual(nuevo_numero(None, state, ""), f"{year}/CT-0016")
-            self.assertEqual(nuevo_numero(None, state, ""), f"{year}/CT-0016")
+            self.assertEqual(nuevo_numero(None, state, ""), f"{year}/5487")
+            self.assertEqual(nuevo_numero(None, state, ""), f"{year}/5487")
         self.assertEqual(catalogo.call_count, 1)
         self.assertEqual(lectura.call_count, 1)
         sql = lectura.call_args.args[1]
         for tabla in ("expediente_alta", "identidad_reserva_alta", "numeracion_anual_asignada", "candidatura_alta_tecnica"):
             self.assertIn(tabla, sql)
-
-    def test_respuesta_incierta_recupera_hora_y_clave_originales(self):
-        with tempfile.TemporaryDirectory() as folder:
-            ruta = Path(folder) / "estado.json"
-            args = SimpleNamespace(estado=ruta)
-            state = {"esquema": "vec.preparar-alta-b2.v1", "operaciones": {}, "valores": {}}
-            llamadas = []
-            def cuerpo():
-                llamadas.append(1)
-                return {"organizacion_ref": "organizacion:prueba", "expediente_ref": "expediente:prueba",
-                        "llamamiento_ref": "llamamiento:prueba", "comunicacion_ref": "comunicacion:prueba",
-                        "version_comunicacion_esperada": 2, "respuesta": "aceptacion",
-                        "correo_ref": "correo:rrhh:prueba", "correo_sha256": "a" * 64,
-                        "recibida_en": "2026-10-12T11:59:00Z"}
-            with patch("preparar.data_http", side_effect=Corte("respuesta incierta")):
-                with self.assertRaises(Corte):
-                    efecto(args, state, "respuesta", cuerpo)
-            congelada = cargar(ruta)
-            clave = congelada["operaciones"]["respuesta"]["cuerpo"]["clave_idempotencia"]
-            with patch("preparar.data_http", return_value={"recibo_ref": "recibo:prueba"}) as post:
-                efecto(args, congelada, "respuesta", cuerpo)
-            self.assertEqual(llamadas, [1])
-            self.assertEqual(post.call_args.args[4]["clave_idempotencia"], clave)
-            self.assertEqual(post.call_args.args[4]["recibida_en"], "2026-10-12T11:59:00Z")
-
-    def test_comunicacion_conserva_bytes_canonicos_tras_guardar_y_cargar(self):
-        cuerpo = {
-            "organizacion_ref": "organizacion:desarrollo:dipgra",
-            "expediente_ref": "expediente:ct:uno",
-            "llamamiento_ref": "llamamiento:uno",
-            "version_esperada": 1,
-            "prueba_entrega_ref": "recibo:uno",
-            "clave_idempotencia": "11111111-1111-4111-8111-111111111111",
-        }
-        with tempfile.TemporaryDirectory() as folder:
-            ruta = Path(folder) / "estado.json"
-            guardar(ruta, {"esquema": "vec.preparar-alta-b2.v1", "operaciones": {"comunicacion": {"cuerpo": cuerpo}}})
-            cargado = cargar(ruta)["operaciones"]["comunicacion"]["cuerpo"]
-        esperado = ('{"clave_idempotencia":"11111111-1111-4111-8111-111111111111",'
-                    '"organizacion_ref":"organizacion:desarrollo:dipgra",'
-                    '"expediente_ref":"expediente:ct:uno","llamamiento_ref":"llamamiento:uno",'
-                    '"version_esperada":1,"prueba_entrega_ref":"recibo:uno"}')
-        self.assertEqual(serializar_cuerpo(cuerpo_canonico("comunicacion", cargado)), esperado.encode())
-
-    def test_propuesta_reordena_snapshots_tras_guardar_y_cargar(self):
-        snap = {"huella_sha256": "a" * 64, "version": 1, "referencia": "catalogo:uno"}
-        cuerpo = {"clave_idempotencia": "11111111-1111-4111-8111-111111111111",
-                  "expediente_ref": "expediente:ct:uno", "llamamiento_ref": "llamamiento:uno",
-                  "resolucion_llamamiento_aceptada_ref": "resolucion:uno",
-                  "recibo_resolucion_aceptada_ref": "recibo:uno", "version_esperada": 6,
-                  "tipo_formalizacion": snap, "plantilla": snap, "anexos": [],
-                  "politica_firma": snap, "plan_firma": snap}
-        with tempfile.TemporaryDirectory() as folder:
-            ruta = Path(folder) / "estado.json"
-            guardar(ruta, {"esquema": "vec.preparar-alta-b2.v1", "operaciones": {"propuesta": {"cuerpo": cuerpo}}})
-            cargado = cargar(ruta)["operaciones"]["propuesta"]["cuerpo"]
-        wire = serializar_cuerpo(cuerpo_canonico("propuesta", cargado))
-        self.assertIn(b'"tipo_formalizacion":{"referencia":"catalogo:uno","version":1,"huella_sha256":', wire)
-        self.assertLess(wire.index(b'"tipo_formalizacion"'), wire.index(b'"anexos"'))
-        self.assertLess(wire.index(b'"anexos"'), wire.index(b'"politica_firma"'))
 
     def test_entorno_hostil_no_cambia_destinos_locales(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -19,6 +19,7 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.auditoria_cese_bolsa') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.politica_cese_bolsa') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.candidatos_cese_pendiente_b90') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(text[],timestamptz)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.verificar_aceptacion_nativa_ct_para_ct_v1(jsonb)') IS NULL
     OR to_regprocedure('vec_personal.probar_cierre_cese_ct_v1(bytea)') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.probar_cese_personal_b2_para_bolsa_v1(text)') IS NULL
@@ -219,7 +220,7 @@ DECLARE
  politica vec_bolsa_llamamientos.politica_cese_bolsa%ROWTYPE;
  consumo record; b13 record; restriccion record; auditoria record;
  material_sha text; contexto_sha text; v_evento_ref text; recibo_ref text; auditoria_ref text;
- outbox_ref text; clase text; meses integer; disponible date; fecha date; ahora timestamptz(6);
+ outbox_ref text; clase text; meses integer; disponible date; fecha date; hasta date; ahora timestamptz(6);
  auditoria_json jsonb; outbox_json jsonb; total bigint;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
@@ -295,9 +296,6 @@ BEGIN
     OR c->>'relacion_ref' IS DISTINCT FROM personal->>'relacion_ref'
     OR c->>'ocupacion_ref' IS DISTINCT FROM personal->>'ocupacion_ref'
     OR c->>'empleado_ref' IS DISTINCT FROM personal->>'empleado_ref'
-    OR c->>'relacion_recibo_ref' IS DISTINCT FROM personal->>'relacion_recibo_ref'
-    OR c->>'ocupacion_recibo_ref' IS DISTINCT FROM personal->>'ocupacion_recibo_ref'
-    OR c->>'fecha_efecto' IS DISTINCT FROM personal->>'vigente_hasta'
  THEN RAISE EXCEPTION 'B115: cese CT no acreditado' USING ERRCODE='23503'; END IF;
  IF jsonb_typeof(c->'evento') IS DISTINCT FROM 'object'
     OR c->>'origen_ref' IS NULL OR c->>'origen_huella_sha256' !~ '^[0-9a-f]{64}$'
@@ -311,15 +309,17 @@ BEGIN
        encode(sha256(convert_to((c->'evento')::text,'UTF8')),'hex')
  THEN RAISE EXCEPTION 'B115: publicación CT divergente' USING ERRCODE='23503'; END IF;
  v_evento_ref:='evento:ct:contrato-bolsa:'||encode(sha256(convert_to(
-  'cese'||chr(31)||c->>'origen_ref','UTF8')),'hex');
+  'cese'||chr(31)||(c->>'origen_ref'),'UTF8')),'hex');
  IF c->'evento'->>'evento_ref' IS DISTINCT FROM v_evento_ref
     OR c->>'modalidad_clave' IS NULL OR c->>'causa_contrato_clave' IS NULL
     OR c->>'fecha_efecto' IS NULL OR c->>'fuente_tipo' IS NULL
     OR c->>'fuente_ref' IS NULL OR c->>'fuente_sha256' !~ '^[0-9a-f]{64}$'
  THEN RAISE EXCEPTION 'B115: fuente de cese incompleta' USING ERRCODE='23503'; END IF;
- BEGIN fecha:=(c->>'fecha_efecto')::date;
- EXCEPTION WHEN data_exception THEN RAISE EXCEPTION 'B115: fecha CT inválida' USING ERRCODE='23503'; END;
- IF NOT isfinite(fecha) OR to_char(fecha,'YYYY-MM-DD') IS DISTINCT FROM c->>'fecha_efecto'
+ BEGIN fecha:=(c->>'fecha_efecto')::date; hasta:=(personal->>'vigente_hasta')::date;
+ EXCEPTION WHEN data_exception THEN RAISE EXCEPTION 'B115: fecha de cese inválida' USING ERRCODE='23503'; END;
+ IF fecha IS NULL OR NOT isfinite(fecha) OR to_char(fecha,'YYYY-MM-DD') IS DISTINCT FROM c->>'fecha_efecto'
+    OR hasta IS NULL OR NOT isfinite(hasta) OR to_char(hasta,'YYYY-MM-DD') IS DISTINCT FROM personal->>'vigente_hasta'
+    OR hasta NOT IN (fecha,fecha+1)
     OR c->'evento'->>'fin_previsto' IS NULL
     OR vec_bolsa_llamamientos.instante_contrato_valido(c->'evento'->'inicio',true) IS NOT TRUE
     OR vec_bolsa_llamamientos.instante_contrato_valido(c->'evento'->'fin_previsto',true) IS NOT TRUE
@@ -404,8 +404,8 @@ BEGIN
       'meses_acumulacion',politica.meses_acumulacion,'computo',politica.computo,
       'estado',politica.estado)::text,'UTF8')),'hex')
  THEN RAISE EXCEPTION 'B115: política de cese no aplicable' USING ERRCODE='55000'; END IF;
- clase:=coalesce(politica.mapeo->>(c->>'modalidad_clave'||'|'||c->>'causa_contrato_clave'),
-  politica.mapeo->>c->>'modalidad_clave');
+ clase:=coalesce(politica.mapeo->>((c->>'modalidad_clave')||'|'||(c->>'causa_contrato_clave')),
+  politica.mapeo->>(c->>'modalidad_clave'));
  IF clase NOT IN ('general','acumulacion_tareas') OR clase IS NULL
  THEN RAISE EXCEPTION 'B115: modalidad CT sin mapeo Bolsa' USING ERRCODE='55000'; END IF;
  meses:=CASE clase WHEN 'acumulacion_tareas' THEN politica.meses_acumulacion ELSE politica.meses_general END;
@@ -488,8 +488,8 @@ RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
 DECLARE m jsonb; sel jsonb; personal jsonb; capacidad jsonb; decision jsonb;
  c jsonb; anclaje jsonb; previo vec_bolsa_llamamientos.alta_nativa_ct_v1%ROWTYPE;
- consumo record; situacion record; contrato record;
- material_sha text; contexto_sha text; evento_ref text; recibo_situacion text;
+ consumo record; situacion record; cese_actual record; contrato record;
+ material_sha text; contexto_sha text; v_evento_ref text; recibo_situacion text;
  outbox_ref text; outbox_json jsonb; ahora timestamptz(6);
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
@@ -555,7 +555,7 @@ BEGIN
 
  -- La recuperación usa la prueba persistida y el ACT nuevo. No consulta
  -- revisiones Personal actuales ni reabre trabajo después de un cese.
- PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:alta-nativa:'||personal->>'recibo_ct_ref',0));
+ PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:alta-nativa:'||(personal->>'recibo_ct_ref'),0));
  SELECT * INTO previo FROM vec_bolsa_llamamientos.alta_nativa_ct_v1 a
   WHERE a.recibo_ct_ref=personal->>'recibo_ct_ref';
  IF FOUND THEN
@@ -619,26 +619,48 @@ BEGIN
     OR c->'evento'->>'origen_ref' IS DISTINCT FROM c->>'origen_ref'
     OR c->>'origen_huella_sha256' IS DISTINCT FROM encode(sha256(convert_to((c->'evento')::text,'UTF8')),'hex')
  THEN RAISE EXCEPTION 'B115: evento de alta divergente' USING ERRCODE='23503'; END IF;
- evento_ref:='evento:ct:contrato-bolsa:'||encode(sha256(convert_to(
-  'incorporacion'||chr(31)||c->>'origen_ref','UTF8')),'hex');
- IF c->'evento'->>'evento_ref' IS DISTINCT FROM evento_ref
+ v_evento_ref:='evento:ct:contrato-bolsa:'||encode(sha256(convert_to(
+  'incorporacion'||chr(31)||(c->>'origen_ref'),'UTF8')),'hex');
+ IF c->'evento'->>'evento_ref' IS DISTINCT FROM v_evento_ref
     OR vec_bolsa_llamamientos.instante_contrato_valido(c->'evento'->'inicio',true) IS NOT TRUE
     OR (c->'evento'->>'inicio')::timestamptz>clock_timestamp()
     OR (c->'evento'->>'fin_previsto' IS NOT NULL AND
       vec_bolsa_llamamientos.instante_contrato_valido(c->'evento'->'fin_previsto',true) IS NOT TRUE)
     OR vec_bolsa_llamamientos.instante_contrato_valido(c->'evento'->'ocurrido_en',false) IS NOT TRUE
  THEN RAISE EXCEPTION 'B115: fechas de alta divergentes' USING ERRCODE='23503'; END IF;
- PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:contrato-participacion:'||evento_ref,0));
+ PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:contrato-participacion:'||v_evento_ref,0));
+ ahora:=date_trunc('microseconds',clock_timestamp());
  SELECT * INTO situacion FROM vec_bolsa_llamamientos.situacion_participacion s
   WHERE s.participacion_ref=m->>'participacion_ref'
   ORDER BY s.desde DESC LIMIT 1 FOR SHARE;
- IF NOT FOUND OR situacion.situacion IS DISTINCT FROM 'disponible'
+ IF NOT FOUND THEN
+  RAISE EXCEPTION 'B115: participación sin situación para alta' USING ERRCODE='VBC01';
+ END IF;
+ SELECT s.participacion_ref,e.fecha_efecto,e.disponible_desde,e.en_restriccion,
+  e.trabajo_cesado,e.cese_pendiente INTO cese_actual
+ FROM vec_bolsa_llamamientos.situacion_participacion s
+ LEFT JOIN LATERAL vec_bolsa_llamamientos.estado_cese_bolsa_lote_interno_v2(
+  ARRAY[s.participacion_ref],ahora) e ON e.participacion_ref=s.participacion_ref
+ WHERE s.participacion_ref=situacion.participacion_ref AND s.recibo_ref=situacion.recibo_ref;
+ IF NOT FOUND OR cese_actual.participacion_ref IS DISTINCT FROM m->>'participacion_ref' THEN
+  RAISE EXCEPTION 'B115: estado efectivo de Bolsa ausente' USING ERRCODE='VBC01';
+ END IF;
+ IF NOT (
+      ((situacion.situacion='disponible' OR
+        (situacion.situacion='disponible_desde' AND situacion.fecha_disponible<=ahora)) AND
+       coalesce(cese_actual.cese_pendiente,false) IS FALSE AND
+       coalesce(cese_actual.en_restriccion,false) IS FALSE)
+      OR (situacion.situacion='trabajando' AND
+          cese_actual.trabajo_cesado IS TRUE AND
+          cese_actual.cese_pendiente IS FALSE AND
+          cese_actual.en_restriccion IS FALSE AND
+          cese_actual.disponible_desde<=(ahora AT TIME ZONE 'Europe/Madrid')::date)
+     )
     OR EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion b
-      WHERE b.evento_ref=evento_ref OR
+      WHERE b.evento_ref=v_evento_ref OR
         (b.participacion_ref=m->>'participacion_ref' AND b.llamamiento_ref=sel->>'llamamiento_ref'
          AND b.tipo='incorporacion'))
  THEN RAISE EXCEPTION 'B115: participación no disponible para alta' USING ERRCODE='VBC01'; END IF;
- ahora:=date_trunc('microseconds',clock_timestamp());
  IF ahora<=situacion.desde
  THEN RAISE EXCEPTION 'B115: instante de alta anterior a situación' USING ERRCODE='VBC01'; END IF;
  recibo_situacion:='recibo:situacion:alta-nativa:'||encode(sha256(convert_to(c->>'origen_ref','UTF8')),'hex');
@@ -647,7 +669,7 @@ BEGIN
   evento_ref,huella_sha256,evento,origen_ref,origen_creada_en,origen_posicion,tipo,
   organizacion_ref,expediente_ref,llamamiento_ref,participacion_ref,bolsa_ref,
   inicio,fin_previsto,modalidad_clave,categoria_ref,causa_clave,ocurrido_en,recibido_en)
- VALUES(evento_ref,c->>'origen_huella_sha256',c->'evento',c->>'origen_ref',
+ VALUES(v_evento_ref,c->>'origen_huella_sha256',c->'evento',c->>'origen_ref',
   (c->>'origen_creada_en')::timestamptz,(c->>'origen_posicion')::bigint,
   'incorporacion',c->>'organizacion_ref',c->>'expediente_ref',c->>'llamamiento_ref',
   m->>'participacion_ref',sel->>'bolsa_ref',
@@ -665,13 +687,13 @@ BEGIN
   bolsa_ref,llamamiento_ref,relacion_ref,ocupacion_ref,actor_ref,
   material_canonico,material_json,material_sha256,decision_ref,
   consumo_huella_sha256,auditoria_v3_ref,trabajando_desde,registrada_en)
- VALUES(c->>'origen_ref',evento_ref,recibo_situacion,personal->>'recibo_ct_ref',
+ VALUES(c->>'origen_ref',v_evento_ref,recibo_situacion,personal->>'recibo_ct_ref',
   m->>'participacion_ref',sel->>'bolsa_ref',sel->>'llamamiento_ref',
   personal->>'relacion_ref',personal->>'ocupacion_ref',personal->>'actor_ref',
   p_material,m,material_sha,consumo.decision_ref,consumo.consumo_huella_sha256,
   consumo.auditoria_ref,ahora,ahora);
  outbox_json:=jsonb_build_object('esquema','vec.bolsa.alta-nativa-ct.confirmada.v1',
-  'origen_ref',c->>'origen_ref','evento_ref',evento_ref,
+  'origen_ref',c->>'origen_ref','evento_ref',v_evento_ref,
   'recibo_situacion_ref',recibo_situacion,'participacion_ref',m->>'participacion_ref',
   'bolsa_ref',sel->>'bolsa_ref','trabajando_desde',
   to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
@@ -679,7 +701,7 @@ BEGIN
   evento_ref,origen_ref,tipo,payload,payload_sha256,estado,creada_en)
  VALUES(outbox_ref,c->>'origen_ref','bolsa.alta.ct.personal_confirmado',outbox_json,
   encode(sha256(convert_to(outbox_json::text,'UTF8')),'hex'),'pendiente',ahora);
- RETURN jsonb_build_object('reutilizada',false,'evento_ref',evento_ref,
+ RETURN jsonb_build_object('reutilizada',false,'evento_ref',v_evento_ref,
   'recibo_situacion_ref',recibo_situacion,'auditoria_ref',consumo.auditoria_ref,
   'outbox_ref',outbox_ref,'bolsa_ref',sel->>'bolsa_ref',
   'participacion_ref',m->>'participacion_ref',
