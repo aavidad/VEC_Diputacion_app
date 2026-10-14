@@ -117,13 +117,18 @@ type SolicitudCesePersonalB2 struct {
 type ResultadoCesePersonalB2 struct {
 	// Aplica es falso cuando CT no incorporó el expediente por personal_b2_v1:
 	// entonces no se ha leído nada con permisos B2 ni escrito en Personal.
-	Aplica          bool
-	IdempotenciaRef string
-	RelacionRef     string
-	OcupacionRef    string
-	VigenteHasta    personal.FechaCivil
-	Recibo          pp.ReciboActoRegistroEmpleadoB2
-	OcupacionRecibo pp.ReciboActoRegistroEmpleadoB2
+	Aplica              bool
+	IdempotenciaRef     string
+	SelectorBolsaNativa dom.SelectorBolsaPlanB2Nativo
+	EmpleadoRef         string
+	OrganismoRef        string
+	UnidadRef           string
+	FuenteHuellaSHA256  string
+	RelacionRef         string
+	OcupacionRef        string
+	VigenteHasta        personal.FechaCivil
+	Recibo              pp.ReciboActoRegistroEmpleadoB2
+	OcupacionRecibo     pp.ReciboActoRegistroEmpleadoB2
 }
 
 var referenciaOcupacionCeseB2 = regexp.MustCompile(`^ocu_[A-Za-z0-9_-]{22,128}$`)
@@ -262,7 +267,10 @@ func (c *CesePersonalB2) FinalizarRelacionPersonalB2(ctx context.Context, s Soli
 		recOcupacion.FirmaOficial || recOcupacion.EficaciaAdministrativa || !referenciaPlanB2(recOcupacion.ReciboRef) {
 		return cero, ct.ErrConflictoIncorporacionAplicacion
 	}
-	return ResultadoCesePersonalB2{Aplica: true, IdempotenciaRef: procedencia.IdempotenciaRef, RelacionRef: h.RelacionRef,
+	return ResultadoCesePersonalB2{Aplica: true, IdempotenciaRef: procedencia.IdempotenciaRef,
+		SelectorBolsaNativa: contrato.SelectorBolsaNativa, EmpleadoRef: h.EmpleadoRef,
+		OrganismoRef: contrato.DatosPersonal.OrganismoRef, UnidadRef: contrato.DatosPersonal.UnidadRef,
+		FuenteHuellaSHA256: procedencia.FuenteHuellaSHA256, RelacionRef: h.RelacionRef,
 		OcupacionRef: h.OcupacionRef, VigenteHasta: hasta, Recibo: rec, OcupacionRecibo: recOcupacion}, nil
 }
 

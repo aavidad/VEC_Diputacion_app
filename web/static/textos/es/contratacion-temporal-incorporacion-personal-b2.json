@@ -65,6 +65,21 @@
   "sin_catalogos": "Las condiciones de Personal no están disponibles. RRHH debe revisar sus catálogos.",
   "revision_lista": "Revise estos datos antes de registrar la incorporación.",
   "clase_ocupacion": "Tipo de ocupación (obligatorio)",
+  "rrhh": {
+    "ct": {
+      "incorporacion": {
+        "b2": {
+          "clase_ocupacion": {
+            "opcion": {
+              "titular": "Titular",
+              "provisional": "Provisional",
+              "temporal": "Temporal"
+            }
+          }
+        }
+      }
+    }
+  },
   "personal": {
     "ocupacion": {
       "clase": {
