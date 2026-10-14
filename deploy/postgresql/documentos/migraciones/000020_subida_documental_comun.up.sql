@@ -60,6 +60,7 @@ CREATE TABLE vec_documentos.subida_local(
 ALTER TABLE vec_documentos.subida_local ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_documentos.subida_local FORCE ROW LEVEL SECURITY;
 CREATE POLICY propietario_subida_local ON vec_documentos.subida_local
+ TO vec_documentos_propietario
  USING (current_user='vec_documentos_propietario') WITH CHECK (current_user='vec_documentos_propietario');
 REVOKE ALL ON TABLE vec_documentos.subida_local FROM PUBLIC;
 CREATE FUNCTION vec_documentos.guardar_transicion_subida_local_v1() RETURNS trigger
@@ -89,6 +90,7 @@ CREATE TABLE vec_documentos.subida_local_historia(
  decision_ref text NOT NULL,
  auditoria_v3_ref text NOT NULL,
  huella_preimagen_sha256 text NOT NULL CHECK(huella_preimagen_sha256 ~ '^[0-9a-f]{64}$'),
+ huella_postestado_sha256 text NOT NULL CHECK(huella_postestado_sha256 ~ '^[0-9a-f]{64}$'),
  anterior_sha256 text NOT NULL CHECK(anterior_sha256 ~ '^[0-9a-f]{64}$'),
  huella_sha256 text NOT NULL CHECK(huella_sha256 ~ '^[0-9a-f]{64}$'),
  evento_en timestamptz NOT NULL DEFAULT clock_timestamp(),
@@ -97,6 +99,7 @@ CREATE TABLE vec_documentos.subida_local_historia(
 ALTER TABLE vec_documentos.subida_local_historia ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_documentos.subida_local_historia FORCE ROW LEVEL SECURITY;
 CREATE POLICY propietario_subida_local_historia ON vec_documentos.subida_local_historia
+ TO vec_documentos_propietario
  USING (current_user='vec_documentos_propietario') WITH CHECK (current_user='vec_documentos_propietario');
 REVOKE ALL ON TABLE vec_documentos.subida_local_historia FROM PUBLIC;
 
@@ -116,6 +119,7 @@ CREATE TABLE vec_documentos.frontera_subida_local(
 ALTER TABLE vec_documentos.frontera_subida_local ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_documentos.frontera_subida_local FORCE ROW LEVEL SECURITY;
 CREATE POLICY propietario_frontera_subida_local ON vec_documentos.frontera_subida_local
+ TO vec_documentos_propietario
  USING (current_user='vec_documentos_propietario') WITH CHECK (current_user='vec_documentos_propietario');
 REVOKE ALL ON TABLE vec_documentos.frontera_subida_local FROM PUBLIC;
 
@@ -146,13 +150,14 @@ REVOKE ALL ON FUNCTION vec_documentos.subida_local_login_valido_v1(boolean) FROM
 -- Esta proyección nunca recibe una persona ni un identificador del llamador
 -- exterior: solo la invocan las fachadas tras consumo V3 y cotejo nominal.
 CREATE FUNCTION vec_documentos.instantanea_subida_local_v1(p_carga_id text) RETURNS jsonb
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE r vec_documentos.subida_local%ROWTYPE;
 BEGIN
  IF current_user<>'vec_documentos_propietario' OR
   vec_documentos.subida_local_login_valido_v1(false) IS NOT TRUE
  THEN RAISE EXCEPTION 'D20: proyección denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT r FROM vec_documentos.subida_local WHERE carga_id=p_carga_id;
+ PERFORM vec_documentos.verificar_integridad_subida_local_v1(r.carga_id);
  RETURN jsonb_build_object('resultado',jsonb_build_object('carga_id',r.carga_id,
   'comprobante_ref',coalesce(r.documento_id,''),'documento_version',coalesce(r.documento_version,0),
   'recibo_ref',coalesce(r.recibo_ref,''),'estado',r.estado,'codigo_rechazo',r.codigo_rechazo,
@@ -271,6 +276,7 @@ CREATE TABLE vec_documentos.subida_local_lectura(
 ALTER TABLE vec_documentos.subida_local_lectura ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_documentos.subida_local_lectura FORCE ROW LEVEL SECURITY;
 CREATE POLICY propietario_subida_local_lectura ON vec_documentos.subida_local_lectura
+ TO vec_documentos_propietario
  USING (current_user='vec_documentos_propietario') WITH CHECK (current_user='vec_documentos_propietario');
 REVOKE ALL ON TABLE vec_documentos.subida_local_lectura FROM PUBLIC;
 CREATE TRIGGER lectura_subida_local_inmutable BEFORE UPDATE OR DELETE ON vec_documentos.subida_local_lectura
@@ -280,21 +286,65 @@ CREATE TABLE vec_documentos.subida_local_outbox(
  carga_id text NOT NULL REFERENCES vec_documentos.subida_local(carga_id),
  version bigint NOT NULL,
  estado text NOT NULL,
+ huella_postestado_sha256 text NOT NULL CHECK(huella_postestado_sha256 ~ '^[0-9a-f]{64}$'),
  creada_en timestamptz NOT NULL DEFAULT clock_timestamp(),
  PRIMARY KEY(carga_id,version)
 );
 ALTER TABLE vec_documentos.subida_local_outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_documentos.subida_local_outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY propietario_subida_local_outbox ON vec_documentos.subida_local_outbox
+ TO vec_documentos_propietario
  USING (current_user='vec_documentos_propietario') WITH CHECK (current_user='vec_documentos_propietario');
 REVOKE ALL ON TABLE vec_documentos.subida_local_outbox FROM PUBLIC;
 CREATE TRIGGER outbox_subida_local_inmutable BEFORE UPDATE OR DELETE ON vec_documentos.subida_local_outbox
  FOR EACH ROW EXECUTE FUNCTION vec_documentos.prohibir_edicion_evidencia_subida_local_v1();
 
+-- La postimagen se fija después de cada INSERT/UPDATE, incluidos sus tiempos,
+-- objeto y recibo. Solo las fachadas con V3 consumida invocan esta función
+-- privada del propietario antes de entregar una lectura o repetición.
+CREATE FUNCTION vec_documentos.verificar_integridad_subida_local_v1(p_carga_id text) RETURNS void
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
+DECLARE r vec_documentos.subida_local%ROWTYPE; e record; siguiente bigint:=1;
+ anterior text:=repeat('0',64); postestado text; huella text;
+BEGIN
+ IF current_user<>'vec_documentos_propietario'
+ THEN RAISE EXCEPTION 'D20: integridad denegada' USING ERRCODE='42501'; END IF;
+ SELECT * INTO STRICT r FROM vec_documentos.subida_local WHERE carga_id=p_carga_id;
+ postestado:=encode(sha256(convert_to(to_jsonb(r)::text,'UTF8')),'hex');
+ FOR e IN
+  SELECT h.version,h.estado,h.decision_ref,h.auditoria_v3_ref,h.huella_preimagen_sha256,
+   h.huella_postestado_sha256,h.anterior_sha256,h.huella_sha256,
+   o.version AS outbox_version,o.estado AS outbox_estado,
+   o.huella_postestado_sha256 AS outbox_postestado_sha256
+  FROM vec_documentos.subida_local_historia h
+  FULL JOIN vec_documentos.subida_local_outbox o
+   ON (o.carga_id,o.version)=(h.carga_id,h.version)
+  WHERE coalesce(h.carga_id,o.carga_id)=p_carga_id
+  ORDER BY coalesce(h.version,o.version)
+ LOOP
+  huella:=encode(sha256(convert_to(jsonb_build_object('carga_id',p_carga_id,
+   'version',e.version,'estado',e.estado,'decision_ref',e.decision_ref,
+   'auditoria_ref',e.auditoria_v3_ref,'preimagen_sha256',e.huella_preimagen_sha256,
+   'postestado_sha256',e.huella_postestado_sha256,
+   'anterior_sha256',e.anterior_sha256)::text,'UTF8')),'hex');
+  IF e.version IS DISTINCT FROM siguiente OR e.outbox_version IS DISTINCT FROM siguiente OR
+   e.anterior_sha256 IS DISTINCT FROM anterior OR e.huella_sha256 IS DISTINCT FROM huella OR
+   e.outbox_estado IS DISTINCT FROM e.estado OR
+   e.outbox_postestado_sha256 IS DISTINCT FROM e.huella_postestado_sha256 OR
+   (siguiente=r.version AND (e.estado IS DISTINCT FROM r.estado OR
+    e.huella_postestado_sha256 IS DISTINCT FROM postestado))
+  THEN RAISE EXCEPTION 'D20: historia o postestado divergente' USING ERRCODE='42501'; END IF;
+  anterior:=e.huella_sha256; siguiente:=siguiente+1;
+ END LOOP;
+ IF siguiente IS DISTINCT FROM r.version+1
+ THEN RAISE EXCEPTION 'D20: historia incompleta' USING ERRCODE='42501'; END IF;
+END $f$;
+REVOKE ALL ON FUNCTION vec_documentos.verificar_integridad_subida_local_v1(text) FROM PUBLIC;
+
 CREATE FUNCTION vec_documentos.registrar_cambio_subida_local_v1(p_carga_id text,p_version bigint,p_estado text,
  p_decision_ref text,p_auditoria_ref text,p_preimagen_sha256 text) RETURNS void
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
-DECLARE anterior text; huella text;
+DECLARE anterior text; huella text; postestado text; r vec_documentos.subida_local%ROWTYPE;
 BEGIN
  IF current_user<>'vec_documentos_propietario' OR vec_documentos.subida_local_login_valido_v1(false) IS NOT TRUE OR
   p_version NOT BETWEEN 1 AND 5 OR p_preimagen_sha256 !~ '^[0-9a-f]{64}$'
@@ -302,13 +352,19 @@ BEGIN
  IF p_version=1 THEN anterior:=repeat('0',64);
  ELSE SELECT h.huella_sha256 INTO STRICT anterior FROM vec_documentos.subida_local_historia h
   WHERE h.carga_id=p_carga_id AND h.version=p_version-1 FOR SHARE; END IF;
+ SELECT * INTO STRICT r FROM vec_documentos.subida_local WHERE carga_id=p_carga_id FOR SHARE;
+ IF r.version IS DISTINCT FROM p_version OR r.estado IS DISTINCT FROM p_estado
+ THEN RAISE EXCEPTION 'D20: postestado no corresponde' USING ERRCODE='42501'; END IF;
+ postestado:=encode(sha256(convert_to(to_jsonb(r)::text,'UTF8')),'hex');
  huella:=encode(sha256(convert_to(jsonb_build_object('carga_id',p_carga_id,'version',p_version,
   'estado',p_estado,'decision_ref',p_decision_ref,'auditoria_ref',p_auditoria_ref,
-  'preimagen_sha256',p_preimagen_sha256,'anterior_sha256',anterior)::text,'UTF8')),'hex');
+  'preimagen_sha256',p_preimagen_sha256,'postestado_sha256',postestado,
+  'anterior_sha256',anterior)::text,'UTF8')),'hex');
  INSERT INTO vec_documentos.subida_local_historia(carga_id,version,estado,decision_ref,auditoria_v3_ref,
-  huella_preimagen_sha256,anterior_sha256,huella_sha256)
- VALUES(p_carga_id,p_version,p_estado,p_decision_ref,p_auditoria_ref,p_preimagen_sha256,anterior,huella);
- INSERT INTO vec_documentos.subida_local_outbox(carga_id,version,estado) VALUES(p_carga_id,p_version,p_estado);
+  huella_preimagen_sha256,huella_postestado_sha256,anterior_sha256,huella_sha256)
+ VALUES(p_carga_id,p_version,p_estado,p_decision_ref,p_auditoria_ref,p_preimagen_sha256,postestado,anterior,huella);
+ INSERT INTO vec_documentos.subida_local_outbox(carga_id,version,estado,huella_postestado_sha256)
+ VALUES(p_carga_id,p_version,p_estado,postestado);
 END $f$;
 REVOKE ALL ON FUNCTION vec_documentos.registrar_cambio_subida_local_v1(text,bigint,text,text,text,text) FROM PUBLIC;
 
@@ -343,6 +399,7 @@ BEGIN
    persona_ref=j->>'persona_ref' AND clave_idempotencia_hmac=j->>'clave_idempotencia_hmac' FOR UPDATE;
   IF FOUND THEN
    IF r.carga_id IS DISTINCT FROM j->>'carga_id' OR r.recurso_ref IS DISTINCT FROM j->>'recurso_ref' OR
+    r.perfil_activo_ref IS DISTINCT FROM j->>'perfil_activo_ref' OR
     r.huella_solicitud_hmac IS DISTINCT FROM j->>'huella_solicitud_hmac' OR
     r.huella_pdf_sha256 IS DISTINCT FROM j->>'huella_pdf_sha256' OR
     r.tamano IS DISTINCT FROM (j->>'tamano')::bigint
@@ -385,6 +442,7 @@ BEGIN
   (fase='consulta_carga' AND j->>'documento_id' IS DISTINCT FROM '') OR
   (fase='consulta_documento' AND r.estado IS DISTINCT FROM 'admitido')
  THEN RAISE EXCEPTION 'D20: carga propia ausente' USING ERRCODE='42501'; END IF;
+ PERFORM vec_documentos.verificar_integridad_subida_local_v1(r.carga_id);
  IF fase IN ('consulta_carga','consulta_documento','abrir') THEN
   IF fase='abrir' AND (r.estado IS DISTINCT FROM 'admitido' OR r.admitido IS NULL OR
    r.analisis->>'Estado' IS DISTINCT FROM 'limpio')
