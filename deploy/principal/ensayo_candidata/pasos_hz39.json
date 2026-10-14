@@ -565,7 +565,7 @@
       }
     ],
     "resultado_esperado": "Petición pendiente_ratificacion v1 con centro y puesto RPT publicados, sin retención de crédito; recibo de presentación",
-    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "recuperacion": "Tras reinicio, comparar referencia, versión y estado de la bandeja con su lectura previa; cotejar recibo_ref, versión y registrado_en originales por SQL de solo lectura en la copia propia. No repetir POST.",
     "bloqueo_datos": "Requiere centro/categoría/puesto RPT publicados, contacto, plaza, datos presupuestarios y fechas del caso privado; el crédito se registra en el análisis de RRHH.",
     "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
     "esperar_recuperacion": {
@@ -635,7 +635,7 @@
       }
     ],
     "resultado_esperado": "Petición ratificada v2; recibo de ratificación",
-    "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
+    "recuperacion": "Tras reinicio, comparar referencia, versión y estado de la bandeja con su lectura previa; cotejar recibo_ref, versión y registrado_en originales por SQL de solo lectura en la copia propia. No repetir POST.",
     "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
     "esperar_recuperacion": {
       "selector": "[data-seleccionar=\"$peticion_ref\"]"

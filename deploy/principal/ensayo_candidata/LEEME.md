@@ -108,8 +108,19 @@ python3 deploy/principal/ensayo_candidata/recorrer.py \
   --base-url "$URL_COPIA" --ca "$CA_COPIA" --certificados "$CARPETA_P12" \
   --claves "$CLAVES_JSON_PRIVADAS" --datos "$DATOS_JSON_PRIVADOS" \
   --salida "$SALIDA_RECUPERACION_NUEVA" --modo recuperar \
-  --anterior "$RESULTADO_ORIGINAL_JSON" --reinicio-acreditado
+  --anterior "$RESULTADO_ORIGINAL_JSON" --reinicio-acreditado \
+  --centro-pre-reinicio "$BANDEJA_CENTRO_ANTES_REINICIO_JSON" \
+  --postgres-contenedor "$CONTENEDOR_POSTGRES_PROPIO" --postgres-puerto "$PUERTO_POSTGRES_PROPIO"
 ```
+
+Antes del reinicio, guardar en un JSON privado la respuesta real de la
+bandeja del centro, obtenida con su certificado. Después, los pasos 01–02
+exigen la misma referencia, versión y estado de esa bandeja y su fila visible.
+El recibo de cada acto se coteja por SQL de solo lectura en el contenedor
+propio: referencia, versión y fecha original deben coincidir tanto en las
+columnas como en el JSON guardado. Esta consulta está autorizada por dirección
+(14/10, 23:50) y no añade una ruta HTTP ni repite una operación. Sin la
+evidencia anterior o sin los dos recibos completos, el cotejo se detiene.
 
 La recuperación usa pantallas y lecturas de la proyección. Bloquea las peticiones
 con efecto antes de enviarlas; permite los POST de consulta declarados. Compara

@@ -187,5 +187,5 @@
 598 web/static/portal-empleado/peticiones-centro/peticiones-centro.test.mjs
 334 web/static/textos/en/peticiones-centro.json
 334 web/static/textos/es/peticiones-centro.json
-938 deploy/principal/ensayo_candidata/recorrer.py
+961 deploy/principal/ensayo_candidata/recorrer.py
 806 scripts/operacion/preparar_expediente_alta_b2/preparar.py

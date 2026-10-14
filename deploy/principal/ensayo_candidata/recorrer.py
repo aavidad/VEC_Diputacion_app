@@ -32,6 +32,7 @@ from recorridos.intervencion.recorrer import (
 )
 from revision_web.navegador import guardar_captura
 from transporte_https import TransporteHTTPS
+from recibos_centro_sql import preparar_recuperacion, cotejar_bandeja
 
 ACTORES = {
     "aspirante": "candidato.p12",
@@ -560,6 +561,18 @@ def ejecutar(
         "valores": dict(datos["valores"]),
     }
     previos = {p["id"]: p for p in (anterior or {}).get("pasos", [])}
+    centro_recuperado = None
+    if args.modo == "recuperar" and any(
+        p["id"] in {"01", "02"}
+        and (not args.pasos or p["id"] in args.pasos.split(",")) for p in pasos
+    ):
+        if not args.centro_pre_reinicio or not args.postgres_contenedor:
+            raise EntradaInvalida("evidencia_centro_y_copia_sql_requeridas")
+        centro_recuperado = preparar_recuperacion(
+            anterior, datos["valores"], leer_json(args.centro_pre_reinicio, privado=True),
+            contenedor=args.postgres_contenedor, puerto=args.postgres_puerto,
+        )
+        escribir(salida, "centro-recibos-sql.json", centro_recuperado)
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
             executable_path="/usr/bin/google-chrome", headless=not args.visible
@@ -785,6 +798,13 @@ def ejecutar(
                     if p["id"] in {"07b", "15"} and not e.firmas_completas(p["id"]):
                         raise PendienteExterno("firmas_no_completas")
                     if args.modo == "recuperar":
+                        if p["id"] in {"01", "02"}:
+                            registro["bandeja_recuperada"] = cotejar_bandeja(
+                                e.respuestas.get(("GET", "/api/vec/contratacion-temporal/peticiones-centro/bandeja")),
+                                centro_recuperado,
+                            )
+                            registro["recibos_sql"] = [centro_recuperado["recibos"][p["id"]]]
+                            registro["recibos"].extend(registro["recibos_sql"])
                         comprobar_recuperacion(p, anterior_paso, registro)
                     comprobar_documentos(
                         p, registro, anterior_paso if args.modo == "recuperar" else None
@@ -870,6 +890,9 @@ def main() -> int:
     )
     p.add_argument("--anterior", type=Path)
     p.add_argument("--reinicio-acreditado", action="store_true")
+    p.add_argument("--centro-pre-reinicio", type=Path)
+    p.add_argument("--postgres-contenedor")
+    p.add_argument("--postgres-puerto", type=int, default=55639)
     p.add_argument("--pasos")
     p.add_argument("--visible", action="store_true")
     p.add_argument("--video", action="store_true")
