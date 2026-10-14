@@ -112,7 +112,7 @@ La última lectura queda en «Comprobando» y agota el plazo al buscar el panel;
 no acredita consulta ni firma. H sigue corrigiendo el cotejo de cargo y rol
 que devuelve 422 al registrar. Las cinco firmas siguen pendientes.
 
-Dirección pidió el cierre ordenado el 14/10 a las 23:10. Se conserva la copia
+Dirección pidió el cierre ordenado. Se conserva la copia
 para retomar; esta pausa no deja la candidata lista para instalar.
 
 El plan nominal ya se ha publicado. Siguen pendientes la activación de firma,
