@@ -1,9 +1,11 @@
 """Guardas del guion: ninguna petición con efecto al recuperar, sin secretos."""
 
 import importlib.util
+import io
 import json
 import unittest
 import tempfile
+from contextlib import redirect_stdout
 from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
@@ -15,6 +17,58 @@ spec.loader.exec_module(runner)
 
 
 class GuionHZ39(unittest.TestCase):
+    def test_avance_admite_correccion_y_recuperacion_exige_commit_congelado(self):
+        with tempfile.TemporaryDirectory() as directorio:
+            raiz = Path(directorio)
+            claves, datos, anterior = [raiz / n for n in ("claves.json", "datos.json", "anterior.json")]
+            for ruta, valor in ((claves, {}), (datos, {"candidata": "a" * 40, "valores": {}})):
+                ruta.write_text(json.dumps(valor))
+                ruta.chmod(0o600)
+            for modo, previa, esperado in (
+                ("continuar", "b" * 40, 0),
+                ("recuperar", "b" * 40, 2),
+                ("recuperar", "a" * 40, 0),
+                ("continuar", "main", 2),
+            ):
+                anterior.write_text(json.dumps({"candidata": previa, "valores": {}, "pasos": []}))
+                anterior.chmod(0o600)
+                argumentos = ["recorrer.py", "--base-url", "https://127.0.0.1:9443",
+                              "--ca", str(raiz / "ca.crt"), "--certificados", str(raiz),
+                              "--claves", str(claves), "--datos", str(datos), "--salida", str(raiz / "salida"),
+                              "--modo", modo, "--anterior", str(anterior), "--reinicio-acreditado"]
+                with self.subTest(modo=modo, previa=previa), patch.object(runner.sys, "argv", argumentos), \
+                     patch.object(runner, "identidades", return_value={}), \
+                     patch.object(runner, "ejecutar", return_value={"completo": True}) as ejecutar, \
+                     redirect_stdout(io.StringIO()):
+                    self.assertEqual(runner.main(), esperado)
+                    self.assertEqual(ejecutar.called, esperado == 0)
+
+    def test_espera_renderizado_y_rechaza_botones_duplicados(self):
+        eventos = []
+
+        class Elemento:
+            cantidad = 0
+
+            def count(self):
+                return self.cantidad
+
+            def wait_for(self, *, state):
+                eventos.append(state)
+                self.cantidad = 1
+
+            def click(self):
+                eventos.append("click")
+
+        elemento = Elemento()
+        pagina = SimpleNamespace(locator=lambda _selector: elemento)
+        accion = {"tipo": "click", "selector": "[data-accion]"}
+        runner.accion(pagina, accion, {}, "https://127.0.0.1:9443")
+        self.assertEqual(eventos, ["attached", "click"])
+        elemento.cantidad = 2
+        with self.assertRaises(runner.EntradaInvalida):
+            runner.accion(pagina, accion, {}, "https://127.0.0.1:9443")
+        self.assertEqual(eventos, ["attached", "click"])
+
     def test_recuperacion_bloquea_un_acto_antes_de_enviarlo(self):
         class Request:
             method = "POST"

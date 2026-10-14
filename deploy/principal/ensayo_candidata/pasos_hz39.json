@@ -476,6 +476,31 @@
       },
       {
         "tipo": "fill",
+        "selector": "[name=\"plaza_codigo\"]",
+        "valor": "$plaza_codigo"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"organica_codigo\"]",
+        "valor": "$organica_codigo"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"funcional_codigo\"]",
+        "valor": "$funcional_codigo"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"proyecto_gasto_codigo\"]",
+        "valor": "$proyecto_gasto_codigo"
+      },
+      {
+        "tipo": "fill",
+        "selector": "[name=\"porcentaje_financiacion\"]",
+        "valor": "$porcentaje_financiacion"
+      },
+      {
+        "tipo": "fill",
         "selector": "[name=\"numero_personas\"]",
         "valor": "$numero_personas"
       },
@@ -502,26 +527,6 @@
       {
         "tipo": "check",
         "selector": "[name=\"rc_existe\"][value=\"$rc_existe\"]"
-      },
-      {
-        "tipo": "fill",
-        "selector": "[name=\"rc_numero\"]",
-        "valor": "$rc_numero"
-      },
-      {
-        "tipo": "fill",
-        "selector": "[name=\"rc_fecha\"]",
-        "valor": "$rc_fecha"
-      },
-      {
-        "tipo": "fill",
-        "selector": "[name=\"rc_importe\"]",
-        "valor": "$rc_importe"
-      },
-      {
-        "tipo": "select",
-        "selector": "[name=\"rc_documento_ref\"]",
-        "valor": "$rc_documento_ref"
       },
       {
         "tipo": "click",
@@ -559,9 +564,9 @@
         "sin_efecto": true
       }
     ],
-    "resultado_esperado": "Petición pendiente_ratificacion v1 con centro y puesto RPT publicados y crédito RC; recibo de presentación",
+    "resultado_esperado": "Petición pendiente_ratificacion v1 con centro y puesto RPT publicados, sin retención de crédito; recibo de presentación",
     "recuperacion": "Tras reinicio, consultar la proyección y comparar recibo, fecha, versión e historia con la evidencia guardada; no repetir POST de efecto.",
-    "bloqueo_datos": "Requiere centro/categoría/puesto RPT publicados, contacto, crédito RC y fechas del caso privado; no elegir la primera opción del catálogo.",
+    "bloqueo_datos": "Requiere centro/categoría/puesto RPT publicados, contacto, plaza, datos presupuestarios y fechas del caso privado; el crédito se registra en el análisis de RRHH.",
     "aceptacion": "Resultado visible más respuesta y recibo nominal; si falta uno, pendiente. Recuperar sin repetir efectos.",
     "esperar_recuperacion": {
       "selector": "[data-seleccionar=\"$peticion_ref\"]"

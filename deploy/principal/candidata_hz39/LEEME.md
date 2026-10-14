@@ -51,7 +51,7 @@ apartado 4.0.
 | Vía del aspirante | Mi Bolsa interna; inscripción RRHH opcional apagada por dirección |
 | Plan de firma y cinco firmas | Pendientes (H); el registro y el verificador siguen activados en la configuración |
 | Arranque | Composición en 3,443 segundos y salud HTTPS con certificado; firma y Mi Bolsa activas, inscripción RRHH apagada |
-| Recorrido completo y reinicio | En curso; paso 1 pendiente de documento de crédito y de completar los campos del guion |
+| Recorrido completo y reinicio | En curso; petición completa hasta Revisar/Confirmar en Chrome, sin presentar todavía |
 
 Lo que no se haya ensayado en la copia no se instala en cidonia.
 
@@ -63,12 +63,17 @@ la escucha se trasladaron a los puertos de la copia, accesibles solo desde
 loopback, y se preparó el directorio privado del almacén documental.
 
 Chrome del sistema abre la pantalla del centro sin errores de JavaScript ni
-de red, usando el transporte HTTPS existente del guion. La búsqueda espera
+de red. El transporte HTTPS conserva el certificado del actor, verifica la
+CA y transmite la respuesta real sin añadir la cabecera `Connection` que la
+frontera rechaza. La búsqueda espera
 el código RPT `9`; `9/01` es el código del puesto individual. El formulario
-también exige plaza y datos presupuestarios. El catálogo devuelve la lista
-de documentos vacía, por lo que todavía no permite elegir el documento de
-retención de crédito. Ninguna petición nueva se ha presentado.
+también exige plaza y datos presupuestarios, ya incluidos en el guion. El
+centro presenta sin retención de crédito y RRHH la recoge en el análisis,
+por decisión de dirección del 14/10. Ninguna petición nueva se ha presentado.
 
 La congelación del código, el plan nominal de firma, el tramo Personal/cese
 y la recuperación completa tras reiniciar siguen pendientes. El arranque y
 las lecturas iniciales no acreditan esos pasos.
+Durante la preparación se incorporan correcciones y se continúa. La prueba
+que cuenta se ejecuta una vez al final, sobre una copia restaurada limpia,
+con el commit congelado, el recorrido entero y el reinicio.

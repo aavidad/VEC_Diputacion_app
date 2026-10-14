@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 import argparse
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -16,6 +17,7 @@ from urllib.parse import urlsplit
 
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from recorridos.convoca_integrado import (
     registrar_http,
     registrar_fallo_red,
@@ -29,6 +31,7 @@ from recorridos.intervencion.recorrer import (
     responder_sin_redireccion,
 )
 from revision_web.navegador import guardar_captura
+from transporte_https import TransporteHTTPS
 
 ACTORES = {
     "aspirante": "candidato.p12",
@@ -202,6 +205,8 @@ def accion(
         for i in range(elemento.count()):
             elemento.nth(i).check()
         return
+    if elemento.count() == 0:
+        elemento.wait_for(state="attached")
     if elemento.count() != 1:
         raise EntradaInvalida("selector_no_unico")
     if tipo == "descargar":
@@ -408,7 +413,7 @@ class Ejecucion:
                         raise EntradaInvalida("referencia_respuesta_invalida")
                     self.datos["valores"][x["variable"]] = v
 
-    def filtrar(self, route, origen: str):
+    def filtrar(self, route, origen: str, transporte=None):
         req = route.request
         self.inicios[req] = time.monotonic()
         if (
@@ -456,7 +461,7 @@ class Ejecucion:
                 referencia["solicitud_sha256"] = None
             self.contador += 1
             escribir(self.salida, f"intencion-{self.contador:04}.json", referencia)
-        responder_sin_redireccion(route, origen)
+        (transporte or responder_sin_redireccion)(route, origen)
 
     def firmas_completas(self, paso: str) -> bool:
         cuerpo = self.respuestas.get(
@@ -546,6 +551,7 @@ def ejecutar(
             executable_path="/usr/bin/google-chrome", headless=not args.visible
         )
         contextos = {}
+        transportes = ExitStack()
         try:
             for p in pasos:
                 if p.get("opcional") and not args.pasos:
@@ -618,6 +624,14 @@ def ejecutar(
                         and not x.get("solo_lectura")
                     }
                     if actor not in contextos:
+                        transporte = transportes.enter_context(
+                            TransporteHTTPS(
+                                args.base_url,
+                                getattr(args, "ca", None) or os.environ.get("NODE_EXTRA_CA_CERTS"),
+                                ident[actor],
+                                salida,
+                            )
+                        )
                         opciones = {
                             "client_certificates": [ident[actor]],
                             "ignore_https_errors": False,
@@ -633,7 +647,7 @@ def ejecutar(
                             opciones["record_video_dir"] = str(video)
                         c = browser.new_context(**opciones)
                         c.route(
-                            "**/*", lambda route, o=args.base_url: e.filtrar(route, o)
+                            "**/*", lambda route, o=args.base_url, t=transporte.responder: e.filtrar(route, o, t)
                         )
                         c.on("response", lambda response, a=actor: e.red(response, a))
                         page = c.new_page()
@@ -799,9 +813,12 @@ def ejecutar(
                         flush=True,
                     )
         finally:
-            for c, _page in contextos.values():
-                c.close()
-            browser.close()
+            try:
+                for c, _page in contextos.values():
+                    c.close()
+                browser.close()
+            finally:
+                transportes.close()
     resultado["completo"] = recorrido_principal_completo(pasos, resultado["pasos"])
     escribir(salida, "resultado.json", resultado)
     return resultado
@@ -817,6 +834,7 @@ def main() -> int:
     os.umask(0o077)
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--base-url", required=True)
+    p.add_argument("--ca", type=Path)
     p.add_argument("--certificados", type=Path, required=True)
     p.add_argument("--claves", type=Path, required=True)
     p.add_argument("--datos", type=Path, required=True)
@@ -840,6 +858,8 @@ def main() -> int:
         a.base_url = url_local(a.base_url)
         if urlsplit(a.base_url).scheme != "https":
             raise EntradaInvalida("https_requerido")
+        if a.modo != "comprobar" and not (a.ca or os.environ.get("NODE_EXTRA_CA_CERTS")):
+            raise EntradaInvalida("ca_https_requerida")
         pasos = catalogo(a.catalogo)
         datos = leer_json(a.datos, privado=True)
         claves = leer_json(a.claves, privado=True)
@@ -859,7 +879,8 @@ def main() -> int:
         if a.modo == "recuperar" and not a.reinicio_acreditado:
             raise EntradaInvalida("reinicio_no_acreditado")
         if anterior:
-            if candidata(anterior) != candidata(datos):
+            misma_candidata = candidata(anterior) == candidata(datos)
+            if a.modo == "recuperar" and not misma_candidata:
                 raise EntradaInvalida("candidata_distinta")
             datos["valores"].update(anterior.get("valores", {}))
         if a.modo == "comprobar":

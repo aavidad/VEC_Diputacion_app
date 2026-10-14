@@ -23,6 +23,13 @@ TLS permanece activa. No hay respuesta simulada, cookie ni estado web guardado.
 
 - `--base-url`: origen HTTPS de loopback con puerto, sin credenciales ni ruta;
   si se usa un túnel, dirección fija antes qué instancia hay detrás.
+- `--ca`: certificado de la CA que verifica ese destino. También se admite
+  `NODE_EXTRA_CA_CERTS` cuando ya apunta a la misma CA de la copia. El transporte
+  usa el certificado del actor y conserva estado, cabeceras y bytes de la
+  respuesta real; no sigue redirecciones ni reintenta un POST. Reutiliza la
+  conexión HTTPS del ensayo de preparación de bases. Evita la cabecera
+  `Connection` que añade `route.fetch` y que la frontera de CT rechaza.
+  Los PEM temporales se crean privados y se eliminan al terminar.
 - `--certificados`: carpeta de P12, sólo lectura. Nombres del juego actual:
   `candidato.p12`, `centro-solicitante.p12`, `centro-ratificador.p12`,
   `cliente.p12`, `intervencion.p12`.
@@ -34,6 +41,9 @@ TLS permanece activa. No hay respuesta simulada, cookie ni estado web guardado.
   `extraer`. Los valores contienen el MOAD, categoría/puesto/centro publicados,
   fechas, RC, motivo, bolsa, datos de mérito, archivos aportados y opciones B2
   de ese caso. K proporciona la selección y receta de los datos existentes.
+  La petición usa el código RPT `9`, plaza `2026/0033`, clasificación orgánica
+  y funcional, proyecto de gasto y porcentaje de financiación. El centro
+  indica que no tiene retención de crédito; RRHH la registra en el análisis.
 - `extraer`: lista de `{metodo,ruta,campo,variable}`. Coteja la ruta observada y
   copia una referencia real del JSON de respuesta, por ejemplo
   `campo: data.expediente_ref` a `variable: expediente_ref`. Las referencias de
@@ -52,13 +62,13 @@ existentes en la copia; este guion no fabrica filas ni otra implementación.
 ```sh
 umask 077
 python3 deploy/principal/ensayo_candidata/recorrer.py \
-  --base-url "$URL_COPIA" --certificados "$CARPETA_P12" \
+  --base-url "$URL_COPIA" --ca "$CA_COPIA" --certificados "$CARPETA_P12" \
   --claves "$CLAVES_JSON_PRIVADAS" --datos "$DATOS_JSON_PRIVADOS" \
   --salida "$SALIDA_NUEVA" --modo comprobar
 
 # Sólo después de que dirección fije destino, candidata y material:
 python3 deploy/principal/ensayo_candidata/recorrer.py \
-  --base-url "$URL_COPIA" --certificados "$CARPETA_P12" \
+  --base-url "$URL_COPIA" --ca "$CA_COPIA" --certificados "$CARPETA_P12" \
   --claves "$CLAVES_JSON_PRIVADAS" --datos "$DATOS_JSON_PRIVADOS" \
   --salida "$SALIDA_NUEVA" --modo ejecutar --visible --video
 ```
@@ -81,6 +91,11 @@ considera una firma completada porque se abra el panel o el operador lo afirme.
 `continuar` conserva los pasos que ya terminaron. Un acto previo iniciado pero
 sin paso cerrado se bloquea: primero se recupera el resultado original, nunca
 se pulsa otra vez con una clave nueva para superar una respuesta perdida.
+Durante la preparación se pueden incorporar correcciones y continuar con un
+commit distinto. Ese avance no acredita la candidata final. La prueba de
+aceptación se ejecuta una vez al final: commit congelado, copia restaurada
+limpia, recorrido entero y reinicio. La recuperación de esa prueba exige el
+mismo commit y conserva los recibos originales.
 
 ## Reinicio y recuperación
 
@@ -90,7 +105,7 @@ los mismos datos; el origen debe seguir apuntando a la copia acordada.
 
 ```sh
 python3 deploy/principal/ensayo_candidata/recorrer.py \
-  --base-url "$URL_COPIA" --certificados "$CARPETA_P12" \
+  --base-url "$URL_COPIA" --ca "$CA_COPIA" --certificados "$CARPETA_P12" \
   --claves "$CLAVES_JSON_PRIVADAS" --datos "$DATOS_JSON_PRIVADOS" \
   --salida "$SALIDA_RECUPERACION_NUEVA" --modo recuperar \
   --anterior "$RESULTADO_ORIGINAL_JSON" --reinicio-acreditado
