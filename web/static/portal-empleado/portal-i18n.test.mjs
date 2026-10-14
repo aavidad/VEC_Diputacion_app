@@ -948,6 +948,22 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js", "modulos/contratacion-temporal/vista-expedientes-borrador.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
   ]) versionesEspeciales.set(ruta, "20261013-ct-firma-tres-v3");
+  // La ficha B2 renueva esta cadena concreta; las demás hojas CT mantienen
+  // la URL publicada del circuito de firma.
+  for (const ruta of [
+    "portal.js", "portal-modulos-coordinador.js", "categorias-rpt/montaje.js", "categorias-rpt/cliente.js",
+    "modulos/bolsa/carga-convoca/arranque.js",
+    "modulos/contratacion-temporal/cliente-http.js", "modulos/contratacion-temporal/cliente-http-ficha-ginpix.js",
+    "modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http-transporte.js",
+    "modulos/contratacion-temporal/circuito-firma.js", "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js", "modulos/contratacion-temporal/contrato-ficha-ginpix.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js", "modulos/contratacion-temporal/formulario-cobertura.js",
+    "modulos/contratacion-temporal/vista-expedientes.js", "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+  ]) versionesEspeciales.set(ruta, "20261014-ginpix-personal-b2-v1");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
