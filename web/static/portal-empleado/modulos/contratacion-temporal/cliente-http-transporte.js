@@ -5,7 +5,7 @@ import { RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridi
 import { conflictoLlamamientoValido, prefijoErrorLlamamiento } from "./cliente-http-llamamiento.js";
 import { RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
-import { RUTA_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js";
+import { RUTA_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
 import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
 import { RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";

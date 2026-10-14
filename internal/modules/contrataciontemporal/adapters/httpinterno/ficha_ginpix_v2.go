@@ -63,7 +63,7 @@ func NuevoManejadorFichaGINPIXV2(a AutoridadFichaGINPIXV2, p PreparadorFichaGINP
 			return
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Header().Set("Content-Disposition", "attachment; filename=ficha-ginpix-ejercicio.json")
+		w.Header().Set("Content-Disposition", "attachment; filename=ficha-ginpix-personal.json")
 		w.Header().Set("Content-Length", stringEnteroFichaGINPIXV2(len(contenido)))
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(contenido)

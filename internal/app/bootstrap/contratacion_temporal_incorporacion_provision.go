@@ -185,11 +185,12 @@ func configurarSesionesNominalesIncorporacion(ctx context.Context, p *perfilesNo
 type claveContextosNominalesIncorporacion struct{}
 type capturaContextosNominalesIncorporacion struct {
 	capturaPerfilesNominalesCT
-	propietario    *perfilesNominalesIncorporacion
-	asignacionesB2 map[*perfilFijoCTDesarrollo]instantaneaPublicadaDesarrollo
-	muPersonasB2   chan struct{}
-	personasB2     map[clavePersonaBolsaB2]lecturaPersonaBolsaB2
-	preparacionB2  *preparacionIncorporacionB2
+	propietario       *perfilesNominalesIncorporacion
+	asignacionesB2    map[*perfilFijoCTDesarrollo]instantaneaPublicadaDesarrollo
+	muPersonasB2      chan struct{}
+	personasB2        map[clavePersonaBolsaB2]lecturaPersonaBolsaB2
+	personasNativasB2 map[clavePersonaNativaB2]lecturaPersonaNativaB2
+	preparacionB2     *preparacionIncorporacionB2
 }
 
 func (p *perfilesNominalesIncorporacion) resolver(ctx context.Context, perfil *perfilFijoCTDesarrollo) (ct.ContextoAutorizacionAltaV3, error) {

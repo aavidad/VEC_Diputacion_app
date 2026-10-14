@@ -2,7 +2,7 @@
 
 import { validarReciboAlta } from "./contrato.js?v=20261013-ct-firma-tres-v3";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261011-ct-bolsa-vinculo-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261014-ginpix-personal-b2-v1";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261013-ct-firma-tres-v3";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261013-ct-firma-tres-v3";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261013-ct-firma-tres-v3";
@@ -20,10 +20,10 @@ import {
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes-render.js?v=20261013-ct-firma-tres-v3";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261013-ct-firma-tres-v3";
-import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261013-ct-firma-tres-v3";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261014-ginpix-personal-b2-v1";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261014-firma-pdf-v1";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261013-ct-firma-tres-v3";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261013-ct-firma-tres-v3";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261014-ginpix-personal-b2-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261014-ginpix-personal-b2-v1";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261011-ct-bolsa-vinculo-v1";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261013-ct-firma-tres-v3";

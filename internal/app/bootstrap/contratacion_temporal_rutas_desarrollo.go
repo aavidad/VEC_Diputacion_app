@@ -89,7 +89,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		httpinterno.RutaReasignaciones:                          {nominalCT(http.MethodPost, "contratacion_temporal_asignacion_desarrollo.go:nuevasDependenciasAsignacionContratacionTemporalDesarrollo")},
 		httpinterno.RutaResultadosFiscalizacion:                 {nominalCT(http.MethodPost, "contratacion_temporal_fiscalizacion_desarrollo.go:soporteFiscalizacionContratacionTemporalDesarrollo")},
 		httpinterno.RutaIncorporacionEjercicioV2:                {nominalCT(http.MethodGet, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo"), nominalCT(http.MethodPost, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo")},
-		httpinterno.RutaFichaGINPIXV2:                           {nominalCT(http.MethodGet, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo")},
+		httpinterno.RutaFichaGINPIXV2:                           {nominalCT(http.MethodGet, "composicion_incorporacion_personal_b2.go:ligarContextoIncorporacionPersonalB2")},
 		httpinterno.RutaConsultaSeguimientoV2:                   {nominalCT(http.MethodGet, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo")},
 		httpinterno.RutaAnotacionesAdministrativas:              {nominalCT(http.MethodPost, continuidad)},
 		httpinterno.RutaRecuperacionAnotacionesAdministrativas:  {nominalCT(http.MethodGet, continuidad)},

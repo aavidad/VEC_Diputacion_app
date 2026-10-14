@@ -1,4 +1,4 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20261012-ct-personal-ficha-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20261014-cronos-activacion-v1";
 import { FILTRO_INCIDENCIA_CT, filtroServidorCTValido, leerFiltroCTDeRuta,
   limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261011-bolsa-b103-privacidad-v1";
 import { leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
@@ -1816,7 +1816,7 @@ function prepararBolsaBase() {
     import("./portal-panel-interno.js?v=20261013-alegaciones-v2"),
     import("./portal-bolsas-api.js?v=20261013-bolsa-ranking-n4"),
     import("./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4"),
-    import("./modulos/contratacion-temporal/cliente-http.js?v=20261013-ct-firma-tres-v3"),
+    import("./modulos/contratacion-temporal/cliente-http.js?v=20261014-ginpix-personal-b2-v1"),
   ]).then(([panel, bolsas, rutas, ct]) => {
     if (!vistaNecesitaBolsa()) {
       promesaBolsaBase = null;
