@@ -24,7 +24,9 @@ certificado, la persona y la candidatura de Antonio; verifica que su cuenta y
 su perfil externos sean distintos de los internos. Coteja el certificado y el
 sujeto de Carmen con el perfil técnico fijo de Alta, y prepara
 `identidad/consultas-rrhh.json` y `identidad/inscripcion-bolsa-rrhh.json` con
-sus seis conexiones nominales. Las conexiones del proceso web usan
+sus seis conexiones nominales. Elena se añade después con otra persona,
+certificado, cuenta, perfil y asignación en el material propio de Inscripción.
+Las conexiones del proceso web usan
 `localhost:5432`, TLS `verify-full` y `/vec-pg-ca.crt`. Si un destino ya existe,
 el preparador lo comprueba y no reemplaza material divergente.
 
@@ -133,13 +135,39 @@ que el estado sigue siendo el mismo. El segundo script actúa solo sobre el
 candidato. No se exportan sus publicaciones sintéticas a cidonia: allí se
 tramitan por Administración.
 
-La consulta y decisión RRHH de Carmen en esta copia siguen pendientes de una
-provisión compatible con el perfil fijo de Alta. Ese perfil tiene una
-plantilla cerrada de Contratación temporal: ampliar directamente su rol
-impide que el proceso lo consuma. La ampliación exploratoria se retiró del
-guion; no se atribuye al circuito fijo un acto que no ha publicado. El
-ensayo debe restaurar la copia previa a ese intento para recuperar la lectura
-CT de Carmen antes de repetir el guion candidato.
+Para e3–e5, `activar_tecnica_bolsa_copia.py` prepara a Elena Ruiz Martín,
+técnica ficticia de Bolsa. Genera un certificado cliente con la CA privada de
+esta copia en `material/mtls/elena-bolsa/cliente.{crt,key}` y su identidad en
+`material/identidad/elena-bolsa.json`. Registra su cuenta y contexto, y publica
+una asignación propia con las seis acciones de inscripción RRHH, la consulta
+de alegaciones y la lectura de méritos. Reutiliza las concesiones de Bolsa
+publicadas y la fuente `deploy/principal/fuentes/meritos_revision_rrhh_v1.json`,
+derivada del contrato nominal de lectura RUM6/AD255. Añade a Elena en los
+campos `cuentas` y `lectores` de
+`material/identidad/inscripcion-bolsa-rrhh.json`. El manifiesto
+`material/identidad/consultas-rrhh.json` queda reservado a Carmen y a sus
+rutas de Contratación temporal. Estos datos son solo del
+ensayo. La fuente de Méritos necesita su trámite de Administración antes de
+instalarse fuera de la copia.
+
+```sh
+python3 deploy/principal/candidata_hz39/aspirante/activar_tecnica_bolsa_copia.py --ensayo "$ENSAYO" --pg "$PG_COPIA" --aplicar
+python3 deploy/principal/candidata_hz39/aspirante/activar_tecnica_bolsa_copia.py --ensayo "$ENSAYO" --pg "$PG_COPIA"
+```
+
+El script solo acepta el contenedor y la carpeta privada del ensayo O. Puede
+repetirse después de una publicación completa; rechaza identidad, manifiestos
+o filas divergentes. Cambia ficheros que la aplicación lee al arrancar,
+por lo que dirección debe reiniciarla de forma vigilada y comprobar las rutas
+RRHH de Bolsa y CT con sus certificados respectivos. La ejecución se comprobó en la copia y la sesión de Elena devuelve 200;
+el recorrido RRHH sigue pendiente y su consulta de inscripción devuelve 403.
+
+Si la copia conserva el primer material de Elena, trasladar únicamente su
+entrada de `consultas-rrhh.json` al campo `lectores` de
+`inscripcion-bolsa-rrhh.json`, donde su cuenta ya está registrada. Carmen
+permanece como lectora de CT y su cuenta sigue en Inscripción. Repetir el guion sin
+`--aplicar` para cotejar la publicación y reiniciar con vigilancia. Ese ajuste
+de material privado no modifica cuentas, perfiles ni actos de la base.
 
 Quedan estos actos de Administración antes de declarar completo el caso:
 
@@ -149,16 +177,16 @@ Quedan estos actos de Administración antes de declarar completo el caso:
    (`bolsa.alegacion.propias.consultar`,
    `bolsa.inscripcion.alegacion.presentar`) con las fuentes publicadas y dos
    ADMIN distintos. La copia usa datos sintéticos, que no son esos actos.
-2. Tramitar `bolsa.inscripcion.alegacion.rrhh.consultar` en el rol RRHH B103.
-   Para Carmen, resolver además el perfil técnico fijo de Alta por una vía
-   que conserve su plantilla CT; no se amplía a mano ese perfil.
+2. Tramitar para Elena un perfil separado con las seis acciones de inscripción
+   RRHH, `bolsa.inscripcion.alegacion.rrhh.consultar` y
+   `meritos.hecho.revision_rrhh.consultar`. Carmen conserva su perfil CT.
 3. Publicar la fuente `meritos_cartera_propia_v2.json` y tramitar en la misma
    cuenta y perfil M4 de Antonio las dos acciones nuevas de comprobante:
    `meritos.cartera.comprobante.subir_propio` y
    `meritos.cartera.comprobante.descargar_propio`. El catálogo V2 solo se
-   consume después de instalar AD270, AUT95, D20 y RUM7 y ensayar el peer.
+   consume después de instalar AD273, AUT95, D20 y RUM7 y ensayar el peer.
 
-La subida local de comprobantes se prepara solo tras instalar AD270 y DOC20
+La subida local de comprobantes se prepara solo tras instalar AD273 y DOC20
 en el ensayo completo. Reutiliza la cuenta y el perfil de Méritos, con dos
 LOGIN documentales exclusivos, la custodia privada local y el analizador
 real. El archivo privado de montaje se escribe en
@@ -182,7 +210,7 @@ python3 deploy/principal/candidata_hz39/aspirante/preparar_subida_documental_cop
 Con los actos anteriores acreditados, arrancar el binario de la candidata con
 el script privado, comprobar `/livez` y `/readyz` y recorrer e1–e5 en Chrome.
 Antonio debe recuperar la misma solicitud y los mismos recibos al repetir su
-operación; RRHH debe ver esa solicitud con Carmen y dejar auditada la consulta
+operación; RRHH debe ver esa solicitud con Elena y dejar auditada la consulta
 de méritos. Reiniciar aplicación y PostgreSQL y repetir las lecturas sin crear
 otra solicitud ni otro mérito. Ensayar también el arranque con inscripción y
 cartera sin configurar: el fallo debe quedar limitado a esas funciones.
@@ -196,7 +224,9 @@ inscripción no coincide con la cabeza de esta copia; el recorrido usa la
 relación vigente y no inventa un acta ni una admisión.
 
 ## Relevo congelado del ensayo
-Mi Bolsa sigue sin lectura funcional; el diagnóstico privado de sesión queda a cargo de dirección.
-El perfil fijo CT de Carmen quedó no consumible en la copia tras una ampliación sintética; restaurar su preestado sin atribuirle actos no publicados.
-La decisión vigente exige otro perfil de Bolsa para Carmen, conservando intacto el de CT; el guion de Alegaciones solo actúa sobre el candidato.
-La dependencia documental se está consolidando en AD273; comprobar la lista SQL final antes de activar LOGIN, configuración o subida.
+
+Dirección pausó O por cuota. El estado comprobado y los bloqueos están en
+`RELEVO_20261014.md`. Cartera y Mi Bolsa siguen devolviendo 503; no hay
+aceptación e1–e5 ni subida de PDF acreditada. Carmen conserva su perfil CT y
+Elena tiene otro de Bolsa. La dependencia central pertenece a AD273 de C.
+Los guiones de copia no constituyen autorización de instalación.
