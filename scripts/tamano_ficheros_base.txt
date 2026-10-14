@@ -187,6 +187,5 @@
 598 web/static/portal-empleado/peticiones-centro/peticiones-centro.test.mjs
 334 web/static/textos/en/peticiones-centro.json
 334 web/static/textos/es/peticiones-centro.json
-3629 deploy/postgresql/autorizacion_atestada_v3/migraciones/000271_liquidacion_economica_dietas.up.sql
 1150 deploy/postgresql/dietas_borradores/migraciones/000013_liquidacion_economica.up.sql
-980 deploy/postgresql/dietas_borradores/migraciones/000017_tarifa_publicada_comision.up.sql
+982 deploy/postgresql/dietas_borradores/migraciones/000017_tarifa_publicada_comision.up.sql

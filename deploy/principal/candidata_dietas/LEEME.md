@@ -54,6 +54,32 @@ y recuperación de bandejas. Las conexiones y el material existentes mantienen
 sus comprobaciones; el aislamiento no los convierte en opcionales para usar
 Dietas.
 
+## Activación del corte económico
+
+El corte económico añade un fichero privado opcional
+`identidad/dietas-liquidacion.json`, regular y con permisos `0600`:
+
+```json
+{"version":1,"habilitada":true}
+```
+
+Este fichero activa la función; las tarifas se seleccionan del catálogo
+publicado por la versión, grupo, vehículo y fecha de la comisión. No admite
+un catálogo alternativo ni importes en la configuración. Si falta o tiene
+`habilitada:false`, la función permanece cerrada. Un formato incorrecto cierra
+Dietas y conserva el arranque común; el ensayo final debe comprobar esos casos.
+
+Antes de activarlo, instalar las autoridades comunes de
+[autoridades.md](autoridades.md), Dietas13 y Dietas17, y cargar una vez
+[publicar_tarifas_2026.sql](publicar_tarifas_2026.sql). El orden completo sigue
+pendiente de la migración consolidada de C y del contrato documental de O;
+no se presenta esta lista como instalable mientras falten esas piezas.
+
+El catálogo nacional contiene los tres grupos y las modalidades con o sin
+vehículo propio. Alojamiento, extranjero y otros gastos siguen pendientes de
+sus reglas y consumidores; no se aplica la tarifa nacional como sustitución.
+Los valores y sus fuentes están en los datos versionados, no en el programa.
+
 ## Recorrido y comprobaciones
 
 El resultado observado está en [recorrido.md](recorrido.md). El recorrido
