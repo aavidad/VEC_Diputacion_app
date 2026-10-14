@@ -16,6 +16,109 @@ type autoridadPeticionCentroPrueba struct {
 	config domain.ConfiguracionPeticionCentro
 }
 
+type autoridadPuestoPeticionCentroPrueba struct {
+	*autoridadPeticionCentroPrueba
+	cotejos int
+}
+
+func (a *autoridadPuestoPeticionCentroPrueba) ValidarPuestoRPTPeticionCentro(_ context.Context,
+	_ domain.ActorPeticionCentro, _ domain.SolicitudCentro, puesto ports.PuestoRPTAltaVerificado,
+) error {
+	a.cotejos++
+	if puesto.PuestoCodigo != "3388" || !puesto.ExisteEnPublicacion {
+		return domain.ErrPeticionCentroInvalida
+	}
+	return nil
+}
+
+func TestPeticionCentroV3SellaRatificaYRepiteSinNuevaPublicacion(t *testing.T) {
+	_, autoridadBase, repo, solicitud, ahora := servicioPeticionCentroPrueba(t)
+	escenario, fuente := escenarioNecesidadRegistroPrueba(t)
+	registro, _ := construirServicioRegistro(t, escenario)
+	if err := registro.ConfigurarFuenteNecesidadesAlta(fuente); err != nil {
+		t.Fatal(err)
+	}
+	verificador := &verificadorPuestoRPTPrueba{existe: true}
+	if err := registro.ConfigurarVerificadorPuestoRPTAlta(verificador); err != nil {
+		t.Fatal(err)
+	}
+	autoridad := &autoridadPuestoPeticionCentroPrueba{autoridadPeticionCentroPrueba: autoridadBase}
+	servicio, err := NuevoServicioPeticionCentro(autoridad, repo, relojPeticionCentroPrueba{ahora})
+	if err != nil || servicio.ConfigurarPreparadorNecesidad(registro) != nil {
+		t.Fatal("preparador de alta existente no compuesto", err)
+	}
+	solicitud.MotivoClave = "vacante"
+	solicitud.Periodo = escenario.solicitud.NecesidadEntrada.Periodo
+	entrada := *escenario.solicitud.NecesidadEntrada
+	entrada.Campos = make(map[string]string, len(escenario.solicitud.NecesidadEntrada.Campos))
+	for clave, valor := range escenario.solicitud.NecesidadEntrada.Campos {
+		entrada.Campos[clave] = valor
+	}
+	entrada.Campos["numero_personas"] = "1"
+	comando := ports.ComandoPeticionCentro{Operacion: ports.OperacionPresentarPeticionCentro,
+		ClaveIdempotencia: "12345678-1234-4234-8234-123456789abc",
+		EsquemaAlta:       ports.EsquemaAltaNecesidadV1, NecesidadEntrada: &entrada, Solicitud: solicitud}
+	primero, err := servicio.Ejecutar(t.Context(), comando)
+	if err != nil || repo.confirmadas != 1 || repo.ultimo.Peticion.Solicitud.Necesidad == nil ||
+		repo.ultimo.Peticion.Solicitud.Necesidad.ValidarInstantanea() != nil ||
+		fuente.resoluciones != 1 || verificador.llamadas != 1 || autoridad.cotejos != 1 {
+		t.Fatalf("presentación v3: recibo=%+v error=%v fuente=%d rpt=%d cotejos=%d", primero, err,
+			fuente.resoluciones, verificador.llamadas, autoridad.cotejos)
+	}
+	necesidadOriginal, _ := repo.ultimo.Peticion.Solicitud.Necesidad.Clonar()
+	fuente.catalogo = domain.CatalogoNecesidadesAlta{} // Publicación posterior retirada.
+	repetido, err := servicio.Ejecutar(t.Context(), comando)
+	if err != nil || repetido.ReciboRef != primero.ReciboRef || fuente.resoluciones != 1 ||
+		verificador.llamadas != 1 || autoridad.cotejos != 1 ||
+		!reflect.DeepEqual(repo.ultimo.Peticion.Solicitud.Necesidad, &necesidadOriginal) {
+		t.Fatalf("replay modificó publicación original: recibo=%+v error=%v", repetido, err)
+	}
+	cruzado, err := comando.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cruzado.NecesidadEntrada.Campos["puesto_codigo"] = "otro"
+	if _, err := servicio.Ejecutar(t.Context(), cruzado); !errors.Is(err, ports.ErrClavePeticionCentroUsada) {
+		t.Fatalf("misma clave con puesto alterado: %v", err)
+	}
+	autoridadBase.actor = autoridadBase.config.Ratificador
+	ratificar := ports.ComandoPeticionCentro{Operacion: ports.OperacionRatificarPeticionCentro,
+		ClaveIdempotencia: "87654321-4321-4321-8321-cba987654321", PeticionRef: primero.PeticionRef,
+		VersionEsperada: 1, Motivo: "Revisada por segunda identidad"}
+	if _, err := servicio.Ejecutar(t.Context(), ratificar); err != nil ||
+		repo.ultimo.Peticion.Estado != "ratificada" ||
+		!reflect.DeepEqual(repo.ultimo.Peticion.Solicitud.Necesidad, &necesidadOriginal) ||
+		fuente.resoluciones != 1 {
+		t.Fatalf("ratificación alteró necesidad publicada: %v", err)
+	}
+}
+
+func TestPeticionCentroFuenteV3ExigeEsquemaSoloAlCrearYConservaReplayV2(t *testing.T) {
+	servicio, _, repo, solicitud, _ := servicioPeticionCentroPrueba(t)
+	legado := ports.ComandoPeticionCentro{Operacion: ports.OperacionPresentarPeticionCentro,
+		ClaveIdempotencia: "12345678-1234-4234-8234-123456789abc", Solicitud: solicitud}
+	primero, err := servicio.Ejecutar(t.Context(), legado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	escenario, fuente := escenarioNecesidadRegistroPrueba(t)
+	registro, _ := construirServicioRegistro(t, escenario)
+	if err := registro.ConfigurarFuenteNecesidadesAlta(fuente); err != nil ||
+		servicio.ConfigurarPreparadorNecesidad(registro) != nil {
+		t.Fatal("fuente v3 no configurada", err)
+	}
+	repetido, err := servicio.Ejecutar(t.Context(), legado)
+	if err != nil || repetido.ReciboRef != primero.ReciboRef || fuente.resoluciones != 0 || repo.confirmadas != 2 {
+		t.Fatalf("replay legado alterado: recibo=%+v err=%v", repetido, err)
+	}
+	nuevo := legado
+	nuevo.ClaveIdempotencia = "87654321-4321-4321-8321-cba987654321"
+	if _, err := servicio.Ejecutar(t.Context(), nuevo); !errors.Is(err, domain.ErrPeticionCentroInvalida) ||
+		repo.confirmadas != 2 || fuente.resoluciones != 0 {
+		t.Fatalf("nueva petición v2 atravesó fuente v3: %v", err)
+	}
+}
+
 func (a *autoridadPeticionCentroPrueba) ActorPeticionCentro(context.Context) (domain.ActorPeticionCentro, error) {
 	return a.actor, nil
 }

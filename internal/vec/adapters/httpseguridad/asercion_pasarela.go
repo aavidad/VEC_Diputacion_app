@@ -25,11 +25,21 @@ const (
 	CabeceraAsercionPasarela = "X-VEC-Asercion-Pasarela"
 	versionAsercionPasarela  = "vec-pasarela-v1"
 	limiteCuerpoPasarela     = 1 << 20
+	// LimiteCuerpoRegistroFirmaVecPasarela coincide con el maximo del JSON
+	// de registro-vec: PDF de 1 MiB en base64 y 64 KiB para los otros campos.
+	LimiteCuerpoRegistroFirmaVecPasarela = ((1<<20 + 2) / 3 * 4) + (64 << 10)
+	rutaRegistroFirmaVecPasarela         = "/api/vec/contratacion-temporal/firmas-documento/registro-vec"
 )
 
 var ErrAsercionPasarela = errors.New("asercion de pasarela no valida")
 
 type claveContextoPeticionPasarela struct{}
+
+type claveContextoRegistroFirmaVecPreparada struct{}
+
+type vinculoRegistroFirmaVecPreparada struct {
+	peticion VinculoPeticionPasarela
+}
 
 // VinculoPeticionPasarela representa los bytes que vera el servidor despues
 // del proxy. La huella corresponde al cuerpo transferido al caso de uso.
@@ -42,7 +52,7 @@ type VinculoPeticionPasarela struct {
 // NuevoVinculoPeticionPasarela se usa en la pasarela sobre la peticion que
 // reenviara. No acepta rutas normalizadas que puedan cambiar en el destino.
 func NuevoVinculoPeticionPasarela(metodo, ruta string, cuerpo []byte) (VinculoPeticionPasarela, error) {
-	if !metodoPasarelaValido(metodo) || !rutaPasarelaValida(ruta) || len(cuerpo) > limiteCuerpoPasarela {
+	if !metodoPasarelaValido(metodo) || !rutaPasarelaValida(ruta) || int64(len(cuerpo)) > limiteCuerpoPasarelaPara(metodo, ruta) {
 		return VinculoPeticionPasarela{}, ErrAsercionPasarela
 	}
 	huella := sha256.Sum256(cuerpo)
@@ -51,16 +61,16 @@ func NuevoVinculoPeticionPasarela(metodo, ruta string, cuerpo []byte) (VinculoPe
 
 // PrepararPeticionAsercionPasarela fija una copia privada del vinculo en el
 // contexto. Consume y repone el cuerpo una sola vez, antes de autenticar y de
-// ejecutar la ruta. El limite nunca puede superar 1 MiB, aunque la ruta
-// admita cuerpos mayores: ese caso permanece cerrado para esta pasarela.
+// ejecutar la ruta. El limite solo puede superar 1 MiB para POST registro-vec
+// exacto, hasta el maximo fijo de ese contrato.
 func PrepararPeticionAsercionPasarela(r *http.Request, limiteCuerpo int64) (*http.Request, error) {
-	if r == nil || r.Context().Err() != nil || r.URL == nil || limiteCuerpo < 0 || limiteCuerpo > limiteCuerpoPasarela ||
+	if r == nil || r.Context().Err() != nil || r.URL == nil || limiteCuerpo < 0 ||
 		!metodoPasarelaValido(r.Method) || r.URL.IsAbs() || r.URL.Opaque != "" || r.URL.User != nil ||
 		r.URL.Fragment != "" || (r.RequestURI != "" && r.RequestURI != r.URL.RequestURI()) {
 		return nil, ErrAsercionPasarela
 	}
 	ruta := r.URL.RequestURI()
-	if !rutaPasarelaValida(ruta) {
+	if !rutaPasarelaValida(ruta) || limiteCuerpo > limiteCuerpoPasarelaParaPeticion(r, ruta) {
 		return nil, ErrAsercionPasarela
 	}
 	var cuerpo []byte
@@ -82,13 +92,35 @@ func PrepararPeticionAsercionPasarela(r *http.Request, limiteCuerpo int64) (*htt
 		clear(cuerpo)
 		return nil, err
 	}
-	preparada := r.Clone(context.WithValue(r.Context(), claveContextoPeticionPasarela{}, vinculo))
+	ctx := context.WithValue(r.Context(), claveContextoPeticionPasarela{}, vinculo)
+	if limiteCuerpoPasarelaParaPeticion(r, ruta) == LimiteCuerpoRegistroFirmaVecPasarela {
+		ctx = context.WithValue(ctx, claveContextoRegistroFirmaVecPreparada{}, &vinculoRegistroFirmaVecPreparada{peticion: vinculo})
+	}
+	preparada := r.Clone(ctx)
 	if len(cuerpo) == 0 {
 		preparada.Body = http.NoBody
 	} else {
 		preparada.Body = io.NopCloser(bytes.NewReader(cuerpo))
 	}
 	return preparada, nil
+}
+
+func limiteCuerpoPasarelaPara(metodo, ruta string) int64 {
+	if metodo == http.MethodPost && ruta == rutaRegistroFirmaVecPasarela {
+		return LimiteCuerpoRegistroFirmaVecPasarela
+	}
+	return limiteCuerpoPasarela
+}
+
+func limiteCuerpoPasarelaParaPeticion(r *http.Request, ruta string) int64 {
+	if r.Method == http.MethodPost && ruta == rutaRegistroFirmaVecPasarela &&
+		r.URL.Path == rutaRegistroFirmaVecPasarela && r.URL.RawPath == "" && r.URL.RawQuery == "" &&
+		!r.URL.ForceQuery && r.URL.Scheme == "" && r.URL.Host == "" && r.URL.User == nil &&
+		r.URL.Opaque == "" && r.URL.Fragment == "" && r.URL.RawFragment == "" &&
+		r.URL.EscapedPath() == r.URL.Path {
+		return LimiteCuerpoRegistroFirmaVecPasarela
+	}
+	return limiteCuerpoPasarela
 }
 
 func metodoPasarelaValido(valor string) bool {
@@ -282,6 +314,23 @@ func NuevoEmisorAsercionPasarela(c ConfiguracionSuperficie, claveID string, firm
 func clavePublicaEd25519(clave crypto.PublicKey) ed25519.PublicKey {
 	valor, _ := clave.(ed25519.PublicKey)
 	return valor
+}
+
+// EmitirRegistroFirmaVecPreparada usa exclusivamente el vinculo privado que
+// PrepararPeticionAsercionPasarela fijo al leer el cuerpo. No vuelve a leerlo
+// ni acepta un vinculo construido por el consumidor de este metodo.
+func (e *EmisorAsercionPasarela) EmitirRegistroFirmaVecPreparada(
+	ctx context.Context, identidad AsercionProxyIdentidad,
+) ([]byte, error) {
+	if interfazNulaPasarela(ctx) || ctx.Err() != nil {
+		return nil, ErrAsercionPasarela
+	}
+	preparada, ok := ctx.Value(claveContextoRegistroFirmaVecPreparada{}).(*vinculoRegistroFirmaVecPreparada)
+	if !ok || preparada == nil || preparada.peticion.Metodo != http.MethodPost ||
+		preparada.peticion.Ruta != rutaRegistroFirmaVecPasarela {
+		return nil, ErrAsercionPasarela
+	}
+	return e.Emitir(ctx, identidad, preparada.peticion)
 }
 
 // Emitir crea un ID aleatorio por peticion. El ID se consume en el registro

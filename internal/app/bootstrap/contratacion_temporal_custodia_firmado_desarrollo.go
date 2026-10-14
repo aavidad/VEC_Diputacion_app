@@ -234,6 +234,9 @@ type solicitudCustodiaCTDesarrollo struct {
 // solicitarCustodiaV3 obtiene y registra en el PDP de CT una decisión para
 // documentos.firmado.custodiar con la identidad de la petición de firma.
 func (f *firmaDocumentoCTDesarrollo) solicitarCustodiaV3(ctx context.Context, recurso dominiovec.RecursoAutorizable) (solicitudCustodiaCTDesarrollo, error) {
+	if ctx != nil && ctx.Value(clavePeticionNominalFirmaCT{}) != nil {
+		return f.solicitarCustodiaNominalV3(ctx, recurso)
+	}
 	var vacia solicitudCustodiaCTDesarrollo
 	if ctx == nil || f == nil || f.alta == nil || f.alta.soporte == nil || f.alta.autorizador == nil {
 		return vacia, errCustodiaFirmadoCTDenegada

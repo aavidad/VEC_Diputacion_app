@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,6 +43,32 @@ func TestFirmaExternaV2InstantaneaConcedeLoQueExigeElNucleo(t *testing.T) {
 	a := i.AsignacionPerfil.Ambitos
 	if len(a) != 1 || a[0].Clave != "organizacion_ref" || !slices.Equal(a[0].Valores, []string{organizacionAltaContratacionTemporalDesarrollo}) {
 		t.Fatalf("ámbitos distintos de sólo organización: %+v", a)
+	}
+}
+
+func TestFirmaV2MotivosConsultaRRHHCompartenCatalogoSinCruzarEntradas(t *testing.T) {
+	cuadro := dominiovec.ReferenciaEntradaCatalogo{
+		CatalogoID: "motivos_consulta_rrhh", CatalogoVersion: 2,
+		CatalogoHuellaSHA256: strings.Repeat("a", 64), EntradaClave: "motivo_" + strings.Repeat("b", 32),
+	}
+	detalle := cuadro
+	detalle.EntradaClave = "motivo_" + strings.Repeat("c", 32)
+	ajena := cuadro
+	ajena.EntradaClave = "motivo_" + strings.Repeat("d", 32)
+	otraVersion := detalle
+	otraVersion.CatalogoVersion++
+	for _, caso := range []struct {
+		referencia dominiovec.ReferenciaEntradaCatalogo
+		esperada   claseMotivoConsultaRRHHFirmaR5CT
+	}{
+		{cuadro, motivoCuadroFirmaR5CT},
+		{detalle, motivoDetalleFirmaR5CT},
+		{ajena, motivoAjenoFirmaR5CT},
+		{otraVersion, motivoAjenoFirmaR5CT},
+	} {
+		if got := clasificarMotivoConsultaRRHHFirmaR5CT(caso.referencia, cuadro, detalle); got != caso.esperada {
+			t.Fatalf("entrada de motivo mal encaminada: clase=%d, esperada=%d", got, caso.esperada)
+		}
 	}
 }
 

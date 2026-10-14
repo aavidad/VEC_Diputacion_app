@@ -1,0 +1,8 @@
+{
+    "aprobacion_ref": "operacion:datos-ficticios:plantillas-informe-v4:20261013",
+    "clave_operacion": "f2397959-61e5-4e62-bb7e-00e1a7638112",
+    "huella_anterior_sha256": "ac1c917bfade9610b5141e7a1f15e01e7911bcb520e2a586fccce6564d73ecef",
+    "huella_destino_sha256": "641da52a95cab684f7b2bfbdb90bbd75d37c5134d26d95318b1384fae1baea98",
+    "version_anterior": 3,
+    "version_destino": 4
+}

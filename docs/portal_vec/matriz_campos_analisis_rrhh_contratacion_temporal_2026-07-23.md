@@ -10,7 +10,7 @@ Fuentes funcionales:
 
 - documento de RRHH «Pantalla de procedimiento de gestión de contratación y
   gestión de bolsas»;
-- [especificación normalizada](expediente_contratacion_temporal_rrhh.md);
+- [especificación normalizada](../producto/FLUJO_APP.md);
 - [matriz normativa del módulo](matriz_normativa_contratacion_temporal_2026-07-23.md).
 
 ## Análisis de RRHH

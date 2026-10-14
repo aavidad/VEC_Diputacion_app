@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -39,10 +38,11 @@ type ResumenPreparacionPortalExterno struct {
 // personal para las que se registran alias del espacio externo: el fichero de
 // seudónimos lo produce el proceso externo y no es de confianza por sí solo.
 type OpcionesPreparacionPortalExterno struct {
-	Destino            string
-	Consumidores       []string
-	Seudonimos         []byte
-	CuentasAutorizadas []string
+	Destino                string
+	Consumidores           []string
+	Seudonimos             []byte
+	CuentasAutorizadas     []string
+	PublicadorConfianzaDSN string
 }
 
 func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opciones OpcionesPreparacionPortalExterno) (ResumenPreparacionPortalExterno, error) {
@@ -74,6 +74,24 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 	if err := exigirIdempotenciaPropiaPortalExterno(cfg.DevelopmentMaterialDir, destino); err != nil {
 		return resumen, err
 	}
+	// Una preparación posterior conserva los consumidores ya solicitados. Si
+	// el gobierno avanza, sus coordenadas también deben actualizarse en disco.
+	// Un inventario presente pero ilegible no se omite en silencio.
+	incluir := map[string]bool{}
+	for _, consumidor := range consumidores {
+		incluir[consumidor] = true
+	}
+	if _, err := os.Lstat(filepath.Join(destino, filepath.FromSlash(inventarioMaterialV3PortalExterno))); err == nil {
+		previo, err := leerInventarioV3PortalExterno(destino)
+		if err != nil {
+			return resumen, err
+		}
+		for consumidor := range previo.Consumidores {
+			incluir[consumidor] = true
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return resumen, ErrPreparacionPortalExternoInvalida
+	}
 	var aliasPedidos seudonimosPortalExterno
 	if len(seudonimos) != 0 {
 		aliasPedidos, err = seudonimosAutorizadosPortalExterno(cfg, seudonimos, opciones.CuentasAutorizadas)
@@ -81,8 +99,10 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 			return resumen, err
 		}
 	}
-	raiz := cfg.DevelopmentMaterialDir
-	idempotencia, err := cargarMaterialIdempotenciaDesarrollo(raiz, filepath.Join(raiz, config.DevelopmentIdempotencyHMACConfigRelativePath))
+	// La raíz y todas las capacidades salen exclusivamente de la idempotencia
+	// propia del destino. La derivación conserva temporalmente el prefijo CT
+	// que exige el helper compartido; los identificadores finales son externos.
+	idempotencia, err := cargarMaterialIdempotenciaDesarrollo(destino, filepath.Join(destino, config.DevelopmentIdempotencyHMACConfigRelativePath))
 	if err != nil {
 		return resumen, err
 	}
@@ -97,18 +117,38 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 		return resumen, err
 	}
 	defer base.borrarCopiasEfimeras()
-	_, dsnGobierno, err := cfg.ContratacionTemporalPostgreSQL.DSNSeparados()
-	if err != nil {
-		return resumen, err
-	}
 	ctxConexion, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(2*time.Minute))
 	defer cancelar()
-	gobierno, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctxConexion, dsnGobierno,
-		"vec-preparar-portal-externo", rolGobiernoPostgreSQLContratacionTemporalDesarrollo)
+	// Alias de las cuentas del Área personal, calculados por el propio
+	// proceso externo con su clave (ExportarSeudonimosPortalExterno).
+	if len(aliasPedidos.Cuentas) != 0 {
+		_, dsnGobierno, err := cfg.ContratacionTemporalPostgreSQL.DSNSeparados()
+		if err != nil {
+			return resumen, err
+		}
+		gobierno, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctxConexion, dsnGobierno,
+			"vec-preparar-alias-portal-externo", rolGobiernoPostgreSQLContratacionTemporalDesarrollo)
+		if err != nil {
+			return resumen, err
+		}
+		defer gobierno.Close()
+		if portal == separacionportales.PortalInterno {
+			// ID7 conserva los alias en su población propia. La herramienta de
+			// preparación coteja una provisión ya aprobada, nunca da de alta.
+			err = comprobarSeudonimosProvisionadosPortalExterno(ctxConexion, gobierno, aliasPedidos)
+		} else {
+			err = registrarSeudonimosPortalExterno(ctxConexion, gobierno, aliasPedidos)
+		}
+		if err != nil {
+			return resumen, err
+		}
+		resumen.Alias = len(aliasPedidos.Cuentas)
+	}
+	publicador, err := abrirPoolPublicadorConfianzaExterna(ctxConexion, opciones.PublicadorConfianzaDSN)
 	if err != nil {
 		return resumen, err
 	}
-	defer gobierno.Close()
+	defer publicador.Close()
 	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterialPortalExternoV3())
 	if err != nil {
 		return resumen, err
@@ -119,10 +159,15 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 			borrarMaterialesV3PortalExterno(lista)
 		}
 	}()
-	for _, consumidor := range consumidoresPortalExternoV3 {
-		if !slices.Contains(consumidores, consumidor) {
-			continue
+	// La fachada publica el conjunto completo en una sola transacción; el
+	// inventario se limita a los consumidores que pidió el operador.
+	completos := map[string][]materialAtestacionContratacionTemporalDesarrollo{}
+	defer func() {
+		for _, lista := range completos {
+			borrarMaterialesV3PortalExterno(lista)
 		}
+	}()
+	for _, consumidor := range consumidoresPortalExternoV3 {
 		for _, audiencia := range audienciasConsumidorPortalExternoV3(consumidor) {
 			descriptor, ok := catalogo.descriptorPara(audiencia)
 			if !ok {
@@ -136,31 +181,21 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 			// que borrar cada material no deje a los demás sin ella.
 			derivado.privada = append(derivado.privada[:0:0], base.privada...)
 			derivado.spki = append([]byte(nil), base.spki...)
-			if err := publicarGobiernoAtestacionContratacionTemporalDesarrollo(ctxConexion, gobierno, &derivado); err != nil {
-				derivado.borrarCopiasEfimeras()
-				return resumen, err
-			}
-			publicados[consumidor] = append(publicados[consumidor], derivado)
-			resumen.Claves++
+			completos[consumidor] = append(completos[consumidor], derivado)
 		}
-		resumen.Consumidores = append(resumen.Consumidores, consumidor)
 	}
-	// Alias de las cuentas del Área personal, calculados por el propio
-	// proceso externo con su clave (ExportarSeudonimosPortalExterno).
-	if len(aliasPedidos.Cuentas) != 0 {
-		var err error
-		if portal == separacionportales.PortalInterno {
-			// ID7 conserva los alias en su población propia. La herramienta de
-			// preparación coteja una provisión ya aprobada, nunca da de alta.
-			err = comprobarSeudonimosProvisionadosPortalExterno(ctxConexion, gobierno, aliasPedidos)
-		} else {
-			err = registrarSeudonimosPortalExterno(ctxConexion, gobierno, aliasPedidos)
-		}
-		if err != nil {
-			return resumen, err
-		}
-		resumen.Alias = len(aliasPedidos.Cuentas)
+	if err := publicarConfianzaExternaV3(ctxConexion, publicador, completos, time.Now()); err != nil {
+		return resumen, err
 	}
+	for _, consumidor := range consumidoresPortalExternoV3 {
+		if incluir[consumidor] {
+			publicados[consumidor] = completos[consumidor]
+			delete(completos, consumidor)
+			resumen.Claves += len(publicados[consumidor])
+			resumen.Consumidores = append(resumen.Consumidores, consumidor)
+		}
+	}
+
 	if err := escribirMaterialV3PortalExterno(destino, publicados); err != nil {
 		return resumen, err
 	}

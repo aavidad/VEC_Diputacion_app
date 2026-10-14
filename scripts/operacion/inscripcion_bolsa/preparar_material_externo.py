@@ -153,7 +153,13 @@ def perfil_externo_valido(perfil, interno):
     return isinstance(perfil, str) and re.fullmatch(r"prf_[A-Za-z0-9_-]{22,128}", perfil) is not None and perfil != interno
 
 
-def verificar(interno, externo, perfil_externo):
+# ContextoActor segrega las cuentas: la externa es propia y distinta de la
+# interna; persona, candidatura, sujeto y certificado son los mismos.
+def cuenta_externa_valida(cuenta, interna):
+    return isinstance(cuenta, str) and re.fullmatch(r"cta_[A-Za-z0-9_-]{22,128}", cuenta) is not None and cuenta != interna
+
+
+def verificar(interno, externo, perfil_externo, cuenta_externa):
     directorio_privado(interno)
     directorio_privado(externo)
     if json_privado(externo / "portal-proceso.json") != {"version": 1, "portal": "externo"}:
@@ -163,10 +169,12 @@ def verificar(interno, externo, perfil_externo):
             rechazar()
     identidad_interna, candidato_interno = validar_identidad(interno)
     identidad_externa, candidato_externo = validar_identidad(externo, True)
-    if not perfil_externo_valido(perfil_externo, candidato_interno["perfil_ref"]):
+    if not perfil_externo_valido(perfil_externo, candidato_interno["perfil_ref"]) or \
+            not cuenta_externa_valida(cuenta_externa, candidato_interno["cuenta_ref"]):
         rechazar()
     esperado = dict(candidato_interno)
     esperado["perfil_ref"] = perfil_externo
+    esperado["cuenta_ref"] = cuenta_externa
     if identidad_interna != identidad_externa or candidato_externo != esperado:
         rechazar()
     ca = externo / "ca/ca.crt"
@@ -216,18 +224,19 @@ def verificar(interno, externo, perfil_externo):
         fichero_privado(ruta)
 
 
-def preparar(interno, externo, perfil_externo):
+def preparar(interno, externo, perfil_externo, cuenta_externa):
     directorio_privado(interno)
     directorio_privado(externo.parent)
     _, candidato_interno = validar_identidad(interno)
-    if not perfil_externo_valido(perfil_externo, candidato_interno["perfil_ref"]):
+    if not perfil_externo_valido(perfil_externo, candidato_interno["perfil_ref"]) or \
+            not cuenta_externa_valida(cuenta_externa, candidato_interno["cuenta_ref"]):
         rechazar()
     grupos = generaciones(interno)
     for relativa in COPIAS:
         fichero_privado(interno / relativa)
     fichero_privado(interno / "ca/ca.key")
     if externo.exists():
-        verificar(interno, externo, perfil_externo)
+        verificar(interno, externo, perfil_externo, cuenta_externa)
         return
     with tempfile.TemporaryDirectory(prefix=".portal-externo-", dir=externo.parent) as temporal:
         trabajo = Path(temporal)
@@ -236,6 +245,7 @@ def preparar(interno, externo, perfil_externo):
             escribir(trabajo, relativa, fichero_privado(interno / relativa))
         candidato_externo = dict(candidato_interno)
         candidato_externo["perfil_ref"] = perfil_externo
+        candidato_externo["cuenta_ref"] = cuenta_externa
         escribir(trabajo, "identidad/bolsa-candidato.json",
                 (json.dumps(candidato_externo, sort_keys=True, separators=(",", ":")) + "\n").encode())
         escribir(trabajo, "portal-proceso.json", b'{"version":1,"portal":"externo"}\n')
@@ -266,14 +276,14 @@ def preparar(interno, externo, perfil_externo):
                       "huella_servidor_sha256": huella_der(cert),
                       "huella_cliente_sha256": huella_der(trabajo / "mtls/candidato.crt")}
         escribir(trabajo, "manifiesto.json", (json.dumps(manifiesto, sort_keys=True, separators=(",", ":")) + "\n").encode())
-        verificar(interno, trabajo, perfil_externo)
+        verificar(interno, trabajo, perfil_externo, cuenta_externa)
         externo.mkdir(mode=0o700)
         for ruta in trabajo.rglob("*"):
             if ruta.is_dir():
                 (externo / ruta.relative_to(trabajo)).mkdir(mode=0o700, parents=True, exist_ok=True)
             else:
                 escribir(externo, ruta.relative_to(trabajo), fichero_privado(ruta))
-        verificar(interno, externo, perfil_externo)
+        verificar(interno, externo, perfil_externo, cuenta_externa)
 
 
 def main():
@@ -281,6 +291,7 @@ def main():
     parser.add_argument("--material-interno", required=True)
     parser.add_argument("--material-externo", required=True)
     parser.add_argument("--perfil-externo-ref", required=True)
+    parser.add_argument("--cuenta-externa-ref", required=True)
     modo = parser.add_mutually_exclusive_group(required=True)
     modo.add_argument("--comprobar", action="store_true")
     modo.add_argument("--aplicar", action="store_true")
@@ -294,9 +305,9 @@ def main():
         if repo == interno or repo in interno.parents or repo == externo or repo in externo.parents:
             rechazar()
         if args.aplicar:
-            preparar(interno, externo, args.perfil_externo_ref)
+            preparar(interno, externo, args.perfil_externo_ref, args.cuenta_externa_ref)
         else:
-            verificar(interno, externo, args.perfil_externo_ref)
+            verificar(interno, externo, args.perfil_externo_ref, args.cuenta_externa_ref)
     except (MaterialInvalido, OSError, ValueError, KeyError, TypeError):
         print("material_externo_invalido", file=sys.stderr)
         return 1

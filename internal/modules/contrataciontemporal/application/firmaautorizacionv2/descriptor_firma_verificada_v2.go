@@ -10,7 +10,7 @@ import (
 
 func CanonicoDescriptorFirmaVerificadaV2(m ports.MaterialFirmaVerificadaV2, d ports.DescriptorConstructorFirmaV2) ([]byte, error) {
 	orden, paso := m.OrdenFirmaPDF, m.PasoOrden
-	if orden < 1 || orden > 2 || paso < 1 || paso > 2 {
+	if orden < 1 || orden > ports.MaximoPasosFirmasVerificadasV2 || paso < 1 || paso > ports.MaximoPasosFirmasVerificadasV2 {
 		return nil, ports.ErrCompetenciaFirmanteNoAcreditada
 	}
 	r, s := d.Recurso, d.Seleccion
@@ -26,7 +26,7 @@ func CanonicoDescriptorFirmaVerificadaV2(m ports.MaterialFirmaVerificadaV2, d po
 		d.PasoRef != m.PasoRef || d.PasoOrden != uint64(paso) || !domain.ReferenciaOpacaValida(d.Accion) || !domain.ReferenciaOpacaValida(d.Finalidad) || d.Motivo.Validar() != nil {
 		return nil, ports.ErrCompetenciaFirmanteNoAcreditada
 	}
-	if (m.OrdenFirmaPDF == 1 && r.EntradaRevision != nil) || (m.OrdenFirmaPDF == 2 && (r.EntradaRevision == nil ||
+	if (m.OrdenFirmaPDF == 1 && r.EntradaRevision != nil) || (m.OrdenFirmaPDF > 1 && (r.EntradaRevision == nil ||
 		r.EntradaRevision.Referencia != m.EntradaDocumentoRef || r.EntradaRevision.Version != m.EntradaDocumentoVersion || r.EntradaRevision.HuellaSHA256 != m.EntradaDocumentoHuella)) {
 		return nil, ports.ErrCompetenciaFirmanteNoAcreditada
 	}

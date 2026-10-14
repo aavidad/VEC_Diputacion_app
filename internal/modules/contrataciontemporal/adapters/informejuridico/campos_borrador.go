@@ -89,6 +89,18 @@ var camposBorrador = map[string]func(f *fuenteCampos) string{
 		}
 		return instanteDocumento(f.requerido.RealizadaEn)
 	},
+	"informe_actuacion": func(f *fuenteCampos) string {
+		if f.requerido == nil {
+			return ""
+		}
+		return strconv.FormatUint(f.requerido.Secuencia, 10)
+	},
+	"informe_fecha": func(f *fuenteCampos) string {
+		if f.requerido == nil {
+			return ""
+		}
+		return instanteDocumento(f.requerido.RealizadaEn)
+	},
 	"firmantes": func(f *fuenteCampos) string {
 		lineas := make([]string, 0, len(f.plantilla.Firmantes))
 		for _, firmante := range f.plantilla.Firmantes {

@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"reflect"
 	"sync"
@@ -192,7 +193,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) capturaOperacionNativa(ctx context.Co
 	estado.unaSesion.Do(func() {
 		actorCT, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
 		if err != nil || actorCT.Resultado.Validar() != nil || actorCT.Vinculo.ValidarPara(actorCT.Resultado) != nil {
-			estado.falloSesion = ports.ErrAutorizacionDenegada
+			estado.falloSesion = errors.Join(ports.ErrAutorizacionDenegada, err)
 			return
 		}
 		hijo, bolsa, err := p.operacionNativa.Contexto(ctx, nil)
@@ -206,7 +207,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) capturaOperacionNativa(ctx context.Co
 	if err != nil || estado.falloSesion != nil || !actual.Vinculo.CoincideExactamenteCon(estado.sesion.ct.Vinculo) ||
 		!reflect.DeepEqual(actual.Resultado, estado.sesion.ct.Resultado) ||
 		!actual.Vinculo.VigenteEn(p.reloj.Ahora(), actual.Resultado) || estado.sesion.ctx == nil {
-		return vacia, ports.ErrAutorizacionDenegada
+		return vacia, errors.Join(ports.ErrAutorizacionDenegada, err, estado.falloSesion)
 	}
 	return estado.sesion, nil
 }

@@ -1,0 +1,13 @@
+[Unit]
+Description=Comprobación periódica de la confianza externa de VEC
+
+[Timer]
+OnBootSec=30s
+OnCalendar=*-*-* *:00,15,30,45:00 UTC
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=true
+Unit=vec-confianza-externa.service
+
+[Install]
+WantedBy=timers.target

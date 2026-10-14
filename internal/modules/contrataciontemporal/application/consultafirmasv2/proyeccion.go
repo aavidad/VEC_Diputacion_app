@@ -36,7 +36,7 @@ func proyectar(m ports.MaterialConsultaFirmasR5V2, l ports.LecturaFirmasR5V2) (R
 		porRevision[r.FirmaRef] = r
 	}
 	for _, r := range l.RevisionesPDF {
-		if r.OrdenFirmaPDF == 2 && !antecedenteValido(r, porRevision) {
+		if r.OrdenFirmaPDF > 1 && !antecedenteValido(r, porRevision) {
 			return cero, ports.ErrResultadoFirmaDocumentoInvalido
 		}
 	}
@@ -81,7 +81,7 @@ func firmaValida(m ports.MaterialConsultaFirmasR5V2, f ports.FirmaRegistrada) bo
 		!domain.HuellaSHA256FirmaValida(f.FirmadoHuella)) {
 		return false
 	}
-	if f.Via != "" && (f.Resultado != domain.ResultadoFirmaFirmado || f.PasoOrden > 2 ||
+	if f.Via != "" && (f.Resultado != domain.ResultadoFirmaFirmado || f.PasoOrden > ports.MaximoPasosFirmasVerificadasV2 ||
 		!domain.ReferenciaOpacaValida(f.OriginalRef) || f.OriginalVersion < 1 || f.OriginalVersion > 9007199254740991 ||
 		!domain.HuellaSHA256FirmaValida(f.OriginalHuella) || !domain.HuellaSHA256FirmaValida(f.FirmadoHuella)) {
 		return false
@@ -97,7 +97,7 @@ func revisionValida(f ports.FirmaRegistrada, r ports.FirmaRegistradaRevisionPDFV
 		r.DocumentoCustodiaRef != f.DocumentoCustodiaRef || r.DocumentoCustodiaVersion != f.DocumentoCustodiaVersion ||
 		r.FirmadoHuella != f.FirmadoHuella || r.Via != f.Via || f.Via == "" ||
 		f.Resultado != domain.ResultadoFirmaFirmado || f.DocumentoCustodiaRef == "" ||
-		r.OrdenFirmaPDF != f.PasoOrden || r.OrdenFirmaPDF < 1 || r.OrdenFirmaPDF > 2 ||
+		r.OrdenFirmaPDF != f.PasoOrden || r.OrdenFirmaPDF < 1 || r.OrdenFirmaPDF > ports.MaximoPasosFirmasVerificadasV2 ||
 		!domain.ReferenciaOpacaValida(r.EntradaDocumentoRef) || r.EntradaDocumentoVersion < 1 || r.EntradaDocumentoVersion > 9007199254740991 ||
 		!domain.HuellaSHA256FirmaValida(r.EntradaDocumentoHuella) || r.EntradaDocumentoLongitud < 1 ||
 		r.EntradaDocumentoLongitud >= r.RevisionLongitud || r.RevisionLongitud > ports.MaximoDocumentoFirmaBytes ||
@@ -121,9 +121,25 @@ func revisionValida(f ports.FirmaRegistrada, r ports.FirmaRegistradaRevisionPDFV
 
 func antecedenteValido(r ports.FirmaRegistradaRevisionPDFV2, revisiones map[string]ports.FirmaRegistradaRevisionPDFV2) bool {
 	previa, ok := revisiones[r.FirmaAnteriorRef]
-	return ok && previa.OrdenFirmaPDF == 1 && r.ReciboAnteriorRef == previa.ReciboRef && r.Secuencia == previa.Secuencia+1 &&
+	return ok && previa.OrdenFirmaPDF == r.OrdenFirmaPDF-1 && r.ReciboAnteriorRef == previa.ReciboRef && r.Secuencia == previa.Secuencia+1 &&
 		r.Documento == previa.Documento && r.CatalogoRef == previa.CatalogoRef && r.CatalogoHuella == previa.CatalogoHuella &&
 		r.OriginalRef == previa.OriginalRef && r.OriginalVersion == previa.OriginalVersion && r.OriginalHuella == previa.OriginalHuella &&
 		r.EntradaDocumentoRef == previa.DocumentoCustodiaRef && r.EntradaDocumentoVersion == previa.DocumentoCustodiaVersion &&
-		r.EntradaDocumentoHuella == previa.FirmadoHuella && r.EntradaDocumentoLongitud == previa.RevisionLongitud
+		r.EntradaDocumentoHuella == previa.FirmadoHuella && r.EntradaDocumentoLongitud == previa.RevisionLongitud &&
+		evidenciaRevisionExtiende(r.EvidenciaFirmasCanonica, previa.EvidenciaFirmasCanonica, r.OrdenFirmaPDF)
+}
+
+func evidenciaRevisionExtiende(actual, anterior []byte, orden int) bool {
+	var cadena, prefijo []json.RawMessage
+	if orden < 2 || orden > ports.MaximoPasosFirmasVerificadasV2 ||
+		json.Unmarshal(actual, &cadena) != nil || json.Unmarshal(anterior, &prefijo) != nil ||
+		len(cadena) != orden || len(prefijo) != orden-1 {
+		return false
+	}
+	for i := range prefijo {
+		if !bytes.Equal(cadena[i], prefijo[i]) {
+			return false
+		}
+	}
+	return true
 }

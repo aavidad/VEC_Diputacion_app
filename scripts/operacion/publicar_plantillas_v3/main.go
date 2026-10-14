@@ -42,7 +42,7 @@ type salida struct {
 }
 
 func main() {
-	ruta, comprobar, err := argumentos(os.Args[1:])
+	ruta, comprobar, operacion, err := argumentosOperacion(os.Args[1:])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
@@ -50,7 +50,7 @@ func main() {
 	inicio := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	r, err := ejecutar(ctx, ruta, comprobar)
+	r, err := ejecutarOperacion(ctx, ruta, comprobar, operacion)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -73,17 +73,21 @@ func argumentos(args []string) (string, bool, error) {
 }
 
 func cargar(ctx context.Context, ruta string) (vecdomain.CatalogoConfigurable, string, []byte, error) {
+	return cargarOperacion(ctx, ruta, operacionV3())
+}
+
+func cargarOperacion(ctx context.Context, ruta string, operacion operacionPlantillas) (vecdomain.CatalogoConfigurable, string, []byte, error) {
 	fuente, err := fichero.NuevaConsultaCatalogoProvisionable(ruta)
 	if err != nil {
 		return vecdomain.CatalogoConfigurable{}, "", nil, fmt.Errorf("catálogo: %w", err)
 	}
 	versiones, err := fuente.ListarVersionesCatalogo(ctx, informejuridico.CatalogoPlantillasBorradorID)
 	if err != nil || len(versiones) != 1 {
-		return vecdomain.CatalogoConfigurable{}, "", nil, errors.New("catálogo: se requiere únicamente v3 de #1065")
+		return vecdomain.CatalogoConfigurable{}, "", nil, errors.New("catálogo: se requiere una única versión de destino")
 	}
 	c, err := versiones[0].ClonarCanonico()
-	if err != nil || c.Version != 3 || c.Revision != 1 || c.Estado != vecdomain.EstadoCatalogoPublicado || informejuridico.ValidarCatalogoPlantillasBorrador(c) != nil || len(c.Entradas) != 11 {
-		return c, "", nil, errors.New("catálogo: versión/revisión/entradas incompatibles; esperado 3/1/11")
+	if err != nil || c.Version != operacion.Version || c.Revision != 1 || c.Estado != vecdomain.EstadoCatalogoPublicado || informejuridico.ValidarCatalogoPlantillasBorrador(c) != nil || len(c.Entradas) != 11 {
+		return c, "", nil, fmt.Errorf("catalogo.version_revision_entradas: esperado %d/1/11; obtenido %d/%d/%d", operacion.Version, c.Version, c.Revision, len(c.Entradas))
 	}
 	b, err := json.Marshal(c)
 	if err != nil {
@@ -95,14 +99,18 @@ func cargar(ctx context.Context, ruta string) (vecdomain.CatalogoConfigurable, s
 		}
 	}
 	h, err := c.HuellaSHA256()
-	if err == nil && h != huellaV3 {
-		return c, h, nil, fmt.Errorf("catálogo.huella: esperado %s (#1065); actual %s", huellaV3, h)
+	if err == nil && h != operacion.Huella {
+		return c, h, nil, fmt.Errorf("catalogo.huella: esperado %s; obtenido %s", operacion.Huella, h)
 	}
 	return c, h, b, err
 }
 
 func ejecutar(ctx context.Context, ruta string, comprobar bool) (salida, error) {
-	_, h, b, err := cargar(ctx, ruta)
+	return ejecutarOperacion(ctx, ruta, comprobar, operacionV3())
+}
+
+func ejecutarOperacion(ctx context.Context, ruta string, comprobar bool, operacion operacionPlantillas) (salida, error) {
+	_, h, b, err := cargarOperacion(ctx, ruta, operacion)
 	if err != nil {
 		return salida{}, err
 	}
@@ -154,10 +162,10 @@ func ejecutar(ctx context.Context, ruta string, comprobar bool) (salida, error) 
 	if err != nil {
 		return salida{}, err
 	}
-	r := salida{Version: 3, Revision: 1, Huella: h, Canal: "operacion_sql_datos_ficticios"}
-	if actual.Version == 3 {
-		if actual.Huella != h || actual.Clave != claveOperacion || actual.Decision != aprobacionOperacion {
-			return r, fmt.Errorf("publicación.v3: esperado %s/%s; actual %s/%s", h, claveOperacion, actual.Huella, actual.Clave)
+	r := salida{Version: operacion.Version, Revision: 1, Huella: h, Canal: "operacion_sql_datos_ficticios"}
+	if actual.Version == operacion.Version {
+		if actual.Huella != h || actual.Clave != operacion.Clave || actual.Decision != operacion.Aprobacion {
+			return r, fmt.Errorf("publicacion.destino: esperado %s/%s; obtenido %s/%s", h, operacion.Clave, actual.Huella, actual.Clave)
 		}
 		var integra bool
 		if err = tx.QueryRow(ctx, sqlReplayIntegro, actual.Secuencia).Scan(&integra); err != nil || !integra {
@@ -167,13 +175,13 @@ func ejecutar(ctx context.Context, ruta string, comprobar bool) (salida, error) 
 		r.Recibo = actual.Recibo
 		r.Auditoria = actual.Auditoria
 	} else {
-		if actual.Secuencia != base.Secuencia {
-			return r, fmt.Errorf("cabeza: esperado bootstrap secuencia %d; actual %d (v%d/%s); revise antes de publicar", base.Secuencia, actual.Secuencia, actual.Version, actual.Estado)
+		if actual.Version != operacion.VersionAnterior || actual.Huella != operacion.HuellaAnterior || actual.Estado != "publicado" {
+			return r, fmt.Errorf("cabeza.version_huella: esperado %d/%s; obtenido %d/%s", operacion.VersionAnterior, operacion.HuellaAnterior, actual.Version, actual.Huella)
 		}
 		r.Resultado = "preparado"
 		if !comprobar {
 			// No se cambia la historia. Los tres INSERT constituyen una única operación.
-			if err = tx.QueryRow(ctx, sqlPublicar, string(b), h, claveOperacion, aprobacionOperacion).Scan(&r.Recibo, &r.Auditoria); err != nil {
+			if err = tx.QueryRow(ctx, sqlPublicar, string(b), h, operacion.Clave, operacion.Aprobacion).Scan(&r.Recibo, &r.Auditoria); err != nil {
 				return r, errorBD("publicación", err)
 			}
 			r.Resultado = "registrado"

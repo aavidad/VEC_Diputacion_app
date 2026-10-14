@@ -82,6 +82,7 @@ func TestCoberturaRutasCTInventarioCompletoYOpcionales(t *testing.T) {
 		t.Fatalf("frontera real del original CT: %v", err)
 	}
 	descriptores = append(descriptores, fronteraOriginal)
+	descriptores = append(descriptores, fronterasFirmaVecR5CT(configuracionFirmasCT{configuracionSesionFirmanteV2: configuracionSesionFirmanteV2{Firmantes: []seleccionNominalFirmaCT{{PerfilRef: perfil, PerfilConsultaCTRef: "prf_cobertura_consulta_ct", PerfilDocumentosRef: "prf_cobertura_documentos"}}}})...)
 	descriptores = append(descriptores, descriptoresFronterasReincorporacionTitularDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasCTDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasDocumentalCTDesarrollo(perfil)...)

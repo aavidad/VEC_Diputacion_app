@@ -2,11 +2,49 @@ package ports
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
+
+func TestComandoPeticionCentroV3SeparaEntradaYClonaCampos(t *testing.T) {
+	solicitud := solicitudPeticionPuertoPrueba()
+	solicitud.MotivoClave, solicitud.JornadaMinutos = "vacante", 2250
+	solicitud.NumeroPersonas, solicitud.PuestoSolicitado = 1, "Puesto publicado"
+	necesidad := &domain.DatosNecesidadAlta{
+		Esquema: "vec.ct.necesidad_alta.v1", CatalogoRef: "catalogo:ct:necesidades",
+		CatalogoVersion: 3, CatalogoHuellaSHA256: strings.Repeat("a", 64),
+		CausaClave: solicitud.MotivoClave, Periodo: solicitud.Periodo, JornadaMinutos: 2250,
+		Campos: map[string]string{"puesto_codigo": "9", "rpt_catalogo_ref": "rpt:publicada"},
+	}
+	comando := ComandoPeticionCentro{Operacion: OperacionPresentarPeticionCentro,
+		ClaveIdempotencia: "12345678-1234-4234-8234-123456789abc",
+		EsquemaAlta:       EsquemaAltaNecesidadV1, NecesidadEntrada: necesidad, Solicitud: solicitud}
+	clon, err := comando.Clonar()
+	if err != nil || clon.NecesidadEntrada == nil || clon.EsquemaAlta != EsquemaAltaNecesidadV1 {
+		t.Fatalf("entrada v3 inválida: %v", err)
+	}
+	comando.NecesidadEntrada.Campos["puesto_codigo"] = "otro"
+	if clon.NecesidadEntrada.Campos["puesto_codigo"] != "9" {
+		t.Fatal("la entrada comparte campos mutables")
+	}
+	conInstantanea := clon
+	copia := *clon.NecesidadEntrada
+	copia.CatalogoInstantanea = []byte("cliente")
+	conInstantanea.NecesidadEntrada = &copia
+	if conInstantanea.Validar() == nil {
+		t.Fatal("el cliente aportó una instantánea de servidor")
+	}
+	cruzada := clon
+	copia = *clon.NecesidadEntrada
+	copia.CausaClave = "sustitucion"
+	cruzada.NecesidadEntrada = &copia
+	if cruzada.Validar() == nil {
+		t.Fatal("causa de necesidad distinta de la solicitud")
+	}
+}
 
 func TestContratoPeticionCentroClonaSolicitudYNoExponeActorEnComando(t *testing.T) {
 	comando := ComandoPeticionCentro{Operacion: OperacionPresentarPeticionCentro,

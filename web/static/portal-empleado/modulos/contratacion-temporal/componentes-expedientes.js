@@ -179,19 +179,20 @@ function renderizarBorradoresFormalizacion(t) {
   </section>`;
 }
 
-export function solicitudInformeDefinitivoDesdeEstado(estado) {
+export function solicitudInformeDefinitivoDesdeEstado(estado, documento = null) {
   const expediente = estado.expediente;
+ const previoFiscalizacion = documento === "informe_definitivo";
   const indiceActual = estado.vista !== "documentos" || (estado.documentos?.demostracion === false
     && estado.documentos.expediente_ref === expediente?.expediente_ref
     && estado.documentos.version === expediente?.version);
   if (!(["expediente", "documentos"].includes(estado.vista)) || !indiceActual || estado.carga !== "listo" || estado.ocupado
     || estado.actualizacion_pendiente || estado.resultado_indeterminado
-    || expediente?.demostracion !== false || !Number.isSafeInteger(expediente.version) || expediente.version < 7
-    || (expediente.version >= 8 && !versionPropuestaDocumentalValida(expediente))
+    || expediente?.demostracion !== false || !Number.isSafeInteger(expediente.version) || expediente.version < (previoFiscalizacion ? 5 : 7)
+    || (!previoFiscalizacion && expediente.version >= 8 && !versionPropuestaDocumentalValida(expediente))
     || estado.expediente_ref !== expediente.expediente_ref
     || estado.cuadro?.demostracion !== false) return null;
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref }) => expediente_ref === expediente.expediente_ref);
-  if (resumen?.version !== expediente.version || resumen.fase_clave !== "nombramiento"
+  if (resumen?.version !== expediente.version || (resumen.fase_clave !== "nombramiento" && !(previoFiscalizacion && resumen.fase_clave === "fiscalizacion"))
     || resumen.estado_clave !== "en_curso") return null;
   return Object.freeze({ expediente_ref: expediente.expediente_ref, version_observada: expediente.version });
 }

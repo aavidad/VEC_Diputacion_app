@@ -212,6 +212,11 @@ export const LIMITE_CONSULTA_SESION_MS = 8000;
 // muestra: no concede nada, cada consulta la autoriza el servidor.
 const PERFILES_VISIBLES = Object.freeze({
   tecnico_rrhh: "perfil_sesion_rrhh",
+  ct_cargo_tecnico_firma_dev: "perfil_sesion_rrhh",
+  ct_cargo_jefatura_firma_dev: "perfil_sesion_rrhh",
+  ct_cargo_diputacion_firma_dev: "perfil_sesion_rrhh",
+  ct_cargo_secretaria_firma_dev: "perfil_sesion_rrhh",
+
   jefatura_rrhh: "perfil_sesion_rrhh",
   administrativo: "perfil_sesion_rrhh",
   intervencion: "perfil_sesion_intervencion",

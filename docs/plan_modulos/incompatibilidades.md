@@ -1,6 +1,6 @@
 # Plan de Incompatibilidades — 4 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 VEC tramitará declaraciones y solicitudes de compatibilidad, informes, decisión,
 condiciones y revisiones. La persona declara los hechos y el órgano competente
@@ -31,9 +31,9 @@ La regla del art. 16 conserva el fundamento temporal señalado por la ficha.
 No se introduce una renovación anual universal ni se decide por una casilla.
 
 Aplican también [materias reservadas, §§9 y 12](../estudio_requisitos/materias_reservadas_economicas_y_relaciones_laborales.md),
-[arquitectura](../portal_vec/arquitectura_tecnica.md),
+[arquitectura](../producto/TRD.md),
 [contrato de módulos](../portal_vec/contrato_modulos_vec.md),
-[roles y ámbitos](../portal_vec/matriz_roles_y_ambitos.md) y
+[roles y ámbitos](../producto/FLUJO_APP.md) y
 [cumplimiento](../portal_vec/cumplimiento_y_seguridad.md).
 La configuración interna pendiente está en la duda 133 de [dudas.md](../../dudas.md).
 Este plan no la modifica ni vuelve a preguntar por normas ya publicadas.

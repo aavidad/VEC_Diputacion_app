@@ -11,6 +11,7 @@ import (
 	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -111,6 +112,8 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		rutaConfiguracionAnalisisContratacionTemporalDesarrollo: {nominalCT(http.MethodGet, "contratacion_temporal_analisis_desarrollo.go:manejadorConfiguracionAnalisisContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_analisis_desarrollo.go:manejadorConfiguracionAnalisisContratacionTemporalDesarrollo")},
 		rutaCircuitoFirmaContratacionTemporalDesarrollo:         {nominalCT(http.MethodGet, "contratacion_temporal_circuito_firma_desarrollo.go:manejadorCircuitoFirmaContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_circuito_firma_desarrollo.go:manejadorCircuitoFirmaContratacionTemporalDesarrollo")},
 		httpinterno.RutaDocumentacionFormalizacion:              {nominalCT(http.MethodGet, "contratacion_temporal_documentacion_formalizacion_desarrollo.go:nuevaRutaDocumentacionFormalizacionDesarrollo")},
+		httpinterno.RutaPreflightFirmaR5:                        {pdpCT(http.MethodPost)},
+		httpinterno.RutaRegistroFirmaVec:                        {pdpCT(http.MethodPost)},
 		httpinterno.RutaOriginalFirmableCT:                      {pdpCT(http.MethodPost)},
 		httpinterno.RutaFirmaDocumento:                          {pdpCT(http.MethodPost)},
 		httpinterno.RutaConsultaFirmaDocumento:                  {pdpCT(http.MethodPost)},
@@ -204,6 +207,16 @@ func validarMetodoRutaCTDesarrollo(ruta string, metodo metodoRutaCTDesarrollo, f
 		return nil
 	}
 	if resuelta {
+		// La consulta R5 legada tiene autoridad nominal propia. En el montaje
+		// VEC se conserva esa autoridad y se declara además su frontera exacta.
+		if ruta == httpinterno.RutaConsultaFirmasR5V2 && metodo.metodo == http.MethodPost &&
+			metodo.guardia == "contratacion_temporal_firmas_r5_v2_desarrollo.go:fuenteNominalFirmasR5V2CTDesarrollo" &&
+			frontera.Metodo == http.MethodPost && frontera.Ruta == ruta &&
+			frontera.Superficie == superficieInternaSeguridadComunDesarrollo &&
+			frontera.Clave == "ct-firma-vec-consultar" &&
+			frontera.ClaveCapacidad == ports.AccionConsultarFirmasR5V2 {
+			return nil
+		}
 		return fmt.Errorf("%w: frontera PDP no inventariada %s %q", ErrCoberturaRutasCTDesarrollo, metodo.metodo, ruta)
 	}
 	return nil
@@ -232,7 +245,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaConsultaComunicacionesExpediente ||
 		r.URL.Path == httpinterno.RutaConsultaCircuitoRRHH ||
 		r.URL.Path == httpinterno.RutaVinculosEmisionBolsa ||
-		rutaFirmasR5V2CTDesarrollo(r.URL.Path) ||
+		rutaFirmasR5V2CTDesarrollo(r.URL.Path) || rutaFirmaVecR5CT(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaOriginalFirmableCT ||
 		r.URL.Path == httpinterno.RutaEventoPlazoLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||

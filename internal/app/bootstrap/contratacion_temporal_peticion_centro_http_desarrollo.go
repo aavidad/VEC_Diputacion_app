@@ -27,6 +27,21 @@ type manejadorPeticionCentroDesarrollo struct {
 	catalogo  *catalogosAltaContratacionTemporalDesarrollo
 }
 
+type vinculoCategoriaRPTCentroJSON struct {
+	CategoriaRef      string `json:"categoria_ref"`
+	RPTCategoriaClave string `json:"rpt_categoria_clave"`
+}
+
+type vinculoCentroRPTCentroJSON struct {
+	CentroRef       string `json:"centro_ref"`
+	RPTCentroCodigo string `json:"rpt_centro_codigo"`
+}
+
+type vinculosRPTCentroJSON struct {
+	Categorias []vinculoCategoriaRPTCentroJSON `json:"categorias"`
+	Centros    []vinculoCentroRPTCentroJSON    `json:"centros"`
+}
+
 func rutasHTTPPeticionCentroDesarrollo(p *proveedorPeticionCentroDesarrollo, r *postgresct.RepositorioPeticionesCentroPostgreSQL, catalogos ...*catalogosAltaContratacionTemporalDesarrollo) ([]vechttp.RutaExacta, error) {
 	catalogo, err := catalogoAnalisisDesarrollo(catalogos...)
 	if err != nil {
@@ -35,6 +50,11 @@ func rutasHTTPPeticionCentroDesarrollo(p *proveedorPeticionCentroDesarrollo, r *
 	s, err := application.NuevoServicioPeticionCentro(p, r, p.reloj, catalogo)
 	if err != nil {
 		return nil, err
+	}
+	if p != nil && p.alta != nil && p.alta.servicio != nil {
+		if err := s.ConfigurarPreparadorNecesidad(p.alta.servicio); err != nil {
+			return nil, err
+		}
 	}
 	m := &manejadorPeticionCentroDesarrollo{proveedor: p, servicio: s, bandeja: r, catalogo: catalogo}
 	return []vechttp.RutaExacta{{Ruta: rutaOperacionesPeticionCentro, Manejador: m}, {Ruta: rutaBandejaPeticionCentro, Manejador: m}, {Ruta: rutaContextoPeticionCentro, Manejador: m}}, nil
@@ -106,7 +126,15 @@ func (m *manejadorPeticionCentroDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 	var comando ports.ComandoPeticionCentro
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
-	if d.Decode(&comando) != nil || d.Decode(&struct{}{}) != io.EOF || comando.Validar() != nil {
+	if d.Decode(&comando) != nil || d.Decode(&struct{}{}) != io.EOF ||
+		validarFormaNecesidadPeticionCentroHTTP(b) != nil {
+		fallo(400, "solicitud_invalida")
+		return
+	}
+	if comando.NecesidadEntrada != nil && comando.Solicitud != nil {
+		comando.NecesidadEntrada.Periodo = comando.Solicitud.Periodo
+	}
+	if comando.Validar() != nil {
 		fallo(400, "solicitud_invalida")
 		return
 	}
@@ -117,7 +145,7 @@ func (m *manejadorPeticionCentroDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 	recibo, err := m.servicio.Ejecutar(r.Context(), comando)
 	if err != nil {
 		switch {
-		case errors.Is(err, domain.ErrPeticionCentroInvalida):
+		case errors.Is(err, domain.ErrPeticionCentroInvalida), errors.Is(err, application.ErrSolicitudRegistroInvalida):
 			fallo(400, "solicitud_invalida")
 		case errors.Is(err, ports.ErrClavePeticionCentroUsada), errors.Is(err, domain.ErrVersionPeticionCentroEnConflicto):
 			fallo(409, "peticion_en_conflicto")
@@ -127,6 +155,28 @@ func (m *manejadorPeticionCentroDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 		return
 	}
 	responder(recibo)
+}
+
+func validarFormaNecesidadPeticionCentroHTTP(contenido []byte) error {
+	var sobre struct {
+		Necesidad json.RawMessage `json:"necesidad"`
+	}
+	if err := json.Unmarshal(contenido, &sobre); err != nil {
+		return err
+	}
+	if len(sobre.Necesidad) == 0 {
+		return nil // El caso de uso valida el sobre legado o el esquema v3.
+	}
+	var campos map[string]json.RawMessage
+	if json.Unmarshal(sobre.Necesidad, &campos) != nil || len(campos) != 7 {
+		return domain.ErrPeticionCentroInvalida
+	}
+	for _, clave := range []string{"esquema", "catalogo_ref", "catalogo_version", "catalogo_huella_sha256", "causa_clave", "jornada_minutos", "campos"} {
+		if _, ok := campos[clave]; !ok {
+			return domain.ErrPeticionCentroInvalida
+		}
+	}
+	return nil
 }
 
 // Las dependencias pueden envolver una denegación genérica. Se comprueba
@@ -176,12 +226,24 @@ func (m *manejadorPeticionCentroDesarrollo) contexto(r *http.Request, a *identid
 	if m.catalogo == nil {
 		return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
 	}
-	necesidades, err := catalogoNecesidadesAltaDesarrollo(m.catalogo.rutaNecesidades)
+	contextoCatalogos, err := datosCatalogosAltaV2Desde(*m.catalogo)
 	if err != nil {
 		return nil, err
 	}
 	catalogos := *m.catalogo
 	catalogos.Centros = []centroCatalogosAltaContratacionTemporalDesarrollo{{Referencia: a.actor.CentroRef, Etiqueta: etiquetas[a.actor.CentroRef], Contactos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{{Referencia: contactoAltaContratacionTemporalDesarrollo, Etiqueta: etiquetaContactoAltaContratacionTemporalDesarrollo}}}}
+	contextoCatalogos.Centros = catalogos.Centros
+	contextoCatalogos.NumeroExpedienteMOAD = nil
+	contextoCatalogos.PreparacionVias = nil
+	vinculos := vinculosRPTCentroJSON{Categorias: []vinculoCategoriaRPTCentroJSON{}, Centros: []vinculoCentroRPTCentroJSON{}}
+	for _, categoria := range m.catalogo.Categorias {
+		if categoria.rptClave != "" {
+			vinculos.Categorias = append(vinculos.Categorias, vinculoCategoriaRPTCentroJSON{categoria.Referencia, categoria.rptClave})
+		}
+	}
+	if codigo := m.catalogo.centrosCodigoFuente[a.actor.CentroRef]; codigo != "" {
+		vinculos.Centros = append(vinculos.Centros, vinculoCentroRPTCentroJSON{a.actor.CentroRef, codigo})
+	}
 	actor := map[string]any{"referencia": a.actor.ActorRef, "nombre": a.principal.DisplayName, "cargo": etiquetas[a.actor.PuestoRef], "centro": etiquetas[a.actor.CentroRef], "puede_presentar": a.principal.Roles[0] == "solicitante_centro", "puede_ratificar": a.principal.Roles[0] == "ratificador_centro"}
 	if rat, ok := m.proveedor.actores[a.adscripcion.RatificadorSubject]; ok && actorPeticionCentroPerteneceCatalogo(c, rat.actor) {
 		actor["ratificador_nombre"] = rat.principal.DisplayName
@@ -197,7 +259,7 @@ func (m *manejadorPeticionCentroDesarrollo) contexto(r *http.Request, a *identid
 			intervinientes[otro.actor.ActorRef] = map[string]string{"nombre": otro.principal.DisplayName, "cargo": etiquetas[otro.actor.PuestoRef], "puesto_ref": otro.actor.PuestoRef}
 		}
 	}
-	return map[string]any{"actor": actor, "intervinientes": intervinientes, "catalogos": catalogos,
-		"jornada_referencia_minutos": necesidades.JornadaReferenciaMinutos,
-		"entorno":                    "desarrollo_sintetico", "catalogo_revision": c.Revision}, nil
+	return map[string]any{"actor": actor, "intervinientes": intervinientes, "catalogos": contextoCatalogos,
+		"vinculos_rpt": vinculos, "jornada_referencia_minutos": contextoCatalogos.Necesidades.JornadaReferenciaMinutos,
+		"entorno": "desarrollo_sintetico", "catalogo_revision": c.Revision}, nil
 }

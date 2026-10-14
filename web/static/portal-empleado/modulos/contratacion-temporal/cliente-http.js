@@ -1,4 +1,4 @@
-import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261009-centro-campos-cohorte-v5";
+import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261013-ct-firma-tres-v3";
 import { crearVinculoBolsaClienteHTTP } from "./cliente-http-vinculo-bolsa.js?v=20261011-bolsa-b103-privacidad-v1";
 import {
   validarPropuestaCobertura,
@@ -32,6 +32,7 @@ import { crearClienteSubsanacionReparosHTTP, RUTA_SUBSANACION_REPAROS } from "./
 import { crearClienteSeguimientoCeseHTTP } from "./cliente-http-seguimiento-cese.js";
 import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { crearClienteReincorporacionRRHHHTTP, RUTA_CAPACIDAD_REINCORPORACION_RRHH, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js?v=20260928-rrhh-reincorporacion-v1";
+import { crearClienteRecuperacionFirmasV2, RUTA_CONSULTA_FIRMAS_V2 } from "./cliente-http-recuperacion-firmas-v2.js?v=20261013-ct-firma-tres-v3";
 import {
   MAXIMO_ERROR_BYTES,
   MAXIMO_FRAGMENTOS,
@@ -67,6 +68,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   consultaComunicacionesExpediente: RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE,
   resolucionFormalizacion: RUTA_RESOLUCION_FORMALIZACION,
   incorporacionEjercicio: RUTA_INCORPORACION_EJERCICIO,
+  consultaFirmasV2: RUTA_CONSULTA_FIRMAS_V2,
   fichaGINPIX: RUTA_FICHA_GINPIX,
   seguimientoIncorporacion: RUTA_SEGUIMIENTO_INCORPORACION,
   anotacionAdministrativa: RUTA_ANOTACION_ADMINISTRATIVA,
@@ -596,6 +598,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     seguimientoCese: crearClienteSeguimientoCeseHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
     cancelacion: crearClienteCancelacionHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
     reincorporacionTitular: crearClienteReincorporacionRRHHHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
+    firmasV2: crearClienteRecuperacionFirmasV2({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearConsultaReciboRespuestaClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearConsultaComunicacionesExpedienteClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),

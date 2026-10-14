@@ -1,0 +1,3 @@
+# CT215: posterior a CT200 y CT151 instaladas; conserva la misma petición y alta.
+# No ejecutar DOWN ni reaplicar migraciones con historia.
+deploy/postgresql/contratacion_temporal/migraciones/000215_necesidad_peticion_centro.up.sql

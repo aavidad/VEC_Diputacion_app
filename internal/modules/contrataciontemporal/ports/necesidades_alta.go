@@ -101,6 +101,10 @@ type PuestoRPTAltaVerificado struct {
 	CatalogoHuellaSHA256 string
 	PuestoCodigo         string
 	ExisteEnPublicacion  bool
+	// La proyección pública de Personal conserva claves de categoría y centro.
+	// Vacías en dobles históricos: el alta previa no deduce ámbitos de ellas.
+	CategoriaClave string
+	CentroCodigo   string
 }
 
 func (p PuestoRPTAltaVerificado) ValidarPara(s SolicitudVerificarPuestoRPTAlta) error {

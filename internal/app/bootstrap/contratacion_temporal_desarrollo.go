@@ -2,11 +2,13 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"reflect"
@@ -111,6 +113,8 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	personalizacionB7 *fuentePersonalizacionB7
 	// firmaDocumento es nil salvo con VEC_CT_FIRMA_REGISTRO_ENABLED=true.
 	firmaDocumento *firmaDocumentoCTDesarrollo
+	// El montaje VEC se cierra cuando Documentos ya ha compuesto el original.
+	firmaVecR5 *montajeFirmaVecR5CT
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -338,6 +342,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	cfg, resolvedorDesarrollo, derivador, registro := dependencias.cfg, dependencias.resolvedor, dependencias.derivador, dependencias.registro
+	configuracionFirmaVec, firmaVecActiva, err := leerConfiguracionFirmaVecR5(cfg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if firmaVecActiva && (!cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas()) {
+		return nil, nil, nil, errMontajeFirmaVecR5
+	}
 	plantillasActivas, err := plantillasCatalogoCTDesarrolloSolicitado(cfg)
 	ajustesCTActivos, errAjustes := ajustesReglasCTSolicitados(cfg)
 	if errAjustes != nil || ajustesCTActivos && !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
@@ -373,7 +384,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	autoridadesBolsaConfiguradas := debeComponerBorradorLlamamientoDesarrollo(cfg) &&
 		(strings.TrimSpace(os.Getenv(config.EnvAutorizacionFuenteDatabaseURL)) != "" ||
 			strings.TrimSpace(os.Getenv(config.EnvAutorizacionMotivosEvaluadorDatabaseURL)) != "")
-	if plantillasActivas || documentalActiva || preparacionBasesActiva || ajustesCTActivos || autoridadesBolsaConfiguradas {
+	if plantillasActivas || documentalActiva || preparacionBasesActiva || ajustesCTActivos || autoridadesBolsaConfiguradas || firmaVecActiva {
 		if !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
@@ -644,6 +655,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var consultaReciboRespuestaReal http.Handler
 	var consultaComunicacionesReal http.Handler
 	var eventoPlazoReal http.Handler
+	var poolAuditoriaLecturasCT *pgxpool.Pool
+	var configuracionAuditoriaLecturasCT configuracionAuditoriaIntentosDesarrollo
 	if alta.postgresql.bolsa != nil {
 		if alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.ejecucion == nil {
 			return nil, nil, nil, ports.ErrConsultaRRHHNoDisponible
@@ -654,12 +667,21 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
 			alta.postgresql.bolsa.Config().ConnConfig.User,
 		}
-		alta.auditoriaLecturasCT, alta.procesoAuditoriaLecturasCT, alta.cerrarAuditoriaLecturasCT, err =
-			AbrirRegistradorIntentosAuditoriaDesarrollo(ctxIntentos, cfg, alta.postgresql.ejecucion, reservadosIntentos)
+		configuracionAuditoriaLecturasCT, err = leerConfiguracionAuditoriaIntentosDesarrollo(cfg)
+		if err != nil {
+			cancelarIntentos()
+			return nil, nil, nil, err
+		}
+		var registrador *postgresvec.RegistradorIntentosAuditoriaPostgreSQL
+		registrador, poolAuditoriaLecturasCT, alta.cerrarAuditoriaLecturasCT, err =
+			abrirComponentesRegistradorIntentosAuditoriaDesarrollo(ctxIntentos, cfg, alta.postgresql.ejecucion,
+				reservadosIntentos, configuracionAuditoriaLecturasCT)
 		cancelarIntentos()
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		alta.auditoriaLecturasCT = registrador
+		alta.procesoAuditoriaLecturasCT = configuracionAuditoriaLecturasCT.Proceso
 		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj, origen.etiquetasReferenciasCatalogosAlta())
 		if err != nil {
 			return nil, nil, nil, err
@@ -717,6 +739,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		lectoresConsulta = append(lectoresConsulta, lector.perfilRef)
 	}
 	perfilesConsulta := perfilesConsultaContratacionTemporalDesarrollo(perfilCTCatalogo, lectoresConsulta)
+	if firmaVecActiva {
+		for _, firmante := range configuracionFirmaVec.Firmantes {
+			perfilesConsulta = append(perfilesConsulta, firmante.PerfilConsultaCTRef)
+		}
+	}
 	reincorporacionTitular, err := selectorCapacidadRRHHDesarrollo(cfg, envCTReincorporacionTitularEnabled)
 	if err != nil || (reincorporacionTitular && (!seguimientoCeseSolicitado(cfg) || !cfg.BolsaBorradoresEnabled)) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
@@ -746,21 +773,50 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		declaracionesFrontera = append(declaracionesFrontera, descriptoresFronteraAjustesReglasCT(perfilCTCatalogo)...)
 	}
 	if consultaCircuitoRRHH != nil {
+		perfilesCircuito := []string{perfilCTCatalogo}
 		declaracionesFrontera = append(declaracionesFrontera,
 			fronteraContratacionTemporalDesarrollo("ct-circuito-rrhh-consultar",
 				postgresct.AccionConsultaCircuitoRRHH, httpinterno.RutaConsultaCircuitoRRHH,
-				[]string{perfilCTCatalogo}))
+				perfilesCircuito))
 	}
 	declaracionesFrontera, err = asignarPerfilesFijosEnFronterasCTDesarrollo(alta.soporte, perfilCTCatalogo, declaracionesFrontera)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	// Primero resolver el perfil fijo legado con su guarda original. Los
+	// perfiles nominales explícitos se añaden después sólo a esta consulta.
+	if firmaVecActiva && consultaCircuitoRRHH != nil {
+		for i := range declaracionesFrontera {
+			d := &declaracionesFrontera[i]
+			if d.Ruta != httpinterno.RutaConsultaCircuitoRRHH || d.Metodo != http.MethodPost {
+				continue
+			}
+			vistos := map[string]bool{d.PerfilesActivosRef[0]: true}
+			for _, firmante := range configuracionFirmaVec.Firmantes {
+				perfil := firmante.PerfilConsultaCircuitoRef
+				if !perfilActivoSeguridadComunValido(perfil) || vistos[perfil] {
+					return nil, nil, nil, ErrActivacionDesarrolloInvalida
+				}
+				vistos[perfil] = true
+				d.PerfilesActivosRef = append(d.PerfilesActivosRef, perfil)
+			}
+		}
 	}
 	if alta.soporte.perfilesOriginal != nil {
 		fronteraOriginal, e := fronteraOriginalFirmableCTDesarrollo(alta.soporte.perfilesOriginal)
 		if e != nil {
 			return nil, nil, nil, e
 		}
+		if firmaVecActiva {
+			for _, firmante := range configuracionFirmaVec.Firmantes {
+				fronteraOriginal.PerfilesActivosRef = append(fronteraOriginal.PerfilesActivosRef,
+					firmante.PerfilConsultaCTRef, firmante.PerfilDocumentosRef)
+			}
+		}
 		declaracionesFrontera = append(declaracionesFrontera, fronteraOriginal)
+	}
+	if firmaVecActiva {
+		declaracionesFrontera = append(declaracionesFrontera, fronterasFirmaVecR5CT(configuracionFirmaVec)...)
 	}
 	if legadoConfigurado {
 		declaracionesFrontera, err = asignarPerfilesNominalesIncorporacionEnFronteras(alta.soporte, declaracionesFrontera)
@@ -786,7 +842,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		declaracionesFrontera = append(declaracionesFrontera,
 			descriptoresFronterasReincorporacionTitularDesarrollo(perfilReincorporacionTitular)...)
 	}
-	if candidato := resolvedorDesarrollo.candidatoBolsa; candidato != nil && !superficieExternaUsuariosEnProceso(cfg) {
+	if candidato := resolvedorDesarrollo.candidatoBolsa; candidato != nil && !miBolsaExternaSeleccionadaEnCombinado(cfg) {
 		if !debeComponerMiBolsaDesarrollo(cfg) || !perfilActivoSeguridadComunValido(candidato.perfilRef) {
 			return nil, nil, nil, errMiBolsaNoDisponible
 		}
@@ -907,6 +963,31 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 				return nil, nil, nil, err
 			}
 		}
+	}
+	var montajeFirmaVec *montajeFirmaVecR5CT
+	var lecturasFirmaVec *montajeLecturasFirmaV2
+	if firmaVecActiva {
+		if firmaDocumento == nil || alta.soporte.perfilesOriginal == nil || consultasRRHH.identidad == nil || consultaCircuitoRRHH == nil ||
+			fuenteAutorizacionPlantillas == nil || motivosEvaluadorPlantillas == nil {
+			return nil, nil, nil, errMontajeFirmaVecR5
+		}
+		ctxFirmaVec, cancelarFirmaVec := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
+		montajeFirmaVec, err = prepararMontajeFirmaVecR5CT(ctxFirmaVec, cfg, configuracionFirmaVec, &alta,
+			consultasRRHH, resolvedorDesarrollo, fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas, derivador)
+		if err != nil {
+			cancelarFirmaVec()
+			return nil, nil, nil, err
+		}
+		lecturasFirmaVec, err = nuevasLecturasFirmaV2(ctxFirmaVec, montajeFirmaVec, derivador, motivosEvaluadorPlantillas)
+		cancelarFirmaVec()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		montajeFirmaVec.nominal.lecturas = lecturasFirmaVec
+		cuadroReal = consultorCuadroFirmaV2{legacy: cuadroReal, nominal: lecturasFirmaVec.cuadro}
+		detalleReal = consultorDetalleFirmaV2{legacy: detalleReal, nominal: lecturasFirmaVec.detalle}
+		originalPropuestaReal = consultorDetalleFirmaV2{legacy: originalPropuestaReal, nominal: lecturasFirmaVec.historico}
+		consultasRRHH.descargas = selectorDescargaFirmaV2{legacy: consultasRRHH.descargas, nominal: lecturasFirmaVec.descargas}
 	}
 	defer func() {
 		if cerrarAlta {
@@ -1032,8 +1113,19 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if lecturasFirmaVec != nil {
+		if err := lecturasFirmaVec.envolverRutas(rutas); err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
 	if consultaCircuitoRRHH != nil {
+		if lecturasFirmaVec != nil {
+			consultaCircuitoRRHH, err = lecturasFirmaVec.envolverCircuito(consultaCircuitoRRHH)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		}
 		if dependenciaEsNulaContratacionTemporalDesarrollo(alta.postgresql.registradorAuditoriaFrontera) {
 			return nil, nil, nil, ports.ErrConsultaCircuitoRRHHNoDisponible
 		}
@@ -1044,7 +1136,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaConsultaCircuitoRRHH, Manejador: consultaCircuitoRRHH})
 	}
 	if firmasR5V2 != nil {
-		rutas = append(rutas, firmasR5V2.rutas...)
+		for _, rutaFirmaR5 := range firmasR5V2.rutas {
+			if firmaVecActiva && rutaFirmaR5.Ruta == httpinterno.RutaConsultaFirmasR5V2 {
+				continue // La consulta nominal ocupa la única ruta exacta R5.
+			}
+			rutas = append(rutas, rutaFirmaR5)
+		}
 	}
 	var coleccionesPersonalB2 []vechttp.RutaColeccion
 	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {
@@ -1166,12 +1263,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var manejadorSituacion http.Handler
 	cerrarBorrador := func() {}
 	cerrarClienteM10CT := func() {}
-	cerrarOrigenAuditadoCT := func() {}
 	cerrarClienteM10CTPendiente := true
 	defer func() {
 		if cerrarClienteM10CTPendiente {
 			cerrarClienteM10CT()
-			cerrarOrigenAuditadoCT()
 		}
 	}()
 	personalizacionB7 := &fuentePersonalizacionB7{}
@@ -1183,13 +1278,20 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, err
 		}
 	}
+	if montajeFirmaVec != nil {
+		adicionales, e := montajeFirmaVec.autorizaciones()
+		if e != nil {
+			return nil, nil, nil, e
+		}
+		autorizacionesPreparacionBases = append(autorizacionesPreparacionBases, adicionales...)
+	}
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
 		if consultasRRHH.identidad == nil {
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		var errBorrador error
 		rutasBorrador, coleccionesBorrador, manejadorSituacion, seguridadBorrador, envolverBorrador, cerrarBorrador, errBorrador = nuevasDependenciasBorradorLlamamientoDesarrollo(
-			context.Background(), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad, personalizacionB7,
+			contextoMontajeFirmaVecR5CT(context.Background(), montajeFirmaVec), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad, personalizacionB7,
 			autorizacionesPreparacionBases,
 			autoridadesCargaConvoca,
 			alta.postgresql.proveedorMaterialConsultaReincorporacionTitular,
@@ -1217,51 +1319,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			if err := seleccion.puente.configurarEmisorNativoLlamamientoCT(emisorNativoPrivadoCT{puente: seleccion.puente}); err != nil {
 				return nil, nil, nil, err
 			}
-			cAuditoria, err := leerConfiguracionAuditoriaIntentosDesarrollo(cfg)
-			if err != nil {
+			configurarOrigenConstituidoOpcionalCT(poolAuditoriaLecturasCT, configuracionAuditoriaLecturasCT, seleccion.puente)
+			if err := seleccion.puente.configurarAuditoriaLecturaOrdenCT(nuevoConstructorOrdenOrigenCT(&alta, seleccion.puente, bolsa.preparador, configuracionAuditoriaLecturasCT.Proceso, configuracionAuditoriaLecturasCT.Canal)); err != nil {
 				return nil, nil, nil, err
 			}
-			reservados := []string{alta.postgresql.gobierno.Config().ConnConfig.User,
-				alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
-				alta.postgresql.bolsa.Config().ConnConfig.User}
-			_, poolAuditado, cerrarAuditado, err := abrirComponentesRegistradorIntentosAuditoriaDesarrollo(
-				context.Background(), cfg, alta.postgresql.ejecucion, reservados, cAuditoria)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			cerrarOrigenAuditadoCT = cerrarAuditado
-			lectorAuditado, err := postgresbolsa.NuevoLectorOrigenLlamamientoCTAuditadoPostgreSQL(
-				poolAuditado, cAuditoria.Proceso, cAuditoria.Canal)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			if lectorAuditado.Preflight(context.Background()) == nil {
-				if err := seleccion.puente.configurarOrigenConstituidoLlamamientoCT(lectorAuditado); err != nil {
-					return nil, nil, nil, err
-				}
-			}
-			if err := seleccion.puente.configurarAuditoriaLecturaOrdenCT(nuevoConstructorOrdenOrigenCT(&alta, seleccion.puente, bolsa.preparador, cAuditoria.Proceso, cAuditoria.Canal)); err != nil {
-				return nil, nil, nil, err
-			}
-			if os.Getenv(rutaClienteM10LlamamientoCT) != "" {
-				if cfg.RPTCatalogoPath == "" {
-					return nil, nil, nil, fmt.Errorf("VEC_RPT_CATALOGO_PATH: %w", ports.ErrIntegracionBolsaNoDisponible)
-				}
-				fuenteRPT, err := personalrpt.NuevaFuente(cfg.RPTCatalogoPath)
-				if err != nil {
-					return nil, nil, nil, err
-				}
-				clienteM10, organismoRef, err := cargarClienteM10LlamamientoCT()
-				if err != nil {
-					return nil, nil, nil, fmt.Errorf("%s: %w", rutaClienteM10LlamamientoCT, err)
-				}
-				cerrarClienteM10CT = clienteM10.Cerrar
-				resolverPuesto := nuevoResolutorPuestoRPTConstituidoCT(clienteM10, organismoRef, reloj.Ahora)
-				if err := seleccion.puente.configurarDatosEmisionConstituidaCT(nuevoProveedorDatosEmisionConstituidaCT(
-					fuenteRPT, reglasLlamamiento, reloj.Ahora, resolverPuesto)); err != nil {
-					return nil, nil, nil, err
-				}
-			}
+			cerrarClienteM10CT = configurarDatosEmisionConstituidaOpcionalCT(cfg, seleccion.puente, reglasLlamamiento, reloj.Ahora)
 		}
 		if len(incorporacion) == 1 && incorporacion[0].nominales != nil &&
 			incorporacion[0].nominales.montajeB2 != nil {
@@ -1405,7 +1467,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cerrarAuditoria = detener
 		rutas = append(rutas, rutasAuditoria...)
 	}
-	if resolvedorDesarrollo.candidatoBolsa != nil && !superficieExternaUsuariosEnProceso(cfg) {
+	if resolvedorDesarrollo.candidatoBolsa != nil && !miBolsaExternaSeleccionadaEnCombinado(cfg) {
 		if !debeComponerMiBolsaDesarrollo(cfg) || consultasRRHH.identidad == nil {
 			return nil, nil, nil, errMiBolsaNoDisponible
 		}
@@ -1508,16 +1570,24 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		presentadorCobertura:                             coberturaReal.presentador,
 		situacionBolsaCobertura:                          coberturaReal.situacionBolsa,
 		firmaDocumento:                                   firmaDocumento,
+		firmaVecR5:                                       montajeFirmaVec,
 	}
 	if alta.soporte.perfilesOriginal != nil {
 		autoridad.prepararOriginal = func(documentos *autoridadDocumentosDesarrollo, seudonimos *seudonimizadorAlmacenDesarrollo) ([]vechttp.RutaExacta, error) {
-			return nuevaRutaOriginalFirmableCTDesarrollo(&alta, consultasRRHH, borradorFormalizacion, documentos, seudonimos, reloj)
+			if montajeFirmaVec == nil {
+				return nuevaRutaOriginalFirmableCTDesarrollo(&alta, consultasRRHH, borradorFormalizacion, documentos, seudonimos, reloj)
+			}
+			return montarOriginalYFirmaVecR5(&alta, consultasRRHH, borradorFormalizacion, documentos, seudonimos,
+				reloj, firmaDocumento, montajeFirmaVec)
 		}
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	dependencias.cerrar = func() {
+		if montajeFirmaVec != nil {
+			montajeFirmaVec.cerrarAuditoria()
+		}
 		cerrarPreparacionBases()
 		cerrarBaremo()
 		cerrarAutoridadesPlantillas()
@@ -1525,7 +1595,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cerrarAuditoria()
 		cerrarBorrador()
 		cerrarClienteM10CT()
-		cerrarOrigenAuditadoCT()
 		cerrarIncorporacion()
 		consultasRRHH.cerrar()
 		coberturaReal.cerrar()
@@ -1539,6 +1608,91 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	cerrarFronteraAuditoriaPendiente = false
 	cerrarAutoridadesPlantillasPendiente = false
 	return rutas, autoridad, dependencias.Cerrar, nil
+}
+
+func advertirSeleccionConstituidaCT(etapa string, err error) {
+	// Sólo códigos internos fijos: los errores de fichero, TLS y SQL pueden
+	// contener rutas o material privado que no pertenece al registro.
+	causa := "dependencia_no_disponible"
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		causa = "plazo_agotado"
+	case etapa == "rpt_ruta" && errors.Is(err, personal.ErrConsultaRPTPublicaInvalida):
+		causa = "fuente_ausente"
+	case etapa == "rpt_fuente" && errors.Is(err, personal.ErrConsultaRPTPublicaInvalida):
+		causa = "ruta_no_admitida"
+	case etapa == "rpt_publicacion" && errors.Is(err, personal.ErrRPTPublicaNoDisponible):
+		causa = "publicacion_no_verificada"
+	case etapa == "m10_configuracion" && errors.Is(err, puertosbolsa.ErrEmisionLlamamientoNoDisponible):
+		causa = "material_privado_no_admitido"
+	case etapa == "datos_emision" && errors.Is(err, ports.ErrIntegracionBolsaNoDisponible):
+		causa = "proveedor_no_compuesto"
+	case (etapa == "lector_origen" || etapa == "preflight_origen") && errors.Is(err, puertosbolsa.ErrOrigenLlamamientoCTNoDisponible):
+		causa = "capacidad_no_confirmada"
+	}
+	slog.Warn("contratación temporal: selección constituida no disponible", "etapa", etapa, "causa", causa)
+}
+
+func configurarOrigenConstituidoOpcionalCT(pool *pgxpool.Pool, c configuracionAuditoriaIntentosDesarrollo,
+	puente *puenteBolsaLlamamientoDesarrollo,
+) {
+	if puente == nil {
+		return
+	}
+	lector, err := postgresbolsa.NuevoLectorOrigenLlamamientoCTAuditadoPostgreSQL(pool, c.Proceso, c.Canal)
+	if err != nil {
+		advertirSeleccionConstituidaCT("lector_origen", err)
+		return
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
+	defer cancelar()
+	if err := lector.Preflight(ctx); err != nil {
+		advertirSeleccionConstituidaCT("preflight_origen", err)
+		return
+	}
+	if err := puente.configurarOrigenConstituidoLlamamientoCT(lector); err != nil {
+		advertirSeleccionConstituidaCT("origen", err)
+	}
+}
+
+// Un material M10 opcional defectuoso deja el puente nativo sin datos de
+// emisión. El emisor ya está configurado: no puede reabrir la fuente fija.
+func configurarDatosEmisionConstituidaOpcionalCT(cfg config.Config, puente *puenteBolsaLlamamientoDesarrollo,
+	resolutor *reglas.Resolutor, ahora func() time.Time,
+) func() {
+	cerrar := func() {}
+	if os.Getenv(rutaClienteM10LlamamientoCT) == "" || puente == nil {
+		return cerrar
+	}
+	if cfg.RPTCatalogoPath == "" {
+		advertirSeleccionConstituidaCT("rpt_ruta", personal.ErrConsultaRPTPublicaInvalida)
+		return cerrar
+	}
+	perfilRPT, err := personalrpt.NuevaFuente(cfg.RPTCatalogoPath)
+	if err != nil {
+		advertirSeleccionConstituidaCT("rpt_fuente", err)
+		return cerrar
+	}
+	ctxRPT, cancelarRPT := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
+	_, err = perfilRPT.ObtenerRPTPublica(ctxRPT)
+	cancelarRPT()
+	if err != nil {
+		advertirSeleccionConstituidaCT("rpt_publicacion", err)
+		return cerrar
+	}
+	clienteM10, organismoRef, err := cargarClienteM10LlamamientoCT()
+	if err != nil {
+		advertirSeleccionConstituidaCT("m10_configuracion", err)
+		return cerrar
+	}
+	resolverPuesto := nuevoResolutorPuestoRPTConstituidoCT(clienteM10, organismoRef, ahora)
+	if err := puente.configurarDatosEmisionConstituidaCT(nuevoProveedorDatosEmisionConstituidaCT(
+		perfilRPT, resolutor, ahora, resolverPuesto)); err != nil {
+		clienteM10.Cerrar()
+		advertirSeleccionConstituidaCT("datos_emision", err)
+		return cerrar
+	}
+	return clienteM10.Cerrar
 }
 
 func debeComponerBorradorLlamamientoDesarrollo(cfg config.Config) bool {

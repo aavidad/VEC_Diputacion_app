@@ -1,0 +1,2 @@
+# Después de las 19 SQL del orden HZ37 (AUT88 incluida).
+deploy/postgresql/autorizacion/migraciones/000094_rol_portal_v1_heredado.up.sql

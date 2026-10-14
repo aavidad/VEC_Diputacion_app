@@ -588,7 +588,8 @@ func TestCatalogoDesarrolloConRPTPublicaCategoriasReales(t *testing.T) {
 			t.Fatalf("categoría sin grupo o sin etiqueta: %+v", catalogo.Categorias[i])
 		}
 	}
-	if administrativo == nil || administrativo.Etiqueta != "ADMINISTRATIVO" || administrativo.GruposSubgrupos[0].Clave != "C1" {
+	if administrativo == nil || administrativo.Etiqueta != "ADMINISTRATIVO" || administrativo.GruposSubgrupos[0].Clave != "C1" ||
+		administrativo.rptClave != "administrativo" || catalogo.centrosCodigoFuente["centro-520"] != "520" {
 		t.Fatalf("la categoría ADMINISTRATIVO (C1) debe venir de la RPT: %+v", administrativo)
 	}
 	if !categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo, "categoria:rpt:administrativo", "C1") ||

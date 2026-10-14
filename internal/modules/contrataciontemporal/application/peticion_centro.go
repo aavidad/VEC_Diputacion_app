@@ -14,6 +14,15 @@ type ServicioPeticionCentro struct {
 	repositorio ports.RepositorioPeticionesCentro
 	reloj       ports.Reloj
 	periodos    ports.PreparadorPeriodoModalidad
+	necesidades *ServicioRegistroSolicitud
+}
+
+func (s *ServicioPeticionCentro) ConfigurarPreparadorNecesidad(p *ServicioRegistroSolicitud) error {
+	if s == nil || p == nil || s.necesidades != nil {
+		return ports.ErrPeticionCentroNoDisponible
+	}
+	s.necesidades = p
+	return nil
 }
 
 func NuevoServicioPeticionCentro(a ports.AutoridadPeticionCentro, r ports.RepositorioPeticionesCentro, reloj ports.Reloj, periodos ...ports.PreparadorPeriodoModalidad) (*ServicioPeticionCentro, error) {
@@ -58,18 +67,53 @@ func (s *ServicioPeticionCentro) Ejecutar(ctx context.Context, entrada ports.Com
 		}
 		material = *previo
 	} else {
+		if comando.Operacion == ports.OperacionPresentarPeticionCentro && comando.EsquemaAlta == "" &&
+			s.necesidades != nil && !dependenciaNula(s.necesidades.fuenteNecesidades) {
+			return vacio, domain.ErrPeticionCentroInvalida
+		}
 		var peticion domain.PeticionCentro
 		if comando.Operacion == ports.OperacionPresentarPeticionCentro {
 			if comando.Solicitud.JornadaMinutos == 0 || comando.Solicitud.NumeroPersonas == 0 ||
 				comando.Solicitud.PuestoSolicitado == "" {
 				return vacio, domain.ErrPeticionCentroInvalida
 			}
-			if s.periodos != nil {
+			solicitudPeticion, err := comando.Solicitud.Clonar()
+			if err != nil {
+				return vacio, err
+			}
+			if comando.EsquemaAlta == ports.EsquemaAltaNecesidadV1 {
+				if s.necesidades == nil {
+					return vacio, ports.ErrFuenteNecesidadesAltaNoDisponible
+				}
+				sellada, puesto, err := s.necesidades.PrepararNecesidadPeticionCentro(ctx, *comando.NecesidadEntrada)
+				if err != nil {
+					return vacio, err
+				}
+				if puesto != nil {
+					validador, ok := s.autoridad.(interface {
+						ValidarPuestoRPTPeticionCentro(context.Context, domain.ActorPeticionCentro, domain.SolicitudCentro, ports.PuestoRPTAltaVerificado) error
+					})
+					if !ok {
+						return vacio, ports.ErrPeticionCentroNoDisponible
+					}
+					if err := validador.ValidarPuestoRPTPeticionCentro(ctx, actor, solicitudPeticion, *puesto); err != nil {
+						return vacio, err
+					}
+				}
+				entradaNormalizada, err := sellada.Clonar()
+				if err != nil {
+					return vacio, ports.ErrPeticionCentroNoDisponible
+				}
+				entradaNormalizada.CatalogoInstantanea = nil
+				comando.NecesidadEntrada = &entradaNormalizada
+				comando.Solicitud.Periodo = sellada.Periodo
+				solicitudPeticion.Periodo, solicitudPeticion.Necesidad = sellada.Periodo, &sellada
+			} else if s.periodos != nil {
 				periodo, err := s.periodos.PrepararPeriodoModalidad(ctx, comando.Solicitud.MotivoClave, comando.Solicitud.Periodo)
 				if err != nil {
 					return vacio, domain.ErrPeticionCentroInvalida
 				}
-				comando.Solicitud.Periodo = periodo
+				comando.Solicitud.Periodo, solicitudPeticion.Periodo = periodo, periodo
 			} else if comando.Solicitud.Periodo.Fin.IsZero() {
 				return vacio, ports.ErrPeticionCentroNoDisponible
 			}
@@ -80,7 +124,7 @@ func (s *ServicioPeticionCentro) Ejecutar(ctx context.Context, entrada ports.Com
 			if configuracion.Solicitante != actor {
 				return vacio, domain.ErrRatificacionCentroDenegada
 			}
-			peticion, err = domain.NuevaPeticionCentro("peticion:centro:"+comando.ClaveIdempotencia, configuracion, *comando.Solicitud, s.reloj.Ahora())
+			peticion, err = domain.NuevaPeticionCentro("peticion:centro:"+comando.ClaveIdempotencia, configuracion, solicitudPeticion, s.reloj.Ahora())
 			if err != nil {
 				return vacio, err
 			}

@@ -1,0 +1,3 @@
+# Después de HZ37 completo (OMITIR no se aplica). Solo esta migración nueva.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000263_publicador_nominal_confianza_externa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000265_preflight_consumidores_externos_actuales.up.sql

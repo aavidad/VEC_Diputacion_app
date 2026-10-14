@@ -220,6 +220,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
+		postgrescontratacion.AudienciaConsultaCircuitoRRHH,
 		// Descarga de borradores de la consulta de detalle (AD199/CT177).
 		ports.AudienciaConsumoDescargaBorradorRRHHV3,
 		ports.AudienciaVincularEmisionBolsa,
@@ -274,6 +275,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// publica con VEC_CT_FIRMA_REGISTRO_ENABLED.
 		ports.AudienciaFirmaDocumentoV3,
 		ports.AudienciaConsultaFirmasDocumentoV3,
+		ports.AudienciaFirmaVecV2,
+		ports.AudienciaFirmaExternaV2,
 		// Consulta (AD162) y recuperación (AD178) de firmas V2; sólo con
 		// VEC_CT_FIRMAS_R5_V2_ENABLED.
 		ports.AudienciaConsultaFirmasR5V2,
@@ -303,6 +306,10 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// externo; revisar e incorporar en vec-server. Sólo con
 		// VEC_BOLSA_INSCRIPCIONES_ENABLED.
 		audienciaPresentarInscripcionExternaV3,
+		// Alegaciones (AD260) dentro del consumidor inscripcion_bolsa y
+		// preferencias entre bolsas del aspirante (AD248), ambas externas.
+		audienciaPresentarAlegacionExternaV3,
+		puertosbolsa.AudienciaOrdenarPreferenciasBolsas,
 		descriptoresMaterialInscripcionRRHHDesarrollo()[0].Audiencia,
 		descriptoresMaterialInscripcionRRHHDesarrollo()[1].Audiencia,
 		puertosbolsa.AudienciaManifestarDisposicionPropia,

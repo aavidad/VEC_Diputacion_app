@@ -132,15 +132,16 @@ var errPlanIncoherente = errors.New("plan incoherente")
 // canónico y huella de cada versión de rol. Un plan editado a mano se para
 // aquí, antes de conectar.
 func comprobarPlan(pb []byte, p documentoPlan) error {
-	if p.Esquema != esquemaPlan || !reOperacion.MatchString(p.OperacionRef) || len(p.Cargos) < 1 || len(p.Cargos) > maximoCargos ||
+	desarrollo := p.Esquema == esquemaPlanDesarrollo
+	if (!desarrollo && p.Esquema != esquemaPlan) || !reOperacion.MatchString(p.OperacionRef) || len(p.Cargos) < 1 || len(p.Cargos) > maximoCargos ||
 		!bytes.Equal(textoPlan(p), pb) {
 		return errPlanIncoherente
 	}
 	for _, c := range p.Cargos {
-		if err := validarCargo(c.entrada()); err != nil {
+		if err := validarCargoModo(c.entrada(), desarrollo); err != nil {
 			return err
 		}
-		v, err := versionRol(c.entrada(), p.OperacionRef, p.PreparadoEn)
+		v, err := versionRolModo(c.entrada(), p.OperacionRef, p.PreparadoEn, desarrollo)
 		if err != nil {
 			return err
 		}
