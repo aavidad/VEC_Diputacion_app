@@ -31,12 +31,29 @@ type registroPropuestaFormalizacionDesarrollo interface {
 }
 
 type ejecutorPropuestaFormalizacionDesarrollo struct {
-	soporte       *soporteAltaContratacionTemporalDesarrollo
-	lector        ports.LectorExpedienteSeleccionLlamamiento
-	registro      registroPropuestaFormalizacionDesarrollo
-	bolsa         puertosbolsa.RepositorioLlamamientoDesarrollo
-	publicaciones publicacionesPropuestaDesarrollo
-	servicio      httpinterno.EjecutorPropuestaFormalizacion
+	soporte                *soporteAltaContratacionTemporalDesarrollo
+	lector                 ports.LectorExpedienteSeleccionLlamamiento
+	registro               registroPropuestaFormalizacionDesarrollo
+	bolsa                  puertosbolsa.RepositorioLlamamientoDesarrollo
+	resultadoEmisionNativo puertosbolsa.LectorResultadoEmisionCT
+	aceptacionNativa       puertosbolsa.ConsultaAceptacionNativaCT
+	actorAceptacionNativa  func(context.Context) (puertosbolsa.ActorConfiablePersonaAceptacionCT, error)
+	publicaciones          publicacionesPropuestaDesarrollo
+	servicio               httpinterno.EjecutorPropuestaFormalizacion
+}
+
+func (e *ejecutorPropuestaFormalizacionDesarrollo) configurarFuentesNativasPropuestaCT(
+	resultado puertosbolsa.LectorResultadoEmisionCT,
+	aceptacion puertosbolsa.ConsultaAceptacionNativaCT,
+	actor func(context.Context) (puertosbolsa.ActorConfiablePersonaAceptacionCT, error),
+) error {
+	if e == nil || dependenciaEsNulaContratacionTemporalDesarrollo(resultado) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(aceptacion) || actor == nil ||
+		e.resultadoEmisionNativo != nil || e.aceptacionNativa != nil || e.actorAceptacionNativa != nil {
+		return application.ErrPropuestaFormalizacionNoDisponible
+	}
+	e.resultadoEmisionNativo, e.aceptacionNativa, e.actorAceptacionNativa = resultado, aceptacion, actor
+	return nil
 }
 
 var (
@@ -133,6 +150,15 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 		return vacio, application.ErrResolucionFormalizacionNoAceptada
 	}
 	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, p)
+	if a.Justificante.Seleccion.Procedencia.SinRetencionDeclarada {
+		m, err := e.materialPropuestaNativaCT(ctx, s, a, p)
+		if err != nil {
+			return vacio, err
+		}
+		ctx = context.WithValue(ctx, clavePropuestaFormalizacionDesarrollo{}, propuestaFormalizacionLigadaDesarrollo{antecedente: a, material: m})
+		ctx = context.WithValue(ctx, claveMaterialPropuestaFormalizacionDesarrollo{}, m)
+		return e.servicio.PrepararYConfirmar(ctx, s)
+	}
 	// Lectura por el repositorio propietario Bolsa. No se consulta su tabla
 	// desde CT ni se vuelve a ejecutar una aceptación para fabricar el requisito.
 	b, err := acreditarAceptacionBolsaPropuestaDesarrollo(ctx, e.bolsa, a, p)
