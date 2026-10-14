@@ -8,6 +8,7 @@ import { ErrorClienteSaldoCronos, leerJSONAcotado, validarConsultaSaldoCronos } 
 export const RUTAS_SOLICITUDES_CRONOS = Object.freeze({
   movimientos: "/api/interna/cronos/movimientos/propio",
   correcciones: "/api/interna/cronos/correcciones/propias",
+  reciboCorreccion: "/api/interna/cronos/correcciones/recibo",
   permisos: "/api/interna/cronos/permisos/propio",
   solicitudes: "/api/interna/cronos/permisos/solicitudes",
 });
@@ -44,6 +45,7 @@ function instante(v) { return typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}
 function referencia(v, prefijo) { return typeof v === "string" && v.startsWith(prefijo) && /^[A-Za-z0-9:._-]{1,200}$/u.test(v); }
 function unidad(v) { return v === "dia" || v === "hora"; }
 function clave(v) { return typeof v === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/u.test(v); }
+function claveRecuperacion(v) { return typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(v); }
 function lista(v, max) { return Array.isArray(v) && v.length <= max; }
 function incompatible() { return fallo("respuesta_incompatible", 200); }
 /**
@@ -110,7 +112,7 @@ export function validarPermisosPropiosCronos(v, anio) {
 function validarReciboCorreccion(v, entrada) {
   const r = v?.recibo;
   if (!campos(v, ["recibo"]) || !campos(r, ["solicitud_ref", "actuacion_ref", "recibo_ref", "estado", "version", "instante_utc", "replay"])
-    || r.solicitud_ref !== `correccion:cronos:${entrada.clave_operacion}` || !referencia(r.recibo_ref, "recibo:cronos:")
+    || r.solicitud_ref !== `correccion:cronos:${entrada.clave_operacion}` || !referencia(r.actuacion_ref, "correccion:actuacion:") || !referencia(r.recibo_ref, "recibo:cronos:")
     || r.estado !== "pendiente_responsable" || r.version !== 1 || !instante(r.instante_utc) || typeof r.replay !== "boolean") throw incompatible();
   return r;
 }
@@ -203,6 +205,14 @@ export function crearClienteSolicitudesCronosHTTP({ fetchImpl = globalThis.fetch
       const cuerpo = validarEntradaCorreccionCronos(entrada);
       const { valor } = await llamar(RUTAS_SOLICITUDES_CRONOS.correcciones, { metodo: "POST", cuerpo, signal, aceptados: [200, 201] });
       return validarReciboCorreccion(valor, cuerpo);
+    },
+    async recuperarReciboCorreccion(claveOperacion, { signal } = {}) {
+      if (!claveRecuperacion(claveOperacion)) throw new TypeError("clave de recuperación no válida");
+      const url = `${RUTAS_SOLICITUDES_CRONOS.reciboCorreccion}?${new URLSearchParams({ clave_operacion: claveOperacion })}`;
+      const { valor } = await llamar(url, { signal });
+      const recibo = validarReciboCorreccion(valor, { clave_operacion: claveOperacion });
+      if (!recibo.replay) throw incompatible();
+      return recibo;
     },
     async solicitarPermiso(entrada, { signal } = {}) {
       const cuerpo = validarEntradaPermisoCronos(entrada);

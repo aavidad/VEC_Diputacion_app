@@ -98,7 +98,8 @@ func construirConsultaSaldo(tipo ports.PeriodoSaldo, desde, hasta time.Time, fue
 	jornadas := make(map[string]ports.JornadaPrevista, len(fuente.Jornadas))
 	for _, j := range fuente.Jornadas {
 		fecha, err := fechaCivilSaldo(j.Fecha, zona)
-		if err != nil || fecha.Before(desde) || fecha.After(hasta) || j.MinutosPrevistos < 0 || j.MinutosPrevistos > 24*60 || j.PoliticaVersionRef == "" {
+		if err != nil || fecha.Before(desde) || fecha.After(hasta) || j.MinutosPrevistos < 0 || j.MinutosPrevistos > 24*60 ||
+			j.ProgramacionRef == "" || j.PoliticaVersionRef == "" || j.FuenteRef == "" || j.Version < 1 {
 			return ports.ConsultaSaldo{}, ports.ErrDependenciaNoDisponible
 		}
 		if _, existe := jornadas[j.Fecha]; existe {
@@ -175,7 +176,8 @@ func construirConsultaSaldo(tipo ports.PeriodoSaldo, desde, hasta time.Time, fue
 				return ports.ConsultaSaldo{}, ports.ErrDependenciaNoDisponible
 			}
 			previsto := j.MinutosPrevistos
-			dia.TurnoRef, dia.PoliticaVersionRef = j.TurnoRef, j.PoliticaVersionRef
+			dia.ProgramacionRef, dia.TurnoRef, dia.PoliticaVersionRef = j.ProgramacionRef, j.TurnoRef, j.PoliticaVersionRef
+			dia.FuenteRef, dia.ProgramacionVersion = j.FuenteRef, j.Version
 			dia.PrevistosMinutos = &previsto
 			totalPrevisto += previsto
 		} else {

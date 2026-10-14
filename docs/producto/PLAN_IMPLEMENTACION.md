@@ -603,7 +603,7 @@ documento (apartado 13).
 | Organización y RPT | `organizacion_rpt.md` (01/10) | Consulta publicada; ocupaciones y vacantes pendientes | 2 |
 | Personal | `personal.md` | Ficha propia y actos de RRHH parciales; recibe de CT | 1 y 2 |
 | Portal del empleado | `portal_empleado.md` (04/10) | Inicio y «Mis trámites» montados | 2 |
-| Cronos | `cronos.md` (07/10) | Aparcado; 0 de 12 capacidades | 3 |
+| Cronos | `cronos.md` (14/10) | Reanudado por dirección; copia y cortes en curso, recorrido completo pendiente | 3 |
 | Dietas | `dietas.md` (07/10) | Aparcado | 4 |
 | Procesos selectivos | `selectivos.md` (07/10) | Aparcado; preparadores locales sin acta firmada | 5 |
 | Provisión | `provision.md` (07/10) | Aparcado; bases transcritas | 5 |

@@ -33,21 +33,51 @@ func validarMotivoDenegadoCronos(ctx context.Context, validador vecports.Validad
 
 func contratoDenegacionVinculoCronos(ruta string) (contratoIntentoCronos, bool) {
 	contratos := map[string]contratoIntentoCronos{
-		cronoshttp.RutaConsultarMovimientosPropios: {cronosapp.AccionConsultarMovimientosPropios, cronosapp.FinalidadConsultarMovimientosPropios},
-		cronoshttp.RutaSolicitarCorreccionPropia:   {cronosapp.AccionSolicitarCorreccion, cronosapp.FinalidadSolicitarCorreccion},
-		cronoshttp.RutaConsultarPermisosPropios:    {cronosapp.AccionConsultarPermisosPropios, cronosapp.FinalidadConsultarPermisosPropios},
-		cronoshttp.RutaSolicitarPermisoPropio:      {cronosapp.AccionSolicitarPermisoPropio, cronosapp.FinalidadSolicitarPermisoPropio},
-		cronoshttp.RutaBandejaPermisos:             {cronosapp.AccionConsultarBandeja, cronosapp.FinalidadConsultarBandeja},
-		cronoshttp.RutaResolverPermiso:             {cronosapp.AccionResolverPermiso, cronosapp.FinalidadResolverPermiso},
-		cronoshttp.RutaAvisosPropios:               {cronosapp.AccionConsultarAvisosPropios, cronosapp.FinalidadConsultarAvisosPropios},
-		cronoshttp.RutaArchivarAviso:               {cronosapp.AccionArchivarAvisoPropio, cronosapp.FinalidadArchivarAvisoPropio},
-		cronoshttp.RutaNotificacionesPropias:       {cronosapp.AccionConsultarNotificacionesPropias, cronosapp.FinalidadConsultarNotificacionesPropias},
-		cronoshttp.RutaRegistrarNotificacion:       {cronosapp.AccionRegistrarNotificacion, cronosapp.FinalidadRegistrarNotificacion},
-		cronoshttp.RutaBandejaNotificaciones:       {cronosapp.AccionConsultarBandejaNotif, cronosapp.FinalidadConsultarBandejaNotif},
-		cronoshttp.RutaAtenderNotificacion:         {cronosapp.AccionAtenderNotificacion, cronosapp.FinalidadAtenderNotificacion},
+		cronoshttp.RutaConsultarMovimientosPropios:     {cronosapp.AccionConsultarMovimientosPropios, cronosapp.FinalidadConsultarMovimientosPropios},
+		cronoshttp.RutaSolicitarCorreccionPropia:       {cronosapp.AccionSolicitarCorreccion, cronosapp.FinalidadSolicitarCorreccion},
+		cronoshttp.RutaRecuperarReciboCorreccionPropia: {cronosapp.AccionRecuperarReciboCorreccion, cronosapp.FinalidadRecuperarReciboCorreccionPropia},
+		cronoshttp.RutaConsultarPermisosPropios:        {cronosapp.AccionConsultarPermisosPropios, cronosapp.FinalidadConsultarPermisosPropios},
+		cronoshttp.RutaSolicitarPermisoPropio:          {cronosapp.AccionSolicitarPermisoPropio, cronosapp.FinalidadSolicitarPermisoPropio},
+		cronoshttp.RutaBandejaPermisos:                 {cronosapp.AccionConsultarBandeja, cronosapp.FinalidadConsultarBandeja},
+		cronoshttp.RutaResolverPermiso:                 {cronosapp.AccionResolverPermiso, cronosapp.FinalidadResolverPermiso},
+		cronoshttp.RutaAvisosPropios:                   {cronosapp.AccionConsultarAvisosPropios, cronosapp.FinalidadConsultarAvisosPropios},
+		cronoshttp.RutaArchivarAviso:                   {cronosapp.AccionArchivarAvisoPropio, cronosapp.FinalidadArchivarAvisoPropio},
+		cronoshttp.RutaNotificacionesPropias:           {cronosapp.AccionConsultarNotificacionesPropias, cronosapp.FinalidadConsultarNotificacionesPropias},
+		cronoshttp.RutaRegistrarNotificacion:           {cronosapp.AccionRegistrarNotificacion, cronosapp.FinalidadRegistrarNotificacion},
+		cronoshttp.RutaBandejaNotificaciones:           {cronosapp.AccionConsultarBandejaNotif, cronosapp.FinalidadConsultarBandejaNotif},
+		cronoshttp.RutaAtenderNotificacion:             {cronosapp.AccionAtenderNotificacion, cronosapp.FinalidadAtenderNotificacion},
 	}
 	c, ok := contratos[ruta]
 	return c, ok
+}
+
+// Las tres rutas C5b tienen seis contratos. El servicio pasa el contrato
+// después de validar paso o vista; la frontera sólo acepta el par nominal
+// que corresponde a la ruta, sin interpretar el cuerpo de la petición.
+func contratosDenegacionCorreccionesCronos(ruta string) map[contratoIntentoCronos]struct{} {
+	var contratos []contratoIntentoCronos
+	switch ruta {
+	case cronoshttp.RutaBandejaCorrecciones:
+		contratos = []contratoIntentoCronos{{cronosapp.AccionBandejaCorrecciones, cronosapp.FinalidadBandejaCorrecciones}}
+	case cronoshttp.RutaActuacionCorrecciones:
+		contratos = []contratoIntentoCronos{
+			{cronosapp.AccionDecidirCorreccion, cronosapp.FinalidadDecisionResponsableCorreccion},
+			{cronosapp.AccionResolverCorreccionRRHH, cronosapp.FinalidadResolucionRRHHCorreccion},
+			{cronosapp.AccionAplicarCorreccion, cronosapp.FinalidadAplicacionCorreccion},
+		}
+	case cronoshttp.RutaHistoriaCorrecciones:
+		contratos = []contratoIntentoCronos{
+			{cronosapp.AccionHistoriaCorreccionPropia, cronosapp.FinalidadHistoriaCorreccionPropia},
+			{cronosapp.AccionHistoriaCorreccionEquipo, cronosapp.FinalidadHistoriaCorreccionEquipo},
+		}
+	default:
+		return nil
+	}
+	permitidos := make(map[contratoIntentoCronos]struct{}, len(contratos))
+	for _, contrato := range contratos {
+		permitidos[contrato] = struct{}{}
+	}
+	return permitidos
 }
 
 // registroDenegacionVinculoCronos conserva la identidad histórica acreditada
@@ -60,6 +90,7 @@ type registroDenegacionVinculoCronos struct {
 	vinculo     core.VinculoAutenticacionActorV2
 	accion      string
 	finalidad   string
+	permitidos  map[contratoIntentoCronos]struct{}
 	recurso     string
 	empleadoRef string
 	proceso     string
@@ -71,7 +102,8 @@ type registroDenegacionVinculoCronos struct {
 
 func nuevoRegistroDenegacionVinculoCronos(a *autoridadCronosEmpleadoDesarrollo, holder contextoSeguridadComunDesarrollo, ruta string) (*registroDenegacionVinculoCronos, error) {
 	contrato, ok := contratoDenegacionVinculoCronos(ruta)
-	if !ok {
+	permitidos := contratosDenegacionCorreccionesCronos(ruta)
+	if !ok && len(permitidos) == 0 {
 		return nil, nil
 	}
 	if a == nil || dependenciaBootstrapNula(a.auditoriaIntentos) || a.procesoIntentos == "" || !core.ReferenciaMotivoAutorizacionV2Valida(a.motivoDenegado) ||
@@ -93,11 +125,22 @@ func nuevoRegistroDenegacionVinculoCronos(a *autoridadCronosEmpleadoDesarrollo, 
 	huella := sha256.Sum256([]byte(empleados[0]))
 	return &registroDenegacionVinculoCronos{destino: a.auditoriaIntentos, resultado: resultado, vinculo: holder.Vinculo,
 		accion: contrato.accion, finalidad: contrato.finalidad, recurso: "cronos:empleado:sha256:" + hex.EncodeToString(huella[:]),
+		permitidos:  permitidos,
 		empleadoRef: empleados[0],
 		proceso:     a.procesoIntentos, canal: string(datosVinculo.Superficie), motivo: a.motivoDenegado}, nil
 }
 
 func (r *registroDenegacionVinculoCronos) RegistrarDenegacionVinculo(ctx context.Context, actor core.ContextoActor) error {
+	return r.registrarDenegacionCronos(ctx, actor, contratoIntentoCronos{}, false)
+}
+
+// RegistrarDenegacionCorreccion exige el contrato que la aplicación obtuvo
+// del paso o vista validado. No acepta una acción elegida desde la petición.
+func (r *registroDenegacionVinculoCronos) RegistrarDenegacionCorreccion(ctx context.Context, actor core.ContextoActor, accion, finalidad string) error {
+	return r.registrarDenegacionCronos(ctx, actor, contratoIntentoCronos{accion, finalidad}, true)
+}
+
+func (r *registroDenegacionVinculoCronos) registrarDenegacionCronos(ctx context.Context, actor core.ContextoActor, contrato contratoIntentoCronos, nominal bool) error {
 	if r == nil || ctx == nil || actor.Validar() != nil || r.resultado.Validar() != nil ||
 		actor.PersonaRef != r.resultado.Contexto.PersonaRef || actor.PerfilActivoRef != r.resultado.Contexto.PerfilActivoRef ||
 		actor.Instantanea.VinculoRef != r.resultado.Contexto.Instantanea.VinculoRef || !actor.ResueltoEn.Equal(r.resultado.Contexto.ResueltoEn) {
@@ -109,6 +152,15 @@ func (r *registroDenegacionVinculoCronos) RegistrarDenegacionVinculo(ctx context
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if nominal {
+		if _, ok := r.permitidos[contrato]; !ok ||
+			(r.orden != nil && (r.accion != contrato.accion || r.finalidad != contrato.finalidad)) {
+			return errCronosEmpleadoEn()
+		}
+		r.accion, r.finalidad = contrato.accion, contrato.finalidad
+	} else if len(r.permitidos) != 0 || r.accion == "" || r.finalidad == "" {
+		return errCronosEmpleadoEn()
+	}
 	if r.confirmado {
 		return nil
 	}

@@ -94,6 +94,7 @@ test("marca cada día por tipo con los datos recibidos y dice en una línea si f
   assert.match(html, /2 días/);
   assert.match(html, /Pendiente de justificar/);
   assert.match(html, /Pendiente de la jefatura/);
+  assert.match(html, /Falta confirmar la fuente y versión del calendario laboral/);
   assert.match(html, /data-accion="ayuda"/);
   assert.doesNotMatch(html, /no está publicado/);
   assert.doesNotMatch(html, /permiso:cronos|correccion:cronos|recibo:cronos|DEMO|sintétic/iu);
@@ -102,16 +103,16 @@ test("marca cada día por tipo con los datos recibidos y dice en una línea si f
   assert.doesNotMatch(sin, /data-fecha="2026-01-06" data-tipos/);
 });
 
-test("el olvido abre la solicitud, conserva la clave al reintentar y recarga el año tras registrarla", async () => {
+test("tras perder la respuesta bloquea la entrada y recupera el recibo sin segundo envío", async () => {
   const { nodo, raiz } = raizFalsa();
-  const envios = []; let fallar = true; let consultas = 0;
+  const envios = []; const recuperaciones = []; let consultas = 0;
   const cliente = {
     consultarMovimientos: async (consulta) => { consultas++; return datosConsulta(consulta); },
     solicitarCorreccion: async (entrada) => {
       envios.push(entrada);
-      if (fallar) { fallar = false; throw new ErrorClienteSolicitudesCronos("servicio_no_disponible", 503); }
-      return { solicitud_ref: `correccion:cronos:${entrada.clave_operacion}`, actuacion_ref: "actuacion:cronos:1", recibo_ref: "recibo:cronos:1", estado: "pendiente_responsable", version: 1, instante_utc: "2026-09-25T07:00:00Z", replay: false };
+      throw new ErrorClienteSolicitudesCronos("servicio_no_disponible", 503);
     },
+    recuperarReciboCorreccion: async (clave) => { recuperaciones.push(clave); return { solicitud_ref: `correccion:cronos:${clave}`, actuacion_ref: "correccion:actuacion:1", recibo_ref: "recibo:cronos:1", estado: "pendiente_responsable", version: 1, instante_utc: "2026-09-25T07:00:00Z", replay: true }; },
   };
   const vista = montarMovimientosPropiosCronos({ raiz, cliente, anio: 2026 });
   await esperar();
@@ -120,16 +121,71 @@ test("el olvido abre la solicitud, conserva la clave al reintentar y recarga el 
   assert.match(nodo.innerHTML, /name="hora_pretendida"/);
   const formulario = { matches: () => true, elements: { namedItem: (n) => ({ value: { fecha_civil: "2026-09-24", hora_pretendida: "08:00", movimiento: "entrada" }[n] }) } };
   await nodo.eventos.submit({ target: formulario, preventDefault() {} });
-  assert.match(nodo.innerHTML, /Puede reintentarla sin duplicarla/);
+  assert.match(nodo.innerHTML, /No se pudo confirmar el envío/);
+  assert.match(nodo.innerHTML, /name="fecha_civil"[^>]* disabled/);
   await nodo.eventos.submit({ target: formulario, preventDefault() {} });
+  assert.equal(envios.length, 1);
+  editar(nodo, "hora_pretendida", "10:00");
+  pulsar(nodo, "[data-cronos-olvido]", { cronosOlvido: "cerrar" });
+  assert.match(nodo.innerHTML, /data-cronos-olvido="cerrar" disabled/);
+  pulsar(nodo, "[data-cronos-olvido]", { cronosOlvido: "recuperar" });
   await esperar();
-  assert.equal(envios.length, 2);
-  assert.equal(envios[0].clave_operacion, envios[1].clave_operacion);
-  assert.deepEqual(Object.keys(envios[1]).sort(), ["clave_operacion", "fecha_civil", "hora_pretendida", "movimiento"]);
-  assert.match(nodo.innerHTML, /Queda pendiente de la jefatura/);
+  assert.equal(envios.length, 1);
+  assert.deepEqual(recuperaciones, [envios[0].clave_operacion]);
+  assert.match(nodo.innerHTML, /Se ha recuperado el recibo inicial/);
+  assert.match(nodo.innerHTML, /recibo:cronos:1/);
   assert.ok(consultas >= 2);
   vista.desmontar();
   assert.equal(nodo.eliminado, true);
+});
+
+test("la fila propia muestra el recibo inicial histórico sin cambiar el estado actual", async () => {
+  const operacion = "123e4567-e89b-42d3-a456-426614174000";
+  const { nodo, raiz } = raizFalsa(); let recibos = 0; let envios = 0;
+  const vista = montarMovimientosPropiosCronos({ raiz, anio: 2026, cliente: {
+    consultarMovimientos: async (consulta) => { const d = datosConsulta(consulta); d.correcciones[0].solicitud_ref = `correccion:cronos:${operacion}`; d.correcciones[0].estado = "aplicada"; d.correcciones[0].version = 3; return d; },
+    solicitarCorreccion: async () => { envios++; return {}; },
+    recuperarReciboCorreccion: async (entrada) => { assert.equal(entrada, operacion); recibos++; return { solicitud_ref: `correccion:cronos:${operacion}`, actuacion_ref: "correccion:actuacion:original", recibo_ref: "recibo:cronos:original", estado: "pendiente_responsable", version: 1, instante_utc: "2026-09-25T07:00:00Z", replay: true }; },
+  } });
+  await esperar();
+  assert.match(nodo.innerHTML, /Ver recibo de solicitud/);
+  pulsar(nodo, "[data-cronos-recibo-clave]", { cronosReciboClave: operacion }); await esperar();
+  assert.equal(recibos, 1); assert.equal(envios, 0);
+  assert.match(nodo.innerHTML, /La corrección está aplicada/);
+  assert.match(nodo.innerHTML, /Recibo de solicitud del/);
+  assert.match(nodo.innerHTML, /<details><summary>Datos del recibo<\/summary>/);
+  vista.desmontar();
+});
+
+test("denegación y caída al recuperar dejan la solicitud incierta bloqueada; una respuesta tardía no la confirma", async () => {
+  for (const [codigo, estado, esperado] of [["acceso_denegado", 403, /No tiene permiso para consultar este recibo/], ["servicio_no_disponible", 503, /Ahora no se puede consultar el recibo/]]) {
+    const { nodo, raiz } = raizFalsa(); const envios = [];
+    const vista = montarMovimientosPropiosCronos({ raiz, anio: 2026, abrirOlvido: true, cliente: {
+      ...clienteConsulta(), solicitarCorreccion: async (entrada) => { envios.push(entrada); throw new ErrorClienteSolicitudesCronos("plazo_agotado"); },
+      recuperarReciboCorreccion: async () => { throw new ErrorClienteSolicitudesCronos(codigo, estado); },
+    } });
+    await esperar(); await enviar(nodo);
+    pulsar(nodo, "[data-cronos-olvido]", { cronosOlvido: "recuperar" }); await esperar();
+    assert.match(nodo.innerHTML, esperado);
+    assert.match(nodo.innerHTML, /name="hora_pretendida"[^>]* disabled/);
+    assert.equal(envios.length, 1);
+    if (estado === 503) {
+      editar(nodo, "hora_pretendida", "10:00");
+      pulsar(nodo, "[data-cronos-olvido]", { cronosOlvido: "reintentar" }); await esperar();
+      assert.deepEqual(envios, [envios[0], envios[0]], "el reintento conserva clave y datos exactos");
+    }
+    vista.desmontar();
+  }
+  const pendiente = diferido(); const { nodo, raiz } = raizFalsa(); let signal; let avisos = 0;
+  const vista = montarMovimientosPropiosCronos({ raiz, anio: 2026, abrirOlvido: true, anunciar: () => { avisos++; }, cliente: {
+    ...clienteConsulta(), solicitarCorreccion: async () => { throw new ErrorClienteSolicitudesCronos("plazo_agotado"); },
+    recuperarReciboCorreccion: async (_clave, opciones) => { signal = opciones.signal; return pendiente.promesa; },
+  } });
+  await esperar(); await enviar(nodo); pulsar(nodo, "[data-cronos-olvido]", { cronosOlvido: "recuperar" });
+  const html = nodo.innerHTML; const previos = avisos; vista.desmontar();
+  assert.equal(signal.aborted, true);
+  pendiente.resolver({}); await esperar();
+  assert.equal(nodo.innerHTML, html); assert.equal(avisos, previos);
 });
 
 test("sin empleado y denegación muestran su motivo sin hechos anteriores", async () => {
@@ -251,7 +307,7 @@ test("ignora la consulta antigua y no confirma lecturas o recibos incompletos", 
   assert.match(nodo.innerHTML, /data-estado="listo"/);
   pulsar(nodo, "[data-cronos-olvido]", { cronosOlvido: "abrir" });
   await enviar(nodo);
-  assert.match(nodo.innerHTML, /Puede reintentarla sin duplicarla/);
+  assert.match(nodo.innerHTML, /No se pudo confirmar el envío/);
   assert.doesNotMatch(nodo.innerHTML, /Queda pendiente de la jefatura/);
   vista.desmontar();
   const b = raizFalsa();

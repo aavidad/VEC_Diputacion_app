@@ -1,0 +1,2 @@
+# Pendiente de inventario en la copia HZ37 y de fijar la candidata.
+# Una migración instalada no se añade a esta lista.

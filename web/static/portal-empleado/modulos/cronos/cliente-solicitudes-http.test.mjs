@@ -42,6 +42,31 @@ test("la solicitud de corrección envía sólo la declaración y exige recibo pe
   await assert.rejects(cliente.solicitarCorreccion({ clave_operacion: "corr-clave-0001", movimiento: "entrada", fecha_civil: "2026-09-24", hora_pretendida: "08:00", empleado_ref: "emp_x" }), TypeError);
 });
 
+test("recupera el recibo inicial con GET propio y rechaza una respuesta que no acredita su origen", async () => {
+  const operacion = "123e4567-e89b-42d3-a456-426614174000";
+  const cuerpo = { recibo: { solicitud_ref: `correccion:cronos:${operacion}`, actuacion_ref: "correccion:actuacion:original", recibo_ref: "recibo:cronos:original", estado: "pendiente_responsable", version: 1, instante_utc: "2026-09-25T07:00:00Z", replay: true } };
+  const llamadas = [];
+  const cliente = crearClienteSolicitudesCronosHTTP({ fetchImpl: async (url, opciones) => { llamadas.push({ url, opciones }); return respuestaJSON(200, cuerpo); } });
+  assert.equal((await cliente.recuperarReciboCorreccion(operacion)).recibo_ref, cuerpo.recibo.recibo_ref);
+  assert.equal(llamadas[0].url, `${RUTAS_SOLICITUDES_CRONOS.reciboCorreccion}?clave_operacion=${operacion}`);
+  assert.equal(llamadas[0].opciones.method, "GET");
+  assert.equal(llamadas[0].opciones.body, undefined);
+  assert.equal(llamadas[0].opciones.credentials, "same-origin");
+  assert.equal(llamadas[0].opciones.cache, "no-store");
+  assert.equal(llamadas[0].opciones.redirect, "error");
+  assert.equal(llamadas[0].opciones.referrerPolicy, "no-referrer");
+  await assert.rejects(cliente.recuperarReciboCorreccion("otra-clave"), TypeError);
+  assert.equal(llamadas.length, 1);
+  for (const recibo of [{ ...cuerpo.recibo, replay: false }, { ...cuerpo.recibo, version: 2 }, { ...cuerpo.recibo, actuacion_ref: "actuacion:cronos:incorrecta" }]) {
+    const incompatible = crearClienteSolicitudesCronosHTTP({ fetchImpl: async () => respuestaJSON(200, { recibo }) });
+    await assert.rejects(incompatible.recuperarReciboCorreccion(operacion), (e) => e.codigo === "respuesta_incompatible");
+  }
+  for (const estado of [403, 503]) {
+    const fallido = crearClienteSolicitudesCronosHTTP({ fetchImpl: async () => respuestaJSON(estado, { error: "no_disponible" }) });
+    await assert.rejects(fallido.recuperarReciboCorreccion(operacion), (e) => e instanceof ErrorClienteSolicitudesCronos && e.estado === estado);
+  }
+});
+
 test("los rechazos nominales del permiso llegan con su código y los demás son no disponible", async () => {
   const entrada = { clave_operacion: "perm-clave-0001", permiso_ref: "permiso:cronos:asuntos-propios", desde: "2026-10-05", hasta: "2026-10-06" };
   for (const [estado, cuerpo, codigo] of [[422, { error: "fuera_de_limites" }, "fuera_de_limites"], [422, { error: "otro" }, "servicio_no_disponible"],

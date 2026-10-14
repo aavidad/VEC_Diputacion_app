@@ -266,6 +266,15 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("resolvedor_identidad", err)
 	}
+	// Cronos comparte el gobierno V3 de CT. Sus dependencias privadas se
+	// comprueban antes de seleccionar las audiencias que publicará CT.
+	identidadCronos, _ := resolvedor.(*resolvedorIdentidadDesarrollo)
+	cronosSolicitado, falloCronos := prepararCronosAntesDeCT(cfg, identidadCronos)
+	configuracionCT := cfg
+	if falloCronos != nil {
+		registrarFalloCronosArranque(falloCronos)
+		configuracionCT = configuracionCTSinCronos(cfg)
+	}
 	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, resolvedor); err != nil {
 		return nil, nil, marcarFalloComponenteArranque("identidades_preferencias", err)
 	}
@@ -300,7 +309,7 @@ func nuevoServidorDesarrollo(
 		return nil, nil, marcarFalloComponenteArranque("documentacion_formalizacion", err)
 	}
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalConReglasDesarrollo(
-		cfg, reglasEjemplo, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
+		configuracionCT, reglasEjemplo, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("contratacion_temporal", err)
@@ -402,9 +411,13 @@ func nuevoServidorDesarrollo(
 		rutasContratacion = append(rutasContratacion, comisionesDietas.rutas...)
 		coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, comisionesDietas.colecciones...)
 	}
-	cronosEmpleado, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialCronos)
-	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("cronos_empleado", err)
+	var cronosEmpleado *autoridadCronosEmpleadoDesarrollo
+	if cronosSolicitado && falloCronos == nil {
+		cronosEmpleado, err = nuevasRutasCronosEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialCronos)
+		if err != nil {
+			falloCronos = marcarFalloComponenteArranque("cronos_empleado", err)
+			registrarFalloCronosArranque(falloCronos)
+		}
 	}
 	if cronosEmpleado != nil {
 		defer func() {
@@ -555,7 +568,11 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("bolsas_publicas", err)
 	}
-	raiz := componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado), personalEmpleado), consultasPersonal), inscripcionRRHH)
+	raizCronos := componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado)
+	if cronosSolicitado && falloCronos != nil {
+		raizCronos = componerRaizConCronosIndisponible(raizCronos)
+	}
+	raiz := componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(raizCronos, personalEmpleado), consultasPersonal), inscripcionRRHH)
 	servidor, err := server.NewHTTPServer(cfg, componerRaizConBolsaPersonalExterna(raiz, bolsaPersonal, inscripcionExterna))
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)

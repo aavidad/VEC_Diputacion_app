@@ -13,7 +13,8 @@ func TestDecodificarFuenteSaldoInternaConOrigenNoAcreditado(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(f.Marcajes) != 1 || f.Marcajes[0].TipoOrigen != nil || f.Marcajes[0].Canal.OrigenRef != "o1" || len(f.MovimientosSaldo) != 1 {
+	if len(f.Marcajes) != 1 || f.Marcajes[0].TipoOrigen != nil || f.Marcajes[0].Canal.OrigenRef != "o1" || len(f.MovimientosSaldo) != 1 ||
+		len(f.Jornadas) != 1 || f.Jornadas[0].ProgramacionRef != "p1" || f.Jornadas[0].FuenteRef != "f1" || f.Jornadas[0].Version != 1 {
 		t.Fatalf("fuente=%+v", f)
 	}
 	if _, err := decodificarFuenteSaldoInterna(append(bruto, []byte(`{"otro":true}`)...)); !errors.Is(err, ports.ErrDependenciaNoDisponible) {

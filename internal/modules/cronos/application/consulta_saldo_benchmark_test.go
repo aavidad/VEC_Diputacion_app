@@ -41,7 +41,7 @@ func fuenteAnualBenchmarkSaldo(b *testing.B) (time.Time, time.Time, *time.Locati
 				ports.MarcajeSaldo{MarcajeRef: ref + "-s", Movimiento: domain.PunchExit, InstanteUTC: salida, Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"})
 		}
 		previsto := int64(pares * 10)
-		fuente.Jornadas = append(fuente.Jornadas, ports.JornadaPrevista{Fecha: clave, TurnoRef: "turno", PoliticaVersionRef: "v1", MinutosPrevistos: previsto})
+		fuente.Jornadas = append(fuente.Jornadas, ports.JornadaPrevista{ProgramacionRef: "programacion:prueba", FuenteRef: "fuente:prueba", Version: 1, Fecha: clave, TurnoRef: "turno", PoliticaVersionRef: "v1", MinutosPrevistos: previsto})
 		fuente.MovimientosSaldo = append(fuente.MovimientosSaldo,
 			ports.MovimientoSaldo{Fecha: clave, Tipo: "previsto", DeltaMicrosegundos: -previsto * 60 * 1000000, Fuentes: []string{"turno"}},
 			ports.MovimientoSaldo{Fecha: clave, Tipo: "trabajado", DeltaMicrosegundos: previsto * 60 * 1000000, Fuentes: []string{"marcajes"}})

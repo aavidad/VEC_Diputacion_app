@@ -1,0 +1,5 @@
+# C7 sobre copia HZ37. Una línea de ruta por migración, en orden causal.
+# sha256 AD267: 4d815c42594756c421de7b775364f9d25fc7e854a4222c9e7269aea4d72005ef
+# sha256 CRN16: 0e56f456e1e846354b28997253fb55e1027a8f3f7b7e7f6ea00b6fba8edcdb72
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000267_consumidores_cronos_permisos_c7.up.sql
+deploy/postgresql/cronos_v1/migraciones/000016_permisos_circuito_resolucion_c7.up.sql

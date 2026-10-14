@@ -1,0 +1,2 @@
+# Catálogo sintético Cronos v1. Requiere proyección de motivos V2 instalada.
+deploy/postgresql/cronos_v1/migraciones/000018_catalogo_motivos_cronos_v1.up.sql

@@ -1,0 +1,32 @@
+{
+  "catalogo_id": "motivos_cronos_v1",
+  "catalogo_version": 1,
+  "entradas": [
+    {
+      "clave": "motivo_a28bf9dd817c4ef9ccba903beb358c3f",
+      "vigente_desde": "2026-10-01T00:00:00.000000Z",
+      "vigente_hasta": null
+    },
+    {
+      "clave": "motivo_1de68e77a196b06508201b9753248d16",
+      "vigente_desde": "2026-10-01T00:00:00.000000Z",
+      "vigente_hasta": null
+    },
+    {
+      "clave": "motivo_0dc9dd0b008c4ebf09a65d5a64563693",
+      "vigente_desde": "2026-10-01T00:00:00.000000Z",
+      "vigente_hasta": null
+    }
+  ],
+  "catalogo_huella_publicada_sha256": "82136314c0c8b9946b49debcb4497b62cbe9be7e0501c92dc4278ef528f5a822",
+  "publicado_en": "2026-10-14T00:00:00.000000Z",
+  "fuente": {
+    "tipo": "semilla_sintetica",
+    "referencia": "candidata_cronos_20261014"
+  },
+  "referencias_tecnicas": {
+    "consulta": "motivo_a28bf9dd817c4ef9ccba903beb358c3f",
+    "actuacion": "motivo_1de68e77a196b06508201b9753248d16",
+    "denegado": "motivo_0dc9dd0b008c4ebf09a65d5a64563693"
+  }
+}

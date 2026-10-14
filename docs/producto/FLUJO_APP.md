@@ -842,6 +842,39 @@ Reglas de Administración:
   versión, motivo, recibo y auditoría, no desde Administración. Las categorías
   de la RPT hoy solo se consultan; su edición falta.
 
+### 4.5 Cronos: empleado, jefatura y RRHH
+
+Encargo de dirección del 14/10/2026. Este recorrido se prepara en una copia
+desechable de cidonia con personas ficticias de la base. Su resultado queda en
+`deploy/principal/candidata_cronos/resultado_recorrido.md`; todavía no acredita
+uso ni instalación en cidonia.
+
+Las tres personas son distintas. Personal acredita la relación y la adscripción
+a la fecha consultada; la jefatura solo atiende su equipo. Los perfiles, sus
+ámbitos y competencias se publican por el circuito de administración existente.
+No se deducen de los nombres de cargos ni de lo que muestra el menú.
+
+| Paso | Quién y pantalla | Acción y resultado esperado |
+| --- | --- | --- |
+| 1 | Empleado, Cronos → Jornada | Consulta saldo, movimientos y calendario por periodo. La fecha conserva la fuente y versión de Calendarios y la jornada programada; una fuente ausente se indica como no determinable. |
+| 2 | Empleado, Jornada → Fichar | Si tiene teletrabajo vigente, registra entrada y salida y conserva sus recibos. Sin admisión al canal, la acción se deniega. |
+| 3 | Empleado, calendario → Solicitar corrección | Comunica un olvido con fecha y hora. Obtiene el recibo y puede recuperarlo desde la pantalla; el marcaje original permanece intacto. |
+| 4 | Jefatura, solicitudes de su equipo | Revisa el olvido y aprueba o deniega con motivo. Solo puede actuar sobre su equipo, con un recibo y una versión nuevos. |
+| 5 | RRHH, correcciones pendientes | Valida la corrección y aplica la resolución mediante asientos nuevos. El empleado consulta el resultado y el saldo actualizado, conservando la historia. |
+| 6 | Empleado, Cronos → Permisos | Elige un permiso del catálogo vigente, consulta la cantidad disponible y solicita un periodo. El recibo conserva la versión del catálogo y la solicitud queda pendiente. |
+| 7 | Jefatura, Solicitudes por resolver | Aprueba o deniega la solicitud de su equipo con motivo. Una aprobación la deja pendiente de RRHH. Sin jefatura ni marca expresa de circuito directo, queda pendiente de asignación. |
+| 8 | RRHH, Solicitudes por resolver | Resuelve con su perfil y competencia. El empleado ve el resultado y su aviso; la resolución guarda un recibo. Nadie resuelve su propia solicitud ni ocupa ambos pasos. |
+| 9 | Empleado y RRHH, justificantes del permiso | El empleado sube el documento por la carga común de Documentos. RRHH revisa el original admitido y registra el resultado; declarar una referencia no basta para justificar. |
+| 10 | Empleado, comunicaciones y avisos | Envía una comunicación a RRHH y consulta su estado. RRHH la atiende; el empleado puede consultar y archivar los avisos de resolución. |
+| 11 | Jefatura y RRHH, consultas de equipo | Consultan presencia e incidencias del ámbito autorizado. La falta de fichaje no se presenta como ausencia laboral probada. Los recuentos abren sus listas filtradas. |
+| 12 | Empleado, jefatura y RRHH, informes | Descargan los informes permitidos desde la pantalla. La autorización de exportación y su registro son específicos; un permiso de lectura no concede exportación. |
+| 13 | Las tres personas, después del reinicio | Se reinician aplicación y PostgreSQL propios. Se recuperan los mismos recibos y estados sin repetir las escrituras ni duplicar actuaciones. |
+
+El catálogo conserva las fuentes públicas citadas en el plan de Cronos, versión,
+ámbito y vigencia. Las decisiones internas pendientes siguen en las dudas ya
+abiertas; no se convierten en constantes del código. Se comprueba también la
+denegación de datos ajenos y el arranque con Cronos apagado o incompleto.
+
 ## 5. Reglas comunes de todos los recorridos
 
 - Cada acción con efecto tiene dos pasos: **Revisar** y **Confirmar**. Se

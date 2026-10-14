@@ -29,6 +29,13 @@ function instanteVisible(instante, locale, zona) {
   return new Intl.DateTimeFormat(locale, { timeZone: zona, dateStyle: "medium", timeStyle: "short" }).format(new Date(instante));
 }
 function claveNueva() { return globalThis.crypto.randomUUID(); }
+function claveDeSolicitud(referencia) {
+  const match = /^correccion:cronos:([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/u.exec(referencia);
+  return match?.[1] ?? null;
+}
+function reciboVisible(recibo, t, locale, zonaHoraria) {
+  return `<div class="cronos-solicitud-recibo" role="status" aria-live="polite"><p>${escaparHTML(t("olvido_recibo_fecha", { fecha: instanteVisible(recibo.instante_utc, locale, zonaHoraria) }))}</p><details><summary>${escaparHTML(t("olvido_recibo_detalle"))}</summary><p>${escaparHTML(t("olvido_recibo_referencia"))}: ${escaparHTML(recibo.recibo_ref)}</p></details></div>`;
+}
 
 /** Marca cada día con los tipos que acreditan los datos recibidos; nada se infiere. */
 export function marcasPorDiaCronos(datos) {
@@ -116,17 +123,19 @@ function tabla(cabeceras, filas, t) {
   return `<div class="cronos-tabla-contenedor"><table class="cronos-tabla"><thead><tr>${cabeceras.map((c) => `<th scope="col">${escaparHTML(t(c))}</th>`).join("")}</tr></thead><tbody>${cuerpo}</tbody></table></div>`;
 }
 
-function formularioOlvido(f, t, hoy) {
+function formularioOlvido(f, t, hoy, locale, zonaHoraria) {
   if (!f?.abierto) return `<button type="button" class="boton-primario" data-cronos-olvido="abrir">${escaparHTML(t("olvido_solicitar"))}</button>`;
   const enviando = f.estado === "enviando";
+  const bloqueado = enviando || f.estado === "incierto" || f.estado === "recuperando" || f.estado === "hecho";
   const opciones = MOVIMIENTOS.map((m) => `<option value="${m}"${f.movimiento === m ? " selected" : ""}>${escaparHTML(t(`movimiento_${m}`))}</option>`).join("");
-  const aviso = f.mensaje ? `<p class="cronos-solicitud-aviso" data-tono="${f.estado === "hecho" ? "exito" : "error"}" role="${f.estado === "hecho" ? "status" : "alert"}">${escaparHTML(f.mensaje)}</p>` : "";
+  const aviso = f.mensaje ? `<p class="cronos-solicitud-aviso" data-tono="${f.estado === "hecho" ? "exito" : "error"}" role="${f.estado === "hecho" ? "status" : "alert"}" aria-live="polite">${escaparHTML(f.mensaje)}</p>` : "";
+  const recuperacion = ["incierto", "recuperando"].includes(f.estado) ? `<button type="button" class="boton-primario" data-cronos-olvido="recuperar"${f.estado === "recuperando" ? " disabled" : ""}>${escaparHTML(t(f.estado === "recuperando" ? "olvido_recuperando" : "olvido_recuperar"))}</button><button type="button" class="boton-secundario" data-cronos-olvido="reintentar"${f.estado === "recuperando" ? " disabled" : ""}>${escaparHTML(t("olvido_reintentar_igual"))}</button>` : "";
   return `<form class="cronos-solicitud-formulario" data-cronos-olvido-formulario tabindex="-1" aria-label="${escaparHTML(t("olvido_formulario"))}">
-    <label>${escaparHTML(t("fecha"))}<input class="control-formulario" type="date" name="fecha_civil" required max="${hoy}" value="${escaparHTML(f.fecha ?? "")}"${enviando ? " disabled" : ""}></label>
-    <label>${escaparHTML(t("hora"))}<input class="control-formulario" type="time" name="hora_pretendida" required value="${escaparHTML(f.hora ?? "")}"${enviando ? " disabled" : ""}></label>
-    <label>${escaparHTML(t("olvido_movimiento"))}<select class="control-formulario" name="movimiento"${enviando ? " disabled" : ""}>${opciones}</select></label>
-    <div class="cronos-solicitud-acciones"><button type="submit" class="boton-primario" data-cronos-olvido-enviar${enviando ? " disabled" : ""}>${escaparHTML(t(enviando ? "olvido_enviando" : "olvido_enviar"))}</button>
-    <button type="button" class="boton-secundario" data-cronos-olvido="cerrar"${enviando ? " disabled" : ""}>${escaparHTML(t("cancelar"))}</button></div>${aviso}</form>`;
+    <label>${escaparHTML(t("fecha"))}<input class="control-formulario" type="date" name="fecha_civil" required max="${hoy}" value="${escaparHTML(f.fecha ?? "")}"${bloqueado ? " disabled" : ""}></label>
+    <label>${escaparHTML(t("hora"))}<input class="control-formulario" type="time" name="hora_pretendida" required value="${escaparHTML(f.hora ?? "")}"${bloqueado ? " disabled" : ""}></label>
+    <label>${escaparHTML(t("olvido_movimiento"))}<select class="control-formulario" name="movimiento"${bloqueado ? " disabled" : ""}>${opciones}</select></label>
+    <div class="cronos-solicitud-acciones">${["incierto", "recuperando", "hecho"].includes(f.estado) ? "" : `<button type="submit" class="boton-primario" data-cronos-olvido-enviar${enviando ? " disabled" : ""}>${escaparHTML(t(enviando ? "olvido_enviando" : "olvido_enviar"))}</button>`}${recuperacion}
+    <button type="button" class="boton-secundario" data-cronos-olvido="cerrar"${enviando || f.estado === "incierto" || f.estado === "recuperando" ? " disabled" : ""}>${escaparHTML(t("cancelar"))}</button></div>${aviso}${f.recibo ? reciboVisible(f.recibo, t, locale, zonaHoraria) : ""}</form>`;
 }
 
 function validarTamanoPagina(tamano) {
@@ -170,6 +179,7 @@ function validarReciboInyectado(recibo, entrada) {
   const claves = ["solicitud_ref", "actuacion_ref", "recibo_ref", "estado", "version", "instante_utc", "replay"];
   if (!recibo || claves.some((c) => !Object.hasOwn(recibo, c)) || Object.keys(recibo).some((c) => !claves.includes(c))
     || recibo.solicitud_ref !== `correccion:cronos:${entrada.clave_operacion}`
+    || typeof recibo.actuacion_ref !== "string" || !/^correccion:actuacion:[A-Za-z0-9:._-]+$/u.test(recibo.actuacion_ref) || recibo.actuacion_ref.length > 200
     || typeof recibo.recibo_ref !== "string" || !/^recibo:cronos:[A-Za-z0-9:._-]+$/u.test(recibo.recibo_ref) || recibo.recibo_ref.length > 200
     || recibo.estado !== "pendiente_responsable" || recibo.version !== 1 || typeof recibo.replay !== "boolean"
     || typeof recibo.instante_utc !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/u.test(recibo.instante_utc) || !Number.isFinite(Date.parse(recibo.instante_utc))) {
@@ -180,7 +190,7 @@ function validarReciboInyectado(recibo, entrada) {
 
 /** Calendario anual con los días marcados por tipo, ausencias y olvidos comunicados. */
 export function renderizarMovimientosPropiosCronos({ estado = "cargando", anio, datos = null, formulario = null, mensajes = MENSAJES_CRONOS_SOLICITUDES,
-  locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", hoy = hoyCivilCronos(zonaHoraria), incrustada = false, filtros = {}, paginas = {}, tamanoPagina = 10, vistaCalendario = "anio", fechaSeleccionada } = {}) {
+  locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", hoy = hoyCivilCronos(zonaHoraria), incrustada = false, filtros = {}, paginas = {}, tamanoPagina = 10, vistaCalendario = "anio", fechaSeleccionada, recibos = {}, consultaRecibo = null } = {}) {
   validarTamanoPagina(tamanoPagina);
   const t = crearTraductorIncidenciasCronos(mensajes);
   if (!Number.isInteger(anio) || anio < 2000 || anio > 2100) throw new RangeError("año de Cronos no válido");
@@ -203,7 +213,9 @@ export function renderizarMovimientosPropiosCronos({ estado = "cargando", anio, 
     cuerpo = `<section class="panel cronos-panel"><div class="cuerpo-panel"><p class="cronos-${["cargando", "no_disponible"].includes(estado) ? "vacio" : "acceso-denegado"}" data-cronos-movimientos-estado tabindex="-1" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section>`;
   } else {
     const marcas = marcasPorDiaCronos(datos);
-    const aviso = datos.calendario.disponible ? "" : `<p class="cronos-calendario-falta" role="status">${escaparHTML(t("calendario_sin_publicar", { anio }))}</p>`;
+    const aviso = datos.calendario.disponible
+      ? `<p class="cronos-calendario-falta" role="status">${escaparHTML(t("calendario_fuente_pendiente"))}</p>`
+      : `<p class="cronos-calendario-falta" role="status">${escaparHTML(t("calendario_sin_publicar", { anio }))}</p>`;
     const leyenda = `<ul class="cronos-leyenda" aria-label="${escaparHTML(t("leyenda"))}">${ORDEN_TIPOS.map((tipo) => `<li><span class="cronos-leyenda-muestra" data-tipos="${tipo}" aria-hidden="true"></span>${escaparHTML(nombreTipo(tipo, t))}</li>`).join("")}</ul>`;
     const indices = vistaCalendario === "mes" ? [Number(seleccionada.slice(5, 7))] : Array.from({ length: 12 }, (_, i) => i + 1);
     const meses = indices.map((mes) => mesHTML(anio, mes, marcas, t, locale, seleccionada)).join("");
@@ -211,13 +223,20 @@ export function renderizarMovimientosPropiosCronos({ estado = "cargando", anio, 
     const indicador = `<span class="cronos-estado${datos.calendario.disponible ? "" : " cronos-estado-aviso"}" data-calendario-estado="${calendarioEstado}">${escaparHTML(t(`calendario_${calendarioEstado}`))}</span>`;
     const filtrados = filtrarIncidenciasPropiasCronos(datos, filtros);
     const ausencias = filtrados.absentismos.map((a) => `<tr><th scope="row">${escaparHTML(a.nombre)}</th><td>${escaparHTML(fechaVisible(a.desde, locale))}</td><td>${escaparHTML(fechaVisible(a.hasta, locale))}</td><td class="numero">${escaparHTML(formatearCantidadCronos(a.cantidad, a.unidad, t, locale))}</td><td>${a.pendiente_justificar ? `<span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("justificante_pendiente"))}</span>` : escaparHTML(t("justificante_ok"))}</td></tr>`);
-    const olvidos = filtrados.correcciones.map((c) => `<tr><th scope="row">${escaparHTML(fechaVisible(c.fecha_civil, locale))}</th><td>${escaparHTML(c.hora_pretendida)}</td><td>${escaparHTML(t(`movimiento_${c.movimiento}`))}</td><td><span class="cronos-estado" data-estado="${escaparHTML(c.estado)}">${escaparHTML(t(`correccion_${c.estado}`))}</span></td><td>${escaparHTML(t(`paso_${c.estado}`))}</td></tr>`);
+    const olvidos = filtrados.correcciones.map((c) => {
+      const clave = claveDeSolicitud(c.solicitud_ref);
+      const recibo = clave ? recibos[clave] : null;
+      const consulta = clave && consultaRecibo?.clave === clave ? consultaRecibo : null;
+      const accion = clave ? `<button type="button" class="boton-secundario" data-cronos-recibo-clave="${clave}"${consulta?.estado === "cargando" ? " disabled" : ""}>${escaparHTML(t(consulta?.estado === "cargando" ? "olvido_recuperando" : "olvido_ver_recibo"))}</button>` : "";
+      const resultado = recibo ? reciboVisible(recibo, t, locale, zonaHoraria) : consulta?.mensaje ? `<p role="alert" aria-live="polite">${escaparHTML(consulta.mensaje)}</p>` : "";
+      return `<tr><th scope="row">${escaparHTML(fechaVisible(c.fecha_civil, locale))}</th><td>${escaparHTML(c.hora_pretendida)}</td><td>${escaparHTML(t(`movimiento_${c.movimiento}`))}</td><td><span class="cronos-estado" data-estado="${escaparHTML(c.estado)}">${escaparHTML(t(`correccion_${c.estado}`))}</span></td><td>${escaparHTML(t(`paso_${c.estado}`))}</td><td>${accion}${resultado}</td></tr>`;
+    });
     const paginaAusencias = paginaHTML(ausencias, paginas.ausencias || 1, tamanoPagina, "ausencias", "absentismos_titulo", t, locale);
     const paginaOlvidos = paginaHTML(olvidos, paginas.correcciones || 1, tamanoPagina, "correcciones", "olvidos_titulo", t, locale);
     const resultados = t("resultados", { correcciones: new Intl.NumberFormat(locale).format(filtrados.correcciones.length), ausencias: new Intl.NumberFormat(locale).format(filtrados.absentismos.length) });
     cuerpo = `${filtrosHTML(datos, filtros, t, locale)}<p class="cronos-sr" role="status" aria-live="polite">${escaparHTML(resultados)}</p><section class="panel cronos-panel" aria-labelledby="cronos-movpropios-cal"><div class="cabecera-panel"><h3 id="cronos-movpropios-cal">${escaparHTML(t("calendario_anual", { anio }))}</h3>${navegacion}</div><div class="cuerpo-panel">${indicador}${aviso}${controlesCalendarioHTML(anio, vistaCalendario, seleccionada, t, locale)}${leyenda}<div class="cronos-meses" data-calendario-vista="${vistaCalendario}">${meses}</div></div></section>${detalleDiaHTML(datos, seleccionada, t, locale)}
     <section class="panel cronos-panel" aria-labelledby="cronos-movpropios-aus"><div class="cabecera-panel"><h3 id="cronos-movpropios-aus">${escaparHTML(t("absentismos_titulo"))}</h3></div>${tabla(["permiso", "desde", "hasta", "duracion", "estado"], paginaAusencias.filas, t)}${paginaAusencias.pie}${datos.absentismos.some((a) => a.pendiente_justificar) ? `<div class="cuerpo-panel"><p>${escaparHTML(t("justificacion_no_conectada"))}</p></div>` : ""}</section>
-    <section class="panel cronos-panel" aria-labelledby="cronos-movpropios-olv"><div class="cabecera-panel"><h3 id="cronos-movpropios-olv">${escaparHTML(t("olvidos_titulo"))}</h3></div>${tabla(["fecha", "hora", "olvido_movimiento", "estado", "siguiente_paso"], paginaOlvidos.filas, t)}${paginaOlvidos.pie}<div class="cuerpo-panel" data-cronos-olvido-zona>${formularioOlvido(formulario, t, hoy)}</div></section>`;
+    <section class="panel cronos-panel" aria-labelledby="cronos-movpropios-olv"><div class="cabecera-panel"><h3 id="cronos-movpropios-olv">${escaparHTML(t("olvidos_titulo"))}</h3></div>${tabla(["fecha", "hora", "olvido_movimiento", "estado", "siguiente_paso", "olvido_recibo_columna"], paginaOlvidos.filas, t)}${paginaOlvidos.pie}<div class="cuerpo-panel" data-cronos-olvido-zona>${formularioOlvido(formulario, t, hoy, locale, zonaHoraria)}</div></section>`;
   }
   return `<section class="cronos-area cronos-movimientos-propios" aria-labelledby="cronos-movpropios-titulo" data-estado="${escaparHTML(estado)}">${cabecera}${estado === "listo" ? "" : `<section class="panel cronos-panel"><div class="cabecera-panel">${navegacion}</div></section>`}${cuerpo}</section>`;
 }
@@ -240,12 +259,12 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
   const t = crearTraductorIncidenciasCronos(mensajes);
   const contenedor = raiz.ownerDocument.createElement("section"); contenedor.dataset.cronosMovimientosPropios = ""; raiz.append(contenedor);
   const hoy = hoyCivilCronos(zonaHoraria);
-  let activa = true; let secuencia = 0; let controlador = null; let envio = null;
+  let activa = true; let secuencia = 0; let controlador = null; let envio = null; let recuperacion = null;
   let anioVisible = Number.isInteger(anio) ? anio : Number(hoy.slice(0, 4));
   let seleccionada = fechaSeleccionada ?? fechaEnAnio(hoy, anioVisible);
   let vista = vistaCalendario;
   let estado = "cargando"; let datos = null;
-  let filtros = {}; let paginas = {}; let focoPendiente = null;
+  let filtros = {}; let paginas = {}; let focoPendiente = null; let recibos = {}; let consultaRecibo = null;
   let formulario = abrirOlvido ? { abierto: true, clave: claveNueva(), movimiento: "entrada", fecha: hoy } : null;
   const dibujar = () => {
     if (!activa) return;
@@ -256,6 +275,7 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
       : foco?.name && ["fecha_civil", "hora_pretendida", "movimiento"].includes(foco.name) ? `[name="${foco.name}"]`
       : foco?.hasAttribute?.("data-cronos-olvido-enviar") ? "[data-cronos-olvido-enviar]"
       : foco?.dataset?.cronosOlvido ? `[data-cronos-olvido="${foco.dataset.cronosOlvido}"]`
+      : foco?.dataset?.cronosReciboClave && claveDeSolicitud(`correccion:cronos:${foco.dataset.cronosReciboClave}`) ? `[data-cronos-recibo-clave="${foco.dataset.cronosReciboClave}"]`
       : foco?.dataset?.cronosRecuento ? `[data-cronos-recuento="${foco.dataset.cronosRecuento}"]`
       : foco?.hasAttribute?.("data-cronos-quitar-filtros") ? "[data-cronos-quitar-filtros]"
       : foco?.getAttribute?.("data-accion") === "ayuda" ? '[data-accion="ayuda"]'
@@ -273,7 +293,7 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
     if (!documentoActivo || (activoDocumento && activoDocumento !== documento.body && !contenedor.contains?.(activoDocumento))) focoPendiente = null;
     const selector = selectorActual || focoPendiente;
     focoPendiente = selector;
-    contenedor.innerHTML = renderizarMovimientosPropiosCronos({ estado, anio: anioVisible, datos, formulario, mensajes, locale, zonaHoraria, hoy, incrustada, filtros, paginas, tamanoPagina, vistaCalendario: vista, fechaSeleccionada: seleccionada });
+    contenedor.innerHTML = renderizarMovimientosPropiosCronos({ estado, anio: anioVisible, datos, formulario, mensajes, locale, zonaHoraria, hoy, incrustada, filtros, paginas, tamanoPagina, vistaCalendario: vista, fechaSeleccionada: seleccionada, recibos, consultaRecibo });
     if (selector) {
       const control = contenedor.querySelector?.(selector);
       const destino = control && !control.disabled ? control
@@ -288,6 +308,8 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
   };
   const cargar = async () => {
     if (!activa) return;
+    recuperacion?.abort(); recuperacion = null; consultaRecibo = null;
+    if (formulario?.estado === "recuperando") formulario = { ...formulario, estado: "incierto", mensaje: t("olvido_recuperacion_no_disponible") };
     controlador?.abort(); const abortador = new AbortController(); controlador = abortador; const turno = ++secuencia;
     const anioConsulta = anioVisible;
     estado = "cargando"; datos = null; dibujar();
@@ -312,8 +334,43 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
     if (cambiaAnio) { paginas = {}; void cargar(); }
     else dibujar();
   };
+  const recuperar = async (clave, origen) => {
+    if (!activa || recuperacion || !claveDeSolicitud(`correccion:cronos:${clave}`)) return;
+    if (typeof cliente.recuperarReciboCorreccion !== "function") {
+      const mensaje = t("olvido_recuperacion_no_disponible");
+      if (origen === "formulario") formulario = { ...formulario, estado: "incierto", mensaje };
+      else consultaRecibo = { clave, estado: "error", mensaje };
+      dibujar(); anunciar(mensaje); return;
+    }
+    const abortador = new AbortController(); recuperacion = abortador;
+    if (origen === "formulario") formulario = { ...formulario, estado: "recuperando", mensaje: t("olvido_recuperando") };
+    else consultaRecibo = { clave, estado: "cargando" };
+    dibujar();
+    try {
+      const recibo = validarReciboInyectado(await cliente.recuperarReciboCorreccion(clave, { signal: abortador.signal }), { clave_operacion: clave });
+      if (!recibo.replay) throw new ErrorClienteSolicitudesCronos("respuesta_incompatible", 200);
+      if (!activa || abortador.signal.aborted || recuperacion !== abortador) return;
+      if (origen === "formulario") formulario = { ...formulario, estado: "hecho", mensaje: t("olvido_recuperado"), recibo };
+      else { recibos = { ...recibos, [clave]: recibo }; consultaRecibo = null; }
+      dibujar(); anunciar(t("olvido_recuperado"));
+      if (origen === "formulario") await cargar();
+    } catch (error) {
+      if (!activa || abortador.signal.aborted || recuperacion !== abortador) return;
+      const claveMensaje = error instanceof ErrorClienteSolicitudesCronos && ["acceso_denegado", "sin_empleado", "autenticacion_requerida"].includes(error.codigo)
+        ? "olvido_recuperacion_denegada" : "olvido_recuperacion_no_disponible";
+      if (origen === "formulario") formulario = { ...formulario, estado: "incierto", mensaje: t(claveMensaje) };
+      else consultaRecibo = { clave, estado: "error", mensaje: t(claveMensaje) };
+      dibujar(); anunciar(t(claveMensaje));
+    } finally { if (recuperacion === abortador) recuperacion = null; }
+  };
   const alPulsar = (evento) => {
     if (!activa) return;
+    const reciboBoton = evento.target?.closest?.("[data-cronos-recibo-clave]");
+    if (reciboBoton && !reciboBoton.disabled && estado === "listo") {
+      const clave = reciboBoton.dataset.cronosReciboClave;
+      if (datos.correcciones.some((c) => c.solicitud_ref === `correccion:cronos:${clave}`)) void recuperar(clave, "fila");
+      return;
+    }
     const dia = evento.target?.closest?.("[data-cronos-cal-dia]");
     if (dia) {
       const fecha = dia.dataset.fecha;
@@ -359,7 +416,10 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
       return;
     }
     const olvido = evento.target?.closest?.("[data-cronos-olvido]");
-    if (!olvido || formulario?.estado === "enviando") return;
+    if (!olvido || olvido.disabled || formulario?.estado === "enviando" || formulario?.estado === "recuperando") return;
+    if (olvido.dataset.cronosOlvido === "recuperar" && formulario?.estado === "incierto") { void recuperar(formulario.clave, "formulario"); return; }
+    if (olvido.dataset.cronosOlvido === "reintentar" && formulario?.estado === "incierto") { void enviarCorreccion(formulario.enviada); return; }
+    if (formulario?.estado === "incierto") return;
     if (olvido.dataset.cronosOlvido === "abrir") {
       if (!formulario) formulario = { abierto: true, clave: claveNueva(), movimiento: "entrada", fecha: hoy };
     } else if (olvido.dataset.cronosOlvido === "cerrar") formulario = null;
@@ -381,7 +441,7 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
         return;
       }
     }
-    if (formulario && formulario.estado !== "enviando" && ["fecha_civil", "hora_pretendida", "movimiento"].includes(campo?.name)) {
+    if (formulario && !["enviando", "incierto", "recuperando", "hecho"].includes(formulario.estado) && ["fecha_civil", "hora_pretendida", "movimiento"].includes(campo?.name)) {
       const clave = { fecha_civil: "fecha", hora_pretendida: "hora", movimiento: "movimiento" }[campo.name];
       formulario[clave] = campo.value;
     }
@@ -391,14 +451,11 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
     if (nombre === "justificante" && !["", "pendiente", "completo"].includes(campo.value)) return;
     filtros[nombre] = campo.value; paginas = {}; dibujar();
   };
-  const alEnviar = async (evento) => {
-    if (!evento.target?.matches?.("[data-cronos-olvido-formulario]")) return;
-    evento.preventDefault();
-    if (!formulario || formulario.estado === "enviando" || envio) return;
-    const valor = (n) => evento.target.elements?.namedItem?.(n)?.value ?? "";
-    const entrada = { fecha: valor("fecha_civil"), hora: valor("hora_pretendida"), movimiento: valor("movimiento") };
-    if (formulario.estado === "hecho" || (formulario.enviada && (formulario.enviada.fecha !== entrada.fecha || formulario.enviada.hora !== entrada.hora || formulario.enviada.movimiento !== entrada.movimiento))) formulario.clave = claveNueva();
-    formulario = { ...formulario, ...entrada, estado: "enviando", mensaje: "", enviada: entrada };
+  const enviarCorreccion = async (entrada) => {
+    if (!formulario || formulario.estado === "enviando" || formulario.estado === "recuperando" || formulario.estado === "hecho" || envio) return;
+    if (formulario.estado === "incierto" && (formulario.enviada?.fecha !== entrada.fecha || formulario.enviada?.hora !== entrada.hora || formulario.enviada?.movimiento !== entrada.movimiento)) return;
+    if (formulario.estado !== "incierto" && formulario.enviada && (formulario.enviada.fecha !== entrada.fecha || formulario.enviada.hora !== entrada.hora || formulario.enviada.movimiento !== entrada.movimiento)) formulario.clave = claveNueva();
+    formulario = { ...formulario, ...entrada, estado: "enviando", mensaje: "", enviada: { ...entrada } };
     dibujar();
     const abortador = new AbortController(); envio = abortador;
     try {
@@ -406,23 +463,31 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
       const recibo = await cliente.solicitarCorreccion(cuerpo, { signal: abortador.signal });
       if (!activa || abortador.signal.aborted || envio !== abortador) return;
       validarReciboInyectado(recibo, cuerpo);
-      formulario = { ...formulario, estado: "hecho", mensaje: t(recibo.replay ? "olvido_ya_registrado" : "olvido_registrado", { fecha: instanteVisible(recibo.instante_utc, locale, zonaHoraria) }), reciboRef: recibo.recibo_ref };
+      formulario = { ...formulario, estado: "hecho", mensaje: t(recibo.replay ? "olvido_ya_registrado" : "olvido_registrado", { fecha: instanteVisible(recibo.instante_utc, locale, zonaHoraria) }), recibo };
       anunciar(formulario.mensaje);
       await cargar();
     } catch (error) {
       if (!activa || abortador.signal.aborted || envio !== abortador) return;
       const codigo = error instanceof ErrorClienteSolicitudesCronos || error instanceof TypeError ? (error.codigo ?? "peticion_invalida") : "";
-      const clave = codigo === "peticion_invalida" ? "olvido_invalido" : codigo === "conflicto" ? "olvido_conflicto" : "olvido_error";
-      formulario = { ...formulario, estado: "error", mensaje: t(clave) };
+      const confirmadoRechazo = ["peticion_invalida", "conflicto", "acceso_denegado", "sin_empleado", "autenticacion_requerida"].includes(codigo);
+      const clave = codigo === "peticion_invalida" ? "olvido_invalido" : codigo === "conflicto" ? "olvido_conflicto" : confirmadoRechazo ? "olvido_denegado" : "olvido_incierto";
+      formulario = { ...formulario, estado: confirmadoRechazo ? "error" : "incierto", mensaje: t(clave) };
       dibujar(); anunciar(formulario.mensaje);
     } finally { if (envio === abortador) envio = null; }
+  };
+  const alEnviar = async (evento) => {
+    if (!evento.target?.matches?.("[data-cronos-olvido-formulario]")) return;
+    evento.preventDefault();
+    if (!formulario || ["incierto", "recuperando", "hecho"].includes(formulario.estado)) return;
+    const valor = (n) => evento.target.elements?.namedItem?.(n)?.value ?? "";
+    await enviarCorreccion({ fecha: valor("fecha_civil"), hora: valor("hora_pretendida"), movimiento: valor("movimiento") });
   };
   contenedor.addEventListener("click", alPulsar); contenedor.addEventListener("submit", alEnviar);
   contenedor.addEventListener("input", alEditar); contenedor.addEventListener("change", alEditar);
   void cargar();
   const desmontar = () => {
     if (!activa) return;
-    activa = false; ++secuencia; controlador?.abort(); envio?.abort();
+    activa = false; ++secuencia; controlador?.abort(); envio?.abort(); recuperacion?.abort();
     contenedor.removeEventListener("click", alPulsar); contenedor.removeEventListener("submit", alEnviar);
     contenedor.removeEventListener("input", alEditar); contenedor.removeEventListener("change", alEditar); contenedor.remove?.();
   };

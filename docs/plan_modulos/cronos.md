@@ -1,10 +1,12 @@
 # Cronos: continuación por capacidades
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+**Reanudado por encargo de dirección del 14/10/2026.** Codex-C prepara el
+recorrido en una copia desechable de cidonia. Dirección revisa e integra los
+cortes y los incorpora a una candidata completa ensayada.
 
-Plan de trabajo del 7 de octubre de 2026. La orden de Dirección reanuda los módulos;
-cidonia queda congelada. Esta ficha ordena cortes futuros sobre `main@01046e2e`;
-no autoriza instalar SQL, habilitar Cronos ni usar datos reales.
+El inventario siguiente procede del 7 de octubre de 2026, sobre
+`main@01046e2e`. La orden de mantener Cronos aparcado ha quedado superada.
+Solo dirección instala en cidonia; el ensayo usa datos ficticios.
 
 ## Punto de partida comprobado
 

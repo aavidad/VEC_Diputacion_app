@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -129,6 +130,9 @@ func (s *ServicioCorrecciones) RecuperarRecibo(ctx context.Context, orden ports.
 		}
 		empleados, err := actor.Referencias(vecdomain.TipoReferenciaContextoActorEmpleado)
 		if err != nil || len(empleados) != 1 || !vinculoEmpleadoCRN11Vigente(actor, empleados[0], instante) {
+			if err := registrarDenegacionVinculo(ctx, actor); err != nil {
+				return ports.ReciboCorreccion{}, err
+			}
 			return ports.ReciboCorreccion{}, ports.ErrCorreccionNoAutorizada
 		}
 		if s.lectorVinculo == nil {
@@ -140,13 +144,24 @@ func (s *ServicioCorrecciones) RecuperarRecibo(ctx context.Context, orden ports.
 		}
 		vinculo, err := s.lectorVinculo.ConsultarVinculoPropioCRN11(ctx, ports.InputConsultaVinculoPropioCRN11{Actor: copia, EmpleadoRef: empleados[0]})
 		if err != nil {
+			if errors.Is(err, ports.ErrCorreccionNoAutorizada) {
+				if registroErr := registrarDenegacionVinculo(ctx, actor); registroErr != nil {
+					return ports.ReciboCorreccion{}, registroErr
+				}
+			}
 			return ports.ReciboCorreccion{}, err
 		}
 		actorActual, instante, err := s.actorVigente(ctx, orden)
 		if err != nil {
+			if registroErr := registrarDenegacionVinculo(ctx, actor); registroErr != nil {
+				return ports.ReciboCorreccion{}, registroErr
+			}
 			return ports.ReciboCorreccion{}, err
 		}
 		if !vinculoEmpleadoCRN11Vigente(actorActual, empleados[0], instante) {
+			if err := registrarDenegacionVinculo(ctx, actor); err != nil {
+				return ports.ReciboCorreccion{}, err
+			}
 			return ports.ReciboCorreccion{}, ports.ErrCorreccionNoAutorizada
 		}
 		if !vinculoPropioHistoricoCRN11Valido(vinculo, actor.PersonaRef, empleados[0], instante) {
@@ -156,6 +171,11 @@ func (s *ServicioCorrecciones) RecuperarRecibo(ctx context.Context, orden ports.
 	}
 	recibo, err := s.repositorio.RecuperarRecibo(ctx, clave, orden)
 	if err != nil {
+		if errors.Is(err, ports.ErrCorreccionNoAutorizada) {
+			if registroErr := registrarDenegacionVinculo(ctx, actor); registroErr != nil {
+				return ports.ReciboCorreccion{}, registroErr
+			}
+		}
 		return ports.ReciboCorreccion{}, err
 	}
 	if !reciboRecuperadoValido(recibo, clave) {

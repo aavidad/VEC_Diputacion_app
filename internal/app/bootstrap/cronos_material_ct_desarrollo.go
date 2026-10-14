@@ -1,6 +1,9 @@
 package bootstrap
 
-import cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
+import (
+	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
+	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
+)
 
 // Cronos se integra como Dietas en el gobierno V3 único de desarrollo: una
 // clave HMAC derivada por audiencia de consumo (AD3-53 y AD3-70), con dominio y
@@ -16,6 +19,40 @@ type materialCronosDesdeCTDesarrollo struct {
 	// Notificaciones a RRHH (AD3-58), opcionales y juntas.
 	notificacion, notificaciones                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	bandejaNotificaciones, atencionNotificacion *proveedorMaterialAltaContratacionTemporalDesarrollo
+	// Lectura del recibo: dos decisiones V3 nominales, Cronos y Personal.
+	reciboCorreccion, vinculoPersonal *proveedorMaterialAltaContratacionTemporalDesarrollo
+	// C5b: bandeja, tres actuaciones e historia propia/de equipo.
+	decisionCorreccion [6]*proveedorMaterialAltaContratacionTemporalDesarrollo
+}
+
+func (m materialCronosDesdeCTDesarrollo) conDecisionCorreccion(p [6]*proveedorMaterialAltaContratacionTemporalDesarrollo) materialCronosDesdeCTDesarrollo {
+	m.decisionCorreccion = p
+	return m
+}
+
+func (m materialCronosDesdeCTDesarrollo) decisionCorreccionCompleta() bool {
+	for _, proveedor := range m.decisionCorreccion {
+		if proveedor == nil {
+			return false
+		}
+	}
+	return true
+}
+
+func (m materialCronosDesdeCTDesarrollo) conRecuperacionCorreccion(p [2]*proveedorMaterialAltaContratacionTemporalDesarrollo) materialCronosDesdeCTDesarrollo {
+	m.reciboCorreccion, m.vinculoPersonal = p[0], p[1]
+	return m
+}
+
+func (m materialCronosDesdeCTDesarrollo) recuperacionCorreccionCompleta() bool {
+	return m.reciboCorreccion != nil && m.vinculoPersonal != nil
+}
+
+func descriptoresMaterialRecuperacionCorreccionCronosDesarrollo() [2]descriptorMaterialConsumidorV3Desarrollo {
+	return [2]descriptorMaterialConsumidorV3Desarrollo{
+		{Audiencia: cronosapp.AudienciaRecuperarReciboCorreccionPropia, Dominio: "vec.cronos.correccion-recibo.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:cronos-correccion-recibo:", ProveedorNominal: "proveedor-material-cronos-correccion-recibo"},
+		{Audiencia: personaldomain.AudienciaVinculoPropioCRN11, Dominio: "vec.personal.vinculo-propio-crn11.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-vinculo-crn11:", ProveedorNominal: "proveedor-material-personal-vinculo-crn11"},
+	}
 }
 
 // completoNotificaciones exige los cuatro proveedores de las notificaciones.

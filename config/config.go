@@ -192,6 +192,8 @@ type Config struct {
 	BolsaContratosCT                            ConfiguracionEntregaContratosCTBolsa
 	DietasBorradoresEnabled                     string
 	CronosEmpleadoEnabled                       string
+	CronosRecuperacionCorreccionEnabled         string
+	CronosCorreccionesDecisionEnabled           string
 	CronosResolucionEnabled                     string
 	CTFirmaRegistroEnabled                      string
 	BolsaPortalCandidatoEnabled                 string
@@ -323,34 +325,36 @@ func Load() Config {
 			dsnProyectorGobierno: envFirst(EnvBolsaBorradoresProyectorGobiernoDatabaseURL),
 			dsnVerificadorRecibo: envFirst(EnvBolsaBorradoresVerificadorReciboDatabaseURL),
 		},
-		BolsaBorradoresEnabled:             envBool(EnvBolsaBorradoresEnabled),
-		BolsaContratosCT:                   cargarEntregaContratosCTBolsa(),
-		DietasBorradoresEnabled:            envFirst(EnvDietasBorradoresEnabled),
-		CronosEmpleadoEnabled:              envFirst(EnvCronosEmpleadoEnabled),
-		CronosResolucionEnabled:            envFirst(EnvCronosResolucionEnabled),
-		CTFirmaRegistroEnabled:             envFirst(EnvCTFirmaRegistroEnabled),
-		BolsaPortalCandidatoEnabled:        envFirst(EnvBolsaPortalCandidatoEnabled),
-		BolsaInscripcionesEnabled:          envFirst(EnvBolsaInscripcionesEnabled),
-		CTSeguimientoCeseEnabled:           envFirst(EnvCTSeguimientoCeseEnabled),
-		CTCancelacionEnabled:               envFirst(EnvCTCancelacionEnabled),
-		CTIncorporacionAcreditadaEnabled:   envFirst(EnvCTIncorporacionAcreditadaEnabled),
-		CTAprobacionPerfilesCentro:         envFirst(EnvCTProvisionPerfilesCentroAprobacion),
-		CTPreimagenesPerfilesCentro:        envFirst(EnvCTProvisionPerfilesCentroPreimagenes),
-		CTAprobacionPerfilesRRHH:           envFirst(EnvCTProvisionPerfilesRRHHAprobacion),
-		CTPreimagenesPerfilesRRHH:          envFirst(EnvCTProvisionPerfilesRRHHPreimagenes),
-		CronosNotificacionesEnabled:        envFirst(EnvCronosNotificacionesEnabled),
-		PersonalEmpleadoEnabled:            envFirst(EnvPersonalEmpleadoEnabled),
-		PersonalB2GobiernoEnabled:          envFirst(EnvPersonalB2GobiernoEnabled),
-		DocumentosEnabled:                  envFirst(EnvDocumentosEnabled),
-		PortalModulosVisiblesLista:         envFirst(EnvPortalModulosVisibles),
-		FirmaVerificacionEnabled:           envFirst(EnvFirmaVerificacionEnabled),
-		FirmaVerificacionURL:               envFirst(EnvFirmaVerificacionURL),
-		FirmaVerificacionCAFile:            envFirst(EnvFirmaVerificacionCAFile),
-		FirmaVerificacionTokenFile:         envFirst(EnvFirmaVerificacionTokenFile),
-		FirmaVerificacionCertFile:          envFirst(EnvFirmaVerificacionCertFile),
-		FirmaVerificacionKeyFile:           envFirst(EnvFirmaVerificacionKeyFile),
-		FirmaVerificacionTimeout:           envFirst(EnvFirmaVerificacionTimeout),
-		FirmaVerificacionNombreServidorTLS: envFirst(EnvFirmaVerificacionNombreServidorTLS),
+		BolsaBorradoresEnabled:              envBool(EnvBolsaBorradoresEnabled),
+		BolsaContratosCT:                    cargarEntregaContratosCTBolsa(),
+		DietasBorradoresEnabled:             envFirst(EnvDietasBorradoresEnabled),
+		CronosEmpleadoEnabled:               envFirst(EnvCronosEmpleadoEnabled),
+		CronosRecuperacionCorreccionEnabled: envFirst(EnvCronosRecuperacionCorreccionEnabled),
+		CronosCorreccionesDecisionEnabled:   envFirst(EnvCronosCorreccionesDecisionEnabled),
+		CronosResolucionEnabled:             envFirst(EnvCronosResolucionEnabled),
+		CTFirmaRegistroEnabled:              envFirst(EnvCTFirmaRegistroEnabled),
+		BolsaPortalCandidatoEnabled:         envFirst(EnvBolsaPortalCandidatoEnabled),
+		BolsaInscripcionesEnabled:           envFirst(EnvBolsaInscripcionesEnabled),
+		CTSeguimientoCeseEnabled:            envFirst(EnvCTSeguimientoCeseEnabled),
+		CTCancelacionEnabled:                envFirst(EnvCTCancelacionEnabled),
+		CTIncorporacionAcreditadaEnabled:    envFirst(EnvCTIncorporacionAcreditadaEnabled),
+		CTAprobacionPerfilesCentro:          envFirst(EnvCTProvisionPerfilesCentroAprobacion),
+		CTPreimagenesPerfilesCentro:         envFirst(EnvCTProvisionPerfilesCentroPreimagenes),
+		CTAprobacionPerfilesRRHH:            envFirst(EnvCTProvisionPerfilesRRHHAprobacion),
+		CTPreimagenesPerfilesRRHH:           envFirst(EnvCTProvisionPerfilesRRHHPreimagenes),
+		CronosNotificacionesEnabled:         envFirst(EnvCronosNotificacionesEnabled),
+		PersonalEmpleadoEnabled:             envFirst(EnvPersonalEmpleadoEnabled),
+		PersonalB2GobiernoEnabled:           envFirst(EnvPersonalB2GobiernoEnabled),
+		DocumentosEnabled:                   envFirst(EnvDocumentosEnabled),
+		PortalModulosVisiblesLista:          envFirst(EnvPortalModulosVisibles),
+		FirmaVerificacionEnabled:            envFirst(EnvFirmaVerificacionEnabled),
+		FirmaVerificacionURL:                envFirst(EnvFirmaVerificacionURL),
+		FirmaVerificacionCAFile:             envFirst(EnvFirmaVerificacionCAFile),
+		FirmaVerificacionTokenFile:          envFirst(EnvFirmaVerificacionTokenFile),
+		FirmaVerificacionCertFile:           envFirst(EnvFirmaVerificacionCertFile),
+		FirmaVerificacionKeyFile:            envFirst(EnvFirmaVerificacionKeyFile),
+		FirmaVerificacionTimeout:            envFirst(EnvFirmaVerificacionTimeout),
+		FirmaVerificacionNombreServidorTLS:  envFirst(EnvFirmaVerificacionNombreServidorTLS),
 		DietasBorradoresPostgreSQL: ConfiguracionDietasBorradores{
 			dsnDietas:             envFirst(EnvDietasBorradoresDatabaseURL),
 			dsnPersonal:           envFirst(EnvDietasPersonalRelacionesDatabaseURL),
@@ -488,6 +492,8 @@ func (c Config) Normalize() Config {
 	c.BolsaBorradoresPostgreSQL = c.BolsaBorradoresPostgreSQL.normalizar()
 	c.DietasBorradoresEnabled = strings.TrimSpace(c.DietasBorradoresEnabled)
 	c.CronosEmpleadoEnabled = strings.TrimSpace(c.CronosEmpleadoEnabled)
+	c.CronosRecuperacionCorreccionEnabled = strings.TrimSpace(c.CronosRecuperacionCorreccionEnabled)
+	c.CronosCorreccionesDecisionEnabled = strings.TrimSpace(c.CronosCorreccionesDecisionEnabled)
 	c.CronosResolucionEnabled = strings.TrimSpace(c.CronosResolucionEnabled)
 	c.CTFirmaRegistroEnabled = strings.TrimSpace(c.CTFirmaRegistroEnabled)
 	c.BolsaPortalCandidatoEnabled = strings.TrimSpace(c.BolsaPortalCandidatoEnabled)

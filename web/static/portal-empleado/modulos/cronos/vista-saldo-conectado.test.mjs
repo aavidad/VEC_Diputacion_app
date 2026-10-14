@@ -55,6 +55,21 @@ test("referencias opcionales sólo en detalle técnico plegado, escapadas y sin 
   assert.doesNotMatch(render(), /Detalle técnico/u);
 });
 
+test("la jornada prevista explica su fuente y versión al abrir el detalle", async () => {
+  const resultado = datos();
+  Object.assign(resultado.detalle[0], {
+    previstos_minutos: 450, programacion_ref: "programacion:cronos:turno_1",
+    fuente_ref: "fuente:reglamento", programacion_version: 3,
+  });
+  const html = renderizarVistaSaldoCronos({ estado: "listo", datos: resultado });
+  assert.match(html, /<details><summary>Origen de la jornada prevista<\/summary>/u);
+  assert.match(html, /<dt>Fuente<\/dt><dd>fuente:reglamento<\/dd>/u);
+  assert.match(html, /<dt>Versión<\/dt><dd>3<\/dd>/u);
+  assert.doesNotMatch(html, /<details[^>]*\bopen\b/u);
+  const ingles = JSON.parse(await readFile(new URL("../../../textos/en/cronos-saldo-origen.json", import.meta.url), "utf8")).saldo;
+  assert.match(renderizarVistaSaldoCronos({ estado: "listo", datos: resultado, mensajesOrigen: ingles }), /Source of planned working hours/u);
+});
+
 test("detalle del cálculo usa el catálogo inglés real y escapa las nuevas etiquetas", async () => {
   const mensajes = JSON.parse(await readFile(new URL("../../../textos/en/cronos.json", import.meta.url), "utf8")).general;
   const resultado = datos(); resultado.detalle[0].estado = "incompleto";
@@ -134,7 +149,7 @@ test("404 de la API: «no disponible» neutro, sin alerta; incrustada sin sobrel
   const raiz = { ownerDocument: { createElement: () => nodo }, append() {} };
   const vista = montarVistaSaldoCronos({ raiz, incrustada: true, cliente: { consultar: async () => { throw new ErrorClienteSaldoCronos("servicio_no_disponible", 404); } } });
   await Promise.resolve(); await Promise.resolve();
-  assert.match(nodo.innerHTML, /<p class="cronos-vacio"[^>]*role="status">El servicio de saldo no está disponible/u);
+  assert.match(nodo.innerHTML, /<p class="cronos-vacio"[^>]*role="status">El saldo horario no está disponible/u);
   assert.doesNotMatch(nodo.innerHTML, /No se pudo consultar/u);
   assert.doesNotMatch(nodo.innerHTML, /sobrelinea|<h2/u);
   assert.match(nodo.innerHTML, /<h3 id="cronos-saldo-titulo">/u);

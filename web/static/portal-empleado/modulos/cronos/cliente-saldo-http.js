@@ -64,12 +64,18 @@ export function validarResultadoSaldoCronos(valor, consulta) {
     || !Array.isArray(valor.detalle) || valor.detalle.length > MAXIMO_DETALLE) throw fallo("respuesta_incompatible", 200);
   let anterior = "";
   for (const dia of valor.detalle) {
-    if (!campos(dia, ["fecha", "previstos_minutos", "trabajados_minutos", "pausas_minutos", "saldo_minutos", "estado", "marcajes"], ["turno_ref", "politica_version_ref"])
+    if (!campos(dia, ["fecha", "previstos_minutos", "trabajados_minutos", "pausas_minutos", "saldo_minutos", "estado", "marcajes"],
+      ["turno_ref", "politica_version_ref", "programacion_ref", "fuente_ref", "programacion_version"])
       || !fechaCivil(dia.fecha) || dia.fecha < valor.periodo.desde || dia.fecha > valor.periodo.hasta
       || dia.fecha <= anterior || !minutos(dia.previstos_minutos, true)
       || !minutos(dia.trabajados_minutos) || !minutos(dia.pausas_minutos) || !minutos(dia.saldo_minutos, true)
       || (dia.turno_ref !== undefined && (typeof dia.turno_ref !== "string" || dia.turno_ref.length > 128))
       || (dia.politica_version_ref !== undefined && (typeof dia.politica_version_ref !== "string" || dia.politica_version_ref.length > 128))
+      || (["programacion_ref", "fuente_ref", "programacion_version"].filter((clave) => Object.hasOwn(dia, clave)).length !== 0
+        && ["programacion_ref", "fuente_ref", "programacion_version"].filter((clave) => Object.hasOwn(dia, clave)).length !== 3)
+      || (dia.programacion_ref !== undefined && (typeof dia.programacion_ref !== "string" || !/^programacion:cronos:[-A-Za-z0-9_]{1,128}$/u.test(dia.programacion_ref)
+        || typeof dia.fuente_ref !== "string" || !/^[-A-Za-z0-9_.:]{1,255}$/u.test(dia.fuente_ref)
+        || !Number.isSafeInteger(dia.programacion_version) || dia.programacion_version < 1))
       || !codigo(dia.estado) || !Array.isArray(dia.marcajes) || dia.marcajes.length > MAXIMO_MARCAJES_DIA) throw fallo("respuesta_incompatible", 200);
     anterior = dia.fecha;
     for (const marcaje of dia.marcajes) {

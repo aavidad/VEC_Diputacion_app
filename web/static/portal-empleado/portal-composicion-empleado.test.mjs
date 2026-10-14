@@ -403,3 +403,26 @@ test("Cronos ofrece las notificaciones a RRHH solo con sus cuatro piezas, con o 
   assert.equal(sin.montarNotificaciones, undefined);
   assert.equal(sin.etiquetas, undefined);
 });
+
+test("Cronos monta bandeja e historia C5b con cliente propio y sin selector de actor", () => {
+  const partes = { saldo: () => ({}), remoto: () => ({}), movimientos: () => ({}), calendario: () => ({}) };
+  const llamadas = []; const cliente = Object.freeze({ consultarBandeja() {}, registrarActuacion() {}, consultarHistoria() {} });
+  const recursos = { ...recursosCronos(partes),
+    clienteSolicitudes: { crearClienteSolicitudesCronosHTTP: () => ({ consultarMovimientos() {} }) },
+    correccionesC5b: {
+      montarBandejaCorreccionesCronos(o) { llamadas.push(["bandeja", o]); return { desmontar() {} }; },
+      montarHistoriaCorreccionesPropiasCronos(o) { llamadas.push(["historia", o]); return { desmontar() {} }; },
+    },
+    clienteCorreccionesC5b: { crearClienteCorreccionesCronosHTTP: ({ fetchImpl }) => { assert.equal(typeof fetchImpl, "function"); return cliente; } },
+    i18nCorreccionesC5b: { crearTraductorCorreccionesC5B: () => (clave) => ({ bandeja_titulo: "Correcciones por revisar", historia_titulo: "Mis correcciones" })[clave] },
+  };
+  const cronos = componerCronosInterno(recursos, { fetch() {} });
+  assert.equal(cronos.etiquetas.bandejaCorrecciones, "Correcciones por revisar");
+  assert.equal(cronos.etiquetas.historiaCorrecciones, "Mis correcciones");
+  cronos.montarBandejaCorrecciones({ raiz: "b" }); cronos.montarHistoriaCorrecciones({ raiz: "h" });
+  assert.strictEqual(llamadas[0][1].cliente, cliente);
+  assert.strictEqual(llamadas[1][1].cliente, cliente);
+  assert.equal(typeof llamadas[1][1].clienteSolicitudes.consultarMovimientos, "function");
+  const { clienteCorreccionesC5b: _omitido, ...sinCliente } = recursos;
+  assert.equal(componerCronosInterno(sinCliente, { fetch() {} }).montarBandejaCorrecciones, undefined);
+});

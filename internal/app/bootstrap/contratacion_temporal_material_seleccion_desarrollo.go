@@ -17,6 +17,7 @@ import (
 type seleccionMaterialCTDesarrollo struct {
 	borradoresBolsa, miBolsa, portalCandidato                        bool
 	dietas, cronos, documentos, cronosResolucion, cronosAvisos       bool
+	cronosRecuperacionCorreccion                                     bool
 	fichaPropiaPersonal, firmaDocumento, seguimientoCese, personalB2 bool
 	cancelacion                                                      bool
 	vinculoEmisionBolsa                                              bool
@@ -100,6 +101,7 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		portalCandidato:              debeComponerPortalCandidatoDesarrollo(cfg) && !miBolsaExternaSeleccionadaEnCombinado(cfg),
 		dietas:                       dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled),
 		cronos:                       cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled),
+		cronosRecuperacionCorreccion: cfg.CronosRecuperacionCorreccionDesarrolloActiva(),
 		documentos:                   documentosSolicitados(cfg.DocumentosEnabled),
 		cronosResolucion:             cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled),
 		cronosAvisos:                 cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled),
@@ -195,6 +197,10 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.cronos {
 		d = append(d, descriptoresMaterialCronosDesarrollo()...)
+	}
+	if s.cronosRecuperacionCorreccion {
+		adicionales := descriptoresMaterialRecuperacionCorreccionCronosDesarrollo()
+		d = append(d, adicionales[:]...)
 	}
 	if s.documentos {
 		d = append(d, descriptoresMaterialDocumentosDesarrollo()...)

@@ -120,7 +120,9 @@ func decodificarFuenteSaldoInterna(bruto []byte) (ports.FuenteSaldo, error) {
 		if j.ProgramacionRef == "" || j.FuenteRef == "" || j.Version < 1 || j.ZonaHoraria != sql.ZonaHoraria {
 			return ports.FuenteSaldo{}, ports.ErrDependenciaNoDisponible
 		}
-		f.Jornadas = append(f.Jornadas, ports.JornadaPrevista{Fecha: j.Fecha, TurnoRef: j.TurnoRef, PoliticaVersionRef: j.PoliticaVersionRef, MinutosPrevistos: j.MinutosPrevistos})
+		f.Jornadas = append(f.Jornadas, ports.JornadaPrevista{Fecha: j.Fecha, ProgramacionRef: j.ProgramacionRef,
+			TurnoRef: j.TurnoRef, PoliticaVersionRef: j.PoliticaVersionRef, FuenteRef: j.FuenteRef,
+			Version: j.Version, MinutosPrevistos: j.MinutosPrevistos})
 	}
 	for _, m := range sql.Marcajes {
 		f.Marcajes = append(f.Marcajes, ports.MarcajeSaldo{MarcajeRef: m.MarcajeRef, Movimiento: domain.PunchKind(m.Movimiento), InstanteUTC: m.InstanteUTC.UTC(), Canal: ports.CanalSaldo{PoliticaVersionRef: m.Canal.PoliticaVersionRef, CanalRef: m.Canal.CanalRef, OrigenRef: m.Canal.OrigenRef, CalidadRef: m.Canal.CalidadRef}, OrigenRef: m.Canal.OrigenRef, TipoOrigen: m.TipoOrigen})

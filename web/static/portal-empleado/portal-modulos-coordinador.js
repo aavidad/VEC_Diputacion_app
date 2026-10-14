@@ -105,10 +105,10 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
       bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones] = await Promise.all([
-      import("./modulos/cronos/vista-saldo-conectado.js?v=20261001-cronos-saldo-explicado-v1"),
-      import("./modulos/cronos/vista-remoto.js?v=20261001-cronos-grafo-bandeja-v5"),
+      import("./modulos/cronos/vista-saldo-conectado.js?v=20261014-cronos-circuitos-v1"),
+      import("./modulos/cronos/vista-remoto.js?v=20261014-cronos-circuitos-v1"),
       import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-movimientos-consulta-v1"),
-      import("./modulos/cronos/vista-movimientos-propios.js?v=20261007-u-dietas-catalogo-v1"),
+      import("./modulos/cronos/vista-movimientos-propios.js?v=20261014-cronos-circuitos-v1"),
       import("./modulos/cronos/vista-permisos-propios.js?v=20261007-pantallas-textos-final-v1"),
       import("./modulos/cronos/cliente-saldo-http.js"),
       import("./modulos/cronos/cliente-remoto-http.js"),
@@ -253,12 +253,12 @@ function nombreCentroEn(mapa, referencia) {
 }
 
 export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "cronos-permisos", "cronos-avisos", "cronos-bandeja",
-  "cronos-notificaciones", "cronos-bandeja-notificaciones", "dietas", "personal", "personal-registro"]));
+  "cronos-notificaciones", "cronos-bandeja-notificaciones", "cronos-bandeja-correcciones", "cronos-historia-correcciones", "dietas", "personal", "personal-registro"]));
 // Navegación propia: no incluye vistas de gestión ni acredita permisos.
 export const VISTAS_AUTOSERVICIO_EMPLEADO = Object.freeze(new Set([
-  "personal", "cronos", "cronos-permisos", "cronos-avisos", "cronos-notificaciones", "dietas", "mis-tramites",
+  "personal", "cronos", "cronos-permisos", "cronos-avisos", "cronos-notificaciones", "cronos-historia-correcciones", "dietas", "mis-tramites",
 ]));
-const SUBVISTAS_CRONOS = Object.freeze(new Set(["cronos-permisos", "cronos-avisos", "cronos-bandeja", "cronos-notificaciones", "cronos-bandeja-notificaciones"]));
+const SUBVISTAS_CRONOS = Object.freeze(new Set(["cronos-permisos", "cronos-avisos", "cronos-bandeja", "cronos-notificaciones", "cronos-bandeja-notificaciones", "cronos-bandeja-correcciones", "cronos-historia-correcciones"]));
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
   "contratacion-temporal", VISTA_PLANTILLAS_RRHH, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES, "mis-tramites",
@@ -1213,6 +1213,8 @@ export function crearCoordinadorModulosPortal({
     if (vista === "cronos-bandeja") return typeof composicion?.cronos?.montarBandeja === "function";
     if (vista === "cronos-notificaciones") return typeof composicion?.cronos?.montarNotificaciones === "function";
     if (vista === "cronos-bandeja-notificaciones") return typeof composicion?.cronos?.montarBandejaNotificaciones === "function";
+    if (vista === "cronos-bandeja-correcciones") return typeof composicion?.cronos?.montarBandejaCorrecciones === "function";
+    if (vista === "cronos-historia-correcciones") return typeof composicion?.cronos?.montarHistoriaCorrecciones === "function";
     if (vista === "dietas") return composicion?.dietas !== undefined;
     if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return composicion?.documentos !== undefined;
     if (vista === "personal") return composicion?.personal !== undefined;
@@ -1553,9 +1555,11 @@ export function crearCoordinadorModulosPortal({
             <button type="button" class="boton-secundario" data-vista="cronos"${vista === "cronos" ? ' aria-current="page"' : ""}>${escaparHTML(t("jornada_titulo"))}</button>
             <button type="button" class="boton-secundario" data-vista="cronos-permisos"${vista === "cronos-permisos" ? ' aria-current="page"' : ""}>${escaparHTML(t("navegacion_permisos"))}</button>
             ${typeof composicion.cronos.montarAvisos === "function" ? `<button type="button" class="boton-secundario" data-vista="cronos-avisos"${vista === "cronos-avisos" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.avisos)}</button>
-            ${vista === "cronos-bandeja" ? `<button type="button" class="boton-secundario" data-vista="cronos-bandeja" aria-current="page">${escaparHTML(composicion.cronos.etiquetas.bandeja)}</button>` : ""}` : ""}
+            ${typeof composicion.cronos.montarBandeja === "function" ? `<button type="button" class="boton-secundario" data-vista="cronos-bandeja"${vista === "cronos-bandeja" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.bandeja)}</button>` : ""}` : ""}
             ${typeof composicion.cronos.montarNotificaciones === "function" ? `<button type="button" class="boton-secundario" data-vista="cronos-notificaciones"${vista === "cronos-notificaciones" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.notificaciones)}</button>
-            ${vista === "cronos-bandeja-notificaciones" ? `<button type="button" class="boton-secundario" data-vista="cronos-bandeja-notificaciones" aria-current="page">${escaparHTML(composicion.cronos.etiquetas.bandejaNotificaciones)}</button>` : ""}` : ""}
+            ${typeof composicion.cronos.montarBandejaNotificaciones === "function" ? `<button type="button" class="boton-secundario" data-vista="cronos-bandeja-notificaciones"${vista === "cronos-bandeja-notificaciones" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.bandejaNotificaciones)}</button>` : ""}` : ""}
+            ${typeof composicion.cronos.montarHistoriaCorrecciones === "function" ? `<button type="button" class="boton-secundario" data-vista="cronos-historia-correcciones"${vista === "cronos-historia-correcciones" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.historiaCorrecciones)}</button>` : ""}
+            ${typeof composicion.cronos.montarBandejaCorrecciones === "function" ? `<button type="button" class="boton-secundario" data-vista="cronos-bandeja-correcciones"${vista === "cronos-bandeja-correcciones" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.bandejaCorrecciones)}</button>` : ""}
           </div>`;
         raiz.append(navegacion);
         desmontarVista = () => navegacion?.remove();
@@ -1565,6 +1569,8 @@ export function crearCoordinadorModulosPortal({
           "cronos-bandeja": composicion.cronos.montarBandeja,
           "cronos-notificaciones": composicion.cronos.montarNotificaciones,
           "cronos-bandeja-notificaciones": composicion.cronos.montarBandejaNotificaciones,
+          "cronos-bandeja-correcciones": composicion.cronos.montarBandejaCorrecciones,
+          "cronos-historia-correcciones": composicion.cronos.montarHistoriaCorrecciones,
         }[vista] ?? composicion.cronos.montar;
         const modulo = await montarCronos({ raiz, anunciar,
           registrarDesmontar: (limpiar) => {

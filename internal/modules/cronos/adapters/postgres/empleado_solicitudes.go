@@ -222,10 +222,6 @@ func (r *RepositorioCorreccionesPropias) RegistrarActuacion(context.Context, dom
 	return ports.ReciboCorreccion{}, ports.ErrDependenciaNoDisponible
 }
 
-func (r *RepositorioCorreccionesPropias) RecuperarRecibo(context.Context, ports.ClaveRecuperacionCorreccion, ports.OrdenConsumoCorreccion) (ports.ReciboCorreccion, error) {
-	return ports.ReciboCorreccion{}, ports.ErrDependenciaNoDisponible
-}
-
 // ---- Permisos ----
 
 type RepositorioPermisosPropios struct{ db iniciadorMarcaje }

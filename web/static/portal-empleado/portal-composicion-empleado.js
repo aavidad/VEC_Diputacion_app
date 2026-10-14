@@ -12,7 +12,8 @@ export function componerCronosInterno(recursos, entorno) {
   const { saldo, remoto, movimientos, movimientosPropios, permisosPropios,
     clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
     bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
-    notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones } = recursos ?? {};
+    notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones,
+    correccionesC5b, clienteCorreccionesC5b, i18nCorreccionesC5b } = recursos ?? {};
   if (typeof saldo?.montarVistaSaldoCronos !== "function"
     || typeof remoto?.montarVistaRemotoCronos !== "function"
     || typeof movimientos?.montarVistaMovimientosCronos !== "function"
@@ -58,18 +59,36 @@ export function componerCronosInterno(recursos, entorno) {
       return bandejaNotificaciones.montarBandejaNotificacionesCronos({ raiz, cliente: clienteNotificacionesHTTP, anunciar, registrarDesmontar });
     },
   }) : {};
+  const correcciones = typeof correccionesC5b?.montarBandejaCorreccionesCronos === "function"
+    && typeof correccionesC5b?.montarHistoriaCorreccionesPropiasCronos === "function"
+    && typeof clienteCorreccionesC5b?.crearClienteCorreccionesCronosHTTP === "function"
+    && typeof i18nCorreccionesC5b?.crearTraductorCorreccionesC5B === "function";
+  const clienteCorreccionesHTTP = correcciones ? clienteCorreccionesC5b.crearClienteCorreccionesCronosHTTP(transporte) : undefined;
+  const traducirCorrecciones = correcciones ? i18nCorreccionesC5b.crearTraductorCorreccionesC5B() : undefined;
+  const subvistasCorrecciones = correcciones ? Object.freeze({
+    montarBandejaCorrecciones({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return correccionesC5b.montarBandejaCorreccionesCronos({ raiz, cliente: clienteCorreccionesHTTP, anunciar, registrarDesmontar });
+    },
+    montarHistoriaCorrecciones({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return correccionesC5b.montarHistoriaCorreccionesPropiasCronos({ raiz, cliente: clienteCorreccionesHTTP,
+        clienteSolicitudes: cliente.solicitudes, anunciar, registrarDesmontar });
+    },
+  }) : {};
   const etiquetas = Object.freeze({
     ...(resolucion ? { bandeja: traducirResolucion("bandeja_titulo"), avisos: traducirResolucion("avisos_titulo") } : {}),
     ...(notificaciones ? { notificaciones: traducirNotificaciones("notificaciones_titulo"),
       bandejaNotificaciones: traducirNotificaciones("bandeja_notificaciones_titulo") } : {}),
+    ...(correcciones ? { bandejaCorrecciones: traducirCorrecciones("bandeja_titulo"),
+      historiaCorrecciones: traducirCorrecciones("historia_titulo") } : {}),
   });
   return Object.freeze({
     traducir,
     ...(typeof cliente.solicitudes.consultarPermisos === "function"
       ? { consultarPermisos: cliente.solicitudes.consultarPermisos.bind(cliente.solicitudes) } : {}),
-    ...(resolucion || notificaciones ? { etiquetas } : {}),
+    ...(resolucion || notificaciones || correcciones ? { etiquetas } : {}),
     ...subvistasResolucion,
     ...subvistasNotificaciones,
+    ...subvistasCorrecciones,
     montar({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
       const t = traducir; const documento = raiz.ownerDocument;
       const elemento = (etiqueta, clase, texto) => {

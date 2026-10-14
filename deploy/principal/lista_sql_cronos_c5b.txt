@@ -1,0 +1,8 @@
+# C5b en candidata conjunta PostgreSQL 18. CRN15 y las bases de Cronos,
+# Personal, Documentos y Dietas deben estar instaladas antes de esta lista.
+# AD273 será la consolidada única desde HZ37 para sus consumidores nuevos.
+# Preparación: no ejecutar mientras falte el archivo AD273 consolidado y sus dos revisiones.
+# CRN19 requiere además las tablas de solicitudes C5a y la fuente publicada
+# por empleado para aplicar; no inventa esa fuente.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000273_consumidores_correcciones_cronos.up.sql
+deploy/postgresql/cronos_v1/migraciones/000019_correcciones_decisiones_asientos.up.sql

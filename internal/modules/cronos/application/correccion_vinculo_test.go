@@ -126,7 +126,8 @@ func TestCRN11RechazaFuenteIncompletaCruzadaOCaidaAntesDelRepositorio(t *testing
 				return v, caso.err
 			})
 			s, _ := NuevoServicioCorreccionesConVinculoHistorico(repo, relojMarcajePrueba{actor.ResueltoEn}, lector)
-			recibo, err := s.RecuperarRecibo(context.Background(), orden, claveInicialCRN11())
+			ctx := ConRegistroDenegacionVinculo(context.Background(), &registroVinculoPrueba{})
+			recibo, err := s.RecuperarRecibo(ctx, orden, claveInicialCRN11())
 			esperado := caso.err
 			if esperado == nil {
 				esperado = ports.ErrDependenciaNoDisponible
@@ -147,6 +148,7 @@ func TestCRN11GuardasPreviasNoConsultanFuenteNiRepositorio(t *testing.T) {
 			clave := claveInicialCRN11()
 			ctx, cancelar := context.WithCancel(context.Background())
 			defer cancelar()
+			ctx = ConRegistroDenegacionVinculo(ctx, &registroVinculoPrueba{})
 			switch nombre {
 			case "sin_empleado":
 				actor.Instantanea.Vinculos = nil
@@ -201,6 +203,7 @@ func TestCRN11RevalidaVigenciaYCancelacionTrasFuenteLenta(t *testing.T) {
 			repo := &repositorioVinculoCRN11Prueba{}
 			ctx, cancelar := context.WithCancel(context.Background())
 			defer cancelar()
+			ctx = ConRegistroDenegacionVinculo(ctx, &registroVinculoPrueba{})
 			lector := lectorVinculoCRN11Prueba(func(_ context.Context, in ports.InputConsultaVinculoPropioCRN11) (ports.VinculoPropioHistoricoCRN11, error) {
 				if cancelarDurante {
 					cancelar()
@@ -261,13 +264,45 @@ func TestCRN11VinculoEmpleadoCaducaAntesQueInstantanea(t *testing.T) {
 				return vinculoCRN11Prueba(in, actor.ResueltoEn), nil
 			})
 			s, _ := NuevoServicioCorreccionesConVinculoHistorico(repo, reloj, lector)
-			recibo, err := s.RecuperarRecibo(context.Background(), orden, claveInicialCRN11())
+			ctx := ConRegistroDenegacionVinculo(context.Background(), &registroVinculoPrueba{})
+			recibo, err := s.RecuperarRecibo(ctx, orden, claveInicialCRN11())
 			esperadas := 0
 			if duranteLectura {
 				esperadas = 1
 			}
 			if !errors.Is(err, ports.ErrCorreccionNoAutorizada) || recibo != (ports.ReciboCorreccion{}) || llamadas != esperadas || repo.recuperaciones != 0 {
 				t.Fatal("vinculo expirado admitido con contexto general vigente", err)
+			}
+		})
+	}
+}
+
+func TestCRN11ReciboAjenoSoloDeniegaTrasAcuseAuditoria(t *testing.T) {
+	orden := ordenCorreccionPrueba(t)
+	actor, _ := orden.ContextoActor()
+	lector := lectorVinculoCRN11Prueba(func(_ context.Context, in ports.InputConsultaVinculoPropioCRN11) (ports.VinculoPropioHistoricoCRN11, error) {
+		return vinculoCRN11Prueba(in, actor.ResueltoEn), nil
+	})
+	for _, caso := range []struct {
+		nombre   string
+		registro RegistroDenegacionVinculo
+		esperado error
+		llamadas int
+	}{
+		{"acuse", &registroVinculoPrueba{}, ports.ErrCorreccionNoAutorizada, 1},
+		{"auditoria_caida", &registroVinculoPrueba{err: errors.New("fallo sintético")}, ports.ErrDependenciaNoDisponible, 1},
+		{"sin_registro", nil, ports.ErrDependenciaNoDisponible, 0},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			repo := &repositorioVinculoCRN11Prueba{repositorioCorreccionPrueba: repositorioCorreccionPrueba{err: ports.ErrCorreccionNoAutorizada}}
+			s, _ := NuevoServicioCorreccionesConVinculoHistorico(repo, relojMarcajePrueba{actor.ResueltoEn}, lector)
+			ctx := ConRegistroDenegacionVinculo(context.Background(), caso.registro)
+			recibo, err := s.RecuperarRecibo(ctx, orden, claveInicialCRN11())
+			if !errors.Is(err, caso.esperado) || recibo != (ports.ReciboCorreccion{}) || repo.recuperaciones != 1 {
+				t.Fatal("rechazo sin auditoría confirmada", err, recibo)
+			}
+			if registro, ok := caso.registro.(*registroVinculoPrueba); ok && registro.llamadas != caso.llamadas {
+				t.Fatal("acuse de rechazo", registro.llamadas)
 			}
 		})
 	}

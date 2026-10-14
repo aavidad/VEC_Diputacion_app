@@ -74,6 +74,21 @@ test("la ruta de Permisos comparte Cronos y resuelve el hash directo sin inventa
   assert.equal(reemplazos.at(-1)[2], "#portal");
 });
 
+test("las bandejas y la historia de Cronos tienen ruta directa y título en ambos idiomas", async () => {
+  const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
+  const es = JSON.parse(await readFile(new URL("../textos/es/portal.json", import.meta.url), "utf8"));
+  const en = JSON.parse(await readFile(new URL("../textos/en/portal.json", import.meta.url), "utf8"));
+  for (const [vista, clave] of [["cronos-avisos", "cronos_avisos_titulo"], ["cronos-bandeja", "cronos_bandeja_titulo"],
+    ["cronos-notificaciones", "cronos_notificaciones_titulo"], ["cronos-bandeja-notificaciones", "cronos_bandeja_notificaciones_titulo"],
+    ["cronos-historia-correcciones", "cronos_historia_correcciones_titulo"], ["cronos-bandeja-correcciones", "cronos_bandeja_correcciones_titulo"]]) {
+    assert.equal(moduloDeVistaPortal(vista), "cronos");
+    assert.equal(rutaDeVistaPortal(vista), `#${vista}`);
+    assert.match(portal, new RegExp(`"${vista}": \\[traducirPortal\\("cronos_miga"\\), traducirPortal\\("${clave}"\\)\\]`));
+    assert.equal(typeof es.general[clave], "string");
+    assert.equal(typeof en.general[clave], "string");
+  }
+});
+
 const esperar = async () => { for (let i = 0; i < 10; i++) await new Promise((resolve) => setImmediate(resolve)); };
 
 test("Permisos monta los permisos propios; con la API en 404 muestra su estado y limpia listeners al navegar", async () => {

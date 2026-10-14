@@ -38,7 +38,7 @@ func TestConsultaSaldoDerivaEmpleadoYNoInventaPrevisto(t *testing.T) {
 	zona, _ := time.LoadLocation("Europe/Madrid")
 	tipoOrigen := "terminal"
 	r := &repoSaldoPrueba{fuente: ports.FuenteSaldo{
-		Jornadas: []ports.JornadaPrevista{{Fecha: "2026-09-21", TurnoRef: "turno_a", PoliticaVersionRef: "politica_v1", MinutosPrevistos: 450}},
+		Jornadas: []ports.JornadaPrevista{{ProgramacionRef: "programacion:prueba", FuenteRef: "fuente:prueba", Version: 1, Fecha: "2026-09-21", TurnoRef: "turno_a", PoliticaVersionRef: "politica_v1", MinutosPrevistos: 450}},
 		Marcajes: []ports.MarcajeSaldo{
 			{MarcajeRef: "m1", Movimiento: domain.PunchEntry, InstanteUTC: time.Date(2026, 9, 21, 6, 0, 0, 0, time.UTC), Canal: canalSaldoPrueba(), OrigenRef: "terminal_1", TipoOrigen: &tipoOrigen},
 			{MarcajeRef: "m2", Movimiento: domain.PunchPauseStart, InstanteUTC: time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC), Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"},
@@ -69,6 +69,10 @@ func TestConsultaSaldoDerivaEmpleadoYNoInventaPrevisto(t *testing.T) {
 	if resultado.Detalle[0].TrabajadosMinutos != 450 || resultado.Detalle[0].PausasMinutos != 30 || *resultado.Detalle[0].SaldoMinutos != 0 {
 		t.Fatalf("primer dia: %+v", resultado.Detalle[0])
 	}
+	if resultado.Detalle[0].ProgramacionRef != "programacion:prueba" ||
+		resultado.Detalle[0].FuenteRef != "fuente:prueba" || resultado.Detalle[0].ProgramacionVersion != 1 {
+		t.Fatalf("fuente de jornada perdida: %+v", resultado.Detalle[0])
+	}
 	if resultado.Detalle[0].Marcajes[0].Origen == nil || *resultado.Detalle[0].Marcajes[0].Origen != "terminal" {
 		t.Fatalf("origen no acreditado: %+v", resultado.Detalle[0].Marcajes[0])
 	}
@@ -79,7 +83,7 @@ func TestConsultaSaldoDerivaEmpleadoYNoInventaPrevisto(t *testing.T) {
 
 func TestConsultaSaldoRechazaLibroDivergente(t *testing.T) {
 	zona, _ := time.LoadLocation("Europe/Madrid")
-	fuente := ports.FuenteSaldo{EmpleadoRef: "emp_test", Desde: "2026-09-21", Hasta: "2026-09-21", Jornadas: []ports.JornadaPrevista{{Fecha: "2026-09-21", PoliticaVersionRef: "v1", MinutosPrevistos: 450}}, MovimientosSaldo: []ports.MovimientoSaldo{{Fecha: "2026-09-21", Tipo: "previsto", DeltaMicrosegundos: -449 * 60 * 1000000, Fuentes: []string{"turno"}}}}
+	fuente := ports.FuenteSaldo{EmpleadoRef: "emp_test", Desde: "2026-09-21", Hasta: "2026-09-21", Jornadas: []ports.JornadaPrevista{{ProgramacionRef: "programacion:prueba", FuenteRef: "fuente:prueba", Version: 1, Fecha: "2026-09-21", PoliticaVersionRef: "v1", MinutosPrevistos: 450}}, MovimientosSaldo: []ports.MovimientoSaldo{{Fecha: "2026-09-21", Tipo: "previsto", DeltaMicrosegundos: -449 * 60 * 1000000, Fuentes: []string{"turno"}}}}
 	desde, _ := fechaCivilSaldo("2026-09-21", zona)
 	_, err := construirConsultaSaldo(ports.PeriodoSaldoHoy, desde, desde, fuente, zona)
 	if !errors.Is(err, ports.ErrDependenciaNoDisponible) {
@@ -99,7 +103,7 @@ func TestConsultaSaldoRespetaSemanaConTurnosMayoresDeTreintaYSieteHoras(t *testi
 		if i < 5 {
 			previsto = 600
 		}
-		fuente.Jornadas = append(fuente.Jornadas, ports.JornadaPrevista{Fecha: clave, TurnoRef: "turno_largo_v1", PoliticaVersionRef: "politica_v1", MinutosPrevistos: previsto})
+		fuente.Jornadas = append(fuente.Jornadas, ports.JornadaPrevista{ProgramacionRef: "programacion:prueba", FuenteRef: "fuente:prueba", Version: 1, Fecha: clave, TurnoRef: "turno_largo_v1", PoliticaVersionRef: "politica_v1", MinutosPrevistos: previsto})
 		fuente.MovimientosSaldo = append(fuente.MovimientosSaldo, ports.MovimientoSaldo{Fecha: clave, Tipo: "previsto", DeltaMicrosegundos: -previsto * 60 * 1000000, Fuentes: []string{"turno_largo_v1"}})
 		if i < 5 {
 			entrada := time.Date(fecha.Year(), fecha.Month(), fecha.Day(), 8, 0, 0, 0, zona).UTC()
@@ -123,7 +127,7 @@ func TestConsultaSaldoSoloDiaBNoDaSaldoDePausaNocturnaInvalida(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := &repoSaldoPrueba{fuente: ports.FuenteSaldo{Completo: true,
-		Jornadas: []ports.JornadaPrevista{{Fecha: "2026-10-25", TurnoRef: "turno_noche", PoliticaVersionRef: "politica_v1", MinutosPrevistos: 450}},
+		Jornadas: []ports.JornadaPrevista{{ProgramacionRef: "programacion:prueba", FuenteRef: "fuente:prueba", Version: 1, Fecha: "2026-10-25", TurnoRef: "turno_noche", PoliticaVersionRef: "politica_v1", MinutosPrevistos: 450}},
 		Marcajes: []ports.MarcajeSaldo{
 			{MarcajeRef: "e", Movimiento: domain.PunchEntry, InstanteUTC: time.Date(2026, 10, 24, 21, 0, 0, 0, time.UTC), Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"},
 			{MarcajeRef: "p", Movimiento: domain.PunchPauseStart, InstanteUTC: time.Date(2026, 10, 24, 23, 0, 0, 0, time.UTC), Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"},
@@ -174,7 +178,7 @@ func TestConsultaSaldoSoloDiaBNoDaSaldoConEntradaAnteriorAbierta(t *testing.T) {
 	for _, tc := range casos {
 		t.Run(tc.name, func(t *testing.T) {
 			r := &repoSaldoPrueba{fuente: ports.FuenteSaldo{Completo: true,
-				Jornadas:         []ports.JornadaPrevista{{Fecha: tc.fechaB, TurnoRef: "turno_noche", PoliticaVersionRef: "politica_v1", MinutosPrevistos: 450}},
+				Jornadas:         []ports.JornadaPrevista{{ProgramacionRef: "programacion:prueba", FuenteRef: "fuente:prueba", Version: 1, Fecha: tc.fechaB, TurnoRef: "turno_noche", PoliticaVersionRef: "politica_v1", MinutosPrevistos: 450}},
 				Marcajes:         []ports.MarcajeSaldo{{MarcajeRef: "entrada_a", Movimiento: domain.PunchEntry, InstanteUTC: tc.entrada, Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"}},
 				MovimientosSaldo: []ports.MovimientoSaldo{{Fecha: tc.fechaB, Tipo: "previsto", DeltaMicrosegundos: -450 * 60 * 1000000, Fuentes: []string{"turno_noche"}}},
 			}}
@@ -205,7 +209,7 @@ func TestConsultaSaldoRespetaFuenteSQLIncompletaAunqueNoLlegueHechoDeBorde(t *te
 	zona, _ := time.LoadLocation("Europe/Madrid")
 	fecha, _ := fechaCivilSaldo("2026-09-24", zona)
 	fuente := ports.FuenteSaldo{Completo: false,
-		Jornadas:         []ports.JornadaPrevista{{Fecha: "2026-09-24", TurnoRef: "turno", PoliticaVersionRef: "v1", MinutosPrevistos: 450}},
+		Jornadas:         []ports.JornadaPrevista{{ProgramacionRef: "programacion:prueba", FuenteRef: "fuente:prueba", Version: 1, Fecha: "2026-09-24", TurnoRef: "turno", PoliticaVersionRef: "v1", MinutosPrevistos: 450}},
 		MovimientosSaldo: []ports.MovimientoSaldo{{Fecha: "2026-09-24", Tipo: "previsto", DeltaMicrosegundos: -450 * 60 * 1000000, Fuentes: []string{"turno"}}},
 	}
 	got, err := construirConsultaSaldo(ports.PeriodoSaldoRango, fecha, fecha, fuente, zona)
@@ -226,7 +230,7 @@ func TestConsultaSaldoEntradaAntiguaMarcaTodoRangoMultidiario(t *testing.T) {
 		Marcajes: []ports.MarcajeSaldo{{MarcajeRef: "entrada_antigua", Movimiento: domain.PunchEntry, InstanteUTC: time.Date(2025, 1, 1, 8, 0, 0, 0, time.UTC), Canal: canalSaldoPrueba(), OrigenRef: "terminal_1"}},
 	}}
 	for _, fecha := range []string{"2026-09-24", "2026-09-25", "2026-09-26"} {
-		r.fuente.Jornadas = append(r.fuente.Jornadas, ports.JornadaPrevista{Fecha: fecha, TurnoRef: "turno", PoliticaVersionRef: "v1", MinutosPrevistos: 450})
+		r.fuente.Jornadas = append(r.fuente.Jornadas, ports.JornadaPrevista{ProgramacionRef: "programacion:prueba", FuenteRef: "fuente:prueba", Version: 1, Fecha: fecha, TurnoRef: "turno", PoliticaVersionRef: "v1", MinutosPrevistos: 450})
 		r.fuente.MovimientosSaldo = append(r.fuente.MovimientosSaldo, ports.MovimientoSaldo{Fecha: fecha, Tipo: "previsto", DeltaMicrosegundos: -450 * 60 * 1000000, Fuentes: []string{"turno"}})
 	}
 	s, _ := NuevoServicioConsultaSaldo(r, relojMarcajePrueba{time.Now().UTC()}, zona)
@@ -290,7 +294,7 @@ func TestConsultaSaldoAgrupaMarcajesPorFechaLocalConDSTYOrdenDeFuente(t *testing
 	}}
 	for i, previsto := range []int64{60, 240, 0} {
 		clave := desde.AddDate(0, 0, i).Format("2006-01-02")
-		fuente.Jornadas = append(fuente.Jornadas, ports.JornadaPrevista{Fecha: clave, TurnoRef: "turno", PoliticaVersionRef: "v1", MinutosPrevistos: previsto})
+		fuente.Jornadas = append(fuente.Jornadas, ports.JornadaPrevista{ProgramacionRef: "programacion:prueba", FuenteRef: "fuente:prueba", Version: 1, Fecha: clave, TurnoRef: "turno", PoliticaVersionRef: "v1", MinutosPrevistos: previsto})
 		fuente.MovimientosSaldo = append(fuente.MovimientosSaldo, ports.MovimientoSaldo{Fecha: clave, Tipo: "previsto", DeltaMicrosegundos: -previsto * 60 * 1000000, Fuentes: []string{"turno"}})
 		if previsto > 0 {
 			fuente.MovimientosSaldo = append(fuente.MovimientosSaldo, ports.MovimientoSaldo{Fecha: clave, Tipo: "trabajado", DeltaMicrosegundos: previsto * 60 * 1000000, Fuentes: []string{"e", "s"}})

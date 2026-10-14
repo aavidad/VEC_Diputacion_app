@@ -106,8 +106,11 @@ func (o OrdenConsultaSaldo) ContextoActor() (vecdomain.ContextoActor, error) {
 
 type JornadaPrevista struct {
 	Fecha              string
+	ProgramacionRef    string
 	TurnoRef           string
 	PoliticaVersionRef string
+	FuenteRef          string
+	Version            int64
 	MinutosPrevistos   int64
 }
 
@@ -147,15 +150,18 @@ type ResumenConsultaSaldo struct {
 }
 
 type DetalleSaldoDia struct {
-	Fecha              string       `json:"fecha"`
-	TurnoRef           string       `json:"turno_ref,omitempty"`
-	PoliticaVersionRef string       `json:"politica_version_ref,omitempty"`
-	PrevistosMinutos   *int64       `json:"previstos_minutos"`
-	TrabajadosMinutos  int64        `json:"trabajados_minutos"`
-	PausasMinutos      int64        `json:"pausas_minutos"`
-	SaldoMinutos       *int64       `json:"saldo_minutos"`
-	Estado             string       `json:"estado"`
-	Marcajes           []MarcajeDia `json:"marcajes"`
+	Fecha               string       `json:"fecha"`
+	ProgramacionRef     string       `json:"programacion_ref,omitempty"`
+	TurnoRef            string       `json:"turno_ref,omitempty"`
+	PoliticaVersionRef  string       `json:"politica_version_ref,omitempty"`
+	FuenteRef           string       `json:"fuente_ref,omitempty"`
+	ProgramacionVersion int64        `json:"programacion_version,omitempty"`
+	PrevistosMinutos    *int64       `json:"previstos_minutos"`
+	TrabajadosMinutos   int64        `json:"trabajados_minutos"`
+	PausasMinutos       int64        `json:"pausas_minutos"`
+	SaldoMinutos        *int64       `json:"saldo_minutos"`
+	Estado              string       `json:"estado"`
+	Marcajes            []MarcajeDia `json:"marcajes"`
 }
 
 type MarcajeDia struct {

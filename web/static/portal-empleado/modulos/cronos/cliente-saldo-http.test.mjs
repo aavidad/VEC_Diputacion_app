@@ -75,3 +75,17 @@ test("admite nanosegundos UTC de Go y rechaza zona distinta o fecha imposible", 
     assert.throws(() => validarResultadoSaldoCronos(dato, consulta), (error) => error instanceof ErrorClienteSaldoCronos && error.codigo === "respuesta_incompatible");
   }
 });
+
+test("conserva fuente y versión de programación sin aceptar metadatos incompletos", () => {
+  const consulta = { periodo: "rango", desde: "2026-09-20", hasta: "2026-09-21" };
+  const dato = structuredClone(resultado);
+  Object.assign(dato.detalle[0], {
+    previstos_minutos: 450, programacion_ref: "programacion:cronos:turno_1",
+    fuente_ref: "fuente:reglamento", programacion_version: 3,
+  });
+  assert.doesNotThrow(() => validarResultadoSaldoCronos(dato, consulta));
+  delete dato.detalle[0].fuente_ref;
+  assert.throws(() => validarResultadoSaldoCronos(dato, consulta), ErrorClienteSaldoCronos);
+  dato.detalle[0].fuente_ref = "fuente:<script>";
+  assert.throws(() => validarResultadoSaldoCronos(dato, consulta), ErrorClienteSaldoCronos);
+});

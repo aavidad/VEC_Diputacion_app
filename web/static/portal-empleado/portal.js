@@ -1,4 +1,4 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20261012-ct-personal-ficha-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20261014-cronos-circuitos-v1";
 import { FILTRO_INCIDENCIA_CT, filtroServidorCTValido, leerFiltroCTDeRuta,
   limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261011-bolsa-b103-privacidad-v1";
 import { leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
@@ -7,7 +7,7 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261013-ct-firma-tres-v3";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261014-cronos-circuitos-v1";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
@@ -171,6 +171,12 @@ const TITULOS = Object.freeze({
   configuracion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_configuracion_y_roles")],
   cronos: [traducirPortal("cronos_miga"), traducirPortal("cronos_jornada_titulo")],
   "cronos-permisos": [traducirPortal("cronos_permisos_miga"), traducirPortal("cronos_permisos_titulo")],
+  "cronos-avisos": [traducirPortal("cronos_miga"), traducirPortal("cronos_avisos_titulo")],
+  "cronos-bandeja": [traducirPortal("cronos_miga"), traducirPortal("cronos_bandeja_titulo")],
+  "cronos-notificaciones": [traducirPortal("cronos_miga"), traducirPortal("cronos_notificaciones_titulo")],
+  "cronos-bandeja-notificaciones": [traducirPortal("cronos_miga"), traducirPortal("cronos_bandeja_notificaciones_titulo")],
+  "cronos-historia-correcciones": [traducirPortal("cronos_miga"), traducirPortal("cronos_historia_correcciones_titulo")],
+  "cronos-bandeja-correcciones": [traducirPortal("cronos_miga"), traducirPortal("cronos_bandeja_correcciones_titulo")],
   dietas: [traducirPortal("txt_portal_del_empleado_dietas"), traducirPortal("txt_dietas_y_comisiones_de_servicio")],
   personal: [traducirPortal("txt_portal_del_empleado_personal"), traducirPortal("txt_personal_consulta_informativa")],
   get "personal-registro"() {
@@ -651,7 +657,8 @@ function vistaPermitida(vista) {
   if (moduloDeVistaPortal(vista) === "bolsa") return vistaBolsaNavegable(vista, capacidadesBolsa());
   if (VISTAS_MODULOS_PERSONALES.has(vista) || VISTAS_AUTOSERVICIO_EMPLEADO.has(vista)) {
     return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista)
-      || (VISTAS_AUTOSERVICIO_EMPLEADO.has(vista) && coordinadorModulos.vistaPendiente(vista));
+      || ((VISTAS_AUTOSERVICIO_EMPLEADO.has(vista) || moduloDeVistaPortal(vista) === "cronos")
+        && coordinadorModulos.vistaPendiente(vista));
   }
   return true;
 }

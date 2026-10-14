@@ -1,0 +1,14 @@
+# C5a sobre copia HZ37: C7 y AD268 antes de las dos autoridades nominales.
+# AD268 pertenece a Dietas y debe incorporarse desde su fuente congelada por Dirección.
+# Cambia tres fachadas Dietas, no el núcleo ni el CHECK de audiencias que guarda AD269.
+# sha256 AD269: 8822448ecaef98e488742599dc2f48bcd3b6154454040662d0b7cbbe117c931f
+# sha256 Personal26: 14e4221926ce8530bd8ae939f0361adf48d5937f01a550aef4d7dcf085890d3d
+# sha256 Personal51: 2930549592766c4ff904f2f38de4cffe5adcddd83fc90d6e818484594ea8bf51
+# sha256 CRN17: a89a51b54ad200c0f161c9202f38b0959d7d31d5f45773e9d4719e1c75f6ee9c
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000267_consumidores_cronos_permisos_c7.up.sql
+deploy/postgresql/cronos_v1/migraciones/000016_permisos_circuito_resolucion_c7.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000268_campos_documento_dietas_actual.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000269_recibo_correccion_propia_cronos.up.sql
+deploy/postgresql/personal/migraciones/000026_vinculo_propio_historico_crn11.up.sql
+deploy/postgresql/personal/migraciones/000051_recibo_vinculo_crn11_rls_especifica.up.sql
+deploy/postgresql/cronos_v1/migraciones/000017_recibo_correccion_propia.up.sql

@@ -1227,7 +1227,7 @@ test("Cronos interno: olvido de marcaje abre el formulario del calendario y falt
   }
 });
 
-test("Cronos propio no ofrece bandejas de gestión ni las consulta; sus rutas directas se conservan", async () => {
+test("Cronos ofrece navegación a las bandejas sin consultar la competencia en el navegador", async () => {
   const reales = await recursosCronosInternos(); const montadas = [];
   const montar = (nombre) => ({ registrarDesmontar } = {}) => {
     montadas.push(nombre); const desmontar = () => {}; registrarDesmontar?.(desmontar); return { desmontar };
@@ -1242,6 +1242,9 @@ test("Cronos propio no ofrece bandejas de gestión ni las consulta; sus rutas di
     bandejaNotificaciones: { montarBandejaNotificacionesCronos: montar("bandeja-notificaciones") },
     clienteNotificaciones: { crearClienteNotificacionesCronosHTTP: () => ({}) },
     i18nNotificaciones: { crearTraductorNotificacionesCronos: () => (clave) => clave },
+    correccionesC5b: { montarBandejaCorreccionesCronos: montar("bandeja-correcciones"), montarHistoriaCorreccionesPropiasCronos: montar("historia-correcciones") },
+    clienteCorreccionesC5b: { crearClienteCorreccionesCronosHTTP: () => ({}) },
+    i18nCorreccionesC5b: { crearTraductorCorreccionesC5B: () => (clave) => clave },
   };
   const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
     entorno: { fetch: () => assert.fail("no debe sondear competencia de RRHH") },
@@ -1252,10 +1255,14 @@ test("Cronos propio no ofrece bandejas de gestión ni las consulta; sus rutas di
   for (const vista of ["cronos-permisos", "cronos-avisos", "cronos-notificaciones"]) {
     assert.equal(await coordinador.montarVista(vista, raiz), true);
     const navegacion = raiz.querySelector("[data-cronos-subvistas]").innerHTML;
-    assert.doesNotMatch(navegacion, /data-vista="cronos-bandeja(?:-notificaciones)?"/);
+    assert.match(navegacion, /data-vista="cronos-bandeja"/);
+    assert.match(navegacion, /data-vista="cronos-bandeja-notificaciones"/);
+    assert.match(navegacion, /data-vista="cronos-bandeja-correcciones"/);
+    assert.match(navegacion, /data-vista="cronos-historia-correcciones"/);
   }
   assert.deepEqual(montadas, ["permisos", "avisos", "notificaciones"]);
-  for (const [vista, montaje] of [["cronos-bandeja", "bandeja"], ["cronos-bandeja-notificaciones", "bandeja-notificaciones"]]) {
+  for (const [vista, montaje] of [["cronos-bandeja", "bandeja"], ["cronos-bandeja-notificaciones", "bandeja-notificaciones"],
+    ["cronos-bandeja-correcciones", "bandeja-correcciones"], ["cronos-historia-correcciones", "historia-correcciones"]]) {
     assert.equal(await coordinador.montarVista(vista, raiz), true);
     assert.equal(montadas.at(-1), montaje);
     assert.match(raiz.querySelector("[data-cronos-subvistas]").innerHTML, new RegExp(`data-vista="${vista}" aria-current="page"`));

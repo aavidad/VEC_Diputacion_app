@@ -1,15 +1,12 @@
 package bootstrap
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"path/filepath"
 	"runtime"
@@ -25,6 +22,7 @@ import (
 	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
 	cronosdomain "vec-diputacion-granada/internal/modules/cronos/domain"
 	cronosports "vec-diputacion-granada/internal/modules/cronos/ports"
+	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -43,7 +41,7 @@ const prefijoRutasCronosEmpleado = "/api/interna/cronos/"
 // El archivo privado sólo selecciona cuentas registradas, conexiones
 // nominales, motivos y la política del canal remoto. Las claves V3 son las del
 // gobierno único que publica Contratación. Con el selector activado, su
-// ausencia o cualquier dependencia incompleta impide arrancar.
+// ausencia o cualquier dependencia incompleta cierra las rutas de Cronos.
 type configuracionCronosEmpleadoDesarrollo struct {
 	redaccionMaterialRutasDietas
 	Version                  int                           `json:"version"`
@@ -325,17 +323,20 @@ func (e estadoMigracionesCronos) diagnostico(resolucion, notificaciones bool) er
 // las que le corresponden. Una función ausente hace fallar la consulta.
 func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Pool, resolucion, notificaciones bool) error {
 	var ok bool
-	// Con la resolución activa se exigen también las cuatro funciones de
-	// 000009 (AD3-57) y el circuito J-A de 000010, cuya bandeja devuelve lo
-	// pendiente de asignación; con las notificaciones, las cuatro de 000010
-	// (AD3-58). Si falta algo, el error nombra la primera migración ausente
-	// de la cadena 000009 → AD3-58 → 000010.
-	if resolucion || notificaciones {
+	// La resolución instalada en CRN16 conserva las firmas de consulta y
+	// decisión. C9 se comprueba por separado contra sus cuatro consumidores
+	// consolidados y CRN20, sin exigir la migración histórica CRN10.
+	if resolucion {
 		var e estadoMigracionesCronos
 		if ejecutor.QueryRow(ctx, consultaMigracionesCronos).Scan(&e.cronos000009, &e.circuito000010, &e.notificaciones000010, &e.ad358) != nil {
 			return ErrComposicionCronosEmpleadoNoDisponible
 		}
-		if err := e.diagnostico(resolucion, notificaciones); err != nil {
+		if err := e.diagnostico(true, false); err != nil {
+			return err
+		}
+	}
+	if notificaciones {
+		if err := comprobarNotificacionesCronosC9(ctx, ejecutor); err != nil {
 			return err
 		}
 	}
@@ -359,7 +360,8 @@ func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Poo
 }
 
 // nuevasRutasCronosEmpleadoDesarrollo devuelve nil con el selector apagado.
-// Con él activado, cualquier pieza ausente o incoherente impide arrancar.
+// Con él activado, cualquier pieza ausente o incoherente devuelve un error
+// que el montaje supervisado aísla en las rutas de Cronos.
 func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, material materialCronosDesdeCTDesarrollo) (*autoridadCronosEmpleadoDesarrollo, error) {
 	activo, err := cfg.CronosEmpleadoDesarrolloActivo()
 	if err != nil {
@@ -381,73 +383,14 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		(notificaciones && !material.completoNotificaciones()) {
 		return nil, errCronosEmpleadoEn()
 	}
-	contenido, err := leerFicheroMaterialSeguro(filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "cronos-empleado.json"), 256<<10)
-	if err != nil || validarClavesJSONUnicas(contenido) != nil {
-		return nil, errCronosEmpleadoEn()
-	}
-	defer borrarBytes(contenido)
-	var c configuracionCronosEmpleadoDesarrollo
-	dec := json.NewDecoder(bytes.NewReader(contenido))
-	dec.DisallowUnknownFields()
-	var extra any
-	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) || c.Version != 1 || c.Autoridad != AutoridadNoAutoritativa || len(c.Cuentas) == 0 || len(c.Cuentas) > 64 ||
-		(c.ZonaHoraria != cronosdomain.ZonaSaldoPeninsula && c.ZonaHoraria != cronosdomain.ZonaSaldoCanarias) {
-		return nil, errCronosEmpleadoEn()
-	}
-	motivos := cronoscomp.MotivosCronos{Saldo: c.Motivos.Saldo, Marcaje: c.Motivos.Marcaje, Disponibilidad: c.Motivos.Disponibilidad, Recuperacion: c.Motivos.Recuperacion,
-		Movimientos: c.Motivos.Movimientos, Correccion: c.Motivos.Correccion, Permisos: c.Motivos.Permisos, Permiso: c.Motivos.Permiso}
-	if !core.ReferenciaMotivoAutorizacionV2Valida(c.AuditoriaIntentos.MotivoDenegado) ||
-		c.AuditoriaIntentos.MotivoDenegado.Referencia() == motivos.Saldo.Referencia() {
-		return nil, errCronosEmpleadoEn()
-	}
-	comunes := []core.ReferenciaEntradaCatalogo{motivos.Marcaje, motivos.Disponibilidad, motivos.Recuperacion, motivos.Movimientos, motivos.Correccion, motivos.Permisos, motivos.Permiso}
-	// La resolución exige sus cuatro motivos con su selector; sin él se
-	// ignoran para no emitir decisiones de una capacidad no compuesta.
-	if resolucion {
-		motivos.Bandeja, motivos.Resolucion, motivos.Avisos, motivos.ArchivoAviso = c.Motivos.Bandeja, c.Motivos.Resolucion, c.Motivos.Avisos, c.Motivos.ArchivoAviso
-		comunes = append(comunes, motivos.Bandeja, motivos.Resolucion, motivos.Avisos, motivos.ArchivoAviso)
-	}
-	// Igual para las notificaciones a RRHH.
-	if notificaciones {
-		motivos.Notificacion, motivos.Notificaciones = c.Motivos.Notificacion, c.Motivos.Notificaciones
-		motivos.BandejaNotificaciones, motivos.AtencionNotificacion = c.Motivos.BandejaNotificaciones, c.Motivos.AtencionNotificacion
-		comunes = append(comunes, motivos.Notificacion, motivos.Notificaciones, motivos.BandejaNotificaciones, motivos.AtencionNotificacion)
-	}
-	for _, m := range comunes {
-		if m.CatalogoID != motivos.Saldo.CatalogoID || m.Referencia() == c.AuditoriaIntentos.MotivoDenegado.Referencia() {
-			return nil, errCronosEmpleadoEn()
-		}
-	}
-	canal, err := cronosdomain.NuevaAcreditacionCanalMarcaje(cronosdomain.DatosAcreditacionCanalMarcaje{PoliticaVersionRef: c.CanalRemoto.PoliticaVersionRef, CanalRef: c.CanalRemoto.CanalRef, OrigenRef: cronosdomain.OrigenMarcajeRemoto, CalidadRef: c.CanalRemoto.CalidadRef})
+	datos, err := cargarConfiguracionCronosValidada(cfg, identidad, resolucion, notificaciones)
 	if err != nil {
 		return nil, errCronosEmpleadoEn()
 	}
-	zona, err := time.LoadLocation(c.ZonaHoraria)
-	if err != nil {
-		return nil, errCronosEmpleadoEn()
-	}
-	cuentas := map[string]cuentaRutasDietasDesarrollo{}
-	for _, cuenta := range c.Cuentas {
-		b, e := hex.DecodeString(cuenta.CertificadoSHA256)
-		if e != nil || len(b) != sha256.Size || hex.EncodeToString(b) != cuenta.CertificadoSHA256 || cuenta.Sujeto == "" || cuenta.CuentaRef == "" || cuenta.PerfilRef == "" {
-			return nil, errCronosEmpleadoEn()
-		}
-		var digest [32]byte
-		copy(digest[:], b)
-		principal, existe := identidad.porHuella[digest]
-		if !existe || principal.ID != cuenta.Sujeto || principal.AuthMethod != core.AuthMethodCertificate || principal.AuthAssurance != core.AuthAssuranceHigh || cuentas[cuenta.CertificadoSHA256].Sujeto != "" {
-			return nil, errCronosEmpleadoEn()
-		}
-		cuentas[cuenta.CertificadoSHA256] = cuenta
-	}
+	c, motivos, canal, zona, cuentas := datos.archivo, datos.motivos, datos.canal, datos.zona, datos.cuentas
 	ctx, cancel := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
 	defer cancel()
-	entradas := []struct{ dsn, rol string }{
-		{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"},
-		{c.DSNContexto, "vec_contexto_actor_v1_runtime"}, {c.DSNFuenteAutorizacion, "vec_autorizacion_fuente"},
-		{c.DSNRegistroAutorizacion, "vec_autorizacion_registro"}, {c.DSNMotivos, "vec_autorizacion_motivos_evaluador"},
-		{c.DSNCronos, "vec_cronos_v1_ejecutor"}, {c.DSNCronosAuditor, "vec_cronos_v1_auditor"},
-	}
+	entradas := entradasConexionCronos(c)
 	var pools []*pgxpool.Pool
 	var cerrarIntentos func()
 	var unaVez sync.Once
@@ -481,7 +424,7 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 	}
 	if err := preflightCronosEmpleado(ctx, pools[6], pools[7], resolucion, notificaciones); err != nil {
 		// Una migración ausente se nombra; cualquier otro fallo, con su lugar.
-		if errors.Is(err, ErrCronosFalta000009) || errors.Is(err, ErrCronosFaltaAD358) || errors.Is(err, ErrCronosFalta000010) {
+		if errors.Is(err, ErrCronosFalta000009) || errors.Is(err, ErrCronosFaltaAD358) || errors.Is(err, ErrCronosFalta000010) || errors.Is(err, ErrCronosFaltaC9) {
 			return nil, err
 		}
 		return nil, errCronosEmpleadoEn()
@@ -558,6 +501,24 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		proveedoresPorAccion[cronosapp.AccionConsultarBandejaNotif] = material.bandejaNotificaciones
 		proveedoresPorAccion[cronosapp.AccionAtenderNotificacion] = material.atencionNotificacion
 	}
+	// C5a conserva las dos autoridades nominales: Cronos lee el recibo y
+	// Personal acredita el vínculo histórico con otra decisión V3.
+	if material.recuperacionCorreccionCompleta() {
+		proveedoresPorAccion[cronosapp.AccionRecuperarReciboCorreccion] = material.reciboCorreccion
+		proveedoresPorAccion[personaldomain.AccionVinculoPropioCRN11] = material.vinculoPersonal
+	}
+	if material.decisionCorreccionCompleta() {
+		for i, accion := range []string{
+			cronosapp.AccionBandejaCorrecciones,
+			cronosapp.AccionDecidirCorreccion,
+			cronosapp.AccionResolverCorreccionRRHH,
+			cronosapp.AccionAplicarCorreccion,
+			cronosapp.AccionHistoriaCorreccionPropia,
+			cronosapp.AccionHistoriaCorreccionEquipo,
+		} {
+			proveedoresPorAccion[accion] = material.decisionCorreccion[i]
+		}
+	}
 	for accion, proveedor := range proveedoresPorAccion {
 		e, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, proveedor)
 		if err != nil {
@@ -586,6 +547,69 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 	})
 	if err != nil {
 		return nil, err
+	}
+	rutas[cronoshttp.RutaRecuperarReciboCorreccionPropia] = reciboCorreccionNoDisponible()
+	if cfg.CronosRecuperacionCorreccionEnabled != "" && cfg.CronosRecuperacionCorreccionEnabled != "false" &&
+		!cfg.CronosRecuperacionCorreccionDesarrolloActiva() {
+		registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_recuperacion_correccion", ErrComposicionCronosEmpleadoNoDisponible))
+	}
+	if cfg.CronosRecuperacionCorreccionDesarrolloActiva() && material.recuperacionCorreccionCompleta() {
+		configRecibo, fallo := leerRecuperacionCorreccionCronos(cfg)
+		if fallo == nil && (configRecibo.MotivoPersonal.CatalogoID != motivos.Saldo.CatalogoID ||
+			configRecibo.MotivoCronos.CatalogoID != motivos.Saldo.CatalogoID) {
+			fallo = ErrComposicionCronosEmpleadoNoDisponible
+		}
+		if fallo == nil {
+			fallo = validadorMotivos.ValidarReferenciaMotivoAutorizacionV2(ctx, configRecibo.MotivoPersonal, reloj.Ahora())
+		}
+		if fallo == nil {
+			fallo = validadorMotivos.ValidarReferenciaMotivoAutorizacionV2(ctx, configRecibo.MotivoCronos, reloj.Ahora())
+		}
+		if fallo == nil {
+			motivosRecibo := motivos
+			motivosRecibo.Correccion = configRecibo.MotivoCronos
+			var autorizadorRecibo *cronoscomp.AutorizadorCronos
+			autorizadorRecibo, fallo = cronoscomp.NuevoAutorizadorCronos(emisor, motivosRecibo)
+			if fallo != nil {
+				fallo = ErrComposicionCronosEmpleadoNoDisponible
+			}
+			if fallo == nil {
+				var personal *pgxpool.Pool
+				var usuario string
+				personal, usuario, fallo = abrirPoolRutasDietas(ctx, configRecibo.DSNPersonal, "vec_personal_ejecutor")
+				if fallo == nil {
+					if usuarios[usuario] {
+						personal.Close()
+						fallo = ErrComposicionCronosEmpleadoNoDisponible
+					} else {
+						fallo = montarRecuperacionCorreccionCronos(ctx, a, rutas, pools[6], personal, zona, emisor,
+							autorizadorRecibo, configRecibo.MotivoPersonal, canal)
+						if fallo == nil {
+							pools = append(pools, personal)
+						} else {
+							personal.Close()
+						}
+					}
+				}
+			}
+		}
+		if fallo != nil {
+			registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_recuperacion_correccion", ErrComposicionCronosEmpleadoNoDisponible))
+		}
+	}
+	rutasDecisionCorreccionesNoDisponibles(rutas)
+	if cfg.CronosCorreccionesDecisionEnabled != "" && cfg.CronosCorreccionesDecisionEnabled != "false" &&
+		!cfg.CronosCorreccionesDecisionDesarrolloActiva() {
+		registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_decision_correcciones", ErrComposicionCronosEmpleadoNoDisponible))
+	}
+	if cfg.CronosCorreccionesDecisionDesarrolloActiva() && material.decisionCorreccionCompleta() {
+		fallo := montarDecisionCorreccionesCronos(ctx, rutas, dependenciasCronosEmpleado{
+			ejecutor: pools[6], identidad: seguridadCronosEmpleadoDesarrollo{autoridad: a},
+			autorizador: autorizadorCronos, canal: canal, zona: zona,
+		})
+		if fallo != nil {
+			registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_decision_correcciones", fallo))
+		}
 	}
 	a.rutas = rutas
 	completa = true
