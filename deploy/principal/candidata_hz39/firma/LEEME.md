@@ -203,6 +203,16 @@ y descarga por Documentos su referencia, versión y huella. El navegador
 coteja también la huella de los bytes. La API general de Documentos conserva
 su frontera de garantía alta.
 
+## Rol y cargo del paso publicado
+
+Instalar CT219 una sola vez. El material mantiene dos identificadores:
+`RolIDFirmante` es el rol de la asignación y `CargoFirmante` la referencia
+`car_…` de Personal. El descriptor debe acreditar cada valor exactamente
+contra el paso del plan publicado. Compararlos entre sí rechazaba todos los
+pasos preparados por Administración. La versión 3 del registro conserva la
+autorización, el consumo en la misma transacción y su historia; las funciones
+históricas de versión 2 y la entrada de versión 4 permanecen intactas.
+
 ## Verificador de cada copia
 
 El kit `kit/grxfirma_p/` prepara GrxFirma con un puerto propio de loopback,

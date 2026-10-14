@@ -186,7 +186,7 @@ func prepararServicioMultipleConsumidor(t *testing.T) (*ServicioFirmaVec, *depen
 		t.Fatal(e)
 	}
 	competencia.alterar = func(e *ports.EvidenciaCompetenciaFirmante) {
-		e.CargoFirmante = "ct_cargo_jefatura_rrhh"
+		e.CargoFirmante = "cargo:prueba"
 		e.RolIDFirmante = "ct_cargo_jefatura_rrhh"
 		e.CuentaFirmanteRef = "cuenta:firmante:001"
 		e.VinculoCredencialFirmanteRef = "vinculo:credencial:001"
@@ -306,7 +306,7 @@ func TestConsumidorFirmaMultipleCompetenciaUnicaEntreAlternativas(t *testing.T) 
 					return ports.EvidenciaCompetenciaFirmante{}, ports.ErrCompetenciaFirmanteNoAcreditada
 				}
 				e, err := comp.AcreditarCompetenciaFirmante(c, q)
-				e.CargoFirmante = "ct_cargo_direccion_rrhh"
+				e.CargoFirmante = "cargo:prueba"
 				e.RolIDFirmante = "ct_cargo_direccion_rrhh"
 				return e, err
 			})
@@ -315,7 +315,7 @@ func TestConsumidorFirmaMultipleCompetenciaUnicaEntreAlternativas(t *testing.T) 
 				if !errors.Is(e, ports.ErrCompetenciaFirmanteNoAcreditada) || len(d.materiales) != 0 {
 					t.Fatal(e)
 				}
-			} else if e != nil || r.MaterialMultiple.PerfilFirmanteRef != "perfil:ct:direccion" || r.MaterialMultiple.CargoFirmante != "ct_cargo_direccion_rrhh" {
+			} else if e != nil || r.MaterialMultiple.PerfilFirmanteRef != "perfil:ct:direccion" || r.MaterialMultiple.CargoFirmante != "cargo:prueba" || r.MaterialMultiple.RolIDFirmante != "ct_cargo_direccion_rrhh" {
 				t.Fatalf("alternativa o cargo real perdido: %+v %v", r, e)
 			}
 		})

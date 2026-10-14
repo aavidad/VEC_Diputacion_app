@@ -37,7 +37,7 @@ func fixtureRegistroFirmaV2(t *testing.T) (ports.MaterialFirmaVerificadaV2, Desc
 		Via: ports.ViaFirmaCertificadoVEC, OrganizacionRef: "organizacion:prueba", ExpedienteRef: "expediente:prueba", VersionExpediente: 7,
 		Documento: "informe_definitivo", CatalogoRef: "catalogo:prueba", CatalogoHuella: h, PasoRef: "paso:primero", PasoOrden: 1, Secuencia: 1,
 		HistoriaHuella: h, OriginalRef: "original:prueba", OriginalVersion: 1, OriginalHuella: original, FirmadoHuella: firmado, CertificadoHuella: cert, FirmanteRef: "ref:" + cert,
-		FirmantePrincipalRef: "per_firmante_sintetico", PerfilFirmanteRef: "perfil:firmante", CargoFirmante: "ct_cargo_prueba", UnidadFirmanteRef: "unidad:prueba", PerfilActivoFirmanteRef: "prf_firmante_sintetico",
+		FirmantePrincipalRef: "per_firmante_sintetico", PerfilFirmanteRef: "perfil:firmante", CargoFirmante: "cargo:prueba", UnidadFirmanteRef: "unidad:prueba", PerfilActivoFirmanteRef: "prf_firmante_sintetico",
 		AsignacionFirmanteRef: "asignacion:prueba", AsignacionFirmanteVersion: 1, AsignacionFirmanteHuella: h, VersionRolFirmanteRef: "rol:ct_cargo_prueba:v1", VersionRolFirmanteHuella: h,
 		ControlVigenciaFirmanteRef: "rol:ct_cargo_prueba:v1", ControlVigenciaFirmanteRevision: 1, ControlVigenciaFirmanteHuella: h,
 		AsignacionVigenteDesde: "2026-01-01T00:00:00Z", AsignacionVigenteHasta: "2027-01-01T00:00:00Z", PoliticaVerificacion: "politica:vec:firma:verificacion-autonoma:v2",

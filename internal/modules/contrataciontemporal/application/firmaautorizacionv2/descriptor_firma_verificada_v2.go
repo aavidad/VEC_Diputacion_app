@@ -16,7 +16,7 @@ func CanonicoDescriptorFirmaVerificadaV2(m ports.MaterialFirmaVerificadaV2, d po
 	r, s := d.Recurso, d.Seleccion
 	if d.Esquema != "vec.competencia-firmante.constructor-ct.v1" || d.CertificadoDERSHA256 != m.CertificadoHuella || d.FechaHistorica != nil ||
 		s.PerfilEsperadoRef != m.PerfilFirmanteRef || s.PerfilActivoRef != m.PerfilActivoFirmanteRef || s.RolID != m.RolIDFirmante ||
-		!domain.ReferenciaOpacaValida(s.CargoRef) || !domain.ReferenciaOpacaValida(s.EnlaceEjercicioRef) ||
+		s.CargoRef != m.CargoFirmante || !domain.ReferenciaOpacaValida(s.CargoRef) || !domain.ReferenciaOpacaValida(s.EnlaceEjercicioRef) ||
 		r.OrganizacionRef != m.OrganizacionRef || r.UnidadRef != m.UnidadFirmanteRef || r.ExpedienteRef != m.ExpedienteRef ||
 		r.DocumentoRef != m.OriginalRef || r.RecursoAutorizableRef != r.DocumentoRef || r.ModuloID != ports.ModuloContratacion ||
 		!domain.ReferenciaOpacaValida(r.TipoRecurso) || !domain.HuellaSHA256FirmaValida(r.RecursoContextoSHA256) ||

@@ -70,7 +70,7 @@ func (m MaterialFirmaVerificadaV2) Validar() error {
 	if !domain.ReferenciaOpacaValida(m.PerfilActivoOperadorRef) {
 		return ErrSolicitudFirmaDocumentoInvalida
 	}
-	if m.RolIDFirmante == "" || m.RolIDFirmante != m.CargoFirmante {
+	if !domain.ReferenciaOpacaValida(m.RolIDFirmante) || !domain.ReferenciaOpacaValida(m.CargoFirmante) {
 		return ErrSolicitudFirmaDocumentoInvalida
 	}
 	if m.CatalogoVersion < 1 || m.CatalogoVersion > 9007199254740991 {
