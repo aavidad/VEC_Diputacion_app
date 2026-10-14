@@ -55,7 +55,7 @@ apartado 4.0.
 | Datos del recorrido | Recetas #1135 aplicadas: plantilla existente, Antonio disponible y primer turno; manifiesto con la nueva referencia de candidato |
 | Vía del aspirante | Mi Bolsa interna; inscripción RRHH opcional apagada por dirección |
 | Plan de firma y cinco firmas | Plan de cinco pasos creado y publicado por dos administradores, con recibos reales. Catorce actos nominales confirmados. Las cinco firmas siguen pendientes |
-| Arranque | Mi Bolsa activa e inscripción RRHH apagada. La firma nominal encuentra un rechazo del lector del plan; vuelta atrás comprobada con respuesta de salud 200 |
+| Arranque | Firma nominal y Mi Bolsa activas; inscripción RRHH apagada. Composición en 2,778 segundos y salud 200 |
 | Recorrido completo y reinicio | Pasos 1–7 con respuestas y recibos reales; informe preparado, firma 7b pendiente. Falta el recorrido final en copia limpia |
 | Administración propia | Fuentes, unidad y arranque con tres recibos propios. Gobierno confirmado; comprobación de cadena pendiente (`manifiesto_checkpoint_limite`) |
 | Mi Bolsa | Chrome muestra Administrativo, Disponible y orden inicial 1 de 12; lectura e historial responden 200. Preferencias devuelve 404 y se ha comunicado a su dueño |
@@ -91,10 +91,18 @@ recorrido y conservará los recibos que produzca.
 La configuración nominal, las cuatro admisiones, el plan y la ampliación de
 conexiones de auditoría tienen revisión independiente. El verificador de la
 copia responde por HTTPS con su CA y token propios. El arranque nominal
-localizó un requisito ausente del circuito RRHH y, después de añadirlo, un
-rechazo del lector del plan: su detector de teléfonos coincide dentro de
-una referencia opaca de cargo. Se ha comunicado a H; los actos y recibos
-publicados se conservan. La app vuelve a arrancar sin la firma nominal.
+necesita el catálogo de flujo RRHH y el fichero del token sin salto de línea.
+El detector de teléfonos rechazó una referencia opaca de cargo. Por orden de
+dirección se publicaron un nuevo cargo y enlace de Secretaría. Administración
+retiró el plan anterior y publicó el nuevo, conservando sus actos e historia;
+solo puede haber un plan publicado en el módulo. La operación de publicación
+pendiente se retomó con su mismo material y clave, sin repetir la creación.
+El lector acepta el paquete nuevo y la app arranca con firma nominal activa.
+
+Chrome abre el expediente y consulta el circuito, pero las seis consultas de
+estado de firma devuelven 503. PostgreSQL señala «autenticación histórica
+inválida» en su cotejo de auditoría. H está corrigiendo este fallo; el panel no
+acredita ninguna firma mientras la consulta no funcione.
 
 El plan nominal ya se ha publicado. Siguen pendientes la activación de firma,
 la congelación del código, el tramo Personal/cese y la recuperación completa
