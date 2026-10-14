@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -219,7 +220,63 @@ func (a *autoridadSesionFirmanteV2) revalidarConContexto(ctx context.Context, r 
 		c.fallida = true
 		return vacio, sinContexto, errSesionFirmanteV2Denegada
 	}
-	return e.Vinculo, e.Resultado, nil
+	// AUT56 revalida la sesión en cada uso. La petición nominal ya fijó un
+	// recibo F1 de esa misma sesión; ambas decisiones de registro deben llevar
+	// sus bytes exactos, siempre que la nueva lectura siga acreditándolo.
+	p, ok := ctx.Value(clavePeticionNominalFirmaCT{}).(*peticionNominalFirmaCT)
+	if !ok || p == nil || p.fuente == nil || p.fuente.autoridad != a ||
+		!mismaSesionFirmanteV2(p.sesion, c.sesion) ||
+		p.solicitud.CertificadoCanalSHA256 != c.huellaAUT56 ||
+		!p.solicitud.CertificadoTLSValidoHasta.Equal(c.validoHasta) ||
+		p.solicitud.PersonaEsperadaRef != c.personaCA25 ||
+		p.solicitud.PersonaEsperadaRef != c.seleccion.PersonaRef ||
+		p.solicitud.CuentaEsperadaRef != c.seleccion.CuentaRef ||
+		p.solicitud.PerfilEsperadoRef != c.seleccion.PerfilActivoRef ||
+		p.solicitud.RolEsperadoID != c.seleccion.RolID {
+		c.fallida = true
+		return vacio, sinContexto, errSesionFirmanteV2Denegada
+	}
+	fijada, err := p.fuente.contexto(ctx)
+	if err != nil || ctx.Err() != nil ||
+		!contextoFijadoFirmaVecCTValido(e, fijada, ahora) {
+		c.fallida = true
+		return vacio, sinContexto, errSesionFirmanteV2Denegada
+	}
+	resultado, err := fijada.Resultado.Clonar()
+	if err != nil || fijada.Vinculo.ValidarPara(resultado) != nil {
+		c.fallida = true
+		return vacio, sinContexto, errSesionFirmanteV2Denegada
+	}
+	return fijada.Vinculo, resultado, nil
+}
+
+func mismaSesionFirmanteV2(primera, segunda ports.SesionFirmanteV2) bool {
+	if dependenciaEsNulaContratacionTemporalDesarrollo(primera) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(segunda) {
+		return false
+	}
+	a, b := reflect.ValueOf(primera), reflect.ValueOf(segunda)
+	return a.Kind() == reflect.Pointer && b.Kind() == reflect.Pointer &&
+		a.Type() == b.Type() && a.Pointer() == b.Pointer()
+}
+
+func contextoFijadoFirmaVecCTValido(fresca, fijada ports.EvidenciaSesionFirmanteV2, ahora time.Time) bool {
+	if fresca.CertificadoCanalSHA256 != fijada.CertificadoCanalSHA256 ||
+		!fresca.CertificadoValidoHasta.Equal(fijada.CertificadoValidoHasta) ||
+		!ahora.Before(fresca.CertificadoValidoHasta) || !ahora.Before(fijada.CertificadoValidoHasta) ||
+		!fresca.Vinculo.VigenteEn(ahora, fresca.Resultado) ||
+		!fijada.Vinculo.VigenteEn(ahora, fijada.Resultado) ||
+		!mismoContextoEsperadoRegistradoDesarrollo(fijada.Resultado, fresca.Resultado) {
+		return false
+	}
+	actual, errActual := fresca.Vinculo.Datos()
+	base, errBase := fijada.Vinculo.Datos()
+	if errActual != nil || errBase != nil {
+		return false
+	}
+	actual.RegistroContextoRef = base.RegistroContextoRef
+	actual.ContextoActorHuellaSHA256 = base.ContextoActorHuellaSHA256
+	return actual == base
 }
 
 func (a *autoridadSesionFirmanteV2) peticionVigente(r *http.Request, c *capsulaSesionFirmanteV2) bool {

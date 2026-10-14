@@ -148,7 +148,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261014-firma-pdf-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261014-firma-pdf-v2");
       const [auditoriaVista, auditoriaCliente, original, preflight, firmaVec, autoFirma, documentos] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),
