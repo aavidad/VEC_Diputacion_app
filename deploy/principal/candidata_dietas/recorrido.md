@@ -51,3 +51,19 @@ liquidación, fiscalización, PDF y Word, reintento exacto y recuperación tras
 reiniciar aplicación y PostgreSQL. También faltan el arranque sin la nueva
 configuración y con ella incompleta. El ensayo local descrito aquí no sustituye
 la prueba de la candidata congelada y entera en una copia de cidonia.
+
+## Arranque comprobado antes de la pausa
+
+El binario de la cabeza 6aec7b0b0 arrancó en la misma copia sin Dietas y
+con configuración incompleta. En Chrome, salud, sesión y catálogo común
+respondieron 200; las rutas de Dietas cerradas respondieron 503. Con Dietas
+configurada y sin el fichero económico opcional, la pantalla recuperó el
+borrador y la consulta de lista con cabeceras del cliente respondió 200;
+la liquidación económica permaneció cerrada con 503. Disponibilidad general
+siguió en 503, como antes. No se considera resuelta ni acredita una candidata
+completa. Estas comprobaciones preceden al contrato nuevo de Personal53,
+que todavía no está instalado ni ensayado.
+
+Dirección ordenó pausar por cuota. Personal53, su Go y el montaje se conservan
+como trabajo pendiente, con pruebas focales; necesitan autoridad común,
+revisión exacta y ensayo antes de continuar el recorrido.

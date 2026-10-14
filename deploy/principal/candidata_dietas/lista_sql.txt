@@ -15,3 +15,7 @@
 # Dietas 000016. No instalada. Documentos 000021 espera autoridades comunes de C;
 # el puerto publicado 4dd… cubre solo Méritos.
 # No ejecutar este inventario como guion de instalación.
+
+# AD273 con lectura propia de Personal → Personal 000053 (NO instalada).
+# Go monta esa lectura propia; requiere dos revisiones y ensayo conjunto.
+# Pausa por cuota de Dirección01:55: no declarar este inventario instalable.
