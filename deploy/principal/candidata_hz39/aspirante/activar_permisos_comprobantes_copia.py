@@ -52,6 +52,9 @@ def main():
     actual = consultar(args.pg, cuenta["perfil_ref"])
     if actual["rol"]["concesiones"] == concesiones:
         exigir(actual["rol"]["rol_id"] == "persona_meritos_cartera", "rol_comprobantes_divergente")
+        desde = datetime.fromisoformat(actual["asignacion"]["vigente_desde"].replace("Z", "+00:00"))
+        emitida = datetime.fromisoformat(actual["asignacion"]["emitida_en"].replace("Z", "+00:00"))
+        exigir(desde >= emitida, "asignacion_comprobantes_inicio_anterior_a_emision")
         print("permisos_comprobantes=preparados")
         return
     exigir(args.aplicar and actual["rol"]["rol_id"] == "persona_meritos_cartera" and
@@ -62,7 +65,7 @@ def main():
     rol = dict(actual["rol"], version=2, concesiones=concesiones,
                publicada_en=marca, publicada_por="operacion:ensayo:aspirante")
     asignacion = dict(actual["asignacion"], version=actual["asignacion"]["version"] + 1,
-                      version_rol_ref=rol_ref, emitida_en=marca,
+                      version_rol_ref=rol_ref, emitida_en=marca, vigente_desde=marca,
                       emitida_por="operacion:ensayo:aspirante")
     control = {"version_rol_ref": rol_ref, "revision": 1, "estado": "habilitada",
                "actualizado_por": "operacion:ensayo:aspirante", "actualizado_en": marca}

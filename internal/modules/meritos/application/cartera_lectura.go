@@ -284,7 +284,7 @@ func capturarConsultaCartera(q SolicitudCartera, datos vec.DatosVinculoAutentica
 	base["control_version_rol_huella_sha256"] = e.ControlVersionRolHuellaSHA256
 	base["revision_catalogo_politicas"] = e.RevisionCatalogoPoliticas
 	base["catalogo_politicas_huella_sha256"] = e.CatalogoPoliticasHuellaSHA256
-	base["politicas_evaluadas"] = e.PoliticasEvaluadas
+	base["politicas_evaluadas"] = politicasEvaluadasCartera(e.PoliticasEvaluadas)
 	base["emitida_en"], base["valida_hasta"] = e.EvaluadaEn, e.ValidaHasta
 	b, err := json.Marshal(base)
 	if err != nil {
@@ -296,4 +296,10 @@ func capturarConsultaCartera(q SolicitudCartera, datos vec.DatosVinculoAutentica
 	}
 	return ports.NuevaCapturaLecturaCartera(datos.PrincipalID, correlacion,
 		contexto, vinculo, b, hasta)
+}
+
+// PostgreSQL exige un array incluso cuando el catálogo evaluado no contiene
+// políticas. Un slice nil se codificaría como null en la captura JSON.
+func politicasEvaluadasCartera(entrada []vec.ReferenciaHuellaPoliticaLecturaActualV3) []vec.ReferenciaHuellaPoliticaLecturaActualV3 {
+	return append([]vec.ReferenciaHuellaPoliticaLecturaActualV3{}, entrada...)
 }
