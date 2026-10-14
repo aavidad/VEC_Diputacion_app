@@ -42,7 +42,7 @@ CREATE FUNCTION vec_contratacion_temporal.leer_antecedente_propuesta_formalizaci
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'pg_catalog, pg_temp'
+ SET search_path TO 'pg_catalog', 'pg_temp'
  SET row_security TO 'on'
  SET "TimeZone" TO 'UTC'
  SET lock_timeout TO '2s'
@@ -257,7 +257,7 @@ CREATE FUNCTION vec_contratacion_temporal.registrar_propuesta_formalizacion_nati
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'pg_catalog, pg_temp'
+ SET search_path TO 'pg_catalog', 'pg_temp'
  SET row_security TO 'on'
  SET "TimeZone" TO 'UTC'
  SET lock_timeout TO '2s'
