@@ -249,7 +249,8 @@ una con su perfil:
 | Aspirante | Antonio Reyes Álvarez | Aspirante externo (usuario web `candidato`) |
 | Centro solicitante | Lucía Fernández Castillo, Jefatura de Servicio de Servicios Digitales y Asesoría Tecnológica a Municipios | Centro |
 | Ratificador | Manuel García Robles, del mismo centro | Centro, ratificador |
-| RRHH | Carmen Molina Ortega, técnica de RRHH (usuario web `rrhh`) | Técnico de RRHH |
+| RRHH de Contratación temporal | Carmen Molina Ortega, técnica de RRHH (usuario web `rrhh`) | Técnico de RRHH para Contratación temporal |
+| RRHH de Bolsa | Elena Ruiz Martín, técnica de Bolsa (identidad y certificado propios) | Técnica de RRHH para inscripción, revisión de méritos y alegaciones de Bolsa |
 | Intervención | Francisco Javier López Serrano | Intervención |
 | Firmantes de la resolución | Jefatura del Servicio de RRHH, Diputado/a delegado/a de RRHH y Secretaría General | Cargos de firma del circuito v2, asignados por Administración. Las personas ficticias de los tres cargos, con su usuario web y su perfil del circuito, están en `scripts/operacion/firma_ct_tres_pasos/firmantes.json`; esa es la fuente, no esta tabla |
 
@@ -279,9 +280,9 @@ conveniente».
 | --- | --- | --- | --- | --- |
 | e1 | Antonio (aspirante) | `/area-personal/?vista=inscripcion`, Inscribirme en una bolsa | Elige la convocatoria de Administrativo, declara que cumple cada requisito, revisa y presenta la solicitud | Recibo de presentación; solicitud `pendiente` («Pendiente de revisión» en Mis solicitudes) |
 | e2 | Antonio | `/area-personal/?vista=meritos`, Mis méritos | Pulsa «Añadir título o mérito» y declara sus títulos y méritos | Cada mérito queda «Declarado, pendiente de revisión» |
-| e3 | Carmen (RRHH) | `/portal-empleado/#solicitudes`, Bolsas → Solicitudes y admisión | Elige la convocatoria, revisa la solicitud de Antonio y la admite | Solicitud `admitida_a_convocatoria`; Antonio ve «Admitida. Pendiente de incorporación a la bolsa» |
-| e4 | Carmen | La misma pantalla | Incorpora a Antonio a la bolsa `bolsa:administrativo:2026-09-17`, ya constituida, con el número del acta | Solicitud `incorporada`; Antonio aparece en Mi Bolsa como **Disponible** con su posición |
-| e5 | Antonio, después Carmen | `/area-personal/?vista=alegaciones`; RRHH en `/portal-empleado/#alegaciones`, Bolsas → Alegaciones | Antonio presenta una alegación sobre su participación; Carmen la consulta | Justificante de presentación en VEC; la alegación aparece en la bandeja de RRHH de esa bolsa |
+| e3 | Elena (RRHH de Bolsa) | `/portal-empleado/#solicitudes`, Bolsas → Solicitudes y admisión | Elige la convocatoria, consulta los méritos declarados de Antonio, revisa su solicitud y la admite | Solicitud `admitida_a_convocatoria`; Antonio ve «Admitida. Pendiente de incorporación a la bolsa» |
+| e4 | Elena | La misma pantalla | Incorpora a Antonio a la bolsa `bolsa:administrativo:2026-09-17`, ya constituida, con el número del acta | Solicitud `incorporada`; Antonio aparece en Mi Bolsa como **Disponible** con su posición |
+| e5 | Antonio, después Elena | `/area-personal/?vista=alegaciones`; RRHH en `/portal-empleado/#alegaciones`, Bolsas → Alegaciones | Antonio presenta una alegación sobre su participación; Elena la consulta | Justificante de presentación en VEC; la alegación aparece en la bandeja de RRHH de esa bolsa |
 | 1 | Lucía (centro) | `/portal-empleado/peticiones-centro/` | Presenta la petición: elige categoría Administrativo y el puesto de la RPT publicada, motivo, fechas, crédito y una persona | Recibo de presentación; petición `pendiente_ratificacion`, versión 1 |
 | 2 | Manuel (ratificador) | La misma pantalla, bandeja del centro | Revisa y ratifica con motivo | Recibo de ratificación; petición `ratificada`, versión 2 |
 | 3 | Carmen (RRHH) | `peticiones-centro/?vista=rrhh` | Teclea el número de expediente de MOAD y crea el expediente | Recibo de alta; expediente `solicitud/en_curso`, v1, con la necesidad de la RPT conservada |

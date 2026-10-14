@@ -1,0 +1,49 @@
+{
+  "modulo_id": "meritos",
+  "referencia": "fuente:meritos:revision_rrhh_v1",
+  "version": 1,
+  "huella_sha256": "e0ddfd17ffbdce90b592b1394ce686f70af0fcb92306436851c2bc5d75f202ae",
+  "entradas_canon": "[{\"referencia\":\"accion:meritos.hecho.revision_rrhh.consultar\",\"version\":1,\"fuente_ref\":\"fuente:meritos:revision_rrhh_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"meritos.hecho.revision_rrhh.consultar\",\"modulo_id\":\"meritos\",\"tipo_recurso\":\"solicitud_inscripcion\",\"finalidades\":[\"revision_meritos_inscripcion_rrhh\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"cursor_siguiente\",\"hechos[].denominacion\",\"hechos[].estado\",\"hechos[].evidencias\",\"hechos[].hecho_ref\",\"hechos[].horas\",\"hechos[].revision\",\"hechos[].tipo\",\"hechos[].version\",\"hechos[].vigencia\",\"recibo_acceso\",\"total\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:meritos.hecho.revision_rrhh.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:meritos:revision_rrhh_v1",
+      "fuente_version": 1,
+      "concesion": {
+        "accion": "meritos.hecho.revision_rrhh.consultar",
+        "modulo_id": "meritos",
+        "tipo_recurso": "solicitud_inscripcion",
+        "finalidades": [
+          "revision_meritos_inscripcion_rrhh"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "cursor_siguiente",
+          "hechos[].denominacion",
+          "hechos[].estado",
+          "hechos[].evidencias",
+          "hechos[].hecho_ref",
+          "hechos[].horas",
+          "hechos[].revision",
+          "hechos[].tipo",
+          "hechos[].version",
+          "hechos[].vigencia",
+          "recibo_acceso",
+          "total"
+        ],
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z",
+      "fuente_huella_sha256": "e0ddfd17ffbdce90b592b1394ce686f70af0fcb92306436851c2bc5d75f202ae"
+    }
+  ]
+}

@@ -343,6 +343,13 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 			identidad = conLectores
 		}
 	}
+	// El portal de Bolsa necesita reconocer el certificado en la carcasa
+	// común. La lista de lectores de CT sigue siendo exclusivamente la suya.
+	if globalBolsa, falloBolsa := registrarActoresGlobalesInscripcionRRHH(cfg, identidad); falloBolsa != nil {
+		slog.Warn("identidad RRHH de Inscripción no disponible", "etapa", "material_nominal")
+	} else {
+		identidad = globalBolsa
+	}
 
 	firmaAtestacionKMS, verificadorAtestacionKMS, huellaPublicaAtestacionKMS, err := cargarFirmaKMSDesarrollo(
 		rutas.KMSAttestationKey, rutas.KMSAttestationPublic,

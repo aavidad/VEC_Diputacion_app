@@ -29,10 +29,15 @@ type sesionInscripcionPrueba struct {
 	ctx          contextoSeguridadComunDesarrollo
 	acreditacion AcreditacionSesionInscripcionBolsa
 	err          error
+	alResolver   func(*AcreditacionSesionInscripcionBolsa)
 }
 
 func (s sesionInscripcionPrueba) ResolverInscripcion(*http.Request) (contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, error) {
-	return s.ctx, s.acreditacion, s.err
+	acreditacion := s.acreditacion
+	if s.alResolver != nil {
+		s.alResolver(&acreditacion)
+	}
+	return s.ctx, acreditacion, s.err
 }
 
 type autoridadInscripcionPrueba struct {
@@ -316,6 +321,64 @@ func TestInscripcionBolsaLecturaNominalSinParticipacionYSuplantacion(t *testing.
 	}
 	if _, err := p.PrepararLecturaRRHH(r, inscripcion.AccionListarRRHH, "", filtro, "es"); !errors.Is(err, inscripcion.ErrAccesoDenegado) {
 		t.Fatalf("concesión para otro recurso: %v", err)
+	}
+}
+
+func TestInscripcionAceptaSesionEmitidaDuranteResolucionYRechazaFutura(t *testing.T) {
+	inicio := time.Now().UTC().Truncate(time.Microsecond)
+	huella := strings.Repeat("d", 64)
+	principal := vecdomain.Principal{ID: "certificado_rrhh_tiempo", Roles: []string{"tecnico_rrhh"},
+		AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,
+		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa,
+			"perfil_ejecucion": config.ExecutionProfileDevelopment, "certificate_sha256": huella}}
+	base, err := nuevoContextoAltaContratacionTemporalDesarrollo(principal, inicio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := contextoSeguridadComunDesarrollo{Vinculo: base.Vinculo, Resultado: base.Resultado}
+	v, err := ctx.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	acreditacion := AcreditacionSesionInscripcionBolsa{
+		CertificadoHuellaSHA256: huella, Canal: "interna_corporativa",
+		PersonaRef: ctx.Resultado.Contexto.PersonaRef, PerfilRef: ctx.Resultado.Contexto.PerfilActivoRef,
+		CuentaRef: v.CuentaRef, SesionRef: v.SesionRef, AutenticacionRef: v.AutenticacionRef,
+		VerificadaEn: inicio, ValidaHasta: inicio.Add(time.Minute),
+	}
+	configuracion := ConfiguracionPreparadorInscripcionBolsa{
+		RRHH: []identidadConsultaRRHHDesarrollo{{
+			identidad: identidadCertificadoDesarrollo{principal: principal},
+			perfilRef: ctx.Resultado.Contexto.PerfilActivoRef,
+		}},
+		Autoridad: autoridadInscripcionPrueba{}, Reloj: relojContratacionTemporalDesarrollo{},
+	}
+	peticion := httptest.NewRequest(http.MethodGet,
+		"/api/vec/bolsa/rrhh/inscripciones?convocatoria_ref=cv1_001_v1", nil)
+	filtro := inscripcion.Filtro{Limite: 20, Estado: inscripcion.EstadoPendiente,
+		ConvocatoriaRef: "cv1_001_v1"}
+	var verificadaDuranteSesion time.Time
+	preparar := func(futura bool) (inscripcion.Actor, error) {
+		configuracion.SesionRRHH = sesionInscripcionPrueba{ctx: ctx, acreditacion: acreditacion,
+			alResolver: func(a *AcreditacionSesionInscripcionBolsa) {
+				time.Sleep(2 * time.Millisecond)
+				verificadaDuranteSesion = time.Now().UTC().Truncate(time.Microsecond)
+				a.VerificadaEn = verificadaDuranteSesion
+				if futura {
+					a.VerificadaEn = a.VerificadaEn.Add(time.Minute)
+				}
+			}}
+		p, e := NuevoPreparadorInscripcionBolsaInterno(configuracion)
+		if e != nil {
+			return inscripcion.Actor{}, e
+		}
+		return p.PrepararLecturaRRHH(peticion, inscripcion.AccionListarRRHH, "", filtro, "es")
+	}
+	if actor, err := preparar(false); err != nil || actor.Lectura == nil || !verificadaDuranteSesion.After(inicio) {
+		t.Fatalf("sesión emitida durante el registro rechazada: %v", err)
+	}
+	if _, err := preparar(true); !errors.Is(err, inscripcion.ErrSesionAusente) {
+		t.Fatalf("acreditación posterior al reloj aceptada: %v", err)
 	}
 }
 
