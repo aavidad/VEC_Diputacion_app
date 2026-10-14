@@ -15,7 +15,7 @@ const liquidacion = { esquema: 'vec_dietas_liquidacion_economica_v1', snapshot_s
 const json = (datos, status = 200) => new Response(JSON.stringify(datos), { status, headers: { 'content-type': 'application/json' } });
 const entrada = { version_esperada: 3, clave_idempotencia: 'solicitud-liquidacion-0001', revisiones: [{ indice: 0, regla_ref: 'regla', reconocido_propuesto_centimos: 1000, motivo_codigo: '' }] };
 
-test('GET y POST usan la ruta nominal, cuerpo limitado y transporte sin credenciales', async () => {
+test('GET y POST usan la ruta nominal, cuerpo limitado y certificado del mismo origen', async () => {
   const llamadas = [];
   const cliente = crearClienteLiquidacionDietasHTTP({ fetchImpl: async (ruta, opciones) => { llamadas.push([ruta, opciones]);
     return json(ruta.endsWith('/propuesta?version_esperada=3') ? { propuesta } : { liquidacion }); } });
@@ -25,7 +25,7 @@ test('GET y POST usan la ruta nominal, cuerpo limitado y transporte sin credenci
   assert.match(llamadas[0][0], /\/circuito\/dco_.*\/liquidaciones\/propuesta\?version_esperada=3$/u);
   assert.equal(llamadas[1][0], `/api/vec/dietas/comisiones/circuito/${ref}/liquidaciones`);
   assert.deepEqual(JSON.parse(llamadas[1][1].body), entrada);
-  for (const [, opciones] of llamadas) { assert.equal(opciones.credentials, 'omit'); assert.equal(opciones.cache, 'no-store'); assert.equal(opciones.redirect, 'error'); assert.equal(opciones.referrerPolicy, 'no-referrer'); }
+  for (const [, opciones] of llamadas) { assert.equal(opciones.credentials, 'same-origin'); assert.equal(opciones.mode, 'same-origin'); assert.equal(opciones.cache, 'no-store'); assert.equal(opciones.redirect, 'error'); assert.equal(opciones.referrerPolicy, 'no-referrer'); }
 });
 
 test('rechaza identidad añadida, 403 y respuesta que no corresponde a la versión', async () => {
@@ -75,7 +75,7 @@ test('PDF y Word durables usan versión exacta, idioma activo y bytes originales
   assert.equal(llamadas[0][0], `/api/vec/dietas/comisiones/${ref}/liquidaciones/4/documento?formato=pdf`);
   assert.equal(llamadas[1][1].headers.Accept, mime.docx);
   assert.equal(llamadas[1][1].headers['Accept-Language'], 'en');
-  assert.equal(llamadas[0][1].credentials, 'omit'); assert.equal(llamadas[0][1].cache, 'no-store');
+  assert.equal(llamadas[0][1].credentials, 'same-origin'); assert.equal(llamadas[0][1].mode, 'same-origin'); assert.equal(llamadas[0][1].cache, 'no-store');
   assert.equal(llamadas[0][1].redirect, 'error'); assert.equal(llamadas[0][1].referrerPolicy, 'no-referrer');
   await assert.rejects(cliente.descargar(ref, 'actual', nombre, 'pdf', 'es'), TypeError);
 });

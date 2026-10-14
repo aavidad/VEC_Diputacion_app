@@ -7,7 +7,7 @@ import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=202609
 import { describirOtroGasto } from "./formulario-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { recortarBordes } from "./texto-dietas.js?v=20260925-d5d6-v1";
 import { cargarTextos } from "../../../comun/textos.js";
-import { montarVistaLiquidacionEconomica } from "./vista-liquidacion-economica.js?v=20261014-dietas-consulta-economia-v2";
+import { montarVistaLiquidacionEconomica } from "./vista-liquidacion-economica.js?v=20261014-dietas-recorrido-economia-v3";
 
 const textosLiquidacion = await cargarTextos("dietas");
 

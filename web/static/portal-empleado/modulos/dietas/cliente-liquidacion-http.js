@@ -121,7 +121,7 @@ const CODIGOS = { 400: ["peticion_invalida"], 403: ["acceso_denegado", "competen
 async function ejecutar(fetchImpl, ruta, metodo, cuerpo, signal, escritura, validar) {
   let respuesta;
   try { respuesta = await fetchImpl(ruta, { method: metodo, headers: { Accept: "application/json", ...(cuerpo ? { "Content-Type": "application/json; charset=utf-8" } : {}) },
-    ...(cuerpo ? { body: cuerpo } : {}), credentials: "omit", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); }
+    ...(cuerpo ? { body: cuerpo } : {}), credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); }
   catch { throw fallo(signal?.aborted ? "operacion_abortada" : "red_no_disponible", 0, escritura && !signal?.aborted); }
   if (!respuesta || respuesta.redirected) throw fallo("respuesta_rechazada", respuesta?.status || 0, escritura);
   let datos;
@@ -178,7 +178,7 @@ export function crearClienteLiquidacionDietasHTTP({ fetchImpl = globalThis.fetch
       const ruta = `${BASE}/${encodeURIComponent(ref)}/liquidaciones/${version}/documento?formato=${formato}`;
       let respuesta;
       try { respuesta = await fetchImpl(ruta, { method: "GET", headers: { Accept: mime, "Accept-Language": idioma },
-        credentials: "omit", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); }
+        credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); }
       catch { throw fallo(signal?.aborted ? "operacion_abortada" : "red_no_disponible"); }
       if (!respuesta || respuesta.redirected) throw fallo("respuesta_rechazada", respuesta?.status || 0);
       if (!respuesta.ok || respuesta.status !== 200) {

@@ -183,12 +183,15 @@ static/portal-empleado/modulos/cronos/vista-bandeja-notificaciones.js
 static/portal-empleado/modulos/cronos/vista-notificaciones-rrhh.css
 static/textos/es/dietas.json
 static/textos/en/dietas.json
+static/textos/es/dietas-liquidacion-documento.json
+static/textos/en/dietas-liquidacion-documento.json
 static/portal-empleado/modulos/dietas/borradores-propios.css
 static/portal-empleado/modulos/dietas/calculador-rutas-http.js
 static/portal-empleado/modulos/dietas/catalogo/vista.js
 static/portal-empleado/modulos/dietas/cliente-asignacion-http.js
 static/portal-empleado/modulos/dietas/cliente-borradores-http.js
 static/portal-empleado/modulos/dietas/cliente-circuito-http.js
+static/portal-empleado/modulos/dietas/cliente-liquidacion-http.js
 static/portal-empleado/modulos/dietas/cliente-rectificacion-admin-http.js
 static/portal-empleado/modulos/dietas/cliente-rectificacion-http.js
 static/portal-empleado/modulos/dietas/contrato.js
@@ -206,6 +209,7 @@ static/portal-empleado/modulos/dietas/mapa-ruta.js
 static/portal-empleado/modulos/dietas/texto-dietas.js
 static/portal-empleado/modulos/dietas/vista-bandeja-circuito.js
 static/portal-empleado/modulos/dietas/vista-borradores-propios.js
+static/portal-empleado/modulos/dietas/vista-liquidacion-economica.js
 static/portal-empleado/modulos/dietas/vista-mapa-comision.js
 static/portal-empleado/modulos/dietas/vista-recorridos.js
 static/portal-empleado/modulos/dietas/vista-rectificacion-admin.js
