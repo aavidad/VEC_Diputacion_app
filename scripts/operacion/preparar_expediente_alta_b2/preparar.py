@@ -20,7 +20,8 @@ from urllib.parse import urlsplit, quote
 
 from preparar_configuracion import (comando_catalogo_faltante as comando_catalogo_privado,
                                     comando_datos_ejercicio, comprobar_relevo_cese as relevo_cese_configurado,
-                                    ruta_datos_ejercicio, comando_psql, entorno_contenedor)
+                                    ruta_datos_ejercicio, comando_psql, entorno_contenedor,
+                                    leer_conexiones_privadas)
 
 ROOT = Path(__file__).resolve().parents[3]
 EJEMPLOS = ROOT / "docs/evidencias/codexh-b2-recorrido-20261011/comandos"
@@ -454,9 +455,9 @@ def comando_catalogo_faltante(args, referencia):
     return comando_catalogo_privado(args, referencia, *mTLS(args, "RRHH"), EJEMPLOS, BASE)
 
 
-def comprobar_relevo_cese(launcher):
+def comprobar_relevo_cese(launcher, conexiones=""):
     try:
-        relevo_cese_configurado(launcher)
+        relevo_cese_configurado(launcher, conexiones)
     except ValueError as exc:
         raise Corte(str(exc)) from exc
 
@@ -524,9 +525,10 @@ def comprobar(args):
     else:
         faltas.append(f"FALTA flag VEC_PERSONAL_B2_GOBIERNO_ENABLED=true; comando manual: python3 {ajustar} flag {shlex.quote(str(args.launcher))}")
     try:
-        comprobar_relevo_cese(launcher)
+        conexiones = leer_conexiones_privadas(args.conexiones) if args.conexiones else ""
+        comprobar_relevo_cese(launcher, conexiones)
         print("EXISTEN selector CT, selector Bolsa, relevo activo y DSN nominal de cese")
-    except Corte as exc:
+    except (Corte, ValueError) as exc:
         faltas.append(str(exc))
     cfg = config_privada(args)
     if isinstance(cfg, dict) and cfg.get("cese_fecha_efecto") in ("primer_dia_sin_relacion", "ultimo_dia_trabajado"):
@@ -740,6 +742,7 @@ def argumentos(argv):
     p.add_argument("--origen", default=os.environ.get("VEC_B2_ORIGEN", "https://127.0.0.1:8443"))
     p.add_argument("--material", type=Path, default=Path(os.environ["VEC_B2_MATERIAL"]) if "VEC_B2_MATERIAL" in os.environ else None)
     p.add_argument("--launcher", type=Path, help="lanzador privado del servidor; sólo lectura")
+    p.add_argument("--conexiones", type=Path, help="exportaciones privadas 0600 importadas por el lanzador; sólo lectura")
     p.add_argument("--config", type=Path, default=Path(os.environ["VEC_B2_CONFIG"]) if "VEC_B2_CONFIG" in os.environ else None)
     p.add_argument("--estado", type=Path, default=Path(os.environ["VEC_B2_ESTADO"]) if "VEC_B2_ESTADO" in os.environ else None)
     p.add_argument("--motor", choices=("podman", "docker"), default=os.environ.get("VEC_B2_MOTOR", "podman"))
@@ -753,6 +756,10 @@ def argumentos(argv):
         raise Corte("FALTA: indique --material y --estado privados, o VEC_B2_MATERIAL y VEC_B2_ESTADO")
     args.origen = exigir_origen(args.origen)
     args.material = args.material.resolve()
+    if args.conexiones is not None:
+        args.conexiones = args.conexiones.absolute()
+        if ROOT == args.conexiones or ROOT in args.conexiones.parents:
+            raise Corte("FALTA: --conexiones debe estar fuera de Git")
     args.launcher = (args.launcher or args.material.parents[1] / "arrancar_app.sh").resolve()
     if args.config is None:
         estado_dir = args.material.parents[1]

@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from preparar import Corte, RPT_PUBLICA, comando_catalogo_faltante, comando_psql, comprobar_ct215, comprobar_fuente_bolsa_ct, comprobar_relevo_cese, data_http, datos_ejercicio, guardar, cargar, http, lectura_db, necesidad_contexto_centro, necesidad_rpt_publicada, nueva_peticion, nuevo_numero, preparar_rpt, vacante_personal_compatible
+from preparar_configuracion import leer_conexiones_privadas
 
 
 class CanonTrasReinicio(unittest.TestCase):
@@ -112,7 +113,7 @@ class CanonTrasReinicio(unittest.TestCase):
     def test_relevo_cese_exige_selectores_y_dsn_sin_imprimirlo(self):
         lanzador = """export VEC_CT_SEGUIMIENTO_CESE_ENABLED=true
 export VEC_BOLSA_CESE_CT_ENABLED=true
-export VEC_BOLSA_CESE_CT_DATABASE_URL=postgres://privado
+export VEC_BOLSA_CESE_CT_DATABASE_URL='postgres://privado:55461/base?sslmode=verify-full'
 """
         comprobar_relevo_cese(lanzador)
         with self.assertRaisesRegex(Corte, "relevo de cese"):
@@ -123,6 +124,24 @@ export VEC_BOLSA_CESE_CT_DATABASE_URL=postgres://privado
             comprobar_relevo_cese(lanzador + "export VEC_BOLSA_CESE_CT_ENABLED=false\n")
         with self.assertRaisesRegex(Corte, "DSN nominal"):
             comprobar_relevo_cese(lanzador.replace("VEC_BOLSA_CESE_CT_DATABASE_URL", "OTRA_VARIABLE"))
+
+    def test_dsn_importado_solo_desde_archivo_privado_explicito(self):
+        lanzador = "export VEC_CT_SEGUIMIENTO_CESE_ENABLED=true\nexport VEC_BOLSA_CESE_CT_ENABLED=true\nsource conexiones.sh\n"
+        with tempfile.TemporaryDirectory() as carpeta:
+            ruta = Path(carpeta) / "conexiones.sh"
+            ruta.write_text("export VEC_BOLSA_CESE_CT_DATABASE_URL='postgres://nominal:55461/base?sslmode=verify-full'\n")
+            ruta.chmod(0o600)
+            comprobar_relevo_cese(lanzador, leer_conexiones_privadas(ruta))
+            with self.assertRaisesRegex(Corte, "varias asignaciones"):
+                comprobar_relevo_cese(lanzador + "export VEC_BOLSA_CESE_CT_DATABASE_URL='postgres://otro:55461/base?sslmode=verify-full'\n", leer_conexiones_privadas(ruta))
+            for dsn in ("postgres://nominal:55461/base?host=%2Fvar%2Frun%2Fpostgresql&sslmode=verify-full",
+                        "host=/var/run/postgresql port=55461 sslmode=verify-full",
+                        "dbname=postgres sslmode=verify-full"):
+                with self.subTest(dsn=dsn), self.assertRaisesRegex(Corte, "TLS verify-full"):
+                    comprobar_relevo_cese(lanzador, f"export VEC_BOLSA_CESE_CT_DATABASE_URL='{dsn}'\n")
+            ruta.chmod(0o644)
+            with self.assertRaisesRegex(ValueError, "0600"):
+                leer_conexiones_privadas(ruta)
 
     def test_error_http_malformado_conserva_corte_nominal(self):
         for error in (None, "cadena", [], 4):
