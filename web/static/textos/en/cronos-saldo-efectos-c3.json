@@ -1,0 +1,16 @@
+{
+  "saldo": {
+    "saldo_base": "Balance before leave",
+    "credito": "Leave time credited",
+    "saldo_ajustado": "Balance including leave",
+    "sin_efecto": "The effect of the leave cannot be determined for this date.",
+    "origen": "Adjustment source",
+    "politica": "Applied policy",
+    "version": "Version",
+    "regla": "Rule",
+    "resolucion": "Decision",
+    "fuente": "Source",
+    "snapshot": "Saved summary",
+    "pendiente_justificar": "Granted leave awaiting supporting evidence"
+  }
+}

@@ -51,6 +51,25 @@ test("las consultas van al mismo origen, sin identidad del cliente, y validan la
   await assert.rejects(crearClienteNotificacionesCronosHTTP({ fetchImpl: async () => respuestaJSON(200, malaBandeja) }).consultarBandeja(), (e) => e.codigo === "respuesta_incompatible");
 });
 
+test("la respuesta HTTP real omite adjunto y atención nulos, y rechaza un nulo presentado como dato", async () => {
+  const propias = { tipos: PROPIAS.tipos, notificaciones: [{
+    notificacion_ref: REF, tipo_ref: "notificacion:cronos:tipo:otra-comunicacion", tipo_nombre: "Otra comunicación a RRHH",
+    fecha_referida: "2026-09-24", texto: "No pude fichar.", registrada_en: "2026-09-24T08:00:00Z", estado: "registrada",
+  }] };
+  const bandeja = { notificaciones: [{ ...BANDEJA.notificaciones[0], empleado_etiqueta: "" }] };
+  const cliente = crearClienteNotificacionesCronosHTTP({ fetchImpl: async (url) => respuestaJSON(200,
+    url === RUTAS_NOTIFICACIONES_CRONOS.propio ? propias : bandeja) });
+  assert.equal((await cliente.consultarPropias()).notificaciones[0].estado, "registrada");
+  assert.equal((await cliente.consultarBandeja()).notificaciones[0].empleado_etiqueta, "");
+  for (const [datos, consultar] of [
+    [{ ...propias, notificaciones: [{ ...propias.notificaciones[0], atendida_en: null }] }, "consultarPropias"],
+    [{ ...bandeja, notificaciones: [{ ...bandeja.notificaciones[0], adjunto_ref: null, adjunto_sha256: null }] }, "consultarBandeja"],
+  ]) {
+    const fallido = crearClienteNotificacionesCronosHTTP({ fetchImpl: async () => respuestaJSON(200, datos) });
+    await assert.rejects(fallido[consultar](), (error) => error instanceof ErrorClienteNotificacionesCronos && error.codigo === "respuesta_incompatible");
+  }
+});
+
 test("el envío manda sólo tipo, fecha, texto, referencia y huella y exige su recibo", async () => {
   let enviado;
   const recibo = { recibo: { notificacion_ref: REF, recibo_ref: "recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f", instante_utc: "2026-09-25T08:00:00Z", replay: false } };

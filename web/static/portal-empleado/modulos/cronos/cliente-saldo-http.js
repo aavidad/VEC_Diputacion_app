@@ -56,19 +56,34 @@ export function validarResultadoSaldoCronos(valor, consulta) {
     || valor.periodo.tipo !== consulta.periodo || !fechaCivil(valor.periodo.desde)
     || !fechaCivil(valor.periodo.hasta) || valor.periodo.desde > valor.periodo.hasta
     || (consulta.periodo === "rango" && (valor.periodo.desde !== consulta.desde || valor.periodo.hasta !== consulta.hasta))
-    || !campos(valor.resumen, ["previstos_minutos", "trabajados_minutos", "saldo_minutos", "estado"])
+    || !campos(valor.resumen, ["previstos_minutos", "trabajados_minutos", "saldo_minutos", "estado"],
+      ["saldo_base_minutos", "credito_permiso_minutos", "snapshot_ref"])
     || !minutos(valor.resumen.previstos_minutos, true)
     || !minutos(valor.resumen.trabajados_minutos)
     || !minutos(valor.resumen.saldo_minutos, true)
     || !codigo(valor.resumen.estado)
+    || (valor.resumen.saldo_base_minutos !== undefined && !minutos(valor.resumen.saldo_base_minutos, true))
+    || (valor.resumen.credito_permiso_minutos !== undefined && !minutos(valor.resumen.credito_permiso_minutos, true))
+    || (valor.resumen.snapshot_ref !== undefined && (typeof valor.resumen.snapshot_ref !== "string" || !/^saldo:cronos:snapshot:[0-9a-f]{64}$/u.test(valor.resumen.snapshot_ref)))
     || !Array.isArray(valor.detalle) || valor.detalle.length > MAXIMO_DETALLE) throw fallo("respuesta_incompatible", 200);
   let anterior = "";
   for (const dia of valor.detalle) {
     if (!campos(dia, ["fecha", "previstos_minutos", "trabajados_minutos", "pausas_minutos", "saldo_minutos", "estado", "marcajes"],
-      ["turno_ref", "politica_version_ref", "programacion_ref", "fuente_ref", "programacion_version"])
+      ["turno_ref", "politica_version_ref", "programacion_ref", "fuente_ref", "programacion_version",
+        "saldo_base_minutos", "credito_permiso_minutos", "causa_efecto", "politica_efectos_ref", "politica_efectos_version",
+        "politica_efectos_sha256", "regla_efecto_ref", "resolucion_permiso_ref", "resolucion_permiso_version", "fuente_efecto_ref", "movimientos_efecto"])
       || !fechaCivil(dia.fecha) || dia.fecha < valor.periodo.desde || dia.fecha > valor.periodo.hasta
       || dia.fecha <= anterior || !minutos(dia.previstos_minutos, true)
       || !minutos(dia.trabajados_minutos) || !minutos(dia.pausas_minutos) || !minutos(dia.saldo_minutos, true)
+      || (dia.saldo_base_minutos !== undefined && !minutos(dia.saldo_base_minutos, true))
+      || (dia.credito_permiso_minutos !== undefined && !minutos(dia.credito_permiso_minutos, true))
+      || (dia.causa_efecto !== undefined && !codigo(dia.causa_efecto))
+      || (dia.politica_efectos_ref !== undefined && (typeof dia.politica_efectos_ref !== "string" || dia.politica_efectos_ref.length > 160))
+      || (dia.politica_efectos_version !== undefined && (!Number.isSafeInteger(dia.politica_efectos_version) || dia.politica_efectos_version < 1))
+      || (dia.politica_efectos_sha256 !== undefined && (typeof dia.politica_efectos_sha256 !== "string" || !/^[0-9a-f]{64}$/u.test(dia.politica_efectos_sha256)))
+      || ["regla_efecto_ref", "resolucion_permiso_ref", "fuente_efecto_ref"].some((campo) => dia[campo] !== undefined && (typeof dia[campo] !== "string" || dia[campo].length > 160))
+      || (dia.resolucion_permiso_version !== undefined && (!Number.isSafeInteger(dia.resolucion_permiso_version) || dia.resolucion_permiso_version < 1))
+      || (dia.movimientos_efecto !== undefined && (!Array.isArray(dia.movimientos_efecto) || dia.movimientos_efecto.length > 1))
       || (dia.turno_ref !== undefined && (typeof dia.turno_ref !== "string" || dia.turno_ref.length > 128))
       || (dia.politica_version_ref !== undefined && (typeof dia.politica_version_ref !== "string" || dia.politica_version_ref.length > 128))
       || (["programacion_ref", "fuente_ref", "programacion_version"].filter((clave) => Object.hasOwn(dia, clave)).length !== 0
@@ -78,6 +93,21 @@ export function validarResultadoSaldoCronos(valor, consulta) {
         || !Number.isSafeInteger(dia.programacion_version) || dia.programacion_version < 1))
       || !codigo(dia.estado) || !Array.isArray(dia.marcajes) || dia.marcajes.length > MAXIMO_MARCAJES_DIA) throw fallo("respuesta_incompatible", 200);
     anterior = dia.fecha;
+    for (const movimiento of dia.movimientos_efecto ?? []) {
+      if (!campos(movimiento, ["tipo", "delta_minutos", "solicitud_ref", "resolucion_ref", "resolucion_version",
+        "politica_ref", "politica_version", "politica_sha256", "regla_ref", "fuente_ref", "catalogo_version_ref",
+        "catalogo_fuente_ref", "resolucion_decision_ref", "resolucion_auditoria_ref", "resuelta_en", "pendiente_justificar"])
+        || movimiento.tipo !== "credito_permiso" || !minutos(movimiento.delta_minutos)
+        || movimiento.delta_minutos < 1 || movimiento.delta_minutos !== dia.credito_permiso_minutos
+        || !["solicitud_ref", "resolucion_ref", "politica_ref", "regla_ref", "fuente_ref", "catalogo_version_ref",
+          "catalogo_fuente_ref", "resolucion_decision_ref", "resolucion_auditoria_ref"].every((campo) => typeof movimiento[campo] === "string" && movimiento[campo].length > 0 && movimiento[campo].length <= 160)
+        || !Number.isSafeInteger(movimiento.resolucion_version) || movimiento.resolucion_version < 1
+        || !Number.isSafeInteger(movimiento.politica_version) || movimiento.politica_version < 1
+        || typeof movimiento.politica_sha256 !== "string" || !/^[0-9a-f]{64}$/u.test(movimiento.politica_sha256)
+        || !instanteUTC(movimiento.resuelta_en) || typeof movimiento.pendiente_justificar !== "boolean") {
+        throw fallo("respuesta_incompatible", 200);
+      }
+    }
     for (const marcaje of dia.marcajes) {
       if (!campos(marcaje, ["instante_utc", "movimiento", "origen"])
         || !instanteUTC(marcaje.instante_utc) || !codigo(marcaje.movimiento)

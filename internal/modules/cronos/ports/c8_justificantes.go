@@ -22,7 +22,7 @@ type OriginalAcreditado struct {
 // común D20. Debe leer el original con permiso nominal y devolver la versión
 // y huella de los bytes admitidos, nunca una declaración del consumidor.
 type FuenteOriginalJustificante interface {
-	AcreditarOriginal(context.Context, OrdenJustificacion, domain.SolicitudJustificable, domain.PoliticaJustificacion, string) (OriginalAcreditado, error)
+	AcreditarOriginal(context.Context, OrdenJustificacion, domain.SolicitudJustificable, domain.PoliticaJustificacion, string, uint64) (OriginalAcreditado, error)
 }
 
 type PeticionAporteOriginal struct {

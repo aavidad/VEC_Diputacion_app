@@ -5,6 +5,7 @@ import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 export { hoyCivilCronos } from "./fecha-civil.js?v=20261007-pantallas-textos-final-v1";
 import { hoyCivilCronos } from "./fecha-civil.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_CALENDARIO_LABORAL_C4, crearTraductorCalendarioLaboralC4 } from "./i18n-calendario-laboral-c4.js";
 
 const MOVIMIENTOS = ["entrada", "salida", "inicio_pausa", "fin_pausa"];
 const ESTADOS_CORRECCION = ["pendiente_responsable", "pendiente_rrhh", "denegada_responsable", "denegada_rrhh", "pendiente_aplicacion", "aplicada"];
@@ -190,9 +191,11 @@ function validarReciboInyectado(recibo, entrada) {
 
 /** Calendario anual con los días marcados por tipo, ausencias y olvidos comunicados. */
 export function renderizarMovimientosPropiosCronos({ estado = "cargando", anio, datos = null, formulario = null, mensajes = MENSAJES_CRONOS_SOLICITUDES,
-  locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", hoy = hoyCivilCronos(zonaHoraria), incrustada = false, filtros = {}, paginas = {}, tamanoPagina = 10, vistaCalendario = "anio", fechaSeleccionada, recibos = {}, consultaRecibo = null } = {}) {
+  locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", hoy = hoyCivilCronos(zonaHoraria), incrustada = false, filtros = {}, paginas = {}, tamanoPagina = 10, vistaCalendario = "anio", fechaSeleccionada, recibos = {}, consultaRecibo = null,
+  calendarioLaboralConectado = false, mensajesLaboral = MENSAJES_CALENDARIO_LABORAL_C4 } = {}) {
   validarTamanoPagina(tamanoPagina);
   const t = crearTraductorIncidenciasCronos(mensajes);
+  const laboral = crearTraductorCalendarioLaboralC4(mensajesLaboral);
   if (!Number.isInteger(anio) || anio < 2000 || anio > 2100) throw new RangeError("año de Cronos no válido");
   const seleccionada = fechaSeleccionada ?? fechaEnAnio(hoy, anio);
   if (!["anio", "mes"].includes(vistaCalendario) || !fechaCivilValida(seleccionada) || Number(seleccionada.slice(0, 4)) !== anio) throw new RangeError("vista de calendario Cronos no válida");
@@ -213,14 +216,16 @@ export function renderizarMovimientosPropiosCronos({ estado = "cargando", anio, 
     cuerpo = `<section class="panel cronos-panel"><div class="cuerpo-panel"><p class="cronos-${["cargando", "no_disponible"].includes(estado) ? "vacio" : "acceso-denegado"}" data-cronos-movimientos-estado tabindex="-1" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section>`;
   } else {
     const marcas = marcasPorDiaCronos(datos);
-    const aviso = datos.calendario.disponible
-      ? `<p class="cronos-calendario-falta" role="status">${escaparHTML(t("calendario_fuente_pendiente"))}</p>`
-      : `<p class="cronos-calendario-falta" role="status">${escaparHTML(t("calendario_sin_publicar", { anio }))}</p>`;
+    const aviso = calendarioLaboralConectado
+      ? `<p class="cronos-calendario-falta" role="status">${escaparHTML(laboral(datos.calendario.disponible ? "vista_anual_sin_jornada" : "vista_anual_sin_dias"))}</p>`
+      : datos.calendario.disponible
+        ? `<p class="cronos-calendario-falta" role="status">${escaparHTML(t("calendario_fuente_pendiente"))}</p>`
+        : `<p class="cronos-calendario-falta" role="status">${escaparHTML(t("calendario_sin_publicar", { anio }))}</p>`;
     const leyenda = `<ul class="cronos-leyenda" aria-label="${escaparHTML(t("leyenda"))}">${ORDEN_TIPOS.map((tipo) => `<li><span class="cronos-leyenda-muestra" data-tipos="${tipo}" aria-hidden="true"></span>${escaparHTML(nombreTipo(tipo, t))}</li>`).join("")}</ul>`;
     const indices = vistaCalendario === "mes" ? [Number(seleccionada.slice(5, 7))] : Array.from({ length: 12 }, (_, i) => i + 1);
     const meses = indices.map((mes) => mesHTML(anio, mes, marcas, t, locale, seleccionada)).join("");
-    const calendarioEstado = datos.calendario.disponible ? "disponible" : "no_configurado";
-    const indicador = `<span class="cronos-estado${datos.calendario.disponible ? "" : " cronos-estado-aviso"}" data-calendario-estado="${calendarioEstado}">${escaparHTML(t(`calendario_${calendarioEstado}`))}</span>`;
+    const calendarioEstado = calendarioLaboralConectado ? "parcial" : datos.calendario.disponible ? "disponible" : "no_configurado";
+    const indicador = `<span class="cronos-estado${calendarioEstado === "disponible" ? "" : " cronos-estado-aviso"}" data-calendario-estado="${calendarioEstado}">${escaparHTML(calendarioLaboralConectado ? laboral("vista_anual_parcial") : t(`calendario_${calendarioEstado}`))}</span>`;
     const filtrados = filtrarIncidenciasPropiasCronos(datos, filtros);
     const ausencias = filtrados.absentismos.map((a) => `<tr><th scope="row">${escaparHTML(a.nombre)}</th><td>${escaparHTML(fechaVisible(a.desde, locale))}</td><td>${escaparHTML(fechaVisible(a.hasta, locale))}</td><td class="numero">${escaparHTML(formatearCantidadCronos(a.cantidad, a.unidad, t, locale))}</td><td>${a.pendiente_justificar ? `<span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("justificante_pendiente"))}</span>` : escaparHTML(t("justificante_ok"))}</td></tr>`);
     const olvidos = filtrados.correcciones.map((c) => {
@@ -252,10 +257,12 @@ function estadoError(error) {
 
 /** Consulta el año y registra olvidos sin perder filtros ni el borrador en memoria. */
 export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSolicitudesCronosHTTP(), mensajes = MENSAJES_CRONOS_SOLICITUDES,
-  anunciar = () => {}, registrarDesmontar, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", anio, abrirOlvido = false, incrustada = false, tamanoPagina = 10, vistaCalendario = "anio", fechaSeleccionada } = {}) {
+  anunciar = () => {}, alSeleccionarCalendarioLaboral = () => {}, registrarDesmontar, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", anio, abrirOlvido = false, incrustada = false, tamanoPagina = 10, vistaCalendario = "anio", fechaSeleccionada,
+  calendarioLaboralConectado = false, mensajesLaboral = MENSAJES_CALENDARIO_LABORAL_C4 } = {}) {
   validarTamanoPagina(tamanoPagina);
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultarMovimientos !== "function" || typeof cliente?.solicitarCorreccion !== "function"
-    || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("montaje de movimientos propios Cronos no disponible");
+    || typeof anunciar !== "function" || typeof alSeleccionarCalendarioLaboral !== "function"
+    || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("montaje de movimientos propios Cronos no disponible");
   const t = crearTraductorIncidenciasCronos(mensajes);
   const contenedor = raiz.ownerDocument.createElement("section"); contenedor.dataset.cronosMovimientosPropios = ""; raiz.append(contenedor);
   const hoy = hoyCivilCronos(zonaHoraria);
@@ -293,7 +300,7 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
     if (!documentoActivo || (activoDocumento && activoDocumento !== documento.body && !contenedor.contains?.(activoDocumento))) focoPendiente = null;
     const selector = selectorActual || focoPendiente;
     focoPendiente = selector;
-    contenedor.innerHTML = renderizarMovimientosPropiosCronos({ estado, anio: anioVisible, datos, formulario, mensajes, locale, zonaHoraria, hoy, incrustada, filtros, paginas, tamanoPagina, vistaCalendario: vista, fechaSeleccionada: seleccionada, recibos, consultaRecibo });
+    contenedor.innerHTML = renderizarMovimientosPropiosCronos({ estado, anio: anioVisible, datos, formulario, mensajes, locale, zonaHoraria, hoy, incrustada, filtros, paginas, tamanoPagina, vistaCalendario: vista, fechaSeleccionada: seleccionada, recibos, consultaRecibo, calendarioLaboralConectado, mensajesLaboral });
     if (selector) {
       const control = contenedor.querySelector?.(selector);
       const destino = control && !control.disabled ? control
@@ -333,6 +340,7 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
     if (mensual) vista = "mes";
     if (cambiaAnio) { paginas = {}; void cargar(); }
     else dibujar();
+    alSeleccionarCalendarioLaboral(fecha);
   };
   const recuperar = async (clave, origen) => {
     if (!activa || recuperacion || !claveDeSolicitud(`correccion:cronos:${clave}`)) return;

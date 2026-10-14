@@ -915,6 +915,27 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_decision_correcciones", falloDecision))
 			}
 		}
+		if falloCronos == nil && cfg.CronosCalendarioC4Enabled == "true" {
+			ctxC4, cancelarC4 := contextoPublicacionCronos(ctx)
+			proveedores, falloC4 := publicarMaterialCalendarioCronosEnLote(ctxC4, gobierno, material, reloj)
+			cancelarC4()
+			if falloC4 == nil {
+				dependencias.materialCronos.calendarioC4 = proveedores
+			} else {
+				registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_calendario_c4", falloC4))
+			}
+		}
+		if falloCronos == nil {
+			ctxEquipo, cancelarEquipo := contextoPublicacionCronos(ctx)
+			proveedores, falloEquipo := publicarMaterialEquipoInformesCronosEnLote(ctxEquipo, cfg, gobierno, material, reloj)
+			cancelarEquipo()
+			if falloEquipo == nil {
+				dependencias.materialCronos.equipoInformes = proveedores
+			} else {
+				registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_equipo_informes", falloEquipo))
+			}
+		}
+
 	}
 	completa = true
 	return dependencias, nil

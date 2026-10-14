@@ -65,7 +65,7 @@ CREATE FUNCTION vec_personal.consultar_unidad_trabajo_propia_cronos_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
- SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET datestyle='ISO, YMD'
+ SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET datestyle='ISO, YMD'
  SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
 DECLARE
  m jsonb; d jsonb; c jsonb; ctx jsonb; vinculo jsonb; proyeccion record; consumo record;
@@ -73,16 +73,16 @@ DECLARE
  empleado text; persona text; fecha date; conocido timestamptz(6); ahora timestamptz(6);
  material_canon text; material_sha text; contexto_canon text; contexto_sha text;
  candidatos integer; cobertura text; unidad jsonb; recibo text; k text;
- campos constant jsonb:='["desde","empleado_ref","fuente_ref","fuente_version_ref","hasta_exclusivo","organismo_ref","relacion_ref","unidad_clave","version"]';
+ campos constant jsonb:='["desde","empleado_ref","fuente_ref","fuente_version_ref","hasta_exclusivo","organismo_ref","regimen_ref","relacion_ref","unidad_clave","version"]';
 BEGIN
  IF current_user<>'vec_personal_propietario' OR session_user=current_user
   OR current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
-  OR NOT EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin AND r.rolinherit
+  OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin AND r.rolinherit
        AND NOT r.rolsuper AND NOT r.rolcreatedb AND NOT r.rolcreaterole AND NOT r.rolreplication AND NOT r.rolbypassrls AND r.rolconfig IS NULL)
-  OR NOT EXISTS(SELECT 1 FROM pg_auth_members r WHERE r.member=session_user::regrole AND r.roleid='vec_personal_ejecutor'::regrole
+  OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members r WHERE r.member=session_user::regrole AND r.roleid='vec_personal_ejecutor'::regrole
        AND r.inherit_option AND NOT r.set_option AND NOT r.admin_option)
-  OR (SELECT count(*) FROM pg_auth_members r WHERE r.member=session_user::regrole)<>1
-  OR EXISTS(SELECT 1 FROM pg_auth_members r WHERE r.member='vec_personal_ejecutor'::regrole)
+  OR (SELECT count(*) FROM pg_catalog.pg_auth_members r WHERE r.member=session_user::regrole)<>1
+  OR EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members r WHERE r.member='vec_personal_ejecutor'::regrole)
   OR has_table_privilege(session_user,'vec_personal.relacion_servicio_historia','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
   OR has_table_privilege(session_user,'vec_personal.recibo_unidad_trabajo_cronos','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
   OR p_material IS NULL OR octet_length(p_material) NOT BETWEEN 2 AND 65536
@@ -204,7 +204,7 @@ BEGIN
   ELSE
    cobertura:='completa';
    unidad:=jsonb_build_object('empleado_ref',empleado,'relacion_ref',fuente.relacion_ref,
-    'organismo_ref',fuente.organismo_ref,'unidad_clave',fuente.unidad_ref,
+    'organismo_ref',fuente.organismo_ref,'unidad_clave',fuente.unidad_ref,'regimen_ref',fuente.regimen_ref,
     'desde',fuente.vigente_desde::text,'hasta_exclusivo',coalesce(fuente.vigente_hasta::text,''),
     'fuente_ref',fuente.fuente_ref,'fuente_version_ref',fuente.fuente_version::text,'version',fuente.revision);
   END IF;

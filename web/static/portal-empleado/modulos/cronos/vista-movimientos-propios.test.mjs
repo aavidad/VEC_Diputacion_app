@@ -35,6 +35,29 @@ function datosConsulta(consulta) {
 }
 const esperar = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
 
+test("seleccionar una fecha avisa al detalle laboral sin alterar la consulta anual", async () => {
+  const { nodo, raiz } = raizFalsa(); const fechas = []; let consultas = 0;
+  const vista = montarMovimientosPropiosCronos({ raiz, anio: 2026, fechaSeleccionada: "2026-06-15",
+    alSeleccionarCalendarioLaboral: (fecha) => fechas.push(fecha), cliente: {
+      consultarMovimientos: async (consulta) => { consultas++; return datosConsulta(consulta); },
+      solicitarCorreccion: async () => ({}),
+    } });
+  await esperar();
+  nodo.eventos.click({ target: { closest: (selector) => selector === "[data-cronos-cal-dia]"
+    ? { dataset: { fecha: "2026-06-16" }, disabled: false } : null } });
+  assert.deepEqual(fechas, ["2026-06-16"]);
+  assert.equal(consultas, 1);
+  vista.desmontar();
+});
+
+test("con C4 conectado, el cuadro anual dice qué dato falta sin desmentir el detalle de fecha", () => {
+  const html = renderizarMovimientosPropiosCronos({ estado: "listo", anio: 2026, datos: datos(false),
+    calendarioLaboralConectado: true, fechaSeleccionada: "2026-06-15" });
+  assert.match(html, /Vista anual parcial/u);
+  assert.match(html, /aún no reúne festivos y ausencias/u);
+  assert.doesNotMatch(html, /Ausencias y calendario laboral no disponibles/u);
+});
+
 test("el acceso externo al olvido espera el calendario y enfoca el formulario cuando llega", async () => {
   const pendiente = diferido(); const { nodo, raiz } = raizFalsa();
   const focos = observarFocoOlvido(nodo); const avisos = []; let escrituras = 0;

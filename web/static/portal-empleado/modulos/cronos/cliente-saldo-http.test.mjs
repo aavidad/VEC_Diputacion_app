@@ -89,3 +89,30 @@ test("conserva fuente y versión de programación sin aceptar metadatos incomple
   dato.detalle[0].fuente_ref = "fuente:<script>";
   assert.throws(() => validarResultadoSaldoCronos(dato, consulta), ErrorClienteSaldoCronos);
 });
+
+test("saldo C3b valida crédito, fuente y snapshot sin convertir ausencia en cero", () => {
+  const consulta = { periodo: "rango", desde: "2026-09-20", hasta: "2026-09-21" };
+  const dato = structuredClone(resultado);
+  const huella = "a".repeat(64);
+  Object.assign(dato.resumen, { saldo_base_minutos: -450, credito_permiso_minutos: 60,
+    snapshot_ref: `saldo:cronos:snapshot:${huella}` });
+  Object.assign(dato.detalle[0], { saldo_base_minutos: -450, credito_permiso_minutos: 60, saldo_minutos: -390,
+    causa_efecto: "permiso_computado", politica_efectos_ref: "politica:cronos:efectos:demo",
+    politica_efectos_version: 1, politica_efectos_sha256: huella, regla_efecto_ref: "regla:examen:v1",
+    resolucion_permiso_ref: "permiso:cronos:resolucion:ejemplo", resolucion_permiso_version: 3,
+    fuente_efecto_ref: "fuente:convenio:2006", movimientos_efecto: [{ tipo: "credito_permiso", delta_minutos: 60,
+      solicitud_ref: "permiso:cronos:solicitud:ejemplo", resolucion_ref: "permiso:cronos:resolucion:ejemplo",
+      resolucion_version: 3, politica_ref: "politica:cronos:efectos:demo", politica_version: 1,
+      politica_sha256: huella, regla_ref: "regla:examen:v1", fuente_ref: "fuente:convenio:2006",
+      catalogo_version_ref: "catalogo:cronos:asistencia-examenes:sintetico-1",catalogo_fuente_ref:"fuente:catalogo:ejemplo",
+      resolucion_decision_ref:"decision:ejemplo",resolucion_auditoria_ref:"auditoria:ejemplo",resuelta_en:"2026-10-19T08:00:00Z",
+      pendiente_justificar:true }] });
+  assert.doesNotThrow(() => validarResultadoSaldoCronos(dato, consulta));
+  dato.detalle[0].credito_permiso_minutos = "60";
+  assert.throws(() => validarResultadoSaldoCronos(dato, consulta), ErrorClienteSaldoCronos);
+  dato.detalle[0].credito_permiso_minutos = null;
+  dato.detalle[0].saldo_minutos = null;
+  assert.throws(() => validarResultadoSaldoCronos(dato, consulta), ErrorClienteSaldoCronos);
+  delete dato.detalle[0].movimientos_efecto;
+  assert.doesNotThrow(() => validarResultadoSaldoCronos(dato, consulta));
+});

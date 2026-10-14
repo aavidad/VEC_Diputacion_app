@@ -8,6 +8,7 @@ import (
 
 	caldomain "vec-diputacion-granada/internal/modules/calendarios/domain"
 	calports "vec-diputacion-granada/internal/modules/calendarios/ports"
+	cronosports "vec-diputacion-granada/internal/modules/cronos/ports"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 )
@@ -65,7 +66,7 @@ func resultadoCentroC4Prueba(ahora time.Time) personalports.ResultadoUnidadTraba
 		Cobertura: "completa",
 		Unidad: &personalports.UnidadTrabajoCronos{
 			EmpleadoRef: "emp_0123456789abcdefghijkl", RelacionRef: "rel_0123456789abcdefghijkl",
-			OrganismoRef: "organismo:demo", UnidadClave: "unidad:demo", Desde: "2026-01-01",
+			OrganismoRef: "organismo:demo", UnidadClave: "unidad:demo", RegimenRef: "regimen:demo", Desde: "2026-01-01",
 			FuenteRef: "fuente:personal", FuenteVersionRef: "version:personal:1", Version: 1,
 		},
 		Evidencia: personalports.EvidenciaRegistroEmpleadoB2{
@@ -79,9 +80,22 @@ type organizacionC4Prueba struct {
 	llamadas  int
 }
 
-func (o *organizacionC4Prueba) Consultar(_ context.Context, q personaldomain.SolicitudConsultaOrganizacionHistorica) (personalports.ResultadoConsultaOrganizacionHistorica, error) {
+type programacionC4Prueba struct {
+	resultado *ProgramacionLaboralC4
+	llamadas  int
+}
+
+func (p *programacionC4Prueba) ConsultarProgramacionC4(_ context.Context, _ cronosports.OrdenConsultaSaldo, fecha string) (*ProgramacionLaboralC4, error) {
+	p.llamadas++
+	if fecha != "2026-06-15" {
+		return nil, errors.New("fecha ajena")
+	}
+	return p.resultado, nil
+}
+
+func (o *organizacionC4Prueba) ConsultarC4(_ context.Context, q personaldomain.SolicitudConsultaOrganizacionHistorica, unidad personalports.ResultadoUnidadTrabajoPropiaCronos) (personalports.ResultadoConsultaOrganizacionHistorica, error) {
 	o.llamadas++
-	if q.Selector.OrganismoRef != "organismo:demo" || q.Selector.VigenteEn != "2026-06-15" {
+	if q.Selector.OrganismoRef != "organismo:demo" || q.Selector.VigenteEn != "2026-06-15" || unidad.Unidad == nil || unidad.Unidad.UnidadClave != "unidad:demo" {
 		return personalports.ResultadoConsultaOrganizacionHistorica{}, errors.New("organización no ligada")
 	}
 	return o.resultado, nil
@@ -90,7 +104,7 @@ func (o *organizacionC4Prueba) Consultar(_ context.Context, q personaldomain.Sol
 func organizacionPublicadaC4Prueba() personalports.ResultadoConsultaOrganizacionHistorica {
 	return personalports.ResultadoConsultaOrganizacionHistorica{
 		Pagina: personalports.PaginaOrganizacionHistorica{
-			Cobertura: personalports.CoberturaFuentesOrganizacionHistorica{Unidades: "completa"},
+			Cobertura: personalports.CoberturaFuentesOrganizacionHistorica{Unidades: "parcial"},
 			Unidades: []personaldomain.UnidadOrganizacionHistorica{
 				{Traza: personaldomain.TrazaOrganizacionHistorica{ID: "centro:id", FuenteRef: "fuente:organizacion"}, ClaveCatalogo: "centro:demo", Tipo: "centro", CatalogoVersion: 1},
 				{Traza: personaldomain.TrazaOrganizacionHistorica{ID: "unidad:id", FuenteRef: "fuente:organizacion"}, ClaveCatalogo: "unidad:demo", PadreID: "centro:id", Tipo: "delegacion", CatalogoVersion: 1},
@@ -168,5 +182,42 @@ func TestCalendarioC4AceptaReciboConfirmadoDespuesDeIniciarConsulta(t *testing.T
 	r, err := s.ConsultarFechaPropia(context.Background(), ConsultaCalendarioLaboralC4{Actor: actor, Fecha: "2026-06-15"})
 	if err != nil || r.Estado != EstadoCalendarioC4Publicado || reloj.llamadas < 2 {
 		t.Fatalf("recibo posterior al inicio: %+v, %v", r, err)
+	}
+}
+
+func TestCalendarioC4TurnoNocturnoAcreditadoYCentroDivergente(t *testing.T) {
+	actor, err := contexto(t).OrdenConsumo.ContextoActor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	programacion := &programacionC4Prueba{resultado: &ProgramacionLaboralC4{
+		Fecha: "2026-06-15", EmpleadoRef: "emp_0123456789abcdefghijkl", RelacionRef: "rel_0123456789abcdefghijkl",
+		CentroRef: "centro:demo", RegimenRef: "regimen:demo", ProgramacionRef: "programacion:cronos:noche1",
+		TurnoRef: "turno_noche", PoliticaVersionRef: "politica:noche:v1", FuenteRef: "fuente:cronos:demo", Version: 1, FuenteVersion: 1,
+		InicioUTC: time.Date(2026, 6, 15, 18, 0, 0, 0, time.UTC), FinUTC: time.Date(2026, 6, 16, 2, 0, 0, 0, time.UTC),
+		PublicadaEn: ahora.Add(-time.Hour), MinutosProgramados: 480,
+	}}
+	s, err := NuevoServicioCalendarioLaboralC4ConProgramacion(&centroC4Prueba{resultado: resultadoCentroC4Prueba(ahora)},
+		&organizacionC4Prueba{resultado: organizacionPublicadaC4Prueba()}, &calendarioC4Prueba{resultado: calendarioPublicadoC4Prueba(ahora)},
+		relojMarcajePrueba{ahora}, programacion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := s.ConsultarFechaPropia(context.Background(), ConsultaCalendarioLaboralC4{Actor: actor, Fecha: "2026-06-15"})
+	if err != nil || r.Estado != EstadoCalendarioC4Programado || r.MinutosProgramados == nil || *r.MinutosProgramados != 480 ||
+		r.InicioUTC == nil || r.FinUTC == nil || r.FinUTC.In(time.FixedZone("Madrid", 2*3600)).Day() != 16 || programacion.llamadas != 1 {
+		t.Fatalf("turno nocturno=%+v, error=%v", r, err)
+	}
+	programacion.resultado.PublicadaEn = ahora
+	r, err = s.ConsultarFechaPropia(context.Background(), ConsultaCalendarioLaboralC4{Actor: actor, Fecha: "2026-06-15"})
+	if err != nil || r.Estado != EstadoCalendarioC4Publicado || r.MinutosProgramados != nil {
+		t.Fatalf("programación posterior al corte: %+v, %v", r, err)
+	}
+	programacion.resultado.PublicadaEn = ahora.Add(-time.Hour)
+	programacion.resultado.CentroRef = "centro:otro"
+	r, err = s.ConsultarFechaPropia(context.Background(), ConsultaCalendarioLaboralC4{Actor: actor, Fecha: "2026-06-15"})
+	if !errors.Is(err, ErrCalendarioLaboralC4NoDisponible) || r.MinutosProgramados != nil {
+		t.Fatalf("centro divergente no rechazado: %+v, %v", r, err)
 	}
 }

@@ -50,7 +50,11 @@ func (s *ServicioConsultaSaldo) ConsultarSaldo(ctx context.Context, orden ports.
 	if fuente.EmpleadoRef != empleados[0] || fuente.Desde != desdeTexto || fuente.Hasta != hastaTexto || fuente.ZonaHoraria != s.zona.String() || len(fuente.Marcajes) > 10000 || len(fuente.Jornadas) > 367 || len(fuente.MovimientosSaldo) > 20000 {
 		return ports.ConsultaSaldo{}, ports.ErrDependenciaNoDisponible
 	}
-	return construirConsultaSaldo(tipo, desde, hasta, fuente, s.zona)
+	base, err := construirConsultaSaldo(tipo, desde, hasta, fuente, s.zona)
+	if err != nil {
+		return ports.ConsultaSaldo{}, err
+	}
+	return aplicarEfectosSaldoC3(base, fuente, s.zona)
 }
 
 func resolverPeriodoSaldo(tipo ports.PeriodoSaldo, desdeArg, hastaArg string, ahora time.Time, zona *time.Location) (time.Time, time.Time, error) {

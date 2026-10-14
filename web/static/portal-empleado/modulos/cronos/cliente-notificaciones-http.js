@@ -78,7 +78,12 @@ export async function calcularHuellaDocumentoCronos(archivo, cripto = globalThis
 }
 
 function adjuntoRespuesta(n) {
-  return (n.adjunto_ref === undefined) === (n.adjunto_sha256 === undefined) && adjuntoNotificacionValido(n.adjunto_ref ?? "", n.adjunto_sha256 ?? "");
+  const referencia = Object.hasOwn(n, "adjunto_ref");
+  const huella = Object.hasOwn(n, "adjunto_sha256");
+  if (referencia !== huella) return false;
+  if (!referencia) return true;
+  return typeof n.adjunto_ref === "string" && n.adjunto_ref.length > 0 && typeof n.adjunto_sha256 === "string"
+    && adjuntoNotificacionValido(n.adjunto_ref, n.adjunto_sha256);
 }
 
 export function validarNotificacionesPropiasCronos(v) {

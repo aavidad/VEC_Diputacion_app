@@ -70,6 +70,27 @@ test("la jornada prevista explica su fuente y versión al abrir el detalle", asy
   assert.match(renderizarVistaSaldoCronos({ estado: "listo", datos: resultado, mensajesOrigen: ingles }), /Source of planned working hours/u);
 });
 
+test("C3b enseña saldo base, tiempo de permiso y versión sin reescribir fichajes", async () => {
+  const resultado = datos(); const huella = "a".repeat(64);
+  Object.assign(resultado.resumen, { saldo_base_minutos: -450, credito_permiso_minutos: 60,
+    snapshot_ref: `saldo:cronos:snapshot:${huella}` });
+  Object.assign(resultado.detalle[0], { previstos_minutos: 450, saldo_base_minutos: -450,
+    credito_permiso_minutos: 60, saldo_minutos: -390, causa_efecto: "permiso_computado",
+    politica_efectos_ref: "politica:cronos:efectos:demo", politica_efectos_version: 1,
+    politica_efectos_sha256: huella, regla_efecto_ref: "regla:examen:v1",
+    resolucion_permiso_ref: "permiso:cronos:resolucion:ejemplo", resolucion_permiso_version: 3,
+    fuente_efecto_ref: "fuente:convenio:2006" });
+  const html = renderizarVistaSaldoCronos({ estado: "listo", datos: resultado });
+  assert.match(html, /Saldo antes del permiso/u);
+  assert.match(html, /Tiempo de permiso computado/u);
+  assert.match(html, /Saldo con permiso/u);
+  assert.match(html, /Resumen conservado/u);
+  assert.match(html, /permiso:cronos:resolucion:ejemplo/u);
+  assert.match(html, /2026-09-20T09:10:00Z/u);
+  const ingles = JSON.parse(await readFile(new URL("../../../textos/en/cronos-saldo-efectos-c3.json", import.meta.url), "utf8")).saldo;
+  assert.match(renderizarVistaSaldoCronos({ estado: "listo", datos: resultado, mensajesEfectos: ingles }), /Leave time credited/u);
+});
+
 test("detalle del cálculo usa el catálogo inglés real y escapa las nuevas etiquetas", async () => {
   const mensajes = JSON.parse(await readFile(new URL("../../../textos/en/cronos.json", import.meta.url), "utf8")).general;
   const resultado = datos(); resultado.detalle[0].estado = "incompleto";

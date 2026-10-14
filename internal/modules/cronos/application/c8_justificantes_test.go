@@ -10,13 +10,15 @@ import (
 )
 
 type fuenteOriginalC8Prueba struct {
-	original ports.OriginalAcreditado
-	err      error
-	llamadas int
+	original          ports.OriginalAcreditado
+	err               error
+	llamadas          int
+	versionSolicitada uint64
 }
 
-func (f *fuenteOriginalC8Prueba) AcreditarOriginal(_ context.Context, _ ports.OrdenJustificacion, _ domain.SolicitudJustificable, _ domain.PoliticaJustificacion, _ string) (ports.OriginalAcreditado, error) {
+func (f *fuenteOriginalC8Prueba) AcreditarOriginal(_ context.Context, _ ports.OrdenJustificacion, _ domain.SolicitudJustificable, _ domain.PoliticaJustificacion, _ string, version uint64) (ports.OriginalAcreditado, error) {
 	f.llamadas++
+	f.versionSolicitada = version
 	return f.original, f.err
 }
 
@@ -109,7 +111,7 @@ func TestC8AporteAcreditadoConservaReciboEIdempotencia(t *testing.T) {
 		VersionEsperada: peticion.VersionEsperada, DocumentoID: peticion.Documento.ID,
 		DocumentoVersion: peticion.Documento.Version, SHA256: peticion.Documento.SHA256}
 	primero, err := s.Aportar(context.Background(), orden, in)
-	if err != nil || primero.ReciboCronos == nil || primero.EnlacePendiente || documentos.llamadas != 1 || repo.efectos != 1 {
+	if err != nil || primero.ReciboCronos == nil || primero.EnlacePendiente || documentos.llamadas != 1 || repo.efectos != 1 || f.versionSolicitada != in.DocumentoVersion {
 		t.Fatalf("primer aporte: %v, documento=%d, efecto=%d", err, documentos.llamadas, repo.efectos)
 	}
 	segundo, err := s.Aportar(context.Background(), orden, in)

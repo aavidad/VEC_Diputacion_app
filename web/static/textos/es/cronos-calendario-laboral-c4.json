@@ -1,0 +1,32 @@
+{
+  "calendario": {
+    "titulo": "Jornada de la fecha seleccionada",
+    "titulo_calendario": "Calendario laboral",
+    "vista_anual_parcial": "Vista anual parcial",
+    "vista_anual_sin_jornada": "El cuadro anual aún no muestra la jornada prevista. Seleccione una fecha para consultarla.",
+    "vista_anual_sin_dias": "El cuadro anual aún no reúne festivos y ausencias. Seleccione una fecha para consultar su jornada.",
+    "cargando": "Consultando el calendario laboral…",
+    "sin_fuente": "No hay datos suficientes para determinar la jornada de esta fecha.",
+    "publicado": "Calendario laboral publicado",
+    "sin_jornada": "Aún no hay una jornada programada acreditada para esta fecha.",
+    "programado": "Jornada prevista",
+    "turno": "Turno",
+    "fuente_programacion": "Origen de la programación",
+    "programacion": "Programación",
+    "version_programacion": "Versión de la programación",
+    "regimen": "Colectivo aplicable",
+    "relacion": "Relación de servicio",
+    "fuente": "Fuente y versión",
+    "laborable": "Día laborable en el calendario del centro",
+    "no_laborable": "Día no laborable en el calendario del centro",
+    "centro": "Centro de trabajo",
+    "centro_identificado": "Centro acreditado por Personal",
+    "fuentes": "Fuentes y versiones",
+    "unidad": "Adscripción laboral",
+    "organizacion": "Organización",
+    "calendarios": "Calendarios aplicados",
+    "error": "No se pudo consultar el calendario laboral.",
+    "denegado": "No tiene acceso a esta consulta.",
+    "reintentar": "Volver a consultar"
+  }
+}

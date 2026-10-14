@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+	calports "vec-diputacion-granada/internal/modules/calendarios/ports"
 	cronoscomp "vec-diputacion-granada/internal/modules/cronos/adapters/composicion"
 	cronoshttp "vec-diputacion-granada/internal/modules/cronos/adapters/httpinterno"
 	cronospg "vec-diputacion-granada/internal/modules/cronos/adapters/postgres"
@@ -23,6 +24,7 @@ import (
 	cronosdomain "vec-diputacion-granada/internal/modules/cronos/domain"
 	cronosports "vec-diputacion-granada/internal/modules/cronos/ports"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -32,6 +34,7 @@ import (
 	vecapp "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
+	webcatalogos "vec-diputacion-granada/web"
 )
 
 var ErrComposicionCronosEmpleadoNoDisponible = errors.New("bootstrap: Cronos para la persona empleada no disponible")
@@ -362,7 +365,7 @@ func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Poo
 // nuevasRutasCronosEmpleadoDesarrollo devuelve nil con el selector apagado.
 // Con él activado, cualquier pieza ausente o incoherente devuelve un error
 // que el montaje supervisado aísla en las rutas de Cronos.
-func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, material materialCronosDesdeCTDesarrollo) (*autoridadCronosEmpleadoDesarrollo, error) {
+func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, material materialCronosDesdeCTDesarrollo, calendario ...calports.ConsultaCalendarios) (*autoridadCronosEmpleadoDesarrollo, error) {
 	activo, err := cfg.CronosEmpleadoDesarrolloActivo()
 	if err != nil {
 		return nil, err
@@ -519,6 +522,17 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 			proveedoresPorAccion[accion] = material.decisionCorreccion[i]
 		}
 	}
+	if material.calendarioC4[0] != nil && material.calendarioC4[1] != nil {
+		proveedoresPorAccion[personalports.AccionUnidadTrabajoPropiaCronos] = material.calendarioC4[0]
+		proveedoresPorAccion[personaldomain.AccionConsultaOrganizacionHistorica] = material.calendarioC4[1]
+	}
+	for i, accion := range []string{cronosapp.AccionPresenciaEquipo, cronosapp.AccionIncidenciasEquipo,
+		cronosapp.AccionExportarInformePropioC12, cronosapp.AccionExportarInformeEquipoC12} {
+		if material.equipoInformes[i] != nil {
+			proveedoresPorAccion[accion] = material.equipoInformes[i]
+		}
+	}
+
 	for accion, proveedor := range proveedoresPorAccion {
 		e, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, proveedor)
 		if err != nil {
@@ -611,6 +625,34 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 			registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_decision_correcciones", fallo))
 		}
 	}
+	var consultaCalendarios calports.ConsultaCalendarios
+	if len(calendario) == 1 {
+		consultaCalendarios = calendario[0]
+	}
+	poolC4, _, falloC4 := prepararCalendarioLaboralC4(ctx, cfg, cfg.CronosCalendarioC4Enabled, rutas,
+		a, consultaCalendarios, pools[6], autorizadorCronos, canal, emisor, validadorMotivos, usuarios)
+	if falloC4 != nil {
+		registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_calendario_c4", falloC4))
+	} else if poolC4 != nil {
+		pools = append(pools, poolC4)
+	}
+	activoEquipo, falloEquipo := cfg.CronosEquipoInformesDesarrolloActivo()
+	if falloEquipo == nil && activoEquipo {
+		catalogos, falloCatalogos := webcatalogos.CatalogosCronosInformes()
+		if falloCatalogos == nil {
+			falloEquipo = montarEquipoInformesCronos(ctx, dependenciasEquipoInformesCronos{
+				cfg: cfg, autoridad: a, rutas: rutas, ejecutor: pools[6], fuente: fuente,
+				validadorMotivos: validadorMotivos, catalogoMotivosID: motivos.Saldo.CatalogoID,
+				autorizador: autorizadorCronos, zona: zona, catalogos: catalogos, proveedores: material.equipoInformes,
+			})
+		} else {
+			falloEquipo = falloCatalogos
+		}
+	}
+	if falloEquipo != nil {
+		registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_equipo_informes", falloEquipo))
+	}
+
 	a.rutas = rutas
 	completa = true
 	return a, nil

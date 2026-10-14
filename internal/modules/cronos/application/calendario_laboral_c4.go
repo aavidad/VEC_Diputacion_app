@@ -19,27 +19,50 @@ var ErrCalendarioLaboralC4Invalido = errors.New("cronos: consulta de calendario 
 const (
 	EstadoCalendarioC4NoDeterminable = "no_determinable"
 	EstadoCalendarioC4Publicado      = "calendario_publicado_jornada_no_determinable"
+	EstadoCalendarioC4Programado     = "programado"
 )
 
 type ConsultaCalendarioLaboralC4 struct {
-	Actor vecdomain.ContextoActor
-	Fecha string
+	Actor      vecdomain.ContextoActor
+	Fecha      string
+	OrdenSaldo cronosports.OrdenConsultaSaldo
 }
 
-// El día de Calendarios sí tiene fuente y versiones. Minutos y turno quedan
-// indeterminados hasta recibir una programación laboral publicada.
+type ProgramacionLaboralC4 struct {
+	Fecha, EmpleadoRef, RelacionRef, CentroRef, RegimenRef string
+	ProgramacionRef, TurnoRef, PoliticaVersionRef          string
+	FuenteRef                                              string
+	Version, FuenteVersion                                 int64
+	InicioUTC, FinUTC, PublicadaEn                         time.Time
+	MinutosProgramados                                     int64
+}
+
+type FuenteProgramacionLaboralC4 interface {
+	ConsultarProgramacionC4(context.Context, cronosports.OrdenConsultaSaldo, string) (*ProgramacionLaboralC4, error)
+}
+
+// La clasificación oficial y la programación conservan fuentes distintas.
 type ResultadoCalendarioLaboralC4 struct {
-	Fecha                 string                        `json:"fecha"`
-	Estado                string                        `json:"estado"`
-	CentroRef             string                        `json:"centro_ref,omitempty"`
-	FuenteUnidadRef       string                        `json:"fuente_unidad_ref,omitempty"`
-	FuenteUnidadVersion   string                        `json:"fuente_unidad_version,omitempty"`
-	FuenteOrganizacionRef string                        `json:"fuente_organizacion_ref,omitempty"`
-	VersionOrganizacion   int                           `json:"version_organizacion,omitempty"`
-	VersionesCalendario   []caldomain.VersionCalendario `json:"versiones_calendario"`
-	Dia                   *caldomain.Clasificacion      `json:"dia,omitempty"`
-	MinutosProgramados    *int64                        `json:"minutos_programados"`
-	TurnoRef              string                        `json:"turno_ref,omitempty"`
+	Fecha                     string                        `json:"fecha"`
+	Estado                    string                        `json:"estado"`
+	CentroRef                 string                        `json:"centro_ref,omitempty"`
+	FuenteUnidadRef           string                        `json:"fuente_unidad_ref,omitempty"`
+	FuenteUnidadVersion       string                        `json:"fuente_unidad_version,omitempty"`
+	FuenteOrganizacionRef     string                        `json:"fuente_organizacion_ref,omitempty"`
+	VersionOrganizacion       int                           `json:"version_organizacion,omitempty"`
+	VersionesCalendario       []caldomain.VersionCalendario `json:"versiones_calendario"`
+	Dia                       *caldomain.Clasificacion      `json:"dia,omitempty"`
+	MinutosProgramados        *int64                        `json:"minutos_programados"`
+	TurnoRef                  string                        `json:"turno_ref,omitempty"`
+	RegimenRef                string                        `json:"regimen_ref,omitempty"`
+	RelacionRef               string                        `json:"relacion_ref,omitempty"`
+	ProgramacionRef           string                        `json:"programacion_ref,omitempty"`
+	PoliticaVersionRef        string                        `json:"politica_version_ref,omitempty"`
+	FuenteProgramacionRef     string                        `json:"fuente_programacion_ref,omitempty"`
+	VersionProgramacion       int64                         `json:"version_programacion,omitempty"`
+	FuenteVersionProgramacion int64                         `json:"fuente_version_programacion,omitempty"`
+	InicioUTC                 *time.Time                    `json:"inicio_utc,omitempty"`
+	FinUTC                    *time.Time                    `json:"fin_utc,omitempty"`
 }
 
 type ServicioCalendarioLaboralC4 struct {
@@ -47,17 +70,27 @@ type ServicioCalendarioLaboralC4 struct {
 	organizacion consultaOrganizacionHistoricaC4
 	calendarios  calports.ConsultaCalendarios
 	reloj        cronosports.Reloj
+	programacion FuenteProgramacionLaboralC4
 }
 
 type consultaOrganizacionHistoricaC4 interface {
-	Consultar(context.Context, personaldomain.SolicitudConsultaOrganizacionHistorica) (personalports.ResultadoConsultaOrganizacionHistorica, error)
+	ConsultarC4(context.Context, personaldomain.SolicitudConsultaOrganizacionHistorica, personalports.ResultadoUnidadTrabajoPropiaCronos) (personalports.ResultadoConsultaOrganizacionHistorica, error)
 }
 
 func NuevoServicioCalendarioLaboralC4(p personalports.LectorUnidadTrabajoPropiaCronos, o consultaOrganizacionHistoricaC4, c calports.ConsultaCalendarios, reloj cronosports.Reloj) (*ServicioCalendarioLaboralC4, error) {
 	if dependenciaRemotaNula(p) || dependenciaRemotaNula(o) || dependenciaRemotaNula(c) || dependenciaRemotaNula(reloj) {
 		return nil, ErrCalendarioLaboralC4NoDisponible
 	}
-	return &ServicioCalendarioLaboralC4{p, o, c, reloj}, nil
+	return &ServicioCalendarioLaboralC4{personal: p, organizacion: o, calendarios: c, reloj: reloj}, nil
+}
+
+func NuevoServicioCalendarioLaboralC4ConProgramacion(p personalports.LectorUnidadTrabajoPropiaCronos, o consultaOrganizacionHistoricaC4, c calports.ConsultaCalendarios, reloj cronosports.Reloj, fuente FuenteProgramacionLaboralC4) (*ServicioCalendarioLaboralC4, error) {
+	s, err := NuevoServicioCalendarioLaboralC4(p, o, c, reloj)
+	if err != nil || dependenciaRemotaNula(fuente) {
+		return nil, ErrCalendarioLaboralC4NoDisponible
+	}
+	s.programacion = fuente
+	return s, nil
 }
 
 func (s *ServicioCalendarioLaboralC4) ConsultarFechaPropia(ctx context.Context, q ConsultaCalendarioLaboralC4) (ResultadoCalendarioLaboralC4, error) {
@@ -108,20 +141,22 @@ func (s *ServicioCalendarioLaboralC4) ConsultarFechaPropia(ctx context.Context, 
 	}
 	unidad := proyeccion.Unidad
 	if unidad.EmpleadoRef != empleados[0] || unidad.RelacionRef == "" || unidad.OrganismoRef == "" ||
-		unidad.UnidadClave == "" || unidad.FuenteRef == "" || unidad.FuenteVersionRef == "" || unidad.Version < 1 ||
+		unidad.UnidadClave == "" || unidad.RegimenRef == "" || unidad.FuenteRef == "" || unidad.FuenteVersionRef == "" || unidad.Version < 1 ||
 		unidad.Desde.Validar() != nil || fecha.AntesDe(unidad.Desde) ||
 		(unidad.HastaExclusivo != "" && (unidad.HastaExclusivo.Validar() != nil || !fecha.AntesDe(unidad.HastaExclusivo))) {
 		return ResultadoCalendarioLaboralC4{}, ErrCalendarioLaboralC4NoDisponible
 	}
-	organizacion, err := s.organizacion.Consultar(ctx, personaldomain.SolicitudConsultaOrganizacionHistorica{
+	organizacion, err := s.organizacion.ConsultarC4(ctx, personaldomain.SolicitudConsultaOrganizacionHistorica{
 		Actor: actor, Selector: personaldomain.SelectorOrganizacionHistorica{
 			OrganismoRef: unidad.OrganismoRef, VigenteEn: fecha, ConocidoEn: conocido, Limite: 100,
 		},
-	})
+	}, proyeccion)
 	if err != nil {
 		return ResultadoCalendarioLaboralC4{}, ErrCalendarioLaboralC4NoDisponible
 	}
-	if organizacion.Pagina.Cobertura.Unidades != "completa" || organizacion.Pagina.CursorSiguiente != "" ||
+	// P10 usa "parcial" cuando hay filas incluso si la página es final.
+	// La ausencia de cursor acredita que no queda otra página de hechos.
+	if (organizacion.Pagina.Cobertura.Unidades != "completa" && organizacion.Pagina.Cobertura.Unidades != "parcial") || organizacion.Pagina.CursorSiguiente != "" ||
 		len(organizacion.Pagina.Unidades) == 0 || len(organizacion.Pagina.Unidades) > 100 ||
 		organizacion.Evidencia.ReciboRef == "" || organizacion.Evidencia.AuditoriaRef == "" {
 		return r, nil
@@ -169,10 +204,41 @@ func (s *ServicioCalendarioLaboralC4) ConsultarFechaPropia(ctx context.Context, 
 			r.FuenteUnidadRef, r.FuenteUnidadVersion = unidad.FuenteRef, unidad.FuenteVersionRef
 			r.FuenteOrganizacionRef, r.VersionOrganizacion = centro.Traza.FuenteRef, centro.CatalogoVersion
 			r.VersionesCalendario, r.Dia = calendario.Versiones, &d
+			if !dependenciaRemotaNula(s.programacion) {
+				programada, errorFuente := s.programacion.ConsultarProgramacionC4(ctx, q.OrdenSaldo, q.Fecha)
+				if errorFuente != nil {
+					return ResultadoCalendarioLaboralC4{}, ErrCalendarioLaboralC4NoDisponible
+				}
+				if programada != nil {
+					if programada.PublicadaEn.After(conocido) {
+						return r, nil
+					}
+					if !programacionC4Concuerda(*programada, empleados[0], unidad.RelacionRef, centroRef, unidad.RegimenRef, q.Fecha) {
+						return ResultadoCalendarioLaboralC4{}, ErrCalendarioLaboralC4NoDisponible
+					}
+					r.Estado, r.MinutosProgramados, r.TurnoRef = EstadoCalendarioC4Programado, &programada.MinutosProgramados, programada.TurnoRef
+					r.RelacionRef, r.RegimenRef, r.ProgramacionRef = programada.RelacionRef, programada.RegimenRef, programada.ProgramacionRef
+					r.PoliticaVersionRef, r.FuenteProgramacionRef = programada.PoliticaVersionRef, programada.FuenteRef
+					r.VersionProgramacion, r.FuenteVersionProgramacion = programada.Version, programada.FuenteVersion
+					r.InicioUTC, r.FinUTC = &programada.InicioUTC, &programada.FinUTC
+				}
+			}
 			return r, nil
 		}
 	}
 	return ResultadoCalendarioLaboralC4{}, ErrCalendarioLaboralC4NoDisponible
+}
+
+func programacionC4Concuerda(p ProgramacionLaboralC4, empleado, relacion, centro, regimen, fecha string) bool {
+	if p.Fecha != fecha || p.EmpleadoRef != empleado || p.RelacionRef != relacion || p.CentroRef != centro || p.RegimenRef != regimen ||
+		p.ProgramacionRef == "" || p.TurnoRef == "" || p.PoliticaVersionRef == "" || p.FuenteRef == "" || p.Version < 1 || p.FuenteVersion < 1 ||
+		p.MinutosProgramados < 0 || p.MinutosProgramados > 1440 || p.InicioUTC.IsZero() || p.FinUTC.IsZero() ||
+		p.InicioUTC.Location() != time.UTC || p.FinUTC.Location() != time.UTC || !p.FinUTC.After(p.InicioUTC) || p.FinUTC.After(p.InicioUTC.Add(24*time.Hour)) ||
+		p.PublicadaEn.IsZero() || p.PublicadaEn.Location() != time.UTC {
+		return false
+	}
+	zona, err := time.LoadLocation(caldomain.ZonaOficial)
+	return err == nil && p.InicioUTC.In(zona).Format("2006-01-02") == fecha
 }
 
 // La estructura histórica ya seleccionó la fecha de efectos y el corte de

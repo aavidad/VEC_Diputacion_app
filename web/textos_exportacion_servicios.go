@@ -15,7 +15,11 @@ var textosExportacionServicios embed.FS
 // CatalogosExportacionServicios conserva los bytes de los catálogos comunes,
 // cuya huella forma parte del material de autorización de la exportación.
 func CatalogosExportacionServicios() (map[string][]byte, error) {
-	contenido, err := textosExportacionServicios.ReadFile("static/textos/idiomas.json")
+	return catalogosDeTextosIndexados(textosExportacionServicios, "personal-exportacion-servicios.json")
+}
+
+func catalogosDeTextosIndexados(archivosTextos fs.FS, nombre string) (map[string][]byte, error) {
+	contenido, err := fs.ReadFile(archivosTextos, "static/textos/idiomas.json")
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +35,7 @@ func CatalogosExportacionServicios() (map[string][]byte, error) {
 	for _, idioma := range indice.Idiomas {
 		permitidos[idioma.Codigo] = true
 	}
-	archivos, err := fs.Glob(textosExportacionServicios, "static/textos/*/personal-exportacion-servicios.json")
+	archivos, err := fs.Glob(archivosTextos, path.Join("static/textos/*", nombre))
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +45,7 @@ func CatalogosExportacionServicios() (map[string][]byte, error) {
 		if !permitidos[idioma] {
 			return nil, i18n.ErrLocaleRequired
 		}
-		contenido, err := textosExportacionServicios.ReadFile(archivo)
+		contenido, err := fs.ReadFile(archivosTextos, archivo)
 		if err != nil {
 			return nil, err
 		}

@@ -170,17 +170,50 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $f$
    AND NOT EXISTS (SELECT 1 FROM vec_cronos_v1.correccion_resolutor_retirada x WHERE x.asignacion_ref=r.asignacion_ref AND x.retirada_en<=clock_timestamp()))
 $f$;
 
-DO $seguridad$
-DECLARE tabla text;
-BEGIN
- FOREACH tabla IN ARRAY ARRAY['correccion_fuente_version','correccion_fuente_retirada','correccion_resolutor','correccion_resolutor_retirada',
-   'correccion_decision','correccion_asiento','correccion_bandeja_acceso','correccion_decision_replay','correccion_historia_acceso'] LOOP
-   EXECUTE format('ALTER TABLE vec_cronos_v1.%I ENABLE ROW LEVEL SECURITY',tabla);
-   EXECUTE format('ALTER TABLE vec_cronos_v1.%I FORCE ROW LEVEL SECURITY',tabla);
-   EXECUTE format('CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia()',tabla);
-   EXECUTE format('REVOKE ALL ON TABLE vec_cronos_v1.%I FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor',tabla);
- END LOOP;
-END $seguridad$;
+ALTER TABLE vec_cronos_v1.correccion_fuente_version ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.correccion_fuente_version FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.correccion_fuente_version FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.correccion_fuente_version FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+
+ALTER TABLE vec_cronos_v1.correccion_fuente_retirada ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.correccion_fuente_retirada FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.correccion_fuente_retirada FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.correccion_fuente_retirada FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+
+ALTER TABLE vec_cronos_v1.correccion_resolutor ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.correccion_resolutor FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.correccion_resolutor FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.correccion_resolutor FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+
+ALTER TABLE vec_cronos_v1.correccion_resolutor_retirada ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.correccion_resolutor_retirada FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.correccion_resolutor_retirada FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.correccion_resolutor_retirada FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+
+ALTER TABLE vec_cronos_v1.correccion_decision ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.correccion_decision FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.correccion_decision FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.correccion_decision FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+
+ALTER TABLE vec_cronos_v1.correccion_asiento ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.correccion_asiento FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.correccion_asiento FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.correccion_asiento FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+
+ALTER TABLE vec_cronos_v1.correccion_bandeja_acceso ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.correccion_bandeja_acceso FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.correccion_bandeja_acceso FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.correccion_bandeja_acceso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+
+ALTER TABLE vec_cronos_v1.correccion_decision_replay ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.correccion_decision_replay FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.correccion_decision_replay FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.correccion_decision_replay FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+
+ALTER TABLE vec_cronos_v1.correccion_historia_acceso ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.correccion_historia_acceso FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.correccion_historia_acceso FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.correccion_historia_acceso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
 CREATE POLICY lectura_publicada ON vec_cronos_v1.correccion_fuente_version FOR SELECT TO vec_cronos_v1_propietario USING (true);
 CREATE POLICY publicacion ON vec_cronos_v1.correccion_fuente_version FOR INSERT TO vec_cronos_v1_propietario
  WITH CHECK (nullif(current_setting('vec.cronos.correccion_resolutor_ref',true),'') IS NULL AND nullif(current_setting('vec.cronos.empleado_ref',true),'') IS NULL);
@@ -564,66 +597,281 @@ $f$;
 
 -- Reanclaje exacto de dos lectores instalados. Conserva OID, ACL, firma y
 -- cuerpo restante; sólo cambia la fuente de marcajes por la proyección.
-DO $proyeccion$
-DECLARE f oid; original text; nuevo text; actual text; meta jsonb; deps jsonb; acl aclitem[]; propietario oid;
+DO $proyeccion_pre$
+DECLARE f oid; original text; metadatos jsonb; dependencias jsonb;
 BEGIN
  f:='vec_cronos_v1.consultar_libro_saldo_interno_v1(text,date,date,text)'::regprocedure;
- SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner INTO STRICT original,meta,acl,propietario FROM pg_proc p WHERE p.oid=f;
- SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-   INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
- IF (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f)
-      <>'37d8975b2beb7676f27442dcacd6440442aa8b4c40494c5fd12d066295407375'
-    OR propietario<>current_user::regrole
-    OR (length(original)-length(replace(original,'FROM vec_cronos_v1.marcaje_original','')))<>6*length('FROM vec_cronos_v1.marcaje_original')
- THEN RAISE EXCEPTION 'CRN19: libro de saldo incompatible' USING ERRCODE='55000'; END IF;
- nuevo:=replace(original,'FROM vec_cronos_v1.marcaje_original','FROM vec_cronos_v1.marcajes_efectivos_v1(p_empleado_ref)');
- EXECUTE nuevo;
- SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,'FROM vec_cronos_v1.marcajes_efectivos_v1(p_empleado_ref)','FROM vec_cronos_v1.marcaje_original') IS DISTINCT FROM original
-    OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-    OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
-    OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
-    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-       FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
- THEN RAISE EXCEPTION 'CRN19: libro de saldo alterado fuera del contrato' USING ERRCODE='55000'; END IF;
+ SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc' INTO STRICT original,metadatos FROM pg_catalog.pg_proc p WHERE p.oid=f;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex')<>'0704a06aa128516aac326ca09da184250720e232e06e05f903f4085241c2e56a' OR (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=f)<>current_user::regrole
+ THEN RAISE EXCEPTION 'CRN19: preimagen de proyección 0 incompatible' USING ERRCODE='55000'; END IF;
+ dependencias:=(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f);
+ PERFORM set_config('vec_crn19.preimagen_0',jsonb_build_object('metadatos',metadatos,'dependencias',dependencias)::text,true);
  f:='vec_cronos_v1.consultar_movimientos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner INTO STRICT original,meta,acl,propietario FROM pg_proc p WHERE p.oid=f;
- SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-   INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
- IF encode(sha256(convert_to(original,'UTF8')),'hex')<>'e99811f1b92ca8ae8749fd90c37094db3ca2e8350fbb7014fb70ef02a469b13a'
-    OR propietario<>current_user::regrole
-    OR (length(original)-length(replace(original,'FROM vec_cronos_v1.marcaje_original mo','')))<>length('FROM vec_cronos_v1.marcaje_original mo')
- THEN RAISE EXCEPTION 'CRN19: movimientos incompatibles' USING ERRCODE='55000'; END IF;
- nuevo:=replace(original,'FROM vec_cronos_v1.marcaje_original mo','FROM vec_cronos_v1.marcajes_efectivos_v1(emp) mo');
- EXECUTE nuevo;
- SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,'FROM vec_cronos_v1.marcajes_efectivos_v1(emp) mo','FROM vec_cronos_v1.marcaje_original mo') IS DISTINCT FROM original
-    OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-    OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
-    OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
-    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-       FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
- THEN RAISE EXCEPTION 'CRN19: movimientos alterados fuera del contrato' USING ERRCODE='55000'; END IF;
- f:='vec_cronos_v1.secuencia_remota_v1(text,timestamptz)'::regprocedure;
- SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner INTO STRICT original,meta,acl,propietario FROM pg_proc p WHERE p.oid=f;
- SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-   INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
- IF (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f)
-      <>'bf3ecb698cc7d627a9e44642156832f12ac67597426045f8ecd4b016386d8feb'
-    OR propietario<>current_user::regrole
-    OR (length(original)-length(replace(original,'FROM vec_cronos_v1.marcaje_original m','')))<>length('FROM vec_cronos_v1.marcaje_original m')
- THEN RAISE EXCEPTION 'CRN19: secuencia remota incompatible' USING ERRCODE='55000'; END IF;
- nuevo:=replace(original,'FROM vec_cronos_v1.marcaje_original m','FROM vec_cronos_v1.marcajes_efectivos_v1(p_empleado) m');
- EXECUTE nuevo;
- SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,'FROM vec_cronos_v1.marcajes_efectivos_v1(p_empleado) m','FROM vec_cronos_v1.marcaje_original m') IS DISTINCT FROM original
-    OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-    OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
-    OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
-    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
-       FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
- THEN RAISE EXCEPTION 'CRN19: secuencia remota alterada fuera del contrato' USING ERRCODE='55000'; END IF;
-END $proyeccion$;
+ SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc' INTO STRICT original,metadatos FROM pg_catalog.pg_proc p WHERE p.oid=f;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex')<>'e99811f1b92ca8ae8749fd90c37094db3ca2e8350fbb7014fb70ef02a469b13a' OR (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=f)<>current_user::regrole
+ THEN RAISE EXCEPTION 'CRN19: preimagen de proyección 1 incompatible' USING ERRCODE='55000'; END IF;
+ dependencias:=(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f);
+ PERFORM set_config('vec_crn19.preimagen_1',jsonb_build_object('metadatos',metadatos,'dependencias',dependencias)::text,true);
+ f:='vec_cronos_v1.secuencia_remota_v1(text,timestamp with time zone)'::regprocedure;
+ SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc' INTO STRICT original,metadatos FROM pg_catalog.pg_proc p WHERE p.oid=f;
+ IF encode(sha256(convert_to(original,'UTF8')),'hex')<>'be609c61bf643cafd3007d4a88d732be4e417f4da88dddd99857879564fc1e3e' OR (SELECT proowner FROM pg_catalog.pg_proc WHERE oid=f)<>current_user::regrole
+ THEN RAISE EXCEPTION 'CRN19: preimagen de proyección 2 incompatible' USING ERRCODE='55000'; END IF;
+ dependencias:=(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f);
+ PERFORM set_config('vec_crn19.preimagen_2',jsonb_build_object('metadatos',metadatos,'dependencias',dependencias)::text,true);
+END $proyeccion_pre$;
+
+CREATE OR REPLACE FUNCTION vec_cronos_v1.consultar_libro_saldo_interno_v1(p_empleado_ref text, p_desde date, p_hasta date, p_zona_horaria text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET row_security TO 'on'
+ SET "TimeZone" TO 'UTC'
+ SET lock_timeout TO '2s'
+AS $function$
+DECLARE jornadas jsonb; marcajes jsonb; movimientos jsonb; pendientes integer;
+BEGIN
+    IF p_empleado_ref IS NULL OR p_empleado_ref !~ '^emp_[-A-Za-z0-9_]{22,128}$'
+       OR p_desde IS NULL OR p_hasta IS NULL OR p_hasta<p_desde OR p_hasta-p_desde>366
+       OR p_zona_horaria IS NULL OR p_zona_horaria NOT IN ('Europe/Madrid','Atlantic/Canary')
+       OR p_empleado_ref IS DISTINCT FROM nullif(current_setting('vec.cronos.empleado_ref',true),'') THEN
+        RAISE EXCEPTION 'consulta Cronos inválida' USING ERRCODE='PC003';
+    END IF;
+    -- Una segunda versión no sustituye silenciosamente el asiento histórico:
+    -- esa fecha queda no disponible hasta un recálculo gobernado y versionado.
+    WITH vigente AS (
+      SELECT p.programacion_ref,p.fecha,p.turno_ref,p.politica_version_ref,
+             p.fuente_ref,p.zona_horaria,p.minutos_previstos,p.version
+      FROM vec_cronos_v1.programacion_jornada p
+      WHERE p.empleado_ref=p_empleado_ref AND p.fecha BETWEEN p_desde AND p_hasta
+        AND NOT EXISTS (SELECT 1 FROM vec_cronos_v1.programacion_jornada p2
+          WHERE p2.empleado_ref=p.empleado_ref AND p2.fecha=p.fecha
+            AND p2.programacion_ref<>p.programacion_ref)
+    )
+    SELECT coalesce(jsonb_agg(jsonb_build_object('programacion_ref',programacion_ref,'fecha',fecha,
+      'turno_ref',turno_ref,'politica_version_ref',politica_version_ref,'fuente_ref',fuente_ref,
+      'zona_horaria',zona_horaria,'minutos_previstos',minutos_previstos,'version',version)
+      ORDER BY fecha),'[]'::jsonb) INTO jornadas FROM vigente;
+    -- Los hechos limítrofes permiten parejas nocturnas. También se incluye
+    -- el último hecho anterior si deja una secuencia abierta, aunque sea
+    -- más antiguo que el margen. La zona local nunca depende del pool.
+    SELECT coalesce(jsonb_agg(jsonb_build_object('marcaje_ref',m.marcaje_ref,'movimiento',m.movimiento,
+      'instante_utc',m.instante_utc,'canal',m.material::jsonb->'canal',
+      'tipo_origen',m.tipo_origen) ORDER BY m.instante_utc,m.marcaje_ref),'[]'::jsonb)
+      INTO marcajes FROM vec_cronos_v1.marcajes_efectivos_v1(p_empleado_ref) m
+      WHERE m.empleado_ref=p_empleado_ref
+        AND ((m.instante_utc>=((p_desde-2)::timestamp AT TIME ZONE p_zona_horaria)
+          AND m.instante_utc<((p_hasta+3)::timestamp AT TIME ZONE p_zona_horaria))
+          OR (m.movimiento IN ('entrada','inicio_pausa','fin_pausa')
+            AND m.marcaje_ref=(SELECT anterior.marcaje_ref
+              FROM vec_cronos_v1.marcajes_efectivos_v1(p_empleado_ref) anterior
+              WHERE anterior.empleado_ref=p_empleado_ref
+                AND anterior.instante_utc<(p_desde::timestamp AT TIME ZONE p_zona_horaria)
+              ORDER BY anterior.instante_utc DESC,anterior.marcaje_ref DESC LIMIT 1)));
+    WITH ordenados AS (
+      SELECT marcaje_ref,movimiento,instante_utc,
+        lead(marcaje_ref) OVER (ORDER BY instante_utc,marcaje_ref) AS siguiente_ref,
+        lead(movimiento) OVER (ORDER BY instante_utc,marcaje_ref) AS siguiente_movimiento,
+        lead(instante_utc) OVER (ORDER BY instante_utc,marcaje_ref) AS siguiente_utc
+      FROM vec_cronos_v1.marcajes_efectivos_v1(p_empleado_ref)
+      WHERE empleado_ref=p_empleado_ref
+        -- Una pareja que aporte tiempo al intervalo dura como máximo 24 h.
+        -- El sucesor puede estar fuera del intervalo local; incluir 24 h UTC
+        -- a ambos lados conserva su LEAD y los empates por referencia.
+        AND instante_utc >= (p_desde::timestamp AT TIME ZONE p_zona_horaria) - interval '24 hours'
+        AND instante_utc < ((p_hasta+1)::timestamp AT TIME ZONE p_zona_horaria) + interval '24 hours'
+    ), tramos AS (
+      SELECT marcaje_ref,siguiente_ref,instante_utc,siguiente_utc FROM ordenados
+      WHERE (movimiento='entrada' AND siguiente_movimiento IN ('salida','inicio_pausa'))
+         OR (movimiento='fin_pausa' AND siguiente_movimiento IN ('salida','inicio_pausa'))
+    ), partidos AS (
+      SELECT t.marcaje_ref,t.siguiente_ref,g.fecha::date AS fecha,
+        (extract(epoch FROM (least(t.siguiente_utc,(((g.fecha::date+1)::timestamp) AT TIME ZONE p_zona_horaria))
+                  - greatest(t.instante_utc,((g.fecha::date)::timestamp AT TIME ZONE p_zona_horaria))))*1000000)::bigint AS microsegundos
+      FROM tramos t CROSS JOIN LATERAL generate_series(
+        greatest(p_desde,(t.instante_utc AT TIME ZONE p_zona_horaria)::date),
+        least(p_hasta,((t.siguiente_utc - interval '1 microsecond') AT TIME ZONE p_zona_horaria)::date),
+        interval '1 day') g(fecha)
+      WHERE t.siguiente_utc>t.instante_utc AND t.siguiente_utc-t.instante_utc<=interval '24 hours'
+    ), trabajo AS (
+      SELECT fecha,sum(microsegundos)::bigint AS microsegundos,
+        array_agg(marcaje_ref||'/'||siguiente_ref ORDER BY marcaje_ref,siguiente_ref) AS fuentes
+      FROM partidos WHERE microsegundos>0 GROUP BY fecha
+    ), previsto AS (
+      SELECT p.fecha,p.programacion_ref,p.version,p.minutos_previstos
+      FROM vec_cronos_v1.programacion_jornada p
+      WHERE p.empleado_ref=p_empleado_ref AND p.fecha BETWEEN p_desde AND p_hasta
+        AND NOT EXISTS (SELECT 1 FROM vec_cronos_v1.programacion_jornada p2
+          WHERE p2.empleado_ref=p.empleado_ref AND p2.fecha=p.fecha
+            AND p2.programacion_ref<>p.programacion_ref)
+    ), libro AS (
+      SELECT fecha,'trabajado'::text AS tipo,microsegundos AS delta_microsegundos,
+        to_jsonb(fuentes) AS fuentes FROM trabajo
+      UNION ALL
+      SELECT fecha,'previsto',-(minutos_previstos::bigint*60000000),jsonb_build_array(programacion_ref||'/v'||version)
+      FROM previsto
+    )
+    SELECT coalesce(jsonb_agg(jsonb_build_object('fecha',fecha,'tipo',tipo,
+       'delta_microsegundos',delta_microsegundos,'fuentes',fuentes) ORDER BY fecha,tipo),'[]'::jsonb)
+      INTO movimientos FROM libro;
+    -- No dar saldo definitivo cuando hay una secuencia inválida o falta
+    -- programación. El lector verá hechos y un estado explícito.
+    WITH seleccion AS (
+      -- Los dos últimos anteriores aportan el hecho que aún solapa B y su
+      -- LAG real, incluso si la apertura ocurrió años antes.
+      SELECT marcaje_ref,movimiento,instante_utc FROM (
+        SELECT marcaje_ref,movimiento,instante_utc
+        FROM vec_cronos_v1.marcajes_efectivos_v1(p_empleado_ref)
+        WHERE empleado_ref=p_empleado_ref
+          AND instante_utc<(p_desde::timestamp AT TIME ZONE p_zona_horaria)
+        ORDER BY instante_utc DESC,marcaje_ref DESC LIMIT 2
+      ) anteriores
+      UNION ALL
+      SELECT marcaje_ref,movimiento,instante_utc
+      FROM vec_cronos_v1.marcajes_efectivos_v1(p_empleado_ref)
+      WHERE empleado_ref=p_empleado_ref
+        AND instante_utc>=(p_desde::timestamp AT TIME ZONE p_zona_horaria)
+        AND instante_utc<((p_hasta+1)::timestamp AT TIME ZONE p_zona_horaria)
+      UNION ALL
+      -- El primer sucesor exterior es el LEAD real del último hecho de B.
+      SELECT marcaje_ref,movimiento,instante_utc FROM (
+        SELECT marcaje_ref,movimiento,instante_utc
+        FROM vec_cronos_v1.marcajes_efectivos_v1(p_empleado_ref)
+        WHERE empleado_ref=p_empleado_ref
+          AND instante_utc>=((p_hasta+1)::timestamp AT TIME ZONE p_zona_horaria)
+        ORDER BY instante_utc,marcaje_ref LIMIT 1
+      ) sucesor
+    ), o AS (
+      SELECT movimiento,lead(movimiento) OVER (ORDER BY instante_utc,marcaje_ref) AS siguiente,
+       lag(movimiento) OVER (ORDER BY instante_utc,marcaje_ref) AS anterior,
+       lead(instante_utc) OVER (ORDER BY instante_utc,marcaje_ref) AS siguiente_utc,
+       instante_utc FROM seleccion
+    )
+    -- Conserva la condición de solape original: una entrada antigua abierta
+    -- sigue afectando al día pedido aunque no haya hechos recientes.
+    SELECT count(*) INTO pendientes FROM o
+    WHERE instante_utc<((p_hasta+1)::timestamp AT TIME ZONE p_zona_horaria)
+      AND coalesce(siguiente_utc,'infinity'::timestamptz)>(p_desde::timestamp AT TIME ZONE p_zona_horaria)
+      AND ((movimiento IN ('entrada','fin_pausa') AND
+          (siguiente IS DISTINCT FROM 'salida' AND siguiente IS DISTINCT FROM 'inicio_pausa'
+           OR siguiente_utc<=instante_utc OR siguiente_utc-instante_utc>interval '24 hours'))
+        OR (movimiento='inicio_pausa' AND siguiente IS DISTINCT FROM 'fin_pausa')
+        OR (movimiento='salida' AND anterior IS DISTINCT FROM 'entrada' AND anterior IS DISTINCT FROM 'fin_pausa')
+        OR (movimiento='inicio_pausa' AND anterior IS DISTINCT FROM 'entrada' AND anterior IS DISTINCT FROM 'fin_pausa')
+        OR (movimiento='fin_pausa' AND anterior IS DISTINCT FROM 'inicio_pausa'));
+    RETURN jsonb_build_object('empleado_ref',p_empleado_ref,'desde',p_desde,'hasta',p_hasta,
+      'zona_horaria',p_zona_horaria,'jornadas',jornadas,'marcajes',marcajes,
+      'movimientos_saldo',movimientos,'completo',
+      pendientes=0 AND jsonb_array_length(jornadas)=p_hasta-p_desde+1
+      AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(jornadas) j
+        WHERE j->>'zona_horaria' IS DISTINCT FROM p_zona_horaria));
+END $function$;
+
+CREATE OR REPLACE FUNCTION vec_cronos_v1.consultar_movimientos_propio_v1(p_material text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET row_security TO 'on'
+ SET "TimeZone" TO 'UTC'
+ SET lock_timeout TO '2s'
+AS $function$
+#variable_conflict use_variable
+DECLARE m jsonb; k record; desde date; hasta date; emp text; zona text; anios integer[]; sin_calendario boolean; resultado jsonb;
+BEGIN
+ m:=vec_cronos_v1.material_propio_v1(p_material,ARRAY['actor_ref','perfil_ref','empleado_ref','desde','hasta','zona_horaria']);
+ desde:=vec_cronos_v1.fecha_material_v1(m->>'desde'); hasta:=vec_cronos_v1.fecha_material_v1(m->>'hasta');
+ IF hasta<desde OR hasta-desde>366 THEN
+   RAISE EXCEPTION 'periodo Cronos inválido' USING ERRCODE='PC001';
+ END IF;
+ emp:=m->>'empleado_ref'; zona:=m->>'zona_horaria';
+ SELECT * INTO STRICT k FROM vec_cronos_v1.consumir_propio_v1('consumir_cronos_movimientos_propio_v3_atestada','cronos.movimientos.propio.consultar',
+   'movimientos_propio','consultar_movimientos_propio','movimientos:cronos:'||emp,NULL,m,p_material,
+   p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ INSERT INTO vec_cronos_v1.movimientos_acceso(decision_ref,empleado_ref,desde,hasta,material_sha256,auditoria_ref,consumo_huella_sha256,consultada_en)
+ VALUES(k.decision_ref,emp,desde,hasta,k.material_sha256,k.auditoria_ref,k.consumo_huella_sha256,k.ahora);
+ anios:=ARRAY(SELECT generate_series(extract(year FROM desde)::integer,extract(year FROM hasta)::integer));
+ sin_calendario:=EXISTS (SELECT 1 FROM unnest(anios) a WHERE vec_cronos_v1.calendario_de_v1(emp,a) IS NULL);
+ resultado:=jsonb_build_object(
+  'empleado_ref',emp,'desde',to_char(desde,'YYYY-MM-DD'),'hasta',to_char(hasta,'YYYY-MM-DD'),'zona_horaria',zona,
+  'calendario',jsonb_build_object('disponible',NOT sin_calendario,'dias',CASE WHEN sin_calendario THEN '[]'::jsonb ELSE coalesce((
+     SELECT jsonb_agg(jsonb_build_object('fecha',to_char(cd.fecha,'YYYY-MM-DD'),'tipo',cd.tipo,'nombre',cd.nombre) ORDER BY cd.fecha)
+       FROM vec_cronos_v1.calendario_dia cd
+      WHERE cd.fecha BETWEEN desde AND hasta AND cd.calendario_ref=vec_cronos_v1.calendario_de_v1(emp,extract(year FROM cd.fecha)::integer)),'[]'::jsonb) END),
+  'marcajes_por_dia',coalesce((SELECT jsonb_agg(jsonb_build_object('fecha',to_char(f,'YYYY-MM-DD'),'marcajes',n) ORDER BY f) FROM (
+     SELECT (mo.instante_utc AT TIME ZONE zona)::date f,count(*) n FROM vec_cronos_v1.marcajes_efectivos_v1(emp) mo
+      WHERE mo.empleado_ref=emp AND (mo.instante_utc AT TIME ZONE zona)::date BETWEEN desde AND hasta
+        AND mo.instante_utc>=(desde-1)::timestamp AT TIME ZONE 'UTC' AND mo.instante_utc<(hasta+2)::timestamp AT TIME ZONE 'UTC'
+      GROUP BY 1) q),'[]'::jsonb),
+  'absentismos',coalesce((SELECT jsonb_agg(jsonb_build_object('solicitud_ref',s.solicitud_ref,'permiso_ref',s.permiso_ref,'nombre',pc.nombre,
+       'desde',to_char(s.desde,'YYYY-MM-DD'),'hasta',to_char(s.hasta,'YYYY-MM-DD'),'cantidad',s.cantidad,'unidad',s.unidad,
+       'pendiente_justificar',e.pendiente_justificar) ORDER BY s.desde,s.solicitud_ref)
+     FROM vec_cronos_v1.permiso_solicitud s JOIN vec_cronos_v1.estado_permiso_actual_v1(emp) e ON e.solicitud_ref=s.solicitud_ref
+     JOIN vec_cronos_v1.permiso_catalogo pc ON pc.version_ref=s.catalogo_version_ref
+    WHERE s.empleado_ref=emp AND e.estado='concedido' AND s.desde<=hasta AND s.hasta>=desde),'[]'::jsonb),
+  'correcciones',coalesce((SELECT jsonb_agg(jsonb_build_object('solicitud_ref',cs.solicitud_ref,'fecha_civil',to_char(cs.fecha_civil,'YYYY-MM-DD'),
+       'hora_pretendida',cs.hora_pretendida,'movimiento',cs.movimiento,'estado',a.estado,'version',a.version,'solicitada_en',cs.solicitada_en)
+       ORDER BY cs.fecha_civil,cs.hora_pretendida,cs.solicitud_ref)
+     FROM vec_cronos_v1.correccion_solicitud cs
+     JOIN LATERAL (SELECT ca.estado,ca.version FROM vec_cronos_v1.correccion_actuacion ca WHERE ca.solicitud_ref=cs.solicitud_ref ORDER BY ca.version DESC LIMIT 1) a ON true
+    WHERE cs.empleado_ref=emp AND cs.fecha_civil BETWEEN desde AND hasta),'[]'::jsonb));
+ IF clock_timestamp()>=k.vence THEN
+   RAISE EXCEPTION 'vigencia Cronos agotada' USING ERRCODE='PC003';
+ END IF;
+ RETURN resultado;
+END $function$;
+
+CREATE OR REPLACE FUNCTION vec_cronos_v1.secuencia_remota_v1(p_empleado text, p_desde timestamp with time zone, OUT continuidad boolean, OUT permitidos text[], OUT ultimo_instante timestamp with time zone)
+ RETURNS record
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO 'pg_catalog', 'pg_temp'
+AS $function$
+DECLARE ultimo record; hay boolean;
+BEGIN
+ SELECT m.movimiento,m.instante_utc INTO ultimo FROM vec_cronos_v1.marcajes_efectivos_v1(p_empleado) m
+  WHERE m.empleado_ref=p_empleado ORDER BY m.instante_utc DESC,m.marcaje_ref DESC LIMIT 1;
+ hay:=FOUND;
+ ultimo_instante:=CASE WHEN hay THEN ultimo.instante_utc END;
+ IF NOT hay OR ultimo.movimiento='salida' THEN
+   continuidad:=true; permitidos:=ARRAY['entrada'];
+ ELSIF ultimo.instante_utc<p_desde THEN
+   continuidad:=false; permitidos:=ARRAY[]::text[];
+ ELSIF ultimo.movimiento IN ('entrada','fin_pausa') THEN
+   continuidad:=true; permitidos:=ARRAY['salida','inicio_pausa'];
+ ELSE
+   continuidad:=true; permitidos:=ARRAY['fin_pausa'];
+ END IF;
+END $function$;
+
+DO $proyeccion_post$
+DECLARE f oid; metadatos jsonb; dependencias jsonb; esperado jsonb;
+BEGIN
+ f:='vec_cronos_v1.consultar_libro_saldo_interno_v1(text,date,date,text)'::regprocedure;
+ esperado:=current_setting('vec_crn19.preimagen_0')::jsonb;
+ SELECT to_jsonb(p)-'prosrc' INTO STRICT metadatos FROM pg_catalog.pg_proc p WHERE p.oid=f;
+ dependencias:=(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f);
+ IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'8f174843e8931a3ed0fdadecbf2216f555ca0304bc6fad5db070bb3a11580909'
+ OR metadatos IS DISTINCT FROM jsonb_set(esperado->'metadatos','{proconfig}','["search_path=pg_catalog, pg_temp", "row_security=on", "TimeZone=UTC", "lock_timeout=2s"]'::jsonb)
+ OR dependencias IS DISTINCT FROM esperado->'dependencias'
+ THEN RAISE EXCEPTION 'CRN19: postimagen de proyección 0 divergente' USING ERRCODE='55000'; END IF;
+ f:='vec_cronos_v1.consultar_movimientos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+ esperado:=current_setting('vec_crn19.preimagen_1')::jsonb;
+ SELECT to_jsonb(p)-'prosrc' INTO STRICT metadatos FROM pg_catalog.pg_proc p WHERE p.oid=f;
+ dependencias:=(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f);
+ IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'878a8253d6cb0025966c2f92632e4073b202243de8e91e9d8c374d3dbfb4e108'
+ OR metadatos IS DISTINCT FROM jsonb_set(esperado->'metadatos','{proconfig}','["search_path=pg_catalog, pg_temp", "row_security=on", "TimeZone=UTC", "lock_timeout=2s"]'::jsonb)
+ OR dependencias IS DISTINCT FROM esperado->'dependencias'
+ THEN RAISE EXCEPTION 'CRN19: postimagen de proyección 1 divergente' USING ERRCODE='55000'; END IF;
+ f:='vec_cronos_v1.secuencia_remota_v1(text,timestamp with time zone)'::regprocedure;
+ esperado:=current_setting('vec_crn19.preimagen_2')::jsonb;
+ SELECT to_jsonb(p)-'prosrc' INTO STRICT metadatos FROM pg_catalog.pg_proc p WHERE p.oid=f;
+ dependencias:=(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_catalog.pg_depend d WHERE d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f);
+ IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'a87f2790c92c24f57a04eea2adae0c3aef6701baaa0905e5c0aae6dc38609350'
+ OR metadatos IS DISTINCT FROM jsonb_set(esperado->'metadatos','{proconfig}','["search_path=pg_catalog, pg_temp"]'::jsonb)
+ OR dependencias IS DISTINCT FROM esperado->'dependencias'
+ THEN RAISE EXCEPTION 'CRN19: postimagen de proyección 2 divergente' USING ERRCODE='55000'; END IF;
+END $proyeccion_post$;
 
 DO $acl$
 DECLARE f regprocedure; tabla text;

@@ -194,6 +194,9 @@ type Config struct {
 	CronosEmpleadoEnabled                       string
 	CronosRecuperacionCorreccionEnabled         string
 	CronosCorreccionesDecisionEnabled           string
+	CronosEquipoInformesEnabled                 string
+	CronosCalendarioC4Enabled                   string
+	CronosEquipoInformesConfigFile              string
 	CronosResolucionEnabled                     string
 	CTFirmaRegistroEnabled                      string
 	BolsaPortalCandidatoEnabled                 string
@@ -331,6 +334,9 @@ func Load() Config {
 		CronosEmpleadoEnabled:               envFirst(EnvCronosEmpleadoEnabled),
 		CronosRecuperacionCorreccionEnabled: envFirst(EnvCronosRecuperacionCorreccionEnabled),
 		CronosCorreccionesDecisionEnabled:   envFirst(EnvCronosCorreccionesDecisionEnabled),
+		CronosEquipoInformesEnabled:         envFirst(EnvCronosEquipoInformesEnabled),
+		CronosCalendarioC4Enabled:           envFirst(EnvCronosCalendarioC4Enabled),
+		CronosEquipoInformesConfigFile:      envFirst(EnvCronosEquipoInformesConfigFile),
 		CronosResolucionEnabled:             envFirst(EnvCronosResolucionEnabled),
 		CTFirmaRegistroEnabled:              envFirst(EnvCTFirmaRegistroEnabled),
 		BolsaPortalCandidatoEnabled:         envFirst(EnvBolsaPortalCandidatoEnabled),
@@ -494,6 +500,9 @@ func (c Config) Normalize() Config {
 	c.CronosEmpleadoEnabled = strings.TrimSpace(c.CronosEmpleadoEnabled)
 	c.CronosRecuperacionCorreccionEnabled = strings.TrimSpace(c.CronosRecuperacionCorreccionEnabled)
 	c.CronosCorreccionesDecisionEnabled = strings.TrimSpace(c.CronosCorreccionesDecisionEnabled)
+	c.CronosEquipoInformesEnabled = strings.TrimSpace(c.CronosEquipoInformesEnabled)
+	c.CronosCalendarioC4Enabled = strings.TrimSpace(c.CronosCalendarioC4Enabled)
+	c.CronosEquipoInformesConfigFile = strings.TrimSpace(c.CronosEquipoInformesConfigFile)
 	c.CronosResolucionEnabled = strings.TrimSpace(c.CronosResolucionEnabled)
 	c.CTFirmaRegistroEnabled = strings.TrimSpace(c.CTFirmaRegistroEnabled)
 	c.BolsaPortalCandidatoEnabled = strings.TrimSpace(c.BolsaPortalCandidatoEnabled)

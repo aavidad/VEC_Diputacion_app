@@ -52,7 +52,7 @@ func respuestaUnidadCronosPrueba(t *testing.T, o ports.OrdenUnidadTrabajoCronos)
 	x := o.Autorizacion.ResumenCapacidad()
 	huella := strings.Repeat("d", 64)
 	b, err := json.Marshal(ports.ResultadoUnidadTrabajoPropiaCronos{Cobertura: "completa",
-		Unidad:    &ports.UnidadTrabajoCronos{EmpleadoRef: o.Material.EmpleadoRef(), RelacionRef: "rel_" + strings.Repeat("r", 24), OrganismoRef: "org_prueba", UnidadClave: "unidad_prueba", Desde: "2026-01-01", FuenteRef: "fuente:personal", FuenteVersionRef: "2", Version: 3},
+		Unidad:    &ports.UnidadTrabajoCronos{EmpleadoRef: o.Material.EmpleadoRef(), RelacionRef: "rel_" + strings.Repeat("r", 24), OrganismoRef: "org_prueba", UnidadClave: "unidad_prueba", RegimenRef: "regimen:prueba", Desde: "2026-01-01", FuenteRef: "fuente:personal", FuenteVersionRef: "2", Version: 3},
 		Evidencia: ports.EvidenciaRegistroEmpleadoB2{ReciboRef: "unidadcronos:01234567-89ab-cdef-0123-456789abcdef", DecisionRef: x.DecisionRef(), EfectoRef: o.Material.EmpleadoRef(), ConsumoHuellaSHA256: huella, AuditoriaRef: "aud_v3_" + huella[:32], ConsultadaEn: x.EmitidaEn().Add(time.Microsecond)}})
 	if err != nil {
 		t.Fatal(err)

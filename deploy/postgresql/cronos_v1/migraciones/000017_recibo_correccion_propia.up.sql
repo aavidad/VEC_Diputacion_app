@@ -36,33 +36,94 @@ END $pre$;
 
 -- La lista cerrada del helper instalado por CRN16 admite esta fachada nueva.
 -- Se conserva firma, OID, ACL, dependencias y todos los contratos anteriores.
-DO $consumo$
+DO $consumo_pre$
 DECLARE f oid:='vec_cronos_v1.consumir_propio_v1(text,text,text,text,text,text[],jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- original text; nuevo text; actual text; meta jsonb; deps jsonb; acl aclitem[]; propietario oid; config text[]; definidora boolean;
+ original text; meta jsonb; deps jsonb; acl aclitem[]; propietario oid; config text[]; definidora boolean;
  marca text:=$x$'consumir_cronos_permisos_propio_v3_atestada','registrar_y_consumir_cronos_permiso_v3_atestada') THEN$x$;
- sustitucion text:=$x$'consumir_cronos_permisos_propio_v3_atestada','registrar_y_consumir_cronos_permiso_v3_atestada',
-     'consumir_cronos_correccion_recibo_propio_v3_atestada') THEN$x$;
 BEGIN
- SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
- SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
+ SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
+ INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+ INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  IF encode(sha256(convert_to(original,'UTF8')),'hex')<>'29c4b8e3aa24d117a0cccf6bee52e9bb15b41c8de97388a99a189a37c7b5d265'
     OR propietario<>'vec_cronos_v1_propietario'::regrole OR definidora OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp']
     OR acl::text<>'{vec_cronos_v1_propietario=X/vec_cronos_v1_propietario}'
     OR (length(original)-length(replace(original,marca,'')))<>length(marca)
     OR strpos(original,'consumir_cronos_correccion_recibo_propio_v3_atestada')<>0
  THEN RAISE EXCEPTION 'CRN17: helper de consumo incompatible' USING ERRCODE='55000'; END IF;
- nuevo:=replace(original,marca,sustitucion);
- EXECUTE nuevo;
+ PERFORM set_config('vec_crn17.consumo_pre',jsonb_build_object('meta',meta,'deps',deps,
+   'shdeps',(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+    FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f))::text,true);
+END $consumo_pre$;
+
+CREATE OR REPLACE FUNCTION vec_cronos_v1.consumir_propio_v1(p_fachada text, p_accion text, p_tipo text, p_finalidad text, p_recurso text, p_bloqueos text[], m jsonb, p_material text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea, OUT decision_ref text, OUT auditoria_ref text, OUT consumo_huella_sha256 text, OUT ahora timestamp with time zone, OUT vence timestamp with time zone, OUT material_sha256 text)
+ RETURNS record
+ LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'pg_temp'
+AS $function$
+DECLARE c jsonb; d jsonb; x jsonb; vinculo jsonb; huella text; consumo record; b text;
+BEGIN
+ IF p_fachada NOT IN ('consumir_cronos_movimientos_propio_v3_atestada','registrar_y_consumir_cronos_correccion_v3_atestada',
+     'consumir_cronos_permisos_propio_v3_atestada','registrar_y_consumir_cronos_permiso_v3_atestada',
+     'consumir_cronos_correccion_recibo_propio_v3_atestada') THEN
+   RAISE EXCEPTION 'fachada Cronos desconocida' USING ERRCODE='PC003';
+ END IF;
+ -- Ni el contexto propio ni el de quien resuelve pueden venir ya fijados.
+ IF nullif(current_setting('vec.cronos.empleado_ref',true),'') IS NOT NULL OR nullif(current_setting('vec.cronos.resolutor_ref',true),'') IS NOT NULL THEN
+   RAISE EXCEPTION 'contexto Cronos ya fijado' USING ERRCODE='PC003';
+ END IF;
+ BEGIN
+   c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb; x:=convert_from(p_contexto,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN
+   RAISE EXCEPTION 'autorización Cronos ilegible' USING ERRCODE='PC003';
+ END;
+ ahora:=date_trunc('microseconds',clock_timestamp());
+ vinculo:=vec_cronos_v1.acreditar_empleado_contexto_v1(x,m->>'actor_ref',m->>'perfil_ref',m->>'empleado_ref',ahora);
+ material_sha256:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
+ huella:=vec_cronos_v1.huella_contexto_empleado_v1(m->>'empleado_ref',material_sha256);
+ PERFORM vec_cronos_v1.comprobar_decision_cronos_v1(d,p_accion,p_tipo,p_finalidad,p_recurso,m->>'actor_ref',m->>'perfil_ref',huella);
+ FOREACH b IN ARRAY coalesce(p_bloqueos,ARRAY[]::text[]) LOOP
+   PERFORM pg_advisory_xact_lock(hashtextextended(b,0));
+ END LOOP;
+ EXECUTE format('SELECT * FROM vec_autorizacion_atestada_v3.%I($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',p_fachada) INTO STRICT consumo
+   USING p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz;
+ IF consumo.consumo_nuevo IS NOT TRUE OR consumo.efecto_ref IS DISTINCT FROM p_recurso OR consumo.huella_efecto_sha256 IS DISTINCT FROM huella THEN
+   RAISE EXCEPTION 'consumo Cronos divergente' USING ERRCODE='PC003';
+ END IF;
+ ahora:=date_trunc('microseconds',clock_timestamp());
+ vinculo:=vec_cronos_v1.acreditar_empleado_contexto_v1(x,m->>'actor_ref',m->>'perfil_ref',m->>'empleado_ref',ahora);
+ vence:=vec_cronos_v1.vence_autorizacion_v1(c,d,x,vinculo);
+ IF ahora>=vence OR nullif(current_setting('vec.cronos.empleado_ref',true),'') IS NOT NULL
+    OR nullif(current_setting('vec.cronos.resolutor_ref',true),'') IS NOT NULL THEN
+   RAISE EXCEPTION 'vigencia o contexto Cronos no válidos' USING ERRCODE='PC003';
+ END IF;
+ PERFORM set_config('vec.cronos.empleado_ref',m->>'empleado_ref',true);
+ decision_ref:=consumo.decision_ref; auditoria_ref:=consumo.auditoria_ref; consumo_huella_sha256:=consumo.consumo_huella_sha256;
+END $function$
+;
+
+DO $consumo_post$
+DECLARE f oid:='vec_cronos_v1.consumir_propio_v1(text,text,text,text,text,text[],jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+ actual text; snapshot jsonb;
+ marca text:=$x$'consumir_cronos_permisos_propio_v3_atestada','registrar_y_consumir_cronos_permiso_v3_atestada') THEN$x$;
+ sustitucion text:=$x$'consumir_cronos_permisos_propio_v3_atestada','registrar_y_consumir_cronos_permiso_v3_atestada',
+     'consumir_cronos_correccion_recibo_propio_v3_atestada') THEN$x$;
+BEGIN
+ snapshot:=current_setting('vec_crn17.consumo_pre',true)::jsonb;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
- IF actual IS DISTINCT FROM nuevo OR replace(actual,sustitucion,marca) IS DISTINCT FROM original
-    OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
-    OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
-    OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
-    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM config
-    OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS DISTINCT FROM definidora
-    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
+ IF encode(sha256(convert_to(actual,'UTF8')),'hex')<>'41de82dcfdab35772763a08450345d3be6360cd6bc39c35f4c8a09fe485e90de'
+    OR encode(sha256(convert_to(replace(actual,sustitucion,marca),'UTF8')),'hex')<>'29c4b8e3aa24d117a0cccf6bee52e9bb15b41c8de97388a99a189a37c7b5d265'
+    OR encode(sha256(convert_to((SELECT prosrc FROM pg_proc WHERE oid=f),'UTF8')),'hex')<>'256c2a0e63593646d3a3ecad249ea8e3e5a4b3dde12fcb44748ef18758985516'
+    OR snapshot IS NULL
+    OR (SELECT jsonb_build_object('meta',to_jsonb(p)-'prosrc',
+       'deps',(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+        FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f),
+       'shdeps',(SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+        FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND d.classid='pg_proc'::regclass AND d.objid=f))
+       FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM snapshot
  THEN RAISE EXCEPTION 'CRN17: helper alterado fuera del contrato' USING ERRCODE='55000'; END IF;
-END $consumo$;
+END $consumo_post$;
+
 
 CREATE INDEX solicitud_outbox_correccion_recibo_idx ON vec_cronos_v1.solicitud_outbox(agregado_ref,empleado_ref)
  WHERE tipo='cronos.correccion.solicitada';

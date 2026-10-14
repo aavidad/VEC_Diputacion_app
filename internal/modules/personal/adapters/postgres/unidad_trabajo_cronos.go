@@ -65,7 +65,7 @@ func decodificarUnidadTrabajoCronos(b []byte, o ports.OrdenUnidadTrabajoCronos) 
 	}
 	if !bytes.Equal(bytes.TrimSpace(raiz["unidad"]), []byte("null")) {
 		var u map[string]json.RawMessage
-		if json.Unmarshal(raiz["unidad"], &u) != nil || !clavesRegistroB2(u, []string{"empleado_ref", "relacion_ref", "organismo_ref", "unidad_clave", "desde", "hasta_exclusivo", "fuente_ref", "fuente_version_ref", "version"}, nil) {
+		if json.Unmarshal(raiz["unidad"], &u) != nil || !clavesRegistroB2(u, []string{"empleado_ref", "relacion_ref", "organismo_ref", "unidad_clave", "regimen_ref", "desde", "hasta_exclusivo", "fuente_ref", "fuente_version_ref", "version"}, nil) {
 			return cero, domain.ErrUnidadTrabajoCronosNoDisponible
 		}
 	}

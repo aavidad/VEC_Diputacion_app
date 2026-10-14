@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearClienteNotificacionesCronosHTTP, ErrorClienteNotificacionesCronos } from "./cliente-notificaciones-http.js";
+import { crearClienteNotificacionesCronosHTTP, ErrorClienteNotificacionesCronos } from "./cliente-notificaciones-http.js?v=20261014-cronos-c9-contrato-v2";
 import { hoyCivilCronos, montarNotificacionesPropiasCronos, renderizarNotificacionesPropiasCronos, renderizarHistorialNotificacionesCronos } from "./vista-notificaciones-propias.js";
 
 const TIPO = "notificacion:cronos:tipo:incidencia-marcaje:sintetico-1";
@@ -64,11 +64,12 @@ test("enviar valida antes, calcula la huella, conserva la clave en el reintento 
   assert.match(nodo.innerHTML, /No se pudo enviar la notificación/);
   assert.deepEqual(envios[0], { clave_operacion: envios[0].clave_operacion, tipo_version_ref: TIPO, fecha_referida: "2026-09-24", texto: "Olvidé fichar",
     adjunto_ref: "registro:sintetico:0001", adjunto_sha256: "ab".repeat(32) });
-  respuesta = { notificacion_ref: "notificacion:cronos:0f0e0d0c-0b0a-4000-8000-000000000003", recibo_ref: "recibo:cronos:1", instante_utc: "2026-09-25T08:00:00Z", replay: false };
+  respuesta = { notificacion_ref: "notificacion:cronos:0f0e0d0c-0b0a-4000-8000-000000000003", recibo_ref: "recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f", instante_utc: "2026-09-25T08:00:00Z", replay: false };
   await nodo.eventos.submit({ target: formulario({ tipo: TIPO, fecha: "2026-09-24", texto: "Olvidé fichar", referencia: "registro:sintetico:0001" }), preventDefault() {} });
   await esperar();
   assert.equal(envios[1].clave_operacion, envios[0].clave_operacion, "un reintento conserva la clave");
   assert.match(nodo.innerHTML, /Notificación enviada a RRHH/);
+  assert.match(nodo.innerHTML, new RegExp(respuesta.recibo_ref));
   assert.equal(consultas, 2, "tras enviar se recarga la lista");
   await nodo.eventos.submit({ target: formulario({ tipo: TIPO, fecha: "2026-09-24", texto: "Otra cosa", referencia: "" }), preventDefault() {} });
   assert.notEqual(envios[2].clave_operacion, envios[0].clave_operacion, "otro envío usa otra clave");
@@ -183,17 +184,20 @@ for (const [status, replay, confirmacion] of [[201, false, /Notificación enviad
     await esperar(); await esperar();
     assert.match(nodo.innerHTML, /data-estado="cargando"/);
     assert.match(nodo.innerHTML, confirmacion);
+    assert.match(nodo.innerHTML, /recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f/);
     assert.doesNotMatch(nodo.innerHTML, /<table|data-cronos-notificacion-formulario/);
     pendiente.resolver(new Response(JSON.stringify({ error: "no_disponible" }), { status: 503, headers: { "content-type": "application/json" } }));
     await registro;
     assert.match(nodo.innerHTML, /data-estado="error"/);
     assert.match(nodo.innerHTML, confirmacion);
+    assert.match(nodo.innerHTML, /recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f/);
     assert.match(nodo.innerHTML, /data-cronos-notificacion-reintentar/);
     assert.doesNotMatch(nodo.innerHTML, /<table|data-cronos-notificacion-formulario|No pude fichar/);
     assert.deepEqual(foco, ["consulta"]);
     await nodo.eventos.click(clicConsultar());
     assert.match(nodo.innerHTML, /data-estado="listo"/);
     assert.match(nodo.innerHTML, confirmacion);
+    assert.match(nodo.innerHTML, /recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f/);
     assert.match(nodo.innerHTML, /<table/);
     assert.match(nodo.innerHTML, /<textarea[^>]*><\/textarea>/);
     assert.deepEqual(llamadas, ["GET", "POST", "GET", "GET"]);
@@ -447,7 +451,8 @@ test("tipos inicialmente vacíos: refrescar crea el formulario y permite registr
   const { nodo, nodos, raiz, historial } = historialFalso(); const envios = []; let consultas = 0;
   const vista = montarNotificacionesPropiasCronos({ raiz, cliente: {
     consultarPropias: async () => { consultas++; return consultas === 1 ? { ...datos(), tipos: [] } : datos(); },
-    enviar: async (entrada) => { envios.push(entrada); return { replay: false }; },
+    enviar: async (entrada) => { envios.push(entrada); return { notificacion_ref: "notificacion:cronos:0f0e0d0c-0b0a-4000-8000-000000000003",
+      recibo_ref: "recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f", instante_utc: "2026-09-25T08:00:00Z", replay: false }; },
   } });
   await esperar();
   assert.match(nodo.innerHTML, /data-cronos-notificacion-sin-tipos/);

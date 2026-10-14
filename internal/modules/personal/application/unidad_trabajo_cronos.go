@@ -80,7 +80,7 @@ func ResultadoUnidadTrabajoCronosValido(m domain.MaterialUnidadTrabajoCronos, a 
 		}
 		u := r.Unidad
 		fuenteVersion, err := strconv.ParseInt(u.FuenteVersionRef, 10, 64)
-		return u.EmpleadoRef == m.EmpleadoRef() && domain.ReferenciaRelacionValida(u.RelacionRef) && referenciaUnidadCronos.MatchString(u.OrganismoRef) && referenciaUnidadCronos.MatchString(u.UnidadClave) &&
+		return u.EmpleadoRef == m.EmpleadoRef() && domain.ReferenciaRelacionValida(u.RelacionRef) && referenciaUnidadCronos.MatchString(u.OrganismoRef) && referenciaUnidadCronos.MatchString(u.UnidadClave) && fuenteUnidadCronos.MatchString(u.RegimenRef) &&
 			u.Desde.Validar() == nil && !m.Fecha().AntesDe(u.Desde) && (u.HastaExclusivo == "" || (u.HastaExclusivo.Validar() == nil && m.Fecha().AntesDe(u.HastaExclusivo))) &&
 			fuenteUnidadCronos.MatchString(u.FuenteRef) && err == nil && fuenteVersion > 0 && u.FuenteVersionRef == strconv.FormatInt(fuenteVersion, 10) && u.Version > 0
 	case "sin_datos", "no_acreditada":

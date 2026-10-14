@@ -29,6 +29,7 @@ type UnidadTrabajoCronos struct {
 	RelacionRef      string            `json:"relacion_ref"`
 	OrganismoRef     string            `json:"organismo_ref"`
 	UnidadClave      string            `json:"unidad_clave"`
+	RegimenRef       string            `json:"regimen_ref"`
 	Desde            domain.FechaCivil `json:"desde"`
 	HastaExclusivo   domain.FechaCivil `json:"hasta_exclusivo"`
 	FuenteRef        string            `json:"fuente_ref"`

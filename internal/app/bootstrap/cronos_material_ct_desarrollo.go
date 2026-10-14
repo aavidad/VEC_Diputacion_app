@@ -23,6 +23,8 @@ type materialCronosDesdeCTDesarrollo struct {
 	reciboCorreccion, vinculoPersonal *proveedorMaterialAltaContratacionTemporalDesarrollo
 	// C5b: bandeja, tres actuaciones e historia propia/de equipo.
 	decisionCorreccion [6]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	calendarioC4       [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	equipoInformes     [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
 }
 
 func (m materialCronosDesdeCTDesarrollo) conDecisionCorreccion(p [6]*proveedorMaterialAltaContratacionTemporalDesarrollo) materialCronosDesdeCTDesarrollo {

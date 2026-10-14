@@ -216,17 +216,56 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $f$
 $f$;
 
 
-DO $seguridad$
-DECLARE tabla text;
-BEGIN
- FOREACH tabla IN ARRAY ARRAY['permiso_resolutor','permiso_resolutor_retirada','permiso_circuito_directo','permiso_circuito_directo_retirada','permiso_resolucion','permiso_aviso','permiso_aviso_archivo',
-   'bandeja_acceso','resolucion_replay','avisos_acceso'] LOOP
-  EXECUTE format('ALTER TABLE vec_cronos_v1.%I ENABLE ROW LEVEL SECURITY',tabla);
-  EXECUTE format('ALTER TABLE vec_cronos_v1.%I FORCE ROW LEVEL SECURITY',tabla);
-  EXECUTE format('CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia()',tabla);
-  EXECUTE format('REVOKE ALL ON TABLE vec_cronos_v1.%I FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor',tabla);
- END LOOP;
-END $seguridad$;
+ALTER TABLE vec_cronos_v1.permiso_resolutor ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.permiso_resolutor FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.permiso_resolutor
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.permiso_resolutor FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.permiso_resolutor_retirada ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.permiso_resolutor_retirada FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.permiso_resolutor_retirada
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.permiso_resolutor_retirada FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.permiso_circuito_directo ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.permiso_circuito_directo FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.permiso_circuito_directo
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.permiso_circuito_directo FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.permiso_circuito_directo_retirada ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.permiso_circuito_directo_retirada FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.permiso_circuito_directo_retirada
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.permiso_circuito_directo_retirada FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.permiso_resolucion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.permiso_resolucion FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.permiso_resolucion
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.permiso_resolucion FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.permiso_aviso ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.permiso_aviso FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.permiso_aviso
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.permiso_aviso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.permiso_aviso_archivo ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.permiso_aviso_archivo FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.permiso_aviso_archivo
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.permiso_aviso_archivo FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.bandeja_acceso ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.bandeja_acceso FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.bandeja_acceso
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.bandeja_acceso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.resolucion_replay ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.resolucion_replay FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.resolucion_replay
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.resolucion_replay FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.avisos_acceso ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.avisos_acceso FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.avisos_acceso
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.avisos_acceso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
 -- Circuito: lo publica el propietario (instalación gobernada, sin LOGIN) y
 -- sólo lo lee quien resuelve, filtrado a sus propias asignaciones.
 CREATE POLICY lectura_resolutor ON vec_cronos_v1.permiso_resolutor FOR SELECT TO vec_cronos_v1_propietario
@@ -390,7 +429,7 @@ BEGIN
     FROM (SELECT s0.*,vec_cronos_v1.circuito_directo_vigente_v1(s0.empleado_ref,k.ahora) directo,
                  vec_cronos_v1.jefatura_asignada_v1(s0.empleado_ref,k.ahora) jefatura
             FROM vec_cronos_v1.permiso_solicitud s0
-           WHERE vec_cronos_v1.resolutor_competente_v1(s0.empleado_ref,paso) AND s0.empleado_ref<>propio
+           WHERE vec_cronos_v1.resolutor_competente_v1(s0.empleado_ref,paso) AND s0.empleado_ref<>propio AND s0.actor_ref<>m->>'actor_ref'
            ORDER BY s0.solicitada_en,s0.solicitud_ref) s
     JOIN vec_cronos_v1.estado_permiso_visible_v1() e ON e.solicitud_ref=s.solicitud_ref
     JOIN vec_cronos_v1.permiso_catalogo pc ON pc.version_ref=s.catalogo_version_ref
@@ -434,6 +473,12 @@ BEGIN
    'cronos.permiso.resolver','resolucion_permiso','resolver_permiso',ref,
    ARRAY['vec_cronos_v1:clave:'||(m->>'clave_operacion'),'vec_cronos_v1:solicitud:'||(m->>'solicitud_ref')],m,p_material,
    p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ -- Sin competencia vigente la solicitud no es visible: inexistente y ajena
+ -- responden igual, sin revelar si existe.
+ SELECT * INTO sol FROM vec_cronos_v1.permiso_solicitud s WHERE s.solicitud_ref=m->>'solicitud_ref' AND vec_cronos_v1.resolutor_competente_v1(s.empleado_ref,paso);
+ IF NOT FOUND OR sol.empleado_ref=m->>'empleado_ref' OR sol.actor_ref=m->>'actor_ref' THEN
+   RAISE EXCEPTION 'resolución no competente' USING ERRCODE='PC012';
+ END IF;
  SELECT * INTO previa FROM vec_cronos_v1.permiso_resolucion WHERE resolucion_ref=ref;
  IF FOUND THEN
    IF previa.material_sha256 IS DISTINCT FROM k.material_sha256 THEN
@@ -447,12 +492,6 @@ BEGIN
    IF clock_timestamp()>=k.vence THEN RAISE EXCEPTION 'vigencia Cronos agotada' USING ERRCODE='PC003'; END IF;
    RETURN jsonb_build_object('resolucion_ref',ref,'solicitud_ref',previa.solicitud_ref,'recibo_ref',previa.recibo_ref,
      'estado',previa.estado_resultante,'version',previa.version_resultante,'instante_utc',previa.registrada_en,'replay',true);
- END IF;
- -- Sin competencia vigente la solicitud no es visible: inexistente y ajena
- -- responden igual, sin revelar si existe.
- SELECT * INTO sol FROM vec_cronos_v1.permiso_solicitud s WHERE s.solicitud_ref=m->>'solicitud_ref' AND vec_cronos_v1.resolutor_competente_v1(s.empleado_ref,paso);
- IF NOT FOUND OR sol.empleado_ref=m->>'empleado_ref' THEN
-   RAISE EXCEPTION 'resolución no competente' USING ERRCODE='PC012';
  END IF;
  -- La asignación se evalúa en el mismo instante del consumo: una que empieza
  -- entre ambos no acredita competencia (no competente, nunca error interno).
@@ -688,29 +727,36 @@ BEGIN
 END $f$;
 
 
-DO $acl$
-DECLARE f text;
-BEGIN
- FOREACH f IN ARRAY ARRAY[
-   'vec_cronos_v1.resolutor_competente_v1(text,text)',
-   'vec_cronos_v1.circuito_directo_vigente_v1(text,timestamptz)',
-   'vec_cronos_v1.jefatura_asignada_v1(text,timestamptz)',
-   'vec_cronos_v1.huella_contexto_resolutor_v1(text,text,text)',
-   'vec_cronos_v1.consumir_resolucion_v1(text,text,text,text,text,text,text[],jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   'vec_cronos_v1.estado_permiso_visible_v1()'] LOOP
-   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor',f);
- END LOOP;
- FOREACH f IN ARRAY ARRAY[
-   'vec_cronos_v1.consultar_bandeja_permisos_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   'vec_cronos_v1.resolver_permiso_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   'vec_cronos_v1.consultar_avisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   'vec_cronos_v1.archivar_aviso_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'] LOOP
-   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,vec_cronos_v1_migrador,vec_cronos_v1_auditor',f);
-   EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO vec_cronos_v1_ejecutor',f);
- END LOOP;
-END $acl$;
+REVOKE ALL ON FUNCTION vec_cronos_v1.resolutor_competente_v1(text,text) FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON FUNCTION vec_cronos_v1.circuito_directo_vigente_v1(text,timestamptz) FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON FUNCTION vec_cronos_v1.jefatura_asignada_v1(text,timestamptz) FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON FUNCTION vec_cronos_v1.huella_contexto_resolutor_v1(text,text,text) FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON FUNCTION vec_cronos_v1.consumir_resolucion_v1(text,text,text,text,text,text,text[],jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON FUNCTION vec_cronos_v1.estado_permiso_visible_v1() FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON FUNCTION vec_cronos_v1.consultar_bandeja_permisos_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+GRANT EXECUTE ON FUNCTION vec_cronos_v1.consultar_bandeja_permisos_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_cronos_v1_ejecutor;
+REVOKE ALL ON FUNCTION vec_cronos_v1.resolver_permiso_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+GRANT EXECUTE ON FUNCTION vec_cronos_v1.resolver_permiso_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_cronos_v1_ejecutor;
+REVOKE ALL ON FUNCTION vec_cronos_v1.consultar_avisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+GRANT EXECUTE ON FUNCTION vec_cronos_v1.consultar_avisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_cronos_v1_ejecutor;
+REVOKE ALL ON FUNCTION vec_cronos_v1.archivar_aviso_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+GRANT EXECUTE ON FUNCTION vec_cronos_v1.archivar_aviso_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_cronos_v1_ejecutor;
+REVOKE ALL ON TYPE vec_cronos_v1.permiso_resolutor FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.permiso_resolutor_retirada FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.permiso_resolucion FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.permiso_aviso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.permiso_aviso_archivo FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.permiso_circuito_directo FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.permiso_circuito_directo_retirada FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.bandeja_acceso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.resolucion_replay FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.avisos_acceso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
 DO $post$
 BEGIN
+ IF EXISTS (SELECT 1 FROM pg_catalog.pg_type t CROSS JOIN LATERAL aclexplode(coalesce(t.typacl,acldefault('T',t.typowner))) a
+   WHERE t.typnamespace='vec_cronos_v1'::regnamespace AND t.typname IN ('permiso_resolutor','permiso_resolutor_retirada','permiso_resolucion','permiso_aviso','permiso_aviso_archivo','permiso_circuito_directo','permiso_circuito_directo_retirada','bandeja_acceso','resolucion_replay','avisos_acceso') AND a.grantee<>t.typowner)
+ THEN RAISE EXCEPTION 'CRN16: privilegios de tipos incompatibles' USING ERRCODE='55000'; END IF;
+
  IF NOT EXISTS (SELECT 1 FROM pg_proc p
      WHERE p.oid='vec_cronos_v1.consultar_permisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
        AND p.proowner='vec_cronos_v1_propietario'::regrole AND p.prosecdef

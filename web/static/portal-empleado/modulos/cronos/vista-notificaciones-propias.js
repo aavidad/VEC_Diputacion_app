@@ -4,8 +4,8 @@ import {
 import {
   ErrorClienteNotificacionesCronos, MAXIMO_TEXTO_NOTIFICACION_CRONOS, adjuntoNotificacionValido, calcularHuellaDocumentoCronos,
   crearClienteNotificacionesCronosHTTP, textoNotificacionValido,
-} from "./cliente-notificaciones-http.js";
-import { crearTraductorNotificacionesHistorialCronos } from "./i18n-notificaciones-historial.js?v=20261001-cronos-c9-historial-v2";
+} from "./cliente-notificaciones-http.js?v=20261014-cronos-c9-contrato-v2";
+import { crearTraductorNotificacionesHistorialCronos } from "./i18n-notificaciones-historial.js?v=20261014-cronos-c9-recibo-v3";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const ERRORES_ENVIO = new Map([
@@ -113,7 +113,7 @@ export function renderizarHistorialNotificacionesCronos({ datos, historial = {},
 }
 
 /** Notificaciones propias a RRHH: formulario de envío y lista con su estado. */
-export function renderizarNotificacionesPropiasCronos({ estado = "cargando", datos = null, formulario = null, envio = null, mensaje = "", tonoMensaje = "exito",
+export function renderizarNotificacionesPropiasCronos({ estado = "cargando", datos = null, formulario = null, envio = null, recibo = null, mensaje = "", tonoMensaje = "exito",
   mensajes, mensajesHistorial, historial = {}, estadoHistorial = "listo", tamanoPagina = 10, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", hoy = hoyCivilCronos(new Date(), zonaHoraria) } = {}) {
   const t = crearTraductorNotificacionesCronos(mensajes);
   const ayuda = t("abrir_ayuda", { asunto: t("notificaciones_titulo") });
@@ -121,17 +121,21 @@ export function renderizarNotificacionesPropiasCronos({ estado = "cargando", dat
     <button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${escaparHTML(ayuda)}" title="${escaparHTML(ayuda)}"><span aria-hidden="true">?</span></button></header>`;
   const tono = tonoMensaje === "error" ? "error" : "exito";
   const aviso = mensaje ? `<p class="cronos-solicitud-aviso" data-cronos-notificacion-mensaje data-tono="${tono}" role="${tono === "error" ? "alert" : "status"}" tabindex="-1">${escaparHTML(mensaje)}</p>` : "";
+  const th = crearTraductorNotificacionesHistorialCronos(mensajesHistorial);
+  const detalleRecibo = recibo ? `<details class="cronos-huella"><summary>${escaparHTML(th("recibo_detalle"))}</summary><dl>
+    <dt>${escaparHTML(th("recibo_referencia"))}</dt><dd class="cronos-huella-valor">${escaparHTML(recibo.recibo_ref)}</dd>
+    <dt>${escaparHTML(th("recibo_fecha"))}</dt><dd>${escaparHTML(instanteVisibleCronos(recibo.instante_utc, locale, zonaHoraria))}</dd></dl></details>` : "";
   if (estado !== "listo") {
     const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error" }[estado] ?? "cargando";
     const reintento = estado === "error" ? `<div class="cronos-solicitud-acciones"><button type="button" class="boton-secundario" data-cronos-notificacion-reintentar>${escaparHTML(t("notificaciones_reintentar_consulta"))}</button></div>` : "";
     return `<section class="cronos-area cronos-notificaciones-propias" aria-labelledby="cronos-notificaciones-propias-titulo" data-estado="${escaparHTML(estado)}">${cabecera}
-      <section class="panel cronos-panel"><div class="cuerpo-panel">${aviso}<p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p>${reintento}</div></section></section>`;
+      <section class="panel cronos-panel"><div class="cuerpo-panel">${aviso}${detalleRecibo}<p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p>${reintento}</div></section></section>`;
   }
   const f = formulario ?? formularioVacio(hoy);
   const contenidoHistorial = renderizarHistorialNotificacionesCronos({ datos, historial, estado: estadoHistorial, tamanoPagina, mensajes, mensajesHistorial, locale, zonaHoraria });
   return `<section class="cronos-area cronos-notificaciones-propias" aria-labelledby="cronos-notificaciones-propias-titulo" data-estado="listo">${cabecera}
     <section class="panel cronos-panel" aria-labelledby="cronos-notificacion-nueva"><div class="cabecera-panel"><h3 id="cronos-notificacion-nueva">${escaparHTML(t("nueva_titulo"))}</h3></div>
-      <div class="cuerpo-panel">${aviso}${formularioNotificacion(f, datos, envio, t, locale)}</div></section>
+      <div class="cuerpo-panel">${aviso}${detalleRecibo}${formularioNotificacion(f, datos, envio, t, locale)}</div></section>
     <section class="panel cronos-panel" data-cronos-historial aria-labelledby="cronos-mis-notificaciones">${contenidoHistorial}</section>
   </section>`;
 }
@@ -155,13 +159,13 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
   paginaHistorial([], {}, tamanoPagina);
   const contenedor = raiz.ownerDocument.createElement("section"); contenedor.dataset.cronosNotificacionesPropias = ""; raiz.append(contenedor);
   let activa = true; let secuencia = 0; let controlador = null; let peticion = null; let lecturaDocumento = 0;
-  let estado = "cargando"; let datos = null; let mensaje = ""; let tonoMensaje = "exito";
+  let estado = "cargando"; let datos = null; let mensaje = ""; let tonoMensaje = "exito"; let recibo = null;
   let formulario = formularioVacio(hoyCivilCronos(ahora(), zonaHoraria));
   // Un reintento del mismo contenido conserva la clave; otro contenido, otra.
   let envio = null;
   let historial = { filtro: "", pagina: 1 }; let estadoHistorial = "listo";
   const dibujar = () => {
-    if (activa) contenedor.innerHTML = renderizarNotificacionesPropiasCronos({ estado, datos, formulario, envio, mensaje, tonoMensaje, mensajes, mensajesHistorial, historial, estadoHistorial, tamanoPagina, locale, zonaHoraria });
+    if (activa) contenedor.innerHTML = renderizarNotificacionesPropiasCronos({ estado, datos, formulario, envio, recibo, mensaje, tonoMensaje, mensajes, mensajesHistorial, historial, estadoHistorial, tamanoPagina, locale, zonaHoraria });
   };
   const dibujarHistorial = (foco = "") => {
     if (!activa) return;
@@ -321,10 +325,11 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
     reflejarEnvio();
     peticion = new AbortController();
     try {
-      const recibo = await cliente.enviar({ clave_operacion: clave, ...entrada }, { signal: peticion.signal });
+      const confirmado = await cliente.enviar({ clave_operacion: clave, ...entrada }, { signal: peticion.signal });
       if (!activa) return;
+      recibo = Object.freeze({ ...confirmado });
       envio = null; formulario = formularioVacio(hoyCivilCronos(ahora(), zonaHoraria));
-      mensaje = t(recibo.replay ? "ya_enviada" : "enviada"); tonoMensaje = "exito"; anunciar(mensaje);
+      mensaje = t(confirmado.replay ? "ya_enviada" : "enviada"); tonoMensaje = "exito"; anunciar(mensaje);
       await cargar({ recuperarFoco: true, conservarFormulario: false });
     } catch (error) {
       if (!activa || peticion.signal.aborted) return;

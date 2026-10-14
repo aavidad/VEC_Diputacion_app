@@ -1,0 +1,16 @@
+{
+  "saldo": {
+    "saldo_base": "Saldo antes del permiso",
+    "credito": "Tiempo de permiso computado",
+    "saldo_ajustado": "Saldo con permiso",
+    "sin_efecto": "No se puede determinar el efecto del permiso para esta fecha.",
+    "origen": "Origen del ajuste",
+    "politica": "Política aplicada",
+    "version": "Versión",
+    "regla": "Regla",
+    "resolucion": "Resolución",
+    "fuente": "Fuente",
+    "snapshot": "Resumen conservado",
+    "pendiente_justificar": "Permiso concedido pendiente de justificar"
+  }
+}

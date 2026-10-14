@@ -16,6 +16,23 @@ test("año civil completo, bisiesto y sin festivos ni jornada inferidos", () => 
   assert.doesNotMatch(normal, /data-festivo|data-laborable|data-jornada-minutos|data-centro-abierto/u);
 });
 
+test("modo laboral conectado deriva detalle por selección sin fingir fuente", () => {
+  const conectado = renderizarCalendarioCivilCronos({ anio: 2026, fechaSeleccionada: "2026-06-15", laboralConectado: true });
+  assert.match(conectado, /data-estado="conectado"/u);
+  assert.doesNotMatch(conectado, /Ausencias y calendario laboral no disponibles/u);
+  assert.doesNotMatch(conectado, /data-jornada-minutos|data-festivo/u);
+  const listeners = new Map(); const seleccionadas = [];
+  const nodo = { innerHTML: "", addEventListener(k, f) { listeners.set(k, f); }, removeEventListener(k) { listeners.delete(k); },
+    remove() {}, querySelector() { return { focus() {} }; } };
+  const raiz = { ownerDocument: { createElement: () => nodo }, append() {} };
+  const vista = montarCalendarioCivilCronos({ raiz, fechaSeleccionada: "2026-06-15", laboralConectado: true,
+    alSeleccionar: (fecha) => seleccionadas.push(fecha) });
+  listeners.get("click")({ target: { closest: (selector) => selector === "[data-cronos-cal-dia]"
+    ? { dataset: { cronosCalDia: "2026-06-16" } } : null } });
+  assert.deepEqual(seleccionadas, ["2026-06-16"]);
+  vista.desmontar();
+});
+
 test("fecha y año inválidos se rechazan y los textos C4 siguen el catálogo", () => {
   for (const fecha of ["2025-02-29", "2025-13-01", "2025-00-01", "2025-01-32", "<script>"]) {
     assert.throws(() => renderizarCalendarioCivilCronos({ fechaSeleccionada: fecha }), RangeError);

@@ -413,7 +413,7 @@ func nuevoServidorDesarrollo(
 	}
 	var cronosEmpleado *autoridadCronosEmpleadoDesarrollo
 	if cronosSolicitado && falloCronos == nil {
-		cronosEmpleado, err = nuevasRutasCronosEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialCronos)
+		cronosEmpleado, err = nuevasRutasCronosEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialCronos, consultaCalendarios)
 		if err != nil {
 			falloCronos = marcarFalloComponenteArranque("cronos_empleado", err)
 			registrarFalloCronosArranque(falloCronos)

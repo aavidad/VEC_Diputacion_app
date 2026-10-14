@@ -20,16 +20,16 @@ func NuevoServicioJustificantesC8(j *ServicioJustificacion, d ports.FuenteOrigin
 	return &ServicioJustificantesC8{j, d}, nil
 }
 
-func (s *ServicioJustificantesC8) acreditar(ctx context.Context, o ports.OrdenJustificacion, p ports.PreparacionJustificacion, id string) (ports.OriginalAcreditado, error) {
-	if s == nil || s.justificacion == nil || dependenciaRemotaNula(s.originales) || !domain.RefDocumentoJustificacionValida(id) {
+func (s *ServicioJustificantesC8) acreditar(ctx context.Context, o ports.OrdenJustificacion, p ports.PreparacionJustificacion, id string, version uint64) (ports.OriginalAcreditado, error) {
+	if s == nil || s.justificacion == nil || dependenciaRemotaNula(s.originales) || !domain.RefDocumentoJustificacionValida(id) || version == 0 {
 		return ports.OriginalAcreditado{}, ports.ErrJustificacionNoDisponible
 	}
-	a, err := s.originales.AcreditarOriginal(ctx, o, p.Solicitud, p.Politica, id)
+	a, err := s.originales.AcreditarOriginal(ctx, o, p.Solicitud, p.Politica, id, version)
 	if err != nil {
 		return ports.OriginalAcreditado{}, err
 	}
 	actor, err := o.ContextoActor()
-	if err != nil || a.Documento.Validar() != nil || a.Documento.ID != id || a.ModuloID != "cronos" ||
+	if err != nil || a.Documento.Validar() != nil || a.Documento.ID != id || a.Documento.Version != version || a.ModuloID != "cronos" ||
 		a.ExpedienteRef != p.Solicitud.ExpedienteDocumentalRef || a.TipoRef != p.Politica.TipoDocumentalRef ||
 		a.EmpleadoPropietario != p.Solicitud.EmpleadoRef || a.PersonaAportante == "" ||
 		a.Documento.CustodioID != p.Politica.CustodioID || a.EstadoAdmision != "admitido" || actor.PersonaRef == "" {
@@ -49,7 +49,7 @@ func (s *ServicioJustificantesC8) Aportar(ctx context.Context, o ports.OrdenJust
 	if actor.PersonaRef == "" || in.DocumentoVersion == 0 || !domain.HuellaEfectosValida(in.SHA256) {
 		return ports.ResultadoAnexoJustificacion{}, domain.ErrJustificacionInvalida
 	}
-	a, err := s.acreditar(ctx, o, p, in.DocumentoID)
+	a, err := s.acreditar(ctx, o, p, in.DocumentoID, in.DocumentoVersion)
 	if err != nil {
 		return ports.ResultadoAnexoJustificacion{}, err
 	}
@@ -77,7 +77,7 @@ func (s *ServicioJustificantesC8) Revisar(ctx context.Context, o ports.OrdenJust
 	if p.Actual == nil {
 		return ports.ReciboJustificacion{}, domain.ErrJustificacionConflicto
 	}
-	a, err := s.acreditar(ctx, o, p, p.Actual.Vinculo.Documento.ID)
+	a, err := s.acreditar(ctx, o, p, p.Actual.Vinculo.Documento.ID, p.Actual.Vinculo.Documento.Version)
 	if err != nil {
 		return ports.ReciboJustificacion{}, err
 	}

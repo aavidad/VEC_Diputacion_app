@@ -17,6 +17,9 @@
     "paginacion": "Páginas del historial de notificaciones",
     "pagina": "Página {actual} de {total}",
     "anterior": "Página anterior",
-    "siguiente": "Página siguiente"
+    "siguiente": "Página siguiente",
+    "recibo_detalle": "Ver recibo de la notificación",
+    "recibo_referencia": "Referencia del recibo",
+    "recibo_fecha": "Fecha de registro"
   }
 }

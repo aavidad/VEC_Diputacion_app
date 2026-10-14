@@ -120,7 +120,7 @@
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
 1863 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
-1080 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
+1089 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 983 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 623 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
@@ -188,3 +188,8 @@
 334 web/static/textos/en/peticiones-centro.json
 334 web/static/textos/es/peticiones-centro.json
 806 scripts/operacion/preparar_expediente_alta_b2/preparar.py
+5408 deploy/postgresql/autorizacion_atestada_v3/migraciones/000273_consolidacion_cronos_documentos_dietas.up.sql
+898 deploy/postgresql/cronos_v1/migraciones/000019_correcciones_decisiones_asientos.up.sql
+1093 deploy/postgresql/cronos_v1/migraciones/000021_equipo_informes_cronos.up.sql
+836 deploy/postgresql/cronos_v1/migraciones/000024_justificacion_original_c8.up.sql
+822 internal/app/bootstrap/cronos_empleado.go

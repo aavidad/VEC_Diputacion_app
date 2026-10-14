@@ -17,6 +17,9 @@
     "paginacion": "Notification history pages",
     "pagina": "Page {actual} of {total}",
     "anterior": "Previous page",
-    "siguiente": "Next page"
+    "siguiente": "Next page",
+    "recibo_detalle": "View notification receipt",
+    "recibo_referencia": "Receipt reference",
+    "recibo_fecha": "Date recorded"
   }
 }

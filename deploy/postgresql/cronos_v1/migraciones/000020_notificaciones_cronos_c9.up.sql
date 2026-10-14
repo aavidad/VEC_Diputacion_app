@@ -10,14 +10,41 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_cronos_v1:000020',0));
 DO $pre$
-DECLARE n text;
+DECLARE n text; h record; p record;
 BEGIN
- IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
+ IF current_user<>'vec_cronos_v1_propietario'
+    OR current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
     OR to_regclass('vec_cronos_v1.notificacion') IS NOT NULL
+    OR to_regclass('vec_cronos_v1.notificacion_tipo') IS NOT NULL
+    OR to_regclass('vec_cronos_v1.notificacion_atencion') IS NOT NULL
     OR to_regclass('vec_cronos_v1.permiso_resolutor') IS NULL
     OR to_regclass('vec_cronos_v1.correccion_resolutor') IS NULL
     OR to_regprocedure('vec_cronos_v1.resolutor_competente_v1(text,text)') IS NULL
  THEN RAISE EXCEPTION 'CRN20: preimagen incompatible' USING ERRCODE='55000'; END IF;
+ -- Estos cuerpos son los instalados en el clon HZ37. CRN19 añade historia
+ -- sin reconstruirlos; una variante no medida no puede alimentar C9.
+ FOR h IN SELECT * FROM (VALUES
+   ('material_propio_v1(text,text[])','db8a3266dbc352c41a70c2cb0630baf975541b4b74ab87402843c4f1a2d6fae1',ARRAY['search_path=pg_catalog']::text[]),
+   ('acreditar_empleado_contexto_v1(jsonb,text,text,text,timestamptz)','181e9f84d4200ccd85194dcb7ed5d19568c67c8882eac34a9ea4555020b7c8ca',ARRAY['search_path=pg_catalog']::text[]),
+   ('huella_contexto_empleado_v1(text,text)','a9148d150c12f45dfe3e218d8b44284fc05bd9a446f848f881e370834f8e9cd5',ARRAY['search_path=pg_catalog']::text[]),
+   ('huella_contexto_resolutor_v1(text,text,text)','a75fc8625ece0e310cb2a77a512a8037d1ba00d7450835ff8c7b829e21cf278b',ARRAY['search_path=pg_catalog, pg_temp']::text[]),
+   ('comprobar_decision_cronos_v1(jsonb,text,text,text,text,text,text,text)','64d9a8a8fb1cef434e33e46222b461805b336bc80b9f025b35d939571c88c78f',ARRAY['search_path=pg_catalog']::text[]),
+   ('vence_autorizacion_v1(jsonb,jsonb,jsonb,jsonb)','2c77b09cd66a0642156716a6117f69f078ab3c80d8bf63e5a59dc08af920e6ae',ARRAY['search_path=pg_catalog']::text[]),
+   ('resolutor_competente_v1(text,text)','1bedaa0b36bf8a0123493f2dfe8bac745ab3baf57a0bf792c34447f3b700f2bb',ARRAY['search_path=pg_catalog, pg_temp']::text[])
+ ) AS contrato(firma,huella,config) LOOP
+   SELECT encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex') AS huella,
+     q.proowner,q.prosecdef,q.proconfig,q.proacl::text AS acl INTO p
+     FROM pg_proc q WHERE q.oid=to_regprocedure('vec_cronos_v1.'||h.firma);
+   IF NOT FOUND THEN
+     RAISE EXCEPTION 'CRN20: falta helper HZ37 %',h.firma USING ERRCODE='55000';
+   END IF;
+   IF p.huella IS DISTINCT FROM h.huella
+      OR p.proowner IS DISTINCT FROM 'vec_cronos_v1_propietario'::regrole
+      OR p.prosecdef IS DISTINCT FROM false OR p.proconfig IS DISTINCT FROM h.config
+      OR p.acl IS DISTINCT FROM '{vec_cronos_v1_propietario=X/vec_cronos_v1_propietario}' THEN
+     RAISE EXCEPTION 'CRN20: helper HZ37 incompatible %',h.firma USING ERRCODE='55000';
+   END IF;
+ END LOOP;
  FOREACH n IN ARRAY ARRAY[
    'registrar_y_consumir_cronos_notificacion_v3_atestada',
    'consumir_cronos_notificaciones_propio_v3_atestada',
@@ -110,21 +137,40 @@ CREATE TABLE vec_cronos_v1.atencion_replay (
 );
 
 
-DO $seguridad$
-DECLARE tabla text;
-BEGIN
- FOREACH tabla IN ARRAY ARRAY['notificacion_tipo','notificacion','notificacion_atencion',
-   'notificaciones_acceso','notificaciones_bandeja_acceso','atencion_replay'] LOOP
-  EXECUTE format('ALTER TABLE vec_cronos_v1.%I ENABLE ROW LEVEL SECURITY',tabla);
-  EXECUTE format('ALTER TABLE vec_cronos_v1.%I FORCE ROW LEVEL SECURITY',tabla);
-  EXECUTE format('CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia()',tabla);
-  EXECUTE format('REVOKE ALL ON TABLE vec_cronos_v1.%I FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor',tabla);
- END LOOP;
- CREATE POLICY lectura_publicada ON vec_cronos_v1.notificacion_tipo FOR SELECT TO vec_cronos_v1_propietario USING (true);
- CREATE POLICY publicacion ON vec_cronos_v1.notificacion_tipo FOR INSERT TO vec_cronos_v1_propietario
-    WITH CHECK (nullif(current_setting('vec.cronos.resolutor_ref',true),'') IS NULL
-      AND nullif(current_setting('vec.cronos.empleado_ref',true),'') IS NULL);
-END $seguridad$;
+ALTER TABLE vec_cronos_v1.notificacion_tipo ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.notificacion_tipo FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.notificacion_tipo
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.notificacion_tipo FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.notificacion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.notificacion FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.notificacion
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.notificacion FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.notificacion_atencion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.notificacion_atencion FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.notificacion_atencion
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.notificacion_atencion FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.notificaciones_acceso ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.notificaciones_acceso FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.notificaciones_acceso
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.notificaciones_acceso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.notificaciones_bandeja_acceso ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.notificaciones_bandeja_acceso FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.notificaciones_bandeja_acceso
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.notificaciones_bandeja_acceso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+ALTER TABLE vec_cronos_v1.atencion_replay ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_cronos_v1.atencion_replay FORCE ROW LEVEL SECURITY;
+CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_cronos_v1.atencion_replay
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
+REVOKE ALL ON TABLE vec_cronos_v1.atencion_replay FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+CREATE POLICY lectura_publicada ON vec_cronos_v1.notificacion_tipo FOR SELECT TO vec_cronos_v1_propietario USING (true);
+CREATE POLICY publicacion ON vec_cronos_v1.notificacion_tipo FOR INSERT TO vec_cronos_v1_propietario
+ WITH CHECK (nullif(current_setting('vec.cronos.resolutor_ref',true),'') IS NULL
+   AND nullif(current_setting('vec.cronos.empleado_ref',true),'') IS NULL);
 -- La persona escribe y lee lo suyo; RRHH competente lee y atiende.
 CREATE POLICY lectura_propia ON vec_cronos_v1.notificacion FOR SELECT TO vec_cronos_v1_propietario
  USING (empleado_ref=nullif(current_setting('vec.cronos.empleado_ref',true),'') OR vec_cronos_v1.resolutor_competente_v1(empleado_ref,'administracion'));
@@ -147,21 +193,35 @@ CREATE POLICY adicion_atencion ON vec_cronos_v1.solicitud_outbox FOR INSERT TO v
 -- CRN19 tiene la lista anterior. Esta migración la amplía sin perder tipos
 -- de corrección, permiso ni aviso.
 DO $restricciones$
-DECLARE vieja text; esperada text;
+DECLARE
+  anterior text;
+  esperado text;
+  tipos text[]:=ARRAY['cronos.correccion.solicitada','cronos.correccion.actuada',
+    'cronos.permiso.solicitado','cronos.permiso.resuelto','cronos.aviso.archivado'];
+  rutas text[]:=ARRAY[
+    '/api/interna/cronos/saldos/propio','/api/interna/cronos/marcajes/remoto',
+    '/api/interna/cronos/marcajes/remoto/disponibilidad','/api/interna/cronos/marcajes/remoto/recibo',
+    '/api/interna/cronos/movimientos/propio','/api/interna/cronos/correcciones/propias',
+    '/api/interna/cronos/correcciones/recibo','/api/interna/cronos/correcciones/bandeja',
+    '/api/interna/cronos/correcciones/actuaciones','/api/interna/cronos/correcciones/historia',
+    '/api/interna/cronos/permisos/propio','/api/interna/cronos/permisos/solicitudes',
+    '/api/interna/cronos/permisos/bandeja','/api/interna/cronos/permisos/resoluciones',
+    '/api/interna/cronos/avisos/propio','/api/interna/cronos/avisos/archivos','otra'];
 BEGIN
- SELECT pg_get_constraintdef(c.oid,true) INTO vieja FROM pg_constraint c
+ SELECT pg_get_constraintdef(c.oid,true) INTO anterior FROM pg_constraint c
   WHERE c.conrelid='vec_cronos_v1.solicitud_outbox'::regclass
     AND c.conname='solicitud_outbox_tipo_check' AND c.contype='c' AND c.convalidated;
- IF vieja IS NULL OR vieja NOT LIKE '%cronos.correccion.actuada%'
-    OR vieja NOT LIKE '%cronos.permiso.resuelto%'
-    OR vieja LIKE '%cronos.notificacion.registrada%' THEN
+ SELECT 'CHECK (tipo = ANY (ARRAY['||string_agg(quote_literal(v)||'::text',', ' ORDER BY ord)||']))'
+   INTO esperado FROM unnest(tipos) WITH ORDINALITY AS x(v,ord);
+ IF anterior IS DISTINCT FROM esperado THEN
    RAISE EXCEPTION 'CRN20: tipos previos incompatibles' USING ERRCODE='55000';
  END IF;
- SELECT pg_get_constraintdef(c.oid,true) INTO esperada FROM pg_constraint c
+ SELECT pg_get_constraintdef(c.oid,true) INTO anterior FROM pg_constraint c
   WHERE c.conrelid='vec_cronos_v1.denegacion_frontera'::regclass
     AND c.conname='denegacion_frontera_ruta_check' AND c.contype='c' AND c.convalidated;
- IF esperada IS NULL OR esperada NOT LIKE '%/api/interna/cronos/correcciones/actuaciones%'
-    OR esperada LIKE '%/api/interna/cronos/notificaciones/propio%' THEN
+ SELECT 'CHECK (ruta = ANY (ARRAY['||string_agg(quote_literal(v)||'::text',', ' ORDER BY ord)||']))'
+   INTO esperado FROM unnest(rutas) WITH ORDINALITY AS x(v,ord);
+ IF anterior IS DISTINCT FROM esperado THEN
    RAISE EXCEPTION 'CRN20: rutas previas incompatibles' USING ERRCODE='55000';
  END IF;
 END $restricciones$;
@@ -175,7 +235,7 @@ ALTER TABLE vec_cronos_v1.denegacion_frontera ADD CONSTRAINT denegacion_frontera
  '/api/interna/cronos/marcajes/remoto/disponibilidad','/api/interna/cronos/marcajes/remoto/recibo',
  '/api/interna/cronos/movimientos/propio','/api/interna/cronos/correcciones/propias',
  '/api/interna/cronos/correcciones/recibo','/api/interna/cronos/correcciones/bandeja',
- '/api/interna/cronos/correcciones/actuaciones',
+ '/api/interna/cronos/correcciones/actuaciones','/api/interna/cronos/correcciones/historia',
  '/api/interna/cronos/permisos/propio','/api/interna/cronos/permisos/solicitudes',
  '/api/interna/cronos/permisos/bandeja','/api/interna/cronos/permisos/resoluciones',
  '/api/interna/cronos/avisos/propio','/api/interna/cronos/avisos/archivos',
@@ -186,7 +246,7 @@ CREATE FUNCTION vec_cronos_v1.consumir_notificacion_v1(
     m jsonb,p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
     p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea,
     OUT decision_ref text,OUT auditoria_ref text,OUT consumo_huella_sha256 text,OUT ahora timestamptz,OUT vence timestamptz,OUT material_sha256 text)
-LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog AS $f$
+LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog,pg_temp AS $f$
 DECLARE c jsonb; d jsonb; x jsonb; vinculo jsonb; huella text; consumo record; b text;
 BEGIN
  IF NOT ((p_modo='propio' AND p_fachada IN ('registrar_y_consumir_cronos_notificacion_v3_atestada','consumir_cronos_notificaciones_propio_v3_atestada'))
@@ -231,7 +291,7 @@ END $f$;
 
 -- Tipos vigentes en un instante, sin repetir tipo (la versión más reciente).
 CREATE FUNCTION vec_cronos_v1.notificacion_tipos_vigentes_v1(p_instante timestamptz)
-RETURNS SETOF vec_cronos_v1.notificacion_tipo LANGUAGE sql STABLE SET search_path=pg_catalog AS $f$
+RETURNS SETOF vec_cronos_v1.notificacion_tipo LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $f$
  SELECT DISTINCT ON (t.tipo_ref) t.* FROM vec_cronos_v1.notificacion_tipo t
   WHERE t.vigente_desde<=p_instante AND (t.vigente_hasta IS NULL OR p_instante<t.vigente_hasta)
   ORDER BY t.tipo_ref,t.vigente_desde DESC,t.publicada_en DESC
@@ -242,7 +302,7 @@ CREATE FUNCTION vec_cronos_v1.registrar_notificacion_propia_v1(
     p_persona_version numeric,p_perfil_version numeric,
     p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
 #variable_conflict use_variable
 DECLARE m jsonb; k record; emp text; fecha date; texto text; adjunto text; huella text; tipo vec_cronos_v1.notificacion_tipo%ROWTYPE;
  previa vec_cronos_v1.notificacion%ROWTYPE; ref text; recibo text;
@@ -298,7 +358,7 @@ CREATE FUNCTION vec_cronos_v1.consultar_notificaciones_propio_v1(
     p_persona_version numeric,p_perfil_version numeric,
     p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
 #variable_conflict use_variable
 DECLARE m jsonb; k record; emp text; resultado jsonb;
 BEGIN
@@ -335,7 +395,7 @@ CREATE FUNCTION vec_cronos_v1.consultar_bandeja_notificaciones_v1(
     p_persona_version numeric,p_perfil_version numeric,
     p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
 #variable_conflict use_variable
 DECLARE m jsonb; k record; propio text; resultado jsonb;
 BEGIN
@@ -372,7 +432,7 @@ CREATE FUNCTION vec_cronos_v1.atender_notificacion_v1(
     p_persona_version numeric,p_perfil_version numeric,
     p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
 #variable_conflict use_variable
 DECLARE m jsonb; k record; actor text; previa vec_cronos_v1.notificacion_atencion%ROWTYPE; n vec_cronos_v1.notificacion%ROWTYPE;
  asignacion text; ref text; recibo text;
@@ -386,6 +446,12 @@ BEGIN
    'cronos.notificacion.atender','atencion_notificacion','atender_notificacion','notificacion:cronos:atencion:'||(m->>'clave_operacion'),
    ARRAY['vec_cronos_v1:atencion:'||actor||':'||(m->>'clave_operacion'),'vec_cronos_v1:notificacion:'||(m->>'notificacion_ref')],m,p_material,
    p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ -- Sin competencia la notificación no es visible: ajena e inexistente igual.
+ SELECT * INTO n FROM vec_cronos_v1.notificacion x WHERE x.notificacion_ref=m->>'notificacion_ref'
+   AND vec_cronos_v1.resolutor_competente_v1(x.empleado_ref,'administracion');
+ IF NOT FOUND OR n.empleado_ref=m->>'empleado_ref' OR n.actor_ref=m->>'actor_ref' THEN
+   RAISE EXCEPTION 'atención no competente' USING ERRCODE='PC012';
+ END IF;
  SELECT * INTO previa FROM vec_cronos_v1.notificacion_atencion x WHERE x.actor_ref=actor AND x.clave_operacion=m->>'clave_operacion';
  IF FOUND THEN
    IF previa.material_sha256 IS DISTINCT FROM k.material_sha256 THEN
@@ -396,12 +462,6 @@ BEGIN
    IF clock_timestamp()>=k.vence THEN RAISE EXCEPTION 'vigencia Cronos agotada' USING ERRCODE='PC003'; END IF;
    RETURN jsonb_build_object('atencion_ref',previa.atencion_ref,'notificacion_ref',previa.notificacion_ref,'recibo_ref',previa.recibo_ref,
      'instante_utc',previa.atendida_en,'replay',true);
- END IF;
- -- Sin competencia la notificación no es visible: ajena e inexistente igual.
- SELECT * INTO n FROM vec_cronos_v1.notificacion x WHERE x.notificacion_ref=m->>'notificacion_ref'
-   AND vec_cronos_v1.resolutor_competente_v1(x.empleado_ref,'administracion');
- IF NOT FOUND OR n.empleado_ref=m->>'empleado_ref' THEN
-   RAISE EXCEPTION 'atención no competente' USING ERRCODE='PC012';
  END IF;
  SELECT r.asignacion_ref INTO asignacion FROM vec_cronos_v1.permiso_resolutor r
   WHERE r.empleado_ref=n.empleado_ref AND r.paso='administracion' AND r.resolutor_ref=actor
@@ -446,4 +506,62 @@ BEGIN
    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO vec_cronos_v1_ejecutor',f);
  END LOOP;
 END $acl$;
+REVOKE ALL ON TYPE vec_cronos_v1.notificacion_tipo FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.notificacion FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.notificacion_atencion FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.notificaciones_acceso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.notificaciones_bandeja_acceso FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+REVOKE ALL ON TYPE vec_cronos_v1.atencion_replay FROM PUBLIC,vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_auditor;
+DO $post$
+DECLARE
+  actual text;
+  esperado text;
+  tipos text[]:=ARRAY['cronos.correccion.solicitada','cronos.correccion.actuada',
+    'cronos.permiso.solicitado','cronos.permiso.resuelto','cronos.aviso.archivado',
+    'cronos.notificacion.registrada','cronos.notificacion.atendida'];
+  rutas text[]:=ARRAY[
+    '/api/interna/cronos/saldos/propio','/api/interna/cronos/marcajes/remoto',
+    '/api/interna/cronos/marcajes/remoto/disponibilidad','/api/interna/cronos/marcajes/remoto/recibo',
+    '/api/interna/cronos/movimientos/propio','/api/interna/cronos/correcciones/propias',
+    '/api/interna/cronos/correcciones/recibo','/api/interna/cronos/correcciones/bandeja',
+    '/api/interna/cronos/correcciones/actuaciones','/api/interna/cronos/correcciones/historia',
+    '/api/interna/cronos/permisos/propio','/api/interna/cronos/permisos/solicitudes',
+    '/api/interna/cronos/permisos/bandeja','/api/interna/cronos/permisos/resoluciones',
+    '/api/interna/cronos/avisos/propio','/api/interna/cronos/avisos/archivos',
+    '/api/interna/cronos/notificaciones/propio','/api/interna/cronos/notificaciones/envios',
+    '/api/interna/cronos/notificaciones/bandeja','/api/interna/cronos/notificaciones/atenciones','otra'];
+BEGIN
+ IF EXISTS (SELECT 1 FROM pg_catalog.pg_type t CROSS JOIN LATERAL aclexplode(coalesce(t.typacl,acldefault('T',t.typowner))) a
+   WHERE t.typnamespace='vec_cronos_v1'::regnamespace
+     AND t.typname IN ('notificacion_tipo','notificacion','notificacion_atencion','notificaciones_acceso','notificaciones_bandeja_acceso','atencion_replay')
+     AND a.grantee<>t.typowner)
+ THEN RAISE EXCEPTION 'CRN20: privilegios de tipos incompatibles' USING ERRCODE='55000'; END IF;
+
+ SELECT pg_get_constraintdef(c.oid,true) INTO actual FROM pg_constraint c
+  WHERE c.conrelid='vec_cronos_v1.solicitud_outbox'::regclass
+    AND c.conname='solicitud_outbox_tipo_check' AND c.contype='c' AND c.convalidated;
+ SELECT 'CHECK (tipo = ANY (ARRAY['||string_agg(quote_literal(v)||'::text',', ' ORDER BY ord)||']))'
+   INTO esperado FROM unnest(tipos) WITH ORDINALITY AS x(v,ord);
+ IF actual IS DISTINCT FROM esperado THEN
+   RAISE EXCEPTION 'CRN20: postimagen de tipos incompatible' USING ERRCODE='55000';
+ END IF;
+ SELECT pg_get_constraintdef(c.oid,true) INTO actual FROM pg_constraint c
+  WHERE c.conrelid='vec_cronos_v1.denegacion_frontera'::regclass
+    AND c.conname='denegacion_frontera_ruta_check' AND c.contype='c' AND c.convalidated;
+ SELECT 'CHECK (ruta = ANY (ARRAY['||string_agg(quote_literal(v)||'::text',', ' ORDER BY ord)||']))'
+   INTO esperado FROM unnest(rutas) WITH ORDINALITY AS x(v,ord);
+ IF actual IS DISTINCT FROM esperado THEN
+   RAISE EXCEPTION 'CRN20: postimagen de rutas incompatible' USING ERRCODE='55000';
+ END IF;
+ IF (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='vec_cronos_v1'
+        AND p.proname IN ('registrar_notificacion_propia_v1','consultar_notificaciones_propio_v1',
+          'consultar_bandeja_notificaciones_v1','atender_notificacion_v1')
+        AND p.proargtypes='25 17 17 17 17 1700 1700 17 17 17 17'::oidvector
+        AND p.proowner='vec_cronos_v1_propietario'::regrole AND p.prosecdef
+        AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
+        AND has_function_privilege('vec_cronos_v1_ejecutor',p.oid,'EXECUTE'))<>4 THEN
+   RAISE EXCEPTION 'CRN20: funciones públicas incompatibles' USING ERRCODE='55000';
+ END IF;
+END $post$;
 COMMIT;

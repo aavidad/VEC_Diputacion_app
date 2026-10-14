@@ -53,3 +53,15 @@ El recorrido completo sigue pendiente. `resultado_recorrido.md` recoge solo
 las comprobaciones ejecutadas. Las capacidades que faltan son la aprobación y
 aplicación de correcciones, la justificación documental, el saldo con permisos
 y Calendarios, las consultas de equipo y las exportaciones autorizadas.
+
+## Reanudación tras la pausa por cuota
+
+La PR conserva código en borrador y no autoriza activar esta candidata. Primero
+hay que cerrar la SQL común y los contratos de Documentos, reemplazar las listas
+parciales, terminar el montaje web y configurar datos y motivos nominales. Después
+se ensaya una única versión congelada con las tres personas y el reinicio.
+
+Los selectores nuevos de calendario y equipo e informes conservan el aislamiento
+de fallos de Cronos. El saldo con permisos tiene un helper propio todavía sin
+insertar en la composición: cuando se active, una dependencia ausente debe cerrar
+esa consulta y evitar presentar el saldo anterior como si incluyera permisos.

@@ -1,5 +1,6 @@
 import { crearTraductorCronosC4, MENSAJES_CRONOS_C4 } from "./i18n-c4.js?v=20260929-i18n-textos-v1";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
+import { MENSAJES_CALENDARIO_LABORAL_C4, crearTraductorCalendarioLaboralC4 } from "./i18n-calendario-laboral-c4.js";
 
 const ANIO_MINIMO = 1900;
 const ANIO_MAXIMO = 2100;
@@ -68,7 +69,8 @@ function mesHTML(anio, mes, seleccionada, locale, t) {
 }
 
 /** Solo calendario gregoriano civil. Nunca atribuye efectos laborales o administrativos. */
-export function renderizarCalendarioCivilCronos({ anio, fechaSeleccionada, locale = LOCALIZACION_ACTUAL, mensajes = MENSAJES_CRONOS_C4 } = {}) {
+export function renderizarCalendarioCivilCronos({ anio, fechaSeleccionada, locale = LOCALIZACION_ACTUAL, mensajes = MENSAJES_CRONOS_C4,
+  laboralConectado = false, mensajesLaboral = MENSAJES_CALENDARIO_LABORAL_C4 } = {}) {
   const seleccionada = fechaSeleccionada ?? fechaActualMadrid();
   if (!fechaValida(seleccionada)) throw new RangeError("fecha civil de Cronos no válida");
   const anioVisible = anio ?? Number(seleccionada.slice(0, 4));
@@ -76,25 +78,29 @@ export function renderizarCalendarioCivilCronos({ anio, fechaSeleccionada, local
     throw new RangeError("año civil de Cronos no válido");
   }
   const t = crearTraductorCronosC4(mensajes);
-  return `<section class="panel cronos-calendario" data-cronos-calendario data-estado="no_configurado" aria-labelledby="cronos-calendario-titulo">
-    <header class="cabecera-panel"><div><h3 id="cronos-calendario-titulo">${escaparHTML(t("calendario_civil_titulo"))}</h3></div><span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("calendario_estado"))}</span></header>
+  const laboral = crearTraductorCalendarioLaboralC4(mensajesLaboral);
+  const titulo = laboralConectado ? laboral("titulo_calendario") : t("calendario_civil_titulo");
+  return `<section class="panel cronos-calendario" data-cronos-calendario data-estado="${laboralConectado ? "conectado" : "no_configurado"}" aria-labelledby="cronos-calendario-titulo">
+    <header class="cabecera-panel"><div><h3 id="cronos-calendario-titulo">${escaparHTML(titulo)}</h3></div>${laboralConectado ? "" : `<span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("calendario_estado"))}</span>`}</header>
     <div class="cuerpo-panel cronos-calendario-cuerpo">
-      <nav class="cronos-calendario-navegacion" aria-label="${escaparHTML(t("calendario_civil_titulo"))}"><button type="button" class="boton-secundario" data-cronos-cal-anio="-1" aria-label="${escaparHTML(t("calendario_anterior"))}"${anioVisible === ANIO_MINIMO ? " disabled" : ""}>‹</button><strong aria-live="polite">${anioVisible}</strong><button type="button" class="boton-secundario" data-cronos-cal-anio="1" aria-label="${escaparHTML(t("calendario_siguiente"))}"${anioVisible === ANIO_MAXIMO ? " disabled" : ""}>›</button></nav>
+      <nav class="cronos-calendario-navegacion" aria-label="${escaparHTML(titulo)}"><button type="button" class="boton-secundario" data-cronos-cal-anio="-1" aria-label="${escaparHTML(t("calendario_anterior"))}"${anioVisible === ANIO_MINIMO ? " disabled" : ""}>‹</button><strong aria-live="polite">${anioVisible}</strong><button type="button" class="boton-secundario" data-cronos-cal-anio="1" aria-label="${escaparHTML(t("calendario_siguiente"))}"${anioVisible === ANIO_MAXIMO ? " disabled" : ""}>›</button></nav>
       <div class="cronos-calendario-meses">${Array.from({ length: 12 }, (_, indice) => mesHTML(anioVisible, indice + 1, seleccionada, locale, t)).join("")}</div>
       <div class="cronos-calendario-seleccion" role="status"><span>${escaparHTML(t("calendario_seleccion"))}</span><strong>${escaparHTML(formatoFecha(seleccionada, locale))}</strong></div>
-      <p class="cronos-calendario-aviso" role="status">${escaparHTML(t("calendario_estado_detalle"))}</p>
+      ${laboralConectado ? "" : `<p class="cronos-calendario-aviso" role="status">${escaparHTML(t("calendario_estado_detalle"))}</p>`}
     </div>
   </section>`;
 }
 
 /** Montaje independiente: el integrador registra CSS y lo inserta en Jornada. */
-export function montarCalendarioCivilCronos({ raiz, fechaSeleccionada, locale = LOCALIZACION_ACTUAL, mensajes = MENSAJES_CRONOS_C4, anunciar = () => {}, registrarDesmontar } = {}) {
+export function montarCalendarioCivilCronos({ raiz, fechaSeleccionada, locale = LOCALIZACION_ACTUAL, mensajes = MENSAJES_CRONOS_C4,
+  laboralConectado = false, mensajesLaboral = MENSAJES_CALENDARIO_LABORAL_C4, alSeleccionar = () => {}, anunciar = () => {}, registrarDesmontar } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof anunciar !== "function"
+    || typeof alSeleccionar !== "function"
     || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("raíz de calendario civil de Cronos no válida");
   const contenedor = raiz.ownerDocument.createElement("div");
   let seleccionada = fechaSeleccionada ?? fechaActualMadrid();
   let anio = Number(seleccionada.slice(0, 4));
-  const pintar = () => { contenedor.innerHTML = renderizarCalendarioCivilCronos({ anio, fechaSeleccionada: seleccionada, locale, mensajes }); };
+  const pintar = () => { contenedor.innerHTML = renderizarCalendarioCivilCronos({ anio, fechaSeleccionada: seleccionada, locale, mensajes, laboralConectado, mensajesLaboral }); };
   pintar();
   raiz.append(contenedor);
   const t = crearTraductorCronosC4(mensajes);
@@ -105,6 +111,7 @@ export function montarCalendarioCivilCronos({ raiz, fechaSeleccionada, locale = 
     pintar();
     if (enfocar) contenedor.querySelector?.(`[data-cronos-cal-dia="${fecha}"]`)?.focus?.();
     anunciar(t("calendario_dia", { fecha: formatoFecha(fecha, locale) }));
+    alSeleccionar(fecha);
   };
   const clic = (evento) => {
     const dia = evento.target?.closest?.("[data-cronos-cal-dia]");
@@ -119,6 +126,7 @@ export function montarCalendarioCivilCronos({ raiz, fechaSeleccionada, locale = 
     pintar();
     contenedor.querySelector?.(`[data-cronos-cal-anio="${control.dataset.cronosCalAnio}"]`)?.focus?.();
     anunciar(String(anio));
+    alSeleccionar(seleccionada);
   };
   const teclado = (evento) => {
     const dia = evento.target?.closest?.("[data-cronos-cal-dia]");

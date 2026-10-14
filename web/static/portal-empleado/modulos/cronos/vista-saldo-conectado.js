@@ -2,6 +2,7 @@ import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n
 import { ErrorClienteSaldoCronos, validarConsultaSaldoCronos, validarResultadoSaldoCronos } from "./cliente-saldo-http.js";
 import { crearTraductorConsultaCronos, MENSAJES_CONSULTA_CRONOS } from "./i18n-consulta.js?v=20261001-cronos-grafo-bandeja-v5";
 import { crearTraductorOrigenSaldo, MENSAJES_ORIGEN_SALDO } from "./i18n-saldo-origen.js";
+import { crearTraductorSaldoEfectosC3, MENSAJES_SALDO_EFECTOS_C3 } from "./i18n-saldo-efectos-c3.js";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const PERIODOS = ["hoy", "semana", "mes", "anio", "rango"];
@@ -42,7 +43,7 @@ function marcajesVisibles(marcajes, t, locale, zonaHoraria) {
     return `<li><time datetime="${escaparHTML(marcaje.instante_utc)}">${escaparHTML(hora)}</time> · ${escaparHTML(movimiento)} · ${escaparHTML(origen)}</li>`;
   }).join("")}</ul></details>`;
 }
-function calculoVisible(dia, t, origen) {
+function calculoVisible(dia, t, origen, efectos) {
   const previstos = dia.previstos_minutos === null ? t("saldo_sin_jornada_prevista") : minutosVisibles(dia.previstos_minutos, t);
   const incompleto = dia.estado === "incompleto" ? `<p class="cronos-mensaje">${escaparHTML(t("saldo_calculo_incompleto"))}</p>` : "";
   const referencias = [["saldo_turno_ref", dia.turno_ref], ["saldo_politica_version_ref", dia.politica_version_ref]]
@@ -55,11 +56,23 @@ function calculoVisible(dia, t, origen) {
       <dt>${escaparHTML(origen("fuente_ref"))}</dt><dd>${escaparHTML(dia.fuente_ref)}</dd>
       <dt>${escaparHTML(origen("version"))}</dt><dd>${escaparHTML(dia.programacion_version)}</dd>
     </dl></details>` : "";
+  const ajuste = dia.causa_efecto ? `<div class="cronos-mensaje" role="status">${dia.movimientos_efecto?.some((m)=>m.pendiente_justificar) ? `<p>${escaparHTML(efectos("pendiente_justificar"))}</p>` : ""}${dia.saldo_minutos === null && dia.causa_efecto !== "sin_permisos"
+    ? `<p>${escaparHTML(efectos("sin_efecto"))}</p>` : ""}<dl>
+    <dt>${escaparHTML(efectos("saldo_base"))}</dt><dd>${escaparHTML(minutosVisibles(dia.saldo_base_minutos ?? null, t))}</dd>
+    <dt>${escaparHTML(efectos("credito"))}</dt><dd>${escaparHTML(minutosVisibles(dia.credito_permiso_minutos ?? null, t))}</dd>
+    <dt>${escaparHTML(efectos("saldo_ajustado"))}</dt><dd>${escaparHTML(minutosVisibles(dia.saldo_minutos, t))}</dd></dl>
+    ${dia.politica_efectos_ref ? `<details><summary>${escaparHTML(efectos("origen"))}</summary><dl>
+      <dt>${escaparHTML(efectos("politica"))}</dt><dd>${escaparHTML(dia.politica_efectos_ref)}</dd>
+      <dt>${escaparHTML(efectos("version"))}</dt><dd>${escaparHTML(dia.politica_efectos_version)}</dd>
+      <dt>${escaparHTML(efectos("regla"))}</dt><dd>${escaparHTML(dia.regla_efecto_ref ?? "")}</dd>
+      <dt>${escaparHTML(efectos("resolucion"))}</dt><dd>${escaparHTML(dia.resolucion_permiso_ref ?? "")}</dd>
+      <dt>${escaparHTML(efectos("fuente"))}</dt><dd>${escaparHTML(dia.fuente_efecto_ref ?? "")}</dd>
+    </dl></details>` : ""}</div>` : "";
   return `<details><summary>${escaparHTML(t("saldo_calculo_detalle"))}</summary>${incompleto}<dl>
     <dt>${escaparHTML(t("saldo_previsto"))}</dt><dd>${escaparHTML(previstos)}</dd>
     <dt>${escaparHTML(t("saldo_trabajado"))}</dt><dd>${escaparHTML(minutosVisibles(dia.trabajados_minutos, t))}</dd>
     <dt>${escaparHTML(t("saldo_pausas"))}</dt><dd>${escaparHTML(minutosVisibles(dia.pausas_minutos, t))}</dd>
-    </dl>${fuente}${tecnico}</details>`;
+    </dl>${fuente}${ajuste}${tecnico}</details>`;
 }
 // Tamaño de presentación; no cambia el periodo autorizado ni sus totales.
 function paginarDetalle(detalle, pagina, tamanoPagina) {
@@ -74,7 +87,7 @@ function recuentoPagina(paginacion, total, traducir, locale) {
   return traducir("recuento", { desde: numero(paginacion.inicio + 1), hasta: numero(paginacion.inicio + paginacion.filas.length),
     total: numero(total), pagina: numero(paginacion.actual), paginas: numero(paginacion.paginas) });
 }
-function tablaDetalle(datos, t, origen, locale, zonaHoraria, filas) {
+function tablaDetalle(datos, t, origen, efectos, locale, zonaHoraria, filas) {
   if (!datos.detalle.length) return `<p class="cronos-vacio" role="status">${escaparHTML(t("saldo_vacio"))}</p>`;
   return `<div class="cronos-tabla-contenedor"><table class="cronos-tabla">
     <caption>${escaparHTML(t("saldo_detalle"))}</caption>
@@ -83,16 +96,17 @@ function tablaDetalle(datos, t, origen, locale, zonaHoraria, filas) {
       <td>${escaparHTML(minutosVisibles(dia.previstos_minutos, t))}</td><td>${escaparHTML(minutosVisibles(dia.trabajados_minutos, t))}</td><td>${escaparHTML(minutosVisibles(dia.pausas_minutos, t))}</td>
       <td><strong>${escaparHTML(minutosVisibles(dia.saldo_minutos, t))}</strong></td>
       <td><span class="cronos-estado cronos-estado-${claseEstado(dia.estado)}">${escaparHTML(estadoVisible(dia.estado, t))}</span></td>
-      <td>${marcajesVisibles(dia.marcajes, t, locale, zonaHoraria)}${calculoVisible(dia, t, origen)}</td></tr>`).join("")}</tbody></table></div>`;
+      <td>${marcajesVisibles(dia.marcajes, t, locale, zonaHoraria)}${calculoVisible(dia, t, origen, efectos)}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
 /** Render puro: los importes de tiempo proceden exclusivamente de la respuesta validada. */
 export function renderizarVistaSaldoCronos({ estado = "cargando", consulta = { periodo: "hoy" }, datos = null,
   mensajes = MENSAJES_CRONOS, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", incrustada = false, pagina = 1, tamanoPagina = 31,
-  mensajesConsulta = MENSAJES_CONSULTA_CRONOS, mensajesOrigen = MENSAJES_ORIGEN_SALDO } = {}) {
+  mensajesConsulta = MENSAJES_CONSULTA_CRONOS, mensajesOrigen = MENSAJES_ORIGEN_SALDO, mensajesEfectos = MENSAJES_SALDO_EFECTOS_C3 } = {}) {
   const tc = crearTraductorConsultaCronos(mensajesConsulta);
   const t = crearTraductorCronos(mensajes);
   const origen = crearTraductorOrigenSaldo(mensajesOrigen);
+  const efectos = crearTraductorSaldoEfectosC3(mensajesEfectos);
   const seleccion = estado === "seleccion" && consulta?.periodo === "rango"
     ? { periodo: "rango", desde: "", hasta: "" } : validarConsultaSaldoCronos(consulta);
   if (estado === "listo") validarResultadoSaldoCronos(datos, seleccion);
@@ -110,7 +124,7 @@ export function renderizarVistaSaldoCronos({ estado = "cargando", consulta = { p
   const resumen = estado === "listo" && datos ? `<div class="rejilla-kpi cronos-indicadores" aria-label="${escaparHTML(t("saldo_titulo"))}">
     ${[["saldo_previsto", datos.resumen.previstos_minutos, "◷"], ["saldo_trabajado", datos.resumen.trabajados_minutos, "◴"], ["saldo_diferencia", datos.resumen.saldo_minutos, "±"]].map(([clave, valor, icono]) => `<article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono}</span><div><span class="etiqueta-kpi">${escaparHTML(t(clave))}</span><strong class="valor-kpi">${escaparHTML(minutosVisibles(valor, t))}</strong></div></article>`).join("")}
   </div><p class="cronos-mensaje" role="status">${escaparHTML(estadoVisible(datos.resumen.estado, t))}</p>` : "";
-  const contenido = estado === "listo" && datos ? `${resumen}<p class="cronos-mensaje">${escaparHTML(tc("periodo_completo", { desde: fechaVisible(datos.periodo.desde, locale), hasta: fechaVisible(datos.periodo.hasta, locale) }))}</p><section class="panel cronos-panel" aria-labelledby="cronos-saldo-detalle-titulo"><div class="cabecera-panel"><h3 id="cronos-saldo-detalle-titulo">${escaparHTML(t("saldo_detalle"))}</h3></div>${tablaDetalle(datos, t, origen, locale, zonaHoraria, paginacion.filas)}<div class="cuerpo-panel">${controles}</div></section>`
+  const contenido = estado === "listo" && datos ? `${resumen}${datos.resumen.snapshot_ref ? `<details><summary>${escaparHTML(efectos("snapshot"))}</summary><p>${escaparHTML(datos.resumen.snapshot_ref)}</p></details>` : ""}<p class="cronos-mensaje">${escaparHTML(tc("periodo_completo", { desde: fechaVisible(datos.periodo.desde, locale), hasta: fechaVisible(datos.periodo.hasta, locale) }))}</p><section class="panel cronos-panel" aria-labelledby="cronos-saldo-detalle-titulo"><div class="cabecera-panel"><h3 id="cronos-saldo-detalle-titulo">${escaparHTML(t("saldo_detalle"))}</h3></div>${tablaDetalle(datos, t, origen, efectos, locale, zonaHoraria, paginacion.filas)}<div class="cuerpo-panel">${controles}</div></section>`
     : `<section class="panel cronos-panel"><div class="cabecera-panel"><h3>${escaparHTML(t("saldo_detalle"))}</h3></div><p class="cronos-${estado === "denegado" ? "acceso-denegado" : "vacio"}" data-cronos-saldo-mensaje tabindex="-1" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(estadoClave))}</p></section>`;
   return `<section class="cronos-area cronos-saldo-conectado" aria-labelledby="cronos-saldo-titulo" data-cronos-saldo-estado="${escaparHTML(estado)}" aria-busy="${estado === "cargando"}">
     <header class="cronos-encabezado"><div>${encabezadoParte(t("sobrelinea"), "cronos-saldo-titulo", t("saldo_titulo"), incrustada)}</div>
@@ -124,7 +138,7 @@ export function renderizarVistaSaldoCronos({ estado = "cargando", consulta = { p
 /** Montaje aislado; aborta cada consulta anterior y descarta sus respuestas tardías. */
 export function montarVistaSaldoCronos({ raiz, cliente, mensajes = MENSAJES_CRONOS, anunciar = () => {}, registrarDesmontar,
   locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", incrustada = false, tamanoPagina = 31,
-  mensajesConsulta = MENSAJES_CONSULTA_CRONOS, mensajesOrigen = MENSAJES_ORIGEN_SALDO } = {}) {
+  mensajesConsulta = MENSAJES_CONSULTA_CRONOS, mensajesOrigen = MENSAJES_ORIGEN_SALDO, mensajesEfectos = MENSAJES_SALDO_EFECTOS_C3 } = {}) {
   paginarDetalle([], 1, tamanoPagina);
   const tc = crearTraductorConsultaCronos(mensajesConsulta);
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultar !== "function"
@@ -146,7 +160,7 @@ export function montarVistaSaldoCronos({ raiz, cliente, mensajes = MENSAJES_CRON
   const dibujar = () => {
     if (!activa) return;
     const selector = selectorFoco();
-    contenedor.innerHTML = renderizarVistaSaldoCronos({ estado, consulta, datos, mensajes, mensajesConsulta, mensajesOrigen,
+    contenedor.innerHTML = renderizarVistaSaldoCronos({ estado, consulta, datos, mensajes, mensajesConsulta, mensajesOrigen, mensajesEfectos,
       locale, zonaHoraria, incrustada, pagina, tamanoPagina });
     if (selector) {
       const destino = contenedor.querySelector?.(selector);

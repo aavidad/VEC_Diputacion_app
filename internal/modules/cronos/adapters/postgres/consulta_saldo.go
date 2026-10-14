@@ -20,7 +20,8 @@ import (
 // V3 nueva (AD3-53) que cronos_v1 000007 consume, audita y usa para fijar la
 // RLS en la misma transacción que lee.
 type RepositorioConsultaSaldo struct {
-	db iniciadorMarcaje
+	db           iniciadorMarcaje
+	conEfectosC3 bool
 }
 
 func NuevoRepositorioConsultaSaldo(pool *pgxpool.Pool) (*RepositorioConsultaSaldo, error) {
@@ -59,11 +60,18 @@ func (r *RepositorioConsultaSaldo) ConsultarFuenteSaldo(ctx context.Context, ord
 	if !resumenV3Ligado(v3, application.AudienciaConsultaSaldoPropio, application.AccionConsultarSaldoPropio, recurso) {
 		return ports.FuenteSaldo{}, ports.ErrDependenciaNoDisponible
 	}
-	bruto, err := ejecutarLecturaV3(ctx, r.db, consultaSaldoPropio, canonico, v3)
+	consulta := consultaSaldoPropio
+	if r.conEfectosC3 {
+		consulta = consultaSaldoEfectosC3
+	}
+	bruto, err := ejecutarLecturaV3(ctx, r.db, consulta, canonico, v3)
 	if err != nil {
 		return ports.FuenteSaldo{}, err
 	}
 	defer clear(bruto)
+	if r.conEfectosC3 {
+		return decodificarFuenteSaldoEfectosC3(bruto, empleado, desde, hasta, zona)
+	}
 	return decodificarFuenteSaldoInterna(bruto)
 }
 

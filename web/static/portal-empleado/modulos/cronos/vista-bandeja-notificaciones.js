@@ -2,7 +2,7 @@ import {
   documentoNotificacionCronos, fechaCivilVisibleCronos, instanteVisibleCronos,
 } from "./i18n-notificaciones.js";
 import { crearTraductorBandejaNotificacionesCronos } from "./i18n-bandeja-notificaciones.js?v=20261001-cronos-c9-recuperacion-v3";
-import { ErrorClienteNotificacionesCronos, crearClienteNotificacionesCronosHTTP } from "./cliente-notificaciones-http.js";
+import { ErrorClienteNotificacionesCronos, crearClienteNotificacionesCronosHTTP } from "./cliente-notificaciones-http.js?v=20261014-cronos-c9-contrato-v2";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const FILTROS = Object.freeze(["pendientes", "atendidas"]);

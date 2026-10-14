@@ -39,6 +39,17 @@ type FuenteSaldo struct {
 	Jornadas         []JornadaPrevista
 	Marcajes         []MarcajeSaldo
 	MovimientosSaldo []MovimientoSaldo
+	EfectosC3        *FuenteSaldoEfectosC3
+}
+
+type FuenteSaldoEfectosC3 struct {
+	SnapshotRef       string
+	FuenteSHA256      string
+	CorteUTC          time.Time
+	Politicas         []domain.PoliticaSaldoEfectosC3
+	Programaciones    []domain.ProgramacionSaldoEfectosC3
+	Permisos          []domain.PermisoConcedidoSaldoEfectosC3
+	CoberturaPermisos bool
 }
 
 // MovimientoSaldo is the traceable book entry. The application never writes
@@ -143,25 +154,58 @@ type PeriodoConsultaSaldo struct {
 }
 
 type ResumenConsultaSaldo struct {
-	PrevistosMinutos  *int64 `json:"previstos_minutos"`
-	TrabajadosMinutos int64  `json:"trabajados_minutos"`
-	SaldoMinutos      *int64 `json:"saldo_minutos"`
-	Estado            string `json:"estado"`
+	PrevistosMinutos      *int64 `json:"previstos_minutos"`
+	TrabajadosMinutos     int64  `json:"trabajados_minutos"`
+	SaldoMinutos          *int64 `json:"saldo_minutos"`
+	Estado                string `json:"estado"`
+	SaldoBaseMinutos      *int64 `json:"saldo_base_minutos,omitempty"`
+	CreditoPermisoMinutos *int64 `json:"credito_permiso_minutos,omitempty"`
+	SnapshotRef           string `json:"snapshot_ref,omitempty"`
 }
 
 type DetalleSaldoDia struct {
-	Fecha               string       `json:"fecha"`
-	ProgramacionRef     string       `json:"programacion_ref,omitempty"`
-	TurnoRef            string       `json:"turno_ref,omitempty"`
-	PoliticaVersionRef  string       `json:"politica_version_ref,omitempty"`
-	FuenteRef           string       `json:"fuente_ref,omitempty"`
-	ProgramacionVersion int64        `json:"programacion_version,omitempty"`
-	PrevistosMinutos    *int64       `json:"previstos_minutos"`
-	TrabajadosMinutos   int64        `json:"trabajados_minutos"`
-	PausasMinutos       int64        `json:"pausas_minutos"`
-	SaldoMinutos        *int64       `json:"saldo_minutos"`
-	Estado              string       `json:"estado"`
-	Marcajes            []MarcajeDia `json:"marcajes"`
+	Fecha                    string               `json:"fecha"`
+	ProgramacionRef          string               `json:"programacion_ref,omitempty"`
+	TurnoRef                 string               `json:"turno_ref,omitempty"`
+	PoliticaVersionRef       string               `json:"politica_version_ref,omitempty"`
+	FuenteRef                string               `json:"fuente_ref,omitempty"`
+	ProgramacionVersion      int64                `json:"programacion_version,omitempty"`
+	PrevistosMinutos         *int64               `json:"previstos_minutos"`
+	TrabajadosMinutos        int64                `json:"trabajados_minutos"`
+	PausasMinutos            int64                `json:"pausas_minutos"`
+	SaldoMinutos             *int64               `json:"saldo_minutos"`
+	Estado                   string               `json:"estado"`
+	Marcajes                 []MarcajeDia         `json:"marcajes"`
+	SaldoBaseMinutos         *int64               `json:"saldo_base_minutos,omitempty"`
+	CreditoPermisoMinutos    *int64               `json:"credito_permiso_minutos,omitempty"`
+	CausaEfecto              string               `json:"causa_efecto,omitempty"`
+	PoliticaEfectosRef       string               `json:"politica_efectos_ref,omitempty"`
+	PoliticaEfectosVersion   int64                `json:"politica_efectos_version,omitempty"`
+	PoliticaEfectosSHA256    string               `json:"politica_efectos_sha256,omitempty"`
+	ReglaEfectoRef           string               `json:"regla_efecto_ref,omitempty"`
+	ResolucionPermisoRef     string               `json:"resolucion_permiso_ref,omitempty"`
+	ResolucionPermisoVersion int64                `json:"resolucion_permiso_version,omitempty"`
+	FuenteEfectoRef          string               `json:"fuente_efecto_ref,omitempty"`
+	MovimientosEfecto        []MovimientoEfectoC3 `json:"movimientos_efecto,omitempty"`
+}
+
+type MovimientoEfectoC3 struct {
+	Tipo                   string    `json:"tipo"`
+	DeltaMinutos           int64     `json:"delta_minutos"`
+	SolicitudRef           string    `json:"solicitud_ref"`
+	ResolucionRef          string    `json:"resolucion_ref"`
+	ResolucionVersion      int64     `json:"resolucion_version"`
+	PoliticaRef            string    `json:"politica_ref"`
+	PoliticaVersion        int64     `json:"politica_version"`
+	PoliticaSHA256         string    `json:"politica_sha256"`
+	ReglaRef               string    `json:"regla_ref"`
+	FuenteRef              string    `json:"fuente_ref"`
+	CatalogoVersionRef     string    `json:"catalogo_version_ref"`
+	CatalogoFuenteRef      string    `json:"catalogo_fuente_ref"`
+	ResolucionDecisionRef  string    `json:"resolucion_decision_ref"`
+	ResolucionAuditoriaRef string    `json:"resolucion_auditoria_ref"`
+	ResueltaEn             time.Time `json:"resuelta_en"`
+	PendienteJustificar    bool      `json:"pendiente_justificar"`
 }
 
 type MarcajeDia struct {

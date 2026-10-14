@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { ErrorClienteNotificacionesCronos } from "./cliente-notificaciones-http.js";
+import { ErrorClienteNotificacionesCronos } from "./cliente-notificaciones-http.js?v=20261014-cronos-c9-contrato-v2";
 import { montarBandejaNotificacionesCronos, renderizarBandejaNotificacionesCronos } from "./vista-bandeja-notificaciones.js";
 import { cargarTextos } from "../../../comun/textos.js";
 

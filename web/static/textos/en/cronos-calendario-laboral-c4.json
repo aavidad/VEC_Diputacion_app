@@ -1,0 +1,32 @@
+{
+  "calendario": {
+    "titulo": "Work schedule for the selected date",
+    "titulo_calendario": "Work calendar",
+    "vista_anual_parcial": "Partial year view",
+    "vista_anual_sin_jornada": "The year view does not yet show scheduled work. Select a date to check it.",
+    "vista_anual_sin_dias": "The year view does not yet combine holidays and absences. Select a date to check your schedule.",
+    "cargando": "Loading the work calendar…",
+    "sin_fuente": "There is not enough information to determine the schedule for this date.",
+    "publicado": "Published work calendar",
+    "sin_jornada": "No verified work schedule is available for this date yet.",
+    "programado": "Scheduled time",
+    "turno": "Shift",
+    "fuente_programacion": "Schedule source",
+    "programacion": "Schedule",
+    "version_programacion": "Schedule version",
+    "regimen": "Applicable staff group",
+    "relacion": "Employment relationship",
+    "fuente": "Source and version",
+    "laborable": "Working day in the centre calendar",
+    "no_laborable": "Non-working day in the centre calendar",
+    "centro": "Work centre",
+    "centro_identificado": "Centre verified by Personnel",
+    "fuentes": "Sources and versions",
+    "unidad": "Work assignment",
+    "organizacion": "Organisation",
+    "calendarios": "Applied calendars",
+    "error": "The work calendar could not be loaded.",
+    "denegado": "You do not have access to this information.",
+    "reintentar": "Try again"
+  }
+}
