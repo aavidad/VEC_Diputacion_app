@@ -21,10 +21,12 @@ var (
 
 const (
 	AccionConsultarAsignacionDietas           = "personal.asignacion_dietas.consultar"
+	AccionConsultarPropiaAsignacionDietas     = "personal.asignacion_dietas.propia.consultar"
 	AccionRegistrarInicialAsignacionDietas    = "personal.asignacion_dietas.registrar_inicial"
 	AccionCorregirAsignacionDietas            = "personal.asignacion_dietas.corregir"
 	AccionCorregirGrupoDietas                 = "personal.asignacion_dietas.grupo_corregir"
 	AudienciaConsultarAsignacionDietas        = "vec_personal.asignacion_dietas.consultar.v1"
+	AudienciaConsultarPropiaAsignacionDietas  = "vec_personal.asignacion_dietas.propia.consultar.v1"
 	AudienciaRegistrarInicialAsignacionDietas = "vec_personal.asignacion_dietas.registrar_inicial.v1"
 	AudienciaCorregirAsignacionDietas         = "vec_personal.asignacion_dietas.corregir.v1"
 	AudienciaCorregirGrupoDietas              = "vec_personal.asignacion_dietas.grupo_corregir.v1"

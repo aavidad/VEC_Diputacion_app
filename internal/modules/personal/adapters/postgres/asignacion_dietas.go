@@ -19,6 +19,7 @@ const ajustesAsignacionDietas = `SELECT set_config('search_path','pg_catalog',tr
 const columnasAsignacionDietas = `recibo_ref,decision_ref,efecto_ref,consumo_huella_sha256,auditoria_ad3_ref,registrada_en,estado_local,asignacion_ref,relacion_ref,persona_ref,unidad_ref,centro_ref,administrativo_persona_ref,responsable_persona_ref,grupo_dieta,vigente_desde::text,version`
 
 const consultaAsignacionDietasSQL = `SELECT ` + columnasAsignacionDietas + ` FROM vec_personal.consultar_asignacion_dietas_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
+const consultaPropiaAsignacionDietasSQL = `SELECT ` + columnasAsignacionDietas + ` FROM vec_personal.consultar_asignacion_dietas_propia_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
 const registrarInicialAsignacionDietasSQL = `SELECT ` + columnasAsignacionDietas + ` FROM vec_personal.registrar_asignacion_dietas_inicial_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
 const corregirAsignacionDietasSQL = `SELECT ` + columnasAsignacionDietas + ` FROM vec_personal.corregir_asignacion_dietas_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
 const corregirGrupoDietasSQL = `SELECT ` + columnasAsignacionDietas + ` FROM vec_personal.corregir_grupo_dieta_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
@@ -51,18 +52,33 @@ func (r *RepositorioAsignacionDietasPostgreSQL) EjecutarAsignacionDietas(ctx con
 	if len(material) == 0 || orden.Autorizacion.ValidarEstructura() != nil || orden.Autorizacion.PersonaVersion() > math.MaxInt64 || orden.Autorizacion.PerfilVersion() > math.MaxInt64 {
 		return vacio, personalports.ErrSolicitudAsignacionDietasInvalida
 	}
-	consulta := ""
+	consulta, accion, audiencia := "", "", ""
 	switch solicitud.Operacion {
 	case personaldomain.ConsultarAsignacionDietas:
 		consulta = consultaAsignacionDietasSQL
+		accion, audiencia = personalports.AccionConsultarAsignacionDietas, personalports.AudienciaConsultarAsignacionDietas
+	case personaldomain.ConsultarPropiaAsignacionDietas:
+		consulta = consultaPropiaAsignacionDietasSQL
+		accion, audiencia = personalports.AccionConsultarPropiaAsignacionDietas, personalports.AudienciaConsultarPropiaAsignacionDietas
 	case personaldomain.RegistrarInicialAsignacionDietas:
 		consulta = registrarInicialAsignacionDietasSQL
+		accion, audiencia = personalports.AccionRegistrarInicialAsignacionDietas, personalports.AudienciaRegistrarInicialAsignacionDietas
 	case personaldomain.CorregirAsignacionDietas:
 		consulta = corregirAsignacionDietasSQL
+		accion, audiencia = personalports.AccionCorregirAsignacionDietas, personalports.AudienciaCorregirAsignacionDietas
 	case personaldomain.CorregirGrupoAsignacionDietas:
 		consulta = corregirGrupoDietasSQL
+		accion, audiencia = personalports.AccionCorregirGrupoDietas, personalports.AudienciaCorregirGrupoDietas
 	default:
 		return vacio, personalports.ErrSolicitudAsignacionDietasInvalida
+	}
+	resumen := orden.Autorizacion.ResumenCapacidad()
+	huella, err := orden.Material.HuellaSHA256()
+	if err != nil || resumen.Operacion() != accion || resumen.AudienciaConsumo() != audiencia ||
+		resumen.EfectoRef() != solicitud.RelacionRef || resumen.EfectoHuellaSHA256() != huella ||
+		orden.Autorizacion.PersonaVersion() != solicitud.Actor.Instantanea.PersonaVersion ||
+		orden.Autorizacion.PerfilVersion() != solicitud.Actor.Instantanea.PerfilVersion {
+		return vacio, personalports.ErrAsignacionDietasDenegada
 	}
 	parametros, secretos, err := parametrosConsultaRelacionPropia(material, orden.Autorizacion)
 	if err != nil {
@@ -123,7 +139,7 @@ func resultadoAsignacionSQLValido(r personalports.ResultadoAsignacionDietas, s p
 		r.RegistradaEn.IsZero() || offset != 0 || r.RegistradaEn.Nanosecond()%1000 != 0 {
 		return false
 	}
-	if s.Operacion == personaldomain.ConsultarAsignacionDietas {
+	if s.Operacion == personaldomain.ConsultarAsignacionDietas || s.Operacion == personaldomain.ConsultarPropiaAsignacionDietas {
 		return r.EstadoLocal == "consultada" && !r.RegistradaEn.Before(resumen.EmitidaEn()) && r.RegistradaEn.Before(resumen.ExpiraEn())
 	}
 	if r.EstadoLocal != "registrada" && r.EstadoLocal != "replay_confirmado" {

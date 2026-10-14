@@ -32,10 +32,16 @@ type CasoUsoAsignacionDietas interface {
 	Ejecutar(context.Context, personaldomain.SolicitudAsignacionDietas) (personalports.ResultadoAsignacionDietas, error)
 }
 
+type CasoUsoAsignacionDietasPropia interface {
+	CasoUsoAsignacionDietas
+	ConsultarPropia(context.Context, personaldomain.SolicitudAsignacionDietas) (personalports.ResultadoAsignacionDietas, error)
+}
+
 type ManejadorAsignacionDietas struct {
-	identidades ResolutorIdentidadAsignacionDietas
-	casoUso     CasoUsoAsignacionDietas
-	auditoria   personalports.RegistradorAuditoriaFronteraAsignacionDietas
+	identidades    ResolutorIdentidadAsignacionDietas
+	casoUso        CasoUsoAsignacionDietas
+	consultaPropia CasoUsoAsignacionDietasPropia
+	auditoria      personalports.RegistradorAuditoriaFronteraAsignacionDietas
 }
 
 var ErrManejadorAsignacionNoDisponible = errors.New("personal: manejador de asignación no disponible")
@@ -45,6 +51,20 @@ func NuevoManejadorAsignacionDietas(identidades ResolutorIdentidadAsignacionDiet
 		return nil, ErrManejadorAsignacionNoDisponible
 	}
 	return &ManejadorAsignacionDietas{identidades: identidades, casoUso: casoUso, auditoria: auditoria}, nil
+}
+
+// El montaje propio activa la acción nueva sólo para el GET de esta instancia.
+// Las mutaciones y el constructor anterior conservan su contrato V3 original.
+func NuevoManejadorAsignacionDietasPropia(identidades ResolutorIdentidadAsignacionDietas, casoUso CasoUsoAsignacionDietasPropia, auditoria personalports.RegistradorAuditoriaFronteraAsignacionDietas) (*ManejadorAsignacionDietas, error) {
+	if nuloAsignacionHTTP(casoUso) {
+		return nil, ErrManejadorAsignacionNoDisponible
+	}
+	m, err := NuevoManejadorAsignacionDietas(identidades, casoUso, auditoria)
+	if err != nil {
+		return nil, err
+	}
+	m.consultaPropia = casoUso
+	return m, nil
 }
 
 func (m *ManejadorAsignacionDietas) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -203,6 +223,9 @@ func (m *ManejadorAsignacionDietas) servir(w http.ResponseWriter, r *http.Reques
 		solicitud.FechaReferencia = fecha
 		solicitud.UnidadRef = unidad
 		solicitud.Operacion = personaldomain.ConsultarAsignacionDietas
+		if m.consultaPropia != nil {
+			solicitud.Operacion = personaldomain.ConsultarPropiaAsignacionDietas
+		}
 	case http.MethodPut:
 		if r.URL.RawQuery != "" || r.URL.ForceQuery || r.Header.Get("Content-Type") != "application/json; charset=utf-8" {
 			responderErrorAsignacion(w, http.StatusBadRequest, "peticion_invalida")
@@ -235,7 +258,13 @@ func (m *ManejadorAsignacionDietas) servir(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	solicitud.Actor = actor
-	resultado, err := m.casoUso.Ejecutar(r.Context(), solicitud)
+	var resultado personalports.ResultadoAsignacionDietas
+	var err error
+	if r.Method == http.MethodGet && m.consultaPropia != nil {
+		resultado, err = m.consultaPropia.ConsultarPropia(r.Context(), solicitud)
+	} else {
+		resultado, err = m.casoUso.Ejecutar(r.Context(), solicitud)
+	}
 	if err != nil {
 		responderErrorOperacionAsignacion(w, err)
 		return

@@ -1,12 +1,61 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestMaterialConsultaPropiaAsignacionConservaContratoAntiguo(t *testing.T) {
+	actor := actorAsignacionPrueba(t)
+	fecha, _ := NuevaFechaCivil("2026-09-20")
+	s := SolicitudAsignacionDietas{Actor: actor, RelacionRef: "rel_" + strings.Repeat("a", 24),
+		UnidadRef: "unidad_sintetica", FechaReferencia: fecha, Operacion: ConsultarPropiaAsignacionDietas}
+	propio, err := NuevoMaterialAsignacionDietasPropia(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := propio.Recurso()
+	if r.Referencia != s.RelacionRef || r.ModuloID != "personal" || r.Tipo != "asignacion_dietas_propia" ||
+		len(r.Ambitos) != 2 || r.Ambitos["persona_ref"] != actor.PersonaRef ||
+		r.Ambitos["empleado_ref"] != "emp_"+strings.Repeat("a", 24) || len(r.Atributos) != 5 ||
+		r.Atributos["relacion_ref"] != s.RelacionRef || r.Atributos["unidad_ref"] != s.UnidadRef ||
+		r.Atributos["fecha_referencia"] != fecha.Texto() || r.Atributos["operacion"] != "consultar_propia" {
+		t.Fatalf("recurso propio incompatible: %+v", r)
+	}
+	suma := sha256.Sum256(propio.Canonico())
+	if r.Atributos["material_sha256"] != hex.EncodeToString(suma[:]) {
+		t.Fatal("material de la consulta propia no ligado a su recurso")
+	}
+	var dto map[string]json.RawMessage
+	if err := json.Unmarshal(propio.Canonico(), &dto); err != nil || len(dto) != 17 ||
+		string(dto["esquema"]) != `"vec.personal.asignacion-dietas-propia.v1"` ||
+		string(dto["operacion"]) != `"consultar_propia"` {
+		t.Fatalf("DTO propio incompatible: %s, %v", propio.Canonico(), err)
+	}
+	if _, err := NuevoMaterialAsignacionDietas(s); err == nil {
+		t.Fatal("la consulta antigua aceptó la operación propia nueva")
+	}
+	s.Operacion = ConsultarAsignacionDietas
+	antiguo, err := NuevoMaterialAsignacionDietas(s)
+	if err != nil || antiguo.Recurso().Tipo != "asignacion_dietas" || len(antiguo.Recurso().Ambitos) != 4 ||
+		len(antiguo.Recurso().Atributos) != 3 {
+		t.Fatalf("se alteró la consulta de cuatro ámbitos: %v", err)
+	}
+	if _, err := NuevoMaterialAsignacionDietasPropia(s); err == nil {
+		t.Fatal("la consulta nueva aceptó la operación antigua")
+	}
+	s.Operacion = ConsultarPropiaAsignacionDietas
+	s.PersonaRef = "per_" + strings.Repeat("b", 24)
+	if _, err := NuevoMaterialAsignacionDietasPropia(s); err == nil {
+		t.Fatal("consulta propia de persona ajena admitida")
+	}
+}
 
 func actorAsignacionPrueba(t *testing.T) vecdomain.ContextoActor {
 	t.Helper()

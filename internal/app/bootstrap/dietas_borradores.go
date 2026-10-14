@@ -104,7 +104,7 @@ func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExa
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
-	manejadorAsignacion, err := personalhttp.NuevoManejadorAsignacionDietas(identidad, asignaciones, d.auditoriaPersonal)
+	manejadorAsignacion, err := personalhttp.NuevoManejadorAsignacionDietasPropia(identidad, asignaciones, d.auditoriaPersonal)
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}

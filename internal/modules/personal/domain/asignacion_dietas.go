@@ -19,6 +19,7 @@ type OperacionAsignacionDietas string
 
 const (
 	ConsultarAsignacionDietas        OperacionAsignacionDietas = "consultar"
+	ConsultarPropiaAsignacionDietas  OperacionAsignacionDietas = "consultar_propia"
 	RegistrarInicialAsignacionDietas OperacionAsignacionDietas = "registrar_inicial"
 	CorregirAsignacionDietas         OperacionAsignacionDietas = "corregir"
 	CorregirGrupoAsignacionDietas    OperacionAsignacionDietas = "grupo_corregir"
@@ -131,6 +132,22 @@ type materialAsignacionCanonico struct {
 }
 
 func NuevoMaterialAsignacionDietas(s SolicitudAsignacionDietas) (MaterialAsignacionDietas, error) {
+	if s.Operacion == ConsultarPropiaAsignacionDietas {
+		return MaterialAsignacionDietas{}, ErrAsignacionDietasInvalida
+	}
+	return nuevoMaterialAsignacionDietas(s, false)
+}
+
+// NuevoMaterialAsignacionDietasPropia conserva el DTO de hechos de Personal,
+// pero firma una operación y un recurso nuevos con dos ámbitos propios.
+func NuevoMaterialAsignacionDietasPropia(s SolicitudAsignacionDietas) (MaterialAsignacionDietas, error) {
+	if s.Operacion != ConsultarPropiaAsignacionDietas {
+		return MaterialAsignacionDietas{}, ErrAsignacionDietasInvalida
+	}
+	return nuevoMaterialAsignacionDietas(s, true)
+}
+
+func nuevoMaterialAsignacionDietas(s SolicitudAsignacionDietas, propia bool) (MaterialAsignacionDietas, error) {
 	if s.Actor.Validar() != nil || !ReferenciaRelacionValida(s.RelacionRef) || s.FechaReferencia.Validar() != nil {
 		return MaterialAsignacionDietas{}, ErrAsignacionDietasInvalida
 	}
@@ -138,7 +155,7 @@ func NuevoMaterialAsignacionDietas(s SolicitudAsignacionDietas) (MaterialAsignac
 	if e != nil || len(empleados) != 1 {
 		return MaterialAsignacionDietas{}, ErrAsignacionDietasInvalida
 	}
-	if s.Operacion != ConsultarAsignacionDietas && s.Operacion != RegistrarInicialAsignacionDietas && s.Operacion != CorregirAsignacionDietas && s.Operacion != CorregirGrupoAsignacionDietas {
+	if s.Operacion != ConsultarAsignacionDietas && s.Operacion != RegistrarInicialAsignacionDietas && s.Operacion != CorregirAsignacionDietas && s.Operacion != CorregirGrupoAsignacionDietas && !(propia && s.Operacion == ConsultarPropiaAsignacionDietas) {
 		return MaterialAsignacionDietas{}, ErrAsignacionDietasInvalida
 	}
 	if s.Operacion == CorregirGrupoAsignacionDietas || s.Operacion == RegistrarInicialAsignacionDietas || s.Operacion == CorregirAsignacionDietas {
@@ -157,7 +174,7 @@ func NuevoMaterialAsignacionDietas(s SolicitudAsignacionDietas) (MaterialAsignac
 	if !textoAsignacionValido(s.UnidadRef, 256, 1) {
 		return MaterialAsignacionDietas{}, ErrAsignacionDietasInvalida
 	}
-	if s.Operacion == ConsultarAsignacionDietas {
+	if s.Operacion == ConsultarAsignacionDietas || s.Operacion == ConsultarPropiaAsignacionDietas {
 		if s.ClaveIdempotencia != "" || s.VersionEsperada != 0 || s.CentroRef != "" || s.AdministrativoPersonaRef != "" || s.ResponsablePersonaRef != "" || s.GrupoDieta != 0 || s.VigenteDesde != "" || s.MotivoRevision != "" || s.ProcedenciaActoRef != "" {
 			return MaterialAsignacionDietas{}, ErrAsignacionDietasInvalida
 		}
@@ -165,13 +182,22 @@ func NuevoMaterialAsignacionDietas(s SolicitudAsignacionDietas) (MaterialAsignac
 		return MaterialAsignacionDietas{}, ErrAsignacionDietasInvalida
 	}
 	i := identidadConsultaRelacionPropiaCanonica{ActorRef: s.Actor.Principal.ID, ContextoActorRef: s.Actor.Instantanea.VinculoRef, ContextoVersion: s.Actor.Instantanea.VinculoVersion, CuentaRef: s.Actor.Instantanea.CuentaRef, CuentaVersion: s.Actor.Instantanea.CuentaVersion, EmpleadoRef: empleados[0], PerfilRef: s.Actor.PerfilActivoRef, PerfilVersion: s.Actor.Instantanea.PerfilVersion, PersonaRef: s.Actor.PersonaRef, PersonaVersion: s.Actor.Instantanea.PersonaVersion}
-	c := materialAsignacionCanonico{Esquema: "vec.personal.asignacion-dietas.v1", Identidad: i, PersonaRef: s.PersonaRef, EmpleadoRef: s.EmpleadoRef, Operacion: s.Operacion, RelacionRef: s.RelacionRef, FechaReferencia: s.FechaReferencia, ClaveIdempotencia: s.ClaveIdempotencia, VersionEsperada: s.VersionEsperada, CentroRef: s.CentroRef, UnidadRef: s.UnidadRef, AdministrativoPersonaRef: s.AdministrativoPersonaRef, ResponsablePersonaRef: s.ResponsablePersonaRef, GrupoDieta: s.GrupoDieta, VigenteDesde: s.VigenteDesde, MotivoRevision: s.MotivoRevision, ProcedenciaActoRef: s.ProcedenciaActoRef}
+	esquema := "vec.personal.asignacion-dietas.v1"
+	if propia {
+		esquema = "vec.personal.asignacion-dietas-propia.v1"
+	}
+	c := materialAsignacionCanonico{Esquema: esquema, Identidad: i, PersonaRef: s.PersonaRef, EmpleadoRef: s.EmpleadoRef, Operacion: s.Operacion, RelacionRef: s.RelacionRef, FechaReferencia: s.FechaReferencia, ClaveIdempotencia: s.ClaveIdempotencia, VersionEsperada: s.VersionEsperada, CentroRef: s.CentroRef, UnidadRef: s.UnidadRef, AdministrativoPersonaRef: s.AdministrativoPersonaRef, ResponsablePersonaRef: s.ResponsablePersonaRef, GrupoDieta: s.GrupoDieta, VigenteDesde: s.VigenteDesde, MotivoRevision: s.MotivoRevision, ProcedenciaActoRef: s.ProcedenciaActoRef}
 	b, e := json.Marshal(c)
 	if e != nil {
 		return MaterialAsignacionDietas{}, ErrAsignacionDietasInvalida
 	}
 	h := sha256.Sum256(b)
 	r := core.RecursoAutorizable{Referencia: s.RelacionRef, ModuloID: "personal", Tipo: "asignacion_dietas", Ambitos: map[string]string{"persona_ref": s.PersonaRef, "empleado_ref": s.EmpleadoRef, "relacion_ref": s.RelacionRef, "unidad_ref": s.UnidadRef}, Atributos: map[string]string{"fecha_referencia": s.FechaReferencia.Texto(), "material_sha256": hex.EncodeToString(h[:]), "operacion": string(s.Operacion)}}
+	if propia {
+		r.Tipo = "asignacion_dietas_propia"
+		r.Ambitos = map[string]string{"persona_ref": s.PersonaRef, "empleado_ref": s.EmpleadoRef}
+		r.Atributos = map[string]string{"relacion_ref": s.RelacionRef, "unidad_ref": s.UnidadRef, "fecha_referencia": s.FechaReferencia.Texto(), "operacion": string(s.Operacion), "material_sha256": hex.EncodeToString(h[:])}
+	}
 	if _, e = r.HuellaContextoAutorizacionSHA256(); e != nil {
 		return MaterialAsignacionDietas{}, ErrAsignacionDietasInvalida
 	}

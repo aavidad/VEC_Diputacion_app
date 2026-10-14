@@ -89,6 +89,65 @@ func (x *casoAsignacionPrueba) Ejecutar(context.Context, personaldomain.Solicitu
 	return personalports.ResultadoAsignacionDietas{}, errors.New("no deberia llegar")
 }
 
+type identidadAsignacionActorPrueba struct{ actor core.ContextoActor }
+
+func (x identidadAsignacionActorPrueba) ResolverIdentidadAsignacionDietas(context.Context) (core.ContextoActor, error) {
+	return x.actor, nil
+}
+
+type casoAsignacionDespachoPrueba struct {
+	viejo, propio int
+	operacion     personaldomain.OperacionAsignacionDietas
+}
+
+func (x *casoAsignacionDespachoPrueba) Ejecutar(_ context.Context, s personaldomain.SolicitudAsignacionDietas) (personalports.ResultadoAsignacionDietas, error) {
+	x.viejo++
+	x.operacion = s.Operacion
+	return personalports.ResultadoAsignacionDietas{}, personalports.ErrAsignacionDietasDenegada
+}
+
+func (x *casoAsignacionDespachoPrueba) ConsultarPropia(_ context.Context, s personaldomain.SolicitudAsignacionDietas) (personalports.ResultadoAsignacionDietas, error) {
+	x.propio++
+	x.operacion = s.Operacion
+	return personalports.ResultadoAsignacionDietas{}, personalports.ErrAsignacionDietasDenegada
+}
+
+func TestAsignacionConstructorPropioNoReinterpretaGETAntiguo(t *testing.T) {
+	ruta := RutaAsignacionesDietas + "/rel_aaaaaaaaaaaaaaaaaaaaaa?fecha_referencia=2026-09-24&unidad_ref=unidad:uno"
+	identidad := identidadAsignacionActorPrueba{actor: actorHistoriaHTTPPrueba(t)}
+	for _, caso := range []struct {
+		nombre    string
+		propio    bool
+		operacion personaldomain.OperacionAsignacionDietas
+	}{{"antiguo", false, personaldomain.ConsultarAsignacionDietas},
+		{"propio", true, personaldomain.ConsultarPropiaAsignacionDietas}} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			uso := &casoAsignacionDespachoPrueba{}
+			auditoria := &auditoriaAsignacionPrueba{}
+			var m *ManejadorAsignacionDietas
+			var err error
+			if caso.propio {
+				m, err = NuevoManejadorAsignacionDietasPropia(identidad, uso, auditoria)
+			} else {
+				m, err = NuevoManejadorAsignacionDietas(identidad, uso, auditoria)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := httptest.NewRequest(http.MethodGet, ruta, nil)
+			r.Header.Set("Accept", "application/json")
+			w := httptest.NewRecorder()
+			m.ServeHTTP(w, r)
+			if w.Code != http.StatusForbidden || uso.operacion != caso.operacion ||
+				(caso.propio && (uso.propio != 1 || uso.viejo != 0)) ||
+				(!caso.propio && (uso.viejo != 1 || uso.propio != 0)) ||
+				auditoria.llamadas != 1 || auditoria.orden.Accion != "consultar" {
+				t.Fatalf("despacho de consulta: estado=%d uso=%+v auditoria=%+v", w.Code, uso, auditoria.orden)
+			}
+		})
+	}
+}
+
 type auditoriaAsignacionPrueba struct {
 	llamadas int
 	orden    personalports.OrdenAuditoriaFronteraAsignacionDietas

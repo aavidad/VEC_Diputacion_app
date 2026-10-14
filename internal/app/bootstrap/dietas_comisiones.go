@@ -673,6 +673,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 		"dietas.borrador.propio.enviar":                emisores[audienciaConsumoEnviarDietasDesarrollo],
 		"dietas.documento.propio.consultar":            emisores[audienciaConsumoDocumentoDietasDesarrollo],
 		"personal.asignacion_dietas.consultar":         emisores[audienciaConsumoConsultarAsignacionDietas],
+		"personal.asignacion_dietas.propia.consultar":  emisores[audienciaConsumoConsultarAsignacionPropiaDietas],
 		"personal.asignacion_dietas.registrar_inicial": emisores[audienciaConsumoRegistrarAsignacionDietas],
 		"personal.asignacion_dietas.corregir":          emisores[audienciaConsumoCorregirAsignacionDietas],
 		"personal.asignacion_dietas.grupo_corregir":    emisores[audienciaConsumoCorregirGrupoDietas],
