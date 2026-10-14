@@ -967,11 +967,11 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal-eventos.js", "modulos/cronos/vista-saldo-conectado.js", "modulos/cronos/vista-remoto.js"])
     versionesEspeciales.set(ruta, "20261014-cronos-activacion-v1");
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js"])
-    versionesEspeciales.set(ruta, "20261014-dietas-tarifa-publicada-web-v5");
+    versionesEspeciales.set(ruta, "20261014-dietas-tarifa-publicada-web-v6");
   for (const ruta of ["portal-composicion-empleado.js", "modulos/dietas/vista-recorridos.js",
     "modulos/dietas/vista-borradores-propios.js", "modulos/dietas/vista-bandeja-circuito.js",
     "modulos/dietas/vista-liquidacion-economica.js"])
-    versionesEspeciales.set(ruta, "20261014-dietas-tarifa-publicada-web-v5");
+    versionesEspeciales.set(ruta, "20261014-dietas-tarifa-publicada-web-v6");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
@@ -1111,7 +1111,7 @@ test("Dietas usa una sola cadena de caché desde la entrada hasta mapa y borrado
   const [html, portal, coordinador, recorridos, borradores] = await Promise.all(
     rutas.map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   const version = "20261007-u-dietas-catalogo-v1";
-  const versionRecorridos = "20261014-dietas-tarifa-publicada-web-v5";
+  const versionRecorridos = "20261014-dietas-tarifa-publicada-web-v6";
   const versionRaiz = versionDe(html, "/portal-empleado/portal.js");
   const versionCoordinador = versionDe(portal, "./portal-modulos-coordinador.js");
   const comun = "20261007-pantallas-textos-final-v1";

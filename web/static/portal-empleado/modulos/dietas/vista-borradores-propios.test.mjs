@@ -298,16 +298,23 @@ test("carga la colección propia real y recupera su detalle mediante el cliente 
   );
   assert.equal(llamadas[0][0], "listar");
   assert.ok(boton);
+  assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").hidden, true);
   await contenedor
     .querySelector("[data-dietas-borradores-propios]")
     .listeners.click({ target: boton });
   assert.deepEqual(llamadas[1], ["obtener", "dco_1234567890123456789012"]);
   assert.match(textoVisible(contenedor), /rcd_1234567890123456789012/u);
   assert.match(textoVisible(contenedor), /2026-09-20T10:00:00Z/u);
-  assert.match(
-    contenedor.querySelector("[data-dietas-borradores-estado]").textContent,
-    /Detalle/u,
-  );
+  const aviso = contenedor.querySelector("[data-dietas-borradores-estado]");
+  assert.equal(aviso.hidden, true);
+  assert.equal(aviso.textContent, "");
+  const recibo = contenedor.querySelector("[data-dietas-borrador-recibo]");
+  const justificante = recibo.querySelector("[data-dietas-borrador-justificante]");
+  assert.equal(Boolean(justificante.open), false);
+  assert.equal(justificante.querySelector("summary").textContent, "Justificante de registro");
+  assert.match(textoVisible(justificante), /dco_1234567890123456789012.*rcd_1234567890123456789012.*2026-09-20T10:00:00Z/u);
+  assert.doesNotMatch(textoVisible(recibo.children[0]), /dco_|rcd_|2026-09-20T/u);
+  assert.match(textoVisible(recibo.children[0]), /2026/u);
   vista.desmontar();
 });
 
@@ -677,6 +684,7 @@ test("al guardar otra vez el mismo borrador confirma el recibo y reserva la inst
     assert.equal(escrituras, 1);
     assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").textContent,
       "Este borrador ya se registró.");
+    assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").hidden, false);
     assert.match(textoVisible(contenedor.querySelector("[data-dietas-borrador-recibo]")),
       /rcd_1234567890123456789012/u);
     const ayuda = form.querySelectorAll("details").find((nodo) => nodo.className === "dietas-borradores-ayuda");
@@ -884,9 +892,9 @@ test("reserva la explicación administrativa para la ayuda contextual", () => {
   );
   vista.desmontar();
 });
-test("muestra km, importe y tramos provisionales de la comisión recuperada", async () => {
+test("muestra km, importe y tramos de la comisión con tarifa publicada", async () => {
   const calculado={...item,comision:{...item.comision,codigos_ruta:["18087","18003"],calculo:{
-    rotulo:"PROVISIONAL · pendiente de confirmación por RRHH",version_tarifa:"provisional:rd462:20260923",version_grafo:"grafo-sintetico-v1",kilometros:"12.0000",importe_kilometraje_centimos:312,
+    rotulo:"dietas_tarifa_publicada",version_tarifa:"tarifa:dipgra:2026:art30:v1",version_grafo:"grafo-sintetico-v1",kilometros:"12.0000",importe_kilometraje_centimos:312,
     tramos_ruta:[{origen_codigo:"18087",destino_codigo:"18003",kilometros:"12.0000"}],
     opciones_dieta:[1,2,3].map((grupo)=>({grupo,calculo:{total_maximo_orientativo_centimos:2500,tramos:[{fecha:"2026-09-20",tipo:"manutencion",porcentaje:50,importe_centimos:2500}]}})),
   }}};
@@ -896,6 +904,8 @@ test("muestra km, importe y tramos provisionales de la comisión recuperada", as
   await contenedor.querySelector("[data-dietas-borradores-propios]").listeners.click({target:boton});
   const texto=textoVisible(contenedor);
   assert.match(texto,/12 km/u); assert.match(texto,/3,12/u); assert.match(texto,/Granada → Albolote/u); assert.match(texto,/Grupo 3/u);
+  assert.match(texto, /No consta su grupo de dieta\. Se muestran los importes orientativos de cada grupo/u);
+  assert.doesNotMatch(texto, /tres importes provisionales/u);
   vista.desmontar();
 });
 
@@ -1174,8 +1184,8 @@ test("tras desmontar un POST incierto consulta la lista sin repetirlo y abre sol
   await panel.listeners.click({ target: consultar });
   assert.deepEqual(llamadas.listar.at(-1), { limit: 6 });
   assert.equal(llamadas.crear.length, 1);
-  assert.match(segundoContenedor.querySelector("[data-dietas-borradores-estado]").textContent, /La lista no confirma altas anteriores/u);
-  assert.doesNotMatch(segundoContenedor.querySelector("[data-dietas-borradores-estado]").textContent, /Elija un borrador|aquel intento/u);
+  assert.equal(segundoContenedor.querySelector("[data-dietas-borradores-estado]").hidden, true);
+  assert.equal(segundoContenedor.querySelector("[data-dietas-borradores-estado]").textContent, "");
   const ayuda = segundoContenedor.querySelector("[data-dietas-borradores-ayuda]");
   assert.equal(ayuda.open, false);
   assert.match(textoVisible(ayuda), /Elija un borrador para ver su recibo/u);
@@ -1227,7 +1237,8 @@ test("Consultar borradores reinicia el cursor y distingue lista vacía, 401, 403
     assert.ok(contenedor.querySelector("[data-dietas-borrador-consultar-registrados]"));
     if (caso === "vacia") {
       assert.ok(contenedor.querySelector("[data-dietas-borradores-vacio]"));
-      assert.match(contenedor.querySelector("[data-dietas-borradores-estado]").textContent, /La lista no confirma altas anteriores/u);
+      assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").hidden, true);
+      assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").textContent, "");
       assert.equal(contenedor.querySelector("[data-dietas-borradores-ayuda]").open, false);
     } else {
       assert.equal(contenedor.querySelector("[data-dietas-borradores-vacio]"), null);

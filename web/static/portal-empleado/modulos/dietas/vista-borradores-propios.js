@@ -6,7 +6,7 @@ import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGas
 import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20261007-u-dietas-catalogo-v1";
 import { validarCatalogoRutasDietas } from "./contrato.js";
 import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20261007-pantallas-textos-final-v1";
-import { montarVistaLiquidacionEconomica } from "./vista-liquidacion-economica.js?v=20261014-dietas-tarifa-publicada-web-v5";
+import { montarVistaLiquidacionEconomica } from "./vista-liquidacion-economica.js?v=20261014-dietas-tarifa-publicada-web-v6";
 
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.
@@ -935,17 +935,19 @@ export function montarVistaBorradoresPropios(
     seccion.dataset.dietasBorradorRecibo = "";
     seccion.setAttribute("role", "status");
     seccion.setAttribute("aria-live", "polite");
-    seccion.append(
-      nodo(documento, "strong", traducir("borradores_propios_recibo_titulo")),
-    );
+    const fecha = nodo(documento, "dl");
+    const filaFecha = nodo(documento, "div");
+    filaFecha.append(nodo(documento, "dt", traducir("borradores_propios_recibo_fecha")),
+      nodo(documento, "dd", fechaLegible(item.recibo.registrado_en, true)));
+    fecha.append(filaFecha);
+    const justificante = nodo(documento, "details");
+    justificante.dataset.dietasBorradorJustificante = "";
+    justificante.append(nodo(documento, "summary", traducir("borradores_propios_recibo_titulo")));
     const datos = nodo(documento, "dl");
     [
+      ["borradores_propios_referencia", item.comision.referencia],
       ["borradores_propios_recibo_referencia", item.recibo.referencia],
       ["borradores_propios_recibo_version", String(item.recibo.version)],
-      [
-        "borradores_propios_recibo_fecha",
-        fechaLegible(item.recibo.registrado_en, true),
-      ],
       ["borradores_propios_recibo_instante_exacto", item.recibo.registrado_en],
     ].forEach(([etiqueta, valor]) => {
       const fila = nodo(documento, "div");
@@ -955,7 +957,8 @@ export function montarVistaBorradoresPropios(
       );
       datos.append(fila);
     });
-    seccion.append(datos);
+    justificante.append(datos);
+    seccion.append(fecha, justificante);
     if (item.recibo.repeticion)
       seccion.append(
         nodo(documento, "p", traducir("borradores_propios_repeticion")),
@@ -1097,7 +1100,6 @@ export function montarVistaBorradoresPropios(
       ["comision_numero_documento", item.comision.numero_documento ||
         tBorradores("comision_documento_fecha", { fecha: fechaLegible(item.comision.fecha_inicio) })],
       ...(item.comision.fecha_apertura ? [["comision_fecha_apertura", fechaLegible(item.comision.fecha_apertura, true)]] : []),
-      ["borradores_propios_referencia", item.comision.referencia],
       [
         "borradores_propios_fecha_inicio",
         fechaLegible(item.comision.fecha_inicio),
@@ -1394,7 +1396,12 @@ export function montarVistaBorradoresPropios(
         control.disabled = true;
       }
     }
-    avisoPersistente.textContent = tBorradores(estadoRelaciones === "no_disponible"
+    const consultaCorrecta = estadoRelaciones === "disponible" && !relacionIndeterminada &&
+      !estado.carga && estado.tono === "informacion" && ["borradores_propios_listado",
+        "borradores_propios_consulta_registrados", "borradores_propios_consulta_registrados_vacia",
+        "borradores_propios_detalle"].includes(estado.mensaje);
+    avisoPersistente.hidden = consultaCorrecta;
+    avisoPersistente.textContent = consultaCorrecta ? "" : tBorradores(estadoRelaciones === "no_disponible"
       ? (motivoRelaciones ? `comision_${motivoRelaciones}` : "comision_relaciones_no_disponibles")
       : relacionIndeterminada ? "borradores_propios_error_relacion" : estado.mensaje);
     avisoPersistente.dataset.tono = estado.tono;

@@ -114,7 +114,7 @@
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 952 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
-2053 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.js
+2060 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.js
 780 internal/app/server/server_test.go
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
