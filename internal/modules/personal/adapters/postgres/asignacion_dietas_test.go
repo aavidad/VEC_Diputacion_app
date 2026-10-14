@@ -12,6 +12,7 @@ import (
 
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 type filaAsignacionP struct {
@@ -52,7 +53,48 @@ func ordenAsignacionP(t *testing.T) personalports.OrdenAsignacionDietas {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return personalports.OrdenAsignacionDietas{Material: m, Autorizacion: base.Autorizacion}
+	a := atestacionAsignacionP(t, m, base.Autorizacion,
+		personalports.AccionConsultarAsignacionDietas, personalports.AudienciaConsultarAsignacionDietas)
+	return personalports.OrdenAsignacionDietas{Material: m, Autorizacion: a}
+}
+
+func ordenConsultaPropiaAsignacionP(t *testing.T) personalports.OrdenAsignacionDietas {
+	t.Helper()
+	o := ordenAsignacionP(t)
+	s := o.Material.Solicitud()
+	s.Operacion = personaldomain.ConsultarPropiaAsignacionDietas
+	m, err := personaldomain.NuevoMaterialAsignacionDietasPropia(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := atestacionAsignacionP(t, m, o.Autorizacion,
+		personalports.AccionConsultarPropiaAsignacionDietas, personalports.AudienciaConsultarPropiaAsignacionDietas)
+	return personalports.OrdenAsignacionDietas{Material: m, Autorizacion: a}
+}
+
+func atestacionAsignacionP(t *testing.T, m personaldomain.MaterialAsignacionDietas,
+	base vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, accion, audiencia string) vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
+	t.Helper()
+	x := base.ResumenCapacidad()
+	h, err := m.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3(x.DecisionRef(),
+		x.DecisionHuellaSHA256(), x.MotivoHuellaSHA256(), x.ContextoRef(), x.ContextoHuellaSHA256(),
+		accion, m.Recurso().Referencia, h, audiencia, x.EmitidaEn(), x.ExpiraEn())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := vecports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(base.CapacidadCanonica(),
+		resumen, base.DecisionCanonica(), base.MotivoCanonico(),
+		base.ContextoActorCanonico(), base.PersonaVersion(), base.PerfilVersion(),
+		base.PayloadVECAD3(), base.SobreCOSESign1(),
+		base.EvidenciaVerificacion(), base.RaizPublicaSPKI())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a
 }
 
 func filaAsignacionCorrecta(o personalports.OrdenAsignacionDietas) filaAsignacionP {
@@ -75,6 +117,39 @@ func TestRepositorioAsignacionUsaFachadaYTransaccion(t *testing.T) {
 	r, err := repo.EjecutarAsignacionDietas(context.Background(), o)
 	if err != nil || r.EstadoLocal != "consultada" || tx.commits != 1 || tx.rollbacks != 0 || pool.o.IsoLevel != pgx.Serializable || pool.o.AccessMode != pgx.ReadWrite || len(tx.a) != 1 || len(tx.a[0]) != 11 || tx.q[1] != consultaAsignacionDietasSQL {
 		t.Fatalf("fachada: err=%v estado=%s commits=%d rollback=%d query=%v", err, r.EstadoLocal, tx.commits, tx.rollbacks, tx.q)
+	}
+}
+
+func TestRepositorioConsultaPropiaSeleccionaFachadaYRechazaAudienciaAntigua(t *testing.T) {
+	o := ordenConsultaPropiaAsignacionP(t)
+	tx := &txP{fila: filaAsignacionCorrecta(o)}
+	pool := &poolP{tx: tx}
+	repo, err := nuevoRepositorioAsignacionDietasPostgreSQL(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := repo.EjecutarAsignacionDietas(context.Background(), o)
+	if err != nil || r.EstadoLocal != "consultada" || tx.commits != 1 || tx.rollbacks != 0 ||
+		pool.o.IsoLevel != pgx.Serializable || pool.o.AccessMode != pgx.ReadWrite ||
+		len(tx.a) != 1 || len(tx.a[0]) != 11 || tx.q[1] != consultaPropiaAsignacionDietasSQL ||
+		tx.a[0][0] != string(o.Material.Canonico()) {
+		t.Fatalf("consulta propia: err=%v estado=%s query=%v", err, r.EstadoLocal, tx.q)
+	}
+	antigua := ordenAsignacionP(t)
+	o.Autorizacion = antigua.Autorizacion
+	tx2 := &txP{fila: filaAsignacionCorrecta(o)}
+	repo, _ = nuevoRepositorioAsignacionDietasPostgreSQL(&poolP{tx: tx2})
+	if _, err := repo.EjecutarAsignacionDietas(context.Background(), o); !errors.Is(err, personalports.ErrAsignacionDietasDenegada) || len(tx2.q) != 0 {
+		t.Fatalf("consulta propia aceptó audiencia antigua: %v, sentencias=%v", err, tx2.q)
+	}
+	materialAntiguo := antigua.Material
+	aNueva := atestacionAsignacionP(t, materialAntiguo, antigua.Autorizacion,
+		personalports.AccionConsultarPropiaAsignacionDietas, personalports.AudienciaConsultarPropiaAsignacionDietas)
+	antigua.Autorizacion = aNueva
+	tx3 := &txP{fila: filaAsignacionCorrecta(antigua)}
+	repo, _ = nuevoRepositorioAsignacionDietasPostgreSQL(&poolP{tx: tx3})
+	if _, err := repo.EjecutarAsignacionDietas(context.Background(), antigua); !errors.Is(err, personalports.ErrAsignacionDietasDenegada) || len(tx3.q) != 0 {
+		t.Fatalf("consulta antigua aceptó audiencia propia: %v, sentencias=%v", err, tx3.q)
 	}
 }
 

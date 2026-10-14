@@ -105,8 +105,16 @@ type capsulaRutasDietasDesarrollo struct {
 }
 
 // Ausencia mantiene sólo estas rutas en 503. Un manifiesto presente e inválido
-// impide arrancar. Provisiones y gobierno pertenecen al integrador autorizado.
+// cierra Rutas. Provisiones y gobierno pertenecen al integrador autorizado.
 func nuevasRutasDietasDesarrollo(cfg config.Config, resolvedor httpapi.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo) (httpapi.AutoridadPeticionRutasDietas, func(), error) {
+	return nuevasRutasDietasConProveedorDesarrollo(cfg, resolvedor, derivador, nil, false)
+}
+
+func nuevasRutasDietasConMaterialComunDesarrollo(cfg config.Config, resolvedor httpapi.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, proveedor *proveedorMaterialAltaContratacionTemporalDesarrollo) (httpapi.AutoridadPeticionRutasDietas, func(), error) {
+	return nuevasRutasDietasConProveedorDesarrollo(cfg, resolvedor, derivador, proveedor, true)
+}
+
+func nuevasRutasDietasConProveedorDesarrollo(cfg config.Config, resolvedor httpapi.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, proveedorComun *proveedorMaterialAltaContratacionTemporalDesarrollo, comun bool) (httpapi.AutoridadPeticionRutasDietas, func(), error) {
 	vacio := func() {}
 	ruta := filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "dietas-rutas.json")
 	if _, e := os.Lstat(ruta); errors.Is(e, os.ErrNotExist) {
@@ -126,6 +134,14 @@ func nuevasRutasDietasDesarrollo(cfg config.Config, resolvedor httpapi.DemoIdent
 		return nil, vacio, httpapi.ErrRutaDietasNoDisponible
 	}
 	defer borrarBytes(contenido)
+	var claves map[string]json.RawMessage
+	if json.Unmarshal(contenido, &claves) != nil {
+		return nil, vacio, httpapi.ErrRutaDietasNoDisponible
+	}
+	_, tieneMaterialPrivado := claves["material"]
+	if (comun && (proveedorComun == nil || tieneMaterialPrivado)) || (!comun && !tieneMaterialPrivado) {
+		return nil, vacio, httpapi.ErrRutaDietasNoDisponible
+	}
 	var c configuracionRutasDietasDesarrollo
 	dec := json.NewDecoder(bytes.NewReader(contenido))
 	dec.DisallowUnknownFields()
@@ -229,16 +245,22 @@ func nuevasRutasDietasDesarrollo(cfg config.Config, resolvedor httpapi.DemoIdent
 	if e != nil {
 		return nil, vacio, httpapi.ErrRutaDietasNoDisponible
 	}
-	material, e := nuevoMaterialAtestacionRutasDietasDesarrollo(c.Material)
-	if e != nil {
-		return nil, vacio, httpapi.ErrRutaDietasNoDisponible
+	var proveedor dp.ProveedorMaterialAccesoRutas
+	if comun {
+		proveedor = &proveedorMaterialRutasCTDesarrollo{comun: proveedorComun}
+	} else {
+		material, fallo := nuevoMaterialAtestacionRutasDietasDesarrollo(c.Material)
+		if fallo != nil {
+			return nil, vacio, httpapi.ErrRutaDietasNoDisponible
+		}
+		defer material.borrarCopiasEfimeras()
+		propio, fallo := nuevoProveedorMaterialAccesoRutasDietasDesarrollo(material, reloj)
+		if fallo != nil {
+			return nil, vacio, httpapi.ErrRutaDietasNoDisponible
+		}
+		proveedor = propio
+		cerrarMaterial = propio.Cerrar
 	}
-	defer material.borrarCopiasEfimeras()
-	proveedor, e := nuevoProveedorMaterialAccesoRutasDietasDesarrollo(material, reloj)
-	if e != nil {
-		return nil, vacio, httpapi.ErrRutaDietasNoDisponible
-	}
-	cerrarMaterial = proveedor.Cerrar
 	consumo, e := dietaspg.NuevoRepositorioAccesoRutas(pools[6])
 	if e != nil {
 		return nil, vacio, httpapi.ErrRutaDietasNoDisponible
@@ -258,7 +280,7 @@ func nuevasRutasDietasDesarrollo(cfg config.Config, resolvedor httpapi.DemoIdent
 	if e != nil {
 		return nil, vacio, httpapi.ErrRutaDietasNoDisponible
 	}
-	a := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, servicio: servicio, instancia: nonce, ambito: cfg.OSRMScopeName, grafo: cfg.OSRMGraphVersion, huellaGrafo: huellaRutasDietas(cfg.OSRMGraphVersion + "|" + cfg.OSRMScopeName + "|" + cfg.OSRMScopeBounds), huellaCatalogo: huellaRutasDietas(string(catalogo)), motivoCatalogo: c.MotivoCatalogo, motivoCalculo: c.MotivoCalculo}
+	a := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, servicio: servicio, instancia: nonce, ambito: ambitoTecnicoRutasDietas(cfg.OSRMScopeName, cfg.OSRMScopeBounds), grafo: cfg.OSRMGraphVersion, huellaGrafo: huellaRutasDietas(cfg.OSRMGraphVersion + "|" + cfg.OSRMScopeName + "|" + cfg.OSRMScopeBounds), huellaCatalogo: huellaRutasDietas(string(catalogo)), motivoCatalogo: c.MotivoCatalogo, motivoCalculo: c.MotivoCalculo}
 	completa = true
 	return a, cerrar, nil
 }
@@ -313,6 +335,14 @@ func nonceRutasDietas() (string, error) {
 	}
 	return hex.EncodeToString(b[:]), nil
 }
+
+// El nombre visible de OSRM puede contener espacios. La asignación central
+// requiere un valor técnico exacto: una huella del territorio evita que un
+// cambio de límites conserve sin querer una concesión anterior.
+func ambitoTecnicoRutasDietas(nombre, limites string) string {
+	return "rutas-" + huellaRutasDietas(nombre+"\x00"+limites)
+}
+
 func huellaRutasDietas(s string) string {
 	h := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(h[:])

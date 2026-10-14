@@ -45,6 +45,7 @@ type dependenciasBorradoresDietas struct {
 	}
 	// fuenteCompetencia acredita la unidad de cada revisor del circuito.
 	fuenteCompetencia dietasports.FuenteCompetenciaCircuito
+	liquidacion       *dependenciasLiquidacionEconomica
 }
 
 func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
@@ -103,7 +104,7 @@ func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExa
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
-	manejadorAsignacion, err := personalhttp.NuevoManejadorAsignacionDietas(identidad, asignaciones, d.auditoriaPersonal)
+	manejadorAsignacion, err := personalhttp.NuevoManejadorAsignacionDietasPropia(identidad, asignaciones, d.auditoriaPersonal)
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
@@ -128,11 +129,22 @@ func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExa
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
+	manejadorLiquidacion := componerLiquidacionEconomica(d.liquidacion, identidad, identidadCircuito, servicioCircuito, repositorioDietas, d.reloj)
 	// Las dos consultas de identidad comparten el mismo resultado revalidado
 	// durante la petición; una segunda identidad no puede sustituir la primera.
 	// El circuito vive bajo la colección de comisiones y tiene su manejador.
 	ruta := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), claveCacheSeguridadComunDesarrollo{}, &cacheSeguridadComunDesarrollo{})
+		if r.URL != nil && esRutaLiquidacionEconomica(r.URL.Path) {
+			if manejadorLiquidacion != nil {
+				manejadorLiquidacion.ServeHTTP(w, r.WithContext(ctx))
+			} else {
+				w.Header().Set("Cache-Control", "no-store")
+				w.Header().Set("X-Content-Type-Options", "nosniff")
+				w.WriteHeader(http.StatusServiceUnavailable)
+			}
+			return
+		}
 		if r.URL != nil && (r.URL.Path == dietashttp.RutaCircuito || strings.HasPrefix(r.URL.Path, dietashttp.RutaCircuito+"/")) {
 			manejadorCircuito.ServeHTTP(w, r.WithContext(ctx))
 			return

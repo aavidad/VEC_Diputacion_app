@@ -12,12 +12,12 @@ import (
 // nominal. Dietas recibe una proyección sellada y SQL revalida su versión.
 type ProveedorAsignacionParaEnvioPersonal struct {
 	servicio interface {
-		Ejecutar(context.Context, personaldomain.SolicitudAsignacionDietas) (personalports.ResultadoAsignacionDietas, error)
+		ConsultarPropia(context.Context, personaldomain.SolicitudAsignacionDietas) (personalports.ResultadoAsignacionDietas, error)
 	}
 }
 
 func NuevoProveedorAsignacionParaEnvioPersonal(servicio interface {
-	Ejecutar(context.Context, personaldomain.SolicitudAsignacionDietas) (personalports.ResultadoAsignacionDietas, error)
+	ConsultarPropia(context.Context, personaldomain.SolicitudAsignacionDietas) (personalports.ResultadoAsignacionDietas, error)
 }) (*ProveedorAsignacionParaEnvioPersonal, error) {
 	if nulo(servicio) {
 		return nil, dietasports.ErrRelacionNoDisponible
@@ -34,7 +34,7 @@ func (p *ProveedorAsignacionParaEnvioPersonal) ConsultarAsignacionParaEnvio(ctx 
 	if err != nil || identidad.Relacion.RelacionRef == "" || identidad.Relacion.PersonaRef != identidad.ContextoRegistrado.Contexto.PersonaRef {
 		return cero, dietasports.ErrRelacionNoDisponible
 	}
-	r, err := p.servicio.Ejecutar(ctx, personaldomain.SolicitudAsignacionDietas{Actor: identidad.ContextoRegistrado.Contexto, RelacionRef: identidad.Relacion.RelacionRef, UnidadRef: identidad.Relacion.UnidadRef, FechaReferencia: fecha, Operacion: personaldomain.ConsultarAsignacionDietas})
+	r, err := p.servicio.ConsultarPropia(ctx, personaldomain.SolicitudAsignacionDietas{Actor: identidad.ContextoRegistrado.Contexto, RelacionRef: identidad.Relacion.RelacionRef, UnidadRef: identidad.Relacion.UnidadRef, FechaReferencia: fecha, Operacion: personaldomain.ConsultarPropiaAsignacionDietas})
 	if err != nil || r.EstadoLocal != "consultada" || r.Asignacion.Validar() != nil || r.Asignacion.RelacionRef != identidad.Relacion.RelacionRef || r.Asignacion.PersonaRef != identidad.Relacion.PersonaRef || r.Asignacion.UnidadRef != identidad.Relacion.UnidadRef || !r.Asignacion.VigenteEn(fecha) || r.ReciboRef == "" || r.DecisionRef == "" || r.EfectoRef == "" || r.ConsumoHuellaSHA256 == "" || r.AuditoriaRef == "" || r.RegistradaEn.IsZero() {
 		return cero, dietasports.ErrRelacionNoDisponible
 	}

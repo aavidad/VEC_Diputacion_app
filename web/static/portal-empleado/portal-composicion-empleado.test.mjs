@@ -65,6 +65,22 @@ test("Dietas interna inyecta clientes HTTP, ruta, mapa y relaciones acreditadas 
   assert.equal(Object.hasOwn(entrada, "montarItinerario"), false);
 });
 
+test("Dietas pasa el cliente económico real y un fallo opcional conserva los recorridos anteriores", async () => {
+  for (const fallar of [false, true]) {
+    const llamadas = []; const recursos = recursosDietas(llamadas, { cliente: {},
+      asignacion: { obtenerRelaciones: async () => ({ relaciones_autorizadas: [], fecha_referencia: "2026-10-14" }) }, calculador: {}, visor: {} });
+    const liquidacion = Object.freeze({ propuesta() {}, registrar() {}, leer() {} });
+    recursos.clienteLiquidacion = { crearClienteLiquidacionDietasHTTP({ fetchImpl }) {
+      assert.equal(typeof fetchImpl, "function"); if (fallar) throw new Error("cliente temporalmente ausente"); return liquidacion;
+    } };
+    const compuesto = componerDietasInternas(recursos, { fetch() {} });
+    assert.ok(compuesto);
+    await compuesto.montar({ raiz: "raiz" });
+    assert.strictEqual(llamadas.at(-1)[2].clienteLiquidacion, fallar ? undefined : liquidacion);
+    assert.ok(llamadas.some(([tipo]) => tipo === "recorridos"));
+  }
+});
+
 test("Dietas interna conserva el motivo de Personal y no monta si el portal ya salió", async () => {
   for (const [codigo, motivo] of [["empleado_no_disponible", "empleado_no_disponible"], ["empleado_ambiguo", "empleado_ambiguo"], ["acceso_denegado", undefined]]) {
     const llamadas = [];

@@ -38,6 +38,15 @@ dependen de las competencias acreditadas; hoy la fuente gobernada responde
 `sin_fuente`. `clienteRectificacion` y `clienteRectificacionAdmin` siguen sin
 inyectarse, por lo que la rectificación D7c no está disponible en esta vista.
 
+Al abrir, la vista consulta una vez `clienteCircuito.competencias({ signal })`.
+Si falla la lectura, muestra el error junto a las pestañas y permite reintentar
+solo esa consulta. La bandeja de documentos propios permanece disponible y no
+se consulta ninguna bandeja del circuito hasta recibir etapas acreditadas. Dos
+clics durante la carga comparten la misma lectura; al desmontar se cancela.
+La denegación muestra «sin permiso» sin invitar a repetir la consulta. Las
+respuestas `sin_fuente` o con etapas vacías mantienen el recorrido propio sin
+mostrar un error ni crear pestañas de circuito.
+
 `clienteBorradores` usa `/api/vec/dietas/comisiones` para alta, consulta,
 edición, borrado lógico y envío. POST crea cabecera v1; PUT conserva documento
 v2 con vehículo propio, rutas independientes, ajustes motivados, otros conceptos

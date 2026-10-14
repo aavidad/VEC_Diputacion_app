@@ -79,7 +79,7 @@ func (t TarifaComisionProvisional) ReferenciasNormativasValidas() bool {
 
 func (c CalculoComision) Validar(codigos []string) error {
 	if c.Procedencia != "osrm_interno" || c.VersionGrafo == "" || len(c.VersionGrafo) > 160 || c.Motor != "OSRM" ||
-		!versionTarifaProvisional.MatchString(c.VersionTarifa) || c.Rotulo != RotuloTarifaProvisional ||
+		!metadatosTarifaComisionValidos(c.VersionTarifa, c.Rotulo, c.ReglaRef, c.ReglaHuellaSHA256) ||
 		!horaCivil(c.HoraInicio) || !horaCivil(c.HoraFin) || !decimalRuta.MatchString(c.Kilometros) ||
 		!decimalTarifa.MatchString(c.EURPorKM) || c.ImporteKilometrajeCentimos < 0 ||
 		len(c.TramosRuta) != len(codigos)-1 || len(c.TramosRuta) < 1 || len(c.OpcionesDieta) != 3 {
@@ -105,10 +105,7 @@ func (c CalculoComision) Validar(codigos []string) error {
 }
 
 func (c CalculoComision) validarOpciones() error {
-	if (c.ReglaRef == "") != (c.ReglaHuellaSHA256 == "") {
-		return ErrCalculoComisionInvalido
-	}
-	if c.ReglaRef != "" && (!referenciaReglaProvisional.MatchString(c.ReglaRef) || !huellaReglaProvisional.MatchString(c.ReglaHuellaSHA256)) {
+	if !metadatosTarifaComisionValidos(c.VersionTarifa, c.Rotulo, c.ReglaRef, c.ReglaHuellaSHA256) {
 		return ErrCalculoComisionInvalido
 	}
 	if len(c.OpcionesDieta) != 3 {

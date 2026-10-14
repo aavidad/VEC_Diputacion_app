@@ -483,3 +483,74 @@ test("el error junto al motivo distingue aprobación inválida de devolución in
     vista.desmontar();
   }
 });
+
+test('liquidación desactiva la aprobación antigua y monta la propuesta cuando recibe cliente económico', async () => {
+  const contenedor = raiz(); const local = { ...fila, estado: 'pendiente_liquidacion' };
+  const leido = { ...documentoLeido, estado: 'pendiente_liquidacion' }; let decisiones = 0; let consultas = 0;
+  const cliente = { listar: async () => ({ items: [local], competencia: 'acreditada' }), documento: async () => leido,
+    decidir: async () => { decisiones++; throw new Error('POST antiguo'); } };
+  const panelSin = montarVistaBandejaCircuitoDietas(contenedor, { cliente, etapaInicial: 'liquidacion' });
+  await esperar(); const raizPanel = contenedor.querySelector('[data-dietas-bandeja-circuito]');
+  await raizPanel.listeners.click({ target: raizPanel.querySelector('[data-dietas-circuito-abrir]') });
+  const aprobar = raizPanel.querySelector('[data-dietas-circuito-decision="aprobar"]');
+  assert.equal(aprobar, null);
+  assert.match(texto(raizPanel), /no está disponible/u);
+  assert.equal(decisiones, 0);
+  panelSin.desmontar();
+
+  const clienteLiquidacion = { propuesta: async () => { consultas++; return {
+    catalogo: { referencia: 'cat', version: 'v1', publicacion_ref: 'pub', fecha_publicacion: '2026-01-01', version_tarifa_ref: 'tarifa-v1', vigente_desde: '2026-01-01', vigente_hasta: '2026-12-31', ambito: 'España', grupo: 2,
+      normas: [{ referencia: 'RD', articulo: 'art. 1', url: 'https://example.invalid' }], reglas: [{ referencia: 'r1', tipo: 'dieta', concepto: 'manutencion' }] },
+    lineas: [{ indice: 0, regla_ref: 'r1', original_centimos: 1000, calculado_publicado_centimos: 1000, diferencia_centimos: 0, reconocido_propuesto_centimos: 1000, rechazado_centimos: 0, motivo_codigo: '' }],
+    totales: { original_centimos: 1000, calculado_publicado_centimos: 1000, diferencia_centimos: 0, reconocido_propuesto_centimos: 1000, rechazado_centimos: 0 }, decision_pendiente: false }; },
+    registrar: async () => assert.fail('POST sin revisión'), leer: async () => assert.fail('GET inesperado') };
+  const panelCon = montarVistaBandejaCircuitoDietas(contenedor, { cliente, clienteLiquidacion, etapaInicial: 'liquidacion' });
+  await esperar(); const segunda = contenedor.querySelector('[data-dietas-bandeja-circuito]');
+  await segunda.listeners.click({ target: segunda.querySelector('[data-dietas-circuito-abrir]') });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(consultas, 1); assert.ok(segunda.querySelector('[data-dietas-liquidacion]'));
+  assert.equal(segunda.querySelector('[data-dietas-circuito-decision="aprobar"]'), null);
+  panelCon.desmontar();
+});
+
+test('mientras se registra la liquidación no permite devolver ni salir; tras el recibo oculta la decisión anterior', async () => {
+  const contenedor = raiz(); const local = { ...fila, estado: 'pendiente_liquidacion' }; let resolver; let decisiones = 0;
+  const cliente = { listar: async () => ({ items: [local], competencia: 'acreditada' }), documento: async () => ({ ...documentoLeido, estado: 'pendiente_liquidacion' }),
+    decidir: async () => { decisiones++; throw Error('decisión antigua'); } };
+  const propuesta = { catalogo: { referencia: 'cat', version: 'v1', publicacion_ref: 'pub', fecha_publicacion: '2026-01-01', version_tarifa_ref: 'tarifa-v1', vigente_desde: '2026-01-01', vigente_hasta: '2026-12-31', ambito: 'España', grupo: 2,
+    normas: [{ referencia: 'RD', articulo: 'art. 1', url: 'https://example.invalid' }], reglas: [{ referencia: 'r1', tipo: 'dieta', concepto: 'manutencion' }] },
+    lineas: [{ indice: 0, regla_ref: 'r1', original_centimos: 1000, calculado_publicado_centimos: 1000, diferencia_centimos: 0, reconocido_propuesto_centimos: 1000, rechazado_centimos: 0, motivo_codigo: '' }],
+    totales: { original_centimos: 1000, calculado_publicado_centimos: 1000, diferencia_centimos: 0, reconocido_propuesto_centimos: 1000, rechazado_centimos: 0 }, decision_pendiente: false };
+  const vista = montarVistaBandejaCircuitoDietas(contenedor, { cliente, clienteLiquidacion: { propuesta: async () => propuesta, registrar: async () => new Promise((resolve) => { resolver = resolve; }), leer: async () => ({}) }, etapaInicial: 'liquidacion', generarClaveIdempotencia: () => 'liquidacion-solicitud-0001' });
+  await esperar(); const panel = contenedor.querySelector('[data-dietas-bandeja-circuito]');
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-abrir]') });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const economica = panel.querySelector('[data-dietas-liquidacion]');
+  await economica.listeners.click({ target: economica.querySelector('[data-dietas-liquidacion-accion="revisar"]') });
+  const registro = economica.listeners.click({ target: economica.querySelector('[data-dietas-liquidacion-accion="confirmar"]') });
+  assert.equal(panel.querySelector('[data-dietas-circuito-decision="devolver"]').disabled, true);
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="devolver"]') });
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-volver]') });
+  assert.equal(decisiones, 0); assert.equal(panel.querySelector('[data-dietas-circuito-detalle]').hidden, false);
+  resolver({ constancia: { recibo_ref: 'recibo-real', fecha: '2026-10-14T10:00:00Z', version_resultante: 4 }, economia: propuesta }); await registro;
+  assert.equal(panel.querySelector('[data-dietas-circuito-decision="devolver"]').parent.parent.hidden, true);
+  assert.match(texto(economica), /recibo-real/u); vista.desmontar();
+});
+
+test('fiscalización consulta la última liquidación durable por GET sin nueva propuesta ni POST', async () => {
+  const contenedor = raiz(); let lecturas = 0;
+  const itemFiscal = { ...fila, estado: 'pendiente_fiscalizacion', version: 4 };
+  const cliente = { listar: async () => ({ items: [itemFiscal], competencia: 'acreditada' }),
+    documento: async () => ({ ...documentoLeido, estado: 'pendiente_fiscalizacion', version: 4 }),
+    decidir: async () => assert.fail('POST circuito') };
+  const vista = montarVistaBandejaCircuitoDietas(contenedor, { cliente, etapaInicial: 'fiscalizacion',
+    clienteLiquidacion: { leer: async (ref, version) => { lecturas++; assert.equal(ref, referencia); assert.equal(version, 'actual');
+      return { constancia: { numero_documento: 'VEC-D-2026-000012', recibo_ref: 'recibo-fiscalizacion-real',
+        fecha: '2026-10-14T10:00:00Z', version_resultante: 4 }, economia: { totales: { reconocido_propuesto_centimos: 1000 } } }; } } });
+  await esperar(); const panel = contenedor.querySelector('[data-dietas-bandeja-circuito]');
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-abrir]') });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(lecturas, 1); assert.match(texto(panel), /recibo-fiscalizacion-real/u);
+  assert.equal(panel.querySelector('[data-dietas-liquidacion-accion="confirmar"]'), null);
+  vista.desmontar();
+});

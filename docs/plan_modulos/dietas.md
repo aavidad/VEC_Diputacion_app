@@ -1,12 +1,40 @@
 # Dietas: continuación del módulo
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+**En curso por encargo de dirección del 14/10/2026, equipo D.** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
-Plan de 7 de octubre de 2026. Dietas se reanuda para completar la solicitud, la
-justificación, la decisión y la liquidación de comisiones de servicio. La principal
-de cidonia queda congelada en este encargo: este plan no acredita instalación,
-activación ni uso allí. Solo se trabajará con datos sintéticos hasta las
-autorizaciones formales.
+Plan de 7 de octubre, actualizado el 14 de octubre de 2026. Dietas se reanuda
+para completar la solicitud, la justificación, la decisión y la liquidación de
+comisiones de servicio. Se ensaya en una copia local propia del respaldo HZ37.
+Dirección reúne la candidata y conserva la instalación de cidonia; este plan no
+acredita activación ni uso allí. Solo se trabaja con personas ficticias.
+
+## Reanudación del 14 de octubre
+
+La liquidación la aprobará el perfil fijo asignado por Administración, con
+registro y ámbito propio. El catálogo configurable citará las Bases de
+ejecución de 2026, artículo 30. El efecto conservará instantánea económica,
+estado, versión, historia, auditoría y recibo en la misma transacción. PDF y
+Word se generarán desde esa instantánea y quedarán pendientes de firma hasta
+conectar el circuito común. Los justificantes se subirán desde la comisión y
+se custodiarán en Documentos. Se reutiliza la relación y adscripción a fecha
+que publica Personal; no se abre la asignación completa pendiente.
+
+El inventario de la copia encontró Dietas 000001–000008 y la asignación R1D
+retirada, sin comisiones. El incremental se detuvo en la guarda de AD75 porque
+el entorno de sus funciones ya estaba endurecido. La sucesora AD268 conserva
+ese entorno y adapta únicamente las listas cerradas de campos. AD268 y Dietas
+000009–000011 se instalaron una vez en la copia; dos revisiones independientes
+dieron GO a AD268 en `58cdfe06f`. El paquete antiguo F4b intenta revivir aquella
+asignación y AUT22 lo rechaza: no se confirma ni se cambia esa guarda.
+Dirección autorizó después recrear los datos ficticios directamente en la copia
+propia; el ensayo continúa sin esperar al kit de Administración.
+
+Los primeros cortes aíslan la configuración defectuosa de Dietas del arranque
+común y permiten reintentar la consulta de competencias sin perder los
+documentos propios. La prueba focal del shell, los textos y la renovación de
+caché pasan; el arranque completo y el recorrido en Chrome siguen pendientes.
+El guion y los límites observados están en
+[candidata_dietas](../../deploy/principal/candidata_dietas/LEEME.md).
 
 ## Fuentes y decisiones que mandan
 

@@ -47,12 +47,16 @@ type LineaLiquidacionPropuesta struct {
 	Indice                      int    `json:"indice"`
 	ReglaRef                    string `json:"regla_ref"`
 	OriginalCentimos            int64  `json:"original_centimos"`
+	CalculadoPublicadoCentimos  int64  `json:"calculado_publicado_centimos,omitempty"`
+	DiferenciaCentimos          int64  `json:"diferencia_centimos,omitempty"`
 	ReconocidoPropuestoCentimos int64  `json:"reconocido_propuesto_centimos"`
 	RechazadoCentimos           int64  `json:"rechazado_centimos"`
 	MotivoCodigo                string `json:"motivo_codigo"`
 }
 type TotalesLiquidacionPropuesta struct {
 	OriginalCentimos            int64 `json:"original_centimos"`
+	CalculadoPublicadoCentimos  int64 `json:"calculado_publicado_centimos,omitempty"`
+	DiferenciaCentimos          int64 `json:"diferencia_centimos,omitempty"`
 	ReconocidoPropuestoCentimos int64 `json:"reconocido_propuesto_centimos"`
 	RechazadoCentimos           int64 `json:"rechazado_centimos"`
 }
@@ -112,109 +116,9 @@ func PrepararLiquidacion(ref string, version int64, documentoSHA string, d Docum
 	if err != nil || h != documentoSHA {
 		return nil, ErrPreparacionLiquidacion
 	}
-	reglas := map[string]ReglaLiquidacionPropuesta{}
-	for _, r := range c.Reglas {
-		reglas[r.Referencia] = r
-	}
-	indices := map[int]bool{}
-	lineas := make([]LineaLiquidacionPropuesta, len(d.Lineas))
-	var totales TotalesLiquidacionPropuesta
-	var manutencion, km, otros int64
-	var kilometrosEscalados int64
-	tramos := make([]int, 0)
-	rutas := 0
-	otrosLineas := 0
-	for _, v := range revisiones {
-		if v.Indice < 0 || v.Indice >= len(d.Lineas) || indices[v.Indice] {
-			return nil, ErrPreparacionLiquidacion
-		}
-		indices[v.Indice] = true
-		l := d.Lineas[v.Indice]
-		r, ok := reglas[v.ReglaRef]
-		if !ok || l.ImporteCentimos < 0 || v.ReconocidoPropuestoCentimos < 0 || v.ReconocidoPropuestoCentimos > l.ImporteCentimos || l.Tipo != r.Tipo {
-			return nil, ErrPreparacionLiquidacion
-		}
-		if v.ReconocidoPropuestoCentimos < l.ImporteCentimos {
-			if !codigoMotivoLiquidacion.MatchString(v.MotivoCodigo) {
-				return nil, ErrPreparacionLiquidacion
-			}
-		} else if v.MotivoCodigo != "" {
-			return nil, ErrPreparacionLiquidacion
-		}
-		limite := r.TopeCentimos
-		switch l.Tipo {
-		case "dieta":
-			if l.Concepto != "manutencion" || r.Concepto != l.Concepto || l.Grupo != int(d.GrupoDieta) || r.Grupo != l.Grupo || l.VersionTarifaRef != c.VersionTarifaRef || l.IndiceTramo == nil || *l.IndiceTramo < 0 || *l.IndiceTramo >= 62 || !fechaCivilValida(l.Fecha) {
-				return nil, ErrPreparacionLiquidacion
-			}
-			if !sumarLiquidacion(&manutencion, l.ImporteCentimos) {
-				return nil, ErrPreparacionLiquidacion
-			}
-		case "kilometraje":
-			if !d.VehiculoPropio || l.VersionTarifaRef != c.VersionTarifaRef || !referenciaJustificante.MatchString(l.VersionGrafo) || !codigoRuta.MatchString(l.OrigenCodigo) || !codigoRuta.MatchString(l.DestinoCodigo) || l.RutaIndice < 1 || l.RutaIndice > 8 {
-				return nil, ErrPreparacionLiquidacion
-			}
-			cantidad, err := decimal4(l.Kilometros)
-			if err != nil || cantidad <= 0 || cantidad > 10000*10000-kilometrosEscalados || cantidad > (math.MaxInt64-5000)/r.CentimosPorKM {
-				return nil, ErrPreparacionLiquidacion
-			}
-			// Cotejar la ruta importada con el contrato documental, sin consultar
-			// el grafo ni recalcular el importe original con otra tarifa.
-			base, err := decimal4(l.KilometrosBase)
-			if err != nil || base <= 0 || !ajusteTextoValido(l.AjusteKilometros, l.MotivoAjuste) {
-				return nil, ErrPreparacionLiquidacion
-			}
-			ajuste, _ := ajusteEscalado(l.AjusteKilometros)
-			if base+ajuste != cantidad {
-				return nil, ErrPreparacionLiquidacion
-			}
-			kilometrosEscalados += cantidad
-			limite = (cantidad*r.CentimosPorKM + 5000) / 10000
-			if !sumarLiquidacion(&km, l.ImporteCentimos) {
-				return nil, ErrPreparacionLiquidacion
-			}
-		case ClaseOtroMedio, ClaseOtroGasto:
-			otrosLineas++
-			if otrosLineas > 32 || l.TipoGasto != r.Concepto || l.CatalogoVersion != c.CatalogoOtrosGastosVersionRef || l.JustificanteRef == nil || l.JustificanteSHA256 == nil {
-				return nil, ErrPreparacionLiquidacion
-			}
-			gasto := OtroGastoDeclarado{Tipo: l.Tipo, Concepto: l.Concepto, ImporteCentimos: l.ImporteCentimos, JustificanteRef: *l.JustificanteRef, JustificanteSHA256: *l.JustificanteSHA256, TipoGasto: l.TipoGasto, CatalogoVersion: l.CatalogoVersion, Fecha: l.Fecha}
-			if gasto.validarComun() != nil || !sumarLiquidacion(&otros, l.ImporteCentimos) {
-				return nil, ErrPreparacionLiquidacion
-			}
-		default:
-			return nil, ErrPreparacionLiquidacion
-		}
-		if v.ReconocidoPropuestoCentimos > limite {
-			return nil, ErrPreparacionLiquidacion
-		}
-		rechazo := l.ImporteCentimos - v.ReconocidoPropuestoCentimos
-		if !sumarLiquidacion(&totales.OriginalCentimos, l.ImporteCentimos) || !sumarLiquidacion(&totales.ReconocidoPropuestoCentimos, v.ReconocidoPropuestoCentimos) || !sumarLiquidacion(&totales.RechazadoCentimos, rechazo) {
-			return nil, ErrPreparacionLiquidacion
-		}
-		lineas[v.Indice] = LineaLiquidacionPropuesta{v.Indice, v.ReglaRef, l.ImporteCentimos, v.ReconocidoPropuestoCentimos, rechazo, v.MotivoCodigo}
-	}
-	// Validar índices en orden documental, independientemente del orden de revisión.
-	tramos = tramos[:0]
-	rutas = 0
-	for _, l := range d.Lineas {
-		if l.Tipo == "dieta" {
-			tramos = append(tramos, *l.IndiceTramo)
-		}
-		if l.Tipo == "kilometraje" {
-			rutas++
-			if l.RutaIndice != rutas {
-				return nil, ErrPreparacionLiquidacion
-			}
-		}
-	}
-	if len(tramos) != len(d.TramosAceptados) || d.AlojamientoTopeCentimos != 0 || manutencion != d.ManutencionCentimos || km != d.KilometrajeCentimos || otros != d.OtrosCentimos || totales.OriginalCentimos != d.TotalOrientativoCentimos || totales.ReconocidoPropuestoCentimos > math.MaxInt64-totales.RechazadoCentimos || totales.ReconocidoPropuestoCentimos+totales.RechazadoCentimos != totales.OriginalCentimos {
-		return nil, ErrPreparacionLiquidacion
-	}
-	for i, n := range tramos {
-		if n != d.TramosAceptados[i] || (i > 0 && n <= tramos[i-1]) {
-			return nil, ErrPreparacionLiquidacion
-		}
+	lineas, totales, err := calcularLineasLiquidacion(d, c.VersionTarifaRef, c.CatalogoOtrosGastosVersionRef, c.Reglas, revisiones, func(g OtroGastoDeclarado) error { return g.validarComun() })
+	if err != nil {
+		return nil, err
 	}
 	catSHA, err := HuellaDatosLiquidacion(c)
 	if err != nil {
@@ -227,6 +131,119 @@ func PrepararLiquidacion(ref string, version int64, documentoSHA string, d Docum
 	}
 	return &PreparacionLiquidacion{s}, nil
 }
+
+// calcularLineasLiquidacion comparte la aritmética documental entre la
+// propuesta local y la preparación con catálogo publicado.
+func calcularLineasLiquidacion(d DocumentoComision, versionTarifa, versionOtros string, reglasEntrada []ReglaLiquidacionPropuesta, revisiones []RevisionLineaLiquidacion, validarOtro func(OtroGastoDeclarado) error) ([]LineaLiquidacionPropuesta, TotalesLiquidacionPropuesta, error) {
+	reglas := map[string]ReglaLiquidacionPropuesta{}
+	for _, r := range reglasEntrada {
+		reglas[r.Referencia] = r
+	}
+	indices := map[int]bool{}
+	lineas := make([]LineaLiquidacionPropuesta, len(d.Lineas))
+	var totales TotalesLiquidacionPropuesta
+	var manutencion, km, otros int64
+	var kilometrosEscalados int64
+	tramos := make([]int, 0)
+	rutas := 0
+	otrosLineas := 0
+	for _, v := range revisiones {
+		if v.Indice < 0 || v.Indice >= len(d.Lineas) || indices[v.Indice] {
+			return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+		}
+		indices[v.Indice] = true
+		l := d.Lineas[v.Indice]
+		r, ok := reglas[v.ReglaRef]
+		if !ok || l.ImporteCentimos < 0 || v.ReconocidoPropuestoCentimos < 0 || v.ReconocidoPropuestoCentimos > l.ImporteCentimos || l.Tipo != r.Tipo {
+			return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+		}
+		if v.ReconocidoPropuestoCentimos < l.ImporteCentimos {
+			if !codigoMotivoLiquidacion.MatchString(v.MotivoCodigo) {
+				return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+			}
+		} else if v.MotivoCodigo != "" {
+			return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+		}
+		limite := r.TopeCentimos
+		switch l.Tipo {
+		case "dieta":
+			if l.Concepto != "manutencion" || r.Concepto != l.Concepto || l.Grupo != int(d.GrupoDieta) || r.Grupo != l.Grupo || l.VersionTarifaRef != versionTarifa || l.IndiceTramo == nil || *l.IndiceTramo < 0 || *l.IndiceTramo >= 62 || !fechaCivilValida(l.Fecha) {
+				return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+			}
+			if !sumarLiquidacion(&manutencion, l.ImporteCentimos) {
+				return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+			}
+		case "kilometraje":
+			if !d.VehiculoPropio || l.VersionTarifaRef != versionTarifa || !referenciaJustificante.MatchString(l.VersionGrafo) || !codigoRuta.MatchString(l.OrigenCodigo) || !codigoRuta.MatchString(l.DestinoCodigo) || l.RutaIndice < 1 || l.RutaIndice > 8 {
+				return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+			}
+			cantidad, err := decimal4(l.Kilometros)
+			if err != nil || cantidad <= 0 || cantidad > 10000*10000-kilometrosEscalados || cantidad > (math.MaxInt64-5000)/r.CentimosPorKM {
+				return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+			}
+			// Cotejar la ruta importada con el contrato documental, sin consultar
+			// el grafo ni recalcular el importe original con otra tarifa.
+			base, err := decimal4(l.KilometrosBase)
+			if err != nil || base <= 0 || !ajusteTextoValido(l.AjusteKilometros, l.MotivoAjuste) {
+				return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+			}
+			ajuste, _ := ajusteEscalado(l.AjusteKilometros)
+			if base+ajuste != cantidad {
+				return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+			}
+			kilometrosEscalados += cantidad
+			limite = (cantidad*r.CentimosPorKM + 5000) / 10000
+			if !sumarLiquidacion(&km, l.ImporteCentimos) {
+				return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+			}
+		case ClaseOtroMedio, ClaseOtroGasto:
+			otrosLineas++
+			if otrosLineas > 32 || l.TipoGasto != r.Concepto || l.CatalogoVersion != versionOtros || l.JustificanteRef == nil || l.JustificanteSHA256 == nil {
+				return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+			}
+			gasto := OtroGastoDeclarado{Tipo: l.Tipo, Concepto: l.Concepto, ImporteCentimos: l.ImporteCentimos, JustificanteRef: *l.JustificanteRef, JustificanteSHA256: *l.JustificanteSHA256, TipoGasto: l.TipoGasto, CatalogoVersion: l.CatalogoVersion, Fecha: l.Fecha}
+			if validarOtro(gasto) != nil || !sumarLiquidacion(&otros, l.ImporteCentimos) {
+				return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+			}
+		default:
+			return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+		}
+		if v.ReconocidoPropuestoCentimos > limite {
+			return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+		}
+		rechazo := l.ImporteCentimos - v.ReconocidoPropuestoCentimos
+		if !sumarLiquidacion(&totales.OriginalCentimos, l.ImporteCentimos) || !sumarLiquidacion(&totales.ReconocidoPropuestoCentimos, v.ReconocidoPropuestoCentimos) || !sumarLiquidacion(&totales.RechazadoCentimos, rechazo) {
+			return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+		}
+		lineas[v.Indice] = LineaLiquidacionPropuesta{Indice: v.Indice, ReglaRef: v.ReglaRef,
+			OriginalCentimos: l.ImporteCentimos, ReconocidoPropuestoCentimos: v.ReconocidoPropuestoCentimos,
+			RechazadoCentimos: rechazo, MotivoCodigo: v.MotivoCodigo}
+	}
+	// Validar índices en orden documental, independientemente del orden de revisión.
+	tramos = tramos[:0]
+	rutas = 0
+	for _, l := range d.Lineas {
+		if l.Tipo == "dieta" {
+			tramos = append(tramos, *l.IndiceTramo)
+		}
+		if l.Tipo == "kilometraje" {
+			rutas++
+			if l.RutaIndice != rutas {
+				return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+			}
+		}
+	}
+	if len(tramos) != len(d.TramosAceptados) || d.AlojamientoTopeCentimos != 0 || manutencion != d.ManutencionCentimos || km != d.KilometrajeCentimos || otros != d.OtrosCentimos || totales.OriginalCentimos != d.TotalOrientativoCentimos || totales.ReconocidoPropuestoCentimos > math.MaxInt64-totales.RechazadoCentimos || totales.ReconocidoPropuestoCentimos+totales.RechazadoCentimos != totales.OriginalCentimos {
+		return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+	}
+	for i, n := range tramos {
+		if n != d.TramosAceptados[i] || (i > 0 && n <= tramos[i-1]) {
+			return nil, TotalesLiquidacionPropuesta{}, ErrPreparacionLiquidacion
+		}
+	}
+	return lineas, totales, nil
+}
+
 func validarCatalogoLiquidacion(c CatalogoLiquidacionPropuesta) error {
 	if !referenciaJustificante.MatchString(c.Referencia) || !referenciaJustificante.MatchString(c.Version) || !referenciaJustificante.MatchString(c.VersionTarifaRef) || c.PaisISO2 != "ES" || c.Ambito != "nacional_ordinario_sin_alojamiento" || c.Procedencia != "ejemplo_retirable_sin_aprobacion" || len(c.Reglas) < 1 || len(c.Reglas) > 32 || len(c.Fuentes) < 1 || len(c.Fuentes) > 8 {
 		return ErrPreparacionLiquidacion

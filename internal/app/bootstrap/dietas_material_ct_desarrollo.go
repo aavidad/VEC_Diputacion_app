@@ -11,17 +11,18 @@ import personalports "vec-diputacion-granada/internal/modules/personal/ports"
 // prefijo propios, bajo la misma raíz y el mismo publicador.
 
 const (
-	audienciaConsumoPersonalDietasDesarrollo  = "vec_personal.relacion_propia.consultar_dietas.v1"
-	audienciaConsumoCrearDietasDesarrollo     = "vec_dietas.borrador_propio.crear.v1"
-	audienciaConsumoConsultarDietasDesarrollo = "vec_dietas.borrador_propio.consultar.v1"
-	audienciaConsumoEditarDietasDesarrollo    = "vec_dietas.borrador_propio.editar.v1"
-	audienciaConsumoBorrarDietasDesarrollo    = "vec_dietas.borrador_propio.borrar.v1"
-	audienciaConsumoEnviarDietasDesarrollo    = "vec_dietas.borrador_propio.enviar.v1"
-	audienciaConsumoDocumentoDietasDesarrollo = "vec_dietas.documento_propio.consultar.v1"
-	audienciaConsumoConsultarAsignacionDietas = "vec_personal.asignacion_dietas.consultar.v1"
-	audienciaConsumoRegistrarAsignacionDietas = "vec_personal.asignacion_dietas.registrar_inicial.v1"
-	audienciaConsumoCorregirAsignacionDietas  = "vec_personal.asignacion_dietas.corregir.v1"
-	audienciaConsumoCorregirGrupoDietas       = "vec_personal.asignacion_dietas.grupo_corregir.v1"
+	audienciaConsumoPersonalDietasDesarrollo        = "vec_personal.relacion_propia.consultar_dietas.v1"
+	audienciaConsumoCrearDietasDesarrollo           = "vec_dietas.borrador_propio.crear.v1"
+	audienciaConsumoConsultarDietasDesarrollo       = "vec_dietas.borrador_propio.consultar.v1"
+	audienciaConsumoEditarDietasDesarrollo          = "vec_dietas.borrador_propio.editar.v1"
+	audienciaConsumoBorrarDietasDesarrollo          = "vec_dietas.borrador_propio.borrar.v1"
+	audienciaConsumoEnviarDietasDesarrollo          = "vec_dietas.borrador_propio.enviar.v1"
+	audienciaConsumoDocumentoDietasDesarrollo       = "vec_dietas.documento_propio.consultar.v1"
+	audienciaConsumoConsultarAsignacionDietas       = "vec_personal.asignacion_dietas.consultar.v1"
+	audienciaConsumoConsultarAsignacionPropiaDietas = "vec_personal.asignacion_dietas.propia.consultar.v1"
+	audienciaConsumoRegistrarAsignacionDietas       = "vec_personal.asignacion_dietas.registrar_inicial.v1"
+	audienciaConsumoCorregirAsignacionDietas        = "vec_personal.asignacion_dietas.corregir.v1"
+	audienciaConsumoCorregirGrupoDietas             = "vec_personal.asignacion_dietas.grupo_corregir.v1"
 	// Circuito de revisión: una audiencia por acción y por bandeja.
 	audienciaConsumoRevisarDietas              = "vec_dietas.documento.revisar.v1"
 	audienciaConsumoAutorizarDietas            = "vec_dietas.documento.autorizar.v1"
@@ -32,6 +33,7 @@ const (
 	audienciaConsumoBandejaLiquidacionDietas   = "vec_dietas.bandeja.liquidacion.consultar.v1"
 	audienciaConsumoBandejaFiscalizacionDietas = "vec_dietas.bandeja.fiscalizacion.consultar.v1"
 	audienciaConsumoRevisorDocumentoDietas     = "vec_dietas.circuito.documento.consultar.v1"
+	audienciaConsumoLiquidacionEconomicaDietas = "vec_dietas.liquidacion_economica.registrar.v1"
 )
 
 // audienciasCircuitoDietasDesarrollo enumera las audiencias del circuito en
@@ -42,10 +44,20 @@ func audienciasCircuitoDietasDesarrollo() []string {
 		audienciaConsumoRevisorDocumentoDietas}
 }
 
+func descriptorMaterialLiquidacionEconomicaDietas() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        audienciaConsumoLiquidacionEconomicaDietas,
+		Dominio:          "vec.dietas.liquidacion-economica.registrar.desarrollo.capacidad-v3",
+		Prefijo:          "clave:capacidad:dietas-liquidacion-economica:",
+		ProveedorNominal: "proveedor-material-dietas-liquidacion-economica",
+	}
+}
+
 // materialDietasDesdeCTDesarrollo transporta proveedores nominales gobernados
 // desde la composición de Contratación. No expone claves.
 type materialDietasDesdeCTDesarrollo struct {
 	personal, crear, consultar *proveedorMaterialAltaContratacionTemporalDesarrollo
+	rutas                      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	adicionales                map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
 }
 
@@ -53,7 +65,7 @@ func (m materialDietasDesdeCTDesarrollo) completo() bool {
 	if m.personal == nil || m.crear == nil || m.consultar == nil {
 		return false
 	}
-	for _, audiencia := range append([]string{audienciaConsumoEditarDietasDesarrollo, audienciaConsumoBorrarDietasDesarrollo, audienciaConsumoEnviarDietasDesarrollo, audienciaConsumoDocumentoDietasDesarrollo, audienciaConsumoConsultarAsignacionDietas, audienciaConsumoRegistrarAsignacionDietas, audienciaConsumoCorregirAsignacionDietas, audienciaConsumoCorregirGrupoDietas}, audienciasCircuitoDietasDesarrollo()...) {
+	for _, audiencia := range append([]string{audienciaConsumoEditarDietasDesarrollo, audienciaConsumoBorrarDietasDesarrollo, audienciaConsumoEnviarDietasDesarrollo, audienciaConsumoDocumentoDietasDesarrollo, audienciaConsumoConsultarAsignacionDietas, audienciaConsumoConsultarAsignacionPropiaDietas, audienciaConsumoRegistrarAsignacionDietas, audienciaConsumoCorregirAsignacionDietas, audienciaConsumoCorregirGrupoDietas}, audienciasCircuitoDietasDesarrollo()...) {
 		if m.adicionales[audiencia] == nil {
 			return false
 		}
@@ -73,6 +85,7 @@ func descriptoresMaterialDietasDesarrollo() []descriptorMaterialConsumidorV3Desa
 		{Audiencia: audienciaConsumoEnviarDietasDesarrollo, Dominio: "vec.dietas.borrador-propio.enviar.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:dietas-enviar:", ProveedorNominal: "proveedor-material-dietas-enviar"},
 		{Audiencia: audienciaConsumoDocumentoDietasDesarrollo, Dominio: "vec.dietas.documento-propio.consultar.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:dietas-documento-consultar:", ProveedorNominal: "proveedor-material-dietas-documento-consultar"},
 		{Audiencia: audienciaConsumoConsultarAsignacionDietas, Dominio: "vec.personal.asignacion-dietas.consultar.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-asignacion-consultar:", ProveedorNominal: "proveedor-material-personal-asignacion-consultar"},
+		{Audiencia: audienciaConsumoConsultarAsignacionPropiaDietas, Dominio: "vec.personal.asignacion-dietas.propia-consultar.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-asignacion-propia-consultar:", ProveedorNominal: "proveedor-material-personal-asignacion-propia-consultar"},
 		{Audiencia: audienciaConsumoRegistrarAsignacionDietas, Dominio: "vec.personal.asignacion-dietas.registrar-inicial.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-asignacion-registrar:", ProveedorNominal: "proveedor-material-personal-asignacion-registrar"},
 		{Audiencia: audienciaConsumoCorregirAsignacionDietas, Dominio: "vec.personal.asignacion-dietas.corregir.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-asignacion-corregir:", ProveedorNominal: "proveedor-material-personal-asignacion-corregir"},
 		{Audiencia: audienciaConsumoCorregirGrupoDietas, Dominio: "vec.personal.asignacion-dietas.grupo-corregir.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:personal-asignacion-grupo:", ProveedorNominal: "proveedor-material-personal-asignacion-grupo"},

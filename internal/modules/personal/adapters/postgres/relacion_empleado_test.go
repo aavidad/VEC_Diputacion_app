@@ -174,6 +174,38 @@ func TestRepositorioPropioTransaccionYEnvelope(t *testing.T) {
 		t.Fatal("sql distinto")
 	}
 }
+
+func TestRepositorioPropioNormalizaInstantePostgreSQLSinCambiarVigencia(t *testing.T) {
+	o := ordenP(t)
+	for _, caso := range []struct {
+		nombre   string
+		instante time.Time
+		valido   bool
+	}{
+		{"instante vigente representado en zona local", o.Autorizacion.ResumenCapacidad().EmitidaEn().Add(time.Microsecond), true},
+		{"instante caducado representado en zona local", o.Autorizacion.ResumenCapacidad().ExpiraEn(), false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			fila := filaOk(t, o).(filaP)
+			fila.vals[5] = caso.instante.In(time.FixedZone("UTC+02", 2*60*60))
+			tx := &txP{fila: fila}
+			r, err := nuevoRepositorioRelacionEmpleadoPostgreSQL(&poolP{tx: tx})
+			if err != nil {
+				t.Fatal(err)
+			}
+			resultado, err := r.ConsultarRelacionesPropiasDietas(context.Background(), o)
+			if !caso.valido {
+				if !errors.Is(err, personalports.ErrRelacionEmpleadoNoDisponible) || tx.commits != 0 || tx.rollbacks != 1 {
+					t.Fatalf("instante caducado admitido: err=%v commits=%d", err, tx.commits)
+				}
+				return
+			}
+			if err != nil || tx.commits != 1 || resultado.Evidencia.ConsultadaEn.Location() != time.UTC || !resultado.Evidencia.ConsultadaEn.Equal(caso.instante) {
+				t.Fatalf("instante válido rechazado o alterado: err=%v commits=%d", err, tx.commits)
+			}
+		})
+	}
+}
 func TestRepositorioPropioRevierteYCierraErrores(t *testing.T) {
 	o := ordenP(t)
 	for _, c := range []struct {

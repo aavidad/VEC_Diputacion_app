@@ -31,6 +31,21 @@ function validarSolicitud(entrada) {
 }
 const REFERENCIA_JUSTIFICANTE = /^[A-Za-z][A-Za-z0-9:_-]{2,127}$/u;
 const HUELLA_JUSTIFICANTE = /^[a-f0-9]{64}$/u;
+const TARIFA_PROVISIONAL = /^provisional:[a-z0-9:-]{8,120}$/u;
+const TARIFA_PUBLICADA = /^tarifa:[A-Za-z0-9:_-]{3,120}$/u;
+const REGLA_PROVISIONAL = /^provisional:regla:[a-z0-9:-]{8,120}$/u;
+const REGLA_PUBLICADA = /^regla:[A-Za-z0-9:_-]{3,120}$/u;
+function tarifaValida(version) { return typeof version === "string" && (TARIFA_PROVISIONAL.test(version) ||
+  TARIFA_PUBLICADA.test(version) && !version.toLowerCase().includes("provisional")); }
+function metadatosTarifaValidos(calculo) {
+  if (!tarifaValida(calculo.version_tarifa)) return false;
+  if (TARIFA_PROVISIONAL.test(calculo.version_tarifa)) return textoVisible(calculo.rotulo, 160) &&
+    calculo.rotulo === calculo.rotulo.trim() && calculo.rotulo !== "dietas_tarifa_publicada" &&
+    (calculo.regla_ref === undefined && calculo.regla_huella_sha256 === undefined ||
+      REGLA_PROVISIONAL.test(calculo.regla_ref) && HUELLA_JUSTIFICANTE.test(calculo.regla_huella_sha256));
+  return calculo.rotulo === "dietas_tarifa_publicada" && REGLA_PUBLICADA.test(calculo.regla_ref) &&
+    HUELLA_JUSTIFICANTE.test(calculo.regla_huella_sha256);
+}
 const CLAVES_OTRO_GASTO = ["tipo", "tipo_gasto", "catalogo_version", "fecha", "concepto", "importe_centimos", "justificante_ref", "justificante_sha256"];
 // D5: al guardar, toda línea lleva tipo del catálogo, fecha y justificante
 // por referencia y huella; el servidor coteja además catálogo y fechas.
@@ -81,7 +96,7 @@ function validarMutacion(entrada, completa = false) {
   if (!Array.isArray(tramos_aceptados) || tramos_aceptados.length > 62 ||
       !tramos_aceptados.every((indice, posicion) => Number.isSafeInteger(indice) && indice >= 0 && indice < 62 &&
         (posicion === 0 || indice > tramos_aceptados[posicion - 1])) ||
-      !/^provisional:[a-z0-9:-]{8,120}$/u.test(version_tarifa_aceptada))
+      !tarifaValida(version_tarifa_aceptada))
     throw new TypeError("aceptación de tramos de Dietas no válida");
   return Object.freeze({ ...entrada, rutas: validarRutas(rutas, vehiculo_propio),
     tramos_aceptados: Object.freeze([...tramos_aceptados]),
@@ -89,7 +104,7 @@ function validarMutacion(entrada, completa = false) {
 }
 function validarRecibo(recibo) { if (!registro(recibo) || Object.keys(recibo).length !== 4 || !referencia(recibo.referencia, "rcd_") || !Number.isSafeInteger(recibo.version) || recibo.version < 1 || typeof recibo.registrado_en !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(recibo.registrado_en) || !Number.isFinite(Date.parse(recibo.registrado_en)) || typeof recibo.repeticion !== "boolean") throw new TypeError("recibo de Dietas incompatible"); return Object.freeze({ ...recibo }); }
 function validarCalculo(calculo,codigos,rutasDeclaradas,vehiculo,documento) {
-  if (!registro(calculo) || !/^provisional:[a-z0-9:-]{8,120}$/u.test(calculo.version_tarifa) ||
+  if (!registro(calculo) || !metadatosTarifaValidos(calculo) ||
       !/^\d{1,5}\.\d{4}$/u.test(calculo.kilometros) || !/^0\.\d{4}$/u.test(calculo.eur_por_km) ||
       !Number.isSafeInteger(calculo.importe_kilometraje_centimos) || calculo.importe_kilometraje_centimos < 0 ||
       !Array.isArray(calculo.tramos_ruta) || !Array.isArray(calculo.opciones_dieta) || calculo.opciones_dieta.length !== 3)
@@ -115,7 +130,11 @@ function validarCalculo(calculo,codigos,rutasDeclaradas,vehiculo,documento) {
       throw new TypeError("cálculo de comisión incompatible");
     calculo.tramos_ruta.forEach((tramo,i)=>{ if (tramo.origen_codigo!==codigos[i] || tramo.destino_codigo!==codigos[i+1] || !/^\d{1,5}\.\d{4}$/u.test(tramo.kilometros)) throw new TypeError("tramo de comisión incompatible"); });
   }
-  calculo.opciones_dieta.forEach((opcion,i)=>{ if (opcion.grupo!==i+1 || !registro(opcion.calculo) || !Array.isArray(opcion.calculo.tramos) || !Number.isSafeInteger(opcion.calculo.total_maximo_orientativo_centimos)) throw new TypeError("tramos de dieta incompatibles"); });
+  calculo.opciones_dieta.forEach((opcion,i)=>{ if (opcion.grupo!==i+1 || !registro(opcion.calculo) || !Array.isArray(opcion.calculo.tramos) || !Number.isSafeInteger(opcion.calculo.total_maximo_orientativo_centimos) ||
+      opcion.calculo.version_tarifa_ref !== calculo.version_tarifa || opcion.calculo.rotulo !== calculo.rotulo ||
+      (calculo.regla_ref !== undefined && (opcion.calculo.regla_ref !== calculo.regla_ref || opcion.calculo.regla_huella_sha256 !== calculo.regla_huella_sha256)) ||
+      opcion.calculo.tramos.some((tramo) => tramo.version_tarifa_ref !== calculo.version_tarifa || tramo.rotulo !== calculo.rotulo))
+    throw new TypeError("tramos de dieta incompatibles"); });
   return Object.freeze({ ...calculo, tramos_ruta:Object.freeze(calculo.tramos_ruta.map((tramo)=>Object.freeze({...tramo}))), opciones_dieta:Object.freeze(calculo.opciones_dieta.map((opcion)=>Object.freeze({...opcion,calculo:Object.freeze({...opcion.calculo,tramos:Object.freeze(opcion.calculo.tramos.map((tramo)=>Object.freeze({...tramo})))})}))) });
 }
 // Tras enviarla, la comisión recorre el circuito de revisión; la persona
@@ -153,7 +172,7 @@ function validarComision(comision) {
     if (!registro(documento) || !Array.isArray(documento.lineas) || documento.lineas.length > 256 ||
         typeof documento.vehiculo_propio !== "boolean" || documento.vehiculo_propio !== comision.vehiculo_propio ||
         ![1, 2, 3].includes(documento.grupo_dieta) ||
-        !/^provisional:[a-z0-9:-]{8,120}$/u.test(documento.version_tarifa_aceptada) ||
+        !tarifaValida(documento.version_tarifa_aceptada) ||
         !Array.isArray(documento.tramos_aceptados) || documento.tramos_aceptados.length > 62 ||
         !documento.tramos_aceptados.every((indice, posicion) => Number.isSafeInteger(indice) && indice >= 0 && indice < 62 &&
           (posicion === 0 || indice > documento.tramos_aceptados[posicion - 1])) ||
@@ -181,7 +200,9 @@ function validarComision(comision) {
       if (linea.tipo === "kilometraje") {
         kilometrajes += 1;
         if (!Number.isSafeInteger(linea.ruta_indice) || linea.ruta_indice !== kilometrajes ||
-            !/^\d{1,5}\.\d{4}$/u.test(linea.kilometros)) throw new TypeError("kilometraje incompatible");
+            !/^\d{1,5}\.\d{4}$/u.test(linea.kilometros) ||
+            linea.version_tarifa_ref !== comision.calculo?.version_tarifa || linea.rotulo !== comision.calculo?.rotulo)
+          throw new TypeError("kilometraje incompatible");
         totalKM += linea.importe_centimos;
       } else if (linea.tipo === "otro_medio" || linea.tipo === "otro_gasto") {
         // Las líneas anteriores a D5 no tienen tipo ni fecha y su justificante
@@ -201,7 +222,8 @@ function validarComision(comision) {
         const tramo = tramosGrupo[indice];
         if (linea.grupo !== documento.grupo_dieta || !fechaCivil(linea.fecha) ||
             linea.indice_tramo !== indice || tramo?.fecha !== linea.fecha ||
-            tramo?.importe_centimos !== linea.importe_centimos || tramo?.tipo !== linea.concepto)
+            tramo?.importe_centimos !== linea.importe_centimos || tramo?.tipo !== linea.concepto ||
+            linea.version_tarifa_ref !== comision.calculo?.version_tarifa || linea.rotulo !== comision.calculo?.rotulo)
           throw new TypeError("dieta incompatible");
         totalDietas += linea.importe_centimos; dietas += 1;
       }

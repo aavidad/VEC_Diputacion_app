@@ -6,6 +6,7 @@ import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGas
 import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20261007-u-dietas-catalogo-v1";
 import { validarCatalogoRutasDietas } from "./contrato.js";
 import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20261007-pantallas-textos-final-v1";
+import { montarVistaLiquidacionEconomica } from "./vista-liquidacion-economica.js?v=20261014-dietas-tarifa-publicada-web-v6";
 
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.
@@ -56,6 +57,9 @@ const MOTIVOS_RELACIONES = new Set(["empleado_no_disponible", "empleado_ambiguo"
 function comisionCorregible(item) { return ["borrador", "devuelta"].includes(item?.comision?.estado); }
 function enCorreccion(item) { return item?.comision?.estado === "devuelta" || Boolean(item?.comision?.devolucion); }
 function euros(centimos) { return new Intl.NumberFormat(LOCALIZACION_ACTUAL, { style: "currency", currency: "EUR" }).format(centimos / 100); }
+export function describirRotuloCalculoDietas(rotulo, traducir) {
+  return traducir(rotulo === "dietas_tarifa_publicada" ? "dietas_tarifa_publicada" : "dietas_tarifa_provisional");
+}
 function rutaLegible(codigos, traducir, nombres = new Map()) {
   return codigos.length
     ? codigos.map((codigo) => nombres.get(codigo) || codigo).join(" → ")
@@ -141,6 +145,7 @@ export function montarVistaBorradoresPropios(
     cliente,
     clienteAsignacion,
     clienteRectificacion,
+    clienteLiquidacion,
     calculadorRuta,
     visorRuta,
     catalogoProyectado = [],
@@ -229,6 +234,9 @@ export function montarVistaBorradoresPropios(
   let avisoPersistente = null;
   let listaPersistente = null;
   let fichaPersistente = null;
+  let consultaLiquidacionContenedor = null;
+  let vistaConsultaLiquidacion = null;
+  let consultaLiquidacionRef = null;
   const controlesCongelados = new Map();
   const camposInvalidos = new Set();
   const avisoId = `dietas-borradores-aviso-${++secuenciaAvisos}`;
@@ -279,11 +287,16 @@ export function montarVistaBorradoresPropios(
     errorListaClave: null,
   };
   const activaAhora = () => activa && montada(contenedor, raiz);
+  const retirarConsultaLiquidacion = () => {
+    vistaConsultaLiquidacion?.desmontar(); vistaConsultaLiquidacion = null; consultaLiquidacionRef = null;
+    consultaLiquidacionContenedor?.replaceChildren();
+  };
   const desmontar = () => {
     if (!activa) return;
     activa = false;
     controlador?.abort();
     controladorAsignacion?.abort();
+    retirarConsultaLiquidacion();
     vistaRectificacion?.desmontar();
     mapaVista?.desmontar();
     controladorCatalogo?.abort();
@@ -872,7 +885,7 @@ export function montarVistaBorradoresPropios(
     const grupo = asignacion.grupo_dieta;
     const tramos = item.comision.calculo.opciones_dieta[grupo - 1]?.calculo.tramos || [];
     const rotuloGrupo = seccion.querySelector("[data-dietas-aceptacion-grupo]");
-    rotuloGrupo.textContent = `${traducir("borradores_propios_grupo")} ${grupo} · ${item.comision.calculo.rotulo}`;
+    rotuloGrupo.textContent = `${traducir("borradores_propios_grupo")} ${grupo} · ${describirRotuloCalculoDietas(item.comision.calculo.rotulo, traducir)}`;
     const modo = todos(seccion, "select").find((selector) => selector.name === "modo_tramos");
     const indice = todos(seccion, "select").find((selector) => selector.name === "tramo_indice");
     indice.replaceChildren(...tramos.map((tramo, posicion) => {
@@ -922,17 +935,19 @@ export function montarVistaBorradoresPropios(
     seccion.dataset.dietasBorradorRecibo = "";
     seccion.setAttribute("role", "status");
     seccion.setAttribute("aria-live", "polite");
-    seccion.append(
-      nodo(documento, "strong", traducir("borradores_propios_recibo_titulo")),
-    );
+    const fecha = nodo(documento, "dl");
+    const filaFecha = nodo(documento, "div");
+    filaFecha.append(nodo(documento, "dt", traducir("borradores_propios_recibo_fecha")),
+      nodo(documento, "dd", fechaLegible(item.recibo.registrado_en, true)));
+    fecha.append(filaFecha);
+    const justificante = nodo(documento, "details");
+    justificante.dataset.dietasBorradorJustificante = "";
+    justificante.append(nodo(documento, "summary", traducir("borradores_propios_recibo_titulo")));
     const datos = nodo(documento, "dl");
     [
+      ["borradores_propios_referencia", item.comision.referencia],
       ["borradores_propios_recibo_referencia", item.recibo.referencia],
       ["borradores_propios_recibo_version", String(item.recibo.version)],
-      [
-        "borradores_propios_recibo_fecha",
-        fechaLegible(item.recibo.registrado_en, true),
-      ],
       ["borradores_propios_recibo_instante_exacto", item.recibo.registrado_en],
     ].forEach(([etiqueta, valor]) => {
       const fila = nodo(documento, "div");
@@ -942,7 +957,8 @@ export function montarVistaBorradoresPropios(
       );
       datos.append(fila);
     });
-    seccion.append(datos);
+    justificante.append(datos);
+    seccion.append(fecha, justificante);
     if (item.recibo.repeticion)
       seccion.append(
         nodo(documento, "p", traducir("borradores_propios_repeticion")),
@@ -1084,7 +1100,6 @@ export function montarVistaBorradoresPropios(
       ["comision_numero_documento", item.comision.numero_documento ||
         tBorradores("comision_documento_fecha", { fecha: fechaLegible(item.comision.fecha_inicio) })],
       ...(item.comision.fecha_apertura ? [["comision_fecha_apertura", fechaLegible(item.comision.fecha_apertura, true)]] : []),
-      ["borradores_propios_referencia", item.comision.referencia],
       [
         "borradores_propios_fecha_inicio",
         fechaLegible(item.comision.fecha_inicio),
@@ -1173,6 +1188,12 @@ export function montarVistaBorradoresPropios(
       acciones.append(boton);
     });
     cuerpo.append(acciones);
+    if (typeof clienteLiquidacion?.leer === "function" && !["borrador", "eliminado"].includes(item.comision.estado)) {
+      const consultar = nodo(documento, "button", traducir("consultar_liquidacion"));
+      consultar.type = "button"; consultar.className = "boton-secundario";
+      consultar.dataset.dietasConsultarLiquidacion = item.comision.referencia;
+      cuerpo.append(consultar);
+    }
     if (item.comision.calculo) cuerpo.append(resumenCalculo(item.comision.calculo, item.comision.documento));
     cuerpo.append(recibo(item));
     return seccion;
@@ -1219,7 +1240,7 @@ export function montarVistaBorradoresPropios(
         tarjeta.append(nodo(documento,"small",titulo),nodo(documento,"strong",valor)); cifras.append(tarjeta);
       });
     resumen.append(cifras,nodo(documento,"p",nivelDetalle === "alto"
-      ? `${calculo.rotulo} · ${calculo.version_tarifa} · ${calculo.version_grafo}` : calculo.rotulo));
+      ? `${describirRotuloCalculoDietas(calculo.rotulo, traducir)} · ${calculo.version_tarifa} · ${calculo.version_grafo}` : describirRotuloCalculoDietas(calculo.rotulo, traducir)));
     const ruta=nodo(documento,"ol"); ruta.className="dietas-comision-tramos-ruta";
     if (calculo.rutas?.length) {
       calculo.rutas.forEach((rutaCalculada, indice) => ruta.append(nodo(documento, "li",
@@ -1301,6 +1322,7 @@ export function montarVistaBorradoresPropios(
       fichaPersistente.className = "dietas-borradores-lateral";
       rectificacionContenedor = nodo(documento, "div");
       rectificacionContenedor.className = "dietas-borradores-rectificacion";
+      consultaLiquidacionContenedor = nodo(documento, "div");
       espacio.append(principal, fichaPersistente);
       raiz.append(nodo(documento, "h2", formularioInicialmenteVisible
         ? traducir("borradores_propios_titulo")
@@ -1374,14 +1396,20 @@ export function montarVistaBorradoresPropios(
         control.disabled = true;
       }
     }
-    avisoPersistente.textContent = tBorradores(estadoRelaciones === "no_disponible"
+    const consultaCorrecta = estadoRelaciones === "disponible" && !relacionIndeterminada &&
+      !estado.carga && estado.tono === "informacion" && ["borradores_propios_listado",
+        "borradores_propios_consulta_registrados", "borradores_propios_consulta_registrados_vacia",
+        "borradores_propios_detalle"].includes(estado.mensaje);
+    avisoPersistente.hidden = consultaCorrecta;
+    avisoPersistente.textContent = consultaCorrecta ? "" : tBorradores(estadoRelaciones === "no_disponible"
       ? (motivoRelaciones ? `comision_${motivoRelaciones}` : "comision_relaciones_no_disponibles")
       : relacionIndeterminada ? "borradores_propios_error_relacion" : estado.mensaje);
     avisoPersistente.dataset.tono = estado.tono;
     avisoPersistente.className = `estado-chip ${estado.tono === "error" ? "peligro" : estado.tono === "exito" ? "exito" : estado.tono === "aviso" ? "aviso" : "info"}`;
     avisoPersistente.setAttribute("role", estado.tono === "error" ? "alert" : "status");
     listaPersistente.replaceChildren(listado());
-    fichaPersistente.replaceChildren(detalle(), rectificacionContenedor);
+    if (consultaLiquidacionRef && consultaLiquidacionRef !== estado.detalle?.comision.referencia) retirarConsultaLiquidacion();
+    fichaPersistente.replaceChildren(detalle(), rectificacionContenedor, consultaLiquidacionContenedor);
     const claveRectificacion = asignacionVerificada() && clienteRectificacion
       ? `${asignacion.asignacion_ref}:${asignacion.version}:${asignacion.fecha_referencia}` : null;
     if (claveRectificacion !== rectificacionClave) {
@@ -1730,6 +1758,17 @@ export function montarVistaBorradoresPropios(
     }
   }
   async function clic(evento) {
+    const consultaLiquidacion = evento.target?.closest?.("[data-dietas-consultar-liquidacion]");
+    if (consultaLiquidacion && activaAhora() && !controlador && typeof clienteLiquidacion?.leer === "function") {
+      const ref = consultaLiquidacion.dataset.dietasConsultarLiquidacion;
+      if (ref !== estado.detalle?.comision.referencia) return;
+      if (vistaConsultaLiquidacion && consultaLiquidacionRef === ref) { void vistaConsultaLiquidacion.recargar(); return; }
+      retirarConsultaLiquidacion();
+      consultaLiquidacionRef = ref;
+      vistaConsultaLiquidacion = montarVistaLiquidacionEconomica(consultaLiquidacionContenedor,
+        { cliente: clienteLiquidacion, referencia: ref, version: "actual", modoConsulta: true });
+      return;
+    }
     const anadirRuta = evento.target?.closest?.("[data-dietas-ruta-anadir]");
     if (anadirRuta && edicion && !controlador && !anadirRuta.disabled) {
       const lista = formularioPersistente.querySelector("[data-dietas-rutas-lista]");
@@ -1928,6 +1967,7 @@ export function montarVistaBorradoresPropios(
         relacion_ref: boton.dataset.dietasBorradorRelacion || undefined,
       });
       if (!activaAhora() || signal.aborted) return;
+      retirarConsultaLiquidacion();
       edicion = null;
       intentoEdicion = null;
       formularioVisible = false;

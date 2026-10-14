@@ -23,6 +23,19 @@ func NuevoServicioAsignacionDietas(p personalports.ProveedorAutorizacionAsignaci
 }
 
 func (s *ServicioAsignacionDietas) Ejecutar(ctx context.Context, solicitud personaldomain.SolicitudAsignacionDietas) (personalports.ResultadoAsignacionDietas, error) {
+	return s.ejecutar(ctx, solicitud, false)
+}
+
+// ConsultarPropia usa la decisión nominal nueva sin reinterpretar una
+// capacidad emitida para la consulta anterior de cuatro ámbitos.
+func (s *ServicioAsignacionDietas) ConsultarPropia(ctx context.Context, solicitud personaldomain.SolicitudAsignacionDietas) (personalports.ResultadoAsignacionDietas, error) {
+	if solicitud.Operacion != personaldomain.ConsultarPropiaAsignacionDietas {
+		return personalports.ResultadoAsignacionDietas{}, personalports.ErrSolicitudAsignacionDietasInvalida
+	}
+	return s.ejecutar(ctx, solicitud, true)
+}
+
+func (s *ServicioAsignacionDietas) ejecutar(ctx context.Context, solicitud personaldomain.SolicitudAsignacionDietas, propia bool) (personalports.ResultadoAsignacionDietas, error) {
 	var vacio personalports.ResultadoAsignacionDietas
 	if s == nil || ctx == nil || nuloAsignacion(s.proveedor) || nuloAsignacion(s.repositorio) {
 		return vacio, personalports.ErrAsignacionDietasNoDisponible
@@ -30,7 +43,13 @@ func (s *ServicioAsignacionDietas) Ejecutar(ctx context.Context, solicitud perso
 	if err := ctx.Err(); err != nil {
 		return vacio, err
 	}
-	material, err := personaldomain.NuevoMaterialAsignacionDietas(solicitud)
+	var material personaldomain.MaterialAsignacionDietas
+	var err error
+	if propia {
+		material, err = personaldomain.NuevoMaterialAsignacionDietasPropia(solicitud)
+	} else {
+		material, err = personaldomain.NuevoMaterialAsignacionDietas(solicitud)
+	}
 	if err != nil {
 		return vacio, personalports.ErrSolicitudAsignacionDietasInvalida
 	}
@@ -59,6 +78,8 @@ func contratoAsignacion(o personaldomain.OperacionAsignacionDietas) (audiencia, 
 	switch o {
 	case personaldomain.ConsultarAsignacionDietas:
 		return personalports.AudienciaConsultarAsignacionDietas, personalports.AccionConsultarAsignacionDietas
+	case personaldomain.ConsultarPropiaAsignacionDietas:
+		return personalports.AudienciaConsultarPropiaAsignacionDietas, personalports.AccionConsultarPropiaAsignacionDietas
 	case personaldomain.RegistrarInicialAsignacionDietas:
 		return personalports.AudienciaRegistrarInicialAsignacionDietas, personalports.AccionRegistrarInicialAsignacionDietas
 	case personaldomain.CorregirAsignacionDietas:
@@ -78,7 +99,7 @@ func resultadoAsignacionValido(s personaldomain.SolicitudAsignacionDietas, r per
 	if a.Validar() != nil || a.RelacionRef != s.RelacionRef || a.PersonaRef != s.PersonaRef || a.UnidadRef != s.UnidadRef || !a.VigenteEn(s.FechaReferencia) || !patronReciboAsignacion.MatchString(r.ReciboRef) || !patronHuellaAsignacion.MatchString(r.ConsumoHuellaSHA256) || r.DecisionRef != decision || r.EfectoRef != efecto || r.AuditoriaRef == "" || r.RegistradaEn.IsZero() || r.RegistradaEn.Location() != time.UTC || r.RegistradaEn.Nanosecond()%1000 != 0 {
 		return false
 	}
-	if s.Operacion == personaldomain.ConsultarAsignacionDietas {
+	if s.Operacion == personaldomain.ConsultarAsignacionDietas || s.Operacion == personaldomain.ConsultarPropiaAsignacionDietas {
 		return r.EstadoLocal == "consultada" && !r.RegistradaEn.Before(emitida) && r.RegistradaEn.Before(expira)
 	}
 	if r.EstadoLocal != "registrada" && r.EstadoLocal != "replay_confirmado" {

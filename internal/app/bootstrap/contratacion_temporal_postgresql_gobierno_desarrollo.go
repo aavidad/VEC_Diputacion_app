@@ -342,6 +342,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		audienciaConsumoBandejaLiquidacionDietas,
 		audienciaConsumoBandejaFiscalizacionDietas,
 		audienciaConsumoRevisorDocumentoDietas,
+		audienciaConsumoLiquidacionEconomicaDietas,
+		audienciaConsumoRutasDietasDesarrollo,
 		cronosapp.AudienciaMarcajePropio,
 		cronosapp.AudienciaDisponibilidadMarcajeRemoto,
 		cronosapp.AudienciaRecuperacionMarcajeRemoto,

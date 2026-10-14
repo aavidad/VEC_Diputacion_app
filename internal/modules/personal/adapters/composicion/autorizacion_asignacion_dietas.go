@@ -76,6 +76,8 @@ func contratoAutorizacionAsignacionDietas(operacion personaldomain.OperacionAsig
 	switch operacion {
 	case personaldomain.ConsultarAsignacionDietas:
 		return personalports.AccionConsultarAsignacionDietas, "preparar_borrador_dietas", personalports.AudienciaConsultarAsignacionDietas
+	case personaldomain.ConsultarPropiaAsignacionDietas:
+		return personalports.AccionConsultarPropiaAsignacionDietas, "preparar_borrador_dietas", personalports.AudienciaConsultarPropiaAsignacionDietas
 	case personaldomain.RegistrarInicialAsignacionDietas:
 		return personalports.AccionRegistrarInicialAsignacionDietas, "registrar_asignacion_dietas_inicial", personalports.AudienciaRegistrarInicialAsignacionDietas
 	case personaldomain.CorregirAsignacionDietas:

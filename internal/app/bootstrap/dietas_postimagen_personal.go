@@ -32,11 +32,13 @@ type funcionPostimagenPersonalDietas struct {
 
 const propietarioPostimagenPersonalDietas = "vec_personal_propietario"
 
-// postimagenPersonalDietas es la lista positiva exacta. Personal 000010/000011
+// postimagenPersonalDietas es la lista positiva exacta. Incluye las concesiones
+// posteriores que comparten los grupos técnicos comprobados. Personal 000010/000011
 // sólo se exigen como prerrequisito de orden de 000012 (Base de organización):
 // Dietas no las consume y su texto evolucionó antes de instalarse, por lo que
 // se acredita firma, propietario y ACL, no su huella.
 var postimagenPersonalDietas = []funcionPostimagenPersonalDietas{
+	{migracion: "000053", nombreCorto: "consultar_asignacion_dietas_propia_v1", firma: "vec_personal.consultar_asignacion_dietas_propia_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)", secdef: true, lenguaje: "plpgsql", config: "TimeZone=UTC,lock_timeout=2s,row_security=on,search_path=pg_catalog, pg_temp,statement_timeout=10s", huella: "be2a05800acbd869c28fa74b0cc12a357b05e4dcd55fd74b9165a5dadb90e98d", concedidas: "vec_personal_d7_ejecutor", fichero: "000053_asignacion_dietas_propia.up.sql"},
 	{migracion: "000007", nombreCorto: "resolver_relacion_dietas_v1", firma: "vec_personal.resolver_relacion_dietas_v1(text,text,text,date)", secdef: true, lenguaje: "plpgsql", config: "lock_timeout=2s,row_security=on,search_path=pg_catalog", huella: "7add7a9f10ea6d04d35376f7cc78f95b60e2908d26875ea2944c635cb1290805", fichero: "000007_relacion_empleado_dietas.up.sql"},
 	{migracion: "000007", nombreCorto: "revalidar_relacion_dietas_v1", firma: "vec_personal.revalidar_relacion_dietas_v1(text,text,text,text,text,text,bigint,text,text,bigint,date)", secdef: true, lenguaje: "plpgsql", config: "lock_timeout=2s,row_security=on,search_path=pg_catalog", huella: "f306ea38197f4e45a0f4617c39cd38cc2bbc81490da57813fa1603a130cdea2d", concedidas: "vec_dietas_propietario", fichero: "000007_relacion_empleado_dietas.up.sql"},
 	{migracion: "000008", nombreCorto: "consultar_relaciones_propias_dietas_v1", firma: "vec_personal.consultar_relaciones_propias_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)", secdef: true, lenguaje: "plpgsql", config: "lock_timeout=2s,row_security=on,search_path=pg_catalog", huella: "969c5b265046d8b306a95c2e16efdebcc9595ab0eb7bbf57c142e47f64ba7606", concedidas: "vec_dietas_ejecutor", fichero: "000008_consulta_relaciones_propias_dietas.up.sql"},
@@ -59,6 +61,9 @@ var postimagenPersonalDietas = []funcionPostimagenPersonalDietas{
 	{migracion: "000015", nombreCorto: "resolver_rectificacion_dietas_v1", firma: "vec_personal.resolver_rectificacion_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)", secdef: true, lenguaje: "sql", config: "lock_timeout=2s,row_security=on,search_path=pg_catalog", huella: "d69e006c47abecbe505529bd9358075bb2ea1c8c6e9d80e818e0bc3cb5bf4e29", concedidas: "vec_personal_d7_ejecutor", fichero: "000015_solicitud_rectificacion_dietas.up.sql", opcional: true},
 	{migracion: "000015", nombreCorto: "consultar_rectificaciones_competentes_dietas_v1", firma: "vec_personal.consultar_rectificaciones_competentes_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)", secdef: true, lenguaje: "plpgsql", config: "lock_timeout=2s,row_security=on,search_path=pg_catalog,statement_timeout=5s", huella: "6fc2385256f55ee898c71f3d61f11e2c02efa8f86453430c840cf8ca79f5dfe6", concedidas: "vec_personal_d7_ejecutor", fichero: "000015_solicitud_rectificacion_dietas.up.sql", opcional: true},
 	{migracion: "000015", nombreCorto: "confirmar_rectificacion_dietas_v1", firma: "vec_personal.confirmar_rectificacion_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)", secdef: true, lenguaje: "sql", config: "lock_timeout=2s,row_security=on,search_path=pg_catalog", huella: "2add0a4708272a0b1b8786a098e234ea3639d5dbb373cb5ceec5a87151a0899d", concedidas: "vec_personal_d7_ejecutor", fichero: "000015_solicitud_rectificacion_dietas.up.sql", opcional: true},
+	// P22 comparte el registrador de frontera de Personal. Dietas no consume
+	// esta función, pero si existe su único EXECUTE debe estar acreditado.
+	{migracion: "000022", nombreCorto: "registrar_denegacion_ficha_propia_v1", firma: "vec_personal.registrar_denegacion_ficha_propia_v1(text,text,smallint,text)", secdef: true, lenguaje: "plpgsql", config: "TimeZone=UTC,lock_timeout=1s,row_security=on,search_path=pg_catalog,statement_timeout=2s", huella: "50c2ab2ba4997a6958e66be13596b51f62a573648702c4720f3ac0a5b522b533", concedidas: "vec_personal_registrador_frontera", fichero: "000022_ficha_propia_empleado.up.sql", opcional: true},
 }
 
 // Tablas de Personal que respaldan las funciones anteriores: propiedad del
@@ -175,7 +180,7 @@ type consultorPostimagenPersonalDietas interface {
 
 // acreditarPostimagenPersonalDietas comprueba, con el pool de lectura de
 // relaciones (LOGIN de vec_dietas_ejecutor), que la base destino contiene la
-// postimagen exacta de Personal 000007–000013 que Dietas consume: firmas,
+// postimagen exacta de Personal que Dietas consume o cuya frontera comparte: firmas,
 // propietario, SECURITY DEFINER, configuración, huella del cuerpo y ACL
 // positiva; y que ningún grupo técnico de la frontera Dietas ni PUBLIC tiene
 // privilegios fuera de esa lista. Falla cerrado y enumera lo que falta.

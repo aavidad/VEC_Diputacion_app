@@ -554,22 +554,6 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 	}
-	etapa = "material_dietas"
-	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
-		proveedoresDietas := make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo)
-		for _, descriptor := range descriptoresMaterialDietasDesarrollo() {
-			proveedoresDietas[descriptor.Audiencia], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia)
-			if err != nil {
-				return vacias, err
-			}
-		}
-		dependencias.materialDietas = materialDietasDesdeCTDesarrollo{
-			personal:    proveedoresDietas[audienciaConsumoPersonalDietasDesarrollo],
-			crear:       proveedoresDietas[audienciaConsumoCrearDietasDesarrollo],
-			consultar:   proveedoresDietas[audienciaConsumoConsultarDietasDesarrollo],
-			adicionales: proveedoresDietas,
-		}
-	}
 	etapa = "material_documentos"
 	if documentosSolicitados(cfg.DocumentosEnabled) {
 		dependencias.materialDocumentos, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptoresMaterialDocumentosDesarrollo()[0].Audiencia)
@@ -872,6 +856,38 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		registrarFalloPostgreSQLContratacionTemporalDesarrollo(
 			"material_organizacion_historica", "capacidad_no_disponible",
 		)
+	}
+	// Dietas se compone después de las operaciones obligatorias de CT. Su
+	// tiempo de espera propio no puede agotar el contexto compartido de CT.
+	etapa = "material_dietas"
+	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
+		materialDietas, falloDietas := publicarMaterialDietasAisladoDesarrollo(
+			plazoarranque.Ampliar(15*time.Second),
+			func(ctxDietas context.Context, audiencia string) (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
+				return nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctxDietas, gobierno, material, reloj, catalogoMaterial, audiencia)
+			},
+		)
+		if falloDietas != nil {
+			registrarFalloDietasArranque("material", falloDietas)
+		} else {
+			dependencias.materialDietas = materialDietas
+			ctxEconomia, cancelarEconomia := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
+			proveedorEconomia, falloEconomia := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctxEconomia, gobierno, material, reloj, catalogoMaterial, audienciaConsumoLiquidacionEconomicaDietas)
+			cancelarEconomia()
+			if falloEconomia != nil || proveedorEconomia == nil {
+				registrarFalloDietasArranque("material_liquidacion", ErrComposicionDesarrolloIncompleta)
+			} else {
+				dependencias.materialDietas.adicionales[audienciaConsumoLiquidacionEconomicaDietas] = proveedorEconomia
+			}
+			ctxRutas, cancelarRutas := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
+			proveedorRutas, falloRutas := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctxRutas, gobierno, material, reloj, catalogoMaterial, audienciaConsumoRutasDietasDesarrollo)
+			cancelarRutas()
+			if falloRutas != nil || proveedorRutas == nil {
+				registrarFalloDietasArranque("material_rutas", ErrComposicionDesarrolloIncompleta)
+			} else {
+				dependencias.materialDietas.rutas = proveedorRutas
+			}
+		}
 	}
 	// Cronos es opcional: se publica después de completar CT y con un plazo
 	// propio. Un agotamiento suyo no cancela las conexiones ni los pasos de CT.

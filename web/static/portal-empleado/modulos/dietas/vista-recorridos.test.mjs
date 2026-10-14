@@ -139,3 +139,115 @@ test("sin fuente de competencia no ofrece pestañas del circuito ni consulta ban
   assert.equal(listados, 0);
   vista.desmontar();
 });
+
+test("un fallo de competencias permite reintentar una sola lectura y acredita las pestañas una vez", async () => {
+  const contenedor = raiz(); let competencias = 0; let listados = 0; let resolver;
+  const clienteCircuito = {
+    competencias: () => {
+      competencias += 1;
+      if (competencias === 1) return Promise.reject(Object.assign(new Error("red"), { codigo: "red_no_disponible" }));
+      return new Promise((completar) => { resolver = completar; });
+    },
+    listar: async () => { listados += 1; return { items: [], competencia: "acreditada" }; },
+  };
+  const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores: clienteBorradores(), clienteCircuito });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-recorridos]");
+  const estado = panel.querySelector("[data-dietas-estado-competencias]");
+  const boton = panel.querySelector("[data-dietas-reintentar-competencias]");
+  assert.equal(estado.hidden, false);
+  assert.match(texto(estado), /No se han podido comprobar sus bandejas/u);
+  assert.equal(panel.querySelector("[data-dietas-area-borradores]") !== null, true);
+  assert.equal(listados, 0);
+  boton.focus();
+  panel.listeners.click({ target: boton }); panel.listeners.click({ target: boton });
+  assert.equal(competencias, 2);
+  assert.equal(boton.disabled, true);
+  resolver({ fuente: "acreditada", etapas: ["revision", "autorizacion"] });
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(estado.hidden, true);
+  assert.deepEqual(panel.querySelectorAll("[data-dietas-cambiar-etapa]").map((paso) => paso.dataset.dietasCambiarEtapa),
+    ["solicitante", "revision", "autorizacion", "control"]);
+  assert.equal(contenedor.ownerDocument.activeElement.dataset.dietasCambiarEtapa, "revision");
+  panel.listeners.click({ target: boton });
+  assert.equal(competencias, 2);
+  assert.equal(listados, 0);
+  vista.desmontar();
+});
+
+test("la denegación de competencias no ofrece reintento ni consulta bandejas", async () => {
+  const contenedor = raiz(); let listados = 0;
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: clienteBorradores(),
+    clienteCircuito: {
+      competencias: async () => { throw Object.assign(new Error("denegado"), { codigo: "acceso_denegado", estado: 403 }); },
+      listar: async () => { listados += 1; return { items: [] }; },
+    },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const estado = contenedor.querySelector("[data-dietas-estado-competencias]");
+  assert.match(texto(estado), /No tiene permiso para consultar las bandejas/u);
+  assert.equal(estado.querySelector("[data-dietas-reintentar-competencias]").hidden, true);
+  assert.equal(contenedor.querySelectorAll("[data-dietas-cambiar-etapa]").length, 0);
+  assert.equal(listados, 0);
+  vista.desmontar();
+});
+
+test("una respuesta tardía tras desmontar no monta pasos y las etapas vacías son válidas", async () => {
+  const contenedor = raiz(); let resolver; let signal;
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: clienteBorradores(),
+    clienteCircuito: { competencias: ({ signal: recibido }) => { signal = recibido; return new Promise((completar) => { resolver = completar; }); } },
+  });
+  vista.desmontar();
+  assert.equal(signal.aborted, true);
+  resolver({ fuente: "acreditada", etapas: ["revision"] });
+  await Promise.resolve();
+  assert.equal(contenedor.querySelector("[data-dietas-recorridos]"), null);
+
+  const otra = raiz();
+  const vistaVacia = montarVistaRecorridosDietas(otra, {
+    clienteBorradores: clienteBorradores(),
+    clienteCircuito: { competencias: async () => ({ fuente: "acreditada", etapas: [] }) },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(otra.querySelector("[data-dietas-estado-competencias]").hidden, true);
+  assert.equal(otra.querySelectorAll("[data-dietas-cambiar-etapa]").length, 0);
+  vistaVacia.desmontar();
+});
+
+test('el recorrido pasa la liquidación al panel y bloquea cambio de pestaña durante el registro', async () => {
+  const contenedor = raiz(); const ref = 'dco_1234567890123456789012'; let resolver;
+  const clienteCircuito = {
+    competencias: async () => ({ fuente: 'acreditada', etapas: ['liquidacion'] }),
+    listar: async () => ({ items: [{ referencia: ref, estado: 'pendiente_liquidacion', version: 3, fecha_inicio: '2026-10-13', fecha_fin: '2026-10-14' }], competencia: 'acreditada' }),
+    documento: async () => ({ referencia: ref, numero_documento: 'VEC-D-2026-000012', fecha_apertura: '2026-10-13T08:00:00Z',
+      estado: 'pendiente_liquidacion', version: 3, fecha_inicio: '2026-10-13', fecha_fin: '2026-10-14', hora_inicio: '08:00', hora_fin: '18:00',
+      motivo: 'Visita técnica', codigos_ruta: [], calculo: {}, documento: { lineas: [], total_orientativo_centimos: 1000 } }),
+    decidir: async () => assert.fail('decisión antigua'),
+  };
+  const propuesta = { catalogo: { referencia: 'cat', version: 'v1', publicacion_ref: 'pub', fecha_publicacion: '2026-01-01',
+    vigente_desde: '2026-01-01', vigente_hasta: '2026-12-31', version_tarifa_ref: 'tarifa-v1', ambito: 'España', grupo: 2,
+    normas: [{ referencia: 'RD', articulo: 'art. 1', url: 'https://example.invalid' }], reglas: [{ referencia: 'r1', tipo: 'dieta', concepto: 'manutencion' }] },
+    lineas: [{ indice: 0, regla_ref: 'r1', original_centimos: 1000, calculado_publicado_centimos: 1000, diferencia_centimos: 0, reconocido_propuesto_centimos: 1000, rechazado_centimos: 0, motivo_codigo: '' }],
+    totales: { original_centimos: 1000, calculado_publicado_centimos: 1000, diferencia_centimos: 0, reconocido_propuesto_centimos: 1000, rechazado_centimos: 0 }, decision_pendiente: false };
+  const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores: clienteBorradores(), clienteCircuito,
+    clienteLiquidacion: { propuesta: async () => propuesta, registrar: async () => new Promise((resolve) => { resolver = resolve; }), leer: async () => ({}) } });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const panel = contenedor.querySelector('[data-dietas-recorridos]');
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-cambiar-etapa="liquidacion"]') });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const bandeja = panel.querySelector('[data-dietas-bandeja-circuito]');
+  await bandeja.listeners.click({ target: bandeja.querySelector('[data-dietas-circuito-abrir]') });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const economica = panel.querySelector('[data-dietas-liquidacion]'); assert.ok(economica);
+  await economica.listeners.click({ target: economica.querySelector('[data-dietas-liquidacion-accion="revisar"]') });
+  const envio = economica.listeners.click({ target: economica.querySelector('[data-dietas-liquidacion-accion="confirmar"]') });
+  assert.equal(panel.querySelector('[data-dietas-cambiar-etapa="solicitante"]').disabled, true);
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-cambiar-etapa="solicitante"]') });
+  assert.equal(panel.querySelector('[data-dietas-panel-etapa="circuito"]').hidden, false);
+  resolver({ constancia: { version_entrada: 3, version_resultante: 4, recibo_ref: 'recibo-real', fecha: '2026-10-14T10:00:00Z' }, economia: propuesta });
+  await envio;
+  assert.equal(panel.querySelector('[data-dietas-cambiar-etapa="solicitante"]').disabled, false);
+  vista.desmontar();
+});

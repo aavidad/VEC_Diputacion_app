@@ -192,6 +192,8 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.dietas {
 		d = append(d, descriptoresMaterialDietasDesarrollo()...)
+		d = append(d, descriptorMaterialLiquidacionEconomicaDietas())
+		d = append(d, descriptorMaterialRutasDietasDesarrollo())
 	}
 	if s.cronos {
 		d = append(d, descriptoresMaterialCronosDesarrollo()...)

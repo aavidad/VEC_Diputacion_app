@@ -128,8 +128,39 @@ func CalcularTramosNacionalesProvisionales(inicio, fin time.Time, zona *time.Loc
 	if fechaInicio < tarifa.VigenteDesde || (tarifa.VigenteHasta != "" && fechaFin >= tarifa.VigenteHasta) {
 		return vacio, ErrTramosProvisionalesNoDisponibles
 	}
-	resultado := CalculoDietasProvisional{Tramos: []TramoDietaProvisional{}, VersionTarifaRef: tarifa.VersionRef, Rotulo: tarifa.Rotulo, ReglaRef: regla.ReglaRef, ReglaHuellaSHA256: regla.HuellaSHA256}
 	cfg := regla.Configuracion
+	return calcularTramosNacionales(inicio, fin, zona, tarifa.VersionRef, tarifa.Rotulo, regla.ReglaRef, regla.HuellaSHA256,
+		tarifa.ManutencionCentimos, tarifa.AlojamientoTopeCentimos,
+		parametrosTramosNacionales{DuracionMinimaMismoDiaHoras: cfg.DuracionMinimaMismoDiaHoras,
+			HoraSalida100AntesDe: cfg.HoraSalida100AntesDe, HoraSalida50AntesDe: cfg.HoraSalida50AntesDe,
+			HoraRegreso50DespuesDe: cfg.HoraRegreso50DespuesDe, HoraRegresoMismoDiaDespuesDe: cfg.HoraRegresoMismoDiaDespuesDe,
+			DiasMaximos: cfg.DiasMaximos, PorcentajeMismoDia: cfg.PorcentajeMismoDia,
+			PorcentajeSalidaTemprana: cfg.PorcentajeSalidaTemprana, PorcentajeSalidaMedia: cfg.PorcentajeSalidaMedia,
+			PorcentajeRegreso: cfg.PorcentajeRegreso, PorcentajeIntermedio: cfg.PorcentajeIntermedio,
+			PorcentajeAlojamientoTope: cfg.PorcentajeAlojamientoTope})
+}
+
+type parametrosTramosNacionales struct {
+	DuracionMinimaMismoDiaHoras  int
+	HoraSalida100AntesDe         int
+	HoraSalida50AntesDe          int
+	HoraRegreso50DespuesDe       int
+	HoraRegresoMismoDiaDespuesDe int
+	DiasMaximos                  int
+	PorcentajeMismoDia           int
+	PorcentajeSalidaTemprana     int
+	PorcentajeSalidaMedia        int
+	PorcentajeRegreso            int
+	PorcentajeIntermedio         int
+	PorcentajeAlojamientoTope    int
+}
+
+func calcularTramosNacionales(inicio, fin time.Time, zona *time.Location, version, rotulo, reglaRef, reglaHuella string,
+	manutencion, alojamiento int64, cfg parametrosTramosNacionales) (CalculoDietasProvisional, error) {
+	var vacio CalculoDietasProvisional
+	i, f := inicio.In(zona), fin.In(zona)
+	fechaInicio, fechaFin := i.Format("2006-01-02"), f.Format("2006-01-02")
+	resultado := CalculoDietasProvisional{Tramos: []TramoDietaProvisional{}, VersionTarifaRef: version, Rotulo: rotulo, ReglaRef: reglaRef, ReglaHuellaSHA256: reglaHuella}
 	// Comparar fechas civiles evita que el cambio de hora convierta una noche
 	// en dos días o elimine un día del itinerario.
 	dia := time.Date(i.Year(), i.Month(), i.Day(), 12, 0, 0, 0, zona)
@@ -159,13 +190,13 @@ func CalcularTramosNacionalesProvisionales(inicio, fin time.Time, zona *time.Loc
 			porcentaje = cfg.PorcentajeIntermedio
 		}
 		if porcentaje > 0 {
-			importe := porcentajeCentimos(tarifa.ManutencionCentimos, porcentaje)
-			resultado.Tramos = append(resultado.Tramos, tramoProvisional(fecha, "manutencion", porcentaje, importe, tarifa))
+			importe := porcentajeCentimos(manutencion, porcentaje)
+			resultado.Tramos = append(resultado.Tramos, TramoDietaProvisional{fecha, "manutencion", porcentaje, importe, version, rotulo})
 			resultado.ManutencionCentimos += importe
 		}
 		if fecha != fechaFin && cfg.PorcentajeAlojamientoTope > 0 {
-			tope := porcentajeCentimos(tarifa.AlojamientoTopeCentimos, cfg.PorcentajeAlojamientoTope)
-			resultado.Tramos = append(resultado.Tramos, tramoProvisional(fecha, "alojamiento_tope_pendiente_justificante", cfg.PorcentajeAlojamientoTope, tope, tarifa))
+			tope := porcentajeCentimos(alojamiento, cfg.PorcentajeAlojamientoTope)
+			resultado.Tramos = append(resultado.Tramos, TramoDietaProvisional{fecha, "alojamiento_tope_pendiente_justificante", cfg.PorcentajeAlojamientoTope, tope, version, rotulo})
 			resultado.AlojamientoTopeCentimos += tope
 		}
 	}

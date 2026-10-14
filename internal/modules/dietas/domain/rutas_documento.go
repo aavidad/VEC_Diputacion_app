@@ -60,7 +60,7 @@ func (r RutaDeclaradaComision) AjusteEscalado() (int64, error) {
 // ValidarDocumento coteja la instantánea OSRM de cada ruta independiente.
 // El grupo y los máximos de dieta continúan siendo alternativas provisionales.
 func (c CalculoComision) ValidarDocumento(codigos []string, declaradas []RutaDeclaradaComision, vehiculo bool) error {
-	if !versionTarifaProvisional.MatchString(c.VersionTarifa) || c.Rotulo != RotuloTarifaProvisional || !referenciaReglaProvisional.MatchString(c.ReglaRef) || !huellaReglaProvisional.MatchString(c.ReglaHuellaSHA256) ||
+	if !metadatosTarifaComisionValidos(c.VersionTarifa, c.Rotulo, c.ReglaRef, c.ReglaHuellaSHA256) ||
 		!horaCivil(c.HoraInicio) || !horaCivil(c.HoraFin) || !decimalTarifa.MatchString(c.EURPorKM) ||
 		len(codigos) < 2 || len(codigos) > 12 || len(c.TramosRuta) != 0 || c.VehiculoPropio != vehiculo ||
 		len(c.Rutas) != len(declaradas) || c.validarOpciones() != nil {

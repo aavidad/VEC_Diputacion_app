@@ -15,11 +15,12 @@ function versiones(codigo, recurso) {
 }
 
 test("Dietas interno atraviesa una caché caliente con sus clientes reales", async () => {
-  const [html, portal, coordinador, recorridos] = await Promise.all([
+  const [html, portal, coordinador, recorridos, bandeja] = await Promise.all([
     readFile(new URL("index.html", raiz), "utf8"),
     readFile(new URL("portal.js", raiz), "utf8"),
     readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
     readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8"),
+    readFile(new URL("modulos/dietas/vista-bandeja-circuito.js", raiz), "utf8"),
   ]);
   const entrada = versiones(html, "/portal-empleado/portal.js");
   const shell = versiones(portal, "./portal-modulos-coordinador.js");
@@ -40,6 +41,10 @@ test("Dietas interno atraviesa una caché caliente con sus clientes reales", asy
   }
   // Textos de pantalla renovados: la vista y el mapa cambian de URL en cascada.
   const vistaVigente = exigirVersiones(cargadorInterno, "./modulos/dietas/vista-recorridos.js", posterior(VERSION_MONTAJE));
+  exigirVersiones(cargadorInterno, "./modulos/dietas/cliente-liquidacion-http.js", posterior(VERSION_MONTAJE));
+  exigirVersiones(recorridos, "./vista-bandeja-circuito.js", posterior(VERSION_MONTAJE));
+  exigirVersiones(recorridos, "./vista-borradores-propios.js", posterior(VERSION_MONTAJE));
+  exigirVersiones(bandeja, "./vista-liquidacion-economica.js", posterior(VERSION_MONTAJE));
   exigirVersiones(cargadorInterno, "./modulos/dietas/mapa-ruta.js", posterior(VERSION_MONTAJE));
   assert.doesNotMatch(cargadorInterno, /vista-itinerario|adaptador-presentacion|datos-presentacion|calculador-rutas-presentacion/u);
   assert.doesNotMatch(recorridos, /vista-itinerario\.js|montarMapaInicialGranadaDietas/u);

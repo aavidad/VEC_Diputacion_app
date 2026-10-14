@@ -1,0 +1,21 @@
+# Inventario causal. NO INSTALABLE: faltan migraciones comunes finales y ensayo conjunto.
+# Copia propia PostgreSQL 18.4 de HZ37, puerto local 55453: globales y
+# permisos restaurados.
+# Ya instaladas una vez: AD81 y AD268 explícita final; Dietas 000009, 000010,
+# 000011, 000014, 000015 y 000018. No reaplicar en esta copia.
+# El núcleo económico privado instalado en la copia NO acredita AD273 de C:
+# la migración común consolidada final no está en Git.
+# Orden que falta para una candidata reproducible desde la base restaurada:
+# 1. Migración común consolidada final de C, con autoridades y fachadas Dietas.
+# 2. Dietas 000013 (final 27544e2…) y 000017 (final 37bd81…).
+# 3. Dietas 000019 (fc55070f…): solo cinco usos de la variable local del recibo.
+# 4. Tarifas publicadas (54ec707…). Cada pieza anterior quedó instalada una
+#    vez en la copia privada; eso no sustituye el ensayo de la lista completa.
+# Cadena separada: autoridad común y contrato final de Documentos, después
+# Dietas 000016. No instalada. Documentos 000021 espera autoridades comunes de C;
+# el puerto publicado 4dd… cubre solo Méritos.
+# No ejecutar este inventario como guion de instalación.
+
+# AD273 con lectura propia de Personal → Personal 000053 (NO instalada).
+# Go monta esa lectura propia; requiere dos revisiones y ensayo conjunto.
+# Pausa por cuota de Dirección01:55: no declarar este inventario instalable.

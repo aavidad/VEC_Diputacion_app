@@ -654,12 +654,13 @@ func construirEndpoint(urlBase string, solicitud dietasports.SolicitudCalculoRut
 		partes = append(partes, strconv.FormatFloat(coordenada.Longitud, 'f', 6, 64)+","+
 			strconv.FormatFloat(coordenada.Latitud, 'f', 6, 64))
 	}
-	alternativas := solicitud.Alternativas
-	if alternativas == 0 {
-		alternativas = 1
+	// OSRM cuenta alternativas adicionales a la ruta principal.
+	alternativas := "false"
+	if solicitud.Alternativas > 1 {
+		alternativas = strconv.Itoa(solicitud.Alternativas - 1)
 	}
 	return urlCanonica + "/route/v1/driving/" + strings.Join(partes, ";") +
-		"?overview=full&geometries=geojson&steps=true&alternatives=" + strconv.Itoa(alternativas), nil
+		"?overview=full&geometries=geojson&steps=true&alternatives=" + alternativas, nil
 }
 
 var _ dietasports.CalculadorRutas = (*Calculador)(nil)
