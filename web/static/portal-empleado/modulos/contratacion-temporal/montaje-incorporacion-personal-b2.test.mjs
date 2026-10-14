@@ -3,6 +3,7 @@ import test from "node:test";
 import { cargarTextos } from "../../../comun/textos.js";
 import { crearGestorIncorporacion, crearResolverEtiquetasIncorporacionB2 } from "./vista-expedientes-incorporacion.js?v=20261008-alta-rpt-circular-v6";
 import { ESQUEMA_CONSULTA_B2, ESQUEMA_RECIBO_B2 } from "./contrato-incorporacion-personal-b2.js";
+import { consultaB2GINPIX } from "./ficha-ginpix-fixture.mjs";
 
 const expedienteRef = "expediente:b2:montaje";
 const sha = "a".repeat(64);
@@ -108,6 +109,42 @@ test("B2 recuperado en v8 conserva recibo y no ofrece el formulario anterior", a
   assert.match(s.contenedor.innerHTML, /recibo:b2:original/u);
   assert.doesNotMatch(s.contenedor.innerHTML, /data-b2-form|consultar-incorporacion/u);
   gestor.retirar();
+});
+
+test("B2 confirmado muestra la descarga GINPIX y conserva el archivo original", async () => {
+  const s = superficie(8);
+  const c = consultaB2GINPIX();
+  c.expediente_ref = expedienteRef;
+  c.version_expediente_actual = 8;
+  c.plan.intencion.expediente_ref = expedienteRef;
+  c.recibo.expediente_ref = expedienteRef;
+  const eventos = new Map(); let descarga = 0, enlacePulsado = 0;
+  const documento = {
+    createElement(tipo) {
+      if (tipo === "a") return { remove() {}, click() { enlacePulsado++; } };
+      return { innerHTML: "", hijos: [], addEventListener: (k, f) => eventos.set(k, f), removeEventListener() {},
+        replaceChildren() { this.innerHTML = ""; }, append(hijo) { this.hijos.push(hijo); },
+        setAttribute() {}, remove() { this.retirado = true; } };
+    },
+    body: { append() {} },
+  };
+  s.contenedor.ownerDocument = documento;
+  s.contenedor.after = (bloque) => { s.contenedor.bloqueFicha = bloque; };
+  s.raiz.contains = (nodo) => nodo === s.contenedor || nodo === s.contenedor.bloqueFicha && !nodo.retirado;
+  const gestor = crearGestorIncorporacion({ raiz: s.raiz, presentador: { obtenerEstado: () => s.estado },
+    incorporacionPersonalB2: { consultar: async () => c, preparar() { assert.fail(); }, confirmar() { assert.fail(); } },
+    clienteLlamamiento: { descargarFichaGINPIX: async () => { descarga++; return { contenido: new Uint8Array([123, 125]) }; } },
+    entornoDescarga: { document: documento, Blob, URL: { createObjectURL: () => "blob:ficha", revokeObjectURL() {} } },
+  });
+  await gestor.ofrecerIncorporacionEjercicio(); await siguienteCiclo();
+  const bloque = s.contenedor.bloqueFicha;
+  assert.ok(bloque && !bloque.retirado);
+  assert.match(bloque.hijos[0].innerHTML, /data-ct-ficha-ginpix-descargar/u);
+  assert.doesNotMatch(bloque.hijos[0].innerHTML, /ejercicio/u);
+  await eventos.get("click")({ target: { matches: () => true } });
+  assert.equal(descarga, 1); assert.equal(enlacePulsado, 1);
+  gestor.retirar();
+  assert.equal(bloque.retirado, true);
 });
 
 test("errores 403, 409 y 503 B2 no abren el POST legado ni filtran el error", async () => {

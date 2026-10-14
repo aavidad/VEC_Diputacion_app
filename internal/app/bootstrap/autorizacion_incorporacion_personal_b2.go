@@ -710,6 +710,14 @@ func operacionPermitidaEnRutaIncorporacionB2(ctx context.Context, accion string)
 		}
 		return false
 	}
+	if ruta.ruta == httpct.RutaFichaGINPIXV2 && ruta.metodo == http.MethodGet {
+		switch accion {
+		case ct.AccionConsultarDetalleRRHH, ct.AccionLeerPlanNominalB2, personal.AccionFichaEmpleadoB2,
+			"personal.plan_incorporacion_ct.consultar", "vec.catalogos.categorias.consultar_uso":
+			return true
+		}
+		return false
+	}
 	if ruta.ruta != httpct.RutaPlanB2 || (ruta.metodo != "GET" && ruta.metodo != "POST") {
 		return false
 	}

@@ -263,7 +263,7 @@ func ligarContextoIncorporacionPersonalB2(h http.Handler, soporte *soporteAltaCo
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		previo := rutaPeticionIncorporacionB2{r.Method, r.URL.Path}
 		_, lecturaPersonal := accionConsultaRegistroPersonalB2(previo.ruta, previo.metodo)
-		if lecturaPersonal || ((previo.ruta == httpct.RutaPlanB2 || previo.ruta == httpct.RutaVinculoCategoriaRPTB2 || previo.ruta == httpapi.RutaCatalogosRegistroEmpleadoB2) && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) || (previo.ruta == httpct.RutaCategoriasRPTB2 && previo.metodo == http.MethodGet) || (previo.ruta == rutaCatalogosRegistroEmpleadoB2 && previo.metodo == http.MethodPost) {
+		if lecturaPersonal || ((previo.ruta == httpct.RutaPlanB2 || previo.ruta == httpct.RutaVinculoCategoriaRPTB2 || previo.ruta == httpapi.RutaCatalogosRegistroEmpleadoB2) && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) || (previo.ruta == httpct.RutaCategoriasRPTB2 && previo.metodo == http.MethodGet) || (previo.ruta == httpct.RutaFichaGINPIXV2 && previo.metodo == http.MethodGet) || (previo.ruta == rutaCatalogosRegistroEmpleadoB2 && previo.metodo == http.MethodPost) {
 			if ctx, ok := contextoNominalIncorporacionPersonalB2(r.Context(), soporte, fronteras, previo); ok {
 				r = r.WithContext(ctx)
 			}

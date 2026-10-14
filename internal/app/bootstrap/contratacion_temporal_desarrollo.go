@@ -1124,6 +1124,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		rutas = append(rutas, rutasB2...)
 		b2 := incorporacion[0].nominales.montajeB2
+		fichaGINPIX, err := nuevaRutaFichaGINPIXB2(b2, alta.soporte, catalogoFronteras)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, fichaGINPIX)
 		consultasPersonal, colecciones, err := rutasRegistroEmpleadoPersonalB2(b2.ficha, b2.empleados, b2.autoridad, alta.postgresql.registradorAuditoriaFrontera, alta.soporte, catalogoFronteras)
 		if err != nil {
 			return nil, nil, nil, err
@@ -1132,22 +1137,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		coleccionesPersonalB2 = colecciones
 	}
 	if incorporacionV2 != nil {
-		mapeo, err := nuevoMapeoFichaGINPIXDesarrollo()
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		ficha, err := contratacioncomposicion.NuevaRutaFichaGINPIXV2(incorporacionV2, mapeo)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		rutas = append(rutas, ficha)
 		seguimiento, err := contratacioncomposicion.NuevaRutaConsultaSeguimientoV2(incorporacionV2)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		rutas = append(rutas, seguimiento)
 		for i := range rutas {
-			if rutas[i].Ruta == httpinterno.RutaIncorporacionEjercicioV2 || rutas[i].Ruta == httpinterno.RutaFichaGINPIXV2 || rutas[i].Ruta == httpinterno.RutaConsultaSeguimientoV2 {
+			if rutas[i].Ruta == httpinterno.RutaIncorporacionEjercicioV2 || rutas[i].Ruta == httpinterno.RutaConsultaSeguimientoV2 {
 				rutas[i].Manejador = ligarContextoIncorporacionV2Desarrollo(rutas[i].Manejador, alta.soporte, catalogoFronteras)
 			}
 		}
