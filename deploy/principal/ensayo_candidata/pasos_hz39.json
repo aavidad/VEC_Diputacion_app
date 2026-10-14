@@ -542,7 +542,7 @@
         "metodo": "POST",
         "ruta": "/api/vec/contratacion-temporal/peticiones-centro/operaciones",
         "codigos": [
-          201
+          200
         ]
       }
     ],
@@ -612,7 +612,7 @@
         "metodo": "POST",
         "ruta": "/api/vec/contratacion-temporal/peticiones-centro/operaciones",
         "codigos": [
-          201
+          200
         ]
       }
     ],

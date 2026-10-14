@@ -187,4 +187,4 @@
 598 web/static/portal-empleado/peticiones-centro/peticiones-centro.test.mjs
 334 web/static/textos/en/peticiones-centro.json
 334 web/static/textos/es/peticiones-centro.json
-917 deploy/principal/ensayo_candidata/recorrer.py
+926 deploy/principal/ensayo_candidata/recorrer.py

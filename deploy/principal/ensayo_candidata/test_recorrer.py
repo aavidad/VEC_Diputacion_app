@@ -17,6 +17,31 @@ spec.loader.exec_module(runner)
 
 
 class GuionHZ39(unittest.TestCase):
+    def test_fecha_del_recibo_de_peticion_se_conserva_al_recuperar(self):
+        recibo = {"recibo_ref": "recibo:centro:1", "version": 1,
+                  "registrado_en": "2026-10-14T17:00:00.000001Z"}
+        self.assertEqual(runner.recibos({"data": recibo}), [recibo])
+        original = {"recibos_efecto": [recibo]}
+        runner.comprobar_recuperacion({"http": [{"metodo": "POST"}]}, original, {"recibos": [recibo]})
+        distinto = {**recibo, "registrado_en": "2026-10-14T17:00:00.000002Z"}
+        with self.assertRaises(runner.EntradaInvalida):
+            runner.comprobar_recuperacion({"http": [{"metodo": "POST"}]}, original, {"recibos": [distinto]})
+
+    def test_callback_playwright_con_dos_argumentos_conserva_actor_y_origen(self):
+        with patch.object(runner.Ejecucion, "filtrar") as filtrar:
+            ejecucion = runner.Ejecucion(Path("/fuera"), {"valores": {}})
+            transporte_a, transporte_b = object(), object()
+            origen_a, origen_b = "https://127.0.0.1:9443", "https://127.0.0.1:9553"
+            actor_a = runner.filtro_del_actor(ejecucion, origen_a, transporte_a)
+            actor_b = runner.filtro_del_actor(ejecucion, origen_b, transporte_b)
+            ruta, solicitud = object(), object()
+            actor_a(ruta, solicitud)
+            filtrar.assert_called_with(ruta, origen_a, transporte_a)
+            actor_b(ruta, solicitud)
+            filtrar.assert_called_with(ruta, origen_b, transporte_b)
+            actor_a(ruta, solicitud)
+            filtrar.assert_called_with(ruta, origen_a, transporte_a)
+
     def test_avance_admite_correccion_y_recuperacion_exige_commit_congelado(self):
         with tempfile.TemporaryDirectory() as directorio:
             raiz = Path(directorio)

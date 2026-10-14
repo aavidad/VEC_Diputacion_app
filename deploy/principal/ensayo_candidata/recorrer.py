@@ -259,6 +259,7 @@ def recibos(datos: object) -> list[dict]:
                         "version",
                         "version_resultante",
                         "fecha",
+                        "registrado_en",
                         "registrada_en",
                         "fase",
                         "estado",
@@ -314,6 +315,7 @@ def comprobar_recuperacion(paso: dict, original: dict, actual: dict) -> None:
         "version",
         "version_resultante",
         "fecha",
+        "registrado_en",
         "registrada_en",
     }
     for r in originales:
@@ -647,7 +649,7 @@ def ejecutar(
                             opciones["record_video_dir"] = str(video)
                         c = browser.new_context(**opciones)
                         c.route(
-                            "**/*", lambda route, o=args.base_url, t=transporte.responder: e.filtrar(route, o, t)
+                            "**/*", filtro_del_actor(e, args.base_url, transporte.responder)
                         )
                         c.on("response", lambda response, a=actor: e.red(response, a))
                         page = c.new_page()
@@ -828,6 +830,13 @@ def recorrido_principal_completo(pasos: list[dict], registros: list[dict]) -> bo
     requeridos = {p["id"] for p in pasos if not p.get("opcional")}
     confirmados = {r["id"] for r in registros if r["estado"] == "OK"}
     return bool(requeridos) and requeridos.issubset(confirmados)
+
+
+def filtro_del_actor(ejecucion, origen: str, transporte):
+    def filtrar(route, _request=None):
+        return ejecucion.filtrar(route, origen, transporte)
+
+    return filtrar
 
 
 def main() -> int:
