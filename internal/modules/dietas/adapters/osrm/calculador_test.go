@@ -15,6 +15,33 @@ import (
 
 const versionGrafoPrueba = "grafo-osm-granada-2026-07-19T04:00:00Z"
 
+func TestCalculadorCuentaLaRutaPrincipalAlPedirAlternativas(t *testing.T) {
+	for _, caso := range []struct {
+		maximoRutas int
+		parametro   string
+	}{{0, "false"}, {1, "false"}, {2, "1"}, {3, "2"}} {
+		t.Run(fmt.Sprint(caso.maximoRutas), func(t *testing.T) {
+			var parametro atomic.Value
+			servidor := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				parametro.Store(r.URL.Query().Get("alternatives"))
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(respuestaValida("null")))
+			}))
+			defer servidor.Close()
+			calculador, err := Nuevo(configuracionPrueba(servidor.URL))
+			if err != nil {
+				t.Fatal(err)
+			}
+			solicitud := solicitudPrueba()
+			solicitud.Alternativas = caso.maximoRutas
+			resultado, err := calculador.Calcular(context.Background(), solicitud)
+			if err != nil || len(resultado.Alternativas) != 1 || parametro.Load() != caso.parametro {
+				t.Fatalf("máximo %d: alternatives=%v, rutas=%d, error=%v", caso.maximoRutas, parametro.Load(), len(resultado.Alternativas), err)
+			}
+		})
+	}
+}
+
 func configuracionPrueba(urlBase string) Configuracion {
 	return Configuracion{
 		URLBase:        urlBase,
@@ -59,7 +86,7 @@ func TestCalculadorImponeVersionGobernadaCuandoOSRMDevuelveNull(t *testing.T) {
 	}
 	if !strings.Contains(rutaConsultada, "/route/v1/driving/-3.598600,37.177300;-3.655400,37.230600") ||
 		!strings.Contains(rutaConsultada, "overview=full") || !strings.Contains(rutaConsultada, "geometries=geojson") ||
-		!strings.Contains(rutaConsultada, "steps=true") || !strings.Contains(rutaConsultada, "alternatives=1") {
+		!strings.Contains(rutaConsultada, "steps=true") || !strings.Contains(rutaConsultada, "alternatives=false") {
 		t.Fatalf("consulta OSRM fuera del contrato fijo: %s", rutaConsultada)
 	}
 }
