@@ -236,6 +236,11 @@
     "comision_devolucion_etapa_fiscalizacion": "Intervención"
   },
   "circuito": {
+    "circuito_competencias_cargando": "Comprobando sus bandejas…",
+    "circuito_competencias_error": "No se han podido comprobar sus bandejas. Puede reintentar la consulta.",
+    "circuito_competencias_denegadas": "No tiene permiso para consultar las bandejas de Dietas.",
+    "circuito_competencias_sesion": "Su sesión no permite consultar las bandejas de Dietas.",
+    "circuito_competencias_reintentar": "Reintentar consulta",
     "circuito_etapa": "Bandeja",
     "circuito_etapa_revision": "Revisión administrativa",
     "circuito_etapa_autorizacion": "Autorización",

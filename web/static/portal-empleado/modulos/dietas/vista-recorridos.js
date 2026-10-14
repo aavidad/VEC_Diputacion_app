@@ -71,6 +71,19 @@ export function montarVistaRecorridosDietas(contenedor, {
     });
   }
   pintarPasos();
+  const estadoCompetencias = nodo(documento, "div");
+  estadoCompetencias.className = "panel";
+  estadoCompetencias.dataset.dietasEstadoCompetencias = "";
+  estadoCompetencias.setAttribute("role", "status");
+  estadoCompetencias.setAttribute("aria-live", "polite");
+  estadoCompetencias.setAttribute("tabindex", "-1");
+  estadoCompetencias.hidden = true;
+  const mensajeCompetencias = nodo(documento, "p");
+  const reintentarCompetencias = nodo(documento, "button", traducir("circuito_competencias_reintentar"));
+  reintentarCompetencias.type = "button";
+  reintentarCompetencias.className = "boton-secundario";
+  reintentarCompetencias.dataset.dietasReintentarCompetencias = "";
+  estadoCompetencias.append(mensajeCompetencias, reintentarCompetencias);
   const cuerpo = nodo(documento, "div");
   cuerpo.className = "dietas-recorridos-cuerpo";
   const panelPropio = nodo(documento, "section");
@@ -79,6 +92,7 @@ export function montarVistaRecorridosDietas(contenedor, {
   const cabeceraPropia = nodo(documento, "div");
   cabeceraPropia.className = "dietas-recorridos-cabecera panel";
   const tituloPropio = nodo(documento, "h3", traducir("revision_mis_comisiones"));
+  tituloPropio.setAttribute("tabindex", "-1");
   const abrir = nodo(documento, "button", traducir("nueva_comision"));
   abrir.type = "button";
   abrir.className = "boton-primario";
@@ -100,7 +114,7 @@ export function montarVistaRecorridosDietas(contenedor, {
   areaCircuito.dataset.dietasAreaCircuito = "";
   panelCircuito.append(areaCircuito);
   cuerpo.append(panelPropio, panelCircuito);
-  raiz.append(cabecera, pasos, cuerpo);
+  raiz.append(cabecera, pasos, estadoCompetencias, cuerpo);
 
   const vistaBorradores = montarVistaBorradoresPropios(areaBorradores, {
     cliente: clienteBorradores, clienteAsignacion, clienteRectificacion, calculadorRuta, visorRuta,
@@ -142,6 +156,10 @@ export function montarVistaRecorridosDietas(contenedor, {
     pintar();
   }
   function clic(evento) {
+    if (evento.target?.closest?.("[data-dietas-reintentar-competencias]")) {
+      if (activa && !reintentarCompetencias.disabled) void cargarCompetencias();
+      return;
+    }
     const botonNueva = evento.target?.closest?.("[data-dietas-abrir-nueva-comision]");
     if (botonNueva && activa && !botonNueva.disabled) {
       formularioAbierto = !formularioAbierto;
@@ -166,22 +184,57 @@ export function montarVistaRecorridosDietas(contenedor, {
   }
   // Las pestañas del circuito dependen de lo que acredite la fuente gobernada.
   const cancelacionCompetencias = new AbortController();
+  let cargaCompetencias = false;
+  let competenciasResueltas = false;
   async function cargarCompetencias() {
-    if (typeof clienteCircuito?.competencias !== "function") return;
-    try {
-      const competencias = await clienteCircuito.competencias({ signal: cancelacionCompetencias.signal });
-      if (!activa) return;
-      // Sin fuente gobernada no hay bandejas que ofrecer: ninguna pestaña.
-      if (competencias.fuente === "sin_fuente") return;
-      etapasCircuito = ETAPAS_CIRCUITO.filter((codigo) => competencias.etapas.includes(codigo));
-    } catch {
-      return;
-    }
-    if (etapasCircuito.length === 0) return;
-    const circuito = [...etapasCircuito.map((codigo) => [codigo, `circuito_etapa_${codigo}`]), ["control", "circuito_control"]];
-    etapasDisponibles = [etapasDisponibles[0], ...circuito, ...etapasDisponibles.slice(1)];
-    pintarPasos();
-    pintar();
+    if (!activa || competenciasResueltas || cargaCompetencias || typeof clienteCircuito?.competencias !== "function") return;
+    const focoReintento = documento.activeElement === reintentarCompetencias;
+    cargaCompetencias = true;
+    reintentarCompetencias.disabled = true;
+    reintentarCompetencias.hidden = false;
+    estadoCompetencias.hidden = false;
+    mensajeCompetencias.textContent = traducir("circuito_competencias_cargando");
+    return (async () => {
+      try {
+        const competencias = await clienteCircuito.competencias({ signal: cancelacionCompetencias.signal });
+        if (!activa || !montada(contenedor, raiz)) return;
+        competenciasResueltas = true;
+        estadoCompetencias.hidden = true;
+        // Sin fuente o sin etapas acreditadas no hay bandejas ni consulta de listados.
+        if (competencias.fuente === "sin_fuente" || competencias.etapas.length === 0) {
+          if (focoReintento && documento.activeElement === reintentarCompetencias) tituloPropio.focus?.();
+          return;
+        }
+        etapasCircuito = ETAPAS_CIRCUITO.filter((codigo) => competencias.etapas.includes(codigo));
+        const circuito = [...etapasCircuito.map((codigo) => [codigo, `circuito_etapa_${codigo}`]), ["control", "circuito_control"]];
+        etapasDisponibles = [etapasDisponibles[0], ...circuito, ...etapasDisponibles.slice(1)];
+        pintarPasos();
+        pintar();
+        if (focoReintento && documento.activeElement === reintentarCompetencias) {
+          pasos.querySelector(`[data-dietas-cambiar-etapa="${etapasCircuito[0]}"]`)?.focus?.();
+        }
+      } catch (error) {
+        if (!activa || !montada(contenedor, raiz) || error?.codigo === "operacion_abortada") return;
+        const denegada = error?.codigo === "acceso_denegado" || error?.estado === 403;
+        const autenticacion = error?.codigo === "autenticacion_requerida" || error?.estado === 401;
+        if (error?.codigo === "competencia_sin_fuente") {
+          competenciasResueltas = true;
+          estadoCompetencias.hidden = true;
+          if (focoReintento && documento.activeElement === reintentarCompetencias) tituloPropio.focus?.();
+          return;
+        }
+        mensajeCompetencias.textContent = traducir(denegada ? "circuito_competencias_denegadas"
+          : autenticacion ? "circuito_competencias_sesion" : "circuito_competencias_error");
+        reintentarCompetencias.hidden = denegada || autenticacion;
+        estadoCompetencias.hidden = false;
+        if (focoReintento && reintentarCompetencias.hidden && documento.activeElement === reintentarCompetencias) {
+          estadoCompetencias.focus?.();
+        }
+      } finally {
+        cargaCompetencias = false;
+        reintentarCompetencias.disabled = false;
+      }
+    })();
   }
   raiz.addEventListener("click", clic);
   registrarDesmontar?.(desmontar);
