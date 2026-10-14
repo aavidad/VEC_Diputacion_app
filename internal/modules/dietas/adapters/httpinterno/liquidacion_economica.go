@@ -225,7 +225,8 @@ func (m *ManejadorLiquidacionEconomica) registrar(w http.ResponseWriter, r *http
 
 // La primera operación puede haber confirmado el acto aunque se perdiera su
 // respuesta. La cola ya avanzada impide prepararla otra vez; la lectura nominal
-// actual recupera únicamente el recibo durable de esa operación exacta.
+// actual localiza la preparación original. El registro nominal vuelve a
+// consumir la autorización vigente antes de recuperar su recibo exacto.
 func (m *ManejadorLiquidacionEconomica) recuperarTrasPreparacionFallida(ctx context.Context, ref string, entrada solicitudRegistroLiquidacionJSON) (dietasdomain.InstantaneaLiquidacionEconomica, bool) {
 	var vacia dietasdomain.InstantaneaLiquidacionEconomica
 	if ctx.Err() != nil {
@@ -256,7 +257,23 @@ func (m *ManejadorLiquidacionEconomica) recuperarTrasPreparacionFallida(ctx cont
 		!mismasRevisionesLiquidacion(s.Economia.Lineas, entrada.Revisiones) {
 		return vacia, false
 	}
-	return s, true
+	preparacion, err := dietasdomain.RecuperarPreparacionLiquidacionPublicada(s.Economia)
+	if err != nil {
+		return vacia, false
+	}
+	solicitud := dietasports.SolicitudLiquidacionEconomica{Decision: dietasports.SolicitudDecisionCircuito{
+		Referencia: ref, Etapa: dietasdomain.EtapaLiquidacion, Decision: dietasdomain.DecisionAprobar,
+		ClaveIdempotencia: entrada.ClaveIdempotencia, VersionEsperada: entrada.VersionEsperada}, Preparacion: preparacion}
+	identidad, err := m.identidad.ResolverRegistroLiquidacionEconomica(ctx, solicitud)
+	if err != nil || identidad.UnidadCompetenciaRef != s.Constancia.UnidadRef {
+		return vacia, false
+	}
+	solicitud.Decision.UnidadRef = identidad.UnidadCompetenciaRef
+	recuperada, err := m.registro.RegistrarPreparada(ctx, identidad, solicitud)
+	if err != nil || recuperada == nil || recuperada.Instantanea().SnapshotSHA256 != s.SnapshotSHA256 {
+		return vacia, false
+	}
+	return recuperada.Instantanea(), true
 }
 
 func mismasRevisionesLiquidacion(lineas []dietasdomain.LineaLiquidacionPropuesta, revisiones []dietasdomain.RevisionLineaLiquidacion) bool {

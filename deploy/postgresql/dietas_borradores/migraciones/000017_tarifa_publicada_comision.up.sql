@@ -850,6 +850,8 @@ BEGIN
  END IF;
  IF operacion='editar' THEN
   IF c-(ARRAY['clave_idempotencia','version_esperada','relacion_ref','fecha_inicio','fecha_fin','hora_inicio','hora_fin','motivo','codigos_ruta','vehiculo_propio','rutas','tramos_aceptados','version_tarifa_aceptada','asignacion','calculo','documento','otros'])<>'{}'::jsonb
+     OR c->>'version_tarifa_aceptada' IS DISTINCT FROM calculo->>'version_tarifa'
+     OR c->'calculo'->>'version_tarifa' IS DISTINCT FROM calculo->>'version_tarifa'
      OR c->>'fecha_inicio' !~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'
      OR c->>'fecha_fin' !~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'
      OR c->>'hora_inicio' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'

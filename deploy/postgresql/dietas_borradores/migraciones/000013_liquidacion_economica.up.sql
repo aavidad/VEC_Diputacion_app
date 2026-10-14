@@ -434,7 +434,7 @@ BEGIN
     OR p_documento->>'version_tarifa_aceptada' IS DISTINCT FROM p_catalogo->>'version_tarifa_ref'
     OR p_documento->>'grupo_dieta' IS DISTINCT FROM p_catalogo->>'grupo'
     OR p_documento->>'vehiculo_propio' IS DISTINCT FROM
-       CASE WHEN p_catalogo->>'vehiculo'='propio' THEN 'true' ELSE 'false' END
+       (CASE WHEN p_catalogo->>'vehiculo'='propio' THEN 'true' ELSE 'false' END)
     OR p_documento->>'alojamiento_tope_centimos' IS DISTINCT FROM '0'
     OR jsonb_typeof(p_documento->'lineas') IS DISTINCT FROM 'array'
     OR jsonb_typeof(p_documento->'tramos_aceptados') IS DISTINCT FROM 'array'

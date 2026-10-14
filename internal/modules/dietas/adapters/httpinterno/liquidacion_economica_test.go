@@ -201,7 +201,7 @@ func TestLiquidacionHTTPRecuperaCommitInciertoSoloMismaOperacion(t *testing.T) {
 	p.err = ports.ErrEstadoCircuitoConflicto // La primera operación avanzó la cola.
 	segundo := peticionCircuito(m, http.MethodPost, base, cuerpo)
 	if segundo.Code != http.StatusOK || segundo.Body.String() != primero.Body.String() ||
-		r.llamadas != 1 || i.llamadas != 1 || c.llamadas != 1 || l.llamadas != 1 ||
+		r.llamadas != 2 || i.llamadas != 2 || c.llamadas != 1 || l.llamadas != 1 ||
 		l.consulta.Referencia != referenciaLiquidacionPrueba || l.consulta.Version != 3 {
 		t.Fatalf("repetición exacta: %d %s", segundo.Code, segundo.Body.String())
 	}
@@ -216,7 +216,7 @@ func TestLiquidacionHTTPRecuperaCommitInciertoSoloMismaOperacion(t *testing.T) {
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			w := peticionCircuito(m, http.MethodPost, base, caso.cuerpo)
-			if w.Code != http.StatusConflict || strings.Contains(w.Body.String(), "recibo:uno") || r.llamadas != 1 || i.llamadas != 1 {
+			if w.Code != http.StatusConflict || strings.Contains(w.Body.String(), "recibo:uno") || r.llamadas != 2 || i.llamadas != 2 {
 				t.Fatalf("replay distinto: %d %s", w.Code, w.Body.String())
 			}
 		})
@@ -242,6 +242,30 @@ func TestLiquidacionHTTPRecuperaCommitInciertoSoloMismaOperacion(t *testing.T) {
 	}
 	if !errors.Is(p.err, ports.ErrEstadoCircuitoConflicto) {
 		t.Fatal("se perdió la causa original")
+	}
+}
+
+func TestLiquidacionHTTPReintentoExigeRegistroYCompetenciaVigentes(t *testing.T) {
+	for _, denegacion := range []error{ports.ErrAccesoCircuitoDenegado, ports.ErrCompetenciaCircuitoSinFuente} {
+		t.Run(denegacion.Error(), func(t *testing.T) {
+			m, p, i, r, c, l := manejadorLiquidacionHTTPPrueba(t)
+			base := RutaCircuito + "/" + referenciaLiquidacionPrueba + "/liquidaciones"
+			cuerpo := `{"version_esperada":2,"clave_idempotencia":"clave_economia_20261014","revisiones":[{"indice":0,"regla_ref":"regla:manutencion:dos","reconocido_propuesto_centimos":400,"motivo_codigo":"revision_importe"}]}`
+			if w := peticionCircuito(m, http.MethodPost, base, cuerpo); w.Code != http.StatusOK {
+				t.Fatalf("primer registro: %d %s", w.Code, w.Body.String())
+			}
+			p.err = ports.ErrEstadoCircuitoConflicto
+			i.err = denegacion
+			w := peticionCircuito(m, http.MethodPost, base, cuerpo)
+			if w.Code != http.StatusConflict || strings.Contains(w.Body.String(), "recibo:uno") ||
+				i.llamadas != 2 || r.llamadas != 1 || c.llamadas != 1 || l.llamadas != 1 {
+				t.Fatalf("registro retirado con consulta vigente: %d %s", w.Code, w.Body.String())
+			}
+			// La consulta conserva su permiso independiente del acto repetido.
+			if w := peticionCircuito(m, http.MethodGet, base+"/actual", ""); w.Code != http.StatusOK {
+				t.Fatalf("consulta independiente: %d %s", w.Code, w.Body.String())
+			}
+		})
 	}
 }
 
