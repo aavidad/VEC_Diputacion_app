@@ -948,6 +948,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js", "modulos/contratacion-temporal/vista-expedientes-borrador.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
   ]) versionesEspeciales.set(ruta, "20261013-ct-firma-tres-v3");
+  for (const ruta of ["portal.js", "portal-eventos.js", "portal-modulos-coordinador.js"])
+    versionesEspeciales.set(ruta, "20261014-cronos-activacion-v1");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;

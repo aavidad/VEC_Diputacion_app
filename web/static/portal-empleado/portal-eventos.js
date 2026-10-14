@@ -374,6 +374,12 @@ export function crearControladorPortal(dependencias) {
 
   function instalar() {
     document.addEventListener("click", (evento) => {
+      const salto = evento.target.closest('a.salto-contenido[href="#contenido-principal"]');
+      if (salto) {
+        evento.preventDefault();
+        porId("contenido-principal")?.focus?.({ preventScroll: true });
+        return;
+      }
       const botonVista = evento.target.closest("[data-vista]");
       if (botonVista && !botonVista.disabled) {
         evento.preventDefault();

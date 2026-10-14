@@ -55,6 +55,15 @@ test("sin autorización ni periodo muestra causa y bloquea las cuatro acciones",
   assert.doesNotMatch(html, /navigator\.geolocation|coords|fingerprint/iu);
 });
 
+test("un fallo del servicio no afirma que falte autorización ni un periodo", () => {
+  for (const disponibilidad of [null, permitido]) {
+    const html = renderizarVistaRemotoCronos({ disponibilidad, estado: "servicio", t });
+    assert.doesNotMatch(html, /No consta un periodo autorizado|Periodo autorizado|hasta antes de/u);
+    assert.match(html, /Avise a Informática/u);
+    assert.equal((html.match(/disabled aria-disabled="true" title=/gu) ?? []).length, 4);
+  }
+});
+
 test("sólo el recibo confirmado muestra hora de servidor y referencia escapada", () => {
   const previo = renderizarVistaRemotoCronos({ disponibilidad: permitido, estado: "listo", t });
   assert.doesNotMatch(previo, /recibo:1/u);
@@ -127,7 +136,7 @@ test("GET distingue autenticación, denegación central y caída del servicio", 
   for (const [codigo, estado, texto] of [
     ["autenticacion_requerida", "autenticacion", /Debe identificarse/u],
     ["acceso_denegado", "acceso_denegado", /No tiene permiso/u],
-    ["servicio_no_disponible", "servicio", /servicio de fichaje remoto no está disponible/u],
+    ["servicio_no_disponible", "servicio", /El fichaje no está disponible\. Avise a Informática/u],
   ]) {
     const { nodo, raiz } = raizFalsa();
     const vista = montarVistaRemotoCronos({ raiz, cliente: {
@@ -235,7 +244,7 @@ test("POST 403 nominal y 503 de continuidad bloquean; 503 de servicio conserva c
   for (const [codigo, estadoHTTP, incierto, estadoVista, texto] of [
     ["teletrabajo_no_autorizado", 403, false, "listo", /No tiene autorización vigente/u],
     ["continuidad_no_confirmada", 503, false, "continuidad", /El servidor aún no ha confirmado/u],
-    ["servicio_no_disponible", 503, true, "servicio_incierto", /servicio de fichaje remoto no está disponible/u],
+    ["servicio_no_disponible", 503, true, "servicio_incierto", /El fichaje no está disponible\. Avise a Informática/u],
   ]) {
     const { nodo, raiz } = raizFalsa();
     const vista = montarVistaRemotoCronos({ raiz, cliente: {
