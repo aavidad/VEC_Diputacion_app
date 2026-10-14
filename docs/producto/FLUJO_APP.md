@@ -260,7 +260,7 @@ distintas, y ningún firmante firma dos pasos del mismo documento.
 y su puesto publicados: **centro 520, categoría Administrativo de la RPT (9),
 puesto 9/01, plaza 2026/0033**. Los datos se cargan con un guion de datos
 repetible (no con código), sin tocar los demás puestos. La bolsa es
-`bolsa:administrativo:2026-09-17` v1, ya constituida y con su orden. El alta,
+`bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk` v1, ya constituida y con su orden. El alta,
 la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. Antonio ya
 figura en ella como disponible y en el puesto que le toca el llamamiento (lo deja así el guion
 de datos). Si un dato no cuadra, se ajusta el dato, no el código (regla 5).
@@ -280,7 +280,7 @@ conveniente».
 | e1 | Antonio (aspirante) | `/area-personal/?vista=inscripcion`, Inscribirme en una bolsa | Elige la convocatoria de Administrativo, declara que cumple cada requisito, revisa y presenta la solicitud | Recibo de presentación; solicitud `pendiente` («Pendiente de revisión» en Mis solicitudes) |
 | e2 | Antonio | `/area-personal/?vista=meritos`, Mis méritos | Pulsa «Añadir título o mérito» y declara sus títulos y méritos | Cada mérito queda «Declarado, pendiente de revisión» |
 | e3 | Carmen (RRHH) | `/portal-empleado/#solicitudes`, Bolsas → Solicitudes y admisión | Elige la convocatoria, revisa la solicitud de Antonio y la admite | Solicitud `admitida_a_convocatoria`; Antonio ve «Admitida. Pendiente de incorporación a la bolsa» |
-| e4 | Carmen | La misma pantalla | Incorpora a Antonio a la bolsa `bolsa:administrativo:2026-09-17`, ya constituida, con el número del acta | Solicitud `incorporada`; Antonio aparece en Mi Bolsa como **Disponible** con su posición |
+| e4 | Carmen | La misma pantalla | Incorpora a Antonio a la bolsa `bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk`, ya constituida, con el número del acta | Solicitud `incorporada`; Antonio aparece en Mi Bolsa como **Disponible** con su posición |
 | e5 | Antonio, después Carmen | `/area-personal/?vista=alegaciones`; RRHH en `/portal-empleado/#alegaciones`, Bolsas → Alegaciones | Antonio presenta una alegación sobre su participación; Carmen la consulta | Justificante de presentación en VEC; la alegación aparece en la bandeja de RRHH de esa bolsa |
 | 1 | Lucía (centro) | `/portal-empleado/peticiones-centro/` | Presenta la petición: elige categoría Administrativo y el puesto de la RPT publicada, motivo, fechas y una persona; indica que no hay retención de crédito. RRHH registra el crédito en el análisis (paso 4) | Recibo de presentación; petición `pendiente_ratificacion`, versión 1 |
 | 2 | Manuel (ratificador) | La misma pantalla, bandeja del centro | Revisa y ratifica con motivo | Recibo de ratificación; petición `ratificada`, versión 2 |
@@ -298,10 +298,10 @@ conveniente».
 | 13 | Carmen | Ficha, Formalización | Registra la resolución | Recibo; `nombramiento/en_curso`, v8 |
 | 14 | Carmen | Ficha, Documentos | Descarga en PDF y Word los borradores | Cada documento se abre con el logotipo y los datos del expediente |
 | 15 | Firmantes | Ficha, panel de firma (GrxFirma) | Firman con certificado el informe de remisión y la resolución, en el orden del catálogo (tres cargos). Los otros cuatro documentos (incluida la toma de posesión de Antonio) se generan y descargan sin firma, marcados «firma pendiente», sin simularla | Cada firma con su justificante y el PDF verificado; los cuatro restantes, descargables en PDF y Word |
-| 16a | Carmen | Ficha, GINPIX | Descarga la ficha para la grabación manual | Ficha descargada |
-| 17 | Lucía (centro) | `peticiones-centro/`, Incorporaciones | Acredita la incorporación de Antonio con fecha y documento | Recibo de incorporación |
-| 16b | Carmen | Ficha, GINPIX | Confirma número y fecha de la grabación manual (el formulario exige la incorporación ya acreditada) | Recibo de confirmación GINPIX |
-| 18 | Carmen | Ficha, Paso a Personal | Revisa el plan de alta y lo confirma | Antonio aparece en Personal con su relación y su ocupación |
+| 17 | Lucía (centro) | `peticiones-centro/`, Incorporaciones | Acredita la incorporación de Antonio con fecha y documento | Recibo de incorporación acreditada del centro |
+| 18 | Carmen | Ficha, Paso a Personal | Revisa el plan de alta con categoría Administrativo, puesto 9/01 y plaza 2026/0033, y lo confirma | Antonio aparece en Personal con su relación y su ocupación; recibo de alta B2 confirmado |
+| 16a | Carmen | Ficha, GINPIX | Descarga la ficha para la grabación manual, después del alta en Personal | Ficha descargada con las referencias del recibo B2 confirmado |
+| 16b | Carmen | Ficha, GINPIX | Confirma número y fecha de la grabación manual | Recibo local de confirmación GINPIX; no acredita una transmisión automática |
 | 19 | Carmen | Ficha, Cese | Registra el cese con causa y justificante | Recibo de cese |
 | 20 | (automático) Bolsa | Mi Bolsa de Antonio y Bolsas de RRHH | Bolsa recibe el cese | Antonio vuelve a la bolsa Administrativo como **Disponible** o **Disponible desde** la fecha que marque la política |
 | 21 | Carmen | Ficha, Cierre | Cierra el expediente | `nombramiento/completado` |
@@ -360,10 +360,10 @@ flowchart TD
   L2 --> A2
   A2 -- acepta --> R6["RRHH: propuesta y resolución, documentos PDF y Word<br/>(en cidonia)"]
   R6 --> F1["Firma de tres cargos<br/>(falta)"]
-  F1 --> G1["RRHH: ficha GINPIX y confirmación manual<br/>(en cidonia)"]
-  G1 --> C3["Centro: acredita la incorporación<br/>(en cidonia)"]
-  C3 --> P1["RRHH: paso a Personal<br/>(encendido; ningún expediente llega aún)"]
-  P1 --> S1["RRHH: cese<br/>(en cidonia)"]
+  F1 --> C3["Centro: acredita la incorporación<br/>(en cidonia)"]
+  C3 --> P1["RRHH: paso a Personal<br/>(pendiente de recorrido)"]
+  P1 --> G1["RRHH: ficha GINPIX desde el alta confirmada y grabación manual<br/>(pendiente de recorrido)"]
+  G1 --> S1["RRHH: cese<br/>(en cidonia)"]
   S1 --> B2["Bolsa: vuelta a la bolsa constituida<br/>(falta acreditar)"]
 ```
 
@@ -779,18 +779,21 @@ duda 74.
 
 #### 4.3.7 GINPIX, incorporación y paso a Personal
 
-1. RRHH descarga la ficha GINPIX y, cuando la ha grabado a mano, confirma número
-   y fecha (`confirmaciones-ginpix`). La fecha no puede ser anterior al inicio.
-   No hay transmisión automática: el adaptador existe pero no está compuesto.
-2. El centro acredita la incorporación (4.2).
-3. Si la persona no se incorpora (no se presenta, no aporta documentos o
+1. El centro acredita la incorporación (4.2).
+2. RRHH revisa el plan de alta en Personal y lo confirma
+   (`incorporacion-personal-b2/plan/v1` y `.../confirmar/v1`). El plan conserva
+   categoría, puesto y plaza publicados. El recibo confirmado acredita el alta
+   y la ocupación; no se utiliza el circuito antiguo de incorporación de ejercicio.
+3. RRHH descarga la ficha GINPIX desde ese recibo B2 y, después de grabarla a
+   mano, confirma número y fecha (`confirmaciones-ginpix`). La fecha no puede
+   ser anterior al inicio. El recibo es local: no hay transmisión automática.
+4. Si la persona no se incorpora (no se presenta, no aporta documentos o
    renuncia antes), RRHH lo registra (`no-incorporaciones`), con segunda
    persona si la regla lo exige. El expediente vuelve a `fiscalizacion`, Bolsa
    recibe la baja y se llama al siguiente.
-4. RRHH revisa el plan de alta en Personal y lo confirma
-   (`incorporacion-personal-b2/plan/v1` y `.../confirmar/v1`). Encendido en
-   cidonia desde HZ18, pero responde «preparación pendiente» porque ningún
-   expediente tiene una categoría de la RPT publicada. Falta (#1070, equipo K).
+
+Orden del caso 4.0: 17 → 18 → 16a → 16b. El recorrido completo con el recibo
+B2 y su recuperación después del reinicio sigue pendiente del ensayo de P.
 
 Cuándo cuenta como hecha la incorporación (con el alta en Personal o con la
 toma de posesión) y la fecha de efectos del cese siguen pendientes de RRHH

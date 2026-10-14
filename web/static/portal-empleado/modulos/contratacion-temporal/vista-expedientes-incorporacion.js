@@ -1,8 +1,9 @@
 /** Montaje y refresco de resolución de formalización e incorporación al ejercicio. */
 
-import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=20261011-ct-bolsa-vinculo-v1";
+import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=20261014-ginpix-personal-b2-v1";
 import { escaparHTML } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
-import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261013-ct-firma-tres-v3";
+import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
+import { validarConsultaB2ParaFichaGINPIX } from "./contrato-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261013-ct-firma-tres-v3";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261013-ct-firma-tres-v3";
 import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261013-ct-firma-tres-v3";
@@ -47,6 +48,51 @@ export function crearGestorIncorporacion({
   let consultaResolucionFormalizacion = null;
   let desmontarPersonalB2 = null;
   let consultaPersonalB2 = null;
+  let desmontarFichaB2 = null;
+  let consultaFichaB2 = null;
+
+  function montarFichaPersonalB2(consulta, contenedor, expedienteRef, version, vigente) {
+    if (!vigente() || !consulta?.recibo || consulta.version_expediente_actual !== version
+      || typeof clienteLlamamiento?.descargarFichaGINPIX !== "function" || typeof contenedor.after !== "function") return;
+    const comprobada = validarConsultaB2ParaFichaGINPIX(consulta);
+    desmontarFichaB2?.();
+    const documento = contenedor.ownerDocument ?? entornoDescarga.document;
+    const bloque = documento.createElement("div");
+    const cuerpo = documento.createElement("div");
+    bloque.className = "panel";
+    bloque.setAttribute("data-ct-exp-ficha-ginpix-b2", "");
+    cuerpo.className = "cuerpo-panel";
+    bloque.append(cuerpo);
+    contenedor.after(bloque);
+    let urlFicha = null;
+    const liberarFicha = () => {
+      if (urlFicha !== null) entornoDescarga.URL?.revokeObjectURL?.(urlFicha);
+      urlFicha = null;
+    };
+    const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
+      (fila) => fila.expediente_ref === expedienteRef && fila.version === version,
+    );
+    const desmontar = montarFichaGINPIX({
+      raiz: cuerpo, cliente: clienteLlamamiento, consulta: comprobada, mensajes, locale, zonaHoraria,
+      resumen: resumen && [resumen.centro, resumen.categoria].every((dato) => typeof dato === "string" && dato.trim())
+        ? { centro: resumen.centro, categoria: resumen.categoria } : undefined,
+      descargarArchivo: (archivo, nombre) => {
+        if (!vigente() || !raiz.contains?.(bloque)) return;
+        const BlobImpl = entornoDescarga.Blob ?? globalThis.Blob;
+        const enlace = documento.createElement("a");
+        liberarFicha();
+        urlFicha = entornoDescarga.URL?.createObjectURL?.(new BlobImpl([archivo.contenido], { type: "application/json" }));
+        if (!urlFicha) throw new TypeError("descarga de ficha no disponible");
+        try {
+          enlace.href = urlFicha; enlace.download = nombre; enlace.hidden = true;
+          documento.body.append(enlace); enlace.click();
+        } finally {
+          enlace.remove(); setTimeout(liberarFicha, 0);
+        }
+      },
+    });
+    desmontarFichaB2 = () => { desmontar(); liberarFicha(); bloque.remove(); desmontarFichaB2 = null; };
+  }
   let desmontarVinculoRPT = null;
   let bloqueVinculoRPT = null;
 
@@ -125,7 +171,23 @@ export function crearGestorIncorporacion({
       raiz: contenedor, cliente, expedienteRef, versionEsperada: version, textos: textos.value,
       resolverEtiqueta: crearResolverEtiquetasIncorporacionB2(textos.value, personal.value),
       esVigente: vigente,
+      alConfirmar: async () => {
+        if (!vigente()) return;
+        const control = new AbortController();
+        consultaFichaB2?.abort();
+        consultaFichaB2 = control;
+        try {
+          const actual = await incorporacionPersonalB2.consultar(expedienteRef, { signal: control.signal });
+          if (vigente() && !control.signal.aborted) montarFichaPersonalB2(actual, contenedor, expedienteRef, version, vigente);
+        } finally {
+          if (consultaFichaB2 === control) consultaFichaB2 = null;
+        }
+      },
     });
+    if (consulta?.recibo) {
+      try { montarFichaPersonalB2(consulta, contenedor, expedienteRef, version, vigente); }
+      catch { /* El formulario B2 mostrará el error de la consulta incompatible. */ }
+    }
   }
 
   /**
@@ -309,43 +371,6 @@ export function crearGestorIncorporacion({
         raiz: contenedor, cliente: clienteLlamamiento, preparacion,
         confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
       });
-      // Sólo una incorporación recuperada y validada habilita la ficha. La
-      // descarga vuelve a consultar al servidor; el recibo del DOM no autoriza.
-      if (preparacion.recibo !== null && typeof clienteLlamamiento.descargarFichaGINPIX === "function") {
-        const documento = contenedor.ownerDocument ?? entornoDescarga.document;
-        const bloque = documento.createElement("div");
-        contenedor.append(bloque);
-        const desmontarFormulario = desmontarIncorporacionEjercicio;
-        let urlFicha = null;
-        const liberarFicha = () => {
-          if (urlFicha !== null) entornoDescarga.URL?.revokeObjectURL?.(urlFicha);
-          urlFicha = null;
-        };
-        const resumenFicha = presentador.obtenerEstado().cuadro?.expedientes?.find(
-          (fila) => fila.expediente_ref === expedienteRef && fila.version === version,
-        );
-        const desmontarFicha = montarFichaGINPIX({
-          raiz: bloque, cliente: clienteLlamamiento, recibo: preparacion.recibo, mensajes,
-          locale,
-          resumen: resumenFicha ? { centro: resumenFicha.centro, categoria: resumenFicha.categoria } : undefined,
-          descargarArchivo: (archivo, nombre) => {
-            if (!esMontada() || !raiz.contains(contenedor)) return;
-            const BlobImpl = entornoDescarga.Blob ?? globalThis.Blob;
-            const enlace = documento.createElement("a");
-            liberarFicha();
-            urlFicha = entornoDescarga.URL?.createObjectURL?.(new BlobImpl([archivo.contenido], { type: "application/json" }));
-            try {
-              enlace.href = urlFicha; enlace.download = nombre; enlace.hidden = true;
-              documento.body.append(enlace); enlace.click();
-            } finally {
-              enlace.remove(); setTimeout(liberarFicha, 0);
-            }
-          },
-        });
-        desmontarIncorporacionEjercicio = () => {
-          desmontarFicha(); liberarFicha(); desmontarFormulario();
-        };
-      }
       if (preparacion.recibo !== null && preparacion.recibo.expediente_ref === expedienteRef
         && typeof clienteLlamamiento.anotacionAdministrativa?.registrar === "function"
         && typeof clienteLlamamiento.anotacionAdministrativa?.recuperar === "function") {
@@ -520,6 +545,8 @@ export function crearGestorIncorporacion({
     abortar() {
       consultaPersonalB2?.abort();
       consultaPersonalB2 = null;
+      consultaFichaB2?.abort();
+      consultaFichaB2 = null;
       consultaResolucionFormalizacion?.abort();
       consultaResolucionFormalizacion = null;
       consultaIncorporacionEjercicio?.abort();
@@ -528,6 +555,9 @@ export function crearGestorIncorporacion({
     retirar() {
       consultaPersonalB2?.abort();
       consultaPersonalB2 = null;
+      consultaFichaB2?.abort();
+      consultaFichaB2 = null;
+      desmontarFichaB2?.();
       desmontarPersonalB2?.();
       desmontarPersonalB2 = null;
       desmontarVinculoRPT?.();
