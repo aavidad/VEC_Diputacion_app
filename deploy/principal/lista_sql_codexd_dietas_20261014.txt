@@ -1,0 +1,9 @@
+# Copia HZ37: verificar las marcas antes de ejecutar; omitir lo ya instalado.
+# AD81 va solo si falta. AD268 sustituye AD75, nunca se ejecutan ambas.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000081_uso_esquema_acceso_rutas_dietas.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000268_campos_documento_dietas_actual.up.sql
+deploy/postgresql/dietas_borradores/migraciones/000009_otros_gastos_justificados.up.sql
+# 000010 y 000011 se instalan juntas en una transacción; usar el ensamblador
+# deploy/principal/04_dietas_migraciones.sh --incremental tras AD268.
+deploy/postgresql/dietas_borradores/migraciones/000010_devolucion_reenvio_comision.up.sql
+deploy/postgresql/dietas_borradores/migraciones/000011_campo_devolucion_decision.up.sql
