@@ -211,6 +211,11 @@ test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo
   const modulo = montarModuloFiscalizacionContratacionTemporal({
     raiz, cliente: {
       registrarResultadoFiscalizacion: async () => recibo("favorable"),
+      consultarDetalleRRHH: async ({ expediente_ref, version_observada }) => {
+        assert.equal(expediente_ref, EXPEDIENTE);
+        assert.equal(version_observada, 6);
+        return { resumen: { expediente_ref, version: 6 }, solicitud: { numero_personas: 1 } };
+      },
       seleccionarLlamamiento: async () => {}, registrarComunicacionLlamamiento: async () => {},
       registrarRespuestaRecibida: async () => {}, resolverLlamamiento: async () => {},
       continuarLlamamiento: async () => { assert.fail("el montaje no solicita otro llamamiento"); },
@@ -223,6 +228,7 @@ test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo
   };
   raiz.eventos.get("submit")({ target: formulario, preventDefault() {} });
   await fiscalizacion.enviar("favorable", "");
+  await new Promise((resolver) => setImmediate(resolver));
   assert.match(llamamiento.innerHTML, /data-ct-llamamiento/u);
   assert.match(llamamiento.innerHTML, /Llamamiento de este expediente/u);
   assert.match(llamamiento.innerHTML, /value="6"/u);
