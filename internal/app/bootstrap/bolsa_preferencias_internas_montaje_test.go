@@ -14,25 +14,29 @@ import (
 )
 
 func TestPreferenciasBolsasInternasConfiguracionOpcional(t *testing.T) {
-	t.Setenv(envBolsaPreferenciasInternas, "")
-	ruta, cerrar := nuevaRutaPreferenciasBolsasInternas(config.Config{}, nil, nil, nil)
-	if ruta != nil || cerrar == nil {
-		t.Fatal("la capacidad apagada alteró las rutas")
-	}
-	cerrar()
-	t.Setenv(envBolsaPreferenciasInternas, "true")
-	ruta, cerrar = nuevaRutaPreferenciasBolsasInternas(config.Config{}, nil, nil, nil)
-	if ruta == nil || ruta.Ruta != bolsahttp.RutaPreferenciasBolsas || ruta.Manejador == nil || cerrar == nil {
-		t.Fatal("la capacidad incompleta afectó al resto del arranque")
-	}
-	for _, metodo := range []string{http.MethodGet, http.MethodPut} {
-		w := httptest.NewRecorder()
-		ruta.Manejador.ServeHTTP(w, httptest.NewRequest(metodo, ruta.Ruta, nil))
-		if w.Code != http.StatusServiceUnavailable {
-			t.Fatalf("%s incompleto devolvió %d", metodo, w.Code)
+	for _, selector := range []string{"", "false"} {
+		t.Setenv(envBolsaPreferenciasInternas, selector)
+		ruta, cerrar := nuevaRutaPreferenciasBolsasInternas(config.Config{}, nil, nil, nil)
+		if ruta != nil || cerrar == nil {
+			t.Fatalf("la capacidad apagada con %q alteró las rutas", selector)
 		}
+		cerrar()
 	}
-	cerrar()
+	for _, selector := range []string{"true", "incorrecto"} {
+		t.Setenv(envBolsaPreferenciasInternas, selector)
+		ruta, cerrar := nuevaRutaPreferenciasBolsasInternas(config.Config{}, nil, nil, nil)
+		if ruta == nil || ruta.Ruta != bolsahttp.RutaPreferenciasBolsas || ruta.Manejador == nil || cerrar == nil {
+			t.Fatalf("la capacidad incompleta con %q afectó al resto del arranque", selector)
+		}
+		for _, metodo := range []string{http.MethodGet, http.MethodPut} {
+			w := httptest.NewRecorder()
+			ruta.Manejador.ServeHTTP(w, httptest.NewRequest(metodo, ruta.Ruta, nil))
+			if w.Code != http.StatusServiceUnavailable {
+				t.Fatalf("%s con %q incompleto devolvió %d", metodo, selector, w.Code)
+			}
+		}
+		cerrar()
+	}
 }
 
 func TestCuentaMiBolsaInternaProcedeDeMaterialCandidato(t *testing.T) {

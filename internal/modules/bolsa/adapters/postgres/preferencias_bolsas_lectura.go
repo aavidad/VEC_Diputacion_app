@@ -301,10 +301,15 @@ func errorLecturaPreferencias(ctx context.Context, err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "42501" &&
 		(strings.HasPrefix(pgErr.Message, "B104: lectura nominal inválida") ||
+			strings.HasPrefix(pgErr.Message, "B116: lectura nominal inválida") ||
 			strings.HasPrefix(pgErr.Message, "AD246: lectura sin emisor acreditado") ||
 			strings.HasPrefix(pgErr.Message, "AD246: vínculo histórico de lectura inválido") ||
 			strings.HasPrefix(pgErr.Message, "AD246: sesión o candidato externo denegado") ||
-			strings.HasPrefix(pgErr.Message, "AD246: autoridad actual de lectura denegada")) {
+			strings.HasPrefix(pgErr.Message, "AD246: autoridad actual de lectura denegada") ||
+			strings.HasPrefix(pgErr.Message, "AD275: lectura sin emisor acreditado") ||
+			strings.HasPrefix(pgErr.Message, "AD275: vínculo interno de lectura inválido") ||
+			strings.HasPrefix(pgErr.Message, "AD275: sesión o candidato interno denegado") ||
+			strings.HasPrefix(pgErr.Message, "AD275: autoridad actual de lectura denegada")) {
 		return dominiovec.ErrAutorizacionDenegada
 	}
 	return bolsa.ErrPreferenciasNoDisponibles
