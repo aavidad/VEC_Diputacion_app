@@ -37,7 +37,7 @@ BEGIN
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
     OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
-    OR (SELECT proacl FROM pg_proc WHERE oid=f) IS NOT NULL
+    OR (SELECT proacl::text FROM pg_proc WHERE oid=f) IS DISTINCT FROM '{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario}'
     OR (SELECT count(*) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f)<>2
  THEN RAISE EXCEPTION 'AD283: núcleo incompatible' USING ERRCODE='55000'; END IF;
 END $nucleo_preimagen$;
@@ -3130,7 +3130,7 @@ BEGIN
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
     OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
-    OR (SELECT proacl FROM pg_proc WHERE oid=f) IS NOT NULL
+    OR (SELECT proacl::text FROM pg_proc WHERE oid=f) IS DISTINCT FROM '{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario}'
     OR (SELECT count(*) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f)<>2
  THEN RAISE EXCEPTION 'AD283: núcleo incompatible' USING ERRCODE='55000'; END IF;
 END $nucleo_postimagen$;
