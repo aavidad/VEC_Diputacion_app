@@ -392,6 +392,7 @@ CREATE FUNCTION vec_bolsa_llamamientos.validar_origen_oferta_ct_v1(
 RETURNS integer LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET statement_timeout='15s' AS $f$
 DECLARE l jsonb; corte timestamptz;cuantos bigint;elegibles integer;actuales integer;
+ total_declarado bigint;total_filas bigint;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
     OR jsonb_typeof(p_origen) IS DISTINCT FROM 'object'
@@ -482,6 +483,19 @@ BEGIN
      WHERE s.bolsa_ref_sustituida=c.bolsa_ref AND s.version_sustituida=c.version_bolsa
        AND s.huella_sustituida_sha256=c.huella_bolsa_sha256);
  IF cuantos<>1 THEN RAISE EXCEPTION 'B117: constitución CT no vigente' USING ERRCODE='23503'; END IF;
+ SELECT i.total_participaciones,(
+   SELECT count(*) FROM vec_bolsa_llamamientos.constitucion_entrada e
+   WHERE e.instantanea_ref=i.instantanea_ref AND e.version_instantanea=i.version)
+ INTO total_declarado,total_filas
+ FROM vec_bolsa_llamamientos.instantanea_orden_bolsa i
+ WHERE i.instantanea_ref=p_origen->>'instantanea_ref'
+   AND i.version=(p_origen->>'version_instantanea')::bigint
+   AND i.huella_instantanea_sha256=p_origen->>'huella_instantanea_sha256';
+ IF NOT FOUND OR total_declarado IS NULL OR total_declarado<1
+    OR total_filas IS DISTINCT FROM total_declarado
+    OR jsonb_array_length(l->'entradas') IS DISTINCT FROM total_declarado THEN
+  RAISE EXCEPTION 'B117: captura CT incompleta' USING ERRCODE='23503';
+ END IF;
  SELECT count(*) INTO cuantos FROM jsonb_array_elements(l->'entradas') WITH ORDINALITY x(valor,n)
  JOIN vec_bolsa_llamamientos.constitucion_entrada e
   ON e.instantanea_ref=p_origen->>'instantanea_ref'

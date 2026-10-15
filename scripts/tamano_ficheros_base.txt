@@ -13,6 +13,7 @@
 2742 deploy/postgresql/bolsa_convocatorias/migraciones/000004_confirmacion_kms_procedencia.up.sql
 1458 deploy/postgresql/bolsa_convocatorias/pruebas_sql/borradores_durables.sql
 1416 deploy/postgresql/bolsa_convocatorias/pruebas_sql/wrappers_runtime.sql
+814 deploy/postgresql/bolsa_llamamientos/migraciones/000117_origen_oferta_ct_publicacion.up.sql
 1069 deploy/postgresql/bolsa_publica/migraciones/000001_proyeccion_publica.up.sql
 1057 deploy/postgresql/bolsa_reglas_baremo/migraciones/000002_operaciones_reglas_baremo.up.sql
 1288 deploy/postgresql/bolsa_reglas_baremo/migraciones/000003_gobierno_atestado_v2.up.sql
