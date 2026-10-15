@@ -255,6 +255,15 @@ una copia HZ37 fresca se ejecuta esta secuencia documental antes de los
 guiones antiguos de inscripción o alegaciones: esos guiones pueden publicar
 otras versiones de los roles de Bolsa y requieren su propio corte.
 
+La activación registra tres llamantes técnicos exactos de Bolsa en Identidad:
+el registro externo de autorización, el portal de Bolsa y la subida de
+Documentos. Comprueba el único grupo de cada LOGIN y guarda las tres
+referencias de ensayo en
+`$ENSAYO/incorporacion/actos/aprobaciones-llamantes-justificante-bolsa.json`
+con permiso `0600`. Son datos ficticios del clon. Fuera de él, Identidad debe
+recibir las aprobaciones formales correspondientes; estas referencias de
+ensayo no las sustituyen.
+
 En la copia restaurada de HZ37 se instalaron una vez AD263, AD265, AD277,
 AUT95, D20, D22, B119 y CT222 en ese orden, y pasaron seis pruebas SQL finales.
 También constan dos revisiones independientes favorables de SQL y seguridad,

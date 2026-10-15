@@ -1,6 +1,6 @@
 # Ensayo del justificante de renuncia, 15 de octubre de 2026
 
-La custodia y su activación están preparadas. Sigue pendiente completar la subida desde Mi Bolsa, registrar la respuesta, descargar el mismo original desde RRHH y comprobarlo tras reiniciar. El GET de Mi Bolsa aún devuelve 503 después de registrar la sesión y el contexto. Este documento no acredita el recorrido de aceptación ni una instalación en cidonia.
+La custodia y su activación están preparadas. Sigue pendiente completar la subida desde Mi Bolsa, registrar la respuesta, descargar el mismo original desde RRHH y comprobarlo tras reiniciar. Mi Bolsa ya devuelve 200 tras admitir los tres llamantes técnicos en Identidad. El GET documental previo a subir rechaza el ámbito: la asignación candidata usa `candidato_ref` y el recurso documental pide `persona_ref`. La corrección de este contrato tiene revisión de arquitectura pendiente. Este documento no acredita el recorrido de aceptación ni una instalación en cidonia.
 
 ## Base y orden
 
@@ -27,7 +27,7 @@ Cada cambio se hizo con la aplicación detenida y se verificó el reinicio con T
 | --- | --- | --- | --- |
 | Ausente | 200 | 503 | 503 |
 | JSON incorrecto | 200 | 503 | 503 |
-| Restaurada | 200 | 503, pendiente de resolver la autorización | 403 para el aspirante sin permiso de RRHH |
+| Restaurada | 200 | 503; denegación por desajuste de ámbito en revisión | 403 para el aspirante sin permiso de RRHH |
 
 Las dos primeras variantes mantienen disponible el resto de la aplicación comprobado. La última acredita que RRHH rechaza a un aspirante; aún falta su descarga positiva con la técnica autorizada.
 
@@ -38,3 +38,11 @@ Las pruebas web focales terminaron con 367 casos correctos. También pasaron las
 Semgrep local con reglas de Go y JavaScript no encontró problemas nuevos: señaló el uso previo de `path.Clean` en la comprobación de ruta canónica, que compara la ruta original y rechaza diferencias. Gosec se ejecutó sobre los paquetes afectados; no señaló los ficheros nuevos de justificantes, pero informó problemas anteriores y errores de análisis de tipos, por lo que su cobertura es parcial. Las revisiones independientes del código conservan su propio alcance.
 
 La prueba Go global local detectó cuatro fallos de inventario y expectativas de publicación/rutas. Se corrigieron con pruebas focales; no se repitió la global local por orden de dirección. La puerta completa de calidad corresponde a la CI y debe terminar correctamente antes de pedir la integración.
+
+## Corte congelado para revisión de dirección
+
+AUT98 añade el catálogo documental a la autoridad externa, ligado solo a los dos actos propios de justificante. Su SHA es `8f594c850c9f6a683b340a1c330ae209e37f04367d9df88636623ca92b6cbc05`; instalación única y prueba estructural correctas, con dos revisiones independientes.
+
+La copia incorpora AD278 de S (SHA `819835d73824a4815635413d8ef180f4d10c8e6663205fcb84705fd15b3b6fc1`) y después AUT96 → AD279 → B116 → AD275, una vez y en ese orden. AD279 tiene SHA `9309bf189c8d8a899845460fa7d1d0f6215864f7b773f848ea01249931c9de2d`; su prueba estructural pasa y conserva los perfiles de S. Las cuatro fuentes tienen dos revisiones sensibles favorables. El material de preferencias internas está preparado pero sigue sin activar: faltan el LOGIN y los datos revisados de concesión/asignación, y el recorrido GET/PUT con reinicio.
+
+La admisión de llamantes es un dato ficticio de la copia; para instalar en otro entorno se necesitan las aprobaciones formales de Identidad. La causa del antiguo 503 de Mi Bolsa quedó confirmada por una prueba nominal del registro en transacción revertida y por el GET 200 tras completar ese dato. El envío documental permanece pendiente; no se fabricó una concesión contraria al PDP ni un recibo de subida.

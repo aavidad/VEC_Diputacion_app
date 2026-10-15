@@ -30,6 +30,9 @@ El alias HMAC del candidato se coteja con
 `incorporacion/actos/aliases-canonicos-20261014.json`: si la cuenta del clon
 conserva el alias anterior, el guion cambia solo ese dato ficticio. El alias
 de Usuarios queda fuera de esta operación.
+Los tres llamantes técnicos de Bolsa se admiten en Identidad con referencias
+de ensayo guardadas fuera de Git. Eso no sustituye las aprobaciones formales
+que harían falta para publicar esos llamantes fuera de la copia.
 """
 
 import argparse
@@ -53,6 +56,11 @@ RRHH_ROL = "renuncia_bolsa_rrhh_desarrollo"
 SUBIR = "bolsa.justificante_renuncia.subir_propio"
 DESCARGAR = "bolsa.justificante_renuncia.descargar_propio"
 RRHH = "bolsa.justificante_renuncia.descargar_rrhh"
+LLAMANTES = (
+    ("vec_externo_v3_registro_autorizacion_desarrollo", "vec_autorizacion_registro_externo"),
+    ("vec_externo_bolsa_desarrollo", "vec_bolsa_llamamientos_portal_externo"),
+    ("vec_externo_documentos_bolsa_datos", "vec_documentos_bolsa_subida_datos"),
+)
 ELENA = "desarrollo:elena-ruiz-martin-bolsa"
 REF_ROL = lambda rol, version: f"rol:{rol}:v{version}"
 
@@ -330,6 +338,81 @@ def conectar_documentos():
     psql(sql)
 
 
+def admitir_llamantes_bolsa(ensayo, aplicar):
+    ruta=ensayo/"incorporacion/actos/aprobaciones-llamantes-justificante-bolsa.json"
+    privado(ruta.parent,True)
+    if ruta.exists() or ruta.is_symlink():
+        privado(ruta)
+        referencias=json.loads(ruta.read_text())
+    else:
+        exigir(aplicar,"aprobaciones_llamantes_pendientes")
+        referencias={login:"apr_"+hashlib.sha256(os.urandom(32)).hexdigest()
+                     for login,_ in LLAMANTES}
+        guardar_exclusivo(ruta,(json.dumps(referencias,separators=(",",":"))+"\n").encode(),True)
+    exigir(isinstance(referencias,dict) and
+           set(referencias)=={login for login,_ in LLAMANTES} and
+           all(isinstance(ref,str) and re.fullmatch(r"apr_[0-9a-f]{64}",ref)
+               for ref in referencias.values()) and
+           len(set(referencias.values()))==3,"aprobaciones_llamantes_invalidas")
+    nombres=",".join(lit(login) for login,_ in LLAMANTES)
+    lectura=psql("SELECT login::text,grupo_esperado::text,aprobacion_ref "
+                 "FROM vec_identidad_externa_v1.llamante_autorizacion "
+                 "WHERE login IN ("+nombres+") ORDER BY login")
+    actuales={campos[0]:(campos[1],campos[2]) for campos in
+              (linea.split("|") for linea in lectura.splitlines() if linea)}
+    exigir(len(actuales)==len(lectura.splitlines()) and
+           all(actuales[login]==(grupo,referencias[login]) for login,grupo in LLAMANTES
+               if login in actuales),"llamantes_preexistentes_divergentes")
+    comprobaciones=[]
+    inserciones=[]
+    for login,grupo in LLAMANTES:
+        l,g=lit(login),lit(grupo)
+        comprobaciones.append("NOT EXISTS(SELECT 1 FROM pg_roles l "
+            "JOIN pg_auth_members m ON m.member=l.oid "
+            "JOIN pg_roles g ON g.oid=m.roleid "
+            "WHERE l.rolname="+l+" AND g.rolname="+g+
+            " AND l.rolcanlogin AND l.rolinherit AND l.rolconfig IS NULL "
+            "AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR "
+            "l.rolreplication OR l.rolbypassrls) "
+            "AND NOT(g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR "
+            "g.rolcreaterole OR g.rolreplication OR g.rolbypassrls) "
+            "AND g.rolconfig IS NULL AND m.inherit_option "
+            "AND NOT m.set_option AND NOT m.admin_option "
+            "AND NOT EXISTS(SELECT 1 FROM pg_auth_members x WHERE x.member=g.oid) "
+            "AND (SELECT count(*) FROM pg_auth_members x WHERE x.member=l.oid)=1)")
+        inserciones.append("INSERT INTO vec_identidad_externa_v1.llamante_autorizacion "
+            "(login,grupo_esperado,aprobacion_ref) SELECT "+l+","+g+","+
+            lit(referencias[login])+" WHERE NOT EXISTS(SELECT 1 FROM "
+            "vec_identidad_externa_v1.llamante_autorizacion WHERE login="+l+");")
+    pre=" OR ".join(comprobaciones)
+    for login,grupo in LLAMANTES:
+        pre+=" OR EXISTS(SELECT 1 FROM vec_identidad_externa_v1.llamante_autorizacion "
+        pre+=("WHERE login="+lit(login)+" AND (grupo_esperado<>"+lit(grupo)+
+              " OR aprobacion_ref<>"+lit(referencias[login])+"))")
+    post=" OR ".join("NOT EXISTS(SELECT 1 FROM "
+        "vec_identidad_externa_v1.llamante_autorizacion WHERE login="+lit(login)+
+        " AND grupo_esperado="+lit(grupo)+" AND aprobacion_ref="+
+        lit(referencias[login])+")" for login,grupo in LLAMANTES)
+    sql=("BEGIN ISOLATION LEVEL SERIALIZABLE; "
+         "SET LOCAL ROLE vec_identidad_sesiones_v1_propietario; "
+         "SET LOCAL search_path=pg_catalog,pg_temp; SET LOCAL timezone='UTC'; "
+         "SET LOCAL lock_timeout='3s'; SET LOCAL statement_timeout='15s'; "
+         "SELECT pg_advisory_xact_lock(hashtextextended('vec:ensayo:o:identidad:bolsa-justificantes',0)); "
+         "DO $pre$ BEGIN IF "+pre+" THEN RAISE EXCEPTION "
+         "'llamantes_bolsa_preimagen' USING ERRCODE='55000'; END IF; END $pre$; "
+         +" ".join(inserciones)+
+         "DO $post$ BEGIN IF "+post+" THEN RAISE EXCEPTION "
+         "'llamantes_bolsa_postimagen' USING ERRCODE='55000'; END IF; END $post$; COMMIT;")
+    psql(sql)
+    final=psql("SELECT login::text,grupo_esperado::text,aprobacion_ref "
+               "FROM vec_identidad_externa_v1.llamante_autorizacion "
+               "WHERE login IN ("+nombres+") ORDER BY login")
+    exigir({campos[0]:(campos[1],campos[2]) for campos in
+            (linea.split("|") for linea in final.splitlines() if linea)}==
+           {login:(grupo,referencias[login]) for login,grupo in LLAMANTES},
+           "llamantes_bolsa_no_cotejados")
+
+
 def alias_canonico_candidato(ensayo):
     actos=ensayo/"incorporacion/actos"
     anterior_ruta=actos/"alias-candidato-externo.json"
@@ -580,6 +663,7 @@ def main():
         print("justificantes=plan_preparado base_sin_cambios")
         return
     conectar_documentos()
+    admitir_llamantes_bolsa(a.ensayo,True)
     motivo=publicar_motivo(a.ensayo,True)
     para_candidato=leer_rol(CANDIDATO_ROL,1)
     para_rrhh=leer_rol(RRHH_ROL,1)

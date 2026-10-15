@@ -1,0 +1,9 @@
+# Requiere AD277 de O y AD278 de S ya instaladas en este orden.
+# AD278 de otra PR: SHA819835d73824a4815635413d8ef180f4d10c8e6663205fcb84705fd15b3b6fc1.
+# No instalar si falta ese prerrequisito; no repetir una migración instalada.
+deploy/postgresql/autorizacion/migraciones/000096_lectura_preferencias_bolsas_interna.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000279_preferencias_bolsas_internas.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000116_preferencias_bolsas_interna.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000275_lectura_preferencias_bolsas_interna.up.sql
+# Después: provisionar el LOGIN nominal, CONNECT y su única membresía sin SET/ADMIN.
+# Publicar las concesiones y asignación internas antes de activar el selector.
