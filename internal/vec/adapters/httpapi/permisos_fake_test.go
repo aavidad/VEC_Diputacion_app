@@ -35,6 +35,7 @@ func TestPermissionsForRolesMatrizPositivaExacta(t *testing.T) {
 		"system_admin":                  administradorTecnico,
 		"jefatura_rrhh":                 carcasa,
 		"tecnico_rrhh":                  carcasa,
+		"lector_rrhh":                   carcasa,
 		"validator_l2":                  carcasa,
 		"intervencion":                  carcasa,
 		"ct_cargo_tecnico_firma_dev":    carcasa,
@@ -92,6 +93,7 @@ func TestPermissionsForRolesMatrizNegativaRolPorPermisoCritico(t *testing.T) {
 		},
 		"jefatura_rrhh":    {},
 		"tecnico_rrhh":     {},
+		"lector_rrhh":      {},
 		"validator_l2":     {},
 		"intervencion":     {},
 		"administrativo":   {},
@@ -123,6 +125,7 @@ func TestPermissionsForRolesAmbiguedadOValorNoCanonicoDeniegaTodo(t *testing.T) 
 		"dos perfiles":          {"administrador", "tecnico_rrhh"},
 		"perfil repetido":       {"administrador", "administrador"},
 		"canonico mas alias":    {"tecnico_rrhh", "validator_l2"},
+		"lector y tecnico":      {"lector_rrhh", "tecnico_rrhh"},
 		"ciudadano mas interno": {"ciudadano", "personal_interno"},
 	}
 

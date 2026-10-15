@@ -24,13 +24,21 @@ import (
 
 const funcionConsultarPreferenciasBolsas = "vec_bolsa_llamamientos.consultar_preferencias_bolsas_v1"
 const funcionIntentoLecturaPreferenciasBolsas = "vec_bolsa_llamamientos.registrar_intento_lectura_preferencias_bolsas_v1"
+const funcionConsultarPreferenciasBolsasInterna = "vec_bolsa_llamamientos.consultar_preferencias_bolsas_interna_v1"
+const funcionIntentoLecturaPreferenciasBolsasInterna = "vec_bolsa_llamamientos.registrar_intento_lectura_preferencias_bolsas_interna_v1"
 
 var auditoriaLecturaPreferenciasRef = regexp.MustCompile(`^aud_v3_lp_[0-9a-f]{32}$`)
 var auditoriaLecturaPreferenciasHuella = regexp.MustCompile(`^[0-9a-f]{64}$`)
 var auditoriaIntentoPreferenciasRef = regexp.MustCompile(`^aud_v3_i_[0-9a-f]{32}$`)
 
-type LecturaPreferenciasBolsasPostgreSQL struct{ pool iniciadorTransacciones }
-type AuditoriaIntentosPreferenciasBolsasPostgreSQL struct{ pool iniciadorTransacciones }
+type LecturaPreferenciasBolsasPostgreSQL struct {
+	pool    iniciadorTransacciones
+	funcion string
+}
+type AuditoriaIntentosPreferenciasBolsasPostgreSQL struct {
+	pool    iniciadorTransacciones
+	funcion string
+}
 
 var _ bolsa.LecturaPreferenciasBolsas = (*LecturaPreferenciasBolsasPostgreSQL)(nil)
 var _ bolsa.AuditoriaIntentosPreferenciasBolsas = (*AuditoriaIntentosPreferenciasBolsasPostgreSQL)(nil)
@@ -39,11 +47,20 @@ func NuevaAuditoriaIntentosPreferenciasBolsasPostgreSQL(pool *pgxpool.Pool) (*Au
 	if valorNulo(pool) {
 		return nil, bolsa.ErrPreferenciasNoDisponibles
 	}
-	return &AuditoriaIntentosPreferenciasBolsasPostgreSQL{pool: pool}, nil
+	return &AuditoriaIntentosPreferenciasBolsasPostgreSQL{pool: pool, funcion: funcionIntentoLecturaPreferenciasBolsas}, nil
+}
+
+func NuevaAuditoriaIntentosPreferenciasBolsasInternaPostgreSQL(pool *pgxpool.Pool) (*AuditoriaIntentosPreferenciasBolsasPostgreSQL, error) {
+	if valorNulo(pool) {
+		return nil, bolsa.ErrPreferenciasNoDisponibles
+	}
+	return &AuditoriaIntentosPreferenciasBolsasPostgreSQL{pool: pool, funcion: funcionIntentoLecturaPreferenciasBolsasInterna}, nil
 }
 
 func (a *AuditoriaIntentosPreferenciasBolsasPostgreSQL) RegistrarIntentoLecturaPreferenciasBolsas(ctx context.Context, c bolsa.CapturaLecturaPreferencias) error {
-	if ctx == nil || a == nil || valorNulo(a.pool) || c.CandidatoRef() == "" || c.CorrelacionRef() == "" ||
+	if ctx == nil || a == nil || valorNulo(a.pool) ||
+		(a.funcion != funcionIntentoLecturaPreferenciasBolsas && a.funcion != funcionIntentoLecturaPreferenciasBolsasInterna) ||
+		c.CandidatoRef() == "" || c.CorrelacionRef() == "" ||
 		len(c.ContextoCanonico()) == 0 || len(c.VinculoCanonico()) == 0 || len(c.OrdenJSON()) == 0 {
 		return bolsa.ErrPreferenciasNoDisponibles
 	}
@@ -70,7 +87,7 @@ func (a *AuditoriaIntentosPreferenciasBolsasPostgreSQL) registrarIntento(ctx con
 	var secuencia string
 	var fecha time.Time
 	err = tx.QueryRow(ctx, `SELECT auditoria_ref,secuencia::text,huella_sha256,correlacion_ref,registrada_en FROM `+
-		funcionIntentoLecturaPreferenciasBolsas+`($1::text,$2::bytea,$3::bytea,$4::jsonb)`,
+		a.funcion+`($1::text,$2::bytea,$3::bytea,$4::jsonb)`,
 		c.CandidatoRef(), c.ContextoCanonico(), c.VinculoCanonico(), []byte(c.OrdenJSON())).Scan(&ref, &secuencia, &huella, &correlacion, &fecha)
 	if err != nil {
 		return err
@@ -89,12 +106,21 @@ func NuevaLecturaPreferenciasBolsasPostgreSQL(pool *pgxpool.Pool) (*LecturaPrefe
 	if valorNulo(pool) {
 		return nil, bolsa.ErrPreferenciasNoDisponibles
 	}
-	return &LecturaPreferenciasBolsasPostgreSQL{pool: pool}, nil
+	return &LecturaPreferenciasBolsasPostgreSQL{pool: pool, funcion: funcionConsultarPreferenciasBolsas}, nil
+}
+
+func NuevaLecturaPreferenciasBolsasInternaPostgreSQL(pool *pgxpool.Pool) (*LecturaPreferenciasBolsasPostgreSQL, error) {
+	if valorNulo(pool) {
+		return nil, bolsa.ErrPreferenciasNoDisponibles
+	}
+	return &LecturaPreferenciasBolsasPostgreSQL{pool: pool, funcion: funcionConsultarPreferenciasBolsasInterna}, nil
 }
 
 func (a *LecturaPreferenciasBolsasPostgreSQL) LeerPreferenciasBolsas(ctx context.Context, c bolsa.CapturaLecturaPreferencias) (bolsa.EstadoPreferenciasBolsas, error) {
 	vacia := bolsa.EstadoPreferenciasBolsas{}
-	if ctx == nil || a == nil || valorNulo(a.pool) || c.CandidatoRef() == "" || c.CorrelacionRef() == "" ||
+	if ctx == nil || a == nil || valorNulo(a.pool) ||
+		(a.funcion != funcionConsultarPreferenciasBolsas && a.funcion != funcionConsultarPreferenciasBolsasInterna) ||
+		c.CandidatoRef() == "" || c.CorrelacionRef() == "" ||
 		len(c.ContextoCanonico()) == 0 || len(c.VinculoCanonico()) == 0 || len(c.OrdenJSON()) == 0 || !c.ValidaHasta().After(time.Now().UTC()) {
 		return vacia, bolsa.ErrPreferenciasNoDisponibles
 	}
@@ -124,7 +150,7 @@ func (a *LecturaPreferenciasBolsasPostgreSQL) leerIntento(ctx context.Context, c
 		return vacia, err
 	}
 	var contenido []byte
-	err = tx.QueryRow(ctx, `SELECT `+funcionConsultarPreferenciasBolsas+`($1::text,$2::bytea,$3::bytea,$4::jsonb)`,
+	err = tx.QueryRow(ctx, `SELECT `+a.funcion+`($1::text,$2::bytea,$3::bytea,$4::jsonb)`,
 		c.CandidatoRef(), c.ContextoCanonico(), c.VinculoCanonico(), []byte(c.OrdenJSON())).Scan(&contenido)
 	if err != nil {
 		return vacia, err
@@ -275,10 +301,15 @@ func errorLecturaPreferencias(ctx context.Context, err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "42501" &&
 		(strings.HasPrefix(pgErr.Message, "B104: lectura nominal inválida") ||
+			strings.HasPrefix(pgErr.Message, "B116: lectura nominal inválida") ||
 			strings.HasPrefix(pgErr.Message, "AD246: lectura sin emisor acreditado") ||
 			strings.HasPrefix(pgErr.Message, "AD246: vínculo histórico de lectura inválido") ||
 			strings.HasPrefix(pgErr.Message, "AD246: sesión o candidato externo denegado") ||
-			strings.HasPrefix(pgErr.Message, "AD246: autoridad actual de lectura denegada")) {
+			strings.HasPrefix(pgErr.Message, "AD246: autoridad actual de lectura denegada") ||
+			strings.HasPrefix(pgErr.Message, "AD275: lectura sin emisor acreditado") ||
+			strings.HasPrefix(pgErr.Message, "AD275: vínculo interno de lectura inválido") ||
+			strings.HasPrefix(pgErr.Message, "AD275: sesión o candidato interno denegado") ||
+			strings.HasPrefix(pgErr.Message, "AD275: autoridad actual de lectura denegada")) {
 		return dominiovec.ErrAutorizacionDenegada
 	}
 	return bolsa.ErrPreferenciasNoDisponibles

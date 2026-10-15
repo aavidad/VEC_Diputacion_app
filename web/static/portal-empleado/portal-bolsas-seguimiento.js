@@ -10,6 +10,7 @@ import { textoPortal, traducirBolsaInterna, traducirPortal } from "./portal-i18n
 import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
 import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
+import { crearClienteJustificanteRenuncia } from "./portal-bolsas-justificante-cliente.js?v=20261015-o-justificante-bolsa-v1";
 
 /** Canales activos: el correo siempre (se envía al emitir); el teléfono si el servidor lo publica. */
 export function canalesAviso(datos) {
@@ -56,7 +57,7 @@ function motivoResuelta(candidato, llamadas, cierre, llamamientoRef, respuestaPo
  */
 export function filasSeguimiento({ candidatos = [], contactos = [], respuestasPortal = [], llamamientoRef = "", telefono = null }) {
   const cierre = new Set(telefono?.resultados_cierre || []);
-  const respuestaPorParticipacion = new Map(respuestasPortal.map((r) => [r.participacion_ref, r.respuesta]));
+  const respuestaPorParticipacion = new Map(respuestasPortal.map((r) => [r.participacion_ref, r]));
   const porParticipacion = new Map();
   for (const contacto of contactos) {
     if (contacto?.llamamiento_ref !== llamamientoRef) continue;
@@ -70,11 +71,12 @@ export function filasSeguimiento({ candidatos = [], contactos = [], respuestasPo
     const llamadas = propios.filter((contacto) => contacto.canal === "telefono");
     const correo = propios.filter((contacto) => contacto.canal === "correo").reduce(masReciente, null);
     const ultimaLlamada = llamadas.reduce(masReciente, null);
-    const motivo = motivoResuelta(candidato, llamadas, cierre, llamamientoRef, respuestaPorParticipacion.get(candidato.participacion_ref));
+    const respuestaPortal = respuestaPorParticipacion.get(candidato.participacion_ref) || null;
+    const motivo = motivoResuelta(candidato, llamadas, cierre, llamamientoRef, respuestaPortal?.respuesta);
     const cerrada = motivo !== null;
     const siguiente = !cerrada && !siguienteMarcado;
     if (siguiente) siguienteMarcado = true;
-    return Object.freeze({ candidato, correo, llamadas: llamadas.length, ultimaLlamada, cerrada, motivo, siguiente });
+    return Object.freeze({ candidato, correo, llamadas: llamadas.length, ultimaLlamada, cerrada, motivo, siguiente, respuestaPortal });
   });
   // Una aceptación cierra el llamamiento completo, incluso si la persona
   // aparece después de otra todavía pendiente en el orden de la bolsa.
@@ -83,6 +85,43 @@ export function filasSeguimiento({ candidatos = [], contactos = [], respuestasPo
 }
 
 const CLASE_MOTIVO = Object.freeze({ aceptado: "exito", renuncia: "advertencia", no_localizado: "advertencia", no_disponible: "neutro" });
+
+function idSeguroJustificante(ref) {
+  return `justificante-${Array.from(ref, (letra) => letra.codePointAt(0).toString(16)).join("-")}`;
+}
+
+// Solo se llama al pulsar la acción de la fila. El servidor decide qué original
+// pertenece a la persona y si RRHH puede abrirlo.
+export async function descargarJustificanteRenuncia(control, { fetchImpl = globalThis.fetch, documento = globalThis.document } = {}) {
+  if (!control || control.disabled) return false;
+  const resultado = control.closest?.("tr")?.querySelector?.("[data-justificante-resultado]");
+  control.disabled = true;
+  if (resultado) resultado.textContent = traducirPortal("panel_seg_justificante_cargando");
+  try {
+    const archivo = await crearClienteJustificanteRenuncia({ fetchImpl })
+      .descargar(control.dataset.bolsaRef, control.dataset.participacionRef);
+    const entorno = documento?.defaultView;
+    if (!documento?.body || !entorno?.Blob || !entorno.URL?.createObjectURL || !entorno.URL?.revokeObjectURL) throw new TypeError("descarga_no_disponible");
+    const url = entorno.URL.createObjectURL(new entorno.Blob([archivo.bytes], { type: archivo.tipo }));
+    const enlace = documento.createElement("a");
+    try {
+      enlace.href = url;
+      enlace.download = archivo.nombre;
+      enlace.hidden = true;
+      documento.body.append(enlace);
+      enlace.click();
+    } finally {
+      enlace.remove();
+      globalThis.setTimeout(() => entorno.URL.revokeObjectURL(url), 0);
+    }
+    if (resultado) resultado.textContent = "";
+    return true;
+  } catch (error) {
+    if (resultado) resultado.textContent = traducirPortal(error?.codigo === "acceso_denegado"
+      ? "panel_seg_justificante_denegado" : "panel_seg_justificante_error");
+    return false;
+  } finally { control.disabled = false; }
+}
 
 function etiquetaResultado(contacto) {
   const telefonica = contacto.canal === "telefono" ? etiquetaResultadoTelefono(contacto.resultado) : null;
@@ -174,12 +213,14 @@ export function renderizarSeguimientoLlamamiento({
     const llamadas = fila.llamadas
       ? `<button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-participacion-ref="${ref}" aria-label="${textoPortal("txt_aria_abrir_ficha_de", { persona: c.nombre_visible })}">${textoPortal("panel_seg_llamadas_n", { numero: numero(fila.llamadas) })}</button><br>${escaparHTML(etiquetaResultado(fila.ultimaLlamada))}${momento(fila.ultimaLlamada)}`
       : `<span class="texto-atenuado">${textoPortal("panel_seg_sin_llamadas")}</span>`;
+    const justificante = fila.respuestaPortal?.respuesta === "renuncia_justificada"
+      ? `<div><button type="button" class="boton-secundario" data-bolsa-accion="descargar-justificante-renuncia" data-bolsa-ref="${escaparHTML(bolsaRef)}" data-participacion-ref="${ref}" aria-label="${escaparHTML(traducirPortal("panel_seg_justificante_aria", { persona: c.nombre_visible }))}" aria-describedby="${escaparHTML(idSeguroJustificante(c.participacion_ref))}">${textoPortal("panel_seg_justificante_descargar")}</button><span id="${escaparHTML(idSeguroJustificante(c.participacion_ref))}" role="status" aria-live="polite" data-justificante-resultado></span></div>` : "";
     return `<tr class="fila-candidato" data-participacion-ref="${ref}">
         <td><strong>${c.orden === null ? "—" : `#${numero(c.orden)}`}</strong></td>
         <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-participacion-ref="${ref}" aria-label="${textoPortal("txt_aria_abrir_ficha_de", { persona: c.nombre_visible })}"><strong>${nombre}</strong></button>${fila.siguiente ? ` <span class="estado-chip info">${textoPortal("panel_seg_siguiente")}</span>` : ""}${fila.motivo ? ` <span class="estado-chip ${CLASE_MOTIVO[fila.motivo]}">${textoPortal(`panel_seg_motivo_${fila.motivo}`)}</span>` : ""}</td>
         <td>${correo}</td>
         <td>${llamadas}</td>
-        <td><button type="button" class="${fila.siguiente ? "boton-primario" : "boton-secundario"}" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${ref}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="${textoPortal("panel_seg_llamar_aria", { persona: c.nombre_visible })}">${textoPortal("panel_seg_llamar")}</button></td>
+        <td><button type="button" class="${fila.siguiente ? "boton-primario" : "boton-secundario"}" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${ref}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="${textoPortal("panel_seg_llamar_aria", { persona: c.nombre_visible })}">${textoPortal("panel_seg_llamar")}</button>${justificante}</td>
       </tr>${fichaAbierta ? renderizarFicha(modalFicha, fichaId, 5) : ""}`;
   }).join("");
   return `${siguiente ? encabezadoVista("", titulo, "", `${volver}${siguiente}`) : cabecera}

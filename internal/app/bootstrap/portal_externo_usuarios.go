@@ -138,15 +138,17 @@ func nuevaAPIPersonalPortalExterno(identidad *resolvedorIdentidadDesarrollo, inc
 	}
 	protegido := preferencias.proteger(manejador)
 	if carteraLista {
-		return preferencias.cartera.proteger(preferencias.retirada.proteger(preferencias.declaracion.proteger(protegido))), nil
+		carteraProtegida := preferencias.cartera.proteger(preferencias.retirada.proteger(preferencias.declaracion.proteger(protegido)))
+		return preferencias.documentos.proteger(carteraProtegida), nil
 	}
 	cerrada := meritoshttp.NuevoHandlerCarteraNoDisponible()
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	carteraCerrada := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r != nil && r.URL != nil &&
 			(r.URL.Path == meritoshttp.RutaCartera || r.URL.Path == meritoshttp.RutaRetiradasCartera || r.URL.Path == meritoshttp.RutaDeclaracionesCartera) {
 			cerrada.ServeHTTP(w, r)
 			return
 		}
 		protegido.ServeHTTP(w, r)
-	}), nil
+	})
+	return preferencias.documentos.proteger(carteraCerrada), nil
 }

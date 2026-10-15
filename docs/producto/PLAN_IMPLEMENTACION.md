@@ -171,7 +171,7 @@ está instalada; verificar su hash antes de reanudar:
 | Vista de cartera en «Mi Bolsa» | API real y montaje; no mostrar cifras ficticias |
 | Documentos y S3 (D16 a D18) | Autorización nominal del aspirante externo y composición |
 | Cliente del gestor documental Mayan | TLS del destino y configuración de Sistemas |
-| Preferencias entre bolsas | PostgreSQL integrado, lectura autorizada y efecto en la adjudicación |
+| Preferencias entre bolsas | AD279/O tras AD278/S y ensayo de lectura y escritura internas; autoridad externa y efecto en adjudicación pendientes |
 | Inscripción por varias categorías (B105) | **No instalar**: falta la modalidad conjunta configurable (apartado 7) |
 
 ### 2.4 Lo que todavía no funciona de punta a punta
@@ -482,7 +482,7 @@ busca en el índice de código y en las ramas abiertas si la pieza ya existe.
 | --- | --- | --- |
 | Instalar AD262 y lo fusionado sin subir | Claude | Subida nueva con copia fría y vuelta atrás; sin 404 ni 503 nuevos |
 | Abrir la inscripción para RRHH con el perfil técnico de RRHH | Claude y O | RRHH ve y admite inscripciones de una convocatoria |
-| Autoridad externa del aspirante y preferencias entre bolsas | O | La aspirante entra, aporta méritos y ordena sus bolsas en «Mi Bolsa» |
+| Autoridad externa del aspirante y preferencias entre bolsas | O | La aspirante entra, aporta méritos y ordena sus bolsas en «Mi Bolsa»; variante interna AD279/O pendiente de ensayo tras AD278/S |
 | Cartera de méritos, alegaciones y revisión por RRHH | M | Mérito aportado, alegación presentada y decisión de RRHH con recibo |
 | Necesidad de la RPT en la petición del centro (duda 162) | K | La petición guarda el puesto publicado, no texto libre, y RRHH tramita esa misma petición |
 | Llamamiento desde la bolsa real, alta en Personal (#1070) y cese con vuelta a la bolsa (CT213, B115) | K | La persona pasa a Personal y vuelve a «Disponible» tras el cese, también tras reiniciar |
@@ -492,7 +492,7 @@ busca en el índice de código y en las ramas abiertas si la pieza ya existe.
 | Textos de categoría antes de vincularla (#1008) | J | Revisión de usabilidad y fusión |
 | Recorrido completo en Chrome con reinicio y acta | Claude | Acta nueva en `docs/estudio_requisitos/` |
 | Medir las lecturas en cidonia y bajar el cuadro de CT de 300 ms | Sin dueño actual | Percentil 95 por HTTP en cidonia |
-| Renuncia justificada con el fichero, no solo su huella | Sin dueño; comprobar antes | El justificante se descarga desde la ficha de RRHH |
+| Renuncia justificada con el fichero, no solo su huella | O, preparada en candidata local; falta ensayo completo | La persona aporta y recupera el PDF; RRHH lo descarga con permiso individual, también tras reiniciar |
 | Inscripción con solicitud separada o conjunta, elegida por RRHH en cada convocatoria | Sin dueño; necesita antes la regla en Convocatorias | Las dos modalidades con su recibo y reintento |
 | Documentos del expediente en un solo sitio de la ficha | *Pendiente de verificar* (había un commit local de S) | Todos se ven y descargan desde la ficha |
 | Bandeja propia de Intervención | Preguntar a RRHH si hace falta | — |

@@ -20,6 +20,7 @@ func seleccionMaterialCTCompletaDesarrollo() seleccionMaterialCTDesarrollo {
 		fichaPropiaPersonal: true, exportacionServiciosPersonal: true, historiaServiciosPersonal: true, historiaRelacionesPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true, vinculoEmisionBolsa: true,
 		incorporacionAcreditada: true, incorporacionB2: true, reincorporacionTitular: true, politicaOfertas: true,
 		plantillasCatalogo: true, plantillasDocumental: true, ajustesReglasCT: true, inscripcionBolsa: true,
+		preferenciasBolsasInternas: true, justificanteRenunciaRRHH: true,
 	}
 }
 

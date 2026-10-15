@@ -171,7 +171,7 @@ func nuevaInscripcionPortalExterno(ctx context.Context, cfg config.Config,
 	if err != nil {
 		return nil, nada, errMontajeInscripcionBolsa
 	}
-	instanteMotivos := time.Now().UTC()
+	instanteMotivos := time.Now().UTC().Truncate(time.Microsecond)
 	if motivoBase.ValidarReferenciaMotivoAutorizacionV2(ctx, motivo, instanteMotivos) != nil {
 		return nil, nada, errMontajeInscripcionBolsa
 	}
@@ -260,15 +260,16 @@ func nuevaInscripcionPortalExterno(ctx context.Context, cfg config.Config,
 // No concede permisos: la concesión sigue en el gobierno nominal.
 type configuracionInscripcionRRHHDesarrollo struct {
 	redaccionMaterialRutasDietas
-	Version                  int                           `json:"version"`
-	Autoridad                string                        `json:"autoridad"`
-	Cuentas                  []cuentaRutasDietasDesarrollo `json:"cuentas"`
-	DSNRegistroIdentidad     string                        `json:"dsn_registro_identidad"`
-	DSNRevalidacionIdentidad string                        `json:"dsn_revalidacion_identidad"`
-	DSNContexto              string                        `json:"dsn_contexto"`
-	DSNFuenteAutorizacion    string                        `json:"dsn_fuente_autorizacion"`
-	DSNRegistroAutorizacion  string                        `json:"dsn_registro_autorizacion"`
-	DSNMotivos               string                        `json:"dsn_motivos"`
+	Version                  int                                    `json:"version"`
+	Autoridad                string                                 `json:"autoridad"`
+	Cuentas                  []cuentaRutasDietasDesarrollo          `json:"cuentas"`
+	Lectores                 []archivoEntradaConsultaRRHHDesarrollo `json:"lectores,omitempty"`
+	DSNRegistroIdentidad     string                                 `json:"dsn_registro_identidad"`
+	DSNRevalidacionIdentidad string                                 `json:"dsn_revalidacion_identidad"`
+	DSNContexto              string                                 `json:"dsn_contexto"`
+	DSNFuenteAutorizacion    string                                 `json:"dsn_fuente_autorizacion"`
+	DSNRegistroAutorizacion  string                                 `json:"dsn_registro_autorizacion"`
+	DSNMotivos               string                                 `json:"dsn_motivos"`
 	Motivos                  struct {
 		Decidir    core.ReferenciaEntradaCatalogo `json:"decidir"`
 		Incorporar core.ReferenciaEntradaCatalogo `json:"incorporar"`
@@ -286,7 +287,7 @@ func cargarConfiguracionInscripcionRRHHDesarrollo(cfg config.Config) (configurac
 	dec.DisallowUnknownFields()
 	var extra any
 	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) || c.Version != 1 || c.Autoridad != AutoridadNoAutoritativa ||
-		len(c.Cuentas) == 0 || len(c.Cuentas) > 64 || !core.ReferenciaMotivoAutorizacionV2Valida(c.Motivos.Decidir) ||
+		len(c.Cuentas) == 0 || len(c.Cuentas) > 64 || len(c.Lectores) > 64 || !core.ReferenciaMotivoAutorizacionV2Valida(c.Motivos.Decidir) ||
 		!core.ReferenciaMotivoAutorizacionV2Valida(c.Motivos.Incorporar) || c.Motivos.Decidir.CatalogoID != c.Motivos.Incorporar.CatalogoID ||
 		c.Motivos.Decidir.Referencia() == c.Motivos.Incorporar.Referencia() {
 		return configuracionInscripcionRRHHDesarrollo{}, errMontajeInscripcionBolsa
@@ -363,6 +364,11 @@ func nuevaInscripcionRRHHDesarrollo(cfg config.Config, resolvedor vechttp.DemoId
 	c, err := cargarConfiguracionInscripcionRRHHDesarrollo(cfg)
 	if err != nil {
 		return nil, err
+	}
+	fase = "lectores_nominales"
+	identidad, err = resolverLectoresNominalesInscripcionRRHH(cfg, identidad, c.Lectores)
+	if err != nil {
+		return nil, errors.Join(errMontajeInscripcionBolsa, err)
 	}
 	cuentas := c.Cuentas
 	fase = "cuentas_lectores"

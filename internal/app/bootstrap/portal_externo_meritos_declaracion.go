@@ -34,16 +34,55 @@ type declaradorMeritosCartera struct {
 	reloj     vecports.Reloj
 }
 
-func (d *declaradorMeritosCartera) Declarar(ctx context.Context, s meritosapp.Solicitud) (meritosports.Recibo, error) {
+func (d *declaradorMeritosCartera) servicio(s meritosapp.Solicitud) (*meritosapp.Servicio, error) {
 	auditor, err := meritospg.NuevaAuditoriaDeclaracionCartera(d.auditoria, s)
 	if err != nil {
-		return meritosports.Recibo{}, err
+		return nil, err
 	}
-	servicio, err := meritosapp.NuevoServicio(d.emisor, d.registro, auditor, d.reloj)
+	return meritosapp.NuevoServicio(d.emisor, d.registro, auditor, d.reloj)
+}
+
+func (d *declaradorMeritosCartera) Declarar(ctx context.Context, s meritosapp.Solicitud) (meritosports.Recibo, error) {
+	servicio, err := d.servicio(s)
 	if err != nil {
 		return meritosports.Recibo{}, err
 	}
 	return servicio.Declarar(ctx, s)
+}
+
+type preparadorDeclaracionDocumentalExterna struct{ base preparadorCarteraExterna }
+
+func (p preparadorDeclaracionDocumentalExterna) PrepararDeclaracionCartera(r *http.Request) (meritosapp.Solicitud, error) {
+	s, err := p.base.PrepararDeclaracionCartera(r)
+	if err != nil || r == nil {
+		return s, err
+	}
+	// El lector documental posterior usa la cápsula M4 de esta petición.
+	copia := r.Clone(r.Context())
+	*r = *r.WithContext(context.WithValue(r.Context(), clavePeticionDeclaracionDocumentalExterna{}, copia))
+	return s, nil
+}
+
+type declaradorMeritosConComprobanteExterno struct {
+	base   *declaradorMeritosCartera
+	lector *lectorComprobanteDeclaracionExterna
+}
+
+func (d declaradorMeritosConComprobanteExterno) Declarar(ctx context.Context,
+	s meritosapp.Solicitud, ref string) (meritosports.Recibo, error) {
+	if d.base == nil || d.lector == nil || ctx == nil || ctx.Err() != nil {
+		return meritosports.Recibo{}, meritosports.ErrComprobanteMeritoNoDisponible
+	}
+	servicio, err := d.base.servicio(s)
+	if err != nil {
+		return meritosports.Recibo{}, err
+	}
+	puente, err := meritosapp.NuevaDeclaracionConComprobante(d.lector, servicio)
+	if err != nil {
+		return meritosports.Recibo{}, err
+	}
+	ctx = context.WithValue(ctx, claveHechoDeclaracionDocumentalExterna{}, s.Hecho.Referencia)
+	return puente.Declarar(ctx, s, ref)
 }
 
 func nuevoDeclaradorMeritosCartera(ctx context.Context, cfg config.Config,
@@ -84,16 +123,33 @@ func montarDeclaracionMeritosCartera(ctx context.Context, cfg config.Config,
 	externa *autoridadPreferenciasUsuariosDesarrollo, privada configuracionMotivoCarteraExterna,
 	topologia topologiaPostgreSQLPreferenciasUsuarios, auditoria *pgxpool.Pool,
 	autorizador vecports.AutorizadorSolicitudLigadaV3, proveedor *proveedorMaterialAltaContratacionTemporalDesarrollo,
+	documentos *componenteSubidaDocumentosExterna,
 ) (*pgxpool.Pool, error) {
 	declarador, pool, err := nuevoDeclaradorMeritosCartera(ctx, cfg, topologia, auditoria, autorizador, proveedor)
 	if err != nil {
 		return nil, err
 	}
-	externa.manejador, err = meritoshttp.NuevoHandlerDeclaracionesCartera(preparadorCarteraExterna{
-		autoridad: externa, ruta: meritoshttp.RutaDeclaracionesCartera, motivoAUT: privada.MotivoDeclaracion}, declarador, relojRutasDietas{})
+	base := preparadorCarteraExterna{autoridad: externa, ruta: meritoshttp.RutaDeclaracionesCartera, motivoAUT: privada.MotivoDeclaracion}
+	var preparador meritoshttp.ProveedorDeclaracionCartera = base
+	if documentos != nil {
+		preparador = preparadorDeclaracionDocumentalExterna{base: base}
+	}
+	h, err := meritoshttp.NuevoHandlerDeclaracionesCartera(preparador, declarador, relojRutasDietas{})
 	if err != nil {
 		pool.Close()
 		return nil, falloMontajeCartera("declaracion_handler")
 	}
+	if documentos != nil {
+		if documentos.lector == nil {
+			pool.Close()
+			return nil, falloMontajeCartera("declaracion_comprobante")
+		}
+		h, err = h.ConComprobantes(declaradorMeritosConComprobanteExterno{base: declarador, lector: documentos.lector})
+		if err != nil {
+			pool.Close()
+			return nil, falloMontajeCartera("declaracion_comprobante")
+		}
+	}
+	externa.manejador = h
 	return pool, nil
 }

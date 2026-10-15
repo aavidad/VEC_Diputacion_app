@@ -310,6 +310,11 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// preferencias entre bolsas del aspirante (AD248), ambas externas.
 		audienciaPresentarAlegacionExternaV3,
 		puertosbolsa.AudienciaOrdenarPreferenciasBolsas,
+		// Preferencias internas y justificante RRHH: la lista admite las
+		// audiencias; el selector opcional y su preflight deciden si se publican.
+		puertosbolsa.AudienciaOrdenarPreferenciasBolsasInterna,
+		audienciaJustificanteBolsaRRHH,
+		audienciaJustificanteBolsaPrepararRRHH,
 		descriptoresMaterialInscripcionRRHHDesarrollo()[0].Audiencia,
 		descriptoresMaterialInscripcionRRHHDesarrollo()[1].Audiencia,
 		puertosbolsa.AudienciaManifestarDisposicionPropia,

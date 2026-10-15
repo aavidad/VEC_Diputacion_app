@@ -50,3 +50,61 @@ test("POST distingue alta y replay por respuesta y rechaza recibo incoherente", 
   await assert.rejects(falso.retirar(orden), (err) => err instanceof ErrorCartera
     && err.codigo === "resultado_indeterminado");
 });
+
+test("carga el PDF con la clave de la declaración y exige admisión real", async () => {
+  const llamadas = [];
+  const documento = new Blob(["%PDF-1.7"], { type: "application/pdf" });
+  documento.name = "titulo.pdf";
+  const cliente = crearClienteCartera({ fetchImpl: async (ruta, opciones) => {
+    llamadas.push({ ruta, opciones });
+    return respuesta(200, { data: { comprobante_ref: "ref:original", carga_id: "ref:carga",
+      registrado_en: "2026-10-14T12:00:00Z", estado: "admitido" } });
+  } });
+  assert.equal((await cliente.subirComprobante("declaracion:misma-clave", documento)).comprobante_ref, "ref:original");
+  assert.equal(llamadas[0].ruta, "/api/vec/meritos/cartera/comprobantes");
+  assert.equal(llamadas[0].opciones.body.get("clave_idempotencia"), "declaracion:misma-clave");
+  assert.equal(await llamadas[0].opciones.body.get("documento").text(), "%PDF-1.7");
+  assert.deepEqual([...llamadas[0].opciones.body.keys()], ["clave_idempotencia", "documento"]);
+  assert.equal(llamadas[0].opciones.headers["Content-Type"], undefined);
+  assert.equal(llamadas[0].opciones.credentials, "same-origin");
+  assert.equal(llamadas[0].opciones.redirect, "error");
+  const falso = crearClienteCartera({ fetchImpl: async () => respuesta(200,
+    { data: { comprobante_ref: "ref:original", carga_id: "ref:carga", registrado_en: "2026-10-14T12:00:00Z", estado: "pendiente" } }) });
+  await assert.rejects(falso.subirComprobante("declaracion:misma-clave", documento),
+    (error) => error instanceof ErrorCartera && error.codigo === "respuesta_invalida");
+});
+
+test("descarga el PDF original por ruta fija y rechaza otro tipo de respuesta", async () => {
+  const llamadas = [];
+  const cliente = crearClienteCartera({ fetchImpl: async (ruta, opciones) => {
+    llamadas.push({ ruta, opciones });
+    return { ok: true, headers: { get: () => "application/pdf" }, blob: async () => new Blob(["%PDF"], { type: "application/pdf" }) };
+  } });
+  assert.equal(await (await cliente.descargarComprobante("ref:original")).text(), "%PDF");
+  assert.equal(llamadas[0].ruta, "/api/vec/meritos/cartera/comprobantes/ref%3Aoriginal/original");
+  assert.equal(llamadas[0].opciones.cache, "no-store");
+  assert.equal(llamadas[0].opciones.credentials, "same-origin");
+  assert.equal(llamadas[0].opciones.referrerPolicy, "no-referrer");
+  await assert.rejects(cliente.descargarComprobante("https://otro.local/documento"), TypeError);
+});
+
+test("la carga pendiente y el rechazo se consultan por la misma clave sin simular admisión", async () => {
+  const rutas = [];
+  const documento = new Blob(["%PDF-1.7"], { type: "application/pdf" });
+  documento.name = "titulo.pdf";
+  const cliente = crearClienteCartera({ fetchImpl: async (ruta, opciones) => {
+    rutas.push({ ruta, opciones });
+    if (opciones.method === "POST") return respuesta(202, { data: {
+      carga_id: "ref:carga1", estado: "recibido", recibo_ref: "ref:recibo1",
+    } });
+    return respuesta(200, { data: { carga_id: "ref:carga1", estado: "rechazado",
+      recibo_ref: "ref:recibo1", codigo_rechazo: "pdf_no_valido" } });
+  } });
+  assert.equal((await cliente.subirComprobante("declaracion:clave1", documento)).estado, "recibido");
+  const estado = await cliente.consultarComprobante("declaracion:clave1");
+  assert.equal(estado.estado, "rechazado");
+  assert.equal(estado.comprobante_ref, undefined);
+  assert.equal(rutas[1].ruta, "/api/vec/meritos/cartera/comprobantes/estado?clave_idempotencia=declaracion%3Aclave1");
+  assert.equal(rutas[1].opciones.credentials, "same-origin");
+  assert.equal(rutas[1].opciones.cache, "no-store");
+});

@@ -1,7 +1,7 @@
 import { cargarTextos, reintentarTextos } from "../comun/textos.js";
 import { idiomaActivoAreaPersonal, traducir } from "./i18n.js";
-import { crearClienteCartera, ErrorCartera } from "./meritos-reales-cliente.js?v=20261013-meritos-recorrido-v1";
-import { renderizarMeritosPropios } from "./meritos-reales-vista.js?v=20261013-meritos-recorrido-v1";
+import { crearClienteCartera, ErrorCartera } from "./meritos-reales-cliente.js?v=20261015-o-justificante-bolsa-v1";
+import { renderizarMeritosPropios } from "./meritos-reales-vista.js?v=20261015-o-justificante-bolsa-v1";
 
 const FILTROS = new Set(["todos", "disponibles", "retirados"]);
 
@@ -9,7 +9,8 @@ function estadoInicial(ubicacion) {
   const filtro = new URLSearchParams(ubicacion?.search || "").get("filtro");
   return { estado: "cargando", filtro: FILTROS.has(filtro) ? filtro : "todos", hechos: [],
     total: 0, cursor_siguiente: "", motivos: [], seleccion: null, confirmacion: null,
-    pendiente: null, guardando: false, alta: null, altaPendiente: null, confirmacionAlta: null, errorAlta: "" };
+    pendiente: null, guardando: false, alta: null, altaPendiente: null, confirmacionAlta: null, errorAlta: "",
+    estadoArchivo: "", estadoCarga: null, comprobante: null, errorDescarga: false };
 }
 
 // La vista reemplaza el HTML al cambiar de estado. Se identifica el control
@@ -25,6 +26,11 @@ function restauradorFoco(contenedor, activo) {
     const hecho = activo.dataset.meritosRetirar;
     return () => [...contenedor.querySelectorAll("[data-meritos-retirar]")]
       .find((nodo) => nodo.dataset.meritosRetirar === hecho);
+  }
+  if (activo.dataset?.meritosDescargar !== undefined) {
+    const ref = activo.dataset.meritosDescargar;
+    return () => [...contenedor.querySelectorAll("[data-meritos-descargar]")]
+      .find((nodo) => nodo.dataset.meritosDescargar === ref);
   }
   if (activo.id === "meritos-retirada-motivo") return () => contenedor.querySelector("#meritos-retirada-motivo");
   for (const marca of ["meritosConsultar", "meritosMas", "meritosCancelar", "meritosTextosReintentar"]) {
@@ -47,17 +53,23 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
   const doc = contenedor.ownerDocument || document;
   const estilo = doc.createElement("link");
   estilo.rel = "stylesheet";
-  estilo.href = "/area-personal/meritos-reales-estilos.css?v=20261013-meritos-recorrido-v1";
+  estilo.href = "/area-personal/meritos-reales-estilos.css?v=20261014-aspirante-pdf-local-v1";
   doc.head.append(estilo);
   const modelo = estadoInicial(ubicacion);
   modelo.pendiente = pendiente?.operacion === "declaracion" ? null : pendiente;
   if (pendiente?.operacion === "declaracion") {
-    modelo.altaPendiente = pendiente.orden; modelo.alta = pendiente.alta; modelo.errorAlta = "alta_error_incierto";
+    modelo.altaPendiente = pendiente.orden; modelo.alta = pendiente.alta;
+    modelo.comprobante = pendiente.comprobante || null;
+    modelo.estadoCarga = pendiente.estadoCarga || null;
+    modelo.estadoArchivo = modelo.estadoCarga?.estado || "pendiente";
+    modelo.errorAlta = modelo.alta?.archivo || modelo.estadoCarga ? "" : "alta_error_incierto";
   }
   let activo = true;
   let textos = null;
   let generacion = 0;
   let lectura = null;
+  let descarga = null;
+  let operacion = null;
 
   const pintar = () => {
     if (activo && textos && contenedor.isConnected) {
@@ -193,7 +205,10 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
 
   async function declarar(formulario) {
     if (modelo.guardando || !modelo.alta) return;
+    if (modelo.estadoArchivo === "rechazado") return;
     if (!modelo.altaPendiente && !formulario.reportValidity()) return;
+    const consultarPrimero = !!modelo.altaPendiente
+      && ["pendiente", "reservada", "recibido", "analizando"].includes(modelo.estadoArchivo);
     if (!modelo.altaPendiente) {
       const valores = modelo.alta;
       modelo.altaPendiente = { tipo: valores.tipo, denominacion: valores.denominacion.trim(),
@@ -201,22 +216,86 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
         ...(["curso_asistencia", "curso_superacion"].includes(valores.tipo) && valores.horas !== "" ? { horas: Number(valores.horas) } : {}),
         declarada_en: modelo.declaradaEn, clave_idempotencia: `declaracion:${globalThis.crypto.randomUUID()}` };
     }
-    modelo.guardando = true; modelo.errorAlta = ""; modelo.confirmacionAlta = null; pintar();
+    modelo.guardando = true; modelo.errorAlta = ""; modelo.confirmacionAlta = null;
+    modelo.estadoArchivo = consultarPrimero ? "consultando"
+      : modelo.alta.archivo && !modelo.comprobante ? "enviando" : ""; pintar();
+    operacion = new AbortController();
     try {
-      const recibo = await cliente.declarar(modelo.altaPendiente);
+      if (modelo.alta.archivo && !modelo.comprobante) {
+        let estado = null;
+        if (consultarPrimero) {
+          try {
+            estado = await cliente.consultarComprobante(modelo.altaPendiente.clave_idempotencia,
+              { signal: operacion.signal });
+          } catch (error) {
+            if (!(error instanceof ErrorCartera && error.estado === 404
+              && error.codigo === "meritos.error.comprobante_no_encontrado")) throw error;
+          }
+        }
+        if (!estado || ["reservada", "recibido", "analizando"].includes(estado.estado)) {
+          estado = await cliente.subirComprobante(modelo.altaPendiente.clave_idempotencia,
+            modelo.alta.archivo, { signal: operacion.signal });
+        }
+        if (!activo) return;
+        modelo.estadoCarga = estado;
+        modelo.estadoArchivo = estado.estado;
+        if (estado.estado === "rechazado") {
+          modelo.altaPendiente = null; modelo.comprobante = null;
+          pintar(); return;
+        }
+        if (estado.estado !== "admitido") { pintar(); return; }
+        modelo.comprobante = estado;
+        pintar();
+      }
+      const orden = modelo.comprobante
+        ? { ...modelo.altaPendiente, comprobante_ref: modelo.comprobante.comprobante_ref }
+        : modelo.altaPendiente;
+      const recibo = await cliente.declarar(orden, { signal: operacion.signal });
       if (!activo) return;
       modelo.confirmacionAlta = recibo; modelo.alta = null; modelo.altaPendiente = null;
+      modelo.comprobante = null; modelo.estadoCarga = null; modelo.estadoArchivo = "";
       await consultar();
     } catch (error) {
       if (!activo) return;
       if (error instanceof ErrorCartera && [401, 403].includes(error.estado)) {
-        modelo.altaPendiente = null; modelo.alta = null; modelo.hechos = []; modelo.estado = "denegado";
+        modelo.altaPendiente = null; modelo.alta = null; modelo.comprobante = null; modelo.estadoCarga = null;
+        modelo.hechos = []; modelo.estado = "denegado";
       } else if (error instanceof ErrorCartera && [400, 409, 422, 404].includes(error.estado)) {
-        modelo.altaPendiente = null; modelo.errorAlta = "alta_error_datos";
-      } else modelo.errorAlta = "alta_error_incierto";
+        modelo.altaPendiente = null; modelo.comprobante = null; modelo.estadoCarga = null; modelo.estadoArchivo = "error";
+        modelo.errorAlta = "alta_error_datos";
+      } else {
+        modelo.estadoArchivo = modelo.alta?.archivo && !modelo.comprobante ? "pendiente" : modelo.estadoArchivo;
+        modelo.errorAlta = consultarPrimero ? "comprobante_consulta_error"
+          : modelo.alta?.archivo && !modelo.comprobante ? "" : "alta_error_incierto";
+      }
     } finally {
-      modelo.guardando = false; pintar();
-      if (activo) contenedor.querySelector(modelo.confirmacionAlta ? ".meritos-reales-confirmacion" : "#meritos-alta-titulo")?.focus?.({ preventScroll: true });
+      operacion = null; modelo.guardando = false; pintar();
+      if (activo) (contenedor.querySelector(modelo.confirmacionAlta ? ".meritos-reales-confirmacion"
+        : modelo.altaPendiente ? "#meritos-alta-accion" : "#meritos-alta-titulo")
+        ?? contenedor.querySelector("#meritos-cartera-titulo"))?.focus?.({ preventScroll: true });
+    }
+  }
+
+  async function descargar(ref) {
+    descarga?.abort();
+    descarga = new AbortController();
+    modelo.errorDescarga = false;
+    pintar();
+    try {
+      const archivo = await cliente.descargarComprobante(ref, { signal: descarga.signal });
+      if (!activo) return;
+      const url = URL.createObjectURL(archivo);
+      const enlace = doc.createElement("a");
+      enlace.href = url;
+      enlace.download = textos.traducir("propio.comprobante_nombre_archivo");
+      enlace.rel = "noopener";
+      enlace.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      if (!activo || error?.name === "AbortError") return;
+      modelo.errorDescarga = error instanceof ErrorCartera
+        && error.codigo === "meritos.error.comprobante_no_disponible" ? "pdf_no_disponible" : "descarga_error";
+      pintar();
     }
   }
 
@@ -224,14 +303,19 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
     const boton = evento.target?.closest?.("button");
     if (!boton || !contenedor.contains(boton)) return;
     if (boton.hasAttribute("data-meritos-alta")) {
-      modelo.alta = { tipo: "titulacion", denominacion: "", fecha_desde: "", fecha_hasta: "", horas: "" };
+      modelo.alta = { tipo: "titulacion", denominacion: "", fecha_desde: "", fecha_hasta: "", horas: "", archivo: null };
       modelo.errorAlta = ""; pintar(); contenedor.querySelector('[name="denominacion"]')?.focus();
     } else if (boton.hasAttribute("data-meritos-alta-cancelar") && !modelo.guardando && !modelo.altaPendiente) {
-      modelo.alta = null; modelo.errorAlta = ""; pintar(); contenedor.querySelector("[data-meritos-alta]")?.focus();
+      modelo.alta = null; modelo.comprobante = null; modelo.estadoCarga = null; modelo.estadoArchivo = "";
+      modelo.errorAlta = ""; pintar(); contenedor.querySelector("[data-meritos-alta]")?.focus();
+    } else if (boton.hasAttribute("data-meritos-archivo-quitar") && modelo.alta && !modelo.altaPendiente && !modelo.guardando) {
+      modelo.alta.archivo = null; modelo.comprobante = null; modelo.estadoCarga = null; modelo.estadoArchivo = "";
+      pintar(); contenedor.querySelector('[name="documento"]')?.focus();
     } else if (boton.hasAttribute("data-meritos-textos-reintentar")) void prepararTextos();
     else if (boton.dataset.meritosFiltro) cambiarFiltro(boton.dataset.meritosFiltro);
     else if (boton.hasAttribute("data-meritos-consultar")) void consultar();
     else if (boton.hasAttribute("data-meritos-mas") && modelo.cursor_siguiente) void consultar({ siguiente: true });
+    else if (boton.dataset.meritosDescargar) void descargar(boton.dataset.meritosDescargar);
     else if (boton.dataset.meritosRetirar) {
       modelo.seleccion = { hecho_ref: boton.dataset.meritosRetirar };
       pintar();
@@ -257,11 +341,23 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
   const alEditarAlta = (evento) => {
     const control = evento.target;
     if (!modelo.alta || modelo.altaPendiente || !control?.closest?.("#meritos-reales-alta-formulario")
-      || !Object.hasOwn(modelo.alta, control.name)) return;
+      || (control.name !== "documento" && !Object.hasOwn(modelo.alta, control.name))) return;
+    if (control.name === "documento") {
+      if (evento.type !== "change") return;
+      const archivo = control.files?.[0] || null;
+      if (archivo && (archivo.type !== "application/pdf" && !/\.pdf$/iu.test(archivo.name))) {
+        modelo.errorAlta = "comprobante_formato"; control.value = ""; pintar(); return;
+      }
+      modelo.alta.archivo = archivo; modelo.comprobante = null; modelo.estadoCarga = null;
+      modelo.estadoArchivo = archivo ? "seleccionado" : ""; modelo.errorAlta = "";
+      pintar(); contenedor.querySelector(archivo ? "[data-meritos-archivo-quitar]" : '[name="documento"]')?.focus(); return;
+    }
+    if (evento.type === "change") return;
     modelo.alta[control.name] = control.value;
     if (control.name === "tipo") { pintar(); contenedor.querySelector('[name="tipo"]')?.focus(); }
   };
   contenedor.addEventListener("input", alEditarAlta);
+  contenedor.addEventListener("change", alEditarAlta);
   async function prepararTextos() {
     try {
       const cargados = await cargarTextos("meritos-reales", { idioma })
@@ -285,8 +381,10 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
   }
   const preparada = prepararTextos();
   return Object.freeze({ preparada,
-    desmontar() { lectura?.abort(); generacion++; contenedor.removeEventListener("click", alClic); contenedor.removeEventListener("submit", alEnviar);
-      contenedor.removeEventListener("input", alEditarAlta); contenedor.replaceChildren(); estilo.remove(); activo = false; },
-    pendiente() { return modelo.altaPendiente ? { operacion: "declaracion", orden: modelo.altaPendiente, alta: modelo.alta } : modelo.pendiente; },
+    desmontar() { lectura?.abort(); descarga?.abort(); operacion?.abort(); generacion++; contenedor.removeEventListener("click", alClic); contenedor.removeEventListener("submit", alEnviar);
+      contenedor.removeEventListener("input", alEditarAlta); contenedor.removeEventListener("change", alEditarAlta);
+      contenedor.replaceChildren(); estilo.remove(); activo = false; },
+    pendiente() { return modelo.altaPendiente ? { operacion: "declaracion", orden: modelo.altaPendiente,
+      alta: modelo.alta, comprobante: modelo.comprobante, estadoCarga: modelo.estadoCarga } : modelo.pendiente; },
   });
 }

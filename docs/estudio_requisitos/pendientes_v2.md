@@ -78,3 +78,8 @@ La primera versión de la inscripción en bolsa sólo atiende a aspirantes exter
 - las operaciones de lectura y presentación en la superficie interna (`presentar_empleado`, ámbito `empleado_ref`) en la autoridad, el decisor de lectura y la SQL, que en esta versión sólo existen para el candidato externo.
 
 La rama `trabajo/codexq-inscripcion-backend-20261009` conserva ese código tal como lo dejó Codex-Q, con CA39 y la sesión interna de empleado.
+
+## Custodia documental y conexiones de Contratación
+
+- Completar la carga directa de PDF y su integración con Mayan cuando dispongan de autorización productiva y destino aprobado; la admisión local mantiene sus estados, custodia y recibos propios.
+- Separar la conexión amplia heredada de `VEC_CT_GOBIERNO_DATABASE_URL` del proceso web, con conexiones nominales por función y un ensayo completo de arranque y recuperación.

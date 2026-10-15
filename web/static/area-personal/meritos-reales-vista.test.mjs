@@ -46,3 +46,15 @@ test("revisión muestra efecto y motivo recibido; recibo confirmado conserva rep
   assert.match(html, /Recibo recibo:original/u);
   assert.doesNotMatch(html, /<privado>|puntos/u);
 });
+
+test("la ficha ofrece solo comprobantes con referencia y versión válidas", () => {
+  const conPDF = { ...hecho("hecho:1", "disponible", "Título presentado"), evidencias: [
+    { id: "ref:pdf1", version: 1 }, { id: "https://otro.local/doc", version: 1 },
+    { id: "ref:sin-version", version: 0 },
+  ] };
+  const html = renderizarMeritosPropios({ estado: "listo", filtro: "todos", total: 1,
+    hechos: [conPDF], motivos: [] }, textos);
+  assert.match(html, /data-meritos-descargar="ref:pdf1"/u);
+  assert.match(html, /Descargar comprobante 1 \(PDF\)/u);
+  assert.doesNotMatch(html, /https:\/\/otro|data-meritos-descargar="ref:sin-version"|puntos/u);
+});

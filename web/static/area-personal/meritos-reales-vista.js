@@ -2,6 +2,9 @@
 const ESTADOS = new Set(["cargando", "vacio", "listo", "error", "denegado", "conflicto", "resultado_indeterminado"]);
 const FILTROS = new Set(["todos", "disponibles", "retirados"]);
 const TIPOS = new Set(["titulacion", "curso_asistencia", "curso_superacion", "experiencia", "idioma", "otro"]);
+const MOTIVOS_PDF = Object.freeze({ pdf_no_valido: "comprobante_motivo_pdf",
+  contenido_no_permitido: "comprobante_motivo_contenido",
+  analisis_no_concluyente: "comprobante_motivo_analisis" });
 
 export function escaparMeritos(valor) {
   return String(valor ?? "").replace(/[&<>"']/gu, (caracter) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[caracter]);
@@ -15,6 +18,12 @@ function ficha(hecho, textos, puedeRetirar) {
     throw new TypeError("meritos.cartera.ficha_invalida");
   }
   const disponible = hecho.disponibilidad.estado === "disponible";
+  const comprobantes = Array.isArray(hecho.evidencias) ? hecho.evidencias
+    .filter((evidencia) => typeof evidencia?.id === "string" && /^ref:[A-Za-z0-9:_-]+$/u.test(evidencia.id)
+      && Number.isSafeInteger(evidencia.version) && evidencia.version > 0) : [];
+  const descargas = comprobantes.map((evidencia, indice) => `<button type="button" class="boton-secundario"
+    data-meritos-descargar="${escaparMeritos(evidencia.id)}" aria-label="${t(textos, "descargar_comprobante_numero", { numero: indice + 1 })}">
+    ${t(textos, "descargar_comprobante")}</button>`).join("");
   const accion = disponible && puedeRetirar
     ? `<button type="button" class="boton-secundario" data-meritos-retirar="${escaparMeritos(hecho.hecho_ref)}">${t(textos, "retirar_este")}</button>`
     : "";
@@ -25,7 +34,7 @@ function ficha(hecho, textos, puedeRetirar) {
     <div class="meritos-reales-ficha-cabecera"><div><h3>${escaparMeritos(hecho.denominacion)}</h3>
       <p>${t(textos, `tipo_${hecho.tipo}`)}</p></div>
       <span class="meritos-reales-estado meritos-reales-estado--${hecho.disponibilidad.estado}">${t(textos, `disponibilidad_${hecho.disponibilidad.estado}`)}</span></div>
-    <div class="meritos-reales-ficha-pie">${accion}${recibo}</div></div></article>`;
+    <div class="meritos-reales-ficha-pie">${descargas}${accion}${recibo}</div></div></article>`;
 }
 
 function filtros(modelo, textos) {
@@ -79,18 +88,32 @@ function altaMerito(modelo, textos) {
   const bloqueo = modelo.altaPendiente || modelo.guardando ? " disabled" : "";
   const campo = (nombre, control) => `<div class="campo"><label for="meritos-alta-${nombre}">${t(textos, `alta_${nombre}`)}</label>${control.replace(/^(<\w+)/u, `$1 id="meritos-alta-${nombre}"`)}</div>`;
   const esCurso = ["curso_asistencia", "curso_superacion"].includes(valores.tipo);
+  const archivo = valores.archivo;
+  const nombreArchivo = archivo?.name ? `<span>${e(archivo.name)}</span>${!modelo.altaPendiente && !modelo.guardando
+    ? ` <button type="button" class="boton-secundario" data-meritos-archivo-quitar>${t(textos, "comprobante_quitar")}</button>` : ""}` : "";
+  const motivoPDF = modelo.estadoArchivo === "rechazado" && MOTIVOS_PDF[modelo.estadoCarga?.codigo_rechazo]
+    ? ` ${t(textos, MOTIVOS_PDF[modelo.estadoCarga.codigo_rechazo])}` : "";
+  const estadoArchivo = modelo.estadoArchivo ? `<p role="status" aria-live="polite">${t(textos, `comprobante_${modelo.estadoArchivo}`)}${motivoPDF}</p>` : "";
+  const reciboArchivo = modelo.estadoCarga?.recibo_ref
+    ? `<details><summary>${t(textos, "comprobante_recibo")}</summary><p>${t(textos, "recibo_numero", { numero: modelo.estadoCarga.recibo_ref })}</p></details>` : "";
+  const pendienteArchivo = modelo.altaPendiente && ["pendiente", "reservada", "recibido", "analizando"].includes(modelo.estadoArchivo);
+  const textoAccion = modelo.guardando ? "guardando" : modelo.estadoArchivo === "rechazado" ? "comprobante_elegir_otro"
+    : pendienteArchivo ? "comprobante_consultar" : modelo.altaPendiente ? "alta_reintentar" : "alta_guardar";
   return `<section class="panel meritos-reales-revision" aria-labelledby="meritos-alta-titulo">
-    <header><h3 id="meritos-alta-titulo">${t(textos, "alta_titulo")}</h3></header>
+    <header><h3 id="meritos-alta-titulo" tabindex="-1">${t(textos, "alta_titulo")}</h3></header>
     <div><form id="meritos-reales-alta-formulario"><div class="formulario-rejilla">
       ${campo("tipo", `<select name="tipo" required${bloqueo}>${[...TIPOS].map((tipo) => `<option value="${tipo}"${tipo === valores.tipo ? " selected" : ""}>${t(textos, `tipo_${tipo}`)}</option>`).join("")}</select>`)}
       ${campo("denominacion", `<input name="denominacion" required maxlength="512" value="${e(valores.denominacion)}"${bloqueo}>`)}
       ${campo("fecha_desde", `<input name="fecha_desde" type="date" required value="${e(valores.fecha_desde)}"${bloqueo}>`)}
       ${campo("fecha_hasta", `<input name="fecha_hasta" type="date" min="${e(valores.fecha_desde)}" value="${e(valores.fecha_hasta)}"${bloqueo}>`)}
       ${esCurso ? campo("horas", `<input name="horas" type="number" min="0" max="1000000" step="1" value="${e(valores.horas)}"${bloqueo}>`) : ""}
+      ${archivo ? `<div class="campo"><p>${t(textos, "alta_documento")}</p></div>`
+        : campo("documento", `<input name="documento" type="file" accept="application/pdf,.pdf" aria-describedby="meritos-alta-documento-estado"${bloqueo}>`)}
+      <div id="meritos-alta-documento-estado">${nombreArchivo}${estadoArchivo}${reciboArchivo}</div>
     </div>${modelo.errorAlta ? `<p class="meritos-reales-aviso" role="alert">${t(textos, modelo.errorAlta)}</p>` : ""}
     <div class="meritos-reales-acciones">
       <button type="button" class="boton-secundario" data-meritos-alta-cancelar${bloqueo}>${t(textos, "cancelar")}</button>
-      <button type="submit" class="boton-primario"${modelo.guardando ? " disabled" : ""}>${t(textos, modelo.guardando ? "guardando" : modelo.altaPendiente ? "alta_reintentar" : "alta_guardar")}</button>
+      <button type="submit" id="meritos-alta-accion" class="boton-primario"${modelo.guardando || modelo.estadoArchivo === "rechazado" ? " disabled" : ""}>${t(textos, textoAccion)}</button>
     </div></form></div></section>`;
 }
 
@@ -121,6 +144,6 @@ export function renderizarMeritosPropios(modelo, textos) {
     <header><h2 id="meritos-cartera-titulo" tabindex="-1">${t(textos, "lista_titulo")}</h2>
       ${["listo", "vacio"].includes(modelo.estado) ? `<button type="button" class="boton-primario" data-meritos-alta${modelo.guardando || modelo.alta ? " disabled" : ""}>${t(textos, "alta_titulo")}</button>` : ""}</header>
     <div class="panel-contenido">${filtros(modelo, textos)}${retiradaPendiente(modelo, textos)}<div class="meritos-reales-lista">${lista}</div>
-      <div class="meritos-reales-paginacion">${total}${mas}</div>${confirmacion(modelo, textos)}${revisarRetirada(modelo, textos)}${reciboAlta(modelo, textos)}${altaMerito(modelo, textos)}</div>
+      <div class="meritos-reales-paginacion">${total}${mas}</div>${modelo.errorDescarga ? `<p class="meritos-reales-aviso" role="alert">${t(textos, modelo.errorDescarga === "pdf_no_disponible" ? "pdf_no_disponible" : "descarga_error")}</p>` : ""}${confirmacion(modelo, textos)}${revisarRetirada(modelo, textos)}${reciboAlta(modelo, textos)}${altaMerito(modelo, textos)}</div>
   </section>`;
 }

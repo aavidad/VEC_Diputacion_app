@@ -1,0 +1,159 @@
+{
+  "modulo_id": "meritos",
+  "referencia": "fuente:meritos:cartera_propia",
+  "version": 2,
+  "huella_sha256": "ce54c58de1dfd4b4d29742d638c956a158d65ab1ee73516213aad3de7242c324",
+  "entradas_canon": "[{\"referencia\":\"accion:meritos.cartera.consultar_propia\",\"version\":2,\"fuente_ref\":\"fuente:meritos:cartera_propia\",\"fuente_version\":2,\"concesion\":{\"accion\":\"meritos.cartera.consultar_propia\",\"modulo_id\":\"meritos\",\"tipo_recurso\":\"cartera_personal\",\"finalidades\":[\"gestion_cartera_propia\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"denominacion\",\"disponibilidad\",\"evidencias\",\"hecho_ref\",\"motivos_retirada\",\"retirada\",\"tipo\",\"total\",\"version_hecho\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"},{\"referencia\":\"accion:meritos.cartera.retirar_propio\",\"version\":2,\"fuente_ref\":\"fuente:meritos:cartera_propia\",\"fuente_version\":2,\"concesion\":{\"accion\":\"meritos.cartera.retirar_propio\",\"modulo_id\":\"meritos\",\"tipo_recurso\":\"hecho\",\"finalidades\":[\"gestion_cartera_propia\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"disponibilidad\",\"recibo\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"},{\"referencia\":\"accion:meritos.hecho.declarar\",\"version\":2,\"fuente_ref\":\"fuente:meritos:cartera_propia\",\"fuente_version\":2,\"concesion\":{\"accion\":\"meritos.hecho.declarar\",\"modulo_id\":\"meritos\",\"tipo_recurso\":\"hecho\",\"finalidades\":[\"declaracion_hecho_propio\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"declarante_ref\",\"hecho\",\"recibo\",\"version\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"},{\"referencia\":\"accion:meritos.cartera.comprobante.subir_propio\",\"version\":2,\"fuente_ref\":\"fuente:meritos:cartera_propia\",\"fuente_version\":2,\"concesion\":{\"accion\":\"meritos.cartera.comprobante.subir_propio\",\"modulo_id\":\"meritos\",\"tipo_recurso\":\"hecho\",\"finalidades\":[\"custodiar_evidencia_meritos\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"contenido\",\"estado\",\"recibo\"],\"obligaciones\":[]},\"dimensiones_ambito\":[\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"},{\"referencia\":\"accion:meritos.cartera.comprobante.descargar_propio\",\"version\":2,\"fuente_ref\":\"fuente:meritos:cartera_propia\",\"fuente_version\":2,\"concesion\":{\"accion\":\"meritos.cartera.comprobante.descargar_propio\",\"modulo_id\":\"meritos\",\"tipo_recurso\":\"hecho\",\"finalidades\":[\"custodiar_evidencia_meritos\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"contenido\"],\"obligaciones\":[]},\"dimensiones_ambito\":[\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:meritos.cartera.consultar_propia",
+      "version": 2,
+      "fuente_ref": "fuente:meritos:cartera_propia",
+      "fuente_version": 2,
+      "concesion": {
+        "accion": "meritos.cartera.consultar_propia",
+        "modulo_id": "meritos",
+        "tipo_recurso": "cartera_personal",
+        "finalidades": [
+          "gestion_cartera_propia"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "denominacion",
+          "disponibilidad",
+          "evidencias",
+          "hecho_ref",
+          "motivos_retirada",
+          "retirada",
+          "tipo",
+          "total",
+          "version_hecho"
+        ],
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z",
+      "fuente_huella_sha256": "ce54c58de1dfd4b4d29742d638c956a158d65ab1ee73516213aad3de7242c324"
+    },
+    {
+      "referencia": "accion:meritos.cartera.retirar_propio",
+      "version": 2,
+      "fuente_ref": "fuente:meritos:cartera_propia",
+      "fuente_version": 2,
+      "concesion": {
+        "accion": "meritos.cartera.retirar_propio",
+        "modulo_id": "meritos",
+        "tipo_recurso": "hecho",
+        "finalidades": [
+          "gestion_cartera_propia"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "disponibilidad",
+          "recibo"
+        ],
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z",
+      "fuente_huella_sha256": "ce54c58de1dfd4b4d29742d638c956a158d65ab1ee73516213aad3de7242c324"
+    },
+    {
+      "referencia": "accion:meritos.hecho.declarar",
+      "version": 2,
+      "fuente_ref": "fuente:meritos:cartera_propia",
+      "fuente_version": 2,
+      "concesion": {
+        "accion": "meritos.hecho.declarar",
+        "modulo_id": "meritos",
+        "tipo_recurso": "hecho",
+        "finalidades": [
+          "declaracion_hecho_propio"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "declarante_ref",
+          "hecho",
+          "recibo",
+          "version"
+        ],
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z",
+      "fuente_huella_sha256": "ce54c58de1dfd4b4d29742d638c956a158d65ab1ee73516213aad3de7242c324"
+    },
+    {
+      "referencia": "accion:meritos.cartera.comprobante.subir_propio",
+      "version": 2,
+      "fuente_ref": "fuente:meritos:cartera_propia",
+      "fuente_version": 2,
+      "concesion": {
+        "accion": "meritos.cartera.comprobante.subir_propio",
+        "modulo_id": "meritos",
+        "tipo_recurso": "hecho",
+        "finalidades": [
+          "custodiar_evidencia_meritos"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "contenido",
+          "estado",
+          "recibo"
+        ],
+        "obligaciones": []
+      },
+      "dimensiones_ambito": [
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z",
+      "fuente_huella_sha256": "ce54c58de1dfd4b4d29742d638c956a158d65ab1ee73516213aad3de7242c324"
+    },
+    {
+      "referencia": "accion:meritos.cartera.comprobante.descargar_propio",
+      "version": 2,
+      "fuente_ref": "fuente:meritos:cartera_propia",
+      "fuente_version": 2,
+      "concesion": {
+        "accion": "meritos.cartera.comprobante.descargar_propio",
+        "modulo_id": "meritos",
+        "tipo_recurso": "hecho",
+        "finalidades": [
+          "custodiar_evidencia_meritos"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "contenido"
+        ],
+        "obligaciones": []
+      },
+      "dimensiones_ambito": [
+        "persona_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z",
+      "fuente_huella_sha256": "ce54c58de1dfd4b4d29742d638c956a158d65ab1ee73516213aad3de7242c324"
+    }
+  ]
+}

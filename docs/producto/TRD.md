@@ -286,6 +286,16 @@ limita qué módulos ofrece el menú y tampoco concede acceso
 un módulo se haga desde Administración, auditado. Ese interruptor aún no existe y
 hoy se usa la variable.
 
+Las preferencias entre bolsas de Mi Bolsa interna usan el selector opcional
+`VEC_BOLSA_PREFERENCIAS_INTERNA_ENABLED`. Requieren la sesión corporativa de
+Usuarios (`VEC_USUARIOS_PREFERENCIAS_ENABLED`) y un fichero privado propio,
+`identidad/bolsa-preferencias-interna.json`, con el DSN del LOGIN Bolsa nominal
+y la cuenta y perfil de candidato internos. El montaje reutiliza la
+infraestructura de sesión de Usuarios y lee la autoridad publicada. No crea
+permisos ni claves al arrancar. Si se solicita sin sus dependencias, la ruta
+de preferencias devuelve 503 y el servidor continúa. El contrato de
+activación está en `deploy/principal/candidata_hz39/aspirante/preferencias_internas.md`.
+
 ### Regla: ninguna configuración nueva tumba el arranque
 
 Si falta o está mal la configuración de una función, falla solo esa función. La

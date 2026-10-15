@@ -30,7 +30,7 @@ const (
 )
 
 func CamposConsultaCartera() []string {
-	return []string{"denominacion", "disponibilidad", "hecho_ref", "motivos_retirada", "retirada", "tipo", "total", "version_hecho"}
+	return []string{"denominacion", "disponibilidad", "evidencias", "hecho_ref", "motivos_retirada", "retirada", "tipo", "total", "version_hecho"}
 }
 
 type MotivoRetiradaCartera struct {
@@ -48,15 +48,16 @@ type RetiradaCartera struct {
 	Fecha     time.Time `json:"fecha"`
 }
 
-// FichaCartera contiene el mínimo para elegir un mérito; los binarios,
-// evidencias y puntos no pertenecen a esta lectura.
+// FichaCartera incluye las referencias documentales de la versión real del
+// hecho. Los binarios y los puntos no pertenecen a esta lectura.
 type FichaCartera struct {
-	HechoRef       string                `json:"hecho_ref"`
-	VersionHecho   int                   `json:"version_hecho"`
-	Tipo           string                `json:"tipo"`
-	Denominacion   string                `json:"denominacion"`
-	Disponibilidad DisponibilidadCartera `json:"disponibilidad"`
-	Retirada       *RetiradaCartera      `json:"retirada,omitempty"`
+	HechoRef       string                    `json:"hecho_ref"`
+	VersionHecho   int                       `json:"version_hecho"`
+	Tipo           string                    `json:"tipo"`
+	Denominacion   string                    `json:"denominacion"`
+	Evidencias     []vec.ReferenciaDocumento `json:"evidencias"`
+	Disponibilidad DisponibilidadCartera     `json:"disponibilidad"`
+	Retirada       *RetiradaCartera          `json:"retirada,omitempty"`
 }
 
 type ReciboLecturaCartera struct {
@@ -125,6 +126,14 @@ func (p PaginaCarteraInterna) Validar(corte time.Time, correlacion string, limit
 				h.Retirada.Fecha.After(corte)) ||
 			h.Disponibilidad.Estado != "disponible" && h.Disponibilidad.Estado != "retirado" {
 			return ErrCarteraNoDisponible
+		}
+		if len(h.Evidencias) > 32 {
+			return ErrCarteraNoDisponible
+		}
+		for _, evidencia := range h.Evidencias {
+			if evidencia.Validar() != nil || !domain.ReferenciaValida(evidencia.ID) {
+				return ErrCarteraNoDisponible
+			}
 		}
 		ultimo = h.HechoRef
 	}

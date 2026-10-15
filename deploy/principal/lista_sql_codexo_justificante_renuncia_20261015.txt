@@ -1,0 +1,16 @@
+# Copia HZ37 limpia; AD277 exige las preimágenes posteriores a AD263 y AD265.
+# Instalar cada SQL una sola vez. No reaplicar sobre la copia O anterior.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000263_publicador_nominal_confianza_externa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000265_preflight_consumidores_externos_actuales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000277_justificante_bolsa_documental.up.sql
+deploy/postgresql/autorizacion/migraciones/000095_autorizacion_subida_documental_externa.up.sql
+deploy/postgresql/autorizacion/migraciones/000098_motivo_documental_justificante_bolsa.up.sql
+deploy/postgresql/documentos/migraciones/000020_subida_documental_comun.up.sql
+# Antes de D22: crear los dos LOGIN sin grupo, fijar sus contraseñas SCRAM
+# fuera de Git; comandos supervisados en candidata_hz39/aspirante/LEEME.md.
+deploy/postgresql/documentos/migraciones/000022_justificante_renuncia_bolsa.up.sql
+# D22 crea los grupos. Antes de B119: conceder a cada LOGIN solo su grupo
+# documental (INHERIT TRUE, SET FALSE, ADMIN FALSE) y CONNECT sin TEMP.
+# Comprobar ACL y contraseñas con el guion de activación antes de arrancar.
+deploy/postgresql/bolsa_llamamientos/migraciones/000119_justificante_renuncia_documental.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000222_frontera_justificante_renuncia_bolsa.up.sql

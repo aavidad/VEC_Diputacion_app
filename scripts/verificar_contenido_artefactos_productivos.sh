@@ -158,6 +158,9 @@ fi
 # lectura, almacenamiento o inclusion entre origenes. (grep en vez de ripgrep:
 # el ejecutor de CI no trae rg.)
 transportes_mtls_revisados=(
+	# Justificantes de renuncia: rutas fijas, mTLS, sin caché ni redirecciones.
+	static/area-personal/mi-bolsa-justificante-cliente.js
+	static/portal-empleado/portal-bolsas-justificante-cliente.js
 	# P7 común: rutas internas validadas, errores tipados y cola técnica sin datos personales.
 	static/comun/http.js
 	static/comun/registro-errores.js

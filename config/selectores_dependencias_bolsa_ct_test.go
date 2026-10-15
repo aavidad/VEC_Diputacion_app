@@ -102,6 +102,53 @@ func TestDependenciasAusentesSelectoresBolsaCT(t *testing.T) {
 	}
 }
 
+func TestPreferenciasInternasEnInventarioSonOpcionales(t *testing.T) {
+	inv, err := CargarInventarioSelectoresBolsaCT()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const selector = "VEC_BOLSA_PREFERENCIAS_INTERNA_ENABLED"
+	var declarada bool
+	for _, v := range inv.Variables {
+		if v.Variable == selector {
+			declarada = v.Tipo == TipoVariableSelector && !v.UsoReal &&
+				len(v.Requiere) == 2 && v.Requiere[0] == EnvDevelopmentMaterialDir &&
+				v.Requiere[1] == "VEC_USUARIOS_PREFERENCIAS_ENABLED"
+		}
+	}
+	if !declarada {
+		t.Fatal("el selector interno no figura como capacidad opcional")
+	}
+	for _, valor := range []string{"", "false", "incorrecto"} {
+		avisos := inv.DependenciasAusentes(func(nombre string) string {
+			if nombre == selector {
+				return valor
+			}
+			return ""
+		})
+		for _, aviso := range avisos {
+			if aviso.Variable == selector {
+				t.Fatalf("selector %q produjo aviso de activación: %+v", valor, aviso)
+			}
+		}
+	}
+	avisos := inv.DependenciasAusentes(func(nombre string) string {
+		if nombre == selector {
+			return "true"
+		}
+		return ""
+	})
+	faltan := map[string]bool{}
+	for _, aviso := range avisos {
+		if aviso.Variable == selector {
+			faltan[aviso.Falta] = true
+		}
+	}
+	if !faltan[EnvDevelopmentMaterialDir] || !faltan["VEC_USUARIOS_PREFERENCIAS_ENABLED"] || len(faltan) != 2 {
+		t.Fatalf("faltan dependencias diagnósticas de preferencias: %+v", faltan)
+	}
+}
+
 func TestInventarioSelectoresBolsaCTRechazaDatosInvalidos(t *testing.T) {
 	for nombre, datos := range map[string]string{
 		"vacio":              `{}`,

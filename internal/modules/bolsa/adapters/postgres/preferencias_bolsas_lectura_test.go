@@ -17,11 +17,25 @@ import (
 
 func TestErrorLecturaPreferenciasNoConfundeACLConDenegacion(t *testing.T) {
 	para := func(mensaje string) error { return &pgconn.PgError{Code: "42501", Message: mensaje} }
-	if !errors.Is(errorLecturaPreferencias(context.Background(), para("AD246: autoridad actual de lectura denegada")), dominiovec.ErrAutorizacionDenegada) {
-		t.Fatal("denegación nominal perdió clasificación")
+	for _, mensaje := range []string{
+		"AD246: autoridad actual de lectura denegada",
+		"B116: lectura nominal inválida",
+		"AD275: lectura sin emisor acreditado",
+		"AD275: vínculo interno de lectura inválido",
+		"AD275: sesión o candidato interno denegado",
+		"AD275: autoridad actual de lectura denegada",
+	} {
+		if !errors.Is(errorLecturaPreferencias(context.Background(), para(mensaje)), dominiovec.ErrAutorizacionDenegada) {
+			t.Fatalf("denegación nominal %q perdió clasificación", mensaje)
+		}
 	}
-	if !errors.Is(errorLecturaPreferencias(context.Background(), para("permission denied for function consultar_preferencias_bolsas_v1")), bolsa.ErrPreferenciasNoDisponibles) {
-		t.Fatal("ACL técnica confundida con denegación")
+	for _, mensaje := range []string{
+		"permission denied for function consultar_preferencias_bolsas_v1",
+		"B116: lectura no asentada",
+	} {
+		if !errors.Is(errorLecturaPreferencias(context.Background(), para(mensaje)), bolsa.ErrPreferenciasNoDisponibles) {
+			t.Fatalf("fallo técnico %q confundido con denegación", mensaje)
+		}
 	}
 }
 

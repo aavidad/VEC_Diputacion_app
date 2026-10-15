@@ -44,6 +44,8 @@ var ficherosExternos = map[string]struct{}{
 	"identidad/bolsa-candidato.json":               {},
 	"identidad/candidato.json":                     {},
 	"identidad/usuarios-preferencias-externa.json": {},
+	"identidad/meritos-cartera-externa.json":       {},
+	"identidad/bolsa-alegaciones.json":             {},
 	"mtls/candidato.crt":                           {},
 }
 

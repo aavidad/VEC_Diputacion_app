@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -426,11 +427,8 @@ func nuevoServidorDesarrollo(
 			}
 		}()
 	}
-	inscripcionRRHH, err := nuevaInscripcionRRHHDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia,
+	inscripcionRRHH := componerInscripcionRRHHOpcionalDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia,
 		autoridadContratacion.materialInscripcionBolsa, fuenteConstituida)
-	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("inscripcion_bolsa_rrhh", err)
-	}
 	if inscripcionRRHH != nil {
 		defer func() {
 			if !completa {
@@ -508,10 +506,24 @@ func nuevoServidorDesarrollo(
 		rutasContratacion = append(rutasContratacion, rutaUsuariosPreferencias(usuariosPreferencias)...)
 	}
 	identidadPersonal, _ := resolvedor.(*resolvedorIdentidadDesarrollo)
-	bolsaPersonal, inscripcionExterna, cerrarInscripcionExterna, err := nuevasRutasBolsaPersonalCombinado(cfg, identidadPersonal, emisor)
-	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("inscripcion_bolsa_externa", err)
+	preferenciasBolsasInternas, cerrarPreferenciasBolsasInternas := nuevaRutaPreferenciasBolsasInternas(cfg,
+		identidadPersonal, usuariosPreferencias, composicion.derivadorIdempotencia)
+	defer func() {
+		if !completa {
+			cerrarPreferenciasBolsasInternas()
+		}
+	}()
+	if preferenciasBolsasInternas != nil {
+		rutasContratacion = append(rutasContratacion, *preferenciasBolsasInternas)
 	}
+	justificanteRRHH, cerrarJustificanteRRHH := nuevaRutaJustificanteRenunciaRRHH(cfg,
+		identidadPersonal, usuariosPreferencias, composicion.derivadorIdempotencia)
+	defer func() {
+		if !completa {
+			cerrarJustificanteRRHH()
+		}
+	}()
+	bolsaPersonal, inscripcionExterna, cerrarInscripcionExterna := componerBolsaPersonalExternaOpcionalDesarrollo(cfg, identidadPersonal, emisor)
 	defer func() {
 		if !completa {
 			cerrarInscripcionExterna()
@@ -573,6 +585,7 @@ func nuevoServidorDesarrollo(
 		raizCronos = componerRaizConCronosIndisponible(raizCronos)
 	}
 	raiz := componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(raizCronos, personalEmpleado), consultasPersonal), inscripcionRRHH)
+	raiz = componerRaizConJustificanteRenunciaRRHH(raiz, justificanteRRHH, registradorFrontera)
 	servidor, err := server.NewHTTPServer(cfg, componerRaizConBolsaPersonalExterna(raiz, bolsaPersonal, inscripcionExterna))
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)
@@ -597,6 +610,8 @@ func nuevoServidorDesarrollo(
 		servidor.RegisterOnShutdown(inscripcionRRHH.cerrar)
 	}
 	servidor.RegisterOnShutdown(cerrarInscripcionExterna)
+	servidor.RegisterOnShutdown(cerrarPreferenciasBolsasInternas)
+	servidor.RegisterOnShutdown(cerrarJustificanteRRHH)
 	if personalEmpleado != nil {
 		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
 	}
@@ -611,6 +626,19 @@ func nuevoServidorDesarrollo(
 	completa = true
 	calendariosCompletos = true
 	return servidor, composicion, nil
+}
+
+// Un montaje opcional fallido cierra la bandeja y deja compuestas las demás rutas.
+func componerInscripcionRRHHOpcionalDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver,
+	derivador *derivadorIdentidadOperacionDesarrollo, material materialInscripcionRRHHDesarrollo,
+	fuente *fuenteConstituidaRRHHDesarrollo,
+) *inscripcionRRHHDesarrollo {
+	inscripcion, err := nuevaInscripcionRRHHDesarrollo(cfg, resolvedor, derivador, material, fuente)
+	if err != nil {
+		slog.Warn("inscripción RRHH no disponible", "etapa", ComponenteFalloArranque(err))
+		return nil
+	}
+	return inscripcion
 }
 
 func descriptoresProveedoresDesarrollo(

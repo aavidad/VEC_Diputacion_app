@@ -1,6 +1,8 @@
 const RUTA_CARTERA = "/api/vec/meritos/cartera";
 const RUTA_RETIRADAS = "/api/vec/meritos/cartera/retiradas";
 const RUTA_DECLARACIONES = "/api/vec/meritos/cartera/declaraciones";
+const RUTA_COMPROBANTES = "/api/vec/meritos/cartera/comprobantes";
+const RUTA_ESTADO_COMPROBANTE = `${RUTA_COMPROBANTES}/estado`;
 
 export class ErrorCartera extends Error {
   constructor(codigo, estado, causa) {
@@ -28,9 +30,111 @@ function errorHTTP(respuesta, contenido) {
   return new ErrorCartera(codigo, respuesta.status);
 }
 
+const REFERENCIA_COMPROBANTE = /^ref:[A-Za-z0-9:_-]+$/u;
+const FECHA_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
+
+function validarEstadoComprobante(data) {
+  if (!data || typeof data.carga_id !== "string" || !REFERENCIA_COMPROBANTE.test(data.carga_id)
+    || (data.recibo_ref !== undefined && (typeof data.recibo_ref !== "string" || !data.recibo_ref))
+    || !["reservada", "recibido", "analizando", "admitido", "rechazado"].includes(data.estado)) {
+    throw new ErrorCartera("respuesta_invalida", 503);
+  }
+  if (data.estado === "admitido") {
+    if (typeof data.comprobante_ref !== "string" || !REFERENCIA_COMPROBANTE.test(data.comprobante_ref)
+      || typeof data.registrado_en !== "string" || !FECHA_ISO.test(data.registrado_en)
+      || !Number.isFinite(Date.parse(data.registrado_en)) || data.codigo_rechazo) {
+      throw new ErrorCartera("respuesta_invalida", 503);
+    }
+  } else if (data.comprobante_ref || data.registrado_en
+    || (data.estado === "rechazado" ? typeof data.codigo_rechazo !== "string" || !data.codigo_rechazo : !!data.codigo_rechazo)) {
+    throw new ErrorCartera("respuesta_invalida", 503);
+  }
+  return data;
+}
+
 export function crearClienteCartera({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== "function") throw new TypeError("meritos.cartera.fetch_invalido");
   return Object.freeze({
+    async subirComprobante(clave, documento, { signal } = {}) {
+      if (typeof clave !== "string" || !clave || !(documento instanceof Blob)
+        || typeof documento.name !== "string" || !documento.name) {
+        throw new TypeError("meritos.cartera.comprobante_invalido");
+      }
+      const cuerpo = new FormData();
+      cuerpo.append("clave_idempotencia", clave);
+      cuerpo.append("documento", documento, documento.name);
+      let respuesta;
+      try {
+        respuesta = exigirRespuesta(await fetchImpl(RUTA_COMPROBANTES, {
+          method: "POST", headers: { Accept: "application/json" }, body: cuerpo,
+          mode: "same-origin", credentials: "same-origin", cache: "no-store",
+          redirect: "error", referrerPolicy: "no-referrer", signal,
+        }));
+      } catch (causa) {
+        if (causa?.name === "AbortError" || causa instanceof ErrorCartera) throw causa;
+        throw new ErrorCartera("resultado_indeterminado", 503, causa);
+      }
+      let contenido;
+      try { contenido = await leerJSON(respuesta); }
+      catch (causa) { throw new ErrorCartera("resultado_indeterminado", 503, causa); }
+      if (![200, 202, 422].includes(respuesta.status) || (respuesta.status === 422 && !contenido?.data)) {
+        throw errorHTTP(respuesta, contenido);
+      }
+      const recibo = contenido?.data;
+      const estado = validarEstadoComprobante(recibo);
+      if ((respuesta.status === 200 && estado.estado !== "admitido")
+        || (respuesta.status === 202 && !["reservada", "recibido", "analizando"].includes(estado.estado))
+        || (respuesta.status === 422 && estado.estado !== "rechazado")) {
+        throw new ErrorCartera("resultado_indeterminado", 503);
+      }
+      return estado;
+    },
+    async consultarComprobante(clave, { signal } = {}) {
+      if (typeof clave !== "string" || !clave) throw new TypeError("meritos.cartera.clave_invalida");
+      let respuesta;
+      try {
+        respuesta = exigirRespuesta(await fetchImpl(`${RUTA_ESTADO_COMPROBANTE}?clave_idempotencia=${encodeURIComponent(clave)}`, {
+          method: "GET", headers: { Accept: "application/json" }, mode: "same-origin",
+          credentials: "same-origin", cache: "no-store", redirect: "error",
+          referrerPolicy: "no-referrer", signal,
+        }));
+      } catch (causa) {
+        if (causa?.name === "AbortError" || causa instanceof ErrorCartera) throw causa;
+        throw new ErrorCartera("servicio_no_disponible", 503, causa);
+      }
+      const contenido = await leerJSON(respuesta);
+      if (!respuesta.ok) throw errorHTTP(respuesta, contenido);
+      if (respuesta.status !== 200) throw new ErrorCartera("respuesta_invalida", 503);
+      return validarEstadoComprobante(contenido?.data);
+    },
+    async descargarComprobante(ref, { signal } = {}) {
+      if (typeof ref !== "string" || !/^ref:[A-Za-z0-9:_-]+$/u.test(ref)) {
+        throw new TypeError("meritos.cartera.referencia_invalida");
+      }
+      let respuesta;
+      try {
+        respuesta = await fetchImpl(`${RUTA_COMPROBANTES}/${encodeURIComponent(ref)}/original`, {
+          method: "GET", headers: { Accept: "application/pdf" }, mode: "same-origin",
+          credentials: "same-origin", cache: "no-store", redirect: "error",
+          referrerPolicy: "no-referrer", signal,
+        });
+      } catch (causa) {
+        if (causa?.name === "AbortError") throw causa;
+        throw new ErrorCartera("servicio_no_disponible", 503, causa);
+      }
+      if (!respuesta?.ok) {
+        let contenido;
+        try { contenido = await respuesta?.json?.(); } catch { /* El mensaje visible sigue siendo genérico. */ }
+        throw respuesta ? errorHTTP(respuesta, contenido) : new ErrorCartera("servicio_no_disponible", 503);
+      }
+      const tipo = respuesta.headers?.get?.("Content-Type")?.split(";")[0]?.trim().toLowerCase();
+      if (tipo !== "application/pdf" || typeof respuesta.blob !== "function") {
+        throw new ErrorCartera("respuesta_invalida", 503);
+      }
+      const archivo = await respuesta.blob();
+      if (!archivo.size) throw new ErrorCartera("respuesta_invalida", 503);
+      return archivo;
+    },
     async declarar(orden, { signal } = {}) {
       if (!orden || typeof orden !== "object") throw new TypeError("meritos.cartera.orden_invalida");
       let respuesta;
