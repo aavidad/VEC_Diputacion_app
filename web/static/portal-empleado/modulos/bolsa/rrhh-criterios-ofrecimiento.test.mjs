@@ -123,6 +123,8 @@ test("la propuesta sale solo del catálogo público validado y sin credenciales"
     return { status: 200, redirected: false, headers: { get: () => "application/json" }, json: async () => valor };
   } });
   assert.deepEqual(await leer(catalogo), catalogo.criterios_ofrecimiento);
+  assert.deepEqual(catalogo.criterios_ofrecimiento.mejora.reduccion_por_modalidades_previas, ["programa"]);
+  assert.match(catalogo.criterios_ofrecimiento.fuente_normativa, /art\. 9, apartado cuarto \(numerado 3\)/u);
   assert.equal(pedido.ruta, RUTA_CATALOGO_CRITERIOS_OFRECIMIENTO);
   assert.equal(pedido.opciones.credentials, "omit");
   assert.equal(pedido.opciones.cache, "no-store");
