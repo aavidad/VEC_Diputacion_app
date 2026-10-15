@@ -18,7 +18,8 @@ fallar cerrada y la aplicación debe seguir arrancando.
    privado y apuntar `VEC_BOLSA_REGLAS_SOURCE_PATH` a esa copia. Guardar la
    referencia anterior, reiniciar y comprobar el arranque; si falla, restaurar
    la referencia y reiniciar. La fuente anterior sigue siendo válida.
-3. Abrir la bolsa con el perfil de RRHH. En su política, conservar la versión
+3. Entrar con el perfil de RRHH en Bolsa → Llamamientos, seleccionar una
+   bolsa y pulsar «Gestionar ofertas». En «Política de ofertas», conservar la versión
    publicada o preparar una nueva con «Al publicar la oferta». Revisar y
    publicar por la vía de gobierno existente; no modificar una versión antigua.
 4. Publicar una oferta desde su formulario. El inicio por publicación no pide
