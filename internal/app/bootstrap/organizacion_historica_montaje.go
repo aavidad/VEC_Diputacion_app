@@ -53,6 +53,26 @@ type montajeOrganizacionHistoricaCombinada struct {
 	cerrar    func()
 }
 
+// La clave efímera OH pertenece al montaje desde que nace la sesión. Antes de
+// entregar el servidor se borra ante cualquier fallo posterior; al cerrar se
+// borra sólo después de drenar sus peticiones.
+type propiedadClaveSesionOrganizacionHistorica struct {
+	sesion    *proveedorSesionConsultaRRHHDesarrollo
+	entregada bool
+}
+
+func (p *propiedadClaveSesionOrganizacionHistorica) abandonar() {
+	if p != nil && !p.entregada {
+		p.borrar()
+	}
+}
+
+func (p *propiedadClaveSesionOrganizacionHistorica) borrar() {
+	if p != nil && p.sesion != nil {
+		clear(p.sesion.clave[:])
+	}
+}
+
 // OH crea su propia sesión y clave efímera con las autoridades registradas de
 // la misma cuenta. La instancia CT conserva intactos su catálogo y perfil.
 func nuevaSesionOrganizacionHistoricaCombinada(base *proveedorSesionConsultaRRHHDesarrollo,
@@ -343,6 +363,8 @@ func nuevoMontajeOrganizacionHistoricaCombinada(ctx context.Context, cfg config.
 	if err != nil {
 		return nil, errMontajeOrganizacionHistoricaCombinada
 	}
+	propiedadSesion := &propiedadClaveSesionOrganizacionHistorica{sesion: sesion}
+	defer propiedadSesion.abandonar()
 	seguridad, err := nuevaSeguridadComunDesarrollo(sesion, sesion.reloj)
 	if err != nil {
 		return nil, errMontajeOrganizacionHistoricaCombinada
@@ -396,8 +418,10 @@ func nuevoMontajeOrganizacionHistoricaCombinada(ctx context.Context, cfg config.
 	}
 	cerrarPool, cerrarRegistro = false, false
 	barrera := &barreraPeticionesOrganizacionHistorica{}
+	propiedadSesion.entregada = true
 	return &montajeOrganizacionHistoricaCombinada{manejador: capturarOrganizacionHistoricaCombinada(f, h), fronteras: fronteras, fuente: f, barrera: barrera,
 		cerrar: cierreOrganizacionHistoricaCombinada(barrera, func() {
+			propiedadSesion.borrar()
 			proveedor.Cerrar()
 			cerrarIntentos()
 			for _, abierto := range pools {

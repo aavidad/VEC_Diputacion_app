@@ -298,3 +298,80 @@ func TestOrganizacionHistoricaCorporativoNoDisponibleDa503ConCapturaOriginal(t *
 		t.Fatal("el error de disponibilidad autorizó lectura o cambió a denegación", err)
 	}
 }
+
+func TestOrganizacionHistoricaClavePropiaSeBorraEnFalloYCierreTrasDrenaje(t *testing.T) {
+	e := nuevaSesionConsultaPrueba(t)
+	actor := e.p.base.Contexto
+	e.p.fijarVinculoCorporativo(&revalidadorVinculoOrganizacionHistoricaPrueba{}, nil)
+	cat, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{{Clave: "oh", Superficie: superficieInternaSeguridadComunDesarrollo,
+		Metodo: http.MethodGet, Ruta: httpapi.RutaOrganizacionHistoricaPersonal, PerfilesActivosRef: []string{actor.PerfilActivoRef}, ClavePolitica: "oh", ClaveCapacidad: "oh"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	contextos := map[string]internagobierno.AmbitoOrganizacionHistorica{actor.Instantanea.CuentaRef: {
+		PerfilActivoRef: actor.PerfilActivoRef, PerfilVersion: actor.Instantanea.PerfilVersion, OrganismoRef: "organizacion:prueba", UnidadClave: "unidad:prueba",
+	}}
+	claveCT := e.p.clave
+	fallida, err := nuevaSesionOrganizacionHistoricaCombinada(e.p, cat, contextos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	propiedadFallida := &propiedadClaveSesionOrganizacionHistorica{sesion: fallida}
+	propiedadFallida.abandonar() // simula cualquier error posterior del montaje
+	var cero [32]byte
+	if fallida.clave != cero || e.p.clave != claveCT || claveCT == cero {
+		t.Fatal("el fallo posterior retuvo la clave OH o borró la de CT")
+	}
+	sesion, err := nuevaSesionOrganizacionHistoricaCombinada(e.p, cat, contextos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	propiedad := &propiedadClaveSesionOrganizacionHistorica{sesion: sesion, entregada: true}
+	barrera := &barreraPeticionesOrganizacionHistorica{}
+	entro, liberar, termino, cerrado := make(chan struct{}), make(chan struct{}), make(chan struct{}), make(chan struct{})
+	h := barrera.proteger(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(entro)
+		<-liberar
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	go func() {
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, httpapi.RutaOrganizacionHistoricaPersonal, nil))
+		close(termino)
+	}()
+	<-entro
+	cerrar := cierreOrganizacionHistoricaCombinada(barrera, func() { propiedad.borrar(); close(cerrado) })
+	go cerrar()
+	vence := time.After(time.Second)
+	for {
+		barrera.mu.Lock()
+		cerrando := barrera.cerrando
+		barrera.mu.Unlock()
+		if cerrando {
+			break
+		}
+		select {
+		case <-vence:
+			t.Fatal("el cierre OH no inició")
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+	if sesion.clave == cero || e.p.clave != claveCT {
+		t.Fatal("el cierre borró la clave antes de drenar el GET o alteró CT")
+	}
+	close(liberar)
+	select {
+	case <-termino:
+	case <-time.After(time.Second):
+		t.Fatal("GET OH no terminó")
+	}
+	select {
+	case <-cerrado:
+	case <-time.After(time.Second):
+		t.Fatal("clave OH no se cerró tras el GET")
+	}
+	cerrar()
+	if sesion.clave != cero || e.p.clave != claveCT {
+		t.Fatal("cierre normal retuvo la clave OH o borró CT")
+	}
+}
