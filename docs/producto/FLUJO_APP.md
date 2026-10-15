@@ -740,6 +740,14 @@ Reglas del llamamiento y sus canales (decisiones de Alberto del 02/10 al
   marcha el plazo, igual que el correo (regla b29). Los demás resultados de una
   llamada no reinician el plazo.
 
+El corte F1-21 separa la unidad que gestiona el expediente de la unidad a la que
+pertenece el puesto. La comprobación de Personal usa la unidad del puesto en la
+RPT publicada que conserva la petición; la autorización de Contratación y el
+origen del llamamiento en Bolsa siguen usando la unidad gestora. Si el centro
+no se puede vincular, el puesto pertenece a otra unidad o hay varios puestos
+compatibles, el ofrecimiento queda bloqueado. Este ajuste requiere el montaje
+de la consulta histórica de la PR #1150; su recorrido conjunto está pendiente.
+
 #### 4.3.4 Documentos
 
 Desde la ficha, con el expediente en versión 7 o posterior, RRHH descarga en PDF

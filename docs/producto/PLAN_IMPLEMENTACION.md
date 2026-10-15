@@ -174,6 +174,11 @@ está instalada; verificar su hash antes de reanudar:
 | Preferencias entre bolsas | PostgreSQL integrado, lectura autorizada y efecto en la adjudicación |
 | Inscripción por varias categorías (B105) | **No instalar**: falta la modalidad conjunta configurable (apartado 7) |
 
+F1-21, R: el puente del llamamiento separa la unidad gestora de Contratación de
+la unidad del puesto publicada por Personal. Reutiliza la correspondencia RPT
+existente, sin cambiar los permisos ni los datos para igualar ambas unidades.
+Corte posterior a #1150; falta el recorrido conjunto en la copia local.
+
 ### 2.4 Lo que todavía no funciona de punta a punta
 
 - **El recorrido completo** de la presentación (aspirante → centro →
