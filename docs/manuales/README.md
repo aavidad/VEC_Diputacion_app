@@ -8,6 +8,7 @@ Guías basadas en las acciones comprobadas en la web los días 8 y 9 de octubre 
 | Centro que pide personal | [Petición de personal](centro.md) | Preparar, revisar y presentar una petición; consultar su estado. |
 | Persona que ratifica | [Ratificación](ratificador.md) | Revisar la petición de otra persona y ratificarla. |
 | Técnico de Recursos Humanos | [Tramitación](tecnico_rrhh.md) | Recibir la petición, tramitar el expediente y gestionar el llamamiento. |
+| Jefatura de Recursos Humanos | [VEC: cómo funciona](jefatura_rrhh.md) | Visión general sin tecnicismos: quién usa VEC, las bolsas y la situación de los candidatos, un contrato temporal paso a paso, qué puede cambiar RRHH y en qué punto está cada parte. |
 | Responsable de Recursos Humanos | [Consulta del expediente](responsable_rrhh.md) | Revisar los datos y el historial; descargar los documentos en PDF y Word en la fase de nombramiento. |
 | Intervención | [Alcance pendiente](intervencion.md) | Sin trámite propio en este recorrido. |
 | Administración del portal y sistemas | [Alcance pendiente](sistemas.md) | Sin un recorrido propio comprobado. |
