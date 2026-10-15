@@ -866,16 +866,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	// capacidad sin material; no interrumpe las capacidades anteriores.
 	catalogoOH, activoOH, falloOH := seleccionarMaterialOrganizacionHistorica(cfg, descriptoresMaterial)
 	if falloOH == nil && activoOH {
-		dependencias.materialOrganizacionHistorica, falloOH = publicarMaterialOrganizacionHistorica(ctx, gobierno, material, catalogoOH)
-		if falloOH == nil {
-			derivado, errDerivar := derivarMaterialConsumidorV3Desarrollo(material, descriptorMaterialOrganizacionHistorica())
-			if errDerivar == nil {
-				dependencias.proveedorMaterialOrganizacionHistorica, falloOH = nuevoProveedorMaterialAutorizacionBaseDesarrollo(derivado, reloj)
-				borrarBytes(derivado.claveHMAC)
-			} else {
-				falloOH = errDerivar
-			}
-		}
+		dependencias.materialOrganizacionHistorica, dependencias.proveedorMaterialOrganizacionHistorica, falloOH =
+			publicarMaterialOrganizacionHistoricaConProveedor(material, catalogoOH,
+				func(derivado *materialAtestacionContratacionTemporalDesarrollo) error {
+					return publicarGobiernoAtestacionContratacionTemporalDesarrollo(ctx, gobierno, derivado)
+				},
+				func(derivado materialAtestacionContratacionTemporalDesarrollo) (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
+					return nuevoProveedorMaterialAutorizacionBaseDesarrollo(derivado, reloj)
+				})
 	}
 	dependencias.errMaterialOrganizacionHistorica = falloOH
 	if falloOH != nil {

@@ -94,6 +94,36 @@ func publicarMaterialOrganizacionHistorica(ctx context.Context, gobierno *pgxpoo
 	})
 }
 
+// El proveedor debe tomar la misma copia derivada que acaba de recibir del
+// gobierno su versión, revisión y puntero. Derivar de nuevo desde CT heredaría
+// las coordenadas de la clave CT aunque el secreto OH fuese correcto.
+func publicarMaterialOrganizacionHistoricaConProveedor(
+	material materialAtestacionContratacionTemporalDesarrollo,
+	catalogo catalogoMaterialAutorizacionComunDesarrollo,
+	publicar func(*materialAtestacionContratacionTemporalDesarrollo) error,
+	construir func(materialAtestacionContratacionTemporalDesarrollo) (*proveedorMaterialAltaContratacionTemporalDesarrollo, error),
+) (CapacidadPublicadaOrganizacionHistoricaV3, *proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
+	var proveedor *proveedorMaterialAltaContratacionTemporalDesarrollo
+	if publicar == nil || construir == nil {
+		return CapacidadPublicadaOrganizacionHistoricaV3{}, nil, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	}
+	publicada, err := publicarMaterialOrganizacionHistoricaCon(material, catalogo, func(derivado *materialAtestacionContratacionTemporalDesarrollo) error {
+		if err := publicar(derivado); err != nil {
+			return err
+		}
+		var err error
+		proveedor, err = construir(*derivado)
+		return err
+	})
+	if err != nil {
+		return CapacidadPublicadaOrganizacionHistoricaV3{}, nil, err
+	}
+	if proveedor == nil {
+		return CapacidadPublicadaOrganizacionHistoricaV3{}, nil, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	}
+	return publicada, proveedor, nil
+}
+
 func publicarMaterialOrganizacionHistoricaCon(material materialAtestacionContratacionTemporalDesarrollo, catalogo catalogoMaterialAutorizacionComunDesarrollo, publicar func(*materialAtestacionContratacionTemporalDesarrollo) error) (CapacidadPublicadaOrganizacionHistoricaV3, error) {
 	var vacia CapacidadPublicadaOrganizacionHistoricaV3
 	d := descriptorMaterialOrganizacionHistorica()
