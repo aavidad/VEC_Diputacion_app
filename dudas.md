@@ -284,8 +284,6 @@ Las preguntas 77 a 94 salen del estudio `docs/estudio_requisitos/datos_personale
 
 161. **Conservación del informe y la resolución firmados.** ¿Durante cuánto tiempo deben conservarse el informe definitivo firmado y la resolución firmada del expediente? Por ahora ambos siguen el mismo plazo de diez años previsto en el catálogo del expediente. ¿Confirmáis ese plazo, su fecha de inicio y las condiciones para eliminar o conservar estos documentos?
 
-162. **Necesidad publicada en la petición del centro (resuelta en candidata; integración pendiente).** El centro elige el puesto y la categoría de la RPT publicada. Otra persona ratifica esos mismos datos y Recursos Humanos utiliza la misma petición para crear el expediente. El ensayo local recuperó el mismo recibo después de reiniciar la aplicación y la base. Queda integrar la candidata; no se requiere una respuesta nueva de RRHH para este cambio.
-
 [rgl]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1768521622300-final-680c0e98.pdf
 [bop-correccion]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1769472066115-final-42c9b1bc.pdf
 [circ]: https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf
