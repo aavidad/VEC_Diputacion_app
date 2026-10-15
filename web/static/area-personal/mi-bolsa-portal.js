@@ -7,7 +7,7 @@ import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { cuerpoDisposicion, RUTA_DISPOSICION_MI_BOLSA, validarOfertasMiBolsa } from "./mi-bolsa-ofertas.js";
 import { nombreCategoria } from "./mi-bolsa-campos.js";
 import { cuerpoConfirmacionContacto, RUTA_CONTACTO_MI_BOLSA, validarContactosMiBolsa } from "./mi-bolsa-contacto.js";
-import { crearClienteJustificante, MAX_PDF_JUSTIFICANTE } from "./mi-bolsa-justificante-cliente.js?v=20261015-o-justificante-bolsa-v3";
+import { crearClienteJustificante, MAX_PDF_JUSTIFICANTE } from "./mi-bolsa-justificante-cliente.js?v=20261015-o-justificante-bolsa-v4";
 
 export const RUTAS_PORTAL_MI_BOLSA = Object.freeze({
   documental: "/api/vec/bolsa/mi-bolsa/solicitudes-documentales",
@@ -271,7 +271,8 @@ export async function revisarRespuestaPortalMiBolsa(formulario, datos = new Form
       return false;
     }
     filas.push([textoPortal("causa"), textoPortal(`causa.${causa}`)],
-      [textoPortal("revision.nombreArchivo"), fichero.name || textoPortal("revision.archivoSeleccionado")]);
+      [textoPortal("revision.nombreArchivo"), fichero.name || textoPortal("revision.archivoSeleccionado")],
+      [textoPortal("revision.documentoOriginal"), textoPortal("revision.conservarOriginal")]);
   }
   revisionesEnCurso.add(formulario);
   try {

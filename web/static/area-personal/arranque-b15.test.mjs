@@ -32,7 +32,7 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   assert.ok(html.includes(`/area-personal/arranque.js?v=${versionPadre}`));
   assert.equal(versionDe(arranque, "./aplicacion.js"), versionPadre,
     "la aplicación usa la misma versión que la entrada vigente");
-  assert.ok(aplicacion.includes(`from "./mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v3"`), "el histórico conserva la cohorte de la aplicación");
+  assert.ok(aplicacion.includes(`from "./mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v4"`), "el histórico conserva la cohorte de la aplicación");
   assert.ok(arranque.includes('from "./i18n.js"'));
   assert.ok(aplicacion.includes('from "./i18n.js"'));
   assert.doesNotMatch(`${arranque}\n${aplicacion}`, /\.\/i18n\.js\?v=/);
@@ -46,7 +46,7 @@ test("Mi Bolsa conserva su cohorte y la entrada de inscripción usa la URL nueva
     "contrato.js", "cliente-http.js", "contacto-propio.js", "vistas/seguimiento-tramites.js",
     "aplicacion.js", "arranque.js", "index.html", "cache-publica-v1.json", "../../produccion.manifest",
   ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
-  const cohorte = "20261015-o-justificante-bolsa-v3";
+  const cohorte = "20261015-o-justificante-bolsa-v4";
   for (const [fuente, ruta] of [[contrato, "./mi-bolsa-portal.js"],
     [seguimiento, "../mi-bolsa-portal.js"], [aplicacion, "./mi-bolsa-portal.js"],
     [cliente, "./contrato.js"], [contacto, "./cliente-http.js"],
@@ -55,7 +55,7 @@ test("Mi Bolsa conserva su cohorte y la entrada de inscripción usa la URL nueva
     [arranque, "./cliente-http.js"]]) {
     assert.equal(versionDe(fuente, ruta), cohorte, ruta);
   }
-  assert.equal(versionDe(aplicacion, "./vistas/seguimiento-tramites.js"), "20261015-o-justificante-bolsa-v3");
+  assert.equal(versionDe(aplicacion, "./vistas/seguimiento-tramites.js"), "20261015-o-justificante-bolsa-v4");
   const entrada = versionDe(html, "/area-personal/arranque.js");
   assert.ok(entrada, "falta la entrada versionada vigente");
   assert.equal(versionDe(arranque, "./aplicacion.js"), entrada);

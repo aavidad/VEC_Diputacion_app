@@ -8,12 +8,12 @@ import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-mi
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import {
   renderizarLlamamientos, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261015-o-justificante-bolsa-v3";
+} from "./vistas/seguimiento-tramites.js?v=20261015-o-justificante-bolsa-v4";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-mibolsa-respuesta-anterior-v1";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261015-o-justificante-bolsa-v3";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261015-o-justificante-bolsa-v4";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { actualizarCamposRenunciaJustificada, enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261015-o-justificante-bolsa-v3";
-import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v3";
+import { actualizarCamposRenunciaJustificada, enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261015-o-justificante-bolsa-v4";
+import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v4";
 import { crearControladorPreferenciasBolsas } from "./mi-bolsa-preferencias-bolsas.js?v=20261012-preferencias-bolsas-v1";
 
 

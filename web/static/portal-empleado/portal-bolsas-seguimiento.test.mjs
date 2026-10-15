@@ -59,8 +59,8 @@ test("un fallo temporal conserva la fila y explica cómo reintentar", async () =
 test("la ficha ofrece consulta diferida y explica si el justificante no existe", async () => {
   const ficha = renderizarAccionJustificanteRenuncia({ bolsaRef: bolsa, participacionRef: participacion,
     nombre: candidato.nombre_visible, escaparHTML: html, ficha: true });
-  assert.match(ficha, /Consultar y descargar justificante de renuncia/u);
-  assert.match(ficha, /aria-label="Consultar y descargar justificante de renuncia de Antonio Reyes Álvarez"/u);
+  assert.match(ficha, /Consultar justificante de renuncia/u);
+  assert.match(ficha, /aria-label="Consultar justificante de renuncia de Antonio Reyes Álvarez"/u);
   assert.match(ficha, /data-bolsa-accion="descargar-justificante-renuncia"/u);
   const boton = control();
   assert.equal(await descargarJustificanteRenuncia(boton, { fetchImpl: async () => ({ status: 404 }) }), false);

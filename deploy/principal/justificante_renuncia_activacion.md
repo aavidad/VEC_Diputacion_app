@@ -43,7 +43,11 @@ consumida por su función nominal, y deja constancia de la lectura. CT222 acota
 la frontera con el expediente de Contratación temporal. AUT99, AD281 y D23 se han ensayado en una copia y tienen revisión independiente.
 AD284 corrige el consumo de la confianza externa y AUT100 la sesión nominal.
 D24 conserva el límite de 256 caracteres mediante una validación compatible
-con PostgreSQL. El formulario envía el PDF por POST idempotente; al reintentar
+con PostgreSQL. D25 usa la candidatura como ámbito de la huella de preparación,
+manteniendo a Persona como principal y titular. B123 desambigua la clave primaria
+de esa preparación y conserva la recuperación de la misma operación. Ambos van
+al final de la lista, después de D24, y se instalan una sola vez.
+El formulario envía el PDF por POST idempotente; al reintentar
 conserva el mismo archivo y la misma clave. Solo registra la renuncia después
 de recibir un documento admitido.
 

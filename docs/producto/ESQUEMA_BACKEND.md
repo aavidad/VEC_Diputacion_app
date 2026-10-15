@@ -548,7 +548,11 @@ respuesta y CT222 para la frontera con Contratación temporal. AUT99, AD281 y
 D23 completan la autoridad externa de los actos propios de Bolsa. AD284 separa
 su consumo de la confianza interna, AUT100 incluye el LOGIN documental exacto
 en la revalidación de sesión y D24 conserva las longitudes de referencia sin
-cuantificadores incompatibles con PostgreSQL. La PR recoge las revisiones y el
+cuantificadores incompatibles con PostgreSQL. D25 alinea la huella de preparación
+con el ámbito de la candidatura y conserva a Persona como principal y titular.
+B123 identifica la clave primaria al recuperar una preparación para evitar una
+colisión con el nombre de salida de la función; conserva su idempotencia y ACL.
+La PR recoge las revisiones y el
 ensayo de la cadena en una copia de la principal; la guía `deploy/principal/justificante_renuncia_activacion.md`
 fija el orden de activación. La lectura y descarga pertenecen a cualquier
 técnica con permiso vigente de su rol, no a una cuenta nominal indicada en la

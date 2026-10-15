@@ -254,7 +254,7 @@
     "justificantePendiente": "Estamos comprobando el justificante. Reintente con el mismo archivo antes de confirmar la renuncia.",
     "justificanteRechazado": "No se ha admitido el justificante. Vuelva a editar la renuncia y elija otro PDF.",
     "justificanteSinConfirmar": "No se pudo confirmar la subida del justificante. Reintente con el mismo archivo; la renuncia aún no se ha enviado.",
-    "revision": {"titulo": "Revise su renuncia", "aviso": "Compruebe su respuesta antes de registrarla.", "volver": "Volver a editar", "confirmar": "Confirmar renuncia", "reintentar": "Reintentar la misma renuncia", "nombreArchivo": "Archivo seleccionado", "archivoSeleccionado": "Archivo seleccionado"},
+    "revision": {"titulo": "Revise su renuncia", "aviso": "Compruebe su respuesta antes de registrarla.", "volver": "Volver a editar", "confirmar": "Confirmar renuncia", "reintentar": "Reintentar la misma renuncia", "nombreArchivo": "Archivo seleccionado", "archivoSeleccionado": "Archivo seleccionado", "documentoOriginal": "PDF original", "conservarOriginal": "Conserve el PDF original. No podrá descargarlo después desde Mi Bolsa."},
     "responder": "Enviar respuesta",
     "modo": {
       "propuesta_rrhh": "RRHH confirmará la respuesta",
