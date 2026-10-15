@@ -125,7 +125,7 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261015-ofertas-recibo-v3"),
+        import("./portal-bolsas-ofertas.js?v=20261015-ofertas-recuperacion-v4"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261015-ofertas-recibo-v3"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -1343,8 +1343,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
         rutaOfertasSolicitadaRef = solicitada;
         modoGestionOfertasBolsa = solicitada;
         rutaVisibleGestionOfertasBolsa = rutaGestionOfertasBolsa(solicitada);
-        marcaHistorialGestionOfertas = history.state?.vecOfertas?.lado === "gestion"
-          ? history.state.vecOfertas.id : "";
+        asegurarHistorialGestionOfertas();
         estado.bolsaSeleccionada = solicitada;
         estado.llamamientoDesdeMenu = true;
       } else {
@@ -1816,6 +1815,18 @@ function rutaGestionOfertasBolsa(bolsaRef = "") {
   const parametros = new URLSearchParams(busquedaSinGestionOfertasBolsa());
   if (bolsaRef) parametros.set(CLAVE_RUTA_GESTION_OFERTAS, bolsaRef);
   return `${window.location.pathname}${parametros.size ? `?${parametros}` : ""}#bolsa/llamamientos`;
+}
+
+function asegurarHistorialGestionOfertas() {
+  if (history.state?.vecOfertas?.lado === "gestion") {
+    marcaHistorialGestionOfertas = history.state.vecOfertas.id;
+    return;
+  }
+  // Un enlace directo también necesita una entrada anterior reconocible para Atrás.
+  marcaHistorialGestionOfertas = globalThis.crypto.randomUUID();
+  const anterior = history.state && typeof history.state === "object" ? history.state : {};
+  history.replaceState({ ...anterior, vecOfertas: { id: marcaHistorialGestionOfertas, lado: "origen" } }, "", rutaGestionOfertasBolsa());
+  history.pushState({ ...anterior, vecOfertas: { id: marcaHistorialGestionOfertas, lado: "gestion" } }, "", rutaVisibleGestionOfertasBolsa);
 }
 
 function cerrarGestionOfertasBolsa() {

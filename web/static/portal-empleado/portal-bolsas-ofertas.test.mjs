@@ -218,6 +218,44 @@ test("el reintento muestra el mismo recibo y un GET sin política indica dónde 
   } finally { globalThis.FormData = anteriorFormData; }
 });
 
+test("una publicación incierta conserva clave y cuerpo tras 403, 422 y 409 hasta recibir el recibo", async () => {
+  const valores = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-20", descripcion: "Cobertura original", numero_plazas: "2" };
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return valores[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const llamadas = [];
+  let consultas = 0;
+  const respuestas = [503, 403, 422, 409, 200];
+  try {
+    const s = crearSuperficieOfertasBolsa({ cliente: {
+      consultar: async () => { consultas++; return sobre([], "publicacion"); },
+      publicar: async (_bolsa, datos, plazas, notificacion, clave) => {
+        llamadas.push({ datos: { ...datos }, plazas, notificacion, clave });
+        const status = respuestas.shift();
+        return status === 200 ? { ok: true, status, oferta: oferta({ recibo_ref: "recibo:oferta:estable" }) } :
+          { ok: false, status, codigo: status === 403 ? "sin_permiso" : "solicitud_invalida" };
+      },
+    }, generarClave: () => "clave-original" });
+    s.activar("bolsa:1"); await turno();
+    s.manejarSubmit({ target: formulario, preventDefault() {} });
+    valores.descripcion = "Cobertura cambiada tras confirmar";
+    for (let intento = 0; intento < 4; intento++) {
+      s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+      assert.equal(s.estado().incierta, true);
+      assert.equal(s.estado().claveEnCurso, "clave-original");
+      assert.ok(s.estado().revisionPublicacion, "el rechazo del reintento no libera la operación previa");
+      assert.match(s.renderizar(), /Reintente aquí la misma operación antes de salir/);
+    }
+    assert.equal(consultas, 1, "un 409 posterior no sustituye la política de una operación pendiente");
+    s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    assert.equal(s.estado().incierta, false);
+    assert.equal(s.estado().claveEnCurso, null);
+    assert.equal(llamadas.length, 5);
+    assert.deepEqual(llamadas.slice(1), Array(4).fill(llamadas[0]), "todos los reintentos conservan cuerpo, clave y número de plazas");
+    assert.match(s.renderizar(), /recibo:oferta:estable/);
+  } finally { globalThis.FormData = anteriorFormData; }
+});
+
 test("corregir antes de publicar o tras 422 envía los datos revisados con clave nueva", async () => {
   const valores = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "A", numero_plazas: "2" };
   const anteriorFormData = globalThis.FormData;

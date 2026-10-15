@@ -172,7 +172,7 @@ const listaFormato = new Intl.ListFormat(LOCALIZACION_PORTAL, { type: "conjuncti
 
 export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), clienteHistorial, alCambiar = () => {}, anunciar = () => {}, traducir = crearTraductorOfertas(), generarClave = generarClavePorDefecto } = {}) {
   const estado = { bolsa: "", carga: "inactiva", ofertas: [], error: "", enviando: false, claveEnCurso: null, borrador: null, mensaje: "", errorOperacion: "",
-    reciboPublicacion: null, registrando: false, confirmacion: null, clavesActo: new Map(), historialOferta: "", inicioPlazo: "notificacion", revisionPublicacion: null };
+    reciboPublicacion: null, incierta: false, registrando: false, confirmacion: null, clavesActo: new Map(), historialOferta: "", inicioPlazo: "notificacion", revisionPublicacion: null };
   let controlador = null;
   let controladorPublicacion = null;
   let documentoInstalado = null;
@@ -232,17 +232,22 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       if (resultado.ok) {
         estado.mensaje = resultado.status === 200 ? traducir("publicada_antes") : traducir("publicada", { vence: fechaHora(resultado.oferta.vence_antes_de) });
         estado.reciboPublicacion = { referencia: resultado.oferta.recibo_ref, publicadaEn: resultado.oferta.publicada_en };
-        estado.claveEnCurso = null; estado.borrador = null; estado.revisionPublicacion = null; anunciar(estado.mensaje);
+        estado.incierta = false; estado.claveEnCurso = null; estado.borrador = null; estado.revisionPublicacion = null; anunciar(estado.mensaje);
         void cargar();
       } else {
         estado.errorOperacion = mensajeError(traducir, resultado);
-        // El servidor rechazó de forma concluyente esta petición: se puede corregir.
-        if ([400, 401, 403, 409, 422].includes(resultado.status)) {
+        // Un rechazo posterior no confirma si la primera petición surtió efecto.
+        // Solo un rechazo de la primera petición permite corregir con otra clave.
+        if (!estado.incierta && [400, 401, 403, 409, 422].includes(resultado.status)) {
           estado.claveEnCurso = null; estado.revisionPublicacion = null;
           if (resultado.status === 409) void cargar();
+        } else {
+          estado.incierta = true;
+          estado.errorOperacion += ` ${traducir("salida_incierta")}`;
         }
       }
-    } catch { if (signal.aborted) return; estado.errorOperacion = traducir("error_generico"); }
+    } catch { if (signal.aborted) return; estado.incierta = true;
+      estado.errorOperacion = `${traducir("error_generico")} ${traducir("salida_incierta")}`; }
     controladorPublicacion = null;
     estado.enviando = false; cambiar();
   }
@@ -428,7 +433,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     const form = evento.target?.closest?.('[data-ofertas-form="publicar"]');
     if (!form) return false;
     evento.preventDefault();
-    if (estado.carga !== "lista" || estado.enviando) return true;
+    if (estado.carga !== "lista" || estado.enviando || estado.claveEnCurso) return true;
     if (typeof form.reportValidity === "function" && !form.reportValidity()) return true;
     const valores = new FormData(form);
     const datos = { categoria: String(valores.get("categoria") ?? "").trim(), centro: String(valores.get("centro") ?? "").trim(),
@@ -483,12 +488,12 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       if (!bolsaRef || bolsaRef === estado.bolsa) return;
       controladorPublicacion?.abort(); controladorPublicacion = null;
       historial.desmontar();
-      Object.assign(estado, { bolsa: bolsaRef, carga: "inactiva", ofertas: [], mensaje: "", reciboPublicacion: null, errorOperacion: "", enviando: false, claveEnCurso: null, borrador: null, confirmacion: null, historialOferta: "", inicioPlazo: "notificacion", revisionPublicacion: null });
+      Object.assign(estado, { bolsa: bolsaRef, carga: "inactiva", ofertas: [], mensaje: "", reciboPublicacion: null, errorOperacion: "", enviando: false, claveEnCurso: null, borrador: null, incierta: false, confirmacion: null, historialOferta: "", inicioPlazo: "notificacion", revisionPublicacion: null });
       estado.clavesActo.clear();
       void cargar();
     },
     desmontar() { controlador?.abort(); controlador = null; controladorPublicacion?.abort(); controladorPublicacion = null; historial.desmontar();
-      estado.bolsa = ""; estado.carga = "inactiva"; estado.enviando = false; estado.confirmacion = null; estado.historialOferta = ""; estado.reciboPublicacion = null; },
+      estado.bolsa = ""; estado.carga = "inactiva"; estado.enviando = false; estado.confirmacion = null; estado.historialOferta = ""; estado.reciboPublicacion = null; estado.incierta = false; },
     recargarPoliticaSegura() {
       if (!estado.bolsa || estado.enviando || estado.claveEnCurso || estado.revisionPublicacion) return false;
       void cargar(); return true;
