@@ -49,7 +49,7 @@ Cada persona entra en la bolsa con su posición y como «Disponible».
 
 ### 4.2 La situación de cada candidato
 
-Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede estar disponible en una y trabajando por la otra.
+Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede estar disponible en una y trabajando por la otra. Las etiquetas de la lista, la ficha y los filtros usan el mismo nombre en singular: «Disponible», «No disponible», «Trabajando» o «Excluido».
 
 | Situación | Cuándo se da |
 | --- | --- |
