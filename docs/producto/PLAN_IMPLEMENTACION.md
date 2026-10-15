@@ -132,6 +132,14 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 
 ### 2.3 En curso
 
+**F0-02, cierre del arranque heredado de Administración.** Se prepara la
+exigencia del fichero privado de usuarios antes de abrir conexiones y se
+retira la alternativa que pedía un grupo de auditoría inexistente. Se conserva
+la lista y ficha de usuarios con la configuración aprobada. No añade SQL ni
+perfiles. Activación y vuelta atrás en
+`deploy/principal/administracion_arranque_f0_02_20261015.md`; pendiente de
+integración e instalación por dirección.
+
 **HZ37, O: Mi Bolsa interna en combinado mientras no se seleccione el modo
 externo.** Recupera el montaje de HZ36 si no hay DSN ni material externo y la
 inscripción está apagada. La selección externa exige configuración completa
