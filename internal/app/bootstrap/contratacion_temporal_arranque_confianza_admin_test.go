@@ -96,8 +96,8 @@ func TestArranquePublicadorAdoptaConfianzaADMINPersistida(t *testing.T) {
 		vida   time.Duration
 	}{
 		{"24h_fuera_de_medianoche", ahora.Add(-time.Minute), 24 * time.Hour},
+		{"60_dias", ahora.Add(-time.Minute), 60 * 24 * time.Hour},
 		{"90_dias", ahora.Add(-time.Minute), 90 * 24 * time.Hour},
-		{"400_dias", ahora.Add(-time.Minute), 400 * 24 * time.Hour},
 		{"24h_medianoche", ahora.Truncate(24 * time.Hour), 24 * time.Hour},
 	} {
 		t.Run(tc.nombre, func(t *testing.T) {

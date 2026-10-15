@@ -133,7 +133,7 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 ### 2.3 En curso
 
 Corte H de vigencia de gobierno, orden de dirección del 15/10 a las 19:36:
-preparación y aplicación con 24 horas por defecto, hasta 400 días solo en
+preparación y aplicación con 24 horas por defecto, hasta 90 días solo en
 desarrollo y rechazo de plazos mayores de 24 horas en producción. AD282
 conserva publicaciones y recibos. La entrega exige revisión independiente y
 ensayo local de preparación, aplicación y reinicio antes de incorporarla a la

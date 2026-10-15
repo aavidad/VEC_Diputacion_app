@@ -40,7 +40,7 @@ const (
 
 	maximoRaicesConfianzaAtestacionV3         = 64
 	maximaVigenciaConfiguracionAtestacionV3   = 24 * time.Hour
-	maximaVigenciaConfiguracionCTDesarrolloV3 = 400 * 24 * time.Hour
+	maximaVigenciaConfiguracionCTDesarrolloV3 = 90 * 24 * time.Hour
 	audienciaConfianzaCTDesarrolloV3          = "vec:desarrollo:contratacion-temporal:atestacion:v3"
 	dominioHuellaConfiguracionAtestacionV3    = "vec.configuracion-confianza-atestacion-autorizacion.v3"
 	marcaRaizPublicaConfianzaAtestacionV3     = "vec.raiz-publica-confianza-atestacion-autorizacion.v3"

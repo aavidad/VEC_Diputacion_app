@@ -28,7 +28,7 @@ el valor cero seleccionan 24 horas. La variable
 | Entorno | Plazo admitido |
 | --- | --- |
 | Producción, también cuando falta el perfil | De 1 a 24 horas |
-| Desarrollo con las tres llaves existentes | De 1 a 9600 horas, hasta 400 días |
+| Desarrollo con las tres llaves existentes | De 1 a 2160 horas, hasta 90 días |
 | Perfil desconocido | Operación rechazada |
 
 Para una copia de desarrollo con vigencias de 90 días, que deja margen sobre
@@ -49,6 +49,11 @@ verificador solo admite más de 24 horas si están las tres llaves de desarrollo
 y todas las raíces tienen la audiencia exacta de CT de desarrollo. No basta
 un nombre de revisión o un prefijo. Al recargar, CT conserva la publicación
 vigente, sin acortarla ni sustituirla por otra diaria.
+
+El fichero privado de configuración sigue siendo obligatorio: la variable
+solo selecciona el plazo y no lo sustituye. Una configuración de desarrollo
+restaurada en otro entorno impide el arranque; prepare el material que
+corresponda a ese entorno mediante su gobierno, conservando lo ya publicado.
 
 Las claves y la confianza no pueden durar más que la raíz existente. Si la
 raíz no cubre el plazo pedido, preparar se rechaza; no se prolonga la raíz.

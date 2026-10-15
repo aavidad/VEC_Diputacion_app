@@ -4,8 +4,8 @@ DO $test$
 DECLARE f regprocedure; esperado text; actual text;
 BEGIN
  FOR f, esperado IN SELECT v.f, v.h FROM (VALUES
-  ('vec_autorizacion_atestada_v3.efecto_gobierno_capacidades_admin_v1(text,text,text)'::regprocedure,'7a2c53d075e5c45a7455f2e8175498b13e8c82e120e08fcd9cdc79194d3c73a3'),
-  ('vec_autorizacion_atestada_v3.efecto_gobierno_usuarios_admin_v1(text,text,text)'::regprocedure,'8330b0ad391ce73d62fc3f2781b2ada7094d1e61d4b340afca6ba68dd769639f')
+  ('vec_autorizacion_atestada_v3.efecto_gobierno_capacidades_admin_v1(text,text,text)'::regprocedure,'31fa5026f10d19ce278d4bd50a956bc963117f7fcbed93043c793a21f516837d'),
+  ('vec_autorizacion_atestada_v3.efecto_gobierno_usuarios_admin_v1(text,text,text)'::regprocedure,'b6a18055d19c5b12c25bdf7d01cce72be6dfabb14e29d4e4311ef82f17da36b8')
  ) AS v(f,h) LOOP
   SELECT encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') INTO actual;
   IF actual IS DISTINCT FROM esperado THEN

@@ -44,7 +44,7 @@ func (c Config) ValidezGobiernoAdmin(horas int, override string) (time.Duration,
 	}
 	maximo := 24
 	if c.DevelopmentEnabledByDoubleKey() {
-		maximo = 400 * 24
+		maximo = 90 * 24
 	}
 	if horas < 1 || horas > maximo {
 		return 0, ErrGobiernoAdminValidez

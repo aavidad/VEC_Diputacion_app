@@ -16,7 +16,7 @@ func TestVigenciaConfianzaV3SoloCTConDobleLlave(t *testing.T) {
 	raiz := func(id, audiencia string, clave ed25519.PublicKey) RaizPublicaAtestacionAutorizacionV3 {
 		t.Helper()
 		r, err := NuevaRaizPublicaAtestacionAutorizacionV3EdDSA(id, 1, clave, audiencia,
-			EstadoClaveAtestacionAutorizacionV3Activa, ahora.Add(-time.Hour), ahora.Add(401*24*time.Hour), time.Time{})
+			EstadoClaveAtestacionAutorizacionV3Activa, ahora.Add(-time.Hour), ahora.Add(91*24*time.Hour), time.Time{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -42,8 +42,8 @@ func TestVigenciaConfianzaV3SoloCTConDobleLlave(t *testing.T) {
 		t.Fatal("doble llave incompleta aceptada")
 	}
 	t.Setenv(config.EnvDevelopmentGuard, config.DevelopmentGuardAcknowledgement)
-	if crear(400*24*time.Hour, ct) != nil ||
-		!errors.Is(crear(400*24*time.Hour+time.Microsecond, ct), ErrConfiguracionConfianzaAtestacionV3Invalida) ||
+	if crear(90*24*time.Hour, ct) != nil ||
+		!errors.Is(crear(90*24*time.Hour+time.Microsecond, ct), ErrConfiguracionConfianzaAtestacionV3Invalida) ||
 		!errors.Is(crear(25*time.Hour, preferencias), ErrConfiguracionConfianzaAtestacionV3Invalida) ||
 		!errors.Is(crear(25*time.Hour, ct, preferencias), ErrConfiguracionConfianzaAtestacionV3Invalida) {
 		t.Fatal("límite o audiencia de confianza V3 incorrectos")
@@ -65,16 +65,16 @@ func TestDatosPruebaConfianzaV3MismoLimiteDeAudiencia(t *testing.T) {
 	}
 	d.AudienciaDespliegue = audienciaConfianzaCTDesarrolloV3
 	d.ConfiguracionPublicadaEn = e.ahora
-	d.ConfiguracionExpiraEn = e.ahora.Add(400 * 24 * time.Hour)
-	d.RaizValidaHasta = e.ahora.Add(401 * 24 * time.Hour)
+	d.ConfiguracionExpiraEn = e.ahora.Add(90 * 24 * time.Hour)
+	d.RaizValidaHasta = e.ahora.Add(91 * 24 * time.Hour)
 	d.HuellaPruebaSHA256 = calcularHuellaPruebaConfianzaAtestacionV3(d)
 	if d.Validar() != nil {
-		t.Fatal("prueba CT de 400 días rechazada")
+		t.Fatal("prueba CT de 90 días rechazada")
 	}
 	d.ConfiguracionExpiraEn = d.ConfiguracionExpiraEn.Add(time.Microsecond)
 	d.HuellaPruebaSHA256 = calcularHuellaPruebaConfianzaAtestacionV3(d)
 	if !errors.Is(d.Validar(), ErrPruebaConfianzaAtestacionV3Invalida) {
-		t.Fatal("prueba de más de 400 días aceptada")
+		t.Fatal("prueba de más de 90 días aceptada")
 	}
 	d.ConfiguracionExpiraEn = e.ahora.Add(25 * time.Hour)
 	d.AudienciaDespliegue = audienciaConfianzaAtestacionV3Prueba

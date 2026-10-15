@@ -33,7 +33,7 @@ cualquier repositorio. No admite campos desconocidos ni claves repetidas:
   `horas_validez_claves`. Si falta o vale cero, usa 24 horas.
   `VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS` permite sustituirlo por un entero positivo.
   En producción el máximo es 24 horas; solo el perfil de desarrollo con sus
-  tres llaves explícitas admite hasta 9600 horas (400 días). Un perfil
+  tres llaves explícitas admite hasta 2160 horas (90 días). Un perfil
   desconocido se rechaza. La publicación y sus claves deben caber dentro de
   la vigencia de la raíz.
 - Aplicar usa `dsn_operador` y `salida`. El usuario de `dsn_operador` no puede

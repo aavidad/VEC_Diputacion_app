@@ -63,13 +63,13 @@ func TestGobiernoUsuariosOperacionValidezFueraDeRango(t *testing.T) {
 
 func TestGobiernoUsuariosOperacionConfianzaCubreClavesYRaiz(t *testing.T) {
 	now := time.Date(2026, 10, 15, 14, 30, 0, 0, time.UTC)
-	for _, v := range []time.Duration{time.Hour, 24 * time.Hour, 1440 * time.Hour, 9600 * time.Hour} {
-		expira, err := expiracionConfianzaGobiernoUsuarios(now, now.Add(9601*time.Hour), v)
-		if err != nil || expira.Before(now.Add(v)) || expira.After(now.Add(9601*time.Hour)) {
+	for _, v := range []time.Duration{time.Hour, 24 * time.Hour, 1440 * time.Hour, 2160 * time.Hour} {
+		expira, err := expiracionConfianzaGobiernoUsuarios(now, now.Add(2161*time.Hour), v)
+		if err != nil || expira.Before(now.Add(v)) || expira.After(now.Add(2161*time.Hour)) {
 			t.Fatalf("confianza no cubre clave y raíz: validez=%v expira=%v error=%v", v, expira, err)
 		}
 	}
-	if _, err := expiracionConfianzaGobiernoUsuarios(now, now.Add(9600*time.Hour-time.Microsecond), 9600*time.Hour); !errors.Is(err, ErrGobiernoUsuariosAdmin) {
+	if _, err := expiracionConfianzaGobiernoUsuarios(now, now.Add(2160*time.Hour-time.Microsecond), 2160*time.Hour); !errors.Is(err, ErrGobiernoUsuariosAdmin) {
 		t.Fatal("raíz corta aceptada")
 	}
 }
@@ -87,8 +87,8 @@ func TestGobiernoUsuariosOperacionAplicarValidaMaterialPreparado(t *testing.T) {
 	}{
 		{"produccion_24", prod, 24 * time.Hour, 24 * time.Hour, false},
 		{"produccion_rechaza_60_dias", prod, 1440 * time.Hour, 1440 * time.Hour, true},
-		{"desarrollo_400_dias", dev, 9600 * time.Hour, 9600 * time.Hour, false},
-		{"desarrollo_rechaza_401_dias", dev, 9624 * time.Hour, 9624 * time.Hour, true},
+		{"desarrollo_90_dias", dev, 2160 * time.Hour, 2160 * time.Hour, false},
+		{"desarrollo_rechaza_91_dias", dev, 2184 * time.Hour, 2184 * time.Hour, true},
 		{"replay_diario_24_horas", prod, 24 * time.Hour, 24 * time.Hour, false},
 	} {
 		t.Run(tc.nombre, func(t *testing.T) {

@@ -19,7 +19,7 @@ func TestConfianzaCTAdoptaVigenciaAdminSinAcortarEnMedianoche(t *testing.T) {
 	admin := previa
 	admin.publicadaEn, admin.expiraEn = ahora, ahora.Add(60*24*time.Hour)
 	admin.configuracionOrden++
-	admin.configuracionRef = "confianza:atestacion:ct:desarrollo:2026-10-15:r400"
+	admin.configuracionRef = "confianza:atestacion:ct:desarrollo:2026-10-15:r90"
 	var err error
 	admin.configuracion, err = confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(
 		admin.configuracionRef, admin.configuracionOrden, admin.publicadaEn, admin.expiraEn, admin.raiz)
@@ -58,7 +58,7 @@ func TestConfianzaCTAdoptaVigenciaAdminSinAcortarEnMedianoche(t *testing.T) {
 
 func TestConfianzaCTValidaVigenciaPublicadaSinPerderRaiz(t *testing.T) {
 	ahora := time.Date(2026, 10, 15, 14, 30, 0, 0, time.UTC)
-	raizHasta := ahora.Add(401 * 24 * time.Hour)
+	raizHasta := ahora.Add(91 * 24 * time.Hour)
 	t.Setenv(config.EnvExecutionProfile, config.ExecutionProfileDevelopment)
 	t.Setenv(config.EnvAuthMode, config.AuthModeDevelopment)
 	t.Setenv(config.EnvDevelopmentGuard, config.DevelopmentGuardAcknowledgement)
@@ -70,9 +70,9 @@ func TestConfianzaCTValidaVigenciaPublicadaSinPerderRaiz(t *testing.T) {
 	}{
 		{"una_hora", time.Hour, raizHasta, true},
 		{"24_horas", 24 * time.Hour, raizHasta, true},
-		{"400_dias", 400 * 24 * time.Hour, raizHasta, true},
-		{"mas_de_400_dias", 400*24*time.Hour + time.Microsecond, raizHasta, false},
-		{"raiz_corta", 400 * 24 * time.Hour, ahora.Add(400*24*time.Hour - time.Microsecond), false},
+		{"90_dias", 90 * 24 * time.Hour, raizHasta, true},
+		{"mas_de_90_dias", 90*24*time.Hour + time.Microsecond, raizHasta, false},
+		{"raiz_corta", 90 * 24 * time.Hour, ahora.Add(90*24*time.Hour - time.Microsecond), false},
 	} {
 		t.Run(tc.nombre, func(t *testing.T) {
 			if got := vigenciaPublicadaCTDesarrolloValida(ahora, ahora.Add(tc.vida), tc.raiz, ahora); got != tc.ok {

@@ -264,7 +264,7 @@ La herramienta `vec-gobierno-usuarios-admin` conserva 24 horas por defecto.
 Su JSON privado acepta `horas_validez_claves`; la variable
 `VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS` tiene prioridad. Producción admite de 1 a
 24 horas. Solo el perfil de desarrollo, con modo y reconocimiento explícitos,
-admite hasta 400 días; cidonia usa ese perfil con datos ficticios. Un perfil
+admite hasta 90 días; cidonia usa ese perfil con datos ficticios. Un perfil
 desconocido o un plazo fuera de rango cierra la operación antes de publicar.
 El verificador común mantiene 24 horas generales: el plazo largo exige las
 tres llaves y que todas las raíces tengan la audiencia exacta de CT de

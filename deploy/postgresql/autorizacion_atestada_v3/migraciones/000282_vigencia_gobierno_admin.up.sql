@@ -89,7 +89,7 @@ BEGIN
  OR (g->>'publicada_en')::timestamptz>ahora
  OR date_trunc('day',(g->>'publicada_en')::timestamptz)<>date_trunc('day',ahora)
  OR (g->>'expira_en')::timestamptz<(g->>'publicada_en')::timestamptz+interval '1 hour'
- OR (g->>'expira_en')::timestamptz>(g->>'publicada_en')::timestamptz+interval '400 days'
+ OR (g->>'expira_en')::timestamptz>(g->>'publicada_en')::timestamptz+interval '90 days'
  OR (g->>'expira_en')::timestamptz>root.valida_hasta
  OR g->>'revision' !~ '^confianza:atestacion:ct:desarrollo:[0-9]{4}-[0-9]{2}-[0-9]{2}(:r[0-9]+)?$'
  OR vec_autorizacion_atestada_v3.huella_configuracion_gobierno_usuarios_v1(g,root) IS DISTINCT FROM g->>'huella_sha256'
@@ -112,7 +112,7 @@ BEGIN
   OR (k->>'valida_hasta')::timestamptz>root.valida_hasta
   OR (k->>'valida_hasta')::timestamptz>(g->>'expira_en')::timestamptz
   OR (k->>'valida_hasta')::timestamptz<(p->>'preparado_en')::timestamptz+interval '1 hour'
-  OR (k->>'valida_hasta')::timestamptz>(p->>'preparado_en')::timestamptz+interval '400 days'
+  OR (k->>'valida_hasta')::timestamptz>(p->>'preparado_en')::timestamptz+interval '90 days'
   OR ord<=(pre->>'orden_claves')::bigint OR ord>9007199254740991
   OR k->>'huella_gobierno_sha256' !~ '^[0-9a-f]{64}$' OR k->>'huella_secreto_sha256' !~ '^[0-9a-f]{64}$'
   THEN RAISE EXCEPTION 'AD198: PARO clave=clave actual=incompatible esperado=audiencia_del_conjunto_aprobada' USING ERRCODE='22023';END IF;
@@ -186,7 +186,7 @@ BEGIN
  OR (g->>'publicada_en')::timestamptz>ahora
  OR date_trunc('day',(g->>'publicada_en')::timestamptz)<>date_trunc('day',ahora)
  OR (g->>'expira_en')::timestamptz<(g->>'publicada_en')::timestamptz+interval '1 hour'
- OR (g->>'expira_en')::timestamptz>(g->>'publicada_en')::timestamptz+interval '400 days'
+ OR (g->>'expira_en')::timestamptz>(g->>'publicada_en')::timestamptz+interval '90 days'
  OR (g->>'expira_en')::timestamptz>root.valida_hasta
  OR g->>'revision' !~ '^confianza:atestacion:ct:desarrollo:[0-9]{4}-[0-9]{2}-[0-9]{2}(:r[0-9]+)?$'
  OR vec_autorizacion_atestada_v3.huella_configuracion_gobierno_usuarios_v1(g,root) IS DISTINCT FROM g->>'huella_sha256'
@@ -204,7 +204,7 @@ BEGIN
   OR (k->>'valida_hasta')::timestamptz>root.valida_hasta
   OR (k->>'valida_hasta')::timestamptz>(g->>'expira_en')::timestamptz
   OR (k->>'valida_hasta')::timestamptz<(p->>'preparado_en')::timestamptz+interval '1 hour'
-  OR (k->>'valida_hasta')::timestamptz>(p->>'preparado_en')::timestamptz+interval '400 days'
+  OR (k->>'valida_hasta')::timestamptz>(p->>'preparado_en')::timestamptz+interval '90 days'
   OR ord<=(pre->>'orden_claves')::bigint OR ord>9007199254740991
   OR k->>'huella_gobierno_sha256' !~ '^[0-9a-f]{64}$' OR k->>'huella_secreto_sha256' !~ '^[0-9a-f]{64}$'
   THEN RAISE EXCEPTION 'AD188: PARO clave=clave actual=incompatible esperado=audiencia_dedicada_aprobada' USING ERRCODE='22023';END IF;
@@ -232,7 +232,7 @@ DO $post$
 DECLARE f regprocedure; actual text; esperado text;
 BEGIN
  FOR f, esperado IN SELECT v.f, v.h FROM (VALUES
-  ('vec_autorizacion_atestada_v3.efecto_gobierno_capacidades_admin_v1(text,text,text)'::regprocedure,'7a2c53d075e5c45a7455f2e8175498b13e8c82e120e08fcd9cdc79194d3c73a3'),  ('vec_autorizacion_atestada_v3.efecto_gobierno_usuarios_admin_v1(text,text,text)'::regprocedure,'8330b0ad391ce73d62fc3f2781b2ada7094d1e61d4b340afca6ba68dd769639f')
+  ('vec_autorizacion_atestada_v3.efecto_gobierno_capacidades_admin_v1(text,text,text)'::regprocedure,'31fa5026f10d19ce278d4bd50a956bc963117f7fcbed93043c793a21f516837d'),  ('vec_autorizacion_atestada_v3.efecto_gobierno_usuarios_admin_v1(text,text,text)'::regprocedure,'b6a18055d19c5b12c25bdf7d01cce72be6dfabb14e29d4e4311ef82f17da36b8')
  ) AS v(f,h) LOOP
   SELECT encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') INTO actual;
   IF actual IS DISTINCT FROM esperado THEN
