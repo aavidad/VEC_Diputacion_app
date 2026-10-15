@@ -50,11 +50,23 @@ correo mediante intención durable. No se acredita el recorrido completo de CT.
 
 ## Evidencia del ensayo
 
-La migración B117 se instaló una sola vez desde la preimagen de la copia de la
-principal. Su SHA-256 es
-`af02f9b3dd73c37c7125d31ac4ddef1d4eeb9d6147f8d4313464cfdb6a84bf38`.
-Se comprobaron tres vectores de canon, el rechazo de calendario inválido y las
-restricciones de permisos. Dos revisiones independientes aprobaron esa fuente.
+El ensayo de publicación, aceptación y reinicio descrito a continuación usó
+la primera fuente B117, SHA-256
+`af02f9b3dd73c37c7125d31ac4ddef1d4eeb9d6147f8d4313464cfdb6a84bf38`,
+instalada una vez sobre su preimagen. Incluyó tres vectores de canon, calendario
+inválido y restricciones de permisos.
+
+Tras la revisión de dirección, la fuente final es
+`4086fa22f3b2dfdeece1759f16b329b508957d83fa6651110266163397746126`.
+Añade guardas de referencias y campos nulos, exige varias plazas en el origen
+CT y devuelve conflictos concretos de disponibilidad e intención. Recibió dos
+comprobaciones independientes y se instaló una vez en una copia recién
+restaurada; no se reaplicó sobre la anterior. Sus 21 rechazos focales de datos
+inválidos pasaron sin dejar ofertas, consumos ni auditorías nuevos. La
+postimagen de `publicar_oferta_v5` es
+`3811f4fbb392f0b8c37f2583ae163e0aefafdf71fa34e2f7fc62454ef236d995`.
+Los dos casos de conflicto con publicación CT autorizada siguen pendientes
+de completar y se comunicarán en la PR antes de declararla lista.
 
 En Chrome del sistema, RRHH guardó la política de la bolsa de Administrativo
 y publicó una oferta de dos plazas. El reintento devolvió el mismo recibo,
