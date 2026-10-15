@@ -63,6 +63,9 @@ ni identificadores de personas en este guion.
 
 ## Arranque y comprobación
 
+Este montaje se limita al perfil positivo de desarrollo. En producción se usa
+la cápsula del proceso `vec-interno`. La sesión de esta consulta se construye
+con dependencias explícitas y conserva separado el perfil de Contratación.
 Configurar bajo la doble llave existente de desarrollo:
 
 ```sh

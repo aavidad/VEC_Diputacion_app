@@ -18,11 +18,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/composicion/internactproveedores"
+	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
+	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecapp "vec-diputacion-granada/internal/vec/application"
@@ -49,6 +51,46 @@ type montajeOrganizacionHistoricaCombinada struct {
 	fuente    *fuenteOrganizacionHistoricaCombinada
 	barrera   *barreraPeticionesOrganizacionHistorica
 	cerrar    func()
+}
+
+// OH crea su propia sesión y clave efímera con las autoridades registradas de
+// la misma cuenta. La instancia CT conserva intactos su catálogo y perfil.
+func nuevaSesionOrganizacionHistoricaCombinada(base *proveedorSesionConsultaRRHHDesarrollo,
+	fronteras catalogoFronterasComunDesarrollo,
+	contextos map[string]internagobierno.AmbitoOrganizacionHistorica,
+) (*proveedorSesionConsultaRRHHDesarrollo, error) {
+	if base == nil || base.falloVinculoCorporativo != nil || base.vinculoCorporativo == nil ||
+		base.superficie != httpseguridad.SuperficieInternaCorporativa || base.canalIntervencion != nil || len(contextos) == 0 {
+		return nil, errMontajeOrganizacionHistoricaCombinada
+	}
+	sesion, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(base.soporte, base.registro, base.revalidador,
+		base.reloj, base.resolutor, fronteras)
+	if err != nil || sesion == nil {
+		return nil, errMontajeOrganizacionHistoricaCombinada
+	}
+	entregada := false
+	defer func() {
+		if !entregada {
+			clear(sesion.clave[:])
+		}
+	}()
+	if sesion.superficie != httpseguridad.SuperficieInternaCorporativa ||
+		!mismaIdentidadVersionadaSesionDesarrollo(base.base, sesion.base) {
+		return nil, errMontajeOrganizacionHistoricaCombinada
+	}
+	sesion.fijarVinculoCorporativo(base.vinculoCorporativo, nil)
+	if sesion.falloVinculoCorporativo != nil || sesion.vinculoCorporativo == nil {
+		return nil, errMontajeOrganizacionHistoricaCombinada
+	}
+	sesion.organizacionHistoricaPorCuenta = make(map[string]seleccionPerfilOrganizacionHistorica, len(contextos))
+	for cuenta, ambito := range contextos {
+		if ambito.Validar() != nil || ambito.PerfilActivoRef == "" || ambito.PerfilVersion == 0 {
+			return nil, errMontajeOrganizacionHistoricaCombinada
+		}
+		sesion.organizacionHistoricaPorCuenta[cuenta] = seleccionPerfilOrganizacionHistorica{perfil: ambito.PerfilActivoRef, version: ambito.PerfilVersion}
+	}
+	entregada = true
+	return sesion, nil
 }
 
 // Shutdown invoca callbacks mientras todavía puede haber GET activos.
@@ -297,14 +339,12 @@ func nuevoMontajeOrganizacionHistoricaCombinada(ctx context.Context, cfg config.
 	if err != nil {
 		return nil, errMontajeOrganizacionHistoricaCombinada
 	}
-	sesion := *a.sesionOrganizacionHistorica
-	sesion.fronteras = fronteras
-	sesion.organizacionHistoricaPorCuenta = make(map[string]seleccionPerfilOrganizacionHistorica, len(m.Contextos))
-	for cuenta, ambito := range m.Contextos {
-		sesion.organizacionHistoricaPorCuenta[cuenta] = seleccionPerfilOrganizacionHistorica{perfil: ambito.PerfilActivoRef, version: ambito.PerfilVersion}
+	sesion, err := nuevaSesionOrganizacionHistoricaCombinada(a.sesionOrganizacionHistorica, fronteras, m.Contextos)
+	if err != nil {
+		return nil, errMontajeOrganizacionHistoricaCombinada
 	}
-	seguridad, err := nuevaSeguridadComunDesarrollo(&sesion, a.sesionOrganizacionHistorica.reloj)
-	if err != nil || sesion.vinculoCorporativo == nil {
+	seguridad, err := nuevaSeguridadComunDesarrollo(sesion, sesion.reloj)
+	if err != nil {
 		return nil, errMontajeOrganizacionHistoricaCombinada
 	}
 	f := &fuenteOrganizacionHistoricaCombinada{sesion: seguridad, corporativo: sesion.vinculoCorporativo, reloj: sesion.reloj, contextos: m.Contextos, fronteras: fronteras}

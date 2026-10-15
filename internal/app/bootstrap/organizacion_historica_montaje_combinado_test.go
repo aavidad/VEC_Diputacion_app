@@ -127,14 +127,19 @@ func TestOrganizacionHistoricaCombinadaCapturaUnaSesionYConservaOriginal(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	sesion := *e.p
-	sesion.fronteras = cat
-	sesion.organizacionHistoricaPorCuenta = map[string]seleccionPerfilOrganizacionHistorica{a.Instantanea.CuentaRef: {perfil: a.PerfilActivoRef, version: a.Instantanea.PerfilVersion}}
-	seguridad, err := nuevaSeguridadComunDesarrollo(&sesion, e.reloj)
+	corporativo := &revalidadorVinculoOrganizacionHistoricaPrueba{}
+	e.p.fijarVinculoCorporativo(corporativo, nil)
+	ctCatalogo, ctPerfil := e.p.fronteras, e.p.base.Contexto.PerfilActivoRef
+	sesion, err := nuevaSesionOrganizacionHistoricaCombinada(e.p, cat,
+		map[string]internagobierno.AmbitoOrganizacionHistorica{a.Instantanea.CuentaRef: ambito})
+	if err != nil || sesion == e.p || sesion.clave == e.p.clave || e.p.organizacionHistoricaPorCuenta != nil ||
+		!e.p.fronteras.mismaInstancia(ctCatalogo) || e.p.base.Contexto.PerfilActivoRef != ctPerfil || sesion.fronteras.mismaInstancia(e.p.fronteras) {
+		t.Fatal("la sesión OH no quedó separada de CT", err)
+	}
+	seguridad, err := nuevaSeguridadComunDesarrollo(sesion, e.reloj)
 	if err != nil {
 		t.Fatal(err)
 	}
-	corporativo := &revalidadorVinculoOrganizacionHistoricaPrueba{}
 	f := &fuenteOrganizacionHistoricaCombinada{sesion: seguridad, corporativo: corporativo, reloj: e.reloj,
 		contextos: map[string]internagobierno.AmbitoOrganizacionHistorica{a.Instantanea.CuentaRef: ambito}, fronteras: cat}
 	ctx := e.contexto()
@@ -192,6 +197,12 @@ func TestOrganizacionHistoricaCombinadaCapturaUnaSesionYConservaOriginal(t *test
 	if _, err := f.vincular(ctx); err == nil || corporativo.llamadas != 2 {
 		t.Fatal("el vínculo corporativo retirado no denegó la petición")
 	}
+	e.resolutor.base = e.p.base
+	ctOriginal, err := e.p.ResolverContexto(e.contexto())
+	if err != nil || ctOriginal.Resultado.Contexto.PerfilActivoRef != ctPerfil ||
+		sesion.fronteras.mismaInstancia(e.p.fronteras) {
+		t.Fatal("la selección OH alteró la sesión y el perfil CT", err)
+	}
 }
 
 type consultaOrganizacionHistoricaCombinadaEspia struct{ llamadas int }
@@ -244,14 +255,17 @@ func TestOrganizacionHistoricaCorporativoNoDisponibleDa503ConCapturaOriginal(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	sesion := *e.p
-	sesion.fronteras = cat
-	sesion.organizacionHistoricaPorCuenta = map[string]seleccionPerfilOrganizacionHistorica{actor.Instantanea.CuentaRef: {perfil: actor.PerfilActivoRef, version: actor.Instantanea.PerfilVersion}}
-	seguridad, err := nuevaSeguridadComunDesarrollo(&sesion, e.reloj)
+	corporativo := &revalidadorVinculoOrganizacionHistoricaPrueba{indisponible: true}
+	e.p.fijarVinculoCorporativo(corporativo, nil)
+	sesion, err := nuevaSesionOrganizacionHistoricaCombinada(e.p, cat,
+		map[string]internagobierno.AmbitoOrganizacionHistorica{actor.Instantanea.CuentaRef: ambito})
 	if err != nil {
 		t.Fatal(err)
 	}
-	corporativo := &revalidadorVinculoOrganizacionHistoricaPrueba{indisponible: true}
+	seguridad, err := nuevaSeguridadComunDesarrollo(sesion, e.reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
 	f := &fuenteOrganizacionHistoricaCombinada{sesion: seguridad, corporativo: corporativo, reloj: e.reloj,
 		contextos: map[string]internagobierno.AmbitoOrganizacionHistorica{actor.Instantanea.CuentaRef: ambito}, fronteras: cat}
 	ctx := e.contexto()
