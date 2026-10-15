@@ -68,6 +68,15 @@ previsto. El fichero no contiene cuenta, certificado, persona ni perfil
 asignado para elegir qué técnica puede consultar. Cada petición identifica a
 la persona y comprueba su permiso vigente por rol.
 
+La confianza externa se prepara con `preparar-portal-externo` y su LOGIN
+publicador nominal, según `deploy/principal/confianza_externa_hz38.md`.
+El inventario de este corte conserva las audiencias anteriores y añade
+`bolsa_justificantes`: en total son 28 claves. Ese DSN administrativo nunca se
+monta en la web. En el proceso de desarrollo, el montaje interno registra sus
+dos claves por el protocolo de gobierno existente y toma las coordenadas
+publicadas; una configuración ausente o incorrecta deja solo esa descarga
+cerrada.
+
 La publicación de acciones, versiones de rol y membresías personales se hace
 por los actos de Administración gobernados, con dos administradores distintos
 cuando corresponda. Se conservan el catálogo y las concesiones existentes; se

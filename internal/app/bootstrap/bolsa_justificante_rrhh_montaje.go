@@ -13,6 +13,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	bolsapg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
@@ -247,7 +250,7 @@ func descriptorMaterialJustificanteRenunciaRRHH(audiencia string) descriptorMate
 		ProveedorNominal: "proveedor-material-bolsa-justificante-renuncia-rrhh-" + sufijo}
 }
 
-func emisoresJustificanteRenunciaRRHH(derivador *derivadorIdentidadOperacionDesarrollo,
+func emisoresJustificanteRenunciaRRHH(ctx context.Context, gobierno *pgxpool.Pool, derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo, autorizador vecports.AutorizadorSolicitudLigadaV3) (map[string]*emisorMaterialRenovableCTDesarrollo, error) {
 	base, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, reloj.Ahora())
 	if err != nil {
@@ -255,14 +258,45 @@ func emisoresJustificanteRenunciaRRHH(derivador *derivadorIdentidadOperacionDesa
 	}
 	defer borrarBytes(base.claveHMAC)
 	defer borrarBytes(base.privada)
-	resultado := make(map[string]*emisorMaterialRenovableCTDesarrollo, 2)
-	for _, audiencia := range []string{audienciaJustificanteBolsaRRHH, audienciaJustificanteBolsaPrepararRRHH} {
-		derivada, err := derivarMaterialConsumidorV3Desarrollo(base, descriptorMaterialJustificanteRenunciaRRHH(audiencia))
+	if ctx == nil || gobierno == nil {
+		return nil, docports.ErrSubidaLocalNoDisponible
+	}
+	descriptores := []descriptorMaterialConsumidorV3Desarrollo{
+		descriptorMaterialJustificanteRenunciaRRHH(audienciaJustificanteBolsaRRHH),
+		descriptorMaterialJustificanteRenunciaRRHH(audienciaJustificanteBolsaPrepararRRHH),
+	}
+	materiales := make([]materialAtestacionContratacionTemporalDesarrollo, len(descriptores))
+	defer func() {
+		for i := range materiales {
+			borrarBytes(materiales[i].claveHMAC)
+		}
+	}()
+	for i, descriptor := range descriptores {
+		materiales[i], err = derivarMaterialConsumidorV3Desarrollo(base, descriptor)
 		if err != nil {
 			return nil, err
 		}
-		proveedor, err := nuevoProveedorMaterialAutorizacionBaseDesarrollo(derivada, reloj)
-		borrarBytes(derivada.claveHMAC)
+	}
+	// El protocolo común devuelve las coordenadas realmente publicadas.
+	// Un fallo cierra este montaje; nunca impide arrancar las otras funciones.
+	if err = ejecutarTransaccionGobiernoCTDesarrollo(ctx, gobierno, func(tx pgx.Tx) error {
+		for i := range materiales {
+			if err := publicarGobiernoAtestacionCTEnTxDesarrollo(ctx, tx, &materiales[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	fuente, err := nuevaFuenteConfianzaRenovableCTDesarrollo(gobierno, base, reloj)
+	if err != nil {
+		return nil, err
+	}
+	resultado := make(map[string]*emisorMaterialRenovableCTDesarrollo, 2)
+	for i := range materiales {
+		materiales[i].fuenteConfianza = fuente
+		proveedor, err := nuevoProveedorMaterialAutorizacionBaseDesarrollo(materiales[i], reloj)
 		if err != nil {
 			return nil, err
 		}
@@ -270,7 +304,7 @@ func emisoresJustificanteRenunciaRRHH(derivador *derivadorIdentidadOperacionDesa
 		if err != nil {
 			return nil, err
 		}
-		resultado[audiencia] = emisor
+		resultado[descriptores[i].Audiencia] = emisor
 	}
 	return resultado, nil
 }
@@ -389,7 +423,7 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 		return fallo(err)
 	}
 	etapa = "emisores"
-	emisores, err := emisoresJustificanteRenunciaRRHH(derivador, reloj, autorizador)
+	emisores, err := emisoresJustificanteRenunciaRRHH(ctx, autoridad.gobiernoUsuariosPreferencias, derivador, reloj, autorizador)
 	if err != nil {
 		return fallo(err)
 	}
