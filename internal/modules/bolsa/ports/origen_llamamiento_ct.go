@@ -64,8 +64,10 @@ type FuenteOrigenLlamamientoCT interface {
 	ConsultarOrigenLlamamientoCT(context.Context, string) (OrigenLlamamientoCT, error)
 }
 
-// OrigenEmisionCT fija la causa CT a una reserva B7 nativa. El repositorio
-// coteja estos campos con su constitución y emisión en la misma transacción.
+// OrigenEmisionCT fija la causa CT a una reserva B7 nativa. OrdenSeleccionado
+// es la posición original del acta; la entrada debe tener orden vigente 1.
+// El repositorio coteja estos campos con la constitución y la emisión en la
+// misma transacción.
 type OrigenEmisionCT struct {
 	CriteriosOfrecimiento   *CriteriosOfrecimientoAplicados `json:"criterios_ofrecimiento,omitempty"`
 	OrganizacionRef         string                          `json:"organizacion_ref"`

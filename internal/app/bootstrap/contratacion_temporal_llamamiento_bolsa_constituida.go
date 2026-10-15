@@ -767,7 +767,20 @@ func primeraElegibleOrigenConstituidoCT(o puertosbolsa.OrigenLlamamientoCT) (pue
 	if elegida.OrdenVigente == nil {
 		return puertosbolsa.EntradaOrigenLlamamientoCT{}, ports.ErrIntegracionBolsaNoDisponible
 	}
+	if _, err := ordenActaPrimeraElegibleOrigenCT(elegida); err != nil {
+		return puertosbolsa.EntradaOrigenLlamamientoCT{}, err
+	}
 	return elegida, nil
+}
+
+// El rango vigente decide a quién llamar; B110 conserva como orden seleccionado
+// su posición en el acta original, aunque haya personas anteriores sin turno.
+func ordenActaPrimeraElegibleOrigenCT(e puertosbolsa.EntradaOrigenLlamamientoCT) (uint64, error) {
+	if e.OrdenActa == 0 || !e.Elegible || e.OrdenVigente == nil || *e.OrdenVigente != 1 ||
+		e.ParticipacionRef == "" || e.CandidatoRef == "" {
+		return 0, ports.ErrRespuestaBolsaNoConfiable
+	}
+	return e.OrdenActa, nil
 }
 
 // El primer paso de CT precede a ResolverTerminal. Un recibo legado ya
@@ -879,11 +892,12 @@ func (p *puenteBolsaLlamamientoDesarrollo) prepararOrigenConstituidoSinCacheCT(
 			return vacio, err
 		}
 	}
-	if reserva != nil && (seleccion.OrdenVigente == nil ||
-		reserva.ParticipacionRef != seleccion.ParticipacionRef ||
-		reserva.CandidatoRef != seleccion.CandidatoRef ||
-		reserva.OrdenSeleccionado != *seleccion.OrdenVigente) {
-		return vacio, ports.ErrRespuestaBolsaNoConfiable
+	if reserva != nil {
+		ordenActa, err := ordenActaPrimeraElegibleOrigenCT(seleccion)
+		if err != nil || reserva.ParticipacionRef != seleccion.ParticipacionRef ||
+			reserva.CandidatoRef != seleccion.CandidatoRef || reserva.OrdenSeleccionado != ordenActa {
+			return vacio, ports.ErrRespuestaBolsaNoConfiable
+		}
 	}
 	huellaNecesidad, err := necesidad.HuellaCanonicaSHA256()
 	if err != nil {
@@ -905,6 +919,10 @@ func (p *puenteBolsaLlamamientoDesarrollo) emitirLlamamientoConstituidoCT(
 	if p == nil || p.emisorNativo == nil || preparado.seleccion.OrdenVigente == nil {
 		return vacio, ports.ErrIntegracionBolsaNoDisponible
 	}
+	ordenActa, err := ordenActaPrimeraElegibleOrigenCT(preparado.seleccion)
+	if err != nil {
+		return vacio, err
+	}
 	operativo, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
 	if err != nil {
 		return vacio, err
@@ -924,7 +942,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) emitirLlamamientoConstituidoCT(
 		HuellaInstantaneaSHA256: o.HuellaInstantaneaSHA256,
 		PoliticaRef:             o.PoliticaRef, VersionPolitica: o.VersionPolitica, HuellaPoliticaSHA256: o.HuellaPoliticaSHA256,
 		ParticipacionRef: preparado.seleccion.ParticipacionRef, CandidatoRef: preparado.seleccion.CandidatoRef,
-		OrdenSeleccionado: *preparado.seleccion.OrdenVigente, Lectura: clonarLecturaOrigenCT(o),
+		OrdenSeleccionado: ordenActa, Lectura: clonarLecturaOrigenCT(o),
 	}
 	emision, err := p.emisorNativo.EmitirLlamamiento(ctx, puertosbolsa.SolicitudEmitirLlamamiento{
 		Vinculo: operativo.Vinculo, ResultadoContexto: operativo.Resultado,

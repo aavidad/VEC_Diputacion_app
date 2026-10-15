@@ -136,10 +136,7 @@ func (r *LectorOrigenLlamamientoCTAuditadoPostgreSQL) ConsultarOrigenCTAuditado(
 	if salida.Reserva != nil {
 		coincide := false
 		for _, entrada := range salida.Origen.Entradas {
-			if entrada.ParticipacionRef == salida.Reserva.ParticipacionRef &&
-				entrada.CandidatoRef == salida.Reserva.CandidatoRef &&
-				entrada.OrdenVigente != nil &&
-				*entrada.OrdenVigente == salida.Reserva.OrdenSeleccionado {
+			if reservaCoincideEntradaOrigenCTAuditado(*salida.Reserva, entrada) {
 				coincide = true
 				break
 			}
@@ -160,4 +157,10 @@ func (r *LectorOrigenLlamamientoCTAuditadoPostgreSQL) ConsultarOrigenCTAuditado(
 		return vacio, nil, sinAcuse, ports.ErrOrigenLlamamientoCTNoDisponible
 	}
 	return salida.Origen, salida.Reserva, acuse, nil
+}
+
+func reservaCoincideEntradaOrigenCTAuditado(reserva ports.ReservaOrigenCT, entrada ports.EntradaOrigenLlamamientoCT) bool {
+	return reserva.OrdenSeleccionado != 0 && entrada.OrdenActa == reserva.OrdenSeleccionado &&
+		entrada.Elegible && entrada.OrdenVigente != nil && *entrada.OrdenVigente == 1 &&
+		entrada.ParticipacionRef == reserva.ParticipacionRef && entrada.CandidatoRef == reserva.CandidatoRef
 }

@@ -202,3 +202,33 @@ func TestOrigenCTAuditadoRespetaLimitesB7PorCampoSinAsignarGigantes(t *testing.T
 		}
 	}
 }
+
+func TestReplayOrigenCTConservaActaYExigePrimerRango(t *testing.T) {
+	primero := uint64(1)
+	entrada := ports.EntradaOrigenLlamamientoCT{
+		OrdenActa: 5, OrdenVigente: &primero, Elegible: true,
+		ParticipacionRef: "participacion:quinta", CandidatoRef: "candidato:quinta",
+	}
+	reserva := ports.ReservaOrigenCT{
+		OrdenSeleccionado: 5, ParticipacionRef: entrada.ParticipacionRef,
+		CandidatoRef: entrada.CandidatoRef,
+	}
+	if !reservaCoincideEntradaOrigenCTAuditado(reserva, entrada) {
+		t.Fatal("replay correcto del acta 5 fue rechazado")
+	}
+	reserva.OrdenSeleccionado = 1
+	if reservaCoincideEntradaOrigenCTAuditado(reserva, entrada) {
+		t.Fatal("el rango vigente se confundió con la posición original del acta")
+	}
+	reserva.OrdenSeleccionado = 5
+	segundo := uint64(2)
+	entrada.OrdenVigente = &segundo
+	if reservaCoincideEntradaOrigenCTAuditado(reserva, entrada) {
+		t.Fatal("el replay aceptó un rango vigente que no es el primero")
+	}
+	entrada.OrdenVigente = &primero
+	reserva.ParticipacionRef = "participacion:ajena"
+	if reservaCoincideEntradaOrigenCTAuditado(reserva, entrada) {
+		t.Fatal("el replay aceptó otra participación con la misma posición")
+	}
+}
