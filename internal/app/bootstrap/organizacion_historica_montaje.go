@@ -47,7 +47,53 @@ type montajeOrganizacionHistoricaCombinada struct {
 	manejador http.Handler
 	fronteras catalogoFronterasComunDesarrollo
 	fuente    *fuenteOrganizacionHistoricaCombinada
+	barrera   *barreraPeticionesOrganizacionHistorica
 	cerrar    func()
+}
+
+// Shutdown invoca callbacks mientras todavía puede haber GET activos.
+// La barrera se toma antes de la autoridad exacta y drena antes del cierre.
+type barreraPeticionesOrganizacionHistorica struct {
+	mu       sync.Mutex
+	cerrando bool
+	activas  sync.WaitGroup
+}
+
+func (b *barreraPeticionesOrganizacionHistorica) proteger(siguiente http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r == nil || r.URL == nil || r.URL.Path != httpapi.RutaOrganizacionHistoricaPersonal {
+			siguiente.ServeHTTP(w, r)
+			return
+		}
+		b.mu.Lock()
+		if b.cerrando {
+			b.mu.Unlock()
+			w.Header().Set("Cache-Control", "no-store")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		b.activas.Add(1)
+		b.mu.Unlock()
+		defer b.activas.Done()
+		siguiente.ServeHTTP(w, r)
+	})
+}
+
+func (b *barreraPeticionesOrganizacionHistorica) detener() {
+	b.mu.Lock()
+	b.cerrando = true
+	b.mu.Unlock()
+	b.activas.Wait()
+}
+
+func cierreOrganizacionHistoricaCombinada(b *barreraPeticionesOrganizacionHistorica, cerrarRecursos func()) func() {
+	var unaVez sync.Once
+	return func() {
+		unaVez.Do(func() {
+			b.detener()
+			cerrarRecursos()
+		})
+	}
 }
 
 func cargarConfiguracionOrganizacionHistoricaCombinada(dir string) (configuracionOrganizacionHistoricaCombinada, error) {
@@ -124,10 +170,26 @@ func protegerOrganizacionHistoricaNoDisponible(siguiente http.Handler) http.Hand
 }
 
 func (m *montajeOrganizacionHistoricaCombinada) proteger(a *autoridadConsultasContratacionTemporalDesarrollo, siguiente http.Handler) http.Handler {
-	if m == nil || a == nil || m.fuente == nil || siguiente == nil {
+	if m == nil || a == nil || m.fuente == nil || m.barrera == nil || siguiente == nil {
 		return protegerOrganizacionHistoricaNoDisponible(siguiente)
 	}
-	return a.protegerConCatalogoSeguridadComun(siguiente, m.fronteras)
+	return m.barrera.proteger(a.protegerConCatalogoSeguridadComun(siguiente, m.fronteras))
+}
+
+func capturarOrganizacionHistoricaCombinada(f *fuenteOrganizacionHistoricaCombinada, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r != nil {
+			capturado, err := f.vincular(r.Context())
+			if capturado == nil {
+				capturado = r.Context()
+			}
+			if err != nil {
+				capturado = context.WithValue(capturado, claveFalloOrganizacionHistoricaCombinada{}, err)
+			}
+			r = r.WithContext(capturado)
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 func acreditarPoolOrganizacionHistoricaCombinada(ctx context.Context, pool *pgxpool.Pool) error {
@@ -150,6 +212,12 @@ func nuevoMontajeOrganizacionHistoricaCombinada(ctx context.Context, cfg config.
 	if err != nil || !activo || a == nil || a.sesionOrganizacionHistorica == nil || a.proveedorMaterialOrganizacionHistorica == nil ||
 		a.materialOrganizacionHistorica.ClaveID == "" || registrador == nil {
 		return nil, errMontajeOrganizacionHistoricaCombinada
+	}
+	if a.sesionOrganizacionHistorica.falloVinculoCorporativo != nil {
+		return nil, errors.Join(errMontajeOrganizacionHistoricaCombinada, a.sesionOrganizacionHistorica.falloVinculoCorporativo)
+	}
+	if a.sesionOrganizacionHistorica.vinculoCorporativo == nil {
+		return nil, errors.Join(errMontajeOrganizacionHistoricaCombinada, vecports.ErrVinculoCorporativoRRHHNoDisponible)
 	}
 	dir := cfg.OrganizacionHistoricaMaterialDir
 	m, err := internactproveedores.CargarMaterialOrganizacionHistorica(dir)
@@ -287,24 +355,13 @@ func nuevoMontajeOrganizacionHistoricaCombinada(ctx context.Context, cfg config.
 		return nil, errMontajeOrganizacionHistoricaCombinada
 	}
 	cerrarPool, cerrarRegistro = false, false
-	var cierre sync.Once
-	consultaProtegida := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r != nil {
-			if capturado, err := f.vincular(r.Context()); err == nil {
-				r = r.WithContext(capturado)
+	barrera := &barreraPeticionesOrganizacionHistorica{}
+	return &montajeOrganizacionHistoricaCombinada{manejador: capturarOrganizacionHistoricaCombinada(f, h), fronteras: fronteras, fuente: f, barrera: barrera,
+		cerrar: cierreOrganizacionHistoricaCombinada(barrera, func() {
+			proveedor.Cerrar()
+			cerrarIntentos()
+			for _, abierto := range pools {
+				abierto.Close()
 			}
-		}
-		// La autoridad HTTP registra la denegación si faltó captura.
-		h.ServeHTTP(w, r)
-	})
-	return &montajeOrganizacionHistoricaCombinada{manejador: consultaProtegida, fronteras: fronteras, fuente: f,
-		cerrar: func() {
-			cierre.Do(func() {
-				proveedor.Cerrar()
-				cerrarIntentos()
-				for _, abierto := range pools {
-					abierto.Close()
-				}
-			})
-		}}, nil
+		})}, nil
 }

@@ -542,7 +542,11 @@ func nuevoServidorDesarrollo(
 	montajeOH, errOH := nuevoMontajeOrganizacionHistoricaCombinada(ctxOH, cfg, autoridadContratacion, registradorFrontera)
 	cancelarOH()
 	if errOH != nil && cfg.OrganizacionHistoricaConsultaEnabled != "" && cfg.OrganizacionHistoricaConsultaEnabled != "false" {
-		registrarFalloPostgreSQLContratacionTemporalDesarrollo("organizacion_historica_consulta", "capacidad_no_disponible")
+		causa := "capacidad_no_disponible"
+		if errors.Is(errOH, vecports.ErrVinculoCorporativoRRHHNoDisponible) {
+			causa = "vinculo_corporativo_no_disponible"
+		}
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo("organizacion_historica_consulta", causa)
 	}
 	if montajeOH != nil {
 		rutasContratacion = append(rutasContratacion, vechttp.RutaExacta{Ruta: vechttp.RutaOrganizacionHistoricaPersonal, Manejador: montajeOH.manejador})
@@ -602,7 +606,13 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("configuracion_tls", err)
 	}
-	servidor.RegisterOnShutdown(cerrarContratacion)
+	if montajeOH != nil {
+		// OH usa la sesión y el emisor V3 compartidos con CT. Ambos cierres
+		// esperan el mismo drenaje antes de soltar cualquiera de esos recursos.
+		servidor.RegisterOnShutdown(func() { montajeOH.barrera.detener(); cerrarContratacion() })
+	} else {
+		servidor.RegisterOnShutdown(cerrarContratacion)
+	}
 	servidor.RegisterOnShutdown(cerrarDietas)
 	servidor.RegisterOnShutdown(cerrarCalendarios)
 	if comisionesDietas != nil {

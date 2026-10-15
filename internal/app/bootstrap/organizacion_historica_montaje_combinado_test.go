@@ -2,13 +2,18 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"vec-diputacion-granada/internal/app/composicion/internactproveedores"
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
+	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personal "vec-diputacion-granada/internal/modules/personal/domain"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -64,13 +69,40 @@ func TestOrganizacionHistoricaCombinadaRechazaOtraAudienciaYCapacidadDivergente(
 	}
 }
 
+func TestOrganizacionHistoricaPreflightCorporativoAusenteNoImpideSesionCT(t *testing.T) {
+	e := nuevaSesionConsultaPrueba(t)
+	e.p.fijarVinculoCorporativo(nil, errors.New("preflight corporativo ausente"))
+	if !errors.Is(e.p.falloVinculoCorporativo, vecports.ErrVinculoCorporativoRRHHNoDisponible) || e.p.vinculoCorporativo != nil {
+		t.Fatal("el fallo corporativo no quedó acotado a Organización histórica")
+	}
+	if c, err := e.p.ResolverContexto(e.contexto()); err != nil || c.Resultado.Validar() != nil {
+		t.Fatal("la sesión registrada de CT dejó de funcionar", err)
+	}
+	cfg := configuracionOrganizacionHistoricaPrueba()
+	cfg.OrganizacionHistoricaConsultaEnabled = "true"
+	cfg.OrganizacionHistoricaMaterialDir = "/material/privado"
+	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
+		sesionOrganizacionHistorica:            e.p,
+		proveedorMaterialOrganizacionHistorica: &proveedorMaterialAltaContratacionTemporalDesarrollo{},
+		materialOrganizacionHistorica:          CapacidadPublicadaOrganizacionHistoricaV3{ClaveID: "clave:oh"},
+	}
+	montaje, err := nuevoMontajeOrganizacionHistoricaCombinada(context.Background(), cfg, autoridad, &registradorFronteraSuperficiePrueba{})
+	if montaje != nil || !errors.Is(err, vecports.ErrVinculoCorporativoRRHHNoDisponible) {
+		t.Fatal("Organización histórica se montó sin revalidación corporativa", err)
+	}
+}
+
 type revalidadorVinculoOrganizacionHistoricaPrueba struct {
-	llamadas int
-	falla    bool
+	llamadas     int
+	falla        bool
+	indisponible bool
 }
 
 func (r *revalidadorVinculoOrganizacionHistoricaPrueba) RevalidarVinculoCorporativoRRHHV1(_ context.Context, s vecports.SolicitudRevalidacionVinculoCorporativoRRHHV1) error {
 	r.llamadas++
+	if r.indisponible {
+		return vecports.ErrVinculoCorporativoRRHHNoDisponible
+	}
 	if r.falla || s.Validar() != nil {
 		return vecports.ErrVinculoCorporativoRRHHNoVigente
 	}
@@ -159,5 +191,96 @@ func TestOrganizacionHistoricaCombinadaCapturaUnaSesionYConservaOriginal(t *test
 	corporativo.falla = true
 	if _, err := f.vincular(ctx); err == nil || corporativo.llamadas != 2 {
 		t.Fatal("el vínculo corporativo retirado no denegó la petición")
+	}
+}
+
+type consultaOrganizacionHistoricaCombinadaEspia struct{ llamadas int }
+
+func (c *consultaOrganizacionHistoricaCombinadaEspia) Consultar(context.Context, personal.SolicitudConsultaOrganizacionHistorica) (personalports.ResultadoConsultaOrganizacionHistorica, error) {
+	c.llamadas++
+	return personalports.ResultadoConsultaOrganizacionHistorica{}, nil
+}
+
+type auditorOrganizacionHistoricaCombinadaEspia struct{ llamadas int }
+
+func (a *auditorOrganizacionHistoricaCombinadaEspia) RegistrarDenegacionOrganizacionHistorica(context.Context, httpapi.DenegacionOrganizacionHistorica) error {
+	a.llamadas++
+	return nil
+}
+
+type sesionOrganizacionHistoricaNoDisponiblePrueba struct{}
+
+func (sesionOrganizacionHistoricaNoDisponiblePrueba) ResolverContexto(context.Context) (contextoSeguridadComunDesarrollo, error) {
+	return contextoSeguridadComunDesarrollo{}, ct.ErrConsultaRRHHNoDisponible
+}
+
+func TestOrganizacionHistoricaSesionNoDisponibleConserva503(t *testing.T) {
+	cat, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{{Clave: "oh", Superficie: superficieInternaSeguridadComunDesarrollo,
+		Metodo: http.MethodGet, Ruta: httpapi.RutaOrganizacionHistoricaPersonal, PerfilesActivosRef: []string{"prf_0123456789abcdefghijkl"}, ClavePolitica: "oh", ClaveCapacidad: "oh"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloj := relojContratacionTemporalDesarrollo{}
+	seguridad, err := nuevaSeguridadComunDesarrollo(sesionOrganizacionHistoricaNoDisponiblePrueba{}, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &fuenteOrganizacionHistoricaCombinada{sesion: seguridad, corporativo: &revalidadorVinculoOrganizacionHistoricaPrueba{}, reloj: reloj, fronteras: cat}
+	descriptor, _ := cat.resolver(http.MethodGet, httpapi.RutaOrganizacionHistoricaPersonal)
+	ctx := context.WithValue(context.Background(), claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: http.MethodGet,
+		ruta: httpapi.RutaOrganizacionHistoricaPersonal, superficie: superficieInternaSeguridadComunDesarrollo, catalogo: cat, descriptor: descriptor})
+	if _, err := f.vincular(ctx); !errors.Is(err, ct.ErrConsultaRRHHNoDisponible) {
+		t.Fatal("sesión caída clasificada como denegación", err)
+	}
+}
+
+func TestOrganizacionHistoricaCorporativoNoDisponibleDa503ConCapturaOriginal(t *testing.T) {
+	e := nuevaSesionConsultaPrueba(t)
+	actor := e.p.base.Contexto
+	ambito := internagobierno.AmbitoOrganizacionHistorica{PerfilActivoRef: actor.PerfilActivoRef, PerfilVersion: actor.Instantanea.PerfilVersion,
+		OrganismoRef: "organizacion:prueba", UnidadClave: "unidad:prueba"}
+	cat, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{{Clave: "oh", Superficie: superficieInternaSeguridadComunDesarrollo,
+		Metodo: http.MethodGet, Ruta: httpapi.RutaOrganizacionHistoricaPersonal, PerfilesActivosRef: []string{actor.PerfilActivoRef}, ClavePolitica: "oh", ClaveCapacidad: "oh"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sesion := *e.p
+	sesion.fronteras = cat
+	sesion.organizacionHistoricaPorCuenta = map[string]seleccionPerfilOrganizacionHistorica{actor.Instantanea.CuentaRef: {perfil: actor.PerfilActivoRef, version: actor.Instantanea.PerfilVersion}}
+	seguridad, err := nuevaSeguridadComunDesarrollo(&sesion, e.reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	corporativo := &revalidadorVinculoOrganizacionHistoricaPrueba{indisponible: true}
+	f := &fuenteOrganizacionHistoricaCombinada{sesion: seguridad, corporativo: corporativo, reloj: e.reloj,
+		contextos: map[string]internagobierno.AmbitoOrganizacionHistorica{actor.Instantanea.CuentaRef: ambito}, fronteras: cat}
+	ctx := e.contexto()
+	capacidad := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+	capacidad.ruta, capacidad.metodo = httpapi.RutaOrganizacionHistoricaPersonal, http.MethodGet
+	ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	descriptor, _ := cat.resolver(http.MethodGet, httpapi.RutaOrganizacionHistoricaPersonal)
+	ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: http.MethodGet,
+		ruta: httpapi.RutaOrganizacionHistoricaPersonal, superficie: superficieInternaSeguridadComunDesarrollo, catalogo: cat, descriptor: descriptor})
+	consulta, auditor := &consultaOrganizacionHistoricaCombinadaEspia{}, &auditorOrganizacionHistoricaCombinadaEspia{}
+	h, err := httpapi.NewHandlerOrganizacionHistoricaPersonal(internactproveedores.AutoridadContextoOrganizacionHistorica{Fuente: f}, consulta, auditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contextoCapturado context.Context
+	envuelto := capturarOrganizacionHistoricaCombinada(f, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contextoCapturado = r.Context()
+		h.ServeHTTP(w, r)
+	}))
+	ruta := httpapi.RutaOrganizacionHistoricaPersonal + "?vigente_en=2026-09-25&conocido_en=2026-09-25T00:00:00.000000Z"
+	w := httptest.NewRecorder()
+	envuelto.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta, nil).WithContext(ctx))
+	if w.Code != http.StatusServiceUnavailable || consulta.llamadas != 0 || auditor.llamadas != 0 || !strings.Contains(w.Body.String(), `"codigo":"servicio_no_disponible"`) || strings.Contains(w.Body.String(), `"data"`) {
+		t.Fatalf("fallo corporativo respondió %d, consulta=%d, auditoría=%d: %s", w.Code, consulta.llamadas, auditor.llamadas, w.Body.String())
+	}
+	if original, _, _, err := f.ContextoOriginalOrganizacionHistoricaParaAuditoria(contextoCapturado); err != nil || original.Resultado.Contexto.PersonaRef != actor.PersonaRef {
+		t.Fatal("la auditoría perdió el actor original acreditado", err)
+	}
+	if _, _, _, err := f.ContextoVinculadoOrganizacionHistorica(contextoCapturado); !errors.Is(err, vecports.ErrVinculoCorporativoRRHHNoDisponible) {
+		t.Fatal("el error de disponibilidad autorizó lectura o cambió a denegación", err)
 	}
 }

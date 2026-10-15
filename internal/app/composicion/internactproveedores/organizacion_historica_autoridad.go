@@ -2,7 +2,9 @@ package internactproveedores
 
 import (
 	"context"
+	"errors"
 
+	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	core "vec-diputacion-granada/internal/vec/domain"
 	ports "vec-diputacion-granada/internal/vec/ports"
@@ -16,6 +18,9 @@ func (a AutoridadContextoOrganizacionHistorica) ResolverContextoOrganizacionHist
 	}
 	r, org, unidad, err := a.Fuente.ContextoVinculadoOrganizacionHistorica(ctx)
 	if err != nil {
+		if errors.Is(err, ct.ErrConsultaRRHHNoDisponible) || errors.Is(err, ports.ErrVinculoCorporativoRRHHNoDisponible) {
+			return core.ContextoActor{}, "", "", err
+		}
 		return core.ContextoActor{}, "", "", httpapi.ErrAccesoRutaExactaDenegado
 	}
 	actor, err := r.Resultado.Contexto.Clonar()

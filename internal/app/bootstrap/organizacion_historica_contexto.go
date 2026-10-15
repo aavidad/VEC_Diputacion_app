@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -10,6 +11,7 @@ import (
 )
 
 type claveContextoOrganizacionHistoricaCombinada struct{}
+type claveFalloOrganizacionHistoricaCombinada struct{}
 
 type contextoOrganizacionHistoricaCombinada struct {
 	fuente *fuenteOrganizacionHistoricaCombinada
@@ -28,15 +30,24 @@ type fuenteOrganizacionHistoricaCombinada struct {
 }
 
 func (f *fuenteOrganizacionHistoricaCombinada) vincular(ctx context.Context) (context.Context, error) {
-	if f == nil || f.sesion == nil || f.corporativo == nil || f.reloj == nil || ctx == nil || ctx.Err() != nil || ctx.Value(claveContextoOrganizacionHistoricaCombinada{}) != nil {
+	if f == nil || f.sesion == nil || f.corporativo == nil || f.reloj == nil || ctx == nil || ctx.Value(claveContextoOrganizacionHistoricaCombinada{}) != nil {
 		return nil, httpapi.ErrAccesoRutaExactaDenegado
+	}
+	if ctx.Err() != nil {
+		return nil, ct.ErrConsultaRRHHNoDisponible
 	}
 	frontera, ok := fronteraSeguridadComunDesdeContexto(ctx)
 	if !ok || frontera.ruta != httpapi.RutaOrganizacionHistoricaPersonal || frontera.metodo != "GET" || frontera.superficie != superficieInternaSeguridadComunDesarrollo || !f.fronteras.mismaInstancia(frontera.catalogo) {
 		return nil, httpapi.ErrAccesoRutaExactaDenegado
 	}
 	c, err := f.sesion.ResolverContexto(ctx)
-	if err != nil || c.Resultado.Validar() != nil || c.Vinculo.ValidarPara(c.Resultado) != nil {
+	if err != nil {
+		if ctx.Err() != nil || errors.Is(err, ct.ErrConsultaRRHHNoDisponible) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return nil, ct.ErrConsultaRRHHNoDisponible
+		}
+		return nil, httpapi.ErrAccesoRutaExactaDenegado
+	}
+	if c.Resultado.Validar() != nil || c.Vinculo.ValidarPara(c.Resultado) != nil {
 		return nil, httpapi.ErrAccesoRutaExactaDenegado
 	}
 	a := c.Resultado.Contexto
@@ -45,25 +56,43 @@ func (f *fuenteOrganizacionHistoricaCombinada) vincular(ctx context.Context) (co
 		return nil, httpapi.ErrAccesoRutaExactaDenegado
 	}
 	datos, err := c.Vinculo.Datos()
-	if err != nil || datos.CuentaRef != a.Instantanea.CuentaRef || datos.PerfilActivoRef != a.PerfilActivoRef || datos.PrincipalID != a.Principal.ID ||
-		f.corporativo.RevalidarVinculoCorporativoRRHHV1(ctx, vecports.SolicitudRevalidacionVinculoCorporativoRRHHV1{
-			CuentaRef: datos.CuentaRef, PerfilRef: datos.PerfilActivoRef, PersonaRef: datos.PrincipalID,
-			VinculoContextoRef: datos.ContextoActorRef, VinculoContextoVersion: datos.ContextoActorVersion,
-		}) != nil || ctx.Err() != nil {
+	if err != nil || datos.CuentaRef != a.Instantanea.CuentaRef || datos.PerfilActivoRef != a.PerfilActivoRef || datos.PrincipalID != a.Principal.ID {
 		return nil, httpapi.ErrAccesoRutaExactaDenegado
 	}
 	clon, err := c.Resultado.Clonar()
 	if err != nil {
 		return nil, httpapi.ErrAccesoRutaExactaDenegado
 	}
-	return context.WithValue(ctx, claveContextoOrganizacionHistoricaCombinada{}, contextoOrganizacionHistoricaCombinada{
+	capturado := context.WithValue(ctx, claveContextoOrganizacionHistoricaCombinada{}, contextoOrganizacionHistoricaCombinada{
 		fuente: f, actor: ct.ContextoAutorizacionAltaV3{Vinculo: c.Vinculo, Resultado: clon}, ambito: ambito,
-	}), nil
+	})
+	err = f.corporativo.RevalidarVinculoCorporativoRRHHV1(ctx, vecports.SolicitudRevalidacionVinculoCorporativoRRHHV1{
+		CuentaRef: datos.CuentaRef, PerfilRef: datos.PerfilActivoRef, PersonaRef: datos.PrincipalID,
+		VinculoContextoRef: datos.ContextoActorRef, VinculoContextoVersion: datos.ContextoActorVersion,
+	})
+	if err != nil || ctx.Err() != nil {
+		if errors.Is(err, vecports.ErrVinculoCorporativoRRHHNoVigente) && ctx.Err() == nil {
+			return capturado, httpapi.ErrAccesoRutaExactaDenegado
+		}
+		return capturado, vecports.ErrVinculoCorporativoRRHHNoDisponible
+	}
+	return capturado, nil
 }
 
 func (f *fuenteOrganizacionHistoricaCombinada) ContextoVinculadoOrganizacionHistorica(ctx context.Context) (ct.ContextoAutorizacionAltaV3, string, string, error) {
+	if ctx != nil {
+		if fallo, ok := ctx.Value(claveFalloOrganizacionHistoricaCombinada{}).(error); ok && fallo != nil {
+			return ct.ContextoAutorizacionAltaV3{}, "", "", fallo
+		}
+	}
 	r, org, unidad, err := f.ContextoOriginalOrganizacionHistoricaParaAuditoria(ctx)
-	if err != nil || ctx.Err() != nil || !r.Vinculo.VigenteEn(f.reloj.Ahora(), r.Resultado) {
+	if err != nil {
+		return ct.ContextoAutorizacionAltaV3{}, "", "", httpapi.ErrAccesoRutaExactaDenegado
+	}
+	if ctx.Err() != nil {
+		return ct.ContextoAutorizacionAltaV3{}, "", "", ct.ErrConsultaRRHHNoDisponible
+	}
+	if !r.Vinculo.VigenteEn(f.reloj.Ahora(), r.Resultado) {
 		return ct.ContextoAutorizacionAltaV3{}, "", "", httpapi.ErrAccesoRutaExactaDenegado
 	}
 	return r, org, unidad, nil

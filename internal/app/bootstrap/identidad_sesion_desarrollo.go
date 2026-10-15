@@ -34,18 +34,34 @@ type proveedorSesionConsultaRRHHDesarrollo struct {
 	soporte *soporteAltaContratacionTemporalDesarrollo
 	// canalIntervencion solo se fija al componer la dependencia lectora
 	// interna. No cambia la autoridad del canal RRHH ni permite fallback.
-	canalIntervencion  *soporteFiscalizacionContratacionTemporalDesarrollo
-	registro           httpseguridad.RegistroSesiones
-	revalidador        puertosvec.RevalidadorAutenticacionActorV1
-	vinculoCorporativo puertosvec.RevalidadorVinculoCorporativoRRHHV1
-	reloj              ports.Reloj
-	resolutor          dominiovec.ResolutorContextoActorRegistradoV2
-	base               dominiovec.ResultadoContextoActorRegistradoV2
-	fronteras          catalogoFronterasComunDesarrollo
+	canalIntervencion       *soporteFiscalizacionContratacionTemporalDesarrollo
+	registro                httpseguridad.RegistroSesiones
+	revalidador             puertosvec.RevalidadorAutenticacionActorV1
+	vinculoCorporativo      puertosvec.RevalidadorVinculoCorporativoRRHHV1
+	falloVinculoCorporativo error
+	reloj                   ports.Reloj
+	resolutor               dominiovec.ResolutorContextoActorRegistradoV2
+	base                    dominiovec.ResultadoContextoActorRegistradoV2
+	fronteras               catalogoFronterasComunDesarrollo
 	// La copia del GET histórico elige un perfil publicado de esta misma cuenta.
 	organizacionHistoricaPorCuenta map[string]seleccionPerfilOrganizacionHistorica
 	superficie                     httpseguridad.Superficie
 	clave                          [sha256.Size]byte
+}
+
+// El preflight corporativo pertenece únicamente a Organización histórica.
+// La sesión registrada de CT sigue disponible si falta su función o EXECUTE.
+func (p *proveedorSesionConsultaRRHHDesarrollo) fijarVinculoCorporativo(v puertosvec.RevalidadorVinculoCorporativoRRHHV1, err error) {
+	if p == nil {
+		return
+	}
+	if err != nil || dependenciaEsNulaContratacionTemporalDesarrollo(v) {
+		p.vinculoCorporativo = nil
+		p.falloVinculoCorporativo = puertosvec.ErrVinculoCorporativoRRHHNoDisponible
+		return
+	}
+	p.vinculoCorporativo = v
+	p.falloVinculoCorporativo = nil
 }
 
 type claveCapsulaSesionConsultaRRHHDesarrollo struct{}
