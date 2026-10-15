@@ -67,14 +67,14 @@ migración esté en Git no significa que esté instalada en la principal.
 | `autorizacion_atestada_v3` | `vec_autorizacion_atestada_v3` | Consumo de la capacidad V3: gobierno de claves, consumo único de cada decisión, consumidores nominales por módulo y la **cadena de auditoría común**. | `consumo_decision_v3`, `atestacion_decision_v3`, `auditoria_consumo_v3`, `eslabon_auditoria_v5`, `pendiente_sellado_auditoria_v5`, `sellado_auditoria_v5`, `capturas_sello_periodico_v1`, `revocacion_*` | 296 |
 | `autorizacion_atestada_v2`, `confianza_atestacion_v2`, `ejecucion_documental_v4` | homónimos | Generaciones anteriores (VEC-AD-2 y ejecución documental V4). Se conservan; no se amplían. | — | 4 / 2 / 2 |
 | `catalogos_configurables` | `vec_catalogos_configurables` | Catálogos versionados que RRHH puede cambiar: categorías de la RPT y sus usos, plan de firma. | `publicacion`, `entrada_publicada`, `categoria_control`, `uso`, `historia`, `plan_firma_*` | 12 |
-| `documentos` | `vec_documentos` | Metadatos y custodia de documentos; los bytes van al almacén de objetos. | `documento`, `documento_firmado`, `identificador_documental`, `referencia_externa`, `tipo_reservado_firmado`, `outbox` | 16 |
+| `documentos` | `vec_documentos` | Metadatos y custodia de documentos; los bytes van al almacén de objetos. D20 añade `subida_local`, historia, frontera, lecturas y outbox; D22 acota el justificante de renuncia y su lectura por RRHH. | `documento`, `documento_firmado`, `identificador_documental`, `referencia_externa`, `tipo_reservado_firmado`, `outbox`; en la rama de justificantes, `subida_local`, `subida_local_historia`, `frontera_subida_local`, `subida_local_lectura`, `subida_local_outbox` | 16 en `origin/main`; D20 y D22 pendientes de integración |
 | `usuarios_vec` | `vec_usuarios`, `vec_usuarios_correos_avisos` | Preferencias, correos propios e imagen de la persona. | `preferencias_*`, `correos_*`, `imagen_*` | 21 |
 
 ### 2.2 Módulos de negocio
 
 | Directorio | Esquema | Para qué sirve | Tablas que conviene conocer | Migr. |
 | --- | --- | --- | --- | ---: |
-| `bolsa_llamamientos` | `vec_bolsa_llamamientos` | Corazón de Bolsa: constitución, participaciones, situación, contactos, llamamientos, sanciones, ofertas, inscripción, alegaciones. | ver §8.1 | 148 |
+| `bolsa_llamamientos` | `vec_bolsa_llamamientos` | Corazón de Bolsa: constitución, participaciones, situación, contactos, llamamientos, sanciones, ofertas, inscripción, alegaciones. B119 relaciona la respuesta con el justificante documental y conserva su preparación. | ver §8.1; en la rama de justificantes, `preparacion_justificante_renuncia_b119` y `respuesta_justificante_documental_b119` | 148 en `origin/main`; B119 pendiente de integración |
 | `bolsa_convocatorias` | `vec_bolsa_convocatorias` | Borradores y versiones de convocatorias y bases. | `borrador_convocatoria_*`, `version_convocatoria`, `preparacion_bases_*_v3` | 16 |
 | `bolsa_baremacion`, `bolsa_reglas_baremo`, `bolsa_calculo_experiencia` | homónimos | Baremaciones de una persona, reglas de baremo versionadas y cálculo oficial de experiencia. | — | 10 / 7 / 2 |
 | `bolsa_importacion_convoca` | `vec_bolsa_importacion_convoca` | Importación de actas de CONVOCA (filas cifradas, original en custodia externa). | — | 10 |
@@ -540,6 +540,16 @@ código corto:
 Los códigos de tarea son otra cosa: `RUM03` es la tercera tarea del Registro
 Único de Méritos, `B6`/`B13` son tareas de Bolsa y coinciden a veces con el
 número de su migración, `O2-05` y similares son objetivos del tablero histórico.
+
+La rama del justificante de renuncia añade AD277 y AUT95 para la autorización
+atestada de la subida, D20 para la custodia común, M7 como dependencia
+documental, D22 para el justificante de Bolsa, B119 para vincularlo a la
+respuesta y CT222 para la frontera con Contratación temporal. AUT99, AD281 y
+D23 completan el permiso de lectura de RRHH. La instalación y el ensayo de esa
+cadena están pendientes; la guía `deploy/principal/justificante_renuncia_activacion.md`
+fija el orden de activación. La lectura y descarga pertenecen a cualquier
+técnica con permiso vigente de su rol, no a una cuenta nominal indicada en la
+configuración técnica.
 
 ### 9.2 Reserva del número
 

@@ -2,11 +2,15 @@ package ports
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	almacencanonico "vec-diputacion-granada/internal/vec/canonico/almacen"
@@ -467,6 +471,65 @@ type AlmacenObjetos interface {
 	Inmovilizar(context.Context, SolicitudInmovilizarObjeto) (ResultadoOperacionObjeto, error)
 	LevantarInmovilizacion(context.Context, SolicitudLevantarInmovilizacionObjeto) (ResultadoOperacionObjeto, error)
 	Eliminar(context.Context, SolicitudEliminarObjeto) (EvidenciaOperacionAlmacen, error)
+}
+
+// RecuperadorOperacionSubidaLocal es opcional para almacenes capaces de
+// conciliar una escritura/promoción cuya respuesta se perdió. La consulta es
+// de solo lectura, exige capacidad V3 nueva y devuelve la evidencia ORIGINAL
+// guardada junto al índice idempotente; nunca la atribuye a la decisión nueva.
+type RecuperadorOperacionSubidaLocal interface {
+	RecuperarOperacionSubidaLocal(context.Context, SolicitudRecuperarOperacionSubidaLocal) (ResultadoOperacionObjeto, bool, error)
+}
+
+type SolicitudRecuperarOperacionSubidaLocal struct {
+	Contexto             ContextoOperacionAlmacen
+	Fase                 FaseAlmacenSubidaLocal
+	ClaveIdempotencia    string
+	MIME                 string
+	Tamano               int64
+	HuellaSHA256         string
+	Origen               ReferenciaObjetoAlmacen
+	EvidenciaAnalisisRef string
+}
+
+func (s SolicitudRecuperarOperacionSubidaLocal) Validar() error {
+	if s.Contexto.validarParaPaso(AccionAlmacenLeer) != nil ||
+		(s.Fase != FaseAlmacenSubidaLocalRecuperarEscritura && s.Fase != FaseAlmacenSubidaLocalRecuperarPromocion) ||
+		!referenciaOpacaAlmacenValida(s.ClaveIdempotencia, 512) ||
+		s.MIME != "application/pdf" || s.Tamano < 1 || !esSHA256Hexadecimal(s.HuellaSHA256) {
+		return ErrSolicitudAlmacenInvalida
+	}
+	if s.Fase == FaseAlmacenSubidaLocalRecuperarEscritura {
+		if s.Origen != (ReferenciaObjetoAlmacen{}) || s.EvidenciaAnalisisRef != "" {
+			return ErrSolicitudAlmacenInvalida
+		}
+	} else if s.Origen.Validar() != nil || !referenciaOpacaAlmacenValida(s.EvidenciaAnalisisRef, 512) {
+		return ErrSolicitudAlmacenInvalida
+	}
+	return nil
+}
+
+// HuellaEfectoRecuperacionSubidaLocal fija clave, fase, PDF y origen antes de
+// pedir al PDP. La misma fórmula se comprueba dentro del adaptador de ficheros
+// bajo el cerrojo. No contiene la clave ni datos personales en el contexto.
+func HuellaEfectoRecuperacionSubidaLocal(s SolicitudRecuperarOperacionSubidaLocal,
+	cargaID string) (string, error) {
+	if !referenciaOpacaAlmacenValida(cargaID, 512) ||
+		(s.Fase != FaseAlmacenSubidaLocalRecuperarEscritura && s.Fase != FaseAlmacenSubidaLocalRecuperarPromocion) ||
+		!referenciaOpacaAlmacenValida(s.ClaveIdempotencia, 512) || s.MIME != "application/pdf" ||
+		s.Tamano < 1 || !esSHA256Hexadecimal(s.HuellaSHA256) ||
+		(s.Fase == FaseAlmacenSubidaLocalRecuperarEscritura &&
+			(s.Origen != (ReferenciaObjetoAlmacen{}) || s.EvidenciaAnalisisRef != "")) ||
+		(s.Fase == FaseAlmacenSubidaLocalRecuperarPromocion &&
+			(s.Origen.Validar() != nil || !referenciaOpacaAlmacenValida(s.EvidenciaAnalisisRef, 512))) {
+		return "", ErrSolicitudAlmacenInvalida
+	}
+	clave := sha256.Sum256([]byte(s.ClaveIdempotencia))
+	valores := []string{"vec.almacen.recuperar-subida-local.v1", cargaID, string(s.Fase),
+		hex.EncodeToString(clave[:]), s.MIME, strconv.FormatInt(s.Tamano, 10), s.HuellaSHA256,
+		s.Origen.Referencia, s.Origen.Version, s.EvidenciaAnalisisRef}
+	suma := sha256.Sum256([]byte(strings.Join(valores, "\x00")))
+	return "efecto-carga:sha256:" + hex.EncodeToString(suma[:]), nil
 }
 
 type SolicitudPrepararCargaDirecta struct {

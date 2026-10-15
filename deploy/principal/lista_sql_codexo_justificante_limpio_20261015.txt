@@ -1,0 +1,15 @@
+# Aplicar una sola vez sobre HZ37; AD263/265 ya instaladas se omiten, nunca se reaplican.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000263_publicador_nominal_confianza_externa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000265_preflight_consumidores_externos_actuales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000277_justificante_bolsa_documental.up.sql
+deploy/postgresql/autorizacion/migraciones/000095_autorizacion_subida_documental_externa.up.sql
+deploy/postgresql/documentos/migraciones/000020_subida_documental_comun.up.sql
+deploy/postgresql/meritos/migraciones/000007_cartera_evidencias_subidas.up.sql
+# DBA: crear LOGIN documentales sin membresía, con SCRAM privado; ver guía de activación.
+deploy/postgresql/documentos/migraciones/000022_justificante_renuncia_bolsa.up.sql
+# DBA: conceder a cada LOGIN exclusivamente su grupo documental antes de B119.
+deploy/postgresql/bolsa_llamamientos/migraciones/000119_justificante_renuncia_documental.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000222_frontera_justificante_renuncia_bolsa.up.sql
+deploy/postgresql/autorizacion/migraciones/000099_autoridad_justificante_bolsa_externa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000281_despacho_documentos_bolsa_externa.up.sql
+deploy/postgresql/documentos/migraciones/000023_ambito_candidato_justificante_bolsa.up.sql

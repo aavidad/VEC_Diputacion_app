@@ -248,8 +248,12 @@
       "alta_seguridad_social": "Alta en la Seguridad Social",
       "matrimonio_union_hecho": "Matrimonio o unión de hecho"
     },
-    "justificante": "Justificante (el archivo no se envía)",
-    "justificanteRef": "Referencia del justificante",
+    "justificante": "Justificante en PDF",
+    "justificanteNoValido": "Elija un archivo PDF para justificar la renuncia.",
+    "justificanteDemasiadoGrande": "El PDF supera los 16 MiB. Elija un archivo más pequeño.",
+    "justificantePendiente": "Estamos comprobando el justificante. Reintente con el mismo archivo antes de confirmar la renuncia.",
+    "justificanteRechazado": "No se ha admitido el justificante. Vuelva a editar la renuncia y elija otro PDF.",
+    "justificanteSinConfirmar": "No se pudo confirmar la subida del justificante. Reintente con el mismo archivo; la renuncia aún no se ha enviado.",
     "revision": {"titulo": "Revise su renuncia", "aviso": "Compruebe su respuesta antes de registrarla.", "volver": "Volver a editar", "confirmar": "Confirmar renuncia", "reintentar": "Reintentar la misma renuncia", "nombreArchivo": "Archivo seleccionado", "archivoSeleccionado": "Archivo seleccionado"},
     "responder": "Enviar respuesta",
     "modo": {

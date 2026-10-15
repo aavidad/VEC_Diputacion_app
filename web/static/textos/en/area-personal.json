@@ -319,8 +319,12 @@
       "alta_seguridad_social": "Registered with Social Security",
       "matrimonio_union_hecho": "Marriage or civil partnership"
     },
-    "justificante": "Supporting document (the file is not sent)",
-    "justificanteRef": "Supporting document reference",
+    "justificante": "Supporting document in PDF",
+    "justificanteNoValido": "Choose a PDF file to support your refusal.",
+    "justificanteDemasiadoGrande": "The PDF exceeds 16 MiB. Choose a smaller file.",
+    "justificantePendiente": "We are checking your supporting document. Retry with the same file before confirming your refusal.",
+    "justificanteRechazado": "The supporting document was not accepted. Edit your refusal and choose another PDF.",
+    "justificanteSinConfirmar": "We could not confirm the upload. Retry with the same file; your refusal has not been sent yet.",
     "revision": {"titulo": "Review your decision to decline", "aviso": "Check your response before recording it.", "volver": "Edit response", "confirmar": "Confirm decision to decline", "reintentar": "Retry the same decision to decline", "nombreArchivo": "Selected file", "archivoSeleccionado": "File selected"},
     "responder": "Send response",
     "modo": {

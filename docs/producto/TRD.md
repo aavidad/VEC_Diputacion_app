@@ -299,6 +299,15 @@ cerrada (404 o 503) y, en pantalla, explica que no está disponible.
 - Lo que exija configuración o actos previos se prepara y se ensaya en una copia
   antes de subirlo, no a ciegas en la principal.
 
+El justificante de renuncia de Bolsa usa configuración privada propia. Si faltan
+su fichero, sus claves o su conexión documental, la ruta afectada responde 503
+y el proceso sigue atendiendo las demás funciones. El registro indica la etapa
+y una clase de causa segura, sin DSN, claves ni datos de personas. La
+configuración interna de RRHH `identidad/bolsa-justificantes-rrhh.json` contiene
+solo `version`, `superficie` y `dsn_documentos`: identifica la superficie y el
+LOGIN técnico, no fija a Carmen ni a otra persona como lectora. Cada consulta
+exige el permiso vigente de la técnica en su rol.
+
 Cronos comprueba su configuración y conexiones antes de añadir sus audiencias
 al gobierno común. Si falla una dependencia propia, cierra sus rutas con 503
 y conserva el montaje del resto de la aplicación. Su material se publica en
