@@ -279,6 +279,13 @@ selectores, conexiones, catálogos y ajustes). Al arrancar,
 `internal/app/bootstrap/selectores_dependencias_aviso.go` deja un aviso por cada
 dependencia que falte. Solo avisa: no detiene nada y nunca escribe valores.
 
+La consulta de auditoría de RRHH usa el catálogo operativo v2, tres conexiones
+de autoridad separadas y el consultor de CT existente. Su preflight comprueba
+la ausencia de permisos de Bolsa desde los catálogos de PostgreSQL, sin
+conceder acceso a ese esquema. La activación y los requisitos de las fuentes
+de motivos están en
+`deploy/principal/habilitacion_auditoria_rrhh_20261013.md` (F0-01, AD285).
+
 Selector y permiso son cosas distintas. El selector decide qué se compone; el
 permiso de cada persona se decide en cada petición. `VEC_PORTAL_MODULOS_VISIBLES`
 limita qué módulos ofrece el menú y tampoco concede acceso
