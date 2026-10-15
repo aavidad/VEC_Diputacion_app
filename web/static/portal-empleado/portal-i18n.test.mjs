@@ -968,6 +968,12 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     versionesEspeciales.set(ruta, "20261014-cronos-activacion-v1");
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js"])
     versionesEspeciales.set(ruta, "20261014-ginpix-cronos-v1");
+  // El justificante de Bolsa renueva estos importadores de la pantalla; el
+  // coordinador y los módulos de Contratación conservan su cohorte anterior.
+  for (const ruta of ["portal.js", "portal-panel-interno.js", "portal-bolsas-api.js",
+    "portal-bolsas-global.js", "portal-bolsas-ofertas.js",
+    "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-seguimiento.js"])
+    versionesEspeciales.set(ruta, "20261015-o-justificante-bolsa-v1");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
