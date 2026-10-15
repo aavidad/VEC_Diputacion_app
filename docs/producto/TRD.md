@@ -258,6 +258,22 @@ separada comprueba cada quince minutos y renueva antes de caducar, conservando
 las claves del portal ya arrancado. Orden de instalación
 y uso: `deploy/principal/confianza_externa_hz38.md`.
 
+### Vigencia del gobierno de Administración
+
+La herramienta `vec-gobierno-usuarios-admin` conserva 24 horas por defecto.
+Su JSON privado acepta `horas_validez_claves`; la variable
+`VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS` tiene prioridad. Producción admite de 1 a
+24 horas. Solo el perfil de desarrollo, con modo y reconocimiento explícitos,
+admite hasta 90 días; cidonia usa ese perfil con datos ficticios. Un perfil
+desconocido o un plazo fuera de rango cierra la operación antes de publicar.
+El verificador común mantiene 24 horas generales: el plazo largo exige las
+tres llaves y que todas las raíces tengan la audiencia exacta de CT de
+desarrollo. La recarga CT conserva la publicación vigente y no la acorta.
+La confianza y las claves nuevas no pueden rebasar la raíz existente. La
+ventana breve para aplicar cada plan no se amplía. AD282 ajusta los dos
+efectos de gobierno existentes; no añade permisos ni cambia publicaciones
+anteriores. Guion: `deploy/principal/vigencia_gobierno_admin_20261015.md`.
+
 ### Selectores `VEC_*_ENABLED`
 
 Cada capacidad que necesita algo más que el núcleo se enciende con un selector de
@@ -285,6 +301,19 @@ limita qué módulos ofrece el menú y tampoco concede acceso
 (`config/portal_modulos.go`). Alberto decidió el 25/09 que activar o desactivar
 un módulo se haga desde Administración, auditado. Ese interruptor aún no existe y
 hoy se usa la variable.
+
+La consulta de Organización histórica del proceso combinado se limita al perfil
+positivo de desarrollo; se construye con dependencias explícitas y una sesión
+propia para esa consulta, sin copiar la estructura de la sesión de Contratación.
+En producción, la autoridad procede de la cápsula del proceso `vec-interno`.
+El montaje de desarrollo se selecciona con
+`VEC_ORGANIZACION_HISTORICA_CONSULTA_ENABLED` y
+`VEC_ORGANIZACION_HISTORICA_MATERIAL_DIR`. Reutiliza el proveedor nominal del
+proceso interno y enlaza la sesión certificada de cada petición con su perfil,
+organismo y unidad. El selector de gobierno publica la capacidad; las
+concesiones siguen procediendo del gobierno de perfiles. Sin configuración de
+consulta válida, solo ese GET responde 503. El guion de la candidata está en
+`deploy/principal/organizacion_historica_combinado_20261015.md`.
 
 ### Regla: ninguna configuración nueva tumba el arranque
 

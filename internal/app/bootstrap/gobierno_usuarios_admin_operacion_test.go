@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/config"
 )
 
 // raizOperacionGobiernoUsuarios abre una carpeta 0700 propia fuera de Git.
@@ -39,9 +41,12 @@ func poolSinConexionGobiernoUsuarios(t *testing.T) *pgxpool.Pool {
 }
 
 func TestGobiernoUsuariosOperacionValidezFueraDeRango(t *testing.T) {
+	t.Setenv(config.EnvExecutionProfile, config.ExecutionProfileProduction)
+	t.Setenv(config.EnvAuthMode, config.AuthModeDisabled)
+	t.Setenv(config.EnvDevelopmentGuard, "")
 	r, _ := raizOperacionGobiernoUsuarios(t)
 	pool := poolSinConexionGobiernoUsuarios(t)
-	for _, v := range []time.Duration{0, 59 * time.Minute, 24*time.Hour + time.Second, -time.Hour} {
+	for _, v := range []time.Duration{59 * time.Minute, 24*time.Hour + time.Second, -time.Hour} {
 		origen := MaterialOrigenGobiernoUsuariosAdmin{DirectorioMaterial: "/x", RutaConfiguracionHMAC: "/y", ArchivoSemillaRaiz: "/z", ValidezClaves: v}
 		if _, err := PrepararGobiernoUsuariosAdmin(t.Context(), pool, origen, r, relojGobiernoUsuariosEnsayo{}); !errors.Is(err, ErrGobiernoUsuariosAdmin) {
 			t.Fatal("validez aceptada", v)
@@ -53,6 +58,80 @@ func TestGobiernoUsuariosOperacionValidezFueraDeRango(t *testing.T) {
 	}
 	if _, err := PrepararGobiernoUsuariosAdmin(t.Context(), pool, origen, nil, relojGobiernoUsuariosEnsayo{}); !errors.Is(err, ErrGobiernoUsuariosAdmin) {
 		t.Fatal("salida nula aceptada")
+	}
+}
+
+func TestGobiernoUsuariosOperacionConfianzaCubreClavesYRaiz(t *testing.T) {
+	now := time.Date(2026, 10, 15, 14, 30, 0, 0, time.UTC)
+	for _, v := range []time.Duration{time.Hour, 24 * time.Hour, 1440 * time.Hour, 2160 * time.Hour} {
+		expira, err := expiracionConfianzaGobiernoUsuarios(now, now.Add(2161*time.Hour), v)
+		if err != nil || expira.Before(now.Add(v)) || expira.After(now.Add(2161*time.Hour)) {
+			t.Fatalf("confianza no cubre clave y raíz: validez=%v expira=%v error=%v", v, expira, err)
+		}
+	}
+	if _, err := expiracionConfianzaGobiernoUsuarios(now, now.Add(2160*time.Hour-time.Microsecond), 2160*time.Hour); !errors.Is(err, ErrGobiernoUsuariosAdmin) {
+		t.Fatal("raíz corta aceptada")
+	}
+}
+
+func TestGobiernoUsuariosOperacionAplicarValidaMaterialPreparado(t *testing.T) {
+	now := time.Date(2026, 10, 15, 14, 30, 0, 0, time.UTC)
+	dev := config.Config{ExecutionProfile: config.ExecutionProfileDevelopment, AuthMode: config.AuthModeDevelopment, DevelopmentGuard: config.DevelopmentGuardAcknowledgement}
+	prod := config.Config{ExecutionProfile: config.ExecutionProfileProduction}
+	for _, tc := range []struct {
+		nombre   string
+		cfg      config.Config
+		clave    time.Duration
+		confia   time.Duration
+		invalida bool
+	}{
+		{"produccion_24", prod, 24 * time.Hour, 24 * time.Hour, false},
+		{"produccion_rechaza_60_dias", prod, 1440 * time.Hour, 1440 * time.Hour, true},
+		{"desarrollo_90_dias", dev, 2160 * time.Hour, 2160 * time.Hour, false},
+		{"desarrollo_rechaza_91_dias", dev, 2184 * time.Hour, 2184 * time.Hour, true},
+		{"replay_diario_24_horas", prod, 24 * time.Hour, 24 * time.Hour, false},
+	} {
+		t.Run(tc.nombre, func(t *testing.T) {
+			publicada := now
+			if tc.nombre == "replay_diario_24_horas" {
+				publicada = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+			}
+			material := ConfiguracionMaterialUsuariosAdmin{}
+			material.Gobierno.PublicadaEn, material.Gobierno.ExpiraEn = publicada, publicada.Add(tc.confia)
+			material.Entradas = []DescriptorClaveUsuariosAdmin{{ValidaHasta: now.Add(tc.clave)}}
+			plan := planGobiernoUsuariosAdmin{PreparadoEn: now}
+			plan.Configuracion.PublicadaEn, plan.Configuracion.ExpiraEn = material.Gobierno.PublicadaEn, material.Gobierno.ExpiraEn
+			err := validarVigenciaPreparadaGobiernoUsuarios(material, plan, tc.cfg)
+			if (err != nil) != tc.invalida {
+				t.Fatalf("validación de material: %v", err)
+			}
+		})
+	}
+	// Un cambio de perfil entre preparar y aplicar se detecta con los bytes
+	// preparados antes de reservar un acuse o conectar al operador.
+	t.Setenv(config.EnvExecutionProfile, config.ExecutionProfileProduction)
+	t.Setenv(config.EnvAuthMode, config.AuthModeDisabled)
+	t.Setenv(config.EnvDevelopmentGuard, "")
+	r, d := raizOperacionGobiernoUsuarios(t)
+	material := ConfiguracionMaterialUsuariosAdmin{}
+	material.Gobierno.PublicadaEn, material.Gobierno.ExpiraEn = now, now.Add(1440*time.Hour)
+	material.Entradas = []DescriptorClaveUsuariosAdmin{{ValidaHasta: now.Add(1440 * time.Hour)}}
+	plan := planGobiernoUsuariosAdmin{PreparadoEn: now}
+	plan.Configuracion.PublicadaEn, plan.Configuracion.ExpiraEn = material.Gobierno.PublicadaEn, material.Gobierno.ExpiraEn
+	for _, entrada := range []struct {
+		nombre string
+		valor  any
+	}{{ArchivoConfiguracionGobiernoUsuarios, material}, {ArchivoPlanGobiernoUsuarios, plan}} {
+		b, err := json.Marshal(entrada.valor)
+		if err != nil || escribirPrivadoGobiernoUsuarios(r, entrada.nombre, b) != nil {
+			t.Fatal("preparación sintética")
+		}
+	}
+	if _, err := AplicarGobiernoUsuariosAdminPreparado(t.Context(), poolSinConexionGobiernoUsuarios(t), r, "acuse-guardia.json", relojGobiernoUsuariosEnsayo{}); !errors.Is(err, ErrGobiernoUsuariosAdmin) {
+		t.Fatal("material de 60 días aceptado en producción")
+	}
+	if _, err := os.Lstat(filepath.Join(d, "acuse-guardia.json")); !os.IsNotExist(err) {
+		t.Fatal("se reservó acuse antes de rechazar vigencia")
 	}
 }
 

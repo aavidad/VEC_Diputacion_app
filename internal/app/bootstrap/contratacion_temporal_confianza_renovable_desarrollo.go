@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/composicion/gobiernov3lector"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
@@ -172,12 +173,9 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) estadoVigencia() (time.Time, bool
 	return ahora, !ahora.Before(f.material.expiraEn), true
 }
 
-// Renovación programada. La configuración vence a medianoche UTC y el
-// protocolo existente sólo admite publicar la del día en curso: el puntero se
-// establece en `publicadaEn` y la lectura exige `establecida_en <= ahora`, así
-// que la del día siguiente no puede adelantarse sin otra vía de publicación.
-// El temporizador despierta en el vencimiento, el primer instante en que la
-// renovación es admisible, y reutiliza `instantanea`: misma transacción,
+// Renovación programada. El temporizador despierta al vencer la configuración
+// adoptada, sea diaria o publicada por ADMIN con plazo propio, y reutiliza
+// `instantanea`: misma transacción,
 // mismo cerrojo consultivo y misma adopción idempotente que el disparo por
 // uso, que se conserva. Así la continuidad no depende de tráfico CT (ni del
 // lector de vec-interno, que no publica).
@@ -306,11 +304,14 @@ func renovarConfiguracionConfianzaCTEnTxDesarrollo(ctx context.Context, tx pgx.T
 		return err
 	}
 	dia := time.Date(ahora.UTC().Year(), ahora.UTC().Month(), ahora.UTC().Day(), 0, 0, 0, 0, time.UTC)
-	if actual.publicadaEn.Equal(dia) && actual.expiraEn.Equal(dia.Add(24*time.Hour)) {
+	if actual.expiraEn.After(ahora) {
 		*siguiente = actual
 		return nil
 	}
-	if actual.expiraEn.After(dia) {
+	// La renovación automática solo pertenece al publicador diario original.
+	// Una publicación ADMIN vencida exige otro acto técnico aprobado.
+	admin, err := publicacionAdministrativaCTDesarrollo(ctx, tx, actual.configuracionRef)
+	if err != nil || admin || !publicacionDiariaCTDesarrollo(actual.publicadaEn, actual.expiraEn) {
 		return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	siguiente.publicadaEn = dia
@@ -358,6 +359,37 @@ func leerConfiguracionRenovableCTDesarrollo(ctx context.Context, tx pgx.Tx, ante
 // del checkpoint, que solo hace falta al publicar (renovación).
 func leerConfiguracionVigenteCTDesarrollo(ctx context.Context, tx pgx.Tx, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
 	return leerConfiguracionGobiernoCTDesarrollo(ctx, tx, anterior, ahora, false)
+}
+
+func publicacionDiariaCTDesarrollo(publicada, expira time.Time) bool {
+	dia := time.Date(publicada.Year(), publicada.Month(), publicada.Day(), 0, 0, 0, 0, time.UTC)
+	return publicada.Equal(dia) && expira.Equal(dia.Add(24*time.Hour))
+}
+
+// El acto_ref de AD188/AD282 coincide con el del publicador diario. Solo el
+// asiento durable de su operación nominal acredita el origen ADMIN, incluso
+// cuando la vigencia es exactamente un día desde medianoche UTC.
+func publicacionAdministrativaCTDesarrollo(ctx context.Context, tx pgx.Tx, revision string) (bool, error) {
+	var admin bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS (
+	 SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a
+	 WHERE a.tipo_registro='gobierno_usuarios_admin'
+	   AND a.gobierno_usuarios_detalle->>'configuracion_destino_ref'=$1)`, revision).Scan(&admin)
+	return admin, err
+}
+
+// El lector admite la publicación diaria antigua y la publicación ADMIN
+// vigente con plazo propio. El consumidor sigue exigiendo vigencia al usarla.
+func vigenciaPublicadaCTDesarrolloValida(publicada, expira, raizHasta, ahora time.Time) bool {
+	if publicada.After(ahora) || !expira.After(publicada) || expira.After(raizHasta) {
+		return false
+	}
+	if publicacionDiariaCTDesarrollo(publicada, expira) {
+		return true
+	}
+	entorno := config.EntornoGobiernoAdmin()
+	return entorno.DevelopmentEnabledByDoubleKey() &&
+		entorno.ValidarValidezGobiernoAdmin(expira.Sub(publicada)) == nil
 }
 
 func leerConfiguracionGobiernoCTDesarrollo(ctx context.Context, tx pgx.Tx, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time, bloquear bool) (materialAtestacionContratacionTemporalDesarrollo, error) {
@@ -422,9 +454,14 @@ func leerConfiguracionGobiernoCTDesarrollo(ctx context.Context, tx pgx.Tx, anter
 	}
 	actual.publicadaEn = actual.publicadaEn.UTC()
 	actual.expiraEn = actual.expiraEn.UTC()
-	dia := time.Date(actual.publicadaEn.Year(), actual.publicadaEn.Month(), actual.publicadaEn.Day(), 0, 0, 0, 0, time.UTC)
-	if !actual.publicadaEn.Equal(dia) || !actual.expiraEn.Equal(dia.Add(24*time.Hour)) {
-		return vacia, fallo("dia_de_publicacion", nil)
+	if !vigenciaPublicadaCTDesarrolloValida(actual.publicadaEn, actual.expiraEn, actual.validaHasta, ahora) {
+		return vacia, fallo("vigencia_publicacion", nil)
+	}
+	if !publicacionDiariaCTDesarrollo(actual.publicadaEn, actual.expiraEn) {
+		admin, err := publicacionAdministrativaCTDesarrollo(ctx, tx, actual.configuracionRef)
+		if err != nil || !admin {
+			return vacia, fallo("origen_publicacion", err)
+		}
 	}
 	actual.configuracionOrden = uint64(secuencia)
 	actual.configuracion, err = confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(actual.configuracionRef, actual.configuracionOrden, actual.publicadaEn, actual.expiraEn, actual.raiz)
