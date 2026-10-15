@@ -11,6 +11,7 @@ import (
 	"time"
 
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
@@ -195,6 +196,54 @@ func cuerpoActualizacionBorradorPrueba() string {
 		`"requisitos":[],"ayuda":[]},` +
 		`"motivo_ref":"motivos_rrhh:actualizar_borrador","motivo_version":1,` +
 		`"motivo_huella_sha256":"` + strings.Repeat("9", 64) + `"}}`
+}
+
+func TestModalidadInscripcionEntradaYDetalleBorrador(t *testing.T) {
+	for _, modalidad := range []dominiobolsa.ModalidadInscripcionConvocatoria{
+		"", dominiobolsa.ModalidadInscripcionSeparada, dominiobolsa.ModalidadInscripcionConjunta,
+	} {
+		t.Run(string(modalidad), func(t *testing.T) {
+			cuerpo := strings.Replace(cuerpoAltaBorradorPrueba(), `"tipo":"bolsa",`,
+				`"tipo":"bolsa","modalidad_inscripcion":"`+string(modalidad)+`",`, 1)
+			solicitud, err := solicitudAltaDesdePeticion(httptest.NewRecorder(),
+				peticionMutacionBorrador(http.MethodPost, RutaBorradores, cuerpo))
+			if err != nil || solicitud.Contenido.ModalidadInscripcion != modalidad {
+				t.Fatalf("entrada de modalidad perdida: %+v, %v", solicitud.Contenido, err)
+			}
+			actualizacion := strings.Replace(cuerpoActualizacionBorradorPrueba(), `"tipo":"bolsa",`,
+				`"tipo":"bolsa","modalidad_inscripcion":"`+string(modalidad)+`",`, 1)
+			peticion := peticionMutacionBorrador(http.MethodPut,
+				RutaBorradores+"/proceso%3Abolsa%3Aauxiliar-2026/versiones/1", actualizacion)
+			peticion.Header.Set("If-Match", `"vec-borrador-v1.r3.sha256-`+strings.Repeat("a", 64)+`"`)
+			selector := puertosbolsa.SelectorVersionConvocatoriaExacta{ID: "proceso:bolsa:auxiliar-2026", Secuencia: 1}
+			cambio, err := solicitudActualizacionDesdePeticion(httptest.NewRecorder(), peticion, selector)
+			if err != nil || cambio.Contenido.ModalidadInscripcion != modalidad {
+				t.Fatalf("actualización de modalidad perdida: %+v, %v", cambio.Contenido, err)
+			}
+			detalle := detalleHTTPBorradorPrueba(t)
+			detalle.Contenido.ModalidadInscripcion = modalidad
+			respuesta, _, err := nuevaRespuestaDetalleBorrador(detalle, selector)
+			if err != nil || respuesta.Data.ContenidoEditable.ModalidadInscripcion != modalidad {
+				t.Fatalf("detalle de modalidad perdido: %+v, %v", respuesta.Data.ContenidoEditable, err)
+			}
+			bytes, err := json.Marshal(respuesta)
+			if err != nil {
+				t.Fatal(err)
+			}
+			presente := strings.Contains(string(bytes), `"modalidad_inscripcion"`)
+			if presente != (modalidad != "") {
+				t.Fatalf("histórico sin modalidad no conserva contrato: %s", bytes)
+			}
+		})
+	}
+	for _, invalida := range []string{"individual", "SEPARADA", " separada "} {
+		cuerpo := strings.Replace(cuerpoAltaBorradorPrueba(), `"tipo":"bolsa",`,
+			`"tipo":"bolsa","modalidad_inscripcion":"`+invalida+`",`, 1)
+		if _, err := solicitudAltaDesdePeticion(httptest.NewRecorder(),
+			peticionMutacionBorrador(http.MethodPost, RutaBorradores, cuerpo)); !errors.Is(err, errEntradaBorradorInvalida) {
+			t.Fatalf("aceptó modalidad no prevista %q: %v", invalida, err)
+		}
+	}
 }
 
 func peticionMutacionBorrador(

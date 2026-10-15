@@ -13,8 +13,30 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
+
+func TestDetalleBorradorConservaModalidadElegidaYLegado(t *testing.T) {
+	for _, modalidad := range []dominiobolsa.ModalidadInscripcionConvocatoria{
+		"", dominiobolsa.ModalidadInscripcionSeparada, dominiobolsa.ModalidadInscripcionConjunta,
+	} {
+		version := versionConsultaConvocatoriaPostgreSQLPrueba(t)
+		version.Contenido.ModalidadInscripcion = modalidad
+		version, err := version.ClonarCanonico()
+		if err != nil {
+			t.Fatal(err)
+		}
+		estado, err := puertosbolsa.EstadoVersionConvocatoria(version)
+		if err != nil {
+			t.Fatal(err)
+		}
+		detalle, err := detalleBorrador(version, estado)
+		if err != nil || detalle.Contenido.ModalidadInscripcion != modalidad {
+			t.Fatalf("modalidad %q perdida al leer detalle: %+v, %v", modalidad, detalle.Contenido, err)
+		}
+	}
+}
 
 func TestLecturaPostgreSQLConfirmaAntesDelKMSYNoRetieneTransaccion(t *testing.T) {
 	fila := filaCifradaLecturaPostgreSQLPrueba(t)

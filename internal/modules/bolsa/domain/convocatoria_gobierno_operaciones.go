@@ -116,6 +116,7 @@ func (v VersionConvocatoriaGobernada) publicar(
 	motivo = strings.TrimSpace(motivo)
 	fecha := instanteConvocatoriaCanonico(instante)
 	if v.Validar() != nil || v.EstadoGobierno != EstadoGobiernoConvocatoriaBorrador ||
+		!v.Contenido.ModalidadInscripcion.ValidaParaPublicar() ||
 		!referenciaOpacaValida(actorID) || actorID == v.CreadaPor || actorID == v.UltimaModificacionPor ||
 		!textoConvocatoriaValido(motivo, 8000, true) || fecha.IsZero() || fecha.Before(v.ultimaFechaGobierno()) {
 		return VersionConvocatoriaGobernada{}, ErrTransicionGobiernoConvocatoria
