@@ -45,8 +45,13 @@ AD284 corrige el consumo de la confianza externa y AUT100 la sesión nominal.
 D24 conserva el límite de 256 caracteres mediante una validación compatible
 con PostgreSQL. D25 usa la candidatura como ámbito de la huella de preparación,
 manteniendo a Persona como principal y titular. B123 desambigua la clave primaria
-de esa preparación y conserva la recuperación de la misma operación. Ambos van
-al final de la lista, después de D24, y se instalan una sola vez.
+de esa preparación y conserva la recuperación de la misma operación. D25 y B123 van
+después de D24, y se instalan una sola vez.
+B124 y D26 alinean la lectura con el ámbito técnico; B125 cierra las dos
+lecturas preliminares al LOGIN de Bolsa. D27 exige una autorización documental
+vigente antes de consultar la relación, y coteja el ámbito real en la misma
+transacción. Se instala la lista completa antes de habilitar la lectura; las
+versiones intermedias no constituyen una candidata de activación.
 El formulario envía el PDF por POST idempotente; al reintentar
 conserva el mismo archivo y la misma clave. Solo registra la renuncia después
 de recibir un documento admitido.
@@ -103,6 +108,21 @@ añade la acción específica para consultar o descargar el justificante. No se
 insertan ni modifican directamente filas de datos, asignaciones o permisos.
 Los datos ficticios necesarios para el recorrido se preparan con la semilla o
 el guion privado de datos, fuera de esta activación.
+
+La fuente `deploy/principal/fuentes/bolsa_justificantes_renuncia_rrhh_v2.json`
+publica la versión 2 de la acción de descarga de RRHH. Conserva su nombre y sus
+campos, con las dimensiones `unidad_ref` y `ambito_ref` del rol técnico. La
+primera fuente se conserva para las acciones propias del aspirante. Se publica
+la nueva entrada y la versión correspondiente del rol mediante los actos de
+Administración existentes; no se cambia el puntero del perfil de Carmen ni se
+crea un perfil documental por persona.
+
+Bolsa comprueba la bolsa y la participación como atributos del recurso. La
+preparación obtiene una propuesta de ámbito de la asignación nominal vigente,
+consume su propia autorización y solo devuelve datos tras cotejar la relación
+real. Una discrepancia revierte la transacción. Las decisiones posteriores de
+lectura y entrega repiten esa preparación y comprueban documento y ámbito. Una
+técnica de otro ámbito recibe una denegación, sin conocer si existe el PDF.
 
 ## Ensayo de la candidata completa
 

@@ -552,6 +552,12 @@ cuantificadores incompatibles con PostgreSQL. D25 alinea la huella de preparaci�
 con el ámbito de la candidatura y conserva a Persona como principal y titular.
 B123 identifica la clave primaria al recuperar una preparación para evitar una
 colisión con el nombre de salida de la función; conserva su idempotencia y ACL.
+B124 y D26 incorporan el ámbito técnico de la descarga. B125 revoca las
+lecturas preliminares al ejecutor de Bolsa; D27 consume V3 antes de consultar
+la relación sensible y coteja las huellas contra el ámbito real en la misma
+transacción. El rol técnico mantiene `unidad_ref` y `ambito_ref`; la bolsa y
+la participación se cotejan como atributos. La entrada RRHH de la fuente v2
+conserva el nombre de la acción y la fuente v1 permanece en la historia.
 La PR recoge las revisiones y el
 ensayo de la cadena en una copia de la principal; la guía `deploy/principal/justificante_renuncia_activacion.md`
 fija el orden de activación. La lectura y descarga pertenecen a cualquier

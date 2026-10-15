@@ -80,7 +80,8 @@ antivirus. Esta función está pendiente de activación y comprobación conjunta
 En «Bolsas», el técnico tiene un resumen con cuántas personas hay disponibles, en renuncia y en cada situación, y al pulsar cada cifra sale la lista. Desde ahí abre la ficha de cada candidato, revisa solicitudes, méritos y alegaciones, consulta los llamamientos y cambia las reglas de cada bolsa.
 
 En la ficha del candidato, Carmen o cualquier otra técnica de RRHH con el permiso
-vigente de su rol puede consultar y descargar el justificante de una renuncia.
+vigente de su rol puede consultar y descargar el justificante de una renuncia
+en las bolsas que tiene autorizadas.
 La actuación figura también en el seguimiento y la consulta queda auditada.
 
 ## 5. Un contrato temporal, paso a paso

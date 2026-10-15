@@ -515,7 +515,8 @@ real, falta acreditar el recorrido.
    revisión» hasta que RRHH la confirme.
 
 La técnica de RRHH que tenga el permiso vigente de su rol, sea Carmen u otra,
-consulta y descarga el justificante desde la ficha del candidato. El seguimiento
+consulta y descarga el justificante desde la ficha del candidato en las bolsas
+de su ámbito. Una técnica de otro ámbito recibe una denegación. El seguimiento
 también muestra la actuación. Un reintento conserva el mismo PDF y la misma
 clave; una subida pendiente o rechazada no registra la renuncia. El área de la aspirante no ofrece la descarga de
 su propio PDF después de presentarlo: debe conservar el original y el recibo.
