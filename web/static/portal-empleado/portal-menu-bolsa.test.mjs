@@ -425,15 +425,123 @@ test("la navegación directa a una vista de Bolsa sin servicio no se permite", a
   assert.equal(vistaBolsaOfrecida("desconocida", { panelInterno: true }), false);
 });
 
-test("el llamamiento con bolsa elegida no pinta el aviso del panel interno", () => {
+test("el llamamiento conserva B7 y monta gestión de ofertas solo tras elegir bolsa vigente", () => {
   const inicio = codigoPortal.indexOf("function montarVistaBolsa(");
   const fin = codigoPortal.indexOf("function actualizarVistaBolsa(", inicio);
   const montaje = codigoPortal.slice(inicio, fin);
   assert.ok(inicio > 0 && fin > inicio);
   assert.doesNotMatch(montaje, /renderizarFuenteNoDisponible\(\)\}\$\{superficieBorradorLlamamiento/u);
   assert.match(montaje, /renderizarPantallaLlamamientos\(\{ estado, encabezadoVista, escaparHTML, presentador: presentadorPanelInterno \}\)/u);
+  assert.match(montaje, /estado\.llamamientoDesdeMenu \? estado\.bolsaSeleccionada/u);
+  assert.match(montaje, /superficieRRHHPlazos\.instalar\(document\)/u);
+  assert.match(montaje, /superficieRRHHPlazos\.activar\(bolsaRef\)/u);
+  assert.match(montaje, /superficieOfertasBolsa\.activar\(bolsaRef\)/u);
+  assert.match(montaje, /superficieRRHHPlazos\.renderizar\(\)/u);
+  assert.match(montaje, /superficieOfertasBolsa\.renderizar\(\)/u);
+  assert.match(montaje, /data-gestion-ofertas-accion="volver"/u);
+  assert.match(montaje, /data-gestion-ofertas-accion="abrir"/u);
+  assert.match(montaje, /bolsasVigentesParaLlamamiento\(estado\.datosBolsas\)/u);
+  assert.match(montaje, /data-gestion-ofertas-aviso/u);
+  assert.match(codigoPortal, /function salidaGestionOfertasBloqueada\(\)/u);
+  assert.match(codigoPortal, /if \(salidaGestionOfertasBloqueada\(\)\) \{/u);
+  assert.match(codigoPortal, /history\.pushState\(\{ \.\.\.estadoAnterior, vecOfertas: \{ id: marcaHistorialGestionOfertas, lado: "gestion" \} \}, "", rutaVisibleGestionOfertasBolsa\)/u);
+  assert.match(codigoPortal, /rutaOfertasSolicitadaRef = vista === "llamamientos"/u);
+  assert.match(codigoPortal, /history\.go\(haciaAtras \|\| !marcaHistorialGestionOfertas \? 1 : -1\)/u);
+  assert.match(montaje, /rutaOfertasSolicitadaRef \|\| new URLSearchParams\(window\.location\.search\)/u);
+  assert.match(montaje, /asegurarHistorialGestionOfertas\(\)/u);
+  assert.match(codigoPortal, /history\.replaceState\(\{ \.\.\.anterior, vecOfertas: \{ id: marcaHistorialGestionOfertas, lado: "origen" \} \}, "", rutaGestionOfertasBolsa\(\)\)/u);
+  assert.match(codigoPortal, /history\.pushState\(\{ \.\.\.anterior, vecOfertas: \{ id: marcaHistorialGestionOfertas, lado: "gestion" \} \}, "", rutaVisibleGestionOfertasBolsa\)/u);
   assert.doesNotMatch(montaje, /superficieBorradorLlamamiento\.renderizar/u);
   assert.match(codigoPortal, /if \(moduloDeVistaPortal\(vista\) === "bolsa"\) return vistaBolsaNavegable\(vista, capacidadesBolsa\(\)\)/u);
+});
+
+test("Atrás durante un envío incierto vuelve a gestión sin sustituir la entrada del llamamiento", () => {
+  const inicio = codigoPortal.indexOf("function compensarHistorialGestionOfertas() {");
+  const fin = codigoPortal.indexOf("\nfunction actualizarSalidaGestionOfertasBolsa()", inicio);
+  assert.ok(inicio > 0 && fin > inicio);
+  const compensador = codigoPortal.slice(inicio, fin);
+  const origen = "/portal-empleado/#bolsa/llamamientos";
+  const gestion = "/portal-empleado/?ofertas_bolsa_ref=bolsa%3A1#bolsa/llamamientos";
+  const entradas = [
+    { ruta: origen, state: { vecOfertas: { id: "intento-1", lado: "origen" } } },
+    { ruta: gestion, state: { vecOfertas: { id: "intento-1", lado: "gestion" } } },
+  ];
+  let indice = 1;
+  const ventana = { location: {} };
+  const situar = () => {
+    const url = new URL(entradas[indice].ruta, "https://vec.example");
+    ventana.location = { pathname: url.pathname, search: url.search, hash: url.hash };
+  };
+  situar();
+  const historial = { get state() { return entradas[indice].state; }, go(desplazamiento) { indice += desplazamiento; situar(); } };
+  const crear = new Function("window", "history", "anunciarSalidaGestionOfertas", `
+    let rutaVisibleGestionOfertasBolsa = ${JSON.stringify(gestion)};
+    let marcaHistorialGestionOfertas = "intento-1";
+    let compensandoHistorialGestionOfertas = false;
+    ${compensador}
+    return compensarHistorialGestionOfertas;
+  `);
+  const compensar = crear(ventana, historial, () => {});
+  historial.go(-1); // Atrás mientras el POST no tiene resultado confirmado.
+  compensar();
+  compensar(); // popstate de la compensación: no vuelve a desplazarse.
+  assert.equal(indice, 1);
+  assert.deepEqual(entradas.map((entrada) => entrada.ruta), [origen, gestion]);
+  historial.go(-1); // Tras confirmar el reintento, Atrás sigue llevando al llamamiento.
+  assert.equal(ventana.location.hash, "#bolsa/llamamientos");
+  assert.equal(ventana.location.search, "");
+  historial.go(1); // Adelante recupera la subvista de gestión.
+  assert.equal(ventana.location.search, "?ofertas_bolsa_ref=bolsa%3A1");
+});
+
+test("enlace directo crea A/B y Forward incierto vuelve a B sin destruir C", () => {
+  const inicioAsegurar = codigoPortal.indexOf("function asegurarHistorialGestionOfertas() {");
+  const finAsegurar = codigoPortal.indexOf("\nfunction cerrarGestionOfertasBolsa()", inicioAsegurar);
+  const inicioCompensar = codigoPortal.indexOf("function compensarHistorialGestionOfertas() {");
+  const finCompensar = codigoPortal.indexOf("\nfunction actualizarSalidaGestionOfertasBolsa()", inicioCompensar);
+  assert.ok(inicioAsegurar > 0 && finAsegurar > inicioAsegurar && inicioCompensar > 0 && finCompensar > inicioCompensar);
+  const origen = "/portal-empleado/#bolsa/llamamientos";
+  const gestion = "/portal-empleado/?ofertas_bolsa_ref=bolsa%3A1#bolsa/llamamientos";
+  const destino = "/portal-empleado/#portal";
+  const entradas = [{ ruta: gestion, state: null }];
+  let indice = 0;
+  const ventana = { location: {} };
+  const situar = () => {
+    const url = new URL(entradas[indice].ruta, "https://vec.example");
+    ventana.location = { pathname: url.pathname, search: url.search, hash: url.hash };
+  };
+  situar();
+  const historial = {
+    get state() { return entradas[indice].state; },
+    replaceState(state, _titulo, ruta) { entradas[indice] = { state, ruta }; situar(); },
+    pushState(state, _titulo, ruta) { entradas.splice(indice + 1); entradas.push({ state, ruta }); indice++; situar(); },
+    go(desplazamiento) { indice += desplazamiento; situar(); },
+  };
+  const crear = new Function("window", "history", "globalThis", "anunciarSalidaGestionOfertas", `
+    let rutaVisibleGestionOfertasBolsa = ${JSON.stringify(gestion)};
+    let marcaHistorialGestionOfertas = "";
+    let compensandoHistorialGestionOfertas = false;
+    function rutaGestionOfertasBolsa() { return ${JSON.stringify(origen)}; }
+    ${codigoPortal.slice(inicioAsegurar, finAsegurar)}
+    ${codigoPortal.slice(inicioCompensar, finCompensar)}
+    return { asegurarHistorialGestionOfertas, compensarHistorialGestionOfertas };
+  `);
+  const control = crear(ventana, historial, { crypto: { randomUUID: () => "enlace-1" } }, () => {});
+  control.asegurarHistorialGestionOfertas();
+  assert.deepEqual(entradas.map((entrada) => entrada.ruta), [origen, gestion]);
+  historial.pushState(null, "", destino);
+  historial.go(-1); // Volver a B desde C conserva la marca.
+  control.asegurarHistorialGestionOfertas();
+  assert.equal(entradas.length, 3);
+  historial.go(1); // Forward incierto intenta salir hacia C.
+  control.compensarHistorialGestionOfertas();
+  control.compensarHistorialGestionOfertas();
+  assert.equal(indice, 1);
+  assert.deepEqual(entradas.map((entrada) => entrada.ruta), [origen, gestion, destino]);
+  historial.go(-1); // Tras resolver, Atrás llega a A.
+  assert.equal(entradas[indice].ruta, origen);
+  historial.go(1); // Adelante recupera B.
+  assert.equal(entradas[indice].ruta, gestion);
 });
 
 

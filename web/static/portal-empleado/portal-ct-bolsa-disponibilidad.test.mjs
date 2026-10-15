@@ -65,6 +65,10 @@ const inicioVistaPermitida = finCapacidades;
 const finVistaPermitida = fuente.indexOf("function etiquetaFuentePanel()", inicioVistaPermitida);
 const inicioEnlaces = fuente.indexOf("function instalarEnlacesBolsa()");
 const finEnlaces = fuente.indexOf("function instalarEventosAuditoriaBolsa()", inicioEnlaces);
+const inicioBusquedaOfertas = fuente.indexOf("function busquedaSinGestionOfertasBolsa()");
+const finBusquedaOfertas = fuente.indexOf("function rutaGestionOfertasBolsa(", inicioBusquedaOfertas);
+const inicioGuardaOfertas = fuente.indexOf("function salidaGestionOfertasBloqueada()");
+const finGuardaOfertas = fuente.indexOf("function anunciarSalidaGestionOfertas()", inicioGuardaOfertas);
 assert.ok(inicioNavegar > 0 && finNavegar > inicioNavegar && inicioEnlaces > 0 && finEnlaces > inicioEnlaces);
 assert.ok(inicioAplicarRuta > 0 && finAplicarRuta > inicioAplicarRuta);
 assert.ok(inicioCapacidades > 0 && finCapacidades > inicioCapacidades && finVistaPermitida > inicioVistaPermitida);
@@ -95,6 +99,8 @@ function navegadorFichaCT({ bolsaRef = "bolsa:auxiliar", origenRef = "expediente
       replaceState(_estado, _titulo, ruta) { contextoVM.window.location = new URL(ruta, contextoVM.window.location); } },
     estado: { vista: "contratacion-temporal", datosBolsas: null, filtrosBolsa: {}, datosCandidatos: null },
     contextoBolsaCT: contexto, rutasBolsa: null, controladorBolsas: null, rutaCandidatosAplicada: null,
+    modoGestionOfertasBolsa: "", superficieOfertasBolsa: null, rutaOfertasSolicitadaRef: "",
+    CLAVE_RUTA_GESTION_OFERTAS: "ofertas_bolsa_ref", URLSearchParams,
     generacionCuadroBolsas: 0, cicloLecturaBolsas: 0,
     TITULOS: { "bolsa-candidatos": ["", "Candidatos"], llamamientos: ["", "Llamamientos"] },
     VISTA_PLANTILLAS_RRHH: "plantillas-rrhh", vistaBolsaPendienteNoCompuesta: () => false,
@@ -119,7 +125,7 @@ function navegadorFichaCT({ bolsaRef = "bolsa:auxiliar", origenRef = "expediente
     aplicarRutaCandidatosBolsa: () => { llamadas.aplicar++; return false; },
     esPerfilRRHH: () => false,
   };
-  runInNewContext(`${fuente.slice(inicioCapacidades, finCapacidades)}\n${fuente.slice(inicioVistaPermitida, finVistaPermitida)}\n${fuente.slice(inicioNavegar, finNavegar)}\n${fuente.slice(inicioEnlaces, finEnlaces)}\ninstalarEnlacesBolsa();`, contextoVM);
+  runInNewContext(`${fuente.slice(inicioCapacidades, finCapacidades)}\n${fuente.slice(inicioVistaPermitida, finVistaPermitida)}\n${fuente.slice(inicioBusquedaOfertas, finBusquedaOfertas)}\n${fuente.slice(inicioGuardaOfertas, finGuardaOfertas)}\n${fuente.slice(inicioNavegar, finNavegar)}\n${fuente.slice(inicioEnlaces, finEnlaces)}\ninstalarEnlacesBolsa();`, contextoVM);
   const click = async () => listeners.get("click")({ target: control, button: 0,
     stopImmediatePropagation() { llamadas.clicks++; }, preventDefault() {} });
   return { click, control, contextoVM, llamadas, bolsa };

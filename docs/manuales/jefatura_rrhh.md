@@ -117,7 +117,7 @@ La persona tiene dos días desde el aviso para contestar. Responde desde Mi Bols
 
 Las llamadas de teléfono también se anotan, con su resultado. Si la persona contesta al teléfono, el plazo empieza a contar igual que con el correo.
 
-**Pendiente de confirmar:** el Reglamento de bolsas (artículo 8.1) dice que el puesto se publica en el portal web de la Diputación y que el plazo de dos días cuenta desde la publicación. El 2 de octubre se decidió avisar por correo y contar el plazo desde el aviso. Falta que RRHH y Secretaría lo confirmen. Mientras no haya programa para publicar, el Reglamento manda usar el llamamiento directo (disposición transitoria única).
+La política de cada bolsa permite contar el plazo desde la publicación efectiva de la oferta en VEC, conforme al artículo 8.1.a y b del Reglamento de bolsas (BOP de 16 de enero de 2026), o desde el correo declarado por RRHH. La fuente nueva de reglas propone publicación; una política vigente conserva su valor. La duda 153 sobre el correo sigue abierta. Un aviso pendiente de envío no abre el plazo.
 
 ### Paso 8. Propuesta, resolución y documentos
 
@@ -173,7 +173,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. | Activar y comprobar juntos la subida del PDF, su recibo, el antivirus y la descarga desde la ficha del candidato. | El aspirante aporta el justificante desde Mi Bolsa y RRHH lo consulta con su permiso. |
 | A quién se ofrece un puesto | VEC sigue el orden de la bolsa y salta a quien no está disponible. | Ofrecer otro puesto a quien ya trabaja con nosotros y tener en cuenta los tipos de contrato que acepta cada persona. Necesitamos la regla de RRHH. | VEC elige a quién ofrecer según la situación, el tipo de contrato y las reglas que fije RRHH, y RRHH ve por qué se salta a cada persona. |
 | Aviso de la oferta | Correo con plantilla desde un buzón de pruebas. Llamadas anotadas. | El correo de la Diputación, que depende de Informática. | Correo oficial y, cuando Informática dé un proveedor, también SMS. |
-| Ofertas de varias plazas | Bolsa ya sabe adjudicar varias plazas por orden. | Que el expediente las use: hoy llama de una en una. | Una petición de varias personas se cubre con una sola oferta. |
+| Ofertas de varias plazas | Desde una bolsa seleccionada, RRHH abre «Gestionar ofertas», configura el inicio del plazo y publica la oferta. Bolsa adjudica las plazas por orden y conserva el recibo al reintentar. | Conectar la selección del expediente, su vínculo y la guarda de cancelación. Después, retirar la oferta al cancelar y enviar el aviso por correo de la Diputación. | Una petición de varias personas se cubre con una sola oferta. |
 | Petición del centro | Se presenta y la ratifica otra persona del centro. | RRHH pidió que la petición vaya firmada por el técnico y por el Diputado o Diputada. | Petición firmada desde VEC. |
 | Tramitación del expediente | Análisis, crédito, vía de cobertura, unidad, informe e Intervención. | Decidir con RRHH si el ofrecimiento va antes o después de Intervención. | El orden de las fases que fije RRHH, que se puede cambiar por configuración. |
 | Documentos | Borradores en PDF y Word con el logotipo y los datos del expediente. | Las plantillas definitivas de RRHH. | Documentos con las plantillas oficiales, listos para firmar. |

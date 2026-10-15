@@ -12,11 +12,14 @@ const opciones = (estadoBolsas) => ({
 test("la selección muestra solo bolsas vigentes de la lectura real y conserva la referencia", () => {
   const estado = { carga: "listo", datos: { bolsas: [
     { bolsa_ref: "bolsa:vigente", categoria: "Administración", vigente_hasta: null },
+    { bolsa_ref: "bolsa:con-fecha", categoria: "Con fecha", vigente_hasta: "2099-12-31" },
     { bolsa_ref: "bolsa:antigua", categoria: "Antigua", vigente_hasta: "2026-09-01" },
   ] } };
-  assert.deepEqual(bolsasVigentesParaLlamamiento(estado).map((bolsa) => bolsa.bolsa_ref), ["bolsa:vigente"]);
+  assert.deepEqual(bolsasVigentesParaLlamamiento(estado, new Date("2026-10-15T10:00:00Z")).map((bolsa) => bolsa.bolsa_ref),
+    ["bolsa:vigente", "bolsa:con-fecha"]);
   const html = renderizarSelectorLlamamientos(opciones(estado));
   assert.match(html, /data-elegir-bolsa-llamamiento="bolsa:vigente"/);
+  assert.match(html, /data-elegir-bolsa-llamamiento="bolsa:con-fecha"/);
   assert.doesNotMatch(html, /bolsa:antigua/);
   assert.doesNotMatch(html, /#bolsa\/resumen/);
 });

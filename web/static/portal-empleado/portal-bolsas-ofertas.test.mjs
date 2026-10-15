@@ -24,7 +24,8 @@ const notificacion = { notificada_en: "2026-09-25T08:00:00.000000Z", referencia_
 
 const politica = { llamada: "simultanea", respuesta_horas: 24, tras_renuncia: "siguiente_en_orden" };
 const turno = () => new Promise((r) => setTimeout(r, 0));
-const sobre = (ofertas) => ({ ok: true, datos: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas } });
+const sobre = (ofertas, inicioPlazo) => ({ ok: true, datos: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas,
+  ...(inicioPlazo ? { inicio_plazo: inicioPlazo } : {}) } });
 
 function respuesta(status, cuerpo) {
   return { ok: status >= 200 && status < 300, status, json: async () => cuerpo };
@@ -59,6 +60,8 @@ test("el contrato exige una entrada por plaza y rechaza estados, propuestas y ac
   assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta()] } }).ofertas.length, 1);
   assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta({ plazo: { ejemplo: false, notificacion } })] } }).ofertas.length, 1);
   const invalidas = [
+    oferta({ recibo_ref: "" }),
+    oferta({ recibo_ref: "recibo:oferta:<script>" }),
     oferta({ estado: "inventado" }),
     oferta({ numero_plazas: 2 }),
     oferta({ numero_plazas: 0, plazas: [] }),
@@ -101,6 +104,7 @@ test("los errores del servidor se traducen sin mostrar códigos y los plurales u
   assert.match(mensajeError(t, { status: 409, codigo: "propuesta_cambiada" }), /La plaza ha cambiado/);
   assert.match(mensajeError(t, { status: 409, codigo: "respuesta_abierta" }), /en plazo para responder/);
   assert.match(mensajeError(t, { status: 409, codigo: "politica_sin_plazas" }), /no admite varias plazas/);
+  assert.match(mensajeError(t, { status: 409, codigo: "personas_elegibles_insuficientes" }), /Reduzca las plazas o revise la disponibilidad/);
   assert.match(mensajeError(t, { status: 503, codigo: "plazo_no_configurado" }), /no tiene plazo/);
   assert.match(mensajeError(t, { status: 422, codigo: "oferta_invalida" }), /fecha del correo no puede ser futura/);
   assert.match(mensajeError(t, { status: 500, codigo: "x" }), /No se pudo completar/);
@@ -160,17 +164,169 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   datos.notificada_en = "2026-09-25T10:00";
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();
+  assert.equal(enviadas.length, 0, "la revisión no publica todavía");
+  assert.match(s.renderizar(), /Revise la oferta antes de publicarla/);
+  assert.match(s.renderizar(), /Fecha y hora declaradas del correo \(Madrid\)/);
+  assert.match(s.renderizar(), /25 sept 2026/);
+  assert.match(s.renderizar(), /Ver código de comprobación del correo/);
+  s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" }));
+  await turno();
   assert.match(s.renderizar(), /Reintentar la misma publicación/);
-  s.manejarSubmit({ target: formulario, preventDefault() {} });
+  assert.equal(s.recargarPoliticaSegura(), false, "no sustituye el cuerpo incierto al guardar la política");
+  datos.numero_plazas = "5";
+  s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" }));
   await turno();
   assert.equal(enviadas.length, 2);
   assert.deepEqual(enviadas.map(([clave, plazas]) => [clave, plazas]), [["clave-1", 3], ["clave-1", 3]]);
   assert.deepEqual(enviadas[0][2], enviadas[1][2]);
   assert.equal(enviadas[0][2].notificada_en, "2026-09-25T08:00:00.000000Z", "el navegador no determina la zona");
+  const conRecibo = s.renderizar();
+  assert.match(conRecibo, /Oferta publicada\. El plazo termina el/);
+  assert.match(conRecibo, /<details open><summary>Recibo<\/summary>/, "el número y la fecha quedan visibles tras publicar");
+  assert.equal((conRecibo.match(/<summary>Recibo<\/summary>/g) || []).length, 2, "el recibo real aparece en la confirmación y en la ficha");
+  assert.match(conRecibo, /<dt>Referencia del recibo<\/dt><dd>recibo:oferta:1<\/dd>/);
+  assert.match(conRecibo, /<dt>Publicada el<\/dt><dd>25 sept 2026/);
   datos.numero_plazas = "101";
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();
   assert.equal(enviadas.length, 2, "no se publica fuera del límite de plazas");
+});
+
+test("el reintento muestra el mismo recibo y un GET sin política indica dónde configurarla", async () => {
+  const recibo = oferta({ recibo_ref: "recibo:oferta:original", publicada_en: "2026-10-15T09:30:00Z" });
+  const valores = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-20", descripcion: "Cobertura", numero_plazas: "2" };
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return valores[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  try {
+    const s = crearSuperficieOfertasBolsa({ cliente: {
+      consultar: async () => sobre([recibo], "publicacion"),
+      publicar: async () => ({ ok: true, status: 200, oferta: recibo }),
+    }, generarClave: () => "clave-original" });
+    s.activar("bolsa:1"); await turno();
+    s.manejarSubmit({ target: formulario, preventDefault() {} });
+    s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    const html = s.renderizar();
+    assert.match(html, /ya estaba publicada con esta misma solicitud/);
+    assert.equal((html.match(/recibo:oferta:original/g) || []).length, 2);
+    assert.match(html, /15 oct 2026/);
+
+    const sinPolitica = crearSuperficieOfertasBolsa({ cliente: {
+      consultar: async () => ({ ok: false, status: 503, codigo: "plazo_no_configurado" }),
+    } });
+    sinPolitica.activar("bolsa:1"); await turno();
+    assert.match(sinPolitica.renderizar(), /Configure el inicio y el plazo en «Política de ofertas»/);
+  } finally { globalThis.FormData = anteriorFormData; }
+});
+
+test("una publicación incierta conserva clave y cuerpo tras 403, 422 y 409 hasta recibir el recibo", async () => {
+  const valores = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-20", descripcion: "Cobertura original", numero_plazas: "2" };
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return valores[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const llamadas = [];
+  let consultas = 0;
+  const respuestas = [503, 403, 422, 409, 200];
+  try {
+    const s = crearSuperficieOfertasBolsa({ cliente: {
+      consultar: async () => { consultas++; return sobre([], "publicacion"); },
+      publicar: async (_bolsa, datos, plazas, notificacion, clave) => {
+        llamadas.push({ datos: { ...datos }, plazas, notificacion, clave });
+        const status = respuestas.shift();
+        return status === 200 ? { ok: true, status, oferta: oferta({ recibo_ref: "recibo:oferta:estable" }) } :
+          { ok: false, status, codigo: status === 403 ? "sin_permiso" : "solicitud_invalida" };
+      },
+    }, generarClave: () => "clave-original" });
+    s.activar("bolsa:1"); await turno();
+    s.manejarSubmit({ target: formulario, preventDefault() {} });
+    valores.descripcion = "Cobertura cambiada tras confirmar";
+    for (let intento = 0; intento < 4; intento++) {
+      s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+      assert.equal(s.estado().incierta, true);
+      assert.equal(s.estado().claveEnCurso, "clave-original");
+      assert.ok(s.estado().revisionPublicacion, "el rechazo del reintento no libera la operación previa");
+      assert.match(s.renderizar(), /Reintente aquí la misma operación antes de salir/);
+    }
+    assert.equal(consultas, 1, "un 409 posterior no sustituye la política de una operación pendiente");
+    s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    assert.equal(s.estado().incierta, false);
+    assert.equal(s.estado().claveEnCurso, null);
+    assert.equal(llamadas.length, 5);
+    assert.deepEqual(llamadas.slice(1), Array(4).fill(llamadas[0]), "todos los reintentos conservan cuerpo, clave y número de plazas");
+    assert.match(s.renderizar(), /recibo:oferta:estable/);
+  } finally { globalThis.FormData = anteriorFormData; }
+});
+
+test("corregir antes de publicar o tras 422 envía los datos revisados con clave nueva", async () => {
+  const valores = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "A", numero_plazas: "2" };
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return valores[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const submit = (superficie) => superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+  const confirmar = (superficie) => superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" }));
+  try {
+    const primeras = [];
+    const superficie = crearSuperficieOfertasBolsa({ cliente: {
+      consultar: async () => sobre([], "publicacion"),
+      publicar: async (_bolsa, datos, _plazas, _notificacion, clave) => {
+        primeras.push({ descripcion: datos.descripcion, clave }); return { ok: true, status: 201, oferta: oferta() };
+      },
+    }, generarClave: () => "clave-b" });
+    superficie.activar("bolsa:1"); await turno();
+    submit(superficie);
+    superficie.manejarClick(boton({ ofertasAccion: "corregir-publicacion" }));
+    valores.descripcion = "B";
+    submit(superficie); confirmar(superficie); await turno();
+    assert.deepEqual(primeras, [{ descripcion: "B", clave: "clave-b" }]);
+
+    valores.descripcion = "A";
+    const rechazadas = [];
+    let intento = 0;
+    const trasRechazo = crearSuperficieOfertasBolsa({ cliente: {
+      consultar: async () => sobre([], "publicacion"),
+      publicar: async (_bolsa, datos, _plazas, _notificacion, clave) => {
+        rechazadas.push({ descripcion: datos.descripcion, clave });
+        return ++intento === 1 ? { ok: false, status: 422, codigo: "solicitud_invalida" } : { ok: true, status: 201, oferta: oferta() };
+      },
+    }, generarClave: () => `clave-${intento + 1}` });
+    trasRechazo.activar("bolsa:1"); await turno();
+    submit(trasRechazo); confirmar(trasRechazo); await turno();
+    assert.match(trasRechazo.renderizar(), /name="descripcion"/);
+    valores.descripcion = "B";
+    submit(trasRechazo); confirmar(trasRechazo); await turno();
+    assert.deepEqual(rechazadas, [{ descripcion: "A", clave: "clave-1" }, { descripcion: "B", clave: "clave-2" }]);
+  } finally { globalThis.FormData = anteriorFormData; }
+});
+
+test("el inicio por publicación omite el correo y exige revisión antes del POST", async () => {
+  const llamadas = [];
+  const clienteHTTP = crearClienteOfertas({ fetchImpl: async (ruta, opciones) => {
+    llamadas.push({ ruta, opciones });
+    return respuesta(201, { data: oferta() });
+  } });
+  await clienteHTTP.publicar("bolsa:1", { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Des" }, 2, null, "clave-1");
+  assert.deepEqual(Object.keys(JSON.parse(llamadas[0].opciones.body)), ["bolsa_ref", "datos", "numero_plazas"]);
+  assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [], inicio_plazo: "publicacion" } }).inicio_plazo, "publicacion");
+  assert.throws(() => validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [], inicio_plazo: "otro" } }));
+
+  const publicaciones = [];
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => sobre([], "publicacion"),
+    publicar: async (...args) => { publicaciones.push(args); return { ok: true, status: 201, oferta: oferta() }; },
+  }, generarClave: () => "clave-publicacion" });
+  superficie.activar("bolsa:1"); await turno();
+  assert.match(superficie.renderizar(), /El plazo comienza al publicar la oferta/);
+  assert.doesNotMatch(superficie.renderizar(), /name="referencia_correo"/);
+  const valores = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Des", numero_plazas: "2" };
+  globalThis.FormData = class { get(clave) { return valores[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+  assert.equal(publicaciones.length, 0);
+  assert.match(superficie.renderizar(), /Confirmar y publicar oferta/);
+  superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+  assert.equal(publicaciones.length, 1);
+  assert.equal(publicaciones[0][3], null);
+  assert.equal(publicaciones[0][4], "clave-publicacion");
 });
 
 test("tras el plazo muestra cada plaza, pide confirmación y registra el acto con su secuencia", async () => {

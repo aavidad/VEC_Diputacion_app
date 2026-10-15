@@ -15,12 +15,13 @@ import (
 // la emisión B7 (AccionEmitirLlamamiento) sobre la bolsa constituida.
 
 var (
-	ErrOfertaNoDisponible      = errors.New("bolsa: ofertas publicadas no disponibles")
-	ErrOfertaInvalida          = errors.New("bolsa: oferta invalida")
-	ErrOfertaConflicto         = errors.New("bolsa: clave de oferta reutilizada con otro comando")
-	ErrOfertaYaResuelta        = errors.New("bolsa: la oferta ya esta resuelta")
-	ErrOfertaPlazoAbierto      = errors.New("bolsa: el plazo de disposicion sigue abierto")
-	ErrOfertaPropuestaCambiada = errors.New("bolsa: la propuesta de adjudicacion ha cambiado")
+	ErrOfertaNoDisponible           = errors.New("bolsa: ofertas publicadas no disponibles")
+	ErrOfertaInvalida               = errors.New("bolsa: oferta invalida")
+	ErrOfertaConflicto              = errors.New("bolsa: clave de oferta reutilizada con otro comando")
+	ErrOfertaElegiblesInsuficientes = errors.New("bolsa: plazas superiores a personas elegibles")
+	ErrOfertaYaResuelta             = errors.New("bolsa: la oferta ya esta resuelta")
+	ErrOfertaPlazoAbierto           = errors.New("bolsa: el plazo de disposicion sigue abierto")
+	ErrOfertaPropuestaCambiada      = errors.New("bolsa: la propuesta de adjudicacion ha cambiado")
 	// ErrOfertaRespuestaAbierta: la persona aún está en plazo para responder.
 	ErrOfertaRespuestaAbierta = errors.New("bolsa: el plazo de respuesta de la plaza sigue abierto")
 	// ErrOfertaPoliticaSinPlazas: la versión de política no tiene el apartado
@@ -35,6 +36,7 @@ var (
 // cálculo hecho con Calendarios en el momento de publicar.
 type PlazoOferta struct {
 	Notificacion    *dominiobolsa.NotificacionOferta `json:"notificacion,omitempty"`
+	Inicio          string                           `json:"inicio,omitempty"`
 	ReglaRef        string                           `json:"regla_ref"`
 	HuellaCatalogo  string                           `json:"huella_catalogo"`
 	Unidad          string                           `json:"unidad"`
@@ -63,6 +65,12 @@ type CalculadoraPlazoOferta interface {
 // la bolsa. La interfaz anterior sigue sirviendo a pruebas y ofertas previas.
 type CalculadoraPlazoOfertaPorBolsa interface {
 	PlazoDisposicionBolsa(context.Context, string, time.Time) (PlazoOferta, time.Time, error)
+}
+
+// CalculadoraInicioPlazoOferta consulta la política vigente de la bolsa.
+// Un calculador histórico sin esta interfaz conserva inicio por notificación.
+type CalculadoraInicioPlazoOferta interface {
+	InicioPlazoDisposicion(context.Context, string) (string, error)
 }
 
 type DisposicionOferta struct {
@@ -138,6 +146,7 @@ type OfertaPublicada struct {
 
 type SolicitudPublicarOferta struct {
 	Notificacion       dominiobolsa.NotificacionOferta
+	OrigenCT           *OrigenOfertaCT
 	Vinculo            dominiovec.VinculoAutenticacionActorV2
 	ResultadoContexto  dominiovec.ResultadoContextoActorRegistradoV2
 	BolsaRef           string
@@ -178,9 +187,27 @@ type ComandoPublicarOferta struct {
 	UnidadRef, AmbitoRef                                        string
 	Datos                                                       dominiobolsa.DatosOferta
 	NumeroPlazas                                                int
+	OrigenCT                                                    *OrigenOfertaCT
 	Plazo                                                       PlazoOferta
 	PublicadaEn, VenceAntesDe                                   time.Time
 	Material                                                    puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+}
+
+// ComandoRecuperarOferta consulta solo la operación exacta por clave. El
+// consumidor V3 registra la lectura antes de devolver el recibo original;
+// encontrada=false no autoriza una segunda operación con otra intención.
+type ComandoRecuperarOferta struct {
+	BolsaRef, ActorRef, ClaveIdempotencia string
+	UnidadRef, AmbitoRef                  string
+	Datos                                 dominiobolsa.DatosOferta
+	Notificacion                          dominiobolsa.NotificacionOferta
+	NumeroPlazas                          int
+	OrigenCT                              *OrigenOfertaCT
+	Material                              puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+}
+
+type RecuperadorOfertaPublicada interface {
+	RecuperarOferta(context.Context, ComandoRecuperarOferta) (OfertaPublicada, bool, error)
 }
 
 type ComandoResolverOferta struct {

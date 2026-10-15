@@ -90,7 +90,6 @@ func TestHandlerOfertasPublicaYDistingueReplay(t *testing.T) {
 
 func TestHandlerOfertasRechazaEntradasSinLlegarAlPreparador(t *testing.T) {
 	casos := map[string]*http.Request{
-		"sin notificación":   peticionOferta(http.MethodPost, RutaOfertasPublicadas, `{"bolsa_ref":"bolsa:1","numero_plazas":1,"datos":{}}`, "clave-oferta-1"),
 		"sin clave":          peticionOferta(http.MethodPost, RutaOfertasPublicadas, cuerpoOfertaPrueba, ""),
 		"campo ajeno":        peticionOferta(http.MethodPost, RutaOfertasPublicadas, `{"bolsa_ref":"b","actor":"x","datos":{}}`, "clave-oferta-1"),
 		"dos documentos":     peticionOferta(http.MethodPost, RutaOfertasPublicadas, cuerpoOfertaPrueba+cuerpoOfertaPrueba, "clave-oferta-1"),
@@ -143,6 +142,7 @@ func TestHandlerOfertasTraduceErrores(t *testing.T) {
 		{ports.ErrOfertaPropuestaCambiada, http.StatusConflict, "propuesta_cambiada"},
 		{ports.ErrOfertaRespuestaAbierta, http.StatusConflict, "respuesta_abierta"},
 		{ports.ErrOfertaPoliticaSinPlazas, http.StatusConflict, "politica_sin_plazas"},
+		{ports.ErrOfertaElegiblesInsuficientes, http.StatusConflict, "personas_elegibles_insuficientes"},
 		{ports.ErrOfertaInvalida, http.StatusUnprocessableEntity, "oferta_invalida"},
 		{ports.ErrPlazoOfertaNoConfigurado, http.StatusServiceUnavailable, "plazo_no_configurado"},
 		{context.DeadlineExceeded, http.StatusServiceUnavailable, "servicio_no_disponible"},

@@ -60,6 +60,7 @@ func TestErrorOfertaTraduceCodigosSQL(t *testing.T) {
 		"42501": dominiovec.ErrAutorizacionDenegada, "VBO01": ports.ErrOfertaConflicto, "VBO02": ports.ErrOfertaYaResuelta,
 		"VBO03": ports.ErrOfertaPlazoAbierto, "VBO04": ports.ErrOfertaPropuestaCambiada, "22023": ports.ErrOfertaInvalida,
 		"VBO07": ports.ErrOfertaRespuestaAbierta, "VBO08": ports.ErrOfertaPoliticaSinPlazas,
+		"VBO09": ports.ErrOfertaElegiblesInsuficientes,
 		"23503": ports.ErrOfertaInvalida, "40001": ports.ErrOfertaNoDisponible,
 	}
 	for codigo, esperado := range casos {

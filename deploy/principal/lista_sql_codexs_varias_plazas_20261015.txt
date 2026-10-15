@@ -1,0 +1,1 @@
+deploy/postgresql/bolsa_llamamientos/migraciones/000117_origen_oferta_ct_publicacion.up.sql
