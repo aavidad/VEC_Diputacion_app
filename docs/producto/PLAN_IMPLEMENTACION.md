@@ -486,7 +486,7 @@ busca en el índice de código y en las ramas abiertas si la pieza ya existe.
 | Cartera de méritos, alegaciones y revisión por RRHH | M | Mérito aportado, alegación presentada y decisión de RRHH con recibo |
 | Necesidad de la RPT en la petición del centro (duda 162) | K | La petición guarda el puesto publicado, no texto libre, y RRHH tramita esa misma petición |
 | Llamamiento desde la bolsa real, alta en Personal (#1070) y cese con vuelta a la bolsa (CT213, B115) | K | La persona pasa a Personal y vuelve a «Disponible» tras el cese, también tras reiniciar |
-| Fiscalización y firma de tres cargos (#1099) | H | Dos o tres firmas sobre el mismo PDF, verificado desde la ficha |
+| Firma del informe antes de Intervención y de la resolución (#1137) | H | Informe con Técnico y Jefatura; resolución con Jefatura, Diputación y Secretaría; PDF y recibos recuperados desde la ficha tras reiniciar |
 | Identidad del firmante, decisor y emisor, y composición de la firma en el arranque real | H | Las dos vías de firma se componen en el arranque real, sin actor ficticio |
 | Encender la verificación de firma con el validador | Claude | Un PDF firmado se verifica desde la ficha |
 | Textos de categoría antes de vincularla (#1008) | J | Revisión de usabilidad y fusión |

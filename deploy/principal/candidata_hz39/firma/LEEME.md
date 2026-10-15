@@ -112,6 +112,14 @@ El plan y las asignaciones usan la organización operativa de Contratación
 temporal. Los cargos y CA25 usan la canónica. La correspondencia CA45
 publicada las relaciona; AUT93 y CT214 la comprueban durante la firma.
 
+Antes de generar los materiales, cotejar `unidad_ref` con la asignación
+histórica del expediente que se va a firmar. En el recorrido es
+`unidad:desarrollo:rrhh`. El nodo de Personal, los cargos, los enlaces, las
+asignaciones de firma y las cinco entradas del plan deben usar esa unidad.
+La unidad creada al dar de alta Administración puede ser otra: su recibo
+no sustituye a la unidad gestora del expediente. Preparar los datos ficticios
+de RRHH en la copia y los ámbitos de Administración antes de publicar.
+
 En H se publicaron cinco cargos competenciales, uno por paso del plan, y
 cinco enlaces de titularidad. Jefatura ocupa los de informe y resolución;
 cada documento tiene una sola firma de esa persona. Así se conserva la
@@ -148,6 +156,15 @@ El primer administrador crea el borrador y el segundo, distinto, lo publica.
 Conservar los dos materiales, claves de operación y recibos. Después de un
 resultado incierto, recuperar con esos mismos bytes y claves antes de crear
 otro material. Las cinco entradas duran al menos 60 días.
+
+Si ya hay una versión 1 publicada para otra unidad, conservarla y preparar
+la versión 2 desde su catálogo canónico con `CatalogoConfigurable.NuevaVersion`.
+Publicar cargos y enlaces nuevos para RRHH; después, crear y publicar el plan
+por los dos administradores. `publicar_plan_v2.sh` coteja los materiales de
+versión 2. Actualizar el archivo, la versión y la huella del plan en la
+configuración solo tras recibir la publicación confirmada. No cambiar los
+bytes de la versión anterior ni el expediente para salvar una diferencia
+de ámbito.
 
 ## Configuración del panel de firma
 
