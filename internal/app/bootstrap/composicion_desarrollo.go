@@ -509,7 +509,7 @@ func nuevoServidorDesarrollo(
 	}
 	identidadPersonal, _ := resolvedor.(*resolvedorIdentidadDesarrollo)
 	justificanteRRHH, cerrarJustificanteRRHH := nuevaRutaJustificanteRenunciaRRHH(cfg,
-		identidadPersonal, usuariosPreferencias, composicion.derivadorIdempotencia)
+		identidadPersonal, usuariosPreferencias, composicion.derivadorIdempotencia, autoridadContratacion)
 	defer func() {
 		if !completa {
 			cerrarJustificanteRRHH()
@@ -555,6 +555,7 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("vec_shell", err)
 	}
+	vecAPI = componerRaizConJustificanteRenunciaRRHH(vecAPI, justificanteRRHH, registradorFrontera)
 	vecAPI = autoridadContratacion.proteger(vecAPI)
 	if comisionesDietas != nil {
 		vecAPI = comisionesDietas.proteger(vecAPI)
@@ -580,7 +581,6 @@ func nuevoServidorDesarrollo(
 		raizCronos = componerRaizConCronosIndisponible(raizCronos)
 	}
 	raiz := componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(raizCronos, personalEmpleado), consultasPersonal), inscripcionRRHH)
-	raiz = componerRaizConJustificanteRenunciaRRHH(raiz, justificanteRRHH, registradorFrontera)
 	servidor, err := server.NewHTTPServer(cfg, componerRaizConBolsaPersonalExterna(raiz, bolsaPersonal, inscripcionExterna))
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)

@@ -2,10 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,13 +15,12 @@ import (
 
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
-	httpseguridad "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
 
 func TestJustificanteRenunciaRRHHSinConfiguracionDejaRutaCerrada(t *testing.T) {
-	ruta, cerrar := nuevaRutaJustificanteRenunciaRRHH(config.Config{}, nil, nil, nil)
+	ruta, cerrar := nuevaRutaJustificanteRenunciaRRHH(config.Config{}, nil, nil, nil, nil)
 	if ruta == nil || ruta.Ruta != bolsahttp.RutaJustificanteRenunciaRRHH || ruta.Manejador == nil || cerrar == nil {
 		t.Fatal("la falta de configuración impidió montar la ruta cerrada")
 	}
@@ -80,17 +75,6 @@ type consultorJustificanteRRHHPermisoPrueba struct {
 	denegar   bool
 }
 
-type registroSesionJustificanteRRHHPrueba struct {
-	httpseguridad.RegistroSesiones
-	reloj *relojSesionConsultaPrueba
-}
-
-func (r registroSesionJustificanteRRHHPrueba) ConsumirAsercionYRegistrar(ctx context.Context,
-	alta httpseguridad.AltaSesionAtomica) (httpseguridad.ConfirmacionAltaSesion, error) {
-	r.reloj.ahora = alta.AutenticacionVerificadaEn
-	return r.RegistroSesiones.ConsumirAsercionYRegistrar(ctx, alta)
-}
-
 func (c *consultorJustificanteRRHHPermisoPrueba) AbrirJustificanteRenunciaRRHH(_ context.Context,
 	i bolsahttp.IdentidadJustificanteRenunciaRRHH, _, _ string) (io.ReadCloser, error) {
 	c.actorRefs = append(c.actorRefs, i.Actor.Contexto.PersonaRef)
@@ -101,55 +85,72 @@ func (c *consultorJustificanteRRHHPermisoPrueba) AbrirJustificanteRenunciaRRHH(_
 }
 
 func TestJustificanteRRHHResuelveDosTecnicasYDeniegaSinPermiso(t *testing.T) {
-	e := nuevaSesionConsultaPrueba(t)
-	identidades := make([]identidadCertificadoDesarrollo, 0, 2)
-	cuentas := make(map[string]cuentaUsuariosPreferenciasDesarrollo, 2)
-	peticiones := make([]*http.Request, 0, 2)
-	contextos := make([]core.ResultadoContextoActorRegistradoV2, 0, 2)
-	for _, nombre := range []string{"tecnica-uno", "tecnica-dos"} {
-		certificado := &x509.Certificate{Raw: []byte("certificado-" + nombre),
-			NotBefore: e.reloj.Ahora().Add(-time.Hour), NotAfter: e.reloj.Ahora().Add(90 * 24 * time.Hour)}
-		huella := sha256.Sum256(certificado.Raw)
-		sha := hex.EncodeToString(huella[:])
-		principal := clonarPrincipalDesarrollo(e.principal)
-		principal.ID = nombre
-		principal.Attributes["certificate_sha256"] = sha
-		contexto, err := nuevoContextoAltaContratacionTemporalDesarrollo(principal, e.reloj.Ahora())
-		if err != nil {
-			t.Fatal(err)
-		}
-		contextos = append(contextos, contexto.Resultado)
-		identidades = append(identidades, identidadCertificadoDesarrollo{huella: huella, principal: principal})
-		cuentas[sha] = cuentaUsuariosPreferenciasDesarrollo{cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{
-			CertificadoSHA256: sha, Sujeto: principal.ID,
-			CuentaRef: contexto.Resultado.Contexto.Instantanea.CuentaRef,
-			PerfilRef: contexto.Resultado.Contexto.PerfilActivoRef}}
-		r := httptest.NewRequest(http.MethodGet,
-			bolsahttp.RutaJustificanteRenunciaRRHH+"?bolsa=bolsa_1&participacion=part_1", nil)
-		r.RemoteAddr = "127.0.0.1:12345"
-		r.TLS = &tls.ConnectionState{HandshakeComplete: true, Version: tls.VersionTLS13,
-			PeerCertificates: []*x509.Certificate{certificado},
-			VerifiedChains:   [][]*x509.Certificate{{certificado, {Raw: []byte("ca-sintetica")}}}}
-		peticiones = append(peticiones, r)
-	}
-	resolvedor, err := nuevoResolvedorIdentidadDesarrollo(identidades...)
+	base, _, principalBase := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	principalLector := clonarPrincipalDesarrollo(principalBase)
+	principalLector.ID = "tecnica_rrhh_segunda"
+	principalLector.Attributes["certificate_sha256"] = strings.Repeat("e", 64)
+	contextoLector, err := nuevoContextoAltaContratacionTemporalDesarrollo(principalLector,
+		time.Now().UTC().Truncate(time.Microsecond))
 	if err != nil {
 		t.Fatal(err)
 	}
-	base := &autoridadRutasDietasDesarrollo{resolvedor: resolvedor,
-		registro:    registroSesionJustificanteRRHHPrueba{RegistroSesiones: e.registro, reloj: e.reloj},
-		revalidador: e.revalidador, contextos: e.resolutor, reloj: e.reloj, instancia: "justificante-rrhh-prueba"}
-	autoridad := &autoridadPreferenciasUsuariosDesarrollo{base: base, cuentas: cuentas, reloj: relojRutasDietas{},
-		superficie: core.SuperficieAutenticacionInternaCorporativaV1}
+	lector := &soporteAltaContratacionTemporalDesarrollo{sello: base.sello,
+		principalID: principalLector.ID, certificadoSHA256: principalLector.Attributes["certificate_sha256"],
+		lectorConsultasRRHH: true, tecnicoConsultaRRHH: true, contexto: contextoLector,
+		contextoEsperadoRegistrado: contextoLector.Resultado, reloj: relojContratacionTemporalDesarrollo{},
+		sesionOperativa: proveedorSesionOperativaCTPrueba{contexto: contextoLector}}
+	perfiles := []string{base.contexto.Resultado.Contexto.PerfilActivoRef,
+		lector.contexto.Resultado.Contexto.PerfilActivoRef}
+	if perfiles[0] == perfiles[1] {
+		t.Fatal("las tecnicas comparten un perfil")
+	}
+	// Ambas técnicas tienen también Preferencias, cada una con un perfil
+	// personal distinto. Ninguna referencia de ese catálogo entra en la
+	// sesión técnica que se entrega al justificante.
+	perfilesUsuarios := map[string]string{
+		principalBase.ID:   referenciaAltaContratacionTemporalDesarrollo("prf_", "preferencias-primera"),
+		principalLector.ID: referenciaAltaContratacionTemporalDesarrollo("prf_", "preferencias-segunda"),
+	}
+	if perfilesUsuarios[principalBase.ID] == perfilesUsuarios[principalLector.ID] ||
+		perfilesUsuarios[principalBase.ID] == perfiles[0] || perfilesUsuarios[principalLector.ID] == perfiles[1] {
+		t.Fatal("la prueba no separa perfiles personales y técnicos")
+	}
+	fronteras, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{{
+		Clave: "bolsa-justificante-rrhh-prueba", Metodo: http.MethodGet,
+		Ruta:               bolsahttp.RutaJustificanteRenunciaRRHH,
+		Superficie:         superficieInternaSeguridadComunDesarrollo,
+		PerfilesActivosRef: perfiles, ClavePolitica: "politica-documental-prueba",
+		ClaveCapacidad: "capacidad-documental-prueba",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{sello: base.sello,
+		soporteDocumentosBolsa: base,
+		soportesLectoresDocumentosBolsa: map[string]*soporteAltaContratacionTemporalDesarrollo{
+			principalLector.ID: lector}, fronterasSeguridadComun: fronteras}
 	consulta := &consultorJustificanteRRHHPermisoPrueba{}
 	h, err := bolsahttp.NuevoHandlerJustificanteRenunciaRRHH(
-		proveedorIdentidadJustificanteRenunciaRRHH{autoridad: autoridad}, consulta)
+		proveedorIdentidadJustificanteRenunciaRRHH{sesion: sesionTecnicaJustificanteRenunciaRRHH{autoridad}}, consulta)
 	if err != nil {
 		t.Fatal(err)
 	}
+	peticion := func(soporte *soporteAltaContratacionTemporalDesarrollo, principal core.Principal) *http.Request {
+		r := httptest.NewRequest(http.MethodGet,
+			bolsahttp.RutaJustificanteRenunciaRRHH+"?bolsa=bolsa_1&participacion=part_1", nil)
+		ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, bolsahttp.RutaJustificanteRenunciaRRHH)
+		capacidad := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+		capacidad.metodo = http.MethodGet
+		ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+		ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{
+			metodo: http.MethodGet, ruta: bolsahttp.RutaJustificanteRenunciaRRHH,
+			superficie: superficieInternaSeguridadComunDesarrollo, catalogo: fronteras})
+		return r.WithContext(ctx)
+	}
+	peticiones := []*http.Request{peticion(base, principalBase), peticion(lector, principalLector)}
+	contextos := []core.ResultadoContextoActorRegistradoV2{
+		base.contexto.Resultado, lector.contexto.Resultado}
 	for indice, r := range peticiones {
-		e.resolutor.base = contextos[indice]
-		e.registro.cuenta = contextos[indice].Contexto.Instantanea.CuentaRef
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		if w.Code != http.StatusOK || len(consulta.actorRefs) != indice+1 ||
@@ -157,21 +158,14 @@ func TestJustificanteRRHHResuelveDosTecnicasYDeniegaSinPermiso(t *testing.T) {
 			t.Fatalf("tecnica %d: estado=%d actor=%v", indice, w.Code, consulta.actorRefs)
 		}
 	}
-	if consulta.actorRefs[0] == consulta.actorRefs[1] || len(e.registro.altas) != 2 ||
-		e.revalidador.llamadas != 2 || e.resolutor.llamadas != 2 {
-		t.Fatal("las tecnicas compartieron identidad o se omitio una revalidacion")
+	if consulta.actorRefs[0] == consulta.actorRefs[1] {
+		t.Fatal("las tecnicas compartieron identidad")
 	}
 	consulta.denegar = true
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, peticiones[1])
 	if w.Code != http.StatusForbidden || len(consulta.actorRefs) != 3 ||
-		consulta.actorRefs[2] != contextos[1].Contexto.PersonaRef || len(e.registro.altas) != 3 {
+		consulta.actorRefs[2] != contextos[1].Contexto.PersonaRef {
 		t.Fatalf("permiso retirado: estado=%d actor=%v", w.Code, consulta.actorRefs)
-	}
-	peticiones[0].Header.Set("X-Vec-Perfil", "prf_suplantado")
-	w = httptest.NewRecorder()
-	h.ServeHTTP(w, peticiones[0])
-	if w.Code != http.StatusForbidden || len(consulta.actorRefs) != 3 {
-		t.Fatalf("cabecera de perfil aceptada: estado=%d", w.Code)
 	}
 }

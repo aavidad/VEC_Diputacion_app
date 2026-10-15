@@ -114,3 +114,18 @@ func TestConsultarSubidaBolsaRecuperaCargaTrasCerrarLlamamiento(t *testing.T) {
 		t.Fatalf("se devolvió postimagen de Méritos: %v", err)
 	}
 }
+
+type resolutorSubidaErrorTecnico struct{ err error }
+
+func (r resolutorSubidaErrorTecnico) ResolverActoSubidaLocal(context.Context, docports.SolicitudSubidaLocal) (docports.ActoSubidaLocal, error) {
+	return docports.ActoSubidaLocal{}, r.err
+}
+func TestSubidaLocalConservaErrorTecnicoDelDueno(t *testing.T) {
+	for _, causa := range []error{docports.ErrSubidaLocalNoDisponible, context.DeadlineExceeded} {
+		s := &ServicioSubidaLocal{d: DependenciasServicioSubidaLocal{Resolutor: resolutorSubidaErrorTecnico{causa}}}
+		_, err := s.acto(context.Background(), docports.SolicitudSubidaLocal{}, vec.ResultadoContextoActorRegistradoV2{})
+		if !errors.Is(err, causa) || errors.Is(err, docports.ErrSubidaLocalDenegada) {
+			t.Fatalf("error tecnico convertido en denegacion: %v", err)
+		}
+	}
+}

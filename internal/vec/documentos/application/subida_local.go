@@ -101,7 +101,10 @@ func (s *ServicioSubidaLocal) verificarActor(q docports.SolicitudSubidaLocal) (v
 
 func (s *ServicioSubidaLocal) acto(ctx context.Context, q docports.SolicitudSubidaLocal, a vecdomain.ResultadoContextoActorRegistradoV2) (docports.ActoSubidaLocal, error) {
 	acto, err := s.d.Resolutor.ResolverActoSubidaLocal(ctx, q)
-	if err != nil || acto.Recurso.Validar() != nil || acto.Recurso.ModuloID != s.c.ModuloID ||
+	if err != nil {
+		return docports.ActoSubidaLocal{}, err
+	}
+	if acto.Recurso.Validar() != nil || acto.Recurso.ModuloID != s.c.ModuloID ||
 		acto.Recurso.Tipo != s.c.TipoRecurso || acto.Finalidad != s.c.Finalidad ||
 		acto.Clasificacion != s.c.Clasificacion || acto.PersonaRef != a.Contexto.PersonaRef ||
 		acto.VersionDueno == 0 {

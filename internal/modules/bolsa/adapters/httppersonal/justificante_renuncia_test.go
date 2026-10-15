@@ -43,7 +43,7 @@ func TestJustificanteMultipartConservaBytesYRechazaCamposAjenos(t *testing.T) {
 			if err := m.Close(); err != nil {
 				t.Fatal(err)
 			}
-			r := httptest.NewRequest(http.MethodPost, RutaJustificantesMiBolsa, &cuerpo)
+			r := httptest.NewRequest(http.MethodPost, "https://example.com"+RutaJustificantesMiBolsa, &cuerpo)
 			r.Header.Set("Content-Type", m.FormDataContentType())
 			bolsa, clave, pdf, err := leerJustificanteRenuncia(httptest.NewRecorder(), r)
 			if campoExtra != "" {
@@ -133,7 +133,7 @@ func TestJustificantePDFMayorDelLimiteDevuelve413(t *testing.T) {
 	if err = m.Close(); err != nil {
 		t.Fatal(err)
 	}
-	r := httptest.NewRequest(http.MethodPost, RutaJustificantesMiBolsa, &cuerpo)
+	r := httptest.NewRequest(http.MethodPost, "https://example.com"+RutaJustificantesMiBolsa, &cuerpo)
 	r.Header.Set("Content-Type", m.FormDataContentType())
 	actor, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(time.Date(2026, 10, 15, 8, 0, 0, 0, time.UTC),
 		"per_0123456789abcdefghijkl", "prf_0123456789abcdefghijkl", vec.AuthMethodCertificate, vec.AuthAssuranceHigh)

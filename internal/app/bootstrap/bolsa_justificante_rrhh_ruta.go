@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -46,15 +47,28 @@ func (w *respuestaAuditadaJustificanteRRHH) WriteHeader(estado int) {
 		return
 	}
 	w.escrita = true
-	if estado >= 400 && w.registrar(estado) != nil {
-		w.falloAuditoria = true
-		w.Header().Del("Content-Length")
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.ResponseWriter.WriteHeader(http.StatusServiceUnavailable)
-		if _, err := w.ResponseWriter.Write([]byte(`{"error":{"codigo":"servicio_no_disponible"}}`)); err != nil {
-			slog.Warn("justificante_frontera_respuesta_interrumpida")
+	if estado >= 400 {
+		if err := w.registrar(estado); err != nil {
+			// Nunca registrar el error original: puede incluir un DSN o datos.
+			causa := "registro_fallido"
+			switch {
+			case errors.Is(err, vecports.ErrIntentoAuditoriaNoDisponible):
+				causa = "dependencia_ausente"
+			case errors.Is(err, context.DeadlineExceeded):
+				causa = "plazo_agotado"
+			case errors.Is(err, context.Canceled):
+				causa = "peticion_cancelada"
+			}
+			slog.Warn("justificante_frontera_auditoria_no_disponible", "etapa", "registrar_rechazo", "causa", causa)
+			w.falloAuditoria = true
+			w.Header().Del("Content-Length")
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.ResponseWriter.WriteHeader(http.StatusServiceUnavailable)
+			if _, err := w.ResponseWriter.Write([]byte(`{"error":{"codigo":"servicio_no_disponible"}}`)); err != nil {
+				slog.Warn("justificante_frontera_respuesta_interrumpida")
+			}
+			return
 		}
-		return
 	}
 	w.ResponseWriter.WriteHeader(estado)
 }

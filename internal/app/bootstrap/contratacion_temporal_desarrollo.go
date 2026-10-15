@@ -766,6 +766,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	declaracionesFrontera = append(declaracionesFrontera, fronteraJustificanteBolsaRRHHDesarrollo(perfilesConsulta))
 	if alta.postgresql.vinculoEmisionBolsa {
 		declaracionesFrontera = append(declaracionesFrontera, fronteraVinculoEmisionBolsaDesarrollo(perfilCTCatalogo))
 	}
