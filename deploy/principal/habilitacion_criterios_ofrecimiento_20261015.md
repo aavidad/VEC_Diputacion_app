@@ -8,8 +8,15 @@ puesto a quien trabaja por el mero hecho de marcar una casilla.
 
 Dirección ha fijado el orden S → R: primero la publicación de ofertas y el montaje
 de la política de la PR #1145, después este corte. B118 debe comprobar el cuerpo
-instalado tras B117. La lista causal de R es
-`lista_sql_codexr_criterios_ofrecimiento_20261015.txt`: CT221, B118 y AD276.
+instalado tras B117. La candidata conjunta incluye también AD263 y AD265 antes
+de AD276: AD263 amplía la misma guarda de auditoría y AD276 debe conservar esa
+rama al añadir la consulta de motivos. Su preimagen se ajustará desde la
+definición instalada en la copia final, con revisión y ensayo nuevos. La lista
+causal propia de R es
+`lista_sql_codexr_criterios_ofrecimiento_20261015.txt`: el prerrequisito AD266
+y CT221, B118 y AD276. AD266 ya está en la principal de código y añade al lector
+de gobierno la siguiente secuencia global. Se instala solo si está pendiente;
+sin ella, el programa actual de preparación de permisos rechaza la activación.
 No se reaplica ninguna migración sobre una base con historia.
 
 La copia de ensayo se restaura con los roles y las ACL exactas de la principal,
@@ -97,3 +104,13 @@ vigente emitió un recibo con auditoría y la consulta posterior recuperó sus 2
 entradas. Las dos revisiones verificaron las fuentes y los 68 perfiles contra
 el estado anterior. La asignación de RRHH sigue sin cambiar; esta admisión no
 acredita todavía los actos de dos administradores ni el permiso nuevo de motivos.
+
+La preparación de los administradores ficticios usa el procedimiento de alta
+existente. El ajuste de datos de la copia dejó intactos el catálogo de permisos
+y la asignación de RRHH; tras él, sesión y listado de trece bolsas respondieron
+200 en Chrome. La fuente de identidad y la unidad administrativa se publicaron
+por sus operaciones nominales, cada una con recibo y auditoría. El alta de las dos personas
+administradoras también terminó por el procedimiento vigente: sus vinculaciones
+coinciden con los certificados de la copia. Queda pendiente publicar el rol de
+RRHH. AD266 se instaló una vez, con dos revisiones; conservó los permisos y añadió
+la secuencia global esperada por el programa de gobierno.
