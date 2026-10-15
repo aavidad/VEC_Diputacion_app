@@ -116,6 +116,7 @@
     "error_409_plazo_abierto": "El plazo para ofrecerse sigue abierto. Podrá adjudicar cuando termine.",
     "error_409_propuesta_cambiada": "La plaza ha cambiado mientras la consultaba. Revise la situación actualizada.",
     "error_409_respuesta_abierta": "La persona aún está en plazo para responder. Espere a que venza o registre su respuesta.",
+    "error_409_personas_elegibles_insuficientes": "La oferta pide más plazas que personas disponibles para ella. Reduzca las plazas o revise la disponibilidad en la bolsa.",
     "error_409_politica_sin_plazas": "La política de ofertas de esta bolsa no admite varias plazas. Configure su apartado «Plazas» y vuelva a publicar.",
     "error_422": "Revise los datos de la oferta.",
     "error_422_oferta_invalida": "Revise la oferta y el correo declarado. La fecha del correo no puede ser futura ni el plazo puede haber terminado.",

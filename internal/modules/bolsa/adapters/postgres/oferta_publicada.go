@@ -153,6 +153,8 @@ func errorOferta(err error) error {
 			return ports.ErrOfertaRespuestaAbierta
 		case "VBO08":
 			return ports.ErrOfertaPoliticaSinPlazas
+		case "VBO09":
+			return ports.ErrOfertaElegiblesInsuficientes
 		case "22023", "23503":
 			return ports.ErrOfertaInvalida
 		}

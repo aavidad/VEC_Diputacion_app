@@ -104,6 +104,7 @@ test("los errores del servidor se traducen sin mostrar códigos y los plurales u
   assert.match(mensajeError(t, { status: 409, codigo: "propuesta_cambiada" }), /La plaza ha cambiado/);
   assert.match(mensajeError(t, { status: 409, codigo: "respuesta_abierta" }), /en plazo para responder/);
   assert.match(mensajeError(t, { status: 409, codigo: "politica_sin_plazas" }), /no admite varias plazas/);
+  assert.match(mensajeError(t, { status: 409, codigo: "personas_elegibles_insuficientes" }), /Reduzca las plazas o revise la disponibilidad/);
   assert.match(mensajeError(t, { status: 503, codigo: "plazo_no_configurado" }), /no tiene plazo/);
   assert.match(mensajeError(t, { status: 422, codigo: "oferta_invalida" }), /fecha del correo no puede ser futura/);
   assert.match(mensajeError(t, { status: 500, codigo: "x" }), /No se pudo completar/);
