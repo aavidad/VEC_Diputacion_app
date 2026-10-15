@@ -657,8 +657,8 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261015-firma-plan-custodia-v1"],
-    ["vista-expedientes.js", "20261015-firma-plan-custodia-v1"],
+    ["circuito-firma.js", "20261015-firma-plan-custodia-v2"],
+    ["vista-expedientes.js", "20261015-firma-plan-custodia-v2"],
 
   ]);
   const anterior = "20260929-custodia-506-v1";
@@ -697,6 +697,11 @@ test("la preparación muestra el recibo y los pasos sin acreditar envío ni firm
   assert.doesNotMatch(antes, /Puede descargar el PDF preparado/u);
   const despues = renderizarCircuitoFirma(null, t, "no_disponible", null, { documento: d, original });
   assert.match(despues, /Puede descargar el PDF preparado/u);
+});
+
+test("una resolución con todas sus firmas no vuelve a ofrecer preparación", () => {
+  const documento = { ...circuitoConAlternativa().documentos[0], paso_pendiente: 0 };
+  assert.equal(renderizarPreparacionResolucion({ documento }, crearTraductorCircuitoFirma()), "");
 });
 
 test("un catálogo anterior de tres cargos no se presenta como tres firmas consecutivas", () => {

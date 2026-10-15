@@ -1,5 +1,5 @@
 {
-  "version": "20261015-firma-plan-custodia-v1",
+  "version": "20261015-firma-plan-custodia-v2",
   "comunes": [
     "/pwa/instalar.js?v=20261008-pwa-idioma-v1",
     "/pwa/navegacion.css?v=20261002-pwa-v2",
@@ -12,6 +12,6 @@
   "propios": [
     "/portal-empleado/portal.css?v=20261005-shell-overflow-clip-v1",
     "/portal-empleado/portal-componentes.css?v=20261009-inscripciones-rrhh-v1",
-    "/portal-empleado/portal.js?v=20261015-firma-plan-custodia-v1"
+    "/portal-empleado/portal.js?v=20261015-firma-plan-custodia-v2"
   ]
 }

@@ -151,13 +151,13 @@ PR abiertas (el estado de borrador se comprueba en GitHub):
 | #882 | Formación: recuperar el idioma sin perder el borrador | T | 6, aparcado |
 | #881 | Provisión: agrupar experiencia y separar el corrector provisional | T | 5, aparcado |
 
-#1099 incorpora los originales, la consulta nominal y el cableado de firma
-desde la ficha. Los PDF nuevos superan la verificación local con GrxFirma
-actualizado; el plan v2 y los cuerpos del acto ADMIN están preparados y
-validados, sin enviar la llamada. Por orden de dirección de las 12:30, Claude
-publicará el plan y hará el recorrido final en cidonia con sus dos ADMIN.
-La candidata no cierra todavía la firma ni la fase 1. El guion y sus límites
-están en `scripts/operacion/firma_ct_tres_pasos/LEEME.md`.
+#1099 incorporó los originales y la consulta de firma desde la ficha. #1137
+registra en la copia H dos firmas del informe y tres de la resolución con
+GrxFirma, y recupera los dos PDF y los mismos recibos después de reiniciar.
+Son dos expedientes distintos: P conserva la comprobación del caso único de
+`FLUJO_APP.md` 4.0. La fase 1 y la instalación en cidonia siguen pendientes.
+El guion de activación, la lista SQL y los límites están en
+`deploy/principal/candidata_hz39/firma/LEEME.md`.
 
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna
@@ -182,10 +182,10 @@ está instalada; verificar su hash antes de reanudar:
   El único acta escrita es la del 05/10
   (`docs/estudio_requisitos/acta_recorrido_ct_bolsa_20261005.md`) y se paró en
   la resolución.
-- **La firma en el recorrido completo.** En la copia H, el informe ya tiene
-  dos firmas verificadas y se descarga desde la ficha; Intervención rechaza
-  la fiscalización sin la segunda firma y la admite después. Faltan completar
-  la resolución y la recuperación tras reinicio. P acredita el caso único
+- **La firma en el recorrido completo.** En la copia H, informe con dos firmas
+  y resolución con tres, descargados desde la ficha después de reiniciar.
+  Intervención rechaza la fiscalización sin la segunda firma del informe y
+  la admite después. Son dos expedientes distintos. P acredita el caso único
   del apartado 4.0 de `FLUJO_APP.md`; este ensayo parcial no acredita cidonia.
 - **El correo de la Diputación.** Se usa un buzón de pruebas; vale para la
   presentación, no para uso real.
@@ -206,7 +206,7 @@ está instalada; verificar su hash antes de reanudar:
 | 3. ORQ-1, selección a medias | Resuelta con #918 (AD225, CT198, AD226, CT199), en cidonia desde HZ12 |
 | 4. Repetir el recorrido completo | Pendiente (apartado 6) |
 | 5. Carga de bolsas desde CONVOCA | #751 y #752 fusionadas; la pantalla #759 se cerró y la carga se hizo en `vec-admin` con dos administradores (10/10) |
-| 6. Firma de dos personas | Informe registrado y descargado en la copia H (#1137); faltan resolución completa, reinicio y recorrido único de P |
+| 6. Firma de dos personas | Informe y resolución registrados y recuperados tras reinicio en H (#1137); falta el recorrido único de P |
 | 7. Plazos de CT editables y tarjetas de plazo | Plazos con #919 (en cidonia desde HZ11). Tarjetas de plazo en Inicio (CT192): *pendiente de verificar* |
 | 8. Velocidad | Pendiente de medir en cidonia |
 | 9. Correo de la Diputación | Bloqueado por datos de Informática (duda 88) |

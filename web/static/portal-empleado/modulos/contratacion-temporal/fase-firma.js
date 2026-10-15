@@ -146,6 +146,7 @@ export function renderizarFaseFirma({ catalogo, real, textos, nombrar = (_tipo, 
     const fase = calcularFaseDocumento(documento, conEstado);
     const tono = TONO[fase.estado];
     const [rotuloPersona, textoPersona] = documento.documento === "resolucion" && documento.pasos.length > 2
+      && fase.estado !== "firmado"
       ? [textos.traducir("fase.quien"), textos.traducir("fase.orden_no_confirmado")]
       : persona(fase, textos, nombrar);
     const etiqueta = nombrar("documento", documento.etiqueta);

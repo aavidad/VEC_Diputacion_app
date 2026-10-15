@@ -299,8 +299,33 @@ recibos; creación y publicación del catálogo nuevo por dos personas distintas
 El primer intento de certificado devolvía 403 por `Etc/UTC`; con el pool
 corregido, el mismo material devuelve 200 y su recibo.
 
-Pendiente: arranque del panel con esa configuración, las dos firmas del
-informe antes de Intervención, las tres de la resolución, descarga de los
-cuatro documentos con firma pendiente y recuperación de PDF y recibos tras
-reiniciar. Solo al superar esos pasos se entrega la firma a P para su
-recorrido completo.
+El 15/10 se completó la comprobación de firma en H:
+
+| Comprobación | Resultado |
+| --- | --- |
+| Informe, expediente 2026/94011 | Técnico y Jefatura: dos registros 201. Intervención respondió 409 sin la segunda firma y 201 después. |
+| Resolución, expediente 2026/CT-000133 | Jefatura, Diputación y Secretaría: tres registros 201; custodias con versiones 1, 2 y 3. |
+| Límites del plan | Informe/paso 3: 404. Resolución/paso 4: 422. La prueba SQL confirma los pasos publicados. |
+| Otros cuatro documentos | Ocho descargas desde los botones de la ficha: PDF y Word; conservan firma pendiente. |
+| Reinicio de PostgreSQL y aplicación | Ambos PDF recuperados desde la ficha con las mismas huellas. Los tres reintentos de resolución devolvieron 200, el mismo recibo, fecha y custodia; no añadieron firmas. Los dos recibos del informe se conservaron. |
+| Configuración de firma presente y ausente | Arranques secuenciales, comprobación de vida y portal 200 en ambos casos. Sin archivo y con selectores desactivados: 1,9373 s; con configuración: 2,1246 s. |
+
+Las huellas de los PDF recuperados coinciden con los bytes firmados:
+
+- Informe: `49b81b6834d37fa6cbc1bf7cecf8c2a075e3594d2d5e269b26371240e2107bf6`.
+- Resolución: `f6849cb8b1d0a7cfa23c763bb96dc7b0f31317b666239febae5d969fef033537`.
+
+Son dos expedientes distintos, según la autorización de dirección del 15/10
+a las 19:55. No acreditan el recorrido completo: H no tiene activada su
+selección de Bolsa. P conserva el caso único de `FLUJO_APP.md` 4.0 con sus
+actos y configuración. Tampoco acreditan instalación en cidonia.
+
+El perfil limitado de firma recupera los PDF por su vía nominal; las lecturas
+generales de Documentos, borradores o cancelación pueden quedar denegadas en
+sus propios bloques. No se amplían permisos para ocultar esos avisos. Los
+cuatro borradores se comprobaron con el perfil de RRHH.
+
+La recuperación histórica del tercer paso por `recuperaciones-v2` queda
+pendiente; la descarga desde la ficha y el reintento del registro están
+comprobados. Un recibo de firma VEC no acredita un asiento o actuación en un
+sistema externo.

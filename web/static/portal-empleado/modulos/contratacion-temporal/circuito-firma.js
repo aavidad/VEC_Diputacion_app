@@ -9,7 +9,7 @@
 
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
 import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261015-firma-consulta-json-v1";
-import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261015-firma-plan-custodia-v1";
+import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261015-firma-plan-custodia-v2";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
 import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261013-ct-firma-tres-v3";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
@@ -194,7 +194,7 @@ function renderizarPaso(paso, t, circuito, documento) {
 
 /** Presenta únicamente la custodia confirmada; preparar no acredita envío ni firma. */
 export function renderizarPreparacionResolucion(preparacion, t, locale = preparacion?.locale) {
-  if (!preparacion) return "";
+  if (!preparacion || preparacion.documento?.paso_pendiente === 0) return "";
   const original = preparacion.original;
   const comprobante = original?.comprobante;
   const firmado = preparacion.documento;
