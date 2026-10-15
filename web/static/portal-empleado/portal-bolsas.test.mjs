@@ -1008,6 +1008,6 @@ test("la ficha usa las transiciones del catálogo y prellena la reposición solo
   assert.match(revision, /data-bolsa-cambio-revision/u);
   assert.match(revision, /Cambio comprobado/u);
   assert.match(revision, /Confirmar cambio de situación/u);
-  assert.match(revision, /Disponible desde fecha/u);
+  assert.match(revision, /Disponible desde una fecha/u);
   assert.match(revision, /data-bolsa-accion="volver-cambio-situacion"/u);
 });
