@@ -4,10 +4,10 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261015-firma-plan-custodia-v2";
+const versionCoordinador = "20261015-firma-cierre-cache-v3";
 const versionEntrada = versionCoordinador;
 const versionClienteCT = "20261014-ginpix-personal-b2-v1";
-const versionClienteConsulta = "20261015-firma-consulta-json-v1";
+const versionClienteConsulta = "20261015-firma-cierre-cache-v3";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
 const versionCircuito = versionCoordinador;
 const versionVista = versionCoordinador;

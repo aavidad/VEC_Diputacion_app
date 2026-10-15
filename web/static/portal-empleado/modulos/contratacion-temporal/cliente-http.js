@@ -32,7 +32,7 @@ import { crearClienteSubsanacionReparosHTTP, RUTA_SUBSANACION_REPAROS } from "./
 import { crearClienteSeguimientoCeseHTTP } from "./cliente-http-seguimiento-cese.js";
 import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { crearClienteReincorporacionRRHHHTTP, RUTA_CAPACIDAD_REINCORPORACION_RRHH, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js?v=20260928-rrhh-reincorporacion-v1";
-import { crearClienteRecuperacionFirmasV2, RUTA_CONSULTA_FIRMAS_V2 } from "./cliente-http-recuperacion-firmas-v2.js?v=20261015-firma-consulta-json-v1";
+import { crearClienteRecuperacionFirmasV2, RUTA_CONSULTA_FIRMAS_V2 } from "./cliente-http-recuperacion-firmas-v2.js?v=20261015-firma-cierre-cache-v3";
 import {
   MAXIMO_ERROR_BYTES,
   MAXIMO_FRAGMENTOS,
