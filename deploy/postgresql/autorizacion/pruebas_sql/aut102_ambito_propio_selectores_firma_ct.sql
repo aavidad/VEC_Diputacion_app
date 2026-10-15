@@ -9,7 +9,7 @@ BEGIN
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']::text[]
   AND p.proacl=ARRAY['vec_autorizacion_propietario=X/vec_autorizacion_propietario',
    'vec_contratacion_temporal_propietario=X/vec_autorizacion_propietario']::aclitem[]
-  AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='8d39eeaae8ad82700397125e1044acb45639303bdfd1fe2c025a7e443b7a3b10')
+  AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='7b506eb45f0f1cd4e35658dff1fca1de1101b0dd5c516afc59fc20266c718393')
  OR has_function_privilege('vec_contratacion_temporal_consultor_rrhh',f,'EXECUTE')
  THEN RAISE EXCEPTION 'AUT102: prueba de ASG o frontera EXECUTE divergente' USING ERRCODE='55000'; END IF;
 END $prueba$;

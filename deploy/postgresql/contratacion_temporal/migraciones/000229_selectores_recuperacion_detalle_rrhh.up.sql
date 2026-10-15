@@ -18,6 +18,8 @@ BEGIN
   OR pg_is_in_recovery() OR base IS NULL OR original IS NULL OR bolsa IS NULL OR aut IS NULL
   OR to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_con_selectores_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)') IS NOT NULL
   OR to_regclass('vec_contratacion_temporal.prueba_selectores_recuperacion_rrhh_v1') IS NOT NULL
+  OR to_regclass('vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1') IS NOT NULL
+  OR to_regprocedure('vec_contratacion_temporal.confirmar_vigencia_selectores_rrhh_v1()') IS NOT NULL
   OR to_regclass('vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2') IS NULL
   OR to_regclass('vec_contratacion_temporal.firma_documento_revision_pdf_v2') IS NULL
   OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=base
@@ -93,6 +95,85 @@ CREATE POLICY propietario_total ON vec_contratacion_temporal.prueba_selectores_r
  FOR ALL TO vec_contratacion_temporal_propietario USING(true) WITH CHECK(true);
 REVOKE ALL ON TABLE vec_contratacion_temporal.prueba_selectores_recuperacion_rrhh_v1 FROM PUBLIC;
 REVOKE ALL ON TYPE vec_contratacion_temporal.prueba_selectores_recuperacion_rrhh_v1 FROM PUBLIC;
+
+-- El cierre se comprueba al COMMIT, después de la lectura de Bolsa o de
+-- cualquier demora del cliente. Una fila por acceso CT43 y ninguna concesión
+-- directa a LOGIN; el original reducido usa modo original sin anexo.
+CREATE TABLE vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1(
+ acceso_ref text PRIMARY KEY REFERENCES vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2(acceso_ref)
+  ON UPDATE RESTRICT ON DELETE RESTRICT,
+ sello_detalle_sha256 text NOT NULL REFERENCES vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2(recibo_sello_sha256)
+  ON UPDATE RESTRICT ON DELETE RESTRICT,
+ decision_ref text NOT NULL,decision_huella_sha256 text NOT NULL,
+ principal_ref text NOT NULL,organizacion_ref text NOT NULL,
+ valida_hasta timestamptz(6) NOT NULL,modo text NOT NULL CHECK(modo IN('selectores','original')),
+ transaccion_origen xid8 NOT NULL,sesion_origen text NOT NULL,
+ registrada_en timestamptz(6) NOT NULL,
+ CHECK(decision_huella_sha256 ~ '^[0-9a-f]{64}$' AND sello_detalle_sha256 ~ '^[0-9a-f]{64}$')
+);
+CREATE TRIGGER cierre_vigencia_selectores_inmutable BEFORE UPDATE OR DELETE
+ ON vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER cierre_vigencia_selectores_no_truncar BEFORE TRUNCATE
+ ON vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+ALTER TABLE vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_total ON vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1
+ FOR ALL TO vec_contratacion_temporal_propietario USING(true) WITH CHECK(true);
+REVOKE ALL ON TABLE vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1 FROM PUBLIC;
+
+CREATE FUNCTION vec_contratacion_temporal.confirmar_vigencia_selectores_rrhh_v1()
+RETURNS trigger LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET "TimeZone"='UTC'
+SET lock_timeout='1s' SET statement_timeout='4s' AS $cierre$
+DECLARE b record;a record;amb jsonb;
+BEGIN
+ IF TG_OP<>'INSERT' OR current_user<>'vec_contratacion_temporal_propietario'
+  OR session_user=current_user OR NEW.sesion_origen IS DISTINCT FROM session_user
+  OR NEW.transaccion_origen IS DISTINCT FROM pg_current_xact_id()
+  OR current_setting('transaction_isolation')<>'serializable'
+  OR current_setting('transaction_read_only')<>'off' THEN
+  RAISE EXCEPTION 'CT229: cierre fuera de la transacción original' USING ERRCODE='42501'; END IF;
+ SELECT * INTO STRICT b FROM vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2 x
+  WHERE x.acceso_ref=NEW.acceso_ref FOR SHARE;
+ IF b.tipo_consulta IS DISTINCT FROM 'detalle' OR b.recibo_sello_sha256 IS DISTINCT FROM NEW.sello_detalle_sha256
+  OR b.decision_ref IS DISTINCT FROM NEW.decision_ref
+  OR b.decision_huella_sha256 IS DISTINCT FROM NEW.decision_huella_sha256
+  OR b.actor_ref IS DISTINCT FROM NEW.principal_ref
+  OR b.organizacion_ref IS DISTINCT FROM NEW.organizacion_ref THEN
+  RAISE EXCEPTION 'CT229: cierre desligado del recibo CT43' USING ERRCODE='42501'; END IF;
+ IF NEW.modo='selectores' THEN
+  SELECT * INTO STRICT a FROM vec_contratacion_temporal.prueba_selectores_recuperacion_rrhh_v1 x
+   WHERE x.acceso_ref=NEW.acceso_ref FOR SHARE;
+  IF a.sello_detalle_sha256 IS DISTINCT FROM b.recibo_sello_sha256
+   OR a.decision_ref IS DISTINCT FROM b.decision_ref THEN
+   RAISE EXCEPTION 'CT229: anexo desligado' USING ERRCODE='42501'; END IF;
+  IF a.asignacion_ref IS NOT NULL THEN
+   amb:=vec_autorizacion.comprobar_ambito_propio_selectores_firma_ct_v1(
+    b.actor_ref,b.organizacion_ref,a.unidad_ref,a.perfil_aux_ref,a.version_rol_aux_ref,
+    a.asignacion_ref,a.asignacion_huella_sha256);
+   IF amb->>'principal_ref' IS DISTINCT FROM b.actor_ref
+    OR amb->>'organizacion_ref' IS DISTINCT FROM b.organizacion_ref
+    OR amb->>'unidad_ref' IS DISTINCT FROM a.unidad_ref
+    OR amb->>'asignacion_ref' IS DISTINCT FROM a.asignacion_ref
+    OR amb->>'asignacion_huella_sha256' IS DISTINCT FROM a.asignacion_huella_sha256 THEN
+    RAISE EXCEPTION 'CT229: ASG retirada al confirmar' USING ERRCODE='42501'; END IF;
+  ELSIF a.selectores_canon IS DISTINCT FROM convert_to('[]','UTF8') THEN
+   RAISE EXCEPTION 'CT229: anexo sin ASG no vacío' USING ERRCODE='42501'; END IF;
+ ELSIF EXISTS(SELECT 1 FROM vec_contratacion_temporal.prueba_selectores_recuperacion_rrhh_v1 x
+   WHERE x.acceso_ref=NEW.acceso_ref) THEN
+  RAISE EXCEPTION 'CT229: original reducido con anexo' USING ERRCODE='42501'; END IF;
+ IF clock_timestamp()>=NEW.valida_hasta THEN
+  RAISE EXCEPTION 'CT229: decisión caducada al confirmar' USING ERRCODE='42501'; END IF;
+ RETURN NEW;
+END $cierre$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.confirmar_vigencia_selectores_rrhh_v1() FROM PUBLIC;
+CREATE CONSTRAINT TRIGGER cierre_vigencia_selectores_commit
+ AFTER INSERT ON vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1
+ DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+ EXECUTE FUNCTION vec_contratacion_temporal.confirmar_vigencia_selectores_rrhh_v1();
 
 CREATE FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_selectores_v1(p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1, p_consulta vec_contratacion_temporal.consulta_detalle_rrhh_v1, p_capacidad_canonica bytea, p_decision_canonica bytea, p_motivo_canonico bytea, p_contexto_actor_canonico bytea, p_persona_version numeric, p_perfil_version numeric, p_payload_vec_ad_3 bytea, p_sobre_cose_sign_1 bytea, p_evidencia_verificacion bytea, p_raiz_publica_spki bytea, p_filtro jsonb)
  RETURNS TABLE(contenido_canonico bytea, esquema text, acceso_ref text, secuencia numeric, anterior_sha256 text, huella_sha256 text, vinculo_identidad_huella_sha256 text, alcance_huella_sha256 text, registrada_en timestamp with time zone, auditoria_vec_ref text, auditoria_vec_huella_sha256 text, consumo_vec_huella_sha256 text, contenido_huella_sha256 text, resultado_huella_sha256 text, cursor_huella_sha256 text, generada_en timestamp with time zone, expediente_ref text, version_expediente numeric, total smallint, recibo_sello_sha256 text, selectores_canon bytea, selectores_huella_sha256 text, sello_selectores_sha256 text, recibo_selectores_canon bytea)
@@ -481,6 +562,15 @@ BEGIN
       WHERE x.acceso_ref=v_cierre.acceso_ref AND x.sello_detalle_sha256=v_cierre.recibo_sello_sha256
        AND x.sello_selectores_sha256=v_sello_anexo AND x.selectores_canon=v_canon_selectores) THEN
       RAISE EXCEPTION 'CT229: anexo no confirmado' USING ERRCODE='55000'; END IF;
+    IF v_decision->>'valida_hasta' IS NULL OR
+      (v_decision->>'valida_hasta')::timestamptz<=clock_timestamp() THEN
+      RAISE EXCEPTION 'CT229: decisión caducada' USING ERRCODE='42501'; END IF;
+    INSERT INTO vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1(
+      acceso_ref,sello_detalle_sha256,decision_ref,decision_huella_sha256,
+      principal_ref,organizacion_ref,valida_hasta,modo,transaccion_origen,sesion_origen,registrada_en)
+    VALUES(v_cierre.acceso_ref,v_cierre.recibo_sello_sha256,v_decision->>'decision_ref',
+      v_decision_huella,v_decision->>'principal_id',p_alcance.organizacion_ref,
+      (v_decision->>'valida_hasta')::timestamptz,'selectores',pg_current_xact_id(),session_user,clock_timestamp());
 
     RETURN QUERY SELECT
         v_contenido, v_cierre.esquema, v_cierre.acceso_ref,
@@ -797,6 +887,16 @@ BEGIN
             MESSAGE = 'consulta RRHH rechazada';
     END IF;
 
+    IF v_decision->>'valida_hasta' IS NULL OR
+      (v_decision->>'valida_hasta')::timestamptz<=clock_timestamp() THEN
+      RAISE EXCEPTION 'CT229: original caducado' USING ERRCODE='42501'; END IF;
+    INSERT INTO vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1(
+      acceso_ref,sello_detalle_sha256,decision_ref,decision_huella_sha256,
+      principal_ref,organizacion_ref,valida_hasta,modo,transaccion_origen,sesion_origen,registrada_en)
+    VALUES(v_cierre.acceso_ref,v_cierre.recibo_sello_sha256,v_decision->>'decision_ref',
+      v_decision_huella,v_decision->>'principal_id',p_alcance.organizacion_ref,
+      (v_decision->>'valida_hasta')::timestamptz,'original',pg_current_xact_id(),session_user,clock_timestamp());
+
     RETURN QUERY SELECT
         v_contenido, v_cierre.esquema, v_cierre.acceso_ref,
         v_cierre.secuencia, v_cierre.anterior_sha256,
@@ -969,6 +1069,7 @@ DO $post$
 DECLARE f oid:=to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_con_selectores_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)');
  original oid:=to_regprocedure('vec_contratacion_temporal.consultar_original_propuesta_rrhh_con_selectores_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  bolsa oid:=to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_y_selectores_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,jsonb)');
+ cierre oid:=to_regprocedure('vec_contratacion_temporal.confirmar_vigencia_selectores_rrhh_v1()');
 BEGIN
  IF f IS NULL OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f
   AND p.proowner=to_regrole('vec_contratacion_temporal_propietario') AND p.prosecdef
@@ -976,14 +1077,14 @@ BEGIN
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']::text[]
   AND p.proacl=ARRAY['vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario',
     'vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario']::aclitem[]
-   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='813cffac9b975183ad7aa4e7e2088e1cf05e96c1497bd19d9b8e17f2fb926094')
+   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='8695ddb2bf20ae5c25b41182cd164c5974762be8e6dc43f59681f4f43d6c84bb')
   OR original IS NULL OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=original
    AND p.proowner=to_regrole('vec_contratacion_temporal_propietario') AND p.prosecdef
    AND p.provolatile='v' AND p.proparallel='u'
    AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']::text[]
    AND p.proacl=ARRAY['vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario',
     'vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario']::aclitem[]
-   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='61f9f4dd81f2d350c0143aace736013573fbf28e9a6e3c0d27a24b8c02c9cfca')
+   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='d3ad02aa6e87ff94df3ed961b336757692ca422469c616635f77b9c6f102ff8f')
   OR bolsa IS NULL OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=bolsa
    AND p.proowner=to_regrole('vec_contratacion_temporal_propietario') AND p.prosecdef
    AND p.provolatile='v' AND p.proparallel='u'
@@ -993,6 +1094,16 @@ BEGIN
    AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='853d51a877900a9372a9f1ca446a38dc448a24347543f8625b482a26a3a53e0f')
   OR NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('vec_contratacion_temporal.prueba_selectores_recuperacion_rrhh_v1')
    AND c.relowner=to_regrole('vec_contratacion_temporal_propietario') AND c.relrowsecurity AND c.relforcerowsecurity)
+  OR NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1')
+   AND c.relowner=to_regrole('vec_contratacion_temporal_propietario') AND c.relrowsecurity AND c.relforcerowsecurity)
+  OR cierre IS NULL OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=cierre
+   AND p.proowner=to_regrole('vec_contratacion_temporal_propietario') AND p.prosecdef
+   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s']::text[]
+   AND p.proacl=ARRAY['vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario']::aclitem[]
+   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='f1de015e60b2e470c88468ee81165e404a057fa1436b78d69ba1213826a87da9')
+  OR NOT EXISTS(SELECT 1 FROM pg_trigger t WHERE t.tgrelid=to_regclass('vec_contratacion_temporal.cierre_vigencia_selectores_rrhh_v1')
+   AND t.tgname='cierre_vigencia_selectores_commit' AND t.tgfoid=cierre
+   AND t.tgdeferrable AND t.tginitdeferred AND t.tgenabled='O')
  THEN RAISE EXCEPTION 'CT229: postimagen, prueba o ACL divergentes' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;

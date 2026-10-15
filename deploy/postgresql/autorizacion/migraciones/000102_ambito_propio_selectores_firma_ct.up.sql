@@ -85,6 +85,12 @@ BEGIN
   OR rol.control_huella IS DISTINCT FROM encode(sha256(convert_to(vec_autorizacion.canon_control_rol_admin_v1(rol.control_documento),'UTF8')),'hex')
   OR (rol.control_documento->>'actualizado_en')::timestamptz>ahora THEN
   RAISE EXCEPTION 'AUT102: versión auxiliar retirada' USING ERRCODE='42501'; END IF;
+ -- El puntero sigue bloqueado; la vigencia temporal se comprueba de nuevo
+ -- después de leer el rol/control, justo antes de devolver la prueba a CT.
+ IF vec_autorizacion.ambitos_asignacion_firma_ct_v1(
+  p_asignacion_ref,p_asignacion_huella,p_principal,p_perfil_aux,p_version_rol_aux)
+  IS DISTINCT FROM amb THEN
+  RAISE EXCEPTION 'AUT102: asignación propia caducada' USING ERRCODE='42501'; END IF;
  RETURN jsonb_build_object('principal_ref',p_principal,'organizacion_ref',p_organizacion,
   'unidad_ref',p_unidad,'perfil_ref',p_perfil_aux,'version_rol_ref',p_version_rol_aux,
   'version_rol_numero',rol.version,'version_rol_huella_sha256',rol.huella_sha256,
@@ -102,7 +108,7 @@ BEGIN
   AND p.proowner=to_regrole('vec_autorizacion_propietario') AND p.prosecdef
   AND p.provolatile='v' AND p.proparallel='u'
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']::text[]
-  AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='8d39eeaae8ad82700397125e1044acb45639303bdfd1fe2c025a7e443b7a3b10'
+  AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='7b506eb45f0f1cd4e35658dff1fca1de1101b0dd5c516afc59fc20266c718393'
   AND p.proacl=ARRAY['vec_autorizacion_propietario=X/vec_autorizacion_propietario',
    'vec_contratacion_temporal_propietario=X/vec_autorizacion_propietario']::aclitem[])
  THEN RAISE EXCEPTION 'AUT102: postimagen o ACL divergentes' USING ERRCODE='55000'; END IF;
