@@ -4,14 +4,16 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261014-ginpix-cronos-v1";
-// La entrada se renovó para Ofertas; el coordinador CT conserva su propia URL.
-const versionEntrada = "20261015-ofertas-recuperacion-v4";
-const versionClienteCT = "20261014-ginpix-personal-b2-v1";
+const versionCoordinador = "20261015-ct-ofertas-v2";
+// La selección de ofertas renueva la entrada, el coordinador y sus padres CT.
+const versionEntrada = "20261015-ct-ofertas-v2";
+const versionClienteCT = "20261015-ct-ofertas-v2";
+const versionClienteRPT = "20261015-ct-ofertas-v2";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
-const versionCircuito = "20261014-ginpix-personal-b2-v1";
+const versionCircuito = "20261015-ct-ofertas-v2";
+const versionAccionesFirma = "20261015-ct-ofertas-v2";
 const versionVista = "20261013-ct-firma-tres-v3";
-const versionVistaPortal = "20261014-ginpix-personal-b2-v1";
+const versionVistaPortal = "20261015-ct-ofertas-v2";
 const versionAdaptador = "20261013-ct-firma-tres-v3";
 const versionRender = "20261013-ct-firma-tres-v3";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
@@ -67,7 +69,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   // La consulta de circuito RRHH no cambió: conserva su URL anterior.
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
-  exigirVersiones(circuito, "./circuito-firma-acciones.js", versionCircuito);
+  exigirVersiones(circuito, "./circuito-firma-acciones.js", versionAccionesFirma);
   for (const manifiesto of [interno, produccion]) {
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/firma-externa-cliente\.js$/mu);
   }
@@ -93,8 +95,8 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   exigirVersiones(formalizacion, "../documentos/cliente-http.js", version);
   exigirVersiones(firma, "../documentos/cliente-http.js", version);
   exigirVersiones(categorias, "./arranque.js", "20261008-hz8-idioma-v1");
-  exigirVersiones(montajeCategorias, "./cliente.js", cohorteCT);
-  exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", cohorteCT);
+  exigirVersiones(montajeCategorias, "./cliente.js", versionClienteRPT);
+  exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", versionClienteRPT);
 });
 
 test("Alta por circular renueva su cadena y no reutiliza módulos sin las exportaciones nuevas", async () => {

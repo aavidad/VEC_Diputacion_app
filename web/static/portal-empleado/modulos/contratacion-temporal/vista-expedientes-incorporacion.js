@@ -1,6 +1,6 @@
 /** Montaje y refresco de resolución de formalización e incorporación al ejercicio. */
 
-import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=20261015-ct-ofertas-v1";
+import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=20261015-ct-ofertas-v2";
 import { escaparHTML } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
 import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
 import { validarConsultaB2ParaFichaGINPIX } from "./contrato-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
