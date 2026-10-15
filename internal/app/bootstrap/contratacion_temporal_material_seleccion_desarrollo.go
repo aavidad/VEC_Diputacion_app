@@ -20,6 +20,7 @@ type seleccionMaterialCTDesarrollo struct {
 	fichaPropiaPersonal, firmaDocumento, seguimientoCese, personalB2 bool
 	cancelacion                                                      bool
 	vinculoEmisionBolsa                                              bool
+	seleccionOferta                                                  bool
 	exportacionServiciosPersonal                                     bool
 	historiaServiciosPersonal                                        bool
 	historiaRelacionesPersonal                                       bool
@@ -243,6 +244,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.vinculoEmisionBolsa {
 		d = append(d, descriptorMaterialVinculoEmisionBolsaDesarrollo())
+	}
+	if s.seleccionOferta {
+		d = append(d, descriptorMaterialSeleccionOfertaCTDesarrollo())
 	}
 	if s.plantillasCatalogo {
 		d = append(d, descriptoresMaterialPlantillasCTDesarrollo()...)

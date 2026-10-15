@@ -1320,6 +1320,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 				return nil, nil, nil, err
 			}
 			cerrarClienteM10CT = configurarDatosEmisionConstituidaOpcionalCT(cfg, seleccion.puente, reglasLlamamiento, reloj.Ahora)
+			cerrarOfertas := configurarSeleccionOfertaOpcionalCT(cfg, &alta, seleccion,
+				bolsa.preparador, catalogoFronteras, derivador, reloj)
+			cerrarDatos := cerrarClienteM10CT
+			cerrarClienteM10CT = func() { cerrarOfertas(); cerrarDatos() }
 		}
 		if len(incorporacion) == 1 && incorporacion[0].nominales != nil &&
 			incorporacion[0].nominales.montajeB2 != nil {

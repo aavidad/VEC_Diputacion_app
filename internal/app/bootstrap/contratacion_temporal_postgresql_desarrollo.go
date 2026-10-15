@@ -92,6 +92,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	confirmador                       *pgxpool.Pool
 	lectorResultado                   *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
 	vinculoEmisionBolsa               bool
+	seleccionOferta                   bool
 	registradorAuditoriaFrontera      *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
 	auditoriaFrontera                 *pgxpool.Pool
 	candidaturas                      ports.ResolutorCandidaturaAlta
@@ -426,6 +427,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	dependencias.vinculoEmisionBolsa = seleccion.vinculoEmisionBolsa
+	// CT220, B120 y AD278 son una capacidad opcional: su ausencia cierra solo
+	// la oferta múltiple y nunca impide el arranque de Contratación temporal.
+	seleccion.seleccionOferta = detectarSeleccionOfertaCTDesarrollo(ctx, ejecucion)
+	dependencias.seleccionOferta = seleccion.seleccionOferta
 	// CT137/AD3-100 deben existir y conservar sus ACL antes de publicar la
 	// audiencia documental. Se reutiliza el pool ejecutor ya acreditado.
 	if seleccion.plantillasDocumental {

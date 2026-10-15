@@ -21,6 +21,7 @@ type ejecutorSeleccionLlamamientoDesarrollo struct {
 	autorizador *autorizadorLlamamientoDesarrollo
 	preparar    func(ports.ExpedienteParaSeleccion, string) (preparacionLlamamientoDesarrollo, error)
 	servicio    httpinterno.EjecutorSeleccionLlamamiento
+	ofertas     *application.ServicioSeleccionOfertaCT
 }
 
 var _ httpinterno.EjecutorSeleccionLlamamiento = (*ejecutorSeleccionLlamamientoDesarrollo)(nil)
@@ -136,5 +137,15 @@ func (e *ejecutorSeleccionLlamamientoDesarrollo) SeleccionarYLlamarParaAdaptador
 	// El servicio conserva la recuperación terminal existente. El proveedor
 	// rechaza efectos nuevos sobre versiones históricas; el replay sigue ligado
 	// al mismo expediente, intención y actor autorizado en esta petición.
+	if expediente.Fiscalizado.Solicitud.NumeroPersonas > 1 {
+		if e.ofertas == nil {
+			return vacio, application.ErrSeleccionOfertaNoDisponible
+		}
+		oferta, err := e.ofertas.SeleccionarOfertaParaAdaptador(ctx, solicitud)
+		if err != nil {
+			return vacio, err
+		}
+		return application.DatosReciboSeleccionLlamamientoParaAdaptador{Oferta: &oferta}, nil
+	}
 	return e.servicio.SeleccionarYLlamarParaAdaptador(ctx, solicitud)
 }
