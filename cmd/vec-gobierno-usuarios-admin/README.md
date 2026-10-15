@@ -30,7 +30,12 @@ cualquier repositorio. No admite campos desconocidos ni claves repetidas:
 ```
 
 - Preparar usa las tres rutas de material, `dsn_lectura`, `salida` y
-  `horas_validez_claves` (de 1 a 24).
+  `horas_validez_claves`. Si falta o vale cero, usa 24 horas.
+  `VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS` permite sustituirlo por un entero positivo.
+  En producción el máximo es 24 horas; solo el perfil de desarrollo con sus
+  tres llaves explícitas admite hasta 2160 horas (90 días). Un perfil
+  desconocido se rechaza. La publicación y sus claves deben caber dentro de
+  la vigencia de la raíz.
 - Aplicar usa `dsn_operador` y `salida`. El usuario de `dsn_operador` no puede
   ser el mismo que el de `dsn_lectura`.
 - Verificar usa `dsn_lectura` y `salida`.
@@ -62,8 +67,14 @@ ella, preparar y verificar fallan siempre, también con superusuario.
 Las conexiones van por socket local, por la dirección de bucle o por TLS con
 verificación del servidor. La carpeta del socket debe existir y no puede tener
 escritura para cualquiera (por ejemplo, `/tmp` no vale). El único parámetro de
-sesión admitido es `application_name`. La carpeta de
+sesión admitido es `application_name`. Se rechazan mínimos de conexiones
+del pool mayores de cero para validar el material antes de conectar. La carpeta de
 salida debe existir, vacía, con permisos 0700. Ningún fichero se sobrescribe.
+
+La activación de los plazos largos exige AD282 y se describe en
+`deploy/principal/vigencia_gobierno_admin_20261015.md`. El límite del plan
+para aplicar sigue siendo de dos horas como máximo; no es la vigencia
+de las claves publicadas.
 
 ## Procedimiento
 
@@ -71,7 +82,7 @@ salida debe existir, vacía, con permisos 0700. Ningún fichero se sobrescribe.
    la carpeta de salida `material.json`, `configuracion-material.json`,
    `plan.json` y `aprobacion-candidata.json`. Las claves dependen de la
    secuencia de la nueva configuración, que crece en cada publicación, así que
-   cada renovación diaria obtiene un `clave_id` y un secreto nuevos (AD188
+   cada renovación obtiene un `clave_id` y un secreto nuevos (AD188
    rechaza los ya publicados). Repetir la preparación sin haber aplicado da las
    mismas claves.
 

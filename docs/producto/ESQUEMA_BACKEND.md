@@ -279,6 +279,14 @@ Los perfiles, roles y concesiones se publican por migración o desde
 administración con su propio gobierno (dos aprobaciones, CAS, recibo,
 auditoría). Una concesión nunca se crea por una petición de negocio.
 
+AD282 permite configurar la vigencia de claves y confianza nuevas del
+gobierno ADMIN en desarrollo, con un máximo de 90 días y sin superar la
+raíz. Conserva el operador nominal, la aprobación fijada por huellas, el
+consumo, la auditoría y los recibos existentes. La herramienta rechaza en
+producción plazos superiores a 24 horas, también al aplicar material
+preparado antes en desarrollo. El plan de aplicación mantiene su caducidad
+breve.
+
 ### 7.2 Auditoría encadenada y sellada
 
 - **Cadena común** en `vec_autorizacion_atestada_v3` (AD207, sellado diferido):
@@ -686,6 +694,15 @@ sola consulta paginada por cursor (`cursor_cuadro_rrhh` en CT), índices por
 `/api/candidates/…` y `/api/demo` son del prototipo antiguo (`internal/candidate`);
 no se amplían. `/api/v4/documents` no es una ruta de VEC: es el cliente del
 gestor documental externo.
+
+La candidata de Organización histórica conecta también
+`GET /api/vec/personal/organizacion-historica` con el proceso combinado. Usa la
+misma aplicación y función propietaria de Personal que `vec-interno`, con
+sesión registrada, vínculo corporativo vigente, perfil y ámbito privados,
+decisión nominal, consumo transaccional, auditoría y recibo. La configuración
+opcional no concede permisos; ausente o incorrecta deja solo esta consulta en
+503. No añade tablas, funciones SQL ni acceso de CT a las tablas de Personal.
+Falta completar el ensayo de lectura y reinicio de esta candidata.
 
 ### 11.2 Reglas de frontera
 

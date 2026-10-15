@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
 	gobiernoperfiles "vec-diputacion-granada/internal/vec/adapters/administracionperfiles/postgres"
 	"vec-diputacion-granada/internal/vec/auditoria"
@@ -170,19 +171,20 @@ func TestConfiguracionInvalida(t *testing.T) {
 		fase   string
 		cambio func(*escenario, map[string]any)
 	}{
-		"campo_extra":          {"preparar", func(e *escenario, m map[string]any) { m["dsn_propietario"] = e.dsnLectura }},
-		"horas_cero":           {"preparar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = 0 }},
-		"horas_25":             {"preparar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = 25 }},
-		"horas_negativas":      {"verificar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = -1 }},
-		"conjunto_inexistente": {"preparar", func(e *escenario, m map[string]any) { m["conjunto_capacidades"] = 9 }},
-		"ruta_relativa":        {"preparar", func(e *escenario, m map[string]any) { m["directorio_material"] = "material" }},
-		"salida_relativa":      {"verificar", func(e *escenario, m map[string]any) { m["salida"] = "salida" }},
-		"sin_dsn_operador":     {"aplicar", func(e *escenario, m map[string]any) { m["dsn_operador"] = "" }},
-		"operador_igual":       {"aplicar", func(e *escenario, m map[string]any) { m["dsn_operador"] = e.dsnLectura }},
-		"dsn_con_role":         {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " role=vec_propietario" }},
-		"dsn_con_ROLE":         {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " ROLE=x" }},
-		"url_con_Role":         {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = "postgres://l@" + "localhost/v?Role=x" }},
-		"dsn_search_path":      {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " search_path=x" }},
+		"campo_extra":            {"preparar", func(e *escenario, m map[string]any) { m["dsn_propietario"] = e.dsnLectura }},
+		"horas_25":               {"preparar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = 25 }},
+		"horas_negativas":        {"verificar", func(e *escenario, m map[string]any) { m["horas_validez_claves"] = -1 }},
+		"conjunto_inexistente":   {"preparar", func(e *escenario, m map[string]any) { m["conjunto_capacidades"] = 9 }},
+		"ruta_relativa":          {"preparar", func(e *escenario, m map[string]any) { m["directorio_material"] = "material" }},
+		"salida_relativa":        {"verificar", func(e *escenario, m map[string]any) { m["salida"] = "salida" }},
+		"sin_dsn_operador":       {"aplicar", func(e *escenario, m map[string]any) { m["dsn_operador"] = "" }},
+		"operador_igual":         {"aplicar", func(e *escenario, m map[string]any) { m["dsn_operador"] = e.dsnLectura }},
+		"pool_min_conns_lector":  {"preparar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " pool_min_conns=1" }},
+		"pool_min_idle_operador": {"aplicar", func(e *escenario, m map[string]any) { m["dsn_operador"] = e.dsnOperador + " pool_min_idle_conns=1" }},
+		"dsn_con_role":           {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " role=vec_propietario" }},
+		"dsn_con_ROLE":           {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " ROLE=x" }},
+		"url_con_Role":           {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = "postgres://l@" + "localhost/v?Role=x" }},
+		"dsn_search_path":        {"verificar", func(e *escenario, m map[string]any) { m["dsn_lectura"] = e.dsnLectura + " search_path=x" }},
 		"dsn_transaccion": {"verificar", func(e *escenario, m map[string]any) {
 			m["dsn_lectura"] = e.dsnLectura + " default_transaction_read_only=off"
 		}},
@@ -230,6 +232,50 @@ func TestConfiguracionInvalida(t *testing.T) {
 			t.Fatal("clave repetida aceptada", d.Codigo)
 		}
 	})
+}
+
+func TestValidezGobiernoAdminCLIAntesDeOperar(t *testing.T) {
+	casos := []struct {
+		nombre, perfil, modo, guarda, override string
+		horas                                  int
+		quiere                                 time.Duration
+	}{
+		{"defecto", "", "", "", "", 0, 24 * time.Hour},
+		{"una_hora", "", "", "", "", 1, time.Hour},
+		{"produccion_24", "produccion", "", "", "", 24, 24 * time.Hour},
+		{"produccion_25", "produccion", "", "", "", 25, 0},
+		{"desarrollo_60_dias", "desarrollo", "desarrollo", config.DevelopmentGuardAcknowledgement, "", 1440, 1440 * time.Hour},
+		{"desarrollo_90_dias", "desarrollo", "desarrollo", config.DevelopmentGuardAcknowledgement, "", 2160, 2160 * time.Hour},
+		{"desarrollo_90_dias_mas_una_hora", "desarrollo", "desarrollo", config.DevelopmentGuardAcknowledgement, "", 2161, 0},
+		{"entorno_prevalece", "desarrollo", "desarrollo", config.DevelopmentGuardAcknowledgement, "1440", 2, 1440 * time.Hour},
+		{"entorno_desbordado", "desarrollo", "desarrollo", config.DevelopmentGuardAcknowledgement, "999999999999999999999999999999", 2, 0},
+		{"perfil_desconocido", "otro", "desarrollo", config.DevelopmentGuardAcknowledgement, "", 1, 0},
+		{"sin_doble_llave", "desarrollo", "desarrollo", "", "", 25, 0},
+	}
+	for _, tc := range casos {
+		t.Run(tc.nombre, func(t *testing.T) {
+			t.Setenv(config.EnvExecutionProfile, tc.perfil)
+			t.Setenv(config.EnvAuthMode, tc.modo)
+			t.Setenv(config.EnvDevelopmentGuard, tc.guarda)
+			t.Setenv(config.EnvGobiernoAdminValidezHoras, tc.override)
+			e := nuevoEscenario(t)
+			e.escribirConfig(t, configuracionPrivada{DirectorioMaterial: "/srv/privado/material", RutaConfiguracionHMAC: "/srv/privado/hmac.json", ArchivoSemillaRaiz: "/srv/privado/semilla", DSNLectura: e.dsnLectura, DSNOperador: e.dsnOperador, Salida: e.salida, HorasValidezClaves: tc.horas})
+			var recibido time.Duration
+			e.ops.preparar = func(_ context.Context, _ string, _ time.Duration, origen bootstrap.MaterialOrigenGobiernoUsuariosAdmin, _ *os.Root) (bootstrap.PreparacionGobiernoUsuariosAdmin, error) {
+				e.llamadas++
+				recibido = origen.ValidezClaves
+				return bootstrap.PreparacionGobiernoUsuariosAdmin{}, nil
+			}
+			code, d, _, _ := e.ejecutar(e.args("preparar"))
+			if tc.quiere == 0 {
+				if code != 1 || d.Codigo != "configuracion_invalida" || e.llamadas != 0 {
+					t.Fatalf("configuración insegura operó: código=%d diagnóstico=%s llamadas=%d", code, d.Codigo, e.llamadas)
+				}
+			} else if code != 0 || e.llamadas != 1 || recibido != tc.quiere {
+				t.Fatalf("vigencia=%v código=%d diagnóstico=%s llamadas=%d", recibido, code, d.Codigo, e.llamadas)
+			}
+		})
+	}
 }
 
 func TestDSNAdmiteSoloApplicationName(t *testing.T) {

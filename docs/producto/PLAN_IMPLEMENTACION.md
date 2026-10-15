@@ -8,7 +8,7 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Actualizado el 15 de octubre de 2026 sobre `origin/main@e28ed2b07`.
+Actualizado el 15 de octubre de 2026 sobre `origin/main@896d3b4a2`.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
 cómo se sabe que cada fase está terminada y cómo se trabaja. Es lectura
@@ -132,6 +132,14 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 
 ### 2.3 En curso
 
+Corte H de vigencia de gobierno, orden de dirección del 15/10 a las 19:36:
+preparación y aplicación con 24 horas por defecto, hasta 90 días solo en
+desarrollo y rechazo de plazos mayores de 24 horas en producción. AD282
+conserva publicaciones y recibos. La entrega exige revisión independiente y
+ensayo local de preparación, aplicación y reinicio antes de incorporarla a la
+candidata de dirección.
+Guion: `deploy/principal/vigencia_gobierno_admin_20261015.md`.
+
 **HZ37, O: Mi Bolsa interna en combinado mientras no se seleccione el modo
 externo.** Recupera el montaje de HZ36 si no hay DSN ni material externo y la
 inscripción está apagada. La selección externa exige configuración completa
@@ -174,6 +182,14 @@ está instalada; verificar su hash antes de reanudar:
 | Preferencias entre bolsas | PostgreSQL integrado, lectura autorizada y efecto en la adjudicación |
 | Inscripción por varias categorías (B105) | **No instalar**: falta la modalidad conjunta configurable (apartado 7) |
 
+La candidata de R conecta la consulta histórica de puestos de Personal con el
+proceso combinado, dependencia del ofrecimiento desde una bolsa constituida.
+Conserva la autoridad nominal existente y añade configuración opcional. En la
+copia local se han comprobado lectura con permiso y recibo, denegación de otra
+unidad y la misma página tras reiniciar aplicación y PostgreSQL. La selección
+completa sigue pendiente de la necesidad RPT de la petición y de separar su
+unidad gestora de la unidad del puesto; no se da por resuelto ese recorrido.
+
 ### 2.4 Lo que todavía no funciona de punta a punta
 
 - **El recorrido completo** de la presentación (aspirante → centro →
@@ -204,7 +220,7 @@ está instalada; verificar su hash antes de reanudar:
 | 1. Encender en cidonia lo que existe | Cese con vuelta a la bolsa (HZ10), incorporación acreditada (HZ12) y paso a Personal (HZ18) encendidos. Faltan auditoría de RRHH y verificación de firma |
 | 2. Fusionar PR abiertas de Bolsa y CT | #774, #905, #906, #907, #910 y #540 fusionadas; #909 cerrada sin fusionar |
 | 3. ORQ-1, selección a medias | Resuelta con #918 (AD225, CT198, AD226, CT199), en cidonia desde HZ12 |
-| 4. Repetir el recorrido completo | Pendiente (apartado 6) |
+| 4. Repetir el recorrido completo | Pendiente (F1-31 del tablero) |
 | 5. Carga de bolsas desde CONVOCA | #751 y #752 fusionadas; la pantalla #759 se cerró y la carga se hizo en `vec-admin` con dos administradores (10/10) |
 | 6. Firma de dos personas | Informe y resolución registrados y recuperados tras reinicio en H (#1137); falta el recorrido único de P |
 | 7. Plazos de CT editables y tarjetas de plazo | Plazos con #919 (en cidonia desde HZ11). Tarjetas de plazo en Inicio (CT192): *pendiente de verificar* |
@@ -465,55 +481,9 @@ autoriza datos reales.
 
 ## 6. Tareas pendientes
 
-Los dueños salen del registro de dirección del 13/10 y de las PR abiertas.
-Antes de encargar, comprueba en el canal de coordinación que siguen vigentes y
-busca en el índice de código y en las ramas abiertas si la pieza ya existe.
-
-### Fase 0
-
-| Tarea | Dueño | Cómo se comprueba |
-| --- | --- | --- |
-| Encender la auditoría de RRHH y la consulta por persona: falta su configuración | L | La consulta por persona devuelve lecturas y actos en cidonia |
-| Acto de catálogo con las fuentes de política de cese, configuración, origen CT y contacto completo; versión del rol RRHH con el especializador genérico (#1100) | Claude | El rol RRHH publicado incluye esas acciones y el recorrido no da 403 |
-| Asignar y retirar perfiles desde la ficha de usuario de `vec-admin` | K | Alta y baja de un perfil con dos administradores y auditoría |
-| Quitar del arranque las escrituras directas en tablas de autorización y la herencia del grupo de gobierno de firmas | K | Arranque en un clon sin esas escrituras |
-| Antivirus y análisis de PDF antes de custodiar ficheros subidos | Sin dueño actual | Ensayo con ClamAV real y la política de límites controlada |
-| Correo de la Diputación configurable desde Administración | Bloqueado por Informática (duda 88) | Envío de prueba desde Administración, auditado |
-
-### Fase 1
-
-| Tarea | Dueño | Cómo se comprueba |
-| --- | --- | --- |
-| Instalar AD262 y lo fusionado sin subir | Claude | Subida nueva con copia fría y vuelta atrás; sin 404 ni 503 nuevos |
-| Abrir la inscripción para RRHH con el perfil técnico de RRHH | Claude y O | RRHH ve y admite inscripciones de una convocatoria |
-| Ofertas de varias plazas desde CT | S | Primer corte ensayado en copia local: publicación desde la bolsa, recibo y aceptación en Mi Bolsa, con recuperación tras reinicio. Pendiente de integración. Siguen la selección desde la ficha, el vínculo CT y la guarda de cancelación; después, retirada y aviso durable por correo |
-| Autoridad externa del aspirante y preferencias entre bolsas | O | La aspirante entra, aporta méritos y ordena sus bolsas en «Mi Bolsa» |
-| R1. Criterios de ofrecimiento por persona | R | R1a prepara diagnóstico y parada ante datos sin comprobar; faltan acto propio R1b, integración, activación y recorrido con reinicio |
-| Cartera de méritos, alegaciones y revisión por RRHH | M | Mérito aportado, alegación presentada y decisión de RRHH con recibo |
-| Necesidad de la RPT en la petición del centro (duda 162) | K | La petición guarda el puesto publicado, no texto libre, y RRHH tramita esa misma petición |
-| Llamamiento desde la bolsa real, alta en Personal (#1070) y cese con vuelta a la bolsa (CT213, B115) | K | La persona pasa a Personal y vuelve a «Disponible» tras el cese, también tras reiniciar |
-| Firma del informe antes de Intervención y de la resolución (#1137) | H | Informe con Técnico y Jefatura; resolución con Jefatura, Diputación y Secretaría; PDF y recibos recuperados desde la ficha tras reiniciar |
-| Identidad del firmante, decisor y emisor, y composición de la firma en el arranque real | H | Las dos vías de firma se componen en el arranque real, sin actor ficticio |
-| Encender la verificación de firma con el validador | Claude | Un PDF firmado se verifica desde la ficha |
-| Textos de categoría antes de vincularla (#1008) | J | Revisión de usabilidad y fusión |
-| Recorrido completo en Chrome con reinicio y acta | Claude | Acta nueva en `docs/estudio_requisitos/` |
-| Medir las lecturas en cidonia y bajar el cuadro de CT de 300 ms | Sin dueño actual | Percentil 95 por HTTP en cidonia |
-| Renuncia justificada con el fichero, no solo su huella | Sin dueño; comprobar antes | El justificante se descarga desde la ficha de RRHH |
-| Inscripción con solicitud separada o conjunta, elegida por RRHH en cada convocatoria | Sin dueño; necesita antes la regla en Convocatorias | Las dos modalidades con su recibo y reintento |
-| Documentos del expediente en un solo sitio de la ficha | *Pendiente de verificar* (había un commit local de S) | Todos se ven y descargan desde la ficha |
-| Bandeja propia de Intervención | Preguntar a RRHH si hace falta | — |
-
-Plan B para la presentación: grabar en una copia local el recorrido completo
-con pasos reales, por si algún tramo de cidonia no llega a tiempo.
-
-Se pueden retirar de `dudas.md` citando la norma: la 95 (RD 424/2017, arts.
-10.2 y 12.4) y la 147 (Reglamento de bolsas, arts. 8 y 11).
-
-### Fases 2 a 6
-
-Las tareas están en el plan de cada módulo (apartado 9), bajo «Lo que falta».
-No se encargan hasta cerrar la fase 1, salvo una tarea dependiente de Bolsa o
-CT (apartado 1). Las PR #882 y #881 se conservan, no se fusionan ahora.
+Las tareas de todas las fases, con su equipo, su estado y cómo se comprueban,
+están en [`TABLERO_TAREAS.md`](TABLERO_TAREAS.md); los criterios de cierre de
+cada fase siguen en el apartado 5.
 
 ## 7. Decisiones de producto pendientes de construir
 
@@ -809,12 +779,11 @@ trabajo paralela que la sustituya.
 
 ## 13. Cómo mantener este documento
 
-**Quién**: Claude, como dirección, o el equipo que cierre una tarea del
-apartado 6, en la misma PR que la cierra.
+**Quién**: Claude, como dirección. El estado de cada tarea no se lleva aquí,
+sino en `TABLERO_TAREAS.md`, que también actualiza solo dirección.
 
 **Cuándo**:
 
-- al cerrar o crear una tarea del apartado 6, o al cambiar su dueño;
 - tras cada subida a cidonia: se actualiza el apartado 2.1 con el número de
   subida y lo que entró, y se vacía lo que ya no esté en 2.2;
 - al cumplirse un criterio de fase o un hito;

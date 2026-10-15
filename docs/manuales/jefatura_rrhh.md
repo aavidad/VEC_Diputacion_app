@@ -47,6 +47,8 @@ Una bolsa se forma de una de estas dos maneras:
 
 Cada persona entra en la bolsa con su posición y como «Disponible».
 
+El cuadro de Bolsas muestra las cifras por situación. Los nombres largos de categoría ocupan varias líneas; si faltan columnas a la vista, desplace la tabla horizontalmente dentro del panel.
+
 ### 4.2 La situación de cada candidato
 
 Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede estar disponible en una y trabajando por la otra.
@@ -61,6 +63,8 @@ Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede e
 | En revisión | Ha presentado una renuncia justificada y RRHH tiene que comprobar el justificante. |
 | Disponible desde una fecha | Ha cesado y no puede recibir ofertas hasta esa fecha. El plazo general del Reglamento de bolsas es de cinco meses, y de nueve si el contrato fue por acumulación de tareas. |
 | Excluido | Ha salido de la bolsa. Solo vuelve si RRHH valida una reincorporación justificada. |
+
+Desde la ficha de participación, «Cambiar situación» permite elegir el destino, indicar la fecha cuando corresponda y escribir el motivo. Los campos se muestran en filas y el motivo ocupa todo el ancho. «Revisar cambio de situación» muestra el resumen antes de confirmar.
 
 La mayoría de los cambios ocurren solos, según avanza el expediente: aceptar una oferta, incorporarse, cesar. Las renuncias justificadas quedan en revisión hasta que el técnico valida el justificante. RRHH decide en la pantalla de reglas qué cambios de situación se permiten.
 
@@ -158,11 +162,13 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Parte | Hoy | Falta | Al final |
 | --- | --- | --- | --- |
 | Entrada en la aplicación | Cada persona entra con un certificado de pruebas. | Conectar con el directorio de usuarios de la Diputación. Depende de Informática. | El personal entra con su usuario de la Diputación y su certificado. Los aspirantes, con DNI electrónico o certificado digital. |
+| Vigencia de Administración | Está preparada la renovación de su configuración hasta 90 días en desarrollo. Los permisos de las personas conservan sus propios plazos. | Instalar y comprobar la renovación en el entorno compartido. | La renovación mantiene el acceso administrativo y conserva el registro de lo publicado. |
 | Bolsas que vienen de Convoca | Se cargan desde el Excel de Convoca. | Nada para cargar las bolsas actuales. | La carga sirve solo para pasar a VEC las bolsas que ya existen. Las nuevas se hacen enteras en VEC. |
 | Convocatorias, inscripción, méritos y alegaciones | Programado: el aspirante se inscribe, declara sus méritos con documentos y presenta alegaciones; RRHH admite o rechaza. | Activarlo en el entorno de pruebas. | VEC sustituye a Convoca. El aspirante hace todo desde su área personal y RRHH lo revisa en pantalla. |
 | Baremación | No existe todavía. | Que RRHH cierre cómo se acreditan los méritos. | VEC calcula los puntos con el baremo de cada convocatoria, que RRHH puede cambiar. RRHH revisa y publica las listas provisional y definitiva. |
 | Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. | Subir el fichero del justificante de renuncia. | El aspirante aporta sus justificantes desde su área personal y RRHH los valida en pantalla. |
 | A quién se ofrece un puesto | VEC sigue el orden de la bolsa y salta a quien no está disponible. Una candidata pendiente de integrar, activar y comprobar prepara el motivo por persona y detiene el llamamiento si faltan datos del contrato anterior. | El acto propio para que RRHH compruebe esos datos y guarde el justificante y el recibo; la regla aprobada para otros supuestos de mejora de empleo (duda 163). La elección de modalidades sigue pendiente de norma o bases propias (duda 164). | RRHH ve los motivos y puede ofrecer una vacante a quien trabaja en los supuestos tasados del artículo 9 del Reglamento, tras comprobar el tiempo previo. |
+| Comprobación del puesto ofrecido | Consulta del puesto en Personal comprobada en la copia local, con permiso, recibo y reinicio. | Completar el ofrecimiento desde la petición y comprobarlo en el recorrido. | VEC contrasta el puesto de la petición con su historia antes de ofrecerlo. |
 | Aviso de la oferta | Correo con plantilla desde un buzón de pruebas. Llamadas anotadas. | El correo de la Diputación, que depende de Informática. | Correo oficial y, cuando Informática dé un proveedor, también SMS. |
 | Ofertas de varias plazas | Desde una bolsa seleccionada, RRHH abre «Gestionar ofertas», configura el inicio del plazo y publica la oferta. Bolsa adjudica las plazas por orden y conserva el recibo al reintentar. | Conectar la selección del expediente, su vínculo y la guarda de cancelación. Después, retirar la oferta al cancelar y enviar el aviso por correo de la Diputación. | Una petición de varias personas se cubre con una sola oferta. |
 | Petición del centro | Se presenta y la ratifica otra persona del centro. | RRHH pidió que la petición vaya firmada por el técnico y por el Diputado o Diputada. | Petición firmada desde VEC. |
@@ -172,6 +178,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
 | Cese y vuelta a la bolsa | El cese se registra. | Probar entera la vuelta automática a la bolsa. | Al cesar, la persona vuelve sola a su bolsa con la situación que marque la regla. |
+| Administración | El acceso y los cambios de perfiles usan claves con vigencia limitada. Está preparado el ajuste para alargarla en las copias locales. | Activarlo en la candidata de dirección. | Renovación controlada, con constancia de quién la autoriza y sin ampliar los permisos. |
 | Otros módulos | Aparcados hasta terminar bolsas y contratación. | Ver el apartado 8. | Personal, control horario, dietas, nóminas y los demás módulos de RRHH en la misma aplicación. |
 
 ## 8. Los demás módulos de VEC
@@ -185,6 +192,11 @@ VEC se construye por partes. Primero bolsas y contratación temporal, con lo que
 **Hoy.** Está programado lo que necesita la contratación temporal: el alta de la persona contratada, su ocupación del puesto y el cese. La relación de puestos se puede consultar y RRHH puede añadir o desactivar categorías; las que están en uso no se borran. La petición del centro todavía guarda el puesto como texto en lugar de elegirlo de la relación de puestos.
 
 **Al final.** El registro completo de personal: antigüedad, trienios, grados, situaciones con sus efectos, correcciones con su justificante y versiones de la relación de puestos aprobadas y publicadas, sin borrar las anteriores. Los demás módulos tomarán de aquí los datos de cada empleado.
+
+La candidata permite consultar también la historia del puesto que necesita el
+ofrecimiento a la bolsa. En la copia local se han comprobado el permiso de RRHH,
+el recibo de lectura y su conservación tras reiniciar. Falta completar el
+ofrecimiento desde la petición del centro.
 
 ### 8.2 Firmas
 
@@ -211,6 +223,10 @@ La firma electrónica del documento y la competencia de quien firma se comprueba
 **Para qué sirve.** Decidir quién entra y qué puede hacer cada persona. Hay dos tipos de administrador: el de la aplicación, que reparte perfiles y lleva la configuración, y el de sistemas, que instala y hace copias. Ninguno de los dos ve expedientes ni bolsas.
 
 **Hoy.** Se entra con certificado de pruebas. Los perfiles están publicados y en la administración se ve la lista de personas y su ficha. Dar y quitar perfiles desde pantalla está a medias y los cambios delicados piden la aprobación de dos administradores.
+
+**Falta.** Activar el ajuste de vigencias en la candidata de dirección. En la copia local se preparan claves de 90 días para evitar la renovación diaria durante las pruebas. Cambiar su duración no da permisos nuevos ni prolonga una aprobación pendiente. En producción se conserva el límite de un día.
+
+La renovación de la configuración de Administración admite hasta 90 días en desarrollo y conserva 24 horas como plazo máximo en producción. Se ha comprobado en una copia que el reinicio mantiene la publicación y sus recibos. Esto no amplía los permisos de las personas. Su instalación en el entorno compartido está pendiente.
 
 **Al final.** Entrada con el usuario de la Diputación y certificado, reparto de perfiles desde pantalla con doble aprobación cuando toque, activar o desactivar módulos y ver el estado de las copias de seguridad.
 

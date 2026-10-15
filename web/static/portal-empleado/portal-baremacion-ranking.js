@@ -1,5 +1,5 @@
 import { cargarTextos } from "../comun/textos.js";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261015-r1-s1-h-v1";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-criterios-v2";
 
 export function rutaRankingBolsa(search, bolsaRef = "", cursor = "") {
   const base = bolsaRef ? rutaCandidatosBolsaCompartible(search, bolsaRef) : rutaCandidatosBolsaCompartible(search, "bolsa:selector");

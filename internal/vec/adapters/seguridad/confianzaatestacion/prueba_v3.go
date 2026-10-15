@@ -101,7 +101,7 @@ func (d DatosPruebaConfianzaAtestacionAutorizacionV3) Validar() error {
 		!instanteCanonicoConfianza(d.ConfiguracionExpiraEn) ||
 		!d.ConfiguracionExpiraEn.After(d.ConfiguracionPublicadaEn) ||
 		d.ConfiguracionExpiraEn.Sub(d.ConfiguracionPublicadaEn) >
-			maximaVigenciaConfiguracionAtestacionV3 ||
+			maximaVigenciaParaAudienciasV3(d.AudienciaDespliegue) ||
 		d.VerificadaEn.Before(d.ConfiguracionPublicadaEn) ||
 		!d.VerificadaEn.Before(d.ConfiguracionExpiraEn) ||
 		!huellaSHA256ConfianzaValida(d.HuellaPruebaSHA256) {
