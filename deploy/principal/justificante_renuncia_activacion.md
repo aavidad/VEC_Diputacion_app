@@ -109,12 +109,26 @@ insertan ni modifican directamente filas de datos, asignaciones o permisos.
 Los datos ficticios necesarios para el recorrido se preparan con la semilla o
 el guion privado de datos, fuera de esta activación.
 
-La fuente `deploy/principal/fuentes/bolsa_justificantes_renuncia_rrhh_v2.json`
-publica la versión 2 de la acción de descarga de RRHH. Conserva su nombre y sus
-campos, con las dimensiones `unidad_ref` y `ambito_ref` del rol técnico. La
-primera fuente se conserva para las acciones propias del aspirante. Se publica
-la nueva entrada y la versión correspondiente del rol mediante los actos de
-Administración existentes; no se cambia el puntero del perfil de Carmen ni se
+La fuente activa del corte es
+`deploy/principal/fuentes/bolsa_justificantes_renuncia_v3.json`. Reúne las dos
+acciones propias del aspirante, con su contenido anterior, y la versión 2 de
+la descarga de RRHH, con las dimensiones `unidad_ref` y `ambito_ref`. Los
+archivos v1 y RRHH v2 se conservan como antecedentes; no se publican juntos en
+el paquete activo porque duplicarían la misma acción. El nuevo paquete conserva
+las demás fuentes y el censo vigente de roles.
+
+La publicación del catálogo se realiza por la herramienta nominal
+`vec-catalogo-acciones-admitir`, con plan y configuración DBA protegida que
+aprueban sus bytes exactos. Esa aprobación es técnica; no acredita una firma
+personal o legal. El borrador de la copia ha pasado los validadores oficiales
+Go, pero todavía no se ha aplicado.
+
+Queda pendiente completar la vía gobernada para incorporar el permiso al rol.
+El acto actual de versionado de Bolsa admite otros conjuntos cerrados de
+acciones y aún no admite esta descarga. La concesión presente en los datos
+ficticios de la copia no acredita ese acto. Antes de activar, se necesita la
+versión correspondiente del rol y el avance de sus asignaciones por una vía
+gobernada. No se cambia el puntero del perfil para sortear el ámbito ni se
 crea un perfil documental por persona.
 
 Bolsa comprueba la bolsa y la participación como atributos del recurso. La

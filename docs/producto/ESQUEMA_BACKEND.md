@@ -556,8 +556,9 @@ B124 y D26 incorporan el ámbito técnico de la descarga. B125 revoca las
 lecturas preliminares al ejecutor de Bolsa; D27 consume V3 antes de consultar
 la relación sensible y coteja las huellas contra el ámbito real en la misma
 transacción. El rol técnico mantiene `unidad_ref` y `ambito_ref`; la bolsa y
-la participación se cotejan como atributos. La entrada RRHH de la fuente v2
-conserva el nombre de la acción y la fuente v1 permanece en la historia.
+la participación se cotejan como atributos. La fuente conjunta v3 conserva
+las acciones propias y la entrada RRHH versión 2; v1 y RRHH v2 quedan como
+antecedentes. El catálogo activo no admite acciones duplicadas.
 La PR recoge las revisiones y el
 ensayo de la cadena en una copia de la principal; la guía `deploy/principal/justificante_renuncia_activacion.md`
 fija el orden de activación. La lectura y descarga pertenecen a cualquier
