@@ -265,6 +265,19 @@ la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. A
 figura en ella como disponible y en el puesto que le toca el llamamiento (lo deja así el guion
 de datos). Si un dato no cuadra, se ajusta el dato, no el código (regla 5).
 
+**Variante de vacante para comprobar los criterios de ofrecimiento**
+(dirección, 15/10). Conserva la misma petición, expediente, puesto, bolsa y una
+persona solicitada. El análisis usa modalidad y causa de vacante. Con la regla
+publicada, la primera persona figura trabajando y carece de hechos fiables
+para comprobar la excepción: RRHH ve la posición, la versión de la regla y el
+motivo «Pendiente de comprobación»; la selección se detiene antes de crear el
+llamamiento o pasar a otra posición. Después se prepara la primera persona
+como disponible y la segunda trabajando para comprobar el ofrecimiento y los
+motivos del seguimiento. Los cambios son datos de la copia; los actos y la
+fiscalización de la variante se registran de nuevo con sus propios recibos.
+La fiscalización de una modalidad anterior conserva su contexto original.
+Esta variante sigue pendiente de completar el recorrido y el reinicio.
+
 **Pasos.** El recorrido principal empieza en la petición del centro (paso 1) y
 llega hasta el cese y la vuelta a la bolsa; es el que decide si la candidata
 está completa. Sigue el orden que tiene hoy el código (4.3.2): el llamamiento va
@@ -707,6 +720,14 @@ orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
 arranca). Exige que la solicitud conserve la necesidad de la RPT publicada.
 Lo que hay en cidonia todavía usa el puente anterior.
 
+El primer corte de la conexión añade a Bolsa el inicio de plazo por publicación
+y el origen de una oferta procedente de CT. RRHH elige el inicio desde la
+política de la bolsa y publica desde su formulario habitual. En la copia local
+se han comprobado la publicación de dos plazas, su consulta y aceptación desde
+Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
+un reintento conserva fechas, política y oferta originales. Este corte no acredita
+todavía la publicación desde la ficha de CT.
+
 **Candidata R1a, pendiente de integrar e instalar.** La selección explica por
 persona los hechos comprobados y el motivo aplicado, con el vínculo al contrato
 de origen del llamamiento de CT. Si falta un contrato anterior o un dato para
@@ -723,8 +744,9 @@ requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
 de origen CT, y la concesión exacta al rol RRHH aprobada por dos
 administradores. Si falta el apartado de criterios, la selección conserva el
 orden y las reglas anteriores; la aplicación arranca. Si RRHH no tiene permiso
-para consultar motivos, el bloque indica que no están disponibles. Falta comprobar el conjunto con y sin esa
-configuración, en navegador y tras reinicio.
+para consultar motivos, el bloque indica que no están disponibles. Falta comprobar
+el conjunto con y sin esa configuración, en navegador y tras reinicio.
+
 
 La oferta con varias plazas, la adjudicación por posición y el llamamiento
 directo existen en Bolsa (`internal/modules/bolsa/domain/oferta_publicada.go`,
@@ -739,7 +761,10 @@ Reglas del llamamiento y sus canales (decisiones de Alberto del 02/10 al
   Bolsa sobre la bolsa constituida de la categoría, por referencias opacas; la
   correspondencia entre categoría de CT y bolsa va en un catálogo editable. No se
   aceptan cambios que amplíen el puente anterior.
-- Las ofertas de bolsa no se publican en la web: se avisa por correo.
+- La política de cada bolsa fija el inicio del plazo: publicación efectiva en
+  VEC (Reglamento, art. 8.1.a y b) o correo declarado por RRHH (decisión del
+  02/10, duda 153 abierta). El aviso por correo no sustituye una publicación
+  ni se considera notificado mientras solo exista una intención de envío.
 - El canal de aviso es un puerto con adaptadores, que se listan y activan por
   catálogo. El llamamiento registra intentos y resultados sin depender del canal.
   SMS (lo pidió RRHH) será el segundo adaptador cuando Informática dé proveedor.

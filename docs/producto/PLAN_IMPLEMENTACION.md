@@ -8,7 +8,7 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Actualizado el 13 de octubre de 2026 sobre `origin/main@2fbb15342`.
+Actualizado el 15 de octubre de 2026 sobre `origin/main@e28ed2b07`.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
 cómo se sabe que cada fase está terminada y cómo se trabaja. Es lectura
@@ -482,6 +482,7 @@ busca en el índice de código y en las ramas abiertas si la pieza ya existe.
 | --- | --- | --- |
 | Instalar AD262 y lo fusionado sin subir | Claude | Subida nueva con copia fría y vuelta atrás; sin 404 ni 503 nuevos |
 | Abrir la inscripción para RRHH con el perfil técnico de RRHH | Claude y O | RRHH ve y admite inscripciones de una convocatoria |
+| Ofertas de varias plazas desde CT | S | Primer corte ensayado en copia local: publicación desde la bolsa, recibo y aceptación en Mi Bolsa, con recuperación tras reinicio. Pendiente de integración. Siguen la selección desde la ficha, el vínculo CT y la guarda de cancelación; después, retirada y aviso durable por correo |
 | Autoridad externa del aspirante y preferencias entre bolsas | O | La aspirante entra, aporta méritos y ordena sus bolsas en «Mi Bolsa» |
 | R1. Criterios de ofrecimiento por persona | R | R1a prepara diagnóstico y parada ante datos sin comprobar; faltan acto propio R1b, integración, activación y recorrido con reinicio |
 | Cartera de méritos, alegaciones y revisión por RRHH | M | Mérito aportado, alegación presentada y decisión de RRHH con recibo |

@@ -5,7 +5,7 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 const versionCoordinador = "20261015-r1-criterios-v1";
-const versionEntrada = versionCoordinador;
+const versionEntrada = "20261015-r1-s1-ofertas-v1";
 const versionClienteCT = "20261015-r1-criterios-v1";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
 const versionCircuito = "20261015-r1-criterios-v1";

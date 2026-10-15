@@ -80,7 +80,8 @@ function plazaValida(plaza, indice) {
 
 export function validarOferta(oferta) {
   const d = oferta?.datos;
-  if (!oferta || !REFERENCIA.test(oferta.oferta_ref ?? "") || !REFERENCIA.test(oferta.bolsa_ref ?? "") || !(oferta.estado in ESTADOS) ||
+  if (!oferta || !REFERENCIA.test(oferta.oferta_ref ?? "") || !REFERENCIA.test(oferta.recibo_ref ?? "") ||
+      !REFERENCIA.test(oferta.bolsa_ref ?? "") || !(oferta.estado in ESTADOS) ||
       !d || typeof d.categoria !== "string" || typeof d.centro !== "string" || !FECHA_DIA.test(d.fecha_inicio ?? "") ||
       (d.fecha_fin !== undefined && !FECHA_DIA.test(d.fecha_fin)) || !instante(oferta.publicada_en) || !instante(oferta.vence_antes_de) ||
       !Array.isArray(oferta.disposiciones) || !Number.isSafeInteger(oferta.disposiciones_total) || typeof oferta.plazo?.ejemplo !== "boolean" ||
@@ -97,6 +98,7 @@ export function validarOferta(oferta) {
 export function validarOfertasBolsa(sobre) {
   const datos = sobre?.data;
   if (!datos || datos.esquema !== ESQUEMA_OFERTAS_BOLSA || !Array.isArray(datos.ofertas)) throw new TypeError("Contrato de ofertas de Bolsa no válido.");
+  if (datos.inicio_plazo !== undefined && datos.inicio_plazo !== "publicacion" && datos.inicio_plazo !== "notificacion") throw new TypeError("Inicio de plazo de Bolsa no válido.");
   datos.ofertas.forEach(validarOferta);
   return datos;
 }
@@ -121,9 +123,10 @@ export function crearClienteOfertas({ fetchImpl = fetch } = {}) {
       return { ok: true, datos: validarOfertasBolsa(await respuesta.json()) };
     },
     publicar: (bolsaRef, datos, numeroPlazas, notificacion, clave, { signal } = {}) =>
-      !notificacionValida(notificacion)
+      notificacion != null && !notificacionValida(notificacion)
         ? Promise.resolve({ ok: false, status: 400, codigo: "solicitud_invalida" })
-        : escribir(RUTA_OFERTAS_BOLSA, { bolsa_ref: bolsaRef, datos, numero_plazas: numeroPlazas, notificacion }, clave, signal),
+        : escribir(RUTA_OFERTAS_BOLSA, { bolsa_ref: bolsaRef, datos, numero_plazas: numeroPlazas,
+          ...(notificacion == null ? {} : { notificacion }) }, clave, signal),
     /** Acto sobre una plaza: tipo, persona (null en llamamiento directo) y la secuencia que vio RRHH. */
     registrarActo: (bolsaRef, acto, clave, { signal } = {}) =>
       escribir(RUTA_RESOLUCIONES_OFERTA, { bolsa_ref: bolsaRef, oferta_ref: acto.oferta_ref, numero_de_plaza: acto.numero_de_plaza,
@@ -138,7 +141,7 @@ function generarClavePorDefecto() {
 export function mensajeError(traducir, resultado) {
   const especifica = `error_${resultado.status}_${resultado.codigo}`;
   if (traducir(especifica) !== especifica) return traducir(especifica);
-  if (resultado.status === 403 || resultado.status === 422) return traducir(`error_${resultado.status}`);
+  if (resultado.status === 403 || resultado.status === 409 || resultado.status === 422) return traducir(`error_${resultado.status}`);
   return traducir("error_generico");
 }
 
@@ -169,7 +172,7 @@ const listaFormato = new Intl.ListFormat(LOCALIZACION_PORTAL, { type: "conjuncti
 
 export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), clienteHistorial, alCambiar = () => {}, anunciar = () => {}, traducir = crearTraductorOfertas(), generarClave = generarClavePorDefecto } = {}) {
   const estado = { bolsa: "", carga: "inactiva", ofertas: [], error: "", enviando: false, claveEnCurso: null, borrador: null, mensaje: "", errorOperacion: "",
-    registrando: false, confirmacion: null, clavesActo: new Map(), historialOferta: "" };
+    reciboPublicacion: null, incierta: false, registrando: false, confirmacion: null, clavesActo: new Map(), historialOferta: "", inicioPlazo: "notificacion", revisionPublicacion: null };
   let controlador = null;
   let controladorPublicacion = null;
   let documentoInstalado = null;
@@ -204,8 +207,9 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     try {
       const resultado = await cliente.consultar(estado.bolsa, { signal });
       if (signal.aborted) return;
-      if (resultado.ok) { estado.ofertas = resultado.datos.ofertas; estado.carga = "lista"; }
-      else { estado.carga = "error"; estado.error = resultado.status === 403 ? traducir("error_403") : traducir("error_carga"); }
+      if (resultado.ok) { estado.ofertas = resultado.datos.ofertas; estado.inicioPlazo = resultado.datos.inicio_plazo ?? "notificacion"; estado.carga = "lista"; }
+      else { estado.carga = "error"; estado.error = resultado.status === 403 ? traducir("error_403") :
+        resultado.status === 503 && resultado.codigo === "plazo_no_configurado" ? traducir("error_503_politica_consulta") : traducir("error_carga"); }
     } catch (error) {
       if (signal.aborted || error?.name === "AbortError") return;
       estado.carga = "error"; estado.error = traducir("error_carga");
@@ -213,12 +217,13 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     cambiar();
   }
 
-  async function publicar(datos, numeroPlazas, notificacion, fechaLocal) {
-    if (estado.enviando || !estado.bolsa) return;
-    // Reintentar con el mismo contenido reutiliza la clave y obtiene la misma oferta.
-    const borrador = { datos, numeroPlazas, notificacion, fechaLocal };
-    if (!estado.claveEnCurso || JSON.stringify(estado.borrador) !== JSON.stringify(borrador)) estado.claveEnCurso = generarClave();
-    estado.borrador = borrador; estado.enviando = true; estado.mensaje = ""; estado.errorOperacion = ""; cambiar();
+  async function publicar() {
+    if (estado.enviando || !estado.bolsa || !estado.revisionPublicacion) return;
+    // Tras un resultado incierto, el cuerpo y la clave quedan unidos hasta recibir el recibo.
+    if (!estado.claveEnCurso) estado.borrador = estado.revisionPublicacion;
+    if (!estado.claveEnCurso) estado.claveEnCurso = generarClave();
+    const { datos, numeroPlazas, notificacion } = estado.borrador;
+    estado.enviando = true; estado.mensaje = ""; estado.reciboPublicacion = null; estado.errorOperacion = ""; cambiar();
     controladorPublicacion = new AbortController();
     const { signal } = controladorPublicacion;
     try {
@@ -226,17 +231,30 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       if (signal.aborted) return;
       if (resultado.ok) {
         estado.mensaje = resultado.status === 200 ? traducir("publicada_antes") : traducir("publicada", { vence: fechaHora(resultado.oferta.vence_antes_de) });
-        estado.claveEnCurso = null; estado.borrador = null; anunciar(estado.mensaje);
+        estado.reciboPublicacion = { referencia: resultado.oferta.recibo_ref, publicadaEn: resultado.oferta.publicada_en };
+        estado.incierta = false; estado.claveEnCurso = null; estado.borrador = null; estado.revisionPublicacion = null; anunciar(estado.mensaje);
         void cargar();
-      } else estado.errorOperacion = mensajeError(traducir, resultado);
-    } catch { if (signal.aborted) return; estado.errorOperacion = traducir("error_generico"); }
+      } else {
+        estado.errorOperacion = mensajeError(traducir, resultado);
+        // Un rechazo posterior no confirma si la primera petición surtió efecto.
+        // Solo un rechazo de la primera petición permite corregir con otra clave.
+        if (!estado.incierta && [400, 401, 403, 409, 422].includes(resultado.status)) {
+          estado.claveEnCurso = null; estado.revisionPublicacion = null;
+          if (resultado.status === 409) void cargar();
+        } else {
+          estado.incierta = true;
+          estado.errorOperacion += ` ${traducir("salida_incierta")}`;
+        }
+      }
+    } catch { if (signal.aborted) return; estado.incierta = true;
+      estado.errorOperacion = `${traducir("error_generico")} ${traducir("salida_incierta")}`; }
     controladorPublicacion = null;
     estado.enviando = false; cambiar();
   }
 
   function pedirConfirmacion(acto) {
     if (estado.registrando) return;
-    estado.confirmacion = acto; estado.mensaje = ""; estado.errorOperacion = ""; cambiar();
+    estado.confirmacion = acto; estado.mensaje = ""; estado.reciboPublicacion = null; estado.errorOperacion = ""; cambiar();
     enfocar('[data-ofertas-accion="confirmar"]');
   }
 
@@ -348,17 +366,24 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       `<span class="estado-chip ${ESTADOS[o.estado]}">${escapar(traducir(`estado_${o.estado}`))}</span></div>` +
       `<dl class="oferta-ficha__datos">${dato("col_fechas", fechas)}${dato("col_plazo", fechaHora(o.vence_antes_de))}` +
       `${dato("col_disposiciones", String(o.disposiciones_total), detalleOfrecidas)}${dato("col_plazas", plazas)}</dl>${correo}` +
+      reciboOferta(o.recibo_ref, o.publicada_en) +
       // Las plazas se muestran cuando ya hay algo que decidir o ver: tras el plazo.
       (o.estado === "abierta" ? "" : listaPlazas(o)) +
       `<div class="acciones-fila"><button type="button" class="boton-secundario" data-ofertas-accion="historial" data-oferta-ref="${escapar(o.oferta_ref)}" aria-expanded="${estado.historialOferta === o.oferta_ref}">${escapar(traducirHistorialOfrecimientos("titulo"))}</button></div>` +
       (estado.historialOferta === o.oferta_ref ? historial.renderizar() : "") + "</li>";
   }
 
+  function reciboOferta(referencia, publicadaEn, abierto = false) {
+    return `<details${abierto ? " open" : ""}><summary>${escapar(traducir("recibo_titulo"))}</summary><dl class="oferta-ficha__datos">` +
+      `<div><dt>${escapar(traducir("recibo_referencia"))}</dt><dd>${escapar(referencia)}</dd></div>` +
+      `<div><dt>${escapar(traducir("recibo_fecha"))}</dt><dd>${escapar(fechaHora(publicadaEn))}</dd></div></dl></details>`;
+  }
+
   function formulario() {
     const b = estado.borrador?.datos || {};
     const n = estado.borrador?.notificacion || {};
     const plazas = estado.borrador?.numeroPlazas ?? 1;
-    const inactivo = estado.enviando ? " disabled" : "";
+    const inactivo = estado.enviando || estado.carga !== "lista" ? " disabled" : "";
     const campo = (id, tipo, etiqueta, valor, extra = "") => `<label class="campo${tipo === "textarea" ? " campo-ancho" : ""}" for="oferta-${id}"><span>${escapar(traducir(etiqueta))}</span>` +
       (tipo === "textarea" ? `<textarea id="oferta-${id}" name="${id}" rows="2" maxlength="2000" required${inactivo}>${escapar(valor ?? "")}</textarea>`
         : `<input id="oferta-${id}" name="${id}" type="${tipo}" value="${escapar(valor ?? "")}"${extra}${inactivo}>`) + "</label>";
@@ -369,11 +394,25 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       campo("fecha_fin", "date", "fecha_fin", b.fecha_fin) +
       campo("numero_plazas", "number", "numero_plazas", plazas, ` required min="1" max="${MAXIMO_PLAZAS_OFERTA}" step="1" inputmode="numeric"`) +
       campo("descripcion", "textarea", "descripcion", b.descripcion) +
-      `</div></fieldset><fieldset><legend>${escapar(traducir("correo_titulo"))}</legend><p class="dato-secundario">${escapar(traducir("correo_limite"))}</p><div class="rejilla-formulario">` +
+      `</div></fieldset>` + (estado.inicioPlazo === "publicacion" ? `<p class="dato-secundario">${escapar(traducir("inicio_publicacion"))}</p>` :
+      `<fieldset><legend>${escapar(traducir("correo_titulo"))}</legend><p class="dato-secundario">${escapar(traducir("correo_limite"))}</p><div class="rejilla-formulario">` +
       campo("notificada_en", "datetime-local", "correo_fecha", estado.borrador?.fechaLocal, ' required step="1"') +
       campo("referencia_correo", "text", "correo_referencia_obligatoria", n.referencia_correo, ' required maxlength="256" pattern="[A-Za-z0-9][A-Za-z0-9:_.-]{0,255}"') +
       campo("huella_correo_sha256", "text", "correo_huella_obligatoria", n.huella_correo_sha256, ' required minlength="64" maxlength="64" pattern="[a-f0-9]{64}" autocomplete="off" spellcheck="false"') +
-      `</div><div class="acciones-formulario"><button type="submit" class="boton-primario"${inactivo}>${escapar(traducir(estado.enviando ? "publicando" : estado.claveEnCurso ? "reintentar" : "publicar"))}</button></div></fieldset></form>`;
+      `</div></fieldset>`) + `<div class="acciones-formulario"><button type="submit" class="boton-primario"${inactivo}>${escapar(traducir("revisar_publicacion"))}</button></div></form>`;
+  }
+
+  function revisionPublicacion() {
+    const b = estado.revisionPublicacion;
+    const d = b.datos;
+    const dato = (clave, valor) => `<div><dt>${escapar(traducir(clave))}</dt><dd>${escapar(valor)}</dd></div>`;
+    return `<section class="formulario-gobernado" aria-labelledby="oferta-revision-titulo"><h4 id="oferta-revision-titulo">${escapar(traducir("revision_titulo"))}</h4>` +
+      `<dl class="oferta-ficha__datos">${dato("categoria", d.categoria)}${dato("centro", d.centro)}${dato("fecha_inicio", d.fecha_inicio)}` +
+      `${d.fecha_fin ? dato("fecha_fin", d.fecha_fin) : ""}${dato("numero_plazas", b.numeroPlazas)}${dato("descripcion", d.descripcion)}` +
+      `${b.notificacion ? `${dato("correo_fecha_revision", fechaHora(b.notificacion.notificada_en))}${dato("correo_referencia", b.notificacion.referencia_correo)}` : dato("inicio_plazo", traducir("inicio_publicacion_corto"))}</dl>` +
+      `${b.notificacion ? `<details><summary>${escapar(traducir("correo_huella_detalle"))}</summary><dl class="oferta-ficha__datos">${dato("correo_huella", b.notificacion.huella_correo_sha256)}</dl></details>` : ""}` +
+      `<div class="acciones-formulario"><button type="button" class="boton-primario" data-ofertas-accion="confirmar-publicacion"${estado.enviando ? " disabled" : ""}>${escapar(traducir(estado.enviando ? "publicando" : estado.claveEnCurso ? "reintentar" : "confirmar_publicacion"))}</button>` +
+      `${estado.claveEnCurso ? "" : `<button type="button" class="boton-secundario" data-ofertas-accion="corregir-publicacion">${escapar(traducir("corregir_publicacion"))}</button>`}</div></section>`;
   }
 
   function renderizar() {
@@ -383,9 +422,10 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     else if (estado.carga === "error") cuerpo = `<p class="mensaje-error" role="alert">${escapar(estado.error)} <button type="button" class="boton-secundario" data-ofertas-accion="recargar">${escapar(traducir("reintentar_carga"))}</button></p>`;
     else if (estado.ofertas.length === 0) cuerpo = `<p>${escapar(traducir("vacio"))}</p>`;
     else cuerpo = `<ul class="ofertas-lista">${estado.ofertas.map(fichaOferta).join("")}</ul>`;
-    const avisos = `<div aria-live="polite">${estado.mensaje ? `<p class="mensaje-exito ofertas-bolsa__aviso" data-ofertas-aviso="exito" tabindex="-1" role="status">${escapar(estado.mensaje)}</p>` : ""}</div>` +
+    const avisos = `<div aria-live="polite">${estado.mensaje ? `<div class="mensaje-exito ofertas-bolsa__aviso" data-ofertas-aviso="exito" tabindex="-1" role="status"><p>${escapar(estado.mensaje)}</p>` +
+      `${estado.reciboPublicacion ? reciboOferta(estado.reciboPublicacion.referencia, estado.reciboPublicacion.publicadaEn, true) : ""}</div>` : ""}</div>` +
       `${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escapar(estado.errorOperacion)}</p>` : ""}`;
-    return `<section class="panel panel-separado ofertas-bolsa" aria-labelledby="titulo-ofertas-bolsa"><div class="cabecera-panel"><h3 id="titulo-ofertas-bolsa">${escapar(traducir("titulo"))}</h3>${total}</div><div class="cuerpo-panel">${avisos}${cuerpo}${formulario()}</div></section>`;
+    return `<section class="panel panel-separado ofertas-bolsa" aria-labelledby="titulo-ofertas-bolsa"><div class="cabecera-panel"><h3 id="titulo-ofertas-bolsa">${escapar(traducir("titulo"))}</h3>${total}</div><div class="cuerpo-panel">${avisos}${cuerpo}${estado.revisionPublicacion ? revisionPublicacion() : formulario()}</div></section>`;
   }
 
   function manejarSubmit(evento) {
@@ -393,6 +433,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     const form = evento.target?.closest?.('[data-ofertas-form="publicar"]');
     if (!form) return false;
     evento.preventDefault();
+    if (estado.carga !== "lista" || estado.enviando || estado.claveEnCurso) return true;
     if (typeof form.reportValidity === "function" && !form.reportValidity()) return true;
     const valores = new FormData(form);
     const datos = { categoria: String(valores.get("categoria") ?? "").trim(), centro: String(valores.get("centro") ?? "").trim(),
@@ -401,15 +442,16 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     if (fin) datos.fecha_fin = fin;
     const plazas = Number(valores.get("numero_plazas") ?? 1);
     if (!Number.isSafeInteger(plazas) || plazas < 1 || plazas > MAXIMO_PLAZAS_OFERTA) { estado.errorOperacion = traducir("error_422"); cambiar(); return true; }
-    const fechaLocal = String(valores.get("notificada_en") ?? "");
-    const notificacion = { notificada_en: fechaNotificacionLocal(fechaLocal),
+    const fechaLocal = estado.inicioPlazo === "notificacion" ? String(valores.get("notificada_en") ?? "") : "";
+    const notificacion = estado.inicioPlazo === "publicacion" ? null : { notificada_en: fechaNotificacionLocal(fechaLocal),
       referencia_correo: String(valores.get("referencia_correo") ?? "").trim(),
       huella_correo_sha256: String(valores.get("huella_correo_sha256") ?? "").trim(), fuente: FUENTE_CORREO };
-    if (referenciaContieneDocumentoIdentidad(notificacion.referencia_correo)) {
+    if (notificacion && referenciaContieneDocumentoIdentidad(notificacion.referencia_correo)) {
       estado.errorOperacion = traducir("error_correo_referencia_personal"); cambiar(); return true;
     }
-    if (!notificacionValida(notificacion)) { estado.errorOperacion = traducir("error_correo"); cambiar(); return true; }
-    void publicar(datos, plazas, notificacion, fechaLocal);
+    if (notificacion && !notificacionValida(notificacion)) { estado.errorOperacion = traducir("error_correo"); cambiar(); return true; }
+    estado.revisionPublicacion = { datos, numeroPlazas: plazas, notificacion, fechaLocal };
+    estado.errorOperacion = ""; cambiar(); enfocar('[data-ofertas-accion="confirmar-publicacion"]');
     return true;
   }
 
@@ -419,6 +461,8 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     if (!control || control.disabled) return false;
     const accion = control.dataset.ofertasAccion;
     if (accion === "recargar") void cargar();
+    else if (accion === "confirmar-publicacion") void publicar();
+    else if (accion === "corregir-publicacion" && !estado.claveEnCurso) { estado.borrador = estado.revisionPublicacion; estado.revisionPublicacion = null; cambiar(); enfocar('[name="categoria"]'); }
     else if (accion === "historial") {
       const ofertaRef = control.dataset.ofertaRef;
       if (estado.historialOferta === ofertaRef) {
@@ -444,12 +488,16 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       if (!bolsaRef || bolsaRef === estado.bolsa) return;
       controladorPublicacion?.abort(); controladorPublicacion = null;
       historial.desmontar();
-      Object.assign(estado, { bolsa: bolsaRef, carga: "inactiva", ofertas: [], mensaje: "", errorOperacion: "", enviando: false, claveEnCurso: null, borrador: null, confirmacion: null, historialOferta: "" });
+      Object.assign(estado, { bolsa: bolsaRef, carga: "inactiva", ofertas: [], mensaje: "", reciboPublicacion: null, errorOperacion: "", enviando: false, claveEnCurso: null, borrador: null, incierta: false, confirmacion: null, historialOferta: "", inicioPlazo: "notificacion", revisionPublicacion: null });
       estado.clavesActo.clear();
       void cargar();
     },
     desmontar() { controlador?.abort(); controlador = null; controladorPublicacion?.abort(); controladorPublicacion = null; historial.desmontar();
-      estado.bolsa = ""; estado.carga = "inactiva"; estado.enviando = false; estado.confirmacion = null; estado.historialOferta = ""; },
+      estado.bolsa = ""; estado.carga = "inactiva"; estado.enviando = false; estado.confirmacion = null; estado.historialOferta = ""; estado.reciboPublicacion = null; estado.incierta = false; },
+    recargarPoliticaSegura() {
+      if (!estado.bolsa || estado.enviando || estado.claveEnCurso || estado.revisionPublicacion) return false;
+      void cargar(); return true;
+    },
     renderizar,
     instalar(documento) {
       documentoInstalado = documento;

@@ -112,6 +112,17 @@ func (c calculadoraPlazoPoliticaOfertasBolsaDesarrollo) PlazoDisposicionBolsa(ct
 	return c.servicio.PlazoDisposicionBolsa(ctx, bolsa, publicada)
 }
 
+// El inicio del plazo pertenece a la política publicada de cada bolsa. El
+// selector histórico conserva la notificación cuando B47 no está activo.
+func (c calculadoraPlazoPoliticaOfertasBolsaDesarrollo) InicioPlazoDisposicion(ctx context.Context, bolsa string) (string, error) {
+	if c.servicio == nil {
+		return "", puertosbolsa.ErrOfertaNoDisponible
+	}
+	return c.servicio.InicioPlazoDisposicion(ctx, bolsa)
+}
+
+var _ puertosbolsa.CalculadoraInicioPlazoOferta = calculadoraPlazoPoliticaOfertasBolsaDesarrollo{}
+
 // preparadorPoliticaOfertasBolsaDesarrollo mantiene la entrada de B47 dentro
 // de la sesión y los ámbitos Bolsa ya revalidados por B-BACK.
 type preparadorPoliticaOfertasBolsaDesarrollo struct {

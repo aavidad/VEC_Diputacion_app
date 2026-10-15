@@ -56,6 +56,12 @@ type OperadorOfertasPublicadas interface {
 	ConsultarOfertas(context.Context, ports.SolicitudConsultarOfertas) ([]ports.OfertaPublicada, error)
 }
 
+// El origen del plazo procede de la política vigente, no de una elección del
+// navegador. Los operadores históricos conservan la vía de notificación.
+type lectorInicioPlazoOferta interface {
+	InicioPlazoOferta(context.Context, ports.SolicitudConsultarOfertas) (string, error)
+}
+
 type HandlerOfertasPublicadas struct {
 	preparador PreparadorOfertasPublicadas
 	operador   OperadorOfertasPublicadas
@@ -123,7 +129,19 @@ func (h *HandlerOfertasPublicadas) consultar(w http.ResponseWriter, r *http.Requ
 		responderErrorOferta(w, err)
 		return
 	}
-	responderOferta(w, http.StatusOK, "", map[string]any{"esquema": "vec.bolsa.rrhh.ofertas.v1", "bolsa_ref": bolsa, "ofertas": ofertas})
+	inicio := "notificacion"
+	if lector, ok := h.operador.(lectorInicioPlazoOferta); ok {
+		inicio, err = lector.InicioPlazoOferta(r.Context(), q)
+		if err != nil {
+			responderErrorOferta(w, err)
+			return
+		}
+		if inicio != "publicacion" && inicio != "notificacion" {
+			responderErrorOferta(w, ports.ErrOfertaNoDisponible)
+			return
+		}
+	}
+	responderOferta(w, http.StatusOK, "", map[string]any{"esquema": "vec.bolsa.rrhh.ofertas.v1", "bolsa_ref": bolsa, "ofertas": ofertas, "inicio_plazo": inicio})
 }
 
 func (h *HandlerOfertasPublicadas) publicar(w http.ResponseWriter, r *http.Request) {
@@ -138,11 +156,15 @@ func (h *HandlerOfertasPublicadas) publicar(w http.ResponseWriter, r *http.Reque
 		Datos        dominiobolsa.DatosOferta         `json:"datos"`
 		NumeroPlazas *int                             `json:"numero_plazas"`
 	}
-	if !decodificarCuerpoOferta(r, &cuerpo) || cuerpo.NumeroPlazas == nil || cuerpo.Notificacion == nil {
+	if !decodificarCuerpoOferta(r, &cuerpo) || cuerpo.NumeroPlazas == nil {
 		responderOferta(w, http.StatusBadRequest, "solicitud_invalida", nil)
 		return
 	}
-	q, err := h.preparador.PrepararSolicitudPublicarOferta(r.Context(), EntradaPublicarOferta{Notificacion: *cuerpo.Notificacion, BolsaRef: cuerpo.BolsaRef, Datos: cuerpo.Datos, NumeroPlazas: *cuerpo.NumeroPlazas, ClaveIdempotencia: clave})
+	var notificacion dominiobolsa.NotificacionOferta
+	if cuerpo.Notificacion != nil {
+		notificacion = *cuerpo.Notificacion
+	}
+	q, err := h.preparador.PrepararSolicitudPublicarOferta(r.Context(), EntradaPublicarOferta{Notificacion: notificacion, BolsaRef: cuerpo.BolsaRef, Datos: cuerpo.Datos, NumeroPlazas: *cuerpo.NumeroPlazas, ClaveIdempotencia: clave})
 	if err != nil {
 		responderErrorOferta(w, err)
 		return
@@ -235,6 +257,8 @@ func responderErrorOferta(w http.ResponseWriter, err error) {
 		responderOferta(w, http.StatusConflict, "propuesta_cambiada", nil)
 	case errors.Is(err, ports.ErrOfertaRespuestaAbierta):
 		responderOferta(w, http.StatusConflict, "respuesta_abierta", nil)
+	case errors.Is(err, ports.ErrOfertaElegiblesInsuficientes):
+		responderOferta(w, http.StatusConflict, "personas_elegibles_insuficientes", nil)
 	case errors.Is(err, ports.ErrOfertaPoliticaSinPlazas):
 		responderOferta(w, http.StatusConflict, "politica_sin_plazas", nil)
 	case errors.Is(err, ports.ErrOfertaInvalida), errors.Is(err, dominiobolsa.ErrDatosOfertaInvalidos):

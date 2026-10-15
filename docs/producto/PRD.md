@@ -532,13 +532,16 @@ de RRHH.
 | BOL-008 | Incorporación | Propuesta, documentación, aptitud, nombramiento o contrato, alta en Personal y disponibilidad resultante |
 | BOL-009 | Indicadores | Cobertura por categoría, agotamiento, tiempos, intentos y renuncias, con definición y fuente |
 
-Reglas decididas por RRHH y por el Reglamento de bolsas (BOP de 16/01/2026,
-modificado el 14/05/2026):
+Reglas decididas por RRHH y por el [Reglamento de bolsas](https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/2026_Reglamento_seleccion_de_personal_y_bolsas_bop_16_01_2026.pdf)
+(BOP de 16/01/2026, modificado el 14/05/2026):
 
-- La oferta se envía solo por correo, con un extracto del puesto (descripción,
-  duración estimada y requisitos). No se publica en la web; el canal queda
-  configurable. La persona solo pulsa «Aceptar» en dos días; no contestar no
-  tiene consecuencia y no se admiten respuestas fuera de plazo.
+- La oferta publica un extracto del puesto (descripción, duración estimada y
+  requisitos). La política de cada bolsa fija si el plazo empieza con la
+  publicación efectiva en VEC (art. 8.1.a y b del Reglamento) o con el correo
+  declarado por RRHH (decisión del 02/10, duda 153 abierta). La configuración
+  inicial propone publicación; una política ya publicada conserva su valor.
+  La persona manifiesta interés dentro del plazo; no contestar no tiene
+  consecuencia. Un aviso pendiente de envío no abre el plazo.
 - Se adjudica por posición entre quienes aceptaron en plazo y estén disponibles
   (art. 9). Si nadie acepta, llamamiento directo: acepta, renuncia justificada o
   exclusión. Con justificante válido vuelve a estar disponible.
@@ -1027,8 +1030,6 @@ lo dice y deja reintentar.
 - Tratar el aviso por correo como notificación administrativa, ni las alegaciones
   registradas en VEC como asiento oficial de entrada.
 - Generar el número de expediente (lo da MOAD).
-- Publicar las ofertas de bolsa en la web: se envían solo por correo (decisión del
-  02/10; el canal queda configurable).
 - Usar IA para decidir sobre personas.
 - Acceso del aspirante con DNI y clave.
 - Copiar reglas, plazos, importes o sanciones de otra Administración.
@@ -1230,8 +1231,10 @@ Qué falta en cidonia para cada paso: ver `docs/producto/PLAN_IMPLEMENTACION.md`
   y los demás módulos después (`PLAN_IMPLEMENTACION.md`, apartados 1 y 3).
 - El catálogo funcional (julio) ordenaba por fases F0 a F5 y nombraba un
   «conector de AutoFirma» y avisos por Telegram. Las decisiones vigentes son
-  «base primero» con Bolsa y CT delante, GrxFirma, y ofertas solo por correo
-  (Telegram en la duda 152). Este documento ya recoge las vigentes.
+  «base primero» con Bolsa y CT delante y GrxFirma. El consenso de dirección
+  del 15/10 admite publicación y notificación como inicios configurables
+  del plazo de las ofertas (art. 8.1 del Reglamento, duda 153 abierta).
+  Telegram sigue en la duda 152.
 - El análisis integral daba como «pendiente de resolución» el art. 17.4 del
   Reglamento de tiempo de trabajo; el Pleno del 2/09/2026 lo declaró nulo.
 - El análisis integral contaba siete módulos en `internal/modules/` y decía que

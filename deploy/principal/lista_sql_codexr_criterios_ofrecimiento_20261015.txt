@@ -1,6 +1,8 @@
 # R1a: instalar una vez sobre la preimagen declarada; ensayo en copia propia.
-# Prerrequisito del programa de gobierno actual; omitir si ya está instalado.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000263_publicador_nominal_confianza_externa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000265_preflight_consumidores_externos_actuales.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000266_secuencia_global_gobierno_admin.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000117_origen_oferta_ct_publicacion.up.sql
 deploy/postgresql/contratacion_temporal/migraciones/000221_modalidad_origen_bolsa.up.sql
 deploy/postgresql/bolsa_llamamientos/migraciones/000118_criterios_contextuales_ofrecimiento.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000276_origen_oferta_contextual.up.sql

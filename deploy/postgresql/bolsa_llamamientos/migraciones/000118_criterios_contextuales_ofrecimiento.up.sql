@@ -21,7 +21,7 @@ DO $pre$ BEGIN
  OR to_regprocedure('vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(text,text,text,timestamptz)') IS NOT NULL
  OR to_regprocedure('vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(text,text,text)') IS NOT NULL
  OR to_regprocedure('vec_bolsa_llamamientos.consultar_exclusiones_ofrecimiento_rrhh_v1(text,text,bigint,int,bytea,bytea,jsonb)') IS NOT NULL
- OR encode(sha256(convert_to(pg_get_functiondef('vec_bolsa_llamamientos.publicar_politica_ofertas_v1(text,bigint,jsonb,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex')<>'6477623babb3a8afab2d70a3936455a317198a7742c798571d29c627a3137387'
+ OR encode(sha256(convert_to(pg_get_functiondef('vec_bolsa_llamamientos.publicar_politica_ofertas_v1(text,bigint,jsonb,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex')<>'84890160e52cd550870dada07b2e15890655c93faa5b6c3164fc8cada94bb283'
  OR encode(sha256(convert_to(pg_get_functiondef('vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)'::regprocedure),'UTF8')),'hex')<>'470e557538452978dddfc35c431c8293408b6701efa09ee9a5b313cbe49dc37d'
  OR encode(sha256(convert_to(pg_get_functiondef('vec_bolsa_llamamientos.leer_origen_llamamiento_ct_v1(text)'::regprocedure),'UTF8')),'hex')<>'88f1a5947dc7ed9526065bed6b1d8c09165c89a066d556813643ab608563f555'
  OR encode(sha256(convert_to(pg_get_functiondef('vec_bolsa_llamamientos.reservar_llamamiento_ct_v1(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)'::regprocedure),'UTF8')),'hex')<>'26cfbe7c5d0f9691d6a597c0c3a914848b02a14e38e985725dc2994fbafebeab'
@@ -392,7 +392,7 @@ AS $function$
                     AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.reversion_sancion_participacion rv
                                      WHERE rv.sancion_ref=pe.sancion_ref AND rv.registrada_en<=p_en)) AS penalizada
     FROM vec_bolsa_llamamientos.constitucion c
-    CROSS JOIN criterio_oferta co
+    LEFT JOIN criterio_oferta co ON true
     JOIN vec_bolsa_llamamientos.constitucion_entrada e USING(instantanea_ref,version_instantanea)
     JOIN LATERAL (SELECT sp.situacion,sp.fecha_disponible FROM vec_bolsa_llamamientos.situacion_participacion sp WHERE sp.participacion_ref=e.participacion_ref AND sp.desde<=p_en ORDER BY sp.desde DESC LIMIT 1) s ON true
     LEFT JOIN ceses rc ON rc.participacion_ref=e.participacion_ref
@@ -465,6 +465,8 @@ DECLARE
  v_total bigint;
  v_orden bigint;
  v_sin_vinculo bigint;
+ v_total_posiciones bigint;
+ v_politica_divergente boolean;
  v_oferta record;
  v_criterios jsonb;
 BEGIN
@@ -525,15 +527,24 @@ BEGIN
  END IF;
  WITH posiciones AS MATERIALIZED (
    SELECT o.* FROM vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(v_const.bolsa_ref,p_modalidad,p_causa,v_corte) o
+ ), control_posiciones AS (
+   SELECT count(*) AS total,
+     coalesce(bool_or(o.politica_ref IS DISTINCT FROM v_politica.politica_ref
+       OR o.version_politica IS DISTINCT FROM v_politica.version
+       OR o.provisional IS DISTINCT FROM v_politica.provisional),false) AS divergente
+   FROM posiciones o
  )
  SELECT count(*),count(p.participacion_ref),
         count(*) FILTER(WHERE p.orden_vigente IS NOT NULL AND v.candidato_ref IS NULL),
         jsonb_agg(jsonb_build_object('orden_acta',e.orden,'orden_vigente',p.orden_vigente,
           'participacion_ref',e.participacion_ref,'candidato_ref',v.candidato_ref,
           'situacion',p.situacion,'razon',p.razon,
-          'eventos_relacion',coalesce(p.eventos_relacion,'[]'::jsonb)) ORDER BY e.orden)
- INTO v_total,v_orden,v_sin_vinculo,v_entradas
+          'eventos_relacion',coalesce(p.eventos_relacion,'[]'::jsonb)) ORDER BY e.orden),
+        max(control_posiciones.total),bool_or(control_posiciones.divergente)
+ INTO v_total,v_orden,v_sin_vinculo,v_entradas,
+      v_total_posiciones,v_politica_divergente
  FROM vec_bolsa_llamamientos.constitucion_entrada e
+ CROSS JOIN control_posiciones
  LEFT JOIN posiciones p ON p.participacion_ref=e.participacion_ref AND p.orden_acta=e.orden
  LEFT JOIN vec_bolsa_llamamientos.vinculo_candidato v
    ON v.participacion_ref=e.participacion_ref AND v.acta_ref=v_const.acta_ref
@@ -541,10 +552,8 @@ BEGIN
    AND e.version_instantanea=v_const.version_instantanea;
  IF v_total<>v_const.total_participaciones OR v_orden<>v_total OR v_sin_vinculo<>0
     OR v_entradas IS NULL
-    OR (SELECT count(*) FROM vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(v_const.bolsa_ref,p_modalidad,p_causa,v_corte))<>v_total
-    OR EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(v_const.bolsa_ref,p_modalidad,p_causa,v_corte) o
-      WHERE o.politica_ref<>v_politica.politica_ref OR o.version_politica<>v_politica.version
-        OR o.provisional IS DISTINCT FROM v_politica.provisional)
+    OR v_total_posiciones IS DISTINCT FROM v_total
+    OR v_politica_divergente IS NOT FALSE
  THEN RAISE EXCEPTION 'B110: orden o vínculo incompleto' USING ERRCODE='P1101'; END IF;
  RETURN QUERY SELECT v_const.acta_ref,v_const.categoria_ref,v_const.bolsa_ref,v_const.version_bolsa,
    v_const.huella_bolsa_sha256,v_const.bolsa_canonica,v_const.instantanea_ref,
@@ -594,7 +603,7 @@ BEGIN
     OR jsonb_typeof(p_politica->'plazo') IS DISTINCT FROM 'object'
     OR (SELECT count(*) FROM jsonb_object_keys(p_politica->'plazo')) NOT IN (4,5)
     OR ((SELECT count(*) FROM jsonb_object_keys(p_politica->'plazo'))=5
-        AND p_politica#>>'{plazo,inicio}' IS DISTINCT FROM 'notificacion')
+        AND (p_politica#>>'{plazo,inicio}' IS DISTINCT FROM 'notificacion' AND p_politica#>>'{plazo,inicio}' IS DISTINCT FROM 'publicacion'))
     OR NOT (p_politica->'plazo' ?& ARRAY['unidad','cantidad','computo','municipio_sede'])
     OR coalesce(p_politica#>>'{plazo,unidad}','') NOT IN ('dias_habiles','dias_naturales','horas_naturales')
     OR jsonb_typeof(p_politica#>'{plazo,cantidad}') IS DISTINCT FROM 'number'
@@ -645,7 +654,7 @@ BEGIN
  END IF;
  -- Las versiones anteriores pueden repetirse, pero toda política nueva declara
  -- en su propia versión que el plazo empieza en la notificación.
- IF p_politica#>>'{plazo,inicio}' IS DISTINCT FROM 'notificacion' THEN
+ IF (p_politica#>>'{plazo,inicio}' IS DISTINCT FROM 'notificacion' AND p_politica#>>'{plazo,inicio}' IS DISTINCT FROM 'publicacion') THEN
   RAISE EXCEPTION 'B71: inicio de plazo no configurado' USING ERRCODE='22023'; END IF;
  -- El replay histórico ya devolvió arriba el contenido y recibo originales.
  -- Toda versión nueva requiere la aceptación telemática previa.

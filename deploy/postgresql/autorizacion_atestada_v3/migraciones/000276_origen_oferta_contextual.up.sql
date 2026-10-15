@@ -20,7 +20,7 @@ DO $pre$ BEGIN
  OR (SELECT encode(sha256(convert_to(pg_get_constraintdef(c.oid),'UTF8')),'hex')
      FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
       AND c.conname='auditoria_tipo_disjunto_v4')
-    <>'df178e53fb5afa2e18efa30e8d535f5d2d1df1316afa9a51b814bd712190a0b3'
+    <>'939babe4fcb650d87a774a559db7fdd74f0eb64f133a4b6b227821b5b34c468e'
  OR (SELECT encode(sha256(convert_to(pg_get_constraintdef(c.oid),'UTF8')),'hex')
      FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
       AND c.conname='auditoria_lectura_respuestas_llamamiento_formato_v1')
@@ -30,8 +30,8 @@ DO $pre$ BEGIN
  THEN RAISE EXCEPTION 'AD276: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
--- El tipo nuevo ocupa una rama positiva propia. Se conserva la expresión
--- instalada, de 80 KB, y se añade una sola alternativa de lectura nominal.
+-- AD263 ya añadió la confianza externa a esta expresión. Se conserva esa
+-- postimagen y se añade una sola alternativa de lectura nominal.
 DO $guardas$ DECLARE anterior text;nueva text;formato text;
  marca text:='''lectura_respuestas_llamamiento''::text, ''lectura_origen_datos_contacto''::text';
 BEGIN
@@ -43,7 +43,8 @@ BEGIN
  nueva:=replace(anterior,marca,
   '''lectura_respuestas_llamamiento''::text, ''lectura_exclusiones_llamamiento''::text, ''lectura_origen_datos_contacto''::text');
  EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 DROP CONSTRAINT auditoria_tipo_disjunto_v4';
- EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 ADD CONSTRAINT auditoria_tipo_disjunto_v4 '||nueva;
+ EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 ADD CONSTRAINT auditoria_tipo_disjunto_v4 '||nueva||' NOT VALID';
+ EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 VALIDATE CONSTRAINT auditoria_tipo_disjunto_v4';
  SELECT pg_get_constraintdef(c.oid) INTO STRICT formato FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
    AND c.conname='auditoria_lectura_respuestas_llamamiento_formato_v1';
@@ -53,7 +54,9 @@ BEGIN
  formato:=replace(formato,'lectura_respuestas_llamamiento_correcta',
   'lectura_exclusiones_llamamiento_correcta');
  EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 '
-  ||'ADD CONSTRAINT auditoria_lectura_exclusiones_llamamiento_formato_v1 '||formato;
+  ||'ADD CONSTRAINT auditoria_lectura_exclusiones_llamamiento_formato_v1 '||formato||' NOT VALID';
+ EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 '
+  ||'VALIDATE CONSTRAINT auditoria_lectura_exclusiones_llamamiento_formato_v1';
 END $guardas$;
 
 -- AD261 conservada con lectura contextual y snapshot opcional.
@@ -557,6 +560,21 @@ REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_lectura_exclusione
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_lectura_exclusiones_llamamiento_v1(bytea,bytea,jsonb)
  TO vec_bolsa_llamamientos_propietario;
 DO $post$ DECLARE f record; BEGIN
+ IF (SELECT count(*) FROM pg_constraint c
+     WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
+       AND c.conname IN ('auditoria_tipo_disjunto_v4',
+        'auditoria_lectura_exclusiones_llamamiento_formato_v1')
+       AND c.convalidated)<>2
+ OR (SELECT position('confianza_externa' IN pg_get_constraintdef(c.oid))
+     FROM pg_constraint c
+     WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
+       AND c.conname='auditoria_tipo_disjunto_v4')=0
+ OR (SELECT position('lectura_exclusiones_llamamiento' IN pg_get_constraintdef(c.oid))
+     FROM pg_constraint c
+     WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
+       AND c.conname='auditoria_tipo_disjunto_v4')=0
+ THEN RAISE EXCEPTION 'AD276: guardas de auditoría incompletas'
+  USING ERRCODE='55000'; END IF;
  FOR f IN SELECT p.oid,p.prosecdef,p.proowner,p.proconfig FROM pg_proc p
  WHERE p.oid IN (
   'vec_autorizacion.cotejar_lectura_bolsa_actual_interna_v1(jsonb,text,text)'::regprocedure,

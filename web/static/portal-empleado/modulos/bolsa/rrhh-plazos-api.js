@@ -146,7 +146,7 @@ export function validarPoliticaEditable(politica, { permitirLegada = false } = {
   const horas = plazo?.unidad === "horas_naturales";
   if (!plazo || (!horas && !UNIDADES_DIAS.has(plazo.unidad)) || !Number.isSafeInteger(plazo.cantidad)
     || plazo.cantidad < 1 || plazo.cantidad > (horas ? 720 : 30)
-    || (plazo.inicio !== "notificacion" && !(permitirLegada && plazo.inicio === undefined))
+    || (plazo.inicio !== "notificacion" && plazo.inicio !== "publicacion" && !(permitirLegada && plazo.inicio === undefined))
     || plazo.computo !== (horas ? "continuo_utc" : "administrativo")
     || typeof plazo.municipio_sede !== "string" || !MUNICIPIO.test(plazo.municipio_sede)
     || politica?.adjudicacion?.criterio !== "orden_vigente"
@@ -229,7 +229,7 @@ export function crearClientePoliticaOfertas({ fetchImpl = fetch } = {}) {
       const recibida = validarPoliticaRecibida(await respuesta.json());
       if (recibida.bolsa_ref !== bolsa_ref || !recibida.configurada
         || recibida.version !== version_esperada + 1 || !recibida.recibo_ref
-        || recibida.politica.plazo.inicio !== "notificacion") {
+        || recibida.politica.plazo.inicio !== politica.plazo.inicio) {
         throw new TypeError("recibo de política incoherente");
       }
       return { ok: true, status: respuesta.status, politica: recibida };
