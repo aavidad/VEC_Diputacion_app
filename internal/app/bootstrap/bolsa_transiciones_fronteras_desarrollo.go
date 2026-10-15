@@ -17,11 +17,9 @@ const (
 // La composición añade estas dos fronteras y acciones antes de crear el PDP.
 // La ausencia del selector técnico deja la ruta en 503; no oculta la frontera
 // ni concede por sí misma las acciones.
-func descriptoresGobiernoTransicionesBolsaDesarrollo(perfilActivoRef string,
-	politica politicaAutorizacionSolicitudLigadaV3Desarrollo,
-) ([]descriptorFronteraComunDesarrollo, []descriptorAutorizacionComunDesarrollo) {
-	if !perfilActivoSeguridadComunValido(perfilActivoRef) || !politica.valida() {
-		return nil, nil
+func fronterasGobiernoTransicionesBolsaDesarrollo(perfilActivoRef string) []descriptorFronteraComunDesarrollo {
+	if !perfilActivoSeguridadComunValido(perfilActivoRef) {
+		return nil
 	}
 	fronteras := []descriptorFronteraComunDesarrollo{
 		{Clave: claveFronteraConsultaTransicionesBolsa, Superficie: superficieInternaSeguridadComunDesarrollo,
@@ -33,7 +31,14 @@ func descriptoresGobiernoTransicionesBolsaDesarrollo(perfilActivoRef string,
 			PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo,
 			ClaveCapacidad: claveCapacidadPublicaTransicionesBolsa},
 	}
-	acciones := []descriptorAutorizacionComunDesarrollo{
+	return fronteras
+}
+
+func autorizacionesGobiernoTransicionesBolsaDesarrollo(politica politicaAutorizacionSolicitudLigadaV3Desarrollo) []descriptorAutorizacionComunDesarrollo {
+	if !politica.valida() {
+		return nil
+	}
+	return []descriptorAutorizacionComunDesarrollo{
 		{Accion: puertosbolsa.AccionConsultarTransicionesSituacion,
 			ClavePolitica:  clavePoliticaBorradorLlamamientoBolsaDesarrollo,
 			ClaveCapacidad: claveCapacidadConsultaTransicionesBolsa,
@@ -43,5 +48,4 @@ func descriptoresGobiernoTransicionesBolsaDesarrollo(perfilActivoRef string,
 			ClaveCapacidad: claveCapacidadPublicaTransicionesBolsa,
 			Fronteras:      []string{claveFronteraPublicaTransicionesBolsa}, Politica: politica},
 	}
-	return fronteras, acciones
 }

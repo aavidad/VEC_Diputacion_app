@@ -24,7 +24,7 @@ END $pre$;
 -- y habilitada del perfil normativo fijo de Bolsa.
 CREATE FUNCTION vec_catalogos_configurables.leer_limites_transiciones_situacion_bolsa_v1(
  p_version integer,p_huella text) RETURNS jsonb
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
 DECLARE v_entrada jsonb; v_pares text[]; v_total integer;
 BEGIN
  IF p_version IS NULL OR p_version<1 OR p_huella IS NULL OR p_huella !~ '^[0-9a-f]{64}$' THEN
@@ -68,7 +68,7 @@ DECLARE f regprocedure:='vec_catalogos_configurables.leer_limites_transiciones_s
 BEGIN
  IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_catalogos_configurables_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
-    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
+    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
     OR NOT has_schema_privilege('vec_bolsa_llamamientos_propietario','vec_catalogos_configurables','USAGE')
     OR NOT has_function_privilege('vec_bolsa_llamamientos_propietario',f,'EXECUTE')
     OR EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a

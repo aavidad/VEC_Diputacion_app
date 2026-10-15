@@ -35,7 +35,14 @@ func (s *ServicioGobiernoTransicionesSituacion) Consultar(ctx context.Context) (
 	if err != nil {
 		return v, err
 	}
-	return s.completar(ctx, v)
+	v, err = s.completar(ctx, v)
+	if err != nil {
+		return v, err
+	}
+	// GET describe la política vigente, no acusa un POST de esta sesión.
+	v.ReciboRef = ""
+	v.Reutilizada = false
+	return v, nil
 }
 
 func (s *ServicioGobiernoTransicionesSituacion) Publicar(ctx context.Context,

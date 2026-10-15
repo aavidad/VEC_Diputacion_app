@@ -70,6 +70,7 @@ func descriptorMaterialGobiernoTransicionesBolsaDesarrollo() descriptorMaterialC
 func componerRutaGobiernoTransicionesBolsaDesarrollo(ctx context.Context,
 	dependenciasCT *DependenciasCT, alta *dependenciasAltaContratacionTemporalDesarrollo,
 	base *preparadorBorradorLlamamientoDesarrollo, pdp *autorizadorComunDesarrollo,
+	politica politicaAutorizacionSolicitudLigadaV3Desarrollo,
 	situacion *aplicacionbolsa.ServicioSituacionParticipacion,
 	registrador puertosvec.RegistradorIntentosAuditoria, proceso string,
 ) vechttp.RutaExacta {
@@ -88,7 +89,7 @@ func componerRutaGobiernoTransicionesBolsaDesarrollo(ctx context.Context,
 		alta == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil ||
 		alta.postgresql.proveedorMaterial == nil || base == nil || base.soporte == nil ||
 		base.soporte.soporteCanal == nil || base.soporte.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef != s.PerfilRef ||
-		pdp == nil || situacion == nil || registrador == nil || proceso != "vec-rrhh" {
+		pdp == nil || !politica.valida() || situacion == nil || registrador == nil || proceso != "vec-rrhh" {
 		return desactivada("dependencias")
 	}
 	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
@@ -97,15 +98,18 @@ func componerRutaGobiernoTransicionesBolsaDesarrollo(ctx context.Context,
 	if err := alta.postgresql.bolsa.QueryRow(sonda, `SELECT
 	 EXISTS (SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
 	  WHERE n.nspname='vec_catalogos_configurables'
-	    AND p.proname='leer_limites_transiciones_situacion_bolsa_v1' AND p.pronargs=2
+	    AND p.proname='leer_limites_transiciones_situacion_bolsa_v1' AND p.pronargs=2 AND p.prokind='f'
 	    AND p.proargtypes[0]='integer'::regtype AND p.proargtypes[1]='text'::regtype
 	    AND pg_catalog.has_function_privilege('vec_bolsa_llamamientos_propietario',p.oid,'EXECUTE'))
 	 AND EXISTS (SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
 	  WHERE n.nspname='vec_autorizacion_atestada_v3'
-	    AND p.proname='registrar_y_consumir_politica_transiciones_bolsa_v3_atestada' AND p.pronargs=10
+	    AND p.proname='registrar_y_consumir_politica_transiciones_bolsa_v3_atestada' AND p.pronargs=10 AND p.prokind='f'
+	    AND pg_catalog.oidvectortypes(p.proargtypes)='bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea'
 	    AND pg_catalog.has_function_privilege('vec_bolsa_llamamientos_propietario',p.oid,'EXECUTE'))
 	 AND pg_catalog.to_regprocedure('vec_bolsa_llamamientos.leer_politica_transiciones_gobierno_v1(integer,text)') IS NOT NULL
-	 AND pg_catalog.to_regprocedure('vec_bolsa_llamamientos.publicar_politica_transiciones_gobierno_v1(bigint,text[],text,text,text,text,integer,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL`).Scan(&instalada); err != nil || !instalada {
+	 AND pg_catalog.to_regprocedure('vec_bolsa_llamamientos.publicar_politica_transiciones_gobierno_v1(bigint,text[],text,text,text,text,integer,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+	 AND pg_catalog.has_function_privilege(current_user,'vec_bolsa_llamamientos.leer_politica_transiciones_gobierno_v1(integer,text)','EXECUTE')
+	 AND pg_catalog.has_function_privilege(current_user,'vec_bolsa_llamamientos.publicar_politica_transiciones_gobierno_v1(bigint,text[],text,text,text,text,integer,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')`).Scan(&instalada); err != nil || !instalada {
 		return desactivada("migraciones")
 	}
 	var lectura []byte
@@ -144,6 +148,8 @@ func componerRutaGobiernoTransicionesBolsaDesarrollo(ctx context.Context,
 	if err != nil {
 		return desactivada("emisor")
 	}
-	return nuevaRutaGobiernoTransicionesBolsaDesarrollo(alta.postgresql.bolsa, base, emisor, situacion,
+	baseS6 := *base
+	baseS6.fuenteRespuestas = politica.fuente
+	return nuevaRutaGobiernoTransicionesBolsaDesarrollo(alta.postgresql.bolsa, &baseS6, emisor, situacion,
 		s.CatalogoVersion, s.CatalogoSHA256, s.Motivo, registrador, proceso)
 }

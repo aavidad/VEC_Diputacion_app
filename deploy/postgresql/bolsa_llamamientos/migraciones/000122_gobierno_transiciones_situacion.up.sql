@@ -75,7 +75,7 @@ REVOKE ALL ON vec_bolsa_llamamientos.politica_transiciones_outbox FROM PUBLIC;
 -- La política vigente permanece en B32 hasta un POST autorizado V3.
 CREATE FUNCTION vec_bolsa_llamamientos.leer_politica_transiciones_gobierno_v1(
  p_catalogo_version integer,p_catalogo_sha256 text) RETURNS jsonb
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
 DECLARE v_limites jsonb; v_politica record; v_gobierno record;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' THEN
@@ -97,7 +97,7 @@ CREATE FUNCTION vec_bolsa_llamamientos.publicar_politica_transiciones_gobierno_v
  p_capacidad bytea,p_decision bytea,p_motivo_autorizacion bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(politica jsonb,reutilizada boolean)
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' SET lock_timeout='2s' AS $f$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET timezone='UTC' SET lock_timeout='2s' AS $f$
 DECLARE v_consumo record; v_decision jsonb; v_limites jsonb; v_permitidas text[];
  v_canonica text[]; v_vigente record; v_previa record; v_anterior record; v_huella text; v_ahora timestamptz:=clock_timestamp();
  v_contexto text; v_perfil_ref text; v_ambito_sha256 text;
@@ -212,6 +212,9 @@ BEGIN
       IS DISTINCT FROM 'vec_bolsa_llamamientos_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=
       'vec_bolsa_llamamientos.publicar_politica_transiciones_gobierno_v1(bigint,text[],text,text,text,text,integer,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure) IS NOT TRUE
+    OR (SELECT proconfig FROM pg_proc WHERE oid=
+      'vec_bolsa_llamamientos.publicar_politica_transiciones_gobierno_v1(bigint,text[],text,text,text,text,integer,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
+      IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','TimeZone=UTC','lock_timeout=2s']
  THEN RAISE EXCEPTION 'B122: privilegios incompatibles' USING ERRCODE='55000'; END IF;
 END $acl$;
 COMMIT;

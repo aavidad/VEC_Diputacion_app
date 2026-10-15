@@ -34,8 +34,8 @@ func TestSelectorGobiernoTransicionesBolsaEsOpcionalYEstricto(t *testing.T) {
 
 func TestGobiernoTransicionesSinSelectorConservaFronteraYResponde503(t *testing.T) {
 	t.Setenv(envGobiernoTransicionesBolsa, "")
-	fronteras, acciones := descriptoresGobiernoTransicionesBolsaDesarrollo(
-		"prf_bolsa_bback", politicaDescriptoresBolsaPrueba(t))
+	fronteras := fronterasGobiernoTransicionesBolsaDesarrollo("prf_bolsa_bback")
+	acciones := autorizacionesGobiernoTransicionesBolsaDesarrollo(politicaDescriptoresBolsaPrueba(t))
 	if len(fronteras) != 2 || len(acciones) != 2 {
 		t.Fatalf("fronteras=%d acciones=%d", len(fronteras), len(acciones))
 	}
@@ -48,7 +48,8 @@ func TestGobiernoTransicionesSinSelectorConservaFronteraYResponde503(t *testing.
 			t.Fatalf("falta frontera %s", metodo)
 		}
 	}
-	ruta := componerRutaGobiernoTransicionesBolsaDesarrollo(context.Background(), nil, nil, nil, nil, nil, nil, "")
+	ruta := componerRutaGobiernoTransicionesBolsaDesarrollo(context.Background(), nil, nil, nil, nil,
+		politicaAutorizacionSolicitudLigadaV3Desarrollo{}, nil, nil, "")
 	w := httptest.NewRecorder()
 	ruta.Manejador.ServeHTTP(w, httptest.NewRequest(http.MethodGet, bolsahttp.RutaGobiernoTransicionesSituacion, nil))
 	if ruta.Ruta != bolsahttp.RutaGobiernoTransicionesSituacion || w.Code != http.StatusServiceUnavailable {

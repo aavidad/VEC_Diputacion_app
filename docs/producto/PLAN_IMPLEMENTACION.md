@@ -174,6 +174,8 @@ está instalada; verificar su hash antes de reanudar:
 | Preferencias entre bolsas | PostgreSQL integrado, lectura autorizada y efecto en la adjudicación |
 | Inscripción por varias categorías (B105) | **No instalar**: falta la modalidad conjunta configurable (apartado 7) |
 
+Candidata F1-04/05 de Codex-S: edición global de cambios de situación desde RRHH, reutilizando B32 y el servicio de situación. El arranque deja de publicar esta política; la selección normativa y los permisos deben existir antes de activar la pantalla. Falta acreditar montaje, instalación, autorización real, publicación, recuperación y reinicio en la copia. Guion: `deploy/principal/activacion_codexs_reglas_situacion_20261015.md`. Esta candidata no cierra la fase 1.
+
 ### 2.4 Lo que todavía no funciona de punta a punta
 
 - **El recorrido completo** de la presentación (aspirante → centro →

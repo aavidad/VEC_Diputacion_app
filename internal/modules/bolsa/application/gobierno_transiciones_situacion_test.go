@@ -55,6 +55,7 @@ func TestGobiernoTransicionesMuestraLaRestriccionOperativaReal(t *testing.T) {
 	sha := strings.Repeat("a", 64)
 	gobierno, err := NuevoServicioGobiernoTransicionesSituacion(repositorioGobiernoTransicionesPrueba{
 		valor: ports.GobiernoTransicionesSituacion{Version: 2, TransicionesGuardadas: politica.Pares(),
+			ReciboRef: "recibo:previo", Reutilizada: true,
 			Limites: ports.LimitesTransicionesSituacion{CatalogoRef: "bolsa.transiciones_situacion:1",
 				CatalogoVersion: 1, CatalogoSHA256: sha, Transiciones: politica.Pares()}},
 	}, situacion, 1, sha)
@@ -67,7 +68,8 @@ func TestGobiernoTransicionesMuestraLaRestriccionOperativaReal(t *testing.T) {
 	}
 	if !slices.Contains(v.TransicionesGuardadas, "renuncia>no_disponible") ||
 		slices.Contains(v.TransicionesEfectivas, "renuncia>no_disponible") ||
-		!slices.Contains(v.TransicionesEfectivas, "renuncia>excluido") || v.Version != 2 {
+		!slices.Contains(v.TransicionesEfectivas, "renuncia>excluido") || v.Version != 2 ||
+		v.ReciboRef != "" || v.Reutilizada {
 		t.Fatalf("guardadas/efectivas no reflejan el servicio: %+v", v)
 	}
 }
