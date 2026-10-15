@@ -10,7 +10,8 @@ de RRHH ni los permisos de las personas.
    funciones de gobierno de usuarios y del conjunto de capacidades. Instalar
    AD282 una sola vez, según
    `lista_sql_codexh_vigencia_gobierno_20261015.txt`. Si su preimagen no
-   coincide, detener la operación y revisar la base de partida.
+   coincide, detener la operación y revisar la base de partida. Si la
+   posimagen ya es la esperada, no ejecutar otra vez la migración.
 2. Compilar `cmd/vec-gobierno-usuarios-admin`. Conservar el material anterior
    para la vuelta atrás y usar una carpeta privada nueva, vacía y con permisos
    `0700`. Los JSON privados conservan permisos `0600`.
