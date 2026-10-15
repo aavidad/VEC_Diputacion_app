@@ -258,6 +258,22 @@ separada comprueba cada quince minutos y renueva antes de caducar, conservando
 las claves del portal ya arrancado. Orden de instalación
 y uso: `deploy/principal/confianza_externa_hz38.md`.
 
+### Vigencia del gobierno de Administración
+
+La herramienta `vec-gobierno-usuarios-admin` conserva 24 horas por defecto.
+Su JSON privado acepta `horas_validez_claves`; la variable
+`VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS` tiene prioridad. Producción admite de 1 a
+24 horas. Solo el perfil de desarrollo, con modo y reconocimiento explícitos,
+admite hasta 90 días; cidonia usa ese perfil con datos ficticios. Un perfil
+desconocido o un plazo fuera de rango cierra la operación antes de publicar.
+El verificador común mantiene 24 horas generales: el plazo largo exige las
+tres llaves y que todas las raíces tengan la audiencia exacta de CT de
+desarrollo. La recarga CT conserva la publicación vigente y no la acorta.
+La confianza y las claves nuevas no pueden rebasar la raíz existente. La
+ventana breve para aplicar cada plan no se amplía. AD282 ajusta los dos
+efectos de gobierno existentes; no añade permisos ni cambia publicaciones
+anteriores. Guion: `deploy/principal/vigencia_gobierno_admin_20261015.md`.
+
 ### Selectores `VEC_*_ENABLED`
 
 Cada capacidad que necesita algo más que el núcleo se enciende con un selector de
