@@ -100,8 +100,12 @@ func (h *manejadorSeleccionLlamamiento) ServeHTTP(
 		},
 	)
 	if err != nil {
+		problema, esOferta := clasificarErrorSeleccionOferta(err)
+		if !esOferta {
+			problema = clasificarErrorSeleccionLlamamiento(err)
+		}
 		responderErrorSeleccionLlamamiento(
-			w, r, clasificarErrorSeleccionLlamamiento(err), err,
+			w, r, problema, err,
 		)
 		return
 	}
@@ -109,6 +113,15 @@ func (h *manejadorSeleccionLlamamiento) ServeHTTP(
 		responderErrorSeleccionLlamamiento(
 			w, r, clasificarErrorSeleccionLlamamiento(err), err,
 		)
+		return
+	}
+	if recibo.Oferta != nil {
+		salida, valida := proyectarReciboSeleccionOferta(recibo, entrada.ExpedienteRef)
+		if !valida {
+			responderErrorSeleccionLlamamiento(w, r, errorResultadoSeleccionLlamamientoNoConfiable)
+			return
+		}
+		responderJSONCobertura(w, r, http.StatusOK, envoltorioReciboSeleccionOferta{Data: salida})
 		return
 	}
 	salida, valida := proyectarReciboSeleccionLlamamiento(recibo)

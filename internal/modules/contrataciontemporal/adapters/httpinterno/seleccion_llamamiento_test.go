@@ -333,13 +333,15 @@ func TestManejadorSeleccionLlamamientoRechazaDependenciasNulas(t *testing.T) {
 	)
 	tipoProyeccion := reflect.TypeOf(application.DatosReciboSeleccionLlamamientoParaAdaptador{})
 	if !existe || metodo.Type.NumOut() != 2 || metodo.Type.Out(0) != tipoProyeccion ||
-		tipoProyeccion.NumField() != 6 || tipoProyeccion.Field(0).Name != "ReciboRef" ||
+		tipoProyeccion.NumField() != 7 || tipoProyeccion.Field(0).Name != "ReciboRef" ||
 		tipoProyeccion.Field(1).Name != "ConfirmadaEn" ||
 		tipoProyeccion.Field(2).Name != "OrganizacionRef" ||
 		tipoProyeccion.Field(3).Name != "LlamamientoRef" ||
 		tipoProyeccion.Field(4).Name != "VersionLlamamiento" ||
 		tipoProyeccion.Field(5).Name != "PoliticaProvisional" ||
-		tipoProyeccion.Field(5).Type != reflect.TypeOf((*bool)(nil)) {
+		tipoProyeccion.Field(5).Type != reflect.TypeOf((*bool)(nil)) ||
+		tipoProyeccion.Field(6).Name != "Oferta" ||
+		tipoProyeccion.Field(6).Type != reflect.TypeOf((*application.DatosReciboSeleccionOfertaParaAdaptador)(nil)) {
 		t.Fatalf("HTTP no exige la proyeccion de application: %v", metodo.Type)
 	}
 }

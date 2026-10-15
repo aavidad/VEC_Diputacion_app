@@ -57,6 +57,7 @@ type DatosReciboSeleccionLlamamientoParaAdaptador struct {
 	LlamamientoRef      string
 	VersionLlamamiento  uint64
 	PoliticaProvisional *bool
+	Oferta              *DatosReciboSeleccionOfertaParaAdaptador
 }
 
 type ServicioSeleccionLlamamiento struct {
