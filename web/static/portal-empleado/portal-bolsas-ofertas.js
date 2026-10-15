@@ -234,7 +234,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       } else {
         estado.errorOperacion = mensajeError(traducir, resultado);
         // El servidor rechazó de forma concluyente esta petición: se puede corregir.
-        if ([400, 409, 422].includes(resultado.status)) {
+        if ([400, 401, 403, 409, 422].includes(resultado.status)) {
           estado.claveEnCurso = null; estado.revisionPublicacion = null;
           if (resultado.status === 409) void cargar();
         }
@@ -478,6 +478,10 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     },
     desmontar() { controlador?.abort(); controlador = null; controladorPublicacion?.abort(); controladorPublicacion = null; historial.desmontar();
       estado.bolsa = ""; estado.carga = "inactiva"; estado.enviando = false; estado.confirmacion = null; estado.historialOferta = ""; },
+    recargarPoliticaSegura() {
+      if (!estado.bolsa || estado.enviando || estado.claveEnCurso || estado.revisionPublicacion) return false;
+      void cargar(); return true;
+    },
     renderizar,
     instalar(documento) {
       documentoInstalado = documento;

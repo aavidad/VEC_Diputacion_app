@@ -1,3 +1,4 @@
+845 data/catalogos/bolsa/reglas.v7.json
 1513 deploy/postgresql/autorizacion_atestada_v2/migraciones/000001_registro_consumo_atestado_v2.up.sql
 807 deploy/postgresql/autorizacion_atestada_v3/migraciones/000003_consumidor_consulta_cuadro_rrhh_v3.up.sql
 1276 deploy/postgresql/autorizacion_atestada_v3/probar_integracion_o2_05.sh
@@ -107,7 +108,7 @@
 1781 web/static/portal-empleado/portal-modulos-coordinador.js
 1865 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1081 web/static/portal-empleado/portal-componentes.css
-2082 web/static/portal-empleado/portal.js
+2169 web/static/portal-empleado/portal.js
 1521 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1145 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js

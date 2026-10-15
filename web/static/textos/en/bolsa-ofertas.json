@@ -1,6 +1,11 @@
 {
   "ofertas": {
     "titulo": "Published offers",
+    "gestionar_ofertas": "Manage offers",
+    "volver_llamamiento": "Back to the call",
+    "gestion_titulo": "Offers for the selected pool",
+    "politica_titulo": "Offer policy",
+    "salida_incierta": "The result of the publication is unconfirmed. Retry the same operation here before leaving.",
     "publicar_titulo": "New offer",
     "inicio_publicacion": "The deadline starts when the offer is published.",
     "inicio_publicacion_corto": "When the offer is published",

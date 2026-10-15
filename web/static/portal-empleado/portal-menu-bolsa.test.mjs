@@ -425,13 +425,25 @@ test("la navegación directa a una vista de Bolsa sin servicio no se permite", a
   assert.equal(vistaBolsaOfrecida("desconocida", { panelInterno: true }), false);
 });
 
-test("el llamamiento con bolsa elegida no pinta el aviso del panel interno", () => {
+test("el llamamiento conserva B7 y monta gestión de ofertas solo tras elegir bolsa vigente", () => {
   const inicio = codigoPortal.indexOf("function montarVistaBolsa(");
   const fin = codigoPortal.indexOf("function actualizarVistaBolsa(", inicio);
   const montaje = codigoPortal.slice(inicio, fin);
   assert.ok(inicio > 0 && fin > inicio);
   assert.doesNotMatch(montaje, /renderizarFuenteNoDisponible\(\)\}\$\{superficieBorradorLlamamiento/u);
   assert.match(montaje, /renderizarPantallaLlamamientos\(\{ estado, encabezadoVista, escaparHTML, presentador: presentadorPanelInterno \}\)/u);
+  assert.match(montaje, /estado\.llamamientoDesdeMenu \? estado\.bolsaSeleccionada/u);
+  assert.match(montaje, /superficieRRHHPlazos\.instalar\(document\)/u);
+  assert.match(montaje, /superficieRRHHPlazos\.activar\(bolsaRef\)/u);
+  assert.match(montaje, /superficieOfertasBolsa\.activar\(bolsaRef\)/u);
+  assert.match(montaje, /superficieRRHHPlazos\.renderizar\(\)/u);
+  assert.match(montaje, /superficieOfertasBolsa\.renderizar\(\)/u);
+  assert.match(montaje, /data-gestion-ofertas-accion="volver"/u);
+  assert.match(montaje, /data-gestion-ofertas-accion="abrir"/u);
+  assert.match(montaje, /bolsasVigentesParaLlamamiento\(estado\.datosBolsas\)/u);
+  assert.match(montaje, /data-gestion-ofertas-aviso/u);
+  assert.match(codigoPortal, /function salidaGestionOfertasBloqueada\(\)/u);
+  assert.match(codigoPortal, /if \(salidaGestionOfertasBloqueada\(\)\) \{/u);
   assert.doesNotMatch(montaje, /superficieBorradorLlamamiento\.renderizar/u);
   assert.match(codigoPortal, /if \(moduloDeVistaPortal\(vista\) === "bolsa"\) return vistaBolsaNavegable\(vista, capacidadesBolsa\(\)\)/u);
 });

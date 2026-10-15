@@ -1,6 +1,6 @@
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { crearClientePoliticaOfertas, validarPoliticaEditable, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, leerReglasVigentes,
-  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js?v=20261015-inicio-plazo-publicacion-v1";
+  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js?v=20261015-ofertas-montaje-v2";
 
 // Los textos de plazos y plazas viven en textos/<idioma>/bolsa-ofertas.json.
 const { cargarTextos } = await import("../../../comun/textos.js");
@@ -50,7 +50,7 @@ export async function cargarPlazoCatalogo({ cliente } = {}) {
 /** La capacidad se consulta aparte; el POST de publicación vuelve a autorizar. */
 export function crearSuperficieRRHHPlazos({
   cliente = crearClientePoliticaOfertas(), traducir = traducirPortal,
-  alCambiar = () => {}, anunciar = () => {},
+  alCambiar = () => {}, anunciar = () => {}, alPublicar = () => {},
   generarClave = claveNueva, cargarEjemplo = cargarEjemploPlazas, cargarPlazo = cargarPlazoCatalogo,
   cargarConfirmacion = cargarConfirmacionAdjudicacion,
   textosPlazas = TEXTOS_PLAZAS, textosPlazo = TEXTOS_PLAZO,
@@ -89,7 +89,7 @@ export function crearSuperficieRRHHPlazos({
   }
 
   function conPlazo(borrador) {
-    if (borrador.plazo.cantidad === null && estado.plazoCatalogo) borrador.plazo = { ...copia(estado.plazoCatalogo), inicio: "publicacion" };
+    if (borrador.plazo.cantidad === null && estado.plazoCatalogo) borrador.plazo = copia(estado.plazoCatalogo);
     else if (borrador.plazo.inicio === undefined && estado.plazoCatalogo) borrador.plazo.inicio = estado.plazoCatalogo.inicio;
     return borrador;
   }
@@ -104,7 +104,7 @@ export function crearSuperficieRRHHPlazos({
     estado.plazoCatalogo = ejemplo;
     if (estado.bolsaRef && !estado.vigente?.configurada && !estado.plazoTocado
       && estado.borrador.plazo.cantidad === null) {
-      estado.borrador.plazo = { ...copia(ejemplo), inicio: "publicacion" };
+      estado.borrador.plazo = copia(ejemplo);
       repintar();
     } else if (estado.bolsaRef && politicaLegada() && estado.borrador.plazo.inicio === undefined) {
       estado.borrador.plazo.inicio = ejemplo.inicio;
@@ -208,6 +208,7 @@ export function crearSuperficieRRHHPlazos({
         estado.mensaje = traducir("rrhh_plazos_guardada", { version: resultado.politica.version,
           recibo: resultado.politica.recibo_ref });
         anunciar(estado.mensaje);
+        alPublicar(resultado.politica);
         void cargarCapacidad(bolsa, id);
       } else if (resultado.status === 409) {
         estado.conflicto = true;

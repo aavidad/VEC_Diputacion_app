@@ -169,6 +169,7 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" }));
   await turno();
   assert.match(s.renderizar(), /Reintentar la misma publicación/);
+  assert.equal(s.recargarPoliticaSegura(), false, "no sustituye el cuerpo incierto al guardar la política");
   datos.numero_plazas = "5";
   s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" }));
   await turno();

@@ -12,7 +12,7 @@ import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPo
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-alegaciones-v2";
-import { instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261011-bolsa-b103-privacidad-v1";
+import { bolsasVigentesParaLlamamiento, instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261015-ofertas-montaje-v2";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
@@ -125,8 +125,8 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261015-ofertas-publicacion-v1"),
-        import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261015-ofertas-publicacion-v1"),
+        import("./portal-bolsas-ofertas.js?v=20261015-ofertas-montaje-v2"),
+        import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261015-ofertas-montaje-v2"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
   carga.then((recursos) => {
@@ -491,7 +491,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
       const registrarDesmontar = (limpiar) => { desmontarRegistrado = limpiar; };
       montarVistaBolsa(vista, raiz, opciones);
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
-        controladorBolsas?.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieOfertasBolsa?.desmontar(); superficieRRHHPlazos?.desmontar(); }
+        controladorBolsas?.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { cerrarGestionOfertasBolsa(); }
         if (vista === "documentos") { vistaDocumentosBolsa?.desmontar(); vistaDocumentosBolsa = null; }
         if (vista === "auditoria") { vistaAuditoriaBolsa?.desmontar(); vistaAuditoriaBolsa = null; }
         if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; }
@@ -1038,6 +1038,11 @@ function alCambiarFichaCT(ficha) {
     history.pushState(null, "", ruta);
 }
 function navegar(vista, opciones = {}) {
+  if (salidaGestionOfertasBloqueada()) {
+    const traducirOfertas = recursosVistas.get("ofertas")?.crearTraductorOfertas();
+    if (traducirOfertas) anunciar(traducirOfertas("salida_incierta"));
+    return;
+  }
   if (vista === "comunicaciones" && rutasBolsa) {
     history.pushState(null, "", rutasBolsa.rutaGlobalBolsaCompartible(window.location.search, "llamamientos"));
     navegar("bolsa-candidatos", { ...opciones, desdeRuta: true });
@@ -1329,7 +1334,30 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     return;
   }
   if (vista === "llamamientos") {
+    const bolsaRef = estado.llamamientoDesdeMenu ? estado.bolsaSeleccionada : "";
+    const vigente = bolsasVigentesParaLlamamiento(estado.datosBolsas).some((bolsa) => bolsa.bolsa_ref === bolsaRef);
+    if (modoGestionOfertasBolsa && (!vigente || modoGestionOfertasBolsa !== bolsaRef)) cerrarGestionOfertasBolsa();
+    if (vigente && modoGestionOfertasBolsa === bolsaRef && superficieOfertasBolsa && superficieRRHHPlazos) {
+      if (contenedor.querySelector("[data-montaje-ofertas-bolsa]")) return;
+      const t = recursosVistas.get("ofertas").crearTraductorOfertas();
+      contenedor.innerHTML = `<section data-montaje-ofertas-bolsa aria-labelledby="gestion-ofertas-bolsa-titulo">` +
+        `<div class="acciones-vista"><button type="button" class="boton-secundario" data-gestion-ofertas-accion="volver">${escaparHTML(t("volver_llamamiento"))}</button>` +
+        `<p class="dato-secundario" data-gestion-ofertas-aviso hidden role="status">${escaparHTML(t("salida_incierta"))}</p></div>` +
+        `<h2 id="gestion-ofertas-bolsa-titulo" tabindex="-1">${escaparHTML(t("gestion_titulo"))}</h2>` +
+        `<details data-politica-ofertas-bolsa><summary>${escaparHTML(t("politica_titulo"))}</summary><div data-politica-ofertas-contenido>${superficieRRHHPlazos.renderizar()}</div></details>` +
+        `<div data-ofertas-bolsa-contenido>${superficieOfertasBolsa.renderizar()}</div></section>`;
+      superficieRRHHPlazos.instalar(document);
+      superficieRRHHPlazos.activar(bolsaRef);
+      superficieOfertasBolsa.activar(bolsaRef);
+      actualizarSalidaGestionOfertasBolsa();
+      contenedor.querySelector("#gestion-ofertas-bolsa-titulo")?.focus({ preventScroll: true });
+      return;
+    }
     contenedor.innerHTML = renderizarPantallaLlamamientos({ estado, encabezadoVista, escaparHTML, presentador: presentadorPanelInterno });
+    if (vigente && superficieOfertasBolsa && superficieRRHHPlazos) {
+      const t = recursosVistas.get("ofertas").crearTraductorOfertas();
+      contenedor.insertAdjacentHTML("afterbegin", `<div class="acciones-vista"><button type="button" class="boton-secundario" data-gestion-ofertas-accion="abrir">${escaparHTML(t("gestionar_ofertas"))}</button></div>`);
+    }
     return;
   }
   if (vista === "elaboracion") {
@@ -1518,10 +1546,27 @@ function renderizar() {
   if (grupoRecursos === "ofertas" && !superficieOfertasBolsa) {
     const recursos = recursosVistas.get("ofertas");
     superficieOfertasBolsa = recursos.crearSuperficieOfertasBolsa({ anunciar,
-      alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
+      alCambiar: () => { if (estado.vista === "llamamientos" && modoGestionOfertasBolsa) {
+        const destino = document.querySelector("[data-ofertas-bolsa-contenido]");
+        if (destino) destino.innerHTML = superficieOfertasBolsa.renderizar();
+        actualizarSalidaGestionOfertasBolsa();
+      } } });
     superficieOfertasBolsa.instalar(document);
     superficieRRHHPlazos = recursos.crearSuperficieRRHHPlazos({ anunciar,
-      alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
+      alCambiar: () => { if (estado.vista === "llamamientos" && modoGestionOfertasBolsa) {
+        const destino = document.querySelector("[data-politica-ofertas-contenido]");
+        if (destino) {
+          const activo = destino.contains(document.activeElement) ? document.activeElement : null;
+          const nombre = activo?.name;
+          const accion = activo?.dataset?.rrhhPlazosAccion;
+          destino.innerHTML = superficieRRHHPlazos.renderizar();
+          const siguiente = nombre ? [...destino.querySelectorAll("[name]")].find((control) => control.name === nombre)
+            : accion ? [...destino.querySelectorAll("[data-rrhh-plazos-accion]")].find((control) => control.dataset.rrhhPlazosAccion === accion) : null;
+          siguiente?.focus({ preventScroll: true });
+        }
+      } },
+      alPublicar: () => { if (estado.vista === "llamamientos" && modoGestionOfertasBolsa) superficieOfertasBolsa.recargarPoliticaSegura(); } });
+    instalarEventosGestionOfertasBolsa();
   }
   const [migas, titulo] = tituloDeVista(estado.vista);
   const moduloActivo = moduloActivoDeVista(estado.vista);
@@ -1733,6 +1778,48 @@ const superficieBorradores = crearSuperficieBorradoresPortal({
 // Ofertas publicadas de la bolsa elegida (art. 8.1): módulo propio con sus eventos.
 let superficieOfertasBolsa = null;
 let superficieRRHHPlazos = null;
+let modoGestionOfertasBolsa = "";
+let eventosGestionOfertasInstalados = false;
+
+function cerrarGestionOfertasBolsa() {
+  if (!modoGestionOfertasBolsa) return;
+  modoGestionOfertasBolsa = "";
+  superficieOfertasBolsa?.desmontar();
+  superficieRRHHPlazos?.desmontar();
+}
+
+function instalarEventosGestionOfertasBolsa() {
+  if (eventosGestionOfertasInstalados) return;
+  eventosGestionOfertasInstalados = true;
+  document.addEventListener("click", (evento) => {
+    const boton = evento.target.closest?.("[data-gestion-ofertas-accion]");
+    if (!boton || estado.vista !== "llamamientos") return;
+    const bolsaRef = estado.llamamientoDesdeMenu ? estado.bolsaSeleccionada : "";
+    if (boton.dataset.gestionOfertasAccion === "abrir") {
+      if (!bolsaRef || !bolsasVigentesParaLlamamiento(estado.datosBolsas).some((bolsa) => bolsa.bolsa_ref === bolsaRef)) return;
+      modoGestionOfertasBolsa = bolsaRef;
+      actualizarVistaBolsa();
+    } else if (boton.dataset.gestionOfertasAccion === "volver" && modoGestionOfertasBolsa) {
+      if (salidaGestionOfertasBloqueada()) return;
+      cerrarGestionOfertasBolsa();
+      actualizarVistaBolsa();
+      porId("espacio-trabajo")?.querySelector('[data-gestion-ofertas-accion="abrir"]')?.focus({ preventScroll: true });
+    }
+  });
+}
+
+function salidaGestionOfertasBloqueada() {
+  const oferta = superficieOfertasBolsa?.estado();
+  return Boolean(modoGestionOfertasBolsa && (oferta?.enviando || oferta?.claveEnCurso));
+}
+
+function actualizarSalidaGestionOfertasBolsa() {
+  const boton = document.querySelector('[data-gestion-ofertas-accion="volver"]');
+  const aviso = document.querySelector("[data-gestion-ofertas-aviso]");
+  const bloqueada = salidaGestionOfertasBloqueada();
+  if (boton) boton.disabled = bloqueada;
+  if (aviso) aviso.hidden = !bloqueada;
+}
 
 function instalarEventosBorradores() {
   document.addEventListener("click", (evento) => {

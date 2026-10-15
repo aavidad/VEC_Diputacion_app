@@ -1,6 +1,11 @@
 {
   "ofertas": {
     "titulo": "Ofertas publicadas",
+    "gestionar_ofertas": "Gestionar ofertas",
+    "volver_llamamiento": "Volver al llamamiento",
+    "gestion_titulo": "Ofertas de la bolsa seleccionada",
+    "politica_titulo": "Política de ofertas",
+    "salida_incierta": "El resultado de la publicación no está confirmado. Reintente aquí la misma operación antes de salir.",
     "publicar_titulo": "Nueva oferta",
     "inicio_publicacion": "El plazo comienza al publicar la oferta.",
     "inicio_publicacion_corto": "Al publicar la oferta",

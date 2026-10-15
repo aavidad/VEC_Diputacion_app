@@ -128,6 +128,7 @@ test("la política admite inicio por publicación y exige que el recibo confirme
 test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST válido", async () => {
   let intentos = 0;
   const claves = [];
+  const publicadas = [];
   const cliente = { consultar: async () => ({ ok: true, politica: vacia("bolsa:1", { puede_publicar: true }).data }),
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }),
     publicar: async (comando) => {
@@ -136,7 +137,8 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
         { ok: true, politica: vigente("bolsa:1", { recibo_ref: "recibo:politica:1" }).data };
     } };
   const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
-    generarClave: () => "misma-clave", cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo });
+    generarClave: () => "misma-clave", cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo,
+    alPublicar: (politica) => publicadas.push(politica.version) });
   superficie.activar("bolsa:1"); await turno();
   assert.match(superficie.renderizar(), /Regla pendiente de aprobación/);
   assert.match(superficie.renderizar(), /Oferta no cubierta/);
@@ -147,7 +149,7 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
   assert.doesNotMatch(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
   assert.match(superficie.renderizar(), /artículo 8\.1 distingue/u);
   assert.match(superficie.renderizar(), /2026_Reglamento_seleccion_de_personal_y_bolsas_bop_16_01_2026\.pdf/u);
-  assert.match(superficie.renderizar(), /name="inicio"[^>]*required[^>]*>.*value="publicacion" selected/u);
+  assert.match(superficie.renderizar(), /name="inicio"[^>]*required[^>]*>.*value="notificacion" selected/u);
   assert.match(superficie.renderizar(), /Correo externo declarado por RRHH/u);
   assert.match(superficie.renderizar(), /Publicación de la oferta/);
   assert.match(superficie.renderizar(), /Correo externo declarado por RRHH/);
@@ -162,6 +164,7 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
   superficie.manejarSubmit({ target: formulario, preventDefault() {} }); await turno();
   assert.deepEqual(claves, ["misma-clave", "misma-clave"]);
   assert.match(superficie.renderizar(), /recibo:politica:1/);
+  assert.deepEqual(publicadas, [1]);
 });
 
 test("el selector recupera el plazo del catálogo y deja vacía la unidad sin propuesta", async () => {
@@ -198,6 +201,16 @@ test("el plazo inicial sale de la regla publicada y válida del catálogo de Bol
   assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, unidad: "horas_naturales" }) }), null);
   assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, cantidad: 31 }) }), null);
   assert.equal(await cargarPlazoCatalogo({ cliente: { reglas: async () => { throw new Error("sin red"); } } }), null);
+});
+
+test("una política nueva propone el inicio publicado por el catálogo, sin forzar el de otra versión", async () => {
+  const cliente = { consultar: async () => ({ ok: true, politica: vacia().data }),
+    consultarCapacidad: async () => ({ ok: true, puede_publicar: true }) };
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+    cargarEjemplo: conEjemplo, cargarPlazo: async () => ({ ...PLAZO_CATALOGO, inicio: "publicacion" }) });
+  superficie.activar("bolsa:1"); await turno();
+  assert.equal(superficie.estado().borrador.plazo.inicio, "publicacion");
+  assert.match(superficie.renderizar(), /name="inicio"[^>]*required[^>]*>.*value="publicacion" selected/u);
 });
 
 test("la política vigente tiene prioridad y la falta de catálogo no propone cifras", async () => {
