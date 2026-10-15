@@ -18,6 +18,7 @@ import (
 	cthttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/shared/telemetria"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	appvec "vec-diputacion-granada/internal/vec/application"
@@ -493,6 +494,7 @@ func nuevaAutoridadSeleccionOfertaCTDesarrollo(ctx context.Context, cfg config.C
 	defer cancelar()
 	etapa := "configuracion"
 	completo := false
+	var causa error
 	var poolFuente, poolMotivos *pgxpool.Pool
 	defer func() {
 		if !completo {
@@ -502,11 +504,22 @@ func nuevaAutoridadSeleccionOfertaCTDesarrollo(ctx context.Context, cfg config.C
 			if poolFuente != nil {
 				poolFuente.Close()
 			}
-			slog.Warn("oferta CT cerrada", "etapa", etapa)
+			if causa != nil {
+				slog.Warn("oferta CT cerrada", "etapa", etapa,
+					"clase", telemetria.ClaseErrorArranque(causa),
+					"causa", telemetria.MensajeErrorArranque(causa))
+			}
 		}
 	}()
+	fallar := func(err error) (*autoridadSeleccionOfertaCTDesarrollo, func(), bool) {
+		causa = err
+		return nil, cerrarNada, false
+	}
 	c, presente, err := leerActivacionOfertaCTDesarrollo(cfg)
-	if !presente || err != nil {
+	if err != nil {
+		return fallar(err)
+	}
+	if !presente {
 		return nil, cerrarNada, false
 	}
 	etapa = "frontera"
@@ -522,44 +535,47 @@ func nuevaAutoridadSeleccionOfertaCTDesarrollo(ctx context.Context, cfg config.C
 		baseProveedor.soporte.principalID != alta.soporte.principalID ||
 		baseProveedor.soporte.certificadoSHA256 != alta.soporte.certificadoSHA256 ||
 		!frontera.admitePerfil(alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef) {
-		return nil, cerrarNada, false
+		return fallar(errActivacionOfertaCTDesarrollo)
 	}
 	for _, perfil := range []perfilActivacionOfertaCT{c.Vinculo, c.CierreBolsa, c.DescarteCT} {
 		if perfil.PerfilRef == alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef ||
 			perfil.PerfilRef == baseProveedor.base.Contexto.PerfilActivoRef {
-			return nil, cerrarNada, false
+			return fallar(errActivacionOfertaCTDesarrollo)
 		}
 	}
 	if base.soporte.unidadRef == "" || base.soporte.ambitoRef == "" {
-		return nil, cerrarNada, false
+		return fallar(errActivacionOfertaCTDesarrollo)
 	}
 	etapa = "fuentes"
 	dsnFuente, err := leerDSNOfertaCTDesarrollo(cfg, c.FuenteAutorizacionDSNFile)
 	if err != nil {
-		return nil, cerrarNada, false
+		return fallar(err)
 	}
 	dsnMotivos, err := leerDSNOfertaCTDesarrollo(cfg, c.MotivosAutorizacionDSNFile)
 	if err != nil {
-		return nil, cerrarNada, false
+		return fallar(err)
 	}
 	poolFuente, err = abrirPoolAutoridadAuditoriaDesarrollo(sonda, dsnFuente,
 		config.RolFuenteAutorizacionAuditoriaDesarrollo, "vec-ct-ofertas-fuente")
 	if err != nil {
-		return nil, cerrarNada, false
+		return fallar(err)
 	}
 	poolMotivos, err = abrirPoolAutoridadAuditoriaDesarrollo(sonda, dsnMotivos,
 		config.RolMotivosAuditoriaDesarrollo, "vec-ct-ofertas-motivos")
-	if err != nil || !loginPoolsOfertaCTSeparados(poolFuente, poolMotivos,
+	if err != nil {
+		return fallar(err)
+	}
+	if !loginPoolsOfertaCTSeparados(poolFuente, poolMotivos,
 		alta.postgresql.ejecucion, alta.postgresql.gobierno, alta.postgresql.registroAutorizacion, alta.postgresql.bolsa) {
-		return nil, cerrarNada, false
+		return fallar(errActivacionOfertaCTDesarrollo)
 	}
 	fuenteDB, err := pgvec.NuevoAlmacenAutorizacion(poolFuente)
 	if err != nil {
-		return nil, cerrarNada, false
+		return fallar(err)
 	}
 	registro, err := pgvec.NuevoAlmacenAutorizacion(alta.postgresql.registroAutorizacion)
 	if err != nil {
-		return nil, cerrarNada, false
+		return fallar(err)
 	}
 	etapa = "perfiles_publicados"
 	configuraciones := []struct {
@@ -575,20 +591,20 @@ func nuevaAutoridadSeleccionOfertaCTDesarrollo(ctx context.Context, cfg config.C
 		perfil, e := componerPerfilAutoridadOfertaCTDesarrollo(sonda, configuracion.perfil,
 			configuracion.politica, alta, baseProveedor, fuenteDB, registro, poolMotivos, reloj)
 		if e != nil {
-			return nil, cerrarNada, false
+			return fallar(e)
 		}
 		perfiles = append(perfiles, perfil)
 	}
 	etapa = "material_capacidad"
 	baseDerivada, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, reloj.Ahora())
 	if err != nil {
-		return nil, cerrarNada, false
+		return fallar(err)
 	}
 	defer baseDerivada.borrarCopiasEfimeras()
 	baseMaterial := alta.postgresql.proveedorMaterial
 	if baseMaterial == nil || baseMaterial.atestador == nil || baseMaterial.confianza == nil ||
 		baseMaterial.fuenteConfianza == nil {
-		return nil, cerrarNada, false
+		return fallar(errActivacionOfertaCTDesarrollo)
 	}
 	baseDerivada.fuenteConfianza = baseMaterial.fuenteConfianza
 	// Solo tras comprobar los tres perfiles y motivos publicados se gobiernan
@@ -598,7 +614,7 @@ func nuevaAutoridadSeleccionOfertaCTDesarrollo(ctx context.Context, cfg config.C
 			alta.postgresql.gobierno, baseDerivada, alta.soporte, reloj,
 			alta.postgresql.catalogoMaterial, configuraciones[indice].politica.audiencia)
 		if e != nil {
-			return nil, cerrarNada, false
+			return fallar(e)
 		}
 		perfil.material = proveedor
 	}
