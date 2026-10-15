@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
 	gobiernoperfiles "vec-diputacion-granada/internal/vec/adapters/administracionperfiles/postgres"
 	"vec-diputacion-granada/internal/vec/auditoria"
@@ -58,12 +59,15 @@ var errConfiguracion = errors.New("configuracion")
 
 func (c configuracionPrivada) validar(fase string) error {
 	if _, ok := bootstrap.AudienciasConjuntoCapacidadesAdmin(c.ConjuntoCapacidades); !ok ||
-		!rutaAbsoluta(c.Salida) || c.HorasValidezClaves < 0 || c.HorasValidezClaves > 24 {
+		!rutaAbsoluta(c.Salida) {
+		return errConfiguracion
+	}
+	if _, err := config.EntornoGobiernoAdmin().ValidezGobiernoAdmin(c.HorasValidezClaves, os.Getenv(config.EnvGobiernoAdminValidezHoras)); err != nil {
 		return errConfiguracion
 	}
 	switch fase {
 	case "preparar":
-		if !rutaAbsoluta(c.DirectorioMaterial) || !rutaAbsoluta(c.RutaConfiguracionHMAC) || !rutaAbsoluta(c.ArchivoSemillaRaiz) || c.HorasValidezClaves < 1 || dsnValido(c.DSNLectura) != nil {
+		if !rutaAbsoluta(c.DirectorioMaterial) || !rutaAbsoluta(c.RutaConfiguracionHMAC) || !rutaAbsoluta(c.ArchivoSemillaRaiz) || dsnValido(c.DSNLectura) != nil {
 			return errConfiguracion
 		}
 	case "aplicar":
@@ -128,6 +132,11 @@ func dsnValido(dsn string) error {
 	}
 	pc, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
+		return errConfiguracion
+	}
+	// El pool debe ser perezoso: el material preparado se valida antes de
+	// la primera conexión, también al aplicar material de otro entorno.
+	if pc.MinConns != 0 || pc.MinIdleConns != 0 {
 		return errConfiguracion
 	}
 	cc := &pc.ConnConfig.Config

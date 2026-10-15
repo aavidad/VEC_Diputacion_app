@@ -533,7 +533,9 @@ pantalla. Falta.
 
 ### 4.2 Centro solicitante y ratificador
 
-Estado: **en cidonia**. Pantalla `/portal-empleado/peticiones-centro/`, API
+Estado: circuito anterior **en cidonia**; la elección y conservación de la
+necesidad RPT está **en main** con #1114, pendiente de verificar su instalación
+en cidonia. Pantalla `/portal-empleado/peticiones-centro/`, API
 `/api/vec/contratacion-temporal/peticiones-centro/*`.
 
 ```mermaid
@@ -549,10 +551,10 @@ sequenceDiagram
   Note over H: expediente en solicitud/en_curso, versión 1
 ```
 
-1. El solicitante pulsa **Presentar petición** y rellena contacto, categoría,
-   grupo, motivo, detalle, fechas, retención de crédito declarada, jornada,
-   número de personas y puesto. **Revisar** y **Confirmar** una vez. Queda
-   pendiente de ratificación.
+1. El solicitante pulsa **Presentar petición**, elige el puesto y la categoría
+   de la RPT publicada y rellena contacto, grupo, motivo, detalle, fechas,
+   retención de crédito declarada, jornada y número de personas. **Revisar** y
+   **Confirmar** una vez. Queda pendiente de ratificación.
 2. El ratificador, otra persona del mismo centro, abre la bandeja, pulsa
    **Revisar**, comprueba solicitante, necesidad, crédito y documentación,
    escribe un motivo y ratifica. El solicitante no puede ratificarse a sí
@@ -563,10 +565,18 @@ sequenceDiagram
    recibo. Si quedó **Preparada para crear expediente**, se usa **Completar
    registro**.
 
-Hoy el puesto se escribe como texto libre y no se conserva la necesidad de la
-RPT publicada. Por eso un expediente nacido de la petición del centro no puede
-usar todavía la selección desde la bolsa constituida, que exige esa necesidad.
-Falta (duda 162, equipo K).
+La petición conserva la necesidad de la RPT publicada; otra persona ratifica
+esos mismos datos y RRHH los utiliza al crear el expediente. El servidor
+comprueba el puesto y la categoría con la publicación original, también si el
+catálogo cambia después. La recuperación del mismo expediente y sus recibos
+tras reiniciar consta en el [acta de #1114](../evidencias/codexk-peticion-necesidad-rpt-20261014/acta.md).
+
+La relación de puestos de trabajo es un instrumento público de organización
+([art. 74 del Estatuto Básico del Empleado Público](https://www.boe.es/buscar/act.php?id=BOE-A-2015-11719#a74));
+las corporaciones locales deben formarla para sus puestos
+([art. 90.2 de la Ley 7/1985](https://www.boe.es/buscar/act.php?id=BOE-A-1985-5392#a90)).
+La elección de la necesidad publicada en este formulario es el recorrido que
+implementa #1114. La duda 162 se retira porque esa capacidad ya está integrada.
 
 El centro también puede:
 
@@ -718,6 +728,15 @@ se han comprobado la publicación de dos plazas, su consulta y aceptación desde
 Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
 un reintento conserva fechas, política y oferta originales. Este corte no acredita
 todavía la publicación desde la ficha de CT.
+
+**Candidata de consulta de puestos.** El ofrecimiento usa la RPT publicada y
+la historia autorizada del puesto de Personal. La consulta existente se conecta
+al proceso combinado con el mismo perfil, ámbito y registro de lecturas. Si
+falta su configuración o permiso, la selección conserva el expediente y queda
+sin completar. El montaje se ensaya en la copia local; todavía no acredita el
+ofrecimiento ni corrige por sí solo la separación entre unidad gestora y unidad
+del puesto.
+
 
 La oferta con varias plazas, la adjudicación por posición y el llamamiento
 directo existen en Bolsa (`internal/modules/bolsa/domain/oferta_publicada.go`,
@@ -1028,7 +1047,7 @@ efecto.
 | Cuenta externa propia | | #1112 | Provisión en cidonia |
 | Mi Bolsa y respuesta al llamamiento | Sí | | Formulario de pausa y reactivación |
 | Preferencias entre bolsas | *(por verificar)* | Sí | Autoridad externa en cidonia |
-| Petición y ratificación del centro | Sí | | Necesidad de la RPT en la petición (duda 162) |
+| Petición y ratificación del centro | Circuito anterior | #1114: conserva la necesidad RPT hasta el alta | Verificar la instalación de #1114 en cidonia |
 | Alta, análisis, cobertura, asignación, informe | Sí | | |
 | Fiscalización con reparo y subsanación | Fiscalización sí; reparo *(por verificar)* | | |
 | Llamamiento desde la bolsa constituida | Puente anterior | #1088 | Recorrido con la bolsa real |
@@ -1067,10 +1086,26 @@ Para quien mantenga este documento. Ninguna se ha corregido en el código.
    la da por integrada en pantalla, pero `vistas.json` la mantiene oculta.
 7. **Varias plazas.** Los objetivos piden «oferta desde la bolsa con varias
    plazas» dentro del recorrido de CT; CT no usa las ofertas de Bolsa.
-8. **Manual de administración.** `docs/manual_administracion/README.md` (26/09)
-   describe el panel antiguo como cerrado; `vec-admin` es posterior.
-9. **Menú de Bolsa.** El manifiesto Go declara once entradas
-   (`/modules/bolsa/...`) que no son las del menú real del HTML.
+8. **Manual de administración.** La versión del 26/09 describía el panel
+   antiguo como cerrado. Puesto al día el 15/10 (F0-26) con el apartado 4.4.
+9. **Menú de Bolsa.** `internal/modules/bolsa/manifest.go` declara once
+   entradas con rutas `/modules/bolsa/...`: dashboard, convocatorias,
+   solicitudes, meritos, autobaremo, documentos, alegaciones, notificaciones,
+   listados, auditoria y manifiestos. El menú real es el fijo de
+   `web/static/portal-empleado/index.html` (tabla de 3.2), con vistas por
+   `data-vista`: elaboración, convocatorias, solicitudes, méritos, alegaciones,
+   importación Convoca, llamamientos, contratos, reglas, baremación, consulta,
+   resumen, estadísticas, documentos, comunicaciones, auditoría y
+   configuración. Coinciden en el asunto siete (dashboard con «Cuadro de mando»,
+   convocatorias, solicitudes, méritos, alegaciones, documentos y auditoría),
+   nunca en la ruta. Autobaremo, notificaciones, listados y manifiestos no están
+   en el menú real (el más cercano a notificaciones es «Correo y mensajería»).
+   Elaboración, importación, llamamientos, contratos, reglas, baremación,
+   consulta, estadísticas, comunicaciones y configuración no están en el
+   manifiesto. Ninguna pantalla del
+   portal sirve las rutas `/modules/bolsa/...` ni consume `GET /api/vec/menu`, y
+   las claves `ui.vec.menu.bolsa.*` del manifiesto no están en ningún catálogo
+   de textos. Comprobado en `main` el 15/10; el código no se ha cambiado.
 
 ## 9. Fuentes
 

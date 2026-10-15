@@ -134,6 +134,14 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 
 ### 2.3 En curso
 
+Corte H de vigencia de gobierno, orden de dirección del 15/10 a las 19:36:
+preparación y aplicación con 24 horas por defecto, hasta 90 días solo en
+desarrollo y rechazo de plazos mayores de 24 horas en producción. AD282
+conserva publicaciones y recibos. La entrega exige revisión independiente y
+ensayo local de preparación, aplicación y reinicio antes de incorporarla a la
+candidata de dirección.
+Guion: `deploy/principal/vigencia_gobierno_admin_20261015.md`.
+
 **HZ37, O: Mi Bolsa interna en combinado mientras no se seleccione el modo
 externo.** Recupera el montaje de HZ36 si no hay DSN ni material externo y la
 inscripción está apagada. La selección externa exige configuración completa
@@ -185,6 +193,14 @@ está instalada; verificar su hash antes de reanudar:
 | Cliente del gestor documental Mayan | TLS del destino y configuración de Sistemas |
 | Preferencias entre bolsas | PostgreSQL integrado, lectura autorizada y efecto en la adjudicación |
 | Inscripción por varias categorías (B105) | **No instalar**: falta la modalidad conjunta configurable (apartado 7) |
+
+La candidata de R conecta la consulta histórica de puestos de Personal con el
+proceso combinado, dependencia del ofrecimiento desde una bolsa constituida.
+Conserva la autoridad nominal existente y añade configuración opcional. En la
+copia local se han comprobado lectura con permiso y recibo, denegación de otra
+unidad y la misma página tras reiniciar aplicación y PostgreSQL. La selección
+completa sigue pendiente de la necesidad RPT de la petición y de separar su
+unidad gestora de la unidad del puesto; no se da por resuelto ese recorrido.
 
 ### 2.4 Lo que todavía no funciona de punta a punta
 
