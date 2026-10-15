@@ -121,7 +121,7 @@
     "causas_destino": "Offer reasons that allow the exception to be checked",
     "maximo_vacante_meses": "Maximum months in the vacant post",
     "reduccion_por_modalidades_previas": "Previous appointments that reduce this period",
-    "destinos": "Eligible offer types",
+    "destinos": "Contract types to check",
     "condicion": "Current appointment {numero}",
     "baja_comprobada": "Verified termination required",
     "meses_transcurridos": "Maximum months elapsed",

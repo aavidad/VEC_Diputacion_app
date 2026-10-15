@@ -98,7 +98,7 @@ export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor 
   if (llamamiento && llamamiento.trim() !== "") {
     parametros.set("llamamiento", llamamiento.trim());
     parametros.set("limite", "100");
-    if (exclusionesDesde > 0) parametros.set("exclusiones_desde", String(exclusionesDesde));
+    parametros.set("exclusiones_desde", String(exclusionesDesde));
     return `${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos?${parametros}`;
   }
   if (estado && estado.trim() !== "") parametros.set("estado", estado.trim());

@@ -121,7 +121,7 @@
     "causas_destino": "Causas de la oferta que permiten revisar la excepción",
     "maximo_vacante_meses": "Meses máximos de la vacante",
     "reduccion_por_modalidades_previas": "Relaciones anteriores que reducen ese plazo",
-    "destinos": "Modalidades a las que puede optar",
+    "destinos": "Modalidades que se comprueban",
     "condicion": "Relación actual {numero}",
     "baja_comprobada": "Baja comprobada obligatoria",
     "meses_transcurridos": "Máximo de meses transcurridos",

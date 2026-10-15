@@ -176,7 +176,7 @@ test("en la ficha, el llamamiento del seguimiento prevalece sobre el último de 
 
 test("la consulta del seguimiento pide solo las personas de ese llamamiento", async () => {
   assert.equal(rutaCandidatosBolsa("bolsa:1", { llamamiento: LLAMAMIENTO, estado: "disponible", texto: "x", cursor: "c" }),
-    "/api/vec/bolsa/bolsas/bolsa:1/candidatos?llamamiento=llamamiento%3Asintetico%3A7&limite=100");
+    "/api/vec/bolsa/bolsas/bolsa:1/candidatos?llamamiento=llamamiento%3Asintetico%3A7&limite=100&exclusiones_desde=0");
   const escuchas = {};
   const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector() { return null; } };
   const estado = { filtrosBolsa: { estado: "", texto: "" }, datosCandidatos: null };
@@ -192,7 +192,7 @@ test("la consulta del seguimiento pide solo las personas de ese llamamiento", as
     globalThis.fetch = fetchOriginal;
   }
   assert.deepEqual(estado.filtrosBolsa.seguimiento, { llamamiento_ref: LLAMAMIENTO, bolsa_ref: BOLSA.bolsa_ref });
-  assert.ok(rutas.some((ruta) => ruta.endsWith("/candidatos?llamamiento=llamamiento%3Asintetico%3A7&limite=100")), rutas.join(" "));
+  assert.ok(rutas.some((ruta) => ruta.endsWith("/candidatos?llamamiento=llamamiento%3Asintetico%3A7&limite=100&exclusiones_desde=0")), rutas.join(" "));
   assert.equal(estado.datosCandidatos.carga, "error");
 });
 
