@@ -31,7 +31,8 @@ documentales sin membresías → D22 → membresías gobernadas → B119 →
 CT222. AUT99, AD281 y D23 corrigen la autoridad externa de los actos propios y se intercalan según las
 precondiciones y el orden exacto de la lista SQL. AD284 se instala después de
 D23: solo el aspirante consume las claves y la auditoría de la superficie externa;
-RRHH conserva las internas. Antes de
+RRHH conserva las internas. AUT100 incorpora únicamente el LOGIN y grupo
+documentales exactos al revalidador de sesión externa que necesita AUT99. Antes de
 instalar se cotejan los números reservados, los roles y las funciones presentes
 en la copia. La creación de LOGIN técnicos y sus credenciales queda en el
 circuito de DBA; los secretos no entran en Git.
