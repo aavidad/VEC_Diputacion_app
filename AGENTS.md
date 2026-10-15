@@ -12,6 +12,7 @@ afecten a su tarea, y siempre `PRD.md` y `PLAN_IMPLEMENTACION.md`:
 - [DISENO_UI_UX.md](docs/producto/DISENO_UI_UX.md): reglas de diseño y usabilidad.
 - [ESQUEMA_BACKEND.md](docs/producto/ESQUEMA_BACKEND.md): esquemas, roles, migraciones y API.
 - [PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md): qué falta y en qué orden.
+- [TABLERO_TAREAS.md](docs/producto/TABLERO_TAREAS.md): qué falta, quién lo hace y en qué estado.
 
 La skill `documentos-producto-vec` (`.agents/skills/documentos-producto-vec/`)
 dice cuál leer según la tarea y cuál actualizar en la misma PR cuando una
