@@ -62,7 +62,7 @@ BEGIN
     OR j->>'modalidad' !~ '^[a-z][a-z0-9_:-]{2,159}$'
     OR inicio IS NULL OR fin IS NULL OR inicio<>date_trunc('day',inicio)
     OR fin<>date_trunc('day',fin)
-    OR inicio>pg_catalog.clock_timestamp() OR fin-inicio<interval '400 days'
+    OR inicio>pg_catalog.clock_timestamp() OR fin-inicio<interval '60 days'
     OR fin<pg_catalog.clock_timestamp()+interval '60 days'
     OR NOT pg_catalog.isfinite(inicio) OR NOT pg_catalog.isfinite(fin)
     OR (SELECT count(*) FROM vec_personal.org_nodo_historia n

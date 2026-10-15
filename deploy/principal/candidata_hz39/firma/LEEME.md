@@ -47,8 +47,10 @@ en la copia con un archivo privado de parámetros de psql. Necesita
 `persona_secretaria` y sus cuatro `perfil_*`; además, `organismo_ref`,
 `unidad_ref`, `regimen_ref`, `modalidad_ref`, `vigente_desde` y `vigente_hasta`.
 Las personas y perfiles deben estar provistos y la unidad debe tener una
-única cabeza vigente. Usar fechas a medianoche UTC, un intervalo de 400 días
-y al menos 60 días restantes. El perfil debe estar vigente y cubrirlo.
+única cabeza vigente. Usar fechas a medianoche UTC y un intervalo con al menos
+60 días restantes, cubierto por la unidad, el perfil y su asignación. Las fechas
+son parámetros de la copia; una asignación de 90 días no necesita una relación
+de 400 días.
 
 El guion añade los cuatro empleados y sus relaciones como datos ficticios,
 con origen `datos:recorrido:hz39`, según la orden de dirección. No produce
