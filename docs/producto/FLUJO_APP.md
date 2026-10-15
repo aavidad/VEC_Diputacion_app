@@ -1056,10 +1056,26 @@ Para quien mantenga este documento. Ninguna se ha corregido en el código.
    la da por integrada en pantalla, pero `vistas.json` la mantiene oculta.
 7. **Varias plazas.** Los objetivos piden «oferta desde la bolsa con varias
    plazas» dentro del recorrido de CT; CT no usa las ofertas de Bolsa.
-8. **Manual de administración.** `docs/manual_administracion/README.md` (26/09)
-   describe el panel antiguo como cerrado; `vec-admin` es posterior.
-9. **Menú de Bolsa.** El manifiesto Go declara once entradas
-   (`/modules/bolsa/...`) que no son las del menú real del HTML.
+8. **Manual de administración.** La versión del 26/09 describía el panel
+   antiguo como cerrado. Puesto al día el 15/10 (F0-26) con el apartado 4.4.
+9. **Menú de Bolsa.** `internal/modules/bolsa/manifest.go` declara once
+   entradas con rutas `/modules/bolsa/...`: dashboard, convocatorias,
+   solicitudes, meritos, autobaremo, documentos, alegaciones, notificaciones,
+   listados, auditoria y manifiestos. El menú real es el fijo de
+   `web/static/portal-empleado/index.html` (tabla de 3.2), con vistas por
+   `data-vista`: elaboración, convocatorias, solicitudes, méritos, alegaciones,
+   importación Convoca, llamamientos, contratos, reglas, baremación, consulta,
+   resumen, estadísticas, documentos, comunicaciones, auditoría y
+   configuración. Coinciden en el asunto siete (dashboard con «Cuadro de mando»,
+   convocatorias, solicitudes, méritos, alegaciones, documentos y auditoría),
+   nunca en la ruta. Autobaremo, notificaciones, listados y manifiestos no están
+   en el menú real (el más cercano a notificaciones es «Correo y mensajería»).
+   Elaboración, importación, llamamientos, contratos, reglas, baremación,
+   consulta, estadísticas, comunicaciones y configuración no están en el
+   manifiesto. Ninguna pantalla del
+   portal sirve las rutas `/modules/bolsa/...` ni consume `GET /api/vec/menu`, y
+   las claves `ui.vec.menu.bolsa.*` del manifiesto no están en ningún catálogo
+   de textos. Comprobado en `main` el 15/10; el código no se ha cambiado.
 
 ## 9. Fuentes
 
