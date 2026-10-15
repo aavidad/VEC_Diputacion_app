@@ -14,7 +14,7 @@ case "${1:-}" in
 esac
 
 fuente=$raiz/data/catalogos/contratacion-temporal/reglas.v3.json
-huella=fadf23dcdcdcf857d327500bdf017dd2c2c91b490566a5ce68c1b915a7932dec
+huella=d19c5022e97e24ecaae6ee7e3f059fa2046538cb583347e102076c63153a9616
 aprobacion=operacion:plazos-ct:20261015
 [[ -f $fuente && ! -L $fuente && $(sha256sum -- "$fuente" | cut -d' ' -f1) == "$huella" ]] || rechazar fuente_modificada
 

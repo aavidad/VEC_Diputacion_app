@@ -73,7 +73,7 @@
           "computo": "administrativo",
           "fases": "fiscalizacion",
           "cantidad_urgente": "5",
-          "articulo": "Real Decreto 424/2017, arts. 10.2 y 10.3; Reglamento de Control Interno de la Diputación, art. 12.2."
+          "articulo": "arts. 10.2 y 10.3"
         },
         "orden": 3
       },
@@ -91,7 +91,7 @@
           "inicio": "requerimiento",
           "computo": "administrativo",
           "fases": "subsanacion_unidad",
-          "articulo": "Real Decreto 424/2017, art. 12.4; Ley 39/2015, art. 30.2; Reglamento de Control Interno de la Diputación, art. 14.2."
+          "articulo": "art. 12.4"
         },
         "orden": 4
       },
