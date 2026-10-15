@@ -142,6 +142,7 @@ func TestHandlerOfertasTraduceErrores(t *testing.T) {
 		{ports.ErrOfertaPropuestaCambiada, http.StatusConflict, "propuesta_cambiada"},
 		{ports.ErrOfertaRespuestaAbierta, http.StatusConflict, "respuesta_abierta"},
 		{ports.ErrOfertaPoliticaSinPlazas, http.StatusConflict, "politica_sin_plazas"},
+		{ports.ErrOfertaElegiblesInsuficientes, http.StatusConflict, "personas_elegibles_insuficientes"},
 		{ports.ErrOfertaInvalida, http.StatusUnprocessableEntity, "oferta_invalida"},
 		{ports.ErrPlazoOfertaNoConfigurado, http.StatusServiceUnavailable, "plazo_no_configurado"},
 		{context.DeadlineExceeded, http.StatusServiceUnavailable, "servicio_no_disponible"},

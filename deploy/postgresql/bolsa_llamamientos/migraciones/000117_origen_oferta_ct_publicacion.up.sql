@@ -246,7 +246,7 @@ CREATE TABLE vec_bolsa_llamamientos.origen_oferta_ct_v1(
  politica_ref text NOT NULL,
  version_politica bigint NOT NULL,
  huella_politica_sha256 text NOT NULL CHECK(huella_politica_sha256~'^[0-9a-f]{64}$'),
- numero_plazas integer NOT NULL CHECK(numero_plazas BETWEEN 1 AND 100),
+ numero_plazas integer NOT NULL CHECK(numero_plazas BETWEEN 2 AND 100),
  elegibles integer NOT NULL CHECK(elegibles BETWEEN 1 AND 1000000 AND numero_plazas<=elegibles),
  origen_canonico jsonb NOT NULL CHECK(jsonb_typeof(origen_canonico)='object'),
  origen_huella_sha256 text NOT NULL CHECK(origen_huella_sha256~'^[0-9a-f]{64}$'
@@ -403,16 +403,16 @@ BEGIN
       'version_instantanea','huella_instantanea_sha256','politica_ref',
       'version_politica','huella_politica_sha256','lectura'])
     OR p_origen->>'bolsa_ref' IS DISTINCT FROM p_bolsa
-    OR p_origen->>'version_expediente' !~ '^[1-9][0-9]{0,15}$'
+    OR coalesce(p_origen->>'version_expediente','') !~ '^[1-9][0-9]{0,15}$'
     OR p_origen->>'version_bolsa' !~ '^[1-9][0-9]{0,15}$'
     OR p_origen->>'version_instantanea' !~ '^[1-9][0-9]{0,15}$'
     OR p_origen->>'version_politica' !~ '^[1-9][0-9]{0,15}$'
-    OR p_origen->>'expediente_ref' IS NULL OR p_origen->>'clave_ct' IS NULL
-    OR position(chr(31) in (p_origen->>'expediente_ref'))>0
-    OR position(chr(31) in (p_origen->>'clave_ct'))>0
-    OR p_origen->>'organizacion_ref' IS NULL OR p_origen->>'necesidad_ref' IS NULL
-    OR p_origen->>'unidad_ref' !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,191}$'
-    OR p_numero NOT BETWEEN 1 AND 100 OR p_publicada IS NULL THEN
+    OR coalesce(p_origen->>'organizacion_ref','') !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,255}$'
+    OR coalesce(p_origen->>'expediente_ref','') !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,255}$'
+    OR coalesce(p_origen->>'clave_ct','') !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,255}$'
+    OR coalesce(p_origen->>'necesidad_ref','') !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,255}$'
+    OR coalesce(p_origen->>'unidad_ref','') !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,191}$'
+    OR p_numero IS NULL OR p_numero NOT BETWEEN 2 AND 100 OR p_publicada IS NULL THEN
   RAISE EXCEPTION 'B117: origen CT inválido' USING ERRCODE='22023';
  END IF;
  l:=p_origen->'lectura';
@@ -520,7 +520,7 @@ BEGIN
  SELECT count(*) INTO elegibles FROM jsonb_array_elements(l->'entradas') e
  WHERE e->>'orden_vigente' IS NOT NULL;
  IF elegibles<p_numero OR elegibles<1 THEN
-  RAISE EXCEPTION 'B117: plazas superiores a posiciones elegibles en la captura' USING ERRCODE='23505';
+  RAISE EXCEPTION 'B117: plazas superiores a posiciones elegibles en la captura' USING ERRCODE='VBO09';
  END IF;
  -- La captura conserva la decisión histórica; para una oferta nueva también
  -- se exige cobertura suficiente en el instante firmado de publicación.
@@ -535,7 +535,7 @@ BEGIN
    AND o.version_politica=(p_origen->>'version_politica')::bigint
    AND o.provisional=(l->>'politica_provisional')::boolean;
  IF actuales<p_numero THEN
-  RAISE EXCEPTION 'B117: plazas superiores a posiciones elegibles al publicar' USING ERRCODE='23505';
+  RAISE EXCEPTION 'B117: plazas superiores a posiciones elegibles al publicar' USING ERRCODE='VBO09';
  END IF;
  RETURN elegibles;
 END $f$;
@@ -623,6 +623,7 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
 DECLARE h text;ctx text;d jsonb;c record;previa record;plazas record;origen_previo record;
  v_ahora timestamptz;v_recibo text;v_evento text;v_elegibles integer;v_comando text;v_version bigint;
+ v_constraint text;v_constraint_schema text;v_constraint_table text;
 BEGIN
  -- El contrato histórico B71 mantiene los mismos bytes, columnas y recibos.
  IF p_plazo->>'inicio'='notificacion' AND p_origen IS NULL THEN
@@ -656,6 +657,7 @@ BEGIN
     OR (p_datos ? 'fecha_fin' AND (p_datos->>'fecha_fin' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
        OR p_datos->>'fecha_fin'<p_datos->>'fecha_inicio'))
     OR p_numero_plazas NOT BETWEEN 1 AND 100
+    OR p_unidad IS NULL OR p_ambito IS NULL
     OR p_unidad !~ '^[A-Za-z0-9:_-]+$' OR p_ambito !~ '^[A-Za-z0-9:_-]+$'
     OR p_publicada IS NULL OR p_vence IS NULL OR p_vence<=p_publicada
     OR p_vence>p_publicada+interval '120 days' THEN
@@ -740,6 +742,14 @@ BEGIN
    RAISE EXCEPTION 'B117: unidad del origen distinta' USING ERRCODE='42501';
   END IF;
   v_elegibles:=vec_bolsa_llamamientos.validar_origen_oferta_ct_v1(p_origen,p_bolsa,p_numero_plazas,p_publicada);
+  PERFORM pg_advisory_xact_lock(hashtextextended(
+   'vec_bolsa_llamamientos:origen-oferta-ct:'||
+    jsonb_build_array(p_origen->>'expediente_ref',p_origen->>'clave_ct')::text,0));
+  IF EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.origen_oferta_ct_v1 x
+    WHERE x.expediente_ref=p_origen->>'expediente_ref'
+      AND x.clave_ct=p_origen->>'clave_ct') THEN
+   RAISE EXCEPTION 'B117: clave CT ya publicada para el expediente' USING ERRCODE='VBO01';
+  END IF;
  END IF;
  v_comando:=encode(sha256(convert_to(p_bolsa||chr(31)||p_datos::text,'UTF8')),'hex');
  INSERT INTO vec_bolsa_llamamientos.oferta_publicada(
@@ -774,6 +784,16 @@ BEGIN
   VALUES(v_evento,p_oferta,'bolsa.oferta.ct.origen_confirmado','pendiente',p_publicada);
  END IF;
  RETURN QUERY SELECT vec_bolsa_llamamientos.proyectar_oferta_v2(p_oferta,clock_timestamp()),false;
+EXCEPTION WHEN unique_violation THEN
+ GET STACKED DIAGNOSTICS v_constraint=CONSTRAINT_NAME,
+  v_constraint_schema=SCHEMA_NAME,v_constraint_table=TABLE_NAME;
+ IF v_constraint_schema='vec_bolsa_llamamientos'
+    AND v_constraint_table='origen_oferta_ct_v1'
+    AND v_constraint IN ('origen_oferta_ct_v1_expediente_ref_clave_ct_key',
+      'origen_oferta_ct_v1_evento_ref_key') THEN
+  RAISE EXCEPTION 'B117: clave CT ya publicada para el expediente' USING ERRCODE='VBO01';
+ END IF;
+ RAISE;
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer,jsonb) TO vec_bolsa_llamamientos_ejecutor;

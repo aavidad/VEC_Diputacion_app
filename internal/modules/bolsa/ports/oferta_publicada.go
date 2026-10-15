@@ -15,12 +15,13 @@ import (
 // la emisión B7 (AccionEmitirLlamamiento) sobre la bolsa constituida.
 
 var (
-	ErrOfertaNoDisponible      = errors.New("bolsa: ofertas publicadas no disponibles")
-	ErrOfertaInvalida          = errors.New("bolsa: oferta invalida")
-	ErrOfertaConflicto         = errors.New("bolsa: clave de oferta reutilizada con otro comando")
-	ErrOfertaYaResuelta        = errors.New("bolsa: la oferta ya esta resuelta")
-	ErrOfertaPlazoAbierto      = errors.New("bolsa: el plazo de disposicion sigue abierto")
-	ErrOfertaPropuestaCambiada = errors.New("bolsa: la propuesta de adjudicacion ha cambiado")
+	ErrOfertaNoDisponible           = errors.New("bolsa: ofertas publicadas no disponibles")
+	ErrOfertaInvalida               = errors.New("bolsa: oferta invalida")
+	ErrOfertaConflicto              = errors.New("bolsa: clave de oferta reutilizada con otro comando")
+	ErrOfertaElegiblesInsuficientes = errors.New("bolsa: plazas superiores a personas elegibles")
+	ErrOfertaYaResuelta             = errors.New("bolsa: la oferta ya esta resuelta")
+	ErrOfertaPlazoAbierto           = errors.New("bolsa: el plazo de disposicion sigue abierto")
+	ErrOfertaPropuestaCambiada      = errors.New("bolsa: la propuesta de adjudicacion ha cambiado")
 	// ErrOfertaRespuestaAbierta: la persona aún está en plazo para responder.
 	ErrOfertaRespuestaAbierta = errors.New("bolsa: el plazo de respuesta de la plaza sigue abierto")
 	// ErrOfertaPoliticaSinPlazas: la versión de política no tiene el apartado

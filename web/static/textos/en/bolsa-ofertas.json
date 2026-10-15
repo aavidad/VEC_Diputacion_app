@@ -116,6 +116,7 @@
     "error_409_plazo_abierto": "The deadline to express interest is still open. You can award the post once it ends.",
     "error_409_propuesta_cambiada": "The post changed while you were viewing it. Check the updated situation.",
     "error_409_respuesta_abierta": "The person still has time to reply. Wait for the deadline or record their reply.",
+    "error_409_personas_elegibles_insuficientes": "The offer asks for more posts than there are eligible people. Reduce the number of posts or check availability in the job pool.",
     "error_409_politica_sin_plazas": "This job pool’s offer policy does not allow several posts. Set up its \"Posts\" section and publish again.",
     "error_422": "Check the offer details.",
     "error_422_oferta_invalida": "Check the offer and declared email. The email date cannot be in the future or after the deadline.",

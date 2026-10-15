@@ -257,6 +257,8 @@ func responderErrorOferta(w http.ResponseWriter, err error) {
 		responderOferta(w, http.StatusConflict, "propuesta_cambiada", nil)
 	case errors.Is(err, ports.ErrOfertaRespuestaAbierta):
 		responderOferta(w, http.StatusConflict, "respuesta_abierta", nil)
+	case errors.Is(err, ports.ErrOfertaElegiblesInsuficientes):
+		responderOferta(w, http.StatusConflict, "personas_elegibles_insuficientes", nil)
 	case errors.Is(err, ports.ErrOfertaPoliticaSinPlazas):
 		responderOferta(w, http.StatusConflict, "politica_sin_plazas", nil)
 	case errors.Is(err, ports.ErrOfertaInvalida), errors.Is(err, dominiobolsa.ErrDatosOfertaInvalidos):
