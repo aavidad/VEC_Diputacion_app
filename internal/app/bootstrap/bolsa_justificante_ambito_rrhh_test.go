@@ -1,37 +1,35 @@
 package bootstrap
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
 
-	bolsaports "vec-diputacion-granada/internal/modules/bolsa/ports"
 	vec "vec-diputacion-granada/internal/vec/domain"
 )
 
-func TestJustificanteRRHHCapturaSoloLaRelacionYElAmbitoAutorizados(t *testing.T) {
+func TestJustificanteRRHHUsaSoloAmbitoNominalPropioYUnivoco(t *testing.T) {
 	sesion, fuente := escenarioLecturaRespuestasLlamamiento(t, time.Now().UTC().Truncate(time.Microsecond))
-	c := capturadorAmbitoJustificanteBolsaRRHH{fuente: fuente}
-	q := bolsaports.SolicitudConsultaJustificanteRenunciaRRHH{ActorRegistradoV2: sesion.Resultado,
-		VinculoV2: sesion.Vinculo, BolsaRef: "bolsa:prueba", ParticipacionRef: "participacion:prueba"}
-	a := bolsaports.AmbitoJustificanteRenunciaRRHH{BolsaRef: q.BolsaRef, ParticipacionRef: q.ParticipacionRef,
-		LlamamientoRef: "llamamiento:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		UnidadRef:      "unidad:prueba", AmbitoRef: "ambito:prueba"}
-	if captura, err := c.CapturarAmbitoJustificanteRenunciaRRHH(t.Context(), q, a); err != nil ||
-		captura.BolsaRef != q.BolsaRef || captura.LlamamientoRef != a.LlamamientoRef || len(captura.Orden) == 0 {
-		t.Fatalf("la sesión autorizada perdió su captura: %v", err)
+	unidad, ambito, err := ambitoPropioJustificanteRRHH(t.Context(), fuente, sesion.Resultado, sesion.Vinculo)
+	if err != nil || unidad != "unidad:prueba" || ambito != "ambito:prueba" || fuente.principal != sesion.Resultado.Contexto.PersonaRef ||
+		fuente.perfil != sesion.Resultado.Contexto.PerfilActivoRef {
+		t.Fatalf("ámbito nominal propio perdido: %v", err)
 	}
-	for _, cambiar := range []func(*bolsaports.AmbitoJustificanteRenunciaRRHH){
-		func(a *bolsaports.AmbitoJustificanteRenunciaRRHH) { a.UnidadRef = "unidad:ajena" },
-		func(a *bolsaports.AmbitoJustificanteRenunciaRRHH) { a.AmbitoRef = "ambito:ajeno" },
-		func(a *bolsaports.AmbitoJustificanteRenunciaRRHH) { a.BolsaRef = "bolsa:ajena" },
-		func(a *bolsaports.AmbitoJustificanteRenunciaRRHH) { a.ParticipacionRef = "participacion:ajena" },
+	for _, mutar := range []func(*fuenteLecturaActualInscripcionPrueba){
+		func(f *fuenteLecturaActualInscripcionPrueba) {
+			f.i.AsignacionPerfil.Ambitos[0].Valores = []string{"unidad:uno", "unidad:dos"}
+		},
+		func(f *fuenteLecturaActualInscripcionPrueba) {
+			f.i.AsignacionPerfil.Ambitos[0].Clave = "otra_dimension"
+		},
+		func(f *fuenteLecturaActualInscripcionPrueba) {
+			f.i.AsignacionPerfil.PrincipalID = "per_abcdefghijkl0123456789"
+		},
 	} {
-		ajeno := a
-		cambiar(&ajeno)
-		if _, err := c.CapturarAmbitoJustificanteRenunciaRRHH(context.Background(), q, ajeno); !errors.Is(err, vec.ErrAutorizacionDenegada) {
-			t.Fatal("se preparó una lectura fuera del ámbito o de la relación solicitada")
+		sesion, fuente := escenarioLecturaRespuestasLlamamiento(t, time.Now().UTC().Truncate(time.Microsecond))
+		mutar(fuente)
+		if _, _, err := ambitoPropioJustificanteRRHH(t.Context(), fuente, sesion.Resultado, sesion.Vinculo); !errors.Is(err, vec.ErrAutorizacionDenegada) {
+			t.Fatal("se aceptó una asignación ajena, ambigua o con dimensión desconocida")
 		}
 	}
 }

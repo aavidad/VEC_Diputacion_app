@@ -185,8 +185,8 @@ func (v vinculoJustificanteRenunciaRRHHFijado) VinculoCargaLocalCertificado(ctx 
 }
 
 type emisorJustificanteRenunciaRRHH struct {
-	emisor  *emisorMaterialRenovableCTDesarrollo
-	ambitos bolsapuertos.ResolutorAmbitoJustificanteRenunciaRRHH
+	emisor    *emisorMaterialRenovableCTDesarrollo
+	resolutor bolsapuertos.ResolutorConsultaJustificanteRenunciaRRHH
 }
 
 func (e emisorJustificanteRenunciaRRHH) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context,
@@ -194,17 +194,17 @@ func (e emisorJustificanteRenunciaRRHH) EmitirMaterialAutorizacionAtestadaV3(ctx
 	core.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
 	vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
 	d, err := s.Datos()
-	if err != nil || e.emisor == nil || e.ambitos == nil || d.Accion != docports.AccionBolsaJustificanteRenunciaDescargarRRHH {
+	if err != nil || e.emisor == nil || e.resolutor == nil || d.Accion != docports.AccionBolsaJustificanteRenunciaDescargarRRHH {
 		return core.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
 			nil, docports.ErrSubidaLocalDenegada
 	}
-	ambito, err := e.ambitos.ResolverAmbitoJustificanteRenunciaRRHH(ctx, bolsapuertos.SolicitudConsultaJustificanteRenunciaRRHH{
+	ambito, err := e.resolutor.ResolverConsultaJustificanteRenunciaRRHH(ctx, bolsapuertos.SolicitudConsultaJustificanteRenunciaRRHH{
 		ActorRegistradoV2: a, VinculoV2: d.VinculoAutenticacionActor,
 		BolsaRef: d.Recurso.Atributos["bolsa_ref"], ParticipacionRef: d.Recurso.Atributos["participacion_ref"]})
 	if err != nil {
 		return core.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, err
 	}
-	if len(d.Recurso.Ambitos) != 2 || d.Recurso.Ambitos["unidad_ref"] != ambito.UnidadRef || d.Recurso.Ambitos["ambito_ref"] != ambito.AmbitoRef {
+	if ambito.DocumentoRef != d.Recurso.Referencia || len(d.Recurso.Ambitos) != 2 || d.Recurso.Ambitos["unidad_ref"] != ambito.UnidadRef || d.Recurso.Ambitos["ambito_ref"] != ambito.AmbitoRef {
 		return core.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, docports.ErrSubidaLocalDenegada
 	}
 	return e.emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, s, a)
@@ -439,13 +439,8 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 		return fallo(err)
 	}
 	etapa = "resolutor"
-	ambitos, err := bolsapg.NuevoResolutorAmbitoJustificanteRenunciaRRHHConPool(autoridad.poolDocumentosBolsa,
-		capturadorAmbitoJustificanteBolsaRRHH{fuente: usuarios.interna.fuente})
-	if err != nil {
-		return fallo(err)
-	}
 	resolutor, err := bolsapg.NuevoResolutorConsultaJustificanteRenunciaRRHHConPool(pool,
-		autoridadPreparacionJustificanteBolsaRRHH{emisor: emisores[audienciaJustificanteBolsaPrepararRRHH], motivo: privada.Motivo, ambitos: ambitos})
+		autoridadPreparacionJustificanteBolsaRRHH{emisor: emisores[audienciaJustificanteBolsaPrepararRRHH], motivo: privada.Motivo, fuente: usuarios.interna.fuente})
 	if err != nil {
 		return fallo(err)
 	}
@@ -458,7 +453,7 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 	h, err := bolsahttp.NuevoHandlerJustificanteRenunciaRRHH(
 		proveedorIdentidadJustificanteRenunciaRRHH{sesion: sesionTecnicaJustificanteRenunciaRRHH{autoridad: autoridad}},
 		&consultorJustificanteRenunciaRRHH{resolutor: resolutor, registro: registro,
-			emisor: emisorJustificanteRenunciaRRHH{emisor: emisores[audienciaJustificanteBolsaRRHH], ambitos: ambitos},
+			emisor: emisorJustificanteRenunciaRRHH{emisor: emisores[audienciaJustificanteBolsaRRHH], resolutor: resolutor},
 			motivo: privada.Motivo, almacen: almacen, seudonimos: seudonimos, reloj: reloj})
 	if err != nil {
 		return fallo(err)
