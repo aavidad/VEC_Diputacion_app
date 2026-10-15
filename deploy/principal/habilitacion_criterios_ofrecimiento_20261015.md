@@ -6,15 +6,17 @@ puesto a quien trabaja por el mero hecho de marcar una casilla.
 
 ## Orden de instalación
 
-Dirección ha fijado el orden S → R: primero la publicación de ofertas y el montaje
-de la política de la PR #1145, después este corte. B118 debe comprobar el cuerpo
-instalado tras B117. La candidata conjunta incluye también AD263 y AD265 antes
-de AD276: AD263 amplía la misma guarda de auditoría y AD276 debe conservar esa
-rama al añadir la consulta de motivos. Su preimagen se ajustará desde la
-definición instalada en la copia final, con revisión y ensayo nuevos. La lista
-causal propia de R es
+La publicación de ofertas y el montaje de política de #1145 ya están en la
+principal. B118 parte del cuerpo instalado tras B117. Para las migraciones de
+autorización compartidas, dirección fija esta secuencia: AD277 de #1147,
+AD276 de este corte, AD278 de #1146, AD279 y AD282; la consolidación AD273 va
+después. Este corte no instala las migraciones de otros equipos por separado.
+La preimagen de AD276 debe cotejarse con el cuerpo instalado tras AD277 y
+conservar sus ramas, con revisión independiente y ensayo de la cadena final.
+La lista propia de R es
 `lista_sql_codexr_criterios_ofrecimiento_20261015.txt`: el prerrequisito AD266
-y CT221, B118 y AD276. AD266 ya está en la principal de código y añade al lector
+y CT221, B118 y AD276, además de los prerrequisitos anteriores. AD266 ya está en
+la principal de código y añade al lector
 de gobierno la siguiente secuencia global. Se instala solo si está pendiente;
 sin ella, el programa actual de preparación de permisos rechaza la activación.
 No se reaplica ninguna migración sobre una base con historia.
@@ -64,6 +66,13 @@ Los nueve meses y el máximo de treinta y seis meses son valores de esa versión
 La reducción del plazo exige hechos acreditados; ninguna preferencia personal
 hace elegible a una persona ni se registra como renuncia.
 
+La regla distingue el supuesto de aplicación del descuento y los tipos de
+periodo descontable. El catálogo propone `programa` para el primer dato, como
+criterio provisional pendiente de RRHH, y conserva `acumulacion_tareas` y
+`sustitucion` para el segundo. La cita normativa se muestra aparte. Una política
+anterior sin el dato del supuesto mantiene la comprobación pendiente; este
+corte no activa el cálculo ni ofrece automáticamente a quien sigue trabajando.
+
 Para una primera política se completan también plazo, adjudicación y plazas con
 el catálogo vigente. La regla por sí sola no sustituye las demás partes de la
 política. Un catálogo ausente o defectuoso impide únicamente añadir ese apartado.
@@ -86,31 +95,26 @@ política. Un catálogo ausente o defectuoso impide únicamente añadir ese apar
 - Recorrer escritorio y móvil, en castellano e inglés. Un fallo del bloque de
   motivos conserva los candidatos y las llamadas del seguimiento.
 
-El ensayo inicial de `e52781edc` instaló CT221 → B118 → AD276 una vez en una copia
-propia de HZ37 y pasó las tres pruebas SQL focales de la lista de cambios. El
-arranque genuino tardó 1,80 s y Chrome obtuvo sesión y bolsas con respuesta 200.
-Ese ensayo precede a B117: no acredita aún la candidata conjunta ni la publicación
-de la política desde pantalla. La PR conserva ese trabajo pendiente.
+## Evidencias y límites actuales
 
+Un ensayo anterior instaló CT221, B118 y AD276 una vez en una copia propia y
+pasó las comprobaciones focales de permisos, ausencia de política, ambos modos
+de inicio, criterios, hechos, instantáneas y separación de superficies. Ese
+ensayo no acredita la cadena compartida posterior a AD277 ni la última
+ampliación opcional del validador B118. Esta ampliación se comprobó por separado
+en una función temporal, sin reaplicar la migración instalada.
 
-Después se declaró el catálogo y su módulo en los manifiestos internos y se
-comprobó su servicio HTTP real. La publicación nominal desde el cliente web
-produjo una política versión 1 con recibo. La consulta posterior al reinicio
-conservó versión, fecha, recibo y criterios. Esta comprobación usa la operación
-real de publicación; sigue pendiente recorrerla desde la navegación que monta S.
+En la copia se admitió el catálogo con auditoría y se publicaron las dos
+concesiones de RRHH por propuesta y cierre de dos administradores distintos.
+Se comprobó la nueva asignación y la conservación de las concesiones anteriores.
+La política se publicó mediante el cliente web real y se recuperaron su versión,
+fecha y recibo después de reiniciar. Falta repetir la publicación con la última
+regla desde la navegación del portal y ensayar la cadena final completa.
 
-La admisión técnica del catálogo versión 7 se completó en la copia: el programa
-vigente emitió un recibo con auditoría y la consulta posterior recuperó sus 23
-entradas. Las dos revisiones verificaron las fuentes y los 68 perfiles contra
-el estado anterior. La asignación de RRHH sigue sin cambiar; esta admisión no
-acredita todavía los actos de dos administradores ni el permiso nuevo de motivos.
-
-La preparación de los administradores ficticios usa el procedimiento de alta
-existente. El ajuste de datos de la copia dejó intactos el catálogo de permisos
-y la asignación de RRHH; tras él, sesión y listado de trece bolsas respondieron
-200 en Chrome. La fuente de identidad y la unidad administrativa se publicaron
-por sus operaciones nominales, cada una con recibo y auditoría. El alta de las dos personas
-administradoras también terminó por el procedimiento vigente: sus vinculaciones
-coinciden con los certificados de la copia. Queda pendiente publicar el rol de
-RRHH. AD266 se instaló una vez, con dos revisiones; conservó los permisos y añadió
-la secuencia global esperada por el programa de gobierno.
+La consulta histórica de #1150 ya está integrada. El puente de unidades de
+#1153 se incorpora a esta candidata para ensayar el consumidor con el permiso
+ampliado de origen. Un binario anterior que exige los 38 campos originales
+rechaza correctamente la concesión ampliada de 40; ese rechazo no prueba la
+selección conjunta. La PR conserva pendientes el recorrido de pausa y motivos,
+los recibos del llamamiento y la recuperación tras reiniciar sobre la candidata
+final. No está lista para instalarse.

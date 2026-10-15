@@ -1,4 +1,6 @@
 # R1a: instalar una vez sobre la preimagen declarada; ensayo en copia propia.
+# Cadena compartida pendiente: AD277 (#1147) antes de AD276; cotejar su preimagen.
+# Esta lista propia no sustituye la lista conjunta congelada por dirección.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000263_publicador_nominal_confianza_externa.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000265_preflight_consumidores_externos_actuales.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000266_secuencia_global_gobierno_admin.up.sql
