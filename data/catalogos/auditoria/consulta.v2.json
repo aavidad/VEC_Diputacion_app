@@ -10,7 +10,8 @@
   "catalogo": {
     "id": "motivos_autorizacion_auditoria",
     "version": 2,
-    "revision": 2,
+    "revision": 1,
+    "version_anterior_ref": "motivos_autorizacion_auditoria:1",
     "modulo_id": "auditoria",
     "nombre": "Consulta de auditoría de RRHH",
     "descripcion": "Motivo de la revisión de expedientes, bolsas y personas.",
