@@ -1,9 +1,25 @@
 package domain
 
 import (
+	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestCriterioNoRecibePreferenciasNiDecideRenuncia(t *testing.T) {
+	if _, existe := reflect.TypeOf(EvaluacionOfrecimiento{}).FieldByName("ModalidadesElegidas"); existe {
+		t.Fatal("las preferencias no pueden ser entrada del evaluador")
+	}
+	if _, existe := reflect.TypeOf(DecisionOfrecimiento{}).FieldByName("RenunciaCuenta"); existe {
+		t.Fatal("el evaluador no puede decidir una renuncia a partir de preferencias")
+	}
+	contenido, err := json.Marshal(EvaluacionOfrecimiento{})
+	if err != nil || strings.Contains(string(contenido), "modalidades_elegidas") {
+		t.Fatalf("contrato de evaluacion incluye preferencias: %s, %v", contenido, err)
+	}
+}
 
 func TestEvaluarCriteriosOfrecimiento(t *testing.T) {
 	fecha := func(a int, m time.Month, d int) time.Time { return time.Date(a, m, d, 0, 0, 0, 0, time.UTC) }
@@ -12,15 +28,15 @@ func TestEvaluarCriteriosOfrecimiento(t *testing.T) {
 	ahora := fecha(2025, 10, 15)
 	finCorto := fecha(2025, 10, 14)
 	finIgual := ahora
-	seleccionVacia := []string{}
-	seleccionVacante := []string{"vacante"}
 	politica := CriteriosOfrecimiento{
 		FuenteNormativa:       "Reglamento bolsa, art. 9.4",
 		ModalidadesAceptables: []string{"vacante", "sustitucion", "programa"},
-		ModalidadNoAceptada:   RechazoModalidadSinRenuncia,
 		Mejora: &ReglaMejoraOfrecimiento{
-			Habilitada:         true,
-			ModalidadesDestino: []string{"vacante"},
+			Habilitada:                     true,
+			ModalidadesDestino:             []string{"vacante"},
+			CausasDestino:                  []string{"vacante"},
+			MaximoVacanteMeses:             36,
+			ReduccionPorModalidadesPrevias: []string{"acumulacion", "sustitucion"},
 			CondicionesActuales: []CondicionRelacionActual{
 				{Modalidad: "acumulacion"},
 				{Modalidad: "sustitucion", Causa: "baja", RequiereBajaComprobada: true,
@@ -30,25 +46,24 @@ func TestEvaluarCriteriosOfrecimiento(t *testing.T) {
 			},
 		},
 	}
-	base := EvaluacionOfrecimiento{Ahora: ahora, Situacion: SituacionDisponible, ModalidadOfrecida: "vacante"}
-	acumulacion := RelacionActual{Modalidad: "acumulacion", Causa: "tareas", Inicio: inicio}
-	sustitucion := RelacionActual{Modalidad: "sustitucion", Causa: "baja", Inicio: inicio, BajaComprobada: &verdad}
-	programaCorto := RelacionActual{Modalidad: "programa", Causa: "programa", Inicio: inicio, FinInicial: &finCorto}
+	base := EvaluacionOfrecimiento{Ahora: ahora, Situacion: SituacionDisponible, ModalidadOfrecida: "vacante", CausaOfrecida: "vacante"}
+	acumulacion := RelacionActual{EventoRef: "evt_acumulacion", Modalidad: "acumulacion", Causa: "tareas", Inicio: inicio}
+	sustitucion := RelacionActual{EventoRef: "evt_sustitucion", Modalidad: "sustitucion", Causa: "baja", Inicio: inicio, BajaInicio: &inicio, BajaEventoRef: "evt_baja", BajaComprobada: &verdad}
+	programaCorto := RelacionActual{EventoRef: "evt_programa", Modalidad: "programa", Causa: "programa", Inicio: inicio, FinInicial: &finCorto}
 	trabajando := base
 	trabajando.Situacion = SituacionTrabajando
 	trabajando.RelacionesActuales = []RelacionActual{acumulacion}
 
 	casos := []struct {
-		nombre   string
-		politica CriteriosOfrecimiento
-		entrada  EvaluacionOfrecimiento
-		motivo   string
-		renuncia bool
+		nombre    string
+		politica  CriteriosOfrecimiento
+		entrada   EvaluacionOfrecimiento
+		motivo    string
+		pendiente bool
 	}{
 		{"sin_configuracion_disponible", CriteriosOfrecimiento{}, base, MotivoOfrecimientoElegible, false},
-		{"sin_configuracion_preferencia_vacia", CriteriosOfrecimiento{}, func() EvaluacionOfrecimiento { e := base; e.ModalidadesElegidas = &seleccionVacia; return e }(), MotivoOfrecimientoModalidadNoElegida, false},
 		{"sin_configuracion_trabajando", CriteriosOfrecimiento{}, trabajando, MotivoOfrecimientoTrabajando, false},
-		{"acumulacion_para_vacante", politica, trabajando, MotivoOfrecimientoElegible, false},
+		{"acumulacion_para_vacante", politica, trabajando, MotivoOfrecimientoPendienteComprobacion, true},
 		{"mejora_desactivada", func() CriteriosOfrecimiento {
 			p := politica
 			m := *p.Mejora
@@ -60,17 +75,41 @@ func TestEvaluarCriteriosOfrecimiento(t *testing.T) {
 		{"cese_pendiente", politica, func() EvaluacionOfrecimiento { e := trabajando; e.CesePendiente = true; return e }(), MotivoOfrecimientoCesePendiente, false},
 		{"respuesta_pendiente", politica, func() EvaluacionOfrecimiento { e := trabajando; e.RespuestaPendiente = true; return e }(), MotivoOfrecimientoRespuestaPendiente, false},
 		{"otra_oferta_no_es_mejora", politica, func() EvaluacionOfrecimiento { e := trabajando; e.ModalidadOfrecida = "sustitucion"; return e }(), MotivoOfrecimientoTrabajando, false},
+		{"causa_destino_no_es_vacante", politica, func() EvaluacionOfrecimiento { e := trabajando; e.CausaOfrecida = "necesidad_temporal"; return e }(), MotivoOfrecimientoTrabajando, false},
+		{"causa_destino_desconocida", politica, func() EvaluacionOfrecimiento { e := trabajando; e.CausaOfrecida = ""; return e }(), MotivoOfrecimientoDatosOfertaIncompletos, true},
 		{"sustitucion_baja_nueve_meses", politica, func() EvaluacionOfrecimiento {
 			e := trabajando
 			e.RelacionesActuales = []RelacionActual{sustitucion}
 			return e
-		}(), MotivoOfrecimientoElegible, false},
+		}(), MotivoOfrecimientoPendienteComprobacion, true},
 		{"sustitucion_baja_supera_nueve", politica, func() EvaluacionOfrecimiento {
 			e := trabajando
 			e.Ahora = fecha(2025, 10, 16)
 			e.RelacionesActuales = []RelacionActual{sustitucion}
 			return e
 		}(), MotivoOfrecimientoTrabajando, false},
+		{"baja_empezo_antes_de_la_sustitucion", politica, func() EvaluacionOfrecimiento {
+			e := trabajando
+			r := sustitucion
+			r.Inicio = fecha(2025, 2, 15)
+			e.Ahora = fecha(2025, 10, 16)
+			e.RelacionesActuales = []RelacionActual{r}
+			return e
+		}(), MotivoOfrecimientoTrabajando, false},
+		{"inicio_baja_no_acreditado", politica, func() EvaluacionOfrecimiento {
+			e := trabajando
+			r := sustitucion
+			r.BajaInicio = nil
+			e.RelacionesActuales = []RelacionActual{r}
+			return e
+		}(), MotivoOfrecimientoDatosRelacionIncompletos, true},
+		{"baja_sin_evento", politica, func() EvaluacionOfrecimiento {
+			e := trabajando
+			r := sustitucion
+			r.BajaEventoRef = ""
+			e.RelacionesActuales = []RelacionActual{r}
+			return e
+		}(), MotivoOfrecimientoDatosRelacionIncompletos, true},
 		{"sustitucion_otra_causa", politica, func() EvaluacionOfrecimiento {
 			e := trabajando
 			r := sustitucion
@@ -91,14 +130,14 @@ func TestEvaluarCriteriosOfrecimiento(t *testing.T) {
 			r.BajaComprobada = nil
 			e.RelacionesActuales = []RelacionActual{r}
 			return e
-		}(), MotivoOfrecimientoDatosRelacionIncompletos, false},
+		}(), MotivoOfrecimientoDatosRelacionIncompletos, true},
 		{"programa_inicial_menor_nueve", politica, func() EvaluacionOfrecimiento {
 			e := trabajando
 			r := programaCorto
 			r.Causa = ""
 			e.RelacionesActuales = []RelacionActual{r}
 			return e
-		}(), MotivoOfrecimientoElegible, false},
+		}(), MotivoOfrecimientoPendienteComprobacion, true},
 		{"programa_inicial_igual_nueve", politica, func() EvaluacionOfrecimiento {
 			e := trabajando
 			r := programaCorto
@@ -112,7 +151,7 @@ func TestEvaluarCriteriosOfrecimiento(t *testing.T) {
 			r.FinInicial = nil
 			e.RelacionesActuales = []RelacionActual{r}
 			return e
-		}(), MotivoOfrecimientoDatosRelacionIncompletos, false},
+		}(), MotivoOfrecimientoDatosRelacionIncompletos, true},
 		{"programa_fin_inicial_invalido", politica, func() EvaluacionOfrecimiento {
 			e := trabajando
 			r := programaCorto
@@ -120,27 +159,41 @@ func TestEvaluarCriteriosOfrecimiento(t *testing.T) {
 			r.FinInicial = &fin
 			e.RelacionesActuales = []RelacionActual{r}
 			return e
-		}(), MotivoOfrecimientoDatosRelacionIncompletos, false},
+		}(), MotivoOfrecimientoDatosRelacionIncompletos, true},
 		{"acumulacion_sin_causa_no_exigida", politica, func() EvaluacionOfrecimiento {
 			e := trabajando
 			r := acumulacion
 			r.Causa = ""
 			e.RelacionesActuales = []RelacionActual{r}
 			return e
-		}(), MotivoOfrecimientoElegible, false},
+		}(), MotivoOfrecimientoPendienteComprobacion, true},
 		{"sustitucion_sin_causa_exigida", politica, func() EvaluacionOfrecimiento {
 			e := trabajando
 			r := sustitucion
 			r.Causa = ""
 			e.RelacionesActuales = []RelacionActual{r}
 			return e
-		}(), MotivoOfrecimientoDatosRelacionIncompletos, false},
-		{"ninguna_relacion", politica, func() EvaluacionOfrecimiento { e := trabajando; e.RelacionesActuales = nil; return e }(), MotivoOfrecimientoDatosRelacionIncompletos, false},
+		}(), MotivoOfrecimientoDatosRelacionIncompletos, true},
+		{"ninguna_relacion", politica, func() EvaluacionOfrecimiento { e := trabajando; e.RelacionesActuales = nil; return e }(), MotivoOfrecimientoDatosRelacionIncompletos, true},
+		{"relacion_sin_evento", politica, func() EvaluacionOfrecimiento {
+			e := trabajando
+			r := acumulacion
+			r.EventoRef = ""
+			e.RelacionesActuales = []RelacionActual{r}
+			return e
+		}(), MotivoOfrecimientoDatosRelacionIncompletos, true},
+		{"hecho_incompleto_tras_otro_no_admitido", politica, func() EvaluacionOfrecimiento {
+			e := trabajando
+			r := sustitucion
+			r.Causa = "vacaciones"
+			e.RelacionesActuales = []RelacionActual{r, {Modalidad: "programa"}}
+			return e
+		}(), MotivoOfrecimientoDatosRelacionIncompletos, true},
 		{"todas_las_relaciones_admitidas", politica, func() EvaluacionOfrecimiento {
 			e := trabajando
 			e.RelacionesActuales = []RelacionActual{acumulacion, sustitucion}
 			return e
-		}(), MotivoOfrecimientoElegible, false},
+		}(), MotivoOfrecimientoPendienteComprobacion, true},
 		{"una_relacion_no_admitida", politica, func() EvaluacionOfrecimiento {
 			e := trabajando
 			r := sustitucion
@@ -162,32 +215,23 @@ func TestEvaluarCriteriosOfrecimiento(t *testing.T) {
 			return e
 		}(), MotivoOfrecimientoElegible, false},
 		{"situacion_excluida", politica, func() EvaluacionOfrecimiento { e := base; e.Situacion = SituacionExcluido; return e }(), MotivoOfrecimientoSituacionNoDisponible, false},
-		{"preferencia_nil_todas", politica, base, MotivoOfrecimientoElegible, false},
-		{"preferencia_vacia_ninguna", politica, func() EvaluacionOfrecimiento { e := base; e.ModalidadesElegidas = &seleccionVacia; return e }(), MotivoOfrecimientoModalidadNoElegida, false},
-		{"preferencia_ajena", politica, func() EvaluacionOfrecimiento {
-			e := base
-			e.ModalidadOfrecida = "programa"
-			e.ModalidadesElegidas = &seleccionVacante
-			return e
-		}(), MotivoOfrecimientoModalidadNoElegida, false},
+		{"sin_preferencias_en_entrada", politica, base, MotivoOfrecimientoElegible, false},
 		{"modalidad_fuera_de_bases", politica, func() EvaluacionOfrecimiento { e := base; e.ModalidadOfrecida = "desconocida"; return e }(), MotivoOfrecimientoModalidadNoAdmitida, false},
-		{"oferta_sin_modalidad", politica, func() EvaluacionOfrecimiento { e := base; e.ModalidadOfrecida = ""; return e }(), MotivoOfrecimientoDatosOfertaIncompletos, false},
+		{"oferta_sin_modalidad", politica, func() EvaluacionOfrecimiento { e := base; e.ModalidadOfrecida = ""; return e }(), MotivoOfrecimientoDatosOfertaIncompletos, true},
 	}
 	for _, tc := range casos {
 		t.Run(tc.nombre, func(t *testing.T) {
 			decision := EvaluarCriteriosOfrecimiento(tc.politica, tc.entrada)
-			if decision.Motivo != tc.motivo || decision.Elegible != (tc.motivo == MotivoOfrecimientoElegible) || decision.RenunciaCuenta != tc.renuncia {
-				t.Fatalf("decision = %+v; motivo esperado %q, renuncia %t", decision, tc.motivo, tc.renuncia)
+			if decision.Motivo != tc.motivo || decision.Elegible != (tc.motivo == MotivoOfrecimientoElegible) || decision.PendienteComprobacion != tc.pendiente {
+				t.Fatalf("decision = %+v; motivo esperado %q, pendiente %t", decision, tc.motivo, tc.pendiente)
 			}
 		})
 	}
 
-	renuncia := politica
-	renuncia.ModalidadNoAceptada = RechazoModalidadConRenuncia
-	entrada := base
-	entrada.ModalidadesElegidas = &seleccionVacia
-	if decision := EvaluarCriteriosOfrecimiento(renuncia, entrada); decision.Motivo != MotivoOfrecimientoModalidadNoElegida || !decision.RenunciaCuenta {
-		t.Fatalf("la politica de renuncia debe constar solo en modalidad rechazada: %+v", decision)
+	decision := EvaluarCriteriosOfrecimiento(politica, trabajando)
+	if decision.MaximoVacanteMeses != 36 || len(decision.PeriodosReduccionVacante) != 1 ||
+		decision.PeriodosReduccionVacante[0] != (PeriodoReduccionVacante{EventoRef: "evt_acumulacion", Desde: inicio, Hasta: ahora}) {
+		t.Fatalf("la reduccion debe conservar periodo y evento comprobado: %+v", decision)
 	}
 }
 
@@ -210,13 +254,13 @@ func TestCriteriosOfrecimientoValidar(t *testing.T) {
 	}
 	casos := []CriteriosOfrecimiento{
 		{Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "acumulacion"}}}},
-		{FuenteNormativa: "art. 9.4", ModalidadNoAceptada: "otro"},
-		{FuenteNormativa: "art. 9.4", ModalidadNoAceptada: RechazoModalidadSinRenuncia, ModalidadesAceptables: []string{"vacante", "vacante"}},
-		{FuenteNormativa: "art. 9.4", ModalidadNoAceptada: RechazoModalidadSinRenuncia, Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}}},
-		{FuenteNormativa: "art. 9.4", ModalidadNoAceptada: RechazoModalidadSinRenuncia, Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa", MesesDuracionInicial: &LimiteMeses{}}}}},
-		{FuenteNormativa: "art. 9.4", ModalidadNoAceptada: RechazoModalidadSinRenuncia, Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa", MesesDuracionInicial: &LimiteMeses{Meses: 1201}}}}},
-		{FuenteNormativa: "art. 9.4", ModalidadNoAceptada: RechazoModalidadSinRenuncia, ModalidadesAceptables: []string{"VACANTE"}},
-		{FuenteNormativa: "art. 9.4", ModalidadNoAceptada: RechazoModalidadSinRenuncia, ModalidadesAceptables: []string{"vacante"}, Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"otra"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa"}}}},
+		{FuenteNormativa: "art. 9.4", ModalidadesAceptables: []string{"vacante", "vacante"}},
+		{FuenteNormativa: "art. 9.4", Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}}},
+		{FuenteNormativa: "art. 9.4", Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa", MesesDuracionInicial: &LimiteMeses{}}}, MaximoVacanteMeses: 36, ReduccionPorModalidadesPrevias: []string{"programa"}}},
+		{FuenteNormativa: "art. 9.4", Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa", MesesDuracionInicial: &LimiteMeses{Meses: 1201}}}, MaximoVacanteMeses: 36, ReduccionPorModalidadesPrevias: []string{"programa"}}},
+		{FuenteNormativa: "art. 9.4", ModalidadesAceptables: []string{"VACANTE"}},
+		{FuenteNormativa: "art. 9.4", ModalidadesAceptables: []string{"vacante"}, Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"otra"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa"}}, MaximoVacanteMeses: 36, ReduccionPorModalidadesPrevias: []string{"programa"}}},
+		{FuenteNormativa: "art. 9.4", Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa"}}, MaximoVacanteMeses: 36, ReduccionPorModalidadesPrevias: []string{"otra"}}},
 	}
 	for i, criterio := range casos {
 		if err := criterio.Validar(); err == nil {

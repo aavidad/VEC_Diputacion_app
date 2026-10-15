@@ -492,6 +492,14 @@ En «Orden de mis bolsas» la aspirante ordena sus bolsas
 (`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias`). Si aparece una bolsa nueva o
 se retira una, debe marcar «He revisado el orden» antes de guardar.
 
+#### Modalidades de ofertas publicadas
+
+La elección voluntaria de modalidades, cuando se habilite, solo filtra las
+ofertas publicadas que la persona ve y los avisos que solicita. No cambia la
+prelación ni la selección; tampoco equivale a renunciar. En el llamamiento
+directo se sigue el orden de la bolsa con independencia de esa elección
+(Reglamento de bolsas, arts. 8.1, 8.2.a y 11.1).
+
 #### Responder a un llamamiento
 
 Estado: **en cidonia** con el llamamiento actual; con la bolsa constituida
@@ -698,6 +706,25 @@ orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
 (`VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`; sin ella responde 503 y el resto
 arranca). Exige que la solicitud conserve la necesidad de la RPT publicada.
 Lo que hay en cidonia todavía usa el puente anterior.
+
+**Candidata R1a, pendiente de integrar e instalar.** La selección explica por
+persona los hechos comprobados y el motivo aplicado, con el vínculo al contrato
+de origen del llamamiento de CT. Si falta un contrato anterior o un dato para
+comprobar la excepción de vacante, muestra «Pendiente de comprobación» y se
+detiene en esa persona. RRHH no pasa a la siguiente ni causa una exclusión
+definitiva por la falta de datos. La excepción corresponde al art. 9, apartado
+cuarto (numerado 3 en el BOP n.º 9 de 16/01/2026): solo vacantes para los
+vínculos tasados y con reducción del máximo de tres años por el tiempo previo
+en acumulación o sustitución. R1b deberá añadir el acto propio con el que RRHH
+registre los hechos, la evidencia y el recibo. Hoy ese acto no existe.
+
+La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
+requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
+de origen CT, y la concesión exacta al rol RRHH aprobada por dos
+administradores. Si falta la política, la selección se detiene; el resto de la
+aplicación arranca. Si RRHH no tiene permiso para consultar motivos, el bloque
+indica que no están disponibles. Falta comprobar el conjunto con y sin esa
+configuración, en navegador y tras reinicio.
 
 La oferta con varias plazas, la adjudicación por posición y el llamamiento
 directo existen en Bolsa (`internal/modules/bolsa/domain/oferta_publicada.go`,

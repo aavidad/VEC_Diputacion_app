@@ -483,6 +483,7 @@ busca en el índice de código y en las ramas abiertas si la pieza ya existe.
 | Instalar AD262 y lo fusionado sin subir | Claude | Subida nueva con copia fría y vuelta atrás; sin 404 ni 503 nuevos |
 | Abrir la inscripción para RRHH con el perfil técnico de RRHH | Claude y O | RRHH ve y admite inscripciones de una convocatoria |
 | Autoridad externa del aspirante y preferencias entre bolsas | O | La aspirante entra, aporta méritos y ordena sus bolsas en «Mi Bolsa» |
+| R1. Criterios de ofrecimiento por persona | R | R1a prepara diagnóstico y parada ante datos sin comprobar; faltan acto propio R1b, integración, activación y recorrido con reinicio |
 | Cartera de méritos, alegaciones y revisión por RRHH | M | Mérito aportado, alegación presentada y decisión de RRHH con recibo |
 | Necesidad de la RPT en la petición del centro (duda 162) | K | La petición guarda el puesto publicado, no texto libre, y RRHH tramita esa misma petición |
 | Llamamiento desde la bolsa real, alta en Personal (#1070) y cese con vuelta a la bolsa (CT213, B115) | K | La persona pasa a Personal y vuelve a «Disponible» tras el cese, también tras reiniciar |

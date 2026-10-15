@@ -13,6 +13,7 @@ type CriteriosOfrecimientoAplicados struct {
 	VersionPoliticaOfertas      int64                        `json:"version_politica_ofertas"`
 	HuellaPoliticaOfertasSHA256 string                       `json:"huella_politica_ofertas_sha256"`
 	ModalidadOfrecida           string                       `json:"modalidad_ofrecida"`
+	CausaOfrecida               string                       `json:"causa_ofrecida,omitempty"`
 	Configuracion               domain.CriteriosOfrecimiento `json:"configuracion"`
 }
 
@@ -21,7 +22,8 @@ func (c *CriteriosOfrecimientoAplicados) Validar() error {
 		return nil
 	}
 	if c.VersionPoliticaOfertas < 1 || len(c.HuellaPoliticaOfertasSHA256) != 64 ||
-		c.ModalidadOfrecida == "" || c.Configuracion.Validar() != nil {
+		c.ModalidadOfrecida == "" || c.Configuracion.Validar() != nil ||
+		(c.Configuracion.Mejora != nil && c.CausaOfrecida == "") {
 		return ErrOrigenLlamamientoCTNoDisponible
 	}
 	for _, b := range c.HuellaPoliticaOfertasSHA256 {
@@ -46,6 +48,8 @@ func (c *CriteriosOfrecimientoAplicados) Clonar() *CriteriosOfrecimientoAplicado
 	if c.Configuracion.Mejora != nil {
 		mejora := *c.Configuracion.Mejora
 		mejora.ModalidadesDestino = slices.Clone(mejora.ModalidadesDestino)
+		mejora.CausasDestino = slices.Clone(mejora.CausasDestino)
+		mejora.ReduccionPorModalidadesPrevias = slices.Clone(mejora.ReduccionPorModalidadesPrevias)
 		mejora.CondicionesActuales = slices.Clone(mejora.CondicionesActuales)
 		for i := range mejora.CondicionesActuales {
 			condicion := &mejora.CondicionesActuales[i]

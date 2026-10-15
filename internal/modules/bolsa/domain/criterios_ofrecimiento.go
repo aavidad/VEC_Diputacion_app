@@ -9,9 +9,6 @@ import (
 var ErrCriteriosOfrecimientoInvalidos = errors.New("bolsa: criterios de ofrecimiento invalidos")
 
 const (
-	RechazoModalidadSinRenuncia = "no_renuncia"
-	RechazoModalidadConRenuncia = "renuncia"
-
 	MotivoOfrecimientoElegible                 = "elegible"
 	MotivoOfrecimientoSituacionNoDisponible    = "situacion_no_disponible"
 	MotivoOfrecimientoDisponibleDesde          = "disponible_desde"
@@ -19,29 +16,30 @@ const (
 	MotivoOfrecimientoCesePendiente            = "cese_pendiente"
 	MotivoOfrecimientoRespuestaPendiente       = "respuesta_pendiente"
 	MotivoOfrecimientoModalidadNoAdmitida      = "modalidad_no_admitida"
-	MotivoOfrecimientoModalidadNoElegida       = "modalidad_no_elegida"
 	MotivoOfrecimientoTrabajando               = "trabajando"
-	MotivoOfrecimientoDatosRelacionIncompletos = "datos_relacion_incompletos"
+	MotivoOfrecimientoPendienteComprobacion    = "pendiente_comprobacion_rrhh"
+	MotivoOfrecimientoDatosRelacionIncompletos = MotivoOfrecimientoPendienteComprobacion
 	MotivoOfrecimientoDatosOfertaIncompletos   = "datos_oferta_incompletos"
 	MotivoOfrecimientoCriteriosInvalidos       = "criterios_invalidos"
 )
 
-// CriteriosOfrecimiento es el valor opcional y versionado de la política de
-// ofertas. La ausencia de valor conserva la exclusión de quien trabaja.
-// Las claves de modalidad y causa proceden del catálogo de cada bolsa.
+// CriteriosOfrecimiento es el valor versionado de la política de ofertas.
+// ModalidadesAceptables procede de las bases, no de preferencias personales.
 type CriteriosOfrecimiento struct {
 	FuenteNormativa       string                   `json:"fuente_normativa,omitempty"`
 	ModalidadesAceptables []string                 `json:"modalidades_aceptables,omitempty"`
 	Mejora                *ReglaMejoraOfrecimiento `json:"mejora,omitempty"`
-	ModalidadNoAceptada   string                   `json:"modalidad_no_aceptada,omitempty"`
 }
 
 // Una relación activa debe satisfacer alguna condición para que pueda
 // ofrecerse una modalidad de destino a quien ya presta servicios.
 type ReglaMejoraOfrecimiento struct {
-	Habilitada          bool                      `json:"habilitada"`
-	ModalidadesDestino  []string                  `json:"modalidades_destino"`
-	CondicionesActuales []CondicionRelacionActual `json:"condiciones_actuales"`
+	Habilitada                     bool                      `json:"habilitada"`
+	ModalidadesDestino             []string                  `json:"modalidades_destino"`
+	CausasDestino                  []string                  `json:"causas_destino"`
+	CondicionesActuales            []CondicionRelacionActual `json:"condiciones_actuales"`
+	MaximoVacanteMeses             int                       `json:"maximo_vacante_meses"`
+	ReduccionPorModalidadesPrevias []string                  `json:"reduccion_por_modalidades_previas"`
 }
 
 type CondicionRelacionActual struct {
@@ -59,42 +57,50 @@ type LimiteMeses struct {
 }
 
 type RelacionActual struct {
+	EventoRef      string     `json:"evento_ref"`
 	Modalidad      string     `json:"modalidad"`
 	Causa          string     `json:"causa"`
 	Inicio         time.Time  `json:"inicio"`
 	FinInicial     *time.Time `json:"fin_inicial,omitempty"`
 	BajaComprobada *bool      `json:"baja_comprobada,omitempty"`
+	BajaInicio     *time.Time `json:"baja_inicio,omitempty"`
+	BajaEventoRef  string     `json:"baja_evento_ref,omitempty"`
 }
 
-// ModalidadesElegidas: nil significa que la persona no hizo una selección;
-// una lista vacía expresa que no acepta ninguna modalidad.
 type EvaluacionOfrecimiento struct {
-	Ahora               time.Time        `json:"ahora"`
-	Situacion           string           `json:"situacion"`
-	DisponibleDesde     *time.Time       `json:"disponible_desde,omitempty"`
-	RestriccionActiva   bool             `json:"restriccion_activa"`
-	CesePendiente       bool             `json:"cese_pendiente"`
-	RespuestaPendiente  bool             `json:"respuesta_pendiente"`
-	ModalidadOfrecida   string           `json:"modalidad_ofrecida"`
-	ModalidadesElegidas *[]string        `json:"modalidades_elegidas,omitempty"`
-	RelacionesActuales  []RelacionActual `json:"relaciones_actuales,omitempty"`
+	Ahora              time.Time        `json:"ahora"`
+	Situacion          string           `json:"situacion"`
+	DisponibleDesde    *time.Time       `json:"disponible_desde,omitempty"`
+	RestriccionActiva  bool             `json:"restriccion_activa"`
+	CesePendiente      bool             `json:"cese_pendiente"`
+	RespuestaPendiente bool             `json:"respuesta_pendiente"`
+	ModalidadOfrecida  string           `json:"modalidad_ofrecida"`
+	CausaOfrecida      string           `json:"causa_ofrecida,omitempty"`
+	RelacionesActuales []RelacionActual `json:"relaciones_actuales,omitempty"`
 }
 
 type DecisionOfrecimiento struct {
-	Elegible       bool   `json:"elegible"`
-	Motivo         string `json:"motivo"`
-	RenunciaCuenta bool   `json:"renuncia_cuenta"`
+	Elegible                 bool                      `json:"elegible"`
+	Motivo                   string                    `json:"motivo"`
+	PendienteComprobacion    bool                      `json:"pendiente_comprobacion"`
+	MaximoVacanteMeses       int                       `json:"maximo_vacante_meses,omitempty"`
+	PeriodosReduccionVacante []PeriodoReduccionVacante `json:"periodos_reduccion_vacante,omitempty"`
 }
 
-// Validar solo acepta una política vacía o una política con fuente y efecto
-// explícito de la modalidad excluida. No incorpora modalidades jurídicas.
+// PeriodoReduccionVacante se descuenta del plazo máximo al formalizar la
+// vacante con su fecha real de inicio. El evento permite comprobar el hecho.
+type PeriodoReduccionVacante struct {
+	EventoRef string    `json:"evento_ref"`
+	Desde     time.Time `json:"desde"`
+	Hasta     time.Time `json:"hasta"`
+}
+
+// Validar acepta la política vacía anterior o una regla con fuente y límites.
 func (c CriteriosOfrecimiento) Validar() error {
-	if c.FuenteNormativa == "" && c.ModalidadNoAceptada == "" &&
-		len(c.ModalidadesAceptables) == 0 && c.Mejora == nil {
+	if c.FuenteNormativa == "" && len(c.ModalidadesAceptables) == 0 && c.Mejora == nil {
 		return nil
 	}
 	if !fuenteNormativaOfrecimientoValida(c.FuenteNormativa) ||
-		(c.ModalidadNoAceptada != RechazoModalidadSinRenuncia && c.ModalidadNoAceptada != RechazoModalidadConRenuncia) ||
 		len(c.ModalidadesAceptables) > 100 || !clavesOfrecimientoValidas(c.ModalidadesAceptables) {
 		return ErrCriteriosOfrecimientoInvalidos
 	}
@@ -103,7 +109,12 @@ func (c CriteriosOfrecimiento) Validar() error {
 	}
 	if len(c.Mejora.ModalidadesDestino) == 0 || len(c.Mejora.ModalidadesDestino) > 100 ||
 		!clavesOfrecimientoValidas(c.Mejora.ModalidadesDestino) ||
-		len(c.Mejora.CondicionesActuales) == 0 || len(c.Mejora.CondicionesActuales) > 100 {
+		len(c.Mejora.CausasDestino) == 0 || len(c.Mejora.CausasDestino) > 100 ||
+		!clavesOfrecimientoValidas(c.Mejora.CausasDestino) ||
+		len(c.Mejora.CondicionesActuales) == 0 || len(c.Mejora.CondicionesActuales) > 100 ||
+		c.Mejora.MaximoVacanteMeses < 1 || c.Mejora.MaximoVacanteMeses > 1200 ||
+		len(c.Mejora.ReduccionPorModalidadesPrevias) == 0 ||
+		!clavesOfrecimientoValidas(c.Mejora.ReduccionPorModalidadesPrevias) {
 		return ErrCriteriosOfrecimientoInvalidos
 	}
 	if len(c.ModalidadesAceptables) > 0 {
@@ -117,6 +128,15 @@ func (c CriteriosOfrecimiento) Validar() error {
 		if !claveOfrecimientoValida(condicion.Modalidad) ||
 			(condicion.Causa != "" && !claveOfrecimientoValida(condicion.Causa)) ||
 			!limiteMesesValido(condicion.MesesTranscurridos) || !limiteMesesValido(condicion.MesesDuracionInicial) {
+			return ErrCriteriosOfrecimientoInvalidos
+		}
+	}
+	for _, modalidad := range c.Mejora.ReduccionPorModalidadesPrevias {
+		presente := false
+		for _, condicion := range c.Mejora.CondicionesActuales {
+			presente = presente || condicion.Modalidad == modalidad
+		}
+		if !presente {
 			return ErrCriteriosOfrecimientoInvalidos
 		}
 	}
@@ -144,12 +164,15 @@ func clavesOfrecimientoValidas(claves []string) bool {
 
 func limiteMesesValido(l *LimiteMeses) bool { return l == nil || l.Meses >= 1 && l.Meses <= 1200 }
 
-// EvaluarCriteriosOfrecimiento aplica primero los impedimentos de la
-// participación y después los criterios de modalidad y relación actual.
+// EvaluarCriteriosOfrecimiento no recibe preferencias de modalidad: solo
+// decide con la norma publicada, la situación y hechos acreditados.
 func EvaluarCriteriosOfrecimiento(c CriteriosOfrecimiento, e EvaluacionOfrecimiento) DecisionOfrecimiento {
 	excluir := func(motivo string) DecisionOfrecimiento { return DecisionOfrecimiento{Motivo: motivo} }
+	pendiente := func(motivo string) DecisionOfrecimiento {
+		return DecisionOfrecimiento{Motivo: motivo, PendienteComprobacion: true}
+	}
 	if c.Validar() != nil {
-		return excluir(MotivoOfrecimientoCriteriosInvalidos)
+		return pendiente(MotivoOfrecimientoCriteriosInvalidos)
 	}
 	if e.RestriccionActiva {
 		return excluir(MotivoOfrecimientoRestriccionActiva)
@@ -161,13 +184,14 @@ func EvaluarCriteriosOfrecimiento(c CriteriosOfrecimiento, e EvaluacionOfrecimie
 		return excluir(MotivoOfrecimientoRespuestaPendiente)
 	}
 	if e.Ahora.IsZero() || !claveOfrecimientoValida(e.ModalidadOfrecida) {
-		return excluir(MotivoOfrecimientoDatosOfertaIncompletos)
+		return pendiente(MotivoOfrecimientoDatosOfertaIncompletos)
 	}
+	var periodos []PeriodoReduccionVacante
 	switch e.Situacion {
 	case SituacionDisponible:
 	case SituacionDisponibleDesde:
 		if e.DisponibleDesde == nil || e.DisponibleDesde.IsZero() {
-			return excluir(MotivoOfrecimientoDatosOfertaIncompletos)
+			return pendiente(MotivoOfrecimientoDatosOfertaIncompletos)
 		}
 		if e.Ahora.Before(*e.DisponibleDesde) {
 			return excluir(MotivoOfrecimientoDisponibleDesde)
@@ -176,26 +200,49 @@ func EvaluarCriteriosOfrecimiento(c CriteriosOfrecimiento, e EvaluacionOfrecimie
 		if c.Mejora == nil || !c.Mejora.Habilitada || !contieneClave(c.Mejora.ModalidadesDestino, e.ModalidadOfrecida) {
 			return excluir(MotivoOfrecimientoTrabajando)
 		}
-		if len(e.RelacionesActuales) == 0 {
-			return excluir(MotivoOfrecimientoDatosRelacionIncompletos)
+		if !claveOfrecimientoValida(e.CausaOfrecida) {
+			return pendiente(MotivoOfrecimientoDatosOfertaIncompletos)
 		}
+		if !contieneClave(c.Mejora.CausasDestino, e.CausaOfrecida) {
+			return excluir(MotivoOfrecimientoTrabajando)
+		}
+		if len(e.RelacionesActuales) == 0 {
+			return pendiente(MotivoOfrecimientoDatosRelacionIncompletos)
+		}
+		noAdmitida := false
 		for _, relacion := range e.RelacionesActuales {
+			if relacionIncompleta(c.Mejora.CondicionesActuales, relacion, e.Ahora) {
+				return pendiente(MotivoOfrecimientoDatosRelacionIncompletos)
+			}
 			if !relacionAdmiteMejora(c.Mejora.CondicionesActuales, relacion, e.Ahora) {
-				if relacionIncompleta(c.Mejora.CondicionesActuales, relacion, e.Ahora) {
-					return excluir(MotivoOfrecimientoDatosRelacionIncompletos)
-				}
-				return excluir(MotivoOfrecimientoTrabajando)
+				noAdmitida = true
+			}
+			if contieneClave(c.Mejora.ReduccionPorModalidadesPrevias, relacion.Modalidad) {
+				periodos = append(periodos, PeriodoReduccionVacante{
+					EventoRef: relacion.EventoRef, Desde: relacion.Inicio, Hasta: e.Ahora,
+				})
 			}
 		}
+		if noAdmitida {
+			return excluir(MotivoOfrecimientoTrabajando)
+		}
 	default:
+		if e.Situacion == "" {
+			return pendiente(MotivoOfrecimientoPendienteComprobacion)
+		}
 		return excluir(MotivoOfrecimientoSituacionNoDisponible)
 	}
 	if len(c.ModalidadesAceptables) > 0 && !contieneClave(c.ModalidadesAceptables, e.ModalidadOfrecida) {
 		return excluir(MotivoOfrecimientoModalidadNoAdmitida)
 	}
-	if e.ModalidadesElegidas != nil && !contieneClave(*e.ModalidadesElegidas, e.ModalidadOfrecida) {
-		return DecisionOfrecimiento{Motivo: MotivoOfrecimientoModalidadNoElegida,
-			RenunciaCuenta: c.ModalidadNoAceptada == RechazoModalidadConRenuncia}
+	if e.Situacion == SituacionTrabajando {
+		// R1a solo acredita que la excepción puede ser revisada. La mejora
+		// requiere el acto R1b y la comprobación del plazo resultante.
+		return DecisionOfrecimiento{
+			Motivo: MotivoOfrecimientoPendienteComprobacion, PendienteComprobacion: true,
+			MaximoVacanteMeses:       c.Mejora.MaximoVacanteMeses,
+			PeriodosReduccionVacante: periodos,
+		}
 	}
 	return DecisionOfrecimiento{Elegible: true, Motivo: MotivoOfrecimientoElegible}
 }
@@ -210,7 +257,8 @@ func contieneClave(claves []string, buscada string) bool {
 }
 
 func relacionIncompleta(condiciones []CondicionRelacionActual, r RelacionActual, ahora time.Time) bool {
-	if !claveOfrecimientoValida(r.Modalidad) || r.Causa != "" && !claveOfrecimientoValida(r.Causa) ||
+	if !referenciaOpacaContrato(r.EventoRef) || !claveOfrecimientoValida(r.Modalidad) ||
+		r.Causa != "" && !claveOfrecimientoValida(r.Causa) ||
 		r.Inicio.IsZero() || r.Inicio.After(ahora) {
 		return true
 	}
@@ -224,7 +272,8 @@ func relacionIncompleta(condiciones []CondicionRelacionActual, r RelacionActual,
 		if condicion.Causa != "" && condicion.Causa != r.Causa {
 			continue
 		}
-		if condicion.RequiereBajaComprobada && r.BajaComprobada == nil ||
+		if condicion.RequiereBajaComprobada && (r.BajaComprobada == nil || !referenciaOpacaContrato(r.BajaEventoRef) || r.BajaInicio == nil ||
+			r.BajaInicio.IsZero() || r.BajaInicio.After(ahora) || r.BajaInicio.After(r.Inicio)) ||
 			condicion.MesesDuracionInicial != nil && (r.FinInicial == nil || r.FinInicial.IsZero() || !r.FinInicial.After(r.Inicio)) {
 			return true
 		}
@@ -238,9 +287,13 @@ func relacionAdmiteMejora(condiciones []CondicionRelacionActual, r RelacionActua
 		return false
 	}
 	for _, condicion := range condiciones {
+		inicioPlazo := r.Inicio
+		if condicion.RequiereBajaComprobada && r.BajaInicio != nil {
+			inicioPlazo = *r.BajaInicio
+		}
 		if condicion.Modalidad != r.Modalidad || condicion.Causa != "" && condicion.Causa != r.Causa ||
 			condicion.RequiereBajaComprobada && (r.BajaComprobada == nil || !*r.BajaComprobada) ||
-			!cumpleMeses(r.Inicio, ahora, condicion.MesesTranscurridos) ||
+			!cumpleMeses(inicioPlazo, ahora, condicion.MesesTranscurridos) ||
 			condicion.MesesDuracionInicial != nil && (r.FinInicial == nil || !r.FinInicial.After(r.Inicio) ||
 				!cumpleMeses(r.Inicio, *r.FinInicial, condicion.MesesDuracionInicial)) {
 			continue
