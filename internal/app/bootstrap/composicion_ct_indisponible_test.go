@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -59,6 +61,7 @@ func TestArranqueSinCTConservaSesionPortalYSalud(t *testing.T) {
 		{"/api/publico/bolsa/convocatorias", http.StatusOK, `"esquema":"vec.bolsa.publico.convocatorias.v1"`},
 		{"/api/vec/contratacion-temporal/expedientes/consultas", http.StatusServiceUnavailable, `"codigo":"servicio_no_disponible"`},
 		{"/api/vec/bolsa/bolsas", http.StatusServiceUnavailable, `"codigo":"servicio_no_disponible"`},
+		{"/api/vec/auditoria/consultas", http.StatusServiceUnavailable, `"codigo":"servicio_no_disponible"`},
 		{"/api/vec/dietas/comisiones", http.StatusServiceUnavailable, `"codigo":"servicio_no_disponible"`},
 	} {
 		respuesta, err := cliente.Get(prueba.URL + caso.ruta)
@@ -80,6 +83,9 @@ func TestCierreCTDelimitaPrefijos(t *testing.T) {
 	for _, ruta := range []string{
 		"/api/vec/contratacion-temporal", "/api/vec/contratacion-temporal/expedientes",
 		"/api/vec/bolsa/bolsas", "/api/vec/dietas/comisiones/123",
+		"/api/vec/auditoria/consultas", "/api/vec/auditoria/opciones",
+		"/api/vec/calendarios/centros", "/api/vec/reglas/vigentes",
+		"/api/interna/personal/mi-ficha/servicios/historia",
 		"/api/vec/personal/relaciones-dietas", "/api/vec/usuarios/mis-preferencias",
 	} {
 		if !rutaDependienteContratacionTemporal(ruta) {
@@ -88,10 +94,33 @@ func TestCierreCTDelimitaPrefijos(t *testing.T) {
 	}
 	for _, ruta := range []string{
 		"/api/vec/session", "/api/vec/modules", "/api/vec/personal/categories",
-		"/api/vec/dietas/road-route", "/api/vec/contratacion-temporal-ajena",
+		"/api/publico/bolsa/convocatorias", "/api/vec/dietas/road-route",
+		"/api/vec/auditoria-ajena", "/api/vec/contratacion-temporal-ajena",
 	} {
 		if rutaDependienteContratacionTemporal(ruta) {
 			t.Fatalf("ruta independiente cerrada: %s", ruta)
 		}
+	}
+}
+
+type escritorFallidoContratacionTemporalPrueba struct{ cabecera http.Header }
+
+func (e *escritorFallidoContratacionTemporalPrueba) Header() http.Header { return e.cabecera }
+func (*escritorFallidoContratacionTemporalPrueba) WriteHeader(int)       {}
+func (*escritorFallidoContratacionTemporalPrueba) Write([]byte) (int, error) {
+	return 0, errors.New("postgres://usuario:clave@host/base")
+}
+
+func TestRespuestaCTInterrumpidaRegistraSoloCausaCerrada(t *testing.T) {
+	var registro bytes.Buffer
+	anterior := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&registro, nil)))
+	defer slog.SetDefault(anterior)
+	escritor := &escritorFallidoContratacionTemporalPrueba{cabecera: make(http.Header)}
+	responderContratacionTemporalNoDisponible(escritor, httptest.NewRequest(http.MethodGet, "/api/vec/auditoria/consultas", nil))
+	if !strings.Contains(registro.String(), "escritura_respuesta_no_disponible") ||
+		strings.Contains(registro.String(), "postgres://") ||
+		escritor.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("registro de escritura inseguro o ausente: %q", registro.String())
 	}
 }

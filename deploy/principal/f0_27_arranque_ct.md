@@ -8,4 +8,4 @@ Con CT disponible, sus rutas deben conservar las respuestas y los permisos anter
 
 El registro técnico anota `contratacion_temporal_no_disponible`, el componente y una clase de causa cerrada. No incluye textos libres del error, rutas privadas ni conexiones. La falta del borrador de llamamiento se clasifica como `borrador_llamamiento_no_disponible`.
 
-La raíz compartida impide montar por separado Bolsa RRHH, Documentos, Dietas, Cronos, Personal empleado y Usuarios cuando falla CT. Sus rutas dependientes quedan cerradas en este estado. El ensayo completo con y sin CT, incluida la recuperación tras reiniciar, corresponde a la candidata integrada por dirección.
+La raíz compartida impide montar por separado Bolsa RRHH, Documentos, Dietas, Cronos, Personal empleado, Usuarios y la consulta de Auditoría cuando falla CT. Las consultas internas de Calendarios y Reglas tampoco conservan su frontera de autorización y quedan cerradas. El ensayo completo con y sin CT, incluida la recuperación tras reiniciar, corresponde a la candidata integrada por dirección.

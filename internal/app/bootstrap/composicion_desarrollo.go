@@ -650,12 +650,7 @@ func nuevoServidorSinContratacionTemporalDesarrollo(
 	siguiente := raiz
 	raiz = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r != nil && r.URL != nil && rutaDependienteContratacionTemporal(r.URL.Path) {
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			w.Header().Set("Cache-Control", "no-store")
-			w.WriteHeader(http.StatusServiceUnavailable)
-			if r.Method != http.MethodHead {
-				_, _ = io.WriteString(w, `{"codigo":"servicio_no_disponible"}`)
-			}
+			responderContratacionTemporalNoDisponible(w, r)
 			return
 		}
 		siguiente.ServeHTTP(w, r)
@@ -677,13 +672,26 @@ func nuevoServidorSinContratacionTemporalDesarrollo(
 	return servidor, composicion, nil
 }
 
+func responderContratacionTemporalNoDisponible(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	if r.Method == http.MethodHead {
+		return
+	}
+	if _, err := io.WriteString(w, `{"codigo":"servicio_no_disponible"}`); err != nil {
+		slog.Warn("contratacion_temporal_respuesta_interrumpida", "causa", "escritura_respuesta_no_disponible")
+	}
+}
+
 func rutaDependienteContratacionTemporal(ruta string) bool {
 	for _, prefijo := range [...]string{
 		"/api/vec/contratacion-temporal", "/api/vec/bolsa", "/api/vec/documentos",
+		"/api/vec/auditoria", "/api/vec/calendarios", "/api/vec/reglas/vigentes",
 		"/api/vec/dietas/comisiones", "/api/vec/usuarios", "/api/vec/aspirantes",
 		"/api/vec/personal/asignaciones-dietas", "/api/vec/personal/relaciones-dietas",
 		"/api/vec/personal/solicitudes-rectificacion-dietas", "/api/vec/cronos",
-		"/api/interna/cronos", "/api/interna/personal/mi-ficha",
+		"/api/interna/cronos", "/api/interna/personal",
 	} {
 		if ruta == prefijo || strings.HasPrefix(ruta, prefijo+"/") {
 			return true
