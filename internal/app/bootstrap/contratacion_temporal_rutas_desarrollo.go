@@ -115,6 +115,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		httpinterno.RutaDocumentacionFormalizacion:              {nominalCT(http.MethodGet, "contratacion_temporal_documentacion_formalizacion_desarrollo.go:nuevaRutaDocumentacionFormalizacionDesarrollo")},
 		httpinterno.RutaPreflightFirmaR5:                        {pdpCT(http.MethodPost)},
 		httpinterno.RutaRegistroFirmaVec:                        {pdpCT(http.MethodPost)},
+		httpinterno.RutaDescargaFirmaR5V2:                       {pdpCT(http.MethodPost)},
 		httpinterno.RutaOriginalFirmableCT:                      {pdpCT(http.MethodPost)},
 		httpinterno.RutaFirmaDocumento:                          {pdpCT(http.MethodPost)},
 		httpinterno.RutaConsultaFirmaDocumento:                  {pdpCT(http.MethodPost)},

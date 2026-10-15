@@ -105,13 +105,13 @@ func TestOverlayCargosFallaCerrado(t *testing.T) {
 }
 
 // La lista de efectos es cerrada: cada uno con su variable, audiencia, grupo,
-// ruta y contrato coherentes; sólo los cargos piden UTC.
+// ruta y contrato coherentes; ambos efectos consumen decisiones en UTC.
 func TestEfectosADMINCoherentes(t *testing.T) {
 	vistos := map[string]bool{}
 	for _, e := range efectosADMIN() {
 		c := e.contrato()
 		if vistos[e.variable] || vistos[e.ruta] || vistos[e.grupo] || c.Audiencia != e.audiencia || !c.Valido() ||
-			e.maximo < 2 || e.utc != (e.nombre == "cargos") {
+			e.maximo < 2 || e.utc != (e.nombre == "cargos" || e.nombre == "certificados") {
 			t.Fatalf("efecto incoherente: %+v", e.nombre)
 		}
 		vistos[e.variable], vistos[e.ruta], vistos[e.grupo] = true, true, true

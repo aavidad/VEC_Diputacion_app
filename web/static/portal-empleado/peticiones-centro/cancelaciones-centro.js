@@ -8,7 +8,7 @@
  * solo evita ofrecer la cancelación cuando no procede.
  */
 import { bandejaCompartidaPagina, periodoVisible, prepararCausasFin } from "./incorporaciones-centro.js?v=20261009-retoques-textos-v1";
-import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20261015-ct-ofertas-v2";
+import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20261015-ct-ofertas-firma-v4";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
 
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";

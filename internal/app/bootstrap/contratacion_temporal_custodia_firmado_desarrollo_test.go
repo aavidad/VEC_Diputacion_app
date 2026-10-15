@@ -177,10 +177,11 @@ func TestConfiguracionCustodiaDocumentosFallaCerrado(t *testing.T) {
 		t.Fatalf("configuración válida rechazada: %v", err)
 	}
 	for nombre, c := range map[string]*custodiaFirmadoConfigDesarrollo{
-		"vacía":          {},
-		"no reservado":   {Documentos: map[string]string{"resolucion": "contratacion_temporal.borrador.v1"}},
-		"sin política":   {Documentos: map[string]string{"resolucion": "contratacion_temporal.inexistente.v1"}},
-		"clave inválida": {Documentos: map[string]string{"Resolución": "contratacion_temporal.resolucion_firmada.v1"}},
+		"vacía":                            {},
+		"no reservado":                     {Documentos: map[string]string{"resolucion": "contratacion_temporal.borrador.v1"}},
+		"sin política":                     {Documentos: map[string]string{"resolucion": "contratacion_temporal.inexistente.v1"}},
+		"clave inválida":                   {Documentos: map[string]string{"Resolución": "contratacion_temporal.resolucion_firmada.v1"}},
+		"dos documentos con el mismo tipo": {Documentos: map[string]string{"resolucion": "contratacion_temporal.resolucion_firmada.v1", "informe_definitivo": "contratacion_temporal.resolucion_firmada.v1"}},
 	} {
 		if _, err := nuevaCustodiaDocumentosDesarrollo(c, repo, almacen, catalogo, relojRutasDietas{}, seud); err == nil {
 			t.Errorf("%s: admitida", nombre)

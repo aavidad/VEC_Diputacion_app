@@ -193,6 +193,7 @@ type DetalleExpedienteRRHH struct {
 	ResultadoBolsa *ResultadoBolsaRRHH `json:"-"`
 	// Estado informativo añadido tras la lectura autorizada; no es una concesión.
 	EstadoBorradoresPublicados EstadoDisponibilidadBorradoresRRHH `json:"-"`
+	CoberturaFirmaNominal      CoberturaFirmaNominalRRHH          `json:"-"`
 	huella                     [32]byte
 	bloques                    uint8
 	canonV3                    bool

@@ -62,7 +62,7 @@ async function arrancar(origen = null) {
       if (new URLSearchParams(location.search).get("vista") !== "rrhh") {
         await Promise.all([
           import("./incorporaciones-centro.js?v=20261009-retoques-textos-v1"),
-          import("./cancelaciones-centro.js?v=20261015-ct-ofertas-v2"),
+          import("./cancelaciones-centro.js?v=20261015-ct-ofertas-firma-v4"),
         ]);
       }
       montado = true;

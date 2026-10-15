@@ -958,6 +958,37 @@ test("una relectura fallida retira los metadatos previos sin permitir consultas 
   assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), null);
 });
 
+test("firma nominal solo se ofrece con cobertura única del mismo detalle autorizado", async () => {
+  const cliente = clienteFalso([]);
+  const leer = cliente.consultarDetalleRRHH;
+  const contexto = { expediente_ref: resumen.expediente_ref, version_observada: resumen.version };
+  let firma = { ...contexto, estado: "disponible", unidad_ref: "unidad:rrhh",
+    plan_ref: "plan:firma:1", plan_version: 1, plan_sha256: "a".repeat(64),
+    documentos: ["informe_definitivo", "resolucion"] };
+  cliente.consultarDetalleRRHH = async (...args) => ({ ...await leer(...args),
+    capacidades_ficha: { firma_nominal: firma } });
+  const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await fuente.listar();
+  await fuente.obtener(contexto.expediente_ref);
+  assert.deepEqual(fuente.resolverDisponibilidadOpcional("firma_nominal", contexto)?.documentos,
+    ["informe_definitivo", "resolucion"]);
+  assert.equal(fuente.resolverDisponibilidadOpcional("firma_nominal", { ...contexto, version_observada: 99 }), null);
+  for (const invalida of [
+    { ...firma, expediente_ref: "expediente:otro" },
+    { ...firma, version_observada: contexto.version_observada + 1 },
+    { ...firma, documentos: ["resolucion", "resolucion"] },
+    { ...firma, plan_sha256: "incorrecta" },
+    { ...firma, estado: "no_disponible" },
+  ]) {
+    firma = invalida;
+    await fuente.obtener(contexto.expediente_ref);
+    assert.equal(fuente.resolverDisponibilidadOpcional("firma_nominal", contexto), null);
+  }
+  firma = { ...contexto, estado: "no_disponible", unidad_ref: "unidad:rrhh", documentos: [] };
+  await fuente.obtener(contexto.expediente_ref);
+  assert.equal(fuente.resolverDisponibilidadOpcional("firma_nominal", contexto)?.estado, "no_disponible");
+});
+
 test("la ficha abierta desde el cuadro se refresca con la versión del recibo, no con la del cuadro", async () => {
   // Reproduce cidonia 09/10: tras registrar el análisis (v2 → v3) el refresco
   // pedía version_observada 2, el servidor ya no la publica y respondía 404.

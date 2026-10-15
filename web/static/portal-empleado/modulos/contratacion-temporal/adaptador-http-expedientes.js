@@ -2,7 +2,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL,
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
-} from "./contrato-expedientes.js?v=20261015-ct-ofertas-v3";
+} from "./contrato-expedientes.js?v=20261015-ct-ofertas-firma-v4";
 import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { validarCatalogosAlta } from "./contrato.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
@@ -21,6 +21,25 @@ const ESTADOS_VISUAL_A_SERVIDOR = new Map(
   [...ESTADOS_SERVIDOR_A_VISUAL].map(([servidor, visual]) => [visual, servidor]),
 );
 const PATRON_INSTANTE_CIVIL = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?Z$/u;
+const CLAVE_DOCUMENTO_FIRMA = /^[a-z][a-z0-9._-]{0,127}$/u;
+const HUELLA_FIRMA = /^[0-9a-f]{64}$/u;
+
+function validarDisponibilidadFirmaNominal(registro, expedienteRef, version) {
+  if (!registro || typeof registro !== "object" || Array.isArray(registro)
+    || !["disponible", "no_disponible"].includes(registro.estado)
+    || registro.expediente_ref !== expedienteRef || registro.version_observada !== version
+    || !Array.isArray(registro.documentos) || registro.documentos.length > 32
+    || registro.documentos.some((documento) => typeof documento !== "string" || !CLAVE_DOCUMENTO_FIRMA.test(documento))
+    || new Set(registro.documentos).size !== registro.documentos.length) return null;
+  if (registro.estado === "no_disponible") {
+    if (registro.documentos.length || Object.hasOwn(registro, "plan_ref")
+      || Object.hasOwn(registro, "plan_version") || Object.hasOwn(registro, "plan_sha256")) return null;
+  } else if (!registro.documentos.length || typeof registro.unidad_ref !== "string" || !registro.unidad_ref
+    || typeof registro.plan_ref !== "string" || !registro.plan_ref
+    || !Number.isSafeInteger(registro.plan_version) || registro.plan_version < 1
+    || !HUELLA_FIRMA.test(registro.plan_sha256)) return null;
+  return Object.freeze({ ...registro, documentos: Object.freeze([...registro.documentos]) });
+}
 
 // Unidad a la que asigna el formulario de asignación (formulario-asignacion.js).
 const UNIDADES_CONOCIDAS = new Map([["unidad:desarrollo:rrhh", "unidad_recursos_humanos"]]);
@@ -677,6 +696,9 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
         && registro.expediente_ref === expedienteRef && registro.version_observada === version) {
         disponibilidadFicha = Object.freeze({ borradores_publicados: Object.freeze({ ...registro }) });
       }
+      const firmaNominal = validarDisponibilidadFirmaNominal(
+        detalle.capacidades_ficha?.firma_nominal, expedienteRef, version);
+      if (firmaNominal) disponibilidadFicha = Object.freeze({ ...disponibilidadFicha, firma_nominal: firmaNominal });
     }
     capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
     // Una lectura posterior a una actuación deja en el cuadro la versión nueva;
