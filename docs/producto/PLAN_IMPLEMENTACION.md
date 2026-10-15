@@ -482,7 +482,7 @@ busca en el índice de código y en las ramas abiertas si la pieza ya existe.
 | --- | --- | --- |
 | Instalar AD262 y lo fusionado sin subir | Claude | Subida nueva con copia fría y vuelta atrás; sin 404 ni 503 nuevos |
 | Abrir la inscripción para RRHH con el perfil técnico de RRHH | Claude y O | RRHH ve y admite inscripciones de una convocatoria |
-| Ofertas de varias plazas desde CT | S | Primer corte en preparación: inicio por publicación o notificación y origen propio en Bolsa. Siguen la selección desde la ficha, el vínculo CT y la guarda de cancelación; después, retirada y aviso durable por correo |
+| Ofertas de varias plazas desde CT | S | Primer corte ensayado en copia local: publicación desde la bolsa, recibo y aceptación en Mi Bolsa, con recuperación tras reinicio. Pendiente de integración. Siguen la selección desde la ficha, el vínculo CT y la guarda de cancelación; después, retirada y aviso durable por correo |
 | Autoridad externa del aspirante y preferencias entre bolsas | O | La aspirante entra, aporta méritos y ordena sus bolsas en «Mi Bolsa» |
 | Cartera de méritos, alegaciones y revisión por RRHH | M | Mérito aportado, alegación presentada y decisión de RRHH con recibo |
 | Necesidad de la RPT en la petición del centro (duda 162) | K | La petición guarda el puesto publicado, no texto libre, y RRHH tramita esa misma petición |

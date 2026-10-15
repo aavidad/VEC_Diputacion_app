@@ -701,8 +701,10 @@ Lo que hay en cidonia todavía usa el puente anterior.
 
 El primer corte de la conexión añade a Bolsa el inicio de plazo por publicación
 y el origen de una oferta procedente de CT. RRHH elige el inicio desde la
-política de la bolsa y publica desde su formulario habitual. El recibo de un
-reintento conserva fechas, política y oferta originales. Este corte no acredita
+política de la bolsa y publica desde su formulario habitual. En la copia local
+se han comprobado la publicación de dos plazas, su consulta y aceptación desde
+Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
+un reintento conserva fechas, política y oferta originales. Este corte no acredita
 todavía la publicación desde la ficha de CT.
 
 La oferta con varias plazas, la adjudicación por posición y el llamamiento
