@@ -10,9 +10,47 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"vec-diputacion-granada/config"
+	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestReglasCTInexistentesNoDetienenPortal(t *testing.T) {
+	cfg, _ := generarMaterialDesarrolloPrueba(t)
+	cfg.ReglasEjemplo.CTSourcePath = filepath.Join(directorioTemporalFueraDeGitPrueba(t), "ct-inexistente.json")
+	comprobarArranqueSinCapacidadPrevia(t, cfg, "reglas_ejemplo")
+}
+
+func TestPreferenciasInvalidasNoDetienenPortal(t *testing.T) {
+	cfg, _ := generarMaterialDesarrolloPrueba(t)
+	t.Setenv(envUsuariosPreferenciasDesarrollo, "true")
+	ruta := filepath.Join(cfg.DevelopmentMaterialDir, "identidad", nombreConfiguracionPreferencias(core.SuperficieAutenticacionInternaCorporativaV1))
+	if err := os.WriteFile(ruta, []byte(`{"version":`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	comprobarArranqueSinCapacidadPrevia(t, cfg, "identidades_preferencias")
+}
+
+func comprobarArranqueSinCapacidadPrevia(t *testing.T, cfg config.Config, componente string) {
+	t.Helper()
+	var registro bytes.Buffer
+	anterior := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&registro, nil)))
+	defer slog.SetDefault(anterior)
+	servidor, composicion, err := NewHTTPServerDesarrolloWithConfig(cfg, io.Discard)
+	if err != nil || servidor == nil || composicion == nil || servidor.Handler == nil ||
+		servidor.TLSConfig == nil || servidor.TLSConfig.ClientAuth != tls.RequireAndVerifyClientCert {
+		t.Fatalf("configuración de %s detuvo el portal o rebajó mTLS: servidor=%v error=%v", componente, servidor, err)
+	}
+	if !strings.Contains(registro.String(), "componente="+componente) ||
+		strings.Contains(registro.String(), cfg.DevelopmentMaterialDir) ||
+		strings.Contains(registro.String(), cfg.ReglasEjemplo.CTSourcePath) && cfg.ReglasEjemplo.CTSourcePath != "" {
+		t.Fatalf("causa de %s ausente o insegura: %q", componente, registro.String())
+	}
+}
 
 func TestArranqueSinCTConservaSesionPortalYSalud(t *testing.T) {
 	cfg, rutas := generarMaterialDesarrolloPrueba(t)

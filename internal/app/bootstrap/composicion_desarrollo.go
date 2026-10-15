@@ -279,14 +279,20 @@ func nuevoServidorDesarrollo(
 		registrarFalloCronosArranque(falloCronos)
 		configuracionCT = configuracionCTSinCronos(cfg)
 	}
-	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, resolvedor); err != nil {
-		return nil, nil, marcarFalloComponenteArranque("identidades_preferencias", err)
-	}
+	falloPreferencias := validarIdentidadesPreferenciasAntesDeCT(cfg, resolvedor)
 	consultaCategorias, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("categorias_profesionales", err)
 	}
 	consultasPersonal := nuevasConsultasPublicasPersonal(cfg, categoriasPersonal, registro)
+	servidorSinCT := func(componente string, causa error) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
+		fallo := marcarFalloComponenteArranque(componente, causa)
+		slog.Warn("contratacion_temporal_no_disponible", "componente", ComponenteFalloArranque(fallo), "causa", telemetria.ClaseErrorArranque(fallo))
+		return nuevoServidorSinContratacionTemporalDesarrollo(cfg, composicion, resolvedor, consultaCategorias, categoriasPersonal, consultasPersonal, emisor)
+	}
+	if falloPreferencias != nil {
+		return servidorSinCT("identidades_preferencias", falloPreferencias)
+	}
 	rutasCalendarios, consultaCalendarios, cerrarCalendarios, err := nuevasRutasYConsultaCalendariosDesarrollo(cfg)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("calendarios", err)
@@ -305,12 +311,12 @@ func nuevoServidorDesarrollo(
 	// El circuito de firma ya se consulta desde el detalle del expediente.
 	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
 	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("reglas_ejemplo", err)
+		return servidorSinCT("reglas_ejemplo", err)
 	}
 	reglasEjemplo.calendarios = consultaCalendarios
 	rutaFormalizacion, err := nuevaRutaDocumentacionFormalizacionDesarrollo(reglasEjemplo.bolsa)
 	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("documentacion_formalizacion", err)
+		return servidorSinCT("documentacion_formalizacion", err)
 	}
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalConReglasDesarrollo(
 		configuracionCT, reglasEjemplo, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
@@ -319,9 +325,7 @@ func nuevoServidorDesarrollo(
 		if cerrarContratacion != nil {
 			cerrarContratacion()
 		}
-		fallo := marcarFalloComponenteArranque("contratacion_temporal", err)
-		slog.Warn("contratacion_temporal_no_disponible", "componente", ComponenteFalloArranque(fallo), "causa", telemetria.ClaseErrorArranque(fallo))
-		return nuevoServidorSinContratacionTemporalDesarrollo(cfg, composicion, resolvedor, consultaCategorias, categoriasPersonal, consultasPersonal, emisor)
+		return servidorSinCT("contratacion_temporal", err)
 	}
 	completa := false
 	defer func() {
