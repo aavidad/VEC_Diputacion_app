@@ -3186,6 +3186,7 @@ BEGIN
  RETURN QUERY SELECT x.decision_ref,x.efecto_ref,x.huella_efecto_sha256,x.consumo_huella_sha256,x.auditoria_ref,x.consumida_en,true;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_politica_transiciones_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_bolsa_llamamientos_propietario;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_politica_transiciones_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_propietario;
 DO $acl$
 DECLARE f regprocedure:='vec_autorizacion_atestada_v3.registrar_y_consumir_politica_transiciones_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
@@ -3193,6 +3194,7 @@ BEGIN
  IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
     OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
+    OR NOT has_schema_privilege('vec_bolsa_llamamientos_propietario','vec_autorizacion_atestada_v3','USAGE')
     OR NOT has_function_privilege('vec_bolsa_llamamientos_propietario',f,'EXECUTE')
     OR EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
                 WHERE p.oid=f AND a.grantee NOT IN (p.proowner,'vec_bolsa_llamamientos_propietario'::regrole::oid))

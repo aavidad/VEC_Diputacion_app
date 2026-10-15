@@ -27,3 +27,5 @@ Chrome del sistema a 1440 y 390 píxeles, castellano e inglés, teclado y texto 
 ## Evidencia pendiente
 
 Checkpoint inicial publicado con pruebas focales de los módulos propios y de la interfaz. El montaje, la activación normativa y de autorización, el ensayo SQL, las comprobaciones de arranque y Chrome siguen pendientes. La puerta completa se ejecuta en CI sobre la cabeza final.
+
+Primer ensayo de instalación sobre copia limpia: CAT14 y AD283 quedaron instaladas; B122 terminó en rollback antes de crear objetos porque al propietario de Bolsa le faltaba USAGE en el esquema V3. El código concedía EXECUTE del consumidor, pero no permitía resolverlo. AD283 añade ahora solo ese USAGE al propietario y su comprobación; dos revisiones independientes favorables sobre SHA-256 `136e8b0b7f759634eb27725b59d91a649f33144c34b58993a087e5face755966`. Se restaura otra copia fresca para ensayar la lista final, sin reaplicar ni modificar la AD283 ya instalada en la copia anterior.
