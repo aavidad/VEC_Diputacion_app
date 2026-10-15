@@ -121,6 +121,25 @@ func concesionExactaPerfilOfertaCTDesarrollo(c core.ConcesionRol, p politicaPerf
 		len(c.CamposPermitidos) == 0 && len(c.Obligaciones) == 0
 }
 
+// El sujeto del certificado que conserva el canal CT no es la referencia
+// canónica de Persona del contexto durable. Ambos quedan ligados por la
+// frontera mTLS; los perfiles publicados se cotejan contra esa Persona y
+// Cuenta, sin sustituir la comprobación del sujeto/certificado original.
+func identidadContextoPublicadoOfertaCTDesarrollo(esperado, original core.ResultadoContextoActorRegistradoV2,
+	perfil string, ahora time.Time,
+) bool {
+	return esperado.Validar() == nil && original.Validar() == nil &&
+		esperado.AutoridadEfectiva == core.AutoridadProcedenciaContextoActorMaestraAcreditadaV1 &&
+		esperado.Contexto.Principal.ID == original.Contexto.Principal.ID &&
+		esperado.Contexto.Principal.ID == esperado.Contexto.PersonaRef &&
+		esperado.Contexto.PersonaRef == original.Contexto.PersonaRef &&
+		esperado.Contexto.Instantanea.CuentaRef == original.Contexto.Instantanea.CuentaRef &&
+		esperado.Contexto.PerfilActivoRef == perfil &&
+		esperado.Contexto.Principal.AuthMethod == core.AuthMethodCertificate &&
+		esperado.Contexto.Principal.AuthAssurance == core.AuthAssuranceHigh &&
+		esperado.Contexto.Instantanea.VigenteEn(ahora)
+}
+
 type autoridadPerfilOfertaCTDesarrollo struct {
 	privado  catalogoFronterasComunDesarrollo
 	sesion   *seguridadComunDesarrollo
@@ -419,13 +438,8 @@ func componerPerfilAutoridadOfertaCTDesarrollo(ctx context.Context,
 		Cuenta: core.CuentaAutenticadaContextoActor{CuentaRef: cuenta,
 			Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh},
 		PerfilActivoRef: c.PerfilRef})
-	if err != nil || esperado.Validar() != nil ||
-		esperado.AutoridadEfectiva != core.AutoridadProcedenciaContextoActorMaestraAcreditadaV1 ||
-		esperado.Contexto.Principal.ID != alta.soporte.principalID ||
-		esperado.Contexto.PersonaRef != alta.soporte.contexto.Resultado.Contexto.PersonaRef ||
-		esperado.Contexto.Instantanea.CuentaRef != cuenta ||
-		esperado.Contexto.PerfilActivoRef != c.PerfilRef ||
-		!esperado.Contexto.Instantanea.VigenteEn(reloj.Ahora()) {
+	if err != nil || !identidadContextoPublicadoOfertaCTDesarrollo(
+		esperado, alta.soporte.contexto.Resultado, c.PerfilRef, reloj.Ahora()) {
 		return nil, errActivacionOfertaCTDesarrollo
 	}
 	proveedorPrivado, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(
@@ -442,7 +456,7 @@ func componerPerfilAutoridadOfertaCTDesarrollo(ctx context.Context,
 		return nil, errActivacionOfertaCTDesarrollo
 	}
 	f := &fuenteRolSeleccionOfertaCTDesarrollo{fuente: lector,
-		principalID: alta.soporte.principalID, personaRef: esperado.Contexto.PersonaRef,
+		principalID: esperado.Contexto.Principal.ID, personaRef: esperado.Contexto.PersonaRef,
 		perfilRef: c.PerfilRef, rol: c.Rol, politica: politica, reloj: reloj}
 	if _, err := f.ObtenerInstantaneaAutorizacion(ctx, f.principalID, f.perfilRef); err != nil {
 		return nil, errActivacionOfertaCTDesarrollo

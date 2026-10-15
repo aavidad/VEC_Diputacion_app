@@ -14,6 +14,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/pruebas"
 )
 
 type fuenteOfertaCTPrueba struct {
@@ -230,5 +231,50 @@ func TestFuenteOfertaCTSoloLeeRolExactoVigente(t *testing.T) {
 	origen.err = vp.ErrFuenteAutorizacionNoDisponible
 	if _, err := f.ObtenerInstantaneaAutorizacion(context.Background(), principal, perfil); !errors.Is(err, vp.ErrFuenteAutorizacionNoDisponible) {
 		t.Fatal("caída de la fuente confundida con falta de permiso")
+	}
+}
+
+func TestPerfilPublicadoOfertaCTUsaPersonaDurableSinConfundirSujetoCertificado(t *testing.T) {
+	ahora := time.Date(2026, 10, 15, 19, 0, 0, 0, time.UTC)
+	persona := "per_0123456789abcdefghijkl"
+	perfilBase := "prf_0123456789abcdefghijkl"
+	perfilOferta := "prf_1123456789abcdefghijkl"
+	original, _, err := pruebas.NuevoContextoRegistradoYVinculoV2(
+		ahora, persona, perfilBase, core.AuthMethodCertificate, core.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicado, _, err := pruebas.NuevoContextoRegistradoYVinculoV2(
+		ahora, persona, perfilOferta, core.AuthMethodCertificate, core.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// El canal mTLS conserva este sujeto y su certificado. La fuente RBAC
+	// usa la Persona per_ del contexto registrado, que es otra identidad.
+	const sujetoCertificado = "tecnico:rrhh:certificado"
+	if sujetoCertificado == persona || !identidadContextoPublicadoOfertaCTDesarrollo(
+		publicado, original, perfilOferta, ahora) ||
+		publicado.Contexto.Principal.ID != persona {
+		t.Fatal("perfil durable válido confundido con sujeto mTLS")
+	}
+	if identidadContextoPublicadoOfertaCTDesarrollo(publicado, original, perfilBase, ahora) {
+		t.Fatal("perfil no solicitado admitido")
+	}
+	ajeno, _, err := pruebas.NuevoContextoRegistradoYVinculoV2(
+		ahora, "per_1123456789abcdefghijkl", perfilOferta,
+		core.AuthMethodCertificate, core.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identidadContextoPublicadoOfertaCTDesarrollo(ajeno, original, perfilOferta, ahora) {
+		t.Fatal("otra persona admitida")
+	}
+	debil, _, err := pruebas.NuevoContextoRegistradoYVinculoV2(
+		ahora, persona, perfilOferta, core.AuthMethodCertificate, core.AuthAssuranceSubstantial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identidadContextoPublicadoOfertaCTDesarrollo(debil, original, perfilOferta, ahora) {
+		t.Fatal("garantía inferior admitida")
 	}
 }
