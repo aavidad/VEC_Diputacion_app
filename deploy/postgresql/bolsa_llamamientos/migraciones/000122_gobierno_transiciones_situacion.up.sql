@@ -200,7 +200,7 @@ GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_politica_transiciones_gobi
 -- B32 sigue instalada para su historia, pero su publicador sin V3 deja de
 -- estar disponible para el ejecutor de aplicación.
 REVOKE EXECUTE ON FUNCTION vec_bolsa_llamamientos.publicar_politica_transiciones_situacion_v1(text,text,text[])
- FROM vec_bolsa_llamamientos_ejecutor;
+ FROM PUBLIC, vec_bolsa_llamamientos_ejecutor;
 DO $acl$
 BEGIN
  IF has_function_privilege('vec_bolsa_llamamientos_ejecutor',
