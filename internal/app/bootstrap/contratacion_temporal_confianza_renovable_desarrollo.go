@@ -310,7 +310,8 @@ func renovarConfiguracionConfianzaCTEnTxDesarrollo(ctx context.Context, tx pgx.T
 	}
 	// La renovación automática solo pertenece al publicador diario original.
 	// Una publicación ADMIN vencida exige otro acto técnico aprobado.
-	if !publicacionDiariaCTDesarrollo(actual.publicadaEn, actual.expiraEn) {
+	admin, err := publicacionAdministrativaCTDesarrollo(ctx, tx, actual.configuracionRef)
+	if err != nil || admin || !publicacionDiariaCTDesarrollo(actual.publicadaEn, actual.expiraEn) {
 		return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	siguiente.publicadaEn = dia
@@ -363,6 +364,18 @@ func leerConfiguracionVigenteCTDesarrollo(ctx context.Context, tx pgx.Tx, anteri
 func publicacionDiariaCTDesarrollo(publicada, expira time.Time) bool {
 	dia := time.Date(publicada.Year(), publicada.Month(), publicada.Day(), 0, 0, 0, 0, time.UTC)
 	return publicada.Equal(dia) && expira.Equal(dia.Add(24*time.Hour))
+}
+
+// El acto_ref de AD188/AD282 coincide con el del publicador diario. Solo el
+// asiento durable de su operación nominal acredita el origen ADMIN, incluso
+// cuando la vigencia es exactamente un día desde medianoche UTC.
+func publicacionAdministrativaCTDesarrollo(ctx context.Context, tx pgx.Tx, revision string) (bool, error) {
+	var admin bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS (
+	 SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a
+	 WHERE a.tipo_registro='gobierno_usuarios_admin'
+	   AND a.gobierno_usuarios_detalle->>'configuracion_destino_ref'=$1)`, revision).Scan(&admin)
+	return admin, err
 }
 
 // El lector admite la publicación diaria antigua y la publicación ADMIN
@@ -443,6 +456,12 @@ func leerConfiguracionGobiernoCTDesarrollo(ctx context.Context, tx pgx.Tx, anter
 	actual.expiraEn = actual.expiraEn.UTC()
 	if !vigenciaPublicadaCTDesarrolloValida(actual.publicadaEn, actual.expiraEn, actual.validaHasta, ahora) {
 		return vacia, fallo("vigencia_publicacion", nil)
+	}
+	if !publicacionDiariaCTDesarrollo(actual.publicadaEn, actual.expiraEn) {
+		admin, err := publicacionAdministrativaCTDesarrollo(ctx, tx, actual.configuracionRef)
+		if err != nil || !admin {
+			return vacia, fallo("origen_publicacion", err)
+		}
 	}
 	actual.configuracionOrden = uint64(secuencia)
 	actual.configuracion, err = confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(actual.configuracionRef, actual.configuracionOrden, actual.publicadaEn, actual.expiraEn, actual.raiz)
