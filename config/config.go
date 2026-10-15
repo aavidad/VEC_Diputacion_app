@@ -217,6 +217,8 @@ type Config struct {
 	PersonalEmpleadoEnabled                     string
 	PersonalB2GobiernoEnabled                   string
 	OrganizacionHistoricaGobiernoEnabled        string
+	OrganizacionHistoricaConsultaEnabled        string
+	OrganizacionHistoricaMaterialDir            string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
 	BolsaConstitucionPostgreSQL                 ConfiguracionPostgreSQLBolsaConstitucion
@@ -385,6 +387,8 @@ func Load() Config {
 			dsnAuditoriaFrontera:     envFirst(EnvContratacionTemporalAuditoriaFronteraDatabaseURL),
 		},
 		OrganizacionHistoricaGobiernoEnabled: envFirst(EnvOrganizacionHistoricaGobiernoEnabled),
+		OrganizacionHistoricaConsultaEnabled: envFirst(EnvOrganizacionHistoricaConsultaEnabled),
+		OrganizacionHistoricaMaterialDir:     envFirst(EnvOrganizacionHistoricaMaterialDir),
 
 		ExternoMeritosRegistroAutorizacionPostgreSQL: ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosRegistroAutorizacionDatabaseURL)},
 		ExternoMeritosMotivosAutorizacionPostgreSQL:  ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosMotivosAutorizacionDatabaseURL)},
@@ -513,6 +517,8 @@ func (c Config) Normalize() Config {
 	c.PersonalEmpleadoEnabled = strings.TrimSpace(c.PersonalEmpleadoEnabled)
 	c.PersonalB2GobiernoEnabled = strings.TrimSpace(c.PersonalB2GobiernoEnabled)
 	c.OrganizacionHistoricaGobiernoEnabled = strings.TrimSpace(c.OrganizacionHistoricaGobiernoEnabled)
+	c.OrganizacionHistoricaConsultaEnabled = strings.TrimSpace(c.OrganizacionHistoricaConsultaEnabled)
+	c.OrganizacionHistoricaMaterialDir = strings.TrimSpace(c.OrganizacionHistoricaMaterialDir)
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
 	c.BolsaConstitucionPostgreSQL = c.BolsaConstitucionPostgreSQL.normalizar()
