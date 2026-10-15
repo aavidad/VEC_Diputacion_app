@@ -135,7 +135,7 @@ func TestManejadorSeleccionLlamamientoClasificaFallosPropiosDeOferta(t *testing.
 		{"concurrente", application.ErrSeleccionOfertaConcurrente, http.StatusConflict, "conflicto_estado"},
 		{"solicitud", application.ErrSolicitudSeleccionOfertaInvalida, http.StatusUnprocessableEntity, "contenido_no_valido"},
 		{"respuesta ajena", application.ErrResultadoSeleccionOfertaNoConfiable, http.StatusBadGateway, "resultado_no_confiable"},
-		{"indeterminada con plazo", errors.Join(application.ErrSeleccionOfertaIndeterminada, context.DeadlineExceeded), http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{"indeterminada con plazo", errors.Join(application.ErrSeleccionOfertaIndeterminada, context.DeadlineExceeded), http.StatusServiceUnavailable, "seleccion_oferta_indeterminada"},
 		{"no disponible", application.ErrSeleccionOfertaNoDisponible, http.StatusServiceUnavailable, "servicio_no_disponible"},
 		{"servicio invalido", application.ErrServicioSeleccionOfertaInvalido, http.StatusServiceUnavailable, "servicio_no_disponible"},
 		{"plazo compartido", context.DeadlineExceeded, http.StatusGatewayTimeout, "plazo_agotado"},

@@ -146,33 +146,59 @@ func descriptorMaterialDescarteSeleccionOfertaCTDesarrollo() descriptorMaterialC
 
 // La sonda es de solo lectura. Un clon anterior a cualquiera de las tres
 // migraciones conserva CT operativo y deja cerrada esta única capacidad.
+// pg_catalog permite comprobar firmas de Bolsa y AD278 sin conceder USAGE de
+// esos esquemas al login CT. Cada fila fija nombre, tipos y rol consumidor.
+const consultaPreflightSeleccionOfertaCTDesarrollo = `WITH tipos AS (
+ SELECT 'pg_catalog.jsonb'::regtype::oid AS j,
+        'pg_catalog.text'::regtype::oid AS t,
+        'pg_catalog.bytea'::regtype::oid AS b,
+        'pg_catalog.numeric'::regtype::oid AS n,
+        'pg_catalog.int8'::regtype::oid AS g,
+        'pg_catalog.int4'::regtype::oid AS i
+), requeridas AS (
+ SELECT v.rol, v.esquema, v.nombre, v.argumentos
+ FROM tipos AS x
+ CROSS JOIN LATERAL (VALUES
+  (session_user::text, 'vec_contratacion_temporal', 'consultar_seleccion_oferta_ct220',
+   ARRAY[x.j,x.t] || ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
+  (session_user::text, 'vec_contratacion_temporal', 'reservar_seleccion_oferta_ct220',
+   ARRAY[x.j,x.j,x.t] || ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
+  (session_user::text, 'vec_contratacion_temporal', 'abrir_ventana_seleccion_oferta_ct220',
+   ARRAY[x.j,x.t,x.j,x.t] || ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
+  (session_user::text, 'vec_contratacion_temporal', 'confirmar_vinculo_seleccion_oferta_ct220',
+   ARRAY[x.j,x.t,x.j,x.j,x.t] || ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
+  ('vec_contratacion_temporal_propietario', 'vec_bolsa_llamamientos', 'verificar_oferta_ct_v1',
+   ARRAY[x.t,x.t,x.g,x.t,x.t,x.t,x.t,x.t,x.t,x.i,x.j,x.t]),
+  ('vec_contratacion_temporal_propietario', 'vec_autorizacion_atestada_v3',
+   'registrar_y_consumir_vinculo_oferta_bolsa_ct_v3_atestada',
+   ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
+  ('vec_bolsa_llamamientos_ejecutor', 'vec_bolsa_llamamientos',
+   'recuperar_o_cerrar_intencion_oferta_ct_v1',
+   ARRAY[x.j,x.t,x.t,x.t,x.t,x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
+  ('vec_bolsa_llamamientos_propietario', 'vec_autorizacion_atestada_v3',
+   'registrar_y_consumir_cierre_intencion_oferta_ct_v3_atestada',
+   ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
+  ('vec_contratacion_temporal_propietario', 'vec_bolsa_llamamientos',
+   'verificar_cierre_intencion_oferta_ct_v1', ARRAY[x.j,x.j]),
+  (session_user::text, 'vec_contratacion_temporal', 'descartar_seleccion_oferta_ct220',
+   ARRAY[x.j,x.t,x.j,x.j,x.t] || ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
+  ('vec_contratacion_temporal_propietario', 'vec_autorizacion_atestada_v3',
+   'registrar_y_consumir_descarte_seleccion_oferta_ct_v3_atestada',
+   ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b])
+ ) AS v(rol,esquema,nombre,argumentos)
+)
+SELECT count(*)=11 AND count(p.oid)=11 AND
+ coalesce(bool_and(coalesce(pg_catalog.has_function_privilege(r.rol,p.oid,'EXECUTE'),false)),false)
+FROM requeridas AS r
+LEFT JOIN pg_catalog.pg_namespace AS n ON n.nspname=r.esquema
+LEFT JOIN pg_catalog.pg_proc AS p ON p.pronamespace=n.oid AND p.proname=r.nombre
+ AND p.prokind='f' AND p.proargtypes::text=pg_catalog.array_to_string(r.argumentos,' ')`
+
 func detectarSeleccionOfertaCTDesarrollo(ctx context.Context, ejecutor *pgxpool.Pool) bool {
 	if ctx == nil || ejecutor == nil {
 		return false
 	}
 	var disponible bool
-	err := ejecutor.QueryRow(ctx, `SELECT
-	  COALESCE(pg_catalog.has_function_privilege(session_user,
-	    pg_catalog.to_regprocedure('vec_contratacion_temporal.consultar_seleccion_oferta_ct220(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
-	  AND COALESCE(pg_catalog.has_function_privilege(session_user,
-	    pg_catalog.to_regprocedure('vec_contratacion_temporal.reservar_seleccion_oferta_ct220(jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
-	  AND COALESCE(pg_catalog.has_function_privilege(session_user,
-	    pg_catalog.to_regprocedure('vec_contratacion_temporal.abrir_ventana_seleccion_oferta_ct220(jsonb,text,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
-	  AND COALESCE(pg_catalog.has_function_privilege(session_user,
-	    pg_catalog.to_regprocedure('vec_contratacion_temporal.confirmar_vinculo_seleccion_oferta_ct220(jsonb,text,jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
-	  AND COALESCE(pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',
-	    pg_catalog.to_regprocedure('vec_bolsa_llamamientos.verificar_oferta_ct_v1(text,text,bigint,text,text,text,text,text,text,integer,jsonb,text)'), 'EXECUTE'),false)
-	  AND COALESCE(pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',
-	    pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_vinculo_oferta_bolsa_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
-	  AND COALESCE(pg_catalog.has_function_privilege('vec_bolsa_llamamientos_ejecutor',
-	    pg_catalog.to_regprocedure('vec_bolsa_llamamientos.recuperar_o_cerrar_intencion_oferta_ct_v1(jsonb,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
-	  AND COALESCE(pg_catalog.has_function_privilege('vec_bolsa_llamamientos_propietario',
-	    pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_cierre_intencion_oferta_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
-	  AND COALESCE(pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',
-	    pg_catalog.to_regprocedure('vec_bolsa_llamamientos.verificar_cierre_intencion_oferta_ct_v1(jsonb,jsonb)'), 'EXECUTE'),false)
-	  AND COALESCE(pg_catalog.has_function_privilege(session_user,
-	    pg_catalog.to_regprocedure('vec_contratacion_temporal.descartar_seleccion_oferta_ct220(jsonb,text,jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
-	  AND COALESCE(pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',
-	    pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_descarte_seleccion_oferta_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)`).Scan(&disponible)
+	err := ejecutor.QueryRow(ctx, consultaPreflightSeleccionOfertaCTDesarrollo).Scan(&disponible)
 	return err == nil && disponible
 }

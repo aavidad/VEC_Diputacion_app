@@ -19,8 +19,14 @@ func configurarSeleccionOfertaOpcionalCT(cfg config.Config,
 	base *preparadorBorradorLlamamientoDesarrollo, fronteras catalogoFronterasComunDesarrollo,
 	derivador *derivadorIdentidadOperacionDesarrollo, reloj relojContratacionTemporalDesarrollo,
 ) func() {
-	if seleccion == nil || seleccion.puente == nil || alta == nil ||
-		!alta.postgresql.seleccionOferta {
+	if seleccion == nil || seleccion.puente == nil || alta == nil {
+		return func() {}
+	}
+	if !alta.postgresql.seleccionOferta {
+		_, presente, err := leerActivacionOfertaCTDesarrollo(cfg)
+		if presente || err != nil {
+			slog.Warn("oferta CT cerrada", "etapa", "sonda")
+		}
 		return func() {}
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 3*time.Second)
