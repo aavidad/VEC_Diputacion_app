@@ -225,13 +225,15 @@ func (a *AutoridadSubidaLocal) AutorizarConsultaRRHH(ctx context.Context, pre []
 	var cero docports.AutorizacionActoSubidaLocalV3
 	esperada, err := docports.PreimagenConsultaSubidaLocalRRHH(q)
 	if a == nil || a.modulo != "bolsa" || err != nil || !bytes.Equal(pre, esperada) ||
+		q.UnidadRef == "" || len(q.UnidadRef) > 256 || q.AmbitoRef == "" || len(q.AmbitoRef) > 256 ||
 		!vecdomain.ReferenciaCorrelacionAutorizacionV2Valida(q.CorrelacionRef) {
 		return cero, docports.ErrSubidaLocalDenegada
 	}
 	suma := sha256.Sum256(pre)
 	recurso := vecdomain.RecursoAutorizable{Referencia: q.DocumentoID, ModuloID: "bolsa", Tipo: "justificante_renuncia",
-		Ambitos:   map[string]string{"bolsa_ref": q.BolsaRef, "participacion_ref": q.ParticipacionRef},
-		Atributos: map[string]string{"preimagen_sha256": hex.EncodeToString(suma[:])}}
+		Ambitos: map[string]string{"unidad_ref": q.UnidadRef, "ambito_ref": q.AmbitoRef},
+		Atributos: map[string]string{"bolsa_ref": q.BolsaRef, "participacion_ref": q.ParticipacionRef,
+			"preimagen_sha256": hex.EncodeToString(suma[:])}}
 	_, _, _, material, err := a.emitir(ctx, q.ActorRegistradoV2,
 		docports.AccionBolsaJustificanteRenunciaDescargarRRHH, q.DocumentoID,
 		"custodiar_justificante_renuncia_bolsa", q.CorrelacionRef, recurso, audienciaDescargaRRHHBolsa)
@@ -254,6 +256,7 @@ func (a *AutoridadSubidaLocal) AutorizarAlmacenRRHH(ctx context.Context,
 	var cero vecports.ContextoOperacionAlmacen
 	if a == nil || a.modulo != "bolsa" || q.ActorRegistradoV2.Validar() != nil ||
 		q.VinculoV2.ValidarPara(q.ActorRegistradoV2) != nil ||
+		q.UnidadRef == "" || len(q.UnidadRef) > 256 || q.AmbitoRef == "" || len(q.AmbitoRef) > 256 ||
 		!vecdomain.ReferenciaCorrelacionAutorizacionV2Valida(q.CorrelacionRef) ||
 		i.Resultado.Estado != docports.EstadoSubidaLocalAdmitida || i.Admitido == nil ||
 		i.Admitido.Validar() != nil || i.Admitido.Objeto.Zona != vecports.ZonaAlmacenAdmitida ||
@@ -267,6 +270,7 @@ func (a *AutoridadSubidaLocal) AutorizarAlmacenRRHH(ctx context.Context,
 		return cero, docports.ErrSubidaLocalDenegada
 	}
 	atributos := map[string]string{
+		"bolsa_ref": q.BolsaRef, "participacion_ref": q.ParticipacionRef,
 		"recurso_dueno_ref": q.RecursoRef, "fase": string(vecports.FaseAlmacenSubidaLocalDescargar),
 		vecports.AtributoAlmacenOperacionRef:        v.OperacionRef,
 		vecports.AtributoAlmacenCargaRef:            v.CargaRef,
@@ -278,7 +282,7 @@ func (a *AutoridadSubidaLocal) AutorizarAlmacenRRHH(ctx context.Context,
 		vecports.AtributoAlmacenObjetoVersion:       v.ObjetoVinculado.Version,
 	}
 	recurso := vecdomain.RecursoAutorizable{Referencia: q.DocumentoID, ModuloID: "bolsa", Tipo: "justificante_renuncia",
-		Ambitos: map[string]string{"bolsa_ref": q.BolsaRef, "participacion_ref": q.ParticipacionRef}, Atributos: atributos}
+		Ambitos: map[string]string{"unidad_ref": q.UnidadRef, "ambito_ref": q.AmbitoRef}, Atributos: atributos}
 	s, d, c, _, err := a.emitir(ctx, q.ActorRegistradoV2,
 		docports.AccionBolsaJustificanteRenunciaDescargarRRHH, q.DocumentoID,
 		"custodiar_justificante_renuncia_bolsa", q.CorrelacionRef, recurso, audienciaDescargaRRHHBolsa)

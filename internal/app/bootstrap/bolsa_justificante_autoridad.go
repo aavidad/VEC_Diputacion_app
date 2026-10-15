@@ -97,14 +97,24 @@ func (p autoridadPreparacionJustificanteBolsa) PrepararJustificanteRenuncia(ctx 
 }
 
 type autoridadPreparacionJustificanteBolsaRRHH struct {
-	emisor *emisorMaterialRenovableCTDesarrollo
-	motivo vec.ReferenciaEntradaCatalogo
+	emisor  *emisorMaterialRenovableCTDesarrollo
+	motivo  vec.ReferenciaEntradaCatalogo
+	ambitos bolsaports.ResolutorAmbitoJustificanteRenunciaRRHH
 }
 
 func (p autoridadPreparacionJustificanteBolsaRRHH) PrepararConsultaJustificanteRenunciaRRHH(ctx context.Context,
 	a vec.ResultadoContextoActorRegistradoV2, v vec.VinculoAutenticacionActorV2, bolsa, participacion string) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	if p.ambitos == nil {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, docports.ErrSubidaLocalNoDisponible
+	}
+	ambito, err := p.ambitos.ResolverAmbitoJustificanteRenunciaRRHH(ctx, bolsaports.SolicitudConsultaJustificanteRenunciaRRHH{
+		ActorRegistradoV2: a, VinculoV2: v, BolsaRef: bolsa, ParticipacionRef: participacion})
+	if err != nil {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
+	}
 	recurso := vec.RecursoAutorizable{Referencia: participacion, ModuloID: "bolsa", Tipo: bolsaports.TipoRecursoJustificanteRenuncia,
-		Ambitos: map[string]string{"bolsa_ref": bolsa, "participacion_ref": participacion}, Atributos: map[string]string{}}
+		Ambitos:   map[string]string{"unidad_ref": ambito.UnidadRef, "ambito_ref": ambito.AmbitoRef},
+		Atributos: map[string]string{"bolsa_ref": bolsa, "participacion_ref": participacion}}
 	return emitirPreparacionJustificanteBolsa(ctx, p.emisor, p.motivo, a, v, recurso,
 		bolsaports.AccionDescargarJustificanteRenunciaRRHH, audienciaJustificanteBolsaPrepararRRHH)
 }

@@ -13,6 +13,8 @@ import (
 // La relación entre la renuncia, la bolsa y el titular se obtiene de Bolsa;
 // Documentos la comprueba en su fachada nominal antes de entregar la postimagen.
 type SolicitudOriginalSubidaLocalRRHH struct {
+	UnidadRef         string
+	AmbitoRef         string
 	ActorRegistradoV2 domain.ResultadoContextoActorRegistradoV2
 	VinculoV2         domain.VinculoAutenticacionActorV2
 	CargaID           string

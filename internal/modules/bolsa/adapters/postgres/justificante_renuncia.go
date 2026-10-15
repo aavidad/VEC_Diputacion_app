@@ -209,7 +209,8 @@ func (r *ResolutorConsultaJustificanteRenunciaRRHHPostgreSQL) ResolverConsultaJu
 	}
 	resultado := respuesta.JustificanteRenunciaRRHH
 	resultado.BolsaRef, resultado.ParticipacionRef = q.BolsaRef, q.ParticipacionRef
-	if resultado.DocumentoRef == "" || !huellaJustificanteValida.MatchString(resultado.DocumentoSHA256) ||
+	if resultado.UnidadRef == "" || resultado.AmbitoRef == "" ||
+		resultado.DocumentoRef == "" || !huellaJustificanteValida.MatchString(resultado.DocumentoSHA256) ||
 		!recursoJustificanteValido.MatchString(resultado.RecursoRef) ||
 		resultado.PersonaTitularRef == "" || respuesta.DecisionRef == "" || respuesta.AuditoriaRef == "" {
 		return vacio, bolsaports.ErrJustificanteRenunciaNoDisponible

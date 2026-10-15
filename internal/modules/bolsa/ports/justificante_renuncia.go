@@ -56,6 +56,8 @@ type SolicitudConsultaJustificanteRenunciaRRHH struct {
 }
 
 type JustificanteRenunciaRRHH struct {
+	UnidadRef         string `json:"unidad_ref"`
+	AmbitoRef         string `json:"ambito_ref"`
 	DocumentoRef      string `json:"documento_ref"`
 	DocumentoSHA256   string `json:"documento_sha256"`
 	RecursoRef        string `json:"recurso_ref"`
