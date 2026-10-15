@@ -63,6 +63,8 @@ test("referencia, estado o cursor ajenos no inician GET de candidaturas", () => 
 test("popstate cambia la vista al volver y hashchange no duplica el montaje de candidaturas", () => {
   const inicioInstalacion = portal.indexOf("function instalarEnlacesBolsa()");
   const finInstalacion = portal.indexOf("function instalarEventosAuditoriaBolsa()", inicioInstalacion);
+  const inicioGuarda = portal.indexOf("function salidaGestionOfertasBloqueada()");
+  const finGuarda = portal.indexOf("function anunciarSalidaGestionOfertas()", inicioGuarda);
   assert.ok(inicioInstalacion > 0 && finInstalacion > inicioInstalacion);
   const oyentes = new Map(), navegaciones = [];
   let aplicadas = 0;
@@ -73,8 +75,11 @@ test("popstate cambia la vista al volver y hashchange no duplica el montaje de c
   const navegar = (vista) => { estado.vista = vista; navegaciones.push(vista); };
   const contexto = { document: { addEventListener() {} }, window: { location,
     addEventListener(tipo, escucha) { oyentes.set(tipo, escucha); } }, estado, vistaDesdeHash,
-  navegar, aplicarRutaCandidatosBolsa: () => { aplicadas += 1; }, rutaCandidatosAplicada: null };
-  runInNewContext(`${portal.slice(inicioInstalacion, finInstalacion)}; instalarEnlacesBolsa()`, contexto);
+  navegar, aplicarRutaCandidatosBolsa: () => { aplicadas += 1; }, rutaCandidatosAplicada: null,
+  modoGestionOfertasBolsa: "", superficieOfertasBolsa: null, rutaOfertasSolicitadaRef: "",
+  CLAVE_RUTA_GESTION_OFERTAS: "ofertas_bolsa_ref", URLSearchParams,
+  actualizarVistaBolsa: () => {}, cerrarGestionOfertasBolsa: () => {} };
+  runInNewContext(`${portal.slice(inicioGuarda, finGuarda)}\n${portal.slice(inicioInstalacion, finInstalacion)}; instalarEnlacesBolsa()`, contexto);
   const hashchange = () => { const vista = vistaDesdeHash(); if (vista !== estado.vista) navegar(vista); };
 
   location.hash = "#bolsa/resumen"; oyentes.get("popstate")(); hashchange();

@@ -5,7 +5,8 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 const versionCoordinador = "20261015-firma-cierre-cache-v3";
-const versionEntrada = versionCoordinador;
+// La entrada integra Firma y Ofertas; el coordinador CT conserva su cohorte.
+const versionEntrada = "20261015-firma-integracion-main-v4";
 const versionClienteCT = "20261014-ginpix-personal-b2-v1";
 const versionClienteConsulta = "20261015-firma-cierre-cache-v3";
 const versionBaseCT = "20261013-ct-firma-tres-v3";

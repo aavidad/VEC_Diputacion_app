@@ -32,20 +32,33 @@ func (r *RepositorioOfertasPublicadasPostgreSQL) Publicar(ctx context.Context, c
 	}
 	datos, errDatos := json.Marshal(c.Datos)
 	plazo, errPlazo := serializarPlazoOfertaPostgreSQL(c.Plazo)
-	if errDatos != nil || errPlazo != nil {
+	origen, errOrigen := serializarOrigenOfertaCT(c.OrigenCT)
+	if errDatos != nil || errPlazo != nil || errOrigen != nil {
 		return ports.OfertaPublicada{}, ports.ErrOfertaInvalida
 	}
 	m := c.Material
 	var salida []byte
 	var reutilizada bool
-	err := r.pool.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.publicar_oferta_v4($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20,$21,$22::integer)`,
-		c.OfertaRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, datos, plazo, c.PublicadaEn, c.VenceAntesDe,
-		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(),
-		m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(), c.UnidadRef, c.AmbitoRef, c.NumeroPlazas).Scan(&salida, &reutilizada)
+	tx, err := r.transaccionOferta(ctx)
 	if err != nil {
 		return ports.OfertaPublicada{}, errorOferta(err)
 	}
-	return decodificarOferta(salida, reutilizada)
+	defer revertir(tx)
+	err = tx.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.publicar_oferta_v5($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20,$21,$22::integer,$23::jsonb)`,
+		c.OfertaRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, datos, plazo, c.PublicadaEn, c.VenceAntesDe,
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(),
+		m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(), c.UnidadRef, c.AmbitoRef, c.NumeroPlazas, origen).Scan(&salida, &reutilizada)
+	if err != nil {
+		return ports.OfertaPublicada{}, errorOferta(err)
+	}
+	oferta, err := decodificarOferta(salida, reutilizada)
+	if err != nil {
+		return ports.OfertaPublicada{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return ports.OfertaPublicada{}, errorOferta(err)
+	}
+	return oferta, nil
 }
 
 func (r *RepositorioOfertasPublicadasPostgreSQL) Resolver(ctx context.Context, c ports.ComandoResolverOferta) (ports.OfertaPublicada, error) {
@@ -140,6 +153,8 @@ func errorOferta(err error) error {
 			return ports.ErrOfertaRespuestaAbierta
 		case "VBO08":
 			return ports.ErrOfertaPoliticaSinPlazas
+		case "VBO09":
+			return ports.ErrOfertaElegiblesInsuficientes
 		case "22023", "23503":
 			return ports.ErrOfertaInvalida
 		}

@@ -1,9 +1,13 @@
-import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 /** La lectura autorizada de Bolsa ofrece las bolsas vigentes; emitir se autoriza al confirmar. */
-export function bolsasVigentesParaLlamamiento(estadoBolsas) {
+export function bolsasVigentesParaLlamamiento(estadoBolsas, ahora = new Date()) {
   if (estadoBolsas?.carga !== "listo" || !Array.isArray(estadoBolsas.datos?.bolsas)) return [];
-  return estadoBolsas.datos.bolsas.filter((bolsa) => bolsa?.vigente_hasta === null);
+  const partes = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: ZONA_HORARIA_PORTAL,
+    year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(ahora).map(({ type, value }) => [type, value]));
+  const hoy = `${partes.year}-${partes.month}-${partes.day}`;
+  return estadoBolsas.datos.bolsas.filter((bolsa) => bolsa?.vigente_hasta === null ||
+    (typeof bolsa?.vigente_hasta === "string" && /^\d{4}-\d{2}-\d{2}$/.test(bolsa.vigente_hasta) && bolsa.vigente_hasta >= hoy));
 }
 
 export function renderizarSelectorLlamamientos({ estadoBolsas, encabezadoVista, escaparHTML }) {
