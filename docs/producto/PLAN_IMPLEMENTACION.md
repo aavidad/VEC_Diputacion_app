@@ -8,7 +8,7 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Actualizado el 15 de octubre de 2026 sobre `origin/main@e28ed2b07`.
+Actualizado el 15 de octubre de 2026 sobre `origin/main@896d3b4a2`.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
 cómo se sabe que cada fase está terminada y cómo se trabaja. Es lectura
@@ -151,13 +151,13 @@ PR abiertas (el estado de borrador se comprueba en GitHub):
 | #882 | Formación: recuperar el idioma sin perder el borrador | T | 6, aparcado |
 | #881 | Provisión: agrupar experiencia y separar el corrector provisional | T | 5, aparcado |
 
-#1099 incorpora los originales, la consulta nominal y el cableado de firma
-desde la ficha. Los PDF nuevos superan la verificación local con GrxFirma
-actualizado; el plan v2 y los cuerpos del acto ADMIN están preparados y
-validados, sin enviar la llamada. Por orden de dirección de las 12:30, Claude
-publicará el plan y hará el recorrido final en cidonia con sus dos ADMIN.
-La candidata no cierra todavía la firma ni la fase 1. El guion y sus límites
-están en `scripts/operacion/firma_ct_tres_pasos/LEEME.md`.
+#1099 incorporó los originales y la consulta de firma desde la ficha. #1137
+registra en la copia H dos firmas del informe y tres de la resolución con
+GrxFirma, y recupera los dos PDF y los mismos recibos después de reiniciar.
+Son dos expedientes distintos: P conserva la comprobación del caso único de
+`FLUJO_APP.md` 4.0. La fase 1 y la instalación en cidonia siguen pendientes.
+El guion de activación, la lista SQL y los límites están en
+`deploy/principal/candidata_hz39/firma/LEEME.md`.
 
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna
@@ -182,7 +182,11 @@ está instalada; verificar su hash antes de reanudar:
   El único acta escrita es la del 05/10
   (`docs/estudio_requisitos/acta_recorrido_ct_bolsa_20261005.md`) y se paró en
   la resolución.
-- **La firma de dos o tres personas.** Ningún documento sale hoy firmado.
+- **La firma en el recorrido completo.** En la copia H, informe con dos firmas
+  y resolución con tres, descargados desde la ficha después de reiniciar.
+  Intervención rechaza la fiscalización sin la segunda firma del informe y
+  la admite después. Son dos expedientes distintos. P acredita el caso único
+  del apartado 4.0 de `FLUJO_APP.md`; este ensayo parcial no acredita cidonia.
 - **El correo de la Diputación.** Se usa un buzón de pruebas; vale para la
   presentación, no para uso real.
 - **La lectura rápida medida en cidonia.** El último dato del cuadro de CT en
@@ -200,9 +204,9 @@ está instalada; verificar su hash antes de reanudar:
 | 1. Encender en cidonia lo que existe | Cese con vuelta a la bolsa (HZ10), incorporación acreditada (HZ12) y paso a Personal (HZ18) encendidos. Faltan auditoría de RRHH y verificación de firma |
 | 2. Fusionar PR abiertas de Bolsa y CT | #774, #905, #906, #907, #910 y #540 fusionadas; #909 cerrada sin fusionar |
 | 3. ORQ-1, selección a medias | Resuelta con #918 (AD225, CT198, AD226, CT199), en cidonia desde HZ12 |
-| 4. Repetir el recorrido completo | Pendiente (apartado 6) |
+| 4. Repetir el recorrido completo | Pendiente (F1-31 del tablero) |
 | 5. Carga de bolsas desde CONVOCA | #751 y #752 fusionadas; la pantalla #759 se cerró y la carga se hizo en `vec-admin` con dos administradores (10/10) |
-| 6. Firma de dos personas | Pendiente; ahora la lleva el equipo H (#1099) |
+| 6. Firma de dos personas | Informe y resolución registrados y recuperados tras reinicio en H (#1137); falta el recorrido único de P |
 | 7. Plazos de CT editables y tarjetas de plazo | Plazos con #919 (en cidonia desde HZ11). Tarjetas de plazo en Inicio (CT192): *pendiente de verificar* |
 | 8. Velocidad | Pendiente de medir en cidonia |
 | 9. Correo de la Diputación | Bloqueado por datos de Informática (duda 88) |
@@ -461,54 +465,9 @@ autoriza datos reales.
 
 ## 6. Tareas pendientes
 
-Los dueños salen del registro de dirección del 13/10 y de las PR abiertas.
-Antes de encargar, comprueba en el canal de coordinación que siguen vigentes y
-busca en el índice de código y en las ramas abiertas si la pieza ya existe.
-
-### Fase 0
-
-| Tarea | Dueño | Cómo se comprueba |
-| --- | --- | --- |
-| Encender la auditoría de RRHH y la consulta por persona: falta su configuración | L | La consulta por persona devuelve lecturas y actos en cidonia |
-| Acto de catálogo con las fuentes de política de cese, configuración, origen CT y contacto completo; versión del rol RRHH con el especializador genérico (#1100) | Claude | El rol RRHH publicado incluye esas acciones y el recorrido no da 403 |
-| Asignar y retirar perfiles desde la ficha de usuario de `vec-admin` | K | Alta y baja de un perfil con dos administradores y auditoría |
-| Quitar del arranque las escrituras directas en tablas de autorización y la herencia del grupo de gobierno de firmas | K | Arranque en un clon sin esas escrituras |
-| Antivirus y análisis de PDF antes de custodiar ficheros subidos | Sin dueño actual | Ensayo con ClamAV real y la política de límites controlada |
-| Correo de la Diputación configurable desde Administración | Bloqueado por Informática (duda 88) | Envío de prueba desde Administración, auditado |
-
-### Fase 1
-
-| Tarea | Dueño | Cómo se comprueba |
-| --- | --- | --- |
-| Instalar AD262 y lo fusionado sin subir | Claude | Subida nueva con copia fría y vuelta atrás; sin 404 ni 503 nuevos |
-| Abrir la inscripción para RRHH con el perfil técnico de RRHH | Claude y O | RRHH ve y admite inscripciones de una convocatoria |
-| Ofertas de varias plazas desde CT | S | Primer corte ensayado en copia local: publicación desde la bolsa, recibo y aceptación en Mi Bolsa, con recuperación tras reinicio. Pendiente de integración. Siguen la selección desde la ficha, el vínculo CT y la guarda de cancelación; después, retirada y aviso durable por correo |
-| Autoridad externa del aspirante y preferencias entre bolsas | O | La aspirante entra, aporta méritos y ordena sus bolsas en «Mi Bolsa» |
-| Cartera de méritos, alegaciones y revisión por RRHH | M | Mérito aportado, alegación presentada y decisión de RRHH con recibo |
-| Necesidad de la RPT en la petición del centro (duda 162) | K | La petición guarda el puesto publicado, no texto libre, y RRHH tramita esa misma petición |
-| Llamamiento desde la bolsa real, alta en Personal (#1070) y cese con vuelta a la bolsa (CT213, B115) | K | La persona pasa a Personal y vuelve a «Disponible» tras el cese, también tras reiniciar |
-| Fiscalización y firma de tres cargos (#1099) | H | Dos o tres firmas sobre el mismo PDF, verificado desde la ficha |
-| Identidad del firmante, decisor y emisor, y composición de la firma en el arranque real | H | Las dos vías de firma se componen en el arranque real, sin actor ficticio |
-| Encender la verificación de firma con el validador | Claude | Un PDF firmado se verifica desde la ficha |
-| Textos de categoría antes de vincularla (#1008) | J | Revisión de usabilidad y fusión |
-| Recorrido completo en Chrome con reinicio y acta | Claude | Acta nueva en `docs/estudio_requisitos/` |
-| Medir las lecturas en cidonia y bajar el cuadro de CT de 300 ms | Sin dueño actual | Percentil 95 por HTTP en cidonia |
-| Renuncia justificada con el fichero, no solo su huella | Sin dueño; comprobar antes | El justificante se descarga desde la ficha de RRHH |
-| Inscripción con solicitud separada o conjunta, elegida por RRHH en cada convocatoria | Sin dueño; necesita antes la regla en Convocatorias | Las dos modalidades con su recibo y reintento |
-| Documentos del expediente en un solo sitio de la ficha | *Pendiente de verificar* (había un commit local de S) | Todos se ven y descargan desde la ficha |
-| Bandeja propia de Intervención | Preguntar a RRHH si hace falta | — |
-
-Plan B para la presentación: grabar en una copia local el recorrido completo
-con pasos reales, por si algún tramo de cidonia no llega a tiempo.
-
-Se pueden retirar de `dudas.md` citando la norma: la 95 (RD 424/2017, arts.
-10.2 y 12.4) y la 147 (Reglamento de bolsas, arts. 8 y 11).
-
-### Fases 2 a 6
-
-Las tareas están en el plan de cada módulo (apartado 9), bajo «Lo que falta».
-No se encargan hasta cerrar la fase 1, salvo una tarea dependiente de Bolsa o
-CT (apartado 1). Las PR #882 y #881 se conservan, no se fusionan ahora.
+Las tareas de todas las fases, con su equipo, su estado y cómo se comprueban,
+están en [`TABLERO_TAREAS.md`](TABLERO_TAREAS.md); los criterios de cierre de
+cada fase siguen en el apartado 5.
 
 ## 7. Decisiones de producto pendientes de construir
 
@@ -804,12 +763,11 @@ trabajo paralela que la sustituya.
 
 ## 13. Cómo mantener este documento
 
-**Quién**: Claude, como dirección, o el equipo que cierre una tarea del
-apartado 6, en la misma PR que la cierra.
+**Quién**: Claude, como dirección. El estado de cada tarea no se lleva aquí,
+sino en `TABLERO_TAREAS.md`, que también actualiza solo dirección.
 
 **Cuándo**:
 
-- al cerrar o crear una tarea del apartado 6, o al cambiar su dueño;
 - tras cada subida a cidonia: se actualiza el apartado 2.1 con el número de
   subida y lo que entró, y se vacía lo que ya no esté en 2.2;
 - al cumplirse un criterio de fase o un hito;

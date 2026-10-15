@@ -206,6 +206,11 @@ func registrarFirmaMultipleR5(ctx context.Context, base *ServicioFirmaDocumento,
 	if !repetida {
 		secuencia = estado.UltimaSecuencia + 1
 	}
+	versionCustodia := uint64(secuencia)
+	if repetida {
+		// El replay conserva incluso la versión 1 de actos V2 históricos.
+		versionCustodia = previa.DocumentoCustodiaVersion
+	}
 	if estado.OriginalEsperadoHuella != "" && estado.OriginalEsperadoHuella != original.HuellaSHA256 {
 		return cero, ports.ErrCadenaFirmaDocumentoRota
 	}
@@ -227,7 +232,7 @@ func registrarFirmaMultipleR5(ctx context.Context, base *ServicioFirmaDocumento,
 		}
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
-	m, err := materialFirmaMultipleR5(s, circuito, paso, secuencia, revision, historia, original, evidencia, dictamen, firma, anteriores, perfilOperador)
+	m, err := materialFirmaMultipleR5(s, circuito, paso, secuencia, versionCustodia, revision, historia, original, evidencia, dictamen, firma, anteriores, perfilOperador)
 	if err != nil {
 		return cero, err
 	}
@@ -351,7 +356,7 @@ func recuperarAntecedentesMultiple(ctx context.Context, fuente ports.FuentePDFFi
 	return anteriores, nil
 }
 
-func materialFirmaMultipleR5(s solicitudFirmaMultipleR5, c domain.CircuitoFirma, p domain.PasoCircuitoFirma, secuencia int, revision uint64, historia string, o ports.OriginalFirmaAutorizado, e ports.EvidenciaCompetenciaFirmante, v docports.VerificacionFirmasDocumento, f docports.FirmaPDFVerificada, anteriores []AntecedenteFirmaMultiple, perfilOperador string) (ports.MaterialFirmaVerificadaV2, error) {
+func materialFirmaMultipleR5(s solicitudFirmaMultipleR5, c domain.CircuitoFirma, p domain.PasoCircuitoFirma, secuencia int, versionCustodia, revision uint64, historia string, o ports.OriginalFirmaAutorizado, e ports.EvidenciaCompetenciaFirmante, v docports.VerificacionFirmasDocumento, f docports.FirmaPDFVerificada, anteriores []AntecedenteFirmaMultiple, perfilOperador string) (ports.MaterialFirmaVerificadaV2, error) {
 	q := docports.SolicitudVerificacionFirma{DocumentoID: s.OriginalRef, Version: s.OriginalVersion, FormatoEsperado: "PAdES", HuellaOriginalSHA256: o.HuellaSHA256, ContenidoOriginal: o.Contenido, ContenidoFirmado: s.PDFFirmado}
 	canon, err := CanonicoEvidenciaFirmasMultiple(q, v, s.Documento, s.PasoOrden, anteriores)
 	if err != nil {
@@ -367,7 +372,7 @@ func materialFirmaMultipleR5(s solicitudFirmaMultipleR5, c domain.CircuitoFirma,
 		AsignacionVigenteDesde: e.AsignacionVigenteDesde, AsignacionVigenteHasta: e.AsignacionVigenteHasta, ActoCompetenciaRef: e.ActoCompetenciaRef, DelegacionRef: e.DelegacionRef,
 		PoliticaVerificacion: PoliticaVerificacionFirmaMultipleV2, RevocacionEstado: f.RevocacionEstado, SelloTiempoEstado: f.SelloTiempoEstado,
 		ReferenciaPortafirmasDeclarada: s.ReferenciaPortafirmasDeclarada, FechaPortafirmasDeclarada: s.FechaPortafirmasDeclarada, ClaveIdempotencia: s.ClaveIdempotencia,
-		DocumentoCustodiaRef: ports.DocumentoCustodiaRef(s.OrganizacionRef, s.ExpedienteRef, s.ClaveIdempotencia), DocumentoCustodiaVersion: ports.VersionDocumentoCustodiado,
+		DocumentoCustodiaRef: ports.DocumentoCustodiaRef(s.OrganizacionRef, s.ExpedienteRef, s.ClaveIdempotencia), DocumentoCustodiaVersion: versionCustodia,
 	}, PerfilActivoOperadorRef: perfilOperador, CatalogoVersion: c.CatalogoVersion, RolIDFirmante: e.RolIDFirmante, CuentaFirmanteRef: e.CuentaFirmanteRef, VinculoCredencialFirmanteRef: e.VinculoCredencialFirmanteRef, VinculoCredencialFirmanteRevision: e.VinculoCredencialFirmanteRevision, VinculoCredencialFirmanteHuella: e.VinculoCredencialFirmanteHuella, EntradaDocumentoRef: s.OriginalRef, EntradaDocumentoVersion: s.OriginalVersion, EntradaDocumentoLongitud: uint64(len(o.Contenido)), EntradaDocumentoHuella: o.HuellaSHA256,
 		OrdenFirmaPDF: f.Orden, ByteRange: f.ByteRange, RevisionHuellaSHA256: f.RevisionHuellaSHA256, ContenidoFirmadoHuellaSHA256: f.ContenidoFirmadoHuellaSHA256, RevisionLongitud: f.RevisionLongitud, EvidenciaFirmasCanonica: json.RawMessage(canon), EvidenciaFirmasHuellaSHA256: huella(canon), ComprobadaEn: v.ComprobadoEn}
 	if len(anteriores) > 0 {

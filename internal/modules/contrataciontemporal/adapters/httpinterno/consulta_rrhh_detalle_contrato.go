@@ -33,6 +33,18 @@ type detalleRRHHJSON struct {
 
 type capacidadesFichaRRHHJSON struct {
 	BorradoresPublicados disponibilidadBorradoresRRHHJSON `json:"borradores_publicados"`
+	FirmaNominal         *coberturaFirmaNominalRRHHJSON   `json:"firma_nominal,omitempty"`
+}
+
+type coberturaFirmaNominalRRHHJSON struct {
+	Estado           string   `json:"estado"`
+	ExpedienteRef    string   `json:"expediente_ref"`
+	VersionObservada uint64   `json:"version_observada"`
+	UnidadRef        string   `json:"unidad_ref,omitempty"`
+	PlanRef          string   `json:"plan_ref,omitempty"`
+	PlanVersion      uint64   `json:"plan_version,omitempty"`
+	PlanSHA256       string   `json:"plan_sha256,omitempty"`
+	Documentos       []string `json:"documentos"`
 }
 
 type disponibilidadBorradoresRRHHJSON struct {
@@ -156,6 +168,21 @@ func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 			Estado: string(entrada.EstadoBorradoresPublicados), ExpedienteRef: entrada.Resumen.ExpedienteRef,
 			VersionObservada: entrada.Resumen.Version,
 		}}
+	}
+	if entrada.CoberturaFirmaNominal.Estado == ports.CoberturaFirmaNominalDisponible ||
+		entrada.CoberturaFirmaNominal.Estado == ports.CoberturaFirmaNominalNoDisponible {
+		if salida.CapacidadesFicha == nil {
+			salida.CapacidadesFicha = &capacidadesFichaRRHHJSON{}
+		}
+		cobertura := entrada.CoberturaFirmaNominal
+		documentos := append([]string{}, cobertura.Documentos...)
+		firma := &coberturaFirmaNominalRRHHJSON{Estado: string(cobertura.Estado),
+			ExpedienteRef: entrada.Resumen.ExpedienteRef, VersionObservada: entrada.Resumen.Version,
+			UnidadRef: cobertura.UnidadRef, Documentos: documentos}
+		if cobertura.Estado == ports.CoberturaFirmaNominalDisponible {
+			firma.PlanRef, firma.PlanVersion, firma.PlanSHA256 = cobertura.Plan.Referencia, cobertura.Plan.Version, cobertura.Plan.HuellaSHA256
+		}
+		salida.CapacidadesFicha.FirmaNominal = firma
 	}
 	if entrada.Analisis != nil {
 		salida.Analisis = proyectarAnalisisRRHH(*entrada.Analisis)

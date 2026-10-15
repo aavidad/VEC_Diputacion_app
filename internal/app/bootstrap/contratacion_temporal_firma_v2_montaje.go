@@ -18,6 +18,7 @@ import (
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
+	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
@@ -103,8 +104,34 @@ func prepararMontajeFirmaVecR5CT(ctx context.Context, cfg config.Config, c confi
 	if err != nil {
 		return nil, errMontajeFirmaVecR5
 	}
+	// La sesión nominal necesita la proyección empleada de Personal. Usa el
+	// mismo origen y LOGIN de ContextoActor; las consultas CT conservan su
+	// resolvedor de alcance vacío y sus recibos anteriores.
+	dsnContexto, err := cfg.ContratacionTemporalPostgreSQL.DSNContextoActorConsultasSeparado()
+	if err != nil {
+		return nil, errMontajeFirmaVecR5
+	}
+	poolContextoFirma, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctx, dsnContexto,
+		"vec-ct-firma-vec-contexto-empleado", rolContextoActorConsultasDesarrollo)
+	if err != nil {
+		return nil, errMontajeFirmaVecR5
+	}
+	contextoPreparado := false
+	defer func() {
+		if !contextoPreparado {
+			poolContextoFirma.Close()
+		}
+	}()
+	resolutorFirma, err := contextopg.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, poolContextoFirma)
+	if err != nil {
+		return nil, errMontajeFirmaVecR5
+	}
+	contextosFirma, err := nuevaAutoridadContextoEmpleadoFirmaVecR5(resolutorFirma, m.reloj)
+	if err != nil {
+		return nil, errMontajeFirmaVecR5
+	}
 	autoridad, err := nuevaAutoridadSesionFirmanteV2ConPuertos(resolvedor, consultas.identidad.registro,
-		consultas.identidad.revalidador, consultas.identidad.resolutor, m.reloj, retirada, huellaAltaContratacionTemporalDesarrollo("firma-vec-sesion-software-v1"),
+		consultas.identidad.revalidador, contextosFirma, m.reloj, retirada, huellaAltaContratacionTemporalDesarrollo("firma-vec-sesion-software-v1"),
 		c.PoliticaAutenticacionRef, c.PoliticaAutenticacionSHA256, c.CRLPath)
 	if err != nil {
 		return nil, err
@@ -240,6 +267,8 @@ func prepararMontajeFirmaVecR5CT(ctx context.Context, cfg config.Config, c confi
 		}
 		m.firmas.porPerfil[aprobada.PerfilRef] = emisor
 	}
+	m.cerrarAuditoria = poolContextoFirma.Close
+	contextoPreparado = true
 	return m, nil
 }
 
@@ -293,6 +322,7 @@ func fronterasFirmaVecR5CT(c configuracionFirmasCT) []descriptorFronteraComunDes
 		{httpinterno.RutaRegistroFirmaVec, "ct-firma-vec-registrar", ports.AccionRegistrarFirmaVec},
 		{httpinterno.RutaPreflightFirmaR5, "ct-firma-vec-preflight", ports.AccionConsultarFirmasR5V2},
 		{httpinterno.RutaConsultaFirmasR5V2, "ct-firma-vec-consultar", ports.AccionConsultarFirmasR5V2},
+		{httpinterno.RutaDescargaFirmaR5V2, "ct-firma-vec-descargar", ports.AccionConsultarFirmasR5V2},
 	} {
 		salida = append(salida, descriptorFronteraComunDesarrollo{Clave: ruta.clave, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: ruta.ruta,
 			PerfilesActivosRef: perfiles, ClavePolitica: "politica-ct-firma-v2-nominal", ClaveCapacidad: ruta.capacidad})
@@ -302,7 +332,7 @@ func fronterasFirmaVecR5CT(c configuracionFirmasCT) []descriptorFronteraComunDes
 
 func rutaFirmaVecR5CT(ruta string) bool {
 	return ruta == httpinterno.RutaRegistroFirmaVec || ruta == httpinterno.RutaPreflightFirmaR5 ||
-		ruta == httpinterno.RutaConsultaFirmasR5V2
+		ruta == httpinterno.RutaConsultaFirmasR5V2 || ruta == httpinterno.RutaDescargaFirmaR5V2
 }
 
 func (m *montajeFirmaVecR5CT) autorizaciones() ([]descriptorAutorizacionComunDesarrollo, error) {
@@ -351,6 +381,12 @@ func (m *montajeFirmaVecR5CT) rutas(f *firmaDocumentoCTDesarrollo, original *mon
 	if m == nil || f == nil || f.servicio == nil || f.circuito == nil || original == nil || original.servicioOriginal == nil || f.verificadorR5 == nil {
 		return nil, errMontajeFirmaVecR5
 	}
+	montado := false
+	defer func() {
+		if !montado {
+			m.cerrarAuditoria()
+		}
+	}()
 	durable, err := pgct.NuevoRegistroFirmasVerificadasPostgreSQL(m.alta.postgresql.ejecucion)
 	if err != nil {
 		return nil, err
@@ -409,11 +445,19 @@ func (m *montajeFirmaVecR5CT) rutas(f *firmaDocumentoCTDesarrollo, original *mon
 		cerrar()
 		return nil, err
 	}
-	m.cerrarAuditoria = cerrar
+	rutaDescarga, err := nuevaRutaDescargaFirmaR5V2CT(m, pdfAnterior, durable, intentos)
+	if err != nil {
+		cerrar()
+		return nil, err
+	}
+	cerrarContexto := m.cerrarAuditoria
+	m.cerrarAuditoria = func() { cerrar(); cerrarContexto() }
+	montado = true
 	return []vechttp.RutaExacta{
 		{Ruta: httpinterno.RutaPreflightFirmaR5, Manejador: m.nominal.envolver(hPre)},
 		{Ruta: httpinterno.RutaRegistroFirmaVec, Manejador: hVec},
 		{Ruta: httpinterno.RutaConsultaFirmasR5V2, Manejador: m.nominal.envolver(hConsulta)},
+		rutaDescarga,
 	}, nil
 }
 

@@ -180,6 +180,12 @@ func (m MaterialFirmaExterna) Validar() error {
 }
 
 func (m MaterialFirmaExterna) validarComun() error {
+	return m.validarComunConVersionCustodia(VersionDocumentoCustodiado)
+}
+
+// V1 conserva su versión fija. V2 aporta la versión histórica esperada sin
+// alterar el material que entra en el canon y en la autorización.
+func (m MaterialFirmaExterna) validarComunConVersionCustodia(version uint64) error {
 	desde, okDesde := FechaFirmaExternaCanonica(m.AsignacionVigenteDesde)
 	hasta, okHasta := FechaFirmaExternaCanonica(m.AsignacionVigenteHasta)
 	if !domain.ReferenciaOpacaValida(m.OrganizacionRef) || !domain.ReferenciaOpacaValida(m.ExpedienteRef) ||
@@ -213,7 +219,7 @@ func (m MaterialFirmaExterna) validarComun() error {
 		m.PoliticaVerificacion != PoliticaVerificacionFirma || m.RevocacionEstado != "vigente" ||
 		(m.SelloTiempoEstado != "no_presente" && m.SelloTiempoEstado != "valido" && m.SelloTiempoEstado != "no_comprobado") ||
 		!ClaveIdempotenciaFirmaValida(m.ClaveIdempotencia) ||
-		!domain.ReferenciaOpacaValida(m.DocumentoCustodiaRef) || m.DocumentoCustodiaVersion != VersionDocumentoCustodiado {
+		!domain.ReferenciaOpacaValida(m.DocumentoCustodiaRef) || m.DocumentoCustodiaVersion != version {
 		return ErrSolicitudFirmaDocumentoInvalida
 	}
 	return nil

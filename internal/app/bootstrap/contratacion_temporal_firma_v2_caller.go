@@ -14,7 +14,7 @@ import (
 )
 
 // El hook de la raíz invoca este montaje después de Documentos y antes de
-// publicar la tabla de rutas. Un fallo impide publicar las cuatro entradas.
+// publicar la tabla de rutas. Un fallo impide publicar las cinco entradas.
 func montarOriginalYFirmaVecR5(alta *dependenciasAltaContratacionTemporalDesarrollo,
 	consultas dependenciasConsultasRRHHDesarrollo, render ports.RenderizadorBorradorRRHH,
 	documentos *autoridadDocumentosDesarrollo, seudonimos *seudonimizadorAlmacenDesarrollo,
@@ -53,7 +53,7 @@ func montarOriginalYFirmaVecR5(alta *dependenciasAltaContratacionTemporalDesarro
 		hOriginalLegacy.ServeHTTP(w, r)
 	})
 	rutasFirma, err := montaje.rutas(firma, original)
-	if err != nil || len(rutasFirma) != 3 {
+	if err != nil || len(rutasFirma) != 4 {
 		return nil, errMontajeFirmaVecR5
 	}
 	return append(rutasOriginal, rutasFirma...), nil
@@ -63,7 +63,8 @@ func (p pdpCTOriginalFirmableDesarrollo) solicitarOriginalNominalV3(ctx context.
 	recurso core.RecursoAutorizable) (solicitudCustodiaCTDesarrollo, error) {
 	var vacia solicitudCustodiaCTDesarrollo
 	if p.alta == nil || p.alta.autorizador == nil || p.nominal == nil ||
-		!(rutaFirmaVecR5CT(rutaNominalFirmaCT(ctx)) || rutaNominalFirmaCT(ctx) == httpinterno.RutaOriginalFirmableCT) {
+		!(rutaFirmaVecR5CT(rutaNominalFirmaCT(ctx)) || rutaNominalFirmaCT(ctx) == httpinterno.RutaOriginalFirmableCT ||
+			rutaNominalFirmaCT(ctx) == httpinterno.RutaDescargaFirmaR5V2) {
 		return vacia, errOriginalFirmableCTDenegado
 	}
 	operativo, err := p.nominal.contextoPerfil(ctx, "documentos")
