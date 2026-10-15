@@ -174,7 +174,13 @@ está instalada; verificar su hash antes de reanudar:
 | Preferencias entre bolsas | PostgreSQL integrado, lectura autorizada y efecto en la adjudicación |
 | Inscripción por varias categorías (B105) | **No instalar**: falta la modalidad conjunta configurable (apartado 7) |
 
-Candidata F1-04/05 de Codex-S: edición global de cambios de situación desde RRHH, reutilizando B32 y el servicio de situación. El arranque deja de publicar esta política; la selección normativa y los permisos deben existir antes de activar la pantalla. Falta acreditar montaje, instalación, autorización real, publicación, recuperación y reinicio en la copia. Guion: `deploy/principal/activacion_codexs_reglas_situacion_20261015.md`. Esta candidata no cierra la fase 1.
+La candidata de R conecta la consulta histórica de puestos de Personal con el
+proceso combinado, dependencia del ofrecimiento desde una bolsa constituida.
+Conserva la autoridad nominal existente y añade configuración opcional. En la
+copia local se han comprobado lectura con permiso y recibo, denegación de otra
+unidad y la misma página tras reiniciar aplicación y PostgreSQL. La selección
+completa sigue pendiente de la necesidad RPT de la petición y de separar su
+unidad gestora de la unidad del puesto; no se da por resuelto ese recorrido.
 
 ### 2.4 Lo que todavía no funciona de punta a punta
 

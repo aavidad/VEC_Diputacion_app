@@ -64,6 +64,8 @@ Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede e
 | Disponible desde una fecha | Ha cesado y no puede recibir ofertas hasta esa fecha. El plazo general del Reglamento de bolsas es de cinco meses, y de nueve si el contrato fue por acumulación de tareas. |
 | Excluido | Ha salido de la bolsa. Solo vuelve si RRHH valida una reincorporación justificada. |
 
+Desde la ficha de participación, «Cambiar situación» permite elegir el destino, indicar la fecha cuando corresponda y escribir el motivo. Los campos se muestran en filas y el motivo ocupa todo el ancho. «Revisar cambio de situación» muestra el resumen antes de confirmar.
+
 La mayoría de los cambios ocurren solos, según avanza el expediente: aceptar una oferta, incorporarse, cesar. Las renuncias justificadas quedan en revisión hasta que el técnico valida el justificante. RRHH decide en la pantalla de reglas qué cambios de situación se permiten.
 
 La candidata de «Bolsas → Reglas y baremación → Cambios de situación» permite revisar las reglas para todas las bolsas. Se elige la situación de partida, se marcan los cambios permitidos, se escribe el motivo y se revisa antes de confirmar. Los cambios obligatorios no se pueden retirar. La revisión muestra todos los cambios que quedarán permitidos. La confirmación devuelve una versión y su recibo, con fecha y hora. Si el resultado no se conoce, se comprueba la misma publicación; no se prepara otra. En la copia se ha publicado y recuperado el mismo recibo después de reiniciar. Su puesta en servicio sigue pendiente de la activación de la candidata.
@@ -167,6 +169,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Baremación | No existe todavía. | Que RRHH cierre cómo se acreditan los méritos. | VEC calcula los puntos con el baremo de cada convocatoria, que RRHH puede cambiar. RRHH revisa y publica las listas provisional y definitiva. |
 | Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. En la copia, RRHH revisa y publica las reglas de cambio, con motivo y recibo, y las recupera después de reiniciar. | Activar esa pantalla en la candidata y subir el fichero del justificante de renuncia. | El aspirante aporta sus justificantes desde su área personal y RRHH los valida en pantalla. |
 | A quién se ofrece un puesto | VEC sigue el orden de la bolsa y salta a quien no está disponible. | Ofrecer otro puesto a quien ya trabaja con nosotros y tener en cuenta los tipos de contrato que acepta cada persona. Necesitamos la regla de RRHH. | VEC elige a quién ofrecer según la situación, el tipo de contrato y las reglas que fije RRHH, y RRHH ve por qué se salta a cada persona. |
+| Comprobación del puesto ofrecido | Consulta del puesto en Personal comprobada en la copia local, con permiso, recibo y reinicio. | Completar el ofrecimiento desde la petición y comprobarlo en el recorrido. | VEC contrasta el puesto de la petición con su historia antes de ofrecerlo. |
 | Aviso de la oferta | Correo con plantilla desde un buzón de pruebas. Llamadas anotadas. | El correo de la Diputación, que depende de Informática. | Correo oficial y, cuando Informática dé un proveedor, también SMS. |
 | Ofertas de varias plazas | Desde una bolsa seleccionada, RRHH abre «Gestionar ofertas», configura el inicio del plazo y publica la oferta. Bolsa adjudica las plazas por orden y conserva el recibo al reintentar. | Conectar la selección del expediente, su vínculo y la guarda de cancelación. Después, retirar la oferta al cancelar y enviar el aviso por correo de la Diputación. | Una petición de varias personas se cubre con una sola oferta. |
 | Petición del centro | Se presenta y la ratifica otra persona del centro. | RRHH pidió que la petición vaya firmada por el técnico y por el Diputado o Diputada. | Petición firmada desde VEC. |
@@ -189,6 +192,11 @@ VEC se construye por partes. Primero bolsas y contratación temporal, con lo que
 **Hoy.** Está programado lo que necesita la contratación temporal: el alta de la persona contratada, su ocupación del puesto y el cese. La relación de puestos se puede consultar y RRHH puede añadir o desactivar categorías; las que están en uso no se borran. La petición del centro todavía guarda el puesto como texto en lugar de elegirlo de la relación de puestos.
 
 **Al final.** El registro completo de personal: antigüedad, trienios, grados, situaciones con sus efectos, correcciones con su justificante y versiones de la relación de puestos aprobadas y publicadas, sin borrar las anteriores. Los demás módulos tomarán de aquí los datos de cada empleado.
+
+La candidata permite consultar también la historia del puesto que necesita el
+ofrecimiento a la bolsa. En la copia local se han comprobado el permiso de RRHH,
+el recibo de lectura y su conservación tras reiniciar. Falta completar el
+ofrecimiento desde la petición del centro.
 
 ### 8.2 Firmas
 

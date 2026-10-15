@@ -671,6 +671,15 @@ sola consulta paginada por cursor (`cursor_cuadro_rrhh` en CT), índices por
 no se amplían. `/api/v4/documents` no es una ruta de VEC: es el cliente del
 gestor documental externo.
 
+La candidata de Organización histórica conecta también
+`GET /api/vec/personal/organizacion-historica` con el proceso combinado. Usa la
+misma aplicación y función propietaria de Personal que `vec-interno`, con
+sesión registrada, vínculo corporativo vigente, perfil y ámbito privados,
+decisión nominal, consumo transaccional, auditoría y recibo. La configuración
+opcional no concede permisos; ausente o incorrecta deja solo esta consulta en
+503. No añade tablas, funciones SQL ni acceso de CT a las tablas de Personal.
+Falta completar el ensayo de lectura y reinicio de esta candidata.
+
 ### 11.2 Reglas de frontera
 
 - Rutas exactas registradas en una autoridad (`internal/vec/adapters/httpapi/rutas_exactas.go`
