@@ -1,6 +1,6 @@
 # Reglas de situación de Bolsa
 
-Tarea: F1-04/05. Estado al 15/10/2026: en preparación. Este guion no acredita una candidata lista para instalar. El SQL sigue sin instalar y faltan el recorrido real, el reinicio y los arranques con y sin selección.
+Tarea: F1-04/05. Estado al 15/10/2026: en preparación. Este guion no acredita una candidata lista para instalar. La lista SQL final está instalada una vez en la copia propia con todas las ACL del volcado. Faltan la publicación desde la pantalla y su recuperación tras reinicio.
 
 ## Instalación y activación
 
@@ -26,8 +26,8 @@ Chrome del sistema a 1440 y 390 píxeles, castellano e inglés, teclado y texto 
 
 ## Evidencia pendiente
 
-Checkpoint inicial publicado con pruebas focales de los módulos propios y de la interfaz. El montaje, la activación normativa y de autorización, el ensayo SQL, las comprobaciones de arranque y Chrome siguen pendientes. La puerta completa se ejecuta en CI sobre la cabeza final.
+Checkpoint inicial publicado con pruebas focales de los módulos propios y de la interfaz. El montaje de RRHH arranca en la copia propia. Sin selección, la función responde 503 y la pantalla permite volver a cargar; el portal sigue disponible. La activación normativa y de autorización, la publicación desde Chrome y su recuperación siguen pendientes. La puerta completa se ejecuta en CI sobre la cabeza final.
 
 Los primeros ensayos quedan invalidados para acreditar compatibilidad con la principal: la restauración omitió los privilegios incluidos en el dump. El volcado oficial contiene las ACL de esquemas, funciones y tablas; los anexos de base y tipos no las sustituyen. Restaurar globals y dump con sus privilegios completos, comprobar los metadatos originales y solo entonces instalar la lista final en esa copia nueva.
 
-AD283 exige en preimagen y postimagen la ACL exclusiva del propietario del núcleo, coherente con el volcado oficial. El USAGE del esquema se declara solo para el propietario de Bolsa, junto al EXECUTE del consumidor. B122 retira EXECUTE del ejecutor y de PUBLIC del publicador antiguo; el volcado oficial ya revoca PUBLIC. Ambas guardas mantienen el cierre de la vía sin V3. Las fuentes exactas tienen revisión SQL y sensible favorables; el ensayo final con las ACL completas continúa pendiente.
+AD283 exige en preimagen y postimagen la ACL exclusiva del propietario del núcleo, coherente con el volcado oficial. El USAGE del esquema se declara solo para el propietario de Bolsa, junto al EXECUTE del consumidor. B122 retira EXECUTE del ejecutor y de PUBLIC del publicador antiguo; el volcado oficial ya revoca PUBLIC. Ambas guardas mantienen el cierre de la vía sin V3. Las fuentes exactas tienen revisión SQL y sensible favorables. El ensayo final con las ACL completas instaló una vez CAT14, AD283 y B122; las guardas de preimagen y permisos terminaron correctamente. Estos resultados no acreditan la publicación de una política desde la pantalla.

@@ -832,7 +832,7 @@ En «Bolsas → Reglas y baremación → Cambios de situación», RRHH consulta 
 
 La consulta exige un permiso propio y deja un apunte de acceso. Publicar requiere otra autorización vigente, validada en la misma transacción que la política y su historia. La selección técnica no concede permisos ni cambia las reglas al arrancar. Si falta la selección o es inválida, solo esta función queda indisponible. El permiso de cese conserva su finalidad.
 
-Tras una respuesta incierta, «Comprobar la misma publicación» conserva el cuerpo y la clave originales, también si otro reintento es denegado. El recibo recuperado corresponde al acto original; una consulta posterior muestra las reglas vigentes. El arranque, la publicación y el reinicio de esta candidata siguen pendientes de ensayo; no cambia el caso único del apartado 4.0.
+Tras una respuesta incierta, «Comprobar la misma publicación» conserva el cuerpo y la clave originales, también si otro reintento es denegado. El recibo recuperado corresponde al acto original; una consulta posterior muestra las reglas vigentes. El arranque sin selección está comprobado en la copia propia: el portal sigue disponible y solo esta función responde que no se puede cargar. La publicación y la recuperación tras reiniciar siguen pendientes de ensayo; no cambia el caso único del apartado 4.0.
 
 ### 4.4 Administración
 

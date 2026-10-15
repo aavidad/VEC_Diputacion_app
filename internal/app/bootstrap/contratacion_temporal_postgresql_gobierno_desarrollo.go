@@ -218,6 +218,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		s2[0].Audiencia,
 		s2[1].Audiencia,
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
+		puertosbolsa.AudienciaPublicarTransicionesSituacion,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
 		postgrescontratacion.AudienciaConsultaCircuitoRRHH,
