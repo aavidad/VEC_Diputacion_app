@@ -51,6 +51,8 @@ async function montar({ fetchDescarga, alDocumentoGeneral = () => { throw new Er
   assert.ok(catalogo);
   const aviso = { textContent: "" };
   const enlaces = [];
+  let confirmarDescarga;
+  const descargado = new Promise((resolver) => { confirmarDescarga = resolver; });
   let manejar;
   const zona = { innerHTML: "", querySelector: (selector) => selector === "#ct-firma-descarga-aviso" ? aviso : null };
   const raiz = { querySelector: (selector) => selector === "[data-ct-exp-firmados]" ? zona : null,
@@ -58,7 +60,7 @@ async function montar({ fetchDescarga, alDocumentoGeneral = () => { throw new Er
     addEventListener: (tipo, funcion) => { if (tipo === "click") manejar = funcion; },
     removeEventListener() {} };
   const entornoDescarga = { Blob, URL: { createObjectURL: () => "blob:nominal", revokeObjectURL() {} },
-    document: { body: { append(enlace) { enlaces.push(enlace); } },
+    document: { body: { append(enlace) { enlaces.push(enlace); confirmarDescarga(); } },
       createElement: () => ({ click() { this.pulsado = true; }, remove() {} }) } };
   const gestor = crearGestorCircuitoFirma({ raiz, obtenerEstado: () => estado, cargarTextos: async () => textos,
     resolverDisponibilidadFirma: () => ({ estado: "disponible", expediente_ref: expedienteRef, version_observada: 7,
@@ -84,7 +86,7 @@ async function montar({ fetchDescarga, alDocumentoGeneral = () => { throw new Er
     closest: (selector) => selector === "[data-ct-exp-firmados] [data-ct-descargar-firmado]" ? boton
       : selector === "[data-ct-exp-firmados]" ? zona : selector === ".ct-fase-firma-fila" ? fila : null };
   return { gestor, get estado() { return estado; }, cambiarEstado(nuevo) { estado = nuevo; gestor.montarSiProcede(nuevo); },
-    pulsar() { assert.equal(typeof manejar, "function"); manejar({ target: boton, preventDefault() {} }); }, enlaces, aviso };
+    pulsar() { assert.equal(typeof manejar, "function"); manejar({ target: boton, preventDefault() {} }); }, enlaces, aviso, descargado };
 }
 function respuestaValida() {
   return new Response(JSON.stringify({ data: { esquema: "vec.contratacion-temporal.descarga-firma-r5.v2",
@@ -93,12 +95,12 @@ function respuestaValida() {
     documento_version: 2, huella_sha256: sha } }), { status: 200, headers: { "Content-Type": "application/json" } });
 }
 
-test("R5 sustancial descarga el PDF por CT con la selección visible y sin Documentos high", async () => {
+test("R5 sustancial descarga el PDF por CT con la selección visible y sin Documentos high", { timeout: 5000 }, async () => {
   let peticion;
   const vista = await montar({ fetchDescarga: async (ruta, opciones) => {
     peticion = { ruta, opciones }; return respuestaValida();
   } });
-  vista.pulsar(); await esperarTurno(); await esperarTurno();
+  vista.pulsar(); await vista.descargado;
   assert.equal(peticion.ruta, RUTA_DESCARGA_FIRMA_V2);
   assert.deepEqual(JSON.parse(peticion.opciones.body), { expediente_ref: expedienteRef,
     version_observada: 7, documento: "resolucion", firma_ref: firmaRef });
