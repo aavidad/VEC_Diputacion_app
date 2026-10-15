@@ -103,6 +103,9 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
+	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
+	proveedorMaterialOrganizacionHistorica           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	sesionOrganizacionHistorica                      *proveedorSesionConsultaRRHHDesarrollo
 	plazosOfertasBolsa                               *calculadoraPlazoOfertaDesarrollo
 	// presentadorCobertura permite activar después los avisos de la vía de
 	// cobertura, cuando Bolsa y las reglas de ejemplo ya están compuestas.
@@ -1563,6 +1566,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialUsuariosCorreos:                          alta.postgresql.materialUsuariosCorreos,
 		materialUsuariosImagen:                           alta.postgresql.materialUsuariosImagen,
 		materialAspirantes:                               alta.postgresql.materialAspirantes,
+		materialOrganizacionHistorica:                    alta.postgresql.materialOrganizacionHistorica,
+		proveedorMaterialOrganizacionHistorica:           alta.postgresql.proveedorMaterialOrganizacionHistorica,
+		sesionOrganizacionHistorica:                      consultasRRHH.identidad,
 		presentadorCobertura:                             coberturaReal.presentador,
 		situacionBolsaCobertura:                          coberturaReal.situacionBolsa,
 		firmaDocumento:                                   firmaDocumento,

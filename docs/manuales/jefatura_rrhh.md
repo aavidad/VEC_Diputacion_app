@@ -163,6 +163,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Baremación | No existe todavía. | Que RRHH cierre cómo se acreditan los méritos. | VEC calcula los puntos con el baremo de cada convocatoria, que RRHH puede cambiar. RRHH revisa y publica las listas provisional y definitiva. |
 | Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. | Subir el fichero del justificante de renuncia. | El aspirante aporta sus justificantes desde su área personal y RRHH los valida en pantalla. |
 | A quién se ofrece un puesto | VEC sigue el orden de la bolsa y salta a quien no está disponible. | Ofrecer otro puesto a quien ya trabaja con nosotros y tener en cuenta los tipos de contrato que acepta cada persona. Necesitamos la regla de RRHH. | VEC elige a quién ofrecer según la situación, el tipo de contrato y las reglas que fije RRHH, y RRHH ve por qué se salta a cada persona. |
+| Comprobación del puesto ofrecido | Preparada en esta candidata la consulta del puesto en la historia de Personal. | Comprobarla con permisos y completar el ofrecimiento en la copia local. | VEC contrasta el puesto de la petición con su historia antes de ofrecerlo. |
 | Aviso de la oferta | Correo con plantilla desde un buzón de pruebas. Llamadas anotadas. | El correo de la Diputación, que depende de Informática. | Correo oficial y, cuando Informática dé un proveedor, también SMS. |
 | Ofertas de varias plazas | Bolsa ya sabe adjudicar varias plazas por orden. | Que el expediente las use: hoy llama de una en una. | Una petición de varias personas se cubre con una sola oferta. |
 | Petición del centro | Se presenta y la ratifica otra persona del centro. | RRHH pidió que la petición vaya firmada por el técnico y por el Diputado o Diputada. | Petición firmada desde VEC. |
@@ -185,6 +186,10 @@ VEC se construye por partes. Primero bolsas y contratación temporal, con lo que
 **Hoy.** Está programado lo que necesita la contratación temporal: el alta de la persona contratada, su ocupación del puesto y el cese. La relación de puestos se puede consultar y RRHH puede añadir o desactivar categorías; las que están en uso no se borran. La petición del centro todavía guarda el puesto como texto en lugar de elegirlo de la relación de puestos.
 
 **Al final.** El registro completo de personal: antigüedad, trienios, grados, situaciones con sus efectos, correcciones con su justificante y versiones de la relación de puestos aprobadas y publicadas, sin borrar las anteriores. Los demás módulos tomarán de aquí los datos de cada empleado.
+
+La candidata conecta también la consulta de la historia del puesto que necesita
+el ofrecimiento a la bolsa. Se comprueban los permisos de RRHH y se registra la
+lectura. Su comprobación completa en la copia local sigue pendiente.
 
 ### 8.2 Firmas
 

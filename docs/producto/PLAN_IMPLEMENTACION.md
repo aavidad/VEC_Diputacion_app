@@ -174,6 +174,12 @@ está instalada; verificar su hash antes de reanudar:
 | Preferencias entre bolsas | PostgreSQL integrado, lectura autorizada y efecto en la adjudicación |
 | Inscripción por varias categorías (B105) | **No instalar**: falta la modalidad conjunta configurable (apartado 7) |
 
+La candidata de R conecta la consulta histórica de puestos de Personal con el
+proceso combinado, dependencia del ofrecimiento desde una bolsa constituida.
+Conserva la autoridad nominal existente y añade configuración opcional. Falta
+completar lectura con permiso, denegaciones y arranque con y sin configuración,
+además del reinicio; no se da por resuelto el recorrido de selección.
+
 ### 2.4 Lo que todavía no funciona de punta a punta
 
 - **El recorrido completo** de la presentación (aspirante → centro →

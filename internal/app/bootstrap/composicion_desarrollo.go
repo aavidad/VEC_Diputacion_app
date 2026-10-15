@@ -538,6 +538,20 @@ func nuevoServidorDesarrollo(
 		}
 		registradorFrontera = frontera
 	}
+	ctxOH, cancelarOH := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
+	montajeOH, errOH := nuevoMontajeOrganizacionHistoricaCombinada(ctxOH, cfg, autoridadContratacion, registradorFrontera)
+	cancelarOH()
+	if errOH != nil && cfg.OrganizacionHistoricaConsultaEnabled != "" && cfg.OrganizacionHistoricaConsultaEnabled != "false" {
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo("organizacion_historica_consulta", "capacidad_no_disponible")
+	}
+	if montajeOH != nil {
+		rutasContratacion = append(rutasContratacion, vechttp.RutaExacta{Ruta: vechttp.RutaOrganizacionHistoricaPersonal, Manejador: montajeOH.manejador})
+		defer func() {
+			if !completa {
+				montajeOH.cerrar()
+			}
+		}()
+	}
 	if err = validarCoberturaRutasCTDesarrollo(rutasContratacion, autoridadContratacion.fronterasSeguridadComun); err != nil {
 		return nil, nil, marcarFalloComponenteArranque("cobertura_rutas_ct", err)
 	}
@@ -558,6 +572,9 @@ func nuevoServidorDesarrollo(
 	if usuariosPreferencias != nil {
 		vecAPI = usuariosPreferencias.proteger(vecAPI)
 	}
+	if montajeOH != nil {
+		vecAPI = montajeOH.proteger(autoridadContratacion, vecAPI)
+	}
 	cfgPublica := cfg
 	cfgPublica.AuthMode = config.AuthModeDisabled
 	publicaBolsaAPI, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
@@ -573,7 +590,11 @@ func nuevoServidorDesarrollo(
 		raizCronos = componerRaizConCronosIndisponible(raizCronos)
 	}
 	raiz := componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(raizCronos, personalEmpleado), consultasPersonal), inscripcionRRHH)
-	servidor, err := server.NewHTTPServer(cfg, componerRaizConBolsaPersonalExterna(raiz, bolsaPersonal, inscripcionExterna))
+	raizFinal := componerRaizConBolsaPersonalExterna(raiz, bolsaPersonal, inscripcionExterna)
+	if montajeOH == nil {
+		raizFinal = protegerOrganizacionHistoricaNoDisponible(raizFinal)
+	}
+	servidor, err := server.NewHTTPServer(cfg, raizFinal)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)
 	}
@@ -602,6 +623,9 @@ func nuevoServidorDesarrollo(
 	}
 	if usuariosPreferencias != nil {
 		servidor.RegisterOnShutdown(usuariosPreferencias.cerrar)
+	}
+	if montajeOH != nil {
+		servidor.RegisterOnShutdown(montajeOH.cerrar)
 	}
 	detenerSellado, err := iniciarSelladoAuditoria(context.Background(), cfg)
 	if err != nil {

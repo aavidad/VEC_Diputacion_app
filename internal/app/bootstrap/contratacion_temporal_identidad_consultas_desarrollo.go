@@ -133,6 +133,10 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	if err != nil {
 		return nil, nil, fallo
 	}
+	proveedor.vinculoCorporativo, err = postgrescontexto.NuevoRevalidadorVinculoCorporativoRRHHPostgreSQLV1(ctx, poolContexto)
+	if err != nil {
+		return nil, nil, fallo
+	}
 	soporte.mu.Lock()
 	if soporte.sesionOperativa != nil {
 		soporte.mu.Unlock()

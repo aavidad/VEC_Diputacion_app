@@ -699,6 +699,14 @@ orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
 arranca). Exige que la solicitud conserve la necesidad de la RPT publicada.
 Lo que hay en cidonia todavía usa el puente anterior.
 
+**Candidata de consulta de puestos.** El ofrecimiento usa la RPT publicada y
+la historia autorizada del puesto de Personal. La consulta existente se conecta
+al proceso combinado con el mismo perfil, ámbito y registro de lecturas. Si
+falta su configuración o permiso, la selección conserva el expediente y queda
+sin completar. El montaje se ensaya en la copia local; todavía no acredita el
+ofrecimiento ni corrige por sí solo la separación entre unidad gestora y unidad
+del puesto.
+
 La oferta con varias plazas, la adjudicación por posición y el llamamiento
 directo existen en Bolsa (`internal/modules/bolsa/domain/oferta_publicada.go`,
 `politica_ofertas.go`, `/api/vec/bolsa/ofertas`), pero el expediente de CT no
