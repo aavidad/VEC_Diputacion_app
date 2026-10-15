@@ -172,6 +172,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
 | Cese y vuelta a la bolsa | El cese se registra. | Probar entera la vuelta automática a la bolsa. | Al cesar, la persona vuelve sola a su bolsa con la situación que marque la regla. |
+| Administración | El acceso y los cambios de perfiles usan claves con vigencia limitada. | Comprobar en la copia el ajuste que evita renovarlas cada día durante las pruebas. | Renovación controlada, con constancia de quién la autoriza y sin ampliar los permisos. |
 | Otros módulos | Aparcados hasta terminar bolsas y contratación. | Ver el apartado 8. | Personal, control horario, dietas, nóminas y los demás módulos de RRHH en la misma aplicación. |
 
 ## 8. Los demás módulos de VEC
@@ -207,6 +208,8 @@ VEC se construye por partes. Primero bolsas y contratación temporal, con lo que
 **Para qué sirve.** Decidir quién entra y qué puede hacer cada persona. Hay dos tipos de administrador: el de la aplicación, que reparte perfiles y lleva la configuración, y el de sistemas, que instala y hace copias. Ninguno de los dos ve expedientes ni bolsas.
 
 **Hoy.** Se entra con certificado de pruebas. Los perfiles están publicados y en la administración se ve la lista de personas y su ficha. Dar y quitar perfiles desde pantalla está a medias y los cambios delicados piden la aprobación de dos administradores.
+
+**Falta.** Comprobar el ajuste de vigencias en la copia: durante las pruebas se podrán preparar claves que duren más de un día. Cambiar su duración no da permisos nuevos ni prolonga una aprobación pendiente. En producción se conserva el límite de un día.
 
 **Al final.** Entrada con el usuario de la Diputación y certificado, reparto de perfiles desde pantalla con doble aprobación cuando toque, activar o desactivar módulos y ver el estado de las copias de seguridad.
 

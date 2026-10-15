@@ -30,7 +30,12 @@ cualquier repositorio. No admite campos desconocidos ni claves repetidas:
 ```
 
 - Preparar usa las tres rutas de material, `dsn_lectura`, `salida` y
-  `horas_validez_claves` (de 1 a 24).
+  `horas_validez_claves`. Si falta o vale cero, usa 24 horas.
+  `VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS` permite sustituirlo por un entero positivo.
+  En producción el máximo es 24 horas; solo el perfil de desarrollo con sus
+  tres llaves explícitas admite hasta 9600 horas (400 días). Un perfil
+  desconocido se rechaza. La publicación y sus claves deben caber dentro de
+  la vigencia de la raíz.
 - Aplicar usa `dsn_operador` y `salida`. El usuario de `dsn_operador` no puede
   ser el mismo que el de `dsn_lectura`.
 - Verificar usa `dsn_lectura` y `salida`.
@@ -65,13 +70,18 @@ escritura para cualquiera (por ejemplo, `/tmp` no vale). El único parámetro de
 sesión admitido es `application_name`. La carpeta de
 salida debe existir, vacía, con permisos 0700. Ningún fichero se sobrescribe.
 
+La activación de los plazos largos exige AD282 y se describe en
+`deploy/principal/vigencia_gobierno_admin_20261015.md`. El límite del plan
+para aplicar sigue siendo de dos horas como máximo; no es la vigencia
+de las claves publicadas.
+
 ## Procedimiento
 
 1. Preparar. Lee la configuración vigente, deriva las dos claves y escribe en
    la carpeta de salida `material.json`, `configuracion-material.json`,
    `plan.json` y `aprobacion-candidata.json`. Las claves dependen de la
    secuencia de la nueva configuración, que crece en cada publicación, así que
-   cada renovación diaria obtiene un `clave_id` y un secreto nuevos (AD188
+   cada renovación obtiene un `clave_id` y un secreto nuevos (AD188
    rechaza los ya publicados). Repetir la preparación sin haber aplicado da las
    mismas claves.
 
