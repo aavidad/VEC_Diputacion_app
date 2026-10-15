@@ -29,8 +29,7 @@ func TestEvaluarCriteriosOfrecimiento(t *testing.T) {
 	finCorto := fecha(2025, 10, 14)
 	finIgual := ahora
 	politica := CriteriosOfrecimiento{
-		FuenteNormativa:       "Reglamento bolsa, art. 9.4",
-		ModalidadesAceptables: []string{"vacante", "sustitucion", "programa"},
+		FuenteNormativa: "Reglamento bolsa, art. 9.4",
 		Mejora: &ReglaMejoraOfrecimiento{
 			Habilitada:                     true,
 			ModalidadesDestino:             []string{"vacante"},
@@ -216,7 +215,7 @@ func TestEvaluarCriteriosOfrecimiento(t *testing.T) {
 		}(), MotivoOfrecimientoElegible, false},
 		{"situacion_excluida", politica, func() EvaluacionOfrecimiento { e := base; e.Situacion = SituacionExcluido; return e }(), MotivoOfrecimientoSituacionNoDisponible, false},
 		{"sin_preferencias_en_entrada", politica, base, MotivoOfrecimientoElegible, false},
-		{"modalidad_fuera_de_bases", politica, func() EvaluacionOfrecimiento { e := base; e.ModalidadOfrecida = "desconocida"; return e }(), MotivoOfrecimientoModalidadNoAdmitida, false},
+		{"sin_filtro_de_modalidad_individual", politica, func() EvaluacionOfrecimiento { e := base; e.ModalidadOfrecida = "otra_modalidad"; return e }(), MotivoOfrecimientoElegible, false},
 		{"oferta_sin_modalidad", politica, func() EvaluacionOfrecimiento { e := base; e.ModalidadOfrecida = ""; return e }(), MotivoOfrecimientoDatosOfertaIncompletos, true},
 	}
 	for _, tc := range casos {
@@ -254,12 +253,10 @@ func TestCriteriosOfrecimientoValidar(t *testing.T) {
 	}
 	casos := []CriteriosOfrecimiento{
 		{Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "acumulacion"}}}},
-		{FuenteNormativa: "art. 9.4", ModalidadesAceptables: []string{"vacante", "vacante"}},
 		{FuenteNormativa: "art. 9.4", Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}}},
 		{FuenteNormativa: "art. 9.4", Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa", MesesDuracionInicial: &LimiteMeses{}}}, MaximoVacanteMeses: 36, ReduccionPorModalidadesPrevias: []string{"programa"}}},
 		{FuenteNormativa: "art. 9.4", Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa", MesesDuracionInicial: &LimiteMeses{Meses: 1201}}}, MaximoVacanteMeses: 36, ReduccionPorModalidadesPrevias: []string{"programa"}}},
-		{FuenteNormativa: "art. 9.4", ModalidadesAceptables: []string{"VACANTE"}},
-		{FuenteNormativa: "art. 9.4", ModalidadesAceptables: []string{"vacante"}, Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"otra"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa"}}, MaximoVacanteMeses: 36, ReduccionPorModalidadesPrevias: []string{"programa"}}},
+		{FuenteNormativa: "art. 9.4", Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"VACANTE"}, CausasDestino: []string{"vacante"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa"}}, MaximoVacanteMeses: 36, ReduccionPorModalidadesPrevias: []string{"programa"}}},
 		{FuenteNormativa: "art. 9.4", Mejora: &ReglaMejoraOfrecimiento{ModalidadesDestino: []string{"vacante"}, CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa"}}, MaximoVacanteMeses: 36, ReduccionPorModalidadesPrevias: []string{"otra"}}},
 	}
 	for i, criterio := range casos {

@@ -1,0 +1,4 @@
+# R1a: instalar una vez sobre la preimagen declarada; ensayo en copia propia.
+deploy/postgresql/contratacion_temporal/migraciones/000221_modalidad_origen_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000118_criterios_contextuales_ofrecimiento.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000276_origen_oferta_contextual.up.sql

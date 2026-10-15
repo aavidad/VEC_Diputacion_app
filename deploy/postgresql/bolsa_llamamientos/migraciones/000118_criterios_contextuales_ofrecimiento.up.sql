@@ -12,13 +12,20 @@ DO $pre$ BEGIN
  OR current_user<>'vec_bolsa_llamamientos_propietario'
  OR to_regclass('vec_bolsa_llamamientos.politica_ofertas_version') IS NULL
  OR to_regclass('vec_bolsa_llamamientos.contrato_participacion') IS NULL
+ OR to_regclass('vec_bolsa_llamamientos.origen_llamamiento_ct_v1') IS NULL
  OR to_regclass('vec_bolsa_llamamientos.vinculo_candidato') IS NULL
  OR to_regprocedure('vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint)') IS NULL
  OR to_regprocedure('vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(jsonb)') IS NOT NULL
+ OR to_regprocedure('vec_bolsa_llamamientos.motivo_relacion_oferta_v1(text,text,boolean,text,text,timestamptz,jsonb)') IS NOT NULL
+ OR to_regprocedure('vec_bolsa_llamamientos.eventos_relacion_oferta_v1(text,timestamptz)') IS NOT NULL
+ OR to_regprocedure('vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(text,text,text,timestamptz)') IS NOT NULL
+ OR to_regprocedure('vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(text,text,text)') IS NOT NULL
+ OR to_regprocedure('vec_bolsa_llamamientos.consultar_exclusiones_ofrecimiento_rrhh_v1(text,text,bigint,int,bytea,bytea,jsonb)') IS NOT NULL
  OR encode(sha256(convert_to(pg_get_functiondef('vec_bolsa_llamamientos.publicar_politica_ofertas_v1(text,bigint,jsonb,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex')<>'6477623babb3a8afab2d70a3936455a317198a7742c798571d29c627a3137387'
  OR encode(sha256(convert_to(pg_get_functiondef('vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)'::regprocedure),'UTF8')),'hex')<>'470e557538452978dddfc35c431c8293408b6701efa09ee9a5b313cbe49dc37d'
  OR encode(sha256(convert_to(pg_get_functiondef('vec_bolsa_llamamientos.leer_origen_llamamiento_ct_v1(text)'::regprocedure),'UTF8')),'hex')<>'88f1a5947dc7ed9526065bed6b1d8c09165c89a066d556813643ab608563f555'
  OR encode(sha256(convert_to(pg_get_functiondef('vec_bolsa_llamamientos.reservar_llamamiento_ct_v1(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)'::regprocedure),'UTF8')),'hex')<>'26cfbe7c5d0f9691d6a597c0c3a914848b02a14e38e985725dc2994fbafebeab'
+ OR encode(sha256(convert_to(pg_get_functiondef('vec_bolsa_llamamientos.registrar_contrato_participacion_v1(jsonb,text,timestamptz,bigint)'::regprocedure),'UTF8')),'hex')<>'d65972b827be3a86c5959f8a683a965aa95cb5726adeb3511ea26242b457d0f7'
  THEN RAISE EXCEPTION 'B118: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -30,25 +37,19 @@ DECLARE m jsonb;q jsonb;l jsonb; n int;
 BEGIN
  IF jsonb_typeof(c) IS DISTINCT FROM 'object' OR octet_length(c::text)>16384
  OR EXISTS(SELECT 1 FROM jsonb_object_keys(c) k WHERE k NOT IN
-   ('fuente_normativa','modalidades_aceptables','mejora','modalidad_no_aceptada'))
+   ('fuente_normativa','mejora'))
  THEN RETURN false; END IF;
  IF c='{}'::jsonb THEN RETURN true; END IF;
  IF c->>'fuente_normativa' IS NULL
  OR octet_length(c->>'fuente_normativa') NOT BETWEEN 1 AND 2000
  OR c->>'fuente_normativa'<>btrim(c->>'fuente_normativa')
- OR coalesce(c->>'modalidad_no_aceptada','') NOT IN ('no_renuncia','renuncia')
- OR (c ? 'modalidades_aceptables' AND jsonb_typeof(c->'modalidades_aceptables') IS DISTINCT FROM 'array')
- OR jsonb_array_length(coalesce(c->'modalidades_aceptables','[]'::jsonb))>100
- OR EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(c->'modalidades_aceptables','[]'::jsonb)) x
-  WHERE jsonb_typeof(x) IS DISTINCT FROM 'string' OR x#>>'{}' !~ '^[a-z][a-z0-9._-]{1,79}$')
- OR (SELECT count(*) FROM jsonb_array_elements_text(coalesce(c->'modalidades_aceptables','[]'::jsonb)))
-  <> (SELECT count(DISTINCT x) FROM jsonb_array_elements_text(coalesce(c->'modalidades_aceptables','[]'::jsonb)) x)
  THEN RETURN false; END IF;
  IF NOT (c ? 'mejora') THEN RETURN true; END IF;
  m:=c->'mejora';
  IF jsonb_typeof(m) IS DISTINCT FROM 'object'
- OR (SELECT count(*) FROM jsonb_object_keys(m))<>3
- OR m ?& ARRAY['habilitada','modalidades_destino','condiciones_actuales'] IS NOT TRUE
+ OR (SELECT count(*) FROM jsonb_object_keys(m))<>6
+ OR m ?& ARRAY['habilitada','modalidades_destino','condiciones_actuales',
+   'maximo_vacante_meses','reduccion_por_modalidades_previas','causas_destino'] IS NOT TRUE
  OR jsonb_typeof(m->'habilitada') IS DISTINCT FROM 'boolean'
  OR jsonb_typeof(m->'modalidades_destino') IS DISTINCT FROM 'array'
  OR jsonb_array_length(m->'modalidades_destino') NOT BETWEEN 1 AND 100
@@ -56,12 +57,27 @@ BEGIN
   WHERE jsonb_typeof(x) IS DISTINCT FROM 'string' OR x#>>'{}' !~ '^[a-z][a-z0-9._-]{1,79}$')
  OR (SELECT count(*) FROM jsonb_array_elements_text(m->'modalidades_destino'))
   <> (SELECT count(DISTINCT x) FROM jsonb_array_elements_text(m->'modalidades_destino') x)
- OR (jsonb_array_length(coalesce(c->'modalidades_aceptables','[]'::jsonb))>0 AND EXISTS(
-   SELECT 1 FROM jsonb_array_elements_text(m->'modalidades_destino') x
-   WHERE NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text(c->'modalidades_aceptables') a WHERE a=x)))
+ OR jsonb_typeof(m->'causas_destino') IS DISTINCT FROM 'array'
+ OR jsonb_array_length(m->'causas_destino') NOT BETWEEN 1 AND 100
+ OR EXISTS(SELECT 1 FROM jsonb_array_elements(m->'causas_destino') x
+  WHERE jsonb_typeof(x) IS DISTINCT FROM 'string' OR x#>>'{}' !~ '^[a-z][a-z0-9._-]{1,79}$')
+ OR (SELECT count(*) FROM jsonb_array_elements_text(m->'causas_destino'))
+  <> (SELECT count(DISTINCT x) FROM jsonb_array_elements_text(m->'causas_destino') x)
+ OR jsonb_typeof(m->'maximo_vacante_meses') IS DISTINCT FROM 'number'
+ OR m->>'maximo_vacante_meses' !~ '^[1-9][0-9]{0,3}$'
+ OR (m->>'maximo_vacante_meses')::int>1200
+ OR jsonb_typeof(m->'reduccion_por_modalidades_previas') IS DISTINCT FROM 'array'
+ OR jsonb_array_length(m->'reduccion_por_modalidades_previas')>100
+ OR EXISTS(SELECT 1 FROM jsonb_array_elements(m->'reduccion_por_modalidades_previas') x
+  WHERE jsonb_typeof(x) IS DISTINCT FROM 'string' OR x#>>'{}' !~ '^[a-z][a-z0-9._-]{1,79}$')
+ OR (SELECT count(*) FROM jsonb_array_elements_text(m->'reduccion_por_modalidades_previas'))
+  <> (SELECT count(DISTINCT x) FROM jsonb_array_elements_text(m->'reduccion_por_modalidades_previas') x)
  OR jsonb_typeof(m->'condiciones_actuales') IS DISTINCT FROM 'array'
  OR jsonb_array_length(m->'condiciones_actuales') NOT BETWEEN 1 AND 100
  THEN RETURN false; END IF;
+ IF EXISTS(SELECT 1 FROM jsonb_array_elements_text(m->'reduccion_por_modalidades_previas') x(v)
+   WHERE NOT EXISTS(SELECT 1 FROM jsonb_array_elements(m->'condiciones_actuales') q(valor)
+     WHERE q.valor->>'modalidad'=x.v)) THEN RETURN false; END IF;
  FOR q IN SELECT value FROM jsonb_array_elements(m->'condiciones_actuales') LOOP
   IF jsonb_typeof(q) IS DISTINCT FROM 'object'
   OR q->>'modalidad' IS NULL OR q->>'modalidad' !~ '^[a-z][a-z0-9._-]{1,79}$'
@@ -87,12 +103,108 @@ EXCEPTION WHEN data_exception THEN RETURN false;
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(jsonb) FROM PUBLIC;
 
+-- B13 enlazaba únicamente llamamientos del puente de desarrollo. Los eventos
+-- de contratos nacidos del origen B110 tienen que conservar su participación.
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.registrar_contrato_participacion_v1(p_evento jsonb, p_huella_sha256 text, p_origen_creada_en timestamp with time zone, p_origen_posicion bigint)
+ RETURNS TABLE(reutilizado boolean, participacion_ref text, en_cuarentena boolean)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET "TimeZone" TO 'UTC'
+ SET lock_timeout TO '2s'
+AS $function$
+DECLARE v_previo record; v_llamamiento record; v_origen record; v_ref text; v_clave text := '^[a-z][a-z0-9._-]{1,79}$';
+ v_opaca text := '^[A-Za-z0-9][A-Za-z0-9:._/-]*$';
+BEGIN
+ IF current_user <> 'vec_bolsa_llamamientos_propietario' THEN
+  RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='registro de contrato no autorizado';
+ END IF;
+ IF p_evento IS NULL OR jsonb_typeof(p_evento) <> 'object' OR octet_length(p_evento::text) > 16384
+    OR EXISTS (SELECT 1 FROM jsonb_each(p_evento) e WHERE jsonb_typeof(e.value) = 'string' AND octet_length(e.value #>> '{}') > 512)
+    OR p_huella_sha256 IS DISTINCT FROM encode(sha256(convert_to(p_evento::text, 'UTF8')), 'hex')
+    OR p_origen_creada_en IS NULL OR NOT isfinite(p_origen_creada_en)
+    OR p_origen_posicion IS NULL OR p_origen_posicion < 0
+    OR (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(p_evento) k) IS DISTINCT FROM
+       ARRAY['categoria_ref','causa_clave','esquema','evento_ref','expediente_ref','fin_previsto','inicio',
+             'llamamiento_ref','modalidad_clave','ocurrido_en','organizacion_ref','origen_ref','tipo']
+    OR p_evento->>'esquema' IS DISTINCT FROM 'vec.contratacion-temporal.contrato-bolsa.v1'
+    OR jsonb_typeof(p_evento->'tipo') IS DISTINCT FROM 'string' OR p_evento->>'tipo' !~ '^[a-z][a-z0-9_]{1,39}$'
+    OR jsonb_typeof(p_evento->'origen_ref') IS DISTINCT FROM 'string' OR p_evento->>'origen_ref' !~ v_opaca
+    OR jsonb_typeof(p_evento->'organizacion_ref') IS DISTINCT FROM 'string' OR p_evento->>'organizacion_ref' !~ v_opaca
+    OR jsonb_typeof(p_evento->'expediente_ref') IS DISTINCT FROM 'string' OR p_evento->>'expediente_ref' !~ v_opaca
+    OR jsonb_typeof(p_evento->'llamamiento_ref') IS DISTINCT FROM 'string' OR p_evento->>'llamamiento_ref' !~ v_opaca
+    OR p_evento->>'evento_ref' IS DISTINCT FROM 'evento:ct:contrato-bolsa:' || encode(sha256(convert_to(
+         (p_evento->>'tipo') || chr(31) || (p_evento->>'origen_ref'), 'UTF8')), 'hex')
+    OR NOT (jsonb_typeof(p_evento->'modalidad_clave') = 'null' OR (jsonb_typeof(p_evento->'modalidad_clave') = 'string' AND p_evento->>'modalidad_clave' ~ v_clave))
+    OR NOT (jsonb_typeof(p_evento->'causa_clave') = 'null' OR (jsonb_typeof(p_evento->'causa_clave') = 'string' AND p_evento->>'causa_clave' ~ v_clave))
+    OR NOT (jsonb_typeof(p_evento->'categoria_ref') = 'null' OR (jsonb_typeof(p_evento->'categoria_ref') = 'string' AND p_evento->>'categoria_ref' ~ v_opaca))
+    OR NOT vec_bolsa_llamamientos.instante_contrato_valido(p_evento->'inicio', true)
+    OR NOT vec_bolsa_llamamientos.instante_contrato_valido(p_evento->'fin_previsto', true)
+    OR NOT vec_bolsa_llamamientos.instante_contrato_valido(p_evento->'ocurrido_en', false)
+    OR (p_evento->>'fin_previsto')::timestamptz < (p_evento->>'inicio')::timestamptz THEN
+  RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='evento de contrato inválido';
+ END IF;
+ v_ref := p_evento->>'evento_ref';
+ PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:contrato-participacion:' || v_ref, 0));
+ SELECT c.huella_sha256, c.participacion_ref, c.origen_posicion INTO v_previo
+   FROM vec_bolsa_llamamientos.contrato_participacion c WHERE c.evento_ref = v_ref;
+ IF FOUND THEN
+  IF v_previo.huella_sha256 <> p_huella_sha256 OR v_previo.origen_posicion <> p_origen_posicion THEN
+   INSERT INTO vec_bolsa_llamamientos.contrato_participacion_cuarentena(evento_ref, huella_sha256, evento, origen_ref,
+     origen_creada_en, origen_posicion, recibido_en)
+   VALUES (v_ref, p_huella_sha256, p_evento, p_evento->>'origen_ref', date_trunc('microseconds', p_origen_creada_en),
+     p_origen_posicion, date_trunc('microseconds', clock_timestamp()))
+   ON CONFLICT DO NOTHING;
+   RETURN QUERY SELECT false, NULL::text, true;
+   RETURN;
+  END IF;
+  RETURN QUERY SELECT true, v_previo.participacion_ref, false;
+  RETURN;
+ END IF;
+ SELECT o.bolsa_ref,o.participacion_ref,o.expediente_ref,
+                 o.organizacion_ref,o.categoria_ref
+   INTO v_origen
+   FROM vec_bolsa_llamamientos.origen_llamamiento_ct_v1 o
+  WHERE o.llamamiento_ref=p_evento->>'llamamiento_ref';
+ IF FOUND THEN
+  IF v_origen.expediente_ref IS DISTINCT FROM p_evento->>'expediente_ref'
+     OR v_origen.organizacion_ref IS DISTINCT FROM p_evento->>'organizacion_ref'
+     OR v_origen.categoria_ref IS DISTINCT FROM p_evento->>'categoria_ref' THEN
+   RAISE EXCEPTION 'B118: contrato CT y origen Bolsa divergentes' USING ERRCODE='23503';
+  END IF;
+  SELECT v_origen.bolsa_ref,v_origen.participacion_ref AS participacion
+    INTO v_llamamiento;
+ ELSE
+  SELECT l.bolsa_ref, convert_from(i.registro_canonico, 'UTF8')::jsonb #>> '{propuesta,participacion_seleccionada_ref}' AS participacion
+    INTO v_llamamiento
+    FROM vec_bolsa_llamamientos.llamamiento_integracion_desarrollo l
+    JOIN vec_bolsa_llamamientos.integracion_desarrollo i ON i.operacion_ref = l.operacion_ref
+   WHERE l.llamamiento_ref = p_evento->>'llamamiento_ref';
+  IF v_llamamiento.participacion IS NULL THEN
+   v_llamamiento.bolsa_ref := NULL;
+  END IF;
+ END IF;
+ INSERT INTO vec_bolsa_llamamientos.contrato_participacion(
+   evento_ref, huella_sha256, evento, origen_ref, origen_creada_en, origen_posicion, tipo, organizacion_ref, expediente_ref,
+   llamamiento_ref, participacion_ref, bolsa_ref, inicio, fin_previsto, modalidad_clave, categoria_ref,
+   causa_clave, ocurrido_en, recibido_en)
+ VALUES (v_ref, p_huella_sha256, p_evento, p_evento->>'origen_ref', date_trunc('microseconds', p_origen_creada_en), p_origen_posicion,
+   p_evento->>'tipo', p_evento->>'organizacion_ref', p_evento->>'expediente_ref', p_evento->>'llamamiento_ref',
+   v_llamamiento.participacion, v_llamamiento.bolsa_ref, (p_evento->>'inicio')::timestamptz,
+   (p_evento->>'fin_previsto')::timestamptz, p_evento->>'modalidad_clave', p_evento->>'categoria_ref',
+   p_evento->>'causa_clave', (p_evento->>'ocurrido_en')::timestamptz, date_trunc('microseconds', clock_timestamp()));
+ RETURN QUERY SELECT false, v_llamamiento.participacion, false;
+EXCEPTION WHEN unique_violation THEN
+ RAISE EXCEPTION USING ERRCODE='VBC01', MESSAGE='origen de contrato ya registrado con otro evento';
+END $function$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.registrar_contrato_participacion_v1(jsonb,text,timestamptz,bigint) FROM PUBLIC;
+
 -- Decide solo la excepción por relación. Las demás exclusiones de B6 se
 -- aplican después, en el orden contextual. B13 no acredita una baja causal:
--- una sustitución con esa exigencia queda cerrada por dato incompleto.
+-- una sustitución con esa exigencia queda pendiente de comprobación por RRHH.
 CREATE FUNCTION vec_bolsa_llamamientos.motivo_relacion_oferta_v1(
  p_participacion text,p_situacion text,p_trabajo_cesado boolean,
- p_modalidad text,p_corte timestamptz,p_criterios jsonb)
+ p_modalidad text,p_causa text,p_corte timestamptz,p_criterios jsonb)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET statement_timeout='10s' AS $f$
@@ -103,43 +215,65 @@ BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
  OR p_participacion IS NULL OR p_corte IS NULL OR NOT isfinite(p_corte)
  OR p_modalidad IS NULL OR p_modalidad !~ '^[a-z][a-z0-9._-]{1,79}$'
- THEN RETURN 'datos_oferta_incompletos'; END IF;
+ THEN RETURN 'pendiente_comprobacion_rrhh'; END IF;
  -- La ausencia de criterios conserva exactamente el orden general B6.
  IF p_criterios IS NULL OR p_criterios='{}'::jsonb THEN RETURN 'libre'; END IF;
  IF vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(p_criterios) IS NOT TRUE
- THEN RETURN 'criterios_invalidos'; END IF;
- IF jsonb_array_length(p_criterios->'modalidades_aceptables')>0 AND NOT EXISTS(
-   SELECT 1 FROM jsonb_array_elements_text(p_criterios->'modalidades_aceptables') a(v)
-    WHERE a.v=p_modalidad) THEN RETURN 'modalidad_no_admitida'; END IF;
+ THEN RETURN 'pendiente_comprobacion_rrhh'; END IF;
  SELECT count(DISTINCT vc.candidato_ref),min(vc.candidato_ref)
  INTO v_candidatos,v_candidato
  FROM vec_bolsa_llamamientos.vinculo_candidato vc
  WHERE vc.participacion_ref=p_participacion;
- IF v_candidatos<>1 THEN RETURN 'datos_relacion_incompletos'; END IF;
+ IF v_candidatos<>1 THEN RETURN 'pendiente_comprobacion_rrhh'; END IF;
+ IF EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion cp
+   LEFT JOIN vec_bolsa_llamamientos.origen_llamamiento_ct_v1 origen
+     ON origen.llamamiento_ref=cp.llamamiento_ref
+    AND origen.expediente_ref=cp.expediente_ref
+    AND origen.organizacion_ref=cp.organizacion_ref
+    AND origen.categoria_ref=cp.categoria_ref
+   JOIN vec_bolsa_llamamientos.vinculo_candidato vc
+     ON vc.participacion_ref=coalesce(cp.participacion_ref,origen.participacion_ref)
+    AND vc.candidato_ref=v_candidato
+   JOIN vec_bolsa_llamamientos.contrato_participacion_cuarentena q
+     ON q.evento_ref=cp.evento_ref AND q.recibido_en<=p_corte
+   WHERE cp.ocurrido_en<=p_corte AND cp.recibido_en<=p_corte)
+ THEN RETURN 'pendiente_comprobacion_rrhh'; END IF;
  -- Una incorporación sigue abierta hasta que conste su cese. Se revisan
  -- todas las participaciones vinculadas a la persona, no solo esta bolsa.
  FOR r IN SELECT DISTINCT cp.evento_ref,cp.modalidad_clave,cp.causa_clave,
                  cp.inicio,cp.fin_previsto
  FROM vec_bolsa_llamamientos.contrato_participacion cp
+ LEFT JOIN vec_bolsa_llamamientos.origen_llamamiento_ct_v1 origen
+   ON origen.llamamiento_ref=cp.llamamiento_ref
+  AND origen.expediente_ref=cp.expediente_ref
+  AND origen.organizacion_ref=cp.organizacion_ref
+  AND origen.categoria_ref=cp.categoria_ref
  JOIN vec_bolsa_llamamientos.vinculo_candidato vc
-   ON vc.participacion_ref=cp.participacion_ref AND vc.candidato_ref=v_candidato
- WHERE cp.tipo='incorporacion' AND cp.inicio<=p_corte
+   ON vc.participacion_ref=coalesce(cp.participacion_ref,origen.participacion_ref)
+  AND vc.candidato_ref=v_candidato
+ WHERE cp.tipo='incorporacion' AND (cp.inicio IS NULL OR cp.inicio<=p_corte)
+   AND cp.ocurrido_en<=p_corte AND cp.recibido_en<=p_corte
    AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion_cuarentena q
-     WHERE q.evento_ref=cp.evento_ref)
+     WHERE q.evento_ref=cp.evento_ref AND q.recibido_en<=p_corte)
    AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion fin
      WHERE fin.tipo='cese' AND fin.llamamiento_ref=cp.llamamiento_ref
-       AND fin.ocurrido_en<=p_corte AND NOT EXISTS(
+       AND fin.ocurrido_en<=p_corte AND fin.recibido_en<=p_corte AND NOT EXISTS(
         SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion_cuarentena q
-        WHERE q.evento_ref=fin.evento_ref))
+        WHERE q.evento_ref=fin.evento_ref AND q.recibido_en<=p_corte))
  LOOP
   v_activos:=v_activos+1;
-  IF v_activos>100 THEN RETURN 'datos_relacion_incompletos'; END IF;
+  IF v_activos>1 THEN RETURN 'pendiente_comprobacion_rrhh'; END IF;
   IF r.modalidad_clave IS NULL OR r.inicio IS NULL OR r.inicio>p_corte
-  THEN RETURN 'datos_relacion_incompletos'; END IF;
+  THEN RETURN 'pendiente_comprobacion_rrhh'; END IF;
   IF p_criterios#>>'{mejora,habilitada}' IS DISTINCT FROM 'true'
   OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text(
        coalesce(p_criterios#>'{mejora,modalidades_destino}','[]'::jsonb)) d(v)
        WHERE d.v=p_modalidad)
+  THEN RETURN 'trabajando'; END IF;
+  IF p_causa IS NULL OR p_causa !~ '^[a-z][a-z0-9._-]{1,79}$'
+  THEN RETURN 'pendiente_comprobacion_rrhh'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text(
+       p_criterios#>'{mejora,causas_destino}') d(v) WHERE d.v=p_causa)
   THEN RETURN 'trabajando'; END IF;
   v_encaja:=false;v_incompleto:=false;
   FOR c IN SELECT x.value FROM jsonb_array_elements(
@@ -171,23 +305,51 @@ BEGIN
    v_encaja:=true;EXIT;
   END LOOP;
   IF NOT v_encaja THEN
-   IF v_incompleto THEN RETURN 'datos_relacion_incompletos'; END IF;
+   IF v_incompleto THEN RETURN 'pendiente_comprobacion_rrhh'; END IF;
    RETURN 'trabajando';
-  END IF;
+ END IF;
  END LOOP;
  IF v_activos=0 THEN
   IF p_situacion='trabajando' AND p_trabajo_cesado IS NOT TRUE
-  THEN RETURN 'datos_relacion_incompletos'; END IF;
+  THEN RETURN 'pendiente_comprobacion_rrhh'; END IF;
   RETURN 'libre';
  END IF;
- RETURN 'mejora_empleo';
+ -- R1a diagnostica la excepción. El efecto requiere un acto posterior que
+ -- compruebe la reducción real del plazo máximo de la vacante.
+ RETURN 'pendiente_comprobacion_rrhh';
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.motivo_relacion_oferta_v1(
- text,text,boolean,text,timestamptz,jsonb) FROM PUBLIC;
+ text,text,boolean,text,text,timestamptz,jsonb) FROM PUBLIC;
+
+-- Referencias de los eventos recibidos antes del corte que sustentan la
+-- evaluación. La lectura conserva el conjunto exacto en el origen B110.
+CREATE FUNCTION vec_bolsa_llamamientos.eventos_relacion_oferta_v1(
+ p_participacion text,p_corte timestamptz) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
+ SELECT coalesce(jsonb_agg(x.evento_ref ORDER BY x.ocurrido_en,x.evento_ref),'[]'::jsonb)
+ FROM (SELECT DISTINCT cp.evento_ref,cp.ocurrido_en
+  FROM vec_bolsa_llamamientos.vinculo_candidato vc
+  JOIN vec_bolsa_llamamientos.contrato_participacion cp ON true
+  LEFT JOIN vec_bolsa_llamamientos.origen_llamamiento_ct_v1 origen
+    ON origen.llamamiento_ref=cp.llamamiento_ref
+   AND origen.expediente_ref=cp.expediente_ref
+   AND origen.organizacion_ref=cp.organizacion_ref
+   AND origen.categoria_ref=cp.categoria_ref
+  JOIN vec_bolsa_llamamientos.vinculo_candidato vc2
+    ON vc2.candidato_ref=vc.candidato_ref
+   AND vc2.participacion_ref=coalesce(cp.participacion_ref,origen.participacion_ref)
+   WHERE vc.participacion_ref=p_participacion AND cp.tipo IN ('incorporacion','cese')
+    AND cp.ocurrido_en<=p_corte
+    AND cp.recibido_en<=p_corte
+    AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion_cuarentena q
+      WHERE q.evento_ref=cp.evento_ref AND q.recibido_en<=p_corte)) x
+$f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.eventos_relacion_oferta_v1(text,timestamptz) FROM PUBLIC;
 
 -- B6 se conserva; esta variante usa su prelación para una oferta concreta.
-CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(p_bolsa_ref text, p_modalidad text, p_en timestamp with time zone)
- RETURNS TABLE(politica_ref text, version_politica bigint, criterio text, tipo_lista text, reposicion text, provisional boolean, rotulo text, actor text, vigente_desde timestamp with time zone, participacion_ref text, orden_acta bigint, orden_vigente bigint, situacion text, razon text)
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(p_bolsa_ref text, p_modalidad text, p_causa text, p_en timestamp with time zone)
+ RETURNS TABLE(politica_ref text, version_politica bigint, criterio text, tipo_lista text, reposicion text, provisional boolean, rotulo text, actor text, vigente_desde timestamp with time zone, participacion_ref text, orden_acta bigint, orden_vigente bigint, situacion text, razon text, eventos_relacion jsonb)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'pg_catalog', 'pg_temp'
@@ -215,13 +377,14 @@ AS $function$
          coalesce(rc.trabajo_cesado,false) AS trabajo_cesado,
          (pp.participacion_ref IS NOT NULL) AS respuesta_pendiente,
          em.motivo_relacion,
+         vec_bolsa_llamamientos.eventos_relacion_oferta_v1(e.participacion_ref,p_en) AS eventos_relacion,
          ((s.situacion='disponible' OR (s.situacion='disponible_desde' AND s.fecha_disponible<=p_en)
-           OR coalesce(rc.trabajo_cesado,false) OR (s.situacion='trabajando' AND em.motivo_relacion='mejora_empleo'))
-          AND em.motivo_relacion IN ('libre','mejora_empleo') AND NOT coalesce(rc.en_restriccion,false)
+           OR coalesce(rc.trabajo_cesado,false))
+          AND em.motivo_relacion='libre' AND NOT coalesce(rc.en_restriccion,false)
           AND NOT coalesce(rc.cese_pendiente,false)) AS turno_sin_respuesta,
          ((s.situacion='disponible' OR (s.situacion='disponible_desde' AND s.fecha_disponible<=p_en)
-           OR coalesce(rc.trabajo_cesado,false) OR (s.situacion='trabajando' AND em.motivo_relacion='mejora_empleo'))
-          AND em.motivo_relacion IN ('libre','mejora_empleo') AND NOT coalesce(rc.en_restriccion,false)
+           OR coalesce(rc.trabajo_cesado,false))
+          AND em.motivo_relacion='libre' AND NOT coalesce(rc.en_restriccion,false)
           AND NOT coalesce(rc.cese_pendiente,false) AND pp.participacion_ref IS NULL) AS ocupa_turno,
          r.aplicada_en AS repuesta_en,
          EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.penalizacion_orden_sancion pe
@@ -235,7 +398,7 @@ AS $function$
     LEFT JOIN ceses rc ON rc.participacion_ref=e.participacion_ref
     LEFT JOIN LATERAL (SELECT vec_bolsa_llamamientos.motivo_relacion_oferta_v1(
        e.participacion_ref,s.situacion,coalesce(rc.trabajo_cesado,false),
-       p_modalidad,p_en,co.criterios) AS motivo_relacion) em ON true
+       p_modalidad,p_causa,p_en,co.criterios) AS motivo_relacion) em ON true
     LEFT JOIN pendientes pp ON pp.participacion_ref=e.participacion_ref
     LEFT JOIN LATERAL (SELECT ro.aplicada_en FROM vec_bolsa_llamamientos.reposicion_orden_bolsa ro WHERE ro.bolsa_ref=c.bolsa_ref AND ro.participacion_ref=e.participacion_ref AND ro.aplicada_en<=p_en ORDER BY ro.aplicada_en DESC LIMIT 1) r ON true
    WHERE c.bolsa_ref=p_bolsa_ref
@@ -246,6 +409,9 @@ AS $function$
     CASE WHEN p.reposicion='fin_lista' AND b.repuesta_en IS NOT NULL THEN NULL ELSE b.orden_acta END,
     b.repuesta_en,b.orden_acta,b.participacion_ref)::bigint AS orden_vigente
    FROM base b CROSS JOIN politica p WHERE b.ocupa_turno
+     AND NOT EXISTS(SELECT 1 FROM base anterior
+       WHERE anterior.orden_acta<b.orden_acta
+         AND anterior.motivo_relacion='pendiente_comprobacion_rrhh')
  )
  SELECT p.politica_ref,p.version,p.criterio,p.tipo_lista,p.reposicion,p.provisional,p.rotulo,p.actor,p.vigente_desde,
         b.participacion_ref,b.orden_acta,e.orden_vigente,
@@ -258,11 +424,11 @@ AS $function$
              THEN 'cese_pendiente'
              WHEN b.cese_restringido AND b.situacion IN ('disponible','trabajando','disponible_desde') THEN 'restriccion_cese'
              WHEN b.respuesta_pendiente AND b.turno_sin_respuesta THEN 'respuesta_portal_pendiente'
-             WHEN b.motivo_relacion NOT IN ('libre','mejora_empleo') AND NOT b.ocupa_turno
+             WHEN b.motivo_relacion<>'libre' AND NOT b.ocupa_turno
                   AND (b.situacion IN ('disponible','trabajando')
                        OR (b.situacion='disponible_desde' AND b.fecha_disponible<=p_en))
              THEN b.motivo_relacion
-             WHEN b.motivo_relacion='mejora_empleo' AND b.ocupa_turno THEN 'mejora_empleo'
+             WHEN b.ocupa_turno AND e.orden_vigente IS NULL THEN 'pendiente_comprobacion_previa'
              WHEN b.trabajo_cesado AND b.ocupa_turno THEN 'retorno_tras_cese'
              WHEN NOT b.ocupa_turno AND b.situacion IN ('no_disponible','disponible_desde') THEN 'pausa'
              WHEN NOT b.ocupa_turno AND b.situacion='trabajando' THEN 'trabajando'
@@ -272,16 +438,17 @@ AS $function$
              WHEN e.orden_vigente IS DISTINCT FROM b.orden_acta
                   AND EXISTS (SELECT 1 FROM base o WHERE o.penalizada AND o.ocupa_turno AND o.orden_acta < b.orden_acta) THEN 'adelanta_por_sancion'
              WHEN e.orden_vigente IS DISTINCT FROM b.orden_acta THEN 'pausa'
-             ELSE 'orden_acta' END
+             ELSE 'orden_acta' END,
+        b.eventos_relacion
    FROM base b CROSS JOIN politica p LEFT JOIN elegibles e USING(participacion_ref)
   ORDER BY e.orden_vigente NULLS LAST,b.orden_acta,b.participacion_ref
- $function$
+ $function$;
 
 
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(text,text,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(text,text,text,timestamptz) FROM PUBLIC;
 
 -- Lectura con la misma acta y el orden contextual de esta modalidad.
-CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(p_categoria text, p_modalidad text)
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(p_categoria text, p_modalidad text, p_causa text)
  RETURNS TABLE(acta_ref text, categoria_ref text, bolsa_ref text, version_bolsa bigint, huella_bolsa_sha256 text, bolsa_canonica bytea, instantanea_ref text, version_instantanea bigint, huella_instantanea_sha256 text, instantanea_canonica bytea, politica_ref text, version_politica bigint, politica_canonica bytea, politica_provisional boolean, corte timestamp with time zone, bolsa_vigente_hasta timestamp with time zone, politica_vigente_hasta timestamp with time zone, entradas jsonb, criterios_ofrecimiento jsonb)
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
@@ -303,7 +470,8 @@ DECLARE
 BEGIN
  IF p_categoria IS NULL OR octet_length(p_categoria) NOT BETWEEN 3 AND 512
     OR p_categoria<>btrim(p_categoria)
-    OR p_modalidad IS NULL OR p_modalidad !~ '^[a-z][a-z0-9._-]{1,79}$' THEN
+    OR p_modalidad IS NULL OR p_modalidad !~ '^[a-z][a-z0-9._-]{1,79}$'
+    OR p_causa IS NULL OR (p_causa<>'' AND p_causa !~ '^[a-z][a-z0-9._-]{1,79}$') THEN
   RAISE EXCEPTION 'B110: categoría inválida' USING ERRCODE='22023'; END IF;
  SELECT count(*) INTO v_total
  FROM vec_bolsa_llamamientos.constitucion c
@@ -352,16 +520,18 @@ BEGIN
   THEN RAISE EXCEPTION 'B118: criterios publicados inválidos' USING ERRCODE='55000'; END IF;
   v_criterios:=jsonb_build_object('version_politica_ofertas',v_oferta.version,
    'huella_politica_ofertas_sha256',v_oferta.huella_sha256,
-   'modalidad_ofrecida',p_modalidad,'configuracion',v_oferta.criterios);
+   'modalidad_ofrecida',p_modalidad,'causa_ofrecida',p_causa,
+   'configuracion',v_oferta.criterios);
  END IF;
  WITH posiciones AS MATERIALIZED (
-   SELECT o.* FROM vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(v_const.bolsa_ref,p_modalidad,v_corte) o
+   SELECT o.* FROM vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(v_const.bolsa_ref,p_modalidad,p_causa,v_corte) o
  )
  SELECT count(*),count(p.participacion_ref),
         count(*) FILTER(WHERE p.orden_vigente IS NOT NULL AND v.candidato_ref IS NULL),
         jsonb_agg(jsonb_build_object('orden_acta',e.orden,'orden_vigente',p.orden_vigente,
           'participacion_ref',e.participacion_ref,'candidato_ref',v.candidato_ref,
-          'situacion',p.situacion,'razon',p.razon) ORDER BY e.orden)
+          'situacion',p.situacion,'razon',p.razon,
+          'eventos_relacion',coalesce(p.eventos_relacion,'[]'::jsonb)) ORDER BY e.orden)
  INTO v_total,v_orden,v_sin_vinculo,v_entradas
  FROM vec_bolsa_llamamientos.constitucion_entrada e
  LEFT JOIN posiciones p ON p.participacion_ref=e.participacion_ref AND p.orden_acta=e.orden
@@ -371,8 +541,8 @@ BEGIN
    AND e.version_instantanea=v_const.version_instantanea;
  IF v_total<>v_const.total_participaciones OR v_orden<>v_total OR v_sin_vinculo<>0
     OR v_entradas IS NULL
-    OR (SELECT count(*) FROM vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(v_const.bolsa_ref,p_modalidad,v_corte))<>v_total
-    OR EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(v_const.bolsa_ref,p_modalidad,v_corte) o
+    OR (SELECT count(*) FROM vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(v_const.bolsa_ref,p_modalidad,p_causa,v_corte))<>v_total
+    OR EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(v_const.bolsa_ref,p_modalidad,p_causa,v_corte) o
       WHERE o.politica_ref<>v_politica.politica_ref OR o.version_politica<>v_politica.version
         OR o.provisional IS DISTINCT FROM v_politica.provisional)
  THEN RAISE EXCEPTION 'B110: orden o vínculo incompleto' USING ERRCODE='P1101'; END IF;
@@ -381,11 +551,11 @@ BEGIN
    v_const.version_instantanea,v_const.huella_instantanea_sha256,v_const.instantanea_canonica,
    v_politica.politica_ref,v_politica.version,convert_to(to_jsonb(v_politica)::text,'UTF8'),
    v_politica.provisional,v_corte,v_const.bolsa_vigente_hasta,v_politica.vigente_hasta,v_entradas,v_criterios;
-END $function$
+END $function$;
 
 
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(text,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(text,text) TO vec_autorizacion_atestada_v3_propietario;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(text,text,text) TO vec_autorizacion_atestada_v3_propietario;
 
 -- La publicación V3 y su replay histórico se conservan; se valida la extensión.
 CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.publicar_politica_ofertas_v1(p_bolsa text, p_version_esperada bigint, p_politica jsonb, p_actor text, p_clave text, p_recibo text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
@@ -496,7 +666,7 @@ BEGIN
  INSERT INTO vec_bolsa_llamamientos.politica_ofertas_outbox(recibo_ref,bolsa_ref,version,huella_sha256,creada_en)
  VALUES(p_recibo,p_bolsa,v_version+1,v_huella,v_ahora);
  RETURN QUERY SELECT vec_bolsa_llamamientos.leer_politica_ofertas_v1(p_bolsa),false;
-END $function$
+END $function$;
 
 
 
@@ -577,12 +747,16 @@ BEGIN
     OR jsonb_typeof(v_lectura->'entradas')<>'array'
     OR v_lectura->'criterios_ofrecimiento' IS DISTINCT FROM v_criterios
     OR (v_criterios IS NOT NULL AND (jsonb_typeof(v_criterios) IS DISTINCT FROM 'object'
-       OR (SELECT count(*) FROM jsonb_object_keys(v_criterios))<>4
+       OR (SELECT count(*) FROM jsonb_object_keys(v_criterios))<>5
        OR v_criterios ?& ARRAY['version_politica_ofertas',
-          'huella_politica_ofertas_sha256','modalidad_ofrecida','configuracion'] IS NOT TRUE
+          'huella_politica_ofertas_sha256','modalidad_ofrecida',
+          'causa_ofrecida','configuracion'] IS NOT TRUE
        OR v_criterios->>'huella_politica_ofertas_sha256' !~ '^[0-9a-f]{64}$'
        OR jsonb_typeof(v_criterios->'version_politica_ofertas') IS DISTINCT FROM 'number'
        OR v_criterios->>'version_politica_ofertas' !~ '^[1-9][0-9]{0,17}$'
+       OR jsonb_typeof(v_criterios->'causa_ofrecida') IS DISTINCT FROM 'string'
+       OR (v_criterios->>'causa_ofrecida'<>''
+         AND v_criterios->>'causa_ofrecida' !~ '^[a-z][a-z0-9._-]{1,79}$')
        OR vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(
           v_criterios->'configuracion') IS NOT TRUE))
     OR (v_lectura->>'corte')::timestamptz>p_emitido
@@ -624,6 +798,8 @@ BEGIN
   p_origen->>'organizacion_ref',(p_origen->>'version_expediente')::bigint);
  IF v_ct.modalidad_clave IS DISTINCT FROM p_configuracion->>'modalidad'
  THEN RAISE EXCEPTION 'B118: modalidad del expediente divergente' USING ERRCODE='23503'; END IF;
+ IF v_criterios IS NOT NULL AND v_criterios->>'causa_ofrecida' IS DISTINCT FROM v_ct.causa_clave
+ THEN RAISE EXCEPTION 'B118: causa del expediente divergente' USING ERRCODE='23503'; END IF;
  PERFORM pg_advisory_xact_lock_shared(hashtextextended(
   'vec_bolsa_llamamientos:politica-ofertas:'||p_bolsa,0));
  SELECT po.version,po.huella_sha256,po.politica->'criterios_ofrecimiento' AS criterios
@@ -636,6 +812,7 @@ BEGIN
    OR v_criterios->>'huella_politica_ofertas_sha256' IS DISTINCT FROM v_politica_oferta.huella_sha256
    OR v_criterios->'configuracion' IS DISTINCT FROM v_politica_oferta.criterios
    OR v_criterios->>'modalidad_ofrecida' IS DISTINCT FROM v_ct.modalidad_clave
+   OR v_criterios->>'causa_ofrecida' IS DISTINCT FROM v_ct.causa_clave
   THEN RAISE EXCEPTION 'B118: criterio de oferta divergente' USING ERRCODE='23503'; END IF;
  ELSIF v_criterios IS NOT NULL THEN
   RAISE EXCEPTION 'B118: criterio de oferta ausente' USING ERRCODE='23503';
@@ -651,7 +828,7 @@ BEGIN
  JOIN vec_bolsa_llamamientos.vinculo_candidato vc ON vc.participacion_ref=e.participacion_ref
    AND vc.acta_ref=c.acta_ref AND vc.instantanea_ref=c.instantanea_ref
    AND vc.version_instantanea=c.version_instantanea
- JOIN vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(p_bolsa,v_ct.modalidad_clave,p_emitido) o
+ JOIN vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(p_bolsa,v_ct.modalidad_clave,v_ct.causa_clave,p_emitido) o
    ON o.participacion_ref=e.participacion_ref AND o.orden_acta=e.orden
  JOIN vec_bolsa_llamamientos.politica_orden_bolsa pol
    ON pol.politica_ref=o.politica_ref AND pol.version=o.version_politica
@@ -684,7 +861,7 @@ BEGIN
   AND e.version_instantanea=(p_origen->>'version_instantanea')::bigint
   AND e.orden=x.n AND e.participacion_ref=x.valor->>'participacion_ref'
  JOIN vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(
-   p_bolsa,v_ct.modalidad_clave,(v_lectura->>'corte')::timestamptz) o
+   p_bolsa,v_ct.modalidad_clave,v_ct.causa_clave,(v_lectura->>'corte')::timestamptz) o
    ON o.participacion_ref=e.participacion_ref AND o.orden_acta=e.orden
  LEFT JOIN vec_bolsa_llamamientos.vinculo_candidato vc
    ON vc.participacion_ref=e.participacion_ref AND vc.acta_ref=p_origen->>'acta_ref'
@@ -692,6 +869,7 @@ BEGIN
    AND x.valor->>'orden_vigente' IS NOT DISTINCT FROM o.orden_vigente::text
    AND x.valor->>'situacion' IS NOT DISTINCT FROM o.situacion
    AND x.valor->>'razon' IS NOT DISTINCT FROM o.razon
+   AND x.valor->'eventos_relacion' IS NOT DISTINCT FROM o.eventos_relacion
    AND x.valor->>'candidato_ref' IS NOT DISTINCT FROM coalesce(vc.candidato_ref,'')
    AND x.valor->>'elegible'=(o.orden_vigente IS NOT NULL)::text
    AND o.politica_ref=p_origen->>'politica_ref'
@@ -741,7 +919,7 @@ BEGIN
   'bolsa_ref',p_bolsa,'estado','emision_reservada_resultado_pendiente',
   'participaciones',p_participaciones,'configuracion',p_configuracion,
   'emitido_en',p_emitido,'contactos','[]'::jsonb,'origen_ct',v_confirmacion),false;
-END $function$
+END $function$;
 
 
 -- Lectura RRHH de exclusiones del origen ya reservado, por posición de acta.
@@ -754,6 +932,7 @@ SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
 DECLARE v_lectura jsonb;v_entradas jsonb;v_exclusiones jsonb:='[]'::jsonb;
         v_total bigint;v_n int:=0;v_hay_mas boolean:=false;v_siguiente bigint;
+        v_hechos jsonb;v_hechos_n int;
         x record;a record;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
@@ -790,17 +969,52 @@ BEGIN
  FOR x IN SELECT (j.valor->>'orden_acta')::bigint AS orden_acta,
                  j.valor->>'participacion_ref' AS participacion_ref,
                  j.valor->>'situacion' AS situacion,
-                 j.valor->>'razon' AS razon
+                 j.valor->>'razon' AS razon,
+                 coalesce(j.valor->'eventos_relacion','[]'::jsonb) AS eventos_relacion
    FROM jsonb_array_elements(v_entradas) j(valor)
   WHERE j.valor->>'elegible'='false'
     AND (j.valor->>'orden_acta')::bigint>p_cursor_orden
   ORDER BY (j.valor->>'orden_acta')::bigint LIMIT p_limite+1
  LOOP
   IF v_n=p_limite THEN v_hay_mas:=true;EXIT; END IF;
+  IF jsonb_typeof(x.eventos_relacion) IS DISTINCT FROM 'array'
+     OR jsonb_array_length(x.eventos_relacion)>100
+     OR EXISTS(SELECT 1 FROM jsonb_array_elements(x.eventos_relacion) e(valor)
+       WHERE jsonb_typeof(e.valor) IS DISTINCT FROM 'string'
+          OR e.valor#>>'{}' !~ '^evento:ct:contrato-bolsa:[0-9a-f]{64}$')
+     OR (SELECT count(*) FROM jsonb_array_elements_text(x.eventos_relacion))
+        <> (SELECT count(DISTINCT e.ref) FROM jsonb_array_elements_text(x.eventos_relacion) e(ref))
+  THEN RAISE EXCEPTION 'B118: hechos históricos no disponibles' USING ERRCODE='42501'; END IF;
+  SELECT count(*),coalesce(jsonb_agg(jsonb_build_object(
+    'evento_ref',cp.evento_ref,'tipo',cp.tipo,
+    'ocurrido_en',to_char(cp.ocurrido_en AT TIME ZONE 'UTC',
+      'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')) ORDER BY e.n),'[]'::jsonb)
+  INTO v_hechos_n,v_hechos
+  FROM jsonb_array_elements_text(x.eventos_relacion) WITH ORDINALITY e(ref,n)
+  JOIN vec_bolsa_llamamientos.contrato_participacion cp ON cp.evento_ref=e.ref
+  LEFT JOIN vec_bolsa_llamamientos.origen_llamamiento_ct_v1 origen
+    ON origen.llamamiento_ref=cp.llamamiento_ref
+   AND origen.expediente_ref=cp.expediente_ref
+   AND origen.organizacion_ref=cp.organizacion_ref
+   AND origen.categoria_ref=cp.categoria_ref
+  WHERE cp.tipo IN ('incorporacion','cese')
+    AND cp.ocurrido_en<=(v_lectura->>'corte')::timestamptz
+    AND cp.recibido_en<=(v_lectura->>'corte')::timestamptz
+    AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion_cuarentena q
+      WHERE q.evento_ref=cp.evento_ref
+        AND q.recibido_en<=(v_lectura->>'corte')::timestamptz)
+    AND EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.vinculo_candidato vc
+      JOIN vec_bolsa_llamamientos.vinculo_candidato vc2
+        ON vc2.candidato_ref=vc.candidato_ref
+      WHERE vc.participacion_ref=x.participacion_ref
+        AND vc2.participacion_ref=coalesce(cp.participacion_ref,origen.participacion_ref));
+  IF v_hechos_n<>jsonb_array_length(x.eventos_relacion) THEN
+   RAISE EXCEPTION 'B118: hechos históricos divergentes' USING ERRCODE='42501'; END IF;
   v_n:=v_n+1;v_siguiente:=x.orden_acta;
   v_exclusiones:=v_exclusiones||jsonb_build_array(jsonb_build_object(
    'participacion_ref',x.participacion_ref,'orden_acta',x.orden_acta,
-   'situacion_en_origen',x.situacion,'motivo_clave',x.razon));
+   'situacion_en_origen',x.situacion,'motivo_clave',x.razon,
+   'eventos_relacion',x.eventos_relacion,'hechos_relacion',v_hechos));
  END LOOP;
  SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.registrar_lectura_exclusiones_llamamiento_v1(
   p_contexto_canonico,p_vinculo_canonico,p_orden);
@@ -811,6 +1025,7 @@ BEGIN
  THEN RAISE EXCEPTION 'B118: acuse de lectura incompatible' USING ERRCODE='42501'; END IF;
  RETURN jsonb_build_object('esquema','vec.bolsa.rrhh.exclusiones-ofrecimiento.v1',
   'bolsa_ref',p_bolsa_ref,'llamamiento_ref',p_llamamiento_ref,
+  'criterios_ofrecimiento',v_lectura->'criterios_ofrecimiento',
   'exclusiones',v_exclusiones,'total_exclusiones',v_total,'hay_mas',v_hay_mas,
   'siguiente_orden_acta',CASE WHEN v_hay_mas THEN v_siguiente ELSE NULL END,
   'auditoria_ref',a.auditoria_ref,'correlacion_ref',a.correlacion_ref,
@@ -820,4 +1035,22 @@ REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_exclusiones_ofrecimiento
  text,text,bigint,int,bytea,bytea,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_exclusiones_ofrecimiento_rrhh_v1(
  text,text,bigint,int,bytea,bytea,jsonb) TO vec_bolsa_llamamientos_ejecutor;
+DO $post$ DECLARE firmas regprocedure[]:=ARRAY[
+ 'vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(jsonb)'::regprocedure,
+ 'vec_bolsa_llamamientos.motivo_relacion_oferta_v1(text,text,boolean,text,text,timestamptz,jsonb)'::regprocedure,
+ 'vec_bolsa_llamamientos.eventos_relacion_oferta_v1(text,timestamptz)'::regprocedure,
+ 'vec_bolsa_llamamientos.leer_orden_contextual_oferta_v1(text,text,text,timestamptz)'::regprocedure,
+ 'vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(text,text,text)'::regprocedure,
+ 'vec_bolsa_llamamientos.consultar_exclusiones_ofrecimiento_rrhh_v1(text,text,bigint,int,bytea,bytea,jsonb)'::regprocedure];
+BEGIN
+ IF (SELECT count(*)=6 AND bool_and(p.prosecdef
+       AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole
+       AND p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[])
+     FROM pg_proc p WHERE p.oid=ANY(firmas)) IS NOT TRUE
+ OR EXISTS(SELECT 1 FROM pg_proc p,
+      aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+      WHERE p.oid=ANY(firmas) AND acl.grantee=0 AND acl.privilege_type='EXECUTE')
+ THEN RAISE EXCEPTION 'B118: funciones nuevas sin cierre de permisos'
+  USING ERRCODE='55000'; END IF;
+END $post$;
 COMMIT;

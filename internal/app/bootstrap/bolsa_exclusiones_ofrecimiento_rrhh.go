@@ -20,7 +20,8 @@ const (
 )
 
 var camposLecturaExclusionesOfrecimientoRRHH = []string{
-	"bolsa_ref", "exclusiones[].motivo_clave", "exclusiones[].orden_acta",
+	"bolsa_ref", "criterios_ofrecimiento", "exclusiones[].eventos_relacion",
+	"exclusiones[].hechos_relacion", "exclusiones[].motivo_clave", "exclusiones[].orden_acta",
 	"exclusiones[].participacion_ref", "exclusiones[].situacion_en_origen",
 	"hay_mas", "llamamiento_ref", "siguiente_orden_acta", "total_exclusiones",
 }
@@ -32,7 +33,7 @@ func CamposLecturaExclusionesOfrecimientoRRHH() []string {
 func contratoExclusionesOfrecimientoRRHH() contratoLecturaBolsa {
 	return contratoLecturaBolsa{accion: accionLecturaExclusionesOfrecimientoRRHH,
 		finalidad: finalidadLecturaExclusionesOfrecimientoRRHH, tipo: "llamamiento_bolsa",
-		motivo: "lectura_motivos_exclusion_llamamiento_correcta", campos: CamposLecturaExclusionesOfrecimientoRRHH()}
+		motivo: "lectura_exclusiones_llamamiento_correcta", campos: CamposLecturaExclusionesOfrecimientoRRHH()}
 }
 
 // La captura nace de la sesión interna y de una concesión específica. Bolsa
@@ -67,7 +68,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaExclusionesOfr
 	}
 	return puertosbolsa.ConsultaExclusionesOfrecimientoRRHH{
 		BolsaRef: bolsaRef, LlamamientoRef: llamamientoRef, DesdeOrdenActa: desdeOrdenActa,
-		Limite: limiteLecturaExclusionesOfrecimientoRRHH,
+		Limite:  limiteLecturaExclusionesOfrecimientoRRHH,
 		Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, Captura: captura,
 	}, nil
 }

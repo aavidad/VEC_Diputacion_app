@@ -21,11 +21,12 @@ END $pre$;
 -- SECURITY DEFINER. No entrega el agregado ni otra información del expediente.
 CREATE FUNCTION vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(
  p_expediente text,p_categoria text,p_organizacion text,p_version bigint)
-RETURNS TABLE(modalidad_clave text,version_expediente bigint)
+RETURNS TABLE(modalidad_clave text,causa_clave text,version_expediente bigint)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='2s' SET statement_timeout='5s' AS $f$
-DECLARE v_organizacion text;v_categoria text;v_modalidad text;v_version bigint;
+DECLARE v_organizacion text;v_categoria text;v_modalidad text;v_causa text;
+        v_version bigint;
 BEGIN
  IF current_user <> 'vec_contratacion_temporal_propietario'
  OR p_expediente IS NULL OR p_expediente !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
@@ -37,8 +38,9 @@ BEGIN
  THEN RAISE EXCEPTION 'CT221: origen no disponible' USING ERRCODE='42501'; END IF;
  SELECT e.organizacion_ref,a.version::bigint,
         v.agregado_json#>>'{analisis,categoria_ref}',
-        v.agregado_json#>>'{analisis,modalidad_clave}'
- INTO v_organizacion,v_version,v_categoria,v_modalidad
+        v.agregado_json#>>'{analisis,modalidad_clave}',
+        coalesce(v.agregado_json#>>'{analisis,causa_clave}','')
+ INTO v_organizacion,v_version,v_categoria,v_modalidad,v_causa
  FROM vec_contratacion_temporal.expediente_alta e
  JOIN vec_contratacion_temporal.expediente_integral_actual a
    ON a.expediente_ref=e.expediente_ref
@@ -50,8 +52,9 @@ BEGIN
  OR (p_version IS NOT NULL AND v_version IS DISTINCT FROM p_version)
  OR v_categoria IS DISTINCT FROM p_categoria
  OR v_modalidad IS NULL OR v_modalidad !~ '^[a-z][a-z0-9._-]{1,79}$'
+ OR (v_causa<>'' AND v_causa !~ '^[a-z][a-z0-9._-]{1,79}$')
  THEN RAISE EXCEPTION 'CT221: origen no disponible' USING ERRCODE='42501'; END IF;
- RETURN QUERY SELECT v_modalidad,v_version;
+ RETURN QUERY SELECT v_modalidad,v_causa,v_version;
 END $f$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint)

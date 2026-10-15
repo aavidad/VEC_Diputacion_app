@@ -15,7 +15,6 @@ const (
 	MotivoOfrecimientoRestriccionActiva        = "restriccion_activa"
 	MotivoOfrecimientoCesePendiente            = "cese_pendiente"
 	MotivoOfrecimientoRespuestaPendiente       = "respuesta_pendiente"
-	MotivoOfrecimientoModalidadNoAdmitida      = "modalidad_no_admitida"
 	MotivoOfrecimientoTrabajando               = "trabajando"
 	MotivoOfrecimientoPendienteComprobacion    = "pendiente_comprobacion_rrhh"
 	MotivoOfrecimientoDatosRelacionIncompletos = MotivoOfrecimientoPendienteComprobacion
@@ -24,11 +23,9 @@ const (
 )
 
 // CriteriosOfrecimiento es el valor versionado de la política de ofertas.
-// ModalidadesAceptables procede de las bases, no de preferencias personales.
 type CriteriosOfrecimiento struct {
-	FuenteNormativa       string                   `json:"fuente_normativa,omitempty"`
-	ModalidadesAceptables []string                 `json:"modalidades_aceptables,omitempty"`
-	Mejora                *ReglaMejoraOfrecimiento `json:"mejora,omitempty"`
+	FuenteNormativa string                   `json:"fuente_normativa,omitempty"`
+	Mejora          *ReglaMejoraOfrecimiento `json:"mejora,omitempty"`
 }
 
 // Una relación activa debe satisfacer alguna condición para que pueda
@@ -97,11 +94,10 @@ type PeriodoReduccionVacante struct {
 
 // Validar acepta la política vacía anterior o una regla con fuente y límites.
 func (c CriteriosOfrecimiento) Validar() error {
-	if c.FuenteNormativa == "" && len(c.ModalidadesAceptables) == 0 && c.Mejora == nil {
+	if c.FuenteNormativa == "" && c.Mejora == nil {
 		return nil
 	}
-	if !fuenteNormativaOfrecimientoValida(c.FuenteNormativa) ||
-		len(c.ModalidadesAceptables) > 100 || !clavesOfrecimientoValidas(c.ModalidadesAceptables) {
+	if !fuenteNormativaOfrecimientoValida(c.FuenteNormativa) {
 		return ErrCriteriosOfrecimientoInvalidos
 	}
 	if c.Mejora == nil {
@@ -116,13 +112,6 @@ func (c CriteriosOfrecimiento) Validar() error {
 		len(c.Mejora.ReduccionPorModalidadesPrevias) == 0 ||
 		!clavesOfrecimientoValidas(c.Mejora.ReduccionPorModalidadesPrevias) {
 		return ErrCriteriosOfrecimientoInvalidos
-	}
-	if len(c.ModalidadesAceptables) > 0 {
-		for _, destino := range c.Mejora.ModalidadesDestino {
-			if !contieneClave(c.ModalidadesAceptables, destino) {
-				return ErrCriteriosOfrecimientoInvalidos
-			}
-		}
 	}
 	for _, condicion := range c.Mejora.CondicionesActuales {
 		if !claveOfrecimientoValida(condicion.Modalidad) ||
@@ -231,9 +220,6 @@ func EvaluarCriteriosOfrecimiento(c CriteriosOfrecimiento, e EvaluacionOfrecimie
 			return pendiente(MotivoOfrecimientoPendienteComprobacion)
 		}
 		return excluir(MotivoOfrecimientoSituacionNoDisponible)
-	}
-	if len(c.ModalidadesAceptables) > 0 && !contieneClave(c.ModalidadesAceptables, e.ModalidadOfrecida) {
-		return excluir(MotivoOfrecimientoModalidadNoAdmitida)
 	}
 	if e.Situacion == SituacionTrabajando {
 		// R1a solo acredita que la excepción puede ser revisada. La mejora

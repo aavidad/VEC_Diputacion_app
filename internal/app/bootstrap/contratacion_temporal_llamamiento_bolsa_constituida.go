@@ -271,8 +271,9 @@ func huellaDecisionOrigenConstituidoCT(o puertosbolsa.OrigenLlamamientoCT) (stri
 		Acta, Bolsa, Instantanea, Politica, HuellaOrden, HuellaPolitica string
 		PoliticaProvisional                                             bool
 		Entradas                                                        []puertosbolsa.EntradaOrigenLlamamientoCT
+		CriteriosOfrecimiento                                           *puertosbolsa.CriteriosOfrecimientoAplicados `json:"criterios_ofrecimiento,omitempty"`
 	}{o.ActaRef, o.BolsaRef, o.InstantaneaRef, o.PoliticaRef, o.HuellaInstantaneaSHA256,
-		o.HuellaPoliticaSHA256, o.PoliticaProvisional, o.Entradas})
+		o.HuellaPoliticaSHA256, o.PoliticaProvisional, o.Entradas, o.CriteriosOfrecimiento})
 	if err != nil {
 		return "", ports.ErrRespuestaBolsaNoConfiable
 	}
@@ -619,6 +620,10 @@ func clonarLecturaOrigenCT(o puertosbolsa.OrigenLlamamientoCT) puertosbolsa.Orig
 	copia.InstantaneaCanonica = bytes.Clone(o.InstantaneaCanonica)
 	copia.Entradas = append([]puertosbolsa.EntradaOrigenLlamamientoCT(nil), o.Entradas...)
 	for i := range copia.Entradas {
+		if o.Entradas[i].EventosRelacion != nil {
+			eventos := append([]string{}, (*o.Entradas[i].EventosRelacion)...)
+			copia.Entradas[i].EventosRelacion = &eventos
+		}
 		if anterior := o.Entradas[i].OrdenVigente; anterior != nil {
 			orden := *anterior
 			copia.Entradas[i].OrdenVigente = &orden
@@ -716,8 +721,18 @@ func (p *puenteBolsaLlamamientoDesarrollo) cargarOrigenConstituidoCT(ctx context
 // orden vigente inequívoco; nunca interpreta la situación de la persona.
 func primeraElegibleOrigenConstituidoCT(o puertosbolsa.OrigenLlamamientoCT) (puertosbolsa.EntradaOrigenLlamamientoCT, error) {
 	var elegida puertosbolsa.EntradaOrigenLlamamientoCT
+	var primeraPendiente *uint64
 	ordenes := make(map[uint64]struct{}, len(o.Entradas))
 	for _, entrada := range o.Entradas {
+		if entrada.Razon == "pendiente_comprobacion_rrhh" {
+			if entrada.Elegible || entrada.OrdenVigente != nil {
+				return puertosbolsa.EntradaOrigenLlamamientoCT{}, ports.ErrRespuestaBolsaNoConfiable
+			}
+			if primeraPendiente == nil || entrada.OrdenActa < *primeraPendiente {
+				orden := entrada.OrdenActa
+				primeraPendiente = &orden
+			}
+		}
 		if entrada.OrdenVigente != nil {
 			if *entrada.OrdenVigente == 0 {
 				return puertosbolsa.EntradaOrigenLlamamientoCT{}, ports.ErrRespuestaBolsaNoConfiable
@@ -735,6 +750,18 @@ func primeraElegibleOrigenConstituidoCT(o puertosbolsa.OrigenLlamamientoCT) (pue
 		}
 		if elegida.OrdenVigente == nil || *entrada.OrdenVigente < *elegida.OrdenVigente {
 			elegida = entrada
+		}
+	}
+	if primeraPendiente != nil && (elegida.OrdenVigente == nil || *primeraPendiente < elegida.OrdenActa) {
+		var version int64
+		if o.CriteriosOfrecimiento != nil {
+			version = o.CriteriosOfrecimiento.VersionPoliticaOfertas
+		}
+		return puertosbolsa.EntradaOrigenLlamamientoCT{}, &ports.ErrorCriteriosOfrecimientoPendientesRRHH{
+			Comprobacion: ports.ComprobacionOfrecimientoPendiente{
+				BolsaRef: o.BolsaRef, OrdenActa: *primeraPendiente,
+				VersionPoliticaOfertas: version, MotivoClave: "pendiente_comprobacion_rrhh",
+			},
 		}
 	}
 	if elegida.OrdenVigente == nil {

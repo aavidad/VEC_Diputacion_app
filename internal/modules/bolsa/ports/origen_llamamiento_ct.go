@@ -24,13 +24,14 @@ var (
 // EntradaOrigenLlamamientoCT expresa el orden decidido por Bolsa en un corte.
 // Un orden vigente ausente significa que Bolsa no permite llamar a la persona.
 type EntradaOrigenLlamamientoCT struct {
-	OrdenActa        uint64  `json:"orden_acta"`
-	OrdenVigente     *uint64 `json:"orden_vigente"`
-	ParticipacionRef string  `json:"participacion_ref"`
-	CandidatoRef     string  `json:"candidato_ref"`
-	Situacion        string  `json:"situacion"`
-	Razon            string  `json:"razon"`
-	Elegible         bool    `json:"elegible"`
+	EventosRelacion  *[]string `json:"eventos_relacion,omitempty"`
+	OrdenActa        uint64    `json:"orden_acta"`
+	OrdenVigente     *uint64   `json:"orden_vigente"`
+	ParticipacionRef string    `json:"participacion_ref"`
+	CandidatoRef     string    `json:"candidato_ref"`
+	Situacion        string    `json:"situacion"`
+	Razon            string    `json:"razon"`
+	Elegible         bool      `json:"elegible"`
 }
 
 // OrigenLlamamientoCT conserva los bytes canónicos originales y la decisión

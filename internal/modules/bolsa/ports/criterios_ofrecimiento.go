@@ -2,10 +2,13 @@ package ports
 
 import (
 	"reflect"
+	"regexp"
 	"slices"
 
 	"vec-diputacion-granada/internal/modules/bolsa/domain"
 )
+
+var claveCausaOfrecida = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,79}$`)
 
 // CriteriosOfrecimientoAplicados fija la política de la selección original.
 // Su ausencia corresponde a lecturas anteriores a los criterios por oferta.
@@ -13,7 +16,7 @@ type CriteriosOfrecimientoAplicados struct {
 	VersionPoliticaOfertas      int64                        `json:"version_politica_ofertas"`
 	HuellaPoliticaOfertasSHA256 string                       `json:"huella_politica_ofertas_sha256"`
 	ModalidadOfrecida           string                       `json:"modalidad_ofrecida"`
-	CausaOfrecida               string                       `json:"causa_ofrecida,omitempty"`
+	CausaOfrecida               string                       `json:"causa_ofrecida"`
 	Configuracion               domain.CriteriosOfrecimiento `json:"configuracion"`
 }
 
@@ -23,7 +26,7 @@ func (c *CriteriosOfrecimientoAplicados) Validar() error {
 	}
 	if c.VersionPoliticaOfertas < 1 || len(c.HuellaPoliticaOfertasSHA256) != 64 ||
 		c.ModalidadOfrecida == "" || c.Configuracion.Validar() != nil ||
-		(c.Configuracion.Mejora != nil && c.CausaOfrecida == "") {
+		(c.CausaOfrecida != "" && !claveCausaOfrecida.MatchString(c.CausaOfrecida)) {
 		return ErrOrigenLlamamientoCTNoDisponible
 	}
 	for _, b := range c.HuellaPoliticaOfertasSHA256 {
@@ -44,7 +47,6 @@ func (c *CriteriosOfrecimientoAplicados) Clonar() *CriteriosOfrecimientoAplicado
 		return nil
 	}
 	copia := *c
-	copia.Configuracion.ModalidadesAceptables = slices.Clone(c.Configuracion.ModalidadesAceptables)
 	if c.Configuracion.Mejora != nil {
 		mejora := *c.Configuracion.Mejora
 		mejora.ModalidadesDestino = slices.Clone(mejora.ModalidadesDestino)

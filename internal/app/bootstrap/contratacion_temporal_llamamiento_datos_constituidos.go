@@ -71,8 +71,8 @@ func cargarClienteM10LlamamientoCT() (*personalhttp.ClienteOrganizacionHistorica
 // la misma transacción. El acuse lo produce exclusivamente el registrador SQL.
 var camposLecturaOrigenCT = []string{
 	"acta_ref", "bolsa_canonica", "bolsa_ref",
-	"categoria_ref", "corte", "entradas[].candidato_ref",
-	"entradas[].elegible", "entradas[].orden_acta", "entradas[].orden_vigente",
+	"categoria_ref", "corte", "criterios_ofrecimiento", "entradas[].candidato_ref",
+	"entradas[].elegible", "entradas[].eventos_relacion", "entradas[].orden_acta", "entradas[].orden_vigente",
 	"entradas[].participacion_ref", "entradas[].razon", "entradas[].situacion",
 	"huella_bolsa_sha256", "huella_instantanea_sha256", "huella_politica_sha256",
 	"instantanea_canonica", "instantanea_ref", "politica_provisional",

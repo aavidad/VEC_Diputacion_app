@@ -424,12 +424,13 @@ func decodificarOrigenLlamamientoCT(ctx context.Context, fila pgx.Row, categoria
 		return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
 	}
 	var entradas []struct {
-		OrdenActa        uint64  `json:"orden_acta"`
-		OrdenVigente     *uint64 `json:"orden_vigente"`
-		ParticipacionRef string  `json:"participacion_ref"`
-		CandidatoRef     string  `json:"candidato_ref"`
-		Situacion        string  `json:"situacion"`
-		Razon            string  `json:"razon"`
+		EventosRelacion  *[]string `json:"eventos_relacion,omitempty"`
+		OrdenActa        uint64    `json:"orden_acta"`
+		OrdenVigente     *uint64   `json:"orden_vigente"`
+		ParticipacionRef string    `json:"participacion_ref"`
+		CandidatoRef     string    `json:"candidato_ref"`
+		Situacion        string    `json:"situacion"`
+		Razon            string    `json:"razon"`
 	}
 	if json.Unmarshal(entradasJSON, &entradas) != nil || len(entradas) != len(instantanea.Entradas) || len(entradas) == 0 {
 		return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
@@ -442,7 +443,8 @@ func decodificarOrigenLlamamientoCT(ctx context.Context, fila pgx.Row, categoria
 			return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
 		}
 		o.Entradas[i] = ports.EntradaOrigenLlamamientoCT{OrdenActa: e.OrdenActa,
-			OrdenVigente: e.OrdenVigente, ParticipacionRef: e.ParticipacionRef,
+			EventosRelacion: e.EventosRelacion,
+			OrdenVigente:    e.OrdenVigente, ParticipacionRef: e.ParticipacionRef,
 			CandidatoRef: e.CandidatoRef, Situacion: e.Situacion, Razon: e.Razon,
 			Elegible: e.OrdenVigente != nil}
 	}
@@ -479,6 +481,16 @@ func validarLecturaOrigenCT(o ports.OrigenLlamamientoCT) error {
 		return ports.ErrOrigenLlamamientoCTNoDisponible
 	}
 	for i, entrada := range o.Entradas {
+		if o.CriteriosOfrecimiento != nil && entrada.EventosRelacion == nil {
+			return ports.ErrOrigenLlamamientoCTNoDisponible
+		}
+		if entrada.EventosRelacion != nil {
+			for _, ref := range *entrada.EventosRelacion {
+				if ref == "" {
+					return ports.ErrOrigenLlamamientoCTNoDisponible
+				}
+			}
+		}
 		if entrada.OrdenActa != uint64(i+1) || entrada.OrdenActa != instantanea.Entradas[i].Orden ||
 			entrada.ParticipacionRef != instantanea.Entradas[i].Participacion.ParticipacionRef ||
 			entrada.Situacion == "" || entrada.Razon == "" ||

@@ -1,6 +1,7 @@
 package ports
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -11,8 +12,7 @@ func TestCriteriosAplicadosConservanLaPublicacionOriginal(t *testing.T) {
 	original := &CriteriosOfrecimientoAplicados{
 		VersionPoliticaOfertas: 2, HuellaPoliticaOfertasSHA256: strings.Repeat("a", 64), ModalidadOfrecida: "vacante", CausaOfrecida: "vacante",
 		Configuracion: domain.CriteriosOfrecimiento{
-			FuenteNormativa:       "Reglamento de bolsas, art. 9.4",
-			ModalidadesAceptables: []string{"vacante", "programa"},
+			FuenteNormativa: "Reglamento de bolsas, art. 9.4",
 			Mejora: &domain.ReglaMejoraOfrecimiento{Habilitada: true, ModalidadesDestino: []string{"vacante"},
 				CausasDestino:      []string{"vacante"},
 				MaximoVacanteMeses: 36, ReduccionPorModalidadesPrevias: []string{"programa"},
@@ -23,17 +23,28 @@ func TestCriteriosAplicadosConservanLaPublicacionOriginal(t *testing.T) {
 	if err := original.Validar(); err != nil {
 		t.Fatal(err)
 	}
+	causaLegada := *original
+	causaLegada.CausaOfrecida = ""
+	if err := causaLegada.Validar(); err != nil {
+		t.Fatalf("la causa ausente en analisis legado queda pendiente de evaluar: %v", err)
+	}
+	contenido, err := json.Marshal(causaLegada)
+	if err != nil || !strings.Contains(string(contenido), `"causa_ofrecida":""`) {
+		t.Fatalf("el snapshot debe conservar la causa vacia explicita: %s, %v", contenido, err)
+	}
+	causaLegada.CausaOfrecida = "causa con espacios"
+	if causaLegada.Validar() == nil {
+		t.Fatal("una causa no vacia debe ser una clave valida")
+	}
 	copia := original.Clonar()
 	if !copia.Iguales(original) {
 		t.Fatal("el clon debe conservar todos los criterios")
 	}
-	copia.Configuracion.ModalidadesAceptables[0] = "programa"
 	copia.Configuracion.Mejora.ModalidadesDestino[0] = "programa"
 	copia.Configuracion.Mejora.CausasDestino[0] = "sustitucion"
 	copia.Configuracion.Mejora.ReduccionPorModalidadesPrevias[0] = "sustitucion"
 	copia.Configuracion.Mejora.CondicionesActuales[0].MesesDuracionInicial.Meses = 8
-	if original.Configuracion.ModalidadesAceptables[0] != "vacante" ||
-		original.Configuracion.Mejora.ModalidadesDestino[0] != "vacante" ||
+	if original.Configuracion.Mejora.ModalidadesDestino[0] != "vacante" ||
 		original.Configuracion.Mejora.CausasDestino[0] != "vacante" ||
 		original.Configuracion.Mejora.ReduccionPorModalidadesPrevias[0] != "programa" ||
 		original.Configuracion.Mejora.CondicionesActuales[0].MesesDuracionInicial.Meses != 9 || copia.Iguales(original) {
