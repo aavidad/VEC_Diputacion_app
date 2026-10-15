@@ -578,7 +578,7 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
   const bolsaRef = datosBolsasValidadas.bolsas[0].bolsa_ref;
   const refURL = encodeURIComponent(bolsaRef);
   assert.match(htmlListo, new RegExp(`<a class="enlace-tabla" href="\\?bolsa_ref=${refURL}#bolsa/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" aria-label="Abrir candidatos de la bolsa [^"]+">`));
-  assert.match(htmlListo, new RegExp(`<a class="estado-chip exito" href="\\?bolsa_ref=${refURL}&estado=disponible#bolsa/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" data-estado="disponible" aria-label="Ver \\d+ candidatos disponibles de [^"]+">`));
+  assert.match(htmlListo, new RegExp(`<a class="estado-chip exito" href="\\?bolsa_ref=${refURL}&estado=disponible#bolsa/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" data-estado="disponible" aria-label="Ver \\d+ candidatos de [^"]+ con el filtro «disponible»">`));
   assert.doesNotMatch(htmlListo, /<th scope="col">Acciones<\/th>|Ver candidatos/);
   // Vigencia: solo la fecha de fin, sin hora; sin fin, «Sin fecha de fin» (igual que la portada).
   assert.match(htmlListo, /<td>Sin fecha de fin<\/td>/);
@@ -814,7 +814,7 @@ test("P-WEB-08 presenta estadísticas y enlaza cada cifra por bolsa con B5", () 
   const presentador = crearPresentadorPanelInterno({ claseEstado: (c) => c, encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`, escaparHTML: (v) => String(v ?? ""), numero: (n) => String(n ?? 0), obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }), tituloVista: (v) => v, obtenerDatosEstadisticas: () => ({ carga: "listo", datos: estadisticas, error: "" }), obtenerDatosBolsas: () => ({ carga: "listo", datos: { bolsas: [{ llamamientos_en_curso: 2 }] } }) });
   const html = presentador.renderizarVista("estadisticas");
   assert.doesNotMatch(html, /B5|Seleccione una cifra|Desglose agregado|1 bolsas/);
-  assert.match(html, /aria-label="Abrir 1 personas disponibles de Auxiliar en la lista de candidatos"/);
+  assert.match(html, /aria-label="Abrir la lista de 1 personas de Auxiliar con el filtro «disponible»"/);
   assert.match(html, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:01" data-estado="disponible"/);
   assert.match(html, /Personas y llamamientos/);
   assert.match(html, /<strong class="valor-kpi">2<\/strong><span class="etiqueta-kpi">Llamamientos en curso<\/span>/);
