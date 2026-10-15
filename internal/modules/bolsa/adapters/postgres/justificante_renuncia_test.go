@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	bolsaports "vec-diputacion-granada/internal/modules/bolsa/ports"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 func TestPreparacionJustificanteDecodificaContratoD22(t *testing.T) {
@@ -58,6 +59,19 @@ func TestPreparacionJustificanteDistingueDenegacionYFallo(t *testing.T) {
 	}
 	if err := errorJustificanteRenuncia(t.Context(), &pgconn.PgError{Code: "55000"}); !errors.Is(err, bolsaports.ErrJustificanteRenunciaNoDisponible) {
 		t.Fatalf("fallo técnico confundido con denegación: %v", err)
+	}
+}
+
+func TestAutoridadJustificanteConservaDenegacionExplicita(t *testing.T) {
+	denegada := vecports.ErrDenegacionExplicitaAutorizacionLigadaV3
+	for _, causa := range []error{denegada, errors.Join(denegada, errors.New("material_no_emitido"))} {
+		err := errorAutoridadJustificante(causa)
+		if !errors.Is(err, bolsaports.ErrJustificanteRenunciaDenegado) || !errors.Is(err, denegada) {
+			t.Fatal("la denegación expresa no conserva su clasificación y causa")
+		}
+	}
+	if err := errorAutoridadJustificante(errors.New("dependencia_caida")); !errors.Is(err, bolsaports.ErrJustificanteRenunciaNoDisponible) || errors.Is(err, bolsaports.ErrJustificanteRenunciaDenegado) {
+		t.Fatal("una dependencia caída se confundió con una denegación")
 	}
 }
 

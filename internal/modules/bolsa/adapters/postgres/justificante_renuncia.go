@@ -16,6 +16,7 @@ import (
 	bolsaports "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/shared/postgresql"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 var bolsaJustificanteValida = regexp.MustCompile(`^[A-Za-z0-9:_-]{1,256}$`)
@@ -43,7 +44,7 @@ func errorAutoridadJustificante(err error) error {
 	if err == nil {
 		return bolsaports.ErrJustificanteRenunciaNoDisponible
 	}
-	if errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
+	if errors.Is(err, vecdomain.ErrAutorizacionDenegada) || errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
 		return errors.Join(bolsaports.ErrJustificanteRenunciaDenegado, err)
 	}
 	return errors.Join(bolsaports.ErrJustificanteRenunciaNoDisponible, err)
