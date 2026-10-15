@@ -1,5 +1,14 @@
 # Firmas de Contratación temporal
 
+> **Nota del 15/10/2026.** Este plan es del 08/10 y no se ha reescrito. Con
+> #1137, fusionada el 15/10, la firma funciona en una copia local: el informe
+> con las firmas de Técnico y Jefatura antes de Intervención y la resolución
+> con Jefatura, Diputación y Secretaría (cinco firmas reales con GrxFirma), y
+> los dos PDF se descargan desde la ficha tras reiniciar aplicación y
+> PostgreSQL. Falta el recorrido completo del caso 4.0 y la instalación en
+> cidonia. Las tareas vigentes están en el
+> [tablero](../producto/TABLERO_TAREAS.md).
+
 **Estado a 8 de octubre de 2026:** la firma de dos personas no funciona de punta a punta, porque la composición de las dos vías de firma (`componerFirmasR5`) solo se ejecuta en pruebas; faltan la identidad del firmante, el decisor y emisor, la composición en el arranque real y el recorrido.
 
 La firma se hace con GrxFirma por el protocolo `afirma://` desde el navegador; la verificación, con su validador como servicio aparte. Ningún documento de VEC sale hoy firmado. Base: `origin/main@033fda6ed`.

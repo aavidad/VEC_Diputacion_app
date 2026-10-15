@@ -287,6 +287,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 	preparacion := superficie == ports.SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases ||
 		superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo
 	personal := superficie == ports.SuperficieAuditoriaFronteraRutaExactaPersonal
+	organizacionHistorica := superficie == ports.SuperficieAuditoriaFronteraRutaExactaOrganizacionHistoricaPersonal
 	if h == nil || dependenciaRutaExactaNula(h.registradorAuditoriaFronteraRutasExactas) {
 		if usuarios {
 			return errAuditoriaFronteraUsuariosNoDisponible
@@ -294,7 +295,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
 		}
-		if preparacion || personal {
+		if preparacion || personal || organizacionHistorica {
 			return ErrAutoridadRutaExactaNoDisponible
 		}
 		return nil
@@ -324,7 +325,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
 		}
-		if preparacion || personal {
+		if preparacion || personal || organizacionHistorica {
 			return ErrAutoridadRutaExactaNoDisponible
 		}
 		return nil
@@ -347,7 +348,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
 		}
-		if preparacion || personal {
+		if preparacion || personal || organizacionHistorica {
 			return ErrAutoridadRutaExactaNoDisponible
 		}
 	}
@@ -359,6 +360,8 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 		return ports.SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH
 	}
 	switch ruta {
+	case RutaOrganizacionHistoricaPersonal:
+		return ports.SuperficieAuditoriaFronteraRutaExactaOrganizacionHistoricaPersonal
 	case "/api/vec/auditoria/opciones", "/api/vec/auditoria/consultas":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAuditoria
 	case "/api/vec/usuarios/mis-preferencias", "/api/vec/usuarios/area-personal/mis-preferencias",

@@ -286,6 +286,19 @@ limita qué módulos ofrece el menú y tampoco concede acceso
 un módulo se haga desde Administración, auditado. Ese interruptor aún no existe y
 hoy se usa la variable.
 
+La consulta de Organización histórica del proceso combinado se limita al perfil
+positivo de desarrollo; se construye con dependencias explícitas y una sesión
+propia para esa consulta, sin copiar la estructura de la sesión de Contratación.
+En producción, la autoridad procede de la cápsula del proceso `vec-interno`.
+El montaje de desarrollo se selecciona con
+`VEC_ORGANIZACION_HISTORICA_CONSULTA_ENABLED` y
+`VEC_ORGANIZACION_HISTORICA_MATERIAL_DIR`. Reutiliza el proveedor nominal del
+proceso interno y enlaza la sesión certificada de cada petición con su perfil,
+organismo y unidad. El selector de gobierno publica la capacidad; las
+concesiones siguen procediendo del gobierno de perfiles. Sin configuración de
+consulta válida, solo ese GET responde 503. El guion de la candidata está en
+`deploy/principal/organizacion_historica_combinado_20261015.md`.
+
 ### Regla: ninguna configuración nueva tumba el arranque
 
 Si falta o está mal la configuración de una función, falla solo esa función. La
