@@ -1,3 +1,4 @@
+845 data/catalogos/bolsa/reglas.v7.json
 1513 deploy/postgresql/autorizacion_atestada_v2/migraciones/000001_registro_consumo_atestado_v2.up.sql
 807 deploy/postgresql/autorizacion_atestada_v3/migraciones/000003_consumidor_consulta_cuadro_rrhh_v3.up.sql
 1276 deploy/postgresql/autorizacion_atestada_v3/probar_integracion_o2_05.sh
@@ -13,6 +14,7 @@
 2742 deploy/postgresql/bolsa_convocatorias/migraciones/000004_confirmacion_kms_procedencia.up.sql
 1458 deploy/postgresql/bolsa_convocatorias/pruebas_sql/borradores_durables.sql
 1416 deploy/postgresql/bolsa_convocatorias/pruebas_sql/wrappers_runtime.sql
+834 deploy/postgresql/bolsa_llamamientos/migraciones/000117_origen_oferta_ct_publicacion.up.sql
 1069 deploy/postgresql/bolsa_publica/migraciones/000001_proyeccion_publica.up.sql
 1057 deploy/postgresql/bolsa_reglas_baremo/migraciones/000002_operaciones_reglas_baremo.up.sql
 1288 deploy/postgresql/bolsa_reglas_baremo/migraciones/000003_gobierno_atestado_v2.up.sql
@@ -106,11 +108,11 @@
 1781 web/static/portal-empleado/portal-modulos-coordinador.js
 1865 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1081 web/static/portal-empleado/portal-componentes.css
-2082 web/static/portal-empleado/portal.js
+2253 web/static/portal-empleado/portal.js
 1521 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1145 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-1150 web/static/portal-empleado/portal-i18n.test.mjs
+1154 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 952 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css

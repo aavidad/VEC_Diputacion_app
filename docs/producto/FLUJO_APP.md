@@ -699,6 +699,14 @@ orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
 arranca). Exige que la solicitud conserve la necesidad de la RPT publicada.
 Lo que hay en cidonia todavía usa el puente anterior.
 
+El primer corte de la conexión añade a Bolsa el inicio de plazo por publicación
+y el origen de una oferta procedente de CT. RRHH elige el inicio desde la
+política de la bolsa y publica desde su formulario habitual. En la copia local
+se han comprobado la publicación de dos plazas, su consulta y aceptación desde
+Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
+un reintento conserva fechas, política y oferta originales. Este corte no acredita
+todavía la publicación desde la ficha de CT.
+
 **Candidata de consulta de puestos.** El ofrecimiento usa la RPT publicada y
 la historia autorizada del puesto de Personal. La consulta existente se conecta
 al proceso combinado con el mismo perfil, ámbito y registro de lecturas. Si
@@ -706,6 +714,7 @@ falta su configuración o permiso, la selección conserva el expediente y queda
 sin completar. El montaje se ensaya en la copia local; todavía no acredita el
 ofrecimiento ni corrige por sí solo la separación entre unidad gestora y unidad
 del puesto.
+
 
 La oferta con varias plazas, la adjudicación por posición y el llamamiento
 directo existen en Bolsa (`internal/modules/bolsa/domain/oferta_publicada.go`,
@@ -720,7 +729,10 @@ Reglas del llamamiento y sus canales (decisiones de Alberto del 02/10 al
   Bolsa sobre la bolsa constituida de la categoría, por referencias opacas; la
   correspondencia entre categoría de CT y bolsa va en un catálogo editable. No se
   aceptan cambios que amplíen el puente anterior.
-- Las ofertas de bolsa no se publican en la web: se avisa por correo.
+- La política de cada bolsa fija el inicio del plazo: publicación efectiva en
+  VEC (Reglamento, art. 8.1.a y b) o correo declarado por RRHH (decisión del
+  02/10, duda 153 abierta). El aviso por correo no sustituye una publicación
+  ni se considera notificado mientras solo exista una intención de envío.
 - El canal de aviso es un puerto con adaptadores, que se listan y activan por
   catálogo. El llamamiento registra intentos y resultados sin depender del canal.
   SMS (lo pidió RRHH) será el segundo adaptador cuando Informática dé proveedor.

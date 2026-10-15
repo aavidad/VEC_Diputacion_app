@@ -51,3 +51,19 @@ En un expediente que todavía no ha llegado a **Nombramiento** también se ve la
 Este recorrido comprobó la **consulta** de la ficha, del historial y de los documentos. No comprobó una acción propia para **resolver** ni para **firmar** con este acceso. Un documento descargado sigue siendo un borrador: no está firmado ni produce efectos.
 
 Si el panel de documentos muestra «No se pudieron consultar los borradores publicados», pulse **Reintentar consulta**. Si el mensaje continúa, conserve el número del expediente y comunique el mensaje a Informática.
+
+## Ofertas con varias plazas
+
+En la política de una bolsa, RRHH elige cuándo empieza el plazo para mostrar
+interés: al publicar la oferta en VEC o desde el correo que declara haber
+enviado. La publicación toma la fecha de VEC; no se escribe una fecha ni una
+huella de correo. Si la política exige correo, se conserva su declaración.
+
+Esta elección aplica el artículo 8.1.a y b del Reglamento de bolsas
+(BOP de 16 de enero de 2026). La duda 153 sobre el correo sigue pendiente;
+una política nueva no cambia las ofertas que ya se publicaron.
+
+Falta conectar la oferta con el expediente de varias personas y bloquear
+la cancelación mientras se recupera una publicación pendiente. También quedan
+la retirada de la oferta tras cancelar y el aviso por correo de la Diputación.
+El envío de correo por VEC no se acredita en este corte.
