@@ -228,9 +228,24 @@ func TestEvaluarCriteriosOfrecimiento(t *testing.T) {
 	}
 
 	decision := EvaluarCriteriosOfrecimiento(politica, trabajando)
-	if decision.MaximoVacanteMeses != 36 || len(decision.PeriodosReduccionVacante) != 1 ||
-		decision.PeriodosReduccionVacante[0] != (PeriodoReduccionVacante{EventoRef: "evt_acumulacion", Desde: inicio, Hasta: ahora}) {
-		t.Fatalf("la reduccion debe conservar periodo y evento comprobado: %+v", decision)
+	if !decision.PendienteComprobacion || decision.Elegible || len(decision.PeriodosReduccionVacante) != 0 {
+		t.Fatalf("el contrato legado no calcula descuento ni habilita excepcion: %+v", decision)
+	}
+	conSupuesto := politica
+	mejora := *politica.Mejora
+	mejora.SupuestosReduccionVacante = []string{"programa"}
+	conSupuesto.Mejora = &mejora
+	decision = EvaluarCriteriosOfrecimiento(conSupuesto, trabajando)
+	if !decision.PendienteComprobacion || decision.Elegible || len(decision.PeriodosReduccionVacante) != 0 {
+		t.Fatalf("antecedente de acumulacion sin supuesto de programa no calcula descuento: %+v", decision)
+	}
+	trabajando.RelacionesActuales = []RelacionActual{programaCorto, acumulacion, sustitucion}
+	decision = EvaluarCriteriosOfrecimiento(conSupuesto, trabajando)
+	if !decision.PendienteComprobacion || decision.Elegible || decision.MaximoVacanteMeses != 36 ||
+		len(decision.PeriodosReduccionVacante) != 2 ||
+		decision.PeriodosReduccionVacante[0] != (PeriodoReduccionVacante{EventoRef: "evt_acumulacion", Desde: inicio, Hasta: ahora}) ||
+		decision.PeriodosReduccionVacante[1] != (PeriodoReduccionVacante{EventoRef: "evt_sustitucion", Desde: inicio, Hasta: ahora}) {
+		t.Fatalf("programa activa proyeccion de periodos acreditados sin permitir ofrecer: %+v", decision)
 	}
 }
 
@@ -262,6 +277,27 @@ func TestCriteriosOfrecimientoValidar(t *testing.T) {
 	for i, criterio := range casos {
 		if err := criterio.Validar(); err == nil {
 			t.Fatalf("caso %d: se admitio una configuracion incompleta", i)
+		}
+	}
+	base := CriteriosOfrecimiento{FuenteNormativa: "art. 9.4", Mejora: &ReglaMejoraOfrecimiento{
+		ModalidadesDestino: []string{"vacante"}, CausasDestino: []string{"vacante"},
+		CondicionesActuales: []CondicionRelacionActual{{Modalidad: "programa"}, {Modalidad: "acumulacion_tareas"}},
+		MaximoVacanteMeses:  36, ReduccionPorModalidadesPrevias: []string{"acumulacion_tareas"},
+	}}
+	if err := base.Validar(); err != nil {
+		t.Fatalf("legado ausente debe seguir válido: %v", err)
+	}
+	base.Mejora.SupuestosReduccionVacante = []string{"programa"}
+	if err := base.Validar(); err != nil {
+		t.Fatalf("supuesto publicado válido: %v", err)
+	}
+	for _, supuestos := range [][]string{{}, {"programa", "programa"}, {"otro"}, {"Programa"}} {
+		copia := base
+		mejora := *base.Mejora
+		mejora.SupuestosReduccionVacante = supuestos
+		copia.Mejora = &mejora
+		if err := copia.Validar(); err == nil {
+			t.Fatalf("aceptó supuestos inválidos: %v", supuestos)
 		}
 	}
 }

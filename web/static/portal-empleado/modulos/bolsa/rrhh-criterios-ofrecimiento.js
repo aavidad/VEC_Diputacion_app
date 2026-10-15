@@ -28,6 +28,8 @@ export function renderizarCriteriosOfrecimiento(criterios, textos, deshabilitado
     `<div class="campo campo--ancho"><span>${tx("destinos")}</span><p class="rrhh-plazos__valor">${destinos}</p></div>` +
     `<div class="campo campo--ancho"><span>${tx("causas_destino")}</span><p class="rrhh-plazos__valor">${causasDestino}</p></div>` +
     `<label class="campo"><span>${tx("maximo_vacante_meses")}</span><input type="number" name="criterio_maximo_vacante_meses" min="1" max="1200" step="1" required value="${escapar(criterios.mejora.maximo_vacante_meses ?? "")}"${disabled}></label>` +
+    (criterios.mejora.supuestos_reduccion_vacante?.length ?
+      `<div class="campo campo--ancho"><span>${tx("supuestos_reduccion_vacante")}</span><p class="rrhh-plazos__valor">${criterios.mejora.supuestos_reduccion_vacante.map((m) => rotulo("modalidad", m)).join(", ")}</p></div>` : "") +
     `<div class="campo campo--ancho"><span>${tx("reduccion_por_modalidades_previas")}</span><p class="rrhh-plazos__valor">${(criterios.mejora.reduccion_por_modalidades_previas ?? []).map((m) => rotulo("modalidad", m)).join(", ")}</p></div>` +
     criterios.mejora.condiciones_actuales.map((condicion, indice) => `<fieldset class="campo campo--ancho"><legend>${tx("condicion", { numero: indice + 1 })}: ${rotulo("modalidad", condicion.modalidad)}${condicion.causa ? ` · ${rotulo("causa", condicion.causa)}` : ""}</legend><div class="rrhh-plazos__campos">` +
       `<div class="campo"><span>${tx("baja_comprobada")}</span><p class="rrhh-plazos__valor">${tx(condicion.requiere_baja_comprobada ? "si" : "no")}</p></div>` +

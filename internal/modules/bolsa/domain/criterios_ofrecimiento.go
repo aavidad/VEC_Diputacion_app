@@ -36,6 +36,7 @@ type ReglaMejoraOfrecimiento struct {
 	CausasDestino                  []string                  `json:"causas_destino"`
 	CondicionesActuales            []CondicionRelacionActual `json:"condiciones_actuales"`
 	MaximoVacanteMeses             int                       `json:"maximo_vacante_meses"`
+	SupuestosReduccionVacante      []string                  `json:"supuestos_reduccion_vacante,omitempty"`
 	ReduccionPorModalidadesPrevias []string                  `json:"reduccion_por_modalidades_previas"`
 }
 
@@ -110,7 +111,10 @@ func (c CriteriosOfrecimiento) Validar() error {
 		len(c.Mejora.CondicionesActuales) == 0 || len(c.Mejora.CondicionesActuales) > 100 ||
 		c.Mejora.MaximoVacanteMeses < 1 || c.Mejora.MaximoVacanteMeses > 1200 ||
 		len(c.Mejora.ReduccionPorModalidadesPrevias) == 0 ||
-		!clavesOfrecimientoValidas(c.Mejora.ReduccionPorModalidadesPrevias) {
+		!clavesOfrecimientoValidas(c.Mejora.ReduccionPorModalidadesPrevias) ||
+		(c.Mejora.SupuestosReduccionVacante != nil &&
+			(len(c.Mejora.SupuestosReduccionVacante) == 0 || len(c.Mejora.SupuestosReduccionVacante) > 100 ||
+				!clavesOfrecimientoValidas(c.Mejora.SupuestosReduccionVacante))) {
 		return ErrCriteriosOfrecimientoInvalidos
 	}
 	for _, condicion := range c.Mejora.CondicionesActuales {
@@ -124,6 +128,15 @@ func (c CriteriosOfrecimiento) Validar() error {
 		presente := false
 		for _, condicion := range c.Mejora.CondicionesActuales {
 			presente = presente || condicion.Modalidad == modalidad
+		}
+		if !presente {
+			return ErrCriteriosOfrecimientoInvalidos
+		}
+	}
+	for _, supuesto := range c.Mejora.SupuestosReduccionVacante {
+		presente := false
+		for _, condicion := range c.Mejora.CondicionesActuales {
+			presente = presente || condicion.Modalidad == supuesto
 		}
 		if !presente {
 			return ErrCriteriosOfrecimientoInvalidos
@@ -199,6 +212,11 @@ func EvaluarCriteriosOfrecimiento(c CriteriosOfrecimiento, e EvaluacionOfrecimie
 			return pendiente(MotivoOfrecimientoDatosRelacionIncompletos)
 		}
 		noAdmitida := false
+		// Sin este campo no se presupone el alcance de la reducción.
+		aplicaReduccion := false
+		for _, relacion := range e.RelacionesActuales {
+			aplicaReduccion = aplicaReduccion || contieneClave(c.Mejora.SupuestosReduccionVacante, relacion.Modalidad)
+		}
 		for _, relacion := range e.RelacionesActuales {
 			if relacionIncompleta(c.Mejora.CondicionesActuales, relacion, e.Ahora) {
 				return pendiente(MotivoOfrecimientoDatosRelacionIncompletos)
@@ -206,7 +224,7 @@ func EvaluarCriteriosOfrecimiento(c CriteriosOfrecimiento, e EvaluacionOfrecimie
 			if !relacionAdmiteMejora(c.Mejora.CondicionesActuales, relacion, e.Ahora) {
 				noAdmitida = true
 			}
-			if contieneClave(c.Mejora.ReduccionPorModalidadesPrevias, relacion.Modalidad) {
+			if aplicaReduccion && contieneClave(c.Mejora.ReduccionPorModalidadesPrevias, relacion.Modalidad) {
 				periodos = append(periodos, PeriodoReduccionVacante{
 					EventoRef: relacion.EventoRef, Desde: relacion.Inicio, Hasta: e.Ahora,
 				})

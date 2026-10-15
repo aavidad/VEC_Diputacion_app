@@ -42,6 +42,14 @@ test("conserva criterio publicado, regla desactivada y límites al validar la po
   assert.equal(criteriosOfrecimientoValidos(sinCausa), false);
   const sinCondicion = criterio(); sinCondicion.mejora.reduccion_por_modalidades_previas = ["acumulacion_tareas"];
   assert.equal(criteriosOfrecimientoValidos(sinCondicion), false);
+  const conSupuesto = criterio(); conSupuesto.mejora.supuestos_reduccion_vacante = ["programa"];
+  assert.equal(criteriosOfrecimientoValidos(conSupuesto), true);
+  for (const supuestos of [[], ["programa", "programa"], ["otra"], ["Programa"], ["programa con espacios"]]) {
+    const invalido = criterio(); invalido.mejora.supuestos_reduccion_vacante = supuestos;
+    assert.equal(criteriosOfrecimientoValidos(invalido), false);
+    assert.throws(() => validarPoliticaEditable({ ...politica(), criterios_ofrecimiento: invalido }));
+  }
+  assert.equal(criteriosOfrecimientoValidos(criterio()), true);
   for (const campo of ["modalidad_no_aceptada", "modalidades_aceptables"]) {
     const obsoleta = politica();
     obsoleta.criterios_ofrecimiento = { ...criterio(), [campo]: campo === "modalidades_aceptables" ? ["vacante"] : "renuncia" };
@@ -59,6 +67,11 @@ test("renderiza solo el criterio publicado con rótulos y controles deshabilitad
   assert.match(html, /name="criterio_meses_transcurridos_0"[^>]*disabled/u);
   assert.match(html, /name="criterio_maximo_vacante_meses"[^>]*value="36"[^>]*disabled/u);
   assert.match(html, /Causas de la oferta/u);
+  const conSupuesto = criterio(); conSupuesto.mejora.supuestos_reduccion_vacante = ["programa"];
+  const conDosEjes = renderizarCriteriosOfrecimiento(conSupuesto, textos);
+  assert.match(conDosEjes, /Cuándo se aplica el descuento \(criterio provisional pendiente de confirmar por RRHH\)/u);
+  assert.match(conDosEjes, /Tipos de relación cuyo tiempo se descuenta/u);
+  assert.doesNotMatch(html, /Cuándo se aplica el descuento/u);
   assert.doesNotMatch(html, /criterio_modalidad_no_aceptada/u);
   assert.doesNotMatch(html, /sustitucion/u);
   const ajeno = criterio(); ajeno.mejora.modalidades_destino = ["tipo_nuevo"];
@@ -123,8 +136,10 @@ test("la propuesta sale solo del catálogo público validado y sin credenciales"
     return { status: 200, redirected: false, headers: { get: () => "application/json" }, json: async () => valor };
   } });
   assert.deepEqual(await leer(catalogo), catalogo.criterios_ofrecimiento);
-  assert.deepEqual(catalogo.criterios_ofrecimiento.mejora.reduccion_por_modalidades_previas, ["programa"]);
+  assert.deepEqual(catalogo.criterios_ofrecimiento.mejora.supuestos_reduccion_vacante, ["programa"]);
+  assert.deepEqual(catalogo.criterios_ofrecimiento.mejora.reduccion_por_modalidades_previas, ["acumulacion_tareas", "sustitucion"]);
   assert.match(catalogo.criterios_ofrecimiento.fuente_normativa, /art\. 9, apartado cuarto \(numerado 3\)/u);
+  assert.doesNotMatch(catalogo.criterios_ofrecimiento.fuente_normativa, /por defecto|solo programas/u);
   assert.equal(pedido.ruta, RUTA_CATALOGO_CRITERIOS_OFRECIMIENTO);
   assert.equal(pedido.opciones.credentials, "omit");
   assert.equal(pedido.opciones.cache, "no-store");

@@ -47,7 +47,10 @@ BEGIN
  IF NOT (c ? 'mejora') THEN RETURN true; END IF;
  m:=c->'mejora';
  IF jsonb_typeof(m) IS DISTINCT FROM 'object'
- OR (SELECT count(*) FROM jsonb_object_keys(m))<>6
+ OR (SELECT count(*) FROM jsonb_object_keys(m)) NOT BETWEEN 6 AND 7
+ OR EXISTS(SELECT 1 FROM jsonb_object_keys(m) k WHERE k NOT IN
+   ('habilitada','modalidades_destino','condiciones_actuales','maximo_vacante_meses',
+    'reduccion_por_modalidades_previas','causas_destino','supuestos_reduccion_vacante'))
  OR m ?& ARRAY['habilitada','modalidades_destino','condiciones_actuales',
    'maximo_vacante_meses','reduccion_por_modalidades_previas','causas_destino'] IS NOT TRUE
  OR jsonb_typeof(m->'habilitada') IS DISTINCT FROM 'boolean'
@@ -75,6 +78,19 @@ BEGIN
  OR jsonb_typeof(m->'condiciones_actuales') IS DISTINCT FROM 'array'
  OR jsonb_array_length(m->'condiciones_actuales') NOT BETWEEN 1 AND 100
  THEN RETURN false; END IF;
+ IF m ? 'supuestos_reduccion_vacante' THEN
+  l:=m->'supuestos_reduccion_vacante';
+  IF jsonb_typeof(l) IS DISTINCT FROM 'array'
+   OR jsonb_array_length(l) NOT BETWEEN 1 AND 100
+   OR EXISTS(SELECT 1 FROM jsonb_array_elements(l) x
+    WHERE jsonb_typeof(x) IS DISTINCT FROM 'string' OR x#>>'{}' !~ '^[a-z][a-z0-9._-]{1,79}$')
+   OR (SELECT count(*) FROM jsonb_array_elements_text(l))
+    <> (SELECT count(DISTINCT x) FROM jsonb_array_elements_text(l) x)
+   OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(l) x(v)
+    WHERE NOT EXISTS(SELECT 1 FROM jsonb_array_elements(m->'condiciones_actuales') q(valor)
+     WHERE q.valor->>'modalidad'=x.v))
+  THEN RETURN false; END IF;
+ END IF;
  IF EXISTS(SELECT 1 FROM jsonb_array_elements_text(m->'reduccion_por_modalidades_previas') x(v)
    WHERE NOT EXISTS(SELECT 1 FROM jsonb_array_elements(m->'condiciones_actuales') q(valor)
      WHERE q.valor->>'modalidad'=x.v)) THEN RETURN false; END IF;

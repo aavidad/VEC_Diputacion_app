@@ -48,3 +48,10 @@ de programas. Son criterios provisionales de dirección, preguntados a RRHH en l
 165; no se presentan como un texto consolidado del Reglamento. La resolución se
 detendrá mientras no conste el cese efectivo. El ofrecimiento condicionado exige
 que Contratación compruebe también el plazo al formalizar.
+
+La regla distingue el supuesto en el que se aplica el descuento de los tipos de
+relación cuyo tiempo puede descontarse. La propuesta inicial limita el primer
+dato a programas, como criterio provisional pendiente de confirmar por RRHH, y
+conserva acumulación de tareas y sustitución en el segundo. La cita del BOP se
+muestra aparte. Una política anterior sin el dato del supuesto sigue deteniendo
+la selección para comprobar los hechos; no deduce un descuento automático.

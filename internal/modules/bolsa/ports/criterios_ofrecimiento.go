@@ -51,6 +51,7 @@ func (c *CriteriosOfrecimientoAplicados) Clonar() *CriteriosOfrecimientoAplicado
 		mejora := *c.Configuracion.Mejora
 		mejora.ModalidadesDestino = slices.Clone(mejora.ModalidadesDestino)
 		mejora.CausasDestino = slices.Clone(mejora.CausasDestino)
+		mejora.SupuestosReduccionVacante = slices.Clone(mejora.SupuestosReduccionVacante)
 		mejora.ReduccionPorModalidadesPrevias = slices.Clone(mejora.ReduccionPorModalidadesPrevias)
 		mejora.CondicionesActuales = slices.Clone(mejora.CondicionesActuales)
 		for i := range mejora.CondicionesActuales {

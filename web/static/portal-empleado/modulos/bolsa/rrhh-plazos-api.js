@@ -89,6 +89,7 @@ function fuenteNormativaValida(valor) {
 const CLAVES_CRITERIO = (valores, obligatorio = false) => Array.isArray(valores)
   && (!obligatorio || valores.length > 0) && valores.every(CLAVE_CRITERIO)
   && new Set(valores).size === valores.length;
+const CLAVE_SUPUESTO_REDUCCION = /^[a-z][a-z0-9._-]{1,79}$/u;
 const LIMITE_MESES = (limite) => limite === undefined || (limite !== null && Number.isSafeInteger(limite.meses)
   && limite.meses > 0 && typeof limite.incluye_limite === "boolean");
 
@@ -107,6 +108,12 @@ export function criteriosOfrecimientoValidos(criterios) {
     && CLAVES_CRITERIO(mejora.causas_destino, true)
     && CLAVES_CRITERIO(mejora.reduccion_por_modalidades_previas, true)
     && Array.isArray(mejora.condiciones_actuales) && mejora.condiciones_actuales.length > 0
+    && (mejora.supuestos_reduccion_vacante === undefined || (
+      Array.isArray(mejora.supuestos_reduccion_vacante)
+      && mejora.supuestos_reduccion_vacante.length >= 1 && mejora.supuestos_reduccion_vacante.length <= 100
+      && mejora.supuestos_reduccion_vacante.every((supuesto) => typeof supuesto === "string" && CLAVE_SUPUESTO_REDUCCION.test(supuesto))
+      && new Set(mejora.supuestos_reduccion_vacante).size === mejora.supuestos_reduccion_vacante.length
+      && mejora.supuestos_reduccion_vacante.every((supuesto) => mejora.condiciones_actuales.some((c) => c?.modalidad === supuesto))))
     && mejora.reduccion_por_modalidades_previas.every((modalidad) => mejora.condiciones_actuales.some((c) => c.modalidad === modalidad))
     && mejora.condiciones_actuales.every((condicion) => condicion && CLAVE_CRITERIO(condicion.modalidad)
       && (condicion.causa === undefined || condicion.causa === "" || CLAVE_CRITERIO(condicion.causa))
