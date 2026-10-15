@@ -123,6 +123,13 @@ type fuenteOrganizacionHistorica interface {
 	ContextoVinculadoOrganizacionHistorica(context.Context) (ct.ContextoAutorizacionAltaV3, string, string, error)
 }
 
+// FuenteOrganizacionHistorica sólo entrega la identidad capturada por la
+// frontera interna de la petición. Su implementación no acepta actor de HTTP.
+type FuenteOrganizacionHistorica interface {
+	fuenteOrganizacionHistorica
+	ContextoOriginalOrganizacionHistoricaParaAuditoria(context.Context) (ct.ContextoAutorizacionAltaV3, string, string, error)
+}
+
 type ProveedorAutorizacionOrganizacionHistorica struct {
 	fuente    fuenteOrganizacionHistorica
 	reloj     ct.Reloj
@@ -130,6 +137,21 @@ type ProveedorAutorizacionOrganizacionHistorica struct {
 	contextos map[string]internagobierno.AmbitoOrganizacionHistorica
 	emisor    emisorMaterialV3
 	firmante  *firmanteOrganizacionHistoricaV3
+}
+
+// ConstruirOrganizacionHistoricaConEmisor reutiliza el proveedor nominal con
+// el emisor V3 del proceso combinado. La publicación y la clave OH se cotejan
+// en bootstrap antes de entregar este emisor; aquí se conserva el control de
+// actor, vínculo, perfil, ámbito y material atestado de cada petición.
+func ConstruirOrganizacionHistoricaConEmisor(ctx context.Context, m MaterialOrganizacionHistorica, fuente FuenteOrganizacionHistorica, emisor emisorMaterialV3, reloj ct.Reloj) (*ProveedorAutorizacionOrganizacionHistorica, error) {
+	if ctx == nil || ctx.Err() != nil || m.raiz == nil || !materialOrganizacionHistoricaValido(m) || interfazNula(fuente) || interfazNula(emisor) || interfazNula(reloj) {
+		return nil, ErrOrganizacionHistoricaV3NoDisponible
+	}
+	contextos := make(map[string]internagobierno.AmbitoOrganizacionHistorica, len(m.Contextos))
+	for cuenta, ambito := range m.Contextos {
+		contextos[cuenta] = ambito
+	}
+	return &ProveedorAutorizacionOrganizacionHistorica{fuente: fuente, reloj: reloj, motivo: m.MotivoConsulta, contextos: contextos, emisor: emisor}, nil
 }
 
 func (p *ProveedorAutorizacionOrganizacionHistorica) Cerrar() {
@@ -182,7 +204,7 @@ func construirOrganizacionHistorica(ctx context.Context, m MaterialOrganizacionH
 
 func (p *ProveedorAutorizacionOrganizacionHistorica) AutorizarConsultaOrganizacionHistorica(ctx context.Context, m personal.MaterialConsultaOrganizacionHistorica) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	var vacio vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
-	if ctx == nil || ctx.Err() != nil || p == nil || interfazNula(p.fuente) || interfazNula(p.reloj) || p.firmante == nil || interfazNula(p.emisor) {
+	if ctx == nil || ctx.Err() != nil || p == nil || interfazNula(p.fuente) || interfazNula(p.reloj) || interfazNula(p.emisor) {
 		return vacio, ErrOrganizacionHistoricaV3NoDisponible
 	}
 	s := m.Solicitud()

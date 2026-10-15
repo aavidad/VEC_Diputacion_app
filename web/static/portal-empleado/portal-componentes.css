@@ -342,6 +342,56 @@
   max-width: 100cqi;
 }
 .fila-ficha-participacion .tabla-contenedor { max-width: 100%; }
+/* La edición conserva el ancho visible de la ficha, también dentro de la tabla. */
+.fila-ficha-participacion [data-bolsa-form="cambio-situacion"] {
+  padding: 16px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  white-space: normal;
+}
+[data-bolsa-cambio-edicion] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+[data-bolsa-cambio-edicion] label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  font-weight: 600;
+}
+[data-bolsa-cambio-edicion] :is(input, select, textarea) {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--portal-borde-control);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font-weight: 400;
+}
+[data-bolsa-cambio-edicion] textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+[data-bolsa-cambio-edicion] > :is(label:has(textarea), button, fieldset) {
+  grid-column: 1 / -1;
+}
+[data-bolsa-cambio-edicion] > button { justify-self: start; }
+[data-bolsa-cambio-edicion] fieldset {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+}
+@container (max-width: 520px) {
+  [data-bolsa-cambio-edicion] { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* Motivos, justificantes y actores son textos largos: dentro de la ficha se
    parten en varias líneas para que quepan más columnas a la vista. */
 .fila-ficha-participacion .tabla-datos td {
