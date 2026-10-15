@@ -1,3 +1,4 @@
+import { validarMetadatosRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=20261016-firma-historica-v1";
 import { validarDatosPeticionAnalisis, validarDatosPreviosAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { validarResultadoBolsaCT } from "./contrato-resultado-bolsa.js";
 
@@ -519,6 +520,7 @@ export function versionPropuestaDocumentalValida(entrada) {
 }
 
 export function validarExpedienteContratacionTemporal(entrada) {
+  const tieneSelectoresFirmas = esRegistro(entrada) && Object.hasOwn(entrada, "selectores_recuperacion_firmas");
   const tieneResultadoBolsa = esRegistro(entrada) && Object.hasOwn(entrada, "resultado_bolsa");
   const propuestaHistorica = esRegistro(entrada) && Object.hasOwn(entrada, "version_propuesta_documental");
   const tieneAnalisisPrevio = esRegistro(entrada) && Object.hasOwn(entrada, "analisis_previo");
@@ -534,6 +536,8 @@ export function validarExpedienteContratacionTemporal(entrada) {
     ...(tieneDatosPeticion ? ["datos_peticion"] : []),
     ...(propuestaHistorica ? ["version_propuesta_documental"] : []),
     ...(tieneResultadoBolsa ? ["resultado_bolsa"] : []),
+    ...(tieneSelectoresFirmas ? ["selectores_recuperacion_firmas"] : []),
+    ...(Object.hasOwn(entrada, "recibo_selectores_recuperacion_firmas") ? ["recibo_selectores_recuperacion_firmas"] : []),
   ], "expediente de contratación temporal");
   if (entrada.esquema !== ESQUEMA_EXPEDIENTE || typeof entrada.demostracion !== "boolean"
     || !PATRON_NUMERO.test(entrada.numero_visible)
@@ -597,6 +601,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     tareas,
     ...(propuestaHistorica ? { version_propuesta_documental: entrada.version_propuesta_documental } : {}),
     ...(tieneResultadoBolsa ? { resultado_bolsa: validarResultadoBolsaCT(entrada.resultado_bolsa) } : {}),
+    ...validarMetadatosRecuperacionFirmas(entrada, entrada.expediente_ref, entrada.version),
   });
 }
 
