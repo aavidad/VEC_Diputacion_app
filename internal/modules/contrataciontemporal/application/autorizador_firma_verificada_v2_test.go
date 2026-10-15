@@ -89,14 +89,12 @@ func TestAutorizadorFirmaV2ConservaDescriptorAnteriorAlPDP(t *testing.T) {
 	if !errors.Is(ValidarCapacidadFirmaVerificadaV2(legacy, m), ports.ErrFirmaDocumentoDenegada) {
 		t.Fatal("capacidad legada escribió sin descriptor")
 	}
-	posterior, err := CanonicoDescriptorFirmaVerificadaV2(m, p.descriptor)
-	if err != nil {
-		t.Fatal(err)
+	if _, err := CanonicoDescriptorFirmaVerificadaV2(m, p.descriptor); !errors.Is(err, ports.ErrCompetenciaFirmanteNoAcreditada) {
+		t.Fatal("el descriptor de otro cargo se canonizó")
 	}
-	shaPosterior := sha256.Sum256(posterior)
-	alterada := ports.TransportarMaterialFirmaVerificadaV2ConDescriptor(c.ExportarMaterialParaConsumidor(), posterior, hex.EncodeToString(shaPosterior[:]))
-	if !errors.Is(ValidarCapacidadFirmaVerificadaV2(alterada, m), ports.ErrFirmaDocumentoDenegada) {
-		t.Fatal("el mismo PDP autorizó otro cargo nominal")
+	emisor.visto = vd.RecursoAutorizable{}
+	if _, err := a.AutorizarFirmaVerificadaV2(context.Background(), m); !errors.Is(err, ports.ErrCompetenciaFirmanteNoAcreditada) || emisor.visto.Referencia != "" {
+		t.Fatal("el descriptor de otro cargo llegó al emisor")
 	}
 }
 

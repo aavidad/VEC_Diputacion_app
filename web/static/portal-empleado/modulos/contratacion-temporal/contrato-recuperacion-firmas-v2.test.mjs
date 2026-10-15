@@ -8,6 +8,7 @@ import {
 import {
   crearClienteRecuperacionFirmasV2, RUTA_RECUPERACION_FIRMAS_V2,
 } from "./cliente-http-recuperacion-firmas-v2.js";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js";
 
 const h = (x) => x.repeat(64);
@@ -119,6 +120,28 @@ test("cliente usa ruta real, una petición y descarta respuesta tardía cancelad
   });
   await assert.rejects(tardio.recuperar(solicitud, { signal: controlador.signal }),
     (error) => error.name === "AbortError");
+});
+
+test("consulta y recuperación envían Content-Type JSON exacto por el transporte completo", async () => {
+  const llamadas = [];
+  const cliente = crearClienteHTTPContratacionTemporal({
+    fetchImpl: async (ruta, opciones) => {
+      llamadas.push({ ruta, opciones });
+      return new Response(null, { status: 415 });
+    },
+  });
+  for (const operacion of ["consultar", "recuperar"]) {
+    await assert.rejects(cliente.firmasV2[operacion](solicitud));
+  }
+  assert.deepEqual(llamadas.map(({ ruta }) => ruta), [
+    "/api/vec/contratacion-temporal/firmas-documento/consultas-v2",
+    RUTA_RECUPERACION_FIRMAS_V2,
+  ]);
+  for (const { opciones } of llamadas) {
+    assert.equal(opciones.method, "POST");
+    assert.equal(opciones.headers.get("Content-Type"), "application/json");
+    assert.equal(opciones.headers.get("Accept"), "application/json");
+  }
 });
 
 test("los dos catálogos JSON tienen el mismo contrato y no hay idioma en el traductor", () => {

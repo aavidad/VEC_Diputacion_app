@@ -168,11 +168,11 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Petición del centro | Se presenta y la ratifica otra persona del centro. | RRHH pidió que la petición vaya firmada por el técnico y por el Diputado o Diputada. | Petición firmada desde VEC. |
 | Tramitación del expediente | Análisis, crédito, vía de cobertura, unidad, informe e Intervención. | Decidir con RRHH si el ofrecimiento va antes o después de Intervención. | El orden de las fases que fije RRHH, que se puede cambiar por configuración. |
 | Documentos | Borradores en PDF y Word con el logotipo y los datos del expediente. | Las plantillas definitivas de RRHH. | Documentos con las plantillas oficiales, listos para firmar. |
-| Firma | En preparación. Hoy ningún documento sale firmado. | Terminar la firma con certificado desde el navegador. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
+| Firma | En la copia de ensayo, el informe tiene dos firmas y la resolución tres; sus PDF se recuperan desde la ficha después de reiniciar. | Probar el recorrido entero en un mismo expediente e instalar lo ensayado. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
 | Cese y vuelta a la bolsa | El cese se registra. | Probar entera la vuelta automática a la bolsa. | Al cesar, la persona vuelve sola a su bolsa con la situación que marque la regla. |
-| Administración | El acceso y los cambios de perfiles usan claves con vigencia limitada. | Comprobar en la copia el ajuste que evita renovarlas cada día durante las pruebas. | Renovación controlada, con constancia de quién la autoriza y sin ampliar los permisos. |
+| Administración | El acceso y los cambios de perfiles usan claves con vigencia limitada. Está preparado el ajuste para alargarla en las copias locales. | Activarlo en la candidata de dirección. | Renovación controlada, con constancia de quién la autoriza y sin ampliar los permisos. |
 | Otros módulos | Aparcados hasta terminar bolsas y contratación. | Ver el apartado 8. | Personal, control horario, dietas, nóminas y los demás módulos de RRHH en la misma aplicación. |
 
 ## 8. Los demás módulos de VEC
@@ -191,7 +191,11 @@ VEC se construye por partes. Primero bolsas y contratación temporal, con lo que
 
 **Para qué sirve.** Que cada cargo firme los documentos con su certificado, en el orden fijado, y que VEC compruebe que la firma es válida.
 
-**Hoy.** Está programado con GrxFirma desde el navegador, pero aún no se ha completado una firma de principio a fin. Ningún documento sale firmado.
+**Hoy.** En la copia de ensayo, el informe ya tiene las firmas del técnico y de Jefatura, verificadas con GrxFirma y registradas con sus recibos. Intervención rechaza la fiscalización mientras falta la segunda firma y la admite después. La resolución tiene las firmas de Jefatura, Diputación y Secretaría General. Ambos PDF se han recuperado desde la ficha después de reiniciar. Los recibos conservan sus referencias y fechas originales. Los otros cuatro documentos se descargan en PDF y Word y conservan la firma pendiente.
+
+**Falta.** Probar todo el recorrido en un mismo expediente: el informe y la resolución se han comprobado en dos expedientes distintos. La instalación en el entorno compartido corresponde a dirección.
+
+La firma electrónica del documento y la competencia de quien firma se comprueban por separado: [Ley 39/2015, artículo 26.2.e](https://www.boe.es/eli/es/l/2015/10/01/39/con#a26) y [Ley 40/2015, artículo 12](https://www.boe.es/eli/es/l/2015/10/01/40/con#a12). El orden de cargos del recorrido es configurable y sigue pendiente de la confirmación de RRHH y Secretaría General; esos artículos no fijan quién firma cada paso.
 
 **Al final.** Firma de una o varias personas en cualquier módulo, con la verificación guardada junto al documento. Las delegaciones y suplencias que comunique Secretaría General se tendrán en cuenta.
 
@@ -209,7 +213,7 @@ VEC se construye por partes. Primero bolsas y contratación temporal, con lo que
 
 **Hoy.** Se entra con certificado de pruebas. Los perfiles están publicados y en la administración se ve la lista de personas y su ficha. Dar y quitar perfiles desde pantalla está a medias y los cambios delicados piden la aprobación de dos administradores.
 
-**Falta.** Comprobar el ajuste de vigencias en la copia: durante las pruebas se podrán preparar claves que duren más de un día. Cambiar su duración no da permisos nuevos ni prolonga una aprobación pendiente. En producción se conserva el límite de un día.
+**Falta.** Activar el ajuste de vigencias en la candidata de dirección. En la copia local se preparan claves de 90 días para evitar la renovación diaria durante las pruebas. Cambiar su duración no da permisos nuevos ni prolonga una aprobación pendiente. En producción se conserva el límite de un día.
 
 **Al final.** Entrada con el usuario de la Diputación y certificado, reparto de perfiles desde pantalla con doble aprobación cuando toque, activar o desactivar módulos y ver el estado de las copias de seguridad.
 

@@ -55,6 +55,23 @@ test("el apartado dice documento, estado, quién firma y desde cuándo, escapado
   assert.doesNotMatch(html, /ct-fase-firma-aviso/u);
 });
 
+test("la resolución de tres pasos confirma el cierre solo al estar todas las firmas acreditadas", () => {
+  const pendiente = documento(["firmado", "firmado", "pendiente_firma"], 3,
+    ["2026-09-28T08:30:00Z", "2026-09-29T09:15:00Z"]);
+  const htmlPendiente = renderizarFaseFirma({ catalogo: { documentos: [pendiente] },
+    real: { documentos: [pendiente] }, textos: es });
+  assert.match(htmlPendiente, /Orden de firma pendiente de confirmación/u);
+  assert.doesNotMatch(htmlPendiente, /Nadie: firmas de VEC completas/u);
+
+  const completo = documento(["firmado", "firmado", "firmado"], 0,
+    ["2026-09-28T08:30:00Z", "2026-09-29T09:15:00Z", "2026-10-15T08:00:00Z"]);
+  const htmlCompleto = renderizarFaseFirma({ catalogo: { documentos: [completo] },
+    real: { documentos: [completo] }, textos: es });
+  assert.match(htmlCompleto, />Firmado en VEC</u);
+  assert.match(htmlCompleto, /Nadie: firmas de VEC completas/u);
+  assert.doesNotMatch(htmlCompleto, /Orden de firma pendiente de confirmación/u);
+});
+
 test("sin estado real se avisa y se muestra el primer firmante", () => {
   const catalogo = { documentos: [{ documento: "resolucion", etiqueta: "Resolución", pasos: [{ orden: 1, cargo: "Jefatura" }, { orden: 2, cargo: "Diputado" }] }] };
   const html = renderizarFaseFirma({ catalogo, real: null, textos: es });
