@@ -71,6 +71,18 @@ func TestOpcionesAuditoriaConsultaLeenCatalogoDemoYValidanMotivo(t *testing.T) {
 	}
 }
 
+func TestOpcionesAuditoriaConsultaAdmitenCatalogoOperativo(t *testing.T) {
+	t.Setenv(config.EnvAuditoriaConsultaCatalogoPath, "../../../data/catalogos/auditoria/consulta.v2.json")
+	cfg := config.Config{ExecutionProfile: config.ExecutionProfileDevelopment, AuthMode: config.AuthModeDevelopment, DevelopmentGuard: config.DevelopmentGuardAcknowledgement}
+	validador := &validadorMotivoAuditoriaPrueba{}
+	proveedor, opciones, err := nuevoProveedorOpcionesAuditoriaConsultaDesarrollo(t.Context(), cfg, relojContratacionTemporalDesarrollo{}, validador)
+	if err != nil || proveedor == nil || opciones.EsEjemplo || !opciones.SeleccionObjetivo ||
+		opciones.FinalidadRef != "consulta_auditoria_rrhh" || opciones.PermisoRequerido != auditoria.AccionConsultar ||
+		opciones.Motivo.CatalogoVersion != 2 || validador.llamadas != 1 {
+		t.Fatalf("catálogo operativo rechazado: opciones=%+v, validaciones=%d, error=%v", opciones, validador.llamadas, err)
+	}
+}
+
 func TestInstantaneasAuditoriaConsultaSeparanFuenteExpedienteYCampos(t *testing.T) {
 	ahora := time.Date(2026, 9, 28, 10, 0, 0, 0, time.UTC)
 	finalidad := "revision_administrativa_auditoria_rrhh"
