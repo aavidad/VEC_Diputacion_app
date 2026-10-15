@@ -333,8 +333,13 @@ esta tabla.
 | Petición firmada por técnico y Diputado/a | RRHH la pide firmada; el código la presenta y la ratifica otra persona del centro, sin firma | Presentación y ratificación sin firma, como hace el código |
 | Autorización de la Dirección de RRHH | Paso 2 del orden de RRHH; el código no tiene un paso propio | No se representa; la vía de cobertura y el informe la sustituyen en la presentación |
 | Unidad de Lucía | `docs/manuales/centro.md` la sitúa en TRANSFORMACIÓN DIGITAL | Se usa la que fija este caso; el manual se corrige cuando K confirme centro y puesto |
-| Una o varias plazas | Bolsa admite ofertas con varias plazas; el expediente no las usa | Una plaza y una persona |
+| Una o varias plazas | El recorrido singular ya usa el llamamiento de Bolsa; la variante de varias plazas desde CT está preparada en código, sin ensayo integrado | El mismo expediente Administrativo solicita dos personas: Antonio y otra persona ficticia ya disponible en la bolsa. Una persona se conserva como regresión del llamamiento singular |
 | Cuándo cuenta la incorporación | Duda 140: con el alta en Personal o con la toma de posesión | Se muestran las dos: acreditación del centro y alta en Personal |
+
+Dirección autorizó el 15/10 esta variante dentro del mismo caso de aceptación,
+sin abrir otro recorrido. Los pasos posteriores a la aceptación de Antonio
+siguen pendientes de comprobar para dos personas; el recibo de una oferta no
+acredita su incorporación, nombramiento ni el envío de un correo.
 
 ### 4.0.1 Vista general
 
@@ -707,11 +712,34 @@ Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
 un reintento conserva fechas, política y oferta originales. Este corte no acredita
 todavía la publicación desde la ficha de CT.
 
-La oferta con varias plazas, la adjudicación por posición y el llamamiento
-directo existen en Bolsa (`internal/modules/bolsa/domain/oferta_publicada.go`,
-`politica_ofertas.go`, `/api/vec/bolsa/ofertas`), pero el expediente de CT no
-los usa: el número de personas de la solicitud no se traduce en varias plazas.
-Falta.
+El segundo corte, **preparado en código y todavía sin ensayo integrado**, añade
+una respuesta distinta al mismo `POST /api/vec/contratacion-temporal/llamamientos/seleccion`.
+Para una persona conserva el llamamiento anterior. Para varias, CT obtiene del
+expediente la cantidad solicitada, la necesidad y la bolsa constituida; exige
+entre 2 y 100 plazas y que no superen las personas elegibles. La ficha no envía
+cantidad, bolsa ni candidatos. CT toma una vez la captura vigente del orden de
+Bolsa, reserva el comando original y pide a Bolsa una oferta de esa cantidad.
+Bolsa publica y devuelve su recibo; CT confirma el vínculo con recibo propio.
+La ficha muestra ambos, las plazas y el plazo, y lleva a «Gestionar ofertas»
+en Bolsa. La publicación no demuestra un aviso por correo.
+
+Ante una respuesta incierta, RRHH repite la solicitud original con el mismo
+contenido y clave. Si el servidor identifica una oferta indeterminada, RRHH
+puede pulsar «Recuperar operación»: la petición añade `accion: recuperar_oferta`
+sin cambiar los tres campos originales. Puede devolver la oferta ya publicada
+con el mismo recibo. Si han pasado más de cinco minutos y Bolsa acredita que
+no hubo publicación, B121 cierra la intención y CT registra un descarte con
+dos recibos. Solo tras ver ese cierre RRHH puede confirmar «Preparar nueva
+oferta»; la nueva solicitud obtiene otra clave al confirmar. Los justificantes
+del cierre siguen visibles mientras se prepara y se recupera la siguiente.
+Una falta de reserva no se presenta como cierre: se reintenta la solicitud
+original. Los recibos y la recuperación aún necesitan instalación, arranque
+y recorrido en Chrome de la candidata conjunta.
+
+La guarda del tercer corte toma el bloqueo de cabecera compartido con la
+reserva. Terminar una intención de oferta no permite cancelar un expediente
+ya fiscalizado si la política vigente lo prohíbe. Siguen pendientes la retirada
+de una oferta publicada y una intención durable de aviso por correo.
 
 Reglas del llamamiento y sus canales (decisiones de Alberto del 02/10 al
 08/10):

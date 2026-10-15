@@ -396,6 +396,22 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
+La conexión de ofertas de varias plazas está **preparada en código y SQL, sin
+ensayo integrado ni instalación acreditados**. CT220 amplía la ejecución de
+selección para reservar una variante de oferta con su comando original; añade
+`vinculo_oferta_bolsa_ct_v1`, `descarte_seleccion_oferta_ct_v1` y sus outbox.
+El mismo UUID recupera la intención y sus recibos, sin volver a capturar el
+origen B110. B120 permite a CT verificar nominalmente la oferta de Bolsa;
+B121 verifica y cierra una intención sin publicación cuando ya no se puede
+publicar con la captura original. Las restricciones únicas de Bolsa arbitran
+la publicación y el cierre tardío. AD278 aporta autorizaciones distintas para
+el vínculo, el cierre en Bolsa y el descarte en CT. CT223 comparte el bloqueo
+de cabecera entre reserva y cancelación; no cambia la prohibición de cancelar
+un expediente fiscalizado. El descarte deja historia técnica y recibos, sin
+avanzar la fase ni la versión del expediente. La lista ordenada y las
+condiciones de activación están en
+`deploy/principal/activacion_codexs_varias_plazas_ct_20261015.md`.
+
 Puertos Go: `internal/modules/contrataciontemporal/ports/`; adaptadores en
 `adapters/postgres/`. Detalle técnico por migración:
 `deploy/postgresql/contratacion_temporal/README.md`.
