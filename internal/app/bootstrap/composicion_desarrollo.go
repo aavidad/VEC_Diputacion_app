@@ -687,6 +687,7 @@ func nuevoServidorSinContratacionTemporalDesarrollo(
 	raiz := componerRaizConPersonalPublico(composeVECShellAPIConBolsasPublicas(api, publicaBolsa, nil), consultasPersonal)
 	siguiente := raiz
 	raiz = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
 		if r != nil && r.URL != nil && rutaDependienteContratacionTemporal(r.URL.Path) {
 			responderContratacionTemporalNoDisponible(w, r)
 			return
@@ -728,6 +729,7 @@ func rutaDependienteContratacionTemporal(ruta string) bool {
 		"/api/vec/auditoria", "/api/vec/calendarios", "/api/vec/reglas/vigentes",
 		"/api/vec/dietas/comisiones", "/api/vec/usuarios", "/api/vec/aspirantes",
 		"/api/vec/personal/asignaciones-dietas", "/api/vec/personal/relaciones-dietas",
+		"/api/vec/personal/organizacion-historica",
 		"/api/vec/personal/solicitudes-rectificacion-dietas", "/api/vec/cronos",
 		"/api/interna/cronos", "/api/interna/personal",
 	} {

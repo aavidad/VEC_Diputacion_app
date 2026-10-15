@@ -100,6 +100,7 @@ func TestArranqueSinCTConservaSesionPortalYSalud(t *testing.T) {
 		{"/api/vec/contratacion-temporal/expedientes/consultas", http.StatusServiceUnavailable, `"codigo":"servicio_no_disponible"`},
 		{"/api/vec/bolsa/bolsas", http.StatusServiceUnavailable, `"codigo":"servicio_no_disponible"`},
 		{"/api/vec/auditoria/consultas", http.StatusServiceUnavailable, `"codigo":"servicio_no_disponible"`},
+		{"/api/vec/personal/organizacion-historica", http.StatusServiceUnavailable, `"codigo":"servicio_no_disponible"`},
 		{"/api/vec/dietas/comisiones", http.StatusServiceUnavailable, `"codigo":"servicio_no_disponible"`},
 	} {
 		respuesta, err := cliente.Get(prueba.URL + caso.ruta)
@@ -117,6 +118,61 @@ func TestArranqueSinCTConservaSesionPortalYSalud(t *testing.T) {
 	}
 }
 
+func TestSesionSinCTAceptaSoloCadenaTLSVerificada(t *testing.T) {
+	cfg, rutas := generarMaterialDesarrolloPrueba(t)
+	servidor, _, err := NewHTTPServerDesarrolloWithConfig(cfg, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientePEM, err := os.ReadFile(rutas.ClientCertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caPEM, err := os.ReadFile(rutas.CACertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	servidorPEM, err := os.ReadFile(rutas.ServerCertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hoja, err := decodificarCertificadoUnico(clientePEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca, err := decodificarCertificadoUnico(caPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ajeno, err := decodificarCertificadoUnico(servidorPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct {
+		nombre     string
+		verificada []*x509.Certificate
+		estado     int
+	}{
+		{"hoja y CA verificadas", []*x509.Certificate{hoja, ca}, http.StatusOK},
+		{"cadena ambigua", []*x509.Certificate{ajeno, ca}, http.StatusUnauthorized},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			peticion := httptest.NewRequest(http.MethodGet, "/api/vec/session", nil)
+			peticion.RemoteAddr = "127.0.0.1:1234"
+			peticion.TLS = &tls.ConnectionState{
+				HandshakeComplete: true, Version: tls.VersionTLS13,
+				PeerCertificates: []*x509.Certificate{hoja, ca},
+				VerifiedChains:   [][]*x509.Certificate{caso.verificada},
+			}
+			respuesta := httptest.NewRecorder()
+			servidor.Handler.ServeHTTP(respuesta, peticion)
+			if respuesta.Code != caso.estado {
+				t.Fatalf("sesión con %s: estado=%d esperado=%d", caso.nombre, respuesta.Code, caso.estado)
+			}
+		})
+	}
+}
+
 func TestCierreCTDelimitaPrefijos(t *testing.T) {
 	for _, ruta := range []string{
 		"/api/vec/contratacion-temporal", "/api/vec/contratacion-temporal/expedientes",
@@ -124,6 +180,7 @@ func TestCierreCTDelimitaPrefijos(t *testing.T) {
 		"/api/vec/auditoria/consultas", "/api/vec/auditoria/opciones",
 		"/api/vec/calendarios/centros", "/api/vec/reglas/vigentes",
 		"/api/interna/personal/mi-ficha/servicios/historia",
+		"/api/vec/personal/organizacion-historica", "/api/vec/personal/organizacion-historica/importaciones/preparar",
 		"/api/vec/personal/relaciones-dietas", "/api/vec/usuarios/mis-preferencias",
 	} {
 		if !rutaDependienteContratacionTemporal(ruta) {
