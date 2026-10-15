@@ -10,7 +10,7 @@
 export const PUERTO_AUTOFIRMA = 63117;
 const VERSION_PROTOCOLO = 4;
 const ALFABETO = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-const MAXIMO_PDF = 1024 * 1024;
+const MAXIMO_PDF = 2 * 1024 * 1024;
 const MAXIMO_RESPUESTA = 8 * 1024 * 1024;
 
 /** Error con un código cerrado; los textos visibles los pone la vista. */
