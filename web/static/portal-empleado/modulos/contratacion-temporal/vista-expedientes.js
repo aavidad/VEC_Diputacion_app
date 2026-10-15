@@ -21,9 +21,9 @@ import {
 } from "./vista-expedientes-render.js?v=20261013-ct-firma-tres-v3";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261013-ct-firma-tres-v3";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261015-firma-consulta-json-v1";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261015-firma-consulta-json-v1";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261015-firma-plan-custodia-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261014-ginpix-personal-b2-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261014-ginpix-personal-b2-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261015-firma-plan-custodia-v1";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261011-ct-bolsa-vinculo-v1";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261013-ct-firma-tres-v3";
@@ -541,6 +541,9 @@ export async function montarModuloContratacionTemporal({
   const gestorCircuitoFirma = crearGestorCircuitoFirma({
     raiz,
     obtenerEstado: () => presentador.obtenerEstado(),
+    resolverDisponibilidadFirma: (contexto) => presentador.resolverDisponibilidadOpcional?.("firma_nominal", {
+      expediente_ref: contexto.ref, version_observada: contexto.version,
+    }),
     ...(clienteCircuitoFirma === undefined ? {} : { cliente: clienteCircuitoFirma }),
     ...(clienteFirmasV2 === undefined ? {} : { clienteFirmasV2 }),
     ...(clienteOriginalFirma === undefined ? {} : { clienteOriginal: clienteOriginalFirma }),

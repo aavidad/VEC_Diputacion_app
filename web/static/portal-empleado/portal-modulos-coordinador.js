@@ -137,7 +137,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const cargarCompleto = () => {
       completos ??= Promise.all([
         import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261011-ct-bolsa-vinculo-v1"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261013-ct-firma-tres-v3"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261015-firma-plan-custodia-v1"),
         import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261014-ginpix-personal-b2-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
@@ -148,7 +148,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261015-firma-consulta-json-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261015-firma-plan-custodia-v1");
       const [auditoriaVista, auditoriaCliente, original, preflight, firmaVec, autoFirma, documentos] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),

@@ -63,6 +63,10 @@ function ultimoCustodiado(pasos) {
 export function calcularFaseDocumento(documento, conEstadoReal) {
   const pasos = documento.pasos;
   const total = pasos.length;
+  if (documento.cobertura_nominal === false) {
+    return Object.freeze({ estado: "pendiente_firma", paso: null, total, desde: "", custodiado: null,
+      sinPlanDeFirma: true });
+  }
   if (!conEstadoReal || !Number.isSafeInteger(documento.paso_pendiente)) {
     return Object.freeze({ estado: "no_disponible", paso: pasos[0] ?? null, total, desde: "", custodiado: null });
   }
@@ -80,13 +84,14 @@ export function calcularFaseDocumento(documento, conEstadoReal) {
 }
 
 function textoDesde(fase, textos) {
-  if (fase.estado === "borrador") return textos.traducir("fase.sin_fecha");
+  if (fase.estado === "borrador" || fase.sinPlanDeFirma) return textos.traducir("fase.sin_fecha");
   if (!fechaValida(fase.desde)) return textos.traducir("fase.fecha_desconocida");
   return textos.fecha(fase.desde, { dateStyle: "medium", timeStyle: "short", timeZone: ZONA_HORARIA });
 }
 
 /** Rótulo y texto de la columna de personas: quién firma o quién devolvió. */
 function persona(fase, textos, nombrar) {
+  if (fase.sinPlanDeFirma) return [textos.traducir("fase.quien"), textos.traducir("fase.orden_no_confirmado")];
   if (fase.devueltoPor) {
     const cargo = nombrar("cargo", fase.devueltoPor.cargo);
     const motivo = fase.devueltoPor.motivo_devolucion;
@@ -135,6 +140,8 @@ export function renderizarFaseFirma({ catalogo, real, textos, nombrar = (_tipo, 
   if (!textos || !catalogo?.documentos?.length) return "";
   const conEstado = Boolean(real);
   const documentos = conEstado ? real.documentos : catalogo.documentos;
+  const estadoParcial = documentos.some((documento) => documento.cobertura_nominal === true
+    && !Number.isSafeInteger(documento.paso_pendiente));
   const filas = documentos.map((documento) => {
     const fase = calcularFaseDocumento(documento, conEstado);
     const tono = TONO[fase.estado];
@@ -157,7 +164,7 @@ export function renderizarFaseFirma({ catalogo, real, textos, nombrar = (_tipo, 
   }).join("");
   return `<section class="ct-fase-firma" aria-labelledby="ct-fase-firma-titulo" data-ct-fase-firma>
     <h4 id="ct-fase-firma-titulo">${escaparHTML(textos.traducir("fase.titulo"))}</h4>
-    ${conEstado || !aviso ? "" : `<p class="ct-fase-firma-aviso" role="status">${escaparHTML(textos.traducir("fase.estado_no_disponible_aviso"))}</p>`}
+    ${(conEstado && !estadoParcial) || !aviso ? "" : `<p class="ct-fase-firma-aviso" role="status">${escaparHTML(textos.traducir("fase.estado_no_disponible_aviso"))}</p>`}
     <ul class="ct-fase-firma-lista" aria-label="${escaparHTML(textos.traducir("fase.lista"))}">${filas}</ul>
   </section>`;
 }

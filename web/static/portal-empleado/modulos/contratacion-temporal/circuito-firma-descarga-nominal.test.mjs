@@ -61,6 +61,9 @@ async function montar({ fetchDescarga, alDocumentoGeneral = () => { throw new Er
     document: { body: { append(enlace) { enlaces.push(enlace); } },
       createElement: () => ({ click() { this.pulsado = true; }, remove() {} }) } };
   const gestor = crearGestorCircuitoFirma({ raiz, obtenerEstado: () => estado, cargarTextos: async () => textos,
+    resolverDisponibilidadFirma: () => ({ estado: "disponible", expediente_ref: expedienteRef, version_observada: 7,
+      unidad_ref: "unidad:rrhh", plan_ref: "plan:firmas:nominal", plan_version: 1,
+      plan_sha256: "e".repeat(64), documentos: ["resolucion"] }),
     cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: catalogo }) },
     clienteFirmasV2: { consultar: async () => lecturaR5(catalogo) },
     clienteDescargaFirmaV2: crearClienteDescargaFirmaV2({ fetchImpl: fetchDescarga, cryptoImpl: webcrypto }),
