@@ -51,9 +51,11 @@ func (m MaterialFirmaVerificadaV2) Validar() error {
 		return ErrSolicitudFirmaDocumentoInvalida
 	}
 	base.PoliticaVerificacion = PoliticaVerificacionFirma
-	if (base.Via == ViaFirmaCertificadoVEC && MaterialFirmaVec(base).Validar() != nil) ||
-		(base.Via == ViaFirmaExternaPortafirmas && base.Validar() != nil) ||
+	if (base.Via == ViaFirmaCertificadoVEC && (base.ReferenciaPortafirmasDeclarada != "" || base.FechaPortafirmasDeclarada != "")) ||
+		(base.Via == ViaFirmaExternaPortafirmas && (!ReferenciaPortafirmasDeclaradaValida(base.ReferenciaPortafirmasDeclarada) || !fechaFirmaExternaValida(base.FechaPortafirmasDeclarada))) ||
 		(base.Via != ViaFirmaCertificadoVEC && base.Via != ViaFirmaExternaPortafirmas) ||
+		(m.DocumentoCustodiaVersion != VersionDocumentoCustodiado && m.DocumentoCustodiaVersion != uint64(m.Secuencia)) ||
+		base.validarComunConVersionCustodia(m.DocumentoCustodiaVersion) != nil ||
 		m.PasoOrden < 1 || m.PasoOrden > MaximoPasosFirmasVerificadasV2 || m.OrdenFirmaPDF != m.PasoOrden ||
 		!domain.ReferenciaOpacaValida(m.EntradaDocumentoRef) || m.EntradaDocumentoVersion < 1 || m.EntradaDocumentoVersion > 9007199254740991 ||
 		m.EntradaDocumentoLongitud < 1 || m.EntradaDocumentoLongitud >= m.RevisionLongitud || m.RevisionLongitud > 32*1024*1024 ||
@@ -96,6 +98,11 @@ func (m MaterialFirmaVerificadaV2) Validar() error {
 		return ErrSolicitudFirmaDocumentoInvalida
 	}
 	return nil
+}
+
+func fechaFirmaExternaValida(v string) bool {
+	_, ok := FechaFirmaExternaCanonica(v)
+	return ok
 }
 
 // ComprobadaEn es observación del verificador; no cambia la identidad del acto.

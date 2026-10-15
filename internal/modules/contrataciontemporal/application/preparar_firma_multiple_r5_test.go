@@ -24,13 +24,16 @@ func (d *dependenciasMultiplePrueba) ObtenerPerfilActivoOperadorFirmaV2(context.
 	return d.perfilOperador, nil
 }
 
-type circuitoMultiplePrueba struct{ alternativo bool }
+type circuitoMultiplePrueba struct{ alternativo, tresPasos bool }
 
 func (c circuitoMultiplePrueba) CircuitoFirma(ctx context.Context) (domain.CircuitoFirma, error) {
 	r, err := (circuitoFirmaPrueba{}).CircuitoFirma(ctx)
 	r.CatalogoVersion = 2
 	if c.alternativo {
 		r.Documentos[0].Pasos[0].PerfilesAlternativos = []string{"perfil:ct:direccion"}
+	}
+	if c.tresPasos {
+		r.Documentos[0].Pasos = append(r.Documentos[0].Pasos, domain.PasoCircuitoFirma{Orden: 3, Cargo: "Secretaría", PerfilRef: "perfil:ct:secretaria", Accion: "firma", Devolucion: domain.DevolucionVuelvePasoAnterior, Referencia: "circuito:1:informe_definitivo.p3"})
 	}
 	return r, err
 }
@@ -157,7 +160,10 @@ func (d *dependenciasMultiplePrueba) RegistrarFirmaVerificadaV2(_ context.Contex
 }
 
 func fixturePDFMultipleConsumidor(n int) ([]byte, docports.VerificacionFirmasDocumento) {
-	original := []byte("%PDF-1.7 original vec sintetico")
+	return fixturePDFMultipleConOriginal(n, []byte("%PDF-1.7 original vec sintetico"))
+}
+
+func fixturePDFMultipleConOriginal(n int, original []byte) ([]byte, docports.VerificacionFirmasDocumento) {
 	pdf := bytes.Clone(original)
 	v := docports.VerificacionFirmasDocumento{Estado: docports.EstadoVerificacionValida, Motivo: docports.MotivoFirmaVerificada, Formato: "PAdES", VinculoOriginal: true, HuellaOriginalSHA256: huella(original), ComprobadoEn: instanteFirmaPrueba}
 	zero := uint64(0)
@@ -196,6 +202,77 @@ func prepararServicioMultipleConsumidor(t *testing.T) (*ServicioFirmaVec, *depen
 	return s, d, competencia, o
 }
 
+func TestConsumidorFirmaMultipleTresVersionesDeCustodia(t *testing.T) {
+	s, d, competencia, o := prepararServicioMultipleConsumidor(t)
+	s.base.circuito = circuitoMultiplePrueba{tresPasos: true}
+	previaCompetencia := competencia.alterar
+	competencia.alterar = func(e *ports.EvidenciaCompetenciaFirmante) {
+		previaCompetencia(e)
+		if e.Solicitud.PasoOrden == 3 {
+			e.FirmantePrincipalRef = "per_secretaria_sintetica_003"
+		}
+	}
+	refs := map[string]bool{}
+	for n := 1; n <= 3; n++ {
+		r, err := registrarPasoMultipleConsumidor(t, s, d, o, n)
+		if err != nil {
+			t.Fatalf("firma %d: %v", n, err)
+		}
+		if r.MaterialMultiple == nil || r.MaterialMultiple.DocumentoCustodiaVersion != uint64(n) || r.Custodiado.Version != uint64(n) || r.Recibo.DocumentoCustodiaVersion != uint64(n) || refs[r.Custodiado.Ref] {
+			t.Fatalf("custodia de firma %d: %+v", n, r)
+		}
+		refs[r.Custodiado.Ref] = true
+	}
+	if len(d.materiales) != 3 {
+		t.Fatalf("actos registrados: %d", len(d.materiales))
+	}
+}
+
+func TestConsumidorFirmaMultipleReplayConservaVersionHistoricaUno(t *testing.T) {
+	s, d, _, o := prepararServicioMultipleConsumidor(t)
+	if _, err := registrarPasoMultipleConsumidor(t, s, d, o, 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registrarPasoMultipleConsumidor(t, s, d, o, 2); err != nil {
+		t.Fatal(err)
+	}
+	// Representa un acto V2 ya confirmado cuando todas las custodias eran 1.
+	d.materiales[1].DocumentoCustodiaVersion = 1
+	d.lecturas.Firmas[1].DocumentoCustodiaVersion = 1
+	d.lecturas.RevisionesPDF[1].DocumentoCustodiaVersion = 1
+	historica, _ := d.materiales[1].HuellaSHA256()
+	d.lecturas.HistoriaHuella = historica
+	repetido, err := registrarPasoMultipleConsumidor(t, s, d, o, 2)
+	if err != nil || !repetido.Recibo.YaRegistrada || repetido.Custodiado.Version != 1 || repetido.MaterialMultiple.DocumentoCustodiaVersion != 1 || repetido.Recibo.SolicitudHuella != historica || len(d.materiales) != 2 {
+		t.Fatalf("replay histórico: %+v %v", repetido, err)
+	}
+}
+
+func TestConsumidorFirmaMultipleNuevaRondaConservaSecuenciaGlobal(t *testing.T) {
+	s, d, _, o := prepararServicioMultipleConsumidor(t)
+	primera, err := registrarPasoMultipleConsumidor(t, s, d, o, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ronda := &rondaInformePrueba{inicio: 8}
+	politica := fuenteInformeTrasSubsanacionPrueba{politica: domain.PoliticaInformeTrasSubsanacion{ExigeInformeNuevo: true, DocumentoFirma: "informe_definitivo"}}
+	if err := s.base.AbrirRondaInformeNuevo(politica, ronda); err != nil {
+		t.Fatal(err)
+	}
+	o.contenido = []byte("%PDF-1.7 original nuevo tras reparo sintetico")
+	sol := solicitudFirmaVecPrueba(o.contenido, "multiple-clave-nueva-ronda")
+	sol.VersionExpediente, sol.OriginalVersion = 8, 8
+	sol.OriginalRef = "ref:" + strings.Repeat("9", 64)
+	sol.PDFFirmado, d.dictamen = fixturePDFMultipleConOriginal(1, o.contenido)
+	firmada, err := s.Firmar(context.Background(), sol)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if firmada.MaterialMultiple == nil || firmada.MaterialMultiple.PasoOrden != 1 || firmada.MaterialMultiple.Secuencia != 2 || firmada.Custodiado.Version != 2 || firmada.Custodiado.Ref == primera.Custodiado.Ref {
+		t.Fatalf("segunda ronda sin secuencia global: %+v", firmada)
+	}
+}
+
 func registrarPasoMultipleConsumidor(t *testing.T, s *ServicioFirmaVec, d *dependenciasMultiplePrueba, o *originalExternoPrueba, n int) (ResultadoFirmaVec, error) {
 	t.Helper()
 	sol := solicitudFirmaVecPrueba(o.contenido, fmt.Sprintf("multiple-clave-%d", n))
@@ -220,6 +297,9 @@ func TestConsumidorFirmaMultipleDosActosYReplay(t *testing.T) {
 	}
 	if primero.MaterialMultiple == nil || segundo.MaterialMultiple == nil || primero.Recibo.FirmaRef == segundo.Recibo.FirmaRef || segundo.MaterialMultiple.FirmaAnteriorRef != primero.Recibo.FirmaRef || segundo.MaterialMultiple.OriginalRef != primero.MaterialMultiple.OriginalRef || len(d.materiales) != 2 || len(competencia.vistas) != 2 {
 		t.Fatal("cadena, actos o competencia incoherentes")
+	}
+	if primero.Custodiado.Version != 1 || segundo.Custodiado.Version != 2 || primero.Custodiado.Ref == segundo.Custodiado.Ref || segundo.MaterialMultiple.EntradaDocumentoVersion != 1 {
+		t.Fatal("versiones o referencias de custodia incoherentes")
 	}
 	repetido, e := registrarPasoMultipleConsumidor(t, s, d, o, 2)
 	if e != nil {

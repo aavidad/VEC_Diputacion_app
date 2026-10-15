@@ -61,3 +61,30 @@ func TestMaterialFirmaVerificadaV2ValidaRolYCargoIndependientes(t *testing.T) {
 		})
 	}
 }
+
+func TestMaterialFirmaVerificadaV2VersionCustodiaHistoricaODeSecuencia(t *testing.T) {
+	m := materialRolCargoPrueba()
+	m.Secuencia = 3
+	for _, version := range []uint64{1, 3} {
+		m.DocumentoCustodiaVersion = version
+		if err := m.Validar(); err != nil {
+			t.Fatalf("versión %d rechazada: %v", version, err)
+		}
+	}
+	for _, version := range []uint64{0, 2, 4} {
+		m.DocumentoCustodiaVersion = version
+		if m.Validar() == nil {
+			t.Fatalf("V2 admitió versión ajena %d", version)
+		}
+	}
+	v1 := m.MaterialFirmaExterna
+	v1.PoliticaVerificacion = PoliticaVerificacionFirma
+	v1.DocumentoCustodiaVersion = 1
+	if MaterialFirmaVec(v1).Validar() != nil {
+		t.Fatal("V1 rechazó la versión fija 1")
+	}
+	v1.DocumentoCustodiaVersion = 2
+	if MaterialFirmaVec(v1).Validar() == nil {
+		t.Fatal("V1 admitió versión 2")
+	}
+}
