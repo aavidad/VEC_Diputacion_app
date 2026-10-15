@@ -82,33 +82,36 @@ se copia de su salida.
 
 | Fase | Pendiente | Bloqueada | En curso | En revisión | Fusionada | Hecha | Aparcada | Cancelada | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 0 Base común | 20 | 2 | 4 | 1 | 0 | 0 | 3 | 0 | 30 |
-| 1 Bolsa y CT | 39 | 7 | 9 | 0 | 0 | 3 | 0 | 1 | 59 |
+| 0 Base común | 15 | 2 | 5 | 0 | 4 | 0 | 3 | 1 | 30 |
+| 1 Bolsa y CT | 41 | 6 | 9 | 0 | 1 | 3 | 0 | 1 | 61 |
 | 2 Personal y Organización | 10 | 3 | 1 | 0 | 0 | 0 | 0 | 1 | 15 |
 | 3 Cronos | 5 | 4 | 1 | 0 | 0 | 0 | 0 | 0 | 10 |
 | 4 Dietas | 2 | 4 | 1 | 0 | 0 | 0 | 0 | 0 | 7 |
 | 5 Sustituir Convoca | 8 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 13 |
 | 6 Resto de módulos | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 0 | 13 |
 | 7 Uso real | 2 | 13 | 0 | 0 | 0 | 0 | 1 | 0 | 16 |
-| **Total** | **86** | **38** | **16** | **1** | **0** | **3** | **17** | **2** | **163** |
+| **Total** | **83** | **37** | **17** | **0** | **5** | **3** | **17** | **3** | **165** |
 
-Empezables ya: 29 en las fases 0 y 1 (pendientes con todas sus
-dependencias hechas). De ellas, 24 tienen equipo:
+Empezables ya: 26 en las fases 0 y 1 (pendientes con todas sus
+dependencias hechas o fusionadas). De ellas, 20 tienen equipo:
 
-- H: F0-02, F0-08, F0-14, F0-15, F0-22, F0-23, F0-24, F1-36 y F1-37.
-- T: F0-07, F1-39, F1-42, F1-43, F1-44, F1-47 y F1-54.
+- T: F0-07, F1-39, F1-42, F1-43, F1-44 y F1-47.
+- H: F0-08, F0-14, F0-15, F0-22, F0-23, F0-24, F1-36 y F1-37.
 - O: F0-21, F1-45 y F1-46.
-- B: F0-10.
-- L: F0-29 y F0-30.
-- Dirección: F0-25 y F0-26.
+- L: F0-28 y F0-29.
+- B: F1-40.
 
-Sin equipo todavía: F0-11, F0-16, F0-17, F1-53 y F1-56 (esta última es
-opcional); tampoco F1-58 y F1-59, que esperan a F1-36 y F1-06. Fuera de las
+Sin equipo todavía: F0-11, F0-16, F0-17, F1-53, F1-56 (opcional) y F1-60;
+tampoco F1-61, que espera a F1-40. F1-58 y F1-59 tienen equipo, pero esperan
+a F1-36 y F1-06. Fuera de las
 fases 0 y 1 hay tres más sin dependencias (F2-02, F3-02 y F7-13), pero la
 prioridad vigente no deja encargarlas antes de cerrar la fase 1.
 
-Cambios del 16/10: F0-01 en revisión (#1162) y F0-27 en curso (#1160), las
-dos de B; F0-09 en curso con B; F0-06 aparcada; F1-40 bloqueada; nuevo equipo
+Cambios del 16/10: fusionadas #1162 (F0-01, B), #1158 (F0-02, H) y #1157
+(F1-54, T); F0-25 y F0-26 fusionadas antes (#1156 y #1161); F0-27 en curso
+(#1160) y F0-09 en curso con B; F0-06 aparcada; F0-10 cancelada (la cubre
+F1-07); F1-40 desbloqueada con el corte acordado y su cierre pendiente de la
+nueva F1-61; nueva F1-60 (ámbito gobernado de la bolsa); F0-30 en curso con T y L; nuevo equipo
 L con F0-28, F0-29 y F0-30; nuevas F1-58 y F1-59, y las cuatro tareas de
 simplificación que abren la fase 2 (F2-12 a F2-15).
 
@@ -184,7 +187,7 @@ siguiente no empieza hasta acabar la anterior.
 | T | Pantallas y textos | F1-01, F1-02 y F1-03 → F1-44 → F1-42, F1-43 y F1-47 → F1-39 → F1-54 → F1-57 → F0-07 |
 | P | Recorrido, desde el 20/10 | F1-23 → F1-24 a F1-30 → F1-32 y F1-33 → F1-34 → F1-31 |
 | C y D | Cronos y Dietas, desde el 20/10 | Solo F0-18 con F3-01 (C) y F4-01, #1136 y #1139 (D) |
-| B | Arranque y configuración | F0-01 → F0-27 → F0-09 → F0-10 → F1-40 (bloqueada) |
+| B | Arranque y configuración | F0-27 → F0-09 → F1-40 (corte acordado el 16/10; el cierre de extremo a extremo espera a F1-61) |
 | L | Limpieza y herramientas comunes, desde el 16/10 | F0-28 → F0-29 → F0-30 |
 | Dirección | Documentación y coordinación | F0-25 → F0-26 → F6-13 |
 
@@ -196,8 +199,8 @@ unidad gestora con la vía ordinaria (AUT44). Nadie asigna por SQL perfiles con
 
 | ID | Tarea | Zona de código | Depende de | Bloqueo | Tam. | Equipo | Rama/PR | Estado | Desde | Cómo se comprueba | Fuente |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| F0-01 | Encender la auditoría de RRHH (`VEC_RRHH_AUDITORIA_ENABLED`) en la copia local, con su configuración | Configuración; `deploy/principal/auditoria_rrhh_definicion_rol.json` | - | - | S | B | #1162 | En revisión | 16/10 | La consulta por persona devuelve sus lecturas y sus actos | PLAN §5, fase 0 |
-| F0-02 | Retirar el compositor heredado de `vec-admin` o hacer que falle cerrado: exige el grupo `vec_admin_perfiles_auditoria_ejecutor` (`composicion.go:91`) y la función `registrar_denegacion_frontera_admin_v1`, que no existe. No se crea el grupo | `cmd/vec-admin/composicion.go` | - | - | M | H | - | Pendiente | 15/10 | `vec-admin` arranca en una copia limpia o se niega con un motivo claro; nada llama a la función inexistente; dos revisiones sensibles | Consenso de dirección 15/10 |
+| F0-01 | Encender la auditoría de RRHH (`VEC_RRHH_AUDITORIA_ENABLED`) en la copia local, con su configuración | Configuración; `deploy/principal/auditoria_rrhh_definicion_rol.json` | - | - | S | B | #1162 | Fusionada | 16/10 | La consulta por persona devuelve sus lecturas y sus actos | PLAN §5, fase 0 |
+| F0-02 | Retirar el compositor heredado de `vec-admin` o hacer que falle cerrado: exige el grupo `vec_admin_perfiles_auditoria_ejecutor` (`composicion.go:91`) y la función `registrar_denegacion_frontera_admin_v1`, que no existe. No se crea el grupo | `cmd/vec-admin/composicion.go` | - | - | M | H | #1158 | Fusionada | 16/10 | `vec-admin` arranca en una copia limpia o se niega con un motivo claro; nada llama a la función inexistente; dos revisiones sensibles | Consenso de dirección 15/10 |
 | F0-03 | Vida de claves y confianza de gobierno configurable: 24 h por defecto y en producción, hasta 90 días en desarrollo; el arranque de CT adopta la vigente sin recortarla (AD282) | Administración; `internal/app/bootstrap` | - | - | M | H | #1151 | En curso | 15/10 | Arranque con y sin el valor; producción rechaza más de 24 h; desarrollo acepta hasta 90 días; el reinicio conserva la confianza | Consenso de dirección 15/10 |
 | F0-04 | Pantalla de `vec-admin` para asignar y retirar un perfil desde la ficha del usuario (A8). Se hace junto con F0-05 | `cmd/vec-admin`; `web/static/administracion-perfiles` | F0-23, F0-24 | - | L | H | rama del candidato #733 | Pendiente | 15/10 | Formularios, confirmación y recibo en Chrome a 1440 y 390 px | PLAN §6 anterior al tablero |
 | F0-05 | Recorrido real de asignar y retirar con dos administradores (A9). Su tamaño va dentro de F0-04 | `cmd/vec-admin` | F0-02, F0-04 | - | - | H | - | Pendiente | 15/10 | Asignar, retirar, reintento, conflicto y denegación auditados; mismo recibo tras reiniciar | PLAN §5, fase 0 |
@@ -205,7 +208,7 @@ unidad gestora con la vía ordinaria (AUT44). Nadie asigna por SQL perfiles con
 | F0-07 | Administración muestra nombres de persona y de unidad con lectura autorizada (hoy sale «Nombre de la unidad no consultado»; el vídeo 16 se retiró por eso) | `web/static/admin`; `internal/modules/administracion` | - | - | M | T | - | Pendiente | 15/10 | Lista y ficha con nombres; cada lectura auditada | Borrador 15/10 |
 | F0-08 | Quitar del arranque las escrituras directas en tablas de autorización y la herencia de `vec_ad3_o207_gobierno` | `internal/app/bootstrap` | - | - | M | H | - | Pendiente | 15/10 | Arranque en una copia sin esas escrituras | PLAN §6 anterior al tablero |
 | F0-09 | Acto de catálogo con las fuentes de política de cese, configuración, origen CT y contacto completo; versión del rol de RRHH con el especializador (#1100). Antes, comprobar si sigue haciendo falta | Catálogo de acciones; SQL de autorización | - | - | S | B | - | En curso | 16/10 | El rol publicado incluye esas acciones y el recorrido no da 403 | PLAN §6 anterior al tablero |
-| F0-10 | Antivirus (ClamAV) y análisis de PDF con cuarentena antes de custodiar | `cmd/vec-analizador`; `deploy/analizador` | - | - | M | B | rama del analizador | Pendiente | 16/10 | Ensayo con un clamd real; ningún fichero dudoso llega a custodia | PLAN §6 anterior al tablero |
+| F0-10 | Antivirus (ClamAV) y análisis de PDF con cuarentena antes de custodiar. Cancelada el 16/10: la cubre F1-07 (#1147), que ya acredita ClamAV real, analizador con TLS mutuo y cuarentena con admisión 201 | `cmd/vec-analizador`; `deploy/analizador` | - | - | M | O | #1147 | Cancelada | 16/10 | Ensayo con un clamd real; ningún fichero dudoso llega a custodia | PLAN §6 anterior al tablero |
 | F0-11 | Documentos y S3 (D16 a D18): autorización nominal del aspirante externo y composición | Documentos; `deploy/almacen_s3_ceph` | - | - | M | Sin asignar | rama D16-D18 | Pendiente | 15/10 | El aspirante externo sube y descarga con su permiso | Borrador 15/10 |
 | F0-12 | Cliente del gestor documental Mayan | Documentos | F0-10 | Sistemas: TLS y configuración | M | Sin asignar | rama Mayan | Bloqueada | 15/10 | Documento custodiado en Mayan con el TLS del destino | Borrador 15/10 |
 | F0-13 | Correo de la Diputación configurable desde Administración (B5) | `internal/modules/administracion` | - | Duda 88 (Informática) | M | Sin asignar | - | Bloqueada | 15/10 | Envío de prueba auditado desde Administración | PLAN §6 anterior al tablero |
@@ -220,12 +223,12 @@ unidad gestora con la vía ordinaria (AUT44). Nadie asigna por SQL perfiles con
 | F0-22 | Auditoría, corte C: la consulta de datos de contacto deja apunte | `internal/modules/bolsa`; auditoría común | - | - | S | H | - | Pendiente | 15/10 | Cada consulta de contacto registra quién, de qué persona y con qué motivo | Consenso de dirección 15/10 |
 | F0-23 | Lecturas A6 de Administración, que necesita la pantalla de F0-04 | `cmd/vec-admin`; `internal/modules/administracion` | - | - | M | H | - | Pendiente | 15/10 | La ficha del usuario lee sus perfiles con lectura autorizada y auditada | Consenso de dirección 15/10 |
 | F0-24 | Deuda P2 de la revisión de A7, antes de F0-04 | `cmd/vec-admin` | - | - | S | H | - | Pendiente | 15/10 | Pruebas focales de cada punto P2 | Consenso de dirección 15/10 |
-| F0-25 | `deploy/principal/LEEME_copia_local.md`: receta de la copia local (material ADMIN, datos de prueba, admisiones, OH y unidad del puesto) | `deploy/principal` | - | - | S | Dirección | - | Pendiente | 15/10 | Otro equipo levanta una copia local siguiendo solo esa receta | Consenso de dirección 15/10 |
-| F0-26 | Limpieza documental: manual de administración y manifiesto de Bolsa al día | `docs/`; manifiesto del módulo Bolsa | - | - | S | Dirección | - | Pendiente | 15/10 | Ningún paso del manual ni del manifiesto contradice `main` | Consenso de dirección 15/10 |
+| F0-25 | `deploy/principal/LEEME_copia_local.md`: receta de la copia local (material ADMIN, datos de prueba, admisiones, OH y unidad del puesto) | `deploy/principal` | - | - | S | Dirección | #1156 y #1161 | Fusionada | 16/10 | Otro equipo levanta una copia local siguiendo solo esa receta | Consenso de dirección 15/10 |
+| F0-26 | Limpieza documental: manual de administración y manifiesto de Bolsa al día | `docs/`; manifiesto del módulo Bolsa | - | - | S | Dirección | #1156 | Fusionada | 16/10 | Ningún paso del manual ni del manifiesto contradice `main` | Consenso de dirección 15/10 |
 | F0-27 | Arranque sin Contratación temporal configurada: la app arranca y la función falla con error catalogado | `internal/app/bootstrap` | - | - | S | B | #1160 | En curso | 16/10 | Arranque con y sin la configuración de CT; sin ella, el resto funciona y CT responde con el error catalogado | Consenso de dirección 16/10 |
 | F0-28 | Copia local en menos de 15 minutos con un guion único, sin pasos a mano; sustituye las recetas de cada equipo | `deploy/principal`; `scripts/` | F0-25 | - | M | L | - | Pendiente | 16/10 | Otro equipo levanta la copia desde cero con el guion en menos de 15 minutos | Consenso de dirección con Fable y Astra, 16/10 |
 | F0-29 | CI que instala desde cero todas las migraciones del recorrido de la fase 1 y ejecuta sus pruebas SQL, incluidas denegaciones | `.github/workflows/ci.yml`; `deploy/postgresql` | - | - | M | L | - | Pendiente | 16/10 | La CI falla si una migración del recorrido no instala o una prueba SQL, también de denegación, no pasa | Consenso de dirección con Fable y Astra, 16/10 |
-| F0-30 | Retirada continua de código muerto, empezando por `accionesDeltaVersionarBolsa`; nada de SQL instalado | Todo el repositorio | - | - | M | L | - | Pendiente | 16/10 | Cada retirada dice qué protección daba y qué prueba la sigue cubriendo; puertas de la CI verdes | Consenso de dirección con Fable y Astra, 16/10 |
+| F0-30 | Retirada continua de código muerto, empezando por `accionesDeltaVersionarBolsa`; nada de SQL instalado | Todo el repositorio | - | - | M | T y L | - | En curso | 16/10 | Cada retirada dice qué protección daba y qué prueba la sigue cubriendo; puertas de la CI verdes | Consenso de dirección con Fable y Astra, 16/10 |
 
 ## 6. Fase 1. Bolsa y Contratación temporal
 
@@ -296,7 +299,7 @@ motivo y lecturas por debajo de 300 ms.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | F1-38 | Manual de la jefatura de RRHH con el apartado 7 «Hoy, Falta, Al final» | `docs/` | - | - | - | Dirección | #1143 | Hecha | 15/10 | Es un documento: basta la fusión | Canal 15/10 |
 | F1-39 | Textos: cómo corregir o publicar la categoría antes de vincularla | `web/static`; `locales` | - | - | S | T | #1008 (rama conservada) | Pendiente | 15/10 | Revisión de usabilidad y fusión | PLAN §6 anterior al tablero |
-| F1-40 | Inscripción: regla por convocatoria para elegir solicitud separada o conjunta | `internal/modules/bolsa` | - | La base del editor de borradores no está montada en la app; dirección decide cómo cerrarla | M | B | - | Bloqueada | 16/10 | RRHH la fija antes de publicar; queda en la versión de las bases | PLAN §6 anterior al tablero |
+| F1-40 | Inscripción: regla por convocatoria para elegir solicitud separada o conjunta | `internal/modules/bolsa` | - | - | M | B | - | Pendiente | 16/10 | RRHH la fija antes de publicar; queda en la versión de las bases | PLAN §6 anterior al tablero |
 | F1-41 | Solicitud conjunta con su recibo y reintento (B105 solo cubre la separada; no instalar B105 sola) | `internal/modules/bolsa` | F1-40 | - | M | Sin asignar | rama B105 | Pendiente | 15/10 | Las dos modalidades con recibo y reintento | PLAN §6 anterior al tablero |
 | F1-42 | Documentos del expediente en un solo sitio de la ficha: comprobar el commit local `046a2f2fa` | `web/static`; `internal/modules/contrataciontemporal` | - | - | S | T | commit local de S | Pendiente | 15/10 | Todos se ven y se descargan desde la ficha | PLAN §6 anterior al tablero |
 | F1-43 | Tarjetas de plazo en Inicio (CT192): comprobar la rama `codexs-ct-filtros-plazos-20261008` | `web/static` | - | - | S | T | rama sin PR | Pendiente | 15/10 | Cada tarjeta abre su lista filtrada | Borrador 15/10 |
@@ -310,12 +313,14 @@ motivo y lecturas por debajo de 300 ms.
 | F1-51 | Plantillas definitivas de contratos, informes y resoluciones | Plantillas de CT | - | Duda 124 (RRHH) | S | Sin asignar | - | Bloqueada | 15/10 | Documentos con las plantillas oficiales | PLAN §6 anterior al tablero |
 | F1-52 | Oferta al SAE cuando la bolsa se agota | `internal/modules/contrataciontemporal` | - | Dudas 72, 73 y 126 (RRHH) | L | Sin asignar | - | Bloqueada | 15/10 | Oferta con sus documentos | Borrador 15/10 |
 | F1-53 | Momento de la toma de posesión y fecha de efectos del cese como valor definitivo (hoy funciona con valor de catálogo) | Catálogo de CT; Personal | - | Duda 140 (no impide funcionar) | S | Sin asignar | - | Pendiente | 15/10 | Valor publicado por RRHH | Borrador 15/10 |
-| F1-54 | Corregir el catálogo de plazos de CT citando la norma: c04 con el art. 12.4 del RD 424/2017, y c03 | `cmd/vec-preparar-catalogo-reglas-ct`; catálogo de plazos | - | - | S | T | - | Pendiente | 15/10 | Cada plazo del catálogo lleva su cita; c03 y c04 coinciden con la norma | Consenso de dirección 15/10 |
+| F1-54 | Corregir el catálogo de plazos de CT citando la norma: c04 con el art. 12.4 del RD 424/2017, y c03 | `cmd/vec-preparar-catalogo-reglas-ct`; catálogo de plazos | - | - | S | T | #1157 | Fusionada | 16/10 | Cada plazo del catálogo lleva su cita; c03 y c04 coinciden con la norma | Consenso de dirección 15/10 |
 | F1-55 | Ensayo de varias plazas con «sin respuesta», retirada por cancelación y recuperación tras un fallo | `internal/modules/bolsa`; `internal/modules/contrataciontemporal` | F1-16, F1-17 | - | M | S | - | Pendiente | 15/10 | Una plaza sin respuesta pasa al siguiente; cancelar retira la oferta; tras el fallo, mismo recibo y sin duplicados | Consenso de dirección 15/10 |
 | F1-56 | Correspondencia verificada entre la persona y su fila de Convoca (opcional) | Carga de Convoca en Bolsa | - | - | M | Sin asignar | - | Pendiente | 15/10 | Cada persona cargada enlaza con una sola fila de Convoca, comprobada | Consenso de dirección 15/10 |
 | F1-57 | R1b, pantalla: RRHH resuelve el caso «pendiente de comprobación» desde la ficha del candidato | `web/static/bolsa` | F1-09 | - | M | T | - | Pendiente | 15/10 | Chrome a 1440 y 390 px: RRHH resuelve, ve el recibo y la selección sigue | Consenso de dirección 15/10 |
 | F1-58 | Firma de F1-36 por la vía de cargos de firma: AUT98 mínima, operación anexada, plan v2, sucesión de asignaciones y lector CT22x que acepte v2 | Firma; SQL de firma | F1-36 | - | M | H | - | Pendiente | 16/10 | Firma por cargo con plan v2 leída por CT tras reiniciar; ensayo SQL y dos revisiones | Consenso de dirección 16/10 |
 | F1-59 | Vínculo entre la respuesta publicada y su oferta, para abrir la resolución de la respuesta publicada en F1-06 | `internal/modules/bolsa`; `internal/modules/contrataciontemporal` | F1-06 | - | S | S | - | Pendiente | 16/10 | Desde F1-06 se abre la resolución de una respuesta publicada con su oferta | Consenso de dirección 16/10 |
+| F1-60 | La bolsa guarda su organización y su unidad gestora como dato gobernado de su constitución, para que los actos de Bolsa (B100, B17, B128) cotejen el ámbito del recurso con la asignación del actor | `internal/modules/bolsa`; SQL de `bolsa_llamamientos` | - | - | M | Sin asignar | - | Pendiente | 16/10 | Un acto sobre una bolsa de otra unidad gestora se deniega aunque el actor tenga permiso en la suya; ensayo y revisión SQL independiente | Consenso de dirección con Fable y Astra, 16/10 |
+| F1-61 | Pieza real que confirma la publicación de las bases de una convocatoria (`ConfirmarPublicacion` sin adaptador productivo), para cerrar F1-40 de extremo a extremo | `internal/modules/bolsa` | F1-40 | - | M | Sin asignar | - | Pendiente | 16/10 | RRHH elige la modalidad, publica las bases y la inscripción la consume, tras reiniciar | Consenso de dirección con Fable y Astra, 16/10 |
 
 ## 7. Fase 2. Personal y Organización (por capacidad)
 
