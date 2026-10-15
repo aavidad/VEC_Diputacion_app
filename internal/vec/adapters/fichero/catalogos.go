@@ -188,6 +188,10 @@ func contieneDatoPrivadoCatalogo(valor any, ruta string) bool {
 	return false
 }
 
+// Decisión de dirección del 15/10/2026: las huellas SHA-256 tipadas de
+// 64 hex y los campos *_ref con formato opaco cerrado no son texto libre.
+// Las referencias admitidas son (car|per|enc|cta|prf|org)_<32 hex> o
+// ref:<64 hex>. Ninguna otra referencia, número o texto evita el detector.
 func valorOpacoCatalogoValido(ruta, clave, valor string) bool {
 	if (ruta == "fuente" && clave == "origen_sha256") ||
 		(ruta == "catalogo.entradas[].atributos" && strings.HasSuffix(clave, "_sha256")) {
