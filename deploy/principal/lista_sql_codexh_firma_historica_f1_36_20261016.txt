@@ -1,5 +1,6 @@
-# F1-36. Aplicar en este orden sobre la candidata que ya contiene AUT41, AD210 y CT224.
+# F1-36: solo migraciones, en orden causal. Los ensayos SQL y actos ADMIN van aparte.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000286_recuperacion_firmas_unidad_historica.up.sql
-deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad286_recuperacion_unidad_historica.sql
 deploy/postgresql/contratacion_temporal/migraciones/000228_recuperacion_firmas_corte_historico.up.sql
-deploy/postgresql/contratacion_temporal/pruebas_sql/ct228_recuperacion_corte_historico.sql
+deploy/postgresql/autorizacion/migraciones/000102_ambito_propio_selectores_firma_ct.up.sql
+deploy/postgresql/autorizacion/migraciones/000103_concesion_consulta_firma_historica.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000229_selectores_recuperacion_detalle_rrhh.up.sql

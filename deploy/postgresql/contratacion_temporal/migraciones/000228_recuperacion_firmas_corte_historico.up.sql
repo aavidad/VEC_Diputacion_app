@@ -212,7 +212,7 @@ BEGIN
  RETURN jsonb_build_object('Encontrado',true,'ExpedienteRef',s->>'ExpedienteRef','Firmas',firmas,'RevisionesPDF',revisiones,
   'Recuperaciones',recuperaciones,'HistoriaRevision',cabeza.revision,'HistoriaHuella',cabeza.huella_sha256,
   'CoincideFirmanteEnOtroPaso',coincide,'HistoriaSeparacionAcreditada',separacion);
-END $function$
+END $function$;
 
 
 DO $post$

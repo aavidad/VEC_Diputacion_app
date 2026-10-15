@@ -161,7 +161,7 @@ BEGIN
   'decision_valida_hasta',d->>'valida_hasta');
 EXCEPTION WHEN data_exception OR no_data_found OR too_many_rows THEN
  RAISE EXCEPTION 'AD178: PARO clave=material_o_filas actual=incompatible esperado=consumo_ligado_actual' USING ERRCODE='42501';
-END $function$
+END $function$;
 
 
 DO $post$
