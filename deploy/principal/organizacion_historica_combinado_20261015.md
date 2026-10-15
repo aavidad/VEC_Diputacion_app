@@ -90,6 +90,30 @@ Comprobar una vez sobre la cabeza final:
   auditada sin duplicar actos de negocio.
 - El proceso externo y el portal público conservan cerrada esta ruta interna.
 
-Falta incorporar la evidencia final de arranque, lectura, denegación y reinicio.
+## Resultado del ensayo local
+
+Código comprobado: `22a5ae82e`. Sin selector y con directorio de material
+inválido, salud, sesión y Bolsa respondieron200 y solo la consulta histórica
+respondió503. Con el material completo, la consulta certificada devolvió200
+con quince hechos de la unidad autorizada, incluido el puesto de la petición.
+Se cotejaron en PostgreSQL el recibo, la decisión, la auditoría, la huella del
+consumo y la cardinalidad. Otra unidad devolvió403 y dejó su apunte de frontera.
+Tras detener la aplicación, reiniciar PostgreSQL y arrancar de nuevo, el mismo
+corte devolvió la misma página con otro recibo; ambos siguen guardados. Chrome
+del sistema obtuvo también200, puesto, recibo y auditoría. Esta comprobación de
+Chrome cubre la lectura autenticada; el recorrido completo de Contratación
+pertenece a la entrega de criterios.
+
+La preparación detectó y corrigió tres diferencias de los datos de la copia:
+las fechas de motivos deben llevar seis decimales, la concesión debe enumerar
+los seis campos y la CA de PostgreSQL debe ser la de esa conexión. El código
+corrigió además la versión de capacidad: el proveedor usa el mismo material al
+que el gobierno acaba de asignar las coordenadas publicadas de Personal.
+
+Las revisiones independientes finales y la comprobación focal de esa corrección
+dieron su visto bueno. Pasaron las pruebas focales, incluido el cierre con una
+consulta activa bajo el detector de carreras, y las comprobaciones locales de
+Semgrep y gosec sobre lo cambiado. La CI de la cabeza final sigue en curso.
+
 La selección completa sigue dependiendo de la necesidad RPT guardada por la
 petición y de distinguir la unidad gestora de CT de la unidad del puesto.

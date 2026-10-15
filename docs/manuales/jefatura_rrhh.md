@@ -163,7 +163,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Baremación | No existe todavía. | Que RRHH cierre cómo se acreditan los méritos. | VEC calcula los puntos con el baremo de cada convocatoria, que RRHH puede cambiar. RRHH revisa y publica las listas provisional y definitiva. |
 | Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. | Subir el fichero del justificante de renuncia. | El aspirante aporta sus justificantes desde su área personal y RRHH los valida en pantalla. |
 | A quién se ofrece un puesto | VEC sigue el orden de la bolsa y salta a quien no está disponible. | Ofrecer otro puesto a quien ya trabaja con nosotros y tener en cuenta los tipos de contrato que acepta cada persona. Necesitamos la regla de RRHH. | VEC elige a quién ofrecer según la situación, el tipo de contrato y las reglas que fije RRHH, y RRHH ve por qué se salta a cada persona. |
-| Comprobación del puesto ofrecido | Preparada en esta candidata la consulta del puesto en la historia de Personal. | Comprobarla con permisos y completar el ofrecimiento en la copia local. | VEC contrasta el puesto de la petición con su historia antes de ofrecerlo. |
+| Comprobación del puesto ofrecido | Consulta del puesto en Personal comprobada en la copia local, con permiso, recibo y reinicio. | Completar el ofrecimiento desde la petición y comprobarlo en el recorrido. | VEC contrasta el puesto de la petición con su historia antes de ofrecerlo. |
 | Aviso de la oferta | Correo con plantilla desde un buzón de pruebas. Llamadas anotadas. | El correo de la Diputación, que depende de Informática. | Correo oficial y, cuando Informática dé un proveedor, también SMS. |
 | Ofertas de varias plazas | Desde una bolsa seleccionada, RRHH abre «Gestionar ofertas», configura el inicio del plazo y publica la oferta. Bolsa adjudica las plazas por orden y conserva el recibo al reintentar. | Conectar la selección del expediente, su vínculo y la guarda de cancelación. Después, retirar la oferta al cancelar y enviar el aviso por correo de la Diputación. | Una petición de varias personas se cubre con una sola oferta. |
 | Petición del centro | Se presenta y la ratifica otra persona del centro. | RRHH pidió que la petición vaya firmada por el técnico y por el Diputado o Diputada. | Petición firmada desde VEC. |
@@ -187,9 +187,10 @@ VEC se construye por partes. Primero bolsas y contratación temporal, con lo que
 
 **Al final.** El registro completo de personal: antigüedad, trienios, grados, situaciones con sus efectos, correcciones con su justificante y versiones de la relación de puestos aprobadas y publicadas, sin borrar las anteriores. Los demás módulos tomarán de aquí los datos de cada empleado.
 
-La candidata conecta también la consulta de la historia del puesto que necesita
-el ofrecimiento a la bolsa. Se comprueban los permisos de RRHH y se registra la
-lectura. Su comprobación completa en la copia local sigue pendiente.
+La candidata permite consultar también la historia del puesto que necesita el
+ofrecimiento a la bolsa. En la copia local se han comprobado el permiso de RRHH,
+el recibo de lectura y su conservación tras reiniciar. Falta completar el
+ofrecimiento desde la petición del centro.
 
 ### 8.2 Firmas
 

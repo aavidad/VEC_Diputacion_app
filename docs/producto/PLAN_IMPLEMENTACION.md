@@ -176,9 +176,11 @@ está instalada; verificar su hash antes de reanudar:
 
 La candidata de R conecta la consulta histórica de puestos de Personal con el
 proceso combinado, dependencia del ofrecimiento desde una bolsa constituida.
-Conserva la autoridad nominal existente y añade configuración opcional. Falta
-completar lectura con permiso, denegaciones y arranque con y sin configuración,
-además del reinicio; no se da por resuelto el recorrido de selección.
+Conserva la autoridad nominal existente y añade configuración opcional. En la
+copia local se han comprobado lectura con permiso y recibo, denegación de otra
+unidad y la misma página tras reiniciar aplicación y PostgreSQL. La selección
+completa sigue pendiente de la necesidad RPT de la petición y de separar su
+unidad gestora de la unidad del puesto; no se da por resuelto ese recorrido.
 
 ### 2.4 Lo que todavía no funciona de punta a punta
 
