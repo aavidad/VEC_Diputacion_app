@@ -17,20 +17,23 @@ func TestMaterialPublicacionExternaV3CompletoYPropio(t *testing.T) {
 		}
 	}()
 	lista := ordenarMaterialExternoV3(materiales)
-	if len(lista) != 25 || !materialPublicableExternoV3Exacto(materiales, lista) {
+	if len(lista) != 28 || !materialPublicableExternoV3Exacto(materiales, lista) {
 		t.Fatalf("audiencias publicables incompletas o divergentes: %d", len(lista))
 	}
-	anteriores, documentales := 0, 0
+	anteriores, meritos, bolsa := 0, 0, 0
 	for _, material := range lista {
 		switch material.audienciaConsumo {
 		case audienciaSubirComprobanteM4, audienciaDescargarComprobanteM4:
-			documentales++
+			meritos++
+		case audienciaJustificanteBolsaSubir, audienciaJustificanteBolsaDescargar,
+			audienciaJustificanteBolsaPreparar:
+			bolsa++
 		default:
 			anteriores++
 		}
 	}
-	if anteriores != 23 || documentales != 2 {
-		t.Fatal("la publicación perdió una audiencia anterior o una de Documentos")
+	if anteriores != 23 || meritos != 2 || bolsa != 3 {
+		t.Fatal("la publicación perdió una audiencia anterior, de Méritos o de Bolsa")
 	}
 	coordenadas := make([]coordenadaClaveExternaV3, len(lista))
 	for i, m := range lista {
@@ -105,11 +108,17 @@ func TestMaterialPublicacionExternaV3RechazaAudienciasIncompletasDuplicadasYAjen
 		"falta audiencia anterior": func(m map[string][]materialAtestacionContratacionTemporalDesarrollo) {
 			m["mi_bolsa"] = m["mi_bolsa"][:1]
 		},
+		"falta audiencia Bolsa": func(m map[string][]materialAtestacionContratacionTemporalDesarrollo) {
+			m[consumidorJustificantesBolsaExterno] = m[consumidorJustificantesBolsaExterno][:2]
+		},
 		"duplicada": func(m map[string][]materialAtestacionContratacionTemporalDesarrollo) {
 			m[consumidorMeritosCarteraPortalExternoV3][3].audienciaConsumo = m[consumidorMeritosCarteraPortalExternoV3][2].audienciaConsumo
 		},
 		"ajena": func(m map[string][]materialAtestacionContratacionTemporalDesarrollo) {
 			m[consumidorMeritosCarteraPortalExternoV3][3].audienciaConsumo = "vec_documentos.audiencia_ajena.v1"
+		},
+		"Bolsa duplicada": func(m map[string][]materialAtestacionContratacionTemporalDesarrollo) {
+			m[consumidorJustificantesBolsaExterno][2].audienciaConsumo = m[consumidorJustificantesBolsaExterno][1].audienciaConsumo
 		},
 		"consumidor ausente": func(m map[string][]materialAtestacionContratacionTemporalDesarrollo) {
 			delete(m, "mi_bolsa")
@@ -134,11 +143,13 @@ func TestAmpliacionPublicacionExternaV3ConservaHistoriaYReplay(t *testing.T) {
 		}
 	}()
 	lista := ordenarMaterialExternoV3(materiales)
-	anteriores := make([]*materialAtestacionContratacionTemporalDesarrollo, 0, len(lista)-2)
-	coordenadasAnteriores := make([]coordenadaClaveExternaV3, 0, len(lista)-2)
+	anteriores := make([]*materialAtestacionContratacionTemporalDesarrollo, 0, len(lista)-3)
+	coordenadasAnteriores := make([]coordenadaClaveExternaV3, 0, len(lista)-3)
 	porAudiencia := map[string]coordenadaClaveExternaV3{}
 	for _, pieza := range lista {
-		if pieza.audienciaConsumo == audienciaSubirComprobanteM4 || pieza.audienciaConsumo == audienciaDescargarComprobanteM4 {
+		if pieza.audienciaConsumo == audienciaJustificanteBolsaSubir ||
+			pieza.audienciaConsumo == audienciaJustificanteBolsaDescargar ||
+			pieza.audienciaConsumo == audienciaJustificanteBolsaPreparar {
 			continue
 		}
 		coordenada := coordenadaClaveExternaV3{pieza.audienciaConsumo, uint64(100 + len(anteriores)),
@@ -147,8 +158,8 @@ func TestAmpliacionPublicacionExternaV3ConservaHistoriaYReplay(t *testing.T) {
 		coordenadasAnteriores = append(coordenadasAnteriores, coordenada)
 		porAudiencia[pieza.audienciaConsumo] = coordenada
 	}
-	if len(anteriores) != 23 {
-		t.Fatal("la preimagen no contiene las 23 audiencias anteriores")
+	if len(anteriores) != 25 {
+		t.Fatal("la preimagen no contiene las 25 audiencias anteriores")
 	}
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
 	if err := coordinarMaterialExternoV3(anteriores, "confianza:atestacion:externo:27", 27,
@@ -201,8 +212,8 @@ func TestAmpliacionPublicacionExternaV3ConservaHistoriaYReplay(t *testing.T) {
 		}
 		nuevas++
 	}
-	if nuevas != 2 {
-		t.Fatal("la ampliación no se limitó a Documentos")
+	if nuevas != 3 {
+		t.Fatal("la ampliación no se limitó a las tres audiencias de Bolsa")
 	}
 	if err := coordinarMaterialExternoV3(lista, "confianza:atestacion:externo:28", 28,
 		ahora, ahora.Add(time.Hour), actual.Raiz.ValidaDesde, actual.Raiz.ValidaHasta, coordenadas); err != nil {
@@ -264,5 +275,115 @@ func TestAmpliacionPublicacionExternaV3ConservaHistoriaYReplay(t *testing.T) {
 	estado.Actual = manipulada
 	if _, err := coordenadasAmpliacionExternaV3(lista, actual, estado); err == nil {
 		t.Fatal("se ampliaron claves cuya historia pública no coincide")
+	}
+}
+
+func TestAmpliacionExternaV3Desde23SoloIncorporaMeritosYBolsa(t *testing.T) {
+	materiales := materialesPublicadosPrueba(t, consumidoresPortalExternoV3...)
+	defer func() {
+		for _, piezas := range materiales {
+			borrarMaterialesV3PortalExterno(piezas)
+		}
+	}()
+	lista := ordenarMaterialExternoV3(materiales)
+	if len(lista) != 28 {
+		t.Fatalf("catálogo completo: %d", len(lista))
+	}
+	nuevas := map[string]bool{
+		audienciaSubirComprobanteM4: true, audienciaDescargarComprobanteM4: true,
+		audienciaJustificanteBolsaSubir: true, audienciaJustificanteBolsaDescargar: true,
+		audienciaJustificanteBolsaPreparar: true,
+	}
+	anteriores := make([]*materialAtestacionContratacionTemporalDesarrollo, 0, 23)
+	coordenadasAnteriores := make([]coordenadaClaveExternaV3, 0, 23)
+	porAudiencia := map[string]coordenadaClaveExternaV3{}
+	for _, pieza := range lista {
+		if nuevas[pieza.audienciaConsumo] {
+			continue
+		}
+		coord := coordenadaClaveExternaV3{pieza.audienciaConsumo, uint64(100 + len(anteriores)),
+			uint64(100 + len(anteriores)), uint64(100 + len(anteriores))}
+		anteriores = append(anteriores, pieza)
+		coordenadasAnteriores = append(coordenadasAnteriores, coord)
+		porAudiencia[pieza.audienciaConsumo] = coord
+	}
+	if len(anteriores) != 23 {
+		t.Fatalf("preimagen histórica: %d", len(anteriores))
+	}
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	if err := coordinarMaterialExternoV3(anteriores, "confianza:atestacion:externo:27", 27,
+		ahora.Add(-time.Minute), ahora.Add(2*time.Hour), lista[0].validaDesde, lista[0].validaHasta,
+		coordenadasAnteriores); err != nil {
+		t.Fatal(err)
+	}
+	propuesta, err := serializarMaterialExternoV3(anteriores)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var publicado map[string]any
+	if err := json.Unmarshal(propuesta, &publicado); err != nil {
+		t.Fatal(err)
+	}
+	for _, clave := range publicado["claves"].([]any) {
+		delete(clave.(map[string]any), "secreto_hmac_hex")
+	}
+	publico, err := json.Marshal(publicado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var actual materialPublicoExternoV3
+	if err := json.Unmarshal(publico, &actual); err != nil {
+		t.Fatal(err)
+	}
+	estado := estadoPublicacionExternaV3{Actual: publico, VersionSiguiente: 500,
+		RevisionSiguiente: 500, OrdenSiguiente: 500, SecuenciaSiguiente: 28}
+	coordenadas, err := coordenadasAmpliacionExternaV3(lista, actual, estado)
+	if err != nil || len(coordenadas) != 28 {
+		t.Fatalf("ampliación 23→28: %v", err)
+	}
+	contador := uint64(0)
+	for i, pieza := range lista {
+		if anterior, existe := porAudiencia[pieza.audienciaConsumo]; existe {
+			if coordenadas[i] != anterior {
+				t.Fatalf("coordenada histórica cambiada: %s", pieza.audienciaConsumo)
+			}
+			continue
+		}
+		if !nuevas[pieza.audienciaConsumo] || coordenadas[i].Version != 500+contador ||
+			coordenadas[i].Revision != 500+contador || coordenadas[i].Orden != 500+contador {
+			t.Fatalf("coordenada nueva inesperada: %s", pieza.audienciaConsumo)
+		}
+		contador++
+	}
+	if contador != 5 {
+		t.Fatalf("audiencias nuevas: %d", contador)
+	}
+	clonar := func() materialPublicoExternoV3 {
+		copia := actual
+		copia.Claves = append([]coordenadaClaveExternaV3(nil), actual.Claves...)
+		return copia
+	}
+	for nombre, mutar := range map[string]func(*materialPublicoExternoV3){
+		"audiencia ajena":             func(a *materialPublicoExternoV3) { a.Claves[0].Audiencia = "vec_documentos.ajena.v1" },
+		"audiencia duplicada":         func(a *materialPublicoExternoV3) { a.Claves[0].Audiencia = a.Claves[1].Audiencia },
+		"clave nueva antes de tiempo": func(a *materialPublicoExternoV3) { a.Claves[0].Audiencia = audienciaJustificanteBolsaSubir },
+		"clave anterior retirada":     func(a *materialPublicoExternoV3) { a.Claves = a.Claves[:22] },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			adulterada := clonar()
+			mutar(&adulterada)
+			if _, err := coordenadasAmpliacionExternaV3(lista, adulterada, estado); err == nil {
+				t.Fatal("ampliación divergente aceptada")
+			}
+		})
+	}
+	publicado["claves"].([]any)[0].(map[string]any)["huella_secreto_sha256"] = strings.Repeat("0", 64)
+	adulterado, err := json.Marshal(publicado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	estado.Actual = adulterado
+	if _, err := coordenadasAmpliacionExternaV3(lista, actual, estado); err == nil {
+		t.Fatal("se aceptó secreto histórico divergente")
 	}
 }

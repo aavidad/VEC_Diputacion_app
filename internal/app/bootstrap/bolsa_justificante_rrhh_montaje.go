@@ -254,7 +254,11 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 	ruta := &vechttp.RutaExacta{Ruta: bolsahttp.RutaJustificanteRenunciaRRHH,
 		Manejador: bolsahttp.NuevoHandlerJustificanteRenunciaRRHHNoDisponible()}
 	nada := func() {}
-	fallo := func() (*vechttp.RutaExacta, func()) { return ruta, nada }
+	etapa := "dependencias"
+	fallo := func() (*vechttp.RutaExacta, func()) {
+		slog.Warn("justificante_renuncia_bolsa_rrhh_no_disponible", "etapa", etapa)
+		return ruta, nada
+	}
 	if !cfg.DevelopmentEnabledByDoubleKey() || identidad == nil || usuarios == nil ||
 		usuarios.interna == nil || usuarios.interna.base == nil || usuarios.interna.fuente == nil ||
 		usuarios.interna.base.resolvedor != identidad ||
@@ -263,17 +267,21 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 		derivador == nil || !derivador.valido() {
 		return fallo()
 	}
+	etapa = "configuracion_rrhh"
 	conf, err := leerConfiguracionJustificanteRenunciaRRHH(cfg)
 	if err != nil {
 		return fallo()
 	}
+	etapa = "configuracion_almacen"
 	privada, err := leerConfiguracionJustificantesBolsa(cfg.ExternoMaterialDir)
 	if err != nil {
 		return fallo()
 	}
+	etapa = "perfil_propio"
 	if previa, ok := usuarios.interna.cuentas[conf.CertificadoSHA256]; ok && previa.PerfilRef == conf.PerfilRef {
 		return fallo()
 	}
+	etapa = "certificado"
 	var digest [sha256.Size]byte
 	b, err := hex.DecodeString(conf.CertificadoSHA256)
 	if err != nil || len(b) != sha256.Size {
@@ -287,6 +295,7 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancelar()
+	etapa = "pool_nominal"
 	pool, login, err := abrirPoolNominalPortalExterno(ctx, conf.DSNDocumentos,
 		rolJustificanteRenunciaRRHH, "vec-bolsa-justificante-rrhh")
 	if err != nil {
@@ -298,6 +307,7 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 			pool.Close()
 		}
 	}()
+	etapa = "topologia_funciones"
 	topologia, err := acreditarTopologiaPostgreSQLPreferenciasUsuarios(ctx, usuarios.interna.motivosPool)
 	if err != nil || login != loginJustificanteRenunciaRRHH || usuarios.interna.logins[login] ||
 		cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx, pool, topologia) != nil ||
@@ -307,6 +317,7 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 		}) != nil {
 		return fallo()
 	}
+	etapa = "claves"
 	claves, err := leerClavesSubidaDocumentosExterna(cfg.ExternoMaterialDir, privada.Datos)
 	if err != nil {
 		return fallo()
@@ -316,6 +327,7 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 		return fallo()
 	}
 	reloj := relojContratacionTemporalDesarrollo{}
+	etapa = "almacen"
 	almacen, cerrarAlmacen, err := nuevoAlmacenDocumentos(ctx, almacenDocumentosDesarrollo{
 		Tipo: "ficheros", Directorio: privada.Datos.Directorio, TamanoMaximo: 16 << 20,
 		RetencionMinimaDias: privada.Datos.RetencionMinimaDias}, reloj)
@@ -327,28 +339,34 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 			cerrarAlmacen()
 		}
 	}()
+	etapa = "conservacion"
 	if admitirCatalogoConservacion(cfg, true, "ficheros", almacen) != nil {
 		return fallo()
 	}
+	etapa = "motivo"
 	motivos, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2(usuarios.interna.motivosPool, privada.Motivo.CatalogoID)
 	if err != nil {
 		return fallo()
 	}
+	etapa = "autorizacion"
 	autorizador, err := vecapp.NuevoServicioAutorizacionSolicitudLigadaV3(usuarios.interna.fuente,
 		usuarios.interna.registroAutorizacion, usuarios.interna.registroAutorizacion, motivos,
 		reloj, seguridad.GeneradorReferenciasCriptograficas{}, vecapp.ConfiguracionServicioAutorizacion{VigenciaDecision: 30 * time.Second})
 	if err != nil {
 		return fallo()
 	}
+	etapa = "emisores"
 	emisores, err := emisoresJustificanteRenunciaRRHH(derivador, reloj, autorizador)
 	if err != nil {
 		return fallo()
 	}
+	etapa = "resolutor"
 	resolutor, err := bolsapg.NuevoResolutorConsultaJustificanteRenunciaRRHHConPool(pool,
 		autoridadPreparacionJustificanteBolsaRRHH{emisores[audienciaJustificanteBolsaPrepararRRHH], privada.Motivo})
 	if err != nil {
 		return fallo()
 	}
+	etapa = "registro"
 	registro, err := docpg.NuevoRegistroOriginalBolsaRRHHConPool(pool)
 	if err != nil {
 		return fallo()
@@ -356,6 +374,7 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 	cuenta := cuentaUsuariosPreferenciasDesarrollo{cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{
 		CertificadoSHA256: conf.CertificadoSHA256, Sujeto: conf.Sujeto,
 		CuentaRef: conf.CuentaRef, PerfilRef: conf.PerfilRef}}
+	etapa = "handler"
 	h, err := bolsahttp.NuevoHandlerJustificanteRenunciaRRHH(
 		proveedorIdentidadJustificanteRenunciaRRHH{identidad, usuarios.interna, cuenta, conf.PersonaRef},
 		&consultorJustificanteRenunciaRRHH{resolutor: resolutor, registro: registro,

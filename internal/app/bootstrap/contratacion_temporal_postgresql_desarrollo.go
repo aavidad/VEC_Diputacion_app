@@ -426,6 +426,34 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	dependencias.vinculoEmisionBolsa = seleccion.vinculoEmisionBolsa
+	if seleccion.preferenciasBolsasInternas || seleccion.justificanteRenunciaRRHH {
+		preferencias, rrhh := comprobarPreflightMaterialBolsasInternas(ctx, gobierno)
+		if seleccion.preferenciasBolsasInternas && !preferencias {
+			slog.Warn("preferencias de Mi Bolsa interna sin SQL acreditada")
+			seleccion.preferenciasBolsasInternas = false
+		}
+		if seleccion.justificanteRenunciaRRHH && !rrhh {
+			slog.Warn("justificante de renuncia RRHH sin SQL acreditada")
+			seleccion.justificanteRenunciaRRHH = false
+		}
+	}
+	if seleccion.preferenciasBolsasInternas {
+		if err := publicarMaterialBolsasInternasOpcional(ctx, gobierno, material,
+			[]descriptorMaterialConsumidorV3Desarrollo{descriptorMaterialOrdenarPreferenciasBolsasInternaV3()}); err != nil {
+			slog.Warn("preferencias de Mi Bolsa interna sin confianza publicada")
+			seleccion.preferenciasBolsasInternas = false
+		}
+	}
+	if seleccion.justificanteRenunciaRRHH {
+		if err := publicarMaterialBolsasInternasOpcional(ctx, gobierno, material,
+			[]descriptorMaterialConsumidorV3Desarrollo{
+				descriptorMaterialJustificanteRenunciaRRHH(audienciaJustificanteBolsaRRHH),
+				descriptorMaterialJustificanteRenunciaRRHH(audienciaJustificanteBolsaPrepararRRHH),
+			}); err != nil {
+			slog.Warn("justificante de renuncia RRHH sin confianza publicada")
+			seleccion.justificanteRenunciaRRHH = false
+		}
+	}
 	// CT137/AD3-100 deben existir y conservar sus ACL antes de publicar la
 	// audiencia documental. Se reutiliza el pool ejecutor ya acreditado.
 	if seleccion.plantillasDocumental {
@@ -1028,6 +1056,89 @@ SELECT session_user = current_user
   'SELECT,INSERT,UPDATE,REFERENCES') IS FALSE
 FROM pg_catalog.pg_roles AS identidad CROSS JOIN funciones CROSS JOIN fachada CROSS JOIN tabla_lectura
 WHERE identidad.rolname = session_user`
+
+// Solo se publica material nuevo cuando el consumidor y todas sus fachadas
+// nominales ya existen. Un fallo de esta sonda cierra estas capacidades,
+// sin impedir que arranque el resto de vec-server.
+const consultaPreflightMaterialBolsasInternas = `WITH esperadas(capacidad,esquema,nombre,argumentos,propietario) AS (VALUES
+ ('preferencias','vec_autorizacion_atestada_v3','registrar_y_consumir_preferencias_bolsas_interna_v3_atestada',
+  'bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea','vec_autorizacion_atestada_v3_propietario'),
+ ('preferencias','vec_bolsa_llamamientos','ordenar_preferencias_bolsas_interna_v1',
+  'text, text[], bigint, text, timestamp with time zone, bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea','vec_bolsa_llamamientos_propietario'),
+ ('preferencias','vec_bolsa_llamamientos','consultar_preferencias_bolsas_interna_v1',
+  'text, bytea, bytea, jsonb','vec_bolsa_llamamientos_propietario'),
+ ('preferencias','vec_bolsa_llamamientos','registrar_intento_lectura_preferencias_bolsas_interna_v1',
+  'text, bytea, bytea, jsonb','vec_bolsa_llamamientos_propietario'),
+ ('preferencias','vec_autorizacion_atestada_v3','registrar_lectura_preferencias_bolsas_interna_v1',
+  'bytea, bytea, jsonb','vec_autorizacion_atestada_v3_propietario'),
+ ('preferencias','vec_autorizacion_atestada_v3','registrar_intento_lectura_preferencias_bolsas_interna_v1',
+  'bytea, bytea, jsonb','vec_autorizacion_atestada_v3_propietario'),
+ ('rrhh','vec_autorizacion_atestada_v3','consumir_subida_local_bolsa_v1',
+  'bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea','vec_autorizacion_atestada_v3_propietario'),
+ ('rrhh','vec_documentos','resolver_consulta_justificante_renuncia_bolsa_rrhh_v1',
+  'text, text, text, text, text, bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea','vec_documentos_propietario'),
+ ('rrhh','vec_documentos','consultar_justificante_renuncia_rrhh_v1',
+  'bytea, jsonb, bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea','vec_documentos_propietario'),
+ ('rrhh','vec_bolsa_llamamientos','proyectar_consulta_justificante_renuncia_rrhh_v1',
+  'text, text, text, text, text','vec_bolsa_llamamientos_propietario')
+), presentes AS (
+ SELECT e.capacidad FROM esperadas e
+ JOIN pg_catalog.pg_namespace n ON n.nspname=e.esquema
+ JOIN pg_catalog.pg_proc p ON p.pronamespace=n.oid AND p.proname=e.nombre
+ JOIN pg_catalog.pg_roles r ON r.oid=p.proowner AND r.rolname=e.propietario
+ WHERE p.prokind='f' AND p.prosecdef AND p.provolatile='v'
+  AND pg_catalog.oidvectortypes(p.proargtypes)=e.argumentos
+)
+SELECT to_regrole('vec_interno_bolsa_preferencias_desarrollo') IS NOT NULL
+ AND to_regrole('vec_bolsa_llamamientos_preferencias_interna') IS NOT NULL
+ AND (SELECT count(*) FROM presentes WHERE capacidad='preferencias')=6,
+ to_regrole('vec_interno_documentos_bolsa_rrhh') IS NOT NULL
+ AND to_regrole('vec_documentos_bolsa_rrhh') IS NOT NULL
+ AND (SELECT count(*) FROM presentes WHERE capacidad='rrhh')=4`
+
+func publicarMaterialBolsasInternasOpcional(ctx context.Context, gobierno *pgxpool.Pool,
+	base materialAtestacionContratacionTemporalDesarrollo, descriptores []descriptorMaterialConsumidorV3Desarrollo,
+) error {
+	if ctx == nil || gobierno == nil || len(descriptores) == 0 || len(descriptores) > 2 {
+		return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	}
+	preparados := make([]materialAtestacionContratacionTemporalDesarrollo, len(descriptores))
+	defer func() {
+		for i := range preparados {
+			borrarBytes(preparados[i].claveHMAC)
+		}
+	}()
+	for i, descriptor := range descriptores {
+		if !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(descriptor.Audiencia) {
+			return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+		}
+		derivado, err := derivarMaterialConsumidorV3Desarrollo(base, descriptor)
+		if err != nil {
+			return err
+		}
+		preparados[i] = derivado
+	}
+	return ejecutarTransaccionGobiernoCTDesarrollo(ctx, gobierno, func(tx pgx.Tx) error {
+		for i := range preparados {
+			if err := publicarGobiernoAtestacionCTEnTxDesarrollo(ctx, tx, &preparados[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func comprobarPreflightMaterialBolsasInternas(ctx context.Context, consultador interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}) (preferencias, justificanteRRHH bool) {
+	if ctx == nil || consultador == nil {
+		return false, false
+	}
+	if err := consultador.QueryRow(ctx, consultaPreflightMaterialBolsasInternas).Scan(&preferencias, &justificanteRRHH); err != nil {
+		return false, false
+	}
+	return preferencias, justificanteRRHH
+}
 
 func comprobarLecturaReincorporacionTitularB55Desarrollo(ctx context.Context, consultador interface {
 	QueryRow(context.Context, string, ...any) pgx.Row

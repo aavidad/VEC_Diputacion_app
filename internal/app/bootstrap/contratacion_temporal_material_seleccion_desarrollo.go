@@ -31,6 +31,25 @@ type seleccionMaterialCTDesarrollo struct {
 	plantillasDocumental                                             bool
 	ajustesReglasCT                                                  bool
 	inscripcionBolsa                                                 bool
+	preferenciasBolsasInternas, justificanteRenunciaRRHH             bool
+}
+
+// Estas capacidades son opcionales: un selector mal escrito o un material
+// incompleto cierra solo su ruta. La comprobación SQL se hace después, antes
+// de publicar cualquiera de sus claves, con el pool de gobierno ya abierto.
+func seleccionarMaterialBolsasInternasOpcional(cfg config.Config) (preferencias, justificanteRRHH bool) {
+	if !cfg.DevelopmentEnabledByDoubleKey() {
+		return false, false
+	}
+	if os.Getenv(envBolsaPreferenciasInternas) == "true" && !miBolsaExternaSeleccionadaEnCombinado(cfg) {
+		_, err := leerConfiguracionBolsaPreferenciasInternas(cfg)
+		preferencias = err == nil
+	}
+	if _, err := leerConfiguracionJustificanteRenunciaRRHH(cfg); err == nil {
+		_, err = leerConfiguracionJustificantesBolsa(cfg.ExternoMaterialDir)
+		justificanteRRHH = err == nil
+	}
+	return preferencias, justificanteRRHH
 }
 
 // seleccionMaterialCTDesarrolloDesdeConfig valida los selectores (un valor
@@ -96,6 +115,7 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		slog.Warn("inscripción RRHH no disponible", "etapa", "selector")
 		inscripcionBolsa = false
 	}
+	preferenciasBolsasInternas, justificanteRenunciaRRHH := seleccionarMaterialBolsasInternasOpcional(cfg)
 	s = seleccionMaterialCTDesarrollo{
 		borradoresBolsa:              cfg.BolsaBorradoresEnabled,
 		miBolsa:                      debeComponerMiBolsaDesarrollo(cfg) && !miBolsaExternaSeleccionadaEnCombinado(cfg),
@@ -121,6 +141,8 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		plantillasDocumental:         plantillasDocumental,
 		ajustesReglasCT:              ajustesReglasCT,
 		inscripcionBolsa:             inscripcionBolsa,
+		preferenciasBolsasInternas:   preferenciasBolsasInternas,
+		justificanteRenunciaRRHH:     justificanteRenunciaRRHH,
 	}
 	return s, nil
 }
@@ -203,6 +225,13 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.inscripcionBolsa {
 		d = append(d, descriptoresMaterialInscripcionRRHHDesarrollo()...)
+	}
+	if s.preferenciasBolsasInternas {
+		d = append(d, descriptorMaterialOrdenarPreferenciasBolsasInternaV3())
+	}
+	if s.justificanteRenunciaRRHH {
+		d = append(d, descriptorMaterialJustificanteRenunciaRRHH(audienciaJustificanteBolsaRRHH),
+			descriptorMaterialJustificanteRenunciaRRHH(audienciaJustificanteBolsaPrepararRRHH))
 	}
 	if s.cronosResolucion {
 		d = append(d, descriptoresMaterialCronosResolucionDesarrollo()...)

@@ -108,7 +108,6 @@ func montarJustificantesBolsaExternos(ctx context.Context, cfg config.Config, pr
 	registro *vecpg.AlmacenAutorizacion, motivosPool *pgxpool.Pool) (http.Handler, func()) {
 	h, cerrar, err := prepararJustificantesBolsaExternos(ctx, cfg, preflight, topologia, fuente, registro, motivosPool)
 	if err != nil {
-		slog.Warn("justificante_renuncia_bolsa_no_disponible")
 		return nil, func() {}
 	}
 	return h, cerrar
@@ -118,10 +117,17 @@ func prepararJustificantesBolsaExternos(ctx context.Context, cfg config.Config, 
 	topologia topologiaPostgreSQLPreferenciasUsuarios, fuente vecports.FuenteAutorizacion,
 	registro *vecpg.AlmacenAutorizacion, motivosPool *pgxpool.Pool) (http.Handler, func(), error) {
 	nada := func() {}
+	etapa, preparado := "configuracion", false
+	defer func() {
+		if !preparado {
+			slog.Warn("justificante_renuncia_bolsa_no_disponible", "etapa", etapa)
+		}
+	}()
 	privada, err := leerConfiguracionJustificantesBolsa(cfg.DevelopmentMaterialDir)
 	if err != nil {
 		return nil, nada, err
 	}
+	etapa = "pool_nominal"
 	pool, login, err := abrirPoolNominalPortalExterno(ctx, privada.Datos.DSNDatos, "vec_documentos_bolsa_subida_datos", "vec-bolsa-justificante")
 	if err != nil {
 		return nil, nada, err
@@ -132,35 +138,43 @@ func prepararJustificantesBolsaExternos(ctx context.Context, cfg config.Config, 
 			pool.Close()
 		}
 	}()
+	etapa = "topologia"
 	if login != "vec_externo_documentos_bolsa_datos" || cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx, pool, topologia) != nil {
 		return nil, nada, docports.ErrSubidaLocalNoDisponible
 	}
+	etapa = "funciones"
 	funciones := append(firmasDatosSubidaLocal(), "vec_documentos.resolver_justificante_renuncia_bolsa_v1(text,text,text,text,timestamp with time zone,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)")
 	if acreditarFuncionesCarteraExterna(ctx, pool, funciones) != nil {
 		return nil, nada, docports.ErrSubidaLocalNoDisponible
 	}
+	etapa = "claves"
 	claves, err := leerClavesSubidaDocumentosExterna(cfg.DevelopmentMaterialDir, privada.Datos)
 	if err != nil {
 		return nil, nada, err
 	}
+	etapa = "claves_aplicacion"
 	correlaciones, seudonimos, sellador, err := nuevasClavesAplicacionSubidaLocal(&claves)
 	if err != nil {
 		return nil, nada, err
 	}
+	etapa = "motivo"
 	validador, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2Externo(motivosPool, privada.Motivo.CatalogoID)
 	if err != nil {
 		return nil, nada, err
 	}
+	etapa = "autorizacion"
 	autorizador, err := nuevaAutorizacionMiBolsaPortalExterno(fuente, registro, registro,
 		motivosMiBolsaPortalExterno{privada.Motivo.CatalogoID: validador})
 	if err != nil {
 		return nil, nada, err
 	}
+	etapa = "confianza"
 	proveedores, err := nuevosProveedoresV3PortalExterno(ctx, cfg.DevelopmentMaterialDir, preflight,
 		consumidorJustificantesBolsaExterno, relojContratacionTemporalDesarrollo{})
 	if err != nil {
 		return nil, nada, err
 	}
+	etapa = "emisores"
 	emisores := map[string]*emisorMaterialRenovableCTDesarrollo{}
 	for _, audiencia := range []string{audienciaJustificanteBolsaSubir, audienciaJustificanteBolsaDescargar, audienciaJustificanteBolsaPreparar} {
 		proveedor := proveedores[audiencia]
@@ -174,6 +188,7 @@ func prepararJustificantesBolsaExternos(ctx context.Context, cfg config.Config, 
 		emisores[audiencia] = e
 	}
 	reloj := relojRutasDietas{}
+	etapa = "almacen"
 	almacen, cerrarAlmacen, err := nuevoAlmacenDocumentos(ctx, almacenDocumentosDesarrollo{
 		Tipo: "ficheros", Directorio: privada.Datos.Directorio, TamanoMaximo: 16 << 20,
 		RetencionMinimaDias: privada.Datos.RetencionMinimaDias}, reloj)
@@ -185,17 +200,21 @@ func prepararJustificantesBolsaExternos(ctx context.Context, cfg config.Config, 
 			cerrarAlmacen()
 		}
 	}()
+	etapa = "conservacion"
 	if admitirCatalogoConservacion(cfg, true, "ficheros", almacen) != nil {
 		return nil, nada, docports.ErrSubidaLocalNoDisponible
 	}
+	etapa = "analizador"
 	analizador, err := analisiscontenido.NuevoCliente(privada.Datos.Analizador.cliente())
 	if err != nil {
 		return nil, nada, err
 	}
+	etapa = "capacidad_analizador"
 	capacidad, err := analizador.Capacidades(ctx)
 	if err != nil || capacidad.ConectorID != privada.Datos.Analizador.ConectorID {
 		return nil, nada, docports.ErrSubidaLocalNoDisponible
 	}
+	etapa = "repositorio"
 	guardador, err := docpg.NuevoRepositorioSubidaLocalConPool(pool)
 	if err != nil {
 		return nil, nada, err
@@ -205,12 +224,14 @@ func prepararJustificantesBolsaExternos(ctx context.Context, cfg config.Config, 
 		preparacion: autoridadPreparacionJustificanteBolsa{emisores[audienciaJustificanteBolsaPreparar], privada.Motivo},
 		motivo:      privada.Motivo, almacen: almacen, analizador: analizador, seudonimos: seudonimos,
 		sellador: sellador, correlaciones: correlaciones}
+	etapa = "handler"
 	handler, err := bolsahttp.NuevoHandlerJustificanteRenuncia(proveedorIdentidadJustificanteBolsa{}, fabrica)
 	if err != nil {
 		return nil, nada, err
 	}
 	var unaVez sync.Once
 	completo = true
+	preparado = true
 	return handler, func() { unaVez.Do(func() { cerrarAlmacen(); pool.Close() }) }, nil
 }
 

@@ -189,7 +189,8 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 				}
 			}
 		}
-		if len(estado.Actual) != 0 && string(estado.Actual) != "null" && len(actual.Claves) == len(lista)-2 {
+		if len(estado.Actual) != 0 && string(estado.Actual) != "null" &&
+			(len(actual.Claves) == 23 || len(actual.Claves) == 25) && len(lista) == 28 {
 			reutilizadas, err = coordenadasAmpliacionExternaV3(lista, actual, estado)
 			if err != nil {
 				return err
@@ -328,19 +329,28 @@ func materialPublicableExternoV3Exacto(materiales map[string][]materialAtestacio
 	return true
 }
 
-// Una ampliación de las 23 audiencias ya publicadas conserva su clave,
-// versión, revisión y orden. Solo Documentos recibe coordenadas nuevas. El
-// material público previo debe coincidir completo con las claves actuales:
-// una huella o referencia distinta no se interpreta como una ampliación.
+// Las ampliaciones conocidas 23→28 y 25→28 conservan las coordenadas de
+// todas las claves anteriores. Solo las audiencias M4 y Bolsa publicadas por
+// este corte pueden recibir coordenadas nuevas. La historia pública previa
+// debe coincidir íntegra con los secretos y la raíz actuales.
 func coordenadasAmpliacionExternaV3(lista []*materialAtestacionContratacionTemporalDesarrollo,
 	actual materialPublicoExternoV3, estado estadoPublicacionExternaV3) ([]coordenadaClaveExternaV3, error) {
 	fallo := func() ([]coordenadaClaveExternaV3, error) {
 		return nil, falloPublicacionConfianzaExterna(nil)
 	}
-	if len(lista) < 2 || len(actual.Claves) != len(lista)-2 ||
+	if len(lista) != 28 || lista[0] == nil || (len(actual.Claves) != 23 && len(actual.Claves) != 25) ||
 		actual.Raiz.HuellaSPKI != lista[0].spkiHuella ||
 		actual.Raiz.ClaveID != "clave:atestacion:externo:"+lista[0].spkiHuella {
 		return fallo()
+	}
+	permitidas := map[string]bool{
+		audienciaJustificanteBolsaSubir:     true,
+		audienciaJustificanteBolsaDescargar: true,
+		audienciaJustificanteBolsaPreparar:  true,
+	}
+	if len(actual.Claves) == 23 {
+		permitidas[audienciaSubirComprobanteM4] = true
+		permitidas[audienciaDescargarComprobanteM4] = true
 	}
 	porAudiencia := make(map[string]coordenadaClaveExternaV3, len(actual.Claves))
 	for _, clave := range actual.Claves {
@@ -353,7 +363,7 @@ func coordenadasAmpliacionExternaV3(lista []*materialAtestacionContratacionTempo
 	coordenadas := make([]coordenadaClaveExternaV3, len(lista))
 	anteriores := make([]*materialAtestacionContratacionTemporalDesarrollo, 0, len(actual.Claves))
 	coordenadasAnteriores := make([]coordenadaClaveExternaV3, 0, len(actual.Claves))
-	nuevas := make([]int, 0, 2)
+	nuevas := make([]int, 0, len(permitidas))
 	for i, material := range lista {
 		if material == nil {
 			return fallo()
@@ -364,13 +374,14 @@ func coordenadasAmpliacionExternaV3(lista []*materialAtestacionContratacionTempo
 			coordenadasAnteriores = append(coordenadasAnteriores, clave)
 			continue
 		}
-		if material.audienciaConsumo != audienciaSubirComprobanteM4 &&
-			material.audienciaConsumo != audienciaDescargarComprobanteM4 {
+		if !permitidas[material.audienciaConsumo] {
 			return fallo()
 		}
+		delete(permitidas, material.audienciaConsumo)
 		nuevas = append(nuevas, i)
 	}
-	if len(anteriores) != len(actual.Claves) || len(nuevas) != 2 {
+	if len(anteriores) != len(actual.Claves) || len(permitidas) != 0 ||
+		len(nuevas) != len(lista)-len(actual.Claves) {
 		return fallo()
 	}
 	if err := coordinarMaterialExternoV3(anteriores, actual.Configuracion.Revision, actual.Configuracion.Secuencia,
