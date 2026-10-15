@@ -8,7 +8,7 @@
  */
 import { textoPortal, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261015-r1-criterios-v1";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261015-r1-s1-h-v1";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
 import { cargarTextos } from "../comun/textos.js";
 

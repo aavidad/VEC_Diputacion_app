@@ -968,7 +968,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     versionesEspeciales.set(ruta, "20261014-cronos-activacion-v1");
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js"])
     versionesEspeciales.set(ruta, "20261014-ginpix-cronos-v1");
-  // Criterios de Bolsa: URLs exactas de sus consumidores y padres.
+  // La cohorte conjunta conserva los consumidores de Bolsa, ofertas y firma.
   for (const ruta of [
     "categorias-rpt/cliente.js",
     "categorias-rpt/montaje.js",
@@ -1006,10 +1006,14 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-modulos-coordinador.js",
     "portal-panel-interno.js",
     "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261015-r1-criterios-v1");
-  for (const ruta of ["portal.js", "portal-bolsas-ofertas.js", "modulos/bolsa/rrhh-plazos-api.js",
-    "modulos/bolsa/rrhh-plazos-ui.js"])
-    versionesEspeciales.set(ruta, "20261015-r1-s1-ofertas-v1");
+    "modulos/contratacion-temporal/cliente-http-recuperacion-firmas-v2.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/testdata/recuperacion-firmas-v2-demo.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/cliente-http-descarga-firma-v2.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+  ]) versionesEspeciales.set(ruta, "20261015-r1-s1-h-v1");
   versionesEspeciales.set("portal-llamamientos-selector.js", "20261015-ofertas-recibo-v3");
   const aristas = [];
   const codigo = new Map();

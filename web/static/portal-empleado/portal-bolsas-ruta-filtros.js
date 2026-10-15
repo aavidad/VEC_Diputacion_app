@@ -1,5 +1,5 @@
 /** Enlaces compartibles de la lista autorizada de candidaturas de una bolsa. */
-import { SITUACIONES_PARTICIPACION_BOLSA } from "./portal-bolsas-contrato.js?v=20261015-r1-criterios-v1";
+import { SITUACIONES_PARTICIPACION_BOLSA } from "./portal-bolsas-contrato.js?v=20261015-r1-s1-h-v1";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
 
 const CLAVE_BOLSA = "bolsa_ref";

@@ -384,6 +384,7 @@ static/portal-empleado/modulos/contratacion-temporal/contrato-circuito-rrhh.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-analisis.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-borrador.js
 static/portal-empleado/modulos/contratacion-temporal/circuito-firma.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-descarga-firma-v2.js
 static/portal-empleado/modulos/contratacion-temporal/fase-firma.js
 static/portal-empleado/modulos/contratacion-temporal/circuito-firma-acciones.js
 static/portal-empleado/modulos/contratacion-temporal/firma-externa-cliente.js

@@ -1,6 +1,6 @@
 import { registroB2, referenciaB2, validarConsultaB2, validarSolicitudPlanB2, validarSolicitudConfirmacionB2, validarReciboB2 } from "./contrato-incorporacion-personal-b2.js";
 import { RUTA_VINCULO_RPT, RUTA_CATEGORIAS_RPT, validarLecturaVinculoRPT, validarPaginaCategoriasRPT, validarEntradaVinculoRPT, validarReciboVinculoRPT } from "./contrato-vinculo-categoria-rpt.js";
-import { validarSignal, ejecutarAbortable, cancelarRespuesta, validarTipoJSON, longitudDeclarada, serializarAcotado, construirCabeceras } from "./cliente-http-transporte.js?v=20261015-r1-criterios-v1";
+import { validarSignal, ejecutarAbortable, cancelarRespuesta, validarTipoJSON, longitudDeclarada, serializarAcotado, construirCabeceras } from "./cliente-http-transporte.js?v=20261015-r1-s1-h-v1";
 
 export const RUTA_PLAN_B2 = "/api/vec/contratacion-temporal/incorporacion-personal-b2/plan/v1";
 export const RUTA_CONFIRMAR_B2 = "/api/vec/contratacion-temporal/incorporacion-personal-b2/confirmar/v1";

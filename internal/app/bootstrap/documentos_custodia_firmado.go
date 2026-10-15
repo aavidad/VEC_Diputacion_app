@@ -92,11 +92,13 @@ func validarConfiguracionCustodiaFirmado(c *custodiaFirmadoConfigDesarrollo, pol
 		return nil, errCustodiaDocumentosConfiguracion
 	}
 	documentos := make(map[string]string, len(c.Documentos))
+	tiposCanonicos := make(map[string]bool, len(c.Documentos))
 	for documento, tipo := range c.Documentos {
 		ref, err := politicas.TipoDocumentalRef(tipo)
-		if !ctdomain.ClaveDocumentoFirmaValida(documento) || err != nil || !politicas.CustodiaFirmadoReservada(ref) {
+		if !ctdomain.ClaveDocumentoFirmaValida(documento) || err != nil || !politicas.CustodiaFirmadoReservada(ref) || tiposCanonicos[ref] {
 			return nil, errCustodiaDocumentosConfiguracion
 		}
+		tiposCanonicos[ref] = true
 		documentos[documento] = tipo
 	}
 	return documentos, nil

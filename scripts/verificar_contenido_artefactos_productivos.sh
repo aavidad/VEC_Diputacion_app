@@ -189,6 +189,9 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-informe-definitivo.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-circuito-rrhh.js
 	static/portal-empleado/modulos/contratacion-temporal/firma-externa-cliente.js
+	# Descarga nominal revisada: POST interno fijo, respuesta y PDF acotados;
+	# same-origin, no-store, redirect error y no-referrer.
+	static/portal-empleado/modulos/contratacion-temporal/cliente-http-descarga-firma-v2.js
 	# Firma V2: rutas internas fijas, mTLS del mismo origen y respuestas acotadas.
 	static/portal-empleado/modulos/contratacion-temporal/preflight-firma-api.js
 	static/portal-empleado/modulos/contratacion-temporal/original-firmable-api.js
