@@ -7,11 +7,13 @@ esperada e idempotencia y devuelve un recibo. La ruta queda en 503 si se pide
 la capacidad sin completar su material o sus funciones. Sin el selector, el
 servidor arranca y la ruta no se monta.
 
-## Contrato de SQL con C
+## Contrato SQL de la candidata
 
-La instalación causal en una copia nueva es **AUT96 → AD273 consolidada →
+La instalación causal en una copia nueva es **AUT96 → AD279/O →
 B116 → AD275**. No se reaplica una migración ya instalada. AUT96 coteja la
-asignación interna vigente. B116 crea el grupo
+asignación interna vigente. AD279/O extrae las dos piezas internas de
+preferencias que estaban atribuidas a AD273/C. Se instala después de AD278/S,
+todavía pendiente en esta copia. B116 crea el grupo
 `vec_bolsa_llamamientos_preferencias_interna` y tres fachadas Bolsa con sufijo
 `_interna_v1`. B116 amplía la restricción de clave de B104 y guarda actor y
 perfil en las versiones internas nuevas. Almacena la clave interna con un
@@ -19,7 +21,7 @@ prefijo que B104 no admite, de modo que cada superficie solo recupera su
 propio recibo. AD275 crea las dos fachadas nominales de lectura y de intento
 denegado; solo admite la sesión interna.
 
-AD273, propiedad de C, debe aportar dos piezas antes de B116/AD275:
+AD279, propiedad de O, aporta dos piezas antes de B116/AD275:
 
 1. La función
    `vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_interna_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)`.
@@ -36,7 +38,7 @@ AD273, propiedad de C, debe aportar dos piezas antes de B116/AD275:
    admitir el canal `interna_corporativa` para el tipo
    `lectura_preferencias_bolsas`, junto al canal exterior que ya existía.
    AD275 exige el nombre y el canal internos antes de instalarse. La
-   modificación de esa tabla pertenece a C.
+   modificación de esa tabla pertenece a O en AD279.
 
 AUT96/AD275 cotejan una concesión publicada por Administración para el perfil
 propio de Antonio. La lectura requiere la acción
@@ -80,5 +82,7 @@ después del reinicio con la misma versión, orden, referencia y fecha.
 Una candidatura ajena o una sesión exterior deben ser rechazadas y dejar su
 auditoría. `POST` responde 405; el cliente web usa `PUT`.
 
-Este archivo describe una activación pendiente. Ninguna de estas migraciones
-ni sus actos están instalados o ensayados por este corte de código.
+Este archivo describe una activación pendiente. AD279 y los actos internos no
+están instalados ni ensayados en la copia de esta candidata. Su publicación
+requiere además las tres claves internas del catálogo del publicador, aún en
+preparación.

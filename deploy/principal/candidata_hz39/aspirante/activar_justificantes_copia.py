@@ -8,6 +8,8 @@ https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/fir
 
 Orden de la copia: instalar una vez AD263, AD265, AD277, AUT95, D20, D22,
 B119 y CT222;
+crear los dos LOGIN documentales sin grupo antes de D22, fijar contraseñas
+SCRAM fuera de Git y conceder los grupos exactos tras D22, antes de B119;
 restaurar las ACL de base y tipos de HZ37; publicar la identidad y el contexto
 externos del candidato por el CLI nominal. Si falta su asignación, ejecutar
 `asignar_candidato_copia.py` con la misma copia y su CA, y repetir este guion:
@@ -18,11 +20,16 @@ guion ni lo acredita un recibo local del almacén.
 
 Caso PDF: la bolsa sintética `bolsa:administrativo:2026-09-17` tiene dos
 llamamientos antiguos de Antonio, ya respondidos y vencidos el 13/10/2026.
-Tras restaurar una copia nueva, se pueden retirar esas filas ficticias y
-recargar el llamamiento y contacto desde el guion de datos, con plazo de al
-menos 90 días. No se alteran recibos ni se fabrican firmas. Este guion se
-limita a la autoridad documental; el reajuste de datos se ejecuta por
-separado, solo en el clon privado.
+En la copia ficticia, ejecutar después el guion privado
+`scratch/fixture_antonio_justificante.py`: añade un llamamiento y un contacto
+actuales marcados como datos de ensayo, sin borrar la historia anterior. Esa
+semilla no acredita una emisión de RRHH. La subida, respuesta y descarga del
+recorrido deben producir sus propios recibos reales. El plazo de respuesta
+conserva la regla publicada: un día hábil desde el contacto efectivo.
+El alias HMAC del candidato se coteja con
+`incorporacion/actos/aliases-canonicos-20261014.json`: si la cuenta del clon
+conserva el alias anterior, el guion cambia solo ese dato ficticio. El alias
+de Usuarios queda fuera de esta operación.
 """
 
 import argparse
@@ -284,6 +291,97 @@ def preparar_config(ensayo, motivo, aplicar):
                       (json.dumps(interna,ensure_ascii=False,separators=(",",":"))+"\n").encode(),aplicar)
 
 
+def conectar_documentos():
+    parejas=(("vec_externo_documentos_bolsa_datos","vec_documentos_bolsa_subida_datos"),
+            ("vec_interno_documentos_bolsa_rrhh","vec_documentos_bolsa_rrhh"))
+    consultas=[]
+    for login,grupo in parejas:
+        q=("SELECT l.rolcanlogin AND l.rolinherit AND NOT(l.rolsuper OR l.rolcreatedb "
+           "OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls) "
+           "AND l.rolconfig IS NULL AND a.rolpassword LIKE 'SCRAM-SHA-256$%' "
+           "AND NOT g.rolcanlogin AND g.rolinherit AND NOT(g.rolsuper OR g.rolcreatedb "
+           "OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls) "
+           "AND g.rolconfig IS NULL "
+           "AND (SELECT count(*)=1 FROM pg_auth_members WHERE member=l.oid) "
+           "AND EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=l.oid "
+           "AND m.roleid=g.oid AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option) "
+           "AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=g.oid) "
+           "AND NOT EXISTS(SELECT 1 FROM pg_db_role_setting WHERE setrole IN (l.oid,g.oid)) "
+           "AND NOT has_database_privilege(l.rolname,'postgres','TEMPORARY') "
+           "FROM pg_roles l JOIN pg_authid a ON a.oid=l.oid "
+           "JOIN pg_roles g ON g.rolname="+lit(grupo)+
+           " WHERE l.rolname="+lit(login))
+        exigir(psql(q)=="t","login_documental_no_nominal")
+        estado=psql("SELECT has_database_privilege("+lit(grupo)+",'postgres','CONNECT'),"
+                    "has_database_privilege("+lit(grupo)+",'postgres','TEMPORARY')")
+        exigir(estado in ("t|f","f|f"),"acl_base_documental_divergente")
+        consultas.append(q)
+    pre=" OR ".join("("+q+") IS DISTINCT FROM TRUE" for q in consultas)
+    pre+=" OR "+" OR ".join("has_database_privilege("+lit(grupo)+
+                          ",'postgres','TEMPORARY')" for _,grupo in parejas)
+    post=pre+" OR "+" OR ".join("NOT has_database_privilege("+lit(rol)+
+                                ",'postgres','CONNECT')" for pareja in parejas for rol in pareja)
+    sql=("BEGIN; SET LOCAL search_path=pg_catalog; SET LOCAL lock_timeout='3s'; "
+         "DO $pre$ BEGIN IF "+pre+" THEN RAISE EXCEPTION "
+         "'login_documental_preimagen' USING ERRCODE='55000'; END IF; END $pre$; "
+         "GRANT CONNECT ON DATABASE postgres TO "+",".join(grupo for _,grupo in parejas)+"; "
+         "DO $post$ BEGIN IF "+post+" THEN RAISE EXCEPTION "
+         "'login_documental_postimagen' USING ERRCODE='55000'; END IF; END $post$; COMMIT;")
+    psql(sql)
+
+
+def alias_canonico_candidato(ensayo):
+    actos=ensayo/"incorporacion/actos"
+    anterior_ruta=actos/"alias-candidato-externo.json"
+    canon_ruta=actos/"aliases-canonicos-20261014.json"
+    identidad_ruta=ensayo/"externo/identidad/bolsa-candidato.json"
+    for ruta in (anterior_ruta,canon_ruta,identidad_ruta):
+        privado(ruta)
+    anterior=json.loads(anterior_ruta.read_text())
+    canon=json.loads(canon_ruta.read_text())
+    identidad=json.loads(identidad_ruta.read_text())
+    exigir(anterior["version"]==canon["version"]==1 and len(anterior["cuentas"])==1,
+           "alias_candidato_material_divergente")
+    viejo=anterior["cuentas"][0]
+    candidatos=[x for x in canon["cuentas"] if x.get("cuenta_ref")==identidad["cuenta_ref"]]
+    exigir(len(candidatos)==1 and viejo["cuenta_ref"]==identidad["cuenta_ref"],
+           "alias_candidato_ambiguo")
+    nuevo=candidatos[0]
+    exigir(set(viejo)==set(nuevo) and all(viejo[k]==nuevo[k] for k in viejo
+           if k!="cuenta_id_hmac") and
+           re.fullmatch(r"[0-9a-f]{64}",viejo["cuenta_id_hmac"]) is not None and
+           re.fullmatch(r"[0-9a-f]{64}",nuevo["cuenta_id_hmac"]) is not None and
+           viejo["cuenta_id_hmac"]!=nuevo["cuenta_id_hmac"],
+           "alias_candidato_preimagen_divergente")
+    comun=("cuenta_ref="+lit(nuevo["cuenta_ref"])+
+           " AND esquema_hmac="+lit(nuevo["esquema"])+
+           " AND dominio_hmac_ref="+lit(nuevo["dominio_ref"])+
+           " AND clave_hmac_id="+lit(nuevo["clave_id"])+
+           " AND clave_hmac_version="+str(nuevo["clave_version"])+
+           " AND sujeto_id_hmac=decode("+lit(nuevo["sujeto_id_hmac"])+",'hex')")
+    tabla="vec_identidad_externa_v1.alias_cuenta"
+    estado=psql("SELECT count(*),count(*) FILTER(WHERE cuenta_id_hmac=decode("+
+                lit(viejo["cuenta_id_hmac"])+",'hex')),"+
+                "count(*) FILTER(WHERE cuenta_id_hmac=decode("+
+                lit(nuevo["cuenta_id_hmac"])+",'hex')) FROM "+tabla+
+                " WHERE cuenta_ref="+lit(nuevo["cuenta_ref"]))
+    exigir(estado in ("1|1|0","1|0|1"),"alias_candidato_db_divergente")
+    if estado=="1|1|0":
+        sql=("BEGIN ISOLATION LEVEL SERIALIZABLE; SET LOCAL search_path=pg_catalog; "
+             "SET LOCAL lock_timeout='3s'; SET LOCAL session_replication_role=replica; "
+             "DO $fix$ DECLARE n bigint; BEGIN UPDATE "+tabla+
+             " SET cuenta_id_hmac=decode("+lit(nuevo["cuenta_id_hmac"])+",'hex') WHERE "+
+             comun+" AND cuenta_id_hmac=decode("+lit(viejo["cuenta_id_hmac"])+",'hex'); "
+             "GET DIAGNOSTICS n=ROW_COUNT; IF n<>1 OR (SELECT count(*) FROM "+tabla+
+             " WHERE cuenta_ref="+lit(nuevo["cuenta_ref"])+")<>1 THEN "
+             "RAISE EXCEPTION 'alias_canonico_preimagen' USING ERRCODE='55000'; "
+             "END IF; END $fix$; COMMIT;")
+        psql(sql)
+    exigir(psql("SELECT count(*) FROM "+tabla+" WHERE "+comun+
+                " AND cuenta_id_hmac=decode("+lit(nuevo["cuenta_id_hmac"])+",'hex')")=="1",
+           "alias_candidato_no_cotejado")
+
+
 def publicar_elena(ensayo, modulo, rol, aplicar):
     material=ensayo/"material"
     privado(material,True)
@@ -336,6 +434,7 @@ INSERT INTO vec_autorizacion.asignacion_perfil(asignacion_ref,asignacion_id,vers
 INSERT INTO vec_autorizacion.asignacion_perfil_actual VALUES({q(d['perfil'])},{q(d['asig_ref'])},{q(marca)}::timestamptz,{q(OPERADOR)},'acto:ensayo:elena-bolsa:documental');
 COMMIT;"""
         psql(sql)
+    actualizar_asignacion_elena(d,aplicar)
     exigir(psql("SELECT count(*) FROM vec_autorizacion.asignacion_perfil_actual a "
                 "JOIN vec_autorizacion.asignacion_perfil p USING(asignacion_ref) WHERE "
                 "a.perfil_activo_ref="+lit(d["perfil"])+" AND p.version_rol_ref="+lit(referencia_rol)+
@@ -343,6 +442,65 @@ COMMIT;"""
            "elena_documental_no_cotejada")
     modulo.manifiestos(material,d,cuenta,aplicar)
     return d
+
+
+def actualizar_asignacion_elena(d,aplicar):
+    q=("SELECT jsonb_build_object('ref',a.asignacion_ref,'documento',a.documento,"
+       "'huella',a.huella_sha256)::text FROM vec_autorizacion.asignacion_perfil_actual actual "
+       "JOIN vec_autorizacion.asignacion_perfil a USING(asignacion_ref) "
+       "WHERE actual.perfil_activo_ref="+lit(d["perfil"]))
+    lectura=psql(q)
+    exigir(bool(lectura),"asignacion_elena_ausente")
+    anterior=json.loads(lectura)
+    doc=anterior["documento"]
+    exigir(doc["perfil_activo_ref"]==d["perfil"] and doc["principal_id"]==d["persona"] and
+           doc["asignacion_id"]==d["asig"]["asignacion_id"] and doc["estado"]=="activa" and
+           doc["ambitos"]==d["asig"]["ambitos"] and
+           doc["revocada_en"]=="0001-01-01T00:00:00Z" and
+           psql("SELECT encode(sha256(convert_to(vec_autorizacion.canon_asignacion_perfil_admin_v1("+
+                jlit(doc)+"),'UTF8')),'hex')")==anterior["huella"],
+           "asignacion_elena_divergente")
+    fin=datetime.fromisoformat(doc["vigente_hasta"].replace("Z","+00:00"))
+    exigir(fin>datetime.now(timezone.utc)+timedelta(days=90),"vigencia_elena_corta")
+    destino=REF_ROL(RRHH_ROL,2)
+    if doc["version_rol_ref"]==destino:
+        exigir((doc["version"]==1 and doc==d["asig"] and anterior["ref"]==d["asig_ref"])
+               or (doc["version"]==2 and anterior["ref"]==
+                   "asignacion:"+doc["asignacion_id"]+":v2"),
+               "asignacion_elena_version_divergente")
+        return
+    esperado=dict(d["asig"],version_rol_ref=REF_ROL(RRHH_ROL,1))
+    exigir(doc==esperado and anterior["ref"]==d["asig_ref"] and doc["version"]==1,
+           "asignacion_elena_v1_divergente")
+    exigir(aplicar,"asignacion_elena_v2_pendiente")
+    ahora=datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+    nuevo=dict(doc,version=2,version_rol_ref=destino,emitida_por=OPERADOR,
+               emitida_en=ahora,vigente_desde=ahora)
+    nueva_ref="asignacion:"+doc["asignacion_id"]+":v2"
+    nd=jlit(nuevo)
+    sql=f"""BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL search_path=pg_catalog; SET LOCAL timezone='UTC'; SET LOCAL lock_timeout='3s';
+SELECT pg_advisory_xact_lock(hashtextextended('vec:ensayo:bolsa-justificantes:elena',0));
+DO $pre$ BEGIN IF NOT EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil_actual
+ WHERE perfil_activo_ref={lit(d['perfil'])} AND asignacion_ref={lit(anterior['ref'])})
+ OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil WHERE asignacion_ref={lit(nueva_ref)})
+ OR NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE version_rol_ref={lit(destino)})
+ THEN RAISE EXCEPTION 'elena_documental_cas_preimagen' USING ERRCODE='55000'; END IF; END $pre$;
+INSERT INTO vec_autorizacion.asignacion_perfil(asignacion_ref,asignacion_id,version,
+ perfil_activo_ref,principal_id,version_rol_ref,huella_sha256,emitida_en,documento)
+ SELECT {lit(nueva_ref)},{lit(doc['asignacion_id'])},2,{lit(d['perfil'])},{lit(d['persona'])},
+ {lit(destino)},encode(sha256(convert_to(vec_autorizacion.canon_asignacion_perfil_admin_v1({nd}),
+ 'UTF8')),'hex'),({nd}->>'emitida_en')::timestamptz,{nd};
+UPDATE vec_autorizacion.asignacion_perfil_actual SET asignacion_ref={lit(nueva_ref)},
+ actualizada_en=clock_timestamp(),actualizada_por={lit(OPERADOR)},
+ acto_ref='acto:ensayo:bolsa-justificantes:elena:v2'
+ WHERE perfil_activo_ref={lit(d['perfil'])} AND asignacion_ref={lit(anterior['ref'])};
+DO $post$ BEGIN IF NOT EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil_actual
+ WHERE perfil_activo_ref={lit(d['perfil'])} AND asignacion_ref={lit(nueva_ref)})
+ THEN RAISE EXCEPTION 'elena_documental_cas' USING ERRCODE='40001'; END IF; END $post$;
+COMMIT;"""
+    psql(sql)
+    exigir(json.loads(psql(q))["documento"]==nuevo,"asignacion_elena_v2_no_cotejada")
 
 
 def asignar_candidato(ensayo, aplicar):
@@ -421,6 +579,7 @@ def main():
     if not a.aplicar:
         print("justificantes=plan_preparado base_sin_cambios")
         return
+    conectar_documentos()
     motivo=publicar_motivo(a.ensayo,True)
     para_candidato=leer_rol(CANDIDATO_ROL,1)
     para_rrhh=leer_rol(RRHH_ROL,1)
@@ -440,6 +599,7 @@ def main():
     publicar_elena(a.ensayo,elena,leer_rol(RRHH_ROL,2),True)
     candidato=asignar_candidato(a.ensayo,True)
     preparar_config(a.ensayo,motivo,True)
+    alias_canonico_candidato(a.ensayo)
     print("justificantes=preparados candidato="+("asignado" if candidato else "bootstrap_pendiente"))
 
 

@@ -486,8 +486,10 @@ suspensión temporal (decisión de RRHH del 02/10). Desde `excluido` no se sale.
 
 #### Preferencias entre bolsas
 
-Estado: **en main**; en cidonia falta la autoridad externa de la aspirante
-*(por verificar)*.
+Estado: **en main**; en cidonia falta acreditar la autoridad de la aspirante.
+La variante de sesión interna está preparada con AD279, pendiente de instalar
+y ensayar tras AD278. El orden guardado no decide todavía adjudicaciones ni
+renuncias.
 
 En «Orden de mis bolsas» la aspirante ordena sus bolsas
 (`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias`). Si aparece una bolsa nueva o
@@ -505,10 +507,19 @@ real, falta acreditar el recorrido.
 3. La aspirante elige (`POST /api/vec/bolsa/mi-bolsa/respuestas`):
    - **Aceptar**: sin pantalla de revisión.
    - **Renunciar**: pasa por «Revise su renuncia» y «Confirmar renuncia».
-   - **Renuncia justificada**: causa del catálogo y referencia y huella del
-     justificante. El fichero no se envía todavía.
+   - **Renuncia justificada**: causa del catálogo. En la candidata local, la
+     persona aporta antes el PDF desde Mi Bolsa; VEC lo analiza y devuelve su
+     referencia y huella para presentar la respuesta. Si el PDF no se admite,
+     no se presenta como respuesta justificada.
 4. Recibe un recibo. Según las reglas, la respuesta es firme o queda «en
    revisión» hasta que RRHH la confirme.
+
+La persona puede consultar y recuperar su justificante desde Mi Bolsa aunque
+el llamamiento ya esté cerrado. RRHH puede descargarlo desde la participación
+de esa bolsa si tiene el permiso individual. La entrega del fichero documenta
+la renuncia; RRHH conserva la decisión sobre la situación. Esta secuencia está
+preparada en código y pendiente de probar con PDF, navegador y reinicio en la
+copia de la candidata. No está acreditada en cidonia.
 
 Si no contesta, se entiende que no acepta, sin consecuencia. Para una oferta con
 varias plazas, la aspirante solo pulsa **Aceptar**

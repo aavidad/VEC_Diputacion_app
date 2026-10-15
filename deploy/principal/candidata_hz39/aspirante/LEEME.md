@@ -207,6 +207,70 @@ python3 deploy/principal/candidata_hz39/aspirante/preparar_subida_documental_cop
 
 ## Comprobación de la candidata
 
+### Justificante de renuncia y preferencias internas
+
+El artículo 10 del Reglamento de bolsas publicado en el BOP de Granada el
+16 de enero de 2026 exige acreditar documentalmente la renuncia justificada.
+El guion `activar_justificantes_copia.py` prepara los datos ficticios, permisos
+y material privado de esta función en la copia. El aspirante aporta primero
+un PDF de hasta 16 MB en «Mi Bolsa». Solo si pasa el análisis de PDF y
+antivirus se obtiene la referencia y la huella que acompañan su respuesta.
+Puede recuperar el fichero después de cerrar el llamamiento. RRHH lo descarga
+desde la participación de esa bolsa con su permiso individual; el acceso y la
+lectura quedan registrados. El fichero no resuelve por sí mismo la situación.
+
+Para instalar esta pieza en una copia nueva, seguir
+`deploy/principal/lista_sql_codexo_justificante_renuncia_20261015.txt`.
+Antes de D22, el operador de PostgreSQL crea los dos LOGIN sin membresías.
+En una sesión `psql` supervisada, `\password` pide la contraseña sin dejarla
+en el repositorio ni en el historial de órdenes:
+
+```sql
+SET password_encryption = 'scram-sha-256';
+CREATE ROLE vec_externo_documentos_bolsa_datos LOGIN INHERIT
+  NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+CREATE ROLE vec_interno_documentos_bolsa_rrhh LOGIN INHERIT
+  NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+\password vec_externo_documentos_bolsa_datos
+\password vec_interno_documentos_bolsa_rrhh
+```
+
+Después de D22 y antes de B119, asignar exactamente una membresía a cada
+LOGIN y conceder conexión a los dos grupos creados por D22:
+
+```sql
+GRANT vec_documentos_bolsa_subida_datos TO vec_externo_documentos_bolsa_datos
+  WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
+GRANT vec_documentos_bolsa_rrhh TO vec_interno_documentos_bolsa_rrhh
+  WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
+GRANT CONNECT ON DATABASE postgres
+  TO vec_documentos_bolsa_subida_datos, vec_documentos_bolsa_rrhh;
+```
+
+No conceder `TEMPORARY`. `activar_justificantes_copia.py` comprueba las dos
+contraseñas SCRAM, la membresía única, los atributos no privilegiados, los
+ajustes de rol y base, `CONNECT` y la ausencia de `TEMPORARY` antes de informar
+que quedó preparado. El guion está acotado al clon y sus datos ficticios. En
+una copia HZ37 fresca se ejecuta esta secuencia documental antes de los
+guiones antiguos de inscripción o alegaciones: esos guiones pueden publicar
+otras versiones de los roles de Bolsa y requieren su propio corte.
+
+En la copia restaurada de HZ37 se instalaron una vez AD263, AD265, AD277,
+AUT95, D20, D22, B119 y CT222 en ese orden, y pasaron seis pruebas SQL finales.
+También constan dos revisiones independientes favorables de SQL y seguridad,
+con pruebas focales de Go; las de la interfaz terminaron con 20 aciertos. La publicación externa de
+28 claves terminó correctamente y están disponibles el analizador de PDF,
+ClamAV, Mailpit y la aplicación con TLS. Quedan pendientes la subida de un PDF
+ficticio de ensayo, el recorrido en Chrome y la comprobación tras reiniciar. No
+se ha acreditado esta función en cidonia.
+
+Las preferencias de la sesión interna siguen la secuencia **AD278/S → AUT96
+→ AD279/O → B116 → AD275**; aplicar cada migración una sola vez y solo tras
+comprobar la historia de la copia. AD279 y las tres claves internas de su
+catálogo siguen pendientes. `preferencias_internas.md` detalla el material,
+las concesiones y las comprobaciones de lectura, escritura y recuperación del
+recibo. El efecto del orden sobre una adjudicación todavía no está acreditado.
+
 Con los actos anteriores acreditados, arrancar el binario de la candidata con
 el script privado, comprobar `/livez` y `/readyz` y recorrer e1–e5 en Chrome.
 Antonio debe recuperar la misma solicitud y los mismos recibos al repetir su
@@ -228,5 +292,6 @@ relación vigente y no inventa un acta ni una admisión.
 Dirección pausó O por cuota. El estado comprobado y los bloqueos están en
 `RELEVO_20261014.md`. Cartera y Mi Bolsa siguen devolviendo 503; no hay
 aceptación e1–e5 ni subida de PDF acreditada. Carmen conserva su perfil CT y
-Elena tiene otro de Bolsa. La dependencia central pertenece a AD273 de C.
+Elena tiene otro de Bolsa. La base externa conserva su dependencia de AD273/C;
+las preferencias de la sesión interna dependen de AD279/O tras AD278/S.
 Los guiones de copia no constituyen autorización de instalación.
