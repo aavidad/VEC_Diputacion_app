@@ -721,9 +721,9 @@ registre los hechos, la evidencia y el recibo. Hoy ese acto no existe.
 La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
 requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
 de origen CT, y la concesión exacta al rol RRHH aprobada por dos
-administradores. Si falta la política, la selección se detiene; el resto de la
-aplicación arranca. Si RRHH no tiene permiso para consultar motivos, el bloque
-indica que no están disponibles. Falta comprobar el conjunto con y sin esa
+administradores. Si falta el apartado de criterios, la selección conserva el
+orden y las reglas anteriores; la aplicación arranca. Si RRHH no tiene permiso
+para consultar motivos, el bloque indica que no están disponibles. Falta comprobar el conjunto con y sin esa
 configuración, en navegador y tras reinicio.
 
 La oferta con varias plazas, la adjudicación por posición y el llamamiento

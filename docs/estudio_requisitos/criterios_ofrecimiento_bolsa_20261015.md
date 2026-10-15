@@ -18,7 +18,7 @@ En esas fuentes de Granada no se ha identificado una regla general de «mejora d
 
 La candidata prepara un diagnóstico de cada persona del llamamiento con el motivo y los hechos comprobados. Conserva el enlace al contrato de origen de CT mediante `origen_llamamiento_ct_v1`. Cuando faltan datos del vínculo o del tiempo previo, el diagnóstico dice «Pendiente de comprobación» y detiene la selección en esa persona. RRHH no puede pasar a la siguiente ni registrar una exclusión definitiva por esa falta de datos. El acto propio para que RRHH registre los hechos con evidencia y recibo corresponde a R1b y aún no existe.
 
-La activación requiere la política opcional `criterios_ofrecimiento`, el descriptor de fuente `origen_ct_rrhh` v2 para el snapshot y los eventos de origen CT, y la concesión exacta del rol RRHH aprobada por dos administradores. Sin la política, la aplicación arranca y la selección se detiene. Sin permiso para consultar motivos, el bloque indica que la información no está disponible. Este corte aún necesita integración, ensayo conjunto, instalación y comprobación en navegador.
+La activación requiere la política opcional `criterios_ofrecimiento`, el descriptor de fuente `origen_ct_rrhh` v2 para el snapshot y los eventos de origen CT, y la concesión exacta del rol RRHH aprobada por dos administradores. Sin el apartado de criterios, la aplicación arranca y la selección conserva el orden y las reglas anteriores. Sin permiso para consultar motivos, el bloque indica que la información no está disponible. Este corte aún necesita integración, ensayo conjunto, instalación y comprobación en navegador.
 
 ## Contraste de otras entidades
 
