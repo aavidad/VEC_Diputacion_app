@@ -52,6 +52,14 @@ lecturas preliminares al LOGIN de Bolsa. D27 exige una autorización documental
 vigente antes de consultar la relación, y coteja el ámbito real en la misma
 transacción. Se instala la lista completa antes de habilitar la lectura; las
 versiones intermedias no constituyen una candidata de activación.
+
+AD287 registra la consulta propia previa al perfil en la auditoría común. CA46
+limita los perfiles a la cuenta autenticada; IS21 revalida esa sesión y AUT101
+selecciona un único perfil propio cuyo rol publicado permite la descarga con
+garantía alta. Sin perfil válido o con varios candidatos, deniega. El
+certificado debe estar registrado en el inventario interno común de cuentas.
+El fichero documental no elige la identidad ni el perfil. La selección se liga
+a esa petición y no modifica las fronteras de Contratación temporal.
 El formulario envía el PDF por POST idempotente; al reintentar
 conserva el mismo archivo y la misma clave. Solo registra la renuncia después
 de recibir un documento admitido.
@@ -123,13 +131,17 @@ aprueban sus bytes exactos. Esa aprobación es técnica; no acredita una firma
 personal o legal. El borrador de la copia ha pasado los validadores oficiales
 Go, pero todavía no se ha aplicado.
 
-Queda pendiente completar la vía gobernada para incorporar el permiso al rol.
-El acto actual de versionado de Bolsa admite otros conjuntos cerrados de
-acciones y aún no admite esta descarga. La concesión presente en los datos
-ficticios de la copia no acredita ese acto. Antes de activar, se necesita la
-versión correspondiente del rol y el avance de sus asignaciones por una vía
-gobernada. No se cambia el puntero del perfil para sortear el ámbito ni se
-crea un perfil documental por persona.
+La versión del rol se publica por el acto genérico vigente desde AUT92,
+según `deploy/principal/habilitacion_rol_bolsa_rrhh_generico_20261013.md`.
+Una persona ADMIN propone una sola entrada, la descarga de RRHH de la fuente
+v3, y otra persona ADMIN distinta confirma la propuesta en
+`/api/admin/perfiles/v1/gobierno-version-bolsa-rrhh/cierres`. Se conservan la
+versión esperada, las concesiones anteriores y los ámbitos de cada asignación.
+La nueva concesión exige garantía **alta**, igual que las acciones propias.
+El recibo, las dos decisiones de autorización y el avance de las asignaciones
+se comprueban antes de habilitar la consulta. La concesión ficticia previa de
+la copia no acredita este acto. No se cambia el perfil para sortear el ámbito
+ni se crea un perfil documental por persona.
 
 Bolsa comprueba la bolsa y la participación como atributos del recurso. La
 preparación obtiene una propuesta de ámbito de la asignación nominal vigente,

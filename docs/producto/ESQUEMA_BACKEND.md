@@ -559,6 +559,13 @@ transacción. El rol técnico mantiene `unidad_ref` y `ambito_ref`; la bolsa y
 la participación se cotejan como atributos. La fuente conjunta v3 conserva
 las acciones propias y la entrada RRHH versión 2; v1 y RRHH v2 quedan como
 antecedentes. El catálogo activo no admite acciones duplicadas.
+AD287 añade el tipo `preperfil_bolsa_rrhh` a la auditoría común, conservando
+el CHECK previo. CA46 e IS21 ofrecen solo entre propietarios los perfiles de
+la cuenta certificada revalidada; AUT101 es la fachada nominal de aplicación
+y devuelve únicamente un perfil propio, vigente y único con el permiso
+publicado de descarga y garantía alta, además de su acuse común. Un resultado
+vacío o ambiguo deniega. La sesión de la descarga se crea con ese perfil y
+el mismo par de autenticación/sesión; D27 conserva su autorización del recurso.
 La PR recoge las revisiones y el
 ensayo de la cadena en una copia de la principal; la guía `deploy/principal/justificante_renuncia_activacion.md`
 fija el orden de activación. La lectura y descarga pertenecen a cualquier

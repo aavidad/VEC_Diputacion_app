@@ -1,10 +1,13 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,6 +21,33 @@ import (
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+type diagnosticoSelectorJustificantePrueba struct{ etapa, codigo string }
+
+func (d diagnosticoSelectorJustificantePrueba) Error() string {
+	return "postgres://clave-secreta@local"
+}
+func (d diagnosticoSelectorJustificantePrueba) DiagnosticoSelectorPerfilJustificante() (string, string) {
+	return d.etapa, d.codigo
+}
+
+func TestJustificanteRRHHRegistraCausaTecnicaSinExponerSecreto(t *testing.T) {
+	var salida bytes.Buffer
+	anterior := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&salida, nil)))
+	defer slog.SetDefault(anterior)
+	registrarFalloSelectorJustificanteRRHH(diagnosticoSelectorJustificantePrueba{"consulta", "sqlstate_42883"})
+	registrarFalloSelectorJustificanteRRHH(diagnosticoSelectorJustificantePrueba{"postgres://clave-secreta@local", "postgres://clave-secreta@local"})
+	causa := errors.New("postgres://clave-secreta@local")
+	fallo := noDisponibleSesionNominalJustificanteRRHH("registro_sesion", causa)
+	texto := salida.String()
+	if !strings.Contains(texto, "sqlstate_42883") || !strings.Contains(texto, "etapa=consulta") ||
+		strings.Contains(texto, "clave-secreta") || !strings.Contains(texto, "causa=fuente_autorizacion") ||
+		!strings.Contains(texto, "etapa=registro_sesion") || !errors.Is(fallo, causa) ||
+		!errors.Is(fallo, docports.ErrSubidaLocalNoDisponible) || strings.Contains(fallo.Error(), "clave-secreta") {
+		t.Fatalf("diagnóstico no acotado: %s", texto)
+	}
+}
 
 func TestJustificanteRenunciaRRHHSinConfiguracionDejaRutaCerrada(t *testing.T) {
 	ruta, cerrar := nuevaRutaJustificanteRenunciaRRHH(config.Config{}, nil, nil, nil, nil)
@@ -75,6 +105,17 @@ type consultorJustificanteRRHHPermisoPrueba struct {
 	denegar   bool
 }
 
+type claveContextoNominalJustificantePrueba struct{}
+type sesionNominalJustificantePrueba struct{}
+
+func (sesionNominalJustificantePrueba) ResolverContexto(ctx context.Context) (contextoSeguridadComunDesarrollo, error) {
+	z, ok := ctx.Value(claveContextoNominalJustificantePrueba{}).(contextoSeguridadComunDesarrollo)
+	if !ok {
+		return contextoSeguridadComunDesarrollo{}, docports.ErrSubidaLocalDenegada
+	}
+	return z, nil
+}
+
 func (c *consultorJustificanteRRHHPermisoPrueba) AbrirJustificanteRenunciaRRHH(_ context.Context,
 	i bolsahttp.IdentidadJustificanteRenunciaRRHH, _, _ string) (io.ReadCloser, error) {
 	c.actorRefs = append(c.actorRefs, i.Actor.Contexto.PersonaRef)
@@ -116,22 +157,44 @@ func TestJustificanteRRHHResuelveDosTecnicasYDeniegaSinPermiso(t *testing.T) {
 		t.Fatal("la prueba no separa perfiles personales y técnicos")
 	}
 	fronteras, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{{
-		Clave: "bolsa-justificante-rrhh-prueba", Metodo: http.MethodGet,
+		Clave: "bolsa-justificante-renuncia-rrhh", Metodo: http.MethodGet,
 		Ruta:               bolsahttp.RutaJustificanteRenunciaRRHH,
 		Superficie:         superficieInternaSeguridadComunDesarrollo,
-		PerfilesActivosRef: perfiles, ClavePolitica: "politica-documental-prueba",
+		PerfilesActivosRef: perfiles[:1], ClavePolitica: "politica-documental-prueba",
 		ClaveCapacidad: "capacidad-documental-prueba",
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{sello: base.sello,
-		soporteDocumentosBolsa: base,
-		soportesLectoresDocumentosBolsa: map[string]*soporteAltaContratacionTemporalDesarrollo{
-			principalLector.ID: lector}, fronterasSeguridadComun: fronteras}
+	cuentas := map[string]cuentaNominalJustificanteRRHH{}
+	for indice, principal := range []core.Principal{principalBase, principalLector} {
+		cuentas[principal.Attributes["certificate_sha256"]] = cuentaNominalJustificanteRRHH{
+			certificadoSHA256: principal.Attributes["certificate_sha256"],
+			sujeto:            principal.ID, cuentaRef: referenciaAltaContratacionTemporalDesarrollo("cta_", fmt.Sprint(indice)),
+		}
+		if !principalNominalJustificanteRRHHValido(principal, cuentas) {
+			t.Fatal("cuenta técnica no admitida")
+		}
+	}
+	otroRol := clonarPrincipalDesarrollo(principalLector)
+	otroRol.Roles = []string{"rol_bolsa_publicado_distinto"}
+	if !principalNominalJustificanteRRHHValido(otroRol, cuentas) {
+		t.Fatal("se exigió un nombre fijo de rol")
+	}
+	aspirante := clonarPrincipalDesarrollo(principalLector)
+	aspirante.Roles = []string{"candidato_bolsa"}
+	if principalNominalJustificanteRRHHValido(aspirante, cuentas) {
+		t.Fatal("el aspirante cruzó la frontera interna")
+	}
+	forastera := clonarPrincipalDesarrollo(principalLector)
+	forastera.Attributes["certificate_sha256"] = strings.Repeat("f", 64)
+	if principalNominalJustificanteRRHHValido(forastera, cuentas) ||
+		principalNominalJustificanteRRHHValido(principalLector, nil) {
+		t.Fatal("se admitió certificado sin cuenta interna propia")
+	}
 	consulta := &consultorJustificanteRRHHPermisoPrueba{}
 	h, err := bolsahttp.NuevoHandlerJustificanteRenunciaRRHH(
-		proveedorIdentidadJustificanteRenunciaRRHH{sesion: sesionTecnicaJustificanteRenunciaRRHH{autoridad}}, consulta)
+		proveedorIdentidadJustificanteRenunciaRRHH{sesion: sesionNominalJustificantePrueba{}}, consulta)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,6 +208,25 @@ func TestJustificanteRRHHResuelveDosTecnicasYDeniegaSinPermiso(t *testing.T) {
 		ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{
 			metodo: http.MethodGet, ruta: bolsahttp.RutaJustificanteRenunciaRRHH,
 			superficie: superficieInternaSeguridadComunDesarrollo, catalogo: fronteras})
+		f, ok := fronteraSeguridadComunDesdeContexto(ctx)
+		if !ok {
+			t.Fatal("frontera sin registrar")
+		}
+		z := contextoSeguridadComunDesarrollo{Vinculo: soporte.contexto.Vinculo,
+			Resultado: soporte.contexto.Resultado}
+		if perfilJustificanteAdmitidoPorFrontera(f, z) {
+			t.Fatal("perfil estático sin acuse nominal")
+		}
+		z.seleccionJustificanteRRHH = &seleccionNominalJustificanteRRHH{
+			perfil:    z.Resultado.Contexto.PerfilActivoRef,
+			auditoria: "aud_v3_b_" + strings.Repeat("a", 32),
+			ruta:      bolsahttp.RutaJustificanteRenunciaRRHH, metodo: http.MethodGet,
+			catalogo: fronteras.identidad, holder: f.holder,
+		}
+		if !perfilJustificanteAdmitidoPorFrontera(f, z) {
+			t.Fatal("acuse propio rechazado")
+		}
+		ctx = context.WithValue(ctx, claveContextoNominalJustificantePrueba{}, z)
 		return r.WithContext(ctx)
 	}
 	peticiones := []*http.Request{peticion(base, principalBase), peticion(lector, principalLector)}

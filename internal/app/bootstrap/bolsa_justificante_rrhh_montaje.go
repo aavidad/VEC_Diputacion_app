@@ -20,7 +20,6 @@ import (
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	bolsapg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	bolsapuertos "vec-diputacion-granada/internal/modules/bolsa/ports"
-	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seguridad "vec-diputacion-granada/internal/vec/adapters/seguridad"
@@ -121,6 +120,9 @@ func (p proveedorIdentidadJustificanteRenunciaRRHH) PrepararIdentidadJustificant
 // configuración documental no elige ni persona ni perfil.
 type sesionTecnicaJustificanteRenunciaRRHH struct {
 	autoridad *autoridadConsultasContratacionTemporalDesarrollo
+	usuarios  *autoridadPreferenciasUsuariosDesarrollo
+	selector  vecports.SeleccionadorPerfilJustificanteBolsaRRHH
+	cuentas   map[string]cuentaNominalJustificanteRRHH
 }
 
 func rutaJustificanteBolsaRRHHDesarrollo(ruta string) bool {
@@ -130,8 +132,14 @@ func rutaJustificanteBolsaRRHHDesarrollo(ruta string) bool {
 func (s sesionTecnicaJustificanteRenunciaRRHH) ResolverContexto(ctx context.Context) (contextoSeguridadComunDesarrollo, error) {
 	var vacia contextoSeguridadComunDesarrollo
 	a := s.autoridad
-	if a == nil || a.sello == nil || ctx == nil || ctx.Err() != nil {
-		return vacia, docports.ErrSubidaLocalNoDisponible
+	if ctx == nil {
+		return vacia, noDisponibleSesionNominalJustificanteRRHH("contexto_peticion", errDependenciaSesionNominalJustificanteRRHH)
+	}
+	if err := ctx.Err(); err != nil {
+		return vacia, noDisponibleSesionNominalJustificanteRRHH("contexto_peticion", err)
+	}
+	if a == nil || a.sello == nil {
+		return vacia, noDisponibleSesionNominalJustificanteRRHH("dependencias", errDependenciaSesionNominalJustificanteRRHH)
 	}
 	c, ok := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
 	frontera, fronteraValida := fronteraSeguridadComunDesdeContexto(ctx)
@@ -147,27 +155,7 @@ func (s sesionTecnicaJustificanteRenunciaRRHH) ResolverContexto(ctx context.Cont
 	if c.certificadoVerificadoEn.After(ahora) || !ahora.Before(c.certificadoValidoHasta) {
 		return vacia, docports.ErrSubidaLocalDenegada
 	}
-	soporte := a.soporteDocumentosBolsa
-	if !soporteDocumentoCoincideConCapacidad(soporte, c) {
-		soporte = a.soportesLectoresDocumentosBolsa[c.principal.ID]
-		if soporte == nil || !soporte.lectorConsultasRRHH || !soporte.tecnicoConsultaRRHH ||
-			!soporteDocumentoCoincideConCapacidad(soporte, c) {
-			return vacia, docports.ErrSubidaLocalDenegada
-		}
-	}
-	resultado, err := soporte.contextoOperativoDesarrollo(ctx)
-	if err != nil {
-		if errors.Is(err, ctports.ErrConsultaRRHHNoDisponible) ||
-			errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return vacia, docports.ErrSubidaLocalNoDisponible
-		}
-		return vacia, docports.ErrSubidaLocalDenegada
-	}
-	if resultado.Resultado.Validar() != nil || resultado.Vinculo.ValidarPara(resultado.Resultado) != nil ||
-		!frontera.descriptor.admitePerfil(resultado.Resultado.Contexto.PerfilActivoRef) {
-		return vacia, docports.ErrSubidaLocalDenegada
-	}
-	return contextoSeguridadComunDesarrollo{Vinculo: resultado.Vinculo, Resultado: resultado.Resultado}, nil
+	return s.resolverNominal(ctx, c, frontera)
 }
 
 type vinculoJustificanteRenunciaRRHHFijado struct {
@@ -354,6 +342,10 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 		derivador == nil || !derivador.valido() {
 		return fallo(errComposicionUsuariosPreferencias)
 	}
+	selector, ok := usuarios.interna.fuente.(vecports.SeleccionadorPerfilJustificanteBolsaRRHH)
+	if !ok || selector == nil {
+		return fallo(errComposicionUsuariosPreferencias)
+	}
 	etapa = "configuracion_rrhh"
 	conf, err := leerConfiguracionJustificanteRenunciaRRHH(cfg)
 	if err != nil {
@@ -449,9 +441,16 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 	if err != nil {
 		return fallo(err)
 	}
+	cuentas := make(map[string]cuentaNominalJustificanteRRHH, len(usuarios.interna.cuentas))
+	for huella, cuenta := range usuarios.interna.cuentas {
+		cuentas[huella] = cuentaNominalJustificanteRRHH{
+			certificadoSHA256: cuenta.CertificadoSHA256, sujeto: cuenta.Sujeto, cuentaRef: cuenta.CuentaRef,
+		}
+	}
 	etapa = "handler"
 	h, err := bolsahttp.NuevoHandlerJustificanteRenunciaRRHH(
-		proveedorIdentidadJustificanteRenunciaRRHH{sesion: sesionTecnicaJustificanteRenunciaRRHH{autoridad: autoridad}},
+		proveedorIdentidadJustificanteRenunciaRRHH{sesion: sesionTecnicaJustificanteRenunciaRRHH{
+			autoridad: autoridad, usuarios: usuarios.interna, selector: selector, cuentas: cuentas}},
 		&consultorJustificanteRenunciaRRHH{resolutor: resolutor, registro: registro,
 			emisor: emisorJustificanteRenunciaRRHH{emisor: emisores[audienciaJustificanteBolsaRRHH], resolutor: resolutor},
 			motivo: privada.Motivo, almacen: almacen, seudonimos: seudonimos, reloj: reloj})
@@ -459,6 +458,9 @@ func nuevaRutaJustificanteRenunciaRRHH(cfg config.Config, identidad *resolvedorI
 		return fallo(err)
 	}
 	ruta.Manejador = h
+	// El envoltorio mTLS solo sella esta ruta para cuentas internas ya
+	// inventariadas. El perfil y el permiso se resuelven por sesión en AUT.
+	autoridad.cuentasInternasJustificanteRRHH = cuentas
 	var unaVez sync.Once
 	completo = true
 	return ruta, func() { unaVez.Do(func() { cerrarAlmacen(); pool.Close() }) }
