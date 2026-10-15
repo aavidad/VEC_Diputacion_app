@@ -44,3 +44,8 @@ pero su análisis de bootstrap es parcial por errores de carga en otros archivos
 conserva 17 avisos anteriores. En telemetría hay un aviso G115 previo en un
 archivo sin cambios, sin errores de carga. El ensayo no sustituye el recorrido
 completo de la candidata integrada por dirección.
+
+La CI de `ad1fff711` pasó 3903 pruebas web y falló cuatro expectativas de
+versiones en `portal-cache-ct-a.test.mjs`. Se actualizaron las versiones de la
+entrada y el coordinador, conservando las URL de las hojas CT. Los seis casos
+de esa prueba focal pasaron; no cambió el código de la aplicación.
