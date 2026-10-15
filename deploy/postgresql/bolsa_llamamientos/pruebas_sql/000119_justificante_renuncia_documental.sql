@@ -37,6 +37,16 @@ BEGIN
     OR strpos(pg_get_functiondef(f_respuesta),'respuesta_justificante_documental_b119')=0
     OR strpos(pg_get_functiondef(f_interna),'respuesta_justificante_documental_b119')=0
     OR strpos(pg_get_functiondef(f_frontera),'/api/vec/bolsa/mi-bolsa/justificantes')=0
+    OR encode(sha256(convert_to(pg_get_functiondef(f_interna),'UTF8')),'hex') IS DISTINCT FROM
+      '619ff6a40772c36651bde9cb28a705f404da39a6cacf9e635e7e46d2adde20ef'
+    OR encode(sha256(convert_to(pg_get_functiondef(f_respuesta),'UTF8')),'hex') IS DISTINCT FROM
+      '63563f41587997c45028a9d6f4b94ebdda6c4aca6aaeb5068e428da8b489aa6a'
+    OR encode(sha256(convert_to(pg_get_functiondef(f_frontera),'UTF8')),'hex') IS DISTINCT FROM
+      '3379b34b44f2412bff1f001c6fd863937daae15e3f65752e67880af09504fd3c'
+    OR (SELECT p.proconfig FROM pg_proc p WHERE p.oid=f_interna) IS DISTINCT FROM
+      ARRAY['search_path=pg_catalog, pg_temp']
+    OR (SELECT p.proconfig FROM pg_proc p WHERE p.oid=f_respuesta) IS DISTINCT FROM
+      ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
  THEN RAISE EXCEPTION 'B119: respuesta o replay sin custodia' USING ERRCODE='55000'; END IF;
  IF NOT EXISTS (SELECT 1 FROM pg_class c WHERE c.oid='vec_bolsa_llamamientos.respuesta_justificante_documental_b119'::regclass
     AND c.relrowsecurity AND c.relforcerowsecurity)

@@ -9,6 +9,8 @@ DECLARE f oid := 'vec_contratacion_temporal.registrar_auditoria_frontera_ruta_ex
 BEGIN
  IF (SELECT p.proowner FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM
      'vec_contratacion_temporal_propietario'::regrole
+    OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM
+      '6457d96e414374a9936bd0f0e399022e511db1b2b8ae10e78214e5c6cb18c7ef'
     OR (SELECT p.proconfig FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM
      ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=2s']
     OR (SELECT p.proacl::text FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM
@@ -17,6 +19,10 @@ BEGIN
       FROM pg_constraint c WHERE c.conrelid='vec_contratacion_temporal.auditoria_frontera_ruta_exacta'::regclass
        AND c.conname='auditoria_frontera_ruta_exacta_motivo_check') IS DISTINCT FROM
       'cae40bfa0378f3c4baf62c55d367fc6a51c1d53c16b12ebe66e138600021da2e'
+    OR (SELECT encode(sha256(convert_to(pg_get_constraintdef(c.oid,true),'UTF8')),'hex')
+      FROM pg_constraint c WHERE c.conrelid='vec_contratacion_temporal.auditoria_frontera_ruta_exacta'::regclass
+       AND c.conname='auditoria_frontera_ruta_exacta_superficie_ruta_check') IS DISTINCT FROM
+      '9583301a475458eb6f2346a9da03cb8486797fe90c3dc6660efae1a9325f658f'
  THEN RAISE EXCEPTION 'CT222: dueño, configuración, ACL o motivo cambiados' USING ERRCODE='55000'; END IF;
  IF pg_get_functiondef(f) NOT LIKE '%'||v_ruta||'%'
     OR (SELECT pg_get_constraintdef(c.oid,true) FROM pg_constraint c

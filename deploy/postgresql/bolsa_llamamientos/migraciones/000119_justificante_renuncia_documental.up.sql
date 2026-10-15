@@ -268,16 +268,33 @@ GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.proyectar_consulta_justificante
 -- B30 conserva la semántica y el recibo de aceptar/renunciar. Se añade una
 -- prueba de custodia sólo para renuncia justificada, antes de insertar y antes
 -- de devolver un replay. La interna no admite invocaciones que la eludan.
-DO $evolucion_b30$
-DECLARE f_interna pg_catalog.regprocedure :=
- 'vec_bolsa_llamamientos.registrar_respuesta_portal_interna_v1(text,text,text,text,text,text,text,text,text,text,timestamptz,timestamptz,text[],text,text,timestamptz,text)'::pg_catalog.regprocedure;
- f_externa pg_catalog.regprocedure :=
- 'vec_bolsa_llamamientos.responder_llamamiento_portal_v1(text,text,text,text,text,text,text,text,text,timestamptz,timestamptz,text[],text,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::pg_catalog.regprocedure;
- original text; nuevo text; marca text; insercion text;
+-- Definiciones finales literales de B30, cotejadas contra HZ37.
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.registrar_respuesta_portal_interna_v1(p_respuesta_ref text, p_recibo_ref text, p_candidato_ref text, p_bolsa_ref text, p_participacion_ref text, p_respuesta text, p_causa text, p_justificante_ref text, p_justificante_sha256 text, p_modo text, p_contacto_en timestamp with time zone, p_vence_antes_de timestamp with time zone, p_resultados_efectivos text[], p_regla_ref text, p_clave text, p_respondida_en timestamp with time zone, p_decision_ref text)
+ RETURNS TABLE(reutilizada boolean, respuesta_ref text, recibo_ref text, respondida_en timestamp with time zone, modo text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+AS $function$
+DECLARE v_abierto record;
 BEGIN
- original:=pg_catalog.pg_get_functiondef(f_interna);
- marca:=' INSERT INTO vec_bolsa_llamamientos.respuesta_portal_llamamiento(';
- insercion:=$i$ IF p_respuesta='renuncia_justificada' AND NOT EXISTS (
+ IF current_user <> 'vec_bolsa_llamamientos_propietario' OR p_respuesta NOT IN ('acepta','renuncia','renuncia_justificada')
+    OR p_modo NOT IN ('firme','propuesta_rrhh') OR p_respondida_en IS NULL OR p_vence_antes_de <= p_contacto_en THEN
+  RAISE EXCEPTION 'respuesta del portal inválida' USING ERRCODE='22023';
+ END IF;
+ -- Sin contacto leído por el servidor no hay llamamiento que responder.
+ IF p_contacto_en IS NULL OR p_vence_antes_de IS NULL THEN
+  RAISE EXCEPTION 'no hay un llamamiento abierto' USING ERRCODE='VBP04';
+ END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:portal:'||p_participacion_ref, 0));
+ SELECT * INTO v_abierto FROM vec_bolsa_llamamientos.llamamiento_abierto_portal_v1(p_participacion_ref, p_respondida_en, p_resultados_efectivos);
+ IF v_abierto.llamamiento_ref IS NULL OR v_abierto.contacto_en IS DISTINCT FROM p_contacto_en THEN
+  RAISE EXCEPTION 'no hay un llamamiento abierto con ese contacto' USING ERRCODE='VBP04';
+ END IF;
+ -- Fuera de plazo no se admite: queda como «sin respuesta» para RRHH.
+ IF p_respondida_en >= p_vence_antes_de THEN
+  RAISE EXCEPTION 'respuesta fuera de plazo' USING ERRCODE='VBP05';
+ END IF;
+ IF p_respuesta='renuncia_justificada' AND NOT EXISTS (
   SELECT 1 FROM vec_bolsa_llamamientos.respuesta_justificante_documental_b119 j
   WHERE j.respuesta_ref=p_respuesta_ref AND j.documento_ref=p_justificante_ref
    AND j.documento_sha256=p_justificante_sha256 AND j.bolsa_ref=p_bolsa_ref
@@ -286,25 +303,53 @@ BEGIN
    AND j.recurso_ref=vec_bolsa_llamamientos.recurso_justificante_renuncia_v1(
     p_participacion_ref,v_abierto.llamamiento_ref)) THEN
   RAISE EXCEPTION 'B119: original justificado no acreditado' USING ERRCODE='42501'; END IF;
-$i$;
- IF pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,''))<>pg_catalog.length(marca) THEN
-  RAISE EXCEPTION 'B119: marca interna B30 divergente' USING ERRCODE='55000'; END IF;
- nuevo:=pg_catalog.replace(original,marca,insercion||marca);
- EXECUTE nuevo;
+ INSERT INTO vec_bolsa_llamamientos.respuesta_portal_llamamiento(respuesta_ref, recibo_ref, bolsa_ref, participacion_ref, candidato_ref,
+   llamamiento_ref, respuesta, causa, justificante_ref, justificante_sha256, modo, contacto_en, vence_antes_de, regla_ref,
+   clave_idempotencia, decision_ref, respondida_en)
+ VALUES (p_respuesta_ref, p_recibo_ref, p_bolsa_ref, p_participacion_ref, p_candidato_ref, v_abierto.llamamiento_ref, p_respuesta,
+   p_causa, p_justificante_ref, p_justificante_sha256, p_modo, p_contacto_en, p_vence_antes_de, p_regla_ref, p_clave,
+   p_decision_ref, p_respondida_en);
+ RETURN QUERY SELECT false, p_respuesta_ref, p_recibo_ref, p_respondida_en, p_modo;
+END $function$;
 
- original:=pg_catalog.pg_get_functiondef(f_externa);
- marca:=' v_dato text; v_decision_ref text;';
- insercion:=$d$ v_dato text; v_decision_ref text;
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.responder_llamamiento_portal_v1(p_respuesta_ref text, p_recibo_ref text, p_candidato_ref text, p_bolsa_ref text, p_respuesta text, p_causa text, p_justificante_ref text, p_justificante_sha256 text, p_modo text, p_contacto_en timestamp with time zone, p_vence_antes_de timestamp with time zone, p_resultados_efectivos text[], p_regla_ref text, p_clave text, p_respondida_en timestamp with time zone, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
+ RETURNS TABLE(reutilizada boolean, respuesta_ref text, recibo_ref text, respondida_en timestamp with time zone, modo text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET lock_timeout TO '2s'
+AS $function$
+DECLARE v_participacion text; v_previa vec_bolsa_llamamientos.respuesta_portal_llamamiento%ROWTYPE; v_consumo record;
+ v_dato text; v_decision_ref text;
  v_doc_replay boolean; v_doc_contexto jsonb; v_doc_capacidad jsonb; v_doc_decision jsonb;
  v_doc_persona text; v_doc_registro text; v_doc_llamamiento text; v_doc_recurso text;
  v_doc_abierto record; v_doc_evidencia record;
-$d$;
- IF pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,''))<>pg_catalog.length(marca) THEN
-  RAISE EXCEPTION 'B119: declaración externa B30 divergente' USING ERRCODE='55000'; END IF;
- nuevo:=pg_catalog.replace(original,marca,insercion);
- marca:=$m$ IF FOUND THEN
-  IF v_previa.respuesta$m$;
- insercion:=$i$ v_doc_replay:=FOUND;
+
+BEGIN
+ v_participacion := vec_bolsa_llamamientos.exigir_portal_candidato_v1(p_candidato_ref, p_bolsa_ref,
+   'bolsa.participaciones_propias.responder_llamamiento', p_capacidad, p_decision, p_contexto);
+ -- Como B2, la decisión viva se consume antes de resolver el replay: un
+ -- reintento no devuelve el recibo sin una autorización nueva y verificada.
+ -- Si preparar_respuesta_portal_v1 ya la consumió en esta transacción con
+ -- este mismo material, se usa esa (una sola vez); si no, se consume aquí.
+ BEGIN
+  v_dato := vec_bolsa_llamamientos.exigir_consumo_candidato_v1(ARRAY['responder'], p_candidato_ref);
+ EXCEPTION WHEN insufficient_privilege THEN v_dato := NULL;
+ END;
+ IF v_dato IS NOT NULL AND left(v_dato, 64) = encode(sha256(p_decision), 'hex') AND octet_length(v_dato) > 64 THEN
+  v_decision_ref := substr(v_dato, 65);
+  PERFORM set_config('vec_bolsa_llamamientos.marca_consumo', '', true);
+ ELSE
+  SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(
+   p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
+  IF v_consumo.consumo_nuevo IS NOT TRUE OR v_consumo.efecto_ref IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref THEN
+   RAISE EXCEPTION 'portal del candidato denegado' USING ERRCODE='42501';
+  END IF;
+  v_decision_ref := v_consumo.decision_ref;
+ END IF;
+ SELECT * INTO v_previa FROM vec_bolsa_llamamientos.respuesta_portal_llamamiento r
+  WHERE r.participacion_ref = v_participacion AND r.clave_idempotencia = p_clave;
+ v_doc_replay:=FOUND;
  IF p_respuesta='renuncia_justificada' THEN
   IF p_justificante_ref !~ '^ref:[0-9a-f]{64}$' OR
      p_justificante_sha256 !~ '^[0-9a-f]{64}$' THEN
@@ -361,37 +406,136 @@ $d$;
   END IF;
  END IF;
  IF v_doc_replay THEN
-  IF v_previa.respuesta$i$;
- IF pg_catalog.length(nuevo)-pg_catalog.length(pg_catalog.replace(nuevo,marca,''))<>pg_catalog.length(marca) THEN
-  RAISE EXCEPTION 'B119: replay externo B30 divergente' USING ERRCODE='55000'; END IF;
- nuevo:=pg_catalog.replace(nuevo,marca,insercion);
- EXECUTE nuevo;
-END $evolucion_b30$;
+  IF v_previa.respuesta <> p_respuesta OR v_previa.causa IS DISTINCT FROM p_causa OR v_previa.justificante_ref IS DISTINCT FROM p_justificante_ref
+     OR v_previa.justificante_sha256 IS DISTINCT FROM p_justificante_sha256 OR v_previa.candidato_ref <> p_candidato_ref THEN
+   RAISE EXCEPTION 'clave idempotente reutilizada con otra respuesta' USING ERRCODE='VBP01';
+  END IF;
+  RETURN QUERY SELECT true, v_previa.respuesta_ref, v_previa.recibo_ref, v_previa.respondida_en, v_previa.modo;
+  RETURN;
+ END IF;
+ RETURN QUERY SELECT * FROM vec_bolsa_llamamientos.registrar_respuesta_portal_interna_v1(
+  p_respuesta_ref, p_recibo_ref, p_candidato_ref, p_bolsa_ref, v_participacion, p_respuesta, p_causa, p_justificante_ref,
+  p_justificante_sha256, p_modo, p_contacto_en, p_vence_antes_de, p_resultados_efectivos, p_regla_ref, p_clave,
+  p_respondida_en, v_decision_ref);
+END $function$;
+
+DO $b30_post$
+DECLARE interna oid := 'vec_bolsa_llamamientos.registrar_respuesta_portal_interna_v1(text,text,text,text,text,text,text,text,text,text,timestamptz,timestamptz,text[],text,text,timestamptz,text)'::regprocedure;
+ externa oid := 'vec_bolsa_llamamientos.responder_llamamiento_portal_v1(text,text,text,text,text,text,text,text,text,timestamptz,timestamptz,text[],text,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+BEGIN
+ IF encode(sha256(convert_to(pg_get_functiondef(interna),'UTF8')),'hex') IS DISTINCT FROM
+  '619ff6a40772c36651bde9cb28a705f404da39a6cacf9e635e7e46d2adde20ef'
+ OR encode(sha256(convert_to(pg_get_functiondef(externa),'UTF8')),'hex') IS DISTINCT FROM
+  '63563f41587997c45028a9d6f4b94ebdda6c4aca6aaeb5068e428da8b489aa6a'
+ OR (SELECT proacl::text FROM pg_proc WHERE oid=interna) IS DISTINCT FROM
+  '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario}'
+ OR (SELECT proacl::text FROM pg_proc WHERE oid=externa) IS DISTINCT FROM
+  '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_portal_externo=X/vec_bolsa_llamamientos_propietario}'
+ OR EXISTS (SELECT 1 FROM pg_proc WHERE oid IN (interna,externa)
+   AND (proowner<>'vec_bolsa_llamamientos_propietario'::regrole OR NOT prosecdef))
+ THEN RAISE EXCEPTION 'B119: postimagen B30 o ACL divergente' USING ERRCODE='55000'; END IF;
+END $b30_post$;
+
 
 -- El mismo registrador exterior de Bolsa conserva su ACL y añade sólo la
 -- ruta exacta del justificante propio para registrar denegaciones de frontera.
-DO $frontera_b119$
-DECLARE f pg_catalog.regprocedure :=
- 'vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(text,text,text,text,text)'::pg_catalog.regprocedure;
- original text; nuevo text;
- marca text := $m$'/api/vec/bolsa/mi-bolsa/preferencias')$m$;
+DO $frontera_pre$
+DECLARE f oid := 'vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(text,text,text,text,text)'::regprocedure;
 BEGIN
- SELECT pg_catalog.pg_get_functiondef(f) INTO STRICT original;
- IF pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(original,'UTF8')),'hex') IS DISTINCT FROM
-     '56b1fa45ca6af8cfe92a80aa14b8b71ad33dc4e9cac82aea7f23368b020eb160'
-    OR (SELECT p.proowner FROM pg_catalog.pg_proc p WHERE p.oid=f) IS DISTINCT FROM
-     'vec_bolsa_llamamientos_propietario'::pg_catalog.regrole
-    OR (SELECT p.proacl::text FROM pg_catalog.pg_proc p WHERE p.oid=f) IS DISTINCT FROM
-     '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_registrador_portal_externo=X/vec_bolsa_llamamientos_propietario}'
-    OR pg_catalog.length(original)-pg_catalog.length(pg_catalog.replace(original,marca,''))<>pg_catalog.length(marca)
+ IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM
+  '56b1fa45ca6af8cfe92a80aa14b8b71ad33dc4e9cac82aea7f23368b020eb160'
+ OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM
+  'vec_bolsa_llamamientos_propietario'::regrole
+ OR (SELECT proacl::text FROM pg_proc WHERE oid=f) IS DISTINCT FROM
+  '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_registrador_portal_externo=X/vec_bolsa_llamamientos_propietario}'
  THEN RAISE EXCEPTION 'B119: registrador de frontera HZ37 divergente' USING ERRCODE='55000'; END IF;
- nuevo:=pg_catalog.replace(original,marca,
-  $m$'/api/vec/bolsa/mi-bolsa/preferencias','/api/vec/bolsa/mi-bolsa/justificantes')$m$);
- EXECUTE nuevo;
- IF (SELECT p.proacl::text FROM pg_catalog.pg_proc p WHERE p.oid=f) IS DISTINCT FROM
-     '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_registrador_portal_externo=X/vec_bolsa_llamamientos_propietario}'
-    OR pg_catalog.strpos(pg_catalog.pg_get_functiondef(f),'/api/vec/bolsa/mi-bolsa/justificantes')=0
- THEN RAISE EXCEPTION 'B119: registrador de frontera no conservado' USING ERRCODE='55000'; END IF;
-END $frontera_b119$;
+END $frontera_pre$;
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(p_correlacion text, p_motivo text, p_superficie text, p_ruta text, p_actor text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET row_security TO 'on'
+ SET "TimeZone" TO 'UTC'
+ SET lock_timeout TO '1s'
+ SET statement_timeout TO '2s'
+AS $function$
+DECLARE login pg_catalog.pg_roles%ROWTYPE; grupo pg_catalog.pg_roles%ROWTYPE;
+        fachada oid := 'vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(text,text,text,text,text)'::pg_catalog.regprocedure;
+BEGIN
+ SELECT * INTO login FROM pg_catalog.pg_roles WHERE rolname=session_user;
+ SELECT * INTO grupo FROM pg_catalog.pg_roles WHERE rolname='vec_bolsa_llamamientos_registrador_portal_externo';
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR login.oid IS NULL OR NOT login.rolcanlogin OR NOT login.rolinherit
+    OR login.rolsuper OR login.rolcreatedb OR login.rolcreaterole OR login.rolreplication OR login.rolbypassrls
+    OR grupo.oid IS NULL OR grupo.rolcanlogin OR NOT grupo.rolinherit
+    OR grupo.rolsuper OR grupo.rolcreatedb OR grupo.rolcreaterole OR grupo.rolreplication OR grupo.rolbypassrls
+    OR (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=login.oid)<>1
+    OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=login.oid
+      AND m.roleid=grupo.oid AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.roleid=login.oid OR m.member=grupo.oid)
+    OR NOT pg_catalog.has_schema_privilege(login.oid,'vec_bolsa_llamamientos','USAGE')
+    OR pg_catalog.has_schema_privilege(login.oid,'vec_bolsa_llamamientos','CREATE')
+    OR NOT pg_catalog.has_function_privilege(login.oid,fachada,'EXECUTE')
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p,
+       LATERAL pg_catalog.aclexplode(p.proacl) a WHERE p.oid=fachada
+       AND a.privilege_type='EXECUTE' AND
+         (a.grantee=0 OR (a.grantee=grupo.oid AND a.is_grantable)))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname LIKE 'vec_%'
+      AND n.nspname<>'vec_bolsa_llamamientos'
+      AND pg_catalog.has_schema_privilege(login.oid,n.oid,'USAGE,CREATE'))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname LIKE 'vec_%'
+      AND (n.nspowner IN (login.oid,grupo.oid) OR EXISTS
+        (SELECT 1 FROM pg_catalog.aclexplode(n.nspacl) a WHERE a.grantee=login.oid
+          OR (a.grantee=grupo.oid AND (n.nspname<>'vec_bolsa_llamamientos' OR a.privilege_type<>'USAGE')))))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname LIKE 'vec_%' AND (c.relowner IN (login.oid,grupo.oid)
+        OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(c.relacl) a WHERE a.grantee IN (login.oid,grupo.oid))))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid=a.attrelid
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname LIKE 'vec_%'
+      AND EXISTS (SELECT 1 FROM pg_catalog.aclexplode(a.attacl) x WHERE x.grantee IN (login.oid,grupo.oid)))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname LIKE 'vec_%' AND (p.proowner IN (login.oid,grupo.oid)
+       OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a WHERE a.grantee=login.oid
+         OR (a.grantee=grupo.oid AND (p.oid<>fachada OR a.privilege_type<>'EXECUTE')))))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace
+      WHERE n.nspname LIKE 'vec_%' AND (t.typowner IN (login.oid,grupo.oid)
+        OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(t.typacl) a WHERE a.grantee IN (login.oid,grupo.oid))))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname LIKE 'vec_%' AND p.oid<>fachada AND pg_catalog.has_function_privilege(login.oid,p.oid,'EXECUTE'))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname LIKE 'vec_%' AND CASE WHEN c.relkind IN ('r','p','v','m','f') THEN
+        pg_catalog.has_table_privilege(login.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+        OR pg_catalog.has_any_column_privilege(login.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES') ELSE false END)
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname LIKE 'vec_%' AND CASE WHEN c.relkind='S' THEN
+       pg_catalog.has_sequence_privilege(login.oid,c.oid,'USAGE,SELECT,UPDATE') ELSE false END)
+    OR pg_catalog.pg_is_in_recovery() OR pg_catalog.current_setting('transaction_read_only')<>'off'
+ THEN RAISE EXCEPTION 'Bolsa: registrador exterior invalido' USING ERRCODE='42501'; END IF;
+ IF p_correlacion IS NULL OR (p_correlacion<>'corr_no_disponible' AND p_correlacion !~ '^corr_[0-9a-f]{32}$')
+    OR p_motivo IS NULL OR p_motivo NOT IN ('autenticacion_requerida','acceso_denegado')
+    OR p_superficie IS DISTINCT FROM 'api.bolsa.candidato.ruta_exacta'
+    OR p_ruta IS NULL OR p_ruta NOT IN (
+      '/api/vec/bolsa/mi-bolsa','/api/vec/bolsa/mi-bolsa/historial',
+      '/api/vec/bolsa/mi-bolsa/solicitudes','/api/vec/bolsa/mi-bolsa/respuestas',
+      '/api/vec/bolsa/mi-bolsa/disposiciones','/api/vec/bolsa/mi-bolsa/contacto','/api/vec/bolsa/mi-bolsa/solicitudes-documentales','/api/vec/bolsa/mi-bolsa/preferencias','/api/vec/bolsa/mi-bolsa/justificantes')
+    OR (p_motivo='autenticacion_requerida' AND p_actor IS NOT NULL)
+    OR (p_motivo='acceso_denegado' AND (p_actor IS NULL OR p_actor !~ '^per_[A-Za-z0-9_-]{22,128}$'))
+ THEN RAISE EXCEPTION 'Bolsa: denegacion exterior invalida' USING ERRCODE='22023'; END IF;
+ INSERT INTO vec_bolsa_llamamientos.denegacion_frontera_portal_externo
+  (correlacion_ref,motivo,superficie,ruta,actor_ref,registrada_en)
+ VALUES (p_correlacion,p_motivo,p_superficie,p_ruta,p_actor,
+  pg_catalog.date_trunc('microseconds',pg_catalog.clock_timestamp()));
+ RETURN true;
+END $function$;
+DO $frontera_post$
+DECLARE f oid := 'vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(text,text,text,text,text)'::regprocedure;
+BEGIN
+ IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM
+  '3379b34b44f2412bff1f001c6fd863937daae15e3f65752e67880af09504fd3c'
+ OR (SELECT proacl::text FROM pg_proc WHERE oid=f) IS DISTINCT FROM
+  '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_registrador_portal_externo=X/vec_bolsa_llamamientos_propietario}'
+ THEN RAISE EXCEPTION 'B119: registrador de frontera postimagen divergente' USING ERRCODE='55000'; END IF;
+END $frontera_post$;
 
 COMMIT;
