@@ -239,6 +239,7 @@ func TestInscripcionErrorPostgreSQLConservaCausaNominalSinTextoSQL(t *testing.T)
 		{"B9605", inscripcion.ErrDeclaracionInvalida},
 		{"B9606", inscripcion.ErrRequisitoInvalido},
 		{"B9607", inscripcion.ErrNoDisponible},
+		{"B9608", inscripcion.ErrModalidadConjuntaPendiente},
 		{"B9701", inscripcion.ErrVinculoIdentidadPendiente},
 		{"B9702", inscripcion.ErrActaNoDisponible},
 		{"B9703", inscripcion.ErrConflicto},

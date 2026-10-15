@@ -1,0 +1,6 @@
+# F1-40: cierre de inscripción V1 para convocatorias conjuntas.
+# Instalar en una copia de la principal después de BC9 y B96, tras la
+# revisión SQL independiente. No reaplicar las migraciones instaladas.
+# BC11 está reservada por otra rama y no forma parte de este corte.
+# CONFIG NUEVA: ninguna.
+deploy/postgresql/bolsa_convocatorias/migraciones/000012_rechazo_inscripcion_conjunta_v1.up.sql
