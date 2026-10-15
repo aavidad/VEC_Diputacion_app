@@ -13,9 +13,9 @@ const pagina = () => ({ bolsa_ref: contexto.bolsaRef, llamamiento_ref: contexto.
   criterios_ofrecimiento: { version_politica_ofertas: 3, huella_politica_ofertas_sha256: "a".repeat(64),
     modalidad_ofrecida: "vacante", causa_ofrecida: "vacante",
     configuracion: { fuente_normativa: "Reglamento" } } });
-const mostrar = (origen, exclusionesDesde = 0) => renderizarMotivosNoOfrecimiento(origen, {
+const mostrar = (origen, exclusionesDesde = 0, candidatos = []) => renderizarMotivosNoOfrecimiento(origen, {
   escaparHTML: (v) => String(v).replaceAll("&", "&amp;").replaceAll("<", "&lt;"),
-  numero: (v) => String(v), instanteVisible: () => "14/10/2026, 10:00", exclusionesDesde,
+  numero: (v) => String(v), instanteVisible: () => "14/10/2026, 10:00", exclusionesDesde, candidatos,
 });
 
 test("motivos pendientes y hechos de relación conservan el estado provisional sin enseñar referencias", () => {
@@ -28,6 +28,17 @@ test("motivos pendientes y hechos de relación conservan el estado provisional s
   assert.match(html, /data-bolsa-accion="pagina-exclusiones"/u);
   assert.doesNotMatch(html, /evento:opaco|participacion:uno|excluido/u);
   assert.match(mostrar(origen, 1), /data-bolsa-accion="primera-pagina-exclusiones"/u);
+});
+
+test("la tabla de motivos cruza el nombre por participación y escapa el texto", () => {
+  const origen = validarExclusionesOrigen({ estado: "disponible", pagina: pagina() }, contexto);
+  const html = mostrar(origen, 0, [
+    { participacion_ref: "participacion:otra", nombre_visible: "Nombre ajeno" },
+    { participacion_ref: "participacion:uno", nombre_visible: "Ana <Prueba>" },
+  ]);
+  assert.match(html, /Ana &lt;Prueba>/u);
+  assert.doesNotMatch(html, /Nombre ajeno|Ana <Prueba>/u);
+  assert.match(mostrar(origen), /Persona en posición 1 del acta/u);
 });
 
 test("permisos y lectura fallida afectan solo al bloque de motivos", () => {

@@ -42,9 +42,12 @@ test("conserva criterio publicado, regla desactivada y límites al validar la po
   assert.equal(criteriosOfrecimientoValidos(sinCausa), false);
   const sinCondicion = criterio(); sinCondicion.mejora.reduccion_por_modalidades_previas = ["acumulacion_tareas"];
   assert.equal(criteriosOfrecimientoValidos(sinCondicion), false);
-  const legada = politica(); legada.criterios_ofrecimiento = { ...criterio(), modalidad_no_aceptada: "renuncia", modalidades_aceptables: ["vacante"] };
-  assert.equal(validarPoliticaEditable(legada).criterios_ofrecimiento.modalidad_no_aceptada, undefined);
-  assert.equal(validarPoliticaEditable(legada).criterios_ofrecimiento.modalidades_aceptables, undefined);
+  for (const campo of ["modalidad_no_aceptada", "modalidades_aceptables"]) {
+    const obsoleta = politica();
+    obsoleta.criterios_ofrecimiento = { ...criterio(), [campo]: campo === "modalidades_aceptables" ? ["vacante"] : "renuncia" };
+    assert.equal(criteriosOfrecimientoValidos(obsoleta.criterios_ofrecimiento), false);
+    assert.throws(() => validarPoliticaEditable(obsoleta));
+  }
 });
 
 test("renderiza solo el criterio publicado con rótulos y controles deshabilitados", () => {

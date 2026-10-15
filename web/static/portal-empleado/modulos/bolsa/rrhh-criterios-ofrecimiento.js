@@ -1,4 +1,4 @@
-// Este apartado edita únicamente las condiciones que ya publicó la bolsa.
+// Este apartado edita los criterios del borrador de la bolsa.
 const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 

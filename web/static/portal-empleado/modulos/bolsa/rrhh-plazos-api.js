@@ -95,7 +95,9 @@ const LIMITE_MESES = (limite) => limite === undefined || (limite !== null && Num
 /** El catálogo publicado define las claves; esta comprobación solo valida su forma. */
 export function criteriosOfrecimientoValidos(criterios) {
   if (!criterios || typeof criterios !== "object" || Array.isArray(criterios)
-    || !fuenteNormativaValida(criterios.fuente_normativa)) return false;
+    || !fuenteNormativaValida(criterios.fuente_normativa)
+    || Object.hasOwn(criterios, "modalidad_no_aceptada")
+    || Object.hasOwn(criterios, "modalidades_aceptables")) return false;
   const mejora = criterios.mejora;
   if (mejora === undefined || mejora === null) return true;
   return typeof mejora === "object" && !Array.isArray(mejora)
@@ -158,8 +160,6 @@ export function validarPoliticaEditable(politica, { permitirLegada = false } = {
   }
   const copia = structuredClone(politica);
   if (copia.plazas === null) delete copia.plazas;
-  if (copia.criterios_ofrecimiento) delete copia.criterios_ofrecimiento.modalidad_no_aceptada;
-  if (copia.criterios_ofrecimiento) delete copia.criterios_ofrecimiento.modalidades_aceptables;
   return copia;
 }
 

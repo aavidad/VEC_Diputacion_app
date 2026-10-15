@@ -14,7 +14,7 @@ import { cargarTextos } from "../comun/textos.js";
 
 const TEXTOS_EXCLUSIONES = (await cargarTextos("bolsa-ofertas")).seccion("seguimiento_exclusiones");
 
-export function renderizarMotivosNoOfrecimiento(origen, { escaparHTML, numero, instanteVisible, exclusionesDesde = 0 }) {
+export function renderizarMotivosNoOfrecimiento(origen, { escaparHTML, numero, instanteVisible, candidatos = [], exclusionesDesde = 0 }) {
   const tx = (clave, variables = {}) => {
     let valor = TEXTOS_EXCLUSIONES[clave];
     for (const [nombre, reemplazo] of Object.entries(variables)) valor = valor.replaceAll(`{${nombre}}`, String(reemplazo));
@@ -27,6 +27,7 @@ export function renderizarMotivosNoOfrecimiento(origen, { escaparHTML, numero, i
       `<div class="acciones-vista"><button type="button" class="boton-secundario" data-bolsa-accion="reintentar-candidatos">${escaparHTML(textoPortal("txt_reintentar"))}</button></div>`;
     const pagina = origen.pagina;
     if (!pagina?.exclusiones?.length) return `<p>${tx("vacio")}</p>`;
+    const nombresPorParticipacion = new Map(candidatos.map((candidato) => [candidato.participacion_ref, candidato.nombre_visible]));
     const cuerpo = pagina.exclusiones.map((fila) => {
       const motivo = Object.hasOwn(TEXTOS_EXCLUSIONES, fila.motivo_clave)
         ? TEXTOS_EXCLUSIONES[fila.motivo_clave] : TEXTOS_EXCLUSIONES.motivo_no_disponible;
@@ -36,8 +37,9 @@ export function renderizarMotivosNoOfrecimiento(origen, { escaparHTML, numero, i
         : `<p>${tx("sin_hechos")}</p>`;
       const detalle = `<details><summary>${tx("ver_fundamento", { numero: numero(fila.hechos_relacion.length) })}</summary>` +
         (version ? `<p>${tx("version_regla", { version: numero(version) })}</p>` : "") + hechos + `</details>`;
-      return `<tr><td>${numero(fila.orden_acta)}</td><td>${fila.nombre_visible
-        ? escaparHTML(fila.nombre_visible) : tx("persona_sin_nombre", { posicion: numero(fila.orden_acta) })}</td><td>${escaparHTML(motivo)}${detalle}</td></tr>`;
+      const nombre = nombresPorParticipacion.get(fila.participacion_ref) || fila.nombre_visible;
+      return `<tr><td>${numero(fila.orden_acta)}</td><td>${nombre
+        ? escaparHTML(nombre) : tx("persona_sin_nombre", { posicion: numero(fila.orden_acta) })}</td><td>${escaparHTML(motivo)}${detalle}</td></tr>`;
     }).join("");
     return `<p>${tx("total", { numero: numero(pagina.total_exclusiones) })}</p>` +
       `<div class="tabla-contenedor" tabindex="0" role="region" aria-labelledby="bolsa-motivos-titulo"><table class="tabla-datos"><thead><tr><th scope="col">${tx("col_orden")}</th><th scope="col">${tx("col_persona")}</th><th scope="col">${tx("col_motivo")}</th></tr></thead><tbody>${cuerpo}</tbody></table></div>` +
@@ -179,7 +181,8 @@ export function renderizarSeguimientoLlamamiento({
   }
   const { telefono } = canalesAviso(estadoCandidatos.datos);
   const motivos = renderizarMotivosNoOfrecimiento(estadoCandidatos.datos.exclusiones_origen,
-    { escaparHTML, numero, instanteVisible, exclusionesDesde: estadoCandidatos.exclusionesDesde || 0 });
+    { escaparHTML, numero, instanteVisible, candidatos: estadoCandidatos.datos.candidatos || [],
+      exclusionesDesde: estadoCandidatos.exclusionesDesde || 0 });
   if (!telefono) return `${estadoPanel("status", `<p>${textoPortal("panel_seg_no_disponible")}</p>`)}${motivos}`;
   const respuestas = estadoCandidatos.datos.respuestas_portal;
   if (respuestas?.llamamiento_ref !== seguimiento.llamamiento_ref || !Array.isArray(respuestas.respuestas)) {
