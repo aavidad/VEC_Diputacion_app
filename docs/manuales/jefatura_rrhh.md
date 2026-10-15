@@ -10,7 +10,7 @@ VEC sustituirá a Convoca: convocatorias, inscripción, méritos, baremación y 
 
 Con VEC, un contrato temporal se tramita entero en un mismo sitio, desde que el centro pide a una persona hasta que esa persona cesa y vuelve a la bolsa. Cada paso queda registrado con quién lo hizo y cuándo.
 
-Hoy VEC funciona en un entorno de pruebas con personas y datos inventados. Al final del manual se resume qué está terminado y qué falta.
+Hoy VEC funciona en un entorno de pruebas con personas y datos inventados. El apartado 7 resume qué funciona hoy, qué falta y cómo será VEC cuando esté terminada.
 
 ## 2. Quién usa VEC
 
@@ -149,23 +149,28 @@ Al terminar el contrato, el técnico registra el cese con su causa. La persona v
 
 Cada cambio queda guardado como una versión nueva, con su motivo y quién lo hizo.
 
-## 7. En qué punto está
+## 7. Lo que hay, lo que falta y cómo será al final
 
-| Parte | Situación |
-| --- | --- |
-| Carga de bolsas desde Convoca | Funciona en el entorno de pruebas. |
-| Mi Bolsa y respuesta del aspirante | Funciona. Falta el formulario para pedir la pausa o volver a estar disponible. |
-| Petición y ratificación del centro | Funciona. |
-| Expediente: análisis, cobertura, unidad, informe, Intervención | Funciona. |
-| Llamamiento y correo | Funciona con un buzón de pruebas. Falta el correo de la Diputación, que depende de Informática. |
-| Ofertas de varias plazas desde el expediente | Falta. |
-| Propuesta, resolución y documentos PDF y Word | Funciona. Faltan las plantillas definitivas de RRHH. |
-| Firma con certificado | En preparación. Hoy ningún documento sale firmado. |
-| Incorporación, alta en Personal y GINPIX | Programado. GINPIX se graba a mano; VEC prepara la ficha y guarda el número. |
-| Cese y vuelta a la bolsa | El cese funciona. Falta probar entera la vuelta a la bolsa. |
-| Inscripción, méritos y alegaciones del aspirante | Programado; falta activarlo en el entorno de pruebas. |
-| Baremación con puntos | Falta, a la espera de que RRHH cierre cómo se acreditan los méritos. |
-| Ofrecer a quien ya trabaja con nosotros y tipos de contrato que acepta cada uno | Falta, a la espera de las respuestas de RRHH. |
+Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, qué falta y cómo queremos que funcione VEC cuando esté terminada.
+
+| Parte | Hoy | Falta | Al final |
+| --- | --- | --- | --- |
+| Entrada en la aplicación | Cada persona entra con un certificado de pruebas. | Conectar con el directorio de usuarios de la Diputación. Depende de Informática. | El personal entra con su usuario de la Diputación y su certificado. Los aspirantes, con DNI electrónico o certificado digital. |
+| Bolsas que vienen de Convoca | Se cargan desde el Excel de Convoca. | Nada para cargar las bolsas actuales. | La carga sirve solo para pasar a VEC las bolsas que ya existen. Las nuevas se hacen enteras en VEC. |
+| Convocatorias, inscripción, méritos y alegaciones | Programado: el aspirante se inscribe, declara sus méritos con documentos y presenta alegaciones; RRHH admite o rechaza. | Activarlo en el entorno de pruebas. | VEC sustituye a Convoca. El aspirante hace todo desde su área personal y RRHH lo revisa en pantalla. |
+| Baremación | No existe todavía. | Que RRHH cierre cómo se acreditan los méritos. | VEC calcula los puntos con el baremo de cada convocatoria, que RRHH puede cambiar. RRHH revisa y publica las listas provisional y definitiva. |
+| Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. | Formulario para que el aspirante pida la pausa o vuelva a estar disponible. Subir el fichero del justificante de renuncia. | El aspirante gestiona su disponibilidad y aporta sus justificantes desde su área personal. RRHH los valida en pantalla. |
+| A quién se ofrece un puesto | VEC sigue el orden de la bolsa y salta a quien no está disponible. | Ofrecer otro puesto a quien ya trabaja con nosotros y tener en cuenta los tipos de contrato que acepta cada persona. Necesitamos la regla de RRHH. | VEC elige a quién ofrecer según la situación, el tipo de contrato y las reglas que fije RRHH, y RRHH ve por qué se salta a cada persona. |
+| Aviso de la oferta | Correo con plantilla desde un buzón de pruebas. Llamadas anotadas. | El correo de la Diputación, que depende de Informática. | Correo oficial y, cuando Informática dé un proveedor, también SMS. |
+| Ofertas de varias plazas | Bolsa ya sabe adjudicar varias plazas por orden. | Que el expediente las use: hoy llama de una en una. | Una petición de varias personas se cubre con una sola oferta. |
+| Petición del centro | Se presenta y la ratifica otra persona del centro. | RRHH pidió que la petición vaya firmada por el técnico y por el Diputado o Diputada. | Petición firmada desde VEC. |
+| Tramitación del expediente | Análisis, crédito, vía de cobertura, unidad, informe e Intervención. | Decidir con RRHH si el ofrecimiento va antes o después de Intervención. | El orden de las fases que fije RRHH, que se puede cambiar por configuración. |
+| Documentos | Borradores en PDF y Word con el logotipo y los datos del expediente. | Las plantillas definitivas de RRHH. | Documentos con las plantillas oficiales, listos para firmar. |
+| Firma | En preparación. Hoy ningún documento sale firmado. | Terminar la firma con certificado desde el navegador. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
+| Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
+| GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
+| Cese y vuelta a la bolsa | El cese se registra. | Probar entera la vuelta automática a la bolsa. | Al cesar, la persona vuelve sola a su bolsa con la situación que marque la regla. |
+| Otros servicios | Aparcados hasta terminar bolsas y contratación. | Todo. | Personal, control horario, dietas y, más adelante, nóminas en la misma aplicación. |
 
 ## 8. Palabras que aparecen en la aplicación
 
