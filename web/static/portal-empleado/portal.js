@@ -125,7 +125,7 @@ function cargarRecursosVista(grupo) {
         ? Promise.all([
           import("./modulos/bolsa/reglas-situacion-api.js?v=20261016-s6-reglas-recibo-v2"),
           import("./modulos/bolsa/reglas-situacion-ui.js?v=20261016-s6-reglas-recibo-v2"),
-          import("../comun/textos.js").then(({ cargarTextos }) => cargarTextos("bolsa-reglas-transiciones")),
+          import("../comun/textos.js").then((moduloTextos) => moduloTextos.cargarTextos("bolsa-reglas-transiciones")),
         ]).then(([api, ui, textos]) => ({ ...api, ...ui, textos }))
       : grupo === "documentos"
     ? import("./modulos/documentos/i18n.js?v=20260928-ppt-v2")
