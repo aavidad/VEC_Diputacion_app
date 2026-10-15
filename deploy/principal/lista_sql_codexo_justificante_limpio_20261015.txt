@@ -1,4 +1,7 @@
 # Aplicar cada UP una sola vez, tras cotejar el inventario. En el dump HZ37 del ensayo AD263/265 están ausentes.
+# Gobierno ADMIN para el catálogo y el acto del rol; ya instaladas se omiten tras cotejar poshuella.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000266_secuencia_global_gobierno_admin.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000282_vigencia_gobierno_admin.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000263_publicador_nominal_confianza_externa.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000265_preflight_consumidores_externos_actuales.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000277_justificante_bolsa_documental.up.sql

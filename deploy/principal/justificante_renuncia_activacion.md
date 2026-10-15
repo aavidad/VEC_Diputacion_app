@@ -25,6 +25,12 @@ Comprueba el estado de migraciones en la copia y usa la lista
 documentar cada archivo, orden y huella antes de ejecutarlo. No se reaplica
 una migración ya instalada.
 
+La lista incluye primero los prerrequisitos de gobierno ADMIN ya integrados,
+AD266 y AD282. Permiten preparar el catálogo y el acto del rol con claves y
+confianza de desarrollo de 90 días. Se cotejan sus poshuellas antes de omitir
+una UP ya instalada. El plan técnico de aplicación conserva la ventana breve
+exigida por su protocolo; no es la vigencia del permiso publicado.
+
 El orden de dependencia es AD277 → AUT95 → D20 → M7 → creación de los LOGIN
 documentales sin membresías → D22 → membresías gobernadas → B119 →
 CT222. AUT99, AD281 y D23 corrigen la autoridad externa de los actos propios y se intercalan según las
