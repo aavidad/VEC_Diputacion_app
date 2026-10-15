@@ -31,4 +31,20 @@ El contraste muestra opciones de diseño, sin incorporarlas a Granada:
 
 ## Cuestiones internas pendientes
 
-Las dudas 18, 157 y 158 ya preguntan por bajas, revisión de la respuesta y retorno tras cese. Las dos preguntas nuevas de `dudas.md` se limitan al circuito de mejora fuera de la excepción publicada y a las preferencias por modalidad. Hasta que RRHH aporte la regla aprobada, ninguna respuesta a esas preguntas altera el orden o las causas de baja del Reglamento.
+Las dudas 18, 157 y 158 ya preguntan por bajas, revisión de la respuesta y retorno tras cese. Las preguntas 163 y 164 de `dudas.md` se limitan al circuito de mejora fuera de la excepción publicada y a las preferencias por modalidad. La pregunta 165 pide precisar el alcance de la reducción del plazo y los antecedentes que se descuentan. Hasta que RRHH aporte la regla aprobada, ninguna respuesta a esas preguntas altera el orden o las causas de baja del Reglamento.
+
+
+## Criterio provisional para el acto de comprobación
+
+Dirección fijó el 15/10/2026 que el acto registre hechos y documentos comprobados,
+con resultado calculado para el expediente, la necesidad y la participación.
+No cambia la situación general de la persona ni crea contratos antiguos en la
+proyección de Bolsa. La falta de datos mantiene la comprobación pendiente.
+
+Para el siguiente corte, la regla tomará por defecto solo el tiempo efectivamente
+trabajado en la relación vigente de la que procede la persona, hasta su cese
+efectivo. El alcance de «en este caso» se configurará inicialmente para el supuesto
+de programas. Son criterios provisionales de dirección, preguntados a RRHH en la
+165; no se presentan como un texto consolidado del Reglamento. La resolución se
+detendrá mientras no conste el cese efectivo. El ofrecimiento condicionado exige
+que Contratación compruebe también el plazo al formalizar.
