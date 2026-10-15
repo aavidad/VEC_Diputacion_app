@@ -2,7 +2,7 @@
 
 El corte usa las pantallas de plantillas y la ficha del expediente existentes.
 Coteja la publicación del catálogo de su organización y unifica el límite del
-PDF en 2 MiB. La verificación de la firma conserva sus comprobaciones.
+PDF de la firma VEC en 2 MiB. La verificación conserva sus comprobaciones.
 
 ## Preparación
 
@@ -33,8 +33,12 @@ PDF en 2 MiB. La verificación de la firma conserva sus comprobaciones.
    la organización ausente.
 3. Comprobar los bordes de tamaño en las pruebas focales: 2 MiB admitidos,
    2 MiB más un byte rechazados; JSON y Base64 se calculan aparte. La ruta
-   antigua puede contener dos PDF. El límite general de otras peticiones no
-   aumenta. El rechazo no debe reservar ni custodiar el documento.
+   antigua puede contener dos PDF en su manejador. La pasarela conserva
+   1 MiB de petición JSON total para `firmas-documento` y `registro-externo`;
+   esas rutas no acreditan un PDF de 2 MiB por esa frontera. La excepción
+   mayor corresponde solo al POST exacto `registro-vec`. El límite general
+   de otras peticiones no aumenta. El rechazo no debe reservar ni custodiar
+   el documento.
 4. Recuperar un PDF firmado y verificado ya registrado desde la ficha, con
    el certificado autorizado. Reiniciar base y portal y recuperar los mismos
    bytes y el mismo recibo. No se reescriben firmas anteriores. El límite

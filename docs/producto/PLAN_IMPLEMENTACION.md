@@ -132,7 +132,7 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 
 ### 2.3 En curso
 
-**F1-37, ajustes de firma.** Límite PDF común de 2 MiB, cotas de transporte
+**F1-37, ajustes de firma.** Límite PDF de 2 MiB en firma VEC, cotas de transporte
 calculadas aparte, cierre de auditoría seguro y sonda de plantillas por
 organización (CT226, sobre CT218). Reutiliza las pantallas de plantillas y la
 ficha, sin cambiar la verificación ni los permisos de firma. Guion en
