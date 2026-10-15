@@ -1,4 +1,4 @@
-import { parValido, validarPublicacionTransiciones } from "./reglas-situacion-api.js?v=20261015-s6-reglas-situacion-v1";
+import { parValido, validarPublicacionTransiciones } from "./reglas-situacion-api.js?v=20261016-s6-reglas-recibo-v2";
 
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -20,6 +20,7 @@ export function montarReglasSituacionBolsa({ raiz, cliente, textos, anunciar = (
   const obligatorias = () => politica?.transiciones_obligatorias ?? [];
   const cambios = () => politica ? [...new Set([...permitidas(), ...politica.transiciones_guardadas])]
     .filter((par) => seleccion.has(par) !== politica.transiciones_guardadas.includes(par)) : [];
+  const enfocarPaso = () => raiz.querySelector?.("[data-reglas-paso]")?.focus?.();
   const habilitada = () => politica?.puede_publicar && !pendiente && fase === "edicion"
     && (cambios().length > 0 || !politica.catalogo_activado) && motivo.trim().length > 0;
   function estadoError() {
@@ -46,17 +47,24 @@ export function montarReglasSituacionBolsa({ raiz, cliente, textos, anunciar = (
         ${fija || !politica.puede_publicar || fase !== "edicion" ? "disabled" : ""}><span>${situacion(destino(par))}${fija ? ` · ${t("obligatoria")}` : ""}
         ${politica.transiciones_guardadas.includes(par) && !politica.transiciones_efectivas.includes(par) ? ` · ${t("no_vigente")}` : ""}</span></label>`;
     }).join("");
-    const diferencias = cambios().map((par) => `<li>${situacion(origen(par))} → ${situacion(destino(par))}: ${t(seleccion.has(par) ? "activar"
-      : !permitidas().includes(par) ? "retirar_por_limite" : "restringir")}</li>`).join("");
+    const publicadas = pendiente?.transiciones ?? [];
+    const grupos = ORDEN.map((clave) => {
+      const pares = publicadas.filter((par) => origen(par) === clave);
+      if (!pares.length) return "";
+      return `<section><h5>${situacion(clave)}</h5><ul>${pares.map((par) => `<li>${situacion(destino(par))}${obligatorias().includes(par) ? ` · ${t("obligatoria")}` : ""}${!politica.transiciones_guardadas.includes(par) ? ` · ${t("activar")}` : ""}</li>`).join("")}</ul></section>`;
+    }).join("");
+    const retiradas = cambios().filter((par) => !seleccion.has(par)).map((par) => `<li>${situacion(origen(par))} → ${situacion(destino(par))}: ${t(!permitidas().includes(par) ? "retirar_por_limite" : "restringir")}</li>`).join("");
     let cuerpo = "";
-    if (recibo) cuerpo = `<div class="cuerpo-panel" role="status"><h4>${t("publicada")}</h4><p>${t(recibo.reutilizada ? "ya_publicada" : "confirmada")}</p>
+    if (recibo) cuerpo = `<div class="cuerpo-panel" role="status"><h4 tabindex="-1" data-reglas-paso>${t("publicada")}</h4><p>${t(recibo.reutilizada ? "ya_publicada" : "confirmada")}</p>
       <p>${t("version_publicada", { version: textos.numero(recibo.version) })}</p>
+      <p>${t("publicada_el")}: <time datetime="${esc(recibo.publicada_en)}">${esc(textos.fecha(recibo.publicada_en, { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Madrid" }))}</time></p>
       <details><summary>${t("justificante")}</summary><p>${t("recibo")}: <code>${esc(recibo.recibo_ref)}</code></p></details>
       <button type="button" class="boton-secundario" data-reglas-accion="continuar">${t("continuar")}</button></div>`;
     else if (fase === "incierto") cuerpo = `<div class="cuerpo-panel" role="alert"><p>${t("incierto")}</p>${estadoError()}
       <button type="button" class="boton-primario" data-reglas-accion="repetir">${t("repetir")}</button></div>`;
-    else if (fase === "revision" || fase === "enviando") cuerpo = `<div class="cuerpo-panel"><h4>${t("revision")}</h4>
-      ${diferencias ? `<ul>${diferencias}</ul>` : `<p>${t("sin_diferencias_publicacion")}</p>`}<p>${t("motivo")}: ${esc(motivo)}</p>${estadoError()}
+    else if (fase === "revision" || fase === "enviando") cuerpo = `<div class="cuerpo-panel"><h4 tabindex="-1" data-reglas-paso>${t("revision")}</h4>
+      <div><p>${t("conjunto_publicacion")}</p><div class="lista-opciones-compacta" role="group" aria-label="${t("conjunto_publicacion")}">${grupos || `<p>${t("sin_transiciones_publicacion")}</p>`}</div></div>
+      ${retiradas ? `<div><p>${t("retiradas_publicacion")}</p><ul>${retiradas}</ul></div>` : !cambios().length ? `<p>${t("sin_diferencias_publicacion")}</p>` : ""}<p>${t("motivo")}: ${esc(motivo)}</p>${estadoError()}
       <div class="acciones-vista"><button type="button" class="boton-secundario" data-reglas-accion="corregir" ${fase === "enviando" ? "disabled" : ""}>${t("corregir")}</button>
       <button type="button" class="boton-primario" data-reglas-accion="confirmar" ${fase === "enviando" ? "disabled" : ""}>${t(fase === "enviando" ? "enviando" : "confirmar")}</button></div></div>`;
     else cuerpo = `<div class="cuerpo-panel cuerpo-formulario-compacto"><label class="campo"><span>${t("origen")}</span><select data-reglas-origen>${opciones}</select></label>
@@ -94,8 +102,10 @@ export function montarReglasSituacionBolsa({ raiz, cliente, textos, anunciar = (
     try {
       const p = await cliente.publicar(pendiente, { signal });
       if (!montada || signal.aborted || turno !== secuencia) return;
-      if (!p.recibo_ref || !p.transiciones_efectivas.every(parValido)) throw new TypeError("recibo incompatible");
+      if (!p.recibo_ref || !p.publicada_en || !Number.isFinite(Date.parse(p.publicada_en))
+        || !p.transiciones_efectivas.every(parValido)) throw new TypeError("recibo incompatible");
       recibo = p; politica = p; pendiente = null; fase = "recibo"; pintar();
+      enfocarPaso();
       anunciar(textos.traducir("reglas.publicada"));
     } catch (e) {
       if (!montada || signal.aborted || turno !== secuencia) return;
@@ -111,12 +121,12 @@ export function montarReglasSituacionBolsa({ raiz, cliente, textos, anunciar = (
     if (!accion) return;
     if (accion === "ayuda") { ayuda = !ayuda; pintar(); raiz.querySelector?.('[data-reglas-accion="ayuda"]')?.focus?.({ preventScroll: true }); }
     else if (accion === "recargar" || accion === "continuar") void cargar();
-    else if (accion === "corregir") { pendiente = null; fase = "edicion"; pintar(); }
+    else if (accion === "corregir") { pendiente = null; fase = "edicion"; pintar(); raiz.querySelector?.("[data-reglas-origen]")?.focus?.(); anunciar(textos.traducir("reglas.edicion")); }
     else if (accion === "revisar" && habilitada()) {
       pendiente = validarPublicacionTransiciones({ version_esperada: politica.version,
         transiciones: permitidas().filter((par) => seleccion.has(par)).sort(ordenarPares),
         motivo: motivo.trim(), clave_idempotencia: crypto.randomUUID() });
-      fase = "revision"; pintar();
+      fase = "revision"; pintar(); enfocarPaso(); anunciar(textos.traducir("reglas.revision"));
     } else if (accion === "confirmar" || accion === "repetir") void publicar();
   };
   const cambiar = (evento) => {

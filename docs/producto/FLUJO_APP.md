@@ -828,7 +828,7 @@ guarda en Documentos.
 
 #### Reglas globales de situación de Bolsa — candidata F1-04/05
 
-En «Bolsas → Reglas y baremación → Cambios de situación», RRHH consulta la versión actual y los cambios efectivos para todas las bolsas. Elige una situación de partida y marca los destinos permitidos por la versión normativa publicada. Los cambios obligatorios permanecen seleccionados. Escribe el motivo, revisa el conjunto, confirma y recibe una versión nueva con su recibo.
+En «Bolsas → Reglas y baremación → Cambios de situación», RRHH consulta la versión actual y los cambios efectivos para todas las bolsas. Elige una situación de partida y marca los destinos permitidos por la versión normativa publicada. Los cambios obligatorios permanecen seleccionados. Escribe el motivo, revisa el conjunto, confirma y recibe una versión nueva con su recibo y la fecha y hora del acto. La revisión muestra todos los destinos que quedarán publicados, incluidos los obligatorios.
 
 La consulta exige un permiso propio y deja un apunte de acceso. Publicar requiere otra autorización vigente, validada en la misma transacción que la política y su historia. La selección técnica no concede permisos ni cambia las reglas al arrancar. Si falta la selección o es inválida, solo esta función queda indisponible. El permiso de cese conserva su finalidad.
 

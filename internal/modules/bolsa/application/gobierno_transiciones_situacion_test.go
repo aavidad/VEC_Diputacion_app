@@ -82,10 +82,11 @@ func TestReplayNoSeFiltraPorLimitesNuevosAntesDelRepositorio(t *testing.T) {
 	politicaB := politicaA.Restringir(domain.SituacionRenuncia, []string{domain.SituacionExcluido})
 	r := &repositorioReplayNormaCambiadaPrueba{
 		actual: ports.GobiernoTransicionesSituacion{Version: 2, TransicionesGuardadas: politicaA.Pares(),
-			Limites: ports.LimitesTransicionesSituacion{CatalogoVersion: 2, CatalogoSHA256: shaB, Transiciones: politicaB.Pares()}},
+			PublicadaEn: "2026-10-16T09:00:00.000000Z",
+			Limites:     ports.LimitesTransicionesSituacion{CatalogoVersion: 2, CatalogoSHA256: shaB, Transiciones: politicaB.Pares()}},
 		original: ports.GobiernoTransicionesSituacion{Version: 2, TransicionesGuardadas: politicaA.Pares(),
 			Limites:   ports.LimitesTransicionesSituacion{CatalogoVersion: 1, CatalogoSHA256: shaA, Transiciones: politicaA.Pares()},
-			ReciboRef: "recibo:original", Reutilizada: true},
+			ReciboRef: "recibo:original", PublicadaEn: "2026-10-15T21:30:00.123456Z", Reutilizada: true},
 	}
 	servicio, err := NuevoServicioGobiernoTransicionesSituacion(r, situacion, 2, shaB)
 	if err != nil {
@@ -93,7 +94,8 @@ func TestReplayNoSeFiltraPorLimitesNuevosAntesDelRepositorio(t *testing.T) {
 	}
 	v, err := servicio.Publicar(context.Background(), ports.ComandoGobiernoTransicionesSituacion{
 		VersionEsperada: 1, Transiciones: politicaA.Pares(), Motivo: "mismo motivo", ClaveIdempotencia: "clave-original"})
-	if err != nil || r.llamadas != 1 || !v.Reutilizada || v.ReciboRef != "recibo:original" || v.Limites.CatalogoSHA256 != shaA {
+	if err != nil || r.llamadas != 1 || !v.Reutilizada || v.ReciboRef != "recibo:original" ||
+		v.PublicadaEn != "2026-10-15T21:30:00.123456Z" || v.Limites.CatalogoSHA256 != shaA {
 		t.Fatalf("el replay original se bloqueó por catálogo B: %+v %v llamadas=%d", v, err, r.llamadas)
 	}
 	divergente := politicaB.Pares()

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -83,6 +85,14 @@ func decodificarGobiernoTransicionesSituacion(datos []byte, reutilizada bool) (p
 	var v ports.GobiernoTransicionesSituacion
 	if json.Unmarshal(datos, &v) != nil || v.Version < 1 || v.Limites.CatalogoVersion < 1 ||
 		len(v.Limites.CatalogoSHA256) != 64 || len(v.TransicionesGuardadas) == 0 || len(v.Limites.Transiciones) == 0 {
+		return ports.GobiernoTransicionesSituacion{}, ports.ErrGobiernoTransicionesNoDisponible
+	}
+	if v.ReciboRef != "" {
+		instante, err := time.Parse(time.RFC3339Nano, v.PublicadaEn)
+		if err != nil || instante.IsZero() || !strings.HasSuffix(v.PublicadaEn, "Z") {
+			return ports.GobiernoTransicionesSituacion{}, ports.ErrGobiernoTransicionesNoDisponible
+		}
+	} else if v.PublicadaEn != "" {
 		return ports.GobiernoTransicionesSituacion{}, ports.ErrGobiernoTransicionesNoDisponible
 	}
 	v.Reutilizada = reutilizada

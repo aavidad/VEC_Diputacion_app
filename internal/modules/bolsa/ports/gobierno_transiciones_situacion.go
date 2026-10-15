@@ -46,6 +46,7 @@ type GobiernoTransicionesSituacion struct {
 	TransicionesObligatorias []string                     `json:"transiciones_obligatorias"`
 	PuedePublicar            bool                         `json:"puede_publicar"`
 	ReciboRef                string                       `json:"recibo_ref,omitempty"`
+	PublicadaEn              string                       `json:"publicada_en,omitempty"`
 	Reutilizada              bool                         `json:"reutilizada"`
 }
 

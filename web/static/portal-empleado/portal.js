@@ -7,11 +7,11 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261015-s6-reglas-situacion-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261016-s6-reglas-recibo-v2";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261015-s6-reglas-situacion-v1";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261016-s6-reglas-recibo-v2";
 import { bolsasVigentesParaLlamamiento, instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261015-ofertas-recibo-v3";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
@@ -123,8 +123,8 @@ function cargarRecursosVista(grupo) {
         ? import("./modulos/bolsa/documentos-vista.js?v=20261013-documentos-bolsa-v2")
       : grupo === "reglasSituacion"
         ? Promise.all([
-          import("./modulos/bolsa/reglas-situacion-api.js?v=20261015-s6-reglas-situacion-v1"),
-          import("./modulos/bolsa/reglas-situacion-ui.js?v=20261015-s6-reglas-situacion-v1"),
+          import("./modulos/bolsa/reglas-situacion-api.js?v=20261016-s6-reglas-recibo-v2"),
+          import("./modulos/bolsa/reglas-situacion-ui.js?v=20261016-s6-reglas-recibo-v2"),
           import("../comun/textos.js").then(({ cargarTextos }) => cargarTextos("bolsa-reglas-transiciones")),
         ]).then(([api, ui, textos]) => ({ ...api, ...ui, textos }))
       : grupo === "documentos"
@@ -1995,7 +1995,7 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261015-s6-reglas-situacion-v1"),
+    import("./portal-panel-interno.js?v=20261016-s6-reglas-recibo-v2"),
     import("./portal-bolsas-api.js?v=20261013-bolsa-ranking-n4"),
     import("./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261015-firma-cierre-cache-v3"),

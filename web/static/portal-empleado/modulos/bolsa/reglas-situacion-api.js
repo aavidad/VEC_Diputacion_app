@@ -3,6 +3,17 @@ const ESQUEMA = "vec.bolsa.rrhh.politica-transiciones.v1";
 const SITUACIONES = new Set(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
 const HUELLA = /^[a-f0-9]{64}$/u;
 const MAXIMO = 64 * 1024;
+const FECHA_RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.\d+)?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/u;
+
+function fechaPublicacionValida(valor) {
+  if (typeof valor !== "string") return false;
+  const partes = FECHA_RFC3339.exec(valor);
+  if (!partes || !Number.isFinite(Date.parse(valor))) return false;
+  const anio = Number(partes[1]), mes = Number(partes[2]), dia = Number(partes[3]);
+  const bisiesto = anio % 4 === 0 && (anio % 100 !== 0 || anio % 400 === 0);
+  const dias = [31, bisiesto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return mes >= 1 && mes <= 12 && dia >= 1 && dia <= dias[mes - 1];
+}
 
 export function parValido(par) {
   if (typeof par !== "string" || par.length > 64) return false;
@@ -28,7 +39,8 @@ export function validarPoliticaTransiciones(sobre, { publicacion = false } = {})
     || (publicacion && (!subconjunto(p.transiciones_guardadas, l.transiciones)
       || !subconjunto(p.transiciones_obligatorias, p.transiciones_guardadas)))
     || (publicacion && (typeof p.recibo_ref !== "string" || !p.recibo_ref.trim() || p.recibo_ref.length > 512
-      || typeof p.reutilizada !== "boolean"))
+      || typeof p.reutilizada !== "boolean" || !fechaPublicacionValida(p.publicada_en)))
+    || (!publicacion && p.publicada_en !== undefined && p.publicada_en !== "" && !fechaPublicacionValida(p.publicada_en))
     || (!publicacion && (p.recibo_ref !== undefined || (p.reutilizada !== undefined && p.reutilizada !== false)))) {
     throw new TypeError("política de situaciones incompatible");
   }

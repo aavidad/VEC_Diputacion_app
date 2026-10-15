@@ -66,7 +66,7 @@ Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede e
 
 La mayoría de los cambios ocurren solos, según avanza el expediente: aceptar una oferta, incorporarse, cesar. Las renuncias justificadas quedan en revisión hasta que el técnico valida el justificante. RRHH decide en la pantalla de reglas qué cambios de situación se permiten.
 
-La candidata de «Bolsas → Reglas y baremación → Cambios de situación» permite revisar las reglas para todas las bolsas. Se elige la situación de partida, se marcan los cambios permitidos, se escribe el motivo y se revisa antes de confirmar. Los cambios obligatorios no se pueden retirar. La confirmación devuelve una versión y su recibo. Si el resultado no se conoce, se comprueba la misma publicación; no se prepara otra. En la copia se ha publicado y recuperado el mismo recibo después de reiniciar. Su puesta en servicio sigue pendiente de la activación de la candidata.
+La candidata de «Bolsas → Reglas y baremación → Cambios de situación» permite revisar las reglas para todas las bolsas. Se elige la situación de partida, se marcan los cambios permitidos, se escribe el motivo y se revisa antes de confirmar. Los cambios obligatorios no se pueden retirar. La revisión muestra todos los cambios que quedarán permitidos. La confirmación devuelve una versión y su recibo, con fecha y hora. Si el resultado no se conoce, se comprueba la misma publicación; no se prepara otra. En la copia se ha publicado y recuperado el mismo recibo después de reiniciar. Su puesta en servicio sigue pendiente de la activación de la candidata.
 
 ### 4.3 Lo que ve el aspirante: Mi Bolsa
 
