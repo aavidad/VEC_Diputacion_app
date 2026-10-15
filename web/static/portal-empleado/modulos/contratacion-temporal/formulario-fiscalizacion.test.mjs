@@ -280,6 +280,11 @@ test("un resultado favorable v8 prepara la selección con su versión sin ejecut
     raiz,
     cliente: {
       registrarResultadoFiscalizacion: async () => ({ ...recibo("favorable"), version_resultante: 8 }),
+      consultarDetalleRRHH: async ({ expediente_ref, version_observada }) => {
+        assert.equal(expediente_ref, EXPEDIENTE);
+        assert.equal(version_observada, 8);
+        return { resumen: { expediente_ref, version: 8 }, solicitud: { numero_personas: 1 } };
+      },
       seleccionarLlamamiento: async () => { assert.fail("montar no selecciona"); },
       registrarComunicacionLlamamiento: async () => { assert.fail("montar no comunica"); },
       registrarRespuestaRecibida: async () => { assert.fail("montar no declara respuesta"); },
@@ -295,6 +300,7 @@ test("un resultado favorable v8 prepara la selección con su versión sin ejecut
   raiz.eventos.get("submit")({ target: formulario, preventDefault() {} });
   await fiscalizacion.enviar("favorable", "");
 
+  await new Promise((resolver) => setImmediate(resolver));
   assert.match(llamamiento.innerHTML, /data-ct-llamamiento/u);
   assert.match(llamamiento.innerHTML, /value="8"/u);
   assert.match(fiscalizacion.innerHTML, /data-ct-fiscalizacion-recibo/u);
