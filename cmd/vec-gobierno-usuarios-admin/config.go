@@ -134,6 +134,11 @@ func dsnValido(dsn string) error {
 	if err != nil {
 		return errConfiguracion
 	}
+	// El pool debe ser perezoso: el material preparado se valida antes de
+	// la primera conexión, también al aplicar material de otro entorno.
+	if pc.MinConns != 0 || pc.MinIdleConns != 0 {
+		return errConfiguracion
+	}
 	cc := &pc.ConnConfig.Config
 	if cc.User == "" || cc.Database == "" || !destinoValido(cc.Host, cc.TLSConfig) {
 		return errConfiguracion

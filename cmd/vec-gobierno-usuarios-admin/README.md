@@ -67,7 +67,8 @@ ella, preparar y verificar fallan siempre, también con superusuario.
 Las conexiones van por socket local, por la dirección de bucle o por TLS con
 verificación del servidor. La carpeta del socket debe existir y no puede tener
 escritura para cualquiera (por ejemplo, `/tmp` no vale). El único parámetro de
-sesión admitido es `application_name`. La carpeta de
+sesión admitido es `application_name`. Se rechazan mínimos de conexiones
+del pool mayores de cero para validar el material antes de conectar. La carpeta de
 salida debe existir, vacía, con permisos 0700. Ningún fichero se sobrescribe.
 
 La activación de los plazos largos exige AD282 y se describe en
