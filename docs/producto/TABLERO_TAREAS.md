@@ -178,9 +178,9 @@ siguiente no empieza hasta acabar la anterior.
 | Equipo | Zona | Orden |
 | --- | --- | --- |
 | R | Criterios de Bolsa y puente con CT; dueño de las migraciones nuevas del núcleo de autorización | F1-22 → F1-21 → F1-08 → F1-09 → F1-10 → F1-11 |
-| S | Expediente y oferta de CT; reglas de situación | F1-16 → F1-04 (con lo que era F1-05) → F1-06 → F1-18 → F1-55 |
+| S | Expediente y oferta de CT; reglas de situación | F1-16 → F1-04 (con lo que era F1-05) → F1-06 → F1-59 → F1-18 → F1-55 |
 | O | «Mi Bolsa», Documentos y preferencias | F1-07 → F1-12 → F1-13 → F1-14 → F0-21 → F1-46 → F1-29 → F1-45 |
-| H | Administración, identidad y firma | F0-03 → F0-02 → F1-36 y F1-37 → F0-08 → F0-23 y F0-24 → F0-04 con F0-05 → F0-14, F0-15 y F0-22 |
+| H | Administración, identidad y firma | F0-03 → F0-02 → F1-36 y F1-37 → F1-58 → F0-08 → F0-23 y F0-24 → F0-04 con F0-05 → F0-14, F0-15 y F0-22 |
 | T | Pantallas y textos | F1-01, F1-02 y F1-03 → F1-44 → F1-42, F1-43 y F1-47 → F1-39 → F1-54 → F1-57 → F0-07 |
 | P | Recorrido, desde el 20/10 | F1-23 → F1-24 a F1-30 → F1-32 y F1-33 → F1-34 → F1-31 |
 | C y D | Cronos y Dietas, desde el 20/10 | Solo F0-18 con F3-01 (C) y F4-01, #1136 y #1139 (D) |
@@ -314,8 +314,8 @@ motivo y lecturas por debajo de 300 ms.
 | F1-55 | Ensayo de varias plazas con «sin respuesta», retirada por cancelación y recuperación tras un fallo | `internal/modules/bolsa`; `internal/modules/contrataciontemporal` | F1-16, F1-17 | - | M | S | - | Pendiente | 15/10 | Una plaza sin respuesta pasa al siguiente; cancelar retira la oferta; tras el fallo, mismo recibo y sin duplicados | Consenso de dirección 15/10 |
 | F1-56 | Correspondencia verificada entre la persona y su fila de Convoca (opcional) | Carga de Convoca en Bolsa | - | - | M | Sin asignar | - | Pendiente | 15/10 | Cada persona cargada enlaza con una sola fila de Convoca, comprobada | Consenso de dirección 15/10 |
 | F1-57 | R1b, pantalla: RRHH resuelve el caso «pendiente de comprobación» desde la ficha del candidato | `web/static/bolsa` | F1-09 | - | M | T | - | Pendiente | 15/10 | Chrome a 1440 y 390 px: RRHH resuelve, ve el recibo y la selección sigue | Consenso de dirección 15/10 |
-| F1-58 | Firma de F1-36 por la vía de cargos de firma: AUT98 mínima, operación anexada, plan v2, sucesión de asignaciones y lector CT22x que acepte v2 | Firma; SQL de firma | F1-36 | - | M | Sin asignar | - | Pendiente | 16/10 | Firma por cargo con plan v2 leída por CT tras reiniciar; ensayo SQL y dos revisiones | Consenso de dirección 16/10 |
-| F1-59 | Vínculo entre la respuesta publicada y su oferta, para abrir la resolución de la respuesta publicada en F1-06 | `internal/modules/bolsa`; `internal/modules/contrataciontemporal` | F1-06 | - | S | Sin asignar | - | Pendiente | 16/10 | Desde F1-06 se abre la resolución de una respuesta publicada con su oferta | Consenso de dirección 16/10 |
+| F1-58 | Firma de F1-36 por la vía de cargos de firma: AUT98 mínima, operación anexada, plan v2, sucesión de asignaciones y lector CT22x que acepte v2 | Firma; SQL de firma | F1-36 | - | M | H | - | Pendiente | 16/10 | Firma por cargo con plan v2 leída por CT tras reiniciar; ensayo SQL y dos revisiones | Consenso de dirección 16/10 |
+| F1-59 | Vínculo entre la respuesta publicada y su oferta, para abrir la resolución de la respuesta publicada en F1-06 | `internal/modules/bolsa`; `internal/modules/contrataciontemporal` | F1-06 | - | S | S | - | Pendiente | 16/10 | Desde F1-06 se abre la resolución de una respuesta publicada con su oferta | Consenso de dirección 16/10 |
 
 ## 7. Fase 2. Personal y Organización (por capacidad)
 
