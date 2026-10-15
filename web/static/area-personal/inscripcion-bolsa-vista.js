@@ -1,5 +1,5 @@
 import { cargarTextos, reintentarTextos } from "../comun/textos.js";
-import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261016-modalidad-inscripcion-v1";
 
 const CLAVES_PENDIENTES = new Map(); // Sólo memoria de esta pestaña, para repetir el mismo acto incierto.
 const ENVIOS_ACTIVOS = new Set();
@@ -28,6 +28,7 @@ function descripcionError(error, textos, envio = false) {
   if (error?.status === 403) return textos.traducir("vista.denegada");
   if (error?.status === 404) return textos.traducir("vista.noEncontrada");
   if (error?.status === 400) return textos.traducir("vista.datosNoAceptados");
+  if (error?.status === 409 && error?.codigo === "inscripcion_conjunta_pendiente") return textos.traducir("vista.inscripcionConjuntaPendiente");
   if (error?.status === 409) return textos.traducir("vista.conflicto");
   if (error?.status === 422 && error?.codigo === "plazo_cerrado") return textos.traducir("vista.plazoCerrado");
   if (error?.status === 422) return textos.traducir("vista.requisitosCambiados");

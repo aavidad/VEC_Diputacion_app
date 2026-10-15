@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js";
+import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261016-modalidad-inscripcion-v1";
 import { prepararIdiomas } from "../comun/idioma.js";
 
 await prepararIdiomas();
@@ -130,4 +130,15 @@ test("20 tarjetas con 128 categorías quedan bajo 256 KiB y la lista no arrastra
   const pagina = await cliente.abiertas();
   assert.equal(pagina.convocatorias.length, 20);
   assert.ok(pagina.convocatorias.every((convocatoria) => convocatoria.categorias === undefined));
+});
+
+
+test("conserva el rechazo de modalidad conjunta y descarta el mensaje remoto", async () => {
+  const cliente = crearClienteInscripcionBolsa({ fetchImpl: async () => respuesta(
+    { error: { codigo: "inscripcion_conjunta_pendiente", mensaje: "contenido remoto" } }, 409) });
+  await assert.rejects(cliente.inscribir({ convocatoriaRef: bolsa.convocatoria_ref,
+    categoriaRef: bolsa.categorias[0].categoria_ref, catalogoVersion: 2,
+    claveIdempotencia: "clave-conjunta-42", declaraciones: [] }),
+  (error) => error.status === 409 && error.codigo === "inscripcion_conjunta_pendiente"
+    && !error.message.includes("contenido remoto"));
 });

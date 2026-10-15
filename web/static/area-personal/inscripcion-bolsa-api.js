@@ -5,7 +5,7 @@ const BASE = "/api/vec/bolsa";
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,199}$/u;
 const CLAVE = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,127}$/u;
 const CODIGOS_ERROR = new Set(["plazo_cerrado", "catalogo_cambiado", "requisito_invalido",
-  "declaracion_invalida", "solicitud_existente", "clave_en_conflicto"]);
+  "declaracion_invalida", "solicitud_existente", "clave_en_conflicto", "inscripcion_conjunta_pendiente"]);
 const ESTADOS_REQUISITO = new Set(["cumple", "no_cumple", "pendiente"]);
 const INSTANCIAS = Object.freeze({
   abiertas: "vec.bolsa.inscripciones.convocatorias_abiertas.v1",

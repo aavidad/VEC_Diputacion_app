@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarInscripcionBolsa } from "./inscripcion-bolsa-vista.js";
+import { montarInscripcionBolsa } from "./inscripcion-bolsa-vista.js?v=20261016-modalidad-inscripcion-v1";
 
 const pausa = () => new Promise((resolver) => setTimeout(resolver, 20));
 const instante = "2026-10-09T09:00:00Z";
@@ -371,4 +371,31 @@ test("al pasar a Mis solicitudes el foco va al título y la ficha vuelve a Mis s
   pulsar("solicitud", "solicitud:42"); await pausa();
   assert.match(contenedor.innerHTML, /Volver a mis solicitudes/u);
   montaje.destruir();
+});
+
+
+test("el rechazo de conjunta explica el resultado y bloquea repetir el envío", async () => {
+  for (const [idioma, mensaje] of [["es", /No se ha registrado esta solicitud/u],
+    ["en", /This application has not been submitted/u]]) {
+    const { contenedor, ventana, pulsar } = entorno();
+    let envios = 0;
+    const cliente = {
+      abiertas: async () => ({ convocatorias: [resumen], total: 1, cursor_siguiente: null }),
+      convocatoria: async () => ({ convocatoria: { ...bolsa, requisitos: [] } }),
+      propias: async () => ({ solicitudes: [], cursor_siguiente: null }),
+      detallePropio: async () => { throw new Error("sin uso"); },
+      inscribir: async () => { envios += 1; throw Object.assign(new Error("sin texto visible"), {
+        status: 409, codigo: "inscripcion_conjunta_pendiente",
+      }); },
+    };
+    const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma, textoBase: () => "" });
+    await pausa(); pulsar("bolsa", bolsa.convocatoria_ref); await pausa();
+    pulsar("revisar"); pulsar("confirmar"); await pausa();
+    assert.match(contenedor.innerHTML, mensaje);
+    assert.doesNotMatch(contenedor.innerHTML, /sin texto visible|recibo:42|inscripcion_conjunta_pendiente/u);
+    assert.match(contenedor.innerHTML, /data-inscripcion-accion="confirmar" disabled/u);
+    pulsar("confirmar"); await pausa();
+    assert.equal(envios, 1);
+    montaje.destruir();
+  }
 });

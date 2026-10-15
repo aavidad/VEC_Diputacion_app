@@ -1,4 +1,4 @@
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20261008-borradores-error-legible-v1";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20261016-modalidad-inscripcion-v1";
 import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 export const FASE_INICIAL = "inicial";
@@ -12,6 +12,11 @@ export function copiar(valor) {
 }
 
 export function errorSeguro(error, mensajeDefecto) {
+  if (error?.codigo === "modalidad_inscripcion_no_valida") {
+    return { mensaje: traducirPortal("borrador_modalidad_inscripcion_no_valida"),
+      codigo: error.codigo, correlacion: null, estadoHTTP: 0, tipoConflicto: null,
+      conservarCambiosLocales: false };
+  }
   if (error instanceof ErrorAPIBorradores) {
     return {
       mensaje: error.message,
@@ -41,6 +46,7 @@ export function editorNuevo(opciones) {
     expediente_ref: "",
     contenido_editable: {
       tipo: opciones.tipos[0]?.clave || "",
+      modalidad_inscripcion: "",
       categorias: opciones.categorias[0] ? [opciones.categorias[0].clave] : [],
       titulo: "",
       resumen: "",
@@ -53,7 +59,10 @@ export function editorNuevo(opciones) {
 }
 
 export function editorDesdeDetalle(detalle) {
-  return { motivo_indice: 0, contenido_editable: copiar(detalle.contenido_editable) };
+  return { motivo_indice: 0, contenido_editable: {
+    ...copiar(detalle.contenido_editable),
+    modalidad_inscripcion: detalle.contenido_editable.modalidad_inscripcion ?? "",
+  } };
 }
 
 export function asignarRutaEditor(editor, ruta, valor) {

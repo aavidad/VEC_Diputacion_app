@@ -10,7 +10,7 @@ import {
   validarSelectorListaBorradores,
   validarSolicitudActualizarBorrador,
   validarSolicitudCrearBorrador,
-} from "./portal-borradores-contrato.js";
+} from "./portal-borradores-contrato.js?v=20261016-modalidad-inscripcion-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 export const RUTAS_API_BORRADORES = Object.freeze({

@@ -11,6 +11,7 @@
     "denegada": "Su acceso no permite hacer esta consulta. Pida ayuda a la oficina de atención.",
     "noEncontrada": "Esta bolsa o solicitud ya no está disponible. Vuelva al listado y actualícelo.",
     "noDisponible": "La inscripción en bolsas no está abierta en este momento. Vuelva a consultarla más tarde.",
+    "inscripcionConjuntaPendiente": "Esta convocatoria requiere una solicitud conjunta, que aún no está disponible. No se ha registrado esta solicitud. Vuelva a las bolsas.",
     "conflicto": "La información de la bolsa ha cambiado o ya existe una solicitud. Consulte Mis solicitudes antes de repetir el envío.",
     "plazoCerrado": "El plazo o los requisitos de esta bolsa han cambiado. Vuelva al listado y consulte la ficha actualizada.",
     "reintentar": "Reintentar",

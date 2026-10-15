@@ -60,7 +60,7 @@
     const script = evento.target;
     if (script?.tagName !== "SCRIPT" || script.type !== "module") return;
     try {
-      if (new URL(script.src, location.href).pathname === "/portal-empleado/portal.js") {
+      if (new URL(script.src, location.href).pathname === "/portal-empleado/portal.js?v=20261016-modalidad-inscripcion-v1") {
         mostrarError("importacion_portal_no_disponible");
       }
     } catch { /* Una URL ajena o defectuosa no se registra. */ }
