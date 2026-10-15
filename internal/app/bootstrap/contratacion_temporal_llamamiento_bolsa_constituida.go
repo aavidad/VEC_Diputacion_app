@@ -665,8 +665,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) cargarOrigenConstituidoCT(ctx context
 			return construida, fallo
 		})
 	if err != nil || captura.Permiso.BolsaRef != o.BolsaRef ||
-		acuse.ValidarPara(captura.Auditoria) != nil ||
-		!puertosbolsa.ReferenciaOpacaLlamamientoValida(acuse.AuditoriaRef) {
+		!acuseOrigenCTVinculadoAlIntento(acuse, captura.Auditoria) {
 		if err != nil {
 			return vacio, err
 		}
@@ -715,6 +714,17 @@ func (p *puenteBolsaLlamamientoDesarrollo) cargarOrigenConstituidoCT(ctx context
 	}
 	return origenConstituidoVerificadoCT{registro: o, bolsa: bolsa, instantanea: instantanea,
 		reserva: reserva, auditoriaRef: acuse.AuditoriaRef}, nil
+}
+
+// AD259 deriva la referencia del asiento del nonce del intento validado.
+// Esta familia se coteja con su orden original; el filtro de documentos de
+// Bolsa puede confundir por azar cifras hexadecimales con un DNI.
+func acuseOrigenCTVinculadoAlIntento(acuse vecdomain.AcuseIntentoAuditoria, orden vecdomain.OrdenIntentoAuditoria) bool {
+	datos, err := orden.Datos()
+	if err != nil || acuse.ValidarPara(orden) != nil {
+		return false
+	}
+	return acuse.AuditoriaRef == "aud_v3_i_"+datos.IntentoRef[len("intento_"):]
 }
 
 // El orden y la elegibilidad ya los decidió Bolsa. CT sólo toma el menor

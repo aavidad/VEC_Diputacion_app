@@ -11,7 +11,7 @@ import (
 func TestSeleccionCTPausaAnteComprobacionPrevia(t *testing.T) {
 	uno, dos := uint64(1), uint64(2)
 	pendiente := bolsa.EntradaOrigenLlamamientoCT{OrdenActa: 1, Razon: "pendiente_comprobacion_rrhh"}
-	posterior := bolsa.EntradaOrigenLlamamientoCT{OrdenActa: 2, OrdenVigente: &uno, CandidatoRef: "candidato:dos", Elegible: true}
+	posterior := bolsa.EntradaOrigenLlamamientoCT{OrdenActa: 2, OrdenVigente: &uno, ParticipacionRef: "participacion:dos", CandidatoRef: "candidato:dos", Elegible: true}
 	_, err := primeraElegibleOrigenConstituidoCT(bolsa.OrigenLlamamientoCT{BolsaRef: "bolsa:prueba", Entradas: []bolsa.EntradaOrigenLlamamientoCT{pendiente, posterior}})
 	if !errors.Is(err, ct.ErrCriteriosOfrecimientoPendientesRRHH) {
 		t.Fatalf("saltó comprobación previa: %v", err)
