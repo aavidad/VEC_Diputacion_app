@@ -216,11 +216,23 @@ garantía sustancial y cuenta ordinaria. Administración conserva garantía
 alta. El firmante nominal declara sustancial; cambiarlo a alta no sustituye
 una autenticación acreditada ni es una opción de esta composición.
 
+La ficha consulta solo los documentos cubiertos por el plan publicado de
+su organización y unidad. La cobertura no autoriza actos ni convierte una
+denegación en «firma pendiente». Un fallo de consulta permanece visible en
+su documento y conserva los demás resultados.
+
 El botón de PDF firmado usa `firmas-documento/descargas-v2` para la sesión
 nominal. El servidor consulta la historia autorizada en esa misma petición
 y descarga por Documentos su referencia, versión y huella. El navegador
 coteja también la huella de los bytes. La API general de Documentos conserva
 su frontera de garantía alta.
+
+## Validador de la asignación nominal
+
+Instalar AUT97 una sola vez, antes de CT219 en una candidata nueva. Corrige
+la colisión entre el alias SQL de la asignación y su variable local, sin
+cambiar sus guardas, permisos ni consumo de autorización. En una copia que
+ya tenga CT219 instalada se aplica únicamente AUT97, sin reaplicar CT219.
 
 ## Rol y cargo del paso publicado
 

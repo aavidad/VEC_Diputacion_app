@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -44,8 +45,8 @@ type entradaDescargaFirmaR5V2 struct {
 }
 
 func (e *entradaDescargaFirmaR5V2) UnmarshalJSON(contenido []byte) error {
-	if !camposDescargaFirmaR5V2Exactos(contenido) {
-		return errEntradaConsultaRRHHInvalida
+	if err := camposDescargaFirmaR5V2Exactos(contenido); err != nil {
+		return err
 	}
 	type sinMetodo entradaDescargaFirmaR5V2
 	return json.Unmarshal(contenido, (*sinMetodo)(e))
@@ -53,47 +54,59 @@ func (e *entradaDescargaFirmaR5V2) UnmarshalJSON(contenido []byte) error {
 
 // La firma seleccionada es una referencia, nunca una terna de custodia.
 // También se rechazan duplicados JSON, que json.Unmarshal suele sobrescribir.
-func camposDescargaFirmaR5V2Exactos(contenido []byte) bool {
+func camposDescargaFirmaR5V2Exactos(contenido []byte) error {
 	d := json.NewDecoder(bytes.NewReader(contenido))
 	primero, err := d.Token()
-	if err != nil || primero != json.Delim('{') {
-		return false
+	if err != nil {
+		return fmt.Errorf("%w: %w", errEntradaConsultaRRHHInvalida, err)
+	}
+	if primero != json.Delim('{') {
+		return errEntradaConsultaRRHHInvalida
 	}
 	esperados := map[string]bool{"expediente_ref": false, "version_observada": false,
 		"documento": false, "firma_ref": false}
 	for d.More() {
 		token, err := d.Token()
 		if err != nil {
-			return false
+			return fmt.Errorf("%w: %w", errEntradaConsultaRRHHInvalida, err)
 		}
 		clave, ok := token.(string)
 		if !ok {
-			return false
+			return errEntradaConsultaRRHHInvalida
 		}
 		visto, conocido := esperados[clave]
 		if !conocido || visto {
-			return false
+			return errEntradaConsultaRRHHInvalida
 		}
 		var valor json.RawMessage
-		if d.Decode(&valor) != nil || string(valor) == "null" {
-			return false
+		if err := d.Decode(&valor); err != nil {
+			return fmt.Errorf("%w: %w", errEntradaConsultaRRHHInvalida, err)
+		}
+		if string(valor) == "null" {
+			return errEntradaConsultaRRHHInvalida
 		}
 		esperados[clave] = true
 	}
 	ultimo, err := d.Token()
-	if err != nil || ultimo != json.Delim('}') {
-		return false
+	if err != nil {
+		return fmt.Errorf("%w: %w", errEntradaConsultaRRHHInvalida, err)
+	}
+	if ultimo != json.Delim('}') {
+		return errEntradaConsultaRRHHInvalida
 	}
 	var sobra any
-	if !errors.Is(d.Decode(&sobra), io.EOF) {
-		return false
+	if err := d.Decode(&sobra); !errors.Is(err, io.EOF) {
+		if err != nil {
+			return fmt.Errorf("%w: %w", errEntradaConsultaRRHHInvalida, err)
+		}
+		return errEntradaConsultaRRHHInvalida
 	}
 	for _, visto := range esperados {
 		if !visto {
-			return false
+			return errEntradaConsultaRRHHInvalida
 		}
 	}
-	return true
+	return nil
 }
 
 type descargaFirmaR5V2JSON struct {

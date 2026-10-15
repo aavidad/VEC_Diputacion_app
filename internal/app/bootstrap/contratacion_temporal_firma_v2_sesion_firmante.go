@@ -237,10 +237,17 @@ func (a *autoridadSesionFirmanteV2) revalidarConContexto(ctx context.Context, r 
 		return vacio, sinContexto, errSesionFirmanteV2Denegada
 	}
 	fijada, err := p.fuente.contexto(ctx)
-	if err != nil || ctx.Err() != nil ||
-		!contextoFijadoFirmaVecCTValido(e, fijada, ahora) {
+	if err != nil {
 		c.fallida = true
-		return vacio, sinContexto, errSesionFirmanteV2Denegada
+		return vacio, sinContexto, errors.Join(errSesionFirmanteV2Denegada, err)
+	}
+	if err := ctx.Err(); err != nil {
+		c.fallida = true
+		return vacio, sinContexto, errors.Join(errSesionFirmanteV2Denegada, err)
+	}
+	if err := contextoFijadoFirmaVecCTValido(e, fijada, ahora); err != nil {
+		c.fallida = true
+		return vacio, sinContexto, errors.Join(errSesionFirmanteV2Denegada, err)
 	}
 	resultado, err := fijada.Resultado.Clonar()
 	if err != nil || fijada.Vinculo.ValidarPara(resultado) != nil {
@@ -260,23 +267,29 @@ func mismaSesionFirmanteV2(primera, segunda ports.SesionFirmanteV2) bool {
 		a.Type() == b.Type() && a.Pointer() == b.Pointer()
 }
 
-func contextoFijadoFirmaVecCTValido(fresca, fijada ports.EvidenciaSesionFirmanteV2, ahora time.Time) bool {
+func contextoFijadoFirmaVecCTValido(fresca, fijada ports.EvidenciaSesionFirmanteV2, ahora time.Time) error {
 	if fresca.CertificadoCanalSHA256 != fijada.CertificadoCanalSHA256 ||
 		!fresca.CertificadoValidoHasta.Equal(fijada.CertificadoValidoHasta) ||
 		!ahora.Before(fresca.CertificadoValidoHasta) || !ahora.Before(fijada.CertificadoValidoHasta) ||
 		!fresca.Vinculo.VigenteEn(ahora, fresca.Resultado) ||
 		!fijada.Vinculo.VigenteEn(ahora, fijada.Resultado) ||
 		!mismoContextoEsperadoRegistradoDesarrollo(fijada.Resultado, fresca.Resultado) {
-		return false
+		return errSesionFirmanteV2Denegada
 	}
 	actual, errActual := fresca.Vinculo.Datos()
+	if errActual != nil {
+		return errors.Join(errSesionFirmanteV2Denegada, errActual)
+	}
 	base, errBase := fijada.Vinculo.Datos()
-	if errActual != nil || errBase != nil {
-		return false
+	if errBase != nil {
+		return errors.Join(errSesionFirmanteV2Denegada, errBase)
 	}
 	actual.RegistroContextoRef = base.RegistroContextoRef
 	actual.ContextoActorHuellaSHA256 = base.ContextoActorHuellaSHA256
-	return actual == base
+	if actual != base {
+		return errSesionFirmanteV2Denegada
+	}
+	return nil
 }
 
 func (a *autoridadSesionFirmanteV2) peticionVigente(r *http.Request, c *capsulaSesionFirmanteV2) bool {

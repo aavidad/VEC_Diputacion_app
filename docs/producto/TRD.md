@@ -535,7 +535,16 @@ vigente, con versión y huella. El guion
 `vec-plan-firma-validar` y usa el gobierno ADMIN existente para crear y publicar
 con personas distintas; `--comprobar` no conecta con ADMIN. Dirección publicará
 el plan y hará la comprobación final con los certificados que conserva en
-cidonia. No se acredita todavía el registro final de la firma.
+cidonia. La prueba local de firma y sus límites se documentan en
+`deploy/principal/candidata_hz39/firma/LEEME.md`; no acredita su instalación
+en cidonia.
+
+En el registro múltiple, cada PDF firmado tiene su propio identificador. Las
+altas del contrato V2 usan la secuencia global del documento como versión de
+custodia, sin reiniciarla tras una devolución. Un reintento conserva exactamente
+la versión ya guardada, incluida la versión 1 de operaciones antiguas. El
+contrato V1 mantiene la versión 1. Dos documentos del circuito no pueden
+resolver al mismo tipo documental canónico.
 
 El guion de certificados de desarrollo prepara por defecto certificados de
 400 días y una lista de revocación de 90 días. Los parámetros `--cert-dias` y
