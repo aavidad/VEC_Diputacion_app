@@ -396,6 +396,17 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
+F1-36 prepara `prueba_selectores_recuperacion_rrhh_v1` (CT229), anexo privado
+e inmutable ligado uno a uno al acceso de la ficha y a su recibo CT43. SQL
+construye el conjunto exacto de selectores desde las firmas originales y el
+corte histórico, consume V3 y registra la auditoría en la misma transacción;
+revalida las pruebas antes del cierre. AUT102 comprueba mediante fachada
+nominal una asignación propia y vigente de cargo de firma para la organización
+y unidad históricas. AUT103 incorpora la concesión exacta del campo en los
+cuatro roles de consulta de cargos, mediante su gobierno existente con dos
+administradores. AD286 y CT228 forman la fase previa de lectura histórica.
+Estas migraciones son una candidata en preparación; no se presumen instaladas.
+
 Puertos Go: `internal/modules/contrataciontemporal/ports/`; adaptadores en
 `adapters/postgres/`. Detalle técnico por migración:
 `deploy/postgresql/contratacion_temporal/README.md`.
@@ -694,6 +705,17 @@ ligado al expediente y a su versión, organización, unidad y plan publicado.
 Esa cobertura indica qué documentos consultar; no concede permiso de firma.
 La ficha conserva los errores de consulta de cada documento y muestra los
 cuatro documentos sin plan como pendientes, sin acciones de firma.
+
+La ampliación F1-36 de la ficha devuelve, cuando la decisión permite el campo,
+`data.selectores_recuperacion_firmas` (hasta 128 entradas) y
+`data.recibo_selectores_recuperacion_firmas`. Cada entrada tiene `firma_ref` y
+`selector` con `expediente_ref`, `version_expediente`, `documento`,
+`paso_orden`, `clave_idempotencia`, `catalogo_huella` y `via`. El recibo del
+anexo contiene `acceso_ref`, `sello_detalle_sha256` y
+`sello_selectores_sha256`. Una respuesta ampliada necesita ambos campos,
+incluso cuando los selectores son `[]`; si falta uno, falla. La respuesta
+anterior de ficha sigue sin esos campos. El selector lo construye CT, no lo
+introduce el navegador ni se obtiene de una consulta con campos `[]`.
 
 La lista de activación de #1137 ordena CT218, IS20, AUT97, CT219 y CT224. AUT97
 reconstruye el validador nominal desde su preimagen y cambia únicamente el

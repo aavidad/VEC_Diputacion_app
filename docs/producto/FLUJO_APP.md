@@ -307,6 +307,17 @@ conveniente».
 | 20 | (automático) Bolsa | Mi Bolsa de Antonio y Bolsas de RRHH | Bolsa recibe el cese | Antonio vuelve a la bolsa Administrativo como **Disponible** o **Disponible desde** la fecha que marque la política |
 | 21 | Carmen | Ficha, Cierre | Cierra el expediente | `nombramiento/completado` |
 
+La consulta histórica de firmas originales (F1-36, en preparación) se comprueba
+dentro de los pasos 7b y 15 de este mismo caso. Una persona con acceso a la
+ficha y asignación vigente de un cargo de firma en la unidad de la firma
+original abre el expediente y pulsa «Consultar firma» junto a una firma ya
+registrada. Ve su fecha, estado histórico y recibo original. No introduce
+claves ni datos técnicos. Una asignación de otra unidad, retirada o ausente
+deniega la consulta; también la deniega una firma sin unidad histórica. Se
+conserva la ficha si falla el catálogo o el cliente de recuperación. Se
+comprueba el mismo resultado tras reiniciar aplicación y base. Esta ampliación
+no crea una firma nueva ni cambia el orden de los pasos del caso.
+
 La vía del aspirante es Mi Bolsa interna (HZ37); la entrada externa propia solo
 si el ensayo la valida (corte 17:00 del 13/10).
 

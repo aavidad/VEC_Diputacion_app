@@ -8,7 +8,9 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Actualizado el 15 de octubre de 2026 sobre `origin/main@896d3b4a2`.
+Revisado el 16 de octubre de 2026 para F1-36; referencia comprobada de
+`origin/main@cc6c2927c`. El estado de F1-36 describe trabajo local pendiente de
+integración.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
 cómo se sabe que cada fase está terminada y cómo se trabaja. Es lectura
@@ -152,12 +154,22 @@ PR abiertas (el estado de borrador se comprueba en GitHub):
 | #881 | Provisión: agrupar experiencia y separar el corrector provisional | T | 5, aparcado |
 
 #1099 incorporó los originales y la consulta de firma desde la ficha. #1137
-registra en la copia H dos firmas del informe y tres de la resolución con
+está en `main`; registra en la copia H dos firmas del informe y tres de la resolución con
 GrxFirma, y recupera los dos PDF y los mismos recibos después de reiniciar.
 Son dos expedientes distintos: P conserva la comprobación del caso único de
 `FLUJO_APP.md` 4.0. La fase 1 y la instalación en cidonia siguen pendientes.
 El guion de activación, la lista SQL y los límites están en
 `deploy/principal/candidata_hz39/firma/LEEME.md`.
+
+F1-36 prepara la consulta de evidencia histórica de esas firmas originales
+desde la ficha de CT. El contrato ampliado de ficha, los selectores construidos
+por CT y su anexo de recibo están en trabajo local, junto con AUT102, AUT103 y
+CT229; AD286 y CT228 son la fase previa. El guion condicionado está en
+`deploy/principal/firma_historica_f1_36_20261016.md`. Falta cerrar el código,
+ensayar SQL sobre copia actual, obtener dos revisiones independientes de SQL e
+identidad, arrancar con y sin la configuración, recorrer Chrome, reiniciar y
+pasar las puertas de integración. No está publicado en cidonia ni acredita por
+sí solo el caso de aceptación de `FLUJO_APP.md` 4.0.
 
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna

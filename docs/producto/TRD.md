@@ -441,6 +441,17 @@ restauración de copias sigue el mismo patrón (`docs/plan_modulos/copias_seguri
   El objetivo acordado es comprobarlas contra la sesión, con su apunte de
   auditoría (apartado 5).
 
+La consulta histórica de firmas originales de Contratación temporal (F1-36,
+en preparación) parte de `expediente.consultar` para la ficha. La versión
+ampliada de la decisión concede exactamente el campo
+`selectores_recuperacion_firmas`; `[]` no es un comodín. Además comprueba una
+asignación propia y vigente de un cargo de firma, con organización y unidad
+compatibles con las de la firma original. Esa segunda comprobación solo reduce
+el resultado: no concede acceso a la ficha, no cambia el perfil activo y no
+exige que consulte quien firmó entonces. La ausencia de unidad histórica
+deniega la recuperación. No se usa el plan de firma actual para reinterpretar
+la firma original.
+
 ## 7. Efectos duraderos: auditoría, outbox, idempotencia y versión
 
 Todo efecto escribe, en **una sola transacción** de PostgreSQL:
@@ -485,6 +496,14 @@ Una recuperación reutiliza la operación original; no se crea otra para aparent
 éxito. Tras reiniciar la aplicación y PostgreSQL, se deben ver los mismos
 recibos y fechas y nada duplicado. Una repetición o un reinicio nunca duplican
 efectos, recibos ni comunicaciones.
+
+En F1-36, la lectura ampliada del detalle deja un anexo privado, inmutable y
+uno a uno con el acceso y el recibo de la ficha. El anexo conserva el conjunto
+exacto de selectores ofrecidos, su decisión y la referencia y huella de la
+asignación comprobada. Se verifican el sello del detalle y el del anexo antes
+de confirmar la transacción. Un recibo anterior de ficha acredita aquella
+lectura, pero no prueba los selectores nuevos. Esta ampliación sigue pendiente
+de ensayo SQL, revisión independiente e integración.
 
 ## 8. Protección de datos
 
