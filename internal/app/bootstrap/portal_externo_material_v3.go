@@ -531,6 +531,29 @@ func materialJSONV3PortalExterno(inv inventarioV3PortalExterno, consumidor strin
 		HuellaSecreto    string `json:"huella_secreto_sha256"`
 		EmisorID         string `json:"emisor_id"`
 	}
+	// El preflight documental consume preparación antes de subir o descargar.
+	// Su orden de transporte es independiente del índice de ficheros derivado
+	// y ya publicado en el inventario externo.
+	if consumidor == consumidorJustificantesBolsaExterno {
+		if len(claves) != 3 {
+			return nil, ErrMaterialV3PortalExternoInvalido
+		}
+		porAudiencia := make(map[string]claveInventarioV3PortalExterno, 3)
+		for _, c := range claves {
+			if _, repetida := porAudiencia[c.Audiencia]; repetida {
+				return nil, ErrMaterialV3PortalExternoInvalido
+			}
+			porAudiencia[c.Audiencia] = c
+		}
+		claves = make([]claveInventarioV3PortalExterno, 0, 3)
+		for _, audiencia := range []string{audienciaJustificanteBolsaPreparar, audienciaJustificanteBolsaSubir, audienciaJustificanteBolsaDescargar} {
+			c, existe := porAudiencia[audiencia]
+			if !existe {
+				return nil, ErrMaterialV3PortalExternoInvalido
+			}
+			claves = append(claves, c)
+		}
+	}
 	lista := make([]clave, 0, len(claves))
 	for _, c := range claves {
 		lista = append(lista, clave{c.Audiencia, c.ClaveID, c.Version, c.RevisionGobierno, c.HuellaGobierno, c.HuellaSecreto, c.EmisorID})
