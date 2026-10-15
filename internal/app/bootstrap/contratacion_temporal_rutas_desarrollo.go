@@ -241,6 +241,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		rutaPlantillasDocumentalCTDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
+		r.URL.Path == httpinterno.RutaConsultaEstadoSeleccionOferta ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||
 		r.URL.Path == httpinterno.RutaConsultaReciboRespuesta ||
 		r.URL.Path == httpinterno.RutaConsultaComunicacionesExpediente ||
