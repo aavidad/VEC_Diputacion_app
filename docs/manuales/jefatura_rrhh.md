@@ -64,6 +64,8 @@ Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede e
 | Disponible desde una fecha | Ha cesado y no puede recibir ofertas hasta esa fecha. El plazo general del Reglamento de bolsas es de cinco meses, y de nueve si el contrato fue por acumulación de tareas. |
 | Excluido | Ha salido de la bolsa. Solo vuelve si RRHH valida una reincorporación justificada. |
 
+Desde la ficha de participación, «Cambiar situación» permite elegir el destino, indicar la fecha cuando corresponda y escribir el motivo. Los campos se muestran en filas y el motivo ocupa todo el ancho. «Revisar cambio de situación» muestra el resumen antes de confirmar.
+
 La mayoría de los cambios ocurren solos, según avanza el expediente: aceptar una oferta, incorporarse, cesar. Las renuncias justificadas quedan en revisión hasta que el técnico valida el justificante. RRHH decide en la pantalla de reglas qué cambios de situación se permiten.
 
 ### 4.3 Lo que ve el aspirante: Mi Bolsa
