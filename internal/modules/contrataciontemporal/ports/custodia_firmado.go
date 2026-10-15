@@ -25,9 +25,9 @@ var (
 	ErrCustodiaFirmadoEnConflicto = errors.New("contratacion temporal: custodia del documento firmado en conflicto")
 )
 
-// VersionDocumentoCustodiado es fija: cada operación de firma custodia un
-// documento propio (su referencia sale de la clave de la operación), así que
-// no hay versiones sucesivas de un mismo documento.
+// VersionDocumentoCustodiado es la versión fija de los actos V1. Las altas V2
+// usan la secuencia global del documento; cada operación conserva su propia
+// referencia y un replay usa la versión histórica autorizada.
 const VersionDocumentoCustodiado uint64 = 1
 
 // OrdenCustodiaFirmado es lo que CT pide custodiar. TipoDocumental es la
