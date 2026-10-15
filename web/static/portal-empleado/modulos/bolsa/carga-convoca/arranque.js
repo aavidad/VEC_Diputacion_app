@@ -1,7 +1,7 @@
 import { cargarTextos, reintentarTextos } from "../../../../comun/textos.js";
-import { crearClienteCategorias } from "../../../categorias-rpt/cliente.js?v=20261014-ginpix-personal-b2-v1";
+import { crearClienteCategorias } from "../../../categorias-rpt/cliente.js?v=20261015-r1-criterios-v1";
 import { crearClienteCargaConvoca } from "./cliente.js?v=20261010-b1-carga-v1";
-import { montarVistaCargaConvoca } from "./vista.js?v=20261013-bolsa-ranking-n4";
+import { montarVistaCargaConvoca } from "./vista.js?v=20261015-r1-criterios-v1";
 
 async function iniciar(reintento = false) {
   const error = document.getElementById("arranque-error");

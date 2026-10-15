@@ -4,13 +4,13 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261014-ginpix-cronos-v1";
+const versionCoordinador = "20261015-r1-criterios-v1";
 const versionEntrada = versionCoordinador;
-const versionClienteCT = "20261014-ginpix-personal-b2-v1";
+const versionClienteCT = "20261015-r1-criterios-v1";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
-const versionCircuito = "20261014-ginpix-personal-b2-v1";
+const versionCircuito = "20261015-r1-criterios-v1";
 const versionVista = "20261013-ct-firma-tres-v3";
-const versionVistaPortal = "20261014-ginpix-personal-b2-v1";
+const versionVistaPortal = "20261015-r1-criterios-v1";
 const versionAdaptador = "20261013-ct-firma-tres-v3";
 const versionRender = "20261013-ct-firma-tres-v3";
 const versionContratacion = "20261007-pantallas-textos-final-v1";

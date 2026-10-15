@@ -1,7 +1,7 @@
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearClientePoliticaOfertas, validarPoliticaEditable, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, leerReglasVigentes,
-  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarCriteriosOfrecimiento, cambiarCriteriosOfrecimiento } from "./rrhh-criterios-ofrecimiento.js?v=20261015-criterios-ofrecimiento-r1";
+import { crearClientePoliticaOfertas, validarPoliticaEditable, criteriosOfrecimientoValidos, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, leerReglasVigentes,
+  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA, cargarCatalogoCriteriosOfrecimiento } from "./rrhh-plazos-api.js?v=20261015-r1-criterios-v1";
+import { renderizarCriteriosOfrecimiento, cambiarCriteriosOfrecimiento } from "./rrhh-criterios-ofrecimiento.js?v=20261015-r1-criterios-v1";
 
 // Los textos de plazos y plazas viven en textos/<idioma>/bolsa-ofertas.json.
 const { cargarTextos } = await import("../../../comun/textos.js");
@@ -54,25 +54,49 @@ export function crearSuperficieRRHHPlazos({
   cliente = crearClientePoliticaOfertas(), traducir = traducirPortal,
   alCambiar = () => {}, anunciar = () => {},
   generarClave = claveNueva, cargarEjemplo = cargarEjemploPlazas, cargarPlazo = cargarPlazoCatalogo,
-  cargarConfirmacion = cargarConfirmacionAdjudicacion,
+  cargarConfirmacion = cargarConfirmacionAdjudicacion, cargarCriterios = cargarCatalogoCriteriosOfrecimiento,
   textosPlazas = TEXTOS_PLAZAS, textosPlazo = TEXTOS_PLAZO,
 } = {}) {
   const estado = { bolsaRef: "", carga: "inactiva", vigente: null, borrador: { ...copia(EJEMPLO_VACIO), plazas: copia(PLAZAS_VACIAS) },
     error: "", mensaje: "", guardando: false, conflicto: false, clave: "", cargaId: 0,
     puedePublicar: false, capacidadCargando: false, capacidadError: false, ayudaAbierta: false,
-    ejemploPlazas: null, plazasTocadas: false, plazoCatalogo: null, plazoTocado: false, confirmacionCatalogo: null };
+    ejemploPlazas: null, plazasTocadas: false, plazoCatalogo: null, plazoTocado: false, confirmacionCatalogo: null,
+    criteriosCarga: "inactiva" };
   let ejemploPedido = false;
   let plazoPedido = false;
   let confirmacionPedida = null;
   let lectura = null;
   let capacidad = null;
   let escritura = null;
+  let lecturaCriterios = null;
   let documentoInstalado = null;
   const repintar = () => alCambiar();
   const politicaLegada = () => estado.vigente?.configurada === true && estado.vigente.politica?.plazo?.inicio === undefined;
   const puedeEditar = () => estado.carga === "lista" && estado.puedePublicar === true;
   const t = (clave, variables) => escapar(traducir(`rrhh_plazos_${clave}`, variables));
   const tp = (clave) => escapar(textosPlazas[clave] ?? clave);
+  const tc = (clave) => escapar(TEXTOS_CRITERIOS[clave]);
+
+  async function anadirCriterios() {
+    if (!puedeEditar() || estado.guardando || estado.conflicto || estado.borrador.criterios_ofrecimiento
+      || estado.criteriosCarga === "cargando") return;
+    const bolsa = estado.bolsaRef, id = estado.cargaId;
+    lecturaCriterios?.abort(); lecturaCriterios = new AbortController();
+    const controlador = lecturaCriterios;
+    estado.criteriosCarga = "cargando"; repintar();
+    try {
+      const criterios = await cargarCriterios({ signal: controlador.signal });
+      if (controlador.signal.aborted || id !== estado.cargaId || bolsa !== estado.bolsaRef) return;
+      if (!criteriosOfrecimientoValidos(criterios)) throw new TypeError("catálogo de criterios no válido");
+      estado.borrador.criterios_ofrecimiento = copia(criterios);
+      estado.clave = ""; estado.mensaje = ""; estado.error = "";
+      estado.criteriosCarga = "lista";
+    } catch (error) {
+      if (controlador.signal.aborted || id !== estado.cargaId || bolsa !== estado.bolsaRef || error?.name === "AbortError") return;
+      estado.criteriosCarga = "error";
+    }
+    repintar();
+  }
 
   function pedirConfirmacionCatalogo() {
     confirmacionPedida ??= Promise.resolve().then(cargarConfirmacion).then((confirmacion) => {
@@ -150,6 +174,8 @@ export function crearSuperficieRRHHPlazos({
     if (!estado.plazoCatalogo) void pedirPlazoCatalogo();
     lectura?.abort();
     capacidad?.abort();
+    lecturaCriterios?.abort();
+    if (!conservarBorrador || estado.criteriosCarga === "cargando") estado.criteriosCarga = "inactiva";
     lectura = new AbortController();
     const controlador = lectura;
     const bolsa = estado.bolsaRef;
@@ -269,14 +295,20 @@ export function crearSuperficieRRHHPlazos({
       : estado.capacidadCargando ? `<p class="dato-secundario" role="status">${t("comprobando_edicion")}</p>`
         : estado.capacidadError ? `<div class="rrhh-plazos__acciones"><p class="rrhh-plazos__error" role="alert">${t("error_capacidad")}</p><button type="button" class="boton-secundario" data-rrhh-plazos-accion="capacidad">${t("reintentar")}</button></div>`
           : `<p class="dato-secundario">${t("sin_edicion")}</p>`;
-    const criterios = configurada ? renderizarCriteriosOfrecimiento(v.criterios_ofrecimiento, TEXTOS_CRITERIOS, deshabilitado) : "";
+    const criterios = v.criterios_ofrecimiento
+      ? renderizarCriteriosOfrecimiento(v.criterios_ofrecimiento, TEXTOS_CRITERIOS, deshabilitado)
+      : `<section class="panel"><div class="cabecera-panel"><h3>${tc("titulo")}</h3></div><div class="cuerpo-panel">` +
+        `${puedeEditar() ? `<button type="button" class="boton-secundario" data-rrhh-plazos-accion="anadir-criterios"${estado.criteriosCarga === "cargando" ? " disabled" : ""}>${tc("anadir")}</button>` : ""}` +
+        `${!puedeEditar() && estado.criteriosCarga !== "cargando" ? `<p>${tc("sin_criterios")}</p>` : ""}` +
+        `${estado.criteriosCarga === "cargando" ? `<p role="status">${tc("cargando")}</p>` : ""}` +
+        `${estado.criteriosCarga === "error" ? `<p role="alert">${tc("error_carga")}</p>` : ""}</div></section>`;
     return `<section class="rrhh-plazos" aria-label="${t("titulo")}"><div class="panel">${cabecera}${aviso ? `<div class="cuerpo-panel">${aviso}</div>` : ""}</div><form data-rrhh-plazos-form="politica" novalidate><div class="rrhh-plazos__rejilla">${plazo}${orden}${noCubierta}${plazas}${criterios}</div>${boton}</form></section>`;
   }
 
   function manejarCambio(evento) {
     const control = evento.target;
     if (!control?.closest?.('[data-rrhh-plazos-form="politica"]') || !puedeEditar() || estado.guardando || estado.conflicto) return false;
-    if (control.name?.startsWith("criterio_") && estado.vigente?.politica?.criterios_ofrecimiento) {
+    if (control.name?.startsWith("criterio_") && estado.borrador?.criterios_ofrecimiento) {
       if (!cambiarCriteriosOfrecimiento(estado.borrador.criterios_ofrecimiento, control)) return false;
       estado.clave = ""; estado.mensaje = ""; estado.error = "";
       return true;
@@ -327,6 +359,7 @@ export function crearSuperficieRRHHPlazos({
     else if (boton.dataset.rrhhPlazosAccion === "recargar") void cargar();
     else if (boton.dataset.rrhhPlazosAccion === "revisar") void cargar({ conservarBorrador: true });
     else if (boton.dataset.rrhhPlazosAccion === "capacidad") void cargarCapacidad(estado.bolsaRef, estado.cargaId);
+    else if (boton.dataset.rrhhPlazosAccion === "anadir-criterios") void anadirCriterios();
     else return false;
     return true;
   }
@@ -334,17 +367,17 @@ export function crearSuperficieRRHHPlazos({
   return Object.freeze({
     activar(bolsaRef) {
       if (!bolsaRef || bolsaRef === estado.bolsaRef) return;
-      lectura?.abort(); capacidad?.abort(); escritura?.abort(); estado.cargaId++;
+      lectura?.abort(); capacidad?.abort(); escritura?.abort(); lecturaCriterios?.abort(); estado.cargaId++;
       Object.assign(estado, { bolsaRef, carga: "inactiva", vigente: null, borrador: conPlazas(conPlazo(copia(EJEMPLO_VACIO))),
         error: "", mensaje: "", guardando: false, conflicto: false, clave: "", puedePublicar: false,
         capacidadCargando: false, capacidadError: false,
-        ayudaAbierta: false, plazasTocadas: false, plazoTocado: false });
+        ayudaAbierta: false, plazasTocadas: false, plazoTocado: false, criteriosCarga: "inactiva" });
       void pedirEjemploPlazas();
       void pedirPlazoCatalogo();
       void cargar();
     },
     desmontar() {
-      lectura?.abort(); capacidad?.abort(); escritura?.abort(); estado.cargaId++;
+      lectura?.abort(); capacidad?.abort(); escritura?.abort(); lecturaCriterios?.abort(); estado.cargaId++;
       estado.bolsaRef = ""; estado.carga = "inactiva"; estado.puedePublicar = false;
       estado.capacidadCargando = false; estado.capacidadError = false;
       documentoInstalado?.removeEventListener("input", manejarCambio);

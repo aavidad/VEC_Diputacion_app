@@ -13,20 +13,20 @@ import {
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
-} from "./portal-bolsas-contrato.js?v=20261013-bolsa-ranking-n4";
+} from "./portal-bolsas-contrato.js?v=20261015-r1-criterios-v1";
 import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20261011-ct-bolsa-vinculo-v1";
 import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
 import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-traza-idioma-v1";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261013-bolsa-ranking-n4";
-export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261013-bolsa-ranking-n4";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261015-r1-criterios-v1";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261015-r1-criterios-v1";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
 import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
-import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261013-bolsa-ranking-n4";
-import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4";
-import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261013-bolsa-ranking-n4";
+import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261015-r1-criterios-v1";
+import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261015-r1-criterios-v1";
+import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261015-r1-criterios-v1";
 import { cargarTextos } from "../comun/textos.js";
 
 const TEXTOS_VINCULO_CT = (await cargarTextos("portal-bolsa")).seccion("vinculo_ct");
@@ -1014,7 +1014,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         const actual = estado.datosCandidatos;
         const origen = actual?.datos?.exclusiones_origen;
         if (!estado.filtrosBolsa?.seguimiento || actual?.carga !== "listo" || origen?.estado !== "disponible") return;
-        const desde = accion === "primera-pagina-exclusiones" ? 0 : origen.hay_mas ? origen.siguiente_orden_acta : null;
+        const desde = accion === "primera-pagina-exclusiones" ? 0 : origen.pagina?.hay_mas ? origen.pagina.siguiente_orden_acta : null;
         if (desde === null || !Number.isSafeInteger(desde) || desde < 0 || desde === actual.exclusionesDesde) return;
         void cargarCandidatosBolsa(estado.bolsaSeleccionada, { exclusionesDesde: desde });
       } else if (accion === "reintentar-global" || accion === "pagina-global" || accion === "actualizar-global") {

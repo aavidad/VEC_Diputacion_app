@@ -48,7 +48,7 @@ import {
   extraerDatos,
   construirErrorRespuesta,
   construirCabeceras,
-} from "./cliente-http-transporte.js?v=20261014-ginpix-personal-b2-v1";
+} from "./cliente-http-transporte.js?v=20261015-r1-criterios-v1";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
@@ -97,6 +97,7 @@ export class ErrorClienteHTTPContratacionTemporal extends Error {
     correlacionRef = null,
     campo = "",
     envelopeValido = false,
+    comprobacionOfrecimiento = null,
     resultadoIndeterminado = codigo === "operacion_pendiente"
       || codigo === "resultado_indeterminado",
   } = {}) {
@@ -110,6 +111,7 @@ export class ErrorClienteHTTPContratacionTemporal extends Error {
     this.correlacionRef = correlacionRef;
     this.campo = campo;
     this.envelopeValido = envelopeValido;
+    this.comprobacionOfrecimiento = comprobacionOfrecimiento;
     this.resultadoIndeterminado = resultadoIndeterminado;
     this.requiereRecuperacion = resultadoIndeterminado;
     this.reintentoPermitido = false;
@@ -144,6 +146,7 @@ function convertirEnResultadoIndeterminado(error) {
     correlacionRef: error.correlacionRef,
     campo: error.campo,
     envelopeValido: error.envelopeValido,
+    comprobacionOfrecimiento: error.comprobacionOfrecimiento,
     resultadoIndeterminado: true,
   });
 }

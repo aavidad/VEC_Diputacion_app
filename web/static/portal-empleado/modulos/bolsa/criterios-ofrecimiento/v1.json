@@ -14,12 +14,6 @@
   ],
   "criterios_ofrecimiento": {
     "fuente_normativa": "Reglamento de bolsas de la Diputación de Granada (BOP núm. 9, 16/01/2026), art. 9, apartado cuarto (numerado 3 en el texto publicado): excepción para vacante y reducción del máximo de tres años por tiempo ya prestado en acumulación de tareas o sustitución",
-    "modalidades_aceptables": [
-      "vacante",
-      "sustitucion",
-      "programa",
-      "acumulacion_tareas"
-    ],
     "mejora": {
       "habilitada": true,
       "maximo_vacante_meses": 36,

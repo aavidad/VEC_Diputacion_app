@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { criteriosOfrecimientoValidos, validarPoliticaEditable } from "./rrhh-plazos-api.js";
+import { criteriosOfrecimientoValidos, validarPoliticaEditable,
+  cargarCatalogoCriteriosOfrecimiento, RUTA_CATALOGO_CRITERIOS_OFRECIMIENTO } from "./rrhh-plazos-api.js";
 import { renderizarCriteriosOfrecimiento, cambiarCriteriosOfrecimiento } from "./rrhh-criterios-ofrecimiento.js";
 import { crearSuperficieRRHHPlazos } from "./rrhh-plazos-ui.js";
 import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
@@ -9,9 +10,8 @@ import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
 const textos = JSON.parse(readFileSync(new URL("../../../textos/es/bolsa-ofertas.json", import.meta.url))).politica_criterios_ofrecimiento;
 const criterio = () => ({
   fuente_normativa: "Reglamento publicado",
-  modalidades_aceptables: ["vacante", "sustitucion", "programa", "acumulacion_tareas"],
-  modalidad_no_aceptada: "no_renuncia",
-  mejora: { habilitada: true, modalidades_destino: ["vacante"], condiciones_actuales: [
+  mejora: { habilitada: true, modalidades_destino: ["vacante"], causas_destino: ["vacante"], maximo_vacante_meses: 36,
+    reduccion_por_modalidades_previas: ["sustitucion"], condiciones_actuales: [
     { modalidad: "sustitucion", requiere_baja_comprobada: true,
       meses_transcurridos: { meses: 9, incluye_limite: true } },
     { modalidad: "programa", meses_duracion_inicial: { meses: 9, incluye_limite: false } },
@@ -36,9 +36,15 @@ test("conserva criterio publicado, regla desactivada y límites al validar la po
     assert.equal(criteriosOfrecimientoValidos(otro.criterios_ofrecimiento), false);
     assert.throws(() => validarPoliticaEditable(otro));
   }
-  const duplicado = criterio();
-  duplicado.modalidades_aceptables.push("vacante");
-  assert.equal(criteriosOfrecimientoValidos(duplicado), false);
+  const sinTope = criterio(); delete sinTope.mejora.maximo_vacante_meses;
+  assert.equal(criteriosOfrecimientoValidos(sinTope), false);
+  const sinCausa = criterio(); delete sinCausa.mejora.causas_destino;
+  assert.equal(criteriosOfrecimientoValidos(sinCausa), false);
+  const sinCondicion = criterio(); sinCondicion.mejora.reduccion_por_modalidades_previas = ["acumulacion_tareas"];
+  assert.equal(criteriosOfrecimientoValidos(sinCondicion), false);
+  const legada = politica(); legada.criterios_ofrecimiento = { ...criterio(), modalidad_no_aceptada: "renuncia", modalidades_aceptables: ["vacante"] };
+  assert.equal(validarPoliticaEditable(legada).criterios_ofrecimiento.modalidad_no_aceptada, undefined);
+  assert.equal(validarPoliticaEditable(legada).criterios_ofrecimiento.modalidades_aceptables, undefined);
 });
 
 test("renderiza solo el criterio publicado con rótulos y controles deshabilitados", () => {
@@ -48,8 +54,11 @@ test("renderiza solo el criterio publicado con rótulos y controles deshabilitad
   assert.match(html, /Programa temporal/u);
   assert.match(html, /name="criterio_mejora_habilitada"[^>]*checked[^>]*disabled/u);
   assert.match(html, /name="criterio_meses_transcurridos_0"[^>]*disabled/u);
+  assert.match(html, /name="criterio_maximo_vacante_meses"[^>]*value="36"[^>]*disabled/u);
+  assert.match(html, /Causas de la oferta/u);
+  assert.doesNotMatch(html, /criterio_modalidad_no_aceptada/u);
   assert.doesNotMatch(html, /sustitucion/u);
-  const ajeno = criterio(); ajeno.modalidades_aceptables = ["tipo_nuevo"];
+  const ajeno = criterio(); ajeno.mejora.modalidades_destino = ["tipo_nuevo"];
   assert.match(renderizarCriteriosOfrecimiento(ajeno, textos), /Modalidad publicada 1/u);
 });
 
@@ -64,8 +73,9 @@ test("desactivar y reactivar mejora conserva condiciones; solo edita límites ex
   assert.equal(cambio("criterio_mejora_habilitada", "", true), true);
   assert.deepEqual(actual.mejora.condiciones_actuales[0].meses_transcurridos,
     { meses: 8, incluye_limite: false });
-  assert.equal(cambio("criterio_modalidad_no_aceptada", "renuncia"), true);
-  assert.equal(actual.modalidad_no_aceptada, "renuncia");
+  assert.equal(cambio("criterio_maximo_vacante_meses", "30"), true);
+  assert.equal(actual.mejora.maximo_vacante_meses, 30);
+  assert.equal(cambio("criterio_modalidad_no_aceptada", "renuncia"), false);
 });
 
 test("RRHH publica el borrador de criterios con la operación y el recibo existentes", async () => {
@@ -100,4 +110,47 @@ test("RRHH publica el borrador de criterios con la operación y el recibo existe
   assert.equal(comando.politica.criterios_ofrecimiento.mejora.habilitada, false);
   assert.equal(comando.politica.criterios_ofrecimiento.mejora.condiciones_actuales[0].meses_transcurridos.meses, 8);
   assert.match(superficie.renderizar(), /recibo:criterios:2/u);
+});
+
+test("la propuesta sale solo del catálogo público validado y sin credenciales", async () => {
+  const catalogo = JSON.parse(readFileSync(new URL("./criterios-ofrecimiento/v1.json", import.meta.url)));
+  let pedido;
+  const leer = (valor) => cargarCatalogoCriteriosOfrecimiento({ fetchImpl: async (ruta, opciones) => {
+    pedido = { ruta, opciones };
+    return { status: 200, redirected: false, headers: { get: () => "application/json" }, json: async () => valor };
+  } });
+  assert.deepEqual(await leer(catalogo), catalogo.criterios_ofrecimiento);
+  assert.equal(pedido.ruta, RUTA_CATALOGO_CRITERIOS_OFRECIMIENTO);
+  assert.equal(pedido.opciones.credentials, "omit");
+  assert.equal(pedido.opciones.cache, "no-store");
+  assert.equal(pedido.opciones.redirect, "error");
+  assert.equal(pedido.opciones.referrerPolicy, "no-referrer");
+  await assert.rejects(leer({ ...catalogo, criterios_ofrecimiento: { fuente_normativa: "Sin regla" } }));
+  await assert.rejects(cargarCatalogoCriteriosOfrecimiento({ fetchImpl: async () => { throw new Error("sin red"); } }));
+});
+
+test("RRHH añade la propuesta solo a su borrador; fallo del catálogo conserva el resto del formulario", async () => {
+  const base = politica(); base.plazas = { llamada: "simultanea", respuesta_horas: 24, tras_renuncia: "siguiente_en_orden" };
+  const sobre = { esquema: "vec.bolsa.rrhh.politica-ofertas.v1", bolsa_ref: "bolsa:1", version: 1,
+    configurada: true, ejemplo: true, huella_sha256: "a".repeat(64), publicada_en: "2026-10-15T10:00:00Z",
+    politica: base };
+  let falla = true;
+  const superficie = crearSuperficieRRHHPlazos({ cliente: {
+    consultar: async () => ({ ok: true, politica: sobre }),
+    consultarCapacidad: async () => ({ ok: true, puede_publicar: true }),
+  }, traducir: crearTraductorRRHHPlazos(), cargarEjemplo: async () => null,
+  cargarPlazo: async () => null, cargarConfirmacion: async () => null,
+  cargarCriterios: async () => { if (falla) throw new Error("catálogo inaccesible"); return criterio(); } });
+  superficie.activar("bolsa:1");
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  const click = () => superficie.manejarClick({ target: { closest: () => ({ disabled: false,
+    dataset: { rrhhPlazosAccion: "anadir-criterios" } }) } });
+  assert.match(superficie.renderizar(), /Añadir criterios para vacantes/u);
+  click(); await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.match(superficie.renderizar(), /No se han podido cargar los criterios/u);
+  assert.equal(superficie.estado().borrador.plazo.cantidad, 2);
+  falla = false; click(); await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(superficie.estado().borrador.criterios_ofrecimiento.mejora.maximo_vacante_meses, 36);
+  assert.equal(superficie.estado().vigente.politica.criterios_ofrecimiento, undefined);
+  assert.match(superficie.renderizar(), /Comprobar la excepción para vacantes/u);
 });
