@@ -5,7 +5,8 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 const versionCoordinador = "20261014-ginpix-cronos-v1";
-const versionEntrada = versionCoordinador;
+// La entrada se renovó para Ofertas; el coordinador CT conserva su propia URL.
+const versionEntrada = "20261015-ofertas-recuperacion-v4";
 const versionClienteCT = "20261014-ginpix-personal-b2-v1";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
 const versionCircuito = "20261014-ginpix-personal-b2-v1";
