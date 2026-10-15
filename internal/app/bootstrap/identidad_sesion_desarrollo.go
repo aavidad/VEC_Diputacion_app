@@ -57,7 +57,7 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) fijarVinculoCorporativo(v puerto
 	}
 	if err != nil || dependenciaEsNulaContratacionTemporalDesarrollo(v) {
 		p.vinculoCorporativo = nil
-		p.falloVinculoCorporativo = puertosvec.ErrVinculoCorporativoRRHHNoDisponible
+		p.falloVinculoCorporativo = errors.Join(puertosvec.ErrVinculoCorporativoRRHHNoDisponible, err)
 		return
 	}
 	p.vinculoCorporativo = v
