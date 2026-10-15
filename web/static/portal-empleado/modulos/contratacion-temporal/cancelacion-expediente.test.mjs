@@ -85,7 +85,7 @@ test("el rechazo por oferta pendiente explica el paso siguiente sin mostrar canc
     pulsar(c, "[data-ct-cancelacion-abrir]");
     c.eventos.get("submit")({ target: { closest: () => ({ campos: { motivo_clave: "falta_credito", observaciones: "" } }) }, preventDefault() {} });
     await esperar();
-    assert.match(c.innerHTML, /Hay una publicación de oferta pendiente de confirmar\. Termine o recupere esa operación antes de cancelar\./u);
+    assert.match(c.innerHTML, /Termine o recupere la oferta pendiente para conocer su resultado\./u);
     assert.doesNotMatch(c.innerHTML, /data-copiar-justificante/u);
     assert.equal(avisosConfirmados, 0);
     desmontar();

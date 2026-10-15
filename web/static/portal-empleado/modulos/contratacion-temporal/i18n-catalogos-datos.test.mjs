@@ -140,7 +140,22 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
 ]);
 // Las claves añadidas se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_ADICIONALES = Object.freeze({
-  "i18n-llamamiento.js": ["llamamiento_orden_bolsa_provisional"],
+  "i18n-cancelacion.js": ["error_seleccion_oferta_pendiente"],
+  "i18n-llamamiento.js": [
+    "llamamiento_orden_bolsa_provisional", "llamamiento_iniciar_seleccion",
+    "llamamiento_publicar_oferta", "llamamiento_confirmacion_seleccion_neutra",
+    "llamamiento_confirmacion_oferta", "llamamiento_oferta_recibo",
+    "llamamiento_oferta_plazas", "llamamiento_oferta_publicada_en",
+    "llamamiento_oferta_vence_antes_de", "llamamiento_oferta_justificante",
+    "llamamiento_oferta_vinculo", "llamamiento_oferta_sin_aviso",
+    "llamamiento_oferta_gestionar", "llamamiento_recuperar_oferta",
+    "llamamiento_oferta_resultado_incierto", "llamamiento_confirmacion_recuperar_oferta",
+    "llamamiento_recuperando_oferta", "llamamiento_recuperacion_oferta_incierta",
+    "llamamiento_oferta_sin_reserva", "llamamiento_oferta_descartada",
+    "llamamiento_oferta_descartada_en", "llamamiento_oferta_cierre_bolsa",
+    "llamamiento_oferta_recibo_descarte", "llamamiento_oferta_descartada_sin_publicar",
+    "llamamiento_preparar_nueva_oferta", "llamamiento_confirmacion_nueva_oferta",
+  ],
   "i18n-textos-vistas.js": ["motivo_sustitucion"],
   "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
     "necesidades_alta_no_disponibles_detalle"],

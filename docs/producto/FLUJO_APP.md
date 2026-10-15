@@ -328,18 +328,25 @@ esta tabla.
 | Punto | Lo que hay escrito | Para la presentación |
 | --- | --- | --- |
 | Orden del ofrecimiento y la fiscalización | RRHH (02/10) y el circuito v2 ponen oferta y adjudicación antes del informe de Jefatura y de Intervención; el código hace el llamamiento después de la fiscalización favorable | Se sigue el orden del código. La pantalla puede pintar las doce fases del circuito v2, pero los pasos se hacen como en la tabla anterior |
-| Momento de la propuesta | Circuito v2: tras la adjudicación; código: exige `fiscalizacion/en_curso` | El del código: propuesta tras fiscalizar y aceptar |
+| Momento de la propuesta | Circuito v2: tras la adjudicación; código: exige `fiscalizacion/en_curso` y un llamamiento aceptado | En el recorrido singular se registra después de fiscalizar y resolver la aceptación. Queda pendiente la continuación desde una oferta adjudicada |
 | Dos o tres firmantes | RRHH habló de resolución firmada por la Diputada con visto bueno de Dirección o Jefatura (dos); el catálogo v2 pide tres pasos | Tres: Jefatura, Diputado/a y Secretaría General, como dice el catálogo |
 | Petición firmada por técnico y Diputado/a | RRHH la pide firmada; el código la presenta y la ratifica otra persona del centro, sin firma | Presentación y ratificación sin firma, como hace el código |
 | Autorización de la Dirección de RRHH | Paso 2 del orden de RRHH; el código no tiene un paso propio | No se representa; la vía de cobertura y el informe la sustituyen en la presentación |
 | Unidad de Lucía | `docs/manuales/centro.md` la sitúa en TRANSFORMACIÓN DIGITAL | Se usa la que fija este caso; el manual se corrige cuando K confirme centro y puesto |
-| Una o varias plazas | El recorrido singular ya usa el llamamiento de Bolsa; la variante de varias plazas desde CT está preparada en código, sin ensayo integrado | El mismo expediente Administrativo solicita dos personas: Antonio y otra persona ficticia ya disponible en la bolsa. Una persona se conserva como regresión del llamamiento singular |
 | Cuándo cuenta la incorporación | Duda 140: con el alta en Personal o con la toma de posesión | Se muestran las dos: acreditación del centro y alta en Personal |
 
-Dirección autorizó el 15/10 esta variante dentro del mismo caso de aceptación,
-sin abrir otro recorrido. Los pasos posteriores a la aceptación de Antonio
-siguen pendientes de comprobar para dos personas; el recibo de una oferta no
-acredita su incorporación, nombramiento ni el envío de un correo.
+**Variante de varias plazas, separada del caso de aceptación.** Dirección autorizó
+el 15/10 ensayar una petición del mismo puesto Administrativo para dos personas:
+Antonio y otra persona ficticia ya disponible en la bolsa. El ensayo previsto llega hasta la
+publicación, respuesta y adjudicación de las dos plazas en Bolsa, conservando
+los recibos de la oferta y de su vínculo con CT. La publicación desde CT N2
+sigue preparada en código, sin ensayo conjunto de SQL, configuración, Chrome
+y reinicio. **Pendiente:** continuar con la propuesta desde una oferta adjudicada;
+el recibo de la oferta no acredita propuesta, nombramiento, incorporación ni
+envío de correo. También siguen pendientes los bloqueos M10, la diferencia
+entre unidad gestora y unidad orgánica y la vía gobernada para asignar los tres
+perfiles de Administración que exige la activación. Este ejercicio no cambia
+los pasos 1 a 21 del caso singular.
 
 ### 4.0.1 Vista general
 
@@ -722,6 +729,11 @@ Bolsa, reserva el comando original y pide a Bolsa una oferta de esa cantidad.
 Bolsa publica y devuelve su recibo; CT confirma el vínculo con recibo propio.
 La ficha muestra ambos, las plazas y el plazo, y lleva a «Gestionar ofertas»
 en Bolsa. La publicación no demuestra un aviso por correo.
+
+La variante de dos personas del apartado 4.0 llega hasta la adjudicación en
+Bolsa. **Pendiente:** continuación de la propuesta desde la oferta adjudicada.
+La propuesta del recorrido singular exige un llamamiento aceptado; la oferta
+adjudicada todavía no acredita que ese requisito esté cubierto.
 
 Ante una respuesta incierta, RRHH repite la solicitud original con el mismo
 contenido y clave. Si el servidor identifica una oferta indeterminada, RRHH

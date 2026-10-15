@@ -968,7 +968,32 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     versionesEspeciales.set(ruta, "20261014-cronos-activacion-v1");
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js"])
     versionesEspeciales.set(ruta, "20261014-ginpix-cronos-v1");
-  versionesEspeciales.set("portal.js", "20261015-ofertas-recuperacion-v4");
+  versionesEspeciales.set("portal.js", "20261015-ct-ofertas-v2");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261015-ct-ofertas-v2");
+  // El segundo corte de ofertas renovó la cadena de imports de Contratación.
+  for (const ruta of [
+    "categorias-rpt/cliente.js", "categorias-rpt/montaje.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http-llamamiento.js",
+    "modulos/contratacion-temporal/cliente-http-consulta-recibo-respuesta.js",
+    "modulos/contratacion-temporal/cliente-http-consulta-comunicaciones-expediente.js",
+    "modulos/contratacion-temporal/cliente-http-vinculo-bolsa.js",
+    "modulos/contratacion-temporal/cliente-http-transporte.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/contrato-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-cobertura.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+  ]) versionesEspeciales.set(ruta, "20261015-ct-ofertas-v2");
   versionesEspeciales.set("portal-bolsas-ofertas.js", "20261015-ofertas-recuperacion-v4");
   versionesEspeciales.set("portal-llamamientos-selector.js", "20261015-ofertas-recibo-v3");
   versionesEspeciales.set("modulos/bolsa/rrhh-plazos-ui.js", "20261015-ofertas-recibo-v3");
