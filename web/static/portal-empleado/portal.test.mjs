@@ -422,7 +422,7 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.match(apiLlamamientos, /const RUTA_PROPUESTAS_LLAMAMIENTO = "\/api\/vec\/bolsa\/propuestas-llamamiento"/);
   assert.match(apiLlamamientos, /if \(capacidad !== true\)/);
   assert.match(apiLlamamientos, /esquema: "vec\.bolsa\.propuesta-llamamiento\.solicitud\.v1"/);
-  assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /Idempotency-Key|randomUUID|claveIdempotenciaPropuesta/);
+  assert.doesNotMatch(`${apiLlamamientos}\n${flujoLlamamientos}`, /Idempotency-Key|randomUUID|claveIdempotenciaPropuesta/);
   assert.match(flujoLlamamientos, /cliente\.solicitar\(\{ necesidadId, capacidad \}\)/);
   assert.doesNotMatch(javascript, /import\("\.\/portal-presentacion-adaptador\.js/);
   assert.doesNotMatch(javascript, /^import .*portal-presentacion-adaptador/m);
@@ -464,7 +464,7 @@ test("la navegación productiva rechaza vistas de presentación y Selección sin
   assert.match(javascript, /if \(vista\.startsWith\("seleccion-"\)\) return false/);
   assert.match(javascript, /function vistaPermitida\(vista\)/);
   assert.match(javascript, /history\.replaceState\(null, "", rutaSegura\)/);
-  assert.match(javascript, /rutaPortalConFiltroCT\(window\.location, hashSeguro\)/);
+  assert.match(javascript, /rutaPortalConFiltroCT\(ubicacionSinOfertas, hashSeguro\)/);
   assert.match(eventos, /navegar\(vista, \{ enfocar: false, desdeRuta: true \}\)/);
 });
 
