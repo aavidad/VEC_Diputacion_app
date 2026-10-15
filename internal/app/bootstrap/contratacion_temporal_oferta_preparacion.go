@@ -20,6 +20,53 @@ type preparadorSeleccionOfertaCTDesarrollo struct {
 	autoridad contextoAutoridadOfertaCT
 }
 
+type contextoConsultaEstadoOfertaCT interface {
+	ContextoConsultaEstadoOferta(context.Context) (context.Context, ct.ContextoAutorizacionAltaV3, error)
+	MotivoOferta() core.ReferenciaEntradaCatalogo
+}
+
+type preparadorConsultaEstadoSeleccionOfertaCTDesarrollo struct {
+	autoridad contextoConsultaEstadoOfertaCT
+	lector    ct.LectorContextoExpedienteSeleccionOfertaCT
+}
+
+var _ ct.PreparadorConsultaEstadoSeleccionOfertaCT = preparadorConsultaEstadoSeleccionOfertaCTDesarrollo{}
+
+func (p preparadorConsultaEstadoSeleccionOfertaCTDesarrollo) PrepararConsultaEstadoSeleccionOfertaCT(
+	ctx context.Context, expediente string,
+) (ct.SolicitudAutorizacionConsultaEstadoSeleccionOfertaCT, error) {
+	vacia := ct.SolicitudAutorizacionConsultaEstadoSeleccionOfertaCT{}
+	if ctx == nil || ctx.Err() != nil || dependenciaBootstrapNula(p.autoridad) ||
+		dependenciaBootstrapNula(p.lector) {
+		return vacia, ct.ErrIntegracionBolsaNoDisponible
+	}
+	_, actor, err := p.autoridad.ContextoConsultaEstadoOferta(ctx)
+	if err != nil {
+		return vacia, err
+	}
+	// La consulta preparatoria procede de la cabecera CT actual. O6 solo se
+	// consulta después de autorizar y consumir la decisión V3 nueva.
+	actual, err := p.lector.LeerContextoExpedienteSeleccionOfertaCT(ctx,
+		organizacionAltaContratacionTemporalDesarrollo, expediente)
+	if err != nil {
+		return vacia, err
+	}
+	correlacion, err := vecports.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
+	if err != nil {
+		return vacia, err
+	}
+	q := ct.SolicitudAutorizacionConsultaEstadoSeleccionOfertaCT{
+		OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+		ExpedienteRef:   expediente, CategoriaRef: actual.CategoriaRef,
+		CentroRef: actual.CentroRef, VersionObservada: actual.VersionActual,
+		ActorRef:  actor.Resultado.Contexto.PersonaRef,
+		PerfilRef: actor.Resultado.Contexto.PerfilActivoRef,
+		Vinculo:   actor.Vinculo, ResultadoContexto: actor.Resultado,
+		Correlacion: correlacion, MotivoAutorizacion: p.autoridad.MotivoOferta(),
+	}
+	return q, q.Validar()
+}
+
 var _ ct.PreparadorSeleccionOfertaCT = preparadorSeleccionOfertaCTDesarrollo{}
 
 func (p preparadorSeleccionOfertaCTDesarrollo) PrepararIntencion(ctx context.Context,

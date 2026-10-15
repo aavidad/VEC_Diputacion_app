@@ -161,6 +161,10 @@ const consultaPreflightSeleccionOfertaCTDesarrollo = `WITH tipos AS (
  CROSS JOIN LATERAL (VALUES
   (session_user::text, 'vec_contratacion_temporal', 'consultar_seleccion_oferta_ct220',
    ARRAY[x.j,x.t] || ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
+  (session_user::text, 'vec_contratacion_temporal', 'preparar_contexto_estado_oferta_ct225',
+   ARRAY[x.t,x.t]),
+  (session_user::text, 'vec_contratacion_temporal', 'consultar_estado_oferta_expediente_ct225',
+   ARRAY[x.t,x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
   (session_user::text, 'vec_contratacion_temporal', 'reservar_seleccion_oferta_ct220',
    ARRAY[x.j,x.j,x.t] || ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
   (session_user::text, 'vec_contratacion_temporal', 'abrir_ventana_seleccion_oferta_ct220',
@@ -187,7 +191,7 @@ const consultaPreflightSeleccionOfertaCTDesarrollo = `WITH tipos AS (
    ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b])
  ) AS v(rol,esquema,nombre,argumentos)
 )
-SELECT count(*)=11 AND count(p.oid)=11 AND
+SELECT count(*)=13 AND count(p.oid)=13 AND
  coalesce(bool_and(coalesce(pg_catalog.has_function_privilege(r.rol,p.oid,'EXECUTE'),false)),false)
 FROM requeridas AS r
 LEFT JOIN pg_catalog.pg_namespace AS n ON n.nspname=r.esquema

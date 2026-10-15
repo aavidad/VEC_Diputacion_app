@@ -1,1 +1,2 @@
 deploy/postgresql/contratacion_temporal/migraciones/000223_cancelacion_oferta_pendiente.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000225_consulta_estado_seleccion_oferta.up.sql

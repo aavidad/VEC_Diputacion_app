@@ -343,9 +343,9 @@ los recibos de la oferta y de su vínculo con CT. La publicación desde CT N2
 sigue preparada en código, sin ensayo conjunto de SQL, configuración, Chrome
 y reinicio. **Pendiente:** continuar con la propuesta desde una oferta adjudicada;
 el recibo de la oferta no acredita propuesta, nombramiento, incorporación ni
-envío de correo. También siguen pendientes los bloqueos M10, la diferencia
-entre unidad gestora y unidad orgánica y la vía gobernada para asignar los tres
-perfiles de Administración que exige la activación. Este ejercicio no cambia
+envío de correo. También siguen pendientes la consulta de Organización histórica, la correspondencia
+entre la unidad que tramita y la del puesto y la asignación de los permisos
+necesarios para la activación. Este ejercicio no cambia
 los pasos 1 a 21 del caso singular.
 
 ### 4.0.1 Vista general
@@ -735,8 +735,10 @@ Bolsa. **Pendiente:** continuación de la propuesta desde la oferta adjudicada.
 La propuesta del recorrido singular exige un llamamiento aceptado; la oferta
 adjudicada todavía no acredita que ese requisito esté cubierto.
 
-Ante una respuesta incierta, RRHH repite la solicitud original con el mismo
-contenido y clave. Si el servidor identifica una oferta indeterminada, RRHH
+Ante una respuesta incierta, RRHH conserva la solicitud original. Al recargar
+la ficha, una consulta autorizada por expediente recupera el intento guardado
+y sus recibos; no se publica otra oferta automáticamente. Si falla esa consulta,
+se impide preparar otra oferta hasta poder comprobar el resultado. Si el servidor identifica una oferta indeterminada, RRHH
 puede pulsar «Recuperar operación»: la petición añade `accion: recuperar_oferta`
 sin cambiar los tres campos originales. Puede devolver la oferta ya publicada
 con el mismo recibo. Si han pasado más de cinco minutos y Bolsa acredita que

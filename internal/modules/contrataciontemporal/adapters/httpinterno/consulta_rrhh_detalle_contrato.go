@@ -65,6 +65,7 @@ func proyectarPresentacionFlujoRRHH(p ports.PresentacionFlujoRRHH) *presentacion
 type solicitudRRHHJSON struct {
 	GrupoSubgrupo   string `json:"grupo_subgrupo"`
 	MotivoClave     string `json:"motivo_clave"`
+	NumeroPersonas  uint32 `json:"numero_personas,omitempty"`
 	PeriodoInicio   string `json:"periodo_inicio"`
 	PeriodoFin      string `json:"periodo_fin,omitempty"`
 	PeriodoCausaFin string `json:"periodo_causa_fin,omitempty"`
@@ -143,6 +144,7 @@ func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 		Solicitud: solicitudRRHHJSON{
 			GrupoSubgrupo:   entrada.Solicitud.GrupoSubgrupo,
 			MotivoClave:     string(entrada.Solicitud.MotivoClave),
+			NumeroPersonas:  entrada.Solicitud.NumeroPersonas,
 			PeriodoInicio:   instanteConsultaRRHH(entrada.Solicitud.PeriodoInicio),
 			PeriodoFin:      fechaFinOperativaRRHH(entrada.Solicitud.PeriodoFin),
 			PeriodoCausaFin: string(entrada.Solicitud.PeriodoCausaFin),

@@ -1,12 +1,12 @@
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261015-ct-ofertas-v3";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261013-ct-firma-tres-v3";
-import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261015-ct-ofertas-v2";
+import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261015-ct-ofertas-v3";
+import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261015-ct-ofertas-v3";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION, ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
-  PUBLICACIONES_FORMALIZACION, RESPUESTA_EXPIRACION } from "./contrato-llamamiento.js?v=20261015-ct-ofertas-v2";
+  PUBLICACIONES_FORMALIZACION, RESPUESTA_EXPIRACION } from "./contrato-llamamiento.js?v=20261015-ct-ofertas-v3";
 
 /** Recibo que habilita el siguiente llamamiento: la renuncia resuelta o la
  * expiración confirmada por RRHH (sin respuesta en plazo). */
@@ -312,7 +312,9 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         </div>` : ""}
         </fieldset>
         <div class="ct-acciones">
-        ${!paso.recibo && !paso.bloqueado && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-primario" type="submit"
+        ${!paso.recibo && !paso.bloqueado
+          && !(operacion === "seleccion" && estado.estadoOferta?.estado === "pendiente")
+          && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-primario" type="submit"
           ${paso.ocupado || paso.calculando ? "disabled" : ""}>${e(t(paso.solicitud !== null
             ? esRespuesta(operacion) ? "llamamiento_respuesta_reintentar_misma"
               : esResolucion(operacion) ? "llamamiento_reintentar_resolucion" : "llamamiento_recuperar"
@@ -353,28 +355,44 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   const bloqueaLista = ["cargando", "error", "denegado"].includes(estado.comunicaciones?.estado)
     || (estado.comunicaciones?.estado === "lista" && !restaurada);
   const seleccionOferta = estado.seleccion.recibo?.esquema === ESQUEMA_RECIBO_SELECCION_OFERTA;
+  const consultaOferta = estado.estadoOferta?.estado;
+  const esperaOferta = ["sin_cantidad", "sin_cliente", "cargando", "error", "denegado"].includes(consultaOferta);
+  const avisoOferta = esperaOferta ? `<div class="ct-estado ct-estado-${consultaOferta === "cargando" ? "informacion" : "error"}"
+    role="${consultaOferta === "cargando" ? "status" : "alert"}" aria-live="polite">
+    ${e(t(consultaOferta === "sin_cantidad" ? "llamamiento_cantidad_no_disponible"
+      : consultaOferta === "sin_cliente" ? "llamamiento_preparacion_error"
+      : `llamamiento_estado_oferta_${consultaOferta}`))}
+    ${consultaOferta === "error" ? `<button type="button" class="boton-secundario"
+      data-ct-llamamiento-estado-oferta-reintentar>${e(t("llamamiento_estado_oferta_reintentar"))}</button>` : ""}</div>` : "";
   const descarte = estado.recuperacionOferta?.recibo?.esquema === ESQUEMA_RECIBO_DESCARTE_OFERTA
     ? estado.recuperacionOferta.recibo : null;
   const descartesAnteriores = (estado.descartesConfirmados ?? []).map((recibo, indice) =>
     reciboDescarte(recibo, false, indice)).join("");
   const puedePrepararNueva = descarte && !estado.recuperacionOferta.preparandoNueva
-    && estado.seleccion.solicitud?.clave_idempotencia === estado.recuperacionOferta.solicitud?.clave_idempotencia;
+    && estado.seleccion.solicitud?.clave_idempotencia === estado.recuperacionOferta.solicitud?.clave_idempotencia
+    && !bloqueaFlujo && !bloqueaLista && !estado.comunicaciones?.intentoNoConfirmado;
+  const seleccionRestauradaPendiente = consultaOferta === "pendiente"
+    && estado.seleccion.solicitud !== null && estado.seleccion.recibo === null;
   if (descarte && !estado.seleccion.recibo) return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
     aria-labelledby="ct-llamamiento-titulo"><header class="ct-cabecera"><div><h2 id="ct-llamamiento-titulo">${e(t("llamamiento_titulo"))}</h2></div></header>
-    ${descartesAnteriores}${reciboDescarte(descarte, puedePrepararNueva, estado.descartesConfirmados.length)}${puedePrepararNueva ? "" : formulario("seleccion", CAMPOS_SELECCION)}</section>`;
-  return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
+    ${listaComunicaciones()}${consultaRespuesta()}
+    ${descartesAnteriores}${reciboDescarte(descarte, puedePrepararNueva, estado.descartesConfirmados.length)}
+    ${puedePrepararNueva || bloqueaFlujo || bloqueaLista ? "" : formulario("seleccion", CAMPOS_SELECCION)}</section>`;
+  return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento aria-busy="${consultaOferta === "cargando"}"
     aria-labelledby="ct-llamamiento-titulo">
     <header class="ct-cabecera"><div>
       <h2 id="ct-llamamiento-titulo">${e(t("llamamiento_titulo"))}</h2>
     </div></header>
     ${estado.enlazado ? "" : `<p class="ct-exp-mensaje ct-tono-informacion" role="status"
       data-ct-llamamiento-sin-expediente>${e(t("llamamiento_sin_expediente"))}</p>`}
+    ${avisoOferta}
+    ${seleccionRestauradaPendiente ? formulario("seleccion", CAMPOS_SELECCION) : ""}
     ${seleccionOferta ? "" : listaComunicaciones()}
     ${seleccionOferta ? "" : consultaRespuesta()}
-    ${!estado.enlazado || (!seleccionOferta && (bloqueaFlujo || bloqueaLista || estado.comunicaciones?.intentoNoConfirmado)) ? "</section>" : `
+    ${!estado.enlazado || (esperaOferta && !restaurada) || (!seleccionOferta && (bloqueaFlujo || bloqueaLista || estado.comunicaciones?.intentoNoConfirmado)) ? "</section>" : `
     ${descartesAnteriores}
     ${seleccionOferta ? "" : resumenResultado()}
-    ${restaurada ? "" : formulario("seleccion", CAMPOS_SELECCION)}
+    ${restaurada || seleccionRestauradaPendiente ? "" : formulario("seleccion", CAMPOS_SELECCION)}
     ${seleccionOferta ? "</section>" : `
     ${restaurada ? "" : `<details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
       <summary><h3 id="ct-llamamiento-comunicacion-titulo">${e(t("llamamiento_comunicacion"))}</h3></summary>

@@ -34,7 +34,7 @@ func TestPreflightSeleccionOfertaCTSinUsageBolsa(t *testing.T) {
 		t.Fatal("la prueba requiere el login CT sin USAGE de Bolsa")
 	}
 	if !detectarSeleccionOfertaCTDesarrollo(ctx, pool) {
-		t.Fatal("las once firmas y sus ACL publicadas no fueron reconocidas")
+		t.Fatal("las trece firmas y sus ACL publicadas no fueron reconocidas")
 	}
 	const original = "verificar_cierre_intencion_oferta_ct_v1"
 	consultaIncompleta := strings.Replace(consultaPreflightSeleccionOfertaCTDesarrollo,

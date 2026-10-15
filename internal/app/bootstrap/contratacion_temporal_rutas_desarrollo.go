@@ -75,6 +75,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		// Llamamiento: su autoridad decide en el PDP común (frontera por ruta
 		// y método en contratacion_temporal_llamamiento_pdp_comun_desarrollo.go).
 		httpinterno.RutaSeleccionLlamamiento:              {pdpCT(http.MethodPost)},
+		httpinterno.RutaConsultaEstadoSeleccionOferta:     {pdpCT(http.MethodGet)},
 		httpinterno.RutaRegistroComunicacionLlamamiento:   {pdpCT(http.MethodPost)},
 		httpinterno.RutaConsultaComunicacionesExpediente:  {pdpCT(http.MethodGet)},
 		httpinterno.RutaRegistroRespuestaRecibida:         {pdpCT(http.MethodPost)},

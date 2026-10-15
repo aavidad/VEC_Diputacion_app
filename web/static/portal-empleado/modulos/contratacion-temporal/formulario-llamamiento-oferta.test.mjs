@@ -3,8 +3,8 @@ import test from "node:test";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
 import { ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
   validarSolicitudRecuperacionOferta, validarReciboSeleccion, validarReciboSeleccionOferta,
-  validarReciboDescarteOferta } from "./contrato-llamamiento.js";
-import { EXPEDIENTE, seleccion, raizPrueba, montar, recibo as reciboSingular } from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
+  validarReciboDescarteOferta, validarEstadoSeleccionOferta } from "./contrato-llamamiento.js";
+import { EXPEDIENTE, seleccion, raizPrueba, montar as montarBase, recibo as reciboSingular } from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
 
 const HUELLA = "a".repeat(64);
 const reciboOferta = Object.freeze({
@@ -27,6 +27,176 @@ const click = (raiz, atributo) => {
     closest: (consulta) => consulta === selector ? boton : null };
   return raiz.eventos.get("click")({ target: boton, preventDefault() {} });
 };
+const asentarse = () => new Promise((resolver) => setImmediate(resolver));
+const montar = (raiz, cliente, extras = {}) => {
+  const enviar = raiz.enviar.bind(raiz);
+  raiz.enviar = (...argumentos) => asentarse().then(() => enviar(...argumentos));
+  return montarBase(raiz, { consultarEstadoSeleccionOferta: async () => estadoOferta("ausente"), ...cliente }, {
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 2 }, ...extras,
+  });
+};
+const estadoOferta = (estado, extras = {}) => ({ esquema: "vec.contratacion-temporal.estado-seleccion-oferta.v1",
+  estado, expediente_ref: EXPEDIENTE,
+  ...(estado === "ausente" ? {} : { version_esperada: 6, clave_idempotencia: seleccion().clave_idempotencia }),
+  ...extras });
+
+test("GET de estado usa consulta codificada y valida la identidad de la respuesta", async () => {
+  const comandos = [];
+  const cliente = crearLlamamientoClienteHTTP({ validarOpciones: () => ({ signal: undefined }),
+    ejecutar: async (comando) => { comandos.push(comando); return comando.validarRespuesta(estadoOferta("pendiente")); } });
+  assert.equal((await cliente.consultarEstadoSeleccionOferta(EXPEDIENTE)).estado, "pendiente");
+  assert.equal(comandos[0].metodo, "GET");
+  assert.equal(comandos[0].efecto, false);
+  assert.equal(comandos[0].ruta, `${RUTAS_LLAMAMIENTO.estadoSeleccionOferta}?expediente_ref=expediente%3Act%3Asintetico%3A001`);
+  assert.throws(() => validarEstadoSeleccionOferta(estadoOferta("pendiente", { expediente_ref: "expediente:otro:001" }), EXPEDIENTE));
+  assert.throws(() => validarEstadoSeleccionOferta(estadoOferta("ausente", { clave_idempotencia: seleccion().clave_idempotencia }), EXPEDIENTE));
+});
+
+test("recarga restaura la UUID pendiente sin POST y recupera solo al pulsar", async () => {
+  const raiz = raizPrueba();
+  const post = [], recuperaciones = [];
+  const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: async () => estadoOferta("pendiente", { ventana_abierta: true }),
+    seleccionarLlamamiento: async (solicitud) => { post.push(solicitud); return reciboOferta; },
+    recuperarOferta: async (solicitud) => { recuperaciones.push(solicitud); return reciboOferta; } },
+  { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 2 },
+    generarClaveIdempotencia: () => { throw new Error("UUID nueva prohibida"); } });
+  await asentarse();
+  assert.deepEqual(post, []);
+  assert.deepEqual(recuperaciones, []);
+  assert.match(raiz.innerHTML, /Recuperar operación/);
+  assert.doesNotMatch(raiz.innerHTML, /type="submit"[\s\S]*?>Volver a intentar<\/button>/);
+  assert.doesNotMatch(raiz.innerHTML, /123e4567-e89b-42d3-a456-426614174000/);
+  await raiz.enviar("seleccion", seleccion());
+  assert.deepEqual(post, []);
+  await click(raiz, "data-ct-llamamiento-recuperar-oferta");
+  assert.deepEqual(recuperaciones, [{ expediente_ref: EXPEDIENTE, version_esperada: 6,
+    clave_idempotencia: seleccion().clave_idempotencia }]);
+  assert.deepEqual(post, []);
+  assert.match(raiz.innerHTML, /Oferta publicada y vinculada/);
+  cerrar();
+});
+
+test("GET fallido bloquea la selección; reintento ausente la vuelve a permitir", async () => {
+  const raiz = raizPrueba();
+  let consultas = 0, post = 0;
+  const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: async () => {
+    if (++consultas === 1) throw Object.assign(new Error("sin conexión"), { estado: 503 });
+    return estadoOferta("ausente");
+  }, seleccionarLlamamiento: async () => { post++; return reciboOferta; } },
+  { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 2 } });
+  await asentarse();
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-estado-oferta-reintentar/);
+  await raiz.enviar("seleccion", seleccion());
+  assert.equal(post, 0);
+  await click(raiz, "data-ct-llamamiento-estado-oferta-reintentar");
+  assert.equal(consultas, 2);
+  cerrar();
+});
+
+test("N singular sin configuración S2 no consulta GET y conserva el envío", async () => {
+  const raiz = raizPrueba();
+  let consultas = 0, post = 0;
+  const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: async () => { consultas++; throw new Error("S2 sin configurar"); },
+    seleccionarLlamamiento: async () => { post++; return reciboSingular; } },
+  { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 } });
+  await asentarse();
+  assert.equal(consultas, 0);
+  await raiz.enviar("seleccion", seleccion());
+  assert.equal(post, 1);
+  cerrar();
+});
+
+test("N plural con S2 sin configurar bloquea POST hasta consulta válida", async () => {
+  const raiz = raizPrueba();
+  let consultas = 0, post = 0;
+  const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: async () => { consultas++; throw Object.assign(new Error("S2 sin configurar"), { estado: 503 }); },
+    seleccionarLlamamiento: async () => { post++; return reciboOferta; } });
+  await asentarse();
+  await raiz.enviar("seleccion", seleccion());
+  assert.equal(consultas, 1);
+  assert.equal(post, 0);
+  assert.match(raiz.innerHTML, /Reintentar consulta/);
+  cerrar();
+});
+
+test("N plural sin método GET bloquea selección; N singular conserva el POST", async () => {
+  for (const numeroPersonas of [1, 2]) {
+    const raiz = raizPrueba(); let post = 0;
+    const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: null,
+      seleccionarLlamamiento: async () => { post++; return numeroPersonas === 1 ? reciboSingular : reciboOferta; } },
+      { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: numeroPersonas } });
+    await raiz.enviar("seleccion", seleccion());
+    assert.equal(post, numeroPersonas === 1 ? 1 : 0);
+    if (numeroPersonas === 2) assert.match(raiz.innerHTML, /No se ha podido preparar el envío/);
+    cerrar();
+  }
+});
+
+test("CT140 caído deja recuperar intención plural sin habilitar oferta nueva", async () => {
+  for (const situacion of ["pendiente", "ausente", "confirmada", "descartada"]) {
+    const raiz = raizPrueba(), recuperadas = []; let post = 0;
+    const lectura = estadoOferta(situacion, situacion === "confirmada" ? { oferta: reciboOferta }
+      : situacion === "descartada" ? { descarte: reciboDescarte } : {});
+    const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: async () => lectura,
+      consultarComunicacionesExpediente: async () => { throw new Error("CT140 no disponible"); },
+      seleccionarLlamamiento: async () => { post++; return reciboOferta; },
+      recuperarOferta: async (solicitud) => { recuperadas.push(solicitud); return reciboOferta; } });
+    await asentarse();
+    if (situacion === "pendiente") {
+      assert.match(raiz.innerHTML, /data-ct-llamamiento-recuperar-oferta/);
+      await click(raiz, "data-ct-llamamiento-recuperar-oferta");
+      assert.deepEqual(recuperadas, [{ expediente_ref: EXPEDIENTE, version_esperada: 6,
+        clave_idempotencia: seleccion().clave_idempotencia }]);
+      assert.equal(post, 0);
+    } else if (situacion === "ausente") {
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"/);
+      await raiz.enviar("seleccion", seleccion());
+      assert.equal(post, 0);
+    } else if (situacion === "confirmada") {
+      assert.match(raiz.innerHTML, /Oferta publicada y vinculada/);
+      assert.equal(post, 0);
+    } else {
+      assert.match(raiz.innerHTML, /recibo:descarte:001/);
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-nueva-oferta/);
+      await click(raiz, "data-ct-llamamiento-nueva-oferta");
+      assert.equal(post, 0);
+    }
+    cerrar();
+  }
+});
+
+test("GET terminal devuelve recibo sin POST y respuesta tardía no cruza expedientes", async () => {
+  const raiz = raizPrueba();
+  let resolver, post = 0;
+  const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: () => new Promise((r) => { resolver = r; }),
+    seleccionarLlamamiento: async () => { post++; return reciboOferta; } },
+  { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 2 } });
+  await asentarse();
+  assert.equal(cerrar.actualizarContexto({ expediente_ref: "expediente:otro:001", version_esperada: 6 }), false);
+  resolver(estadoOferta("confirmada", { oferta: reciboOferta }));
+  await asentarse();
+  assert.equal(post, 0);
+  assert.doesNotMatch(raiz.innerHTML, /Oferta publicada y vinculada/);
+
+  const confirmada = raizPrueba();
+  const cerrarConfirmada = montar(confirmada, { consultarEstadoSeleccionOferta: async () => estadoOferta("confirmada", { oferta: reciboOferta }),
+    seleccionarLlamamiento: async () => { post++; return reciboOferta; } },
+  { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 2 } });
+  await asentarse();
+  assert.match(confirmada.innerHTML, /Oferta publicada y vinculada/);
+  assert.equal(post, 0);
+  cerrarConfirmada();
+
+  const otra = raizPrueba();
+  const cerrarOtra = montar(otra, { consultarEstadoSeleccionOferta: async () => estadoOferta("descartada", { descarte: reciboDescarte }),
+    seleccionarLlamamiento: async () => { post++; return reciboOferta; } },
+  { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 2 } });
+  await asentarse();
+  assert.match(otra.innerHTML, /recibo:descarte:001/);
+  assert.match(otra.innerHTML, /Preparar nueva oferta/);
+  assert.equal(post, 0);
+  cerrarOtra();
+});
 
 test("el mismo POST acepta recibo de oferta vinculada y rechaza un recibo ajeno", async () => {
   const solicitud = { ...seleccion(), version_esperada: 6 };
@@ -48,7 +218,8 @@ test("la oferta real muestra plazas, plazo y justificantes sin abrir comunicaci�
   const cerrar = montar(raiz, { seleccionarLlamamiento: async (solicitud) => {
     solicitudes.push(solicitud); return reciboOferta;
   } });
-  assert.match(raiz.innerHTML, /Continuar con Bolsa/);
+  await asentarse();
+  assert.match(raiz.innerHTML, /Publicar oferta de varias plazas/);
   await raiz.enviar("seleccion", seleccion());
   assert.equal(solicitudes.length, 1);
   assert.deepEqual(Object.keys(solicitudes[0]), ["expediente_ref", "version_esperada", "clave_idempotencia"]);
@@ -216,7 +387,7 @@ test("respuesta perdida al cerrar reintenta recuperación y sin reserva conserva
   await click(raiz, "data-ct-llamamiento-recuperar-oferta");
   assert.match(raiz.innerHTML, /Reintente la recuperación/);
   await click(raiz, "data-ct-llamamiento-recuperar-oferta");
-  assert.match(raiz.innerHTML, /Reintente la solicitud original sin cambiar su clave/);
+  assert.match(raiz.innerHTML, /Repita la solicitud anterior sin cambiarla/);
   assert.match(raiz.innerHTML, /Volver a intentar/);
   await raiz.enviar("seleccion", { ...seleccion(), expediente_ref: "expediente:otro:001" });
   assert.deepEqual(intentos[0], intentos[1]);
@@ -250,12 +421,12 @@ test("recuperar oferta publicada tras 403 conserva la clave original y omite com
   cerrar();
 });
 
-test("un error de red genérico o N singular conocido no ofrece cierre de oferta", async () => {
+test("sin cantidad se bloquea el envío y N singular no ofrece cierre de oferta", async () => {
   for (const [numeroPersonas, error] of [[undefined, new Error("red sin respuesta")], [1, errorOfertaIndeterminada()]]) {
     const raiz = raizPrueba();
-    let recuperaciones = 0;
+    let recuperaciones = 0, selecciones = 0;
     const cerrar = montar(raiz, {
-      seleccionarLlamamiento: async () => { throw error; },
+      seleccionarLlamamiento: async () => { selecciones++; throw error; },
       recuperarOferta: async () => { recuperaciones++; return reciboDescarte; },
     }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
       ...(numeroPersonas === undefined ? {} : { numero_personas: numeroPersonas }) } });
@@ -263,7 +434,13 @@ test("un error de red genérico o N singular conocido no ofrece cierre de oferta
     assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recuperar-oferta/);
     await click(raiz, "data-ct-llamamiento-recuperar-oferta");
     assert.equal(recuperaciones, 0);
-    assert.match(raiz.innerHTML, /Volver a intentar/);
+    if (numeroPersonas === undefined) {
+      assert.equal(selecciones, 0);
+      assert.match(raiz.innerHTML, /No se pudo consultar el número de personas solicitadas/);
+    } else {
+      assert.equal(selecciones, 1);
+      assert.match(raiz.innerHTML, /Volver a intentar/);
+    }
     cerrar();
   }
 });

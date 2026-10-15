@@ -82,6 +82,11 @@ func clasificarErrorSeleccionOferta(err error) (errorPublicoCobertura, bool) {
 		return errorConflictoSeleccionLlamamientoNoReintentable, true
 	case errors.Is(err, application.ErrSeleccionOfertaConcurrente):
 		return errorConflictoEstadoSeleccionLlamamiento, true
+	case errors.Is(err, ports.ErrVinculoOfertaBolsaCTInvalido),
+		errors.Is(err, ports.ErrEstadoExpedienteNoSeleccionable):
+		return errorConflictoEstadoSeleccionLlamamiento, true
+	case errors.Is(err, application.ErrConsultaEstadoSeleccionOfertaInvalida):
+		return errorPeticionSeleccionLlamamientoNoValida, true
 	case errors.Is(err, application.ErrSolicitudSeleccionOfertaInvalida):
 		return errorContenidoSeleccionLlamamientoInvalido, true
 	case errors.Is(err, application.ErrResultadoSeleccionOfertaNoConfiable):

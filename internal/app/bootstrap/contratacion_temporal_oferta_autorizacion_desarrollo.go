@@ -27,6 +27,7 @@ import (
 )
 
 const claveFronteraSeleccionOfertaCTDesarrollo = "ct-oferta-bolsa-seleccionar-privada"
+const claveFronteraConsultaEstadoOfertaCTDesarrollo = "ct-oferta-bolsa-estado-privada"
 
 // La fuente solo consulta la asignación publicada. El fichero de activación
 // identifica la versión aprobada, pero no contiene ni concede un rol.
@@ -183,26 +184,35 @@ func (a *autoridadSeleccionOfertaCTDesarrollo) ContextoOferta(ctx context.Contex
 	if a == nil {
 		return nil, ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
 	}
-	return a.contextoPerfilOferta(ctx, a.vinculo)
+	return a.contextoPerfilOferta(ctx, a.vinculo, http.MethodPost, cthttp.RutaSeleccionLlamamiento)
 }
 
 func (a *autoridadSeleccionOfertaCTDesarrollo) ContextoCierreBolsa(ctx context.Context) (context.Context, ports.ContextoAutorizacionAltaV3, error) {
 	if a == nil {
 		return nil, ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
 	}
-	return a.contextoPerfilOferta(ctx, a.cierreBolsa)
+	return a.contextoPerfilOferta(ctx, a.cierreBolsa, http.MethodPost, cthttp.RutaSeleccionLlamamiento)
 }
 
-func (a *autoridadSeleccionOfertaCTDesarrollo) contextoPerfilOferta(ctx context.Context, p *autoridadPerfilOfertaCTDesarrollo) (context.Context, ports.ContextoAutorizacionAltaV3, error) {
+func (a *autoridadSeleccionOfertaCTDesarrollo) ContextoConsultaEstadoOferta(ctx context.Context) (context.Context, ports.ContextoAutorizacionAltaV3, error) {
+	if a == nil {
+		return nil, ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
+	}
+	return a.contextoPerfilOferta(ctx, a.vinculo, http.MethodGet, cthttp.RutaConsultaEstadoSeleccionOferta)
+}
+
+func (a *autoridadSeleccionOfertaCTDesarrollo) contextoPerfilOferta(ctx context.Context, p *autoridadPerfilOfertaCTDesarrollo, metodo, ruta string) (context.Context, ports.ContextoAutorizacionAltaV3, error) {
 	var vacio ports.ContextoAutorizacionAltaV3
 	if a == nil || a.alta == nil || a.alta.soporte == nil || p == nil || p.sesion == nil ||
-		p.fuente == nil || ctx == nil || ctx.Err() != nil {
+		p.fuente == nil || ctx == nil || ctx.Err() != nil ||
+		(metodo != http.MethodPost || ruta != cthttp.RutaSeleccionLlamamiento) &&
+			(p != a.vinculo || metodo != http.MethodGet || ruta != cthttp.RutaConsultaEstadoSeleccionOferta) {
 		return nil, vacio, ports.ErrAutorizacionDenegada
 	}
 	capacidad, valida := a.alta.soporte.capacidadValida(ctx)
 	frontera, real := fronteraSeguridadComunDesdeContexto(ctx)
 	if !valida || !real || !a.publico.mismaInstancia(frontera.catalogo) ||
-		capacidad.metodo != http.MethodPost || capacidad.ruta != cthttp.RutaSeleccionLlamamiento ||
+		capacidad.metodo != metodo || capacidad.ruta != ruta ||
 		frontera.metodo != capacidad.metodo || frontera.ruta != capacidad.ruta ||
 		frontera.superficie != superficieInternaSeguridadComunDesarrollo ||
 		capacidad.principal.ID != a.alta.soporte.principalID ||
@@ -296,6 +306,56 @@ func (a *autoridadSeleccionOfertaCTDesarrollo) AutorizarSeleccionOfertaCT(ctx co
 		MaterialCanonico: canon, Material: material}, nil
 }
 
+var _ ports.AutorizadorConsultaEstadoSeleccionOfertaCT = (*autoridadSeleccionOfertaCTDesarrollo)(nil)
+
+// La lectura por expediente obtiene una V3 nueva del perfil vinculador. El
+// material no contiene la clave de operación, que sólo recupera CT en SQL.
+func (a *autoridadSeleccionOfertaCTDesarrollo) AutorizarConsultaEstadoSeleccionOfertaCT(ctx context.Context,
+	q ports.SolicitudAutorizacionConsultaEstadoSeleccionOfertaCT,
+) (ports.AutorizacionSeleccionOfertaCT, error) {
+	var vacia ports.AutorizacionSeleccionOfertaCT
+	if a == nil || a.vinculo == nil || a.vinculo.pdp == nil || a.vinculo.material == nil ||
+		q.Validar() != nil || q.MotivoAutorizacion != a.vinculo.motivo {
+		return vacia, ports.ErrAutorizacionDenegada
+	}
+	canon, err := ports.CanonConsultaEstadoSeleccionOfertaCT(q)
+	if err != nil {
+		return vacia, ports.ErrAutorizacionDenegada
+	}
+	hijo, actual, err := a.ContextoConsultaEstadoOferta(ctx)
+	if err != nil || !q.Vinculo.VigenteEn(a.reloj.Ahora(), q.ResultadoContexto) ||
+		actual.Resultado.Contexto.Principal.ID != q.ResultadoContexto.Contexto.Principal.ID ||
+		actual.Resultado.Contexto.PersonaRef != q.ActorRef ||
+		actual.Resultado.Contexto.PerfilActivoRef != q.PerfilRef ||
+		actual.Resultado.Contexto.Instantanea.CuentaRef != q.ResultadoContexto.Contexto.Instantanea.CuentaRef {
+		return vacia, ports.ErrAutorizacionDenegada
+	}
+	huella := sha256.Sum256([]byte(canon))
+	recurso := core.RecursoAutorizable{Referencia: q.ExpedienteRef,
+		ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoVinculoOfertaBolsaCT,
+		Ambitos: map[string]string{"organizacion_ref": q.OrganizacionRef,
+			"centro_ref": q.CentroRef, "categoria_ref": q.CategoriaRef},
+		Atributos: map[string]string{"material_sha256": hex.EncodeToString(huella[:])}}
+	solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(core.DatosSolicitudAutorizacionLigadaV3{
+		VinculoAutenticacionActor: actual.Vinculo, ReferenciaMotivo: a.vinculo.motivo,
+		Accion: ports.AccionVincularOfertaBolsaCT, Recurso: recurso,
+		Finalidad: ports.FinalidadVincularOfertaBolsaCT, Correlacion: q.Correlacion})
+	if err != nil {
+		return vacia, ports.ErrAutorizacionDenegada
+	}
+	decision, confirmacion, err := a.vinculo.pdp.ExigirSolicitudLigadaV3(hijo, solicitud, actual.Resultado)
+	if err != nil {
+		return vacia, errorAutorizacionOfertaCTDesarrollo(hijo, err)
+	}
+	material, err := a.vinculo.material.proveerMaterialConfirmacion(hijo, solicitud,
+		decision, confirmacion, a.vinculo.motivo, actual.Resultado)
+	if err != nil || material.ValidarEstructura() != nil {
+		return vacia, ports.ErrIntegracionBolsaNoDisponible
+	}
+	return ports.AutorizacionSeleccionOfertaCT{ActorRef: q.ActorRef, PerfilRef: q.PerfilRef,
+		MaterialCanonico: canon, Material: material}, nil
+}
+
 func identidadPerfilRecuperacionOfertaCTDesarrollo(actual ports.ContextoAutorizacionAltaV3,
 	i ports.IntencionSeleccionOfertaCT, perfil string) bool {
 	return actual.Resultado.Validar() == nil && actual.Vinculo.ValidarPara(actual.Resultado) == nil &&
@@ -368,7 +428,7 @@ func (a *autoridadSeleccionOfertaCTDesarrollo) AutorizarDescarteOfertaCT(ctx con
 	if err != nil {
 		return vacia, ports.ErrAutorizacionDenegada
 	}
-	hijo, actual, err := a.contextoPerfilOferta(ctx, a.descarteCT)
+	hijo, actual, err := a.contextoPerfilOferta(ctx, a.descarteCT, http.MethodPost, cthttp.RutaSeleccionLlamamiento)
 	if err != nil || !identidadPerfilRecuperacionOfertaCTDesarrollo(actual, s.Intencion, a.descarteCT.fuente.perfilRef) {
 		return vacia, ports.ErrAutorizacionDenegada
 	}
@@ -411,8 +471,35 @@ func errorAutorizacionOfertaCTDesarrollo(ctx context.Context, err error) error {
 	return ports.ErrAutorizacionDenegada
 }
 
+func descriptoresPerfilOfertaCTDesarrollo(c perfilActivacionOfertaCT,
+	politica politicaPerfilOfertaCTDesarrollo, consultaEstado bool,
+) ([]descriptorFronteraComunDesarrollo, error) {
+	descriptores := []descriptorFronteraComunDesarrollo{{
+		Clave:      claveFronteraSeleccionOfertaCTDesarrollo,
+		Superficie: superficieInternaSeguridadComunDesarrollo,
+		Metodo:     http.MethodPost, Ruta: cthttp.RutaSeleccionLlamamiento,
+		PerfilesActivosRef: []string{c.PerfilRef},
+		ClavePolitica:      clavePoliticaContratacionTemporalDesarrollo,
+		ClaveCapacidad:     politica.accion,
+	}}
+	if consultaEstado {
+		if politica.accion != ports.AccionVincularOfertaBolsaCT {
+			return nil, errActivacionOfertaCTDesarrollo
+		}
+		descriptores = append(descriptores, descriptorFronteraComunDesarrollo{
+			Clave:      claveFronteraConsultaEstadoOfertaCTDesarrollo,
+			Superficie: superficieInternaSeguridadComunDesarrollo,
+			Metodo:     http.MethodGet, Ruta: cthttp.RutaConsultaEstadoSeleccionOferta,
+			PerfilesActivosRef: []string{c.PerfilRef},
+			ClavePolitica:      clavePoliticaContratacionTemporalDesarrollo,
+			ClaveCapacidad:     politica.accion,
+		})
+	}
+	return descriptores, nil
+}
+
 func componerPerfilAutoridadOfertaCTDesarrollo(ctx context.Context,
-	c perfilActivacionOfertaCT, politica politicaPerfilOfertaCTDesarrollo,
+	c perfilActivacionOfertaCT, politica politicaPerfilOfertaCTDesarrollo, consultaEstado bool,
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
 	base *proveedorSesionConsultaRRHHDesarrollo,
 	lector vp.FuenteAutorizacion, registro *pgvec.AlmacenAutorizacion,
@@ -423,14 +510,11 @@ func componerPerfilAutoridadOfertaCTDesarrollo(ctx context.Context,
 		politica.accion == "" || politica.audiencia == "" {
 		return nil, errActivacionOfertaCTDesarrollo
 	}
-	privado, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{{
-		Clave:      claveFronteraSeleccionOfertaCTDesarrollo,
-		Superficie: superficieInternaSeguridadComunDesarrollo,
-		Metodo:     http.MethodPost, Ruta: cthttp.RutaSeleccionLlamamiento,
-		PerfilesActivosRef: []string{c.PerfilRef},
-		ClavePolitica:      clavePoliticaContratacionTemporalDesarrollo,
-		ClaveCapacidad:     politica.accion,
-	}})
+	descriptores, err := descriptoresPerfilOfertaCTDesarrollo(c, politica, consultaEstado)
+	if err != nil {
+		return nil, err
+	}
+	privado, err := nuevoCatalogoFronterasComunDesarrollo(descriptores)
 	if err != nil {
 		return nil, errActivacionOfertaCTDesarrollo
 	}
@@ -579,17 +663,18 @@ func nuevaAutoridadSeleccionOfertaCTDesarrollo(ctx context.Context, cfg config.C
 	}
 	etapa = "perfiles_publicados"
 	configuraciones := []struct {
-		perfil   perfilActivacionOfertaCT
-		politica politicaPerfilOfertaCTDesarrollo
+		perfil         perfilActivacionOfertaCT
+		politica       politicaPerfilOfertaCTDesarrollo
+		consultaEstado bool
 	}{
-		{c.Vinculo, politicaVinculoOfertaCTDesarrollo()},
-		{c.CierreBolsa, politicaCierreOfertaBolsaCTDesarrollo(base.soporte.unidadRef, base.soporte.ambitoRef)},
-		{c.DescarteCT, politicaDescarteOfertaCTDesarrollo()},
+		{c.Vinculo, politicaVinculoOfertaCTDesarrollo(), true},
+		{c.CierreBolsa, politicaCierreOfertaBolsaCTDesarrollo(base.soporte.unidadRef, base.soporte.ambitoRef), false},
+		{c.DescarteCT, politicaDescarteOfertaCTDesarrollo(), false},
 	}
 	perfiles := make([]*autoridadPerfilOfertaCTDesarrollo, 0, len(configuraciones))
 	for _, configuracion := range configuraciones {
 		perfil, e := componerPerfilAutoridadOfertaCTDesarrollo(sonda, configuracion.perfil,
-			configuracion.politica, alta, baseProveedor, fuenteDB, registro, poolMotivos, reloj)
+			configuracion.politica, configuracion.consultaEstado, alta, baseProveedor, fuenteDB, registro, poolMotivos, reloj)
 		if e != nil {
 			return fallar(e)
 		}

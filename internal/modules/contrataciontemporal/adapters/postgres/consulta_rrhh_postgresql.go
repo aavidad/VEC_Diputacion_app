@@ -217,6 +217,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 	defer clear(salida.contenidoCanonico)
 	var resultadoBolsaRaw []byte
 	defer clear(resultadoBolsaRaw)
+	var numeroPersonas int16
 	argumentosSQL := argumentosSQLDetalleConsultaRRHH(
 		contexto.OrganizacionRef(),
 		string(capacidad.ClaseAmbito()),
@@ -232,6 +233,11 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 		}
 		argumentosSQL = append(argumentosSQL, cursor)
 		destinos = append(destinos, &resultadoBolsaRaw)
+	}
+	conNumeroPersonas := consulta == consultaDetalleRRHHPostgreSQL ||
+		consulta == consultaDetalleConBolsaRRHHPostgreSQL
+	if conNumeroPersonas {
+		destinos = append(destinos, &numeroPersonas)
 	}
 	return ejecutarConsultaRRHHEnTransaccion(
 		ctx,
@@ -268,6 +274,12 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 			if err != nil || detalle.ValidarParaEjecucionInterna(orden) != nil {
 				return ports.DetalleExpedienteRRHH{},
 					ports.ErrResultadoConsultaRRHHNoConfiable
+			}
+			if conNumeroPersonas {
+				if numeroPersonas < 1 || numeroPersonas > 100 {
+					return ports.DetalleExpedienteRRHH{}, ports.ErrResultadoConsultaRRHHNoConfiable
+				}
+				detalle.Solicitud.NumeroPersonas = uint32(numeroPersonas)
 			}
 			if consulta == consultaDetalleConBolsaRRHHPostgreSQL {
 				resultado, err := ResultadoBolsaRRHHDesdeSQL(resultadoBolsaRaw)

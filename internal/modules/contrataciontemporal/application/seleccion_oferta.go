@@ -384,6 +384,10 @@ func normalizarFalloSeleccionOferta(ctx context.Context, err error) error {
 	if errors.Is(err, ports.ErrAutorizacionDenegada) {
 		return ports.ErrAutorizacionDenegada
 	}
+	if errors.Is(err, ports.ErrVinculoOfertaBolsaCTInvalido) ||
+		errors.Is(err, ports.ErrEstadoExpedienteNoSeleccionable) {
+		return errors.Join(ErrSeleccionOfertaConcurrente, err)
+	}
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -394,6 +398,11 @@ func normalizarFalloSeleccionOferta(ctx context.Context, err error) error {
 }
 
 func errorIndeterminadoSeleccionOferta(ctx context.Context, err error) error {
+	if errors.Is(err, ports.ErrVinculoOfertaBolsaCTInvalido) {
+		// Un conflicto SQL conocido no autoriza otra clave ni otro efecto: la
+		// ficha consulta la intención original antes de recuperar por POST.
+		return errors.Join(ErrSeleccionOfertaConcurrente, err)
+	}
 	if ctx != nil && ctx.Err() != nil {
 		return errors.Join(ErrSeleccionOfertaIndeterminada, err, ctx.Err())
 	}

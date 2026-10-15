@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	cthttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
@@ -182,6 +184,46 @@ func TestSeleccionOfertaCTExigeConcesionYAudienciaPropias(t *testing.T) {
 		concesion.Accion = ports.AccionVincularOfertaBolsaCT
 		if concesionExactaPerfilOfertaCTDesarrollo(concesion, politica) {
 			t.Fatalf("concesión de vínculo admitida para %s", politica.accion)
+		}
+	}
+}
+
+func TestFronteraPrivadaConsultaEstadoSoloPerfilVinculador(t *testing.T) {
+	activacion := archivoOfertaCTPrueba()
+	activacion.Vinculo.PerfilRef = "prf_vinculo_sintetico"
+	activacion.CierreBolsa.PerfilRef = "prf_cierre_sintetico"
+	activacion.DescarteCT.PerfilRef = "prf_descarte_sintetico"
+	paraVinculo, err := descriptoresPerfilOfertaCTDesarrollo(activacion.Vinculo,
+		politicaVinculoOfertaCTDesarrollo(), true)
+	if err != nil || len(paraVinculo) != 2 {
+		t.Fatal("frontera GET del vínculo no compuesta")
+	}
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(paraVinculo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	get, existe := catalogo.resolver(http.MethodGet, cthttp.RutaConsultaEstadoSeleccionOferta)
+	if !existe || !get.admitePerfil(activacion.Vinculo.PerfilRef) ||
+		get.admitePerfil(activacion.CierreBolsa.PerfilRef) ||
+		get.admitePerfil(activacion.DescarteCT.PerfilRef) ||
+		get.ClaveCapacidad != ports.AccionVincularOfertaBolsaCT {
+		t.Fatal("consulta GET expuesta a perfil ajeno o capacidad distinta")
+	}
+	if _, existe := catalogo.resolver(http.MethodPost, cthttp.RutaConsultaEstadoSeleccionOferta); existe {
+		t.Fatal("consulta GET admitida como POST")
+	}
+	if _, existe := catalogo.resolver(http.MethodGet, cthttp.RutaSeleccionLlamamiento); existe {
+		t.Fatal("selección POST admitida como GET")
+	}
+	for _, perfil := range []struct {
+		activacion perfilActivacionOfertaCT
+		politica   politicaPerfilOfertaCTDesarrollo
+	}{
+		{activacion.CierreBolsa, politicaCierreOfertaBolsaCTDesarrollo("unidad:bolsa:1", "ambito:bolsa:1")},
+		{activacion.DescarteCT, politicaDescarteOfertaCTDesarrollo()},
+	} {
+		if _, err := descriptoresPerfilOfertaCTDesarrollo(perfil.activacion, perfil.politica, true); err == nil {
+			t.Fatal("frontera GET admitida para cierre o descarte")
 		}
 	}
 }

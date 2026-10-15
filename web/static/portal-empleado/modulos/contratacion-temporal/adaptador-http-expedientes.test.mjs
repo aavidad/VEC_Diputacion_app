@@ -43,6 +43,7 @@ function clienteFalso(llamadas) {
         solicitud: {
           grupo_subgrupo: "A2",
           motivo_clave: "sustitucion",
+          numero_personas: 2,
           periodo_inicio: "2026-09-04T00:00:00Z",
           periodo_fin: "2026-12-31T00:00:00Z",
         },
@@ -99,6 +100,7 @@ test("F5 consulta un único detalle autorizado por referencia y versión, sin re
   await presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
   assert.equal(presentador.obtenerEstado().expediente_ref, resumen.expediente_ref);
   assert.equal(presentador.obtenerEstado().carga, "listo");
+  assert.equal(presentador.obtenerEstado().expediente.numero_personas, 2);
   assert.deepEqual(llamadas.map((llamada) => llamada.operacion), ["detalle"]);
   assert.deepEqual(llamadas[0].solicitud,
     { expediente_ref: resumen.expediente_ref, version_observada: resumen.version });

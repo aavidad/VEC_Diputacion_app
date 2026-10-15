@@ -1077,6 +1077,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		autoridadSubsanacion = subsanacionReal.autoridad
 		ejecutorSubsanacion = subsanacionReal.servicio
 	}
+	var consultorEstadoSeleccionOferta httpinterno.ConsultorEstadoSeleccionOferta
+	if consulta, ok := seleccionReal.(httpinterno.ConsultorEstadoSeleccionOferta); ok {
+		consultorEstadoSeleccionOferta = consulta
+	}
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			PresentacionFlujoRRHH:           presentacionFlujoRRHH,
@@ -1098,6 +1102,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			BorradorRRHH:                    borradorRRHH,
 			BorradorRRHHDOCX:                borradorRRHHDOCX,
 			EjecutorSeleccion:               seleccionReal,
+			ConsultorEstadoSeleccionOferta:  consultorEstadoSeleccionOferta,
 			AutoridadPropuestaFormalizacion: autoridadPropuestaReal,
 			EjecutorPropuestaFormalizacion:  propuestaReal,
 			AutoridadAsignacion:             alta.soporte,

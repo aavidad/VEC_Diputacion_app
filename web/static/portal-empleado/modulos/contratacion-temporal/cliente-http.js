@@ -1,5 +1,5 @@
 import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261013-ct-firma-tres-v3";
-import { crearVinculoBolsaClienteHTTP } from "./cliente-http-vinculo-bolsa.js?v=20261015-ct-ofertas-v2";
+import { crearVinculoBolsaClienteHTTP } from "./cliente-http-vinculo-bolsa.js?v=20261015-ct-ofertas-v3";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -16,12 +16,12 @@ import {
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
-import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261011-bolsa-b103-privacidad-v1";
+import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261015-ct-ofertas-v3";
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
-import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261015-ct-ofertas-v2";
-import { crearConsultaReciboRespuestaClienteHTTP, RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js?v=20261015-ct-ofertas-v2";
-import { crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261015-ct-ofertas-v2";
+import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261015-ct-ofertas-v3";
+import { crearConsultaReciboRespuestaClienteHTTP, RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js?v=20261015-ct-ofertas-v3";
+import { crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261015-ct-ofertas-v3";
 import { crearResolucionFormalizacionClienteHTTP, RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { crearIncorporacionEjercicioClienteHTTP, RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
 import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
@@ -48,7 +48,7 @@ import {
   extraerDatos,
   construirErrorRespuesta,
   construirCabeceras,
-} from "./cliente-http-transporte.js?v=20261015-ct-ofertas-v2";
+} from "./cliente-http-transporte.js?v=20261015-ct-ofertas-v3";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,

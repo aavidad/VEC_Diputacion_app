@@ -2,7 +2,7 @@
 
 import { RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
 import { RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
-import { conflictoLlamamientoValido, prefijoErrorLlamamiento, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261015-ct-ofertas-v2";
+import { conflictoLlamamientoValido, prefijoErrorLlamamiento, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261015-ct-ofertas-v3";
 import { RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
 import { RUTA_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
@@ -14,7 +14,7 @@ import { RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { CONFLICTOS_SEGUIMIENTO_CESE, RUTAS_SEGUIMIENTO_CESE } from "./cliente-http-seguimiento-cese.js";
 import { CONFLICTOS_CANCELACION_EXPEDIENTE, RUTAS_CANCELACION_EXPEDIENTE } from "./cliente-http-cancelacion.js?v=20261015-ct-ofertas-v2";
 
-import { RUTA_VINCULO_BOLSA } from "./cliente-http-vinculo-bolsa.js?v=20261015-ct-ofertas-v2";
+import { RUTA_VINCULO_BOLSA } from "./cliente-http-vinculo-bolsa.js?v=20261015-ct-ofertas-v3";
 
 export const MAXIMO_ERROR_BYTES = 16 * 1024;
 export const MAXIMO_FRAGMENTOS = 4096;

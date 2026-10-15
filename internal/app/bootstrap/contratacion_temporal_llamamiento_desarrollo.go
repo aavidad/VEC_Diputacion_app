@@ -15,16 +15,27 @@ import (
 )
 
 type ejecutorSeleccionLlamamientoDesarrollo struct {
-	soporte     *soporteAltaContratacionTemporalDesarrollo
-	puente      *puenteBolsaLlamamientoDesarrollo
-	lector      ports.LectorExpedienteSeleccionLlamamiento
-	autorizador *autorizadorLlamamientoDesarrollo
-	preparar    func(ports.ExpedienteParaSeleccion, string) (preparacionLlamamientoDesarrollo, error)
-	servicio    httpinterno.EjecutorSeleccionLlamamiento
-	ofertas     *application.ServicioSeleccionOfertaCT
+	soporte       *soporteAltaContratacionTemporalDesarrollo
+	puente        *puenteBolsaLlamamientoDesarrollo
+	lector        ports.LectorExpedienteSeleccionLlamamiento
+	autorizador   *autorizadorLlamamientoDesarrollo
+	preparar      func(ports.ExpedienteParaSeleccion, string) (preparacionLlamamientoDesarrollo, error)
+	servicio      httpinterno.EjecutorSeleccionLlamamiento
+	ofertas       *application.ServicioSeleccionOfertaCT
+	estadoOfertas *application.ServicioConsultaEstadoSeleccionOfertaCT
 }
 
 var _ httpinterno.EjecutorSeleccionLlamamiento = (*ejecutorSeleccionLlamamientoDesarrollo)(nil)
+var _ httpinterno.ConsultorEstadoSeleccionOferta = (*ejecutorSeleccionLlamamientoDesarrollo)(nil)
+
+func (e *ejecutorSeleccionLlamamientoDesarrollo) ConsultarEstadoSeleccionOfertaParaAdaptador(
+	ctx context.Context, expediente string,
+) (application.DatosEstadoSeleccionOfertaParaAdaptador, error) {
+	if e == nil || e.estadoOfertas == nil {
+		return application.DatosEstadoSeleccionOfertaParaAdaptador{}, application.ErrSeleccionOfertaNoDisponible
+	}
+	return e.estadoOfertas.ConsultarEstadoSeleccionOfertaParaAdaptador(ctx, expediente)
+}
 
 func nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg config.Config, alta *dependenciasAltaContratacionTemporalDesarrollo,
 	derivador *derivadorIdentidadOperacionDesarrollo, reloj relojContratacionTemporalDesarrollo,
@@ -134,24 +145,6 @@ func (e *ejecutorSeleccionLlamamientoDesarrollo) SeleccionarYLlamarParaAdaptador
 		version:      expediente.Fiscalizado.Version,
 		clave:        solicitud.ClaveIdempotencia,
 	})
-	// El servicio conserva la recuperación terminal existente. El proveedor
-	// rechaza efectos nuevos sobre versiones históricas; el replay sigue ligado
-	// al mismo expediente, intención y actor autorizado en esta petición.
-	if expediente.Fiscalizado.Solicitud.NumeroPersonas > 1 {
-		if e.ofertas == nil {
-			return vacio, application.ErrSeleccionOfertaNoDisponible
-		}
-		if solicitud.RecuperarOferta {
-			return e.ofertas.RecuperarOfertaParaAdaptador(ctx, solicitud)
-		}
-		oferta, err := e.ofertas.SeleccionarOfertaParaAdaptador(ctx, solicitud)
-		if err != nil {
-			return vacio, err
-		}
-		return application.DatosReciboSeleccionLlamamientoParaAdaptador{Oferta: &oferta}, nil
-	}
-	if solicitud.RecuperarOferta {
-		return vacio, application.ErrSolicitudSeleccionOfertaInvalida
-	}
-	return e.servicio.SeleccionarYLlamarParaAdaptador(ctx, solicitud)
+	return application.SeleccionarSegunNumeroPersonasCT(ctx, expediente, solicitud,
+		e.servicio, e.ofertas)
 }

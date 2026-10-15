@@ -4,6 +4,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
 export const ESQUEMA_RECIBO_SELECCION_OFERTA = "vec.contratacion-temporal.recibo-seleccion-oferta.v1";
 export const ESQUEMA_RECIBO_DESCARTE_OFERTA = "vec.contratacion-temporal.recibo-descarte-oferta.v1";
+export const ESQUEMA_ESTADO_SELECCION_OFERTA = "vec.contratacion-temporal.estado-seleccion-oferta.v1";
 export const CAMPOS_SELECCION = Object.freeze([
   "expediente_ref", "version_esperada", "clave_idempotencia",
 ]);
@@ -154,6 +155,37 @@ export function validarSolicitudRecuperacionOferta(entradaOriginal) {
   const original = validarSolicitudSeleccionLlamamiento(entradaOriginal);
   return Object.freeze({ expediente_ref: original.expediente_ref, version_esperada: original.version_esperada,
     clave_idempotencia: original.clave_idempotencia, accion: "recuperar_oferta" });
+}
+export function validarEstadoSeleccionOferta(entrada, expedienteRef) {
+  exigir(referenciaLlamamientoValida(expedienteRef));
+  const base = ["esquema", "estado", "expediente_ref"];
+  const posibles = ["version_esperada", "clave_idempotencia", "ventana_abierta", "oferta", "descarte"];
+  exigir(entrada !== null && typeof entrada === "object" && !Array.isArray(entrada)
+    && Object.getPrototypeOf(entrada) === Object.prototype
+    && Object.getOwnPropertySymbols(entrada).length === 0
+    && base.every((campo) => Object.hasOwn(entrada, campo))
+    && Object.keys(entrada).every((campo) => base.includes(campo) || posibles.includes(campo))
+    && Object.values(Object.getOwnPropertyDescriptors(entrada)).every((d) => d.enumerable && Object.hasOwn(d, "value")));
+  exigir(entrada.esquema === ESQUEMA_ESTADO_SELECCION_OFERTA
+    && entrada.expediente_ref === expedienteRef
+    && ["ausente", "pendiente", "confirmada", "descartada"].includes(entrada.estado));
+  if (entrada.estado === "ausente") {
+    exigir(!posibles.some((campo) => Object.hasOwn(entrada, campo)));
+    return Object.freeze({ ...entrada });
+  }
+  const original = validarSolicitudSeleccionLlamamiento({ expediente_ref: expedienteRef,
+    version_esperada: entrada.version_esperada, clave_idempotencia: entrada.clave_idempotencia });
+  exigir(entrada.ventana_abierta === undefined || entrada.ventana_abierta === true);
+  if (entrada.estado === "pendiente") exigir(!entrada.oferta && !entrada.descarte);
+  if (entrada.estado === "confirmada") {
+    exigir(!entrada.descarte && entrada.oferta);
+    validarReciboSeleccionOferta(entrada.oferta, original);
+  }
+  if (entrada.estado === "descartada") {
+    exigir(!entrada.oferta && entrada.descarte);
+    validarReciboDescarteOferta(entrada.descarte, original);
+  }
+  return Object.freeze({ ...entrada });
 }
 export function validarSolicitudComunicacionLlamamiento(entrada) {
   const continuacion = entrada !== null && typeof entrada === "object"

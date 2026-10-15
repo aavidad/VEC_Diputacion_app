@@ -14,7 +14,7 @@ import {
   renderizarViasPreparacion, selectorPestanaPreparacion, textoPreparacion, viaPreparacionDeEvento,
 } from "./vias-preparacion-cobertura.js";
 import { cargarTextos } from "../../../comun/textos.js";
-import { CONFLICTOS_SIN_CREDITO_COBERTURA } from "./cliente-http-transporte.js?v=20261015-ct-ofertas-v2";
+import { CONFLICTOS_SIN_CREDITO_COBERTURA } from "./cliente-http-transporte.js?v=20261015-ct-ofertas-v3";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",

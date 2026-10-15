@@ -68,6 +68,15 @@ func configurarSeleccionOfertaOpcionalCT(cfg config.Config,
 		slog.Warn("seleccion de oferta de CT no compuesta", "error", err)
 		return func() {}
 	}
+	estado, err := application.NuevoServicioConsultaEstadoSeleccionOfertaCT(
+		preparadorConsultaEstadoSeleccionOfertaCTDesarrollo{autoridad: autoridad, lector: registro},
+		autoridad, registro, seleccion.lector)
+	if err != nil {
+		cerrar()
+		slog.Warn("consulta de oferta de CT no compuesta", "error", err)
+		return func() {}
+	}
 	seleccion.ofertas = servicio
+	seleccion.estadoOfertas = estado
 	return cerrar
 }

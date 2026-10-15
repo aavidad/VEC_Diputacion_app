@@ -142,6 +142,9 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
 const CLAVES_ADICIONALES = Object.freeze({
   "i18n-cancelacion.js": ["error_seleccion_oferta_pendiente"],
   "i18n-llamamiento.js": [
+    "llamamiento_estado_oferta_cargando", "llamamiento_estado_oferta_error",
+    "llamamiento_estado_oferta_denegado", "llamamiento_estado_oferta_reintentar",
+    "llamamiento_cantidad_no_disponible",
     "llamamiento_orden_bolsa_provisional", "llamamiento_iniciar_seleccion",
     "llamamiento_publicar_oferta", "llamamiento_confirmacion_seleccion_neutra",
     "llamamiento_confirmacion_oferta", "llamamiento_oferta_recibo",

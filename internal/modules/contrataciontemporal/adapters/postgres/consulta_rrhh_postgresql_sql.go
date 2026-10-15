@@ -124,8 +124,9 @@ SELECT contenido_canonico,
        expediente_ref,
        version_expediente::bigint,
        total,
-       recibo_sello_sha256
-  FROM vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1(
+       recibo_sello_sha256,
+       numero_personas
+  FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_numero_ct225(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
        ROW($4::text, $5::numeric)::
@@ -163,8 +164,9 @@ SELECT contenido_canonico,
        version_expediente::bigint,
        total,
        recibo_sello_sha256,
-       resultado_bolsa
-  FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
+       resultado_bolsa,
+       numero_personas
+  FROM vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_con_numero_ct225(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
        ROW($4::text, $5::numeric)::

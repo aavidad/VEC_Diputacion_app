@@ -5,16 +5,16 @@
  * congelada (y su clave) para no duplicar el efecto.
  */
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261015-ct-ofertas-v2";
+import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261015-ct-ofertas-v3";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261007-pantallas-textos-final-v1";
-import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js?v=20261015-ct-ofertas-v2";
-import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261013-ct-firma-tres-v3";
+import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js?v=20261015-ct-ofertas-v3";
+import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261015-ct-ofertas-v3";
 import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20261012-reglas-configuracion-v1";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
   CAMPOS_COMUNICACION_SIGUIENTE, TIPO_ANTECEDENTE_CONTINUACION,
   validarSolicitudSeleccionLlamamiento, validarSolicitudComunicacionLlamamiento,
-  validarReciboSeleccion, validarReciboRecuperacionOferta, validarSolicitudRecuperacionOferta,
+  validarReciboSeleccion, validarReciboRecuperacionOferta, validarSolicitudRecuperacionOferta, validarEstadoSeleccionOferta,
   validarReciboComunicacionLlamamiento, ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
@@ -25,10 +25,10 @@ import {
   CAMPOS_PROPUESTA, validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
   CAMPOS_EVENTO_PLAZO, CAMPOS_EVENTO_PLAZO_EDITABLES, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
   RESPUESTA_EXPIRACION,
-} from "./contrato-llamamiento.js?v=20261015-ct-ofertas-v2";
-import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261015-ct-ofertas-v2";
-import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js?v=20261015-ct-ofertas-v2";
-import { LIMITE_TOTAL_COMUNICACIONES, instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261015-ct-ofertas-v2";
+} from "./contrato-llamamiento.js?v=20261015-ct-ofertas-v3";
+import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261015-ct-ofertas-v3";
+import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js?v=20261015-ct-ofertas-v3";
+import { LIMITE_TOTAL_COMUNICACIONES, instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261015-ct-ofertas-v3";
 
 const OPERACION_COMUNICACION = Object.freeze({
   campos: CAMPOS_COMUNICACION, validar: validarSolicitudComunicacionLlamamiento,
@@ -150,6 +150,7 @@ export function montarFormularioLlamamiento({
     recuperacionOferta: { disponible: typeof cliente.recuperarOferta === "function", solicitud: null, recibo: null,
       ocupado: false, controlador: null, mensaje: "", tono: "informacion", preparandoNueva: false,
       identificada: false },
+    estadoOferta: { estado: "sin_consulta", controlador: null, generacion: 0 },
     descartesConfirmados: [],
     consultaRespuesta: { estado: "sin_contexto", referencias: null, recibo: null,
       controlador: null, generacion: 0, mensaje: "llamamiento_consulta_sin_contexto", tono: "informacion" },
@@ -587,14 +588,67 @@ export function montarFormularioLlamamiento({
     estado.seleccion.valores.version_esperada = nuevo.version_esperada;
     estado.numeroPersonasSolicitadas = Number.isSafeInteger(nuevo.numero_personas) && nuevo.numero_personas > 0
       ? nuevo.numero_personas : null;
+    if (estado.numeroPersonasSolicitadas === null) estado.estadoOferta.estado = "sin_cantidad";
+    else if (estado.numeroPersonasSolicitadas > 1
+      && typeof cliente.consultarEstadoSeleccionOferta !== "function") estado.estadoOferta.estado = "sin_cliente";
     if (estado.comunicacion.solicitud === null) {
       estado.comunicacion.valores.expediente_ref = nuevo.expediente_ref;
     }
     estado.enlazado = true;
+    if (estado.numeroPersonasSolicitadas > 1
+      && typeof cliente.consultarEstadoSeleccionOferta === "function") {
+      consultarEstadoOferta(nuevo.expediente_ref);
+    }
     if (typeof cliente.consultarComunicacionesExpediente === "function") cargarComunicaciones(nuevo.expediente_ref);
     else if (nuevo.consulta_respuesta !== undefined) consultarReciboRespuesta(nuevo.consulta_respuesta);
     else repintar();
     return true;
+  }
+  function consultarEstadoOferta(expedienteRef) {
+    const paso = estado.estadoOferta;
+    paso.controlador?.abort();
+    const generacion = ++paso.generacion;
+    const controlador = new AbortController();
+    paso.controlador = controlador;
+    paso.estado = "cargando";
+    repintar();
+    return Promise.resolve().then(() => cliente.consultarEstadoSeleccionOferta(expedienteRef,
+      { signal: controlador.signal })).then((respuesta) => {
+      if (!montado || controlador.signal.aborted || generacion !== paso.generacion
+        || estado.seleccion.valores.expediente_ref !== expedienteRef) return;
+      // El cliente comprueba la representación y el expediente; se repite aquí
+      // porque las pruebas y otros adaptadores pueden inyectar un cliente propio.
+      const lectura = validarEstadoSeleccionOferta(respuesta, expedienteRef);
+      if (lectura.estado !== "ausente") {
+        const original = validarSolicitudSeleccionLlamamiento({ expediente_ref: expedienteRef,
+          version_esperada: lectura.version_esperada, clave_idempotencia: lectura.clave_idempotencia });
+        estado.seleccion.solicitud = original;
+        estado.seleccion.valores = { ...original };
+        if (lectura.estado === "pendiente") {
+          estado.recuperacionOferta.identificada = true;
+          estado.seleccion.mensaje = "llamamiento_oferta_resultado_incierto";
+          estado.seleccion.tono = "aviso";
+        } else if (lectura.estado === "confirmada") {
+          estado.seleccion.recibo = lectura.oferta;
+          estado.seleccion.mensaje = "llamamiento_oferta_recibo";
+          estado.seleccion.tono = "exito";
+        } else {
+          estado.recuperacionOferta.solicitud = validarSolicitudRecuperacionOferta(original);
+          estado.recuperacionOferta.recibo = lectura.descarte;
+          estado.recuperacionOferta.mensaje = "llamamiento_oferta_descartada";
+          estado.recuperacionOferta.tono = "exito";
+        }
+      }
+      paso.estado = lectura.estado;
+      repintar();
+    }).catch((error) => {
+      if (!montado || controlador.signal.aborted || generacion !== paso.generacion
+        || estado.seleccion.valores.expediente_ref !== expedienteRef) return;
+      paso.estado = error?.envelopeValido === true && [401, 403].includes(error.estado) ? "denegado" : "error";
+      repintar();
+    }).finally(() => {
+      if (generacion === paso.generacion) paso.controlador = null;
+    });
   }
   // Antecedente del siguiente llamamiento: renuncia resuelta o expiración
   // confirmada por RRHH, ambas con la intención de siguiente pendiente.
@@ -655,6 +709,8 @@ export function montarFormularioLlamamiento({
     const paso = estado[operacion];
     // Sin expediente abierto no hay llamamiento: no se teclean referencias ni versiones.
     if (!estado.enlazado) return;
+    if (operacion === "seleccion" && ["sin_cantidad", "sin_cliente", "cargando", "error", "denegado"].includes(estado.estadoOferta.estado)) return;
+    if (operacion === "seleccion" && estado.estadoOferta.estado === "pendiente") return;
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
     if (["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
     if (estado.comunicaciones.estado === "lista"
@@ -992,6 +1048,12 @@ export function montarFormularioLlamamiento({
   }
 
   function alPulsar(evento) {
+    const reconsultarEstado = evento.target?.closest?.("[data-ct-llamamiento-estado-oferta-reintentar]");
+    if (reconsultarEstado?.dataset?.ctLlamamientoEstadoOfertaReintentar !== undefined
+      && raiz.contains(reconsultarEstado) && estado.enlazado) {
+      evento.preventDefault();
+      return consultarEstadoOferta(estado.seleccion.valores.expediente_ref);
+    }
     const recuperar = evento.target?.closest?.("[data-ct-llamamiento-recuperar-oferta]");
     if (recuperar?.dataset?.ctLlamamientoRecuperarOferta !== undefined && raiz.contains(recuperar)) {
       evento.preventDefault();
@@ -1001,6 +1063,11 @@ export function montarFormularioLlamamiento({
     if (nueva?.dataset?.ctLlamamientoNuevaOferta !== undefined && raiz.contains(nueva)
       && estado.recuperacionOferta.recibo?.esquema === ESQUEMA_RECIBO_DESCARTE_OFERTA
       && !estado.recuperacionOferta.preparandoNueva
+      && !["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)
+      && !(estado.comunicaciones.estado === "lista" && !estado.comunicaciones.seleccionada)
+      && !estado.comunicaciones.intentoNoConfirmado
+      && (estado.consultaRespuesta.referencias === null
+        || (estado.consultaRespuesta.estado === "ausente" && antecedenteConsultaDisponible()))
       && estado.seleccion.solicitud?.clave_idempotencia === estado.recuperacionOferta.solicitud?.clave_idempotencia) {
       evento.preventDefault();
       const anterior = estado.seleccion.solicitud;
@@ -1117,6 +1184,8 @@ export function montarFormularioLlamamiento({
       estado[operacion].controlador?.abort();
     }
     estado.recuperacionOferta.controlador?.abort();
+    estado.estadoOferta.generacion += 1;
+    estado.estadoOferta.controlador?.abort();
     estado.consultaRespuesta.generacion += 1;
     estado.consultaRespuesta.controlador?.abort();
     estado.comunicaciones.generacion += 1;
