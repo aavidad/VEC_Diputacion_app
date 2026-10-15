@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -37,12 +38,28 @@ const (
 
 	AlgoritmoCOSEAtestacionAutorizacionV3EdDSA = "EdDSA"
 
-	maximoRaicesConfianzaAtestacionV3       = 64
-	maximaVigenciaConfiguracionAtestacionV3 = 24 * time.Hour
-	dominioHuellaConfiguracionAtestacionV3  = "vec.configuracion-confianza-atestacion-autorizacion.v3"
-	marcaRaizPublicaConfianzaAtestacionV3   = "vec.raiz-publica-confianza-atestacion-autorizacion.v3"
-	marcaConfiguracionConfianzaAtestacionV3 = "vec.configuracion-confianza-atestacion-autorizacion.v3"
+	maximoRaicesConfianzaAtestacionV3         = 64
+	maximaVigenciaConfiguracionAtestacionV3   = 24 * time.Hour
+	maximaVigenciaConfiguracionCTDesarrolloV3 = 400 * 24 * time.Hour
+	audienciaConfianzaCTDesarrolloV3          = "vec:desarrollo:contratacion-temporal:atestacion:v3"
+	dominioHuellaConfiguracionAtestacionV3    = "vec.configuracion-confianza-atestacion-autorizacion.v3"
+	marcaRaizPublicaConfianzaAtestacionV3     = "vec.raiz-publica-confianza-atestacion-autorizacion.v3"
+	marcaConfiguracionConfianzaAtestacionV3   = "vec.configuracion-confianza-atestacion-autorizacion.v3"
 )
+
+// El plazo largo solo corresponde a la raíz de CT sintética y a la doble llave
+// ambiental. Todas las raíces de una configuración deben tener esa audiencia.
+func maximaVigenciaParaAudienciasV3(audiencias ...string) time.Duration {
+	if len(audiencias) == 0 || !config.EntornoGobiernoAdmin().DevelopmentEnabledByDoubleKey() {
+		return maximaVigenciaConfiguracionAtestacionV3
+	}
+	for _, audiencia := range audiencias {
+		if audiencia != audienciaConfianzaCTDesarrolloV3 {
+			return maximaVigenciaConfiguracionAtestacionV3
+		}
+	}
+	return maximaVigenciaConfiguracionCTDesarrolloV3
+}
 
 // Los estados son comunes al gobierno V2; versionar el perfil criptografico
 // no introduce un segundo vocabulario de rotacion o revocacion.
@@ -202,13 +219,17 @@ func (c ConfiguracionConfianzaAtestacionAutorizacionV3) HuellaSHA256ParaGobierno
 }
 
 func (c ConfiguracionConfianzaAtestacionAutorizacionV3) validar() error {
+	audiencias := make([]string, 0, len(c.raices))
+	for _, raiz := range c.raices {
+		audiencias = append(audiencias, raiz.audienciaDespliegue)
+	}
 	if c.marca != marcaConfiguracionConfianzaAtestacionV3 ||
 		!referenciaConfiguracionConfianzaValida(c.revision) ||
 		c.secuencia == 0 ||
 		!instanteCanonicoConfianza(c.publicadaEn) ||
 		!instanteCanonicoConfianza(c.expiraEn) ||
 		!c.expiraEn.After(c.publicadaEn) ||
-		c.expiraEn.Sub(c.publicadaEn) > maximaVigenciaConfiguracionAtestacionV3 ||
+		c.expiraEn.Sub(c.publicadaEn) > maximaVigenciaParaAudienciasV3(audiencias...) ||
 		len(c.raices) == 0 || len(c.raices) > maximoRaicesConfianzaAtestacionV3 ||
 		!huellaSHA256ConfianzaValida(c.huellaSHA256) {
 		return ErrConfiguracionConfianzaAtestacionV3Invalida

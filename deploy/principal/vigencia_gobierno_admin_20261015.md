@@ -30,17 +30,24 @@ el valor cero seleccionan 24 horas. La variable
 | Desarrollo con las tres llaves existentes | De 1 a 9600 horas, hasta 400 días |
 | Perfil desconocido | Operación rechazada |
 
-Para una copia de desarrollo con vigencias de 60 días:
+Para una copia de desarrollo con vigencias de 90 días, que deja margen sobre
+el mínimo de 60 días restantes:
 
 ```sh
 export VEC_EXECUTION_PROFILE=desarrollo
 export VEC_AUTH_MODE=desarrollo
 export VEC_DEVELOPMENT_GUARD=ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO
-export VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS=1440
+export VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS=2160
 ```
 
 cidonia usa el perfil de desarrollo, pero solo dirección puede instalar allí
 una candidata ensayada. Este guion se ejecuta primero en una copia local.
+
+La publicación de Administración usa la confianza común de CT. El
+verificador solo admite más de 24 horas si están las tres llaves de desarrollo
+y todas las raíces tienen la audiencia exacta de CT de desarrollo. No basta
+un nombre de revisión o un prefijo. Al recargar, CT conserva la publicación
+vigente, sin acortarla ni sustituirla por otra diaria.
 
 Las claves y la confianza no pueden durar más que la raíz existente. Si la
 raíz no cubre el plazo pedido, preparar se rechaza; no se prolonga la raíz.
