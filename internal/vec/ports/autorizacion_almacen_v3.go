@@ -247,7 +247,8 @@ func especificacionAlmacenV3(accionNegocio string) (especificacionAutorizacionAl
 
 func especificacionAlmacenV3ParaPaso(accionNegocio string, paso PasoOperacionAlmacen) (especificacionAutorizacionAlmacen, bool) {
 	switch accionNegocio {
-	case accionAlmacenSubirComprobanteMeritos, accionAlmacenSubirJustificanteDietas,
+	case accionAlmacenSubirComprobanteMeritos, accionAlmacenSubirJustificanteRenunciaBolsa,
+		accionAlmacenSubirJustificanteDietas,
 		accionAlmacenSubirJustificacionCronos:
 		switch paso {
 		case PasoAlmacenEscribirSubidaLocal:
@@ -263,7 +264,8 @@ func especificacionAlmacenV3ParaPaso(accionNegocio string, paso PasoOperacionAlm
 		default:
 			return especificacionAutorizacionAlmacen{}, false
 		}
-	case accionAlmacenDescargarComprobanteMeritos, accionAlmacenDescargarJustificanteDietas,
+	case accionAlmacenDescargarComprobanteMeritos, accionAlmacenDescargarJustificanteRenunciaBolsa,
+		accionAlmacenDescargarJustificanteRenunciaRRHHBolsa, accionAlmacenDescargarJustificanteDietas,
 		accionAlmacenDescargarJustificacionCronos:
 		if paso == PasoAlmacenLeerOriginalDocumento {
 			return especificacionSubidaLocal(accionNegocio, FaseAlmacenSubidaLocalDescargar)

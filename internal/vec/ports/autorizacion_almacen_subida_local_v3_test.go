@@ -46,3 +46,20 @@ func TestAlmacenSubidaLocalV3FasesNoPrestanCapacidad(t *testing.T) {
 		})
 	}
 }
+
+func TestAlmacenSubidaLocalBolsaRRHHSoloPermiteLectura(t *testing.T) {
+	e := nuevoAlmacenV3Prueba(t, opcionesAlmacenV3Prueba{
+		accion: accionAlmacenDescargarJustificanteRenunciaRRHHBolsa,
+		campos: []string{"contenido"}, requiereObjeto: true,
+	})
+	instante := e.ahora.Add(2 * time.Second)
+	ctx, err := NuevoContextoSubidaLocalAlmacenV3(e.solicitud, e.decision,
+		e.confirmacion, e.vinculos, FaseAlmacenSubidaLocalDescargar, instante)
+	if err != nil || ctx.ValidarParaEn(AccionAlmacenLeer, instante) != nil {
+		t.Fatalf("lectura RRHH denegada: %v", err)
+	}
+	if _, err := NuevoContextoSubidaLocalAlmacenV3(e.solicitud, e.decision,
+		e.confirmacion, e.vinculos, FaseAlmacenSubidaLocalEscribir, instante); err == nil {
+		t.Fatal("la capacidad RRHH se reutilizó para escribir")
+	}
+}

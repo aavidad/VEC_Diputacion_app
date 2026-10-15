@@ -516,6 +516,13 @@ func nuevoServidorDesarrollo(
 	if preferenciasBolsasInternas != nil {
 		rutasContratacion = append(rutasContratacion, *preferenciasBolsasInternas)
 	}
+	justificanteRRHH, cerrarJustificanteRRHH := nuevaRutaJustificanteRenunciaRRHH(cfg,
+		identidadPersonal, usuariosPreferencias, composicion.derivadorIdempotencia)
+	defer func() {
+		if !completa {
+			cerrarJustificanteRRHH()
+		}
+	}()
 	bolsaPersonal, inscripcionExterna, cerrarInscripcionExterna := componerBolsaPersonalExternaOpcionalDesarrollo(cfg, identidadPersonal, emisor)
 	defer func() {
 		if !completa {
@@ -578,6 +585,7 @@ func nuevoServidorDesarrollo(
 		raizCronos = componerRaizConCronosIndisponible(raizCronos)
 	}
 	raiz := componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(raizCronos, personalEmpleado), consultasPersonal), inscripcionRRHH)
+	raiz = componerRaizConJustificanteRenunciaRRHH(raiz, justificanteRRHH, registradorFrontera)
 	servidor, err := server.NewHTTPServer(cfg, componerRaizConBolsaPersonalExterna(raiz, bolsaPersonal, inscripcionExterna))
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)
@@ -603,6 +611,7 @@ func nuevoServidorDesarrollo(
 	}
 	servidor.RegisterOnShutdown(cerrarInscripcionExterna)
 	servidor.RegisterOnShutdown(cerrarPreferenciasBolsasInternas)
+	servidor.RegisterOnShutdown(cerrarJustificanteRRHH)
 	if personalEmpleado != nil {
 		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
 	}

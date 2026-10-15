@@ -89,7 +89,7 @@
 875 internal/vec/ports/reconciliacion_documental_v4.go
 1179 scripts/smoke_nominas_peoplenet.js
 13067 web/static/app.js
-905 web/static/area-personal/aplicacion.js
+910 web/static/area-personal/aplicacion.js
 602 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 1015 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 957 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
@@ -107,7 +107,7 @@
 1865 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1081 web/static/portal-empleado/portal-componentes.css
 2082 web/static/portal-empleado/portal.js
-1521 web/static/portal-empleado/portal-bolsas-api.js
+1524 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1145 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 1150 web/static/portal-empleado/portal-i18n.test.mjs
@@ -120,7 +120,7 @@
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
 1859 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
-1038 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
+1043 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 983 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 623 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
@@ -188,3 +188,4 @@
 334 web/static/textos/en/peticiones-centro.json
 334 web/static/textos/es/peticiones-centro.json
 806 scripts/operacion/preparar_expediente_alta_b2/preparar.py
+887 deploy/postgresql/documentos/migraciones/000022_justificante_renuncia_bolsa.up.sql

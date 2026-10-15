@@ -108,12 +108,15 @@ type ActoSubidaLocal struct {
 }
 
 const (
-	AccionMeritosComprobanteSubirLocal      = "meritos.cartera.comprobante.subir_propio"
-	AccionMeritosComprobanteDescargarLocal  = "meritos.cartera.comprobante.descargar_propio"
-	AccionDietasJustificanteSubirLocal      = "dietas.justificante.subir_propio"
-	AccionDietasJustificanteDescargarLocal  = "dietas.justificante.descargar_propio"
-	AccionCronosJustificacionSubirLocal     = "cronos.justificacion.subir_propio"
-	AccionCronosJustificacionDescargarLocal = "cronos.justificacion.descargar_propio"
+	AccionMeritosComprobanteSubirLocal            = "meritos.cartera.comprobante.subir_propio"
+	AccionMeritosComprobanteDescargarLocal        = "meritos.cartera.comprobante.descargar_propio"
+	AccionBolsaJustificanteRenunciaSubirLocal     = "bolsa.justificante_renuncia.subir_propio"
+	AccionBolsaJustificanteRenunciaDescargarLocal = "bolsa.justificante_renuncia.descargar_propio"
+	AccionBolsaJustificanteRenunciaDescargarRRHH  = "bolsa.justificante_renuncia.descargar_rrhh"
+	AccionDietasJustificanteSubirLocal            = "dietas.justificante.subir_propio"
+	AccionDietasJustificanteDescargarLocal        = "dietas.justificante.descargar_propio"
+	AccionCronosJustificacionSubirLocal           = "cronos.justificacion.subir_propio"
+	AccionCronosJustificacionDescargarLocal       = "cronos.justificacion.descargar_propio"
 )
 
 // El módulo y las acciones se fijan al componer el servicio, nunca en HTTP.
@@ -121,6 +124,8 @@ func ParejaActoSubidaLocalValida(modulo, tipo, finalidad, subir, descargar strin
 	switch {
 	case modulo == "meritos" && tipo == "hecho" && finalidad == "custodiar_evidencia_meritos":
 		return subir == AccionMeritosComprobanteSubirLocal && descargar == AccionMeritosComprobanteDescargarLocal
+	case modulo == "bolsa" && tipo == "justificante_renuncia" && finalidad == "custodiar_justificante_renuncia_bolsa":
+		return subir == AccionBolsaJustificanteRenunciaSubirLocal && descargar == AccionBolsaJustificanteRenunciaDescargarLocal
 	case modulo == "dietas" && tipo == "comision_borrador" && finalidad == "custodiar_justificante_dietas":
 		return subir == AccionDietasJustificanteSubirLocal && descargar == AccionDietasJustificanteDescargarLocal
 	case modulo == "cronos" && tipo == "justificacion" && finalidad == "custodiar_justificacion_cronos":
@@ -238,6 +243,9 @@ type InstantaneaSubidaLocal struct {
 	Resultado           ResultadoSubidaLocal                 `json:"resultado"`
 	RecursoRef          string                               `json:"recurso_ref"`
 	PersonaRef          string                               `json:"persona_ref"`
+	ModuloID            string                               `json:"modulo_id,omitempty"`
+	TipoRecurso         string                               `json:"tipo_recurso,omitempty"`
+	Finalidad           string                               `json:"finalidad,omitempty"`
 	CorrelacionRef      string                               `json:"correlacion_ref"`
 	Clasificacion       string                               `json:"clasificacion"`
 	HuellaSolicitudHMAC string                               `json:"huella_solicitud_hmac"`
@@ -286,6 +294,7 @@ func PreimagenMovimientoSubidaLocal(q MovimientoSubidaLocal) ([]byte, error) {
 		q.CargaID == "" || q.RecursoRef == "" || q.Finalidad == "" || q.CorrelacionRef == "" ||
 		q.VersionEsperada == 0 ||
 		(q.Accion != AccionMeritosComprobanteSubirLocal &&
+			q.Accion != AccionBolsaJustificanteRenunciaSubirLocal &&
 			q.Accion != AccionDietasJustificanteSubirLocal && q.Accion != AccionCronosJustificacionSubirLocal) {
 		return nil, ErrSubidaLocalDenegada
 	}
@@ -419,6 +428,7 @@ func PreimagenConsultaSubidaLocal(q ConsultaPersistenciaSubidaLocal) ([]byte, er
 	if q.ActorRegistradoV2.Validar() != nil || q.VinculoV2.ValidarPara(q.ActorRegistradoV2) != nil ||
 		q.CorrelacionRef == "" ||
 		(q.Accion != AccionMeritosComprobanteSubirLocal && q.Accion != AccionMeritosComprobanteDescargarLocal &&
+			q.Accion != AccionBolsaJustificanteRenunciaSubirLocal && q.Accion != AccionBolsaJustificanteRenunciaDescargarLocal &&
 			q.Accion != AccionDietasJustificanteSubirLocal && q.Accion != AccionDietasJustificanteDescargarLocal &&
 			q.Accion != AccionCronosJustificacionSubirLocal && q.Accion != AccionCronosJustificacionDescargarLocal) {
 		return nil, ErrSubidaLocalDenegada
@@ -426,20 +436,20 @@ func PreimagenConsultaSubidaLocal(q ConsultaPersistenciaSubidaLocal) ([]byte, er
 	switch q.Fase {
 	case FaseSubidaLocalConsultarCarga:
 		if q.CargaID == "" || q.DocumentoID != "" ||
-			(q.Accion != AccionMeritosComprobanteSubirLocal && q.Accion != AccionDietasJustificanteSubirLocal &&
+			(q.Accion != AccionMeritosComprobanteSubirLocal && q.Accion != AccionBolsaJustificanteRenunciaSubirLocal && q.Accion != AccionDietasJustificanteSubirLocal &&
 				q.Accion != AccionCronosJustificacionSubirLocal) {
 			return nil, ErrSubidaLocalDenegada
 		}
 	case FaseSubidaLocalConsultarDocumento:
 		if q.CargaID != "" || q.DocumentoID == "" ||
-			(q.Accion != AccionMeritosComprobanteDescargarLocal && q.Accion != AccionDietasJustificanteDescargarLocal &&
+			(q.Accion != AccionMeritosComprobanteDescargarLocal && q.Accion != AccionBolsaJustificanteRenunciaDescargarLocal && q.Accion != AccionDietasJustificanteDescargarLocal &&
 				q.Accion != AccionCronosJustificacionDescargarLocal) {
 			return nil, ErrSubidaLocalDenegada
 		}
 	case FaseSubidaLocalAbrir:
 		if q.CargaID == "" || q.DocumentoID == "" ||
 			q.Objeto.Validar() != nil || q.HuellaPDFSHA256 == "" || q.Tamano < 1 || q.MIME != "application/pdf" ||
-			(q.Accion != AccionMeritosComprobanteDescargarLocal && q.Accion != AccionDietasJustificanteDescargarLocal &&
+			(q.Accion != AccionMeritosComprobanteDescargarLocal && q.Accion != AccionBolsaJustificanteRenunciaDescargarLocal && q.Accion != AccionDietasJustificanteDescargarLocal &&
 				q.Accion != AccionCronosJustificacionDescargarLocal) {
 			return nil, ErrSubidaLocalDenegada
 		}

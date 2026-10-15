@@ -4,16 +4,16 @@ import { idiomaActivoAreaPersonal, iniciarI18nAreaPersonal, textosErrorCargaArea
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
   sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261007-p7-imagen-v1";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-mibolsa-respuesta-anterior-v1";
-import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261015-o-justificante-bolsa-v1";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261015-o-justificante-bolsa-v1";
 import {
   renderizarLlamamientos, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261011-mibolsa-respuesta-anterior-v1";
-import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-mibolsa-respuesta-anterior-v1";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261011-mibolsa-respuesta-anterior-v1";
+} from "./vistas/seguimiento-tramites.js?v=20261015-o-justificante-bolsa-v1";
+import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261015-o-justificante-bolsa-v1";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261015-o-justificante-bolsa-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261011-mibolsa-respuesta-anterior-v1";
-import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { actualizarCamposRenunciaJustificada, enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261015-o-justificante-bolsa-v1";
+import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v1";
 import { crearControladorPreferenciasBolsas } from "./mi-bolsa-preferencias-bolsas.js?v=20261012-preferencias-bolsas-v1";
 
 
@@ -622,7 +622,12 @@ function atenderAccion(estado, boton) {
 
 function conectarEventos(estado) {
   document.addEventListener("input", () => { estado.interaccionVersion += 1; });
-  document.addEventListener("change", () => { estado.interaccionVersion += 1; });
+  document.addEventListener("change", (evento) => {
+    estado.interaccionVersion += 1;
+    if (evento.target?.matches?.('[data-portal-mi-bolsa="responder"] [name="respuesta"]')) {
+      actualizarCamposRenunciaJustificada(evento.target.closest('[data-portal-mi-bolsa]'));
+    }
+  });
   document.addEventListener("keydown", () => { estado.interaccionVersion += 1; });
   window.addEventListener("scroll", () => { estado.interaccionVersion += 1; }, { passive: true });
   document.addEventListener("click", (evento) => {
@@ -774,8 +779,8 @@ async function cargar(estado) {
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
   errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
-  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-respuesta-anterior-v1"),
-  cargarVistaMeritos = () => import("./meritos-reales-montaje.js?v=20261014-aspirante-pdf-local-v1"),
+  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261015-o-justificante-bolsa-v1"),
+  cargarVistaMeritos = () => import("./meritos-reales-montaje.js?v=20261015-o-justificante-bolsa-v1"),
   cargarVistaAlegaciones = () => import("../comun/alegaciones-vista.js?v=20261013-alegaciones-v1") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));

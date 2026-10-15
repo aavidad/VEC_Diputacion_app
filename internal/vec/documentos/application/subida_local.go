@@ -510,14 +510,22 @@ func (s *ServicioSubidaLocal) Consultar(ctx context.Context, q docports.Solicitu
 			CorrelacionRef: q.CorrelacionRef, RecursoRef: q.DocumentoID}, q.DocumentoID, s.c.Finalidad)
 		return i.Resultado, err
 	}
-	if q.ClaveIdempotencia == "" {
+	if q.ClaveIdempotencia == "" || len(q.ClaveIdempotencia) > 256 {
 		return docports.ResultadoSubidaLocal{}, docports.ErrSubidaLocalDenegada
 	}
-	r := docports.SolicitudSubidaLocal{ActorRegistradoV2: a, VinculoV2: q.VinculoV2,
-		ClaveIdempotencia: q.ClaveIdempotencia}
-	acto, err := s.acto(ctx, r, a)
-	if err != nil {
-		return docports.ResultadoSubidaLocal{}, err
+	finalidad := s.c.Finalidad
+	var recursoEsperado string
+	if s.c.ModuloID != "bolsa" {
+		r := docports.SolicitudSubidaLocal{ActorRegistradoV2: a, VinculoV2: q.VinculoV2,
+			ClaveIdempotencia: q.ClaveIdempotencia}
+		acto, err := s.acto(ctx, r, a)
+		if err != nil {
+			return docports.ResultadoSubidaLocal{}, err
+		}
+		finalidad, recursoEsperado = acto.Finalidad, acto.Recurso.Referencia
+	} else if !docports.ParejaActoSubidaLocalValida(s.c.ModuloID, s.c.TipoRecurso, s.c.Finalidad,
+		s.c.AccionSubir, s.c.AccionDescargar) {
+		return docports.ResultadoSubidaLocal{}, docports.ErrSubidaLocalDenegada
 	}
 	corr, id, _, err := s.referencias(ctx, a, q.ClaveIdempotencia)
 	if err != nil {
@@ -526,14 +534,30 @@ func (s *ServicioSubidaLocal) Consultar(ctx context.Context, q docports.Solicitu
 	i, err := s.consultarSQL(ctx, docports.ConsultaPersistenciaSubidaLocal{
 		ActorRegistradoV2: a, VinculoV2: q.VinculoV2, Accion: s.c.AccionSubir,
 		Fase: docports.FaseSubidaLocalConsultarCarga, CargaID: id, CorrelacionRef: corr,
-		RecursoRef: id}, id, acto.Finalidad)
+		RecursoRef: id}, id, finalidad)
 	if err != nil {
 		return docports.ResultadoSubidaLocal{}, err
 	}
-	if i.RecursoRef != acto.Recurso.Referencia {
+	if s.c.ModuloID == "bolsa" {
+		metadatos := i.ModuloID != "" || i.TipoRecurso != "" || i.Finalidad != ""
+		if !recursoJustificanteRenunciaBolsaValido(i.RecursoRef) ||
+			(metadatos && (i.ModuloID != s.c.ModuloID || i.TipoRecurso != s.c.TipoRecurso || i.Finalidad != s.c.Finalidad)) {
+			return docports.ResultadoSubidaLocal{}, docports.ErrSubidaLocalDenegada
+		}
+	} else if i.RecursoRef != recursoEsperado {
 		return docports.ResultadoSubidaLocal{}, docports.ErrSubidaLocalDenegada
 	}
 	return i.Resultado, nil
+}
+
+func recursoJustificanteRenunciaBolsaValido(recurso string) bool {
+	const prefijo = "justificante-renuncia:"
+	if !strings.HasPrefix(recurso, prefijo) || len(recurso) != len(prefijo)+sha256.Size*2 {
+		return false
+	}
+	sufijo := strings.TrimPrefix(recurso, prefijo)
+	bytes, err := hex.DecodeString(sufijo)
+	return err == nil && len(bytes) == sha256.Size && hex.EncodeToString(bytes) == sufijo
 }
 
 func (s *ServicioSubidaLocal) AbrirOriginal(ctx context.Context, q docports.SolicitudConsultaLocal) (io.ReadCloser, error) {
@@ -586,26 +610,8 @@ func (s *ServicioSubidaLocal) AbrirOriginal(ctx context.Context, q docports.Soli
 	if err != nil {
 		return nil, err
 	}
-	sol := vecports.SolicitudAbrirObjeto{Contexto: contexto, Objeto: obj, Zona: vecports.ZonaAlmacenAdmitida,
-		Limite: limitePDFSubidaLocal}
-	lectura, err := s.d.Almacen.Abrir(ctx, sol)
-	if err != nil {
-		return nil, err
-	}
-	defer lectura.Contenido.Close()
-	if lectura.ValidarContra(sol) != nil || lectura.Objeto.HuellaSHA256 != segunda.HuellaPDFSHA256 ||
-		lectura.Objeto.Tamano != segunda.Tamano || lectura.Objeto.MIME != "application/pdf" {
-		return nil, docports.ErrSubidaLocalDenegada
-	}
-	bytesOriginal, err := io.ReadAll(io.LimitReader(lectura.Contenido, limitePDFSubidaLocal+1))
-	if err != nil || len(bytesOriginal) != int(segunda.Tamano) {
-		return nil, docports.ErrSubidaLocalNoDisponible
-	}
-	suma := sha256.Sum256(bytesOriginal)
-	if hex.EncodeToString(suma[:]) != segunda.HuellaPDFSHA256 {
-		return nil, docports.ErrSubidaLocalDenegada
-	}
-	return io.NopCloser(bytes.NewReader(bytesOriginal)), nil
+	return abrirBytesOriginalSubidaLocal(ctx, s.d.Almacen, s.d.Reloj, contexto, obj,
+		segunda.HuellaPDFSHA256, segunda.Tamano)
 }
 
 var _ docports.SubidorLocal = (*ServicioSubidaLocal)(nil)

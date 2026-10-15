@@ -7,15 +7,18 @@ import (
 )
 
 const (
-	accionAlmacenSubirComprobanteMeritos                           = "meritos.cartera.comprobante.subir_propio"
-	accionAlmacenDescargarComprobanteMeritos                       = "meritos.cartera.comprobante.descargar_propio"
-	accionAlmacenSubirJustificanteDietas                           = "dietas.justificante.subir_propio"
-	accionAlmacenDescargarJustificanteDietas                       = "dietas.justificante.descargar_propio"
-	accionAlmacenSubirJustificacionCronos                          = "cronos.justificacion.subir_propio"
-	accionAlmacenDescargarJustificacionCronos                      = "cronos.justificacion.descargar_propio"
-	PasoAlmacenEscribirSubidaLocal            PasoOperacionAlmacen = "01_escribir_subida_local"
-	PasoAlmacenRecuperarEscrituraSubidaLocal  PasoOperacionAlmacen = "01_recuperar_escritura_subida_local"
-	PasoAlmacenRecuperarPromocionSubidaLocal  PasoOperacionAlmacen = "01_recuperar_promocion_subida_local"
+	accionAlmacenSubirComprobanteMeritos                                     = "meritos.cartera.comprobante.subir_propio"
+	accionAlmacenDescargarComprobanteMeritos                                 = "meritos.cartera.comprobante.descargar_propio"
+	accionAlmacenSubirJustificanteRenunciaBolsa                              = "bolsa.justificante_renuncia.subir_propio"
+	accionAlmacenDescargarJustificanteRenunciaBolsa                          = "bolsa.justificante_renuncia.descargar_propio"
+	accionAlmacenDescargarJustificanteRenunciaRRHHBolsa                      = "bolsa.justificante_renuncia.descargar_rrhh"
+	accionAlmacenSubirJustificanteDietas                                     = "dietas.justificante.subir_propio"
+	accionAlmacenDescargarJustificanteDietas                                 = "dietas.justificante.descargar_propio"
+	accionAlmacenSubirJustificacionCronos                                    = "cronos.justificacion.subir_propio"
+	accionAlmacenDescargarJustificacionCronos                                = "cronos.justificacion.descargar_propio"
+	PasoAlmacenEscribirSubidaLocal                      PasoOperacionAlmacen = "01_escribir_subida_local"
+	PasoAlmacenRecuperarEscrituraSubidaLocal            PasoOperacionAlmacen = "01_recuperar_escritura_subida_local"
+	PasoAlmacenRecuperarPromocionSubidaLocal            PasoOperacionAlmacen = "01_recuperar_promocion_subida_local"
 )
 
 type FaseAlmacenSubidaLocal string
@@ -34,9 +37,12 @@ func accionAlmacenSubidaLocalValida(accion string, fase FaseAlmacenSubidaLocal) 
 	case FaseAlmacenSubidaLocalEscribir, FaseAlmacenSubidaLocalAnalizar, FaseAlmacenSubidaLocalPromover,
 		FaseAlmacenSubidaLocalRecuperarEscritura, FaseAlmacenSubidaLocalRecuperarPromocion:
 		return accion == accionAlmacenSubirComprobanteMeritos ||
+			accion == accionAlmacenSubirJustificanteRenunciaBolsa ||
 			accion == accionAlmacenSubirJustificanteDietas || accion == accionAlmacenSubirJustificacionCronos
 	case FaseAlmacenSubidaLocalDescargar:
 		return accion == accionAlmacenDescargarComprobanteMeritos ||
+			accion == accionAlmacenDescargarJustificanteRenunciaBolsa ||
+			accion == accionAlmacenDescargarJustificanteRenunciaRRHHBolsa ||
 			accion == accionAlmacenDescargarJustificanteDietas || accion == accionAlmacenDescargarJustificacionCronos
 	default:
 		return false

@@ -1,7 +1,7 @@
 import { cargarTextos, reintentarTextos } from "../comun/textos.js";
 import { idiomaActivoAreaPersonal, traducir } from "./i18n.js";
-import { crearClienteCartera, ErrorCartera } from "./meritos-reales-cliente.js?v=20261014-aspirante-pdf-local-v1";
-import { renderizarMeritosPropios } from "./meritos-reales-vista.js?v=20261014-aspirante-pdf-local-v1";
+import { crearClienteCartera, ErrorCartera } from "./meritos-reales-cliente.js?v=20261015-o-justificante-bolsa-v1";
+import { renderizarMeritosPropios } from "./meritos-reales-vista.js?v=20261015-o-justificante-bolsa-v1";
 
 const FILTROS = new Set(["todos", "disponibles", "retirados"]);
 

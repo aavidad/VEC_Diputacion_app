@@ -135,7 +135,8 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 			ruta == "/api/vec/bolsa/mi-bolsa/respuestas" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/disposiciones" ||
 			ruta == "/api/vec/bolsa/mi-bolsa/contacto" ||
-			ruta == "/api/vec/bolsa/mi-bolsa/preferencias"
+			ruta == "/api/vec/bolsa/mi-bolsa/preferencias" ||
+			ruta == "/api/vec/bolsa/mi-bolsa/justificantes"
 	case SuperficieAuditoriaFronteraRutaExactaAspirantes:
 		return ruta == "/api/vec/aspirantes/area-personal/mi-ficha"
 	case SuperficieAuditoriaFronteraRutaExactaMeritosCartera:
@@ -211,6 +212,9 @@ func referenciaActorAuditoriaFronteraRutaExactaValida(actor string) bool {
 // RutaAuditoriaDocumentosBolsaRRHHValida limita la bitácora a las dos lecturas
 // documentales publicadas, sin consulta ni contenido de documentos.
 func RutaAuditoriaDocumentosBolsaRRHHValida(ruta string) bool {
+	if ruta == "/api/vec/bolsa/justificantes-renuncia/rrhh" {
+		return true
+	}
 	const prefijo = "/api/vec/bolsa/bolsas/"
 	if len(ruta) > 768 || !strings.HasPrefix(ruta, prefijo) || strings.ContainsAny(ruta, "?#%\\") || strings.Contains(ruta, "..") {
 		return false

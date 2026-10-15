@@ -41,7 +41,7 @@ const (
 // El proceso externo solo recibe claves derivadas para estas audiencias.
 var consumidoresPortalExternoV3 = []string{
 	"usuarios_preferencias", "usuarios_correos", "usuarios_imagen", "mi_bolsa", "portal_candidato", consumidorInscripcionPortalExternoV3,
-	consumidorPreferenciasBolsasPortalExternoV3, consumidorMeritosCarteraPortalExternoV3,
+	consumidorPreferenciasBolsasPortalExternoV3, consumidorMeritosCarteraPortalExternoV3, consumidorJustificantesBolsaExterno,
 }
 
 const (
@@ -115,6 +115,8 @@ func audienciasConsumidorPortalExternoV3(consumidor string) []string {
 		return []string{audienciaPresentarInscripcionExternaV3, audienciaPresentarAlegacionExternaV3}
 	case consumidorPreferenciasBolsasPortalExternoV3:
 		return []string{puertosbolsa.AudienciaOrdenarPreferenciasBolsas}
+	case consumidorJustificantesBolsaExterno:
+		return []string{audienciaJustificanteBolsaSubir, audienciaJustificanteBolsaDescargar, audienciaJustificanteBolsaPreparar}
 	case consumidorMeritosCarteraPortalExternoV3:
 		return []string{puertosmeritos.AudienciaRetirarCartera, descriptoresMaterialMeritosInternosDesarrollo()[0].Audiencia,
 			audienciaSubidaLocalActoModulo, audienciaSubidaLocalDescargaPropia}
@@ -157,6 +159,7 @@ func descriptoresMaterialPortalExternoV3() []descriptorMaterialConsumidorV3Desar
 	todos = append(todos, descriptorMaterialRetirarCarteraExternaV3())
 	todos = append(todos, descriptoresMaterialMeritosInternosDesarrollo()[0])
 	todos = append(todos, descriptoresMaterialSubidaLocalExternaV3()...)
+	todos = append(todos, descriptoresMaterialJustificantesBolsaExternos()...)
 	externas := map[string]bool{}
 	for _, consumidor := range consumidoresPortalExternoV3 {
 		for _, audiencia := range audienciasConsumidorPortalExternoV3(consumidor) {
