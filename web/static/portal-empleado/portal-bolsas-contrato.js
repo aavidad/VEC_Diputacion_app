@@ -334,15 +334,62 @@ export function validarCandidato(candidato) {
   });
 }
 
-export function validarRespuestaCandidatosBolsa(envelope) {
+const MOTIVO_EXCLUSION = /^[a-z][a-z0-9_]{0,63}$/u;
+
+export function validarExclusionesOrigen(valor, { bolsaRef = "", llamamientoRef = "", exclusionesDesde = 0 } = {}) {
+  if (!esObjeto(valor)) throw new Error("exclusiones de origen no válidas");
+  if (valor.estado === "sin_permiso") {
+    exigirCamposExactos(valor, ["estado"], "exclusiones sin permiso");
+    return Object.freeze({ estado: valor.estado });
+  }
+  if (valor.estado === "no_disponible") {
+    exigirCamposExactos(valor, ["estado", "error_estado"], "exclusiones no disponibles");
+    if (valor.error_estado !== "lectura_no_disponible") throw new Error("error de exclusiones no válido");
+    return Object.freeze({ estado: valor.estado, error_estado: valor.error_estado });
+  }
+  exigirCamposExactos(valor, ["estado", "bolsa_ref", "llamamiento_ref", "exclusiones", "total_exclusiones",
+    "hay_mas", "siguiente_orden_acta", "auditoria_ref", "correlacion_ref", "consultada_en"], "exclusiones de origen");
+  if (valor.estado !== "disponible" || !bolsaRef || !llamamientoRef || valor.bolsa_ref !== bolsaRef
+    || valor.llamamiento_ref !== llamamientoRef || !Array.isArray(valor.exclusiones)
+    || valor.exclusiones.length > 1000 || typeof valor.hay_mas !== "boolean") throw new Error("ámbito de exclusiones no válido");
+  const total = exigirEnteroNoNegativo(valor.total_exclusiones, "total_exclusiones");
+  const desde = exigirEnteroNoNegativo(exclusionesDesde, "exclusiones_desde");
+  const vistas = new Set(); let ultimo = desde;
+  const exclusiones = valor.exclusiones.map((fila) => {
+    const conNombre = esObjeto(fila) && Object.hasOwn(fila, "nombre_visible");
+    exigirCamposExactos(fila, ["participacion_ref", "orden_acta", "situacion_en_origen", "motivo_clave",
+      ...(conNombre ? ["nombre_visible"] : [])], "exclusión de origen");
+    const ref = exigirCadenaSegura(fila.participacion_ref, "participacion_ref");
+    const orden = exigirEnteroNoNegativo(fila.orden_acta, "orden_acta");
+    if (orden <= ultimo || vistas.has(ref) || !SITUACIONES_PARTICIPACION_BOLSA.includes(fila.situacion_en_origen)
+      || typeof fila.motivo_clave !== "string" || !MOTIVO_EXCLUSION.test(fila.motivo_clave)) {
+      throw new Error("fila de exclusión incoherente");
+    }
+    vistas.add(ref); ultimo = orden;
+    return Object.freeze({ participacion_ref: ref, orden_acta: orden, situacion_en_origen: fila.situacion_en_origen,
+      motivo_clave: fila.motivo_clave,
+      ...(conNombre ? { nombre_visible: exigirCadenaSegura(fila.nombre_visible, "nombre_visible") } : {}) });
+  });
+  if (total < exclusiones.length || valor.hay_mas && (!exclusiones.length || valor.siguiente_orden_acta !== ultimo)
+    || !valor.hay_mas && valor.siguiente_orden_acta !== null) throw new Error("paginación de exclusiones incoherente");
+  return Object.freeze({ estado: valor.estado, bolsa_ref: bolsaRef, llamamiento_ref: llamamientoRef,
+    exclusiones: Object.freeze(exclusiones), total_exclusiones: total, hay_mas: valor.hay_mas,
+    siguiente_orden_acta: valor.siguiente_orden_acta,
+    auditoria_ref: exigirCadenaSegura(valor.auditoria_ref, "auditoria_ref"),
+    correlacion_ref: exigirCadenaSegura(valor.correlacion_ref, "correlacion_ref"),
+    consultada_en: exigirInstanteUTC(valor.consultada_en, "consultada_en") });
+}
+
+export function validarRespuestaCandidatosBolsa(envelope, ambitoExclusiones = {}) {
   const datos = extraerDatosEnvelopeCanonico(envelope);
   const conTurno = datos?.esquema === ESQUEMA_CANDIDATOS_TURNO;
   // «canales_llamamiento» solo viaja cuando el servidor publica los canales activos.
   const conCanales = esObjeto(datos) && Object.hasOwn(datos, "canales_llamamiento");
   const conRespuestasPortal = esObjeto(datos) && Object.hasOwn(datos, "respuestas_portal");
+  const conExclusiones = esObjeto(datos) && Object.hasOwn(datos, "exclusiones_origen");
   exigirCamposExactos(datos, ["esquema", "generado_en", "bolsa", "candidatos", "contactos", "hay_mas", "cursor_siguiente",
     ...(conTurno ? ["turno"] : []), ...(conCanales ? ["canales_llamamiento"] : []),
-    ...(conRespuestasPortal ? ["respuestas_portal"] : [])], "respuesta de candidatos");
+    ...(conRespuestasPortal ? ["respuestas_portal"] : []), ...(conExclusiones ? ["exclusiones_origen"] : [])], "respuesta de candidatos");
 
   if (datos.esquema !== ESQUEMA_CANDIDATOS && !conTurno) {
     throw new Error(`esquema no compatible: ${datos.esquema}`);
@@ -398,6 +445,8 @@ export function validarRespuestaCandidatosBolsa(envelope) {
     turno,
     contactos,
     ...(conRespuestasPortal ? { respuestas_portal: respuestasPortal } : {}),
+    ...(conExclusiones ? { exclusiones_origen: validarExclusionesOrigen(datos.exclusiones_origen,
+      { ...ambitoExclusiones, bolsaRef: bolsa.bolsa_ref }) } : {}),
     hay_mas: datos.hay_mas,
     cursor_siguiente: cursorSiguiente,
     ...(conCanales ? { canales_llamamiento: validarCanalesLlamamiento(datos.canales_llamamiento) } : {}),

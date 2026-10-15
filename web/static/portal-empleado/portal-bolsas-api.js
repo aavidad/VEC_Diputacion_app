@@ -89,12 +89,16 @@ function segmentoRuta(referencia) {
   return encodeURIComponent(String(referencia ?? "").trim()).replace(/%3A/gi, ":");
 }
 
-export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor = "", limite = 50, llamamiento = "", orden = "" } = {}) {
+export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor = "", limite = 50, llamamiento = "", orden = "", exclusionesDesde = 0 } = {}) {
   const parametros = new URLSearchParams();
+  if (!Number.isSafeInteger(exclusionesDesde) || exclusionesDesde < 0 || (!llamamiento && exclusionesDesde > 0)) {
+    throw new TypeError("página de exclusiones no válida");
+  }
   // Las personas de un llamamiento no se combinan con estado, texto ni cursor.
   if (llamamiento && llamamiento.trim() !== "") {
     parametros.set("llamamiento", llamamiento.trim());
     parametros.set("limite", "100");
+    if (exclusionesDesde > 0) parametros.set("exclusiones_desde", String(exclusionesDesde));
     return `${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos?${parametros}`;
   }
   if (estado && estado.trim() !== "") parametros.set("estado", estado.trim());
@@ -290,7 +294,8 @@ export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchI
     }
 
     const envelope = await respuesta.json();
-    const datos = validarRespuestaCandidatosBolsa(envelope);
+    const datos = validarRespuestaCandidatosBolsa(envelope, { bolsaRef, llamamientoRef: opciones.llamamiento || "",
+      exclusionesDesde: opciones.exclusionesDesde || 0 });
     return { ok: true, datos };
   } catch (error) {
     return {
@@ -748,16 +753,16 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     renderizar();
   }
 
-  async function cargarCandidatosBolsa(bolsaRef, { cursor = "", enfocarDestino = false } = {}) {
+  async function cargarCandidatosBolsa(bolsaRef, { cursor = "", enfocarDestino = false, exclusionesDesde = 0 } = {}) {
     if (!bolsaRef) return;
     if (estado.bolsaSeleccionada !== bolsaRef) invalidarSeleccionMasiva();
     const controlador = iniciarLectura("candidatos");
     estado.bolsaSeleccionada = bolsaRef;
-    estado.datosCandidatos = { carga: "cargando", datos: null, error: "" };
+    estado.datosCandidatos = { carga: "cargando", datos: null, error: "", exclusionesDesde };
     renderizar();
     const fuente = fuenteLectura();
     const seguimiento = estado.filtrosBolsa?.seguimiento?.llamamiento_ref || "";
-    const opciones = seguimiento ? { llamamiento: seguimiento, limite: 100 } : {
+    const opciones = seguimiento ? { llamamiento: seguimiento, limite: 100, exclusionesDesde } : {
       estado: estado.filtrosBolsa?.estado || "",
       texto: estado.filtrosBolsa?.texto || "",
       cursor,
@@ -773,12 +778,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     if (res === null || !lecturaVigente("candidatos", controlador)) return;
     terminarLectura("candidatos", controlador);
     if (res.ok) {
-      estado.datosCandidatos = { carga: "listo", datos: res.datos, error: "" };
+      estado.datosCandidatos = { carga: "listo", datos: res.datos, error: "", exclusionesDesde };
       if (estado.filtrosBolsa?.nuevo_llamamiento) estado.filtrosBolsa.nuevo_llamamiento.acceso_denegado = false;
     } else if ([401, 403].includes(res.status)) {
       retirarCandidatosDenegados(res.mensaje);
     } else {
-      estado.datosCandidatos = { carga: "error", datos: null, error: res.mensaje };
+      estado.datosCandidatos = { carga: "error", datos: null, error: res.mensaje, exclusionesDesde };
     }
     renderizar();
     if (enfocarDestino) {
@@ -1002,7 +1007,16 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         void cargarBolsas();
       } else if (accion === "reintentar-candidatos") {
         evento.preventDefault();
-        void cargarCandidatosBolsa(estado.bolsaSeleccionada, { cursor: estado.filtrosBolsa?.nuevo_llamamiento?.cursoresPagina?.at(-1) || "" });
+        void cargarCandidatosBolsa(estado.bolsaSeleccionada, { cursor: estado.filtrosBolsa?.nuevo_llamamiento?.cursoresPagina?.at(-1) || "",
+          exclusionesDesde: estado.datosCandidatos?.exclusionesDesde || 0 });
+      } else if (accion === "pagina-exclusiones" || accion === "primera-pagina-exclusiones") {
+        evento.preventDefault();
+        const actual = estado.datosCandidatos;
+        const origen = actual?.datos?.exclusiones_origen;
+        if (!estado.filtrosBolsa?.seguimiento || actual?.carga !== "listo" || origen?.estado !== "disponible") return;
+        const desde = accion === "primera-pagina-exclusiones" ? 0 : origen.hay_mas ? origen.siguiente_orden_acta : null;
+        if (desde === null || !Number.isSafeInteger(desde) || desde < 0 || desde === actual.exclusionesDesde) return;
+        void cargarCandidatosBolsa(estado.bolsaSeleccionada, { exclusionesDesde: desde });
       } else if (accion === "reintentar-global" || accion === "pagina-global" || accion === "actualizar-global") {
         evento.preventDefault();
         const global = estado.datosCandidatos;

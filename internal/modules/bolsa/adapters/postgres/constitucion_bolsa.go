@@ -457,6 +457,9 @@ func decodificarOrigenLlamamientoCT(ctx context.Context, fila pgx.Row, categoria
 }
 
 func validarLecturaOrigenCT(o ports.OrigenLlamamientoCT) error {
+	if err := o.CriteriosOfrecimiento.Validar(); err != nil {
+		return err
+	}
 	if o.ActaRef == "" || o.CategoriaRef == "" || o.BolsaRef == "" || o.PoliticaRef == "" ||
 		o.VersionBolsa == 0 || o.VersionInstantanea == 0 || o.VersionPolitica == 0 ||
 		o.Corte.IsZero() ||

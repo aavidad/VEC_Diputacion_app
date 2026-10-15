@@ -614,6 +614,7 @@ func decodificarCanonBolsaCT(raw []byte, destino any) error {
 
 func clonarLecturaOrigenCT(o puertosbolsa.OrigenLlamamientoCT) puertosbolsa.OrigenLlamamientoCT {
 	copia := o
+	copia.CriteriosOfrecimiento = o.CriteriosOfrecimiento.Clonar()
 	copia.BolsaCanonica = bytes.Clone(o.BolsaCanonica)
 	copia.InstantaneaCanonica = bytes.Clone(o.InstantaneaCanonica)
 	copia.Entradas = append([]puertosbolsa.EntradaOrigenLlamamientoCT(nil), o.Entradas...)
@@ -677,7 +678,8 @@ func (p *puenteBolsaLlamamientoDesarrollo) cargarOrigenConstituidoCT(ctx context
 	}
 	var bolsa dominiobolsa.BolsaConstituida
 	var instantanea dominiobolsa.InstantaneaOrdenBolsa
-	if decodificarCanonBolsaCT(o.BolsaCanonica, &bolsa) != nil ||
+	if o.CriteriosOfrecimiento.Validar() != nil ||
+		decodificarCanonBolsaCT(o.BolsaCanonica, &bolsa) != nil ||
 		decodificarCanonBolsaCT(o.InstantaneaCanonica, &instantanea) != nil ||
 		bolsa.Validar() != nil || instantanea.Validar() != nil {
 		return vacio, ports.ErrRespuestaBolsaNoConfiable
@@ -887,7 +889,8 @@ func (p *puenteBolsaLlamamientoDesarrollo) emitirLlamamientoConstituidoCT(
 	e := d.expediente.Fiscalizado
 	o := preparado.origen.registro
 	origenCT := puertosbolsa.OrigenEmisionCT{
-		OrganizacionRef: e.OrganizacionRef, UnidadRef: d.unidad, ExpedienteRef: e.Referencia, VersionExpediente: e.Version,
+		CriteriosOfrecimiento: o.CriteriosOfrecimiento.Clonar(),
+		OrganizacionRef:       e.OrganizacionRef, UnidadRef: d.unidad, ExpedienteRef: e.Referencia, VersionExpediente: e.Version,
 		ClaveCT: d.clave, NecesidadRef: d.necesidad, ActaRef: o.ActaRef, CategoriaRef: o.CategoriaRef,
 		BolsaRef: o.BolsaRef, VersionBolsa: o.VersionBolsa, HuellaBolsaSHA256: o.HuellaBolsaSHA256,
 		InstantaneaRef: o.InstantaneaRef, VersionInstantanea: o.VersionInstantanea,
@@ -917,6 +920,8 @@ func (p *puenteBolsaLlamamientoDesarrollo) emitirLlamamientoConstituidoCT(
 		r.HuellaInstantaneaSHA256 != origenCT.HuellaInstantaneaSHA256 ||
 		r.PoliticaRef != origenCT.PoliticaRef || r.VersionPolitica != origenCT.VersionPolitica ||
 		r.HuellaPoliticaSHA256 != origenCT.HuellaPoliticaSHA256 ||
+		!r.CriteriosOfrecimiento.Iguales(origenCT.CriteriosOfrecimiento) ||
+		!r.Lectura.CriteriosOfrecimiento.Iguales(o.CriteriosOfrecimiento) ||
 		r.ParticipacionRef != origenCT.ParticipacionRef || r.CandidatoRef != origenCT.CandidatoRef ||
 		r.OrdenSeleccionado != origenCT.OrdenSeleccionado ||
 		r.LlamamientoRef != emision.LlamamientoRef || r.ReciboRef != emision.ReciboRef ||

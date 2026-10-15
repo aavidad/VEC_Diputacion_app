@@ -1,0 +1,46 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:exclusiones_ofrecimiento_rrhh",
+  "version": 1,
+  "huella_sha256": "36db74230563e98a41f4b582da27c89b39e3650b7b547248b8a07e2ee2ac75e2",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.rrhh.exclusiones_llamamiento.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:exclusiones_ofrecimiento_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.rrhh.exclusiones_llamamiento.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"llamamiento_bolsa\",\"finalidades\":[\"seguimiento_contacto_rrhh\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"bolsa_ref\",\"exclusiones[].motivo_clave\",\"exclusiones[].orden_acta\",\"exclusiones[].participacion_ref\",\"exclusiones[].situacion_en_origen\",\"hay_mas\",\"llamamiento_ref\",\"siguiente_orden_acta\",\"total_exclusiones\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-15T00:00:00Z\",\"vigente_hasta\":\"2027-10-15T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.rrhh.exclusiones_llamamiento.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:exclusiones_ofrecimiento_rrhh",
+      "fuente_version": 1,
+      "concesion": {
+        "accion": "bolsa.rrhh.exclusiones_llamamiento.consultar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "llamamiento_bolsa",
+        "finalidades": [
+          "seguimiento_contacto_rrhh"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "bolsa_ref",
+          "exclusiones[].motivo_clave",
+          "exclusiones[].orden_acta",
+          "exclusiones[].participacion_ref",
+          "exclusiones[].situacion_en_origen",
+          "hay_mas",
+          "llamamiento_ref",
+          "siguiente_orden_acta",
+          "total_exclusiones"
+        ],
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-15T00:00:00Z",
+      "vigente_hasta": "2027-10-15T00:00:00Z",
+      "fuente_huella_sha256": "36db74230563e98a41f4b582da27c89b39e3650b7b547248b8a07e2ee2ac75e2"
+    }
+  ]
+}
