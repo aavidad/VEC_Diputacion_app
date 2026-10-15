@@ -4,7 +4,7 @@ Manual para Recursos Humanos de la Diputación de Granada. Octubre de 2026.
 
 ## 1. Qué es VEC
 
-VEC es la aplicación de Recursos Humanos de la Diputación. Empieza por dos tareas: las bolsas de trabajo y la contratación temporal. Más adelante se le irán añadiendo Personal, control horario, dietas y otros servicios.
+VEC es la aplicación de Recursos Humanos de la Diputación. Empieza por dos tareas: las bolsas de trabajo y la contratación temporal. Después se irán añadiendo los demás módulos, que se describen en el apartado 8.
 
 VEC sustituirá a Convoca: convocatorias, inscripción, méritos, baremación y bolsas. Mientras tanto, las bolsas que ya existen se cargan desde los Excel que exporta Convoca, sin volver a teclearlas.
 
@@ -170,9 +170,127 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
 | Cese y vuelta a la bolsa | El cese se registra. | Probar entera la vuelta automática a la bolsa. | Al cesar, la persona vuelve sola a su bolsa con la situación que marque la regla. |
-| Otros servicios | Aparcados hasta terminar bolsas y contratación. | Todo. | Personal, control horario, dietas y, más adelante, nóminas en la misma aplicación. |
+| Otros módulos | Aparcados hasta terminar bolsas y contratación. | Ver el apartado 8. | Personal, control horario, dietas, nóminas y los demás módulos de RRHH en la misma aplicación. |
 
-## 8. Palabras que aparecen en la aplicación
+## 8. Los demás módulos de VEC
+
+VEC se construye por partes. Primero bolsas y contratación temporal, con lo que necesitan para funcionar; después control horario y dietas; y luego, uno a uno, los demás módulos. Este es el orden previsto: procesos selectivos y provisión; formación y carrera; certificados; acción social; nóminas; y prevención, igualdad, incompatibilidades, régimen disciplinario, relaciones sindicales y canal interno. Para cada módulo se indica para qué sirve, qué hay hoy y cómo será al final.
+
+### 8.1 Personal, organización y relación de puestos de trabajo
+
+**Para qué sirve.** Es el registro de cada empleado: su relación con la Diputación, sus contratos y nombramientos, su puesto, su plaza, sus situaciones administrativas y su historia. También guarda la estructura de la Diputación (áreas, servicios, centros y unidades) y la relación de puestos de trabajo con sus categorías.
+
+**Hoy.** Está programado lo que necesita la contratación temporal: el alta de la persona contratada, su ocupación del puesto y el cese. La relación de puestos se puede consultar y RRHH puede añadir o desactivar categorías; las que están en uso no se borran. La petición del centro todavía guarda el puesto como texto en lugar de elegirlo de la relación de puestos.
+
+**Al final.** El registro completo de personal: antigüedad, trienios, grados, situaciones con sus efectos, correcciones con su justificante y versiones de la relación de puestos aprobadas y publicadas, sin borrar las anteriores. Los demás módulos tomarán de aquí los datos de cada empleado.
+
+### 8.2 Firmas
+
+**Para qué sirve.** Que cada cargo firme los documentos con su certificado, en el orden fijado, y que VEC compruebe que la firma es válida.
+
+**Hoy.** Está programado con GrxFirma desde el navegador, pero aún no se ha completado una firma de principio a fin. Ningún documento sale firmado.
+
+**Al final.** Firma de una o varias personas en cualquier módulo, con la verificación guardada junto al documento. Las delegaciones y suplencias que comunique Secretaría General se tendrán en cuenta.
+
+### 8.3 Documentos y plantillas
+
+**Para qué sirve.** Guardar los documentos que se suben o se generan, con su huella y su historia, y producir los documentos de cada trámite a partir de plantillas Word.
+
+**Hoy.** Funciona la generación de borradores en PDF y Word desde el expediente, con plantillas que RRHH puede cambiar. Se está terminando una subida común de documentos para todos los módulos, que comprobará el tamaño, que el fichero sea de verdad un PDF y que no tenga virus.
+
+**Al final.** Un único sitio para los documentos de todos los módulos, con plantillas oficiales de RRHH, conservación según el Archivo y descarga controlada.
+
+### 8.4 Acceso, perfiles y administración
+
+**Para qué sirve.** Decidir quién entra y qué puede hacer cada persona. Hay dos tipos de administrador: el de la aplicación, que reparte perfiles y lleva la configuración, y el de sistemas, que instala y hace copias. Ninguno de los dos ve expedientes ni bolsas.
+
+**Hoy.** Se entra con certificado de pruebas. Los perfiles están publicados y en la administración se ve la lista de personas y su ficha. Dar y quitar perfiles desde pantalla está a medias y los cambios delicados piden la aprobación de dos administradores.
+
+**Al final.** Entrada con el usuario de la Diputación y certificado, reparto de perfiles desde pantalla con doble aprobación cuando toque, activar o desactivar módulos y ver el estado de las copias de seguridad.
+
+### 8.5 Registro de actividad (auditoría)
+
+**Para qué sirve.** Guardar todo lo que hace cada persona, también lo que solo consulta o descarga, sin que nadie pueda cambiarlo, de forma que valga como prueba ante un juzgado.
+
+**Hoy.** El registro común está programado y se apunta cada acción. La consulta por persona para RRHH está instalada pero sin activar. La exportación para un juzgado está aparcada.
+
+**Al final.** Consulta de quién hizo qué y cuándo, y exportación firmada, que también queda registrada.
+
+### 8.6 Área del empleado
+
+**Para qué sirve.** Que cada empleado vea sus datos, sus documentos y sus solicitudes, y haga sus trámites en un solo sitio. Los responsables verán las tareas de su unidad.
+
+**Hoy.** Está aparcada y oculta en el menú.
+
+**Al final.** Una ficha de cada empleado con pestañas de empleo, tiempo, formación, economía, trámites y documentos, en la que cada dato dice de dónde sale y si está confirmado. Si una parte falla, las demás siguen viéndose.
+
+### 8.7 Control horario (Cronos)
+
+**Para qué sirve.** Fichajes, jornada y calendario, saldo de horas, permisos y vacaciones, teletrabajo, incidencias e informes del equipo.
+
+**Hoy.** Se está rehaciendo y está oculto en el menú. Hay partes programadas pendientes de instalar. Si falla, el resto de la aplicación sigue funcionando.
+
+**Al final.** El fichaje original no se modifica: las correcciones se añaden aparte. El saldo se ve como una lista de movimientos explicados. La solicitud de un permiso, el visto bueno de la jefatura y la resolución de RRHH son pasos distintos, y nadie resuelve su propia solicitud. Sigue el Estatuto Básico, el Convenio y la normativa de jornada de la Diputación. RRHH tiene que confirmar el catálogo de permisos.
+
+### 8.8 Dietas
+
+**Para qué sirve.** Comisiones de servicio, kilometraje, manutención y alojamiento: solicitud, justificantes, autorización y liquidación.
+
+**Hoy.** Se está rehaciendo y está oculto en el menú. Habrá una sola tabla de tarifas publicada, y la liquidación la aprobará un perfil fijo. El alojamiento espera a que RRHH fije la regla.
+
+**Al final.** La persona abre la comisión y VEC calcula la manutención por tramos, el alojamiento y el kilometraje por la ruta. Muestra de dónde sale cada tarifa, recoge los justificantes, pasa por autorización, liquidación y fiscalización, y solo marca «pagado» cuando Tesorería lo confirma. Sigue el Real Decreto 462/2002 y las bases de ejecución del presupuesto.
+
+### 8.9 Portal público
+
+**Para qué sirve.** Lo que cualquiera puede ver sin identificarse: convocatorias, bolsas y sus listas, comprobación de documentos y enlace al canal interno de información.
+
+**Hoy.** Las pantallas existen. Qué datos de cada persona se publican en las listas está pendiente de la delegada de protección de datos. La comprobación de documentos todavía no tiene el servicio detrás.
+
+**Al final.** Publicación aprobada, accesible y con los datos mínimos, y comprobación de cualquier documento de VEC por su código.
+
+### 8.10 Procesos selectivos y provisión de puestos
+
+**Para qué sirve.** Oposiciones, concursos y concurso-oposición con su tribunal, pruebas, actas y listas; y la provisión de puestos (concurso, libre designación, comisiones y movilidad).
+
+**Hoy.** Aparcados. Se adelanta lo que comparten con las bolsas: inscripción, méritos y baremación.
+
+**Al final.** Todo el proceso en VEC, con un baremador común que cada convocatoria configura y resultados que se pueden reproducir.
+
+### 8.11 Formación, carrera y certificados
+
+**Para qué sirve.** Plan de formación, solicitudes, asistencia y certificados de los cursos; grado y progresión profesional; y certificados de servicios y otros que pide el personal.
+
+**Hoy.** Aparcados.
+
+**Al final.** Los certificados se hacen con plantilla, datos de Personal, firma y código de comprobación. Los cursos pasan como méritos sin dar puntos ni grado de forma automática.
+
+### 8.12 Acción social
+
+**Para qué sirve.** Convocatorias de ayudas, solicitudes con los datos familiares mínimos, resolución y pago.
+
+**Hoy.** Aparcado. Empezará por una modalidad de ayuda con convocatoria vigente.
+
+**Al final.** Todo el ciclo de las ayudas, con los datos familiares separados del resto.
+
+### 8.13 Nóminas
+
+**Para qué sirve.** Consulta de recibos y, más adelante, el cálculo de la nómina, la Seguridad Social y el IRPF.
+
+**Hoy.** Aparcado. La nómina sigue en el sistema actual.
+
+**Al final.** Primero cada empleado consulta sus recibos y certificados. El cálculo solo sustituirá al sistema actual tras varios meses comparando los dos en paralelo.
+
+### 8.14 Otras materias
+
+Prevención de riesgos laborales, igualdad, incompatibilidades, régimen disciplinario, relaciones sindicales y canal interno de información están aparcadas. Cuando se aborden, cada una irá en su compartimento: por ejemplo, los datos de salud solo los verá el personal sanitario, y RRHH solo recibirá la aptitud. El canal interno será un enlace al canal institucional que ya existe, sin crear otro.
+
+### 8.15 Copias de seguridad
+
+**Hoy.** Se hacen por órdenes del sistema, sin pantalla.
+
+**Al final.** Desde la administración se verá qué copias están completas y cuáles se han restaurado bien. Restaurar una copia necesitará la aprobación de otra persona administradora.
+
+## 9. Palabras que aparecen en la aplicación
 
 | Palabra | Qué significa |
 | --- | --- |
