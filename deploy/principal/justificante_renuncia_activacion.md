@@ -1,6 +1,6 @@
 # Activación del justificante de renuncia de Bolsa
 
-Esta guía corresponde a la entrega en preparación de Codex-O. Su alcance es
+Esta guía describe una entrega pendiente de integración. Su alcance es
 únicamente el PDF de renuncia justificada que la persona aspirante aporta desde
 Mi Bolsa con recibo y que una técnica de RRHH con permiso vigente consulta y
 descarga desde la ficha del candidato. El seguimiento muestra la actuación.
@@ -21,7 +21,7 @@ Ningún paso de esta guía autoriza a probar ficheros sueltos en cidonia.
 ## Preparar una copia y fijar el orden
 
 Dirección congela el árbol fuente y ensaya la misma candidata que instalará.
-Comprueba el estado de migraciones en la copia y usa la futura lista
+Comprueba el estado de migraciones en la copia y usa la lista
 `deploy/principal/lista_sql_codexo_justificante_limpio_20261015.txt` para
 documentar cada archivo, orden y huella antes de ejecutarlo. No se reaplica
 una migración ya instalada.
@@ -29,7 +29,9 @@ una migración ya instalada.
 El orden de dependencia es AD277 → AUT95 → D20 → M7 → creación de los LOGIN
 documentales sin membresías → D22 → membresías gobernadas → B119 →
 CT222. AUT99, AD281 y D23 corrigen la autoridad externa de los actos propios y se intercalan según las
-precondiciones y el orden exacto que confirme la lista SQL revisada. Antes de
+precondiciones y el orden exacto de la lista SQL. AD284 se instala después de
+D23: solo el aspirante consume las claves y la auditoría de la superficie externa;
+RRHH conserva las internas. Antes de
 instalar se cotejan los números reservados, los roles y las funciones presentes
 en la copia. La creación de LOGIN técnicos y sus credenciales queda en el
 circuito de DBA; los secretos no entran en Git.
@@ -38,8 +40,17 @@ La base documental conserva metadatos, historia y recibos; el almacén local
 custodia los bytes. B119 vincula el documento con la respuesta de renuncia.
 La descarga de RRHH exige una decisión de autorización para esa operación,
 consumida por su función nominal, y deja constancia de la lectura. CT222 acota
-la frontera con el expediente de Contratación temporal. Las migraciones nuevas
-AUT99, AD281 y D23 siguen pendientes de revisión y ensayo.
+la frontera con el expediente de Contratación temporal. AUT99, AD281 y D23 se han ensayado en una copia y tienen revisión independiente.
+AD284 corrige el consumo de la confianza externa; requiere su comprobación focal.
+
+## Precondición pendiente de activación
+
+Falta el productor gobernado de admisiones de identidad externa. La tabla
+`vec_identidad_externa_v1.llamante_autorizacion` necesita las admisiones nominales
+de los consumidores, pero el producto aún no ofrece el acto para publicarlas.
+Esta entrega no incluye INSERT de esas filas ni acredita su aprobación.
+Los ajustes SQL de datos ficticios realizados en la copia solo permiten ensayar
+el recorrido; no completan la activación. Dirección mantiene esa tarea separada.
 
 ## Configuración y gobierno
 

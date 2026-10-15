@@ -88,9 +88,13 @@ test("renunciar exige revisión y permite volver a editar sin crear una petició
   assert.equal(revision.hidden, true, "sin justificante no avanza a la revisión");
   assert.equal(envios, 0);
   datos.set("causa", "enfermedad");
+  datos.set("justificante", new Blob([new Uint8Array(16 * 1024 * 1024 + 1)], { type: "application/pdf" }), "grande.pdf");
+  assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  assert.match(resultado.textContent, /supera los 16 MiB/u);
   datos.set("justificante", new Blob(["parte"], { type: "application/pdf" }), "parte.pdf");
   assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
   assert.match(resumen.innerHTML, /parte\.pdf/u, "la revisión identifica el archivo elegido");
+  assert.equal(resultado.textContent, "", "la revisión válida retira el aviso del PDF anterior");
   assert.equal(volverRespuestaPortalMiBolsa(formulario), true);
   const html = renderizarPortalMiBolsa(participaciones, [{ bolsa: "bolsa:demo:1", llamamiento_abierto: {
     contacto_en: "2026-09-25T08:00:00.000000Z", vence_antes_de: "2026-09-26T21:59:59.000000Z" } }], acciones);

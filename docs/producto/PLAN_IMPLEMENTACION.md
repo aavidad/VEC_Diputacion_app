@@ -493,7 +493,7 @@ busca en el índice de código y en las ramas abiertas si la pieza ya existe.
 | Textos de categoría antes de vincularla (#1008) | J | Revisión de usabilidad y fusión |
 | Recorrido completo en Chrome con reinicio y acta | Claude | Acta nueva en `docs/estudio_requisitos/` |
 | Medir las lecturas en cidonia y bajar el cuadro de CT de 300 ms | Sin dueño actual | Percentil 95 por HTTP en cidonia |
-| Renuncia justificada con PDF y recibo desde Mi Bolsa | O; integración y ensayo pendientes | Carmen u otra técnica de RRHH con permiso vigente consulta y descarga el justificante desde la ficha del candidato; el seguimiento lo muestra. Falta revisar SQL y seguridad y ensayar la activación completa según `deploy/principal/justificante_renuncia_activacion.md` |
+| Renuncia justificada con PDF y recibo desde Mi Bolsa | O; integración y ensayo pendientes | Carmen u otra técnica de RRHH con permiso vigente consulta y descarga el justificante desde la ficha del candidato; el seguimiento lo muestra. SQL y seguridad tienen revisión inicial; se corrige el consumo externo y continúa el ensayo. Falta el productor gobernado de admisiones de identidad externa para completar la activación según `deploy/principal/justificante_renuncia_activacion.md` |
 | Inscripción con solicitud separada o conjunta, elegida por RRHH en cada convocatoria | Sin dueño; necesita antes la regla en Convocatorias | Las dos modalidades con su recibo y reintento |
 | Documentos del expediente en un solo sitio de la ficha | *Pendiente de verificar* (había un commit local de S) | Todos se ven y descargan desde la ficha |
 | Bandeja propia de Intervención | Preguntar a RRHH si hace falta | — |

@@ -297,7 +297,11 @@ func materialPublicableExternoV3Exacto(materiales map[string][]materialAtestacio
 		return false
 	}
 	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterialPortalExternoV3())
-	if err != nil || len(catalogo.porAudiencia) == 0 || len(lista) != len(catalogo.porAudiencia) {
+	if err != nil {
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo("catalogo_material_externo", "contrato_invalido")
+		return false
+	}
+	if len(catalogo.porAudiencia) == 0 || len(lista) != len(catalogo.porAudiencia) {
 		return false
 	}
 	esperadas := make([]string, 0, len(catalogo.porAudiencia))

@@ -7,7 +7,7 @@ import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { cuerpoDisposicion, RUTA_DISPOSICION_MI_BOLSA, validarOfertasMiBolsa } from "./mi-bolsa-ofertas.js";
 import { nombreCategoria } from "./mi-bolsa-campos.js";
 import { cuerpoConfirmacionContacto, RUTA_CONTACTO_MI_BOLSA, validarContactosMiBolsa } from "./mi-bolsa-contacto.js";
-import { crearClienteJustificante, MAX_PDF_JUSTIFICANTE } from "./mi-bolsa-justificante-cliente.js?v=20261015-o-justificante-bolsa-v1";
+import { crearClienteJustificante, MAX_PDF_JUSTIFICANTE } from "./mi-bolsa-justificante-cliente.js?v=20261015-o-justificante-bolsa-v2";
 
 export const RUTAS_PORTAL_MI_BOLSA = Object.freeze({
   documental: "/api/vec/bolsa/mi-bolsa/solicitudes-documentales",
@@ -283,6 +283,7 @@ export async function revisarRespuestaPortalMiBolsa(formulario, datos = new Form
   } finally {
     revisionesEnCurso.delete(formulario);
   }
+  formulario.querySelector("[data-portal-resultado]").textContent = "";
   formulario.querySelector("[data-portal-revision-datos]").innerHTML = filas.map(([etiqueta, valor]) =>
     `<div class="fila-resumen"><dt>${escaparHTML(etiqueta)}</dt><dd>${escaparHTML(valor)}</dd></div>`).join("");
   formulario.querySelector("[data-portal-edicion]").hidden = true;
