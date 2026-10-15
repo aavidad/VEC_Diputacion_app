@@ -147,7 +147,7 @@ func (s sesionTecnicaJustificanteRenunciaRRHH) ResolverContexto(ctx context.Cont
 		!rutaJustificanteBolsaRRHHDesarrollo(c.ruta) || c.contextoOperacion == nil ||
 		!fronteraValida || frontera.metodo != http.MethodGet || frontera.ruta != c.ruta ||
 		!frontera.catalogo.mismaInstancia(a.fronterasSeguridadComun) ||
-		!principalContratacionTemporalDesarrolloValido(c.principal) ||
+		!principalNominalJustificanteRRHHValido(c.principal, s.cuentas) ||
 		c.certificadoVerificadoEn.IsZero() || c.certificadoValidoHasta.IsZero() {
 		return vacia, docports.ErrSubidaLocalDenegada
 	}

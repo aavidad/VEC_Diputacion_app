@@ -49,6 +49,60 @@ func TestJustificanteRRHHRegistraCausaTecnicaSinExponerSecreto(t *testing.T) {
 	}
 }
 
+func TestJustificanteRRHHResolverNominalNoExigeRolCT(t *testing.T) {
+	base, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	principal.Roles = nil
+	fronteras, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{{
+		Clave: "bolsa-justificante-renuncia-rrhh", Metodo: http.MethodGet,
+		Ruta:               bolsahttp.RutaJustificanteRenunciaRRHH,
+		Superficie:         superficieInternaSeguridadComunDesarrollo,
+		PerfilesActivosRef: []string{base.contexto.Resultado.Contexto.PerfilActivoRef},
+		ClavePolitica:      "politica-documental-prueba", ClaveCapacidad: "capacidad-documental-prueba",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cuentas := map[string]cuentaNominalJustificanteRRHH{
+		principal.Attributes["certificate_sha256"]: {
+			certificadoSHA256: principal.Attributes["certificate_sha256"],
+			sujeto:            principal.ID, cuentaRef: referenciaAltaContratacionTemporalDesarrollo("cta_", "tecnica-nominal"),
+		},
+	}
+	sesion := sesionTecnicaJustificanteRenunciaRRHH{
+		autoridad: &autoridadConsultasContratacionTemporalDesarrollo{
+			sello: base.sello, fronterasSeguridadComun: fronteras,
+		}, cuentas: cuentas,
+	}
+	resolver := func(p core.Principal) error {
+		ctx := contextoRutaCoberturaDesarrolloPrueba(base, p, bolsahttp.RutaJustificanteRenunciaRRHH)
+		c := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+		c.metodo = http.MethodGet
+		ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, c)
+		ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{
+			metodo: http.MethodGet, ruta: bolsahttp.RutaJustificanteRenunciaRRHH,
+			superficie: superficieInternaSeguridadComunDesarrollo, catalogo: fronteras,
+		})
+		_, err := sesion.ResolverContexto(ctx)
+		return err
+	}
+	// Se invoca el resolutor de producción. La cuenta válida debe alcanzar la
+	// composición nominal, aquí ausente, aunque el principal no lleve rol CT.
+	if err := resolver(principal); !errors.Is(err, docports.ErrSubidaLocalNoDisponible) ||
+		!errors.Is(err, errDependenciaSesionNominalJustificanteRRHH) {
+		t.Fatalf("la cuenta interna no alcanzó su sesión nominal: %v", err)
+	}
+	aspirante := clonarPrincipalDesarrollo(principal)
+	aspirante.Roles = []string{"candidato_bolsa"}
+	if err := resolver(aspirante); !errors.Is(err, docports.ErrSubidaLocalDenegada) {
+		t.Fatalf("aspirante admitido: %v", err)
+	}
+	forastera := clonarPrincipalDesarrollo(principal)
+	forastera.Attributes["certificate_sha256"] = strings.Repeat("f", 64)
+	if err := resolver(forastera); !errors.Is(err, docports.ErrSubidaLocalDenegada) {
+		t.Fatalf("certificado no inventariado admitido: %v", err)
+	}
+}
+
 func TestJustificanteRenunciaRRHHSinConfiguracionDejaRutaCerrada(t *testing.T) {
 	ruta, cerrar := nuevaRutaJustificanteRenunciaRRHH(config.Config{}, nil, nil, nil, nil)
 	if ruta == nil || ruta.Ruta != bolsahttp.RutaJustificanteRenunciaRRHH || ruta.Manejador == nil || cerrar == nil {

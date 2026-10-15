@@ -1,0 +1,45 @@
+{
+  "esquema": "vec.auditoria.verificacion.v3",
+  "manifiesto": {
+    "cadena_id": "cadena:comun:interna",
+    "primera_secuencia": 1,
+    "ultima_secuencia": 1,
+    "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cabeza_sha256": "eac69309698a4af4c35a5269fd2c86250b79d36f807e71cead44cc5a75f72386",
+    "registros": 1
+  },
+  "registros": [
+    {
+      "tipo_registro": "preperfil_bolsa_rrhh",
+      "preperfil_bolsa_rrhh": {
+        "auditoria_ref": "aud_v3_b_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "secuencia": 1,
+        "anterior_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "huella_sha256": "681b6395c23e8a05a31254b564ceec83d8ceca408f14486f8a7511e695ecbcae",
+        "registrada_en": "2026-10-16T00:00:00.000001Z",
+        "evento_ref": "evento_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evento_material_sha256": "d4d6c3fe4c924659db44ea64670f11c6f940ee9117ed91b70a2c3543f2019ca2",
+        "modulo_id": "bolsa",
+        "accion": "bolsa.justificante_renuncia.perfil_propio.consultar",
+        "recurso_ref": "cuenta:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "resultado": "permitido",
+        "motivo_ref": "perfil_unico",
+        "proceso": "vec-server",
+        "canal": "interna_corporativa",
+        "finalidad_ref": "seleccion_perfil_rrhh",
+        "correlacion_ref": "correlacion_dddddddddddddddddddddddddddddddd",
+        "fuente_ref": "identidad_sesiones_v1",
+        "fuente_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "actor_ref": "per_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "eslabon": {
+        "posicion": 1,
+        "secuencia": 1,
+        "anterior_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "eslabon_sha256": "eac69309698a4af4c35a5269fd2c86250b79d36f807e71cead44cc5a75f72386",
+        "registrada_en": "2026-10-16T00:00:00.000001Z",
+        "sellado_en": "2026-10-16T00:00:01.000001Z"
+      }
+    }
+  ]
+}

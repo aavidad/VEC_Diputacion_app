@@ -53,6 +53,7 @@ DECLARE anterior text; expresion text; nueva text; c pg_constraint%ROWTYPE;
 BEGIN
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999 OR
   NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper) OR
+  to_regprocedure('vec_autorizacion_atestada_v3.reservar_asiento_auditoria_v5()') IS NULL OR
   to_regprocedure('vec_autorizacion_atestada_v3.registrar_preperfil_bolsa_rrhh_v1(jsonb)') IS NOT NULL
  THEN RAISE EXCEPTION 'AD287: entorno incompatible' USING ERRCODE='55000'; END IF;
  LOCK TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 IN ACCESS EXCLUSIVE MODE;
@@ -74,8 +75,8 @@ BEGIN
  SELECT pg_get_constraintdef(oid,false) INTO STRICT nueva FROM pg_constraint WHERE
   conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass AND
   conname='auditoria_tipo_disjunto_v4' AND contype='c' AND convalidated;
- IF position(expresion IN nueva)=0 OR
-  position('preperfil_bolsa_rrhh' IN nueva)=0 OR
+ IF encode(sha256(convert_to(nueva,'UTF8')),'hex') IS DISTINCT FROM
+   '182b3fed22360afa10c6a496ca11e36c863ce6c731141d9314735b78504b9326' OR
   (SELECT relowner FROM pg_class WHERE oid=c.conrelid) IS DISTINCT FROM
    'vec_autorizacion_atestada_v3_propietario'::regrole
  THEN RAISE EXCEPTION 'AD287: CHECK postimagen divergente' USING ERRCODE='55000'; END IF;
@@ -127,19 +128,20 @@ BEGIN
  material_sha:=encode(sha256(material),'hex');
  PERFORM pg_advisory_xact_lock(hashtextextended(
   'vec_autorizacion_atestada_v3:evento-bolsa:'||(p_evento->>'evento_ref'),0));
- SELECT a.auditoria_ref,a.secuencia,a.huella_sha256,a.correlacion_ref,a.registrada_en,
+ SELECT a.tipo_registro,a.auditoria_ref,a.secuencia,a.huella_sha256,a.correlacion_ref,a.registrada_en,
   a.evento_material_sha256 INTO previa
  FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3 a
  WHERE a.evento_ref=p_evento->>'evento_ref';
  IF FOUND THEN
-  IF previa.evento_material_sha256 IS DISTINCT FROM material_sha
+  IF previa.tipo_registro IS DISTINCT FROM 'preperfil_bolsa_rrhh' OR
+   previa.evento_material_sha256 IS DISTINCT FROM material_sha
   THEN RAISE EXCEPTION 'AD287: evento repetido divergente' USING ERRCODE='23505'; END IF;
   RETURN QUERY SELECT previa.auditoria_ref,previa.secuencia,previa.huella_sha256,
    previa.correlacion_ref,previa.registrada_en;
   RETURN;
  END IF;
- SELECT c.secuencia,c.cabeza_sha256 INTO STRICT cabeza
- FROM vec_autorizacion_atestada_v3.control_cadena_auditoria c WHERE c.control_id FOR UPDATE;
+ SELECT r.secuencia_previa AS secuencia,r.anterior_sha256 AS cabeza_sha256 INTO STRICT cabeza
+ FROM vec_autorizacion_atestada_v3.reservar_asiento_auditoria_v5() r;
  IF cabeza.secuencia>=9007199254740991::numeric
  THEN RAISE EXCEPTION 'AD287: secuencia agotada' USING ERRCODE='22003'; END IF;
  n:=cabeza.secuencia+1; instante:=clock_timestamp();
@@ -161,8 +163,6 @@ BEGIN
   p_evento->>'actor_ref','bolsa.justificante_renuncia.perfil_propio.consultar','bolsa',
   p_evento->>'recurso_ref','seleccion_perfil_rrhh',p_evento->>'resultado',
   p_evento->>'motivo_ref','vec-server','interna_corporativa',p_evento->>'correlacion_ref');
- UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria
- SET secuencia=n,cabeza_sha256=huella,actualizada_en=instante WHERE control_id;
  RETURN QUERY SELECT ref,n,huella,p_evento->>'correlacion_ref',instante;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_preperfil_bolsa_rrhh_v1(jsonb) FROM PUBLIC;
@@ -181,7 +181,7 @@ BEGIN
   p.proacl::text IS DISTINCT FROM
    '{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario,vec_autorizacion_propietario=X/vec_autorizacion_atestada_v3_propietario}' OR
   encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM
-   '43e73d092ee6807914a0f74b9dfe83dd749a6c80e349151efe9db5f63f0e7c15'
+   '509973a72d9a8e2fa02e5ab9ec641ba39a5e25ad6fe657c1e8ae9ed40791bd37'
  THEN RAISE EXCEPTION 'AD287: función postimagen divergente' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;
