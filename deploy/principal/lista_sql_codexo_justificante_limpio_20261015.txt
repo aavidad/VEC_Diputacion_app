@@ -17,3 +17,4 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000284_justificante_bolsa
 deploy/postgresql/autorizacion/migraciones/000100_sesion_documental_bolsa_externa.up.sql
 deploy/postgresql/documentos/migraciones/000024_limites_referencias_justificante_bolsa.up.sql
 deploy/postgresql/documentos/migraciones/000025_ambito_preparacion_justificante_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000123_proyeccion_justificante_sin_ambiguedad.up.sql
