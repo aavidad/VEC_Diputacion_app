@@ -56,7 +56,7 @@ func TestPlazosCTPublicadosV3RespetanLaNorma(t *testing.T) {
 	}
 	// Las reglas de organización que no fija esta norma conservan su editor.
 	analisis, err := resolutor.Regla(t.Context(), CTPlazoAnalisis)
-	if err != nil || !analisis.Edicion.Admite(CampoCantidad) {
+	if err != nil || analisis.Edicion == nil || !analisis.Edicion.Admite(CampoCantidad) {
 		t.Fatalf("se bloqueó un plazo ajeno a esta norma: %+v, %v", analisis, err)
 	}
 }

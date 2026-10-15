@@ -286,6 +286,8 @@ Las preguntas 77 a 94 salen del estudio `docs/estudio_requisitos/datos_personale
 
 162. **Necesidad publicada en la petición del centro (resuelta en candidata; integración pendiente).** El centro elige el puesto y la categoría de la RPT publicada. Otra persona ratifica esos mismos datos y Recursos Humanos utiliza la misma petición para crear el expediente. El ensayo local recuperó el mismo recibo después de reiniciar la aplicación y la base. Queda integrar la candidata; no se requiere una respuesta nueva de RRHH para este cambio.
 
+166. **Inicio del plazo para subsanar un reparo (pregunta a RRHH).** El [RD 424/2017][rd424], art. 12.4, fija quince días tras aceptar el reparo; el art. 14.2 del Reglamento de Control Interno de Diputación recoge ese mismo plazo. VEC cuenta desde que el servicio recibe el reparo y no registra la aceptación por separado. ¿Coinciden ambos momentos en vuestro procedimiento? Si no coinciden, ¿qué actuación deja constancia de la aceptación y de su fecha?
+
 [rgl]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1768521622300-final-680c0e98.pdf
 [bop-correccion]: https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1769472066115-final-42c9b1bc.pdf
 [circ]: https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/CIRCULAR-PETICIONES-DE-PERSONAL_2026.report.pdf
