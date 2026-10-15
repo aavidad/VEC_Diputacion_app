@@ -20,6 +20,8 @@ Sobre una copia que conserve su historia, aplicar **solo si aún no constan inst
 
 El tercer corte agrega CT223 y después CT225, listadas en `deploy/principal/lista_sql_codexs_varias_plazas_c3_20261015.txt`. CT225 permite consultar por expediente el intento de oferta guardado con una decisión de autorización nueva y su apunte de auditoría. Comparte el bloqueo de cabecera con la reserva. CT223 no cambia la regla del expediente fiscalizado: cerrar una intención sin oferta no autoriza cancelar ese expediente. No mezclar listas ni aplicar una migración con el mismo número de otro esquema.
 
+El cuarto corte añade CT227, en `lista_sql_codexs_varias_plazas_c4_20261015.txt`, después de CT225. Parte de las funciones instaladas y cambia el ámbito de vínculo, consulta y descarte a organización y unidad gestora; conserva los cánones y recibos anteriores. Añade un lector preparatorio nominal que obtiene la unidad del expediente. No se reinstalan CT220, CT223 ni CT225.
+
 Antes de ensayar, conservar la copia anterior y las huellas de los archivos SQL que se van a ejecutar. Revisar las preimágenes, ACL y funciones nominales en el clon; cualquier fallo detiene la instalación de la candidata. Un arranque con una parte de esta lista o con concesiones improvisadas no acredita el corte.
 
 ## Configuración privada
@@ -28,12 +30,19 @@ La capacidad se selecciona con el perfil de desarrollo de doble llave y un archi
 
 Los tres roles y motivos deben estar publicados antes por las vías de Administración ya existentes. Roles, motivos y perfiles deben ser distintos para cada efecto. La identidad de la persona, su cuenta y su certificado son los mismos en los tres actos; el archivo no concede permisos ni sustituye los actos administrativos. No guardar en Git el JSON privado, DSN, certificados, huellas de identidad ni otros secretos. Comprobar que los archivos privados tienen permisos restringidos y que los roles y concesiones corresponden a las migraciones instaladas.
 
-La asignación nominal de los tres perfiles con sus ámbitos exactos sigue sin
-tener una vía de activación general acreditada. Dirección autorizó usar datos
-sintéticos por SQL directo **solo en la copia de ensayo**; ese dato no es una
-concesión desplegable en cidonia. Antes de una entrega allí, Administración debe
-acreditar una vía gobernada que cubra los ámbitos exigidos, o confirmar que el
-lote ordinario existente sirve sin rebajar los permisos.
+El vínculo, su consulta y el descarte se autorizan por `organizacion_ref` y
+`unidad_ref`: la unidad gestora guardada en el expediente. El centro y la
+categoría siguen cotejándose con la necesidad del expediente; no son dimensiones
+de la asignación de estos perfiles. El cierre de la intención en Bolsa conserva
+`unidad_ref` y `ambito_ref` de la bolsa. No confundir la unidad gestora con la
+unidad del puesto, que pertenece a la proyección de Personal.
+
+La asignación de vínculo y descarte debe usar el lote ordinario de Administración
+(AUT44), que ya admite organización y unidad. Falta acreditar los actos y sus
+recibos junto con la publicación de roles y motivos. No reutilizar el dato antiguo
+de la copia que asignaba centro y categoría, ni presentarlo como activación.
+Los datos ficticios se preparan solo en la copia propia; no conceden permisos en
+cidonia ni sustituyen esos actos.
 
 La ausencia o invalidez de esta configuración deja cerrada la función de oferta desde CT. La aplicación y el llamamiento singular deben arrancar. Un perfil o permiso denegado se corrige mediante Administración y revisión de SQL; no se amplía para desbloquear una prueba.
 

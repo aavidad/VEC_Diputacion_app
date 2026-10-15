@@ -17,6 +17,7 @@ type SolicitudAutorizacionConsultaEstadoSeleccionOfertaCT struct {
 	ExpedienteRef      string
 	CategoriaRef       string
 	CentroRef          string
+	UnidadGestoraRef   string
 	VersionObservada   uint64
 	ActorRef           string
 	PerfilRef          string
@@ -31,6 +32,7 @@ func (q SolicitudAutorizacionConsultaEstadoSeleccionOfertaCT) Validar() error {
 		!domain.ReferenciaOpacaValida(q.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(q.CategoriaRef) ||
 		!domain.ReferenciaOpacaValida(q.CentroRef) ||
+		!domain.ReferenciaOpacaValida(q.UnidadGestoraRef) ||
 		q.VersionObservada == 0 || q.VersionObservada > 1<<53-1 ||
 		!domain.ReferenciaOpacaValida(q.ActorRef) ||
 		!domain.ReferenciaOpacaValida(q.PerfilRef) ||
@@ -77,9 +79,10 @@ type PreparadorConsultaEstadoSeleccionOfertaCT interface {
 }
 
 type ContextoExpedienteSeleccionOfertaCT struct {
-	VersionActual uint64
-	CategoriaRef  string
-	CentroRef     string
+	VersionActual    uint64
+	CategoriaRef     string
+	CentroRef        string
+	UnidadGestoraRef string
 }
 
 // El lector preparatorio devuelve solo el ámbito CT vigente. La lectura de

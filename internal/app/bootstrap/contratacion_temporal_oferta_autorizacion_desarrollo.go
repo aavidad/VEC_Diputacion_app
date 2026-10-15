@@ -51,7 +51,7 @@ func politicaVinculoOfertaCTDesarrollo() politicaPerfilOfertaCTDesarrollo {
 		ports.ModuloContratacion, ports.TipoRecursoVinculoOfertaBolsaCT,
 		ports.FinalidadVincularOfertaBolsaCT, ports.AudienciaVincularOfertaBolsaCT,
 		map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
-			"centro_ref": "", "categoria_ref": ""}}
+			"unidad_ref": ""}}
 }
 
 func politicaCierreOfertaBolsaCTDesarrollo(unidad, ambito string) politicaPerfilOfertaCTDesarrollo {
@@ -65,7 +65,7 @@ func politicaDescarteOfertaCTDesarrollo() politicaPerfilOfertaCTDesarrollo {
 		ports.ModuloContratacion, "seleccion_oferta_expediente", ports.FinalidadVincularOfertaBolsaCT,
 		descriptorMaterialDescarteSeleccionOfertaCTDesarrollo().Audiencia,
 		map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
-			"centro_ref": "", "categoria_ref": ""}}
+			"unidad_ref": ""}}
 }
 
 var _ vp.FuenteAutorizacion = (*fuenteRolSeleccionOfertaCTDesarrollo)(nil)
@@ -285,7 +285,7 @@ func (a *autoridadSeleccionOfertaCTDesarrollo) AutorizarSeleccionOfertaCT(ctx co
 	recurso := core.RecursoAutorizable{Referencia: s.Intencion.ExpedienteRef,
 		ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoVinculoOfertaBolsaCT,
 		Ambitos: map[string]string{"organizacion_ref": s.Intencion.OrganizacionRef,
-			"centro_ref": s.Intencion.CentroRef, "categoria_ref": s.Intencion.CategoriaRef},
+			"unidad_ref": s.Intencion.UnidadGestoraRef},
 		Atributos: map[string]string{"material_sha256": hex.EncodeToString(huella[:])}}
 	solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(core.DatosSolicitudAutorizacionLigadaV3{
 		VinculoAutenticacionActor: s.Intencion.Vinculo, ReferenciaMotivo: a.vinculo.motivo,
@@ -334,7 +334,7 @@ func (a *autoridadSeleccionOfertaCTDesarrollo) AutorizarConsultaEstadoSeleccionO
 	recurso := core.RecursoAutorizable{Referencia: q.ExpedienteRef,
 		ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoVinculoOfertaBolsaCT,
 		Ambitos: map[string]string{"organizacion_ref": q.OrganizacionRef,
-			"centro_ref": q.CentroRef, "categoria_ref": q.CategoriaRef},
+			"unidad_ref": q.UnidadGestoraRef},
 		Atributos: map[string]string{"material_sha256": hex.EncodeToString(huella[:])}}
 	solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(core.DatosSolicitudAutorizacionLigadaV3{
 		VinculoAutenticacionActor: actual.Vinculo, ReferenciaMotivo: a.vinculo.motivo,
@@ -436,7 +436,7 @@ func (a *autoridadSeleccionOfertaCTDesarrollo) AutorizarDescarteOfertaCT(ctx con
 	recurso := core.RecursoAutorizable{Referencia: s.Intencion.ExpedienteRef,
 		ModuloID: ports.ModuloContratacion, Tipo: "seleccion_oferta_expediente",
 		Ambitos: map[string]string{"organizacion_ref": s.Intencion.OrganizacionRef,
-			"centro_ref": s.Intencion.CentroRef, "categoria_ref": s.Intencion.CategoriaRef},
+			"unidad_ref": s.Intencion.UnidadGestoraRef},
 		Atributos: map[string]string{"material_sha256": hex.EncodeToString(h[:])}}
 	solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(core.DatosSolicitudAutorizacionLigadaV3{
 		VinculoAutenticacionActor: actual.Vinculo,

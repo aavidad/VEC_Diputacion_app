@@ -405,7 +405,10 @@ origen B110. B120 permite a CT verificar nominalmente la oferta de Bolsa;
 B121 verifica y cierra una intención sin publicación cuando ya no se puede
 publicar con la captura original. Las restricciones únicas de Bolsa arbitran
 la publicación y el cierre tardío. AD278 aporta autorizaciones distintas para
-el vínculo, el cierre en Bolsa y el descarte en CT. CT223 comparte el bloqueo
+el vínculo, el cierre en Bolsa y el descarte en CT. El vínculo, su consulta y
+el descarte usan organización y unidad gestora del expediente; centro y
+categoría permanecen como datos cotejados. El cierre conserva unidad y ámbito
+de Bolsa. CT223 comparte el bloqueo
 de cabecera entre reserva y cancelación; no cambia la prohibición de cancelar
 un expediente fiscalizado. El descarte deja historia técnica y recibos, sin
 avanzar la fase ni la versión del expediente. La lista ordenada y las

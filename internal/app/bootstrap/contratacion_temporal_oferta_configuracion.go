@@ -161,7 +161,7 @@ const consultaPreflightSeleccionOfertaCTDesarrollo = `WITH tipos AS (
  CROSS JOIN LATERAL (VALUES
   (session_user::text, 'vec_contratacion_temporal', 'consultar_seleccion_oferta_ct220',
    ARRAY[x.j,x.t] || ARRAY[x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),
-  (session_user::text, 'vec_contratacion_temporal', 'preparar_contexto_estado_oferta_ct225',
+  (session_user::text, 'vec_contratacion_temporal', 'preparar_contexto_estado_oferta_ct227',
    ARRAY[x.t,x.t]),
   (session_user::text, 'vec_contratacion_temporal', 'consultar_estado_oferta_expediente_ct225',
    ARRAY[x.t,x.b,x.b,x.b,x.b,x.n,x.n,x.b,x.b,x.b,x.b]),

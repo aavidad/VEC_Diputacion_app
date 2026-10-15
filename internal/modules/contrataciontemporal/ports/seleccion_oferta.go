@@ -40,6 +40,7 @@ type IntencionSeleccionOfertaCT struct {
 	ExpedienteRef      string
 	CategoriaRef       string
 	CentroRef          string
+	UnidadGestoraRef   string
 	VersionExpediente  uint64
 	ClaveIdempotencia  string
 	ActorRef           string
@@ -56,6 +57,7 @@ func (i IntencionSeleccionOfertaCT) Validar() error {
 		!domain.ReferenciaOpacaValida(i.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(i.CategoriaRef) ||
 		!domain.ReferenciaOpacaValida(i.CentroRef) ||
+		!domain.ReferenciaOpacaValida(i.UnidadGestoraRef) ||
 		i.VersionExpediente == 0 || i.VersionExpediente > 1<<53-1 ||
 		!ClaveIdempotenciaValida(i.ClaveIdempotencia) ||
 		!domain.ReferenciaOpacaValida(i.ActorRef) ||

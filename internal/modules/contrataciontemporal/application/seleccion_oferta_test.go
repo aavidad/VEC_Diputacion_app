@@ -217,6 +217,7 @@ func escenarioSeleccionOfertaPrueba(t *testing.T) (*ServicioSeleccionOfertaCT, *
 	i := ports.IntencionSeleccionOfertaCT{
 		OrganizacionRef: "organizacion:prueba", ExpedienteRef: "expediente:ct:prueba",
 		CategoriaRef: "categoria:rpt:administrativo", CentroRef: "centro:520",
+		UnidadGestoraRef:  "unidad:rrhh:prueba",
 		VersionExpediente: 6, ClaveIdempotencia: "018f47a2-6b31-4c80-8a95-4d2e707c5a11",
 		ActorRef: actor.Contexto.PersonaRef, PerfilRef: actor.Contexto.PerfilActivoRef,
 		Vinculo: vinculo, ResultadoContexto: actor, Correlacion: correlacion,

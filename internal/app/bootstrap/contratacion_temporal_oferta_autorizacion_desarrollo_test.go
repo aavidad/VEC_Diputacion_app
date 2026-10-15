@@ -238,8 +238,7 @@ func TestFuenteOfertaCTSoloLeeRolExactoVigente(t *testing.T) {
 		"ofertas_ct_rrhh", "Ofertas CT RRHH", "asignacion_ofertas_ct",
 		[]core.ConcesionRol{concesion}, []core.AmbitoPerfil{
 			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-			{Clave: "centro_ref", Valores: []string{"centro:ct:001"}},
-			{Clave: "categoria_ref", Valores: []string{"categoria:ct:001"}},
+			{Clave: "unidad_ref", Valores: []string{"unidad:rrhh:001"}},
 		})
 	if err != nil {
 		t.Fatal(err)

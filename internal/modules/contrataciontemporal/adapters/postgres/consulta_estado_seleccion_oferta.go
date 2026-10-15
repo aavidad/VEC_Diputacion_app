@@ -31,10 +31,10 @@ func (r *RegistroSeleccionOfertaPostgreSQL) LeerContextoExpedienteSeleccionOfert
 	}
 	defer tx.Rollback(context.Background())
 	var version int64
-	var categoria, centro string
-	err = tx.QueryRow(operacion, `SELECT version_actual,categoria_ref,centro_ref
-		FROM vec_contratacion_temporal.preparar_contexto_estado_oferta_ct225($1,$2)`,
-		organizacion, expediente).Scan(&version, &categoria, &centro)
+	var categoria, centro, unidad string
+	err = tx.QueryRow(operacion, `SELECT version_actual,categoria_ref,centro_ref,unidad_gestora_ref
+		FROM vec_contratacion_temporal.preparar_contexto_estado_oferta_ct227($1,$2)`,
+		organizacion, expediente).Scan(&version, &categoria, &centro, &unidad)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return vacio, ports.ErrEstadoExpedienteNoSeleccionable
 	}
@@ -42,14 +42,14 @@ func (r *RegistroSeleccionOfertaPostgreSQL) LeerContextoExpedienteSeleccionOfert
 		return vacio, errorRegistroSeleccionOferta(operacion, err)
 	}
 	if version < 1 || version > 1<<53-1 || !domain.ReferenciaOpacaValida(categoria) ||
-		!domain.ReferenciaOpacaValida(centro) {
+		!domain.ReferenciaOpacaValida(centro) || !domain.ReferenciaOpacaValida(unidad) {
 		return vacio, errRegistroSeleccionOfertaPostgreSQL
 	}
 	if err := tx.Commit(operacion); err != nil {
 		return vacio, errorRegistroSeleccionOferta(operacion, err)
 	}
 	return ports.ContextoExpedienteSeleccionOfertaCT{VersionActual: uint64(version),
-		CategoriaRef: categoria, CentroRef: centro}, nil
+		CategoriaRef: categoria, CentroRef: centro, UnidadGestoraRef: unidad}, nil
 }
 
 func (r *RegistroSeleccionOfertaPostgreSQL) ConsultarEstadoPorExpediente(
@@ -98,6 +98,7 @@ func (r *RegistroSeleccionOfertaPostgreSQL) ConsultarEstadoPorExpediente(
 	i := ports.IntencionSeleccionOfertaCT{OrganizacionRef: original.OrganizacionRef,
 		ExpedienteRef: original.ExpedienteRef, CategoriaRef: original.CategoriaRef,
 		CentroRef: original.CentroRef, VersionExpediente: original.VersionExpediente,
+		UnidadGestoraRef:  q.UnidadGestoraRef,
 		ClaveIdempotencia: original.ClaveIdempotencia, ActorRef: original.ActorRef,
 		PerfilRef: original.PerfilRef, HuellaIntencion: original.HuellaIntencion,
 		Vinculo: q.Vinculo, ResultadoContexto: q.ResultadoContexto,

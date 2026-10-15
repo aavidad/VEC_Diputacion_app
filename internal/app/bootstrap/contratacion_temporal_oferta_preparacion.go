@@ -59,9 +59,10 @@ func (p preparadorConsultaEstadoSeleccionOfertaCTDesarrollo) PrepararConsultaEst
 		OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
 		ExpedienteRef:   expediente, CategoriaRef: actual.CategoriaRef,
 		CentroRef: actual.CentroRef, VersionObservada: actual.VersionActual,
-		ActorRef:  actor.Resultado.Contexto.PersonaRef,
-		PerfilRef: actor.Resultado.Contexto.PerfilActivoRef,
-		Vinculo:   actor.Vinculo, ResultadoContexto: actor.Resultado,
+		UnidadGestoraRef: actual.UnidadGestoraRef,
+		ActorRef:         actor.Resultado.Contexto.PersonaRef,
+		PerfilRef:        actor.Resultado.Contexto.PerfilActivoRef,
+		Vinculo:          actor.Vinculo, ResultadoContexto: actor.Resultado,
 		Correlacion: correlacion, MotivoAutorizacion: p.autoridad.MotivoOferta(),
 	}
 	return q, q.Validar()
@@ -82,7 +83,7 @@ func (p preparadorSeleccionOfertaCTDesarrollo) PrepararIntencion(ctx context.Con
 	}
 	e := d.expediente.Fiscalizado
 	if e.Referencia != expediente || e.Version != version || e.Analisis == nil ||
-		e.Solicitud.NumeroPersonas < 2 || e.Solicitud.NumeroPersonas > 100 {
+		e.Asignacion == nil || e.Solicitud.NumeroPersonas < 2 || e.Solicitud.NumeroPersonas > 100 {
 		return vacia, ct.ErrSeleccionOfertaCTInvalida
 	}
 	_, actor, err := p.autoridad.ContextoOferta(ctx)
@@ -97,7 +98,8 @@ func (p preparadorSeleccionOfertaCTDesarrollo) PrepararIntencion(ctx context.Con
 		ExpedienteRef: e.Referencia, VersionExpediente: e.Version, ClaveIdempotencia: clave,
 		ActorRef: actor.Resultado.Contexto.PersonaRef, PerfilRef: actor.Resultado.Contexto.PerfilActivoRef,
 		CategoriaRef: e.Analisis.CategoriaRef, CentroRef: e.Solicitud.CentroRef,
-		Vinculo: actor.Vinculo, ResultadoContexto: actor.Resultado,
+		UnidadGestoraRef: e.Asignacion.UnidadRef,
+		Vinculo:          actor.Vinculo, ResultadoContexto: actor.Resultado,
 		Correlacion: correlacion, MotivoAutorizacion: p.autoridad.MotivoOferta()}
 	i.HuellaIntencion = ct.HuellaIntencionSeleccionOfertaCT(i)
 	return i, i.Validar()
@@ -117,7 +119,8 @@ func (p preparadorSeleccionOfertaCTDesarrollo) PrepararComando(ctx context.Conte
 	e := d.expediente.Fiscalizado
 	if e.Referencia != i.ExpedienteRef || e.Version != i.VersionExpediente ||
 		e.OrganizacionRef != i.OrganizacionRef || d.expediente.VersionActual != e.Version ||
-		e.Analisis == nil || e.Analisis.CategoriaRef != i.CategoriaRef || e.Solicitud.CentroRef != i.CentroRef {
+		e.Analisis == nil || e.Asignacion == nil || e.Asignacion.UnidadRef != i.UnidadGestoraRef ||
+		e.Analisis.CategoriaRef != i.CategoriaRef || e.Solicitud.CentroRef != i.CentroRef {
 		return vacio, ct.ErrSeleccionOfertaCTInvalida
 	}
 	// El proveedor existente comprueba la necesidad y su publicación RPT; sus

@@ -729,7 +729,10 @@ cantidad, bolsa ni candidatos. CT toma una vez la captura vigente del orden de
 Bolsa, reserva el comando original y pide a Bolsa una oferta de esa cantidad.
 Bolsa publica y devuelve su recibo; CT confirma el vínculo con recibo propio.
 La ficha muestra ambos, las plazas y el plazo, y lleva a «Gestionar ofertas»
-en Bolsa. La publicación no demuestra un aviso por correo.
+en Bolsa. La publicación no demuestra un aviso por correo. El vínculo, su consulta y el
+descarte comprueban la organización y la unidad gestora del expediente. El
+centro y la categoría se cotejan con su necesidad; no definen esos permisos.
+El cierre en Bolsa conserva el ámbito y la unidad de la bolsa.
 
 La variante de dos personas del apartado 4.0 llega hasta la adjudicación en
 Bolsa. **Pendiente:** continuación de la propuesta desde la oferta adjudicada.
