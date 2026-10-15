@@ -688,6 +688,38 @@ Falta completar el ensayo de lectura y reinicio de esta candidata.
   y `Content-Security-Policy` cerrada.
 - Límites de tamaño de cuerpo y de respuesta antes de reservar memoria.
 
+La descarga nominal de un PDF firmado de Contratación temporal usa
+`POST /api/vec/contratacion-temporal/firmas-documento/descargas-v2` con
+`expediente_ref`, `version_observada`, `documento` y `firma_ref`. Resuelve la
+custodia desde una consulta de firmas autorizada en la misma petición,
+descarga por la autoridad de Documentos y coteja versión, expediente,
+productor, tipo, longitud y huella. El navegador verifica también los bytes.
+Esta frontera conserva la garantía sustancial del certificado nominal; la
+API general de Documentos mantiene su garantía alta. El contexto de firma
+exige la proyección canónica de empleado de Personal.
+
+El detalle autorizado y auditado incorpora `capacidades_ficha.firma_nominal`,
+ligado al expediente y a su versión, organización, unidad y plan publicado.
+Esa cobertura indica qué documentos consultar; no concede permiso de firma.
+La ficha conserva los errores de consulta de cada documento y muestra los
+cuatro documentos sin plan como pendientes, sin acciones de firma.
+
+La lista de activación de #1137 ordena CT218, IS20, AUT97, CT219 y CT224. AUT97
+reconstruye el validador nominal desde su preimagen y cambia únicamente el
+alias SQL que colisionaba con la variable de asignación. No cambia permisos
+ni decisiones. Solo se instalan las migraciones aún ausentes en cada copia.
+CT224 admite el tercer paso en la consulta del acto nominal solo con unidad
+concreta y paso publicado en el plan vigente. Conserva los pasos 1 y 2 sin
+unidad; la recuperación histórica mantiene su contrato anterior. AD280 quedó
+reservada sin uso y no forma parte de esta entrega.
+
+La auditoría histórica admite la política de certificado personal de
+desarrollo acreditada en la fecha original para una cuenta interna
+ordinaria, con método certificado y garantía sustancial. No exige que esa
+política siga activa para auditar una denegación posterior a su retirada.
+Los actos y lecturas continúan comprobando su autorización vigente;
+Administración mantiene garantía alta.
+
 ### 11.3 Contrato de errores
 
 ```json

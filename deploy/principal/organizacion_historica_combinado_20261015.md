@@ -23,7 +23,9 @@ revalidación corporativa que ya usa la sesión registrada.
 2. Seleccionar un perfil de RRHH que tenga la acción
    `personal.organizacion_historica.consultar`, recurso
    `personal/organizacion_historica`, finalidad
-   `consultar_organizacion_historica` y garantía suficiente. La asignación usa
+   `consultar_organizacion_historica` y garantía suficiente. La concesión enumera los seis campos que consume
+   Personal: `dotaciones`, `plazas`, `puestos_individuales`, `puestos_tipo`,
+   `unidades` y `vinculos`. La asignación usa
    exactamente `organismo_ref` y `unidad_clave`, con los valores permitidos para
    la copia. El perfil y la cuenta deben corresponder a la misma persona del
    certificado. Se conservan los perfiles y los ámbitos de Contratación y Bolsa.
@@ -48,6 +50,10 @@ revalidación corporativa que ya usa la sesión registrada.
    `vec_autorizacion_registro` y `vec_autorizacion_motivos_evaluador`,
    respectivamente. La auditoría usa su configuración nominal existente y los
    llamantes técnicos admitidos; no se sustituye por un registro en memoria.
+   La CA de las conexiones es la de PostgreSQL, verificada contra el nombre
+   del servidor; puede diferir de la CA de la web. Reservar dos conexiones
+   adicionales para el pool de auditoría OH, además de las usadas por los
+   consumidores ya montados; en el ensayo el límite nominal pasó de cuatro a seis.
 
 Los datos ficticios de perfil, catálogo y motivos del ensayo se preparan solo en
 la copia propia, con procedencia de semilla. No se presentan como actos o recibos

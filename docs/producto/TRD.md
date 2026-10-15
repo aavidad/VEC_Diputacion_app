@@ -544,7 +544,23 @@ vigente, con versión y huella. El guion
 `vec-plan-firma-validar` y usa el gobierno ADMIN existente para crear y publicar
 con personas distintas; `--comprobar` no conecta con ADMIN. Dirección publicará
 el plan y hará la comprobación final con los certificados que conserva en
-cidonia. No se acredita todavía el registro final de la firma.
+cidonia. La prueba local de firma y sus límites se documentan en
+`deploy/principal/candidata_hz39/firma/LEEME.md`; no acredita su instalación
+en cidonia.
+
+En el registro múltiple, cada PDF firmado tiene su propio identificador. Las
+altas del contrato V2 usan la secuencia global del documento como versión de
+custodia, sin reiniciarla tras una devolución. Un reintento conserva exactamente
+la versión ya guardada, incluida la versión 1 de operaciones antiguas. El
+contrato V1 mantiene la versión 1. Dos documentos del circuito no pueden
+resolver al mismo tipo documental canónico.
+
+El guion de certificados de desarrollo prepara por defecto certificados de
+400 días y una lista de revocación de 90 días. Los parámetros `--cert-dias` y
+`--crl-dias` permiten cambiar esos plazos. La CA debe cubrirlos; la lista nueva
+conserva sus revocaciones y la reutilización comprueba el material privado.
+Los cargos del kit están vigentes hasta el 31 de diciembre de 2027. La ventana
+entre preparar y aprobar su publicación sigue limitada a un día.
 
 Un borrador no es un documento firmado. Autenticarse no es firmar. Un aviso no es
 una entrega acreditada. Una referencia a un correo no es su custodia. No se

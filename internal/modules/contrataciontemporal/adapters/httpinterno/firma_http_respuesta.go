@@ -41,6 +41,8 @@ func responderJSONFirmaNominal(w http.ResponseWriter, r *http.Request, estado in
 				ruta, operacion = RutaPreflightFirmaR5, "preflight_firma"
 			case RutaOriginalFirmableCT:
 				ruta, operacion = RutaOriginalFirmableCT, "original_firmable"
+			case RutaDescargaFirmaR5V2:
+				ruta, operacion = RutaDescargaFirmaR5V2, "descarga_firma_r5_v2"
 			}
 		}
 		var causa error
