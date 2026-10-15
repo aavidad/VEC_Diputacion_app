@@ -1,0 +1,6 @@
+{
+  "uso": "Use --comprobar or --aplicar PUBLICA-PLAZOS-CT-V3.",
+  "fuente_modificada": "The catalogue does not match the reviewed version. It has not been published.",
+  "base_incompatible": "Publication requires the previous base and no recorded adjustments. Review activation with the project lead before continuing.",
+  "preparador_ausente": "Set VEC_REGLAS_CT_PREPARADOR to the preparation executable."
+}
