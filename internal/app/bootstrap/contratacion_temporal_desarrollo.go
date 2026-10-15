@@ -966,6 +966,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}
 	var montajeFirmaVec *montajeFirmaVecR5CT
+	defer func() {
+		if cerrarAlta && montajeFirmaVec != nil && montajeFirmaVec.cerrarAuditoria != nil {
+			montajeFirmaVec.cerrarAuditoria()
+		}
+	}()
 	var lecturasFirmaVec *montajeLecturasFirmaV2
 	if firmaVecActiva {
 		if firmaDocumento == nil || alta.soporte.perfilesOriginal == nil || consultasRRHH.identidad == nil || consultaCircuitoRRHH == nil ||
@@ -990,6 +995,23 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		originalPropuestaReal = consultorDetalleFirmaV2{legacy: originalPropuestaReal, nominal: lecturasFirmaVec.historico}
 		consultasRRHH.descargas = selectorDescargaFirmaV2{legacy: consultasRRHH.descargas, nominal: lecturasFirmaVec.descargas}
 	}
+	documentalMontadoFicha, errDocumentalFicha := plantillasDocumentalCTDesarrolloSolicitado(cfg)
+	if errDocumentalFicha != nil {
+		documentalMontadoFicha = false
+		slog.Warn("ct.cobertura_documental_no_disponible", "etapa", "configuracion", "error.type", fmt.Sprintf("%T", errDocumentalFicha))
+	}
+	coberturaFirmaNominal := consultorDetalleConCoberturaFirmaNominalRRHH{
+		lector: detalleReal, documentalMontado: documentalMontadoFicha,
+	}
+	if montajeFirmaVec != nil {
+		coberturaFirmaNominal.plan = montajeFirmaVec.plan
+		coberturaFirmaNominal.fijado = domain.VersionPlanFirmaV2{
+			Referencia:   montajeFirmaVec.configuracion.Plan.Referencia,
+			Version:      montajeFirmaVec.configuracion.Plan.Version,
+			HuellaSHA256: montajeFirmaVec.configuracion.Plan.HuellaSHA256,
+		}
+	}
+	detalleReal = coberturaFirmaNominal
 	defer func() {
 		if cerrarAlta {
 			consultasRRHH.cerrar()

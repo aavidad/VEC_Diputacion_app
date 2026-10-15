@@ -50,7 +50,7 @@ func descriptorPrueba(t *testing.T, orden int) (*FuenteDescriptorFirmaV2, ports.
 		Via: ports.ViaFirmaCertificadoVEC, OrganizacionRef: a["organizacion_ref"], ExpedienteRef: "expediente:prueba", VersionExpediente: 7,
 		Documento: "resolucion", CatalogoRef: a["circuito_ref"], CatalogoHuella: a["circuito_sha256"], PasoRef: a["paso_ref"], PasoOrden: orden, Secuencia: orden,
 		HistoriaHuella: h, OriginalRef: "original:prueba", OriginalVersion: 1, OriginalHuella: original, FirmadoHuella: firmado, CertificadoHuella: cert, FirmanteRef: "ref:" + cert,
-		FirmantePrincipalRef: "per_firmante_sintetico", PerfilFirmanteRef: a["perfil_esperado_ref"], CargoFirmante: a["rol_id"], UnidadFirmanteRef: a["unidad_ref"], PerfilActivoFirmanteRef: "prf_firmante_sintetico",
+		FirmantePrincipalRef: "per_firmante_sintetico", PerfilFirmanteRef: a["perfil_esperado_ref"], CargoFirmante: a["cargo_ref"], UnidadFirmanteRef: a["unidad_ref"], PerfilActivoFirmanteRef: "prf_firmante_sintetico",
 		AsignacionFirmanteRef: "asignacion:prueba", AsignacionFirmanteVersion: 1, AsignacionFirmanteHuella: h, VersionRolFirmanteRef: "rol:central:v1", VersionRolFirmanteHuella: h,
 		ControlVigenciaFirmanteRef: "rol:central:v1", ControlVigenciaFirmanteRevision: 1, ControlVigenciaFirmanteHuella: h,
 		AsignacionVigenteDesde: "2026-01-01T00:00:00Z", AsignacionVigenteHasta: "2027-01-01T00:00:00Z", PoliticaVerificacion: "politica:vec:firma:verificacion-autonoma:v2",

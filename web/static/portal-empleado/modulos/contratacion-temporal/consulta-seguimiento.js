@@ -1,4 +1,4 @@
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261014-ginpix-personal-b2-v1";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261015-firma-cierre-cache-v3";
 import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { validarReferenciaExpedienteSeguimiento } from "./contrato-seguimiento-incorporacion.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";

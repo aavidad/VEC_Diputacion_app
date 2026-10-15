@@ -1,6 +1,6 @@
 import { cargarTextos } from "../comun/textos.js";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { enlaceSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261015-ofertas-justificante-integracion-v1";
+import { enlaceSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261015-firma-ofertas-justificante-integracion-v2";
 import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4";
 
 let mensajes;

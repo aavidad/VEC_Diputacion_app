@@ -253,7 +253,8 @@ una con su perfil:
 | Intervención | Francisco Javier López Serrano | Intervención |
 | Firmantes de la resolución | Jefatura del Servicio de RRHH, Diputado/a delegado/a de RRHH y Secretaría General | Cargos de firma del circuito v2, asignados por Administración. Las personas ficticias de los tres cargos, con su usuario web y su perfil del circuito, están en `scripts/operacion/firma_ct_tres_pasos/firmantes.json`; esa es la fuente, no esta tabla |
 
-Una persona no ocupa dos papeles. Ratificador y solicitante son personas
+La técnica de RRHH firma también el informe con su perfil de firma. Los cuatro
+firmantes son personas distintas. Ratificador y solicitante son personas
 distintas, y ningún firmante firma dos pasos del mismo documento.
 
 **Puesto y bolsa.** Categoría Administrativo de la RPT publicada, con su centro
@@ -289,7 +290,7 @@ conveniente».
 | 5 | Carmen | Ficha, Vía de cobertura | Elige bolsa vigente | Recibo; `asignacion_unidad/en_curso`, v3 |
 | 6 | Carmen | Ficha, Asignación | Asigna la unidad gestora | Recibo; `asignacion_unidad/en_curso`, v4 |
 | 7 | Carmen | Ficha, Informe jurídico | Prepara el informe | Recibo; `informe_juridico/en_curso`, v5 |
-| 7b | Jefatura (firmante) | Ficha, Firma | Firma con su certificado el informe de remisión a Intervención (la fiscalización exige el informe firmado) | Recibo de firma verificada |
+| 7b | Carmen y después Jefatura (firmantes) | Ficha, Firma | Firman con sus certificados el informe de remisión a Intervención, en ese orden; la fiscalización exige ambas firmas verificadas | Un recibo por firma y el PDF con las dos firmas verificadas |
 | 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6 |
 | 9 | Carmen | Ficha, Llamamiento y comunicación | Abre el llamamiento desde la bolsa Administrativo y registra la comunicación | Recibo del llamamiento con Antonio como llamado; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas) |
 | 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo de dos días | Recibo de su respuesta |
@@ -298,7 +299,7 @@ conveniente».
 | 12 | Carmen | Ficha, Formalización | Registra la propuesta de nombramiento | Recibo; `nombramiento/en_curso`, v7 |
 | 13 | Carmen | Ficha, Formalización | Registra la resolución | Recibo; `nombramiento/en_curso`, v8 |
 | 14 | Carmen | Ficha, Documentos | Descarga en PDF y Word los borradores | Cada documento se abre con el logotipo y los datos del expediente |
-| 15 | Firmantes | Ficha, panel de firma (GrxFirma) | Firman con certificado el informe de remisión y la resolución, en el orden del catálogo (tres cargos). Los otros cuatro documentos (incluida la toma de posesión de Antonio) se generan y descargan sin firma, marcados «firma pendiente», sin simularla | Cada firma con su justificante y el PDF verificado; los cuatro restantes, descargables en PDF y Word |
+| 15 | Firmantes | Ficha, panel de firma (GrxFirma) | Firman la resolución en el orden Jefatura → Diputación → Secretaría General y recuperan el informe ya firmado en 7b. Los otros cuatro documentos (incluida la toma de posesión de Antonio) se generan y descargan sin firma, marcados «firma pendiente», sin simularla | Cada firma con su justificante y el PDF verificado; los cuatro restantes, descargables en PDF y Word |
 | 17 | Lucía (centro) | `peticiones-centro/`, Incorporaciones | Acredita la incorporación de Antonio con fecha y documento | Recibo de incorporación acreditada del centro |
 | 18 | Carmen | Ficha, Paso a Personal | Revisa el plan de alta con categoría Administrativo, puesto 9/01 y plaza 2026/0033, y lo confirma | Antonio aparece en Personal con su relación y su ocupación; recibo de alta B2 confirmado |
 | 16a | Carmen | Ficha, GINPIX | Descarga la ficha para la grabación manual, después del alta en Personal | Ficha descargada con las referencias del recibo B2 confirmado |

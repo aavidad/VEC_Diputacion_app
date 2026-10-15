@@ -27,6 +27,7 @@ export function crearClienteRecuperacionFirmasV2({ ejecutar, validarOpciones, cr
       if (signal?.aborted) throw aborto();
       const data = await ejecutar({
         ruta: RUTA_CONSULTA_FIRMAS_V2, metodo: "POST", entrada: q, signal,
+        tipoContenido: "application/json",
         estadoEsperado: 200, maximoSolicitud: 4 * 1024, maximoRespuesta: 512 * 1024,
         efecto: false, validarRespuesta: (respuesta) => validarRespuestaConsultaFirmasV2(respuesta, q),
       });
@@ -39,6 +40,7 @@ export function crearClienteRecuperacionFirmasV2({ ejecutar, validarOpciones, cr
       if (signal?.aborted) throw aborto();
       const data = await ejecutar({
         ruta: RUTA_RECUPERACION_FIRMAS_V2, metodo: "POST", entrada: q, signal,
+        tipoContenido: "application/json",
         estadoEsperado: 200, maximoSolicitud: 4 * 1024,
         maximoRespuesta: 8 * 1024 * 1024, efecto: false,
         validarRespuesta: (respuesta) => respuesta,

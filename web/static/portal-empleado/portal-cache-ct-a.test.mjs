@@ -4,15 +4,16 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261014-ginpix-cronos-v1";
-// La entrada incluye Ofertas y justificantes; el coordinador CT conserva su URL.
-const versionEntrada = "20261015-ofertas-justificante-integracion-v1";
+const versionCoordinador = "20261015-firma-cierre-cache-v3";
+// La entrada integra Firma y Ofertas; el coordinador CT conserva su cohorte.
+const versionEntrada = "20261015-firma-ofertas-justificante-integracion-v2";
 const versionClienteCT = "20261014-ginpix-personal-b2-v1";
+const versionClienteConsulta = "20261015-firma-cierre-cache-v3";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
-const versionCircuito = "20261014-ginpix-personal-b2-v1";
-const versionVista = "20261013-ct-firma-tres-v3";
-const versionVistaPortal = "20261014-ginpix-personal-b2-v1";
-const versionAdaptador = "20261013-ct-firma-tres-v3";
+const versionCircuito = versionCoordinador;
+const versionVista = versionCoordinador;
+const versionVistaPortal = versionCoordinador;
+const versionAdaptador = versionCoordinador;
 const versionRender = "20261013-ct-firma-tres-v3";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
@@ -67,7 +68,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   // La consulta de circuito RRHH no cambió: conserva su URL anterior.
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
-  exigirVersiones(circuito, "./circuito-firma-acciones.js", versionCircuito);
+  exigirVersiones(circuito, "./circuito-firma-acciones.js", versionClienteConsulta);
   for (const manifiesto of [interno, produccion]) {
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/firma-externa-cliente\.js$/mu);
   }
@@ -83,7 +84,7 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   const [html, coordinador, formalizacion, firma, categorias, montajeCategorias, clienteCategorias] =
     await Promise.all(rutas.map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   const version = "20261007-pantallas-textos-final-v1";
-  const cohorteCT = versionClienteCT;
+  const cohorteCT = versionClienteConsulta;
   exigirVersiones(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", "20261011-informe-legible-v1");
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteCT);
   exigirVersiones(coordinador, "./modulos/contratacion-temporal/adaptador-http-expedientes.js", versionAdaptador);
@@ -115,7 +116,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     nombres.map((nombre) => readFile(new URL(nombre, raiz), "utf8")));
   const cohorte = versionBaseCT;
   const cohorteNavegacion = "20261012-ct-b2-cese-v1";
-  const cohorteClienteHTTP = versionClienteCT;
+  const cohorteClienteHTTP = versionClienteConsulta;
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
   const cohorteCapacidad = versionBaseCT;
   const cohorteIdioma = "20261011-ct-bolsa-vinculo-v1";
