@@ -13,7 +13,7 @@ BEGIN
   'vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer,jsonb)')),'UTF8')),'hex') INTO h;
  IF current_user<>'vec_bolsa_llamamientos_propietario'
     OR current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
-    OR h IS DISTINCT FROM '77b2ab5ed4627170651d0b17edef5d00232bd406567c88c64bcb4cc66d245f5a'
+    OR h IS DISTINCT FROM '3811f4fbb392f0b8c37f2583ae163e0aefafdf71fa34e2f7fc62454ef236d995'
     OR to_regclass('vec_bolsa_llamamientos.origen_oferta_ct_v1') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.plazas_oferta') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.verificar_oferta_ct_v1(text,text,bigint,text,text,text,text,text,text,integer,jsonb,text)') IS NOT NULL
