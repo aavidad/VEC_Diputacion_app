@@ -102,7 +102,7 @@ El técnico prepara el informe. Lo firman el técnico y la Jefatura del Servicio
 
 ### Paso 6. Intervención fiscaliza
 
-Intervención abre la ficha y registra el resultado. Si hay reparo, el expediente vuelve a RRHH, que lo subsana, hace un informe nuevo firmado por la Jefatura y lo devuelve a Intervención. Por defecto, Intervención tiene 10 días hábiles (5 si es urgente) y RRHH otros 10 para subsanar. Estos plazos se pueden cambiar.
+Intervención abre la ficha y registra el resultado. Si hay reparo, el expediente vuelve a RRHH, que lo subsana, hace un informe nuevo firmado por la Jefatura y lo devuelve a Intervención. Con el catálogo de plazos v3, Intervención tiene 10 días hábiles (5 si es urgente) y RRHH 15 para subsanar. Son plazos del Real Decreto 424/2017, arts. 10.2, 10.3 y 12.4; no se editan desde la pantalla. VEC cuenta la subsanación desde que el servicio recibe el reparo; no registra por separado su aceptación. Los expedientes anteriores conservan la versión con que se tramitaron.
 
 ### Paso 7. Ofrecimiento a la bolsa
 
@@ -146,7 +146,7 @@ Al terminar el contrato, el técnico registra el cese con su causa. La persona v
 
 ## 6. Qué puede cambiar RRHH sin pedir nada a Informática
 
-- Plazos de Intervención y de subsanación.
+- Plazos organizativos que el catálogo permita editar, como el de análisis de la solicitud. Los de fiscalización y subsanación del catálogo v3 vienen fijados por la norma: 10/5 y 15 días hábiles, respectivamente. En «Reglas vigentes» se consultan su valor, procedencia y versión.
 - Plazo para contestar a una oferta y forma de ofrecer varias plazas (a la vez o de una en una).
 - Qué cambios de situación se permiten en cada bolsa.
 - Plazo de no disponibilidad tras un cese.
