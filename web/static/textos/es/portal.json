@@ -289,7 +289,7 @@
     "txt_aria_abrir_personas_estado": "Abrir la lista de {total} personas de {categoria} con situación «{estado}»",
     "txt_aria_filtrar_situacion": "Filtrar {total} candidatos en situación {situacion}",
     "txt_aria_ver_candidatos_bolsa": "Ver los {total} candidatos de {categoria}",
-    "txt_aria_ver_candidatos_estado": "Ver {total} candidatos de {categoria} con situación «{estado}»",
+    "txt_aria_ver_candidatos_estado": "Ver {total} candidatos de {categoria} con el filtro «{estado}»",
     "txt_aspirante": "Aspirante",
     "txt_aspirante_2": "Aspirante:",
     "txt_aspirantes": "Aspirantes",
