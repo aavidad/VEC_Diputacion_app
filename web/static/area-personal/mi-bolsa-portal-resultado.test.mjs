@@ -149,7 +149,7 @@ test("un corte conserva respuesta y PDF originales sin un segundo envío concurr
   datos.set("respuesta", "acepta");
   assert.equal(await enviarPortalMiBolsa(formulario, { datos, fetchImpl: async (ruta, opciones) => {
     enviadas.push({ ruta, cuerpo: opciones.body });
-    if (opciones.method === "GET") return { status: 200, json: async () => ({ data: {
+    if (ruta.endsWith("/justificantes")) return { status: 200, json: async () => ({ data: {
       carga_id: `ref:${huella}`, comprobante_ref: `ref:${huella}`, documento_version: 1,
       recibo_ref: `recibo:${huella}`,
       estado: "admitido", registrado_en: "2026-10-01T08:00:00Z",
@@ -157,6 +157,9 @@ test("un corte conserva respuesta y PDF originales sin un segundo envío concurr
     return { status: 200, json: async () => reciboDe(escenarios[0], true) };
   } }), true);
   assert.equal(enviadas[1].ruta, enviadas[0].ruta);
+  assert.equal(enviadas[1].cuerpo.get("clave_idempotencia"), enviadas[0].cuerpo.get("clave_idempotencia"));
+  assert.deepEqual(await enviadas[1].cuerpo.get("documento").arrayBuffer(),
+    await enviadas[0].cuerpo.get("documento").arrayBuffer());
   assert.equal(JSON.parse(enviadas[2].cuerpo).justificante_ref, `ref:${huella}`);
 });
 

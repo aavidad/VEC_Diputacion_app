@@ -11,11 +11,10 @@ de quedar disponible.
 
 ## Estado de la entrega
 
-El código y las migraciones de esta rama no acreditan una instalación. Están
-pendientes la revisión SQL independiente, la revisión de seguridad, el ensayo
-en una copia de la principal, el arranque con y sin configuración, el recorrido
-en Chrome y la recuperación después de reiniciar. Dirección incorporará las
-huellas, recibos y el resultado de esas comprobaciones a la entrega final.
+El código y las migraciones de esta rama no acreditan una instalación. La PR
+recoge las revisiones independientes, las huellas SQL y las pruebas de arranque,
+recorrido en Chrome y recuperación después de reiniciar. La precondición de
+admisiones descrita más abajo sigue pendiente de su productor gobernado.
 Ningún paso de esta guía autoriza a probar ficheros sueltos en cidonia.
 
 ## Preparar una copia y fijar el orden
@@ -42,7 +41,11 @@ custodia los bytes. B119 vincula el documento con la respuesta de renuncia.
 La descarga de RRHH exige una decisión de autorización para esa operación,
 consumida por su función nominal, y deja constancia de la lectura. CT222 acota
 la frontera con el expediente de Contratación temporal. AUT99, AD281 y D23 se han ensayado en una copia y tienen revisión independiente.
-AD284 corrige el consumo de la confianza externa; requiere su comprobación focal.
+AD284 corrige el consumo de la confianza externa y AUT100 la sesión nominal.
+D24 conserva el límite de 256 caracteres mediante una validación compatible
+con PostgreSQL. El formulario envía el PDF por POST idempotente; al reintentar
+conserva el mismo archivo y la misma clave. Solo registra la renuncia después
+de recibir un documento admitido.
 
 ## Precondición pendiente de activación
 

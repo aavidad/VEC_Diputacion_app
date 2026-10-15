@@ -516,7 +516,8 @@ real, falta acreditar el recorrido.
 
 La técnica de RRHH que tenga el permiso vigente de su rol, sea Carmen u otra,
 consulta y descarga el justificante desde la ficha del candidato. El seguimiento
-también muestra la actuación. El área de la aspirante no ofrece la descarga de
+también muestra la actuación. Un reintento conserva el mismo PDF y la misma
+clave; una subida pendiente o rechazada no registra la renuncia. El área de la aspirante no ofrece la descarga de
 su propio PDF después de presentarlo: debe conservar el original y el recibo.
 Esta capacidad está pendiente de ensayo conjunto y activación; su presencia en
 el código no acredita que esté instalada en cidonia.
