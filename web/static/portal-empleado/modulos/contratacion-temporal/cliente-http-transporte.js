@@ -2,7 +2,7 @@
 
 import { RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
 import { RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
-import { conflictoLlamamientoValido, prefijoErrorLlamamiento } from "./cliente-http-llamamiento.js";
+import { conflictoLlamamientoValido, prefijoErrorLlamamiento, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
 import { RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
 import { RUTA_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
@@ -358,6 +358,8 @@ export const CONFLICTOS_SIN_CREDITO_COBERTURA = Object.freeze([
 ]);
 
 export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
+  if (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento && estado === 503
+    && codigo === "seleccion_oferta_indeterminada") return true;
   if (ruta.split("?")[0] === RUTA_VINCULO_BOLSA && estado === 409) {
     return codigo === "vinculo_en_conflicto";
   }

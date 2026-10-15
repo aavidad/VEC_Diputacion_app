@@ -33,11 +33,16 @@ func configuracionOfertaCTPrueba(dir string) config.Config {
 }
 
 func archivoOfertaCTPrueba() archivoActivacionOfertaCT {
+	perfil := func(nombre, huella, motivo string) perfilActivacionOfertaCT {
+		return perfilActivacionOfertaCT{PerfilRef: "prf:ofertas:ct:" + nombre,
+			Rol: referenciaRolOfertaCTDesarrollo{RolID: "ofertas_ct_" + nombre, Version: 1, HuellaSHA256: strings.Repeat(huella, 64)},
+			Motivo: core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_oferta_ct_" + nombre, CatalogoVersion: 1,
+				CatalogoHuellaSHA256: strings.Repeat(motivo, 64), EntradaClave: "motivo_oferta_ct_" + nombre}}
+	}
 	return archivoActivacionOfertaCT{
-		Esquema: esquemaActivacionOfertaCTDesarrollo, PerfilRef: "prf:ofertas:ct:001",
-		Rol: referenciaRolOfertaCTDesarrollo{RolID: "ofertas_ct_rrhh", Version: 1, HuellaSHA256: strings.Repeat("a", 64)},
-		Motivo: core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_oferta_ct", CatalogoVersion: 1,
-			CatalogoHuellaSHA256: strings.Repeat("b", 64), EntradaClave: "motivo_oferta_ct_001"},
+		Esquema: esquemaActivacionOfertaCTDesarrollo,
+		Vinculo: perfil("vinculo", "a", "b"), CierreBolsa: perfil("cierre", "c", "d"),
+		DescarteCT:                 perfil("descarte", "e", "f"),
 		FuenteAutorizacionDSNFile:  "identidad/fuente-ofertas-ct.dsn",
 		MotivosAutorizacionDSNFile: "identidad/motivos-ofertas-ct.dsn",
 	}
@@ -56,7 +61,7 @@ func TestActivacionOfertaCTPrivadaOpcionalYCerrada(t *testing.T) {
 		t.Fatalf("archivo ausente no era opcional: presente=%v err=%v", presente, err)
 	}
 	base := archivoOfertaCTPrueba()
-	if base.Motivo.Validar() != nil {
+	if base.Vinculo.Motivo.Validar() != nil || base.CierreBolsa.Motivo.Validar() != nil || base.DescarteCT.Motivo.Validar() != nil {
 		t.Fatal("motivo de prueba inválido")
 	}
 	ruta := filepath.Join(dir, archivoActivacionOfertaCTDesarrollo)
@@ -104,6 +109,36 @@ func TestActivacionOfertaCTPrivadaOpcionalYCerrada(t *testing.T) {
 	if _, presente, err := leerActivacionOfertaCTDesarrollo(cfg); !presente || err == nil {
 		t.Fatal("ruta privada fuera del árbol admitida")
 	}
+	base = archivoOfertaCTPrueba()
+	base.DescarteCT.PerfilRef = base.Vinculo.PerfilRef
+	b, err = json.Marshal(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	escribir(b, 0600)
+	if _, presente, err := leerActivacionOfertaCTDesarrollo(cfg); !presente || err == nil {
+		t.Fatal("mismo perfil admitido para dos efectos")
+	}
+	base = archivoOfertaCTPrueba()
+	base.CierreBolsa.Rol.RolID = base.Vinculo.Rol.RolID
+	b, err = json.Marshal(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	escribir(b, 0600)
+	if _, presente, err := leerActivacionOfertaCTDesarrollo(cfg); !presente || err == nil {
+		t.Fatal("mismo rol admitido para dos efectos")
+	}
+	base = archivoOfertaCTPrueba()
+	base.DescarteCT.Motivo = base.CierreBolsa.Motivo
+	b, err = json.Marshal(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	escribir(b, 0600)
+	if _, presente, err := leerActivacionOfertaCTDesarrollo(cfg); !presente || err == nil {
+		t.Fatal("mismo motivo admitido para dos efectos")
+	}
 }
 
 func TestSeleccionOfertaCTExigeConcesionYAudienciaPropias(t *testing.T) {
@@ -123,6 +158,30 @@ func TestSeleccionOfertaCTExigeConcesionYAudienciaPropias(t *testing.T) {
 		d.Prefijo != "clave:capacidad:ct:vinculo-oferta-bolsa:" ||
 		!audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
 		t.Fatal("audiencia de oferta no nominal o no gobernada")
+	}
+	for _, adicional := range []descriptorMaterialConsumidorV3Desarrollo{
+		descriptorMaterialCierreIntencionOfertaCTDesarrollo(),
+		descriptorMaterialDescarteSeleccionOfertaCTDesarrollo(),
+	} {
+		if adicional.Audiencia == d.Audiencia || adicional.Dominio == d.Dominio || adicional.Prefijo == d.Prefijo ||
+			!audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(adicional.Audiencia) {
+			t.Fatal("cierre y descarte no tienen material propio")
+		}
+	}
+	for _, politica := range []politicaPerfilOfertaCTDesarrollo{
+		politicaCierreOfertaBolsaCTDesarrollo("unidad:bolsa:001", "ambito:bolsa:001"),
+		politicaDescarteOfertaCTDesarrollo(),
+	} {
+		concesion := core.ConcesionRol{Accion: politica.accion, ModuloID: politica.modulo,
+			TipoRecurso: politica.tipo, Finalidades: []string{politica.finalidad},
+			GarantiaMinima: core.AuthAssuranceHigh}
+		if !concesionExactaPerfilOfertaCTDesarrollo(concesion, politica) {
+			t.Fatalf("concesión propia %s rechazada", politica.accion)
+		}
+		concesion.Accion = ports.AccionVincularOfertaBolsaCT
+		if concesionExactaPerfilOfertaCTDesarrollo(concesion, politica) {
+			t.Fatalf("concesión de vínculo admitida para %s", politica.accion)
+		}
 	}
 }
 
@@ -149,7 +208,7 @@ func TestFuenteOfertaCTSoloLeeRolExactoVigente(t *testing.T) {
 	origen := &fuenteOfertaCTPrueba{instantanea: instantanea}
 	f := &fuenteRolSeleccionOfertaCTDesarrollo{fuente: origen, principalID: principal,
 		personaRef: principal, perfilRef: perfil,
-		organizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+		politica: politicaVinculoOfertaCTDesarrollo(),
 		rol: referenciaRolOfertaCTDesarrollo{RolID: instantanea.VersionRol.RolID,
 			Version: instantanea.VersionRol.Version, HuellaSHA256: huella},
 		reloj: relojContratacionTemporalDesarrollo{}}

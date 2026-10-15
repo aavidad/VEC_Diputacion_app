@@ -10,12 +10,20 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	bolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 // La oferta usa el servicio de Bolsa y su autorización propia bajo la ruta
 // CT real. La captura congelada procede de la reserva interna, nunca de HTTP.
 type publicadorOfertaBolsaCTDesarrollo struct {
-	puente *puenteBolsaLlamamientoDesarrollo
+	puente          *puenteBolsaLlamamientoDesarrollo
+	resolucion      bolsa.RepositorioResolucionIntencionOfertaCT
+	autoridadCierre materialCierreOfertaBolsaCTDesarrollo
+}
+
+type materialCierreOfertaBolsaCTDesarrollo interface {
+	MaterialCierreBolsa(context.Context, ct.IntencionSeleccionOfertaCT, ct.ComandoOfertaBolsaCT,
+		string, string, string) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
 var _ ct.PublicadorOfertaBolsaCT = publicadorOfertaBolsaCTDesarrollo{}
@@ -61,13 +69,17 @@ func (p publicadorOfertaBolsaCTDesarrollo) PublicarORecuperar(ctx context.Contex
 	if err != nil {
 		return vacio, err
 	}
+	return proyectarOfertaBolsaSeleccionCT(c, oferta)
+}
+
+func proyectarOfertaBolsaSeleccionCT(c ct.ComandoOfertaBolsaCT, oferta bolsa.OfertaPublicada) (ct.OfertaPublicadaSeleccionCT, error) {
 	salida := ct.OfertaPublicadaSeleccionCT{ClaveBolsa: c.ClaveBolsa, BolsaRef: oferta.BolsaRef,
 		OfertaRef: oferta.OfertaRef, ReciboOfertaRef: oferta.ReciboRef, NumeroPlazas: oferta.NumeroPlazas,
 		Datos: ct.DatosOfertaSeleccionCT{Categoria: oferta.Datos.Categoria, Centro: oferta.Datos.Centro,
 			FechaInicio: oferta.Datos.FechaInicio, FechaFin: oferta.Datos.FechaFin, Descripcion: oferta.Datos.Descripcion},
 		PublicadaEn: oferta.PublicadaEn.UTC(), VenceAntesDe: oferta.VenceAntesDe.UTC()}
 	if err := salida.ValidarPara(c); err != nil {
-		return vacio, err
+		return ct.OfertaPublicadaSeleccionCT{}, err
 	}
 	return salida, nil
 }

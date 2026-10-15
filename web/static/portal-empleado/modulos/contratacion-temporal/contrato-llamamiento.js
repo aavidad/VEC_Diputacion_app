@@ -3,6 +3,7 @@ const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
 export const ESQUEMA_RECIBO_SELECCION_OFERTA = "vec.contratacion-temporal.recibo-seleccion-oferta.v1";
+export const ESQUEMA_RECIBO_DESCARTE_OFERTA = "vec.contratacion-temporal.recibo-descarte-oferta.v1";
 export const CAMPOS_SELECCION = Object.freeze([
   "expediente_ref", "version_esperada", "clave_idempotencia",
 ]);
@@ -149,6 +150,11 @@ function solicitud(entrada, campos, version = "version_esperada") {
 export function validarSolicitudSeleccionLlamamiento(entrada) {
   return solicitud(entrada, CAMPOS_SELECCION);
 }
+export function validarSolicitudRecuperacionOferta(entradaOriginal) {
+  const original = validarSolicitudSeleccionLlamamiento(entradaOriginal);
+  return Object.freeze({ expediente_ref: original.expediente_ref, version_esperada: original.version_esperada,
+    clave_idempotencia: original.clave_idempotencia, accion: "recuperar_oferta" });
+}
 export function validarSolicitudComunicacionLlamamiento(entrada) {
   const continuacion = entrada !== null && typeof entrada === "object"
     && Object.hasOwn(entrada, "tipo_antecedente");
@@ -283,6 +289,21 @@ export function validarReciboSeleccion(entrada, solicitudEntrada) {
   return entrada?.esquema === ESQUEMA_RECIBO_SELECCION_OFERTA
     ? validarReciboSeleccionOferta(entrada, solicitudEntrada)
     : validarReciboSeleccionLlamamiento(entrada);
+}
+export function validarReciboDescarteOferta(entrada, solicitudEntrada) {
+  const valor = registro(entrada, ["esquema", "estado", "organizacion_ref", "expediente_ref",
+    "recibo_cierre_bolsa_ref", "recibo_descarte_ref", "descartada_en"]);
+  exigir(valor.esquema === ESQUEMA_RECIBO_DESCARTE_OFERTA && valor.estado === "descartada"
+    && ["organizacion_ref", "expediente_ref", "recibo_cierre_bolsa_ref", "recibo_descarte_ref"]
+      .every((campo) => referenciaLlamamientoValida(valor[campo]))
+    && valor.expediente_ref === validarSolicitudSeleccionLlamamiento(solicitudEntrada).expediente_ref
+    && instante(valor.descartada_en));
+  return valor;
+}
+export function validarReciboRecuperacionOferta(entrada, solicitudOriginal) {
+  return entrada?.esquema === ESQUEMA_RECIBO_DESCARTE_OFERTA
+    ? validarReciboDescarteOferta(entrada, solicitudOriginal)
+    : validarReciboSeleccionOferta(entrada, solicitudOriginal);
 }
 export function validarReciboComunicacionLlamamiento(entrada, solicitudEntrada) {
   const descriptorEstado = entrada && Object.getOwnPropertyDescriptor(entrada, "estado_local");

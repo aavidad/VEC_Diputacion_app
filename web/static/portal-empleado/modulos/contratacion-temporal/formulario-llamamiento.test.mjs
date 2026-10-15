@@ -461,7 +461,7 @@ test("conflicto de contenido en inglés bloquea otro POST y remite al expediente
 test("el expediente fiscalizado seleccionado rellena el formulario sin POST y sin enseñar referencia, versión ni clave", async () => {
   const montaje = await montarExpedienteSeleccionado(estadoSeleccionado());
   const html = montaje.formulario().innerHTML;
-  assert.match(html, /Llamamiento de este expediente/u); assert.match(html, /Llamar a la siguiente persona/u);
+  assert.match(html, /Llamamiento de este expediente/u); assert.match(html, /Continuar con Bolsa/u);
   assert.match(html, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value="expediente:ct:sintetico:001"[^>]*type="hidden"/u); assert.match(html, /id="ct-llamamiento-seleccion-version_esperada"[^>]*value="6"[^>]*type="hidden"/u);
   assert.doesNotMatch(html, /clave_idempotencia|data-ct-llamamiento-clave|Versión 6 del expediente|Referencia del expediente|Versión esperada/u);
   assert.equal(montaje.peticiones(), 0);

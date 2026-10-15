@@ -112,6 +112,7 @@ type estadoSeleccionOfertaSQL struct {
 	VentanaAbierta bool                             `json:"ventana_abierta"`
 	Comando        json.RawMessage                  `json:"comando"`
 	Recibo         json.RawMessage                  `json:"recibo"`
+	ReciboDescarte json.RawMessage                  `json:"recibo_descarte"`
 }
 
 func decodificarEstadoSeleccionOferta(raw []byte, i ports.IntencionSeleccionOfertaCT) (ports.EstadoSeleccionOfertaCT, error) {
@@ -124,21 +125,31 @@ func decodificarEstadoSeleccionOferta(raw []byte, i ports.IntencionSeleccionOfer
 	switch s.Situacion {
 	case ports.SeleccionOfertaAusente, ports.SeleccionOfertaOcupada, ports.SeleccionOfertaColision:
 		if s.ReservaRef != "" || s.VentanaAbierta || len(s.Comando) != 0 && string(s.Comando) != "null" ||
-			len(s.Recibo) != 0 && string(s.Recibo) != "null" {
+			len(s.Recibo) != 0 && string(s.Recibo) != "null" ||
+			len(s.ReciboDescarte) != 0 && string(s.ReciboDescarte) != "null" {
 			return ports.EstadoSeleccionOfertaCT{}, errRegistroSeleccionOfertaPostgreSQL
 		}
-	case ports.SeleccionOfertaReservada, ports.SeleccionOfertaIndeterminada, ports.SeleccionOfertaConfirmada:
+	case ports.SeleccionOfertaReservada, ports.SeleccionOfertaIndeterminada,
+		ports.SeleccionOfertaConfirmada, ports.SeleccionOfertaDescartada:
 		if json.Unmarshal(s.Comando, &estado.Comando) != nil || estado.Comando.ValidarPara(i) != nil {
 			return ports.EstadoSeleccionOfertaCT{}, errRegistroSeleccionOfertaPostgreSQL
 		}
 		if s.Situacion == ports.SeleccionOfertaConfirmada {
-			if s.ReservaRef != "" || json.Unmarshal(s.Recibo, &estado.Recibo) != nil ||
+			if s.ReservaRef != "" || len(s.ReciboDescarte) != 0 && string(s.ReciboDescarte) != "null" ||
+				json.Unmarshal(s.Recibo, &estado.Recibo) != nil ||
 				estado.Recibo.ValidarPara(i, estado.Comando) != nil {
+				return ports.EstadoSeleccionOfertaCT{}, errRegistroSeleccionOfertaPostgreSQL
+			}
+		} else if s.Situacion == ports.SeleccionOfertaDescartada {
+			if s.ReservaRef != "" || len(s.Recibo) != 0 && string(s.Recibo) != "null" ||
+				json.Unmarshal(s.ReciboDescarte, &estado.ReciboDescarte) != nil ||
+				estado.ReciboDescarte.ValidarTerminalPara(i, estado.Comando) != nil {
 				return ports.EstadoSeleccionOfertaCT{}, errRegistroSeleccionOfertaPostgreSQL
 			}
 		} else if s.ReservaRef == "" ||
 			(s.Situacion == ports.SeleccionOfertaIndeterminada && !s.VentanaAbierta) ||
-			len(s.Recibo) != 0 && string(s.Recibo) != "null" {
+			len(s.Recibo) != 0 && string(s.Recibo) != "null" ||
+			len(s.ReciboDescarte) != 0 && string(s.ReciboDescarte) != "null" {
 			return ports.EstadoSeleccionOfertaCT{}, errRegistroSeleccionOfertaPostgreSQL
 		}
 	default:

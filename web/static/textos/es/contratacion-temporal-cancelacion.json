@@ -31,7 +31,7 @@
     "error_clave_reutilizada": "Esta cancelación ya se registró con otros datos.",
     "error_fase_no_admitida": "El expediente ya no está en una fase en la que se pueda cancelar.",
     "error_tras_fiscalizacion": "El expediente ya pasó por fiscalización y no se puede cancelar.",
-    "error_seleccion_oferta_pendiente": "Hay una publicación de oferta pendiente de confirmar. Termine o recupere esa operación antes de cancelar.",
+    "error_seleccion_oferta_pendiente": "Termine o recupere la oferta pendiente para conocer su resultado.",
     "error_cancelacion_existente": "El expediente ya estaba cancelado.",
     "error_indeterminado": "No se ha podido confirmar el resultado. Reintente: se usará la misma operación y no se duplicará.",
     "error_general": "No se ha podido cancelar el expediente. Inténtelo de nuevo más tarde.",

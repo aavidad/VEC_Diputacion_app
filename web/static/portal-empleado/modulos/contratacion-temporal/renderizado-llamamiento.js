@@ -2,7 +2,7 @@ import { escaparHTML as e } from "./componentes-expedientes.js?v=20261013-ct-fir
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261013-ct-firma-tres-v3";
 import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261013-ct-firma-tres-v3";
-import { CAMPOS_SELECCION, CAMPOS_COMUNICACION, ESQUEMA_RECIBO_SELECCION_OFERTA,
+import { CAMPOS_SELECCION, CAMPOS_COMUNICACION, ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
@@ -270,10 +270,22 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       </div>` : ""}
     </section>`;
   }
+  function reciboDescarte(datos, puedePreparar = false, indice = 0) {
+    return `<section class="ct-recibo" data-ct-llamamiento-recibo="descarte" aria-labelledby="ct-llamamiento-recibo-descarte-${indice}" tabindex="-1">
+      <h3 id="ct-llamamiento-recibo-descarte-${indice}">${e(t("llamamiento_oferta_descartada"))}</h3>
+      <dl><div><dt>${e(t("llamamiento_oferta_descartada_en"))}</dt><dd>${tiempoVisible(datos.descartada_en)}</dd></div>
+        <div><dt>${e(t("llamamiento_oferta_cierre_bolsa"))}</dt><dd>${justificanteTraducido(datos.recibo_cierre_bolsa_ref, e, t)}</dd></div>
+        <div><dt>${e(t("llamamiento_oferta_recibo_descarte"))}</dt><dd>${justificanteTraducido(datos.recibo_descarte_ref, e, t)}</dd></div></dl>
+      <p class="dato-secundario">${e(t("llamamiento_oferta_descartada_sin_publicar"))}</p>
+      ${puedePreparar ? `<div class="ct-acciones"><button type="button" class="boton-primario" data-ct-llamamiento-nueva-oferta>${e(t("llamamiento_preparar_nueva_oferta"))}</button></div>` : ""}
+    </section>`;
+  }
   // tituloEnResumen: el título ya lo pinta el <summary> que envuelve el paso; no se repite.
   function formulario(operacion, campos, tituloEnResumen = false) {
     const paso = estado[operacion];
-    const titulo = t("llamamiento_" + operacion);
+    const titulo = t(operacion === "seleccion" ? estado.numeroPersonasSolicitadas > 1 ? "llamamiento_publicar_oferta"
+      : estado.numeroPersonasSolicitadas === 1 ? "llamamiento_seleccion" : "llamamiento_iniciar_seleccion"
+      : "llamamiento_" + operacion);
     const idCorreo = operacion === "respuesta" ? "ct-llamamiento-correo" : `ct-llamamiento-${operacion}-correo`;
     const controles = campos.map((nombre) => campo(
       operacion, nombre, paso.valores[nombre] ?? "", paso.solicitud !== null
@@ -309,6 +321,10 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
               : operacion === "propuesta" ? "llamamiento_preparar_propuesta" : operacion === "siguiente" ? "llamamiento_continuar"
               : esResolucion(operacion) ? "llamamiento_solicitar_resolucion"
                 : esRespuesta(operacion) ? "llamamiento_registrar_respuesta" : "llamamiento_registrar"))}</button>` : ""}
+        ${operacion === "seleccion" && paso.solicitud && !paso.recibo && !paso.bloqueado
+          && estado.recuperacionOferta?.disponible && estado.numeroPersonasSolicitadas !== 1
+          && (estado.numeroPersonasSolicitadas > 1 || estado.recuperacionOferta.identificada) ? `<button class="boton-secundario" type="button"
+            data-ct-llamamiento-recuperar-oferta ${paso.ocupado || estado.recuperacionOferta.ocupado ? "disabled" : ""}>${e(t("llamamiento_recuperar_oferta"))}</button>` : ""}
         ${operacion === "propuesta" && !paso.disponible && paso.aceptacion && !paso.calculando
           ? `<button class="boton-secundario" type="button" data-ct-llamamiento-reintentar-publicaciones>${e(t("llamamiento_reintentar_publicaciones"))}</button>` : ""}
         </div>
@@ -318,6 +334,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         role="${paso.tono === "error" ? "alert" : "status"}"
         aria-live="polite" aria-atomic="true" tabindex="-1">${e(t(paso.mensaje))}</div>
       ${recibo(operacion, paso.recibo)}
+      ${operacion === "seleccion" && !paso.recibo && estado.recuperacionOferta?.mensaje
+        ? `<p class="ct-estado ct-estado-${estado.recuperacionOferta.tono}" role="${estado.recuperacionOferta.tono === "error" ? "alert" : "status"}">${e(t(estado.recuperacionOferta.mensaje))}</p>` : ""}
     </section>`;
   }
   const consulta = estado.consultaRespuesta;
@@ -335,6 +353,15 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   const bloqueaLista = ["cargando", "error", "denegado"].includes(estado.comunicaciones?.estado)
     || (estado.comunicaciones?.estado === "lista" && !restaurada);
   const seleccionOferta = estado.seleccion.recibo?.esquema === ESQUEMA_RECIBO_SELECCION_OFERTA;
+  const descarte = estado.recuperacionOferta?.recibo?.esquema === ESQUEMA_RECIBO_DESCARTE_OFERTA
+    ? estado.recuperacionOferta.recibo : null;
+  const descartesAnteriores = (estado.descartesConfirmados ?? []).map((recibo, indice) =>
+    reciboDescarte(recibo, false, indice)).join("");
+  const puedePrepararNueva = descarte && !estado.recuperacionOferta.preparandoNueva
+    && estado.seleccion.solicitud?.clave_idempotencia === estado.recuperacionOferta.solicitud?.clave_idempotencia;
+  if (descarte && !estado.seleccion.recibo) return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
+    aria-labelledby="ct-llamamiento-titulo"><header class="ct-cabecera"><div><h2 id="ct-llamamiento-titulo">${e(t("llamamiento_titulo"))}</h2></div></header>
+    ${descartesAnteriores}${reciboDescarte(descarte, puedePrepararNueva, estado.descartesConfirmados.length)}${puedePrepararNueva ? "" : formulario("seleccion", CAMPOS_SELECCION)}</section>`;
   return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
     aria-labelledby="ct-llamamiento-titulo">
     <header class="ct-cabecera"><div>
@@ -345,6 +372,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     ${seleccionOferta ? "" : listaComunicaciones()}
     ${seleccionOferta ? "" : consultaRespuesta()}
     ${!estado.enlazado || (!seleccionOferta && (bloqueaFlujo || bloqueaLista || estado.comunicaciones?.intentoNoConfirmado)) ? "</section>" : `
+    ${descartesAnteriores}
     ${seleccionOferta ? "" : resumenResultado()}
     ${restaurada ? "" : formulario("seleccion", CAMPOS_SELECCION)}
     ${seleccionOferta ? "</section>" : `

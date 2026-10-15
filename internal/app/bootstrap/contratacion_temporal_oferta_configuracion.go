@@ -30,13 +30,25 @@ type referenciaRolOfertaCTDesarrollo struct {
 	HuellaSHA256 string `json:"huella_sha256"`
 }
 
+type perfilActivacionOfertaCT struct {
+	PerfilRef string                          `json:"perfil_ref"`
+	Rol       referenciaRolOfertaCTDesarrollo `json:"rol"`
+	Motivo    core.ReferenciaEntradaCatalogo  `json:"motivo"`
+}
+
 type archivoActivacionOfertaCT struct {
-	Esquema                    string                          `json:"esquema"`
-	PerfilRef                  string                          `json:"perfil_ref"`
-	Rol                        referenciaRolOfertaCTDesarrollo `json:"rol"`
-	Motivo                     core.ReferenciaEntradaCatalogo  `json:"motivo"`
-	FuenteAutorizacionDSNFile  string                          `json:"fuente_autorizacion_dsn_file"`
-	MotivosAutorizacionDSNFile string                          `json:"motivos_autorizacion_dsn_file"`
+	Esquema                    string                   `json:"esquema"`
+	Vinculo                    perfilActivacionOfertaCT `json:"vinculo"`
+	CierreBolsa                perfilActivacionOfertaCT `json:"cierre_bolsa"`
+	DescarteCT                 perfilActivacionOfertaCT `json:"descarte_ct"`
+	FuenteAutorizacionDSNFile  string                   `json:"fuente_autorizacion_dsn_file"`
+	MotivosAutorizacionDSNFile string                   `json:"motivos_autorizacion_dsn_file"`
+}
+
+func perfilActivacionOfertaCTValido(p perfilActivacionOfertaCT) bool {
+	return domain.ReferenciaOpacaValida(p.PerfilRef) &&
+		domain.ReferenciaOpacaValida(p.Rol.RolID) && p.Rol.Version >= 1 &&
+		huellaRolOfertaCTDesarrollo.MatchString(p.Rol.HuellaSHA256) && p.Motivo.Validar() == nil
 }
 
 func leerActivacionOfertaCTDesarrollo(cfg config.Config) (archivoActivacionOfertaCT, bool, error) {
@@ -65,10 +77,18 @@ func leerActivacionOfertaCTDesarrollo(cfg config.Config) (archivoActivacionOfert
 	var c archivoActivacionOfertaCT
 	if d.Decode(&c) != nil || d.Decode(new(any)) != io.EOF ||
 		c.Esquema != esquemaActivacionOfertaCTDesarrollo ||
-		!domain.ReferenciaOpacaValida(c.PerfilRef) ||
-		!domain.ReferenciaOpacaValida(c.Rol.RolID) || c.Rol.Version < 1 ||
-		!huellaRolOfertaCTDesarrollo.MatchString(c.Rol.HuellaSHA256) ||
-		c.Motivo.Validar() != nil ||
+		!perfilActivacionOfertaCTValido(c.Vinculo) ||
+		!perfilActivacionOfertaCTValido(c.CierreBolsa) ||
+		!perfilActivacionOfertaCTValido(c.DescarteCT) ||
+		c.Vinculo.PerfilRef == c.CierreBolsa.PerfilRef ||
+		c.Vinculo.PerfilRef == c.DescarteCT.PerfilRef ||
+		c.CierreBolsa.PerfilRef == c.DescarteCT.PerfilRef ||
+		c.Vinculo.Rol.RolID == c.CierreBolsa.Rol.RolID ||
+		c.Vinculo.Rol.RolID == c.DescarteCT.Rol.RolID ||
+		c.CierreBolsa.Rol.RolID == c.DescarteCT.Rol.RolID ||
+		c.Vinculo.Motivo == c.CierreBolsa.Motivo ||
+		c.Vinculo.Motivo == c.DescarteCT.Motivo ||
+		c.CierreBolsa.Motivo == c.DescarteCT.Motivo ||
 		!filepath.IsLocal(c.FuenteAutorizacionDSNFile) ||
 		!filepath.IsLocal(c.MotivosAutorizacionDSNFile) ||
 		c.FuenteAutorizacionDSNFile == c.MotivosAutorizacionDSNFile {
@@ -106,6 +126,24 @@ func descriptorMaterialSeleccionOfertaCTDesarrollo() descriptorMaterialConsumido
 	}
 }
 
+func descriptorMaterialCierreIntencionOfertaCTDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        "vec_bolsa_llamamientos.oferta_ct.intencion_cerrar.v1",
+		Dominio:          "vec.bolsa.oferta-ct.cierre-intencion.capacidad-v3",
+		Prefijo:          "clave:capacidad:ct:bolsa-oferta-cerrar-intencion:",
+		ProveedorNominal: proveedorMaterialContratacionTemporal,
+	}
+}
+
+func descriptorMaterialDescarteSeleccionOfertaCTDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        "vec_contratacion_temporal.seleccion_oferta.descartar.v1",
+		Dominio:          "vec.ct.seleccion-oferta.descartar.capacidad-v3",
+		Prefijo:          "clave:capacidad:ct:seleccion-oferta-descartar:",
+		ProveedorNominal: proveedorMaterialContratacionTemporal,
+	}
+}
+
 // La sonda es de solo lectura. Un clon anterior a cualquiera de las tres
 // migraciones conserva CT operativo y deja cerrada esta única capacidad.
 func detectarSeleccionOfertaCTDesarrollo(ctx context.Context, ejecutor *pgxpool.Pool) bool {
@@ -125,6 +163,16 @@ func detectarSeleccionOfertaCTDesarrollo(ctx context.Context, ejecutor *pgxpool.
 	  AND COALESCE(pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',
 	    pg_catalog.to_regprocedure('vec_bolsa_llamamientos.verificar_oferta_ct_v1(text,text,bigint,text,text,text,text,text,text,integer,jsonb,text)'), 'EXECUTE'),false)
 	  AND COALESCE(pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',
-	    pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_vinculo_oferta_bolsa_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)`).Scan(&disponible)
+	    pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_vinculo_oferta_bolsa_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
+	  AND COALESCE(pg_catalog.has_function_privilege('vec_bolsa_llamamientos_ejecutor',
+	    pg_catalog.to_regprocedure('vec_bolsa_llamamientos.recuperar_o_cerrar_intencion_oferta_ct_v1(jsonb,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
+	  AND COALESCE(pg_catalog.has_function_privilege('vec_bolsa_llamamientos_propietario',
+	    pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_cierre_intencion_oferta_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
+	  AND COALESCE(pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',
+	    pg_catalog.to_regprocedure('vec_bolsa_llamamientos.verificar_cierre_intencion_oferta_ct_v1(jsonb,jsonb)'), 'EXECUTE'),false)
+	  AND COALESCE(pg_catalog.has_function_privilege(session_user,
+	    pg_catalog.to_regprocedure('vec_contratacion_temporal.descartar_seleccion_oferta_ct220(jsonb,text,jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)
+	  AND COALESCE(pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',
+	    pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_descarte_seleccion_oferta_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'), 'EXECUTE'),false)`).Scan(&disponible)
 	return err == nil && disponible
 }

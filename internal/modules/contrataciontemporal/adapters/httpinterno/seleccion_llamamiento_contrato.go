@@ -25,6 +25,7 @@ type seleccionLlamamientoEntradaJSON struct {
 	ExpedienteRef     string `json:"expediente_ref"`
 	VersionEsperada   uint64 `json:"version_esperada"`
 	ClaveIdempotencia string `json:"clave_idempotencia"`
+	Accion            string `json:"accion,omitempty"`
 }
 
 func seleccionLlamamientoDesdePeticion(
@@ -48,6 +49,7 @@ func seleccionLlamamientoDesdePeticion(
 	}
 	if !ports.ClaveIdempotenciaValida(entrada.ClaveIdempotencia) ||
 		!domain.ReferenciaOpacaValida(entrada.ExpedienteRef) ||
+		(entrada.Accion != "" && entrada.Accion != "recuperar_oferta") ||
 		entrada.VersionEsperada == 0 || entrada.VersionEsperada > 9007199254740991 {
 		return seleccionLlamamientoEntradaJSON{},
 			errContenidoCoberturaNoValido

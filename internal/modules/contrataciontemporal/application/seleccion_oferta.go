@@ -20,14 +20,19 @@ var (
 	ErrClaveSeleccionOfertaEnColision      = errors.New("contratacion temporal: clave de oferta usada con otra operacion")
 	ErrSeleccionOfertaConcurrente          = errors.New("contratacion temporal: seleccion de oferta concurrente")
 	ErrSeleccionOfertaIndeterminada        = errors.New("contratacion temporal: seleccion de oferta indeterminada")
+	ErrSeleccionOfertaSinReserva           = errors.New("contratacion temporal: seleccion de oferta sin reserva")
+	ErrSeleccionOfertaDescartada           = errors.New("contratacion temporal: seleccion de oferta descartada")
 )
 
 type ServicioSeleccionOfertaCT struct {
-	preparador  ports.PreparadorSeleccionOfertaCT
-	autorizador ports.AutorizadorSeleccionOfertaCT
-	registro    ports.RegistroSeleccionOfertaCT
-	publicador  ports.PublicadorOfertaBolsaCT
-	reloj       ports.Reloj
+	preparador       ports.PreparadorSeleccionOfertaCT
+	autorizador      ports.AutorizadorSeleccionOfertaCT
+	registro         ports.RegistroSeleccionOfertaCT
+	publicador       ports.PublicadorOfertaBolsaCT
+	resolutor        ports.ResolutorCierreOfertaBolsaCT
+	descartador      ports.AutorizadorDescarteSeleccionOfertaCT
+	registroDescarte ports.RegistroDescarteSeleccionOfertaCT
+	reloj            ports.Reloj
 }
 
 func NuevoServicioSeleccionOfertaCT(
@@ -41,7 +46,28 @@ func NuevoServicioSeleccionOfertaCT(
 		dependenciaNula(registro) || dependenciaNula(publicador) || dependenciaNula(reloj) {
 		return nil, ErrServicioSeleccionOfertaInvalido
 	}
-	return &ServicioSeleccionOfertaCT{preparador, autorizador, registro, publicador, reloj}, nil
+	return &ServicioSeleccionOfertaCT{
+		preparador: preparador, autorizador: autorizador, registro: registro,
+		publicador: publicador, reloj: reloj,
+	}, nil
+}
+
+func NuevoServicioSeleccionOfertaCTRecuperable(
+	preparador ports.PreparadorSeleccionOfertaCT,
+	autorizador ports.AutorizadorSeleccionOfertaCT,
+	registro ports.RegistroSeleccionOfertaCT,
+	publicador ports.PublicadorOfertaBolsaCT,
+	resolutor ports.ResolutorCierreOfertaBolsaCT,
+	descartador ports.AutorizadorDescarteSeleccionOfertaCT,
+	registroDescarte ports.RegistroDescarteSeleccionOfertaCT,
+	reloj ports.Reloj,
+) (*ServicioSeleccionOfertaCT, error) {
+	s, err := NuevoServicioSeleccionOfertaCT(preparador, autorizador, registro, publicador, reloj)
+	if err != nil || dependenciaNula(resolutor) || dependenciaNula(descartador) || dependenciaNula(registroDescarte) {
+		return nil, ErrServicioSeleccionOfertaInvalido
+	}
+	s.resolutor, s.descartador, s.registroDescarte = resolutor, descartador, registroDescarte
+	return s, nil
 }
 
 // SeleccionarOferta consulta primero la ejecución durable de la intención.
@@ -57,7 +83,7 @@ func (s *ServicioSeleccionOfertaCT) SeleccionarOferta(
 		dependenciaNula(s.publicador) || dependenciaNula(s.reloj) {
 		return vacio, ErrServicioSeleccionOfertaInvalido
 	}
-	if !domain.ReferenciaOpacaValida(q.ExpedienteRef) || q.VersionEsperada == 0 ||
+	if q.RecuperarOferta || !domain.ReferenciaOpacaValida(q.ExpedienteRef) || q.VersionEsperada == 0 ||
 		q.VersionEsperada > 1<<53-1 || !ports.ClaveIdempotenciaValida(q.ClaveIdempotencia) {
 		return vacio, ErrSolicitudSeleccionOfertaInvalida
 	}
@@ -83,16 +109,23 @@ func (s *ServicioSeleccionOfertaCT) SeleccionarOferta(
 		return vacio, normalizarFalloSeleccionOferta(operacion, err)
 	}
 	if estado.Situacion == ports.SeleccionOfertaConfirmada {
-		if estado.ReservaRef != "" || estado.Comando.ValidarPara(i) != nil ||
+		if estado.ReservaRef != "" || estado.ReciboDescarte != (ports.ReciboDescarteOfertaCT{}) || estado.Comando.ValidarPara(i) != nil ||
 			estado.Recibo.ValidarPara(i, estado.Comando) != nil {
 			return vacio, ErrResultadoSeleccionOfertaNoConfiable
 		}
 		return estado.Recibo, nil
 	}
+	if estado.Situacion == ports.SeleccionOfertaDescartada {
+		if estado.ReservaRef != "" || estado.Recibo != vacio || estado.Comando.ValidarPara(i) != nil ||
+			estado.ReciboDescarte.ValidarTerminalPara(i, estado.Comando) != nil {
+			return vacio, ErrResultadoSeleccionOfertaNoConfiable
+		}
+		return vacio, ErrSeleccionOfertaDescartada
+	}
 	var reserva ports.ReservaSeleccionOfertaCT
 	switch estado.Situacion {
 	case ports.SeleccionOfertaAusente:
-		if estado.ReservaRef != "" || estado.Recibo != vacio ||
+		if estado.ReservaRef != "" || estado.Recibo != vacio || estado.ReciboDescarte != (ports.ReciboDescarteOfertaCT{}) ||
 			!reflect.DeepEqual(estado.Comando, ports.ComandoOfertaBolsaCT{}) {
 			return vacio, ErrResultadoSeleccionOfertaNoConfiable
 		}
@@ -126,7 +159,8 @@ func (s *ServicioSeleccionOfertaCT) SeleccionarOferta(
 		fallthrough
 	case ports.SeleccionOfertaReservada, ports.SeleccionOfertaIndeterminada:
 		if !domain.ReferenciaOpacaValida(estado.ReservaRef) ||
-			estado.Comando.ValidarPara(i) != nil || estado.Recibo != vacio {
+			estado.Comando.ValidarPara(i) != nil || estado.Recibo != vacio ||
+			estado.ReciboDescarte != (ports.ReciboDescarteOfertaCT{}) {
 			return vacio, ErrResultadoSeleccionOfertaNoConfiable
 		}
 		if estado.Situacion == ports.SeleccionOfertaIndeterminada && !estado.VentanaAbierta {
@@ -155,24 +189,144 @@ func (s *ServicioSeleccionOfertaCT) SeleccionarOferta(
 		return vacio, errorIndeterminadoSeleccionOferta(operacion, err)
 	}
 	if oferta.ValidarPara(reserva.Comando) != nil {
-		return vacio, ErrResultadoSeleccionOfertaNoConfiable
+		return vacio, resultadoNoConfiablePostEfecto()
 	}
-	aut, err := s.autorizar(operacion, ports.EtapaSeleccionOfertaConfirmar, i, &reserva.Comando, &oferta)
+	return s.confirmarOferta(operacion, i, reserva, oferta)
+}
+
+func (s *ServicioSeleccionOfertaCT) confirmarOferta(ctx context.Context, i ports.IntencionSeleccionOfertaCT,
+	reserva ports.ReservaSeleccionOfertaCT, oferta ports.OfertaPublicadaSeleccionCT,
+) (ports.ReciboSeleccionOfertaCT, error) {
+	vacio := ports.ReciboSeleccionOfertaCT{}
+	aut, err := s.autorizar(ctx, ports.EtapaSeleccionOfertaConfirmar, i, &reserva.Comando, &oferta)
 	if err != nil {
 		// La oferta ya puede estar publicada. El siguiente POST con la misma
 		// clave recupera el comando y la oferta antes de volver a confirmar.
-		return vacio, errorIndeterminadoSeleccionOferta(operacion, err)
+		return vacio, errorIndeterminadoSeleccionOferta(ctx, err)
 	}
-	recibo, err := s.registro.ConfirmarVinculo(operacion, reserva, oferta, aut)
+	recibo, err := s.registro.ConfirmarVinculo(ctx, reserva, oferta, aut)
 	if err != nil {
-		return vacio, errorIndeterminadoSeleccionOferta(operacion, err)
+		return vacio, errorIndeterminadoSeleccionOferta(ctx, err)
 	}
 	if recibo.ValidarPara(i, reserva.Comando) != nil ||
 		recibo.OfertaRef != oferta.OfertaRef || recibo.ReciboOfertaRef != oferta.ReciboOfertaRef ||
 		!recibo.PublicadaEn.Equal(oferta.PublicadaEn) || !recibo.VenceAntesDe.Equal(oferta.VenceAntesDe) {
-		return vacio, ErrResultadoSeleccionOfertaNoConfiable
+		return vacio, resultadoNoConfiablePostEfecto()
 	}
 	return recibo, nil
+}
+
+// RecuperarOferta solo acepta la intención original y su UUID. Nunca prepara
+// otro comando: B121 decide de forma durable si hubo publicación o si cerró
+// la posibilidad de una publicación tardía; CT registra el terminal propio.
+func (s *ServicioSeleccionOfertaCT) RecuperarOferta(
+	ctx context.Context, q SolicitudSeleccionLlamamiento,
+) (ports.ResultadoRecuperacionOfertaCT, error) {
+	vacio := ports.ResultadoRecuperacionOfertaCT{}
+	if s == nil || ctx == nil || dependenciaNula(s.preparador) ||
+		dependenciaNula(s.autorizador) || dependenciaNula(s.registro) ||
+		dependenciaNula(s.resolutor) || dependenciaNula(s.descartador) ||
+		dependenciaNula(s.registroDescarte) || dependenciaNula(s.reloj) {
+		return vacio, ErrServicioSeleccionOfertaInvalido
+	}
+	if !q.RecuperarOferta || !domain.ReferenciaOpacaValida(q.ExpedienteRef) ||
+		q.VersionEsperada == 0 || q.VersionEsperada > 1<<53-1 ||
+		!ports.ClaveIdempotenciaValida(q.ClaveIdempotencia) {
+		return vacio, ErrSolicitudSeleccionOfertaInvalida
+	}
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
+	operacion, cancelar := context.WithTimeout(ctx, tiempoMaximoSeleccionLlamamiento)
+	defer cancelar()
+	i, err := s.preparador.PrepararIntencion(operacion, q.ExpedienteRef, q.VersionEsperada, q.ClaveIdempotencia)
+	if err != nil {
+		return vacio, normalizarFalloSeleccionOferta(operacion, err)
+	}
+	if i.Validar() != nil || i.ExpedienteRef != q.ExpedienteRef ||
+		i.VersionExpediente != q.VersionEsperada || i.ClaveIdempotencia != q.ClaveIdempotencia {
+		return vacio, ErrResultadoSeleccionOfertaNoConfiable
+	}
+	consultaAut, err := s.autorizar(operacion, ports.EtapaSeleccionOfertaConsultar, i, nil, nil)
+	if err != nil {
+		return vacio, err
+	}
+	estado, err := s.registro.Consultar(operacion, i, consultaAut)
+	if err != nil {
+		return vacio, normalizarFalloSeleccionOferta(operacion, err)
+	}
+	switch estado.Situacion {
+	case ports.SeleccionOfertaConfirmada:
+		if estado.ReservaRef != "" || estado.ReciboDescarte != (ports.ReciboDescarteOfertaCT{}) ||
+			estado.Comando.ValidarPara(i) != nil || estado.Recibo.ValidarPara(i, estado.Comando) != nil {
+			return vacio, ErrResultadoSeleccionOfertaNoConfiable
+		}
+		return ports.ResultadoRecuperacionOfertaCT{Oferta: &estado.Recibo}, nil
+	case ports.SeleccionOfertaDescartada:
+		if estado.ReservaRef != "" || estado.Recibo != (ports.ReciboSeleccionOfertaCT{}) ||
+			estado.Comando.ValidarPara(i) != nil || estado.ReciboDescarte.ValidarTerminalPara(i, estado.Comando) != nil {
+			return vacio, ErrResultadoSeleccionOfertaNoConfiable
+		}
+		return ports.ResultadoRecuperacionOfertaCT{Descarte: &estado.ReciboDescarte}, nil
+	case ports.SeleccionOfertaAusente:
+		if estado.ReservaRef != "" || estado.Recibo != (ports.ReciboSeleccionOfertaCT{}) ||
+			estado.ReciboDescarte != (ports.ReciboDescarteOfertaCT{}) ||
+			!reflect.DeepEqual(estado.Comando, ports.ComandoOfertaBolsaCT{}) {
+			return vacio, ErrResultadoSeleccionOfertaNoConfiable
+		}
+		return vacio, ErrSeleccionOfertaSinReserva
+	case ports.SeleccionOfertaOcupada, ports.SeleccionOfertaColision:
+		return vacio, errorSituacionSeleccionOferta(estado.Situacion)
+	case ports.SeleccionOfertaReservada, ports.SeleccionOfertaIndeterminada:
+		if !domain.ReferenciaOpacaValida(estado.ReservaRef) || estado.Comando.ValidarPara(i) != nil ||
+			estado.Recibo != (ports.ReciboSeleccionOfertaCT{}) || estado.ReciboDescarte != (ports.ReciboDescarteOfertaCT{}) ||
+			(estado.Situacion == ports.SeleccionOfertaIndeterminada && !estado.VentanaAbierta) {
+			return vacio, ErrResultadoSeleccionOfertaNoConfiable
+		}
+	default:
+		return vacio, ErrResultadoSeleccionOfertaNoConfiable
+	}
+	reserva := ports.ReservaSeleccionOfertaCT{Intencion: i, ReservaRef: estado.ReservaRef, Comando: estado.Comando}
+	resultado, err := s.resolutor.Resolver(operacion, i, estado.Comando)
+	if err != nil {
+		return vacio, errorIndeterminadoSeleccionOferta(operacion, err)
+	}
+	if resultado.ValidarPara(i, estado.Comando) != nil {
+		return vacio, resultadoNoConfiablePostEfecto()
+	}
+	if resultado.Situacion == ports.CierreOfertaPublicada {
+		if !estado.VentanaAbierta {
+			return vacio, resultadoNoConfiablePostEfecto()
+		}
+		recibo, err := s.confirmarOferta(operacion, i, reserva, *resultado.Oferta)
+		if err != nil {
+			return vacio, err
+		}
+		return ports.ResultadoRecuperacionOfertaCT{Oferta: &recibo}, nil
+	}
+	solicitudDescarte := ports.SolicitudAutorizacionDescarteOfertaCT{
+		Intencion: i, Comando: estado.Comando, Cierre: *resultado.Cierre,
+	}
+	canon, err := ports.CanonDescarteSeleccionOfertaCT(solicitudDescarte)
+	if err != nil {
+		return vacio, resultadoNoConfiablePostEfecto()
+	}
+	aut, err := s.descartador.AutorizarDescarteOfertaCT(operacion, solicitudDescarte)
+	if err != nil {
+		return vacio, errorIndeterminadoSeleccionOferta(operacion, err)
+	}
+	if aut.ActorRef != i.ActorRef || !domain.ReferenciaOpacaValida(aut.PerfilRef) ||
+		aut.PerfilRef == i.PerfilRef || aut.MaterialCanonico != canon {
+		return vacio, resultadoNoConfiablePostEfecto()
+	}
+	recibo, err := s.registroDescarte.Descartar(operacion, reserva, *resultado.Cierre, aut)
+	if err != nil {
+		return vacio, errorIndeterminadoSeleccionOferta(operacion, err)
+	}
+	if recibo.ValidarPara(i, estado.Comando, *resultado.Cierre) != nil {
+		return vacio, resultadoNoConfiablePostEfecto()
+	}
+	return ports.ResultadoRecuperacionOfertaCT{Descarte: &recibo}, nil
 }
 
 func (s *ServicioSeleccionOfertaCT) autorizar(ctx context.Context, etapa string,
@@ -219,6 +373,8 @@ func errorSituacionSeleccionOferta(s ports.SituacionSeleccionOfertaCT) error {
 		return ErrClaveSeleccionOfertaEnColision
 	case ports.SeleccionOfertaIndeterminada:
 		return ErrSeleccionOfertaIndeterminada
+	case ports.SeleccionOfertaDescartada:
+		return ErrSeleccionOfertaDescartada
 	default:
 		return ErrResultadoSeleccionOfertaNoConfiable
 	}
@@ -244,6 +400,10 @@ func errorIndeterminadoSeleccionOferta(ctx context.Context, err error) error {
 	return errors.Join(ErrSeleccionOfertaIndeterminada, err)
 }
 
+func resultadoNoConfiablePostEfecto() error {
+	return errors.Join(ErrSeleccionOfertaIndeterminada, ErrResultadoSeleccionOfertaNoConfiable)
+}
+
 // DatosReciboSeleccionOfertaParaAdaptador es el resultado mínimo del POST de
 // selección. La ficha no confunde OfertaRef con LlamamientoRef singular.
 type DatosReciboSeleccionOfertaParaAdaptador struct {
@@ -260,6 +420,16 @@ type DatosReciboSeleccionOfertaParaAdaptador struct {
 	VenceAntesDe     time.Time `json:"vence_antes_de"`
 }
 
+type DatosReciboDescarteOfertaParaAdaptador struct {
+	Esquema              string    `json:"esquema"`
+	Estado               string    `json:"estado"`
+	OrganizacionRef      string    `json:"organizacion_ref"`
+	ExpedienteRef        string    `json:"expediente_ref"`
+	ReciboCierreBolsaRef string    `json:"recibo_cierre_bolsa_ref"`
+	ReciboDescarteRef    string    `json:"recibo_descarte_ref"`
+	DescartadaEn         time.Time `json:"descartada_en"`
+}
+
 func (s *ServicioSeleccionOfertaCT) SeleccionarOfertaParaAdaptador(
 	ctx context.Context, q SolicitudSeleccionLlamamiento,
 ) (DatosReciboSeleccionOfertaParaAdaptador, error) {
@@ -267,10 +437,37 @@ func (s *ServicioSeleccionOfertaCT) SeleccionarOfertaParaAdaptador(
 	if err != nil {
 		return DatosReciboSeleccionOfertaParaAdaptador{}, err
 	}
+	return datosReciboSeleccionOfertaParaAdaptador(r), nil
+}
+
+func datosReciboSeleccionOfertaParaAdaptador(r ports.ReciboSeleccionOfertaCT) DatosReciboSeleccionOfertaParaAdaptador {
 	return DatosReciboSeleccionOfertaParaAdaptador{
 		Esquema: r.Esquema, Estado: r.Estado, OrganizacionRef: r.OrganizacionRef,
 		ExpedienteRef: r.ExpedienteRef, BolsaRef: r.BolsaRef, OfertaRef: r.OfertaRef,
 		ReciboOfertaRef: r.ReciboOfertaRef, ReciboVinculoRef: r.ReciboVinculoRef,
 		NumeroPlazas: r.NumeroPlazas, PublicadaEn: r.PublicadaEn, VenceAntesDe: r.VenceAntesDe,
-	}, nil
+	}
+}
+
+func (s *ServicioSeleccionOfertaCT) RecuperarOfertaParaAdaptador(
+	ctx context.Context, q SolicitudSeleccionLlamamiento,
+) (DatosReciboSeleccionLlamamientoParaAdaptador, error) {
+	r, err := s.RecuperarOferta(ctx, q)
+	if err != nil {
+		return DatosReciboSeleccionLlamamientoParaAdaptador{}, err
+	}
+	if r.Oferta != nil && r.Descarte == nil {
+		o := datosReciboSeleccionOfertaParaAdaptador(*r.Oferta)
+		return DatosReciboSeleccionLlamamientoParaAdaptador{Oferta: &o}, nil
+	}
+	if r.Descarte != nil && r.Oferta == nil {
+		d := DatosReciboDescarteOfertaParaAdaptador{
+			Esquema: r.Descarte.Esquema, Estado: r.Descarte.Estado,
+			OrganizacionRef: r.Descarte.OrganizacionRef, ExpedienteRef: r.Descarte.ExpedienteRef,
+			ReciboCierreBolsaRef: r.Descarte.ReciboCierreRef,
+			ReciboDescarteRef:    r.Descarte.ReciboDescarteRef, DescartadaEn: r.Descarte.DescartadaEn,
+		}
+		return DatosReciboSeleccionLlamamientoParaAdaptador{Descarte: &d}, nil
+	}
+	return DatosReciboSeleccionLlamamientoParaAdaptador{}, ErrResultadoSeleccionOfertaNoConfiable
 }

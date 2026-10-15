@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
-import { ESQUEMA_RECIBO_SELECCION_OFERTA, validarReciboSeleccion, validarReciboSeleccionOferta } from "./contrato-llamamiento.js";
+import { ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
+  validarSolicitudRecuperacionOferta, validarReciboSeleccion, validarReciboSeleccionOferta,
+  validarReciboDescarteOferta } from "./contrato-llamamiento.js";
 import { EXPEDIENTE, seleccion, raizPrueba, montar, recibo as reciboSingular } from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
 
 const HUELLA = "a".repeat(64);
@@ -12,6 +14,19 @@ const reciboOferta = Object.freeze({
   recibo_oferta_ref: `recibo:oferta:${HUELLA}`, recibo_vinculo_ref: "recibo:vinculo:001",
   numero_plazas: 2, publicada_en: "2026-10-15T10:00:00Z", vence_antes_de: "2026-10-17T10:00:00Z",
 });
+const reciboDescarte = Object.freeze({ esquema: ESQUEMA_RECIBO_DESCARTE_OFERTA, estado: "descartada",
+  organizacion_ref: "organizacion:sintetica:001", expediente_ref: EXPEDIENTE,
+  recibo_cierre_bolsa_ref: "recibo:cierre:001", recibo_descarte_ref: "recibo:descarte:001",
+  descartada_en: "2026-10-15T10:05:00Z" });
+const errorOfertaIndeterminada = () => Object.assign(new Error("resultado pendiente"), {
+  estado: 503, codigo: "seleccion_oferta_indeterminada", envelopeValido: true, resultadoIndeterminado: true,
+});
+const click = (raiz, atributo) => {
+  const selector = `[${atributo}]`;
+  const boton = { dataset: { [atributo.replace(/^data-/, "").replace(/-([a-z])/g, (_, letra) => letra.toUpperCase())]: "" },
+    closest: (consulta) => consulta === selector ? boton : null };
+  return raiz.eventos.get("click")({ target: boton, preventDefault() {} });
+};
 
 test("el mismo POST acepta recibo de oferta vinculada y rechaza un recibo ajeno", async () => {
   const solicitud = { ...seleccion(), version_esperada: 6 };
@@ -113,5 +128,171 @@ test("401, 422 y 409 tras un intento incierto no liberan la selección original"
   assert.equal(solicitudes.length, 5);
   solicitudes.forEach((solicitud) => assert.deepEqual(solicitud, solicitudes[0]));
   assert.match(raiz.innerHTML, /Oferta publicada y vinculada/);
+  cerrar();
+});
+
+test("recuperar añade acción al final sin mutar el comando normal y valida ambos terminales", async () => {
+  const original = { ...seleccion(), version_esperada: 6 };
+  const antes = JSON.stringify(original);
+  const derivada = validarSolicitudRecuperacionOferta(original);
+  assert.deepEqual(Object.keys(derivada), ["expediente_ref", "version_esperada", "clave_idempotencia", "accion"]);
+  assert.equal(derivada.accion, "recuperar_oferta");
+  assert.equal(JSON.stringify(original), antes);
+  const comandos = [];
+  const cliente = crearLlamamientoClienteHTTP({ validarOpciones: () => ({ signal: undefined }),
+    ejecutar: async (comando) => { comandos.push(comando); return comando.validarRespuesta(reciboDescarte); } });
+  assert.deepEqual(await cliente.recuperarOferta(original), reciboDescarte);
+  assert.equal(comandos[0].ruta, RUTAS_LLAMAMIENTO.seleccionLlamamiento);
+  assert.equal(JSON.stringify(comandos[0].entrada), `${antes.slice(0, -1)},"accion":"recuperar_oferta"}`);
+  assert.deepEqual(validarReciboDescarteOferta(reciboDescarte, original), reciboDescarte);
+  assert.throws(() => validarReciboDescarteOferta({ ...reciboDescarte, expediente_ref: "expediente:otro:001" }, original));
+  assert.throws(() => validarReciboDescarteOferta({ ...reciboDescarte, oferta_ref: reciboOferta.oferta_ref }, original));
+});
+
+test("recuperación puede cerrar sin publicar; solo tras decisión nueva se crea otra UUID", async () => {
+  const raiz = raizPrueba();
+  const publicadas = [], recuperadas = [];
+  let confirmada = true, clavesNuevas = 0;
+  const cerrar = montar(raiz, {
+    seleccionarLlamamiento: async (solicitud) => {
+      publicadas.push(solicitud);
+      if (publicadas.length === 1) throw errorOfertaIndeterminada();
+      return reciboOferta;
+    },
+    recuperarOferta: async (solicitud) => { recuperadas.push(solicitud); return reciboDescarte; },
+  }, { confirmarOperacion: () => confirmada,
+    generarClaveIdempotencia: () => { clavesNuevas++; return clavesNuevas === 1
+      ? "123e4567-e89b-42d3-a456-426614174099" : "123e4567-e89b-42d3-a456-426614174098"; } });
+  await raiz.enviar("seleccion", seleccion());
+  assert.match(raiz.innerHTML, /Recuperar operación/);
+  await click(raiz, "data-ct-llamamiento-recuperar-oferta");
+  assert.deepEqual(recuperadas, publicadas);
+  assert.match(raiz.innerHTML, /Intento cerrado sin publicar oferta/);
+  assert.match(raiz.innerHTML, /recibo:cierre:001/);
+  assert.match(raiz.innerHTML, /recibo:descarte:001/);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="comunicacion"|data-ct-llamamiento-recuperar-oferta/);
+  const clavesAntes = clavesNuevas;
+  confirmada = false;
+  await click(raiz, "data-ct-llamamiento-nueva-oferta");
+  assert.match(raiz.innerHTML, /Preparar nueva oferta/);
+  assert.match(raiz.innerHTML, /recibo:descarte:001/);
+  assert.equal(clavesNuevas, clavesAntes);
+  confirmada = true;
+  await click(raiz, "data-ct-llamamiento-nueva-oferta");
+  assert.equal(clavesNuevas, clavesAntes);
+  assert.match(raiz.innerHTML, /recibo:cierre:001/);
+  assert.match(raiz.innerHTML, /recibo:descarte:001/);
+  confirmada = false;
+  await raiz.enviar("seleccion", { expediente_ref: EXPEDIENTE, version_esperada: "6" });
+  assert.equal(clavesNuevas, clavesAntes);
+  assert.equal(publicadas.length, 1);
+  assert.match(raiz.innerHTML, /recibo:cierre:001/);
+  assert.match(raiz.innerHTML, /recibo:descarte:001/);
+  confirmada = true;
+  await raiz.enviar("seleccion", { expediente_ref: EXPEDIENTE, version_esperada: "6" });
+  assert.equal(clavesNuevas, clavesAntes + 1);
+  assert.equal(publicadas.length, 2);
+  assert.notEqual(publicadas[1].clave_idempotencia, publicadas[0].clave_idempotencia);
+  assert.match(raiz.innerHTML, /Oferta publicada y vinculada/);
+  assert.match(raiz.innerHTML, /recibo:cierre:001/);
+  assert.match(raiz.innerHTML, /recibo:descarte:001/);
+  cerrar();
+});
+
+test("respuesta perdida al cerrar reintenta recuperación y sin reserva conserva publicación original", async () => {
+  const raiz = raizPrueba();
+  const intentos = [];
+  let recuperaciones = 0;
+  const cerrar = montar(raiz, { seleccionarLlamamiento: async (solicitud) => {
+    intentos.push(solicitud);
+    throw errorOfertaIndeterminada();
+  }, recuperarOferta: async (solicitud) => {
+    recuperaciones++;
+    if (recuperaciones === 1) throw new Error("cierre sin respuesta");
+    if (recuperaciones === 2) throw Object.assign(new Error("sin reserva"), { estado: 409, codigo: "seleccion_oferta_sin_reserva" });
+    return reciboDescarte;
+  } });
+  await raiz.enviar("seleccion", seleccion());
+  await click(raiz, "data-ct-llamamiento-recuperar-oferta");
+  assert.match(raiz.innerHTML, /Reintente la recuperación/);
+  await click(raiz, "data-ct-llamamiento-recuperar-oferta");
+  assert.match(raiz.innerHTML, /Reintente la solicitud original sin cambiar su clave/);
+  assert.match(raiz.innerHTML, /Volver a intentar/);
+  await raiz.enviar("seleccion", { ...seleccion(), expediente_ref: "expediente:otro:001" });
+  assert.deepEqual(intentos[0], intentos[1]);
+  await click(raiz, "data-ct-llamamiento-recuperar-oferta");
+  assert.match(raiz.innerHTML, /Intento cerrado sin publicar oferta/);
+  cerrar();
+});
+
+test("recuperar oferta publicada tras 403 conserva la clave original y omite comunicación", async () => {
+  const raiz = raizPrueba();
+  let claves = 0, llamadasRecuperacion = 0;
+  const originales = [], recuperadas = [];
+  const cerrar = montar(raiz, {
+    seleccionarLlamamiento: async (solicitud) => { originales.push(solicitud); throw errorOfertaIndeterminada(); },
+    recuperarOferta: async (solicitud) => {
+      recuperadas.push(solicitud);
+      if (++llamadasRecuperacion === 1) throw Object.assign(new Error("denegado"), {
+        estado: 403, codigo: "acceso_denegado", envelopeValido: true, resultadoIndeterminado: false,
+      });
+      return reciboOferta;
+    },
+  }, { generarClaveIdempotencia: () => { claves++; return "123e4567-e89b-42d3-a456-426614174099"; } });
+  await raiz.enviar("seleccion", seleccion());
+  await click(raiz, "data-ct-llamamiento-recuperar-oferta");
+  assert.match(raiz.innerHTML, /Recuperar operación/);
+  await click(raiz, "data-ct-llamamiento-recuperar-oferta");
+  assert.deepEqual(recuperadas, [originales[0], originales[0]]);
+  assert.equal(claves, 1);
+  assert.match(raiz.innerHTML, /Oferta publicada y vinculada/);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="comunicacion"/);
+  cerrar();
+});
+
+test("un error de red genérico o N singular conocido no ofrece cierre de oferta", async () => {
+  for (const [numeroPersonas, error] of [[undefined, new Error("red sin respuesta")], [1, errorOfertaIndeterminada()]]) {
+    const raiz = raizPrueba();
+    let recuperaciones = 0;
+    const cerrar = montar(raiz, {
+      seleccionarLlamamiento: async () => { throw error; },
+      recuperarOferta: async () => { recuperaciones++; return reciboDescarte; },
+    }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
+      ...(numeroPersonas === undefined ? {} : { numero_personas: numeroPersonas }) } });
+    await raiz.enviar("seleccion", seleccion());
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recuperar-oferta/);
+    await click(raiz, "data-ct-llamamiento-recuperar-oferta");
+    assert.equal(recuperaciones, 0);
+    assert.match(raiz.innerHTML, /Volver a intentar/);
+    cerrar();
+  }
+});
+
+test("A descartada conserva recibos mientras B incierta recupera su propia UUID", async () => {
+  const raiz = raizPrueba();
+  const selecciones = [], recuperaciones = [];
+  let claves = 0;
+  const cerrar = montar(raiz, {
+    seleccionarLlamamiento: async (solicitud) => { selecciones.push(solicitud); throw errorOfertaIndeterminada(); },
+    recuperarOferta: async (solicitud) => {
+      recuperaciones.push(solicitud);
+      return recuperaciones.length === 1 ? reciboDescarte : reciboOferta;
+    },
+  }, { generarClaveIdempotencia: () => {
+    claves++;
+    return claves === 1 ? "123e4567-e89b-42d3-a456-426614174091" : "123e4567-e89b-42d3-a456-426614174092";
+  } });
+  await raiz.enviar("seleccion", seleccion());
+  await click(raiz, "data-ct-llamamiento-recuperar-oferta");
+  assert.match(raiz.innerHTML, /recibo:descarte:001/);
+  await click(raiz, "data-ct-llamamiento-nueva-oferta");
+  await raiz.enviar("seleccion", { expediente_ref: EXPEDIENTE, version_esperada: "6" });
+  assert.notEqual(selecciones[0].clave_idempotencia, selecciones[1].clave_idempotencia);
+  assert.match(raiz.innerHTML, /recibo:descarte:001/);
+  assert.match(raiz.innerHTML, /Recuperar operación/);
+  await click(raiz, "data-ct-llamamiento-recuperar-oferta");
+  assert.deepEqual(recuperaciones, [selecciones[0], selecciones[1]]);
+  assert.match(raiz.innerHTML, /Oferta publicada y vinculada/);
+  assert.match(raiz.innerHTML, /recibo:descarte:001/);
   cerrar();
 });

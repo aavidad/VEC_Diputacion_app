@@ -15,7 +15,8 @@ BEGIN
  AND conname IN ('ejecucion_seleccion_llamamiento_o6_check',
   'ejecucion_seleccion_llamamiento_o6_check2','ejecucion_seleccion_llamamiento_o6_check3',
   'ejecucion_seleccion_llamamiento_o6_efecto_check',
-  'ejecucion_seleccion_llamamiento_o6_reserva_ref_check');
+  'ejecucion_seleccion_llamamiento_o6_reserva_ref_check',
+  'ejecucion_seleccion_llamamiento_o6_situacion_check');
  IF current_user<>'vec_contratacion_temporal_propietario'
     OR current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
     OR v_huellas IS DISTINCT FROM ARRAY[
@@ -23,7 +24,8 @@ BEGIN
       '6ad527bf6af8162c07708b028c9f54e88a15fe3274e4bfb31b3ff94dc68c9953',
       '68329881d9dd62d7c29e86a3ea64171784434134c4180e68bef178dd34ceca60',
       '8fc44873d1b7d085dd11437727158cd6153ef983839b65432820acf7c4f5e257',
-      '28328fb44b1d35293ee64582a2ee9ef2c531cad1970e06d3ace2f2ca3e682016']
+      '28328fb44b1d35293ee64582a2ee9ef2c531cad1970e06d3ace2f2ca3e682016',
+      'e25366f3919f19ab8338e8fa68a43e36a6dc858f6ed097fc5408a63f01d9cdfb']
     OR NOT EXISTS(SELECT 1 FROM pg_class c
       WHERE c.oid='vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6'::regclass
         AND c.relowner='vec_contratacion_temporal_propietario'::regrole
@@ -33,7 +35,9 @@ BEGIN
         AND NOT t.tgisinternal)
     OR to_regclass('vec_contratacion_temporal.vinculo_oferta_bolsa_ct_v1') IS NOT NULL
     OR to_regprocedure('vec_bolsa_llamamientos.verificar_oferta_ct_v1(text,text,bigint,text,text,text,text,text,text,integer,jsonb,text)') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.verificar_cierre_intencion_oferta_ct_v1(jsonb,jsonb)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_vinculo_oferta_bolsa_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_descarte_seleccion_oferta_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  THEN RAISE EXCEPTION 'CT220: preimagen instalada incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -85,8 +89,12 @@ ALTER TABLE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
  DROP CONSTRAINT ejecucion_seleccion_llamamiento_o6_check2,
  DROP CONSTRAINT ejecucion_seleccion_llamamiento_o6_check3,
  DROP CONSTRAINT ejecucion_seleccion_llamamiento_o6_efecto_check,
- DROP CONSTRAINT ejecucion_seleccion_llamamiento_o6_reserva_ref_check;
+ DROP CONSTRAINT ejecucion_seleccion_llamamiento_o6_reserva_ref_check,
+ DROP CONSTRAINT ejecucion_seleccion_llamamiento_o6_situacion_check;
 ALTER TABLE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
+ ADD CONSTRAINT ejecucion_seleccion_o6_situacion_ct220 CHECK(
+  (tipo_seleccion='llamamiento' AND situacion IN ('propietaria','indeterminada','confirmada'))
+  OR (tipo_seleccion='oferta' AND situacion IN ('propietaria','indeterminada','confirmada','descartada'))),
  ADD CONSTRAINT ejecucion_seleccion_o6_solicitud_ct220 CHECK(
   (tipo_seleccion='llamamiento' AND comando_oferta_json IS NULL AND
    jsonb_typeof(solicitud_json)='object' AND octet_length(solicitud_json::text)<=1048576 AND
@@ -125,11 +133,12 @@ ALTER TABLE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
    ((situacion='propietaria' AND recibo_json IS NULL AND
       ((NOT ventana_orden_abierta AND efecto IS NULL) OR (ventana_orden_abierta AND efecto='publicar_oferta')))
     OR (situacion='indeterminada' AND ventana_orden_abierta AND efecto='publicar_oferta' AND recibo_json IS NULL)
-    OR (situacion='confirmada' AND ventana_orden_abierta AND efecto IS NULL AND recibo_json IS NOT NULL))));
+    OR (situacion='confirmada' AND ventana_orden_abierta AND efecto IS NULL AND recibo_json IS NOT NULL)
+    OR (situacion='descartada' AND efecto IS NULL AND recibo_json IS NOT NULL))));
 CREATE UNIQUE INDEX ejecucion_seleccion_oferta_unica_expediente_ct220
  ON vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
  ((solicitud_json->>'organizacion_ref'),(solicitud_json->>'expediente_ref'))
- WHERE tipo_seleccion='oferta';
+ WHERE tipo_seleccion='oferta' AND situacion<>'descartada';
 
 -- Las fachadas O6 antiguas siguen sirviendo al llamamiento singular. Esta
 -- guarda física impide que su liberación DELETE alcance una oferta y que una
@@ -160,11 +169,12 @@ BEGIN
       (OLD.ventana_orden_abierta OR NEW.fencing_version<>OLD.fencing_version+1))
     OR NEW.ventana_llamamiento_abierta IS DISTINCT FROM false
     OR NEW.artefacto_canonico IS NOT NULL
-    OR (OLD.situacion='confirmada')
-    OR (OLD.situacion='indeterminada' AND NEW.situacion<>'confirmada')
+    OR (OLD.situacion IN ('confirmada','descartada'))
+    OR (OLD.situacion='indeterminada' AND NEW.situacion NOT IN ('confirmada','descartada'))
     OR (OLD.ventana_orden_abierta AND NOT NEW.ventana_orden_abierta)
     OR (NOT OLD.ventana_orden_abierta AND NEW.situacion='indeterminada')
     OR (NEW.situacion='confirmada' AND (NOT NEW.ventana_orden_abierta OR NEW.recibo_json IS NULL))
+    OR (NEW.situacion='descartada' AND NEW.recibo_json IS NULL)
     OR (NEW.situacion='propietaria' AND OLD.ventana_orden_abierta
       AND NEW.reserva_ref IS DISTINCT FROM OLD.reserva_ref)
  THEN RAISE EXCEPTION 'CT220: transición de oferta incompatible' USING ERRCODE='42501'; END IF;
@@ -240,6 +250,54 @@ CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_contratacion_temporal.outbox_vi
  FOR EACH STATEMENT EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
 REVOKE ALL ON TABLE vec_contratacion_temporal.outbox_vinculo_oferta_bolsa_ct_v1 FROM PUBLIC;
 REVOKE ALL ON TYPE vec_contratacion_temporal.outbox_vinculo_oferta_bolsa_ct_v1 FROM PUBLIC;
+
+CREATE TABLE vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1(
+ clave_idempotencia uuid PRIMARY KEY
+  REFERENCES vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6(clave_idempotencia),
+ organizacion_ref text NOT NULL,expediente_ref text NOT NULL,
+ version_expediente bigint NOT NULL CHECK(version_expediente BETWEEN 1 AND 9007199254740991),
+ bolsa_ref text NOT NULL,clave_bolsa text NOT NULL,
+ actor_ref text NOT NULL,perfil_descarte_ref text NOT NULL,
+ comando_sha256 text NOT NULL CHECK(comando_sha256 ~ '^[0-9a-f]{64}$'),
+ recibo_cierre_ref text NOT NULL UNIQUE,cierre_json jsonb NOT NULL CHECK(jsonb_typeof(cierre_json)='object'),
+ recibo_descarte_ref text NOT NULL UNIQUE,recibo_json jsonb NOT NULL CHECK(jsonb_typeof(recibo_json)='object'),
+ decision_ref text NOT NULL UNIQUE,auditoria_ref text NOT NULL UNIQUE,
+ consumo_huella_sha256 text NOT NULL CHECK(consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
+ evento_ref text NOT NULL UNIQUE,descartada_en timestamptz(6) NOT NULL,
+ CHECK(comando_sha256 <> repeat('0',64))
+);
+ALTER TABLE vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_total ON vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1
+ TO vec_contratacion_temporal_propietario USING(true) WITH CHECK(true);
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+REVOKE ALL ON TABLE vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1 FROM PUBLIC;
+
+CREATE TABLE vec_contratacion_temporal.outbox_descarte_seleccion_oferta_ct_v1(
+ evento_ref text PRIMARY KEY,
+ clave_idempotencia uuid NOT NULL UNIQUE
+  REFERENCES vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1(clave_idempotencia),
+ recibo_descarte_ref text NOT NULL UNIQUE,
+ tipo text NOT NULL CHECK(tipo='ct.oferta_bolsa.preparacion_descartada.v1'),
+ payload jsonb NOT NULL CHECK(jsonb_typeof(payload)='object'),
+ payload_sha256 text NOT NULL CHECK(payload_sha256 ~ '^[0-9a-f]{64}$'
+  AND payload_sha256=encode(sha256(convert_to(payload::text,'UTF8')),'hex')),
+ registrada_en timestamptz(6) NOT NULL
+);
+ALTER TABLE vec_contratacion_temporal.outbox_descarte_seleccion_oferta_ct_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contratacion_temporal.outbox_descarte_seleccion_oferta_ct_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_total ON vec_contratacion_temporal.outbox_descarte_seleccion_oferta_ct_v1
+ TO vec_contratacion_temporal_propietario USING(true) WITH CHECK(true);
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_contratacion_temporal.outbox_descarte_seleccion_oferta_ct_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_contratacion_temporal.outbox_descarte_seleccion_oferta_ct_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+REVOKE ALL ON TABLE vec_contratacion_temporal.outbox_descarte_seleccion_oferta_ct_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_contratacion_temporal.outbox_descarte_seleccion_oferta_ct_v1 FROM PUBLIC;
 
 CREATE FUNCTION vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(c jsonb,i jsonb)
 RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $f$
@@ -368,12 +426,14 @@ CREATE FUNCTION vec_contratacion_temporal.estado_seleccion_oferta_ct220(e vec_co
 RETURNS jsonb LANGUAGE sql STABLE STRICT SET search_path=pg_catalog,pg_temp AS $f$
  SELECT jsonb_build_object(
   'situacion',CASE WHEN e.situacion='confirmada' THEN 'confirmada'
+   WHEN e.situacion='descartada' THEN 'descartada'
    WHEN e.situacion='indeterminada' THEN 'indeterminada'
    ELSE 'reservada' END,
-  'reserva_ref',CASE WHEN e.situacion='confirmada' THEN '' ELSE e.reserva_ref END,
+  'reserva_ref',CASE WHEN e.situacion IN ('confirmada','descartada') THEN '' ELSE e.reserva_ref END,
   'ventana_abierta',e.ventana_orden_abierta,
   'comando',e.comando_oferta_json,
-  'recibo',e.recibo_json)
+  'recibo',CASE WHEN e.situacion='confirmada' THEN e.recibo_json ELSE NULL END,
+  'recibo_descarte',CASE WHEN e.situacion='descartada' THEN e.recibo_json ELSE NULL END)
 $f$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.estado_seleccion_oferta_ct220(vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6) FROM PUBLIC;
 
@@ -423,6 +483,45 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.terminal_seleccion_oferta_valido_ct220(
  vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6) FROM PUBLIC;
 
+CREATE FUNCTION vec_contratacion_temporal.terminal_descarte_oferta_valido_ct220(
+ e vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' AS $f$
+DECLARE v vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1%ROWTYPE;
+ ev vec_contratacion_temporal.outbox_descarte_seleccion_oferta_ct_v1%ROWTYPE;
+ i jsonb;c jsonb;r jsonb;
+BEGIN
+ IF e.tipo_seleccion<>'oferta' OR e.situacion<>'descartada'
+    OR e.recibo_json IS NULL OR e.comando_oferta_json IS NULL THEN RETURN false; END IF;
+ i:=e.solicitud_json;c:=e.comando_oferta_json;r:=e.recibo_json;
+ SELECT * INTO v FROM vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1
+ WHERE clave_idempotencia=e.clave_idempotencia;
+ IF NOT FOUND THEN RETURN false; END IF;
+ SELECT * INTO ev FROM vec_contratacion_temporal.outbox_descarte_seleccion_oferta_ct_v1
+ WHERE clave_idempotencia=e.clave_idempotencia;
+ IF NOT FOUND OR v.organizacion_ref IS DISTINCT FROM i->>'organizacion_ref'
+    OR v.expediente_ref IS DISTINCT FROM i->>'expediente_ref'
+    OR v.version_expediente IS DISTINCT FROM (i->>'version_expediente')::bigint
+    OR v.actor_ref IS DISTINCT FROM i->>'actor_ref'
+    OR v.perfil_descarte_ref IS NOT DISTINCT FROM i->>'perfil_ref'
+    OR v.bolsa_ref IS DISTINCT FROM c->>'bolsa_ref'
+    OR v.clave_bolsa IS DISTINCT FROM c->>'clave_bolsa'
+    OR v.comando_sha256 IS DISTINCT FROM encode(sha256(convert_to(c::text,'UTF8')),'hex')
+    OR v.recibo_cierre_ref IS DISTINCT FROM v.cierre_json->>'recibo_cierre_ref'
+    OR v.recibo_json IS DISTINCT FROM r
+    OR v.recibo_descarte_ref IS DISTINCT FROM r->>'recibo_descarte_ref'
+    OR r->>'estado' IS DISTINCT FROM 'descartada'
+    OR r->>'esquema' IS DISTINCT FROM 'vec.contratacion-temporal.recibo-descarte-oferta.v1'
+    OR ev.evento_ref IS DISTINCT FROM v.evento_ref
+    OR ev.recibo_descarte_ref IS DISTINCT FROM v.recibo_descarte_ref
+    OR ev.payload IS DISTINCT FROM r
+    OR ev.payload_sha256 IS DISTINCT FROM encode(sha256(convert_to(r::text,'UTF8')),'hex')
+ THEN RETURN false; END IF;
+ RETURN vec_bolsa_llamamientos.verificar_cierre_intencion_oferta_ct_v1(c,v.cierre_json);
+END $f$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.terminal_descarte_oferta_valido_ct220(
+ vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6) FROM PUBLIC;
+
 CREATE FUNCTION vec_contratacion_temporal.consultar_seleccion_oferta_ct220(
  p_intencion jsonb,p_material text,
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -447,7 +546,9 @@ BEGIN
  END IF;
  IF vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(e.comando_oferta_json,p_intencion) IS NOT TRUE
     OR (e.situacion='confirmada' AND
-      vec_contratacion_temporal.terminal_seleccion_oferta_valido_ct220(e) IS NOT TRUE) THEN
+      vec_contratacion_temporal.terminal_seleccion_oferta_valido_ct220(e) IS NOT TRUE)
+    OR (e.situacion='descartada' AND
+      vec_contratacion_temporal.terminal_descarte_oferta_valido_ct220(e) IS NOT TRUE) THEN
   RAISE EXCEPTION 'CT220: ejecución histórica inconsistente' USING ERRCODE='55000';
  END IF;
  v_ahora:=date_trunc('microseconds',clock_timestamp());
@@ -711,5 +812,159 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.confirmar_vinculo_seleccion_oferta_ct220(
  jsonb,text,jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.confirmar_vinculo_seleccion_oferta_ct220(
+ jsonb,text,jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_ejecutor;
+
+CREATE FUNCTION vec_contratacion_temporal.descartar_seleccion_oferta_ct220(
+ p_intencion jsonb,p_reserva text,p_comando jsonb,p_cierre jsonb,p_material text,
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,
+ p_evidencia bytea,p_raiz bytea)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
+SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
+DECLARE e vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6%ROWTYPE;
+ cab record;m jsonb;d jsonb;auth record;h text;ctx text;
+ historico jsonb;historico_h text;
+ v_ahora timestamptz(6);v_recibo text;v_evento text;v_salida jsonb;
+BEGIN
+ IF current_user<>'vec_contratacion_temporal_propietario'
+    OR session_user=current_user
+    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER') IS TRUE
+    OR current_setting('transaction_isolation')<>'serializable'
+    OR current_setting('transaction_read_only')<>'off'
+    OR p_reserva IS NULL OR p_material IS NULL
+    OR octet_length(p_material) NOT BETWEEN 128 AND 1048576
+    OR vec_contratacion_temporal.intencion_seleccion_oferta_valida_ct220(
+      p_intencion,(p_intencion->>'clave_idempotencia')::uuid,p_intencion->>'huella_intencion') IS NOT TRUE
+    OR vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(p_comando,p_intencion) IS NOT TRUE
+    OR jsonb_typeof(p_cierre)<>'object' OR octet_length(p_cierre::text)>65536
+ THEN RAISE EXCEPTION 'CT220: descarte no autorizable' USING ERRCODE='42501'; END IF;
+ BEGIN
+  m:=p_material::jsonb;d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN
+  RAISE EXCEPTION 'CT220: material de descarte ilegible' USING ERRCODE='22023';
+ END;
+ IF m->>'esquema' IS DISTINCT FROM 'vec.ct.seleccion-oferta.descarte.v1'
+    OR m->>'organizacion_ref' IS DISTINCT FROM p_intencion->>'organizacion_ref'
+    OR m->>'expediente_ref' IS DISTINCT FROM p_intencion->>'expediente_ref'
+    OR m->'version_expediente' IS DISTINCT FROM p_intencion->'version_expediente'
+    OR m->>'clave_idempotencia' IS DISTINCT FROM p_intencion->>'clave_idempotencia'
+    OR m->>'huella_intencion' IS DISTINCT FROM p_intencion->>'huella_intencion'
+    OR m->>'actor_ref' IS DISTINCT FROM p_intencion->>'actor_ref'
+    OR m->>'categoria_ref' IS DISTINCT FROM p_intencion->>'categoria_ref'
+    OR m->>'centro_ref' IS DISTINCT FROM p_intencion->>'centro_ref'
+    OR m->'comando' IS DISTINCT FROM p_comando
+    OR m->'cierre' IS DISTINCT FROM p_cierre
+    OR m-ARRAY['esquema','organizacion_ref','expediente_ref','version_expediente',
+      'clave_idempotencia','huella_intencion','actor_ref','categoria_ref','centro_ref',
+      'comando','cierre']<>'{}'::jsonb
+    OR p_cierre->>'esquema' IS DISTINCT FROM 'vec.bolsa.oferta-ct.cierre.v1'
+    OR p_cierre->>'estado' IS DISTINCT FROM 'cerrada_sin_publicar'
+    OR p_cierre->>'organizacion_ref' IS DISTINCT FROM p_intencion->>'organizacion_ref'
+    OR p_cierre->>'expediente_ref' IS DISTINCT FROM p_intencion->>'expediente_ref'
+    OR p_cierre->>'version_expediente' IS DISTINCT FROM p_intencion->>'version_expediente'
+    OR p_cierre->>'clave_ct' IS DISTINCT FROM p_intencion->>'clave_idempotencia'
+    OR p_cierre->>'actor_ref' IS DISTINCT FROM p_intencion->>'actor_ref'
+    OR p_cierre->>'bolsa_ref' IS DISTINCT FROM p_comando->>'bolsa_ref'
+    OR p_cierre->>'clave_bolsa' IS DISTINCT FROM p_comando->>'clave_bolsa'
+    OR p_cierre->'numero_plazas' IS DISTINCT FROM p_comando->'numero_plazas'
+    OR p_cierre->>'comando_sha256' IS DISTINCT FROM encode(sha256(convert_to(p_comando::text,'UTF8')),'hex')
+ THEN RAISE EXCEPTION 'CT220: cierre o material divergente' USING ERRCODE='42501'; END IF;
+ h:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
+ ctx:=encode(sha256(convert_to('{"ambitos":{"categoria_ref":'||
+   to_json(p_intencion->>'categoria_ref')::text||',"centro_ref":'||
+   to_json(p_intencion->>'centro_ref')::text||',"organizacion_ref":'||
+   to_json(p_intencion->>'organizacion_ref')::text||
+   '},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
+ IF d->>'principal_id' IS DISTINCT FROM p_intencion->>'actor_ref'
+    OR d->>'perfil_activo_ref' IS NOT DISTINCT FROM p_intencion->>'perfil_ref'
+    OR d->>'accion' IS DISTINCT FROM 'contratacion_temporal.bolsa.oferta.descartar'
+    OR d->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
+    OR d->>'tipo_recurso' IS DISTINCT FROM 'seleccion_oferta_expediente'
+    OR d->>'finalidad' IS DISTINCT FROM 'tramitacion_expediente_contratacion_temporal'
+    OR d->>'recurso_ref' IS DISTINCT FROM p_intencion->>'expediente_ref'
+    OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM ctx
+    OR d->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb
+    OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
+ THEN RAISE EXCEPTION 'CT220: decisión de descarte divergente' USING ERRCODE='42501'; END IF;
+ -- Igual orden que reservar y cancelar: cabecera CT → V3 → O6.
+ SELECT a.version INTO cab FROM vec_contratacion_temporal.expediente_integral_actual a
+ JOIN vec_contratacion_temporal.expediente_alta alta ON alta.expediente_ref=a.expediente_ref
+ WHERE a.expediente_ref=p_intencion->>'expediente_ref'
+   AND alta.organizacion_ref=p_intencion->>'organizacion_ref'
+ FOR UPDATE OF a;
+ SELECT * INTO STRICT auth FROM vec_autorizacion_atestada_v3.registrar_y_consumir_descarte_seleccion_oferta_ct_v3_atestada(
+  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+  p_payload,p_sobre,p_evidencia,p_raiz);
+ IF auth.efecto_ref IS DISTINCT FROM p_intencion->>'expediente_ref'
+    OR auth.huella_efecto_sha256 IS DISTINCT FROM ctx OR auth.consumo_nuevo IS NOT TRUE
+ THEN RAISE EXCEPTION 'CT220: consumo de descarte divergente' USING ERRCODE='42501'; END IF;
+ SELECT * INTO e FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
+ WHERE clave_idempotencia=(p_intencion->>'clave_idempotencia')::uuid FOR UPDATE;
+ IF cab.version IS NULL OR e.clave_idempotencia IS NULL
+    OR e.tipo_seleccion<>'oferta' OR e.solicitud_json IS DISTINCT FROM p_intencion
+    OR e.comando_oferta_json IS DISTINCT FROM p_comando
+    OR e.reserva_ref IS DISTINCT FROM p_reserva
+ THEN RAISE EXCEPTION 'CT220: reserva de descarte divergente' USING ERRCODE='23505'; END IF;
+ IF e.situacion='descartada' THEN
+  IF vec_contratacion_temporal.terminal_descarte_oferta_valido_ct220(e) IS NOT TRUE
+     OR (SELECT cierre_json FROM vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1
+       WHERE clave_idempotencia=e.clave_idempotencia) IS DISTINCT FROM p_cierre
+  THEN RAISE EXCEPTION 'CT220: descarte previo divergente' USING ERRCODE='23505'; END IF;
+  RETURN e.recibo_json;
+ END IF;
+ IF e.situacion NOT IN ('propietaria','indeterminada')
+    OR vec_bolsa_llamamientos.verificar_cierre_intencion_oferta_ct_v1(p_comando,p_cierre) IS NOT TRUE
+ THEN RAISE EXCEPTION 'CT220: Bolsa no acredita cierre sin oferta' USING ERRCODE='42501'; END IF;
+ SELECT v.agregado_json,v.agregado_json_huella_sha256 INTO historico,historico_h
+ FROM vec_contratacion_temporal.expediente_version_integral v
+ WHERE v.expediente_ref=p_intencion->>'expediente_ref'
+   AND v.version=(p_intencion->>'version_expediente')::numeric;
+ IF NOT FOUND OR historico_h IS DISTINCT FROM encode(sha256(convert_to(historico::text,'UTF8')),'hex')
+    OR historico->>'fase_actual' IS DISTINCT FROM 'fiscalizacion'
+    OR historico->>'estado_actual' IS DISTINCT FROM 'en_curso'
+    OR historico#>>'{solicitud,numero_personas}' IS DISTINCT FROM p_comando->>'numero_plazas'
+    OR historico#>>'{solicitud,centro_ref}' IS DISTINCT FROM p_intencion->>'centro_ref'
+    OR historico#>>'{analisis,categoria_ref}' IS DISTINCT FROM p_intencion->>'categoria_ref'
+    OR historico#>>'{asignacion,unidad_ref}' IS DISTINCT FROM p_comando#>>'{origen_ct,unidad_ref}'
+ THEN RAISE EXCEPTION 'CT220: versión original de descarte divergente' USING ERRCODE='55000'; END IF;
+ v_ahora:=date_trunc('microseconds',clock_timestamp());
+ IF v_ahora<(p_cierre->>'cerrada_en')::timestamptz THEN
+  RAISE EXCEPTION 'CT220: cierre futuro' USING ERRCODE='22023'; END IF;
+ v_recibo:='recibo:ct:oferta-descarte:'||gen_random_uuid()::text;
+ v_evento:='evento:ct:oferta-descarte:'||gen_random_uuid()::text;
+ v_salida:=jsonb_build_object(
+  'esquema','vec.contratacion-temporal.recibo-descarte-oferta.v1','estado','descartada',
+  'organizacion_ref',p_intencion->>'organizacion_ref',
+  'expediente_ref',p_intencion->>'expediente_ref',
+  'version_expediente',(p_intencion->>'version_expediente')::bigint,
+  'bolsa_ref',p_comando->>'bolsa_ref','clave_bolsa',p_comando->>'clave_bolsa',
+  'recibo_cierre_ref',p_cierre->>'recibo_cierre_ref','recibo_descarte_ref',v_recibo,
+  'motivo','origen_caducado',
+  'descartada_en',to_char(v_ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+  'auditoria_ref',auth.auditoria_ref,'evento_ref',v_evento);
+ INSERT INTO vec_contratacion_temporal.descarte_seleccion_oferta_ct_v1(
+  clave_idempotencia,organizacion_ref,expediente_ref,version_expediente,
+  bolsa_ref,clave_bolsa,actor_ref,perfil_descarte_ref,comando_sha256,
+  recibo_cierre_ref,cierre_json,recibo_descarte_ref,recibo_json,
+  decision_ref,auditoria_ref,consumo_huella_sha256,evento_ref,descartada_en)
+ VALUES(e.clave_idempotencia,p_intencion->>'organizacion_ref',p_intencion->>'expediente_ref',
+  (p_intencion->>'version_expediente')::bigint,p_comando->>'bolsa_ref',p_comando->>'clave_bolsa',
+  p_intencion->>'actor_ref',d->>'perfil_activo_ref',encode(sha256(convert_to(p_comando::text,'UTF8')),'hex'),
+  p_cierre->>'recibo_cierre_ref',p_cierre,v_recibo,v_salida,
+  auth.decision_ref,auth.auditoria_ref,auth.consumo_huella_sha256,v_evento,v_ahora);
+ INSERT INTO vec_contratacion_temporal.outbox_descarte_seleccion_oferta_ct_v1(
+  evento_ref,clave_idempotencia,recibo_descarte_ref,tipo,payload,payload_sha256,registrada_en)
+ VALUES(v_evento,e.clave_idempotencia,v_recibo,'ct.oferta_bolsa.preparacion_descartada.v1',v_salida,
+  encode(sha256(convert_to(v_salida::text,'UTF8')),'hex'),v_ahora);
+ UPDATE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
+ SET situacion='descartada',efecto=NULL,recibo_json=v_salida,actualizada_en=v_ahora
+ WHERE clave_idempotencia=e.clave_idempotencia;
+ RETURN v_salida;
+END $f$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.descartar_seleccion_oferta_ct220(
+ jsonb,text,jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.descartar_seleccion_oferta_ct220(
  jsonb,text,jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_ejecutor;
 COMMIT;

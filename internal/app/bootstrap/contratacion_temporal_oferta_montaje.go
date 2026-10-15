@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 )
@@ -39,9 +40,23 @@ func configurarSeleccionOfertaOpcionalCT(cfg config.Config,
 		slog.Warn("seleccion de oferta de CT no compuesta", "error", err)
 		return func() {}
 	}
-	servicio, err := application.NuevoServicioSeleccionOfertaCT(
+	resolucion, err := postgresbolsa.NuevoRepositorioResolucionIntencionOfertaCTPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		cerrar()
+		slog.Warn("recuperacion de oferta de CT no compuesta", "error", err)
+		return func() {}
+	}
+	publicador := publicadorOfertaBolsaCTDesarrollo{puente: seleccion.puente,
+		resolucion: resolucion, autoridadCierre: autoridad}
+	descarte, err := postgresct.NuevoRegistroDescarteSeleccionOfertaPostgreSQL(alta.postgresql.ejecucion)
+	if err != nil {
+		cerrar()
+		slog.Warn("descarte de oferta de CT no compuesto", "error", err)
+		return func() {}
+	}
+	servicio, err := application.NuevoServicioSeleccionOfertaCTRecuperable(
 		preparadorSeleccionOfertaCTDesarrollo{puente: seleccion.puente, autoridad: autoridad},
-		autoridad, registro, publicadorOfertaBolsaCTDesarrollo{puente: seleccion.puente}, reloj)
+		autoridad, registro, publicador, publicador, autoridad, descarte, reloj)
 	if err != nil {
 		cerrar()
 		slog.Warn("seleccion de oferta de CT no compuesta", "error", err)

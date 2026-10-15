@@ -141,11 +141,17 @@ func (e *ejecutorSeleccionLlamamientoDesarrollo) SeleccionarYLlamarParaAdaptador
 		if e.ofertas == nil {
 			return vacio, application.ErrSeleccionOfertaNoDisponible
 		}
+		if solicitud.RecuperarOferta {
+			return e.ofertas.RecuperarOfertaParaAdaptador(ctx, solicitud)
+		}
 		oferta, err := e.ofertas.SeleccionarOfertaParaAdaptador(ctx, solicitud)
 		if err != nil {
 			return vacio, err
 		}
 		return application.DatosReciboSeleccionLlamamientoParaAdaptador{Oferta: &oferta}, nil
+	}
+	if solicitud.RecuperarOferta {
+		return vacio, application.ErrSolicitudSeleccionOfertaInvalida
 	}
 	return e.servicio.SeleccionarYLlamarParaAdaptador(ctx, solicitud)
 }

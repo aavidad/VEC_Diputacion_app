@@ -2,6 +2,7 @@ package httpinterno
 
 import (
 	"errors"
+	"net/http"
 	"regexp"
 	"time"
 
@@ -38,7 +39,7 @@ func proyectarReciboSeleccionOferta(
 	expedienteRef string,
 ) (reciboSeleccionOfertaJSON, bool) {
 	o := recibo.Oferta
-	if o == nil || recibo.ReciboRef != "" || !recibo.ConfirmadaEn.IsZero() ||
+	if o == nil || recibo.Descarte != nil || recibo.ReciboRef != "" || !recibo.ConfirmadaEn.IsZero() ||
 		recibo.OrganizacionRef != "" || recibo.LlamamientoRef != "" ||
 		recibo.VersionLlamamiento != 0 || recibo.PoliticaProvisional != nil ||
 		o.Esquema != ports.EsquemaReciboSeleccionOfertaCTV1 ||
@@ -71,6 +72,12 @@ func proyectarReciboSeleccionOferta(
 // el clasificador singular, sin crear una segunda autoridad HTTP.
 func clasificarErrorSeleccionOferta(err error) (errorPublicoCobertura, bool) {
 	switch {
+	case errors.Is(err, application.ErrSeleccionOfertaIndeterminada):
+		return nuevoErrorSeleccionLlamamiento(http.StatusServiceUnavailable, "seleccion_oferta_indeterminada"), true
+	case errors.Is(err, application.ErrSeleccionOfertaDescartada):
+		return nuevoErrorSeleccionLlamamiento(http.StatusConflict, "seleccion_oferta_descartada"), true
+	case errors.Is(err, application.ErrSeleccionOfertaSinReserva):
+		return nuevoErrorSeleccionLlamamiento(http.StatusConflict, "seleccion_oferta_sin_reserva"), true
 	case errors.Is(err, application.ErrClaveSeleccionOfertaEnColision):
 		return errorConflictoSeleccionLlamamientoNoReintentable, true
 	case errors.Is(err, application.ErrSeleccionOfertaConcurrente):
@@ -79,8 +86,7 @@ func clasificarErrorSeleccionOferta(err error) (errorPublicoCobertura, bool) {
 		return errorContenidoSeleccionLlamamientoInvalido, true
 	case errors.Is(err, application.ErrResultadoSeleccionOfertaNoConfiable):
 		return errorResultadoSeleccionLlamamientoNoConfiable, true
-	case errors.Is(err, application.ErrSeleccionOfertaIndeterminada),
-		errors.Is(err, application.ErrSeleccionOfertaNoDisponible),
+	case errors.Is(err, application.ErrSeleccionOfertaNoDisponible),
 		errors.Is(err, application.ErrServicioSeleccionOfertaInvalido):
 		return errorServicioSeleccionLlamamientoNoDisponible, true
 	default:

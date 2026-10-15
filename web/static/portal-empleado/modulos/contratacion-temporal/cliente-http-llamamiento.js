@@ -1,5 +1,5 @@
 import {
-  validarSolicitudSeleccionLlamamiento, validarSolicitudComunicacionLlamamiento,
+  validarSolicitudSeleccionLlamamiento, validarSolicitudRecuperacionOferta, validarReciboRecuperacionOferta, validarSolicitudComunicacionLlamamiento,
   validarReciboSeleccion, validarReciboComunicacionLlamamiento,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
   validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
@@ -85,7 +85,7 @@ export function conflictoLlamamientoValido(ruta, codigo) {
   if (ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento
     && codigo === "validacion_respuesta_pendiente") return true;
   return (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento
-    ? ["conflicto_no_reintentable", "seleccion_no_disponible"]
+    ? ["conflicto_no_reintentable", "seleccion_no_disponible", "seleccion_oferta_sin_reserva", "seleccion_oferta_descartada"]
     : ["version_en_conflicto", "clave_idempotencia_reutilizada"]).includes(codigo);
 }
 const RECHAZOS_PREVIOS = new Set([
@@ -119,6 +119,11 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
       const entrada = validarSolicitudSeleccionLlamamiento(solicitud);
       return enviar(RUTAS_LLAMAMIENTO.seleccionLlamamiento, entrada, opciones,
         (respuesta) => validarReciboSeleccion(respuesta, entrada));
+    },
+    recuperarOferta(solicitudOriginal, opciones) {
+      const entrada = validarSolicitudRecuperacionOferta(solicitudOriginal);
+      return enviar(RUTAS_LLAMAMIENTO.seleccionLlamamiento, entrada, opciones,
+        (respuesta) => validarReciboRecuperacionOferta(respuesta, solicitudOriginal));
     },
     registrarComunicacionLlamamiento(solicitud, opciones) {
       const entrada = validarSolicitudComunicacionLlamamiento(solicitud);

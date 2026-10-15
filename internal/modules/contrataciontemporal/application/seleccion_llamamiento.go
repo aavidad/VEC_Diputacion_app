@@ -46,6 +46,7 @@ type SolicitudSeleccionLlamamiento struct {
 	ExpedienteRef     string
 	VersionEsperada   uint64
 	ClaveIdempotencia string
+	RecuperarOferta   bool
 }
 
 // DatosReciboSeleccionLlamamientoParaAdaptador es la proyección mínima que
@@ -58,6 +59,7 @@ type DatosReciboSeleccionLlamamientoParaAdaptador struct {
 	VersionLlamamiento  uint64
 	PoliticaProvisional *bool
 	Oferta              *DatosReciboSeleccionOfertaParaAdaptador
+	Descarte            *DatosReciboDescarteOfertaParaAdaptador
 }
 
 type ServicioSeleccionLlamamiento struct {

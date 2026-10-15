@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -111,6 +112,74 @@ type publicadorSeleccionOfertaPrueba struct {
 	oferta          ports.OfertaPublicadaSeleccionCT
 }
 
+type resolutorCierreOfertaPrueba struct {
+	resultado ports.ResultadoCierreOfertaBolsaCT
+	llamadas  int
+	comando   ports.ComandoOfertaBolsaCT
+	err       error
+}
+
+func (r *resolutorCierreOfertaPrueba) Resolver(_ context.Context, _ ports.IntencionSeleccionOfertaCT,
+	c ports.ComandoOfertaBolsaCT,
+) (ports.ResultadoCierreOfertaBolsaCT, error) {
+	r.llamadas++
+	r.comando = c
+	return r.resultado, r.err
+}
+
+type autorizadorDescarteOfertaPrueba struct {
+	llamadas int
+	err      error
+}
+
+func (a *autorizadorDescarteOfertaPrueba) AutorizarDescarteOfertaCT(_ context.Context,
+	s ports.SolicitudAutorizacionDescarteOfertaCT,
+) (ports.AutorizacionDescarteSeleccionOfertaCT, error) {
+	a.llamadas++
+	if a.err != nil {
+		return ports.AutorizacionDescarteSeleccionOfertaCT{}, a.err
+	}
+	canon, err := ports.CanonDescarteSeleccionOfertaCT(s)
+	if err != nil {
+		return ports.AutorizacionDescarteSeleccionOfertaCT{}, err
+	}
+	return ports.AutorizacionDescarteSeleccionOfertaCT{
+		ActorRef: s.Intencion.ActorRef, PerfilRef: "perfil:ct:descarte:prueba", MaterialCanonico: canon,
+	}, nil
+}
+
+type registroDescarteOfertaPrueba struct {
+	registro        *registroSeleccionOfertaPrueba
+	llamadas        int
+	perderRespuesta bool
+	ultimoCierre    ports.ReciboCierreOfertaCT
+}
+
+func (r *registroDescarteOfertaPrueba) Descartar(_ context.Context,
+	reserva ports.ReservaSeleccionOfertaCT, cierre ports.ReciboCierreOfertaCT,
+	_ ports.AutorizacionDescarteSeleccionOfertaCT,
+) (ports.ReciboDescarteOfertaCT, error) {
+	r.llamadas++
+	r.ultimoCierre = cierre
+	recibo := ports.ReciboDescarteOfertaCT{
+		Esquema: ports.EsquemaReciboDescarteOfertaCTV1, Estado: ports.EstadoReciboDescarteOfertaCTV1,
+		OrganizacionRef: reserva.Intencion.OrganizacionRef, ExpedienteRef: reserva.Intencion.ExpedienteRef,
+		VersionExpediente: reserva.Intencion.VersionExpediente, BolsaRef: reserva.Comando.BolsaRef,
+		ClaveBolsa: reserva.Comando.ClaveBolsa, ReciboCierreRef: cierre.ReciboCierreRef,
+		ReciboDescarteRef: "recibo:ct:descarte:1", Motivo: ports.MotivoDescarteOfertaCTV1,
+		DescartadaEn: cierre.CerradaEn.Add(time.Minute), AuditoriaRef: "auditoria:ct:descarte:1",
+		EventoRef: "evento:ct:descarte:1",
+	}
+	r.registro.estado = ports.EstadoSeleccionOfertaCT{
+		Situacion: ports.SeleccionOfertaDescartada, Comando: reserva.Comando, ReciboDescarte: recibo,
+	}
+	if r.perderRespuesta {
+		r.perderRespuesta = false
+		return ports.ReciboDescarteOfertaCT{}, errors.New("respuesta de CT perdida")
+	}
+	return recibo, nil
+}
+
 func (p *publicadorSeleccionOfertaPrueba) PublicarORecuperar(_ context.Context, _ ports.IntencionSeleccionOfertaCT, c ports.ComandoOfertaBolsaCT) (ports.OfertaPublicadaSeleccionCT, error) {
 	p.llamadas++
 	p.orden = append(p.orden, "publicar")
@@ -181,6 +250,55 @@ func escenarioSeleccionOfertaPrueba(t *testing.T) (*ServicioSeleccionOfertaCT, *
 	}
 	q := SolicitudSeleccionLlamamiento{ExpedienteRef: i.ExpedienteRef, VersionEsperada: i.VersionExpediente, ClaveIdempotencia: i.ClaveIdempotencia}
 	return s, prep, reg, pub, aut, q
+}
+
+func cierreSeleccionOfertaPrueba(i ports.IntencionSeleccionOfertaCT, c ports.ComandoOfertaBolsaCT) ports.ReciboCierreOfertaCT {
+	return ports.ReciboCierreOfertaCT{
+		Esquema: ports.EsquemaCierreOfertaBolsaCTV1, Estado: ports.EstadoCierreOfertaBolsaCTV1,
+		OrganizacionRef: i.OrganizacionRef, ExpedienteRef: i.ExpedienteRef,
+		VersionExpediente: i.VersionExpediente, ClaveCT: i.ClaveIdempotencia,
+		ActorRef: i.ActorRef, BolsaRef: c.BolsaRef, ClaveBolsa: c.ClaveBolsa,
+		NumeroPlazas: c.NumeroPlazas, DatosSHA256: strings.Repeat("a", 64),
+		OrigenSHA256: strings.Repeat("b", 64), ComandoSHA256: strings.Repeat("c", 64),
+		ReciboCierreRef: "recibo:bolsa:cierre:1", DecisionRef: "decision:bolsa:cierre:1",
+		AuditoriaRef: "auditoria:bolsa:cierre:1", EventoRef: "evento:bolsa:cierre:1",
+		CerradaEn: time.Date(2026, 10, 15, 12, 6, 0, 0, time.UTC),
+	}
+}
+
+func TestSeleccionOfertaCierreConservaFechaJSONBOriginal(t *testing.T) {
+	_, prep, _, _, _, _ := escenarioSeleccionOfertaPrueba(t)
+	cierre := cierreSeleccionOfertaPrueba(prep.intencion, prep.comando)
+	for _, nanos := range []int{0, 123456000} {
+		cierre.CerradaEn = cierre.CerradaEn.Add(time.Duration(nanos))
+		contenido, err := json.Marshal(cierre)
+		var campos map[string]json.RawMessage
+		if json.Unmarshal(contenido, &campos) != nil || len(campos) != 18 {
+			t.Fatalf("campos del recibo B121 perdidos: %s", contenido)
+		}
+		if err != nil || !strings.Contains(string(contenido),
+			`"cerrada_en":"`+cierre.CerradaEn.Format("2006-01-02T15:04:05.000000Z")+`"`) ||
+			strings.Count(string(contenido), `"cerrada_en"`) != 1 ||
+			!strings.Contains(string(contenido), `"recibo_cierre_ref":"recibo:bolsa:cierre:1"`) {
+			t.Fatalf("el JSONB de cierre cambió: %s %v", contenido, err)
+		}
+	}
+}
+
+func servicioRecuperableSeleccionOfertaPrueba(t *testing.T,
+	s *ServicioSeleccionOfertaCT, prep *preparadorSeleccionOfertaPrueba,
+	reg *registroSeleccionOfertaPrueba, pub *publicadorSeleccionOfertaPrueba,
+	aut *autorizadorSeleccionOfertaPrueba, resolutor *resolutorCierreOfertaPrueba,
+) (*ServicioSeleccionOfertaCT, *autorizadorDescarteOfertaPrueba, *registroDescarteOfertaPrueba) {
+	t.Helper()
+	descAut := &autorizadorDescarteOfertaPrueba{}
+	descReg := &registroDescarteOfertaPrueba{registro: reg}
+	recuperable, err := NuevoServicioSeleccionOfertaCTRecuperable(prep, aut, reg, pub,
+		resolutor, descAut, descReg, s.reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return recuperable, descAut, descReg
 }
 
 func TestSeleccionOfertaCongelaComandoAntesDeBolsaYConfirmaVinculo(t *testing.T) {
@@ -273,6 +391,156 @@ func TestSeleccionOfertaNoPublicaUnaPlazaNiMasQueElegibles(t *testing.T) {
 			if _, err := s.SeleccionarOferta(t.Context(), q); !errors.Is(err, ErrSeleccionOfertaNoDisponible) ||
 				reg.reservas != 0 || reg.ventanas != 0 || pub.llamadas != 0 {
 				t.Fatalf("cantidad invalida alcanzo Bolsa: %v", err)
+			}
+		})
+	}
+}
+
+func TestSeleccionOfertaRecuperacionCierraReservaPreVentanaSinRefrescarBolsa(t *testing.T) {
+	s, prep, reg, pub, aut, q := escenarioSeleccionOfertaPrueba(t)
+	reg.estado = ports.EstadoSeleccionOfertaCT{
+		Situacion: ports.SeleccionOfertaReservada, ReservaRef: "reserva:oferta:ct:1", Comando: prep.comando,
+	}
+	cierre := cierreSeleccionOfertaPrueba(prep.intencion, prep.comando)
+	resolver := &resolutorCierreOfertaPrueba{resultado: ports.ResultadoCierreOfertaBolsaCT{
+		Situacion: ports.CierreOfertaCerrada, Cierre: &cierre,
+	}}
+	recuperable, descAut, descReg := servicioRecuperableSeleccionOfertaPrueba(t, s, prep, reg, pub, aut, resolver)
+	q.RecuperarOferta = true
+	resultado, err := recuperable.RecuperarOferta(t.Context(), q)
+	if err != nil || resultado.Descarte == nil || resultado.Oferta != nil ||
+		resultado.Descarte.ReciboCierreRef != cierre.ReciboCierreRef ||
+		prep.preparaciones != 0 || reg.reservas != 0 || reg.ventanas != 0 || pub.llamadas != 0 ||
+		resolver.llamadas != 1 || descAut.llamadas != 1 || descReg.llamadas != 1 {
+		t.Fatalf("recuperación pre-ventana: %+v %v", resultado, err)
+	}
+	prep.comando.OrigenCT = []byte(`{"corte":"nuevo"}`)
+	terminal, err := recuperable.RecuperarOferta(t.Context(), q)
+	if err != nil || terminal.Descarte == nil || *terminal.Descarte != *resultado.Descarte ||
+		resolver.llamadas != 1 || prep.preparaciones != 0 {
+		t.Fatalf("terminal descartado no estable: %+v %v", terminal, err)
+	}
+	q.RecuperarOferta = false
+	if _, err := recuperable.SeleccionarOferta(t.Context(), q); !errors.Is(err, ErrSeleccionOfertaDescartada) {
+		t.Fatalf("la clave antigua volvió a publicar: %v", err)
+	}
+}
+
+func TestSeleccionOfertaRecuperacionPostVentanaConRespuestaPublicacionPerdida(t *testing.T) {
+	s, prep, reg, pub, aut, q := escenarioSeleccionOfertaPrueba(t)
+	pub.perderRespuesta = true
+	if _, err := s.SeleccionarOferta(t.Context(), q); !errors.Is(err, ErrSeleccionOfertaIndeterminada) {
+		t.Fatalf("publicación incierta: %v", err)
+	}
+	resolver := &resolutorCierreOfertaPrueba{resultado: ports.ResultadoCierreOfertaBolsaCT{
+		Situacion: ports.CierreOfertaPublicada, Oferta: &pub.oferta,
+	}}
+	recuperable, descAut, descReg := servicioRecuperableSeleccionOfertaPrueba(t, s, prep, reg, pub, aut, resolver)
+	q.RecuperarOferta = true
+	resultado, err := recuperable.RecuperarOferta(t.Context(), q)
+	if err != nil || resultado.Oferta == nil || resultado.Descarte != nil ||
+		reg.confirmaciones != 1 || pub.llamadas != 1 || resolver.llamadas != 1 ||
+		descAut.llamadas != 0 || descReg.llamadas != 0 || prep.preparaciones != 1 {
+		t.Fatalf("publicación tardía no ganó: %+v %v", resultado, err)
+	}
+}
+
+func TestSeleccionOfertaRecuperacionCierrePostVentanaYRespuestaCTPerdida(t *testing.T) {
+	s, prep, reg, pub, aut, q := escenarioSeleccionOfertaPrueba(t)
+	pub.perderRespuesta = true
+	if _, err := s.SeleccionarOferta(t.Context(), q); !errors.Is(err, ErrSeleccionOfertaIndeterminada) {
+		t.Fatalf("publicación incierta: %v", err)
+	}
+	congelado := prep.comando
+	cierre := cierreSeleccionOfertaPrueba(prep.intencion, congelado)
+	resolver := &resolutorCierreOfertaPrueba{resultado: ports.ResultadoCierreOfertaBolsaCT{
+		Situacion: ports.CierreOfertaCerrada, Cierre: &cierre,
+	}}
+	recuperable, _, descReg := servicioRecuperableSeleccionOfertaPrueba(t, s, prep, reg, pub, aut, resolver)
+	descReg.perderRespuesta = true
+	prep.comando.NumeroPlazas = 4
+	prep.comando.OrigenCT = []byte(`{"acta_ref":"nueva"}`)
+	q.RecuperarOferta = true
+	if _, err := recuperable.RecuperarOferta(t.Context(), q); !errors.Is(err, ErrSeleccionOfertaIndeterminada) ||
+		resolver.comando.NumeroPlazas != congelado.NumeroPlazas ||
+		string(resolver.comando.OrigenCT) != string(congelado.OrigenCT) || descReg.llamadas != 1 {
+		t.Fatalf("cierre con comando nuevo o fallo terminal: %v", err)
+	}
+	resultado, err := recuperable.RecuperarOferta(t.Context(), q)
+	if err != nil || resultado.Descarte == nil || resultado.Oferta != nil ||
+		resolver.llamadas != 1 || descReg.llamadas != 1 || prep.preparaciones != 1 ||
+		reg.confirmaciones != 0 || pub.llamadas != 1 {
+		t.Fatalf("repetición duplicó cierre: %+v %v", resultado, err)
+	}
+}
+
+func TestSeleccionOfertaRecuperacionNoRepiteCierreBolsaAutomaticamente(t *testing.T) {
+	s, prep, reg, pub, aut, q := escenarioSeleccionOfertaPrueba(t)
+	reg.estado = ports.EstadoSeleccionOfertaCT{
+		Situacion: ports.SeleccionOfertaReservada, ReservaRef: "reserva:oferta:ct:1", Comando: prep.comando,
+	}
+	cierre := cierreSeleccionOfertaPrueba(prep.intencion, prep.comando)
+	resolver := &resolutorCierreOfertaPrueba{err: errors.New("commit B121 incierto"),
+		resultado: ports.ResultadoCierreOfertaBolsaCT{Situacion: ports.CierreOfertaCerrada, Cierre: &cierre}}
+	recuperable, _, descReg := servicioRecuperableSeleccionOfertaPrueba(t, s, prep, reg, pub, aut, resolver)
+	q.RecuperarOferta = true
+	if _, err := recuperable.RecuperarOferta(t.Context(), q); !errors.Is(err, ErrSeleccionOfertaIndeterminada) ||
+		resolver.llamadas != 1 || descReg.llamadas != 0 {
+		t.Fatalf("B121 incierta se repitió o descartó sin prueba: %v", err)
+	}
+	resolver.err = nil
+	resultado, err := recuperable.RecuperarOferta(t.Context(), q)
+	if err != nil || resultado.Descarte == nil || resolver.llamadas != 2 ||
+		prep.preparaciones != 0 || pub.llamadas != 0 || descReg.llamadas != 1 {
+		t.Fatalf("reintento explícito no recuperó cierre: %+v %v", resultado, err)
+	}
+}
+
+func TestSeleccionOfertaRecuperacionAusenteNuncaReserva(t *testing.T) {
+	s, prep, reg, pub, aut, q := escenarioSeleccionOfertaPrueba(t)
+	resolver := &resolutorCierreOfertaPrueba{}
+	recuperable, _, _ := servicioRecuperableSeleccionOfertaPrueba(t, s, prep, reg, pub, aut, resolver)
+	q.RecuperarOferta = true
+	if _, err := recuperable.RecuperarOferta(t.Context(), q); !errors.Is(err, ErrSeleccionOfertaSinReserva) ||
+		prep.preparaciones != 0 || reg.reservas != 0 || resolver.llamadas != 0 || pub.llamadas != 0 {
+		t.Fatalf("recuperación ausente creó operación: %v", err)
+	}
+}
+
+func TestSeleccionOfertaAccionRecuperarNoEntraEnPublicacionNormal(t *testing.T) {
+	s, prep, reg, pub, _, q := escenarioSeleccionOfertaPrueba(t)
+	q.RecuperarOferta = true
+	if _, err := s.SeleccionarOferta(t.Context(), q); !errors.Is(err, ErrSolicitudSeleccionOfertaInvalida) ||
+		prep.consultas != 0 || prep.preparaciones != 0 || reg.consultas != 0 || pub.llamadas != 0 {
+		t.Fatalf("acción recuperar inició publicación normal: %v", err)
+	}
+}
+
+func TestSeleccionOfertaRecuperacionNoDescartaConCierreDivergente(t *testing.T) {
+	for _, caso := range []struct {
+		nombre  string
+		alterar func(*ports.ReciboCierreOfertaCT)
+	}{
+		{"actor", func(r *ports.ReciboCierreOfertaCT) { r.ActorRef = "per_otroactor_0123456789abcdef" }},
+		{"cantidad", func(r *ports.ReciboCierreOfertaCT) { r.NumeroPlazas++ }},
+		{"clave", func(r *ports.ReciboCierreOfertaCT) { r.ClaveBolsa = "ct-oferta:" + strings.Repeat("0", 64) }},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			s, prep, reg, pub, aut, q := escenarioSeleccionOfertaPrueba(t)
+			reg.estado = ports.EstadoSeleccionOfertaCT{
+				Situacion: ports.SeleccionOfertaReservada, ReservaRef: "reserva:oferta:ct:1", Comando: prep.comando,
+			}
+			cierre := cierreSeleccionOfertaPrueba(prep.intencion, prep.comando)
+			caso.alterar(&cierre)
+			resolver := &resolutorCierreOfertaPrueba{resultado: ports.ResultadoCierreOfertaBolsaCT{
+				Situacion: ports.CierreOfertaCerrada, Cierre: &cierre,
+			}}
+			recuperable, descAut, descReg := servicioRecuperableSeleccionOfertaPrueba(t, s, prep, reg, pub, aut, resolver)
+			q.RecuperarOferta = true
+			if _, err := recuperable.RecuperarOferta(t.Context(), q); !errors.Is(err, ErrResultadoSeleccionOfertaNoConfiable) ||
+				!errors.Is(err, ErrSeleccionOfertaIndeterminada) ||
+				descAut.llamadas != 0 || descReg.llamadas != 0 || pub.llamadas != 0 {
+				t.Fatalf("cierre divergente alcanzó CT: %v", err)
 			}
 		})
 	}

@@ -166,6 +166,7 @@ const (
 	SeleccionOfertaColision      SituacionSeleccionOfertaCT = "colision"
 	SeleccionOfertaIndeterminada SituacionSeleccionOfertaCT = "indeterminada"
 	SeleccionOfertaConfirmada    SituacionSeleccionOfertaCT = "confirmada"
+	SeleccionOfertaDescartada    SituacionSeleccionOfertaCT = "descartada"
 )
 
 type EstadoSeleccionOfertaCT struct {
@@ -174,6 +175,14 @@ type EstadoSeleccionOfertaCT struct {
 	VentanaAbierta bool
 	Comando        ComandoOfertaBolsaCT
 	Recibo         ReciboSeleccionOfertaCT
+	ReciboDescarte ReciboDescarteOfertaCT
+}
+
+// La recuperación explícita produce un solo terminal y nunca inicia una
+// selección nueva ni sustituye la clave original.
+type ResultadoRecuperacionOfertaCT struct {
+	Oferta   *ReciboSeleccionOfertaCT
+	Descarte *ReciboDescarteOfertaCT
 }
 
 type ReservaSeleccionOfertaCT struct {
@@ -243,6 +252,51 @@ type AutorizadorSeleccionOfertaCT interface {
 	AutorizarSeleccionOfertaCT(context.Context, SolicitudAutorizacionSeleccionOfertaCT) (AutorizacionSeleccionOfertaCT, error)
 }
 
+type SolicitudAutorizacionDescarteOfertaCT struct {
+	Intencion IntencionSeleccionOfertaCT
+	Comando   ComandoOfertaBolsaCT
+	Cierre    ReciboCierreOfertaCT
+}
+
+type AutorizacionDescarteSeleccionOfertaCT struct {
+	ActorRef, PerfilRef string
+	MaterialCanonico    string
+	Material            puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+}
+
+// CanonDescarteSeleccionOfertaCT incluye el comando congelado y el recibo
+// completo B121. El emisor CT V3 firma estos bytes y SQL recibe el texto
+// intacto; el perfil que firma el descarte es otro del perfil vinculador.
+func CanonDescarteSeleccionOfertaCT(s SolicitudAutorizacionDescarteOfertaCT) (string, error) {
+	i, c, cierre := s.Intencion, s.Comando, s.Cierre
+	if i.Validar() != nil || c.ValidarPara(i) != nil || cierre.ValidarPara(i, c) != nil {
+		return "", ErrSeleccionOfertaCTInvalida
+	}
+	b, err := json.Marshal(struct {
+		Esquema           string               `json:"esquema"`
+		OrganizacionRef   string               `json:"organizacion_ref"`
+		ExpedienteRef     string               `json:"expediente_ref"`
+		VersionExpediente uint64               `json:"version_expediente"`
+		ClaveIdempotencia string               `json:"clave_idempotencia"`
+		HuellaIntencion   string               `json:"huella_intencion"`
+		ActorRef          string               `json:"actor_ref"`
+		CategoriaRef      string               `json:"categoria_ref"`
+		CentroRef         string               `json:"centro_ref"`
+		Comando           ComandoOfertaBolsaCT `json:"comando"`
+		Cierre            ReciboCierreOfertaCT `json:"cierre"`
+	}{"vec.ct.seleccion-oferta.descarte.v1", i.OrganizacionRef, i.ExpedienteRef,
+		i.VersionExpediente, i.ClaveIdempotencia, i.HuellaIntencion, i.ActorRef,
+		i.CategoriaRef, i.CentroRef, c, cierre})
+	if err != nil || len(b) > 1<<20 {
+		return "", ErrSeleccionOfertaCTInvalida
+	}
+	return string(b), nil
+}
+
+type AutorizadorDescarteSeleccionOfertaCT interface {
+	AutorizarDescarteOfertaCT(context.Context, SolicitudAutorizacionDescarteOfertaCT) (AutorizacionDescarteSeleccionOfertaCT, error)
+}
+
 // PrepararIntencion debe seguir devolviendo identidad y organización
 // autorizadas para consultar un terminal histórico aunque CT haya avanzado.
 // PrepararComando solo se invoca cuando no hay ejecución anterior.
@@ -260,4 +314,10 @@ type RegistroSeleccionOfertaCT interface {
 	Reservar(context.Context, IntencionSeleccionOfertaCT, ComandoOfertaBolsaCT, AutorizacionSeleccionOfertaCT) (EstadoSeleccionOfertaCT, error)
 	AbrirVentana(context.Context, ReservaSeleccionOfertaCT, AutorizacionSeleccionOfertaCT) error
 	ConfirmarVinculo(context.Context, ReservaSeleccionOfertaCT, OfertaPublicadaSeleccionCT, AutorizacionSeleccionOfertaCT) (ReciboSeleccionOfertaCT, error)
+}
+
+// El descarte es otro efecto nominal y consume una autorización CT propia.
+// Se mantiene fuera del registro anterior para no ampliar sus concesiones.
+type RegistroDescarteSeleccionOfertaCT interface {
+	Descartar(context.Context, ReservaSeleccionOfertaCT, ReciboCierreOfertaCT, AutorizacionDescarteSeleccionOfertaCT) (ReciboDescarteOfertaCT, error)
 }
