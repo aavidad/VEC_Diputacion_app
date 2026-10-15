@@ -968,6 +968,45 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     versionesEspeciales.set(ruta, "20261014-cronos-activacion-v1");
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js"])
     versionesEspeciales.set(ruta, "20261014-ginpix-cronos-v1");
+  // Criterios de Bolsa: URLs exactas de sus consumidores y padres.
+  for (const ruta of [
+    "categorias-rpt/cliente.js",
+    "categorias-rpt/montaje.js",
+    "modulos/bolsa/carga-convoca/arranque.js",
+    "modulos/bolsa/carga-convoca/vista.js",
+    "modulos/bolsa/rrhh-criterios-ofrecimiento.js",
+    "modulos/bolsa/rrhh-plazos-api.js",
+    "modulos/bolsa/rrhh-plazos-ui.js",
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http-transporte.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/formulario-cobertura.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-baremacion-ranking.js",
+    "portal-bolsa-configuracion.js",
+    "portal-bolsas-api.js",
+    "portal-bolsas-contrato.js",
+    "portal-bolsas-global.js",
+    "portal-bolsas-historial-ofrecimientos.js",
+    "portal-bolsas-ofertas.js",
+    "portal-bolsas-ruta-filtros.js",
+    "portal-bolsas-seguimiento.js",
+    "portal-inicio.js",
+    "portal-llamamientos-operaciones-api.js",
+    "portal-modulos-coordinador.js",
+    "portal-panel-interno.js",
+    "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261015-r1-criterios-v1");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
