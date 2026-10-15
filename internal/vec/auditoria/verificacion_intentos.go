@@ -389,6 +389,9 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			if (!esquemaAdmiteFamiliasPreviasOCatalogo(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria) || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
 				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
 			}
+			if r.Eslabon == nil {
+				return fallar("eslabon_ausente", "eslabon", "presente_tras_el_corte", "ausente", secuencia)
+			}
 			evento, codigo, clave := cotejarPreperfilBolsaRRHHV1(r, secuencia)
 			if codigo != "" {
 				return fallar(codigo, clave, "registro_ad287_valido", "no_admitido", secuencia)
