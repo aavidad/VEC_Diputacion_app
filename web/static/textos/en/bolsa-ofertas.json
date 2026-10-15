@@ -35,8 +35,11 @@
     "publicar": "Publish offer",
     "publicando": "Publishing…",
     "reintentar": "Retry the same publication",
-    "publicada": "Offer published. The declared deadline ends on {vence}.",
+    "publicada": "Offer published. The deadline ends on {vence}.",
     "publicada_antes": "The offer was already published with this same request.",
+    "recibo_titulo": "Receipt",
+    "recibo_referencia": "Receipt reference",
+    "recibo_fecha": "Published on",
     "cargando": "Loading offers…",
     "vacio": "This job pool has no published offers.",
     "col_fechas": "Dates",
@@ -120,6 +123,7 @@
     "error_correo": "Check the email date, reference and 64-character check code.",
     "error_correo_referencia_personal": "The email reference must not include an ID number or other identity details. Use an internal number or code.",
     "error_503_plazo_no_configurado": "This job pool’s offer policy has no deadline. Set the “Deadline to express interest” section and publish again.",
+    "error_503_politica_consulta": "Set the start and deadline in “Offer policy”, then try again.",
     "error_generico": "The operation could not be completed. Check the offers before trying again."
   },
   "politica_plazo": {

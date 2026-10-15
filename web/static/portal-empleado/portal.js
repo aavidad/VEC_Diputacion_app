@@ -12,7 +12,7 @@ import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPo
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-alegaciones-v2";
-import { bolsasVigentesParaLlamamiento, instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261015-ofertas-montaje-v2";
+import { bolsasVigentesParaLlamamiento, instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261015-ofertas-recibo-v3";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
@@ -125,8 +125,8 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261015-ofertas-montaje-v2"),
-        import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261015-ofertas-montaje-v2"),
+        import("./portal-bolsas-ofertas.js?v=20261015-ofertas-recibo-v3"),
+        import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261015-ofertas-recibo-v3"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
   carga.then((recursos) => {
@@ -1039,12 +1039,14 @@ function alCambiarFichaCT(ficha) {
 }
 function navegar(vista, opciones = {}) {
   if (salidaGestionOfertasBloqueada()) {
-    const traducirOfertas = recursosVistas.get("ofertas")?.crearTraductorOfertas();
-    if (traducirOfertas) anunciar(traducirOfertas("salida_incierta"));
+    if (opciones.desdeRuta === true) compensarHistorialGestionOfertas();
+    else anunciarSalidaGestionOfertas();
     return;
   }
+  if (vista !== "llamamientos" || opciones.desdeRuta !== true) rutaOfertasSolicitadaRef = "";
+  const ubicacionSinOfertas = { pathname: window.location.pathname, search: busquedaSinGestionOfertasBolsa() };
   if (vista === "comunicaciones" && rutasBolsa) {
-    history.pushState(null, "", rutasBolsa.rutaGlobalBolsaCompartible(window.location.search, "llamamientos"));
+    history.pushState(null, "", rutasBolsa.rutaGlobalBolsaCompartible(ubicacionSinOfertas.search, "llamamientos"));
     navegar("bolsa-candidatos", { ...opciones, desdeRuta: true });
     return;
   }
@@ -1058,7 +1060,7 @@ function navegar(vista, opciones = {}) {
   if (sondearCapacidadAlAbrir(vista)) return;
   if (!vistaPermitida(vista) && vistaBolsaPendienteNoCompuesta(vista)) {
     const hash = rutaDeVista(vista);
-    const ruta = rutaPortalConFiltroCT(window.location, hash);
+    const ruta = rutaPortalConFiltroCT(ubicacionSinOfertas, hash);
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
       history.pushState(null, "", ruta);
     estado.vista = vista;
@@ -1070,7 +1072,7 @@ function navegar(vista, opciones = {}) {
   if (!vistaPermitida(vista)) {
     const vistaSegura = "portal";
     const hashSeguro = rutaDeVista(vistaSegura);
-    const rutaSegura = rutaPortalConFiltroCT(window.location, hashSeguro);
+    const rutaSegura = rutaPortalConFiltroCT(ubicacionSinOfertas, hashSeguro);
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== rutaSegura)
       history.replaceState(null, "", rutaSegura);
     estado.vista = vistaSegura;
@@ -1101,21 +1103,22 @@ function navegar(vista, opciones = {}) {
         && !opciones.filtroLista?.fase ? FILTRO_INCIDENCIA_CT : null))
     : null;
   if (vista === "resumen" && rutasBolsa) {
-    const ruta = rutasBolsa.rutaResumenBolsasCompartible(limpiarFiltroCTDeBusqueda(window.location.search));
+    const ruta = rutasBolsa.rutaResumenBolsasCompartible(limpiarFiltroCTDeBusqueda(ubicacionSinOfertas.search));
     if (`${window.location.search}${window.location.hash}` !== ruta) history.pushState(null, "", ruta);
   } else if (opciones.desdeRuta !== true) {
-    const ruta = rutaPortalConFiltroCT(window.location, hash,
+    const ruta = rutaPortalConFiltroCT(ubicacionSinOfertas, hash,
       vista === "contratacion-temporal" && filtroServidorCTValido(filtroServidorRuta) ? filtroServidorRuta : null);
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
       history.pushState(null, "", ruta);
   } else if (vista !== "contratacion-temporal") {
-    const ruta = rutaPortalConFiltroCT(window.location, hash, null,
+    const ruta = rutaPortalConFiltroCT(vista === "llamamientos" ? window.location : ubicacionSinOfertas, hash, null,
       { conservarLlamamiento: vista === "llamamientos" && opciones.desdeRuta === true });
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
       history.replaceState(null, "", ruta);
   }
   estado.vista = vista;
-  if (vista === "llamamientos" && estado.datosBolsas?.carga === "listo") selectorLlamamientos?.consumirRuta();
+  if (vista === "llamamientos" && estado.datosBolsas?.carga === "listo"
+    && !new URLSearchParams(window.location.search).has(CLAVE_RUTA_GESTION_OFERTAS)) selectorLlamamientos?.consumirRuta();
   const fichaRuta = vista === "contratacion-temporal" && opciones.desdeRuta === true
     ? leerFichaCTDeRuta(window.location.search) : null;
   estado.opcionesVista = vista === "contratacion-temporal"
@@ -1334,6 +1337,22 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     return;
   }
   if (vista === "llamamientos") {
+    const solicitada = rutaOfertasSolicitadaRef || new URLSearchParams(window.location.search).get(CLAVE_RUTA_GESTION_OFERTAS) || "";
+    if (solicitada && estado.datosBolsas?.carga === "listo") {
+      if (bolsasVigentesParaLlamamiento(estado.datosBolsas).some((bolsa) => bolsa.bolsa_ref === solicitada)) {
+        rutaOfertasSolicitadaRef = solicitada;
+        modoGestionOfertasBolsa = solicitada;
+        rutaVisibleGestionOfertasBolsa = rutaGestionOfertasBolsa(solicitada);
+        marcaHistorialGestionOfertas = history.state?.vecOfertas?.lado === "gestion"
+          ? history.state.vecOfertas.id : "";
+        estado.bolsaSeleccionada = solicitada;
+        estado.llamamientoDesdeMenu = true;
+      } else {
+        rutaOfertasSolicitadaRef = "";
+        cerrarGestionOfertasBolsa();
+        history.replaceState(null, "", rutaGestionOfertasBolsa());
+      }
+    }
     const bolsaRef = estado.llamamientoDesdeMenu ? estado.bolsaSeleccionada : "";
     const vigente = bolsasVigentesParaLlamamiento(estado.datosBolsas).some((bolsa) => bolsa.bolsa_ref === bolsaRef);
     if (modoGestionOfertasBolsa && (!vigente || modoGestionOfertasBolsa !== bolsaRef)) cerrarGestionOfertasBolsa();
@@ -1448,7 +1467,8 @@ function aplicarRutaCandidatosBolsa() {
 
 function actualizarVistaBolsa({ activar = false } = {}) { actualizarNavegacionModulos();
   if (estado.vista === "bolsa-candidatos" && estado.datosBolsas?.carga === "listo") aplicarRutaCandidatosBolsa();
-  if (estado.vista === "llamamientos" && estado.datosBolsas?.carga === "listo") selectorLlamamientos?.consumirRuta();
+  if (estado.vista === "llamamientos" && estado.datosBolsas?.carga === "listo"
+    && !new URLSearchParams(window.location.search).has(CLAVE_RUTA_GESTION_OFERTAS)) selectorLlamamientos?.consumirRuta();
   const contenedor = porId("espacio-trabajo");
   if (contenedor && VISTAS_INTERNAS_BOLSA.includes(estado.vista)) {
     if (estado.vista.startsWith("seleccion-")) { renderizar(); return; }
@@ -1779,11 +1799,31 @@ const superficieBorradores = crearSuperficieBorradoresPortal({
 let superficieOfertasBolsa = null;
 let superficieRRHHPlazos = null;
 let modoGestionOfertasBolsa = "";
+let rutaOfertasSolicitadaRef = "";
+let rutaVisibleGestionOfertasBolsa = "";
+let marcaHistorialGestionOfertas = "";
+let compensandoHistorialGestionOfertas = false;
 let eventosGestionOfertasInstalados = false;
+const CLAVE_RUTA_GESTION_OFERTAS = "ofertas_bolsa_ref";
+
+function busquedaSinGestionOfertasBolsa() {
+  const parametros = new URLSearchParams(window.location.search);
+  parametros.delete(CLAVE_RUTA_GESTION_OFERTAS);
+  return parametros.size ? `?${parametros}` : "";
+}
+
+function rutaGestionOfertasBolsa(bolsaRef = "") {
+  const parametros = new URLSearchParams(busquedaSinGestionOfertasBolsa());
+  if (bolsaRef) parametros.set(CLAVE_RUTA_GESTION_OFERTAS, bolsaRef);
+  return `${window.location.pathname}${parametros.size ? `?${parametros}` : ""}#bolsa/llamamientos`;
+}
 
 function cerrarGestionOfertasBolsa() {
   if (!modoGestionOfertasBolsa) return;
   modoGestionOfertasBolsa = "";
+  rutaVisibleGestionOfertasBolsa = "";
+  marcaHistorialGestionOfertas = "";
+  compensandoHistorialGestionOfertas = false;
   superficieOfertasBolsa?.desmontar();
   superficieRRHHPlazos?.desmontar();
 }
@@ -1798,10 +1838,19 @@ function instalarEventosGestionOfertasBolsa() {
     if (boton.dataset.gestionOfertasAccion === "abrir") {
       if (!bolsaRef || !bolsasVigentesParaLlamamiento(estado.datosBolsas).some((bolsa) => bolsa.bolsa_ref === bolsaRef)) return;
       modoGestionOfertasBolsa = bolsaRef;
+      rutaOfertasSolicitadaRef = bolsaRef;
+      rutaVisibleGestionOfertasBolsa = rutaGestionOfertasBolsa(bolsaRef);
+      marcaHistorialGestionOfertas = globalThis.crypto.randomUUID();
+      const estadoAnterior = history.state && typeof history.state === "object" ? history.state : {};
+      history.replaceState({ ...estadoAnterior, vecOfertas: { id: marcaHistorialGestionOfertas, lado: "origen" } }, "", window.location.href);
+      history.pushState({ ...estadoAnterior, vecOfertas: { id: marcaHistorialGestionOfertas, lado: "gestion" } }, "", rutaVisibleGestionOfertasBolsa);
       actualizarVistaBolsa();
     } else if (boton.dataset.gestionOfertasAccion === "volver" && modoGestionOfertasBolsa) {
       if (salidaGestionOfertasBloqueada()) return;
       cerrarGestionOfertasBolsa();
+      rutaOfertasSolicitadaRef = "";
+      history.pushState(null, "", rutaGestionOfertasBolsa());
+      if (estado.datosCandidatos?.carga !== "listo") void controladorBolsas?.cargarCandidatosBolsa(bolsaRef);
       actualizarVistaBolsa();
       porId("espacio-trabajo")?.querySelector('[data-gestion-ofertas-accion="abrir"]')?.focus({ preventScroll: true });
     }
@@ -1811,6 +1860,22 @@ function instalarEventosGestionOfertasBolsa() {
 function salidaGestionOfertasBloqueada() {
   const oferta = superficieOfertasBolsa?.estado();
   return Boolean(modoGestionOfertasBolsa && (oferta?.enviando || oferta?.claveEnCurso));
+}
+
+function anunciarSalidaGestionOfertas() {
+  const traducirOfertas = recursosVistas.get("ofertas")?.crearTraductorOfertas();
+  if (traducirOfertas) anunciar(traducirOfertas("salida_incierta"));
+}
+
+function compensarHistorialGestionOfertas() {
+  const rutaActual = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (rutaActual === rutaVisibleGestionOfertasBolsa) { compensandoHistorialGestionOfertas = false; return; }
+  if (compensandoHistorialGestionOfertas) return;
+  compensandoHistorialGestionOfertas = true;
+  const marcaDestino = history.state?.vecOfertas;
+  const haciaAtras = marcaDestino?.id === marcaHistorialGestionOfertas && marcaDestino.lado === "origen";
+  history.go(haciaAtras || !marcaHistorialGestionOfertas ? 1 : -1);
+  anunciarSalidaGestionOfertas();
 }
 
 function actualizarSalidaGestionOfertasBolsa() {
@@ -2088,8 +2153,16 @@ function instalarEnlacesBolsa() {
   }, true);
   window.addEventListener("popstate", () => {
     const vista = vistaDesdeHash();
+    if (salidaGestionOfertasBloqueada()) {
+      compensarHistorialGestionOfertas();
+      return;
+    }
+    rutaOfertasSolicitadaRef = vista === "llamamientos"
+      ? new URLSearchParams(window.location.search).get(CLAVE_RUTA_GESTION_OFERTAS) || "" : "";
+    if (!rutaOfertasSolicitadaRef && modoGestionOfertasBolsa) cerrarGestionOfertasBolsa();
     if (vista !== estado.vista || vista === "contratacion-temporal")
       navegar(vista, { enfocar: false, desdeRuta: true });
+    else if (vista === "llamamientos") actualizarVistaBolsa();
     if (vista === "baremacion") vistaRankingBolsa?.actualizarRuta();
     if (vista !== "bolsa-candidatos") return;
     rutaCandidatosAplicada = null;

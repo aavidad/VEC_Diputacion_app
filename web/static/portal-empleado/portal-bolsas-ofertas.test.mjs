@@ -60,6 +60,8 @@ test("el contrato exige una entrada por plaza y rechaza estados, propuestas y ac
   assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta()] } }).ofertas.length, 1);
   assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta({ plazo: { ejemplo: false, notificacion } })] } }).ofertas.length, 1);
   const invalidas = [
+    oferta({ recibo_ref: "" }),
+    oferta({ recibo_ref: "recibo:oferta:<script>" }),
     oferta({ estado: "inventado" }),
     oferta({ numero_plazas: 2 }),
     oferta({ numero_plazas: 0, plazas: [] }),
@@ -177,10 +179,43 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   assert.deepEqual(enviadas.map(([clave, plazas]) => [clave, plazas]), [["clave-1", 3], ["clave-1", 3]]);
   assert.deepEqual(enviadas[0][2], enviadas[1][2]);
   assert.equal(enviadas[0][2].notificada_en, "2026-09-25T08:00:00.000000Z", "el navegador no determina la zona");
+  const conRecibo = s.renderizar();
+  assert.match(conRecibo, /Oferta publicada\. El plazo termina el/);
+  assert.match(conRecibo, /<details open><summary>Recibo<\/summary>/, "el número y la fecha quedan visibles tras publicar");
+  assert.equal((conRecibo.match(/<summary>Recibo<\/summary>/g) || []).length, 2, "el recibo real aparece en la confirmación y en la ficha");
+  assert.match(conRecibo, /<dt>Referencia del recibo<\/dt><dd>recibo:oferta:1<\/dd>/);
+  assert.match(conRecibo, /<dt>Publicada el<\/dt><dd>25 sept 2026/);
   datos.numero_plazas = "101";
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();
   assert.equal(enviadas.length, 2, "no se publica fuera del límite de plazas");
+});
+
+test("el reintento muestra el mismo recibo y un GET sin política indica dónde configurarla", async () => {
+  const recibo = oferta({ recibo_ref: "recibo:oferta:original", publicada_en: "2026-10-15T09:30:00Z" });
+  const valores = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-20", descripcion: "Cobertura", numero_plazas: "2" };
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return valores[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  try {
+    const s = crearSuperficieOfertasBolsa({ cliente: {
+      consultar: async () => sobre([recibo], "publicacion"),
+      publicar: async () => ({ ok: true, status: 200, oferta: recibo }),
+    }, generarClave: () => "clave-original" });
+    s.activar("bolsa:1"); await turno();
+    s.manejarSubmit({ target: formulario, preventDefault() {} });
+    s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    const html = s.renderizar();
+    assert.match(html, /ya estaba publicada con esta misma solicitud/);
+    assert.equal((html.match(/recibo:oferta:original/g) || []).length, 2);
+    assert.match(html, /15 oct 2026/);
+
+    const sinPolitica = crearSuperficieOfertasBolsa({ cliente: {
+      consultar: async () => ({ ok: false, status: 503, codigo: "plazo_no_configurado" }),
+    } });
+    sinPolitica.activar("bolsa:1"); await turno();
+    assert.match(sinPolitica.renderizar(), /Configure el inicio y el plazo en «Política de ofertas»/);
+  } finally { globalThis.FormData = anteriorFormData; }
 });
 
 test("corregir antes de publicar o tras 422 envía los datos revisados con clave nueva", async () => {

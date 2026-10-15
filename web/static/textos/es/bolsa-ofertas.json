@@ -35,8 +35,11 @@
     "publicar": "Publicar oferta",
     "publicando": "Publicando…",
     "reintentar": "Reintentar la misma publicación",
-    "publicada": "Oferta publicada. El plazo declarado termina el {vence}.",
+    "publicada": "Oferta publicada. El plazo termina el {vence}.",
     "publicada_antes": "La oferta ya estaba publicada con esta misma solicitud.",
+    "recibo_titulo": "Recibo",
+    "recibo_referencia": "Referencia del recibo",
+    "recibo_fecha": "Publicada el",
     "cargando": "Cargando ofertas…",
     "vacio": "Esta bolsa no tiene ofertas publicadas.",
     "col_fechas": "Fechas",
@@ -120,6 +123,7 @@
     "error_correo": "Revise la fecha, la referencia y el código de comprobación de 64 caracteres del correo.",
     "error_correo_referencia_personal": "La referencia del correo no debe incluir DNI, NIE ni otros datos de identidad. Use un número o código interno.",
     "error_503_plazo_no_configurado": "La política de ofertas de esta bolsa no tiene plazo. Configure el «Plazo de disposición» y vuelva a publicar.",
+    "error_503_politica_consulta": "Configure el inicio y el plazo en «Política de ofertas» y vuelva a intentarlo.",
     "error_generico": "No se pudo completar la operación. Consulte las ofertas antes de repetirla."
   },
   "politica_plazo": {
