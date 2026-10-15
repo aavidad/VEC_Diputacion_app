@@ -209,6 +209,14 @@ autorización sí bloquea lo que las necesita. Un módulo ausente no se sondea e
 bucle ni deja botones activos sin servidor detrás. Detalle en
 `docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md`.
 
+En la composición de desarrollo, un fallo al preparar Contratación temporal,
+sus reglas, la documentación de formalización o las preferencias mantiene el
+portal, la sesión certificada y las consultas públicas con fuentes propias.
+Las rutas que necesitan la autoridad de CT, incluida Organización histórica,
+responden 503 sin datos y sin caché. Se conserva mTLS y la validación común; un
+fallo de identidad o TLS sigue impidiendo el arranque. `/livez` no acredita la
+disponibilidad de las funciones; `/healthz` permanece en 503 sin su comprobador.
+
 Una capacidad se describe separando código, composición, instalación, recorrido
 comprobado y aprobación funcional. Tener cuatro capas, un manifiesto o pruebas no
 acredita que esté disponible.
