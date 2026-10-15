@@ -108,6 +108,44 @@ func TestOrganizacionHistoricaPublicaMismoGobiernoYBorraClave(t *testing.T) {
 	}
 }
 
+func TestOrganizacionHistoricaProveedorUsaVersionPublicadaNoVersionCT(t *testing.T) {
+	m := materialRenovableCTPrueba(t, time.Date(2026, 10, 2, 10, 0, 0, 0, time.UTC))
+	defer m.borrarCopiasEfimeras()
+	if m.claveHMACVersion == 162 {
+		t.Fatal("la prueba no distingue la clave CT de OH")
+	}
+	catalogo, _, err := seleccionarMaterialOrganizacionHistorica(configuracionOrganizacionHistoricaPrueba(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicador := &publicadorGobiernoPrueba{versiones: map[string]uint64{}, siguiente: 161}
+	var coordenadasProveedor [3]uint64
+	publicada, proveedor, err := publicarMaterialOrganizacionHistoricaConProveedor(m, catalogo,
+		func(d *materialAtestacionContratacionTemporalDesarrollo) error {
+			if err := publicador.publicar(d); err != nil {
+				return err
+			}
+			return reconstruirClavesGobiernoPostgreSQLContratacionTemporalDesarrollo(d)
+		},
+		func(d materialAtestacionContratacionTemporalDesarrollo) (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
+			coordenadasProveedor = [3]uint64{d.claveHMACVersion, d.claveHMACRevision, d.claveHMACOrden}
+			return nuevoProveedorMaterialAutorizacionBaseDesarrollo(d, relojContratacionTemporalDesarrollo{})
+		})
+	if err != nil || proveedor == nil || publicada.Version != 162 || publicada.RevisionGobierno != 162 || publicada.OrdenPuntero != 162 ||
+		coordenadasProveedor != [3]uint64{162, 162, 162} || publicador.siguiente != 162 {
+		t.Fatalf("el proveedor no adoptó las coordenadas publicadas: publicadas=(%d,%d,%d), proveedor=%v, err=%v",
+			publicada.Version, publicada.RevisionGobierno, publicada.OrdenPuntero, coordenadasProveedor, err)
+	}
+	if proveedor.emisor == nil {
+		t.Fatal("emisor OH ausente")
+	}
+	for _, retenida := range publicador.secretos {
+		if !bytes.Equal(retenida, make([]byte, len(retenida))) {
+			t.Fatal("la derivación temporal dejó la clave OH en memoria")
+		}
+	}
+}
+
 func TestOrganizacionHistoricaFalloPublicacionBorraClaveSinResultado(t *testing.T) {
 	m := materialRenovableCTPrueba(t, time.Date(2026, 10, 2, 10, 0, 0, 0, time.UTC))
 	defer m.borrarCopiasEfimeras()

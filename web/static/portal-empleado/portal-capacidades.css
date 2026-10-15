@@ -228,7 +228,14 @@ button:disabled {
   white-space: normal;
 }
 
-/* La vigencia puede partir línea para que la última cifra quepa a 1440 px. */
+/* La categoría y la vigencia parten línea para dejar sitio a todas las situaciones.
+   Si aún falta ancho, tabla-contenedor conserva el desplazamiento dentro del panel. */
+.panel:has(#titulo-cuadro-b12) .tabla-datos td:first-child {
+  min-width: 10rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .panel:has(#titulo-cuadro-b12) .tabla-datos td:nth-child(3) {
   min-width: 6.5rem;
   white-space: normal;

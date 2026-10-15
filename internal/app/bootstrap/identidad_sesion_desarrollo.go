@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"sync/atomic"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -32,15 +34,34 @@ type proveedorSesionConsultaRRHHDesarrollo struct {
 	soporte *soporteAltaContratacionTemporalDesarrollo
 	// canalIntervencion solo se fija al componer la dependencia lectora
 	// interna. No cambia la autoridad del canal RRHH ni permite fallback.
-	canalIntervencion *soporteFiscalizacionContratacionTemporalDesarrollo
-	registro          httpseguridad.RegistroSesiones
-	revalidador       puertosvec.RevalidadorAutenticacionActorV1
-	reloj             ports.Reloj
-	resolutor         dominiovec.ResolutorContextoActorRegistradoV2
-	base              dominiovec.ResultadoContextoActorRegistradoV2
-	fronteras         catalogoFronterasComunDesarrollo
-	superficie        httpseguridad.Superficie
-	clave             [sha256.Size]byte
+	canalIntervencion       *soporteFiscalizacionContratacionTemporalDesarrollo
+	registro                httpseguridad.RegistroSesiones
+	revalidador             puertosvec.RevalidadorAutenticacionActorV1
+	vinculoCorporativo      puertosvec.RevalidadorVinculoCorporativoRRHHV1
+	falloVinculoCorporativo error
+	reloj                   ports.Reloj
+	resolutor               dominiovec.ResolutorContextoActorRegistradoV2
+	base                    dominiovec.ResultadoContextoActorRegistradoV2
+	fronteras               catalogoFronterasComunDesarrollo
+	// La copia del GET histórico elige un perfil publicado de esta misma cuenta.
+	organizacionHistoricaPorCuenta map[string]seleccionPerfilOrganizacionHistorica
+	superficie                     httpseguridad.Superficie
+	clave                          [sha256.Size]byte
+}
+
+// El preflight corporativo pertenece únicamente a Organización histórica.
+// La sesión registrada de CT sigue disponible si falta su función o EXECUTE.
+func (p *proveedorSesionConsultaRRHHDesarrollo) fijarVinculoCorporativo(v puertosvec.RevalidadorVinculoCorporativoRRHHV1, err error) {
+	if p == nil {
+		return
+	}
+	if err != nil || dependenciaEsNulaContratacionTemporalDesarrollo(v) {
+		p.vinculoCorporativo = nil
+		p.falloVinculoCorporativo = errors.Join(puertosvec.ErrVinculoCorporativoRRHHNoDisponible, err)
+		return
+	}
+	p.vinculoCorporativo = v
+	p.falloVinculoCorporativo = nil
 }
 
 type claveCapsulaSesionConsultaRRHHDesarrollo struct{}
@@ -174,7 +195,7 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) ResolverContexto(
 	if err != nil {
 		return vacio, p.errorSesionConsultaComunicacionesExpediente(ctx, err)
 	}
-	if !mismaIdentidadVersionadaSesionDesarrolloParaPerfil(p.base, resultado, perfil) {
+	if !p.mismaIdentidadSesionParaPerfil(ctx, resultado, perfil) {
 		return vacio, ErrSeguridadComunDesarrolloDenegada
 	}
 	if vinculo.ValidarPara(resultado) != nil {
@@ -406,7 +427,43 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) perfilActivoSeleccionado(ctx con
 	if !p.fronteras.mismaInstancia(frontera.catalogo) {
 		return "", false
 	}
+	if frontera.ruta == httpapi.RutaOrganizacionHistoricaPersonal {
+		seleccion, oh := p.seleccionOrganizacionHistorica(ctx)
+		return seleccion.perfil, oh && seleccion.version != 0 && perfilActivoSeguridadComunValido(seleccion.perfil) && frontera.descriptor.admitePerfil(seleccion.perfil)
+	}
 	return perfil, perfilActivoSeguridadComunValido(perfil) && frontera.descriptor.admitePerfil(perfil)
+}
+
+type seleccionPerfilOrganizacionHistorica struct {
+	perfil  string
+	version uint64
+}
+
+func (p *proveedorSesionConsultaRRHHDesarrollo) seleccionOrganizacionHistorica(ctx context.Context) (seleccionPerfilOrganizacionHistorica, bool) {
+	if p == nil || ctx == nil || len(p.organizacionHistoricaPorCuenta) == 0 {
+		return seleccionPerfilOrganizacionHistorica{}, false
+	}
+	f, ok := fronteraSeguridadComunDesdeContexto(ctx)
+	if !ok || !p.fronteras.mismaInstancia(f.catalogo) || f.ruta != httpapi.RutaOrganizacionHistoricaPersonal ||
+		f.metodo != http.MethodGet || f.superficie != superficieInternaSeguridadComunDesarrollo {
+		return seleccionPerfilOrganizacionHistorica{}, false
+	}
+	s, existe := p.organizacionHistoricaPorCuenta[p.base.Contexto.Instantanea.CuentaRef]
+	return s, existe
+}
+
+func (p *proveedorSesionConsultaRRHHDesarrollo) mismaIdentidadSesionParaPerfil(ctx context.Context, actual dominiovec.ResultadoContextoActorRegistradoV2, perfil string) bool {
+	if seleccion, ok := p.seleccionOrganizacionHistorica(ctx); ok {
+		base, actor := p.base.Contexto, actual.Contexto
+		return seleccion.perfil == perfil && seleccion.version == actor.Instantanea.PerfilVersion &&
+			actual.Validar() == nil && actual.AutoridadEfectiva == p.base.AutoridadEfectiva &&
+			actor.PerfilActivoRef == perfil && actor.Instantanea.PerfilActivoRef == perfil &&
+			actor.Instantanea.CuentaRef == base.Instantanea.CuentaRef && actor.PersonaRef == base.PersonaRef &&
+			actor.Instantanea.PersonaRef == base.Instantanea.PersonaRef && actor.Principal.ID == base.Principal.ID &&
+			actor.Principal.AuthMethod == dominiovec.AuthMethodCertificate && actor.Principal.AuthAssurance == dominiovec.AuthAssuranceHigh &&
+			actor.Instantanea.VigenteEn(actual.ResueltoEnAutoritativo)
+	}
+	return mismaIdentidadVersionadaSesionDesarrolloParaPerfil(p.base, actual, perfil)
 }
 
 type revalidadorSesionConsultaRRHHDesarrollo struct {
