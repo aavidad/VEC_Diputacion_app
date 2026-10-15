@@ -232,6 +232,16 @@ acredita que esté disponible.
 Cada fase deja una línea de arranque con fase, resultado y causa, sin rutas, DSN
 (cadenas de conexión a la base) ni datos de configuración.
 
+### Arranque de Administración
+
+`vec-admin` requiere `VEC_ADMIN_USUARIOS_CONFIG_FILE`, el fichero privado de
+usuarios del modo `metadatos_v1`. Si falta, termina antes de leer los demás
+ficheros privados; si no es válido, termina antes de abrir conexiones. El
+montaje heredado de perfiles queda cerrado también ante una llamada directa.
+No se crea el grupo de auditoría que pedía ese montaje. La lectura nominal de
+usuarios conserva sus verificaciones y su auditoría de frontera técnica.
+Este requisito afecta al proceso separado de Administración.
+
 ### Configuración básica
 
 | Variable | Por defecto | Uso |
