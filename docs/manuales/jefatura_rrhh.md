@@ -108,6 +108,8 @@ La persona tiene dos días desde el aviso para contestar. Responde desde Mi Bols
 
 Las llamadas de teléfono también se anotan, con su resultado. Si la persona contesta al teléfono, el plazo empieza a contar igual que con el correo.
 
+**Pendiente de confirmar:** el Reglamento de bolsas (artículo 8.1) dice que el puesto se publica en el portal web de la Diputación y que el plazo de dos días cuenta desde la publicación. El 2 de octubre se decidió avisar por correo y contar el plazo desde el aviso. Falta que RRHH y Secretaría lo confirmen. Mientras no haya programa para publicar, el Reglamento manda usar el llamamiento directo (disposición transitoria única).
+
 ### Paso 8. Propuesta, resolución y documentos
 
 Cuando alguien acepta, el técnico registra la propuesta de nombramiento y la resolución. Desde la ficha descarga en PDF y en Word el informe definitivo, la resolución, la diligencia, la toma de posesión, la notificación y la comunicación al centro, con el logotipo y los datos del expediente.
