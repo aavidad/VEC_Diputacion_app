@@ -10,7 +10,9 @@ Reutiliza el contrato de la carga RPT de Personal: el código de centro publicad
 se corresponde con `unidad:centro:<codigo_en_minusculas>`. La petición debe
 conservar la referencia y huella de esa publicación. La consulta histórica
 comprueba además el puesto individual, su unidad, vigencia, unicidad y todas
-las páginas del mismo corte. Un centro no mapeable o un puesto ajeno o ambiguo
+las páginas del mismo corte. La referencia del puesto se coteja con el formato
+hexadecimal canónico de la importación de Personal, conservando sus dígitos y
+separadores. Un centro no mapeable o un puesto ajeno o ambiguo
 se rechazan. No se amplía la consulta a todo el organismo.
 
 ## Activación

@@ -156,7 +156,9 @@ func nuevoConstructorOrdenOrigenCT(
 // Un expediente anterior sin ese vínculo no permite emitir en el circuito nativo.
 type resolutorPuestoRPTConstituidoCT func(context.Context, string, string) (string, error)
 
-var patronPuestoRPTConstituidoCT = regexp.MustCompile(`^puesto:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+// Personal conserva identificadores de importación con este formato hexadecimal.
+// Su contrato no asigna bits de versión o variante a esos identificadores.
+var patronPuestoRPTConstituidoCT = regexp.MustCompile(`^puesto:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var patronCentroFuentePuestoRPTConstituidoCT = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 
 func nuevoProveedorDatosEmisionConstituidaCT(
