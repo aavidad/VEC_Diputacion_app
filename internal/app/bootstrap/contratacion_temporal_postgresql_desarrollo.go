@@ -144,6 +144,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialPreparacionBases                         [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
 	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
+	proveedorMaterialOrganizacionHistorica           *proveedorMaterialAltaContratacionTemporalDesarrollo
 	errMaterialOrganizacionHistorica                 error
 	detenerRenovacion                                func()
 	detenerEntregaContratos                          func()
@@ -870,7 +871,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	// capacidad sin material; no interrumpe las capacidades anteriores.
 	catalogoOH, activoOH, falloOH := seleccionarMaterialOrganizacionHistorica(cfg, descriptoresMaterial)
 	if falloOH == nil && activoOH {
-		dependencias.materialOrganizacionHistorica, falloOH = publicarMaterialOrganizacionHistorica(ctx, gobierno, material, catalogoOH)
+		dependencias.materialOrganizacionHistorica, dependencias.proveedorMaterialOrganizacionHistorica, falloOH =
+			publicarMaterialOrganizacionHistoricaConProveedor(material, catalogoOH,
+				func(derivado *materialAtestacionContratacionTemporalDesarrollo) error {
+					return publicarGobiernoAtestacionContratacionTemporalDesarrollo(ctx, gobierno, derivado)
+				},
+				func(derivado materialAtestacionContratacionTemporalDesarrollo) (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
+					return nuevoProveedorMaterialAutorizacionBaseDesarrollo(derivado, reloj)
+				})
 	}
 	dependencias.errMaterialOrganizacionHistorica = falloOH
 	if falloOH != nil {

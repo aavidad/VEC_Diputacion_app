@@ -2,21 +2,25 @@ package internactproveedores
 
 import (
 	"context"
+	"errors"
 
-	"vec-diputacion-granada/internal/app/composicion/internagobierno"
+	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	core "vec-diputacion-granada/internal/vec/domain"
 	ports "vec-diputacion-granada/internal/vec/ports"
 )
 
-type AutoridadContextoOrganizacionHistorica struct{ Fuente *internagobierno.FuenteF1 }
+type AutoridadContextoOrganizacionHistorica struct{ Fuente FuenteOrganizacionHistorica }
 
 func (a AutoridadContextoOrganizacionHistorica) ResolverContextoOrganizacionHistorica(ctx context.Context) (core.ContextoActor, string, string, error) {
-	if a.Fuente == nil {
+	if interfazNula(a.Fuente) {
 		return core.ContextoActor{}, "", "", ErrAutoridadCTNoDisponible
 	}
 	r, org, unidad, err := a.Fuente.ContextoVinculadoOrganizacionHistorica(ctx)
 	if err != nil {
+		if errors.Is(err, ct.ErrConsultaRRHHNoDisponible) || errors.Is(err, ports.ErrVinculoCorporativoRRHHNoDisponible) {
+			return core.ContextoActor{}, "", "", err
+		}
 		return core.ContextoActor{}, "", "", httpapi.ErrAccesoRutaExactaDenegado
 	}
 	actor, err := r.Resultado.Contexto.Clonar()
