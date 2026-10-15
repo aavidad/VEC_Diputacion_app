@@ -92,10 +92,10 @@ function idSeguroJustificante(ref) {
 
 export function renderizarAccionJustificanteRenuncia({ bolsaRef, participacionRef, nombre, escaparHTML, ficha = false }) {
   const id = `${idSeguroJustificante(participacionRef)}${ficha ? "-ficha" : ""}`;
-  return `<div><button type="button" class="boton-secundario" data-bolsa-accion="descargar-justificante-renuncia" data-bolsa-ref="${escaparHTML(bolsaRef)}" data-participacion-ref="${escaparHTML(participacionRef)}" aria-label="${escaparHTML(traducirPortal("panel_seg_justificante_aria", { persona: nombre }))}" aria-describedby="${escaparHTML(id)}">${textoPortal(ficha ? "panel_seg_justificante_ver" : "panel_seg_justificante_descargar")}</button><span id="${escaparHTML(id)}" role="status" aria-live="polite" data-justificante-resultado></span></div>`;
+  return `<div><button type="button" class="boton-secundario" data-bolsa-accion="descargar-justificante-renuncia" data-bolsa-ref="${escaparHTML(bolsaRef)}" data-participacion-ref="${escaparHTML(participacionRef)}" aria-label="${escaparHTML(traducirPortal(ficha ? "panel_seg_justificante_consultar_aria" : "panel_seg_justificante_aria", { persona: nombre }))}" aria-describedby="${escaparHTML(id)}">${textoPortal(ficha ? "panel_seg_justificante_consultar" : "panel_seg_justificante_descargar")}</button><span id="${escaparHTML(id)}" role="status" aria-live="polite" data-justificante-resultado></span></div>`;
 }
 
-// Solo se llama al pulsar la acción de la fila. El servidor decide qué original
+// Solo se llama al pulsar la acción de seguimiento o ficha. El servidor decide qué original
 // pertenece a la persona y si RRHH puede abrirlo.
 export async function descargarJustificanteRenuncia(control, { fetchImpl = globalThis.fetch, documento = globalThis.document } = {}) {
   if (!control || control.disabled) return false;

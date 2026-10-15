@@ -101,13 +101,7 @@ func authSubidaLocalJSON(a docports.AutorizacionActoSubidaLocalV3,
 		return nil, docports.ErrSubidaLocalDenegada
 	}
 	principal, perfil := actor.Contexto.PersonaRef, actor.Contexto.PerfilActivoRef
-	if a.Accion == docports.AccionBolsaJustificanteRenunciaSubirLocal || a.Accion == docports.AccionBolsaJustificanteRenunciaDescargarLocal {
-		refs, err := actor.Contexto.Referencias(vecdomain.TipoReferenciaContextoActorCandidato)
-		if err != nil || len(refs) != 1 {
-			return nil, docports.ErrSubidaLocalDenegada
-		}
-		principal = refs[0]
-	}
+
 	if a.Accion == "" || a.CargaID == "" || principal == "" || perfil == "" || ambito == "" ||
 		a.Finalidad == "" || a.CorrelacionRef == "" {
 		return nil, docports.ErrSubidaLocalDenegada

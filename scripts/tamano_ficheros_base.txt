@@ -190,3 +190,4 @@
 806 scripts/operacion/preparar_expediente_alta_b2/preparar.py
 4027 deploy/postgresql/autorizacion_atestada_v3/migraciones/000277_justificante_bolsa_documental.up.sql
 887 deploy/postgresql/documentos/migraciones/000022_justificante_renuncia_bolsa.up.sql
+3212 deploy/postgresql/autorizacion_atestada_v3/migraciones/000281_despacho_documentos_bolsa_externa.up.sql

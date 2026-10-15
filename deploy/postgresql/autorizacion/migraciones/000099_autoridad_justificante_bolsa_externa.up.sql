@@ -141,8 +141,8 @@ BEGIN
 END $function$;
 
 
--- Predicado privado: la decisión conserva como principal a la candidatura.
--- La persona titular de los bytes se coteja en Documentos contra el contexto.
+-- Predicado privado: el principal sigue siendo la persona del vínculo V2.
+-- Documentos usa la candidatura vinculada como ámbito de los dos actos propios.
 CREATE FUNCTION vec_autorizacion.decision_documentos_bolsa_externa_exacta_v1(d jsonb,m jsonb)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp AS $f$

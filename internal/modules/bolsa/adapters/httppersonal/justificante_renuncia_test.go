@@ -8,7 +8,11 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
+	vec "vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/pruebas"
 
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 )
@@ -104,6 +108,12 @@ func TestJustificanteRechazaEnvioCruzadoSinLeerPDF(t *testing.T) {
 	}
 }
 
+type identidadJustificanteFijadaPrueba struct{ identidad IdentidadJustificanteRenuncia }
+
+func (p identidadJustificanteFijadaPrueba) PrepararJustificanteRenuncia(*http.Request) (IdentidadJustificanteRenuncia, error) {
+	return p.identidad, nil
+}
+
 func TestJustificantePDFMayorDelLimiteDevuelve413(t *testing.T) {
 	var cuerpo bytes.Buffer
 	m := multipart.NewWriter(&cuerpo)
@@ -125,8 +135,23 @@ func TestJustificantePDFMayorDelLimiteDevuelve413(t *testing.T) {
 	}
 	r := httptest.NewRequest(http.MethodPost, RutaJustificantesMiBolsa, &cuerpo)
 	r.Header.Set("Content-Type", m.FormDataContentType())
-	_, _, contenido, err := leerJustificanteRenuncia(httptest.NewRecorder(), r)
-	if !errors.Is(err, errJustificanteDemasiadoGrande) || len(contenido) != 0 {
-		t.Fatalf("limite PDF: %v", err)
+	actor, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(time.Date(2026, 10, 15, 8, 0, 0, 0, time.UTC),
+		"per_0123456789abcdefghijkl", "prf_0123456789abcdefghijkl", vec.AuthMethodCertificate, vec.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := NuevoHandlerJustificanteRenuncia(identidadJustificanteFijadaPrueba{IdentidadJustificanteRenuncia{Actor: actor, Vinculo: vinculo}}, fabricaJustificanteInaccesible{t})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.URL.Scheme = "https"
+	r.URL.Host = "example.com"
+	r.Host = "example.com"
+	r.Header.Set("Origin", "https://example.com")
+	r.Header.Set("Sec-Fetch-Site", "same-origin")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusRequestEntityTooLarge || !strings.Contains(w.Body.String(), "peticion_demasiado_grande") {
+		t.Fatalf("limite PDF: %d %s", w.Code, w.Body.String())
 	}
 }
