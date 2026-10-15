@@ -216,10 +216,9 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
   }
 
   async function publicar() {
-    if (estado.enviando || !estado.bolsa) return;
+    if (estado.enviando || !estado.bolsa || !estado.revisionPublicacion) return;
     // Tras un resultado incierto, el cuerpo y la clave quedan unidos hasta recibir el recibo.
-    if (!estado.borrador) estado.borrador = estado.revisionPublicacion;
-    if (!estado.borrador) return;
+    if (!estado.claveEnCurso) estado.borrador = estado.revisionPublicacion;
     if (!estado.claveEnCurso) estado.claveEnCurso = generarClave();
     const { datos, numeroPlazas, notificacion } = estado.borrador;
     estado.enviando = true; estado.mensaje = ""; estado.errorOperacion = ""; cambiar();
@@ -395,7 +394,8 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     return `<section class="formulario-gobernado" aria-labelledby="oferta-revision-titulo"><h4 id="oferta-revision-titulo">${escapar(traducir("revision_titulo"))}</h4>` +
       `<dl class="oferta-ficha__datos">${dato("categoria", d.categoria)}${dato("centro", d.centro)}${dato("fecha_inicio", d.fecha_inicio)}` +
       `${d.fecha_fin ? dato("fecha_fin", d.fecha_fin) : ""}${dato("numero_plazas", b.numeroPlazas)}${dato("descripcion", d.descripcion)}` +
-      `${b.notificacion ? dato("correo_referencia", b.notificacion.referencia_correo) : dato("inicio_plazo", traducir("inicio_publicacion_corto"))}</dl>` +
+      `${b.notificacion ? `${dato("correo_fecha_revision", fechaHora(b.notificacion.notificada_en))}${dato("correo_referencia", b.notificacion.referencia_correo)}` : dato("inicio_plazo", traducir("inicio_publicacion_corto"))}</dl>` +
+      `${b.notificacion ? `<details><summary>${escapar(traducir("correo_huella_detalle"))}</summary><dl class="oferta-ficha__datos">${dato("correo_huella", b.notificacion.huella_correo_sha256)}</dl></details>` : ""}` +
       `<div class="acciones-formulario"><button type="button" class="boton-primario" data-ofertas-accion="confirmar-publicacion"${estado.enviando ? " disabled" : ""}>${escapar(traducir(estado.enviando ? "publicando" : estado.claveEnCurso ? "reintentar" : "confirmar_publicacion"))}</button>` +
       `${estado.claveEnCurso ? "" : `<button type="button" class="boton-secundario" data-ofertas-accion="corregir-publicacion">${escapar(traducir("corregir_publicacion"))}</button>`}</div></section>`;
   }

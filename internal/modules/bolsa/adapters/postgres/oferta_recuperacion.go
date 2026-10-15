@@ -24,6 +24,10 @@ func (r *RepositorioOfertasPublicadasPostgreSQL) RecuperarOferta(ctx context.Con
 	if err != nil {
 		return ports.OfertaPublicada{}, false, ports.ErrOfertaInvalida
 	}
+	notificacion, err := serializarNotificacionOfertaSQL(c.Notificacion)
+	if err != nil {
+		return ports.OfertaPublicada{}, false, ports.ErrOfertaInvalida
+	}
 	m := c.Material
 	var salida []byte
 	var encontrada bool
@@ -33,8 +37,8 @@ func (r *RepositorioOfertasPublicadasPostgreSQL) RecuperarOferta(ctx context.Con
 	}
 	defer revertir(tx)
 	err = tx.QueryRow(ctx, `SELECT oferta,encontrada FROM vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(
-		$1,$2,$3,$4::jsonb,$5::integer,$6::jsonb,$7,$8,$9,$10,$11::numeric,$12::numeric,$13,$14,$15,$16,$17,$18)`,
-		c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, datos, c.NumeroPlazas, origen,
+		$1,$2,$3,$4::jsonb,$5::integer,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12::numeric,$13::numeric,$14,$15,$16,$17,$18,$19)`,
+		c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, datos, c.NumeroPlazas, origen, notificacion,
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(),
 		m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
 		c.UnidadRef, c.AmbitoRef,

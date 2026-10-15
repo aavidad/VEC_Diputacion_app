@@ -9,6 +9,8 @@
     "revision_titulo": "Review the offer before publishing",
     "confirmar_publicacion": "Confirm and publish offer",
     "corregir_publicacion": "Edit details",
+    "correo_fecha_revision": "Declared email date and time (Madrid)",
+    "correo_huella_detalle": "View email verification code",
     "error_409": "This pool's policy has changed. Review the details before publishing again.",
     "categoria": "Category",
     "centro": "Workplace",

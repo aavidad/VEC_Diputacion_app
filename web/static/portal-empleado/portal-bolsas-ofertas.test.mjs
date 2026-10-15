@@ -163,6 +163,9 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   await turno();
   assert.equal(enviadas.length, 0, "la revisión no publica todavía");
   assert.match(s.renderizar(), /Revise la oferta antes de publicarla/);
+  assert.match(s.renderizar(), /Fecha y hora declaradas del correo \(Madrid\)/);
+  assert.match(s.renderizar(), /25 sept 2026/);
+  assert.match(s.renderizar(), /Ver código de comprobación del correo/);
   s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" }));
   await turno();
   assert.match(s.renderizar(), /Reintentar la misma publicación/);
@@ -177,6 +180,47 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();
   assert.equal(enviadas.length, 2, "no se publica fuera del límite de plazas");
+});
+
+test("corregir antes de publicar o tras 422 envía los datos revisados con clave nueva", async () => {
+  const valores = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "A", numero_plazas: "2" };
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return valores[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const submit = (superficie) => superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+  const confirmar = (superficie) => superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" }));
+  try {
+    const primeras = [];
+    const superficie = crearSuperficieOfertasBolsa({ cliente: {
+      consultar: async () => sobre([], "publicacion"),
+      publicar: async (_bolsa, datos, _plazas, _notificacion, clave) => {
+        primeras.push({ descripcion: datos.descripcion, clave }); return { ok: true, status: 201, oferta: oferta() };
+      },
+    }, generarClave: () => "clave-b" });
+    superficie.activar("bolsa:1"); await turno();
+    submit(superficie);
+    superficie.manejarClick(boton({ ofertasAccion: "corregir-publicacion" }));
+    valores.descripcion = "B";
+    submit(superficie); confirmar(superficie); await turno();
+    assert.deepEqual(primeras, [{ descripcion: "B", clave: "clave-b" }]);
+
+    valores.descripcion = "A";
+    const rechazadas = [];
+    let intento = 0;
+    const trasRechazo = crearSuperficieOfertasBolsa({ cliente: {
+      consultar: async () => sobre([], "publicacion"),
+      publicar: async (_bolsa, datos, _plazas, _notificacion, clave) => {
+        rechazadas.push({ descripcion: datos.descripcion, clave });
+        return ++intento === 1 ? { ok: false, status: 422, codigo: "solicitud_invalida" } : { ok: true, status: 201, oferta: oferta() };
+      },
+    }, generarClave: () => `clave-${intento + 1}` });
+    trasRechazo.activar("bolsa:1"); await turno();
+    submit(trasRechazo); confirmar(trasRechazo); await turno();
+    assert.match(trasRechazo.renderizar(), /name="descripcion"/);
+    valores.descripcion = "B";
+    submit(trasRechazo); confirmar(trasRechazo); await turno();
+    assert.deepEqual(rechazadas, [{ descripcion: "A", clave: "clave-1" }, { descripcion: "B", clave: "clave-2" }]);
+  } finally { globalThis.FormData = anteriorFormData; }
 });
 
 test("el inicio por publicación omite el correo y exige revisión antes del POST", async () => {

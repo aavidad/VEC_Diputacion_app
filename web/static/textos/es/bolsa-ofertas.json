@@ -9,6 +9,8 @@
     "revision_titulo": "Revise la oferta antes de publicarla",
     "confirmar_publicacion": "Confirmar y publicar oferta",
     "corregir_publicacion": "Corregir datos",
+    "correo_fecha_revision": "Fecha y hora declaradas del correo (Madrid)",
+    "correo_huella_detalle": "Ver código de comprobación del correo",
     "error_409": "La política de esta bolsa ha cambiado. Revise los datos antes de volver a publicar.",
     "categoria": "Categoría",
     "centro": "Centro",

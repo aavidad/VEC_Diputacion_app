@@ -199,6 +199,7 @@ type ComandoRecuperarOferta struct {
 	BolsaRef, ActorRef, ClaveIdempotencia string
 	UnidadRef, AmbitoRef                  string
 	Datos                                 dominiobolsa.DatosOferta
+	Notificacion                          dominiobolsa.NotificacionOferta
 	NumeroPlazas                          int
 	OrigenCT                              *OrigenOfertaCT
 	Material                              puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3

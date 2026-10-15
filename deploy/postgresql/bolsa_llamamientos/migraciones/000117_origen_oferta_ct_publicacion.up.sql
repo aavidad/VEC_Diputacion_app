@@ -217,7 +217,8 @@ BEGIN
     OR jsonb_typeof(NEW.plazo->'calendarios') IS DISTINCT FROM 'array'
     OR jsonb_array_length(NEW.plazo->'calendarios') NOT BETWEEN 1 AND 16
     OR EXISTS(SELECT 1 FROM jsonb_array_elements(NEW.plazo->'calendarios') c
-              WHERE jsonb_typeof(c) IS DISTINCT FROM 'string' OR octet_length(c#>>'{}') NOT BETWEEN 1 AND 256)
+              WHERE jsonb_typeof(c) IS DISTINCT FROM 'string' OR octet_length(c#>>'{}') NOT BETWEEN 1 AND 256
+                OR c#>>'{}' !~ '^[A-Za-z0-9:_-]+$')
  THEN RAISE EXCEPTION 'B47: oferta sin política de ejemplo vigente' USING ERRCODE='VBP02'; END IF;
  RETURN NEW;
 END $function$;
@@ -277,23 +278,33 @@ BEGIN
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.rechazar_truncado_origen_oferta_ct_v1() FROM PUBLIC;
 
-DO $tablas$
-DECLARE t text;
-BEGIN
- FOREACH t IN ARRAY ARRAY['origen_oferta_ct_v1','origen_oferta_ct_outbox_v1'] LOOP
-  EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I ENABLE ROW LEVEL SECURITY',t);
-  EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I FORCE ROW LEVEL SECURITY',t);
-  EXECUTE format('CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.%I TO vec_bolsa_llamamientos_propietario USING(current_user=''vec_bolsa_llamamientos_propietario'') WITH CHECK(current_user=''vec_bolsa_llamamientos_propietario'')',t);
-  EXECUTE format('REVOKE ALL ON TABLE vec_bolsa_llamamientos.%I FROM PUBLIC',t);
-  EXECUTE format('REVOKE ALL ON TYPE vec_bolsa_llamamientos.%I FROM PUBLIC',t);
-  EXECUTE format('CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.%I FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion()',t);
-  EXECUTE format('CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_bolsa_llamamientos.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.rechazar_truncado_origen_oferta_ct_v1()',t);
- END LOOP;
-END $tablas$;
+ALTER TABLE vec_bolsa_llamamientos.origen_oferta_ct_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.origen_oferta_ct_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.origen_oferta_ct_v1 TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario')
+ WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.origen_oferta_ct_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.origen_oferta_ct_v1 FROM PUBLIC;
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.origen_oferta_ct_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_bolsa_llamamientos.origen_oferta_ct_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.rechazar_truncado_origen_oferta_ct_v1();
+
+ALTER TABLE vec_bolsa_llamamientos.origen_oferta_ct_outbox_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.origen_oferta_ct_outbox_v1 FORCE ROW LEVEL SECURITY;
+CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.origen_oferta_ct_outbox_v1 TO vec_bolsa_llamamientos_propietario
+ USING(current_user='vec_bolsa_llamamientos_propietario')
+ WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON TABLE vec_bolsa_llamamientos.origen_oferta_ct_outbox_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.origen_oferta_ct_outbox_v1 FROM PUBLIC;
+CREATE TRIGGER inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.origen_oferta_ct_outbox_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_bolsa_llamamientos.origen_oferta_ct_outbox_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.rechazar_truncado_origen_oferta_ct_v1();
 -- Canon de intención compartido con Go: cada campo lleva longitud UTF-8 decimal.
 CREATE FUNCTION vec_bolsa_llamamientos.huella_operacion_oferta_v5(
  p_prefijo text,p_bolsa text,p_clave text,p_actor text,p_numero integer,
- p_datos jsonb,p_origen jsonb,p_publicada timestamptz,p_vence timestamptz,p_plazo jsonb)
+ p_datos jsonb,p_origen jsonb,p_notificacion jsonb,p_publicada timestamptz,p_vence timestamptz,p_plazo jsonb)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 DECLARE campos text[];valor text;canon text;calendarios text;elegibles integer;
@@ -329,10 +340,34 @@ BEGIN
    p_origen->>'version_politica',p_origen->>'huella_politica_sha256',
    p_origen#>>'{lectura,corte}',elegibles::text];
  END IF;
+ IF p_notificacion IS NULL THEN
+  campos:=campos||ARRAY['sin_notificacion'];
+ ELSE
+  IF jsonb_typeof(p_notificacion) IS DISTINCT FROM 'object'
+     OR (SELECT count(*) FROM jsonb_object_keys(p_notificacion))<>4
+     OR NOT (p_notificacion ?& ARRAY['notificada_en','referencia_correo','huella_correo_sha256','fuente'])
+     OR coalesce(p_notificacion->>'notificada_en','') !~
+       '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$' THEN
+   RAISE EXCEPTION 'B117: notificación de recuperación inválida' USING ERRCODE='22023';
+  END IF;
+  campos:=campos||ARRAY['con_notificacion',p_notificacion->>'notificada_en',
+    p_notificacion->>'referencia_correo',p_notificacion->>'huella_correo_sha256',
+    p_notificacion->>'fuente'];
+ END IF;
  IF p_prefijo='vec.bolsa.oferta.publicar.v1' THEN
+  IF p_notificacion IS NOT NULL THEN
+   RAISE EXCEPTION 'B117: publicación no usa notificación' USING ERRCODE='22023';
+  END IF;
   IF p_publicada IS NULL OR p_vence IS NULL OR jsonb_typeof(p_plazo) IS DISTINCT FROM 'object'
      OR jsonb_typeof(p_plazo->'calendarios') IS DISTINCT FROM 'array' THEN
    RAISE EXCEPTION 'B117: plazo de publicación incompleto' USING ERRCODE='22023';
+  END IF;
+  IF jsonb_array_length(p_plazo->'calendarios') NOT BETWEEN 1 AND 16
+     OR EXISTS(SELECT 1 FROM jsonb_array_elements(p_plazo->'calendarios') c
+       WHERE jsonb_typeof(c) IS DISTINCT FROM 'string'
+          OR octet_length(c#>>'{}') NOT BETWEEN 1 AND 256
+          OR c#>>'{}' !~ '^[A-Za-z0-9:_-]+$') THEN
+   RAISE EXCEPTION 'B117: calendario de plazo inválido' USING ERRCODE='22023';
   END IF;
   SELECT string_agg(x.valor,chr(30) ORDER BY x.ord) INTO calendarios
   FROM jsonb_array_elements_text(p_plazo->'calendarios') WITH ORDINALITY x(valor,ord);
@@ -351,12 +386,12 @@ BEGIN
   INTO canon FROM unnest(campos) WITH ORDINALITY x(valor,ord);
  RETURN encode(sha256(convert_to(canon,'UTF8')),'hex');
 END $f$;
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.huella_operacion_oferta_v5(text,text,text,text,integer,jsonb,jsonb,timestamptz,timestamptz,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.huella_operacion_oferta_v5(text,text,text,text,integer,jsonb,jsonb,jsonb,timestamptz,timestamptz,jsonb) FROM PUBLIC;
 CREATE FUNCTION vec_bolsa_llamamientos.validar_origen_oferta_ct_v1(
  p_origen jsonb,p_bolsa text,p_numero integer,p_publicada timestamptz)
 RETURNS integer LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET statement_timeout='15s' AS $f$
-DECLARE l jsonb; corte timestamptz;cuantos bigint;elegibles integer;
+DECLARE l jsonb; corte timestamptz;cuantos bigint;elegibles integer;actuales integer;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
     OR jsonb_typeof(p_origen) IS DISTINCT FROM 'object'
@@ -372,6 +407,8 @@ BEGIN
     OR p_origen->>'version_instantanea' !~ '^[1-9][0-9]{0,15}$'
     OR p_origen->>'version_politica' !~ '^[1-9][0-9]{0,15}$'
     OR p_origen->>'expediente_ref' IS NULL OR p_origen->>'clave_ct' IS NULL
+    OR position(chr(31) in (p_origen->>'expediente_ref'))>0
+    OR position(chr(31) in (p_origen->>'clave_ct'))>0
     OR p_origen->>'organizacion_ref' IS NULL OR p_origen->>'necesidad_ref' IS NULL
     OR p_origen->>'unidad_ref' !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,191}$'
     OR p_numero NOT BETWEEN 1 AND 100 OR p_publicada IS NULL THEN
@@ -379,8 +416,25 @@ BEGIN
  END IF;
  l:=p_origen->'lectura';
  IF jsonb_typeof(l) IS DISTINCT FROM 'object'
+    OR (SELECT count(*) FROM jsonb_object_keys(l))<>18
+    OR NOT (l ?& ARRAY['acta_ref','categoria_ref','bolsa_ref','version_bolsa',
+      'huella_bolsa_sha256','bolsa_canonica','instantanea_ref',
+      'version_instantanea','huella_instantanea_sha256','instantanea_canonica',
+      'politica_ref','version_politica','huella_politica_sha256',
+      'politica_provisional','corte','bolsa_vigente_hasta',
+      'politica_vigente_hasta','entradas'])
+    -- AD261 publica solo 16 campos; el serializador Go añade estas dos
+    -- claves opcionales como null. Nunca se acepta una vigencia del cliente.
+    OR jsonb_typeof(l->'bolsa_vigente_hasta') IS DISTINCT FROM 'null'
+    OR jsonb_typeof(l->'politica_vigente_hasta') IS DISTINCT FROM 'null'
     OR jsonb_typeof(l->'entradas') IS DISTINCT FROM 'array'
     OR jsonb_array_length(l->'entradas')<1
+    OR EXISTS(SELECT 1 FROM jsonb_array_elements(l->'entradas') AS entrada(valor)
+      WHERE jsonb_typeof(entrada.valor) IS DISTINCT FROM 'object'
+        OR (SELECT count(*) FROM jsonb_object_keys(entrada.valor))<>7
+        OR NOT (entrada.valor ?& ARRAY['orden_acta','orden_vigente',
+          'participacion_ref','candidato_ref','situacion','razon','elegible'])
+        OR jsonb_typeof(entrada.valor->'elegible') IS DISTINCT FROM 'boolean')
     OR coalesce(l->>'corte','') !~
       '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$'
     OR l->>'acta_ref' IS DISTINCT FROM p_origen->>'acta_ref'
@@ -422,7 +476,7 @@ BEGIN
    AND pol.vigente_desde<=corte AND (pol.vigente_hasta IS NULL OR p_publicada<pol.vigente_hasta)
    AND pol.provisional=(l->>'politica_provisional')::boolean
    AND encode(sha256(convert_to(to_jsonb(pol)::text,'UTF8')),'hex')=p_origen->>'huella_politica_sha256'
-   AND b.estado='vigente' AND b.vigente_desde<=p_publicada
+   AND b.estado='vigente' AND b.vigente_desde<=corte AND b.vigente_desde<=p_publicada
    AND (b.vigente_hasta IS NULL OR p_publicada<b.vigente_hasta)
    AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.sustitucion_bolsa s
      WHERE s.bolsa_ref_sustituida=c.bolsa_ref AND s.version_sustituida=c.version_bolsa
@@ -452,7 +506,22 @@ BEGIN
  SELECT count(*) INTO elegibles FROM jsonb_array_elements(l->'entradas') e
  WHERE e->>'orden_vigente' IS NOT NULL;
  IF elegibles<p_numero OR elegibles<1 THEN
-  RAISE EXCEPTION 'B117: plazas superiores a posiciones elegibles' USING ERRCODE='23505';
+  RAISE EXCEPTION 'B117: plazas superiores a posiciones elegibles en la captura' USING ERRCODE='23505';
+ END IF;
+ -- La captura conserva la decisión histórica; para una oferta nueva también
+ -- se exige cobertura suficiente en el instante firmado de publicación.
+ SELECT count(*) INTO actuales
+ FROM vec_bolsa_llamamientos.constitucion_entrada e
+ JOIN vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(p_bolsa,p_publicada) o
+   ON o.participacion_ref=e.participacion_ref AND o.orden_acta=e.orden
+ WHERE e.instantanea_ref=p_origen->>'instantanea_ref'
+   AND e.version_instantanea=(p_origen->>'version_instantanea')::bigint
+   AND o.orden_vigente IS NOT NULL
+   AND o.politica_ref=p_origen->>'politica_ref'
+   AND o.version_politica=(p_origen->>'version_politica')::bigint
+   AND o.provisional=(l->>'politica_provisional')::boolean;
+ IF actuales<p_numero THEN
+  RAISE EXCEPTION 'B117: plazas superiores a posiciones elegibles al publicar' USING ERRCODE='23505';
  END IF;
  RETURN elegibles;
 END $f$;
@@ -460,7 +529,7 @@ REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.validar_origen_oferta_ct_v1(jsonb,
 -- La consulta de una sola operación consume V3 fresca antes de leer filas.
 -- No depende de la política actual: permite recuperar la versión histórica.
 CREATE FUNCTION vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(
- p_bolsa text,p_actor text,p_clave text,p_datos jsonb,p_numero_plazas integer,p_origen jsonb,
+ p_bolsa text,p_actor text,p_clave text,p_datos jsonb,p_numero_plazas integer,p_origen jsonb,p_notificacion jsonb,
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea,
  p_unidad text,p_ambito text)
@@ -474,14 +543,14 @@ BEGIN
     OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER') IS TRUE
     OR current_setting('transaction_isolation')<>'serializable'
     OR current_setting('transaction_read_only')<>'off'
-    OR p_bolsa IS NULL OR p_actor !~ '^per_[A-Za-z0-9_-]{22,128}$'
+    OR p_bolsa IS NULL OR position(chr(31) in p_bolsa)>0 OR position(chr(31) in p_clave)>0 OR p_actor !~ '^per_[A-Za-z0-9_-]{22,128}$'
     OR p_clave IS NULL OR octet_length(p_clave) NOT BETWEEN 8 AND 256
     OR p_unidad IS NULL OR p_unidad !~ '^[A-Za-z0-9:_-]+$'
     OR p_ambito IS NULL OR p_ambito !~ '^[A-Za-z0-9:_-]+$' THEN
   RAISE EXCEPTION 'B117: recuperación denegada' USING ERRCODE='42501';
  END IF;
  h:=vec_bolsa_llamamientos.huella_operacion_oferta_v5(
-  'vec.bolsa.oferta.recuperar.v1',p_bolsa,p_clave,p_actor,p_numero_plazas,p_datos,p_origen,NULL,NULL,NULL);
+  'vec.bolsa.oferta.recuperar.v1',p_bolsa,p_clave,p_actor,p_numero_plazas,p_datos,p_origen,p_notificacion,NULL,NULL,NULL);
  ctx:=encode(sha256(convert_to(
   '{"ambitos":{"ambito_ref":"'||p_ambito||'","unidad_ref":"'||p_unidad||
   '"},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
@@ -513,7 +582,10 @@ BEGIN
  SELECT * INTO plazas FROM vec_bolsa_llamamientos.plazas_oferta p WHERE p.oferta_ref=o.oferta_ref;
  SELECT * INTO origen FROM vec_bolsa_llamamientos.origen_oferta_ct_v1 x WHERE x.oferta_ref=o.oferta_ref;
  IF o.actor_ref IS DISTINCT FROM p_actor OR o.recibo_ref IS DISTINCT FROM recibo
-    OR o.datos IS DISTINCT FROM p_datos OR o.plazo->>'inicio' IS DISTINCT FROM 'publicacion'
+    OR o.datos IS DISTINCT FROM p_datos
+    OR (p_notificacion IS NULL AND (o.plazo->>'inicio' IS DISTINCT FROM 'publicacion'
+       OR o.plazo ? 'notificacion'))
+    OR (p_notificacion IS NOT NULL AND o.plazo->'notificacion' IS DISTINCT FROM p_notificacion)
     OR plazas.numero_plazas IS DISTINCT FROM p_numero_plazas
     OR (p_origen IS NULL) IS DISTINCT FROM (origen.oferta_ref IS NULL)
     OR (p_origen IS NOT NULL AND (origen.origen_canonico IS DISTINCT FROM p_origen
@@ -524,8 +596,8 @@ BEGIN
  END IF;
  RETURN QUERY SELECT vec_bolsa_llamamientos.proyectar_oferta_v2(o.oferta_ref,clock_timestamp()),true;
 END $f$;
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text) TO vec_bolsa_llamamientos_ejecutor;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text) TO vec_bolsa_llamamientos_ejecutor;
 CREATE FUNCTION vec_bolsa_llamamientos.publicar_oferta_v5(
  p_oferta text,p_recibo text,p_bolsa text,p_actor text,p_clave text,p_datos jsonb,p_plazo jsonb,
  p_publicada timestamptz,p_vence timestamptz,
@@ -556,6 +628,7 @@ BEGIN
     OR p_oferta !~ '^oferta:[0-9a-f]{64}$'
     OR p_recibo !~ '^recibo:oferta:[0-9a-f]{64}$'
     OR p_bolsa IS NULL OR octet_length(p_bolsa) NOT BETWEEN 1 AND 256
+    OR position(chr(31) in p_bolsa)>0 OR position(chr(31) in p_clave)>0
     OR p_actor !~ '^per_[A-Za-z0-9_-]{22,128}$'
     OR p_clave IS NULL OR octet_length(p_clave) NOT BETWEEN 8 AND 256
     OR p_datos IS NULL OR jsonb_typeof(p_datos) IS DISTINCT FROM 'object'
@@ -580,7 +653,7 @@ BEGIN
  END IF;
  h:=vec_bolsa_llamamientos.huella_operacion_oferta_v5(
   'vec.bolsa.oferta.publicar.v1',p_bolsa,p_clave,p_actor,p_numero_plazas,
-  p_datos,p_origen,p_publicada,p_vence,p_plazo);
+  p_datos,p_origen,NULL,p_publicada,p_vence,p_plazo);
  ctx:=encode(sha256(convert_to(
   '{"ambitos":{"ambito_ref":"'||p_ambito||'","unidad_ref":"'||p_unidad||
   '"},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
@@ -665,7 +738,7 @@ BEGIN
  VALUES(p_oferta,p_bolsa,p_numero_plazas,v_version,clock_timestamp());
  IF p_origen IS NOT NULL THEN
   v_evento:='evento:bolsa:oferta-ct:'||encode(sha256(convert_to(
-   p_origen->>'expediente_ref'||chr(31)||p_origen->>'clave_ct','UTF8')),'hex');
+   (p_origen->>'expediente_ref')||chr(31)||(p_origen->>'clave_ct'),'UTF8')),'hex');
   INSERT INTO vec_bolsa_llamamientos.origen_oferta_ct_v1(
    oferta_ref,recibo_ref,organizacion_ref,unidad_ref,expediente_ref,version_expediente,
    clave_ct,necesidad_ref,acta_ref,categoria_ref,bolsa_ref,version_bolsa,
@@ -689,7 +762,7 @@ BEGIN
  RETURN QUERY SELECT vec_bolsa_llamamientos.proyectar_oferta_v2(p_oferta,clock_timestamp()),false;
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer,jsonb) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,text,text,integer,jsonb) TO vec_bolsa_llamamientos_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer,jsonb) TO vec_bolsa_llamamientos_ejecutor;
 DO $post$
 DECLARE p record;
 BEGIN
@@ -704,16 +777,16 @@ BEGIN
     OR NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor',
       'vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer,jsonb)','EXECUTE')
     OR NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor',
-      'vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text)','EXECUTE') THEN
+      'vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text)','EXECUTE') THEN
   RAISE EXCEPTION 'B117: postimagen de permisos o tablas inválida' USING ERRCODE='55000';
  END IF;
  FOR p IN SELECT oid,proowner,prosecdef,proconfig FROM pg_proc WHERE oid IN (
     'vec_bolsa_llamamientos.publicar_politica_ofertas_v1(text,bigint,jsonb,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
     'vec_bolsa_llamamientos.verificar_politica_oferta_b47()'::regprocedure,
     'vec_bolsa_llamamientos.rechazar_truncado_origen_oferta_ct_v1()'::regprocedure,
-    'vec_bolsa_llamamientos.huella_operacion_oferta_v5(text,text,text,text,integer,jsonb,jsonb,timestamptz,timestamptz,jsonb)'::regprocedure,
+    'vec_bolsa_llamamientos.huella_operacion_oferta_v5(text,text,text,text,integer,jsonb,jsonb,jsonb,timestamptz,timestamptz,jsonb)'::regprocedure,
     'vec_bolsa_llamamientos.validar_origen_oferta_ct_v1(jsonb,text,integer,timestamptz)'::regprocedure,
-    'vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text)'::regprocedure,
+    'vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text)'::regprocedure,
     'vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer,jsonb)'::regprocedure)
  LOOP
   IF p.proowner<>'vec_bolsa_llamamientos_propietario'::regrole OR NOT p.prosecdef
