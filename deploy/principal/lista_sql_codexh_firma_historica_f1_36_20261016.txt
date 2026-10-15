@@ -1,0 +1,5 @@
+# F1-36. Aplicar en este orden sobre la candidata que ya contiene AUT41, AD210 y CT224.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000286_recuperacion_firmas_unidad_historica.up.sql
+deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad286_recuperacion_unidad_historica.sql
+deploy/postgresql/contratacion_temporal/migraciones/000228_recuperacion_firmas_corte_historico.up.sql
+deploy/postgresql/contratacion_temporal/pruebas_sql/ct228_recuperacion_corte_historico.sql
