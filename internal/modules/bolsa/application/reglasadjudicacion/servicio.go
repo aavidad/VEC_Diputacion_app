@@ -98,8 +98,19 @@ func (s *Servicio) Publicar(ctx context.Context, c ports.ComandoPublicarPolitica
 // PlazoDisposicion toma la versión vigente y delega el cálculo al módulo
 // Calendarios. El recibo de la oferta congela versión, huella y calendarios
 // usados; editar la política más tarde no reescribe ofertas anteriores.
-func (s *Servicio) PlazoDisposicionBolsa(ctx context.Context, bolsa string, notificada time.Time) (ports.PlazoOferta, time.Time, error) {
-	if s == nil || notificada.IsZero() {
+func (s *Servicio) InicioPlazoDisposicion(ctx context.Context, bolsa string) (string, error) {
+	v, err := s.Vigente(ctx, bolsa)
+	if err != nil {
+		return "", err
+	}
+	if !v.Configurada || v.Politica == nil || v.Politica.ValidarParaOfertasNuevas() != nil {
+		return "", ports.ErrPlazoOfertaNoConfigurado
+	}
+	return v.Politica.Plazo.Inicio, nil
+}
+
+func (s *Servicio) PlazoDisposicionBolsa(ctx context.Context, bolsa string, comienzo time.Time) (ports.PlazoOferta, time.Time, error) {
+	if s == nil || comienzo.IsZero() {
 		return ports.PlazoOferta{}, time.Time{}, ports.ErrPlazoOfertaNoConfigurado
 	}
 	v, err := s.Vigente(ctx, bolsa)
@@ -111,13 +122,14 @@ func (s *Servicio) PlazoDisposicionBolsa(ctx context.Context, bolsa string, noti
 	}
 	p := v.Politica.Plazo
 	if p.Unidad == "horas_naturales" {
-		apertura := notificada.UTC().Truncate(time.Microsecond)
+		apertura := comienzo.UTC().Truncate(time.Microsecond)
 		vence := apertura.Add(time.Duration(p.Cantidad) * time.Hour)
 		madrid, err := time.LoadLocation("Europe/Madrid")
 		if err != nil {
 			return ports.PlazoOferta{}, time.Time{}, ports.ErrOfertaNoDisponible
 		}
 		return ports.PlazoOferta{
+			Inicio:         p.Inicio,
 			ReglaRef:       fmt.Sprintf("politica-ofertas:%s:%d", bolsa, v.Version),
 			HuellaCatalogo: v.HuellaSHA256, Unidad: p.Unidad, Cantidad: p.Cantidad,
 			Computo: p.Computo, UltimoDia: vence.Add(-time.Nanosecond).In(madrid).Format(time.DateOnly),
@@ -131,10 +143,10 @@ func (s *Servicio) PlazoDisposicionBolsa(ctx context.Context, bolsa string, noti
 		return ports.PlazoOferta{}, time.Time{}, ports.ErrOfertaNoDisponible
 	}
 	resultado, err := s.calendarios.CalcularPlazo(ctx, calendariosports.SolicitudCalculoPlazo{
-		NotificadoEn: notificada.UTC(), Unidad: calendariosdomain.UnidadPlazo(p.Unidad),
+		NotificadoEn: comienzo.UTC(), Unidad: calendariosdomain.UnidadPlazo(p.Unidad),
 		Cantidad: p.Cantidad, MunicipioSede: "municipio:ine:" + p.MunicipioSede,
 	})
-	if err != nil || !resultado.VenceAntesDe.After(notificada) {
+	if err != nil || !resultado.VenceAntesDe.After(comienzo) {
 		return ports.PlazoOferta{}, time.Time{}, errors.Join(ports.ErrOfertaNoDisponible, err)
 	}
 	versiones := make([]string, 0, len(resultado.VersionesUtilizadas))
@@ -142,6 +154,7 @@ func (s *Servicio) PlazoDisposicionBolsa(ctx context.Context, bolsa string, noti
 		versiones = append(versiones, version.ID)
 	}
 	return ports.PlazoOferta{
+		Inicio:         p.Inicio,
 		ReglaRef:       fmt.Sprintf("politica-ofertas:%s:%d", bolsa, v.Version),
 		HuellaCatalogo: v.HuellaSHA256, Unidad: p.Unidad, Cantidad: p.Cantidad,
 		Computo: p.Computo, UltimoDia: resultado.Vencimiento.String(),

@@ -90,7 +90,6 @@ func TestHandlerOfertasPublicaYDistingueReplay(t *testing.T) {
 
 func TestHandlerOfertasRechazaEntradasSinLlegarAlPreparador(t *testing.T) {
 	casos := map[string]*http.Request{
-		"sin notificación":   peticionOferta(http.MethodPost, RutaOfertasPublicadas, `{"bolsa_ref":"bolsa:1","numero_plazas":1,"datos":{}}`, "clave-oferta-1"),
 		"sin clave":          peticionOferta(http.MethodPost, RutaOfertasPublicadas, cuerpoOfertaPrueba, ""),
 		"campo ajeno":        peticionOferta(http.MethodPost, RutaOfertasPublicadas, `{"bolsa_ref":"b","actor":"x","datos":{}}`, "clave-oferta-1"),
 		"dos documentos":     peticionOferta(http.MethodPost, RutaOfertasPublicadas, cuerpoOfertaPrueba+cuerpoOfertaPrueba, "clave-oferta-1"),

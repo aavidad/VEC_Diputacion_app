@@ -2,6 +2,14 @@
   "ofertas": {
     "titulo": "Ofertas publicadas",
     "publicar_titulo": "Nueva oferta",
+    "inicio_publicacion": "El plazo comienza al publicar la oferta.",
+    "inicio_publicacion_corto": "Al publicar la oferta",
+    "inicio_plazo": "Inicio del plazo",
+    "revisar_publicacion": "Revisar oferta",
+    "revision_titulo": "Revise la oferta antes de publicarla",
+    "confirmar_publicacion": "Confirmar y publicar oferta",
+    "corregir_publicacion": "Corregir datos",
+    "error_409": "La política de esta bolsa ha cambiado. Revise los datos antes de volver a publicar.",
     "categoria": "Categoría",
     "centro": "Centro",
     "fecha_inicio": "Fecha de inicio",
@@ -108,7 +116,11 @@
     "error_generico": "No se pudo completar la operación. Consulte las ofertas antes de repetirla."
   },
   "politica_plazo": {
-    "ayuda": "El plazo operativo empieza en la fecha y hora del correo externo declaradas por RRHH. El formulario muestra la política vigente o propone el catálogo de Bolsa. Revíselo y guárdelo antes de publicar."
+    "ayuda": "Elija el hecho que abre el plazo. El artículo 8.1 distingue el llamamiento publicado y el contacto directo. La opción de correo conserva la decisión de RRHH para las bolsas que la tengan configurada.",
+    "inicio_publicacion": "Publicación de la oferta",
+    "inicio_notificacion": "Correo externo declarado por RRHH",
+    "fuente_titulo": "Consultar el Reglamento, artículo 8.1",
+    "fuente_url": "https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/2026_Reglamento_seleccion_de_personal_y_bolsas_bop_16_01_2026.pdf"
   },
   "politica_plazas": {
     "aceptacion_previa": "Se adjudica entre las aceptaciones recibidas en plazo, por posición disponible. No se pide una segunda respuesta.",

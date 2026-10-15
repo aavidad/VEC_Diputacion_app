@@ -24,7 +24,8 @@ const notificacion = { notificada_en: "2026-09-25T08:00:00.000000Z", referencia_
 
 const politica = { llamada: "simultanea", respuesta_horas: 24, tras_renuncia: "siguiente_en_orden" };
 const turno = () => new Promise((r) => setTimeout(r, 0));
-const sobre = (ofertas) => ({ ok: true, datos: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas } });
+const sobre = (ofertas, inicioPlazo) => ({ ok: true, datos: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas,
+  ...(inicioPlazo ? { inicio_plazo: inicioPlazo } : {}) } });
 
 function respuesta(status, cuerpo) {
   return { ok: status >= 200 && status < 300, status, json: async () => cuerpo };
@@ -160,8 +161,13 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   datos.notificada_en = "2026-09-25T10:00";
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();
+  assert.equal(enviadas.length, 0, "la revisión no publica todavía");
+  assert.match(s.renderizar(), /Revise la oferta antes de publicarla/);
+  s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" }));
+  await turno();
   assert.match(s.renderizar(), /Reintentar la misma publicación/);
-  s.manejarSubmit({ target: formulario, preventDefault() {} });
+  datos.numero_plazas = "5";
+  s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" }));
   await turno();
   assert.equal(enviadas.length, 2);
   assert.deepEqual(enviadas.map(([clave, plazas]) => [clave, plazas]), [["clave-1", 3], ["clave-1", 3]]);
@@ -171,6 +177,37 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await turno();
   assert.equal(enviadas.length, 2, "no se publica fuera del límite de plazas");
+});
+
+test("el inicio por publicación omite el correo y exige revisión antes del POST", async () => {
+  const llamadas = [];
+  const clienteHTTP = crearClienteOfertas({ fetchImpl: async (ruta, opciones) => {
+    llamadas.push({ ruta, opciones });
+    return respuesta(201, { data: oferta() });
+  } });
+  await clienteHTTP.publicar("bolsa:1", { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Des" }, 2, null, "clave-1");
+  assert.deepEqual(Object.keys(JSON.parse(llamadas[0].opciones.body)), ["bolsa_ref", "datos", "numero_plazas"]);
+  assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [], inicio_plazo: "publicacion" } }).inicio_plazo, "publicacion");
+  assert.throws(() => validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [], inicio_plazo: "otro" } }));
+
+  const publicaciones = [];
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => sobre([], "publicacion"),
+    publicar: async (...args) => { publicaciones.push(args); return { ok: true, status: 201, oferta: oferta() }; },
+  }, generarClave: () => "clave-publicacion" });
+  superficie.activar("bolsa:1"); await turno();
+  assert.match(superficie.renderizar(), /El plazo comienza al publicar la oferta/);
+  assert.doesNotMatch(superficie.renderizar(), /name="referencia_correo"/);
+  const valores = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Des", numero_plazas: "2" };
+  globalThis.FormData = class { get(clave) { return valores[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+  assert.equal(publicaciones.length, 0);
+  assert.match(superficie.renderizar(), /Confirmar y publicar oferta/);
+  superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+  assert.equal(publicaciones.length, 1);
+  assert.equal(publicaciones[0][3], null);
+  assert.equal(publicaciones[0][4], "clave-publicacion");
 });
 
 test("tras el plazo muestra cada plaza, pide confirmación y registra el acto con su secuencia", async () => {

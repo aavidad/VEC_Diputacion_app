@@ -6,7 +6,7 @@ import { crearClientePoliticaOfertas, ESQUEMA_POLITICA_OFERTAS, RUTA_POLITICA_OF
 import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
 import { crearSuperficieRRHHPlazos as crearSuperficieRRHHPlazosReal, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1";
 import { cargarEjemploPlazas as cargarEjemploPlazasSuperficie,
-  cargarConfirmacionAdjudicacion as cargarConfirmacionSuperficie } from "./rrhh-plazos-api.js?v=20261007-pantallas-textos-final-v1";
+  cargarConfirmacionAdjudicacion as cargarConfirmacionSuperficie } from "./rrhh-plazos-api.js?v=20261015-inicio-plazo-publicacion-v1";
 
 const crearSuperficieRRHHPlazos = (opciones) => crearSuperficieRRHHPlazosReal({ cargarConfirmacion: async () => null, ...opciones });
 
@@ -107,6 +107,24 @@ test("la política acepta 48 horas naturales continuas y conserva el rango propi
   assert.throws(() => validarPoliticaEditable(dias), /política/u);
 });
 
+test("la política admite inicio por publicación y exige que el recibo confirme el inicio enviado", async () => {
+  const publica = structuredClone(POLITICA);
+  publica.plazo.inicio = "publicacion";
+  assert.equal(validarPoliticaEditable(publica).plazo.inicio, "publicacion");
+  const enviadas = [];
+  const cliente = crearClientePoliticaOfertas({ fetchImpl: async (_ruta, opciones) => {
+    enviadas.push(JSON.parse(opciones.body));
+    return respuesta(201, vigente("bolsa:1", { version: 2, recibo_ref: "recibo:politica:2", politica: publica }));
+  } });
+  const resultado = await cliente.publicar({ bolsa_ref: "bolsa:1", version_esperada: 1, clave_idempotencia: "politica-2", politica: publica });
+  assert.equal(resultado.politica.politica.plazo.inicio, "publicacion");
+  assert.equal(enviadas[0].politica.plazo.inicio, "publicacion");
+  const incoherente = crearClientePoliticaOfertas({ fetchImpl: async () => respuesta(201,
+    vigente("bolsa:1", { version: 2, recibo_ref: "recibo:politica:2", politica: POLITICA })) });
+  await assert.rejects(incoherente.publicar({ bolsa_ref: "bolsa:1", version_esperada: 1,
+    clave_idempotencia: "politica-2", politica: publica }), /incoherente/);
+});
+
 test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST válido", async () => {
   let intentos = 0;
   const claves = [];
@@ -127,9 +145,11 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
   assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
   superficie.manejarClick({ target: { disabled: false, dataset: { rrhhPlazosAccion: "ayuda" }, closest: () => ({ disabled: false, dataset: { rrhhPlazosAccion: "ayuda" } }) } });
   assert.doesNotMatch(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
-  assert.match(superficie.renderizar(), /fecha y hora del correo externo/u);
+  assert.match(superficie.renderizar(), /artículo 8\.1 distingue/u);
+  assert.match(superficie.renderizar(), /2026_Reglamento_seleccion_de_personal_y_bolsas_bop_16_01_2026\.pdf/u);
+  assert.match(superficie.renderizar(), /name="inicio"[^>]*required[^>]*>.*value="publicacion" selected/u);
   assert.match(superficie.renderizar(), /Correo externo declarado por RRHH/u);
-  assert.match(superficie.renderizar(), /catálogo de Bolsa/);
+  assert.match(superficie.renderizar(), /Publicación de la oferta/);
   assert.match(superficie.renderizar(), /Correo externo declarado por RRHH/);
   assert.match(superficie.renderizar(), /Inicio del plazo/);
   assert.match(superficie.renderizar(), /Guardar política de esta bolsa/);
@@ -160,7 +180,7 @@ test("el selector recupera el plazo del catálogo y deja vacía la unidad sin pr
   assert.deepEqual([superficie.estado().borrador.plazo.cantidad, superficie.estado().borrador.plazo.computo],
     [12, "administrativo"]);
   assert.match(superficie.renderizar(), /max="30"/);
-  assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden>[^<]*correo externo/u);
+  assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden>[^<]*Elija el hecho que abre el plazo/u);
 });
 
 test("el plazo inicial sale de la regla publicada y válida del catálogo de Bolsa", async () => {
@@ -172,7 +192,8 @@ test("el plazo inicial sale de la regla publicada y válida del catálogo de Bol
   assert.deepEqual(await cargarPlazoCatalogo({ cliente: lector({ ...regla, inicio: "notificacion" }) }), { ...PLAZO_CATALOGO, cantidad: 3 });
   assert.deepEqual(await cargarPlazoCatalogo({ cliente: lector({ ...regla, unidad: "dias_naturales" }) }),
     { ...PLAZO_CATALOGO, cantidad: 3, unidad: "dias_naturales" });
-  assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, inicio: "publicacion" }) }), null);
+  assert.deepEqual(await cargarPlazoCatalogo({ cliente: lector({ ...regla, inicio: "publicacion" }) }),
+    { ...PLAZO_CATALOGO, cantidad: 3, inicio: "publicacion" });
   assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, origen: "ejemplo" }) }), null);
   assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, unidad: "horas_naturales" }) }), null);
   assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, cantidad: 31 }) }), null);
