@@ -30,7 +30,7 @@ import { crearClienteAnotacionAdministrativaHTTP, RUTA_ANOTACION_ADMINISTRATIVA,
 import { crearClienteCierreAdministrativoHTTP, RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
 import { crearClienteSubsanacionReparosHTTP, RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
 import { crearClienteSeguimientoCeseHTTP } from "./cliente-http-seguimiento-cese.js";
-import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
+import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20261015-ct-ofertas-v1";
 import { crearClienteReincorporacionRRHHHTTP, RUTA_CAPACIDAD_REINCORPORACION_RRHH, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js?v=20260928-rrhh-reincorporacion-v1";
 import { crearClienteRecuperacionFirmasV2, RUTA_CONSULTA_FIRMAS_V2 } from "./cliente-http-recuperacion-firmas-v2.js?v=20261013-ct-firma-tres-v3";
 import {
@@ -48,7 +48,7 @@ import {
   extraerDatos,
   construirErrorRespuesta,
   construirCabeceras,
-} from "./cliente-http-transporte.js?v=20261014-ginpix-personal-b2-v1";
+} from "./cliente-http-transporte.js?v=20261015-ct-ofertas-v1";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,

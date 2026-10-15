@@ -2,7 +2,7 @@ import { escaparHTML as e } from "./componentes-expedientes.js?v=20261013-ct-fir
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261013-ct-firma-tres-v3";
 import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261013-ct-firma-tres-v3";
-import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
+import { CAMPOS_SELECCION, CAMPOS_COMUNICACION, ESQUEMA_RECIBO_SELECCION_OFERTA,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
@@ -207,6 +207,19 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   function recibo(operacion, datos) {
     // Sin recibo, el estado del paso («Pendiente») ya lo dice: no se repite.
     if (!datos) return "";
+    if (operacion === "seleccion" && datos.esquema === ESQUEMA_RECIBO_SELECCION_OFERTA) {
+      const ruta = `/portal-empleado/?${new URLSearchParams({ ofertas_bolsa_ref: datos.bolsa_ref })}#bolsa/llamamientos`;
+      return `<section class="ct-recibo" data-ct-llamamiento-recibo="seleccion" aria-labelledby="ct-llamamiento-recibo-seleccion" tabindex="-1">
+        <h4 id="ct-llamamiento-recibo-seleccion">${e(t("llamamiento_oferta_recibo"))}</h4>
+        <dl><div><dt>${e(t("llamamiento_oferta_plazas"))}</dt><dd>${e(datos.numero_plazas)}</dd></div>
+          <div><dt>${e(t("llamamiento_oferta_publicada_en"))}</dt><dd>${tiempoVisible(datos.publicada_en)}</dd></div>
+          <div><dt>${e(t("llamamiento_oferta_vence_antes_de"))}</dt><dd>${tiempoVisible(datos.vence_antes_de)}</dd></div>
+          <div><dt>${e(t("llamamiento_oferta_justificante"))}</dt><dd>${justificanteTraducido(datos.recibo_oferta_ref, e, t)}</dd></div>
+          <div><dt>${e(t("llamamiento_oferta_vinculo"))}</dt><dd>${justificanteTraducido(datos.recibo_vinculo_ref, e, t)}</dd></div></dl>
+        <p class="dato-secundario">${e(t("llamamiento_oferta_sin_aviso"))}</p>
+        <div class="ct-acciones"><a class="boton-secundario" href="${e(ruta)}">${e(t("llamamiento_oferta_gestionar"))}</a></div>
+      </section>`;
+    }
     const campos = operacion === "propuesta" ? CAMPOS_RECIBO_PROPUESTA.filter((campo) => campo !== "esquema")
       : operacion === "siguiente" ? CAMPOS_RECIBO_SIGUIENTE.filter((campo) => campo !== "esquema")
       : esResolucion(operacion)
@@ -291,7 +304,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
           ${paso.ocupado || paso.calculando ? "disabled" : ""}>${e(t(paso.solicitud !== null
             ? esRespuesta(operacion) ? "llamamiento_respuesta_reintentar_misma"
               : esResolucion(operacion) ? "llamamiento_reintentar_resolucion" : "llamamiento_recuperar"
-            : operacion === "seleccion" ? "llamamiento_seleccionar"
+            : operacion === "seleccion" ? estado.numeroPersonasSolicitadas > 1 ? "llamamiento_publicar_oferta"
+              : estado.numeroPersonasSolicitadas === 1 ? "llamamiento_seleccionar" : "llamamiento_iniciar_seleccion"
               : operacion === "propuesta" ? "llamamiento_preparar_propuesta" : operacion === "siguiente" ? "llamamiento_continuar"
               : esResolucion(operacion) ? "llamamiento_solicitar_resolucion"
                 : esRespuesta(operacion) ? "llamamiento_registrar_respuesta" : "llamamiento_registrar"))}</button>` : ""}
@@ -320,6 +334,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       && restaurada?.estado_respuesta !== "sin_respuesta") || !antecedenteConsulta)));
   const bloqueaLista = ["cargando", "error", "denegado"].includes(estado.comunicaciones?.estado)
     || (estado.comunicaciones?.estado === "lista" && !restaurada);
+  const seleccionOferta = estado.seleccion.recibo?.esquema === ESQUEMA_RECIBO_SELECCION_OFERTA;
   return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
     aria-labelledby="ct-llamamiento-titulo">
     <header class="ct-cabecera"><div>
@@ -327,11 +342,12 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     </div></header>
     ${estado.enlazado ? "" : `<p class="ct-exp-mensaje ct-tono-informacion" role="status"
       data-ct-llamamiento-sin-expediente>${e(t("llamamiento_sin_expediente"))}</p>`}
-    ${listaComunicaciones()}
-    ${consultaRespuesta()}
-    ${!estado.enlazado || bloqueaFlujo || bloqueaLista || estado.comunicaciones?.intentoNoConfirmado ? "</section>" : `
-    ${resumenResultado()}
+    ${seleccionOferta ? "" : listaComunicaciones()}
+    ${seleccionOferta ? "" : consultaRespuesta()}
+    ${!estado.enlazado || (!seleccionOferta && (bloqueaFlujo || bloqueaLista || estado.comunicaciones?.intentoNoConfirmado)) ? "</section>" : `
+    ${seleccionOferta ? "" : resumenResultado()}
     ${restaurada ? "" : formulario("seleccion", CAMPOS_SELECCION)}
+    ${seleccionOferta ? "</section>" : `
     ${restaurada ? "" : `<details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
       <summary><h3 id="ct-llamamiento-comunicacion-titulo">${e(t("llamamiento_comunicacion"))}</h3></summary>
       ${estado.seleccion.recibo ? formulario("comunicacion", CAMPOS_COMUNICACION, true)
@@ -361,5 +377,5 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) >= 6
       && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) < Number.MAX_SAFE_INTEGER
       ? `${renderizarResumenPropuestaFormalizacion(estado.propuesta.aceptacion, t)}<div data-ct-documentacion-formalizacion></div>${formulario("propuesta", CAMPOS_PROPUESTA)}` : ""}
-  </section>`}`;
+  </section>`}`}`;
 }

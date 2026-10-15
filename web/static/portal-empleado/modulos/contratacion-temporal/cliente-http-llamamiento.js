@@ -1,6 +1,6 @@
 import {
   validarSolicitudSeleccionLlamamiento, validarSolicitudComunicacionLlamamiento,
-  validarReciboSeleccionLlamamiento, validarReciboComunicacionLlamamiento,
+  validarReciboSeleccion, validarReciboComunicacionLlamamiento,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
   validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
   validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
@@ -116,9 +116,9 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
   }
   return Object.freeze({
     seleccionarLlamamiento(solicitud, opciones) {
-      return enviar(RUTAS_LLAMAMIENTO.seleccionLlamamiento,
-        validarSolicitudSeleccionLlamamiento(solicitud), opciones,
-        validarReciboSeleccionLlamamiento);
+      const entrada = validarSolicitudSeleccionLlamamiento(solicitud);
+      return enviar(RUTAS_LLAMAMIENTO.seleccionLlamamiento, entrada, opciones,
+        (respuesta) => validarReciboSeleccion(respuesta, entrada));
     },
     registrarComunicacionLlamamiento(solicitud, opciones) {
       const entrada = validarSolicitudComunicacionLlamamiento(solicitud);

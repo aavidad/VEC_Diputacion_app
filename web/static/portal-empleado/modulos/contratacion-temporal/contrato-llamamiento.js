@@ -2,6 +2,7 @@
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
+export const ESQUEMA_RECIBO_SELECCION_OFERTA = "vec.contratacion-temporal.recibo-seleccion-oferta.v1";
 export const CAMPOS_SELECCION = Object.freeze([
   "expediente_ref", "version_esperada", "clave_idempotencia",
 ]);
@@ -262,6 +263,26 @@ export function validarReciboSeleccionLlamamiento(entrada) {
     && instante(valor.confirmada_en)
     && (!provisional || typeof valor.politica_provisional === "boolean"));
   return valor;
+}
+export function validarReciboSeleccionOferta(entrada, solicitudEntrada) {
+  const valor = registro(entrada, ["esquema", "estado", "organizacion_ref", "expediente_ref",
+    "bolsa_ref", "oferta_ref", "recibo_oferta_ref", "recibo_vinculo_ref", "numero_plazas",
+    "publicada_en", "vence_antes_de"]);
+  exigir(valor.esquema === ESQUEMA_RECIBO_SELECCION_OFERTA && valor.estado === "confirmado"
+    && ["organizacion_ref", "expediente_ref", "bolsa_ref", "oferta_ref", "recibo_oferta_ref", "recibo_vinculo_ref"]
+      .every((campo) => referenciaLlamamientoValida(valor[campo]))
+    && /^oferta:[a-f0-9]{64}$/u.test(valor.oferta_ref)
+    && /^recibo:oferta:[a-f0-9]{64}$/u.test(valor.recibo_oferta_ref)
+    && (!solicitudEntrada || valor.expediente_ref === validarSolicitudSeleccionLlamamiento(solicitudEntrada).expediente_ref)
+    && Number.isSafeInteger(valor.numero_plazas) && valor.numero_plazas >= 2 && valor.numero_plazas <= 100
+    && instante(valor.publicada_en) && instante(valor.vence_antes_de)
+    && Date.parse(valor.vence_antes_de) > Date.parse(valor.publicada_en));
+  return valor;
+}
+export function validarReciboSeleccion(entrada, solicitudEntrada) {
+  return entrada?.esquema === ESQUEMA_RECIBO_SELECCION_OFERTA
+    ? validarReciboSeleccionOferta(entrada, solicitudEntrada)
+    : validarReciboSeleccionLlamamiento(entrada);
 }
 export function validarReciboComunicacionLlamamiento(entrada, solicitudEntrada) {
   const descriptorEstado = entrada && Object.getOwnPropertyDescriptor(entrada, "estado_local");

@@ -64,9 +64,34 @@ test("el cliente usa sus rutas, espera 201 y trata como rechazo cierto solo los 
 
 test("el transporte admite los rechazos propios con su clave i18n", () => {
   assert.equal(codigoValidoParaRuta(RUTA_CANCELACIONES_EXPEDIENTE, 409, "tras_fiscalizacion", {}), true);
+  assert.equal(codigoValidoParaRuta(RUTA_CANCELACIONES_EXPEDIENTE, 409, "seleccion_oferta_pendiente", {}), true);
   assert.equal(codigoValidoParaRuta(RUTA_CANCELACIONES_EXPEDIENTE, 409, "sin_incorporacion", {}), false);
   assert.equal(claveI18nValida(RUTA_CANCELACIONES_EXPEDIENTE, "tras_fiscalizacion", "api.contratacion_temporal.cancelacion.error.tras_fiscalizacion", {}), true);
+  assert.equal(claveI18nValida(RUTA_CANCELACIONES_EXPEDIENTE, "seleccion_oferta_pendiente", "api.contratacion_temporal.cancelacion.error.seleccion_oferta_pendiente", {}), true);
   assert.equal(claveI18nValida(RUTA_CANCELACIONES_EXPEDIENTE, "tras_fiscalizacion", "api.contratacion_temporal.seguimiento.error.tras_fiscalizacion", {}), false);
+});
+
+test("el rechazo por oferta pendiente explica el paso siguiente sin mostrar cancelación confirmada", async () => {
+  const c = contenedorFalso();
+  let avisosConfirmados = 0;
+  const cliente = { consultarCancelacion: async () => validarConsultaCancelacion(consulta(), EXP),
+    cancelarExpediente: async () => { throw { envelopeValido: true, estado: 409, codigo: "seleccion_oferta_pendiente" }; } };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { constructor(f) { this.f = f; } entries() { return Object.entries(this.f.campos); } };
+  try {
+    const desmontar = montarPanelCancelacion({ contenedor: c, cliente, contexto: contextoPanel(), confirmarOperacion: () => true,
+      generarClave: () => UUID, alConfirmar: () => { avisosConfirmados++; } });
+    await esperar();
+    pulsar(c, "[data-ct-cancelacion-abrir]");
+    c.eventos.get("submit")({ target: { closest: () => ({ campos: { motivo_clave: "falta_credito", observaciones: "" } }) }, preventDefault() {} });
+    await esperar();
+    assert.match(c.innerHTML, /Hay una publicación de oferta pendiente de confirmar\. Termine o recupere esa operación antes de cancelar\./u);
+    assert.doesNotMatch(c.innerHTML, /data-copiar-justificante/u);
+    assert.equal(avisosConfirmados, 0);
+    desmontar();
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+  }
 });
 
 test("el historial nombra la actuación de cancelación", () => {
