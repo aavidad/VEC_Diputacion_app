@@ -8,10 +8,46 @@ import (
 )
 
 type ServicioConsultaDetalleRRHH struct {
-	autoridad ports.AutoridadContextoConsultaRRHH
-	emisor    *ports.EmisorMaterialConsultaRRHH
-	sesion    ports.SesionConsultaRRHH
-	reloj     ports.Reloj
+	autoridad              ports.AutoridadContextoConsultaRRHH
+	emisor                 *ports.EmisorMaterialConsultaRRHH
+	sesion                 ports.SesionConsultaRRHH
+	reloj                  ports.Reloj
+	filtroUnidad           ports.FuenteUnidadSelectoresRecuperacionRRHH
+	historicoSinSelectores bool
+}
+
+// El original de propuesta v7 conserva la lectura autorizada de detalle,
+// incluso si la decisión del perfil vigente permite el complemento de firma.
+// Esta fachada histórica nunca publica selectores.
+func NuevoServicioConsultaOriginalPropuestaRRHH(
+	autoridad ports.AutoridadContextoConsultaRRHH,
+	emisor *ports.EmisorMaterialConsultaRRHH,
+	sesion ports.SesionConsultaRRHH,
+	reloj ports.Reloj,
+) (*ServicioConsultaDetalleRRHH, error) {
+	s, err := NuevoServicioConsultaDetalleRRHH(autoridad, emisor, sesion, reloj)
+	if err != nil {
+		return nil, err
+	}
+	s.historicoSinSelectores = true
+	return s, nil
+}
+
+// La fuente opcional sólo reduce los selectores de una decisión que ya los
+// concedió. La lectura ordinaria continúa usando el contrato anterior.
+func NuevoServicioConsultaDetalleRRHHConSelectores(
+	autoridad ports.AutoridadContextoConsultaRRHH,
+	emisor *ports.EmisorMaterialConsultaRRHH,
+	sesion ports.SesionConsultaRRHH,
+	reloj ports.Reloj,
+	filtro ports.FuenteUnidadSelectoresRecuperacionRRHH,
+) (*ServicioConsultaDetalleRRHH, error) {
+	s, err := NuevoServicioConsultaDetalleRRHH(autoridad, emisor, sesion, reloj)
+	if err != nil || dependenciaNula(filtro) {
+		return nil, ErrServicioConsultaRRHHInvalido
+	}
+	s.filtroUnidad = filtro
+	return s, nil
 }
 
 func NuevoServicioConsultaDetalleRRHH(
@@ -40,6 +76,9 @@ func (s *ServicioConsultaDetalleRRHH) Consultar(
 	if s == nil || dependenciaNula(s.autoridad) ||
 		dependenciaNula(s.emisor) || dependenciaNula(s.sesion) ||
 		dependenciaNula(s.reloj) || solicitud.ExpedienteRef() == "" {
+		return ports.DetalleExpedienteRRHH{}, ErrSolicitudConsultaRRHHInvalida
+	}
+	if s.historicoSinSelectores && solicitud.VersionObservada() != 7 {
 		return ports.DetalleExpedienteRRHH{}, ErrSolicitudConsultaRRHHInvalida
 	}
 	contexto, err := s.autoridad.ResolverContextoConsultaRRHH(ctx)
@@ -80,6 +119,10 @@ func (s *ServicioConsultaDetalleRRHH) Consultar(
 	if capacidad.AutorizaCamposSeguimiento() {
 		return ports.DetalleExpedienteRRHH{}, ErrConsultaRRHHNoObservable
 	}
+	conSelectores, err := capacidad.ContratoSelectoresRecuperacionFirmas()
+	if err != nil {
+		return ports.DetalleExpedienteRRHH{}, ErrConsultaRRHHNoObservable
+	}
 	instanteOrden := s.reloj.Ahora()
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.DetalleExpedienteRRHH{}, errContexto
@@ -101,7 +144,26 @@ func (s *ServicioConsultaDetalleRRHH) Consultar(
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.DetalleExpedienteRRHH{}, errContexto
 	}
-	detalle, err := s.sesion.ConsultarDetalleYRegistrar(ctx, orden)
+	var detalle ports.DetalleExpedienteRRHH
+	if conSelectores && !s.historicoSinSelectores {
+		lector, disponible := s.sesion.(ports.SesionConsultaSelectoresRecuperacionRRHH)
+		if !disponible || dependenciaNula(lector) {
+			return ports.DetalleExpedienteRRHH{}, ErrConsultaRRHHNoDisponible
+		}
+		var filtro ports.FiltroUnidadSelectoresRecuperacionRRHH
+		if !dependenciaNula(s.filtroUnidad) {
+			filtro, err = s.filtroUnidad.ResolverUnidadSelectoresRecuperacionRRHH(ctx, contexto)
+			if err != nil {
+				return ports.DetalleExpedienteRRHH{}, normalizarFalloConsultaRRHH(err)
+			}
+			if !filtro.Vacio() && !filtro.Valido() {
+				return ports.DetalleExpedienteRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+			}
+		}
+		detalle, err = lector.ConsultarDetalleConSelectoresYRegistrar(ctx, orden, filtro)
+	} else {
+		detalle, err = s.sesion.ConsultarDetalleYRegistrar(ctx, orden)
+	}
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.DetalleExpedienteRRHH{}, errContexto
 	}
@@ -109,7 +171,10 @@ func (s *ServicioConsultaDetalleRRHH) Consultar(
 		return ports.DetalleExpedienteRRHH{},
 			normalizarFalloConsultaRRHH(err)
 	}
-	if detalle.ValidarPara(orden) != nil {
+	_, tieneSelectores := detalle.SelectoresRecuperacionFirmas()
+	esperarSelectores := conSelectores && !s.historicoSinSelectores
+	if detalle.ValidarPara(orden) != nil || tieneSelectores != esperarSelectores ||
+		(esperarSelectores && detalle.ValidarReciboSelectoresRecuperacionFirmas() != nil) {
 		return ports.DetalleExpedienteRRHH{},
 			ErrResultadoConsultaRRHHNoConfiable
 	}
