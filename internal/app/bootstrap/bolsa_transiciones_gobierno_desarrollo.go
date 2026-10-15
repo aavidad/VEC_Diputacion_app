@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
@@ -48,18 +49,22 @@ func nuevaRutaGobiernoTransicionesBolsaDesarrollo(pool *pgxpool.Pool,
 	}
 	repo, err := postgresbolsa.NuevoRepositorioGobiernoTransicionesSituacionPostgreSQL(pool)
 	if err != nil {
+		slog.Warn("bolsa transiciones: edición no disponible", "etapa", "repositorio", "causa", causaFalloPostgreSQLCTDesarrollo(err))
 		return ruta
 	}
 	servicio, err := aplicacionbolsa.NuevoServicioGobiernoTransicionesSituacion(repo, situacion, catalogoVersion, catalogoSHA256)
 	if err != nil {
+		slog.Warn("bolsa transiciones: edición no disponible", "etapa", "servicio", "causa", causaFalloPostgreSQLCTDesarrollo(err))
 		return ruta
 	}
 	preparador := &preparadorGobiernoTransicionesBolsaDesarrollo{base: base, emisor: emisor, motivo: motivo,
 		catalogoVersion: catalogoVersion, catalogoSHA256: catalogoSHA256, registrador: registrador, proceso: proceso}
 	handler, err := bolsahttp.NuevoHandlerGobiernoTransicionesSituacion(preparador, servicio)
-	if err == nil {
-		ruta.Manejador = handler
+	if err != nil {
+		slog.Warn("bolsa transiciones: edición no disponible", "etapa", "manejador", "causa", causaFalloPostgreSQLCTDesarrollo(err))
+		return ruta
 	}
+	ruta.Manejador = handler
 	return ruta
 }
 

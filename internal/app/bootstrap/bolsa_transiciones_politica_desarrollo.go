@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"log/slog"
 	"reflect"
 	"slices"
 	"time"
@@ -80,7 +81,8 @@ func politicaTransicionesS6PostgreSQL(ctx context.Context, fuentePool, motivosPo
 	}
 	vinculo, err := soporte.soporteCanal.contexto.Vinculo.Datos()
 	if err != nil {
-		return vacia, false, nil
+		slog.Warn("bolsa transiciones: política no disponible", "etapa", "vinculo", "causa", causaFalloPostgreSQLCTDesarrollo(err))
+		return vacia, false, err
 	}
 	fuente, err := postgresvec.NuevoAlmacenAutorizacion(fuentePool)
 	if err != nil {
@@ -95,11 +97,13 @@ func politicaTransicionesS6PostgreSQL(ctx context.Context, fuentePool, motivosPo
 		return vacia, false, err
 	}
 	if err := validador.ValidarReferenciaMotivoAutorizacionV2(ctx, motivo, ahora); err != nil {
-		return vacia, false, nil
+		slog.Warn("bolsa transiciones: política no disponible", "etapa", "motivo", "causa", causaFalloPostgreSQLCTDesarrollo(err))
+		return vacia, false, err
 	}
 	i, err := fuente.ObtenerInstantaneaAutorizacion(ctx, vinculo.PrincipalID, vinculo.PerfilActivoRef)
 	if err != nil {
-		return vacia, false, nil
+		slog.Warn("bolsa transiciones: política no disponible", "etapa", "instantanea", "causa", causaFalloPostgreSQLCTDesarrollo(err))
+		return vacia, false, err
 	}
 	recurso := dominiovec.RecursoAutorizable{Referencia: puertosbolsa.RecursoGobiernoTransicionesSituacion,
 		ModuloID: "bolsa", Tipo: puertosbolsa.TipoRecursoGobiernoTransicionesSituacion,

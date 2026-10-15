@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"log/slog"
 	"reflect"
 	"time"
 
@@ -26,7 +27,11 @@ func instantaneaBolsaS6Compatible(publicada dominiovec.InstantaneaAutorizacion,
 	for _, baseVersion := range []int{versionBase, versionBase + saltoProvisionDocumentalBolsa, versionBase + saltoProvisionDatosContactoBolsa} {
 		base, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 			vinculo.PrincipalID, vinculo.PerfilActivoRef, soporte.unidadRef, soporte.ambitoRef, ahora, baseVersion)
-		if err != nil || publicada.VersionRol.Version <= baseVersion ||
+		if err != nil {
+			slog.Warn("bolsa transiciones: instantánea base no disponible", "causa", causaFalloPostgreSQLCTDesarrollo(err))
+			continue
+		}
+		if publicada.VersionRol.Version <= baseVersion ||
 			publicada.VersionRol.RolID != base.VersionRol.RolID ||
 			publicada.AsignacionPerfil.AsignacionID != base.AsignacionPerfil.AsignacionID ||
 			!reflect.DeepEqual(publicada.AsignacionPerfil.Ambitos, base.AsignacionPerfil.Ambitos) {
