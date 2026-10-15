@@ -234,7 +234,9 @@ La renovación de la configuración de Administración admite hasta 90 días en 
 
 **Para qué sirve.** Guardar todo lo que hace cada persona, también lo que solo consulta o descarga, sin que nadie pueda cambiarlo, de forma que valga como prueba ante un juzgado.
 
-**Hoy.** El registro común está programado y se apunta cada acción. La consulta por persona para RRHH está instalada pero sin activar. La exportación para un juzgado está aparcada.
+**Hoy.** El registro común guarda acciones y consultas. La consulta de actividad de RRHH requiere activar su configuración y el permiso de consulta; la [guía de activación](../../deploy/principal/habilitacion_auditoria_rrhh_20261013.md) describe cómo prepararlos en una copia local. La exportación para un juzgado está aparcada.
+
+Para consultar, abra Bolsas → Auditoría y control → Auditoría y trazabilidad. Elija Persona, busque a la persona de Personal, seleccione el motivo e indique un intervalo de hasta 31 días. El resultado reúne sus actuaciones y lecturas. Cada consulta queda registrada; al repetirla puede comprobar también el acceso anterior.
 
 **Al final.** Consulta de quién hizo qué y cuándo, y exportación firmada, que también queda registrada.
 
