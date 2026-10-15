@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"reflect"
-	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -40,32 +39,6 @@ func (f fuenteTransicionesS6) ObtenerInstantaneaAutorizacion(ctx context.Context
 		return vacia, puertosvec.ErrFuenteAutorizacionNoDisponible
 	}
 	return i, nil
-}
-
-func concesionesTransicionesS6Exactas(concesiones []dominiovec.ConcesionRol) bool {
-	consultas, publicaciones := 0, 0
-	for _, c := range concesiones {
-		switch c.Accion {
-		case puertosbolsa.AccionConsultarTransicionesSituacion:
-			if c.ModuloID != "bolsa" || c.TipoRecurso != puertosbolsa.TipoRecursoGobiernoTransicionesSituacion ||
-				!slices.Equal(c.Finalidades, []string{puertosbolsa.FinalidadConsultaTransicionesSituacion}) ||
-				!slices.Equal(c.CamposPermitidos, []string{puertosbolsa.CampoConsultaTransicionesSituacion}) ||
-				(len(c.Obligaciones) != 0 && !slices.Equal(c.Obligaciones, []string{"auditar"})) ||
-				c.GarantiaMinima != dominiovec.AuthAssuranceHigh {
-				return false
-			}
-			consultas++
-		case puertosbolsa.AccionPublicarTransicionesSituacion:
-			if c.ModuloID != "bolsa" || c.TipoRecurso != puertosbolsa.TipoRecursoGobiernoTransicionesSituacion ||
-				!slices.Equal(c.Finalidades, []string{puertosbolsa.FinalidadGobiernoTransicionesSituacion}) ||
-				len(c.CamposPermitidos) != 0 || len(c.Obligaciones) != 0 ||
-				c.GarantiaMinima != dominiovec.AuthAssuranceHigh {
-				return false
-			}
-			publicaciones++
-		}
-	}
-	return consultas == 1 && publicaciones <= 1
 }
 
 // politicaTransicionesS6PostgreSQL solo adopta autoridad, motivo y rol ya

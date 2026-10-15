@@ -8,15 +8,9 @@ import (
 )
 
 const (
-	EsquemaGobiernoTransicionesSituacion     = "vec.bolsa.rrhh.politica-transiciones.v1"
-	AccionPublicarTransicionesSituacion      = "bolsa.politica_transiciones.publicar"
-	AccionConsultarTransicionesSituacion     = "bolsa.politica_transiciones.consultar"
-	AudienciaPublicarTransicionesSituacion   = "vec_bolsa_llamamientos.politica_transiciones.publicar.v1"
-	FinalidadGobiernoTransicionesSituacion   = "gobierno_politica_transiciones_bolsa"
-	FinalidadConsultaTransicionesSituacion   = "consultar_politica_transiciones_bolsa"
-	CampoConsultaTransicionesSituacion       = "politica_transiciones"
-	TipoRecursoGobiernoTransicionesSituacion = "politica_transiciones_global"
-	RecursoGobiernoTransicionesSituacion     = "bolsa:politica:transiciones:global"
+	EsquemaGobiernoTransicionesSituacion   = "vec.bolsa.rrhh.politica-transiciones.v1"
+	AudienciaPublicarTransicionesSituacion = "vec_bolsa_llamamientos.politica_transiciones.publicar.v1"
+	RecursoGobiernoTransicionesSituacion   = "bolsa:politica:transiciones:global"
 )
 
 var (
