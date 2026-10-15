@@ -54,7 +54,7 @@ Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede e
 | Situación | Cuándo se da |
 | --- | --- |
 | Disponible | Puede recibir ofertas. |
-| No disponible | Ha pedido no recibir ofertas durante un tiempo. |
+| No disponible | No puede recibir ofertas por una causa que ha registrado Recursos Humanos. No hay pausa a petición propia: Recursos Humanos decidió el 2 de octubre que no existe la suspensión temporal. |
 | Pendiente de incorporación | Ha aceptado una oferta y aún no se ha incorporado. |
 | Trabajando | Tiene un contrato en curso por esa bolsa. |
 | Renuncia | Ha renunciado a una oferta. |
@@ -159,7 +159,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Bolsas que vienen de Convoca | Se cargan desde el Excel de Convoca. | Nada para cargar las bolsas actuales. | La carga sirve solo para pasar a VEC las bolsas que ya existen. Las nuevas se hacen enteras en VEC. |
 | Convocatorias, inscripción, méritos y alegaciones | Programado: el aspirante se inscribe, declara sus méritos con documentos y presenta alegaciones; RRHH admite o rechaza. | Activarlo en el entorno de pruebas. | VEC sustituye a Convoca. El aspirante hace todo desde su área personal y RRHH lo revisa en pantalla. |
 | Baremación | No existe todavía. | Que RRHH cierre cómo se acreditan los méritos. | VEC calcula los puntos con el baremo de cada convocatoria, que RRHH puede cambiar. RRHH revisa y publica las listas provisional y definitiva. |
-| Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. | Formulario para que el aspirante pida la pausa o vuelva a estar disponible. Subir el fichero del justificante de renuncia. | El aspirante gestiona su disponibilidad y aporta sus justificantes desde su área personal. RRHH los valida en pantalla. |
+| Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. | Subir el fichero del justificante de renuncia. | El aspirante aporta sus justificantes desde su área personal y RRHH los valida en pantalla. |
 | A quién se ofrece un puesto | VEC sigue el orden de la bolsa y salta a quien no está disponible. | Ofrecer otro puesto a quien ya trabaja con nosotros y tener en cuenta los tipos de contrato que acepta cada persona. Necesitamos la regla de RRHH. | VEC elige a quién ofrecer según la situación, el tipo de contrato y las reglas que fije RRHH, y RRHH ve por qué se salta a cada persona. |
 | Aviso de la oferta | Correo con plantilla desde un buzón de pruebas. Llamadas anotadas. | El correo de la Diputación, que depende de Informática. | Correo oficial y, cuando Informática dé un proveedor, también SMS. |
 | Ofertas de varias plazas | Bolsa ya sabe adjudicar varias plazas por orden. | Que el expediente las use: hoy llama de una en una. | Una petición de varias personas se cubre con una sola oferta. |
