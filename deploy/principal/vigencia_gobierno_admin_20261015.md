@@ -51,9 +51,11 @@ un nombre de revisión o un prefijo. Al recargar, CT conserva la publicación
 vigente, sin acortarla ni sustituirla por otra diaria.
 
 El fichero privado de configuración sigue siendo obligatorio: la variable
-solo selecciona el plazo y no lo sustituye. Una configuración de desarrollo
-restaurada en otro entorno impide el arranque; prepare el material que
-corresponda a ese entorno mediante su gobierno, conservando lo ya publicado.
+solo selecciona el plazo y no lo sustituye. La configuración de confianza
+con vigencia superior a 24 horas se rechaza si faltan las tres llaves de
+desarrollo. Si el proceso necesita esa configuración para arrancar, no
+arrancará. Al restaurarla en un entorno sin esas llaves, prepare el material
+que corresponda mediante su gobierno, conservando lo ya publicado.
 
 Las claves y la confianza no pueden durar más que la raíz existente. Si la
 raíz no cubre el plazo pedido, preparar se rechaza; no se prolonga la raíz.
