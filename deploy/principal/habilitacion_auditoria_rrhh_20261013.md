@@ -121,6 +121,9 @@ ejecuta otra vez `lista_sql_auditoria_rrhh.txt`.
    consulta tiene exactamente los 18 campos del JSON adjunto y tres ámbitos:
    organización de CT/Personal, unidad y ámbito de la asignación de Bolsa.
    AUT82 vuelve a comprobar los tres; no se añaden centro ni categoría.
+   El perfil necesita además un vínculo corporativo vigente y aceptado por
+   CA40 para la misma cuenta, persona, perfil y ContextoActor, con sus versiones
+   actuales. La asignación del rol por sí sola no crea ese vínculo.
    Mantener también la configuración de auditoría de intentos, incluidos sus
    archivos `.dsn`, en la misma copia y con su CA. Bolsa necesita una
    configuración SMTP completa aunque este ensayo solo haga consultas; el
@@ -141,6 +144,15 @@ consulta. No acreditan la publicación del catálogo, el rol o la asignación po
 Administración. Esa activación conserva el procedimiento de dos personas
 administradoras descrito arriba. Los certificados, conexiones y respuestas
 completas se guardan fuera de Git.
+
+En el ensayo F0-01 del 16/10, el respaldo carecía del vínculo del perfil de
+auditoría. Se preparó como dato ficticio de la copia, con 90 días de vigencia,
+sin cambiar el vínculo de Bolsa. No se acreditó su publicación por el gobierno
+común: esa provisión sigue siendo un requisito de cualquier activación fuera
+de la copia. Chrome mostró el mismo acto y recibo tras reiniciar aplicación y
+PostgreSQL y recuperó tres lecturas anteriores. Intervención recibió 403 y su
+denegación quedó registrada. Con auditoría apagada, portal, sesión y `/livez`
+respondieron 200; las rutas de auditoría quedaron cerradas con 404.
 
 ### Ensayo anterior de las proyecciones
 
