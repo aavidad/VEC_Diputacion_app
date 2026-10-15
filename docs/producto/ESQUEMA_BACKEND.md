@@ -695,10 +695,14 @@ Esa cobertura indica qué documentos consultar; no concede permiso de firma.
 La ficha conserva los errores de consulta de cada documento y muestra los
 cuatro documentos sin plan como pendientes, sin acciones de firma.
 
-La lista de activación de #1137 ordena CT218, IS20, AUT97 y CT219. AUT97
+La lista de activación de #1137 ordena CT218, IS20, AUT97, CT219 y CT224. AUT97
 reconstruye el validador nominal desde su preimagen y cambia únicamente el
 alias SQL que colisionaba con la variable de asignación. No cambia permisos
 ni decisiones. Solo se instalan las migraciones aún ausentes en cada copia.
+CT224 admite el tercer paso en la consulta del acto nominal solo con unidad
+concreta y paso publicado en el plan vigente. Conserva los pasos 1 y 2 sin
+unidad; la recuperación histórica mantiene su contrato anterior. AD280 quedó
+reservada sin uso y no forma parte de esta entrega.
 
 La auditoría histórica admite la política de certificado personal de
 desarrollo acreditada en la fecha original para una cuenta interna

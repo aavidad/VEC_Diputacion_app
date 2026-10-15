@@ -182,7 +182,11 @@ está instalada; verificar su hash antes de reanudar:
   El único acta escrita es la del 05/10
   (`docs/estudio_requisitos/acta_recorrido_ct_bolsa_20261005.md`) y se paró en
   la resolución.
-- **La firma de dos o tres personas.** Ningún documento sale hoy firmado.
+- **La firma en el recorrido completo.** En la copia H, el informe ya tiene
+  dos firmas verificadas y se descarga desde la ficha; Intervención rechaza
+  la fiscalización sin la segunda firma y la admite después. Faltan completar
+  la resolución y la recuperación tras reinicio. P acredita el caso único
+  del apartado 4.0 de `FLUJO_APP.md`; este ensayo parcial no acredita cidonia.
 - **El correo de la Diputación.** Se usa un buzón de pruebas; vale para la
   presentación, no para uso real.
 - **La lectura rápida medida en cidonia.** El último dato del cuadro de CT en
@@ -202,7 +206,7 @@ está instalada; verificar su hash antes de reanudar:
 | 3. ORQ-1, selección a medias | Resuelta con #918 (AD225, CT198, AD226, CT199), en cidonia desde HZ12 |
 | 4. Repetir el recorrido completo | Pendiente (apartado 6) |
 | 5. Carga de bolsas desde CONVOCA | #751 y #752 fusionadas; la pantalla #759 se cerró y la carga se hizo en `vec-admin` con dos administradores (10/10) |
-| 6. Firma de dos personas | Pendiente; ahora la lleva el equipo H (#1099) |
+| 6. Firma de dos personas | Informe registrado y descargado en la copia H (#1137); faltan resolución completa, reinicio y recorrido único de P |
 | 7. Plazos de CT editables y tarjetas de plazo | Plazos con #919 (en cidonia desde HZ11). Tarjetas de plazo en Inicio (CT192): *pendiente de verificar* |
 | 8. Velocidad | Pendiente de medir en cidonia |
 | 9. Correo de la Diputación | Bloqueado por datos de Informática (duda 88) |

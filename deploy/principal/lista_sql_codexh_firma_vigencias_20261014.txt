@@ -2,3 +2,4 @@ deploy/postgresql/contratacion_temporal/migraciones/000218_configuracion_plantil
 deploy/postgresql/identidad_sesiones_v1/migraciones/000020_cotejo_historico_certificado_personal.up.sql
 deploy/postgresql/autorizacion/migraciones/000097_alias_asignacion_firma_ct.up.sql
 deploy/postgresql/contratacion_temporal/migraciones/000219_firma_v3_rol_cargo_del_plan.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000224_paso_tres_consulta_firmas.up.sql

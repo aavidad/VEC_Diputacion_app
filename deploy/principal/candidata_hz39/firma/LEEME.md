@@ -39,6 +39,12 @@ con el paquete y recibo reales del plan, los cuatro recibos de certificados
 nominales y las asignaciones, roles y controles exportados de esta copia.
 Conservar la configuración y los materiales con permisos privados.
 
+Las fechas de las asignaciones deben tener formato UTC canónico: sin ceros
+fraccionarios finales (`.36663Z`, no `.366630Z`), o con segundos enteros. El
+validador nominal compara ese texto con el canon de competencia; representar
+el mismo instante de otra forma provoca una denegación. Corregir el dato de
+la copia y regenerar su admisión, sin cambiar la guarda.
+
 ## Empleados de los firmantes
 
 Antes de activar el panel nominal, aplicar `datos_empleados_firmantes.sql`
@@ -243,6 +249,29 @@ contra el paso del plan publicado. Compararlos entre sí rechazaba todos los
 pasos preparados por Administración. La versión 3 del registro conserva la
 autorización, el consumo en la misma transacción y su historia; las funciones
 históricas de versión 2 y la entrada de versión 4 permanecen intactas.
+
+## Original y versión actual del expediente
+
+RRHH prepara y custodia el original antes de que lo recupere la persona que
+firma. El permiso de firma no concede por sí solo permiso para crear ese
+original. Si el expediente tiene anotaciones posteriores a la propuesta,
+`original_version` conserva la versión de aquella y `version_expediente`
+debe ser la versión actual observada de la ficha. No copiar un valor sobre
+el otro: en el segundo expediente de H son 7 y 9, respectivamente.
+
+## Tercer paso de la resolución
+
+Después de las migraciones anteriores, instalar CT224 una sola vez. La
+consulta del acto nominal admite el paso 3 únicamente con unidad concreta
+y paso publicado en el plan vigente. Conserva los pasos 1 y 2 sin unidad.
+Antes rechazaba el tercer paso antes de leer la historia. Mantiene sus
+comprobaciones de sesión, autorización, plan, versión, integridad y auditoría,
+y fija `search_path = pg_catalog, pg_temp`.
+
+La recuperación histórica mediante `recuperaciones-v2` conserva su contrato
+anterior de dos pasos. Su ampliación queda pendiente y AD280 no se instala.
+La descarga del PDF firmado desde la ficha usa `descargas-v2`, que consulta
+la historia autorizada y recupera la custodia exacta.
 
 ## Verificador de cada copia
 
