@@ -36,13 +36,17 @@ pertenecen a la copia. La instalación no crea LOGIN ni concede permisos al arra
    deniega: un permiso anterior no abre campos nuevos.
 
 Las fuentes de este corte duran un año. El material ficticio del ensayo debe
-conservar al menos sesenta días de vigencia. No se incluyen credenciales ni
-material privado en el repositorio.
+conservar al menos sesenta días de vigencia. La ventana técnica para admitir el
+catálogo es de un día. Dirección ha autorizado renovar, por el procedimiento
+existente, las claves de gobierno de un día necesarias para los actos de dos
+administradores; su duración configurable se entrega por separado. No se
+alargan claves anteriores. No se incluyen credenciales ni material privado en
+el repositorio.
 
 ## Regla de la bolsa
 
 En la política de ofertas, RRHH pulsa «Añadir criterios para vacantes». El botón
-lee el catálogo público versionado
+lee el catálogo versionado
 `web/static/portal-empleado/modulos/bolsa/criterios-ofrecimiento/v1.json` y rellena
 solo el borrador. RRHH revisa la fuente y los parámetros y publica una versión
 por el acto existente; el navegador conserva y muestra su recibo.
@@ -87,3 +91,9 @@ comprobó su servicio HTTP real. La publicación nominal desde el cliente web
 produjo una política versión 1 con recibo. La consulta posterior al reinicio
 conservó versión, fecha, recibo y criterios. Esta comprobación usa la operación
 real de publicación; sigue pendiente recorrerla desde la navegación que monta S.
+
+La admisión técnica del catálogo versión 7 se completó en la copia: el programa
+vigente emitió un recibo con auditoría y la consulta posterior recuperó sus 23
+entradas. Las dos revisiones verificaron las fuentes y los 68 perfiles contra
+el estado anterior. La asignación de RRHH sigue sin cambiar; esta admisión no
+acredita todavía los actos de dos administradores ni el permiso nuevo de motivos.
