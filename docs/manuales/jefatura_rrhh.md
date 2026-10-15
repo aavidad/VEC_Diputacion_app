@@ -47,6 +47,8 @@ Una bolsa se forma de una de estas dos maneras:
 
 Cada persona entra en la bolsa con su posición y como «Disponible».
 
+El cuadro de Bolsas muestra las cifras por situación. Los nombres largos de categoría ocupan varias líneas; si faltan columnas a la vista, desplace la tabla horizontalmente dentro del panel.
+
 ### 4.2 La situación de cada candidato
 
 Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede estar disponible en una y trabajando por la otra.
