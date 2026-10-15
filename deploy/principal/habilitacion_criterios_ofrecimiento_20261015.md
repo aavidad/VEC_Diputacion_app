@@ -80,3 +80,10 @@ propia de HZ37 y pasó las tres pruebas SQL focales de la lista de cambios. El
 arranque genuino tardó 1,80 s y Chrome obtuvo sesión y bolsas con respuesta 200.
 Ese ensayo precede a B117: no acredita aún la candidata conjunta ni la publicación
 de la política desde pantalla. La PR conserva ese trabajo pendiente.
+
+
+Después se declaró el catálogo y su módulo en los manifiestos internos y se
+comprobó su servicio HTTP real. La publicación nominal desde el cliente web
+produjo una política versión 1 con recibo. La consulta posterior al reinicio
+conservó versión, fecha, recibo y criterios. Esta comprobación usa la operación
+real de publicación; sigue pendiente recorrerla desde la navegación que monta S.

@@ -344,6 +344,24 @@ Políticas versionadas que RRHH puede cambiar sin tocar código:
 `politica_orden_bolsa`, `politica_transiciones_situacion`, `politica_avisos_bolsa`,
 `politica_cese_bolsa`, `politica_segregacion`, `politica_ofertas_version`.
 
+El apartado opcional `criterios_ofrecimiento` de la política conserva su fuente,
+modalidad, causa y condiciones. El origen nativo de CT guarda la versión aplicada
+y los eventos usados; la concesión de lectura de origen versión 2 declara esos
+campos expresamente. El enlace contractual de B13 admite también
+`origen_llamamiento_ct_v1`, con cotejo de expediente, organización y categoría.
+Una fecha o causa ausente mantiene la comprobación pendiente cuando afecta al
+ofrecimiento; no acredita disponibilidad ni una excepción.
+
+El seguimiento `GET /api/vec/bolsa/bolsas/{bolsa}/candidatos` puede pedir
+`llamamiento` y `exclusiones_desde`. El bloque `exclusiones_origen` usa una acción
+nominal propia, acotada a bolsa y llamamiento y auditada en la misma transacción.
+Devuelve el motivo, la posición, la versión de regla y hechos por tipo y fecha.
+Sin concesión o ante un fallo, se cierra solo ese bloque. Una comprobación
+pendiente anterior a la siguiente persona elegible detiene la selección de CT
+antes de reservar y produce un diagnóstico 409 con bolsa, posición y versión.
+Esta entrega conserva la detención: el acto que acredite los hechos y habilite
+la excepción, junto con el control del plazo en CT, pertenece al corte siguiente.
+
 Ojo: las tablas de propuesta de las migraciones Bolsa `000001` y `000002`
 (`necesidad_autoritativa`, `propuesta`…) **no están instaladas en la principal**; comprobar su existencia
 antes de usarlas (`revisar-sql-vec`). Los datos de contacto van cifrados; en

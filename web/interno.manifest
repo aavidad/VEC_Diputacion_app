@@ -416,6 +416,8 @@ static/textos/en/bolsa.json
 static/portal-empleado/modulos/bolsa/rrhh-plazos-api.js
 static/portal-empleado/modulos/bolsa/rrhh-plazos-i18n.js
 static/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js
+static/portal-empleado/modulos/bolsa/rrhh-criterios-ofrecimiento.js
+static/portal-empleado/modulos/bolsa/criterios-ofrecimiento/v1.json
 static/portal-empleado/modulos/bolsa/rrhh-plazos.css
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-vista.js
