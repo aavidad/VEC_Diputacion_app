@@ -1,4 +1,3 @@
--- WIP: no instalado; pendiente de prueba y revisión independiente.
 \set ON_ERROR_STOP on
 -- D25: la preparación propia liga la huella al ámbito candidato de Bolsa.
 -- La persona sigue siendo principal de decisión y titular del documento.
