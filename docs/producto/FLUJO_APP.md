@@ -481,6 +481,11 @@ RRHH puede además pasar una participación a **En revisión** cuando espera un
 justificante para regularizarla; la aspirante ve «RRHH confirmará tu
 situación».
 
+Falta resolver cada respuesta del aspirante con un acto propio de RRHH y su
+recibo. El [contrato propuesto](../plan_modulos/bolsa_respuestas_en_revision_contrato.md)
+distingue esa respuesta pendiente de la situación vigente de la participación;
+no amplía las operaciones generales de regularización o exclusión.
+
 «Baja» no es un estado: corresponde a renuncia o exclusión. No existe la
 suspensión temporal (decisión de RRHH del 02/10). Desde `excluido` no se sale.
 
