@@ -137,7 +137,7 @@ func TestJustificanteRRHHResuelveDosTecnicasYDeniegaSinPermiso(t *testing.T) {
 		t.Fatal(err)
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: resolvedor,
-		registro: registroSesionJustificanteRRHHPrueba{RegistroSesiones: e.registro, reloj: e.reloj},
+		registro:    registroSesionJustificanteRRHHPrueba{RegistroSesiones: e.registro, reloj: e.reloj},
 		revalidador: e.revalidador, contextos: e.resolutor, reloj: e.reloj, instancia: "justificante-rrhh-prueba"}
 	autoridad := &autoridadPreferenciasUsuariosDesarrollo{base: base, cuentas: cuentas, reloj: relojRutasDietas{},
 		superficie: core.SuperficieAutenticacionInternaCorporativaV1}

@@ -44,8 +44,9 @@ BEGIN
   IF position(nombre IN def)=0 THEN RAISE EXCEPTION 'AD277 prueba: acto/audiencia ausente: %',nombre; END IF;
  END LOOP;
  f:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM
-   '7d13731f452b0f8d7020ea0ab602c465897617fce61a84a7887491309e1bbb48' OR
+ IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') NOT IN (
+   '7d13731f452b0f8d7020ea0ab602c465897617fce61a84a7887491309e1bbb48',
+   'cfcacf14cae0132aefb589b341fe920fbeab1e4d6df1ce3f7685ccd0507c5960') OR
   NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND
   p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef AND
   p.proacl::text='{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario}')

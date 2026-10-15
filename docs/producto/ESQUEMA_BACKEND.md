@@ -545,8 +545,9 @@ La rama del justificante de renuncia añade AD277 y AUT95 para la autorización
 atestada de la subida, D20 para la custodia común, M7 como dependencia
 documental, D22 para el justificante de Bolsa, B119 para vincularlo a la
 respuesta y CT222 para la frontera con Contratación temporal. AUT99, AD281 y
-D23 completan el permiso de lectura de RRHH. La instalación y el ensayo de esa
-cadena están pendientes; la guía `deploy/principal/justificante_renuncia_activacion.md`
+D23 completan la autoridad externa de los actos propios de Bolsa. La cadena
+SQL se ha instalado y ensayado en una copia limpia de la principal; la
+revisión independiente y el recorrido completo siguen pendientes; la guía `deploy/principal/justificante_renuncia_activacion.md`
 fija el orden de activación. La lectura y descarga pertenecen a cualquier
 técnica con permiso vigente de su rol, no a una cuenta nominal indicada en la
 configuración técnica.

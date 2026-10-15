@@ -14,10 +14,10 @@ BEGIN
    '{vec_autorizacion_propietario=X/vec_autorizacion_propietario,vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_propietario}'
   THEN RAISE EXCEPTION 'AUT99: contrato de pareja divergente %',firma; END IF;
  END LOOP;
- IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE
-  p.oid='vec_autorizacion.decision_documentos_bolsa_externa_exacta_v1(jsonb,jsonb)'::regprocedure
-  AND p.proacl::text='{vec_autorizacion_propietario=X/vec_autorizacion_propietario}'
-  AND p.prosecdef) THEN RAISE EXCEPTION 'AUT99: predicado privado alterado'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_proc pr WHERE
+  pr.oid='vec_autorizacion.decision_documentos_bolsa_externa_exacta_v1(jsonb,jsonb)'::regprocedure
+  AND pr.proacl::text='{vec_autorizacion_propietario=X/vec_autorizacion_propietario}'
+  AND pr.prosecdef) THEN RAISE EXCEPTION 'AUT99: predicado privado alterado'; END IF;
  IF vec_autorizacion.decision_documentos_bolsa_externa_exacta_v1(
   '{"modulo_id":"bolsa","accion":"bolsa.justificante_renuncia.descargar_rrhh"}'::jsonb,
   '{"referencia":{"catalogo_id":"motivos_autorizacion_justificante_renuncia_bolsa"}}'::jsonb) IS TRUE

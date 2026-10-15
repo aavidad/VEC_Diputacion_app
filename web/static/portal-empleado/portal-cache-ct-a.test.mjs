@@ -5,7 +5,7 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 const versionCoordinador = "20261014-ginpix-cronos-v1";
-const versionEntrada = "20261015-o-justificante-bolsa-v1";
+const versionEntrada = "20261015-o-justificante-bolsa-v2";
 const versionClienteCT = "20261014-ginpix-personal-b2-v1";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
 const versionCircuito = "20261014-ginpix-personal-b2-v1";

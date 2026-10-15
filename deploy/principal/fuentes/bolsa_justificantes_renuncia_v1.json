@@ -2,8 +2,8 @@
   "modulo_id": "bolsa",
   "referencia": "fuente:bolsa:justificantes_renuncia_v1",
   "version": 1,
-  "huella_sha256": "89a27588272266ed3a8117efb21c6198e94dac477923896800233d1c15d9ed4e",
-  "entradas_canon": "[{\"referencia\":\"accion:bolsa.justificante_renuncia.subir_propio\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:justificantes_renuncia_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.justificante_renuncia.subir_propio\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"justificante_renuncia\",\"finalidades\":[\"custodiar_justificante_renuncia_bolsa\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"contenido\",\"estado\",\"recibo\"]},\"dimensiones_ambito\":[\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-15T00:00:00Z\",\"vigente_hasta\":\"2027-10-15T00:00:00Z\"},{\"referencia\":\"accion:bolsa.justificante_renuncia.descargar_propio\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:justificantes_renuncia_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.justificante_renuncia.descargar_propio\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"justificante_renuncia\",\"finalidades\":[\"custodiar_justificante_renuncia_bolsa\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"contenido\"]},\"dimensiones_ambito\":[\"persona_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-15T00:00:00Z\",\"vigente_hasta\":\"2027-10-15T00:00:00Z\"},{\"referencia\":\"accion:bolsa.justificante_renuncia.descargar_rrhh\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:justificantes_renuncia_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.justificante_renuncia.descargar_rrhh\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"justificante_renuncia\",\"finalidades\":[\"custodiar_justificante_renuncia_bolsa\"],\"garantia_minima\":\"sustancial\",\"campos_permitidos\":[\"contenido\"]},\"dimensiones_ambito\":[\"bolsa_ref\",\"participacion_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-15T00:00:00Z\",\"vigente_hasta\":\"2027-10-15T00:00:00Z\"}]",
+  "huella_sha256": "5750b81c9f7346d6c6e51c34d07a79e314a199268b82fc5be15a150a2ac8698d",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.justificante_renuncia.subir_propio\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:justificantes_renuncia_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.justificante_renuncia.subir_propio\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"justificante_renuncia\",\"finalidades\":[\"custodiar_justificante_renuncia_bolsa\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"contenido\",\"estado\",\"recibo\"]},\"dimensiones_ambito\":[\"candidato_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-15T00:00:00Z\",\"vigente_hasta\":\"2027-10-15T00:00:00Z\"},{\"referencia\":\"accion:bolsa.justificante_renuncia.descargar_propio\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:justificantes_renuncia_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.justificante_renuncia.descargar_propio\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"justificante_renuncia\",\"finalidades\":[\"custodiar_justificante_renuncia_bolsa\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"contenido\"]},\"dimensiones_ambito\":[\"candidato_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-15T00:00:00Z\",\"vigente_hasta\":\"2027-10-15T00:00:00Z\"},{\"referencia\":\"accion:bolsa.justificante_renuncia.descargar_rrhh\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:justificantes_renuncia_v1\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.justificante_renuncia.descargar_rrhh\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"justificante_renuncia\",\"finalidades\":[\"custodiar_justificante_renuncia_bolsa\"],\"garantia_minima\":\"sustancial\",\"campos_permitidos\":[\"contenido\"]},\"dimensiones_ambito\":[\"bolsa_ref\",\"participacion_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-15T00:00:00Z\",\"vigente_hasta\":\"2027-10-15T00:00:00Z\"}]",
   "entradas": [
     {
       "referencia": "accion:bolsa.justificante_renuncia.subir_propio",
@@ -26,12 +26,12 @@
         "obligaciones": []
       },
       "dimensiones_ambito": [
-        "persona_ref"
+        "candidato_ref"
       ],
       "clase_control": "ordinario",
       "vigente_desde": "2026-10-15T00:00:00Z",
       "vigente_hasta": "2027-10-15T00:00:00Z",
-      "fuente_huella_sha256": "89a27588272266ed3a8117efb21c6198e94dac477923896800233d1c15d9ed4e"
+      "fuente_huella_sha256": "5750b81c9f7346d6c6e51c34d07a79e314a199268b82fc5be15a150a2ac8698d"
     },
     {
       "referencia": "accion:bolsa.justificante_renuncia.descargar_propio",
@@ -52,12 +52,12 @@
         "obligaciones": []
       },
       "dimensiones_ambito": [
-        "persona_ref"
+        "candidato_ref"
       ],
       "clase_control": "ordinario",
       "vigente_desde": "2026-10-15T00:00:00Z",
       "vigente_hasta": "2027-10-15T00:00:00Z",
-      "fuente_huella_sha256": "89a27588272266ed3a8117efb21c6198e94dac477923896800233d1c15d9ed4e"
+      "fuente_huella_sha256": "5750b81c9f7346d6c6e51c34d07a79e314a199268b82fc5be15a150a2ac8698d"
     },
     {
       "referencia": "accion:bolsa.justificante_renuncia.descargar_rrhh",
@@ -84,7 +84,7 @@
       "clase_control": "ordinario",
       "vigente_desde": "2026-10-15T00:00:00Z",
       "vigente_hasta": "2027-10-15T00:00:00Z",
-      "fuente_huella_sha256": "89a27588272266ed3a8117efb21c6198e94dac477923896800233d1c15d9ed4e"
+      "fuente_huella_sha256": "5750b81c9f7346d6c6e51c34d07a79e314a199268b82fc5be15a150a2ac8698d"
     }
   ]
 }
