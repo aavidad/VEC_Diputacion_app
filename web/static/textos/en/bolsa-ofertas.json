@@ -110,6 +110,29 @@
   "politica_plazo": {
     "ayuda": "The operational deadline starts from the date and time of the external email declared by HR. The form shows the current policy or proposes the job pool catalogue. Review and save it before publishing."
   },
+  "politica_criterios_ofrecimiento": {
+    "titulo": "Criteria for expressing interest",
+    "fuente_normativa": "Applicable rule or link to the rule",
+    "modalidades_aceptables": "Accepted offer types",
+    "modalidad_no_aceptada": "If an offer type is not accepted",
+    "no_renuncia": "Does not count as declining",
+    "renuncia": "Counts as declining",
+    "mejora_habilitada": "Allow applications to improve the current appointment",
+    "destinos": "Eligible offer types",
+    "condicion": "Current appointment {numero}",
+    "baja_comprobada": "Verified termination required",
+    "meses_transcurridos": "Maximum months elapsed",
+    "meses_duracion_inicial": "Maximum initial duration in months",
+    "incluye_limite": "Include the limit month",
+    "si": "Yes",
+    "no": "No",
+    "modalidad_publicada": "Published type {numero}",
+    "modalidad_vacante": "Vacancy",
+    "modalidad_sustitucion": "Substitution",
+    "modalidad_programa": "Temporary programme",
+    "modalidad_acumulacion_tareas": "Workload increase",
+    "causa_publicada": "Published reason {numero}"
+  },
   "politica_plazas": {
     "aceptacion_previa": "Posts are awarded among those who accepted within the deadline, by available order. No second reply is required.",
     "titulo": "Posts",

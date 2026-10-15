@@ -75,6 +75,40 @@ export async function cargarEjemploPlazas({ cliente } = {}) {
   }
 }
 
+const CLAVE_CRITERIO = (valor) => typeof valor === "string" && valor.length > 0 && valor.trim() === valor;
+function fuenteNormativaValida(valor) {
+  if (!CLAVE_CRITERIO(valor) || valor.length > 500) return false;
+  if (!/^https?:/iu.test(valor)) return true;
+  try {
+    const url = new URL(valor);
+    return ["http:", "https:"].includes(url.protocol) && Boolean(url.hostname)
+      && !url.username && !url.password;
+  } catch { return false; }
+}
+const CLAVES_CRITERIO = (valores, obligatorio = false) => Array.isArray(valores)
+  && (!obligatorio || valores.length > 0) && valores.every(CLAVE_CRITERIO)
+  && new Set(valores).size === valores.length;
+const LIMITE_MESES = (limite) => limite === undefined || (limite !== null && Number.isSafeInteger(limite.meses)
+  && limite.meses > 0 && typeof limite.incluye_limite === "boolean");
+
+/** El catálogo publicado define las claves; esta comprobación solo valida su forma. */
+export function criteriosOfrecimientoValidos(criterios) {
+  if (!criterios || typeof criterios !== "object" || Array.isArray(criterios)
+    || !fuenteNormativaValida(criterios.fuente_normativa)
+    || !CLAVES_CRITERIO(criterios.modalidades_aceptables)
+    || !["no_renuncia", "renuncia"].includes(criterios.modalidad_no_aceptada)) return false;
+  const mejora = criterios.mejora;
+  if (mejora === undefined || mejora === null) return true;
+  return typeof mejora === "object" && !Array.isArray(mejora)
+    && (mejora.habilitada === undefined || typeof mejora.habilitada === "boolean")
+    && CLAVES_CRITERIO(mejora.modalidades_destino, true)
+    && Array.isArray(mejora.condiciones_actuales) && mejora.condiciones_actuales.length > 0
+    && mejora.condiciones_actuales.every((condicion) => condicion && CLAVE_CRITERIO(condicion.modalidad)
+      && (condicion.causa === undefined || condicion.causa === "" || CLAVE_CRITERIO(condicion.causa))
+      && (condicion.requiere_baja_comprobada === undefined || typeof condicion.requiere_baja_comprobada === "boolean")
+      && LIMITE_MESES(condicion.meses_transcurridos) && LIMITE_MESES(condicion.meses_duracion_inicial));
+}
+
 export function validarPoliticaEditable(politica, { permitirLegada = false } = {}) {
   const plazo = politica?.plazo;
   const horas = plazo?.unidad === "horas_naturales";
@@ -88,7 +122,8 @@ export function validarPoliticaEditable(politica, { permitirLegada = false } = {
     || (politica.adjudicacion.confirmacion !== undefined && politica.adjudicacion.confirmacion !== "aceptacion_previa")
     || politica?.no_cubierta?.accion !== "llamamiento_directo"
     || politica.no_cubierta.condicion !== "sin_disposiciones_elegibles"
-    || (politica.plazas !== undefined && politica.plazas !== null && !plazasCompletas(politica.plazas))) {
+    || (politica.plazas !== undefined && politica.plazas !== null && !plazasCompletas(politica.plazas))
+    || (politica.criterios_ofrecimiento !== undefined && !criteriosOfrecimientoValidos(politica.criterios_ofrecimiento))) {
     throw new TypeError("política de ofertas no válida");
   }
   const copia = structuredClone(politica);

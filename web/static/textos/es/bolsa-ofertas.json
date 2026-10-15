@@ -110,6 +110,29 @@
   "politica_plazo": {
     "ayuda": "El plazo operativo empieza en la fecha y hora del correo externo declaradas por RRHH. El formulario muestra la política vigente o propone el catálogo de Bolsa. Revíselo y guárdelo antes de publicar."
   },
+  "politica_criterios_ofrecimiento": {
+    "titulo": "Criterios para ofrecerse",
+    "fuente_normativa": "Norma aplicable o enlace a la norma",
+    "modalidades_aceptables": "Modalidades de oferta admitidas",
+    "modalidad_no_aceptada": "Si no acepta una modalidad",
+    "no_renuncia": "No cuenta como renuncia",
+    "renuncia": "Cuenta como renuncia",
+    "mejora_habilitada": "Permitir ofrecerse para mejorar la relación actual",
+    "destinos": "Modalidades a las que puede optar",
+    "condicion": "Relación actual {numero}",
+    "baja_comprobada": "Baja comprobada obligatoria",
+    "meses_transcurridos": "Máximo de meses transcurridos",
+    "meses_duracion_inicial": "Máximo de meses de duración inicial",
+    "incluye_limite": "Incluye el mes límite",
+    "si": "Sí",
+    "no": "No",
+    "modalidad_publicada": "Modalidad publicada {numero}",
+    "modalidad_vacante": "Vacante",
+    "modalidad_sustitucion": "Sustitución",
+    "modalidad_programa": "Programa temporal",
+    "modalidad_acumulacion_tareas": "Acumulación de tareas",
+    "causa_publicada": "Causa publicada {numero}"
+  },
   "politica_plazas": {
     "aceptacion_previa": "Se adjudica entre las aceptaciones recibidas en plazo, por posición disponible. No se pide una segunda respuesta.",
     "titulo": "Plazas",

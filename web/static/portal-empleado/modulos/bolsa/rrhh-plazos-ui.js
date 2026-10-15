@@ -1,12 +1,14 @@
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { crearClientePoliticaOfertas, validarPoliticaEditable, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, leerReglasVigentes,
   LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarCriteriosOfrecimiento, cambiarCriteriosOfrecimiento } from "./rrhh-criterios-ofrecimiento.js?v=20261015-criterios-ofrecimiento-r1";
 
 // Los textos de plazos y plazas viven en textos/<idioma>/bolsa-ofertas.json.
 const { cargarTextos } = await import("../../../comun/textos.js");
 const CATALOGO_TEXTOS = await cargarTextos("bolsa-ofertas");
 const TEXTOS_PLAZAS = CATALOGO_TEXTOS.seccion("politica_plazas");
 const TEXTOS_PLAZO = CATALOGO_TEXTOS.seccion("politica_plazo");
+const TEXTOS_CRITERIOS = CATALOGO_TEXTOS.seccion("politica_criterios_ofrecimiento");
 const PLAZAS_VACIAS = Object.freeze({ llamada: "", respuesta_horas: null, tras_renuncia: "" });
 const CLAVE_PLAZO_CATALOGO = "b10.plazo_publicacion";
 
@@ -267,12 +269,18 @@ export function crearSuperficieRRHHPlazos({
       : estado.capacidadCargando ? `<p class="dato-secundario" role="status">${t("comprobando_edicion")}</p>`
         : estado.capacidadError ? `<div class="rrhh-plazos__acciones"><p class="rrhh-plazos__error" role="alert">${t("error_capacidad")}</p><button type="button" class="boton-secundario" data-rrhh-plazos-accion="capacidad">${t("reintentar")}</button></div>`
           : `<p class="dato-secundario">${t("sin_edicion")}</p>`;
-    return `<section class="rrhh-plazos" aria-label="${t("titulo")}"><div class="panel">${cabecera}${aviso ? `<div class="cuerpo-panel">${aviso}</div>` : ""}</div><form data-rrhh-plazos-form="politica" novalidate><div class="rrhh-plazos__rejilla">${plazo}${orden}${noCubierta}${plazas}</div>${boton}</form></section>`;
+    const criterios = configurada ? renderizarCriteriosOfrecimiento(v.criterios_ofrecimiento, TEXTOS_CRITERIOS, deshabilitado) : "";
+    return `<section class="rrhh-plazos" aria-label="${t("titulo")}"><div class="panel">${cabecera}${aviso ? `<div class="cuerpo-panel">${aviso}</div>` : ""}</div><form data-rrhh-plazos-form="politica" novalidate><div class="rrhh-plazos__rejilla">${plazo}${orden}${noCubierta}${plazas}${criterios}</div>${boton}</form></section>`;
   }
 
   function manejarCambio(evento) {
     const control = evento.target;
-    if (!control?.closest?.('[data-rrhh-plazos-form="politica"]') || !puedeEditar()) return false;
+    if (!control?.closest?.('[data-rrhh-plazos-form="politica"]') || !puedeEditar() || estado.guardando || estado.conflicto) return false;
+    if (control.name?.startsWith("criterio_") && estado.vigente?.politica?.criterios_ofrecimiento) {
+      if (!cambiarCriteriosOfrecimiento(estado.borrador.criterios_ofrecimiento, control)) return false;
+      estado.clave = ""; estado.mensaje = ""; estado.error = "";
+      return true;
+    }
     const campoPlazas = { plazas_llamada: "llamada", plazas_respuesta_horas: "respuesta_horas", plazas_tras_renuncia: "tras_renuncia" }[control.name];
     if (campoPlazas) {
       const valor = campoPlazas === "respuesta_horas" ? (control.value === "" ? null : Number(control.value)) : control.value;
