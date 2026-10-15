@@ -44,4 +44,13 @@ BEGIN
    jsonb_set(c,'{mejora,campo_ajeno}','true'::jsonb)) IS NOT FALSE THEN
   RAISE EXCEPTION 'B118: séptimo campo ajeno admitido'; END IF;
 END $test$;
+-- El propietario efectivo de AD276 debe poder ejecutar el validador cerrado.
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+DO $lector$ BEGIN
+ IF vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1('{}'::jsonb) IS NOT TRUE
+ OR has_function_privilege('public',
+   'vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(jsonb)','EXECUTE') THEN
+  RAISE EXCEPTION 'B118: permiso nominal del validador incorrecto';
+ END IF;
+END $lector$;
 ROLLBACK;

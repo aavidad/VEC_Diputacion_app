@@ -118,6 +118,9 @@ BEGIN
 EXCEPTION WHEN data_exception THEN RETURN false;
 END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(jsonb) FROM PUBLIC;
+-- La lectura auditada de AD276 valida esta misma regla bajo su propietario.
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(jsonb)
+ TO vec_autorizacion_atestada_v3_propietario;
 
 -- B13 enlazaba únicamente llamamientos del puente de desarrollo. Los eventos
 -- de contratos nacidos del origen B110 tienen que conservar su participación.
@@ -1075,6 +1078,8 @@ BEGIN
  OR EXISTS(SELECT 1 FROM pg_proc p,
       aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
       WHERE p.oid=ANY(firmas) AND acl.grantee=0 AND acl.privilege_type='EXECUTE')
+ OR has_function_privilege('vec_autorizacion_atestada_v3_propietario',
+      'vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(jsonb)','EXECUTE') IS NOT TRUE
  THEN RAISE EXCEPTION 'B118: funciones nuevas sin cierre de permisos'
   USING ERRCODE='55000'; END IF;
 END $post$;
