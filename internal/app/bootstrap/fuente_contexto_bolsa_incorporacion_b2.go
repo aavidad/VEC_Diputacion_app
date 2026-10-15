@@ -24,6 +24,7 @@ type AutoridadPublicacionIncorporacionB2 interface {
 // confiable de la petición. El contrato CT nunca aporta identidad ni permisos.
 type ConfiguracionFuentesContextoIncorporacionB2 struct {
 	Bolsa        bp.ConsultaPersonaAceptacionCT
+	BolsaNativa  bp.ConsultaAceptacionNativaCT
 	ActorBolsa   func(context.Context) (bp.ActorConfiablePersonaAceptacionCT, error)
 	Vinculos     ConsultaVinculoIncorporacionB2
 	Publicacion  ct.FuentePublicacionCategoriaRPT
@@ -151,6 +152,9 @@ func NuevasFuentesContextoIncorporacionB2(c ConfiguracionFuentesContextoIncorpor
 
 func (f *FuentesContextoIncorporacionB2) LeerPersonaSeleccionada(ctx context.Context, c inc.ContratoPlanNominal) (inc.PersonaSeleccionadaBolsa, error) {
 	var cero inc.PersonaSeleccionadaBolsa
+	if !c.SelectorBolsaNativa.IsZero() {
+		return f.leerPersonaSeleccionadaNativaB2(ctx, c)
+	}
 	if f == nil || ctx == nil || dependenciaBootstrapNula(f.c.Bolsa) || f.c.ActorBolsa == nil {
 		return cero, ct.ErrComposicionIncorporacionAplicacion
 	}

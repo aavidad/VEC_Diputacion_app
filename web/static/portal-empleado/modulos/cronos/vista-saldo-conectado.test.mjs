@@ -134,7 +134,7 @@ test("404 de la API: «no disponible» neutro, sin alerta; incrustada sin sobrel
   const raiz = { ownerDocument: { createElement: () => nodo }, append() {} };
   const vista = montarVistaSaldoCronos({ raiz, incrustada: true, cliente: { consultar: async () => { throw new ErrorClienteSaldoCronos("servicio_no_disponible", 404); } } });
   await Promise.resolve(); await Promise.resolve();
-  assert.match(nodo.innerHTML, /<p class="cronos-vacio"[^>]*role="status">El servicio de saldo no está disponible/u);
+  assert.match(nodo.innerHTML, /<p class="cronos-vacio"[^>]*role="status">El saldo horario no está disponible/u);
   assert.doesNotMatch(nodo.innerHTML, /No se pudo consultar/u);
   assert.doesNotMatch(nodo.innerHTML, /sobrelinea|<h2/u);
   assert.match(nodo.innerHTML, /<h3 id="cronos-saldo-titulo">/u);

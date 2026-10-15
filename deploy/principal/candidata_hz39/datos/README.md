@@ -1,6 +1,6 @@
 # Datos del recorrido de la candidata HZ39
 
-Estos guiones preparan el puesto, la plaza y la participación de Antonio del [caso de aceptación](../../../../docs/producto/FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación):
+Estos guiones preparan el puesto, la plaza, la participación de Antonio y la denominación del cargo de Manuel del [caso de aceptación](../../../../docs/producto/FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación):
 
 | Dato | Valor |
 | --- | --- |
@@ -52,6 +52,8 @@ psql -X -v ON_ERROR_STOP=1 \
   -f deploy/principal/candidata_hz39/datos/organizacion_520_administrativo.sql
 psql -X -v ON_ERROR_STOP=1 \
   -f deploy/principal/candidata_hz39/datos/antonio_disponible.sql
+psql -X -v ON_ERROR_STOP=1 \
+  -f deploy/principal/candidata_hz39/datos/cargo_manuel.sql
 ```
 
 La lista de ejecución es
@@ -136,3 +138,10 @@ de la petición conservada en K, la fuente del llamamiento CT devuelve a Antonio
 como disponible en el turno 1 de la bolsa vigente (19,278 ms). La segunda carga
 tardó 78,59 ms, incluidos Docker y psql. El recorrido completo de pantalla y
 reinicio sigue siendo el ensayo de P.
+
+El guion `cargo_manuel.sql` añade una revisión del catálogo organizativo en
+borrador y conserva las anteriores. La denominación del puesto de Manuel
+queda «Subdirección de Informática». La fuente de esa carga es
+`datos:recorrido:hz39`; no representa un acto administrativo ni cambia
+cargos, adscripciones, personas, permisos o recibos. Conserva el canon de
+texto del catálogo para que la pantalla pueda editarlo después con su huella.

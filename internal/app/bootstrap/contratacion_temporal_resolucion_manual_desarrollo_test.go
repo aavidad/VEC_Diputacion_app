@@ -118,6 +118,23 @@ type aceptadorRevisionManualPrueba struct {
 	apertura  string
 }
 
+type verificadorPortalNativoRevisionPrueba struct {
+	*aceptadorRevisionManualPrueba
+	respuesta puertosbolsa.ResultadoParticipacionEmisionCT
+	falla     bool
+	lecturas  int
+}
+
+func (v *verificadorPortalNativoRevisionPrueba) verificarRespuestaPortalConstituidaCT(
+	_ context.Context, _ ports.SolicitudResolverLlamamiento, _ ports.ReciboSolicitudLlamamientoBolsa,
+) (puertosbolsa.ResultadoParticipacionEmisionCT, error) {
+	v.lecturas++
+	if v.falla {
+		return puertosbolsa.ResultadoParticipacionEmisionCT{}, errors.New("respuesta portal no acreditada")
+	}
+	return v.respuesta, nil
+}
+
 func (a *aceptadorRevisionManualPrueba) AceptarRespuestaRRHH(ctx context.Context, s ports.SolicitudResolverLlamamiento, seleccion ports.ReciboSolicitudLlamamientoBolsa, r puertosbolsa.ResolucionLlamamientoDesarrollo) (puertosbolsa.ReciboLlamamientoDesarrollo, error) {
 	if s.Respuesta != ports.RespuestaLlamamientoAceptada {
 		return puertosbolsa.ReciboLlamamientoDesarrollo{}, errors.New("no es aceptación")
@@ -225,6 +242,38 @@ func TestResolucionManualDesarrolloSoloEntregaReciboTrasAmbosCommits(t *testing.
 	r, err = e.resolverConRevisionManual(ctx, l.solicitud, l.justificante)
 	if err != nil || !r.EsReplayConfirmado() || r.ReciboLocalRef != l.local.ReciboLocalRef || r.ResueltaEn != l.local.ResueltaEn || servicio.llamadas != 2 {
 		t.Fatal("reintento perdió recibo original", err)
+	}
+}
+
+func TestResolucionManualNativaExigeRespuestaFirmeAntesDeCommitCT(t *testing.T) {
+	ctx, p, l := escenarioRevisionManualPrueba(t)
+	seleccion := &l.justificante.Seleccion
+	seleccion.Procedencia.SinRetencionDeclarada = true
+	seleccion.Procedencia.Evidencia.RetenerHasta = time.Time{}
+	seleccion.RetencionSeleccion = ports.ReferenciaVersionadaIntegracionBolsa{}
+	if l.justificante.ValidarPara(l.solicitud) != nil {
+		t.Fatal("fixture de recibo nativo inválida")
+	}
+	respondida := l.local.ResueltaEn.Add(-time.Microsecond)
+	verificador := &verificadorPortalNativoRevisionPrueba{
+		aceptadorRevisionManualPrueba: &aceptadorRevisionManualPrueba{}, falla: true,
+		respuesta: puertosbolsa.ResultadoParticipacionEmisionCT{
+			ParticipacionRef: "participacion:nativa", Respuesta: puertosbolsa.RespuestaPortalAcepta,
+			Modo: puertosbolsa.ModoRespuestaPortalFirme, ReciboRespuestaRef: "recibo:portal:nativo",
+			RespondidaEn: &respondida,
+		},
+	}
+	servicio := &servicioRevisionManualPrueba{local: l.local}
+	e := &ejecutorComunicacionLlamamientoDesarrollo{soporte: p.soporte, servicio: servicio, aceptador: verificador}
+	if _, err := e.resolverConRevisionManual(ctx, l.solicitud, l.justificante); !errors.Is(err, application.ErrComunicacionLlamamientoNoDisponible) ||
+		servicio.llamadas != 0 || verificador.llamadas != 0 {
+		t.Fatal("una respuesta sin acreditar avanzó CT", err)
+	}
+	verificador.falla = false
+	r, err := e.resolverConRevisionManual(ctx, l.solicitud, l.justificante)
+	if err != nil || r.ReciboLocalRef != l.local.ReciboLocalRef ||
+		servicio.llamadas != 1 || verificador.llamadas != 0 || verificador.lecturas != 2 {
+		t.Fatal("la respuesta firme nativa debe confirmar CT sin mutar el ledger legado", err)
 	}
 }
 

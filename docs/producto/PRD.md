@@ -1194,9 +1194,9 @@ recorrido. El detalle de pantallas y llamadas está en `docs/producto/FLUJO_APP.
 | 8 | Técnico de RRHH | Lanza el llamamiento desde la bolsa real | Contratación temporal y Bolsa |
 | 9 | Aspirante | Ve la oferta y acepta | «Mi Bolsa» |
 | 10 | RRHH y firmantes | Propuesta y resolución firmada por dos personas, verificada | Ficha del expediente, GrxFirma |
-| 11 | Técnico de RRHH | Registra la grabación en GINPIX | Ficha del expediente |
-| 12 | Centro | Confirma la incorporación | «Peticiones del centro» |
-| 13 | Técnico de RRHH | Alta en Personal | Personal |
+| 11 | Centro | Confirma la incorporación | «Peticiones del centro» |
+| 12 | Técnico de RRHH | Alta en Personal con su relación y ocupación | Personal |
+| 13 | Técnico de RRHH | Descarga la ficha desde el alta confirmada y registra la grabación manual en GINPIX | Ficha del expediente |
 | 14 | Técnico de RRHH | Cese | Contratación temporal |
 | 15 | Aspirante | Vuelve a estar disponible en su bolsa | «Mi Bolsa» |
 
