@@ -17,7 +17,7 @@ func TestLoadFSResolvesLocaleAndDefaultFallback(t *testing.T) {
 		"locales/en.json": {Data: []byte(`{
 			"api.error.unauthorized": "Authentication required"
 		}`)},
-	}, "locales", WithDefaultLocale("es"))
+	}, "locales")
 	if err != nil {
 		t.Fatalf("LoadFS() error = %v", err)
 	}
