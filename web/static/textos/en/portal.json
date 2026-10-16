@@ -1144,7 +1144,7 @@
     "bolsa_reposicion_misma_posicion": "Same position",
     "bolsa_reposicion_fin_lista": "At the end of the list",
     "bolsa_reposicion_no_disponible_hasta_fecha": "Unavailable until a date",
-    "bolsa_estado_trabajando": "Employed / Working",
+    "bolsa_estado_trabajando": "Working",
     "bolsa_estado_no_disponible": "Unavailable",
     "bolsa_estado_excluido": "Excluded",
     "bolsa_estado_renuncia": "Declined",

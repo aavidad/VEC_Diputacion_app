@@ -504,6 +504,62 @@
             }
           }
         }
+      },
+      "c03": {
+        "plazo_fiscalizacion": {
+          "etiqueta": {
+            "original": "Plazo de fiscalización",
+            "texto": "Plazo de fiscalización"
+          },
+          "descripcion": {
+            "original": "Diez días hábiles; cinco si la tramitación es urgente.",
+            "texto": "Diez días hábiles; cinco si la tramitación es urgente.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "Diez días hábiles para fiscalizar el expediente completo; cinco si la tramitación se ha declarado urgente.",
+                "texto": "Diez días hábiles para fiscalizar el expediente completo; cinco si la tramitación se ha declarado urgente."
+              }
+            }
+          },
+          "duda": {
+            "original": "Cotejar el texto del art. 13.1 con Intervención.",
+            "texto": "Cotejar el texto del art. 13.1 con Intervención.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "El cómputo empieza el día siguiente a la recepción del expediente completo. La fiscalización limitada previa también tiene un plazo de cinco días; VEC no identifica ese régimen por separado.",
+                "texto": "El cómputo empieza el día siguiente a la recepción del expediente completo. La fiscalización limitada previa también tiene un plazo de cinco días; VEC no identifica ese régimen por separado."
+              }
+            }
+          }
+        }
+      },
+      "c04": {
+        "plazo_subsanacion": {
+          "etiqueta": {
+            "original": "Plazo de subsanación",
+            "texto": "Plazo de subsanación"
+          },
+          "descripcion": {
+            "original": "Diez días hábiles para subsanar.",
+            "texto": "Diez días hábiles para subsanar.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "Quince días hábiles para subsanar el reparo y remitir de nuevo el expediente a Intervención.",
+                "texto": "Quince días hábiles para subsanar el reparo y remitir de nuevo el expediente a Intervención."
+              }
+            }
+          },
+          "duda": {
+            "original": "Pendiente de RRHH.",
+            "texto": "Pendiente de RRHH.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "VEC cuenta desde que el servicio recibe el reparo. La aceptación del reparo no se registra por separado.",
+                "texto": "VEC cuenta desde que el servicio recibe el reparo. La aceptación del reparo no se registra por separado."
+              }
+            }
+          }
+        }
       }
     }
   }

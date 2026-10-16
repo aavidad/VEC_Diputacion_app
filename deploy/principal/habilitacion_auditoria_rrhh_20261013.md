@@ -22,6 +22,14 @@ La instalación no crea LOGIN, no asigna permisos y no cambia la historia existe
 Con historia nueva no aplicar DOWN ni repetir estas SQL. La vuelta atrás del kit
 de dirección repone conjuntamente la copia fría de base, configuración y binario.
 
+F0-01 añade AD285 después de AD251, mediante
+`lista_sql_codexb_f0_01_20261015.txt`. Corrige únicamente los paréntesis de las
+extracciones JSON al construir la huella del filtro. Exige la función instalada
+con su preimagen exacta y conserva propietario, permisos y demás metadatos.
+No modifica el núcleo ni el CHECK común de auditoría. Se sirve con el código de
+este corte: el preflight comprueba el aislamiento de Bolsa sin pedir acceso a su
+esquema y el cargador admite el catálogo operativo.
+
 ## Configuración
 
 CONFIG NUEVA: `VEC_RRHH_AUDITORIA_ENABLED=true` y
@@ -31,6 +39,15 @@ Copiar `data/catalogos/auditoria/consulta.v2.json` a esa ruta antes de arrancar.
 El fichero contiene el motivo configurable, sin claves ni identidades personales.
 Esta instalación exige la versión 2 del catálogo; la referencia y la huella
 deben coincidir con su publicación vigente.
+
+El catálogo v2 declara su predecesor y comienza en revisión 1. Antes de activar,
+comprobar la fuente de motivos de autorización: si falta la versión 1, hay que
+provisionarla primero desde su fuente histórica mediante
+`vec_autorizacion.publicar_motivos_autorizacion_v2`, con secuencia y referencia
+de evento propias. La función instalada exige esa versión anterior; no basta
+con copiar el fichero v2. Cada versión conserva su huella, sus entradas y su
+evento. Una versión ya publicada con otra huella requiere una decisión de
+dirección; este guion no la sobrescribe.
 
 Conservar los LOGIN segregados ya preparados y declarar sus DSN privados:
 
@@ -88,6 +105,56 @@ del 13/10 a las 03:15. No se exige contrato ni adscripción inventada para consu
 una bolsa constituida. CT y Personal cotejan su organización en cada proyección.
 
 ## Comprobación y límites
+
+### Activación en una copia local (F0-01)
+
+Esta tarea reutiliza la consulta y la definición del rol existentes. Restaurar
+el respaldo en un PostgreSQL 18 propio, con sus ACL, y comprobar primero la
+presencia de AUT82, CT208, B109, P47 y AD251. Si ya están instaladas, no se
+ejecuta otra vez `lista_sql_auditoria_rrhh.txt`.
+
+1. Conservar el material privado del respaldo como solo lectura. Preparar otra
+   carpeta para la copia, sus certificados, conexiones y resultados.
+2. Comprobar el arranque con la auditoría apagada. Guardar el resultado de
+   salud y una consulta habitual de RRHH antes de activar nada.
+3. Preparar el catálogo v2 y los tres LOGIN separados de esta guía. El rol de
+   consulta tiene exactamente los 18 campos del JSON adjunto y tres ámbitos:
+   organización de CT/Personal, unidad y ámbito de la asignación de Bolsa.
+   AUT82 vuelve a comprobar los tres; no se añaden centro ni categoría.
+   El perfil necesita además un vínculo corporativo vigente y aceptado por
+   CA40 para la misma cuenta, persona, perfil y ContextoActor, con sus versiones
+   actuales. La asignación del rol por sí sola no crea ese vínculo.
+   Mantener también la configuración de auditoría de intentos, incluidos sus
+   archivos `.dsn`, en la misma copia y con su CA. Bolsa necesita una
+   configuración SMTP completa aunque este ensayo solo haga consultas; el
+   buzón local debe comprobar TLS y no reenviar fuera de la copia.
+4. Activar la configuración completa y reiniciar el proceso de la copia.
+   Con el certificado de RRHH, abrir Bolsas → Auditoría y control → Auditoría
+   y trazabilidad. Seleccionar Persona, buscar una persona de Personal,
+   indicar el motivo y un intervalo de hasta 31 días y consultar.
+5. Conservar una lectura y un acto de esa persona. La consulta devuelve su
+   referencia de auditoría; una segunda consulta permite comprobar también
+   el registro de la primera. Una referencia ajena no devuelve datos.
+6. Reiniciar la aplicación y PostgreSQL. Recuperar los mismos hechos y
+   comprobar que permanecen las referencias de auditoría anteriores. Volver
+   a apagar el selector y comprobar la salud y la consulta habitual de RRHH.
+
+Los datos ficticios preparados directamente en la copia sirven para ensayar la
+consulta. No acreditan la publicación del catálogo, el rol o la asignación por
+Administración. Esa activación conserva el procedimiento de dos personas
+administradoras descrito arriba. Los certificados, conexiones y respuestas
+completas se guardan fuera de Git.
+
+En el ensayo F0-01 del 16/10, el respaldo carecía del vínculo del perfil de
+auditoría. Se preparó como dato ficticio de la copia, con 90 días de vigencia,
+sin cambiar el vínculo de Bolsa. No se acreditó su publicación por el gobierno
+común: esa provisión sigue siendo un requisito de cualquier activación fuera
+de la copia. Chrome mostró el mismo acto y recibo tras reiniciar aplicación y
+PostgreSQL y recuperó tres lecturas anteriores. Intervención recibió 403 y su
+denegación quedó registrada. Con auditoría apagada, portal, sesión y `/livez`
+respondieron 200; las rutas de auditoría quedaron cerradas con 404.
+
+### Ensayo anterior de las proyecciones
 
 La copia actual de `principal.sql` del 13/10 se restauró completa en PostgreSQL 18
 propio, con 2 GB y datos en disco, en 85,7 s. Las cinco SQL se instalaron en

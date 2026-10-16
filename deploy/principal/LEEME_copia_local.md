@@ -100,14 +100,14 @@ falta. A 15/10 son 26 migraciones, que se aplican en este orden:
 
 | Orden | Lista | Qué trae |
 | --- | --- | --- |
-| 1 | `candidata_hz39/lista_sql.txt` | Las once de la candidata (confianza externa, cargos y plan de firma, organización de la firma, informe firmado, detalle RRHH) y al final CT218, IS20, AUT97, CT219 y CT224 |
+| 1 | `candidata_hz39/lista_sql.txt` | Las once de la candidata (confianza externa, cargos y plan de firma, organización de la firma, informe firmado, detalle RRHH). No trae las cinco de la firma: van en la lista 1b |
+| 1b | `candidata_hz39/lista_sql_firma_vigencias.txt` | CT218, IS20, AUT97, CT219 y CT224 (firma de tres pasos, #1137). Las mismas que `lista_sql_codexh_firma_vigencias_20261014.txt`: aplica solo una de las dos, una vez |
 | 2 | ninguna | AD266, secuencia global de confianza ADMIN (#1134). La necesita el gobierno de usuarios ADMIN (apartado 4). P la aplicó después de las once primeras *(por verificar si debe ir antes de CT218)* |
 | 3 | `candidata_hz39/personal/lista_sql.txt` | Ocho de Personal y Bolsa nativos (alta y cese desde la bolsa). Exige antes B110 y AD261, que deberían estar en HZ37 *(por verificar)* |
 | 4 | `lista_sql_codexs_varias_plazas_20261015.txt` | B117, ofertas con plazo desde la publicación (#1145) |
 
-Las cinco últimas de la lista 1 son las mismas de
-`candidata_hz39/lista_sql_firma_vigencias.txt` y de
-`lista_sql_codexh_firma_vigencias_20261014.txt`. Aplícalas una sola vez.
+Corrección del 16/10 (T): la lista 1 tiene once SQL; las cinco de la firma
+están solo en la lista 1b y se aplican aparte, sin duplicarlas.
 `lista_sql_codexh_firma_tres_pasos_20261013.txt`,
 `lista_sql_codexk_personal_bolsa_nativa_20261013.txt` y
 `lista_sql_codexp_confianza_externa_20261014.txt` son subconjuntos de las
@@ -300,7 +300,8 @@ Si se apagó el equipo, `/dev/shm` está vacío: vuelve al apartado 2.
 | La selección rechaza el puesto 9/01 | Unidad gestora frente a unidad del puesto | Esperar a F1-21 (#1153); no tocar el dato |
 | La selección exige una necesidad de la RPT | La solicitud de la copia no la guardó | Variante vacante del caso 4.0 como dato de copia |
 | El cliente de Personal (M10) llama a un puerto ajeno | `cliente_m10_ct.json` copiado sin cambiar | Apuntarlo a tu servicio |
-| La consulta de firmas da 503 con «autenticación histórica inválida» | Falta IS20 | Aplicar la lista 1 completa |
+| La consulta de firmas da 503 con «autenticación histórica inválida» | Falta IS20 | Aplicar la lista 1b |
+| El contenedor de la app no arranca al montar `/app` en solo lectura y `/app/var` en escritura | Falta la carpeta `var/` en tu carpeta de trabajo | Crea `var/` en tu carpeta de trabajo antes de montar (lo vio T el 16/10) |
 | Rechazo de una fecha que es el mismo instante | Representación distinta: AUT32 compara texto con el canon nominal; CA25 y los motivos de Organización histórica exigen seis decimales | Generar las fechas en el formato canónico de cada guarda; corregir el dato de la copia |
 | Los datos de empleados firmantes piden 400 días de relación cubierta | Las asignaciones de la copia duran 90 días | Ajustar en la copia las relaciones a las vigencias existentes (P usó 89 días por SQL) |
 | Firma del paso 3 rechazada por unidad | CT224 solo admite el paso 3 con unidad y paso publicados en el plan vigente | Publicar el plan con esa unidad |

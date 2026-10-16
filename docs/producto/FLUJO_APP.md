@@ -784,9 +784,13 @@ desfavorable. Con el circuito de firma activo no puede fiscalizar hasta que el
 informe esté firmado (409 `firma_remision_pendiente`). Con reparo, el
 expediente vuelve al servicio: RRHH registra la subsanación, emite un informe
 nuevo firmado por la Jefatura de Servicio y vuelve a Intervención, con un plazo
-nuevo (RD 424/2017, arts. 10.2 y 12.4). Plazos por defecto: 10 días hábiles
-(5 si es urgente) para fiscalizar y 10 para subsanar, editables en «Reglas
-vigentes».
+nuevo (RD 424/2017, arts. 10.2 y 12.4). El catálogo v3 fija 10 días hábiles
+(5 si es urgente) para fiscalizar y 15 para subsanar, sin edición desde
+«Reglas vigentes» (arts. 10.3 y 12.4; Ley 39/2015, art. 30.2). VEC cuenta
+la subsanación desde que el servicio recibe el reparo; no registra su
+aceptación por separado. Las instantáneas anteriores conservan su versión.
+La fiscalización limitada previa también tiene cinco días, pero VEC aún no
+identifica ese régimen de forma independiente.
 
 #### 4.3.6 Firma de tres cargos
 

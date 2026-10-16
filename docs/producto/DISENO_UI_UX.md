@@ -483,6 +483,8 @@ intermedios). Qué parte está ya hecha en el portal lo dice `PLAN_IMPLEMENTACIO
 - Arriba: nombre de la bolsa, vigencia y «Nuevo llamamiento» como acción principal.
 - Cuatro contadores pulsables: disponibles, trabajando, pendientes de incorporarse y no
   disponibles; el resto de situaciones en el filtro. Sin abreviaturas.
+- Las situaciones usan el nombre singular del catálogo en la lista, la ficha y los filtros:
+  «Disponible», «No disponible», «Trabajando» o «Excluido».
 - Cinco columnas: orden · persona · situación (punto y palabra) · último llamamiento ·
   acciones; en móvil, fichas. Fechas dd/mm/aaaa y la hora solo si existe.
 - «Registrar resultado» no vive aquí: lleva al expediente del llamamiento. Los criterios de
