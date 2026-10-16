@@ -739,7 +739,7 @@ Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
 un reintento conserva fechas, política y oferta originales. Este corte no acredita
 todavía la publicación desde la ficha de CT.
 
-**Candidata R1a, pendiente de integrar e instalar.** La selección explica por
+**Candidata R1a comprobada en copia local, pendiente de integrar.** La selección explica por
 persona los hechos comprobados y el motivo aplicado, con el vínculo al contrato
 de origen del llamamiento de CT. Si falta un contrato anterior o un dato para
 comprobar la excepción de vacante, muestra «Pendiente de comprobación» y se
@@ -755,8 +755,15 @@ requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
 de origen CT, y la concesión exacta al rol RRHH aprobada por dos
 administradores. Si falta el apartado de criterios, la selección conserva el
 orden y las reglas anteriores; la aplicación arranca. Si RRHH no tiene permiso
-para consultar motivos, el bloque indica que no están disponibles. Falta comprobar
-el conjunto con y sin esa configuración, en navegador y tras reinicio.
+para consultar motivos, el bloque indica que no están disponibles. En la copia
+local se guardó una política desde la pantalla y se conservaron versión, huella y
+recibo tras reiniciar; la bolsa estaba sin configurar antes. El seguimiento
+histórico mostró motivos y versión en castellano e inglés, en escritorio y móvil.
+En otra copia desechable, con el mismo análisis y las decisiones conservadas,
+CT detuvo con 409 la selección en la primera persona trabajando sin hechos:
+mostró posición y versión, no creó llamamiento y permitió abrir la bolsa.
+Alcance y límites en
+[`habilitacion_criterios_ofrecimiento_20261015.md`](../../deploy/principal/habilitacion_criterios_ofrecimiento_20261015.md).
 
 **Candidata de consulta de puestos.** El ofrecimiento usa la RPT publicada y
 la historia autorizada del puesto de Personal. La consulta existente se conecta
