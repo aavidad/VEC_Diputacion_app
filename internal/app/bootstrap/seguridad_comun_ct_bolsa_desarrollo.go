@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -205,8 +206,9 @@ func (c catalogoFronterasComunDesarrollo) resolver(
 }
 
 type contextoSeguridadComunDesarrollo struct {
-	Vinculo   vecdomain.VinculoAutenticacionActorV2
-	Resultado vecdomain.ResultadoContextoActorRegistradoV2
+	Vinculo                   vecdomain.VinculoAutenticacionActorV2
+	Resultado                 vecdomain.ResultadoContextoActorRegistradoV2
+	seleccionJustificanteRRHH *seleccionNominalJustificanteRRHH
 }
 
 type claveFronteraSeguridadComunDesarrollo struct{}
@@ -215,6 +217,7 @@ type fronteraSeguridadComunDesarrollo struct {
 	metodo, ruta, superficie string
 	catalogo                 catalogoFronterasComunDesarrollo
 	descriptor               descriptorFronteraComunDesarrollo
+	holder                   *contextoOperacionCTDesarrollo
 }
 
 func fronteraSeguridadComunDesdeContexto(
@@ -232,6 +235,13 @@ func fronteraSeguridadComunDesdeContexto(
 		return fronteraSeguridadComunDesarrollo{}, false
 	}
 	frontera.descriptor = descriptor
+	if frontera.ruta == bolsahttp.RutaJustificanteRenunciaRRHH && frontera.metodo == http.MethodGet {
+		capacidad, presente := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+		if !presente || capacidad.contextoOperacion == nil {
+			return fronteraSeguridadComunDesarrollo{}, false
+		}
+		frontera.holder = capacidad.contextoOperacion
+	}
 	return frontera, true
 }
 
@@ -287,12 +297,13 @@ func (s *seguridadComunDesarrollo) ResolverContexto(
 	if cache.contexto.Resultado.Validar() != nil ||
 		cache.contexto.Vinculo.ValidarPara(cache.contexto.Resultado) != nil ||
 		!cache.contexto.Vinculo.VigenteEn(s.reloj.Ahora(), cache.contexto.Resultado) ||
-		!frontera.descriptor.admitePerfil(cache.contexto.Resultado.Contexto.PerfilActivoRef) {
+		!perfilJustificanteAdmitidoPorFrontera(frontera, cache.contexto) {
 		return contextoSeguridadComunDesarrollo{}, ErrSeguridadComunDesarrolloDenegada
 	}
 	resultado, err := cache.contexto.Resultado.Clonar()
 	if err != nil {
 		return contextoSeguridadComunDesarrollo{}, ErrSeguridadComunDesarrolloDenegada
 	}
-	return contextoSeguridadComunDesarrollo{Vinculo: cache.contexto.Vinculo, Resultado: resultado}, nil
+	return contextoSeguridadComunDesarrollo{Vinculo: cache.contexto.Vinculo, Resultado: resultado,
+		seleccionJustificanteRRHH: cache.contexto.seleccionJustificanteRRHH}, nil
 }

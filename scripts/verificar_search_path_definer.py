@@ -214,6 +214,11 @@ AD225_PREIMAGENES = {
      "79d2f29752235a01716d49095777fe8e890a6deed5269a8647d1f866d4b671b5"),
 }
 
+# B130 usa EXECUTE sólo para reconstruir un CHECK físico de tabla. La huella
+# del fichero completo limita esta excepción a los bytes revisados.
+B130_PATH = "deploy/postgresql/bolsa_llamamientos/migraciones/000130_ruta_justificante_denegacion_externa.up.sql"
+B130_SHA256 = "53ad8b98536a41bd4cbf96cf262930d533bb3bcb8643e22b3073acfbbee9f543"
+
 
 def reconstruccion_ad225_revisada(body: str, filename: str | None, sql: str) -> bool:
     """Admite sólo el DO que preserva el núcleo V3 posterior a AD218 byte a byte."""
@@ -262,6 +267,9 @@ def reconstruccion_ad225_revisada(body: str, filename: str | None, sql: str) -> 
 
 def inspect_sql(sql: str, changed: set[int], filename: str | None = None) -> list[tuple[int, str]]:
     failures: list[tuple[int, str]] = []
+    b130_exacto = filename == B130_PATH and hashlib.sha256(sql.encode("utf-8")).hexdigest() == B130_SHA256
+    if filename == B130_PATH and changed and not b130_exacto:
+        failures.append((min(changed), "excepción B130 divergente: fichero SQL completo distinto"))
     # El preámbulo se comprueba aunque el diff sólo cambie una línea anterior
     # al DO: de lo contrario el recorrido por sentencias no visitaría su cuerpo.
     if filename == AD225_PATH and changed:
@@ -303,7 +311,9 @@ def inspect_sql(sql: str, changed: set[int], filename: str | None = None) -> lis
                 body_tokens = tokens(body.value, body.line)
                 if any(t.upper == "PG_GET_FUNCTIONDEF" for t in body_tokens) and any(
                     t.upper == "EXECUTE" for t in body_tokens
-                ) and not reconstruccion_ad225_revisada(body.value, filename, sql):
+                ) and not reconstruccion_ad225_revisada(body.value, filename, sql) and not (
+                    b130_exacto and stmt[0].upper == "DO"
+                ):
                     failures.append((body.line, "reconstrucción dinámica de función: exigir definición final explícita y revisión SQL"))
                 if any(t.upper == "EXECUTE" for t in body_tokens):
                     literals = [t for t in body_tokens if t.kind in ("string", "body")]
