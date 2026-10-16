@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"regexp"
 	"sync"
 	"time"
 
@@ -504,9 +505,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) firmarLlamamientoConstituidoCT(
 ) (ports.ReciboSolicitudLlamamientoBolsa, error) {
 	vacio := ports.ReciboSolicitudLlamamientoBolsa{}
 	r := emision.OrigenCT
-	if r == nil || !puertosbolsa.ReferenciaOpacaLlamamientoValida(r.DecisionRef) ||
-		!puertosbolsa.ReferenciaOpacaLlamamientoValida(r.AuditoriaRef) ||
-		!puertosbolsa.ReferenciaOpacaLlamamientoValida(r.EventoRef) ||
+	if r == nil || !referenciasConsumoLlamamientoCTValidas(r.DecisionRef, r.AuditoriaRef, r.EventoRef) ||
 		r.EmitidoEn.IsZero() || r.EmitidoEn.Location() != time.UTC {
 		return vacio, ports.ErrRespuestaBolsaNoConfiable
 	}
@@ -552,6 +551,20 @@ func (p *puenteBolsaLlamamientoDesarrollo) firmarLlamamientoConstituidoCT(
 		Procedencia:           p.procedenciaOrigenConstituidoCT(c, preparado.origen, "llamamiento", ahora),
 	}
 	return p.emisorRespuesta.FirmarLlamamiento(ctx, comando, recibo, ahora)
+}
+
+var (
+	patronDecisionConsumoLlamamientoCT  = regexp.MustCompile(`^decision:[0-9a-f]{32}$`)
+	patronAuditoriaConsumoLlamamientoCT = regexp.MustCompile(`^aud_v3_[0-9a-f]{32}$`)
+)
+
+// El SQL devuelve referencias V3 ya consumidas. Sus nonces hexadecimales
+// pueden parecer un DNI por azar; aquí se exige la familia exacta de cada
+// acuse sin relajar las demás referencias de Bolsa.
+func referenciasConsumoLlamamientoCTValidas(decisionRef, auditoriaRef, eventoRef string) bool {
+	return patronDecisionConsumoLlamamientoCT.MatchString(decisionRef) &&
+		patronAuditoriaConsumoLlamamientoCT.MatchString(auditoriaRef) &&
+		puertosbolsa.ReferenciaOpacaLlamamientoValida(eventoRef)
 }
 
 // La respuesta firme pertenece al portal de Bolsa. La lectura B98 la aporta
