@@ -80,9 +80,11 @@ contraseña nula y eliminación de sus dos ficheros privados. No se instalaron
 migraciones ni se modificaron las raíces legadas. Esto no acepta el nuevo
 caso canónico de F1-36 ni el expediente único de `FLUJO_APP.md` §4.0.
 
-Semgrep local no encuentra incidencias en los cinco Go analizados. GoSec
-analiza 383 ficheros y registra 17 avisos en otros archivos, ninguno en los
-cuatro modificados, pero presenta 49 errores de carga en 33 grupos: su
-cobertura es parcial. Dirección aceptó este límite el 16/10 a las 06:39;
-L responde de retirarlo en F0-29 cuando el analizador cargue bootstrap entero.
-No se presenta como análisis completo ni se repite la puerta de CI en local.
+Semgrep local no encuentra incidencias en los cinco Go analizados. El GoSec
+instalado tiene cobertura parcial: 49 errores de carga en 33 grupos. Dirección
+aceptó ese límite el 16/10 a las 06:39; L responde de retirarlo en F0-29.
+Después, R cedió una corrección local de carga por directorio, con binario
+cotejado por SHA-256. En H carga los 383 archivos sin errores y registra 79
+avisos: ocho están en líneas sin cambios de tres archivos tocados y el resto
+en otros archivos. Ninguno cae en líneas modificadas por este corte. No se
+presenta como ausencia global de avisos ni se repite la puerta de CI en local.
