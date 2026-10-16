@@ -1,0 +1,34 @@
+# Aplicar cada UP una sola vez, tras cotejar el inventario. En el dump HZ37 del ensayo AD263/265 están ausentes.
+# Gobierno ADMIN para el catálogo y el acto del rol; ya instaladas se omiten tras cotejar poshuella.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000266_secuencia_global_gobierno_admin.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000282_vigencia_gobierno_admin.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000263_publicador_nominal_confianza_externa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000265_preflight_consumidores_externos_actuales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000277_justificante_bolsa_documental.up.sql
+deploy/postgresql/autorizacion/migraciones/000095_autorizacion_subida_documental_externa.up.sql
+deploy/postgresql/documentos/migraciones/000020_subida_documental_comun.up.sql
+deploy/postgresql/meritos/migraciones/000007_cartera_evidencias_subidas.up.sql
+# DBA: crear LOGIN documentales sin membresía, con SCRAM privado; ver guía de activación.
+deploy/postgresql/documentos/migraciones/000022_justificante_renuncia_bolsa.up.sql
+# DBA: conceder a cada LOGIN exclusivamente su grupo documental antes de B119.
+deploy/postgresql/bolsa_llamamientos/migraciones/000119_justificante_renuncia_documental.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000222_frontera_justificante_renuncia_bolsa.up.sql
+deploy/postgresql/autorizacion/migraciones/000099_autoridad_justificante_bolsa_externa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000281_despacho_documentos_bolsa_externa.up.sql
+deploy/postgresql/documentos/migraciones/000023_ambito_candidato_justificante_bolsa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000284_justificante_bolsa_consumo_externo.up.sql
+deploy/postgresql/autorizacion/migraciones/000100_sesion_documental_bolsa_externa.up.sql
+deploy/postgresql/documentos/migraciones/000024_limites_referencias_justificante_bolsa.up.sql
+deploy/postgresql/documentos/migraciones/000025_ambito_preparacion_justificante_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000123_proyeccion_justificante_sin_ambiguedad.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000124_ambito_tecnico_justificante_rrhh.up.sql
+deploy/postgresql/documentos/migraciones/000026_ambito_tecnico_justificante_rrhh.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000125_cierre_prelectura_justificante_rrhh.up.sql
+deploy/postgresql/documentos/migraciones/000027_preparacion_nominal_justificante_rrhh.up.sql
+# Selección nominal de perfil propio y auditoría previa; no habilitar RRHH antes de completar este bloque.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000287_lectura_preperfil_bolsa_rrhh.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000046_perfiles_propios_bolsa_rrhh.up.sql
+deploy/postgresql/identidad_sesiones_v1/migraciones/000021_seleccion_perfil_bolsa_rrhh.up.sql
+deploy/postgresql/autorizacion/migraciones/000101_selector_perfil_justificante_rrhh.up.sql
+# Cierre del registro de rechazos: B119 admite la ruta en su fachada; B130 alinea el CHECK físico.
+deploy/postgresql/bolsa_llamamientos/migraciones/000130_ruta_justificante_denegacion_externa.up.sql

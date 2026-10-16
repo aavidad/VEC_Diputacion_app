@@ -88,6 +88,25 @@ func TestSesionExternaInscripcionResuelvePersonaSinCandidatoUnaVez(t *testing.T)
 	// acredita identidad y deja las acciones de inscripción a su autoridad.
 }
 
+func TestSesionExternaInscripcionConstruyeAltaCanonicaCuentaMixta(t *testing.T) {
+	sesion, autoridad, e, r, _ := escenarioSesionExternaInscripcionPrueba(t)
+	const cuentaRef = "cta_AbCdEf0123456789abcdef0123456789"
+	for huella, cuenta := range autoridad.cuentas {
+		cuenta.CuentaRef = cuentaRef
+		autoridad.cuentas[huella] = cuenta
+	}
+	// El doble conserva la cuenta anterior en su recibo para no simular un alta
+	// de base: comprobamos el valor enviado al puerto antes de ese cotejo.
+	_, _, err := sesion.ResolverSesionExterna(r)
+	if err == nil || len(e.registro.altas) != 1 {
+		t.Fatalf("la sesión no llegó una sola vez al registro: %v", err)
+	}
+	alta := e.registro.altas[0]
+	if alta.Validar() != nil || alta.CuentaID != identificadorCuentaSesionExternaDesarrollo(cuentaRef) {
+		t.Fatal("el registro recibió una cuenta no canónica")
+	}
+}
+
 func TestSesionExternaInscripcionDeniegaCertificadoCuentaOVigenciaDivergentes(t *testing.T) {
 	casos := []struct {
 		nombre      string

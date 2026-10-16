@@ -45,7 +45,7 @@ test("Dietas interno atraviesa una caché caliente con sus clientes reales", asy
   assert.doesNotMatch(recorridos, /vista-itinerario\.js|montarMapaInicialGranadaDietas/u);
 
   const cacheAntigua = new Map([
-    ["/portal-empleado/portal.js?v=20260924-rescate-web-v4", "portal antiguo"],
+    ["/portal-empleado/portal.js?v=20261015-firma-ofertas-justificante-integracion-v2", "portal antiguo"],
     ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-web-paradas-periodos-v1", "shell antiguo"],
     ["/portal-empleado/modulos/dietas/vista-recorridos.js?v=20260924-web-paradas-periodos-v1", "vista antigua"],
     [`/portal-empleado/portal.js?v=${PUBLICADA}`, "portal publicado"],
