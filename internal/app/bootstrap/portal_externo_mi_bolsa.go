@@ -597,6 +597,7 @@ func vigenciaMiBolsaPortalExterno(certificado *x509.Certificate,
 // composición exterior. El constructor no publica perfiles, motivos, cuentas
 // ni claves; esa provisión pertenece al proceso interno y exige huella y CAS.
 type dependenciasMiBolsaPortalExterno struct {
+	justificantes         http.Handler
 	preparador            bolsahttp.Preparador
 	autorizador           *aplicacionvec.ServicioAutorizacionSolicitudLigadaV3
 	bolsa                 *pgxpool.Pool
@@ -656,6 +657,11 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 		return nil, errMiBolsaNoDisponible
 	}
 	rutas := []vechttp.RutaExacta{{Ruta: bolsahttp.RutaMiBolsa, Manejador: consultaHTTP}}
+	justificantes := d.justificantes
+	if justificantes == nil {
+		justificantes = bolsahttp.NuevoHandlerJustificanteRenunciaNoDisponible()
+	}
+	rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsahttp.RutaJustificantesMiBolsa, Manejador: justificantes})
 	preferenciasHTTP := bolsahttp.NuevoHandlerPreferenciasBolsasNoDisponible()
 	if d.proveedorPreferencias != nil {
 		if d.fuentePreferencias == nil {

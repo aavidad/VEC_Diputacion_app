@@ -5,7 +5,8 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 const versionCoordinador = "20261016-firma-limite-2mib-v2";
-const versionEntrada = "20261016-firma-limite-2mib-v2";
+// Entrada integrada; el coordinador conserva la versión publicada de su aviso.
+const versionEntrada = "20261016-justificante-candidatos-carga-v6";
 const versionClienteCT = "20261014-ginpix-personal-b2-v1";
 const versionClienteConsulta = "20261015-firma-cierre-cache-v3";
 const versionBaseCT = "20261013-ct-firma-tres-v3";

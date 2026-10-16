@@ -1,0 +1,2 @@
+# CT232 después de CT226 instalada; aplicar una sola vez, sin DOWN.
+deploy/postgresql/contratacion_temporal/migraciones/000232_retirar_sonda_plantillas_v1.up.sql

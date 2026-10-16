@@ -244,6 +244,9 @@ type registroIdempotencia struct {
 	HuellaSolicitud string `json:"huella_solicitud"`
 	Referencia      string `json:"referencia"`
 	Version         string `json:"version"`
+	// Solo las operaciones nuevas conservan el resultado exacto. Un registro
+	// histórico sin él no es apto para reconciliación.
+	ResultadoOriginal *ports.ResultadoOperacionObjeto `json:"resultado_original,omitempty"`
 }
 
 // nombreObjeto solo admite referencias generadas por este adaptador: nunca
@@ -422,6 +425,12 @@ func (a *Almacen) cargarIdempotencia(clave string) (registroIdempotencia, bool, 
 	if _, ok := nombreObjeto(ports.ReferenciaObjetoAlmacen{Referencia: r.Referencia, Version: r.Version}); !ok {
 		return registroIdempotencia{}, false, ports.ErrIntegridadObjetoAlmacen
 	}
+	if r.ResultadoOriginal != nil && (r.ResultadoOriginal.Validar() != nil ||
+		r.ResultadoOriginal.Objeto.Objeto.Referencia != r.Referencia ||
+		r.ResultadoOriginal.Objeto.Objeto.Version != r.Version ||
+		r.ResultadoOriginal.Evidencia.ReintentoIdempotente) {
+		return registroIdempotencia{}, false, ports.ErrIntegridadObjetoAlmacen
+	}
 	return r, true, nil
 }
 
@@ -553,6 +562,7 @@ func (a *Almacen) Escribir(ctx context.Context, solicitud ports.SolicitudEscribi
 	}
 	if err := a.guardarIdempotencia(solicitud.ClaveIdempotencia, registroIdempotencia{
 		HuellaSolicitud: huellaSolicitud, Referencia: referencia.Referencia, Version: referencia.Version,
+		ResultadoOriginal: &resultado,
 	}); err != nil {
 		// El objeto queda huérfano, sin índice: un reintento crea otro.
 		return vacio, err
@@ -743,6 +753,7 @@ func (a *Almacen) Promover(ctx context.Context, solicitud ports.SolicitudPromove
 	}
 	if err := a.guardarIdempotencia(solicitud.ClaveIdempotencia, registroIdempotencia{
 		HuellaSolicitud: huellaSolicitud, Referencia: referencia.Referencia, Version: referencia.Version,
+		ResultadoOriginal: &resultado,
 	}); err != nil {
 		return vacio, err
 	}

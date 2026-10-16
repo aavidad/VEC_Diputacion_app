@@ -59,7 +59,7 @@ func ValidarMotivoPreparacionOrganizacionHistorica(ctx context.Context, dsn, log
 	if err != nil || c.ConnConfig.User != login {
 		return errPreparacionMaterialOH
 	}
-	p, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctx, strings.TrimSpace(dsn), "vec-preparar-organizacion-historica-motivo", "vec_autorizacion_motivos_evaluador")
+	p, err := abrirPoolAutoridadAuditoriaDesarrollo(ctx, strings.TrimSpace(dsn), "vec_autorizacion_motivos_evaluador", "vec-preparar-organizacion-historica-motivo")
 	if err != nil {
 		return errPreparacionMaterialOH
 	}
