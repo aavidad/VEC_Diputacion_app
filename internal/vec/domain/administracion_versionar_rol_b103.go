@@ -10,102 +10,11 @@ import (
 
 var ErrVersionarRolBolsaB103Invalido = errors.New("admin_versionar_rol_bolsa_b103_invalido")
 
-// El orden forma parte del material propuesto a los dos ADMIN. Las tres
-// primeras capacidades son RRHH interno; las lecturas propias pertenecen al
-// perfil externo y no se incorporan a este rol.
-var accionesVersionarRolBolsaB103 = [...]string{
-	"bolsa.inscripcion.rrhh.listar",
-	"bolsa.inscripcion.rrhh.consultar",
-	"bolsa.inscripcion.rrhh.convocatorias.listar",
-	"bolsa.rrhh.respuestas_llamamiento.consultar",
-}
-
-var accionesInscripcionRRHHB103 = [...]string{
-	"bolsa.inscripcion.rrhh.motivos", "bolsa.inscripcion.rrhh.decidir", "bolsa.inscripcion.rrhh.incorporar",
-}
-
 // La ampliación C3 usa el mismo acto de dos ADMIN y conserva el plan histórico.
 const AccionLecturaOrigenContactoBolsa = "bolsa.datos_contacto_participacion.origen.consultar"
-const AccionLecturaAlegacionesRRHHBolsa = "bolsa.inscripcion.alegacion.rrhh.consultar"
 
 func CamposLecturaOrigenContactoBolsa() []string {
 	return []string{"enmascarados", "origen", "participacion_ref", "registrada_en", "sin_contacto", "version"}
-}
-
-func accionesDeltaVersionarBolsa(base VersionRol, selecciones int) []string {
-	if selecciones == len(accionesInscripcionRRHHB103) {
-		if base.RolID != RolIDVersionarBolsaB1 || base.Version < 1 {
-			return nil
-		}
-		for _, c := range base.Concesiones {
-			if slices.Contains(accionesInscripcionRRHHB103[:], c.Accion) {
-				return nil
-			}
-		}
-		return accionesInscripcionRRHHB103[:]
-	}
-	if selecciones == len(accionesVersionarRolBolsaB103) {
-		for _, c := range base.Concesiones {
-			if accionVersionarRolBolsaB103(c.Accion) || c.Accion == AccionLecturaOrigenContactoBolsa {
-				return nil
-			}
-		}
-		return accionesVersionarRolBolsaB103[:]
-	}
-	if selecciones != 1 {
-		return nil
-	}
-	for _, accion := range accionesVersionarRolBolsaB103 {
-		coincidencias := 0
-		for _, c := range base.Concesiones {
-			if c.Accion == accion {
-				if !concesionVersionarRolBolsaB103(c, accion) {
-					return nil
-				}
-				coincidencias++
-			}
-			if c.Accion == AccionLecturaOrigenContactoBolsa {
-				return nil
-			}
-		}
-		if coincidencias != 1 {
-			return nil
-		}
-	}
-	return []string{AccionLecturaOrigenContactoBolsa}
-}
-
-func concesionDeltaRRHHB103(c ConcesionRol, accion string) bool {
-	if !slices.Contains(accionesInscripcionRRHHB103[:], accion) {
-		return concesionVersionarRolBolsaB103(c, accion)
-	}
-	if c.Validar() != nil || c.ModuloID != "bolsa" || c.Accion != accion ||
-		c.GarantiaMinima != AuthAssuranceHigh || len(c.Obligaciones) != 0 {
-		return false
-	}
-	switch accion {
-	case accionesInscripcionRRHHB103[0]:
-		return c.TipoRecurso == "motivos_inscripcion" &&
-			slices.Equal(c.Finalidades, []string{"consulta_motivos_inscripcion_rrhh"}) &&
-			slices.Equal(c.CamposPermitidos, []string{"catalogo_version", "motivos[].codigo", "motivos[].etiqueta", "motivos[].obligatorio"})
-	case accionesInscripcionRRHHB103[1]:
-		return c.TipoRecurso == "solicitud_inscripcion" && slices.Equal(c.Finalidades, []string{"revisar_inscripcion"}) && len(c.CamposPermitidos) == 0
-	case accionesInscripcionRRHHB103[2]:
-		return c.TipoRecurso == "solicitud_inscripcion" && slices.Equal(c.Finalidades, []string{"incorporar_inscripcion"}) && len(c.CamposPermitidos) == 0
-	}
-	return false
-}
-
-func CamposLecturaAlegacionesRRHHBolsa() []string {
-	base := []string{"alegacion_ref", "objeto.tipo", "objeto.solicitud_ref", "objeto.participacion_ref",
-		"objeto.acto_ref", "objeto.version_acto", "fundamento", "estado", "presentada_en", "recibo_ref",
-		"auditoria_ref", "persona_resumen"}
-	campos := []string{"total", "cursor_siguiente", "ambitos[].tipo", "ambitos[].referencia", "ambitos[].titulo"}
-	for _, hoja := range base {
-		campos = append(campos, "alegaciones[]."+hoja, hoja)
-	}
-	slices.Sort(campos)
-	return campos
 }
 
 // IntencionVersionarRolBolsaB103 sólo identifica la cabeza, el catálogo y
@@ -192,14 +101,6 @@ func (p PlanVersionarRolBolsaB103) HuellaSHA256() (string, error) {
 	return huellaAutorizacion(p)
 }
 
-func accionVersionarRolBolsaB103(accion string) bool {
-	return slices.Contains(accionesVersionarRolBolsaB103[:], accion)
-}
-
-func accionPropiaInscripcionBolsa(accion string) bool {
-	return accion == "bolsa.inscripcion.propias.listar" || accion == "bolsa.inscripcion.propia.consultar"
-}
-
 // La fuente RRHH no puede incorporar al rol interno las capacidades que
 // pertenecen al perfil candidato externo, aunque alguien les diera por error
 // dimensiones de unidad y ámbito dentro del catálogo administrativo.
@@ -226,61 +127,6 @@ func ambitosRRHHBolsaB103(ambitos []AmbitoPerfil) bool {
 func dimensionesRRHHBolsaB103(dimensiones []string) bool {
 	return len(dimensiones) == 2 && slices.Contains(dimensiones, "unidad_ref") &&
 		slices.Contains(dimensiones, "ambito_ref")
-}
-
-func camposRRHHBolsaB103(accion string) []string {
-	requisitos := []string{"codigo", "descripcion", "obligatorio", "estado", "motivo_codigo", "motivo_etiqueta",
-		"procedencia_ref", "hito_cumplimiento", "hito_etiqueta", "hito_fecha"}
-	solicitud := []string{"solicitud_ref", "recibo_ref", "convocatoria_ref", "convocatoria_titulo", "categoria_ref", "bolsa_ref",
-		"categoria", "declaracion_ref", "bases_ref", "catalogo_version", "plazo_inicio", "plazo_fin",
-		"decision_ref", "estado", "version", "registrada_en", "decidida_en", "motivo_codigo",
-		"motivo_etiqueta", "participacion_ref", "persona_resumen"}
-	for _, hoja := range requisitos {
-		solicitud = append(solicitud, "requisitos[]."+hoja)
-	}
-	var campos []string
-	switch accion {
-	case accionesVersionarRolBolsaB103[0]:
-		campos = []string{"total", "cursor_siguiente", "convocatoria_titulo"}
-		for _, hoja := range solicitud {
-			campos = append(campos, "solicitudes[]."+hoja)
-		}
-	case accionesVersionarRolBolsaB103[1]:
-		campos = solicitud
-	case accionesVersionarRolBolsaB103[2]:
-		campos = []string{"convocatorias[].convocatoria_ref", "convocatorias[].titulo", "convocatorias[].categorias_resumen",
-			"convocatorias[].plazo_fin", "convocatorias[].estado_publicacion", "convocatorias[].pendientes", "total", "cursor_siguiente"}
-	case AccionLecturaOrigenContactoBolsa:
-		campos = CamposLecturaOrigenContactoBolsa()
-	case accionesVersionarRolBolsaB103[3]:
-		campos = []string{"llamamiento_ref", "respuestas[].participacion_ref", "respuestas[].respuesta"}
-	default:
-		return nil
-	}
-	slices.Sort(campos)
-	return campos
-}
-
-func concesionVersionarRolBolsaB103(c ConcesionRol, accion string) bool {
-	if c.Validar() != nil || c.ModuloID != "bolsa" || c.Accion != accion || c.GarantiaMinima != AuthAssuranceHigh ||
-		!slices.Equal(c.CamposPermitidos, camposRRHHBolsaB103(accion)) {
-		return false
-	}
-	switch accion {
-	case AccionLecturaOrigenContactoBolsa:
-		return (len(c.Obligaciones) == 0 || slices.Equal(c.Obligaciones, []string{"auditar"})) && c.TipoRecurso == "participacion_bolsa" && slices.Equal(c.Finalidades, []string{"consulta_origen_datos_contacto_participacion"})
-	case accionesVersionarRolBolsaB103[0], accionesVersionarRolBolsaB103[1]:
-		return len(c.Obligaciones) == 0 && c.TipoRecurso == "solicitud_inscripcion" &&
-			slices.Equal(c.Finalidades, []string{"consulta_inscripcion_rrhh"})
-	case accionesVersionarRolBolsaB103[2]:
-		return len(c.Obligaciones) == 0 && c.TipoRecurso == "conjunto_gestion_inscripcion" &&
-			slices.Equal(c.Finalidades, []string{"consulta_convocatorias_gestion_rrhh"})
-	case accionesVersionarRolBolsaB103[3]:
-		return (len(c.Obligaciones) == 0 || slices.Equal(c.Obligaciones, []string{"auditar"})) &&
-			c.TipoRecurso == "llamamiento_bolsa" && slices.Equal(c.Finalidades, []string{"seguimiento_contacto_rrhh"})
-	default:
-		return false
-	}
 }
 
 func PrepararPlanVersionarRolBolsaB103(c CatalogoAccionesAdministracionV1,

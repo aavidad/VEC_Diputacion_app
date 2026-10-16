@@ -522,7 +522,9 @@ pantalla. Falta.
 
 ### 4.2 Centro solicitante y ratificador
 
-Estado: **en cidonia**. Pantalla `/portal-empleado/peticiones-centro/`, API
+Estado: circuito anterior **en cidonia**; la elección y conservación de la
+necesidad RPT está **en main** con #1114, pendiente de verificar su instalación
+en cidonia. Pantalla `/portal-empleado/peticiones-centro/`, API
 `/api/vec/contratacion-temporal/peticiones-centro/*`.
 
 ```mermaid
@@ -538,10 +540,10 @@ sequenceDiagram
   Note over H: expediente en solicitud/en_curso, versión 1
 ```
 
-1. El solicitante pulsa **Presentar petición** y rellena contacto, categoría,
-   grupo, motivo, detalle, fechas, retención de crédito declarada, jornada,
-   número de personas y puesto. **Revisar** y **Confirmar** una vez. Queda
-   pendiente de ratificación.
+1. El solicitante pulsa **Presentar petición**, elige el puesto y la categoría
+   de la RPT publicada y rellena contacto, grupo, motivo, detalle, fechas,
+   retención de crédito declarada, jornada y número de personas. **Revisar** y
+   **Confirmar** una vez. Queda pendiente de ratificación.
 2. El ratificador, otra persona del mismo centro, abre la bandeja, pulsa
    **Revisar**, comprueba solicitante, necesidad, crédito y documentación,
    escribe un motivo y ratifica. El solicitante no puede ratificarse a sí
@@ -552,10 +554,18 @@ sequenceDiagram
    recibo. Si quedó **Preparada para crear expediente**, se usa **Completar
    registro**.
 
-Hoy el puesto se escribe como texto libre y no se conserva la necesidad de la
-RPT publicada. Por eso un expediente nacido de la petición del centro no puede
-usar todavía la selección desde la bolsa constituida, que exige esa necesidad.
-Falta (duda 162, equipo K).
+La petición conserva la necesidad de la RPT publicada; otra persona ratifica
+esos mismos datos y RRHH los utiliza al crear el expediente. El servidor
+comprueba el puesto y la categoría con la publicación original, también si el
+catálogo cambia después. La recuperación del mismo expediente y sus recibos
+tras reiniciar consta en el [acta de #1114](../evidencias/codexk-peticion-necesidad-rpt-20261014/acta.md).
+
+La relación de puestos de trabajo es un instrumento público de organización
+([art. 74 del Estatuto Básico del Empleado Público](https://www.boe.es/buscar/act.php?id=BOE-A-2015-11719#a74));
+las corporaciones locales deben formarla para sus puestos
+([art. 90.2 de la Ley 7/1985](https://www.boe.es/buscar/act.php?id=BOE-A-1985-5392#a90)).
+La elección de la necesidad publicada en este formulario es el recorrido que
+implementa #1114. La duda 162 se retira porque esa capacidad ya está integrada.
 
 El centro también puede:
 
@@ -767,9 +777,13 @@ desfavorable. Con el circuito de firma activo no puede fiscalizar hasta que el
 informe esté firmado (409 `firma_remision_pendiente`). Con reparo, el
 expediente vuelve al servicio: RRHH registra la subsanación, emite un informe
 nuevo firmado por la Jefatura de Servicio y vuelve a Intervención, con un plazo
-nuevo (RD 424/2017, arts. 10.2 y 12.4). Plazos por defecto: 10 días hábiles
-(5 si es urgente) para fiscalizar y 10 para subsanar, editables en «Reglas
-vigentes».
+nuevo (RD 424/2017, arts. 10.2 y 12.4). El catálogo v3 fija 10 días hábiles
+(5 si es urgente) para fiscalizar y 15 para subsanar, sin edición desde
+«Reglas vigentes» (arts. 10.3 y 12.4; Ley 39/2015, art. 30.2). VEC cuenta
+la subsanación desde que el servicio recibe el reparo; no registra su
+aceptación por separado. Las instantáneas anteriores conservan su versión.
+La fiscalización limitada previa también tiene cinco días, pero VEC aún no
+identifica ese régimen de forma independiente.
 
 #### 4.3.6 Firma de tres cargos
 
@@ -1034,7 +1048,7 @@ efecto.
 | Cuenta externa propia | | #1112 | Provisión en cidonia |
 | Mi Bolsa y respuesta al llamamiento | Sí | | Formulario de pausa y reactivación |
 | Preferencias entre bolsas | *(por verificar)* | Sí | Autoridad externa en cidonia |
-| Petición y ratificación del centro | Sí | | Necesidad de la RPT en la petición (duda 162) |
+| Petición y ratificación del centro | Circuito anterior | #1114: conserva la necesidad RPT hasta el alta | Verificar la instalación de #1114 en cidonia |
 | Alta, análisis, cobertura, asignación, informe | Sí | | |
 | Fiscalización con reparo y subsanación | Fiscalización sí; reparo *(por verificar)* | | |
 | Llamamiento desde la bolsa constituida | Puente anterior | #1088 | Recorrido con la bolsa real |

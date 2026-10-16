@@ -525,7 +525,7 @@ func nuevoProveedorOpcionesAuditoriaConsultaDesarrollo(
 		return nil, auditoria.Opciones{}, errAutoridadesAuditoriaConsultaDesarrollo
 	}
 	opciones, err := proveedor.Actuales(ctx)
-	if err != nil || !opciones.EsEjemplo || opciones.PermisoRequerido != auditoria.AccionConsultar {
+	if err != nil || opciones.PermisoRequerido != auditoria.AccionConsultar {
 		return nil, auditoria.Opciones{}, errAutoridadesAuditoriaConsultaDesarrollo
 	}
 	return proveedor, opciones, nil

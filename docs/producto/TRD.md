@@ -232,6 +232,16 @@ acredita que esté disponible.
 Cada fase deja una línea de arranque con fase, resultado y causa, sin rutas, DSN
 (cadenas de conexión a la base) ni datos de configuración.
 
+### Arranque de Administración
+
+`vec-admin` requiere `VEC_ADMIN_USUARIOS_CONFIG_FILE`, el fichero privado de
+usuarios del modo `metadatos_v1`. Si falta, termina antes de leer los demás
+ficheros privados; si no es válido, termina antes de abrir conexiones. El
+montaje heredado de perfiles queda cerrado también ante una llamada directa.
+No se crea el grupo de auditoría que pedía ese montaje. La lectura nominal de
+usuarios conserva sus verificaciones y su auditoría de frontera técnica.
+Este requisito afecta al proceso separado de Administración.
+
 ### Configuración básica
 
 | Variable | Por defecto | Uso |
@@ -258,6 +268,22 @@ separada comprueba cada quince minutos y renueva antes de caducar, conservando
 las claves del portal ya arrancado. Orden de instalación
 y uso: `deploy/principal/confianza_externa_hz38.md`.
 
+### Vigencia del gobierno de Administración
+
+La herramienta `vec-gobierno-usuarios-admin` conserva 24 horas por defecto.
+Su JSON privado acepta `horas_validez_claves`; la variable
+`VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS` tiene prioridad. Producción admite de 1 a
+24 horas. Solo el perfil de desarrollo, con modo y reconocimiento explícitos,
+admite hasta 90 días; cidonia usa ese perfil con datos ficticios. Un perfil
+desconocido o un plazo fuera de rango cierra la operación antes de publicar.
+El verificador común mantiene 24 horas generales: el plazo largo exige las
+tres llaves y que todas las raíces tengan la audiencia exacta de CT de
+desarrollo. La recarga CT conserva la publicación vigente y no la acorta.
+La confianza y las claves nuevas no pueden rebasar la raíz existente. La
+ventana breve para aplicar cada plan no se amplía. AD282 ajusta los dos
+efectos de gobierno existentes; no añade permisos ni cambia publicaciones
+anteriores. Guion: `deploy/principal/vigencia_gobierno_admin_20261015.md`.
+
 ### Selectores `VEC_*_ENABLED`
 
 Cada capacidad que necesita algo más que el núcleo se enciende con un selector de
@@ -278,6 +304,13 @@ necesita, está en `config/selectores_dependencias_bolsa_ct_v1.json` (unas cien:
 selectores, conexiones, catálogos y ajustes). Al arrancar,
 `internal/app/bootstrap/selectores_dependencias_aviso.go` deja un aviso por cada
 dependencia que falte. Solo avisa: no detiene nada y nunca escribe valores.
+
+La consulta de auditoría de RRHH usa el catálogo operativo v2, tres conexiones
+de autoridad separadas y el consultor de CT existente. Su preflight comprueba
+la ausencia de permisos de Bolsa desde los catálogos de PostgreSQL, sin
+conceder acceso a ese esquema. La activación y los requisitos de las fuentes
+de motivos están en
+`deploy/principal/habilitacion_auditoria_rrhh_20261013.md` (F0-01, AD285).
 
 Selector y permiso son cosas distintas. El selector decide qué se compone; el
 permiso de cada persona se decide en cada petición. `VEC_PORTAL_MODULOS_VISIBLES`

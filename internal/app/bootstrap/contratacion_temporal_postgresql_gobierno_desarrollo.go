@@ -439,9 +439,42 @@ func prepararConfiguracionGobiernoPostgreSQLContratacionTemporalDesarrollo(
 	tx pgx.Tx,
 	material *materialAtestacionContratacionTemporalDesarrollo,
 ) error {
+	// El arranque deriva un calendario diario, pero primero debe adoptar la
+	// publicación durable. El lector común comprueba raíz exacta, revocaciones,
+	// checkpoint, secuencia y huella bajo el mismo cerrojo del publicador.
+	actual := *material
+	var secuenciaActual int64
+	err := tx.QueryRow(ctx, `SELECT c.revision,c.secuencia,c.huella_configuracion_sha256,c.publicada_en,c.expira_en
+	  FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
+	  JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version c
+	    ON c.revision=p.configuracion_revision
+	 WHERE p.orden=(SELECT max(orden) FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual)`,
+	).Scan(&actual.configuracionRef, &secuenciaActual, &actual.configuracionHuella, &actual.publicadaEn, &actual.expiraEn)
+	if err == nil {
+		if secuenciaActual < 1 || secuenciaActual > maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo {
+			return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+		}
+		actual.configuracionOrden = uint64(secuenciaActual)
+		ahora := time.Now().UTC()
+		verificada, err := leerConfiguracionRenovableCTDesarrollo(ctx, tx, actual, ahora)
+		if err != nil {
+			return err
+		}
+		if verificada.expiraEn.After(ahora) {
+			*material = verificada
+			return nil
+		}
+		admin, err := publicacionAdministrativaCTDesarrollo(ctx, tx, verificada.configuracionRef)
+		if err != nil || admin || !publicacionDiariaCTDesarrollo(verificada.publicadaEn, verificada.expiraEn) {
+			return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+		}
+		// Solo la publicación diaria heredada puede renovarse al caducar.
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	}
 	var revision, huella string
 	var secuencia int64
-	err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT c.revision,c.secuencia,c.huella_configuracion_sha256
 		  FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
 		  JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version c
