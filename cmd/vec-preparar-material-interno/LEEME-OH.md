@@ -72,3 +72,19 @@ existente, con el inventario al final. Conservar el resto del material CT y
 la clave OH anterior. No hay renovación automática ni cambio de interfaz.
 Tras instalar, comprobar el GET real y su evidencia con una identidad y una
 fuente admitidas; una fixture sintética no acredita datos corporativos.
+
+## Ensayo local del 16 de octubre
+
+Sobre `dcd7796ea`, el preparador produjo los dos archivos privados con modo
+0600 en PostgreSQL 18. La huella de la clave y las coordenadas del inventario
+coincidieron con la publicación vigente, incluida su revisión y su puntero.
+Un DSN inseguro y la mezcla de modos se rechazaron sin crear archivos.
+El mismo binario arrancó con el selector OH activo y apagado: salud, portal y
+sesión respondieron 200 en ambos casos. No se ejecutó el GET de puestos ni una
+selección: esas comprobaciones siguen en el recorrido de Contratación temporal.
+
+Dirección autorizó para este ensayo una excepción de vigencia de un máximo de
+24 horas, a cargo de B, hasta la corrección del publicador en F1-64. Al terminar
+se detuvo la aplicación, se retiraron las claves y conexiones privadas de OH y
+se deshabilitaron sus dos cuentas de ensayo. No se presenta esta publicación
+de desarrollo como un acto de Administración ni como material de 90 días.

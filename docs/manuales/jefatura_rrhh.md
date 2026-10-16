@@ -189,6 +189,10 @@ VEC se construye por partes. Primero bolsas y contratación temporal, con lo que
 
 ### 8.1 Personal, organización y relación de puestos de trabajo
 
+La consulta de puestos requiere que Sistemas prepare su configuración y que la
+persona tenga permiso. Preparar esa configuración no confirma una selección
+de personal; la selección se comprueba desde el expediente de contratación.
+
 **Para qué sirve.** Es el registro de cada empleado: su relación con la Diputación, sus contratos y nombramientos, su puesto, su plaza, sus situaciones administrativas y su historia. También guarda la estructura de la Diputación (áreas, servicios, centros y unidades) y la relación de puestos de trabajo con sus categorías.
 
 **Hoy.** Está programado lo que necesita la contratación temporal: el alta de la persona contratada, su ocupación del puesto y el cese. La relación de puestos se puede consultar y RRHH puede añadir o desactivar categorías; las que están en uso no se borran. La petición del centro todavía guarda el puesto como texto en lugar de elegirlo de la relación de puestos.
