@@ -1,5 +1,22 @@
 import { CAMPOS_REFERENCIA } from './modelo.js?v=20261016-f140-modalidad-v1';
 
+export function eleccionTrasConsulta(deseo, referencia, guardada) {
+  const vigente = deseo?.referencia === referencia ? deseo : null;
+  return { deseo: vigente, modalidad: vigente?.modalidad || guardada };
+}
+
+export function crearIntentoGuardado(carga, modalidad, crearClave) {
+  const material = structuredClone(carga.dto.preparacion.material);
+  material.contenido.modalidad_inscripcion = modalidad;
+  return { esperada: { ...carga.dto.preparacion.estado }, material,
+    clave_operacion: `modalidad:${crearClave()}` };
+}
+
+export function enfocarEstadoSiConfirmacionOculta(documento, confirmar, estado, teniaFoco) {
+  if (teniaFoco && confirmar.hidden && (documento.activeElement === confirmar || documento.activeElement === documento.body))
+    estado.focus({ preventScroll: true });
+}
+
 function nodo(d, etiqueta, texto, clase) {
   const n = d.createElement(etiqueta); if (texto !== undefined) n.textContent = texto; if (clase) n.className = clase; return n;
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarInscripcionBolsa } from "./inscripcion-bolsa-vista.js?v=20261016-f140-modalidad-v2";
+import { montarInscripcionBolsa } from "./inscripcion-bolsa-vista.js?v=20261016-f140-modalidad-v3";
 
 const pausa = () => new Promise((resolver) => setTimeout(resolver, 20));
 const instante = "2026-10-09T09:00:00Z";
@@ -377,9 +377,9 @@ test("al pasar a Mis solicitudes el foco va al título y la ficha vuelve a Mis s
 });
 
 
-test("el rechazo de conjunta explica el resultado y bloquea repetir el envío", async () => {
-  for (const [idioma, mensaje, modalidad] of [["es", /No se ha registrado esta solicitud/u, /Una solicitud para varias categorías/u],
-    ["en", /This application has not been submitted/u, /One application for several categories/u]]) {
+test("la modalidad conjunta se explica antes del formulario y nunca envía una solicitud individual", async () => {
+  for (const [idioma, mensaje, modalidad] of [["es", /Todavía no se puede presentar desde esta página/u, /Una solicitud para varias categorías/u],
+    ["en", /You cannot submit it from this page yet/u, /One application for several categories/u]]) {
     const { contenedor, ventana, pulsar } = entorno();
     const conjunta = { ...bolsa, modalidad_inscripcion: "conjunta" };
     const { categorias: _categorias, ...resumenConjunta } = conjunta;
@@ -396,12 +396,12 @@ test("el rechazo de conjunta explica el resultado y bloquea repetir el envío", 
     const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma, textoBase: () => "" });
     await pausa(); pulsar("bolsa", bolsa.convocatoria_ref); await pausa();
     assert.match(contenedor.innerHTML, modalidad);
+    assert.match(contenedor.innerHTML, mensaje);
+    assert.doesNotMatch(contenedor.innerHTML, /data-inscripcion-(accion="(?:revisar|confirmar)"|categoria|requisito)/u);
     pulsar("revisar"); pulsar("confirmar"); await pausa();
     assert.match(contenedor.innerHTML, mensaje);
     assert.doesNotMatch(contenedor.innerHTML, /sin texto visible|recibo:42|inscripcion_conjunta_pendiente/u);
-    assert.match(contenedor.innerHTML, /data-inscripcion-accion="confirmar" disabled/u);
-    pulsar("confirmar"); await pausa();
-    assert.equal(envios, 1);
+    assert.equal(envios, 0);
     montaje.destruir();
   }
 });

@@ -1,7 +1,7 @@
 import { crearLectorBasesHTTP } from './cliente-http.js?v=20261016-f140-modalidad-v1';
 import { validarReferencia, validarRevision, validarHuella } from './contrato-http.js?v=20261016-f140-modalidad-v1';
 import { leerArchivo } from './modelo.js?v=20261016-f140-modalidad-v1';
-import { pintarSalida } from './vista.js?v=20261016-f140-modalidad-v1';
+import { pintarSalida, enfocarEstadoSiConfirmacionOculta, eleccionTrasConsulta, crearIntentoGuardado } from './vista.js?v=20261016-f140-modalidad-v2';
 import { cargarTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 
@@ -21,6 +21,7 @@ const resumenGuardar = document.querySelector('#bases-guardar-revision');
 const avisoGuardar = document.querySelector('#bases-guardar-estado');
 let turno = 0; let carga = null; let textos; let estadoActual = { clave: 'vacio', error: false, variables: {} };
 let guardadoPendiente = null; let guardando = false; let revisionGuardado = false;
+let deseoConflicto = null;
 let estadoGuardado = { clave: '', error: false, variables: {} };
 let erroresFormulario = [];
 function mostrarErroresFormulario() {
@@ -60,6 +61,7 @@ function mensajeGuardado(clave = '', error = false, variables = {}) {
   avisoGuardar.setAttribute('role', error ? 'alert' : 'status');
 }
 function pintarGuardado() {
+  const focoConfirmar = document.activeElement === confirmar;
   panelGuardar.hidden = !carga?.institucional;
   if (panelGuardar.hidden) return;
   const pendiente = Boolean(guardadoPendiente) || guardando;
@@ -75,6 +77,7 @@ function pintarGuardado() {
   consultar.disabled = pendiente;
   archivo.disabled = pendiente;
   cerrar.disabled = pendiente;
+  enfocarEstadoSiConfirmacionOculta(document, confirmar, avisoGuardar, focoConfirmar);
 }
 function limpiar() {
   if (guardadoPendiente || guardando) return;
@@ -118,7 +121,15 @@ formulario.addEventListener('submit', async e => {
     if (actual !== turno) return;
     carga = { ...resultado, institucional: true }; pintarSalida({ raiz, dto: carga.dto, textos, institucional: true });
     descargar.hidden = true; cerrar.disabled = false;
-    modalidad.value = carga.dto.preparacion.material.contenido.modalidad_inscripcion || 'separada';
+    const guardada = carga.dto.preparacion.material.contenido.modalidad_inscripcion || 'separada';
+    const referencia = carga.dto.preparacion.estado.preparacion_ref;
+    const eleccion = eleccionTrasConsulta(deseoConflicto, referencia, guardada);
+    deseoConflicto = eleccion.deseo;
+    modalidad.value = eleccion.modalidad;
+    if (deseoConflicto) mensajeGuardado('guardar_comparacion', false, {
+      guardada: textos.traducir(`modalidad_inscripcion.${guardada}`),
+      deseada: textos.traducir(`modalidad_inscripcion.${modalidad.value}`),
+    });
     pintarGuardado();
     mensaje('consulta_obtenida');
   } catch (error) { if (actual === turno) { limpiar(); mensaje(`consulta_errores.${error.codigo || 'servicio_no_disponible'}`, true); } }
@@ -135,7 +146,13 @@ cancelar.addEventListener('click', () => { if (guardadoPendiente || guardando) r
 
 modalidad.addEventListener('change', () => {
   if (guardadoPendiente || guardando) return;
-  revisionGuardado = false; mensajeGuardado(); pintarGuardado();
+  if (deseoConflicto) deseoConflicto.modalidad = modalidad.value;
+  revisionGuardado = false;
+  if (deseoConflicto) mensajeGuardado('guardar_comparacion', false, {
+    guardada: textos.traducir(`modalidad_inscripcion.${carga.dto.preparacion.material.contenido.modalidad_inscripcion || 'separada'}`),
+    deseada: textos.traducir(`modalidad_inscripcion.${modalidad.value}`),
+  }); else mensajeGuardado();
+  pintarGuardado();
 });
 revisar.addEventListener('click', () => {
   if (!carga?.institucional || guardadoPendiente || guardando) return;
@@ -151,12 +168,16 @@ async function guardarModalidad() {
     const resultado = await lector.guardar(guardadoPendiente);
     carga = { ...resultado, institucional: true };
     guardadoPendiente = null; revisionGuardado = false;
+    deseoConflicto = null;
     modalidad.value = carga.dto.preparacion.material.contenido.modalidad_inscripcion;
     pintarSalida({ raiz, dto: carga.dto, textos, institucional: true });
     mensajeGuardado(resultado.dto.estado === 'guardada' ? 'guardar_guardada' : 'guardar_recuperada', false,
       { recibo: resultado.dto.recibo.recibo_ref });
   } catch (error) {
     if (['version_en_conflicto', 'acceso_denegado', 'no_encontrada', 'selector_invalido'].includes(error?.codigo)) {
+      if (error.codigo === 'version_en_conflicto') deseoConflicto = {
+        referencia: carga.dto.preparacion.estado.preparacion_ref, modalidad: modalidad.value,
+      };
       guardadoPendiente = null; revisionGuardado = false;
       mensajeGuardado(`guardar_${error.codigo}`, true);
     } else mensajeGuardado('guardar_pendiente', true);
@@ -168,10 +189,7 @@ formularioGuardar.addEventListener('submit', e => {
   if (!['separada', 'conjunta'].includes(modalidad.value) || !globalThis.crypto?.randomUUID) {
     mensajeGuardado('guardar_selector_invalido', true); return;
   }
-  const material = structuredClone(carga.dto.preparacion.material);
-  material.contenido.modalidad_inscripcion = modalidad.value;
-  guardadoPendiente = { esperada: { ...carga.dto.preparacion.estado }, material,
-    clave_operacion: `modalidad:${crypto.randomUUID()}` };
+  guardadoPendiente = crearIntentoGuardado(carga, modalidad.value, () => crypto.randomUUID());
   void guardarModalidad();
 });
 reintentarGuardado.addEventListener('click', () => { if (guardadoPendiente && !guardando) void guardarModalidad(); });

@@ -30,6 +30,7 @@
     "modalidadInscripcion": "How to apply",
     "modalidadSeparada": "One application per category",
     "modalidadConjunta": "One application for several categories",
+    "modalidadConjuntaNoDisponible": "This job pool requires one application for several categories. You cannot submit it from this page yet. Return to the job pools and check again later.",
     "categorias": {
       "one": "{cuenta} category",
       "other": "{cuenta} categories"

@@ -159,6 +159,7 @@
   "guardar_recuperada": "The previous save was recovered. Receipt: {recibo}.",
   "guardar_pendiente": "The save could not be confirmed. Select Retry the same save without closing this page.",
   "guardar_version_en_conflicto": "The preparation has changed. Look up the current revision before saving the application mode.",
+  "guardar_comparacion": "Saved mode: {guardada}. You chose: {deseada}. Review the change again before saving.",
   "guardar_acceso_denegado": "Your current session cannot save this preparation. Contact the service manager.",
   "guardar_no_encontrada": "The preparation was not found. Check its reference and look it up again.",
   "guardar_selector_invalido": "This information cannot be saved. Look up the preparation again.",

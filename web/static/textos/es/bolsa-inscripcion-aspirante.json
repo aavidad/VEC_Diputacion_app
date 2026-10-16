@@ -30,6 +30,7 @@
     "modalidadInscripcion": "Cómo se presenta la solicitud",
     "modalidadSeparada": "Una solicitud por categoría",
     "modalidadConjunta": "Una solicitud para varias categorías",
+    "modalidadConjuntaNoDisponible": "Esta bolsa requiere una solicitud conjunta. Todavía no se puede presentar desde esta página. Vuelva a las bolsas y consulte más tarde.",
     "categorias": {
       "one": "{cuenta} categoría",
       "other": "{cuenta} categorías"

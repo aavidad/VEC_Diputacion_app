@@ -159,6 +159,7 @@
   "guardar_recuperada": "Se recuperó el guardado anterior. Recibo: {recibo}.",
   "guardar_pendiente": "No se ha podido comprobar el guardado. Pulse Reintentar el mismo guardado sin cerrar esta página.",
   "guardar_version_en_conflicto": "La preparación ha cambiado. Consulte la revisión actual antes de guardar la modalidad.",
+  "guardar_comparacion": "Modalidad guardada: {guardada}. Usted eligió: {deseada}. Revise el cambio de nuevo antes de guardar.",
   "guardar_acceso_denegado": "No puede guardar esta preparación con su sesión actual. Consulte al responsable del servicio.",
   "guardar_no_encontrada": "No se encontró la preparación. Revise su referencia y consulte de nuevo.",
   "guardar_selector_invalido": "No se puede guardar con esos datos. Consulte de nuevo la preparación.",
