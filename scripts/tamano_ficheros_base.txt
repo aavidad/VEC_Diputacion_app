@@ -190,3 +190,4 @@
 334 web/static/textos/en/peticiones-centro.json
 334 web/static/textos/es/peticiones-centro.json
 806 scripts/operacion/preparar_expediente_alta_b2/preparar.py
+1109 deploy/postgresql/contratacion_temporal/migraciones/000229_selectores_recuperacion_detalle_rrhh.up.sql

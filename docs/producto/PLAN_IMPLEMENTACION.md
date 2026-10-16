@@ -8,8 +8,8 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Revisado el 16 de octubre de 2026 para F1-36A sobre `main@6d73039ff`;
-el corte A sigue en rama y pendiente de integración.
+Revisado el 16 de octubre de 2026 para la candidata A+B sobre `main@6d73039ff`;
+los cortes siguen pendientes de integración y ensayo conjunto.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
 cómo se sabe que cada fase está terminada y cómo se trabaja. Es lectura
@@ -185,6 +185,15 @@ la recuperación exige renovar por Administración el cargo de firma. B conectar
 la fuente autorizada y el anexo de la ficha; C montará la pantalla y gobernará
 las asignaciones. Hasta C sigue abierto F1-36. Guion A:
 `deploy/principal/firma_historica_base_f1_36a_20261016.md`.
+
+**F1-36B, H: fuente de ficha y justificante.** En rama: AUT102, CT229 y el
+lector interno que forma los selectores de las firmas originales y su anexo
+sellado. Depende de AD286, CT228 y AUT103 del corte A; ninguna asignación
+auxiliar se activa aquí. Faltan el ensayo SQL, la prueba de una decisión V3
+que caduque antes de confirmar, las revisiones independientes, el arranque
+con y sin el complemento y la CI. C añadirá la respuesta HTTP, el panel y
+la activación gobernada. F1-36 sigue abierto. Guion:
+`deploy/principal/firma_historica_fuente_f1_36b_20261016.md`.
 
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna

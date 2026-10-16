@@ -540,6 +540,16 @@ Una recuperación reutiliza la operación original; no se crea otra para aparent
 recibos y fechas y nada duplicado. Una repetición o un reinicio nunca duplican
 efectos, recibos ni comunicaciones.
 
+F1-36B prepara una lectura ampliada de la ficha de Contratación temporal. La
+decisión vigente debe conceder exactamente `selectores_recuperacion_firmas`;
+una asignación propia y vigente de cargo de firma restringe el resultado a la
+organización y unidad históricas. SQL forma el selector y un anexo privado,
+inmutable y unido al recibo de esa consulta de ficha. Comprueba vigencia antes del
+cierre y en el momento de confirmar la transacción; el apunte de auditoría
+queda en la misma transacción. El recibo anterior de ficha no prueba por sí
+solo qué selectores se ofrecieron. B no publica aún esos campos por HTTP ni
+añade el panel; el ensayo SQL y la prueba de caducidad siguen pendientes.
+
 ## 8. Protección de datos
 
 - **Solo datos sintéticos**, con nombres verosímiles, hasta cerrar la EIPD
