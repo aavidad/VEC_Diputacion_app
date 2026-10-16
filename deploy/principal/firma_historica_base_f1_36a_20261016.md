@@ -27,11 +27,14 @@ descarga, sustituir solo `consultar_detalle` y comprobar ámbitos y vigencias.
 En A, el plan de los cargos de consulta se prepara sin publicarlo: B+C añade
 la fuente que admite el campo nuevo. La publicación exige aprobación externa
 y configuración DBA; el ejecutable no tramita una aprobación HTTP.
-Los actos nominales de los cargos de consulta serán de C;
+Los actos nominales de los cargos de consulta serán de C.
+
 La recuperación nominal exige publicar la sucesora del cargo de firma por
 CAS y renovar su asignación mediante Administración, conservando persona,
-perfil, ámbitos y competencias. Actualizar sus referencias de rol y control
-en las admisiones de `identidad/firma-vec.json`, con reinicio vigilado.
+ámbitos y competencias. Usar las referencias de perfil y vínculo que devuelva
+la preparación nominal; no forzar la reutilización de un perfil retirado.
+Actualizar el perfil seleccionado y sus referencias de rol y control en
+`identidad/firma-vec.json`, con reinicio vigilado.
 Las asignaciones de consulta y sus admisiones siguen en v1 hasta B+C.
 
 ## Ensayo y límites
