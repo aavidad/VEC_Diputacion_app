@@ -6,7 +6,7 @@
 import { escaparHTML } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
 import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261016-firma-limite-2mib-v1";
 import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261016-firma-limite-2mib-v1";
-import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261015-firma-cierre-cache-v3";
+import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261016-seleccion-pendiente-aviso-v1";
 
 /** Une el circuito del catálogo con el estado real registrado. */
 export function fusionarEstadoFirmas(circuito, estado) {

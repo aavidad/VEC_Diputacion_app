@@ -704,6 +704,12 @@ CT no tiene llamamiento propio: usa el de Bolsa sobre una bolsa constituida
 6. Tras una renuncia o expiración, RRHH abre expresamente el siguiente
    (`llamamientos/siguientes`). No hay aviso automático al siguiente.
 
+Se prepara la recuperación de la selección confirmada pendiente de aviso como
+una fila de la consulta existente de la ficha (CT231). Al volver a ella, RRHH
+verá el justificante y continuará el aviso; mientras siga pendiente, no se ofrece
+seleccionar otra persona. La fila no representa una comunicación anotada. El
+ensayo de este corte está pendiente y no completa el apartado 4.0.
+
 Con #1088 (**en main, sin subir**) la selección usa la bolsa constituida, su
 orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
 (`VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`; sin ella responde 503 y el resto

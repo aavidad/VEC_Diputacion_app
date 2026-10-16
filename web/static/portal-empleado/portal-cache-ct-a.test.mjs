@@ -4,14 +4,14 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261016-firma-limite-2mib-v2";
-const versionEntrada = "20261016-firma-limite-2mib-v2";
-const versionClienteCT = "20261014-ginpix-personal-b2-v1";
-const versionClienteConsulta = "20261015-firma-cierre-cache-v3";
+const versionCoordinador = "20261016-seleccion-pendiente-aviso-v1";
+const versionEntrada = "20261016-seleccion-pendiente-aviso-v1";
+const versionClienteCT = "20261016-seleccion-pendiente-aviso-v1";
+const versionClienteConsulta = "20261016-seleccion-pendiente-aviso-v1";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
-const versionCircuito = "20261016-firma-limite-2mib-v1";
-const versionVista = "20261015-firma-cierre-cache-v3";
-const versionVistaPortal = "20261016-firma-limite-2mib-v1";
+const versionCircuito = "20261016-seleccion-pendiente-aviso-v1";
+const versionVista = "20261016-seleccion-pendiente-aviso-v1";
+const versionVistaPortal = "20261016-seleccion-pendiente-aviso-v1";
 const versionAdaptador = "20261015-firma-cierre-cache-v3";
 const versionRender = "20261013-ct-firma-tres-v3";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
@@ -39,7 +39,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
-  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionVista);
+  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", "20261015-firma-cierre-cache-v3");
   exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
 });
 

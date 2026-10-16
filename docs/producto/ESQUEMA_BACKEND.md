@@ -404,6 +404,14 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
+CT231 prepara una variante de fila de CT140 para la selección O6 confirmada
+pendiente de comunicación. Conserva la ruta, el lector y los once campos de
+permiso existentes; devuelve solo los ocho aplicables a la selección, con su
+versión y recibo reales. Los campos exclusivos de comunicación quedan ausentes.
+La selección se obtiene de Contratación, sin consultar tablas de Bolsa. No añade
+consumidor de autorización ni permisos por defecto. Activación y límites en
+[`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
+
 Puertos Go: `internal/modules/contrataciontemporal/ports/`; adaptadores en
 `adapters/postgres/`. Detalle técnico por migración:
 `deploy/postgresql/contratacion_temporal/README.md`.

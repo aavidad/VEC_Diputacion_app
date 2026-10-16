@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -17,6 +18,51 @@ type proveedorComunicacionesExpedientePrueba func(context.Context, ports.Consult
 
 func (p proveedorComunicacionesExpedientePrueba) AutorizarConsultaComunicacionesExpediente(ctx context.Context, c ports.ConsultaComunicacionesExpediente) (AmbitoConsultaComunicacionesExpediente, error) {
 	return p(ctx, c)
+}
+
+func TestConsultaComunicacionesExpedienteSelecPendienteConfirmaAntesDeExponer(t *testing.T) {
+	c := ports.ConsultaComunicacionesExpediente{ExpedienteRef: "expediente:ct231", Limite: 10}
+	org := "organizacion:ct231"
+	a := autorizacionComunicacionesExpedientePrueba(t, c, org)
+	proveedor := proveedorComunicacionesExpedientePrueba(func(_ context.Context, _ ports.ConsultaComunicacionesExpediente) (AmbitoConsultaComunicacionesExpediente, error) {
+		return a, nil
+	})
+	pagina := ports.PaginaComunicacionesExpediente{ExpedienteRef: c.ExpedienteRef,
+		Comunicaciones: []ports.ComunicacionExpediente{{
+			OrganizacionRef: org, ExpedienteRef: c.ExpedienteRef,
+			LlamamientoRef: "llamamiento:ct231", Estado: ports.EstadoSeleccionConfirmadaPendienteAviso,
+			Version: 1, RegistradaEn: time.Date(2026, 10, 16, 4, 4, 0, 123456000, time.UTC),
+			AntecedenteTipo: "seleccion_confirmada", ReciboAntecedenteRef: "recibo:ct231",
+		}}}
+	contenido, err := json.Marshal(struct {
+		Encontrado bool `json:"encontrado"`
+		ports.PaginaComunicacionesExpediente
+	}{true, pagina})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct {
+		nombre string
+		raw    []byte
+		ok     bool
+	}{
+		{"pendiente", contenido, true},
+		{"mezcla_ct54", append([]byte(nil), []byte(strings.Replace(string(contenido), `"version":1`, `"version":1,"comunicacion_ref":"comunicacion:falsa"`, 1))...), false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			tx := &transaccionEjecucionSeleccionO6Prueba{fila: filaEjecucionSeleccionO6Prueba{valores: []any{string(caso.raw)}}}
+			lector := &LectorComunicacionesExpedientePostgreSQL{pool: &iniciadorEjecucionSeleccionO6Prueba{tx: tx}, proveedor: proveedor}
+			salida, err := lector.ConsultarComunicacionesExpediente(context.Background(), c)
+			if caso.ok {
+				if err != nil || tx.confirmaciones != 1 || len(salida.Comunicaciones) != 1 ||
+					salida.Comunicaciones[0].Estado != ports.EstadoSeleccionConfirmadaPendienteAviso {
+					t.Fatalf("fila válida no confirmada: %v, commits=%d", err, tx.confirmaciones)
+				}
+			} else if !errors.Is(err, ports.ErrResultadoComunicacionesExpedienteNoConfiable) || tx.confirmaciones != 0 {
+				t.Fatalf("mezcla expuesta: %v, commits=%d", err, tx.confirmaciones)
+			}
+		})
+	}
 }
 
 func autorizacionComunicacionesExpedientePrueba(t *testing.T, c ports.ConsultaComunicacionesExpediente, org string) AmbitoConsultaComunicacionesExpediente {

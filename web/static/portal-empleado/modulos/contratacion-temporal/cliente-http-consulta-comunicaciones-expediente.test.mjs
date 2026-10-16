@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js?v=20261008-alta-circular-v3";
+import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js?v=20261016-seleccion-pendiente-aviso-v1";
 import {
   crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE,
-  validarPaginaComunicacionesExpediente, instanteOrdenComunicacion,
+  validarPaginaComunicacionesExpediente, instanteOrdenComunicacion, claveFilaComunicacion,
 } from "./cliente-http-consulta-comunicaciones-expediente.js";
 
 const expediente_ref = "expediente:ct140:001";
@@ -16,6 +16,10 @@ const fila = (n, registrada_en = `2026-09-24T10:${String(n).padStart(2, "0")}:00
   estado_respuesta: "sin_respuesta",
 });
 const cursor = `comunicacion:ct140:10#${"a".repeat(64)}`;
+const pendiente = () => ({ organizacion_ref: "organizacion:ct140", expediente_ref,
+  llamamiento_ref: "llamamiento:ct140:pendiente", estado: "seleccion_confirmada_pendiente_aviso",
+  registrada_en: "2026-09-24T10:10:00Z", version: 1, antecedente_tipo: "seleccion_confirmada",
+  recibo_antecedente_ref: "recibo:seleccion:pendiente" });
 
 test("GET CT140 fija límite 10 y cursor, sin organización ni clave en URL", async () => {
   const llamadas = [];
@@ -64,6 +68,26 @@ test("CT140 valida once campos, orden microsegundo, cursor y referencias del exp
     comunicaciones: [fila(1)], siguiente_cursor: cursor }, { expediente_ref }), TypeError);
   assert.throws(() => validarPaginaComunicacionesExpediente({ expediente_ref,
     comunicaciones: Array(2) }, { expediente_ref }), TypeError);
+});
+
+test("CT140 acepta selección pendiente con ocho campos existentes y cursor por llamamiento real", () => {
+  const ultima = pendiente();
+  const pagina = validarPaginaComunicacionesExpediente({ expediente_ref,
+    comunicaciones: [...Array.from({ length: 9 }, (_, i) => fila(i + 1)), ultima],
+    siguiente_cursor: `${ultima.llamamiento_ref}#${"b".repeat(64)}` }, { expediente_ref });
+  assert.equal(pagina.comunicaciones.length, 10);
+  assert.equal(claveFilaComunicacion(pagina.comunicaciones.at(-1)), ultima.llamamiento_ref);
+  assert.equal(pagina.comunicaciones.at(-1).recibo_antecedente_ref, ultima.recibo_antecedente_ref);
+  assert.equal(Object.keys(pagina.comunicaciones.at(-1)).length, 8);
+  for (const cambio of [{ comunicacion_ref: "inventada" }, { estado: "otro" },
+    { version: 2 }, { recibo_antecedente_ref: "correo@example.invalid" },
+    { seleccion_confirmada: { recibo_ref: "recibo:inventado" } }]) {
+    assert.throws(() => validarPaginaComunicacionesExpediente({ expediente_ref,
+      comunicaciones: [{ ...pendiente(), ...cambio }] }, { expediente_ref }), TypeError);
+  }
+  assert.throws(() => validarPaginaComunicacionesExpediente({ expediente_ref,
+    comunicaciones: [...Array.from({ length: 9 }, (_, i) => fila(i + 1)), pendiente()],
+    siguiente_cursor: `comunicacion:inventada#${"b".repeat(64)}` }, { expediente_ref }), TypeError);
 });
 
 test("cliente común compone GET CT140 y conserva 403/404/503 con prefijo exacto", async () => {
