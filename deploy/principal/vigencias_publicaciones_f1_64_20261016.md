@@ -1,0 +1,90 @@
+# Vigencia de las nuevas publicaciones de confianza
+
+Tarea F1-64, acotada por dirección el 16/10: cambia la duración de las
+publicaciones nuevas de CT y del portal externo. Conserva las raíces, las
+claves y las publicaciones anteriores. La rotación de la raíz y la clave
+legadas de 2026–2036 queda fuera de este corte y la coordina dirección.
+No añade SQL ni permisos.
+
+## Activación en una copia local
+
+Partir de la copia propia con el prefijo completo que ya contiene AD263 y
+AD282. Comprobar esas funciones y su historia; no reaplicar migraciones ni
+instalar una antigua sobre historia. Conservar material, conexiones y recibos
+fuera de Git. El proceso web no recibe la conexión del publicador externo.
+
+Sin `VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS`, las publicaciones nuevas duran
+24 horas. Para hasta 90 días, el proceso que publica necesita las tres llaves
+existentes y la misma variable que ya usa Administración:
+
+```sh
+export VEC_EXECUTION_PROFILE=desarrollo
+export VEC_AUTH_MODE=desarrollo
+export VEC_DEVELOPMENT_GUARD=ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO
+export VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS=2160
+```
+
+Con el material y la conexión privados de esa copia, ejecutar el preparador
+existente descrito en `confianza_externa_hz38.md`:
+
+```sh
+vec-server preparar-portal-externo   --material-externo "$MATERIAL_EXTERNO"   --publicador-confianza-dsn "$DSN_PUBLICADOR_PRIVADO"   --consumidores mi_bolsa,portal_candidato,preferencias_bolsas,inscripcion_bolsa,meritos_cartera
+```
+
+La publicación vigente se recupera con sus fechas originales; cambiar el valor
+no la sustituye. El valor se aplica al publicar o renovar. La renovación
+administrativa existente debe recibir ese mismo entorno. No alterar el reloj,
+la publicación ni su fecha para forzar la renovación. En CT se conserva el
+origen de la publicación: una publicación de Administración sigue necesitando
+su acto y no pasa a renovación automática por tener el mismo plazo.
+
+Producción admite de 1 a 24 horas; desarrollo con las tres llaves, de 1 a 2160.
+Se rechazan valores desconocidos, cero, negativos o superiores al máximo.
+Las publicaciones no pueden rebasar la raíz existente. En CT, un plazo inferior a
+24 horas empieza en el instante de publicación; los demás conservan el corte
+de medianoche UTC. El portal externo siempre parte del instante de publicación. Renovar el mismo día crea otra secuencia y referencia.
+
+## Comprobación y retirada
+
+Arrancar con la configuración privada existente sin la variable y después
+con 2160 horas. Comprobar salud, ficha y descarga con certificado, y registrar
+las fechas de la publicación vigente. Reiniciar sin la variable: debe conservar
+la misma publicación, no acortarla. El caso de publicación nueva y los rechazos
+de producción se prueban además con las pruebas focales de bootstrap. No se
+afirma que producción esté habilitada para el recorrido de desarrollo.
+
+Para retirar el ajuste, quitar la variable y reiniciar con vigilancia. Las
+publicaciones vigentes conservan sus fechas; las siguientes vuelven a 24 horas.
+La ventana breve para aplicar planes no cambia. La vigencia de los certificados
+personales de firma y la rotación de sus raíces se gestionan por sus guiones.
+
+## Evidencia y límites
+
+El código tiene dos revisiones independientes y pruebas focales favorables.
+La composición de firma H en `0e4e0ea4e`, anterior a minimizar CT228, arrancó
+sin el valor, con 2160 horas y otra vez sin él. Conservó la publicación CT,
+las tres firmas consultadas y el PDF original de 56.399 bytes.
+
+El publicador nominal se activó con el procedimiento DBA existente de HZ38,
+tras dos revisiones de su configuración privada. Publicó 23 audiencias desde
+el 16/10/2026 a las 04:17:51 UTC hasta el 14/01/2027 a la misma hora: 2160 horas.
+Los 24 ficheros binarios, incluida la raíz, conservaron sus bytes; la primera
+publicación actualizó versión, revisión y orden de las claves existentes.
+La recuperación posterior sin la variable conservó fechas, raíz, coordenadas
+y los 38 ficheros del material, con un nuevo apunte de recuperación.
+
+Con el material publicado, la aplicación volvió a arrancar sin el valor y
+Chrome recuperó firmas y el mismo PDF. Las credenciales del publicador no se
+montaron en la web. Al terminar se retiró el acceso nominal: `NOLOGIN`,
+contraseña nula y eliminación de sus dos ficheros privados. No se instalaron
+migraciones ni se modificaron las raíces legadas. Esto no acepta el nuevo
+caso canónico de F1-36 ni el expediente único de `FLUJO_APP.md` §4.0.
+
+Semgrep local no encuentra incidencias en los cinco Go analizados. El GoSec
+instalado tiene cobertura parcial: 49 errores de carga en 33 grupos. Dirección
+aceptó ese límite el 16/10 a las 06:39; L responde de retirarlo en F0-29.
+Después, R cedió una corrección local de carga por directorio, con binario
+cotejado por SHA-256. En H carga los 383 archivos sin errores y registra 79
+avisos: ocho están en líneas sin cambios de tres archivos tocados y el resto
+en otros archivos. Ninguno cae en líneas modificadas por este corte. No se
+presenta como ausencia global de avisos ni se repite la puerta de CI en local.
