@@ -1,6 +1,6 @@
-import { validarSelectoresRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=20261016-firma-historica-v1";
-import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v1";
-import { montarVistaRecuperacionFirmasV2 } from "./vista-recuperacion-firmas-v2.js?v=20261016-firma-historica-v1";
+import { validarSelectoresRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=20261016-firma-historica-v2";
+import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v2";
+import { montarVistaRecuperacionFirmasV2 } from "./vista-recuperacion-firmas-v2.js?v=20261016-firma-historica-v2";
 
 const DOCUMENTOS = new Set([
   "informe_definitivo", "resolucion", "diligencia", "toma_posesion", "notificacion", "comunicacion_centro",
@@ -85,7 +85,8 @@ export function crearGestorRecuperacionFirmasHistoricas({
     cabecera.append(nodo(doc, "h3", "", t("historicas_titulo")));
     const cuerpo = nodo(doc, "div", "cuerpo-panel");
     const grupos = new Map();
-    for (const entrada of entradas) {
+    for (const [indice, entrada] of entradas.entries()) {
+      const ordinal = indice + 1;
       const documento = DOCUMENTOS.has(entrada.selector.documento)
         ? t(`historicas_documento_${entrada.selector.documento}`) : t("historicas_documento");
       let grupo = grupos.get(entrada.selector.documento);
@@ -96,13 +97,14 @@ export function crearGestorRecuperacionFirmasHistoricas({
         cuerpo.append(grupo);
       }
       const fila = nodo(doc, "div");
+      fila.append(nodo(doc, "h5", "", t("firma", { numero: ordinal })));
       fila.append(nodo(doc, "p", "", t("historicas_paso", { numero: entrada.selector.paso_orden })));
       fila.append(nodo(doc, "p", "", t("historicas_version", { numero: entrada.selector.version_expediente })));
       const boton = nodo(doc, "button", "boton-secundario", t("historicas_consultar"));
       boton.type = "button";
       boton.dataset.ctRecuperacionHistoricaConsultar = "";
       boton.setAttribute("aria-label", t("historicas_consultar_firma", {
-        documento, numero: entrada.selector.paso_orden, version: entrada.selector.version_expediente,
+        documento, ordinal, paso: entrada.selector.paso_orden, version: entrada.selector.version_expediente,
       }));
       const resultado = nodo(doc, "div");
       resultado.dataset.ctRecuperacionHistoricaResultado = "";

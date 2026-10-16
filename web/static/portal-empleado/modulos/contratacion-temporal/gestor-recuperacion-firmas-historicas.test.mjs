@@ -73,7 +73,7 @@ test("consulta una sola vez con el selector histórico exacto y muestra fecha, e
   const llamadas = [];
   const montaje = gestor({ recuperar: async (solicitud, { signal }) => {
     llamadas.push({ solicitud, signal });
-    return { firmas: [{ firma_ref: entrada.firma_ref, recibo_ref: "recibo:firma:uno",
+    return { firmas: [{ firma_ref: entrada.firma_ref, recibo_ref: "550e8400-e29b-41d4-a716-446655440000",
       registrada_en: "2026-10-14T10:00:00Z", resultado: "firmado", paso_orden: 1 }] };
   } });
   assert.equal(montaje.montarSiProcede(estado()), true);
@@ -84,7 +84,8 @@ test("consulta una sola vez con el selector histórico exacto y muestra fecha, e
   assert.equal(llamadas.length, 1);
   assert.deepEqual(llamadas[0].solicitud, selector);
   assert.match(montaje.zona.textContent, /Informe definitivo/u);
-  assert.match(montaje.zona.textContent, /Recibo: recibo:firma:uno/u);
+  assert.match(montaje.zona.textContent, /Recibo original conservado/u);
+  assert.doesNotMatch(montaje.zona.textContent, /550e8400-e29b-41d4-a716-446655440000/u);
   assert.doesNotMatch(montaje.zona.textContent, /canon|sha256|firma:historica:uno/u);
   montaje.retirar();
 });
@@ -170,4 +171,50 @@ test("las firmas del mismo paso en cortes distintos se distinguen por su versió
   const recorrer = (nodo) => { if (nodo.dataset.ctRecuperacionHistoricaConsultar !== undefined) etiquetas.push(nodo.attributes["aria-label"]); nodo.children.forEach(recorrer); };
   recorrer(zona);
   assert.equal(new Set(etiquetas).size, 2);
+});
+
+test("dos firmas del mismo documento, paso y versión conservan filas y nombres distintos", async () => {
+  const segunda = { firma_ref: "firma:historica:dos",
+    selector: { ...selector, clave_idempotencia: "clave-firma-prueba-002" } };
+  const llamadas = [];
+  const montaje = gestor({ recuperar: async (solicitud) => {
+    llamadas.push(solicitud);
+    return { firmas: [{ firma_ref: solicitud.clave_idempotencia === selector.clave_idempotencia
+      ? entrada.firma_ref : segunda.firma_ref,
+    recibo_ref: "550e8400-e29b-41d4-a716-446655440000", registrada_en: "2026-10-14T10:00:00Z",
+    resultado: "firmado", paso_orden: 1 }] };
+  } });
+  assert.equal(montaje.montarSiProcede(estado([entrada, segunda])), true);
+  const botones = [];
+  const recorrer = (nodo) => {
+    if (Object.hasOwn(nodo.dataset, "ctRecuperacionHistoricaConsultar")) botones.push(nodo);
+    nodo.children.forEach(recorrer);
+  };
+  recorrer(montaje.zona);
+  assert.equal(botones.length, 2);
+  assert.match(montaje.zona.textContent, /Firma 1/u);
+  assert.match(montaje.zona.textContent, /Firma 2/u);
+  assert.notEqual(botones[0].attributes["aria-label"], botones[1].attributes["aria-label"]);
+  assert.match(botones[0].attributes["aria-label"], /firma 1/u);
+  assert.match(botones[1].attributes["aria-label"], /firma 2/u);
+  assert.doesNotMatch(montaje.zona.textContent, /firma:historica:/u);
+  botones[1].pulsar();
+  await turno();
+  assert.equal(llamadas.length, 1);
+  assert.deepEqual(llamadas[0], segunda.selector);
+  assert.match(montaje.zona.textContent, /Recibo original conservado/u);
+  assert.doesNotMatch(montaje.zona.textContent, /550e8400-e29b-41d4-a716-446655440000/u);
+  montaje.retirar();
+});
+
+test("una referencia de recibo ausente o inválida no acredita recibo en la vista", async () => {
+  const montaje = gestor({ recuperar: async () => ({ firmas: [{ firma_ref: entrada.firma_ref,
+    recibo_ref: "<recibo ajeno>", registrada_en: "2026-10-14T10:00:00Z",
+    resultado: "firmado", paso_orden: 1 }] }) });
+  montaje.montarSiProcede(estado());
+  montaje.zona.buscar((nodo) => Object.hasOwn(nodo.dataset, "ctRecuperacionHistoricaConsultar")).pulsar();
+  await turno();
+  assert.doesNotMatch(montaje.zona.textContent, /Recibo original conservado/u);
+  assert.doesNotMatch(montaje.zona.textContent, /<recibo ajeno>/u);
+  montaje.retirar();
 });

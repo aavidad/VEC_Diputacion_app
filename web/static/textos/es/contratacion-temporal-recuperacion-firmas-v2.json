@@ -25,8 +25,8 @@
     "historicas_documento_toma_posesion": "Toma de posesión",
     "historicas_documento_notificacion": "Notificación",
     "historicas_documento_comunicacion_centro": "Comunicación al centro",
-    "historicas_consultar_firma": "Consultar firma de {documento}, paso {numero}, versión del expediente {version}",
-    "recibo_con_valor": "Recibo: {recibo}",
+    "historicas_consultar_firma": "Consultar firma {ordinal} de {documento}, paso {paso}, versión del expediente {version}",
+    "recibo_con_valor": "Recibo original conservado",
     "historicas_version": "Versión del expediente {numero}"
   }
 }

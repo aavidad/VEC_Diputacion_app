@@ -25,8 +25,8 @@
     "historicas_documento_toma_posesion": "Taking up the post",
     "historicas_documento_notificacion": "Notification",
     "historicas_documento_comunicacion_centro": "Communication to the requesting unit",
-    "historicas_consultar_firma": "View signature for {documento}, step {numero}, case version {version}",
-    "recibo_con_valor": "Receipt: {recibo}",
+    "historicas_consultar_firma": "View signature {ordinal} for {documento}, step {paso}, case version {version}",
+    "recibo_con_valor": "Original receipt retained",
     "historicas_version": "Case version {numero}"
   }
 }
