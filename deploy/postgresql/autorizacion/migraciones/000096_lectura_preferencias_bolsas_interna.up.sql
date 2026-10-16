@@ -43,9 +43,10 @@ BEGIN
  OR jsonb_typeof(p_orden->'politicas_evaluadas') IS DISTINCT FROM 'array'
  THEN RETURN false; END IF;
  ahora:=clock_timestamp();
- IF (p_orden->>'emitida_en')::timestamptz>ahora
+ -- Una fecha ausente da NULL y también se rechaza.
+ IF ((p_orden->>'emitida_en')::timestamptz>ahora
  OR (p_orden->>'valida_hasta')::timestamptz<=ahora
- OR (p_orden->>'valida_hasta')::timestamptz>ahora+interval '30 seconds'
+ OR (p_orden->>'valida_hasta')::timestamptz>ahora+interval '30 seconds') IS NOT FALSE
  THEN RETURN false; END IF;
  SELECT x.* INTO a FROM vec_autorizacion.asignacion_perfil_actual ap
  JOIN vec_autorizacion.asignacion_perfil x ON x.perfil_activo_ref=ap.perfil_activo_ref

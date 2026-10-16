@@ -101,6 +101,7 @@
     {"variable": "VEC_BOLSA_PORTAL_CANDIDATO_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_BOLSA_REGLAS_SOURCE_PATH", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "VEC_DEVELOPMENT_MATERIAL_DIR"], "nota": "Acciones propias del candidato en «Mi bolsa»."},
     {"variable": "VEC_BOLSA_POLITICA_OFERTAS_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_BOLSA_BORRADORES_ENABLED", "VEC_BOLSA_POLITICA_OFERTAS_CALCULADOR_DATABASE_URL"]},
     {"variable": "VEC_BOLSA_CESE_CT_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_BOLSA_BORRADORES_ENABLED", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "VEC_BOLSA_CESE_CT_DATABASE_URL"], "nota": "Vuelta a Bolsa tras el cese en CT; necesita el relevo de contratos activo."},
-    {"variable": "VEC_BOLSA_AVISOS_MIS_CORREOS_ENABLED", "tipo": "selector", "uso_real": false, "requiere": ["VEC_USUARIOS_CORREOS_ENABLED", "VEC_USUARIOS_PREFERENCIAS_ENABLED"], "nota": "Avisos de ofertas de Bolsa por correo."}
+    {"variable": "VEC_BOLSA_AVISOS_MIS_CORREOS_ENABLED", "tipo": "selector", "uso_real": false, "requiere": ["VEC_USUARIOS_CORREOS_ENABLED", "VEC_USUARIOS_PREFERENCIAS_ENABLED"], "nota": "Avisos de ofertas de Bolsa por correo."},
+    {"variable": "VEC_BOLSA_PREFERENCIAS_INTERNA_ENABLED", "tipo": "selector", "uso_real": false, "requiere": ["VEC_USUARIOS_PREFERENCIAS_ENABLED"], "nota": "Orden de bolsas de Mi Bolsa con la sesión corporativa; sin sus piezas solo esa ruta responde 503."}
   ]
 }
