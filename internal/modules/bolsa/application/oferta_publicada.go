@@ -36,13 +36,14 @@ type ServicioOfertasPublicadas struct {
 	repositorio   puertosbolsa.RepositorioOfertasPublicadas
 	plazos        puertosbolsa.CalculadoraPlazoOferta
 	reloj         func() time.Time
+	avisos        *DespachadorAvisosOferta
 }
 
 func NuevoServicioOfertasPublicadas(cb puertosbolsa.ResolutorContextoContactoParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioOfertasPublicadas, p puertosbolsa.CalculadoraPlazoOferta, reloj func() time.Time) (*ServicioOfertasPublicadas, error) {
 	if cb == nil || a == nil || r == nil || p == nil || reloj == nil {
 		return nil, puertosbolsa.ErrOfertaNoDisponible
 	}
-	return &ServicioOfertasPublicadas{cb, a, r, p, reloj}, nil
+	return &ServicioOfertasPublicadas{contextoBolsa: cb, autorizador: a, repositorio: r, plazos: p, reloj: reloj}, nil
 }
 
 // PublicarOferta calcula el plazo con la regla vigente y reserva la oferta
@@ -86,7 +87,7 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 			if !ofertaRecuperadaCorresponde(recuperada, q) {
 				return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaConflicto
 			}
-			return recuperada, nil
+			return s.despacharAvisos(ctx, recuperada), nil
 		}
 	}
 	inicio, err := s.inicioPlazoDisposicion(ctx, q.BolsaRef)
@@ -165,7 +166,7 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 			(oferta.Plazo.Notificacion == nil || *oferta.Plazo.Notificacion != q.Notificacion)) {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaConflicto
 	}
-	return oferta, nil
+	return s.despacharAvisos(ctx, oferta), nil
 }
 
 // ResolverOferta registra un acto sobre una plaza. El almacén recalcula en ese
@@ -202,7 +203,14 @@ func (s *ServicioOfertasPublicadas) ConsultarOfertas(ctx context.Context, q puer
 	if err != nil || resuelto.Validar() != nil {
 		return nil, errorDependenciaOferta(err)
 	}
-	return s.repositorio.Listar(ctx, q.BolsaRef, s.reloj().UTC().Truncate(time.Microsecond), q.Limite)
+	ofertas, err := s.repositorio.Listar(ctx, q.BolsaRef, s.reloj().UTC().Truncate(time.Microsecond), q.Limite)
+	if err == nil && s.avisos == nil {
+		for i := range ofertas {
+			ofertas[i].AvisoConfiguracionPendiente = ofertas[i].Aviso != nil &&
+				(ofertas[i].Aviso.Pendientes > 0 || ofertas[i].Aviso.SinConfirmacion > 0)
+		}
+	}
+	return ofertas, err
 }
 
 // InicioPlazoOferta devuelve el inicio que RRHH debe usar al preparar el
