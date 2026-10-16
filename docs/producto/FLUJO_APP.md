@@ -743,6 +743,13 @@ CT no tiene llamamiento propio: usa el de Bolsa sobre una bolsa constituida
 6. Tras una renuncia o expiración, RRHH abre expresamente el siguiente
    (`llamamientos/siguientes`). No hay aviso automático al siguiente.
 
+En la copia local, CT230 confirma y recupera el llamamiento nativo con su
+misma clave y recibo después de reiniciar, sin duplicar la oferta. Queda un
+hueco entre la selección y el aviso: al recargar, la ficha consulta solo las
+comunicaciones ya anotadas y aún no recupera la selección pendiente de aviso.
+La lista vacía no acredita que no haya llamamiento. Este ensayo no completa
+el recorrido del apartado 4.0.
+
 Con #1088 (**en main, sin subir**) la selección usa la bolsa constituida, su
 orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
 (`VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`; sin ella responde 503 y el resto
