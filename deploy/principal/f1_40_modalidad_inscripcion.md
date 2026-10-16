@@ -13,8 +13,20 @@ La inscripción conjunta completa corresponde a F1-41.
 
 ## Configuración y datos
 
-No hay variable, ruta ni permiso nuevos. Se reutilizan los pools, material privado,
-capacidad y permisos nominales existentes de preparación de bases e inscripción.
+No hay variable, ruta ni acción nuevas. Se reutilizan los pools, material privado
+y capacidad existentes de preparación de bases e inscripción. La lista y la
+ficha del aspirante añaden, respectivamente, las hojas
+`convocatorias[].modalidad_inscripcion` y `modalidad_inscripcion`. El filtro de
+lectura compara todas las hojas del contrato con las de la concesión publicada:
+un rol anterior sin esas hojas queda denegado y no recibe una respuesta recortada.
+Para habilitar esas lecturas se deben admitir las dos hojas en las acciones
+externas existentes del catálogo y publicar una nueva versión del rol de
+aspirante con ambas concesiones explícitas, mediante propuesta y cierre de dos
+administradores distintos. El versionador externo actual solo añade acciones
+ausentes: la vía concreta para ampliar los campos de concesiones ya publicadas
+queda pendiente de definir y ensayar. El cambio de código no publica el catálogo
+ni concede campos por defecto.
+
 El material debe ser propio de la copia y sus perfiles, certificados y confianzas
 de desarrollo deben durar al menos 60 días. Ningún archivo de arranque se modifica
 con el proceso en marcha: conservar la configuración anterior y reiniciar vigilado.

@@ -148,7 +148,7 @@ func TestHuellaCamposLecturaInscripcionPorCanal(t *testing.T) {
 		t.Fatal(err)
 	}
 	huella := sha256.Sum256(canon)
-	const esperada = "5134a371a160fb8bde9b88be3eeafc3ad2495c9355bf7a2ac3227840cb91a404"
+	const esperada = "39ae31c34736e1450eee313a1d7a7d30dcb670dca11af0d757626e81d91b7323"
 	if hex.EncodeToString(huella[:]) != esperada {
 		t.Fatalf("catálogo de campos cambió: %x", huella)
 	}
@@ -188,6 +188,70 @@ func TestDecisorLecturaActualInscripcionPostgreSQLExigePoolsYDescriptores(t *tes
 	externa.Descriptores = descriptoresLecturaActualInscripcionBolsa(superficieInternaInscripcionBolsa)
 	if _, err := nuevoDecisorLecturaActualInscripcionFuente(f, externa); !errors.Is(err, inscripcion.ErrNoDisponible) {
 		t.Fatalf("el portal externo aceptó descriptores de RRHH: %v", err)
+	}
+}
+
+func TestModalidadInscripcionExigeConcesionExplicitaPorLectura(t *testing.T) {
+	for _, caso := range []struct {
+		accion string
+		hoja   string
+	}{
+		{inscripcion.AccionListarAbiertas, "convocatorias[].modalidad_inscripcion"},
+		{inscripcion.AccionDetalleAbierta, "modalidad_inscripcion"},
+	} {
+		t.Run(caso.accion, func(t *testing.T) {
+			ahora := time.Now().UTC().Truncate(time.Microsecond)
+			s, candidatoRef := contextoInscripcionCandidatoPrueba(t, ahora)
+			a := acreditacionSesionInscripcionPrueba(t, s, superficieExternaInscripcionBolsa, ahora)
+			v, err := s.Vinculo.Datos()
+			if err != nil {
+				t.Fatal(err)
+			}
+			filtro, convocatoria := inscripcion.Filtro{Limite: 20}, ""
+			if caso.accion == inscripcion.AccionDetalleAbierta {
+				filtro, convocatoria = inscripcion.Filtro{}, "cv1_YXV4aWxpYXI_v1"
+			}
+			recurso, err := inscripcion.RecursoLectura(caso.accion, v.PrincipalID, "es", filtro, convocatoria)
+			if err != nil {
+				t.Fatal(err)
+			}
+			identidad := &identidadCandidatoBolsaDesarrollo{personaRef: v.PrincipalID, perfilRef: v.PerfilActivoRef, candidatoRef: candidatoRef}
+			i, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora)
+			if err != nil {
+				t.Fatal(err)
+			}
+			i.VersionRol.PublicadaPor = "seguridad:prueba-publicada"
+			i.ControlVigenciaVersionRol.ActualizadoPor = "seguridad:prueba-publicada"
+			i.AsignacionPerfil.EmitidaPor = "identidad:prueba-publicada"
+			campos := camposLecturaInscripcionBolsa(caso.accion, false)
+			if !slices.Contains(campos, caso.hoja) {
+				t.Fatalf("falta hoja de modalidad en %q", campos)
+			}
+			i.VersionRol.Concesiones = []vecdomain.ConcesionRol{{Accion: caso.accion,
+				ModuloID: "bolsa", TipoRecurso: "convocatoria_inscripcion", Finalidades: []string{"consulta_convocatoria_abierta"},
+				CamposPermitidos: slices.DeleteFunc(slices.Clone(campos), func(c string) bool { return c == caso.hoja }),
+				GarantiaMinima:   vecdomain.AuthAssuranceHigh}}
+			i.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{{Clave: "candidato_ref", Valores: []string{candidatoRef}}}
+			if err := i.Validar(); err != nil {
+				t.Fatal(err)
+			}
+			fuente := &fuenteLecturaActualInscripcionPrueba{i: i}
+			d, err := nuevoDecisorLecturaActualInscripcionFuente(fuente, ConfiguracionDecisorLecturaActualInscripcion{
+				Superficie: superficieExternaInscripcionBolsa, Reloj: relojFijoAltaContratacionTemporalDesarrollo{ahora: ahora},
+				Descriptores: descriptoresLecturaActualInscripcionBolsa(superficieExternaInscripcionBolsa)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := d.DecidirLecturaActual(context.Background(), s, a, caso.accion, recurso, filtro); !errors.Is(err, inscripcion.ErrAccesoDenegado) || fuente.llamadas != 1 {
+				t.Fatalf("concesión antigua obtuvo lectura: llamadas=%d err=%v", fuente.llamadas, err)
+			}
+			i.VersionRol.Concesiones[0].CamposPermitidos = campos
+			fuente.i, fuente.llamadas = i, 0
+			decision, err := d.DecidirLecturaActual(context.Background(), s, a, caso.accion, recurso, filtro)
+			if err != nil || !decision.Concedida || !slices.Equal(decision.Campos, campos) || fuente.llamadas != 1 {
+				t.Fatalf("concesión explícita no obtuvo lectura: decisión=%+v llamadas=%d err=%v", decision, fuente.llamadas, err)
+			}
+		})
 	}
 }
 
