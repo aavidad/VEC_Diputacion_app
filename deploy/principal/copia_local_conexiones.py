@@ -89,7 +89,8 @@ def _sql(nombres: list[str], contrasenas: list[str], grupos: list[str], vence: s
         "SELECT count(*) INTO v_fallos FROM esperados e LEFT JOIN pg_catalog.pg_roles r ON r.rolname=e.grupo "
         "WHERE r.oid IS NULL OR r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole "
         "OR r.rolreplication OR r.rolbypassrls OR r.rolconfig IS NOT NULL "
-        "OR NOT pg_catalog.has_database_privilege(r.oid,'postgres','CONNECT') "
+        "OR (r.rolname<>'vec_auditoria_encadenador' AND "
+        "NOT pg_catalog.has_database_privilege(r.oid,'postgres','CONNECT')) "
         "OR (r.rolname<>'" + MIGRADOR + "' AND EXISTS "
         "(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid));",
         "IF v_fallos<>0 THEN RAISE EXCEPTION 'Grupo nominal ausente o sin CONNECT seguro'; END IF;",
@@ -152,6 +153,10 @@ def _sql(nombres: list[str], contrasenas: list[str], grupos: list[str], vence: s
         lineas.append("CREATE ROLE " + login + " LOGIN INHERIT NOSUPERUSER NOCREATEDB "
                       "NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '" + clave +
                       "' VALID UNTIL '" + vence + "';")
+        if grupo == "vec_auditoria_encadenador":
+            # El anexo de base no concede CONNECT al sellador. Se otorga
+            # únicamente al nuevo LOGIN, sin alterar el grupo instalado.
+            lineas.append("GRANT CONNECT ON DATABASE postgres TO " + login + ";")
         lineas.append("GRANT " + grupo + " TO " + login +
                       " WITH ADMIN FALSE, INHERIT TRUE, SET " +
                       ("TRUE" if variable == GOBIERNO else "FALSE") + ";")

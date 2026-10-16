@@ -271,6 +271,7 @@ class Copia:
             VEC_DEVELOPMENT_MATERIAL_DIR=str(self.material),
             VEC_TLS_CERT_FILE=str(self.material / 'tls/servidor.crt'),
             VEC_TLS_KEY_FILE=str(self.material / 'tls/servidor.key'),
+            VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS='2136',
             VEC_HTTP_ADDR=f"127.0.0.1:{estado['puerto_app']}",
             VEC_BOLSA_DATA_DIR=str(self.raiz / 'datos'))
         entorno.update(self.entorno_modulos())

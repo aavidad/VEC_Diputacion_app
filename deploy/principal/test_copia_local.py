@@ -1,6 +1,7 @@
 """Rechazos previos a restaurar o borrar una instancia."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -89,6 +90,23 @@ class CopiaLocalTest(unittest.TestCase):
         (self.raiz / 'l-focal').symlink_to(self.repo, target_is_directory=True)
         with patch.object(copia, 'BASE', self.raiz), self.assertRaises(ValueError):
             copia.Copia('l', 'focal')
+
+    def test_preparador_exige_fichero_privado_externo_sin_enlaces(self):
+        preparador = self.raiz / 'preparar.py'
+        preparador.write_text('pass\n')
+        with patch.dict(os.environ, {'VEC_COPIA_DATOS_SCRIPT': str(preparador)}), \
+                patch.object(copia, 'REPO', self.repo), \
+                patch.object(copia, 'BASE', self.raiz / 'copias'):
+            preparador.chmod(0o644)
+            with self.assertRaisesRegex(ValueError, 'fichero privado'):
+                copia.validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT')
+            preparador.chmod(0o600)
+            self.assertEqual(copia.validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT'), preparador)
+            enlace = self.raiz / 'enlace.py'
+            enlace.symlink_to(preparador)
+            os.environ['VEC_COPIA_DATOS_SCRIPT'] = str(enlace)
+            with self.assertRaisesRegex(ValueError, 'fichero privado'):
+                copia.validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT')
 
     def test_otro_arbol_no_puede_usar_la_instancia(self):
         with patch.object(copia, 'BASE', self.raiz):
