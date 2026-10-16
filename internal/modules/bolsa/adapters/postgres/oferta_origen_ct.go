@@ -13,15 +13,7 @@ func serializarOrigenOfertaCT(o *ports.OrigenOfertaCT) (any, error) {
 	if o == nil {
 		return nil, nil
 	}
-	type lecturaSQL struct {
-		ports.OrigenLlamamientoCT
-		Corte string `json:"corte"`
-	}
-	type origenSQL struct {
-		ports.OrigenOfertaCT
-		Lectura lecturaSQL `json:"lectura"`
-	}
-	return json.Marshal(origenSQL{OrigenOfertaCT: *o, Lectura: lecturaSQL{OrigenLlamamientoCT: o.Lectura, Corte: o.CorteCanonico()}})
+	return o.JSONCanonico()
 }
 
 func serializarNotificacionOfertaSQL(n dominiobolsa.NotificacionOferta) (any, error) {

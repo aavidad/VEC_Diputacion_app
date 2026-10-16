@@ -1,6 +1,7 @@
 package ports
 
 import (
+	"encoding/json"
 	"errors"
 )
 
@@ -71,4 +72,18 @@ func (o OrigenOfertaCT) ValidarPara(bolsa string, numeroPlazas int) error {
 // CorteCanonico conserva precisión de microsegundos para los materiales V3.
 func (o OrigenOfertaCT) CorteCanonico() string {
 	return o.Lectura.Corte.UTC().Format("2006-01-02T15:04:05.000000Z")
+}
+
+// JSONCanonico conserva la captura que intercambian las fachadas nominales.
+// El corte mantiene los seis decimales de la operación original.
+func (o OrigenOfertaCT) JSONCanonico() ([]byte, error) {
+	type lectura struct {
+		OrigenLlamamientoCT
+		Corte string `json:"corte"`
+	}
+	type origen struct {
+		OrigenOfertaCT
+		Lectura lectura `json:"lectura"`
+	}
+	return json.Marshal(origen{OrigenOfertaCT: o, Lectura: lectura{OrigenLlamamientoCT: o.Lectura, Corte: o.CorteCanonico()}})
 }
