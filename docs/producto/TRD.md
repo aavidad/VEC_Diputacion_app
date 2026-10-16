@@ -209,6 +209,14 @@ autorización sí bloquea lo que las necesita. Un módulo ausente no se sondea e
 bucle ni deja botones activos sin servidor detrás. Detalle en
 `docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md`.
 
+En la composición de desarrollo, un fallo al preparar Contratación temporal,
+sus reglas, la documentación de formalización o las preferencias mantiene el
+portal, la sesión certificada y las consultas públicas con fuentes propias.
+Las rutas que necesitan la autoridad de CT, incluida Organización histórica,
+responden 503 sin datos y sin caché. Se conserva mTLS y la validación común; un
+fallo de identidad o TLS sigue impidiendo el arranque. `/livez` no acredita la
+disponibilidad de las funciones; `/healthz` permanece en 503 sin su comprobador.
+
 Una capacidad se describe separando código, composición, instalación, recorrido
 comprobado y aprobación funcional. Tener cuatro capas, un manifiesto o pruebas no
 acredita que esté disponible.
@@ -693,9 +701,10 @@ cidonia (`docs/producto/PLAN_IMPLEMENTACION.md`, fase 1, condición 4).
 | Skill `security-audit` | Revisión centrada en lo cambiado antes de cada PR que toque autenticación, permisos, SQL, datos personales, ficheros subidos, red o entradas HTTP. Auditoría completa solo cuando la pida Alberto o antes de un hito grande |
 | ZAP, Nuclei, Trivy y similares | Reservadas para cuando la aplicación esté terminada |
 
-Los cambios de identidad, autorización, criptografía, SQL y fronteras de datos
-personales necesitan dos revisiones independientes de la versión final. Un cambio
-posterior reabre la parte afectada.
+Los cambios de lógica de negocio, permisos, identidad, cifrado o SQL con permisos
+necesitan dos revisiones independientes de la versión final; lo demás, una
+(`PLAN_IMPLEMENTACION.md`, apartado 10.5). Un cambio posterior reabre la parte
+afectada.
 
 ## 12. Textos, idiomas y accesibilidad (parte técnica)
 
@@ -805,6 +814,8 @@ Cada subida a cidonia se llama «HZ» seguida de un número correlativo (HZ36 el
 5. Comprueba que la web responde (`/portal-empleado/` en 200).
 6. Si falla el SQL o el arranque, **vuelve atrás sola** a la versión anterior.
 
+Desde el 15/10 cidonia está fuera hasta nueva orden y todo se ensaya y se
+recorre en una copia local; lo que sigue vale para cuando vuelva.
 cidonia nunca puede quedar apagada por un fallo de arranque. Si la versión nueva
 exige configuración o actos previos, se preparan y se ensayan antes en una copia.
 El registro de cada HZ (revisión, copia y vuelta atrás) se guarda fuera de Git.

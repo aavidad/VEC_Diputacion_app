@@ -1,8 +1,11 @@
 package bootstrap
 
 import (
+	"crypto/tls"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -152,16 +155,31 @@ func TestProcesoCombinadoRechazaMaterialSeparado(t *testing.T) {
 	}
 }
 
-// Con su material propio y sin nada del externo, el proceso interno pasa la
-// separación y la composición de seguridad y sigue la composición de siempre:
-// aquí se detiene solo porque la prueba no le da el PostgreSQL de RRHH.
-func TestProcesoInternoSigueLaComposicionDeSiempre(t *testing.T) {
+// Con su material propio y sin nada del externo, el proceso interno conserva
+// mTLS y el portal aunque falte el PostgreSQL de RRHH.
+func TestProcesoInternoSinCTConservaPortalYSeguridad(t *testing.T) {
 	vaciarConexionesDelEntorno(t)
 	cfg, _ := generarMaterialDesarrolloPrueba(t)
 	separarMaterial(t, cfg.DevelopmentMaterialDir, separacionportales.PortalInterno)
 	cfg.PortalProceso = "interno"
-	_, err := NewHTTPServerWithConfig(cfg)
-	if !errors.Is(err, config.ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) {
-		t.Fatalf("el interno debe llegar a la composicion de RRHH: %v", err)
+	servidor, err := NewHTTPServerWithConfig(cfg)
+	if err != nil || servidor == nil || servidor.TLSConfig == nil || servidor.TLSConfig.ClientAuth != tls.RequireAndVerifyClientCert {
+		t.Fatalf("el interno no conservó mTLS sin CT: servidor=%v error=%v", servidor, err)
+	}
+	for _, caso := range []struct {
+		ruta   string
+		estado int
+	}{
+		{"/livez", http.StatusOK},
+		{"/portal-empleado/", http.StatusOK},
+		{"/api/vec/contratacion-temporal/expedientes/consultas", http.StatusServiceUnavailable},
+	} {
+		peticion := httptest.NewRequest(http.MethodGet, caso.ruta, nil)
+		peticion.RemoteAddr = "127.0.0.1:1234"
+		respuesta := httptest.NewRecorder()
+		servidor.Handler.ServeHTTP(respuesta, peticion)
+		if respuesta.Code != caso.estado {
+			t.Fatalf("GET %s: estado=%d, esperado=%d", caso.ruta, respuesta.Code, caso.estado)
+		}
 	}
 }

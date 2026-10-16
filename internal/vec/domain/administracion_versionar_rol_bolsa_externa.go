@@ -222,10 +222,6 @@ func (p PlanVersionarRolBolsaExterna) HuellaSHA256() (string, error) {
 	return huellaAutorizacion(p)
 }
 
-func accionVersionarRolBolsaExterna(accion string) bool {
-	return slices.Contains(accionesVersionarRolBolsaExterna[:], accion)
-}
-
 func ambitosCandidatoBolsaExterna(ambitos []AmbitoPerfil) bool {
 	return len(ambitos) == 1 && ambitos[0].Clave == "candidato_ref" &&
 		len(ambitos[0].Valores) == 1 && ambitos[0].Validar() == nil
