@@ -218,7 +218,7 @@ func validarMotivoOrganizacionHistorica(ctx context.Context, inventarioCT string
 }
 
 // El modo combinado usa un DSN privado propio del evaluador de motivos OH.
-// El validador nominal conserva la comprobación de su único grupo PostgreSQL.
+// El validador nominal exige la única membresía PostgreSQL de motivos OH.
 func validarMotivoOrganizacionHistoricaServidor(ctx context.Context, archivoDSN string, motivo core.ReferenciaEntradaCatalogo, ahora time.Time) error {
 	dsn, err := leerDSN(archivoDSN, "")
 	if err != nil {
