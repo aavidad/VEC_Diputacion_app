@@ -71,7 +71,7 @@ func TestPublicacionExternaNuevaConservaClavesYUsaVigenciaComun(t *testing.T) {
 		}
 	}()
 	lista := ordenarMaterialExternoV3(materiales)
-	if len(lista) != 23 {
+	if !materialPublicableExternoV3Exacto(materiales, lista) {
 		t.Fatalf("material externo incompleto: %d claves", len(lista))
 	}
 	coordenadas := make([]coordenadaClaveExternaV3, len(lista))

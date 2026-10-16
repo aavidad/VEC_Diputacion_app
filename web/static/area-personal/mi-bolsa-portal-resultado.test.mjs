@@ -128,15 +128,15 @@ test("el recibo rechaza fechas civiles imposibles y horas normalizadas en sus do
     fetchImpl: async () => ({ status: 201, json: async () => recibo }) }), true);
 });
 
-test("un corte conserva respuesta y justificante originales sin un segundo envío concurrente", async () => {
+test("un corte conserva respuesta y PDF originales sin un segundo envío concurrente", async () => {
   const formulario = formularioDe(escenarios[0]);
   const datos = new FormData();
   datos.set("respuesta", "renuncia_justificada"); datos.set("causa", "enfermedad");
-  datos.set("justificante_ref", "documento:demo:1"); datos.set("justificante", new Blob(["abc"]));
+  datos.set("justificante", new Blob(["abc"], { type: "application/pdf" }), "parte.pdf");
   const enviadas = [];
   let terminar;
-  const dependencias = { datos, fetchImpl: async (_ruta, opciones) => {
-    enviadas.push(opciones.body);
+  const dependencias = { datos, fetchImpl: async (ruta, opciones) => {
+    enviadas.push({ ruta, cuerpo: opciones.body });
     await new Promise((resolver) => { terminar = resolver; });
     throw new TypeError();
   } };
@@ -146,11 +146,21 @@ test("un corte conserva respuesta y justificante originales sin un segundo enví
   terminar();
   assert.equal(await primera, false);
   assert.equal(enviadas.length, 1);
-  datos.set("respuesta", "acepta"); datos.set("justificante_ref", "documento:otro");
-  assert.equal(await enviarPortalMiBolsa(formulario, { datos, fetchImpl: async (_ruta, opciones) => {
-    enviadas.push(opciones.body); return { status: 200, json: async () => reciboDe(escenarios[0], true) };
+  datos.set("respuesta", "acepta");
+  assert.equal(await enviarPortalMiBolsa(formulario, { datos, fetchImpl: async (ruta, opciones) => {
+    enviadas.push({ ruta, cuerpo: opciones.body });
+    if (ruta.endsWith("/justificantes")) return { status: 200, json: async () => ({ data: {
+      carga_id: `ref:${huella}`, comprobante_ref: `ref:${huella}`, documento_version: 1,
+      recibo_ref: `recibo:${huella}`,
+      estado: "admitido", registrado_en: "2026-10-01T08:00:00Z",
+    } }) };
+    return { status: 200, json: async () => reciboDe(escenarios[0], true) };
   } }), true);
-  assert.equal(enviadas[1], enviadas[0]);
+  assert.equal(enviadas[1].ruta, enviadas[0].ruta);
+  assert.equal(enviadas[1].cuerpo.get("clave_idempotencia"), enviadas[0].cuerpo.get("clave_idempotencia"));
+  assert.deepEqual(await enviadas[1].cuerpo.get("documento").arrayBuffer(),
+    await enviadas[0].cuerpo.get("documento").arrayBuffer());
+  assert.equal(JSON.parse(enviadas[2].cuerpo).justificante_ref, `ref:${huella}`);
 });
 
 test("Mi bolsa explica el resultado incierto y el límite del justificante en ambos idiomas", async (t) => {
@@ -188,7 +198,7 @@ test("Mi bolsa explica el resultado incierto y el límite del justificante en am
       assert.deepEqual(enviadas[1], enviadas[0], "un reintento explícito conserva la petición y su clave");
     });
 
-    await t.test(`${idioma}: la etiqueta explica que el fichero no se envía y solo salen referencia y huella`, async () => {
+    await t.test(`${idioma}: pide el PDF y conserva su huella antes de subirlo`, async () => {
       const html = renderizarPortalMiBolsa(
         [{ bolsa: "bolsa:demo:1", categoria: "Auxiliar" }],
         [{ bolsa: "bolsa:demo:1", llamamiento_abierto: {
@@ -198,18 +208,17 @@ test("Mi bolsa explica el resultado incierto y el límite del justificante en am
       );
       const etiqueta = traducir("areaPersonal.portal.justificante");
       assert.equal(etiqueta, catalogo["areaPersonal.portal.justificante"]);
-      assert.ok(html.includes(`>${etiqueta}</label>`));
-      assert.match(etiqueta, idioma === "es" ? /el archivo no se envía/u : /the file is not sent/u);
+      assert.ok(html.includes(`>${etiqueta} <span>`));
+      assert.match(etiqueta, /PDF/u);
+      assert.doesNotMatch(html, /name="justificante_ref"/u);
       const datos = new FormData();
       datos.set("respuesta", "renuncia_justificada");
       datos.set("causa", "enfermedad");
-      datos.set("justificante_ref", "documento:demo:1");
-      datos.set("justificante", new Blob(["abc"]));
+      datos.set("justificante", new Blob(["abc"], { type: "application/pdf" }), "parte.pdf");
       const { cuerpo } = await cuerpoPortalMiBolsa({
         dataset: { portalMiBolsa: "responder", bolsa: "bolsa:demo:1" },
       }, datos);
-      assert.deepEqual(Object.keys(cuerpo).sort(), ["bolsa", "causa", "clave", "justificante_ref", "justificante_sha256", "respuesta"]);
-      assert.equal(cuerpo.justificante_ref, "documento:demo:1");
+      assert.deepEqual(Object.keys(cuerpo).sort(), ["bolsa", "causa", "clave", "justificante_sha256", "respuesta"]);
       assert.equal(cuerpo.justificante_sha256, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     });
   }
