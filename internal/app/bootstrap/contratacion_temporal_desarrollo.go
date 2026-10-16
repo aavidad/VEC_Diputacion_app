@@ -970,8 +970,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	var montajeFirmaVec *montajeFirmaVecR5CT
 	defer func() {
-		if cerrarAlta && montajeFirmaVec != nil && montajeFirmaVec.cerrarAuditoria != nil {
-			montajeFirmaVec.cerrarAuditoria()
+		if cerrarAlta && montajeFirmaVec != nil {
+			montajeFirmaVec.cerrarAuditoriaSiExiste()
 		}
 	}()
 	var lecturasFirmaVec *montajeLecturasFirmaV2
@@ -1611,7 +1611,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	dependencias.cerrar = func() {
 		if montajeFirmaVec != nil {
-			montajeFirmaVec.cerrarAuditoria()
+			montajeFirmaVec.cerrarAuditoriaSiExiste()
 		}
 		cerrarPreparacionBases()
 		cerrarBaremo()

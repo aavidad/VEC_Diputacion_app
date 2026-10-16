@@ -13,7 +13,7 @@ var (
 	ErrOriginalFirmableCTNoEncontrado = errors.New("vec: original firmable CT no encontrado")
 )
 
-const LimiteOriginalFirmableCT = 1 << 20
+const LimiteOriginalFirmableCT = 2 << 20
 
 // OriginalRef es una expectativa, nunca una ruta ni una fuente de autoridad.
 // El navegador no aporta bytes ni huella a este contrato.
