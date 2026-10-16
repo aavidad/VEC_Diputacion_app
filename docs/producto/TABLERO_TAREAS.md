@@ -83,14 +83,14 @@ se copia de su salida.
 | Fase | Pendiente | Bloqueada | En curso | En revisión | Fusionada | Hecha | Aparcada | Cancelada | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 0 Base común | 14 | 3 | 5 | 0 | 5 | 0 | 3 | 1 | 31 |
-| 1 Bolsa y CT | 37 | 6 | 10 | 0 | 9 | 3 | 2 | 2 | 69 |
+| 1 Bolsa y CT | 36 | 6 | 10 | 0 | 11 | 3 | 2 | 2 | 70 |
 | 2 Personal y Organización | 10 | 3 | 1 | 0 | 0 | 0 | 0 | 1 | 15 |
 | 3 Cronos | 5 | 4 | 1 | 0 | 0 | 0 | 0 | 0 | 10 |
 | 4 Dietas | 2 | 4 | 1 | 0 | 0 | 0 | 0 | 0 | 7 |
 | 5 Sustituir Convoca | 8 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 13 |
 | 6 Resto de módulos | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 0 | 13 |
 | 7 Uso real | 2 | 13 | 0 | 0 | 0 | 0 | 1 | 0 | 16 |
-| **Total** | **78** | **38** | **18** | **0** | **14** | **3** | **19** | **4** | **174** |
+| **Total** | **77** | **38** | **18** | **0** | **16** | **3** | **19** | **4** | **175** |
 
 Empezables ya: 24 en las fases 0 y 1 (pendientes con todas sus
 dependencias hechas o fusionadas). De ellas, 16 tienen equipo:
@@ -105,18 +105,22 @@ dependencias hechas o fusionadas). De ellas, 16 tienen equipo:
 Sin equipo todavía: F0-11, F0-16, F0-17, F1-53, F1-56 (opcional), F1-60,
 F1-62 y F1-63; tampoco F1-61, que espera a F1-40. F1-58 es de H y espera a
 que termine F1-36; F0-31 es de L y espera a F0-28; F1-17 es de S y va tras
-F1-18. F0-08 está bloqueada. Fuera de las fases 0 y 1 hay tres más sin dependencias
-(F2-02, F3-02 y F7-13), pero la prioridad vigente no deja encargarlas antes de
+F1-18. F0-08 está bloqueada. Fuera de las fases 0 y 1 hay cuatro más
+(F2-01, F2-02, F3-02 y F7-13), pero la prioridad vigente no deja encargarlas antes de
 cerrar la fase 1.
 
 Cambios del 16/10 por la tarde: fusionadas F1-08 (#1144, #1170 y #1178),
-F1-21 (#1153), F1-45 (#1183, solo documentación; la valoración espera al
+F1-21 (#1153), F1-03 (#1152) y F1-22 (#1150), que estaban sin marcar, F1-45 (#1183, solo documentación; la valoración espera al
 baremador) y la corrección de la auditoría de la lectura de inscripción del
 aspirante externo (#1188), que se anota como F1-68. F1-36 tiene fusionadas
 las partes A (#1172) y B (#1173) y le falta C (#1179); F1-64 tiene fusionada
 la parte 1 (#1181) y le falta la 2; F0-28 tiene fusionado su primer corte
 (#1175). Pasan a en curso F1-09 (#1190), F1-12 (#1187), F1-18 (#1180 y
-#1184) y F1-40 (#1177), que #1188 desbloqueó. Tareas nuevas pequeñas: F1-69
+#1184), F1-34 (#1189; faltan los candidatos y la ficha del candidato) y
+F1-40 (#1177), que #1188 desbloqueó. La confirmación de aceptaciones
+directas desde la ficha del aspirante (#1164 y #1176), que sus PR llamaban
+F1-06, pasa a ser F1-71; F1-06 sigue siendo la pantalla de reglas de
+situación. Tareas nuevas pequeñas: F1-69
 y F1-70 para R (menores de CT231 y CT230) y F0-31 para L (roles de B119 en
 el guion de la copia local).
 
@@ -152,8 +156,8 @@ fundida en F0-18.
 ## 3. Camino crítico de la fase 1 y estimación
 
 La puerta era F1-21 (separar la unidad gestora de CT de la unidad del
-puesto), fusionada el 16/10 con #1153. F1-08 también quedó fusionada ese día;
-sigue pendiente F1-22 (#1150) para el llamamiento del recorrido (F1-25).
+puesto), fusionada el 16/10 con #1153. F1-08 y F1-22 también están
+fusionadas; el llamamiento del recorrido (F1-25) ya solo espera a F1-24.
 
 Cadena más larga, por días laborables a partir del 16/10:
 
@@ -277,7 +281,7 @@ motivo y lecturas por debajo de 300 ms.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | F1-01 | Situaciones en singular, sacadas del catálogo, en etiquetas, filtros y desplegables | `web/static/bolsa`; `locales` | - | - | S | T | #1148 | Fusionada | 16/10 | Chrome a 1440 y 390 px en castellano e inglés; revisión de usabilidad; pruebas de textos accesibles al día | RRHH 15/10 |
 | F1-02 | «Cambiar situación» completo, con el motivo dentro del panel | `web/static/bolsa` | - | - | S | T | #1149 | Fusionada | 16/10 | Chrome a 1440, 1024 y 390 px; revisión de usabilidad | RRHH 15/10 |
-| F1-03 | Cuadro de Bolsas: la columna «En revisión» se ve a 1440 px | `web/static/bolsa` | - | - | S | T | #1152 | En curso | 15/10 | Chrome a 1440 y 390 px sin desbordamiento | RRHH 15/10 |
+| F1-03 | Cuadro de Bolsas: la columna «En revisión» se ve a 1440 px | `web/static/bolsa` | - | - | S | T | #1152 | Fusionada | 15/10 | Chrome a 1440 y 390 px sin desbordamiento | RRHH 15/10 |
 | F1-04 | Publicar reglas de situación: fachada sobre B32 con permiso propio, versión esperada, motivo, recibo y autorización en la misma transacción; el arranque solo lee. Incluye la activación explícita de la fuente normativa (antes F1-05) y, para los candidatos «En revisión», confirmar la respuesta o devolverlos al turno con motivo | `internal/modules/bolsa`; SQL de Bolsa | - | - | M | S | #1155 | En curso | 15/10 | Publicación con recibo y replay igual; sin activación se niega con motivo; el arranque no sobrescribe; un candidato «En revisión» se confirma o vuelve al turno con su motivo | RRHH 15/10; duda 157 |
 | F1-05 | Activar la fuente normativa del catálogo de situaciones. Cancelada el 15/10: fundida en F1-04, misma PR de S | - | - | - | - | S | - | Cancelada | 15/10 | - | Consenso de dirección 15/10 |
 | F1-06 | Pantalla de reglas de situación para RRHH: ver y editar la política de transiciones con versiones y motivo, y resolver los candidatos «En revisión» | `web/static/bolsa` | F1-04 | - | M | S | - | Pendiente | 15/10 | Carmen la abre sin 403, cambia una regla, devuelve un candidato al turno y ve el recibo; tras reiniciar sigue igual | RRHH 15/10; duda 157 |
@@ -301,7 +305,7 @@ motivo y lecturas por debajo de 300 ms.
 | ID | Tarea | Zona de código | Depende de | Bloqueo | Tam. | Equipo | Rama/PR | Estado | Desde | Cómo se comprueba | Fuente |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | F1-21 | Separar la unidad gestora de CT de la unidad orgánica del puesto en el puente de la bolsa constituida. Es la puerta del camino crítico | `internal/app/bootstrap/contratacion_temporal_llamamiento_datos_constituidos.go:255` | - | - | M | R | #1153 | Fusionada | 16/10 | La selección del puesto 9/01 (unidad del centro 520) funciona con la unidad gestora de RRHH | Canal 15/10 |
-| F1-22 | Organización histórica en `vec-server` combinado, con su rol de lectura de seis campos | `internal/modules/personal`; organización | - | - | M | R | #1150 | En curso | 15/10 | GET 200 con la sesión de RRHH; sin configuración solo esa función da 503 | Canal 15/10 |
+| F1-22 | Organización histórica en `vec-server` combinado, con su rol de lectura de seis campos | `internal/modules/personal`; organización | - | - | M | R | #1150 | Fusionada | 16/10 | GET 200 con la sesión de RRHH; sin configuración solo esa función da 503 | Canal 15/10 |
 | F1-23 | Retomar el ensayo de P: copia local al día con `main` (firma, ofertas), lista SQL causal, administradores, firmantes y empleados de copia | `deploy/principal/candidata_hz39` | F0-03 (o renovar el material cada día) | Equipo P en pausa hasta el 20/10 | M | P | #1128 | Bloqueada | 15/10 | La copia arranca con todo lo fusionado y las ocho variables de la fase | Consenso de dirección 15/10 |
 | F1-24 | Pasos 1 a 8 (de la petición a la fiscalización, con las dos firmas del informe en 7b) | Recorrido | F1-23 | - | S | P | - | Pendiente | 15/10 | Recibo y versión de cada paso en Chrome | FLUJO 4.0 |
 | F1-25 | Pasos 9 a 11: llamamiento desde la bolsa constituida, aceptación en «Mi Bolsa» y resolución | Recorrido | F1-21, F1-22, F1-24 | - | S | P | - | Pendiente | 15/10 | Recibo del llamamiento a Antonio y de su aceptación | FLUJO 4.0 |
@@ -318,7 +322,7 @@ motivo y lecturas por debajo de 300 ms.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | F1-32 | Las ocho variables de la fase encendidas en la copia, incluida la verificación de firma; el aviso de dependencias no muestra ausencias | Configuración de la copia | F0-01, F1-23, F0-03 (o renovar el material cada día) | - | S | P | - | Pendiente | 15/10 | Registro de arranque limpio | PLAN §5, fase 1 |
 | F1-33 | Ningún «no disponible» sin motivo y ninguna respuesta 404 o 503 de Bolsa o CT durante el recorrido | `internal/modules/bolsa`; `internal/modules/contrataciontemporal` | F1-28 | - | M | P | - | Pendiente | 15/10 | Registro del recorrido sin esos códigos | PLAN §5, fase 1 |
-| F1-34 | Lecturas en el percentil 95 por debajo de 300 ms (cuadro de CT, lista, ficha, bolsas, candidatos y ficha del candidato) y base por debajo de 100 ms, medidas en copia local con el volumen de la principal | `internal/modules/contrataciontemporal`; `internal/modules/bolsa` | F1-23 | - | M | P | - | Pendiente | 15/10 | Medición HTTP con su acta de rendimiento | PLAN §5, fase 1 |
+| F1-34 | Lecturas en el percentil 95 por debajo de 300 ms (cuadro de CT, lista, ficha, bolsas, candidatos y ficha del candidato) y base por debajo de 100 ms, medidas en copia local con el volumen de la principal | `internal/modules/contrataciontemporal`; `internal/modules/bolsa` | F1-23 | - | M | P | #1189 (medición entregada; faltan los candidatos y la ficha del candidato) | En curso | 16/10 | Medición HTTP con su acta de rendimiento | PLAN §5, fase 1 |
 
 ### 6.4 Firma, después de #1137
 
@@ -365,6 +369,7 @@ motivo y lecturas por debajo de 300 ms.
 | F1-68 | Auditoría de la lectura de inscripción del aspirante externo: el cotejo del contexto solo miraba el almacén interno y toda lectura externa daba 503 (CA47 y AD289) | SQL de contexto del actor y de autorización | - | - | S | Dirección | #1188 | Fusionada | 16/10 | La lectura externa queda asentada; un recibo inexistente, ajeno o presente en los dos almacenes se deniega sin asiento | Ensayo de #1177, 16/10 |
 | F1-69 | Menores de CT231: la base no impide una segunda selección confirmada en el mismo expediente (hoy lo frena la pantalla y la consulta termina con P1405), y la búsqueda de selecciones por campos JSON no tiene índice | SQL de `internal/modules/contrataciontemporal` | - | - | S | R | - | Pendiente | 16/10 | Una segunda selección confirmada en el mismo expediente se rechaza en la base; la búsqueda usa índice | Revisión de #1178, 16/10 |
 | F1-70 | Menor de CT230: la rama nativa solo admite la autoridad `autoridad:bolsa:llamamiento:desarrollo`; producción necesitará su propia migración | SQL de `internal/modules/contrataciontemporal` | - | - | S | R | - | Pendiente | 16/10 | La rama nativa acepta la autoridad de producción con su migración; la de desarrollo sigue igual | Revisión de #1170, 16/10 |
+| F1-71 | Confirmar desde la ficha del aspirante una aceptación de llamamiento directo que espera revisión: RRHH escribe el motivo y la persona pasa a pendiente de incorporación, con respuesta, historia, recibo y evento en la misma transacción (B128 y su consumidor nominal). No cubre las ofertas publicadas (ver F1-59). Hasta el 16/10 sus PR citaban F1-06 por error | `internal/modules/bolsa`; SQL de Bolsa; `web/static/bolsa` | F1-04 | - | M | S y R | #1164 (S) y #1176 (R, consumidor) | En curso | 16/10 | La confirmación da recibo y la misma intención lo recupera; otro contenido o una situación cambiada da conflicto; una decisión ya usada no autoriza otra | Consenso de dirección 16/10 |
 
 ## 7. Fase 2. Personal y Organización (por capacidad)
 
