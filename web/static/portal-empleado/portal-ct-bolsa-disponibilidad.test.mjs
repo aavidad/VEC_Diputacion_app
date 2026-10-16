@@ -100,6 +100,7 @@ function navegadorFichaCT({ bolsaRef = "bolsa:auxiliar", origenRef = "expediente
     estado: { vista: "contratacion-temporal", datosBolsas: null, filtrosBolsa: {}, datosCandidatos: null },
     contextoBolsaCT: contexto, rutasBolsa: null, controladorBolsas: null, rutaCandidatosAplicada: null,
     modoGestionOfertasBolsa: "", superficieOfertasBolsa: null, rutaOfertasSolicitadaRef: "",
+    destinoPoliticaCeseInicial: false,
     CLAVE_RUTA_GESTION_OFERTAS: "ofertas_bolsa_ref", URLSearchParams,
     generacionCuadroBolsas: 0, cicloLecturaBolsas: 0,
     TITULOS: { "bolsa-candidatos": ["", "Candidatos"], llamamientos: ["", "Llamamientos"] },
