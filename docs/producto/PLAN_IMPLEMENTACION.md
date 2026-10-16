@@ -177,8 +177,8 @@ El guion de activación, la lista SQL y los límites están en
 `deploy/principal/candidata_hz39/firma/LEEME.md`.
 
 **F1-36A, H: base de recuperación histórica.** En rama: AD286, CT228,
-AUT103 y ajuste del consumidor existente de recuperación V2 y del publicador
-de cargos. Falta ensayo SQL en copia de la principal, revisiones independientes,
+AUT103, montaje nominal del consumidor existente de recuperación V2 y
+publicador de cargos con su permiso positivo de recuperación. Falta ensayo SQL en copia de la principal, revisiones independientes,
 arranque con y sin los nuevos roles, reinicio y CI antes de integrar. Este
 corte conserva las asignaciones vigentes y no ofrece un panel nuevo: B conectará
 la fuente autorizada y el anexo de la ficha; C montará la pantalla y gobernará

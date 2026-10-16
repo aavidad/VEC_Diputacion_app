@@ -36,6 +36,8 @@ AS $function$
  WHEN 'consultar_detalle_selectores' THEN
   jsonb_set(vec_autorizacion.concesion_v2_cargo_firma_desarrollo_v2('consultar_detalle'),
    '{campos_permitidos}','["selectores_recuperacion_firmas"]'::jsonb)
+ WHEN 'recuperar_r5' THEN
+  '{"accion":"contratacion_temporal.documento.firmas_r5_v2.recuperar","modulo_id":"contratacion_temporal","tipo_recurso":"expediente_contratacion_temporal","finalidades":["gestionar_contratacion_temporal"],"garantia_minima":"sustancial","campos_permitidos":["ByteRange","CanonNominal","CanonNominalRef","CanonNominalSHA256","CatalogoHuella","CatalogoRef","CertificadoHuella","ClaveIdempotencia","CoincideFirmanteCandidato","CoincideFirmanteEnOtroPaso","ConMotivoDevolucion","ContenidoFirmadoHuellaSHA256","Documento","DocumentoCustodiaRef","DocumentoCustodiaVersion","EntradaDocumentoHuella","EntradaDocumentoLongitud","EntradaDocumentoRef","EntradaDocumentoVersion","EvidenciaFirmasCanonica","EvidenciaFirmasHuellaSHA256","ExpedienteVersion","FechaPortafirmasDeclarada","FirmaAnteriorRef","FirmaRef","FirmadoHuella","FirmantePrincipalAcreditado","FirmanteRef","HistoriaHuella","HistoriaRevision","HistoriaSeparacionAcreditada","MaterialRootSHA256","OrdenFirmaPDF","OriginalHuella","OriginalRef","OriginalVersion","PasoOrden","PasoRef","ReciboAnteriorRef","ReciboRef","ReferenciaPortafirmasDeclarada","RegistradaEn","Resultado","RevisionHuellaSHA256","RevisionLongitud","Secuencia","SelloTiempoEstado","Via"],"obligaciones":[]}'::jsonb
  ELSE vec_autorizacion.concesion_v2_cargo_firma_desarrollo_v2(p_operacion)
  END
 $function$;
@@ -69,11 +71,11 @@ BEGIN
   clase:=split_part(c->>'rol_id','_',4);
   IF (clase='firma' AND jsonb_array_length(c->'competencias')=0) OR (clase<>'firma' AND jsonb_array_length(c->'competencias')<>0)
   OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(c->'operaciones_v2') o WHERE NOT(
-   (clase='firma' AND o IN('consultar_r5','firmar_vec')) OR (clase='consulta' AND o IN('consultar_cuadro','consultar_detalle','consultar_detalle_selectores','descargar_borrador'))
+   (clase='firma' AND o IN('consultar_r5','firmar_vec','recuperar_r5')) OR (clase='consulta' AND o IN('consultar_cuadro','consultar_detalle','consultar_detalle_selectores','descargar_borrador'))
    OR (clase='circuito' AND o='consultar_circuito') OR (clase='documentos' AND (o IN('descargar_original','custodiar_firmado') OR (split_part(c->>'rol_id','_',3)='tecnico' AND o IN('reservar_original','confirmar_original','escribir_original')))))) THEN
   RAISE EXCEPTION 'AUT87: PARO clave=concesiones_desarrollo actual=invalido esperado=permisos_minimos_del_cargo' USING ERRCODE='22023'; END IF;
  END IF;
- -- Operaciones V2: subconjunto ordenado y sin repetir de las dos admitidas.
+ -- Operaciones V2: subconjunto ordenado y sin repetir de las admitidas.
  FOR op IN SELECT value FROM jsonb_array_elements_text(c->'operaciones_v2') WITH ORDINALITY AS e(value,n) ORDER BY n LOOP
   IF (NOT desarrollo AND op NOT IN('consultar_r5','firmar_vec')) OR (desarrollo AND vec_autorizacion.concesion_v2_cargo_firma_desarrollo_v3(op) IS NULL) OR op COLLATE "C"<=anterior COLLATE "C" THEN RAISE EXCEPTION 'AUT53: PARO clave=operaciones_v2 actual=invalido esperado=subconjunto_ordenado' USING ERRCODE='22023'; END IF;
   anterior:=op;
@@ -105,11 +107,11 @@ BEGIN
   OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=h AND p.proowner=to_regrole('vec_autorizacion_propietario')
    AND NOT p.prosecdef AND p.provolatile='i' AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']::text[]
    AND p.proacl=ARRAY['vec_autorizacion_propietario=X/vec_autorizacion_propietario']::aclitem[]
-   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='e53fa04fe991b61fa15d2655a7a408c87936ca84396050166f9dc2f62d4726cd')
+   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='77bb5555ee4d450a44b0ea6fa294b8e015216ca232d541160c66ee8457817e2d')
   OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=r AND p.proowner=to_regrole('vec_autorizacion_propietario')
    AND NOT p.prosecdef AND p.provolatile='i' AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']::text[]
    AND p.proacl=ARRAY['vec_autorizacion_propietario=X/vec_autorizacion_propietario']::aclitem[]
-   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='1ba7ba69a449973664a37a2875174a809976e4684ca2790477cd62d4d979f1c1')
+   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='d3057878ac315982a222628a33d9606732d78f663178d171e4d1434dd0de2ad7')
  THEN RAISE EXCEPTION 'AUT103: postimagen o ACL divergentes' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;

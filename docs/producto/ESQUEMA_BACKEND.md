@@ -280,7 +280,10 @@ revalidar el consumo V3 con la unidad histórica, CT228 para recuperar el acto
 original exacto y su corte, y AUT103 para publicar por el gobierno de cargos
 la operación `consultar_detalle_selectores`. Esta mantiene la acción
 `expediente.consultar`, agrega solo `selectores_recuperacion_firmas` y conserva
-las concesiones de cuadro y descarga. No incluye AUT102, CT229, la fuente
+las concesiones de cuadro y descarga. La ruta nominal de recuperación usa su
+audiencia ya existente y el permiso positivo `recuperar_r5` del cargo de firma,
+con los 48 campos exactos; consultar o firmar no sustituyen ese permiso.
+No incluye AUT102, CT229, la fuente
 ampliada de la ficha ni el panel; estos pertenecen a B y C.
 
 Los perfiles, roles y concesiones se publican por migración o desde

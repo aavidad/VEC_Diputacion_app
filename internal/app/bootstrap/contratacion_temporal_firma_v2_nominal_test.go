@@ -6,9 +6,28 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestAuditoriaNominalDistingueConsultaYRecuperacionR5(t *testing.T) {
+	for _, caso := range []struct {
+		ruta, accion string
+		admite       bool
+	}{
+		{httpinterno.RutaConsultaFirmasR5V2, ports.AccionConsultarFirmasR5V2, true},
+		{httpinterno.RutaRecuperacionFirmasR5V2, ports.AccionRecuperarFirmasR5V2, true},
+		{httpinterno.RutaConsultaFirmasR5V2, ports.AccionRecuperarFirmasR5V2, false},
+		{httpinterno.RutaRecuperacionFirmasR5V2, ports.AccionConsultarFirmasR5V2, false},
+		{httpinterno.RutaRegistroFirmaVec, ports.AccionRecuperarFirmasR5V2, false},
+		{httpinterno.RutaRecuperacionFirmasR5V2, ports.AccionRegistrarFirmaVec, false},
+	} {
+		if accionAuditoriaLecturaFirmaNominalCT(caso.ruta, caso.accion) != caso.admite {
+			t.Fatalf("auditoría cruzó ruta y acción: %s %s", caso.ruta, caso.accion)
+		}
+	}
+}
 
 type revalidadorNominalFijoPrueba struct {
 	actual core.AutenticacionRevalidadaV1

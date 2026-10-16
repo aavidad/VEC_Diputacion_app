@@ -33,7 +33,7 @@ func rolDesarrolloValido(c cargoEntrada) bool {
 	for _, op := range c.OperacionesV2 {
 		switch clase {
 		case "firma":
-			if op != "consultar_r5" && op != "firmar_vec" {
+			if op != "consultar_r5" && op != "firmar_vec" && op != "recuperar_r5" {
 				return false
 			}
 		case "consulta":
@@ -75,6 +75,9 @@ func concesionModo(op string, desarrollo bool) (vd.ConcesionRol, bool) {
 			Finalidades: []string{finalidad}, GarantiaMinima: vd.AuthAssuranceSubstantial, CamposPermitidos: campos}, true
 	}
 	switch op {
+	case "recuperar_r5":
+		return crear(ct.AccionRecuperarFirmasR5V2, ct.ModuloContratacion, ct.TipoRecursoConsultaFirmasR5,
+			"gestionar_contratacion_temporal", ct.CamposRecuperacionFirmasV2()...)
 	case "consultar_detalle":
 		return crear(ct.AccionConsultarDetalleRRHH, ct.ModuloContratacion, ct.TipoRecursoExpediente, ct.FinalidadConsultarDetalleRRHH)
 	case "consultar_detalle_selectores":
