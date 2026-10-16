@@ -215,3 +215,28 @@ confirmación de la duda 165 sobre el descuento. Las preferencias de modalidad
 corresponden a su corte propio y nunca excluyen del llamamiento directo.
 Este ensayo no acredita todo el recorrido de FLUJO_APP §4.0, AD279, AD288 ni la
 subida a cidonia. Dirección integra y congela su candidata conjunta.
+
+## Comprobación después de integrar la principal con los justificantes
+
+La cabeza de integración `35f23ed7f` conserva las tres SQL de este corte con
+las mismas huellas. La composición propia `70a29941d` incorpora además CT230
+y CT231 y usa el binario normal SHA256
+`6d26fc8910751b60f7f70a8b393772e9f410514ebda5aacf67f9affc1659e685`.
+Su cohorte web es `20261016-r1-seleccion-pendiente-v8`; conserva la corrección
+de remonte y las funciones de justificantes integradas por la principal.
+
+Desde Chrome nuevo, la misma solicitud y clave recuperaron el resultado
+original, también después de reiniciar aplicación y PostgreSQL. Se mantuvieron
+un origen, una confirmación y los bytes del recibo y artefacto. La política
+conservó versión, huella, contenido y recibo; portal, sesión y comprobación de actividad respondieron
+200 una vez abierto el servicio. El primer sondeo inmediato al arranque no
+había encontrado todavía el puerto y se conserva como tal, no como un 200.
+
+En R59, sin repetir la preparación de datos ni instalar SQL, otro intento desde
+la ficha devolvió 409 en posición uno y política uno. «Ver la bolsa» abrió el
+listado con teclado. Los cuatro contadores del caso siguieron a cero y los doce
+conjuntos protegidos conservaron sus huellas. R58 permaneció detenida durante
+esa comprobación y volvió a arrancar después de detener R59. La resolución de
+conflictos web tiene revisión independiente favorable y pruebas focales; este
+contraste no amplía el alcance al recorrido completo ni a las dependencias
+pendientes del núcleo de autorización.
