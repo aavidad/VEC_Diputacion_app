@@ -425,6 +425,11 @@ pendiente: no se enlaza por parecido de nombre o documento.
 
 Estado: **en main, sin subir** (#1081, #1105).
 
+El corte F1-45 comprueba la consulta de la cartera desde **Mis méritos** con
+`GET /api/vec/meritos/cartera`. La pantalla muestra los méritos y el total que
+devuelve esa consulta. La valoración por categoría de bolsa y los puntos
+esperan al motor común de baremación; no se calculan en el navegador.
+
 1. En **Mis méritos**, la aspirante pulsa **Añadir título o mérito** y elige el
    tipo: titulación, curso de asistencia, curso de superación (con horas),
    experiencia, idioma u otro (`POST /api/vec/meritos/cartera/declaraciones`).
