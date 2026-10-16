@@ -11,3 +11,7 @@
 .ct-recuperacion-firmas-historicas [data-ct-recuperacion-historica-resultado] p {
   overflow-wrap: anywhere;
 }
+
+.ct-recuperacion-firma-historica {
+  margin-block: var(--portal-espacio-4);
+}

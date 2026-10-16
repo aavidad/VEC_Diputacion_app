@@ -1026,7 +1026,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-render.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-recuperacion-firmas-v2.js",
-  ]) versionesEspeciales.set(ruta, "20261016-firma-historica-v2");
+  ]) versionesEspeciales.set(ruta, "20261016-firma-historica-v4");
   for (const ruta of [
     "modulos/contratacion-temporal/circuito-firma-acciones.js",
     "modulos/contratacion-temporal/circuito-firma.js",
@@ -1039,7 +1039,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/preflight-firma-api.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261016-firma-historica-v3");
+  ]) versionesEspeciales.set(ruta, "20261016-firma-historica-v4");
   versionesEspeciales.set("portal-bolsas-ofertas.js", "20261015-ofertas-recuperacion-v4");
   versionesEspeciales.set("portal-llamamientos-selector.js", "20261015-ofertas-recibo-v3");
   versionesEspeciales.set("modulos/bolsa/rrhh-plazos-ui.js", "20261015-ofertas-recibo-v3");
