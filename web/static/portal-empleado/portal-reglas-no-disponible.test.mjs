@@ -14,7 +14,7 @@ test("el 404 de la política de cese abre Reglas como no disponible y el 403 vue
   const comprobar = cuerpo("comprobarAccesoPoliticaCese");
   assert.match(comprobar, /estado\.politicaCeseAusente = error\?\.estado === 404;/u);
   assert.match(comprobar, /if \(estado\.politicaCeseAusente && estado\.vista === "portal"\) navegar\("reglas"\);\s*else history\.replaceState\(null, "", rutaDeVista\("portal"\)\);/u);
-  assert.match(cuerpo("vistaPermitida"), /vista === "reglas" && estado\.politicaCeseAusente\) return coordinadorModulos\.obtenerCatalogo\(\)\.some\(\(m\) => m\.clave === "bolsa"\)/u);
+  assert.match(cuerpo("vistaPermitida"), /vista === "reglas" && \(estado\.politicaCese !== null \|\| estado\.politicaCeseAusente\)\)\s*return coordinadorModulos\.obtenerCatalogo\(\)\.some\(\(m\) => m\.clave === "bolsa"\)/u);
   assert.match(cuerpo("montarVistaBolsa"), /noDisponible: estado\.politicaCeseAusente/u);
   assert.match(cuerpo("cargarFuenteDatos"), /estado\.politicaCeseAusente = false;/u);
 });
@@ -84,4 +84,34 @@ test("el 403 al abrir Reglas borra la política anterior y devuelve a Inicio", a
   await comprobar();
   assert.equal(estado.politicaCese, null);
   assert.deepEqual(destinos, ["portal"]);
+});
+
+test("B45 positivo abre el enlace directo aunque el perfil propio aún no haya respondido", async () => {
+  const estado = { vista: "portal", perfilPropioBolsa: false, politicaCese: null,
+    politicaCeseComprobada: false, politicaCeseAusente: false };
+  const catalogo = [{ clave: "bolsa" }];
+  const entorno = { estado, AbortController, VISTA_PLANTILLAS_RRHH: "plantillas-rrhh",
+    vistaBolsaPendienteNoCompuesta: () => false, VISTAS_MODULOS_PERSONALES: new Set(),
+    VISTAS_AUTOSERVICIO_EMPLEADO: new Set(), moduloDeVistaPortal: () => "bolsa",
+    vistaBolsaNavegable: () => false, capacidadesBolsa: () => ({ perfilPropioBolsa: false }),
+    coordinadorModulos: { obtenerCatalogo: () => catalogo },
+    clientePoliticaCese: { consultar: async () => ({ meses_general: 5, meses_acumulacion: 9 }) },
+    actualizarVistaBolsa: () => {}, actualizarNavegacionModulos: () => {},
+    navegar: (vista) => { if (vista === "reglas") assert.equal(entorno.vistaPermitida(vista), true); estado.vista = vista; },
+    history: {}, rutaDeVista: () => "#portal" };
+  entorno.vistaPermitida = runInNewContext(`${cuerpo("vistaPermitida")}\n}; vistaPermitida`, entorno);
+  assert.equal(entorno.vistaPermitida("reglas"), false, "el perfil pendiente no concede B45 antes de leerlo");
+  const inicio = fuente.indexOf("let consultaAccesoPlantillas = null;");
+  const fin = fuente.indexOf("async function comprobarAccesoPlantillas()", inicio);
+  const comprobar = runInNewContext(`${fuente.slice(inicio, fin)}; destinoPoliticaCeseInicial = true; comprobarAccesoPoliticaCese`, entorno);
+  await comprobar();
+  assert.equal(estado.vista, "reglas");
+  assert.equal(estado.perfilPropioBolsa, false);
+  assert.equal(estado.politicaCese.meses_general, 5);
+  estado.politicaCese = null;
+  assert.equal(entorno.vistaPermitida("reglas"), false, "sin B45 ni perfil la ruta vuelve a cerrarse");
+  estado.politicaCeseAusente = true;
+  assert.equal(entorno.vistaPermitida("reglas"), true, "el 404 mantiene su aviso controlado");
+  catalogo.length = 0;
+  assert.equal(entorno.vistaPermitida("reglas"), false, "no muestra Bolsa ausente del catálogo");
 });
