@@ -122,7 +122,7 @@ func (s *Servicio) CustodiarOriginalFirmable(
 		!domain.ReferenciaOpacaValida(in.ID) || !domain.ReferenciaOpacaValida(in.ClaveIdempotencia) ||
 		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaExpedienteModuloValida(in.ModuloID, in.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(in.TipoRef) || in.Version == 0 || in.Version > 9007199254740991 ||
-		in.MIME != "application/pdf" || len(in.Contenido) < 8 || len(in.Contenido) > 1<<20 ||
+		in.MIME != "application/pdf" || len(in.Contenido) < 8 || len(in.Contenido) > vecports.LimiteOriginalFirmableCT ||
 		!bytes.HasPrefix(in.Contenido, []byte("%PDF-")) || in.SolicitudPolitica.Validar() != nil ||
 		in.SolicitudPolitica.ExpedienteRef() != in.ExpedienteRef ||
 		in.SolicitudPolitica.TipoDocumentalRef() != in.TipoRef || !s.tipoReservadoOriginalCT(in.TipoRef) {

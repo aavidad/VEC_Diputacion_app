@@ -25,6 +25,16 @@ test("preflight solo envía referencias/versiones y conserva transporte cerrado"
     cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal })) assert.equal(captura.opciones[campo], valor);
   assert.equal(Object.isFrozen(result.vias_disponibles), true);
 });
+test("preflight acepta la entrada Base64 de 2 MiB y rechaza el byte adicional", async () => {
+  const maximo = 2 * 1024 * 1024;
+  const contenido = Buffer.alloc(maximo, 0x78);
+  const data = { ...datos(), entrada_pdf_base64: contenido.toString("base64") };
+  const cliente = crearClientePreflightFirma({ fetchImpl: async () => respuesta(data) });
+  const leido = await cliente.consultar(solicitud);
+  assert.equal(leido.entrada_pdf_base64, data.entrada_pdf_base64);
+  assert.ok(validarPreflightFirma({ ...data, entrada_pdf_base64: Buffer.concat([contenido, Buffer.from("x")]).toString("base64") }, solicitud) === null,
+    "un byte extra no debe pasar aunque Base64 ocupe los mismos caracteres");
+});
 test("desviación, vínculo cambiado, vías desconocidas o duplicadas nunca habilitan", () => {
   const alteraciones = [
     (d) => { d.actor = "ajeno"; }, (d) => { d.version_expediente = 8; }, (d) => { d.original_ref = "original:otro"; },
@@ -42,7 +52,7 @@ test("denegación, caída, conflicto y cuerpo no confiable son errores cerrados"
     [async () => respuesta({}, 409), "conflicto"], [async () => respuesta({}, 503), "servicio_no_disponible"],
     [async () => { throw new Error("red"); }, "servicio_no_disponible"],
     [async () => respuesta({ ...datos(), perfil: "ajeno" }), "resultado_no_confiable"],
-    [async () => new Response("x".repeat(2 * 1024 * 1024 + 1), { headers: { "Content-Type": "application/json" } }), "resultado_no_confiable"],
+    [async () => new Response("x".repeat(Math.ceil((2 * 1024 * 1024) / 3) * 4 + 16 * 1024 + 1), { headers: { "Content-Type": "application/json" } }), "resultado_no_confiable"],
     [async () => new Response("{}", { headers: { "Content-Type": "text/html" } }), "resultado_no_confiable"],
   ]) await assert.rejects(crearClientePreflightFirma({ fetchImpl }).consultar(solicitud), (e) => e.codigo === codigo);
 });

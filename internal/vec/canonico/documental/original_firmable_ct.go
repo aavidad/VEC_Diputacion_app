@@ -15,7 +15,7 @@ const (
 	AccionConfirmacionOriginalFirmable = "documentos.original_firmable.confirmar"
 	FinalidadOriginalFirmable          = "custodiar_original_firmable"
 	AudienciaOriginalFirmable          = "vec_documentos.operacion.v1"
-	limitePDFOriginal                  = 1 << 20
+	limitePDFOriginal                  = 2 << 20
 )
 
 var ErrOriginalFirmableInvalido = errors.New("documentos: original firmable invalido")
