@@ -1013,7 +1013,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/adaptador-http-expedientes.js",
     "modulos/contratacion-temporal/cliente-http-descarga-firma-v2.js",
     "modulos/contratacion-temporal/formulario-informe-juridico.js",
-  ]) versionesEspeciales.set(ruta, "20261016-r1-criterios-v2");
+  ]) versionesEspeciales.set(ruta, "20261016-r1-criterios-v3");
   versionesEspeciales.set("portal-llamamientos-selector.js", "20261015-ofertas-recibo-v3");
   const aristas = [];
   const codigo = new Map();

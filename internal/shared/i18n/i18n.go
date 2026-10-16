@@ -20,7 +20,6 @@ const (
 var (
 	ErrNoLocalesFound = errors.New("i18n: no locale files found")
 	ErrLocaleRequired = errors.New("i18n: locale is required")
-	ErrKeyRequired    = errors.New("i18n: key is required")
 )
 
 type Catalog struct {
@@ -28,45 +27,20 @@ type Catalog struct {
 	messages      map[string]map[string]string
 }
 
-type Option func(*config)
-
-type config struct {
-	defaultLocale string
+func Load() (*Catalog, error) {
+	return LoadFS(os.DirFS("."), localesDir)
 }
 
-func WithDefaultLocale(locale string) Option {
-	return func(cfg *config) {
-		cfg.defaultLocale = normalize(locale)
-	}
-}
-
-func Load(opts ...Option) (*Catalog, error) {
-	return LoadFS(os.DirFS("."), localesDir, opts...)
-}
-
-func LoadDir(dir string, opts ...Option) (*Catalog, error) {
+func LoadDir(dir string) (*Catalog, error) {
 	clean := filepath.Clean(strings.TrimSpace(dir))
 	if clean == "." || clean == "" {
-		return LoadFS(os.DirFS("."), ".", opts...)
+		return LoadFS(os.DirFS("."), ".")
 	}
-	return LoadFS(os.DirFS(filepath.Dir(clean)), filepath.Base(clean), opts...)
+	return LoadFS(os.DirFS(filepath.Dir(clean)), filepath.Base(clean))
 }
 
-func LoadFS(fsys fs.FS, dir string, opts ...Option) (*Catalog, error) {
-	cfg := config{defaultLocale: DefaultLocale}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&cfg)
-		}
-	}
-	if cfg.defaultLocale == "" {
-		return nil, ErrLocaleRequired
-	}
-
+func LoadFS(fsys fs.FS, dir string) (*Catalog, error) {
 	pattern := path.Join(strings.Trim(strings.TrimSpace(dir), "/"), "*.json")
-	if pattern == "*.json" {
-		pattern = "*.json"
-	}
 	files, err := fs.Glob(fsys, pattern)
 	if err != nil {
 		return nil, fmt.Errorf("i18n: glob locales: %w", err)
@@ -77,7 +51,7 @@ func LoadFS(fsys fs.FS, dir string, opts ...Option) (*Catalog, error) {
 	sort.Strings(files)
 
 	catalog := &Catalog{
-		defaultLocale: cfg.defaultLocale,
+		defaultLocale: DefaultLocale,
 		messages:      make(map[string]map[string]string, len(files)),
 	}
 	for _, file := range files {

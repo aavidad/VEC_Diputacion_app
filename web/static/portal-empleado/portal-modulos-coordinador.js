@@ -130,15 +130,15 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261013-ct-firma-tres-v3"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261016-r1-criterios-v2"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261016-r1-criterios-v3"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
         import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261011-ct-bolsa-vinculo-v1"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261016-r1-criterios-v2"),
-        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261016-r1-criterios-v2"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261016-r1-criterios-v3"),
+        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261016-r1-criterios-v3"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
       return completos;
@@ -148,7 +148,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261016-r1-criterios-v2");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261016-r1-criterios-v3");
       const [auditoriaVista, auditoriaCliente, original, preflight, firmaVec, autoFirma, documentos] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),
@@ -1358,7 +1358,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261016-r1-criterios-v2");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261016-r1-criterios-v3");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
@@ -1391,7 +1391,7 @@ export function crearCoordinadorModulosPortal({
             if (montaje !== secuenciaMontaje) return;
             const denegado = [401, 403].includes(error?.estado) || error?.codigo === "acceso_denegado";
             destino.innerHTML = `<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert">
-              <p>${escaparHTML(mensaje ?? traducir(denegado ? "estado_modulo_sin_permiso" : "estado_modulo_no_disponible"))}</p>
+              <p>${escaparHTML(mensaje ?? traducir(denegado ? "estado_modulo_sin_permiso" : "contratacion_temporal_aviso_no_disponible"))}</p>
               ${denegado ? "" : `<button type="button" data-ct-reintentar>${escaparHTML(traducir("accion_reintentar"))}</button>`}
             </div></section>`;
             destino.querySelector?.("[data-ct-reintentar]")?.addEventListener("click", () => { void reintentar(); }, { once: true });

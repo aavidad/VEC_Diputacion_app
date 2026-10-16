@@ -1,7 +1,7 @@
 import { cargarTextos } from "../comun/textos.js";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { enlaceSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261016-r1-criterios-v2";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-criterios-v2";
+import { enlaceSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261016-r1-criterios-v3";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-criterios-v3";
 
 let mensajes;
 export async function prepararTextosGlobalBolsa() {
