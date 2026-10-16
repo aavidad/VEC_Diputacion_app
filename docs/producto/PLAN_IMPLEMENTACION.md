@@ -139,6 +139,15 @@ ficha, sin cambiar la verificación ni los permisos de firma. Guion en
 `deploy/principal/firma_ajustes_f1_37_20261015.md`; revisión y ensayo del conjunto
 final pendientes antes de integrar.
 
+**F1-65A, limpieza de plantillas.** CT232 prepara la retirada de la entrada
+antigua V1 que CT226 conservó por compatibilidad. El portal ya usa V2 con la
+organización explícita. Dos revisiones independientes, la instalación única
+y las pruebas SQL son favorables; Chrome conserva PDF y recibos tras reinicio
+en la copia propia. La pantalla administrativa opcional no estaba montada.
+Faltan CI e integración; la activación está en
+`deploy/principal/plantillas_compat_f1_65a_20261016.md`. La ampliación de
+escritura a otras organizaciones sigue aparcada.
+
 **F0-02, cierre del arranque heredado de Administración.** Se prepara la
 exigencia del fichero privado de usuarios antes de abrir conexiones y se
 retira la alternativa que pedía un grupo de auditoría inexistente. Se conserva
@@ -181,6 +190,37 @@ Son dos expedientes distintos: P conserva la comprobación del caso único de
 `FLUJO_APP.md` 4.0. La fase 1 y la instalación en cidonia siguen pendientes.
 El guion de activación, la lista SQL y los límites están en
 `deploy/principal/candidata_hz39/firma/LEEME.md`.
+
+**F1-36A, H: base de recuperación histórica.** En rama: AD286, CT228,
+AUT103, montaje nominal del consumidor existente de recuperación V2 y
+publicador de cargos con su permiso positivo de recuperación. Las fuentes SQL
+se ensayaron en copia propia con dos revisiones; arranque con configuración
+anterior y nueva, reinicio y recuperación de originales comprobados. Falta CI
+antes de integrar. Este
+corte conserva las asignaciones de consulta vigentes y no ofrece un panel nuevo;
+la recuperación exige renovar por Administración el cargo de firma. B conectará
+la fuente autorizada y el anexo de la ficha; C montará la pantalla y gobernará
+las asignaciones. Hasta C sigue abierto F1-36. Guion A:
+`deploy/principal/firma_historica_base_f1_36a_20261016.md`.
+
+**F1-36B, H: fuente de ficha y justificante.** En rama: AUT102, CT229 y el
+lector interno que forma los selectores de las firmas originales y su anexo
+sellado. Depende de AD286, CT228 y AUT103 del corte A. En la copia H se
+ensayaron las SQL una vez, con dos revisiones; la ficha ampliada y el original
+histórico rechazan al confirmar una decisión que caducó después de leer,
+sin dejar efectos parciales. Los cuatro cargos de consulta se publicaron por
+el CLI existente; sus asignaciones se prepararon como datos ficticios
+expresamente autorizados, sin atribuirles actos de Administración. C añade
+la respuesta HTTP y el panel; quedan Chrome y reinicio conjunto. F1-36 sigue
+abierto. Guion:
+`deploy/principal/firma_historica_fuente_f1_36b_20261016.md`.
+
+F1-64 configura, sin SQL nuevo, las publicaciones técnicas nuevas de CT y
+del portal externo. Dos revisiones y focales favorables; arranque con y sin el
+valor, publicación externa de 90 días y recuperación sin acortarla comprobados.
+La raíz y la clave legadas conservan su encargo separado de rotación. Dirección
+acepta la cobertura parcial de GoSec hasta F0-29 (L); falta la CI documental
+final e integración. Guion: `deploy/principal/vigencias_publicaciones_f1_64_20261016.md`.
 
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna
@@ -507,6 +547,13 @@ enteras. Cómo las ve cada perfil se describe en `FLUJO_APP.md`.
 
 **Cartera de méritos y puntuación por bolsa.**
 
+El corte F1-45 de la fase 1 muestra los títulos, cursos y demás méritos que
+devuelve la cartera personal existente, con sus datos y su estado. Se comprueba
+la lectura autorizada desde «Mis méritos» y su recuperación tras reiniciar.
+La valoración por categoría y los puntos de los apartados siguientes quedan
+para el motor común de baremación, fuera de este corte y de la fase 1
+(decisión de dirección del 16/10, 05:39).
+
 - La persona incorpora una vez sus títulos y cursos a una cartera personal en
   «Mi Bolsa», aunque aún no se apunte a ninguna bolsa. Puede pedir retirar un
   mérito con motivo; la retirada no borra lo ya decidido.
@@ -557,6 +604,17 @@ tiene su recibo y su reintento. El borrador B105 solo cubre la separada.
 cuarentena hasta pasar antivirus (ClamAV) y análisis de PDF. Al principio solo
 se admite PDF. Ningún fichero dudoso llega a Mayan ni a RRHH. Informática
 opera esos conectores con el perfil de administrador de sistemas.
+
+**Justificante de renuncia justificada.**
+
+La persona aporta el PDF desde Mi Bolsa y conserva su original y el recibo.
+Una técnica con permiso vigente consulta y descarga el documento desde la ficha
+del candidato. La integración y la activación de F1-07 siguen pendientes; el
+guion `deploy/principal/justificante_renuncia_activacion.md` recoge la preparación
+y las dependencias del productor de admisiones externas (F0-21) y del
+versionador del rol externo por fuente declarada. El versionador actual solo
+añade preferencias. Los permisos del aspirante preparados como datos ficticios
+de copia no acreditan su activación gobernada.
 
 ## 8. Reglas que siguen vigentes de los relevos anteriores
 

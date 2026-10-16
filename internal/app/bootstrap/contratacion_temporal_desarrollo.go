@@ -72,6 +72,7 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
+	cuentasInternasJustificanteRRHH                  map[string]cuentaNominalJustificanteRRHH
 	soportesLectoresDocumentosBolsa                  map[string]*soporteAltaContratacionTemporalDesarrollo
 	soporteDocumentosBolsa                           *soporteAltaContratacionTemporalDesarrollo
 	poolDocumentosBolsa                              *pgxpool.Pool
@@ -151,6 +152,11 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) instalarDelegadoComu
 	a.delegado = delegado
 	a.instalado = true
 	return nil
+}
+
+func sustituyeRutaFirmasR5PorNominalCT(firmaVecActiva bool, ruta string) bool {
+	return firmaVecActiva && (ruta == httpinterno.RutaConsultaFirmasR5V2 ||
+		ruta == httpinterno.RutaRecuperacionFirmasR5V2)
 }
 
 func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigadaV3(
@@ -769,6 +775,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	declaracionesFrontera = append(declaracionesFrontera, fronteraJustificanteBolsaRRHHDesarrollo(perfilesConsulta))
 	if alta.postgresql.vinculoEmisionBolsa {
 		declaracionesFrontera = append(declaracionesFrontera, fronteraVinculoEmisionBolsaDesarrollo(perfilCTCatalogo))
 	}
@@ -1163,8 +1170,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	if firmasR5V2 != nil {
 		for _, rutaFirmaR5 := range firmasR5V2.rutas {
-			if firmaVecActiva && rutaFirmaR5.Ruta == httpinterno.RutaConsultaFirmasR5V2 {
-				continue // La consulta nominal ocupa la única ruta exacta R5.
+			if sustituyeRutaFirmasR5PorNominalCT(firmaVecActiva, rutaFirmaR5.Ruta) {
+				continue // El montaje nominal ocupa ambas rutas exactas R5.
 			}
 			rutas = append(rutas, rutaFirmaR5)
 		}
