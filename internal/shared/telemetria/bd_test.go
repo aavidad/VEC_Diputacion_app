@@ -29,8 +29,8 @@ func TestOperacionSinValores(t *testing.T) {
 		"COMMIT":                                                          "commit",
 		"":                                                                "sql",
 	} {
-		if got := operacion(sql); got != want {
-			t.Errorf("operacion(%q) = %q, se esperaba %q", sql, got, want)
+		if got, _ := clasificarOperacion(sql); got != want {
+			t.Errorf("clasificarOperacion(%q) = %q, se esperaba %q", sql, got, want)
 		}
 	}
 }

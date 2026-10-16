@@ -505,32 +505,6 @@ func (s *ServicioDocumental) Generar(ctx context.Context, orden OrdenGenerarDocu
 	return documento, nil
 }
 
-func evidenciaAlmacenCorresponde(
-	evidencia ports.EvidenciaOperacionAlmacen,
-	contexto ports.ContextoOperacionAlmacen,
-) bool {
-	proyeccion, err := contexto.Proyeccion()
-	return err == nil && evidencia.Validar() == nil &&
-		evidencia.EsquemaContexto == proyeccion.Esquema &&
-		evidencia.OperacionRef == proyeccion.OperacionRef &&
-		evidencia.CorrelacionRef == proyeccion.CorrelacionRef &&
-		evidencia.AutorizacionRef == proyeccion.AutorizacionRef &&
-		evidencia.Finalidad == proyeccion.Finalidad &&
-		evidencia.Clasificacion == proyeccion.Clasificacion &&
-		evidencia.AccionNegocio == proyeccion.AccionNegocio &&
-		evidencia.Accion == proyeccion.AccionTecnica &&
-		evidencia.EfectoRef == proyeccion.EfectoRef &&
-		evidencia.HuellaPlanEfectoSHA256 == proyeccion.HuellaPlanEfectoSHA256 &&
-		evidencia.PasoRef == proyeccion.PasoRef &&
-		evidencia.HuellaDecisionSHA256 == proyeccion.HuellaDecisionSHA256 &&
-		evidencia.CargaRef == proyeccion.CargaRef &&
-		evidencia.SujetoSeudonimoHMAC == proyeccion.SujetoSeudonimoHMAC &&
-		evidencia.RecursoRef == proyeccion.RecursoRef &&
-		evidencia.ModuloID == proyeccion.ModuloID &&
-		evidencia.HuellaSolicitudHMAC == proyeccion.HuellaSolicitudHMAC &&
-		evidencia.FundamentoRef == ""
-}
-
 func (s *ServicioDocumental) seudonimizarSujetoDocumento(
 	ctx context.Context,
 	sujetoRef, ambitoRef string,

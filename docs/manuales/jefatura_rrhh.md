@@ -33,6 +33,7 @@ Cada persona entra con su certificado digital y ve solo lo que le corresponde po
 - **Todo queda registrado.** VEC guarda quién hizo cada cosa, cuándo y con qué perfil, también cuando solo se consulta. Nada se borra: una corrección se añade a lo anterior.
 - **Datos personales protegidos.** En las listas, el teléfono y el correo de los candidatos aparecen tapados en parte. Completos solo se ven en la ficha de la persona, y queda constancia de quién los consultó.
 - **Las reglas las decide RRHH.** Plazos, reglas de la bolsa, textos de los correos y plantillas de documentos no están fijos en la aplicación. RRHH puede cambiarlos desde sus pantallas. Cada cambio crea una versión nueva, con su motivo, y lo ya tramitado conserva la regla con la que se hizo.
+- **Si falla Contratación temporal al iniciar.** El portal conserva la entrada con certificado y la consulta pública de convocatorias. Las funciones que dependen de Contratación temporal quedan temporalmente sin servicio.
 - **Las cifras se pueden pulsar.** En los resúmenes, al pulsar un número se abre la lista de expedientes o personas que lo forman.
 - **Un recibo de VEC no es un asiento de registro oficial.** Descargar un documento no lo firma ni lo envía.
 
@@ -51,7 +52,7 @@ El cuadro de Bolsas muestra las cifras por situación. Los nombres largos de cat
 
 ### 4.2 La situación de cada candidato
 
-Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede estar disponible en una y trabajando por la otra.
+Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede estar disponible en una y trabajando por la otra. Las etiquetas de la lista, la ficha y los filtros usan el mismo nombre en singular: «Disponible», «No disponible», «Trabajando» o «Excluido».
 
 | Situación | Cuándo se da |
 | --- | --- |
@@ -107,7 +108,7 @@ El técnico prepara el informe. Lo firman el técnico y la Jefatura del Servicio
 
 ### Paso 6. Intervención fiscaliza
 
-Intervención abre la ficha y registra el resultado. Si hay reparo, el expediente vuelve a RRHH, que lo subsana, hace un informe nuevo firmado por la Jefatura y lo devuelve a Intervención. Por defecto, Intervención tiene 10 días hábiles (5 si es urgente) y RRHH otros 10 para subsanar. Estos plazos se pueden cambiar.
+Intervención abre la ficha y registra el resultado. Si hay reparo, el expediente vuelve a RRHH, que lo subsana, hace un informe nuevo firmado por la Jefatura y lo devuelve a Intervención. Con el catálogo de plazos v3, Intervención tiene 10 días hábiles (5 si es urgente) y RRHH 15 para subsanar. Son plazos del Real Decreto 424/2017, arts. 10.2, 10.3 y 12.4; no se editan desde la pantalla. VEC cuenta la subsanación desde que el servicio recibe el reparo; no registra por separado su aceptación. Los expedientes anteriores conservan la versión con que se tramitaron.
 
 ### Paso 7. Ofrecimiento a la bolsa
 
@@ -151,7 +152,7 @@ Al terminar el contrato, el técnico registra el cese con su causa. La persona v
 
 ## 6. Qué puede cambiar RRHH sin pedir nada a Informática
 
-- Plazos de Intervención y de subsanación.
+- Plazos organizativos que el catálogo permita editar, como el de análisis de la solicitud. Los de fiscalización y subsanación del catálogo v3 vienen fijados por la norma: 10/5 y 15 días hábiles, respectivamente. En «Reglas vigentes» se consultan su valor, procedencia y versión.
 - Plazo para contestar a una oferta y forma de ofrecer varias plazas (a la vez o de una en una).
 - Qué cambios de situación se permiten en cada bolsa.
 - Plazo de no disponibilidad tras un cese.
@@ -167,6 +168,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Parte | Hoy | Falta | Al final |
 | --- | --- | --- | --- |
 | Entrada en la aplicación | Cada persona entra con un certificado de pruebas. | Conectar con el directorio de usuarios de la Diputación. Depende de Informática. | El personal entra con su usuario de la Diputación y su certificado. Los aspirantes, con DNI electrónico o certificado digital. |
+| Administración de perfiles | La lista de personas y su ficha funcionan con la configuración aprobada. Está preparado el cierre de la administración cuando falta esa configuración. | Instalar y comprobar este cierre en el entorno compartido; terminar la asignación de perfiles desde pantalla. | Los administradores gestionan los perfiles con los controles y aprobaciones que correspondan. |
 | Vigencia de Administración | Está preparada la renovación de su configuración hasta 90 días en desarrollo. Los permisos de las personas conservan sus propios plazos. | Instalar y comprobar la renovación en el entorno compartido. | La renovación mantiene el acceso administrativo y conserva el registro de lo publicado. |
 | Bolsas que vienen de Convoca | Se cargan desde el Excel de Convoca. | Nada para cargar las bolsas actuales. | La carga sirve solo para pasar a VEC las bolsas que ya existen. Las nuevas se hacen enteras en VEC. |
 | Convocatorias, inscripción, méritos y alegaciones | Programado: el aspirante se inscribe, declara sus méritos con documentos y presenta alegaciones; RRHH admite o rechaza. | Activarlo en el entorno de pruebas. | VEC sustituye a Convoca. El aspirante hace todo desde su área personal y RRHH lo revisa en pantalla. |
@@ -179,7 +181,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Petición del centro | Se presenta y la ratifica otra persona del centro. | RRHH pidió que la petición vaya firmada por el técnico y por el Diputado o Diputada. | Petición firmada desde VEC. |
 | Tramitación del expediente | Análisis, crédito, vía de cobertura, unidad, informe e Intervención. | Decidir con RRHH si el ofrecimiento va antes o después de Intervención. | El orden de las fases que fije RRHH, que se puede cambiar por configuración. |
 | Documentos | Borradores en PDF y Word con el logotipo y los datos del expediente. | Las plantillas definitivas de RRHH. | Documentos con las plantillas oficiales, listos para firmar. |
-| Firma | En la copia de ensayo, el informe tiene dos firmas y la resolución tres; sus PDF se recuperan desde la ficha después de reiniciar. | Probar el recorrido entero en un mismo expediente e instalar lo ensayado. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
+| Firma | En la copia de ensayo, el informe tiene dos firmas y la resolución tres; sus PDF se recuperan desde la ficha después de reiniciar. Está preparado un límite de tamaño común para generar, firmar y descargar el PDF en VEC. | Probar el recorrido entero en un mismo expediente e instalar lo ensayado. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
 | Cese y vuelta a la bolsa | El cese se registra. | Probar entera la vuelta automática a la bolsa. | Al cesar, la persona vuelve sola a su bolsa con la situación que marque la regla. |
@@ -209,6 +211,11 @@ ofrecimiento desde la petición del centro.
 
 **Hoy.** En la copia de ensayo, el informe ya tiene las firmas del técnico y de Jefatura, verificadas con GrxFirma y registradas con sus recibos. Intervención rechaza la fiscalización mientras falta la segunda firma y la admite después. La resolución tiene las firmas de Jefatura, Diputación y Secretaría General. Ambos PDF se han recuperado desde la ficha después de reiniciar. Los recibos conservan sus referencias y fechas originales. Los otros cuatro documentos se descargan en PDF y Word y conservan la firma pendiente.
 
+Está preparado el mismo límite de tamaño para generar, firmar, guardar y
+descargar los PDF mediante la firma en VEC. Las otras vías de registro
+conservan sus restricciones de tamaño. Las firmas ya guardadas conservan sus documentos y recibos;
+la comprobación de la firma sigue siendo la misma.
+
 **Falta.** Probar todo el recorrido en un mismo expediente: el informe y la resolución se han comprobado en dos expedientes distintos. La instalación en el entorno compartido corresponde a dirección.
 
 La firma electrónica del documento y la competencia de quien firma se comprueban por separado: [Ley 39/2015, artículo 26.2.e](https://www.boe.es/eli/es/l/2015/10/01/39/con#a26) y [Ley 40/2015, artículo 12](https://www.boe.es/eli/es/l/2015/10/01/40/con#a12). El orden de cargos del recorrido es configurable y sigue pendiente de la confirmación de RRHH y Secretaría General; esos artículos no fijan quién firma cada paso.
@@ -229,6 +236,8 @@ La firma electrónica del documento y la competencia de quien firma se comprueba
 
 **Hoy.** Se entra con certificado de pruebas. Los perfiles están publicados y en la administración se ve la lista de personas y su ficha. Dar y quitar perfiles desde pantalla está a medias y los cambios delicados piden la aprobación de dos administradores.
 
+**Falta.** Instalar el cierre que impide abrir la administración sin su configuración de usuarios aprobada. Si esa configuración falta o es incorrecta, la administración debe permanecer cerrada. La lista y la ficha conservan sus controles de acceso.
+
 **Falta.** Activar el ajuste de vigencias en la candidata de dirección. En la copia local se preparan claves de 90 días para evitar la renovación diaria durante las pruebas. Cambiar su duración no da permisos nuevos ni prolonga una aprobación pendiente. En producción se conserva el límite de un día.
 
 La renovación de la configuración de Administración admite hasta 90 días en desarrollo y conserva 24 horas como plazo máximo en producción. Se ha comprobado en una copia que el reinicio mantiene la publicación y sus recibos. Esto no amplía los permisos de las personas. Su instalación en el entorno compartido está pendiente.
@@ -239,7 +248,9 @@ La renovación de la configuración de Administración admite hasta 90 días en 
 
 **Para qué sirve.** Guardar todo lo que hace cada persona, también lo que solo consulta o descarga, sin que nadie pueda cambiarlo, de forma que valga como prueba ante un juzgado.
 
-**Hoy.** El registro común está programado y se apunta cada acción. La consulta por persona para RRHH está instalada pero sin activar. La exportación para un juzgado está aparcada.
+**Hoy.** El registro común guarda acciones y consultas. La consulta de actividad de RRHH requiere activar su configuración y el permiso de consulta; la [guía de activación](../../deploy/principal/habilitacion_auditoria_rrhh_20261013.md) describe cómo prepararlos en una copia local. La exportación para un juzgado está aparcada.
+
+Para consultar, abra Bolsas → Auditoría y control → Auditoría y trazabilidad. Elija Persona, busque a la persona de Personal, seleccione el motivo e indique un intervalo de hasta 31 días. El resultado reúne sus actuaciones y lecturas. Cada consulta queda registrada; al repetirla puede comprobar también el acceso anterior.
 
 **Al final.** Consulta de quién hizo qué y cuándo, y exportación firmada, que también queda registrada.
 

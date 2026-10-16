@@ -973,11 +973,26 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("modulos/contratacion-temporal/fase-firma.js", "20261014-firma-pdf-v1");
   for (const ruta of ["categorias-rpt/cliente.js", "categorias-rpt/montaje.js", "modulos/bolsa/carga-convoca/arranque.js", "modulos/contratacion-temporal/adaptador-http-expedientes.js", "modulos/contratacion-temporal/circuito-firma-acciones.js", "modulos/contratacion-temporal/circuito-firma.js", "modulos/contratacion-temporal/cliente-http-descarga-firma-v2.js", "modulos/contratacion-temporal/cliente-http-informe-definitivo.js", "modulos/contratacion-temporal/cliente-http-recuperacion-firmas-v2.js", "modulos/contratacion-temporal/cliente-http.js", "modulos/contratacion-temporal/consulta-seguimiento.js", "modulos/contratacion-temporal/fase-firma.js", "modulos/contratacion-temporal/formulario-informe-juridico.js", "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "modulos/contratacion-temporal/testdata/recuperacion-firmas-v2-demo.js", "modulos/contratacion-temporal/vista-expedientes-borrador.js", "modulos/contratacion-temporal/vista-expedientes-tramitacion.js", "modulos/contratacion-temporal/vista-expedientes.js", "portal-modulos-coordinador.js", "portal.js"])
     versionesEspeciales.set(ruta, "20261015-firma-cierre-cache-v3");
+  versionesEspeciales.set("portal.js", "20261015-firma-integracion-main-v4");
+  for (const ruta of [
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/cliente-http-descarga-firma-v2.js",
+    "modulos/contratacion-temporal/firma-autofirma.js",
+    "modulos/contratacion-temporal/firma-externa-cliente.js",
+    "modulos/contratacion-temporal/firma-vec-api.js",
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/original-firmable-api.js",
+    "modulos/contratacion-temporal/preflight-firma-api.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-modulos-coordinador.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261016-firma-limite-2mib-v1");
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js"]) versionesEspeciales.set(ruta, "20261016-firma-limite-2mib-v2");
   versionesEspeciales.set("portal-bolsas-ofertas.js", "20261015-ofertas-recuperacion-v4");
   versionesEspeciales.set("portal-llamamientos-selector.js", "20261015-ofertas-recibo-v3");
   versionesEspeciales.set("modulos/bolsa/rrhh-plazos-ui.js", "20261015-ofertas-recibo-v3");
   for (const ruta of ["portal-menu-bolsa.js", "portal-bolsa-configuracion.js", "portal-modulos-coordinador.js", "portal-panel-interno.js"]) versionesEspeciales.set(ruta, "20261016-bolsa-perfil-propio-v2");
-  versionesEspeciales.set("portal.js", "20261016-reglas-etiquetas-v6");
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js"]) versionesEspeciales.set(ruta, "20261016-f009-main-integrada-v7");
   versionesEspeciales.set("modulos/bolsa/rrhh-politica-cese-vista.js", "20261016-reglas-etiquetas-v6");
   const aristas = [];
   const codigo = new Map();

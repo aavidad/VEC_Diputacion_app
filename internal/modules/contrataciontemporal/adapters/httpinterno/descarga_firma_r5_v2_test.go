@@ -120,6 +120,36 @@ func TestHTTPDescargaDevuelveBytesExactosYReciboDeFirmaExistente(t *testing.T) {
 	}
 }
 
+func TestHTTPDescargaConservaDosMiBYBloqueaRevisionExcesiva(t *testing.T) {
+	h, _, consulta, pdf, _, _ := manejadorHTTPDescargaPrueba(t)
+	pdf.cuerpo = append([]byte("%PDF-"), bytes.Repeat([]byte("x"), ports.MaximoDocumentoFirmaBytes-10)...)
+	pdf.cuerpo = append(pdf.cuerpo, []byte("%%EOF")...)
+	suma := sha256.Sum256(pdf.cuerpo)
+	huella := hex.EncodeToString(suma[:])
+	consulta.salida.Firmas[0].Custodiado.SHA256 = huella
+	consulta.salida.Firmas[0].RevisionPDF.RevisionSHA256 = huella
+	consulta.salida.Firmas[0].RevisionPDF.RevisionLongitud = uint64(len(pdf.cuerpo))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionHTTPDescargaPrueba(t, cuerpoDescargaFirmaPrueba))
+	var salida struct {
+		Data descargaFirmaR5V2JSON `json:"data"`
+	}
+	if w.Code != http.StatusOK || len(w.Body.Bytes()) <= 2<<20 || json.Unmarshal(w.Body.Bytes(), &salida) != nil {
+		t.Fatalf("PDF de 2 MiB no llegó en su envoltorio: estado=%d", w.Code)
+	}
+	decodificado, err := base64.StdEncoding.DecodeString(salida.Data.PDFBase64)
+	if err != nil || !bytes.Equal(decodificado, pdf.cuerpo) {
+		t.Fatal("descarga cambió los bytes custodiados")
+	}
+	pdf.cuerpo = append(pdf.cuerpo, 'x')
+	consulta.salida.Firmas[0].RevisionPDF.RevisionLongitud = uint64(len(pdf.cuerpo))
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, peticionHTTPDescargaPrueba(t, cuerpoDescargaFirmaPrueba))
+	if w.Code == http.StatusOK || pdf.llamadas != 1 {
+		t.Fatalf("revisión excesiva alcanzó el objeto: estado=%d lecturas=%d", w.Code, pdf.llamadas)
+	}
+}
+
 func TestHTTPDescargaRechazaCamposCustodiaDuplicadosYGarantiaInsuficiente(t *testing.T) {
 	casos := []struct {
 		nombre   string
