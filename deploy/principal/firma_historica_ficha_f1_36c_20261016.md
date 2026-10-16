@@ -1,6 +1,6 @@
 # F1-36C: consulta de firmas anteriores desde la ficha
 
-Guion local: C está en rama, sin ensayo conjunto ni recorrido en Chrome.
+Guion local: la candidata conjunta devuelve los selectores autorizados; C tiene dos revisiones de código favorables. El ensayo de caducidad, el recorrido en Chrome y el reinicio conjunto siguen pendientes.
 No añade SQL: usar A (AD286 → CT228 → AUT103) y B (AUT102 → CT229) solo
 si faltan en la copia. No ejecutar DOWN ni repetir historia.
 
@@ -9,8 +9,13 @@ si faltan en la copia. No ejecutar DOWN ni repetir historia.
 Partir de los recibos y ámbitos propios de la copia. Publicar por el gobierno
 de cargos la versión de consulta que permite el campo exacto; después hacer
 los actos nominales de retirada y otorgamiento que corresponden a las cuatro
-personas de consulta. Conservar los permisos de cuadro y descarga. Actualizar la selección de consulta en `identidad/firma-vec.json` con los
-perfiles devueltos por la preparación, con reinicio vigilado. La
+personas de consulta. En la copia ficticia H, dirección autorizó preparar esas
+asignaciones como datos iniciales por SQL; esa carga se declara como tal y no
+acredita actos de Administración. Conserva los ámbitos, la historia y los
+disparadores de control. Conservar los permisos de cuadro y descarga. Cotejar la selección de consulta en `identidad/firma-vec.json` con los
+perfiles devueltos por la preparación; actualizarla solo si cambian, con reinicio
+vigilado. En H, las cuatro selecciones ya coinciden y no se añaden admisiones
+de consulta: el fichero conserva sus cuatro admisiones de firma. La
 asignación propia de firma solo restringe la lectura ya autorizada de la
 ficha; no añade perfiles ni cambia el actor. Comprobar vigencia, organización
 y unidad históricas. Guardar materiales y conexiones fuera de Git.
@@ -41,3 +46,10 @@ de `docs/producto/FLUJO_APP.md` §4.0 y las puertas de dirección.
 
 La integración posterior del límite de 2 MiB (#1163) debe conservar los
 contratos Go y JavaScript de este corte y probarlos juntos en una candidata.
+
+La publicación de los cuatro cargos de consulta V2 se comprobó en H con el
+CLI existente, su aprobación y su recibo. La ficha autorizada devuelve tres
+selectores y su recibo; sin la concesión omite ambos campos. No repetir el plan
+ni la carga ya aplicados. En otra copia, derivar las preimágenes y el plan de
+su historia y publicar sus sucesores por CAS. Esta evidencia HTTP no sustituye
+el ensayo de caducidad al confirmar ni el recorrido de pantalla.

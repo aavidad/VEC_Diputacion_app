@@ -9,7 +9,7 @@ reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
 Revisado el 16 de octubre de 2026 para F1-36C desde
-`origin/main@6d73039ff`; C sigue en rama, sin integrar.
+`origin/main@3216104e4`; C sigue en rama, sin integrar.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
 cómo se sabe que cada fase está terminada y cómo se trabaja. Es lectura
