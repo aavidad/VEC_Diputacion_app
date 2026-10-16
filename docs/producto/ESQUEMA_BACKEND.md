@@ -404,7 +404,7 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
-CT231 prepara una variante de fila de CT140 para la selección O6 confirmada
+CT231 añade una variante de fila de CT140 para la selección O6 confirmada
 pendiente de comunicación. Conserva la ruta, el lector y los once campos de
 permiso existentes; devuelve solo los ocho aplicables a la selección, con su
 versión y recibo reales. Los campos exclusivos de comunicación quedan ausentes.
