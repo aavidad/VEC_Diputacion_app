@@ -87,6 +87,10 @@ BEGIN
  IF externo AND interno THEN
    RAISE EXCEPTION 'contexto historico en ambos almacenes' USING ERRCODE='42501';
  END IF;
+ -- Recibo que no está en ningún almacén: se deniega (no es indisponibilidad).
+ IF NOT externo AND NOT interno THEN
+   RAISE EXCEPTION 'contexto historico ausente' USING ERRCODE='42501';
+ END IF;
  IF NOT externo THEN
    -- Recibo anterior a CA15: solo si la cuenta no tiene población externa
    -- segregada; entonces coteja CA26/CA27 exactamente como hasta ahora.

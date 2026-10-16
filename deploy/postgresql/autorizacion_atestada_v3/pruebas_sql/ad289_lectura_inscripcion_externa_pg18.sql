@@ -311,7 +311,7 @@ END $externo_ok$;
 DO $denegaciones$
 DECLARE r record; estado text;
 BEGIN
- FOR r IN SELECT * FROM (VALUES('no_verificado','22023'),('inexistente','P0002'),
+ FOR r IN SELECT * FROM (VALUES('no_verificado','22023'),('inexistente','42501'),
    ('otra_persona','42501'),('otra_persona_suplantada','22023')) x(caso,esperado)
  LOOP
   estado:=NULL;
