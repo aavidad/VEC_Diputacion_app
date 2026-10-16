@@ -1,5 +1,5 @@
 import { campoVisibleMiBolsa, validarCamposMiBolsa } from "./mi-bolsa-campos.js";
-import { validarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { validarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261015-o-justificante-bolsa-v4";
 
 const ESQUEMA_PANEL = "vec.bolsa.area-personal.v1";
 export const ESQUEMA_MI_BOLSA = "vec.bolsa.mi-bolsa.v1";

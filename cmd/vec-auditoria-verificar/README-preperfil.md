@@ -3,6 +3,7 @@
 El formato `vec.auditoria.verificacion.v3` permite comprobar una cadena con
 consumos confirmados, intentos de AD169 y las familias `preperfil_autenticado`
 y `bootstrap_operador` de AD171. Conserva los cálculos y formatos v1 y v2.
+También admite `preperfil_bolsa_rrhh` de AD287, con un encuadre propio.
 No obtiene registros de PostgreSQL: recibe una extracción autorizada y un
 checkpoint separado, igual que el verificador anterior.
 
@@ -14,6 +15,7 @@ Cada registro contiene `tipo_registro` y exactamente uno de estos objetos:
 | `intento_nominal` | `intento` | Las columnas y preimagen de contexto del formato v2. |
 | `preperfil_autenticado` | `preperfil` | Coordenadas AD171 y referencia opaca de actor. |
 | `bootstrap_operador` | `bootstrap` | Coordenadas AD171, LOGIN técnico, huella de plan y referencia de aprobación. |
+| `preperfil_bolsa_rrhh` | `preperfil_bolsa_rrhh` | Coordenadas AD287 y referencia opaca del actor. |
 
 Los objetos AD171 tienen las claves comunes `auditoria_ref`, `secuencia`,
 `anterior_sha256`, `huella_sha256`, `registrada_en`, `evento_ref`,
@@ -56,8 +58,24 @@ calculados por separado con Python.
 
 `estado: verificada` acredita la coincidencia de los campos, enlaces y rango
 con el checkpoint suministrado. `material_evento_recalculado: true` indica que
-había eventos AD171 y se reconstruyó su material. Los indicadores anteriores
+había eventos AD171 o AD287 y se reconstruyó su material. Los indicadores anteriores
 conservan su alcance para consumos e intentos.
+
+AD287 exige el módulo `bolsa`, el canal `interna_corporativa`, la acción
+`bolsa.justificante_renuncia.perfil_propio.consultar` y la finalidad
+`seleccion_perfil_rrhh`. Solo admite `permitido/perfil_unico` o
+`denegado/perfil_ausente_o_ambiguo`. `recurso_ref` contiene `cuenta:` seguido
+de la huella SHA-256 de la cuenta; no contiene el documento ni una lista de
+perfiles. El material se encuadra con
+`vec.auditoria.preperfil-bolsa-rrhh.v1` y, en este orden, `evento_ref`,
+`actor_ref`, `recurso_ref`, `resultado`, `motivo_ref`, `correlacion_ref` y
+`fuente_sha256`. El eslabón usa
+`vec.auditoria.eslabon.preperfil-bolsa-rrhh.v1`, secuencia, huella anterior,
+referencia `aud_v3_b_<32 hex>`, huella del material y fecha UTC con seis
+decimales. Como AD287 se escribe después del corte AD207, el asiento lleva
+`anterior_sha256` con 64 letras `f` y un eslabón V5 sellado. El
+[vector sintético AD287](../../internal/vec/auditoria/testdata/preperfil_bolsa_ad287.json)
+permite comprobar la implementación sin datos personales.
 
 `autenticidad_checkpoint` y `autenticidad_fuentes_historicas` permanecen en
 `no_comprobada`. Los archivos no prueban la procedencia de actor, LOGIN, fuente,
