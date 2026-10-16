@@ -20,7 +20,147 @@ import (
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+type seleccionadorJustificanteNominalPrueba struct {
+	registro *registroSesionConsultaPrueba
+	perfil   string
+	llamadas int
+}
+
+func (s *seleccionadorJustificanteNominalPrueba) SeleccionarPerfilJustificanteBolsaRRHH(
+	_ context.Context, q vecports.SolicitudPerfilJustificanteBolsaRRHH,
+) (vecports.SeleccionPerfilJustificanteBolsaRRHH, error) {
+	s.llamadas++
+	c := s.registro.confirmacion
+	if q.AutenticacionRef != c.AutenticacionRef || q.SesionRef != c.SesionRef ||
+		q.CuentaConfirmadaRef != c.CuentaRef || q.ControlSesionRef != c.ControlSesionRef ||
+		q.ControlSesionRevision != c.ControlSesionRevision ||
+		q.ControlSesionSHA256 != c.ControlSesionHuellaSHA256 ||
+		q.AutenticacionSHA256 != c.AltaConfirmada.AutenticacionHuellaSHA256 ||
+		!core.ReferenciaCorrelacionAutorizacionV2Valida(q.CorrelacionRef) {
+		return vecports.SeleccionPerfilJustificanteBolsaRRHH{}, docports.ErrSubidaLocalDenegada
+	}
+	return vecports.SeleccionPerfilJustificanteBolsaRRHH{
+		PerfilActivoRef: s.perfil, AuditoriaRef: "aud_v3_b_" + strings.Repeat("a", 32)}, nil
+}
+
+type entornoJustificanteNominalPrueba struct {
+	sesion    sesionTecnicaJustificanteRenunciaRRHH
+	capacidad capacidadConsultaContratacionTemporalDesarrollo
+	frontera  fronteraSeguridadComunDesarrollo
+	registro  *registroSesionConsultaPrueba
+	selector  *seleccionadorJustificanteNominalPrueba
+}
+
+func nuevoEntornoJustificanteNominalPrueba(t *testing.T,
+	principal core.Principal, base core.ResultadoContextoActorRegistradoV2,
+	sujeto string) *entornoJustificanteNominalPrueba {
+	t.Helper()
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	reloj := &relojSesionConsultaPrueba{ahora: ahora.Add(time.Second)}
+	cuentaRef := base.Contexto.Instantanea.CuentaRef
+	registro := &registroSesionConsultaPrueba{reloj: reloj, cuenta: cuentaRef}
+	revalidador := &revalidadorSesionConsultaPrueba{registro: registro}
+	contextos := &resolutorSesionConsultaPrueba{base: base, reloj: reloj}
+	usuarios := &autoridadPreferenciasUsuariosDesarrollo{base: &autoridadRutasDietasDesarrollo{
+		registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj,
+		instancia: "instancia-justificante-prueba"}}
+	selector := &seleccionadorJustificanteNominalPrueba{registro: registro,
+		perfil: base.Contexto.PerfilActivoRef}
+	principal.ID = sujeto
+	principal.Roles = nil
+	certificado := principal.Attributes["certificate_sha256"]
+	cuentas := map[string]cuentaNominalJustificanteRRHH{certificado: {
+		certificadoSHA256: certificado, sujeto: sujeto, cuentaRef: cuentaRef}}
+	fronteras, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{
+		fronteraJustificanteBolsaRRHHDesarrollo([]string{base.Contexto.PerfilActivoRef})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	descriptor, _ := fronteras.resolver(http.MethodGet, bolsahttp.RutaJustificanteRenunciaRRHH)
+	holder := &contextoOperacionCTDesarrollo{}
+	return &entornoJustificanteNominalPrueba{
+		sesion: sesionTecnicaJustificanteRenunciaRRHH{usuarios: usuarios, selector: selector, cuentas: cuentas},
+		capacidad: capacidadConsultaContratacionTemporalDesarrollo{principal: principal,
+			certificadoVerificadoEn: ahora.Add(-time.Second),
+			certificadoValidoHasta:  ahora.Add(5 * time.Minute), contextoOperacion: holder},
+		frontera: fronteraSeguridadComunDesarrollo{metodo: http.MethodGet,
+			ruta: bolsahttp.RutaJustificanteRenunciaRRHH, catalogo: fronteras,
+			descriptor: descriptor, holder: holder}, registro: registro, selector: selector,
+	}
+}
+
+func TestJustificanteRRHHResolucionNominalSeparaSujetoCertificadoDePersona(t *testing.T) {
+	base, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	segundo := clonarPrincipalDesarrollo(principal)
+	segundo.ID = "tecnica_rrhh_segunda"
+	segundo.Attributes["certificate_sha256"] = strings.Repeat("e", 64)
+	contextoSegundo, err := nuevoContextoAltaContratacionTemporalDesarrollo(segundo,
+		time.Now().UTC().Truncate(time.Microsecond))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base.contexto.Resultado.Contexto.PerfilActivoRef == contextoSegundo.Resultado.Contexto.PerfilActivoRef ||
+		base.contexto.Resultado.Contexto.Instantanea.CuentaRef == contextoSegundo.Resultado.Contexto.Instantanea.CuentaRef {
+		t.Fatal("las técnicas no tienen perfil y cuenta nominales distintos")
+	}
+	casos := []struct {
+		principal core.Principal
+		actor     core.ResultadoContextoActorRegistradoV2
+		sujeto    string
+	}{
+		{principal, base.contexto.Resultado, "sujeto_certificado_primera"},
+		{segundo, contextoSegundo.Resultado, "sujeto_certificado_segunda"},
+	}
+	var personas []string
+	for _, caso := range casos {
+		e := nuevoEntornoJustificanteNominalPrueba(t, caso.principal, caso.actor, caso.sujeto)
+		resultado, err := e.sesion.resolverNominal(context.Background(), e.capacidad, e.frontera)
+		if err != nil || resultado.Resultado.Validar() != nil ||
+			resultado.Vinculo.ValidarPara(resultado.Resultado) != nil ||
+			resultado.Resultado.Contexto.PersonaRef == caso.sujeto ||
+			resultado.Resultado.Contexto.Instantanea.CuentaRef != caso.actor.Contexto.Instantanea.CuentaRef ||
+			resultado.Resultado.Contexto.PerfilActivoRef != caso.actor.Contexto.PerfilActivoRef ||
+			len(e.registro.altas) != 1 || e.registro.altas[0].SujetoID != caso.sujeto || e.selector.llamadas != 1 {
+			t.Fatalf("sesión nominal divergente: error=%v registro=%d selector=%d", err, len(e.registro.altas), e.selector.llamadas)
+		}
+		personas = append(personas, resultado.Resultado.Contexto.PersonaRef)
+	}
+	if personas[0] == personas[1] {
+		t.Fatal("dos técnicas compartieron PersonaRef")
+	}
+}
+
+func TestJustificanteRRHHResolucionNominalDeniegaVinculosAjenos(t *testing.T) {
+	base, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	e := nuevoEntornoJustificanteNominalPrueba(t, principal, base.contexto.Resultado, "sujeto_certificado_primera")
+	certificado := e.capacidad.principal.Attributes["certificate_sha256"]
+	ajeno := e.capacidad
+	ajeno.principal.ID = "sujeto_certificado_ajeno"
+	if _, err := e.sesion.resolverNominal(context.Background(), ajeno, e.frontera); !errors.Is(err, docports.ErrSubidaLocalDenegada) || len(e.registro.altas) != 0 {
+		t.Fatalf("sujeto ajeno llegó al registro: %v", err)
+	}
+	ajeno = e.capacidad
+	ajeno.principal = clonarPrincipalDesarrollo(e.capacidad.principal)
+	ajeno.principal.Attributes["certificate_sha256"] = strings.Repeat("f", 64)
+	if _, err := e.sesion.resolverNominal(context.Background(), ajeno, e.frontera); !errors.Is(err, docports.ErrSubidaLocalDenegada) || len(e.registro.altas) != 0 {
+		t.Fatalf("huella ajena llegó al registro: %v", err)
+	}
+	cuenta := e.sesion.cuentas[certificado]
+	cuenta.cuentaRef = referenciaAltaContratacionTemporalDesarrollo("cta_", "cuenta-ajena")
+	e.sesion.cuentas[certificado] = cuenta
+	if _, err := e.sesion.resolverNominal(context.Background(), e.capacidad, e.frontera); !errors.Is(err, docports.ErrSubidaLocalNoDisponible) || e.selector.llamadas != 0 {
+		t.Fatalf("cuenta divergente alcanzó selector: %v", err)
+	}
+	cuenta.cuentaRef = base.contexto.Resultado.Contexto.Instantanea.CuentaRef
+	e.sesion.cuentas[certificado] = cuenta
+	e.selector.perfil = referenciaAltaContratacionTemporalDesarrollo("prf_", "perfil-ajeno")
+	if _, err := e.sesion.resolverNominal(context.Background(), e.capacidad, e.frontera); !errors.Is(err, docports.ErrSubidaLocalDenegada) {
+		t.Fatalf("perfil ajeno admitido: %v", err)
+	}
+}
 
 type diagnosticoSelectorJustificantePrueba struct{ etapa, codigo string }
 

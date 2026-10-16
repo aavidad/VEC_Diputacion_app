@@ -205,8 +205,11 @@ func (s sesionTecnicaJustificanteRenunciaRRHH) resolverNominal(ctx context.Conte
 		}
 		return vacia, docports.ErrSubidaLocalDenegada
 	}
+	// El sujeto del certificado identifica el alta de sesión; PersonaRef es la
+	// identidad canónica del actor. El registro y el vínculo ya ligan ambos a
+	// la misma cuenta, sesión y perfil sin exigir igualdad entre esos nombres.
 	if actor.Validar() != nil || vinculo.ValidarPara(actor) != nil ||
-		actor.Contexto.Principal.ID != cuenta.sujeto || actor.Contexto.PerfilActivoRef != seleccion.PerfilActivoRef ||
+		actor.Contexto.PerfilActivoRef != seleccion.PerfilActivoRef ||
 		actor.Contexto.Instantanea.CuentaRef != cuenta.cuentaRef {
 		return vacia, docports.ErrSubidaLocalDenegada
 	}
