@@ -775,3 +775,8 @@ static/portal-empleado/modulos/bolsa/documentos-api.js
 static/portal-empleado/modulos/bolsa/documentos-vista.js
 static/textos/es/bolsa-documentos.json
 static/textos/en/bolsa-documentos.json
+static/portal-empleado/modulos/contratacion-temporal/selectores-recuperacion-firmas.js
+static/portal-empleado/modulos/contratacion-temporal/gestor-recuperacion-firmas-historicas.js
+static/portal-empleado/modulos/contratacion-temporal/recuperacion-firmas-v2.css
+static/portal-empleado/modulos/contratacion-temporal/vista-recuperacion-firmas-v2.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-recuperacion-firmas-v2.js

@@ -550,6 +550,15 @@ queda en la misma transacción. El recibo anterior de ficha no prueba por sí
 solo qué selectores se ofrecieron. B no publica aún esos campos por HTTP ni
 añade el panel; el ensayo SQL y la prueba de caducidad siguen pendientes.
 
+F1-36C prepara la presentación de la historia de firmas originales en la
+ficha de Contratación temporal. Cada pulsación sobre una firma consulta de
+nuevo el acto con autorización vigente y deja un acceso nuevo; el recibo que
+se muestra pertenece al registro original. La respuesta ampliada de la ficha
+exige juntos los selectores y su recibo, aun si la lista es `[]`; ausencia de
+uno falla cerrada. El cliente limita a 128 entradas, no muestra canones de
+identidad ni huellas y cancela la consulta al cambiar de expediente. La
+publicación y el recorrido real siguen pendientes.
+
 ## 8. Protección de datos
 
 - **Solo datos sintéticos**, con nombres verosímiles, hasta cerrar la EIPD

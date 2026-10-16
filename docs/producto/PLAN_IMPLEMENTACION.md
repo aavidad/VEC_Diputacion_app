@@ -8,7 +8,7 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Revisado el 16 de octubre de 2026 para la candidata A+B sobre `main@6d73039ff`;
+Revisado el 16 de octubre de 2026 para la candidata A+B+C sobre `main@6d73039ff`;
 los cortes siguen pendientes de integración y ensayo conjunto.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
@@ -194,6 +194,14 @@ que caduque antes de confirmar, las revisiones independientes, el arranque
 con y sin el complemento y la CI. C añadirá la respuesta HTTP, el panel y
 la activación gobernada. F1-36 sigue abierto. Guion:
 `deploy/principal/firma_historica_fuente_f1_36b_20261016.md`.
+
+**F1-36C, H: ficha de firmas anteriores.** En rama: respuesta ampliada,
+cliente y panel que ofrece un botón por firma original autorizada. Depende
+de A (recuperación y concesión) y B (fuente de ficha y anexo); no añade SQL.
+Faltan integración conjunta, configuración y actos gobernados, arranque con
+y sin complemento, ensayo focal, revisión independiente de usabilidad,
+recorrido en Chrome y reinicio. F1-36 permanece abierto. Guion:
+`deploy/principal/firma_historica_ficha_f1_36c_20261016.md`.
 
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna

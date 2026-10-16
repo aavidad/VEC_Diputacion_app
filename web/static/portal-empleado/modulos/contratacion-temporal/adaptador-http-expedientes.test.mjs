@@ -1044,3 +1044,33 @@ test("las comprobaciones de cobertura llevan su resultado en el tono (sí, no, n
   assert.equal(tono("hay_candidaturas_disponibles"), "aviso");
   assert.equal(tono("sae_consultado"), "neutro");
 });
+
+test("el detalle autorizado conserva los selectores históricos al atravesar adaptador y presentador", async () => {
+  for (const selectores of [undefined, [], [{ firma_ref: "firma:ct:original", selector: {
+    expediente_ref: resumen.expediente_ref, version_expediente: 1, documento: "informe_definitivo",
+    paso_orden: 1, clave_idempotencia: "operacion-original-1234", catalogo_huella: "a".repeat(64), via: "certificado_vec",
+  } }]]) {
+    const llamadas = [];
+    const cliente = clienteFalso(llamadas);
+    const consultar = cliente.consultarDetalleRRHH;
+    cliente.consultarDetalleRRHH = async (...args) => {
+      const detalle = await consultar(...args);
+      return { ...detalle, ...(selectores === undefined ? {} : { selectores_recuperacion_firmas: selectores, recibo_selectores_recuperacion_firmas: {
+        acceso_ref: "acceso:ct:original", sello_detalle_sha256: "a".repeat(64), sello_selectores_sha256: "b".repeat(64),
+      } }) };
+    };
+    const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+    const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente,
+      capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"] });
+    await presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
+    const expediente = presentador.obtenerEstado().expediente;
+    assert.equal(presentador.obtenerEstado().carga, "listo");
+    assert.deepEqual(expediente.selectores_recuperacion_firmas, selectores);
+    assert.equal(Object.hasOwn(expediente, "selectores_recuperacion_firmas"), selectores !== undefined);
+    assert.equal(Object.hasOwn(expediente, "recibo_selectores_recuperacion_firmas"), selectores !== undefined);
+    if (selectores !== undefined) assert.deepEqual(expediente.recibo_selectores_recuperacion_firmas, {
+      acceso_ref: "acceso:ct:original", sello_detalle_sha256: "a".repeat(64), sello_selectores_sha256: "b".repeat(64),
+    });
+    assert.deepEqual(llamadas.map(({ operacion }) => operacion), ["detalle"]);
+  }
+});
