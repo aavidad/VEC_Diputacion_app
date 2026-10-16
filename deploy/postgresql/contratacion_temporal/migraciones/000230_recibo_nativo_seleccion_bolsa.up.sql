@@ -17,6 +17,7 @@ BEGIN
     FOR r IN SELECT * FROM (VALUES
         ('vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(jsonb)', '6368311d4740658c725767fd0e5dee0c11c2f7ef537a0c350623eabe96102d0f', 'f', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}'),
         ('vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(jsonb,boolean)', 'c635b5f0c4f1eb9db311df2df62523424d6c8dd44ec97f04eed2cab6b2349cf1', 'f', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}'),
+        ('vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(jsonb)', '80fd2d819294e253c2c3fda397a9bb07468bb2b934eab8c66a75d07a21dec1b6', 'f', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}'),
         ('vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(jsonb,text,jsonb,text)', 'a15229c49f0226dd693cebabcfe74cbb23ca8818e9cc2a143bece24e033fe39f', 'f', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}'),
         ('vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1(uuid,text,text,text,text,text)', '505047a3fd76348e85979b53c6b7f45023c99bac9894218ec8705984befed79f', 't', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}')
     ) AS esperado(firma, huella, definer, acl) LOOP
@@ -222,6 +223,150 @@ BEGIN
         ',"sello_hmac":' || (p_artefacto->'sello_hmac')::text ||
         ',"huella_artefacto_sha256":' || CASE WHEN p_vaciar_huella
             THEN '""' ELSE (p_artefacto->'huella_artefacto_sha256')::text END || '}';
+END
+$function$;
+
+CREATE OR REPLACE FUNCTION vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(p_artefacto jsonb)
+ RETURNS text[]
+ LANGUAGE plpgsql
+ IMMUTABLE PARALLEL SAFE STRICT
+ SET search_path TO 'pg_catalog'
+AS $function$
+DECLARE
+    v_comando jsonb := p_artefacto->'comando';
+    v_datos jsonb := p_artefacto #> '{comando,contexto,datos}';
+    v_recibo jsonb := p_artefacto->'recibo';
+    v_procedencia jsonb := v_recibo->'procedencia';
+    v_evidencia_nominal jsonb := v_procedencia->'evidencia';
+    v_prefijo text;
+    v_peticion text;
+    v_respuesta text;
+BEGIN
+    v_prefijo :=
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'esquema', 'vec.contratacion-temporal.integracion-bolsa.v1');
+    v_peticion := v_prefijo ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'tipo', 'peticion-llamamiento') ||
+        vec_contratacion_temporal.contexto_material_seleccion_llamamiento_o6_v1(v_datos) ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'necesidad', v_comando->'necesidad') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'bolsa', v_comando->'bolsa') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'orden', v_comando->'orden') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'politica', v_comando->'politica') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'total_posiciones_orden', v_comando->>'total_posiciones_orden') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'maxima_posicion_evaluable', v_comando->>'maxima_posicion_evaluable') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'huella_recibo_orden', v_comando->>'huella_recibo_orden');
+
+    v_respuesta := v_prefijo ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'tipo', 'recibo-llamamiento-durable') ||
+        vec_contratacion_temporal.contexto_material_seleccion_llamamiento_o6_v1(v_datos) ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'respuesta_operacion_ref', v_recibo->>'operacion_ref') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'respuesta_organizacion_ref', v_recibo->>'organizacion_ref') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'respuesta_expediente_ref', v_recibo->>'expediente_ref') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'respuesta_version_expediente', v_recibo->>'version_expediente') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'respuesta_correlacion_ref', v_recibo->>'correlacion_ref') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'respuesta_necesidad', v_recibo->'necesidad') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'respuesta_resultado', v_recibo->'resultado');
+    v_respuesta := v_respuesta ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'autoridad_ref', v_procedencia->>'autoridad_ref') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'respuesta_ref', v_procedencia->>'respuesta_ref') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'procedencia_contrato_version', v_procedencia->>'contrato_version') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'fuente', v_procedencia->'fuente') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'evidencia_ref', v_evidencia_nominal->>'evidencia_ref') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'clave_verificacion_ref', v_evidencia_nominal->>'clave_verificacion_ref') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'evidencia_emitida_en', v_evidencia_nominal->>'emitida_en') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'evidencia_valida_hasta', v_evidencia_nominal->>'valida_hasta') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'evidencia_retener_hasta', v_evidencia_nominal->>'retener_hasta') ||
+        CASE WHEN v_procedencia->'sin_retencion_declarada' = 'true'::jsonb THEN
+            vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+                'sin_retencion_declarada', 'true') ||
+            vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+                'politica_provisional', CASE WHEN
+                    v_procedencia->'politica_provisional' = 'true'::jsonb
+                    THEN 'true' ELSE 'false' END)
+        ELSE '' END;
+    v_respuesta := v_respuesta ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'comando_necesidad', v_comando->'necesidad') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'comando_bolsa', v_comando->'bolsa') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'comando_orden', v_comando->'orden') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'comando_politica', v_comando->'politica') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'comando_total_posiciones', v_comando->>'total_posiciones_orden') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'comando_maxima_posicion', v_comando->>'maxima_posicion_evaluable') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'comando_huella_recibo_orden', v_comando->>'huella_recibo_orden');
+    v_respuesta := v_respuesta ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'recibo_bolsa', v_recibo->'bolsa') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'recibo_orden', v_recibo->'orden') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'recibo_politica', v_recibo->'politica') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'recibo_propuesta_generada', v_recibo->>'propuesta_generada') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'recibo_propuesta', v_recibo->'propuesta') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'recibo_accion_evento', v_recibo->'accion_evento') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'llamamiento_ref', v_recibo->>'llamamiento_ref') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'seleccion_ref_seudonimizada', v_recibo->>'seleccion_ref') ||
+        vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(
+            'retencion_seleccion', v_recibo->'retencion_seleccion') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'orden_seleccionado', v_recibo->>'orden_seleccionado') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'recibo_ref', v_recibo->>'recibo_ref') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'auditoria_ref', v_recibo->>'auditoria_ref') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'evento_ref', v_recibo->>'evento_ref') ||
+        vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+            'confirmada_en', v_recibo->>'confirmada_en') ||
+        CASE WHEN v_recibo->'llamamiento_recuperado' = 'true'::jsonb THEN
+            vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
+                'recibo_llamamiento_recuperado', 'true')
+        ELSE '' END;
+    RETURN ARRAY[
+        pg_catalog.encode(pg_catalog.sha256(
+            pg_catalog.convert_to(v_peticion, 'UTF8')
+        ), 'hex'),
+        pg_catalog.encode(pg_catalog.sha256(
+            pg_catalog.convert_to(v_respuesta, 'UTF8')
+        ), 'hex')
+    ];
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
 END
 $function$;
 
@@ -679,6 +824,7 @@ BEGIN
     FOR r IN SELECT * FROM (VALUES
         ('vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(jsonb)', 'b44fac672d69921fe48b57142895f7a4603c6f138808b41aae716412bea26a84', '3ccbd05c78fdb9adfcf9f0a98351961e62f09a175b6673042b82006a9036fb74', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}', 'f'),
         ('vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(jsonb,boolean)', 'f5c2c1a88e9700c6473ecf2f707eaa779774af0af6e952f614a0f7f92fdc4ee9', '3cafbed6ca85c9faaa0ce7a6dcbb589cccff9a0b8463bd9c918b01f6cc4b03fd', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}', 'f'),
+        ('vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(jsonb)', '144b8375e27e01a811dd3b3b34ff1d26ad172c2fbb9fd8a0fd0257a1e9662c79', '37a336d735cc5e5839a241e7fc6ab055d087fc43233b2da370167e06fd43bb00', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}', 'f'),
         ('vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(jsonb,text,jsonb,text)', 'e413e04d3723ccc97606dcf0e3547cf806224626fc7cdaba8a836866ac17e6a3', '7c21b9bbbebec20af0fe13a3492b7bf1fd45161658f860da603995b458115a0a', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}', 'f'),
         ('vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1(uuid,text,text,text,text,text)', '4aeb436aa99b051ea819cbf54f1e73b4b8a21eda54b0f68b7454b7e1b43450b3', 'd765be31c44dfc810d575d6dd8ab253d3ad55c1cf7bc5a54ab45c316a801f8e0', '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}', 't')
     ) AS esperado(firma, definicion, fuente, acl, definer) LOOP

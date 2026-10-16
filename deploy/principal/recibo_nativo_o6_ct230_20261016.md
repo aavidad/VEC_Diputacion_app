@@ -1,8 +1,9 @@
 # Confirmación del llamamiento nativo de Bolsa
 
-CT230 corrige la confirmación del llamamiento que Bolsa ya ha emitido. El
-serializador anterior omite las marcas del contrato nativo de Go y rechaza
-su recibo. Se conservan la operación y su clave para recuperar el mismo
+CT230 corrige la confirmación del llamamiento que Bolsa ya ha emitido. Los
+serializadores anteriores omiten las marcas del contrato nativo de Go y la
+huella SQL omite dos campos del material que firma Bolsa; por ello se rechaza
+el recibo. Se conservan la operación y su clave para recuperar el mismo
 llamamiento, sin repetir la oferta ni fabricar un justificante.
 
 ## Alcance y límites
@@ -28,7 +29,7 @@ criptográfico independiente ni concede permisos personales.
 CONFIG NUEVA: ninguna. No hay claves, cuentas, tablas ni permisos nuevos.
 
 1. Preparar la candidata congelada y una copia actual de la principal.
-   Cotejar las cuatro huellas, propietarios, ACL y configuración que exige
+   Cotejar las cinco huellas, propietarios, ACL y configuración que exige
    CT230. Una diferencia detiene el ensayo; nunca se reaplica una migración.
 2. Con la aplicación detenida, instalar una vez la lista
    `lista_sql_codexr_recibo_nativo_o6_ct230_20261016.txt` y ejecutar la prueba
@@ -50,7 +51,9 @@ fuera de este guion.
 
 ## Evidencia pendiente
 
-La propuesta tiene dos revisiones independientes favorables. La preimagen
-reproduce el rechazo del canon nativo y conserva seis confirmaciones previas.
-Quedan la instalación única, la prueba posterior, la recuperación real y el
-reinicio. La PR seguirá en borrador hasta aportar esos resultados.
+La propuesta actual tiene dos ratificaciones independientes favorables para
+las cinco funciones. El primer ensayo detectó la omisión de dos campos en la
+huella SQL; esa copia se conserva sin reaplicar la migración. Una copia nueva
+recibirá la versión corregida una sola vez. Los vectores calculados por Go
+cubren la política provisional activa y ausente. Quedan la recuperación real,
+el rechazo de material alterado y el reinicio. La PR sigue en borrador.
