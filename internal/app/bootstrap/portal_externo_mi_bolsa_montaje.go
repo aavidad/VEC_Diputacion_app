@@ -227,6 +227,10 @@ func nuevaMiBolsaPortalExterno(ctx context.Context, cfg config.Config,
 			d.proveedores[audiencia] = proveedor
 		}
 	}
+	justificantes, cerrarJustificantes := montarJustificantesBolsaExternos(ctx, cfg, preflight, topologia, fuente, decisiones, pools[5])
+	d.justificantes = justificantes
+	cerrarAnterior := cerrar
+	cerrar = func() { cerrarJustificantes(); cerrarAnterior() }
 	manejador, err := nuevaAPIMiBolsaPortalExterno(identidad, incidencias, auditoria, d)
 	if err != nil {
 		return nil, nil, nada, errMiBolsaNoDisponible

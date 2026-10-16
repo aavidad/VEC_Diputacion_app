@@ -3,13 +3,59 @@ package bootstrap
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
+
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 )
 
 type resolutorNuloSeguridadComunPrueba struct{}
 
 func (*resolutorNuloSeguridadComunPrueba) ResolverContexto(context.Context) (contextoSeguridadComunDesarrollo, error) {
 	return contextoSeguridadComunDesarrollo{}, nil
+}
+
+func TestFronteraJustificanteSoloAdmiteAcuseNominalDeLaMismaPeticion(t *testing.T) {
+	d, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{
+		fronteraJustificanteBolsaRRHHDesarrollo([]string{"prf_cuadro"}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := fronteraSeguridadComunDesarrollo{metodo: http.MethodGet,
+		ruta: bolsahttp.RutaJustificanteRenunciaRRHH, catalogo: d,
+		descriptor: d.porClave["bolsa-justificante-renuncia-rrhh"],
+		holder:     &contextoOperacionCTDesarrollo{}}
+	z := contextoSeguridadComunDesarrollo{}
+	z.Resultado.Contexto.PerfilActivoRef = "prf_cuadro"
+	if perfilJustificanteAdmitidoPorFrontera(f, z) {
+		t.Fatal("perfil del cuadro sin acuse")
+	}
+	z.seleccionJustificanteRRHH = &seleccionNominalJustificanteRRHH{
+		perfil: "prf_otro", auditoria: "aud_v3_b_" + strings.Repeat("a", 32), ruta: f.ruta,
+		metodo: f.metodo, catalogo: d.identidad, holder: f.holder,
+	}
+	if perfilJustificanteAdmitidoPorFrontera(f, z) {
+		t.Fatal("perfil ajeno admitido")
+	}
+	z.seleccionJustificanteRRHH.perfil = "prf_cuadro"
+	if !perfilJustificanteAdmitidoPorFrontera(f, z) {
+		t.Fatal("acuse nominal propio rechazado")
+	}
+	f.holder = &contextoOperacionCTDesarrollo{}
+	if perfilJustificanteAdmitidoPorFrontera(f, z) {
+		t.Fatal("acuse de otra petición admitido")
+	}
+	f.holder = z.seleccionJustificanteRRHH.holder
+	f.metodo = http.MethodPost
+	if perfilJustificanteAdmitidoPorFrontera(f, z) {
+		t.Fatal("acuse GET admitido para POST")
+	}
+	f.metodo = http.MethodGet
+	f.catalogo.identidad = &identidadCatalogoFronterasComunDesarrollo{}
+	if perfilJustificanteAdmitidoPorFrontera(f, z) {
+		t.Fatal("acuse de otro catálogo admitido")
+	}
 }
 
 func TestSeguridadComunRechazaResolutorConPunteroNulo(t *testing.T) {

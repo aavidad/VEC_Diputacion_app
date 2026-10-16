@@ -125,7 +125,7 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261015-ofertas-recuperacion-v4"),
+        import("./portal-bolsas-ofertas.js?v=20261016-justificante-integracion-v3"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261015-ofertas-recibo-v3"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -449,7 +449,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261013-bolsa-ranking-n4");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261016-justificante-integracion-v3");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -493,7 +493,8 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
       const registrarDesmontar = (limpiar) => { desmontarRegistrado = limpiar; };
       montarVistaBolsa(vista, raiz, opciones);
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
-        controladorBolsas?.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { cerrarGestionOfertasBolsa(); }
+        if (estado.vista !== vista) { controladorBolsas?.cancelarPeticiones(); cancelarAvisosBolsa(); }
+        if (vista === "llamamientos") { cerrarGestionOfertasBolsa(); }
         if (vista === "documentos") { vistaDocumentosBolsa?.desmontar(); vistaDocumentosBolsa = null; }
         if (vista === "auditoria") { vistaAuditoriaBolsa?.desmontar(); vistaAuditoriaBolsa = null; }
         if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; }
@@ -1262,7 +1263,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     const controlador = new AbortController(); controladorRankingBolsa = controlador;
     contenedor.innerHTML = `<div data-ranking-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel">${textoPortal("estado_modulo_comprobando")}</div></section></div>`;
     const raiz = contenedor.querySelector("[data-ranking-montaje]");
-    Promise.all([import("./portal-baremacion-ranking.js?v=20261013-bolsa-ranking-n4"), import("./portal-bolsas-api.js?v=20261013-bolsa-ranking-n4")]).then(async ([vista, cliente]) => {
+    Promise.all([import("./portal-baremacion-ranking.js?v=20261013-bolsa-ranking-n4"), import("./portal-bolsas-api.js?v=20261016-justificante-integracion-v3")]).then(async ([vista, cliente]) => {
       if (controlador.signal.aborted || estado.vista !== "baremacion") return;
       const montaje = await vista.montarRankingBolsa({ raiz, bolsas: estado.datosBolsas.datos.bolsas, consultar: cliente.consultarCandidatosBolsa, signal: controlador.signal, escaparHTML });
       if (controlador.signal.aborted) { montaje?.desmontar(); return; }
@@ -2046,8 +2047,8 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261016-bolsa-perfil-propio-v2"),
-    import("./portal-bolsas-api.js?v=20261013-bolsa-ranking-n4"),
+    import("./portal-panel-interno.js?v=20261016-f009-justificante-v8"),
+    import("./portal-bolsas-api.js?v=20261016-justificante-integracion-v3"),
     import("./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261015-firma-cierre-cache-v3"),
   ]).then(([panel, bolsas, rutas, ct]) => {

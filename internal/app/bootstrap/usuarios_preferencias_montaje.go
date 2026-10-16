@@ -72,18 +72,20 @@ type contextoPreferenciasUsuarios struct {
 }
 
 type autoridadPreferenciasUsuariosDesarrollo struct {
-	base        *autoridadRutasDietasDesarrollo
-	cuentas     map[string]cuentaUsuariosPreferenciasDesarrollo
-	reloj       relojRutasDietas
-	manejador   http.Handler
-	proveedor   *proveedorPreferenciasUsuarios
-	registrador registradorDenegacionPreferenciasUsuarios
-	fuente      vecports.FuenteAutorizacion
-	incidencias vecports.EmisorIncidenciasTecnicas
-	cerrar      func()
-	ruta        string
-	superficie  core.SuperficieAutenticacionActorV1
-	logins      map[string]bool
+	registroAutorizacion *vecpg.AlmacenAutorizacion
+	motivosPool          *pgxpool.Pool
+	base                 *autoridadRutasDietasDesarrollo
+	cuentas              map[string]cuentaUsuariosPreferenciasDesarrollo
+	reloj                relojRutasDietas
+	manejador            http.Handler
+	proveedor            *proveedorPreferenciasUsuarios
+	registrador          registradorDenegacionPreferenciasUsuarios
+	fuente               vecports.FuenteAutorizacion
+	incidencias          vecports.EmisorIncidenciasTecnicas
+	cerrar               func()
+	ruta                 string
+	superficie           core.SuperficieAutenticacionActorV1
+	logins               map[string]bool
 	// «Mis correos» (5.08b): autoridad hermana con su propia ruta exacta.
 	proveedorCorreos        *proveedorCorreosUsuarios
 	correos                 *autoridadPreferenciasUsuariosDesarrollo
@@ -583,7 +585,7 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: map[string]cuentaRutasDietasDesarrollo{}, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
 	a := &autoridadPreferenciasUsuariosDesarrollo{base: base, cuentas: cuentas, reloj: reloj, cerrar: cerrar,
-		registrador: registrador, fuente: fuente, incidencias: incidencias,
+		registrador: registrador, fuente: fuente, registroAutorizacion: registroAutorizacion, motivosPool: pools[5], incidencias: incidencias,
 		ruta: ruta, superficie: superficie, logins: logins}
 	a.proveedor = &proveedorPreferenciasUsuarios{autoridad: a, consulta: emisorConsulta, actualizacion: emisorActualizacion, motivoConsulta: c.MotivoConsulta, motivoActualizacion: c.MotivoActualizacion}
 	servicio, err := usuariosapp.NuevoServicioPreferencias(repositorio, time.Now)

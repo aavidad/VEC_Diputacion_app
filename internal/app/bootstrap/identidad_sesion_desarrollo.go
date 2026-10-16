@@ -217,7 +217,7 @@ func rutaConsultaRespuestaCTDesarrollo(ruta string) bool {
 // Entrega, incorporación y firma conservan la distinción de las consultas de respuesta,
 // sin alterar la clasificación de las demás rutas.
 func rutaSesionConIndisponibilidadCTDesarrollo(ruta string) bool {
-	return rutaDocumentosBolsaRRHHDesarrollo(ruta) || rutaConsultaRespuestaCTDesarrollo(ruta) || ruta == rutaEntregaPeticionCentro || ruta == httpinterno.RutaIncorporacionEjercicioV2 || rutaFirmaDocumentoCTDesarrollo(ruta) ||
+	return rutaJustificanteBolsaRRHHDesarrollo(ruta) || rutaDocumentosBolsaRRHHDesarrollo(ruta) || rutaConsultaRespuestaCTDesarrollo(ruta) || ruta == rutaEntregaPeticionCentro || ruta == httpinterno.RutaIncorporacionEjercicioV2 || rutaFirmaDocumentoCTDesarrollo(ruta) ||
 		rutaFirmasR5V2CTDesarrollo(ruta) || rutaFirmaExternaV2CTDesarrollo(ruta)
 }
 

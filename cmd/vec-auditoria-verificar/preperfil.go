@@ -37,7 +37,7 @@ func clavesDocumentoMixto(objeto map[string]json.RawMessage, admiteAdmin bool) e
 			if !clavesExactas(r, "tipo_registro", "intento") || json.Unmarshal(r["intento"], &campos) != nil || !clavesIntentoExactas(campos) {
 				return errJSONInvalido
 			}
-		case "preperfil_autenticado", "bootstrap_operador":
+		case "preperfil_autenticado", "bootstrap_operador", auditoria.TipoPreperfilBolsaRRHHV1:
 			if !admiteAdmin {
 				return errJSONInvalido
 			}
@@ -46,6 +46,8 @@ func clavesDocumentoMixto(objeto map[string]json.RawMessage, admiteAdmin bool) e
 			if tipo == "bootstrap_operador" {
 				objeto = "bootstrap"
 				extra = []string{"operador_login", "plan_sha256", "aprobacion_ref"}
+			} else if tipo == auditoria.TipoPreperfilBolsaRRHHV1 {
+				objeto = "preperfil_bolsa_rrhh"
 			}
 			if !clavesExactas(r, "tipo_registro", objeto) || json.Unmarshal(r[objeto], &campos) != nil || !clavesEventoExactas(campos, extra) {
 				return errJSONInvalido
