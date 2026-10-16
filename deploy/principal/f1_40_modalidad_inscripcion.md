@@ -19,13 +19,16 @@ ficha del aspirante añaden, respectivamente, las hojas
 `convocatorias[].modalidad_inscripcion` y `modalidad_inscripcion`. El filtro de
 lectura compara todas las hojas del contrato con las de la concesión publicada:
 un rol anterior sin esas hojas queda denegado y no recibe una respuesta recortada.
-Para habilitar esas lecturas se deben admitir las dos hojas en las acciones
-externas existentes del catálogo y publicar una nueva versión del rol de
-aspirante con ambas concesiones explícitas, mediante propuesta y cierre de dos
-administradores distintos. El versionador externo actual solo añade acciones
-ausentes: la vía concreta para ampliar los campos de concesiones ya publicadas
-queda pendiente de definir y ensayar. El cambio de código no publica el catálogo
-ni concede campos por defecto.
+En la copia local, un guion privado prepara una versión ficticia del rol externo
+del aspirante. Conserva sus siete concesiones, toma las cinco acciones de
+inscripción declaradas en `inscripcion_bolsa_actos_v1.json` y añade solo las dos
+hojas de modalidad a sus lecturas de convocatoria. Avanza la asignación de la
+misma persona con el mismo ámbito `candidato_ref`. La fuente histórica conserva
+sus bytes y su huella; el guion no modifica el catálogo publicado. El
+versionador externo actual solo añade acciones ausentes y no amplía campos ya
+concedidos. Dirección ha separado la ampliación gobernada del rol en otra tarea.
+Este dato de copia no acredita propuesta, cierre ni recibo de dos
+administradores. El cambio de código tampoco concede campos por defecto.
 
 El material debe ser propio de la copia y sus perfiles, certificados y confianzas
 de desarrollo deben durar al menos 60 días. Ningún archivo de arranque se modifica
