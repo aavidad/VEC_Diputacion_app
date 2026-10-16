@@ -802,7 +802,7 @@ BEGIN
  -- La validación de la lista y del orden se hace con la política efectiva B6.
  v_huella:=encode(sha256(convert_to(p_bolsa||chr(31)||p_participaciones::text||chr(31)||p_configuracion::text,'UTF8')),'hex');
  v_origen_huella:=encode(sha256(convert_to(p_origen::text,'UTF8')),'hex');
- v_evento:='evento:bolsa:ct:'||encode(sha256(convert_to(p_origen->>'expediente_ref'||chr(31)||p_origen->>'clave_ct','UTF8')),'hex');
+ v_evento:='evento:bolsa:ct:'||encode(sha256(convert_to((p_origen->>'expediente_ref')||chr(31)||(p_origen->>'clave_ct'),'UTF8')),'hex');
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:emision:'||p_bolsa||':'||p_clave,0));
  SELECT * INTO previo FROM vec_bolsa_llamamientos.llamamiento_emitido
   WHERE bolsa_ref=p_bolsa AND clave_idempotencia=p_clave FOR UPDATE;
