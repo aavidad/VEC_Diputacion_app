@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js?v=20261016-r1-seleccion-pendiente-v1";
+import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js?v=20261016-r1-seleccion-pendiente-v2";
 import {
   crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE,
   validarPaginaComunicacionesExpediente, instanteOrdenComunicacion, claveFilaComunicacion,
@@ -20,6 +20,9 @@ const pendiente = () => ({ organizacion_ref: "organizacion:ct140", expediente_re
   llamamiento_ref: "llamamiento:ct140:pendiente", estado: "seleccion_confirmada_pendiente_aviso",
   registrada_en: "2026-09-24T10:10:00Z", version: 1, antecedente_tipo: "seleccion_confirmada",
   recibo_antecedente_ref: "recibo:seleccion:pendiente" });
+const fallo = (estado, codigo, envelopeValido = true) => Object.assign(new Error(codigo), {
+  estado, codigo, envelopeValido,
+});
 
 test("GET CT140 fija límite 10 y cursor, sin organización ni clave en URL", async () => {
   const llamadas = [];
@@ -38,6 +41,67 @@ test("GET CT140 fija límite 10 y cursor, sin organización ni clave en URL", as
   assert.ok(llamadas.every((opciones) => opciones.metodo === "GET" && opciones.efecto === false
     && opciones.estadoEsperado === 200 && opciones.signal === controlador.signal
     && !Object.hasOwn(opciones, "entrada") && !/clave_idempotencia|organizacion_ref/u.test(opciones.ruta)));
+});
+
+test("solo un 503 acreditado del GET inicial se reintenta y recupera la página", async () => {
+  const llamadas = [];
+  const cliente = crearConsultaComunicacionesExpedienteClienteHTTP({
+    validarOpciones: ({ signal } = {}) => ({ signal }),
+    ejecutar: async (peticion) => {
+      llamadas.push(peticion);
+      if (llamadas.length === 1) throw fallo(503, "servicio_no_disponible");
+      return peticion.validarRespuesta({ expediente_ref, comunicaciones: [pendiente()] });
+    },
+  });
+  const pagina = await cliente.consultarComunicacionesExpediente({ expediente_ref });
+  assert.equal(llamadas.length, 2);
+  assert.equal(llamadas[0], llamadas[1]);
+  assert.equal(pagina.comunicaciones[0].estado, "seleccion_confirmada_pendiente_aviso");
+});
+
+test("403, respuesta 200 inválida y cursor fallido no provocan otro GET", async () => {
+  for (const caso of ["denegado", "invalido", "cursor", "sin_envelope"]) {
+    const llamadas = [];
+    const error = caso === "denegado" ? fallo(403, "acceso_denegado")
+      : fallo(503, "servicio_no_disponible", caso !== "sin_envelope");
+    const cliente = crearConsultaComunicacionesExpedienteClienteHTTP({
+      validarOpciones: ({ signal } = {}) => ({ signal }),
+      ejecutar: async (peticion) => {
+        llamadas.push(peticion);
+        if (caso === "invalido") return peticion.validarRespuesta({ expediente_ref,
+          comunicaciones: [{ ...pendiente(), version: 2 }] });
+        throw error;
+      },
+    });
+    await assert.rejects(cliente.consultarComunicacionesExpediente({ expediente_ref,
+      ...(caso === "cursor" ? { cursor } : {}) }), caso === "invalido" ? TypeError : error);
+    assert.equal(llamadas.length, 1, caso);
+  }
+});
+
+test("si el segundo GET inicial vuelve a fallar conserva el último 503", async () => {
+  let llamadas = 0;
+  const ultimo = fallo(503, "servicio_no_disponible");
+  const cliente = crearConsultaComunicacionesExpedienteClienteHTTP({
+    validarOpciones: ({ signal } = {}) => ({ signal }),
+    ejecutar: async () => { llamadas += 1; throw llamadas === 1 ? fallo(503, "servicio_no_disponible") : ultimo; },
+  });
+  await assert.rejects(cliente.consultarComunicacionesExpediente({ expediente_ref }), ultimo);
+  assert.equal(llamadas, 2);
+});
+
+test("cancelar durante la espera impide el segundo GET inicial", async () => {
+  const controlador = new AbortController();
+  const error = fallo(503, "servicio_no_disponible");
+  let llamadas = 0;
+  const cliente = crearConsultaComunicacionesExpedienteClienteHTTP({
+    validarOpciones: ({ signal } = {}) => ({ signal }),
+    ejecutar: async () => { llamadas += 1; setTimeout(() => controlador.abort(), 10); throw error; },
+  });
+  await assert.rejects(cliente.consultarComunicacionesExpediente({ expediente_ref }, {
+    signal: controlador.signal,
+  }), error);
+  assert.equal(llamadas, 1);
 });
 
 test("CT140 valida once campos, orden microsegundo, cursor y referencias del expediente", () => {
