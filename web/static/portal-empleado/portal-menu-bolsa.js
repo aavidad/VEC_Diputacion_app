@@ -100,7 +100,6 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
     case "llamamientos":
     case "comunicaciones":
     case "baremacion":
-    case "configuracion":
     case VISTA_CANDIDATOS_BOLSA:
       return capacidades?.bolsasConsultables === true;
     case "elaboracion":
@@ -109,6 +108,10 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
       return capacidades?.contratacionTemporal === true;
     case "auditoria":
       return capacidades?.auditoriaConsulta === true;
+    case "configuracion":
+      // La configuración conserva su autorización propia al abrirse. Su
+      // navegación también sirve cuando el cuadro no está disponible.
+      return capacidades?.bolsasConsultables === true || capacidades?.politicaCese === true;
     case "reglas":
       return capacidades?.politicaCese === true;
     default:

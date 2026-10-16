@@ -60,6 +60,11 @@
     "bolsa_carga_convoca_importar": "Importar bolsas de CONVOCA",
     "bolsa_inscripcion_decidir": "Decidir solicitudes de inscripción",
     "bolsa_inscripcion_incorporar": "Incorporar solicitudes admitidas a la bolsa",
-    "bolsa_configuracion_consultar": "Consultar mi perfil y la configuración"
+    "bolsa_configuracion_consultar": "Consultar mi perfil y la configuración",
+    "bolsa_carga_convoca_confirmar": "Confirmar la incorporación de bolsas de CONVOCA",
+    "bolsa_inscripcion_rrhh_decidir": "Decidir solicitudes de inscripción",
+    "bolsa_inscripcion_rrhh_incorporar": "Incorporar solicitudes admitidas a la bolsa",
+    "bolsa_inscripcion_rrhh_motivos": "Consultar motivos de las decisiones de inscripción",
+    "bolsa_origen_ct_consultar": "Consultar la bolsa desde un expediente de contratación temporal"
   }
 }

@@ -11,7 +11,7 @@ import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPo
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-alegaciones-v2";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261016-bolsa-perfil-propio-v1";
 import { bolsasVigentesParaLlamamiento, instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261015-ofertas-recibo-v3";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 

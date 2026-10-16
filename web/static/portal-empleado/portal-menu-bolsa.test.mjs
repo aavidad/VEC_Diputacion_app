@@ -26,6 +26,12 @@ test("Reglas de cese solo se ofrecen tras su consulta V3 positiva", () => {
   assert.equal(vistaBolsaOfrecida("reglas", { politicaCese: true }), true);
 });
 
+test("Configuración se alcanza con la política autorizada aunque falle el cuadro", () => {
+  assert.equal(vistaBolsaOfrecida("configuracion", { bolsasConsultables: false, politicaCese: true }), true);
+  assert.equal(vistaBolsaOfrecida("configuracion", { bolsasConsultables: true, politicaCese: false }), true);
+  assert.equal(vistaBolsaOfrecida("configuracion", { bolsasConsultables: false, politicaCese: false }), false);
+});
+
 test("P-WEB-14 no anuncia un total mientras Bolsa sigue comprobando", () => {
   const accesos = [{ disponible: true, estado: "disponible" }, { disponible: false, estado: "cargando" }];
   assert.equal(resumenAccesosModulos(accesos, false), "Comprobando áreas");
