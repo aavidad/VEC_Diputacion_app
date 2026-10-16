@@ -566,6 +566,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	cerrarCobertura := true
+	defer func() {
+		if cerrarCobertura {
+			coberturaReal.cerrar()
+		}
+	}()
 	asignacionReal, err := nuevasDependenciasAsignacionContratacionTemporalDesarrollo(
 		derivador,
 		&alta,
@@ -628,12 +634,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if firmaDocumento != nil {
 		firmaDocumento.informeTrasSubsanacion = fuenteInformeNuevo
 	}
-	cerrarCobertura := true
-	defer func() {
-		if cerrarCobertura {
-			coberturaReal.cerrar()
-		}
-	}()
 	rutaCatalogosAlta, err := nuevaRutaCatalogosAltaContratacionTemporalDesarrollo(origen)
 	if err != nil {
 		return nil, nil, nil, err

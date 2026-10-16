@@ -8,7 +8,7 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Actualizado el 15 de octubre de 2026 sobre `origin/main@896d3b4a2`.
+Actualizado el 16 de octubre de 2026 sobre `origin/main@cc6c2927c`.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
 cómo se sabe que cada fase está terminada y cómo se trabaja. Es lectura
@@ -620,12 +620,15 @@ apartado, también el paso 5 de 10.3. El texto completo está en `AGENTS.md`,
 sección «Entrega y subida»; aquí va solo el resumen:
 
 1. A cidonia solo sube una candidata congelada y ensayada entera en una copia
-   de cidonia, y se instala exactamente lo ensayado.
+   de cidonia, y se instala exactamente lo ensayado. Desde el 15/10 cidonia
+   está fuera hasta nueva orden: el ensayo y el recorrido se hacen en una copia
+   local.
 2. Una PR está lista solo si trae código, guion de activación y la prueba de
    que la app arranca con esa configuración y sin ella.
 3. Hay un único caso de aceptación del recorrido:
    [FLUJO_APP.md, apartado 4.0](FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación).
-4. Ninguna configuración nueva tumba la app; cidonia nunca queda apagada.
+4. Ninguna configuración nueva tumba la app; cidonia nunca queda apagada
+   (para cuando vuelva).
 5. Con datos ficticios, si falta un dato se ajusta el dato, no se programa.
 
 ### 10.1 Encargo y trabajo paralelo
@@ -649,8 +652,12 @@ sección «Entrega y subida»; aquí va solo el resumen:
   autenticación, permisos, SQL o fronteras HTTP; `revisar-cambios-vec`,
   `documentar-entregar-vec` y `pr-vec` para cerrar. Y los documentos de
   `docs/producto/` que el equipo debe leer.
-- **Modelo justo**: el más barato que baste para lo mecánico; esfuerzo alto
-  solo para SQL, seguridad y revisiones. Pocos subagentes por equipo.
+- **Modelo justo**: el más barato que baste. Esfuerzo alto solo para programar
+  SQL, permisos, identidad, firma y datos personales, y para las revisiones
+  finales; nunca para buscar ni para repetir revisiones. Como mucho seis
+  subagentes vivos por equipo.
+- **Atascos**: tres fallos iguales o 20 minutos sin avanzar, BLOQUEO en el
+  canal, sin subir el esfuerzo.
 - **Nada en cola**: un encargo nuevo empieza ya con un equipo o subagente
   libre.
 - **Plantilla del encargo**: objetivo y paso de RRHH al que sirve, ficheros
@@ -665,9 +672,10 @@ sección «Entrega y subida»; aquí va solo el resumen:
 - Código y pruebas forman un commit que compila y pasa sus pruebas focales; no
   se admiten cortes que dejen una API a medias, una migración sin quien la use
   o una ruta registrada sin autoridad.
-- Señal de alarma: más de tres ficheros de producción, más de unas doscientas
-  líneas nuevas o dos motivos distintos en el mensaje. Se divide o se justifica
-  antes de programar.
+- Tamaño de la PR: tope de 1.500 líneas y objetivo de 400 escritas a mano (sin
+  contar lo generado ni los datos de prueba). Sustituye el umbral anterior de
+  tres ficheros o doscientas líneas. Si una tarea necesita dos motivos
+  distintos en el mensaje, se divide.
 - Una capacidad grande se expresa como un grafo de minitareas con
   dependencias, no como un identificador que acumula contrato, adaptador,
   composición, pantalla y recorrido.
@@ -695,10 +703,12 @@ subida.
    `go vet` del paquete afectado, `git diff --check`, la batería web
    (`node --test` sobre los `*.test.mjs`) si toca la web, y ensayo en
    PostgreSQL 18 si hay migración.
-3. **Revisión independiente**: las pantallas pasan por el revisor de
-   usabilidad; el SQL, por el revisor SQL con ensayo en el clon local de la
-   principal; lo que toca autenticación, permisos, SQL o fronteras HTTP, por
-   `security-audit` y Semgrep con reglas locales.
+3. **Revisión independiente**: dos para lógica de negocio, permisos,
+   identidad, cifrado o SQL con permisos; una para lo demás (apartado 10.5,
+   regla 5). Las pantallas pasan por el revisor de usabilidad; el SQL, por el
+   revisor SQL con ensayo en el clon local de la principal; lo que toca
+   autenticación, permisos, SQL o fronteras HTTP, por `security-audit` y
+   Semgrep con reglas locales.
 4. **Fusión**: Claude lee el diff y fusiona cuando pasan las puertas rápidas de
    la CI (secretos, PostgreSQL y artefactos, unos dos minutos;
    `.github/workflows/ci.yml`). La puerta de calidad completa
@@ -706,7 +716,8 @@ subida.
    falla, se arregla encima. No se repite la puerta completa sobre el mismo
    commit.
 5. **Subida a cidonia** tras cada fusión con algo visible, sin esperar a
-   juntar. Cada subida hace copia fría de la base, instala y deja una vuelta
+   juntar. Desde el 15/10 cidonia está fuera: este paso se sustituye por el
+   recorrido en una copia local, y lo que sigue vale para cuando vuelva. Cada subida hace copia fría de la base, instala y deja una vuelta
    atrás automática; si la comprobación falla, se vuelve a la subida anterior.
    Las SQL se ensayan antes sobre una copia de la principal y se instalan una
    vez, en el orden de su lista causal (`deploy/principal/lista_sql_*.txt`).
@@ -743,6 +754,37 @@ Revisión independiente:
 
 El agente no da su tarea por cerrada ni cambia porcentajes; lo hace dirección
 al integrar.
+
+### 10.5 Reglas de simplificación (16/10)
+
+Consenso de dirección con Fable y Astra, aprobado por Alberto el 16/10. Valen
+para toda PR desde ese día; el resumen está en `AGENTS.md`.
+
+1. **Código muerto.** Si un cambio deja sin uso una función, una variante, una
+   versión de rol, un fichero o una prueba, se retira en la misma PR. El código
+   muerto que se vea en lo que se toca se retira también, demostrando que la
+   protección que daba sigue cubierta. Mover ficheros no cuenta como reducción.
+2. **Tamaño de PR.** Tope de 1.500 líneas y objetivo de 400 escritas a mano,
+   sin contar lo generado ni los datos de prueba (apartado 10.2).
+3. **Núcleo de autorización.** Las migraciones nuevas de
+   `deploy/postgresql/autorizacion_atestada_v3` solo las escribe su equipo
+   dueño, el R. Las que ya están en PR siguen el orden fijo del tablero
+   (`TABLERO_TAREAS.md`, apartado 3). Como mucho se reconstruye la función
+   central una vez por semana.
+4. **Lecturas.** Una lectura nueva se añade como fila de la lista existente, no
+   como función ni versión nueva.
+5. **Revisiones.** Dos independientes solo para lógica de negocio, permisos,
+   identidad, cifrado o SQL con permisos. Para lo demás basta una.
+6. **Controles y excepciones.** Cada control nuevo dice de qué protege y qué
+   prueba lo comprueba. Cada excepción temporal tiene responsable y condición
+   de retirada. No se añade ninguna capa sin un consumidor del recorrido
+   vigente.
+7. **Lo opcional** falla cerrado sin tumbar el arranque, con un error de
+   catálogo que dice qué falta.
+8. **Objetivos medibles.** Copia local en menos de 15 minutos con un guion
+   único (F0-28); CI que instala todas las migraciones del recorrido de la
+   fase 1 y ejecuta sus pruebas SQL (F0-29); lecturas por debajo de 300 ms en
+   el percentil 95.
 
 ## 11. Riesgos y bloqueos
 

@@ -33,6 +33,7 @@ Cada persona entra con su certificado digital y ve solo lo que le corresponde po
 - **Todo queda registrado.** VEC guarda quién hizo cada cosa, cuándo y con qué perfil, también cuando solo se consulta. Nada se borra: una corrección se añade a lo anterior.
 - **Datos personales protegidos.** En las listas, el teléfono y el correo de los candidatos aparecen tapados en parte. Completos solo se ven en la ficha de la persona, y queda constancia de quién los consultó.
 - **Las reglas las decide RRHH.** Plazos, reglas de la bolsa, textos de los correos y plantillas de documentos no están fijos en la aplicación. RRHH puede cambiarlos desde sus pantallas. Cada cambio crea una versión nueva, con su motivo, y lo ya tramitado conserva la regla con la que se hizo.
+- **Si falla Contratación temporal al iniciar.** El portal conserva la entrada con certificado y la consulta pública de convocatorias. Las funciones que dependen de Contratación temporal quedan temporalmente sin servicio.
 - **Las cifras se pueden pulsar.** En los resúmenes, al pulsar un número se abre la lista de expedientes o personas que lo forman.
 - **Un recibo de VEC no es un asiento de registro oficial.** Descargar un documento no lo firma ni lo envía.
 
@@ -51,7 +52,7 @@ El cuadro de Bolsas muestra las cifras por situación. Los nombres largos de cat
 
 ### 4.2 La situación de cada candidato
 
-Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede estar disponible en una y trabajando por la otra.
+Cada persona tiene una situación en cada bolsa. Si está en dos bolsas, puede estar disponible en una y trabajando por la otra. Las etiquetas de la lista, la ficha y los filtros usan el mismo nombre en singular: «Disponible», «No disponible», «Trabajando» o «Excluido».
 
 | Situación | Cuándo se da |
 | --- | --- |

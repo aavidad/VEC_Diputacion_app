@@ -17,6 +17,12 @@ recorrido en Chrome y recuperación después de reiniciar. La precondición de
 admisiones descrita más abajo sigue pendiente de su productor gobernado.
 Ningún paso de esta guía autoriza a probar ficheros sueltos en cidonia.
 
+Dirección admite los certificados de identidad heredados como excepción de
+esta copia de ensayo. El responsable es O y la excepción termina cuando el
+guion común de copia local (F0-28, equipo L) genere el material nuevo de 90 días.
+No se regeneran en este corte las referencias de identidad ligadas a esos
+certificados; se conservan las asignaciones y los permisos publicados.
+
 ## Preparar una copia y fijar el orden
 
 Dirección congela el árbol fuente y ensaya la misma candidata que instalará.
@@ -114,6 +120,14 @@ monta en la web. En el proceso de desarrollo, el montaje interno registra sus
 dos claves por el protocolo de gobierno existente y toma las coordenadas
 publicadas; una configuración ausente o incorrecta deja solo esa descarga
 cerrada.
+
+El publicador externo actual fija la confianza en 24 horas y conserva una raíz
+válida de 2026 a 2036. Dirección autoriza ese comportamiento únicamente como
+excepción de esta copia, a cargo de O: caduca a las 24 horas y, si sigue siendo
+necesaria, se renueva por el mismo publicador. Se retira cuando el ajuste del
+productor permita configurar la vigencia de desarrollo con un máximo de 90
+días; en producción se conservan las 24 horas. Ese ajuste corresponde a H y
+queda fuera de este corte. La excepción no modifica claves ni amplía permisos.
 
 La publicación de acciones, versiones de rol y membresías personales se hace
 por los actos de Administración gobernados, con dos administradores distintos

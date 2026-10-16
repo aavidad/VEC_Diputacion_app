@@ -4,16 +4,16 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261015-firma-cierre-cache-v3";
-// La entrada integra Firma y Ofertas; el coordinador CT conserva su cohorte.
-const versionEntrada = "20261016-justificante-integracion-v3";
+const versionCoordinador = "20261016-ct-arranque-disponible-v1";
+// Entrada integrada; el coordinador conserva la versión publicada de su aviso.
+const versionEntrada = "20261016-justificante-ct-arranque-v4";
 const versionClienteCT = "20261014-ginpix-personal-b2-v1";
 const versionClienteConsulta = "20261015-firma-cierre-cache-v3";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
-const versionCircuito = versionCoordinador;
-const versionVista = versionCoordinador;
-const versionVistaPortal = versionCoordinador;
-const versionAdaptador = versionCoordinador;
+const versionCircuito = versionClienteConsulta;
+const versionVista = versionClienteConsulta;
+const versionVistaPortal = versionClienteConsulta;
+const versionAdaptador = versionClienteConsulta;
 const versionRender = "20261013-ct-firma-tres-v3";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
