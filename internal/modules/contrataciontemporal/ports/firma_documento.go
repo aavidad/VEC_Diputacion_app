@@ -28,7 +28,7 @@ const (
 	FinalidadFirmaDocumento    = "gestionar_contratacion_temporal"
 	PrefijoRecursoFirma        = "operacion-firma-ct:"
 	PoliticaVerificacionFirma  = "politica:vec:firma:verificacion-autonoma:v1"
-	MaximoDocumentoFirmaBytes  = 1 << 20
+	MaximoDocumentoFirmaBytes  = 2 << 20
 	MaximoMotivoDevolucionRune = 500
 )
 

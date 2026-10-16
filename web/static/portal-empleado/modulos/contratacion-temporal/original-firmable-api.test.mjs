@@ -33,6 +33,21 @@ test("el original se recupera por referencia y versión, con sus bytes y huella 
   assert.equal(enviada.opciones.credentials, "same-origin"); assert.equal(enviada.opciones.cache, "no-store");
   assert.equal(enviada.opciones.redirect, "error"); assert.equal(enviada.opciones.referrerPolicy, "no-referrer");
 });
+test("original de 2 MiB se prepara intacto y uno mayor se cierra", async () => {
+  const maximo = 2 * 1024 * 1024;
+  const grande = Buffer.alloc(maximo, 0x78);
+  grande.write("%PDF-", 0, "ascii"); grande.write("%%EOF", maximo - 5, "ascii");
+  const comprobar = async (contenido, admite) => {
+    const hash = createHash("sha256").update(contenido).digest("hex");
+    const data = datos(); data.pdf_base64 = contenido.toString("base64");
+    data.original_sha256 = hash; data.documento_custodiado.huella_sha256 = hash;
+    const cliente = crearClienteOriginalFirmable({ fetchImpl: async () => respuesta(data) });
+    if (admite) assert.deepEqual(Buffer.from((await cliente.preparar(solicitud)).contenido), contenido);
+    else await assert.rejects(cliente.preparar(solicitud), { codigo: "resultado_no_confiable" });
+  };
+  await comprobar(grande, true);
+  await comprobar(Buffer.concat([grande, Buffer.from("x")]), false);
+});
 test("otra versión, otro PDF o custodia ajena no entrega bytes para firmar", async () => {
   for (const alterar of [(d) => { d.original_version++; }, (d) => { d.expediente_ref = "expediente:otro"; },
     (d) => { d.pdf_base64 = Buffer.from("%PDF-1.7\najeno\n%%EOF").toString("base64"); },
@@ -48,7 +63,7 @@ test("denegación, límite de respuesta y cancelación cierran la descarga", asy
     (e) => e.codigo === "acceso_denegado");
   await assert.rejects(crearClienteOriginalFirmable({ fetchImpl: async () => respuesta({}, 404) }).preparar(solicitud),
     (e) => e.codigo === "servicio_no_disponible", "una ruta ausente no acredita falta de permiso");
-  const grande = respuesta(datos()); grande.headers.set("Content-Length", "2000000");
+  const grande = respuesta(datos()); grande.headers.set("Content-Length", String(Math.ceil((2 * 1024 * 1024) / 3) * 4 + 16384 + 1));
   await assert.rejects(crearClienteOriginalFirmable({ fetchImpl: async () => grande }).preparar(solicitud),
     (e) => e.codigo === "resultado_no_confiable");
   const c = new AbortController(); let llamadas = 0; c.abort();

@@ -209,6 +209,14 @@ autorización sí bloquea lo que las necesita. Un módulo ausente no se sondea e
 bucle ni deja botones activos sin servidor detrás. Detalle en
 `docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md`.
 
+En la composición de desarrollo, un fallo al preparar Contratación temporal,
+sus reglas, la documentación de formalización o las preferencias mantiene el
+portal, la sesión certificada y las consultas públicas con fuentes propias.
+Las rutas que necesitan la autoridad de CT, incluida Organización histórica,
+responden 503 sin datos y sin caché. Se conserva mTLS y la validación común; un
+fallo de identidad o TLS sigue impidiendo el arranque. `/livez` no acredita la
+disponibilidad de las funciones; `/healthz` permanece en 503 sin su comprobador.
+
 Una capacidad se describe separando código, composición, instalación, recorrido
 comprobado y aprobación funcional. Tener cuatro capas, un manifiesto o pruebas no
 acredita que esté disponible.
@@ -607,6 +615,17 @@ El guion de certificados de desarrollo prepara por defecto certificados de
 conserva sus revocaciones y la reutilización comprueba el material privado.
 Los cargos del kit están vigentes hasta el 31 de diciembre de 2027. La ventana
 entre preparar y aprobar su publicación sigue limitada a un día.
+
+El corte F1-37 unifica el PDF binario en 2 MiB para borrador, original,
+firma, custodia y descarga del recorrido nominal de firma VEC. Los cuerpos con Base64 y metadatos tienen cotas
+calculadas aparte; la ruta antigua puede contener dos PDF. La pasarela
+conserva su límite general y amplía solo la excepción de registro VEC. La
+verificación no cambia y el almacén debe admitir objetos de al menos 2 MiB.
+Las rutas antiguas `firmas-documento` y `firmas-documento/registro-externo`
+conservan 1 MiB de petición JSON total en la pasarela; no admiten por esa
+frontera un PDF de 2 MiB, aunque sus manejadores tengan cotas mayores.
+El cierre de auditoría de un montaje parcial tolera ausencia y se ejecuta una
+sola vez cuando existe, sin tapar el error original.
 
 Un borrador no es un documento firmado. Autenticarse no es firmar. Un aviso no es
 una entrega acreditada. Una referencia a un correo no es su custodia. No se

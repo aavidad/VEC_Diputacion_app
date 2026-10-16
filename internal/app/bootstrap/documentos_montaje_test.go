@@ -128,12 +128,21 @@ func TestServidorDesarrolloConDocumentosApagadoYActivadoSinMaterial(t *testing.T
 	}
 }
 
-// Sin PostgreSQL de Contratación tampoco arranca con el selector activado.
-func TestServidorDesarrolloConDocumentosActivadoSinGobiernoNoArranca(t *testing.T) {
+// Sin PostgreSQL de Contratación el portal arranca, pero Documentos queda
+// cerrado porque no puede consumir su gobierno V3.
+func TestServidorDesarrolloConDocumentosActivadoSinGobiernoAislaFuncion(t *testing.T) {
 	cfg, _ := generarMaterialDesarrolloPrueba(t)
 	cfg.DocumentosEnabled = "true"
-	if servidor, _, err := NewHTTPServerDesarrolloWithConfig(cfg, io.Discard); servidor != nil || err == nil {
-		t.Fatal("el servidor arrancó con Documentos activado y sin gobierno V3")
+	servidor, _, err := NewHTTPServerDesarrolloWithConfig(cfg, io.Discard)
+	if err != nil || servidor == nil || servidor.TLSConfig == nil || servidor.TLSConfig.ClientAuth != tls.RequireAndVerifyClientCert {
+		t.Fatalf("el portal no conservó mTLS sin gobierno V3: servidor=%v error=%v", servidor, err)
+	}
+	peticion := peticionDocumentos(docpg.RutaFronteraConsulta, false)
+	peticion.RemoteAddr = "127.0.0.1:1234"
+	respuesta := httptest.NewRecorder()
+	servidor.Handler.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusServiceUnavailable || !strings.Contains(respuesta.Body.String(), `"codigo":"servicio_no_disponible"`) {
+		t.Fatalf("Documentos no quedó cerrado: estado=%d cuerpo=%q", respuesta.Code, respuesta.Body.String())
 	}
 }
 
