@@ -4,9 +4,9 @@
  */
 
 import { escaparHTML } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
-import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261016-r1-criterios-v6";
-import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261016-r1-criterios-v6";
-import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261016-r1-criterios-v6";
+import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261016-r1-o-integracion-v7";
+import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261016-r1-o-integracion-v7";
+import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261016-r1-o-integracion-v7";
 
 /** Une el circuito del catálogo con el estado real registrado. */
 export function fusionarEstadoFirmas(circuito, estado) {

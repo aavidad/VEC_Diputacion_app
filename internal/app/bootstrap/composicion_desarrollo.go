@@ -521,6 +521,13 @@ func nuevoServidorDesarrollo(
 		rutasContratacion = append(rutasContratacion, rutaUsuariosPreferencias(usuariosPreferencias)...)
 	}
 	identidadPersonal, _ := resolvedor.(*resolvedorIdentidadDesarrollo)
+	justificanteRRHH, cerrarJustificanteRRHH := nuevaRutaJustificanteRenunciaRRHH(cfg,
+		identidadPersonal, usuariosPreferencias, composicion.derivadorIdempotencia, autoridadContratacion)
+	defer func() {
+		if !completa {
+			cerrarJustificanteRRHH()
+		}
+	}()
 	bolsaPersonal, inscripcionExterna, cerrarInscripcionExterna, err := nuevasRutasBolsaPersonalCombinado(cfg, identidadPersonal, emisor)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("inscripcion_bolsa_externa", err)
@@ -579,6 +586,7 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("vec_shell", err)
 	}
+	vecAPI = componerRaizConJustificanteRenunciaRRHH(vecAPI, justificanteRRHH, registradorFrontera)
 	vecAPI = autoridadContratacion.proteger(vecAPI)
 	if comisionesDietas != nil {
 		vecAPI = comisionesDietas.proteger(vecAPI)
@@ -641,6 +649,7 @@ func nuevoServidorDesarrollo(
 		servidor.RegisterOnShutdown(inscripcionRRHH.cerrar)
 	}
 	servidor.RegisterOnShutdown(cerrarInscripcionExterna)
+	servidor.RegisterOnShutdown(cerrarJustificanteRRHH)
 	if personalEmpleado != nil {
 		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
 	}

@@ -7,6 +7,7 @@ import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { cuerpoDisposicion, RUTA_DISPOSICION_MI_BOLSA, validarOfertasMiBolsa } from "./mi-bolsa-ofertas.js";
 import { nombreCategoria } from "./mi-bolsa-campos.js";
 import { cuerpoConfirmacionContacto, RUTA_CONTACTO_MI_BOLSA, validarContactosMiBolsa } from "./mi-bolsa-contacto.js";
+import { crearClienteJustificante, MAX_PDF_JUSTIFICANTE } from "./mi-bolsa-justificante-cliente.js?v=20261015-o-justificante-bolsa-v4";
 
 export const RUTAS_PORTAL_MI_BOLSA = Object.freeze({
   documental: "/api/vec/bolsa/mi-bolsa/solicitudes-documentales",
@@ -95,15 +96,15 @@ function idSeguro(bolsa, sufijo) {
 
 function formularioRespuesta(bolsa, acciones) {
   const id = (s) => idSeguro(bolsa, s);
+  const obligatorio = `<span>${escaparHTML(traducir("areaPersonal.vista.comun.campoObligatorio"))}</span>`;
   const opciones = ["acepta", "renuncia", "renuncia_justificada"].map((valor) =>
     `<label class="opcion-check"><input type="radio" name="respuesta" value="${valor}" required><span>${escaparHTML(textoPortal(`respuesta.${valor}`))}</span></label>`).join("");
   const causas = acciones.causas_renuncia.map((c) => `<option value="${escaparAtributo(c)}">${escaparHTML(textoPortal(`causa.${c}`))}</option>`).join("");
   return `<form class="portal-mi-bolsa__formulario" data-portal-mi-bolsa="responder" data-bolsa="${escaparAtributo(bolsa)}" novalidate>
     <div data-portal-edicion><fieldset><legend>${escaparHTML(textoPortal("respuesta"))}</legend>${opciones}</fieldset>
-    <div class="formulario-rejilla" data-portal-justificada>
-      <div class="campo"><label for="${id("causa")}">${escaparHTML(textoPortal("causa"))}</label><select id="${id("causa")}" name="causa"><option value=""></option>${causas}</select></div>
-      <div class="campo"><label for="${id("justificante")}">${escaparHTML(textoPortal("justificante"))}</label><input id="${id("justificante")}" name="justificante" type="file"></div>
-      <div class="campo"><label for="${id("referencia")}">${escaparHTML(textoPortal("justificanteRef"))}</label><input id="${id("referencia")}" name="justificante_ref" maxlength="128" pattern="[A-Za-z0-9][A-Za-z0-9._:/#-]*" autocomplete="off"></div>
+    <div class="formulario-rejilla" data-portal-justificada hidden>
+      <div class="campo"><label for="${id("causa")}">${escaparHTML(textoPortal("causa"))} ${obligatorio}</label><select id="${id("causa")}" name="causa"><option value=""></option>${causas}</select></div>
+      <div class="campo"><label for="${id("justificante")}">${escaparHTML(textoPortal("justificante"))} ${obligatorio}</label><input id="${id("justificante")}" name="justificante" type="file" accept="application/pdf,.pdf"></div>
     </div></div>
     <section class="panel" data-portal-revision hidden tabindex="-1" aria-label="${escaparAtributo(textoPortal("revision.titulo"))}">
       <div class="cabecera-panel"><h4>${escaparHTML(textoPortal("revision.titulo"))}</h4></div>
@@ -208,10 +209,12 @@ export async function cuerpoPortalMiBolsa(formulario, datos = new FormData(formu
   const cuerpo = { bolsa, respuesta, clave: claveIdempotencia(formulario) };
   if (respuesta === "renuncia_justificada") {
     const fichero = datos.get("justificante");
-    const referencia = String(datos.get("justificante_ref") || "").trim();
     const causa = String(datos.get("causa") || "");
-    if (!causa || !referencia || !(fichero instanceof Blob) || fichero.size === 0) return null;
-    Object.assign(cuerpo, { causa, justificante_ref: referencia, justificante_sha256: await huellaSHA256(fichero) });
+    if (!CAUSA.test(causa) || !(fichero instanceof Blob) || fichero.size === 0
+      || !/\.pdf$/iu.test(fichero.name || "") || (fichero.type && fichero.type !== "application/pdf")) return null;
+    if (fichero.size > MAX_PDF_JUSTIFICANTE) return null;
+    Object.assign(cuerpo, { causa, justificante_sha256: await huellaSHA256(fichero) });
+    return { ruta: RUTAS_PORTAL_MI_BOLSA.responder, cuerpo, fichero, claveSubida: `${cuerpo.clave}:justificante` };
   } else if (!["acepta", "renuncia"].includes(respuesta)) {
     return null;
   }
@@ -223,6 +226,19 @@ const enviosEnCurso = new WeakSet();
 
 const respuestasRevisadas = new WeakMap();
 const revisionesEnCurso = new WeakSet();
+
+export function actualizarCamposRenunciaJustificada(formulario) {
+  if (formulario?.dataset?.portalMiBolsa !== "responder" || peticionesInciertas.has(formulario)
+    || respuestasRevisadas.has(formulario)) return;
+  const grupo = formulario.querySelector("[data-portal-justificada]");
+  if (!grupo) return;
+  const justificada = formulario.querySelector('[name="respuesta"]:checked')?.value === "renuncia_justificada";
+  grupo.hidden = !justificada;
+  for (const nombre of ["causa", "justificante"]) {
+    const campo = formulario.querySelector(`[name="${nombre}"]`);
+    if (campo) campo.required = justificada;
+  }
+}
 
 // La operación revisada queda fijada antes de mostrar el resumen: una edición
 // posterior del DOM no puede transformar una renuncia confirmada en aceptación.
@@ -240,14 +256,23 @@ export async function revisarRespuestaPortalMiBolsa(formulario, datos = new Form
   const filas = [[textoPortal("respuesta"), textoPortal(`respuesta.${respuesta}`)]];
   if (respuesta === "renuncia_justificada") {
     const causa = String(datos.get("causa") || "");
-    const referencia = String(datos.get("justificante_ref") || "").trim();
     const fichero = datos.get("justificante");
-    if (!causa || !referencia || !(fichero instanceof Blob) || fichero.size === 0) {
+    if (!CAUSA.test(causa)) {
       formulario.querySelector("[data-portal-resultado]").textContent = textoPortal("error.datos_no_validos");
       return false;
     }
-    filas.push([textoPortal("causa"), textoPortal(`causa.${causa}`)], [textoPortal("justificanteRef"), referencia],
-      [textoPortal("revision.nombreArchivo"), fichero.name || textoPortal("revision.archivoSeleccionado")]);
+    if (!(fichero instanceof Blob) || fichero.size === 0
+      || !/\.pdf$/iu.test(fichero.name || "") || (fichero.type && fichero.type !== "application/pdf")) {
+      formulario.querySelector("[data-portal-resultado]").textContent = textoPortal("justificanteNoValido");
+      return false;
+    }
+    if (fichero.size > MAX_PDF_JUSTIFICANTE) {
+      formulario.querySelector("[data-portal-resultado]").textContent = textoPortal("justificanteDemasiadoGrande");
+      return false;
+    }
+    filas.push([textoPortal("causa"), textoPortal(`causa.${causa}`)],
+      [textoPortal("revision.nombreArchivo"), fichero.name || textoPortal("revision.archivoSeleccionado")],
+      [textoPortal("revision.documentoOriginal"), textoPortal("revision.conservarOriginal")]);
   }
   revisionesEnCurso.add(formulario);
   try {
@@ -259,6 +284,7 @@ export async function revisarRespuestaPortalMiBolsa(formulario, datos = new Form
   } finally {
     revisionesEnCurso.delete(formulario);
   }
+  formulario.querySelector("[data-portal-resultado]").textContent = "";
   formulario.querySelector("[data-portal-revision-datos]").innerHTML = filas.map(([etiqueta, valor]) =>
     `<div class="fila-resumen"><dt>${escaparHTML(etiqueta)}</dt><dd>${escaparHTML(valor)}</dd></div>`).join("");
   formulario.querySelector("[data-portal-edicion]").hidden = true;
@@ -275,6 +301,7 @@ export function volverRespuestaPortalMiBolsa(formulario) {
   formulario.querySelector("[data-portal-revision]").hidden = true;
   formulario.querySelector("[data-portal-edicion]").hidden = false;
   formulario.querySelector("[data-portal-iniciar-revision]").hidden = false;
+  actualizarCamposRenunciaJustificada(formulario);
   formulario.querySelector('[name="respuesta"]:checked')?.focus();
   return true;
 }
@@ -338,6 +365,7 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
   let seEnvio = false;
   let confirmado = false;
   let rechazoDefinitivo = false;
+  let mensajeSubida = "";
   try {
     // Un resultado incierto puede haber persistido: un reintento explícito usa
     // el mismo cuerpo, incluida la versión, aunque se hayan editado los campos.
@@ -366,6 +394,24 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
     if (reintentar) reintentar.disabled = true;
     mostrar(textoPortal("enviando"));
     seEnvio = true;
+    if (peticion.fichero && !peticion.cuerpo.justificante_ref) {
+      const cliente = crearClienteJustificante({ fetchImpl });
+      const subida = await cliente.subir(peticion.cuerpo.bolsa, peticion.claveSubida, peticion.fichero);
+      if (subida.estado === "rechazado") {
+        peticionesInciertas.delete(formulario);
+        respuestasRevisadas.delete(formulario);
+        rechazoDefinitivo = true;
+        mensajeSubida = textoPortal("justificanteRechazado");
+        mostrar(mensajeSubida);
+        return false;
+      }
+      if (subida.estado !== "admitido") {
+        mensajeSubida = textoPortal("justificantePendiente");
+        mostrar(mensajeSubida);
+        return false;
+      }
+      peticion.cuerpo.justificante_ref = subida.comprobante_ref;
+    }
     const respuesta = await fetchImpl(peticion.ruta, {
       method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
       headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(peticion.cuerpo),
@@ -391,9 +437,16 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
       ? textoPortal(peticion.ruta === RUTAS_PORTAL_MI_BOLSA.documental ? "documental.errorIncierto" : "error.servicio_no_disponible")
       : textoPortal(`error.${CODIGOS_ERROR.has(codigo) ? codigo : "servicio_no_disponible"}`));
     return false;
-  } catch {
+  } catch (error) {
     const ruta = peticionesInciertas.get(formulario)?.ruta;
-    mostrar(textoPortal(ruta === RUTAS_PORTAL_MI_BOLSA.documental ? "documental.errorIncierto" : "error.servicio_no_disponible"));
+    if (error?.estado === 413) {
+      peticionesInciertas.delete(formulario);
+      respuestasRevisadas.delete(formulario);
+      rechazoDefinitivo = true;
+    }
+    mostrar(error?.estado === 413 ? textoPortal("justificanteDemasiadoGrande") : mensajeSubida || textoPortal(ruta === RUTAS_PORTAL_MI_BOLSA.documental ? "documental.errorIncierto"
+      : peticionesInciertas.get(formulario)?.fichero && !peticionesInciertas.get(formulario)?.cuerpo.justificante_ref
+        ? "justificanteSinConfirmar" : "error.servicio_no_disponible"));
     return false;
   } finally {
     enviosEnCurso.delete(formulario);
