@@ -59,6 +59,7 @@
     "aviso_recuperacion_incierta": "The result of these alerts could not be confirmed. Check the offer's status before another operation.",
     "aviso_configuracion_pendiente": "Sending alerts for offers needs to be configured.",
     "aviso_actualizar_estado": "Update status",
+    "aviso_actualizar_estado_oferta": "Update alert status for {categoria}, {centro}, starting {fecha}",
     "reintento_incierto_accion": "Retry unconfirmed emails",
     "reintento_incierto_revision": {
       "one": "Review the unconfirmed email for the {categoria} offer ({cuenta} person)",

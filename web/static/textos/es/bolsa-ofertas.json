@@ -59,6 +59,7 @@
     "aviso_recuperacion_incierta": "No se pudo confirmar el resultado de los avisos. Consulte el estado de la oferta antes de otra operación.",
     "aviso_configuracion_pendiente": "Falta configurar el envío de avisos de las ofertas.",
     "aviso_actualizar_estado": "Actualizar estado",
+    "aviso_actualizar_estado_oferta": "Actualizar estado de los avisos de {categoria}, {centro}, inicio {fecha}",
     "reintento_incierto_accion": "Reintentar envíos sin confirmación",
     "reintento_incierto_revision": {
       "one": "Revisar el aviso sin confirmación de la oferta {categoria} ({cuenta} persona)",

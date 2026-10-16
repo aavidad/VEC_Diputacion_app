@@ -400,7 +400,11 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     } finally {
       controladorPublicacion = null; estado.enviando = false; cambiar();
       if (estado.reciboAvisoIncierto && estado.mensaje) enfocar('[data-ofertas-aviso="exito"]');
-      else if (estado.errorOperacion) enfocar('[data-ofertas-error="operacion"]');
+      else if (estado.errorOperacion) {
+        const ofertaPendiente = estado.ofertas.find((o) => o.oferta_ref === intento.cuerpo.oferta_ref && o.aviso_configuracion_pendiente === true);
+        enfocar(ofertaPendiente && estado.carga === "lista"
+          ? `[data-oferta-ref="${intento.cuerpo.oferta_ref}"] [data-ofertas-accion="recargar"]` : '[data-ofertas-error="operacion"]');
+      }
     }
   }
 
@@ -534,7 +538,9 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       `<dl class="oferta-ficha__datos">${dato("col_fechas", fechas)}${dato("col_plazo", fechaHora(o.vence_antes_de))}` +
       `${dato("col_disposiciones", String(o.disposiciones_total), detalleOfrecidas)}${dato("col_plazas", plazas)}</dl>${aviso}` +
       `${o.aviso_configuracion_pendiente === true && estado.reciboPublicacion?.ofertaRef !== o.oferta_ref ? `<p class="mensaje-error" role="alert">${escapar(traducir("aviso_configuracion_pendiente"))}` +
-        `${estado.intencionAvisoIncierto?.cuerpo.oferta_ref === o.oferta_ref ? ` <button type="button" class="boton-secundario" data-ofertas-accion="recargar">${escapar(traducir("aviso_actualizar_estado"))}</button>` : ""}</p>` : ""}${correo}` +
+        `${estado.intencionAvisoIncierto?.cuerpo.oferta_ref === o.oferta_ref ? ` <button type="button" class="boton-secundario" data-ofertas-accion="recargar"` +
+          ` aria-label="${escapar(traducir("aviso_actualizar_estado_oferta", { categoria: o.datos.categoria, centro: o.datos.centro, fecha: fechaDia(o.datos.fecha_inicio) }))}">` +
+          `${escapar(traducir("aviso_actualizar_estado"))}</button>` : ""}</p>` : ""}${correo}` +
       reciboOferta(o.recibo_ref, o.publicada_en) +
       (o.reintento_aviso ? reciboOferta(o.reintento_aviso.recibo_ref, o.reintento_aviso.registrado_en, false, "reintento_recibo_fecha", "reintento_recibo_titulo") : "") +
       (puedeReintentarInciertos ? `<button type="button" class="boton-secundario" data-ofertas-accion="preparar-reintento-incierto" data-oferta-ref="${escapar(o.oferta_ref)}">${escapar(traducir("reintento_incierto_accion"))}</button>` : "") + revision +
@@ -643,7 +649,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     const accion = control.dataset.ofertasAccion;
     if ((estado.reintentoAvisos?.incierta || estado.intencionAvisoIncierto?.incierta) &&
         ["confirmar-publicacion", "preparar", "confirmar", "preparar-reintento-incierto"].includes(accion)) return true;
-    if (accion === "recargar") void cargar().then(() => enfocar('[data-ofertas-accion="recuperar-avisos"], [data-ofertas-accion="recargar"], [data-ofertas-aviso="exito"]'));
+    if (accion === "recargar") void cargar().then(() => enfocar('[data-ofertas-accion="repetir-reintento-incierto"], [data-ofertas-accion="recuperar-avisos"], [data-ofertas-accion="recargar"], [data-ofertas-aviso="exito"]'));
     else if (accion === "confirmar-publicacion") void publicar();
     else if (accion === "recuperar-avisos") void recuperarAvisosPendientes();
     else if (accion === "preparar-reintento-incierto") prepararReintentoIncierto(control.dataset.ofertaRef);
