@@ -23,7 +23,9 @@ En la copia local, un guion privado prepara una versión ficticia del rol extern
 del aspirante. Conserva sus siete concesiones, toma las cinco acciones de
 inscripción declaradas en `inscripcion_bolsa_actos_v1.json` y añade solo las dos
 hojas de modalidad a sus lecturas de convocatoria. Avanza la asignación de la
-misma persona con el mismo ámbito `candidato_ref`. La fuente histórica conserva
+misma persona con el mismo ámbito `candidato_ref` y una vigencia de 89 días.
+Las concesiones y el rol no tienen fecha de fin propia: el acceso exige que esa
+asignación siga vigente. La fuente histórica conserva
 sus bytes y su huella; el guion no modifica el catálogo publicado. El
 versionador externo actual solo añade acciones ausentes y no amplía campos ya
 concedidos. Dirección ha separado la ampliación gobernada del rol en otra tarea.
