@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,6 +42,62 @@ func TestSeudonimosDelPortalExternoUsanSuPropioEspacioDeClave(t *testing.T) {
 	externo, err := (&seudonimizadorSesionDesarrollo{derivador: d}).SeudonimizarAlta(context.Background(), ids)
 	if err != nil || !strings.HasPrefix(externo.ClaveID, espacioSeudonimosPortalExterno+".g") || externo.ClaveID == interno.ClaveID {
 		t.Fatalf("el externo debe usar su propio espacio de clave: %q %v", externo.ClaveID, err)
+	}
+}
+
+func TestIdentificadorCuentaSesionExternaConservaAliasCanonicoYMayusculasExactas(t *testing.T) {
+	const minusculas = "cta_abcdef0123456789abcdef0123456789"
+	const mayusculas = "cta_Abcdef0123456789abcdef0123456789"
+	idAnterior := "desarrollo:" + minusculas
+	idMixto := identificadorCuentaSesionExternaDesarrollo(mayusculas)
+	if identificadorCuentaSesionExternaDesarrollo(minusculas) != idAnterior ||
+		idMixto == idAnterior || idMixto == "desarrollo:"+mayusculas ||
+		idMixto != identificadorCuentaSesionExternaDesarrollo(mayusculas) ||
+		strings.ToLower(idMixto) != idMixto {
+		t.Fatal("el identificador externo perdió el alias publicado o confundió referencias opacas")
+	}
+}
+
+func TestExportarAliasCuentaMixtaCoincideConRegistro(t *testing.T) {
+	vaciarConexionesDelEntorno(t)
+	m := generarMaterialPortalExternoPrueba(t)
+	ruta := filepath.Join(m.cfg.DevelopmentMaterialDir, "identidad", "bolsa-candidato.json")
+	contenido, err := os.ReadFile(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var candidato archivoCandidatoBolsaDesarrollo
+	if err := json.Unmarshal(contenido, &candidato); err != nil {
+		t.Fatal(err)
+	}
+	candidato.CuentaRef = "cta_Abcdef0123456789abcdef0123456789"
+	escribirJSONExternoPrueba(t, ruta, candidato)
+
+	exportacion, err := ExportarSeudonimosPortalExterno(m.cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alias, err := leerSeudonimosPortalExterno(exportacion)
+	if err != nil || len(alias.Cuentas) != 1 || alias.Cuentas[0].CuentaRef != candidato.CuentaRef {
+		t.Fatal("la exportación no conservó la referencia opaca exacta")
+	}
+	material, err := cargarMaterialIdempotenciaDesarrollo(m.cfg.DevelopmentMaterialDir,
+		filepath.Join(m.cfg.DevelopmentMaterialDir, config.DevelopmentIdempotencyHMACConfigRelativePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	derivador, err := nuevoDerivadorIdentidadOperacionDesarrollo(&material)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(derivador.borrar)
+	derivador.espacioSeudonimos = espacioSeudonimosPortalExterno
+	seudonimo, err := (&seudonimizadorSesionDesarrollo{derivador: derivador}).SeudonimizarAlta(context.Background(),
+		postgresidentidad.IdentificadoresAlta{EspacioIdentidad: espacioIdentidadSesionDesarrollo,
+			AsercionID: "preparacion-cuenta", SesionID: "preparacion-alias", SujetoID: candidato.Sujeto,
+			CuentaID: identificadorCuentaSesionExternaDesarrollo(candidato.CuentaRef)})
+	if err != nil || alias.Cuentas[0].CuentaHMAC != hex.EncodeToString(seudonimo.CuentaIDHMAC[:]) {
+		t.Fatal("el alias exportado y el registro de sesión no usan la misma identidad canónica")
 	}
 }
 

@@ -1,0 +1,36 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:justificantes_renuncia_rrhh_v2",
+  "version": 2,
+  "huella_sha256": "a794a4e213a377148b1834bede4542a0ebb6551280c59a6f1fff59a8e5bea30a",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.justificante_renuncia.descargar_rrhh\",\"version\":2,\"fuente_ref\":\"fuente:bolsa:justificantes_renuncia_rrhh_v2\",\"fuente_version\":2,\"concesion\":{\"accion\":\"bolsa.justificante_renuncia.descargar_rrhh\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"justificante_renuncia\",\"finalidades\":[\"custodiar_justificante_renuncia_bolsa\"],\"garantia_minima\":\"sustancial\",\"campos_permitidos\":[\"contenido\"]},\"dimensiones_ambito\":[\"ambito_ref\",\"unidad_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-15T00:00:00Z\",\"vigente_hasta\":\"2027-10-15T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.justificante_renuncia.descargar_rrhh",
+      "version": 2,
+      "fuente_ref": "fuente:bolsa:justificantes_renuncia_rrhh_v2",
+      "fuente_version": 2,
+      "concesion": {
+        "accion": "bolsa.justificante_renuncia.descargar_rrhh",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "justificante_renuncia",
+        "finalidades": [
+          "custodiar_justificante_renuncia_bolsa"
+        ],
+        "garantia_minima": "sustancial",
+        "campos_permitidos": [
+          "contenido"
+        ],
+        "obligaciones": []
+      },
+      "dimensiones_ambito": [
+        "ambito_ref",
+        "unidad_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-15T00:00:00Z",
+      "vigente_hasta": "2027-10-15T00:00:00Z",
+      "fuente_huella_sha256": "a794a4e213a377148b1834bede4542a0ebb6551280c59a6f1fff59a8e5bea30a"
+    }
+  ]
+}
