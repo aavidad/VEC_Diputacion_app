@@ -39,14 +39,19 @@ Cada tramo lleva una de estas marcas:
 
 | Marca | Significa |
 | --- | --- |
-| **En cidonia** | Instalado en cidonia (datos sintéticos) y visto funcionar en el navegador al menos una vez |
-| **En main, sin subir** | Programado y fusionado, pero todavía no instalado en cidonia |
+| **Funciona en la copia local** | Fusionado en `main` y visto funcionar en la copia local restaurada con el guion de F0-28 |
+| **En main, sin subir** | Programado y fusionado, pero todavía no visto funcionar en la copia local |
 | **Apagado** | Instalado o programado, pero su selector o su configuración no está puesto |
 | **Falta** | No existe todavía, o existe solo en una rama o PR sin fusionar |
 | *(por verificar)* | No se ha podido comprobar al escribir este documento |
 
-Que algo esté en `main` no significa que esté en cidonia, ni que se haya
-recorrido de punta a punta. El estado al día de cada tarea está en
+Desde el 16/10 cidonia está congelada y se trabaja en la copia local, así
+que el estado se mide allí. Donde el texto todavía dice «En cidonia», esa
+marca se puso al verlo en cidonia antes del 16/10 y vale como *(por verificar
+en copia local)* hasta que alguien lo vea funcionar en la copia.
+
+Que algo esté en `main` no significa que funcione en la copia local, ni que
+se haya recorrido de punta a punta. El estado al día de cada tarea está en
 `docs/producto/PLAN_IMPLEMENTACION.md`, apartado 2.
 
 ## 1. Las superficies
@@ -1119,30 +1124,30 @@ efecto.
 
 ## 7. Resumen de estado por tramo
 
-| Tramo | En cidonia | En main, sin subir | Falta |
+| Tramo | Funciona en la copia local | En main, sin subir | Falta |
 | --- | --- | --- | --- |
-| Entrada por certificado y usuario web por perfil | Sí | | Directorio corporativo y Kerberos |
-| Selector de perfil activo | Solo en Administración (sin fuente durable) | | Portal interno |
-| Carga de bolsas desde CONVOCA | Sí | | |
-| Inscripción y admisión | Datos cargados | Código y API | Encender y mostrar la pestaña |
+| Entrada por certificado y usuario web por perfil | Sí *(por verificar en copia local)* | | Directorio corporativo y Kerberos |
+| Selector de perfil activo | Solo en Administración (sin fuente durable) *(por verificar en copia local)* | | Portal interno |
+| Carga de bolsas desde CONVOCA | Sí *(por verificar en copia local)* | | |
+| Inscripción y admisión | Datos cargados *(por verificar en copia local)* | Código y API | Encender y mostrar la pestaña |
 | Méritos (cartera) | | #1081, #1105 | Acreditación y puntos |
 | Alegaciones | | #1098, #1108 | |
 | Cuenta externa propia | | #1112 | Provisión en cidonia |
-| Mi Bolsa y respuesta al llamamiento | Sí | | Formulario de pausa y reactivación |
-| Preferencias entre bolsas | *(por verificar)* | Sí | Autoridad externa en cidonia |
-| Petición y ratificación del centro | Circuito anterior | #1114: conserva la necesidad RPT hasta el alta | Verificar la instalación de #1114 en cidonia |
-| Alta, análisis, cobertura, asignación, informe | Sí | | |
-| Fiscalización con reparo y subsanación | Fiscalización sí; reparo *(por verificar)* | | |
-| Llamamiento desde la bolsa constituida | Puente anterior | #1088 | Recorrido con la bolsa real |
+| Mi Bolsa y respuesta al llamamiento | Sí *(por verificar en copia local)* | | Formulario de pausa y reactivación |
+| Preferencias entre bolsas | *(por verificar en copia local)* | Sí | Autoridad externa en cidonia |
+| Petición y ratificación del centro | Circuito anterior *(por verificar en copia local)* | #1114: conserva la necesidad RPT hasta el alta | Verificar la instalación de #1114 en cidonia |
+| Alta, análisis, cobertura, asignación, informe | Sí *(por verificar en copia local)* | | |
+| Fiscalización con reparo y subsanación | Fiscalización sí; reparo *(por verificar)*; todo *(por verificar en copia local)* | | |
+| Llamamiento desde la bolsa constituida | Puente anterior *(por verificar en copia local)* | #1088 | Recorrido con la bolsa real |
 | Oferta con varias plazas desde CT | | | Conexión CT con ofertas de Bolsa |
-| Propuesta, resolución y documentos | Sí | | Plantillas Word de RRHH (duda 124) |
+| Propuesta, resolución y documentos | Sí *(por verificar en copia local)* | | Plantillas Word de RRHH (duda 124) |
 | Firma de tres cargos | | | #1099 y GrxFirma |
-| GINPIX | Ficha y confirmación manual | | Transmisión automática (duda 127) |
-| Incorporación acreditada por el centro | Sí | | |
-| Paso a Personal | Encendido | | Expediente con categoría RPT (#1070) |
-| Cese y vuelta a la bolsa | Cese sí | | Vuelta con bolsa constituida (CT213, B115) |
-| Administración de perfiles | Lista y ficha | Lote ordinario *(por verificar en cidonia)* | Pantalla de doble control, módulos y copias |
-| Auditoría por persona | Instalada, apagada | | Configuración (equipo L) |
+| GINPIX | Ficha y confirmación manual *(por verificar en copia local)* | | Transmisión automática (duda 127) |
+| Incorporación acreditada por el centro | Sí *(por verificar en copia local)* | | |
+| Paso a Personal | Encendido *(por verificar en copia local)* | | Expediente con categoría RPT (#1070) |
+| Cese y vuelta a la bolsa | Cese sí *(por verificar en copia local)* | | Vuelta con bolsa constituida (CT213, B115) |
+| Administración de perfiles | Lista y ficha *(por verificar en copia local)* | Lote ordinario *(por verificar en copia local)* | Pantalla de doble control, módulos y copias |
+| Auditoría por persona | Instalada, apagada *(por verificar en copia local)* | | Configuración (equipo L) |
 
 ## 8. Diferencias encontradas entre fuentes
 
