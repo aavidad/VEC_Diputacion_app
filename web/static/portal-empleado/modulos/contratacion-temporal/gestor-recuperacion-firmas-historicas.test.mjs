@@ -122,12 +122,18 @@ test("una respuesta sin la firma seleccionada no se presenta como recuperación 
 });
 
 test("la denegación se explica y no conserva un recibo anterior", async () => {
-  const montaje = gestor({ recuperar: async () => { throw Object.assign(new Error("denegado"), { estado: 403 }); } });
+  let intentos = 0;
+  const montaje = gestor({ recuperar: async () => { intentos += 1; throw Object.assign(new Error("denegado"), { estado: 403 }); } });
   montaje.montarSiProcede(estado());
-  montaje.zona.buscar((nodo) => Object.hasOwn(nodo.dataset, "ctRecuperacionHistoricaConsultar")).pulsar();
+  const consultar = montaje.zona.buscar((nodo) => Object.hasOwn(nodo.dataset, "ctRecuperacionHistoricaConsultar"));
+  consultar.pulsar();
   await turno();
   assert.match(montaje.zona.textContent, /No puede consultar estas firmas/u);
   assert.doesNotMatch(montaje.zona.textContent, /Recibo:/u);
+  assert.equal(montaje.zona.buscar((nodo) => nodo.dataset.ctRecuperacionAccion === "consultar").hidden, true);
+  consultar.pulsar();
+  await turno();
+  assert.equal(intentos, 2);
   montaje.retirar();
 });
 

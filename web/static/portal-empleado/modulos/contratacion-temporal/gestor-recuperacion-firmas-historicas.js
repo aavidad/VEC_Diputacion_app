@@ -1,6 +1,6 @@
-import { validarSelectoresRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=20261016-firma-historica-v2";
-import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v2";
-import { montarVistaRecuperacionFirmasV2 } from "./vista-recuperacion-firmas-v2.js?v=20261016-firma-historica-v2";
+import { validarSelectoresRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=20261016-firma-historica-v4";
+import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v4";
+import { montarVistaRecuperacionFirmasV2 } from "./vista-recuperacion-firmas-v2.js?v=20261016-firma-historica-v4";
 
 const DOCUMENTOS = new Set([
   "informe_definitivo", "resolucion", "diligencia", "toma_posesion", "notificacion", "comunicacion_centro",
@@ -91,12 +91,12 @@ export function crearGestorRecuperacionFirmasHistoricas({
         ? t(`historicas_documento_${entrada.selector.documento}`) : t("historicas_documento");
       let grupo = grupos.get(entrada.selector.documento);
       if (!grupo) {
-        grupo = nodo(doc, "section", "ct-exp-documento");
+        grupo = nodo(doc, "section");
         grupo.append(nodo(doc, "h4", "", documento));
         grupos.set(entrada.selector.documento, grupo);
         cuerpo.append(grupo);
       }
-      const fila = nodo(doc, "div");
+      const fila = nodo(doc, "div", "ct-recuperacion-firma-historica");
       fila.append(nodo(doc, "h5", "", t("firma", { numero: ordinal })));
       fila.append(nodo(doc, "p", "", t("historicas_paso", { numero: entrada.selector.paso_orden })));
       fila.append(nodo(doc, "p", "", t("historicas_version", { numero: entrada.selector.version_expediente })));
@@ -112,7 +112,11 @@ export function crearGestorRecuperacionFirmasHistoricas({
       boton.setAttribute("aria-controls", resultado.id);
       boton.setAttribute("aria-expanded", "false");
       boton.addEventListener("click", () => {
-        if (panel === null || !panel.isConnected || activo === boton) return;
+        if (panel === null || !panel.isConnected) return;
+        if (activo === boton) {
+          void vista?.consultar();
+          return;
+        }
         vista?.desmontar();
         vista = null;
         if (activo) activo.setAttribute("aria-expanded", "false");

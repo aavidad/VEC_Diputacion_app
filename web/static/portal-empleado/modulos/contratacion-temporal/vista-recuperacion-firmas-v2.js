@@ -1,4 +1,4 @@
-import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v2";
+import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v4";
 
 let siguientePanel = 0;
 const REFERENCIA_RECIBO = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
@@ -53,6 +53,7 @@ export function montarVistaRecuperacionFirmasV2({
   const consultar = elemento(doc, "button", "boton-secundario", t("consultar"));
   consultar.type = "button";
   consultar.dataset.ctRecuperacionAccion = "consultar";
+  consultar.hidden = integrada;
   const cancelar = elemento(doc, "button", "boton-secundario", t("cancelar"));
   cancelar.type = "button";
   cancelar.dataset.ctRecuperacionAccion = "cancelar";
@@ -81,9 +82,9 @@ export function montarVistaRecuperacionFirmasV2({
     estado.textContent = "";
     const filas = elemento(doc, "div");
     for (const firma of firmas) {
-      const fila = elemento(doc, integrada ? "div" : "article", "ct-exp-documento");
+      const fila = elemento(doc, integrada ? "div" : "article", integrada ? "" : "ct-exp-documento");
       if (!integrada) fila.append(elemento(doc, "h4", "", t("firma", { numero: firma.paso_orden })));
-      const resumen = elemento(doc, "dl", "ct-resumen");
+      const resumen = elemento(doc, "dl", integrada ? "datos-clave" : "ct-resumen");
       const registrada = elemento(doc, "div");
       registrada.append(elemento(doc, "dt", "", t("fecha")));
       const dd = elemento(doc, "dd");

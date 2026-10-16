@@ -1,6 +1,6 @@
 import { crearClienteRecuperacionFirmasV2 } from "../cliente-http-recuperacion-firmas-v2.js?v=20261015-firma-cierre-cache-v3";
-import { montarVistaRecuperacionFirmasV2 } from "../vista-recuperacion-firmas-v2.js?v=20261016-firma-historica-v2";
-import { crearTraductorRecuperacionFirmasV2 } from "../i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v2";
+import { montarVistaRecuperacionFirmasV2 } from "../vista-recuperacion-firmas-v2.js?v=20261016-firma-historica-v4";
+import { crearTraductorRecuperacionFirmasV2 } from "../i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v4";
 import { cargarTextos } from "../../../../comun/textos.js";
 import { ZONA_HORARIA_PORTAL } from "../../../portal-i18n.js";
 
