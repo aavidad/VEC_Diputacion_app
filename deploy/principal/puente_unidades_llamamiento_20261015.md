@@ -76,3 +76,15 @@ El ensayo usa datos ficticios y solo acredita este consumidor de la consulta.
 No se atribuye al binario aislado de este corte la confirmación nativa de la
 composición posterior ni el recorrido completo de FLUJO_APP §4.0. Dirección
 integra y prepara la candidata conjunta antes de cualquier instalación.
+
+## Contraste tras recibir los justificantes de la principal
+
+La integración `b4d21b426` conserva los dos archivos Go de este corte. En la
+composición `70a29941d`, con el binario normal SHA256
+`6d26fc8910751b60f7f70a8b393772e9f410514ebda5aacf67f9affc1659e685`,
+Chrome recuperó de nuevo la selección con la solicitud y clave originales,
+antes y después de reiniciar aplicación y PostgreSQL. Resultado, justificante,
+artefacto y único origen se conservaron. La ficha mostró el llamamiento.
+La copia negativa mantuvo el rechazo pendiente sin efectos y abrió la bolsa
+real con teclado. Es un contraste del mismo consumidor en la composición;
+no atribuye una selección nueva ni completa el recorrido del apartado 4.0.
