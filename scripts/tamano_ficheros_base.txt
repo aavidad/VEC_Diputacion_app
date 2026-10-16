@@ -190,5 +190,5 @@
 334 web/static/textos/en/peticiones-centro.json
 334 web/static/textos/es/peticiones-centro.json
 806 scripts/operacion/preparar_expediente_alta_b2/preparar.py
-3392 deploy/postgresql/autorizacion_atestada_v3/migraciones/000278_vinculo_oferta_ct.up.sql
+3402 deploy/postgresql/autorizacion_atestada_v3/migraciones/000278_vinculo_oferta_ct.up.sql
 970 deploy/postgresql/contratacion_temporal/migraciones/000220_seleccion_oferta_bolsa.up.sql

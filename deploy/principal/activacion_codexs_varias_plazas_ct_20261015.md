@@ -4,7 +4,7 @@ Estado al 15/10/2026: **candidata preparada, sin ensayo conjunto ni instalación
 
 ## Dependencias y orden
 
-Comprobar en el registro de migraciones de la copia que están instaladas AD263 y AD265 del relevo HZ37 y AD277 del equipo O, con sus concesiones vigentes. AD277 no forma parte de esta lista. Si falta una, detener la activación y resolverla por su entrega revisada; no crear permisos en el arranque.
+Comprobar en el registro de migraciones de la copia el prefijo completo de #1147 del equipo O (incluidas AD277, AD281, AD284 y AD287), seguido de #1144 (AD276), conforme al orden de dirección. AD263 y AD265 del relevo HZ37 también deben estar instaladas. Esas entregas no forman parte de esta lista. AD278 parte del cuerpo central instalado después de O, con huella `cfcacf14cae0132aefb589b341fe920fbeab1e4d6df1ce3f7685ccd0507c5960`, y conserva sus ramas documentales. La huella posterior prevista es `400f33888ea9941c57c754436b53f82e8e1dd6a2f3ab888dee2209663c6be7dc`. Si falta un requisito, detener la activación y resolverlo por su entrega revisada; el arranque no crea permisos.
 
 Comprobar también que B117 ya está instalada una sola vez y que la bolsa usada
 dispone de una política con inicio por publicación. Su activación se describe
@@ -72,3 +72,5 @@ Quedan por acreditar la recuperación de un pendiente después de recargar y el 
 Comprobación local de seguridad: Semgrep sobre los archivos cambiados mantiene un aviso en una línea anterior de firma, sin hallazgos nuevos. gosec detectó una conversión estrecha en la consulta nueva; se sustituyó por comparación en entero de 64 bits. El focal posterior no detecta esa conversión; los avisos restantes pertenecen a código previo. El recorrido completo sigue pendiente.
 
 La lista de comunicaciones devolvió `503` en la primera consulta y `200` al usar «Volver a cargar»; no se eliminó esa guarda para publicar otra oferta. El cliente de Organización histórica heredado se retiró del material propio: se configuró un puerto propio, sin llamar al servicio de otro equipo. Aún falta activar el montaje de consulta histórica y la distinción entre unidad gestora y unidad del puesto antes de publicar desde CT.
+
+La reconstrucción de AD278 del 16/10 conserva las dos ramas documentales de la cabeza completa de O que faltaban en la preimagen anterior. El ensayo anterior de esta PR se hizo con un prefijo menor y no acredita esta fuente. Falta instalarla una vez sobre el prefijo completo y recorrer la candidata final; las comprobaciones anteriores de CT227 no se atribuyen a ese ensayo pendiente.

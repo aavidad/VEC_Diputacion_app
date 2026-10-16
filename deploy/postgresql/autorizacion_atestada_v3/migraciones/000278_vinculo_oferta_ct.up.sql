@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
--- Preimagen: núcleo instalado tras AD277, SHA-256 de pg_get_functiondef
--- 7d13731f452b0f8d7020ea0ab602c465897617fce61a84a7887491309e1bbb48.
+-- Preimagen: núcleo instalado tras la cadena O (AD281/284/287), SHA-256 de pg_get_functiondef
+-- cfcacf14cae0132aefb589b341fe920fbeab1e4d6df1ce3f7685ccd0507c5960.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -19,7 +19,7 @@ BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
     OR current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
     OR f IS NULL
-    OR h IS DISTINCT FROM '7d13731f452b0f8d7020ea0ab602c465897617fce61a84a7887491309e1bbb48'
+    OR h IS DISTINCT FROM 'cfcacf14cae0132aefb589b341fe920fbeab1e4d6df1ce3f7685ccd0507c5960'
     OR p.proowner IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
     OR p.proacl::text IS DISTINCT FROM '{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario}'
     OR NOT p.prosecdef OR p.provolatile<>'v'
@@ -28,7 +28,7 @@ BEGIN
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_cierre_intencion_oferta_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_descarte_seleccion_oferta_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
     OR to_regclass('vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1') IS NULL
- THEN RAISE EXCEPTION 'AD278: preimagen AD277 incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD278: preimagen central posterior a O incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
 -- La acción de oferta tiene su propia audiencia. Mantiene intacto el perfil
@@ -3091,6 +3091,11 @@ BEGIN
         SELECT * INTO v_registro
           FROM vec_autorizacion.registrar_y_revalidar_decision_meritos_externo_v3(
             p_decision_canonica,p_motivo_canonico,p_persona_version,p_perfil_version);
+    ELSIF p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_bolsa_externa' THEN
+        SELECT * INTO v_registro
+          FROM vec_autorizacion.registrar_y_revalidar_documentos_bolsa_externa_v3(
+              p_decision_canonica, p_motivo_canonico,
+              p_persona_version, p_perfil_version);
     ELSE
         SELECT * INTO v_registro
           FROM vec_autorizacion.
@@ -3130,6 +3135,11 @@ BEGIN
     IF p_perfil_mutacion IN ('meritos_cartera_retirada','documentos_subida_local_externa') THEN
         v_revalidada_en:=vec_autorizacion.revalidar_decision_meritos_externo_v3_viva(
           p_decision_canonica,p_motivo_canonico,p_persona_version,p_perfil_version);
+    ELSIF p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_bolsa_externa' THEN
+        v_revalidada_en :=
+          vec_autorizacion.revalidar_documentos_bolsa_externa_v3_viva(
+              p_decision_canonica, p_motivo_canonico,
+              p_persona_version, p_perfil_version);
     ELSE
         v_revalidada_en :=
           vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
@@ -3351,7 +3361,7 @@ BEGIN
     OR position('vec_contratacion_temporal.vinculo_oferta_bolsa.v1' in anterior)>0
     OR position('vec_contratacion_temporal.seleccion_oferta.descartar.v1' in anterior)>0
     OR position('vec_bolsa_llamamientos.oferta_ct.intencion_cerrar.v1' in anterior)>0
- THEN RAISE EXCEPTION 'AD278: audiencia AD277 incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD278: audiencia principal incompatible' USING ERRCODE='55000'; END IF;
  interior:=substr(anterior,8,length(anterior)-8);
  ampliada:='CHECK (('||interior||')'
    ||' OR audiencia_consumo = ''vec_contratacion_temporal.vinculo_oferta_bolsa.v1'''
@@ -3370,7 +3380,7 @@ BEGIN
  definicion:=pg_get_functiondef(f);
  IF p.proowner IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
     OR encode(sha256(convert_to(definicion,'UTF8')),'hex') IS DISTINCT FROM
-      '35e9a9dbaefd46e3189a32b50d9ffe6c2366efae06ff0bd702fbadadfc38d36f'
+      '400f33888ea9941c57c754436b53f82e8e1dd6a2f3ab888dee2209663c6be7dc'
     OR p.proacl::text IS DISTINCT FROM '{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario}'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
     OR NOT p.prosecdef OR p.provolatile<>'v'
