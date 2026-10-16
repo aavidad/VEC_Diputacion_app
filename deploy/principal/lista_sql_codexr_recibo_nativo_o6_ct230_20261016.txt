@@ -1,0 +1,2 @@
+# Una sola instalación tras cotejar las cuatro preimágenes del O6 vigente.
+deploy/postgresql/contratacion_temporal/migraciones/000230_recibo_nativo_seleccion_bolsa.up.sql
