@@ -70,7 +70,8 @@ export function crearGestorRecuperacionFirmasHistoricas({
           tipo: typeof errorCatalogo?.name === "string" ? errorCatalogo.name : null });
         ultimoError = causa;
       }
-      panel = nodo(doc, "section", "panel ct-recuperacion-firmas-historicas");
+      panel = nodo(doc, "section");
+      panel.classList.add("panel", "ct-recuperacion-firmas-historicas");
       panel.dataset.ctRecuperacionHistorica = "";
       const aviso = nodo(doc, "p", "cuerpo-panel", mensajeError());
       aviso.setAttribute("role", "alert");
@@ -79,7 +80,8 @@ export function crearGestorRecuperacionFirmasHistoricas({
       return false;
     }
     ultimoError = null;
-    panel = nodo(doc, "section", "panel ct-recuperacion-firmas-historicas");
+    panel = nodo(doc, "section");
+    panel.classList.add("panel", "ct-recuperacion-firmas-historicas");
     panel.dataset.ctRecuperacionHistorica = "";
     const cabecera = nodo(doc, "div", "cabecera-panel");
     cabecera.append(nodo(doc, "h3", "", t("historicas_titulo")));
