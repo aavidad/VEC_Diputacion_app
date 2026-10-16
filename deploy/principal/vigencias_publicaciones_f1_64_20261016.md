@@ -57,3 +57,32 @@ Para retirar el ajuste, quitar la variable y reiniciar con vigilancia. Las
 publicaciones vigentes conservan sus fechas; las siguientes vuelven a 24 horas.
 La ventana breve para aplicar planes no cambia. La vigencia de los certificados
 personales de firma y la rotación de sus raíces se gestionan por sus guiones.
+
+## Evidencia y límites
+
+El código tiene dos revisiones independientes y pruebas focales favorables.
+La composición de firma H en `0e4e0ea4e`, anterior a minimizar CT228, arrancó
+sin el valor, con 2160 horas y otra vez sin él. Conservó la publicación CT,
+las tres firmas consultadas y el PDF original de 56.399 bytes.
+
+El publicador nominal se activó con el procedimiento DBA existente de HZ38,
+tras dos revisiones de su configuración privada. Publicó 23 audiencias desde
+el 16/10/2026 a las 04:17:51 UTC hasta el 14/01/2027 a la misma hora: 2160 horas.
+Los 24 ficheros binarios, incluida la raíz, conservaron sus bytes; la primera
+publicación actualizó versión, revisión y orden de las claves existentes.
+La recuperación posterior sin la variable conservó fechas, raíz, coordenadas
+y los 38 ficheros del material, con un nuevo apunte de recuperación.
+
+Con el material publicado, la aplicación volvió a arrancar sin el valor y
+Chrome recuperó firmas y el mismo PDF. Las credenciales del publicador no se
+montaron en la web. Al terminar se retiró el acceso nominal: `NOLOGIN`,
+contraseña nula y eliminación de sus dos ficheros privados. No se instalaron
+migraciones ni se modificaron las raíces legadas. Esto no acepta el nuevo
+caso canónico de F1-36 ni el expediente único de `FLUJO_APP.md` §4.0.
+
+Semgrep local no encuentra incidencias en los cinco Go analizados. GoSec
+analiza 383 ficheros y registra 17 avisos en otros archivos, ninguno en los
+cuatro modificados, pero presenta 49 errores de carga en 33 grupos: su
+cobertura es parcial. Dirección aceptó este límite el 16/10 a las 06:39;
+L responde de retirarlo en F0-29 cuando el analizador cargue bootstrap entero.
+No se presenta como análisis completo ni se repite la puerta de CI en local.
