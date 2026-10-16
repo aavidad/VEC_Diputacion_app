@@ -25,6 +25,27 @@ sus filas: legado sin campo, modalidad separada, conjunta visible, y valores
 desconocido o nulo rechazados. Cotejar OID, propietario, ACL, configuración,
 volatilidad y paralelismo de las tres funciones.
 
+La copia de ensayo debe contener el prefijo completo de autorización externa.
+Si incluye las 28 audiencias de #1147, preparar el material con su publicador
+antes de arrancar esta aplicación. En el ensayo se usa el productor congelado
+`da8d6de32`, SHA-256
+`db10f97ac2b453b096c154c0c7b398d3a15b6c8f6156a1ad42deba144a2cc59c`,
+solo para `preparar-portal-externo --consumidores mi_bolsa,inscripcion_bolsa`
+y con material propio de la copia. #1147 es una dependencia de activación.
+La preparación del material y la aplicación de este corte se prueban juntas.
+
+Para ese recorrido, seleccionar el proceso externo con `VEC_PORTAL_PROCESO=externo`,
+su material privado y sus conexiones nominales con TLS verificado; activar
+`VEC_BOLSA_INSCRIPCIONES_ENABLED`. Mantener vivo el sellador nativo con su
+conexión separada en el proceso interno de la misma copia. Para comprobar la
+ausencia de configuración, apagar inscripción y retirar sus conexiones:
+la página y `/livez` deben seguir respondiendo 200 y la ruta quedar cerrada.
+
+Hasta la corrección de vigencias de F1-64, dirección autoriza este material
+solo para el ensayo local, con responsable B y retirada al terminar, en un
+máximo de 24 horas. Las nuevas asignaciones y credenciales de la copia duran
+89 días. La excepción del material se registra por separado.
+
 Para preparar el dato, reutilizar
 `deploy/principal/inscripcion_recorrido_20261013/version_certificada_v2/generar.py`
 con `fuente_v2.json`. Generar SQL y manifiesto fuera de Git, comprobar las
