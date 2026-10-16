@@ -1,7 +1,8 @@
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { justificanteTraducido } from "../../portal-justificante.js";
 import { crearClientePoliticaOfertas, validarPoliticaEditable, criteriosOfrecimientoValidos, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, leerReglasVigentes,
-  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA, cargarCatalogoCriteriosOfrecimiento } from "./rrhh-plazos-api.js?v=20261016-r1-criterios-v5";
-import { renderizarCriteriosOfrecimiento, cambiarCriteriosOfrecimiento } from "./rrhh-criterios-ofrecimiento.js?v=20261016-r1-criterios-v5";
+  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA, cargarCatalogoCriteriosOfrecimiento } from "./rrhh-plazos-api.js?v=20261016-r1-criterios-v6";
+import { renderizarCriteriosOfrecimiento, cambiarCriteriosOfrecimiento } from "./rrhh-criterios-ofrecimiento.js?v=20261016-r1-criterios-v6";
 
 // Los textos de plazos y plazas viven en textos/<idioma>/bolsa-ofertas.json.
 const { cargarTextos } = await import("../../../comun/textos.js");
@@ -74,6 +75,8 @@ export function crearSuperficieRRHHPlazos({
   const politicaLegada = () => estado.vigente?.configurada === true && estado.vigente.politica?.plazo?.inicio === undefined;
   const puedeEditar = () => estado.carga === "lista" && estado.puedePublicar === true;
   const t = (clave, variables) => escapar(traducir(`rrhh_plazos_${clave}`, variables));
+  const tj = (clave) => traducir(`panel_${clave}`);
+  const mensajeGuardado = (version) => `${traducir("rrhh_plazos_version", { version })} · ${tj("justificante_registrado")}`;
   const tp = (clave) => escapar(textosPlazas[clave] ?? clave);
   const tc = (clave) => escapar(TEXTOS_CRITERIOS[clave]);
 
@@ -193,8 +196,7 @@ export function crearSuperficieRRHHPlazos({
       } else {
         estado.vigente = resultado.politica;
         estado.mensaje = resultado.politica.configurada === true && resultado.politica.recibo_ref
-          ? traducir("rrhh_plazos_guardada", { version: resultado.politica.version,
-            recibo: resultado.politica.recibo_ref }) : "";
+          ? mensajeGuardado(resultado.politica.version) : "";
         if (!conservarBorrador) {
           estado.borrador = conPlazas(conPlazo(copia(resultado.politica.configurada ? resultado.politica.politica : EJEMPLO_VACIO)));
           estado.plazasTocadas = false;
@@ -236,8 +238,7 @@ export function crearSuperficieRRHHPlazos({
         estado.puedePublicar = false;
         estado.borrador = conPlazas(copia(resultado.politica.politica));
         estado.clave = "";
-        estado.mensaje = traducir("rrhh_plazos_guardada", { version: resultado.politica.version,
-          recibo: resultado.politica.recibo_ref });
+        estado.mensaje = mensajeGuardado(resultado.politica.version);
         anunciar(estado.mensaje);
         alPublicar(resultado.politica);
         void cargarCapacidad(bolsa, id);
@@ -294,7 +295,7 @@ export function crearSuperficieRRHHPlazos({
       `<label class="campo campo--ancho"><span>${tp("llamada")}</span><select name="plazas_llamada" required${disabled}>${opciones(LLAMADAS_PLAZAS, p.llamada, "llamada")}</select></label>` +
       (aceptacionPrevia && plazasCompletas(p) ? "" : `<label class="campo"><span>${tp("respuesta_horas")}</span><input name="plazas_respuesta_horas" type="number" min="1" max="${MAXIMO_HORAS_RESPUESTA}" step="1" required value="${escapar(p.respuesta_horas ?? "")}"${disabled}></label>` +
       `<label class="campo campo--ancho"><span>${tp("tras_renuncia")}</span><select name="plazas_tras_renuncia" required${disabled}>${opciones(TRAS_RENUNCIA_PLAZAS, p.tras_renuncia, "tras_renuncia")}</select></label>`) + `</div></section>`;
-    const aviso = `${!configurada ? `<p role="status">${t("vacio")}</p>` : ""}${politicaLegada() ? `<p role="status">${t("version_anterior")}</p>` : ""}${estado.error ? `<p class="rrhh-plazos__error" role="alert">${escapar(estado.error)}</p>` : ""}${estado.mensaje ? `<p class="rrhh-plazos__resultado" role="status">${escapar(estado.mensaje)}</p>` : ""}`;
+    const aviso = `${!configurada ? `<p role="status">${t("vacio")}</p>` : ""}${politicaLegada() ? `<p role="status">${t("version_anterior")}</p>` : ""}${estado.error ? `<p class="rrhh-plazos__error" role="alert">${escapar(estado.error)}</p>` : ""}${estado.mensaje && configurada && estado.vigente.recibo_ref ? `<p class="rrhh-plazos__resultado" role="status">${t("version", { version: estado.vigente.version })} · ${justificanteTraducido(estado.vigente.recibo_ref, escapar, tj)}</p>` : ""}`;
     const boton = puedeEditar() ? `<div class="rrhh-plazos__acciones">${!v.plazo.inicio ? `<p class="dato-secundario" role="status">${t("inicio_pendiente")}</p>` : ""}${estado.conflicto ? `<button type="button" class="boton-secundario" data-rrhh-plazos-accion="revisar">${t("revisar")}</button>` : ""}<button type="submit" class="boton-primario"${guardarDeshabilitado ? " disabled" : ""}>${t(estado.guardando ? "guardando" : estado.clave ? "reintentar_guardado" : "guardar")}</button></div>`
       : estado.capacidadCargando ? `<p class="dato-secundario" role="status">${t("comprobando_edicion")}</p>`
         : estado.capacidadError ? `<div class="rrhh-plazos__acciones"><p class="rrhh-plazos__error" role="alert">${t("error_capacidad")}</p><button type="button" class="boton-secundario" data-rrhh-plazos-accion="capacidad">${t("reintentar")}</button></div>`

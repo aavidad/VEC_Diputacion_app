@@ -6,6 +6,11 @@ import { criteriosOfrecimientoValidos, validarPoliticaEditable,
 import { renderizarCriteriosOfrecimiento, cambiarCriteriosOfrecimiento } from "./rrhh-criterios-ofrecimiento.js";
 import { crearSuperficieRRHHPlazos } from "./rrhh-plazos-ui.js";
 import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
+import { traducirPortal } from "../../portal-i18n.js";
+
+const traducirPlazos = crearTraductorRRHHPlazos();
+const traducirPrueba = (clave, variables) => clave.startsWith("panel_")
+  ? traducirPortal(clave, variables) : traducirPlazos(clave, variables);
 
 const textos = JSON.parse(readFileSync(new URL("../../../textos/es/bolsa-ofertas.json", import.meta.url))).politica_criterios_ofrecimiento;
 const criterio = () => ({
@@ -107,7 +112,7 @@ test("RRHH publica el borrador de criterios con la operación y el recibo existe
       consultarCapacidad: async () => ({ ok: true, puede_publicar: true }),
       publicar: async (recibido) => { comando = recibido; return { ok: true,
         politica: sobre(2, recibido.politica, "recibo:criterios:2") }; } },
-    traducir: crearTraductorRRHHPlazos(), cargarEjemplo: async () => null,
+    traducir: traducirPrueba, cargarEjemplo: async () => null,
     cargarPlazo: async () => null, cargarConfirmacion: async () => null,
     generarClave: () => "criterios-2",
   });
@@ -125,7 +130,9 @@ test("RRHH publica el borrador de criterios con la operación y el recibo existe
   assert.equal(comando.clave_idempotencia, "criterios-2");
   assert.equal(comando.politica.criterios_ofrecimiento.mejora.habilitada, false);
   assert.equal(comando.politica.criterios_ofrecimiento.mejora.condiciones_actuales[0].meses_transcurridos.meses, 8);
-  assert.match(superficie.renderizar(), /recibo:criterios:2/u);
+  const html = superficie.renderizar();
+  assert.match(html, /data-copiar-justificante="recibo:criterios:2"/u);
+  assert.doesNotMatch(html.replace(/data-copiar-justificante="[^"]*"/gu, ""), /recibo:criterios:2/u);
 });
 
 test("la propuesta sale solo del catálogo público validado y sin credenciales", async () => {
