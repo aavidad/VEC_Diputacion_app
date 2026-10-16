@@ -46,6 +46,7 @@
 1303 internal/modules/bolsa/adapters/memory/baremacion_test.go
 849 internal/modules/bolsa/adapters/postgres/baremacion.go
 1525 internal/modules/bolsa/domain/baremacion.go
+866 internal/modules/bolsa/domain/convocatoria_gobernada_test.go
 1208 internal/modules/bolsa/domain/llamamientos.go
 959 internal/modules/bolsa/domain/llamamientos_test.go
 2055 internal/modules/bolsa/ports/baremacion.go
