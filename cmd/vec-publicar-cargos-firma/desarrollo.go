@@ -29,6 +29,7 @@ func rolDesarrolloValido(c cargoEntrada) bool {
 	if len(c.OperacionesV2) == 0 {
 		return false
 	}
+	detalleAnterior, detalleSelectores := false, false
 	for _, op := range c.OperacionesV2 {
 		switch clase {
 		case "firma":
@@ -36,9 +37,12 @@ func rolDesarrolloValido(c cargoEntrada) bool {
 				return false
 			}
 		case "consulta":
-			if op != "consultar_detalle" && op != "consultar_cuadro" && op != "descargar_borrador" {
+			if op != "consultar_detalle" && op != "consultar_detalle_selectores" &&
+				op != "consultar_cuadro" && op != "descargar_borrador" {
 				return false
 			}
+			detalleAnterior = detalleAnterior || op == "consultar_detalle"
+			detalleSelectores = detalleSelectores || op == "consultar_detalle_selectores"
 		case "circuito":
 			if op != "consultar_circuito" {
 				return false
@@ -51,6 +55,9 @@ func rolDesarrolloValido(c cargoEntrada) bool {
 		default:
 			return false
 		}
+	}
+	if detalleAnterior && detalleSelectores {
+		return false
 	}
 	return clase == "firma" && len(c.Competencias) > 0 || clase != "firma" && len(c.Competencias) == 0
 }
@@ -70,6 +77,9 @@ func concesionModo(op string, desarrollo bool) (vd.ConcesionRol, bool) {
 	switch op {
 	case "consultar_detalle":
 		return crear(ct.AccionConsultarDetalleRRHH, ct.ModuloContratacion, ct.TipoRecursoExpediente, ct.FinalidadConsultarDetalleRRHH)
+	case "consultar_detalle_selectores":
+		return crear(ct.AccionConsultarDetalleRRHH, ct.ModuloContratacion, ct.TipoRecursoExpediente,
+			ct.FinalidadConsultarDetalleRRHH, "selectores_recuperacion_firmas")
 	case "consultar_cuadro":
 		return crear(ct.AccionConsultarCuadroRRHH, ct.ModuloContratacion, ct.TipoRecursoCuadroRRHH, ct.FinalidadConsultarCuadroRRHH)
 	case "descargar_borrador":

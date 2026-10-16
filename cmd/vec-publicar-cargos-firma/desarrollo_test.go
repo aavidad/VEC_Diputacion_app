@@ -42,3 +42,31 @@ func TestPlanDesarrolloNoCambiaGarantiaDelContratoAnterior(t *testing.T) {
 		t.Fatal("rol administrativo admitido")
 	}
 }
+
+func TestPlanConsultaV2PublicaSoloCampoSelectoresYConservaOtrasAcciones(t *testing.T) {
+	en := time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)
+	c := cargoEntrada{RolID: "ct_cargo_jefatura_consulta_dev", Version: 2, Nombre: "Consulta de Jefatura RRHH",
+		VersionAnteriorSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		OperacionesV2:         []string{"consultar_cuadro", "consultar_detalle_selectores", "descargar_borrador"},
+		ReglaAsignacion:       "lote_ordinario", OrganizacionRef: "org:rrhh", VigenteDesde: en,
+		VigenteHasta: en.Add(48 * time.Hour), DuracionPropuestaSegundos: 3600}
+	plan, err := prepararPlan(ficheroCargos{Esquema: esquemaCargosDesarrollo, Cargos: []cargoEntrada{c}},
+		"rpa_cf_00000000000000000000000000000103", en, time.Hour)
+	if err != nil || comprobarPlan(textoPlan(plan), plan) != nil {
+		t.Fatalf("plan de consulta v2: %v", err)
+	}
+	rol, err := versionRolModo(c, plan.OperacionRef, en, true)
+	if err != nil || len(rol.Concesiones) != 3 {
+		t.Fatalf("rol de consulta: %v", err)
+	}
+	if len(rol.Concesiones[0].CamposPermitidos) != 0 ||
+		len(rol.Concesiones[1].CamposPermitidos) != 1 ||
+		rol.Concesiones[1].CamposPermitidos[0] != "selectores_recuperacion_firmas" ||
+		len(rol.Concesiones[2].CamposPermitidos) != 0 {
+		t.Fatalf("se ampliaron cuadro o descarga: %+v", rol.Concesiones)
+	}
+	c.OperacionesV2 = []string{"consultar_cuadro", "consultar_detalle", "consultar_detalle_selectores", "descargar_borrador"}
+	if validarCargoModo(c, true) == nil {
+		t.Fatal("dos concesiones de la misma acción de detalle admitidas")
+	}
+}

@@ -15,7 +15,7 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
-// CT186: como la consulta, la v3 usa AD210 y CC10.
+// CT228: la recuperación usa AD210 y el acto exacto, sin consultar el plan actual.
 const recuperarFirmasSQL175 = `SELECT vec_contratacion_temporal.recuperar_firmas_r5_atestadas_v3($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
 
 type recuperacionFirmaSQL175 struct {

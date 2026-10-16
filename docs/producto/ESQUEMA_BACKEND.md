@@ -275,6 +275,14 @@ recuperado solo sirve para devolver un recibo ya existente. Las lecturas de
 datos personales (ficha, contactos, detalle de expediente, consulta propia de
 méritos) también consumen V3 y quedan registradas.
 
+F1-36A prepara AD286 (`comprobar_consumo_recuperacion_firmas_ct_v2`) para
+revalidar el consumo V3 con la unidad histórica, CT228 para recuperar el acto
+original exacto y su corte, y AUT103 para publicar por el gobierno de cargos
+la operación `consultar_detalle_selectores`. Esta mantiene la acción
+`expediente.consultar`, agrega solo `selectores_recuperacion_firmas` y conserva
+las concesiones de cuadro y descarga. No incluye AUT102, CT229, la fuente
+ampliada de la ficha ni el panel; estos pertenecen a B y C.
+
 Los perfiles, roles y concesiones se publican por migración o desde
 administración con su propio gobierno (dos aprobaciones, CAS, recibo,
 auditoría). Una concesión nunca se crea por una petición de negocio.

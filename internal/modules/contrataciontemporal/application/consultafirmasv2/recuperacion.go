@@ -53,6 +53,9 @@ func (s *ServicioRecuperacion) Recuperar(ctx context.Context, q Solicitud) (Resu
 		!strings.HasPrefix(c.FirmantePrincipalCandidatoRef, "per_") {
 		return cero, ports.ErrFirmaDocumentoDenegada
 	}
+	if q.Via == ports.ViaFirmaCertificadoVEC && !domain.ReferenciaOpacaValida(c.UnidadRef) {
+		return cero, ports.ErrFirmaDocumentoDenegada
+	}
 	m := ports.MaterialConsultaFirmasR5V2{MaterialConsultaFirmasR5: ports.MaterialConsultaFirmasR5{
 		OrganizacionRef: c.OrganizacionRef, ExpedienteRef: q.ExpedienteRef, VersionExpediente: q.VersionExpediente,
 		Documento: q.Documento, FirmantePrincipalCandidatoRef: c.FirmantePrincipalCandidatoRef,
@@ -92,6 +95,23 @@ func proyectarRecuperacion(m ports.MaterialConsultaFirmasR5V2, l ports.LecturaRe
 	r, err := proyectar(m, l.LecturaFirmasR5V2)
 	if err != nil {
 		return cero, err
+	}
+	var exacta *ports.FirmaRegistrada
+	for i := range l.Firmas {
+		f := &l.Firmas[i]
+		if f.ClaveIdempotencia != m.ClaveIdempotencia {
+			continue
+		}
+		if exacta != nil || f.Documento != m.Documento || f.PasoOrden != m.PasoOrden ||
+			f.ExpedienteVersion != m.VersionExpediente || f.CatalogoHuella != m.CatalogoHuella ||
+			f.Via != m.Via || (m.Via == ports.ViaFirmaCertificadoVEC &&
+				(f.Resultado != domain.ResultadoFirmaFirmado || f.DocumentoCustodiaRef == "")) {
+			return cero, ports.ErrResultadoFirmaDocumentoInvalido
+		}
+		exacta = f
+	}
+	if exacta == nil {
+		return cero, ports.ErrResultadoFirmaDocumentoInvalido
 	}
 	if len(l.Recuperaciones) != len(l.RevisionesPDF) || len(l.Recuperaciones) > MaximoFilas {
 		return cero, ports.ErrResultadoFirmaDocumentoInvalido
@@ -147,6 +167,8 @@ func validarRecuperacion(m ports.MaterialConsultaFirmasR5V2, f Firma, registro p
 		canon.PasoRef != registro.PasoRef ||
 		!ordenCanonValido(canon.PasoOrden, registro.PasoOrden) ||
 		r.OrganizacionRef != m.OrganizacionRef || r.ExpedienteRef != m.ExpedienteRef ||
+		(m.Via == ports.ViaFirmaCertificadoVEC && registro.ClaveIdempotencia == m.ClaveIdempotencia &&
+			(m.UnidadRef == "" || r.UnidadRef != m.UnidadRef)) ||
 		r.ModuloID != ports.ModuloContratacion ||
 		r.DocumentoRef != f.Original.Ref ||
 		r.Original.Referencia != f.Original.Ref ||
