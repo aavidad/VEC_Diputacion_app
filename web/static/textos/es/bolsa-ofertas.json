@@ -54,6 +54,8 @@
     "aviso_ayuda": "El servicio de correo aceptó estos avisos. Esto no confirma que hayan llegado a las personas destinatarias.",
     "aviso_reintentar_pendientes": "Reintentar avisos pendientes",
     "aviso_reintentar_pendientes_oferta": "Reintentar avisos pendientes de {categoria}, {centro}, inicio {fecha}",
+    "aviso_recuperar_resultado": "Recuperar resultado de los avisos",
+    "aviso_recuperar_resultado_oferta": "Recuperar resultado de los avisos de {categoria}, {centro}, inicio {fecha}",
     "aviso_reintentando": "Reintentando avisos…",
     "aviso_recuperado": "Se ha recuperado el estado de los avisos de esta oferta.",
     "aviso_sesion_caducada": "Su sesión ha terminado. Vuelva a entrar para consultar los avisos.",

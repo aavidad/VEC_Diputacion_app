@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { accionesPlaza, crearClienteOfertas, crearSuperficieOfertasBolsa, crearTraductorOfertas, mensajeError, validarOfertasBolsa,
-  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261016-f118-reintento-justificante-v1";
+  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261016-f118-reintento-justificante-v2";
 
 function plaza(numero, extra = {}) {
   return { numero_de_plaza: numero, estado: "vacante", secuencia: 0, participacion_ref: null, orden_vigente: null,
@@ -41,9 +41,9 @@ function boton(dataset) {
 test("la entrada y la caché cargan la versión de ofertas con avisos", async () => {
   const [portal, html, cache] = await Promise.all(["portal.js", "index.html", "cache-publica-v1.json"]
     .map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
-  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261016-f118-reintento-justificante-v1/);
-  assert.match(html, /portal\.js\?v=20261016-f118-reintento-justificante-v2/);
-  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261016-f118-reintento-justificante-v2"));
+  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261016-f118-reintento-justificante-v2/);
+  assert.match(html, /portal\.js\?v=20261016-f118-reintento-justificante-v3/);
+  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261016-f118-reintento-justificante-v3"));
 });
 
 test("la ficha abre el historial autorizado de la oferta elegida y lo desmonta al cerrar", async () => {
@@ -322,6 +322,68 @@ test("P pendiente y M manual conservan sus controles y recibos separados", async
     assert.equal(superficie.estado().reintentoAvisos, null);
     assert.equal(superficie.estado().intencionAvisoIncierto, null);
     assert.deepEqual(superficie.estado().ofertas, []);
+  } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
+});
+
+test("P y M inciertos recuperan cada clave propia sin POST cruzado y permiten GET", async () => {
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return { categoria: "Auxiliar", centro: "Residencia", fecha_inicio: "2026-11-23",
+    descripcion: "Cobertura", numero_plazas: "1" }[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const p = oferta({ oferta_ref: "oferta:p", recibo_ref: "recibo:oferta:p",
+    aviso: { total: 1, pendientes: 1, enviados: 0, sin_confirmacion: 0, fallidos: 0, revision: 1 } });
+  const m = oferta({ oferta_ref: "oferta:m", recibo_ref: "recibo:oferta:m",
+    aviso: { total: 1, pendientes: 0, enviados: 0, sin_confirmacion: 1, fallidos: 0, revision: 2 } });
+  let ofertas = [m]; let consultas = 0; let claves = 0;
+  const publicaciones = [], manuales = [], focos = [];
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => { consultas++; return sobre(ofertas, "publicacion"); },
+    publicar: async (_bolsa, datos, plazas, notificacion, clave) => { publicaciones.push({ datos: { ...datos }, plazas, notificacion, clave });
+      if (publicaciones.length === 1) { ofertas = [p, m]; return { ok: true, status: 201, oferta: p }; }
+      if (publicaciones.length === 2) throw new Error("respuesta perdida de P");
+      const pendiente = publicaciones.length === 3 ? 1 : 0;
+      ofertas[0] = { ...p, aviso: { ...p.aviso, pendientes: pendiente, enviados: 1 - pendiente, revision: publicaciones.length } };
+      return { ok: true, status: 200, oferta: ofertas[0] }; },
+    reintentarAvisosSinConfirmacion: async (cuerpo, clave) => { manuales.push({ cuerpo: { ...cuerpo }, clave });
+      if (manuales.length === 1) throw new Error("respuesta perdida");
+      ofertas[1] = { ...m, aviso: { ...m.aviso, revision: 3 },
+        reintento_aviso: { recibo_ref: "recibo:reintento:m", registrado_en: "2026-10-16T07:10:00Z", rearmados: 1 } };
+      return { ok: true, status: 200, oferta: ofertas[1] }; },
+  }, generarClave: () => `clave-${++claves}` });
+  superficie.instalar({ addEventListener() {}, querySelector(selector) { return { focus() { focos.push(selector); } }; } });
+  try {
+    superficie.activar("bolsa:1"); await turno();
+    superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:m" }));
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+    assert.equal(superficie.estado().intencionAvisoIncierto.incierta, true);
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos", ofertaRef: "oferta:p" })); await turno();
+    assert.equal(publicaciones.length, 1, "M incierta bloquea el POST cruzado de P");
+    assert.equal(superficie.recargarPoliticaSegura(), true); await turno();
+    assert.ok(consultas >= 3, "GET sigue permitido con M incierta");
+    superficie.estado().reintentoAvisos.incierta = true;
+    assert.doesNotMatch(superficie.renderizar(), /data-ofertas-accion="recuperar-avisos"/);
+    superficie.manejarClick(boton({ ofertasAccion: "repetir-reintento-incierto", ofertaRef: "oferta:m" })); await turno();
+    assert.deepEqual(manuales[1], manuales[0], "M recupera su cuerpo y clave aunque P sea incierta");
+    assert.equal(superficie.estado().intencionAvisoIncierto, null);
+    assert.match(superficie.renderizar(), /Recuperar resultado de los avisos/);
+    superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:m" }));
+    assert.equal(superficie.estado().revisionAvisoIncierto, null, "P incierta bloquea una nueva intención M");
+    assert.equal(manuales.length, 2);
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos", ofertaRef: "oferta:p" })); await turno();
+    assert.deepEqual(publicaciones[1], publicaciones[0], "P recupera su cuerpo y clave originales");
+    assert.equal(superficie.estado().reintentoAvisos.incierta, true);
+    assert.equal(focos.at(-1), '[data-oferta-ref="oferta:p"] [data-ofertas-accion="recuperar-avisos"]');
+    assert.match(superficie.renderizar(), /Recuperar resultado de los avisos/);
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos", ofertaRef: "oferta:p" })); await turno();
+    assert.deepEqual(publicaciones[2], publicaciones[0]);
+    assert.equal(superficie.estado().reintentoAvisos.incierta, false, "el éxito con pendientes vuelve al estado conocido");
+    assert.match(superficie.renderizar(), /Reintentar avisos pendientes/);
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos", ofertaRef: "oferta:p" })); await turno();
+    assert.deepEqual(publicaciones[3], publicaciones[0]);
+    assert.equal(superficie.estado().reintentoAvisos, null);
+    assert.equal(claves, 2);
   } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
 });
 
