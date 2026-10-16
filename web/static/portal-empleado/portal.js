@@ -921,7 +921,10 @@ async function comprobarAccesoPoliticaCese() {
   } finally {
     if (consultaAccesoPoliticaCese === controlador) {
       consultaAccesoPoliticaCese = null;
-      actualizarNavegacionModulos();
+      if (estado.vista === "reglas") {
+        if (estado.politicaCese || estado.politicaCeseAusente) actualizarVistaBolsa();
+        else navegar("portal");
+      } else actualizarNavegacionModulos();
     }
   }
 }
@@ -930,7 +933,7 @@ async function comprobarAccesoPoliticaCese() {
 function sondearCapacidadAlAbrir(vista) {
   const plantillas = vista === VISTA_PLANTILLAS_RRHH && estado.plantillasAutorizadas !== true
     && consultaAccesoPlantillas === null && coordinadorModulos.vistaDisponible("contratacion-temporal");
-  const politica = vista === "reglas" && !estado.politicaCeseComprobada;
+  const politica = vista === "reglas" && estado.perfilPropioBolsa !== true && !estado.politicaCeseComprobada;
   if (!plantillas && !politica) return false;
   navegar("portal");
   if (plantillas) { destinoPlantillasInicial = true; void comprobarAccesoPlantillas(); }
@@ -1100,7 +1103,13 @@ function navegar(vista, opciones = {}) {
   }
   if (!Object.hasOwn(TITULOS, vista)) return;
   if (vista !== VISTA_PLANTILLAS_RRHH) destinoPlantillasInicial = false;
-  if (vista !== "reglas") destinoPoliticaCeseInicial = false;
+  if (vista !== "reglas") {
+    if (estado.vista === "reglas" || destinoPoliticaCeseInicial) {
+      consultaAccesoPoliticaCese?.abort(); consultaAccesoPoliticaCese = null;
+      estado.politicaCese = null; estado.politicaCeseComprobada = false; estado.politicaCeseAusente = false;
+    }
+    destinoPoliticaCeseInicial = false;
+  }
   if (sondearCapacidadAlAbrir(vista)) return;
   if (!vistaPermitida(vista) && vistaBolsaPendienteNoCompuesta(vista)) {
     const hash = rutaDeVista(vista);
@@ -1359,6 +1368,12 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     return;
   }
   if (vista === "reglas") {
+    if (!estado.politicaCeseComprobada) {
+      contenedor.innerHTML = `<section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_comprobando")}</p></div></section>`;
+      void comprobarAccesoPoliticaCese();
+      return;
+    }
+    if (!estado.politicaCese && !estado.politicaCeseAusente) { navegar("portal"); return; }
     if (vistaPoliticaCese && contenedor.querySelector("[data-politica-cese]")) return;
     vistaPoliticaCese?.desmontar();
     vistaPoliticaCese = montarVistaPoliticaCeseRRHH({ raiz: contenedor,
@@ -1531,7 +1546,7 @@ function renderizar() {
   const grupoEstilos = grupoEstilosDeVista(estado.vista);
   const estilosVistaNecesarios = grupoEstilos && coordinadorModulos.vistaDisponible(estado.vista);
   if (estilosVistaNecesarios) cargarEstilosVista(grupoEstilos);
-  const necesitaBolsaBase = !["solicitudes", "meritos", "convocatorias", "alegaciones"].includes(estado.vista) && moduloDeVistaPortal(estado.vista) === "bolsa"
+  const necesitaBolsaBase = !["solicitudes", "meritos", "convocatorias", "alegaciones", "reglas"].includes(estado.vista) && moduloDeVistaPortal(estado.vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(estado.vista);
   if (necesitaBolsaBase && !controladorBolsas && !promesaBolsaBase && !errorBolsaBase) {
     void prepararBolsaBase().catch(() => {});
@@ -1998,7 +2013,7 @@ let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
 function vistaNecesitaBolsa(vista = estado.vista) {
-  return vista === "portal" || (!["solicitudes", "meritos", "convocatorias", "alegaciones"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
+  return vista === "portal" || (!["solicitudes", "meritos", "convocatorias", "alegaciones", "reglas"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(vista));
 }
 // La carga desde CONVOCA solo se ofrece si el servidor monta sus rutas; se
