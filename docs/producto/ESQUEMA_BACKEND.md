@@ -404,6 +404,15 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
+CT230 prepara la compatibilidad de la confirmación O6 con el recibo nativo
+del llamamiento constituido. Conserva las marcas canónicas de procedencia y
+evidencia y admite la ausencia de retención temporal solo bajo su contrato
+nominal completo; la rama anterior mantiene sus controles. `retener_hasta`
+es vigencia de la evidencia HMAC de Bolsa, no conservación del expediente.
+La conservación real de O6 sigue pendiente de CT-CUM-06 y de la política
+VEC-DOC-CONS-01. Activación y límites en
+[`recibo_nativo_o6_ct230_20261016.md`](../../deploy/principal/recibo_nativo_o6_ct230_20261016.md).
+
 Puertos Go: `internal/modules/contrataciontemporal/ports/`; adaptadores en
 `adapters/postgres/`. Detalle técnico por migración:
 `deploy/postgresql/contratacion_temporal/README.md`.
