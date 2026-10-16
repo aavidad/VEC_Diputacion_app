@@ -141,8 +141,10 @@ final pendientes antes de integrar.
 
 **F1-65A, limpieza de plantillas.** CT232 prepara la retirada de la entrada
 antigua V1 que CT226 conservó por compatibilidad. El portal ya usa V2 con la
-organización explícita. Faltan el ensayo en una copia nueva y la revisión
-independiente antes de integrar; la activación está en
+organización explícita. Dos revisiones independientes, la instalación única
+y las pruebas SQL son favorables; Chrome conserva PDF y recibos tras reinicio
+en la copia propia. La pantalla administrativa opcional no estaba montada.
+Faltan CI e integración; la activación está en
 `deploy/principal/plantillas_compat_f1_65a_20261016.md`. La ampliación de
 escritura a otras organizaciones sigue aparcada.
 

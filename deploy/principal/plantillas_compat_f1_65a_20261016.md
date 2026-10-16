@@ -28,10 +28,33 @@ cambia las plantillas, su publicación, los recibos ni los permisos de V2.
    organización ausente. Así permanecen cubiertos los cotejos de la prueba
    retirada.
 4. Con el catálogo publicado y su fichero configurado, arrancar el portal y
-   abrir «Plantillas» en RRHH. Descargar un borrador desde la ficha y comprobar
-   que su documento y recibo siguen disponibles tras reiniciar. Repetir el
-   arranque sin seleccionar la configuración opcional de plantillas: las demás
-   funciones deben abrir. Usar el mismo binario y los mismos datos ficticios.
+   recuperar un documento desde la ficha. Comprobar que el PDF y los recibos
+   originales siguen disponibles tras reiniciar aplicación y PostgreSQL.
+   Este corte no necesita activar la gestión administrativa opcional de
+   plantillas ni cambiar sus permisos.
+
+## Comprobación realizada
+
+CT232 se instaló una vez en la copia H sobre CT226. Dos revisiones
+independientes fueron favorables; CT226 y CT232 pasan, con dos positivos y
+seis rechazos en la prueba nueva. V2 conserva definición y permisos exactos;
+no cambian los cinco registros de firma, sus cinco custodias ni el catálogo.
+Semgrep local sobre los tres SQL no encuentra incidencias con las reglas de
+retirada de tablas y concesiones públicas; la revisión SQL cubre el resto.
+
+El binario conjunto congelado anterior a la corrección de CT228, con su web
+del mismo origen, arrancó antes y después de retirar V1. El fichero documental
+de plantillas estaba seleccionado. Chrome recuperó desde la ficha el PDF de
+56.399 bytes antes y después de reiniciar PostgreSQL y la aplicación, con la
+misma huella. Las tres consultas posteriores devuelven 200 y conservan los
+recibos y fechas de la comprobación anterior de F1-64. No hubo errores de
+página, cookies ni desbordamiento horizontal a 390 píxeles.
+
+La gestión administrativa de plantillas no estaba montada: el perfil de
+firma obtuvo 401 y el perfil general, en otro contexto, 404. No se probó esa
+pantalla ni se cambiaron permisos para abrirla. No se generó un borrador nuevo.
+La prueba usa la composición de A, B, C y F1-64 anterior a la minimización;
+no acredita la aceptación final de CT228 ni el expediente único de fase 1.
 
 ## Vuelta atrás y límite
 

@@ -175,7 +175,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Ofertas de varias plazas | Desde una bolsa seleccionada, RRHH abre «Gestionar ofertas», configura el inicio del plazo y publica la oferta. Bolsa adjudica las plazas por orden y conserva el recibo al reintentar. | Conectar la selección del expediente, su vínculo y la guarda de cancelación. Después, retirar la oferta al cancelar y enviar el aviso por correo de la Diputación. | Una petición de varias personas se cubre con una sola oferta. |
 | Petición del centro | Se presenta y la ratifica otra persona del centro. | RRHH pidió que la petición vaya firmada por el técnico y por el Diputado o Diputada. | Petición firmada desde VEC. |
 | Tramitación del expediente | Análisis, crédito, vía de cobertura, unidad, informe e Intervención. | Decidir con RRHH si el ofrecimiento va antes o después de Intervención. | El orden de las fases que fije RRHH, que se puede cambiar por configuración. |
-| Documentos | Borradores en PDF y Word con el logotipo y los datos del expediente. | Las plantillas definitivas de RRHH y comprobar en una copia local la retirada de una comprobación antigua del catálogo. | Documentos con las plantillas oficiales, listos para firmar. |
+| Documentos | Borradores en PDF y Word con el logotipo y los datos del expediente. | Las plantillas definitivas de RRHH. La gestión de plantillas aún no estaba activada en la última copia de ensayo. | Documentos con las plantillas oficiales, listos para firmar. |
 | Firma | En la copia de ensayo, el informe tiene dos firmas y la resolución tres; sus PDF se recuperan desde la ficha después de reiniciar. Está preparado un límite de tamaño común para generar, firmar y descargar el PDF en VEC. | Probar el recorrido entero en un mismo expediente e instalar lo ensayado. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
@@ -227,10 +227,11 @@ La firma electrónica del documento y la competencia de quien firma se comprueba
 
 **Hoy.** Funciona la generación de borradores en PDF y Word desde el expediente, con plantillas que RRHH puede cambiar. Se está terminando una subida común de documentos para todos los módulos, que comprobará el tamaño, que el fichero sea de verdad un PDF y que no tenga virus.
 
-Está preparada la retirada de una comprobación antigua del catálogo de
-plantillas. La comprobación que usa el portal conserva la organización, la
-versión publicada y su recibo. Falta ensayar la retirada en una copia local y
-abrir después la pantalla de plantillas y un borrador del expediente.
+En la copia local se ha comprobado que el portal sigue usando el catálogo
+publicado para la organización y que el PDF firmado y sus recibos permanecen
+disponibles después de reiniciar. La gestión administrativa de plantillas no
+estaba activada; esa pantalla y la generación de un borrador nuevo no forman
+parte de esta comprobación.
 
 **Al final.** Un único sitio para los documentos de todos los módulos, con plantillas oficiales de RRHH, conservación según el Archivo y descarga controlada.
 
