@@ -4,8 +4,10 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261016-firma-limite-2mib-v2";
-const versionEntrada = "20261016-firma-limite-2mib-v2";
+const versionCoordinador = "20261016-f106-firma-main-v3";
+const versionCoordinadorEntrada = versionCoordinador;
+// La entrada reúne F1-06, S6 y el límite de firma CT; las hojas conservan sus URL.
+const versionEntrada = "20261016-f106-firma-main-v3";
 const versionClienteCT = "20261014-ginpix-personal-b2-v1";
 const versionClienteConsulta = "20261015-firma-cierre-cache-v3";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
@@ -25,8 +27,8 @@ test("la extracción CT renueva cada padre hasta la entrada del portal", async (
     readFile(new URL("modulos/contratacion-temporal/vista-expedientes.js", raiz), "utf8"),
   ]);
   const versionEntrada = exigirVersiones(html, "/portal-empleado/portal.js", posterior(versionEntradaAnterior));
-  exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinador);
-  exigirVersiones(portal, "./portal-modulos-coordinador.js", versionCoordinador);
+  exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinadorEntrada);
+  exigirVersiones(portal, "./portal-modulos-coordinador.js", versionCoordinadorEntrada);
   exigirVersiones(expediente, "./seguimiento-cese.js", "20261007-pantallas-textos-final-v1");
 });
 
@@ -53,7 +55,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
     readFile(new URL("../../interno.manifest", raiz), "utf8"),
     readFile(new URL("../../produccion.manifest", raiz), "utf8"),
   ]);
-  const nueva = versionCoordinador;
+  const nueva = versionCoordinadorEntrada;
   const firma = versionCircuito;
 
   // portal.js puede renovarse después por otros cambios; basta que sea posterior.
@@ -130,8 +132,8 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   ]);
   const aristas = [
     [html, "/portal-empleado/portal.js", cohorteEntrada],
-    [html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinador],
-    [portal, "./portal-modulos-coordinador.js", versionCoordinador],
+    [html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinadorEntrada],
+    [portal, "./portal-modulos-coordinador.js", versionCoordinadorEntrada],
     [coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteClienteHTTP],
     [cliente, "./cliente-http-alta.js", cohorte],
     [cliente, "./cliente-http-transporte.js", versionClienteCT],
