@@ -198,11 +198,14 @@ las asignaciones. Hasta C sigue abierto F1-36. Guion A:
 
 **F1-36B, H: fuente de ficha y justificante.** En rama: AUT102, CT229 y el
 lector interno que forma los selectores de las firmas originales y su anexo
-sellado. Depende de AD286, CT228 y AUT103 del corte A; ninguna asignación
-auxiliar se activa aquí. Faltan el ensayo SQL, la prueba de una decisión V3
-que caduque antes de confirmar, las revisiones independientes, el arranque
-con y sin el complemento y la CI. C añadirá la respuesta HTTP, el panel y
-la activación gobernada. F1-36 sigue abierto. Guion:
+sellado. Depende de AD286, CT228 y AUT103 del corte A. En la copia H se
+ensayaron las SQL una vez, con dos revisiones; la ficha ampliada y el original
+histórico rechazan al confirmar una decisión que caducó después de leer,
+sin dejar efectos parciales. Los cuatro cargos de consulta se publicaron por
+el CLI existente; sus asignaciones se prepararon como datos ficticios
+expresamente autorizados, sin atribuirles actos de Administración. C añade
+la respuesta HTTP y el panel; quedan Chrome y reinicio conjunto. F1-36 sigue
+abierto. Guion:
 `deploy/principal/firma_historica_fuente_f1_36b_20261016.md`.
 
 **F1-36C, H: ficha de firmas anteriores.** En rama: respuesta ampliada,
