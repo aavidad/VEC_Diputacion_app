@@ -143,6 +143,15 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 			p.publicada = true
 			return nil
 		}
+		// S6 adopta solo una versión ya gobernada que conserva cada concesión
+		// base y añade únicamente sus acciones exactas. No toca la semilla ni
+		// prepara una publicación durante el arranque.
+		if encontrada && instantaneaBolsaS6Compatible(publicada.instantanea, datos,
+			p.soporte, ahora, versionRol) && procedenciaCargaConvocaGobernada(publicada, p.autoridad) {
+			p.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
+			p.publicada = true
+			return nil
+		}
 		objetivoVersion := versionRol + saltoProvisionDatosContactoBolsa
 		const envPreimagen = "VEC_BOLSA_DOCUMENTAL_PROVISION_PREIMAGEN_SHA256"
 		const envObjetivo = "VEC_BOLSA_DOCUMENTAL_PROVISION_OBJETIVO_SHA256"

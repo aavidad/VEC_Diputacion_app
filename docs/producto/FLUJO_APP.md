@@ -856,6 +856,14 @@ Con la bolsa constituida real el recorrido completo, también tras reiniciar,
 falta acreditarlo (CT213 y B115, equipo K). El justificante del cese aún no se
 guarda en Documentos.
 
+#### Reglas globales de situación de Bolsa — candidata F1-04/05
+
+En «Bolsas → Reglas y baremación → Cambios de situación», RRHH consulta la versión actual y los cambios efectivos para todas las bolsas. Elige una situación de partida y marca los destinos permitidos por la versión normativa publicada. Los cambios obligatorios permanecen seleccionados. Escribe el motivo, revisa el conjunto, confirma y recibe una versión nueva con su recibo y la fecha y hora del acto. La revisión muestra todos los destinos que quedarán publicados, incluidos los obligatorios.
+
+La consulta exige un permiso propio y deja un apunte de acceso. Publicar requiere otra autorización vigente, validada en la misma transacción que la política y su historia. La selección técnica no concede permisos ni cambia las reglas al arrancar. Si falta la selección o es inválida, solo esta función queda indisponible. El permiso de cese conserva su finalidad.
+
+Tras una respuesta incierta, «Comprobar la misma publicación» conserva el cuerpo y la clave originales, también si otro reintento es denegado. El recibo recuperado corresponde al acto original; una consulta posterior muestra las reglas vigentes. El arranque sin selección está comprobado en la copia propia: el portal sigue disponible y solo esta función responde que no se puede cargar. La publicación desde Chrome y la recuperación tras reiniciar aplicación y PostgreSQL conservan la versión y el recibo en la copia propia. El dato de activación de esa copia no acredita los actos necesarios para instalar la candidata; no cambia el caso único del apartado 4.0.
+
 ### 4.4 Administración
 
 | Tarea | Cómo se hace hoy | Estado |
