@@ -537,7 +537,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       `<span class="estado-chip ${ESTADOS[o.estado]}">${escapar(traducir(`estado_${o.estado}`))}</span></div>` +
       `<dl class="oferta-ficha__datos">${dato("col_fechas", fechas)}${dato("col_plazo", fechaHora(o.vence_antes_de))}` +
       `${dato("col_disposiciones", String(o.disposiciones_total), detalleOfrecidas)}${dato("col_plazas", plazas)}</dl>${aviso}` +
-      `${o.aviso_configuracion_pendiente === true && estado.reciboPublicacion?.ofertaRef !== o.oferta_ref ? `<p class="mensaje-error" role="alert">${escapar(traducir("aviso_configuracion_pendiente"))}` +
+      `${o.aviso_configuracion_pendiente === true && !(estado.mensaje && !estado.reciboAvisoIncierto && estado.reciboPublicacion?.ofertaRef === o.oferta_ref) ? `<p class="mensaje-error" role="alert">${escapar(traducir("aviso_configuracion_pendiente"))}` +
         `${estado.intencionAvisoIncierto?.cuerpo.oferta_ref === o.oferta_ref ? ` <button type="button" class="boton-secundario" data-ofertas-accion="recargar"` +
           ` aria-label="${escapar(traducir("aviso_actualizar_estado_oferta", { categoria: o.datos.categoria, centro: o.datos.centro, fecha: fechaDia(o.datos.fecha_inicio) }))}">` +
           `${escapar(traducir("aviso_actualizar_estado"))}</button>` : ""}</p>` : ""}${correo}` +
@@ -605,11 +605,11 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     const botonManual = intencionManual && ofertaManual && !ofertaManual.aviso_configuracion_pendiente && estado.carga === "lista" && !estado.enviando ?
       `<button type="button" class="boton-secundario" data-ofertas-accion="repetir-reintento-incierto">${escapar(traducir(intencionManual.incierta ? "reintento_incierto_recuperar" : "reintento_incierto_continuar"))}</button>` : "";
     const avisos = `<div aria-live="polite">${estado.mensaje ? `<div class="mensaje-exito ofertas-bolsa__aviso" data-ofertas-aviso="exito" tabindex="-1" role="status"><p>${escapar(estado.mensaje)}</p>` +
-      `${estado.reciboPublicacion ? reciboOferta(estado.reciboPublicacion.referencia, estado.reciboPublicacion.publicadaEn, true) : ""}` +
+      `${estado.reciboPublicacion && !estado.reciboAvisoIncierto ? reciboOferta(estado.reciboPublicacion.referencia, estado.reciboPublicacion.publicadaEn, true) : ""}` +
       `${estado.reciboAvisoIncierto ? reciboOferta(estado.reciboAvisoIncierto.recibo_ref, estado.reciboAvisoIncierto.registrado_en, true, "reintento_recibo_fecha", "reintento_recibo_titulo") : ""}` +
-      `${estado.reciboPublicacion?.configuracionPendiente ? `<p class="mensaje-error" role="alert">${escapar(traducir("aviso_configuracion_pendiente"))}</p>` : ""}` +
-      `${estado.reciboPublicacion?.configuracionPendiente && estado.carga === "lista" ? `<button type="button" class="boton-secundario" data-ofertas-accion="recargar">${escapar(traducir("aviso_actualizar_estado"))}</button>` : ""}` +
-      `${estado.reciboPublicacion && estado.reintentoAvisos && !estado.reintentoAvisos.incierta && !estado.reciboPublicacion.configuracionPendiente ? `<button type="button" class="boton-secundario" data-ofertas-accion="recuperar-avisos"${estado.enviando ? " disabled" : ""}>${escapar(traducir(estado.enviando ? "aviso_reintentando" : "aviso_reintentar_pendientes"))}</button>` : ""}` +
+      `${estado.reciboPublicacion?.configuracionPendiente && !estado.reciboAvisoIncierto ? `<p class="mensaje-error" role="alert">${escapar(traducir("aviso_configuracion_pendiente"))}</p>` : ""}` +
+      `${estado.reciboPublicacion?.configuracionPendiente && !estado.reciboAvisoIncierto && estado.carga === "lista" ? `<button type="button" class="boton-secundario" data-ofertas-accion="recargar">${escapar(traducir("aviso_actualizar_estado"))}</button>` : ""}` +
+      `${estado.reciboPublicacion && !estado.reciboAvisoIncierto && estado.reintentoAvisos && !estado.reintentoAvisos.incierta && !estado.reciboPublicacion.configuracionPendiente ? `<button type="button" class="boton-secundario" data-ofertas-accion="recuperar-avisos"${estado.enviando ? " disabled" : ""}>${escapar(traducir(estado.enviando ? "aviso_reintentando" : "aviso_reintentar_pendientes"))}</button>` : ""}` +
       `${!intencionManual?.incierta ? botonManual : ""}</div>` : ""}</div>` +
       `${estado.errorOperacion ? `<p class="mensaje-error" data-ofertas-error="operacion" tabindex="-1" role="alert">${escapar(estado.errorOperacion)} ${intencionManual?.incierta ? botonManual : ""}</p>` : ""}`;
     return `<section class="panel panel-separado ofertas-bolsa" aria-labelledby="titulo-ofertas-bolsa"><div class="cabecera-panel"><h3 id="titulo-ofertas-bolsa">${escapar(traducir("titulo"))}</h3>${total}</div><div class="cuerpo-panel">${avisos}${cuerpo}${estado.revisionPublicacion ? revisionPublicacion() : formulario()}</div></section>`;

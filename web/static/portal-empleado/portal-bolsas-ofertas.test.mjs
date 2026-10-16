@@ -41,9 +41,9 @@ function boton(dataset) {
 test("la entrada y la caché cargan la versión de ofertas con avisos", async () => {
   const [portal, html, cache] = await Promise.all(["portal.js", "index.html", "cache-publica-v1.json"]
     .map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
-  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261016-f118-reintento-incierto-v3/);
-  assert.match(html, /portal\.js\?v=20261016-f118-reintento-incierto-v3/);
-  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261016-f118-reintento-incierto-v3"));
+  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261016-f118-reintento-incierto-v4/);
+  assert.match(html, /portal\.js\?v=20261016-f118-reintento-incierto-v4/);
+  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261016-f118-reintento-incierto-v4"));
 });
 
 test("la ficha abre el historial autorizado de la oferta elegida y lo desmonta al cerrar", async () => {
@@ -232,6 +232,70 @@ test("503 consulta la configuración y permite recuperar la misma intención tra
   assert.equal(claves, 1, "la recuperación no genera otra clave");
   assert.match(superficie.renderizar(), /recibo:reintento:503/);
   superficie.desmontar();
+});
+
+test("tras publicar, el 503 manual muestra la configuración y enfoca Actualizar en esa oferta", async () => {
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return { categoria: "Auxiliar", centro: "Residencia", fecha_inicio: "2026-11-23",
+    descripcion: "Cobertura", numero_plazas: "1" }[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const aviso = { total: 2, pendientes: 0, enviados: 1, sin_confirmacion: 1, fallidos: 0, revision: 4 };
+  let publicada = false; let configuracionPendiente = false; let claves = 0;
+  const focos = [];
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => sobre(publicada ? [oferta({ aviso, aviso_configuracion_pendiente: configuracionPendiente })] : [], "publicacion"),
+    publicar: async () => { publicada = true; return { ok: true, status: 201, oferta: oferta({ aviso }) }; },
+    reintentarAvisosSinConfirmacion: async () => { configuracionPendiente = true; return { ok: false, status: 503, codigo: "servicio_no_disponible" }; },
+  }, generarClave: () => `clave-${++claves}` });
+  superficie.instalar({ addEventListener() {}, querySelector(selector) { return { focus() { focos.push(selector); } }; } });
+  try {
+    superficie.activar("bolsa:1"); await turno();
+    superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    assert.ok(superficie.estado().reciboPublicacion, "se conserva el recibo de publicación");
+    superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:1" }));
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+    const html = superficie.renderizar();
+    assert.match(html, /Falta configurar el envío de avisos de las ofertas/);
+    assert.match(html, /data-ofertas-accion="recargar"[^>]*>Actualizar estado/);
+    assert.equal(focos.at(-1), '[data-oferta-ref="oferta:1"] [data-ofertas-accion="recargar"]');
+    assert.equal(superficie.estado().reciboPublicacion.referencia, "recibo:oferta:1");
+    assert.equal(superficie.estado().intencionAvisoIncierto.clave, "clave-2");
+  } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
+});
+
+test("el éxito manual muestra solo su recibo en el banner tras publicar otra oferta", async () => {
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return { categoria: "Auxiliar", centro: "Residencia", fecha_inicio: "2026-11-23",
+    descripcion: "Cobertura", numero_plazas: "1" }[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const publicada = oferta({ oferta_ref: "oferta:publicada", recibo_ref: "recibo:oferta:publicada",
+    aviso: { total: 1, pendientes: 1, enviados: 0, sin_confirmacion: 0, fallidos: 0, revision: 1 }, aviso_configuracion_pendiente: true });
+  const manual = oferta({ oferta_ref: "oferta:manual", recibo_ref: "recibo:oferta:manual",
+    aviso: { total: 1, pendientes: 0, enviados: 0, sin_confirmacion: 1, fallidos: 0, revision: 2 } });
+  let ofertas = [manual];
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => sobre(ofertas, "publicacion"),
+    publicar: async () => { ofertas = [publicada, manual]; return { ok: true, status: 201, oferta: publicada }; },
+    reintentarAvisosSinConfirmacion: async () => { ofertas = [publicada, oferta({ ...manual,
+      aviso: { ...manual.aviso, enviados: 1, sin_confirmacion: 0, revision: 3 },
+      reintento_aviso: { recibo_ref: "recibo:reintento:manual", registrado_en: "2026-10-16T07:00:00Z", rearmados: 1 } })];
+    return { ok: true, status: 201, oferta: ofertas[1] }; },
+  }, generarClave: () => "clave-estable" });
+  try {
+    superficie.activar("bolsa:1"); await turno();
+    superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:manual" }));
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+    const html = superficie.renderizar();
+    const banner = html.split('<ul class="ofertas-lista">')[0];
+    assert.match(banner, /data-copiar-justificante="recibo:reintento:manual"/);
+    assert.doesNotMatch(banner, /recibo:oferta:publicada|aviso_configuracion_pendiente|Falta configurar|recuperar-avisos/);
+    assert.match(html, /data-copiar-justificante="recibo:oferta:publicada"/);
+    assert.match(html, /Falta configurar el envío de avisos de las ofertas/);
+    assert.equal(superficie.estado().reciboPublicacion.referencia, "recibo:oferta:publicada");
+  } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
 });
 
 test("un reintento con pendientes continúa con la misma clave y un incierto nuevo exige otra revisión", async () => {
