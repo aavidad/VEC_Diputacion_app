@@ -53,6 +53,7 @@
   "campos": {
     "estado": "Preparation status",
     "tipo": "Proposed selection procedure",
+    "modalidad_inscripcion": "Application mode",
     "resumen": "Summary",
     "descripcion": "Description",
     "categorias": "Categories",
@@ -124,9 +125,12 @@
   "consulta_obtenida": "Preparation retrieved. Review the outstanding checks; the rules are not approved.",
   "consulta_cancelada": "Lookup cancelled. You can look up another preparation.",
   "detalle_consulta": "Lookup details",
+  "detalle_guardado": "Save details",
   "origen_consulta": "Retained preparation material. The original receipt and this lookup access are separate evidence.",
+  "origen_guardado": "Retained preparation material. The receipt and this save access are separate evidence.",
   "recibo_preparacion": "Receipt of the retained preparation",
   "acceso_consulta": "Access for this lookup",
+  "acceso_guardado": "Access for this save",
   "recibo": "Receipt reference",
   "fecha": "Date",
   "consulta_errores": {
@@ -139,5 +143,25 @@
     "operacion_abortada": "Lookup cancelled. You can look up another preparation."
   },
   "material_actual": "Open material",
-  "ver_detalle_consulta": "View revision, receipts and full response"
+  "guardar_titulo": "Application mode",
+  "guardar_modalidad": "How people apply",
+  "modalidad_inscripcion": {
+    "separada": "One application per category",
+    "conjunta": "One application for several categories"
+  },
+  "guardar_revisar": "Review change",
+  "guardar_confirmar": "Save application mode",
+  "guardar_reintentar": "Retry the same save",
+  "guardar_revision": "You are about to save “{modalidad}” in a new revision. The selection rules still await approval.",
+  "guardar_sin_cambios": "This preparation already has that application mode.",
+  "guardar_enviando": "Saving the application mode…",
+  "guardar_guardada": "Application mode saved in the preparation. Receipt: {recibo}. The selection rules still await approval.",
+  "guardar_recuperada": "The previous save was recovered. Receipt: {recibo}.",
+  "guardar_pendiente": "The save could not be confirmed. Select Retry the same save without closing this page.",
+  "guardar_version_en_conflicto": "The preparation has changed. Look up the current revision before saving the application mode.",
+  "guardar_acceso_denegado": "Your current session cannot save this preparation. Contact the service manager.",
+  "guardar_no_encontrada": "The preparation was not found. Check its reference and look it up again.",
+  "guardar_selector_invalido": "This information cannot be saved. Look up the preparation again.",
+  "ver_detalle_consulta": "View revision, receipts and full response",
+  "ver_detalle_guardado": "View revision, receipts and save response"
 }

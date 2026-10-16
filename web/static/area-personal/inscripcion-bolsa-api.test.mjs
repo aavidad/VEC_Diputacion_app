@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261016-modalidad-inscripcion-v1";
+import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261016-f140-modalidad-v2";
 import { prepararIdiomas } from "../comun/idioma.js";
 
 await prepararIdiomas();
@@ -11,6 +11,7 @@ const respuesta = (json, status = 200, headers = {}) => new Response(JSON.string
 
 const instante = "2026-10-09T09:00:00Z";
 const bolsa = { convocatoria_ref: "convocatoria:plaza-42", titulo: "Bolsa de auxiliares 2026",
+  modalidad_inscripcion: "separada",
   numero_categorias: 1, categorias: [{ categoria_ref: "categoria:auxiliar", categoria: "Auxiliar administrativo" }],
   plazo_inicio: instante, plazo_fin: "2026-10-22T23:59:59Z", requisitos_resumen: "Titulación requerida",
   catalogo_version: 2, puede_iniciar: true, estado_solicitud_propia: null, solicitud_ref: null };
@@ -141,4 +142,15 @@ test("conserva el rechazo de modalidad conjunta y descarta el mensaje remoto", a
     claveIdempotencia: "clave-conjunta-42", declaraciones: [] }),
   (error) => error.status === 409 && error.codigo === "inscripcion_conjunta_pendiente"
     && !error.message.includes("contenido remoto"));
+});
+
+test("rechaza una modalidad desconocida, nula o ausente en el listado publicado", async () => {
+  for (const modalidad of ["otra", null, undefined]) {
+    const publicada = { ...resumen, modalidad_inscripcion: modalidad };
+    const cliente = crearClienteInscripcionBolsa({ fetchImpl: async () => respuesta({ data: {
+      esquema: "vec.bolsa.inscripciones.convocatorias_abiertas.v1",
+      convocatorias: [publicada], total: 1, cursor_siguiente: null,
+    } }) });
+    await assert.rejects(cliente.abiertas(), /inválida/u);
+  }
 });

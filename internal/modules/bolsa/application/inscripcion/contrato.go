@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	bolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -384,19 +385,20 @@ type Categoria struct {
 }
 
 type BolsaAbierta struct {
-	ConvocatoriaRef     string      `json:"convocatoria_ref"`
-	Titulo              string      `json:"titulo"`
-	NumeroCategorias    uint64      `json:"numero_categorias"`
-	Categorias          []Categoria `json:"categorias,omitempty"`
-	PlazoInicio         time.Time   `json:"plazo_inicio"`
-	PlazoFin            time.Time   `json:"plazo_fin"`
-	CatalogoVersion     uint64      `json:"catalogo_version"`
-	RequisitosResumen   string      `json:"requisitos_resumen"`
-	Requisitos          []Requisito `json:"requisitos,omitempty"`
-	PuedeIniciar        bool        `json:"puede_iniciar"`
-	ImpedimentoEtiqueta string      `json:"impedimento_etiqueta,omitempty"`
-	EstadoPropio        *string     `json:"estado_solicitud_propia"`
-	SolicitudRef        *string     `json:"solicitud_ref"`
+	ConvocatoriaRef      string                                 `json:"convocatoria_ref"`
+	Titulo               string                                 `json:"titulo"`
+	ModalidadInscripcion bolsa.ModalidadInscripcionConvocatoria `json:"modalidad_inscripcion"`
+	NumeroCategorias     uint64                                 `json:"numero_categorias"`
+	Categorias           []Categoria                            `json:"categorias,omitempty"`
+	PlazoInicio          time.Time                              `json:"plazo_inicio"`
+	PlazoFin             time.Time                              `json:"plazo_fin"`
+	CatalogoVersion      uint64                                 `json:"catalogo_version"`
+	RequisitosResumen    string                                 `json:"requisitos_resumen"`
+	Requisitos           []Requisito                            `json:"requisitos,omitempty"`
+	PuedeIniciar         bool                                   `json:"puede_iniciar"`
+	ImpedimentoEtiqueta  string                                 `json:"impedimento_etiqueta,omitempty"`
+	EstadoPropio         *string                                `json:"estado_solicitud_propia"`
+	SolicitudRef         *string                                `json:"solicitud_ref"`
 }
 
 type PaginaAbiertas struct {

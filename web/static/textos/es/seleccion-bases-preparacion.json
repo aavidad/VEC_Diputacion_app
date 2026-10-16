@@ -53,6 +53,7 @@
   "campos": {
     "estado": "Estado de la preparación",
     "tipo": "Modalidad propuesta",
+    "modalidad_inscripcion": "Modalidad de inscripción",
     "resumen": "Resumen",
     "descripcion": "Descripción",
     "categorias": "Categorías",
@@ -124,9 +125,12 @@
   "consulta_obtenida": "Preparación consultada. Revise los pendientes; las bases no están aprobadas.",
   "consulta_cancelada": "Consulta cancelada. Puede consultar otra preparación.",
   "detalle_consulta": "Datos de la consulta",
+  "detalle_guardado": "Datos del guardado",
   "origen_consulta": "Material conservado de preparación. El recibo original y el acceso de esta consulta son evidencias distintas.",
+  "origen_guardado": "Material conservado de preparación. El recibo y el acceso de este guardado son evidencias distintas.",
   "recibo_preparacion": "Recibo de la preparación conservada",
   "acceso_consulta": "Acceso de esta consulta",
+  "acceso_guardado": "Acceso de este guardado",
   "recibo": "Referencia del recibo",
   "fecha": "Fecha",
   "consulta_errores": {
@@ -139,5 +143,25 @@
     "operacion_abortada": "Consulta cancelada. Puede consultar otra preparación."
   },
   "material_actual": "Material abierto",
-  "ver_detalle_consulta": "Ver revisión, recibos y respuesta completa"
+  "guardar_titulo": "Modalidad de inscripción",
+  "guardar_modalidad": "Cómo se inscribe la persona",
+  "modalidad_inscripcion": {
+    "separada": "Una solicitud por categoría",
+    "conjunta": "Una solicitud para varias categorías"
+  },
+  "guardar_revisar": "Revisar cambio",
+  "guardar_confirmar": "Guardar modalidad",
+  "guardar_reintentar": "Reintentar el mismo guardado",
+  "guardar_revision": "Va a guardar «{modalidad}» en una nueva revisión. Las bases siguen pendientes de aprobación.",
+  "guardar_sin_cambios": "La preparación ya tiene esa modalidad.",
+  "guardar_enviando": "Guardando la modalidad…",
+  "guardar_guardada": "Modalidad guardada en la preparación. Recibo: {recibo}. Las bases siguen pendientes de aprobación.",
+  "guardar_recuperada": "Se recuperó el guardado anterior. Recibo: {recibo}.",
+  "guardar_pendiente": "No se ha podido comprobar el guardado. Pulse Reintentar el mismo guardado sin cerrar esta página.",
+  "guardar_version_en_conflicto": "La preparación ha cambiado. Consulte la revisión actual antes de guardar la modalidad.",
+  "guardar_acceso_denegado": "No puede guardar esta preparación con su sesión actual. Consulte al responsable del servicio.",
+  "guardar_no_encontrada": "No se encontró la preparación. Revise su referencia y consulte de nuevo.",
+  "guardar_selector_invalido": "No se puede guardar con esos datos. Consulte de nuevo la preparación.",
+  "ver_detalle_consulta": "Ver revisión, recibos y respuesta completa",
+  "ver_detalle_guardado": "Ver revisión, recibos y respuesta del guardado"
 }

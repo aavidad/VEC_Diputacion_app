@@ -1,4 +1,4 @@
-import { CAMPOS_REFERENCIA } from './modelo.js?v=20261003-s2-consulta-v1';
+import { CAMPOS_REFERENCIA } from './modelo.js?v=20261016-f140-modalidad-v1';
 
 function nodo(d, etiqueta, texto, clase) {
   const n = d.createElement(etiqueta); if (texto !== undefined) n.textContent = texto; if (clase) n.className = clase; return n;
@@ -27,6 +27,7 @@ function tabla(d, titulo, columnas, filas, t) {
 
 export function pintarSalida({ raiz, dto, textos, institucional = false }) {
   const d = raiz.ownerDocument; const t = textos.traducir; const material = institucional ? dto.preparacion.material : dto.preparacion.material_propuesto;
+  const guardado = institucional && dto.estado !== 'obtenida';
   const contenido = material.contenido; const pendientesOriginales = institucional ? dto.pendientes : dto.preparacion.pendientes;
   const valor = v => v === '' ? t('sin_dato') : v;
   const descripcion = item => { const div = nodo(d, 'div'); div.append(nodo(d, 'strong', valor(item.titulo)), nodo(d, 'p', valor(item.descripcion))); return div; };
@@ -46,6 +47,7 @@ export function pintarSalida({ raiz, dto, textos, institucional = false }) {
   const resto = nodo(d, 'details'); resto.append(nodo(d, 'summary', textos.plural('comprobaciones_material', comprobaciones.children.length)), comprobaciones); pendientes.cuerpo.append(resto); resumen.append(pendientes.n);
   const propuesta = panel(d, contenido.titulo || t('propuesta')); propuesta.cuerpo.append(datos(d, [
     [t('campos.estado'), t('pendiente')], [t('campos.tipo'), Object.hasOwn(textos.mensajes.modalidades, contenido.tipo) ? t(`modalidades.${contenido.tipo}`) : valor(contenido.tipo)],
+    [t('campos.modalidad_inscripcion'), t(`modalidad_inscripcion.${contenido.modalidad_inscripcion || 'separada'}`)],
     [t('campos.resumen'), valor(contenido.resumen)], [t('campos.descripcion'), valor(contenido.descripcion)], [t('campos.categorias'), (contenido.categorias ?? []).join(', ') || t('sin_dato')],
   ])); resumen.append(propuesta.n); fragmento.append(resumen);
   const requisitos = panel(d, t('requisitos')); requisitos.cuerpo.append(tabla(d, t('requisitos'), ['requisito', 'obligatorio'], (contenido.requisitos ?? []).map(r => [descripcion(r), t(r.obligatorio ? 'si' : 'no')]), t)); fragmento.append(requisitos.n);
@@ -55,12 +57,14 @@ export function pintarSalida({ raiz, dto, textos, institucional = false }) {
   const referencia = c => r[c] ?? { id: '', version: 0, huella_contenido_sha256: '' };
   refs.cuerpo.append(nodo(d, 'p', t('referencias_limite'), 'texto-secundario'), tabla(d, t('referencias'), ['referencia', 'identificador', 'version', 'comprobacion'], CAMPOS_REFERENCIA.map(c => [t(`campos.${c}`), valor(referencia(c).id), textos.numero(referencia(c).version), t(`motivos.${pendientesOriginales.find(p => p.campo === c).codigo}`)]), t));
   const huellas = nodo(d, 'details'); huellas.append(nodo(d, 'summary', t('huellas'))); huellas.append(datos(d, CAMPOS_REFERENCIA.map(c => [t(`campos.${c}`), valor(referencia(c).huella_contenido_sha256)]))); refs.cuerpo.append(huellas); fragmento.append(refs.n);
-  const tecnico = panel(d, t(institucional ? 'detalle_consulta' : 'detalle_archivo')); const detalle = nodo(d, 'details'); detalle.append(nodo(d, 'summary', t(institucional ? 'ver_detalle_consulta' : 'ver_detalle_archivo')));
+  const tipoDetalle = institucional ? (guardado ? 'guardado' : 'consulta') : 'archivo';
+  const tecnico = panel(d, t(`detalle_${tipoDetalle}`)); const detalle = nodo(d, 'details');
+  detalle.append(nodo(d, 'summary', t(`ver_detalle_${tipoDetalle}`)));
   if (institucional) {
     const e = dto.preparacion.estado;
-    tecnico.cuerpo.append(nodo(d, 'p', t('origen_consulta')));
+    tecnico.cuerpo.append(nodo(d, 'p', t(guardado ? 'origen_guardado' : 'origen_consulta')));
     detalle.append(datos(d, [[t('consulta_referencia'), e.preparacion_ref], [t('consulta_revision'), textos.numero(e.revision)], [t('consulta_huella'), e.huella_material_sha256]]));
-    for (const [clave, evidencia, fechaClave] of [['recibo_preparacion', dto.recibo, 'confirmada_en'], ['acceso_consulta', dto.acceso, 'accedida_en']]) {
+    for (const [clave, evidencia, fechaClave] of [['recibo_preparacion', dto.recibo, 'confirmada_en'], [guardado ? 'acceso_guardado' : 'acceso_consulta', dto.acceso, 'accedida_en']]) {
       detalle.append(nodo(d, 'h3', t(clave)), datos(d, [[t('recibo'), evidencia.recibo_ref], [t('fecha'), fecha(evidencia[fechaClave])]]));
     }
   } else detalle.append(datos(d, [[t('campos.identidad_material'), material.identidad_material], [t('campos.version_material'), textos.numero(material.version_material)], [t('campos.identificador_publico'), valor(contenido.identificador_publico)], [t('limite_original'), dto.limite]]));

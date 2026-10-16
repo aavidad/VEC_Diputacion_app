@@ -15,6 +15,7 @@ const INSTANCIAS = Object.freeze({
   detallePropio: "vec.bolsa.inscripcion.propias.detalle.v1",
 });
 const ESTADOS = new Set(["pendiente", "admitida_a_convocatoria", "incorporada", "rechazada"]);
+const MODALIDADES = new Set(["separada", "conjunta"]);
 const LIMITE_LISTA = 256 * 1024;
 const LIMITE_DETALLE_CONVOCATORIA = 1024 * 1024;
 const LIMITE_RECIBO = 64 * 1024;
@@ -53,6 +54,7 @@ function cursor(valor) {
 
 function bolsaResumen(valor) {
   return objeto(valor) && referencia(valor.convocatoria_ref) && titulo(valor.titulo)
+    && MODALIDADES.has(valor.modalidad_inscripcion)
     && Number.isSafeInteger(valor.numero_categorias) && valor.numero_categorias >= 1
     && valor.numero_categorias <= 128
     && fecha(valor.plazo_inicio) && fecha(valor.plazo_fin)

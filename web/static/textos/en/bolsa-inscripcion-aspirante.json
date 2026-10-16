@@ -27,6 +27,9 @@
     "mostradas": "Showing {visibles} of {total} job pools",
     "plazo": "Application period",
     "categoria": "Category",
+    "modalidadInscripcion": "How to apply",
+    "modalidadSeparada": "One application per category",
+    "modalidadConjunta": "One application for several categories",
     "categorias": {
       "one": "{cuenta} category",
       "other": "{cuenta} categories"

@@ -1,5 +1,5 @@
 import { cargarTextos, reintentarTextos } from "../comun/textos.js";
-import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261016-modalidad-inscripcion-v1";
+import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261016-f140-modalidad-v2";
 
 const CLAVES_PENDIENTES = new Map(); // Sólo memoria de esta pestaña, para repetir el mismo acto incierto.
 const ENVIOS_ACTIVOS = new Set();
@@ -78,6 +78,7 @@ function tarjetaAbierta(bolsa, textos) {
     ${propia ? chipEstado(propia, t) : ""}</header>
     <div class="panel-contenido"><dl class="dato-lista"><dt>${t("plazo")}</dt><dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd>
     <dt>${t("categoria")}</dt><dd>${esc(textos.plural("vista.categorias", bolsa.numero_categorias))}</dd>
+    <dt>${t("modalidadInscripcion")}</dt><dd>${t(bolsa.modalidad_inscripcion === "conjunta" ? "modalidadConjunta" : "modalidadSeparada")}</dd>
     <dt>${t("requisitos")}</dt><dd>${esc(bolsa.requisitos_resumen)}</dd></dl>
     <div class="fila-acciones">${enlace}</div></div></article>`;
 }
@@ -132,7 +133,8 @@ function vistaBolsa(estado, textos) {
       <button type="button" class="boton-secundario" data-inscripcion-accion="propias">${t("misSolicitudes")}</button>`) : "";
   const inicio = `<div class="panel-contenido"><button type="button" class="boton-secundario" data-inscripcion-accion="volver">${t("volver")}</button>
     <h3 tabindex="-1">${esc(bolsa.titulo)}</h3><dl class="dato-lista"><dt>${t("plazo")}</dt>
-      <dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd></dl>`;
+      <dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd>
+      <dt>${t("modalidadInscripcion")}</dt><dd>${t(bolsa.modalidad_inscripcion === "conjunta" ? "modalidadConjunta" : "modalidadSeparada")}</dd></dl>`;
   // En la revisión sólo queda el resumen: lo elegido se cambia con «Volver a la ficha».
   if (estado.revision) return `${inicio}${revisionFicha(estado, bolsa, categoria, pendiente, enviando, textos, t)}${error}</div>`;
   const filtroCategoria = textoBuscable(estado.filtroCategoria.trim());

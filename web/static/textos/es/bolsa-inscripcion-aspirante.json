@@ -27,6 +27,9 @@
     "mostradas": "Mostradas {visibles} de {total} bolsas",
     "plazo": "Plazo de inscripción",
     "categoria": "Categoría",
+    "modalidadInscripcion": "Cómo se presenta la solicitud",
+    "modalidadSeparada": "Una solicitud por categoría",
+    "modalidadConjunta": "Una solicitud para varias categorías",
     "categorias": {
       "one": "{cuenta} categoría",
       "other": "{cuenta} categorías"
