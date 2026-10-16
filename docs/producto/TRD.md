@@ -240,6 +240,13 @@ acredita que esté disponible.
 Cada fase deja una línea de arranque con fase, resultado y causa, sin rutas, DSN
 (cadenas de conexión a la base) ni datos de configuración.
 
+La copia local se prepara con `deploy/principal/copia_local.sh` (F0-28):
+restaura el volcado y sus permisos sin credenciales globales, genera material
+de 90 días y permite reiniciar o borrar una instancia propia. Este primer
+corte arranca el portal con funciones opcionales apagadas; las conexiones y
+actos de los módulos aún siguen la guía `deploy/principal/LEEME_copia_local.md`.
+El arranque HTTP no acredita el recorrido funcional.
+
 ### Arranque de Administración
 
 `vec-admin` requiere `VEC_ADMIN_USUARIOS_CONFIG_FILE`, el fichero privado de
