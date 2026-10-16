@@ -49,11 +49,50 @@ La vuelta atrás usa la candidata anterior y la copia de ensayo declarada por
 dirección. No se ejecuta DOWN ni se alteran recibos existentes. Cidonia queda
 fuera de este guion.
 
-## Evidencia pendiente
+## Comprobación local del 16/10/2026
 
-La propuesta actual tiene dos ratificaciones independientes favorables para
-las cinco funciones. El primer ensayo detectó la omisión de dos campos en la
-huella SQL; esa copia se conserva sin reaplicar la migración. Una copia nueva
-recibirá la versión corregida una sola vez. Los vectores calculados por Go
-cubren la política provisional activa y ausente. Quedan la recuperación real,
-el rechazo de material alterado y el reinicio. La PR sigue en borrador.
+Candidata: aplicación `28320e6c7` de #1144 y SQL `6713aaa13` de #1170,
+sin instrumentación. La copia parte de HZ37 y contiene el prefijo completo
+de #1147, las cuatro migraciones propias de R y AD278/AD283. Conserva los
+anexos de permisos de base y tipos y las tres filas instaladas por AD278.
+La preparación y el traslado de datos tuvieron dos revisiones independientes.
+
+- Antes de CT230, aplicación, sesión y portal responden 200. Lo mismo ocurre
+  con CT230 y después de reiniciar aplicación y PostgreSQL, una vez disponibles.
+- CT230 se instaló una sola vez; sus cinco preimágenes y postimágenes,
+  propietarios y permisos coinciden. La prueba focal termina correctamente.
+- La petición original, recuperada mediante el cliente web real desde Chrome,
+  devuelve el recibo del llamamiento que Bolsa ya había emitido. Hay un solo
+  origen y una sola confirmación nativa; las seis anteriores conservan sus bytes.
+- Alterar la marca o la política provisional sin actualizar la huella rompe
+  el vínculo del material. La política alterada tampoco supera el cotejo
+  canónico. El negativo usa el artefacto real en una transacción de solo lectura
+  y termina con rollback; no crea firmas ni confirmaciones.
+- Después de reiniciar ambos procesos, la misma petición devuelve exactamente
+  el mismo recibo HTTP. El recibo y el artefacto almacenados conservan su huella
+  y sigue habiendo un origen y una confirmación.
+
+Las dos ratificaciones SQL y de seguridad cubren la fuente exacta:
+`2e9c42038af5c1c639fbbf05186ebf4026a13b5f3013c9cb62c6dae19aca6442`.
+La prueba tiene huella
+`2f088f5533e41785e741daf156e6f5b1f79fa46b7f8449fd9d3871e21165e9c7`.
+Semgrep local, con tres reglas genéricas verificadas, no encuentra incidencias
+en los dos archivos SQL. Las revisiones semánticas son independientes de ese
+análisis de texto.
+
+El primer ensayo, que detectó el quinto cuerpo pendiente, permanece archivado
+sin reaplicar la migración. Las identidades copiadas conservan sus bytes; el
+material nuevo de gobierno y TLS dura noventa días. Se conserva la excepción
+anterior de identidad heredada, hasta el guion de copia de L; no se regeneró
+para eludir sus vínculos.
+
+## Límites del recorrido visible
+
+La recuperación prueba la confirmación y la idempotencia. Al recargar la ficha,
+su consulta enumera solo comunicaciones y aún no recupera la selección confirmada
+pendiente de aviso: muestra un vacío incorrecto y vuelve a ofrecer selección.
+Ese hueco necesita un corte propio sobre la lista existente, con sus campos
+autorizados y recuperación del formulario. No se ha creado otro llamamiento
+para sortearlo. CT230 no acredita aviso por correo, respuesta de la persona ni
+el recorrido completo de FLUJO_APP §4.0. La conservación real sigue pendiente
+de su política general.

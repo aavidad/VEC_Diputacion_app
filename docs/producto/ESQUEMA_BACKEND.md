@@ -404,7 +404,7 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
-CT230 prepara la compatibilidad de la confirmación O6 con el recibo nativo
+CT230 adapta la confirmación O6 al recibo nativo
 del llamamiento constituido. Conserva las marcas canónicas de procedencia y
 evidencia y admite la ausencia de retención temporal solo bajo su contrato
 nominal completo; la rama anterior mantiene sus controles. `retener_hasta`
