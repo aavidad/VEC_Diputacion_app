@@ -109,11 +109,11 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
     case "auditoria":
       return capacidades?.auditoriaConsulta === true;
     case "configuracion":
-      // La configuración conserva su autorización propia al abrirse. Su
-      // navegación también sirve cuando el cuadro no está disponible.
-      return capacidades?.bolsasConsultables === true || capacidades?.politicaCese === true;
+      // El perfil propio habilita la entrada; cada lectura se autoriza otra vez al abrir.
+      return capacidades?.perfilPropioBolsa === true;
     case "reglas":
-      return capacidades?.politicaCese === true;
+      // La política se comprueba al abrir; no se deduce permiso del cuadro.
+      return capacidades?.perfilPropioBolsa === true;
     default:
       return false;
   }
