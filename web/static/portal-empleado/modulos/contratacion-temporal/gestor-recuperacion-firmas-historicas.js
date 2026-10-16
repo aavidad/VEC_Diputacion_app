@@ -1,4 +1,4 @@
-import { validarSelectoresRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=20261016-firma-historica-v4";
+import { validarSelectoresRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=20261016-firma-historica-v5";
 import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v4";
 import { montarVistaRecuperacionFirmasV2 } from "./vista-recuperacion-firmas-v2.js?v=20261016-firma-historica-v4";
 

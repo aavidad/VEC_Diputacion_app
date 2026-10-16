@@ -16,7 +16,7 @@ import {
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
-import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261016-firma-historica-v4";
+import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261016-firma-historica-v5";
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
@@ -32,7 +32,7 @@ import { crearClienteSubsanacionReparosHTTP, RUTA_SUBSANACION_REPAROS } from "./
 import { crearClienteSeguimientoCeseHTTP } from "./cliente-http-seguimiento-cese.js";
 import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { crearClienteReincorporacionRRHHHTTP, RUTA_CAPACIDAD_REINCORPORACION_RRHH, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js?v=20260928-rrhh-reincorporacion-v1";
-import { crearClienteRecuperacionFirmasV2, RUTA_CONSULTA_FIRMAS_V2 } from "./cliente-http-recuperacion-firmas-v2.js?v=20261015-firma-cierre-cache-v3";
+import { crearClienteRecuperacionFirmasV2, RUTA_CONSULTA_FIRMAS_V2 } from "./cliente-http-recuperacion-firmas-v2.js?v=20261016-firma-historica-v5";
 import {
   MAXIMO_ERROR_BYTES,
   MAXIMO_FRAGMENTOS,
