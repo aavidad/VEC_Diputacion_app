@@ -744,11 +744,17 @@ CT no tiene llamamiento propio: usa el de Bolsa sobre una bolsa constituida
    (`llamamientos/siguientes`). No hay aviso automático al siguiente.
 
 En la copia local, CT230 confirma y recupera el llamamiento nativo con su
-misma clave y recibo después de reiniciar, sin duplicar la oferta. Queda un
-hueco entre la selección y el aviso: al recargar, la ficha consulta solo las
-comunicaciones ya anotadas y aún no recupera la selección pendiente de aviso.
-La lista vacía no acredita que no haya llamamiento. Este ensayo no completa
-el recorrido del apartado 4.0.
+misma clave y recibo después de reiniciar, sin duplicar la oferta. Este ensayo
+no completa el recorrido del apartado 4.0.
+
+CT231 recupera la selección confirmada pendiente de aviso como una fila de la
+consulta existente de la ficha. Al volver a ella, RRHH ve su justificante y puede
+continuar el aviso; mientras siga pendiente, no se ofrece seleccionar otra
+persona. La fila no representa una comunicación anotada. En la copia local se
+comprobaron recarga, reinicio, registro del aviso desde el formulario y sustitución
+por la comunicación real con su recibo. Está pendiente de integración; el ensayo
+no completa el apartado 4.0. Activación y límites en
+[`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
 
 Con #1088 (**en main, sin subir**) la selección usa la bolsa constituida, su
 orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
