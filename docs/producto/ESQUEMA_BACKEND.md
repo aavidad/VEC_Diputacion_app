@@ -580,6 +580,12 @@ fija el orden de activación. La lectura y descarga pertenecen a cualquier
 técnica con permiso vigente de su rol, no a una cuenta nominal indicada en la
 configuración técnica.
 
+La activación externa sigue pendiente del productor de admisiones y del
+versionador de rol por fuente declarada: el acto externo actual solo añade
+preferencias. Las dos concesiones propias del justificante, las admisiones y
+el motivo preparados como datos ficticios de copia no acreditan actos
+gobernados. La concesión interna de RRHH usa el acto genérico vigente.
+
 ### 9.2 Reserva del número
 
 Antes de crear el fichero, reserva el número en `RESERVAS_MIGRACIONES.md`, en la

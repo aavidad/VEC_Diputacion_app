@@ -564,7 +564,10 @@ La persona aporta el PDF desde Mi Bolsa y conserva su original y el recibo.
 Una técnica con permiso vigente consulta y descarga el documento desde la ficha
 del candidato. La integración y la activación de F1-07 siguen pendientes; el
 guion `deploy/principal/justificante_renuncia_activacion.md` recoge la preparación
-y la dependencia del productor de admisiones externas (F0-21).
+y las dependencias del productor de admisiones externas (F0-21) y del
+versionador del rol externo por fuente declarada. El versionador actual solo
+añade preferencias. Los permisos del aspirante preparados como datos ficticios
+de copia no acreditan su activación gobernada.
 
 ## 8. Reglas que siguen vigentes de los relevos anteriores
 

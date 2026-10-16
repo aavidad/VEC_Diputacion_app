@@ -85,6 +85,15 @@ Esta entrega no incluye INSERT de esas filas ni acredita su aprobación.
 Los ajustes SQL de datos ficticios realizados en la copia solo permiten ensayar
 el recorrido; no completan la activación. Dirección mantiene esa tarea separada.
 
+También falta ampliar el versionador gobernado del rol externo. El acto actual
+solo añade permisos de preferencias; no publica las dos acciones propias del
+justificante. Dirección autoriza prepararlas como datos ficticios en la copia,
+sin actos ni recibos, hasta disponer del versionador por fuente declarada.
+La PR distingue ese ajuste de la concesión de descarga de RRHH, publicada
+mediante el acto gobernado con dos administradores. El catálogo y la entrada
+del motivo documental deben existir con la versión, huella y vigencia exactas
+que indica la configuración. Su semilla de copia tampoco acredita un acto.
+
 ## Configuración y gobierno
 
 Se preparan fuera de Git los materiales privados que lee la composición
@@ -129,11 +138,11 @@ productor permita configurar la vigencia de desarrollo con un máximo de 90
 días; en producción se conservan las 24 horas. Ese ajuste corresponde a H y
 queda fuera de este corte. La excepción no modifica claves ni amplía permisos.
 
-La publicación de acciones, versiones de rol y membresías personales se hace
-por los actos de Administración gobernados, con dos administradores distintos
-cuando corresponda. Se conservan el catálogo y las concesiones existentes; se
-añade la acción específica para consultar o descargar el justificante. No se
-insertan ni modifican directamente filas de datos, asignaciones o permisos.
+La publicación del catálogo y de la concesión interna de descarga usa las
+herramientas y los actos de Administración gobernados, con dos administradores
+distintos cuando corresponda. Se conservan el catálogo y las concesiones
+existentes. Los ajustes ficticios del rol externo descritos arriba quedan
+fuera de esta activación.
 Los datos ficticios necesarios para el recorrido se preparan con la semilla o
 el guion privado de datos, fuera de esta activación.
 
