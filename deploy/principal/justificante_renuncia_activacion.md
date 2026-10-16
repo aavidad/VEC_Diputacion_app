@@ -72,6 +72,10 @@ garantía alta. Sin perfil válido o con varios candidatos, deniega. El
 certificado debe estar registrado en el inventario interno común de cuentas.
 El fichero documental no elige la identidad ni el perfil. La selección se liga
 a esa petición y no modifica las fronteras de Contratación temporal.
+B130 completa el registro de rechazos de B119: añade únicamente la ruta exacta
+del justificante al CHECK de auditoría, sin cambiar la fachada ni sus permisos.
+Se instala al final de la lista y se comprueba que una petición de origen
+inválido devuelve 403, deja su apunte y no crea una subida ni una respuesta.
 El formulario envía el PDF por POST idempotente; al reintentar
 conserva el mismo archivo y la misma clave. Solo registra la renuncia después
 de recibir un documento admitido.

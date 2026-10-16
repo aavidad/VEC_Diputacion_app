@@ -30,3 +30,5 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000287_lectura_preperfil_
 deploy/postgresql/contexto_actor_v1/migraciones/000046_perfiles_propios_bolsa_rrhh.up.sql
 deploy/postgresql/identidad_sesiones_v1/migraciones/000021_seleccion_perfil_bolsa_rrhh.up.sql
 deploy/postgresql/autorizacion/migraciones/000101_selector_perfil_justificante_rrhh.up.sql
+# Cierre del registro de rechazos: B119 admite la ruta en su fachada; B130 alinea el CHECK físico.
+deploy/postgresql/bolsa_llamamientos/migraciones/000130_ruta_justificante_denegacion_externa.up.sql
