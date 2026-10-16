@@ -9,6 +9,9 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:migraci
 DO $pre$ BEGIN
  IF current_setting('server_version_num')::int NOT BETWEEN 180000 AND 189999
  OR to_regprocedure('vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint)') IS NULL
+ OR encode(sha256(convert_to(pg_get_functiondef(
+  to_regprocedure('vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint)')),'UTF8')),'hex')
+  IS DISTINCT FROM '6f205203e889b378557bc361141fbe57190075ecbabdbdd6e70dc6dfc7473244'
  OR to_regprocedure('vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(jsonb,boolean)') IS NOT NULL
  THEN RAISE EXCEPTION 'CT233: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;

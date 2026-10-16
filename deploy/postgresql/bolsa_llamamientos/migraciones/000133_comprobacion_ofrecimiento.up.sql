@@ -10,6 +10,12 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:
 DO $pre$ BEGIN
  IF current_setting('server_version_num')::int NOT BETWEEN 180000 AND 189999
  OR to_regprocedure('vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(jsonb)') IS NULL
+ OR encode(sha256(convert_to(pg_get_functiondef(
+  to_regprocedure('vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(jsonb)')),'UTF8')),'hex')
+  IS DISTINCT FROM '7cc07d6fe9e4b2cc483c6022c6206a8e67a15d0b48eeade32b67a5ca1d597bb9'
+ OR encode(sha256(convert_to(pg_get_functiondef(
+  to_regprocedure('vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(text,text,text)')),'UTF8')),'hex')
+  IS DISTINCT FROM 'e6dc233b8302fd622d7f2960431bdab88d59f7b0668b06348ff577e4e8558633'
  OR to_regprocedure('vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(jsonb,boolean)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_comprobacion_ofrecimiento_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regclass('vec_bolsa_llamamientos.comprobacion_ofrecimiento_v1') IS NOT NULL
@@ -239,4 +245,26 @@ REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.registrar_comprobacion_ofrecimient
  jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_comprobacion_ofrecimiento_v1(
  jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
+DO $post$ DECLARE x record;p pg_proc%ROWTYPE;
+BEGIN
+ FOR x IN SELECT * FROM (VALUES
+  ('vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(jsonb,boolean)',
+   'vec_contratacion_temporal_propietario','vec_bolsa_llamamientos_propietario',true),
+  ('vec_autorizacion_atestada_v3.consumir_comprobacion_ofrecimiento_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+   'vec_autorizacion_atestada_v3_propietario','vec_bolsa_llamamientos_propietario',true),
+  ('vec_bolsa_llamamientos.registrar_comprobacion_ofrecimiento_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+   'vec_bolsa_llamamientos_propietario','vec_bolsa_llamamientos_ejecutor',true),
+  ('vec_bolsa_llamamientos.calcular_comprobacion_ofrecimiento_v1(jsonb,jsonb,timestamptz)',
+   'vec_bolsa_llamamientos_propietario',NULL,false)
+ ) v(firma,propietario,ejecutor,definidora) LOOP
+  SELECT * INTO STRICT p FROM pg_proc WHERE oid=to_regprocedure(x.firma);
+  IF p.proowner IS DISTINCT FROM to_regrole(x.propietario) OR p.prosecdef IS DISTINCT FROM x.definidora
+  OR p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp'] IS NOT TRUE
+  OR EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+    WHERE a.grantee<>p.proowner AND (a.grantee IS DISTINCT FROM to_regrole(x.ejecutor)
+      OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
+  OR (x.ejecutor IS NOT NULL AND NOT has_function_privilege(x.ejecutor,p.oid,'EXECUTE'))
+  THEN RAISE EXCEPTION 'B133: función sin cierre de permisos %',x.firma USING ERRCODE='55000'; END IF;
+ END LOOP;
+END $post$;
 COMMIT;
