@@ -141,6 +141,13 @@ la verificación ni los permisos de firma. El guion está en
 `deploy/principal/firma_ajustes_f1_37_20261015.md`; el ensayo conjunto con
 la consulta histórica de F1-36 sigue pendiente.
 
+**F1-65A, limpieza de plantillas.** CT232 prepara la retirada de la entrada
+antigua V1 que CT226 conservó por compatibilidad. El portal ya usa V2 con la
+organización explícita. Faltan el ensayo en una copia nueva y la revisión
+independiente antes de integrar; la activación está en
+`deploy/principal/plantillas_compat_f1_65a_20261016.md`. La ampliación de
+escritura a otras organizaciones sigue aparcada.
+
 **F0-02, cierre del arranque heredado de Administración.** Se prepara la
 exigencia del fichero privado de usuarios antes de abrir conexiones y se
 retira la alternativa que pedía un grupo de auditoría inexistente. Se conserva
