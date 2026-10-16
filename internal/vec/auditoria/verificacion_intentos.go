@@ -83,6 +83,7 @@ type RegistroMixtoV2 struct {
 	ConsumoFecha              *RegistroConsumoFechaV3                       `json:"-"`
 	Intento                   *RegistroIntentoV2                            `json:"intento,omitempty"`
 	Preperfil                 *RegistroPreperfilV3                          `json:"preperfil,omitempty"`
+	PreperfilBolsaRRHH        *RegistroPreperfilBolsaRRHHV1                 `json:"preperfil_bolsa_rrhh,omitempty"`
 	Bootstrap                 *RegistroBootstrapV3                          `json:"bootstrap,omitempty"`
 	// Eslabon acompaña a los asientos posteriores al corte de AD207.
 	Eslabon *EslabonCadenaV5 `json:"eslabon,omitempty"`
@@ -231,6 +232,9 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 		if r.ContextoAdminPreV2 != nil && r.TipoRegistro != "contexto_admin_pre_v2" {
 			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
 		}
+		if r.PreperfilBolsaRRHH != nil && r.TipoRegistro != TipoPreperfilBolsaRRHHV1 {
+			return fallar("tipo_invalido", "tipo_registro", "familia_exclusiva", "invalido", secuencia)
+		}
 		if r.ConsumoTransaccion != nil && r.TipoRegistro != TipoConsumoTransaccionV4 {
 			return fallar("tipo_invalido", "tipo_registro", "consumo_exclusivo", "invalido", secuencia)
 		}
@@ -375,6 +379,22 @@ func verificarCadenaMixta(d DocumentoVerificacionMixta, checkpoint CoberturaCade
 			evento, codigo, clave := cotejarRegistroAdminV3(r, secuencia)
 			if codigo != "" {
 				return fallar(codigo, clave, "registro_ad171_valido", "no_admitido", secuencia)
+			}
+			if eventos[evento.EventoRef] {
+				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)
+			}
+			eventos[evento.EventoRef] = true
+			referencia, previo, huella = evento.AuditoriaRef, evento.AnteriorSHA256, evento.HuellaSHA256
+		case TipoPreperfilBolsaRRHHV1:
+			if (!esquemaAdmiteFamiliasPreviasOCatalogo(esquema) && esquema != EsquemaVerificacionFronteraAdminTecnicaV1 && esquema != EsquemaVerificacionGobiernoUsuarios && esquema != EsquemaVerificacionPreperfil && esquema != EsquemaVerificacionFuentesIniciales && esquema != EsquemaVerificacionUnidadInicial && esquema != EsquemaVerificacionBootstrapCentral && esquema != EsquemaVerificacionMantenimientoFijo && esquema != EsquemaVerificacionPeriodica && esquema != EsquemaVerificacionPreservacionAuditoria) || r.ConsumoOrigen != nil || r.ConsumoFecha != nil {
+				return fallar("tipo_invalido", "tipo_registro", "tipo_admitido", "invalido", secuencia)
+			}
+			if r.Eslabon == nil {
+				return fallar("eslabon_ausente", "eslabon", "presente_tras_el_corte", "ausente", secuencia)
+			}
+			evento, codigo, clave := cotejarPreperfilBolsaRRHHV1(r, secuencia)
+			if codigo != "" {
+				return fallar(codigo, clave, "registro_ad287_valido", "no_admitido", secuencia)
 			}
 			if eventos[evento.EventoRef] {
 				return fallar("evento_duplicado", "evento_ref", "unico", "duplicado", secuencia)

@@ -380,6 +380,9 @@ func clavesDocumentoFronteraAdminTecnica(o map[string]json.RawMessage) error {
 		extras := []string{}
 		comunes := []string{"auditoria_ref", "secuencia", "anterior_sha256", "huella_sha256", "registrada_en", "evento_ref", "evento_material_sha256", "operador_login", "accion", "modulo_id", "recurso_ref", "resultado", "motivo_ref", "proceso", "canal", "finalidad_ref", "correlacion_ref"}
 		switch tipo {
+		case auditoria.TipoPreperfilBolsaRRHHV1:
+			objeto = "preperfil_bolsa_rrhh"
+			comunes = []string{"auditoria_ref", "secuencia", "anterior_sha256", "huella_sha256", "registrada_en", "evento_ref", "evento_material_sha256", "actor_ref", "modulo_id", "accion", "recurso_ref", "resultado", "motivo_ref", "proceso", "canal", "finalidad_ref", "correlacion_ref", "fuente_ref", "fuente_sha256"}
 		case "frontera_admin_tecnica":
 			objeto = "frontera_admin_tecnica"
 			comunes = []string{"auditoria_ref", "secuencia", "anterior_sha256", "huella_sha256", "registrada_en", "tipo_registro", "evento_ref", "evento_material_sha256", "operador_login", "accion", "modulo_id", "recurso_ref", "resultado", "codigo_ref", "proceso", "canal", "finalidad_ref", "correlacion_ref"}
