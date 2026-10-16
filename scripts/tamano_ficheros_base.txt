@@ -119,7 +119,7 @@
 782 internal/app/server/server_test.go
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1889 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1894 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 1048 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 983 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
@@ -190,6 +190,7 @@
 334 web/static/textos/es/peticiones-centro.json
 806 scripts/operacion/preparar_expediente_alta_b2/preparar.py
 1131 deploy/postgresql/bolsa_llamamientos/migraciones/000118_criterios_contextuales_ofrecimiento.up.sql
+1109 deploy/postgresql/contratacion_temporal/migraciones/000229_selectores_recuperacion_detalle_rrhh.up.sql
 4027 deploy/postgresql/autorizacion_atestada_v3/migraciones/000277_justificante_bolsa_documental.up.sql
 887 deploy/postgresql/documentos/migraciones/000022_justificante_renuncia_bolsa.up.sql
 3212 deploy/postgresql/autorizacion_atestada_v3/migraciones/000281_despacho_documentos_bolsa_externa.up.sql
