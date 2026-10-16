@@ -500,7 +500,7 @@ func motivoBorradorLlamamientoCorresponde(accion string, motivo dominiovec.Refer
 		return motivo == motivoCrearBorradorLlamamientoBolsaDesarrollo()
 	case puertosbolsa.AccionConsultarBorradorLlamamientoInterno:
 		return motivo == motivoConsultarBorradorLlamamientoBolsaDesarrollo()
-	case puertosbolsa.AccionCambiarSituacionParticipacion:
+	case puertosbolsa.AccionCambiarSituacionParticipacion, puertosbolsa.AccionConfirmarAceptacionDirecta:
 		return motivo == motivoCambiarSituacionParticipacionBolsaDesarrollo()
 	case puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH:
 		return motivo == motivoCambiarSituacionParticipacionBolsaDesarrollo()

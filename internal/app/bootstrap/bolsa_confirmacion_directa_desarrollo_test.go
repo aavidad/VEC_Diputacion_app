@@ -2,14 +2,70 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestConfirmacionDirectaPoliticaRegistraConcesionYDenegacion(t *testing.T) {
+	for _, permitida := range []bool{true, false} {
+		politica, soporte, _, registro := nuevaPoliticaBorradorBolsaPrueba(t)
+		if err := politica.PublicarInicial(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if permitida {
+			politica.instantanea.VersionRol.Concesiones = append(politica.instantanea.VersionRol.Concesiones,
+				dominiovec.ConcesionRol{Accion: puertosbolsa.AccionConfirmarAceptacionDirecta,
+					ModuloID: "bolsa", TipoRecurso: puertosbolsa.TipoRecursoConfirmarAceptacionDirecta,
+					Finalidades: []string{puertosbolsa.FinalidadConfirmarAceptacionDirecta}, GarantiaMinima: dominiovec.AuthAssuranceHigh})
+		}
+		generador := seguridadvec.GeneradorReferenciasCriptograficas{}
+		correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(context.Background(), generador)
+		if err != nil {
+			t.Fatal(err)
+		}
+		solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{
+			VinculoAutenticacionActor: soporte.soporteCanal.contexto.Vinculo,
+			ReferenciaMotivo:          motivoCambiarSituacionParticipacionBolsaDesarrollo(),
+			Accion:                    puertosbolsa.AccionConfirmarAceptacionDirecta, Finalidad: puertosbolsa.FinalidadConfirmarAceptacionDirecta,
+			Recurso: dominiovec.RecursoAutorizable{Referencia: "participacion:01", ModuloID: "bolsa",
+				Tipo:      puertosbolsa.TipoRecursoConfirmarAceptacionDirecta,
+				Ambitos:   map[string]string{"unidad_ref": soporte.unidadRef, "ambito_ref": soporte.ambitoRef},
+				Atributos: map[string]string{"confirmacion_aceptacion_sha256": strings.Repeat("a", 64)}}, Correlacion: correlacion})
+		if err != nil {
+			t.Fatal(err)
+		}
+		servicio, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(politica, politica, politica,
+			politica, relojContratacionTemporalDesarrollo{}, generador,
+			aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: time.Second})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, orden, err := servicio.PrepararSolicitudLigadaV3(context.Background(), solicitud, soporte.soporteCanal.contexto.Resultado)
+		if permitida {
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := politica.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(context.Background(), orden); err != nil {
+				t.Fatal(err)
+			}
+			if registro.concesiones != 1 || registro.denegaciones != 0 {
+				t.Fatalf("concesión sin registrar: %+v", registro)
+			}
+		} else if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || registro.denegaciones != 1 || registro.concesiones != 0 {
+			t.Fatalf("denegación sin registrar: err=%v registro=%+v", err, registro)
+		}
+	}
+}
 
 func TestConfirmacionDirectaAdoptaVersionPublicadaSinPublicarSemilla(t *testing.T) {
 	p, autoridad, datos := politicaProvisionBolsaPrueba(t, 0)

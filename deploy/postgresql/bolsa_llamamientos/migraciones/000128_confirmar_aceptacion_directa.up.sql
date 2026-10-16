@@ -55,6 +55,9 @@ REVOKE ALL ON TYPE vec_bolsa_llamamientos.confirmacion_aceptacion_directa FROM P
 CREATE TRIGGER confirmacion_aceptacion_directa_inmutable BEFORE UPDATE OR DELETE
  ON vec_bolsa_llamamientos.confirmacion_aceptacion_directa FOR EACH ROW
  EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE TRIGGER confirmacion_aceptacion_directa_no_truncar BEFORE TRUNCATE
+ ON vec_bolsa_llamamientos.confirmacion_aceptacion_directa FOR EACH STATEMENT
+ EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
 
 CREATE FUNCTION vec_bolsa_llamamientos.confirmar_aceptacion_directa_v1(
  p_canon text,p_contexto_recurso bytea,
@@ -198,6 +201,10 @@ GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.confirmar_aceptacion_directa_v1
 DO $post$ BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_class WHERE oid='vec_bolsa_llamamientos.confirmacion_aceptacion_directa'::regclass
   AND relrowsecurity AND relforcerowsecurity)
+ OR NOT EXISTS(SELECT 1 FROM pg_trigger
+  WHERE tgrelid='vec_bolsa_llamamientos.confirmacion_aceptacion_directa'::regclass
+   AND tgname='confirmacion_aceptacion_directa_no_truncar' AND tgenabled='O'
+   AND tgtype=34 AND tgfoid='vec_bolsa_llamamientos.constitucion_rechazar_mutacion()'::regprocedure)
  OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_bolsa_llamamientos.confirmar_aceptacion_directa_v1(text,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
   AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole AND p.prosecdef
   AND 'search_path=pg_catalog, pg_temp'=ANY(p.proconfig))
