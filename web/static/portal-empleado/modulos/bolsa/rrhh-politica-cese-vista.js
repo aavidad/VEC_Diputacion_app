@@ -6,10 +6,17 @@ const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
 const t = (clave, variables) => esc(traducirPortal(`politica_cese_${clave}`, variables));
 const plazoVisible = (meses) => meses === 0 ? t("inmediata") : t(meses === 1 ? "mes" : "meses", { meses });
 
+const ETIQUETAS_MODALIDAD = Object.freeze({
+  interinidad: "interinidad",
+  "interinidad|acumulacion_tareas": "interinidad_acumulacion",
+  "contratacion_temporal.interinidad": "ct_interinidad",
+  "contratacion_temporal.interinidad|acumulacion_tareas": "ct_interinidad_acumulacion",
+  relevo: "relevo",
+  vacante: "vacante",
+});
 function modalidad(clave) {
-  const simple = clave.split(".").at(-1).split("|")[0];
-  const etiqueta = simple === "interinidad" ? "interinidad" : simple === "relevo" ? "relevo" : "otro";
-  return t(etiqueta);
+  const conocida = Object.hasOwn(ETIQUETAS_MODALIDAD, clave) ? ETIQUETAS_MODALIDAD[clave] : null;
+  return t(conocida || "no_identificada");
 }
 
 export function renderizarVistaPoliticaCeseRRHH({ politica, estado = "lista", ayudaAbierta = false } = {}) {
@@ -32,7 +39,7 @@ export function renderizarVistaPoliticaCeseRRHH({ politica, estado = "lista", ay
   const fecha = new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "medium", timeStyle: "short", timeZone: ZONA_HORARIA_PORTAL })
     .format(new Date(politica.publicada_en));
   const filas = Object.entries(politica.mapeo).sort(([a], [b]) => a.localeCompare(b, LOCALIZACION_PORTAL))
-    .map(([clave, clase]) => `<tr><th scope="row"><strong>${modalidad(clave)}</strong><small>${esc(clave)}</small></th>
+    .map(([clave, clase]) => `<tr><th scope="row"><strong>${modalidad(clave)}</strong></th>
       <td>${t(clase === "acumulacion_tareas" ? "acumulacion" : "general")}</td></tr>`).join("");
   return `<section class="politica-cese-rrhh" data-politica-cese>${cabecera}
     <div class="politica-cese-resumen">

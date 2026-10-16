@@ -977,7 +977,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("portal-llamamientos-selector.js", "20261015-ofertas-recibo-v3");
   versionesEspeciales.set("modulos/bolsa/rrhh-plazos-ui.js", "20261015-ofertas-recibo-v3");
   for (const ruta of ["portal-menu-bolsa.js", "portal-bolsa-configuracion.js", "portal-modulos-coordinador.js", "portal-panel-interno.js"]) versionesEspeciales.set(ruta, "20261016-bolsa-perfil-propio-v2");
-  versionesEspeciales.set("portal.js", "20261016-bolsa-reglas-catalogo-v5");
+  versionesEspeciales.set("portal.js", "20261016-reglas-etiquetas-v6");
+  versionesEspeciales.set("modulos/bolsa/rrhh-politica-cese-vista.js", "20261016-reglas-etiquetas-v6");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
