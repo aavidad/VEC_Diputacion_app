@@ -4,8 +4,8 @@
  */
 
 import { escaparHTML } from "./componentes-expedientes.js?v=20261015-ct-ofertas-firma-v4";
-import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261013-ct-firma-tres-v3";
-import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261013-ct-firma-tres-v3";
+import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261016-firma-limite-2mib-v1";
+import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261016-firma-limite-2mib-v1";
 import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261015-ct-ofertas-firma-v4";
 
 /** Une el circuito del catálogo con el estado real registrado. */
@@ -45,7 +45,7 @@ export function renderizarAccionesPaso(circuito, documento, paso, t) {
 }
 
 function pdfValido(bytes) {
-  return bytes instanceof Uint8Array && bytes.length >= 10 && bytes.length <= 1024 * 1024
+  return bytes instanceof Uint8Array && bytes.length >= 10 && bytes.length <= 2 * 1024 * 1024
     && new TextDecoder().decode(bytes.subarray(0, 5)) === "%PDF-"
     && new TextDecoder().decode(bytes.subarray(-1024)).includes("%%EOF");
 }
@@ -253,7 +253,7 @@ export function crearAccionesFirma({
       const referenciaPortafirmas = s.bloque.querySelector?.("[data-ct-firma-referencia]")?.value?.trim();
       const fecha = s.bloque.querySelector?.("[data-ct-firma-fecha]")?.value;
       if (s.reintento) {
-        if (!fichero || fichero.size > 1024 * 1024 || fichero.size < 10
+        if (!fichero || fichero.size > 2 * 1024 * 1024 || fichero.size < 10
           || referenciaPortafirmas !== s.reintento.referencia || fecha !== s.reintento.fecha) {
           decir(s, "circuito_firma_recuperacion", {}, true); return;
         }
@@ -265,7 +265,7 @@ export function crearAccionesFirma({
         }
       }
       limpiarCamposExternos(s);
-      if (!fichero || fichero.size > 1024 * 1024 || fichero.size < 10) {
+      if (!fichero || fichero.size > 2 * 1024 * 1024 || fichero.size < 10) {
         campoExternoInvalido(s, "[data-ct-firma-pdf]", "circuito_firma_pdf_requerido"); return;
       }
       if (!referenciaPortafirmas || referenciaPortafirmas.length > 256) {

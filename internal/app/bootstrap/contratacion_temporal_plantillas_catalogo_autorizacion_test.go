@@ -142,16 +142,28 @@ func TestProveedorCatalogoPlantillasCTPreflightCompruebaLOGINYFunciones(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := comprobarPreimagenCatalogoPlantillasCT(context.Background(), c, catalogo); err != nil ||
-		!strings.Contains(c.sql, "comprobar_catalogo_plantillas_base_v1") || len(c.args) != 3 ||
-		c.args[1] != int64(catalogo.Version) || c.args[2] != catalogo.FuenteRef {
+	if err := comprobarPreimagenCatalogoPlantillasCT(context.Background(), c, organizacionAltaContratacionTemporalDesarrollo, catalogo); err != nil ||
+		!strings.Contains(c.sql, "comprobar_catalogo_plantillas_base_v2") || len(c.args) != 4 ||
+		c.args[0] != organizacionAltaContratacionTemporalDesarrollo ||
+		c.args[2] != int64(catalogo.Version) || c.args[3] != catalogo.FuenteRef {
 		t.Fatalf("preimagen no cotejada con contenido canónico: %v %v", err, c.args)
 	}
 	c.fila.valida = false
-	if err := comprobarPreimagenCatalogoPlantillasCT(context.Background(), c, catalogo); !errors.Is(err, plantillasapp.ErrNoDisponible) {
+	if err := comprobarPreimagenCatalogoPlantillasCT(context.Background(), c, organizacionAltaContratacionTemporalDesarrollo, catalogo); !errors.Is(err, plantillasapp.ErrNoDisponible) {
 		t.Fatalf("preimagen ausente admitida: %v", err)
 	}
 	if err := comprobarPreflightCatalogoPlantillasCT(context.Background(), c); !errors.Is(err, plantillasapp.ErrNoDisponible) {
 		t.Fatalf("preflight denegado = %v", err)
+	}
+}
+
+func TestPreimagenPlantillasCTRechazaOrganizacionAusente(t *testing.T) {
+	catalogo, err := CargarCatalogoPlantillasCT("../../../" + rutaPlantillasCTEjemplo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &consultaPreflightPlantillasCT{fila: filaPreflightPlantillasCT{valida: true}}
+	if err := comprobarPreimagenCatalogoPlantillasCT(t.Context(), c, "", catalogo); !errors.Is(err, plantillasapp.ErrNoDisponible) || c.sql != "" {
+		t.Fatalf("organización ausente consultó la base: %v %q", err, c.sql)
 	}
 }

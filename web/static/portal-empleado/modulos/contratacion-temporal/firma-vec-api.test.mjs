@@ -27,6 +27,26 @@ test("VEC V2 envía sólo ocho campos y el PDF intacto, sin original ni actor", 
   assert.equal(captura.opciones.credentials, "same-origin"); assert.equal(captura.opciones.cache, "no-store");
   assert.equal(captura.opciones.redirect, "error"); assert.equal(captura.opciones.referrerPolicy, "no-referrer");
 });
+test("VEC V2 acepta 2 MiB y rechaza el byte adicional antes de enviar", async () => {
+  const maximo = 2 * 1024 * 1024;
+  const firmado = Buffer.alloc(maximo, 0x78);
+  firmado.write("%PDF-", 0, "ascii"); firmado.write("%%EOF", maximo - 5, "ascii");
+  const hash = createHash("sha256").update(firmado).digest("hex");
+  const data = recibo();
+  data.documento_custodiado.huella_sha256 = hash;
+  data.verificacion_tecnica.firmado_sha256 = hash;
+  data.revision_pdf.revision_sha256 = hash;
+  let peticiones = 0;
+  const cliente = crearClienteFirmaVec({ fetchImpl: async (_ruta, opciones) => {
+    peticiones++;
+    assert.equal(JSON.parse(opciones.body).firmado_base64, firmado.toString("base64"));
+    return respuesta(data);
+  } });
+  assert.equal((await cliente.registrar({ ...solicitud, firmado })).firma_eficaz, false);
+  await assert.rejects(cliente.registrar({ ...solicitud, firmado: Buffer.concat([firmado, Buffer.from("x")]) }),
+    { codigo: "contenido_no_valido" });
+  assert.equal(peticiones, 1);
+});
 test("recibo ajeno, revisión rota o eficacia administrativa nunca confirma", async () => {
   for (const alterar of [(d) => { d.expediente_ref = "expediente:otro"; }, (d) => { d.documento = "diligencia"; },
     (d) => { d.firma_eficaz = true; }, (d) => { d.revision_pdf.orden_firma = 1; },

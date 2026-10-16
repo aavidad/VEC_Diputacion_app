@@ -36,6 +36,22 @@ test("descarga nominal envía solo la selección CT y entrega los mismos bytes t
   assert.equal(archivo.reciboRef, datos.recibo_ref, "el recibo devuelto es el histórico");
 });
 
+test("descarga de 2 MiB conserva bytes y huella; un byte más se rechaza", async () => {
+  const maximo = 2 * 1024 * 1024;
+  const pdfGrande = Buffer.alloc(maximo, 0x78);
+  pdfGrande.write("%PDF-", 0, "ascii"); pdfGrande.write("%%EOF", maximo - 5, "ascii");
+  const comprobar = async (contenido, admite) => {
+    const hash = createHash("sha256").update(contenido).digest("hex");
+    const pedido = { ...solicitud, huellaEsperada: hash };
+    const data = { ...datos, pdf_base64: contenido.toString("base64"), huella_sha256: hash };
+    const cliente = crearClienteDescargaFirmaV2({ cryptoImpl: webcrypto, fetchImpl: async () => json(data) });
+    if (admite) assert.deepEqual(Buffer.from((await cliente.descargar(pedido)).contenido), contenido);
+    else await assert.rejects(cliente.descargar(pedido), { codigo: "resultado_no_confiable" });
+  };
+  await comprobar(pdfGrande, true);
+  await comprobar(Buffer.concat([pdfGrande, Buffer.from("x")]), false);
+});
+
 test("bloquea PDF alterado y metadatos ajenos antes de entregar un archivo", async () => {
   for (const cambiado of [
     { ...datos, pdf_base64: Buffer.from("%PDF-1.7\nCAMBIO\n%%EOF").toString("base64") },

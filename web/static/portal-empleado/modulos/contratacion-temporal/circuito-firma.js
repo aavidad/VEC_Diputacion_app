@@ -8,12 +8,12 @@
  */
 
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261015-ct-ofertas-firma-v4";
-import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261015-ct-ofertas-firma-v4";
+import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261016-ct-ofertas-firma-2mib-v1";
 import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261015-ct-ofertas-firma-v4";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261013-ct-firma-tres-v3";
+import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261016-firma-limite-2mib-v1";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteDescargaFirmaV2 } from "./cliente-http-descarga-firma-v2.js?v=20261015-firma-cierre-cache-v3";
+import { crearClienteDescargaFirmaV2 } from "./cliente-http-descarga-firma-v2.js?v=20261016-firma-limite-2mib-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
 const ESQUEMA_V1 = "vec.contratacion_temporal.circuito_firma.v1";
