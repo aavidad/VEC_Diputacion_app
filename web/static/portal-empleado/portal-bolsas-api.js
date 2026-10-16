@@ -24,9 +24,9 @@ import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamami
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261013-bolsa-ranking-n4";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
 import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
-import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261013-bolsa-ranking-n4";
+import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261016-justificante-integracion-v3";
 import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4";
-import { canalesAviso } from "./portal-bolsas-seguimiento.js?v=20261013-bolsa-ranking-n4";
+import { canalesAviso, descargarJustificanteRenuncia } from "./portal-bolsas-seguimiento.js?v=20261016-justificante-integracion-v3";
 import { cargarTextos } from "../comun/textos.js";
 
 const TEXTOS_VINCULO_CT = (await cargarTextos("portal-bolsa")).seccion("vinculo_ct");
@@ -997,7 +997,10 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         evento.preventDefault();
         return;
       }
-      if (accion === "reintentar-bolsas") {
+      if (accion === "descargar-justificante-renuncia") {
+        evento.preventDefault();
+        void descargarJustificanteRenuncia(botonAccion);
+      } else if (accion === "reintentar-bolsas") {
         evento.preventDefault();
         void cargarBolsas();
       } else if (accion === "reintentar-candidatos") {

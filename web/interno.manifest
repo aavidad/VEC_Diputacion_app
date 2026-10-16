@@ -689,3 +689,4 @@ static/portal-empleado/modulos/contratacion-temporal/gestor-recuperacion-firmas-
 static/portal-empleado/modulos/contratacion-temporal/recuperacion-firmas-v2.css
 static/portal-empleado/modulos/contratacion-temporal/vista-recuperacion-firmas-v2.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-recuperacion-firmas-v2.js
+static/portal-empleado/portal-bolsas-justificante-cliente.js

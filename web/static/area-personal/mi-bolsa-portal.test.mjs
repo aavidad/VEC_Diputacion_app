@@ -1,11 +1,36 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cuerpoPortalMiBolsa, enviarPortalMiBolsa, renderizarPortalMiBolsa, revisarRespuestaPortalMiBolsa, validarPortalMiBolsa, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js";
+import { actualizarCamposRenunciaJustificada, cuerpoPortalMiBolsa, enviarPortalMiBolsa, renderizarPortalMiBolsa, revisarRespuestaPortalMiBolsa, validarPortalMiBolsa, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js";
 import { iniciarI18nAreaPersonal } from "./i18n.js";
 import { lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const acciones = { causas_renuncia: ["enfermedad", "matrimonio_union_hecho"], pausa_maxima: "2027-09-25T21:59:59.000000Z", modo_respuesta: "firme" };
 const participaciones = [{ bolsa: "bolsa:demo:1", categoria: "Auxiliar de enfermería" }];
+
+test("causa y PDF solo entran en foco y son obligatorios al elegir renuncia justificada", () => {
+  const html = renderizarPortalMiBolsa(participaciones, [{ bolsa: "bolsa:demo:1", llamamiento_abierto: {
+    contacto_en: "2026-10-11T12:00:00Z", vence_antes_de: "2026-10-12T12:00:00Z",
+  } }], acciones);
+  assert.match(html, /data-portal-justificada hidden/u);
+  assert.match(html, /name="justificante" type="file" accept="application\/pdf,.pdf"/u);
+  const grupo = { hidden: true };
+  const causa = { required: false };
+  const justificante = { required: false, files: ["parte.pdf"] };
+  const radio = { value: "renuncia_justificada" };
+  const nodos = { "[data-portal-justificada]": grupo, '[name="causa"]': causa,
+    '[name="justificante"]': justificante, '[name="respuesta"]:checked': radio };
+  const formulario = { dataset: { portalMiBolsa: "responder" }, querySelector: (selector) => nodos[selector] || null };
+  actualizarCamposRenunciaJustificada(formulario);
+  assert.equal(grupo.hidden, false);
+  assert.equal(causa.required, true);
+  assert.equal(justificante.required, true);
+  radio.value = "acepta";
+  actualizarCamposRenunciaJustificada(formulario);
+  assert.equal(grupo.hidden, true);
+  assert.equal(causa.required, false);
+  assert.equal(justificante.required, false);
+  assert.deepEqual(justificante.files, ["parte.pdf"], "la selección no se pierde al cambiar de opción");
+});
 
 test("separa el llamamiento abierto de la última respuesta propia en ambos idiomas", async () => {
   const abierto = { contacto_en: "2026-10-11T12:00:00Z", vence_antes_de: "2026-10-12T12:00:00Z" };
@@ -63,10 +88,13 @@ test("renunciar exige revisión y permite volver a editar sin crear una petició
   assert.equal(revision.hidden, true, "sin justificante no avanza a la revisión");
   assert.equal(envios, 0);
   datos.set("causa", "enfermedad");
-  datos.set("justificante_ref", "documento:parte");
-  datos.set("justificante", new Blob(["parte"]), "parte.pdf");
+  datos.set("justificante", new Blob([new Uint8Array(16 * 1024 * 1024 + 1)], { type: "application/pdf" }), "grande.pdf");
+  assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
+  assert.match(resultado.textContent, /supera los 16 MiB/u);
+  datos.set("justificante", new Blob(["parte"], { type: "application/pdf" }), "parte.pdf");
   assert.equal(await revisarRespuestaPortalMiBolsa(formulario, datos), false);
   assert.match(resumen.innerHTML, /parte\.pdf/u, "la revisión identifica el archivo elegido");
+  assert.equal(resultado.textContent, "", "la revisión válida retira el aviso del PDF anterior");
   assert.equal(volverRespuestaPortalMiBolsa(formulario), true);
   const html = renderizarPortalMiBolsa(participaciones, [{ bolsa: "bolsa:demo:1", llamamiento_abierto: {
     contacto_en: "2026-09-25T08:00:00.000000Z", vence_antes_de: "2026-09-26T21:59:59.000000Z" } }], acciones);
@@ -296,7 +324,7 @@ test("tras un resultado incierto inmoviliza los datos y reintenta el mismo cuerp
   assert.ok(campos.every((campo) => !campo.disabled));
 });
 
-test("la renuncia justificada exige causa, referencia y justificante, y envía su huella", async () => {
+test("la renuncia justificada exige causa y PDF y conserva la huella de sus bytes", async () => {
   const formulario = { dataset: { portalMiBolsa: "responder", bolsa: "bolsa:demo:1" } };
   const incompleta = new FormData();
   incompleta.set("respuesta", "renuncia_justificada");
@@ -304,10 +332,12 @@ test("la renuncia justificada exige causa, referencia y justificante, y envía s
   const datos = new FormData();
   datos.set("respuesta", "renuncia_justificada");
   datos.set("causa", "enfermedad");
-  datos.set("justificante_ref", "parte-medico-1");
-  datos.set("justificante", new Blob(["abc"]));
-  const { ruta, cuerpo } = await cuerpoPortalMiBolsa(formulario, datos);
+  datos.set("justificante", new Blob(["abc"], { type: "application/pdf" }), "parte.pdf");
+  const { ruta, cuerpo, fichero, claveSubida } = await cuerpoPortalMiBolsa(formulario, datos);
   assert.equal(ruta, "/api/vec/bolsa/mi-bolsa/respuestas");
+  assert.equal(fichero.name, "parte.pdf");
+  assert.equal(claveSubida, `${cuerpo.clave}:justificante`);
+  assert.equal(Object.hasOwn(cuerpo, "justificante_ref"), false);
   assert.equal(cuerpo.justificante_sha256, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   const repetida = await cuerpoPortalMiBolsa(formulario, datos);
   assert.equal(repetida.cuerpo.clave, cuerpo.clave, "un reintento repite la clave");
