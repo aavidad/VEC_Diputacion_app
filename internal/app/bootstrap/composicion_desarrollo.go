@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -17,7 +18,10 @@ import (
 	"vec-diputacion-granada/internal/app/server"
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/portafirmasapagado"
+	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
+	vecfichero "vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -275,14 +279,20 @@ func nuevoServidorDesarrollo(
 		registrarFalloCronosArranque(falloCronos)
 		configuracionCT = configuracionCTSinCronos(cfg)
 	}
-	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, resolvedor); err != nil {
-		return nil, nil, marcarFalloComponenteArranque("identidades_preferencias", err)
-	}
+	falloPreferencias := validarIdentidadesPreferenciasAntesDeCT(cfg, resolvedor)
 	consultaCategorias, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("categorias_profesionales", err)
 	}
 	consultasPersonal := nuevasConsultasPublicasPersonal(cfg, categoriasPersonal, registro)
+	servidorSinCT := func(componente string, causa error) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
+		fallo := marcarFalloComponenteArranque(componente, causa)
+		slog.Warn("contratacion_temporal_no_disponible", "componente", ComponenteFalloArranque(fallo), "causa", telemetria.ClaseErrorArranque(fallo))
+		return nuevoServidorSinContratacionTemporalDesarrollo(cfg, composicion, resolvedor, consultaCategorias, categoriasPersonal, consultasPersonal, emisor)
+	}
+	if falloPreferencias != nil {
+		return servidorSinCT("identidades_preferencias", falloPreferencias)
+	}
 	rutasCalendarios, consultaCalendarios, cerrarCalendarios, err := nuevasRutasYConsultaCalendariosDesarrollo(cfg)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("calendarios", err)
@@ -301,18 +311,21 @@ func nuevoServidorDesarrollo(
 	// El circuito de firma ya se consulta desde el detalle del expediente.
 	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
 	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("reglas_ejemplo", err)
+		return servidorSinCT("reglas_ejemplo", err)
 	}
 	reglasEjemplo.calendarios = consultaCalendarios
 	rutaFormalizacion, err := nuevaRutaDocumentacionFormalizacionDesarrollo(reglasEjemplo.bolsa)
 	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("documentacion_formalizacion", err)
+		return servidorSinCT("documentacion_formalizacion", err)
 	}
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalConReglasDesarrollo(
 		configuracionCT, reglasEjemplo, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
 	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("contratacion_temporal", err)
+		if cerrarContratacion != nil {
+			cerrarContratacion()
+		}
+		return servidorSinCT("contratacion_temporal", err)
 	}
 	completa := false
 	defer func() {
@@ -645,6 +658,86 @@ func nuevoServidorDesarrollo(
 	completa = true
 	calendariosCompletos = true
 	return servidor, composicion, nil
+}
+
+// La autoridad de CT aporta también material y fronteras de Bolsa RRHH,
+// Documentos, Dietas, Cronos, Personal empleado y Usuarios. Si no se compone,
+// esas rutas no se registran ni se sustituyen por una autoridad ficticia.
+// La carcasa conserva la identidad validada y las consultas públicas de
+// Personal, construidas antes y sin dependencia de CT.
+func nuevoServidorSinContratacionTemporalDesarrollo(
+	cfg config.Config,
+	composicion *ComposicionSeguridadDesarrollo,
+	resolvedor vechttp.DemoIdentityResolver,
+	consultaCategorias *vecfichero.ConsultaCatalogos,
+	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
+	consultasPersonal consultasPublicasPersonal,
+	emisor vecports.EmisorIncidenciasTecnicas,
+) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
+	api, err := newVECShellAPICompuestaConIdentidadYRutas(cfg, emisor, resolvedor, categoriasPersonal, nil, nil, nil, nil)
+	if err != nil {
+		return nil, nil, marcarFalloComponenteArranque("vec_shell", err)
+	}
+	cfgPublica := cfg
+	cfgPublica.AuthMode = config.AuthModeDisabled
+	publicaBolsa, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
+	if err != nil {
+		slog.Warn("bolsa_publica_no_disponible", "causa", telemetria.ClaseErrorArranque(err))
+	}
+	raiz := componerRaizConPersonalPublico(composeVECShellAPIConBolsasPublicas(api, publicaBolsa, nil), consultasPersonal)
+	siguiente := raiz
+	raiz = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
+		if r != nil && r.URL != nil && rutaDependienteContratacionTemporal(r.URL.Path) {
+			responderContratacionTemporalNoDisponible(w, r)
+			return
+		}
+		siguiente.ServeHTTP(w, r)
+	})
+	servidor, err := server.NewHTTPServer(cfg, raiz)
+	if err != nil {
+		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)
+	}
+	servidor.TLSConfig, err = composicion.ConfiguracionTLS()
+	if err != nil {
+		return nil, nil, marcarFalloComponenteArranque("configuracion_tls", err)
+	}
+	detenerSellado, err := iniciarSelladoAuditoria(context.Background(), cfg)
+	if err != nil {
+		slog.Warn("sellado_auditoria_no_disponible", "causa", telemetria.ClaseErrorArranque(err))
+	} else {
+		servidor.RegisterOnShutdown(detenerSellado)
+	}
+	return servidor, composicion, nil
+}
+
+func responderContratacionTemporalNoDisponible(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	if r.Method == http.MethodHead {
+		return
+	}
+	if _, err := io.WriteString(w, `{"codigo":"servicio_no_disponible"}`); err != nil {
+		slog.Warn("contratacion_temporal_respuesta_interrumpida", "causa", "escritura_respuesta_no_disponible")
+	}
+}
+
+func rutaDependienteContratacionTemporal(ruta string) bool {
+	for _, prefijo := range [...]string{
+		"/api/vec/contratacion-temporal", "/api/vec/bolsa", "/api/vec/documentos",
+		"/api/vec/auditoria", "/api/vec/calendarios", "/api/vec/reglas/vigentes",
+		"/api/vec/dietas/comisiones", "/api/vec/usuarios", "/api/vec/aspirantes",
+		"/api/vec/personal/asignaciones-dietas", "/api/vec/personal/relaciones-dietas",
+		"/api/vec/personal/organizacion-historica",
+		"/api/vec/personal/solicitudes-rectificacion-dietas", "/api/vec/cronos",
+		"/api/interna/cronos", "/api/interna/personal",
+	} {
+		if ruta == prefijo || strings.HasPrefix(ruta, prefijo+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func descriptoresProveedoresDesarrollo(

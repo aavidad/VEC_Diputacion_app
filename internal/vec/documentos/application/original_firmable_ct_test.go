@@ -107,6 +107,22 @@ func TestOriginalFirmableReservaAntesDeTocarAlmacenYReplayConfirmado(t *testing.
 	// Las llamadas al almacén lanzan panic: el fallo SQL no debe producir objeto.
 }
 
+func TestOriginalFirmableAdmiteDosMiBYRechazaExcesoAntesDeReservar(t *testing.T) {
+	s, repo, autoridad, in := escenarioOriginalPrueba(t)
+	in.Contenido = append([]byte("%PDF-"), bytes.Repeat([]byte("x"), vecports.LimiteOriginalFirmableCT-5)...)
+	suma := sha256.Sum256(in.Contenido)
+	repo.respuesta.HuellaSHA256 = hex.EncodeToString(suma[:])
+	if _, err := s.CustodiarOriginalFirmable(context.Background(), in, autoridad); err != nil ||
+		len(repo.reservas) != 1 || repo.reservas[0].Tamano != int64(vecports.LimiteOriginalFirmableCT) {
+		t.Fatalf("original de 2 MiB no reservado: %v", err)
+	}
+	in.Contenido = append(in.Contenido, 'x')
+	if _, err := s.CustodiarOriginalFirmable(context.Background(), in, autoridad); !errors.Is(err, ports.ErrSolicitudInvalida) ||
+		len(repo.reservas) != 1 || autoridad.llamadas != 1 {
+		t.Fatalf("original excesivo llegó a reserva o autorización: %v", err)
+	}
+}
+
 func TestOriginalFirmableNoAdmitePDFAlteradoNiTipoDistintoConReplay(t *testing.T) {
 	s, repo, autoridad, in := escenarioOriginalPrueba(t)
 	in.Contenido = []byte("%PDF-1.7\notros bytes")

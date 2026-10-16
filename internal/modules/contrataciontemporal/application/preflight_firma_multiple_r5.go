@@ -16,7 +16,7 @@ func ValidarResultadoPreflightFirmaR5V2(r ports.ResultadoPreflightFirmaR5V2, q p
 		return ports.ErrPreflightFirmaR5NoConfiable
 	}
 	if len(r.EntradaContenido) > 0 {
-		if len(r.EntradaContenido) > 1<<20 {
+		if len(r.EntradaContenido) > ports.MaximoDocumentoFirmaBytes {
 			return ports.ErrPreflightFirmaR5NoConfiable
 		}
 		suma := sha256.Sum256(r.EntradaContenido)

@@ -1,8 +1,8 @@
 /** Recupera el PDF original que el servidor custodia una sola vez. */
-import { huellaPDFFirmado } from "./firma-vec-api.js?v=20261013-ct-firma-tres-v3";
+import { huellaPDFFirmado } from "./firma-vec-api.js?v=20261016-firma-limite-2mib-v1";
 
 export const RUTA_ORIGINAL_FIRMABLE = "/api/vec/contratacion-temporal/firmas-documento/original";
-const MAXIMO_PDF = 1 << 20;
+const MAXIMO_PDF = 2 << 20;
 const MAXIMO_RESPUESTA = Math.ceil(MAXIMO_PDF / 3) * 4 + 16384;
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const DOCUMENTO = /^[a-z][a-z0-9_]{1,63}$/u;

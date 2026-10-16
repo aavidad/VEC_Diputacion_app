@@ -1,7 +1,11 @@
 package httpinterno
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -215,6 +219,37 @@ func TestPreflightFirmaR5HTTPV2PDFEntradaConservaRaiz(t *testing.T) {
 				t.Fatal("se reutilizó raíz sin primera firma")
 			}
 		}
+	}
+}
+
+func TestPreflightFirmaR5HTTPV2TransportaDosMiBYRechazaExceso(t *testing.T) {
+	contenido := append([]byte("%PDF-"), bytes.Repeat([]byte("x"), ports.MaximoDocumentoFirmaBytes-5)...)
+	consulta := &consultorPreflightV2Prueba{paso: 1, alterar: func(r *ports.ResultadoPreflightFirmaR5V2) {
+		r.EntradaContenido = contenido
+		suma := sha256.Sum256(contenido)
+		r.EntradaDocumentoHuella = hex.EncodeToString(suma[:])
+	}}
+	h, err := NuevoManejadorPreflightFirmaR5V2(&autoridadCircuitoRRHHPrueba{}, consulta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionPreflightPrueba(cuerpoPreflightPrueba, RutaPreflightFirmaR5))
+	var salida struct {
+		Data resultadoPreflightFirmaR5V2JSON `json:"data"`
+	}
+	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &salida) != nil || len(w.Body.Bytes()) <= 2<<20 {
+		t.Fatalf("el envoltorio Base64 del PDF de 2 MiB fue truncado: %d", w.Code)
+	}
+	decodificado, err := base64.StdEncoding.DecodeString(salida.Data.EntradaPDFBase64)
+	if err != nil || !bytes.Equal(decodificado, contenido) {
+		t.Fatal("preflight no conservó el PDF exacto")
+	}
+	contenido = append(contenido, 'x')
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, peticionPreflightPrueba(cuerpoPreflightPrueba, RutaPreflightFirmaR5))
+	if w.Code != http.StatusBadGateway || bytes.Contains(w.Body.Bytes(), []byte("entrada_pdf_base64")) {
+		t.Fatalf("preflight excesivo salió como PDF válido: %d", w.Code)
 	}
 }
 
