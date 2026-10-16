@@ -5,9 +5,9 @@
  * congelada (y su clave) para no duplicar el efecto.
  */
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261013-ct-firma-tres-v3";
+import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261016-r1-o-integracion-v7";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261007-pantallas-textos-final-v1";
-import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
+import { esValidacionRespuestaPendiente, esComprobacionOfrecimientoPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
 import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261013-ct-firma-tres-v3";
 import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20261012-reglas-configuracion-v1";
 import {
@@ -763,6 +763,7 @@ export function montarFormularioLlamamiento({
     if (["siguiente", "comunicacion_siguiente", "respuesta_siguiente", "resolucion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion)) paso.claveConservada = true;
     paso.valores = { ...solicitud };
     paso.ocupado = true;
+    paso.comprobacionPendiente = null;
     paso.controlador = new AbortController();
     paso.mensaje = esResolucion(operacion) ? "llamamiento_solicitando_resolucion" : "llamamiento_enviando";
     paso.tono = "informacion";
@@ -866,6 +867,9 @@ export function montarFormularioLlamamiento({
     } catch (error) {
       if (!montado) return;
       guardarBorradores();
+      const comprobacionPendiente = operacion === "seleccion" && esComprobacionOfrecimientoPendiente(error)
+        && error.resultadoIndeterminado === false && !respuestaRecibida;
+      paso.comprobacionPendiente = comprobacionPendiente ? error.comprobacionOfrecimiento : null;
       const conflictoContenido = esRespuesta(operacion) && error?.codigo === "contenido_respuesta_en_conflicto";
       const conflicto = conflictoContenido || ["conflicto_no_reintentable", "clave_idempotencia_reutilizada",
         "version_en_conflicto", "seleccion_no_disponible", "resolucion_no_aceptada", "evento_en_conflicto"].includes(error?.codigo);
@@ -876,6 +880,7 @@ export function montarFormularioLlamamiento({
         && error?.envelopeValido === true;
       paso.bloqueado = conflicto;
       paso.mensaje = conflictoContenido ? "llamamiento_contenido_respuesta_en_conflicto"
+        : comprobacionPendiente ? "llamamiento_comprobacion_pendiente"
         : validacionPendiente ? "llamamiento_validacion_respuesta_pendiente"
         : conflicto ? "llamamiento_conflicto"
         : rechazo ? "llamamiento_rechazada"
@@ -884,6 +889,10 @@ export function montarFormularioLlamamiento({
       // Solo un rechazo conocido de este primer intento permite corregir las
       // casillas. Un intento anterior ambiguo nunca se libera por un replay.
       if (validacionPendiente) {
+        paso.solicitud = null;
+        paso.claveConservada = true;
+      }
+      if (comprobacionPendiente) {
         paso.solicitud = null;
         paso.claveConservada = true;
       }
