@@ -37,10 +37,10 @@ BEGIN
     'vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario']::aclitem[]
    OR f.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC',
     'lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']::text[]
-   OR encode(sha256(convert_to(f.prosrc,'UTF8')),'hex') IS DISTINCT FROM CASE f.proname
+   OR encode(sha256(convert_to(f.prosrc,'UTF8')),'hex') IS DISTINCT FROM (CASE f.proname
     WHEN 'consultar_detalle_rrhh_con_selectores_v1' THEN '8695ddb2bf20ae5c25b41182cd164c5974762be8e6dc43f59681f4f43d6c84bb'
     WHEN 'consultar_original_propuesta_rrhh_con_selectores_v1' THEN 'd3ad02aa6e87ff94df3ed961b336757692ca422469c616635f77b9c6f102ff8f'
-    ELSE '853d51a877900a9372a9f1ca446a38dc448a24347543f8625b482a26a3a53e0f' END
+    ELSE '853d51a877900a9372a9f1ca446a38dc448a24347543f8625b482a26a3a53e0f' END)
   THEN RAISE EXCEPTION 'CT229: fachada, hash o ACL divergentes (%)',f.proname USING ERRCODE='55000'; END IF;
  END LOOP;
  IF (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace

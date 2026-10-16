@@ -1,7 +1,8 @@
 # F1-36B: fuente autorizada de la ficha y anexo de selectores
 
-Guion para una copia PostgreSQL 18 de la principal. B está en rama: no
-acredita ensayo, instalación, arranque ni recorrido en navegador.
+Guion para una copia PostgreSQL 18 de la principal. AUT102 y CT229 se instalaron una
+vez en la copia H; sus pruebas SQL focales pasan. B sigue en rama y aún
+no acredita el vector de caducidad al confirmar, arranque ni navegador.
 
 ## Orden y activación
 
@@ -17,10 +18,12 @@ el conjunto exacto y liga acceso y dos sellos. La aplicación pide la variante
 ampliada solo con concesión del campo. La ficha anterior conserva su respuesta.
 B no publica selectores por HTTP ni monta panel; C hará eso y los actos.
 
-## Evidencia pendiente
+## Ensayo y comprobaciones pendientes
 
-Ensayar AUT102 y CT229 con sus pruebas SQL focales y dos revisiones
-independientes de SQL e identidad. Comprobar permiso de ficha, cargo propio
+Las dos fuentes instaladas conservan sus hashes con dos revisiones
+independientes de SQL e identidad. La prueba CT229 recibió únicamente los
+paréntesis de su expresión CASE para que PostgreSQL la analice; esa corrección
+tiene dos revisiones y pasa en la misma copia, sin reaplicar la migración. Comprobar permiso de ficha, cargo propio
 y vigente, unidad coincidente; denegar cargo ajeno, retirado, otra unidad o
 firma sin unidad histórica. Revisar cero y 128 selectores exactos, vínculo
 uno a uno y ambos sellos; incluso la lista vacía exige anexo.
