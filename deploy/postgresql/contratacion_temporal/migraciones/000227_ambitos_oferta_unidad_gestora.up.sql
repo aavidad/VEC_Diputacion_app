@@ -69,6 +69,9 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.preparar_contexto_estado_oferta_ct227(text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.preparar_contexto_estado_oferta_ct227(text,text)
  TO vec_contratacion_temporal_ejecutor;
+-- Desde aquí la preparación CT225 solo se usa dentro de la CT227, como propietario.
+REVOKE EXECUTE ON FUNCTION vec_contratacion_temporal.preparar_contexto_estado_oferta_ct225(text,text)
+ FROM vec_contratacion_temporal_ejecutor;
 
 -- Definición final instalada y verificada de consumir_etapa_seleccion_oferta_ct220.
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.consumir_etapa_seleccion_oferta_ct220(p_etapa text, p_intencion jsonb, p_comando jsonb, p_oferta jsonb, p_material text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
@@ -449,5 +452,9 @@ BEGIN
        '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']::text[]
  THEN RAISE EXCEPTION 'CT227: preparación o ACL divergente' USING ERRCODE='55000'; END IF;
+ IF (SELECT x.proacl::text FROM pg_proc x
+     WHERE x.oid=to_regprocedure('vec_contratacion_temporal.preparar_contexto_estado_oferta_ct225(text,text)'))
+    IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}'
+ THEN RAISE EXCEPTION 'CT227: preparación CT225 aún ejecutable fuera del propietario' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;

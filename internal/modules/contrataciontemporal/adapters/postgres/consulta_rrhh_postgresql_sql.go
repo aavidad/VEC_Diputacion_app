@@ -263,11 +263,12 @@ SELECT contenido_canonico,
        version_expediente::bigint,
        total,
        recibo_sello_sha256,
+       numero_personas,
        selectores_canon,
        selectores_huella_sha256,
        sello_selectores_sha256,
        recibo_selectores_canon
-  FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_selectores_v1(
+  FROM vec_contratacion_temporal.consultar_detalle_rrhh_selectores_con_numero_ct225(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
        ROW($4::text, $5::numeric)::
@@ -306,11 +307,12 @@ SELECT contenido_canonico,
        total,
        recibo_sello_sha256,
        resultado_bolsa,
+       numero_personas,
        selectores_canon,
        selectores_huella_sha256,
        sello_selectores_sha256,
        recibo_selectores_canon
-  FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_y_selectores_v1(
+  FROM vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_selectores_con_numero_ct225(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
        ROW($4::text, $5::numeric)::

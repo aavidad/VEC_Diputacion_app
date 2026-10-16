@@ -275,8 +275,7 @@ func (s *SesionConsultaRRHHPostgreSQL) consultarDetalle(
 		argumentosSQL = append(argumentosSQL, cursor)
 		destinos = append(destinos, &resultadoBolsaRaw)
 	}
-	conNumeroPersonas := consulta == consultaDetalleRRHHPostgreSQL ||
-		consulta == consultaDetalleConBolsaRRHHPostgreSQL
+	conNumeroPersonas := consultaDetalleRRHHConNumeroPersonas(consulta)
 	if conNumeroPersonas {
 		destinos = append(destinos, &numeroPersonas)
 	}
@@ -361,6 +360,18 @@ func (s *SesionConsultaRRHHPostgreSQL) consultarDetalle(
 			return detalle, nil
 		},
 	)
+}
+
+// consultaDetalleRRHHConNumeroPersonas indica si la lectura devuelve, tras el
+// recibo y el resultado de Bolsa, la cifra de personas de CT225. Las cuatro
+// lecturas del detalle ordinario la incluyen; la del original de la propuesta no.
+func consultaDetalleRRHHConNumeroPersonas(consulta string) bool {
+	switch consulta {
+	case consultaDetalleRRHHPostgreSQL, consultaDetalleConBolsaRRHHPostgreSQL,
+		consultaDetalleConSelectoresRRHHPostgreSQL, consultaDetalleConBolsaYSelectoresRRHHPostgreSQL:
+		return true
+	}
+	return false
 }
 
 func validarAnexoSelectoresRRHH(

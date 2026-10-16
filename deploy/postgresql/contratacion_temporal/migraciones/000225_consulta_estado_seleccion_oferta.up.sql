@@ -35,20 +35,29 @@ BEGIN
 END $pre$;
 
 DO $pre_detalle$
-DECLARE f1 oid;f2 oid;
+DECLARE f1 oid;f2 oid;f3 oid;f4 oid;
 BEGIN
  f1:=to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  f2:=to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text)');
- IF f1 IS NULL OR f2 IS NULL
+ f3:=to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_con_selectores_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)');
+ f4:=to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_y_selectores_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,jsonb)');
+ IF f1 IS NULL OR f2 IS NULL OR f3 IS NULL OR f4 IS NULL
     OR encode(sha256(convert_to(pg_get_functiondef(f1),'UTF8')),'hex') IS DISTINCT FROM
        '52970fd98d969acf31bff8f7b53d99a51b01026055833f701be043cce5d280e4'
     OR encode(sha256(convert_to(pg_get_functiondef(f2),'UTF8')),'hex') IS DISTINCT FROM
        '44c8d0e2c3597533300cdd066279a7c4a17526dd2c9eb1f158722a0c36249fcd'
-    OR EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid IN (f1,f2)
+    OR encode(sha256(convert_to(pg_get_functiondef(f3),'UTF8')),'hex') IS DISTINCT FROM
+       '52d99dd6c1434e174884bb3a3887297ccc8ffe181ac075c8bdb5168e0d6c25fc'
+    OR encode(sha256(convert_to(pg_get_functiondef(f4),'UTF8')),'hex') IS DISTINCT FROM
+       '09ed3ffd8f23e8c7660db22704841e359e274c640ea27d434dc9a75d6b5d9573'
+    OR EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid IN (f1,f2,f3,f4)
        AND (p.proowner IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
         OR NOT p.prosecdef OR p.provolatile<>'v' OR p.proacl::text IS DISTINCT FROM
          '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'))
     OR to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+    OR to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_selectores_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)') IS NOT NULL
+    OR to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_selectores_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,jsonb)') IS NOT NULL
+    OR to_regprocedure('vec_contratacion_temporal.numero_personas_detalle_rrhh_ct225(text,text,numeric)') IS NOT NULL
     OR to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text)') IS NOT NULL
  THEN RAISE EXCEPTION 'CT225: fuente nominal del detalle divergente' USING ERRCODE='55000'; END IF;
 END $pre_detalle$;
@@ -195,180 +204,187 @@ REVOKE ALL ON FUNCTION vec_contratacion_temporal.consultar_estado_oferta_expedie
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.consultar_estado_oferta_expediente_ct225(
  text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_ejecutor;
 
--- El recibo original conserva sus bytes y su hash. La cifra se obtiene
--- en la misma transacción, de la versión exacta que devolvió ese recibo.
+-- Cifra de personas de la versión exacta que devolvió el recibo. Común a
+-- las cuatro lecturas siguientes; solo la ejecuta su propietario.
+CREATE FUNCTION vec_contratacion_temporal.numero_personas_detalle_rrhh_ct225(
+ p_organizacion text,p_expediente text,p_version numeric)
+RETURNS smallint LANGUAGE plpgsql STABLE
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC' AS $f$
+DECLARE v_numero jsonb;
+BEGIN
+ IF current_user<>'vec_contratacion_temporal_propietario' THEN
+  RAISE EXCEPTION 'CT225: cantidad no autorizable' USING ERRCODE='42501';
+ END IF;
+ SELECT v.agregado_json#>'{solicitud,numero_personas}' INTO STRICT v_numero
+ FROM vec_contratacion_temporal.expediente_version_integral v
+ WHERE v.expediente_ref=p_expediente AND v.version=p_version
+   AND v.agregado_json->>'organizacion_ref'=p_organizacion;
+ IF v_numero IS NULL OR (jsonb_typeof(v_numero)='number' AND v_numero::text='0') THEN
+  -- La solicitud anterior al campo estructurado sigue el circuito singular.
+  RETURN 1;
+ ELSIF jsonb_typeof(v_numero)='number' AND v_numero::text ~ '^([1-9][0-9]?|100)$' THEN
+  RETURN (v_numero::text)::smallint;
+ END IF;
+ RAISE EXCEPTION 'CT225: cantidad histórica inválida' USING ERRCODE='55000';
+END $f$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.numero_personas_detalle_rrhh_ct225(text,text,numeric) FROM PUBLIC;
+
+-- Las cuatro lecturas devuelven el recibo original sin tocar sus bytes ni su
+-- hash y añaden la cifra, en la misma transacción. Cada una exige una fila.
 CREATE FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_numero_ct225(
  p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1,
  p_consulta vec_contratacion_temporal.consulta_detalle_rrhh_v1,
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,
  p_evidencia bytea,p_raiz bytea)
-RETURNS TABLE(
- contenido_canonico bytea,
- esquema text,
- acceso_ref text,
- secuencia numeric,
- anterior_sha256 text,
- huella_sha256 text,
- vinculo_identidad_huella_sha256 text,
- alcance_huella_sha256 text,
- registrada_en timestamptz,
- auditoria_vec_ref text,
- auditoria_vec_huella_sha256 text,
- consumo_vec_huella_sha256 text,
- contenido_huella_sha256 text,
- resultado_huella_sha256 text,
- cursor_huella_sha256 text,
- generada_en timestamptz,
- expediente_ref text,
- version_expediente numeric,
- total smallint,
+RETURNS TABLE(contenido_canonico bytea,esquema text,acceso_ref text,secuencia numeric,
+ anterior_sha256 text,huella_sha256 text,vinculo_identidad_huella_sha256 text,
+ alcance_huella_sha256 text,registrada_en timestamptz,auditoria_vec_ref text,
+ auditoria_vec_huella_sha256 text,consumo_vec_huella_sha256 text,
+ contenido_huella_sha256 text,resultado_huella_sha256 text,cursor_huella_sha256 text,
+ generada_en timestamptz,expediente_ref text,version_expediente numeric,total smallint,
  recibo_sello_sha256 text,
  numero_personas smallint)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='1s' SET statement_timeout='4s' AS $f$
-DECLARE v_recibo record;v_agregado jsonb;v_numero jsonb;v_cantidad smallint;
+DECLARE n bigint;
 BEGIN
- SELECT * INTO STRICT v_recibo FROM vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1(p_alcance,p_consulta,p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
- SELECT v.agregado_json INTO STRICT v_agregado
- FROM vec_contratacion_temporal.expediente_version_integral v
- WHERE v.expediente_ref=v_recibo.expediente_ref
-   AND v.version=v_recibo.version_expediente
-   AND v.agregado_json->>'organizacion_ref'=p_alcance.organizacion_ref;
- v_numero:=v_agregado#>'{solicitud,numero_personas}';
- IF v_numero IS NULL OR (jsonb_typeof(v_numero)='number' AND v_numero::text='0') THEN
-  -- La solicitud anterior al campo estructurado sigue el circuito singular.
-  v_cantidad:=1;
- ELSIF jsonb_typeof(v_numero)='number' AND v_numero::text ~ '^([1-9][0-9]?|100)$'
-       AND (v_numero::text)::integer BETWEEN 1 AND 100 THEN
-  v_cantidad:=(v_numero::text)::smallint;
- ELSE
-  RAISE EXCEPTION 'CT225: cantidad histórica inválida' USING ERRCODE='55000';
- END IF;
- RETURN QUERY SELECT
-  v_recibo.contenido_canonico,
-  v_recibo.esquema,
-  v_recibo.acceso_ref,
-  v_recibo.secuencia,
-  v_recibo.anterior_sha256,
-  v_recibo.huella_sha256,
-  v_recibo.vinculo_identidad_huella_sha256,
-  v_recibo.alcance_huella_sha256,
-  v_recibo.registrada_en,
-  v_recibo.auditoria_vec_ref,
-  v_recibo.auditoria_vec_huella_sha256,
-  v_recibo.consumo_vec_huella_sha256,
-  v_recibo.contenido_huella_sha256,
-  v_recibo.resultado_huella_sha256,
-  v_recibo.cursor_huella_sha256,
-  v_recibo.generada_en,
-  v_recibo.expediente_ref,
-  v_recibo.version_expediente,
-  v_recibo.total,
-  v_recibo.recibo_sello_sha256,
-  v_cantidad;
+ RETURN QUERY SELECT d.*,vec_contratacion_temporal.numero_personas_detalle_rrhh_ct225(
+  p_alcance.organizacion_ref,d.expediente_ref,d.version_expediente)
+ FROM vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1(p_alcance,p_consulta,
+  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+  p_payload,p_sobre,p_evidencia,p_raiz) d;
+ GET DIAGNOSTICS n=ROW_COUNT;
+ IF n<>1 THEN RAISE EXCEPTION 'CT225: detalle no único' USING ERRCODE='55000'; END IF;
 END $f$;
-REVOKE ALL ON FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_contratacion_temporal_consultor_rrhh;
 
--- El recibo original conserva sus bytes y su hash. La cifra se obtiene
--- en la misma transacción, de la versión exacta que devolvió ese recibo.
 CREATE FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_con_numero_ct225(
  p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1,
  p_consulta vec_contratacion_temporal.consulta_detalle_rrhh_v1,
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,
- p_evidencia bytea,p_raiz bytea,
- p_cursor text)
-RETURNS TABLE(
- contenido_canonico bytea,
- esquema text,
- acceso_ref text,
- secuencia numeric,
- anterior_sha256 text,
- huella_sha256 text,
- vinculo_identidad_huella_sha256 text,
- alcance_huella_sha256 text,
- registrada_en timestamptz,
- auditoria_vec_ref text,
- auditoria_vec_huella_sha256 text,
- consumo_vec_huella_sha256 text,
- contenido_huella_sha256 text,
- resultado_huella_sha256 text,
- cursor_huella_sha256 text,
- generada_en timestamptz,
- expediente_ref text,
- version_expediente numeric,
- total smallint,
- recibo_sello_sha256 text,
- resultado_bolsa jsonb,
+ p_evidencia bytea,p_raiz bytea,p_cursor text)
+RETURNS TABLE(contenido_canonico bytea,esquema text,acceso_ref text,secuencia numeric,
+ anterior_sha256 text,huella_sha256 text,vinculo_identidad_huella_sha256 text,
+ alcance_huella_sha256 text,registrada_en timestamptz,auditoria_vec_ref text,
+ auditoria_vec_huella_sha256 text,consumo_vec_huella_sha256 text,
+ contenido_huella_sha256 text,resultado_huella_sha256 text,cursor_huella_sha256 text,
+ generada_en timestamptz,expediente_ref text,version_expediente numeric,total smallint,
+ recibo_sello_sha256 text,resultado_bolsa jsonb,
  numero_personas smallint)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='1s' SET statement_timeout='4s' AS $f$
-DECLARE v_recibo record;v_agregado jsonb;v_numero jsonb;v_cantidad smallint;
+DECLARE n bigint;
 BEGIN
- SELECT * INTO STRICT v_recibo FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(p_alcance,p_consulta,p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz,p_cursor);
- SELECT v.agregado_json INTO STRICT v_agregado
- FROM vec_contratacion_temporal.expediente_version_integral v
- WHERE v.expediente_ref=v_recibo.expediente_ref
-   AND v.version=v_recibo.version_expediente
-   AND v.agregado_json->>'organizacion_ref'=p_alcance.organizacion_ref;
- v_numero:=v_agregado#>'{solicitud,numero_personas}';
- IF v_numero IS NULL OR (jsonb_typeof(v_numero)='number' AND v_numero::text='0') THEN
-  -- La solicitud anterior al campo estructurado sigue el circuito singular.
-  v_cantidad:=1;
- ELSIF jsonb_typeof(v_numero)='number' AND v_numero::text ~ '^([1-9][0-9]?|100)$'
-       AND (v_numero::text)::integer BETWEEN 1 AND 100 THEN
-  v_cantidad:=(v_numero::text)::smallint;
- ELSE
-  RAISE EXCEPTION 'CT225: cantidad histórica inválida' USING ERRCODE='55000';
- END IF;
- RETURN QUERY SELECT
-  v_recibo.contenido_canonico,
-  v_recibo.esquema,
-  v_recibo.acceso_ref,
-  v_recibo.secuencia,
-  v_recibo.anterior_sha256,
-  v_recibo.huella_sha256,
-  v_recibo.vinculo_identidad_huella_sha256,
-  v_recibo.alcance_huella_sha256,
-  v_recibo.registrada_en,
-  v_recibo.auditoria_vec_ref,
-  v_recibo.auditoria_vec_huella_sha256,
-  v_recibo.consumo_vec_huella_sha256,
-  v_recibo.contenido_huella_sha256,
-  v_recibo.resultado_huella_sha256,
-  v_recibo.cursor_huella_sha256,
-  v_recibo.generada_en,
-  v_recibo.expediente_ref,
-  v_recibo.version_expediente,
-  v_recibo.total,
-  v_recibo.recibo_sello_sha256,
-  v_recibo.resultado_bolsa,
-  v_cantidad;
+ RETURN QUERY SELECT d.*,vec_contratacion_temporal.numero_personas_detalle_rrhh_ct225(
+  p_alcance.organizacion_ref,d.expediente_ref,d.version_expediente)
+ FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(p_alcance,p_consulta,
+  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+  p_payload,p_sobre,p_evidencia,p_raiz,p_cursor) d;
+ GET DIAGNOSTICS n=ROW_COUNT;
+ IF n<>1 THEN RAISE EXCEPTION 'CT225: detalle no único' USING ERRCODE='55000'; END IF;
 END $f$;
-REVOKE ALL ON FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text) TO vec_contratacion_temporal_consultor_rrhh;
+
+-- Perfil con concesión de firma histórica (CT229): mismo anexo de selectores
+-- y la misma cifra que el detalle sin selectores.
+CREATE FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_selectores_con_numero_ct225(
+ p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+ p_consulta vec_contratacion_temporal.consulta_detalle_rrhh_v1,
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,
+ p_evidencia bytea,p_raiz bytea,p_filtro jsonb)
+RETURNS TABLE(contenido_canonico bytea,esquema text,acceso_ref text,secuencia numeric,
+ anterior_sha256 text,huella_sha256 text,vinculo_identidad_huella_sha256 text,
+ alcance_huella_sha256 text,registrada_en timestamptz,auditoria_vec_ref text,
+ auditoria_vec_huella_sha256 text,consumo_vec_huella_sha256 text,
+ contenido_huella_sha256 text,resultado_huella_sha256 text,cursor_huella_sha256 text,
+ generada_en timestamptz,expediente_ref text,version_expediente numeric,total smallint,
+ recibo_sello_sha256 text,selectores_canon bytea,selectores_huella_sha256 text,
+ sello_selectores_sha256 text,recibo_selectores_canon bytea,
+ numero_personas smallint)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
+SET lock_timeout='1s' SET statement_timeout='4s' AS $f$
+DECLARE n bigint;
+BEGIN
+ RETURN QUERY SELECT d.*,vec_contratacion_temporal.numero_personas_detalle_rrhh_ct225(
+  p_alcance.organizacion_ref,d.expediente_ref,d.version_expediente)
+ FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_selectores_v1(p_alcance,p_consulta,
+  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+  p_payload,p_sobre,p_evidencia,p_raiz,p_filtro) d;
+ GET DIAGNOSTICS n=ROW_COUNT;
+ IF n<>1 THEN RAISE EXCEPTION 'CT225: detalle no único' USING ERRCODE='55000'; END IF;
+END $f$;
+
+CREATE FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_selectores_con_numero_ct225(
+ p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+ p_consulta vec_contratacion_temporal.consulta_detalle_rrhh_v1,
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,
+ p_evidencia bytea,p_raiz bytea,p_cursor text,p_filtro jsonb)
+RETURNS TABLE(contenido_canonico bytea,esquema text,acceso_ref text,secuencia numeric,
+ anterior_sha256 text,huella_sha256 text,vinculo_identidad_huella_sha256 text,
+ alcance_huella_sha256 text,registrada_en timestamptz,auditoria_vec_ref text,
+ auditoria_vec_huella_sha256 text,consumo_vec_huella_sha256 text,
+ contenido_huella_sha256 text,resultado_huella_sha256 text,cursor_huella_sha256 text,
+ generada_en timestamptz,expediente_ref text,version_expediente numeric,total smallint,
+ recibo_sello_sha256 text,resultado_bolsa jsonb,selectores_canon bytea,
+ selectores_huella_sha256 text,sello_selectores_sha256 text,recibo_selectores_canon bytea,
+ numero_personas smallint)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
+SET lock_timeout='1s' SET statement_timeout='4s' AS $f$
+DECLARE n bigint;
+BEGIN
+ RETURN QUERY SELECT d.*,vec_contratacion_temporal.numero_personas_detalle_rrhh_ct225(
+  p_alcance.organizacion_ref,d.expediente_ref,d.version_expediente)
+ FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_y_selectores_v1(p_alcance,p_consulta,
+  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+  p_payload,p_sobre,p_evidencia,p_raiz,p_cursor,p_filtro) d;
+ GET DIAGNOSTICS n=ROW_COUNT;
+ IF n<>1 THEN RAISE EXCEPTION 'CT225: detalle no único' USING ERRCODE='55000'; END IF;
+END $f$;
+
+DO $acl$
+DECLARE r record;
+BEGIN
+ FOR r IN SELECT p.oid::regprocedure AS f FROM pg_proc p
+   JOIN pg_namespace s ON s.oid=p.pronamespace
+   WHERE s.nspname='vec_contratacion_temporal' AND p.proname IN (
+    'consultar_detalle_rrhh_con_numero_ct225','consultar_detalle_rrhh_bolsa_con_numero_ct225',
+    'consultar_detalle_rrhh_selectores_con_numero_ct225',
+    'consultar_detalle_rrhh_bolsa_selectores_con_numero_ct225') LOOP
+  EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC',r.f);
+  EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO vec_contratacion_temporal_consultor_rrhh',r.f);
+ END LOOP;
+END $acl$;
 
 DO $post$
+DECLARE n integer;
 BEGIN
- IF to_regprocedure('vec_contratacion_temporal.preparar_contexto_estado_oferta_ct225(text,text)') IS NULL
+ SELECT count(*) INTO n FROM pg_proc p WHERE p.oid IN (
+   to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
+   to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text)'),
+   to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_selectores_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)'),
+   to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_selectores_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,jsonb)'))
+  AND p.proowner='vec_contratacion_temporal_propietario'::regrole AND p.prosecdef
+  AND p.provolatile='v'
+  AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s']::text[]
+  AND p.proacl::text='{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}';
+ IF n<>4
+    OR to_regprocedure('vec_contratacion_temporal.preparar_contexto_estado_oferta_ct225(text,text)') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.consultar_estado_oferta_expediente_ct225(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
-    OR to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
-    OR to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text)') IS NULL
-    OR NOT has_function_privilege('vec_contratacion_temporal_consultor_rrhh',
-      'vec_contratacion_temporal.consultar_detalle_rrhh_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,'EXECUTE')
-    OR NOT has_function_privilege('vec_contratacion_temporal_consultor_rrhh',
-      'vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text)'::regprocedure,'EXECUTE')
+    OR NOT EXISTS (SELECT 1 FROM pg_proc p
+      WHERE p.oid=to_regprocedure('vec_contratacion_temporal.numero_personas_detalle_rrhh_ct225(text,text,numeric)')
+      AND p.proowner='vec_contratacion_temporal_propietario'::regrole AND NOT p.prosecdef
+      AND p.proacl::text='{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}')
     OR EXISTS (SELECT 1 FROM pg_proc p,
       LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
       WHERE p.oid IN (
         'vec_contratacion_temporal.consultar_estado_oferta_expediente_ct225(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
-        'vec_contratacion_temporal.preparar_contexto_estado_oferta_ct225(text,text)'::regprocedure,
-        'vec_contratacion_temporal.consultar_detalle_rrhh_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
-        'vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_con_numero_ct225(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text)'::regprocedure)
+        'vec_contratacion_temporal.preparar_contexto_estado_oferta_ct225(text,text)'::regprocedure)
         AND acl.grantee=0 AND acl.privilege_type='EXECUTE')
  THEN RAISE EXCEPTION 'CT225: postimagen o ACL divergente' USING ERRCODE='55000'; END IF;
 END $post$;
