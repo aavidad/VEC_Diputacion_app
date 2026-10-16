@@ -191,6 +191,18 @@ Son dos expedientes distintos: P conserva la comprobación del caso único de
 El guion de activación, la lista SQL y los límites están en
 `deploy/principal/candidata_hz39/firma/LEEME.md`.
 
+**F1-36A, H: base de recuperación histórica.** En rama: AD286, CT228,
+AUT103, montaje nominal del consumidor existente de recuperación V2 y
+publicador de cargos con su permiso positivo de recuperación. Las fuentes SQL
+se ensayaron en copia propia con dos revisiones; arranque con configuración
+anterior y nueva, reinicio y recuperación de originales comprobados. Falta CI
+antes de integrar. Este
+corte conserva las asignaciones de consulta vigentes y no ofrece un panel nuevo;
+la recuperación exige renovar por Administración el cargo de firma. B conectará
+la fuente autorizada y el anexo de la ficha; C montará la pantalla y gobernará
+las asignaciones. Hasta C sigue abierto F1-36. Guion A:
+`deploy/principal/firma_historica_base_f1_36a_20261016.md`.
+
 F1-64 configura, sin SQL nuevo, las publicaciones técnicas nuevas de CT y
 del portal externo. Dos revisiones y focales favorables; arranque con y sin el
 valor, publicación externa de 90 días y recuperación sin acortarla comprobados.

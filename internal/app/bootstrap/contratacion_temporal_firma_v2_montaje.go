@@ -50,8 +50,10 @@ type montajeFirmaVecR5CT struct {
 	seleccion          ports.FuenteSeleccionFirmanteV2
 	competencia        *fuenteCompetenciaFirmaVecV2
 	consulta           *firmaemisorv2.Emisor
+	recuperacion       *firmaemisorv2.Emisor
 	firmas             *emisoresFirmaVecPorPerfilCT
 	emisorConsulta     *emisorMaterialRenovableCTDesarrollo
+	emisorRecuperacion *emisorMaterialRenovableCTDesarrollo
 	emisorRegistro     *emisorMaterialRenovableCTDesarrollo
 	emisorCuadro       *emisorMaterialRenovableCTDesarrollo
 	emisorDetalle      *emisorMaterialRenovableCTDesarrollo
@@ -230,9 +232,13 @@ func prepararMontajeFirmaVecR5CT(ctx context.Context, cfg config.Config, c confi
 	if err != nil {
 		return nil, err
 	}
-	desConsulta, _ := descriptoresMaterialFirmasR5V2CTDesarrollo()
+	desConsulta, desRecuperacion := descriptoresMaterialFirmasR5V2CTDesarrollo()
 	desVec, _ := descriptoresMaterialFirmaV2EscrituraCTDesarrollo()
 	m.emisorConsulta, err = emisorMaterialFirmaR5Actual(ctx, alta, derivador, m.reloj, desConsulta)
+	if err != nil {
+		return nil, err
+	}
+	m.emisorRecuperacion, err = emisorMaterialFirmaR5Actual(ctx, alta, derivador, m.reloj, desRecuperacion)
 	if err != nil {
 		return nil, err
 	}
@@ -257,6 +263,10 @@ func prepararMontajeFirmaVecR5CT(ctx context.Context, cfg config.Config, c confi
 		return nil, errMontajeFirmaVecR5
 	}
 	m.consulta, err = firmaemisorv2.NuevoEmisorConsultaFirmaVecDesarrollo(m.nominal, m.emisorConsulta, motivoFirmaV2CTDesarrollo(), m.reloj, m.fuenteAutorizacion)
+	if err != nil {
+		return nil, err
+	}
+	m.recuperacion, err = firmaemisorv2.NuevoEmisorConsultaFirmaVecDesarrollo(m.nominal, m.emisorRecuperacion, motivoFirmaV2CTDesarrollo(), m.reloj, m.fuenteAutorizacion)
 	if err != nil {
 		return nil, err
 	}
@@ -324,25 +334,51 @@ func emisorMaterialFirmaR5Actual(ctx context.Context, alta *dependenciasAltaCont
 
 func fronterasFirmaVecR5CT(c configuracionFirmasCT) []descriptorFronteraComunDesarrollo {
 	var perfiles []string
+	var perfilesFirma []string
 	for _, s := range c.Firmantes {
 		perfiles = append(perfiles, s.PerfilRef, s.PerfilConsultaCTRef, s.PerfilDocumentosRef)
+		perfilesFirma = append(perfilesFirma, s.PerfilRef)
 	}
 	var salida []descriptorFronteraComunDesarrollo
 	for _, ruta := range []struct{ ruta, clave, capacidad string }{
 		{httpinterno.RutaRegistroFirmaVec, "ct-firma-vec-registrar", ports.AccionRegistrarFirmaVec},
 		{httpinterno.RutaPreflightFirmaR5, "ct-firma-vec-preflight", ports.AccionConsultarFirmasR5V2},
 		{httpinterno.RutaConsultaFirmasR5V2, "ct-firma-vec-consultar", ports.AccionConsultarFirmasR5V2},
+		{httpinterno.RutaRecuperacionFirmasR5V2, "ct-firma-vec-recuperar", ports.AccionRecuperarFirmasR5V2},
 		{httpinterno.RutaDescargaFirmaR5V2, "ct-firma-vec-descargar", ports.AccionConsultarFirmasR5V2},
 	} {
+		perfilesRuta := perfiles
+		if ruta.ruta == httpinterno.RutaRecuperacionFirmasR5V2 {
+			perfilesRuta = perfilesFirma
+		}
 		salida = append(salida, descriptorFronteraComunDesarrollo{Clave: ruta.clave, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: ruta.ruta,
-			PerfilesActivosRef: perfiles, ClavePolitica: "politica-ct-firma-v2-nominal", ClaveCapacidad: ruta.capacidad})
+			PerfilesActivosRef: perfilesRuta, ClavePolitica: "politica-ct-firma-v2-nominal", ClaveCapacidad: ruta.capacidad})
 	}
 	return salida
 }
 
 func rutaFirmaVecR5CT(ruta string) bool {
 	return ruta == httpinterno.RutaRegistroFirmaVec || ruta == httpinterno.RutaPreflightFirmaR5 ||
-		ruta == httpinterno.RutaConsultaFirmasR5V2 || ruta == httpinterno.RutaDescargaFirmaR5V2
+		ruta == httpinterno.RutaConsultaFirmasR5V2 || ruta == httpinterno.RutaRecuperacionFirmasR5V2 ||
+		ruta == httpinterno.RutaDescargaFirmaR5V2
+}
+
+func accionesFronteraFirmaVecR5CT(ruta string) []string {
+	if ruta == httpinterno.RutaRecuperacionFirmasR5V2 {
+		return []string{ports.AccionRecuperarFirmasR5V2}
+	}
+	if !rutaFirmaVecR5CT(ruta) {
+		return nil
+	}
+	acciones := []string{ports.AccionConsultarFirmasR5V2}
+	if ruta == httpinterno.RutaRegistroFirmaVec {
+		acciones = append(acciones, ports.AccionRegistrarFirmaVec)
+	}
+	acciones = append(acciones, docports.AccionDescargar)
+	if ruta == httpinterno.RutaRegistroFirmaVec {
+		acciones = append(acciones, docports.AccionCustodiarFirmado)
+	}
+	return acciones
 }
 
 func (m *montajeFirmaVecR5CT) autorizaciones() ([]descriptorAutorizacionComunDesarrollo, error) {
@@ -363,20 +399,12 @@ func (m *montajeFirmaVecR5CT) autorizaciones() ([]descriptorAutorizacionComunDes
 	}
 	var salida []descriptorAutorizacionComunDesarrollo
 	for _, frontera := range fronterasFirmaVecR5CT(m.configuracion) {
-		for _, accion := range []string{ports.AccionConsultarFirmasR5V2, ports.AccionRegistrarFirmaVec} {
-			if accion == ports.AccionRegistrarFirmaVec && frontera.Ruta != httpinterno.RutaRegistroFirmaVec {
-				continue
-			}
-			salida = append(salida, descriptorAutorizacionComunDesarrollo{Accion: accion,
-				ClavePolitica: frontera.ClavePolitica, ClaveCapacidad: frontera.ClaveCapacidad,
-				Fronteras: []string{frontera.Clave}, Politica: politicaFirma})
-		}
-		for _, accion := range []string{docports.AccionDescargar, docports.AccionCustodiarFirmado} {
-			if accion == docports.AccionCustodiarFirmado && frontera.Ruta != httpinterno.RutaRegistroFirmaVec {
-				continue
-			}
+		for _, accion := range accionesFronteraFirmaVecR5CT(frontera.Ruta) {
 			politica := politicaOriginal
-			if accion == docports.AccionCustodiarFirmado {
+			switch accion {
+			case ports.AccionConsultarFirmasR5V2, ports.AccionRegistrarFirmaVec, ports.AccionRecuperarFirmasR5V2:
+				politica = politicaFirma
+			case docports.AccionCustodiarFirmado:
 				politica = politicaCustodia
 			}
 			salida = append(salida, descriptorAutorizacionComunDesarrollo{Accion: accion,
@@ -388,7 +416,7 @@ func (m *montajeFirmaVecR5CT) autorizaciones() ([]descriptorAutorizacionComunDes
 }
 
 func (m *montajeFirmaVecR5CT) rutas(f *firmaDocumentoCTDesarrollo, original *montajeOriginalFirmaR5Desarrollo) ([]vechttp.RutaExacta, error) {
-	if m == nil || f == nil || f.servicio == nil || f.circuito == nil || original == nil || original.servicioOriginal == nil || f.verificadorR5 == nil {
+	if m == nil || m.recuperacion == nil || f == nil || f.servicio == nil || f.circuito == nil || original == nil || original.servicioOriginal == nil || f.verificadorR5 == nil {
 		return nil, errMontajeFirmaVecR5
 	}
 	montado := false
@@ -455,6 +483,11 @@ func (m *montajeFirmaVecR5CT) rutas(f *firmaDocumentoCTDesarrollo, original *mon
 		cerrar()
 		return nil, err
 	}
+	hRecuperacion, err := httpinterno.NuevoManejadorRecuperacionFirmasR5V2(m.nominal, m.recuperacion, durable, intentos, m.nominal)
+	if err != nil {
+		cerrar()
+		return nil, err
+	}
 	rutaDescarga, err := nuevaRutaDescargaFirmaR5V2CT(m, pdfAnterior, durable, intentos)
 	if err != nil {
 		cerrar()
@@ -467,6 +500,7 @@ func (m *montajeFirmaVecR5CT) rutas(f *firmaDocumentoCTDesarrollo, original *mon
 		{Ruta: httpinterno.RutaPreflightFirmaR5, Manejador: m.nominal.envolver(hPre)},
 		{Ruta: httpinterno.RutaRegistroFirmaVec, Manejador: hVec},
 		{Ruta: httpinterno.RutaConsultaFirmasR5V2, Manejador: m.nominal.envolver(hConsulta)},
+		{Ruta: httpinterno.RutaRecuperacionFirmasR5V2, Manejador: m.nominal.envolver(hRecuperacion)},
 		rutaDescarga,
 	}, nil
 }

@@ -188,7 +188,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Tramitación del expediente | Análisis, crédito, vía de cobertura, unidad, informe e Intervención. | Decidir con RRHH si el ofrecimiento va antes o después de Intervención. | El orden de las fases que fije RRHH, que se puede cambiar por configuración. |
 | Documentos | Borradores en PDF y Word con el logotipo y los datos del expediente. | Las plantillas definitivas de RRHH. La gestión de plantillas aún no estaba activada en la última copia de ensayo. | Documentos con las plantillas oficiales, listos para firmar. |
 | Unidad del puesto ofrecido | Comprobada en la selección local: Personal consulta la unidad del puesto y se conserva la unidad gestora del expediente. | Integrar la composición ensayada y completar el recorrido. | RRHH puede gestionar un puesto de otro centro sin confundir ambas unidades. |
-| Firma | En la copia de ensayo, el informe tiene dos firmas y la resolución tres; sus PDF se recuperan desde la ficha después de reiniciar. Está preparado un límite de tamaño común para generar, firmar y descargar el PDF en VEC. | Probar el recorrido entero en un mismo expediente e instalar lo ensayado. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
+| Firma | En la copia de ensayo, el informe tiene dos firmas y la resolución tres; sus PDF se recuperan desde la ficha después de reiniciar. Está preparado un límite de tamaño común para generar, firmar y descargar el PDF en VEC. | Probar el recorrido entero en un mismo expediente e instalar lo ensayado; la consulta de firmas anteriores desde la ficha aún necesita su fuente y su pantalla. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
 | Cese y vuelta a la bolsa | El cese se registra. | Probar entera la vuelta automática a la bolsa. | Al cesar, la persona vuelve sola a su bolsa con la situación que marque la regla. |
@@ -228,6 +228,8 @@ conservan sus restricciones de tamaño. Las firmas ya guardadas conservan sus do
 la comprobación de la firma sigue siendo la misma.
 
 **Falta.** Probar todo el recorrido en un mismo expediente: el informe y la resolución se han comprobado en dos expedientes distintos. La instalación en el entorno compartido corresponde a dirección.
+
+La consulta de firmas anteriores se prepara por partes: esta primera conserva la ficha y los PDF actuales; la consulta desde un botón de la ficha llegará después de conectar su fuente autorizada y su pantalla.
 
 La firma electrónica del documento y la competencia de quien firma se comprueban por separado: [Ley 39/2015, artículo 26.2.e](https://www.boe.es/eli/es/l/2015/10/01/39/con#a26) y [Ley 40/2015, artículo 12](https://www.boe.es/eli/es/l/2015/10/01/40/con#a12). El orden de cargos del recorrido es configurable y sigue pendiente de la confirmación de RRHH y Secretaría General; esos artículos no fijan quién firma cada paso.
 
