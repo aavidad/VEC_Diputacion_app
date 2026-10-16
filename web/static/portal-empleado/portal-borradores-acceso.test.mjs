@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20261016-modalidad-inscripcion-v1";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20261008-borradores-error-legible-v1";
 import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20261008-borradores-error-legible-v1";
 import { opciones } from "./portal-borradores-fixtures.test-helper.mjs";
 

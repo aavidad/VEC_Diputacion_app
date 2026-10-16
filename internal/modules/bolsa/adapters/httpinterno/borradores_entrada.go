@@ -70,15 +70,14 @@ type actualizacionBorradorJSON struct {
 }
 
 type contenidoBorradorJSON struct {
-	Tipo                 string                                        `json:"tipo"`
-	ModalidadInscripcion dominiobolsa.ModalidadInscripcionConvocatoria `json:"modalidad_inscripcion"`
-	Categorias           *[]string                                     `json:"categorias"`
-	Titulo               string                                        `json:"titulo"`
-	Resumen              string                                        `json:"resumen"`
-	Descripcion          string                                        `json:"descripcion"`
-	Plazos               *[]plazoBorradorJSON                          `json:"plazos"`
-	Requisitos           *[]requisitoBorradorJSON                      `json:"requisitos"`
-	Ayuda                *[]ayudaBorradorJSON                          `json:"ayuda"`
+	Tipo        string                   `json:"tipo"`
+	Categorias  *[]string                `json:"categorias"`
+	Titulo      string                   `json:"titulo"`
+	Resumen     string                   `json:"resumen"`
+	Descripcion string                   `json:"descripcion"`
+	Plazos      *[]plazoBorradorJSON     `json:"plazos"`
+	Requisitos  *[]requisitoBorradorJSON `json:"requisitos"`
+	Ayuda       *[]ayudaBorradorJSON     `json:"ayuda"`
 }
 
 type plazoBorradorJSON struct {
@@ -390,7 +389,6 @@ func convertirContenidoBorrador(
 	origen *contenidoBorradorJSON,
 ) (gobiernoconvocatorias.ContenidoEditableBorrador, error) {
 	if origen == nil || origen.Categorias == nil || origen.Plazos == nil || origen.Requisitos == nil || origen.Ayuda == nil ||
-		(origen.ModalidadInscripcion != "" && !origen.ModalidadInscripcion.ValidaParaPublicar()) ||
 		!patronClaveBorrador.MatchString(origen.Tipo) || !cadenaBorradorValida(origen.Titulo, 180, false, false) ||
 		!cadenaBorradorValida(origen.Resumen, 500, false, false) || !cadenaBorradorValida(origen.Descripcion, 12000, false, true) ||
 		len(*origen.Categorias) < 1 || len(*origen.Categorias) > 1024 || len(*origen.Plazos) < 1 || len(*origen.Plazos) > 64 ||
@@ -398,8 +396,7 @@ func convertirContenidoBorrador(
 		return gobiernoconvocatorias.ContenidoEditableBorrador{}, errEntradaBorradorInvalida
 	}
 	resultado := gobiernoconvocatorias.ContenidoEditableBorrador{
-		Tipo: origen.Tipo, ModalidadInscripcion: origen.ModalidadInscripcion,
-		Titulo: origen.Titulo, Resumen: origen.Resumen, Descripcion: origen.Descripcion,
+		Tipo: origen.Tipo, Titulo: origen.Titulo, Resumen: origen.Resumen, Descripcion: origen.Descripcion,
 		Categorias: append([]string(nil), (*origen.Categorias)...),
 		Plazos:     make([]dominiobolsa.PlazoConvocatoria, len(*origen.Plazos)),
 		Requisitos: make([]dominiobolsa.RequisitoConvocatoria, len(*origen.Requisitos)),

@@ -167,15 +167,14 @@ type ayudaBorradorSalidaJSON struct {
 }
 
 type contenidoEditableBorradorJSON struct {
-	Tipo                 string                                        `json:"tipo"`
-	ModalidadInscripcion dominiobolsa.ModalidadInscripcionConvocatoria `json:"modalidad_inscripcion,omitempty"`
-	Categorias           []string                                      `json:"categorias"`
-	Titulo               string                                        `json:"titulo"`
-	Resumen              string                                        `json:"resumen"`
-	Descripcion          string                                        `json:"descripcion"`
-	Plazos               []plazoBorradorSalidaJSON                     `json:"plazos"`
-	Requisitos           []requisitoBorradorSalidaJSON                 `json:"requisitos"`
-	Ayuda                []ayudaBorradorSalidaJSON                     `json:"ayuda"`
+	Tipo        string                        `json:"tipo"`
+	Categorias  []string                      `json:"categorias"`
+	Titulo      string                        `json:"titulo"`
+	Resumen     string                        `json:"resumen"`
+	Descripcion string                        `json:"descripcion"`
+	Plazos      []plazoBorradorSalidaJSON     `json:"plazos"`
+	Requisitos  []requisitoBorradorSalidaJSON `json:"requisitos"`
+	Ayuda       []ayudaBorradorSalidaJSON     `json:"ayuda"`
 }
 
 type referenciaConfiguracionBorradorJSON struct {
@@ -438,8 +437,7 @@ func convertirContenidoSalida(
 	origen gobiernoconvocatorias.ContenidoEditableBorrador,
 ) (contenidoEditableBorradorJSON, error) {
 	entrada := contenidoBorradorJSON{
-		Tipo: origen.Tipo, ModalidadInscripcion: origen.ModalidadInscripcion,
-		Categorias: &origen.Categorias, Titulo: origen.Titulo, Resumen: origen.Resumen,
+		Tipo: origen.Tipo, Categorias: &origen.Categorias, Titulo: origen.Titulo, Resumen: origen.Resumen,
 		Descripcion: origen.Descripcion, Plazos: &[]plazoBorradorJSON{}, Requisitos: &[]requisitoBorradorJSON{},
 		Ayuda: &[]ayudaBorradorJSON{},
 	}
@@ -467,8 +465,7 @@ func convertirContenidoSalida(
 		return contenidoEditableBorradorJSON{}, errSalidaBorradorInsegura
 	}
 	salida := contenidoEditableBorradorJSON{
-		Tipo: origen.Tipo, ModalidadInscripcion: origen.ModalidadInscripcion,
-		Categorias: append([]string(nil), origen.Categorias...), Titulo: origen.Titulo,
+		Tipo: origen.Tipo, Categorias: append([]string(nil), origen.Categorias...), Titulo: origen.Titulo,
 		Resumen: origen.Resumen, Descripcion: origen.Descripcion,
 		Plazos:     make([]plazoBorradorSalidaJSON, len(origen.Plazos)),
 		Requisitos: make([]requisitoBorradorSalidaJSON, len(origen.Requisitos)),

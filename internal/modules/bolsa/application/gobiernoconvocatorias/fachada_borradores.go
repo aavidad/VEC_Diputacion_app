@@ -45,15 +45,14 @@ func (c ContextoOperacionBorrador) clonarValidado() (ContextoOperacionBorrador, 
 // conservados se recomponen en PreparadorContenidoBorrador desde fuentes
 // gobernadas; nunca se aceptan como datos confiables del navegador.
 type ContenidoEditableBorrador struct {
-	Tipo                 string
-	ModalidadInscripcion dominiobolsa.ModalidadInscripcionConvocatoria
-	Categorias           []string
-	Titulo               string
-	Resumen              string
-	Descripcion          string
-	Plazos               []dominiobolsa.PlazoConvocatoria
-	Requisitos           []dominiobolsa.RequisitoConvocatoria
-	Ayuda                []dominiobolsa.AyudaConvocatoria
+	Tipo        string
+	Categorias  []string
+	Titulo      string
+	Resumen     string
+	Descripcion string
+	Plazos      []dominiobolsa.PlazoConvocatoria
+	Requisitos  []dominiobolsa.RequisitoConvocatoria
+	Ayuda       []dominiobolsa.AyudaConvocatoria
 }
 
 type SelectorMotivoBorrador struct {
@@ -401,7 +400,6 @@ func preparacionValidaParaActualizacion(
 
 func contenidoEditableBasicoValido(c ContenidoEditableBorrador) bool {
 	return c.Categorias != nil && c.Plazos != nil && c.Requisitos != nil && c.Ayuda != nil &&
-		(c.ModalidadInscripcion == "" || c.ModalidadInscripcion.ValidaParaPublicar()) &&
 		c.Tipo != "" && c.Titulo != "" && c.Resumen != "" && c.Descripcion != "" &&
 		len(c.Categorias) > 0 && len(c.Categorias) <= 1024 && len(c.Plazos) > 0 && len(c.Plazos) <= 64 &&
 		len(c.Requisitos) <= 256 && len(c.Ayuda) <= 128 && utf8.ValidString(c.Tipo+c.Titulo+c.Resumen+c.Descripcion)
@@ -411,8 +409,7 @@ func contenidoEditableCoincide(
 	completo dominiobolsa.ContenidoPublicableConvocatoria, editable ContenidoEditableBorrador,
 ) bool {
 	obtenido := ContenidoEditableBorrador{
-		Tipo: completo.Tipo, ModalidadInscripcion: completo.ModalidadInscripcion,
-		Categorias: completo.Categorias, Titulo: completo.Titulo,
+		Tipo: completo.Tipo, Categorias: completo.Categorias, Titulo: completo.Titulo,
 		Resumen: completo.Resumen, Descripcion: completo.Descripcion, Plazos: completo.Plazos,
 		Requisitos: completo.Requisitos, Ayuda: completo.Ayuda,
 	}

@@ -1,6 +1,6 @@
 import { referenciaCopiableTraducida } from "./portal-justificante.js";
 import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { FASE_NO_DISPONIBLE } from "./portal-borradores-ui-soporte.js?v=20261016-modalidad-inscripcion-v1";
+import { FASE_NO_DISPONIBLE } from "./portal-borradores-ui-soporte.js?v=20261008-borradores-error-legible-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 const FASE_INICIAL = "inicial";
@@ -155,12 +155,6 @@ export function crearRenderizadorBorradores({
       </fieldset>`;
   }
 
-  function modalidadVisible(valor) {
-    return ["separada", "conjunta"].includes(valor)
-      ? traducirPortal(`borrador_modalidad_inscripcion_${valor}`)
-      : traducirPortal("txt_sin_seleccionar");
-  }
-
   function renderCategorias() {
     const seleccionadas = new Set(estado.editor.contenido_editable.categorias);
     return `
@@ -179,7 +173,6 @@ export function crearRenderizadorBorradores({
         <legend>${textoPortal("txt_2_contenido_de_la_convocatoria")}</legend>
         <div class="campos-editor-dos">
           <label class="campo"><span>${textoPortal("txt_tipo_de_convocatoria")}</span><select required data-borrador-ruta="contenido_editable.tipo">${estado.opciones.tipos.map((item) => `<option value="${escaparHTML(item.clave)}" ${contenido.tipo === item.clave ? "selected" : ""}>${escaparHTML(item.etiqueta)}</option>`).join("")}</select></label>
-          <label class="campo campo-ancho"><span>${textoPortal("borrador_modalidad_inscripcion_etiqueta")}</span><select required data-borrador-ruta="contenido_editable.modalidad_inscripcion"><option value="" ${!contenido.modalidad_inscripcion ? "selected" : ""} disabled>${textoPortal("borrador_modalidad_inscripcion_elegir")}</option><option value="separada" ${contenido.modalidad_inscripcion === "separada" ? "selected" : ""}>${textoPortal("borrador_modalidad_inscripcion_separada")}</option><option value="conjunta" ${contenido.modalidad_inscripcion === "conjunta" ? "selected" : ""}>${textoPortal("borrador_modalidad_inscripcion_conjunta")}</option></select></label>
           ${renderCategorias()}
           <label class="campo campo-ancho"><span>${textoPortal("txt_titulo")}</span><input required maxlength="${limites.maximo_titulo}" data-borrador-ruta="contenido_editable.titulo" value="${escaparHTML(contenido.titulo)}"></label>
           <label class="campo campo-ancho"><span>${textoPortal("txt_resumen")}</span><textarea required maxlength="${limites.maximo_resumen}" data-borrador-ruta="contenido_editable.resumen">${escaparHTML(contenido.resumen)}</textarea></label>
@@ -294,7 +287,6 @@ export function crearRenderizadorBorradores({
           <tbody>
             <tr><th scope="row">${textoPortal("txt_revision_base")}</th><td>${escaparHTML(estado.detalle.referencia_estado.revision)}</td><td>${escaparHTML(remoto.referencia_estado.revision)}</td></tr>
             <tr><th scope="row">${textoPortal("txt_titulo")}</th><td>${escaparHTML(estado.editor.contenido_editable.titulo)}</td><td>${escaparHTML(remoto.contenido_editable.titulo)}</td></tr>
-            <tr><th scope="row">${textoPortal("borrador_modalidad_inscripcion_etiqueta")}</th><td>${escaparHTML(modalidadVisible(estado.editor.contenido_editable.modalidad_inscripcion))}</td><td>${escaparHTML(modalidadVisible(remoto.contenido_editable.modalidad_inscripcion))}</td></tr>
             <tr><th scope="row">${textoPortal("txt_resumen")}</th><td>${escaparHTML(estado.editor.contenido_editable.resumen)}</td><td>${escaparHTML(remoto.contenido_editable.resumen)}</td></tr>
             <tr><th scope="row">${textoPortal("txt_plazos")}</th><td>${estado.editor.contenido_editable.plazos.length}</td><td>${remoto.contenido_editable.plazos.length}</td></tr>
             <tr><th scope="row">${textoPortal("txt_requisitos")}</th><td>${estado.editor.contenido_editable.requisitos.length}</td><td>${remoto.contenido_editable.requisitos.length}</td></tr>
