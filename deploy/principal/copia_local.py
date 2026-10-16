@@ -337,6 +337,10 @@ def migraciones(listas):
                 raise ValueError('La SQL ya existía en el corte de referencia o no está versionada en esta cabeza')
             vistas.add(ruta)
             contenido = ruta.read_bytes()
+            versionado = subprocess.check_output(['git', '-C', str(REPO), 'show',
+                            f'HEAD:{ruta.relative_to(REPO)}'])
+            if contenido != versionado:
+                raise ValueError('La SQL tiene cambios sin confirmar respecto a esta cabeza')
             huella = hashlib.sha256(contenido).hexdigest()
             if len(campos) == 2 and campos[1] != huella:
                 raise ValueError('La huella de una migración no coincide')

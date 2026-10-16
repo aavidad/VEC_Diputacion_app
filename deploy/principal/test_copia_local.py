@@ -23,7 +23,8 @@ class CopiaLocalTest(unittest.TestCase):
         self.lista = self.raiz / 'lista.txt'
         self.lista.write_text('deploy/postgresql/modulo/000001.up.sql\n')
         self.historial = patch.object(copia.subprocess, 'check_output',
-                return_value='deploy/postgresql/modulo/000001.up.sql\n').start()
+                side_effect=lambda args, **kw: 'deploy/postgresql/modulo/000001.up.sql\n'
+                if 'diff' in args else b'BEGIN; COMMIT;').start()
         self.addCleanup(patch.stopall)
 
     def test_rechaza_down_y_fuga_fuera_del_repositorio(self):
@@ -51,7 +52,13 @@ class CopiaLocalTest(unittest.TestCase):
             self.assertEqual(len(rutas[0][1]), 64)
 
     def test_rechaza_sql_del_corte_de_referencia(self):
+        self.historial.side_effect = None
         self.historial.return_value = ''
+        with patch.object(copia, 'REPO', self.repo), self.assertRaises(ValueError):
+            copia.migraciones([self.lista])
+
+    def test_rechaza_sql_modificada_sin_commit(self):
+        self.sql.write_text('SELECT 2;')
         with patch.object(copia, 'REPO', self.repo), self.assertRaises(ValueError):
             copia.migraciones([self.lista])
 
