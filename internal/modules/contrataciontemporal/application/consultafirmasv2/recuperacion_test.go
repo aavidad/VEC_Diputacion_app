@@ -158,22 +158,28 @@ func TestRecuperacionCruzaCanonHistoricoConFirmaYRevision(t *testing.T) {
 	}
 }
 
-func TestRecuperacionConservaUnidadPropiaDeFirmaAnterior(t *testing.T) {
+func TestRecuperacionAnteriorSoloReferenciaYHuella(t *testing.T) {
 	l := lecturaRecuperacionPrueba(t)
 	m := materialRecuperacionPrueba()
-	mutarCanonPrueba(t, &l, func(c *vecdomain.CanonCompetenciaFirmanteHistoricaV1) {
-		c.Recurso.UnidadRef = "unidad:anterior"
-		c.Competencia.AmbitoUnidadRef = "unidad:anterior"
-		c.RelacionCT.UnidadRef = "unidad:anterior"
-	})
 	base, err := proyectar(m, l.LecturaFirmasR5V2)
 	if err != nil {
 		t.Fatal(err)
 	}
 	registro := l.Firmas[0]
 	registro.ClaveIdempotencia = "clave-firma-anterior-000001"
-	if err := validarRecuperacion(m, base.Firmas[0], registro, l.Recuperaciones[0]); err != nil {
-		t.Fatalf("la firma anterior con su propia unidad y evidencia fue rechazada: %v", err)
+	previa := l.Recuperaciones[0]
+	previa.CanonNominal = ""
+	if err := validarRecuperacion(m, base.Firmas[0], registro, previa); err != nil {
+		t.Fatalf("la firma anterior sin canon, con su huella y referencia, fue rechazada: %v", err)
+	}
+	previa.CanonNominal = l.Recuperaciones[0].CanonNominal
+	if err := validarRecuperacion(m, base.Firmas[0], registro, previa); !errors.Is(err, ports.ErrResultadoFirmaDocumentoInvalido) {
+		t.Fatal("el canon de otra firma llegó a la salida")
+	}
+	previa.CanonNominal = ""
+	previa.CanonNominalSHA256 = "invalida"
+	if err := validarRecuperacion(m, base.Firmas[0], registro, previa); !errors.Is(err, ports.ErrResultadoFirmaDocumentoInvalido) {
+		t.Fatal("la firma anterior perdió la comprobación de huella")
 	}
 }
 

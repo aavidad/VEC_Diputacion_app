@@ -146,8 +146,16 @@ func proyectarRecuperacion(m ports.MaterialConsultaFirmasR5V2, l ports.LecturaRe
 func validarRecuperacion(m ports.MaterialConsultaFirmasR5V2, f Firma, registro ports.FirmaRegistrada, v ports.RecuperacionFirmaV2) error {
 	if !domain.HuellaSHA256FirmaValida(v.MaterialRootSHA256) ||
 		!strings.HasPrefix(v.CanonNominalRef, "evidencia:competencia-firmante-ct:") ||
-		!domain.HuellaSHA256FirmaValida(strings.TrimPrefix(v.CanonNominalRef, "evidencia:competencia-firmante-ct:")) ||
-		len(v.CanonNominal) < 512 {
+		!domain.HuellaSHA256FirmaValida(strings.TrimPrefix(v.CanonNominalRef, "evidencia:competencia-firmante-ct:")) {
+		return ports.ErrResultadoFirmaDocumentoInvalido
+	}
+	if registro.ClaveIdempotencia != m.ClaveIdempotencia {
+		if v.CanonNominal != "" || !domain.HuellaSHA256FirmaValida(v.CanonNominalSHA256) {
+			return ports.ErrResultadoFirmaDocumentoInvalido
+		}
+		return nil
+	}
+	if len(v.CanonNominal) < 512 || len(v.CanonNominal) > 32768 {
 		return ports.ErrResultadoFirmaDocumentoInvalido
 	}
 	// La autoridad común comprueba esquema, tipos, enlaces, vigencias, huella y
