@@ -13,7 +13,7 @@
  */
 
 import { cargarTextos } from "../../../comun/textos.js";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261016-firma-historica-v4";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261016-firma-historica-v5";
 
 export const MODULO_TEXTOS_FASE_FIRMA = "contratacion-temporal-firma";
 const ZONA_HORARIA = "Europe/Madrid";

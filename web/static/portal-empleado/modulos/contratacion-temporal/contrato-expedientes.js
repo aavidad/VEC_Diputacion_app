@@ -1,4 +1,4 @@
-import { validarMetadatosRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=20261016-firma-historica-v4";
+import { validarMetadatosRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=20261016-firma-historica-v5";
 import { validarDatosPeticionAnalisis, validarDatosPreviosAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { validarResultadoBolsaCT } from "./contrato-resultado-bolsa.js";
 

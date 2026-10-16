@@ -1,4 +1,4 @@
-import { crearClienteRecuperacionFirmasV2 } from "../cliente-http-recuperacion-firmas-v2.js?v=20261015-firma-cierre-cache-v3";
+import { crearClienteRecuperacionFirmasV2 } from "../cliente-http-recuperacion-firmas-v2.js?v=20261016-firma-historica-v5";
 import { montarVistaRecuperacionFirmasV2 } from "../vista-recuperacion-firmas-v2.js?v=20261016-firma-historica-v4";
 import { crearTraductorRecuperacionFirmasV2 } from "../i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v4";
 import { cargarTextos } from "../../../../comun/textos.js";

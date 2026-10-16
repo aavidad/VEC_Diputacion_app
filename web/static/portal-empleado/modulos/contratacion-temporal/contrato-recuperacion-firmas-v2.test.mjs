@@ -15,6 +15,8 @@ const h = (x) => x.repeat(64);
 const solicitud = Object.freeze(JSON.parse(readFileSync(
   new URL("./testdata/recuperacion-firmas-v2-selector-go.json", import.meta.url), "utf8",
 )));
+const solicitudDosFirmas = Object.freeze({ ...solicitud,
+  paso_orden: 2, clave_idempotencia: "clave-firma-prueba-002" });
 
 function respuesta() {
   return JSON.parse(readFileSync(
@@ -48,12 +50,19 @@ test("acepta la proyección JSON emitida por el handler Go de #590", async () =>
 });
 
 test("liga las dos firmas sintéticas con canon generado por el modelo común Go", async () => {
-  const r = await validarRespuestaRecuperacionFirmasV2(respuestaDosFirmas(), solicitud, webcrypto);
+  const r = await validarRespuestaRecuperacionFirmasV2(respuestaDosFirmas(), solicitudDosFirmas, webcrypto);
   assert.equal(r.firmas.length, 2);
   assert.equal(r.firmas[1].recibo_ref, "recibo:segundo");
+  assert.equal(respuestaDosFirmas().recuperaciones[0].canon_nominal, "");
   assert.equal(Object.hasOwn(r.firmas[1], "canon_nominal"), false);
   for (const alterar of [
     (x) => { x.firmas = x.firmas.slice(1); x.recuperaciones = x.recuperaciones.slice(1); },
+    (x) => { x.recuperaciones[0].canon_nominal = "canon anterior indebidamente expuesto"; },
+    (x) => { x.recuperaciones[0].canon_nominal_sha256 = "invalida"; },
+    (x) => { x.recuperaciones[0].canon_nominal_ref = "evidencia:ajena"; },
+    (x) => { x.recuperaciones[1].canon_nominal = ""; },
+    (x) => { const futura = structuredClone(x.firmas[1]); futura.firma_ref = "firma:futura";
+      x.firmas.push(futura); },
     (x) => { x.firmas[1].revision_pdf.firma_anterior_ref = "firma:ajena"; },
     (x) => { x.firmas[1].revision_pdf.recibo_anterior_ref = "recibo:ajeno"; },
     (x) => { x.firmas[1].secuencia = 3; },
@@ -62,8 +71,9 @@ test("liga las dos firmas sintéticas con canon generado por el modelo común Go
   ]) {
     const cruzada = respuestaDosFirmas();
     alterar(cruzada);
-    await assert.rejects(validarRespuestaRecuperacionFirmasV2(cruzada, solicitud, webcrypto), TypeError);
+    await assert.rejects(validarRespuestaRecuperacionFirmasV2(cruzada, solicitudDosFirmas, webcrypto), TypeError);
   }
+  await assert.rejects(validarRespuestaRecuperacionFirmasV2(respuestaDosFirmas(), solicitud, webcrypto), TypeError);
 });
 
 test("rechaza cruces, JSON inesperado y canon alterado", async () => {
@@ -169,6 +179,7 @@ test("tercera firma conserva cadena y canon de la segunda revisión", async () =
     revision_sha256: h("7"), contenido_firmado_sha256: h("8"), byte_range: [0, 500, 600, 100], revision_longitud: 700 });
   delete tercera.revision_pdf.entrada_documento.expediente_ref;
   const rec = structuredClone(x.recuperaciones[1]);
+  x.recuperaciones[1].canon_nominal = "";
   const canon = JSON.parse(rec.canon_nominal);
   Object.assign(canon, { paso_ref: tercera.paso_ref, paso_orden: 3 });
   Object.assign(canon.recurso, { numero_firmas: 3, entrada_revision: {
@@ -180,7 +191,9 @@ test("tercera firma conserva cadena y canon de la segunda revisión", async () =
   rec.canon_nominal_sha256 = createHash("sha256").update(rec.canon_nominal).digest("hex");
   rec.canon_nominal_ref = "evidencia:competencia-firmante-ct:" + rec.canon_nominal_sha256;
   x.firmas.push(tercera); x.recuperaciones.push(rec);
-  assert.equal((await validarRespuestaRecuperacionFirmasV2(x, solicitud, webcrypto)).firmas.length, 3);
+  const solicitudTresFirmas = { ...solicitudDosFirmas,
+    paso_orden: 3, clave_idempotencia: "clave-firma-prueba-003" };
+  assert.equal((await validarRespuestaRecuperacionFirmasV2(x, solicitudTresFirmas, webcrypto)).firmas.length, 3);
   tercera.revision_pdf.firma_anterior_ref = x.firmas[0].firma_ref;
-  await assert.rejects(validarRespuestaRecuperacionFirmasV2(x, solicitud, webcrypto), TypeError);
+  await assert.rejects(validarRespuestaRecuperacionFirmasV2(x, solicitudTresFirmas, webcrypto), TypeError);
 });

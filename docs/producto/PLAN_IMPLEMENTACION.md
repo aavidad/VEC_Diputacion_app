@@ -211,9 +211,11 @@ abierto. Guion:
 **F1-36C, H: ficha de firmas anteriores.** En rama: respuesta ampliada,
 cliente y panel que ofrece un botón por firma original autorizada. Depende
 de A (recuperación y concesión) y B (fuente de ficha y anexo); no añade SQL.
-Faltan integración conjunta, configuración y actos gobernados, arranque con
-y sin complemento, ensayo focal, revisión independiente de usabilidad,
-recorrido en Chrome y reinicio. F1-36 permanece abierto. Guion:
+La candidata conjunta ya consulta tres firmas y descarga el PDF original
+desde Chrome; las vistas de escritorio, móvil e inglés tienen revisión
+independiente favorable. El ensayo de B rechaza la caducidad al confirmar sin
+efectos parciales. Falta integrar la minimización de CT228 pedida por dirección,
+repetir la recuperación tras reinicio y pasar la CI final. F1-36 permanece abierto. Guion:
 `deploy/principal/firma_historica_ficha_f1_36c_20261016.md`.
 
 F1-64 prepara, sin SQL nuevo, el plazo configurable de las publicaciones

@@ -156,13 +156,17 @@ export function validarRespuestaConsultaFirmasV2(x, solicitud) {
   return Object.freeze({ ...x, firmas: Object.freeze([...firmas.values()].map((firma) => Object.freeze(firma))) });
 }
 
-async function validarCanon(rec, firma, solicitud, cryptoImpl) {
+async function validarCanon(rec, firma, solicitud, cryptoImpl, exacta) {
   if (!exacto(rec, CAMPOS_RECUPERACION) || !coincide(rec.firma_ref, REF)
     || !coincide(rec.material_root_sha256, SHA) || !coincide(rec.canon_nominal_sha256, SHA)
     || !coincide(rec.canon_nominal_ref, REF_CANON) || typeof rec.canon_nominal !== "string"
     || typeof TextEncoder !== "function" || typeof TextDecoder !== "function"
     || typeof cryptoImpl?.subtle?.digest !== "function") {
     throw new TypeError("canon_historico_invalido");
+  }
+  if (!exacta) {
+    if (rec.canon_nominal !== "") throw new TypeError("canon_historico_ajeno");
+    return;
   }
   const bytes = new TextEncoder().encode(rec.canon_nominal);
   if (bytes.length < 512 || bytes.length > 32768
@@ -249,13 +253,20 @@ export async function validarRespuestaRecuperacionFirmasV2(x, solicitud, cryptoI
       throw new TypeError("cadena_historica_invalida");
     }
   }
+  const exactas = [...firmas.values()].filter((firma) => firma.paso_orden === q.paso_orden
+    && firma.version_expediente === q.version_expediente && firma.via === q.via
+    && firma.catalogo_huella === q.catalogo_huella && firma.revision_pdf !== null);
+  if (exactas.length !== 1 || firmas.size !== q.paso_orden) {
+    throw new TypeError("acto_historico_inexacto");
+  }
+  const exacta = exactas[0];
   const recuperadas = new Map();
   for (const rec of x.recuperaciones) {
     const firma = firmas.get(rec?.firma_ref);
     if (!firma || firma.revision_pdf === null || recuperadas.has(rec.firma_ref)) {
       throw new TypeError("recuperacion_historica_cruzada");
     }
-    await validarCanon(rec, firma, q, cryptoImpl);
+    await validarCanon(rec, firma, q, cryptoImpl, firma.firma_ref === exacta.firma_ref);
     recuperadas.set(rec.firma_ref, rec);
   }
   if ([...firmas.values()].filter((firma) => firma.revision_pdf !== null).length !== recuperadas.size) {
