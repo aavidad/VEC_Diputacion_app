@@ -17,11 +17,10 @@ La API y la pantalla están integradas. El estado de activación, los resultados
 reales y la versión ensayada se registran en la PR de F1-45. Este guion describe
 la preparación y las comprobaciones; por sí solo no acredita una instalación.
 
-El corte completa el exportador de alias existente para la cuenta propia de
-Méritos y clasifica su fichero como material externo. Usa el mismo
-seudonimizador de Usuarios y conserva el sujeto certificado. Cuenta y perfil
-de Méritos son distintos de los de Usuarios y Bolsa; el fichero de configuración
-no concede permisos.
+La consulta exige una cuenta y un perfil de Méritos propios, distintos de los
+de Usuarios y Bolsa, con el mismo certificado y la misma persona. Hoy no hay
+productor gobernado que los dé de alta para el aspirante. El exportador de
+alias tampoco enumera esa cuenta; este corte no lo cambia.
 
 ## Preparación en la copia local
 
@@ -50,40 +49,28 @@ sin modificar el código ni el SQL del producto, y se declaran por separado. No
 acreditan una publicación gobernada, una aprobación, un acto o un recibo. No
 añadir esos ajustes ni credenciales a Git.
 
-La fase de identidad reutiliza
-[`vec-provisionar-candidato-externo`](../../cmd/vec-provisionar-candidato-externo/README.md):
-admite un snapshot de población `usuarios`, sin vínculo candidato. Primero se
-exportan los alias con `vec-server exportar-seudonimos-portal-externo` y el
-material externo separado, guardando la salida en un fichero privado `0600`.
-Se prepara ese fichero con `umask 077` antes de ejecutar el exportador.
-Se selecciona la cuenta nueva exacta; no se copia el HMAC de la cuenta anterior.
-La fuente de esta fase no contiene un bloque de identidad previo si se pasa
-`--alias-archivo`. Con el entorno administrativo del README:
+### Cuenta, perfil y asignación de Méritos: semilla de copia
 
-```sh
-vec-provisionar-candidato-externo \
-  --fuente "$FUENTE_M4_PRIVADA" --fase identidad \
-  --dsn-archivo "$DSN_IDENTIDAD_PRIVADO" --alias-archivo "$ALIAS_M4_PRIVADO"
-```
+Decisión de dirección del 16/10, 06:09: en la copia local, la cuenta y el
+perfil de Méritos y su asignación al rol se cargan como **semilla de copia
+declarada**, igual que las filas del rol externo del aspirante (decisión de
+las 03:48). Reglas:
 
-Del plan se conservan `huella_sha256` y `preimagen_sha256`. Se repite la misma
-llamada añadiendo `--aprobar "$HUELLA_PLAN" --preimagen "$HUELLA_PREIMAGEN"`.
-El CLI crea y consume la aprobación en su transacción y entrega el recibo.
-Ante un fallo se coteja la preimagen antes de intentar otra operación.
+- Se cargan por SQL privado en la copia, fuera de Git, con la persona y el
+  certificado ficticios de Usuarios. No se reutiliza la cuenta de Usuarios ni
+  se copia su HMAC.
+- No es una aprobación real ni lleva recibo. No se inventan actos ni filas de
+  aprobación para que parezca una publicación de Administración.
+- No se construye ahora el productor de esa cuenta ni se amplía el exportador.
+- Responsable: Codex-O. Se retira al integrar F0-21 y la tarea de permisos por
+  datos de la fase 2, que deben dar de alta esta cuenta por la vía gobernada.
 
-El perfil se publica por la fachada existente
+Las vías de producto que existen para cuando haya productor son la fachada
 `vec_contexto_actor_v1.publicar_perfil_usuarios_externo_v1`
-([CA15](../postgresql/contexto_actor_v1/migraciones/000015_contexto_externo_segregado.up.sql)), con su canal
-administrativo autorizado, versión esperada y huella del material aprobado.
-La asignación usa
-`vec_autorizacion.publicar_asignacion_usuarios_externo_v1`
-([AUT81](../postgresql/autorizacion/migraciones/000081_asignacion_meritos_cartera_externa.up.sql)): exige ese
-perfil vigente y el rol gobernado, y devuelve versión y huella. Su LOGIN tiene
-como única membresía directa `vec_autorizacion_publicador_usuarios_externo`,
-con INHERIT y sin SET ni ADMIN; carece de privilegios elevados y de ajustes
-propios de sesión. Las conexiones administrativas de publicación quedan fuera
-de la web y no sustituyen ninguno de los siete pools de la cartera. No se
-insertan filas de aprobación a mano para sustituir estas publicaciones.
+([CA15](../postgresql/contexto_actor_v1/migraciones/000015_contexto_externo_segregado.up.sql))
+y `vec_autorizacion.publicar_asignacion_usuarios_externo_v1`
+([AUT81](../postgresql/autorizacion/migraciones/000081_asignacion_meritos_cartera_externa.up.sql)).
+AUT81 no tiene todavía llamador en Go.
 
 El inventario inicial de la copia O del 16/10 encontró las migraciones de la cartera,
 pero ningún hecho para la persona elegida ni consultas propias; tampoco encontró
@@ -99,8 +86,9 @@ acredita que la función esté activada.
    atienden y que la consulta propia queda cerrada; registrar la respuesta real.
 2. Aplicar solo las migraciones que falten y preparar el material privado.
    Cotejar el productor de cada acto de Administración requerido; publicar
-   solo mediante el acto que corresponda y guardar su acuse. Si falta un
-   productor, detener la activación de esa función. Reiniciar de forma
+   solo mediante el acto que corresponda y guardar su acuse. La cuenta, el
+   perfil y la asignación de Méritos van como semilla de copia (apartado
+   anterior); si falta otro productor, detener la activación. Reiniciar de forma
    vigilada y comprobar salud de la aplicación y disponibilidad de la consulta.
 3. Entrar en **Mis méritos** con la persona ficticia autorizada. Cotejar la
    respuesta del GET con la pantalla: mismos hechos, tipos, disponibilidad y
