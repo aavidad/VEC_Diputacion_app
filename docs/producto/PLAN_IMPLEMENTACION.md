@@ -191,6 +191,18 @@ Son dos expedientes distintos: P conserva la comprobación del caso único de
 El guion de activación, la lista SQL y los límites están en
 `deploy/principal/candidata_hz39/firma/LEEME.md`.
 
+**F1-36A, H: base de recuperación histórica.** En rama: AD286, CT228,
+AUT103, montaje nominal del consumidor existente de recuperación V2 y
+publicador de cargos con su permiso positivo de recuperación. Las fuentes SQL
+se ensayaron en copia propia con dos revisiones; arranque con configuración
+anterior y nueva, reinicio y recuperación de originales comprobados. Falta CI
+antes de integrar. Este
+corte conserva las asignaciones de consulta vigentes y no ofrece un panel nuevo;
+la recuperación exige renovar por Administración el cargo de firma. B conectará
+la fuente autorizada y el anexo de la ficha; C montará la pantalla y gobernará
+las asignaciones. Hasta C sigue abierto F1-36. Guion A:
+`deploy/principal/firma_historica_base_f1_36a_20261016.md`.
+
 **F1-36B, H: fuente de ficha y justificante.** En rama: AUT102, CT229 y el
 lector interno que forma los selectores de las firmas originales y su anexo
 sellado. Depende de AD286, CT228 y AUT103 del corte A. En la copia H se
@@ -202,6 +214,13 @@ expresamente autorizados, sin atribuirles actos de Administración. C añade
 la respuesta HTTP y el panel; quedan Chrome y reinicio conjunto. F1-36 sigue
 abierto. Guion:
 `deploy/principal/firma_historica_fuente_f1_36b_20261016.md`.
+
+F1-64 configura, sin SQL nuevo, las publicaciones técnicas nuevas de CT y
+del portal externo. Dos revisiones y focales favorables; arranque con y sin el
+valor, publicación externa de 90 días y recuperación sin acortarla comprobados.
+La raíz y la clave legadas conservan su encargo separado de rotación. Dirección
+acepta la cobertura parcial de GoSec hasta F0-29 (L); falta la CI documental
+final e integración. Guion: `deploy/principal/vigencias_publicaciones_f1_64_20261016.md`.
 
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna
@@ -527,6 +546,13 @@ Decisiones tomadas con Alberto el 12/10 que todavía no están programadas
 enteras. Cómo las ve cada perfil se describe en `FLUJO_APP.md`.
 
 **Cartera de méritos y puntuación por bolsa.**
+
+El corte F1-45 de la fase 1 muestra los títulos, cursos y demás méritos que
+devuelve la cartera personal existente, con sus datos y su estado. Se comprueba
+la lectura autorizada desde «Mis méritos» y su recuperación tras reiniciar.
+La valoración por categoría y los puntos de los apartados siguientes quedan
+para el motor común de baremación, fuera de este corte y de la fase 1
+(decisión de dirección del 16/10, 05:39).
 
 - La persona incorpora una vez sus títulos y cursos a una cartera personal en
   «Mi Bolsa», aunque aún no se apunte a ninguna bolsa. Puede pedir retirar un

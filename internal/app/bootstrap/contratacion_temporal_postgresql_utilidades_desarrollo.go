@@ -11,7 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"log/slog"
+	"os"
 	"time"
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
@@ -235,8 +237,10 @@ func nuevoMaterialAtestacionContratacionTemporalDesarrollo(
 	if ahora.Before(validaDesde) || !ahora.Before(validaHasta) {
 		return vacio, falloPostgreSQLCTDesarrollo(nil)
 	}
-	publicadaEn := time.Date(ahora.Year(), ahora.Month(), ahora.Day(), 0, 0, 0, 0, time.UTC)
-	expiraEn := publicadaEn.Add(24 * time.Hour)
+	publicadaEn, expiraEn, err := fechasNuevaPublicacionTecnicaCT(ahora, validaHasta)
+	if err != nil {
+		return vacio, falloPostgreSQLCTDesarrollo(err)
+	}
 	secuencia := uint64(ahora.Year()*10000 + int(ahora.Month())*100 + ahora.Day())
 	configuracionRef := "confianza:atestacion:ct:desarrollo:" + publicadaEn.Format("2006-01-02")
 	raiz, err := confianzaatestacion.NuevaRaizPublicaAtestacionAutorizacionV3EdDSA(
@@ -293,6 +297,30 @@ func nuevoMaterialAtestacionContratacionTemporalDesarrollo(
 		emisorID:         emisorID, capacidad: capacidad,
 		audienciaConsumo: audienciaConsumoAltaContratacionTemporal,
 	}, nil
+}
+
+// La vigencia configurada solo se aplica al material nuevo. Las publicaciones
+// duraderas se adoptan con sus fechas originales desde el gobierno.
+func caducidadNuevaPublicacionConfianza(publicadaEn, raizHasta time.Time) (time.Time, error) {
+	vigencia, err := config.EntornoGobiernoAdmin().ValidezGobiernoAdmin(0, os.Getenv(config.EnvGobiernoAdminValidezHoras))
+	if err != nil || !publicadaEn.Before(raizHasta) || publicadaEn.Add(vigencia).After(raizHasta) {
+		return time.Time{}, config.ErrGobiernoAdminValidez
+	}
+	return publicadaEn.Add(vigencia), nil
+}
+
+func fechasNuevaPublicacionTecnicaCT(ahora, raizHasta time.Time) (time.Time, time.Time, error) {
+	ahora = ahora.UTC().Truncate(time.Microsecond)
+	dia := time.Date(ahora.Year(), ahora.Month(), ahora.Day(), 0, 0, 0, 0, time.UTC)
+	expira, err := caducidadNuevaPublicacionConfianza(dia, raizHasta)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	if expira.Sub(dia) < 24*time.Hour {
+		expira, err = caducidadNuevaPublicacionConfianza(ahora, raizHasta)
+		return ahora, expira, err
+	}
+	return dia, expira, nil
 }
 
 func numeroDecimal(valor uint32) string {
