@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	firmaemisorv2 "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/firmaemisorv2"
 	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecapp "vec-diputacion-granada/internal/vec/application"
@@ -27,7 +28,7 @@ func TestRutasFirmaVecFalloConservaErrorYCierraUnaVez(t *testing.T) {
 		{"con_cierre", true, 1},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
-			m := &montajeFirmaVecR5CT{alta: &dependenciasAltaContratacionTemporalDesarrollo{}}
+			m := &montajeFirmaVecR5CT{alta: &dependenciasAltaContratacionTemporalDesarrollo{}, recuperacion: &firmaemisorv2.Emisor{}}
 			cierres := 0
 			if caso.conCierre {
 				m.cerrarAuditoria = func() { cierres++ }

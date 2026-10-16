@@ -627,6 +627,8 @@ func normalizarFalloSeleccionLlamamiento(ctx context.Context, err error) error {
 		}
 	}
 	switch {
+	case errors.Is(err, ports.ErrCriteriosOfrecimientoPendientesRRHH):
+		return err
 	case errors.Is(err, context.Canceled):
 		return context.Canceled
 	case errors.Is(err, context.DeadlineExceeded):

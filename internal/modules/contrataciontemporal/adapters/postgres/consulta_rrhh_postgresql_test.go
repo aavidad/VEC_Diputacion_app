@@ -3,7 +3,10 @@ package postgres
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -21,6 +24,51 @@ type filaConsultaRRHHPrueba struct {
 	destinos int
 	eventos  *[]string
 	llenar   func([]any) error
+}
+
+func TestAnexoSelectoresRRHHVerificaDosSellosYFormaCerrada(t *testing.T) {
+	filas := []ports.FirmaSelectorRecuperacionRRHH{{FirmaRef: "firma:historica:001",
+		Selector: ports.SelectorRecuperacionFirmaRRHH{ExpedienteRef: "expediente:rrhh:001",
+			VersionExpediente: 7, Documento: "resolucion", PasoOrden: 3,
+			ClaveIdempotencia: "clave-firma-historica-000001", CatalogoHuella: strings.Repeat("a", 64),
+			Via: ports.ViaFirmaCertificadoVEC}}}
+	canon, err := json.Marshal(filas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := sha256.Sum256(canon)
+	huella := hex.EncodeToString(h[:])
+	base := salidaCierreConsultaRRHH{accesoRef: "acceso:rrhh:001", reciboSelloSHA256: strings.Repeat("b", 64)}
+	filtro := ports.FiltroUnidadSelectoresRecuperacionRRHH{UnidadRef: "unidad:rrhh:001",
+		PerfilAuxRef: "prf_firma_000001", VersionRolAuxRef: "rol:ct_cargo_jefatura_firma_dev:v1",
+		AsignacionRef: "asignacion:rrhh:001:v1", AsignacionHuellaSHA256: strings.Repeat("c", 64)}
+	recibo, err := json.Marshal(map[string]any{"esquema": "vec.ct.detalle.selectores-recuperacion.v1",
+		"acceso_ref": base.accesoRef, "sello_detalle_sha256": base.reciboSelloSHA256,
+		"decision_ref": "", "version_rol_ref": "rol:ct_cargo_jefatura_consulta_dev:v2",
+		"asignacion_ref": filtro.AsignacionRef, "asignacion_huella_sha256": filtro.AsignacionHuellaSHA256,
+		"perfil_aux_ref": filtro.PerfilAuxRef, "version_rol_aux_ref": filtro.VersionRolAuxRef,
+		"unidad_ref": filtro.UnidadRef, "selectores_huella_sha256": huella, "selectores": filas})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := sha256.Sum256(recibo)
+	sello := hex.EncodeToString(s[:])
+	obtenidas, prueba, err := validarAnexoSelectoresRRHH(canon, huella, sello, recibo,
+		base, ports.CapacidadConsultaRRHH{}, filtro)
+	if err != nil || len(obtenidas) != 1 || prueba.SelloDetalleSHA256 != base.reciboSelloSHA256 ||
+		prueba.SelloSelectoresSHA256 != sello {
+		t.Fatalf("anexo exacto rechazado: %v", err)
+	}
+	mutado := append([]byte(nil), recibo...)
+	mutado[len(mutado)-2] ^= 1
+	if _, _, err := validarAnexoSelectoresRRHH(canon, huella, sello, mutado, base,
+		ports.CapacidadConsultaRRHH{}, filtro); !errors.Is(err, ports.ErrResultadoConsultaRRHHNoConfiable) {
+		t.Fatal("recibo alterado admitido")
+	}
+	if _, _, err := validarAnexoSelectoresRRHH(canon, huella, sello, recibo, base,
+		ports.CapacidadConsultaRRHH{}, ports.FiltroUnidadSelectoresRecuperacionRRHH{}); !errors.Is(err, ports.ErrResultadoConsultaRRHHNoConfiable) {
+		t.Fatal("filtro ausente reutilizó filas de otra unidad")
+	}
 }
 
 func (f *filaConsultaRRHHPrueba) Scan(destinos ...any) error {

@@ -15,7 +15,7 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
-// CT186: como la consulta, la v3 usa AD210 y CC10.
+// CT228: la recuperación usa AD210 y el acto exacto, sin consultar el plan actual.
 const recuperarFirmasSQL175 = `SELECT vec_contratacion_temporal.recuperar_firmas_r5_atestadas_v3($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
 
 type recuperacionFirmaSQL175 struct {
@@ -127,18 +127,44 @@ func proyectarRecuperacionesSQL175(m ports.MaterialConsultaFirmasR5V2, base port
 	if filas == nil || len(filas) > 128 || len(filas) != len(base.RevisionesPDF) {
 		return nil, ports.ErrResultadoFirmaDocumentoInvalido
 	}
+	if len(filas) == 0 && len(base.Firmas) == 0 {
+		return []ports.RecuperacionFirmaV2{}, nil
+	}
 	porRef := make(map[string]ports.FirmaRegistradaRevisionPDFV2, len(base.RevisionesPDF))
 	for _, v := range base.RevisionesPDF {
 		porRef[v.FirmaRef] = v
+	}
+	exactaRef := ""
+	for _, f := range base.Firmas {
+		if f.ClaveIdempotencia == m.ClaveIdempotencia {
+			if exactaRef != "" {
+				return nil, ports.ErrResultadoFirmaDocumentoInvalido
+			}
+			exactaRef = f.FirmaRef
+		}
+	}
+	if exactaRef == "" {
+		return nil, ports.ErrResultadoFirmaDocumentoInvalido
 	}
 	vistos := make(map[string]bool, len(filas))
 	salida := make([]ports.RecuperacionFirmaV2, 0, len(filas))
 	for _, v := range filas {
 		revision, ok := porRef[v.FirmaRef]
 		if !ok || vistos[v.FirmaRef] || !domain.HuellaSHA256FirmaValida(v.MaterialRootSHA256) ||
-			len(v.CanonNominal) < 512 || len(v.CanonNominal) > 32768 ||
 			!strings.HasPrefix(v.CanonNominalRef, "evidencia:competencia-firmante-ct:") ||
 			!domain.HuellaSHA256FirmaValida(strings.TrimPrefix(v.CanonNominalRef, "evidencia:competencia-firmante-ct:")) {
+			return nil, ports.ErrResultadoFirmaDocumentoInvalido
+		}
+		if v.FirmaRef != exactaRef {
+			if v.CanonNominal != "" || !domain.HuellaSHA256FirmaValida(v.CanonNominalSHA256) {
+				return nil, ports.ErrResultadoFirmaDocumentoInvalido
+			}
+			vistos[v.FirmaRef] = true
+			salida = append(salida, ports.RecuperacionFirmaV2{FirmaRef: v.FirmaRef, MaterialRootSHA256: v.MaterialRootSHA256,
+				CanonNominalSHA256: v.CanonNominalSHA256, CanonNominalRef: v.CanonNominalRef})
+			continue
+		}
+		if len(v.CanonNominal) < 512 || len(v.CanonNominal) > 32768 {
 			return nil, ports.ErrResultadoFirmaDocumentoInvalido
 		}
 		canon, err := vecdomain.RecuperarCanonCompetenciaFirmanteHistoricaV1([]byte(v.CanonNominal), v.CanonNominalSHA256)

@@ -1,6 +1,7 @@
 export const RUTA_POLITICA_OFERTAS = "/api/vec/bolsa/politica-ofertas";
 export const RUTA_CAPACIDAD_POLITICA_OFERTAS = `${RUTA_POLITICA_OFERTAS}/capacidad`;
 export const ESQUEMA_POLITICA_OFERTAS = "vec.bolsa.rrhh.politica-ofertas.v1";
+export const RUTA_CATALOGO_CRITERIOS_OFRECIMIENTO = "/portal-empleado/modulos/bolsa/criterios-ofrecimiento/v1.json";
 
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9:._/-]{0,255}$/u;
 const MUNICIPIO = /^[0-9]{5}$/u;
@@ -75,6 +76,78 @@ export async function cargarEjemploPlazas({ cliente } = {}) {
   }
 }
 
+const CLAVE_CRITERIO = (valor) => typeof valor === "string" && valor.length > 0 && valor.trim() === valor;
+function fuenteNormativaValida(valor) {
+  if (!CLAVE_CRITERIO(valor) || valor.length > 500) return false;
+  if (!/^https?:/iu.test(valor)) return true;
+  try {
+    const url = new URL(valor);
+    return ["http:", "https:"].includes(url.protocol) && Boolean(url.hostname)
+      && !url.username && !url.password;
+  } catch { return false; }
+}
+const CLAVES_CRITERIO = (valores, obligatorio = false) => Array.isArray(valores)
+  && (!obligatorio || valores.length > 0) && valores.every(CLAVE_CRITERIO)
+  && new Set(valores).size === valores.length;
+const CLAVE_SUPUESTO_REDUCCION = /^[a-z][a-z0-9._-]{1,79}$/u;
+const LIMITE_MESES = (limite) => limite === undefined || (limite !== null && Number.isSafeInteger(limite.meses)
+  && limite.meses > 0 && typeof limite.incluye_limite === "boolean");
+
+/** El catálogo publicado define las claves; esta comprobación solo valida su forma. */
+export function criteriosOfrecimientoValidos(criterios) {
+  if (!criterios || typeof criterios !== "object" || Array.isArray(criterios)
+    || !fuenteNormativaValida(criterios.fuente_normativa)
+    || Object.hasOwn(criterios, "modalidad_no_aceptada")
+    || Object.hasOwn(criterios, "modalidades_aceptables")) return false;
+  const mejora = criterios.mejora;
+  if (mejora === undefined || mejora === null) return true;
+  return typeof mejora === "object" && !Array.isArray(mejora)
+    && (mejora.habilitada === undefined || typeof mejora.habilitada === "boolean")
+    && Number.isSafeInteger(mejora.maximo_vacante_meses) && mejora.maximo_vacante_meses > 0 && mejora.maximo_vacante_meses <= 1200
+    && CLAVES_CRITERIO(mejora.modalidades_destino, true)
+    && CLAVES_CRITERIO(mejora.causas_destino, true)
+    && CLAVES_CRITERIO(mejora.reduccion_por_modalidades_previas, true)
+    && Array.isArray(mejora.condiciones_actuales) && mejora.condiciones_actuales.length > 0
+    && (mejora.supuestos_reduccion_vacante === undefined || (
+      Array.isArray(mejora.supuestos_reduccion_vacante)
+      && mejora.supuestos_reduccion_vacante.length >= 1 && mejora.supuestos_reduccion_vacante.length <= 100
+      && mejora.supuestos_reduccion_vacante.every((supuesto) => typeof supuesto === "string" && CLAVE_SUPUESTO_REDUCCION.test(supuesto))
+      && new Set(mejora.supuestos_reduccion_vacante).size === mejora.supuestos_reduccion_vacante.length
+      && mejora.supuestos_reduccion_vacante.every((supuesto) => mejora.condiciones_actuales.some((c) => c?.modalidad === supuesto))))
+    && mejora.reduccion_por_modalidades_previas.every((modalidad) => mejora.condiciones_actuales.some((c) => c.modalidad === modalidad))
+    && mejora.condiciones_actuales.every((condicion) => condicion && CLAVE_CRITERIO(condicion.modalidad)
+      && (condicion.causa === undefined || condicion.causa === "" || CLAVE_CRITERIO(condicion.causa))
+      && (condicion.requiere_baja_comprobada === undefined || typeof condicion.requiere_baja_comprobada === "boolean")
+      && LIMITE_MESES(condicion.meses_transcurridos) && LIMITE_MESES(condicion.meses_duracion_inicial));
+}
+
+/** Catálogo público de propuesta: no publica ni concede una regla. */
+export async function cargarCatalogoCriteriosOfrecimiento({ fetchImpl = globalThis.fetch, signal } = {}) {
+  const respuesta = await fetchImpl(RUTA_CATALOGO_CRITERIOS_OFRECIMIENTO, {
+    method: "GET", credentials: "omit", mode: "same-origin", cache: "no-store",
+    redirect: "error", referrerPolicy: "no-referrer", headers: { Accept: "application/json" }, signal,
+  });
+  if (respuesta.status !== 200 || respuesta.redirected
+    || !/^application\/json(?:;\s*charset=utf-8)?$/iu.test(respuesta.headers?.get?.("content-type") ?? "")) {
+    throw new TypeError("catálogo de criterios no disponible");
+  }
+  const catalogo = await respuesta.json();
+  const campos = ["version_esquema", "referencia", "version", "fuentes", "criterios_ofrecimiento"];
+  if (!catalogo || typeof catalogo !== "object" || Array.isArray(catalogo)
+    || Object.keys(catalogo).sort().join("|") !== campos.sort().join("|")
+    || catalogo.version_esquema !== 1 || !Number.isSafeInteger(catalogo.version) || catalogo.version < 1
+    || typeof catalogo.referencia !== "string" || !REFERENCIA.test(catalogo.referencia)
+    || !Array.isArray(catalogo.fuentes) || catalogo.fuentes.length < 1
+    || catalogo.fuentes.some((fuente) => !fuente || typeof fuente.url !== "string"
+      || !fuente.url.startsWith("https://") || !Array.isArray(fuente.articulos) || fuente.articulos.length < 1
+      || typeof fuente.consultada_en !== "string")
+    || !catalogo.criterios_ofrecimiento?.mejora
+    || !criteriosOfrecimientoValidos(catalogo.criterios_ofrecimiento)) {
+    throw new TypeError("catálogo de criterios no válido");
+  }
+  return structuredClone(catalogo.criterios_ofrecimiento);
+}
+
 export function validarPoliticaEditable(politica, { permitirLegada = false } = {}) {
   const plazo = politica?.plazo;
   const horas = plazo?.unidad === "horas_naturales";
@@ -88,7 +161,8 @@ export function validarPoliticaEditable(politica, { permitirLegada = false } = {
     || (politica.adjudicacion.confirmacion !== undefined && politica.adjudicacion.confirmacion !== "aceptacion_previa")
     || politica?.no_cubierta?.accion !== "llamamiento_directo"
     || politica.no_cubierta.condicion !== "sin_disposiciones_elegibles"
-    || (politica.plazas !== undefined && politica.plazas !== null && !plazasCompletas(politica.plazas))) {
+    || (politica.plazas !== undefined && politica.plazas !== null && !plazasCompletas(politica.plazas))
+    || (politica.criterios_ofrecimiento !== undefined && !criteriosOfrecimientoValidos(politica.criterios_ofrecimiento))) {
     throw new TypeError("política de ofertas no válida");
   }
   const copia = structuredClone(politica);

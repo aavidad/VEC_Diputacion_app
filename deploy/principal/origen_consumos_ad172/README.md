@@ -34,7 +34,7 @@ del núcleo.
 | Bloque | LOGIN | Ternas | Proceso | Se instala |
 | --- | --- | --- | --- | --- |
 | `usuarios` | `vec_pref508a_i_ue` (interna) y `vec_pref508a_e_ue` (externa) | 21 | `vec-server` | por defecto |
-| `contratacion` | `vec_ct_o207_runtime` | 50 | `vec-server` | por defecto |
+| `contratacion` | `vec_ct_o207_runtime` | 51 | `vec-server` | por defecto |
 | `bolsa` | `vec_bolsa_llamamientos_desarrollo` | 25 | `vec-server` | por defecto |
 | `documentos` | `vec_documentos_rrhh_ejecutor_desarrollo` | 8 | `vec-server` | por defecto |
 | `incorporacion` | `vec_inc_v2_registro_ct_20260910`, `vec_inc_v2_alta_personal_20260910`, `vec_inc_v2_lector_personal_20260910` | 3 | `vec-server` | por defecto |
@@ -150,6 +150,14 @@ Fuera de la lista, a propósito:
 El cuadro, el detalle y la auditoría de Contratación no necesitan fila: pasan
 por el núcleo de consulta RRHH, que no lleva AD172.
 
+La fila de recuperación R5 V2 añadida el 16 de octubre usa el mismo LOGIN y
+grupo que la consulta R5 V2, pero su audiencia y operación son distintas. El
+núcleo de la copia H con huella `ad569d35…` ya admite el perfil
+`recuperacion_firmas_r5_ct_v2`. Esa huella aún no pertenece a la lista global
+de núcleos cotejados de este paquete: para la copia H, dirección prepara una
+operación privada que exige esa preimagen exacta y solo esa fila. No se amplía
+la lista global por haber comprobado una sola rama del núcleo.
+
 ## Qué comprueba antes de escribir
 
 - PostgreSQL 18, DBA por el socket local y base `postgres`.
@@ -188,7 +196,7 @@ ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_PG_CONTENEDOR=vec-postgresq
 ssh root@cidonia.cloud 'su - openclaw -c "VEC_ORIGEN_AD172_APLICAR=SI-REVISADO VEC_ORIGEN_PG_CONTENEDOR=vec-postgresql-20260906 bash /home/openclaw/.local/state/vec-desarrollo-20260906/origen_consumos_ad172/ejecutar.sh --aplicar"'
 ```
 
-Sin `VEC_ORIGEN_BLOQUES` se instalan los cinco bloques de RRHH, 107 ternas.
+Sin `VEC_ORIGEN_BLOQUES` se instalan los cinco bloques de RRHH, 108 ternas.
 Cronos se instala aparte cuando se quiera, añadiendo `VEC_ORIGEN_BLOQUES=cronos`.
 Las 26 ternas de B2 se seleccionan únicamente con
 `VEC_ORIGEN_BLOQUES=incorporacionb`. Antes de usar ese bloque se cotejan sus
@@ -211,7 +219,7 @@ escribir. Este paquete no crea roles ni añade membresías.
   inventario.
 - **El ensayo** ejecuta todo y termina en `ROLLBACK`. Debe imprimir
   `verificado: ROLLBACK`, con el inventario sin cambios. `ternas_nuevas` cuenta
-  solo las filas ausentes de la base, no las 107 seleccionadas por defecto:
+  solo las filas ausentes de la base, no las 108 seleccionadas por defecto:
   en la preimagen HZ11 faltaban tres de esas 107. Para `incorporacionb` faltaban
   entonces las 21 de aquella lista; con las dos del registro del vínculo, la
   del listado de categorías y las dos del catálogo de registro de empleado, en
