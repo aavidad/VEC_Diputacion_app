@@ -307,6 +307,7 @@ conveniente».
 | 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6 |
 | 9 | Carmen | Ficha, Llamamiento y comunicación | Abre el llamamiento desde la bolsa Administrativo y registra la comunicación | Recibo del llamamiento con Antonio como llamado; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas) |
 | 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo de dos días | Recibo de su respuesta |
+| 10a (si renuncia con causa justificada) | Antonio; después Carmen u otra técnica de RRHH con permiso vigente | Mi Bolsa; ficha del candidato en Bolsas | Antonio adjunta un PDF del justificante, confirma la renuncia y conserva el recibo. RRHH consulta y descarga el documento desde la ficha; también queda en el seguimiento | Documento custodiado tras antivirus; recibo de VEC y lectura de RRHH auditada. No cambia la rama de aceptación del paso 10 |
 | 11 | Carmen | Ficha, Llamamiento | Resuelve la aceptación | Recibo de resolución del llamamiento |
 | 12 | Carmen | Ficha, Formalización | Registra la propuesta de nombramiento | Recibo; `nombramiento/en_curso`, v7 |
 | 13 | Carmen | Ficha, Formalización | Registra la resolución | Recibo; `nombramiento/en_curso`, v8 |
@@ -526,10 +527,22 @@ real, falta acreditar el recorrido.
 3. La aspirante elige (`POST /api/vec/bolsa/mi-bolsa/respuestas`):
    - **Aceptar**: sin pantalla de revisión.
    - **Renunciar**: pasa por «Revise su renuncia» y «Confirmar renuncia».
-   - **Renuncia justificada**: causa del catálogo y referencia y huella del
-     justificante. El fichero no se envía todavía.
+   - **Renuncia justificada**: elige la causa del catálogo y adjunta un PDF desde
+     Mi Bolsa. El límite es de 16 MiB; la aplicación lo comprueba antes de
+     enviarlo y la API rechaza con 413 los cuerpos demasiado grandes. El fichero
+     pasa por antivirus antes de quedar custodiado. La respuesta conserva su
+     referencia y huella y entrega un recibo de VEC.
 4. Recibe un recibo. Según las reglas, la respuesta es firme o queda «en
    revisión» hasta que RRHH la confirme.
+
+La técnica de RRHH que tenga el permiso vigente de su rol, sea Carmen u otra,
+consulta y descarga el justificante desde la ficha del candidato en las bolsas
+de su ámbito. Una técnica de otro ámbito recibe una denegación. El seguimiento
+también muestra la actuación. Un reintento conserva el mismo PDF y la misma
+clave; una subida pendiente o rechazada no registra la renuncia. El área de la aspirante no ofrece la descarga de
+su propio PDF después de presentarlo: debe conservar el original y el recibo.
+Esta capacidad está pendiente de ensayo conjunto y activación; su presencia en
+el código no acredita que esté instalada en cidonia.
 
 Si no contesta, se entiende que no acepta, sin consecuencia. Para una oferta con
 varias plazas, la aspirante solo pulsa **Aceptar**
@@ -745,7 +758,7 @@ Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
 un reintento conserva fechas, política y oferta originales. Este corte no acredita
 todavía la publicación desde la ficha de CT.
 
-**Candidata R1a, pendiente de integrar e instalar.** La selección explica por
+**Candidata R1a comprobada en copia local, pendiente de integrar.** La selección explica por
 persona los hechos comprobados y el motivo aplicado, con el vínculo al contrato
 de origen del llamamiento de CT. Si falta un contrato anterior o un dato para
 comprobar la excepción de vacante, muestra «Pendiente de comprobación» y se
@@ -761,8 +774,15 @@ requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
 de origen CT, y la concesión exacta al rol RRHH aprobada por dos
 administradores. Si falta el apartado de criterios, la selección conserva el
 orden y las reglas anteriores; la aplicación arranca. Si RRHH no tiene permiso
-para consultar motivos, el bloque indica que no están disponibles. Falta comprobar
-el conjunto con y sin esa configuración, en navegador y tras reinicio.
+para consultar motivos, el bloque indica que no están disponibles. En la copia
+local se guardó una política desde la pantalla y se conservaron versión, huella y
+recibo tras reiniciar; la bolsa estaba sin configurar antes. El seguimiento
+histórico mostró motivos y versión en castellano e inglés, en escritorio y móvil.
+En otra copia desechable, con el mismo análisis y las decisiones conservadas,
+CT detuvo con 409 la selección en la primera persona trabajando sin hechos:
+mostró posición y versión, no creó llamamiento y permitió abrir la bolsa.
+Alcance y límites en
+[`habilitacion_criterios_ofrecimiento_20261015.md`](../../deploy/principal/habilitacion_criterios_ofrecimiento_20261015.md).
 
 **Candidata de consulta de puestos.** El ofrecimiento usa la RPT publicada y
 la historia autorizada del puesto de Personal. La consulta existente se conecta

@@ -11,8 +11,8 @@ import (
 func TestMaterialCarteraExternaUsaAudienciasPropias(t *testing.T) {
 	const consumidor = consumidorMeritosCarteraPortalExternoV3
 	if !slices.Contains(consumidoresPortalExternoV3, consumidor) ||
-		!slices.Equal(audienciasConsumidorPortalExternoV3(consumidor), []string{meritosports.AudienciaRetirarCartera, "vec_meritos.hecho.declarar.v1"}) {
-		t.Fatal("consumidor de cartera no está cerrado a retirada y declaración propias")
+		!slices.Equal(audienciasConsumidorPortalExternoV3(consumidor), []string{meritosports.AudienciaRetirarCartera, "vec_meritos.hecho.declarar.v1", audienciaSubidaLocalActoModulo, audienciaSubidaLocalDescargaPropia}) {
+		t.Fatal("consumidor de cartera no está cerrado a sus actos y comprobantes propios")
 	}
 	d := descriptorMaterialRetirarCarteraExternaV3()
 	if d.Audiencia != meritosports.AudienciaRetirarCartera || d.ProveedorNominal == "" ||

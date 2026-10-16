@@ -1,8 +1,8 @@
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { crearClientePoliticaOfertas, validarPoliticaEditable, criteriosOfrecimientoValidos, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, leerReglasVigentes,
-  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA, cargarCatalogoCriteriosOfrecimiento } from "./rrhh-plazos-api.js?v=20261016-r1-seleccion-pendiente-v5";
-import { renderizarCriteriosOfrecimiento, cambiarCriteriosOfrecimiento } from "./rrhh-criterios-ofrecimiento.js?v=20261016-r1-seleccion-pendiente-v5";
+  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA, cargarCatalogoCriteriosOfrecimiento } from "./rrhh-plazos-api.js?v=20261016-r1-seleccion-pendiente-v8";
+import { renderizarCriteriosOfrecimiento, cambiarCriteriosOfrecimiento } from "./rrhh-criterios-ofrecimiento.js?v=20261016-r1-seleccion-pendiente-v8";
 
 // Los textos de plazos y plazas viven en textos/<idioma>/bolsa-ofertas.json.
 const { cargarTextos } = await import("../../../comun/textos.js");

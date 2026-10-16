@@ -10,7 +10,7 @@ La publicación de ofertas y el montaje de política de #1145 ya están en la
 principal. B118 parte del cuerpo instalado tras B117. Para las migraciones de
 autorización compartidas, dirección fija esta secuencia: la lista completa de
 #1147, con AD277, AD281, AD284 y AD287; AD276 de este corte; AD278 de #1146;
-AD279; AD288 y, al final, AD273. AD282 pertenece a los prerrequisitos de gobierno
+AD283 de #1155; AD279; AD288 y, al final, AD273. AD282 pertenece a los prerrequisitos de gobierno
 de esa lista. Este corte no sustituye la lista conjunta congelada por dirección.
 AD276 coteja la restricción instalada tras AD287 y conserva tanto la confianza
 externa como la consulta previa al perfil de RRHH. Una preimagen distinta
@@ -97,26 +97,121 @@ política. Un catálogo ausente o defectuoso impide únicamente añadir ese apar
 - Recorrer escritorio y móvil, en castellano e inglés. Un fallo del bloque de
   motivos conserva los candidatos y las llamadas del seguimiento.
 
-## Evidencias y límites actuales
+## Evidencias de la candidata local
 
-Un ensayo anterior instaló CT221, B118 y AD276 una vez en una copia propia y
-pasó las comprobaciones focales de permisos, ausencia de política, ambos modos
-de inicio, criterios, hechos, instantáneas y separación de superficies. Ese
-ensayo no acredita la cadena compartida posterior a AD277 ni la última
-ampliación opcional del validador B118. Esta ampliación se comprobó por separado
-en una función temporal, sin reaplicar la migración instalada.
+El montaje final `e065ac39b` incorpora el código de este corte y la corrección
+literal de remonte de O #1147 (`4e675f68e`), solo en la candidata de ensayo. El
+binario normal conserva SHA256
+`6162f2dbff0c308639c605f7dfd5080b42ef90af3d93ce107c4df9d128b89d75`;
+no hay instrumentación ni sustituciones de funciones. La corrección de O no se
+duplica en #1144: su PR entra antes por el orden fijado por dirección.
 
-En la copia se admitió el catálogo con auditoría y se publicaron las dos
-concesiones de RRHH por propuesta y cierre de dos administradores distintos.
-Se comprobó la nueva asignación y la conservación de las concesiones anteriores.
-La política se publicó mediante el cliente web real y se recuperaron su versión,
-fecha y recibo después de reiniciar. Falta repetir la publicación con la última
-regla desde la navegación del portal y ensayar la cadena final completa.
+El prefijo de ensayo R57 instaló una vez la lista de O hasta AD287 y, después,
+B117, CT221, B118 y AD276 finales. Pasaron sus pruebas focales, incluidas
+condiciones, hechos, ausencia de criterios y límites entre superficies. Las
+fuentes CT221, B118 y AD276 tienen SHA256, respectivamente:
 
-La consulta histórica de #1150 ya está integrada. El puente de unidades de
-#1153 se incorpora a esta candidata para ensayar el consumidor con el permiso
-ampliado de origen. Un binario anterior que exige los 38 campos originales
-rechaza correctamente la concesión ampliada de 40; ese rechazo no prueba la
-selección conjunta. La PR conserva pendientes el recorrido de pausa y motivos,
-los recibos del llamamiento y la recuperación tras reiniciar sobre la candidata
-final. No está lista para instalarse.
+- `8a82e85afbb3df559eef8e92ef34abf1fe1cd6cd4e9204bb28d92b6f3a1de32f`.
+- `466c5ce66b3c896d47ecf7eaeab22b670c046854d1954a5e9f375f07bda584ff`.
+- `26391d46f93e9de817e8e603be8e38bad0fedf82cf5cadb741e14044272241c7`.
+
+La copia R58 conserva ese esquema, ampliado después por AD278 y AD283, y los
+datos de trabajo de R56. El traslado mantuvo las funciones, permisos y
+restricciones del destino; las ACL de base y tipos se restauraron desde la
+principal con dos revisiones. Una comprobación posterior de solo lectura cotejó
+quince cuerpos y sus metadatos: getter CT221, nueve funciones B118, cuatro AD276
+y el consumidor central tras AD283. Coinciden con esas fuentes. No se reaplicó
+SQL instalado. La fuente anterior de AD276 usada en R56 tenía los mismos cuatro
+cuerpos; la final cambia la guarda previa para respetar AD287→AD276.
+
+Las dos concesiones de RRHH se publicaron por propuesta y cierre con dos
+administradores distintos; se cotejaron asignación y concesiones conservadas.
+El material ADMIN nuevo dura noventa días. Las definiciones de fuente anuales
+anteriores quedan como excepción de esta copia, a cargo de R hasta su relevo
+por la activación común; no se presentan como material nuevo.
+
+La composición normal incorporó la separación de unidades de #1153 y las
+correcciones de referencias, bytes y fechas de este corte. La selección original
+del expediente 2026/94011 quedó confirmada mediante el cliente web real, con un
+origen Bolsa y un justificante nativo conservados tras reiniciar. La corrección
+SQL de ese justificante va separada en #1170 (CT230); la recuperación de su ficha
+y la anotación del aviso, en #1178 (CT231). No se afirma que #1144 aislada incluya
+esos dos cambios.
+
+El seguimiento histórico se consultó con HTTP 200 en castellano e inglés, a
+1440 y 390 píxeles. Mostró las cuatro posiciones omitidas por disponibilidad
+posterior, la versión uno de la regla y cero hechos contractuales, sin perder
+los candidatos ni las llamadas. La consulta de puestos de Personal usó la
+unidad del puesto y conservó la unidad gestora del expediente.
+
+Desde la pantalla se guardó la primera política de Auxiliar de Servicios
+Generales con HTTP 201. El botón añadió la propuesta vigente y RRHH conservó
+sus valores: supuesto de descuento «Programa temporal», periodos descontables
+«Acumulación de tareas» y «Sustitución», y cita del artículo 9, apartado cuarto.
+Tras reiniciar aplicación y PostgreSQL, el GET devolvió HTTP 200 con la misma
+versión, huella, contenido y recibo. La interfaz seguía indicando que la regla
+estaba pendiente de aprobación: no se presenta como una excepción ya acreditada.
+La bolsa estaba sin configurar antes de este acto; sesión, portal y funciones
+anteriores arrancaron tanto antes como después de guardar los criterios.
+El justificante reaparece al volver a la pantalla y se copia desde su botón común,
+sin mostrar la referencia opaca. Chrome a 390 píxeles comprobó copia real con
+teclado, cabecera legible y ausencia de desbordamiento horizontal.
+
+El 503 que impedía abrir la política procedía de una comprobación por número de
+versión del rol. Se sustituyó por la concesión exacta publicada para consultar o
+publicar, manteniendo la decisión estricta y el consumo nominal. Dos revisiones
+independientes y la focal de versión once, permiso ausente y concesiones ajenas
+fueron favorables. Semgrep local no encontró hallazgos nuevos; gosec cargó los
+385 archivos examinados sin errores y conservó los 78 avisos anteriores, ninguno
+en las líneas nuevas.
+
+## Límites del ensayo
+
+La lectura contextual de Auxiliar de Servicios Generales incluye 42 posiciones.
+Sus cuatro personas trabajando, sin hechos contractuales, quedan pendientes de
+comprobación y sin turno elegible. Los datos antiguos también carecen de varios
+vínculos de persona; no se deduce que estén disponibles por esa ausencia. Esa
+comprobación fue un SELECT de diagnóstico, no una lectura desde el portal ni
+una selección. La pantalla general de candidatos conserva su lectura general;
+el motivo contextual se muestra en la selección y en el seguimiento de su corte.
+
+El freno desde CT se comprobó en otra copia desechable, R59, del mismo caso
+2026/94011. Se retiraron exclusivamente sus efectos ficticios de selección y
+comunicación y se hizo vigente una fila de semilla «trabajando». Dos revisiones
+aprobaron esa preparación antes de ejecutarla. Los doce conjuntos protegidos, incluidos expediente, solicitud, análisis,
+decisiones y política, conservaron sus huellas. El guion no modificó firmas ni
+asignaciones de rol; no se compararon mediante una huella previa propia.
+No se fabricaron actos ni se cambiaron las decisiones para otro contexto. La historia central
+anterior de esa copia queda referida a efectos retirados y no acredita el ensayo
+nuevo. La copia R58 y sus justificantes confirmados permanecieron intactos; su
+aplicación y base estuvieron detenidas durante el ensayo de R59 para impedir
+mezclas de conexiones.
+
+En la primera posición había una sola persona vinculada, cero hechos de contrato
+y ninguna cuarentena. La política uno era válida. Desde la ficha, una clave nueva
+generada por la interfaz devolvió HTTP 409 `comprobacion_ofrecimiento_pendiente`:
+la pantalla identificó posición uno, comprobación por RRHH y versión uno, y aclaró
+que no había creado el llamamiento. Los cuatro contadores comprobados del caso permanecieron a cero:
+selección O6, origen y comunicación del expediente, y llamamientos de la bolsa
+Administrativo. No son los recuentos globales de la copia. Los doce conjuntos protegidos
+conservaron sus huellas. Las lecturas previas de CT, Bolsa y Personal dejaron
+asientos durables; no se atribuye una decisión de selección al rechazo anterior
+al acto. La correlación HTTP se genera aparte: la atribución de esos asientos es
+por recurso, secuencia y ventana de tiempo, sin afirmar una igualdad inexistente.
+
+El primer montaje reprodujo una cancelación del GET al remontar la misma vista.
+Se reutilizó la corrección de O y su prueba, conservando la cancelación al salir.
+En la candidata final, una sesión limpia cargó su versión de recursos correcta:
+el POST mantuvo el 409 y «Ver la bolsa» abrió con teclado el listado real. Los
+cuatro contadores siguieron a cero. No se convirtió en éxito el 401 de otra
+consulta ni se cambió una guarda. Un cruce de bolsa y llamamiento había cerrado
+la lectura sin datos con 503: no se cita como una denegación formal 403.
+El cambio de idioma directo también tuvo un rechazo transitorio en el montaje
+anterior; recargar permitió consultar. Estos límites quedan separados del freno
+contextual comprobado.
+
+Falta el acto propio para que RRHH acredite los hechos (corte siguiente) y la
+confirmación de la duda 165 sobre el descuento. Las preferencias de modalidad
+corresponden a su corte propio y nunca excluyen del llamamiento directo.
+Este ensayo no acredita todo el recorrido de FLUJO_APP §4.0, AD279, AD288 ni la
+subida a cidonia. Dirección integra y congela su candidata conjunta.

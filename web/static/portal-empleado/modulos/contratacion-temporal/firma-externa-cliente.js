@@ -1,5 +1,5 @@
 /** Registro externo V2: conserva revisión incremental; la procedencia se declara por RRHH. */
-import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261016-r1-seleccion-pendiente-v5";
+import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261016-r1-seleccion-pendiente-v8";
 
 export const RUTA_REGISTRO_FIRMA_EXTERNA = "/api/vec/contratacion-temporal/firmas-documento/registro-externo";
 const MAXIMO_PDF = 2 << 20;

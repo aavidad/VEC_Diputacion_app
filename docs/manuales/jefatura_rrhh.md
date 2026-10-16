@@ -73,9 +73,19 @@ La mayoría de los cambios ocurren solos, según avanza el expediente: aceptar u
 
 En «Mi Bolsa» el aspirante ve, por cada bolsa, la categoría, su posición (por ejemplo, «12 de 140»), su situación y su historial de llamamientos, contratos y renuncias. También ordena sus bolsas por preferencia y responde a las ofertas que le llegan.
 
+Si presenta una renuncia justificada, adjunta un PDF de hasta 16 MiB y recibe
+un recibo de VEC. Debe guardar el PDF original: su área personal no permite
+descargarlo después. El fichero queda disponible para RRHH cuando supera el
+antivirus. Esta función está pendiente de activación y comprobación conjunta.
+
 ### 4.4 Lo que ve RRHH
 
 En «Bolsas», el técnico tiene un resumen con cuántas personas hay disponibles, en renuncia y en cada situación, y al pulsar cada cifra sale la lista. Desde ahí abre la ficha de cada candidato, revisa solicitudes, méritos y alegaciones, consulta los llamamientos y cambia las reglas de cada bolsa.
+
+En la ficha del candidato, Carmen o cualquier otra técnica de RRHH con el permiso
+vigente de su rol puede consultar y descargar el justificante de una renuncia
+en las bolsas que tiene autorizadas.
+La actuación figura también en el seguimiento y la consulta queda auditada.
 
 ## 5. Un contrato temporal, paso a paso
 
@@ -168,16 +178,16 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Bolsas que vienen de Convoca | Se cargan desde el Excel de Convoca. | Nada para cargar las bolsas actuales. | La carga sirve solo para pasar a VEC las bolsas que ya existen. Las nuevas se hacen enteras en VEC. |
 | Convocatorias, inscripción, méritos y alegaciones | Programado: el aspirante se inscribe, declara sus méritos con documentos y presenta alegaciones; RRHH admite o rechaza. | Activarlo en el entorno de pruebas. | VEC sustituye a Convoca. El aspirante hace todo desde su área personal y RRHH lo revisa en pantalla. |
 | Baremación | No existe todavía. | Que RRHH cierre cómo se acreditan los méritos. | VEC calcula los puntos con el baremo de cada convocatoria, que RRHH puede cambiar. RRHH revisa y publica las listas provisional y definitiva. |
-| Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. | Subir el fichero del justificante de renuncia. | El aspirante aporta sus justificantes desde su área personal y RRHH los valida en pantalla. |
-| A quién se ofrece un puesto | VEC sigue el orden de la bolsa y salta a quien no está disponible. Una candidata pendiente de integrar, activar y comprobar prepara el motivo por persona y detiene el llamamiento si faltan datos del contrato anterior. | El acto propio para que RRHH compruebe esos datos y guarde el justificante y el recibo; la regla aprobada para otros supuestos de mejora de empleo (duda 163). La elección de modalidades sigue pendiente de norma o bases propias (duda 164). | RRHH ve los motivos y puede ofrecer una vacante a quien trabaja en los supuestos tasados del artículo 9 del Reglamento, tras comprobar el tiempo previo. |
+| Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. | Activar y comprobar juntos la subida del PDF, su recibo, el antivirus y la descarga desde la ficha del candidato. | El aspirante aporta el justificante desde Mi Bolsa y RRHH lo consulta con su permiso. |
+| A quién se ofrece un puesto | Comprobado en copia local: regla guardada desde la web con su recibo, selección según el orden y motivos históricos visibles por persona. Comprobado desde la ficha: se detiene en la primera persona que trabaja sin datos fiables de su contrato y muestra la posición y la versión de la regla. | Integrar la candidata. El acto propio para que RRHH compruebe esos datos y guarde el justificante y el recibo; la regla aprobada para otros supuestos de mejora de empleo (duda 163). La elección de modalidades sigue pendiente de norma o bases propias (duda 164). | RRHH ve los motivos y puede ofrecer una vacante a quien trabaja en los supuestos tasados del artículo 9 del Reglamento, tras comprobar el tiempo previo. |
 | Comprobación del puesto ofrecido | Consulta del puesto en Personal comprobada en la copia local, con permiso, recibo y reinicio. | Completar el ofrecimiento desde la petición y comprobarlo en el recorrido. | VEC contrasta el puesto de la petición con su historia antes de ofrecerlo. |
 | Aviso de la oferta | Correo con plantilla desde un buzón de pruebas. Llamadas anotadas. | El correo de la Diputación, que depende de Informática. | Correo oficial y, cuando Informática dé un proveedor, también SMS. |
 | Retomar un aviso pendiente | Está preparada la recuperación del llamamiento confirmado al volver a su ficha. | Comprobar e integrar el cambio con su justificante y el registro del aviso. | La ficha permite continuar el aviso y conserva el llamamiento original al recargar o reiniciar. |
 | Ofertas de varias plazas | Desde una bolsa seleccionada, RRHH abre «Gestionar ofertas», configura el inicio del plazo y publica la oferta. Bolsa adjudica las plazas por orden y conserva el recibo al reintentar. | Conectar la selección del expediente, su vínculo y la guarda de cancelación. Después, retirar la oferta al cancelar y enviar el aviso por correo de la Diputación. | Una petición de varias personas se cubre con una sola oferta. |
 | Petición del centro | Se presenta y la ratifica otra persona del centro. | RRHH pidió que la petición vaya firmada por el técnico y por el Diputado o Diputada. | Petición firmada desde VEC. |
 | Tramitación del expediente | Análisis, crédito, vía de cobertura, unidad, informe e Intervención. | Decidir con RRHH si el ofrecimiento va antes o después de Intervención. | El orden de las fases que fije RRHH, que se puede cambiar por configuración. |
-| Documentos | Borradores en PDF y Word con el logotipo y los datos del expediente. | Las plantillas definitivas de RRHH. | Documentos con las plantillas oficiales, listos para firmar. |
-| Unidad del puesto ofrecido | Programada la comprobación del puesto en su unidad, conservando la unidad que gestiona el expediente. | Comprobar el ofrecimiento con la consulta de Personal activada en la copia local. | RRHH puede gestionar un puesto de otro centro sin confundir ambas unidades. |
+| Documentos | Borradores en PDF y Word con el logotipo y los datos del expediente. | Las plantillas definitivas de RRHH. La gestión de plantillas aún no estaba activada en la última copia de ensayo. | Documentos con las plantillas oficiales, listos para firmar. |
+| Unidad del puesto ofrecido | Comprobada en la selección local: Personal consulta la unidad del puesto y se conserva la unidad gestora del expediente. | Integrar la composición ensayada y completar el recorrido. | RRHH puede gestionar un puesto de otro centro sin confundir ambas unidades. |
 | Firma | En la copia de ensayo, el informe tiene dos firmas y la resolución tres; sus PDF se recuperan desde la ficha después de reiniciar. Está preparado un límite de tamaño común para generar, firmar y descargar el PDF en VEC. | Probar el recorrido entero en un mismo expediente e instalar lo ensayado. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
@@ -190,6 +200,10 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 VEC se construye por partes. Primero bolsas y contratación temporal, con lo que necesitan para funcionar; después control horario y dietas; y luego, uno a uno, los demás módulos. Este es el orden previsto: procesos selectivos y provisión; formación y carrera; certificados; acción social; nóminas; y prevención, igualdad, incompatibilidades, régimen disciplinario, relaciones sindicales y canal interno. Para cada módulo se indica para qué sirve, qué hay hoy y cómo será al final.
 
 ### 8.1 Personal, organización y relación de puestos de trabajo
+
+La consulta de puestos requiere que Sistemas prepare su configuración y que la
+persona tenga permiso. Preparar esa configuración no confirma una selección
+de personal; la selección se comprueba desde el expediente de contratación.
 
 **Para qué sirve.** Es el registro de cada empleado: su relación con la Diputación, sus contratos y nombramientos, su puesto, su plaza, sus situaciones administrativas y su historia. También guarda la estructura de la Diputación (áreas, servicios, centros y unidades) y la relación de puestos de trabajo con sus categorías.
 
@@ -224,6 +238,12 @@ La firma electrónica del documento y la competencia de quien firma se comprueba
 **Para qué sirve.** Guardar los documentos que se suben o se generan, con su huella y su historia, y producir los documentos de cada trámite a partir de plantillas Word.
 
 **Hoy.** Funciona la generación de borradores en PDF y Word desde el expediente, con plantillas que RRHH puede cambiar. Se está terminando una subida común de documentos para todos los módulos, que comprobará el tamaño, que el fichero sea de verdad un PDF y que no tenga virus.
+
+En la copia local se ha comprobado que el portal sigue usando el catálogo
+publicado para la organización y que el PDF firmado y sus recibos permanecen
+disponibles después de reiniciar. La gestión administrativa de plantillas no
+estaba activada; esa pantalla y la generación de un borrador nuevo no forman
+parte de esta comprobación.
 
 **Al final.** Un único sitio para los documentos de todos los módulos, con plantillas oficiales de RRHH, conservación según el Archivo y descarga controlada.
 

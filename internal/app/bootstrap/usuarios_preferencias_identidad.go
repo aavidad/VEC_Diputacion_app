@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
@@ -61,6 +62,17 @@ func (e falloSesionPreferencias) Unwrap() []error {
 }
 func (e falloSesionPreferencias) EtapaSegura() string { return string(e.etapa) }
 
+// Las cuentas externas ya publicadas con referencias en minúsculas conservan
+// su alias. Una referencia opaca con mayúsculas mantiene su identidad exacta
+// mediante una huella separada por dominio y apta para el registro de sesión.
+func identificadorCuentaSesionExternaDesarrollo(cuentaRef string) string {
+	id := "desarrollo:" + cuentaRef
+	if id == strings.ToLower(id) {
+		return id
+	}
+	return "desarrollo:externa:" + huellaRutasDietas("vec.identidad.externa.cuenta.v1\x00"+cuentaRef)
+}
+
 func (m revalidadorPreferenciasMedido) RevalidarAutenticacionActorV1(ctx context.Context, s core.SolicitudRevalidacionAutenticacionActorV1) (core.AutenticacionRevalidadaV1, error) {
 	inicio := time.Now()
 	r, err := m.RevalidadorAutenticacionActorV1.RevalidarAutenticacionActorV1(ctx, s)
@@ -112,9 +124,13 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) resolverSesion(r *http.Request
 		hasta = limite
 	}
 	superficie := httpseguridad.Superficie(a.superficie)
+	cuentaID := "desarrollo:" + cuenta.CuentaRef
+	if a.superficie == core.SuperficieAutenticacionExternaPersonalV1 {
+		cuentaID = identificadorCuentaSesionExternaDesarrollo(cuenta.CuentaRef)
+	}
 	politica := "dev-certificado-mtls-v1;solo-sintetico;canal-privado-validado;garantia-alta-desarrollo;vigencia-120s;sin-kerberos;no-corporativa"
 	alta := httpseguridad.AltaSesionAtomica{
-		AsercionID: asercion, SesionID: sesion, SujetoID: cuenta.Sujeto, CuentaID: "desarrollo:" + cuenta.CuentaRef,
+		AsercionID: asercion, SesionID: sesion, SujetoID: cuenta.Sujeto, CuentaID: cuentaID,
 		Superficie: superficie, EspacioIdentidad: espacioIdentidadSesionDesarrollo,
 		MetodoObservado: core.AuthMethodCertificate, GarantiaObservada: core.AuthAssuranceHigh,
 		AutenticacionVerificadaEn: ahora, SesionEmitidaEn: ahora, AsercionExpiraEn: hasta,
