@@ -38,8 +38,25 @@ def generar(raiz, salida, fuente=None):
             objeto[clave] = valor
         return objeto
 
+    def validar_cadenas(valor):
+        if isinstance(valor, str):
+            if "\x00" in valor:
+                raise ValueError("NUL en la fuente JSON")
+            try:
+                valor.encode("utf-8")
+            except UnicodeEncodeError as error:
+                raise ValueError("cadena JSON no codificable en UTF-8") from error
+        elif isinstance(valor, dict):
+            for clave, elemento in valor.items():
+                validar_cadenas(clave)
+                validar_cadenas(elemento)
+        elif isinstance(valor, list):
+            for elemento in valor:
+                validar_cadenas(elemento)
+
     fuente = raiz / "fuente_v2.json" if fuente is None else Path(fuente)
     f = json.loads(fuente.read_text(encoding="utf-8"), object_pairs_hook=sin_claves_duplicadas)
+    validar_cadenas(f)
     if f["esquema"] != "vec.inscripcion.version_certificada_provisional.v2" or f["uso"] != "preparacion_operativa_sin_bases_aprobadas":
         raise ValueError("fuente v2 inesperada")
     p = f["politica"]

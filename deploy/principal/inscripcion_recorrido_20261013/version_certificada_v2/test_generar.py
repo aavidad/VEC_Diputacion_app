@@ -29,6 +29,7 @@ class VersionCertificadaV2Test(unittest.TestCase):
             for modalidad in ("separada", "conjunta"):
                 fuente = copy.deepcopy(base)
                 fuente["convocatoria"]["modalidad_inscripcion"] = modalidad
+                fuente["convocatoria"]["descripcion"] += "\nTexto en otra línea"
                 ruta = temporal / (modalidad + ".json")
                 ruta.write_text(json.dumps(fuente, ensure_ascii=False), encoding="utf-8")
                 salida = temporal / modalidad
@@ -49,12 +50,20 @@ class VersionCertificadaV2Test(unittest.TestCase):
 
     def test_modalidad_invalida_y_preimagen_externa_fallan_antes_de_emitir(self):
         base = json.loads((RAIZ / "fuente_v2.json").read_text(encoding="utf-8"))
-        for nombre, valor in (("desconocida", "otra"), ("nula", None),
-                              ("vacia", ""), ("blanco", " ")):
+        for nombre, campos, valor in (
+            ("desconocida", ("convocatoria", "modalidad_inscripcion"), "otra"),
+            ("nula", ("convocatoria", "modalidad_inscripcion"), None),
+            ("vacia", ("convocatoria", "modalidad_inscripcion"), ""),
+            ("blanco", ("convocatoria", "modalidad_inscripcion"), " "),
+            ("nul_actor", ("metadatos_operativos", "actor_ref"), "actor" + chr(0)),
+            ("nul_titulo", ("convocatoria", "titulo"), "Título" + chr(0)),
+            ("nul_clave", ("convocatoria", "clave" + chr(0)), "dato"),
+            ("surrogate_actor", ("metadatos_operativos", "actor_ref"), chr(0xD800)),
+        ):
             with self.subTest(nombre=nombre), tempfile.TemporaryDirectory() as temporal:
                 temporal = Path(temporal)
                 fuente = copy.deepcopy(base)
-                fuente["convocatoria"]["modalidad_inscripcion"] = valor
+                fuente[campos[0]][campos[1]] = valor
                 ruta = temporal / "fuente.json"
                 ruta.write_text(json.dumps(fuente), encoding="utf-8")
                 salida = temporal / "salida"
@@ -89,7 +98,3 @@ class VersionCertificadaV2Test(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "clave duplicada"):
                     generar(RAIZ, salida, ruta)
                 self.assertFalse(salida.exists())
-
-
-if __name__ == "__main__":
-    unittest.main()
