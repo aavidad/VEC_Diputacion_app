@@ -442,6 +442,15 @@ con el acceso y recibo de ficha CT43. Conserva el sello de detalle y añade el
 sello del anexo; consumo V3, auditoría y recibos pertenecen a una transacción.
 No se activan roles ni asignaciones nuevos con estas SQL.
 
+CT230 adapta la confirmación O6 al recibo nativo
+del llamamiento constituido. Conserva las marcas canónicas de procedencia y
+evidencia y admite la ausencia de retención temporal solo bajo su contrato
+nominal completo; la rama anterior mantiene sus controles. `retener_hasta`
+es vigencia de la evidencia HMAC de Bolsa, no conservación del expediente.
+La conservación real de O6 sigue pendiente de CT-CUM-06 y de la política
+VEC-DOC-CONS-01. Activación y límites en
+[`recibo_nativo_o6_ct230_20261016.md`](../../deploy/principal/recibo_nativo_o6_ct230_20261016.md).
+
 CT231 añade una variante de fila de CT140 para la selección O6 confirmada
 pendiente de comunicación. Conserva la ruta, el lector y los once campos de
 permiso existentes; devuelve solo los ocho aplicables a la selección, con su

@@ -743,6 +743,10 @@ CT no tiene llamamiento propio: usa el de Bolsa sobre una bolsa constituida
 6. Tras una renuncia o expiración, RRHH abre expresamente el siguiente
    (`llamamientos/siguientes`). No hay aviso automático al siguiente.
 
+En la copia local, CT230 confirma y recupera el llamamiento nativo con su
+misma clave y recibo después de reiniciar, sin duplicar la oferta. Este ensayo
+no completa el recorrido del apartado 4.0.
+
 CT231 recupera la selección confirmada pendiente de aviso como una fila de la
 consulta existente de la ficha. Al volver a ella, RRHH ve su justificante y puede
 continuar el aviso; mientras siga pendiente, no se ofrece seleccionar otra
