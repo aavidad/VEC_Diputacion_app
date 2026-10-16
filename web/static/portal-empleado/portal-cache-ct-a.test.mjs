@@ -4,16 +4,15 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261016-ct-arranque-disponible-v1";
-// Entrada y coordinador renuevan el aviso; las hojas CT conservan sus URL.
-const versionEntrada = "20261016-ct-arranque-disponible-v1";
+const versionCoordinador = "20261016-firma-limite-2mib-v2";
+const versionEntrada = "20261016-firma-limite-2mib-v2";
 const versionClienteCT = "20261014-ginpix-personal-b2-v1";
 const versionClienteConsulta = "20261015-firma-cierre-cache-v3";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
-const versionCircuito = versionClienteConsulta;
-const versionVista = versionClienteConsulta;
-const versionVistaPortal = versionClienteConsulta;
-const versionAdaptador = versionClienteConsulta;
+const versionCircuito = "20261016-firma-limite-2mib-v1";
+const versionVista = "20261015-firma-cierre-cache-v3";
+const versionVistaPortal = "20261016-firma-limite-2mib-v1";
+const versionAdaptador = "20261015-firma-cierre-cache-v3";
 const versionRender = "20261013-ct-firma-tres-v3";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
@@ -38,7 +37,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
     "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
   ].map((ruta) => readFile(new URL(ruta, raiz), "utf8")));
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
-  exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVistaPortal);
+  exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
   exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionVista);
   exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
@@ -68,7 +67,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   // La consulta de circuito RRHH no cambió: conserva su URL anterior.
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
-  exigirVersiones(circuito, "./circuito-firma-acciones.js", versionClienteConsulta);
+  exigirVersiones(circuito, "./circuito-firma-acciones.js", versionCircuito);
   for (const manifiesto of [interno, produccion]) {
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/firma-externa-cliente\.js$/mu);
   }
@@ -121,7 +120,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const cohorteCapacidad = versionBaseCT;
   const cohorteIdioma = "20261011-ct-bolsa-vinculo-v1";
   const cohorteEntrada = versionEntrada;
-  const cohorteFicha = versionVistaPortal;
+  const cohorteFicha = versionVista;
   const antiguas = new Map([
     ["/portal-empleado/portal.js", "20261008-bolsa-inicio-v2"],
     ["/portal-empleado/portal-modulos-coordinador.js", "20261008-ct-inicio-v1"],

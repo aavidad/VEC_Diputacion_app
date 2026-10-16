@@ -174,6 +174,26 @@ test("una operación externa incierta avisa y conserva su vía antes de otra fir
   assert.deepEqual(recibidas[0], recibidas[1]); assert.equal(e.contador.confirmaciones, 1);
 });
 
+test("el formulario externo admite PDF de 2 MiB y frena el byte adicional", async () => {
+  const maximo = 2 * 1024 * 1024;
+  const pdfGrande = new Uint8Array(maximo).fill(0x78);
+  pdfGrande.set(new TextEncoder().encode("%PDF-"), 0);
+  pdfGrande.set(new TextEncoder().encode("%%EOF"), maximo - 5);
+  const exceso = new Uint8Array(maximo + 1); exceso.set(pdfGrande); exceso[maximo] = 0x78;
+  for (const [contenido, esperado] of [[pdfGrande, 1], [exceso, 0]]) {
+    const e = escenario(["portafirmas_registro_rrhh"]);
+    const fichero = { size: contenido.length, arrayBuffer: async () => contenido.buffer };
+    e.campos.set("[data-ct-firma-pdf]", { files: [fichero] });
+    e.campos.set("[data-ct-firma-referencia]", { value: "portafirmas:prueba" });
+    e.campos.set("[data-ct-firma-fecha]", { value: "2026-10-03T12:00" });
+    const acciones = crearAccionesFirma(e.deps);
+    await acciones.manejarClic(e.evento("comprobar"));
+    await acciones.manejarClic(e.evento("portafirmas_registro_rrhh"));
+    assert.equal(e.contador.registros, esperado);
+    assert.equal(e.contador.confirmaciones, esperado);
+  }
+});
+
 test("el formulario externo identifica y enfoca el primer campo obligatorio ausente", async () => {
   const e = escenario(["portafirmas_registro_rrhh"]);
   const campos = ["[data-ct-firma-pdf]", "[data-ct-firma-referencia]", "[data-ct-firma-fecha]"];
