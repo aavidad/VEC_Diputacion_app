@@ -1,9 +1,10 @@
 # F1-36A: base de consulta de firmas originales
 
-Guion para una copia PostgreSQL 18 de la principal. Las tres migraciones y sus pruebas focales se ensayaron en la copia H;
-SQL y autorización tienen dos revisiones independientes. La comprobación
-tras reinicio conserva los originales; falta la CI de la cabeza que se entregue. Dirección integra e instala
-solo una candidata congelada y ensayada completa.
+Guion para una copia PostgreSQL 18 de la principal. La candidata anterior se
+ensayó en la copia H y tuvo dos revisiones independientes. La minimización de
+CT228 de este corte requiere un nuevo ensayo en una copia limpia y dos
+revisiones sobre sus bytes finales. Dirección integra e instala solo una
+candidata congelada y ensayada completa.
 
 ## Preparación y orden
 
@@ -11,10 +12,16 @@ Comprobar historia, ACL y preimágenes de las tres SQL enumeradas en
 `lista_sql_codexh_firma_historica_base_f1_36a_20261016.txt`. Aplicar solo
 AD286 → CT228 → AUT103 ausentes, con sus roles propietarios. No usar DOWN ni
 reaplicar historia; detenerse ante divergencia. Conexiones y actos son privados.
+En copias anteriores al 13/10, AUT103 requiere AUT87, AUT90 y AUT91: comprobar
+su estado e instalar las ausentes en ese orden antes de AUT103, con sus guiones
+y preimágenes propios. CT228 modificada exige una copia nueva donde no se haya
+instalado CT228; la copia H anterior se conserva como evidencia y no se reaplica.
 
 AD286 verifica el consumo V3 y la unidad histórica ante la asignación vigente.
-CT228 recupera por clave exacta y corte; una clave ausente no activa búsqueda
-alternativa. AUT103 prepara la concesión
+CT228 recupera por clave exacta y por la cadena `FirmaAnteriorRef`; una clave
+ausente no activa búsqueda alternativa. Comprueba el canon de cada paso, pero
+solo entrega su texto en la fila exacta; las anteriores conservan referencia y
+huella. AUT103 prepara la concesión
 `consultar_detalle_selectores` para la misma acción de consulta de expediente.
 El consumidor V2 exige el resultado exacto; conserva PDF, bytes, recibos e
 historia. Su ruta nominal reutiliza el manejador y la audiencia de recuperación
@@ -83,10 +90,12 @@ recuperar los PDF y los recibos
 originales de firma. Cada lectura conserva su nuevo apunte de acceso. Conservar
 salidas, revisión, CI y evidencia del arranque antes de integrar.
 
-En H, la consulta nominal devuelve los dos originales del informe y los tres
-originales de la resolución. Un firmante vigente puede recuperar el original
-de otro firmante de su unidad. Las huellas de los cánones devueltos coinciden
-con sus bytes; no se firma de nuevo. Sin cargo devuelve 403 y una clave
+En H, la candidata anterior devolvió los dos originales del informe y los tres
+originales de la resolución. Un firmante vigente recuperó el original
+de otro firmante de su unidad. Las huellas de los cánones entonces devueltos
+coincidieron con sus bytes; no se firmó de nuevo. El corte actual debe repetir
+el recorrido y comprobar que el canon de una unidad anterior no llega al
+usuario. Sin cargo devuelve 403 y una clave
 inexistente devuelve 404, sin búsqueda alternativa.
 
 El negativo temporal de otra unidad devolvió 401 al resolver la sesión, antes

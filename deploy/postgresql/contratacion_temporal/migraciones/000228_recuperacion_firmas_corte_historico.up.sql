@@ -39,7 +39,7 @@ CREATE OR REPLACE FUNCTION vec_contratacion_temporal.recuperar_firmas_r5_atestad
  SET statement_timeout TO '15s'
 AS $function$
 DECLARE s jsonb; c jsonb; d jsonb; consumo record; exacta record; fila record; revision record; cabeza record; firmas jsonb:='[]'::jsonb; revisiones jsonb:='[]'::jsonb; recuperaciones jsonb:='[]'::jsonb; proyeccion jsonb; selector jsonb; canon bytea;
- h text; contexto_h text; v numeric; org text; coincide boolean; separacion boolean; total integer:=0;
+ h text; contexto_h text; v numeric; org text; coincide boolean; separacion boolean; total integer; cadena_refs text[];
  vacia text:=encode(sha256(convert_to('vec:ct:firma-historia:v1:[]','UTF8')),'hex');
 BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
@@ -135,15 +135,30 @@ BEGIN
  IF NOT FOUND THEN cabeza.revision:=0; cabeza.huella_sha256:=vacia; END IF;
  IF exacta.firma_ref IS NOT NULL THEN cabeza.revision:=exacta.historia_revision_observada; cabeza.huella_sha256:=exacta.historia_huella_observada; END IF;
 
- -- Primero selecciona el corte propio: el helper privado no recibe filas futuras.
- -- El límite coincide con MaximoFilas del servicio Go de recuperación.
+ -- Sólo la cadena enlazada desde el acto exacto puede entrar en la proyección.
+ -- Una laguna o un antecedente de otro documento cierra toda la operación.
+ WITH RECURSIVE cadena(firma_ref,paso_orden,secuencia) AS (
+  SELECT exacta.firma_ref,exacta.paso_orden,exacta.secuencia
+  UNION ALL
+  SELECT anterior.firma_ref,anterior.paso_orden,anterior.secuencia
+   FROM cadena actual
+   JOIN vec_contratacion_temporal.firma_documento_revision_pdf_v2 enlace
+    ON enlace.firma_ref=actual.firma_ref AND enlace.orden_pdf=actual.paso_orden
+   JOIN vec_contratacion_temporal.firma_documento_v1 anterior ON anterior.firma_ref=enlace.firma_anterior_ref
+   WHERE actual.paso_orden>1 AND anterior.paso_orden=actual.paso_orden-1
+    AND anterior.secuencia=actual.secuencia-1 AND anterior.resultado='firmado'
+    AND anterior.politica_verificacion='politica:vec:firma:verificacion-autonoma:v2'
+    AND anterior.organizacion_ref=exacta.organizacion_ref AND anterior.expediente_ref=exacta.expediente_ref
+    AND anterior.documento=exacta.documento AND anterior.expediente_version<=exacta.expediente_version
+    AND anterior.catalogo_ref=exacta.catalogo_ref AND anterior.catalogo_huella_sha256=exacta.catalogo_huella_sha256
+    AND anterior.original_documento_ref=exacta.original_documento_ref
+    AND anterior.original_documento_version=exacta.original_documento_version
+    AND anterior.original_huella_sha256=exacta.original_huella_sha256
+ ) SELECT array_agg(c.firma_ref ORDER BY c.paso_orden),count(*) INTO cadena_refs,total FROM cadena c;
+ IF total IS DISTINCT FROM exacta.paso_orden THEN
+  RAISE EXCEPTION 'cadena histórica de firma incompleta' USING ERRCODE='55000'; END IF;
  FOR fila IN SELECT f.* FROM vec_contratacion_temporal.firma_documento_v1 f
-  WHERE f.organizacion_ref=s->>'OrganizacionRef' AND f.expediente_ref=s->>'ExpedienteRef'
-   AND f.documento=s->>'Documento' AND f.expediente_version<=(s->>'VersionExpediente')::numeric
-   AND (exacta.firma_ref IS NULL OR f.secuencia<=exacta.secuencia)
-  ORDER BY f.secuencia LIMIT 129 LOOP
-  total:=total+1;
-  IF total>128 THEN RAISE EXCEPTION 'historia recuperada no representable' USING ERRCODE='P1525'; END IF;
+  WHERE f.firma_ref=ANY(cadena_refs) ORDER BY f.paso_orden LOOP
   proyeccion:=vec_contratacion_temporal.consultar_firmas_documento_v3(
    s->>'OrganizacionRef',s->>'ExpedienteRef',s->>'Documento',s->>'FirmantePrincipalCandidatoRef',fila.firma_ref);
   IF jsonb_typeof(proyeccion) IS DISTINCT FROM 'array' OR jsonb_array_length(proyeccion)<>1
@@ -167,8 +182,10 @@ BEGIN
     OR encode(sha256(canon),'hex') IS DISTINCT FROM revision.competencia_evidencia_huella_sha256 THEN
     RAISE EXCEPTION 'canon V2 histórico incoherente' USING ERRCODE='55000'; END IF;
    recuperaciones:=recuperaciones||jsonb_build_array(jsonb_build_object('FirmaRef',fila.firma_ref,
-    'MaterialRootSHA256',fila.solicitud_huella_sha256,'CanonNominal',convert_from(canon,'UTF8'),
-    'CanonNominalSHA256',revision.competencia_evidencia_huella_sha256,'CanonNominalRef',revision.competencia_evidencia_ref));
+    'MaterialRootSHA256',fila.solicitud_huella_sha256,
+    'CanonNominalSHA256',revision.competencia_evidencia_huella_sha256,'CanonNominalRef',revision.competencia_evidencia_ref)
+    ||CASE WHEN fila.firma_ref=exacta.firma_ref THEN jsonb_build_object('CanonNominal',convert_from(canon,'UTF8'))
+      ELSE '{}'::jsonb END);
    revisiones:=revisiones||jsonb_build_array(proyeccion->0||jsonb_build_object(
     'FirmanteRef',fila.firmante_ref,'CertificadoHuella',fila.certificado_huella_sha256,
     'FirmaAnteriorRef',revision.firma_anterior_ref,'ReciboAnteriorRef',revision.recibo_anterior_ref,
@@ -222,8 +239,8 @@ BEGIN
   OR pg_is_in_recovery() OR f IS NULL
   OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proowner=to_regrole('vec_contratacion_temporal_propietario') AND p.prosecdef AND p.provolatile='v' AND p.proparallel='u' AND p.proacl=ARRAY['vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario','vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario']::aclitem[]
    AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']::text[]
-   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='95033e42672fbd01722a969d804633514155bc9c49830261cf33de333b537eb6'
-   AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='76353cce28a68fe2265fe83656388d109082e0db1f1a9eadbfc2f052141c07d4')
+   AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='76a5bb483bca50b9f1c414da2a5510825b80f7f7568496684bc9433fee0c8c57'
+   AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='3c1efeeb66161552d65a265b8934e6d4c8a98c83f069a8b32687db841426723e')
  THEN RAISE EXCEPTION 'CT228: postimagen o ACL divergentes' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;

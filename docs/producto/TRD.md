@@ -464,6 +464,10 @@ permiso.
   el corte del acto, y comprueba la unidad histórica frente a la asignación
   vigente de quien consulta. La asignación solo restringe: no concede acceso
   a la ficha, no exige ser el firmante original ni consulta el plan actual.
+  Los pasos anteriores salen solo si están enlazados por `FirmaAnteriorRef`
+  desde la firma exacta. Se verifican internamente sus cánones, pero el texto
+  `CanonNominal` solo se devuelve para la firma exacta; de las anteriores se
+  entregan la referencia y la huella.
   Una clave ausente no se sustituye por una búsqueda aproximada. El campo
   `selectores_recuperacion_firmas` exige una concesión exacta; `[]` no es
   comodín. La recuperación de Portafirmas sin unidad histórica sigue denegada.
