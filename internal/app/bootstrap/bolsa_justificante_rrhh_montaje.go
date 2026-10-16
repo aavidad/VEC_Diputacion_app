@@ -288,7 +288,7 @@ func emisoresJustificanteRenunciaRRHH(ctx context.Context, gobierno *pgxpool.Poo
 	}); err != nil {
 		return nil, err
 	}
-	fuente, err := nuevaFuenteConfianzaRenovableCTDesarrollo(gobierno, base, reloj)
+	fuente, err := nuevaFuenteConfianzaRenovableCTDesarrollo(gobierno, materiales[0], reloj)
 	if err != nil {
 		return nil, err
 	}
