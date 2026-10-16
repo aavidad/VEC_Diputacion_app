@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- AD276: proyección auditada del origen contextual y consulta nominal RRHH.
+-- AD276 tras AD287: origen contextual y consulta nominal RRHH.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -20,7 +20,7 @@ DO $pre$ BEGIN
  OR (SELECT encode(sha256(convert_to(pg_get_constraintdef(c.oid),'UTF8')),'hex')
      FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
       AND c.conname='auditoria_tipo_disjunto_v4')
-    <>'939babe4fcb650d87a774a559db7fdd74f0eb64f133a4b6b227821b5b34c468e'
+    <>'182b3fed22360afa10c6a496ca11e36c863ce6c731141d9314735b78504b9326'
  OR (SELECT encode(sha256(convert_to(pg_get_constraintdef(c.oid),'UTF8')),'hex')
      FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.auditoria_consumo_v3'::regclass
       AND c.conname='auditoria_lectura_respuestas_llamamiento_formato_v1')
@@ -30,8 +30,8 @@ DO $pre$ BEGIN
  THEN RAISE EXCEPTION 'AD276: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
--- AD263 ya añadió la confianza externa a esta expresión. Se conserva esa
--- postimagen y se añade una sola alternativa de lectura nominal.
+-- Se conservan confianza externa (AD263) y preperfil RRHH (AD287), y se
+-- añade una sola alternativa de lectura nominal sobre la postimagen instalada.
 DO $guardas$ DECLARE anterior text;nueva text;formato text;
  marca text:='''lectura_respuestas_llamamiento''::text, ''lectura_origen_datos_contacto''::text';
 BEGIN

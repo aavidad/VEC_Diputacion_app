@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Lectura local después de AD263, AD265, AD266, B117, CT221, B118 y AD276.
+-- Lectura local tras la cadena de Documentos hasta AD287, B118 y AD276.
 BEGIN READ ONLY;
 SET LOCAL search_path=pg_catalog,pg_temp;
 DO $prueba$ DECLARE disjunto text;validas int;
@@ -16,6 +16,8 @@ BEGIN
  IF validas<>2 OR position('confianza_externa' IN disjunto)=0
  OR position('lectura_exclusiones_llamamiento' IN disjunto)=0
  OR position('lectura_respuestas_llamamiento' IN disjunto)=0
+ OR position('preperfil_bolsa_rrhh' IN disjunto)=0
+ OR position('bolsa.justificante_renuncia.perfil_propio.consultar' IN disjunto)=0
  THEN RAISE EXCEPTION 'AD276: se perdió una rama o falta validar la guarda'; END IF;
 END $prueba$;
 ROLLBACK;

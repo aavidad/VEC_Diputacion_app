@@ -8,14 +8,16 @@ puesto a quien trabaja por el mero hecho de marcar una casilla.
 
 La publicación de ofertas y el montaje de política de #1145 ya están en la
 principal. B118 parte del cuerpo instalado tras B117. Para las migraciones de
-autorización compartidas, dirección fija esta secuencia: AD277 de #1147,
-AD276 de este corte, AD278 de #1146, AD279 y AD282; la consolidación AD273 va
-después. Este corte no instala las migraciones de otros equipos por separado.
-La preimagen de AD276 debe cotejarse con el cuerpo instalado tras AD277 y
-conservar sus ramas, con revisión independiente y ensayo de la cadena final.
+autorización compartidas, dirección fija esta secuencia: la lista completa de
+#1147, con AD277, AD281, AD284 y AD287; AD276 de este corte; AD278 de #1146;
+AD279; AD288 y, al final, AD273. AD282 pertenece a los prerrequisitos de gobierno
+de esa lista. Este corte no sustituye la lista conjunta congelada por dirección.
+AD276 coteja la restricción instalada tras AD287 y conserva tanto la confianza
+externa como la consulta previa al perfil de RRHH. Una preimagen distinta
+detiene la instalación, sin modificarla para saltar el control.
 La lista propia de R es
-`lista_sql_codexr_criterios_ofrecimiento_20261015.txt`: el prerrequisito AD266
-y CT221, B118 y AD276, además de los prerrequisitos anteriores. AD266 ya está en
+`lista_sql_codexr_criterios_ofrecimiento_20261015.txt`: los prerrequisitos AD266
+y AD282, CT221, B118 y AD276, además de los anteriores. AD266 ya está en
 la principal de código y añade al lector
 de gobierno la siguiente secuencia global. Se instala solo si está pendiente;
 sin ella, el programa actual de preparación de permisos rechaza la activación.
@@ -44,13 +46,13 @@ pertenecen a la copia. La instalación no crea LOGIN ni concede permisos al arra
    consultar los motivos. Sin la concesión ampliada de origen, la selección
    deniega: un permiso anterior no abre campos nuevos.
 
-Las fuentes de este corte duran un año. El material ficticio del ensayo debe
-conservar al menos sesenta días de vigencia. La ventana técnica para admitir el
-catálogo es de un día. Dirección ha autorizado renovar, por el procedimiento
-existente, las claves de gobierno de un día necesarias para los actos de dos
-administradores; su duración configurable se entrega por separado. No se
-alargan claves anteriores. No se incluyen credenciales ni material privado en
-el repositorio.
+Las definiciones de fuente ya publicadas conservan su vigencia y su huella de
+un año; no se reescriben. El material nuevo de desarrollo debe durar entre sesenta
+y noventa días. AD282 permite preparar claves y confianza nuevas por noventa
+días mediante el procedimiento existente; el plan técnico conserva su plazo
+breve. Una publicación administrativa caducada exige otra publicación aprobada:
+el arranque no la renueva automáticamente. No se alargan claves anteriores ni se
+incluyen credenciales o material privado en el repositorio.
 
 ## Regla de la bolsa
 
