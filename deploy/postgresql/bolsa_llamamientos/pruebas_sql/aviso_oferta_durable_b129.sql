@@ -89,7 +89,7 @@ SELECT vec_bolsa_llamamientos.vincular_despacho_aviso_v1(
  :'oferta_ref','per_actoractoractoractoractor',:'clave',
  sha256(decode(repeat('11',32),'hex')),'b129-v1')->>'aviso_version_token' AS version \gset
 SELECT prueba_aviso_b129.exigir(:'version'='b129-v1','versión del despacho distinta');
-SET CONSTRAINTS exigir_token_aviso_oferta_b129 IMMEDIATE;
+SET CONSTRAINTS vec_bolsa_llamamientos.exigir_token_aviso_oferta_b129 IMMEDIATE;
 
 -- Ningún tercero con el mismo rol puede reclamar solo con la referencia.
 SELECT prueba_aviso_b129.espera(format(

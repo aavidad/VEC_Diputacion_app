@@ -1,6 +1,6 @@
 # Aviso durable de ofertas por correo
 
-Tarea F1-18, primer corte. Preparado, todavía sin instalar ni ensayar. Usa el correo del alta de Bolsa y deja constancia de esa fuente. La consulta del correo verificado de Usuarios y la elegibilidad de personas en activo quedan para sus contratos posteriores.
+Tarea F1-18, primer corte. B129 instalada una vez en la copia propia; prueba SQL focal con rollback conforme, recorrido de correo aún pendiente. Usa el correo del alta de Bolsa y deja constancia de esa fuente. La consulta del correo verificado de Usuarios y la elegibilidad de personas en activo quedan para sus contratos posteriores.
 
 ## Activación en la copia
 
@@ -26,3 +26,7 @@ Comprobar en Chrome a 1440 y 390 píxeles, en castellano e inglés: estados, rec
 - La reclamación guarda la marca incierta antes de la red; la finalización coteja intento y token. La prueba focal del despacho cubre los cuatro resultados, caída tras enviar y recuperación sin duplicar. Una reclamación no confirmada nunca envía correo.
 - El envío usa un presupuesto técnico por petición; el resto conserva su intención. No hay un proceso de fondo ni otra bandeja de salida. El aviso no modifica las reglas, el plazo ni la declaración de notificación de la oferta.
 - Quedan las dos revisiones independientes de la cabeza final, Semgrep y gosec locales, instalación única de B129, recorrido completo en el buzón propio y puerta de calidad en CI. Este documento no acredita un envío real ni una candidata instalada.
+
+El ensayo SQL de `20c56b29c` instaló B129 y pasó las comprobaciones de instantánea, token ajeno, vínculo exacto, reclamación antes de la red, resultado y rotación del turno tras un transitorio. La primera prueba revirtió por el nombre de una restricción sin su esquema en el guion; al cualificarlo pasó y revirtió todos sus datos. La migración no se reaplicó.
+
+La copia causal contiene S6 de #1155, que cierra la publicación antigua de reglas durante el arranque. El código anterior de la principal todavía usa esa vía; el ensayo conjunto requiere el código de #1155, cuya integración corresponde a dirección. No se restituyen permisos ni se omiten guardas para arrancar. Este bloqueo de composición no acredita un envío de correo.
