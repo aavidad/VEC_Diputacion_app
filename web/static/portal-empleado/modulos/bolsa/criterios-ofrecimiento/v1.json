@@ -1,0 +1,51 @@
+{
+  "version_esquema": 1,
+  "referencia": "bolsa:criterios-ofrecimiento:reglamento:20261015",
+  "version": 1,
+  "fuentes": [
+    {
+      "url": "https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1768521622300-final-680c0e98.pdf",
+      "articulos": [
+        "9.1",
+        "9.apartado_cuarto_numerado_3"
+      ],
+      "consultada_en": "2026-10-15"
+    }
+  ],
+  "criterios_ofrecimiento": {
+    "fuente_normativa": "Reglamento de bolsas de la Diputación de Granada (BOP n.º 9, 16/01/2026), art. 9, apartado cuarto (numerado 3).",
+    "mejora": {
+      "habilitada": true,
+      "maximo_vacante_meses": 36,
+      "supuestos_reduccion_vacante": ["programa"],
+      "reduccion_por_modalidades_previas": ["acumulacion_tareas", "sustitucion"],
+      "modalidades_destino": [
+        "vacante"
+      ],
+      "causas_destino": [
+        "vacante"
+      ],
+      "condiciones_actuales": [
+        {
+          "modalidad": "acumulacion_tareas"
+        },
+        {
+          "modalidad": "sustitucion",
+          "causa": "baja",
+          "requiere_baja_comprobada": true,
+          "meses_transcurridos": {
+            "meses": 9,
+            "incluye_limite": true
+          }
+        },
+        {
+          "modalidad": "programa",
+          "meses_duracion_inicial": {
+            "meses": 9,
+            "incluye_limite": false
+          }
+        }
+      ]
+    }
+  }
+}

@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
@@ -31,6 +32,82 @@ type montajeLecturasFirmaV2 struct {
 	descargas      ports.RegistradorDescargaBorradorRRHH
 	circuito       http.Handler
 	motivoCircuito *pgvec.ValidadorReferenciaMotivoPostgreSQLV2
+}
+
+type filtroUnidadSelectoresFirmaCT struct {
+	nominal *fuenteNominalSesionFirmaCT
+}
+
+func (f filtroUnidadSelectoresFirmaCT) ResolverUnidadSelectoresRecuperacionRRHH(
+	ctx context.Context, lector ports.ContextoConsultaRRHH,
+) (ports.FiltroUnidadSelectoresRecuperacionRRHH, error) {
+	var vacio ports.FiltroUnidadSelectoresRecuperacionRRHH
+	if f.nominal == nil || ctx == nil || ctx.Err() != nil {
+		return vacio, ports.ErrFirmaDocumentoDenegada
+	}
+	firma, err := f.nominal.contexto(ctx)
+	if err != nil {
+		return vacio, err
+	}
+	p, ok := ctx.Value(clavePeticionNominalFirmaCT{}).(*peticionNominalFirmaCT)
+	if !ok || p == nil || p.fuente != f.nominal ||
+		!ctdomain.HuellaSHA256FirmaValida(firma.CertificadoCanalSHA256) {
+		return vacio, ports.ErrFirmaDocumentoDenegada
+	}
+	seleccion, presente := f.nominal.porCertificado[firma.CertificadoCanalSHA256]
+	p.mu.Lock()
+	mismaPeticion := p.solicitud.CertificadoCanalSHA256 == firma.CertificadoCanalSHA256 &&
+		p.solicitud.PersonaEsperadaRef == lector.ActorRef() &&
+		presente && seleccion.PerfilConsultaCTRef == lector.PerfilRef() &&
+		p.extras[lector.PerfilRef()] != nil
+	p.mu.Unlock()
+	if !mismaPeticion || firma.Resultado.Contexto.PersonaRef != lector.ActorRef() {
+		return vacio, ports.ErrFirmaDocumentoDenegada
+	}
+	instantanea, err := f.nominal.asignaciones.ObtenerInstantaneaAutorizacion(
+		ctx, lector.ActorRef(), firma.Resultado.Contexto.PerfilActivoRef)
+	if err != nil {
+		return vacio, err
+	}
+	if instantanea.Validar() != nil ||
+		instantanea.AsignacionPerfil.PrincipalID != lector.ActorRef() ||
+		instantanea.AsignacionPerfil.PerfilActivoRef != firma.Resultado.Contexto.PerfilActivoRef ||
+		instantanea.VersionRol.Estado != core.EstadoVersionRolPublicada ||
+		instantanea.ControlVigenciaVersionRol.Estado != core.EstadoControlVigenciaVersionRolHabilitada ||
+		!instantanea.AsignacionPerfil.VigenteEn(f.nominal.reloj.Ahora()) ||
+		len(instantanea.AsignacionPerfil.Ambitos) != 2 {
+		return vacio, ports.ErrFirmaDocumentoDenegada
+	}
+	var organizacion, unidad string
+	for _, ambito := range instantanea.AsignacionPerfil.Ambitos {
+		if len(ambito.Valores) != 1 {
+			return vacio, ports.ErrFirmaDocumentoDenegada
+		}
+		switch ambito.Clave {
+		case "organizacion_ref":
+			organizacion = ambito.Valores[0]
+		case "unidad_ref":
+			unidad = ambito.Valores[0]
+		default:
+			return vacio, ports.ErrFirmaDocumentoDenegada
+		}
+	}
+	if organizacion != lector.OrganizacionRef() || !ctdomain.ReferenciaOpacaValida(unidad) {
+		return vacio, ports.ErrFirmaDocumentoDenegada
+	}
+	huella, err := instantanea.AsignacionPerfil.HuellaSHA256()
+	if err != nil {
+		return vacio, ports.ErrFirmaDocumentoDenegada
+	}
+	filtro := ports.FiltroUnidadSelectoresRecuperacionRRHH{
+		UnidadRef: unidad, PerfilAuxRef: instantanea.AsignacionPerfil.PerfilActivoRef,
+		VersionRolAuxRef: instantanea.VersionRol.Referencia(),
+		AsignacionRef:    instantanea.AsignacionPerfil.Referencia(), AsignacionHuellaSHA256: huella,
+	}
+	if !filtro.Valido() {
+		return vacio, ports.ErrFirmaDocumentoDenegada
+	}
+	return filtro, nil
 }
 
 func rutaLecturaCTFirmaV2(ruta string) bool {
@@ -64,11 +141,16 @@ func nuevasLecturasFirmaV2(ctx context.Context, m *montajeFirmaVecR5CT,
 	cuadro.ConfigurarPlazosFase(m.consultas.plazosFase)
 	cuadroNominal := &continuadorCuadroFirmaV2{delegado: cuadro, nominal: m.nominal,
 		entradas: make(map[[sha256.Size]byte]continuidadCuadroFirmaV2)}
-	detalle, err := ctapp.NuevoServicioConsultaDetalleRRHH(m.nominal, emisor, m.consultas.sesion, m.reloj)
+	// La asignación propia de firma solo reduce el complemento de selectores;
+	// la decisión de detalle sigue usando consulta_ct del mismo certificado.
+	detalle, err := ctapp.NuevoServicioConsultaDetalleRRHHConSelectores(
+		m.nominal, emisor, m.consultas.sesion, m.reloj,
+		filtroUnidadSelectoresFirmaCT{nominal: m.nominal},
+	)
 	if err != nil {
 		return nil, err
 	}
-	historico, err := ctapp.NuevoServicioConsultaDetalleRRHH(m.nominal, emisor, m.consultas.sesionOriginal, m.reloj)
+	historico, err := ctapp.NuevoServicioConsultaOriginalPropuestaRRHH(m.nominal, emisor, m.consultas.sesionOriginal, m.reloj)
 	if err != nil {
 		return nil, err
 	}

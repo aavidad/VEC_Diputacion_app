@@ -140,7 +140,12 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
 ]);
 // Las claves añadidas se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_ADICIONALES = Object.freeze({
+  // R1 añade el aviso de comprobación pendiente; las tres claves se verifican
+  // sin cambiar la huella de los textos anteriores. CT231 añade las del aviso
+  // pendiente tras la selección confirmada.
   "i18n-llamamiento.js": ["llamamiento_orden_bolsa_provisional",
+    "llamamiento_comprobacion_pendiente", "llamamiento_comprobacion_version",
+    "llamamiento_comprobacion_ver_bolsa",
     "llamamiento_comunicaciones_respuesta_aviso_pendiente", "llamamiento_comunicaciones_respuesta_aviso_anotado",
     "llamamiento_seleccion_pendiente_aviso",
     "llamamiento_continuar_aviso"],

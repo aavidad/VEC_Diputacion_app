@@ -1,0 +1,3 @@
+# F1-36B: A (AD286 → CT228 → AUT103) debe estar instalado; aplicar solo ausentes.
+deploy/postgresql/autorizacion/migraciones/000102_ambito_propio_selectores_firma_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000229_selectores_recuperacion_detalle_rrhh.up.sql

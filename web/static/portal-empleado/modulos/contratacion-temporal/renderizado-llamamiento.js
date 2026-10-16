@@ -1,7 +1,8 @@
 import { escaparHTML as e } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { ESTADO_SELECCION_PENDIENTE_AVISO, claveFilaComunicacion } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-seleccion-pendiente-aviso-v2";
+import { ESTADO_SELECCION_PENDIENTE_AVISO, claveFilaComunicacion } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct231-integracion-v1";
 import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261013-ct-firma-tres-v3";
+import { rutaCandidatosBolsaCompartible } from "../../portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
 import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261013-ct-firma-tres-v3";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
@@ -309,7 +310,11 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ${paso.recibo ? "</details>" : ""}
       <div class="ct-estado ct-estado-${paso.tono}" data-ct-llamamiento-estado="${operacion}"
         role="${paso.tono === "error" ? "alert" : "status"}"
-        aria-live="polite" aria-atomic="true" tabindex="-1">${e(t(paso.mensaje))}</div>
+        aria-live="polite" aria-atomic="true" tabindex="-1">${paso.comprobacionPendiente && operacion === "seleccion"
+          ? `${e(t("llamamiento_comprobacion_pendiente", { posicion: paso.comprobacionPendiente.orden_acta }))}` +
+            `${paso.comprobacionPendiente.version_politica_ofertas ? `<p>${e(t("llamamiento_comprobacion_version", { version: paso.comprobacionPendiente.version_politica_ofertas }))}</p>` : ""}` +
+            `<a class="boton-secundario" href="${e(`/portal-empleado/${rutaCandidatosBolsaCompartible("", paso.comprobacionPendiente.bolsa_ref)}`)}">${e(t("llamamiento_comprobacion_ver_bolsa"))}</a>`
+          : e(t(paso.mensaje))}</div>
       ${recibo(operacion, paso.recibo)}
     </section>`;
   }
