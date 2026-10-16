@@ -16,7 +16,28 @@ existentes, y crea una salida nueva. No publica claves, perfiles ni permisos.
    motivo y contextos admitidos. Cada cuenta conserva perfil, versión,
    organismo y unidad. La capacidad de entrada sólo necesita su ruta local;
    se sustituye por las coordenadas reales de la fila publicada.
-3. Como el usuario del servicio, preparar en un directorio nuevo fuera de Git:
+3. Para el proceso combinado de `vec-server`, preparar en un directorio nuevo
+   fuera de Git con el material de idempotencia de ese mismo servidor:
+
+```bash
+vec-preparar-material-interno \
+  -material-idempotencia "$MATERIAL_VEC_SERVER/idempotencia" \
+  -organizacion-historica-config "$ENTRADA_OH/organizacion_historica_v3.json" \
+  -organizacion-historica-motivos-dsn "$PRIVADO/motivos-oh.dsn" \
+  -dsn-archivo "$DSN_GOBIERNO_ARCHIVO" \
+  -salida "$SALIDA_NUEVA"
+```
+
+   `motivos-oh.dsn` es un fichero `0600` con la conexión TLS verificada del
+   LOGIN miembro únicamente de `vec_autorizacion_motivos_evaluador`. La ruta
+   no puede tener enlaces ni estar bajo Git. El comando obtiene el LOGIN del
+   propio DSN y el validador existente comprueba su grupo y el motivo vigente.
+   No se pasa una contraseña en los argumentos. Esta conexión tiene un papel
+   distinto de `-incorporacion-motivos-rrhh-dsn`, que resuelve el motivo de
+   detalle de Personal B2 y no se acepta en el modo de Organización histórica.
+
+   Si ya existe una cápsula `vec-interno` con `ct_v3.json`, se conserva su
+   procedimiento anterior:
 
 ```bash
 vec-preparar-material-interno \
@@ -31,9 +52,13 @@ El fichero DSN y las entradas son privados (0600); los directorios son 0700.
 La salida contiene sólo `organizacion_historica_v3.json` y
 `organizacion_historica_consulta.hmac`. La clave, su versión, su revisión,
 huellas, emisor, ventana y puntero se cotejan con el gobierno vigente en
-una instantánea de solo lectura. La referencia de motivo se valida por su
-lector nominal existente. El inventario se comprueba con
-`CargarMaterialOrganizacionHistorica` y los constructores reales antes del rename.
+una instantánea de solo lectura. En el proceso combinado, la raíz, audiencia,
+emisor y huella SPKI se derivan del material del servidor y se cotejan con la
+raíz vigente y la clave OH publicada; la versión de raíz es la publicada, no
+una versión supuesta. En la cápsula legada siguen saliendo del `ct_v3.json`.
+La referencia de motivo se valida por su lector nominal existente. El
+inventario se comprueba con `CargarMaterialOrganizacionHistorica` y los
+constructores reales antes del rename.
 
 Los contextos se conservan exactamente como selecciones privadas admitidas.
 Se valida su estructura; el preparador no acredita una resolución F1 viva,
