@@ -3,9 +3,9 @@
 import { escaparHTML } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v6";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261016-r1-criterios-v3";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261016-r1-criterios-v4";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261011-ct-bolsa-vinculo-v1";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261016-r1-criterios-v3";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261016-r1-criterios-v4";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";

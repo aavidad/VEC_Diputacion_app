@@ -177,7 +177,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Tramitación del expediente | Análisis, crédito, vía de cobertura, unidad, informe e Intervención. | Decidir con RRHH si el ofrecimiento va antes o después de Intervención. | El orden de las fases que fije RRHH, que se puede cambiar por configuración. |
 | Documentos | Borradores en PDF y Word con el logotipo y los datos del expediente. | Las plantillas definitivas de RRHH. | Documentos con las plantillas oficiales, listos para firmar. |
 | Unidad del puesto ofrecido | Programada la comprobación del puesto en su unidad, conservando la unidad que gestiona el expediente. | Comprobar el ofrecimiento con la consulta de Personal activada en la copia local. | RRHH puede gestionar un puesto de otro centro sin confundir ambas unidades. |
-| Firma | En la copia de ensayo, el informe tiene dos firmas y la resolución tres; sus PDF se recuperan desde la ficha después de reiniciar. | Probar el recorrido entero en un mismo expediente e instalar lo ensayado. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
+| Firma | En la copia de ensayo, el informe tiene dos firmas y la resolución tres; sus PDF se recuperan desde la ficha después de reiniciar. Está preparado un límite de tamaño común para generar, firmar y descargar el PDF en VEC. | Probar el recorrido entero en un mismo expediente e instalar lo ensayado. | Cada cargo firma en VEC con su certificado, en el orden fijado, y la firma queda verificada. |
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
 | Cese y vuelta a la bolsa | El cese se registra. | Probar entera la vuelta automática a la bolsa. | Al cesar, la persona vuelve sola a su bolsa con la situación que marque la regla. |
@@ -206,6 +206,11 @@ ofrecimiento desde la petición del centro.
 **Para qué sirve.** Que cada cargo firme los documentos con su certificado, en el orden fijado, y que VEC compruebe que la firma es válida.
 
 **Hoy.** En la copia de ensayo, el informe ya tiene las firmas del técnico y de Jefatura, verificadas con GrxFirma y registradas con sus recibos. Intervención rechaza la fiscalización mientras falta la segunda firma y la admite después. La resolución tiene las firmas de Jefatura, Diputación y Secretaría General. Ambos PDF se han recuperado desde la ficha después de reiniciar. Los recibos conservan sus referencias y fechas originales. Los otros cuatro documentos se descargan en PDF y Word y conservan la firma pendiente.
+
+Está preparado el mismo límite de tamaño para generar, firmar, guardar y
+descargar los PDF mediante la firma en VEC. Las otras vías de registro
+conservan sus restricciones de tamaño. Las firmas ya guardadas conservan sus documentos y recibos;
+la comprobación de la firma sigue siendo la misma.
 
 **Falta.** Probar todo el recorrido en un mismo expediente: el informe y la resolución se han comprobado en dos expedientes distintos. La instalación en el entorno compartido corresponde a dirección.
 

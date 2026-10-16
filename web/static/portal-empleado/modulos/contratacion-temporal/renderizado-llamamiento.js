@@ -1,7 +1,7 @@
 import { escaparHTML as e } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261013-ct-firma-tres-v3";
-import { rutaCandidatosBolsaCompartible } from "../../portal-bolsas-ruta-filtros.js?v=20261016-r1-criterios-v3";
+import { rutaCandidatosBolsaCompartible } from "../../portal-bolsas-ruta-filtros.js?v=20261016-r1-criterios-v4";
 import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261013-ct-firma-tres-v3";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,

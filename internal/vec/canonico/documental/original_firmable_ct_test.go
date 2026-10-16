@@ -42,6 +42,19 @@ func TestOriginalFirmablePreimagenFijaBytesTipoYPolitica(t *testing.T) {
 	}
 }
 
+func TestOriginalFirmableCanonicoAdmiteDosMiBSinCambiarPreimagen(t *testing.T) {
+	r := datosReservaOriginalPrueba()
+	r.Tamano = 2 << 20
+	b, err := r.Preimagen()
+	if err != nil || !bytes.Contains(b, []byte(`"tamano":2097152`)) {
+		t.Fatalf("reserva de 2 MiB no conserva tamaño exacto: %v", err)
+	}
+	r.Tamano++
+	if _, err := r.Preimagen(); !errors.Is(err, ErrOriginalFirmableInvalido) {
+		t.Fatalf("reserva excesiva admitida: %v", err)
+	}
+}
+
 func TestIntentoOriginalFirmableRechazaOtraClaveYHuella(t *testing.T) {
 	r := datosReservaOriginalPrueba()
 	ref := func(c string) string { return "ref:" + strings.Repeat(c, 64) }
