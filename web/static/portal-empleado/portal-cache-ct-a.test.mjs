@@ -4,7 +4,7 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261016-r1-seleccion-pendiente-v4";
+const versionCoordinador = "20261016-r1-seleccion-pendiente-v5";
 const versionEntrada = versionCoordinador;
 const versionClienteCT = versionCoordinador;
 const versionClienteConsulta = versionCoordinador;

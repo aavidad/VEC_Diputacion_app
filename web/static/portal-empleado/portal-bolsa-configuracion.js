@@ -4,7 +4,7 @@ import { validarReglas, API_REGLAS, valorRegla } from "./reglas/reglas.js?v=2026
 import { textoPresentacionRegla } from "./reglas/i18n.js?v=20261012-reglas-configuracion-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
 import { RUTA_PLANTILLA_CORREO, validarPlantillaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { validarCanalesLlamamiento } from "./portal-bolsas-contrato.js?v=20261016-r1-seleccion-pendiente-v4";
+import { validarCanalesLlamamiento } from "./portal-bolsas-contrato.js?v=20261016-r1-seleccion-pendiente-v5";
 
 export const RUTA_PERFIL_PROPIO_BOLSA = "/api/vec/bolsa/bolsas?perfil=propio";
 export function validarPerfilPropioBolsa(sobre) {

@@ -1,4 +1,4 @@
-import { crearClienteRecuperacionFirmasV2 } from "../cliente-http-recuperacion-firmas-v2.js?v=20261016-r1-seleccion-pendiente-v4";
+import { crearClienteRecuperacionFirmasV2 } from "../cliente-http-recuperacion-firmas-v2.js?v=20261016-r1-seleccion-pendiente-v5";
 import { montarVistaRecuperacionFirmasV2 } from "../vista-recuperacion-firmas-v2.js?v=20261004-r5-recuperacion-v1";
 import { crearTraductorRecuperacionFirmasV2 } from "../i18n-recuperacion-firmas-v2.js?v=20261004-r5-recuperacion-v1";
 import { cargarTextos } from "../../../../comun/textos.js";
