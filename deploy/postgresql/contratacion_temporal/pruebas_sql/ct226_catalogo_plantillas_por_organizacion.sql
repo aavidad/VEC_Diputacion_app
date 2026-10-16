@@ -7,12 +7,17 @@
 \quit 1
 \endif
 DO $estructura$
-DECLARE f regprocedure; esperado text; p record;
+DECLARE f regprocedure; esperado text; p record; firma text;
 BEGIN
- FOR f,esperado IN SELECT v.f,v.h FROM (VALUES
-  ('vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text)'::regprocedure,'021713a64d1c10265e402e211cd885d5d81f55dc5a21bc96d0475792e2e056bc'),
-  ('vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2(text,text,bigint,text)'::regprocedure,'0ffe98d71d237a5bd056e6a7e59c69ac16adb9db80144fad1ec566ffc9b0dc82')
- ) v(f,h) LOOP
+ FOR firma,esperado IN SELECT v.firma,v.h FROM (VALUES
+  ('vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text)','021713a64d1c10265e402e211cd885d5d81f55dc5a21bc96d0475792e2e056bc'),
+  ('vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2(text,text,bigint,text)','0ffe98d71d237a5bd056e6a7e59c69ac16adb9db80144fad1ec566ffc9b0dc82')
+ ) v(firma,h) LOOP
+  f:=to_regprocedure(firma);
+  -- CT232 retira V1. Antes de CT232, conserva la comprobación histórica.
+  IF f IS NULL AND firma='vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text)'
+  THEN CONTINUE; END IF;
+  IF f IS NULL THEN RAISE EXCEPTION 'CT226: falta %',firma; END IF;
   SELECT x.* INTO STRICT p FROM pg_proc x WHERE x.oid=f;
   IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM esperado
   OR p.proowner IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
@@ -46,12 +51,17 @@ DECLARE bh text:=current_setting('ct226_prueba.base_h');
  bf text:=current_setting('ct226_prueba.base_f');
  ah text:=current_setting('ct226_prueba.actual_h');
  av bigint:=current_setting('ct226_prueba.actual_v')::bigint;
- af text:=current_setting('ct226_prueba.actual_f');
+ af text:=current_setting('ct226_prueba.actual_f'); v1_result boolean;
 BEGIN
  IF vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2('organizacion:ct226:sin-publicacion',bh,bv,bf) IS DISTINCT FROM true
  OR vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2('organizacion:desarrollo:dipgra',ah,av,af) IS DISTINCT FROM true
- OR vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(ah,av,af) IS DISTINCT FROM true
  THEN RAISE EXCEPTION 'CT226: provisión común o publicación propia rechazadas'; END IF;
+ IF to_regprocedure('vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text)') IS NOT NULL THEN
+  EXECUTE 'SELECT vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1($1,$2,$3)'
+    INTO v1_result USING ah,av,af;
+  IF v1_result IS DISTINCT FROM true
+  THEN RAISE EXCEPTION 'CT226: entrada V1 histórica rechazada'; END IF;
+ END IF;
  IF bh=ah THEN RAISE EXCEPTION 'CT226: falta publicación posterior a bootstrap para contrastar organizaciones'; END IF;
  BEGIN
   PERFORM vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2('organizacion:ct226:sin-publicacion',ah,av,af);

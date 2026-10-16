@@ -294,12 +294,12 @@ test("Cronos renueva la importación interna de permisos y su hoja de estilo", a
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
   const portal = await readFile(new URL("portal.js", raiz), "utf8");
   const cacheAnterior = new Map([
-    ["portal.js?v=20260924-web-integrada-v1", "entrada anterior"],
+    ["portal.js?v=20261015-firma-ofertas-justificante-integracion-v2", "entrada anterior"],
     ["portal-modulos-coordinador.js?v=20260924-web-integrada-v1", "coordinador anterior"],
   ]);
   const entrada = exigirVersiones(html, "/portal-empleado/portal.js", posterior(versionEntradaAyuda));
   const coordinadorVigente = exigirVersiones(portal, "./portal-modulos-coordinador.js", posterior(versionIntegracion));
-  assert.ok(!html.includes("portal.js?v=20260924-web-integrada-v1"));
+  assert.ok(!html.includes("portal.js?v=20261015-firma-ofertas-justificante-integracion-v2"));
   assert.ok(!portal.includes("portal-modulos-coordinador.js?v=20260924-web-integrada-v1"));
   assert.ok(!cacheAnterior.has(`portal.js?v=${entrada}`));
   assert.ok(!cacheAnterior.has(`portal-modulos-coordinador.js?v=${coordinadorVigente}`));

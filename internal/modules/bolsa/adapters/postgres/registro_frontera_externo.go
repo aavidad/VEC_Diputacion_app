@@ -115,7 +115,7 @@ func ordenFronteraBolsaExternaValida(o vecports.OrdenAuditoriaFronteraRutaExacta
 	case bolsahttp.RutaMiBolsa, bolsahttp.RutaMiBolsaHistorial,
 		bolsahttp.RutaMiBolsaSolicitudes, bolsahttp.RutaMiBolsaRespuestas,
 		bolsahttp.RutaMiBolsaDisposiciones, bolsahttp.RutaMiBolsaContacto,
-		bolsahttp.RutaPreferenciasBolsas:
+		bolsahttp.RutaPreferenciasBolsas, bolsahttp.RutaJustificantesMiBolsa:
 	default:
 		return false
 	}
