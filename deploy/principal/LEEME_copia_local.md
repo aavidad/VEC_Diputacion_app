@@ -34,7 +34,7 @@ documentos; compruébalo antes de darlo por bueno y corrige esta receta.
   administradores de copia y los clientes y configuraciones privadas de cada
   módulo. Pídeselo a dirección si no lo tienes.
 - Memoria: el sistema conserva siempre 32 GB. Antes de restaurar o compilar,
-  `free -g` debe dar 40 GB disponibles o más; si no, no restaures ni compiles,
+  `free -g` debe dar 34 GB disponibles o más (32 para el sistema y 2 para la copia); si no, no restaures ni compiles,
   borra copias y temporales tuyos que ya no uses y avisa en el canal. No toques
   copias ajenas.
 - Todo el trabajo va en memoria, bajo `/dev/shm/vec`:
@@ -369,5 +369,5 @@ mismo volcado y las listas necesarias.
 | Rechazo de una fecha que es el mismo instante | Representación distinta: AUT32 compara texto con el canon nominal; CA25 y los motivos de Organización histórica exigen seis decimales | Generar las fechas en el formato canónico de cada guarda; corregir el dato de la copia |
 | Los datos de empleados firmantes piden 400 días de relación cubierta | Las asignaciones de la copia duran 90 días | Ajustar en la copia las relaciones a las vigencias existentes (P usó 89 días por SQL) |
 | Firma del paso 3 rechazada por unidad | CT224 solo admite el paso 3 con unidad y paso publicados en el plan vigente | Publicar el plan con esa unidad |
-| `free -g` por debajo de 40 GB | Copias o cachés acumuladas | No restaurar ni compilar; borrar lo propio y avisar |
+| `free -g` por debajo de 34 GB | Copias o cachés acumuladas | No restaurar ni compilar; borrar lo propio y avisar |
 | `git worktree move` falla hacia `/dev/shm` | Cambio de dispositivo | Copiar la carpeta y `git worktree repair` |
