@@ -17,6 +17,9 @@ DO $pre$ BEGIN
   to_regprocedure('vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(text,text,text)')),'UTF8')),'hex')
   IS DISTINCT FROM 'e6dc233b8302fd622d7f2960431bdab88d59f7b0668b06348ff577e4e8558633'
  OR to_regprocedure('vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(jsonb,boolean)') IS NULL
+ OR to_regprocedure('vec_catalogos_configurables.cotejar_conjunto_gestion_rrhh_inscripcion_actual_v1()') IS NULL
+ OR has_function_privilege('vec_bolsa_llamamientos_propietario',
+  'vec_catalogos_configurables.cotejar_conjunto_gestion_rrhh_inscripcion_actual_v1()','EXECUTE') IS NOT TRUE
  OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_comprobacion_ofrecimiento_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regclass('vec_bolsa_llamamientos.comprobacion_ofrecimiento_v1') IS NOT NULL
  THEN RAISE EXCEPTION 'B133: preimagen incompatible' USING ERRCODE='55000'; END IF;
@@ -180,7 +183,7 @@ BEGIN
  OR d#>>'{ambitos,unidad_ref}' IS DISTINCT FROM c->>'unidad_ref'
  OR d#>>'{ambitos,ambito_ref}' IS DISTINCT FROM c->>'ambito_ref'
  THEN RAISE EXCEPTION 'B133: decisión ajena al acto' USING ERRCODE='42501'; END IF;
- conjunto:=vec_catalogos_configurables.comprobar_conjunto_gestion_rrhh_inscripcion_v1();
+ conjunto:=vec_catalogos_configurables.cotejar_conjunto_gestion_rrhh_inscripcion_actual_v1();
  IF c->>'ambito_ref' IS DISTINCT FROM conjunto->>'ambito_ref' OR conjunto->>'ambito_ref' IS NULL
  THEN RAISE EXCEPTION 'B133: ámbito ajeno' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:comprobacion:'||
