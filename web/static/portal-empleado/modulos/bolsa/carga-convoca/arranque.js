@@ -1,5 +1,5 @@
 import { cargarTextos, reintentarTextos } from "../../../../comun/textos.js";
-import { crearClienteCategorias } from "../../../categorias-rpt/cliente.js?v=20261015-firma-cierre-cache-v3";
+import { crearClienteCategorias } from "../../../categorias-rpt/cliente.js?v=20261016-firma-historica-v5";
 import { crearClienteCargaConvoca } from "./cliente.js?v=20261010-b1-carga-v1";
 import { montarVistaCargaConvoca } from "./vista.js?v=20261013-bolsa-ranking-n4";
 

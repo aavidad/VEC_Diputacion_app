@@ -562,6 +562,15 @@ Una recuperación reutiliza la operación original; no se crea otra para aparent
 recibos y fechas y nada duplicado. Una repetición o un reinicio nunca duplican
 efectos, recibos ni comunicaciones.
 
+F1-36C prepara la presentación de la historia de firmas originales en la
+ficha de Contratación temporal. Cada pulsación sobre una firma consulta de
+nuevo el acto con autorización vigente y deja un acceso nuevo; el recibo que
+se muestra pertenece al registro original. La respuesta ampliada de la ficha
+exige juntos los selectores y su recibo, aun si la lista es `[]`; ausencia de
+uno falla cerrada. El cliente limita a 128 entradas, no muestra canones de
+identidad ni huellas y cancela la consulta al cambiar de expediente. La
+publicación y el recorrido real siguen pendientes.
+
 ## 8. Protección de datos
 
 - **Solo datos sintéticos**, con nombres verosímiles, hasta cerrar la EIPD
