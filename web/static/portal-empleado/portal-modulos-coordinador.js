@@ -130,25 +130,25 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261013-ct-firma-tres-v3"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261015-firma-cierre-cache-v3"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261016-firma-historica-v1"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261011-ct-bolsa-vinculo-v1"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261015-firma-cierre-cache-v3"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261016-firma-historica-v1"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261016-firma-historica-v1"),
         import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261014-ginpix-personal-b2-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
       return completos;
     };
-    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261011-bolsa-b103-privacidad-v1");
+    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261016-firma-historica-v1");
     // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261015-firma-cierre-cache-v3");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261016-firma-historica-v1");
       const [auditoriaVista, auditoriaCliente, original, preflight, firmaVec, autoFirma, documentos] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),
@@ -158,6 +158,17 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
         import("./modulos/contratacion-temporal/firma-autofirma.js?v=20261013-ct-firma-tres-v3"),
         import("./modulos/documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1"),
       ]);
+      let mensajesRecuperacionFirmas = null;
+      let errorRecuperacionFirmas = null;
+      try {
+        const idiomaRecuperacion = INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === LOCALIZACION_PORTAL)?.codigo;
+        if (!idiomaRecuperacion) throw new TypeError("idioma_recuperacion_firmas_no_disponible");
+        const textosRecuperacion = await cargarTextos("contratacion-temporal-recuperacion-firmas-v2", { idioma: idiomaRecuperacion });
+        if (textosRecuperacion.idioma !== idiomaRecuperacion) throw new TypeError("idioma_recuperacion_firmas_incoherente");
+        mensajesRecuperacionFirmas = textosRecuperacion.seccion("general");
+      } catch (error) {
+        errorRecuperacionFirmas = error;
+      }
       const clienteOriginal = original.crearClienteOriginalFirmable({ exigirComprobante: true });
       const clientePreflight = preflight.crearClientePreflightFirma();
       const preparacion = original.crearDependenciasPreparacionFirma({
@@ -165,7 +176,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       });
       const clienteFirmaVec = firmaVec.crearClienteFirmaVec();
       const clienteAutoFirma = autoFirma.crearClienteAutoFirma();
-      return Object.freeze({ vista, auditoriaVista, auditoriaCliente, clienteOriginal,
+      return Object.freeze({ vista, auditoriaVista, auditoriaCliente, clienteOriginal, mensajesRecuperacionFirmas, errorRecuperacionFirmas,
         dependenciasFirma: Object.freeze({ ...preparacion,
           autofirma: clienteAutoFirma, registrarVec: (solicitud, opciones) => clienteFirmaVec.registrar(solicitud, opciones),
         }),
@@ -807,6 +818,8 @@ export function crearCoordinadorModulosPortal({
           const partes = await esperarVista();
           return partes.vista.montarModuloContratacionTemporal({ ...opciones, clienteResultadoBolsa: cliente,
             clienteFirmasV2: cliente.firmasV2, dependenciasFirma: partes.dependenciasFirma ?? {},
+            mensajesRecuperacionFirmas: partes.mensajesRecuperacionFirmas ?? null,
+            errorRecuperacionFirmas: partes.errorRecuperacionFirmas ?? null,
             clienteOriginalFirma: partes.clienteOriginal });
         },
         montarFiscalizacion: async (opciones) => (await esperarVista()).vista
@@ -1358,7 +1371,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261015-firma-cierre-cache-v3");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261016-firma-historica-v1");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
