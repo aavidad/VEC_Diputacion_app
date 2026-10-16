@@ -142,8 +142,8 @@ las demás fuentes y el censo vigente de roles.
 La publicación del catálogo se realiza por la herramienta nominal
 `vec-catalogo-acciones-admitir`, con plan y configuración DBA protegida que
 aprueban sus bytes exactos. Esa aprobación es técnica; no acredita una firma
-personal o legal. El borrador de la copia ha pasado los validadores oficiales
-Go, pero todavía no se ha aplicado.
+personal o legal. Antes de aplicarlo se valida el catálogo con los tipos
+oficiales Go y se comprueba que el canon coincide con los bytes del plan.
 
 La versión del rol se publica por el acto genérico vigente desde AUT92,
 según `deploy/principal/habilitacion_rol_bolsa_rrhh_generico_20261013.md`.
