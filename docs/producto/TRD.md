@@ -347,6 +347,12 @@ concesiones siguen procediendo del gobierno de perfiles. Sin configuración de
 consulta válida, solo ese GET responde 503. El guion de la candidata está en
 `deploy/principal/organizacion_historica_combinado_20261015.md`.
 
+El preparador `vec-preparar-material-interno` admite el material de idempotencia
+del proceso combinado sin exigir `ct_v3.json`. Coteja la publicación vigente y
+el motivo mediante conexiones nominales separadas antes de emitir los dos
+archivos privados. Procedimiento y alcance del ensayo en
+`cmd/vec-preparar-material-interno/LEEME-OH.md`.
+
 ### Regla: ninguna configuración nueva tumba el arranque
 
 Si falta o está mal la configuración de una función, falla solo esa función. La
