@@ -4,11 +4,11 @@
   "textos": {
     "es": {
       "asunto": "Oferta de la bolsa de {categoria}",
-      "cuerpo": "Hay una oferta de {categoria} en {centro}, con inicio previsto el {fecha_inicio}.\n\n{descripcion}\n\nConsulte la oferta y su plazo en Mi Bolsa:\n{enlace}"
+      "cuerpo": "Hay una oferta de {categoria} en {centro}, con inicio previsto el {fecha_inicio}.\n\nConsulte la oferta y su plazo en Mi Bolsa:\n{enlace}"
     },
     "en": {
       "asunto": "Offer from the {categoria} job pool",
-      "cuerpo": "An offer for {categoria} at {centro} is available, with an expected start date of {fecha_inicio}.\n\n{descripcion}\n\nView the offer and its deadline in My Job Pool:\n{enlace}"
+      "cuerpo": "An offer for {categoria} at {centro} is available, with an expected start date of {fecha_inicio}.\n\nView the offer and its deadline in My Job Pool:\n{enlace}"
     }
   }
 }

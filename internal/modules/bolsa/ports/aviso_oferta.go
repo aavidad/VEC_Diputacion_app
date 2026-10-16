@@ -17,7 +17,7 @@ type AvisosOferta struct {
 
 func (a AvisosOferta) Validar() bool {
 	return a.Total >= 0 && a.Pendientes >= 0 && a.Enviados >= 0 && a.SinConfirmacion >= 0 && a.Fallidos >= 0 &&
-		a.Total <= 1000000 && a.Total == a.Pendientes+a.Enviados+a.SinConfirmacion+a.Fallidos
+		a.Total <= 1000000 && a.Pendientes <= a.Total && a.Enviados <= a.Total && a.SinConfirmacion <= a.Total && a.Fallidos <= a.Total && a.Total == a.Pendientes+a.Enviados+a.SinConfirmacion+a.Fallidos
 }
 
 type IntentoAvisoOferta struct {

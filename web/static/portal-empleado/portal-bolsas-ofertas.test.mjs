@@ -207,6 +207,40 @@ test("un reintento incierto bloquea otra operación y los rechazos de acceso ret
   } finally { globalThis.FormData = anteriorFormData; }
 });
 
+test("tras leer ofertas, un POST o GET denegado retira datos, recibo e intención", async () => {
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Cobertura", numero_plazas: "1" }[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  try {
+    for (const status of [401, 403]) {
+      const superficie = crearSuperficieOfertasBolsa({ cliente: {
+        consultar: async () => sobre([oferta()], "publicacion"),
+        publicar: async () => ({ ok: false, status, codigo: "sin_permiso" }),
+      }, generarClave: () => "clave-denegada" });
+      superficie.activar("bolsa:1"); await turno();
+      assert.equal(superficie.estado().ofertas.length, 1);
+      superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+      superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+      const estado = superficie.estado();
+      assert.deepEqual(estado.ofertas, []);
+      assert.equal(estado.reciboPublicacion, null);
+      assert.equal(estado.reintentoAvisos, null);
+      assert.equal(estado.claveEnCurso, null);
+      assert.equal(estado.borrador, null);
+      assert.equal(estado.carga, "error");
+      assert.doesNotMatch(superficie.renderizar(), /Auxiliar &lt;b&gt;/);
+      superficie.desmontar();
+    }
+    let autorizado = true;
+    const lectura = crearSuperficieOfertasBolsa({ cliente: { consultar: async () => autorizado ? sobre([oferta()], "publicacion") : { ok: false, status: 403 } } });
+    lectura.activar("bolsa:1"); await turno();
+    autorizado = false; lectura.recargarPoliticaSegura(); await turno();
+    assert.deepEqual(lectura.estado().ofertas, []);
+    assert.equal(lectura.estado().carga, "error");
+    lectura.desmontar();
+  } finally { globalThis.FormData = anteriorFormData; }
+});
+
 test("el cliente envía bolsa, datos, número de plazas y el acto de la plaza, sin identidad", async () => {
   const llamadas = [];
   const cliente = crearClienteOfertas({ fetchImpl: async (ruta, opciones) => { llamadas.push({ ruta, opciones }); return respuesta(201, { data: oferta() }); } });
@@ -351,14 +385,14 @@ test("el reintento muestra el mismo recibo y un GET sin política indica dónde 
   } finally { globalThis.FormData = anteriorFormData; }
 });
 
-test("una publicación incierta conserva clave y cuerpo tras 403, 422 y 409 hasta recibir el recibo", async () => {
+test("una publicación incierta conserva clave y cuerpo tras 422 y 409 hasta recibir el recibo", async () => {
   const valores = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-20", descripcion: "Cobertura original", numero_plazas: "2" };
   const anteriorFormData = globalThis.FormData;
   globalThis.FormData = class { get(clave) { return valores[clave] ?? ""; } };
   const formulario = { closest: () => formulario, reportValidity: () => true };
   const llamadas = [];
   let consultas = 0;
-  const respuestas = [503, 403, 422, 409, 200];
+  const respuestas = [503, 422, 409, 200];
   try {
     const s = crearSuperficieOfertasBolsa({ cliente: {
       consultar: async () => { consultas++; return sobre([], "publicacion"); },
@@ -366,13 +400,13 @@ test("una publicación incierta conserva clave y cuerpo tras 403, 422 y 409 hast
         llamadas.push({ datos: { ...datos }, plazas, notificacion, clave });
         const status = respuestas.shift();
         return status === 200 ? { ok: true, status, oferta: oferta({ recibo_ref: "recibo:oferta:estable" }) } :
-          { ok: false, status, codigo: status === 403 ? "sin_permiso" : "solicitud_invalida" };
+          { ok: false, status, codigo: "solicitud_invalida" };
       },
     }, generarClave: () => "clave-original" });
     s.activar("bolsa:1"); await turno();
     s.manejarSubmit({ target: formulario, preventDefault() {} });
     valores.descripcion = "Cobertura cambiada tras confirmar";
-    for (let intento = 0; intento < 4; intento++) {
+    for (let intento = 0; intento < 3; intento++) {
       s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
       assert.equal(s.estado().incierta, true);
       assert.equal(s.estado().claveEnCurso, "clave-original");
@@ -383,8 +417,8 @@ test("una publicación incierta conserva clave y cuerpo tras 403, 422 y 409 hast
     s.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
     assert.equal(s.estado().incierta, false);
     assert.equal(s.estado().claveEnCurso, null);
-    assert.equal(llamadas.length, 5);
-    assert.deepEqual(llamadas.slice(1), Array(4).fill(llamadas[0]), "todos los reintentos conservan cuerpo, clave y número de plazas");
+    assert.equal(llamadas.length, 4);
+    assert.deepEqual(llamadas.slice(1), Array(3).fill(llamadas[0]), "todos los reintentos conservan cuerpo, clave y número de plazas");
     assert.match(s.renderizar(), /recibo:oferta:estable/);
   } finally { globalThis.FormData = anteriorFormData; }
 });

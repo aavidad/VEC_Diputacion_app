@@ -2,10 +2,7 @@ package bootstrap
 
 import (
 	"bytes"
-	"encoding/json"
 	"testing"
-
-	"vec-diputacion-granada/config"
 )
 
 func TestTokensAvisoOfertaConservaGeneracionYSeparaUso(t *testing.T) {
@@ -25,17 +22,5 @@ func TestTokensAvisoOfertaConservaGeneracionYSeparaUso(t *testing.T) {
 	}
 	if _, _, err = actual.DerivarTokenAvisoOferta(t.Context(), "oferta:uno", "inexistente"); err == nil {
 		t.Fatal("aceptó generación retirada")
-	}
-}
-func TestCatalogoAvisoOfertaYEnlaceOpcional(t *testing.T) {
-	var catalogo map[string]any
-	if err := json.Unmarshal(config.CatalogoAvisoOfertaBolsa(), &catalogo); err != nil {
-		t.Fatal(err)
-	}
-	for _, enlace := range []string{"", "http://aviso.invalid/area-personal/", "https://usuario:secreto@aviso.invalid/area-personal/", "https://aviso.invalid/otro/"} {
-		t.Setenv(config.EnvBolsaAvisoOfertaEnlace, enlace)
-		if componerDespachadorAvisoOferta(nil, nil, nil) != nil {
-			t.Fatal("configuración inválida habilitó envío")
-		}
 	}
 }

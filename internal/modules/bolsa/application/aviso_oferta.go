@@ -47,7 +47,7 @@ func (s *ServicioOfertasPublicadas) despacharAvisos(ctx context.Context, o ports
 	agregado := *o.Aviso
 	o.Aviso = &agregado
 	reemplazos := strings.NewReplacer("{categoria}", o.Datos.Categoria, "{centro}", o.Datos.Centro,
-		"{descripcion}", o.Datos.Descripcion, "{fecha_inicio}", o.Datos.FechaInicio, "{enlace}", d.enlace)
+		"{fecha_inicio}", o.Datos.FechaInicio, "{enlace}", d.enlace)
 	for n := 0; n < 25 && ctx.Err() == nil; n++ {
 		i, encontrado, err := d.repositorio.ReclamarAvisoOferta(ctx, o)
 		if err != nil {

@@ -246,36 +246,124 @@ BEGIN
  RETURN vec_bolsa_llamamientos.proyectar_oferta_v2(p_oferta,clock_timestamp());
 END $f$;
 
--- Injerto comprobado sobre el cuerpo instalado; conserva firma, OID y ACL.
-DO $proy$
-DECLARE f text;g text;firma regprocedure:='vec_bolsa_llamamientos.proyectar_oferta_v2(text,timestamptz)'::regprocedure;
+-- Definición literal obtenida de pg_get_functiondef en la copia de la principal.
+-- Preimagen SHA-256: b71aa0f3bef157e08f0ab0c93a3c66308d59682d3de4c92b27fd1f4b8e690e21.
+-- Solo añade el resumen del aviso en las dos salidas y fija pg_temp en search_path.
+-- CREATE OR REPLACE conserva la firma, el OID, el propietario y las ACL instaladas.
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.proyectar_oferta_v2(p_oferta text, p_corte timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET "TimeZone" TO 'UTC'
+AS $function$
+DECLARE
+ base jsonb; v_extra jsonb; o record; v_n integer; v_config jsonb; v_gestion boolean;
+ v_estados text[]:='{}'; v_ultimos jsonb[]:='{}'; ultimo record; v_estado text;
+ v_candidatos text[]:='{}'; v_ordenes bigint[]:='{}'; v_siguiente integer:=1;
+ v_pendiente boolean; v_propuesta jsonb; v_plazas jsonb:='[]'::jsonb; v_historial jsonb;
+ v_cubiertas integer:=0; v_directas integer:=0; v_actos integer:=0; v_primera boolean:=true;
+ v_puede boolean; i integer; v_confirmacion text;
 BEGIN
- f:=pg_get_functiondef(firma);
- g:=replace(f,' base jsonb; o record;', ' base jsonb; v_extra jsonb; o record;');
- g:=replace(g,' SET search_path TO ''pg_catalog''',
-   ' SET search_path TO ''pg_catalog'', ''pg_temp''');
- g:=replace(g,' SELECT * INTO STRICT o FROM vec_bolsa_llamamientos.oferta_publicada WHERE oferta_ref=p_oferta;',
- ' SELECT * INTO STRICT o FROM vec_bolsa_llamamientos.oferta_publicada WHERE oferta_ref=p_oferta;
- SELECT jsonb_build_object(''aviso'',jsonb_build_object(
-   ''total'',count(d.participacion_ref),
-   ''pendientes'',count(*) FILTER (WHERE d.estado=''pendiente''),
-   ''enviados'',count(*) FILTER (WHERE d.estado=''enviado''),
-   ''sin_confirmacion'',count(*) FILTER (WHERE d.estado=''enviado_sin_confirmacion''),
-   ''fallidos'',count(*) FILTER (WHERE d.estado=''no_enviado'')),
-   ''aviso_version_token'',h.version_token) INTO v_extra
+ base:=vec_bolsa_llamamientos.proyectar_oferta_v1(p_oferta,p_corte);
+ IF base IS NULL THEN RETURN NULL; END IF;
+ SELECT * INTO STRICT o FROM vec_bolsa_llamamientos.oferta_publicada WHERE oferta_ref=p_oferta;
+ SELECT jsonb_build_object('aviso',jsonb_build_object(
+   'total',count(d.participacion_ref),
+   'pendientes',count(*) FILTER (WHERE d.estado='pendiente'),
+   'enviados',count(*) FILTER (WHERE d.estado='enviado'),
+   'sin_confirmacion',count(*) FILTER (WHERE d.estado='enviado_sin_confirmacion'),
+   'fallidos',count(*) FILTER (WHERE d.estado='no_enviado')),
+   'aviso_version_token',h.version_token) INTO v_extra
   FROM vec_bolsa_llamamientos.aviso_oferta_cabecera h
   LEFT JOIN vec_bolsa_llamamientos.aviso_oferta_destinatario d ON d.oferta_ref=h.oferta_ref
   WHERE h.oferta_ref=p_oferta GROUP BY h.oferta_ref,h.version_token;
- v_extra:=coalesce(v_extra,''{}''::jsonb);');
- g:=replace(g,'''historial'',''[]''::jsonb)));', '''historial'',''[]''::jsonb))) || v_extra;');
- g:=replace(g,'''plazas'',v_plazas);', '''plazas'',v_plazas) || v_extra;');
- IF g=f OR position('v_extra:=' IN g)=0 OR position(' || v_extra;' IN g)=0
-    OR position(' SET search_path TO ''pg_catalog'', ''pg_temp''' IN g)=0
-    OR (length(g)-length(replace(g,' || v_extra;','')))/length(' || v_extra;')<>2 THEN
-  RAISE EXCEPTION 'B129: PARO marcas de proyección incompatibles' USING ERRCODE='55000';
+ v_extra:=coalesce(v_extra,'{}'::jsonb);
+ SELECT coalesce((SELECT numero_plazas FROM vec_bolsa_llamamientos.plazas_oferta WHERE oferta_ref=p_oferta),1) INTO v_n;
+ SELECT pv.politica->'plazas', pv.politica#>>'{adjudicacion,confirmacion}' INTO v_config,v_confirmacion FROM vec_bolsa_llamamientos.politica_ofertas_version pv
+  WHERE pv.bolsa_ref=o.bolsa_ref AND pv.version::text=o.plazo->>'politica_version';
+ v_gestion:=jsonb_typeof(v_config)='object';
+ IF NOT v_gestion THEN v_config:=NULL; END IF;
+ -- Resolución única anterior (B28): se muestra como su única plaza, sin actos.
+ IF jsonb_typeof(base->'resolucion')='object' THEN
+  RETURN base || jsonb_build_object('propuesta',NULL,'numero_plazas',1,'politica_plazas',v_config,'confirmacion_adjudicacion',v_confirmacion,
+   'plazas',jsonb_build_array(jsonb_build_object('numero_de_plaza',1,
+    'estado',CASE WHEN base#>>'{resolucion,tipo}'='adjudicada' THEN 'cubierta' ELSE 'llamamiento_directo' END,
+    'secuencia',0,'participacion_ref',base#>'{resolucion,participacion_ref}','orden_vigente',base#>'{resolucion,orden_vigente}',
+    'responder_antes_de',NULL,'puede_sin_respuesta',false,'propuesta',NULL,'historial','[]'::jsonb))) || v_extra;
  END IF;
- EXECUTE g;
-END $proy$;
+ FOR i IN 1..v_n LOOP
+  SELECT a.* INTO ultimo FROM vec_bolsa_llamamientos.acto_plaza_oferta a
+   WHERE a.oferta_ref=p_oferta AND a.numero_de_plaza=i AND a.registrado_en<=p_corte
+   ORDER BY a.secuencia DESC LIMIT 1;
+  IF ultimo.tipo IS NULL THEN v_estado:='vacante';
+  ELSIF ultimo.tipo='adjudicada' THEN v_estado:=CASE WHEN v_gestion AND v_confirmacion IS DISTINCT FROM 'aceptacion_previa' THEN 'pendiente_respuesta' ELSE 'cubierta' END;
+  ELSIF ultimo.tipo='aceptada' THEN v_estado:='cubierta';
+  ELSIF ultimo.tipo='llamamiento_directo' THEN v_estado:='llamamiento_directo';
+  ELSE v_estado:='vacante';
+  END IF;
+  v_estados:=v_estados||v_estado;
+  v_ultimos:=v_ultimos||CASE WHEN ultimo.tipo IS NULL THEN 'null'::jsonb ELSE jsonb_build_object(
+   'secuencia',ultimo.secuencia,'tipo',ultimo.tipo,'participacion_ref',ultimo.participacion_ref,
+   'orden_vigente',ultimo.orden_vigente,
+   'responder_antes_de',to_char(ultimo.responder_antes_de AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')) END;
+  IF v_estado='cubierta' THEN v_cubiertas:=v_cubiertas+1; END IF;
+  IF v_estado='llamamiento_directo' THEN v_directas:=v_directas+1; END IF;
+  IF ultimo.tipo IS NOT NULL THEN v_actos:=v_actos+1; END IF;
+ END LOOP;
+ v_pendiente:='pendiente_respuesta'=ANY(v_estados);
+ IF p_corte>=o.vence_antes_de THEN
+  SELECT coalesce(array_agg(x.participacion_ref ORDER BY x.orden_vigente,x.participacion_ref),'{}'),
+         coalesce(array_agg(x.orden_vigente ORDER BY x.orden_vigente,x.participacion_ref),'{}')
+    INTO v_candidatos,v_ordenes
+    FROM (SELECT d.participacion_ref,ov.orden_vigente
+            FROM vec_bolsa_llamamientos.disposicion_oferta d
+            JOIN vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(o.bolsa_ref,p_corte) ov ON ov.participacion_ref=d.participacion_ref
+           WHERE d.oferta_ref=p_oferta AND d.manifestada_en<o.vence_antes_de AND ov.orden_vigente IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.acto_plaza_oferta a
+                              WHERE a.oferta_ref=p_oferta AND a.participacion_ref=d.participacion_ref AND a.registrado_en<=p_corte)) x;
+ END IF;
+ FOR i IN 1..v_n LOOP
+  v_propuesta:=NULL;
+  IF p_corte>=o.vence_antes_de AND v_estados[i]='vacante' THEN
+   -- Sin apartado de plazas o llamada sucesiva: una propuesta cada vez, para
+   -- la primera plaza libre y sin nadie pendiente de responder.
+   IF (v_gestion AND v_config->>'llamada'='simultanea') OR (v_primera AND NOT v_pendiente) THEN
+    IF v_gestion AND v_ultimos[i]->>'tipo' IN ('renuncia','sin_respuesta') AND v_config->>'tras_renuncia'='llamamiento_directo' THEN
+     v_propuesta:=jsonb_build_object('tipo','llamamiento_directo');
+    ELSIF v_siguiente<=coalesce(array_length(v_candidatos,1),0) THEN
+     v_propuesta:=jsonb_build_object('tipo','adjudicar','participacion_ref',v_candidatos[v_siguiente],'orden_vigente',v_ordenes[v_siguiente]);
+     v_siguiente:=v_siguiente+1;
+    ELSE
+     v_propuesta:=jsonb_build_object('tipo','llamamiento_directo');
+    END IF;
+   END IF;
+   v_primera:=false;
+  END IF;
+  SELECT coalesce(jsonb_agg(jsonb_build_object('secuencia',a.secuencia,'tipo',a.tipo,'orden_vigente',a.orden_vigente,
+          'registrado_en',to_char(a.registrado_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'recibo_ref',a.recibo_ref)
+          ORDER BY a.secuencia),'[]'::jsonb)
+    INTO v_historial FROM vec_bolsa_llamamientos.acto_plaza_oferta a
+   WHERE a.oferta_ref=p_oferta AND a.numero_de_plaza=i AND a.registrado_en<=p_corte;
+  v_puede:=v_estados[i]='pendiente_respuesta'
+   AND (v_ultimos[i]->>'responder_antes_de' IS NULL OR p_corte>=(v_ultimos[i]->>'responder_antes_de')::timestamptz);
+  v_plazas:=v_plazas||jsonb_build_array(jsonb_build_object(
+   'numero_de_plaza',i,'estado',v_estados[i],
+   'secuencia',coalesce((v_ultimos[i]->>'secuencia')::int,0),
+   'participacion_ref',CASE WHEN v_estados[i] IN ('pendiente_respuesta','cubierta') THEN v_ultimos[i]->'participacion_ref' ELSE NULL END,
+   'orden_vigente',CASE WHEN v_estados[i] IN ('pendiente_respuesta','cubierta') THEN v_ultimos[i]->'orden_vigente' ELSE NULL END,
+   'responder_antes_de',CASE WHEN v_estados[i]='pendiente_respuesta' THEN v_ultimos[i]->'responder_antes_de' ELSE NULL END,
+   'puede_sin_respuesta',v_puede,'propuesta',v_propuesta,'historial',v_historial));
+ END LOOP;
+ RETURN base || jsonb_build_object(
+  'estado',CASE WHEN p_corte<o.vence_antes_de THEN 'abierta'
+                WHEN v_cubiertas=v_n THEN 'adjudicada'
+                WHEN v_directas=v_n THEN 'llamamiento_directo'
+                WHEN v_cubiertas+v_directas=v_n THEN 'cerrada'
+                WHEN v_actos>0 THEN 'en_curso'
+                ELSE 'pendiente_resolucion' END,
+  'propuesta',NULL,'numero_plazas',v_n,'politica_plazas',v_config,'confirmacion_adjudicacion',v_confirmacion,'plazas',v_plazas) || v_extra;
+END $function$;
 
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.crear_aviso_oferta_b129(),
  vec_bolsa_llamamientos.exigir_token_aviso_oferta_b129(),

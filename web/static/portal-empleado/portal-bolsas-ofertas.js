@@ -208,6 +208,15 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
   const historial = crearSuperficieHistorialOfrecimientos({ cliente: clienteHistorial, alCambiar: cambiar, anunciar });
   const enfocar = (selector) => { documentoInstalado?.querySelector?.(selector)?.focus?.(); };
 
+  function retirarDatosSinPermiso(status) {
+    controlador?.abort(); controladorPublicacion?.abort(); historial.desmontar();
+    estado.ofertas = []; estado.reciboPublicacion = null; estado.reintentoAvisos = null;
+    estado.claveEnCurso = null; estado.borrador = null; estado.revisionPublicacion = null;
+    estado.mensaje = ""; estado.errorOperacion = ""; estado.incierta = false;
+    estado.confirmacion = null; estado.historialOferta = ""; estado.clavesActo.clear();
+    estado.carga = "error"; estado.error = traducir(status === 401 ? "aviso_sesion_caducada" : "error_403");
+  }
+
   async function cargar() {
     controlador?.abort(); controlador = new AbortController(); const { signal } = controlador;
     // Desde activar() no se repinta aquí: la vista se está montando.
@@ -222,11 +231,12 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
         if (ofertaReciente) estado.reciboPublicacion.configuracionPendiente = ofertaReciente.aviso_configuracion_pendiente === true;
         if (estado.reintentoAvisos && estado.ofertas.find((o) => o.oferta_ref === estado.reintentoAvisos.ofertaRef)?.aviso?.pendientes === 0) estado.reintentoAvisos = null;
       }
-      else { estado.carga = "error"; estado.error = resultado.status === 403 ? traducir("error_403") :
-        resultado.status === 503 && resultado.codigo === "plazo_no_configurado" ? traducir("error_503_politica_consulta") : traducir("error_carga"); }
+      else if (resultado.status === 401 || resultado.status === 403) retirarDatosSinPermiso(resultado.status);
+      else { estado.ofertas = []; estado.carga = "error"; estado.error = resultado.status === 503 && resultado.codigo === "plazo_no_configurado" ?
+        traducir("error_503_politica_consulta") : traducir("error_carga"); }
     } catch (error) {
       if (signal.aborted || error?.name === "AbortError") return;
-      estado.carga = "error"; estado.error = traducir("error_carga");
+      estado.ofertas = []; estado.carga = "error"; estado.error = traducir("error_carga");
     }
     cambiar();
   }
@@ -255,11 +265,13 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
         estado.reintentoAvisos = resultado.oferta.aviso?.pendientes > 0 ? { ofertaRef: resultado.oferta.oferta_ref, bolsa: estado.bolsa, clave, intencion, incierta: false } : null;
         estado.incierta = false; estado.claveEnCurso = null; estado.borrador = null; estado.revisionPublicacion = null; anunciar(estado.mensaje);
         void cargar();
+      } else if (resultado.status === 401 || resultado.status === 403) {
+        retirarDatosSinPermiso(resultado.status);
       } else {
         estado.errorOperacion = mensajeError(traducir, resultado);
         // Un rechazo posterior no confirma si la primera petición surtió efecto.
         // Solo un rechazo de la primera petición permite corregir con otra clave.
-        if (!estado.incierta && [400, 401, 403, 409, 422].includes(resultado.status)) {
+        if (!estado.incierta && [400, 409, 422].includes(resultado.status)) {
           estado.claveEnCurso = null; estado.revisionPublicacion = null;
           if (resultado.status === 409) void cargar();
         } else {
@@ -293,9 +305,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
         estado.mensaje = traducir("aviso_recuperado"); anunciar(estado.mensaje);
         void cargar();
       } else if (resultado.status === 401 || resultado.status === 403) {
-        controlador?.abort();
-        estado.ofertas = []; estado.reciboPublicacion = null; estado.reintentoAvisos = null; estado.mensaje = "";
-        estado.carga = "error"; estado.error = traducir(resultado.status === 401 ? "aviso_sesion_caducada" : "error_403");
+        retirarDatosSinPermiso(resultado.status);
       } else {
         intento.incierta = true;
         estado.errorOperacion = traducir("aviso_recuperacion_incierta");

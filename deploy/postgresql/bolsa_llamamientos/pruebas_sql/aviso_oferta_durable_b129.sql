@@ -62,17 +62,24 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
  IF SQLSTATE<>p_codigo THEN RAISE; END IF;
 END $f$;
+CREATE FUNCTION prueba_aviso_b129.exigir(p_condicion boolean,p_mensaje text) RETURNS void
+LANGUAGE plpgsql AS $f$
+BEGIN
+ IF p_condicion IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'B129: %',p_mensaje USING ERRCODE='P0001';
+ END IF;
+END $f$;
 GRANT USAGE ON SCHEMA prueba_aviso_b129 TO vec_bolsa_llamamientos_ejecutor;
 GRANT EXECUTE ON FUNCTION prueba_aviso_b129.crear(text,text),
  prueba_aviso_b129.contar(text),prueba_aviso_b129.estado(text,text),
- prueba_aviso_b129.espera(text,text)
+ prueba_aviso_b129.espera(text,text),prueba_aviso_b129.exigir(boolean,text)
  TO vec_bolsa_llamamientos_ejecutor;
 
 SET SESSION AUTHORIZATION vec_bolsa_llamamientos_ejecutor;
 SELECT 'oferta:'||encode(sha256(convert_to('b129-aviso-focal','UTF8')),'hex') AS oferta_ref,
        'b129-aviso-focal' AS clave \gset
 SELECT prueba_aviso_b129.crear(:'oferta_ref',:'clave') AS disponibles_antes \gset
-SELECT CASE WHEN :disponibles_antes::integer>1 THEN true ELSE 1/0=0 END;
+SELECT prueba_aviso_b129.exigir(:disponibles_antes::integer>1,'faltan destinatarios para el ensayo');
 
 -- La autoridad de despacho solo se vincula al efecto creado en esta transacción.
 SELECT prueba_aviso_b129.espera(format(
@@ -81,7 +88,7 @@ SELECT prueba_aviso_b129.espera(format(
 SELECT vec_bolsa_llamamientos.vincular_despacho_aviso_v1(
  :'oferta_ref','per_actoractoractoractoractor',:'clave',
  sha256(decode(repeat('11',32),'hex')),'b129-v1')->>'aviso_version_token' AS version \gset
-SELECT CASE WHEN :'version'='b129-v1' THEN true ELSE 1/0=0 END;
+SELECT prueba_aviso_b129.exigir(:'version'='b129-v1','versión del despacho distinta');
 SET CONSTRAINTS exigir_token_aviso_oferta_b129 IMMEDIATE;
 
 -- Ningún tercero con el mismo rol puede reclamar solo con la referencia.
@@ -90,21 +97,24 @@ SELECT prueba_aviso_b129.espera(format(
  :'oferta_ref'),'42501');
 SELECT * FROM vec_bolsa_llamamientos.reclamar_aviso_oferta_v1(
  :'oferta_ref',decode(repeat('11',32),'hex'),1) \gset primero_
-SELECT CASE WHEN :'primero_participacion_ref'<>'' AND :'primero_message_id' LIKE '<%@vec.dipgra.local>'
-  AND :primero_intento::integer=1 THEN true ELSE 1/0=0 END;
+SELECT prueba_aviso_b129.exigir(:'primero_participacion_ref'<>''
+ AND :'primero_message_id' LIKE '<%@vec.dipgra.local>'
+ AND :primero_intento::integer=1,'primera reclamación incoherente');
 
 -- Reclamar cambia a incierto antes de tocar el relay.
-SELECT CASE WHEN prueba_aviso_b129.estado(:'oferta_ref',:'primero_participacion_ref')
- ='enviado_sin_confirmacion' THEN true ELSE 1/0=0 END;
-SELECT (vec_bolsa_llamamientos.finalizar_aviso_oferta_v1(
- :'oferta_ref',:'primero_participacion_ref',decode(repeat('11',32),'hex'),:primero_intento,'transitorio')->'aviso'->>'pendientes')::integer>0;
+SELECT prueba_aviso_b129.exigir(prueba_aviso_b129.estado(:'oferta_ref',:'primero_participacion_ref')
+ ='enviado_sin_confirmacion','intento sin estado incierto');
+SELECT prueba_aviso_b129.exigir((vec_bolsa_llamamientos.finalizar_aviso_oferta_v1(
+ :'oferta_ref',:'primero_participacion_ref',decode(repeat('11',32),'hex'),:primero_intento,'transitorio')->'aviso'->>'pendientes')::integer>0,
+ 'el transitorio no volvió a pendiente');
 SELECT * FROM vec_bolsa_llamamientos.reclamar_aviso_oferta_v1(
  :'oferta_ref',decode(repeat('11',32),'hex'),1) \gset segundo_
 -- Un transitorio no monopoliza las recuperaciones mientras queden personas sin intento.
-SELECT CASE WHEN :'segundo_participacion_ref'<>:'primero_participacion_ref'
- AND :segundo_intento::integer=1 THEN true ELSE 1/0=0 END;
-SELECT vec_bolsa_llamamientos.finalizar_aviso_oferta_v1(
- :'oferta_ref',:'segundo_participacion_ref',decode(repeat('11',32),'hex'),:segundo_intento,'aceptado')->'aviso'->>'enviados';
-SELECT CASE WHEN prueba_aviso_b129.contar(:'oferta_ref')=:disponibles_antes::integer
- THEN true ELSE 1/0=0 END;
+SELECT prueba_aviso_b129.exigir(:'segundo_participacion_ref'<>:'primero_participacion_ref'
+ AND :segundo_intento::integer=1,'el transitorio retuvo el siguiente turno');
+SELECT prueba_aviso_b129.exigir((vec_bolsa_llamamientos.finalizar_aviso_oferta_v1(
+ :'oferta_ref',:'segundo_participacion_ref',decode(repeat('11',32),'hex'),:segundo_intento,'aceptado')->'aviso'->>'enviados')::integer=1,
+ 'el relay aceptado no contó como enviado');
+SELECT prueba_aviso_b129.exigir(prueba_aviso_b129.contar(:'oferta_ref')=:disponibles_antes::integer,
+ 'la instantánea cambió después de publicar');
 ROLLBACK;

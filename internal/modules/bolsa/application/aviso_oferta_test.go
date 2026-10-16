@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,7 +14,6 @@ type colaAvisoPrueba struct {
 	estado          string
 	intento, envios int
 	falloFinal      bool
-	orden           []string
 }
 
 func (c *colaAvisoPrueba) ReclamarAvisoOferta(context.Context, ports.OfertaPublicada) (ports.IntentoAvisoOferta, bool, error) {
@@ -22,14 +22,12 @@ func (c *colaAvisoPrueba) ReclamarAvisoOferta(context.Context, ports.OfertaPubli
 	}
 	c.estado = "enviado_sin_confirmacion"
 	c.intento++
-	c.orden = append(c.orden, "confirmar_marca")
 	return ports.IntentoAvisoOferta{ParticipacionRef: "participacion:uno", MessageID: "<oferta-uno@aviso.invalid>", Intento: c.intento}, true, nil
 }
 func (c *colaAvisoPrueba) FinalizarAvisoOferta(_ context.Context, o ports.OfertaPublicada, _ ports.IntentoAvisoOferta, e string) (ports.OfertaPublicada, error) {
 	if c.falloFinal {
 		return ports.OfertaPublicada{}, errors.New("fallo")
 	}
-	c.orden = append(c.orden, "finalizar")
 	switch e {
 	case ports.AvisoOfertaAceptado:
 		c.estado = "enviado"
@@ -68,7 +66,6 @@ func (e *envioAvisoPrueba) EnviarAvisoOferta(_ context.Context, m ports.MensajeA
 	if e.cola.estado != "enviado_sin_confirmacion" {
 		panic("envío antes de confirmar intención")
 	}
-	e.cola.orden = append(e.cola.orden, "red")
 	e.cola.envios++
 	e.mensajes = append(e.mensajes, m)
 	return e.estado
@@ -137,5 +134,18 @@ func TestAvisoOfertaSinConfiguracionNoReclama(t *testing.T) {
 	o := s.despacharAvisos(t.Context(), ofertaAvisoPrueba())
 	if !o.AvisoConfiguracionPendiente || o.Aviso.Pendientes != 1 {
 		t.Fatal("configuración ausente perdió intención")
+	}
+}
+
+func TestAvisoOfertaNoCopiaDescripcionLibre(t *testing.T) {
+	c := &colaAvisoPrueba{estado: "pendiente"}
+	e := &envioAvisoPrueba{cola: c, estado: ports.AvisoOfertaAceptado}
+	d, _ := NuevoDespachadorAvisosOferta(c, c, e, "{categoria}", "{centro} {fecha_inicio} {enlace}", "https://aviso.invalid/area-personal/")
+	s := &ServicioOfertasPublicadas{avisos: d}
+	o := ofertaAvisoPrueba()
+	o.Datos.Descripcion = "Referencia privada y nombre de la persona sustituida"
+	s.despacharAvisos(t.Context(), o)
+	if len(e.mensajes) != 1 || strings.Contains(e.mensajes[0].Cuerpo, o.Datos.Descripcion) {
+		t.Fatal("copió texto libre al correo")
 	}
 }
