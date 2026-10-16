@@ -110,6 +110,44 @@ class CopiaLocalTest(unittest.TestCase):
             self.assertFalse(destino.exists())
             self.assertEqual(list(self.raiz.glob('.vec-clon-*')), [])
 
+    def test_reinicio_conserva_configuracion_de_modulos(self):
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'modulos')
+            instancia.raiz.mkdir()
+            ruta = instancia.raiz / 'entorno_modulos.json'
+            copia.guardar(ruta, {'VEC_CT_DATABASE_URL': 'conexion-local'})
+            estado = {'entorno_modulos_sha256': copia.sha256(ruta)}
+            with patch.object(instancia, 'leer', return_value=estado):
+                self.assertEqual(instancia.entorno_modulos(), {'VEC_CT_DATABASE_URL': 'conexion-local'})
+                ruta.write_text('{"VEC_CT_DATABASE_URL":"otra-conexion"}')
+                with self.assertRaises(ValueError):
+                    instancia.entorno_modulos()
+
+    def test_configuracion_ajena_no_se_abre(self):
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'modulos')
+            instancia.raiz.mkdir()
+            ruta = instancia.raiz / 'entorno_modulos.json'
+            copia.guardar(ruta, {'VEC_CT_DATABASE_URL': 'conexion-local'})
+            estado = {'entorno_modulos_sha256': copia.sha256(ruta)}
+            with patch.object(instancia, 'leer', return_value=estado):
+                ruta.chmod(0o644)
+                with self.assertRaises(ValueError):
+                    instancia.entorno_modulos()
+
+    def test_portal_sin_modulos_no_lee_configuracion(self):
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'portal')
+            with patch.object(instancia, 'leer', return_value={}):
+                self.assertEqual(instancia.entorno_modulos(), {})
+
+    def test_clave_postgresql_solo_legible_por_su_dueno(self):
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'clave')
+            instancia.raiz.mkdir()
+            instancia.pg_password()
+            self.assertEqual((instancia.raiz / 'postgres.password').stat().st_mode & 0o777, 0o600)
+
 
 if __name__ == '__main__':
     unittest.main()

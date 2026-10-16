@@ -11,6 +11,7 @@ import secrets
 import shutil
 import socket
 import ssl
+import stat
 import subprocess
 import sys
 import tempfile
@@ -105,9 +106,12 @@ class Copia:
                     '--label', f'vec.copia={self.raiz}',
                     '-p', f"127.0.0.1:{estado['puerto_pg']}:5432",
                     '-v', f'{self.raiz}/pgdata:/var/lib/postgresql',
-                    '-v', f'{self.raiz}/postgres.password:/run/vec-password:ro',
+                    '-v', f'{self.raiz}/postgres.password:/run/vec-password',
                     '-e', 'POSTGRES_PASSWORD_FILE=/run/vec-password',
-                    IMAGEN, salida=subprocess.DEVNULL)
+                    '--entrypoint', 'sh', IMAGEN, '-ec',
+                    'chown postgres:postgres /run/vec-password; '
+                    'chmod 600 /run/vec-password; exec docker-entrypoint.sh postgres',
+                    salida=subprocess.DEVNULL)
         for _ in range(120):
             if not self.existe():
                 raise ValueError('El contenedor terminó antes de estar disponible')
@@ -180,6 +184,13 @@ class Copia:
             ejecutar([REPO / 'scripts/generar_credenciales_desarrollo.sh', self.material],
                       salida=log, entorno={**os.environ, 'VEC_DESARROLLO_VIGENCIA_DIAS': '90'})
         self.tls_pg()
+        if args.modulos:
+            from copia_local_conexiones import preparar
+            entorno_modulos = preparar(self)
+            guardar(self.raiz / 'entorno_modulos.json', entorno_modulos)
+            estado = self.leer()
+            estado['entorno_modulos_sha256'] = sha256(self.raiz / 'entorno_modulos.json')
+            guardar(self.estado, estado)
         memoria()
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         with (self.raiz / 'compilacion.log').open('wb') as log:
@@ -211,8 +222,8 @@ class Copia:
         (self.raiz / 'pgdata').chmod(0o755)
         password = self.raiz / 'postgres.password'
         password.write_text(secrets.token_hex(32) + '\n')
-        # Solo accesible al contenedor a través de un padre 0700 en el host.
-        password.chmod(0o644)
+        # El entrypoint asigna el fichero al usuario postgres antes de leerlo.
+        password.chmod(0o600)
 
     def tls_pg(self):
         for origen, nombre in [('tls/servidor.crt', 'server.crt'), ('tls/servidor.key', 'server.key')]:
@@ -241,6 +252,7 @@ class Copia:
             VEC_TLS_KEY_FILE=str(self.material / 'tls/servidor.key'),
             VEC_HTTP_ADDR=f"127.0.0.1:{estado['puerto_app']}",
             VEC_BOLSA_DATA_DIR=str(self.raiz / 'datos'))
+        entorno.update(self.entorno_modulos())
         with (self.raiz / 'app.log').open('ab') as log:
             proceso = subprocess.Popen([self.raiz / 'vec-server'], cwd=REPO, env=entorno,
                         stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -256,6 +268,25 @@ class Copia:
             except (OSError, ValueError):
                 time.sleep(.5)
         raise ValueError('La aplicación no respondió en 60 segundos')
+
+    def entorno_modulos(self):
+        estado = self.leer()
+        huella = estado.get('entorno_modulos_sha256')
+        if not huella:
+            return {}
+        ruta = self.raiz / 'entorno_modulos.json'
+        info = ruta.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_mode & 0o077 or info.st_nlink != 1
+                or sha256(ruta) != huella):
+            raise ValueError('La configuración de módulos cambió; se conserva la copia parada')
+        entorno = json.loads(ruta.read_text())
+        if (not isinstance(entorno, dict) or not entorno
+                or any(not re.fullmatch('VEC_[A-Z0-9_]+', k)
+                       or not isinstance(v, str) or '\x00' in v
+                       for k, v in entorno.items())):
+            raise ValueError('Configuración de módulos inválida')
+        return entorno
 
     def proceso(self, estado):
         pid = estado.get('pid')
@@ -357,6 +388,7 @@ def main():
     p.add_argument('--puerto-pg', type=int, default=55481)
     p.add_argument('--puerto-app', type=int, default=18481)
     p.add_argument('--lista-sql', action='append', default=[])
+    p.add_argument('--modulos', action='store_true', help='Preparar conexiones nuevas de Bolsa y Contratación')
     p.add_argument('--archivo-clon')
     args = p.parse_args()
     if not re.fullmatch('[a-z]', args.equipo) or not re.fullmatch('[a-z0-9][a-z0-9-]{0,40}', args.instancia):
