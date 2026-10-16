@@ -15,7 +15,7 @@ BEGIN
  "requiere_baja_comprobada":true,"meses_transcurridos":{"meses":9,"incluye_limite":true}},
  {"modalidad":"programa","meses_duracion_inicial":{"meses":9,"incluye_limite":false}}]}}';
  SELECT jsonb_object_agg(key,pg_temp.hecho(value)) INTO h FROM jsonb_each(
- '{"trabaja_en_diputacion":true,"tipo_relacion":"sustitucion","modalidad":"sustitucion",
+ '{"trabaja_en_diputacion":true,"tipo_relacion":"sustitucion","modalidad":"sustitucion","causa_relacion":"baja",
  "inicio":"2026-04-01","fin_previsto":"2027-01-01","es_vacante":true,"prelacion":1,
  "antecedentes_completos":true,"fecha_inicial_baja":"2026-01-16"}'::jsonb);
  r:=vec_bolsa_llamamientos.calcular_comprobacion_ofrecimiento_v1(h,c,'2026-10-16T00:00:00Z');
@@ -25,6 +25,11 @@ BEGIN
  IF r->>'resultado'<>'no_aplicable' THEN RAISE EXCEPTION 'se midió desde sustituto, no baja: %',r; END IF;
  r:=vec_bolsa_llamamientos.calcular_comprobacion_ofrecimiento_v1(h-'fecha_inicial_baja',c,'2026-10-16T00:00:00Z');
  IF r->>'resultado'<>'pendiente' THEN RAISE EXCEPTION 'se presumió la baja: %',r; END IF;
+ r:=vec_bolsa_llamamientos.calcular_comprobacion_ofrecimiento_v1(h-'causa_relacion',c,'2026-10-16T00:00:00Z');
+ IF r->>'resultado'<>'pendiente' THEN RAISE EXCEPTION 'se presumió la causa contractual: %',r; END IF;
+ r:=vec_bolsa_llamamientos.calcular_comprobacion_ofrecimiento_v1(
+  jsonb_set(h,'{causa_relacion,valor}','"otra"'),c,'2026-10-16T00:00:00Z');
+ IF r->>'resultado'<>'no_aplicable' THEN RAISE EXCEPTION 'se ignoró la causa contractual: %',r; END IF;
  h:=h-'fecha_inicial_baja'||jsonb_build_object('tipo_relacion',pg_temp.hecho('"programa"'),
   'modalidad',pg_temp.hecho('"programa"'),'fin_inicial_programa',pg_temp.hecho('"2026-12-31"'));
  r:=vec_bolsa_llamamientos.calcular_comprobacion_ofrecimiento_v1(h,c,'2026-10-16T00:00:00Z');
@@ -80,4 +85,31 @@ BEGIN
   RAISE EXCEPTION 'consulta convertida en escritura';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $seguridad$;
+-- Un LOGIN del ejecutor tampoco puede registrar sin capacidad V3 ni leer tablas.
+DO $login$ BEGIN
+ EXECUTE format('CREATE ROLE vec_b133_ejecutor_fixture LOGIN INHERIT NOSUPERUSER NOCREATEDB '
+  'NOCREATEROLE NOREPLICATION NOBYPASSRLS VALID UNTIL %L',clock_timestamp()+interval '90 days');
+END $login$;
+GRANT vec_bolsa_llamamientos_ejecutor TO vec_b133_ejecutor_fixture
+ WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
+SET LOCAL SESSION AUTHORIZATION vec_b133_ejecutor_fixture;
+DO $sin_autoridad$ DECLARE c jsonb;p jsonb;
+BEGIN
+ SELECT jsonb_object_agg(k,to_jsonb('ref:fixture'::text)) INTO c FROM unnest(ARRAY[
+  'ambito_ref','bolsa_ref','categoria_ref','causa_ofrecida','expediente_ref',
+  'modalidad_ofrecida','necesidad_ref','organizacion_ref','participacion_ref','unidad_ref']) k;
+ c:=c||jsonb_build_object('huella_politica_ofertas_sha256',repeat('a',64),'orden_acta',1,
+  'version_bolsa',1,'version_expediente',6,'version_instantanea',1,'version_politica_ofertas',1);
+ p:=jsonb_build_object('contexto',c,'hechos','{}'::jsonb,'version_esperada',0,'clave_idempotencia','b133:sin:autoridad');
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.registrar_comprobacion_ofrecimiento_v1(
+   p,'{}','{}','{}','{}',1,1,'{}','{}','{}','{}');
+  RAISE EXCEPTION 'se registró sin autoridad V3';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+  PERFORM 1 FROM vec_bolsa_llamamientos.comprobacion_ofrecimiento_v1;
+  RAISE EXCEPTION 'el LOGIN leyó los hechos directamente';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $sin_autoridad$;
+RESET SESSION AUTHORIZATION;
 ROLLBACK;

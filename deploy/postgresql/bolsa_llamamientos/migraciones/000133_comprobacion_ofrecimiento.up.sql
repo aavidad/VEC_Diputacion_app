@@ -62,7 +62,7 @@ BEGIN
  OR p_corte IS NULL OR NOT isfinite(p_corte)
  THEN RAISE EXCEPTION 'B133: hechos inválidos' USING ERRCODE='22023'; END IF;
  FOR k,v IN SELECT key,value FROM jsonb_each(h) LOOP
-  IF k NOT IN ('trabaja_en_diputacion','tipo_relacion','modalidad','inicio','fin_previsto',
+  IF k NOT IN ('trabaja_en_diputacion','tipo_relacion','modalidad','causa_relacion','inicio','fin_previsto',
    'fin_inicial_programa','fecha_inicial_baja','es_vacante','prelacion','antecedentes_completos')
   OR jsonb_typeof(v) IS DISTINCT FROM 'object'
   OR (SELECT array_agg(x ORDER BY x) FROM jsonb_object_keys(v) x)
@@ -75,7 +75,7 @@ BEGIN
    RAISE EXCEPTION 'B133: evidencia inválida' USING ERRCODE='22023'; END IF;
   IF (k IN ('trabaja_en_diputacion','es_vacante','antecedentes_completos') AND jsonb_typeof(v->'valor')<>'boolean')
   OR (k='tipo_relacion' AND (jsonb_typeof(v->'valor')<>'string' OR v->>'valor' NOT IN ('acumulacion','sustitucion','programa','otra')))
-  OR (k='modalidad' AND (jsonb_typeof(v->'valor')<>'string' OR v->>'valor' !~ '^[a-z][a-z0-9._-]{1,79}$'))
+  OR (k IN ('modalidad','causa_relacion') AND (jsonb_typeof(v->'valor')<>'string' OR v->>'valor' !~ '^[a-z][a-z0-9._-]{1,79}$'))
   OR (k='prelacion' AND (jsonb_typeof(v->'valor')<>'number' OR v->>'valor' !~ '^[1-9][0-9]{0,8}$'))
   OR (k IN ('inicio','fin_previsto','fin_inicial_programa','fecha_inicial_baja')
    AND (jsonb_typeof(v->'valor')<>'string' OR v->>'valor' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))
@@ -99,6 +99,11 @@ BEGIN
    RETURN jsonb_build_object('resultado','no_aplicable','motivo_clave','sin_supuesto_articulo_9'); END IF;
   FOR condicion IN SELECT value FROM jsonb_array_elements(c#>'{mejora,condiciones_actuales}') LOOP
    IF condicion->>'modalidad' IS DISTINCT FROM valores->>'modalidad' THEN CONTINUE; END IF;
+   -- Es la causa administrativa del contrato, nunca la causa de una baja.
+   IF condicion ? 'causa' THEN
+    IF NOT valores ? 'causa_relacion' THEN incompleto:=true;CONTINUE; END IF;
+    IF condicion->>'causa' IS DISTINCT FROM valores->>'causa_relacion' THEN CONTINUE; END IF;
+   END IF;
    IF (valores->>'tipo_relacion'='acumulacion' AND valores->>'modalidad'<>'acumulacion_tareas')
     OR (valores->>'tipo_relacion' IN ('sustitucion','programa') AND valores->>'tipo_relacion'<>valores->>'modalidad')
     OR valores->>'tipo_relacion'='otra' THEN CONTINUE; END IF;

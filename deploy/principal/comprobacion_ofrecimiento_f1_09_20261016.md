@@ -40,7 +40,8 @@ pendiente. Una discrepancia o una clave con otro material produce `VBC01`
 clave y la versión anterior; conserva todas las filas. Un reintento devuelve
 el recibo original, también después de una rectificación.
 
-Hechos: trabajo en la Diputación, tipo de relación, modalidad, inicio y fin
+Hechos: trabajo en la Diputación, tipo de relación, modalidad, causa administrativa
+de esa relación (nunca el motivo de una baja), inicio y fin
 previsto, fin inicialmente previsto del programa (con el inicio acredita su
 duración inicial), inicio de la baja, vacante, prelación y antecedentes completos.
 Cada uno lleva su evidencia. Los datos que falten dejan el caso pendiente.
