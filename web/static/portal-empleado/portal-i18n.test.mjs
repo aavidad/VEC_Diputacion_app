@@ -1005,7 +1005,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js", "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261016-seleccion-pendiente-aviso-v1");
+  ]) versionesEspeciales.set(ruta, "20261016-seleccion-pendiente-aviso-v2");
   versionesEspeciales.set("portal-bolsas-ofertas.js", "20261015-ofertas-recuperacion-v4");
   versionesEspeciales.set("portal-llamamientos-selector.js", "20261015-ofertas-recibo-v3");
   versionesEspeciales.set("modulos/bolsa/rrhh-plazos-ui.js", "20261015-ofertas-recibo-v3");

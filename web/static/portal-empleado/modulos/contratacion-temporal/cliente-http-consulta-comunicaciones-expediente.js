@@ -107,9 +107,28 @@ export function crearConsultaComunicacionesExpedienteClienteHTTP({ ejecutar, val
       const { signal } = validarOpciones(opciones);
       const query = new URLSearchParams({ expediente_ref: entrada.expediente_ref,
         limite: String(LIMITE_PAGINA_COMUNICACIONES), ...(entrada.cursor ? { cursor: entrada.cursor } : {}) });
-      return ejecutar({ metodo: "GET", ruta: `${RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE}?${query}`,
+      const peticion = { metodo: "GET", ruta: `${RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE}?${query}`,
         signal, estadoEsperado: 200, maximoRespuesta: 16 * 1024, efecto: false,
-        validarRespuesta: (respuesta) => validarPaginaComunicacionesExpediente(respuesta, entrada) });
+        validarRespuesta: (respuesta) => validarPaginaComunicacionesExpediente(respuesta, entrada) };
+      return (async () => {
+        try { return await ejecutar(peticion); } catch (error) {
+          if (entrada.cursor !== undefined || signal?.aborted || error?.envelopeValido !== true
+            || error.estado !== 503 || error.codigo !== "servicio_no_disponible") throw error;
+          await new Promise((resolver) => {
+            let temporizador;
+            const terminar = () => {
+              clearTimeout(temporizador);
+              signal?.removeEventListener("abort", terminar);
+              resolver();
+            };
+            signal?.addEventListener("abort", terminar, { once: true });
+            temporizador = setTimeout(terminar, 100);
+            if (signal?.aborted) terminar();
+          });
+          if (signal?.aborted) throw error;
+          return ejecutar(peticion);
+        }
+      })();
     },
   });
 }

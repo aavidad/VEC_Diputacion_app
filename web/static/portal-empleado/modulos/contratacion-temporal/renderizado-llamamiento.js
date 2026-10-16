@@ -1,6 +1,6 @@
 import { escaparHTML as e } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { ESTADO_SELECCION_PENDIENTE_AVISO, claveFilaComunicacion } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-seleccion-pendiente-aviso-v1";
+import { ESTADO_SELECCION_PENDIENTE_AVISO, claveFilaComunicacion } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-seleccion-pendiente-aviso-v2";
 import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261013-ct-firma-tres-v3";
 import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261013-ct-firma-tres-v3";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,

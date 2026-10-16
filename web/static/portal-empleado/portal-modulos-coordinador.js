@@ -130,7 +130,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js?v=20261013-ct-firma-tres-v3"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261016-seleccion-pendiente-aviso-v1"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261016-seleccion-pendiente-aviso-v2"),
 
     ]);
     let completos;
@@ -138,7 +138,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       completos ??= Promise.all([
         import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261011-ct-bolsa-vinculo-v1"),
         import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261015-firma-cierre-cache-v3"),
-        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261016-seleccion-pendiente-aviso-v1"),
+        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261016-seleccion-pendiente-aviso-v2"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
       return completos;
@@ -148,7 +148,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261016-seleccion-pendiente-aviso-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261016-seleccion-pendiente-aviso-v2");
       const [auditoriaVista, auditoriaCliente, original, preflight, firmaVec, autoFirma, documentos] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),
@@ -1358,7 +1358,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261016-seleccion-pendiente-aviso-v1");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261016-seleccion-pendiente-aviso-v2");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
