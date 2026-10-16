@@ -121,18 +121,21 @@ type ResolucionOferta struct {
 
 // OfertaPublicada es la proyección de una oferta en un instante.
 type OfertaPublicada struct {
-	OfertaRef          string                   `json:"oferta_ref"`
-	ReciboRef          string                   `json:"recibo_ref"`
-	BolsaRef           string                   `json:"bolsa_ref"`
-	Datos              dominiobolsa.DatosOferta `json:"datos"`
-	Plazo              PlazoOferta              `json:"plazo"`
-	PublicadaEn        time.Time                `json:"publicada_en"`
-	VenceAntesDe       time.Time                `json:"vence_antes_de"`
-	Estado             string                   `json:"estado"`
-	Disposiciones      []DisposicionOferta      `json:"disposiciones"`
-	DisposicionesTotal int                      `json:"disposiciones_total"`
-	Propuesta          *PropuestaOferta         `json:"propuesta"`
-	Resolucion         *ResolucionOferta        `json:"resolucion"`
+	Aviso                       *AvisosOferta            `json:"aviso,omitempty"`
+	AvisoConfiguracionPendiente bool                     `json:"aviso_configuracion_pendiente,omitempty"`
+	VersionTokenAviso           string                   `json:"-"`
+	OfertaRef                   string                   `json:"oferta_ref"`
+	ReciboRef                   string                   `json:"recibo_ref"`
+	BolsaRef                    string                   `json:"bolsa_ref"`
+	Datos                       dominiobolsa.DatosOferta `json:"datos"`
+	Plazo                       PlazoOferta              `json:"plazo"`
+	PublicadaEn                 time.Time                `json:"publicada_en"`
+	VenceAntesDe                time.Time                `json:"vence_antes_de"`
+	Estado                      string                   `json:"estado"`
+	Disposiciones               []DisposicionOferta      `json:"disposiciones"`
+	DisposicionesTotal          int                      `json:"disposiciones_total"`
+	Propuesta                   *PropuestaOferta         `json:"propuesta"`
+	Resolucion                  *ResolucionOferta        `json:"resolucion"`
 	// ConfirmacionAdjudicacion procede de la versión de política inmovilizada
 	// por la oferta. Vacía en políticas anteriores a la aceptación previa.
 	ConfirmacionAdjudicacion string `json:"confirmacion_adjudicacion,omitempty"`
