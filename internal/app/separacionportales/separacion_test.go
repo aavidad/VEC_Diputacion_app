@@ -188,6 +188,14 @@ func TestMaterialPropioDeCadaPortalSeAdmite(t *testing.T) {
 	}
 }
 
+func TestMaterialCarteraMeritosPerteneceSoloAlPortalExterno(t *testing.T) {
+	externo := materialSintetico(t, PortalExterno)
+	escribir(t, externo, "identidad/meritos-cartera-externa.json", `{"version":1}`)
+	if err := ComprobarMaterial(PortalExterno, externo); err != nil {
+		t.Fatalf("material de Méritos externo rechazado: %v", err)
+	}
+}
+
 func TestProcesoSeparadoSoloAdmiteMaterialNominalTLSKMSYTSA(t *testing.T) {
 	for _, p := range []Portal{PortalInterno, PortalExterno} {
 		material := materialSintetico(t, p)
@@ -238,6 +246,7 @@ func TestProcesoInternoNoPuedeAbrirMaterialExterno(t *testing.T) {
 	for _, relativa := range []string{
 		"identidad/bolsa-candidato.json",
 		"identidad/candidato.json",
+		"identidad/meritos-cartera-externa.json",
 		"identidad/usuarios-preferencias-externa.json",
 		"mtls/candidato.crt",
 		"externo/cualquier-cosa.json",
@@ -357,6 +366,19 @@ func TestComprobarSeparacionDetectaUsuarioCompartido(t *testing.T) {
 	_, err = ComprobarSeparacion(Proceso{Material: interno}, Proceso{Material: externo})
 	if got := motivo(t, err); got != "vec_cronos_sintetico" {
 		t.Fatalf("usuario compartido en el material aceptado: %s", got)
+	}
+}
+
+func TestComprobarSeparacionDetectaConexionInternaEnCarteraExterna(t *testing.T) {
+	interno := materialSintetico(t, PortalInterno)
+	externo := materialSintetico(t, PortalExterno)
+	escribir(t, externo, "identidad/meritos-cartera-externa.json",
+		`{"dsn_interno":"postgresql://vec_ct_sintetico:secreto@127.0.0.1/vec"}`)
+	_, err := ComprobarSeparacion(
+		Proceso{Material: interno, Entorno: []byte("VEC_CT_DATABASE_URL=postgresql://vec_ct_sintetico:x@127.0.0.1/vec\n")},
+		Proceso{Material: externo})
+	if got := motivo(t, err); got != "vec_ct_sintetico" {
+		t.Fatalf("conexión interna en JSON de Méritos aceptada: %s", got)
 	}
 }
 

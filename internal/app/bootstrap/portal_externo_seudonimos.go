@@ -82,14 +82,41 @@ func ExportarSeudonimosPortalExterno(cfg config.Config) ([]byte, error) {
 		ref:    material.identidad.candidatoBolsa.cuentaRef,
 		sujeto: material.identidad.candidatoBolsa.identidad.principal.ID,
 	}}
+	usuarios := map[string]cuentaUsuariosPreferenciasDesarrollo{}
+	cuentasUsuarios := 0
 	rutaPreferencias := filepath.Join(raiz, "identidad", nombreConfiguracionPreferencias(core.SuperficieAutenticacionExternaPersonalV1))
 	if _, errFichero := os.Lstat(rutaPreferencias); errFichero == nil {
 		c, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionExternaPersonalV1)
 		if err != nil {
 			return nil, ErrSeudonimosPortalExternoInvalidos
 		}
+		cuentasUsuarios = len(c.Cuentas)
 		for _, cuenta := range c.Cuentas {
 			cuentas = append(cuentas, struct{ ref, sujeto string }{cuenta.CuentaRef, cuenta.Sujeto})
+			usuarios[cuenta.CertificadoSHA256] = cuenta
+		}
+	} else if !errors.Is(errFichero, os.ErrNotExist) {
+		return nil, ErrSeudonimosPortalExternoInvalidos
+	}
+	rutaMeritos := filepath.Join(raiz, rutaMotivoCarteraExterna)
+	if _, errFichero := os.Lstat(rutaMeritos); errFichero == nil {
+		privada, err := leerConfiguracionCarteraExterna(raiz)
+		meritos, errCuentas := cuentasNominalesCarteraExterna(usuarios, privada.Cuentas)
+		if err != nil || errCuentas != nil || len(usuarios) != cuentasUsuarios {
+			return nil, ErrSeudonimosPortalExternoInvalidos
+		}
+		for _, cuenta := range privada.Cuentas {
+			origen := meritos[cuenta.CertificadoSHA256]
+			certificado, err := hex.DecodeString(cuenta.CertificadoSHA256)
+			var huella [32]byte
+			copy(huella[:], certificado)
+			principal, reconocido := material.identidad.porHuella[huella]
+			if err != nil || len(certificado) != len(huella) || !reconocido ||
+				principal.ID != origen.Sujeto || cuenta.CuentaRef == material.identidad.candidatoBolsa.cuentaRef ||
+				cuenta.PerfilRef == material.identidad.candidatoBolsa.perfilRef {
+				return nil, ErrSeudonimosPortalExternoInvalidos
+			}
+			cuentas = append(cuentas, struct{ ref, sujeto string }{origen.CuentaRef, origen.Sujeto})
 		}
 	} else if !errors.Is(errFichero, os.ErrNotExist) {
 		return nil, ErrSeudonimosPortalExternoInvalidos
@@ -132,8 +159,8 @@ func leerSeudonimosPortalExterno(contenido []byte) (seudonimosPortalExterno, err
 	d := json.NewDecoder(bytes.NewReader(contenido))
 	d.DisallowUnknownFields()
 	var sobra any
-	// El material admite hasta 64 preferencias y una cuenta Bolsa distinta.
-	if d.Decode(&s) != nil || !errors.Is(d.Decode(&sobra), io.EOF) || s.Version != 1 || len(s.Cuentas) == 0 || len(s.Cuentas) > 65 {
+	// Hasta 64 cuentas de Usuarios, 64 propias de Méritos y una de Bolsa.
+	if d.Decode(&s) != nil || !errors.Is(d.Decode(&sobra), io.EOF) || s.Version != 1 || len(s.Cuentas) == 0 || len(s.Cuentas) > 129 {
 		return seudonimosPortalExterno{}, ErrSeudonimosPortalExternoInvalidos
 	}
 	for _, c := range s.Cuentas {

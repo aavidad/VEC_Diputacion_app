@@ -83,9 +83,9 @@ func TestLadoInternoSoloRegistraAliasDelEspacioExterno(t *testing.T) {
 	}
 }
 
-func TestAliasExternoAdmiteBolsaMasSesentaYCuatroPreferencias(t *testing.T) {
+func TestAliasExternoAdmiteBolsaMasUsuariosYMeritos(t *testing.T) {
 	s := seudonimosValidosPrueba()
-	for i := 1; i < 65; i++ {
+	for i := 1; i < 129; i++ {
 		cuenta := s.Cuentas[0]
 		cuenta.CuentaRef = fmt.Sprintf("cta_sintetica_%032x", i)
 		cuenta.CuentaHMAC = fmt.Sprintf("%064x", i+1)
@@ -97,7 +97,7 @@ func TestAliasExternoAdmiteBolsaMasSesentaYCuatroPreferencias(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := leerSeudonimosPortalExterno(contenido); err != nil {
-		t.Fatalf("65 alias válidos rechazados: %v", err)
+		t.Fatalf("129 alias válidos rechazados: %v", err)
 	}
 	s.Cuentas = append(s.Cuentas, s.Cuentas[1])
 	contenido, err = json.Marshal(s)
@@ -105,7 +105,121 @@ func TestAliasExternoAdmiteBolsaMasSesentaYCuatroPreferencias(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := leerSeudonimosPortalExterno(contenido); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
-		t.Fatalf("66 alias aceptados: %v", err)
+		t.Fatalf("130 alias aceptados: %v", err)
+	}
+}
+
+func TestExportarSeudonimosCarteraConMismaIdentidadCertificada(t *testing.T) {
+	vaciarConexionesDelEntorno(t)
+	m := generarMaterialPortalExternoPrueba(t)
+	raiz := m.cfg.DevelopmentMaterialDir
+	identidad, err := os.ReadFile(filepath.Join(raiz, "identidad", "candidato.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bolsaMaterial, err := os.ReadFile(filepath.Join(raiz, "identidad", "bolsa-candidato.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bolsa struct {
+		CuentaRef string `json:"cuenta_ref"`
+		PerfilRef string `json:"perfil_ref"`
+	}
+	if json.Unmarshal(bolsaMaterial, &bolsa) != nil || bolsa.CuentaRef == "" || bolsa.PerfilRef == "" {
+		t.Fatal("identidad de Bolsa ilegible")
+	}
+	var candidato struct {
+		Huella string `json:"certificate_sha256"`
+		Sujeto string `json:"subject"`
+	}
+	if json.Unmarshal(identidad, &candidato) != nil {
+		t.Fatal("identidad certificada ilegible")
+	}
+	motivo := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_autorizacion", CatalogoVersion: 2,
+		CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_11111111111111111111111111111111"}
+	usuarios := configuracionUsuariosPreferenciasDesarrollo{Version: 1, Autoridad: AutoridadNoAutoritativa,
+		Superficie: core.SuperficieAutenticacionExternaPersonalV1, MotivoConsulta: motivo, MotivoActualizacion: motivo,
+		Cuentas: []cuentaUsuariosPreferenciasDesarrollo{{cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{
+			CertificadoSHA256: candidato.Huella, Sujeto: candidato.Sujeto,
+			CuentaRef: "cta_usuarios_0123456789abcdefghijk", PerfilRef: "prf_usuarios_0123456789abcdefghijk"}}}}
+	escribirJSONExternoPrueba(t, filepath.Join(raiz, "identidad", "usuarios-preferencias-externa.json"), usuarios)
+	sinMeritos, err := ExportarSeudonimosPortalExterno(m.cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	motivo.CatalogoID = "motivos_autorizacion_meritos_cartera"
+	cuenta := cuentaCarteraExterna{CertificadoSHA256: candidato.Huella,
+		CuentaRef: "cta_meritos_0123456789abcdefghijk", PerfilRef: "prf_meritos_0123456789abcdefghijk"}
+	configurar := func(c cuentaCarteraExterna) {
+		t.Helper()
+		escribirJSONExternoPrueba(t, filepath.Join(raiz, rutaMotivoCarteraExterna),
+			configuracionMotivoCarteraExterna{Version: 1, MotivoRetirada: motivo, Cuentas: []cuentaCarteraExterna{c}})
+	}
+	configurar(cuenta)
+	contenido, err := ExportarSeudonimosPortalExterno(m.cfg)
+	if err != nil {
+		t.Fatalf("cuenta Méritos certificada rechazada: %v", err)
+	}
+	previos, errPrevios := leerSeudonimosPortalExterno(sinMeritos)
+	alias, errAlias := leerSeudonimosPortalExterno(contenido)
+	if errPrevios != nil || errAlias != nil || len(previos.Cuentas) != 2 || len(alias.Cuentas) != 3 ||
+		alias.Cuentas[0] != previos.Cuentas[0] || alias.Cuentas[1] != previos.Cuentas[1] ||
+		alias.Cuentas[2].CuentaRef != cuenta.CuentaRef ||
+		alias.Cuentas[2].CuentaHMAC == alias.Cuentas[1].CuentaHMAC ||
+		alias.Cuentas[2].SujetoHMAC != alias.Cuentas[1].SujetoHMAC ||
+		strings.Contains(string(contenido), candidato.Sujeto) {
+		t.Fatal("alias de Méritos no conserva identidad y separación de cuenta")
+	}
+	rutaAlias := filepath.Join(t.TempDir(), "alias-externo.json")
+	if err := os.WriteFile(rutaAlias, contenido, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	seleccionado, err := CargarAliasIdentidadCandidatoExterno(rutaAlias, cuenta.CuentaRef)
+	if err != nil || seleccionado.CuentaRef != cuenta.CuentaRef ||
+		seleccionado.CuentaHMAC != alias.Cuentas[2].CuentaHMAC ||
+		seleccionado.SujetoHMAC != alias.Cuentas[2].SujetoHMAC {
+		t.Fatalf("el CLI no seleccionó el alias exacto de Méritos: %v", err)
+	}
+	if _, err := CargarAliasIdentidadCandidatoExterno(rutaAlias, "cta_ajena_0123456789abcdefghijk"); !errors.Is(err, ErrProvisionCandidatoExterno) {
+		t.Fatalf("el CLI seleccionó una cuenta ausente: %v", err)
+	}
+	for nombre, cambiar := range map[string]func(*cuentaCarteraExterna){
+		"certificado ajeno": func(c *cuentaCarteraExterna) { c.CertificadoSHA256 = strings.Repeat("e", 64) },
+		"cuenta Usuarios":   func(c *cuentaCarteraExterna) { c.CuentaRef = usuarios.Cuentas[0].CuentaRef },
+		"perfil Usuarios":   func(c *cuentaCarteraExterna) { c.PerfilRef = usuarios.Cuentas[0].PerfilRef },
+		"cuenta Bolsa":      func(c *cuentaCarteraExterna) { c.CuentaRef = bolsa.CuentaRef },
+		"perfil Bolsa":      func(c *cuentaCarteraExterna) { c.PerfilRef = bolsa.PerfilRef },
+	} {
+		with := cuenta
+		cambiar(&with)
+		configurar(with)
+		if _, err := ExportarSeudonimosPortalExterno(m.cfg); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
+			t.Fatalf("%s aceptado: %v", nombre, err)
+		}
+	}
+	ajena := usuarios.Cuentas[0]
+	ajena.CertificadoSHA256 = strings.Repeat("e", 64)
+	ajena.CuentaRef = "cta_ajena_0123456789abcdefghijk"
+	ajena.PerfilRef = "prf_ajena_0123456789abcdefghijk"
+	usuarios.Cuentas = append(usuarios.Cuentas, ajena)
+	escribirJSONExternoPrueba(t, filepath.Join(raiz, "identidad", "usuarios-preferencias-externa.json"), usuarios)
+	configurar(cuentaCarteraExterna{CertificadoSHA256: ajena.CertificadoSHA256,
+		CuentaRef: cuenta.CuentaRef, PerfilRef: cuenta.PerfilRef})
+	if _, err := ExportarSeudonimosPortalExterno(m.cfg); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
+		t.Fatalf("certificado no inventariado por TLS aceptado: %v", err)
+	}
+	usuarios.Cuentas = usuarios.Cuentas[:1]
+	configurar(cuenta)
+	usuarios.Cuentas[0].Sujeto = "persona:ajena"
+	escribirJSONExternoPrueba(t, filepath.Join(raiz, "identidad", "usuarios-preferencias-externa.json"), usuarios)
+	if _, err := ExportarSeudonimosPortalExterno(m.cfg); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
+		t.Fatalf("persona ajena aceptada: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(raiz, rutaMotivoCarteraExterna), []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ExportarSeudonimosPortalExterno(m.cfg); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
+		t.Fatalf("material Méritos inválido ignorado: %v", err)
 	}
 }
 
