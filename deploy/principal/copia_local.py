@@ -13,12 +13,14 @@ import socket
 import ssl
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 
 REPO = Path(__file__).resolve().parents[2]
 BASE = Path('/dev/shm/vec/pg')
 IMAGEN = 'postgres:18.4'
+REFERENCIA = '44218865a'
 FUENTES = {
     'principal-hz37-20261014.dump': '7ae0613fa174aebc8aa36c079a6c4b268b771df41c9310129ee9dfae9650cc45',
     'acl-base-20261014.sql': 'ab21b92e6f81a838c8c502d431de66454e8c47e7d7fca0becc01882d6d3584aa',
@@ -38,8 +40,16 @@ def ejecutar(args, *, entrada=None, salida=None, entorno=None, cwd=None):
 
 
 def guardar(ruta, valor):
-    ruta.write_text(json.dumps(valor, ensure_ascii=False, indent=2) + '\n')
-    ruta.chmod(0o600)
+    descriptor, nombre = tempfile.mkstemp(dir=ruta.parent, prefix='.estado-')
+    temporal = Path(nombre)
+    try:
+        with os.fdopen(descriptor, 'w') as salida:
+            salida.write(json.dumps(valor, ensure_ascii=False, indent=2) + '\n')
+            salida.flush()
+            os.fsync(salida.fileno())
+        os.replace(temporal, ruta)
+    finally:
+        temporal.unlink(missing_ok=True)
 
 
 def memoria():
@@ -64,7 +74,8 @@ class Copia:
 
     def leer(self):
         estado = json.loads(self.estado.read_text())
-        if estado.get('nombre') != self.nombre or estado.get('raiz') != str(self.raiz):
+        if (estado.get('nombre') != self.nombre or estado.get('raiz') != str(self.raiz)
+                or estado.get('fuente') != str(REPO)):
             raise ValueError('La marca de propiedad no corresponde a esta copia')
         return estado
 
@@ -113,10 +124,13 @@ class Copia:
             raise ValueError('PGDATA enlazado o ausente; se conserva la copia')
 
     def sql(self, fichero, log):
-        with Path(fichero).open('rb') as fuente, (self.raiz / log).open('ab') as destino:
+        self.sql_bytes(Path(fichero).read_bytes(), log)
+
+    def sql_bytes(self, contenido, log):
+        with (self.raiz / log).open('ab') as destino:
             subprocess.run(['docker', 'exec', '-i', '-u', 'postgres', self.nombre,
                             'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres',
-                            '-d', 'postgres'], stdin=fuente, stdout=destino,
+                            '-d', 'postgres'], input=contenido, stdout=destino,
                            stderr=subprocess.STDOUT, check=True, timeout=300)
 
     def crear(self, args):
@@ -135,6 +149,7 @@ class Copia:
         self.raiz.mkdir(mode=0o700, parents=True, exist_ok=False)
         guardar(self.estado, dict(nombre=self.nombre, raiz=str(self.raiz),
                 puerto_pg=args.puerto_pg, puerto_app=args.puerto_app,
+                fuente=str(REPO), origen=str(origen),
                 preparada=False, revision=revision(), creada_en=time.time()))
         guardar(self.raiz / 'fuentes.json', FUENTES)
         self.pg_password()
@@ -156,8 +171,8 @@ class Copia:
             self.sql(ruta, 'restauracion.log')
         self.comprobar_acl(acl, permitir_nuevas=False)
         diario = []
-        for ruta, huella in listas:
-            self.sql(ruta, 'migraciones.log')
+        for ruta, huella, contenido in listas:
+            self.sql_bytes(contenido, 'migraciones.log')
             diario.append(dict(ruta=str(ruta.relative_to(REPO)), sha256=huella))
             guardar(self.raiz / 'sql_aplicado.json', diario)
         self.comprobar_acl(acl, permitir_nuevas=True)
@@ -276,16 +291,25 @@ class Copia:
 
     def exportar(self, archivo):
         destino = Path(archivo)
-        if not destino.is_absolute() or destino.resolve() != destino or destino.is_relative_to(REPO) or destino.is_relative_to(self.raiz):
+        estado = self.leer()
+        if (not destino.is_absolute() or destino.resolve() != destino or destino.exists()
+                or destino.is_relative_to(REPO) or destino.is_relative_to(self.raiz)
+                or destino.is_relative_to(Path(estado['origen']))):
             raise ValueError('El clon debe quedar fuera del repositorio y de la instancia, sin enlaces')
-        self.leer()
         self.validar_pgdata()
         self.parar()
-        with destino.open('xb') as salida:
-            self.docker('run', '--pull=never', '--rm', '--network=none', '--memory=256m', '--cpus=2',
-                        '--pids-limit=32', '-v', f'{self.raiz}/pgdata:/copia:ro',
-                        '--entrypoint', 'tar', IMAGEN, '--owner=999', '--group=999',
-                        '-C', '/copia', '-czf', '-', '.', salida=salida)
+        descriptor, nombre = tempfile.mkstemp(dir=destino.parent, prefix='.vec-clon-')
+        temporal = Path(nombre)
+        try:
+            with os.fdopen(descriptor, 'wb') as salida:
+                self.docker('run', '--pull=never', '--rm', '--network=none', '--memory=256m', '--cpus=2',
+                            '--pids-limit=32', '-v', f'{self.raiz}/pgdata:/copia:ro',
+                            '--entrypoint', 'tar', IMAGEN, '--owner=999', '--group=999',
+                            '-C', '/copia', '-czf', '-', '.', salida=salida)
+            # Publicar solo al terminar; link rechaza un destino creado concurrentemente.
+            os.link(temporal, destino)
+        finally:
+            temporal.unlink(missing_ok=True)
         print('Clon frío exportado; la instancia queda parada. Use VEC_CLON_ESTADO para el ensayo.')
 
 
@@ -295,6 +319,10 @@ def revision():
 
 def migraciones(listas):
     resultado, vistas = [], set()
+    nuevas = set()
+    if listas:
+        nuevas = set(subprocess.check_output(['git', '-C', str(REPO), 'diff', '--name-only',
+                     '--diff-filter=A', REFERENCIA, 'HEAD', '--', 'deploy/postgresql'], text=True).splitlines())
     for lista in listas:
         for linea in Path(lista).read_text().splitlines():
             campos = linea.split('#', 1)[0].split()
@@ -305,11 +333,14 @@ def migraciones(listas):
                 raise ValueError('Lista SQL inválida: solo migraciones UP dentro del repositorio')
             if ruta in vistas:
                 raise ValueError('Migración repetida entre listas; no se aplicó ninguna')
+            if str(ruta.relative_to(REPO)) not in nuevas:
+                raise ValueError('La SQL ya existía en el corte de referencia o no está versionada en esta cabeza')
             vistas.add(ruta)
-            huella = hashlib.sha256(ruta.read_bytes()).hexdigest()
+            contenido = ruta.read_bytes()
+            huella = hashlib.sha256(contenido).hexdigest()
             if len(campos) == 2 and campos[1] != huella:
                 raise ValueError('La huella de una migración no coincide')
-            resultado.append((ruta, huella))
+            resultado.append((ruta, huella, contenido))
     return resultado
 
 

@@ -73,10 +73,14 @@ deploy/principal/copia_local.sh crear --equipo l --instancia recorrido \
 
 Elige tu letra, una instancia nueva y dos puertos libres. Se puede repetir
 `--lista-sql` para formar un único orden causal; las rutas y las huellas
-opcionales se validan antes de restaurar. Una SQL repetida o una huella
+opcionales se validan antes de restaurar. Se conservan los bytes validados
+para aplicar y registrar exactamente la misma SQL. Una SQL repetida o una huella
 incorrecta rechazan la lista entera. Solo admite migraciones `.up.sql` bajo
-`deploy/postgresql`. No deduce qué SQL falta en la base: pasa exclusivamente
-las posteriores al volcado y revisa el orden del apartado 3. La orden `crear`
+`deploy/postgresql`. Solo admite SQL añadida en la cabeza versionada después del corte de
+referencia `44218865a`. Rechaza conservadoramente cualquier SQL que ya
+existía en ese corte, aunque quedara sin instalar; esos huecos requieren
+un corte específico del módulo, no repetir una receta histórica. Revisa
+el orden del apartado 3. La orden `crear`
 rechaza un destino existente. Una restauración fallida se conserva para
 examinar sus registros; se borra y se crea otra, sin reaplicar SQL.
 
@@ -108,14 +112,16 @@ deploy/principal/copia_local.sh borrar --equipo l --instancia recorrido
 mismos datos. Comprueba `/livez` y `/portal-empleado/` por HTTPS con CA y
 certificado de cliente verificados. `arrancar` rechaza una copia incompleta o
 una revisión de código distinta; crea otra instancia cuando cambie la rama.
-`borrar` comprueba la marca de propiedad y la etiqueta del contenedor antes
+`borrar` comprueba el árbol de trabajo creador, la marca de propiedad y la
+etiqueta del contenedor antes
 de detener y eliminar únicamente su instancia. No actúa sobre puertos o
 contenedores encontrados por coincidencia.
 
 Los registros privados de restauración, SQL, compilación y aplicación y el
 diario `sql_aplicado.json` quedan en la instancia. `estado.json` conserva la
 revisión del código y los segundos empleados hasta obtener los dos 200.
-En el primer ensayo local sin SQL adicional se midieron 72,17 segundos y se
+En el primer ensayo local sin SQL adicional se midieron 72,17 segundos;
+con B117 y comprobación de permisos, 64,95 segundos. En ambos se
 repitieron los dos 200 después de reiniciar ambos procesos. Falta la prueba
 de otro equipo y la preparación automática de los módulos para cerrar F0-28.
 
@@ -131,7 +137,8 @@ deploy/principal/copia_local.sh exportar-clon --equipo l --instancia recorrido \
 ```
 
 `VEC_COPIA_CLON_DESTINO` es una ruta absoluta nueva, fuera de Git y de la
-instancia. La exportación detiene ambos procesos y empaqueta el directorio
+instancia. La exportación publica el archivo solo al terminar correctamente. Detiene
+ambos procesos y empaqueta el directorio
 de PostgreSQL en frío; deja la copia parada. El archivo contiene datos y
 material privado: no se sube a Git. La extracción también necesita un
 contenedor con 2 GiB; comprueba su resultado antes de intentar arrancarlo. Se puede usar como `VEC_CLON_ESTADO` con
