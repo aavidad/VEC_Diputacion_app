@@ -46,6 +46,13 @@ solo para el ensayo local, con responsable B y retirada al terminar, en un
 máximo de 24 horas. Las nuevas asignaciones y credenciales de la copia duran
 89 días. La excepción del material se registra por separado.
 
+Comprobar también las admisiones técnicas de identidad externa de
+`LEEME_copia_local.md`, apartado 5. El respaldo puede traer esa tabla vacía:
+la sesión se rechaza aunque la persona y su perfil estén cargados. En esta
+copia se cargan como datos ficticios los dos llamantes nominales necesarios,
+sin atribuirles una aprobación administrativa. B conserva el guion revisado;
+se retira al disponer del productor gobernado de esas admisiones.
+
 Para preparar el dato, reutilizar
 `deploy/principal/inscripcion_recorrido_20261013/version_certificada_v2/generar.py`
 con `fuente_v2.json`. Generar SQL y manifiesto fuera de Git, comprobar las
