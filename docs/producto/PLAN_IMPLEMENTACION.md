@@ -180,7 +180,8 @@ El guion de activación, la lista SQL y los límites están en
 AUT103, montaje nominal del consumidor existente de recuperación V2 y
 publicador de cargos con su permiso positivo de recuperación. Falta ensayo SQL en copia de la principal, revisiones independientes,
 arranque con y sin los nuevos roles, reinicio y CI antes de integrar. Este
-corte conserva las asignaciones vigentes y no ofrece un panel nuevo: B conectará
+corte conserva las asignaciones de consulta vigentes y no ofrece un panel nuevo;
+la recuperación exige renovar por Administración el cargo de firma. B conectará
 la fuente autorizada y el anexo de la ficha; C montará la pantalla y gobernará
 las asignaciones. Hasta C sigue abierto F1-36. Guion A:
 `deploy/principal/firma_historica_base_f1_36a_20261016.md`.

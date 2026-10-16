@@ -24,10 +24,10 @@ El publicador `cmd/vec-publicar-cargos-firma` admite esa operación para los
 cuatro roles de consulta y `recuperar_r5` para los cuatro de firma. Preparar la versión siguiente según
 `scripts/operacion/firma_ct_tres_pasos/LEEME.md` y AUT53: conservar cuadro y
 descarga, sustituir solo `consultar_detalle` y comprobar ámbitos y vigencias.
-En A se prepara el plan sin publicarlo: la activación conjunta de B+C añade
+En A, el plan de los cargos de consulta se prepara sin publicarlo: B+C añade
 la fuente que admite el campo nuevo. La publicación exige aprobación externa
 y configuración DBA; el ejecutable no tramita una aprobación HTTP.
-Los actos nominales serán de C;
+Los actos nominales de los cargos de consulta serán de C;
 La recuperación nominal exige publicar la sucesora del cargo de firma por
 CAS y renovar su asignación mediante Administración, conservando persona,
 perfil, ámbitos y competencias. Actualizar sus referencias de rol y control
