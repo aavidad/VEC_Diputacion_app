@@ -5,6 +5,7 @@ import (
 	"errors"
 	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -13,6 +14,37 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
+
+func TestFirmaNominalRecuperacionTieneFronteraYAccionExclusivas(t *testing.T) {
+	const perfilFirma = "prf_firma_jefatura_00000000000000"
+	configuracion := configuracionFirmasCT{configuracionSesionFirmanteV2: configuracionSesionFirmanteV2{
+		Firmantes: []seleccionNominalFirmaCT{{PerfilRef: perfilFirma,
+			PerfilConsultaCTRef: "prf_consulta_jefatura_0000000000",
+			PerfilDocumentosRef: "prf_documentos_jefatura_00000000"}},
+	}}
+	fronteras := fronterasFirmaVecR5CT(configuracion)
+	if len(fronteras) != 5 {
+		t.Fatalf("faltan rutas nominales: %d", len(fronteras))
+	}
+	for _, frontera := range fronteras {
+		acciones := accionesFronteraFirmaVecR5CT(frontera.Ruta)
+		if !rutaFirmaVecR5CT(frontera.Ruta) || frontera.Metodo != http.MethodPost {
+			t.Fatalf("frontera no nominal: %s", frontera.Ruta)
+		}
+		if frontera.Ruta == httpinterno.RutaRecuperacionFirmasR5V2 {
+			if frontera.ClaveCapacidad != ports.AccionRecuperarFirmasR5V2 ||
+				!slices.Equal(frontera.PerfilesActivosRef, []string{perfilFirma}) ||
+				!slices.Equal(acciones, []string{ports.AccionRecuperarFirmasR5V2}) {
+				t.Fatalf("recuperación comparte permisos o perfil: %+v / %v", frontera, acciones)
+			}
+		} else if slices.Contains(acciones, ports.AccionRecuperarFirmasR5V2) {
+			t.Fatalf("otra ruta recibió recuperación: %s", frontera.Ruta)
+		}
+	}
+	if accionesFronteraFirmaVecR5CT("/ruta-ajena") != nil || rutaFirmaVecR5CT("/ruta-ajena") {
+		t.Fatal("ruta ajena admitida")
+	}
+}
 
 // Escenario de la vía externa: el perfil fijo de la PR 1 registrado para la
 // ruta de registro externo, con su asignación publicada.

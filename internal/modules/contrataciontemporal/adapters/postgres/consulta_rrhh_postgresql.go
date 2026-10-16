@@ -1,14 +1,20 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"reflect"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/resultadobolsa"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -188,18 +194,49 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 	ctx context.Context,
 	orden ports.OrdenConsultaDetalleRRHH,
 ) (ports.DetalleExpedienteRRHH, error) {
+	return s.consultarDetalle(ctx, orden, ports.FiltroUnidadSelectoresRecuperacionRRHH{}, false)
+}
+
+func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleConSelectoresYRegistrar(
+	ctx context.Context, orden ports.OrdenConsultaDetalleRRHH,
+	filtro ports.FiltroUnidadSelectoresRecuperacionRRHH,
+) (ports.DetalleExpedienteRRHH, error) {
+	if !filtro.Vacio() && !filtro.Valido() {
+		return ports.DetalleExpedienteRRHH{}, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	return s.consultarDetalle(ctx, orden, filtro, true)
+}
+
+func (s *SesionConsultaRRHHPostgreSQL) consultarDetalle(
+	ctx context.Context, orden ports.OrdenConsultaDetalleRRHH,
+	filtro ports.FiltroUnidadSelectoresRecuperacionRRHH, conSelectores bool,
+) (ports.DetalleExpedienteRRHH, error) {
 	if err := s.validarContexto(ctx); err != nil {
 		return ports.DetalleExpedienteRRHH{}, err
+	}
+	ampliado, err := orden.Capacidad().ContratoSelectoresRecuperacionFirmas()
+	if err != nil || (s.modo == modoConsultaDetalleRRHHOrdinaria && ampliado != conSelectores) ||
+		(s.modo == modoConsultaDetalleRRHHOriginalPropuesta && conSelectores) {
+		return ports.DetalleExpedienteRRHH{}, ports.ErrConsultaRRHHNoDisponible
 	}
 	consulta := consultaDetalleRRHHPostgreSQL
 	if resultadobolsa.ResultadoBolsaRRHHSolicitado(ctx) {
 		consulta = consultaDetalleConBolsaRRHHPostgreSQL
+	}
+	if conSelectores {
+		consulta = consultaDetalleConSelectoresRRHHPostgreSQL
+		if resultadobolsa.ResultadoBolsaRRHHSolicitado(ctx) {
+			consulta = consultaDetalleConBolsaYSelectoresRRHHPostgreSQL
+		}
 	}
 	if s.modo == modoConsultaDetalleRRHHOriginalPropuesta {
 		if orden.Solicitud().VersionObservada() != 7 {
 			return ports.DetalleExpedienteRRHH{}, ports.ErrConsultaRRHHNoDisponible
 		}
 		consulta = consultaOriginalPropuestaRRHHPostgreSQL
+		if ampliado {
+			consulta = consultaOriginalPropuestaConSelectoresRRHHPostgreSQL
+		}
 	}
 	material, err := orden.ExportacionParaSQL()
 	if err != nil || material.ValidarEstructura() != nil {
@@ -218,6 +255,10 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 	var resultadoBolsaRaw []byte
 	defer clear(resultadoBolsaRaw)
 	var numeroPersonas int16
+	var selectoresRaw, reciboSelectoresCanon []byte
+	var selectoresHuella, selloSelectores string
+	defer clear(selectoresRaw)
+	defer clear(reciboSelectoresCanon)
 	argumentosSQL := argumentosSQLDetalleConsultaRRHH(
 		contexto.OrganizacionRef(),
 		string(capacidad.ClaseAmbito()),
@@ -226,7 +267,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 		argumentos,
 	)
 	destinos := destinosDetalleConsultaRRHH(&salida)
-	if consulta == consultaDetalleConBolsaRRHHPostgreSQL {
+	if consulta == consultaDetalleConBolsaRRHHPostgreSQL || consulta == consultaDetalleConBolsaYSelectoresRRHHPostgreSQL {
 		var cursor any
 		if siguiente := resultadobolsa.CursorResultadoBolsaRRHH(ctx); siguiente != "" {
 			cursor = siguiente
@@ -238,6 +279,24 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 		consulta == consultaDetalleConBolsaRRHHPostgreSQL
 	if conNumeroPersonas {
 		destinos = append(destinos, &numeroPersonas)
+	}
+	if conSelectores {
+		var filtroSQL any
+		if !filtro.Vacio() {
+			b, err := json.Marshal(struct {
+				UnidadRef              string `json:"unidad_ref"`
+				PerfilAuxRef           string `json:"perfil_aux_ref"`
+				VersionRolAuxRef       string `json:"version_rol_aux_ref"`
+				AsignacionRef          string `json:"asignacion_ref"`
+				AsignacionHuellaSHA256 string `json:"asignacion_huella_sha256"`
+			}{filtro.UnidadRef, filtro.PerfilAuxRef, filtro.VersionRolAuxRef, filtro.AsignacionRef, filtro.AsignacionHuellaSHA256})
+			if err != nil {
+				return ports.DetalleExpedienteRRHH{}, ports.ErrResultadoConsultaRRHHNoConfiable
+			}
+			filtroSQL = string(b)
+		}
+		argumentosSQL = append(argumentosSQL, filtroSQL)
+		destinos = append(destinos, &selectoresRaw, &selectoresHuella, &selloSelectores, &reciboSelectoresCanon)
 	}
 	return ejecutarConsultaRRHHEnTransaccion(
 		ctx,
@@ -281,16 +340,112 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 				}
 				detalle.Solicitud.NumeroPersonas = uint32(numeroPersonas)
 			}
-			if consulta == consultaDetalleConBolsaRRHHPostgreSQL {
+			if consulta == consultaDetalleConBolsaRRHHPostgreSQL || consulta == consultaDetalleConBolsaYSelectoresRRHHPostgreSQL {
 				resultado, err := ResultadoBolsaRRHHDesdeSQL(resultadoBolsaRaw)
 				if err != nil {
 					return ports.DetalleExpedienteRRHH{}, ports.ErrResultadoConsultaRRHHNoConfiable
 				}
 				detalle.ResultadoBolsa = resultado
 			}
+			if conSelectores {
+				filas, prueba, err := validarAnexoSelectoresRRHH(selectoresRaw, selectoresHuella,
+					selloSelectores, reciboSelectoresCanon, salida.cierre, capacidad, filtro)
+				if err != nil {
+					return ports.DetalleExpedienteRRHH{}, err
+				}
+				detalle, err = detalle.ConSelectoresRecuperacionFirmas(filas, prueba)
+				if err != nil || detalle.ValidarReciboSelectoresRecuperacionFirmas() != nil {
+					return ports.DetalleExpedienteRRHH{}, ports.ErrResultadoConsultaRRHHNoConfiable
+				}
+			}
 			return detalle, nil
 		},
 	)
+}
+
+func validarAnexoSelectoresRRHH(
+	canon []byte, huella, sello string, reciboCanon []byte,
+	base salidaCierreConsultaRRHH, capacidad ports.CapacidadConsultaRRHH,
+	filtro ports.FiltroUnidadSelectoresRecuperacionRRHH,
+) ([]ports.FirmaSelectorRecuperacionRRHH, ports.ReciboSelectoresRecuperacionRRHH, error) {
+	var cero ports.ReciboSelectoresRecuperacionRRHH
+	huellaCanon := sha256.Sum256(canon)
+	huellaRecibo := sha256.Sum256(reciboCanon)
+	if len(canon) < 2 || len(canon) > 131072 || canon[0] != '[' || canon[len(canon)-1] != ']' ||
+		len(reciboCanon) < 32 || len(reciboCanon) > 262144 || reciboCanon[0] != '{' || reciboCanon[len(reciboCanon)-1] != '}' ||
+		!domain.HuellaSHA256FirmaValida(huella) || !domain.HuellaSHA256FirmaValida(sello) ||
+		hex.EncodeToString(huellaCanon[:]) != huella ||
+		hex.EncodeToString(huellaRecibo[:]) != sello {
+		return nil, cero, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	var filas []ports.FirmaSelectorRecuperacionRRHH
+	var filasRaw []json.RawMessage
+	if json.Unmarshal(canon, &filasRaw) != nil || json.Unmarshal(canon, &filas) != nil || len(filas) > 128 {
+		return nil, cero, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	for _, raw := range filasRaw {
+		var fila map[string]json.RawMessage
+		var selector map[string]json.RawMessage
+		if json.Unmarshal(raw, &fila) != nil || len(fila) != 2 || fila["firma_ref"] == nil ||
+			json.Unmarshal(fila["selector"], &selector) != nil || len(selector) != 7 {
+			return nil, cero, ports.ErrResultadoConsultaRRHHNoConfiable
+		}
+		for _, clave := range []string{"expediente_ref", "version_expediente", "documento", "paso_orden", "clave_idempotencia", "catalogo_huella", "via"} {
+			if selector[clave] == nil {
+				return nil, cero, ports.ErrResultadoConsultaRRHHNoConfiable
+			}
+		}
+	}
+	var recibo map[string]json.RawMessage
+	if json.Unmarshal(reciboCanon, &recibo) != nil || len(recibo) != 12 {
+		return nil, cero, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	texto := func(clave string) string {
+		var valor string
+		_ = json.Unmarshal(recibo[clave], &valor)
+		return valor
+	}
+	var reciboFilas any
+	var canonFilas any
+	if json.Unmarshal(recibo["selectores"], &reciboFilas) != nil ||
+		json.Unmarshal(canon, &canonFilas) != nil || !reflect.DeepEqual(reciboFilas, canonFilas) ||
+		texto("esquema") != "vec.ct.detalle.selectores-recuperacion.v1" ||
+		texto("acceso_ref") != base.accesoRef || texto("sello_detalle_sha256") != base.reciboSelloSHA256 ||
+		texto("decision_ref") != capacidad.DecisionRef() || texto("selectores_huella_sha256") != huella {
+		return nil, cero, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	for _, clave := range []string{"version_rol_ref", "asignacion_ref", "asignacion_huella_sha256", "perfil_aux_ref", "version_rol_aux_ref", "unidad_ref"} {
+		if recibo[clave] == nil {
+			return nil, cero, ports.ErrResultadoConsultaRRHHNoConfiable
+		}
+	}
+	switch texto("version_rol_ref") {
+	case "rol:ct_cargo_tecnico_consulta_dev:v2", "rol:ct_cargo_jefatura_consulta_dev:v2",
+		"rol:ct_cargo_diputacion_consulta_dev:v2", "rol:ct_cargo_secretaria_consulta_dev:v2":
+	default:
+		return nil, cero, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	if filtro.Vacio() {
+		if len(filas) != 0 {
+			return nil, cero, ports.ErrResultadoConsultaRRHHNoConfiable
+		}
+		for _, clave := range []string{"asignacion_ref", "asignacion_huella_sha256", "perfil_aux_ref", "version_rol_aux_ref", "unidad_ref"} {
+			if !bytes.Equal(recibo[clave], []byte("null")) {
+				return nil, cero, ports.ErrResultadoConsultaRRHHNoConfiable
+			}
+		}
+	} else if texto("asignacion_ref") != filtro.AsignacionRef ||
+		texto("asignacion_huella_sha256") != filtro.AsignacionHuellaSHA256 ||
+		texto("perfil_aux_ref") != filtro.PerfilAuxRef ||
+		texto("version_rol_aux_ref") != filtro.VersionRolAuxRef ||
+		texto("unidad_ref") != filtro.UnidadRef {
+		return nil, cero, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	prueba := ports.ReciboSelectoresRecuperacionRRHH{
+		AccesoRef: base.accesoRef, SelloDetalleSHA256: base.reciboSelloSHA256,
+		SelloSelectoresSHA256: sello,
+	}
+	return filas, prueba, nil
 }
 
 func (s *SesionConsultaRRHHPostgreSQL) ConsultarResumenSeguimientoYRegistrar(
@@ -359,7 +514,9 @@ func ejecutarConsultaRRHHEnTransaccion[T any](
 	validar func() (T, error),
 ) (T, error) {
 	reintentable := consulta == consultaCuadroRRHHPostgreSQL || consulta == consultaDetalleRRHHPostgreSQL ||
-		consulta == consultaDetalleConBolsaRRHHPostgreSQL
+		consulta == consultaDetalleConBolsaRRHHPostgreSQL ||
+		consulta == consultaDetalleConSelectoresRRHHPostgreSQL ||
+		consulta == consultaDetalleConBolsaYSelectoresRRHHPostgreSQL
 	for intento := 1; ; intento++ {
 		if ctx != nil && ctx.Err() != nil {
 			var vacio T

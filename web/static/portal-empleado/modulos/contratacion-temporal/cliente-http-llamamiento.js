@@ -6,9 +6,9 @@ import {
   validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
   validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
   snapshotsFormalizacionDesarrollo, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
-} from "./contrato-llamamiento.js?v=20261015-ct-ofertas-firma-v4";
-import { RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js?v=20261015-ct-ofertas-firma-v4";
-import { RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261015-ct-ofertas-firma-v4";
+} from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js?v=20261016-ct-ofertas-ct231-v1";
+import { RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct-ofertas-ct231-v1";
 
 export const RUTAS_LLAMAMIENTO = Object.freeze({
   seleccionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/seleccion",
@@ -88,7 +88,7 @@ export function conflictoLlamamientoValido(ruta, codigo) {
   if (ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento
     && codigo === "validacion_respuesta_pendiente") return true;
   return (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento
-    ? ["conflicto_no_reintentable", "seleccion_no_disponible", "seleccion_oferta_sin_reserva", "seleccion_oferta_descartada"]
+    ? ["conflicto_no_reintentable", "seleccion_no_disponible", "seleccion_oferta_sin_reserva", "seleccion_oferta_descartada", "comprobacion_ofrecimiento_pendiente"]
     : ["version_en_conflicto", "clave_idempotencia_reutilizada"]).includes(codigo);
 }
 const RECHAZOS_PREVIOS = new Set([
@@ -102,6 +102,11 @@ export function esValidacionRespuestaPendiente(error) {
   return error?.envelopeValido === true && error.estado === 409
     && error.codigo === "validacion_respuesta_pendiente";
 }
+export function esComprobacionOfrecimientoPendiente(error) {
+  return error?.envelopeValido === true && error.estado === 409
+    && error.codigo === "comprobacion_ofrecimiento_pendiente"
+    && error.comprobacionOfrecimiento?.motivo_clave === "pendiente_comprobacion_rrhh";
+}
 export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) {
   if (typeof ejecutar !== "function" || typeof validarOpciones !== "function") {
     throw new TypeError("dependencias HTTP de llamamiento no disponibles");
@@ -113,6 +118,7 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
       maximoSolicitud: 4096, maximoRespuesta: 4096, validarRespuesta, efecto: true,
       rechazoDeterminado: (error) => error?.envelopeValido === true
         && (RECHAZOS_PREVIOS.has(`${error.estado}:${error.codigo}`)
+          || (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento && esComprobacionOfrecimientoPendiente(error))
           || (ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento
             && esValidacionRespuestaPendiente(error))),
     });

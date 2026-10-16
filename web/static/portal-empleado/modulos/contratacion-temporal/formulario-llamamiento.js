@@ -5,10 +5,10 @@
  * congelada (y su clave) para no duplicar el efecto.
  */
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261015-ct-ofertas-firma-v4";
+import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261007-pantallas-textos-final-v1";
-import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js?v=20261015-ct-ofertas-firma-v4";
-import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261015-ct-ofertas-firma-v4";
+import { esValidacionRespuestaPendiente, esComprobacionOfrecimientoPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261016-ct-ofertas-ct231-v1";
 import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20261012-reglas-configuracion-v1";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
@@ -25,10 +25,11 @@ import {
   CAMPOS_PROPUESTA, validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
   CAMPOS_EVENTO_PLAZO, CAMPOS_EVENTO_PLAZO_EDITABLES, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
   RESPUESTA_EXPIRACION,
-} from "./contrato-llamamiento.js?v=20261015-ct-ofertas-firma-v4";
-import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261015-ct-ofertas-firma-v4";
-import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js?v=20261015-ct-ofertas-firma-v4";
-import { LIMITE_TOTAL_COMUNICACIONES, instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261015-ct-ofertas-firma-v4";
+} from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js?v=20261016-ct-ofertas-ct231-v1";
+import { ESTADO_SELECCION_PENDIENTE_AVISO, LIMITE_TOTAL_COMUNICACIONES, claveFilaComunicacion,
+  instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct-ofertas-ct231-v1";
 
 const OPERACION_COMUNICACION = Object.freeze({
   campos: CAMPOS_COMUNICACION, validar: validarSolicitudComunicacionLlamamiento,
@@ -283,7 +284,7 @@ export function montarFormularioLlamamiento({
     paso.tono = "informacion";
     repintar();
     return (async () => {
-      const filas = [], cursores = new Set();
+      const filas = [], cursores = new Set(), claves = new Set();
       let cursor, organizacion, anterior;
       for (;;) {
         const consulta = { expediente_ref: expedienteRef, ...(cursor ? { cursor } : {}) };
@@ -291,12 +292,15 @@ export function montarFormularioLlamamiento({
           await cliente.consultarComunicacionesExpediente(consulta, { signal: controlador.signal }), consulta);
         if (!montado || controlador.signal.aborted || generacion !== paso.generacion) return;
         for (const fila of pagina.comunicaciones) {
+          const clave = claveFilaComunicacion(fila);
+          const fecha = instanteOrdenComunicacion(fila.registrada_en);
+          const fechaAnterior = anterior ? instanteOrdenComunicacion(anterior.registrada_en) : "";
           if ((organizacion && fila.organizacion_ref !== organizacion)
-            || (anterior && (instanteOrdenComunicacion(fila.registrada_en) < instanteOrdenComunicacion(anterior.registrada_en)
-              || (instanteOrdenComunicacion(fila.registrada_en) === instanteOrdenComunicacion(anterior.registrada_en)
-                && fila.comunicacion_ref <= anterior.comunicacion_ref)))) {
+            || (anterior && (fecha < fechaAnterior || (fecha === fechaAnterior
+              && clave <= claveFilaComunicacion(anterior)))) || claves.has(clave)) {
             throw new TypeError("paginación de comunicaciones incoherente");
           }
+          claves.add(clave);
           organizacion = fila.organizacion_ref;
           anterior = fila;
           filas.push(fila);
@@ -310,10 +314,16 @@ export function montarFormularioLlamamiento({
         cursor = pagina.siguiente_cursor;
       }
       if (!montado || controlador.signal.aborted || generacion !== paso.generacion) return;
+      const pendientes = filas.filter((fila) => fila.estado === ESTADO_SELECCION_PENDIENTE_AVISO);
+      if (pendientes.length > 1 || pendientes.length === 1 && filas.some((fila) =>
+        fila !== pendientes[0] && fila.llamamiento_ref === pendientes[0].llamamiento_ref)) {
+        throw new TypeError("selección pendiente ambigua");
+      }
       paso.filas = Object.freeze(filas);
       paso.estado = filas.length ? "lista" : "vacia";
       paso.mensaje = filas.length ? "llamamiento_comunicaciones_lista" : "llamamiento_comunicaciones_vacia";
       paso.tono = "informacion";
+      if (pendientes.length) { seleccionarComunicacion(filas.indexOf(pendientes[0])); return; }
       repintar("comunicaciones");
     })().catch((error) => {
       if (!montado || controlador.signal.aborted || generacion !== paso.generacion) return;
@@ -339,7 +349,7 @@ export function montarFormularioLlamamiento({
         || (paso.solicitud !== null && paso.recibo === null
           && paso.solicitud !== lista.intentoNoConfirmado?.solicitud);
     })) return;
-    if (lista.seleccionada?.comunicacion_ref === fila.comunicacion_ref) return;
+    if (lista.seleccionada && claveFilaComunicacion(lista.seleccionada) === claveFilaComunicacion(fila)) return;
     const expedienteRef = estado.seleccion.valores.expediente_ref;
     const versionEsperada = estado.seleccion.valores.version_esperada;
     clearTimeout(temporizadorPlazo);
@@ -361,6 +371,16 @@ export function montarFormularioLlamamiento({
       actualizando: false, actualizacionPendiente: false, mensaje: "llamamiento_propuesta_no_disponible" };
     estado.comunicacionAbierta = false;
     lista.seleccionada = fila;
+    if (fila.estado === ESTADO_SELECCION_PENDIENTE_AVISO) {
+      estado.seleccion.mensaje = "llamamiento_seleccion_pendiente_aviso";
+      estado.comunicacionAbierta = true;
+      estado.comunicacion.valores = { organizacion_ref: fila.organizacion_ref,
+        expediente_ref: fila.expediente_ref, llamamiento_ref: fila.llamamiento_ref,
+        version_esperada: fila.version,
+        prueba_entrega_ref: fila.recibo_antecedente_ref };
+      repintar("comunicaciones");
+      return;
+    }
     const operacion = fila.antecedente_tipo === "continuacion_confirmada" ? "respuesta_siguiente" : "respuesta";
     estado[operacion].valores = { ...estado[operacion].valores,
       organizacion_ref: fila.organizacion_ref, expediente_ref: fila.expediente_ref,
@@ -715,10 +735,12 @@ export function montarFormularioLlamamiento({
     if (["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
     if (estado.comunicaciones.estado === "lista"
       && (!estado.comunicaciones.seleccionada || !["respuesta", "respuesta_siguiente", "resolucion", "resolucion_siguiente",
-        "siguiente", "comunicacion_siguiente", "propuesta"].includes(operacion))) return;
+        "siguiente", "comunicacion_siguiente", "propuesta"].includes(operacion)
+        && !(operacion === "comunicacion" && estado.comunicaciones.seleccionada.estado === ESTADO_SELECCION_PENDIENTE_AVISO))) return;
     if (estado.consultaRespuesta.referencias !== null
       && (estado.consultaRespuesta.estado !== "ausente" || !antecedenteConsultaDisponible())) return;
-    if (operacion === "comunicacion" && estado.seleccion.recibo === null) return;
+    if (operacion === "comunicacion" && estado.seleccion.recibo === null
+      && estado.comunicaciones.seleccionada?.estado !== ESTADO_SELECCION_PENDIENTE_AVISO) return;
     if (operacion === "comunicacion_siguiente" && estado.siguiente.recibo === null) return;
     if (esRespuesta(operacion) && !puedeDeclarar(operacion)) return;
     if (esResolucion(operacion) && !puedeResolver(operacion)) return;
@@ -841,6 +863,7 @@ export function montarFormularioLlamamiento({
     if (["siguiente", "comunicacion_siguiente", "respuesta_siguiente", "resolucion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion)) paso.claveConservada = true;
     paso.valores = { ...solicitud };
     paso.ocupado = true;
+    paso.comprobacionPendiente = null;
     paso.controlador = new AbortController();
     paso.mensaje = esResolucion(operacion) ? "llamamiento_solicitando_resolucion" : "llamamiento_enviando";
     paso.tono = "informacion";
@@ -948,6 +971,9 @@ export function montarFormularioLlamamiento({
       if (operacion === "seleccion" && estado.numeroPersonasSolicitadas !== 1
         && error?.envelopeValido === true && error?.estado === 503
         && error?.codigo === "seleccion_oferta_indeterminada") estado.recuperacionOferta.identificada = true;
+      const comprobacionPendiente = operacion === "seleccion" && esComprobacionOfrecimientoPendiente(error)
+        && error.resultadoIndeterminado === false && !respuestaRecibida;
+      paso.comprobacionPendiente = comprobacionPendiente ? error.comprobacionOfrecimiento : null;
       const conflictoContenido = esRespuesta(operacion) && error?.codigo === "contenido_respuesta_en_conflicto";
       const conflicto = conflictoContenido || ["conflicto_no_reintentable", "clave_idempotencia_reutilizada",
         "version_en_conflicto", "seleccion_no_disponible", "resolucion_no_aceptada", "evento_en_conflicto"].includes(error?.codigo);
@@ -959,6 +985,7 @@ export function montarFormularioLlamamiento({
       const conflictoBloqueante = conflicto && !(operacion === "seleccion" && recuperandoRespuesta);
       paso.bloqueado = conflictoBloqueante;
       paso.mensaje = conflictoContenido ? "llamamiento_contenido_respuesta_en_conflicto"
+        : comprobacionPendiente ? "llamamiento_comprobacion_pendiente"
         : validacionPendiente ? "llamamiento_validacion_respuesta_pendiente"
         : conflictoBloqueante ? "llamamiento_conflicto"
         : rechazo ? "llamamiento_rechazada"
@@ -968,6 +995,10 @@ export function montarFormularioLlamamiento({
       // Solo un rechazo conocido de este primer intento permite corregir las
       // casillas. Un intento anterior ambiguo nunca se libera por un replay.
       if (validacionPendiente) {
+        paso.solicitud = null;
+        paso.claveConservada = true;
+      }
+      if (comprobacionPendiente) {
         paso.solicitud = null;
         paso.claveConservada = true;
       }

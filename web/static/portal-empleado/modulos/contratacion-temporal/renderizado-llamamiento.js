@@ -1,12 +1,14 @@
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261015-ct-ofertas-firma-v4";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261016-ct-ofertas-ct231-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261015-ct-ofertas-firma-v4";
-import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261015-ct-ofertas-firma-v4";
+import { ESTADO_SELECCION_PENDIENTE_AVISO, claveFilaComunicacion } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct-ofertas-ct231-v1";
+import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261016-ct-ofertas-ct231-v1";
+import { rutaCandidatosBolsaCompartible } from "../../portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
+import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION, ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
-  PUBLICACIONES_FORMALIZACION, RESPUESTA_EXPIRACION } from "./contrato-llamamiento.js?v=20261015-ct-ofertas-firma-v4";
+  PUBLICACIONES_FORMALIZACION, RESPUESTA_EXPIRACION } from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
 
 /** Recibo que habilita el siguiente llamamiento: la renuncia resuelta o la
  * expiración confirmada por RRHH (sin respuesta en plazo). */
@@ -74,12 +76,17 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     if (!lista || lista.estado === "sin_contexto") return "";
     const opciones = lista.estado === "lista" ? `<ol class="ct-comunicaciones-opciones">
       ${lista.filas.map((fila, indice) => {
-        const elegida = lista.seleccionada?.comunicacion_ref === fila.comunicacion_ref;
+        const elegida = lista.seleccionada && claveFilaComunicacion(lista.seleccionada) === claveFilaComunicacion(fila);
         const consulta = estado.consultaRespuesta;
-        const reciboSesion = [estado.respuesta, estado.respuesta_siguiente].some((paso) =>
+        const reciboSesion = fila.estado !== ESTADO_SELECCION_PENDIENTE_AVISO
+          && [estado.respuesta, estado.respuesta_siguiente].some((paso) =>
           paso.recibo?.comunicacion_ref === fila.comunicacion_ref
           && paso.recibo?.organizacion_ref === fila.organizacion_ref);
-        const estadoRespuesta = reciboSesion || fila.estado_respuesta === "registrada"
+        const avisoAnotado = fila.estado === ESTADO_SELECCION_PENDIENTE_AVISO && elegida
+          && estado.comunicacion.recibo?.version_resultante === 2;
+        const estadoRespuesta = avisoAnotado ? "aviso_anotado"
+          : fila.estado === ESTADO_SELECCION_PENDIENTE_AVISO ? "aviso_pendiente"
+          : reciboSesion || fila.estado_respuesta === "registrada"
           || elegida && consulta?.estado === "confirmado"
           ? "registrada" : fila.estado_respuesta === "sin_respuesta" && elegida && consulta?.estado === "ausente"
             ? "pendiente" : "por_comprobar";
@@ -90,7 +97,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
           total: lista.filas.length, fecha: fechaLista,
           estado: t("llamamiento_comunicaciones_respuesta_" + estadoRespuesta) });
         return `<li><button type="button" class="boton-secundario" data-ct-comunicacion-indice="${indice}"
-          ${elegida ? 'aria-current="true"' : ""}>${e(rotulo)}</button></li>`;
+          ${elegida ? 'aria-current="true"' : ""}>${e(rotulo)}${fila.estado === ESTADO_SELECCION_PENDIENTE_AVISO && !avisoAnotado
+            ? ` · ${e(t("llamamiento_continuar_aviso"))}` : ""}</button></li>`;
       }).join("")}</ol>` : "";
     return `<section class="ct-recibo" data-ct-llamamiento-estado="comunicaciones" tabindex="-1">
       <h3>${e(t("llamamiento_comunicaciones_titulo"))}</h3>
@@ -334,7 +342,11 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ${paso.recibo ? "</details>" : ""}
       <div class="ct-estado ct-estado-${paso.tono}" data-ct-llamamiento-estado="${operacion}"
         role="${paso.tono === "error" ? "alert" : "status"}"
-        aria-live="polite" aria-atomic="true" tabindex="-1">${e(t(paso.mensaje))}</div>
+        aria-live="polite" aria-atomic="true" tabindex="-1">${paso.comprobacionPendiente && operacion === "seleccion"
+          ? `${e(t("llamamiento_comprobacion_pendiente", { posicion: paso.comprobacionPendiente.orden_acta }))}` +
+            `${paso.comprobacionPendiente.version_politica_ofertas ? `<p>${e(t("llamamiento_comprobacion_version", { version: paso.comprobacionPendiente.version_politica_ofertas }))}</p>` : ""}` +
+            `<a class="boton-secundario" href="${e(`/portal-empleado/${rutaCandidatosBolsaCompartible("", paso.comprobacionPendiente.bolsa_ref)}`)}">${e(t("llamamiento_comprobacion_ver_bolsa"))}</a>`
+          : e(t(paso.mensaje))}</div>
       ${recibo(operacion, paso.recibo)}
       ${operacion === "seleccion" && !paso.recibo && estado.recuperacionOferta?.mensaje
         ? `<p class="ct-estado ct-estado-${estado.recuperacionOferta.tono}" role="${estado.recuperacionOferta.tono === "error" ? "alert" : "status"}">${e(t(estado.recuperacionOferta.mensaje))}</p>` : ""}
@@ -351,7 +363,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       && restaurada?.expediente_ref === consulta?.referencias?.expediente_ref);
   const bloqueaFlujo = consulta?.referencias && (["cargando", "confirmado", "denegado", "error"].includes(consulta.estado)
     || (consulta.estado === "ausente" && ((estado.comunicaciones?.estado === "lista"
-      && restaurada?.estado_respuesta !== "sin_respuesta") || !antecedenteConsulta)));
+      && (restaurada?.estado === ESTADO_SELECCION_PENDIENTE_AVISO
+        ? !estado.comunicacion.recibo : restaurada?.estado_respuesta !== "sin_respuesta")) || !antecedenteConsulta)));
   const bloqueaLista = ["cargando", "error", "denegado"].includes(estado.comunicaciones?.estado)
     || (estado.comunicaciones?.estado === "lista" && !restaurada);
   const seleccionOferta = estado.seleccion.recibo?.esquema === ESQUEMA_RECIBO_SELECCION_OFERTA;
@@ -394,9 +407,16 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     ${seleccionOferta ? "" : resumenResultado()}
     ${restaurada || seleccionRestauradaPendiente ? "" : formulario("seleccion", CAMPOS_SELECCION)}
     ${seleccionOferta ? "</section>" : `
-    ${restaurada ? "" : `<details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
+    ${restaurada?.estado === ESTADO_SELECCION_PENDIENTE_AVISO && !estado.comunicacion.recibo
+      ? `<section class="ct-llamamiento-paso" data-ct-seleccion-pendiente-aviso><h3>${e(t("llamamiento_seleccion_pendiente_aviso"))}</h3>
+        <div class="ct-recibo" data-ct-llamamiento-recibo="seleccion">
+          <dl><div><dt>${e(t("llamamiento_recibo_ref"))}</dt><dd>${justificanteTraducido(restaurada.recibo_antecedente_ref, e, t)}</dd></div>
+          <div><dt>${e(t("llamamiento_confirmada_en"))}</dt><dd>${tiempoVisible(restaurada.registrada_en)}</dd></div></dl>
+        </div></section>` : ""}
+    ${restaurada && restaurada.estado !== ESTADO_SELECCION_PENDIENTE_AVISO ? "" : `<details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
       <summary><h3 id="ct-llamamiento-comunicacion-titulo">${e(t("llamamiento_comunicacion"))}</h3></summary>
-      ${estado.seleccion.recibo ? formulario("comunicacion", CAMPOS_COMUNICACION, true)
+      ${estado.seleccion.recibo || restaurada?.estado === ESTADO_SELECCION_PENDIENTE_AVISO
+        ? formulario("comunicacion", CAMPOS_COMUNICACION, true)
         : `<p role="status">${e(t("llamamiento_espera_seleccion"))}</p>`}
     </details>`}
     ${restaurada ? "" : renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora)}

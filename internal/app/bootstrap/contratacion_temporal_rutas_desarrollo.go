@@ -209,14 +209,16 @@ func validarMetodoRutaCTDesarrollo(ruta string, metodo metodoRutaCTDesarrollo, f
 		return nil
 	}
 	if resuelta {
-		// La consulta R5 legada tiene autoridad nominal propia. En el montaje
-		// VEC se conserva esa autoridad y se declara además su frontera exacta.
-		if ruta == httpinterno.RutaConsultaFirmasR5V2 && metodo.metodo == http.MethodPost &&
+		// Consulta y recuperación R5 legadas tienen autoridad nominal propia.
+		// Con firma VEC activa, cada ruta recibe su frontera nominal exacta.
+		consultaNominal := ruta == httpinterno.RutaConsultaFirmasR5V2 &&
+			frontera.Clave == "ct-firma-vec-consultar" && frontera.ClaveCapacidad == ports.AccionConsultarFirmasR5V2
+		recuperacionNominal := ruta == httpinterno.RutaRecuperacionFirmasR5V2 &&
+			frontera.Clave == "ct-firma-vec-recuperar" && frontera.ClaveCapacidad == ports.AccionRecuperarFirmasR5V2
+		if (consultaNominal || recuperacionNominal) && metodo.metodo == http.MethodPost &&
 			metodo.guardia == "contratacion_temporal_firmas_r5_v2_desarrollo.go:fuenteNominalFirmasR5V2CTDesarrollo" &&
 			frontera.Metodo == http.MethodPost && frontera.Ruta == ruta &&
-			frontera.Superficie == superficieInternaSeguridadComunDesarrollo &&
-			frontera.Clave == "ct-firma-vec-consultar" &&
-			frontera.ClaveCapacidad == ports.AccionConsultarFirmasR5V2 {
+			frontera.Superficie == superficieInternaSeguridadComunDesarrollo {
 			return nil
 		}
 		return fmt.Errorf("%w: frontera PDP no inventariada %s %q", ErrCoberturaRutasCTDesarrollo, metodo.metodo, ruta)

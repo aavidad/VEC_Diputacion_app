@@ -4,19 +4,20 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261016-ct-ofertas-firma-2mib-v2";
-// La selección de ofertas y el aviso de CT renuevan entrada y coordinador; las hojas CT conservan su cohorte.
-const versionEntrada = "20261016-ct-ofertas-justificante-v1";
-const versionClienteCT = "20261015-ct-ofertas-firma-v4";
-const versionClienteConsulta = versionClienteCT;
-const versionClienteRPT = "20261015-ct-ofertas-firma-v4";
+// La integración de las ofertas de CT con CT231 renueva entrada, coordinador
+// y la cadena de Contratación cambiada; el alta conserva su cohorte.
+const versionCoordinador = "20261016-ct-ofertas-ct231-v1";
+const versionEntrada = versionCoordinador;
+const versionClienteCT = versionCoordinador;
+const versionClienteConsulta = versionCoordinador;
+const versionClienteRPT = versionCoordinador;
 const versionBaseCT = "20261013-ct-firma-tres-v3";
-const versionCircuito = "20261016-ct-ofertas-firma-2mib-v1";
-const versionAccionesFirma = "20261016-ct-ofertas-firma-2mib-v1";
-const versionVista = "20261015-ct-ofertas-firma-v4";
-const versionVistaPortal = "20261016-ct-ofertas-firma-2mib-v1";
-const versionAdaptador = "20261015-ct-ofertas-firma-v4";
-const versionRender = "20261015-ct-ofertas-firma-v4";
+const versionCircuito = versionCoordinador;
+const versionAccionesFirma = versionCoordinador;
+const versionVista = versionCoordinador;
+const versionVistaPortal = versionCoordinador;
+const versionAdaptador = versionCoordinador;
+const versionRender = versionCoordinador;
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -42,7 +43,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
-  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionVista);
+  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionCoordinador);
   exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
 });
 
@@ -71,7 +72,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
   exigirVersiones(circuito, "./circuito-firma-acciones.js", versionAccionesFirma);
-  exigirVersiones(circuito, "./cliente-http-descarga-firma-v2.js", "20261016-firma-limite-2mib-v1");
+  exigirVersiones(circuito, "./cliente-http-descarga-firma-v2.js", "20261016-r1-o-integracion-v7");
   for (const manifiesto of [interno, produccion]) {
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/firma-externa-cliente\.js$/mu);
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/cliente-http-descarga-firma-v2\.js$/mu);

@@ -1,6 +1,8 @@
 package ports
 
 import (
+	"context"
+	"encoding/hex"
 	"regexp"
 	"time"
 	"unicode/utf8"
@@ -194,9 +196,145 @@ type DetalleExpedienteRRHH struct {
 	// Estado informativo añadido tras la lectura autorizada; no es una concesión.
 	EstadoBorradoresPublicados EstadoDisponibilidadBorradoresRRHH `json:"-"`
 	CoberturaFirmaNominal      CoberturaFirmaNominalRRHH          `json:"-"`
+	selectoresRecuperacion     *selectoresRecuperacionFirmasRRHH
 	huella                     [32]byte
 	bloques                    uint8
 	canonV3                    bool
+}
+
+// SelectorRecuperacionFirmaRRHH contiene únicamente los datos necesarios para
+// solicitar de nuevo la lectura autorizada de una operación firmada exacta.
+type SelectorRecuperacionFirmaRRHH struct {
+	ExpedienteRef     string `json:"expediente_ref"`
+	VersionExpediente uint64 `json:"version_expediente"`
+	Documento         string `json:"documento"`
+	PasoOrden         int    `json:"paso_orden"`
+	ClaveIdempotencia string `json:"clave_idempotencia"`
+	CatalogoHuella    string `json:"catalogo_huella"`
+	Via               string `json:"via"`
+}
+
+type FirmaSelectorRecuperacionRRHH struct {
+	FirmaRef string                        `json:"firma_ref"`
+	Selector SelectorRecuperacionFirmaRRHH `json:"selector"`
+}
+
+type selectoresRecuperacionFirmasRRHH struct {
+	filas  []FirmaSelectorRecuperacionRRHH
+	prueba ReciboSelectoresRecuperacionRRHH
+}
+
+type ReciboSelectoresRecuperacionRRHH struct {
+	AccesoRef             string `json:"acceso_ref"`
+	SelloDetalleSHA256    string `json:"sello_detalle_sha256"`
+	SelloSelectoresSHA256 string `json:"sello_selectores_sha256"`
+}
+
+func (d DetalleExpedienteRRHH) SelectoresRecuperacionFirmas() ([]FirmaSelectorRecuperacionRRHH, bool) {
+	if d.selectoresRecuperacion == nil {
+		return nil, false
+	}
+	return append([]FirmaSelectorRecuperacionRRHH{}, d.selectoresRecuperacion.filas...), true
+}
+
+func (d DetalleExpedienteRRHH) ReciboSelectoresRecuperacionFirmas() (ReciboSelectoresRecuperacionRRHH, bool) {
+	if d.selectoresRecuperacion == nil {
+		return ReciboSelectoresRecuperacionRRHH{}, false
+	}
+	return d.selectoresRecuperacion.prueba, true
+}
+
+// ConSelectoresRecuperacionFirmas sólo transporta una proyección ya cerrada
+// por la sesión autorizada. El detalle base y su recibo permanecen intactos.
+func (d DetalleExpedienteRRHH) ConSelectoresRecuperacionFirmas(
+	filas []FirmaSelectorRecuperacionRRHH, prueba ReciboSelectoresRecuperacionRRHH,
+) (DetalleExpedienteRRHH, error) {
+	if d.validarContenidoPublicable() != nil || d.selectoresRecuperacion != nil || len(filas) > 128 ||
+		!domain.ReferenciaOpacaValida(prueba.AccesoRef) ||
+		!domain.HuellaSHA256FirmaValida(prueba.SelloDetalleSHA256) ||
+		!domain.HuellaSHA256FirmaValida(prueba.SelloSelectoresSHA256) {
+		return DetalleExpedienteRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	vistasFirma := make(map[string]bool, len(filas))
+	vistasClave := make(map[string]bool, len(filas))
+	for _, fila := range filas {
+		s := fila.Selector
+		if !domain.ReferenciaOpacaValida(fila.FirmaRef) || vistasFirma[fila.FirmaRef] ||
+			!domain.ReferenciaOpacaValida(s.ExpedienteRef) || s.ExpedienteRef != d.Resumen.ExpedienteRef ||
+			s.VersionExpediente < 1 || s.VersionExpediente > d.Resumen.Version ||
+			!domain.ClaveDocumentoFirmaValida(s.Documento) || s.PasoOrden < 1 || s.PasoOrden > MaximoPasosFirmasVerificadasV2 ||
+			!ClaveIdempotenciaFirmaValida(s.ClaveIdempotencia) || vistasClave[s.ClaveIdempotencia] ||
+			!domain.HuellaSHA256FirmaValida(s.CatalogoHuella) || s.Via != ViaFirmaCertificadoVEC {
+			return DetalleExpedienteRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+		}
+		vistasFirma[fila.FirmaRef] = true
+		vistasClave[s.ClaveIdempotencia] = true
+	}
+	d.selectoresRecuperacion = &selectoresRecuperacionFirmasRRHH{
+		filas: append([]FirmaSelectorRecuperacionRRHH{}, filas...), prueba: prueba,
+	}
+	return d, nil
+}
+
+func (d DetalleExpedienteRRHH) ValidarReciboSelectoresRecuperacionFirmas() error {
+	if d.selectoresRecuperacion == nil || d.Lectura.lecturaRef != d.selectoresRecuperacion.prueba.AccesoRef {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	if d.Lectura.versionRecibo == 2 &&
+		hex.EncodeToString(d.Lectura.selloCanonV2[:]) != d.selectoresRecuperacion.prueba.SelloDetalleSHA256 {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	return nil
+}
+
+// ContratoSelectoresRecuperacionFirmas distingue las dos concesiones cerradas
+// de detalle. Una lista futura o con obligaciones no autoriza ninguna lectura.
+func (c CapacidadConsultaRRHH) ContratoSelectoresRecuperacionFirmas() (bool, error) {
+	if c.validarEstructura() != nil || c.accion != AccionConsultarDetalleRRHH {
+		return false, ErrCapacidadConsultaRRHHInvalida
+	}
+	restricciones, err := c.material.decision.RestriccionesProyeccionPara(c.material.solicitud)
+	if err != nil || len(restricciones.Obligaciones) != 0 {
+		return false, ErrCapacidadConsultaRRHHInvalida
+	}
+	if len(restricciones.CamposPermitidos) == 0 {
+		return false, nil
+	}
+	if len(restricciones.CamposPermitidos) == 1 && restricciones.CamposPermitidos[0] == "selectores_recuperacion_firmas" {
+		return true, nil
+	}
+	return false, ErrCapacidadConsultaRRHHInvalida
+}
+
+type FuenteUnidadSelectoresRecuperacionRRHH interface {
+	ResolverUnidadSelectoresRecuperacionRRHH(context.Context, ContextoConsultaRRHH) (FiltroUnidadSelectoresRecuperacionRRHH, error)
+}
+
+type SesionConsultaSelectoresRecuperacionRRHH interface {
+	ConsultarDetalleConSelectoresYRegistrar(context.Context, OrdenConsultaDetalleRRHH, FiltroUnidadSelectoresRecuperacionRRHH) (DetalleExpedienteRRHH, error)
+}
+
+// El filtro es una prueba privada de la única asignación propia de firma.
+// PostgreSQL la revalida contra AUT102 usando el principal de la decisión V3
+// real del detalle. Ninguno de estos datos cruza al navegador.
+type FiltroUnidadSelectoresRecuperacionRRHH struct {
+	UnidadRef              string
+	PerfilAuxRef           string
+	VersionRolAuxRef       string
+	AsignacionRef          string
+	AsignacionHuellaSHA256 string
+}
+
+func (f FiltroUnidadSelectoresRecuperacionRRHH) Valido() bool {
+	return domain.ReferenciaOpacaValida(f.UnidadRef) &&
+		domain.ReferenciaOpacaValida(f.PerfilAuxRef) &&
+		domain.ReferenciaOpacaValida(f.VersionRolAuxRef) &&
+		domain.ReferenciaOpacaValida(f.AsignacionRef) &&
+		domain.HuellaSHA256FirmaValida(f.AsignacionHuellaSHA256)
+}
+
+func (f FiltroUnidadSelectoresRecuperacionRRHH) Vacio() bool {
+	return f == (FiltroUnidadSelectoresRecuperacionRRHH{})
 }
 
 // NuevoDetalleExpedienteRRHH valida el agregado completo antes de reducirlo a

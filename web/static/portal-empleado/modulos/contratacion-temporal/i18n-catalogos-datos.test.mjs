@@ -141,6 +141,8 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
 // Las claves añadidas se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_ADICIONALES = Object.freeze({
   "i18n-cancelacion.js": ["error_seleccion_oferta_pendiente"],
+  // R1 añade el aviso de comprobación pendiente; CT231, las del aviso pendiente
+  // tras la selección confirmada; F1-16, las de las ofertas de varias plazas.
   "i18n-llamamiento.js": [
     "llamamiento_estado_oferta_cargando", "llamamiento_estado_oferta_error",
     "llamamiento_estado_oferta_denegado", "llamamiento_estado_oferta_reintentar",
@@ -158,6 +160,11 @@ const CLAVES_ADICIONALES = Object.freeze({
     "llamamiento_oferta_descartada_en", "llamamiento_oferta_cierre_bolsa",
     "llamamiento_oferta_recibo_descarte", "llamamiento_oferta_descartada_sin_publicar",
     "llamamiento_preparar_nueva_oferta", "llamamiento_confirmacion_nueva_oferta",
+    "llamamiento_comprobacion_pendiente", "llamamiento_comprobacion_version",
+    "llamamiento_comprobacion_ver_bolsa",
+    "llamamiento_comunicaciones_respuesta_aviso_pendiente", "llamamiento_comunicaciones_respuesta_aviso_anotado",
+    "llamamiento_seleccion_pendiente_aviso",
+    "llamamiento_continuar_aviso",
   ],
   "i18n-textos-vistas.js": ["motivo_sustitucion"],
   "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",

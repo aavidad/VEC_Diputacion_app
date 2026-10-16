@@ -41,7 +41,7 @@ BEGIN
  f2:=to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text)');
  IF f1 IS NULL OR f2 IS NULL
     OR encode(sha256(convert_to(pg_get_functiondef(f1),'UTF8')),'hex') IS DISTINCT FROM
-       '187c731fd0d0638ebb09814bc66069f9243471bcd2d471e177681c806b7e4b7b'
+       '52970fd98d969acf31bff8f7b53d99a51b01026055833f701be043cce5d280e4'
     OR encode(sha256(convert_to(pg_get_functiondef(f2),'UTF8')),'hex') IS DISTINCT FROM
        '44c8d0e2c3597533300cdd066279a7c4a17526dd2c9eb1f158722a0c36249fcd'
     OR EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid IN (f1,f2)
