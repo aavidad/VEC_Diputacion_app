@@ -33,20 +33,23 @@ paralelo» (07/10). Orden exacto y bases en
 **Papeles.**
 
 - Claude es director, integrador y programador jefe: fija los encargos, revisa
-  cada PR, fusiona, sube a cidonia, lo comprueba en Chrome y programa piezas
-  propias en su carpeta de trabajo. Solo Claude despliega en cidonia.
+  cada PR, fusiona, lo comprueba en Chrome y programa piezas propias en su
+  carpeta de trabajo. Desde el 15/10 todo se trabaja en local y cidonia queda
+  fuera hasta nueva orden: mientras tanto, el ensayo y el recorrido se hacen en
+  una copia local. Cuando vuelva cidonia, solo Claude despliega en ella.
 - Los equipos Codex (una letra cada uno) programan en local y en GitHub, cada
   uno en su rama. Claude los lanza y los vigila por lo que hacen de verdad, no
   solo por si siguen vivos.
-- Astra (Codex de arquitectura, solo lectura) no programa ni entra en un equipo:
-  solo debate con Claude.
+- Fable y Astra asesoran a Claude en solo lectura: no programan ni entran en un
+  equipo.
 - Cada encargo termina en algo que se ve en la web. Lo visible que no funciona
   se encarga a terminar; no se quita del menú salvo que Alberto lo pida.
 
 **Decisiones y preguntas (13/10).**
 
 - A Alberto no se le preguntan opciones. Claude decide por consenso escrito con
-  Astra, lo anota en el canal y le informa del resultado.
+  Fable y Astra (desde el 15/10), lo anota en el canal y le informa del
+  resultado.
 - Solo van a Alberto: gastar dinero o créditos, datos reales, producción o
   sistemas corporativos, y lo que el control de permisos bloquee pidiendo su
   visto bueno expreso. Eso no se deriva a otro agente para saltarlo.
@@ -92,9 +95,14 @@ paralelo» (07/10). Orden exacto y bases en
   para SQL; `security-audit` y Semgrep local para autenticación, permisos, SQL o
   entradas HTTP; `revisar-cambios-vec`, `documentar-entregar-vec` y `pr-vec`
   para cerrar; `probar-recorridos-vec` para recorridos;
-- el modelo y el esfuerzo justos: el más barato que baste para lo mecánico y
-  esfuerzo alto para SQL, seguridad, firma, datos personales y revisiones. Como
-  mucho seis subagentes vivos por equipo.
+- el modelo y el esfuerzo justos: el más barato que baste. Esfuerzo alto solo
+  para programar SQL, permisos, identidad, firma y datos personales, y para las
+  revisiones finales; nunca para buscar ni para repetir revisiones. Como mucho
+  seis subagentes vivos por equipo.
+
+**Atascos.** Tres fallos iguales o 20 minutos sin avanzar: se escribe BLOQUEO
+en el canal y se espera respuesta. No se sube el esfuerzo para salir del
+atasco.
 
 **Cuota.** Se trabaja hasta el 100 % de la cuota semanal y nunca se gastan
 créditos; al llegar al 100 % se avisa a Alberto. Bolsa y CT nunca se quedan sin
@@ -105,7 +113,8 @@ equipo: si falta cuota, se para antes el equipo de menor prioridad.
 1. **A cidonia solo sube una candidata congelada y ensayada entera** en una copia
    de cidonia: SQL en su orden, configuración, actos de administración,
    arranque, recorrido en Chrome y reinicio. Se instala exactamente lo
-   ensayado. No hay subidas sueltas para probar.
+   ensayado. No hay subidas sueltas para probar. Mientras cidonia esté fuera
+   (desde el 15/10), ese ensayo y el recorrido se hacen en una copia local.
 2. **Una PR está lista solo si trae código, guion de activación** (configuración,
    actos, datos) **y la prueba de que la app arranca con esa configuración y
    sin ella.** Lo que necesite algo que nadie ha probado junto no está listo.
@@ -114,16 +123,45 @@ equipo: si falta cuota, se para antes el equipo de menor prioridad.
    contradiga se decide antes de programar.
 4. **Ninguna configuración nueva tumba la app**: falla solo su función. Ningún
    fichero que la app lee al arrancar se cambia sin reinicio vigilado con
-   vuelta atrás. cidonia nunca queda apagada.
+   vuelta atrás. cidonia nunca queda apagada (vale para cuando vuelva; ahora
+   está fuera por orden del 15/10).
 5. **Datos ficticios:** si falta un dato, se ajusta el dato, no se programa.
 
 Pruebas: en local solo las focales; la CI pasa la puerta completa y nunca se
-repite una prueba sobre el mismo commit. SQL y seguridad conservan su ensayo en
-copia de la principal y un revisor; lo demás, lectura del diff por Claude. Se
-fusiona al pasar las puertas rápidas de la CI. Ciclo y formato de entrega
+repite una prueba sobre el mismo commit. El SQL se ensaya antes en una copia
+local de la principal. Revisiones según la regla 5 de simplificación: dos
+independientes para lógica de negocio, permisos, identidad, cifrado o SQL con
+permisos; una para lo demás. Se fusiona al pasar las puertas rápidas de la CI. Ciclo y formato de entrega
 en [PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md), apartados
 10.3 y 10.4. El agente no da su tarea por cerrada: lo hace dirección al
 integrar.
+
+**Simplificación: reglas de dirección (16/10, aprobadas por Alberto).**
+Consenso con Fable y Astra; detalle en
+[PLAN_IMPLEMENTACION.md](docs/producto/PLAN_IMPLEMENTACION.md), apartado 10.5.
+
+1. **Código muerto.** Lo que un cambio deja sin uso (función, variante, versión
+   de rol, fichero o prueba) se retira en la misma PR. El que se vea en lo que
+   se toca, también, demostrando que su protección sigue cubierta. Mover
+   ficheros no cuenta como reducción.
+2. **Tamaño de PR.** Tope de 1.500 líneas; objetivo de 400 escritas a mano, sin
+   contar lo generado ni los datos de prueba.
+3. **Núcleo de autorización.** Las migraciones nuevas de
+   `deploy/postgresql/autorizacion_atestada_v3` solo las escribe el equipo R. Las
+   que ya están en PR siguen el orden fijo del tablero. Como mucho una
+   reconstrucción de la función central por semana.
+4. **Lecturas.** Una lectura nueva se añade como fila de la lista existente, no
+   como función ni versión nueva.
+5. **Revisiones.** Dos independientes solo para lógica de negocio, permisos,
+   identidad, cifrado o SQL con permisos. Lo demás, una.
+6. **Controles.** Cada control nuevo dice de qué protege y qué prueba lo
+   comprueba. Cada excepción temporal tiene responsable y condición de
+   retirada. Ninguna capa nueva sin un consumidor del recorrido vigente.
+7. **Lo opcional** falla cerrado sin tumbar el arranque, con un error de
+   catálogo que dice qué falta.
+8. **Objetivos medibles.** Copia local en menos de 15 minutos con un guion
+   único; CI con todas las migraciones y pruebas SQL del recorrido de la fase 1;
+   lecturas por debajo de 300 ms en el percentil 95.
 
 **Commits y textos.**
 
