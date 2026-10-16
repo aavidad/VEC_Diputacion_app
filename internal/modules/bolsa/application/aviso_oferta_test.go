@@ -14,6 +14,7 @@ type colaAvisoPrueba struct {
 	estado          string
 	intento, envios int
 	falloFinal      bool
+	faltaCorreo     bool
 }
 
 func (c *colaAvisoPrueba) ReclamarAvisoOferta(context.Context, ports.OfertaPublicada) (ports.IntentoAvisoOferta, bool, error) {
@@ -53,6 +54,9 @@ func (c *colaAvisoPrueba) FinalizarAvisoOferta(_ context.Context, o ports.Oferta
 	return o, nil
 }
 func (c *colaAvisoPrueba) CorreoParticipacion(context.Context, string) (string, error) {
+	if c.faltaCorreo {
+		return "", ports.ErrDatosContactoParticipacionNoEncontrados
+	}
 	return "destino@aviso.invalid", nil
 }
 
@@ -147,5 +151,16 @@ func TestAvisoOfertaNoCopiaDescripcionLibre(t *testing.T) {
 	s.despacharAvisos(t.Context(), o)
 	if len(e.mensajes) != 1 || strings.Contains(e.mensajes[0].Cuerpo, o.Datos.Descripcion) {
 		t.Fatal("copió texto libre al correo")
+	}
+}
+
+func TestAvisoOfertaSinContactoEsFalloDefinitivo(t *testing.T) {
+	c := &colaAvisoPrueba{estado: "pendiente", faltaCorreo: true}
+	e := &envioAvisoPrueba{cola: c, estado: ports.AvisoOfertaAceptado}
+	d, _ := NuevoDespachadorAvisosOferta(c, c, e, "Oferta", "{enlace}", "https://aviso.invalid/area-personal/")
+	s := &ServicioOfertasPublicadas{avisos: d}
+	o := s.despacharAvisos(t.Context(), ofertaAvisoPrueba())
+	if o.Aviso.Fallidos != 1 || o.Aviso.Pendientes != 0 || c.envios != 0 {
+		t.Fatal("intentó enviar sin contacto o dejó un pendiente eterno")
 	}
 }

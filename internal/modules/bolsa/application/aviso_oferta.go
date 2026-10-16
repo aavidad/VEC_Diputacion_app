@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -63,7 +64,9 @@ func (s *ServicioOfertasPublicadas) despacharAvisos(ctx context.Context, o ports
 		o.Aviso.SinConfirmacion++
 		estado := ports.AvisoOfertaTransitorio
 		correo, err := d.correos.CorreoParticipacion(ctx, i.ParticipacionRef)
-		if err == nil {
+		if errors.Is(err, ports.ErrDatosContactoParticipacionNoEncontrados) {
+			estado = ports.AvisoOfertaPermanente
+		} else if err == nil {
 			if correo == "" {
 				estado = ports.AvisoOfertaPermanente
 			} else {
