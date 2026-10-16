@@ -121,6 +121,25 @@ previsto. El fichero no contiene cuenta, certificado, persona ni perfil
 asignado para elegir qué técnica puede consultar. Cada petición identifica a
 la persona y comprueba su permiso vigente por rol.
 
+El DBA registra también los dos orígenes técnicos en
+`vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1`, por el canal
+AD172 que describe la [guía de configuración existente](habilitacion_preferencias_bolsas_20261013.md#2-login-propios-y-origen-ad172).
+Ambos usan el LOGIN `vec_interno_documentos_bolsa_rrhh`, la operación
+`bolsa.justificante_renuncia.descargar_rrhh`, el proceso `vec-server` y el
+canal `interna_corporativa`. Sus audiencias son:
+
+- `vec_documentos.bolsa.justificante_renuncia.preparar_descarga_rrhh.v1`.
+- `vec_documentos.bolsa.justificante_renuncia.descarga_rrhh.v1`.
+
+Se cotejan las cinco columnas de cada fila existente y se conservan si son
+exactas; una divergencia detiene la activación. Para filas ausentes se conserva
+la preimagen y se verifica una fila exacta por audiencia tras aplicar la
+configuración. El LOGIN tiene como único grupo `vec_documentos_bolsa_rrhh`,
+con INHERIT y sin SET ni ADMIN; el grupo tampoco tiene un grupo superior.
+Las conexiones verifican TLS y el LOGIN carece de privilegios elevados y de
+ajustes propios de sesión. Estos registros identifican el proceso técnico;
+el permiso de la persona sigue dependiendo de su rol vigente.
+
 La confianza externa se prepara con `preparar-portal-externo` y su LOGIN
 publicador nominal, según `deploy/principal/confianza_externa_hz38.md`.
 El inventario de este corte conserva las audiencias anteriores y añade
