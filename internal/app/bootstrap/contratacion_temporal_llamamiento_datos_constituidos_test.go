@@ -55,12 +55,21 @@ func (f consultaPuestoM10Prueba) Consultar(ctx context.Context, s personaldomain
 	return f(ctx, s)
 }
 
-func TestResolverPuestoRPTConstituidoExigePaginacionCompletaYUnicoUUID(t *testing.T) {
-	const puesto = "puesto:10000000-0000-4000-8000-000000000001"
+func TestResolverPuestoRPTConstituidoExigePaginacionCompletaEIdentificadorPublicado(t *testing.T) {
+	// El formato de la importación de Personal conserva todos estos dígitos.
+	const puesto = "puesto:10000000-0000-f000-4000-000000000001"
+	const unidadGestora = "unidad:desarrollo:rrhh"
+	unidadPuesto, ok := unidadPuestoPublicadoCT(personaldomain.PuestoRPTPublico{CentroCodigo: "520"})
+	if !ok || unidadPuesto != "unidad:centro:520" || unidadPuesto == unidadGestora {
+		t.Fatalf("unidad del puesto=%q, unidad gestora=%q", unidadPuesto, unidadGestora)
+	}
 	instante := time.Date(2026, 10, 13, 10, 0, 0, 0, time.UTC)
 	consultas := 0
 	cliente := consultaPuestoM10Prueba(func(_ context.Context, s personaldomain.SelectorOrganizacionHistorica) (personalports.ResultadoConsultaOrganizacionHistorica, error) {
 		consultas++
+		if s.UnidadClave != unidadPuesto && s.UnidadClave != unidadGestora {
+			t.Fatalf("selector de unidad inesperado: %q", s.UnidadClave)
+		}
 		p := personalports.PaginaOrganizacionHistorica{Selector: s, VersionRPTRef: "rpt:publicada"}
 		if s.Cursor == "" {
 			p.CursorSiguiente = "p_siguiente"
@@ -75,11 +84,56 @@ func TestResolverPuestoRPTConstituidoExigePaginacionCompletaYUnicoUUID(t *testin
 		}, nil
 	})
 	resolver := nuevoResolutorPuestoRPTConstituidoCT(cliente, "organizacion:desarrollo:dipgra", func() time.Time { return instante })
-	obtenido, err := resolver(t.Context(), "520-001", "unidad:centro:520")
+	obtenido, err := resolver(t.Context(), "520-001", unidadPuesto)
 	if err != nil || obtenido != puesto || consultas != 2 {
 		t.Fatalf("puesto=%q consultas=%d error=%v", obtenido, consultas, err)
 	}
-	if otro, err := resolver(t.Context(), "520-001", "unidad:centro:999"); err == nil || otro != "" {
-		t.Fatal("una unidad diferente no puede resolver el puesto")
+	if otro, err := resolver(t.Context(), "520-001", unidadGestora); err == nil || otro != "" {
+		t.Fatal("la unidad gestora no puede resolver el puesto de otro centro")
+	}
+}
+
+func TestResolverPuestoRPTConstituidoDeniegaPuestoAjenoYAmbiguo(t *testing.T) {
+	const puesto = "puesto:10000000-0000-4000-8000-000000000001"
+	const otroPuesto = "puesto:10000000-0000-4000-8000-000000000002"
+	instante := time.Date(2026, 10, 13, 10, 0, 0, 0, time.UTC)
+	for _, caso := range []struct {
+		nombre string
+		filas  []personaldomain.PuestoIndividualOrganizacionHistorica
+	}{
+		{"ajeno", []personaldomain.PuestoIndividualOrganizacionHistorica{{
+			Traza: personaldomain.TrazaOrganizacionHistorica{ID: puesto}, CodigoFuente: "520-001/01",
+			UnidadID: "unidad:centro:999", EstadoEstructural: "vigente",
+		}}},
+		{"identificador_sin_formato", []personaldomain.PuestoIndividualOrganizacionHistorica{{
+			Traza: personaldomain.TrazaOrganizacionHistorica{ID: "puesto:inventado"}, CodigoFuente: "520-001/01",
+			UnidadID: "unidad:centro:520", EstadoEstructural: "vigente",
+		}}},
+		{"identificador_otra_clase", []personaldomain.PuestoIndividualOrganizacionHistorica{{
+			Traza: personaldomain.TrazaOrganizacionHistorica{ID: "plaza:10000000-0000-f000-4000-000000000001"}, CodigoFuente: "520-001/01",
+			UnidadID: "unidad:centro:520", EstadoEstructural: "vigente",
+		}}},
+		{"ambiguo", []personaldomain.PuestoIndividualOrganizacionHistorica{
+			{Traza: personaldomain.TrazaOrganizacionHistorica{ID: puesto}, CodigoFuente: "520-001/01", UnidadID: "unidad:centro:520", EstadoEstructural: "vigente"},
+			{Traza: personaldomain.TrazaOrganizacionHistorica{ID: otroPuesto}, CodigoFuente: "520-001/02", UnidadID: "unidad:centro:520", EstadoEstructural: "vigente"},
+		}},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			cliente := consultaPuestoM10Prueba(func(_ context.Context, s personaldomain.SelectorOrganizacionHistorica) (personalports.ResultadoConsultaOrganizacionHistorica, error) {
+				return personalports.ResultadoConsultaOrganizacionHistorica{
+					Pagina:    personalports.PaginaOrganizacionHistorica{Selector: s, VersionRPTRef: "rpt:publicada", PuestosIndividuales: caso.filas},
+					Evidencia: personalports.EvidenciaConsultaOrganizacionHistorica{AuditoriaRef: "auditoria:m10:real"},
+				}, nil
+			})
+			resolver := nuevoResolutorPuestoRPTConstituidoCT(cliente, "organizacion:desarrollo:dipgra", func() time.Time { return instante })
+			if obtenido, err := resolver(t.Context(), "520-001", "unidad:centro:520"); err == nil || obtenido != "" {
+				t.Fatalf("puesto %s no rechazado: %q, %v", caso.nombre, obtenido, err)
+			}
+		})
+	}
+	for _, codigo := range []string{"", "520:ajeno", "520/otro", "520 espacio"} {
+		if unidad, ok := unidadPuestoPublicadoCT(personaldomain.PuestoRPTPublico{CentroCodigo: codigo}); ok || unidad != "" {
+			t.Fatalf("centro sin enlace fiable %q produjo unidad %q", codigo, unidad)
+		}
 	}
 }

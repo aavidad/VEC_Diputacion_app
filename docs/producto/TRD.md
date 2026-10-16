@@ -495,6 +495,18 @@ permiso.
 - El caso de uso revalida la autorización justo antes del efecto, también al
   repetir una operación. Una concesión histórica o una referencia opaca no dan
   acceso por sí solas.
+- F1-36A prepara la recuperación exacta de una firma original con la clave y
+  el corte del acto, y comprueba la unidad histórica frente a la asignación
+  vigente de quien consulta. La asignación solo restringe: no concede acceso
+  a la ficha, no exige ser el firmante original ni consulta el plan actual.
+  Los pasos anteriores salen solo si están enlazados por `FirmaAnteriorRef`
+  desde la firma exacta. Se verifican internamente sus cánones, pero el texto
+  `CanonNominal` solo se devuelve para la firma exacta; de las anteriores se
+  entregan la referencia y la huella.
+  Una clave ausente no se sustituye por una búsqueda aproximada. El campo
+  `selectores_recuperacion_firmas` exige una concesión exacta; `[]` no es
+  comodín. La recuperación de Portafirmas sin unidad histórica sigue denegada.
+  La fuente autorizada de la ficha y el panel quedan para B y C.
 - Se conserva la separación de funciones: preparar, revisar, publicar, firmar y
   auditar requieren las personas y competencias de cada circuito. Una misma
   persona no cubre un doble control cambiando de perfil.
@@ -587,6 +599,16 @@ Una recuperación reutiliza la operación original; no se crea otra para aparent
 éxito. Tras reiniciar la aplicación y PostgreSQL, se deben ver los mismos
 recibos y fechas y nada duplicado. Una repetición o un reinicio nunca duplican
 efectos, recibos ni comunicaciones.
+
+F1-36B prepara una lectura ampliada de la ficha de Contratación temporal. La
+decisión vigente debe conceder exactamente `selectores_recuperacion_firmas`;
+una asignación propia y vigente de cargo de firma restringe el resultado a la
+organización y unidad históricas. SQL forma el selector y un anexo privado,
+inmutable y unido al recibo de esa consulta de ficha. Comprueba vigencia antes del
+cierre y en el momento de confirmar la transacción; el apunte de auditoría
+queda en la misma transacción. El recibo anterior de ficha no prueba por sí
+solo qué selectores se ofrecieron. B no publica aún esos campos por HTTP ni
+añade el panel; el ensayo SQL y la prueba de caducidad siguen pendientes.
 
 ## 8. Protección de datos
 

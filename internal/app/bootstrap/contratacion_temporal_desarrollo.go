@@ -155,6 +155,11 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) instalarDelegadoComu
 	return nil
 }
 
+func sustituyeRutaFirmasR5PorNominalCT(firmaVecActiva bool, ruta string) bool {
+	return firmaVecActiva && (ruta == httpinterno.RutaConsultaFirmasR5V2 ||
+		ruta == httpinterno.RutaRecuperacionFirmasR5V2)
+}
+
 func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigadaV3(
 	ctx context.Context,
 	solicitud vecdomain.SolicitudAutorizacionLigadaV3,
@@ -1165,8 +1170,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	if firmasR5V2 != nil {
 		for _, rutaFirmaR5 := range firmasR5V2.rutas {
-			if firmaVecActiva && rutaFirmaR5.Ruta == httpinterno.RutaConsultaFirmasR5V2 {
-				continue // La consulta nominal ocupa la única ruta exacta R5.
+			if sustituyeRutaFirmasR5PorNominalCT(firmaVecActiva, rutaFirmaR5.Ruta) {
+				continue // El montaje nominal ocupa ambas rutas exactas R5.
 			}
 			rutas = append(rutas, rutaFirmaR5)
 		}

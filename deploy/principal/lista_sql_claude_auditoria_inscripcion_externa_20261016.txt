@@ -1,0 +1,5 @@
+# Auditoría de la lectura de inscripción del aspirante externo (dependencia de F1-40).
+# Requiere instaladas CA15/CA17, CA26/CA27 y AD228. Orden: CA47 -> AD289.
+# Las dos comprueban su preimagen y se niegan a reaplicarse; sin DOWN.
+deploy/postgresql/contexto_actor_v1/migraciones/000047_cotejo_historico_contexto_portal_externo.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000289_auditoria_lectura_inscripcion_externa.up.sql

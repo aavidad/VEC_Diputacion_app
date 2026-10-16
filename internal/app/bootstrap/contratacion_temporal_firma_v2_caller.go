@@ -53,7 +53,7 @@ func montarOriginalYFirmaVecR5(alta *dependenciasAltaContratacionTemporalDesarro
 		hOriginalLegacy.ServeHTTP(w, r)
 	})
 	rutasFirma, err := montaje.rutas(firma, original)
-	if err != nil || len(rutasFirma) != 4 {
+	if err != nil || len(rutasFirma) != 5 {
 		return nil, errMontajeFirmaVecR5
 	}
 	return append(rutasOriginal, rutasFirma...), nil
