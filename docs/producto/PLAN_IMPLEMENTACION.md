@@ -507,6 +507,13 @@ enteras. Cómo las ve cada perfil se describe en `FLUJO_APP.md`.
 
 **Cartera de méritos y puntuación por bolsa.**
 
+El corte F1-45 de la fase 1 muestra los títulos, cursos y demás méritos que
+devuelve la cartera personal existente, con sus datos y su estado. Se comprueba
+la lectura autorizada desde «Mis méritos» y su recuperación tras reiniciar.
+La valoración por categoría y los puntos de los apartados siguientes quedan
+para el motor común de baremación, fuera de este corte y de la fase 1
+(decisión de dirección del 16/10, 05:39).
+
 - La persona incorpora una vez sus títulos y cursos a una cartera personal en
   «Mi Bolsa», aunque aún no se apunte a ninguna bolsa. Puede pedir retirar un
   mérito con motivo; la retirada no borra lo ya decidido.
