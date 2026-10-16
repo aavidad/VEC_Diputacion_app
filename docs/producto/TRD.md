@@ -240,6 +240,13 @@ acredita que esté disponible.
 Cada fase deja una línea de arranque con fase, resultado y causa, sin rutas, DSN
 (cadenas de conexión a la base) ni datos de configuración.
 
+La copia local se prepara con `deploy/principal/copia_local.sh` (F0-28):
+restaura el volcado y sus permisos sin credenciales globales, genera material
+de 90 días y permite reiniciar o borrar una instancia propia. Este primer
+corte arranca el portal con funciones opcionales apagadas; las conexiones y
+actos de los módulos aún siguen la guía `deploy/principal/LEEME_copia_local.md`.
+El arranque HTTP no acredita el recorrido funcional.
+
 ### Arranque de Administración
 
 `vec-admin` requiere `VEC_ADMIN_USUARIOS_CONFIG_FILE`, el fichero privado de
@@ -291,6 +298,13 @@ La confianza y las claves nuevas no pueden rebasar la raíz existente. La
 ventana breve para aplicar cada plan no se amplía. AD282 ajusta los dos
 efectos de gobierno existentes; no añade permisos ni cambia publicaciones
 anteriores. Guion: `deploy/principal/vigencia_gobierno_admin_20261015.md`.
+
+F1-64 reutiliza esa misma variable para las publicaciones técnicas nuevas de CT
+y del portal externo. Conserva la vigente al reiniciar sin el ajuste. En CT, un plazo
+inferior a 24 horas empieza al publicar y puede renovarse el mismo día con
+otra referencia; los demás conservan medianoche UTC. El portal externo parte
+siempre del instante de publicación. No cambia raíces ni claves
+legadas. Activación: `deploy/principal/vigencias_publicaciones_f1_64_20261016.md`.
 
 ### Selectores `VEC_*_ENABLED`
 

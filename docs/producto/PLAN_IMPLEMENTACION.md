@@ -191,6 +191,13 @@ Son dos expedientes distintos: P conserva la comprobación del caso único de
 El guion de activación, la lista SQL y los límites están en
 `deploy/principal/candidata_hz39/firma/LEEME.md`.
 
+F1-64 configura, sin SQL nuevo, las publicaciones técnicas nuevas de CT y
+del portal externo. Dos revisiones y focales favorables; arranque con y sin el
+valor, publicación externa de 90 días y recuperación sin acortarla comprobados.
+La raíz y la clave legadas conservan su encargo separado de rotación. Dirección
+acepta la cobertura parcial de GoSec hasta F0-29 (L); falta la CI documental
+final e integración. Guion: `deploy/principal/vigencias_publicaciones_f1_64_20261016.md`.
+
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna
 está instalada; verificar su hash antes de reanudar:
