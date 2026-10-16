@@ -358,6 +358,8 @@ antes de usarlas (`revisar-sql-vec`). Los datos de contacto van cifrados; en
 listados se muestran enmascarados y la consulta completa en la ficha deja
 constancia de quién la hizo.
 
+La candidata B129 añade la cabecera de aviso de oferta, su instantánea de destinatarios y la historia de intentos. La publicación y el vínculo del token se confirman en la misma transacción autorizada. El token se deriva del material HMAC versionado existente, con un dominio propio; solo su huella y versión quedan en la cabecera. Reclamar confirma la marca incierta antes de llamar a la red. La proyección `proyectar_oferta_v2` incorpora el resumen sin otra lectura; los campos internos del token no salen al HTTP. No añade autoridad de Usuarios ni cambia el núcleo. Instalación y ensayo pendientes en esta candidata.
+
 Puertos Go: `internal/modules/bolsa/ports/` (unos 86 ficheros);
 adaptadores en `internal/modules/bolsa/adapters/postgres*`.
 

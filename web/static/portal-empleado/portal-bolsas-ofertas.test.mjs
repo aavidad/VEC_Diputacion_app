@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { accionesPlaza, crearClienteOfertas, crearSuperficieOfertasBolsa, crearTraductorOfertas, mensajeError, validarOfertasBolsa,
   ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261010-ct-bolsa-cohorte-v10";
 
@@ -37,6 +38,14 @@ function boton(dataset) {
   return { target: b };
 }
 
+test("la entrada y la caché cargan la versión de ofertas con avisos", async () => {
+  const [portal, html, cache] = await Promise.all(["portal.js", "index.html", "cache-publica-v1.json"]
+    .map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
+  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261016-f118-aviso-oferta-v1/);
+  assert.match(html, /portal\.js\?v=20261016-f118-aviso-oferta-v1/);
+  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261016-f118-aviso-oferta-v1"));
+});
+
 test("la ficha abre el historial autorizado de la oferta elegida y lo desmonta al cerrar", async () => {
   const referencia = `oferta:${"a".repeat(64)}`;
   const llamadas = [];
@@ -73,6 +82,129 @@ test("el contrato exige una entrada por plaza y rechaza estados, propuestas y ac
     oferta({ plazo: { ejemplo: false, notificacion: { ...notificacion, fuente: "entrega_acreditada" } } }),
   ];
   for (const o of invalidas) assert.throws(() => validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [o] } }));
+});
+
+test("el aviso es opcional y solo admite recuentos enteros coherentes", () => {
+  const aviso = { total: 5, pendientes: 1, enviados: 2, sin_confirmacion: 1, fallidos: 1 };
+  assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta()] } }).ofertas[0].aviso, undefined);
+  assert.deepEqual(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta({ aviso })] } }).ofertas[0].aviso, aviso);
+  assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta({ aviso, aviso_configuracion_pendiente: true })] } }).ofertas[0].aviso_configuracion_pendiente, true);
+  for (const invalido of [null, 0, "true"]) {
+    assert.throws(() => validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta({ aviso_configuracion_pendiente: invalido })] } }));
+  }
+  for (const invalido of [null, {}, { ...aviso, pendientes: -1 }, { ...aviso, enviados: 1.5 },
+    { ...aviso, sin_confirmacion: "1" }, { ...aviso, total: 4 }, { ...aviso, total: Number.MAX_SAFE_INTEGER + 1 }]) {
+    assert.throws(() => validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta({ aviso: invalido })] } }));
+  }
+});
+
+test("la configuración pendiente explica el bloqueo y no ofrece reintento hasta que la consulta la confirme lista", async () => {
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Cobertura", numero_plazas: "1" }[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const aviso = { total: 1, pendientes: 1, enviados: 0, sin_confirmacion: 0, fallidos: 0 };
+  let configuracionPendiente = true;
+  let publicaciones = 0;
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => sobre([oferta({ aviso, aviso_configuracion_pendiente: configuracionPendiente })], "publicacion"),
+    publicar: async () => { publicaciones++; return { ok: true, status: 201, oferta: oferta({ aviso, aviso_configuracion_pendiente: true }) }; },
+  }, generarClave: () => "clave-original" });
+  try {
+    superficie.activar("bolsa:1"); await turno();
+    assert.match(superficie.renderizar(), /Falta configurar el envío de avisos de las ofertas/);
+    superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    assert.equal(superficie.estado().reintentoAvisos.clave, "clave-original");
+    assert.doesNotMatch(superficie.renderizar(), /Reintentar avisos pendientes/);
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos" }));
+    assert.equal(publicaciones, 1, "no reintenta con la configuración pendiente");
+    configuracionPendiente = false;
+    assert.equal(superficie.recargarPoliticaSegura(), true); await turno();
+    assert.match(superficie.renderizar(), /Reintentar avisos pendientes/);
+    assert.doesNotMatch(superficie.renderizar(), /Falta configurar el envío de avisos de las ofertas/);
+  } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
+});
+
+test("la ficha muestra solo el aviso recibido y distingue los envíos sin confirmar", async () => {
+  const aviso = { total: 4, pendientes: 1, enviados: 1, sin_confirmacion: 1, fallidos: 1 };
+  const superficie = crearSuperficieOfertasBolsa({ cliente: { consultar: async () => sobre([oferta(), oferta({ oferta_ref: "oferta:2", aviso })]) } });
+  superficie.activar("bolsa:1"); await turno();
+  const html = superficie.renderizar();
+  assert.equal((html.match(/Avisos por correo para 4 personas/g) || []).length, 2, "una etiqueta y un título solo en la oferta con aviso");
+  assert.match(html, /Enviados/);
+  assert.match(html, /Sin confirmación del servicio de correo/);
+  assert.match(html, /¿Qué significa «Enviados»\?/);
+  assert.doesNotMatch(html, /correo electrónico de una persona|Reintentar avisos/);
+  superficie.desmontar();
+});
+
+test("el recibo reintenta solo con la intención original mientras haya avisos pendientes", async () => {
+  const anteriorFormData = globalThis.FormData;
+  const valores = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Cobertura", numero_plazas: "2" };
+  globalThis.FormData = class { get(clave) { return valores[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const llamadas = [];
+  let completar;
+  const avisoPendiente = { total: 2, pendientes: 1, enviados: 1, sin_confirmacion: 0, fallidos: 0 };
+  const avisoSinConfirmacion = { total: 2, pendientes: 0, enviados: 1, sin_confirmacion: 1, fallidos: 0 };
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => sobre([], "publicacion"),
+    publicar: async (_bolsa, datos, plazas, notificacion, clave) => {
+      llamadas.push({ datos: structuredClone(datos), plazas, notificacion, clave });
+      if (llamadas.length === 1) return { ok: true, status: 201, oferta: oferta({ aviso: avisoPendiente }) };
+      return new Promise((resolver) => { completar = resolver; });
+    },
+  }, generarClave: () => "clave-estable" });
+  try {
+    superficie.activar("bolsa:1"); await turno();
+    superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    assert.match(superficie.renderizar(), /Reintentar avisos pendientes/);
+    valores.descripcion = "Texto alterado en el formulario";
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos" }));
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos" }));
+    assert.equal(llamadas.length, 2, "el segundo clic no envía otra petición");
+    assert.deepEqual(llamadas[1], llamadas[0], "cuerpo y clave son los de la publicación original");
+    completar({ ok: true, status: 200, oferta: oferta({ aviso: avisoSinConfirmacion }) }); await turno();
+    assert.doesNotMatch(superficie.renderizar(), /Reintentar avisos pendientes/);
+    assert.match(superficie.renderizar(), /Se ha recuperado el estado de los avisos/);
+    assert.equal(superficie.estado().reintentoAvisos, null, "los avisos sin confirmación no se reintentan");
+  } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
+});
+
+test("un reintento incierto bloquea otra operación y los rechazos de acceso retiran los datos", async () => {
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Cobertura", numero_plazas: "1" }[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const aviso = { total: 1, pendientes: 1, enviados: 0, sin_confirmacion: 0, fallidos: 0 };
+  try {
+    for (const fallo of ["red", 401, 403]) {
+      let llamadas = 0;
+      const superficie = crearSuperficieOfertasBolsa({ cliente: {
+        consultar: async () => sobre([], "publicacion"),
+        publicar: async () => { llamadas++; if (llamadas === 1) return { ok: true, status: 201, oferta: oferta({ aviso }) };
+          if (fallo === "red") throw new Error("conexión perdida");
+          return { ok: false, status: fallo, codigo: "sin_permiso" }; },
+      }, generarClave: () => "clave-original" });
+      superficie.activar("bolsa:1"); await turno();
+      superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+      superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+      superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos" })); await turno();
+      assert.doesNotMatch(superficie.renderizar(), /Reintentar avisos pendientes/);
+      if (fallo === "red") {
+        assert.equal(superficie.estado().reintentoAvisos.clave, "clave-original");
+        assert.equal(superficie.estado().reintentoAvisos.incierta, true);
+        assert.match(superficie.renderizar(), /No se pudo confirmar el resultado/);
+        superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos" }));
+        assert.equal(llamadas, 2);
+      } else {
+        assert.equal(superficie.estado().reintentoAvisos, null);
+        assert.deepEqual(superficie.estado().ofertas, []);
+        assert.match(superficie.renderizar(), fallo === 401 ? /Su sesión ha terminado/ : /Su sesión no permite gestionar/);
+      }
+      superficie.desmontar();
+    }
+  } finally { globalThis.FormData = anteriorFormData; }
 });
 
 test("el cliente envía bolsa, datos, número de plazas y el acto de la plaza, sin identidad", async () => {

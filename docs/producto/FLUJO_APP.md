@@ -718,6 +718,8 @@ Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
 un reintento conserva fechas, política y oferta originales. Este corte no acredita
 todavía la publicación desde la ficha de CT.
 
+**Candidata de aviso por correo (F1-18).** Al publicar una oferta se fijan las participaciones disponibles de la bolsa constituida. Cada aviso queda guardado antes del envío, con el correo del alta como fuente. Publicar o recuperar la misma operación despacha solo los pendientes; no cambia el plazo ni la declaración de notificación. «Gestionar ofertas» muestra pendientes, enviados, sin confirmación y fallidos. Desde el recibo se pueden reintentar los pendientes conservando la intención original en memoria. Si falta el enlace configurado a Mi Bolsa, la intención se conserva y la pantalla indica qué falta. Un resultado incierto no se reenvía automáticamente; enviado solo acredita aceptación por el servicio de correo. El ensayo local y la integración de este corte siguen pendientes.
+
 **Candidata de consulta de puestos.** El ofrecimiento usa la RPT publicada y
 la historia autorizada del puesto de Personal. La consulta existente se conecta
 al proceso combinado con el mismo perfil, ámbito y registro de lecturas. Si

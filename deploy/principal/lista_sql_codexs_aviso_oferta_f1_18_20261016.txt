@@ -1,0 +1,1 @@
+deploy/postgresql/bolsa_llamamientos/migraciones/000129_aviso_oferta_durable.up.sql
