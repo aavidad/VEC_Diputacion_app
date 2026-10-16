@@ -733,6 +733,14 @@ Falta completar el ensayo de lectura y reinicio de esta candidata.
   y `Content-Security-Policy` cerrada.
 - Límites de tamaño de cuerpo y de respuesta antes de reservar memoria.
 
+`GET` y `HEAD /api/vec/bolsa/bolsas?perfil=propio` resuelven la sesión con el
+perfil de Bolsa. La revalidación HTTP exige esa query exacta antes de emitir
+capacidad; las demás consultas de la ruta base siguen cerradas. La ruta base exacta puede convivir con las plantillas no vacías de
+detalle: el catálogo comprueba que son disjuntas con el mismo criterio del
+emparejador. Las rutas duplicadas y las plantillas solapadas siguen cerradas.
+Registrar la frontera no concede acceso; cada consulta conserva su decisión
+y asiento de auditoría.
+
 La descarga nominal de un PDF firmado de Contratación temporal usa
 `POST /api/vec/contratacion-temporal/firmas-documento/descargas-v2` con
 `expediente_ref`, `version_observada`, `documento` y `firma_ref`. Resuelve la

@@ -141,6 +141,17 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 			DetalleColeccion:   true,
 		},
 	}, descriptoresFronterasOfertasBolsaDesarrollo(perfilActivoRef)...)
+	// El listado y el perfil propio comparten la ruta base. Esta frontera
+	// resuelve únicamente la sesión Bolsa; cada lectura conserva su control
+	// de autorización y su auditoría en el manejador correspondiente.
+	for _, metodo := range []string{http.MethodGet, http.MethodHead} {
+		descriptores = append(descriptores, descriptorFronteraComunDesarrollo{
+			Clave: "bolsa-bback-bolsas-base-" + metodo, Superficie: superficieInternaSeguridadComunDesarrollo,
+			Metodo: metodo, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef},
+			ClavePolitica:  clavePoliticaBorradorLlamamientoBolsaDesarrollo,
+			ClaveCapacidad: claveCapacidadConsultarBorradorLlamamientoBolsa,
+		})
+	}
 	// Lectura de la política con la sesión Bolsa; su concesión se evalúa
 	// contra B103, sin añadir capacidad ni consumidor V3.
 	for _, metodo := range []string{http.MethodGet, http.MethodHead} {

@@ -7,6 +7,9 @@ import { RUTA_PLANTILLA_CORREO, validarPlantillaCorreo } from "./portal-bolsas-c
 import { validarCanalesLlamamiento } from "./portal-bolsas-contrato.js?v=20261013-bolsa-ranking-n4";
 
 export const RUTA_PERFIL_PROPIO_BOLSA = "/api/vec/bolsa/bolsas?perfil=propio";
+export async function consultarPerfilPropioBolsa({ signal, fetchImpl = globalThis.fetch } = {}) {
+  return validarPerfilPropioBolsa(await consultarJSON(RUTA_PERFIL_PROPIO_BOLSA, { fetchImpl, signal, reintentos: 0 }));
+}
 export function validarPerfilPropioBolsa(sobre) {
   const d = sobre?.data;
   if (!d || Object.keys(d).sort().join(",") !== "acciones,ambito,canales,consultada_en,esquema,rol"
@@ -51,7 +54,7 @@ export async function montarConfiguracionBolsa({ raiz, signal, escaparHTML, fetc
   const pintar = () => { if (!signal.aborted) raiz.innerHTML = renderizarConfiguracionBolsa({ ...bloques, ayuda }, { textos, escaparHTML }); };
   const consultar = (ruta) => consultarJSON(ruta, { fetchImpl, signal, reintentos: 0 });
   const lectores = {
-    perfil: async () => validarPerfilPropioBolsa(await consultar(RUTA_PERFIL_PROPIO_BOLSA)),
+    perfil: () => consultarPerfilPropioBolsa({ signal, fetchImpl }),
     reglas: async () => { const datos = validarReglas(await consultar(API_REGLAS)); for (const catalogo of datos.catalogos) if (catalogo.modulo === "bolsa") for (const regla of catalogo.reglas) valorRegla(regla); return datos; },
     cese: () => crearClientePoliticaCeseRRHH({ fetchImpl }).consultar({ signal }),
     correo: async () => { const d = validarPlantillaCorreo((await consultar(RUTA_PLANTILLA_CORREO))?.data); if (!d) throw new TypeError("plantilla_no_valida"); return d; },

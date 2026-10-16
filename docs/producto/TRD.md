@@ -509,6 +509,13 @@ Ejemplo real: la versión del rol de Bolsa (`/api/admin/perfiles/v1/gobierno-ver
 y `/cierres`, en `deploy/principal/habilitacion_b1_convoca_20261009.md`). La
 restauración de copias sigue el mismo patrón (`docs/plan_modulos/copias_seguridad.md`).
 
+La versión especializada de RRHH en Bolsa reutiliza el catálogo de fuentes
+admitido y el acto B103 de dos administradores. Añadir las consultas de
+configuración, política tras el cese y origen CT conserva las concesiones
+anteriores y las asignaciones; la admisión del catálogo no concede esos permisos.
+Activación y comprobaciones en
+`deploy/principal/f0_09_rol_rrhh_20261016.md`.
+
 ### Lecturas y actos
 
 - **Actos con efecto.** Decisión V3 consumida en la misma transacción que escribe

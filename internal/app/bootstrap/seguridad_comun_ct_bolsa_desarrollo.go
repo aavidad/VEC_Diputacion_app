@@ -138,10 +138,15 @@ func colisionanFronterasComunDesarrollo(a, b descriptorFronteraComunDesarrollo) 
 		return false
 	}
 	if a.DetalleColeccion == b.DetalleColeccion && a.Ruta == b.Ruta {
-		if !a.DetalleColeccion && len(a.PlantillaDetalle) != 0 && len(b.PlantillaDetalle) != 0 {
-			return plantillasFronteraComunColisionan(a.PlantillaDetalle, b.PlantillaDetalle)
+		if a.DetalleColeccion {
+			return true
 		}
-		return true
+		if len(a.PlantillaDetalle) == 0 || len(b.PlantillaDetalle) == 0 {
+			// La ruta exacta coincide sólo con la base; cualquier plantilla
+			// exige al menos un segmento adicional.
+			return len(a.PlantillaDetalle) == 0 && len(b.PlantillaDetalle) == 0
+		}
+		return plantillasFronteraComunColisionan(a.PlantillaDetalle, b.PlantillaDetalle)
 	}
 	if a.DetalleColeccion && !b.DetalleColeccion && rutaEsDetalleCatalogoComun(a.Ruta, b.Ruta) {
 		return true
