@@ -83,14 +83,14 @@ se copia de su salida.
 | Fase | Pendiente | Bloqueada | En curso | En revisión | Fusionada | Hecha | Aparcada | Cancelada | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 0 Base común | 15 | 2 | 4 | 0 | 5 | 0 | 3 | 1 | 30 |
-| 1 Bolsa y CT | 43 | 6 | 8 | 0 | 3 | 3 | 1 | 1 | 65 |
+| 1 Bolsa y CT | 43 | 6 | 7 | 0 | 4 | 3 | 1 | 1 | 65 |
 | 2 Personal y Organización | 10 | 3 | 1 | 0 | 0 | 0 | 0 | 1 | 15 |
 | 3 Cronos | 5 | 4 | 1 | 0 | 0 | 0 | 0 | 0 | 10 |
 | 4 Dietas | 2 | 4 | 1 | 0 | 0 | 0 | 0 | 0 | 7 |
 | 5 Sustituir Convoca | 8 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 13 |
 | 6 Resto de módulos | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 0 | 13 |
 | 7 Uso real | 2 | 13 | 0 | 0 | 0 | 0 | 1 | 0 | 16 |
-| **Total** | **85** | **37** | **15** | **0** | **8** | **3** | **18** | **3** | **169** |
+| **Total** | **85** | **37** | **14** | **0** | **9** | **3** | **18** | **3** | **169** |
 
 Empezables ya: 27 en las fases 0 y 1 (pendientes con todas sus
 dependencias hechas o fusionadas). De ellas, 19 tienen equipo:
@@ -250,7 +250,7 @@ motivo y lecturas por debajo de 300 ms.
 | ID | Tarea | Zona de código | Depende de | Bloqueo | Tam. | Equipo | Rama/PR | Estado | Desde | Cómo se comprueba | Fuente |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | F1-01 | Situaciones en singular, sacadas del catálogo, en etiquetas, filtros y desplegables | `web/static/bolsa`; `locales` | - | - | S | T | #1148 | Fusionada | 16/10 | Chrome a 1440 y 390 px en castellano e inglés; revisión de usabilidad; pruebas de textos accesibles al día | RRHH 15/10 |
-| F1-02 | «Cambiar situación» completo, con el motivo dentro del panel | `web/static/bolsa` | - | - | S | T | #1149 | En curso | 15/10 | Chrome a 1440, 1024 y 390 px; revisión de usabilidad | RRHH 15/10 |
+| F1-02 | «Cambiar situación» completo, con el motivo dentro del panel | `web/static/bolsa` | - | - | S | T | #1149 | Fusionada | 16/10 | Chrome a 1440, 1024 y 390 px; revisión de usabilidad | RRHH 15/10 |
 | F1-03 | Cuadro de Bolsas: la columna «En revisión» se ve a 1440 px | `web/static/bolsa` | - | - | S | T | #1152 | En curso | 15/10 | Chrome a 1440 y 390 px sin desbordamiento | RRHH 15/10 |
 | F1-04 | Publicar reglas de situación: fachada sobre B32 con permiso propio, versión esperada, motivo, recibo y autorización en la misma transacción; el arranque solo lee. Incluye la activación explícita de la fuente normativa (antes F1-05) y, para los candidatos «En revisión», confirmar la respuesta o devolverlos al turno con motivo | `internal/modules/bolsa`; SQL de Bolsa | - | - | M | S | `codexs-reglas-situacion-bolsa-20261015` | En curso | 15/10 | Publicación con recibo y replay igual; sin activación se niega con motivo; el arranque no sobrescribe; un candidato «En revisión» se confirma o vuelve al turno con su motivo | RRHH 15/10; duda 157 |
 | F1-05 | Activar la fuente normativa del catálogo de situaciones. Cancelada el 15/10: fundida en F1-04, misma PR de S | - | - | - | - | S | - | Cancelada | 15/10 | - | Consenso de dirección 15/10 |
