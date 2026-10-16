@@ -33,7 +33,7 @@ END $pre$;
 DO $nucleo_preimagen$
 DECLARE f regprocedure:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
 BEGIN
- IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM '3e3f87faab57f26dce85d85fb71d2db45692f8bcdde8d4f273f1aa6ee1118986'
+ IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM '400f33888ea9941c57c754436b53f82e8e1dd6a2f3ab888dee2209663c6be7dc'
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
     OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
@@ -129,6 +129,20 @@ BEGIN
             AND vec_autorizacion_atestada_v3.login_version_rol_bolsa_valido_v1() IS TRUE)
            OR (p_perfil_mutacion IS NOT DISTINCT FROM 'version_rol_bolsa_externa'
             AND vec_autorizacion_atestada_v3.login_version_rol_bolsa_externa_valido_v1() IS TRUE)
+           OR (
+               p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_subida_local_externa'
+               AND session_user='vec_externo_documentos_datos'
+               AND EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin AND r.rolinherit
+                 AND NOT (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls))
+               AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
+                 AND m.roleid='vec_documentos_subida_datos'::regrole AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+               AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1
+               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_documentos_subida_datos'::regrole)
+           )
+           OR (p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_bolsa_externa'
+            AND vec_autorizacion_atestada_v3.login_documentos_bolsa_v1(false) IS TRUE)
+           OR (p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_bolsa_rrhh'
+            AND vec_autorizacion_atestada_v3.login_documentos_bolsa_v1(true) IS TRUE)
            OR (p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_cartera_retirada'
             AND EXISTS(SELECT 1 FROM pg_roles l JOIN pg_auth_members m ON m.member=l.oid
              JOIN pg_roles g ON g.oid=m.roleid
@@ -285,6 +299,9 @@ BEGIN
            )
            OR (
                p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_hecho_propio_interno' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_hecho_propio_externo' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_hecho_rechazar' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_consulta_propia_interna' AND p_perfil_mutacion IS DISTINCT FROM 'consulta_rrhh_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'carga_convoca_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'historia_servicios_propia' AND p_perfil_mutacion IS DISTINCT FROM 'exportacion_servicios_propios' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_certificado_nominal' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_cargo_competencial' AND p_perfil_mutacion IS DISTINCT FROM 'capacidades_admin' AND p_perfil_mutacion IS DISTINCT FROM 'persona_denominacion_publicar' AND p_perfil_mutacion IS DISTINCT FROM 'persona_denominacion_leer' AND p_perfil_mutacion IS DISTINCT FROM 'usuarios_admin_listar' AND p_perfil_mutacion IS DISTINCT FROM 'usuarios_admin_consultar' AND p_perfil_mutacion IS DISTINCT FROM 'servicios_certificados_propios' AND p_perfil_mutacion IS DISTINCT FROM 'lote_perfiles_admin' AND p_perfil_mutacion IS DISTINCT FROM 'actos_admin_perfiles' AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_plan_nominal_firma_ct' AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_rol_nuevo' AND p_perfil_mutacion IS DISTINCT FROM 'revision_inscripcion' AND p_perfil_mutacion IS DISTINCT FROM 'incorporacion_inscripcion' AND p_perfil_mutacion IS DISTINCT FROM 'version_rol_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'version_rol_bolsa_externa'
+               AND p_perfil_mutacion IS DISTINCT FROM 'documentos_subida_local_externa'
+               AND p_perfil_mutacion IS DISTINCT FROM 'documentos_bolsa_externa'
+               AND p_perfil_mutacion IS DISTINCT FROM 'documentos_bolsa_rrhh'
                AND p_perfil_mutacion IS DISTINCT FROM 'meritos_cartera_retirada'
                AND p_perfil_mutacion IS DISTINCT FROM 'consulta_politica_ofertas_bolsa'
                AND p_perfil_mutacion IS DISTINCT FROM 'consulta_persona_aceptacion_ct_bolsa'
@@ -316,6 +333,7 @@ BEGIN
                AND p_perfil_mutacion IS DISTINCT FROM 'contacto_participacion_bolsa'
                AND p_perfil_mutacion IS DISTINCT FROM 'datos_contacto_participacion_bolsa'
                AND p_perfil_mutacion IS DISTINCT FROM 'emision_llamamiento_bolsa'
+               AND p_perfil_mutacion IS DISTINCT FROM 'cierre_intencion_oferta_ct_bolsa'
                AND p_perfil_mutacion IS DISTINCT FROM 'consulta_relacion_propia_dietas_personal'
                AND p_perfil_mutacion IS DISTINCT FROM 'crear_borrador_propio_dietas'
                AND p_perfil_mutacion IS DISTINCT FROM 'consultar_borrador_propio_dietas'
@@ -374,7 +392,8 @@ BEGIN
                OR p_perfil_mutacion IS NOT DISTINCT FROM 'situacion_participacion_bolsa'
                OR p_perfil_mutacion IS NOT DISTINCT FROM 'contacto_participacion_bolsa'
                OR p_perfil_mutacion IS NOT DISTINCT FROM 'datos_contacto_participacion_bolsa'
-               OR p_perfil_mutacion IS NOT DISTINCT FROM 'emision_llamamiento_bolsa')
+               OR p_perfil_mutacion IS NOT DISTINCT FROM 'emision_llamamiento_bolsa'
+               OR p_perfil_mutacion IS NOT DISTINCT FROM 'cierre_intencion_oferta_ct_bolsa')
                AND NOT pg_catalog.pg_has_role(
                    session_user, 'vec_personal_ejecutor', 'MEMBER')
                AND NOT pg_catalog.pg_has_role(
@@ -706,6 +725,51 @@ BEGIN
                    'contratacion_temporal.solicitud.crear'
                AND d ->> 'accion' IS NOT DISTINCT FROM
                    'contratacion_temporal.solicitud.crear'
+           )
+           OR (
+               p_perfil_mutacion IS NOT DISTINCT FROM 'cierre_intencion_oferta_ct_bolsa'
+               AND c ->> 'audiencia_consumo' IS NOT DISTINCT FROM
+                   'vec_bolsa_llamamientos.oferta_ct.intencion_cerrar.v1'
+               AND c ->> 'operacion' IS NOT DISTINCT FROM
+                   'bolsa.oferta.intencion.cerrar'
+               AND d ->> 'accion' IS NOT DISTINCT FROM c ->> 'operacion'
+               AND d ->> 'modulo_id' IS NOT DISTINCT FROM 'bolsa'
+               AND d ->> 'tipo_recurso' IS NOT DISTINCT FROM 'bolsa_constituida'
+               AND d ->> 'finalidad' IS NOT DISTINCT FROM 'gestion_llamamientos_bolsa'
+               AND d ->> 'recurso_ref' IS NOT DISTINCT FROM c ->> 'efecto_ref'
+               AND d ->> 'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c ->> 'huella_efecto_sha256'
+               AND d -> 'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
+               AND d -> 'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb
+           )
+           OR (
+               p_perfil_mutacion IS NOT DISTINCT FROM 'descarte_seleccion_oferta_ct'
+               AND c ->> 'audiencia_consumo' IS NOT DISTINCT FROM
+                   'vec_contratacion_temporal.seleccion_oferta.descartar.v1'
+               AND c ->> 'operacion' IS NOT DISTINCT FROM
+                   'contratacion_temporal.bolsa.oferta.descartar'
+               AND d ->> 'accion' IS NOT DISTINCT FROM c ->> 'operacion'
+               AND d ->> 'modulo_id' IS NOT DISTINCT FROM 'contratacion_temporal'
+               AND d ->> 'tipo_recurso' IS NOT DISTINCT FROM 'seleccion_oferta_expediente'
+               AND d ->> 'finalidad' IS NOT DISTINCT FROM 'tramitacion_expediente_contratacion_temporal'
+               AND d ->> 'recurso_ref' IS NOT DISTINCT FROM c ->> 'efecto_ref'
+               AND d ->> 'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c ->> 'huella_efecto_sha256'
+               AND d -> 'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
+               AND d -> 'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb
+           )
+           OR (
+               p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_oferta_bolsa_ct'
+               AND c ->> 'audiencia_consumo' IS NOT DISTINCT FROM
+                   'vec_contratacion_temporal.vinculo_oferta_bolsa.v1'
+               AND c ->> 'operacion' IS NOT DISTINCT FROM
+                   'contratacion_temporal.bolsa.oferta.vincular'
+               AND d ->> 'accion' IS NOT DISTINCT FROM c ->> 'operacion'
+               AND d ->> 'modulo_id' IS NOT DISTINCT FROM 'contratacion_temporal'
+               AND d ->> 'tipo_recurso' IS NOT DISTINCT FROM 'vinculo_oferta_bolsa_expediente'
+               AND d ->> 'finalidad' IS NOT DISTINCT FROM 'tramitacion_expediente_contratacion_temporal'
+               AND d ->> 'recurso_ref' IS NOT DISTINCT FROM c ->> 'efecto_ref'
+               AND d ->> 'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c ->> 'huella_efecto_sha256'
+               AND d -> 'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
+               AND d -> 'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb
            )
            OR (
                p_perfil_mutacion IS NOT DISTINCT FROM 'vinculo_emision_bolsa_ct'
@@ -2685,6 +2749,59 @@ BEGIN
  AND d->'campos_permitidos' IS NOT DISTINCT FROM '["hecho_actual","recibo_consulta"]'::jsonb
  AND d->'obligaciones' IS NOT DISTINCT FROM '["auditar"]'::jsonb)
            OR (
+ p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_subida_local_externa'
+ AND c->>'operacion' IN ('meritos.cartera.comprobante.subir_propio','meritos.cartera.comprobante.descargar_propio')
+ AND c->>'audiencia_consumo' IS NOT DISTINCT FROM (CASE c->>'operacion'
+  WHEN 'meritos.cartera.comprobante.subir_propio' THEN 'vec_documentos.subida_local.acto_modulo.v1'
+  ELSE 'vec_documentos.subida_local.descarga_propia.v1' END)
+ AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
+ AND d->>'modulo_id' IS NOT DISTINCT FROM 'meritos'
+ AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'hecho'
+ AND d->>'finalidad' IS NOT DISTINCT FROM 'custodiar_evidencia_meritos'
+ AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
+ AND d->>'recurso_ref' ~ '^ref:[0-9a-f]{64}$'
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'externa_personal'
+ AND d->'campos_permitidos' IS NOT DISTINCT FROM (CASE c->>'operacion'
+  WHEN 'meritos.cartera.comprobante.subir_propio' THEN '["contenido","estado","recibo"]'::jsonb
+  ELSE '["contenido"]'::jsonb END)
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
+           OR (
+ p_perfil_mutacion IN ('documentos_bolsa_externa','documentos_bolsa_rrhh')
+ AND c->>'operacion' IN ('bolsa.justificante_renuncia.subir_propio',
+   'bolsa.justificante_renuncia.descargar_propio','bolsa.justificante_renuncia.descargar_rrhh')
+ AND ((p_perfil_mutacion='documentos_bolsa_externa' AND
+      c->>'operacion' IN ('bolsa.justificante_renuncia.subir_propio',
+       'bolsa.justificante_renuncia.descargar_propio')) OR
+      (p_perfil_mutacion='documentos_bolsa_rrhh' AND
+       c->>'operacion'='bolsa.justificante_renuncia.descargar_rrhh'))
+ AND ((c->>'operacion'='bolsa.justificante_renuncia.subir_propio' AND
+   c->>'audiencia_consumo' IN ('vec_documentos.bolsa.justificante_renuncia.preparar_subida.v1',
+    'vec_documentos.bolsa.justificante_renuncia.subida.v1')) OR
+  (c->>'operacion'='bolsa.justificante_renuncia.descargar_propio' AND
+   c->>'audiencia_consumo'='vec_documentos.bolsa.justificante_renuncia.descarga_propia.v1') OR
+  (c->>'operacion'='bolsa.justificante_renuncia.descargar_rrhh' AND
+   c->>'audiencia_consumo' IN ('vec_documentos.bolsa.justificante_renuncia.preparar_descarga_rrhh.v1',
+    'vec_documentos.bolsa.justificante_renuncia.descarga_rrhh.v1')))
+ AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
+ AND d->>'modulo_id' IS NOT DISTINCT FROM 'bolsa'
+ AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'justificante_renuncia'
+ AND d->>'finalidad' IS NOT DISTINCT FROM 'custodiar_justificante_renuncia_bolsa'
+ AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM
+  (CASE WHEN p_perfil_mutacion='documentos_bolsa_externa' THEN 'externa_personal'
+   ELSE 'interna_corporativa' END)
+ AND (p_perfil_mutacion<>'documentos_bolsa_externa' OR
+  (d#>>'{vinculo_autenticacion_actor,cuenta_privilegiada}' IS NOT DISTINCT FROM 'false'
+   AND d#>>'{vinculo_autenticacion_actor,garantia_observada}' IS NOT DISTINCT FROM 'alto'))
+ AND (p_perfil_mutacion<>'documentos_bolsa_rrhh' OR
+  d#>>'{vinculo_autenticacion_actor,garantia_observada}' IN ('alto','sustancial'))
+ AND d->'campos_permitidos' IS NOT DISTINCT FROM
+  (CASE WHEN c->>'operacion'='bolsa.justificante_renuncia.subir_propio'
+   THEN '["contenido","estado","recibo"]'::jsonb ELSE '["contenido"]'::jsonb END)
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
+           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_cartera_retirada'
  AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_meritos.cartera.retirar_propio.v1'
  AND c->>'operacion' IS NOT DISTINCT FROM 'meritos.cartera.retirar_propio'
@@ -2801,7 +2918,21 @@ BEGIN
        ) THEN
         RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='consumo Aspirantes rechazado';
     END IF;
-    IF p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_cartera_retirada'
+    IF p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_bolsa_externa'
+       AND vec_autorizacion.revalidar_sesion_documental_bolsa_v1(
+         d->'vinculo_autenticacion_actor',
+         (c->>'emitida_en')::timestamptz,(c->>'expira_en')::timestamptz,
+         clock_timestamp()) IS NOT TRUE THEN
+        RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='sesión documental Bolsa denegada';
+    END IF;
+    IF p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_bolsa_rrhh'
+       AND vec_autorizacion.revalidar_sesion_documental_bolsa_rrhh_v1(
+         d->'vinculo_autenticacion_actor',
+         (c->>'emitida_en')::timestamptz,(c->>'expira_en')::timestamptz,
+         clock_timestamp()) IS NOT TRUE THEN
+        RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='sesión RRHH documental Bolsa denegada';
+    END IF;
+    IF p_perfil_mutacion IN ('meritos_cartera_retirada','documentos_subida_local_externa')
        AND vec_autorizacion.revalidar_sesion_cartera_meritos_v1(
         d->'vinculo_autenticacion_actor',
         (c->>'emitida_en')::timestamptz,(c->>'expira_en')::timestamptz,
@@ -2980,10 +3111,15 @@ BEGIN
             ERRCODE = '42501',
             MESSAGE = 'confianza VEC-AD-3 rechazada';
     END IF;
-    IF p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_cartera_retirada' THEN
+    IF p_perfil_mutacion IN ('meritos_cartera_retirada','documentos_subida_local_externa') THEN
         SELECT * INTO v_registro
           FROM vec_autorizacion.registrar_y_revalidar_decision_meritos_externo_v3(
             p_decision_canonica,p_motivo_canonico,p_persona_version,p_perfil_version);
+    ELSIF p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_bolsa_externa' THEN
+        SELECT * INTO v_registro
+          FROM vec_autorizacion.registrar_y_revalidar_documentos_bolsa_externa_v3(
+              p_decision_canonica, p_motivo_canonico,
+              p_persona_version, p_perfil_version);
     ELSE
         SELECT * INTO v_registro
           FROM vec_autorizacion.
@@ -3020,9 +3156,14 @@ BEGIN
             ERRCODE = '42501',
             MESSAGE = 'vigencia VEC-AD-3 agotada';
     END IF;
-    IF p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_cartera_retirada' THEN
+    IF p_perfil_mutacion IN ('meritos_cartera_retirada','documentos_subida_local_externa') THEN
         v_revalidada_en:=vec_autorizacion.revalidar_decision_meritos_externo_v3_viva(
           p_decision_canonica,p_motivo_canonico,p_persona_version,p_perfil_version);
+    ELSIF p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_bolsa_externa' THEN
+        v_revalidada_en :=
+          vec_autorizacion.revalidar_documentos_bolsa_externa_v3_viva(
+              p_decision_canonica, p_motivo_canonico,
+              p_persona_version, p_perfil_version);
     ELSE
         v_revalidada_en :=
           vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
@@ -3126,7 +3267,7 @@ $function$;
 DO $nucleo_postimagen$
 DECLARE f regprocedure:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
 BEGIN
- IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM '13e7bc1b050f44cf61786875a752610c180884c0264acb02ab1b89a73ab8daed'
+ IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM '3c3e5f8a67efa5e37772e3197c91ff7fbe00c9b9ca1a2dfc8bcd9c3e7c76ecda'
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
     OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
@@ -3142,13 +3283,27 @@ BEGIN
  SELECT pg_get_constraintdef(c.oid,true) INTO STRICT d
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
   AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
- IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM '6d42d1f8ce4be9164e8fd6c1bb76c508be600284bb73398c1f77e132d1d687e5' THEN
-  RAISE EXCEPTION 'AD283: audiencia de principal distinta' USING ERRCODE='55000'; END IF;
+ IF encode(sha256(convert_to(d,'UTF8')),'hex') IS DISTINCT FROM
+      '919e9a7cb6901e3272ae5f6752ec5d1381a363c21e35477ce97f9bf4d07fb757'
+    OR left(d,7)<>'CHECK (' OR right(d,1)<>')'
+    OR strpos(d,'vec_bolsa_llamamientos.politica_transiciones.publicar.v1')>0
+    OR strpos(d,'vec_contratacion_temporal.vinculo_oferta_bolsa.v1')=0
+    OR strpos(d,'vec_contratacion_temporal.seleccion_oferta.descartar.v1')=0
+    OR strpos(d,'vec_bolsa_llamamientos.oferta_ct.intencion_cerrar.v1')=0
+ THEN RAISE EXCEPTION 'AD283: audiencia posterior a AD278 incompatible' USING ERRCODE='55000'; END IF;
 END $audiencias_preimagen$;
-ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
- DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
-ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
- ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check CHECK (((audiencia_consumo = ANY (ARRAY['vec_contratacion_temporal.confirmar_alta_atestada.v1'::text, 'vec_bolsa_llamamientos.confirmar_integracion_desarrollo.v1'::text, 'vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1'::text, 'vec_contratacion_temporal.consultar_detalle_rrhh_atestado.v1'::text, 'vec_personal.alta_ejercicio.v1'::text, 'vec_contratacion_temporal.incorporacion_ejercicio.v2'::text, 'vec_personal.lectura_incorporacion.v1'::text, 'vec_personal.lectura_incorporacion.v2'::text, 'vec_contratacion_temporal.anotacion_administrativa.v1'::text, 'vec_contratacion_temporal.cierre_administrativo_sin_cese.v1'::text, 'vec_contratacion_temporal.despacho_correo_llamamiento.v1'::text, 'vec_contratacion_temporal.resultado_correo_llamamiento.v1'::text, 'vec.bolsa.mi-bolsa.v1'::text, 'vec_bolsa_llamamientos.borrador_llamamiento_interno.crear.v1'::text, 'vec_bolsa_llamamientos.borrador_llamamiento_interno.consultar.v1'::text, 'vec_bolsa_llamamientos.situacion_participacion.cambiar.v1'::text, 'vec_bolsa_llamamientos.contacto_participacion.registrar.v1'::text, 'vec_bolsa_llamamientos.contacto_participacion.consultar.v1'::text, 'vec_bolsa_llamamientos.datos_contacto_participacion.registrar.v1'::text, 'vec_bolsa_llamamientos.llamamiento.emitir.v1'::text, 'vec_personal.relacion_propia.consultar_dietas.v1'::text, 'vec_dietas.borrador_propio.crear.v1'::text, 'vec_dietas.borrador_propio.consultar.v1'::text, 'vec_dietas_rutas_v1.acceso.v1'::text, 'vec_personal.organizacion_historica.consultar.v1'::text, 'vec_personal.organizacion_historica.importar.v1'::text, 'vec_cronos_v1.marcaje_propio.v1'::text, 'vec_cronos_v1.marcaje_remoto_disponibilidad.v1'::text, 'vec_cronos_v1.marcaje_remoto_recibo.v1'::text, 'vec_cronos_v1.saldo_propio.consultar.v1'::text, 'vec_dietas.borrador_propio.editar.v1'::text, 'vec_dietas.borrador_propio.borrar.v1'::text, 'vec_dietas.borrador_propio.enviar.v1'::text, 'vec_dietas.documento_propio.consultar.v1'::text, 'vec_personal.asignacion_dietas.consultar.v1'::text, 'vec_personal.asignacion_dietas.corregir.v1'::text, 'vec_personal.asignacion_dietas.grupo_corregir.v1'::text, 'vec_personal.asignacion_dietas.registrar_inicial.v1'::text, 'vec_dietas.documento.revisar.v1'::text, 'vec_dietas.documento.autorizar.v1'::text, 'vec_dietas.circuito.preleer.v1'::text, 'vec_dietas.documento.liquidar.v1'::text, 'vec_dietas.documento.fiscalizar.v1'::text, 'vec_dietas.bandeja.revision.consultar.v1'::text, 'vec_dietas.bandeja.autorizacion.consultar.v1'::text, 'vec_dietas.bandeja.liquidacion.consultar.v1'::text, 'vec_dietas.bandeja.fiscalizacion.consultar.v1'::text, 'vec_personal.asignacion_dietas.competencias.v1'::text, 'vec_personal.asignacion_dietas.rectificacion.solicitar.v1'::text, 'vec_personal.asignacion_dietas.rectificacion.propia.consultar.v1'::text, 'vec_personal.asignacion_dietas.rectificacion.resolver.v1'::text, 'vec_personal.asignacion_dietas.rectificacion.competente.consultar.v1'::text, 'vec_dietas.circuito.documento.consultar.v1'::text, 'vec_cronos_v1.movimientos_propio.consultar.v1'::text, 'vec_cronos_v1.correccion_propia.solicitar.v1'::text, 'vec_cronos_v1.permisos_propio.consultar.v1'::text, 'vec_cronos_v1.permiso_propio.solicitar.v1'::text, 'vec_personal.registro_empleado.alta.v1'::text, 'vec_personal.registro_empleado.hecho.v1'::text, 'vec_personal.registro_empleado.ficha.v1'::text, 'vec_personal.registro_empleado.vacantes.v1'::text, 'vec_personal.registro_empleado.catalogo.publicar.v1'::text, 'vec_personal.registro_empleado.catalogo.retirar.v1'::text, 'vec_personal.registro_empleado.catalogo.consultar.v1'::text, 'vec_personal.registro_empleado.empleados.v1'::text, 'vec_contratacion_temporal.cese.v1'::text, 'vec_contratacion_temporal.cierre_expediente.v1'::text, 'vec_contratacion_temporal.modificacion_tras_nombramiento.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.solicitar_pausa.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.solicitar_reactivacion.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.manifestar_disposicion.v1'::text, 'vec_contratacion_temporal.firma_documento.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.confirmar_contacto.v1'::text, 'vec_documentos.operacion.v1'::text, 'vec_contratacion_temporal.cancelacion_expediente.v1'::text, 'vec_contratacion_temporal.confirmacion_ginpix.v1'::text, 'vec_contratacion_temporal.no_incorporacion.v1'::text, 'vec.bolsa.mi-bolsa.historial.v1'::text, 'vec_auditoria.consulta_rrhh.v1'::text, 'vec_contratacion_temporal.reincorporacion_titular.v1'::text, 'vec_bolsa_llamamientos.politica_ofertas.publicar.v1'::text, 'vec_contratacion_temporal.catalogo_plantillas.v1'::text, 'vec_bolsa_llamamientos.politica_cese.consultar.v1'::text, 'vec_contratacion_temporal.catalogo_plantillas_documental.v1'::text, 'vec_bolsa_llamamientos.politica_ofertas.consultar.v1'::text, 'vec_contratacion_temporal.lectura_reincorporacion_titular.v1'::text, 'vec_bolsa_llamamientos.reincorporacion_titular.consultar.v1'::text, 'vec_contratacion_temporal.comunicaciones_expediente.consultar.v1'::text, 'vec_usuarios.preferencias.consultar.interna_corporativa.v1'::text, 'vec_usuarios.preferencias.actualizar.interna_corporativa.v1'::text, 'vec_usuarios.preferencias.consultar.externa_personal.v1'::text, 'vec_usuarios.preferencias.actualizar.externa_personal.v1'::text, 'vec_usuarios.correos.consultar.interna_corporativa.v1'::text, 'vec_usuarios.correos.consultar.externa_personal.v1'::text, 'vec_usuarios.correos.anadir.interna_corporativa.v1'::text, 'vec_usuarios.correos.anadir.externa_personal.v1'::text, 'vec_usuarios.correos.reenviar.interna_corporativa.v1'::text, 'vec_usuarios.correos.reenviar.externa_personal.v1'::text, 'vec_usuarios.correos.verificar.interna_corporativa.v1'::text, 'vec_usuarios.correos.verificar.externa_personal.v1'::text, 'vec_usuarios.correos.activar.interna_corporativa.v1'::text, 'vec_usuarios.correos.activar.externa_personal.v1'::text, 'vec_usuarios.correos.retirar.interna_corporativa.v1'::text, 'vec_usuarios.correos.retirar.externa_personal.v1'::text, 'vec_usuarios.imagen.consultar.interna_corporativa.v1'::text, 'vec_usuarios.imagen.consultar.externa_personal.v1'::text, 'vec_usuarios.imagen.actualizar.interna_corporativa.v1'::text, 'vec_usuarios.imagen.actualizar.externa_personal.v1'::text, 'vec_usuarios.correos.avisos_llamamiento.interna_corporativa.v1'::text, 'vec_aspirantes.ficha.consultar.externa_personal.v1'::text, 'vec_aspirantes.ficha.alta.externa_personal.v1'::text, 'vec_aspirantes.ficha.rectificar.externa_personal.v1'::text, 'vec_contratacion_temporal.ajustes_reglas.v1'::text, 'vec_contratacion_temporal.firmas_documento.consultar.v1'::text, 'vec_catalogos_configurables.lectura_categorias.v1'::text, 'vec_catalogos_configurables.usos_categorias.v1'::text, 'vec_contratacion_temporal.categoria_rpt.vinculo.consultar.v1'::text, 'vec_contratacion_temporal.categoria_rpt.vinculo.registrar.v1'::text, 'vec_bolsa_llamamientos.aceptacion_ct.persona.v1'::text, 'vec_bolsa_llamamientos.aceptacion_ct.anclaje.v1'::text, 'vec_personal.plan_incorporacion_ct.v1'::text, 'vec_contratacion_temporal.incorporacion_personal.plan.consultar.v1'::text, 'vec_contratacion_temporal.incorporacion_personal.plan.registrar.v1'::text, 'vec_contratacion_temporal.incorporacion_personal.origen.confirmar.v1'::text, 'vec_bolsa_llamamientos.participaciones_propias.presentar_solicitud_documental.v1'::text, 'vec_bolsa_llamamientos.solicitudes_documentales.resolver.v1'::text, 'vec_bolsa_llamamientos.solicitudes_documentales.consultar_rrhh.v1'::text, 'vec_contratacion_temporal.circuito.consultar.v1'::text, 'vec_contratacion_temporal.firma_externa.v1'::text, 'vec_contratacion_temporal.firma_vec.v2'::text, 'vec_contratacion_temporal.firma_externa.v2'::text, 'vec_contratacion_temporal.firmas_r5.consultar.v2'::text, 'vec_contratacion_temporal.firmas_r5.consultar.v1'::text, 'vec_contexto_actor.certificado_nominal.publicar.v1'::text, 'vec_personal.cargo_competencial.publicar.v1'::text, 'vec_autorizacion.administracion_perfiles.lectura.capacidades.v1'::text])) OR (audiencia_consumo = ANY (ARRAY['vec.persona.denominacion.publicar.v1'::text, 'vec.persona.denominacion.leer.v1'::text])) OR (audiencia_consumo = ANY (ARRAY['vec.admin.usuarios.listar.v1'::text, 'vec.admin.usuarios.consultar.v1'::text])) OR audiencia_consumo = 'vec_personal.servicios_certificados.v1'::text OR (audiencia_consumo = ANY (ARRAY['vec_contratacion_temporal.firmas_r5.recuperar.v2'::text, 'vec_catalogos_configurables.plan_nominal_firma.gobierno.v1'::text])) OR audiencia_consumo = 'vec_autorizacion.administracion_perfiles.lote_ordinario.v1'::text OR audiencia_consumo = 'vec_bolsa_llamamientos.datos_contacto_participacion.consultar.v1'::text OR audiencia_consumo = 'vec_contratacion_temporal.borrador_rrhh.descargar.v1'::text OR audiencia_consumo = 'vec_personal.registro_empleado.ficha_propia.v1'::text OR audiencia_consumo = 'vec_personal.registro_empleado.ficha_propia.servicios.exportar.v1'::text OR audiencia_consumo = 'vec_personal.registro_empleado.servicios.historia_propia.v1'::text OR (audiencia_consumo = ANY (ARRAY['vec_bolsa_llamamientos.rrhh.bolsas.consultar.v1'::text, 'vec_bolsa_llamamientos.rrhh.estadisticas.consultar.v1'::text, 'vec_bolsa_llamamientos.rrhh.candidatos.consultar.v1'::text])) OR audiencia_consumo = 'vec_bolsa_llamamientos.carga_convoca.confirmar.v1'::text OR audiencia_consumo = 'vec_contratacion_temporal.vinculo_emision_bolsa.v1'::text OR (audiencia_consumo = ANY (ARRAY['vec_autorizacion.gobierno_rol_nuevo.propuesta.v1'::text, 'vec_autorizacion.gobierno_rol_nuevo.cierre.v1'::text])) OR (audiencia_consumo = ANY (ARRAY['vec_autorizacion.versionar_rol_bolsa.propuesta.v1'::text, 'vec_autorizacion.versionar_rol_bolsa.cierre.v1'::text])) OR (audiencia_consumo = ANY (ARRAY['vec_bolsa_llamamientos.inscripcion.presentar.v1'::text, 'vec_bolsa_llamamientos.inscripcion.revisar.v1'::text])) OR audiencia_consumo = 'vec_bolsa_llamamientos.inscripcion.incorporar.v1'::text OR (audiencia_consumo = ANY (ARRAY['vec_autorizacion.administracion_perfiles.ordinario.v1'::text, 'vec_autorizacion.administracion_perfiles.propuesta.v1'::text, 'vec_autorizacion.administracion_perfiles.cierre.v1'::text])) OR (audiencia_consumo = ANY (ARRAY['vec_documentos.carga.preparar_reserva.v1'::text, 'vec_documentos.carga.preparar_confirmacion.v1'::text, 'vec_documentos.carga.preparar_respuesta.v1'::text, 'vec_documentos.carga.consultar_propia.v1'::text, 'vec_documentos.carga.conciliar.v1'::text, 'vec_documentos.carga.confirmar_intencion.v1'::text, 'vec_documentos.carga.confirmar_resultado.v1'::text, 'vec_documentos.carga.analizar.v1'::text, 'vec_documentos.carga.promover_intencion.v1'::text, 'vec_documentos.carga.promover_resultado.v1'::text, 'vec_documentos.carga_admitida.consultar_para_custodia.v1'::text, 'vec_documentos.carga_admitida.leer_carga_admitida_para_custodia.v1'::text])) OR audiencia_consumo = 'vec.bolsa.preferencias-bolsas.ordenar.v1'::text OR (audiencia_consumo = ANY (ARRAY['vec_autorizacion.versionar_rol_bolsa_externa.propuesta.v1'::text, 'vec_autorizacion.versionar_rol_bolsa_externa.cierre.v1'::text, 'vec_meritos.hecho.declarar.v1'::text, 'vec_meritos.hecho.rectificar.v1'::text, 'vec_meritos.hecho.rechazar.v1'::text, 'vec_meritos.hecho.consultar_propio.v1'::text])) OR audiencia_consumo = 'vec_meritos.cartera.retirar_propio.v1'::text OR audiencia_consumo = 'vec_bolsa_llamamientos.alegacion.presentar.v1'::text) OR audiencia_consumo = 'vec_bolsa_llamamientos.politica_transiciones.publicar.v1'::text);
+DO $audiencias_actualizacion$
+DECLARE anterior text;interior text;ampliada text;
+BEGIN
+ SELECT pg_get_constraintdef(c.oid,true) INTO STRICT anterior
+ FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
+  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
+ interior:=substr(anterior,8,length(anterior)-8);
+ ampliada:='CHECK (('||interior||') OR audiencia_consumo = ''vec_bolsa_llamamientos.politica_transiciones.publicar.v1'')';
+ ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
+  DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
+ EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||ampliada;
+END $audiencias_actualizacion$;
 DO $audiencias_postimagen$
 DECLARE d text;
 BEGIN
@@ -3156,8 +3311,11 @@ BEGIN
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
   AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  IF strpos(d,'vec_bolsa_llamamientos.politica_transiciones.publicar.v1')=0
-    OR strpos(d,'vec_bolsa_llamamientos.politica_ofertas.publicar.v1')=0 THEN
-  RAISE EXCEPTION 'AD283: audiencia nueva incompatible' USING ERRCODE='55000'; END IF;
+    OR strpos(d,'vec_bolsa_llamamientos.politica_ofertas.publicar.v1')=0
+    OR strpos(d,'vec_contratacion_temporal.vinculo_oferta_bolsa.v1')=0
+    OR strpos(d,'vec_contratacion_temporal.seleccion_oferta.descartar.v1')=0
+    OR strpos(d,'vec_bolsa_llamamientos.oferta_ct.intencion_cerrar.v1')=0
+ THEN RAISE EXCEPTION 'AD283: audiencia nueva incompatible' USING ERRCODE='55000'; END IF;
 END $audiencias_postimagen$;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_politica_transiciones_bolsa_v3_atestada(
