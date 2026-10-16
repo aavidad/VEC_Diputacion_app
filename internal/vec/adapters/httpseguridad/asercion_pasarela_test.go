@@ -119,6 +119,30 @@ func prepararPeticionPrueba(t *testing.T, metodo, ruta, cuerpo string) *http.Req
 	return preparada
 }
 
+func TestPasarelaAcotaRegistroVecDosMiBSinAmpliarOtrasRutas(t *testing.T) {
+	cuerpo := strings.Repeat("x", LimiteCuerpoRegistroFirmaVecPasarela)
+	preparar := func(metodo, ruta, contenido string) error {
+		r := httptest.NewRequest(metodo, ruta, strings.NewReader(contenido))
+		preparada, err := PrepararPeticionAsercionPasarela(r, LimiteCuerpoRegistroFirmaVecPasarela)
+		if preparada != nil {
+			_ = preparada.Body.Close()
+		}
+		return err
+	}
+	if err := preparar(http.MethodPost, rutaRegistroFirmaVecPasarela, cuerpo); err != nil {
+		t.Fatalf("cuerpo máximo de registro VEC rechazado: %v", err)
+	}
+	for _, caso := range []struct{ metodo, ruta, contenido string }{
+		{http.MethodPost, rutaRegistroFirmaVecPasarela, cuerpo + "x"},
+		{http.MethodPost, "/api/vec/contratacion-temporal/firmas-documento/registro-externo", cuerpo},
+		{http.MethodGet, rutaRegistroFirmaVecPasarela, cuerpo},
+	} {
+		if err := preparar(caso.metodo, caso.ruta, caso.contenido); !errors.Is(err, ErrAsercionPasarela) {
+			t.Fatalf("límite ampliado fuera de la ruta exacta: %s %s: %v", caso.metodo, caso.ruta, err)
+		}
+	}
+}
+
 func (e entornoAsercionPasarela) emitirPara(t *testing.T, r *http.Request) []byte {
 	t.Helper()
 	vinculo, ok := r.Context().Value(claveContextoPeticionPasarela{}).(VinculoPeticionPasarela)

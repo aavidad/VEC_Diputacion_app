@@ -623,6 +623,17 @@ conserva sus revocaciones y la reutilización comprueba el material privado.
 Los cargos del kit están vigentes hasta el 31 de diciembre de 2027. La ventana
 entre preparar y aprobar su publicación sigue limitada a un día.
 
+El corte F1-37 unifica el PDF binario en 2 MiB para borrador, original,
+firma, custodia y descarga del recorrido nominal de firma VEC. Los cuerpos con Base64 y metadatos tienen cotas
+calculadas aparte; la ruta antigua puede contener dos PDF. La pasarela
+conserva su límite general y amplía solo la excepción de registro VEC. La
+verificación no cambia y el almacén debe admitir objetos de al menos 2 MiB.
+Las rutas antiguas `firmas-documento` y `firmas-documento/registro-externo`
+conservan 1 MiB de petición JSON total en la pasarela; no admiten por esa
+frontera un PDF de 2 MiB, aunque sus manejadores tengan cotas mayores.
+El cierre de auditoría de un montaje parcial tolera ausencia y se ejecuta una
+sola vez cuando existe, sin tapar el error original.
+
 Un borrador no es un documento firmado. Autenticarse no es firmar. Un aviso no es
 una entrega acreditada. Una referencia a un correo no es su custodia. No se
 inventan plazos, nombramientos eficaces ni incorporaciones.
