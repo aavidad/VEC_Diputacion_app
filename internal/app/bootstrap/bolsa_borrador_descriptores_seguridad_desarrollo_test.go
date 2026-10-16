@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -64,8 +65,8 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 26 {
-		t.Fatalf("fronteras = %d, se esperan 26 con CONVOCA y la lectura GET/HEAD de política de cese", len(fronteras))
+	if len(fronteras) != 28 {
+		t.Fatalf("fronteras = %d, se esperan 28 con CONVOCA y las lecturas GET/HEAD de bolsas y política de cese", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
@@ -162,6 +163,42 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	}
 	if _, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(""); !errors.Is(err, ErrSeguridadComunDesarrolloDenegada) {
 		t.Fatalf("perfil ausente = %v", err)
+	}
+}
+
+func TestFronteraBolsaBaseResuelveSoloPerfilBolsaYRutaExacta(t *testing.T) {
+	const perfilBolsa = "prf_bolsa_bback"
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfilBolsa)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, metodo := range []string{http.MethodGet, http.MethodHead} {
+		for _, consulta := range []string{"", "?perfil=propio"} {
+			peticion := httptest.NewRequest(metodo, bolsahttp.RutaBolsasGestion+consulta, nil)
+			descriptor, ok := catalogo.resolver(peticion.Method, peticion.URL.Path)
+			if !ok || descriptor.Ruta != bolsahttp.RutaBolsasGestion ||
+				descriptor.Metodo != metodo || descriptor.Superficie != superficieInternaSeguridadComunDesarrollo ||
+				descriptor.ClavePolitica != clavePoliticaBorradorLlamamientoBolsaDesarrollo ||
+				descriptor.ClaveCapacidad != claveCapacidadConsultarBorradorLlamamientoBolsa ||
+				len(descriptor.PerfilesActivosRef) != 1 || !descriptor.admitePerfil(perfilBolsa) ||
+				descriptor.admitePerfil("prf_ct_ajeno") || len(descriptor.PlantillaDetalle) != 0 || descriptor.DetalleColeccion {
+				t.Fatalf("%s %s no quedó ligado a la sesión Bolsa exacta: %+v", metodo, peticion.URL.String(), descriptor)
+			}
+		}
+	}
+	for _, caso := range []struct{ metodo, ruta string }{
+		{http.MethodPost, bolsahttp.RutaBolsasGestion},
+		{http.MethodPut, bolsahttp.RutaBolsasGestion},
+		{http.MethodGet, bolsahttp.RutaBolsasGestion + "/otra"},
+		{http.MethodGet, bolsahttp.RutaBolsasGestion + "-ajena"},
+	} {
+		if _, ok := catalogo.resolver(caso.metodo, caso.ruta); ok {
+			t.Fatalf("la frontera base aceptó %s %s", caso.metodo, caso.ruta)
+		}
 	}
 }
 

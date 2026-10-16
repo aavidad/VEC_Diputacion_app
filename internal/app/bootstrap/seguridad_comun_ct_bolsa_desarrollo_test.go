@@ -72,6 +72,49 @@ func TestCatalogoFronterasComunPermitePlantillasDisjuntasMismaBase(t *testing.T)
 	}
 }
 
+func TestCatalogoFronterasComunDistingueBaseExactaYPlantillas(t *testing.T) {
+	exacta := fronteraComunPrueba("base-exacta", http.MethodGet, "/api/modulo", false)
+	plantilla := fronteraComunPrueba("candidatos", http.MethodGet, "/api/modulo", false)
+	plantilla.PlantillaDetalle = []string{"*", "candidatos"}
+	for _, orden := range [][]descriptorFronteraComunDesarrollo{
+		{exacta, plantilla}, {plantilla, exacta},
+	} {
+		catalogo, err := nuevoCatalogoFronterasComunDesarrollo(orden)
+		if err != nil {
+			t.Fatalf("rutas disjuntas rechazadas: %v", err)
+		}
+		for _, caso := range []struct{ ruta, clave string }{
+			{"/api/modulo", "base-exacta"},
+			{"/api/modulo/bolsa/candidatos", "candidatos"},
+		} {
+			if d, ok := catalogo.resolver(http.MethodGet, caso.ruta); !ok || d.Clave != caso.clave {
+				t.Fatalf("ruta %s resuelta por %+v, existe=%t", caso.ruta, d, ok)
+			}
+		}
+		for _, ruta := range []string{"/api/modulo/otra", "/api/modulo-ajeno", "/api/modulo/bolsa/candidatos/extra"} {
+			if _, ok := catalogo.resolver(http.MethodGet, ruta); ok {
+				t.Fatalf("se amplió la ruta %s", ruta)
+			}
+		}
+		if _, ok := catalogo.resolver(http.MethodPost, "/api/modulo"); ok {
+			t.Fatal("la frontera GET admitió POST")
+		}
+	}
+
+	duplicada := fronteraComunPrueba("otra-base", http.MethodGet, "/api/modulo", false)
+	duplicada.PlantillaDetalle = []string{}
+	solapada := fronteraComunPrueba("candidatos-solapada", http.MethodGet, "/api/modulo", false)
+	solapada.PlantillaDetalle = []string{"bolsa", "candidatos"}
+	for _, caso := range [][]descriptorFronteraComunDesarrollo{
+		{exacta, duplicada}, {duplicada, exacta},
+		{plantilla, solapada}, {solapada, plantilla},
+	} {
+		if _, err := nuevoCatalogoFronterasComunDesarrollo(caso); err == nil {
+			t.Fatalf("se admitieron fronteras solapadas: %+v", caso)
+		}
+	}
+}
+
 func TestCatalogoFronterasComunCopiaDescriptoresYAceptaModuloSintetico(t *testing.T) {
 	d := fronteraComunPrueba("cronos", http.MethodPost, "/api/vec/cronos/partes", false)
 	c, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{d})
