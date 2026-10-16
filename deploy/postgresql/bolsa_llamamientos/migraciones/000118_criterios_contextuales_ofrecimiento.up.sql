@@ -15,6 +15,9 @@ DO $pre$ BEGIN
  OR to_regclass('vec_bolsa_llamamientos.origen_llamamiento_ct_v1') IS NULL
  OR to_regclass('vec_bolsa_llamamientos.vinculo_candidato') IS NULL
  OR to_regprocedure('vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint)') IS NULL
+ OR to_regprocedure('vec_catalogos_configurables.comprobar_conjunto_gestion_rrhh_inscripcion_v1()') IS NULL
+ OR has_function_privilege('vec_bolsa_llamamientos_propietario',
+    'vec_catalogos_configurables.comprobar_conjunto_gestion_rrhh_inscripcion_v1()','EXECUTE') IS NOT TRUE
  OR to_regprocedure('vec_bolsa_llamamientos.validar_criterios_ofrecimiento_v1(jsonb)') IS NOT NULL
  OR to_regprocedure('vec_bolsa_llamamientos.motivo_relacion_oferta_v1(text,text,boolean,text,text,timestamptz,jsonb)') IS NOT NULL
  OR to_regprocedure('vec_bolsa_llamamientos.eventos_relacion_oferta_v1(text,timestamptz)') IS NOT NULL
@@ -133,6 +136,7 @@ CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.registrar_contrato_participaci
  SET lock_timeout TO '2s'
 AS $function$
 DECLARE v_previo record; v_llamamiento record; v_origen record; v_ref text; v_clave text := '^[a-z][a-z0-9._-]{1,79}$';
+ v_recibido timestamptz;
  v_opaca text := '^[A-Za-z0-9][A-Za-z0-9:._/-]*$';
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario' THEN
@@ -177,6 +181,14 @@ BEGIN
    RETURN QUERY SELECT false, NULL::text, true;
    RETURN;
   END IF;
+  -- B118: un contrato que llegó divergente de su origen sigue en cuarentena
+  -- cuando se repite idéntico; no se presenta como registrado.
+  IF EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion_cuarentena q
+    WHERE q.evento_ref=v_ref AND q.huella_sha256=p_huella_sha256
+      AND q.origen_posicion=p_origen_posicion) THEN
+   RETURN QUERY SELECT false, NULL::text, true;
+   RETURN;
+  END IF;
   RETURN QUERY SELECT true, v_previo.participacion_ref, false;
   RETURN;
  END IF;
@@ -189,7 +201,24 @@ BEGIN
   IF v_origen.expediente_ref IS DISTINCT FROM p_evento->>'expediente_ref'
      OR v_origen.organizacion_ref IS DISTINCT FROM p_evento->>'organizacion_ref'
      OR v_origen.categoria_ref IS DISTINCT FROM p_evento->>'categoria_ref' THEN
-   RAISE EXCEPTION 'B118: contrato CT y origen Bolsa divergentes' USING ERRCODE='23503';
+   -- Como en B13: el evento queda como historia sin participación ni bolsa
+   -- y en cuarentena, para que el relevo de CT lo registre y siga.
+   v_recibido := date_trunc('microseconds', clock_timestamp());
+   INSERT INTO vec_bolsa_llamamientos.contrato_participacion(
+     evento_ref, huella_sha256, evento, origen_ref, origen_creada_en, origen_posicion, tipo, organizacion_ref, expediente_ref,
+     llamamiento_ref, participacion_ref, bolsa_ref, inicio, fin_previsto, modalidad_clave, categoria_ref,
+     causa_clave, ocurrido_en, recibido_en)
+   VALUES (v_ref, p_huella_sha256, p_evento, p_evento->>'origen_ref', date_trunc('microseconds', p_origen_creada_en), p_origen_posicion,
+     p_evento->>'tipo', p_evento->>'organizacion_ref', p_evento->>'expediente_ref', p_evento->>'llamamiento_ref',
+     NULL, NULL, (p_evento->>'inicio')::timestamptz,
+     (p_evento->>'fin_previsto')::timestamptz, p_evento->>'modalidad_clave', p_evento->>'categoria_ref',
+     p_evento->>'causa_clave', (p_evento->>'ocurrido_en')::timestamptz, v_recibido);
+   INSERT INTO vec_bolsa_llamamientos.contrato_participacion_cuarentena(evento_ref, huella_sha256, evento, origen_ref,
+     origen_creada_en, origen_posicion, recibido_en)
+   VALUES (v_ref, p_huella_sha256, p_evento, p_evento->>'origen_ref', date_trunc('microseconds', p_origen_creada_en),
+     p_origen_posicion, v_recibido);
+   RETURN QUERY SELECT false, NULL::text, true;
+   RETURN;
   END IF;
   SELECT v_origen.bolsa_ref,v_origen.participacion_ref AS participacion
     INTO v_llamamiento;
@@ -231,8 +260,7 @@ DECLARE v_candidato text;v_candidatos int;v_activos int:=0;
         r record;c jsonb;v_encaja boolean;v_incompleto boolean;
         limite jsonb;v_meses int;v_borde timestamptz;
 BEGIN
- IF current_user<>'vec_bolsa_llamamientos_propietario'
- OR p_participacion IS NULL OR p_corte IS NULL OR NOT isfinite(p_corte)
+ IF p_participacion IS NULL OR p_corte IS NULL OR NOT isfinite(p_corte)
  OR p_modalidad IS NULL OR p_modalidad !~ '^[a-z][a-z0-9._-]{1,79}$'
  THEN RETURN 'pendiente_comprobacion_rrhh'; END IF;
  -- La ausencia de criterios conserva exactamente el orden general B6.
@@ -244,12 +272,11 @@ BEGIN
  FROM vec_bolsa_llamamientos.vinculo_candidato vc
  WHERE vc.participacion_ref=p_participacion;
  IF v_candidatos<>1 THEN RETURN 'pendiente_comprobacion_rrhh'; END IF;
+ -- Un hecho en cuarentena, también el divergente de su origen, deja a la
+ -- persona del llamamiento pendiente de comprobación.
  IF EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion cp
    LEFT JOIN vec_bolsa_llamamientos.origen_llamamiento_ct_v1 origen
      ON origen.llamamiento_ref=cp.llamamiento_ref
-    AND origen.expediente_ref=cp.expediente_ref
-    AND origen.organizacion_ref=cp.organizacion_ref
-    AND origen.categoria_ref=cp.categoria_ref
    JOIN vec_bolsa_llamamientos.vinculo_candidato vc
      ON vc.participacion_ref=coalesce(cp.participacion_ref,origen.participacion_ref)
     AND vc.candidato_ref=v_candidato
@@ -372,6 +399,8 @@ CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.leer_orden_contextual_oferta_v
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'pg_catalog', 'pg_temp'
+ SET row_security TO 'on'
+ SET statement_timeout TO '15s'
 AS $function$
  WITH criterio_oferta AS (
   SELECT po.politica->'criterios_ofrecimiento' AS criterios
@@ -897,7 +926,11 @@ BEGIN
    AND x.valor->>'orden_vigente' IS NOT DISTINCT FROM o.orden_vigente::text
    AND x.valor->>'situacion' IS NOT DISTINCT FROM o.situacion
    AND x.valor->>'razon' IS NOT DISTINCT FROM o.razon
-   AND x.valor->'eventos_relacion' IS NOT DISTINCT FROM o.eventos_relacion
+   -- Una lectura sin criterios (B110 general) no trae eventos; con criterios
+   -- publicados la lectura contextual los trae siempre y se cotejan.
+   AND CASE WHEN x.valor ? 'eventos_relacion'
+        THEN x.valor->'eventos_relacion' IS NOT DISTINCT FROM o.eventos_relacion
+        ELSE v_criterios IS NULL END
    AND x.valor->>'candidato_ref' IS NOT DISTINCT FROM coalesce(vc.candidato_ref,'')
    AND x.valor->>'elegible'=(o.orden_vigente IS NOT NULL)::text
    AND o.politica_ref=p_origen->>'politica_ref'
@@ -960,11 +993,10 @@ SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
 DECLARE v_lectura jsonb;v_entradas jsonb;v_exclusiones jsonb:='[]'::jsonb;
         v_total bigint;v_n int:=0;v_hay_mas boolean:=false;v_siguiente bigint;
-        v_hechos jsonb;v_hechos_n int;
+        v_hechos jsonb;v_hechos_n int;v_unidad text;v_conjunto jsonb;
         x record;a record;
 BEGIN
- IF current_user<>'vec_bolsa_llamamientos_propietario'
- OR session_user=current_user
+ IF session_user=current_user
  OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER') IS NOT TRUE
  OR p_bolsa_ref IS NULL OR octet_length(p_bolsa_ref) NOT BETWEEN 1 AND 512
  OR p_llamamiento_ref IS NULL OR p_llamamiento_ref !~ '^llamamiento:[0-9a-f]{64}$'
@@ -978,11 +1010,24 @@ BEGIN
  OR p_orden->>'resultado' IS DISTINCT FROM 'obtenida'
  OR p_orden->>'motivo_ref' IS DISTINCT FROM 'lectura_exclusiones_llamamiento_correcta'
  THEN RAISE EXCEPTION 'B118: exclusiones no autorizadas' USING ERRCODE='42501'; END IF;
- SELECT o.origen_canonico->'lectura' INTO v_lectura
+ -- La captura de Go fija unidad y ámbito desde su configuración: aquí se
+ -- exige que coincidan con la unidad gestora del llamamiento y con el ámbito
+ -- del conjunto de gestión de RRHH (mismo criterio que B124). Una unidad o un
+ -- ámbito ajenos se deniegan igual que una orden incorrecta, sin datos.
+ SELECT o.origen_canonico->'lectura',o.unidad_ref INTO v_lectura,v_unidad
  FROM vec_bolsa_llamamientos.origen_llamamiento_ct_v1 o
  JOIN vec_bolsa_llamamientos.llamamiento_emitido e
    ON e.llamamiento_ref=o.llamamiento_ref AND e.bolsa_ref=o.bolsa_ref
- WHERE o.llamamiento_ref=p_llamamiento_ref AND o.bolsa_ref=p_bolsa_ref;
+ WHERE o.llamamiento_ref=p_llamamiento_ref AND o.bolsa_ref=p_bolsa_ref
+ FOR SHARE OF o,e;
+ IF NOT FOUND THEN
+  RAISE EXCEPTION 'B118: exclusiones no autorizadas' USING ERRCODE='42501'; END IF;
+ v_conjunto:=vec_catalogos_configurables.comprobar_conjunto_gestion_rrhh_inscripcion_v1();
+ IF coalesce(v_unidad ~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,191}$',false) IS NOT TRUE
+ OR coalesce(v_conjunto->>'ambito_ref' ~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,191}$',false) IS NOT TRUE
+ OR p_orden->>'unidad_ref' IS DISTINCT FROM v_unidad
+ OR p_orden->>'ambito_ref' IS DISTINCT FROM v_conjunto->>'ambito_ref'
+ THEN RAISE EXCEPTION 'B118: exclusiones no autorizadas' USING ERRCODE='42501'; END IF;
  v_entradas:=v_lectura->'entradas';
  IF jsonb_typeof(v_entradas) IS DISTINCT FROM 'array'
  OR jsonb_array_length(v_entradas)>100000

@@ -28,8 +28,7 @@ SET lock_timeout='2s' SET statement_timeout='5s' AS $f$
 DECLARE v_organizacion text;v_categoria text;v_modalidad text;v_causa text;
         v_version bigint;
 BEGIN
- IF current_user <> 'vec_contratacion_temporal_propietario'
- OR p_expediente IS NULL OR p_expediente !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+ IF p_expediente IS NULL OR p_expediente !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
  OR p_categoria IS NULL OR octet_length(p_categoria) NOT BETWEEN 3 AND 512
  OR p_categoria<>btrim(p_categoria)
  OR (p_organizacion IS NOT NULL AND
