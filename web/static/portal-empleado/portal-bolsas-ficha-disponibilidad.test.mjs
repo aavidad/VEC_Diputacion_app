@@ -2,6 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderizarReincorporacionesTitular, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js";
 import { consultarOperacionesSituacion, crearControladorOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js";
+import { crearControladorBolsas } from "./portal-bolsas-api.js";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js";
+await prepararTextosPortal("bolsa");
+await prepararMensajesContratos();
 
 const bolsa = "bolsa:uno", participacion = "participacion:uno", desde = "2026-10-08T08:00:00Z";
 const reglas = { ok: true, datos: { causas_baja: [], transiciones: { en_revision: ["disponible", "excluido"] } } };
@@ -72,6 +77,77 @@ test("una respuesta tardía al salir de la ficha no consulta las secciones de ot
   estado.modalFicha = { candidato: { participacion_ref: "participacion:otra" } };
   entregar(await leer(historial("disponible", "disponible"))); await carga;
   assert.equal(consultas, 0); assert.equal(estado.modalFicha.candidato.participacion_ref, "participacion:otra");
+});
+
+test("abrir otra ficha desde lista o histórico conserva la operación incierta y su clave", async () => {
+  for (const bloqueo of ["resultadoInciertoCambioSituacion", "enviandoCambioSituacion"]) {
+  const oyentes = new Map(), focos = [];
+  const documento = { addEventListener(tipo, fn) { oyentes.set(tipo, [...oyentes.get(tipo) || [], fn]); },
+    querySelector(selector) { return selector === "[data-directa-paso]" ? { focus: () => focos.push(selector) } : null; },
+    querySelectorAll() { return []; } };
+  const pendiente = Object.freeze({ clave: "clave-original", cuerpo: Object.freeze({ motivo: "Aceptación", situacion_desde_esperada: desde }),
+    llamamiento: "llamamiento:original" });
+  const modal = { candidato: { participacion_ref: participacion }, [bloqueo]: true,
+    intentosContacto: { recibo: "recibo:contacto" }, operacionesB8: { directa: { paso: "incierto", pendiente } } };
+  const estado = { bolsaSeleccionada: bolsa, modalFicha: modal, filtrosBolsa: { seguimiento: { llamamiento_ref: "llamamiento:original" }, pestana: "historico" },
+    datosCandidatos: { datos: { bolsa: { bolsa_ref: bolsa }, candidatos: [{ participacion_ref: "participacion:otra" }] } } };
+  const lecturas = [];
+  const controlador = crearControladorBolsas({ estado, renderizar() {}, navegar() {}, documento,
+    obtenerFuenteLectura: () => ({ consultarCandidatosBolsa: async (ref) => {
+      lecturas.push(ref); return { ok: true, datos: { bolsa: { bolsa_ref: ref }, candidatos: [] } };
+    } }) });
+  controlador.abrirFicha("participacion:otra");
+  assert.equal(estado.modalFicha, modal);
+  controlador.instalar();
+  const pulsar = (accion) => {
+    const boton = { dataset: { bolsaAccion: accion, participacionRef: "participacion:otra" } };
+    const evento = { target: { closest(selector) { return selector === "[data-bolsa-accion]" ? boton : null; } }, preventDefault() {} };
+    for (const oyente of oyentes.get("click") || []) oyente(evento);
+  };
+  pulsar("abrir-ficha"); pulsar("abrir-ficha-historico");
+  assert.equal(estado.modalFicha, modal);
+  assert.equal(estado.modalFicha.operacionesB8.directa.pendiente, pendiente);
+  assert.equal(estado.filtrosBolsa.pestana, "historico");
+  assert.ok(focos.length >= 2);
+  const datosAntes = estado.datosCandidatos;
+  void controlador.cargarCandidatosBolsa("bolsa:otra", { cursor: "siguiente" });
+  void controlador.cargarGlobalBolsa("disponibles");
+  assert.equal(estado.bolsaSeleccionada, bolsa, "la bolsa activa no cambia mientras se recupera el acto");
+  assert.equal(estado.datosCandidatos, datosAntes);
+  assert.deepEqual(lecturas, []);
+  modal[bloqueo] = false; modal.operacionesB8.directa = null; estado.filtrosBolsa = {};
+  await controlador.cargarCandidatosBolsa("bolsa:otra");
+  assert.equal(estado.bolsaSeleccionada, "bolsa:otra", "sin operación pendiente la navegación sigue funcionando");
+  assert.deepEqual(lecturas, ["bolsa:otra"]);
+  }
+});
+
+test("403 retira datos personales y conserva solo la intención hasta una lectura nominal autorizada", async () => {
+  let completar, lecturas = 0;
+  const datosPrevios = { carga: "listo", datos: { bolsa: { bolsa_ref: bolsa }, candidatos: [] } };
+  const pendiente = { clave: "original", cuerpo: { motivo: "Aceptación", situacion_desde_esperada: desde },
+    bolsa, participacion, llamamiento: "llamamiento:original" };
+  const modal = { candidato: { participacion_ref: participacion }, operacionesB8: { directa: { paso: "incierto", pendiente } } };
+  const estado = { bolsaSeleccionada: bolsa, modalFicha: modal, datosCandidatos: datosPrevios, filtrosBolsa: {} };
+  const controlador = crearControladorBolsas({ estado, renderizar() {}, navegar() {},
+    documento: { querySelector() { return null; } },
+    obtenerFuenteLectura: () => ({ consultarCandidatosBolsa: () => ++lecturas === 1
+      ? new Promise((resolve) => { completar = resolve; })
+      : Promise.resolve({ ok: true, datos: { bolsa: { bolsa_ref: bolsa },
+        candidatos: [{ participacion_ref: participacion, nombre_visible: "Elena", estado_clave: "disponible", estado_desde: desde }] } }) }) });
+  const carga = controlador.cargarCandidatosBolsa("bolsa:otra");
+  modal.resultadoInciertoCambioSituacion = true;
+  completar({ ok: false, status: 403, mensaje: "Permiso retirado" });
+  await carga;
+  assert.equal(estado.modalFicha, null);
+  assert.equal(estado.datosCandidatos.carga, "denegado");
+  assert.equal(estado.datosCandidatos.datos, null);
+  assert.equal(estado.bolsaSeleccionada, bolsa);
+  await controlador.cargarCandidatosBolsa(bolsa);
+  controlador.abrirFicha(participacion);
+  assert.equal(estado.modalFicha.operacionesB8.directa.pendiente, pendiente);
+  assert.equal(estado.modalFicha.operacionesB8.directa.paso, "incierto");
+  assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, true);
 });
 
 test("un servidor sin metadata conserva el lector anterior y sus secciones operativas", async () => {

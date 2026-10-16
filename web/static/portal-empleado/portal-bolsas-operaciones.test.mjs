@@ -600,8 +600,10 @@ test("B8 permite volver aunque haya datos incompletos o una referencia pendiente
 });
 
 test("aceptación directa solo aparece con marca, llamamiento y fecha; el POST conserva tupla y clave", async () => {
-  const anteriorFetch = globalThis.fetch, anteriorForm = globalThis.FormData;
-  const peticiones = []; let recargas = 0;
+  const anteriorFetch = globalThis.fetch, anteriorForm = globalThis.FormData, anteriorDocumento = globalThis.document;
+  const peticiones = [], focos = []; let recargas = 0, soltarRecarga;
+  globalThis.document = { querySelector: (selector) => selector === "[data-directa-paso]"
+    ? { focus: () => focos.push(selector) } : null };
   const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: { candidato: { ...aceptacionDirecta },
     operacionesB8: { carga: "listo", items: [] } } };
   globalThis.FormData = class { constructor(form) { this.valores = form.valores; } get(clave) { return this.valores[clave]; } };
@@ -615,7 +617,10 @@ test("aceptación directa solo aparece con marca, llamamiento y fecha; el POST c
       reutilizada: true, resuelta_en: "2026-10-16T11:00:00Z", motivo: "Aceptación comprobada" } });
   };
   try {
-    const ctl = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar: async () => { recargas++; } });
+    const ctl = crearControladorOperacionesSituacion({ estado, renderizar() {},
+      recargar: () => new Promise((resolve) => { recargas++; soltarRecarga = resolve; }),
+      consultarOperaciones: async () => ({ ok: false, status: 503, mensaje: "" }),
+      consultarReglas: async () => ({ ok: false }), consultarDocumentales: async () => ({ ok: false, status: 503, mensaje: "" }) });
     const click = (accion) => ctl.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: accion } }) }, preventDefault() {} });
     const submit = (motivo) => ctl.manejarSubmit({ target: { dataset: { b8Form: "aceptacion-directa" }, valores: { motivo } }, preventDefault() {} });
     const visible = () => renderizarOperacionesSituacion({ candidato: estado.modalFicha.candidato, estado: estado.modalFicha.operacionesB8 });
@@ -628,6 +633,7 @@ test("aceptación directa solo aparece con marca, llamamiento y fecha; el POST c
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(peticiones.length, 1);
     assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, true);
+    assert.equal(focos.at(-1), "[data-directa-paso]", "403 devuelve el foco al resultado");
     click("directa-repetir"); await new Promise((resolve) => setImmediate(resolve));
     assert.equal(peticiones.length, 2);
     assert.equal(peticiones[0].opciones.referrerPolicy, "no-referrer");
@@ -637,12 +643,19 @@ test("aceptación directa solo aparece con marca, llamamiento y fecha; el POST c
     assert.match(peticiones[0].ruta, /\/respuestas\/llamamiento:[a-f0-9]{64}\/confirmacion$/u);
     assert.equal(estado.modalFicha.operacionesB8.directa.recibo.recibo_ref, "recibo:1");
     assert.match(visible(), /16\/10\/26, 13:00/u); assert.equal(recargas, 1);
-  } finally { globalThis.fetch = anteriorFetch; globalThis.FormData = anteriorForm; }
+    assert.match(visible(), /<dl class="datos-clave">/u, "la referencia larga usa el contenedor común que parte el texto en móvil");
+    const focoAntesDeRecargar = focos.length;
+    soltarRecarga();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.ok(focos.length > focoAntesDeRecargar, "la lectura posterior devuelve el foco al recibo");
+    assert.equal(focos.at(-1), "[data-directa-paso]", "recibo y recarga conservan el foco");
+  } finally { globalThis.fetch = anteriorFetch; globalThis.FormData = anteriorForm; globalThis.document = anteriorDocumento; }
 });
 
 test("409 no reenvía la aceptación y ofrece releer la ficha", async () => {
-  const anteriorFetch = globalThis.fetch, anteriorForm = globalThis.FormData;
-  let envios = 0, recargas = 0;
+  const anteriorFetch = globalThis.fetch, anteriorForm = globalThis.FormData, anteriorDocumento = globalThis.document;
+  let envios = 0, recargas = 0, focos = 0;
+  globalThis.document = { querySelector: (selector) => selector === "[data-directa-paso]" ? { focus: () => { focos++; } } : null };
   globalThis.FormData = class { constructor(form) { this.valores = form.valores; } get(clave) { return this.valores[clave]; } };
   globalThis.fetch = async (ruta) => {
     if (!ruta.endsWith("/confirmacion")) return response(503, { error: { codigo: "servicio_no_disponible" } });
@@ -656,9 +669,26 @@ test("409 no reenvía la aceptación y ofrece releer la ficha", async () => {
     ctl.manejarSubmit({ target: { dataset: { b8Form: "aceptacion-directa" }, valores: { motivo: "Confirmación" } }, preventDefault() {} });
     click("directa-confirmar"); await new Promise((resolve) => setImmediate(resolve));
     assert.equal(estado.modalFicha.operacionesB8.directa.paso, "conflicto");
+    assert.ok(focos > 0, "409 centra el resultado antes de ofrecer la consulta nueva");
     assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, false);
     click("directa-repetir"); assert.equal(envios, 1);
     click("directa-actualizar"); await new Promise((resolve) => setImmediate(resolve));
     assert.equal(envios, 1); assert.equal(recargas, 1);
-  } finally { globalThis.fetch = anteriorFetch; globalThis.FormData = anteriorForm; }
+  } finally { globalThis.fetch = anteriorFetch; globalThis.FormData = anteriorForm; globalThis.document = anteriorDocumento; }
+});
+
+test("una aceptación abierta no permite iniciar Regularizar ni otro cambio B8", () => {
+  const candidato = { ...aceptacionDirecta, estado_clave: "renuncia" };
+  const flujo = { carga: "listo", items: [], noDisponible: false,
+    transiciones: { renuncia: ["en_revision", "disponible", "excluido"], en_revision: ["disponible", "excluido"] },
+    directa: { paso: "revision", pendiente: { cuerpo: { motivo: "Comprobado" } } } };
+  const estado = { modalFicha: { candidato, operacionesB8: flujo } };
+  const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {} });
+  const control = { dataset: { b8Accion: "seleccionar", operacion: "regularizar" } };
+  controlador.manejarClick({ target: { closest: () => control }, preventDefault() {} });
+  assert.equal(flujo.operacion, undefined);
+  assert.doesNotMatch(renderizarOperacionesSituacion({ candidato, estado: flujo }), /data-operacion="regularizar"|data-b8-accion="seleccionar-solicitud"/u);
+  flujo.directa.paso = "conflicto";
+  controlador.manejarClick({ target: { closest: () => control }, preventDefault() {} });
+  assert.equal(flujo.operacion, "regularizar", "tras un conflicto definitivo vuelve a estar disponible el flujo habitual");
 });

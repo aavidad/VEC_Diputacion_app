@@ -96,6 +96,61 @@ test("popstate cambia la vista al volver y hashchange no duplica el montaje de c
   assert.equal(aplicadas, 2);
 });
 
+test("el enlace a otra bolsa conserva la selección y la operación incierta, incluso durante la carga del helper", async () => {
+  const inicioInstalacion = portal.indexOf("function instalarEnlacesBolsa()");
+  const finInstalacion = portal.indexOf("function instalarEventosAuditoriaBolsa()", inicioInstalacion);
+  let escuchar, liberar, focos = 0, cargas = 0;
+  const control = { tagName: "BUTTON", dataset: { bolsaRef: "bolsa:otra" }, classList: { contains: () => false },
+    closest: () => null };
+  const estado = { vista: "bolsa-candidatos", bolsaSeleccionada: "bolsa:original",
+    datosBolsas: { carga: "listo", datos: { bolsas: [{ bolsa_ref: "bolsa:otra" }] } }, filtrosBolsa: {},
+    modalFicha: { operacionesB8: { directa: { pendiente: { clave: "clave-original" } } }, resultadoInciertoCambioSituacion: true } };
+  const contexto = { estado, document: { addEventListener(tipo, fn) { if (tipo === "click") escuchar = fn; },
+    querySelector: () => ({ focus: () => { focos++; } }) }, window: { addEventListener() {} },
+  porId: () => ({ contains: () => true }), prepararRutasBolsa: () => { cargas++; return new Promise((resolve) => { liberar = resolve; }); },
+  controladorBolsas: {}, anunciar() {}, traducirPortal: (clave) => clave, URL, history: {}, navegar() {} };
+  runInNewContext(`${portal.slice(inicioInstalacion, finInstalacion)}; instalarEnlacesBolsa()`, contexto);
+  const evento = { target: { closest: (selector) => selector.includes('data-accion="ver-bolsa"') ? control : null },
+    stopImmediatePropagation() {}, preventDefault() {} };
+  await escuchar(evento);
+  assert.equal(cargas, 0); assert.equal(estado.bolsaSeleccionada, "bolsa:original");
+  assert.equal(estado.modalFicha.operacionesB8.directa.pendiente.clave, "clave-original");
+  assert.equal(focos, 1);
+  estado.modalFicha.resultadoInciertoCambioSituacion = false;
+  const apertura = escuchar(evento);
+  assert.equal(cargas, 1);
+  estado.modalFicha.enviandoCambioSituacion = true;
+  liberar({}); await apertura;
+  assert.equal(estado.bolsaSeleccionada, "bolsa:original");
+  assert.equal(estado.filtrosBolsa.estado, undefined);
+});
+
+test("Atrás compensa la ruta mientras la aceptación sigue pendiente", () => {
+  const inicioCompensar = portal.indexOf("function compensarHistorialGestionOfertas(");
+  const finCompensar = portal.indexOf("function actualizarSalidaGestionOfertasBolsa()", inicioCompensar);
+  const inicioInstalacion = portal.indexOf("function instalarEnlacesBolsa()");
+  const finInstalacion = portal.indexOf("function instalarEventosAuditoriaBolsa()", inicioInstalacion);
+  const rutaFicha = "/portal-empleado/?bolsa_ref=bolsa%3Auno#bolsa/bolsa-candidatos";
+  const location = { pathname: "/portal-empleado/", search: "", hash: "#portal" };
+  const pendiente = { clave: "clave-original", cuerpo: { motivo: "Aceptación" } };
+  const estado = { vista: "bolsa-candidatos", bolsaSeleccionada: "bolsa:uno", filtrosBolsa: {},
+    modalFicha: { rutaApertura: rutaFicha, resultadoInciertoCambioSituacion: true,
+      operacionesB8: { directa: { pendiente } } } };
+  let popstate, focos = 0, cambiosVista = 0, compensaciones = 0;
+  const contexto = { estado, window: { location, addEventListener(tipo, fn) { if (tipo === "popstate") popstate = fn; } },
+    document: { addEventListener() {}, querySelector: () => ({ focus: () => { focos++; } }) },
+    history: { pushState(_datos, _titulo, ruta) { compensaciones++; const url = new URL(ruta, "https://vec.example");
+      location.pathname = url.pathname; location.search = url.search; location.hash = url.hash; } },
+    rutaVisibleGestionOfertasBolsa: "", compensandoHistorialGestionOfertas: false,
+    navegar: () => { cambiosVista++; }, rutaCandidatosAplicada: null,
+    salidaGestionOfertasBloqueada: () => false, vistaDesdeHash: () => "portal" };
+  runInNewContext(`${portal.slice(inicioCompensar, finCompensar)}\n${portal.slice(inicioInstalacion, finInstalacion)}; instalarEnlacesBolsa()`, contexto);
+  popstate();
+  assert.equal(`${location.pathname}${location.search}${location.hash}`, rutaFicha);
+  assert.equal(compensaciones, 1); assert.equal(cambiosVista, 0); assert.equal(focos, 1);
+  assert.equal(estado.modalFicha.operacionesB8.directa.pendiente, pendiente);
+});
+
 test("la cohorte de CSS, entrada y helper coincide con las URL servidas", async () => {
   const [html, cache, interno, produccion] = await Promise.all([
     "index.html", "cache-publica-v1.json", "../../interno.manifest", "../../produccion.manifest",
