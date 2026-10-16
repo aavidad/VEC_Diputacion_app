@@ -77,17 +77,17 @@ En «Mi Bolsa» el aspirante ve, por cada bolsa, la categoría, su posición (po
 
 En «Bolsas», el técnico tiene un resumen con cuántas personas hay disponibles, en renuncia y en cada situación, y al pulsar cada cifra sale la lista. Desde ahí abre la ficha de cada candidato, revisa solicitudes, méritos y alegaciones, consulta los llamamientos y cambia las reglas de cada bolsa.
 
-### 4.5 Modalidad de inscripción en la preparación de bases
+### 4.5 Modalidad de inscripción de una convocatoria
 
-En la preparación de bases, RRHH puede elegir «Una solicitud por categoría» o
-«Una solicitud para varias categorías», revisar el cambio y guardarlo en una
-nueva revisión. El guardado entrega su recibo. Si no se puede comprobar el
-resultado, se recupera el mismo guardado; no se inicia otro.
+La convocatoria muestra si corresponde una solicitud por categoría o una para
+varias categorías. En este corte, la modalidad procede de la versión certificada
+cargada como dato de la copia. RRHH todavía no puede elegirla ni guardarla desde
+Preparación de bases; esa función espera la adaptación del núcleo vigente.
 
-Guardar la modalidad conserva el material de preparación. La aprobación y la
-publicación de las bases siguen pendientes de su circuito completo. La
-inscripción conjunta todavía no admite solicitudes: la aspirante ve la modalidad
-y recibe un aviso si intenta presentar una solicitud individual en esa convocatoria.
+La aspirante ve la modalidad en la lista y la ficha. Si es conjunta, la ficha
+explica que aún no puede presentar la solicitud desde esta página y no ofrece
+el formulario individual. Las bases no quedan aprobadas ni publicadas por esta
+carga de datos.
 
 ## 5. Un contrato temporal, paso a paso
 

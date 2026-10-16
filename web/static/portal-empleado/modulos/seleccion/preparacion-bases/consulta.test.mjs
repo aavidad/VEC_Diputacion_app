@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { crearLectorBasesHTTP, RUTA_CONSULTA_BASES, RUTA_GUARDAR_BASES } from './cliente-http.js';
-import { leerConsulta, leerGuardado, validarGuardar, validarSelector } from './contrato-http.js';
+import { crearLectorBasesHTTP, RUTA_CONSULTA_BASES } from './cliente-http.js';
+import { leerConsulta, validarSelector } from './contrato-http.js';
 
 const cli = JSON.parse(await readFile(new URL('./testdata/preparacion-completa.json', import.meta.url)));
 const h = 'a'.repeat(64), selector = { modo: 'actual', preparacion_ref: 'preparacion:sintetica', revision: 0, huella_material_sha256: '' };
@@ -56,34 +56,4 @@ test('cancelación y plazo rechazan incluso fetch que entregue tarde tras aborta
   await assert.rejects(consulta,e=>e.codigo==='operacion_abortada');
   const lento=crearLectorBasesHTTP({plazoMs:1,fetchImpl:async()=>{await new Promise(r=>setTimeout(r,10));return new Response(codificar(respuesta()),{headers:{'Content-Type':'application/json'}});}});
   await assert.rejects(lento.consultar(selector),e=>e.codigo==='servicio_no_disponible');
-});
-
-test('Guardar conserva material y clave, distingue recibo nuevo de recuperación y rechaza otra modalidad', async () => {
-  const original = respuesta();
-  const entrada = { esperada: original.preparacion.estado,
-    material: structuredClone(original.preparacion.material), clave_operacion: 'modalidad:1' };
-  entrada.material.contenido.modalidad_inscripcion = 'conjunta';
-  const guardada = respuesta(); guardada.estado = 'guardada';
-  guardada.preparacion.estado.revision = 2;
-  guardada.preparacion.material = entrada.material;
-  const cuerpos = [];
-  const lector = crearLectorBasesHTTP({ fetchImpl: async (ruta, opciones) => {
-    assert.equal(ruta, RUTA_GUARDAR_BASES); cuerpos.push(JSON.parse(opciones.body));
-    const salida = structuredClone(guardada);
-    if (cuerpos.length === 2) salida.estado = 'recuperada';
-    return new Response(codificar(salida), { status: cuerpos.length === 1 ? 201 : 200,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' } });
-  } });
-  assert.equal((await lector.guardar(entrada)).dto.estado, 'guardada');
-  assert.equal((await lector.guardar(entrada)).dto.estado, 'recuperada');
-  assert.deepEqual(cuerpos, [entrada, entrada]);
-  for (const valor of [undefined, 'otra']) {
-    const invalida = structuredClone(entrada);
-    if (valor === undefined) delete invalida.material.contenido.modalidad_inscripcion;
-    else invalida.material.contenido.modalidad_inscripcion = valor;
-    assert.throws(() => validarGuardar(invalida), /selector_invalido/u);
-  }
-  const ajena = structuredClone(guardada);
-  ajena.preparacion.material.contenido.modalidad_inscripcion = 'separada';
-  assert.throws(() => leerGuardado(codificar(ajena), entrada), /respuesta_incompatible/u);
 });

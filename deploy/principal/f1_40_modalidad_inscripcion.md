@@ -1,97 +1,57 @@
-# Modalidad de inscripción en la preparación de bases
+# Modalidad de inscripción en la versión certificada de la convocatoria
 
-Este corte añade la elección de una solicitud por categoría o una para varias
-categorías en la preparación existente. La guarda mediante
-`ServicioPreparacionBasesV3.Guardar`, por la ruta nominal ya montada de Selección.
-El material contiene el mismo `ContenidoPublicableConvocatoria` de Bolsa; no hay
-lectura de tablas ajenas ni una segunda autoridad de publicación.
+F1-40 incorpora `modalidad_inscripcion` al contenido sellado de la convocatoria.
+La lista y la ficha de la aspirante muestran si corresponde una solicitud por
+categoría o una conjunta. Una convocatoria conjunta no ofrece el formulario
+individual; el servidor devuelve `409 inscripcion_conjunta_pendiente` antes del
+primer INSERT si alguien intenta ese acto. La inscripción conjunta completa
+corresponde a F1-41.
 
-F1-40 permanece abierta: `ConfirmarPublicacion` no dispone de adaptador productivo.
-Guardar la preparación no aprueba ni publica bases. La candidata de ensayo carga
-la versión con modalidad como dato ficticio; no se presenta como aprobación.
-La inscripción conjunta completa corresponde a F1-41.
+La modalidad de ensayo entra **solo como dato de la copia** mediante la carga
+de una versión certificada preparada desde su fuente JSON. No hay elección ni
+guardado productivo de RRHH en Preparación de bases en este corte. Adaptar esa
+función al núcleo vigente es una tarea posterior a AD288. F1-40 permanece
+abierta: `ConfirmarPublicacion` sigue sin adaptador productivo. Esta carga no
+acredita aprobación o publicación de bases.
 
-## Configuración y datos
+## Activación en la copia
 
-No hay variable, ruta ni acción nuevas. Se reutilizan los pools, material privado
-y capacidad existentes de preparación de bases e inscripción. La lista y la
-ficha del aspirante añaden, respectivamente, las hojas
-`convocatorias[].modalidad_inscripcion` y `modalidad_inscripcion`. El filtro de
-lectura compara todas las hojas del contrato con las de la concesión publicada:
-un rol anterior sin esas hojas queda denegado y no recibe una respuesta recortada.
-En la copia local, un guion privado prepara una versión ficticia del rol externo
-del aspirante. Conserva sus siete concesiones, toma las cinco acciones de
-inscripción declaradas en `inscripcion_bolsa_actos_v1.json` y añade solo las dos
-hojas de modalidad a sus lecturas de convocatoria. Avanza la asignación de la
-misma persona con el mismo ámbito `candidato_ref` y una vigencia de 89 días.
-Las concesiones y el rol no tienen fecha de fin propia: el acceso exige que esa
-asignación siga vigente. La fuente histórica conserva
-sus bytes y su huella; el guion no modifica el catálogo publicado. El
-versionador externo actual solo añade acciones ausentes y no amplía campos ya
-concedidos. Dirección ha separado la ampliación gobernada del rol en otra tarea.
-Este dato de copia no acredita propuesta, cierre ni recibo de dos
-administradores. El cambio de código tampoco concede campos por defecto.
+No hay variable, ruta ni autoridad nuevas. BC12 reconstruye tres funciones
+existentes después de BC9 y B96, con las prehuellas y poshuellas declaradas en
+su migración. `lista_sql_codexb_f1_40_20261015.txt` fija el orden. Antes de
+instalar, comprobar las dependencias y la definición instalada en PostgreSQL 18;
+no reaplicar una migración presente ni usar DOWN. La prueba focal SQL revierte
+sus filas: legado sin campo, modalidad separada, conjunta visible, y valores
+desconocido o nulo rechazados. Cotejar OID, propietario, ACL, configuración,
+volatilidad y paralelismo de las tres funciones.
 
-El material debe ser propio de la copia y sus perfiles, certificados y confianzas
-de desarrollo deben durar al menos 60 días. Ningún archivo de arranque se modifica
-con el proceso en marcha: conservar la configuración anterior y reiniciar vigilado.
+Para preparar el dato, reutilizar
+`deploy/principal/inscripcion_recorrido_20261013/version_certificada_v2/generar.py`
+con `fuente_v2.json`. Generar SQL y manifiesto fuera de Git, comprobar las
+preimágenes y aplicar el resultado solo a la copia de ensayo. Es una carga de
+datos ficticios; no sustituye el circuito de gobierno de las bases. No instalar
+AD153 ni BC8 históricos sobre el núcleo actual para activar esta pantalla.
 
-La pantalla existente es
-`/portal-empleado/modulos/seleccion/preparacion-bases/`. Primero consulta la
-preparación conservada. La persona elige la modalidad, pulsa «Revisar cambio» y
-«Guardar modalidad». El cliente usa la revisión y huella consultadas, el material
-y una clave de operación propia; el servidor resuelve identidad y ámbitos.
-Una respuesta incierta conserva esa clave para recuperar el mismo resultado.
-Un conflicto obliga a consultar la revisión actual antes de otra modificación.
+Lista y detalle de convocatoria añaden `modalidad_inscripcion` a su JSON. El
+filtro de lectura exige todas las hojas concedidas: una concesión anterior sin
+ellas se deniega, sin recortar la respuesta. La ampliación gobernada del rol
+externo no forma parte de F1-40. En la copia, el dato ficticio de acceso se
+prepara por separado con el guion privado ya revisado; no se atribuye a ese
+dato una aprobación, un cierre o un recibo de dos administradores.
 
-Para el dato de convocatoria se reutiliza
-`deploy/principal/inscripcion_recorrido_20261013/version_certificada_v2/generar.py`:
-preparar su SQL y manifiesto fuera de Git y revisar las preimágenes de la copia.
-La versión con modalidad es un dato de ensayo, no una publicación por el circuito
-de aprobación. No se rodea el adaptador de publicación ausente.
+## Comprobación y límites
 
-## Instalación SQL
+- Abrir en Chrome la lista y la ficha de la aspirante en castellano e inglés:
+  ambas muestran la modalidad. La conjunta explica el límite antes de mostrar
+  cualquier formulario y no emite una solicitud individual.
+- Comprobar que la API devuelve 409 para una presentación individual conjunta
+  y que no se crea solicitud ni recibo parcial. Verificar el caso separado
+  conservado y la lectura del legado sin alterar bytes ni huellas.
+- Recuperar las lecturas de la misma convocatoria después de reiniciar
+  aplicación y PostgreSQL. Arrancar también sin la carga opcional: la función
+  ausente falla localmente y la aplicación sigue disponible.
 
-Guardar la preparación requiere también las funciones de AD153 y BC8 ya
-instaladas. La copia usada para este corte carece de ellas. La lista histórica
-`lista_sql_codexa_selectivos_s2.txt` parte de una definición anterior del núcleo
-de autorización y no es aplicable a esa copia. Dirección y el equipo responsable
-del núcleo tienen pendiente encajar esa dependencia sobre la versión vigente;
-hasta entonces no se acredita el guardado desde la pantalla.
-
-BC12 está reservada para esta rama. Reconstruye tres funciones existentes desde
-su definición instalada, con comprobación anterior y posterior de huellas y
-metadatos. No crea funciones, tablas, concesiones ni una migración del núcleo de
-autorización. Usa `search_path=pg_catalog,pg_temp` en cada función con privilegios.
-
-1. Comprobar en la copia PostgreSQL 18 las dependencias BC9 y B96 y las tres
-   prehuellas declaradas en la migración. Si difieren, detener la instalación.
-2. Instalar solo las ausentes, en el orden de
-   `lista_sql_codexb_f1_40_20261015.txt`. No reaplicar una instalada ni usar DOWN.
-3. Ejecutar la prueba focal SQL de BC12: legado y separada, conjunta visible,
-   valor desconocido y nulo rechazados. Sus filas se revierten al terminar.
-4. Comparar OID, propietario, ACL, configuración, volatilidad y paralelismo.
-   Confirmar las poshuellas exactas de las tres funciones.
-
-La modalidad se lee del contenido sellado y se incorpora a los lectores
-existentes de lista y detalle. Ausente se interpreta como separada. Una conjunta
-se puede consultar, pero el comprobador que B96 llama antes del primer INSERT
-la rechaza con B9608. El adaptador devuelve `409 inscripcion_conjunta_pendiente`;
-no se registra una solicitud parcial ni se presenta un recibo individual.
-
-## Comprobación de la candidata
-
-- Arrancar con la configuración completa de preparación e inscripción. Consultar
-  material real, guardar una modalidad, recuperar el mismo recibo y comprobar
-  que una revisión antigua produce conflicto sin sustituir la actual.
-- Abrir en Chrome la lista y ficha de aspirante: ambas modalidades tienen nombre
-  en el idioma activo. Una presentación individual de conjunta queda cerrada.
-- Reiniciar aplicación y PostgreSQL; recuperar la preparación y recibo y volver
-  a consultar la convocatoria con la misma modalidad.
-- Arrancar sin la configuración opcional de preparación: su función queda
-  cerrada y las demás superficies de la aplicación conservan el arranque.
-
-Se reutiliza el recorrido HTTP de
-`scripts/recorridos/seleccion/preparacion-bases/ensayar.py` para guardar, recuperar,
-conflicto y reinicio. Las comprobaciones finales se consignan en la PR con su
-cabeza exacta; esta guía no atribuye un ensayo aún no realizado.
+La preparación de bases ya existente conserva su lectura anterior; esta PR no
+añade su guardado ni prueba un recibo de preparación. El ensayo de la candidata
+completa y su cabeza exacta se consignan en la PR. Esta guía no atribuye
+pruebas de runtime que aún no se hayan realizado.

@@ -1,7 +1,7 @@
-import { crearLectorBasesHTTP } from './cliente-http.js?v=20261016-f140-modalidad-v1';
-import { validarReferencia, validarRevision, validarHuella } from './contrato-http.js?v=20261016-f140-modalidad-v1';
-import { leerArchivo } from './modelo.js?v=20261016-f140-modalidad-v1';
-import { pintarSalida, enfocarEstadoSiConfirmacionOculta, eleccionTrasConsulta, crearIntentoGuardado } from './vista.js?v=20261016-f140-modalidad-v2';
+import { crearLectorBasesHTTP } from './cliente-http.js?v=20261003-s2-consulta-v2';
+import { validarReferencia, validarRevision, validarHuella } from './contrato-http.js?v=20261003-s2-consulta-v2';
+import { leerArchivo } from './modelo.js?v=20261003-s2-consulta-v1';
+import { pintarSalida } from './vista.js?v=20261003-s2-consulta-v1';
 import { cargarTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 
@@ -11,18 +11,7 @@ const formulario = document.querySelector('#bases-consulta'); const consultar = 
 const cancelar = document.querySelector('#bases-cancelar');
 const lector = crearLectorBasesHTTP(); let peticion = null;
 const cerrar = document.querySelector('#bases-cerrar'); const urls = new Set();
-const panelGuardar = document.querySelector('#bases-guardar-panel');
-const formularioGuardar = document.querySelector('#bases-guardar');
-const modalidad = document.querySelector('#bases-modalidad');
-const revisar = document.querySelector('#bases-revisar');
-const confirmar = document.querySelector('#bases-confirmar');
-const reintentarGuardado = document.querySelector('#bases-reintentar');
-const resumenGuardar = document.querySelector('#bases-guardar-revision');
-const avisoGuardar = document.querySelector('#bases-guardar-estado');
 let turno = 0; let carga = null; let textos; let estadoActual = { clave: 'vacio', error: false, variables: {} };
-let guardadoPendiente = null; let guardando = false; let revisionGuardado = false;
-let deseoConflicto = null;
-let estadoGuardado = { clave: '', error: false, variables: {} };
 let erroresFormulario = [];
 function mostrarErroresFormulario() {
   for (const id of ['bases-referencia', 'bases-revision', 'bases-huella']) {
@@ -55,38 +44,11 @@ function mensaje(clave, error = false, variables = {}) {
   estado.textContent = textos.traducir(clave, variables); estado.setAttribute('role', error ? 'alert' : 'status');
   archivo.setAttribute('aria-invalid', String(error && ['error_formato', 'error_tamano'].includes(clave)));
 }
-function mensajeGuardado(clave = '', error = false, variables = {}) {
-  estadoGuardado = { clave, error, variables };
-  avisoGuardar.textContent = clave ? textos.traducir(clave, variables) : '';
-  avisoGuardar.setAttribute('role', error ? 'alert' : 'status');
-}
-function pintarGuardado() {
-  const focoConfirmar = document.activeElement === confirmar;
-  panelGuardar.hidden = !carga?.institucional;
-  if (panelGuardar.hidden) return;
-  const pendiente = Boolean(guardadoPendiente) || guardando;
-  const bloqueado = pendiente || ['guardar_version_en_conflicto', 'guardar_no_encontrada'].includes(estadoGuardado.clave);
-  modalidad.disabled = bloqueado;
-  revisar.hidden = revisionGuardado || bloqueado;
-  confirmar.hidden = !revisionGuardado || bloqueado;
-  reintentarGuardado.hidden = !guardadoPendiente || guardando;
-  resumenGuardar.hidden = !revisionGuardado || bloqueado;
-  if (!resumenGuardar.hidden) resumenGuardar.textContent = textos.traducir('guardar_revision', {
-    modalidad: textos.traducir(`modalidad_inscripcion.${modalidad.value}`),
-  });
-  consultar.disabled = pendiente;
-  archivo.disabled = pendiente;
-  cerrar.disabled = pendiente;
-  enfocarEstadoSiConfirmacionOculta(document, confirmar, avisoGuardar, focoConfirmar);
-}
 function limpiar() {
-  if (guardadoPendiente || guardando) return;
   ++turno; peticion?.abort(); peticion = null; carga = null; descargar.disabled = true; descargar.hidden = false; cancelar.disabled = true; cerrar.disabled = true; raiz.replaceChildren();
-  panelGuardar.hidden = true; revisionGuardado = false; mensajeGuardado();
   urls.forEach(url => URL.revokeObjectURL(url)); urls.clear();
 }
 archivo.addEventListener('change', async () => {
-  if (guardadoPendiente || guardando) { archivo.value = ''; return; }
   limpiar(); borrarErroresFormulario(); const actual = turno; const file = archivo.files?.[0];
   if (!file) { mensaje('vacio'); return; }
   cerrar.disabled = false; mensaje('cargando');
@@ -96,7 +58,7 @@ archivo.addEventListener('change', async () => {
     mensaje('cargado', false, { archivo: file.name });
   } catch (error) { if (actual === turno) mensaje(error.message === 'tamano' ? 'error_tamano' : 'error_formato', true); }
 });
-cerrar.addEventListener('click', () => { if (guardadoPendiente || guardando) return; limpiar(); archivo.value = ''; mensaje('vacio'); archivo.focus(); });
+cerrar.addEventListener('click', () => { limpiar(); archivo.value = ''; mensaje('vacio'); archivo.focus(); });
 function descargarOriginal() {
   if (!carga || carga.institucional) return;
   const url = URL.createObjectURL(new Blob([carga.bytes], { type: 'application/json' })); urls.add(url);
@@ -113,86 +75,24 @@ function selectorConsulta() {
     huella_material_sha256: modo === 'actual' ? '' : document.querySelector('#bases-huella').value };
 }
 formulario.addEventListener('submit', async e => {
-  e.preventDefault(); if (guardadoPendiente || guardando) return;
-  limpiar(); archivo.value = ''; if (!validarFormulario()) return; const actual = turno;
+  e.preventDefault(); limpiar(); archivo.value = ''; if (!validarFormulario()) return; const actual = turno;
   peticion = new AbortController(); cancelar.disabled = false; mensaje('consultando');
   try {
     const resultado = await lector.consultar(selectorConsulta(), { signal: peticion.signal });
     if (actual !== turno) return;
     carga = { ...resultado, institucional: true }; pintarSalida({ raiz, dto: carga.dto, textos, institucional: true });
     descargar.hidden = true; cerrar.disabled = false;
-    const guardada = carga.dto.preparacion.material.contenido.modalidad_inscripcion || 'separada';
-    const referencia = carga.dto.preparacion.estado.preparacion_ref;
-    const eleccion = eleccionTrasConsulta(deseoConflicto, referencia, guardada);
-    deseoConflicto = eleccion.deseo;
-    modalidad.value = eleccion.modalidad;
-    if (deseoConflicto) mensajeGuardado('guardar_comparacion', false, {
-      guardada: textos.traducir(`modalidad_inscripcion.${guardada}`),
-      deseada: textos.traducir(`modalidad_inscripcion.${modalidad.value}`),
-    });
-    pintarGuardado();
     mensaje('consulta_obtenida');
   } catch (error) { if (actual === turno) { limpiar(); mensaje(`consulta_errores.${error.codigo || 'servicio_no_disponible'}`, true); } }
   finally { if (actual === turno) { peticion = null; cancelar.disabled = true; } }
 });
-formulario.addEventListener('input', () => { if (guardadoPendiente || guardando) return; limpiar(); borrarErroresFormulario(); archivo.value = ''; mensaje('consulta_lista'); });
+formulario.addEventListener('input', () => { limpiar(); borrarErroresFormulario(); archivo.value = ''; mensaje('consulta_lista'); });
 formulario.addEventListener('change', () => {
-  if (guardadoPendiente || guardando) return;
   limpiar(); borrarErroresFormulario(); archivo.value = ''; mensaje('consulta_lista');
   const exacta = document.querySelector('#bases-modo').value === 'exacta'; document.querySelector('#bases-exacta').hidden = !exacta;
   for (const id of ['bases-revision', 'bases-huella']) document.getElementById(id).required = exacta;
 });
-cancelar.addEventListener('click', () => { if (guardadoPendiente || guardando) return; limpiar(); borrarErroresFormulario(); mensaje('consulta_cancelada'); consultar.focus(); });
-
-modalidad.addEventListener('change', () => {
-  if (guardadoPendiente || guardando) return;
-  if (deseoConflicto) deseoConflicto.modalidad = modalidad.value;
-  revisionGuardado = false;
-  if (deseoConflicto) mensajeGuardado('guardar_comparacion', false, {
-    guardada: textos.traducir(`modalidad_inscripcion.${carga.dto.preparacion.material.contenido.modalidad_inscripcion || 'separada'}`),
-    deseada: textos.traducir(`modalidad_inscripcion.${modalidad.value}`),
-  }); else mensajeGuardado();
-  pintarGuardado();
-});
-revisar.addEventListener('click', () => {
-  if (!carga?.institucional || guardadoPendiente || guardando) return;
-  if (modalidad.value === carga.dto.preparacion.material.contenido.modalidad_inscripcion) {
-    mensajeGuardado('guardar_sin_cambios'); return;
-  }
-  revisionGuardado = true; mensajeGuardado(); pintarGuardado(); confirmar.focus();
-});
-async function guardarModalidad() {
-  if (!guardadoPendiente || guardando) return;
-  guardando = true; mensajeGuardado('guardar_enviando'); pintarGuardado();
-  try {
-    const resultado = await lector.guardar(guardadoPendiente);
-    carga = { ...resultado, institucional: true };
-    guardadoPendiente = null; revisionGuardado = false;
-    deseoConflicto = null;
-    modalidad.value = carga.dto.preparacion.material.contenido.modalidad_inscripcion;
-    pintarSalida({ raiz, dto: carga.dto, textos, institucional: true });
-    mensajeGuardado(resultado.dto.estado === 'guardada' ? 'guardar_guardada' : 'guardar_recuperada', false,
-      { recibo: resultado.dto.recibo.recibo_ref });
-  } catch (error) {
-    if (['version_en_conflicto', 'acceso_denegado', 'no_encontrada', 'selector_invalido'].includes(error?.codigo)) {
-      if (error.codigo === 'version_en_conflicto') deseoConflicto = {
-        referencia: carga.dto.preparacion.estado.preparacion_ref, modalidad: modalidad.value,
-      };
-      guardadoPendiente = null; revisionGuardado = false;
-      mensajeGuardado(`guardar_${error.codigo}`, true);
-    } else mensajeGuardado('guardar_pendiente', true);
-  } finally { guardando = false; pintarGuardado(); }
-}
-formularioGuardar.addEventListener('submit', e => {
-  e.preventDefault();
-  if (!revisionGuardado || !carga?.institucional || guardadoPendiente || guardando) return;
-  if (!['separada', 'conjunta'].includes(modalidad.value) || !globalThis.crypto?.randomUUID) {
-    mensajeGuardado('guardar_selector_invalido', true); return;
-  }
-  guardadoPendiente = crearIntentoGuardado(carga, modalidad.value, () => crypto.randomUUID());
-  void guardarModalidad();
-});
-reintentarGuardado.addEventListener('click', () => { if (guardadoPendiente && !guardando) void guardarModalidad(); });
+cancelar.addEventListener('click', () => { limpiar(); borrarErroresFormulario(); mensaje('consulta_cancelada'); consultar.focus(); });
 
 const ayuda = document.querySelector('#bases-ayuda');
 ayuda.addEventListener('click', () => {
@@ -205,8 +105,6 @@ async function idioma(codigo) {
   document.documentElement.lang = textos.idioma; document.title = textos.traducir('titulo');
   document.querySelectorAll('[data-texto]').forEach(n => { if (n !== estado) n.textContent = textos.traducir(n.dataset.texto); });
   mensaje(estadoActual.clave, estadoActual.error, estadoActual.variables);
-  if (estadoGuardado.clave) mensajeGuardado(estadoGuardado.clave, estadoGuardado.error, estadoGuardado.variables);
-  pintarGuardado();
   mostrarErroresFormulario();
   document.querySelectorAll('[data-aria]').forEach(n => { n.setAttribute('aria-label', textos.traducir(n.dataset.aria)); });
   if (carga) pintarSalida({ raiz, dto: carga.dto, textos, institucional: carga.institucional });

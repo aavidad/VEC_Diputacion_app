@@ -368,6 +368,12 @@ independiente. Con campo explícito usa contenido v5/estado v4; las versiones
 anteriores conservan contenido v4/estado v3 y sus bytes. Ausente significa
 separada; un valor desconocido se rechaza.
 
+En este corte la modalidad de ensayo entra por la carga de la versión
+certificada desde su fuente JSON, como dato de la copia. La elección y el
+guardado desde Preparación de bases no están activados sobre el núcleo vigente;
+su adaptación queda después de AD288. La carga no constituye un acto de
+aprobación o publicación de bases.
+
 BC12 reconstruye el comprobador usado por B96, el proyector y la lista existentes,
 desde sus definiciones instaladas. Lista y detalle incorporan la misma propiedad
 JSON. La modalidad conjunta devuelve B9608, traducido a 409 antes de insertar.

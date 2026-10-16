@@ -405,19 +405,19 @@ Fuente: `internal/modules/bolsa/application/inscripcion/contrato.go`.
 
 #### Modalidad de inscripción por convocatoria
 
-Corte F1-40: la preparación de bases existente permite a RRHH elegir una
-solicitud por categoría o una para varias categorías, revisar y guardar mediante
-el servicio nominal ya montado. Guarda una revisión y su recibo; no aprueba ni
-publica bases. La lista y la ficha del aspirante muestran la modalidad sellada.
-Las versiones anteriores sin ese campo se interpretan como separadas sin
-reescribir sus bytes ni huellas.
+Corte F1-40: la modalidad entra en la versión certificada de la convocatoria
+cargada como dato de la copia desde su fuente JSON. La lista y la ficha de la
+aspirante muestran la modalidad sellada. Las versiones anteriores sin ese campo
+se interpretan como separadas sin reescribir sus bytes ni huellas. La elección
+y el guardado desde Preparación de bases quedan aplazados hasta adaptar esa
+función al núcleo vigente, después de AD288; este corte no acredita aprobación
+ni publicación de bases.
 
-La presentación individual de una convocatoria conjunta queda cerrada con
-`409 inscripcion_conjunta_pendiente`, antes de insertar la solicitud. El soporte
-conjunto corresponde a F1-41. F1-40 sigue abierta: `ConfirmarPublicacion` aún no
-tiene adaptador productivo. La convocatoria cargada para ensayar es un dato de
-la copia, no una prueba de bases aprobadas ni un caso de aceptación alternativo
-al apartado 4.0.
+La ficha conjunta no ofrece formulario ni envío individual. El servidor también
+cierra esa presentación con `409 inscripcion_conjunta_pendiente` antes de insertar
+la solicitud. El soporte conjunto corresponde a F1-41. F1-40 sigue abierta:
+`ConfirmarPublicacion` aún no tiene adaptador productivo. La convocatoria de
+ensayo es un dato de la copia, no un caso de aceptación alternativo al apartado 4.0.
 
 #### Constitución de la bolsa
 
