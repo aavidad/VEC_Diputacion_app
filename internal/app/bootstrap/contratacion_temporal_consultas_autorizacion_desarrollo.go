@@ -63,9 +63,49 @@ func (a *autoridadConsultasContratacionTemporalDesarrollo) AutorizarRutaExacta(
 }
 
 type revalidadorConsultasContratacionTemporalDesarrollo struct {
-	siguiente http.Handler
-	autoridad *autoridadConsultasContratacionTemporalDesarrollo
-	fronteras catalogoFronterasComunDesarrollo
+	siguiente    http.Handler
+	autoridad    *autoridadConsultasContratacionTemporalDesarrollo
+	fronteras    catalogoFronterasComunDesarrollo
+	resolverDemo func(context.Context, *http.Request) (vecdomain.Principal, error)
+}
+
+func (m *revalidadorConsultasContratacionTemporalDesarrollo) resolverIdentidadDemo(ctx context.Context, r *http.Request) (vecdomain.Principal, error) {
+	if m.resolverDemo != nil {
+		return m.resolverDemo(ctx, r)
+	}
+	return m.autoridad.resolvedor.ResolveDemoIdentity(ctx, r)
+}
+
+// Identifica la hoja verificada por mTLS y la coteja con el inventario
+// corporativo interno. No lee roles del certificado ni del navegador.
+func principalCanalJustificanteRRHH(a *autoridadConsultasContratacionTemporalDesarrollo,
+	r *http.Request) (vecdomain.Principal, bool) {
+	if a == nil || r == nil || r.URL == nil || r.Method != http.MethodGet ||
+		r.URL.Path != bolsahttp.RutaJustificanteRenunciaRRHH ||
+		!direccionRemotaLoopback(r.RemoteAddr) || cabeceraIdentidadAmbientalPresente(r.Header) {
+		return vecdomain.Principal{}, false
+	}
+	_, huella, verificado := certificadoSesionFirmanteV2(r, time.Now().UTC().Truncate(time.Microsecond))
+	if !verificado {
+		return vecdomain.Principal{}, false
+	}
+	cuenta, existe := a.cuentasInternasJustificanteRRHH[huella]
+	if !existe || cuenta.certificadoSHA256 != huella || cuenta.sujeto == "" || cuenta.cuentaRef == "" ||
+		(a.resolvedor != nil && a.resolvedor.candidatoBolsa != nil &&
+			a.resolvedor.candidatoBolsa.identidad.principal.Attributes["certificate_sha256"] == huella) {
+		return vecdomain.Principal{}, true
+	}
+	principal := vecdomain.Principal{ID: cuenta.sujeto,
+		AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,
+		Attributes: map[string]string{
+			"autoridad":          AutoridadNoAutoritativa,
+			"perfil_ejecucion":   config.ExecutionProfileDevelopment,
+			"certificate_sha256": huella,
+		}}
+	if !principalNominalJustificanteRRHHValido(principal, a.cuentasInternasJustificanteRRHH) {
+		return vecdomain.Principal{}, true
+	}
+	return principal, true
 }
 
 func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
@@ -84,9 +124,18 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		m.siguiente.ServeHTTP(w, r)
 		return
 	}
-	principal, err := m.autoridad.resolvedor.ResolveDemoIdentity(
-		r.Context(), r,
-	)
+	var principal vecdomain.Principal
+	var err error
+	nominalCertificado := false
+	if protegidaComun && r.Method == http.MethodGet &&
+		r.URL.Path == bolsahttp.RutaJustificanteRenunciaRRHH {
+		principal, nominalCertificado = principalCanalJustificanteRRHH(m.autoridad, r)
+		if !nominalCertificado {
+			err = ErrMaterialDesarrolloInvalido
+		}
+	} else {
+		principal, err = m.resolverIdentidadDemo(r.Context(), r)
+	}
 	if m.autoridad.firmaVecR5 != nil &&
 		(rutaFirmaVecR5CT(r.URL.Path) || r.URL.Path == httpinterno.RutaOriginalFirmableCT ||
 			rutaLecturaCTFirmaV2(r.URL.Path) || rutaCatalogoCTFirmaV2(r)) {
@@ -100,6 +149,11 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 	}
 	if protegidaComun && !protegidaCT {
 		validoRuta = principalContratacionTemporalDesarrolloValido(principal)
+	}
+	if protegidaComun && r.Method == http.MethodGet &&
+		r.URL.Path == bolsahttp.RutaJustificanteRenunciaRRHH {
+		validoRuta = principalNominalJustificanteRRHHValido(principal,
+			m.autoridad.cuentasInternasJustificanteRRHH)
 	}
 	if rutaFirmaVecR5CT(r.URL.Path) && m.autoridad.firmaVecR5 != nil {
 		validoRuta = m.autoridad.firmaVecR5.nominal.admitePrincipal(principal)
@@ -138,7 +192,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			rutaPeticionCentroDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == rutaOrganizacionContratacionTemporalDesarrollo ||
 			capacidad.ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
-			capacidad.ruta == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(capacidad.ruta) || rutaBolsasOperacionesRRHHDesarrollo(capacidad.ruta) || rutaDocumentosBolsaRRHHDesarrollo(capacidad.ruta) ||
+			capacidad.ruta == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(capacidad.ruta) || rutaBolsasOperacionesRRHHDesarrollo(capacidad.ruta) || rutaDocumentosBolsaRRHHDesarrollo(capacidad.ruta) || rutaJustificanteBolsaRRHHDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == rutaEstadisticasBolsaRRHHDesarrollo ||
 			capacidad.ruta == rutaAvisosBolsaRRHHDesarrollo ||
 			capacidad.ruta == bolsahttp.RutaPlazoRespuestaLlamamiento ||
@@ -182,7 +236,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		}
 		r = r.WithContext(ctx)
 	} else if err == nil && (protegidaCT || protegidaComun) &&
-		(principalSinteticoContratacionTemporalDesarrolloValido(principal) ||
+		(nominalCertificado || principalSinteticoContratacionTemporalDesarrolloValido(principal) ||
 			(rutaFirmaVecR5CT(r.URL.Path) || r.URL.Path == httpinterno.RutaOriginalFirmableCT ||
 				rutaLecturaCTFirmaV2(r.URL.Path) || rutaCatalogoCTFirmaV2(r)) && principalCertificadoFirmaVecDesarrolloValido(principal)) {
 		// Una identidad mTLS válida pero sin el perfil/ámbito de esta ruta está
@@ -227,6 +281,20 @@ func principalContratacionTemporalDesarrolloValido(
 ) bool {
 	return principalSinteticoContratacionTemporalDesarrolloValido(principal) &&
 		len(principal.Roles) == 1 && principal.Roles[0] == rolTecnicoRRHHContratacionTemporalDesarrollo
+}
+
+// Esta admisión sólo sella la hoja mTLS y una cuenta interna ya inventariada.
+// La única concesión documental se decide después en AUT101 y D27.
+func principalNominalJustificanteRRHHValido(principal vecdomain.Principal,
+	cuentas map[string]cuentaNominalJustificanteRRHH) bool {
+	if !principalSinteticoContratacionTemporalDesarrolloValido(principal) ||
+		(len(principal.Roles) == 1 && principal.Roles[0] == "candidato_bolsa") ||
+		!huellaCertificadoDesarrolloValida(principal.Attributes["certificate_sha256"]) {
+		return false
+	}
+	cuenta, existe := cuentas[principal.Attributes["certificate_sha256"]]
+	return existe && cuenta.certificadoSHA256 == principal.Attributes["certificate_sha256"] &&
+		cuenta.sujeto == principal.ID && cuenta.cuentaRef != ""
 }
 
 func principalIntervencionContratacionTemporalDesarrolloValido(

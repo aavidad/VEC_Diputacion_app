@@ -1,9 +1,10 @@
 """Casos sintéticos de la puerta SQL; no se conecta a PostgreSQL."""
 
+import hashlib
 import unittest
 from pathlib import Path
 
-from scripts.verificar_search_path_definer import AD225_PATH, added_lines, inspect_sql
+from scripts.verificar_search_path_definer import AD225_PATH, B130_PATH, B130_SHA256, added_lines, inspect_sql
 
 
 class VerificarSearchPathDefiner(unittest.TestCase):
@@ -166,6 +167,36 @@ $body$;'''
         linea = insegura[:insegura.index("SET search_path = public SET lock_timeout")].count("\n") + 1
         self.assertTrue(any("SECURITY DEFINER" in reason
                             for _, reason in inspect_sql(insegura, {linea}, filename=AD225_PATH)))
+
+    def test_b130_check_fisico_exactamente_revisado(self):
+        repo = Path(__file__).resolve().parents[2]
+        sql = (repo / B130_PATH).read_text(encoding="utf-8")
+        self.assertEqual(hashlib.sha256(sql.encode("utf-8")).hexdigest(), B130_SHA256)
+        self.assertEqual(inspect_sql(sql, {12}, filename=B130_PATH), [])
+        for nombre in ("otro/000130_ruta_justificante_denegacion_externa.up.sql", None):
+            with self.subTest(nombre=nombre):
+                self.assertTrue(any("reconstrucción dinámica" in reason
+                                    for _, reason in inspect_sql(sql, {12}, filename=nombre)))
+
+    def test_b130_mutaciones_no_heredan_excepcion(self):
+        repo = Path(__file__).resolve().parents[2]
+        sql = (repo / B130_PATH).read_text(encoding="utf-8")
+        cambios = (
+            sql.replace("'/api/vec/bolsa/mi-bolsa/justificantes'", "'/api/vec/bolsa/mi-bolsa/otra'", 1),
+            sql.replace("END $b130$;", "EXECUTE 'ALTER FUNCTION otra() RESET search_path';\nEND $b130$;", 1),
+            sql + "\nDO $$ BEGIN EXECUTE 'ALTER FUNCTION otra() RESET search_path'; END $$;\n",
+            sql.replace("-- B130.", "-- B130 alterada.", 1),
+        )
+        for alterado in cambios:
+            with self.subTest(cambio=hashlib.sha256(alterado.encode()).hexdigest()[:12]):
+                self.assertNotEqual(hashlib.sha256(alterado.encode()).hexdigest(), B130_SHA256)
+                self.assertTrue(any("B130 divergente" in reason
+                                    for _, reason in inspect_sql(alterado, {12}, filename=B130_PATH)))
+
+    def test_b130_no_suprime_reconstruccion_general(self):
+        reconstruccion = "DO $$ BEGIN EXECUTE pg_get_functiondef('otra()'::regprocedure); END $$;"
+        self.assertTrue(any("reconstrucción dinámica" in reason
+                            for _, reason in inspect_sql(reconstruccion, {1}, filename="otra/migracion.up.sql")))
 
     def test_hunks_solo_lineas_añadidas(self):
         diff = "@@ -2,0 +3,2 @@\n+a\n+b\n@@ -8 +10 @@\n-x\n+y\n@@ -12 +13,0 @@\n-SET search_path=pg_catalog,pg_temp\n"

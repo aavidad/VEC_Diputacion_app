@@ -73,9 +73,19 @@ La mayoría de los cambios ocurren solos, según avanza el expediente: aceptar u
 
 En «Mi Bolsa» el aspirante ve, por cada bolsa, la categoría, su posición (por ejemplo, «12 de 140»), su situación y su historial de llamamientos, contratos y renuncias. También ordena sus bolsas por preferencia y responde a las ofertas que le llegan.
 
+Si presenta una renuncia justificada, adjunta un PDF de hasta 16 MiB y recibe
+un recibo de VEC. Debe guardar el PDF original: su área personal no permite
+descargarlo después. El fichero queda disponible para RRHH cuando supera el
+antivirus. Esta función está pendiente de activación y comprobación conjunta.
+
 ### 4.4 Lo que ve RRHH
 
 En «Bolsas», el técnico tiene un resumen con cuántas personas hay disponibles, en renuncia y en cada situación, y al pulsar cada cifra sale la lista. Desde ahí abre la ficha de cada candidato, revisa solicitudes, méritos y alegaciones, consulta los llamamientos y cambia las reglas de cada bolsa.
+
+En la ficha del candidato, Carmen o cualquier otra técnica de RRHH con el permiso
+vigente de su rol puede consultar y descargar el justificante de una renuncia
+en las bolsas que tiene autorizadas.
+La actuación figura también en el seguimiento y la consulta queda auditada.
 
 ## 5. Un contrato temporal, paso a paso
 
@@ -168,7 +178,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Bolsas que vienen de Convoca | Se cargan desde el Excel de Convoca. | Nada para cargar las bolsas actuales. | La carga sirve solo para pasar a VEC las bolsas que ya existen. Las nuevas se hacen enteras en VEC. |
 | Convocatorias, inscripción, méritos y alegaciones | Programado: el aspirante se inscribe, declara sus méritos con documentos y presenta alegaciones; RRHH admite o rechaza. | Activarlo en el entorno de pruebas. | VEC sustituye a Convoca. El aspirante hace todo desde su área personal y RRHH lo revisa en pantalla. |
 | Baremación | No existe todavía. | Que RRHH cierre cómo se acreditan los méritos. | VEC calcula los puntos con el baremo de cada convocatoria, que RRHH puede cambiar. RRHH revisa y publica las listas provisional y definitiva. |
-| Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. | Subir el fichero del justificante de renuncia. | El aspirante aporta sus justificantes desde su área personal y RRHH los valida en pantalla. |
+| Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. | Activar y comprobar juntos la subida del PDF, su recibo, el antivirus y la descarga desde la ficha del candidato. | El aspirante aporta el justificante desde Mi Bolsa y RRHH lo consulta con su permiso. |
 | A quién se ofrece un puesto | VEC sigue el orden de la bolsa y salta a quien no está disponible. | Ofrecer otro puesto a quien ya trabaja con nosotros y tener en cuenta los tipos de contrato que acepta cada persona. Necesitamos la regla de RRHH. | VEC elige a quién ofrecer según la situación, el tipo de contrato y las reglas que fije RRHH, y RRHH ve por qué se salta a cada persona. |
 | Comprobación del puesto ofrecido | Consulta del puesto en Personal comprobada en la copia local, con permiso, recibo y reinicio. | Completar el ofrecimiento desde la petición y comprobarlo en el recorrido. | VEC contrasta el puesto de la petición con su historia antes de ofrecerlo. |
 | Aviso de la oferta | Correo con plantilla desde un buzón de pruebas. Llamadas anotadas. | El correo de la Diputación, que depende de Informática. | Correo oficial y, cuando Informática dé un proveedor, también SMS. |
