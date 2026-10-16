@@ -318,7 +318,7 @@ func TestModalidadInscripcionQuedaEnContenidoYHuella(t *testing.T) {
 	}
 }
 
-func TestPublicacionExigeModalidadYConservaLegadoSinElla(t *testing.T) {
+func TestPublicacionConservaModalidadLegadaAusente(t *testing.T) {
 	legado := versionConvocatoriaGobernadaPrueba(t)
 	legado.Contenido.ModalidadInscripcion = ""
 	legado, err := legado.ClonarCanonico()
@@ -327,23 +327,17 @@ func TestPublicacionExigeModalidadYConservaLegadoSinElla(t *testing.T) {
 	}
 	fecha := legado.CreadaEn.Add(time.Hour)
 	aprobacion, dependencias := evidenciasPublicacionPrueba(t, legado, fecha)
-	if _, err := legado.PublicarInicial("persona:gestora:001", aprobacion, dependencias, "Publicacion.", fecha); !errors.Is(err, ErrTransicionGobiernoConvocatoria) {
-		t.Fatalf("publico borrador sin modalidad: %v", err)
-	}
-
-	// Reconstruye una publicacion anterior a la regla nueva con sus propias
-	// evidencias. La ausencia del campo conserva exactamente su JSON canonico.
-	legado.EstadoGobierno = EstadoGobiernoConvocatoriaPublicada
-	legado.PublicadaPor = "persona:gestora:001"
-	legado.PublicadaEn = fecha
-	legado.MotivoPublicacion = "Publicacion historica."
-	legado.AprobacionPublicacion = &aprobacion
-	legado.ComprobacionDependencias = &dependencias
-	if err := legado.Validar(); err != nil {
-		t.Fatalf("version historica ilegible: %v", err)
+	legado, err = legado.PublicarInicial("persona:gestora:001", aprobacion, dependencias, "Publicacion.", fecha)
+	if err != nil {
+		t.Fatalf("no publico borrador legado con aprobaciones validas: %v", err)
 	}
 	representacion, err := legado.RepresentacionCanonica()
-	if err != nil || bytes.Contains(representacion, []byte(`"modalidad_inscripcion"`)) {
+	contenidoLegado, errContenido := legado.RepresentacionContenidoCanonica()
+	huellaLegada, errHuella := legado.HuellaContenidoSHA256()
+	if err != nil || errContenido != nil || errHuella != nil ||
+		bytes.Contains(representacion, []byte(`"modalidad_inscripcion"`)) ||
+		!bytes.Contains(representacion, []byte(`"esquema":"bolsa.version-convocatoria.estado.v3"`)) ||
+		!bytes.Contains(contenidoLegado, []byte(`"esquema":"bolsa.version-convocatoria.contenido.v4"`)) {
 		t.Fatalf("el JSON historico adquirio modalidad: %s, %v", representacion, err)
 	}
 	recuperada, err := DecodificarVersionConvocatoriaGobernadaCanonica(representacion)
@@ -375,9 +369,22 @@ func TestPublicacionExigeModalidadYConservaLegadoSinElla(t *testing.T) {
 	}
 	fechaSinModalidad := sinModalidad.CreadaEn.Add(time.Hour)
 	aprobacionVacia, dependenciasVacias := evidenciasPublicacionPrueba(t, sinModalidad, fechaSinModalidad)
-	if _, err := sinModalidad.PublicarSucesora(legado, "persona:gestora:003", aprobacionVacia,
-		dependenciasVacias, "Intento sin modalidad.", fechaSinModalidad); !errors.Is(err, ErrTransicionGobiernoConvocatoria) {
-		t.Fatalf("publico sucesora sin modalidad: %v", err)
+	resultadoLegado, err := sinModalidad.PublicarSucesora(legado, "persona:gestora:003", aprobacionVacia,
+		dependenciasVacias, "Publicacion sucesora legada.", fechaSinModalidad)
+	if err != nil || resultadoLegado.Publicada.Contenido.ModalidadInscripcion != "" {
+		t.Fatalf("no publico sucesora legada con aprobaciones validas: %v", err)
+	}
+	estadoSucesora, err := resultadoLegado.Publicada.RepresentacionCanonica()
+	contenidoSucesora, errContenidoSucesora := resultadoLegado.Publicada.RepresentacionContenidoCanonica()
+	if err != nil || errContenidoSucesora != nil || bytes.Contains(estadoSucesora, []byte(`"modalidad_inscripcion"`)) ||
+		!bytes.Contains(estadoSucesora, []byte(`"esquema":"bolsa.version-convocatoria.estado.v3"`)) ||
+		!bytes.Contains(contenidoSucesora, []byte(`"esquema":"bolsa.version-convocatoria.contenido.v4"`)) {
+		t.Fatal("la sucesora legada cambio la representacion v4/v3")
+	}
+	contenidoPredecesora, err := resultadoLegado.Predecesora.RepresentacionContenidoCanonica()
+	huellaPredecesora, errHuellaPredecesora := resultadoLegado.Predecesora.HuellaContenidoSHA256()
+	if err != nil || errHuellaPredecesora != nil || !bytes.Equal(contenidoPredecesora, contenidoLegado) || huellaPredecesora != huellaLegada {
+		t.Fatal("la sucesora reescribio los bytes o la huella de la predecesora legada")
 	}
 }
 
