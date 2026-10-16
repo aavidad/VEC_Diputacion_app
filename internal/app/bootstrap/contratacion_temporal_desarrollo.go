@@ -570,6 +570,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	cerrarCobertura := true
+	defer func() {
+		if cerrarCobertura {
+			coberturaReal.cerrar()
+		}
+	}()
 	asignacionReal, err := nuevasDependenciasAsignacionContratacionTemporalDesarrollo(
 		derivador,
 		&alta,
@@ -632,12 +638,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if firmaDocumento != nil {
 		firmaDocumento.informeTrasSubsanacion = fuenteInformeNuevo
 	}
-	cerrarCobertura := true
-	defer func() {
-		if cerrarCobertura {
-			coberturaReal.cerrar()
-		}
-	}()
 	rutaCatalogosAlta, err := nuevaRutaCatalogosAltaContratacionTemporalDesarrollo(origen)
 	if err != nil {
 		return nil, nil, nil, err
@@ -974,8 +974,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	var montajeFirmaVec *montajeFirmaVecR5CT
 	defer func() {
-		if cerrarAlta && montajeFirmaVec != nil && montajeFirmaVec.cerrarAuditoria != nil {
-			montajeFirmaVec.cerrarAuditoria()
+		if cerrarAlta && montajeFirmaVec != nil {
+			montajeFirmaVec.cerrarAuditoriaSiExiste()
 		}
 	}()
 	var lecturasFirmaVec *montajeLecturasFirmaV2
@@ -1615,7 +1615,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	dependencias.cerrar = func() {
 		if montajeFirmaVec != nil {
-			montajeFirmaVec.cerrarAuditoria()
+			montajeFirmaVec.cerrarAuditoriaSiExiste()
 		}
 		cerrarPreparacionBases()
 		cerrarBaremo()

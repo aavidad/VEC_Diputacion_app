@@ -18,7 +18,7 @@ import (
 const (
 	RutaDescargaFirmaR5V2            = "/api/vec/contratacion-temporal/firmas-documento/descargas-v2"
 	EsquemaDescargaFirmaR5V2         = "vec.contratacion-temporal.descarga-firma-r5.v2"
-	maximoRespuestaDescargaFirmaR5V2 = 2 << 20
+	maximoRespuestaDescargaFirmaR5V2 = ((ports.MaximoDocumentoFirmaBytes+2)/3)*4 + (16 << 10)
 )
 
 type manejadorDescargaFirmaR5V2 struct {
@@ -179,6 +179,10 @@ func (h *manejadorDescargaFirmaR5V2) ServeHTTP(w http.ResponseWriter, r *http.Re
 		return
 	}
 	defer clear(resultado.PDF)
+	if len(resultado.PDF) < 10 || len(resultado.PDF) > ports.MaximoDocumentoFirmaBytes {
+		h.fallo(w, r, q.ExpedienteRef, ports.ErrResultadoFirmaDocumentoInvalido, errorResultadoConsultaRRHHNoConfiable)
+		return
+	}
 	vista := descargaFirmaR5V2JSON{Esquema: EsquemaDescargaFirmaR5V2,
 		PDFBase64:     base64.StdEncoding.EncodeToString(resultado.PDF),
 		ExpedienteRef: resultado.ExpedienteRef, VersionObservada: resultado.VersionObservada,

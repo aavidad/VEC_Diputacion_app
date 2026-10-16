@@ -75,6 +75,10 @@ func ClaseErrorArranque(err error) string {
 	if clase != "otro" {
 		return clase
 	}
+	mensaje := MensajeErrorArranque(err)
+	if mensaje == "borrador_llamamiento_no_disponible" || strings.HasPrefix(mensaje, "borrador_llamamiento_no_disponible;") {
+		return "borrador_llamamiento_no_disponible"
+	}
 	var clasificado interface{ ClaseErrorArranque() string }
 	if errors.As(err, &clasificado) {
 		return causaArranque(clasificado.ClaseErrorArranque())
@@ -200,6 +204,7 @@ func prefijoArranqueConocido(texto, causa string) string {
 func mensajeInternoArranque(valor string) string {
 	switch valor {
 	case "bootstrap: material criptografico de desarrollo invalido",
+		"bootstrap: borrador de llamamiento no disponible",
 		"bootstrap: montaje de inscripcion Bolsa no disponible",
 		"bootstrap: fuente configurada no disponible",
 		"bootstrap: material criptografico de desarrollo invalido: ruta enlazada o no canonica",
@@ -211,6 +216,9 @@ func mensajeInternoArranque(valor string) string {
 		// decía «error interno no catalogado» y había que depurar con otro binario.
 		"perfil fijo de RRHH sin asignación publicada consumible",
 		"perfil del centro sin asignación publicada consumible":
+		if valor == "bootstrap: borrador de llamamiento no disponible" {
+			return "borrador_llamamiento_no_disponible"
+		}
 		return valor
 	}
 	return ""
@@ -253,7 +261,7 @@ func limitarMensajeArranque(valor string) string {
 
 func causaArranque(causa string) string {
 	switch causa {
-	case "configuracion", "cancelada", "plazo_vencido", "red", "otro":
+	case "configuracion", "cancelada", "plazo_vencido", "red", "otro", "borrador_llamamiento_no_disponible":
 		return causa
 	}
 	if strings.HasPrefix(causa, "bd_") && len(causa) == 8 && strings.Trim(causa[3:], "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ") == "" {
