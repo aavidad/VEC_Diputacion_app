@@ -1,7 +1,7 @@
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { crearClientePoliticaOfertas, validarPoliticaEditable, criteriosOfrecimientoValidos, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, leerReglasVigentes,
-  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA, cargarCatalogoCriteriosOfrecimiento } from "./rrhh-plazos-api.js?v=20261016-r1-criterios-v4";
-import { renderizarCriteriosOfrecimiento, cambiarCriteriosOfrecimiento } from "./rrhh-criterios-ofrecimiento.js?v=20261016-r1-criterios-v4";
+  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA, cargarCatalogoCriteriosOfrecimiento } from "./rrhh-plazos-api.js?v=20261016-r1-criterios-v5";
+import { renderizarCriteriosOfrecimiento, cambiarCriteriosOfrecimiento } from "./rrhh-criterios-ofrecimiento.js?v=20261016-r1-criterios-v5";
 
 // Los textos de plazos y plazas viven en textos/<idioma>/bolsa-ofertas.json.
 const { cargarTextos } = await import("../../../comun/textos.js");
@@ -192,6 +192,9 @@ export function crearSuperficieRRHHPlazos({
         estado.error = traducir(`rrhh_plazos_${resultado.status === 403 ? "denegado" : "error_carga"}`);
       } else {
         estado.vigente = resultado.politica;
+        estado.mensaje = resultado.politica.configurada === true && resultado.politica.recibo_ref
+          ? traducir("rrhh_plazos_guardada", { version: resultado.politica.version,
+            recibo: resultado.politica.recibo_ref }) : "";
         if (!conservarBorrador) {
           estado.borrador = conPlazas(conPlazo(copia(resultado.politica.configurada ? resultado.politica.politica : EJEMPLO_VACIO)));
           estado.plazasTocadas = false;
