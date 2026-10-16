@@ -504,6 +504,62 @@
             }
           }
         }
+      },
+      "c03": {
+        "plazo_fiscalizacion": {
+          "etiqueta": {
+            "original": "Plazo de fiscalización",
+            "texto": "Financial review time limit"
+          },
+          "descripcion": {
+            "original": "Diez días hábiles; cinco si la tramitación es urgente.",
+            "texto": "Ten working days; five if the procedure is urgent.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "Diez días hábiles para fiscalizar el expediente completo; cinco si la tramitación se ha declarado urgente.",
+                "texto": "Ten working days to review the complete case file; five if the procedure has been declared urgent."
+              }
+            }
+          },
+          "duda": {
+            "original": "Cotejar el texto del art. 13.1 con Intervención.",
+            "texto": "Check the wording of article 13.1 with the financial control office.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "El cómputo empieza el día siguiente a la recepción del expediente completo. La fiscalización limitada previa también tiene un plazo de cinco días; VEC no identifica ese régimen por separado.",
+                "texto": "The time limit starts on the day after receipt of the complete case file. Limited prior financial review also has a five-day time limit; VEC does not identify that procedure separately."
+              }
+            }
+          }
+        }
+      },
+      "c04": {
+        "plazo_subsanacion": {
+          "etiqueta": {
+            "original": "Plazo de subsanación",
+            "texto": "Time limit for correcting an objection"
+          },
+          "descripcion": {
+            "original": "Diez días hábiles para subsanar.",
+            "texto": "Ten working days to make corrections.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "Quince días hábiles para subsanar el reparo y remitir de nuevo el expediente a Intervención.",
+                "texto": "Fifteen working days to address the objection and send the case file back to the financial control office."
+              }
+            }
+          },
+          "duda": {
+            "original": "Pendiente de RRHH.",
+            "texto": "Pending confirmation by HR.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "VEC cuenta desde que el servicio recibe el reparo. La aceptación del reparo no se registra por separado.",
+                "texto": "VEC counts from receipt of the objection by the service. Acceptance of the objection is not recorded separately."
+              }
+            }
+          }
+        }
       }
     }
   }

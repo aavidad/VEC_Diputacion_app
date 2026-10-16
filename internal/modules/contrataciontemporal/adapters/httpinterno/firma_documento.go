@@ -23,7 +23,7 @@ import (
 const (
 	RutaFirmaDocumento          = "/api/vec/contratacion-temporal/firmas-documento"
 	RutaConsultaFirmaDocumento  = "/api/vec/contratacion-temporal/firmas-documento/consultas"
-	maximoCuerpoFirmaDocumento  = 2 << 20
+	maximoCuerpoFirmaDocumento  = 2*((ports.MaximoDocumentoFirmaBytes+2)/3)*4 + (64 << 10)
 	maximoCuerpoConsultaFirmas  = 4 << 10
 	esquemaReciboFirmaDocumento = "vec.contratacion-temporal.recibo-firma-documento.v1"
 	esquemaEstadoFirmaDocumento = "vec.contratacion-temporal.estado-firmas-documento.v1"

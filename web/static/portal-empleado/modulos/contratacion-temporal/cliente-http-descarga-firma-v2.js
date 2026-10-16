@@ -1,7 +1,7 @@
 /** Descarga nominal de un PDF firmado, cotejado con la historia R5 visible. */
 export const RUTA_DESCARGA_FIRMA_V2 = "/api/vec/contratacion-temporal/firmas-documento/descargas-v2";
 const ESQUEMA = "vec.contratacion-temporal.descarga-firma-r5.v2";
-const MAXIMO_PDF = 1 << 20;
+const MAXIMO_PDF = 2 << 20;
 const MAXIMO_RESPUESTA = Math.ceil(MAXIMO_PDF / 3) * 4 + 16 * 1024;
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const DOCUMENTO = /^[a-z][a-z0-9_]{1,63}$/u;

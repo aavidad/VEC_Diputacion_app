@@ -471,8 +471,3 @@ func clasificarOperacion(sql string) (string, bool) {
 	}
 	return "sql", false
 }
-
-func operacion(sql string) string {
-	nombre, _ := clasificarOperacion(sql)
-	return nombre
-}
