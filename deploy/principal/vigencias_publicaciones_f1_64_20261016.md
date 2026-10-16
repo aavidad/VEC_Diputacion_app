@@ -40,9 +40,9 @@ su acto y no pasa a renovación automática por tener el mismo plazo.
 
 Producción admite de 1 a 24 horas; desarrollo con las tres llaves, de 1 a 2160.
 Se rechazan valores desconocidos, cero, negativos o superiores al máximo.
-Las publicaciones no pueden rebasar la raíz existente. Un plazo inferior a
+Las publicaciones no pueden rebasar la raíz existente. En CT, un plazo inferior a
 24 horas empieza en el instante de publicación; los demás conservan el corte
-de medianoche UTC. Renovar el mismo día crea otra secuencia y referencia.
+de medianoche UTC. El portal externo siempre parte del instante de publicación. Renovar el mismo día crea otra secuencia y referencia.
 
 ## Comprobación y retirada
 
