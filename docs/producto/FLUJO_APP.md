@@ -765,7 +765,11 @@ RPT publicada que conserva la petición; la autorización de Contratación y el
 origen del llamamiento en Bolsa siguen usando la unidad gestora. Si el centro
 no se puede vincular, el puesto pertenece a otra unidad o hay varios puestos
 compatibles, el ofrecimiento queda bloqueado. Este ajuste requiere el montaje
-de la consulta histórica de la PR #1150; su recorrido conjunto está pendiente.
+de la consulta histórica de la PR #1150. El consumidor se comprobó en la copia
+local junto con R1a y la confirmación nativa: conservó el justificante al reiniciar
+y permitió anotar el aviso. Está pendiente de integración; no acredita todo el
+apartado 4.0. Activación y límites en
+[`puente_unidades_llamamiento_20261015.md`](../../deploy/principal/puente_unidades_llamamiento_20261015.md).
 
 #### 4.3.4 Documentos
 
