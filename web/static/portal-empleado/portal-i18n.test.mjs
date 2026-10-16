@@ -968,8 +968,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     versionesEspeciales.set(ruta, "20261014-cronos-activacion-v1");
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js"])
     versionesEspeciales.set(ruta, "20261014-ginpix-cronos-v1");
-  versionesEspeciales.set("portal.js", "20261015-ct-ofertas-firma-v4");
-  versionesEspeciales.set("portal-modulos-coordinador.js", "20261015-ct-ofertas-firma-v4");
+  versionesEspeciales.set("portal.js", "20261016-ct-ofertas-main-v5");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261016-ct-ofertas-main-v5");
   // El segundo corte de ofertas renovó la cadena de imports de Contratación.
   for (const ruta of [
     "categorias-rpt/cliente.js", "categorias-rpt/montaje.js",

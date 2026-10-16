@@ -45,11 +45,13 @@ test("las explicaciones ES/EN conservan su fuente y no modifican las reglas", as
       "bolsa_reglas.rrhh-20261008.v5.json"], "../../../../data/catalogos/bolsa/reglas.v6.json"],
     ["contratacion_temporal", ["ct_reglas.ejemplo.demo.json", "ct_reglas.ejemplo.demo.v2.json",
       "ct_reglas.ejemplo.demo.v3.json", "ct_reglas.ejemplo.demo.v4.json"],
-    "../../../../data/catalogos/contratacion-temporal/reglas.v2.json"],
+    ["../../../../data/catalogos/contratacion-temporal/reglas.v2.json",
+      "../../../../data/catalogos/contratacion-temporal/reglas.v3.json"]],
   ].map(async ([modulo, demos, vigente]) => [modulo, [
     ...await Promise.all(demos.map(async (nombre) => JSON.parse(await readFile(
       new URL(`../../../../data/demo/reglas/${nombre}`, import.meta.url), "utf8")).catalogo)),
-    JSON.parse(await readFile(new URL(vigente, import.meta.url), "utf8")).catalogo,
+    ...await Promise.all((Array.isArray(vigente) ? vigente : [vigente]).map(async (ruta) =>
+      JSON.parse(await readFile(new URL(ruta, import.meta.url), "utf8")).catalogo)),
   ]])));
   for (const idioma of ["es", "en"]) {
     const presentacion = await catalogo(idioma);

@@ -333,7 +333,7 @@ test("Inicio enlaza cada bolsa del GET a su lista exacta sin enlazar totales glo
   assert.match(html, /href="\?bolsa_ref=bolsa%3A1#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:1"/u);
   assert.match(html, /href="\?bolsa_ref=bolsa%3A2#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:2"/u);
   assert.equal((html.match(/data-accion="ver-bolsa"/gu) ?? []).length, 4, "nombre y disponibles enlazan las dos bolsas leídas");
-  assert.match(html, /<td class="numero"><a class="enlace-tabla" href="\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:1" data-estado="disponible" aria-label="Ver 30 candidatos disponibles de Auxiliar &lt;A&gt;">30<\/a><\/td>/u);
+  assert.match(html, /<td class="numero"><a class="enlace-tabla" href="\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos" data-accion="ver-bolsa" data-bolsa-ref="bolsa:1" data-estado="disponible" aria-label="Ver 30 candidatos de Auxiliar &lt;A&gt; con el filtro «disponibles»">30<\/a><\/td>/u);
   const destino = html.match(/href="(\?bolsa_ref=bolsa%3A1&amp;estado=disponible#bolsa\/bolsa-candidatos)"/u)?.[1].replaceAll("&amp;", "&");
   assert.deepEqual(leerCandidatosBolsaCompartible(new URL(destino, "https://vec.example/portal-empleado/").search, bolsasListas.datos.bolsas),
     { bolsaRef: "bolsa:1", estado: "disponible" });

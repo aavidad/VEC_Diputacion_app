@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
 	"vec-diputacion-granada/internal/shared/i18n"
 )
@@ -101,6 +102,10 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 	if err != nil || cfg.validar(fase) != nil {
 		return fallo("configuracion_invalida")
 	}
+	validez, err := config.EntornoGobiernoAdmin().ValidezGobiernoAdmin(cfg.HorasValidezClaves, os.Getenv(config.EnvGobiernoAdminValidezHoras))
+	if err != nil {
+		return fallo("configuracion_invalida")
+	}
 	raiz, err := bootstrap.AbrirRaizPrivadaDenominacionPersona(filepath.Join(cfg.Salida, bootstrap.ArchivoConfiguracionGobiernoUsuarios))
 	if err != nil {
 		return fallo("salida_insegura")
@@ -118,7 +123,7 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 
 	switch fase {
 	case "preparar":
-		origen := bootstrap.MaterialOrigenGobiernoUsuariosAdmin{DirectorioMaterial: cfg.DirectorioMaterial, RutaConfiguracionHMAC: cfg.RutaConfiguracionHMAC, ArchivoSemillaRaiz: cfg.ArchivoSemillaRaiz, ValidezClaves: time.Duration(cfg.HorasValidezClaves) * time.Hour, ConjuntoVersion: cfg.ConjuntoCapacidades}
+		origen := bootstrap.MaterialOrigenGobiernoUsuariosAdmin{DirectorioMaterial: cfg.DirectorioMaterial, RutaConfiguracionHMAC: cfg.RutaConfiguracionHMAC, ArchivoSemillaRaiz: cfg.ArchivoSemillaRaiz, ValidezClaves: validez, ConjuntoVersion: cfg.ConjuntoCapacidades}
 		r, err := ops.preparar(ctx, cfg.DSNLectura, duracion, origen, raiz)
 		if err != nil {
 			return fallo("preparacion_fallida")

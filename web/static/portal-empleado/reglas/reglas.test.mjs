@@ -468,7 +468,7 @@ test("las reglas traducidas se presentan y se buscan en ES/EN sin modificar la d
       }
       assert.equal(JSON.stringify(catalogos), preimagen);
       process.stdout.write(String(comprobadas));`;
-    assert.equal(execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" }), "37");
+    assert.equal(execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" }), "39");
   }
 });
 

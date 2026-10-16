@@ -1,0 +1,6 @@
+{
+  "uso": "Use --comprobar o --aplicar PUBLICA-PLAZOS-CT-V3.",
+  "fuente_modificada": "El catálogo no coincide con la versión revisada. No se ha publicado.",
+  "base_incompatible": "La publicación requiere la base anterior y ningún ajuste registrado. Revise la activación con dirección antes de continuar.",
+  "preparador_ausente": "Indique el ejecutable de preparación en VEC_REGLAS_CT_PREPARADOR."
+}

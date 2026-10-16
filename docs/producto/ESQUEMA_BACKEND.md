@@ -279,6 +279,14 @@ Los perfiles, roles y concesiones se publican por migración o desde
 administración con su propio gobierno (dos aprobaciones, CAS, recibo,
 auditoría). Una concesión nunca se crea por una petición de negocio.
 
+AD282 permite configurar la vigencia de claves y confianza nuevas del
+gobierno ADMIN en desarrollo, con un máximo de 90 días y sin superar la
+raíz. Conserva el operador nominal, la aprobación fijada por huellas, el
+consumo, la auditoría y los recibos existentes. La herramienta rechaza en
+producción plazos superiores a 24 horas, también al aplicar material
+preparado antes en desarrollo. El plan de aplicación mantiene su caducidad
+breve.
+
 ### 7.2 Auditoría encadenada y sellada
 
 - **Cadena común** en `vec_autorizacion_atestada_v3` (AD207, sellado diferido):

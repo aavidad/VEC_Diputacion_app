@@ -1391,7 +1391,7 @@ export function crearCoordinadorModulosPortal({
             if (montaje !== secuenciaMontaje) return;
             const denegado = [401, 403].includes(error?.estado) || error?.codigo === "acceso_denegado";
             destino.innerHTML = `<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert">
-              <p>${escaparHTML(mensaje ?? traducir(denegado ? "estado_modulo_sin_permiso" : "estado_modulo_no_disponible"))}</p>
+              <p>${escaparHTML(mensaje ?? traducir(denegado ? "estado_modulo_sin_permiso" : "contratacion_temporal_aviso_no_disponible"))}</p>
               ${denegado ? "" : `<button type="button" data-ct-reintentar>${escaparHTML(traducir("accion_reintentar"))}</button>`}
             </div></section>`;
             destino.querySelector?.("[data-ct-reintentar]")?.addEventListener("click", () => { void reintentar(); }, { once: true });
