@@ -726,6 +726,7 @@ function alCambiarModulos(clave) {
     pedirCuadroBolsas();
   }
   if (clave === "catalogo") {
+    catalogoInternoPublicado = true;
     if (coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) {
       void comprobarAccesoPerfilBolsa();
     } else {
@@ -734,6 +735,7 @@ function alCambiarModulos(clave) {
       estado.perfilPropioBolsa = false;
       estado.perfilPropioBolsaComprobado = false;
     }
+    if (resolverDestinoPoliticaCeseInicial()) return;
   }
   if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")
     && (destinoPlantillasInicial || plantillasConfirmadas)) {
@@ -835,6 +837,7 @@ async function comprobarAccesoPerfilBolsa() {
 }
 async function cargarFuenteDatos() {
   const intento = ++secuenciaFuente;
+  catalogoInternoPublicado = false;
   generacionCuadroBolsas += 1;
   controladorBolsas?.cancelarPeticiones();
   estado.datosBolsas = null;
@@ -893,6 +896,21 @@ let plantillasConfirmadas = false;
 let consultaAccesoPoliticaCese = null;
 let destinoPoliticaCeseInicial = false;
 let politicaCeseConfirmada = false;
+let catalogoInternoPublicado = false;
+
+function resolverDestinoPoliticaCeseInicial() {
+  if (!destinoPoliticaCeseInicial || estado.vista !== "portal" || !estado.politicaCeseComprobada) return false;
+  if (!estado.politicaCese && !estado.politicaCeseAusente) {
+    destinoPoliticaCeseInicial = false; history.replaceState(null, "", rutaDeVista("portal")); return false;
+  }
+  if (!catalogoInternoPublicado) return false;
+  destinoPoliticaCeseInicial = false;
+  if (!coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) {
+    history.replaceState(null, "", rutaDeVista("portal")); return false;
+  }
+  navegar("reglas");
+  return true;
+}
 
 async function comprobarAccesoPoliticaCese() {
   if (estado.politicaCeseComprobada || consultaAccesoPoliticaCese) return;
@@ -904,21 +922,13 @@ async function comprobarAccesoPoliticaCese() {
     estado.politicaCese = politica;
     estado.politicaCeseComprobada = true;
     politicaCeseConfirmada = true;
-    if (destinoPoliticaCeseInicial && estado.vista === "portal") {
-      destinoPoliticaCeseInicial = false;
-      navegar("reglas");
-    }
+    resolverDestinoPoliticaCeseInicial();
   } catch (error) {
     if (consultaAccesoPoliticaCese !== controlador || controlador.signal.aborted) return;
     estado.politicaCese = null;
     estado.politicaCeseComprobada = true;
     estado.politicaCeseAusente = error?.estado === 404;
-    if (destinoPoliticaCeseInicial) {
-      destinoPoliticaCeseInicial = false;
-      // Sin la API (404) la vista lo dice; un 403 sigue en Inicio, sin revelarla.
-      if (estado.politicaCeseAusente && estado.vista === "portal") navegar("reglas");
-      else history.replaceState(null, "", rutaDeVista("portal"));
-    }
+    resolverDestinoPoliticaCeseInicial();
   } finally {
     if (consultaAccesoPoliticaCese === controlador) {
       consultaAccesoPoliticaCese = null;

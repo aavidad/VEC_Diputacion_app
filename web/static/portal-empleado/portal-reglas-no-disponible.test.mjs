@@ -13,7 +13,8 @@ const cuerpo = (nombre) => { const i = fuente.indexOf(`function ${nombre}(`); re
 test("el 404 de la política de cese abre Reglas como no disponible y el 403 vuelve a Inicio", () => {
   const comprobar = cuerpo("comprobarAccesoPoliticaCese");
   assert.match(comprobar, /estado\.politicaCeseAusente = error\?\.estado === 404;/u);
-  assert.match(comprobar, /if \(estado\.politicaCeseAusente && estado\.vista === "portal"\) navegar\("reglas"\);\s*else history\.replaceState\(null, "", rutaDeVista\("portal"\)\);/u);
+  assert.match(comprobar, /resolverDestinoPoliticaCeseInicial\(\);/u);
+  assert.match(cuerpo("resolverDestinoPoliticaCeseInicial"), /estado\.politicaCeseAusente[\s\S]*?catalogoInternoPublicado[\s\S]*?navegar\("reglas"\)/u);
   assert.match(cuerpo("vistaPermitida"), /vista === "reglas" && \(estado\.politicaCese !== null \|\| estado\.politicaCeseAusente\)\)\s*return coordinadorModulos\.obtenerCatalogo\(\)\.some\(\(m\) => m\.clave === "bolsa"\)/u);
   assert.match(cuerpo("montarVistaBolsa"), /noDisponible: estado\.politicaCeseAusente/u);
   assert.match(cuerpo("cargarFuenteDatos"), /estado\.politicaCeseAusente = false;/u);
@@ -103,7 +104,7 @@ test("B45 positivo abre el enlace directo aunque el perfil propio aún no haya r
   assert.equal(entorno.vistaPermitida("reglas"), false, "el perfil pendiente no concede B45 antes de leerlo");
   const inicio = fuente.indexOf("let consultaAccesoPlantillas = null;");
   const fin = fuente.indexOf("async function comprobarAccesoPlantillas()", inicio);
-  const comprobar = runInNewContext(`${fuente.slice(inicio, fin)}; destinoPoliticaCeseInicial = true; comprobarAccesoPoliticaCese`, entorno);
+  const comprobar = runInNewContext(`${fuente.slice(inicio, fin)}; destinoPoliticaCeseInicial = true; catalogoInternoPublicado = true; comprobarAccesoPoliticaCese`, entorno);
   await comprobar();
   assert.equal(estado.vista, "reglas");
   assert.equal(estado.perfilPropioBolsa, false);
@@ -114,4 +115,27 @@ test("B45 positivo abre el enlace directo aunque el perfil propio aún no haya r
   assert.equal(entorno.vistaPermitida("reglas"), true, "el 404 mantiene su aviso controlado");
   catalogo.length = 0;
   assert.equal(entorno.vistaPermitida("reglas"), false, "no muestra Bolsa ausente del catálogo");
+});
+
+test("B45 anterior al catálogo conserva el destino y lo resuelve al publicarse Bolsa", async () => {
+  const estado = { vista: "portal", politicaCese: null, politicaCeseComprobada: false, politicaCeseAusente: false };
+  const catalogo = [];
+  const destinos = [], reemplazos = [];
+  const entorno = { estado, AbortController, coordinadorModulos: { obtenerCatalogo: () => catalogo },
+    clientePoliticaCese: { consultar: async () => ({ meses_general: 5, meses_acumulacion: 9 }) },
+    actualizarNavegacionModulos: () => {}, navegar: (vista) => { destinos.push(vista); estado.vista = vista; },
+    history: { replaceState(_estado, _titulo, ruta) { reemplazos.push(ruta); } }, rutaDeVista: () => "#portal" };
+  const inicio = fuente.indexOf("let consultaAccesoPlantillas = null;");
+  const fin = fuente.indexOf("async function comprobarAccesoPlantillas()", inicio);
+  const acciones = runInNewContext(`${fuente.slice(inicio, fin)}; destinoPoliticaCeseInicial = true;
+    ({ comprobar: comprobarAccesoPoliticaCese,
+      publicar: () => { catalogoInternoPublicado = true; return resolverDestinoPoliticaCeseInicial(); } })`, entorno);
+  await acciones.comprobar();
+  assert.deepEqual(destinos, []);
+  assert.deepEqual(reemplazos, []);
+  catalogo.push({ clave: "bolsa" });
+  assert.equal(acciones.publicar(), true);
+  assert.deepEqual(destinos, ["reglas"]);
+  assert.deepEqual(reemplazos, []);
+  assert.match(cuerpo("alCambiarModulos"), /catalogoInternoPublicado = true;[\s\S]*?resolverDestinoPoliticaCeseInicial\(\)/u);
 });
