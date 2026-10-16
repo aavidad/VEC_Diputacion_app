@@ -403,6 +403,22 @@ acta.
 
 Fuente: `internal/modules/bolsa/application/inscripcion/contrato.go`.
 
+#### Modalidad de inscripción por convocatoria
+
+Corte F1-40: la preparación de bases existente permite a RRHH elegir una
+solicitud por categoría o una para varias categorías, revisar y guardar mediante
+el servicio nominal ya montado. Guarda una revisión y su recibo; no aprueba ni
+publica bases. La lista y la ficha del aspirante muestran la modalidad sellada.
+Las versiones anteriores sin ese campo se interpretan como separadas sin
+reescribir sus bytes ni huellas.
+
+La presentación individual de una convocatoria conjunta queda cerrada con
+`409 inscripcion_conjunta_pendiente`, antes de insertar la solicitud. El soporte
+conjunto corresponde a F1-41. F1-40 sigue abierta: `ConfirmarPublicacion` aún no
+tiene adaptador productivo. La convocatoria cargada para ensayar es un dato de
+la copia, no una prueba de bases aprobadas ni un caso de aceptación alternativo
+al apartado 4.0.
+
 #### Constitución de la bolsa
 
 Una bolsa queda constituida, con su orden, por una de dos vías:

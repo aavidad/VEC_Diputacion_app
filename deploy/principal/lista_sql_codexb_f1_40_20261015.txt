@@ -1,4 +1,4 @@
-# F1-40: cierre de inscripción V1 para convocatorias conjuntas.
+# F1-40: modalidad sellada en lecturas y cierre individual de conjunta.
 # Instalar en una copia de la principal después de BC9 y B96, tras la
 # revisión SQL independiente. No reaplicar las migraciones instaladas.
 # BC11 está reservada por otra rama y no forma parte de este corte.

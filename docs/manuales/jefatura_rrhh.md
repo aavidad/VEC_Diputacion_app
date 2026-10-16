@@ -76,6 +76,18 @@ En «Mi Bolsa» el aspirante ve, por cada bolsa, la categoría, su posición (po
 
 En «Bolsas», el técnico tiene un resumen con cuántas personas hay disponibles, en renuncia y en cada situación, y al pulsar cada cifra sale la lista. Desde ahí abre la ficha de cada candidato, revisa solicitudes, méritos y alegaciones, consulta los llamamientos y cambia las reglas de cada bolsa.
 
+### 4.5 Modalidad de inscripción en la preparación de bases
+
+En la preparación de bases, RRHH puede elegir «Una solicitud por categoría» o
+«Una solicitud para varias categorías», revisar el cambio y guardarlo en una
+nueva revisión. El guardado entrega su recibo. Si no se puede comprobar el
+resultado, se recupera el mismo guardado; no se inicia otro.
+
+Guardar la modalidad conserva el material de preparación. La aprobación y la
+publicación de las bases siguen pendientes de su circuito completo. La
+inscripción conjunta todavía no admite solicitudes: la aspirante ve la modalidad
+y recibe un aviso si intenta presentar una solicitud individual en esa convocatoria.
+
 ## 5. Un contrato temporal, paso a paso
 
 Este es el recorrido completo tal y como funciona hoy en VEC.
