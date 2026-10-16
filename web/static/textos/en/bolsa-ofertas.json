@@ -53,6 +53,7 @@
     "aviso_ayuda_titulo": "What does “Sent” mean?",
     "aviso_ayuda": "The email service accepted these alerts. This does not confirm delivery to the recipients.",
     "aviso_reintentar_pendientes": "Retry pending alerts",
+    "aviso_reintentar_pendientes_oferta": "Retry pending alerts for {categoria}, {centro}, starting {fecha}",
     "aviso_reintentando": "Retrying alerts…",
     "aviso_recuperado": "The status of this offer's alerts has been recovered.",
     "aviso_sesion_caducada": "Your session has ended. Sign in again to check the alerts.",
