@@ -139,6 +139,14 @@ ficha, sin cambiar la verificación ni los permisos de firma. Guion en
 `deploy/principal/firma_ajustes_f1_37_20261015.md`; revisión y ensayo del conjunto
 final pendientes antes de integrar.
 
+**F0-02, cierre del arranque heredado de Administración.** Se prepara la
+exigencia del fichero privado de usuarios antes de abrir conexiones y se
+retira la alternativa que pedía un grupo de auditoría inexistente. Se conserva
+la lista y ficha de usuarios con la configuración aprobada. No añade SQL ni
+perfiles. Activación y vuelta atrás en
+`deploy/principal/administracion_arranque_f0_02_20261015.md`; pendiente de
+integración e instalación por dirección.
+
 Corte H de vigencia de gobierno, orden de dirección del 15/10 a las 19:36:
 preparación y aplicación con 24 horas por defecto, hasta 90 días solo en
 desarrollo y rechazo de plazos mayores de 24 horas en producción. AD282

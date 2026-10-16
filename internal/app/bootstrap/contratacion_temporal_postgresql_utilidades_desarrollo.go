@@ -386,7 +386,13 @@ func comprobarPoolConsultaAuditoriaCTDesarrollo(ctx context.Context, q interface
 	            AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)
 	 AND NOT EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.roleid=l.oid)
 	 AND coalesce(has_function_privilege(session_user,to_regprocedure($2)::oid,'EXECUTE'),false)
-	 AND NOT coalesce(has_function_privilege(session_user,to_regprocedure($3)::oid,'EXECUTE'),false)
+	 -- La falta de USAGE del esquema ajeno es correcta: resolver su nombre
+	 -- con to_regprocedure fallaría antes de comprobar el privilegio negativo.
+	 -- Se rechaza EXECUTE en cualquiera de las sobrecargas de esa función.
+	 AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+	  WHERE n.nspname=split_part($3,'.',1)
+	   AND p.proname=split_part(split_part($3,'.',2),'(',1)
+	   AND has_function_privilege(session_user,p.oid,'EXECUTE'))
 	 FROM pg_roles l JOIN pg_roles g ON g.rolname=$1 WHERE l.rolname=session_user`
 	var usuario string
 	var valido bool
