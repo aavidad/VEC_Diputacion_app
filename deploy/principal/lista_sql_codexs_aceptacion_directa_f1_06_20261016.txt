@@ -1,0 +1,1 @@
+deploy/postgresql/bolsa_llamamientos/migraciones/000128_confirmar_aceptacion_directa.up.sql

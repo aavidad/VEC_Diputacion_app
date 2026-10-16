@@ -47,6 +47,45 @@ export function rutaOperacionesSituacion(bolsa, participacion) {
   return `${BASE}/${segmento(bolsa)}/candidatos/${segmento(participacion)}/operaciones`;
 }
 
+const LLAMAMIENTO_DIRECTO = /^llamamiento:[a-f0-9]{64}$/u;
+const REFERENCIA_ACTO = /^[A-Za-z0-9][A-Za-z0-9:._/-]{0,511}$/u;
+function instanteDirectoValido(valor) {
+  const partes = /^(\d{4})-(\d{2})-(\d{2})T/u.exec(valor || "");
+  if (!instanteValido(valor) || !partes) return false;
+  const anio = Number(partes[1]), mes = Number(partes[2]), dia = Number(partes[3]);
+  const dias = [31, anio % 4 === 0 && (anio % 100 !== 0 || anio % 400 === 0) ? 29 : 28,
+    31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return mes >= 1 && mes <= 12 && dia >= 1 && dia <= dias[mes - 1];
+}
+const aceptacionPendiente = (candidato) => candidato?.marcas?.en_revision === "aceptacion_pendiente"
+  && LLAMAMIENTO_DIRECTO.test(candidato.ultimo_llamamiento?.llamamiento_ref || "")
+  && instanteDirectoValido(candidato.estado_desde);
+
+export async function confirmarAceptacionDirecta(bolsa, participacion, llamamiento, cuerpo, clave, { fetchImpl = fetch } = {}) {
+  if (!bolsa || !participacion || !LLAMAMIENTO_DIRECTO.test(llamamiento) || !REFERENCIA_ACTO.test(clave)
+    || !cuerpo || Object.keys(cuerpo).sort().join(",") !== "motivo,situacion_desde_esperada"
+    || typeof cuerpo.motivo !== "string" || !cuerpo.motivo.trim() || cuerpo.motivo !== cuerpo.motivo.trim()
+    || new TextEncoder().encode(cuerpo.motivo).length > 1000 || !instanteDirectoValido(cuerpo.situacion_desde_esperada)) {
+    return { ok: false, ...errorHttp(400) };
+  }
+  try {
+    const respuesta = await fetchImpl(`${BASE}/${segmento(bolsa)}/candidatos/${segmento(participacion)}/respuestas/${segmento(llamamiento)}/confirmacion`, {
+      method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error",
+      headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": clave }, body: JSON.stringify(cuerpo),
+    });
+    const sobre = await respuesta.json().catch(() => ({}));
+    const dato = sobre?.data;
+    if ([200, 201].includes(respuesta.status) && respuesta.ok && dato?.participacion_ref === participacion
+      && dato.situacion === "pendiente_incorporacion" && ["respuesta_ref", "resolucion_ref", "recibo_ref"].every((campo) => REFERENCIA_ACTO.test(dato[campo] || ""))
+      && instanteDirectoValido(dato.desde) && instanteDirectoValido(dato.resuelta_en) && dato.motivo === cuerpo.motivo
+      && typeof dato.reutilizada === "boolean" && dato.reutilizada === (respuesta.status === 200)) return { ok: true, datos: dato };
+    if (respuesta.ok) return respuestaInvalida(traducirPortal("txt_directa_recibo_invalido"));
+    return { ...errorHttp(respuesta.status, sobre?.error?.codigo), codigo: sobre?.error?.codigo || "" };
+  } catch {
+    return { ok: false, status: 0, codigo: "error_red", mensaje: traducirPortal("txt_directa_resultado_incierto") };
+  }
+}
+
 
 const SECCIONES_FICHA = ["solicitudes_documentales", "reincorporaciones_titular"];
 const ESTADOS_DISPONIBILIDAD = ["disponible", "no_autorizado", "sin_montaje", "indisponible"];
@@ -239,6 +278,32 @@ function justificanteVisible(item) {
   return `${TIPOS_ETIQUETA[item.justificante.tipo] || item.justificante.tipo} · ${item.justificante.referencia}`;
 }
 
+function renderizarAceptacionDirecta(candidato, flujo, escaparHTML) {
+  const acto = flujo.directa;
+  if (!acto && (!aceptacionPendiente(candidato) || flujo.paso > 0)) return "";
+  if (!acto) return `<button type="button" class="boton-secundario" data-b8-accion="directa-abrir">${textoPortal("txt_directa_abrir")}</button>`;
+  const titulo = `<h5 tabindex="-1" data-directa-paso>${textoPortal("txt_directa_titulo")}</h5>`;
+  const hechos = `<p>${textoPortal("txt_directa_persona")}: ${escaparHTML(candidato.nombre_visible || "")}</p>
+    <p>${textoPortal("txt_directa_respuesta")}: ${textoPortal("txt_directa_acepta")}</p>
+    <p>${textoPortal("txt_directa_consecuencia")}: ${textoPortal("txt_directa_pendiente_incorporacion")}</p>`;
+  let contenido;
+  if (acto.paso === "edicion") contenido = `<form data-b8-form="aceptacion-directa"><label>${textoPortal("txt_motivo")}
+    <textarea name="motivo" required maxlength="1000">${escaparHTML(acto.motivo || "")}</textarea></label>
+    <div class="acciones-vista"><button type="button" class="boton-secundario" data-b8-accion="directa-cancelar">${textoPortal("txt_cancelar")}</button>
+    <button type="submit" class="boton-primario">${textoPortal("txt_directa_revisar")}</button></div></form>`;
+  else if (acto.paso === "revision" || acto.paso === "enviando") contenido = `<p>${textoPortal("txt_motivo")}: ${escaparHTML(acto.pendiente.cuerpo.motivo)}</p>
+    <div class="acciones-vista"><button type="button" class="boton-secundario" data-b8-accion="directa-corregir"${acto.paso === "enviando" ? " disabled" : ""}>${textoPortal("txt_directa_corregir")}</button>
+    <button type="button" class="boton-primario" data-b8-accion="directa-confirmar"${acto.paso === "enviando" ? " disabled" : ""}>${textoPortal(acto.paso === "enviando" ? "txt_directa_enviando" : "txt_directa_confirmar")}</button></div>`;
+  else if (acto.paso === "incierto") contenido = `<p role="alert">${textoPortal("txt_directa_resultado_incierto")}</p>
+    <button type="button" class="boton-primario" data-b8-accion="directa-repetir">${textoPortal("txt_directa_comprobar_misma")}</button>`;
+  else if (acto.paso === "conflicto") contenido = `<p role="alert">${textoPortal("txt_directa_conflicto")}</p>
+    <button type="button" class="boton-primario" data-b8-accion="directa-actualizar">${textoPortal("txt_directa_actualizar")}</button>`;
+  else contenido = `<p role="status">${textoPortal("txt_directa_confirmada")} ${acto.recibo.reutilizada ? textoPortal("txt_respuesta_recuperada") : ""}</p>
+    <p>${textoPortal("txt_directa_fecha")}: <time datetime="${escaparHTML(acto.recibo.resuelta_en)}">${escaparHTML(instanteLegible(acto.recibo.resuelta_en))}</time></p>
+    <details><summary>${textoPortal("txt_directa_ver_referencias")}</summary><code>${escaparHTML(acto.recibo.recibo_ref)}</code></details>`;
+  return `<section class="panel-separado" data-directa-raiz>${titulo}${hechos}${contenido}${acto.error ? `<p class="mensaje-error" role="alert">${escaparHTML(acto.error)}</p>` : ""}</section>`;
+}
+
 export function renderizarOperacionesSituacion({ candidato, estado = {}, escaparHTML = html }) {
   const actual = estado.carga || "cargando";
   const disponibles = operacionesAdmitidasCandidato(candidato, estado);
@@ -269,7 +334,7 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
   const pendiente = actual === "listo" && ["renuncia", "en_revision", "excluido"].includes(candidato.estado_clave)
     && !disponibles.some((operacion) => ["revisar", "regularizar"].includes(operacion))
     ? `<p role="status">${textoPortal("txt_b8_regularizacion_no_disponible")}</p>` : "";
-  return `<section class="panel panel-separado" data-b8-raiz="true" tabindex="-1"><div class="cabecera-panel"><div><h4>${textoPortal("txt_b8_gestion_estado")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${solicitudesVista}${pendiente}${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.reciboResolucion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_b8_resolucion_solicitud")} ${justificanteTraducido(estado.reciboResolucion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
+  return `<section class="panel panel-separado" data-b8-raiz="true" tabindex="-1"><div class="cabecera-panel"><div><h4>${textoPortal("txt_b8_gestion_estado")}</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p><p>${textoPortal("txt_b8_ayuda_llamamiento_directo")}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${renderizarAceptacionDirecta(candidato, estado, escaparHTML)}${solicitudesVista}${pendiente}${estado.recibo ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? traducirPortal("txt_respuesta_recuperada") : ""}</p>` : ""}${estado.reciboResolucion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_b8_resolucion_solicitud")} ${justificanteTraducido(estado.reciboResolucion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>${textoPortal("txt_historial_de_operaciones")}</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
 }
 
 // El historial llega con instantes ISO, claves de situación y referencias de
@@ -415,12 +480,52 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     renderizar();
   }
 
+  async function enviarDirecta(modal, acto) {
+    if (!acto?.pendiente || !["revision", "incierto"].includes(acto.paso)) return;
+    acto.paso = "enviando"; acto.error = ""; modal.enviandoCambioSituacion = true; modal.resultadoInciertoCambioSituacion = false; renderizar();
+    const { bolsa, participacion, llamamiento, cuerpo, clave } = acto.pendiente;
+    const respuesta = await confirmarAceptacionDirecta(bolsa, participacion, llamamiento, cuerpo, clave);
+    if (estado.modalFicha !== modal || modal.operacionesB8?.directa !== acto) return;
+    modal.enviandoCambioSituacion = false;
+    if (!respuesta.ok) {
+      acto.error = respuesta.mensaje;
+      acto.paso = respuesta.status === 409 ? "conflicto" : "incierto";
+      modal.resultadoInciertoCambioSituacion = acto.paso === "incierto";
+      renderizar(); return;
+    }
+    acto.recibo = respuesta.datos; acto.paso = "recibo"; modal.resultadoInciertoCambioSituacion = false;
+    modal.candidato = { ...modal.candidato, estado_clave: respuesta.datos.situacion, estado_desde: respuesta.datos.desde };
+    renderizar();
+    try { await recargar(participacion); if (estado.modalFicha === modal) void cargar(modal); }
+    catch { if (estado.modalFicha === modal) { acto.error = traducirPortal("txt_directa_refresco_error"); renderizar(); } }
+  }
+
+  function manejarClickDirecta(control, modal, flujo) {
+    const accion = control.dataset.b8Accion;
+    const acto = flujo.directa;
+    if (accion === "directa-abrir" && !acto && aceptacionPendiente(modal.candidato) && !modal.cambioSituacion) {
+      flujo.directa = { paso: "edicion", motivo: "", error: "" };
+      modal.resultadoInciertoCambioSituacion = true;
+    } else if (accion === "directa-cancelar" && acto?.paso === "edicion") { flujo.directa = null; modal.resultadoInciertoCambioSituacion = false; }
+    else if (accion === "directa-corregir" && acto?.paso === "revision") { acto.paso = "edicion"; acto.pendiente = null; }
+    else if (accion === "directa-confirmar" && acto?.paso === "revision") void enviarDirecta(modal, acto);
+    else if (accion === "directa-repetir" && acto?.paso === "incierto") void enviarDirecta(modal, acto);
+    else if (accion === "directa-actualizar" && acto?.paso === "conflicto") {
+      flujo.directa = null;
+      void recargar(modal.candidato.participacion_ref).then(() => { if (estado.modalFicha === modal) void cargar(modal); })
+        .catch(() => { if (estado.modalFicha === modal) { flujo.errorOperacion = traducirPortal("txt_directa_consulta_error"); renderizar(); } });
+    }
+    renderizar();
+    globalThis.document?.querySelector?.("[data-directa-paso]")?.focus?.();
+  }
+
   function manejarClick(evento) {
     const control = evento.target?.closest?.("[data-b8-accion]");
     if (!control || !estado.modalFicha) return false;
     evento.preventDefault();
     const modal = estado.modalFicha;
     const flujo = modal.operacionesB8 || (modal.operacionesB8 = { carga: "listo", items: [] });
+    if (control.dataset.b8Accion?.startsWith("directa-")) { manejarClickDirecta(control, modal, flujo); return true; }
     if (flujo.enviando || (flujo.noDisponible && control.dataset.b8Accion !== "reintentar")) return true;
     if (control.dataset.b8Accion === "seleccionar") {
       if (!operacionAdmitida(modal, flujo, control.dataset.operacion)) {
@@ -517,6 +622,23 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
   }
 
   function manejarSubmit(evento) {
+    const directa = evento.target?.dataset?.b8Form === "aceptacion-directa" ? evento.target : null;
+    if (directa && estado.modalFicha) {
+      evento.preventDefault();
+      const modal = estado.modalFicha, acto = modal.operacionesB8?.directa;
+      if (acto?.paso !== "edicion" || !aceptacionPendiente(modal.candidato)) return true;
+      const motivo = String(new FormData(directa).get("motivo") || "").trim();
+      if (!motivo || new TextEncoder().encode(motivo).length > 1000 || !globalThis.crypto?.randomUUID) {
+        acto.error = traducirPortal("txt_directa_motivo_invalido"); renderizar(); return true;
+      }
+      acto.motivo = motivo;
+      acto.pendiente = Object.freeze({ bolsa: estado.bolsaSeleccionada, participacion: modal.candidato.participacion_ref,
+        llamamiento: modal.candidato.ultimo_llamamiento.llamamiento_ref,
+        cuerpo: Object.freeze({ motivo, situacion_desde_esperada: modal.candidato.estado_desde }), clave: globalThis.crypto.randomUUID() });
+      acto.paso = "revision"; acto.error = ""; renderizar();
+      globalThis.document?.querySelector?.("[data-directa-paso]")?.focus?.();
+      return true;
+    }
     const formulario = evento.target?.closest?.('[data-b8-form="operacion"]');
     if (!formulario || !estado.modalFicha) return false;
     evento.preventDefault();
@@ -576,6 +698,11 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
       if (!manejarClickContratos(evento, { estado, renderizar })) manejarClick(evento);
     });
     documento.addEventListener("submit", (evento) => { manejarSubmit(evento); });
+    globalThis.addEventListener?.("beforeunload", (evento) => {
+      if (["edicion", "revision", "incierto", "enviando"].includes(estado.modalFicha?.operacionesB8?.directa?.paso)) {
+        evento.preventDefault(); evento.returnValue = "";
+      }
+    });
     instalarPropuestaReposicion(documento, () => estado.modalFicha);
   }
 

@@ -9,11 +9,16 @@ import {
   consultarOperacionesSituacion,
   consultarSolicitudesDocumentalesRRHH,
   registrarOperacionSituacion,
+  confirmarAceptacionDirecta,
   referenciaContieneDocumentoIdentidad,
   renderizarOperacionesSituacion,
   rutaOperacionesSituacion,
   operacionesDisponibles,
 } from "./portal-bolsas-operaciones.js?v=20261001-f-reconciliacion-323-v1";
+
+const aceptacionDirecta = { nombre_visible: "Ana Prueba", participacion_ref: "participacion:dos",
+  estado_clave: "disponible", estado_desde: "2026-10-16T10:30:00Z",
+  marcas: { en_revision: "aceptacion_pendiente" }, ultimo_llamamiento: { llamamiento_ref: `llamamiento:${"a".repeat(64)}` } };
 
 test("P-WEB-14 rechaza DNI, NIE y etiquetas de identidad antes del POST B8", async () => {
   for (const referencia of ["12345678Z", "REG/X1234567L", "exp:12.34.56.78-Z", "dni:123", "nie-ref"] ) {
@@ -593,4 +598,67 @@ test("B8 permite volver aunque haya datos incompletos o una referencia pendiente
     assert.equal(flujo.formulario.referencia, "X1234567L");
     assert.equal(flujo.formulario.sha256, "");
   } finally { globalThis.FormData = formDataAnterior; }
+});
+
+test("aceptación directa solo aparece con marca, llamamiento y fecha; el POST conserva tupla y clave", async () => {
+  const anteriorFetch = globalThis.fetch, anteriorForm = globalThis.FormData;
+  const peticiones = []; let recargas = 0;
+  const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: { candidato: { ...aceptacionDirecta },
+    operacionesB8: { carga: "listo", items: [] } } };
+  globalThis.FormData = class { constructor(form) { this.valores = form.valores; } get(clave) { return this.valores[clave]; } };
+  globalThis.fetch = async (ruta, opciones) => {
+    if (!ruta.endsWith("/confirmacion")) return response(503, { error: { codigo: "servicio_no_disponible" } });
+    peticiones.push({ ruta, opciones });
+    if (peticiones.length === 1) return response(403, { error: { codigo: "acceso_denegado" } });
+    return response(200, { data: { participacion_ref: aceptacionDirecta.participacion_ref,
+      situacion: "pendiente_incorporacion", desde: "2026-10-16T11:00:00Z",
+      respuesta_ref: "respuesta:1", resolucion_ref: "resolucion:1", recibo_ref: "recibo:1",
+      reutilizada: true, resuelta_en: "2026-10-16T11:00:00Z", motivo: "Aceptación comprobada" } });
+  };
+  try {
+    const ctl = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar: async () => { recargas++; } });
+    const click = (accion) => ctl.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: accion } }) }, preventDefault() {} });
+    const submit = (motivo) => ctl.manejarSubmit({ target: { dataset: { b8Form: "aceptacion-directa" }, valores: { motivo } }, preventDefault() {} });
+    const visible = () => renderizarOperacionesSituacion({ candidato: estado.modalFicha.candidato, estado: estado.modalFicha.operacionesB8 });
+    assert.match(visible(), /data-b8-accion="directa-abrir"/u);
+    assert.doesNotMatch(renderizarOperacionesSituacion({ candidato: { ...aceptacionDirecta, marcas: { en_revision: "renuncia_pendiente" } }, estado: { carga: "listo", items: [] } }), /directa-abrir/u);
+    click("directa-abrir"); submit("Aceptación comprobada");
+    assert.match(visible(), /Ana Prueba/u);
+    assert.match(visible(), /Pendiente de incorporación/u);
+    click("directa-confirmar"); click("directa-confirmar");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(peticiones.length, 1);
+    assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, true);
+    click("directa-repetir"); await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(peticiones.length, 2);
+    assert.deepEqual(peticiones.map(({ opciones }) => opciones.body), [peticiones[0].opciones.body, peticiones[0].opciones.body]);
+    assert.equal(peticiones[0].opciones.headers["Idempotency-Key"], peticiones[1].opciones.headers["Idempotency-Key"]);
+    assert.deepEqual(JSON.parse(peticiones[0].opciones.body), { motivo: "Aceptación comprobada", situacion_desde_esperada: aceptacionDirecta.estado_desde });
+    assert.match(peticiones[0].ruta, /\/respuestas\/llamamiento:[a-f0-9]{64}\/confirmacion$/u);
+    assert.equal(estado.modalFicha.operacionesB8.directa.recibo.recibo_ref, "recibo:1");
+    assert.match(visible(), /16\/10\/26, 13:00/u); assert.equal(recargas, 1);
+  } finally { globalThis.fetch = anteriorFetch; globalThis.FormData = anteriorForm; }
+});
+
+test("409 no reenvía la aceptación y ofrece releer la ficha", async () => {
+  const anteriorFetch = globalThis.fetch, anteriorForm = globalThis.FormData;
+  let envios = 0, recargas = 0;
+  globalThis.FormData = class { constructor(form) { this.valores = form.valores; } get(clave) { return this.valores[clave]; } };
+  globalThis.fetch = async (ruta) => {
+    if (!ruta.endsWith("/confirmacion")) return response(503, { error: { codigo: "servicio_no_disponible" } });
+    envios++; return response(409, { error: { codigo: "cambio_en_conflicto" } });
+  };
+  try {
+    const estado = { bolsaSeleccionada: "bolsa:uno", modalFicha: { candidato: { ...aceptacionDirecta }, operacionesB8: { carga: "listo", items: [] } } };
+    const ctl = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar: async () => { recargas++; } });
+    const click = (accion) => ctl.manejarClick({ target: { closest: () => ({ dataset: { b8Accion: accion } }) }, preventDefault() {} });
+    click("directa-abrir");
+    ctl.manejarSubmit({ target: { dataset: { b8Form: "aceptacion-directa" }, valores: { motivo: "Confirmación" } }, preventDefault() {} });
+    click("directa-confirmar"); await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(estado.modalFicha.operacionesB8.directa.paso, "conflicto");
+    assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, false);
+    click("directa-repetir"); assert.equal(envios, 1);
+    click("directa-actualizar"); await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(envios, 1); assert.equal(recargas, 1);
+  } finally { globalThis.fetch = anteriorFetch; globalThis.FormData = anteriorForm; }
 });

@@ -329,15 +329,16 @@ type emisorBorradorLlamamientoDesarrollo struct {
 	consultaPoliticaOfertas                                                                                                 *emisorMaterialRenovableCTDesarrollo
 	consultaReincorporacion                                                                                                 *emisorMaterialRenovableCTDesarrollo
 	consultaSolicitudesDocumentales                                                                                         *emisorMaterialRenovableCTDesarrollo
+	confirmacionDirecta                                                                                                     *emisorMaterialRenovableCTDesarrollo
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
-	registradorPerfil                                                                                                 puertosvec.RegistradorIntentosAuditoria
-	procesoPerfil                                                                                                     string
-	situacion, operaciones, solicitudesDocumentales, contacto, datosContacto, contratos, sanciones, reincorporaciones http.Handler
-	preparador                                                                                                        *preparadorBorradorLlamamientoDesarrollo
-	servicio                                                                                                          *aplicacionbolsa.ServicioContactoParticipacion
-	respuestas                                                                                                        *aplicacionbolsa.ServicioRespuestasPortalRRHH
+	registradorPerfil                                                                                                                      puertosvec.RegistradorIntentosAuditoria
+	procesoPerfil                                                                                                                          string
+	situacion, operaciones, solicitudesDocumentales, contacto, datosContacto, contratos, sanciones, reincorporaciones, confirmacionDirecta http.Handler
+	preparador                                                                                                                             *preparadorBorradorLlamamientoDesarrollo
+	servicio                                                                                                                               *aplicacionbolsa.ServicioContactoParticipacion
+	respuestas                                                                                                                             *aplicacionbolsa.ServicioRespuestasPortalRRHH
 	// servicioSituacion permite componer después las reglas de transición.
 	servicioSituacion *aplicacionbolsa.ServicioSituacionParticipacion
 	// La suboperación CT usa nuevas instancias nominales sobre estas mismas
@@ -360,6 +361,10 @@ type manejadorParticipacionBolsaDesarrollo struct {
 }
 
 func (m *manejadorParticipacionBolsaDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if _, _, _, ok := bolsahttp.ReferenciasRutaConfirmacionDirecta(r); ok && m.confirmacionDirecta != nil {
+		m.confirmacionDirecta.ServeHTTP(w, r)
+		return
+	}
 	if r != nil && r.URL != nil && r.URL.Path == bolsahttp.RutaSolicitudesDocumentalesPendientesRRHH && m.solicitudesDocumentales != nil {
 		m.solicitudesDocumentales.ServeHTTP(w, r)
 		return
@@ -432,6 +437,10 @@ func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestada
 	case puertosbolsa.AccionCambiarSituacionParticipacion:
 		if e != nil && e.situacion != nil {
 			return e.situacion.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
+	case puertosbolsa.AccionConfirmarAceptacionDirecta:
+		if e != nil && e.confirmacionDirecta != nil {
+			return e.confirmacionDirecta.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
 		}
 	case puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH:
 		if e != nil && e.consultaSolicitudesDocumentales != nil {
@@ -683,6 +692,14 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	var emisorConfirmacion *emisorMaterialRenovableCTDesarrollo
+	if alta.postgresql.proveedorMaterialConfirmacionDirecta != nil {
+		emisorConfirmacion, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialConfirmacionDirecta)
+		if err != nil {
+			registrarFalloPostgreSQLContratacionTemporalDesarrollo("emisor_confirmacion_aceptacion", "capacidad_no_disponible")
+			emisorConfirmacion = nil
+		}
+	}
 	emisorDocumentales, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialConsultaSolicitudesDocumentales)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
@@ -731,7 +748,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	preparador := &preparadorBorradorLlamamientoDesarrollo{sesion: seguridad, soporte: soporteBolsa, generar: seguridadvec.GeneradorReferenciasCriptograficas{}, vigentes: vigentes}
-	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion, consultaSolicitudesDocumentales: emisorDocumentales, contacto: emisorContacto, consultaContacto: emisorConsultaContacto, datosContacto: emisorDatosContacto, emision: emisorEmision, politicaOfertas: emisorPoliticaOfertas, consultaPoliticaOfertas: emisorConsultaPoliticaOfertas}
+	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion, confirmacionDirecta: emisorConfirmacion, consultaSolicitudesDocumentales: emisorDocumentales, contacto: emisorContacto, consultaContacto: emisorConsultaContacto, datosContacto: emisorDatosContacto, emision: emisorEmision, politicaOfertas: emisorPoliticaOfertas, consultaPoliticaOfertas: emisorConsultaPoliticaOfertas}
 	emisor.cargaConvoca = emisorCargaConvoca
 	if emisor.consultaDatosContacto, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialConsultaDatosContacto); err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
@@ -778,6 +795,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	handlerSituacion, err := bolsahttp.NuevoHandlerSituacionParticipacion(preparador, servicioSituacion)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	handlerConfirmacion, err := bolsahttp.NuevoHandlerConfirmacionDirecta(preparador, servicioSituacion)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -953,7 +974,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, err
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{registradorPerfil: registradorDocumentales, procesoPerfil: procesoDocumentales, canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, politicaSituacion: politicaB, materialSituacion: alta.postgresql.proveedorMaterialSituacion, repositorioSituacion: repositorioSituacion, materialEmision: alta.postgresql.proveedorMaterialEmision, repositorioEmision: repositorioEmision, correoFuente: fuenteCorreo, correoEmisor: correoEmisor, correoPersonalizado: correoPersonalizado, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	mutador := &manejadorParticipacionBolsaDesarrollo{registradorPerfil: registradorDocumentales, procesoPerfil: procesoDocumentales, canales: canales, situacion: handlerSituacion, confirmacionDirecta: handlerConfirmacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, politicaSituacion: politicaB, materialSituacion: alta.postgresql.proveedorMaterialSituacion, repositorioSituacion: repositorioSituacion, materialEmision: alta.postgresql.proveedorMaterialEmision, repositorioEmision: repositorioEmision, correoFuente: fuenteCorreo, correoEmisor: correoEmisor, correoPersonalizado: correoPersonalizado, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	proyectorFicha, err := nuevoProyectorDisponibilidadFichaOperacionesBolsa(
 		preparador, politicaBolsa, dependenciasCT.reloj, mutador.solicitudesDocumentales, mutador.reincorporaciones)
 	if err != nil {
