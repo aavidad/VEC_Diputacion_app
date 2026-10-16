@@ -60,18 +60,12 @@ func concesionesConfirmacionDirectaExactas(restantes []dominiovec.ConcesionRol) 
 // privada de material CT conserva el resto de rutas ya compuestas.
 func proveedorConfirmacionDirectaOpcional(ctx context.Context, gobierno *pgxpool.Pool,
 	material materialAtestacionContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo,
-	previos []descriptorMaterialConsumidorV3Desarrollo,
+	catalogo catalogoMaterialAutorizacionComunDesarrollo,
 ) *proveedorMaterialAltaContratacionTemporalDesarrollo {
-	descriptores := append([]descriptorMaterialConsumidorV3Desarrollo(nil), previos...)
-	descriptores = append(descriptores, descriptorMaterialConfirmacionDirectaBolsaDesarrollo())
-	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores)
+	proveedor, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno,
+		material, reloj, catalogo, puertosbolsa.AudienciaConfirmarAceptacionDirecta)
 	if err == nil {
-		var proveedor *proveedorMaterialAltaContratacionTemporalDesarrollo
-		proveedor, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno,
-			material, reloj, catalogo, puertosbolsa.AudienciaConfirmarAceptacionDirecta)
-		if err == nil {
-			return proveedor
-		}
+		return proveedor
 	}
 	registrarFalloPostgreSQLContratacionTemporalDesarrollo("material_confirmacion_aceptacion", causaFalloPostgreSQLCTDesarrollo(err))
 	return nil

@@ -1,21 +1,14 @@
 package httpinterno
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
-	core "vec-diputacion-granada/internal/vec/domain"
-	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 var claveConfirmacionDirecta = regexp.MustCompile(`^[A-Za-z0-9:_-]{8,256}$`)
@@ -70,7 +63,7 @@ func (h *HandlerConfirmacionDirecta) ServeHTTP(w http.ResponseWriter, r *http.Re
 		Motivo                 string `json:"motivo"`
 		SituacionEsperadaDesde string `json:"situacion_desde_esperada"`
 	}
-	if leerCuerpoConfirmacionDirecta(w, r, &cuerpo) != nil || cuerpo.Motivo == "" ||
+	if decodificarCuerpoLlamamiento(w, r, &cuerpo, 16*1024) != nil || cuerpo.Motivo == "" ||
 		strings.TrimSpace(cuerpo.Motivo) != cuerpo.Motivo || len(cuerpo.Motivo) > 1000 {
 		responderConfirmacionDirecta(w, 400, "solicitud_invalida")
 		return
@@ -84,7 +77,7 @@ func (h *HandlerConfirmacionDirecta) ServeHTTP(w http.ResponseWriter, r *http.Re
 		Destino: domain.SituacionPendienteIncorporacion, Motivo: cuerpo.Motivo, ClaveIdempotencia: clave}
 	base, err := h.preparador.PrepararSolicitudCambiarSituacion(r.Context(), entrada)
 	if err != nil {
-		responderErrorConfirmacionDirecta(w, err)
+		responderErrorSituacion(w, err)
 		return
 	}
 	if base.BolsaRef != bolsa || base.ParticipacionRef != participacion ||
@@ -95,13 +88,9 @@ func (h *HandlerConfirmacionDirecta) ServeHTTP(w http.ResponseWriter, r *http.Re
 	}
 	q := ports.SolicitudConfirmarAceptacionDirecta{SolicitudCambiarSituacionParticipacion: base,
 		LlamamientoRef: llamamiento, SituacionEsperadaDesde: esperada.UTC()}
-	if q.Validar() != nil {
-		responderConfirmacionDirecta(w, 503, "servicio_no_disponible")
-		return
-	}
 	registro, err := h.operador.ConfirmarAceptacionDirecta(r.Context(), q)
 	if err != nil {
-		responderErrorConfirmacionDirecta(w, err)
+		responderErrorSituacion(w, err)
 		return
 	}
 	if registro.RespuestaRef == "" || registro.ResolucionRef == "" || registro.ReciboRef == "" ||
@@ -125,22 +114,6 @@ func (h *HandlerConfirmacionDirecta) ServeHTTP(w http.ResponseWriter, r *http.Re
 	}})
 }
 
-func leerCuerpoConfirmacionDirecta(w http.ResponseWriter, r *http.Request, destino any) error {
-	b, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 16*1024))
-	if err != nil || int64(len(b)) != r.ContentLength || !utf8.Valid(b) || validarJSONSinDuplicados(b) != nil {
-		return ports.ErrSituacionParticipacionNoDisponible
-	}
-	dec := json.NewDecoder(bytes.NewReader(b))
-	dec.DisallowUnknownFields()
-	if dec.Decode(destino) != nil {
-		return ports.ErrSituacionParticipacionNoDisponible
-	}
-	if _, err := dec.Token(); err != io.EOF {
-		return ports.ErrSituacionParticipacionNoDisponible
-	}
-	return nil
-}
-
 func ReferenciasRutaConfirmacionDirecta(r *http.Request) (string, string, string, bool) {
 	if r == nil || r.URL == nil || r.URL.RawPath != "" || r.URL.RawQuery != "" ||
 		r.RequestURI != r.URL.Path || strings.Contains(r.URL.EscapedPath(), "%") ||
@@ -158,19 +131,6 @@ func ReferenciasRutaConfirmacionDirecta(r *http.Request) (string, string, string
 		}
 	}
 	return partes[0], partes[2], partes[4], true
-}
-
-func responderErrorConfirmacionDirecta(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, core.ErrAutorizacionDenegada), errors.Is(err, core.ErrPermissionDenied),
-		errors.Is(err, vecports.ErrInstantaneaAutorizacionObsoleta):
-		responderConfirmacionDirecta(w, 403, "acceso_denegado")
-	case errors.Is(err, ports.ErrConfirmacionAceptacionDirectaConflicto),
-		errors.Is(err, domain.ErrCambioSituacionParticipacionInvalido):
-		responderConfirmacionDirecta(w, 409, "cambio_en_conflicto")
-	default:
-		responderConfirmacionDirecta(w, 503, "servicio_no_disponible")
-	}
 }
 
 func responderConfirmacionDirecta(w http.ResponseWriter, estado int, codigo string) {

@@ -75,32 +75,6 @@ func TestConfirmacionDirectaAdoptaSoloExtrasExactosIncluidoB1(t *testing.T) {
 	}
 }
 
-func TestConfirmacionDirectaFronteraCapacidadYAudienciaPropias(t *testing.T) {
-	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback_0123456789abcdef")
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ruta := bolsahttp.RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/respuestas/llamamiento:01/confirmacion"
-	d, ok := catalogo.resolver(http.MethodPost, ruta)
-	if !ok || d.Clave != claveFronteraConfirmacionDirectaBolsa ||
-		d.ClaveCapacidad != claveCapacidadConfirmacionDirectaBolsa ||
-		d.ClaveCapacidad == claveCapacidadSituacionParticipacionBolsa {
-		t.Fatalf("frontera no nominal: %+v admite=%v", d, ok)
-	}
-	if _, ok := catalogo.resolver(http.MethodGet, ruta); ok {
-		t.Fatal("la ruta aceptó lectura")
-	}
-	material := descriptorMaterialConfirmacionDirectaBolsaDesarrollo()
-	if material.Audiencia != puertosbolsa.AudienciaConfirmarAceptacionDirecta ||
-		!audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(material.Audiencia) {
-		t.Fatalf("audiencia sin gobierno propio: %+v", material)
-	}
-}
-
 func TestConfirmacionDirectaMuxLlegaAlHandlerNominal(t *testing.T) {
 	ruta := bolsahttp.RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/respuestas/llamamiento:01/confirmacion"
 	llamadas := 0

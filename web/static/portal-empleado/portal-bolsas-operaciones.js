@@ -70,7 +70,7 @@ export async function confirmarAceptacionDirecta(bolsa, participacion, llamamien
   }
   try {
     const respuesta = await fetchImpl(`${BASE}/${segmento(bolsa)}/candidatos/${segmento(participacion)}/respuestas/${segmento(llamamiento)}/confirmacion`, {
-      method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error",
+      method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
       headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": clave }, body: JSON.stringify(cuerpo),
     });
     const sobre = await respuesta.json().catch(() => ({}));

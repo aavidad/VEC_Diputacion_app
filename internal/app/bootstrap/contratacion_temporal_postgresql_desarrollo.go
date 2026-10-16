@@ -864,7 +864,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if seleccion.borradoresBolsa {
 		dependencias.proveedorMaterialConfirmacionDirecta = proveedorConfirmacionDirectaOpcional(
-			ctx, gobierno, material, reloj, descriptoresMaterial)
+			ctx, gobierno, material, reloj, catalogoMaterial)
 	}
 	// Organización histórica es opcional e independiente de B2. La selección
 	// y la publicación usan el gobierno central, pero su fallo sólo deja esta

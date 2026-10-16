@@ -9,7 +9,6 @@ import {
   consultarOperacionesSituacion,
   consultarSolicitudesDocumentalesRRHH,
   registrarOperacionSituacion,
-  confirmarAceptacionDirecta,
   referenciaContieneDocumentoIdentidad,
   renderizarOperacionesSituacion,
   rutaOperacionesSituacion,
@@ -631,6 +630,7 @@ test("aceptación directa solo aparece con marca, llamamiento y fecha; el POST c
     assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, true);
     click("directa-repetir"); await new Promise((resolve) => setImmediate(resolve));
     assert.equal(peticiones.length, 2);
+    assert.equal(peticiones[0].opciones.referrerPolicy, "no-referrer");
     assert.deepEqual(peticiones.map(({ opciones }) => opciones.body), [peticiones[0].opciones.body, peticiones[0].opciones.body]);
     assert.equal(peticiones[0].opciones.headers["Idempotency-Key"], peticiones[1].opciones.headers["Idempotency-Key"]);
     assert.deepEqual(JSON.parse(peticiones[0].opciones.body), { motivo: "Aceptación comprobada", situacion_desde_esperada: aceptacionDirecta.estado_desde });
