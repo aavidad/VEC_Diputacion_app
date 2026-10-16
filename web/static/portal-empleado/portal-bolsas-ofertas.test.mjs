@@ -41,9 +41,9 @@ function boton(dataset) {
 test("la entrada y la caché cargan la versión de ofertas con avisos", async () => {
   const [portal, html, cache] = await Promise.all(["portal.js", "index.html", "cache-publica-v1.json"]
     .map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
-  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261016-f118-reintento-incierto-v1/);
-  assert.match(html, /portal\.js\?v=20261016-f118-reintento-incierto-v1/);
-  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261016-f118-reintento-incierto-v1"));
+  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261016-f118-reintento-incierto-v2/);
+  assert.match(html, /portal\.js\?v=20261016-f118-reintento-incierto-v2/);
+  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261016-f118-reintento-incierto-v2"));
 });
 
 test("la ficha abre el historial autorizado de la oferta elegida y lo desmonta al cerrar", async () => {
@@ -196,6 +196,36 @@ test("la red incierta conserva cuerpo y clave; la recuperación expresa no rearm
   assert.deepEqual(llamadas[1], llamadas[0]);
   assert.equal(superficie.estado().intencionAvisoIncierto, null);
   assert.match(superficie.renderizar(), /recibo:reintento:estable/);
+  superficie.desmontar();
+});
+
+test("503 consulta la configuración y permite recuperar la misma intención tras actualizar", async () => {
+  const aviso = { total: 1, pendientes: 0, enviados: 0, sin_confirmacion: 1, fallidos: 0, revision: 2 };
+  const reintento_aviso = { recibo_ref: "recibo:reintento:503", registrado_en: "2026-10-16T06:40:00Z", rearmados: 1 };
+  let configuracionPendiente = false; let consultas = 0; let claves = 0;
+  const llamadas = [];
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => { consultas++; return sobre([oferta({ aviso, aviso_configuracion_pendiente: configuracionPendiente })], "publicacion"); },
+    reintentarAvisosSinConfirmacion: async (cuerpo, clave) => { llamadas.push({ cuerpo: { ...cuerpo }, clave });
+      if (llamadas.length === 1) { configuracionPendiente = true; return { ok: false, status: 503, codigo: "aviso_sin_configuracion" }; }
+      return { ok: true, status: 200, oferta: oferta({ aviso: { ...aviso, enviados: 1, sin_confirmacion: 0, revision: 3 }, reintento_aviso }) }; },
+  }, generarClave: () => `clave-${++claves}` });
+  superficie.activar("bolsa:1"); await turno();
+  superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:1" }));
+  superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+  assert.equal(consultas, 2, "el 503 provoca una consulta sin otro POST");
+  assert.equal(llamadas.length, 1);
+  assert.equal(superficie.estado().intencionAvisoIncierto.incierta, true);
+  assert.match(superficie.renderizar(), /Falta configurar el envío de avisos de las ofertas/);
+  assert.match(superficie.renderizar(), /Actualizar estado/);
+  assert.doesNotMatch(superficie.renderizar(), /Recuperar el resultado del reintento/);
+  configuracionPendiente = false;
+  superficie.manejarClick(boton({ ofertasAccion: "recargar" })); await turno();
+  assert.match(superficie.renderizar(), /Recuperar el resultado del reintento/);
+  superficie.manejarClick(boton({ ofertasAccion: "repetir-reintento-incierto" })); await turno();
+  assert.deepEqual(llamadas[1], llamadas[0]);
+  assert.equal(claves, 1, "la recuperación no genera otra clave");
+  assert.match(superficie.renderizar(), /recibo:reintento:503/);
   superficie.desmontar();
 });
 

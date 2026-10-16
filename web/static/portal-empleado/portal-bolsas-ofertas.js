@@ -393,6 +393,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
         await cargar();
       } else {
         intento.incierta = true; estado.errorOperacion = traducir("reintento_incierto_salida_incierta");
+        if (resultado.status === 503) await cargar();
       }
     } catch {
       if (!signal.aborted) { intento.incierta = true; estado.errorOperacion = traducir("reintento_incierto_salida_incierta"); }
