@@ -294,6 +294,7 @@ conveniente».
 | 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6 |
 | 9 | Carmen | Ficha, Llamamiento y comunicación | Abre el llamamiento desde la bolsa Administrativo y registra la comunicación | Recibo del llamamiento con Antonio como llamado; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas) |
 | 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo de dos días | Recibo de su respuesta |
+| 10a (si renuncia con causa justificada) | Antonio; después Carmen u otra técnica de RRHH con permiso vigente | Mi Bolsa; ficha del candidato en Bolsas | Antonio adjunta un PDF del justificante, confirma la renuncia y conserva el recibo. RRHH consulta y descarga el documento desde la ficha; también queda en el seguimiento | Documento custodiado tras antivirus; recibo de VEC y lectura de RRHH auditada. No cambia la rama de aceptación del paso 10 |
 | 11 | Carmen | Ficha, Llamamiento | Resuelve la aceptación | Recibo de resolución del llamamiento |
 | 12 | Carmen | Ficha, Formalización | Registra la propuesta de nombramiento | Recibo; `nombramiento/en_curso`, v7 |
 | 13 | Carmen | Ficha, Formalización | Registra la resolución | Recibo; `nombramiento/en_curso`, v8 |
@@ -517,10 +518,22 @@ real, falta acreditar el recorrido.
 3. La aspirante elige (`POST /api/vec/bolsa/mi-bolsa/respuestas`):
    - **Aceptar**: sin pantalla de revisión.
    - **Renunciar**: pasa por «Revise su renuncia» y «Confirmar renuncia».
-   - **Renuncia justificada**: causa del catálogo y referencia y huella del
-     justificante. El fichero no se envía todavía.
+   - **Renuncia justificada**: elige la causa del catálogo y adjunta un PDF desde
+     Mi Bolsa. El límite es de 16 MiB; la aplicación lo comprueba antes de
+     enviarlo y la API rechaza con 413 los cuerpos demasiado grandes. El fichero
+     pasa por antivirus antes de quedar custodiado. La respuesta conserva su
+     referencia y huella y entrega un recibo de VEC.
 4. Recibe un recibo. Según las reglas, la respuesta es firme o queda «en
    revisión» hasta que RRHH la confirme.
+
+La técnica de RRHH que tenga el permiso vigente de su rol, sea Carmen u otra,
+consulta y descarga el justificante desde la ficha del candidato en las bolsas
+de su ámbito. Una técnica de otro ámbito recibe una denegación. El seguimiento
+también muestra la actuación. Un reintento conserva el mismo PDF y la misma
+clave; una subida pendiente o rechazada no registra la renuncia. El área de la aspirante no ofrece la descarga de
+su propio PDF después de presentarlo: debe conservar el original y el recibo.
+Esta capacidad está pendiente de ensayo conjunto y activación; su presencia en
+el código no acredita que esté instalada en cidonia.
 
 Si no contesta, se entiende que no acepta, sin consecuencia. Para una oferta con
 varias plazas, la aspirante solo pulsa **Aceptar**

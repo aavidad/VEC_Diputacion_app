@@ -6,7 +6,7 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 const versionCoordinador = "20261016-ct-ofertas-firma-2mib-v2";
 // La selección de ofertas y el aviso de CT renuevan entrada y coordinador; las hojas CT conservan su cohorte.
-const versionEntrada = "20261016-ct-ofertas-firma-2mib-v3";
+const versionEntrada = "20261016-ct-ofertas-justificante-v1";
 const versionClienteCT = "20261015-ct-ofertas-firma-v4";
 const versionClienteConsulta = versionClienteCT;
 const versionClienteRPT = "20261015-ct-ofertas-firma-v4";
