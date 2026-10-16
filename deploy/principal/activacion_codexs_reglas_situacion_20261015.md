@@ -1,6 +1,6 @@
 # Reglas de situación de Bolsa
 
-Tarea: F1-04/05. Estado al 16/10/2026: la pantalla y sus recibos se comprobaron en una copia propia con un prefijo anterior. AD283 se ha reconstruido después desde la cabeza completa instalada tras AD278; esta fuente aún necesita su ensayo. Los resultados anteriores no acreditan la candidata final ni sus actos de activación.
+Tarea: F1-04/05. Estado al 16/10/2026: la pantalla y sus recibos se comprobaron en una copia propia con un prefijo anterior. AD283 se ha reconstruido después desde la cabeza completa instalada tras AD278 y R la instaló una vez en su copia causal. Falta el recorrido conjunto de esta cabeza y su activación normativa. Los resultados anteriores no acreditan la candidata final ni sus actos de activación.
 
 ## Instalación y activación
 
@@ -39,3 +39,7 @@ En el montaje reducido de la copia, sin selección y con una selección inválid
 La primera ejecución de B126 se deshizo por una huella esperada de restricción incorrecta; no dejó cambios. Las huellas se obtuvieron después del parser real de PostgreSQL 18 y la instalación de la fuente corregida terminó en COMMIT. No se reaplicó ninguna migración instalada.
 
 La reconstrucción actual de AD283 parte del núcleo instalado tras AD278, huella `400f33888ea9941c57c754436b53f82e8e1dd6a2f3ab888dee2209663c6be7dc`; la postimagen prevista es `3c3e5f8a67efa5e37772e3197c91ff7fbe00c9b9ca1a2dfc8bcd9c3e7c76ecda`. La restricción real de audiencias tiene preimagen `919e9a7cb6901e3272ae5f6752ec5d1381a363c21e35477ce97f9bf4d07fb757`: se conserva entera y se añade solo la audiencia de publicación de las transiciones. No se reaplica la AD283 anterior de la copia; el ensayo exige otra copia causal completa.
+
+R comprobó la fuente AD283 de `33d68a306`, SHA `483e3d5f5ea3ee362770f8762548c5470cf14dfcb6a3b312cfb9f67f722ff6ea`, una vez tras AD278 y el prefijo completo O/R: salida 0, núcleo real `3c3e5f8a67efa5e37772e3197c91ff7fbe00c9b9ca1a2dfc8bcd9c3e7c76ecda` y restricción de audiencias `6564e630a7a4a498f08af8e02399475fc22f768d5ad6060d6f27e2062d705308`. Es evidencia del núcleo, no de la publicación normativa ni del recorrido web completo.
+
+Activación pendiente: CC1 exige dos aprobaciones distintas para publicar el catálogo normativo. CAT14 solo aporta su lectura; las herramientas de admisión de acciones y de gobierno de roles no publican ese catálogo. Falta identificar o incorporar el productor autorizado de esa publicación, según el encaje que fije dirección. Los datos cargados en la copia no sustituyen las aprobaciones.
