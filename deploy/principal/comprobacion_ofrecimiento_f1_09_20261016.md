@@ -1,0 +1,54 @@
+# Comprobación de hechos para el ofrecimiento: primer corte
+
+Tarea F1-09. Prepara el registro en Bolsa; la pantalla corresponde a F1-57
+y la comprobación antes de reservar, a F1-10. No cambia situaciones ni permite
+continuar una selección. El descuento de antecedentes sigue apagado (duda 165).
+
+CONFIG NUEVA: ninguna. La aplicación conserva su arranque y sus rutas.
+
+1. Sobre una copia propia de la candidata con F1-08, instalar una sola vez
+   `lista_sql_codexr_comprobacion_ofrecimiento_f1_09_20261016.txt`.
+2. Dirección incorpora el perfil `comprobacion_ofrecimiento_bolsa` al núcleo
+   en su reconstrucción coordinada. Hasta entonces la acción deniega. La audiencia
+   es `vec.bolsa.comprobacion_ofrecimiento.v1`; acción
+   `bolsa.comprobacion_ofrecimiento.registrar`, recurso `participacion_bolsa`,
+   finalidad `gestionar_contratacion_temporal`, garantía `alto`, campos `[]`
+   y obligación `auditar`. El recurso y la huella deben coincidir con el efecto
+   de la capacidad; la sesión debe pertenecer exclusivamente al ejecutor de Bolsa.
+3. Admitir la fuente `fuentes/bolsa_comprobacion_ofrecimiento_rrhh_v1.json`
+   y publicar el rol por propuesta y cierre de dos administradores distintos,
+   conservando las concesiones y los ámbitos existentes. El material dura 90 días.
+   La consulta de motivos no concede esta escritura.
+4. Ejecutar `bolsa_llamamientos/pruebas_sql/b133_calculo_y_denegacion.sql`
+   desde el directorio de SQL. Las pruebas revierten sus datos. El ensayo de
+   escritura con autorización real, idempotencia y concurrencia sigue pendiente.
+
+La escritura recibe una solicitud JSON y las diez piezas de autorización.
+La huella del efecto es SHA-256 de la representación PostgreSQL `solicitud::text`.
+La solicitud contiene `contexto`, `hechos`, `version_esperada` y
+`clave_idempotencia`. Actor, perfil y fecha salen de la autorización consumida.
+Cada hecho contiene `valor`, `documento_ref` opaca de Documentos y `huella`;
+la escritura añade quién lo contrastó y cuándo. Esto registra la comprobación
+documental de RRHH; no acredita custodia, antivirus ni firma del documento.
+No se amplía el permiso del justificante de renuncia para leer otros documentos.
+
+El contexto fija expediente, necesidad, unidad, ámbito, bolsa, participación,
+prelación y versiones del expediente, bolsa, instantánea y política. CT coteja
+su agregado actual bajo bloqueo; Bolsa relee la política y la primera persona
+pendiente. Una discrepancia o una clave con otro material produce `VBC01`
+(el adaptador posterior debe traducirlo a HTTP 409). Una rectificación usa otra
+clave y la versión anterior; conserva todas las filas. Un reintento devuelve
+el recibo original, también después de una rectificación.
+
+Hechos: trabajo en la Diputación, tipo de relación, modalidad, inicio y fin
+previsto, fin inicialmente previsto del programa (con el inicio acredita su
+duración inicial), inicio de la baja, vacante, prelación y antecedentes completos.
+Cada uno lleva su evidencia. Los datos que falten dejan el caso pendiente.
+Los límites se leen de la política publicada. La fuente es el Reglamento,
+art. 9, apartado cuarto (numerado 3 en el BOP n.º 9 de 16/01/2026).
+El recibo solo entrega referencias, versiones, resultado, motivo y fecha.
+Las listas existentes recibirán esa proyección mínima en el siguiente corte;
+hechos y evidencia quedan en el acto, sin lector nuevo.
+
+Vuelta atrás: mantener desactivado el consumidor y la pantalla. No ejecutar
+DOWN ni borrar actos. Este corte no instala configuraciones al arrancar.
