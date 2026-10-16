@@ -19,6 +19,14 @@ cambia las plantillas, su publicación, los recibos ni los permisos de V2.
    conserva su comprobación histórica cuando V1 está instalada y, tras CT232,
    comprueba V2. La segunda exige V1 ausente y V2 intacta; usa las publicaciones
    sintéticas existentes, sin escribir historia.
+   La antigua prueba de CT218 se retira porque invocaba V1, que ya no existe.
+   CT226 comprueba que la provisión común se acepta para una organización sin
+   publicación propia, que la publicación vigente se acepta para su organización
+   y que una publicación ajena o anterior se rechaza. CT232 comprueba además
+   la ausencia de V1 y que V2 conserva su definición y permisos; sus casos
+   rechazan huella, versión y fuente distintas de las publicadas y una
+   organización ausente. Así permanecen cubiertos los cotejos de la prueba
+   retirada.
 4. Con el catálogo publicado y su fichero configurado, arrancar el portal y
    abrir «Plantillas» en RRHH. Descargar un borrador desde la ficha y comprobar
    que su documento y recibo siguen disponibles tras reiniciar. Repetir el

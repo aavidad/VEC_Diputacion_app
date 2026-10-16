@@ -48,7 +48,8 @@ BEGIN
  IF vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2('organizacion:ct232:sin-publicacion',bh,bv,bf) IS DISTINCT FROM true
     OR vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2('organizacion:desarrollo:dipgra',ah,av,af) IS DISTINCT FROM true
  THEN RAISE EXCEPTION 'CT232: provisión o publicación vigente rechazadas'; END IF;
- IF bh=ah THEN RAISE EXCEPTION 'CT232: falta publicación posterior para contrastar'; END IF;
+ IF bh=ah OR av<2 THEN
+  RAISE EXCEPTION 'CT232: falta publicación posterior para contrastar'; END IF;
  BEGIN
   PERFORM vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2('organizacion:ct232:sin-publicacion',ah,av,af);
   RAISE EXCEPTION 'CT232: publicación ajena admitida';
@@ -65,11 +66,21 @@ BEGIN
  EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
  END;
  BEGIN
+  PERFORM vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2('organizacion:desarrollo:dipgra',ah,av-1,af);
+  RAISE EXCEPTION 'CT232: versión anterior admitida';
+ EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
+ END;
+ BEGIN
+  PERFORM vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2('organizacion:desarrollo:dipgra',ah,av,'fuente:ct232:ajena');
+  RAISE EXCEPTION 'CT232: fuente ajena admitida';
+ EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
+ END;
+ BEGIN
   PERFORM vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2(NULL,ah,av,af);
   RAISE EXCEPTION 'CT232: organización ausente admitida';
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
  END;
- RAISE NOTICE 'CT232-PRUEBA-OK: V1 ausente, V2 intacta, dos positivos y cuatro rechazos';
+ RAISE NOTICE 'CT232-PRUEBA-OK: V1 ausente, V2 intacta, dos positivos y seis rechazos';
 END $casos$;
 ROLLBACK;
 RESET SESSION AUTHORIZATION;
