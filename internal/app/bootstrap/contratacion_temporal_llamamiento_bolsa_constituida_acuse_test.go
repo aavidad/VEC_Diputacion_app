@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -28,28 +29,31 @@ func TestOrigenCTAcuseLigadoAlIntentoAceptaNonceConFormaDeDNI(t *testing.T) {
 		CorrelacionRef: datos.CorrelacionRef, RegistradaEn: ahora,
 	}
 	if acuse.ValidarPara(orden) != nil || bolsa.ReferenciaOpacaLlamamientoValida(acuse.AuditoriaRef) ||
-		!acuseOrigenCTVinculadoAlIntento(acuse, orden) {
+		acuseOrigenCTVinculadoAlIntento(acuse, orden) != nil {
 		t.Fatal("el acuse nominal correcto fue rechazado por la heurística de documento")
 	}
 
 	otroIntento, err := core.NuevaOrdenIntentoAuditoria("intento_"+strings.Repeat("c", 32), sesion.Resultado, sesion.Vinculo, datos)
-	if err != nil || acuseOrigenCTVinculadoAlIntento(acuse, otroIntento) {
+	if err != nil || acuseOrigenCTVinculadoAlIntento(acuse, otroIntento) == nil {
 		t.Fatal("el acuse de otra orden fue aceptado")
 	}
 	prefijoAjeno := acuse
 	prefijoAjeno.AuditoriaRef = "aud_v3_x_" + nonce
-	if acuseOrigenCTVinculadoAlIntento(prefijoAjeno, orden) {
+	if acuseOrigenCTVinculadoAlIntento(prefijoAjeno, orden) == nil {
 		t.Fatal("el acuse de otra familia fue aceptado")
 	}
 	otroNonce := acuse
 	otroNonce.AuditoriaRef = "aud_v3_i_" + strings.Repeat("d", 32)
-	if acuseOrigenCTVinculadoAlIntento(otroNonce, orden) {
+	if acuseOrigenCTVinculadoAlIntento(otroNonce, orden) == nil {
 		t.Fatal("el acuse de otro intento fue aceptado")
 	}
 	corrupto := acuse
 	corrupto.Secuencia = 0
-	if acuseOrigenCTVinculadoAlIntento(corrupto, orden) ||
-		acuseOrigenCTVinculadoAlIntento(acuse, core.OrdenIntentoAuditoria{}) {
-		t.Fatal("un acuse sin secuencia o sin orden válida fue aceptado")
+	if err := acuseOrigenCTVinculadoAlIntento(corrupto, orden); !errors.Is(err, corrupto.ValidarPara(orden)) || err == nil {
+		t.Fatal("el error del acuse sin secuencia no se propagó")
+	}
+	_, errorOrden := (core.OrdenIntentoAuditoria{}).Datos()
+	if err := acuseOrigenCTVinculadoAlIntento(acuse, core.OrdenIntentoAuditoria{}); !errors.Is(err, errorOrden) || err == nil {
+		t.Fatal("el error de la orden inválida no se propagó")
 	}
 }
