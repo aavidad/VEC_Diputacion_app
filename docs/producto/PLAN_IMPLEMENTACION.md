@@ -216,6 +216,12 @@ y sin complemento, ensayo focal, revisión independiente de usabilidad,
 recorrido en Chrome y reinicio. F1-36 permanece abierto. Guion:
 `deploy/principal/firma_historica_ficha_f1_36c_20261016.md`.
 
+F1-64 prepara, sin SQL nuevo, el plazo configurable de las publicaciones
+técnicas nuevas de CT y del portal externo. Las pruebas focales y de regresión
+pasan; quedan ensayo de arranque y revisiones antes de entregar. La raíz y la
+clave legadas no se modifican: su rotación corresponde a otro encargo de
+dirección. Guion: `deploy/principal/vigencias_publicaciones_f1_64_20261016.md`.
+
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna
 está instalada; verificar su hash antes de reanudar:

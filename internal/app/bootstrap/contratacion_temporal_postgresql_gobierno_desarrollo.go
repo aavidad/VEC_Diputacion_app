@@ -438,7 +438,7 @@ func prepararConfiguracionGobiernoPostgreSQLContratacionTemporalDesarrollo(
 	tx pgx.Tx,
 	material *materialAtestacionContratacionTemporalDesarrollo,
 ) error {
-	// El arranque deriva un calendario diario, pero primero debe adoptar la
+	// El arranque deriva la vigencia configurada, pero primero debe adoptar la
 	// publicación durable. El lector común comprueba raíz exacta, revocaciones,
 	// checkpoint, secuencia y huella bajo el mismo cerrojo del publicador.
 	actual := *material
@@ -464,10 +464,10 @@ func prepararConfiguracionGobiernoPostgreSQLContratacionTemporalDesarrollo(
 			return nil
 		}
 		admin, err := publicacionAdministrativaCTDesarrollo(ctx, tx, verificada.configuracionRef)
-		if err != nil || admin || !publicacionDiariaCTDesarrollo(verificada.publicadaEn, verificada.expiraEn) {
+		if err != nil || admin || !publicacionTecnicaCTDesarrollo(verificada.publicadaEn, verificada.expiraEn, verificada.configuracionRef, verificada.configuracionOrden) {
 			return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 		}
-		// Solo la publicación diaria heredada puede renovarse al caducar.
+		// Solo la publicación técnica propia puede renovarse al caducar.
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
