@@ -229,6 +229,11 @@ export async function validarRespuestaRecuperacionFirmasV2(x, solicitud, cryptoI
   const firmas = new Map();
   for (const firma of x.firmas) {
     validarFirma(firma, q);
+    if (firma.resultado !== "firmado"
+      || !["certificado_vec", "portafirmas_registro_rrhh"].includes(firma.via)
+      || firma.revision_pdf === null || firma.documento_custodiado === null) {
+      throw new TypeError("firma_recuperada_sin_revision");
+    }
     if (firmas.has(firma.firma_ref)) throw new TypeError("firma_historica_duplicada");
     firmas.set(firma.firma_ref, firma);
   }
