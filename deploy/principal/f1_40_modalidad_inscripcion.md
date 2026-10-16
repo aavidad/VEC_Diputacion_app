@@ -34,6 +34,23 @@ solo para `preparar-portal-externo --consumidores mi_bolsa,inscripcion_bolsa`
 y con material propio de la copia. #1147 es una dependencia de activación.
 La preparación del material y la aplicación de este corte se prueban juntas.
 
+El material de desarrollo debe usar una referencia de cuenta en minúsculas:
+el registro de sesión exige que su identificador derivado sea canónico.
+Preparar la cuenta y el perfil desde una fuente de población candidata, exportar
+sus alias con `vec-server exportar-seudonimos-portal-externo` y ejecutar las
+fases `identidad` y `contexto` del CLI existente. El procedimiento y sus
+conexiones nominales están en
+`cmd/vec-provisionar-candidato-externo/README.md` y en
+`inscripcion_recorrido_20261013/autoridad_externa_combinado.md`, punto 3.
+
+La publicación del contexto conserva las referencias de sus componentes. Una cuenta
+distinta requiere un perfil, una provisión, un contexto y un vínculo nuevos;
+la persona y la candidatura se mantienen. La asignación de la copia reutiliza
+el rol vigente con las concesiones de inscripción. La fase `autorizacion` del
+CLI publica su rol histórico: no sirve para reutilizar esa versión ampliada.
+B prepara por separado la asignación ficticia revisada, sin nuevas concesiones;
+se retira con el productor gobernado y los permisos por datos de la fase 2.
+
 Para ese recorrido, seleccionar el proceso externo con `VEC_PORTAL_PROCESO=externo`,
 su material privado y sus conexiones nominales con TLS verificado; activar
 `VEC_BOLSA_INSCRIPCIONES_ENABLED`. Mantener vivo el sellador nativo con su
