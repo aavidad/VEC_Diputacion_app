@@ -56,6 +56,7 @@
     "aviso_sesion_caducada": "Your session has ended. Sign in again to check the alerts.",
     "aviso_recuperacion_incierta": "The result of these alerts could not be confirmed. Check the offer's status before another operation.",
     "aviso_configuracion_pendiente": "Sending alerts for offers needs to be configured.",
+    "aviso_actualizar_estado": "Update status",
     "cargando": "Loading offers…",
     "vacio": "This job pool has no published offers.",
     "col_fechas": "Dates",

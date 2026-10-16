@@ -56,6 +56,7 @@
     "aviso_sesion_caducada": "Su sesión ha terminado. Vuelva a entrar para consultar los avisos.",
     "aviso_recuperacion_incierta": "No se pudo confirmar el resultado de los avisos. Consulte el estado de la oferta antes de otra operación.",
     "aviso_configuracion_pendiente": "Falta configurar el envío de avisos de las ofertas.",
+    "aviso_actualizar_estado": "Actualizar estado",
     "cargando": "Cargando ofertas…",
     "vacio": "Esta bolsa no tiene ofertas publicadas.",
     "col_fechas": "Fechas",

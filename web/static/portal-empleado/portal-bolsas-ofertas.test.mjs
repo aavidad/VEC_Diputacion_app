@@ -41,9 +41,9 @@ function boton(dataset) {
 test("la entrada y la caché cargan la versión de ofertas con avisos", async () => {
   const [portal, html, cache] = await Promise.all(["portal.js", "index.html", "cache-publica-v1.json"]
     .map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
-  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261016-f118-aviso-oferta-v1/);
-  assert.match(html, /portal\.js\?v=20261016-f118-aviso-oferta-v1/);
-  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261016-f118-aviso-oferta-v1"));
+  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261016-f118-aviso-oferta-v2/);
+  assert.match(html, /portal\.js\?v=20261016-f118-aviso-oferta-v2/);
+  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261016-f118-aviso-oferta-v2"));
 });
 
 test("la ficha abre el historial autorizado de la oferta elegida y lo desmonta al cerrar", async () => {
@@ -116,10 +116,11 @@ test("la configuración pendiente explica el bloqueo y no ofrece reintento hasta
     superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
     assert.equal(superficie.estado().reintentoAvisos.clave, "clave-original");
     assert.doesNotMatch(superficie.renderizar(), /Reintentar avisos pendientes/);
+    assert.match(superficie.renderizar(), /data-ofertas-accion="recargar">Actualizar estado/);
     superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos" }));
     assert.equal(publicaciones, 1, "no reintenta con la configuración pendiente");
     configuracionPendiente = false;
-    assert.equal(superficie.recargarPoliticaSegura(), true); await turno();
+    superficie.manejarClick(boton({ ofertasAccion: "recargar" })); await turno();
     assert.match(superficie.renderizar(), /Reintentar avisos pendientes/);
     assert.doesNotMatch(superficie.renderizar(), /Falta configurar el envío de avisos de las ofertas/);
   } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
@@ -133,7 +134,7 @@ test("la ficha muestra solo el aviso recibido y distingue los envíos sin confir
   assert.equal((html.match(/Avisos por correo para 4 personas/g) || []).length, 2, "una etiqueta y un título solo en la oferta con aviso");
   assert.match(html, /Enviados/);
   assert.match(html, /Sin confirmación del servicio de correo/);
-  assert.match(html, /¿Qué significa «Enviados»\?/);
+  assert.match(html, /<summary aria-label="¿Qué significa «Enviados»\?"[^>]*>\?<\/summary>/);
   assert.doesNotMatch(html, /correo electrónico de una persona|Reintentar avisos/);
   superficie.desmontar();
 });
@@ -155,6 +156,8 @@ test("el recibo reintenta solo con la intención original mientras haya avisos p
       return new Promise((resolver) => { completar = resolver; });
     },
   }, generarClave: () => "clave-estable" });
+  const focos = [];
+  superficie.instalar({ addEventListener() {}, querySelector(selector) { return { focus() { focos.push(selector); } }; } });
   try {
     superficie.activar("bolsa:1"); await turno();
     superficie.manejarSubmit({ target: formulario, preventDefault() {} });
@@ -169,6 +172,7 @@ test("el recibo reintenta solo con la intención original mientras haya avisos p
     assert.doesNotMatch(superficie.renderizar(), /Reintentar avisos pendientes/);
     assert.match(superficie.renderizar(), /Se ha recuperado el estado de los avisos/);
     assert.equal(superficie.estado().reintentoAvisos, null, "los avisos sin confirmación no se reintentan");
+    assert.equal(focos.at(-1), '[data-ofertas-aviso="exito"]', "el foco vuelve al recibo después del GET y el repintado");
   } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
 });
 

@@ -303,7 +303,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
           ofertaRef: resultado.oferta.oferta_ref, configuracionPendiente: resultado.oferta.aviso_configuracion_pendiente === true };
         estado.reintentoAvisos = resultado.oferta.aviso?.pendientes > 0 ? intento : null;
         estado.mensaje = traducir("aviso_recuperado"); anunciar(estado.mensaje);
-        void cargar();
+        await cargar();
       } else if (resultado.status === 401 || resultado.status === 403) {
         retirarDatosSinPermiso(resultado.status);
       } else {
@@ -314,6 +314,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       if (!signal.aborted) { intento.incierta = true; estado.errorOperacion = traducir("aviso_recuperacion_incierta"); }
     } finally {
       controladorPublicacion = null; estado.enviando = false; cambiar();
+      if (estado.reciboPublicacion?.ofertaRef === intento.ofertaRef) enfocar('[data-ofertas-aviso="exito"]');
     }
   }
 
@@ -431,7 +432,8 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       `<dl class="oferta-ficha__datos">${dato("aviso_pendientes", String(o.aviso.pendientes))}` +
       `${dato("aviso_enviados", String(o.aviso.enviados))}${dato("aviso_sin_confirmacion", String(o.aviso.sin_confirmacion))}` +
       `${dato("aviso_fallidos", String(o.aviso.fallidos))}</dl>` +
-      `<details><summary>${escapar(traducir("aviso_ayuda_titulo"))}</summary><p>${escapar(traducir("aviso_ayuda"))}</p></details></section>` : "";
+      `<details class="intentos-ayuda"><summary aria-label="${escapar(traducir("aviso_ayuda_titulo"))}" title="${escapar(traducir("aviso_ayuda_titulo"))}">?</summary>` +
+      `<p>${escapar(traducir("aviso_ayuda"))}</p></details></section>` : "";
     return `<li class="oferta-ficha" data-oferta-ref="${escapar(o.oferta_ref)}" aria-labelledby="${idTitulo}">` +
       `<div class="oferta-ficha__cabecera"><div><h4 id="${idTitulo}">${escapar(d.categoria)}</h4><p class="dato-secundario">${escapar(d.centro)} · ${escapar(d.descripcion)}</p></div>` +
       `<span class="estado-chip ${ESTADOS[o.estado]}">${escapar(traducir(`estado_${o.estado}`))}</span></div>` +
@@ -497,6 +499,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     const avisos = `<div aria-live="polite">${estado.mensaje ? `<div class="mensaje-exito ofertas-bolsa__aviso" data-ofertas-aviso="exito" tabindex="-1" role="status"><p>${escapar(estado.mensaje)}</p>` +
       `${estado.reciboPublicacion ? reciboOferta(estado.reciboPublicacion.referencia, estado.reciboPublicacion.publicadaEn, true) : ""}` +
       `${estado.reciboPublicacion?.configuracionPendiente ? `<p class="mensaje-error" role="alert">${escapar(traducir("aviso_configuracion_pendiente"))}</p>` : ""}` +
+      `${estado.reciboPublicacion?.configuracionPendiente && estado.carga === "lista" ? `<button type="button" class="boton-secundario" data-ofertas-accion="recargar">${escapar(traducir("aviso_actualizar_estado"))}</button>` : ""}` +
       `${estado.reciboPublicacion && estado.reintentoAvisos && !estado.reintentoAvisos.incierta && !estado.reciboPublicacion.configuracionPendiente ? `<button type="button" class="boton-secundario" data-ofertas-accion="recuperar-avisos"${estado.enviando ? " disabled" : ""}>${escapar(traducir(estado.enviando ? "aviso_reintentando" : "aviso_reintentar_pendientes"))}</button>` : ""}</div>` : ""}</div>` +
       `${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escapar(estado.errorOperacion)}</p>` : ""}`;
     return `<section class="panel panel-separado ofertas-bolsa" aria-labelledby="titulo-ofertas-bolsa"><div class="cabecera-panel"><h3 id="titulo-ofertas-bolsa">${escapar(traducir("titulo"))}</h3>${total}</div><div class="cuerpo-panel">${avisos}${cuerpo}${estado.revisionPublicacion ? revisionPublicacion() : formulario()}</div></section>`;
@@ -535,7 +538,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     if (!control || control.disabled) return false;
     const accion = control.dataset.ofertasAccion;
     if (estado.reintentoAvisos?.incierta && ["confirmar-publicacion", "preparar", "confirmar"].includes(accion)) return true;
-    if (accion === "recargar") void cargar();
+    if (accion === "recargar") void cargar().then(() => enfocar('[data-ofertas-accion="recuperar-avisos"], [data-ofertas-accion="recargar"], [data-ofertas-aviso="exito"]'));
     else if (accion === "confirmar-publicacion") void publicar();
     else if (accion === "recuperar-avisos") void recuperarAvisosPendientes();
     else if (accion === "corregir-publicacion" && !estado.claveEnCurso) { estado.borrador = estado.revisionPublicacion; estado.revisionPublicacion = null; cambiar(); enfocar('[name="categoria"]'); }
