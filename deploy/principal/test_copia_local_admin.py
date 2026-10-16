@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+import subprocess
 
 import copia_local_admin as admin
 
@@ -45,12 +46,22 @@ class CopiaLocalAdminTest(unittest.TestCase):
             self.assertEqual(copia.sql_llamadas, [])
             self.assertFalse((copia.raiz / "admin").exists())
 
-    def test_instancia_preparada_no_inicia_kit(self):
+    def test_admin_ya_preparada_no_inicia_kit(self):
         with tempfile.TemporaryDirectory(prefix="vec-admin-") as temporal:
             copia = CopiaFalsa(Path(temporal))
             copia.estado["preparada"] = True
-            with self.assertRaisesRegex(ValueError, "instancia nueva"):
+            copia.estado["admin_preparada"] = True
+            with self.assertRaisesRegex(ValueError, "ya preparada para ADMIN"):
                 admin.preparar(copia, Path(temporal) / "kit")
+            self.assertEqual(copia.sql_llamadas, [])
+
+    def test_instancia_ct_preparada_puede_iniciar_admin(self):
+        with tempfile.TemporaryDirectory(prefix="vec-admin-") as temporal:
+            copia = CopiaFalsa(Path(temporal))
+            copia.estado["preparada"] = True
+            with patch.object(admin, "_privado"), patch.object(admin, "_comprobar_kit", side_effect=ValueError("kit pendiente")):
+                with self.assertRaisesRegex(ValueError, "kit pendiente"):
+                    admin.preparar(copia, Path(temporal) / "kit")
             self.assertEqual(copia.sql_llamadas, [])
 
     def test_h10_exige_acuse_auditado_y_no_finge_exito(self):
@@ -83,6 +94,19 @@ class CopiaLocalAdminTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "recuperar_fuentes"):
                     admin._fase_h10(copia, base / "kit", run, "fuentes", "F0-28-local")
             self.assertEqual(ejecutar.call_count, 4)
+
+    def test_fallo_del_kit_guarda_salida_privada_sin_revelarla(self):
+        with tempfile.TemporaryDirectory(prefix="vec-admin-") as temporal:
+            kit = Path(temporal)
+            kit.chmod(0o700)
+            resultado = subprocess.CompletedProcess([], 2, "", "detalle privado de prueba")
+            with patch.object(admin.subprocess, "run", return_value=resultado):
+                with self.assertRaisesRegex(ValueError, "consulte la carpeta privada") as error:
+                    admin._ejecutar(kit, "preparar_copia.py")
+            self.assertNotIn("detalle privado", str(error.exception))
+            log = kit / "errores-admin.log"
+            self.assertIn("detalle privado de prueba", log.read_text())
+            self.assertEqual(log.stat().st_mode & 0o777, 0o600)
 
 
 if __name__ == "__main__":

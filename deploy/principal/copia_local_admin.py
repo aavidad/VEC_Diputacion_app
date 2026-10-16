@@ -24,6 +24,7 @@ SCRIPTS = (
     "preparar_runtime.py", "preparar_vec_admin.py",
 )
 BINARIOS = ("bin/h-root-seed.test", "bin/vec-gobierno-usuarios-admin")
+GOCACHE = "/dev/shm/vec/codexl-go-build"
 FASES = ("fuentes", "unidad", "bootstrap")
 GRUPOS = (
     "vec_admin_fuentes_iniciales_ejecutor", "vec_personal_unidad_inicial_ejecutor",
@@ -64,8 +65,9 @@ def _comprobar_kit(copia, kit: Path, estado: dict) -> dict:
     if (contrato.get("version") != 1 or contrato.get("vigencia_dias") != 89
             or contrato.get("certificados_dias") != 90
             or contrato.get("conjunto_capacidades") != 5
-            or contrato.get("gocache") != "/dev/shm/vec/go-build"):
+            or contrato.get("gocache") != GOCACHE):
         raise ValueError("Kit ADMIN antiguo: preparar gobierno de 89 días, certificados de 90 y conjunto 5")
+    _privado(Path(GOCACHE), directorio=True)
     for clave, nombres in (("scripts_sha256", SCRIPTS), ("bin_sha256", BINARIOS)):
         huellas = contrato.get(clave)
         if not isinstance(huellas, dict) or set(huellas) != set(nombres):
@@ -84,7 +86,7 @@ def _comprobar_kit(copia, kit: Path, estado: dict) -> dict:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{7,127}", str(contrato.get("encargo_ref", ""))):
         raise ValueError("Falta la referencia del encargo local autorizado")
     # Estas comprobaciones detectan las dos incompatibilidades concretas del kit H.
-    if "/dev/shm/vec/go-build" not in (kit / "preparar_copia.py").read_text():
+    if GOCACHE not in (kit / "preparar_copia.py").read_text():
         raise ValueError("El generador del kit sigue usando caché Go antigua")
     if "gocache_fuera_de_disco_privado" in (kit / "arranque_principal_h10.py").read_text():
         raise ValueError("El ejecutor del kit aún prohíbe la caché en memoria")
@@ -99,8 +101,21 @@ def _ejecutar(kit: Path, nombre: str, *args: str, entorno: dict | None = None) -
     resultado = subprocess.run(comando, text=True, capture_output=True, timeout=180,
                               env=entorno, check=False)
     if resultado.returncode:
+        _guardar_error(kit / "errores-admin.log", nombre, resultado)
         # El kit puede mostrar rutas y DSN en errores inesperados. No propagarlos.
         raise ValueError(f"Etapa ADMIN {nombre} falló ({resultado.returncode}); consulte la carpeta privada")
+
+
+def _guardar_error(ruta: Path, fase: str, resultado) -> None:
+    """Guarda la salida íntegra solo en el kit privado, sin llevarla al terminal."""
+    if ruta.exists() or ruta.is_symlink():
+        _privado(ruta)
+    descriptor = os.open(ruta, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    os.fchmod(descriptor, 0o600)
+    with os.fdopen(descriptor, "a", encoding="utf-8") as salida:
+        salida.write(f"\n[{dt.datetime.now(dt.timezone.utc).isoformat()}] {fase}: {resultado.returncode}\n")
+        salida.write(resultado.stdout or "")
+        salida.write(resultado.stderr or "")
 
 
 def _sql(copia, ruta: Path, log: str) -> None:
@@ -149,6 +164,7 @@ def _semilla_y_gobierno(copia, kit: Path, run: Path, sufijo: str, contrato: dict
                              "^TestDerivarSemillaRaizHPrivada$", "-test.v"],
                              env=entorno, text=True, capture_output=True, timeout=90)
     if resultado.returncode:
+        _guardar_error(kit / "errores-admin.log", "derivar-raiz", resultado)
         raise ValueError("No se pudo derivar la raíz de esta copia")
     _privado(semilla)
     huellas = re.findall(r"spki_h=([0-9a-f]{64})", resultado.stdout)
@@ -201,6 +217,7 @@ def _cli_gobierno(cli: Path, fase: str, config: Path, textos: Path, *extra: str)
                                    "VEC_AUTH_MODE": "desarrollo",
                                    "VEC_DEVELOPMENT_GUARD": "ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO"})
     if resultado.returncode:
+        _guardar_error(config.parent / "errores-admin.log", "gobierno-" + fase, resultado)
         raise ValueError(f"Gobierno ADMIN {fase} falló; consulte su salida privada")
 
 
@@ -211,11 +228,11 @@ def preparar(copia, kit_path) -> dict[str, str]:
     nombre = copia.nombre
     if (not re.fullmatch(r"vec-copia-[a-z]-[a-z0-9][a-z0-9-]{0,40}", nombre)
             or estado.get("nombre") != nombre or estado.get("raiz") != str(raiz)
-            or not estado.get("revision") or estado.get("preparada")
+            or not estado.get("revision") or "admin_preparada" in estado
             or not isinstance(estado.get("puerto_pg"), int)
             or not 1024 <= estado["puerto_pg"] <= 65535
             or not isinstance(estado.get("puerto_app"), int)):
-        raise ValueError("La copia ADMIN debe ser una instancia nueva y propia")
+        raise ValueError("La copia ADMIN debe ser propia y no estar ya preparada para ADMIN")
     _privado(raiz, directorio=True)
     _privado(material, directorio=True)
     ca = material / "ca/ca.crt"

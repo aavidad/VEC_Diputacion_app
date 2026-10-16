@@ -37,6 +37,7 @@ GRUPOS = {
     "VEC_AUTORIZACION_MOTIVOS_EVALUADOR_DATABASE_URL": "vec_autorizacion_motivos_evaluador",
     "VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL": "vec_bolsa_llamamientos_registrador_frontera",
     "VEC_BOLSA_POLITICA_OFERTAS_CALCULADOR_DATABASE_URL": "vec_bolsa_llamamientos_calculador_politica",
+    "VEC_AUDITORIA_SELLADO_DATABASE_URL": "vec_auditoria_encadenador",
 }
 
 RESULTADO = "conexiones.json"

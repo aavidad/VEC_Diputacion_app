@@ -141,6 +141,10 @@ class Copia:
         memoria()
         puerto_libre(args.puerto_pg)
         puerto_libre(args.puerto_app)
+        datos = validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT') if args.modulos else None
+        kit_admin = os.environ.get('VEC_COPIA_ADMIN_KIT') if args.admin else None
+        if args.admin and not kit_admin:
+            raise ValueError('ADMIN requiere VEC_COPIA_ADMIN_KIT privado y vigente')
         origen = Path(os.environ['VEC_COPIA_ORIGEN']).resolve(strict=True)
         dump = origen / 'principal-hz37-20261014.dump'
         acl = [origen / 'acl-base-20261014.sql', origen / 'acl-tipos-20261014.sql']
@@ -191,6 +195,8 @@ class Copia:
             estado = self.leer()
             estado['entorno_modulos_sha256'] = sha256(self.raiz / 'entorno_modulos.json')
             guardar(self.estado, estado)
+            with (self.raiz / 'datos-preparacion.log').open('ab') as log:
+                ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
         memoria()
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         with (self.raiz / 'compilacion.log').open('wb') as log:
@@ -201,6 +207,21 @@ class Copia:
         estado['preparada'] = True
         guardar(self.estado, estado)
         self.arrancar()
+        if args.admin:
+            self.parar()
+            self.pg()
+            from copia_local_admin import preparar as preparar_admin
+            resultado = preparar_admin(self, kit_admin)
+            guardar(self.raiz / 'admin_preparacion.json', resultado)
+            estado = self.leer()
+            estado['admin_preparada'] = True
+            guardar(self.estado, estado)
+            self.arrancar()
+        if args.modulos:
+            estado = self.leer()
+            estado['comprobar_modulos'] = True
+            guardar(self.estado, estado)
+            self.comprobar()
         estado = self.leer()
         estado['segundos_creacion'] = round(time.time() - estado['creada_en'], 2)
         guardar(self.estado, estado)
@@ -315,7 +336,11 @@ class Copia:
         estado = self.leer()
         contexto = ssl.create_default_context(cafile=str(self.material / 'ca/ca.crt'))
         contexto.load_cert_chain(str(self.material / 'mtls/cliente.crt'), str(self.material / 'mtls/cliente.key'))
-        for ruta in ['/livez', '/portal-empleado/']:
+        rutas = ['/livez', '/portal-empleado/']
+        if estado.get('comprobar_modulos'):
+            rutas.extend(['/readyz', '/api/vec/contratacion-temporal/cuadro/consultas',
+                          '/api/vec/bolsa/bolsas'])
+        for ruta in rutas:
             with urllib.request.urlopen(f"https://localhost:{estado['puerto_app']}{ruta}", context=contexto, timeout=3) as r:
                 if r.status != 200:
                     raise ValueError('Respuesta HTTP distinta de 200')
@@ -346,6 +371,20 @@ class Copia:
 
 def revision():
     return subprocess.check_output(['git', '-C', str(REPO), 'rev-parse', 'HEAD'], text=True).strip()
+
+
+def validar_ejecutor_privado(variable):
+    valor = os.environ.get(variable)
+    if not valor:
+        raise ValueError(f'Falta {variable}: preparación de datos de su copia')
+    ruta = Path(valor)
+    dato = ruta.lstat()
+    if (not ruta.is_absolute() or ruta.resolve(strict=True) != ruta
+            or ruta.is_relative_to(REPO) or ruta.is_relative_to(BASE)
+            or not stat.S_ISREG(dato.st_mode) or dato.st_uid != os.getuid()
+            or dato.st_nlink != 1 or dato.st_mode & 0o077):
+        raise ValueError('El preparador de datos debe ser un fichero privado fuera de Git y de las copias')
+    return ruta
 
 
 def migraciones(listas):
@@ -389,8 +428,11 @@ def main():
     p.add_argument('--puerto-app', type=int, default=18481)
     p.add_argument('--lista-sql', action='append', default=[])
     p.add_argument('--modulos', action='store_true', help='Preparar conexiones nuevas de Bolsa y Contratación')
+    p.add_argument('--admin', action='store_true', help='Preparar Administración con el kit privado vigente')
     p.add_argument('--archivo-clon')
     args = p.parse_args()
+    if args.admin and not args.modulos:
+        p.error('--admin requiere --modulos')
     if not re.fullmatch('[a-z]', args.equipo) or not re.fullmatch('[a-z0-9][a-z0-9-]{0,40}', args.instancia):
         p.error('Equipo: una letra minúscula; instancia: letras, cifras y guiones')
     if not 1024 <= args.puerto_pg <= 65535 or not 1024 <= args.puerto_app <= 65535 or args.puerto_pg == args.puerto_app:
