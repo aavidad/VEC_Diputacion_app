@@ -32,10 +32,11 @@ BEGIN
   IF NOT EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=r.login::regrole AND m.roleid=r.grupo::regrole) THEN
    EXECUTE format('GRANT %I TO %I WITH INHERIT TRUE, SET FALSE, ADMIN FALSE',r.grupo,r.login);
   END IF;
-  EXECUTE format('GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO %I',r.login);
-  EXECUTE format('GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_lectura_inscripcion_v1(bytea,bytea,jsonb) TO %I',r.login);
  END LOOP;
 END $emisores$;
+GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_bolsa_inscripciones_lector,vec_bolsa_inscripciones_rrhh_lector;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_lectura_inscripcion_v1(bytea,bytea,jsonb)
+ TO vec_bolsa_inscripciones_lector,vec_bolsa_inscripciones_rrhh_lector;
 
 CREATE TEMP TABLE ad289_material(caso text PRIMARY KEY,contexto bytea NOT NULL,vinculo bytea NOT NULL,orden jsonb NOT NULL);
 GRANT SELECT ON ad289_material TO vec_bolsa_inscripciones_lector,vec_bolsa_inscripciones_rrhh_lector;
