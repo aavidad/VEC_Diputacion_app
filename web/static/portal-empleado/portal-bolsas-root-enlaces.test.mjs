@@ -185,3 +185,22 @@ test("el total global abre una sola página del corte y no consulta ninguna bols
   caso.aplicar();
   assert.equal(caso.globales.length, 2, "Atrás o filtro nuevo piden solo su página");
 });
+
+
+test("la navegación común mantiene visible la aceptación pendiente, incluida Auditoría", () => {
+  const inicioNavegar = portal.indexOf("function navegar(vista, opciones = {})");
+  const finNavegar = portal.indexOf("\nfunction ", inicioNavegar + 1);
+  assert.ok(inicioNavegar > 0 && finNavegar > inicioNavegar);
+  for (const destino of ["auditoria", "portal", "contratacion-temporal"]) {
+    let focos = 0, restaurada = "";
+    const estado = { vista: "bolsa-candidatos", modalFicha: { resultadoInciertoCambioSituacion: true,
+      operacionesB8: { directa: { paso: "incierto" } }, rutaApertura: "/portal-empleado/#bolsa/bolsa-candidatos" } };
+    runInNewContext(`${portal.slice(inicioNavegar, finNavegar)}; navegar(destino, { desdeRuta: true })`, {
+      estado, destino, document: { querySelector: () => ({ focus: () => { focos++; } }) },
+      compensarHistorialGestionOfertas: (ruta) => { restaurada = ruta; },
+    });
+    assert.equal(estado.vista, "bolsa-candidatos");
+    assert.equal(restaurada, estado.modalFicha.rutaApertura);
+    assert.equal(focos, 1);
+  }
+});

@@ -1038,6 +1038,11 @@ function alCambiarFichaCT(ficha) {
     history.pushState(null, "", ruta);
 }
 function navegar(vista, opciones = {}) {
+  if (estado.modalFicha?.operacionesB8?.directa && (estado.modalFicha.enviandoCambioSituacion || estado.modalFicha.resultadoInciertoCambioSituacion)) {
+    if (opciones.desdeRuta === true && estado.modalFicha.rutaApertura) compensarHistorialGestionOfertas(estado.modalFicha.rutaApertura);
+    document.querySelector?.("[data-directa-paso]")?.focus?.();
+    return;
+  }
   if (salidaGestionOfertasBloqueada()) {
     if (opciones.desdeRuta === true) compensarHistorialGestionOfertas();
     else anunciarSalidaGestionOfertas();
