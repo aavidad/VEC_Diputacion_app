@@ -29,13 +29,18 @@ def anterior(raiz, archivo, huella):
     return texto, json.loads(texto)
 
 
-def generar(raiz, salida):
-    f = json.loads((raiz / "fuente_v2.json").read_text(encoding="utf-8"))
+def generar(raiz, salida, fuente=None):
+    fuente = raiz / "fuente_v2.json" if fuente is None else Path(fuente)
+    f = json.loads(fuente.read_text(encoding="utf-8"))
     if f["esquema"] != "vec.inscripcion.version_certificada_provisional.v2" or f["uso"] != "preparacion_operativa_sin_bases_aprobadas":
         raise ValueError("fuente v2 inesperada")
     p = f["politica"]
     c = f["convocatoria"]
     cat = f["categoria"]
+    modalidad_presente = "modalidad_inscripcion" in c
+    modalidad = c.get("modalidad_inscripcion")
+    if modalidad_presente and (type(modalidad) is not str or modalidad not in ("separada", "conjunta")):
+        raise ValueError("modalidad de inscripción no prevista")
     if (p["catalogo_id"], p["version_anterior"], p["version_nueva"]) != ("bolsa.politica.inscripcion", 1, 2):
         raise ValueError("secuencia CC1 incompatible")
     if (c["id"], c["secuencia_anterior"], c["secuencia_nueva"]) != ("proceso:bolsa:ensayo-auxiliar-2026", 1, 2):
@@ -45,6 +50,9 @@ def generar(raiz, salida):
     if c["requisito"] != {"referencia": "identidad_certificada", "orden": 1,
                            "descripcion": "Identificación con certificado digital o DNIe admitido", "obligatorio": True}:
         raise ValueError("único requisito certificado incompatible")
+    if (p["archivo_anterior"], c["archivo_anterior"], p["archivo_preimagenes"]) != (
+            "politica_v1_canonica.json", "convocatoria_v1_canonica.json", "preimagenes_politica_v1.json"):
+        raise ValueError("preimágenes fuera del director certificado")
     p1_texto, p1 = anterior(raiz, p["archivo_anterior"], p["huella_anterior_sha256"])
     c1_texto, c1 = anterior(raiz, c["archivo_anterior"], c["huella_anterior_sha256"])
     pre = json.loads((raiz / p["archivo_preimagenes"]).read_text(encoding="utf-8"))
@@ -106,6 +114,8 @@ def generar(raiz, salida):
     contenido["titulo"] = c["titulo"]
     contenido["resumen"] = c["resumen"]
     contenido["descripcion"] = c["descripcion"]
+    if modalidad_presente:
+        contenido["modalidad_inscripcion"] = modalidad
     contenido["plazos"] = [{"tipo": "inscripcion", "referencia": c["plazo_ref"],
                             "abre_en": c["plazo_abre_en"], "cierra_en": c["plazo_cierra_en"]}]
     contenido["requisitos"] = [c["requisito"]]
@@ -176,11 +186,14 @@ def generar(raiz, salida):
                   "convocatoria_v2_sha256": c2_sha, "convocatoria_ref_v2": ref_v2,
                   "categoria_ref": cat["categoria_ref"], "requisitos_v2": [c["requisito"]],
                   "solicitudes_creadas": 0}
+    if modalidad_presente:
+        manifiesto["modalidad_inscripcion"] = modalidad
     (salida / "manifiesto.json").write_text(canon(manifiesto) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--salida", type=Path, required=True)
+    parser.add_argument("--fuente", type=Path)
     args = parser.parse_args()
-    generar(Path(__file__).resolve().parent, args.salida)
+    generar(Path(__file__).resolve().parent, args.salida, args.fuente)
