@@ -1,8 +1,8 @@
 # F1-36A: base de consulta de firmas originales
 
 Guion para una copia PostgreSQL 18 de la principal. Las tres migraciones y sus pruebas focales se ensayaron en la copia H;
-SQL y autorización tienen dos revisiones independientes. Faltan la
-comprobación final tras reinicio y la CI de la cabeza que se entregue. Dirección integra e instala
+SQL y autorización tienen dos revisiones independientes. La comprobación
+tras reinicio conserva los originales; falta la CI de la cabeza que se entregue. Dirección integra e instala
 solo una candidata congelada y ensayada completa.
 
 ## Preparación y orden
@@ -102,6 +102,13 @@ cuatro cargos DEV. No se eleva la garantía declarada ni se admite recuperación
 fuera de esos cargos. H responde de la carga inicial de datos ficticios para
 la organización legada; se retira al regenerar con organización canónica y
 provisionar sus asignaciones por los actos ordinarios de administración.
+
+Tras integrar el ajuste de firma de la principal e instalar CT226 ausente,
+se reiniciaron PostgreSQL y la aplicación sobre la misma copia. El arranque
+termina en 2,35 segundos. La descarga devuelve el informe de 45.800 bytes y
+la resolución de 56.399 bytes, con las mismas huellas y recibos originales.
+La recuperación de los tres originales de la resolución responde 200 en
+108 ms. Los tiempos son muestras focales, no una medida del percentil 95.
 
 B añadirá fuente y anexo; C, panel y activación. A no acredita
 `docs/producto/FLUJO_APP.md` §4.0. Dirección decide integración y despliegue.
