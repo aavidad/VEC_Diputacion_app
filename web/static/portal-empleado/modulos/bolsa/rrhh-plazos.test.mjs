@@ -4,9 +4,9 @@ import { crearClientePoliticaOfertas, ESQUEMA_POLITICA_OFERTAS, RUTA_POLITICA_OF
   RUTA_CAPACIDAD_POLITICA_OFERTAS,
   validarPoliticaEditable, validarPoliticaRecibida, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, crearLectorReglasCompartido } from "./rrhh-plazos-api.js";
 import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
-import { crearSuperficieRRHHPlazos as crearSuperficieRRHHPlazosReal, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261016-r1-seleccion-pendiente-v2";
+import { crearSuperficieRRHHPlazos as crearSuperficieRRHHPlazosReal, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261016-r1-seleccion-pendiente-v3";
 import { cargarEjemploPlazas as cargarEjemploPlazasSuperficie,
-  cargarConfirmacionAdjudicacion as cargarConfirmacionSuperficie } from "./rrhh-plazos-api.js?v=20261016-r1-seleccion-pendiente-v2";
+  cargarConfirmacionAdjudicacion as cargarConfirmacionSuperficie } from "./rrhh-plazos-api.js?v=20261016-r1-seleccion-pendiente-v3";
 
 const crearSuperficieRRHHPlazos = (opciones) => crearSuperficieRRHHPlazosReal({ cargarConfirmacion: async () => null, ...opciones });
 
@@ -165,6 +165,37 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
   assert.deepEqual(claves, ["misma-clave", "misma-clave"]);
   assert.match(superficie.renderizar(), /recibo:politica:1/);
   assert.deepEqual(publicadas, [1]);
+});
+
+test("el GET recupera el recibo original después de recargar y no lo inventa si falta", async () => {
+  let lecturas = 0, publicaciones = 0;
+  const cliente = crearClientePoliticaOfertas({ fetchImpl: async (ruta, opciones) => {
+    if (opciones.method === "GET" && ruta.startsWith(`${RUTA_POLITICA_OFERTAS}?`)) {
+      lecturas += 1;
+      return respuesta(200, vigente("bolsa:1", { recibo_ref: "recibo:politica:original" }));
+    }
+    if (ruta === RUTA_CAPACIDAD_POLITICA_OFERTAS) return respuesta(403, { error: { codigo: "denegado" } });
+    publicaciones += 1;
+    throw new Error("no se publica al cargar");
+  } });
+  for (let carga = 0; carga < 2; carga += 1) {
+    const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+      cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo });
+    superficie.activar("bolsa:1"); await turno();
+    assert.match(superficie.renderizar(), /Versión 1 guardada\. Recibo recibo:politica:original\./u);
+    superficie.desmontar();
+  }
+  assert.equal(lecturas, 2);
+  assert.equal(publicaciones, 0);
+  for (const politica of [vacia().data, vigente().data]) {
+    const superficie = crearSuperficieRRHHPlazos({ cliente: {
+      consultar: async () => ({ ok: true, politica }),
+      consultarCapacidad: async () => ({ ok: false, status: 403 }),
+    }, traducir: crearTraductorRRHHPlazos(), cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo });
+    superficie.activar("bolsa:1"); await turno();
+    assert.doesNotMatch(superficie.renderizar(), /Versión \d+ guardada\. Recibo/u);
+    superficie.desmontar();
+  }
 });
 
 test("el selector recupera el plazo del catálogo y deja vacía la unidad sin propuesta", async () => {
