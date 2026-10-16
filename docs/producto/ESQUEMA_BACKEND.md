@@ -415,6 +415,15 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
+F1-36B, aún en rama, añade AUT102 y CT229 después de AD286, CT228 y AUT103
+del corte A. AUT102 comprueba por fachada nominal la asignación propia de cargo
+en la unidad histórica; solo restringe una ficha ya autorizada. CT229 forma
+los selectores desde firmas originales y guarda
+`prueba_selectores_recuperacion_rrhh_v1`, anexo privado e inmutable uno a uno
+con el acceso y recibo de ficha CT43. Conserva el sello de detalle y añade el
+sello del anexo; consumo V3, auditoría y recibos pertenecen a una transacción.
+No se activan roles ni asignaciones nuevos con estas SQL.
+
 Puertos Go: `internal/modules/contrataciontemporal/ports/`; adaptadores en
 `adapters/postgres/`. Detalle técnico por migración:
 `deploy/postgresql/contratacion_temporal/README.md`.
@@ -759,6 +768,14 @@ ligado al expediente y a su versión, organización, unidad y plan publicado.
 Esa cobertura indica qué documentos consultar; no concede permiso de firma.
 La ficha conserva los errores de consulta de cada documento y muestra los
 cuatro documentos sin plan como pendientes, sin acciones de firma.
+
+La fuente interna de B devuelve como máximo 128 pares de `firma_ref` y selector
+(`expediente_ref`, `version_expediente`, `documento`, `paso_orden`,
+`clave_idempotencia`, `catalogo_huella`, `via`) con el recibo adicional
+(`acceso_ref`, `sello_detalle_sha256`, `sello_selectores_sha256`). En B no hay
+serializador HTTP ni panel para exponerlos. Una ficha antigua sigue con su
+contrato anterior; una lectura ampliada requiere ambos sellos, aun con lista
+vacía, y `[]` nunca autoriza un comodín.
 
 La lista de activación de #1137 ordena CT218, IS20, AUT97, CT219 y CT224. AUT97
 reconstruye el validador nominal desde su preimagen y cambia únicamente el
