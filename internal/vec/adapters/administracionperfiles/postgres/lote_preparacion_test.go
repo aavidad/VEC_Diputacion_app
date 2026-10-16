@@ -148,6 +148,18 @@ func TestPreparacionLoteRechazaRespuestaAjenaYAudita(t *testing.T) {
 		"sin_truncado":    func(r map[string]any) { delete(r, "truncado") },
 		"baja_sin_nombre": func(r map[string]any) { delete(r["bajas"].([]any)[0].(map[string]any), "nombre") },
 		"duracion_cero":   func(r map[string]any) { r["altas"].([]any)[0].(map[string]any)["duracion_propuesta_segundos"] = 0 },
+		"duracion_mayor_diez_anos": func(r map[string]any) {
+			r["altas"].([]any)[0].(map[string]any)["duracion_propuesta_segundos"] = int64(10*365*24*3600 + 1)
+		},
+		"rol_con_punto": func(r map[string]any) {
+			r["altas"].([]any)[0].(map[string]any)["rol_version_ref"] = "rol:tecnico.rrhh:v1"
+		},
+		"rol_con_dos_puntos": func(r map[string]any) {
+			r["altas"].([]any)[0].(map[string]any)["rol_version_ref"] = "rol:tecnico:rrhh:v1"
+		},
+		"fecha_baja_ilegible": func(r map[string]any) {
+			r["bajas"].([]any)[0].(map[string]any)["vigente_hasta"] = "sin_fecha"
+		},
 		"vinculo_repetido": func(r map[string]any) {
 			r["bajas"].([]any)[0].(map[string]any)["vinculo_ref"] = "vca_" + strings.Repeat("2", 32)
 		},
@@ -160,6 +172,23 @@ func TestPreparacionLoteRechazaRespuestaAjenaYAudita(t *testing.T) {
 				t.Fatal("respuesta ajena aceptada o sin auditar")
 			}
 		})
+	}
+}
+
+func TestPreparacionLoteUnidadAusenteEnFuenteNoEmiteDecisionYAudita(t *testing.T) {
+	a, pool, emisor, reg, s := autoridadPreparacionPrueba(t, nil)
+	proveedor, err := NuevaFuenteAmbitosLotePrivada(configuracionFuentesLotePrueba())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.proveedor = proveedor
+	s.UnidadRef = "unidad:ajena"
+	_, err = a.PrepararLoteOrdinario(context.Background(), s)
+	if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) ||
+		pool.comienzos != 0 || emisor.efecto.Referencia != "" || reg.llamadas != 1 ||
+		reg.ordenes[0].Datos.Resultado != domain.ResultadoIntentoAuditoriaError ||
+		reg.ordenes[0].Datos.Accion != AccionPreparacionLote {
+		t.Fatal("unidad sin fuente admitida o fallo sin auditoría")
 	}
 }
 

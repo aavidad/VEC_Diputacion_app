@@ -132,6 +132,15 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 
 ### 2.3 En curso
 
+**F0-24A, preparación de perfiles.** Se añaden pruebas que fijan el canon
+y su huella, se prueban
+las respuestas excepcionales del catálogo y se coteja la unidad con el puerto
+existente antes de emitir la autorización de preparación. No añade SQL ni
+rutas. Guion: `deploy/principal/preparacion_lote_f0_24a_20261016.md`.
+F0-24 conserva pendientes la relación de AD198 con la auditoría y la renovación
+operativa; F0-23 espera una publicación de confianza vigente para el recorrido
+en la copia local.
+
 **F1-37, ajustes de firma.** Límite PDF de 2 MiB en firma VEC, cotas de transporte
 calculadas aparte, cierre de auditoría seguro y sonda de plantillas por
 organización (CT226, sobre CT218). Reutiliza las pantallas de plantillas y la
