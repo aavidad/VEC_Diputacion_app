@@ -139,6 +139,15 @@ ficha, sin cambiar la verificación ni los permisos de firma. Guion en
 `deploy/principal/firma_ajustes_f1_37_20261015.md`; revisión y ensayo del conjunto
 final pendientes antes de integrar.
 
+**F1-65A, limpieza de plantillas.** CT232 prepara la retirada de la entrada
+antigua V1 que CT226 conservó por compatibilidad. El portal ya usa V2 con la
+organización explícita. Dos revisiones independientes, la instalación única
+y las pruebas SQL son favorables; Chrome conserva PDF y recibos tras reinicio
+en la copia propia. La pantalla administrativa opcional no estaba montada.
+Faltan CI e integración; la activación está en
+`deploy/principal/plantillas_compat_f1_65a_20261016.md`. La ampliación de
+escritura a otras organizaciones sigue aparcada.
+
 **F0-02, cierre del arranque heredado de Administración.** Se prepara la
 exigencia del fichero privado de usuarios antes de abrir conexiones y se
 retira la alternativa que pedía un grupo de auditoría inexistente. Se conserva
@@ -564,6 +573,17 @@ tiene su recibo y su reintento. El borrador B105 solo cubre la separada.
 cuarentena hasta pasar antivirus (ClamAV) y análisis de PDF. Al principio solo
 se admite PDF. Ningún fichero dudoso llega a Mayan ni a RRHH. Informática
 opera esos conectores con el perfil de administrador de sistemas.
+
+**Justificante de renuncia justificada.**
+
+La persona aporta el PDF desde Mi Bolsa y conserva su original y el recibo.
+Una técnica con permiso vigente consulta y descarga el documento desde la ficha
+del candidato. La integración y la activación de F1-07 siguen pendientes; el
+guion `deploy/principal/justificante_renuncia_activacion.md` recoge la preparación
+y las dependencias del productor de admisiones externas (F0-21) y del
+versionador del rol externo por fuente declarada. El versionador actual solo
+añade preferencias. Los permisos del aspirante preparados como datos ficticios
+de copia no acreditan su activación gobernada.
 
 ## 8. Reglas que siguen vigentes de los relevos anteriores
 
