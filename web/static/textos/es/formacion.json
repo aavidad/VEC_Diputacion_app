@@ -36,6 +36,9 @@
   "cargando": "Cargando el borrador de formación…",
   "error_escenario": "No se ha podido cargar el borrador. Reintente. Si el problema continúa, avise a Informática.",
   "reintentar": "Reintentar",
+  "idioma_respaldo": "No se ha podido cargar el idioma elegido. Se muestra el idioma disponible. Puede volver a intentarlo sin perder el borrador.",
+  "idioma_error": "No se han podido cargar los textos del idioma elegido. Se conserva el idioma actual y el borrador. Vuelva a intentarlo.",
+  "reintentar_idioma": "Reintentar idioma",
   "campos": {
     "periodo": "Periodo previsto",
     "presupuesto": "Presupuesto previsto",
