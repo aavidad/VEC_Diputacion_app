@@ -4,17 +4,17 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261016-firma-historica-v1";
+const versionCoordinador = "20261016-firma-historica-v2";
 // La entrada integra Firma y Ofertas; el coordinador CT conserva su cohorte.
-const versionEntrada = "20261016-firma-historica-v1";
+const versionEntrada = "20261016-firma-historica-v2";
 const versionClienteCT = "20261014-ginpix-personal-b2-v1";
-const versionClienteConsulta = "20261016-firma-historica-v1";
+const versionClienteConsulta = "20261016-firma-historica-v2";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
 const versionCircuito = versionCoordinador;
 const versionVista = versionCoordinador;
 const versionVistaPortal = versionCoordinador;
 const versionAdaptador = versionCoordinador;
-const versionRender = "20261016-firma-historica-v1";
+const versionRender = "20261016-firma-historica-v2";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);

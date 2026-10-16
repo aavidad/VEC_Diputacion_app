@@ -1,6 +1,7 @@
-import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v1";
+import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js?v=20261016-firma-historica-v2";
 
 let siguientePanel = 0;
+const REFERENCIA_RECIBO = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 
 function localizacionValida(valor) {
   if (typeof valor !== "string") return false;
@@ -41,7 +42,7 @@ export function montarVistaRecuperacionFirmasV2({
   const panel = elemento(doc, integrada ? "div" : "section", integrada ? "" : "panel");
   panel.classList.add("ct-recuperacion-firmas");
   panel.dataset.ctRecuperacionFirmasV2 = "";
-  panel.setAttribute("aria-labelledby", identificador);
+  if (!integrada) panel.setAttribute("aria-labelledby", identificador);
   const cabecera = elemento(doc, "div", integrada ? "" : "cabecera-panel");
   const textosCabecera = elemento(doc, "div");
   const titulo = elemento(doc, integrada ? "h5" : "h3", "", t("titulo"));
@@ -62,7 +63,8 @@ export function montarVistaRecuperacionFirmasV2({
   const lista = elemento(doc, "div");
   lista.dataset.ctRecuperacionResultado = "";
   cuerpo.append(consultar, cancelar, estado, lista);
-  panel.append(cabecera, cuerpo);
+  if (!integrada) panel.append(cabecera);
+  panel.append(cuerpo);
   raiz.replaceChildren(panel);
 
   function limpiar() {
@@ -79,8 +81,8 @@ export function montarVistaRecuperacionFirmasV2({
     estado.textContent = "";
     const filas = elemento(doc, "div");
     for (const firma of firmas) {
-      const fila = elemento(doc, "article", "ct-exp-documento");
-      fila.append(elemento(doc, "h4", "", t("firma", { numero: firma.paso_orden })));
+      const fila = elemento(doc, integrada ? "div" : "article", "ct-exp-documento");
+      if (!integrada) fila.append(elemento(doc, "h4", "", t("firma", { numero: firma.paso_orden })));
       const resumen = elemento(doc, "dl", "ct-resumen");
       const registrada = elemento(doc, "div");
       registrada.append(elemento(doc, "dt", "", t("fecha")));
@@ -91,8 +93,9 @@ export function montarVistaRecuperacionFirmasV2({
       registrada.append(dd);
       resumen.append(registrada);
       fila.append(resumen, elemento(doc, "p", "", t(firma.resultado === "firmado" ? "firmado" : "devuelto")));
-      const recibo = elemento(doc, "p", "", t("recibo_con_valor", { recibo: firma.recibo_ref }));
-      fila.append(recibo);
+      if (typeof firma.recibo_ref === "string" && REFERENCIA_RECIBO.test(firma.recibo_ref)) {
+        fila.append(elemento(doc, "p", "", t("recibo_con_valor")));
+      }
       filas.append(fila);
     }
     lista.append(filas);
