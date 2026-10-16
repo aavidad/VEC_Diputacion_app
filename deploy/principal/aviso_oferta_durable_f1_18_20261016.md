@@ -12,7 +12,7 @@ Tarea F1-18, primer corte: publicación, estado y recuperación de avisos pendie
 
 El ensayo conjunto usó el código de reglas de #1155 (`e6f55733d`), requerido por el estado S6 de la copia, y el ajuste de política de #1144 (`6741f833b`), que admite el rol vigente mediante concesiones positivas exactas. Ambos tienen sus propias revisiones y los integra dirección. Esta PR no copia esos cambios. El manifiesto privado conserva la procedencia completa: Go de `6a9367d58`, interfaz de `dd4aed444` y SHA-256 del binario `c1e42fb3633c41d1403846ffd72cec5f47228f42aa561234b85b9ee5de6c81f7`.
 
-El ajuste final `d226d00d4` registra el enlace en el inventario de configuración, como exige su prueba existente. Esa prueba focal pasó. El binario con ese metadato (`fb9110ff85cc77b89e3ae7739068f32d20847ec99c13734a35ace93fed28f3f4`) se reinició con enlace válido, ausente e inválido: página, sesión, bolsas, ofertas y salud de proceso respondieron 200. La lógica del envío conserva la versión del recorrido descrito.
+El ajuste final `d226d00d4` registra el enlace en el inventario de configuración, como exige su prueba existente. Esa prueba focal pasó. El binario con ese metadato (`fb9110ff85cc77b89e3ae7739068f32d20847ec99c13734a35ace93fed28f3f4`) se reinició con enlace válido, ausente e inválido: página, sesión, bolsas, ofertas y salud de proceso respondieron 200. Tras integrar la principal en `10a0064b8`, la nueva composición con S6 y el ajuste R se compiló en el binario `bbc17704837772564dab3b17c62c8b9c58512145dccfa2b36825247d71335579`: los tres arranques repitieron esas respuestas 200 y la recuperación autorizada conservó recibo, fecha y plazo. La lógica propia del aviso mantiene la versión del recorrido descrito.
 
 ## Recorrido comprobado
 
