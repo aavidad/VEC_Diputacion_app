@@ -125,7 +125,7 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261015-ofertas-recuperacion-v4"),
+        import("./portal-bolsas-ofertas.js?v=20261016-f118-aviso-oferta-v2"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261015-ofertas-recibo-v3"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -1355,6 +1355,8 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     const bolsaRef = estado.llamamientoDesdeMenu ? estado.bolsaSeleccionada : "";
     const vigente = bolsasVigentesParaLlamamiento(estado.datosBolsas).some((bolsa) => bolsa.bolsa_ref === bolsaRef);
     if (modoGestionOfertasBolsa && (!vigente || modoGestionOfertasBolsa !== bolsaRef)) cerrarGestionOfertasBolsa();
+    const traducirOfertas = recursosVistas.get("ofertas")?.crearTraductorOfertas();
+    porId("titulo-vista").textContent = modoGestionOfertasBolsa && traducirOfertas ? traducirOfertas("gestionar_ofertas") : TITULOS.llamamientos[1];
     if (vigente && modoGestionOfertasBolsa === bolsaRef && superficieOfertasBolsa && superficieRRHHPlazos) {
       if (contenedor.querySelector("[data-montaje-ofertas-bolsa]")) return;
       const t = recursosVistas.get("ofertas").crearTraductorOfertas();
