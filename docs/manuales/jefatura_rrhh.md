@@ -180,7 +180,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
 | Cese y vuelta a la bolsa | El cese se registra. | Probar entera la vuelta automática a la bolsa. | Al cesar, la persona vuelve sola a su bolsa con la situación que marque la regla. |
-| Administración | El acceso y los cambios de perfiles usan claves con vigencia limitada. Está preparado el ajuste para alargarla en las copias locales. | Activarlo en la candidata de dirección. | Renovación controlada, con constancia de quién la autoriza y sin ampliar los permisos. |
+| Administración | El acceso y los cambios de perfiles usan claves con vigencia limitada. Está preparado el ajuste para alargarla en las copias locales y aplicarlo también a las nuevas credenciales técnicas de acceso. | Activarlo en la candidata de dirección. | Renovación controlada, con constancia de quién la autoriza y sin ampliar los permisos. |
 | Otros módulos | Aparcados hasta terminar bolsas y contratación. | Ver el apartado 8. | Personal, control horario, dietas, nóminas y los demás módulos de RRHH en la misma aplicación. |
 
 ## 8. Los demás módulos de VEC
@@ -216,6 +216,11 @@ la comprobación de la firma sigue siendo la misma.
 La firma electrónica del documento y la competencia de quien firma se comprueban por separado: [Ley 39/2015, artículo 26.2.e](https://www.boe.es/eli/es/l/2015/10/01/39/con#a26) y [Ley 40/2015, artículo 12](https://www.boe.es/eli/es/l/2015/10/01/40/con#a12). El orden de cargos del recorrido es configurable y sigue pendiente de la confirmación de RRHH y Secretaría General; esos artículos no fijan quién firma cada paso.
 
 **Al final.** Firma de una o varias personas en cualquier módulo, con la verificación guardada junto al documento. Las delegaciones y suplencias que comunique Secretaría General se tendrán en cuenta.
+
+Informática puede ajustar la duración de las credenciales técnicas del entorno
+local. El ajuste se aplica al renovarlas; reiniciar conserva la que siga vigente.
+El límite es de 90 días en desarrollo y de un día en producción. Esto no cambia
+la firma del documento ni sustituye los certificados personales.
 
 ### 8.3 Documentos y plantillas
 

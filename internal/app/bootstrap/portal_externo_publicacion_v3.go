@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/config"
 	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/shared/telemetria"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
@@ -129,6 +131,10 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 	if ctx == nil || pool == nil || len(materiales) != len(consumidoresPortalExternoV3) {
 		return falloPublicacionConfianzaExterna(nil)
 	}
+	// Una configuración inválida cierra esta operación incluso en un replay.
+	if _, err := config.EntornoGobiernoAdmin().ValidezGobiernoAdmin(0, os.Getenv(config.EnvGobiernoAdminValidezHoras)); err != nil {
+		return falloPublicacionConfianzaExterna(err)
+	}
 	var esperada []byte
 	err := reintentarSerializacionCTDesarrollo(ctx, func() error {
 		esperada = nil
@@ -206,8 +212,12 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 			}
 		}
 		publicada := ahora.UTC().Truncate(time.Microsecond)
+		expira, err := caducidadNuevaPublicacionConfianza(publicada, lista[0].validaHasta)
+		if err != nil {
+			return falloPublicacionConfianzaExterna(err)
+		}
 		if err := coordinarMaterialExternoV3(lista, "confianza:atestacion:externo:"+numeroDecimal64(estado.SecuenciaSiguiente),
-			estado.SecuenciaSiguiente, publicada, publicada.Add(24*time.Hour), lista[0].validaDesde, lista[0].validaHasta, versiones); err != nil {
+			estado.SecuenciaSiguiente, publicada, expira, lista[0].validaDesde, lista[0].validaHasta, versiones); err != nil {
 			return err
 		}
 		propuesta, err := serializarMaterialExternoV3(lista)

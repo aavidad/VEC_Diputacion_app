@@ -292,6 +292,12 @@ ventana breve para aplicar cada plan no se amplía. AD282 ajusta los dos
 efectos de gobierno existentes; no añade permisos ni cambia publicaciones
 anteriores. Guion: `deploy/principal/vigencia_gobierno_admin_20261015.md`.
 
+F1-64 reutiliza esa misma variable para las publicaciones técnicas nuevas de CT
+y del portal externo. Conserva la vigente al reiniciar sin el ajuste. Un plazo
+inferior a 24 horas empieza al publicar y puede renovarse el mismo día con
+otra referencia; los demás conservan medianoche UTC. No cambia raíces ni claves
+legadas. Activación: `deploy/principal/vigencias_publicaciones_f1_64_20261016.md`.
+
 ### Selectores `VEC_*_ENABLED`
 
 Cada capacidad que necesita algo más que el núcleo se enciende con un selector de
