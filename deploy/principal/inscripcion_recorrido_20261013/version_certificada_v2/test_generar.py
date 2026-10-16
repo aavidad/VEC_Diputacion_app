@@ -72,6 +72,24 @@ class VersionCertificadaV2Test(unittest.TestCase):
                 generar(RAIZ, salida, ruta)
             self.assertFalse(salida.exists())
 
+    def test_claves_duplicadas_en_convocatoria_o_raiz_no_emiten_archivos(self):
+        base = json.dumps(json.loads((RAIZ / "fuente_v2.json").read_text(encoding="utf-8")))
+        casos = (
+            base.replace('"convocatoria": {',
+                         '"convocatoria": {"modalidad_inscripcion":"separada",'
+                         '"modalidad_inscripcion":"conjunta",', 1),
+            '{"esquema":"otro",' + base[1:],
+        )
+        for texto in casos:
+            with self.subTest(fuente=texto[:45]), tempfile.TemporaryDirectory() as temporal:
+                temporal = Path(temporal)
+                ruta = temporal / "fuente.json"
+                ruta.write_text(texto, encoding="utf-8")
+                salida = temporal / "salida"
+                with self.assertRaisesRegex(ValueError, "clave duplicada"):
+                    generar(RAIZ, salida, ruta)
+                self.assertFalse(salida.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

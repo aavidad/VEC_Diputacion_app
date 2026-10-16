@@ -30,8 +30,16 @@ def anterior(raiz, archivo, huella):
 
 
 def generar(raiz, salida, fuente=None):
+    def sin_claves_duplicadas(pares):
+        objeto = {}
+        for clave, valor in pares:
+            if clave in objeto:
+                raise ValueError("clave duplicada en la fuente JSON")
+            objeto[clave] = valor
+        return objeto
+
     fuente = raiz / "fuente_v2.json" if fuente is None else Path(fuente)
-    f = json.loads(fuente.read_text(encoding="utf-8"))
+    f = json.loads(fuente.read_text(encoding="utf-8"), object_pairs_hook=sin_claves_duplicadas)
     if f["esquema"] != "vec.inscripcion.version_certificada_provisional.v2" or f["uso"] != "preparacion_operativa_sin_bases_aprobadas":
         raise ValueError("fuente v2 inesperada")
     p = f["politica"]
