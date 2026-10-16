@@ -52,6 +52,13 @@ de aprobación. No se rodea el adaptador de publicación ausente.
 
 ## Instalación SQL
 
+Guardar la preparación requiere también las funciones de AD153 y BC8 ya
+instaladas. La copia usada para este corte carece de ellas. La lista histórica
+`lista_sql_codexa_selectivos_s2.txt` parte de una definición anterior del núcleo
+de autorización y no es aplicable a esa copia. Dirección y el equipo responsable
+del núcleo tienen pendiente encajar esa dependencia sobre la versión vigente;
+hasta entonces no se acredita el guardado desde la pantalla.
+
 BC12 está reservada para esta rama. Reconstruye tres funciones existentes desde
 su definición instalada, con comprobación anterior y posterior de huellas y
 metadatos. No crea funciones, tablas, concesiones ni una migración del núcleo de
