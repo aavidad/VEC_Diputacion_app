@@ -266,6 +266,19 @@ la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. A
 figura en ella como disponible y en el puesto que le toca el llamamiento (lo deja así el guion
 de datos). Si un dato no cuadra, se ajusta el dato, no el código (regla 5).
 
+**Variante de vacante para comprobar los criterios de ofrecimiento**
+(dirección, 15/10). Conserva la misma petición, expediente, puesto, bolsa y una
+persona solicitada. El análisis usa modalidad y causa de vacante. Con la regla
+publicada, la primera persona figura trabajando y carece de hechos fiables
+para comprobar la excepción: RRHH ve la posición, la versión de la regla y el
+motivo «Pendiente de comprobación»; la selección se detiene antes de crear el
+llamamiento o pasar a otra posición. Después se prepara la primera persona
+como disponible y la segunda trabajando para comprobar el ofrecimiento y los
+motivos del seguimiento. Los cambios son datos de la copia; los actos y la
+fiscalización de la variante se registran de nuevo con sus propios recibos.
+La fiscalización de una modalidad anterior conserva su contexto original.
+Esta variante sigue pendiente de completar el recorrido y el reinicio.
+
 **Pasos.** El recorrido principal empieza en la petición del centro (paso 1) y
 llega hasta el cese y la vuelta a la bolsa; es el que decide si la candidata
 está completa. Sigue el orden que tiene hoy el código (4.3.2): el llamamiento va
@@ -498,6 +511,14 @@ Estado: **en main**; en cidonia falta la autoridad externa de la aspirante
 En «Orden de mis bolsas» la aspirante ordena sus bolsas
 (`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias`). Si aparece una bolsa nueva o
 se retira una, debe marcar «He revisado el orden» antes de guardar.
+
+#### Modalidades de ofertas publicadas
+
+La elección voluntaria de modalidades, cuando se habilite, solo filtra las
+ofertas publicadas que la persona ve y los avisos que solicita. No cambia la
+prelación ni la selección; tampoco equivale a renunciar. En el llamamiento
+directo se sigue el orden de la bolsa con independencia de esa elección
+(Reglamento de bolsas, arts. 8.1, 8.2.a y 11.1).
 
 #### Responder a un llamamiento
 
@@ -735,6 +756,32 @@ se han comprobado la publicación de dos plazas, su consulta y aceptación desde
 Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
 un reintento conserva fechas, política y oferta originales. Este corte no acredita
 todavía la publicación desde la ficha de CT.
+
+**Candidata R1a comprobada en copia local, pendiente de integrar.** La selección explica por
+persona los hechos comprobados y el motivo aplicado, con el vínculo al contrato
+de origen del llamamiento de CT. Si falta un contrato anterior o un dato para
+comprobar la excepción de vacante, muestra «Pendiente de comprobación» y se
+detiene en esa persona. RRHH no pasa a la siguiente ni causa una exclusión
+definitiva por la falta de datos. La excepción corresponde al art. 9, apartado
+cuarto (numerado 3 en el BOP n.º 9 de 16/01/2026): solo vacantes para los
+vínculos tasados y con reducción del máximo de tres años por el tiempo previo
+en acumulación o sustitución. R1b deberá añadir el acto propio con el que RRHH
+registre los hechos, la evidencia y el recibo. Hoy ese acto no existe.
+
+La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
+requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
+de origen CT, y la concesión exacta al rol RRHH aprobada por dos
+administradores. Si falta el apartado de criterios, la selección conserva el
+orden y las reglas anteriores; la aplicación arranca. Si RRHH no tiene permiso
+para consultar motivos, el bloque indica que no están disponibles. En la copia
+local se guardó una política desde la pantalla y se conservaron versión, huella y
+recibo tras reiniciar; la bolsa estaba sin configurar antes. El seguimiento
+histórico mostró motivos y versión en castellano e inglés, en escritorio y móvil.
+En otra copia desechable, con el mismo análisis y las decisiones conservadas,
+CT detuvo con 409 la selección en la primera persona trabajando sin hechos:
+mostró posición y versión, no creó llamamiento y permitió abrir la bolsa.
+Alcance y límites en
+[`habilitacion_criterios_ofrecimiento_20261015.md`](../../deploy/principal/habilitacion_criterios_ofrecimiento_20261015.md).
 
 **Candidata de consulta de puestos.** El ofrecimiento usa la RPT publicada y
 la historia autorizada del puesto de Personal. La consulta existente se conecta

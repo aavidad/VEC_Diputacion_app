@@ -438,9 +438,22 @@ export async function construirErrorRespuesta(respuesta, signal, ruta, errorClie
     });
   }
   const detalle = envoltorio?.error;
+  const comprobacionPendiente = ruta === rutas.seleccionLlamamiento && respuesta.status === 409
+    && detalle?.codigo === "comprobacion_ofrecimiento_pendiente";
+  const comprobacion = envoltorio?.comprobacion_ofrecimiento;
+  const conVersion = comprobacion && Object.hasOwn(comprobacion, "version_politica_ofertas");
+  const comprobacionValida = !comprobacionPendiente || (exigirCamposExactos(comprobacion,
+    ["bolsa_ref", "orden_acta", ...(conVersion ? ["version_politica_ofertas"] : []), "motivo_clave"])
+    && typeof comprobacion.bolsa_ref === "string"
+    && /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(comprobacion.bolsa_ref)
+    && Number.isSafeInteger(comprobacion.orden_acta) && comprobacion.orden_acta > 0
+    && (!conVersion || Number.isSafeInteger(comprobacion.version_politica_ofertas)
+      && comprobacion.version_politica_ofertas > 0)
+    && comprobacion.motivo_clave === "pendiente_comprobacion_rrhh");
   const campoAlta = ruta === rutas.alta && respuesta.status === 422
     && detalle?.campo === "numero_expediente_moad";
-  if (!exigirCamposExactos(envoltorio, ["error"])
+  if (!exigirCamposExactos(envoltorio, ["error", ...(comprobacionPendiente ? ["comprobacion_ofrecimiento"] : [])])
+    || !comprobacionValida
     || !exigirCamposExactos(
       detalle,
       ["codigo", "clave_i18n", "correlacion_ref", ...(campoAlta ? ["campo"] : [])],
@@ -459,6 +472,7 @@ export async function construirErrorRespuesta(respuesta, signal, ruta, errorClie
     correlacionRef: detalle.correlacion_ref,
     campo: campoAlta ? detalle.campo : "",
     envelopeValido: true,
+    comprobacionOfrecimiento: comprobacionPendiente ? Object.freeze({ ...comprobacion }) : null,
   });
 }
 
