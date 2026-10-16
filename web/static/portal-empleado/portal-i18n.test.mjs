@@ -195,6 +195,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/cliente-http-consultas-rrhh.js",
     "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
     "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/cliente-http-consulta-comunicaciones-expediente.js",
+    "modulos/contratacion-temporal/cliente-http-llamamiento.js",
     "modulos/contratacion-temporal/componentes-expedientes.js",
     "modulos/contratacion-temporal/consulta-seguimiento.js",
     "modulos/contratacion-temporal/documentacion-formalizacion.js",
@@ -1018,7 +1020,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/firma-vec-api.js",
     "modulos/contratacion-temporal/firma-externa-cliente.js",
     "modulos/contratacion-temporal/firma-autofirma.js",
-  ]) versionesEspeciales.set(ruta, "20261016-r1-criterios-v4");
+  ]) versionesEspeciales.set(ruta, "20261016-r1-seleccion-pendiente-v1");
   versionesEspeciales.set("portal-llamamientos-selector.js", "20261015-ofertas-recibo-v3");
   const aristas = [];
   const codigo = new Map();
