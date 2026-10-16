@@ -190,7 +190,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Incorporación y alta en Personal | Programado: el centro acredita la incorporación y RRHH confirma el alta. | Probar el recorrido entero. | La persona queda dada de alta en Personal con su puesto y su plaza, sin volver a teclear datos. |
 | GINPIX | VEC prepara la ficha y guarda el número de la grabación, que se hace a mano. | Conexión directa. Depende de Informática. | VEC envía los datos a GINPIX sin grabarlos a mano. |
 | Cese y vuelta a la bolsa | El cese se registra. | Probar entera la vuelta automática a la bolsa. | Al cesar, la persona vuelve sola a su bolsa con la situación que marque la regla. |
-| Administración | El acceso y los cambios de perfiles usan claves con vigencia limitada. Está preparado el ajuste para alargarla en las copias locales y aplicarlo también a las nuevas credenciales técnicas de acceso. | Activarlo en la candidata de dirección. | Renovación controlada, con constancia de quién la autoriza y sin ampliar los permisos. |
+| Administración | El acceso y los cambios de perfiles usan claves con vigencia limitada. En la copia local se ha comprobado la configuración de acceso de 90 días y su recuperación sin acortarla. | Activarlo en la candidata de dirección. | Renovación controlada, con constancia de quién la autoriza y sin ampliar los permisos. |
 | Otros módulos | Aparcados hasta terminar bolsas y contratación. | Ver el apartado 8. | Personal, control horario, dietas, nóminas y los demás módulos de RRHH en la misma aplicación. |
 
 ## 8. Los demás módulos de VEC
@@ -235,8 +235,10 @@ La firma electrónica del documento y la competencia de quien firma se comprueba
 
 Informática puede ajustar la duración de las credenciales técnicas del entorno
 local. El ajuste se aplica al renovarlas; reiniciar conserva la que siga vigente.
-El límite es de 90 días en desarrollo y de un día en producción. Esto no cambia
-la firma del documento ni sustituye los certificados personales.
+El límite es de 90 días en desarrollo y de un día en producción. En la copia
+local ya se publicó ese plazo y se recuperó sin cambios; el PDF y los recibos
+siguieron disponibles. Esto no cambia la firma del documento ni sustituye los
+certificados personales.
 
 ### 8.3 Documentos y plantillas
 
