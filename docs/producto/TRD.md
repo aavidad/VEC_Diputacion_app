@@ -340,6 +340,12 @@ concesiones siguen procediendo del gobierno de perfiles. Sin configuración de
 consulta válida, solo ese GET responde 503. El guion de la candidata está en
 `deploy/principal/organizacion_historica_combinado_20261015.md`.
 
+El preparador `vec-preparar-material-interno` admite el material de idempotencia
+del proceso combinado sin exigir `ct_v3.json`. Coteja la publicación vigente y
+el motivo mediante conexiones nominales separadas antes de emitir los dos
+archivos privados. Procedimiento y alcance del ensayo en
+`cmd/vec-preparar-material-interno/LEEME-OH.md`.
+
 ### Regla: ninguna configuración nueva tumba el arranque
 
 Si falta o está mal la configuración de una función, falla solo esa función. La
@@ -352,6 +358,22 @@ cerrada (404 o 503) y, en pantalla, explica que no está disponible.
 - Una dependencia opcional nunca se convierte en condición de arranque global.
 - Lo que exija configuración o actos previos se prepara y se ensaya en una copia
   antes de subirlo, no a ciegas en la principal.
+
+El justificante de renuncia de Bolsa usa configuración privada propia. Si faltan
+su fichero, sus claves o su conexión documental, la ruta afectada responde 503
+y el proceso sigue atendiendo las demás funciones. El registro indica la etapa
+y una clase de causa segura, sin DSN, claves ni datos de personas. La
+configuración interna de RRHH `identidad/bolsa-justificantes-rrhh.json` contiene
+solo `version`, `superficie` y `dsn_documentos`: identifica la superficie y el
+LOGIN técnico, no fija a Carmen ni a otra persona como lectora. Cada consulta
+exige el permiso vigente de la técnica en su rol.
+
+En desarrollo, las dos claves internas de la descarga de justificantes se
+registran con el protocolo técnico de gobierno ya usado por Contratación,
+después de validar su configuración. Se usan las coordenadas publicadas y la
+fuente renovable común. Un fallo cierra esa descarga y se registra; no detiene
+la aplicación. La confianza externa sigue preparándose antes por su publicador
+nominal. Ninguna de las dos operaciones asigna permisos funcionales.
 
 Cronos comprueba su configuración y conexiones antes de añadir sus audiencias
 al gobierno común. Si falla una dependencia propia, cierra sus rutas con 503
@@ -606,6 +628,17 @@ El guion de certificados de desarrollo prepara por defecto certificados de
 conserva sus revocaciones y la reutilización comprueba el material privado.
 Los cargos del kit están vigentes hasta el 31 de diciembre de 2027. La ventana
 entre preparar y aprobar su publicación sigue limitada a un día.
+
+El corte F1-37 unifica el PDF binario en 2 MiB para borrador, original,
+firma, custodia y descarga del recorrido nominal de firma VEC. Los cuerpos con Base64 y metadatos tienen cotas
+calculadas aparte; la ruta antigua puede contener dos PDF. La pasarela
+conserva su límite general y amplía solo la excepción de registro VEC. La
+verificación no cambia y el almacén debe admitir objetos de al menos 2 MiB.
+Las rutas antiguas `firmas-documento` y `firmas-documento/registro-externo`
+conservan 1 MiB de petición JSON total en la pasarela; no admiten por esa
+frontera un PDF de 2 MiB, aunque sus manejadores tengan cotas mayores.
+El cierre de auditoría de un montaje parcial tolera ausencia y se ejecuta una
+sola vez cuando existe, sin tapar el error original.
 
 Un borrador no es un documento firmado. Autenticarse no es firmar. Un aviso no es
 una entrega acreditada. Una referencia a un correo no es su custodia. No se

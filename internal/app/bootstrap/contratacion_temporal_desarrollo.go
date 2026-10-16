@@ -72,6 +72,7 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
+	cuentasInternasJustificanteRRHH                  map[string]cuentaNominalJustificanteRRHH
 	soportesLectoresDocumentosBolsa                  map[string]*soporteAltaContratacionTemporalDesarrollo
 	soporteDocumentosBolsa                           *soporteAltaContratacionTemporalDesarrollo
 	poolDocumentosBolsa                              *pgxpool.Pool
@@ -769,6 +770,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	declaracionesFrontera = append(declaracionesFrontera, fronteraJustificanteBolsaRRHHDesarrollo(perfilesConsulta))
 	if alta.postgresql.vinculoEmisionBolsa {
 		declaracionesFrontera = append(declaracionesFrontera, fronteraVinculoEmisionBolsaDesarrollo(perfilCTCatalogo))
 	}
@@ -969,8 +971,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	var montajeFirmaVec *montajeFirmaVecR5CT
 	defer func() {
-		if cerrarAlta && montajeFirmaVec != nil && montajeFirmaVec.cerrarAuditoria != nil {
-			montajeFirmaVec.cerrarAuditoria()
+		if cerrarAlta && montajeFirmaVec != nil {
+			montajeFirmaVec.cerrarAuditoriaSiExiste()
 		}
 	}()
 	var lecturasFirmaVec *montajeLecturasFirmaV2
@@ -1610,7 +1612,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	dependencias.cerrar = func() {
 		if montajeFirmaVec != nil {
-			montajeFirmaVec.cerrarAuditoria()
+			montajeFirmaVec.cerrarAuditoriaSiExiste()
 		}
 		cerrarPreparacionBases()
 		cerrarBaremo()
