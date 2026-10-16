@@ -1037,6 +1037,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js", "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261016-ct231-integracion-v1");
+  // F1-04 añade la pantalla de reglas de situación al menú de Bolsa.
+  versionesEspeciales.set("portal-menu-bolsa.js", "20261016-s6-reglas-recibo-v2");
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-panel-interno.js"])
+    versionesEspeciales.set(ruta, "20261016-f104-reglas-main-v1");
   versionesEspeciales.set("portal-llamamientos-selector.js", "20261015-ofertas-recibo-v3");
   const aristas = [];
   const codigo = new Map();

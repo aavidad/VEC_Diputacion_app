@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="/portal-empleado/portal.css?v=20261007-ct-menu-recuperacion-v1">
     <link rel="stylesheet" href="/comun/tema-vec.css?v=20261001-codexf-accesibilidad-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20261015-s-cambio-situacion-v1">
-    <link rel="stylesheet" href="/portal-empleado/portal-patrones.css?v=20260929-diseno-v1">
+    <link rel="stylesheet" href="/portal-empleado/portal-patrones.css?v=20261016-s6-reglas-recibo-v2">
     <link rel="stylesheet" href="/portal-empleado/portal-preferencias.css?v=20260930-portales-i18n-integracion-v1">
     <link rel="stylesheet" href="/comun/correos-propios.css?v=20260929-correos-508b-v1">
     <link rel="stylesheet" href="/comun/imagen-propia.css?v=20260929-imagen-508c-v2">
@@ -67,7 +67,7 @@
          paralelo con la entrada, sin esperar a leer cada nivel de import. Primero
          la cadena que carga el catálogo y los módulos. Deben coincidir exactamente
          con las URL que importa el código (lo comprueba portal-carga-rapida.test.mjs). -->
-    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261016-ct231-integracion-v1">
+    <link rel="modulepreload" href="/portal-empleado/portal-modulos-coordinador.js?v=20261016-f104-reglas-main-v1">
 
     <link rel="modulepreload" href="/comun/correos-propios.js?v=20260929-correos-508b-v1">
     <link rel="modulepreload" href="/comun/iconos-vec.js?v=20260925-aspecto-v1">
@@ -104,7 +104,7 @@
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-api.js?v=20261007-pantallas-textos-final-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1">
-    <link rel="modulepreload" href="/portal-empleado/portal-menu-bolsa.js?v=20261013-alegaciones-v2">
+    <link rel="modulepreload" href="/portal-empleado/portal-menu-bolsa.js?v=20261016-s6-reglas-recibo-v2">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-selector.js?v=20261015-ofertas-recibo-v3">
     <link rel="modulepreload" href="/portal-empleado/portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-preferencias-api.js?v=20261010-http-carga-v1">
@@ -116,7 +116,7 @@
     <!-- Carga clásica y síncrona: globalThis.L existe antes de evaluar cualquier módulo. -->
     <script src="/portal-empleado/vendor/leaflet-1.9.4/leaflet.js?v=1.9.4" integrity="sha384-tM1WyRnQZLXgeuR/dXHqqQcD5jN9+bgKmZW55OJtM9Bv7zCG4VFwmgdJudAtzIni"></script>
     <script type="module" src="/portal-empleado/portal-arranque-aviso.js?v=20261007-pantallas-textos-final-v1"></script>
-    <script type="module" src="/portal-empleado/portal.js?v=20261016-ct231-integracion-v1"></script>
+    <script type="module" src="/portal-empleado/portal.js?v=20261016-f104-reglas-main-v1"></script>
 
     <script type="module" src="/pwa/instalar.js?v=20261008-pwa-idioma-v1"></script>
   </head>
@@ -183,6 +183,7 @@
             </button>
             <div class="submenu-bolsa" id="submenu-reglas" role="group" aria-label="Opciones de reglas y baremación" hidden data-i18n-portal-aria-label="txt_opciones_de_reglas_y_baremacion">
               <button type="button" class="enlace-lateral enlace-submenu" data-vista="reglas"><span data-i18n-portal="txt_reglas_y_versiones">Reglas y versiones</span></button>
+              <button type="button" class="enlace-lateral enlace-submenu" data-vista="reglas-situacion"><span data-i18n-portal="txt_reglas_situacion_bolsa">Cambios de situación</span></button>
               <button type="button" class="enlace-lateral enlace-submenu" data-vista="baremacion"><span data-i18n-portal="txt_baremacion_y_ranking">Baremación y ranking</span></button>
             </div>
           </div>
