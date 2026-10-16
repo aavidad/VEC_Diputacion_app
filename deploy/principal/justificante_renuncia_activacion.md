@@ -123,6 +123,14 @@ insertan ni modifican directamente filas de datos, asignaciones o permisos.
 Los datos ficticios necesarios para el recorrido se preparan con la semilla o
 el guion privado de datos, fuera de esta activación.
 
+Administración arranca con el inventario `metadatos_v1` según
+`administracion_arranque_f0_02_20261015.md`. Si HTTPS usa un puerto distinto de
+443, `VEC_ADMIN_HOST` incluye ese puerto; la petición y su origen deben coincidir
+con esa dirección. El nombre DNS del certificado y el campo `host_admin` de
+la política conservan su formato sin puerto. Cada cambio de estos ficheros o
+variables se comprueba con reinicio vigilado y la configuración anterior
+disponible para volver atrás.
+
 La fuente activa del corte es
 `deploy/principal/fuentes/bolsa_justificantes_renuncia_v3.json`. Reúne las dos
 acciones propias del aspirante, con su contenido anterior, y la versión 2 de
@@ -169,10 +177,11 @@ técnica de otro ámbito recibe una denegación, sin conocer si existe el PDF.
    16 MiB desde Mi Bolsa, confirmar una renuncia justificada y conservar el
    recibo. Comprobar que no aparece una descarga propia del PDF. Probar el
    rechazo de un archivo mayor y el 413 de la API.
-5. Entrar como Carmen y como otra técnica ficticia con el mismo permiso
-   vigente por rol. Desde la ficha del candidato, consultar y descargar el
-   mismo PDF y comprobar el seguimiento y la auditoría de lectura. Retirar el
-   permiso a una de ellas por el acto ADMIN y verificar la denegación.
+5. Entrar como Carmen, con el permiso vigente publicado en su rol. Desde la
+   ficha del candidato, consultar y descargar el mismo PDF y comprobar el
+   seguimiento y la auditoría de lectura. Intentar la misma descarga con una
+   cuenta sin ese permiso y comprobar el 403. Esta negativa no acredita por sí
+   sola el rechazo de una técnica con permiso en otro ámbito.
 6. Reiniciar aplicación y PostgreSQL en la copia. Repetir la consulta del
    recibo, la lectura autorizada y la descarga. Verificar también el rechazo
    seguro de un PDF que el antivirus no admita.

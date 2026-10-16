@@ -22,7 +22,10 @@ func ambitoPropioJustificanteRRHH(ctx context.Context, fuente vecports.FuenteAut
 		return "", "", err
 	}
 	datos, err := vinculo.Datos()
-	if err != nil || datos.PrincipalID != actor.Contexto.PersonaRef || datos.PerfilActivoRef != actor.Contexto.PerfilActivoRef ||
+	if err != nil {
+		return "", "", errors.Join(denegado, err)
+	}
+	if datos.PrincipalID != actor.Contexto.PersonaRef || datos.PerfilActivoRef != actor.Contexto.PerfilActivoRef ||
 		datos.Superficie != vec.SuperficieAutenticacionInternaCorporativaV1 || datos.CuentaPrivilegiada {
 		return "", "", denegado
 	}
