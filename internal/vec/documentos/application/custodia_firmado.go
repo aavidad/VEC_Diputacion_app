@@ -12,8 +12,8 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
-// limiteFirmado coincide con el de los borradores de firma de CT.
-const limiteFirmado = 1 << 20
+// Límite binario del PDF firmado; el transporte JSON/Base64 tiene su propia cota.
+const limiteFirmado = 2 << 20
 
 // CustodiarFirmado custodia el PDF firmado y verificado de un expediente.
 // Orden: política → preimagen → V3 del autorizador ligada a ella → concesión

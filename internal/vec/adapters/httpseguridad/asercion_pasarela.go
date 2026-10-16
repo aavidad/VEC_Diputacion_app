@@ -26,8 +26,8 @@ const (
 	versionAsercionPasarela  = "vec-pasarela-v1"
 	limiteCuerpoPasarela     = 1 << 20
 	// LimiteCuerpoRegistroFirmaVecPasarela coincide con el maximo del JSON
-	// de registro-vec: PDF de 1 MiB en base64 y 64 KiB para los otros campos.
-	LimiteCuerpoRegistroFirmaVecPasarela = ((1<<20 + 2) / 3 * 4) + (64 << 10)
+	// de registro-vec: PDF de 2 MiB en base64 y 64 KiB para los otros campos.
+	LimiteCuerpoRegistroFirmaVecPasarela = (((2 << 20) + 2) / 3 * 4) + (64 << 10)
 	rutaRegistroFirmaVecPasarela         = "/api/vec/contratacion-temporal/firmas-documento/registro-vec"
 )
 

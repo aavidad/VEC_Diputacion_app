@@ -16,6 +16,8 @@ const RutaPreflightFirmaR5 = "/api/vec/contratacion-temporal/firma/preflight"
 
 const EsquemaPreflightFirmaR5V2 = "vec.contratacion-temporal.preflight-firma.v2"
 
+const maximoRespuestaPreflightFirmaR5V2 = ((ports.MaximoDocumentoFirmaBytes+2)/3)*4 + (16 << 10)
+
 type ConsultorPreflightFirmaR5 interface {
 	Consultar(context.Context, ports.SolicitudPreflightFirmaR5) (ports.ResultadoPreflightFirmaR5, error)
 }
@@ -163,7 +165,7 @@ func (h *manejadorPreflightFirmaR5) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 	limite := MaximoRespuestaConsultaRRHHBytes
 	if resultadoV2 != nil {
-		limite = 2 << 20
+		limite = maximoRespuestaPreflightFirmaR5V2
 	}
 	responderJSONFirmaNominal(w, r, http.StatusOK, map[string]any{"data": data}, limite)
 }

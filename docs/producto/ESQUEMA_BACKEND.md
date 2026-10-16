@@ -279,6 +279,14 @@ Los perfiles, roles y concesiones se publican por migración o desde
 administración con su propio gobierno (dos aprobaciones, CAS, recibo,
 auditoría). Una concesión nunca se crea por una petición de negocio.
 
+AD282 permite configurar la vigencia de claves y confianza nuevas del
+gobierno ADMIN en desarrollo, con un máximo de 90 días y sin superar la
+raíz. Conserva el operador nominal, la aprobación fijada por huellas, el
+consumo, la auditoría y los recibos existentes. La herramienta rechaza en
+producción plazos superiores a 24 horas, también al aplicar material
+preparado antes en desarrollo. El plan de aplicación mantiene su caducidad
+breve.
+
 ### 7.2 Auditoría encadenada y sellada
 
 - **Cadena común** en `vec_autorizacion_atestada_v3` (AD207, sellado diferido):
@@ -712,6 +720,15 @@ CT224 admite el tercer paso en la consulta del acto nominal solo con unidad
 concreta y paso publicado en el plan vigente. Conserva los pasos 1 y 2 sin
 unidad; la recuperación histórica mantiene su contrato anterior. AD280 quedó
 reservada sin uso y no forma parte de esta entrega.
+
+CT226 añade la sonda `comprobar_catalogo_plantillas_base_v2` con organización
+explícita. Coteja la última publicación de esa organización o la provisión
+inicial común; una publicación ajena no desplaza la propia. Conserva los
+cotejos de huella, fuente, auditoría y evento de CT218. La firma V1 se mantiene
+como entrada de compatibilidad para la organización única de CT135. El portal
+pasa la misma organización que utiliza el repositorio de plantillas. No cambia
+historia ni recibos; su lista de activación es
+`deploy/principal/lista_sql_codexh_firma_ajustes_f1_37_20261015.txt`.
 
 La auditoría histórica admite la política de certificado personal de
 desarrollo acreditada en la fecha original para una cuenta interna

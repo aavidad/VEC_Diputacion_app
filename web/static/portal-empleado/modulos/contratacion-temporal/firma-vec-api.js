@@ -1,7 +1,7 @@
 /** Registro V2: el original se selecciona por su vínculo custodiado, sin enviar sus bytes. */
 export const RUTA_REGISTRO_FIRMA_VEC = "/api/vec/contratacion-temporal/firmas-documento/registro-vec";
 const ESQUEMA = "vec.contratacion-temporal.registro-firma-vec.v2";
-const MAXIMO_PDF = 1 << 20;
+const MAXIMO_PDF = 2 << 20;
 const MAXIMO_RESPUESTA = 64 * 1024;
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const DOCUMENTO = /^[a-z][a-z0-9_]{1,63}$/u;

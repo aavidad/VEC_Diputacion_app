@@ -504,7 +504,7 @@ func nuevasRutasPlantillasCTDesarrollo(ctx context.Context, cfg config.Config,
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible
 	}
-	if err := comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, catalogo); err != nil {
+	if err := comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, organizacionAltaContratacionTemporalDesarrollo, catalogo); err != nil {
 		return nil, err
 	}
 	if soporte.contexto.Resultado.Contexto.PerfilActivoRef == alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef ||
@@ -621,7 +621,7 @@ func nuevasRutasPlantillasDocumentalCTDesarrollo(
 		return nil, plantillasapp.ErrNoDisponible
 	}
 	catalogo, err := CargarCatalogoPlantillasCT(cfg.Normalize().ReglasEjemplo.CTPlantillasSourcePath)
-	if err != nil || comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, catalogo) != nil {
+	if err != nil || comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, organizacionAltaContratacionTemporalDesarrollo, catalogo) != nil {
 		return nil, plantillasapp.ErrNoDisponible
 	}
 	fuente, err := postgresvec.NuevoAlmacenAutorizacion(fuentePool)
