@@ -8,7 +8,8 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Actualizado el 15 de octubre de 2026 sobre `origin/main@896d3b4a2`.
+Revisado el 16 de octubre de 2026 para F1-36B desde
+`origin/main@dcc28e89d`; el corte B está en rama, sin integrar.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
 cómo se sabe que cada fase está terminada y cómo se trabaja. Es lectura
@@ -174,6 +175,15 @@ Son dos expedientes distintos: P conserva la comprobación del caso único de
 `FLUJO_APP.md` 4.0. La fase 1 y la instalación en cidonia siguen pendientes.
 El guion de activación, la lista SQL y los límites están en
 `deploy/principal/candidata_hz39/firma/LEEME.md`.
+
+**F1-36B, H: fuente de ficha y justificante.** En rama: AUT102, CT229 y el
+lector interno que forma los selectores de las firmas originales y su anexo
+sellado. Depende de AD286, CT228 y AUT103 del corte A; ninguna asignación
+auxiliar se activa aquí. Faltan el ensayo SQL, la prueba de una decisión V3
+que caduque antes de confirmar, las revisiones independientes, el arranque
+con y sin el complemento y la CI. C añadirá la respuesta HTTP, el panel y
+la activación gobernada. F1-36 sigue abierto. Guion:
+`deploy/principal/firma_historica_fuente_f1_36b_20261016.md`.
 
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna
