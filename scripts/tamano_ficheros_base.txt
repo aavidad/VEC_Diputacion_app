@@ -188,6 +188,7 @@
 598 web/static/portal-empleado/peticiones-centro/peticiones-centro.test.mjs
 334 web/static/textos/en/peticiones-centro.json
 334 web/static/textos/es/peticiones-centro.json
+961 deploy/principal/ensayo_candidata/recorrer.py
 806 scripts/operacion/preparar_expediente_alta_b2/preparar.py
 4027 deploy/postgresql/autorizacion_atestada_v3/migraciones/000277_justificante_bolsa_documental.up.sql
 887 deploy/postgresql/documentos/migraciones/000022_justificante_renuncia_bolsa.up.sql
