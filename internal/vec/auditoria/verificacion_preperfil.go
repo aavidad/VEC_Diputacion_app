@@ -62,7 +62,7 @@ func VerificarCadenaMixtaV3(d DocumentoVerificacionMixta, checkpoint CoberturaCa
 	r := InformeVerificacionV3{InformeVerificacion: verificarCadenaMixta(d, checkpoint, maxRegistros, EsquemaVerificacionPreperfil)}
 	if r.Estado == "verificada" {
 		for _, registro := range d.Registros {
-			if registro.Preperfil != nil || registro.Bootstrap != nil {
+			if registro.Preperfil != nil || registro.PreperfilBolsaRRHH != nil || registro.Bootstrap != nil {
 				r.MaterialEventoRecalculado = true
 				break
 			}
