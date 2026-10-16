@@ -8,7 +8,7 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Revisado el 16 de octubre de 2026 para la candidata A+B+C sobre `main@6d73039ff`;
+Revisado el 16 de octubre de 2026 para la candidata A+B+C sobre `origin/main@3216104e4`;
 los cortes siguen pendientes de integración y ensayo conjunto.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
@@ -186,8 +186,10 @@ El guion de activación, la lista SQL y los límites están en
 
 **F1-36A, H: base de recuperación histórica.** En rama: AD286, CT228,
 AUT103, montaje nominal del consumidor existente de recuperación V2 y
-publicador de cargos con su permiso positivo de recuperación. Falta ensayo SQL en copia de la principal, revisiones independientes,
-arranque con y sin los nuevos roles, reinicio y CI antes de integrar. Este
+publicador de cargos con su permiso positivo de recuperación. Las fuentes SQL
+se ensayaron en copia propia con dos revisiones; arranque con configuración
+anterior y nueva, reinicio y recuperación de originales comprobados. Falta CI
+antes de integrar. Este
 corte conserva las asignaciones de consulta vigentes y no ofrece un panel nuevo;
 la recuperación exige renovar por Administración el cargo de firma. B conectará
 la fuente autorizada y el anexo de la ficha; C montará la pantalla y gobernará
