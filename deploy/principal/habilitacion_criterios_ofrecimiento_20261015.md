@@ -240,3 +240,37 @@ esa comprobación y volvió a arrancar después de detener R59. La resolución d
 conflictos web tiene revisión independiente favorable y pruebas focales; este
 contraste no amplía el alcance al recorrido completo ni a las dependencias
 pendientes del núcleo de autorización.
+
+## Corrección tras la revisión SQL independiente (16/10)
+
+La revisión SQL de #1144 dio NO-GO. Cambios en CT221 y B118; AD276 no cambia
+y la huella del consumidor central sigue en `cfcacf14…5960`:
+
+- La consulta de motivos exige que la unidad de la orden sea la unidad gestora
+  del llamamiento, leída con bloqueo compartido, y que el ámbito sea el del
+  conjunto de gestión de RRHH, igual que B124. Si no coinciden, deniega con el
+  mismo código 42501 y sin datos.
+- La reserva solo coteja los eventos de cada posición cuando la lectura los
+  trae. Si la lectura no los trae, la reserva exige que la política no tenga
+  criterios.
+- Un contrato que no coincide con su origen ya no lanza un error que atasca el
+  relevo de CT. Queda en el histórico sin participación ni bolsa y entra en la
+  cuarentena existente. Si llega repetido, sigue en cuarentena, y la persona
+  de ese llamamiento queda pendiente de comprobación.
+- Se quitan las comprobaciones de `current_user` que no podían fallar y la
+  lectura del orden contextual fija `row_security` y `statement_timeout`.
+
+Las huellas SHA256 nuevas son estas: CT221
+`3b26d68056f1b2a2bfd0bf2689598441934c8bf3d2962592d850a0549adf0db9` y B118
+`f36c7a84ee88b55b6aa0a262833a36c7a75294cd62f694a748fefea08d9a6710`. AD276
+conserva `26391d46…41c7`. Las de los ensayos R57 a R59 corresponden a las
+fuentes anteriores.
+
+Se ensayó en una copia propia de HZ37 con lo que faltaba de main (incluida la
+lista de #1147) y después CT221, B118 y AD276, una sola vez. Las cinco pruebas
+SQL de la PR pasan. La del fixture añade tres comprobaciones: otra unidad, otro
+ámbito o una orden sin unidad se deniegan, y la unidad propia llega hasta el
+acuse nominal. También comprueba que el contrato divergente queda en
+cuarentena. Al reaplicar, CT221, B118 y AD276 se rechazan por preimagen.
+La prueba usa `vec_bolsa_llamamientos_desarrollo`, miembro de
+`vec_bolsa_llamamientos_ejecutor`, como dato de la copia.

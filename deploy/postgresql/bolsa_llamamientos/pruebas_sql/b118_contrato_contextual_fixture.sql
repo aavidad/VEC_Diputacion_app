@@ -307,7 +307,7 @@ BEGIN
  EXCEPTION WHEN OTHERS THEN
   GET STACKED DIAGNOSTICS v_fallo=MESSAGE_TEXT,v_estado=RETURNED_SQLSTATE;
  END;
- IF v_fallo LIKE 'B118:%' OR v_fallo='sin_error' THEN
+ IF v_fallo NOT LIKE 'AD%' OR v_estado IS DISTINCT FROM '42501' THEN
   RAISE EXCEPTION 'B118 prueba: la unidad propia no llegó al acuse nominal (%)',v_fallo; END IF;
  RAISE NOTICE 'B118 prueba: unidad propia llega al acuse nominal; rechazo del acuse sintético: % (%)',v_fallo,v_estado;
 END $exclusiones_unidad$;
