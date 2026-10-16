@@ -33,12 +33,16 @@ BEGIN
  IF v_bolsa IS NULL THEN RAISE EXCEPTION 'sin bolsa constituida con disponibles'; END IF;
  SELECT count(*) INTO v_total FROM vec_bolsa_llamamientos.situaciones_en_v1(v_publicada) s
  WHERE s.bolsa_ref=v_bolsa AND s.situacion='disponible';
- INSERT INTO vec_bolsa_llamamientos.oferta_publicada
-   (oferta_ref,recibo_ref,bolsa_ref,actor_ref,clave_idempotencia,datos,plazo,
-    publicada_en,vence_antes_de,huella_comando_sha256,decision_ref)
- VALUES(p_oferta,'recibo:'||p_oferta,v_bolsa,'per_actoractoractoractoractor',p_clave,
-   '{}'::jsonb,'{}'::jsonb,v_publicada,v_publicada+interval '1 day',repeat('a',64),
-   'decision:prueba-aviso:'||encode(sha256(convert_to(p_clave,'UTF8')),'hex'));
+ -- El bloque EXCEPTION crea la subtransacción de la publicación real B117.
+ BEGIN
+  INSERT INTO vec_bolsa_llamamientos.oferta_publicada
+    (oferta_ref,recibo_ref,bolsa_ref,actor_ref,clave_idempotencia,datos,plazo,
+     publicada_en,vence_antes_de,huella_comando_sha256,decision_ref)
+  VALUES(p_oferta,'recibo:'||p_oferta,v_bolsa,'per_actoractoractoractoractor',p_clave,
+    '{}'::jsonb,'{}'::jsonb,v_publicada,v_publicada+interval '1 day',repeat('a',64),
+    'decision:prueba-aviso:'||encode(sha256(convert_to(p_clave,'UTF8')),'hex'));
+ EXCEPTION WHEN OTHERS THEN RAISE;
+ END;
  RETURN v_total;
 END $f$;
 ALTER FUNCTION prueba_aviso_b129.crear(text,text) OWNER TO vec_bolsa_llamamientos_propietario;

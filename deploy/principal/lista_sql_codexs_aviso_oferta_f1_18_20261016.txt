@@ -1,1 +1,2 @@
 deploy/postgresql/bolsa_llamamientos/migraciones/000129_aviso_oferta_durable.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000131_vinculo_aviso_subtransaccion.up.sql
