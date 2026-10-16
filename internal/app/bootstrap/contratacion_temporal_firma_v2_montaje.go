@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -58,6 +59,15 @@ type montajeFirmaVecR5CT struct {
 	emisorDetalle      *emisorMaterialRenovableCTDesarrollo
 	reloj              relojContratacionTemporalDesarrollo
 	cerrarAuditoria    func()
+	cierreAuditoria    sync.Once
+}
+
+// Un error al montar rutas y el cierre del proceso pueden alcanzar la misma
+// limpieza. El cierre ausente no tapa el error original ni provoca un pánico.
+func (m *montajeFirmaVecR5CT) cerrarAuditoriaSiExiste() {
+	if m != nil && m.cerrarAuditoria != nil {
+		m.cierreAuditoria.Do(m.cerrarAuditoria)
+	}
 }
 
 // Sólo consume cuentas, perfiles y plan ya publicados. Los pools, el PDP y
@@ -412,7 +422,7 @@ func (m *montajeFirmaVecR5CT) rutas(f *firmaDocumentoCTDesarrollo, original *mon
 	montado := false
 	defer func() {
 		if !montado {
-			m.cerrarAuditoria()
+			m.cerrarAuditoriaSiExiste()
 		}
 	}()
 	durable, err := pgct.NuevoRegistroFirmasVerificadasPostgreSQL(m.alta.postgresql.ejecucion)

@@ -105,7 +105,7 @@ func proyectarRecuperacion(m ports.MaterialConsultaFirmasR5V2, l ports.LecturaRe
 		if exacta != nil || f.Documento != m.Documento || f.PasoOrden != m.PasoOrden ||
 			f.ExpedienteVersion != m.VersionExpediente || f.CatalogoHuella != m.CatalogoHuella ||
 			f.Via != m.Via || (m.Via == ports.ViaFirmaCertificadoVEC &&
-				(f.Resultado != domain.ResultadoFirmaFirmado || f.DocumentoCustodiaRef == "")) {
+			(f.Resultado != domain.ResultadoFirmaFirmado || f.DocumentoCustodiaRef == "")) {
 			return cero, ports.ErrResultadoFirmaDocumentoInvalido
 		}
 		exacta = f

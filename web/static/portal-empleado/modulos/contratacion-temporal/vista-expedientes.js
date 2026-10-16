@@ -21,7 +21,7 @@ import {
 } from "./vista-expedientes-render.js?v=20261016-firma-historica-v2";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261016-firma-historica-v2";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261016-firma-historica-v2";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261016-firma-historica-v2";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261016-firma-historica-v3";
 import { crearGestorRecuperacionFirmasHistoricas } from "./gestor-recuperacion-firmas-historicas.js?v=20261016-firma-historica-v2";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261016-firma-historica-v2";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261016-firma-historica-v2";

@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
+	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -64,7 +65,7 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
 	}
 	funciones := []string{
 		"vec_contratacion_temporal.operar_catalogo_plantillas_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
-		"vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text)",
+		"vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2(text,text,bigint,text)",
 	}
 	if len(documental) == 0 || documental[0] {
 		funciones = append(funciones,
@@ -258,12 +259,12 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
 }
 
 // La presencia de la función no demuestra que la preimagen gobernada esté
-// provisionada. Se coteja su primera publicación y auditoría con el LOGIN CT
+// provisionada. Se coteja la publicación de su organización y la auditoría con el LOGIN CT
 // antes de exponer la ruta; no se instala ni corrige desde el servidor.
 func comprobarPreimagenCatalogoPlantillasCT(ctx context.Context, consulta interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
-}, catalogo vecdomain.CatalogoConfigurable) error {
-	if ctx == nil || ctx.Err() != nil || consulta == nil || catalogo.Validar() != nil ||
+}, organizacionRef string, catalogo vecdomain.CatalogoConfigurable) error {
+	if ctx == nil || ctx.Err() != nil || consulta == nil || !ctdomain.ReferenciaOpacaValida(organizacionRef) || catalogo.Validar() != nil ||
 		catalogo.ID != plantillasapp.CatalogoID || catalogo.ModuloID != plantillasapp.ModuloID ||
 		catalogo.Estado != vecdomain.EstadoCatalogoPublicado || catalogo.Version < 1 || catalogo.FuenteRef == "" {
 		return plantillasapp.ErrNoDisponible
@@ -274,8 +275,8 @@ func comprobarPreimagenCatalogoPlantillasCT(ctx context.Context, consulta interf
 	}
 	var valida bool
 	if err := consulta.QueryRow(ctx,
-		`SELECT vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1($1,$2,$3)`,
-		huella, int64(catalogo.Version), catalogo.FuenteRef).Scan(&valida); err != nil || !valida {
+		`SELECT vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v2($1,$2,$3,$4)`,
+		organizacionRef, huella, int64(catalogo.Version), catalogo.FuenteRef).Scan(&valida); err != nil || !valida {
 		return plantillasapp.ErrNoDisponible
 	}
 	return nil

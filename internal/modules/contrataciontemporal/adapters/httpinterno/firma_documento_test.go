@@ -1,7 +1,9 @@
 package httpinterno
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -75,6 +77,27 @@ func TestManejadorFirmaDocumentoRegistraSinEficacia(t *testing.T) {
 		salida.Data["firma_verificada"] != true || s.recibida.OrganizacionRef != "organizacion:desarrollo:dipgra" ||
 		string(s.recibida.Original) != "%PDF-1" || string(s.recibida.Firmado) != "%PDF-1 firma" {
 		t.Fatalf("registro: %d %s %+v", w.Code, w.Body, s.recibida)
+	}
+}
+
+func TestManejadorFirmaDocumentoAcotaDosPDFBase64DeDosMiB(t *testing.T) {
+	original := append([]byte("%PDF-"), bytes.Repeat([]byte("x"), ports.MaximoDocumentoFirmaBytes-5)...)
+	firmado := bytes.Clone(original)
+	firmado[len(firmado)-1] = 'y'
+	cuerpo := strings.Replace(cuerpoFirmaPrueba, "JVBERi0xIGZpcm1h", base64.StdEncoding.EncodeToString(firmado), 1)
+	cuerpo = strings.Replace(cuerpo, "JVBERi0x", base64.StdEncoding.EncodeToString(original), 1)
+	s := &servicioFirmaPrueba{err: errors.New("verificación simulada no disponible")}
+	h, _ := NuevoManejadorFirmaDocumento(autoridadFirmaPrueba{}, s)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionFirma(RutaFirmaDocumento, cuerpo))
+	if w.Code != http.StatusServiceUnavailable || !bytes.Equal(s.recibida.Original, original) || !bytes.Equal(s.recibida.Firmado, firmado) {
+		t.Fatalf("el transporte truncó uno de los PDF de 2 MiB: estado=%d", w.Code)
+	}
+	s.recibida = application.SolicitudFirmaDocumento{}
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, peticionFirma(RutaFirmaDocumento, strings.Repeat("x", maximoCuerpoFirmaDocumento+1)))
+	if w.Code != http.StatusUnprocessableEntity || len(s.recibida.Original) != 0 {
+		t.Fatalf("el exceso de cuerpo llegó al servicio: estado=%d", w.Code)
 	}
 }
 

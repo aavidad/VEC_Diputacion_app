@@ -217,7 +217,7 @@ func nuevoEscenarioCustodiaEn(t *testing.T, ahora time.Time, sufijo string) esce
 	if err := os.Mkdir(directorio, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	almacen, err := ficheros.Nuevo(ficheros.Configuracion{ConectorID: "ficheros_ensayo", Directorio: directorio, TamanoMaximo: 1 << 20}, reloj)
+	almacen, err := ficheros.Nuevo(ficheros.Configuracion{ConectorID: "ficheros_ensayo", Directorio: directorio, TamanoMaximo: 2 << 20}, reloj)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,6 +301,26 @@ func TestCustodiaFirmadoEscribeYConfirmaConConcesionRegistrada(t *testing.T) {
 	// El objeto escrito es el PDF exacto.
 	if e.repo.persistente.Objeto.Objeto.HuellaSHA256 != documento.HuellaSHA256 || e.repo.persistente.Objeto.Objeto.Tamano != int64(len(e.orden.Contenido)) {
 		t.Fatal("el objeto escrito no es el PDF firmado")
+	}
+}
+
+func TestCustodiaFirmadoDosMiBConservaObjetoYExcesoNoEscribe(t *testing.T) {
+	e := nuevoEscenarioCustodia(t)
+	e.orden.Contenido = append([]byte("%PDF-"), bytes.Repeat([]byte("x"), (2<<20)-5)...)
+	d, err := e.custodiar()
+	suma := sha256.Sum256(e.orden.Contenido)
+	huella := hex.EncodeToString(suma[:])
+	if err != nil || d.Tamano != 2<<20 || d.HuellaSHA256 != huella ||
+		e.repo.persistente.Objeto.Objeto.Tamano != int64(len(e.orden.Contenido)) ||
+		e.repo.persistente.Objeto.Objeto.HuellaSHA256 != huella || e.repo.llamadas != 1 || objetosEscritos(t, e) == 0 {
+		t.Fatalf("PDF firmado de 2 MiB no quedó custodiado: %v", err)
+	}
+
+	exceso := nuevoEscenarioCustodia(t)
+	exceso.orden.Contenido = append(e.orden.Contenido, 'x')
+	if _, err := exceso.custodiar(); !errors.Is(err, docports.ErrSolicitudInvalida) ||
+		exceso.repo.llamadas != 0 || exceso.emisor.llamadas != 0 || exceso.autorizador.llamadas != 0 || objetosEscritos(t, exceso) != 0 {
+		t.Fatalf("PDF excesivo llegó a autorización, almacén o SQL: %v", err)
 	}
 }
 
