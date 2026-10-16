@@ -2,6 +2,7 @@ import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=202
 import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261013-bolsa-ranking-n4";
 import { instanteDesdeHoraMadrid } from "./hora-madrid.js";
 import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
+import { renderizarJustificante } from "./portal-justificante.js";
 // Ofertas publicadas de una bolsa (Petición RRHH 3.06 y 3.07; Reglamento de
 // bolsas, art. 8.1): RRHH publica la oferta con su número de plazas; al vencer
 // el plazo para ofrecerse, VEC propone plaza a plaza a la siguiente persona
@@ -82,7 +83,13 @@ function avisoValido(aviso) {
   if (!aviso || typeof aviso !== "object" || Array.isArray(aviso)) return false;
   const campos = ["total", "pendientes", "enviados", "sin_confirmacion", "fallidos"];
   return campos.every((campo) => Number.isSafeInteger(aviso[campo]) && aviso[campo] >= 0) &&
+    (!Object.hasOwn(aviso, "revision") || Number.isSafeInteger(aviso.revision) && aviso.revision >= 0) &&
     aviso.pendientes + aviso.enviados + aviso.sin_confirmacion + aviso.fallidos === aviso.total;
+}
+
+function reciboReintentoValido(recibo) {
+  return recibo && typeof recibo === "object" && !Array.isArray(recibo) && REFERENCIA.test(recibo.recibo_ref ?? "") &&
+    instante(recibo.registrado_en) && Number.isSafeInteger(recibo.rearmados) && recibo.rearmados >= 0;
 }
 
 export function validarOferta(oferta) {
@@ -95,6 +102,7 @@ export function validarOferta(oferta) {
       (oferta.confirmacion_adjudicacion !== undefined && oferta.confirmacion_adjudicacion !== null && oferta.confirmacion_adjudicacion !== "aceptacion_previa") ||
       (oferta.plazo.notificacion != null && !notificacionValida(oferta.plazo.notificacion)) ||
       (Object.hasOwn(oferta, "aviso") && !avisoValido(oferta.aviso)) ||
+      (Object.hasOwn(oferta, "reintento_aviso") && !reciboReintentoValido(oferta.reintento_aviso)) ||
       (Object.hasOwn(oferta, "aviso_configuracion_pendiente") && typeof oferta.aviso_configuracion_pendiente !== "boolean") ||
       !Number.isSafeInteger(oferta.numero_plazas) || oferta.numero_plazas < 1 || oferta.numero_plazas > MAXIMO_PLAZAS_OFERTA ||
       !Array.isArray(oferta.plazas) || oferta.plazas.length !== oferta.numero_plazas || !oferta.plazas.every(plazaValida) ||
@@ -136,6 +144,12 @@ export function crearClienteOfertas({ fetchImpl = fetch } = {}) {
         ? Promise.resolve({ ok: false, status: 400, codigo: "solicitud_invalida" })
         : escribir(RUTA_OFERTAS_BOLSA, { bolsa_ref: bolsaRef, datos, numero_plazas: numeroPlazas,
           ...(notificacion == null ? {} : { notificacion }) }, clave, signal),
+    reintentarAvisosSinConfirmacion: (cuerpo, clave, { signal } = {}) =>
+      cuerpo?.tipo !== "reintentar_avisos_sin_confirmacion" || !REFERENCIA.test(cuerpo.bolsa_ref ?? "") ||
+      !REFERENCIA.test(cuerpo.oferta_ref ?? "") || !Number.isSafeInteger(cuerpo.revision_avisos) || cuerpo.revision_avisos < 0 ||
+      cuerpo.confirmar_posible_duplicado !== true || Object.keys(cuerpo).length !== 5 || !REFERENCIA.test(clave ?? "")
+        ? Promise.resolve({ ok: false, status: 400, codigo: "solicitud_invalida" })
+        : escribir(RUTA_OFERTAS_BOLSA, cuerpo, clave, signal),
     /** Acto sobre una plaza: tipo, persona (null en llamamiento directo) y la secuencia que vio RRHH. */
     registrarActo: (bolsaRef, acto, clave, { signal } = {}) =>
       escribir(RUTA_RESOLUCIONES_OFERTA, { bolsa_ref: bolsaRef, oferta_ref: acto.oferta_ref, numero_de_plaza: acto.numero_de_plaza,
@@ -181,7 +195,8 @@ const listaFormato = new Intl.ListFormat(LOCALIZACION_PORTAL, { type: "conjuncti
 
 export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), clienteHistorial, alCambiar = () => {}, anunciar = () => {}, traducir = crearTraductorOfertas(), generarClave = generarClavePorDefecto } = {}) {
   const estado = { bolsa: "", carga: "inactiva", ofertas: [], error: "", enviando: false, claveEnCurso: null, borrador: null, mensaje: "", errorOperacion: "",
-    reciboPublicacion: null, incierta: false, reintentoAvisos: null, registrando: false, confirmacion: null, clavesActo: new Map(), historialOferta: "", inicioPlazo: "notificacion", revisionPublicacion: null };
+    reciboPublicacion: null, incierta: false, reintentoAvisos: null, revisionAvisoIncierto: null, intencionAvisoIncierto: null, reciboAvisoIncierto: null,
+    registrando: false, confirmacion: null, clavesActo: new Map(), historialOferta: "", inicioPlazo: "notificacion", revisionPublicacion: null };
   let controlador = null;
   let controladorPublicacion = null;
   let documentoInstalado = null;
@@ -211,6 +226,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
   function retirarDatosSinPermiso(status) {
     controlador?.abort(); controladorPublicacion?.abort(); historial.desmontar();
     estado.ofertas = []; estado.reciboPublicacion = null; estado.reintentoAvisos = null;
+    estado.revisionAvisoIncierto = null; estado.intencionAvisoIncierto = null; estado.reciboAvisoIncierto = null;
     estado.claveEnCurso = null; estado.borrador = null; estado.revisionPublicacion = null;
     estado.mensaje = ""; estado.errorOperacion = ""; estado.incierta = false;
     estado.confirmacion = null; estado.historialOferta = ""; estado.clavesActo.clear();
@@ -242,14 +258,14 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
   }
 
   async function publicar() {
-    if (estado.enviando || estado.reintentoAvisos?.incierta || !estado.bolsa || !estado.revisionPublicacion) return;
+    if (estado.enviando || estado.reintentoAvisos?.incierta || estado.intencionAvisoIncierto?.incierta || !estado.bolsa || !estado.revisionPublicacion) return;
     // Tras un resultado incierto, el cuerpo y la clave quedan unidos hasta recibir el recibo.
     if (!estado.claveEnCurso) estado.borrador = estado.revisionPublicacion;
     if (!estado.claveEnCurso) estado.claveEnCurso = generarClave();
     const intencion = estado.borrador;
     const clave = estado.claveEnCurso;
     const { datos, numeroPlazas, notificacion } = intencion;
-    estado.enviando = true; estado.mensaje = ""; estado.reciboPublicacion = null; estado.errorOperacion = ""; cambiar();
+    estado.enviando = true; estado.mensaje = ""; estado.reciboPublicacion = null; estado.reciboAvisoIncierto = null; estado.errorOperacion = ""; cambiar();
     controladorPublicacion = new AbortController();
     const { signal } = controladorPublicacion;
     try {
@@ -288,7 +304,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
   async function recuperarAvisosPendientes() {
     const intento = estado.reintentoAvisos;
     if (!intento || intento.incierta || estado.enviando || estado.bolsa !== intento.bolsa || !estado.reciboPublicacion || estado.reciboPublicacion.configuracionPendiente) return;
-    estado.enviando = true; estado.errorOperacion = ""; cambiar();
+    estado.enviando = true; estado.reciboAvisoIncierto = null; estado.errorOperacion = ""; cambiar();
     controladorPublicacion = new AbortController();
     const { signal } = controladorPublicacion;
     try {
@@ -318,9 +334,78 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     }
   }
 
+  function prepararReintentoIncierto(ofertaRef) {
+    const oferta = estado.ofertas.find((o) => o.oferta_ref === ofertaRef);
+    if (!oferta || estado.carga !== "lista" || estado.enviando || estado.intencionAvisoIncierto || estado.claveEnCurso ||
+        estado.revisionPublicacion || estado.reintentoAvisos?.incierta || oferta.aviso_configuracion_pendiente ||
+        !Number.isSafeInteger(oferta.aviso?.revision) || oferta.aviso.revision < 0 || oferta.aviso.sin_confirmacion < 1) return;
+    estado.revisionAvisoIncierto = { ofertaRef, revision: oferta.aviso.revision, cuenta: oferta.aviso.sin_confirmacion, categoria: oferta.datos.categoria };
+    estado.mensaje = ""; estado.errorOperacion = ""; cambiar(); enfocar('[data-ofertas-accion="confirmar-reintento-incierto"]');
+  }
+
+  function cancelarReintentoIncierto() {
+    const ofertaRef = estado.revisionAvisoIncierto?.ofertaRef;
+    estado.revisionAvisoIncierto = null; cambiar();
+    if (ofertaRef) enfocar(`[data-ofertas-accion="preparar-reintento-incierto"][data-oferta-ref="${ofertaRef}"]`);
+  }
+
+  async function enviarReintentoIncierto() {
+    if (estado.enviando || !estado.bolsa || estado.carga !== "lista") return;
+    let intento = estado.intencionAvisoIncierto;
+    if (!intento) {
+      const revision = estado.revisionAvisoIncierto;
+      const oferta = estado.ofertas.find((o) => o.oferta_ref === revision?.ofertaRef);
+      if (!oferta || !revision || oferta.aviso_configuracion_pendiente) return;
+      if (oferta.aviso?.revision !== revision.revision || oferta.aviso.sin_confirmacion < 1) {
+        estado.revisionAvisoIncierto = null; estado.errorOperacion = traducir("error_409_aviso_revision_obsoleta"); cambiar();
+        enfocar('[data-ofertas-error="operacion"]'); return;
+      }
+      intento = { clave: generarClave(), cuerpo: { tipo: "reintentar_avisos_sin_confirmacion", bolsa_ref: estado.bolsa,
+        oferta_ref: revision.ofertaRef, revision_avisos: revision.revision, confirmar_posible_duplicado: true }, incierta: false };
+      estado.intencionAvisoIncierto = intento; estado.revisionAvisoIncierto = null;
+    }
+    const oferta = estado.ofertas.find((o) => o.oferta_ref === intento.cuerpo.oferta_ref);
+    if (!oferta || oferta.aviso_configuracion_pendiente || intento.cuerpo.bolsa_ref !== estado.bolsa) return;
+    estado.enviando = true; estado.mensaje = ""; estado.reciboAvisoIncierto = null; estado.errorOperacion = ""; cambiar();
+    controladorPublicacion = new AbortController();
+    const { signal } = controladorPublicacion;
+    try {
+      const resultado = await cliente.reintentarAvisosSinConfirmacion(intento.cuerpo, intento.clave, { signal });
+      if (signal.aborted) return;
+      if (resultado.ok && resultado.oferta.oferta_ref === intento.cuerpo.oferta_ref && resultado.oferta.bolsa_ref === intento.cuerpo.bolsa_ref &&
+          resultado.oferta.recibo_ref === oferta.recibo_ref && resultado.oferta.publicada_en === oferta.publicada_en &&
+          resultado.oferta.vence_antes_de === oferta.vence_antes_de && resultado.oferta.reintento_aviso &&
+          resultado.oferta.reintento_aviso.recibo_ref !== oferta.recibo_ref) {
+        estado.reciboAvisoIncierto = resultado.oferta.reintento_aviso;
+        estado.mensaje = traducir("reintento_incierto_registrado", { cuenta: estado.reciboAvisoIncierto.rearmados });
+        anunciar(estado.mensaje);
+        const indice = estado.ofertas.findIndex((o) => o.oferta_ref === resultado.oferta.oferta_ref);
+        if (indice < 0) estado.ofertas.unshift(resultado.oferta);
+        else estado.ofertas[indice] = resultado.oferta;
+        estado.intencionAvisoIncierto = resultado.oferta.aviso?.pendientes > 0 ? { ...intento, incierta: false } : null;
+        await cargar();
+      } else if (resultado.status === 401 || resultado.status === 403) {
+        retirarDatosSinPermiso(resultado.status);
+      } else if (resultado.status === 409) {
+        estado.intencionAvisoIncierto = null; estado.revisionAvisoIncierto = null;
+        estado.errorOperacion = ["aviso_revision_obsoleta", "aviso_envio_en_curso", "clave_divergente"].includes(resultado.codigo)
+          ? mensajeError(traducir, resultado) : traducir("reintento_incierto_conflicto");
+        await cargar();
+      } else {
+        intento.incierta = true; estado.errorOperacion = traducir("reintento_incierto_salida_incierta");
+      }
+    } catch {
+      if (!signal.aborted) { intento.incierta = true; estado.errorOperacion = traducir("reintento_incierto_salida_incierta"); }
+    } finally {
+      controladorPublicacion = null; estado.enviando = false; cambiar();
+      if (estado.reciboAvisoIncierto && estado.mensaje) enfocar('[data-ofertas-aviso="exito"]');
+      else if (estado.errorOperacion) enfocar('[data-ofertas-error="operacion"]');
+    }
+  }
+
   function pedirConfirmacion(acto) {
     if (estado.registrando) return;
-    estado.confirmacion = acto; estado.mensaje = ""; estado.reciboPublicacion = null; estado.errorOperacion = ""; cambiar();
+    estado.confirmacion = acto; estado.mensaje = ""; estado.reciboPublicacion = null; estado.reciboAvisoIncierto = null; estado.errorOperacion = ""; cambiar();
     enfocar('[data-ofertas-accion="confirmar"]');
   }
 
@@ -434,30 +519,42 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       `${dato("aviso_fallidos", String(o.aviso.fallidos))}</dl>` +
       `<details class="intentos-ayuda"><summary aria-label="${escapar(traducir("aviso_ayuda_titulo"))}" title="${escapar(traducir("aviso_ayuda_titulo"))}">?</summary>` +
       `<p>${escapar(traducir("aviso_ayuda"))}</p></details></section>` : "";
+    const puedeReintentarInciertos = o.aviso?.sin_confirmacion > 0 && Number.isSafeInteger(o.aviso?.revision) && o.aviso.revision >= 0 &&
+      !o.aviso_configuracion_pendiente && !estado.intencionAvisoIncierto && !estado.revisionAvisoIncierto && !estado.enviando &&
+      !estado.claveEnCurso && !estado.revisionPublicacion && !estado.reintentoAvisos?.incierta;
+    const revision = estado.revisionAvisoIncierto?.ofertaRef === o.oferta_ref ? `<section class="formulario-gobernado" data-ofertas-revision-incierta>` +
+      `<h5>${escapar(traducir("reintento_incierto_revision", { categoria: o.datos.categoria, cuenta: estado.revisionAvisoIncierto.cuenta }))}</h5>` +
+      `<p class="mensaje-error">${escapar(traducir("reintento_incierto_advertencia"))}</p><div class="acciones-fila">` +
+      `<button type="button" class="boton-primario" data-ofertas-accion="confirmar-reintento-incierto">${escapar(traducir("reintento_incierto_confirmar"))}</button>` +
+      `<button type="button" class="boton-secundario" data-ofertas-accion="cancelar-reintento-incierto">${escapar(traducir("cancelar"))}</button></div></section>` : "";
     return `<li class="oferta-ficha" data-oferta-ref="${escapar(o.oferta_ref)}" aria-labelledby="${idTitulo}">` +
       `<div class="oferta-ficha__cabecera"><div><h4 id="${idTitulo}">${escapar(d.categoria)}</h4><p class="dato-secundario">${escapar(d.centro)} · ${escapar(d.descripcion)}</p></div>` +
       `<span class="estado-chip ${ESTADOS[o.estado]}">${escapar(traducir(`estado_${o.estado}`))}</span></div>` +
       `<dl class="oferta-ficha__datos">${dato("col_fechas", fechas)}${dato("col_plazo", fechaHora(o.vence_antes_de))}` +
       `${dato("col_disposiciones", String(o.disposiciones_total), detalleOfrecidas)}${dato("col_plazas", plazas)}</dl>${aviso}` +
-      `${o.aviso_configuracion_pendiente === true && estado.reciboPublicacion?.ofertaRef !== o.oferta_ref ? `<p class="mensaje-error" role="alert">${escapar(traducir("aviso_configuracion_pendiente"))}</p>` : ""}${correo}` +
+      `${o.aviso_configuracion_pendiente === true && estado.reciboPublicacion?.ofertaRef !== o.oferta_ref ? `<p class="mensaje-error" role="alert">${escapar(traducir("aviso_configuracion_pendiente"))}` +
+        `${estado.intencionAvisoIncierto?.cuerpo.oferta_ref === o.oferta_ref ? ` <button type="button" class="boton-secundario" data-ofertas-accion="recargar">${escapar(traducir("aviso_actualizar_estado"))}</button>` : ""}</p>` : ""}${correo}` +
       reciboOferta(o.recibo_ref, o.publicada_en) +
+      (o.reintento_aviso ? reciboOferta(o.reintento_aviso.recibo_ref, o.reintento_aviso.registrado_en, false, "reintento_recibo_fecha", "reintento_recibo_titulo") : "") +
+      (puedeReintentarInciertos ? `<button type="button" class="boton-secundario" data-ofertas-accion="preparar-reintento-incierto" data-oferta-ref="${escapar(o.oferta_ref)}">${escapar(traducir("reintento_incierto_accion"))}</button>` : "") + revision +
       // Las plazas se muestran cuando ya hay algo que decidir o ver: tras el plazo.
       (o.estado === "abierta" ? "" : listaPlazas(o)) +
       `<div class="acciones-fila"><button type="button" class="boton-secundario" data-ofertas-accion="historial" data-oferta-ref="${escapar(o.oferta_ref)}" aria-expanded="${estado.historialOferta === o.oferta_ref}">${escapar(traducirHistorialOfrecimientos("titulo"))}</button></div>` +
       (estado.historialOferta === o.oferta_ref ? historial.renderizar() : "") + "</li>";
   }
 
-  function reciboOferta(referencia, publicadaEn, abierto = false) {
-    return `<details${abierto ? " open" : ""}><summary>${escapar(traducir("recibo_titulo"))}</summary><dl class="oferta-ficha__datos">` +
-      `<div><dt>${escapar(traducir("recibo_referencia"))}</dt><dd>${escapar(referencia)}</dd></div>` +
-      `<div><dt>${escapar(traducir("recibo_fecha"))}</dt><dd>${escapar(fechaHora(publicadaEn))}</dd></div></dl></details>`;
+  function reciboOferta(referencia, publicadaEn, abierto = false, fechaClave = "recibo_fecha", tituloClave = "recibo_titulo") {
+    return `<details${abierto ? " open" : ""}><summary>${escapar(traducir(tituloClave))}</summary><dl class="oferta-ficha__datos">` +
+      `<div><dt>${escapar(traducir("recibo_referencia"))}</dt><dd>${renderizarJustificante(referencia, { escapar, etiqueta: "",
+        copiar: traducir("recibo_copiar"), copiado: traducir("recibo_copiado") })}</dd></div>` +
+      `<div><dt>${escapar(traducir(fechaClave))}</dt><dd>${escapar(fechaHora(publicadaEn))}</dd></div></dl></details>`;
   }
 
   function formulario() {
     const b = estado.borrador?.datos || {};
     const n = estado.borrador?.notificacion || {};
     const plazas = estado.borrador?.numeroPlazas ?? 1;
-    const inactivo = estado.enviando || estado.reintentoAvisos?.incierta || estado.carga !== "lista" ? " disabled" : "";
+    const inactivo = estado.enviando || estado.reintentoAvisos?.incierta || estado.intencionAvisoIncierto?.incierta || estado.carga !== "lista" ? " disabled" : "";
     const campo = (id, tipo, etiqueta, valor, extra = "") => `<label class="campo${tipo === "textarea" ? " campo-ancho" : ""}" for="oferta-${id}"><span>${escapar(traducir(etiqueta))}</span>` +
       (tipo === "textarea" ? `<textarea id="oferta-${id}" name="${id}" rows="2" maxlength="2000" required${inactivo}>${escapar(valor ?? "")}</textarea>`
         : `<input id="oferta-${id}" name="${id}" type="${tipo}" value="${escapar(valor ?? "")}"${extra}${inactivo}>`) + "</label>";
@@ -496,12 +593,18 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     else if (estado.carga === "error") cuerpo = `<p class="mensaje-error" role="alert">${escapar(estado.error)} <button type="button" class="boton-secundario" data-ofertas-accion="recargar">${escapar(traducir("reintentar_carga"))}</button></p>`;
     else if (estado.ofertas.length === 0) cuerpo = `<p>${escapar(traducir("vacio"))}</p>`;
     else cuerpo = `<ul class="ofertas-lista">${estado.ofertas.map(fichaOferta).join("")}</ul>`;
+    const intencionManual = estado.intencionAvisoIncierto;
+    const ofertaManual = estado.ofertas.find((o) => o.oferta_ref === intencionManual?.cuerpo.oferta_ref);
+    const botonManual = intencionManual && ofertaManual && !ofertaManual.aviso_configuracion_pendiente && estado.carga === "lista" && !estado.enviando ?
+      `<button type="button" class="boton-secundario" data-ofertas-accion="repetir-reintento-incierto">${escapar(traducir(intencionManual.incierta ? "reintento_incierto_recuperar" : "reintento_incierto_continuar"))}</button>` : "";
     const avisos = `<div aria-live="polite">${estado.mensaje ? `<div class="mensaje-exito ofertas-bolsa__aviso" data-ofertas-aviso="exito" tabindex="-1" role="status"><p>${escapar(estado.mensaje)}</p>` +
       `${estado.reciboPublicacion ? reciboOferta(estado.reciboPublicacion.referencia, estado.reciboPublicacion.publicadaEn, true) : ""}` +
+      `${estado.reciboAvisoIncierto ? reciboOferta(estado.reciboAvisoIncierto.recibo_ref, estado.reciboAvisoIncierto.registrado_en, true, "reintento_recibo_fecha", "reintento_recibo_titulo") : ""}` +
       `${estado.reciboPublicacion?.configuracionPendiente ? `<p class="mensaje-error" role="alert">${escapar(traducir("aviso_configuracion_pendiente"))}</p>` : ""}` +
       `${estado.reciboPublicacion?.configuracionPendiente && estado.carga === "lista" ? `<button type="button" class="boton-secundario" data-ofertas-accion="recargar">${escapar(traducir("aviso_actualizar_estado"))}</button>` : ""}` +
-      `${estado.reciboPublicacion && estado.reintentoAvisos && !estado.reintentoAvisos.incierta && !estado.reciboPublicacion.configuracionPendiente ? `<button type="button" class="boton-secundario" data-ofertas-accion="recuperar-avisos"${estado.enviando ? " disabled" : ""}>${escapar(traducir(estado.enviando ? "aviso_reintentando" : "aviso_reintentar_pendientes"))}</button>` : ""}</div>` : ""}</div>` +
-      `${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escapar(estado.errorOperacion)}</p>` : ""}`;
+      `${estado.reciboPublicacion && estado.reintentoAvisos && !estado.reintentoAvisos.incierta && !estado.reciboPublicacion.configuracionPendiente ? `<button type="button" class="boton-secundario" data-ofertas-accion="recuperar-avisos"${estado.enviando ? " disabled" : ""}>${escapar(traducir(estado.enviando ? "aviso_reintentando" : "aviso_reintentar_pendientes"))}</button>` : ""}` +
+      `${!intencionManual?.incierta ? botonManual : ""}</div>` : ""}</div>` +
+      `${estado.errorOperacion ? `<p class="mensaje-error" data-ofertas-error="operacion" tabindex="-1" role="alert">${escapar(estado.errorOperacion)} ${intencionManual?.incierta ? botonManual : ""}</p>` : ""}`;
     return `<section class="panel panel-separado ofertas-bolsa" aria-labelledby="titulo-ofertas-bolsa"><div class="cabecera-panel"><h3 id="titulo-ofertas-bolsa">${escapar(traducir("titulo"))}</h3>${total}</div><div class="cuerpo-panel">${avisos}${cuerpo}${estado.revisionPublicacion ? revisionPublicacion() : formulario()}</div></section>`;
   }
 
@@ -510,7 +613,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     const form = evento.target?.closest?.('[data-ofertas-form="publicar"]');
     if (!form) return false;
     evento.preventDefault();
-    if (estado.carga !== "lista" || estado.enviando || estado.reintentoAvisos?.incierta || estado.claveEnCurso) return true;
+    if (estado.carga !== "lista" || estado.enviando || estado.reintentoAvisos?.incierta || estado.intencionAvisoIncierto?.incierta || estado.claveEnCurso) return true;
     if (typeof form.reportValidity === "function" && !form.reportValidity()) return true;
     const valores = new FormData(form);
     const datos = { categoria: String(valores.get("categoria") ?? "").trim(), centro: String(valores.get("centro") ?? "").trim(),
@@ -537,10 +640,14 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     const control = evento.target?.closest?.("[data-ofertas-accion]");
     if (!control || control.disabled) return false;
     const accion = control.dataset.ofertasAccion;
-    if (estado.reintentoAvisos?.incierta && ["confirmar-publicacion", "preparar", "confirmar"].includes(accion)) return true;
+    if ((estado.reintentoAvisos?.incierta || estado.intencionAvisoIncierto?.incierta) &&
+        ["confirmar-publicacion", "preparar", "confirmar", "preparar-reintento-incierto"].includes(accion)) return true;
     if (accion === "recargar") void cargar().then(() => enfocar('[data-ofertas-accion="recuperar-avisos"], [data-ofertas-accion="recargar"], [data-ofertas-aviso="exito"]'));
     else if (accion === "confirmar-publicacion") void publicar();
     else if (accion === "recuperar-avisos") void recuperarAvisosPendientes();
+    else if (accion === "preparar-reintento-incierto") prepararReintentoIncierto(control.dataset.ofertaRef);
+    else if (accion === "cancelar-reintento-incierto") cancelarReintentoIncierto();
+    else if (accion === "confirmar-reintento-incierto" || accion === "repetir-reintento-incierto") void enviarReintentoIncierto();
     else if (accion === "corregir-publicacion" && !estado.claveEnCurso) { estado.borrador = estado.revisionPublicacion; estado.revisionPublicacion = null; cambiar(); enfocar('[name="categoria"]'); }
     else if (accion === "historial") {
       const ofertaRef = control.dataset.ofertaRef;
@@ -567,12 +674,15 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
       if (!bolsaRef || bolsaRef === estado.bolsa) return;
       controladorPublicacion?.abort(); controladorPublicacion = null;
       historial.desmontar();
-      Object.assign(estado, { bolsa: bolsaRef, carga: "inactiva", ofertas: [], mensaje: "", reciboPublicacion: null, errorOperacion: "", enviando: false, claveEnCurso: null, borrador: null, incierta: false, reintentoAvisos: null, confirmacion: null, historialOferta: "", inicioPlazo: "notificacion", revisionPublicacion: null });
+      Object.assign(estado, { bolsa: bolsaRef, carga: "inactiva", ofertas: [], mensaje: "", reciboPublicacion: null, errorOperacion: "", enviando: false, claveEnCurso: null, borrador: null, incierta: false,
+        reintentoAvisos: null, revisionAvisoIncierto: null, intencionAvisoIncierto: null, reciboAvisoIncierto: null,
+        confirmacion: null, historialOferta: "", inicioPlazo: "notificacion", revisionPublicacion: null });
       estado.clavesActo.clear();
       void cargar();
     },
     desmontar() { controlador?.abort(); controlador = null; controladorPublicacion?.abort(); controladorPublicacion = null; historial.desmontar();
-      estado.bolsa = ""; estado.carga = "inactiva"; estado.enviando = false; estado.confirmacion = null; estado.historialOferta = ""; estado.reciboPublicacion = null; estado.incierta = false; estado.reintentoAvisos = null; },
+      estado.bolsa = ""; estado.carga = "inactiva"; estado.enviando = false; estado.confirmacion = null; estado.historialOferta = ""; estado.reciboPublicacion = null;
+      estado.incierta = false; estado.reintentoAvisos = null; estado.revisionAvisoIncierto = null; estado.intencionAvisoIncierto = null; estado.reciboAvisoIncierto = null; },
     recargarPoliticaSegura() {
       if (!estado.bolsa || estado.enviando || estado.claveEnCurso || estado.revisionPublicacion) return false;
       void cargar(); return true;

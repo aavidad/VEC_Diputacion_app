@@ -177,6 +177,10 @@ func errorOferta(err error) error {
 			return dominiovec.ErrAutorizacionDenegada
 		case "VBO01":
 			return ports.ErrOfertaConflicto
+		case "VBO10":
+			return ports.ErrOfertaRevisionAvisos
+		case "VBO11":
+			return ports.ErrOfertaAvisoEnCurso
 		case "VBO02":
 			return ports.ErrOfertaYaResuelta
 		case "VBO03":
