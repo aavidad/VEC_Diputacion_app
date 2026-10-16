@@ -439,6 +439,14 @@ permiso.
 - El caso de uso revalida la autorización justo antes del efecto, también al
   repetir una operación. Una concesión histórica o una referencia opaca no dan
   acceso por sí solas.
+- F1-36A prepara la recuperación exacta de una firma original con la clave y
+  el corte del acto, y comprueba la unidad histórica frente a la asignación
+  vigente de quien consulta. La asignación solo restringe: no concede acceso
+  a la ficha, no exige ser el firmante original ni consulta el plan actual.
+  Una clave ausente no se sustituye por una búsqueda aproximada. El campo
+  `selectores_recuperacion_firmas` exige una concesión exacta; `[]` no es
+  comodín. La recuperación de Portafirmas sin unidad histórica sigue denegada.
+  La fuente autorizada de la ficha y el panel quedan para B y C.
 - Se conserva la separación de funciones: preparar, revisar, publicar, firmar y
   auditar requieren las personas y competencias de cada circuito. Una misma
   persona no cubre un doble control cambiando de perfil.

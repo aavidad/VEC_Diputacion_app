@@ -331,11 +331,16 @@ func (f *fuenteNominalSesionFirmaCT) GarantiaAutenticacionFirmaV2(ctx context.Co
 	return "sustancial", nil
 }
 
-// La consulta R5 audita incluso una denegación previa al lector durable.
+// Cada lectura R5 audita incluso una denegación previa al lector durable.
+func accionAuditoriaLecturaFirmaNominalCT(ruta, accion string) bool {
+	return ruta == httpinterno.RutaConsultaFirmasR5V2 && accion == ports.AccionConsultarFirmasR5V2 ||
+		ruta == httpinterno.RutaRecuperacionFirmasR5V2 && accion == ports.AccionRecuperarFirmasR5V2
+}
+
 func (f *fuenteNominalSesionFirmaCT) CrearOrdenIntentoFirma(ctx context.Context, intento, accion, recurso string,
 	resultado core.ResultadoIntentoAuditoria) (vp.OrdenIntentoAuditoria, error) {
 	var vacia vp.OrdenIntentoAuditoria
-	if f == nil || f.proceso == "" || accion != ports.AccionConsultarFirmasR5V2 {
+	if f == nil || f.proceso == "" || !accionAuditoriaLecturaFirmaNominalCT(rutaNominalFirmaCT(ctx), accion) {
 		return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
 	e, err := f.contexto(ctx)
