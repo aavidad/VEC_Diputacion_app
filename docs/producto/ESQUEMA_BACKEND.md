@@ -390,6 +390,25 @@ constancia de quién la hizo.
 Puertos Go: `internal/modules/bolsa/ports/` (unos 86 ficheros);
 adaptadores en `internal/modules/bolsa/adapters/postgres*`.
 
+La modalidad de inscripción vive como `modalidad_inscripcion,omitempty` dentro
+de `ContenidoPublicableConvocatoria`; queda cubierta por `huella_version_sha256`
+y por la huella del material de preparación. No hay columna de almacenamiento
+independiente. Con campo explícito usa contenido v5/estado v4; las versiones
+anteriores conservan contenido v4/estado v3 y sus bytes. Ausente significa
+separada; un valor desconocido se rechaza.
+
+En este corte la modalidad de ensayo entra por la carga de la versión
+certificada desde su fuente JSON, como dato de la copia. La elección y el
+guardado desde Preparación de bases no están activados sobre el núcleo vigente;
+su adaptación queda después de AD288. La carga no constituye un acto de
+aprobación o publicación de bases.
+
+BC12 reconstruye el comprobador usado por B96, el proyector y la lista existentes,
+desde sus definiciones instaladas. Lista y detalle incorporan la misma propiedad
+JSON. La modalidad conjunta devuelve B9608, traducido a 409 antes de insertar.
+Se conservan OID, propietario, ACL, volatilidad, paralelismo y configuración de
+cada función. SQL y activación en `deploy/principal/f1_40_modalidad_inscripcion.md`.
+
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
 
 Un **centro** presenta una **petición** que otra persona ratifica

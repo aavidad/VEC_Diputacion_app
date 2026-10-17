@@ -44,6 +44,10 @@ var rutasExternasMuestra = []string{
 	"/api/vec/bolsa/mi-bolsa/contacto",
 	"/api/vec/bolsa/mis-solicitudes/borrador",
 	"/api/vec/bolsa/area-personal",
+	"/api/vec/bolsa/inscripciones/convocatorias-abiertas",
+	"/api/vec/bolsa/inscripciones/convocatorias-abiertas/cv1_prueba",
+	"/api/vec/bolsa/inscripciones/propias",
+	"/api/vec/bolsa/inscripciones/propias/solicitud_prueba",
 	"/api/vec/usuarios/area-personal/mis-correos",
 	"/api/vec/usuarios/contacto-propio",
 	"/api/vec/personas/mi-perfil/contacto",
@@ -134,5 +138,34 @@ func TestSuperficieIntegradaAplicaElPortalDelProceso(t *testing.T) {
 	}
 	if got := codigo("", "/api/vec/bolsa/mi-bolsa"); got != http.StatusNoContent {
 		t.Fatalf("el combinado debe seguir sirviendo Mi bolsa: %d", got)
+	}
+	for _, caso := range []struct {
+		portal, metodo, ruta string
+		esperado             int
+	}{
+		{"externo", http.MethodGet, "/api/vec/bolsa/inscripciones/convocatorias-abiertas", http.StatusNoContent},
+		{"externo", http.MethodGet, "/api/vec/bolsa/inscripciones/convocatorias-abiertas/cv1_prueba", http.StatusNoContent},
+		{"externo", http.MethodGet, "/api/vec/bolsa/inscripciones/propias", http.StatusNoContent},
+		{"externo", http.MethodPost, "/api/vec/bolsa/inscripciones/propias", http.StatusNoContent},
+		{"externo", http.MethodGet, "/api/vec/bolsa/inscripciones/propias/solicitud_prueba", http.StatusNoContent},
+		{"interno", http.MethodGet, "/api/vec/bolsa/inscripciones/convocatorias-abiertas", http.StatusNotFound},
+		{"interno", http.MethodGet, "/api/vec/bolsa/inscripciones/convocatorias-abiertas/cv1_prueba", http.StatusNotFound},
+		{"interno", http.MethodGet, "/api/vec/bolsa/inscripciones/propias", http.StatusNotFound},
+		{"interno", http.MethodPost, "/api/vec/bolsa/inscripciones/propias", http.StatusNotFound},
+		{"interno", http.MethodGet, "/api/vec/bolsa/inscripciones/propias/solicitud_prueba", http.StatusNotFound},
+		{"externo", http.MethodGet, "/api/vec/bolsa/rrhh/inscripciones", http.StatusNotFound},
+		{"externo", http.MethodGet, "/api/vec/bolsa/rrhh/inscripciones/pendientes", http.StatusNotFound},
+		{"externo", http.MethodGet, "/api/vec/bolsa/inscripciones/rrhh", http.StatusNotFound},
+		{"externo", http.MethodGet, "/api/vec/bolsa/inscripciones/propias-ajenas", http.StatusNotFound},
+		{"externo", http.MethodGet, "/api/vec/bolsa/inscripciones/convocatorias-abiertas-ajenas", http.StatusNotFound},
+		{"externo", http.MethodGet, "/api/vec/bolsa/inscripciones/otra-ruta", http.StatusNotFound},
+	} {
+		h := NewHandlerWithConfig(config.Config{PortalProceso: caso.portal, HTTPAllowedCIDRs: []string{"192.0.2.0/24"}}, api)
+		r := httptest.NewRequest(caso.metodo, caso.ruta, nil)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != caso.esperado {
+			t.Errorf("portal %s, %s %s: resultado %d, esperado %d", caso.portal, caso.metodo, caso.ruta, w.Code, caso.esperado)
+		}
 	}
 }

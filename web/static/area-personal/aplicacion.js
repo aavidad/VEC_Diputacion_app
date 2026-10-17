@@ -779,7 +779,7 @@ async function cargar(estado) {
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
   errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
-  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-respuesta-anterior-v1"),
+  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261016-f140-modalidad-v3"),
   cargarVistaMeritos = () => import("./meritos-reales-montaje.js?v=20261013-meritos-recorrido-v1"),
   cargarVistaAlegaciones = () => import("../comun/alegaciones-vista.js?v=20261013-alegaciones-v1") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {

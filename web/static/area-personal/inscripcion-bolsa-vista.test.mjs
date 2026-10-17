@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarInscripcionBolsa } from "./inscripcion-bolsa-vista.js";
+import { montarInscripcionBolsa } from "./inscripcion-bolsa-vista.js?v=20261016-f140-modalidad-v3";
 
 const pausa = () => new Promise((resolver) => setTimeout(resolver, 20));
 const instante = "2026-10-09T09:00:00Z";
 const bolsa = { convocatoria_ref: "convocatoria:plaza-42", titulo: "Bolsa de auxiliares 2026",
+  modalidad_inscripcion: "separada",
   numero_categorias: 1, categorias: [{ categoria_ref: "categoria:auxiliar", categoria: "Auxiliar administrativo" }],
   plazo_inicio: instante, plazo_fin: "2026-10-22T23:59:59Z", requisitos_resumen: "Titulación requerida",
   catalogo_version: 2, puede_iniciar: true, estado_solicitud_propia: null, solicitud_ref: null };
@@ -48,7 +49,9 @@ test("lista vacía, plazo, revisión, reintento con la misma clave y recibo recu
   assert.match(contenedor.innerHTML, /no hay bolsas/u);
   vacia = false; pulsar("reintentar"); await pausa();
   assert.match(contenedor.innerHTML, /1 categoría/u);
+  assert.match(contenedor.innerHTML, /Una solicitud por categoría/u);
   pulsar("bolsa", bolsa.convocatoria_ref); await pausa();
+  assert.match(contenedor.innerHTML, /Una solicitud por categoría/u);
   assert.match(contenedor.innerHTML, /Auxiliar administrativo/u);
   assert.match(contenedor.innerHTML, /Título exigido/u);
   pulsar("revisar"); assert.match(contenedor.innerHTML, /Revise su solicitud/u);
@@ -371,4 +374,34 @@ test("al pasar a Mis solicitudes el foco va al título y la ficha vuelve a Mis s
   pulsar("solicitud", "solicitud:42"); await pausa();
   assert.match(contenedor.innerHTML, /Volver a mis solicitudes/u);
   montaje.destruir();
+});
+
+
+test("la modalidad conjunta se explica antes del formulario y nunca envía una solicitud individual", async () => {
+  for (const [idioma, mensaje, modalidad] of [["es", /Todavía no se puede presentar desde esta página/u, /Una solicitud para varias categorías/u],
+    ["en", /You cannot submit it from this page yet/u, /One application for several categories/u]]) {
+    const { contenedor, ventana, pulsar } = entorno();
+    const conjunta = { ...bolsa, modalidad_inscripcion: "conjunta" };
+    const { categorias: _categorias, ...resumenConjunta } = conjunta;
+    let envios = 0;
+    const cliente = {
+      abiertas: async () => ({ convocatorias: [resumenConjunta], total: 1, cursor_siguiente: null }),
+      convocatoria: async () => ({ convocatoria: { ...conjunta, requisitos: [] } }),
+      propias: async () => ({ solicitudes: [], cursor_siguiente: null }),
+      detallePropio: async () => { throw new Error("sin uso"); },
+      inscribir: async () => { envios += 1; throw Object.assign(new Error("sin texto visible"), {
+        status: 409, codigo: "inscripcion_conjunta_pendiente",
+      }); },
+    };
+    const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma, textoBase: () => "" });
+    await pausa(); pulsar("bolsa", bolsa.convocatoria_ref); await pausa();
+    assert.match(contenedor.innerHTML, modalidad);
+    assert.match(contenedor.innerHTML, mensaje);
+    assert.doesNotMatch(contenedor.innerHTML, /data-inscripcion-(accion="(?:revisar|confirmar)"|categoria|requisito)/u);
+    pulsar("revisar"); pulsar("confirmar"); await pausa();
+    assert.match(contenedor.innerHTML, mensaje);
+    assert.doesNotMatch(contenedor.innerHTML, /sin texto visible|recibo:42|inscripcion_conjunta_pendiente/u);
+    assert.equal(envios, 0);
+    montaje.destruir();
+  }
 });
