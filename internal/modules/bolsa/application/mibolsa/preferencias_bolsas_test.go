@@ -93,3 +93,14 @@ func TestPreferenciasNoEscribenConOrdenDuplicadoNiContextoAjeno(t *testing.T) {
 		t.Fatalf("contexto ajeno alcanzó la escritura: %v", err)
 	}
 }
+
+func TestPreferenciasInternasNoAceptanSesionExterna(t *testing.T) {
+	e, _, repositorio := nuevoServicioPreferenciasPrueba(t)
+	servicio, err := NuevoServicioPreferenciasBolsasInterna(repositorio, e.autorizador,
+		proveedorPreferenciasPrueba{e.emisor}, &relojAutorizacionServicioPrueba{ahora: e.ahora})
+	exigir(t, err)
+	_, err = servicio.Ordenar(t.Context(), e.orden, []string{"bolsa:a"}, 0, "clave-preferencia-interna")
+	if !errors.Is(err, domain.ErrAutorizacionDenegada) || repositorio.llamadas != 0 || e.emisor.llamadas != 0 {
+		t.Fatalf("la sesion externa alcanzo la autoridad interna: %v", err)
+	}
+}
