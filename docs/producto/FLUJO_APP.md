@@ -783,8 +783,10 @@ detiene en esa persona. RRHH no pasa a la siguiente ni causa una exclusión
 definitiva por la falta de datos. La excepción corresponde al art. 9, apartado
 cuarto (numerado 3 en el BOP n.º 9 de 16/01/2026): solo vacantes para los
 vínculos tasados y con reducción del máximo de tres años por el tiempo previo
-en acumulación o sustitución. R1b deberá añadir el acto propio con el que RRHH
-registre los hechos, la evidencia y el recibo. Hoy ese acto no existe.
+en acumulación o sustitución. El primer corte de F1-09 prepara ese acto en Bolsa: registra hechos con evidencia,
+calcula el resultado con la política publicada y conserva cada rectificación y su
+recibo. Sigue pendiente su habilitación, la API y la pantalla F1-57. Hasta completar
+F1-10 no permite continuar la selección; el descuento permanece apagado.
 
 La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
 requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
