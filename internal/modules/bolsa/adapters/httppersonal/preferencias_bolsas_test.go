@@ -64,6 +64,8 @@ func TestPreferenciasHTTPRechazaDuplicadosAntesDeAutenticar(t *testing.T) {
 	for _, cuerpo := range []string{
 		`{"orden":["bolsa:a"],"orden":["bolsa:b"],"version_esperada":0,"clave_idempotencia":"clave-0001"}`,
 		`{"orden":["bolsa:a"],"version_esperada":0,"clave_idempotencia":"clave-0001","candidato_ref":"can_ajeno"}`,
+		`{"orden":["bolsa:a"],"version_esperada":null,"clave_idempotencia":"clave-0001"}`,
+		`{"orden":["bolsa:a"],"version_esperada":0,"clave_idempotencia":null}`,
 	} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, peticionPreferenciasPrueba(cuerpo))
