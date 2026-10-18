@@ -9,7 +9,7 @@ Esta capacidad permite que la aspirante elija qué modalidades de **ofertas publ
 3. **API y composición (PR3).** El servidor debe conectar `GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades` con la sesión, la concesión vigente y las funciones nominales. Debe devolver versión y recibo, y recuperar el mismo recibo al repetir una clave con la misma elección. El orden de bolsas conserva su consulta y guardado actuales.
 4. **Vista y avisos (PR4).** La elección se aplica a la vista de ofertas publicadas y a los avisos solicitados por la persona. La comprobación debe demostrar que el orden de llamamiento y la inscripción no cambian. La pantalla para elegir modalidades, el aviso por selección vacía y «Ver todas» pertenecen al recorrido de F1-14.
 
-**PR1 no se fusiona hasta ensayarla junto con la API de PR3 en una copia local y validar GET/PUT.** PR4 se comprueba después con la vista, los avisos y el recorrido en Chrome. AD291, a cargo del equipo R, sigue pendiente y B138 exige su instalación junto con AUT104 como precondición; el orden causal completo debe quedar fijado en la lista de instalación antes del ensayo.
+**PR1 no se fusiona hasta ensayarla junto con la API de PR3 en una copia local y validar GET/PUT.** PR4 se comprueba después con la vista, los avisos y el recorrido en Chrome. AD296, a cargo del equipo R, sigue pendiente y B138 exige su instalación junto con AUT104 como precondición; el orden causal completo debe quedar fijado en la lista de instalación antes del ensayo.
 
 ## Fuente y gobierno de la concesión
 
@@ -21,6 +21,6 @@ Las modalidades disponibles deben salir del catálogo gobernado que corresponde 
 
 ## Estado y comprobaciones pendientes (18/10/2026)
 
-PR1 está en preparación. **No se han ensayado AUT104 ni B138 en la copia**, ni se han comprobado `GET/PUT`, recibos, reinicio o Chrome para esta capacidad. AD291 y la API de PR3 están pendientes. La fuente v2 tampoco consta aquí como admitida ni la nueva versión del rol como publicada. No hay un recorrido F1-13 acreditado en la web.
+PR1 está en preparación. **No se han ensayado AUT104 ni B138 en la copia**, ni se han comprobado `GET/PUT`, recibos, reinicio o Chrome para esta capacidad. AD296 y la API de PR3 están pendientes. La fuente v2 tampoco consta aquí como admitida ni la nueva versión del rol como publicada. No hay un recorrido F1-13 acreditado en la web.
 
 El ensayo conjunto debe instalar la lista causal revisada en una copia local, ejecutar las pruebas SQL de AUT104 y B138 y comprobar con datos ficticios: `null` muestra todas las modalidades, `[]` oculta las ofertas abiertas sin respuesta y con modalidad identificada, una clave desconocida se rechaza, y una repetición conserva versión, recibo y fecha tras reiniciar aplicación y PostgreSQL. Después debe contrastar la vista y los avisos con las ofertas publicadas, sin alterar la inscripción, la posición en bolsa ni el llamamiento directo. Los fallos de configuración deben cerrar solo esta función y dejar disponible el resto de Mi Bolsa.
