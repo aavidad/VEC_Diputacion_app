@@ -28,3 +28,15 @@ func TestComprobacionConservaSuIntentoNominal(t *testing.T) {
 		}
 	}
 }
+
+func TestComprobacionAuditaLaConfirmacionIncierta(t *testing.T) {
+	r := &registradorIntentoBorradorDoble{}
+	h := nuevaAuditoriaBorradorPrueba(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		responderCodigoComprobacion(w, 503, "resultado_no_confirmado")
+	}), r, nil)
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost,
+		"/api/vec/bolsa/bolsas/bolsa:uno/candidatos/participacion:uno/comprobaciones-ofrecimiento", nil))
+	if len(r.intentos) != 1 || r.intentos[0].Resultado != ports.ResultadoIntentoIndeterminadoBorradorLlamamiento {
+		t.Fatalf("se perdió la incertidumbre: %+v", r.intentos)
+	}
+}

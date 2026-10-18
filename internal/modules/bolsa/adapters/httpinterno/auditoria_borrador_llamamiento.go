@@ -3,6 +3,7 @@ package httpinterno
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -92,6 +93,16 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 		Accion:      accion,
 		ClaseRuta:   clase,
 		Resultado:   resultadoIntentoBorradorLlamamiento(estado),
+	}
+	if accion == puertosbolsa.AccionIntentoRegistrarComprobacionOfrecimiento && estado == http.StatusServiceUnavailable {
+		var salida struct {
+			Error struct {
+				Codigo string `json:"codigo"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(respuesta.cuerpo.Bytes(), &salida) == nil && salida.Error.Codigo == "resultado_no_confirmado" {
+			intento.Resultado = puertosbolsa.ResultadoIntentoIndeterminadoBorradorLlamamiento
+		}
 	}
 	if !dependenciaNula(a.actor) {
 		if actor, verificado := a.actor.ActorVerificadoParaAuditoriaBorradorLlamamiento(ctxAuditoria); verificado {
