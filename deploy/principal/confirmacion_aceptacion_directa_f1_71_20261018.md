@@ -68,3 +68,11 @@ la denegación temprana sin consumo; no sustituye las pruebas firmadas de B128. 
 literal del cuerpo instalado; el cambio de su lógica se limita a las mismas dos
 alternativas nominales de la preparación anterior. No se pierde la consulta de
 preferencias incorporada por AD279.
+
+La puerta SQL de fase 1 detectó una diferencia entre el clon y la base vacía
+de CI: su semilla no declaraba el origen técnico de cambio de situación que
+AD288 exige. La semilla incorpora ahora la misma terna publicada en
+`origen_consumos_ad172/ternas.tsv` y comprueba las tres filas y sus cinco
+campos. Este ajuste tiene dos revisiones independientes; conserva AD288,
+sus huellas y sus guardas. El nuevo ensayo corresponde a la CI de esta
+corrección y queda pendiente de su resultado.
