@@ -160,7 +160,10 @@ HZ37. El guion selecciona las piezas internas de CA, certificados, identidades,
 KMS, TSA e idempotencia. Exige también `identidad/bolsa-bback.json` y coteja su
 certificado y sujeto con la identidad de RRHH. Incluye, cuando existen, las
 identidades de centros, consultas de RRHH, solicitante y ratificador con sus
-certificados, claves y paquetes importables, y los dos catálogos públicos.
+certificados, claves y paquetes importables, y los dos catálogos públicos. Si
+`identidad/centros.json` referencia a `centro-solicitante` y
+`centro-ratificador`, ambas identidades y sus certificados se copian y cotejan
+antes de publicar el material.
 Comprueba que cada pieza seleccionada y sus carpetas pertenecen al usuario,
 son privadas y no tienen enlaces. La fuente se abre solo para lectura y el
 conjunto seleccionado se publica en un destino nuevo.

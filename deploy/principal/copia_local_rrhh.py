@@ -34,8 +34,10 @@ OBLIGATORIOS = (
 OPCIONALES = (
     'identidad/centros.json', 'identidad/consultas-rrhh.json',
     'identidad/solicitante.json', 'identidad/ratificador.json',
+    'identidad/centro-solicitante.json', 'identidad/centro-ratificador.json',
     *(f'mtls/{nombre}.{extension}' for nombre in
-      ('centros', 'consultas-rrhh', 'solicitante', 'ratificador') for extension in
+      ('centros', 'consultas-rrhh', 'solicitante', 'ratificador',
+       'centro-solicitante', 'centro-ratificador') for extension in
       ('crt', 'key', 'p12', 'p12.password')),
     'catalogos/organizacion-publica.json', 'catalogos/rpt-publica.json',
 )
@@ -176,6 +178,30 @@ def validar(origen, repo, base):
                 raise ValueError('Una pieza seleccionada contiene conexiones ajenas')
             rutas[relativo] = hashlib.sha256(contenido).hexdigest()
     _certificar(origen)
+    centros = Path('identidad/centros.json')
+    if centros in rutas:
+        manifiesto_centros = json.loads((origen / centros).read_text())
+        entradas = manifiesto_centros.get('entradas') if isinstance(manifiesto_centros, dict) else None
+        if (not isinstance(manifiesto_centros, dict) or
+                manifiesto_centros.get('version') != 1 or
+                manifiesto_centros.get('autoridad') != 'no_autoritativo' or
+                not isinstance(entradas, list) or not entradas):
+            raise ValueError('El manifiesto original de centros es inválido')
+        for entrada in entradas:
+            if not isinstance(entrada, dict):
+                raise ValueError('El manifiesto original de centros es inválido')
+            for campo in ('certificate', 'identity'):
+                valor = entrada.get(campo)
+                if not isinstance(valor, str) or Path(valor) not in rutas:
+                    raise ValueError('Falta una referencia seleccionada del manifiesto de centros')
+            certificado = origen / entrada['certificate']
+            identidad = json.loads((origen / entrada['identity']).read_text())
+            _openssl('verify', '-purpose', 'sslclient', '-CAfile', origen / 'ca/ca.crt',
+                     certificado)
+            if (not isinstance(identidad, dict) or
+                    identidad.get('certificate_sha256') != _huella_certificado(certificado) or
+                    identidad.get('subject') in (None, '')):
+                raise ValueError('La identidad original de un centro no corresponde al certificado')
     return rutas, directorios
 
 

@@ -46,9 +46,11 @@ case "$DESTINO" in
 esac
 
 PADRE=$(dirname -- "$DESTINO")
-mkdir -p -- "$PADRE"
-PADRE=$(realpath -- "$PADRE")
-[[ ! -L "$PADRE" ]] || fallar "el directorio padre no puede ser un enlace simbolico"
+if ! $MODO_SERVIDOR; then
+  mkdir -p -- "$PADRE"
+  PADRE=$(realpath -- "$PADRE")
+  [[ ! -L "$PADRE" ]] || fallar "el directorio padre no puede ser un enlace simbolico"
+fi
 
 archivos_obligatorios=(
   ca/ca.crt ca/ca.key ca/serie
@@ -308,11 +310,18 @@ verificar_directorio() {
 }
 
 if $MODO_SERVIDOR; then
-  [[ "$DESTINO_SOLICITADO" == "$DESTINO" && $(basename -- "$DESTINO") == .material-rrhh-* ]] ||
-    fallar "solo se renueva material temporal propio sin enlaces"
-  [[ -d "$DESTINO" && ! -L "$DESTINO" ]] || fallar "material en preparación ausente"
-  [[ $(stat -c '%u' -- "$DESTINO") == "$EUID" ]] || fallar "material ajeno"
-  [[ $(stat -c '%a' -- "$DESTINO") == 700 ]] || fallar "material temporal no privado"
+  [[ "$DESTINO_SOLICITADO" == "$DESTINO" &&
+     "$DESTINO" =~ ^/dev/shm/vec/pg/[a-z]-[a-z0-9][a-z0-9-]{0,40}/\.material-rrhh-[A-Za-z0-9_]{8}$ ]] ||
+    fallar "solo se renueva el staging de una copia local propia"
+  for directorio in /dev/shm/vec /dev/shm/vec/pg "$PADRE" "$DESTINO"; do
+    [[ -d "$directorio" && ! -L "$directorio" &&
+       $(realpath -e -- "$directorio") == "$directorio" &&
+       $(stat -c '%u' -- "$directorio") == "$EUID" ]] ||
+      fallar "el staging o sus padres no son directorios canónicos propios"
+  done
+  [[ $(stat -c '%a' -- "$PADRE") == 700 &&
+     $(stat -c '%a' -- "$DESTINO") == 700 ]] ||
+    fallar "la instancia y el staging deben ser privados"
   [[ -f "$DESTINO/ca/ca.crt" && -f "$DESTINO/ca/ca.key" && ! -L "$DESTINO/ca/ca.key" ]] ||
     fallar "CA original incompleta"
   [[ -z "$(find "$DESTINO" -type l -print -quit)" ]] || fallar "material enlazado"
