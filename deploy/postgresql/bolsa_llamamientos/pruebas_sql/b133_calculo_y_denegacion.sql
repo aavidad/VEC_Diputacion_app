@@ -7,6 +7,16 @@ CREATE FUNCTION pg_temp.hecho(v jsonb) RETURNS jsonb LANGUAGE sql AS $f$
  SELECT jsonb_build_object('valor',v,'documento_ref','ref:'||repeat('b',64),'huella',repeat('a',64))
 $f$;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+-- Vector compartido con RecursoAutorizable.HuellaContextoAutorizacionSHA256.
+DO $canon$ DECLARE canon text;
+BEGIN
+ canon:='{"ambitos":{"ambito_ref":'||to_json('ambito:bolsa'::text)::text||
+  ',"unidad_ref":'||to_json('unidad:seleccion'::text)::text||
+  '},"atributos":{"material_sha256":"'||repeat('a',64)||'"}}';
+ IF encode(sha256(convert_to(canon,'UTF8')),'hex')<>
+  'dc43219aa3ce118e97cc05226ee9cad24d222d18e58925f405c5004ceda3e007'
+ THEN RAISE EXCEPTION 'canon de recurso divergente de Go'; END IF;
+END $canon$;
 DO $test$ DECLARE h jsonb;c jsonb;r jsonb;caso jsonb;
 BEGIN
  c:='{"fuente_normativa":"Reglamento de bolsas, BOP 9/2026, art. 9, apartado cuarto (numerado 3)","mejora":{

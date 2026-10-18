@@ -23,6 +23,8 @@ CONFIG NUEVA: ninguna. La aplicación conserva su arranque y sus rutas.
    sustituye estos requisitos. AD290 solo crea la fachada y no los instala;
    mientras falte alguno, el registro permanece cerrado. Las preimágenes y la
    instalación conjunta se fijan con dirección al final de la cadena vigente.
+   Dirección situó esta habilitación en AD291 junto a F0-18/AD273 (18/10,
+   07:19), para conservar una sola reconstrucción central.
 3. Admitir la fuente `fuentes/bolsa_comprobacion_ofrecimiento_rrhh_v1.json`
    y publicar el rol por propuesta y cierre de dos administradores distintos,
    conservando las concesiones y los ámbitos existentes. El material dura 90 días.
@@ -81,3 +83,5 @@ No acredita módulos activados ni registro autorizado: faltan el alta central
 completa, la escritura positiva, su recuperación y la concurrencia.
 La corrección posterior del vínculo entre el material y el contexto V3 exige
 una copia nueva y revisión focal antes de actualizar esta evidencia.
+El ensayo final espera la lista completa de main posterior a HZ37 ordenada
+por dirección el 18/10 a las 07:24; no se instalan nuevas listas parciales.
