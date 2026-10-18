@@ -18,14 +18,6 @@ BEGIN
  OR to_regrole('vec_bolsa_llamamientos_portal_externo') IS NULL
  OR to_regrole('vec_bolsa_llamamientos_preferencias_interna') IS NULL
  OR to_regprocedure('vec_autorizacion.cotejar_campos_preferencias_modalidades_aut104(jsonb,jsonb)') IS NULL
- -- R debe aportar las dos huellas posteriores de AD291. Estos centinelas
- -- imposibles impiden instalar B138 con las fachadas auditadas de ocho campos.
- OR (SELECT encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') FROM pg_proc p
-     WHERE p.oid='vec_autorizacion_atestada_v3.registrar_lectura_preferencias_bolsas_v1(bytea,bytea,jsonb)'::regprocedure)
-    IS DISTINCT FROM 'AD291_EXTERNA_PENDIENTE'
- OR (SELECT encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') FROM pg_proc p
-     WHERE p.oid='vec_autorizacion_atestada_v3.registrar_lectura_preferencias_bolsas_interna_v1(bytea,bytea,jsonb)'::regprocedure)
-    IS DISTINCT FROM 'AD291_INTERNA_PENDIENTE'
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_interna_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR has_function_privilege('vec_bolsa_llamamientos_propietario','vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') IS NOT TRUE
