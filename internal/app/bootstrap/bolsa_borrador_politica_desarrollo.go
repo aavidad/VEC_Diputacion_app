@@ -435,6 +435,9 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAuto
 	if referencia == motivoConfirmarCargaConvocaBolsaDesarrollo() {
 		return nil // La concesión positiva se evalúa en el PDP sobre la versión vigente.
 	}
+	if referencia == motivoComprobacionOfrecimiento() {
+		return nil // Registrar hechos exige su concesión exacta, nunca la de situación.
+	}
 	if referencia != motivoCrearBorradorLlamamientoBolsaDesarrollo() && referencia != motivoConsultarBorradorLlamamientoBolsaDesarrollo() && referencia != motivoCambiarSituacionParticipacionBolsaDesarrollo() && referencia != motivoRegistrarContactoParticipacionBolsaDesarrollo() && referencia != motivoConsultarContactoParticipacionBolsaDesarrollo() && referencia != motivoRegistrarDatosContactoParticipacionBolsaDesarrollo() && referencia != motivoEmitirLlamamientoBolsaDesarrollo() {
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
@@ -526,6 +529,8 @@ func motivoBorradorLlamamientoCorresponde(accion string, motivo dominiovec.Refer
 		return motivo == motivoConsultarBorradorLlamamientoBolsaDesarrollo()
 	case puertosbolsa.AccionCambiarSituacionParticipacion:
 		return motivo == motivoCambiarSituacionParticipacionBolsaDesarrollo()
+	case puertosbolsa.AccionComprobacionOfrecimiento:
+		return motivo == motivoComprobacionOfrecimiento()
 	case puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH:
 		return motivo == motivoCambiarSituacionParticipacionBolsaDesarrollo()
 	case puertosbolsa.AccionRegistrarContactoParticipacion:
