@@ -261,6 +261,85 @@ func TestManejadorPropuestaFormalizacionConfirmaConAutoridadSeparadaYSalidaMinim
 	}
 }
 
+func TestManejadorPropuestaFormalizacionDerivadaRechazaOrigenesMezclados(t *testing.T) {
+	autoridad := autoridadPropuestaFormalizacionHTTPValidaPrueba()
+	ejecutor := ejecutorPropuestaFormalizacionHTTPValidoPrueba()
+	h := nuevoManejadorPropuestaFormalizacionHTTPPrueba(t, autoridad, ejecutor)
+	base := entradaPropuestaFormalizacionHTTPPrueba()
+	base.DerivacionRef = "derivacion:ct234:http-01"
+	base.VersionEsperada = 6
+	base.LlamamientoRef, base.ResolucionLlamamientoAceptadaRef, base.ReciboResolucionAceptadaRef = "", "", ""
+	for _, caso := range []struct {
+		nombre string
+		mutar  func(*propuestaFormalizacionEntradaJSON)
+		estado int
+	}{
+		{"derivada", func(*propuestaFormalizacionEntradaJSON) {}, http.StatusCreated},
+		{"llamamiento", func(e *propuestaFormalizacionEntradaJSON) { e.LlamamientoRef = "llamamiento:ajeno" }, http.StatusUnprocessableEntity},
+		{"resolucion", func(e *propuestaFormalizacionEntradaJSON) { e.ResolucionLlamamientoAceptadaRef = "resolucion:ajena" }, http.StatusUnprocessableEntity},
+		{"recibo", func(e *propuestaFormalizacionEntradaJSON) { e.ReciboResolucionAceptadaRef = "recibo:ajeno" }, http.StatusUnprocessableEntity},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e := base
+			caso.mutar(&e)
+			b, err := json.Marshal(e)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := httptest.NewRequest(http.MethodPost, RutaPropuestaFormalizacion, bytes.NewReader(b))
+			r.Header.Set("Content-Type", "application/json; charset=utf-8")
+			r.Header.Set("Accept", "application/json")
+			w := httptest.NewRecorder()
+			antes := ejecutor.total()
+			h.ServeHTTP(w, r)
+			esperadas := 0
+			if caso.estado == http.StatusCreated {
+				esperadas = 1
+			}
+			if w.Code != caso.estado || ejecutor.total()-antes != esperadas {
+				t.Fatalf("estado=%d llamadas=%d cuerpo=%s", w.Code, ejecutor.total()-antes, w.Body.String())
+			}
+			if caso.estado == http.StatusCreated {
+				s, _ := ejecutor.ultima()
+				if s.DerivacionRef != e.DerivacionRef || s.LlamamientoRef != "" || s.ResolucionLlamamientoAceptadaRef != "" || s.ReciboResolucionAceptadaRef != "" {
+					t.Fatalf("origen mezclado en solicitud: %+v", s)
+				}
+				for _, campo := range []string{
+					`"derivacion_ref":"` + e.DerivacionRef + `"`, `"llamamiento_ref":""`,
+					`"resolucion_llamamiento_aceptada_ref":""`, `"recibo_resolucion_aceptada_ref":""`,
+				} {
+					if !strings.Contains(w.Body.String(), campo) {
+						t.Fatalf("falta eco %s: %s", campo, w.Body.String())
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestManejadorPropuestaFormalizacionDerivadaReplayConservaSelector(t *testing.T) {
+	e := entradaPropuestaFormalizacionHTTPPrueba()
+	e.DerivacionRef, e.VersionEsperada = "derivacion:ct234:http-01", 6
+	e.LlamamientoRef, e.ResolucionLlamamientoAceptadaRef, e.ReciboResolucionAceptadaRef = "", "", ""
+	b, err := json.Marshal(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ejecutor := &ejecutorPropuestaFormalizacionHTTPPrueba{responder: func(_ context.Context,
+		s ports.SolicitudPropuestaFormalizacion) (ports.ResultadoPropuestaFormalizacion, error) {
+		return resultadoPropuestaFormalizacionHTTPPrueba(s, ports.ResultadoPropuestaFormalizacionReplay), nil
+	}}
+	h := nuevoManejadorPropuestaFormalizacionHTTPPrueba(t, autoridadPropuestaFormalizacionHTTPValidaPrueba(), ejecutor)
+	r := httptest.NewRequest(http.MethodPost, RutaPropuestaFormalizacion, bytes.NewReader(b))
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"derivacion_ref":"`+e.DerivacionRef+`"`) ||
+		!strings.Contains(w.Body.String(), `"recibo_resolucion_aceptada_ref":""`) {
+		t.Fatalf("replay perdió selector: estado=%d cuerpo=%s", w.Code, w.Body.String())
+	}
+}
+
 func TestManejadorPropuestaFormalizacionReplayEs200YLocal(t *testing.T) {
 	t.Parallel()
 	ejecutor := ejecutorPropuestaFormalizacionHTTPValidoPrueba()
@@ -462,7 +541,8 @@ func TestContratoHTTPPropuestaFormalizacionNoAceptaAutoridadNiEfectoExterno(
 	salida := reflect.TypeOf(propuestaFormalizacionSalidaJSON{})
 	esperados := []string{
 		"Esquema", "EstadoLocal", "PropuestaRef", "ReciboLocalRef",
-		"VersionResultante", "ConfirmadaEn",
+		"VersionResultante", "ConfirmadaEn", "DerivacionRef", "LlamamientoRef",
+		"ResolucionLlamamientoAceptadaRef", "ReciboResolucionAceptadaRef",
 	}
 	if salida.NumField() != len(esperados) {
 		t.Fatalf("salida no minima: %v", salida)

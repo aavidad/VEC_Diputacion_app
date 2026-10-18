@@ -12,6 +12,8 @@ const (
 	cabeceraCanonContenidoDetalleRRHHV2 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V2\n"
 	cabeceraCanonContenidoDetalleRRHHV3 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V3\n"
 	cabeceraCanonContenidoDetalleRRHHV4 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V4\n"
+	cabeceraCanonContenidoDetalleRRHHV5 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V5\n"
+	cabeceraCanonContenidoDetalleRRHHV6 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V6\n"
 )
 
 func (c *constructorCanonResultadoRRHH) periodoFin(fin time.Time, causa domain.ClaveCatalogo) {
@@ -67,7 +69,16 @@ func (e EntradaDetalleExpedienteRRHHMinimizada) ExportarContenidoCanonicoParaSQL
 			cabecera = cabeceraCanonContenidoDetalleRRHHV4
 		}
 	}
+	if detalle.InstruccionCompartida != nil {
+		cabecera = cabeceraCanonContenidoDetalleRRHHV5
+	}
+	if detalle.PropuestaFormalizacion != nil {
+		cabecera = cabeceraCanonContenidoDetalleRRHHV6
+	}
 	constructor := nuevoConstructorCanonResultadoRRHH(cabecera)
+	if detalle.InstruccionCompartida != nil {
+		constructor.periodoV4 = true
+	}
 	constructor.resumen(detalle.Resumen)
 	constructor.solicitud(detalle.Solicitud)
 	constructor.enteroSinSigno(uint64(detalle.bloques))
@@ -94,6 +105,27 @@ func (e EntradaDetalleExpedienteRRHHMinimizada) ExportarContenidoCanonicoParaSQL
 	constructor.enteroSinSigno(uint64(len(detalle.Hitos)))
 	for _, hito := range detalle.Hitos {
 		constructor.hito(hito)
+	}
+	if i := detalle.InstruccionCompartida; i != nil {
+		constructor.texto(i.DerivacionRef)
+		constructor.texto(i.PadreRef)
+		constructor.texto(i.NumeroVisiblePadre)
+		constructor.texto(i.OfertaRef)
+		constructor.enteroSinSigno(uint64(i.NumeroPlaza))
+		constructor.texto(i.ReciboDerivacionRef)
+		constructor.texto(i.HuellaPadreSHA256)
+		constructor.instante(i.CreadoEnPadre)
+		constructor.instante(i.ActualizadoEnPadre)
+		constructor.enteroSinSigno(uint64(len(i.HitosPadre)))
+		for _, hito := range i.HitosPadre {
+			constructor.hito(hito)
+		}
+	}
+	if p := detalle.PropuestaFormalizacion; p != nil {
+		constructor.texto(p.PropuestaRef)
+		constructor.texto(p.ReciboRef)
+		constructor.enteroSinSigno(p.Version)
+		constructor.instante(p.ConfirmadaEn)
 	}
 	canon, err := constructor.finalizar()
 	if err != nil {

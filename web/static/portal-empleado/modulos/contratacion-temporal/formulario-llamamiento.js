@@ -5,10 +5,10 @@
  * congelada (y su clave) para no duplicar el efecto.
  */
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261018-f119-derivacion-v2";
+import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261018-f119-conjunto-v1";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261007-pantallas-textos-final-v1";
-import { esValidacionRespuestaPendiente, esComprobacionOfrecimientoPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
-import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261018-f119-derivacion-v2";
+import { esValidacionRespuestaPendiente, esComprobacionOfrecimientoPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js?v=20261018-f119-conjunto-v1";
+import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261018-f119-conjunto-v1";
 import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20261012-reglas-configuracion-v1";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
@@ -22,14 +22,14 @@ import {
   CAMPOS_REVISION_RESOLUCION, CRITERIO_VALIDACION_RESOLUCION_DESARROLLO,
   RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
-  CAMPOS_PROPUESTA, validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
+  CAMPOS_PROPUESTA, CAMPOS_PROPUESTA_DERIVADA, validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
   CAMPOS_EVENTO_PLAZO, CAMPOS_EVENTO_PLAZO_EDITABLES, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
   RESPUESTA_EXPIRACION,
-} from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
-import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261018-f119-derivacion-v2";
-import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js?v=20261016-ct-ofertas-ct231-v1";
+} from "./contrato-llamamiento.js?v=20261018-f119-conjunto-v1";
+import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261018-f119-conjunto-v1";
+import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js?v=20261018-f119-conjunto-v1";
 import { ESTADO_SELECCION_PENDIENTE_AVISO, LIMITE_TOTAL_COMUNICACIONES, claveFilaComunicacion,
-  instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct-ofertas-ct231-v1";
+  instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261018-f119-conjunto-v1";
 
 const OPERACION_COMUNICACION = Object.freeze({
   campos: CAMPOS_COMUNICACION, validar: validarSolicitudComunicacionLlamamiento,
@@ -600,6 +600,13 @@ export function montarFormularioLlamamiento({
       desmontar();
       return false;
     }
+    if (estado.propuesta.derivacionRef && nuevo?.derivacion_ref !== estado.propuesta.derivacionRef) {
+      desmontar();
+      return false;
+    }
+    if (estado.enlazado && estado.propuesta.derivacionRef
+      && estado.propuesta.derivacionRef === nuevo?.derivacion_ref
+      && estado.seleccion.valores.version_esperada === nuevo?.version_esperada) return true;
     if (!montado || estado.seleccion.solicitud !== null
       || !referenciaLlamamientoValida(nuevo?.expediente_ref)
       || !Number.isSafeInteger(nuevo?.version_esperada) || nuevo.version_esperada < 1) return false;
@@ -608,6 +615,17 @@ export function montarFormularioLlamamiento({
     estado.seleccion.valores.version_esperada = nuevo.version_esperada;
     estado.numeroPersonasSolicitadas = Number.isSafeInteger(nuevo.numero_personas) && nuevo.numero_personas > 0
       ? nuevo.numero_personas : null;
+    if (referenciaLlamamientoValida(nuevo.derivacion_ref) && nuevo.version_esperada === 6
+      && nuevo.numero_personas === 1) {
+      const paso = estado.propuesta;
+      paso.derivacionRef = nuevo.derivacion_ref;
+      paso.valores = { expediente_ref: nuevo.expediente_ref, derivacion_ref: nuevo.derivacion_ref,
+        llamamiento_ref: "", resolucion_llamamiento_aceptada_ref: "", recibo_resolucion_aceptada_ref: "",
+        version_esperada: 6, anexos: Object.freeze([]) };
+      estado.enlazado = true;
+      void prepararPropuesta();
+      return true;
+    }
     if (estado.numeroPersonasSolicitadas === null) estado.estadoOferta.estado = "sin_cantidad";
     else if (estado.numeroPersonasSolicitadas > 1
       && typeof cliente.consultarEstadoSeleccionOferta !== "function") estado.estadoOferta.estado = "sin_cliente";
@@ -681,13 +699,15 @@ export function montarFormularioLlamamiento({
     return Number.isSafeInteger(version) && version >= 6 && version < Number.MAX_SAFE_INTEGER;
   }
   function puedeProponer() {
+    if (estado.propuesta.derivacionRef) return estado.propuesta.valores.derivacion_ref === estado.propuesta.derivacionRef
+      && estado.propuesta.valores.version_esperada === 6 && estado.propuesta.aceptacion === null;
     return estado.propuesta.aceptacion?.respuesta === "aceptacion"
       && versionFiscalizadaPermitePropuesta();
   }
   async function prepararPropuesta(origen) {
     const paso = estado.propuesta;
     if (paso.solicitud !== null || paso.recibo || paso.calculando) return;
-    if (!paso.aceptacion) {
+    if (!paso.aceptacion && !paso.derivacionRef) {
       const s = origen?.solicitud, r = origen?.recibo;
       if (!s || !r) return;
       // Recibo ya validado de la resolución que confirmó la aceptación; no se
@@ -698,7 +718,7 @@ export function montarFormularioLlamamiento({
         version_esperada: estado.seleccion.solicitud?.version_esperada
           ?? estado.seleccion.valores.version_esperada, anexos: Object.freeze([]) };
     }
-    if (typeof cliente.prepararPropuestaFormalizacion !== "function") return;
+    if (typeof cliente.prepararPropuestaFormalizacion !== "function") { repintar(); return; }
     paso.calculando = true;
     paso.mensaje = "llamamiento_propuesta_cargando";
     paso.controlador = new AbortController();
@@ -732,12 +752,13 @@ export function montarFormularioLlamamiento({
     if (operacion === "seleccion" && ["sin_cantidad", "sin_cliente", "cargando", "error", "denegado"].includes(estado.estadoOferta.estado)) return;
     if (operacion === "seleccion" && estado.estadoOferta.estado === "pendiente") return;
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
-    if (["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
-    if (estado.comunicaciones.estado === "lista"
+    const propuestaDerivada = operacion === "propuesta" && Boolean(estado.propuesta.derivacionRef);
+    if (!propuestaDerivada && ["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
+    if (!propuestaDerivada && estado.comunicaciones.estado === "lista"
       && (!estado.comunicaciones.seleccionada || !["respuesta", "respuesta_siguiente", "resolucion", "resolucion_siguiente",
         "siguiente", "comunicacion_siguiente", "propuesta"].includes(operacion)
         && !(operacion === "comunicacion" && estado.comunicaciones.seleccionada.estado === ESTADO_SELECCION_PENDIENTE_AVISO))) return;
-    if (estado.consultaRespuesta.referencias !== null
+    if (!propuestaDerivada && estado.consultaRespuesta.referencias !== null
       && (estado.consultaRespuesta.estado !== "ausente" || !antecedenteConsultaDisponible())) return;
     if (operacion === "comunicacion" && estado.seleccion.recibo === null
       && estado.comunicaciones.seleccionada?.estado !== ESTADO_SELECCION_PENDIENTE_AVISO) return;
@@ -759,6 +780,7 @@ export function montarFormularioLlamamiento({
       }
     }
     const contrato = OPERACIONES[operacion];
+    const camposSolicitud = propuestaDerivada ? CAMPOS_PROPUESTA_DERIVADA : contrato.campos;
     let nuevaConfirmada = false;
     if (operacion === "seleccion" && estado.recuperacionOferta.preparandoNueva && paso.solicitud === null) {
       try {
@@ -774,7 +796,7 @@ export function montarFormularioLlamamiento({
     const reintento = paso.solicitud !== null;
     // Primera vez: clave nueva e invisible. Si ya hay una (reintento tras un error
     // de validación o una confirmación cancelada), se conserva la misma.
-    if (paso.solicitud === null && contrato.campos.includes("clave_idempotencia") && !paso.valores.clave_idempotencia) {
+    if (paso.solicitud === null && camposSolicitud.includes("clave_idempotencia") && !paso.valores.clave_idempotencia) {
       try {
         const clave = generarClaveIdempotencia(operacion);
         if (typeof clave !== "string" || !clave) throw new TypeError();
@@ -790,7 +812,7 @@ export function montarFormularioLlamamiento({
     let solicitud;
     try {
       solicitud = paso.solicitud ?? contrato.validar(Object.fromEntries(
-        contrato.campos.map((campo) => [
+        camposSolicitud.map((campo) => [
           campo, campo === "version_esperada" || campo === "version_comunicacion_esperada"
             ? Number(paso.valores[campo])
             : campo === "recibida_en" && esRespuesta(operacion) && !paso.valores[campo]?.endsWith("Z")
@@ -876,7 +898,7 @@ export function montarFormularioLlamamiento({
       respuestaRecibida = true;
       const antecedente = estado.resolucion.recibo?.respuesta === "renuncia" ? estado.resolucion : estado.expiracion;
       const recibo = contrato.recibo(respuesta, solicitud, operacion === "siguiente"
-        ? antecedente.solicitud.llamamiento_ref : operacion === "propuesta" ? estado.propuesta.aceptacion.resuelta_en : undefined);
+        ? antecedente.solicitud.llamamiento_ref : operacion === "propuesta" ? estado.propuesta.aceptacion?.resuelta_en : undefined);
       if (!montado) return;
       guardarBorradores();
       paso.recibo = recibo;
@@ -1169,7 +1191,7 @@ export function montarFormularioLlamamiento({
     if (reintentarPublicaciones?.dataset?.ctLlamamientoReintentarPublicaciones !== undefined
       && raiz.contains(reintentarPublicaciones)) {
       evento.preventDefault();
-      if (!estado.propuesta.aceptacion || estado.propuesta.disponible) return;
+      if ((!estado.propuesta.aceptacion && !estado.propuesta.derivacionRef) || estado.propuesta.disponible) return;
       return prepararPropuesta();
     }
     const actualizarPropuesta = evento.target?.closest?.("[data-ct-llamamiento-actualizar-propuesta]");

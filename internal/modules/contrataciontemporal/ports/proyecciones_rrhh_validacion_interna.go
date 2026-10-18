@@ -144,6 +144,16 @@ func (d DetalleExpedienteRRHH) entradaCanonicaMinimizada() (
 			referenciaSubsanacion.secuencia = d.Fiscalizacion.Subsanacion.vinculo.secuencia
 		}
 	}
+	if d.InstruccionCompartida != nil {
+		return NuevaEntradaDetalleExpedienteRRHHMinimizadaDerivadaV1(
+			d.Resumen, d.Solicitud,
+			d.Analisis, referenciaAnalisis,
+			d.Cobertura, referenciaCobertura,
+			d.Asignacion, referenciaAsignacion,
+			d.Fiscalizacion, referenciaFiscalizacion, referenciaSubsanacion,
+			d.Hitos, *d.InstruccionCompartida, d.PropuestaFormalizacion,
+		)
+	}
 	return NuevaEntradaDetalleExpedienteRRHHMinimizadaV3(
 		d.Resumen, d.Solicitud,
 		d.Analisis, referenciaAnalisis,

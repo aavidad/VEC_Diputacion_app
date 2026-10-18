@@ -68,8 +68,15 @@ export const CAMPOS_PROPUESTA = Object.freeze([
   "recibo_resolucion_aceptada_ref", "version_esperada", "tipo_formalizacion", "plantilla",
   "anexos", "politica_firma", "plan_firma",
 ]);
+export const CAMPOS_PROPUESTA_DERIVADA = Object.freeze([
+  "clave_idempotencia", "expediente_ref", "derivacion_ref", ...CAMPOS_PROPUESTA.slice(2),
+]);
 export const CAMPOS_RECIBO_PROPUESTA = Object.freeze([
   "esquema", "estado_local", "propuesta_ref", "recibo_local_ref", "version_resultante", "confirmada_en",
+]);
+export const CAMPOS_RECIBO_PROPUESTA_DERIVADA = Object.freeze([
+  ...CAMPOS_RECIBO_PROPUESTA, "derivacion_ref", "llamamiento_ref",
+  "resolucion_llamamiento_aceptada_ref", "recibo_resolucion_aceptada_ref",
 ]);
 
 export async function snapshotsFormalizacionDesarrollo(entrada, criptografia) {
@@ -92,7 +99,15 @@ export async function snapshotsFormalizacionDesarrollo(entrada, criptografia) {
   return Object.freeze(snapshots);
 }
 export function validarSolicitudPropuestaFormalizacion(entrada) {
-  const valor = solicitud(entrada, CAMPOS_PROPUESTA);
+  const derivada = entrada && Object.hasOwn(entrada, "derivacion_ref");
+  const campos = derivada ? CAMPOS_PROPUESTA_DERIVADA : CAMPOS_PROPUESTA;
+  const valor = derivada ? registro(entrada, campos) : solicitud(entrada, campos);
+  if (derivada) exigir(typeof valor.clave_idempotencia === "string" && UUID.test(valor.clave_idempotencia)
+    && valor.clave_idempotencia !== "00000000-0000-4000-8000-000000000000"
+    && referenciaLlamamientoValida(valor.expediente_ref)
+    && referenciaLlamamientoValida(valor.derivacion_ref)
+    && valor.llamamiento_ref === "" && valor.resolucion_llamamiento_aceptada_ref === ""
+    && valor.recibo_resolucion_aceptada_ref === "" && valor.version_esperada === 6);
   exigir(valor.version_esperada >= 6 && valor.version_esperada < Number.MAX_SAFE_INTEGER && Array.isArray(valor.anexos) && valor.anexos.length === 0);
   const snapshots = {};
   for (const [campo, referencia] of Object.entries(PUBLICACIONES_FORMALIZACION)) {
@@ -102,15 +117,19 @@ export function validarSolicitudPropuestaFormalizacion(entrada) {
     snapshots[campo] = p;
   }
   // Este recorrido mínimo no adjunta documentos ni crea una orden de firma.
-  return registro({ ...valor, ...snapshots, anexos: Object.freeze([]) }, CAMPOS_PROPUESTA);
+  return registro({ ...valor, ...snapshots, anexos: Object.freeze([]) }, campos);
 }
 export function validarReciboPropuestaFormalizacion(entrada, solicitudEntrada, aceptadaEn) {
   const esperada = validarSolicitudPropuestaFormalizacion(solicitudEntrada);
-  const valor = registro(entrada, CAMPOS_RECIBO_PROPUESTA);
+  const derivada = Object.hasOwn(esperada, "derivacion_ref");
+  const valor = registro(entrada, derivada ? CAMPOS_RECIBO_PROPUESTA_DERIVADA : CAMPOS_RECIBO_PROPUESTA);
   exigir(valor.esquema === "vec.contratacion-temporal.propuesta-formalizacion-local.v1"
     && ["confirmado", "replay_confirmado"].includes(valor.estado_local)
     && valor.version_resultante === esperada.version_esperada + 1
-    && referenciaLlamamientoValida(valor.propuesta_ref) && referenciaLlamamientoValida(valor.recibo_local_ref));
+    && referenciaLlamamientoValida(valor.propuesta_ref) && referenciaLlamamientoValida(valor.recibo_local_ref)
+    && (!derivada || (valor.derivacion_ref === esperada.derivacion_ref
+      && valor.llamamiento_ref === "" && valor.resolucion_llamamiento_aceptada_ref === ""
+      && valor.recibo_resolucion_aceptada_ref === "")));
   const confirmada = instanteRespuesta(valor.confirmada_en);
   if (aceptadaEn !== undefined) exigir(confirmada >= instanteRespuesta(aceptadaEn));
   return valor;

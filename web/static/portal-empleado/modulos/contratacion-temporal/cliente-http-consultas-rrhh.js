@@ -288,11 +288,49 @@ function validarHito(entrada) {
   return structuredClone(entrada);
 }
 
+function validarInstruccionCompartida(entrada, resumen, hitos) {
+  const campos = ["derivacion_ref", "padre_ref", "numero_visible_padre", "oferta_ref", "numero_plaza",
+    "recibo_derivacion_ref", "huella_padre_sha256", "creado_en_padre", "actualizado_en_padre", "hitos_padre"];
+  if (!camposCerrados(entrada, campos)
+    || !["derivacion_ref", "padre_ref", "oferta_ref", "recibo_derivacion_ref"].every((campo) => referencia(entrada[campo]))
+    || entrada.padre_ref === resumen.expediente_ref
+    || !cadena(entrada.numero_visible_padre, { maximo: 45, patron: PATRON_NUMERO })
+    || !entero(entrada.numero_plaza, 1) || entrada.numero_plaza > 100
+    || resumen.numero_visible !== `${entrada.numero_visible_padre}-P${entrada.numero_plaza}`
+    || !/^[a-f0-9]{64}$/u.test(entrada.huella_padre_sha256)
+    || !instante(entrada.creado_en_padre) || !instante(entrada.actualizado_en_padre)
+    || Date.parse(entrada.actualizado_en_padre) < Date.parse(entrada.creado_en_padre)
+    || !Array.isArray(entrada.hitos_padre) || entrada.hitos_padre.length < 6
+    || entrada.hitos_padre.length > MAXIMO_HITOS
+    || !entrada.hitos_padre.every((hito, indice) => hito?.secuencia === indice + 1
+      && hito.version_expediente === indice + 1)
+    || !Array.isArray(hitos) || hitos.length !== resumen.version - 5
+    || hitos[0]?.accion_clave !== "contratacion_temporal.nombramiento.derivar"
+    || !hitos.every((hito, indice) => hito.secuencia === indice + 6
+      && hito.version_expediente === indice + 6)) throw new TypeError("instrucción compartida RRHH no válida");
+  return Object.freeze({ ...structuredClone(entrada), hitos_padre: entrada.hitos_padre.map(validarHito) });
+}
+
+function validarPropuestaDerivada(entrada, detalle) {
+  const hito = detalle.hitos.find((item) => item.secuencia === 7);
+  if (!camposCerrados(entrada, ["propuesta_ref", "recibo_ref", "version", "confirmada_en"])
+    || !detalle.instruccion_compartida || detalle.resumen.version < 7
+    || !referencia(entrada.propuesta_ref) || !referencia(entrada.recibo_ref)
+    || entrada.version !== 7 || !instante(entrada.confirmada_en)
+    || hito?.version_expediente !== 7 || hito.accion_clave !== "registrar_propuesta_formalizacion"
+    || hito.fase_destino !== "nombramiento" || hito.estado_destino !== "en_curso"
+    || entrada.confirmada_en !== hito.realizada_en
+    || Date.parse(entrada.confirmada_en) > Date.parse(detalle.resumen.actualizado_en)) {
+    throw new TypeError("propuesta derivada RRHH no válida");
+  }
+  return Object.freeze({ ...entrada });
+}
+
 function validarDetalle(entrada) {
   if (!camposCerrados(
     entrada,
     ["esquema", "resumen", "solicitud", "hitos"],
-    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion", "capacidades_ficha", "resultado_bolsa"],
+    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion", "capacidades_ficha", "resultado_bolsa", "instruccion_compartida", "propuesta_formalizacion"],
   ) || entrada.esquema !== ESQUEMA_DETALLE || !Array.isArray(entrada.hitos)
     || entrada.hitos.length > MAXIMO_HITOS) {
     throw new TypeError("detalle RRHH no válido");
@@ -303,6 +341,10 @@ function validarDetalle(entrada) {
     solicitud: validarSolicitudProyectada(entrada.solicitud),
     hitos: entrada.hitos.map(validarHito),
   };
+  if (Object.hasOwn(entrada, "instruccion_compartida")) salida.instruccion_compartida = validarInstruccionCompartida(
+    entrada.instruccion_compartida, salida.resumen, salida.hitos);
+  if (Object.hasOwn(entrada, "propuesta_formalizacion")) salida.propuesta_formalizacion = validarPropuestaDerivada(
+    entrada.propuesta_formalizacion, salida);
   if (Object.hasOwn(entrada, "analisis")) salida.analisis = validarAnalisis(entrada.analisis);
   if (Object.hasOwn(entrada, "cobertura")) salida.cobertura = validarCobertura(entrada.cobertura);
   if (Object.hasOwn(entrada, "asignacion")) salida.asignacion = validarAsignacion(entrada.asignacion);

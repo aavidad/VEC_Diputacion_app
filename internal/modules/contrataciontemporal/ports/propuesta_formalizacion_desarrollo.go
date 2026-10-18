@@ -1,6 +1,8 @@
 package ports
 
 import (
+	"reflect"
+	"regexp"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -13,6 +15,7 @@ type MaterialPropuestaFormalizacion struct {
 	Solicitud             SolicitudPropuestaFormalizacion
 	AceptacionBolsa       *EvidenciaAceptacionBolsaPropuesta `json:",omitempty"`
 	AceptacionBolsaNativa *EvidenciaAceptacionBolsaNativa    `json:",omitempty"`
+	AceptacionDerivada    *EvidenciaAceptacionDerivada       `json:",omitempty"`
 }
 
 func (m MaterialPropuestaFormalizacion) Validar() error {
@@ -24,11 +27,17 @@ func (m MaterialPropuestaFormalizacion) Validar() error {
 	}
 	switch m.Etapa {
 	case "consulta":
-		if m.AceptacionBolsa != nil || m.AceptacionBolsaNativa != nil {
+		if m.AceptacionBolsa != nil || m.AceptacionBolsaNativa != nil || m.AceptacionDerivada != nil {
 			return ErrSolicitudPropuestaFormalizacionInvalida
 		}
 	case "confirmacion":
-		if (m.AceptacionBolsa == nil) == (m.AceptacionBolsaNativa == nil) {
+		origenes := 0
+		for _, presente := range []bool{m.AceptacionBolsa != nil, m.AceptacionBolsaNativa != nil, m.AceptacionDerivada != nil} {
+			if presente {
+				origenes++
+			}
+		}
+		if origenes != 1 || (m.Solicitud.DerivacionRef != "") != (m.AceptacionDerivada != nil) {
 			return ErrSolicitudPropuestaFormalizacionInvalida
 		}
 		if m.AceptacionBolsa != nil && (m.AceptacionBolsa.Validar() != nil ||
@@ -37,6 +46,9 @@ func (m MaterialPropuestaFormalizacion) Validar() error {
 		}
 		if m.AceptacionBolsaNativa != nil && (m.AceptacionBolsaNativa.Validar() != nil ||
 			m.AceptacionBolsaNativa.Selector.LlamamientoRef != m.Solicitud.LlamamientoRef) {
+			return ErrSolicitudPropuestaFormalizacionInvalida
+		}
+		if m.AceptacionDerivada != nil && m.AceptacionDerivada.ValidarPara(m.Solicitud) != nil {
 			return ErrSolicitudPropuestaFormalizacionInvalida
 		}
 	default:
@@ -55,7 +67,44 @@ func (m MaterialPropuestaFormalizacion) Clonar() MaterialPropuestaFormalizacion 
 		copia := *m.AceptacionBolsaNativa
 		m.AceptacionBolsaNativa = &copia
 	}
+	if m.AceptacionDerivada != nil {
+		copia := *m.AceptacionDerivada
+		m.AceptacionDerivada = &copia
+	}
 	return m
+}
+
+var patronOfertaAceptacionDerivada = regexp.MustCompile(`^oferta:[0-9a-f]{64}$`)
+
+// EvidenciaAceptacionDerivada identifica la aceptación real de la plaza del
+// expediente hijo. CT211 relee CT234; estas referencias no son autoridad por sí solas.
+type EvidenciaAceptacionDerivada struct {
+	DerivacionRef       string
+	PadreRef            string
+	HijoRef             string
+	OfertaRef           string
+	NumeroPlaza         uint32
+	AceptacionRef       string
+	ReciboDerivacionRef string
+}
+
+func (e EvidenciaAceptacionDerivada) Validar() error {
+	if !domain.ReferenciaOpacaValida(e.DerivacionRef) || !domain.ReferenciaOpacaValida(e.PadreRef) ||
+		!domain.ReferenciaOpacaValida(e.HijoRef) || !patronOfertaAceptacionDerivada.MatchString(e.OfertaRef) ||
+		e.NumeroPlaza < 1 || e.NumeroPlaza > 100 ||
+		!domain.ReferenciaOpacaValida(e.AceptacionRef) || !domain.ReferenciaOpacaValida(e.ReciboDerivacionRef) {
+		return ErrResolucionLlamamientoNoAceptada
+	}
+	return nil
+}
+
+func (e EvidenciaAceptacionDerivada) ValidarPara(s SolicitudPropuestaFormalizacion) error {
+	if e.Validar() != nil || s.Validar() != nil || s.DerivacionRef == "" ||
+		e.DerivacionRef != s.DerivacionRef || e.HijoRef != s.ExpedienteRef ||
+		e.HijoRef != HijoRefDerivacionNombramiento(s.OrganizacionRef, e.PadreRef, e.NumeroPlaza) {
+		return ErrResolucionLlamamientoNoAceptada
+	}
+	return nil
 }
 
 // EvidenciaAceptacionBolsaNativa describe B110/B7/B30 sin reaprovechar
@@ -100,11 +149,21 @@ type AntecedentePropuestaFormalizacion struct {
 	Resolucion     ResultadoResolucionLlamamiento
 	Justificante   JustificanteRespuestaRecibida
 	SeleccionClave string
+	Derivacion     *EvidenciaAceptacionDerivada `json:",omitempty"`
 }
 
 func (a AntecedentePropuestaFormalizacion) ValidarPara(s SolicitudPropuestaFormalizacion) error {
+	if s.DerivacionRef != "" {
+		if (MaterialPropuestaFormalizacion{Etapa: "consulta", Solicitud: s}).Validar() != nil ||
+			a.Derivacion == nil || a.Derivacion.ValidarPara(s) != nil || a.SeleccionClave != "" ||
+			!reflect.DeepEqual(a.Resolucion, ResultadoResolucionLlamamiento{}) ||
+			!reflect.DeepEqual(a.Justificante, JustificanteRespuestaRecibida{}) {
+			return ErrResultadoPropuestaFormalizacionNoConfiable
+		}
+		return nil
+	}
 	r := a.Resolucion
-	if (MaterialPropuestaFormalizacion{Etapa: "consulta", Solicitud: s}).Validar() != nil ||
+	if a.Derivacion != nil || (MaterialPropuestaFormalizacion{Etapa: "consulta", Solicitud: s}).Validar() != nil ||
 		r.ValidarPara(r.Solicitud) != nil || r.Solicitud.Respuesta != RespuestaLlamamientoAceptada ||
 		!r.Solicitud.RevisionManualConfirmada() || r.Solicitud.CriterioValidacionRef != r.Politica.Referencia ||
 		r.Estado != ResultadoComunicacionLlamamientoConfirmado || r.Solicitud.VersionEsperada != 2 ||

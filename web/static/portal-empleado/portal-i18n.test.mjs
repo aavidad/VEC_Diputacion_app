@@ -1094,9 +1094,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   // F1-04 renueva sus importadores sin cambiar las hojas de Contratación.
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal-menu-bolsa.js"])
     versionesEspeciales.set(ruta, "20261018-f104-main-v1");
-  // F1-19 renueva solo los importadores del panel, la derivación y su cadena CT.
+  // F1-19 une derivación, propuesta y detalle del hijo en una cohorte.
   for (const ruta of [
-    "categorias-rpt/cliente.js", "categorias-rpt/montaje.js",
+    "categorias-rpt/cliente.js",
+    "categorias-rpt/montaje.js",
     "modulos/bolsa/carga-convoca/arranque.js",
     "modulos/contratacion-temporal/circuito-firma-acciones.js",
     "modulos/contratacion-temporal/circuito-firma.js",
@@ -1116,10 +1117,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/formulario-llamamiento.js",
     "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
     "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
-    "modulos/contratacion-temporal/i18n-nombramientos-derivados.js",
     "modulos/contratacion-temporal/incorporacion-personal-b2.js",
     "modulos/contratacion-temporal/informe-tras-subsanacion.js",
-    "modulos/contratacion-temporal/nombramientos-derivados.js",
     "modulos/contratacion-temporal/renderizado-llamamiento.js",
     "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
     "modulos/contratacion-temporal/seguimiento-incorporacion.js",
@@ -1131,8 +1130,15 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-render.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
-    "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261018-f119-derivacion-v2");
+    "portal-modulos-coordinador.js",
+    "portal.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/contrato-expedientes.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/gestor-resultado-bolsa.js",
+    "modulos/contratacion-temporal/presentador-expedientes.js",
+    "modulos/contratacion-temporal/vista-expedientes-ficha.js",
+  ]) versionesEspeciales.set(ruta, "20261018-f119-conjunto-v1");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;

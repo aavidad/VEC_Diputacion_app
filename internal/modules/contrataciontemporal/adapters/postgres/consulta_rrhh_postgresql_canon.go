@@ -18,6 +18,8 @@ const (
 	cabeceraContenidoDetalleRRHHPostgreSQL   = cabeceraContenidoDetalleRRHHPostgreSQLV2
 	cabeceraContenidoDetalleRRHHPostgreSQLV3 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V3\n"
 	cabeceraContenidoDetalleRRHHPostgreSQLV4 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V4\n"
+	cabeceraContenidoDetalleRRHHPostgreSQLV5 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V5\n"
+	cabeceraContenidoDetalleRRHHPostgreSQLV6 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V6\n"
 	formatoInstanteCanonicoRRHHPostgreSQL    = "2006-01-02T15:04:05.000000Z"
 )
 
@@ -113,9 +115,15 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 	canon []byte,
 ) (contenidoDetalleRRHHDecodificado, error) {
 	cabecera := cabeceraContenidoDetalleRRHHPostgreSQLV2
-	esV4 := bytes.HasPrefix(canon, []byte(cabeceraContenidoDetalleRRHHPostgreSQLV4))
+	esV6 := bytes.HasPrefix(canon, []byte(cabeceraContenidoDetalleRRHHPostgreSQLV6))
+	esV5 := esV6 || bytes.HasPrefix(canon, []byte(cabeceraContenidoDetalleRRHHPostgreSQLV5))
+	esV4 := esV5 || bytes.HasPrefix(canon, []byte(cabeceraContenidoDetalleRRHHPostgreSQLV4))
 	esV3 := esV4 || bytes.HasPrefix(canon, []byte(cabeceraContenidoDetalleRRHHPostgreSQLV3))
-	if esV4 {
+	if esV6 {
+		cabecera = cabeceraContenidoDetalleRRHHPostgreSQLV6
+	} else if esV5 {
+		cabecera = cabeceraContenidoDetalleRRHHPostgreSQLV5
+	} else if esV4 {
 		cabecera = cabeceraContenidoDetalleRRHHPostgreSQLV4
 	} else if esV3 {
 		cabecera = cabeceraContenidoDetalleRRHHPostgreSQLV3
@@ -174,7 +182,8 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 	}
 
 	totalHitos, err := lector.enteroSinSigno()
-	if err != nil || totalHitos != resumen.Version ||
+	if err != nil || (!esV5 && totalHitos != resumen.Version) ||
+		(esV5 && totalHitos+5 != resumen.Version) ||
 		!lector.cabenMarcos(totalHitos, 8) {
 		return contenidoDetalleRRHHDecodificado{},
 			errCanonConsultaRRHHPostgreSQL
@@ -186,12 +195,26 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 			return contenidoDetalleRRHHDecodificado{}, err
 		}
 	}
-	if !lector.consumido() {
-		return contenidoDetalleRRHHDecodificado{},
-			errCanonConsultaRRHHPostgreSQL
-	}
 	var entrada ports.EntradaDetalleExpedienteRRHHMinimizada
-	if esV3 {
+	if esV5 {
+		instruccion, errInstruccion := lector.instruccionCompartida()
+		if errInstruccion != nil {
+			return contenidoDetalleRRHHDecodificado{}, errCanonConsultaRRHHPostgreSQL
+		}
+		var propuesta *ports.PropuestaFormalizacionRRHH
+		if esV6 {
+			leida, errPropuesta := lector.propuestaFormalizacion()
+			if errPropuesta != nil {
+				return contenidoDetalleRRHHDecodificado{}, errCanonConsultaRRHHPostgreSQL
+			}
+			propuesta = &leida
+		}
+		entrada, err = ports.NuevaEntradaDetalleExpedienteRRHHMinimizadaDerivadaV1(
+			resumen, solicitud, analisis, referenciaAnalisis, cobertura,
+			referenciaCobertura, asignacion, referenciaAsignacion, fiscalizacion,
+			referenciaFiscalizacion, referenciaSubsanacion, hitos, instruccion, propuesta,
+		)
+	} else if esV3 {
 		entrada, err = ports.NuevaEntradaDetalleExpedienteRRHHMinimizadaV3(
 			resumen, solicitud, analisis, referenciaAnalisis, cobertura,
 			referenciaCobertura, asignacion, referenciaAsignacion, fiscalizacion,
@@ -203,7 +226,7 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 			referenciaCobertura, asignacion, referenciaAsignacion, hitos,
 		)
 	}
-	if err != nil {
+	if err != nil || !lector.consumido() {
 		return contenidoDetalleRRHHDecodificado{},
 			errCanonConsultaRRHHPostgreSQL
 	}
@@ -212,6 +235,51 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 		expedienteRef: resumen.ExpedienteRef,
 		version:       resumen.Version,
 		actualizadoEn: resumen.ActualizadoEn,
+	}, nil
+}
+
+func (l *lectorCanonRRHHPostgreSQL) propuestaFormalizacion() (ports.PropuestaFormalizacionRRHH, error) {
+	ref, e1 := l.texto()
+	recibo, e2 := l.texto()
+	version, e3 := l.enteroSinSigno()
+	confirmadaEn, e4 := l.instante()
+	if algunErrorCanonRRHHPostgreSQL(e1, e2, e3, e4) || version != 7 {
+		return ports.PropuestaFormalizacionRRHH{}, errCanonConsultaRRHHPostgreSQL
+	}
+	return ports.PropuestaFormalizacionRRHH{
+		PropuestaRef: ref, ReciboRef: recibo, Version: version, ConfirmadaEn: confirmadaEn,
+	}, nil
+}
+
+func (l *lectorCanonRRHHPostgreSQL) instruccionCompartida() (ports.InstruccionCompartidaRRHH, error) {
+	derivacionRef, e1 := l.texto()
+	padreRef, e2 := l.texto()
+	numeroPadre, e3 := l.texto()
+	ofertaRef, e4 := l.texto()
+	plaza, e5 := l.enteroSinSigno()
+	reciboRef, e6 := l.texto()
+	huella, e7 := l.texto()
+	creadoEn, e8 := l.instante()
+	actualizadoEn, e9 := l.instante()
+	total, e10 := l.enteroSinSigno()
+	if algunErrorCanonRRHHPostgreSQL(e1, e2, e3, e4, e5, e6, e7, e8, e9, e10) ||
+		plaza == 0 || plaza > 100 || total < 6 || total > 1500 ||
+		!l.cabenMarcos(total, 8) {
+		return ports.InstruccionCompartidaRRHH{}, errCanonConsultaRRHHPostgreSQL
+	}
+	hitos := make([]ports.HitoExpedienteRRHH, int(total))
+	for n := range hitos {
+		var err error
+		hitos[n], err = l.hito()
+		if err != nil {
+			return ports.InstruccionCompartidaRRHH{}, errCanonConsultaRRHHPostgreSQL
+		}
+	}
+	return ports.InstruccionCompartidaRRHH{
+		DerivacionRef: derivacionRef, PadreRef: padreRef, NumeroVisiblePadre: numeroPadre,
+		OfertaRef: ofertaRef, NumeroPlaza: uint32(plaza), ReciboDerivacionRef: reciboRef,
+		HuellaPadreSHA256: huella, CreadoEnPadre: creadoEn,
+		ActualizadoEnPadre: actualizadoEn, HitosPadre: hitos,
 	}, nil
 }
 

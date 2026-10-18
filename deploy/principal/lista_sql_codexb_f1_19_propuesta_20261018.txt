@@ -1,0 +1,2 @@
+# Tras el prefijo completo, AD291/AD292 y B135/CT234 y CT237; no reaplicar instaladas.
+deploy/postgresql/contratacion_temporal/migraciones/000236_propuesta_nombramiento_derivado.up.sql 2427eaf0b5d74a533fa5461ac8a31868a24c43a22ec4a1237b3cf43104e1233e

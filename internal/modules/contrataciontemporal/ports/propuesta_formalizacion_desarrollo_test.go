@@ -51,6 +51,96 @@ func TestMaterialPropuestaFormalizacionNativaSinAceptacionLegada(t *testing.T) {
 	}
 }
 
+func TestPropuestaDerivadaConservaJSONLegadoYExcluyeOtrosOrigenes(t *testing.T) {
+	legado, _, vieja := propuestaDesarrolloPrueba(t)
+	b, err := json.Marshal(legado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	esperado, err := json.Marshal(struct {
+		ClaveIdempotencia                string
+		OrganizacionRef                  string
+		ExpedienteRef                    string
+		LlamamientoRef                   string
+		ResolucionLlamamientoAceptadaRef string
+		ReciboResolucionAceptadaRef      string
+		VersionEsperada                  uint64
+		TipoFormalizacion                SnapshotGobernadoFormalizacion
+		Plantilla                        SnapshotGobernadoFormalizacion
+		Anexos                           []AnexoPropuestaFormalizacion
+		PoliticaFirma                    SnapshotGobernadoFormalizacion
+		PlanFirma                        SnapshotGobernadoFormalizacion
+	}{legado.ClaveIdempotencia, legado.OrganizacionRef, legado.ExpedienteRef,
+		legado.LlamamientoRef, legado.ResolucionLlamamientoAceptadaRef, legado.ReciboResolucionAceptadaRef,
+		legado.VersionEsperada, legado.TipoFormalizacion, legado.Plantilla, legado.Anexos, legado.PoliticaFirma, legado.PlanFirma})
+	if err != nil || !bytes.Equal(b, esperado) {
+		t.Fatal("cambiaron los bytes del JSON legado", err)
+	}
+	var campos map[string]json.RawMessage
+	if json.Unmarshal(b, &campos) != nil || len(campos) != 12 || bytes.Contains(b, []byte(`"DerivacionRef"`)) {
+		t.Fatal("cambió el JSON legado de doce campos")
+	}
+	s := legado
+	padreRef := s.ExpedienteRef
+	s.DerivacionRef = "derivacion:ct234:01"
+	s.ExpedienteRef = HijoRefDerivacionNombramiento(s.OrganizacionRef, padreRef, 1)
+	s.LlamamientoRef, s.ResolucionLlamamientoAceptadaRef, s.ReciboResolucionAceptadaRef = "", "", ""
+	e := EvidenciaAceptacionDerivada{
+		DerivacionRef: s.DerivacionRef, PadreRef: padreRef, HijoRef: s.ExpedienteRef,
+		OfertaRef: "oferta:" + strings.Repeat("a", 64), NumeroPlaza: 1,
+		AceptacionRef: "aceptacion-plaza:sintetica:01", ReciboDerivacionRef: "recibo:derivacion:sintetica:01",
+	}
+	a := AntecedentePropuestaFormalizacion{Derivacion: &e}
+	m := MaterialPropuestaFormalizacion{Etapa: "confirmacion", Solicitud: s, AceptacionDerivada: &e}
+	if s.Validar() != nil || e.ValidarPara(s) != nil || a.ValidarPara(s) != nil || m.Validar() != nil {
+		t.Fatal("origen derivado válido rechazado")
+	}
+	clon := m.Clonar()
+	clon.AceptacionDerivada.ReciboDerivacionRef = "recibo:otro"
+	if m.AceptacionDerivada.ReciboDerivacionRef == clon.AceptacionDerivada.ReciboDerivacionRef {
+		t.Fatal("evidencia compartida por el clon")
+	}
+	b, err = json.Marshal(m)
+	if err != nil || !bytes.Contains(b, []byte(`"AceptacionDerivada":`)) || bytes.Contains(b, []byte(`"AceptacionBolsa":`)) || bytes.Contains(b, []byte(`"AceptacionBolsaNativa":`)) {
+		t.Fatal("JSON de material derivado mezclado", err)
+	}
+	cruce := m
+	cruce.AceptacionBolsa = &vieja
+	if cruce.Validar() == nil {
+		t.Fatal("aceptación derivada y legado simultáneos")
+	}
+	cruce = m
+	cruce.AceptacionBolsaNativa = &EvidenciaAceptacionBolsaNativa{}
+	if cruce.Validar() == nil {
+		t.Fatal("aceptación derivada y nativa simultáneas")
+	}
+	cruce = m
+	cruce.AceptacionDerivada = &EvidenciaAceptacionDerivada{}
+	if cruce.Validar() == nil {
+		t.Fatal("aceptación sin ligadura")
+	}
+	cruce = m
+	cruce.Solicitud.VersionEsperada = 7
+	if cruce.Validar() == nil {
+		t.Fatal("propuesta inicial derivada fuera de v6")
+	}
+	mezcla := a
+	mezcla.SeleccionClave = "21111111-1111-4111-8111-111111111111"
+	if mezcla.ValidarPara(s) == nil {
+		t.Fatal("antecedente derivado con selección antigua")
+	}
+	mezcla = a
+	mezcla.Resolucion.ResolucionRef = "resolucion:falsa"
+	if mezcla.ValidarPara(s) == nil {
+		t.Fatal("antecedente derivado con resolución ficticia")
+	}
+	mezcla = a
+	mezcla.Derivacion = &EvidenciaAceptacionDerivada{}
+	if mezcla.ValidarPara(s) == nil {
+		t.Fatal("antecedente derivado desligado")
+	}
+}
+
 func TestPropuestaFormalizacionDesarrolloSucesorConservaRaizYMaterial(t *testing.T) {
 	s, a, e := propuestaDesarrolloPrueba(t)
 	raiz := a.Justificante.Seleccion

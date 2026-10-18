@@ -18,17 +18,19 @@ type envoltorioDetalleRRHH struct {
 }
 
 type detalleRRHHJSON struct {
-	Esquema           string                     `json:"esquema"`
-	Resumen           resumenRRHHJSON            `json:"resumen"`
-	Solicitud         solicitudRRHHJSON          `json:"solicitud"`
-	Analisis          *analisisRRHHJSON          `json:"analisis,omitempty"`
-	Cobertura         *coberturaRRHHJSON         `json:"cobertura,omitempty"`
-	Asignacion        *asignacionRRHHJSON        `json:"asignacion,omitempty"`
-	Fiscalizacion     *fiscalizacionRRHHJSON     `json:"fiscalizacion,omitempty"`
-	Hitos             []hitoExpedienteRRHHJSON   `json:"hitos"`
-	PresentacionFlujo *presentacionFlujoRRHHJSON `json:"presentacion_flujo,omitempty"`
-	CapacidadesFicha  *capacidadesFichaRRHHJSON  `json:"capacidades_ficha,omitempty"`
-	ResultadoBolsa    *ports.ResultadoBolsaRRHH  `json:"resultado_bolsa,omitempty"`
+	Esquema                string                          `json:"esquema"`
+	Resumen                resumenRRHHJSON                 `json:"resumen"`
+	Solicitud              solicitudRRHHJSON               `json:"solicitud"`
+	Analisis               *analisisRRHHJSON               `json:"analisis,omitempty"`
+	Cobertura              *coberturaRRHHJSON              `json:"cobertura,omitempty"`
+	Asignacion             *asignacionRRHHJSON             `json:"asignacion,omitempty"`
+	Fiscalizacion          *fiscalizacionRRHHJSON          `json:"fiscalizacion,omitempty"`
+	Hitos                  []hitoExpedienteRRHHJSON        `json:"hitos"`
+	InstruccionCompartida  *instruccionCompartidaRRHHJSON  `json:"instruccion_compartida,omitempty"`
+	PropuestaFormalizacion *propuestaFormalizacionRRHHJSON `json:"propuesta_formalizacion,omitempty"`
+	PresentacionFlujo      *presentacionFlujoRRHHJSON      `json:"presentacion_flujo,omitempty"`
+	CapacidadesFicha       *capacidadesFichaRRHHJSON       `json:"capacidades_ficha,omitempty"`
+	ResultadoBolsa         *ports.ResultadoBolsaRRHH       `json:"resultado_bolsa,omitempty"`
 }
 
 type capacidadesFichaRRHHJSON struct {
@@ -149,6 +151,26 @@ type hitoExpedienteRRHHJSON struct {
 	EstadoDestino     string `json:"estado_destino"`
 }
 
+type instruccionCompartidaRRHHJSON struct {
+	DerivacionRef       string                   `json:"derivacion_ref"`
+	PadreRef            string                   `json:"padre_ref"`
+	NumeroVisiblePadre  string                   `json:"numero_visible_padre"`
+	OfertaRef           string                   `json:"oferta_ref"`
+	NumeroPlaza         uint32                   `json:"numero_plaza"`
+	ReciboDerivacionRef string                   `json:"recibo_derivacion_ref"`
+	HuellaPadreSHA256   string                   `json:"huella_padre_sha256"`
+	CreadoEnPadre       string                   `json:"creado_en_padre"`
+	ActualizadoEnPadre  string                   `json:"actualizado_en_padre"`
+	HitosPadre          []hitoExpedienteRRHHJSON `json:"hitos_padre"`
+}
+
+type propuestaFormalizacionRRHHJSON struct {
+	PropuestaRef string `json:"propuesta_ref"`
+	ReciboRef    string `json:"recibo_ref"`
+	Version      uint64 `json:"version"`
+	ConfirmadaEn string `json:"confirmada_en"`
+}
+
 func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 	salida := detalleRRHHJSON{
 		Esquema: esquemaConsultaDetalleRRHH,
@@ -217,16 +239,39 @@ func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 		}
 	}
 	for indice, hito := range entrada.Hitos {
-		salida.Hitos[indice] = hitoExpedienteRRHHJSON{
-			Secuencia: hito.Secuencia, VersionExpediente: hito.VersionExpediente,
-			AccionClave: string(hito.AccionClave),
-			RealizadaEn: instanteConsultaRRHH(hito.RealizadaEn),
-			FaseOrigen:  string(hito.FaseOrigen), FaseDestino: string(hito.FaseDestino),
-			EstadoOrigen:  string(hito.EstadoOrigen),
-			EstadoDestino: string(hito.EstadoDestino),
+		salida.Hitos[indice] = proyectarHitoDetalleRRHH(hito)
+	}
+	if i := entrada.InstruccionCompartida; i != nil {
+		compartida := &instruccionCompartidaRRHHJSON{
+			DerivacionRef: i.DerivacionRef, PadreRef: i.PadreRef,
+			NumeroVisiblePadre: i.NumeroVisiblePadre, OfertaRef: i.OfertaRef,
+			NumeroPlaza: i.NumeroPlaza, ReciboDerivacionRef: i.ReciboDerivacionRef,
+			HuellaPadreSHA256:  i.HuellaPadreSHA256,
+			CreadoEnPadre:      instanteConsultaRRHH(i.CreadoEnPadre),
+			ActualizadoEnPadre: instanteConsultaRRHH(i.ActualizadoEnPadre),
+			HitosPadre:         make([]hitoExpedienteRRHHJSON, len(i.HitosPadre)),
+		}
+		for n, hito := range i.HitosPadre {
+			compartida.HitosPadre[n] = proyectarHitoDetalleRRHH(hito)
+		}
+		salida.InstruccionCompartida = compartida
+	}
+	if p := entrada.PropuestaFormalizacion; p != nil {
+		salida.PropuestaFormalizacion = &propuestaFormalizacionRRHHJSON{
+			PropuestaRef: p.PropuestaRef, ReciboRef: p.ReciboRef,
+			Version: p.Version, ConfirmadaEn: instanteConsultaRRHH(p.ConfirmadaEn),
 		}
 	}
 	return salida
+}
+
+func proyectarHitoDetalleRRHH(hito ports.HitoExpedienteRRHH) hitoExpedienteRRHHJSON {
+	return hitoExpedienteRRHHJSON{
+		Secuencia: hito.Secuencia, VersionExpediente: hito.VersionExpediente,
+		AccionClave: string(hito.AccionClave), RealizadaEn: instanteConsultaRRHH(hito.RealizadaEn),
+		FaseOrigen: string(hito.FaseOrigen), FaseDestino: string(hito.FaseDestino),
+		EstadoOrigen: string(hito.EstadoOrigen), EstadoDestino: string(hito.EstadoDestino),
+	}
 }
 
 func proyectarAnalisisRRHH(entrada ports.AnalisisOperativoRRHH) *analisisRRHHJSON {

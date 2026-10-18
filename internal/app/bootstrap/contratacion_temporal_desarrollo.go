@@ -659,6 +659,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var seleccionReal httpinterno.EjecutorSeleccionLlamamiento = noCompuesta
 	var autoridadPropuestaReal httpinterno.AutoridadServidorPropuestaFormalizacion = noCompuesta
 	var propuestaReal httpinterno.EjecutorPropuestaFormalizacion = noCompuesta
+	var propuestaMontada *ejecutorPropuestaFormalizacionDesarrollo
 	var comunicacionReal http.Handler
 	var respuestaRecibidaReal http.Handler
 	var consultaReciboRespuestaReal http.Handler
@@ -723,6 +724,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, err
 		}
 		autoridadPropuestaReal, propuestaReal = propuesta, propuesta
+		propuestaMontada = propuesta
 	}
 	var cuadroReal httpinterno.ConsultorCuadroRRHH = &consultorCuadroNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	var detalleReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
@@ -961,6 +963,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
 		borradorFormalizacion = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
 		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
+	}
+	if propuestaMontada != nil && consultasRRHH.detalle != nil {
+		propuestaMontada.detalle, propuestaMontada.fronteras = consultasRRHH.detalle, catalogoFronteras
 	}
 	// CT201 consume el detalle V3 y lee B98 en la misma transacción antes de
 	// devolverlo. La respuesta firme nativa conserva así su acuse nominal.

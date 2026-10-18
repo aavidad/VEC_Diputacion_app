@@ -1,4 +1,4 @@
-import { referenciaLlamamientoValida } from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { referenciaLlamamientoValida } from "./contrato-llamamiento.js?v=20261018-f119-conjunto-v1";
 
 export const RUTA_DERIVACION_NOMBRAMIENTO = "/api/vec/contratacion-temporal/nombramientos/derivaciones";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;

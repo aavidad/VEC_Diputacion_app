@@ -3,13 +3,13 @@
 import {
   escaparHTML, numeroExpedienteVisible, renderizarAuditoria, renderizarCuadro, renderizarDocumentos,
   renderizarEstadoCarga, renderizarExpediente,
-} from "./componentes-expedientes.js?v=20261018-f119-derivacion-v2";
+} from "./componentes-expedientes.js?v=20261018-f119-conjunto-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20261018-f119-derivacion-v2";
+import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20261018-f119-conjunto-v1";
 
 // Mensajes que describen la carga del cuadro de mando. Pertenecen a la pestaña
 // del cuadro: en «Nueva petición» el formulario no depende de esa carga y no
@@ -121,6 +121,19 @@ export function contextoLlamamientoDesdeEstado(estado, reciboFiscalizacion = nul
     || expediente?.demostracion !== false || estado.cuadro?.demostracion !== false
     || estado.expediente_ref !== expediente.expediente_ref
     || !Array.isArray(estado.cuadro.expedientes)) return null;
+  const instruccion = expediente.instruccion_compartida;
+  const resumenDerivado = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
+    referencia === expediente.expediente_ref
+  ));
+  const derivado = instruccion?.derivacion_ref && expediente.version === 6
+    && (!resumenDerivado || (resumenDerivado.version === 6 && resumenDerivado.fase_clave === "fiscalizacion"))
+    && expediente.numero_personas === 1
+    && expediente.historial?.length === 1
+    && expediente.historial[0].secuencia === 6
+    && expediente.historial[0].accion_clave === "contratacion_temporal.nombramiento.derivar"
+    && ["favorable", "favorable_con_observaciones"].includes(expediente.fiscalizacion?.resultado_clave);
+  if (derivado) return Object.freeze({ expediente_ref: expediente.expediente_ref,
+    version_esperada: 6, numero_personas: 1, derivacion_ref: instruccion.derivacion_ref });
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
     referencia === expediente.expediente_ref
   ));

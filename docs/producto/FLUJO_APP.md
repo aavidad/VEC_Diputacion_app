@@ -369,15 +369,15 @@ necesarios para la activación. Este ejercicio no cambia
 los pasos 1 a 21 del caso singular.
 
 **Continuación por persona (F1-19, en preparación).** La petición y su
-fiscalización se conservan en el expediente padre. Por cada plaza adjudicada,
-RRHH creará desde su ficha un expediente de nombramiento con el mismo número
-seguido de «-P» y el número de plaza. Cada hijo tendrá su aceptación de plaza,
-su permiso y su recibo propios. Conserva la instrucción original como
-antecedente compartido; no vuelve a registrar los actos del padre.
-La derivación y el panel del padre se preparan en cortes separados. Siguen pendientes
-el ensayo y la conexión de la propuesta, resolución, incorporación, alta en
-Personal y cese de cada hijo. El cese de una persona no debe cambiar el de la
-otra. Esta variante no modifica el recorrido singular de los pasos 1 a 21.
+fiscalización permanecen en el expediente padre. Por cada plaza adjudicada,
+RRHH deriva un expediente de nombramiento con el número del padre seguido
+de «-P» y el número de plaza. El hijo conserva la instrucción original como
+antecedente compartido, con su aceptación, permiso y recibo propios; su
+propuesta, resolución, incorporación, alta en Personal, cese y cierre siguen
+un recorrido independiente. La apertura, la propuesta y la ficha que separa
+antecedentes y actos propios están preparadas; faltan permisos, ensayo conjunto
+y comprobación tras reinicio. El cese de una persona no cambia el de otra.
+Esta variante conserva los pasos 1 a 21 del caso singular.
 
 ### 4.0.1 Vista general
 

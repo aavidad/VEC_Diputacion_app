@@ -12,7 +12,7 @@ import {
   validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
   CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE,
   snapshotsFormalizacionDesarrollo, validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
-  CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
+  CAMPOS_PROPUESTA, CAMPOS_PROPUESTA_DERIVADA, CAMPOS_RECIBO_PROPUESTA,
 } from "./contrato-llamamiento.js";
 import { RUTAS_LLAMAMIENTO, RUTA_PUBLICACIONES_FORMALIZACION, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
 
@@ -168,6 +168,32 @@ test("propuesta: POST once campos existentes, seis de recibo y versión de exped
   for (const mutacion of [{ auditoria_ref: "aud:interna" }, { version_resultante: 4 },
     { estado_local: "firmada" }, { propuesta_ref: "" }, { confirmada_en: "2026-09-06T10:00:00.1234567Z" }])
     assert.throws(() => validarReciboPropuestaFormalizacion({ ...PROPUESTA_CONFIRMADA, ...mutacion }, PROPUESTA), TypeError);
+});
+
+test("propuesta derivada usa antecedente propio y exige eco exacto sin referencias manuales", async () => {
+  const derivada = validarSolicitudPropuestaFormalizacion({ ...PROPUESTA,
+    derivacion_ref: "derivacion:ct:plaza:2", llamamiento_ref: "",
+    resolucion_llamamiento_aceptada_ref: "", recibo_resolucion_aceptada_ref: "" });
+  assert.deepEqual(Object.keys(derivada), CAMPOS_PROPUESTA_DERIVADA);
+  const eco = { ...PROPUESTA_CONFIRMADA, derivacion_ref: derivada.derivacion_ref,
+    llamamiento_ref: "", resolucion_llamamiento_aceptada_ref: "", recibo_resolucion_aceptada_ref: "" };
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
+    assert.equal(ruta, "/api/vec/contratacion-temporal/formalizacion/propuestas");
+    assert.deepEqual(JSON.parse(opciones.body), derivada);
+    return respuesta({ data: eco });
+  } });
+  assert.deepEqual(await cliente.prepararPropuestaFormalizacion(derivada), eco);
+  for (const mutacion of [
+    { derivacion_ref: "" }, { llamamiento_ref: PROPUESTA.llamamiento_ref },
+    { resolucion_llamamiento_aceptada_ref: PROPUESTA.resolucion_llamamiento_aceptada_ref },
+    { recibo_resolucion_aceptada_ref: PROPUESTA.recibo_resolucion_aceptada_ref },
+    { version_esperada: 7 }, { ajeno: true },
+  ]) assert.throws(() => validarSolicitudPropuestaFormalizacion({ ...derivada, ...mutacion }), TypeError);
+  for (const mutacion of [{ derivacion_ref: "derivacion:otra" }, { llamamiento_ref: "llamamiento:manual" },
+    { recibo_resolucion_aceptada_ref: "recibo:manual" }, { campo_extra: true }])
+    assert.throws(() => validarReciboPropuestaFormalizacion({ ...eco, ...mutacion }, derivada), TypeError);
+  assert.throws(() => validarReciboPropuestaFormalizacion(PROPUESTA_CONFIRMADA, derivada), TypeError);
+  assert.throws(() => validarReciboPropuestaFormalizacion(eco, PROPUESTA), TypeError);
 });
 
 test("propuesta: errores con namespace propio y ningún éxito falso ni reintento automático", async () => {

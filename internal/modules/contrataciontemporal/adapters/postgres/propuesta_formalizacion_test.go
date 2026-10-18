@@ -136,6 +136,47 @@ func TestPropuestaFormalizacionPGConsultaConfirmacionYReplay(t *testing.T) {
 	}
 }
 
+func TestPropuestaFormalizacionPGDerivadaReutilizaCT211Nativa(t *testing.T) {
+	s, _, _, salida := datosPropuestaPGPrueba(t)
+	padreRef := s.ExpedienteRef
+	s.DerivacionRef = "derivacion:ct234:01"
+	s.ExpedienteRef = ports.HijoRefDerivacionNombramiento(s.OrganizacionRef, padreRef, 1)
+	s.LlamamientoRef, s.ResolucionLlamamientoAceptadaRef, s.ReciboResolucionAceptadaRef = "", "", ""
+	e := ports.EvidenciaAceptacionDerivada{
+		DerivacionRef: s.DerivacionRef, PadreRef: padreRef, HijoRef: s.ExpedienteRef,
+		OfertaRef: "oferta:" + strings.Repeat("a", 64), NumeroPlaza: 1,
+		AceptacionRef: "aceptacion-plaza:sintetica:01", ReciboDerivacionRef: "recibo:derivacion:sintetica:01",
+	}
+	m := ports.MaterialPropuestaFormalizacion{Etapa: "confirmacion", Solicitud: s, AceptacionDerivada: &e}
+	salida.Solicitud = s
+	if m.Validar() != nil || salida.ValidarPara(s) != nil {
+		t.Fatal("fixture derivada inválida")
+	}
+	tx := &transaccionEjecucionSeleccionO6Prueba{}
+	pool := &iniciadorEjecucionSeleccionO6Prueba{tx: tx}
+	p := &proveedorPropuestaPGPrueba{material: m, autorizar: func(_ context.Context, m ports.MaterialPropuestaFormalizacion) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+		return materialPropuestaPGPrueba(t, m, AccionPropuestaFormalizacion), nil
+	}}
+	repo := &RegistroPropuestaFormalizacionPostgreSQL{pool: pool, proveedor: p}
+	a := ports.AntecedentePropuestaFormalizacion{Derivacion: &e}
+	b, _ := json.Marshal(a)
+	tx.fila = filaEjecucionSeleccionO6Prueba{valores: []any{string(b)}}
+	leida, err := repo.LeerAntecedente(t.Context(), s)
+	if err != nil || !reflect.DeepEqual(leida, a) {
+		t.Fatalf("consulta derivada: %v", err)
+	}
+	b, _ = json.Marshal(salida)
+	tx.fila = filaEjecucionSeleccionO6Prueba{valores: []any{string(b)}}
+	confirmada, err := repo.ConfirmarPropuesta(t.Context(), s)
+	if err != nil || !reflect.DeepEqual(confirmada, salida) {
+		t.Fatalf("confirmación derivada: %v", err)
+	}
+	if len(tx.consultas) != 2 || !strings.Contains(tx.consultas[0], "leer_antecedente_propuesta_formalizacion_ct211_v1(") ||
+		!strings.Contains(tx.consultas[1], "registrar_propuesta_formalizacion_nativa_ct211_v1(") {
+		t.Fatalf("función equivocada: %v", tx.consultas)
+	}
+}
+
 func TestPropuestaFormalizacionPGDespachaV2SoloParaVersionPosterior(t *testing.T) {
 	s, _, m, resultado := datosPropuestaPGPrueba(t)
 	s.VersionEsperada = 7

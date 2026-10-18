@@ -6,19 +6,19 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 // La integración de las ofertas de CT con CT231 renueva entrada, coordinador
 // y la cadena de Contratación cambiada; el alta conserva su cohorte.
-const versionCoordinador = "20261018-f119-derivacion-v2";
+const versionCoordinador = "20261018-f119-conjunto-v1";
 const versionCoordinadorEntrada = versionCoordinador;
 const versionEntrada = versionCoordinadorEntrada;
-const versionClienteCT = "20261016-ct-ofertas-ct231-v1";
-const versionClienteConsulta = "20261018-f119-derivacion-v2";
-const versionClienteRPT = "20261018-f119-derivacion-v2";
+const versionClienteCT = "20261018-f119-conjunto-v1";
+const versionClienteConsulta = "20261018-f119-conjunto-v1";
+const versionClienteRPT = "20261018-f119-conjunto-v1";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
-const versionCircuito = "20261018-f119-derivacion-v2";
-const versionAccionesFirma = "20261018-f119-derivacion-v2";
-const versionVista = "20261018-f119-derivacion-v2";
-const versionVistaPortal = "20261018-f119-derivacion-v2";
-const versionAdaptador = "20261016-ct-ofertas-ct231-v1";
-const versionRender = "20261018-f119-derivacion-v2";
+const versionCircuito = "20261018-f119-conjunto-v1";
+const versionAccionesFirma = "20261018-f119-conjunto-v1";
+const versionVista = "20261018-f119-conjunto-v1";
+const versionVistaPortal = "20261018-f119-conjunto-v1";
+const versionAdaptador = "20261018-f119-conjunto-v1";
+const versionRender = "20261018-f119-conjunto-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -44,7 +44,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
-  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", "20261016-ct-ofertas-ct231-v1");
+  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", "20261018-f119-conjunto-v1");
   exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
 });
 
