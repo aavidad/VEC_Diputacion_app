@@ -1,0 +1,3 @@
+deploy/postgresql/catalogos_configurables/migraciones/000014_limites_transiciones_situacion_bolsa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000283_consumidor_politica_transiciones_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000122_gobierno_transiciones_situacion.up.sql
