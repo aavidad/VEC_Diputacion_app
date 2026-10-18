@@ -619,8 +619,9 @@ de copia no acreditan su activación gobernada.
 **Modalidad y causa en las ofertas (F1-11).** El cambio en preparación conserva
 ambas claves del análisis de CT y la referencia y versión de su expediente.
 La reserva y la publicación cotejan esa fuente. Las ofertas históricas se
-recuperan con sus datos originales. Falta ensayar CT235 y B136 y comprobar el
-recorrido con reinicio; esta pieza aún no acredita el filtrado por preferencias
+recuperan con sus datos originales. CT235 y B136 y sus pruebas focales
+se ensayaron sobre el prefijo completo de main. Falta comprobar el recorrido con
+reinicio; esta pieza aún no acredita el filtrado por preferencias
 de F1-13 ni su pantalla de F1-14.
 
 ## 8. Reglas que siguen vigentes de los relevos anteriores

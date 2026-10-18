@@ -377,8 +377,9 @@ expediente. CT235 coteja ambas claves al reservar y B136 vuelve a cotejarlas al
 publicar mediante la lectura CT221 existente. El canon nuevo liga las dos claves
 al hash anterior; las ofertas históricas conservan sus datos y su canon. No se
 añaden tablas, permisos ni lecturas de tablas ajenas. Las proyecciones existentes
-de RRHH y Mi Bolsa conservan el objeto `datos` completo. El ensayo SQL y el
-recorrido con reinicio de esta ampliación siguen pendientes.
+de RRHH y Mi Bolsa conservan el objeto `datos` completo. Las dos migraciones
+y sus pruebas focales se ensayaron sobre las 73 SQL del prefijo de main. Sigue
+pendiente el recorrido de publicación y recuperación con reinicio.
 
 El seguimiento `GET /api/vec/bolsa/bolsas/{bolsa}/candidatos` puede pedir
 `llamamiento` y `exclusiones_desde`. El bloque `exclusiones_origen` usa una acción

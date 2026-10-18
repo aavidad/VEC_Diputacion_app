@@ -35,5 +35,10 @@ modalidad o causa antes de publicar debe impedir el efecto. Reiniciar aplicació
 y PostgreSQL y volver a consultar y recuperar la operación. Comprobar también el
 arranque sin activar el puente CT-Bolsa y con su configuración existente.
 
-Estado: pruebas focales de Go conformes; instalación SQL, recorrido en navegador
-y reinicio pendientes. La composición de CT en la copia depende del trabajo F0-28.
+Estado a 18/10: pruebas focales de Go conformes; 75 migraciones instaladas en la
+copia propia (73 del prefijo de main y CT235/B136), con las dos pruebas SQL
+conformes. Las SQL ensayadas corresponden al commit `53593f247`; la lista del
+prefijo procede de `8dd52c11` (#1195) y todas sus huellas coinciden con main.
+Semgrep local sin hallazgos. Quedan pendientes la reserva y publicación reales,
+el recorrido en navegador y el reinicio. La composición de CT en la copia
+depende del trabajo F0-28.
