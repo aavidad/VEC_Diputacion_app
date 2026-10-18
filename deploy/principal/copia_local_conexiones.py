@@ -1,9 +1,11 @@
 """Conexiones nominales de CT y Bolsa para una copia local recién creada.
 
 F0-08 sigue pendiente: el pool de gobierno usa SET ROLE al propietario AD3.
-La única excepción SET TRUE es su arco al migrador AD3. El volcado carece de
+Durante el alta solo se añade SET TRUE en su arco al migrador AD3. El volcado carece de
 membresías globales; se restaura solo el arco migrador→propietario autorizado
-por roles_up.sql. El resto de LOGIN recibe SET FALSE.
+por roles_up.sql. El productor de datos completa los arcos de gobierno que
+necesita el arranque; copia_local_verificacion coteja el contrato final.
+El resto de LOGIN recibe SET FALSE y una única membresía.
 """
 
 from __future__ import annotations

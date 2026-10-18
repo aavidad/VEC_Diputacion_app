@@ -92,6 +92,32 @@ class CopiaLocalTest(unittest.TestCase):
         with patch.object(copia, 'BASE', self.raiz), self.assertRaises(ValueError):
             copia.Copia('l', 'focal')
 
+    def test_binario_alterado_o_enlazado_no_se_arranca(self):
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'focal')
+        instancia.raiz.mkdir(mode=0o700)
+        binario = instancia.raiz / 'vec-server'
+        binario.write_bytes(b'binario-verificado')
+        binario.chmod(0o700)
+        estado = {'binario_sha256': copia.sha256(binario)}
+        instancia.validar_binario(estado)
+        binario.write_bytes(b'binario-distinto')
+        with self.assertRaisesRegex(ValueError, 'binario no coincide'):
+            instancia.validar_binario(estado)
+        binario.unlink()
+        binario.symlink_to(self.sql)
+        with self.assertRaises(ValueError):
+            instancia.validar_binario(estado)
+
+    def test_compilacion_rechaza_cambios_y_revision_distinta(self):
+        self.historial.side_effect = None
+        self.historial.return_value = b' M cmd/vec-server/main.go\n'
+        with self.assertRaisesRegex(ValueError, 'árbol limpio'):
+            copia.verificar_fuente()
+        self.historial.return_value = b''
+        with patch.object(copia, 'revision', return_value='otra'), self.assertRaises(ValueError):
+            copia.verificar_fuente('esperada')
+
     def test_preparador_exige_fichero_privado_externo_sin_enlaces(self):
         preparador = self.raiz / 'preparar.py'
         preparador.write_text('pass\n')

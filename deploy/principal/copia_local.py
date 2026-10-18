@@ -138,6 +138,7 @@ class Copia:
                            stderr=subprocess.STDOUT, check=True, timeout=300)
 
     def crear(self, args):
+        verificar_fuente()
         memoria()
         puerto_libre(args.puerto_pg)
         puerto_libre(args.puerto_app)
@@ -202,7 +203,10 @@ class Copia:
             guardar(self.estado, estado)
             with (self.raiz / 'datos-preparacion.log').open('ab') as log:
                 ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
+            from copia_local_verificacion import comprobar as comprobar_conexiones
+            comprobar_conexiones(self)
         memoria()
+        verificar_fuente(self.leer()['revision'])
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
                       'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
@@ -214,6 +218,8 @@ class Copia:
             ejecutar([go, 'build', '-p', '6', '-o', self.raiz / 'vec-server', './cmd/vec-server'],
                       cwd=REPO, salida=log, entorno=entorno_go)
         estado = self.leer()
+        verificar_fuente(estado['revision'])
+        estado['binario_sha256'] = sha256(self.raiz / 'vec-server')
         estado['preparada'] = True
         guardar(self.estado, estado)
         self.arrancar()
@@ -271,6 +277,8 @@ class Copia:
         estado = self.leer()
         if not estado['preparada'] or estado['revision'] != revision():
             raise ValueError('Copia incompleta o revisión distinta; use una instancia nueva')
+        verificar_fuente(estado['revision'])
+        self.validar_binario(estado)
         self.pg()
         if self.proceso(estado):
             raise ValueError('La aplicación propia ya está activa')
@@ -321,6 +329,14 @@ class Copia:
                        for k, v in entorno.items())):
             raise ValueError('Configuración de módulos inválida')
         return entorno
+
+    def validar_binario(self, estado):
+        ruta = self.raiz / 'vec-server'
+        datos = ruta.lstat()
+        if (not stat.S_ISREG(datos.st_mode) or datos.st_uid != os.getuid()
+                or datos.st_mode & 0o077 or datos.st_nlink != 1
+                or sha256(ruta) != estado.get('binario_sha256')):
+            raise ValueError('El binario no coincide con el compilado para esta copia')
 
 
     def proceso(self, estado):
@@ -400,6 +416,13 @@ class Copia:
 
 def revision():
     return subprocess.check_output(['git', '-C', str(REPO), 'rev-parse', 'HEAD'], text=True).strip()
+
+
+def verificar_fuente(esperada=None):
+    estado = subprocess.check_output(['git', '-C', str(REPO), 'status', '--porcelain',
+                                     '--untracked-files=all'])
+    if estado or (esperada is not None and revision() != esperada):
+        raise ValueError('La compilación requiere la revisión indicada y el árbol limpio')
 
 
 def validar_ejecutor_privado(variable):

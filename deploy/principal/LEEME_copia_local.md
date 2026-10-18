@@ -87,6 +87,20 @@ administración y con vigencia de 90 días. AD278 comprueba esos datos; no se
 debilita su guarda. Las demás conexiones se crean con nombres y contraseñas
 nuevos. El registro privado conserva sus valores y la huella del entorno.
 
+Tras el productor de datos, el guion coteja los 22 LOGIN internos: opciones
+sin privilegios de administración y una sola membresía para cada conexión de
+peticiones. El gobierno de arranque es la excepción: necesita seis arcos
+concretos, definidos en `copia_local_verificacion.py`, y no admite otros.
+Los propietarios y el proyector conservan las opciones exactas de `SET` e
+`INHERIT`; no se trasladan a los LOGIN de peticiones. H retirará esta
+excepción al completar F0-08 con el contrato nominal de R.
+
+El lector de motivos conserva caducidad nula porque así lo exige su
+comprobación instalada. Es una excepción de datos de esta copia; su TLS y
+los demás LOGIN nuevos duran 90 días. Se ha comunicado a dirección para
+retirarla al adaptar ese contrato. El cotejo rechaza cualquier otra caducidad
+nula o vigencia fuera de 60 a 90 días.
+
 El productor del aspirante se ejecuta con la aplicación y el sellado de
 auditoría activos. Al terminar se reinician PostgreSQL y la aplicación para
 cargar su configuración. La preparación debe publicar identidad, contexto,
@@ -153,6 +167,9 @@ consulta del cuadro de Contratación y el listado de bolsas. La disponibilidad
 global de otras funciones opcionales no se deduce de estas comprobaciones.
 `arrancar` rechaza una copia incompleta o
 una revisión de código distinta; crea otra instancia cuando cambie la rama.
+La compilación exige índice y árbol limpios antes y después de generar el
+binario. Su SHA-256 queda en el estado; cada arranque lo coteja y exige la
+misma fuente limpia, también para los archivos web que se sirven desde ella.
 `borrar` comprueba el árbol de trabajo creador, la marca de propiedad y la
 etiqueta del contenedor antes
 de detener y eliminar únicamente su instancia. No actúa sobre puertos o
