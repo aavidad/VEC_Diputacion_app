@@ -17,7 +17,11 @@ BEGIN
  OR to_regprocedure('vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  OR to_regrole('vec_bolsa_llamamientos_portal_externo') IS NULL
  OR to_regrole('vec_bolsa_llamamientos_preferencias_interna') IS NULL
- OR to_regprocedure('vec_autorizacion.cotejar_campos_preferencias_modalidades_aut104(jsonb,jsonb)') IS NULL
+ OR NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='vec_autorizacion'
+   AND p.proname='cotejar_campos_preferencias_modalidades_aut104'
+   AND p.proargtypes='3802 3802'::oidvector AND p.pronargs=2
+   AND p.prorettype=16::oid AND p.prokind='f')
  -- AD296 debe dejar las dos fachadas auditadas con proyecciones de 8/5 campos.
  -- Se cotejan cuerpo y privilegios antes de sustituir las lectoras de Bolsa.
  OR (SELECT encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') FROM pg_proc p
@@ -176,8 +180,7 @@ BEGIN
    OR e->>'entrada_clave' IS DISTINCT FROM 'c12.modalidad.'||(e->>'clave'))
  OR (SELECT count(DISTINCT e->>'clave') FROM jsonb_array_elements(p_disponibles) e)
     <>jsonb_array_length(p_disponibles)
- OR EXISTS(SELECT 1 FROM unnest(p_modalidades) s WHERE s !~ '^[a-z][a-z0-9._-]{1,79}$'
-   OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p_disponibles) e WHERE e->>'clave'=s))
+ OR EXISTS(SELECT 1 FROM unnest(p_modalidades) s WHERE s !~ '^[a-z][a-z0-9._-]{1,79}$')
  OR (p_modalidades IS NOT NULL AND
     (SELECT count(DISTINCT s) FROM unnest(p_modalidades) s) IS DISTINCT FROM cardinality(p_modalidades))
  THEN RAISE EXCEPTION 'B138: catálogo o selección divergente' USING ERRCODE='22023'; END IF;
@@ -235,14 +238,22 @@ BEGIN
    OR v_previa.perfil_ref IS DISTINCT FROM x->>'perfil_activo_ref'
    OR v_previa.superficie IS DISTINCT FROM v_superficie
    OR v_previa.version IS DISTINCT FROM p_version_esperada+1
-   OR v_previa.solicitud_huella_sha256 IS DISTINCT FROM v_huella
-   OR v_previa.contexto_huella_sha256 IS DISTINCT FROM v_contexto_h
-   OR v_previa.catalogo_snapshot IS DISTINCT FROM v_snapshot
    OR v_previa.modalidades IS DISTINCT FROM v_seleccion
+   OR v_previa.solicitud_huella_sha256 IS DISTINCT FROM
+    vec_bolsa_llamamientos.huella_solicitud_modalidades_v1(
+     p_candidato,p_version_esperada,v_previa.modalidades,v_previa.catalogo_snapshot)
+   OR v_previa.contexto_huella_sha256 IS DISTINCT FROM
+    vec_bolsa_llamamientos.huella_contexto_modalidades_v1(
+     p_candidato,v_previa.solicitud_huella_sha256)
+   OR v_previa.recibo_ref IS DISTINCT FROM 'recibo:preferencias-modalidades:'||encode(sha256(convert_to(
+    p_candidato||chr(31)||v_clave_interna||chr(31)||v_previa.solicitud_huella_sha256,'UTF8')),'hex')
   THEN RAISE EXCEPTION 'B138: clave reutilizada con otra selección' USING ERRCODE='VBP02'; END IF;
   RETURN QUERY SELECT true,v_previa.recibo_ref,v_previa.version,v_previa.modalidades,v_previa.registrada_en;
   RETURN;
  END IF;
+ IF EXISTS(SELECT 1 FROM unnest(p_modalidades) s
+  WHERE NOT EXISTS(SELECT 1 FROM jsonb_array_elements(v_snapshot) e WHERE e->>'clave'=s))
+ THEN RAISE EXCEPTION 'B138: modalidad no disponible' USING ERRCODE='22023'; END IF;
  SELECT coalesce(max(p.version),0) INTO v_version FROM vec_bolsa_llamamientos.preferencia_modalidades_version p
  WHERE p.candidato_ref=p_candidato;
  IF v_version<>p_version_esperada THEN
@@ -378,7 +389,11 @@ DO $post$
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_class t WHERE t.oid='vec_bolsa_llamamientos.preferencia_modalidades_version'::regclass
   AND t.relowner='vec_bolsa_llamamientos_propietario'::regrole
-  AND t.relrowsecurity AND t.relforcerowsecurity AND t.relacl IS NULL)
+  AND t.relrowsecurity AND t.relforcerowsecurity
+  AND (SELECT count(*)=8 AND count(DISTINCT a.privilege_type)=8 AND
+    bool_and(a.grantee=t.relowner AND a.grantor=t.relowner AND NOT a.is_grantable
+     AND a.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER','MAINTAIN'))
+   FROM aclexplode(coalesce(t.relacl,acldefault('r',t.relowner))) a) IS TRUE)
  OR (SELECT count(*) FROM pg_trigger t WHERE t.tgrelid='vec_bolsa_llamamientos.preferencia_modalidades_version'::regclass
   AND t.tgname IN ('preferencia_modalidades_version_inmutable','preferencia_modalidades_version_no_truncar')
   AND t.tgenabled='O')<>2
