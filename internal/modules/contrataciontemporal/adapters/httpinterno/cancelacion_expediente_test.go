@@ -58,7 +58,7 @@ func TestCancelacionHTTPRegistraYTraduceRechazos(t *testing.T) {
 	if w := peticionSeguimiento(t, m, RutaCancelacionesExpediente, strings.Replace(cuerpo, `"observaciones"`, `"actor_ref":"per_x","observaciones"`, 1)); w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("campo ajeno: %d", w.Code)
 	}
-	for err, codigo := range map[error]string{ports.ErrCancelacionTrasFiscalizacion: "tras_fiscalizacion", ports.ErrCancelacionNoAdmitida: "fase_no_admitida",
+	for err, codigo := range map[error]string{ports.ErrCancelacionTrasFiscalizacion: "tras_fiscalizacion", ports.ErrCancelacionConOfertaPendiente: "seleccion_oferta_pendiente", ports.ErrCancelacionNoAdmitida: "fase_no_admitida",
 		ports.ErrCancelacionYaRegistrada: "cancelacion_existente", domain.ErrVersionEnConflicto: "version_en_conflicto"} {
 		ejecutor.error = err
 		if w := peticionSeguimiento(t, m, RutaCancelacionesExpediente, cuerpo); w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), `"`+codigo+`"`) ||

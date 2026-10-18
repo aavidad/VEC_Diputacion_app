@@ -2,7 +2,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL,
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
-} from "./contrato-expedientes.js?v=20261016-firma-historica-v5";
+} from "./contrato-expedientes.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { validarCatalogosAlta } from "./contrato.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
@@ -547,6 +547,7 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
     expediente_ref: detalle.resumen.expediente_ref,
     numero_visible: detalle.resumen.numero_visible,
     version: detalle.resumen.version,
+    ...(detalle.solicitud.numero_personas ? { numero_personas: detalle.solicitud.numero_personas } : {}),
     flujo_ref: detalle.resumen.flujo_ref,
     flujo_version: detalle.resumen.flujo_version,
     flujo_huella: detalle.resumen.flujo_huella_sha256,

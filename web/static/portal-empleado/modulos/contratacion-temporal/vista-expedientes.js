@@ -3,14 +3,14 @@
 import { validarReciboAlta } from "./contrato.js?v=20261013-ct-firma-tres-v3";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261016-ct231-integracion-v1";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261016-firma-historica-v5";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261016-firma-historica-v5";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261016-firma-historica-v5";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261018-firma-historica-ct231-v1";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261008-alta-rpt-circular-v6";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarAbrirLlamamiento, renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261016-firma-historica-v5";
+import { renderizarAbrirLlamamiento, renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { cerrarFase, instalarPantallasFase, mostrarFase } from "./fases-expediente.js?v=20261007-pantallas-textos-final-v1";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
@@ -18,16 +18,16 @@ import {
   contextoLlamamientoDesdeEstado,
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes-render.js?v=20261016-firma-historica-v5";
-import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-firma-historica-ct231-v1";
-import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261018-firma-historica-ct231-v1";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261018-firma-historica-ct231-v1";
+} from "./vista-expedientes-render.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { crearGestorRecuperacionFirmasHistoricas } from "./gestor-recuperacion-firmas-historicas.js?v=20261016-firma-historica-v5";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261018-firma-historica-ct231-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261018-firma-historica-ct231-v1";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261011-ct-bolsa-vinculo-v1";
 
-import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261016-firma-historica-v5";
+import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261007-pantallas-textos-final-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20261007-pantallas-textos-final-v1";
@@ -45,9 +45,9 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   return true;
 }
 
-export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261016-firma-historica-v5";
-export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-firma-historica-ct231-v1";
-export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261016-firma-historica-v5";
+export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261018-firma-historica-ct-ofertas-v2";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-firma-historica-ct-ofertas-v2";
+export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261018-firma-historica-ct-ofertas-v2";
 
 export function insertarAvisoEnlaceLegado(raiz, texto) {
   if (!texto || !raiz?.ownerDocument?.createElement || typeof raiz.prepend !== "function") return;

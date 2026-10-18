@@ -348,6 +348,8 @@ type manejadorParticipacionBolsaDesarrollo struct {
 	repositorioSituacion puertosbolsa.RepositorioSituacionParticipacion
 	materialEmision      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	repositorioEmision   puertosbolsa.RepositorioEmisionLlamamiento
+	repositorioOfertas   puertosbolsa.RepositorioOfertasPublicadas
+	calculadoraOfertas   puertosbolsa.CalculadoraPlazoOferta
 	correoFuente         puertosbolsa.FuenteCorreoParticipacion
 	correoEmisor         puertosbolsa.EmisorCorreoBolsa
 	correoPersonalizado  aplicacionbolsa.CorreoPersonalizadoLlamamiento
@@ -955,6 +957,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		return nil, nil, nil, vacio, nil, nil, err
 	}
 	mutador := &manejadorParticipacionBolsaDesarrollo{registradorPerfil: registradorDocumentales, procesoPerfil: procesoDocumentales, canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, politicaSituacion: politicaB, materialSituacion: alta.postgresql.proveedorMaterialSituacion, repositorioSituacion: repositorioSituacion, materialEmision: alta.postgresql.proveedorMaterialEmision, repositorioEmision: repositorioEmision, correoFuente: fuenteCorreo, correoEmisor: correoEmisor, correoPersonalizado: correoPersonalizado, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	mutador.repositorioOfertas, mutador.calculadoraOfertas = repositorioOfertas, calculadoraOfertas
 	// El constructor no consulta SQL ni concesiones. Una función o permiso aún
 	// no instalado afecta solo a este bloque del seguimiento.
 	servicioExclusiones, err := nuevoServicioExclusionesOfrecimientoRRHH(alta.postgresql.bolsa)

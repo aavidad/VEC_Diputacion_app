@@ -1081,6 +1081,101 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes.js", "20261018-firma-historica-ct231-v1");
   versionesEspeciales.set("portal-modulos-coordinador.js", "20261018-firma-historica-ct231-v1");
   versionesEspeciales.set("portal.js", "20261018-firma-historica-ct231-v1");
+  // Las ofertas de varias plazas de CT, integradas con CT231, renuevan su cadena.
+  for (const ruta of [
+    "categorias-rpt/cliente.js",
+    "categorias-rpt/montaje.js",
+    "modulos/bolsa/carga-convoca/arranque.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/cliente-http-cambios-expediente.js",
+    "modulos/contratacion-temporal/cliente-http-cancelacion.js",
+    "modulos/contratacion-temporal/cliente-http-consulta-comunicaciones-expediente.js",
+    "modulos/contratacion-temporal/cliente-http-consulta-recibo-respuesta.js",
+    "modulos/contratacion-temporal/cliente-http-consultas-rrhh.js",
+    "modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http-llamamiento.js",
+    "modulos/contratacion-temporal/cliente-http-transporte.js",
+    "modulos/contratacion-temporal/cliente-http-vinculo-bolsa.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/componentes-expedientes.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/contrato-expedientes.js",
+    "modulos/contratacion-temporal/contrato-llamamiento.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-cobertura.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/presentador-expedientes.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vinculo-categoria-rpt.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-cambios.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "peticiones-centro/arranque-peticiones-centro.js",
+    "peticiones-centro/cancelaciones-centro.js",
+    "portal-modulos-coordinador.js",
+    "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261016-ct-ofertas-ct231-v1");
+  // Cohorte conjunta para módulos modificados en las dos ramas.
+  versionesEspeciales.set("categorias-rpt/cliente.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("categorias-rpt/montaje.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/bolsa/carga-convoca/arranque.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/adaptador-http-expedientes.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/circuito-firma-acciones.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/circuito-firma.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/cliente-http-cambios-expediente.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/cliente-http-consultas-rrhh.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/cliente-http-informe-definitivo.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/cliente-http.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/componentes-expedientes.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/consulta-seguimiento.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/contrato-expedientes.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/datos-presentacion.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/documentacion-formalizacion.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/fase-firma.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/ficha-ginpix.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/formulario-anotacion-administrativa.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/formulario-cierre-administrativo.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/formulario-informe-juridico.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/formulario-llamamiento.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/formulario-propuesta-formalizacion.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/formulario-resolucion-formalizacion.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/incorporacion-personal-b2.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/informe-tras-subsanacion.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/presentador-expedientes.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/renderizado-llamamiento.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/renderizado-plazo-llamamiento.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/seguimiento-incorporacion.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/vinculo-categoria-rpt.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-borrador.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-cambios.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-incorporacion.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-render.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-tramitacion.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261018-firma-historica-ct-ofertas-v2");
+  versionesEspeciales.set("portal.js", "20261018-firma-historica-ct-ofertas-v2");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;

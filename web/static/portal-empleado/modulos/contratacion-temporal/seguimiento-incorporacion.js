@@ -1,6 +1,6 @@
 import { validarPreparacionIncorporacionEjercicio } from "./contrato-incorporacion-ejercicio.js";
 import { validarConsultaSeguimientoIncorporacion, validarSeguimientoIncorporacion } from "./contrato-seguimiento-incorporacion.js";
-import { escaparHTML as escapar } from "./componentes-expedientes.js?v=20261016-firma-historica-v5";
+import { escaparHTML as escapar } from "./componentes-expedientes.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { justificanteTraducido } from "../../portal-justificante.js";
 

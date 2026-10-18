@@ -14,15 +14,34 @@ SPEC.loader.exec_module(roles)
 
 
 class RolesVolcadoTests(unittest.TestCase):
-    def run_cli(self, schema, database='', types=''):
+    def run_cli(self, schema, database='', types='', *, b119=False):
         with tempfile.TemporaryDirectory() as directory:
             paths = []
             for index, content in enumerate((schema, database, types)):
                 path = Path(directory, f'{index}.sql')
                 path.write_text(content, encoding='utf-8')
                 paths.append(str(path))
-            return subprocess.run([sys.executable, str(SCRIPT), *paths],
+            return subprocess.run([sys.executable, str(SCRIPT), *paths,
+                                   *(['--roles-b119'] if b119 else [])],
                                   text=True, capture_output=True, check=False)
+
+    def test_b119_seeds_missing_names_without_login_or_privileges(self):
+        result = self.run_cli('', b119=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), [
+            'CREATE ROLE "vec_externo_documentos_bolsa_datos" NOLOGIN;',
+            'CREATE ROLE "vec_interno_documentos_bolsa_rrhh" NOLOGIN;',
+        ])
+
+    def test_b119_name_already_in_dump_is_created_once(self):
+        result = self.run_cli('GRANT SELECT ON TABLE t TO vec_externo_documentos_bolsa_datos;', b119=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count('CREATE ROLE "vec_externo_documentos_bolsa_datos"'), 1)
+
+    def test_b119_invalid_dump_still_produces_no_partial_sql(self):
+        result = self.run_cli('ALTER TABLE t OWNER TO CURRENT_USER;', b119=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, '')
 
     def test_extracts_owners_acl_and_grantors_without_memberships(self):
         schema = '''

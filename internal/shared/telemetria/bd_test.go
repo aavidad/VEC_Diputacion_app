@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -36,6 +37,10 @@ func TestOperacionSinValores(t *testing.T) {
 }
 
 func TestAccesoCuentaConsultasYMarcaLaPeticionN1(t *testing.T) {
+	synctest.Test(t, probarAccesoCuentaConsultasYMarcaLaPeticionN1)
+}
+
+func probarAccesoCuentaConsultasYMarcaLaPeticionN1(t *testing.T) {
 	var b bytes.Buffer
 	o := opciones(&b)
 	o.Consultas = 20

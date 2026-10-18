@@ -1,0 +1,1 @@
+deploy/postgresql/contratacion_temporal/migraciones/000227_ambitos_oferta_unidad_gestora.up.sql

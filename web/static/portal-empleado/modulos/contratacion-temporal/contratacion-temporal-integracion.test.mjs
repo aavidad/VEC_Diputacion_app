@@ -8,7 +8,7 @@ import {
   VISTAS_MODULOS_PERSONALES,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "../../portal-modulos-coordinador.js?v=20261018-firma-historica-ct231-v1";
+} from "../../portal-modulos-coordinador.js?v=20261018-firma-historica-ct-ofertas-v2";
 
 const directorio = new URL("./", import.meta.url);
 const [
@@ -124,7 +124,7 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Die
   assert.match(coordinadorFuente, /componerCronosInterno/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-saldo-conectado\.js\?v=/);
   assert.match(coordinadorFuente, /modulos\/cronos\/vista-permisos-propios\.js\?v=/);
-  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261016-firma-historica-v5"\)/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js\?v=20261018-firma-historica-ct-ofertas-v2"\)/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
   assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/vista-expedientes\.js\?v=/);

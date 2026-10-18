@@ -1,5 +1,5 @@
 import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261013-ct-firma-tres-v3";
-import { crearVinculoBolsaClienteHTTP } from "./cliente-http-vinculo-bolsa.js?v=20261011-bolsa-b103-privacidad-v1";
+import { crearVinculoBolsaClienteHTTP } from "./cliente-http-vinculo-bolsa.js?v=20261016-ct-ofertas-ct231-v1";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -16,12 +16,12 @@ import {
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
-import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261016-firma-historica-v5";
+import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
-import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261016-ct231-integracion-v1";
-import { crearConsultaReciboRespuestaClienteHTTP, RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js";
-import { crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct231-integracion-v1";
+import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { crearConsultaReciboRespuestaClienteHTTP, RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js?v=20261016-ct-ofertas-ct231-v1";
+import { crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct-ofertas-ct231-v1";
 import { crearResolucionFormalizacionClienteHTTP, RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { crearIncorporacionEjercicioClienteHTTP, RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
 import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
@@ -30,7 +30,7 @@ import { crearClienteAnotacionAdministrativaHTTP, RUTA_ANOTACION_ADMINISTRATIVA,
 import { crearClienteCierreAdministrativoHTTP, RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
 import { crearClienteSubsanacionReparosHTTP, RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
 import { crearClienteSeguimientoCeseHTTP } from "./cliente-http-seguimiento-cese.js";
-import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
+import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20261016-ct-ofertas-ct231-v1";
 import { crearClienteReincorporacionRRHHHTTP, RUTA_CAPACIDAD_REINCORPORACION_RRHH, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js?v=20260928-rrhh-reincorporacion-v1";
 import { crearClienteRecuperacionFirmasV2, RUTA_CONSULTA_FIRMAS_V2 } from "./cliente-http-recuperacion-firmas-v2.js?v=20261016-firma-historica-v5";
 import {
@@ -48,7 +48,7 @@ import {
   extraerDatos,
   construirErrorRespuesta,
   construirCabeceras,
-} from "./cliente-http-transporte.js?v=20261016-ct231-integracion-v1";
+} from "./cliente-http-transporte.js?v=20261016-ct-ofertas-ct231-v1";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,

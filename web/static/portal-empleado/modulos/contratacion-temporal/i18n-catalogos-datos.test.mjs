@@ -142,15 +142,32 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
 ]);
 // Las claves añadidas se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_ADICIONALES = Object.freeze({
-  // R1 añade el aviso de comprobación pendiente; las tres claves se verifican
-  // sin cambiar la huella de los textos anteriores. CT231 añade las del aviso
-  // pendiente tras la selección confirmada.
-  "i18n-llamamiento.js": ["llamamiento_orden_bolsa_provisional",
+  "i18n-cancelacion.js": ["error_seleccion_oferta_pendiente"],
+  // R1 añade el aviso de comprobación pendiente; CT231, las del aviso pendiente
+  // tras la selección confirmada; F1-16, las de las ofertas de varias plazas.
+  "i18n-llamamiento.js": [
+    "llamamiento_estado_oferta_cargando", "llamamiento_estado_oferta_error",
+    "llamamiento_estado_oferta_denegado", "llamamiento_estado_oferta_reintentar",
+    "llamamiento_cantidad_no_disponible",
+    "llamamiento_orden_bolsa_provisional", "llamamiento_iniciar_seleccion",
+    "llamamiento_publicar_oferta", "llamamiento_confirmacion_seleccion_neutra",
+    "llamamiento_confirmacion_oferta", "llamamiento_oferta_recibo",
+    "llamamiento_oferta_plazas", "llamamiento_oferta_publicada_en",
+    "llamamiento_oferta_vence_antes_de", "llamamiento_oferta_justificante",
+    "llamamiento_oferta_vinculo", "llamamiento_oferta_sin_aviso",
+    "llamamiento_oferta_gestionar", "llamamiento_recuperar_oferta",
+    "llamamiento_oferta_resultado_incierto", "llamamiento_confirmacion_recuperar_oferta",
+    "llamamiento_recuperando_oferta", "llamamiento_recuperacion_oferta_incierta",
+    "llamamiento_oferta_sin_reserva", "llamamiento_oferta_descartada",
+    "llamamiento_oferta_descartada_en", "llamamiento_oferta_cierre_bolsa",
+    "llamamiento_oferta_recibo_descarte", "llamamiento_oferta_descartada_sin_publicar",
+    "llamamiento_preparar_nueva_oferta", "llamamiento_confirmacion_nueva_oferta",
     "llamamiento_comprobacion_pendiente", "llamamiento_comprobacion_version",
     "llamamiento_comprobacion_ver_bolsa",
     "llamamiento_comunicaciones_respuesta_aviso_pendiente", "llamamiento_comunicaciones_respuesta_aviso_anotado",
     "llamamiento_seleccion_pendiente_aviso",
-    "llamamiento_continuar_aviso"],
+    "llamamiento_continuar_aviso",
+  ],
   "i18n-textos-vistas.js": ["motivo_sustitucion"],
   "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
     "necesidades_alta_no_disponibles_detalle"],

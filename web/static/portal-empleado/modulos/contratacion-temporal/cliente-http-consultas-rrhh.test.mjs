@@ -46,6 +46,7 @@ test("consulta cuadro y detalle por las rutas reales sin credenciales del navega
       solicitud: {
         grupo_subgrupo: "A2",
         motivo_clave: "sustitucion",
+        numero_personas: 2,
         periodo_inicio: "2026-09-04T00:00:00Z",
         periodo_fin: "2026-12-31T00:00:00Z",
       },
@@ -81,6 +82,7 @@ test("consulta cuadro y detalle por las rutas reales sin credenciales del navega
 
   assert.equal(pagina.expedientes[0].expediente_ref, resumen.expediente_ref);
   assert.equal(detalle.resumen.version, 1);
+  assert.equal(detalle.solicitud.numero_personas, 2);
   assert.deepEqual(llamadas.map(({ ruta }) => ruta), [
     "/api/vec/contratacion-temporal/cuadro/consultas",
     "/api/vec/contratacion-temporal/expedientes/consultas",

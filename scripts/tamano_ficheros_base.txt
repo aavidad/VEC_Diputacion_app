@@ -92,10 +92,10 @@
 13067 web/static/app.js
 910 web/static/area-personal/aplicacion.js
 602 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
-1076 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
-957 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
+1078 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
+958 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 931 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
-1055 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
+1235 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
 1287 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 744 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
 848 web/static/bolsa/bolsa.css
@@ -111,7 +111,7 @@
 1538 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1160 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-1263 web/static/portal-empleado/portal-i18n.test.mjs
+1358 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 953 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
@@ -119,9 +119,9 @@
 782 internal/app/server/server_test.go
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1894 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1903 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
-1048 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
+1051 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 983 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 623 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
@@ -172,7 +172,7 @@
 3752 deploy/postgresql/autorizacion_atestada_v3/migraciones/000262_cartera_meritos_preimagen_actual.up.sql
 1142 deploy/postgresql/contratacion_temporal/migraciones/000209_firma_pdf_tres_pasos.up.sql
 845 deploy/postgresql/autorizacion/migraciones/000093_correspondencia_organizacion_firma_ct.up.sql
-1132 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
+1135 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
 1009 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
 850 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_desarrollo.go
 678 deploy/postgresql/contratacion_temporal/migraciones/000215_necesidad_peticion_centro.down.sql
@@ -189,6 +189,8 @@
 334 web/static/textos/en/peticiones-centro.json
 334 web/static/textos/es/peticiones-centro.json
 806 scripts/operacion/preparar_expediente_alta_b2/preparar.py
+3402 deploy/postgresql/autorizacion_atestada_v3/migraciones/000278_vinculo_oferta_ct.up.sql
+970 deploy/postgresql/contratacion_temporal/migraciones/000220_seleccion_oferta_bolsa.up.sql
 851 deploy/postgresql/contratacion_temporal/migraciones/000230_recibo_nativo_seleccion_bolsa.up.sql
 1131 deploy/postgresql/bolsa_llamamientos/migraciones/000118_criterios_contextuales_ofrecimiento.up.sql
 1109 deploy/postgresql/contratacion_temporal/migraciones/000229_selectores_recuperacion_detalle_rrhh.up.sql
@@ -198,3 +200,4 @@
 845 data/catalogos/bolsa/reglas.v7.json
 834 deploy/postgresql/bolsa_llamamientos/migraciones/000117_origen_oferta_ct_publicacion.up.sql
 1838 deploy/postgresql/autorizacion_atestada_v3/migraciones/000284_justificante_bolsa_consumo_externo.up.sql
+814 internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql.go

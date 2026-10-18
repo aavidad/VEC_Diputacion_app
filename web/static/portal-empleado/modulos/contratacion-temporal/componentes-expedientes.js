@@ -2,8 +2,8 @@
 
 import "./atajos-incidencia.js";
 import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=20261011-bolsa-b103-privacidad-v1";
-import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261016-firma-historica-v5";
-import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261016-firma-historica-v5";
+import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";

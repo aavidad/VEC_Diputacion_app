@@ -202,8 +202,10 @@ function validarSolicitudProyectada(entrada) {
   if (!camposCerrados(
     entrada,
     ["grupo_subgrupo", "motivo_clave", "periodo_inicio"],
-    ["periodo_fin", "periodo_causa_fin"],
+    ["periodo_fin", "periodo_causa_fin", "numero_personas"],
   ) || !cadena(entrada.grupo_subgrupo, { maximo: 80 })
+    || (Object.hasOwn(entrada, "numero_personas")
+      && (!entero(entrada.numero_personas, 1) || entrada.numero_personas > 100))
     || !clave(entrada.motivo_clave) || !instante(entrada.periodo_inicio)
     || (entrada.periodo_fin ? !instante(entrada.periodo_fin)
       || Object.hasOwn(entrada, "periodo_causa_fin")
