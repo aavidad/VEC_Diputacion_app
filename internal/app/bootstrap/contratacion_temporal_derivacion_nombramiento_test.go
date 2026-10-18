@@ -72,7 +72,10 @@ func TestActivacionNombramientoPrivadaOpcionalYCerrada(t *testing.T) {
 		t.Fatalf("activación válida rechazada: presente=%v err=%v", presente, err)
 	}
 	c.FuenteAutorizacionDSNFile = "../fuente.dsn"
-	b, _ = json.Marshal(c)
+	b, err = json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(ruta, b, 0600); err != nil {
 		t.Fatal(err)
 	}

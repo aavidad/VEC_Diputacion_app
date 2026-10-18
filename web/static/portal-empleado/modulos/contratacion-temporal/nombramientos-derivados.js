@@ -1,4 +1,4 @@
-import { cargarTextosNombramientos } from "./i18n-nombramientos-derivados.js?v=20261018-f119-derivacion-v1";
+import { cargarTextosNombramientos } from "./i18n-nombramientos-derivados.js?v=20261018-f119-derivacion-v2";
 
 const referencia = (valor) => typeof valor === "string" && /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(valor);
 const entero = (valor) => Number.isSafeInteger(valor) && valor >= 1;
