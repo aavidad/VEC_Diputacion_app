@@ -503,6 +503,16 @@ La selección se obtiene de Contratación, sin consultar tablas de Bolsa. No añ
 consumidor de autorización ni permisos por defecto. Activación y límites en
 [`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
 
+F1-69 prepara CT238: un índice único parcial en O6 impide más de una
+selección `confirmada` por organización y expediente. Antes de crearlo,
+bloquea las escrituras y rechaza duplicados o referencias ausentes, sin
+modificar historia. El índice sirve a la consulta CT231 y a la selección de
+una persona o de varias plazas: CT220 guarda una sola O6 para toda la oferta;
+las continuaciones usan la original y CT234 no crea O6 por cada persona en
+este corte. No añade estados, permisos ni funciones. Ensayo e instalación
+pendientes; guía en
+[`seleccion_confirmada_unica_f1_69_20261018.md`](../../deploy/principal/seleccion_confirmada_unica_f1_69_20261018.md).
+
 Puertos Go: `internal/modules/contrataciontemporal/ports/`; adaptadores en
 `adapters/postgres/`. Detalle técnico por migración:
 `deploy/postgresql/contratacion_temporal/README.md`.
