@@ -8,7 +8,8 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Actualizado el 16 de octubre de 2026 sobre `origin/main@cc6c2927c`.
+Revisado el 16 de octubre de 2026 para F1-36C desde
+`origin/main@3216104e4`; C sigue en rama, sin integrar.
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
 cómo se sabe que cada fase está terminada y cómo se trabaja. Es lectura
@@ -221,6 +222,16 @@ valor, publicación externa de 90 días y recuperación sin acortarla comprobado
 La raíz y la clave legadas conservan su encargo separado de rotación. Dirección
 acepta la cobertura parcial de GoSec hasta F0-29 (L); falta la CI documental
 final e integración. Guion: `deploy/principal/vigencias_publicaciones_f1_64_20261016.md`.
+
+**F1-36C, H: ficha de firmas anteriores.** En rama: respuesta ampliada,
+cliente y panel que ofrece un botón por firma original autorizada. Depende
+de A (recuperación y concesión) y B (fuente de ficha y anexo); no añade SQL.
+La candidata conjunta ya consulta tres firmas y descarga el PDF original
+desde Chrome; las vistas de escritorio, móvil e inglés tienen revisión
+independiente favorable. El ensayo de B rechaza la caducidad al confirmar sin
+efectos parciales. La minimización de CT228 ya está en main; falta repetir la recuperación
+y el reinicio sobre esa fuente y pasar la CI final. F1-36 permanece abierto. Guion:
+`deploy/principal/firma_historica_ficha_f1_36c_20261016.md`.
 
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna

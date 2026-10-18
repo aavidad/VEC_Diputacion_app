@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=20261018-f136c-informe-v4";
+import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261018-f136c-informe-v4";
 import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261018-f136c-informe-v4";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261018-f136c-informe-v4";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",
@@ -1045,4 +1045,34 @@ test("las comprobaciones de cobertura llevan su resultado en el tono (sí, no, n
   assert.equal(tono("existe_bolsa_vigente"), "exito");
   assert.equal(tono("hay_candidaturas_disponibles"), "aviso");
   assert.equal(tono("sae_consultado"), "neutro");
+});
+
+test("el detalle autorizado conserva los selectores históricos al atravesar adaptador y presentador", async () => {
+  for (const selectores of [undefined, [], [{ firma_ref: "firma:ct:original", selector: {
+    expediente_ref: resumen.expediente_ref, version_expediente: 1, documento: "informe_definitivo",
+    paso_orden: 1, clave_idempotencia: "operacion-original-1234", catalogo_huella: "a".repeat(64), via: "certificado_vec",
+  } }]]) {
+    const llamadas = [];
+    const cliente = clienteFalso(llamadas);
+    const consultar = cliente.consultarDetalleRRHH;
+    cliente.consultarDetalleRRHH = async (...args) => {
+      const detalle = await consultar(...args);
+      return { ...detalle, ...(selectores === undefined ? {} : { selectores_recuperacion_firmas: selectores, recibo_selectores_recuperacion_firmas: {
+        acceso_ref: "acceso:ct:original", sello_detalle_sha256: "a".repeat(64), sello_selectores_sha256: "b".repeat(64),
+      } }) };
+    };
+    const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+    const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente,
+      capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"] });
+    await presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
+    const expediente = presentador.obtenerEstado().expediente;
+    assert.equal(presentador.obtenerEstado().carga, "listo");
+    assert.deepEqual(expediente.selectores_recuperacion_firmas, selectores);
+    assert.equal(Object.hasOwn(expediente, "selectores_recuperacion_firmas"), selectores !== undefined);
+    assert.equal(Object.hasOwn(expediente, "recibo_selectores_recuperacion_firmas"), selectores !== undefined);
+    if (selectores !== undefined) assert.deepEqual(expediente.recibo_selectores_recuperacion_firmas, {
+      acceso_ref: "acceso:ct:original", sello_detalle_sha256: "a".repeat(64), sello_selectores_sha256: "b".repeat(64),
+    });
+    assert.deepEqual(llamadas.map(({ operacion }) => operacion), ["detalle"]);
+  }
 });

@@ -856,13 +856,16 @@ Esa cobertura indica qué documentos consultar; no concede permiso de firma.
 La ficha conserva los errores de consulta de cada documento y muestra los
 cuatro documentos sin plan como pendientes, sin acciones de firma.
 
-La fuente interna de B devuelve como máximo 128 pares de `firma_ref` y selector
-(`expediente_ref`, `version_expediente`, `documento`, `paso_orden`,
-`clave_idempotencia`, `catalogo_huella`, `via`) con el recibo adicional
-(`acceso_ref`, `sello_detalle_sha256`, `sello_selectores_sha256`). En B no hay
-serializador HTTP ni panel para exponerlos. Una ficha antigua sigue con su
-contrato anterior; una lectura ampliada requiere ambos sellos, aun con lista
-vacía, y `[]` nunca autoriza un comodín.
+F1-36C prepara la serialización de B en la respuesta del detalle RRHH:
+`data.selectores_recuperacion_firmas` (máximo 128) y
+`data.recibo_selectores_recuperacion_firmas` (`acceso_ref`,
+`sello_detalle_sha256`, `sello_selectores_sha256`). Ambos campos deben aparecer
+juntos, también cuando la lista es `[]`; el detalle anterior omite ambos.
+Cada entrada liga `firma_ref` al selector exacto de expediente, versión,
+documento, paso, clave, huella de catálogo y vía. El navegador no construye
+selectores ni suma permisos. La pulsación usa la recuperación V2 existente y
+obtiene un acceso nuevo, mientras presenta el recibo del registro original.
+Este contrato está en rama y aún no acredita consulta en navegador.
 
 La lista de activación de #1137 ordena CT218, IS20, AUT97, CT219 y CT224. AUT97
 reconstruye el validador nominal desde su preimagen y cambia únicamente el
