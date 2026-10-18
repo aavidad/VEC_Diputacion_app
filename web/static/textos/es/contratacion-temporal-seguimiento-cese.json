@@ -110,6 +110,15 @@
     "cese_justificante_informe_centro": "informe del centro",
     "cese_justificante_informe_periodo_prueba": "informe del periodo de prueba",
     "cese_justificante_resolucion_cobertura": "resolución de cobertura reglamentaria de la vacante",
-    "cese_justificante_resolucion_fin_programa": "resolución de fin del programa"
+    "cese_justificante_resolucion_fin_programa": "resolución de fin del programa",
+    "archivo_comprobado": "Documento comprobado en este equipo; su contenido no se guarda.",
+    "archivo_calculando": "Comprobando el documento en este equipo…",
+    "archivo_sin_archivo": "Elija el archivo del justificante para poder continuar.",
+    "archivo_esperando": "Espere a que termine la comprobación del documento.",
+    "archivo_demasiado_grande": "El archivo supera el tamaño máximo de {limite} MB. Elija una copia más ligera del documento.",
+    "archivo_vacio": "El archivo está vacío. Elija el documento correcto.",
+    "archivo_no_disponible": "Este navegador no permite comprobar el documento. Use un navegador actualizado.",
+    "archivo_error_lectura": "No se ha podido leer el archivo. Vuelva a elegirlo.",
+    "archivo_ayuda": "El archivo se lee en este equipo para calcular su código de comprobación. Solo se registra ese código junto a la referencia; el documento no se envía ni se guarda en VEC. Conserve el original. Tamaño máximo: {limite} MB."
   }
 }

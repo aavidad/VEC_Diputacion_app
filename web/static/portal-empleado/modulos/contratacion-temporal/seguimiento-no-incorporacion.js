@@ -56,7 +56,7 @@ export function formularioNoIncorporacion({ opciones, t, escapar, deshabilitado 
       <label class="ct-campo"><span>${escapar(t("no_incorporacion_fecha"))}</span><input type="date" name="fecha_notificacion" required ${deshabilitado}></label>
       <label class="ct-campo"><span>${escapar(t("no_incorporacion_resolucion"))}</span><input type="text" name="resolucion_ref" required maxlength="160" autocomplete="off" ${deshabilitado}></label>
       ${renderizarCampoHuellaArchivo({ id: "ct-seg-no-inc-resolucion", nombre: "resolucion_sha256", etiqueta: t("no_incorporacion_archivo"),
-        clase: "ct-campo", deshabilitado: desactivado, escapar })}
+        clase: "ct-campo", deshabilitado: desactivado, escapar, t: (clave, valores) => t(`archivo_${clave}`, valores) })}
       ${resuelta}
       <label class="ct-campo ct-seg-cese-ancho"><span>${escapar(t("no_incorporacion_observaciones"))}</span><textarea name="observaciones" rows="2" maxlength="2000" ${deshabilitado}></textarea></label>
       </div>

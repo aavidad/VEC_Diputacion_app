@@ -3,7 +3,7 @@
 import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
 import { cierreConGINPIXConfirmado, filasIncorporacionAcreditada, formularioConfirmacionGINPIX, ofrecerConfirmacionGINPIX } from "./seguimiento-incorporacion-acreditada.js?v=20260926-huecos-rrhh-v1";
 import { filasNoIncorporacion, formularioNoIncorporacion, formularioPropuestaNoIncorporacion, ofrecerNoIncorporacion, ofrecerPropuestaNoIncorporacion,
-  solicitudNoIncorporacion, solicitudResolucionPropuestaNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=20260926-huecos-rrhh-v2";
+  solicitudNoIncorporacion, solicitudResolucionPropuestaNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=20261018-t-f147-archivo-v1";
 import { filasPropuestas } from "./seguimiento-propuestas.js?v=20260926-huecos-rrhh-v2";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
 
@@ -41,6 +41,7 @@ export function montarPanelSeguimientoCese({
 } = {}) {
   if (!contenedor || typeof cliente?.consultarSeguimientoCese !== "function" || !contexto) throw new TypeError("panel de seguimiento no disponible");
   const t = crearTraductorSeguimientoCese(mensajes);
+  const tArchivo = (clave, valores) => t(`archivo_${clave}`, valores);
   const controlador = new AbortController();
   const claves = new Map();
   let datos = null;
@@ -61,7 +62,7 @@ export function montarPanelSeguimientoCese({
     return `<header class="ct-exp-fase-panel-cabecera"><div><h3 id="ct-seg-cese-titulo">${escapar(t("titulo"))}</h3><p>${escapar(t("subtitulo"))}</p></div>
       <div class="ct-exp-fase-panel-acciones"><span class="ct-exp-chip ${chip[1]}">${escapar(t(chip[0]))}</span>
       <button type="button" class="boton-secundario ct-seg-cese-ayuda" data-ct-seg-ayuda aria-expanded="${ayudaAbierta}" aria-controls="ct-seg-cese-ayuda" aria-label="${escapar(t("ayuda_boton"))}">?</button></div></header>
-      <p id="ct-seg-cese-ayuda" class="ct-seg-cese-texto-ayuda" ${ayudaAbierta ? "" : "hidden"}>${escapar(t("ayuda"))} ${escapar(ayudaHuellaArchivo())}</p>`;
+      <p id="ct-seg-cese-ayuda" class="ct-seg-cese-texto-ayuda" ${ayudaAbierta ? "" : "hidden"}>${escapar(t("ayuda"))} ${escapar(ayudaHuellaArchivo(tArchivo))}</p>`;
   }
 
   function resumen(estado, opciones) {
@@ -90,7 +91,7 @@ export function montarPanelSeguimientoCese({
       <label class="ct-campo"><span>${escapar(t("cese_fecha"))}</span><input type="date" name="fecha_efecto" required ${deshabilitado()} ${sinIncorporacion ? "disabled" : ""}></label>
       <label class="ct-campo"><span>${escapar(t("cese_justificante_ref"))}</span><input type="text" name="justificante_ref" required maxlength="160" autocomplete="off" ${deshabilitado()} ${sinIncorporacion ? "disabled" : ""}></label>
       ${renderizarCampoHuellaArchivo({ id: "ct-seg-cese-justificante", nombre: "justificante_sha256", etiqueta: t("cese_justificante_archivo"),
-        clase: "ct-campo", deshabilitado: ocupado || sinIncorporacion, escapar })}
+        clase: "ct-campo", deshabilitado: ocupado || sinIncorporacion, escapar, t: tArchivo })}
       <label class="ct-campo ct-seg-cese-ancho"><span>${escapar(t("cese_observaciones"))}</span><textarea name="observaciones" rows="2" maxlength="2000" ${deshabilitado()} ${sinIncorporacion ? "disabled" : ""}></textarea></label>
       </div>
       <div class="ct-acciones"><button type="submit" class="boton-primario" ${deshabilitado()} ${sinIncorporacion ? "disabled" : ""}>${escapar(t("cese_enviar"))}</button></div></form>`;
@@ -283,7 +284,7 @@ export function montarPanelSeguimientoCese({
   }
 
   // Calcula la huella del justificante y bloquea el envío sin archivo.
-  const retirarHuella = instalarHuellaArchivo(contenedor);
+  const retirarHuella = instalarHuellaArchivo(contenedor, { t: tArchivo });
   contenedor.addEventListener("click", alPulsar);
   contenedor.addEventListener("change", alCambiar);
   contenedor.addEventListener("submit", alEnviar);

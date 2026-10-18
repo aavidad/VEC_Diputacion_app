@@ -27,7 +27,7 @@ import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=202
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261011-ct-bolsa-vinculo-v1";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261013-ct-firma-tres-v3";
-import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
+import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261018-t-f147-archivo-v1";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261007-pantallas-textos-final-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20261007-pantallas-textos-final-v1";
 import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261009-borradores-fase-v3";

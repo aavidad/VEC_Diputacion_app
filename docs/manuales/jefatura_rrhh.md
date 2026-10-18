@@ -147,7 +147,7 @@ Una misma persona no puede firmar dos pasos del mismo documento.
 
 El centro acredita en VEC que la persona se ha incorporado, con la fecha y el documento. El técnico revisa el alta en Personal (categoría, puesto y plaza) y la confirma. Después descarga la ficha para grabar el contrato en GINPIX y, una vez grabado a mano, anota el número y la fecha de la grabación.
 
-Si la persona no llega a incorporarse, el técnico lo registra, la bolsa lo recoge y se llama a la siguiente.
+Si la persona no llega a incorporarse, RRHH abre «Seguimiento del nombramiento» en la ficha, elige el motivo e indica la fecha de notificación y la referencia de la resolución. Selecciona también el archivo original: VEC calcula un código de comprobación, pero no guarda su contenido. Hay que conservar el documento. Si la regla exige una segunda revisión, se pulsa «Proponer que no se incorpora» y otra persona de RRHH confirma o rechaza desde su propia sesión. Solo la confirmación produce efectos; el recibo acredita la actuación. La comprobación completa de este paso en la copia local sigue pendiente.
 
 ### Paso 11. Cese, vuelta a la bolsa y cierre
 

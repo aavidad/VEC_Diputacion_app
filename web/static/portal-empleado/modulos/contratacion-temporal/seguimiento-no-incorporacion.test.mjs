@@ -113,3 +113,27 @@ test("la segunda persona ve la propuesta pendiente y la confirma o rechaza con s
   assert.equal(registro.paso, "registrar");
   assert.equal(registro.resuelta_por, "per_declarada");
 });
+
+test("el aviso de archivo de la no incorporación usa el idioma del panel y enfoca el campo", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { general } = JSON.parse(await readFile(new URL("../../../textos/en/contratacion-temporal-seguimiento-cese.json", import.meta.url), "utf8"));
+  const mensajes = Object.fromEntries(Object.entries(general).map(([clave, valor]) => [`seguimiento_cese.${clave}`, valor]));
+  const c = contenedorFalso();
+  c.addEventListener = (nombre, escucha, captura) => c.eventos.set(`${nombre}${captura ? ":captura" : ""}`, escucha);
+  const quitar = montarPanelSeguimientoCese({ contenedor: c, contexto, mensajes,
+    cliente: { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta(), EXP) } });
+  await esperar();
+  let enfocado = false;
+  let bloqueado = false;
+  const estado = { textContent: "" };
+  const campo = { querySelector: (selector) => selector === "[data-huella-valor]" ? { value: "" } : estado };
+  const control = { dataset: {}, hasAttribute: () => true, setAttribute() {}, closest: () => campo, focus() { enfocado = true; } };
+  try {
+    c.eventos.get("submit:captura")({ target: { querySelectorAll: () => [control] },
+      preventDefault() { bloqueado = true; }, stopImmediatePropagation() {} });
+    assert.equal(estado.textContent, "Choose the supporting document file to continue.");
+    assert.equal(enfocado, true);
+    assert.equal(bloqueado, true);
+    assert.match(c.innerHTML, /Propose failure to take up post/u);
+  } finally { quitar(); }
+});

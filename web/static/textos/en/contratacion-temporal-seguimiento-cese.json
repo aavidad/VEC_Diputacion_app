@@ -110,6 +110,15 @@
     "cese_justificante_informe_centro": "report from the workplace",
     "cese_justificante_informe_periodo_prueba": "probation period report",
     "cese_justificante_resolucion_cobertura": "decision to fill the vacancy permanently",
-    "cese_justificante_resolucion_fin_programa": "decision ending the programme"
+    "cese_justificante_resolucion_fin_programa": "decision ending the programme",
+    "archivo_comprobado": "Document checked on this device; its contents are not saved.",
+    "archivo_calculando": "Checking the document on this device…",
+    "archivo_sin_archivo": "Choose the supporting document file to continue.",
+    "archivo_esperando": "Wait for the document check to finish.",
+    "archivo_demasiado_grande": "The file exceeds the {limite} MB limit. Choose a smaller copy of the document.",
+    "archivo_vacio": "The file is empty. Choose the correct document.",
+    "archivo_no_disponible": "This browser cannot check the document. Use an up-to-date browser.",
+    "archivo_error_lectura": "The file could not be read. Choose it again.",
+    "archivo_ayuda": "The file is read on this device to calculate its check code. Only that code and the reference are recorded; the document is not sent to or saved in VEC. Keep the original. Maximum size: {limite} MB."
   }
 }
