@@ -277,3 +277,87 @@ BEGIN
  THEN RAISE EXCEPTION 'AD279: la lectura no refleja el orden guardado' USING ERRCODE='55000'; END IF;
 END $historia$;
 ROLLBACK;
+
+-- 5. Contrato físico de los dos tipos de asiento sobre la tabla real. Se
+-- requiere el sellador local al día; el trigger original permanece activo.
+-- Estos datos sintéticos prueban el CHECK, no una firma ni una lectura real.
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+SET LOCAL search_path=pg_catalog,pg_temp;
+SET LOCAL timezone='UTC';
+DO $asientos$
+DECLARE v_id text:=md5(gen_random_uuid()::text);v_seq numeric;v_anterior text;
+ v_tx xid8;v_def text;v_posdef text;v_constraint text;v_fallo boolean:=false;
+BEGIN
+ SELECT pg_get_functiondef('vec_autorizacion_atestada_v3.registrar_intento_lectura_preferencias_bolsas_interna_v1(bytea,bytea,jsonb)'::regprocedure)
+ INTO v_def;
+ IF position('encode(sha256(p_vinculo_canonico),''hex''),NULL::xid8)' in v_def)=0 THEN
+  RAISE EXCEPTION 'AD275: el registrador de intento no conserva transacción nula'; END IF;
+ SELECT pg_get_functiondef('vec_autorizacion_atestada_v3.registrar_lectura_preferencias_bolsas_interna_v1(bytea,bytea,jsonb)'::regprocedure)
+ INTO v_posdef;
+ IF position('encode(sha256(p_vinculo_canonico),''hex''),pg_current_xact_id()' in v_posdef)=0 THEN
+  RAISE EXCEPTION 'AD275: la lectura positiva perdió su transacción'; END IF;
+ SELECT secuencia_previa+1,anterior_sha256 INTO STRICT v_seq,v_anterior
+ FROM vec_autorizacion_atestada_v3.reservar_asiento_auditoria_v5();
+ INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3(
+  auditoria_ref,secuencia,anterior_sha256,huella_sha256,registrada_en,tipo_registro,
+  intento_ref,intento_material_sha256,actor_ref,perfil_activo_ref,registro_contexto_ref,
+  contexto_sha256,procedencia_sha256,autenticacion_ref,sesion_ref,autenticacion_sha256,
+  accion,modulo_id,recurso_ref,finalidad_ref,resultado,motivo_ref,proceso,canal,
+  correlacion_ref,vinculo_sha256,transaccion_origen)
+ VALUES('aud_v3_i_'||v_id,v_seq,v_anterior,encode(sha256(convert_to('i'||v_id,'UTF8')),'hex'),
+  date_trunc('microseconds',clock_timestamp()),'intento_nominal',
+  'intento_'||v_id,repeat('a',64),'per_'||repeat('a',22),'perfil:ad275',
+  'contexto:ad275',repeat('b',64),repeat('c',64),'autenticacion:ad275','sesion:ad275',
+  repeat('d',64),'bolsa.preferencias_bolsas.consultar_propias','bolsa',
+  'mi-bolsa:'||repeat('e',64),'gestion_preferencias_bolsas_propias','denegado',
+  'lectura_preferencias_bolsas_denegado','vec-server','interna_corporativa',
+  'corr_ad275',repeat('f',64),NULL::xid8) RETURNING transaccion_origen INTO v_tx;
+ IF v_tx IS NOT NULL THEN RAISE EXCEPTION 'AD275: intento conservó transacción'; END IF;
+ BEGIN
+  SELECT secuencia_previa+1,anterior_sha256 INTO STRICT v_seq,v_anterior
+  FROM vec_autorizacion_atestada_v3.reservar_asiento_auditoria_v5();
+  INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3(
+   auditoria_ref,secuencia,anterior_sha256,huella_sha256,registrada_en,tipo_registro,
+   intento_ref,intento_material_sha256,actor_ref,perfil_activo_ref,registro_contexto_ref,
+   contexto_sha256,procedencia_sha256,autenticacion_ref,sesion_ref,autenticacion_sha256,
+   accion,modulo_id,recurso_ref,finalidad_ref,resultado,motivo_ref,proceso,canal,
+   correlacion_ref,vinculo_sha256,transaccion_origen)
+  VALUES('aud_v3_i_'||md5(gen_random_uuid()::text),v_seq,v_anterior,
+   encode(sha256(convert_to('malo'||v_id,'UTF8')),'hex'),
+   date_trunc('microseconds',clock_timestamp()),'intento_nominal',
+   'intento_'||md5(gen_random_uuid()::text),repeat('a',64),'per_'||repeat('a',22),
+   'perfil:ad275','contexto:ad275',repeat('b',64),repeat('c',64),
+   'autenticacion:ad275','sesion:ad275',repeat('d',64),
+   'bolsa.preferencias_bolsas.consultar_propias','bolsa','mi-bolsa:'||repeat('e',64),
+   'gestion_preferencias_bolsas_propias','denegado',
+   'lectura_preferencias_bolsas_denegado','vec-server','interna_corporativa',
+   'corr_ad275',repeat('f',64),pg_current_xact_id());
+ EXCEPTION WHEN check_violation THEN
+  GET STACKED DIAGNOSTICS v_constraint=CONSTRAINT_NAME;
+  IF v_constraint IS DISTINCT FROM 'auditoria_tipo_disjunto_v4' THEN RAISE; END IF;
+  v_fallo:=true;
+ END;
+ IF NOT v_fallo THEN RAISE EXCEPTION 'AD275: CHECK admitió transacción en intento'; END IF;
+ SELECT secuencia_previa+1,anterior_sha256 INTO STRICT v_seq,v_anterior
+ FROM vec_autorizacion_atestada_v3.reservar_asiento_auditoria_v5();
+ INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3(
+  auditoria_ref,secuencia,anterior_sha256,huella_sha256,registrada_en,tipo_registro,
+  intento_ref,intento_material_sha256,actor_ref,perfil_activo_ref,registro_contexto_ref,
+  contexto_sha256,procedencia_sha256,autenticacion_ref,sesion_ref,autenticacion_sha256,
+  accion,modulo_id,recurso_ref,finalidad_ref,resultado,motivo_ref,proceso,canal,
+  correlacion_ref,vinculo_sha256,transaccion_origen,
+  lectura_revision_permisos,lectura_instantanea_sha256)
+ VALUES('aud_v3_lp_'||v_id,v_seq,v_anterior,encode(sha256(convert_to('lp'||v_id,'UTF8')),'hex'),
+  date_trunc('microseconds',clock_timestamp()),'lectura_preferencias_bolsas',
+  'lectura_'||v_id,repeat('a',64),'per_'||repeat('a',22),'perfil:ad275',
+  'contexto:ad275',repeat('b',64),repeat('c',64),'autenticacion:ad275','sesion:ad275',
+  repeat('d',64),'bolsa.preferencias_bolsas.consultar_propias','bolsa',
+  'mi-bolsa:can_'||repeat('b',22),'gestion_preferencias_bolsas_propias','obtenida',
+  'lectura_preferencias_bolsas_correcta','vec-server','interna_corporativa',
+  'corr_ad275',repeat('f',64),pg_current_xact_id(),1,repeat('e',64))
+ RETURNING transaccion_origen INTO v_tx;
+ IF v_tx IS NULL OR v_tx IS DISTINCT FROM pg_current_xact_id() THEN
+  RAISE EXCEPTION 'AD275: lectura positiva perdió la transacción'; END IF;
+END $asientos$;
+ROLLBACK;
