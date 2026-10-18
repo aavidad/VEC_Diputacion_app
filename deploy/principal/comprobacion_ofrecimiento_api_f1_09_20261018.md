@@ -11,15 +11,14 @@ clase nominales de la comprobación; conserva las demás acciones y su historia.
 
 ## Activación
 
-1. Dirección instala la lista completa de main posterior a HZ37 y el primer
-   corte F1-09, y después B134, una sola vez. No instalar listas parciales
+1. Dirección instala la lista completa de main posterior a HZ37 más las SQL
+   propias en el orden único, con B134 después del primer corte F1-09.
+   No instalar listas parciales
    ni repetir SQL. La bitácora distingue el intento de registrar hechos de
    un cambio de situación, también cuando el POST se rechaza antes de V3.
-2. El alta central de AD291, junto a F0-18/AD273, admite la acción, audiencia
-   y origen nominal de consumo. Sigue al final de la cadena de dirección.
-   Antes de AD291 se instala AD288 y después B137/AD293, según la lista
-   única y sus dependencias; la proyección debe quedar comprobada antes
-   del recorrido completo.
+2. AD291, junto a F0-18/AD273, admite la acción, audiencia y origen nominal
+   de consumo. En la lista única quedó después de AD288, B137 y AD293;
+   la proyección debe quedar comprobada antes del recorrido completo.
 3. Dos administradores publican la concesión
    `bolsa.comprobacion_ofrecimiento.registrar`, recurso `participacion_bolsa`,
    finalidad `gestionar_contratacion_temporal`, garantía alta, ámbitos
@@ -77,8 +76,9 @@ canon compartido con Go y denegaciones. La aplicación compiló sin red y salud
 y portal devolvieron 200 tras arrancar y reiniciar aplicación y PostgreSQL.
 Chrome del sistema cargó el portal base. Las consultas de módulos y preferencias
 siguen cerradas con 503 sin configuración: el ensayo no acredita una selección
-ni un registro autorizado. El alta central AD291, el registro autorizado, su repetición y la concurrencia
-reales siguen pendientes.
+ni un registro autorizado. El registro autorizado, su repetición y la concurrencia reales siguen
+pendientes; AD291 se ensayó después en la candidata conjunta, sin publicar
+todavía el permiso.
 
 
 Ensayo interno posterior: candidata `350da6e75`, con las 78 migraciones de
@@ -103,4 +103,12 @@ lista pasó sus 19 casos. Se guardaron el binario y el estado anteriores para
 volver atrás. La lista de candidatos necesita recargar el fichero con el
 material de la copia y una concesión de importación publicada; el kit ADMIN
 común prepara esos actos. El registro positivo, la recuperación del recibo
-y la concurrencia siguen pendientes de AD291 y de la activación completa.
+y la concurrencia siguen pendientes de la activación gobernada completa.
+
+La candidata conjunta `601686060` instaló 98 SQL en dos copias nuevas,
+interna con RRHH original y externa con material nuevo. Las 97 SQL previas
+son idénticas a `1ed8b0e42`, CT238 se añadió en su posición y Go no cambió.
+Las focales AD291, AD292 y CT238 pasaron con ROLLBACK; ambas copias
+reiniciaron con la comprobación pública del guion. AD291 ya está en esas
+copias, pero no se publicó aún el permiso F1-09 ni se hizo un POST autorizado.
+Siguen pendientes el recibo real, su recuperación y la concurrencia.
