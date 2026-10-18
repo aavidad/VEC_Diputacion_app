@@ -35,7 +35,7 @@ Aunque D15 ya estaba en Git antes del corte HZ37, el esquema de esa copia
 conserva la función de D14. Esta instalación reconcilia solo la copia nueva de
 CI; no cambia la lista general de migraciones ni reaplica D15 en otras bases.
 `--pruebas` incluye esa preparación y ejecuta estas
-seis pruebas SQL existentes, en este orden:
+siete pruebas SQL existentes, en este orden:
 
 1. `bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql`: valida criterios
    de ofrecimiento y el permiso del validador sin crear un llamamiento.
@@ -50,6 +50,10 @@ seis pruebas SQL existentes, en este orden:
    con una sesión inexistente.
 6. `contexto_actor_v1/pruebas_sql/000046_perfiles_propios_bolsa_rrhh.sql`:
    comprueba propietario y permisos; rechaza una cuenta sin acreditación.
+7. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
+   contexto externo por la función vigente, comprueba su huella y versión,
+   acredita el candidato propio y rechaza el ajeno; comprueba resolución,
+   repetición y revocación sin modificar funciones o desactivar guardas.
 
 El guion comprueba que los bytes de cada prueba coinciden con `HEAD` y los pasa
 a `psql` con `ON_ERROR_STOP=1`. Un fallo detiene el ensayo con estado distinto
@@ -96,10 +100,31 @@ preparación debe estar confirmado y coincidir con HEAD:
 python3 deploy/postgresql/fase1/ensayar.py --preparacion
 ```
 
-Con `--pruebas`, las seis comprobaciones se repiten después de reiniciar el
+Con `--pruebas`, las siete comprobaciones se repiten después de reiniciar el
 mismo contenedor PostgreSQL, esperando su disponibilidad TCP. No se restaura
 el esquema, no se reinstalan migraciones ni se vuelve a preparar la semilla.
 Un fallo de reinicio o de cualquiera de las comprobaciones detiene la puerta.
 Esto comprueba la persistencia de las funciones y sus restricciones; las
 pruebas transaccionales siguen terminando en `ROLLBACK`. No acredita la
 persistencia de un expediente ni sustituye el recorrido funcional completo.
+
+La semilla repone la fila técnica `(true, 0)` del contador externo que creó
+CTX15. Se verifica su propietario y seguridad por filas después de comprobar
+las 662 tablas vacías. La prueba de contexto usa datos ficticios y termina en
+`ROLLBACK`, incluidas sus dos cuentas técnicas de ejecución. Su positivo
+comprueba el contexto externo; no acredita una autenticación con certificado
+ni una decisión completa de autorización. El SQL existente conserva fechas
+fijas de su fixture entre 2020 y 2099; no se incorporan al material ni a los
+perfiles duraderos de una copia de desarrollo.
+
+La preparación repone también `NOINHERIT` y `CONNECT` de los dos grupos de
+contexto externo, según su bootstrap y CTX15. No crea pertenencias. Retira
+los privilegios de `PUBLIC` sobre la base aislada, como exige el contrato de
+ejecución mínimo; no cambia permisos de funciones, tablas ni esquemas. El
+volcado de esquema conserva esas otras concesiones.
+
+Se reproduce asimismo el cierre de tipos de CTX1 en su propio esquema. Los
+tipos fila restaurados no conservan en `pg_dump` sus restricciones originales
+de `PUBLIC`; la comprobación estricta del ejecutor detecta esa diferencia.
+La preparación repone la revocación original de tipos compuestos, dominios y
+enumerados sin cambiar la función que exige los privilegios mínimos.
