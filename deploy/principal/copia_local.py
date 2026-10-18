@@ -173,9 +173,15 @@ class Copia:
             subprocess.run(['docker', 'exec', '-i', '-u', 'postgres', self.nombre,
                             'pg_restore', '--schema-only', '--file=-'], stdin=fuente, stdout=destino,
                            stderr=subprocess.PIPE, check=True, timeout=120)
+        fuentes_roles = sorted((REPO / 'deploy/postgresql').glob('*/roles*_up.sql'))
+        preparar_roles = [sys.executable, REPO / 'deploy/principal/copia_local_roles.py',
+                          self.raiz / 'esquema.sql', *acl, '--roles-b119']
+        for fuente in fuentes_roles:
+            preparar_roles.extend(('--fuente-roles', fuente))
+        for ruta, _, _ in listas:
+            preparar_roles.extend(('--migracion', ruta))
         with (self.raiz / 'roles.sql').open('wb') as destino:
-            ejecutar([sys.executable, REPO / 'deploy/principal/copia_local_roles.py',
-                      self.raiz / 'esquema.sql', *acl, '--roles-b119'], salida=destino)
+            ejecutar(preparar_roles, salida=destino)
         self.sql(self.raiz / 'roles.sql', 'restauracion.log')
         with dump.open('rb') as fuente, (self.raiz / 'restauracion.log').open('ab') as destino:
             subprocess.run(['docker', 'exec', '-i', '-u', 'postgres', self.nombre,
