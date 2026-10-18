@@ -104,3 +104,9 @@ preparación debe estar confirmado y coincidir con HEAD:
 ```sh
 python3 deploy/postgresql/fase1/ensayar.py --preparacion
 ```
+
+La semilla repone también la fila de control de punteros de CTX2, con
+generación cero, después de comprobar que las 662 tablas están vacías y que
+la tabla pertenece a su propietario previsto. Es el contador técnico que
+creó CTX2; el volcado de solo esquema no conserva esa fila. Se mantienen sus
+disparadores y se comprueba la postcondición antes de continuar.

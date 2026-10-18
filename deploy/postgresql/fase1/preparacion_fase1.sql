@@ -2,7 +2,8 @@
 -- Fuente: AD172 (tabla y RLS), AD233 (audiencias y operaciones),
 -- AD278 (orígenes), contexto_actor_v1/roles_up.sql (migrador de CTX45)
 -- y documentos/migraciones/000009_custodia_documento_firmado.up.sql
--- (tipo documental reservado que D19 espera en la copia).
+-- (tipo documental reservado que D19 espera en la copia), y CTX2
+-- (fila de control MVCC sin datos de negocio).
 -- Sólo prepara procedencia y catálogo técnicos: no publica permisos de negocio, actos,
 -- personas, firmas, recibos ni material criptográfico.
 -- Ejecutar una vez como superusuario local tras restaurar esquema_hz37.sql.gz
@@ -75,6 +76,36 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 END $pre$;
+
+-- CTX2 inicializa este contador técnico; schema-only no conserva la fila.
+-- Sin ella, los disparadores rechazan cualquier mutación de punteros.
+DO $control_ctx2_pre$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'vec_contexto_actor_v1'
+      AND c.relname = 'control_generacion_punteros_actuales_v2'
+      AND c.relkind = 'r'
+      AND c.relowner = 'vec_contexto_actor_v1_propietario'::regrole
+  ) THEN RAISE EXCEPTION 'F0-29: control técnico CTX2 incompatible'
+    USING ERRCODE = '55000';
+  END IF;
+END $control_ctx2_pre$;
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+INSERT INTO vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
+  (control_id, generacion, actualizada_en)
+VALUES (true, 0, pg_catalog.clock_timestamp());
+DO $control_ctx2_post$
+BEGIN
+  IF (SELECT count(*) FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2) <> 1
+     OR NOT EXISTS (
+       SELECT 1 FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
+       WHERE control_id AND generacion = 0 AND actualizada_en IS NOT NULL)
+  THEN RAISE EXCEPTION 'F0-29: fila técnica CTX2 divergente'
+    USING ERRCODE = '55000';
+  END IF;
+END $control_ctx2_post$;
+RESET ROLE;
 
 -- D14 creó esta fila antes de activar RLS; HZ37 conservó sólo su esquema.
 -- La copia vacía repone el mismo catálogo técnico, sin conceder permisos.
