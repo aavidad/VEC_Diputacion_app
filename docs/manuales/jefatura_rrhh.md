@@ -174,6 +174,9 @@ Cada cambio queda guardado como una versión nueva, con su motivo y quién lo hi
 
 ## 7. Lo que hay, lo que falta y cómo será al final
 
+**Hoy.** Intervención puede abrir Fiscalización desde un enlace y ver en la
+cabecera el total de sus áreas disponibles al terminar la carga.
+
 Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, qué falta y cómo queremos que funcione VEC cuando esté terminada.
 
 | Parte | Hoy | Falta | Al final |

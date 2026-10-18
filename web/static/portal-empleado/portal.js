@@ -610,7 +610,7 @@ function porcentajeSeguro(valor) {
 // ofrecerse. Solo es presentación: el servidor autoriza cada consulta.
 function disponibilidadBolsa() {
   const acceso = accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
-  if (estado.datosBolsas === null && acceso?.disponible !== true
+  if (vistaNecesitaBolsa() && estado.datosBolsas === null && acceso?.disponible !== true
     && coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) {
     return { disponible: true, vista: "resumen", estado: "cargando", etiqueta: traducirPortal("txt_cuadro_de_bolsas") };
   }

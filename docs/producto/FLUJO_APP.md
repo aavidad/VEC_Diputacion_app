@@ -202,6 +202,10 @@ entradas de menú, pero el menú real de Bolsa es el fijo del HTML y el de CT lo
 compone su propia vista. Los manifiestos sirven hoy para saber qué módulos
 existen y qué permisos declaran.
 
+Al entrar directamente en Fiscalización, la cabecera termina de contar las
+áreas sin esperar una lectura de Bolsa que esa entrada no ha iniciado (F1-79).
+Bolsa se comprueba al abrir Inicio o una de sus pantallas.
+
 ### 3.3 Área personal de la aspirante (`/area-personal/`)
 
 El catálogo `web/static/area-personal/vistas.json` decide qué pestañas se
