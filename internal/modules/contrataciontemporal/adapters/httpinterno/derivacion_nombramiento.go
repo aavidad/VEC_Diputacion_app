@@ -31,12 +31,6 @@ func NuevoManejadorDerivacionNombramiento(e EjecutorDerivacionNombramiento) (htt
 	return &manejadorDerivacionNombramiento{ejecutor: e}, nil
 }
 
-type entradaDerivacionNombramientoJSON ports.EntradaDerivacionNombramiento
-
-func (e entradaDerivacionNombramientoJSON) puerto() ports.EntradaDerivacionNombramiento {
-	return ports.EntradaDerivacionNombramiento(e)
-}
-
 func (h *manejadorDerivacionNombramiento) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h == nil || dependenciaNula(h.ejecutor) {
 		responderErrorDerivacionNombramiento(w, r, errorServicioCoberturaNoDisponible)
@@ -71,14 +65,14 @@ func (h *manejadorDerivacionNombramiento) ServeHTTP(w http.ResponseWriter, r *ht
 		responderErrorDerivacionNombramiento(w, r, errorPeticionCoberturaNoValida)
 		return
 	}
-	var entrada entradaDerivacionNombramientoJSON
+	var entrada ports.EntradaDerivacionNombramiento
 	dec := json.NewDecoder(bytes.NewReader(contenido))
 	dec.DisallowUnknownFields()
-	if dec.Decode(&entrada) != nil || dec.Decode(&struct{}{}) != io.EOF || entrada.puerto().Validar() != nil {
+	if dec.Decode(&entrada) != nil || dec.Decode(&struct{}{}) != io.EOF || entrada.Validar() != nil {
 		responderErrorDerivacionNombramiento(w, r, errorContenidoCoberturaInvalido)
 		return
 	}
-	resultado, err := h.ejecutor.Derivar(r.Context(), entrada.puerto())
+	resultado, err := h.ejecutor.Derivar(r.Context(), entrada)
 	if err != nil {
 		responderErrorDerivacionNombramiento(w, r, clasificarErrorDerivacionNombramiento(err), err)
 		return
