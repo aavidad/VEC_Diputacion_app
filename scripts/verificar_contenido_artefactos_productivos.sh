@@ -202,6 +202,9 @@ transportes_mtls_revisados=(
 	# Clientes internos del portal (23/09): con omit el navegador no presenta el
 	# certificado mTLS ni la autenticación del proxy; mismo patrón que cliente-http.js.
 	static/portal-empleado/portal-bolsas-api.js
+	# Reglas globales de situación: GET/POST internos fijos, mTLS del mismo
+	# origen, no-store, redirect error y no-referrer; sin identidad del formulario.
+	static/portal-empleado/modulos/bolsa/reglas-situacion-api.js
 	static/portal-empleado/portal-bolsas-avisos.js
 	static/portal-empleado/portal-bolsas-operaciones.js
 	static/portal-empleado/portal-llamamientos-api.js
