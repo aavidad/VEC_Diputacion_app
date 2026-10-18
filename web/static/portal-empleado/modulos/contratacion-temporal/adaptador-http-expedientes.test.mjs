@@ -6,7 +6,7 @@ import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./c
 import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarHistorialFicha, renderizarLineaFases } from "./vista-expedientes-ficha.js";
+import { renderizarCabeceraFicha, renderizarHistorialFicha, renderizarLineaFases } from "./vista-expedientes-ficha.js";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",
@@ -149,6 +149,15 @@ test("hijo muestra antecedentes del padre separados de su derivación y conserva
   assert.match(html, /Antecedentes del expediente principal/);
   assert.match(html, /Expediente creado desde una plaza adjudicada/);
   assert.match(renderizarLineaFases(expediente, t), /Del expediente principal/);
+  assert.equal(expediente.instruccion_compartida.padre_disponible, false);
+  assert.doesNotMatch(html, /data-ct-exp-abrir=/);
+  assert.match(html, /no está en esta lista/);
+  await presentador.cargar({ texto: "", estado: "", fase: "" });
+  await presentador.seleccionarExpedienteDesdeEnlace(hijoResumen.expediente_ref, 6);
+  const disponible = presentador.obtenerEstado().expediente;
+  assert.equal(disponible.instruccion_compartida.padre_disponible, true);
+  assert.match(renderizarHistorialFicha(disponible, t), /data-ct-exp-abrir="expediente:ct:001"/);
+  assert.match(renderizarCabeceraFicha(disponible, presentador.obtenerEstado(), t), /Abrir expediente principal 2026\/CT-0001/);
   versionHijo = 8;
   hitosHijo = [propio, { ...propio, secuencia: 7, version_expediente: 7,
     accion_clave: "registrar_propuesta_formalizacion", fase_destino: "nombramiento" },
@@ -159,6 +168,19 @@ test("hijo muestra antecedentes del padre separados de su derivación y conserva
   hitosHijo = [propio, { ...hitosHijo[1], accion_clave: "otra_actuacion" }, hitosHijo[2]];
   await presentador.seleccionarExpedienteDesdeEnlace(hijoResumen.expediente_ref, 8);
   assert.equal(Object.hasOwn(presentador.obtenerEstado().expediente, "version_propuesta_documental"), false);
+});
+
+test("el nombre accesible del raíl incluye procedencia en castellano e inglés", async () => {
+  const fases = [{ fase_ref: "presentacion:flujo:solicitud", orden: 1, etiqueta: "Solicitud", estado_clave: "completado", origen: "padre" },
+    { fase_ref: "presentacion:flujo:nombramiento", orden: 2, etiqueta: "Nombramiento", estado_clave: "en_curso", origen: "hijo" }];
+  const traducirES = crearTraductorExpedientesContratacion();
+  const traducirEN = crearTraductorExpedientesContratacion(await cargarMensajesExpedientesContratacionEnIdioma("en"));
+  const es = renderizarLineaFases({ fases }, traducirES);
+  const en = renderizarLineaFases({ fases }, traducirEN);
+  assert.match(es, /aria-label="[^"]*Del expediente principal"/);
+  assert.match(es, /aria-label="[^"]*De este expediente"/);
+  assert.match(en, /aria-label="[^"]*From the main case"/);
+  assert.match(en, /aria-label="[^"]*From this case"/);
 });
 
 test("la lectura autorizada del resumen permite montar la lista aunque Alta esté ausente", async () => {

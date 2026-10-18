@@ -589,11 +589,12 @@ export function validarExpedienteContratacionTemporal(entrada) {
   if (tieneInstruccionCompartida) {
     const origen = entrada.instruccion_compartida;
     exigirCamposExactos(origen, ["derivacion_ref", "padre_ref", "numero_visible_padre", "numero_plaza",
-      "recibo_derivacion_ref", "historial_padre"], "instrucción compartida");
+      "recibo_derivacion_ref", "padre_disponible", "historial_padre"], "instrucción compartida");
     if (!PATRON_NUMERO.test(origen.numero_visible_padre)
       || !Number.isSafeInteger(origen.numero_plaza) || origen.numero_plaza < 1 || origen.numero_plaza > 100
       || entrada.numero_visible !== `${origen.numero_visible_padre}-P${origen.numero_plaza}`
       || entrada.version < 6 || historial.length !== entrada.version - 5
+      || typeof origen.padre_disponible !== "boolean"
       || historial[0]?.secuencia !== 6
       || historial[0]?.accion_clave !== "contratacion_temporal.nombramiento.derivar"
       || !historial.every((h, i) => h.secuencia === i + 6 && h.version_expediente === i + 6)) {
@@ -607,6 +608,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
       padre_ref: referencia(origen.padre_ref, "padre_ref"),
       numero_visible_padre: origen.numero_visible_padre, numero_plaza: origen.numero_plaza,
       recibo_derivacion_ref: referencia(origen.recibo_derivacion_ref, "recibo_derivacion_ref"),
+      padre_disponible: origen.padre_disponible,
       historial_padre: historialPadre,
     };
     if (instruccionCompartida.padre_ref === entrada.expediente_ref) throw new TypeError("padre idéntico al hijo");

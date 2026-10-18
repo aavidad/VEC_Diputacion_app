@@ -92,7 +92,7 @@
 13067 web/static/app.js
 910 web/static/area-personal/aplicacion.js
 602 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
-1102 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
+1124 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 958 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 931 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
 1235 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
@@ -203,5 +203,5 @@
 1838 deploy/postgresql/autorizacion_atestada_v3/migraciones/000284_justificante_bolsa_consumo_externo.up.sql
 814 internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql.go
 808 deploy/postgresql/contratacion_temporal/migraciones/000234_derivacion_nombramiento.up.sql
-1516 deploy/postgresql/contratacion_temporal/migraciones/000237_detalle_nombramiento_derivado.up.sql
-807 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.js
+1531 deploy/postgresql/contratacion_temporal/migraciones/000237_detalle_nombramiento_derivado.up.sql
+809 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.js

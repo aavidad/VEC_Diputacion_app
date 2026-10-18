@@ -560,7 +560,7 @@ function datosPeticionParaAnalisis(detalle) {
   }
 }
 
-function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCompleta) {
+function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCompleta, padreDisponible = false) {
   const traducir = crearTraductorContratacionTemporal(mensajes);
   const versionPropuesta = versionPropuestaDocumental(detalle);
   const rail = railFasesDesdeHitos(detalle, traducir);
@@ -595,6 +595,7 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
       numero_visible_padre: detalle.instruccion_compartida.numero_visible_padre,
       numero_plaza: detalle.instruccion_compartida.numero_plaza,
       recibo_derivacion_ref: detalle.instruccion_compartida.recibo_derivacion_ref,
+      padre_disponible: padreDisponible,
       historial_padre: historialDesdeHitos(detalle.instruccion_compartida.hitos_padre, locale, t),
     } } : {}),
     ...(detalle.fiscalizacion ? { fiscalizacion: {
@@ -719,7 +720,8 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
     if (detalle?.resumen?.expediente_ref !== expedienteRef || detalle.resumen.version !== version) {
       throw new TypeError("detalle ajeno o versión modificada");
     }
-    const expediente = proyectarExpediente(detalle, locale, catalogos, t, mensajes, obtenerJornadaCompleta());
+    const expediente = proyectarExpediente(detalle, locale, catalogos, t, mensajes, obtenerJornadaCompleta(),
+      versiones.has(detalle.instruccion_compartida?.padre_ref));
     if (!signal?.aborted && secuencia === secuenciaDetalle) {
       const registro = detalle.capacidades_ficha?.borradores_publicados;
       if (registro && Object.keys(registro).length === 3

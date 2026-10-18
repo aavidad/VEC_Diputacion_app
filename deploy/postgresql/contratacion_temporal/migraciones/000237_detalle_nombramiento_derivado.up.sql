@@ -151,6 +151,7 @@ DECLARE
     v_instruccion jsonb;
     v_version_instruccion numeric(20,0);
     v_expediente_instruccion_ref text;
+    v_json_seguro boolean;
     v_derivacion record;
     v_nodo jsonb;
     v_indice integer;
@@ -258,17 +259,21 @@ BEGIN
             ON alta.expediente_ref=derivacion.hijo_ref
            AND alta.derivacion_ref=derivacion.derivacion_ref
          WHERE derivacion.hijo_ref=v_fila.expediente_ref;
-        -- CT234 fija el snapshot desde agregado_json y la huella desde JSON Go.
-        -- El recibo y la versión v6, no una igualdad textual de fechas, lo acreditan.
+        -- CT234 fija snapshot y preimagen desde el mismo agregado JSONB.
+        -- El recibo y la versión v6 conservan esa fuente sin leer el padre actual.
         v_padre := v_agregado #> '{instruccion_compartida,expediente_padre}';
         IF pg_catalog.jsonb_typeof(v_padre)<>'object'
            OR pg_catalog.jsonb_typeof(v_padre->'actuaciones')<>'array'
            OR v_agregado #>> '{instruccion_compartida,oferta_ref}' IS DISTINCT FROM v_derivacion.oferta_ref
            OR v_agregado #>> '{instruccion_compartida,numero_plaza}' IS DISTINCT FROM v_derivacion.numero_plaza::text
            OR v_agregado #>> '{instruccion_compartida,recibo_derivacion_ref}' IS DISTINCT FROM v_derivacion.recibo_ref
+           OR pg_catalog.jsonb_typeof(v_agregado#>'{instruccion_compartida,preimagen_padre_json}') IS DISTINCT FROM 'string'
+           OR pg_catalog.octet_length(v_agregado#>>'{instruccion_compartida,preimagen_padre_json}') NOT BETWEEN 2 AND 262144
+           OR (v_agregado#>>'{instruccion_compartida,preimagen_padre_json}')::jsonb IS DISTINCT FROM v_padre
+           OR v_agregado#>>'{instruccion_compartida,preimagen_padre_json}' IS DISTINCT FROM v_padre::text
            OR v_agregado #>> '{instruccion_compartida,huella_padre_sha256}' IS DISTINCT FROM
                 pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
-                    v_derivacion.material::jsonb->>'padre_canonico','UTF8')),'hex')
+                    v_agregado#>>'{instruccion_compartida,preimagen_padre_json}','UTF8')),'hex')
            OR v_derivacion.recibo_json#>'{expediente,instruccion_compartida}' IS DISTINCT FROM
                 v_agregado->'instruccion_compartida'
            OR NOT EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_version_integral inicial
@@ -312,8 +317,18 @@ BEGIN
              FROM pg_catalog.jsonb_array_elements(v_padre->'actuaciones')
                WITH ORDINALITY AS original(nodo,ord)));
     END IF;
-    IF pg_catalog.octet_length(v_agregado::text) > 262144
-       OR NOT vec_contratacion_temporal.json_rrhh_seguro_v1(v_agregado)
+    IF v_instruccion IS NULL THEN
+        v_json_seguro := pg_catalog.octet_length(v_agregado::text)<=262144
+          AND vec_contratacion_temporal.json_rrhh_seguro_v1(v_agregado);
+    ELSE
+        -- El hijo contiene una copia tipada y otra textual del padre. Cada
+        -- fragmento estructural conserva exactamente los controles legados.
+        v_json_seguro := pg_catalog.octet_length(v_agregado::text)<=2097152
+          AND vec_contratacion_temporal.json_rrhh_seguro_v1(
+            v_agregado - 'instruccion_compartida')
+          AND vec_contratacion_temporal.json_rrhh_seguro_v1(v_padre);
+    END IF;
+    IF v_json_seguro IS NOT TRUE
        OR pg_catalog.jsonb_typeof(v_agregado -> 'solicitud') <> 'object'
        OR pg_catalog.jsonb_typeof(
            v_agregado #> '{solicitud,periodo}'
@@ -1498,7 +1513,7 @@ DECLARE fila record; actual pg_proc%ROWTYPE;
 BEGIN
  FOR fila IN SELECT * FROM (VALUES
   ('canon_resumen_publicacion_rrhh_v1','9b5ea485a08a5a40160b1db0248c1ee33699ed2a550e2c0f0472972f0059db02'),
-  ('materializar_detalle_rrhh_v1','66a80e90c6371e2a5c9a4a9c80368921072382f939f6fef73a4606d0d6d28bbc'),
+  ('materializar_detalle_rrhh_v1','aced84f976a15715df9fc0606111cb5359ccc1d5dd9cea646b1181689a7069c4'),
   ('canon_contenido_detalle_rrhh_v1','f0685b3d58f9d448c57a806ae4079b47ed2f74703177f08680088ce9ced27b66')
  ) AS esperado(nombre,huella) LOOP
    SELECT p.* INTO STRICT actual FROM pg_proc p WHERE p.proname=fila.nombre
