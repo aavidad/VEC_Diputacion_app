@@ -368,7 +368,7 @@ entre la unidad que tramita y la del puesto y la asignación de los permisos
 necesarios para la activación. Este ejercicio no cambia
 los pasos 1 a 21 del caso singular.
 
-**Ensayo F1-55 en preparación (18/10).** Dirección actualiza la variante de dos plazas al modelo vigente: dos aceptaciones previas desde Mi Bolsa, adjudicación por orden entre quienes aceptan y recuperación del mismo recibo tras un fallo y un reinicio, sin duplicados. No responder a la oferta no produce un acto ni una baja. La cancelación queda fuera de este ensayo, en F1-17. La preparación de dos identidades ficticias reutiliza el preparador existente; el recorrido completo sigue pendiente.
+**Ensayo F1-55 (18/10).** La copia local registra dos aceptaciones previas desde Mi Bolsa y adjudica por orden, aunque la segunda posición aceptó antes que la primera. Al perder la respuesta de la primera adjudicación, la misma intención recuperó con 200 el recibo y la fecha tras reiniciar aplicación y PostgreSQL, sin duplicar el acto. Las dos plazas quedaron cubiertas; la tercera persona siguió disponible sin responder. Cada adjudicación incorpora la consulta plegada de su recibo y fecha, sin otra escritura. No responder no produce un acto ni una baja. La cancelación queda en F1-17; la continuación hasta formalización en CT sigue pendiente. La preparación de las dos identidades reutiliza el guion existente; la autoridad de RRHH procede del arranque de desarrollo documentado, sin asignación manual ni cambio de huellas. La guía `deploy/principal/aceptacion_dos_plazas_f1_55_20261018.md` distingue la evidencia del ensayo y la comprobación del detalle nuevo.
 
 ### 4.0.1 Vista general
 
