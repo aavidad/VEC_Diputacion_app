@@ -1,0 +1,4 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000278_vinculo_oferta_ct.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000120_verificacion_nominal_oferta_ct.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000121_cierre_intencion_oferta_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000220_seleccion_oferta_bolsa.up.sql

@@ -248,6 +248,10 @@ test("la selección de llamamiento exige la fase de llamamiento", () => {
   assert.deepEqual(contextoLlamamientoDesdeEstado(estado), {
     expediente_ref: A, version_esperada: 7,
   });
+  estado.expediente.numero_personas = 2;
+  assert.deepEqual(contextoLlamamientoDesdeEstado(estado), {
+    expediente_ref: A, version_esperada: 7, numero_personas: 2,
+  });
 });
 
 test("subsanación no consulta la preparación de resolución", async () => {
