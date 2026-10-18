@@ -13,9 +13,8 @@
 # Las listas antiguas de cada PR (y las alternativas, como las dos de
 # firma_vigencias) quedan como historia: no se combinan con esta.
 #
-# Necesita en la base los roles sin LOGIN vec_externo_documentos_bolsa_datos
-# y vec_interno_documentos_bolsa_rrhh (B119 y vecinas) hasta que F0-31 los
-# cree en copia_local.py.
+# B119 y vecinas necesitan los roles sin LOGIN vec_externo_documentos_bolsa_datos
+# y vec_interno_documentos_bolsa_rrhh; copia_local.py los crea desde F0-31.
 
 # PR #1120 922e50533 — orden de deploy/principal/lista_sql_codexp_confianza_externa_20261014.txt
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000263_publicador_nominal_confianza_externa.up.sql ae50a5911f6ae8e0c6841533c1293f1b9c8f493e09197809f06e6e6cfa0aba14
@@ -100,3 +99,11 @@ deploy/postgresql/contexto_actor_v1/migraciones/000047_cotejo_historico_contexto
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000289_auditoria_lectura_inscripcion_externa.up.sql 25fe5f23c180c29b3f5eeed81d7638b58d8580214803520d4197b3043f507895
 # PR #1178 9f3b2d1e1 — orden de deploy/principal/lista_sql_codexr_seleccion_pendiente_aviso_20261016.txt
 deploy/postgresql/contratacion_temporal/migraciones/000231_seleccion_pendiente_aviso_consulta.up.sql 6789d0c51233bb7b8728d233dfd5dbe747f4535a13464fc869a404d20cb394e3
+# PR #1146 81294886d — F1-16, ofertas de varias plazas (orden indicado por dirección)
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000278_vinculo_oferta_ct.up.sql 863b6c21a68f12899ef9c74045915a22fff17d27f7dec47e85f7a3fc4ff97099
+deploy/postgresql/bolsa_llamamientos/migraciones/000120_verificacion_nominal_oferta_ct.up.sql 64dd32e937c3b62e095fdda9005d448d3c0b7e7f4124bf4e2372fbeed0194a71
+deploy/postgresql/bolsa_llamamientos/migraciones/000121_cierre_intencion_oferta_ct.up.sql 8f993515621d40d8b5d3804bc57730578c222cd35914f89dfcdaa8c58b003941
+deploy/postgresql/contratacion_temporal/migraciones/000220_seleccion_oferta_bolsa.up.sql 9bf39373c362b72cfe57da9d9243e56fac00840e194db6379586e61f6bea03bd
+deploy/postgresql/contratacion_temporal/migraciones/000223_cancelacion_oferta_pendiente.up.sql cee467cb6d79cfaf03ee2683264ec3e458a78e89b939b8d23326722a904a2fd0
+deploy/postgresql/contratacion_temporal/migraciones/000225_consulta_estado_seleccion_oferta.up.sql 9476cbffececfd0b70464111c08542fff658fc15fb96079b67a518307562eb6f
+deploy/postgresql/contratacion_temporal/migraciones/000227_ambitos_oferta_unidad_gestora.up.sql f56336a11beed51c3a235ee167705d1b9209f3ed7dd3c2d4b8722c7f333f95b6

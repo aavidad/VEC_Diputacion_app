@@ -164,11 +164,8 @@ combines con las listas antiguas de cada PR, que repiten migraciones y harían
 que el guion rechazara todo. Toda PR que añada migraciones añade sus líneas
 al final de esta lista en la misma PR, con la ruta y su SHA-256.
 
-Hasta que F0-31 lo resuelva en el guion, B119 y sus vecinas necesitan dos
-roles sin LOGIN que no vienen en el volcado: `vec_externo_documentos_bolsa_datos`
-y `vec_interno_documentos_bolsa_rrhh`. Créalos en cuanto responda el
-PostgreSQL de tu copia, antes de que lleguen las migraciones, con
-`docker exec -u postgres vec-copia-<letra>-<instancia> psql -X -c "CREATE ROLE <rol> NOLOGIN;"`.
+Los dos roles sin LOGIN que necesita B119 los crea ya el guion (F0-31, apartado 2);
+no hace falta crearlos a mano.
 
 Lo que sigue explica de dónde sale la lista y cómo se hacía a mano hasta el
 18/10. Sirve para comprobarla, no para aplicar otra cosa.
