@@ -2,15 +2,15 @@
   "modulo_id": "bolsa",
   "referencia": "fuente:bolsa:preferencias_bolsas_propias",
   "version": 2,
-  "huella_sha256": "1b3532afc450c8b18c6670d15e78972f2311f5e12715cffbfd14b2f156053633",
-  "entradas_canon": "[{\"referencia\":\"accion:bolsa.preferencias_bolsas.consultar_propias\",\"version\":2,\"fuente_ref\":\"fuente:bolsa:preferencias_bolsas_propias\",\"fuente_version\":2,\"concesion\":{\"accion\":\"bolsa.preferencias_bolsas.consultar_propias\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"participaciones_candidato\",\"finalidades\":[\"gestion_preferencias_bolsas_propias\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"version\",\"orden_guardado\",\"bolsas_actuales\",\"bolsas_nuevas\",\"bolsas_retiradas\",\"revision_requerida\",\"recibo_ref\",\"registrado_en\",\"modalidades_guardadas\",\"modalidades_disponibles\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"candidato_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-18T00:00:00Z\",\"vigente_hasta\":\"2027-01-16T00:00:00Z\"},{\"referencia\":\"accion:bolsa.preferencias_bolsas.ordenar_propias\",\"version\":2,\"fuente_ref\":\"fuente:bolsa:preferencias_bolsas_propias\",\"fuente_version\":2,\"concesion\":{\"accion\":\"bolsa.preferencias_bolsas.ordenar_propias\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"participaciones_candidato\",\"finalidades\":[\"gestion_preferencias_bolsas_propias\"],\"garantia_minima\":\"alto\"},\"dimensiones_ambito\":[\"candidato_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-18T00:00:00Z\",\"vigente_hasta\":\"2027-01-16T00:00:00Z\"}]",
+  "huella_sha256": "8241bbef088f2b88ddbb966a2ebfb4b435e116b3e81597ab8a0c299d1302a36f",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.preferencias_bolsas.consultar_propias\",\"version\":2,\"fuente_ref\":\"fuente:bolsa:preferencias_bolsas_propias\",\"fuente_version\":2,\"concesion\":{\"accion\":\"bolsa.preferencias_bolsas.consultar_propias\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"participaciones_candidato\",\"finalidades\":[\"gestion_preferencias_bolsas_propias\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"version\",\"orden_guardado\",\"bolsas_actuales\",\"bolsas_nuevas\",\"bolsas_retiradas\",\"revision_requerida\",\"modalidades_guardadas\",\"modalidades_disponibles\",\"recibo_ref\",\"registrado_en\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"candidato_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-18T00:00:00Z\",\"vigente_hasta\":\"2027-01-16T00:00:00Z\"},{\"referencia\":\"accion:bolsa.preferencias_bolsas.ordenar_propias\",\"version\":2,\"fuente_ref\":\"fuente:bolsa:preferencias_bolsas_propias\",\"fuente_version\":2,\"concesion\":{\"accion\":\"bolsa.preferencias_bolsas.ordenar_propias\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"participaciones_candidato\",\"finalidades\":[\"gestion_preferencias_bolsas_propias\"],\"garantia_minima\":\"alto\"},\"dimensiones_ambito\":[\"candidato_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-18T00:00:00Z\",\"vigente_hasta\":\"2027-01-16T00:00:00Z\"}]",
   "entradas": [
     {
       "referencia": "accion:bolsa.preferencias_bolsas.consultar_propias",
       "version": 2,
       "fuente_ref": "fuente:bolsa:preferencias_bolsas_propias",
       "fuente_version": 2,
-      "fuente_huella_sha256": "1b3532afc450c8b18c6670d15e78972f2311f5e12715cffbfd14b2f156053633",
+      "fuente_huella_sha256": "8241bbef088f2b88ddbb966a2ebfb4b435e116b3e81597ab8a0c299d1302a36f",
       "concesion": {
         "accion": "bolsa.preferencias_bolsas.consultar_propias",
         "modulo_id": "bolsa",
@@ -26,10 +26,10 @@
           "bolsas_nuevas",
           "bolsas_retiradas",
           "revision_requerida",
-          "recibo_ref",
-          "registrado_en",
           "modalidades_guardadas",
-          "modalidades_disponibles"
+          "modalidades_disponibles",
+          "recibo_ref",
+          "registrado_en"
         ],
         "obligaciones": [
           "auditar"
@@ -47,7 +47,7 @@
       "version": 2,
       "fuente_ref": "fuente:bolsa:preferencias_bolsas_propias",
       "fuente_version": 2,
-      "fuente_huella_sha256": "1b3532afc450c8b18c6670d15e78972f2311f5e12715cffbfd14b2f156053633",
+      "fuente_huella_sha256": "8241bbef088f2b88ddbb966a2ebfb4b435e116b3e81597ab8a0c299d1302a36f",
       "concesion": {
         "accion": "bolsa.preferencias_bolsas.ordenar_propias",
         "modulo_id": "bolsa",
