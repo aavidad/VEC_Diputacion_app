@@ -17,7 +17,6 @@
     "txt_directa_actualizar": "Refresh record",
     "txt_directa_confirmada": "The acceptance has been confirmed. The person is awaiting appointment.",
     "txt_directa_fecha": "Decision date and time (Madrid)",
-    "txt_directa_ver_referencias": "View receipt references",
     "txt_directa_motivo_invalido": "Enter a shorter reason, then review the acceptance again.",
     "txt_directa_recibo_invalido": "The receipt could not be verified. Check the same acceptance.",
     "txt_directa_refresco_error": "The acceptance is confirmed, but the record could not be refreshed. Reload it.",

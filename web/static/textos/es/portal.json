@@ -17,7 +17,6 @@
     "txt_directa_actualizar": "Actualizar ficha",
     "txt_directa_confirmada": "Se ha confirmado la aceptación. La persona queda pendiente de incorporación.",
     "txt_directa_fecha": "Fecha y hora de la decisión (Madrid)",
-    "txt_directa_ver_referencias": "Ver referencias del recibo",
     "txt_directa_motivo_invalido": "Escriba un motivo más breve y vuelva a revisar la aceptación.",
     "txt_directa_recibo_invalido": "No se ha podido comprobar el recibo. Compruebe la misma aceptación.",
     "txt_directa_refresco_error": "La aceptación está confirmada, pero no se pudo actualizar la ficha. Vuelva a cargarla.",
