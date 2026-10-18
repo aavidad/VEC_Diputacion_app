@@ -783,8 +783,12 @@ detiene en esa persona. RRHH no pasa a la siguiente ni causa una exclusión
 definitiva por la falta de datos. La excepción corresponde al art. 9, apartado
 cuarto (numerado 3 en el BOP n.º 9 de 16/01/2026): solo vacantes para los
 vínculos tasados y con reducción del máximo de tres años por el tiempo previo
-en acumulación o sustitución. R1b deberá añadir el acto propio con el que RRHH
-registre los hechos, la evidencia y el recibo. Hoy ese acto no existe.
+en acumulación o sustitución. F1-09 prepara el registro de los hechos y su recibo:
+el canal de servidor recibe la comprobación desde la ficha de la participación,
+con el contexto del expediente y las versiones esperadas. La persona que tramita
+no indica el resultado: lo calcula Bolsa. Mientras falte su habilitación, solo
+este registro queda cerrado. La pantalla F1-57 y la proyección del contexto en
+las listas existentes siguen pendientes; F1-10 comprobará el acto al reservar.
 
 La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
 requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos

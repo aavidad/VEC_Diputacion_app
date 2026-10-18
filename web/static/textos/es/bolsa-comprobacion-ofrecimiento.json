@@ -1,0 +1,9 @@
+{
+  "errores": {
+    "comprobacion_ofrecimiento_no_habilitada": "La comprobación aún no está habilitada. Consulte con la persona administradora.",
+    "comprobacion_en_conflicto": "Los datos han cambiado. Actualice la ficha antes de registrar la comprobación.",
+    "solicitud_invalida": "Revise los datos de la comprobación.",
+    "acceso_denegado": "No tiene permiso para registrar esta comprobación.",
+    "servicio_no_disponible": "No se ha podido registrar la comprobación. Vuelva a intentarlo."
+  }
+}

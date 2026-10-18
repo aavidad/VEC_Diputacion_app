@@ -381,6 +381,17 @@ antes de reservar y produce un diagnóstico 409 con bolsa, posición y versión.
 Esta entrega conserva la detención: el acto que acredite los hechos y habilite
 la excepción, junto con el control del plazo en CT, pertenece al corte siguiente.
 
+F1-09 prepara `POST /api/vec/bolsa/bolsas/{bolsa}/candidatos/{participacion}/comprobaciones-ofrecimiento`:
+cuerpo `contexto`, `hechos` y `version_esperada`, con `Idempotency-Key`.
+La identidad procede de la sesión certificada; el ámbito se coteja con el
+resolutor existente. La huella del material se calcula sobre `jsonb::text`
+antes de autorizar y queda como atributo del contexto V3, conforme a B115.
+La escritura B133 consume esa autorización y valida CT233 en la misma
+transacción; depende del primer corte SQL y del alta central AD291/F0-18.
+Sin material de la audiencia nueva responde 503, sin impedir el arranque.
+La proyección mínima en las listas existentes y la pantalla F1-57 siguen
+pendientes. Guion: `deploy/principal/comprobacion_ofrecimiento_api_f1_09_20261018.md`.
+
 Ojo: las tablas de propuesta de las migraciones Bolsa `000001` y `000002`
 (`necesidad_autoritativa`, `propuesta`…) **no están instaladas en la principal**; comprobar su existencia
 antes de usarlas (`revisar-sql-vec`). Los datos de contacto van cifrados; en
