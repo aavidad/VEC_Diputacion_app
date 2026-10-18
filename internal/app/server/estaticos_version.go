@@ -77,6 +77,15 @@ func (web *webVersionada) servir(w http.ResponseWriter, r *http.Request) bool {
 	if !existe {
 		return false
 	}
+	// FileServer conserva una única entrada canónica para cada directorio.
+	if strings.HasSuffix(r.URL.Path, "/index.html") {
+		destino := "./"
+		if r.URL.RawQuery != "" {
+			destino += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, destino, http.StatusMovedPermanently)
+		return true
+	}
 	w.Header().Set("ETag", `W/"`+web.version+`"`)
 	w.Header().Add("Vary", "Accept-Encoding")
 	if aceptaGzip(r.Header.Get("Accept-Encoding")) && r.Header.Get("Range") == "" {

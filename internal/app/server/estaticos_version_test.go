@@ -82,8 +82,12 @@ func leerFuenteWebVersionada(ruta string) ([]byte, error) {
 func TestVersionWebNoPublicaMarcasNiFijaVersionInventada(t *testing.T) {
 	handler := staticHandler()
 	for ruta := range versionWeb().textos {
+		rutaPeticion := ruta
+		if strings.HasSuffix(ruta, "/index.html") {
+			rutaPeticion = strings.TrimSuffix(ruta, "index.html")
+		}
 		for _, version := range []string{versionWeb().version, "anterior"} {
-			r := httptest.NewRequest("GET", ruta+"?v="+version, nil)
+			r := httptest.NewRequest("GET", rutaPeticion+"?v="+version, nil)
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, r)
 			if w.Code != 200 || strings.Contains(w.Body.String(), marcaVersionWeb) {
@@ -109,6 +113,16 @@ func TestVersionWebManifiestosPWARevalidanConHuellaDeTextos(t *testing.T) {
 		staticHandler().ServeHTTP(w, r)
 		if w.Code != 200 || w.Header().Get("Cache-Control") != "no-cache" || w.Header().Get("ETag") == "" {
 			t.Fatalf("el manifiesto calculado debe revalidarse: %s %d %v", ruta, w.Code, w.Header())
+		}
+	}
+}
+
+func TestVersionWebConservaRedireccionIndice(t *testing.T) {
+	for _, metodo := range []string{"GET", "HEAD"} {
+		w := httptest.NewRecorder()
+		staticHandler().ServeHTTP(w, httptest.NewRequest(metodo, "/bolsa/index.html?v=anterior", nil))
+		if w.Code != http.StatusMovedPermanently || w.Header().Get("Location") != "/bolsa/?v=anterior" {
+			t.Fatalf("entrada no canónica: %d %v", w.Code, w.Header())
 		}
 	}
 }
