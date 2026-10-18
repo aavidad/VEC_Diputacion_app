@@ -1097,7 +1097,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("portal-bolsas-ofertas.js", "20261018-f118-reintento-reglas-v1");
   versionesEspeciales.set("portal.js", "20261018-f118-reintento-reglas-v1");
   for (const ruta of ["portal-bolsas-api.js", "portal-bolsas-operaciones.js", "portal-bolsas-sanciones.js", "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js", "portal-panel-interno.js", "portal.js"])
-    versionesEspeciales.set(ruta, "20261018-f171-denegacion-post-v2");
+    versionesEspeciales.set(ruta, "20261018-f171-main-v3");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
