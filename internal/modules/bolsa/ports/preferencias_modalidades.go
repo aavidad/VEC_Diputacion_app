@@ -5,6 +5,7 @@ import (
 	"time"
 
 	core "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 // ModalidadPreferencia procede del catálogo gobernado común; su clave es la
@@ -29,4 +30,37 @@ type EstadoPreferenciasModalidades struct {
 // el catálogo común vigente. Nunca recibe claves ni fuentes del navegador.
 type CatalogoPreferenciasModalidades interface {
 	ConsultarModalidadesDisponibles(context.Context) ([]ModalidadPreferencia, error)
+}
+
+// GuardarPreferenciasModalidades recibe la selección de la persona y el
+// catálogo capturado por el servidor. El material liga ambos a la decisión.
+type GuardarPreferenciasModalidades struct {
+	SolicitudPreferenciasBolsas
+	Material          vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	Modalidades       []string
+	Disponibles       []ModalidadPreferencia
+	VersionEsperada   uint64
+	ClaveIdempotencia string
+}
+
+type ReciboPreferenciasModalidades struct {
+	ReciboRef    string
+	Version      uint64
+	Modalidades  []string
+	RegistradoEn time.Time
+	Reutilizado  bool
+}
+
+type EscrituraPreferenciasModalidades interface {
+	GuardarPreferenciasModalidades(context.Context, GuardarPreferenciasModalidades) (ReciboPreferenciasModalidades, error)
+}
+
+// La misma captura nominal acredita una de las proyecciones fijas del
+// descriptor de preferencias. El cliente HTTP no elige campos de lectura.
+type LecturaPreferenciasModalidades interface {
+	LeerPreferenciasModalidades(context.Context, CapturaLecturaPreferencias) (EstadoPreferenciasModalidades, error)
+}
+
+func CamposLecturaPreferenciasModalidades() []string {
+	return []string{"version", "modalidades_guardadas", "modalidades_disponibles", "recibo_ref", "registrado_en"}
 }
