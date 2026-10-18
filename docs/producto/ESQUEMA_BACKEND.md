@@ -298,6 +298,15 @@ producción plazos superiores a 24 horas, también al aplicar material
 preparado antes en desarrollo. El plan de aplicación mantiene su caducidad
 breve.
 
+AD291, preparada y pendiente de instalación conjunta, añade al consumidor
+central solo dos perfiles técnicos: la comprobación del ofrecimiento de Bolsa
+(B133/AD290) y la derivación de nombramiento de Contratación temporal
+(AD292/CT234). Cada uno liga acción, audiencia, recurso, ámbitos y huella
+del efecto; el permiso de RRHH se publica por su gobierno habitual. Además,
+la rama documental RRHH exige certificado y garantía alta, conservando el
+consumo externo del justificante. F1-13 usa AD296 aparte; los consumidores de
+Cronos, Dietas y denominaciones administrativas esperan contratos posteriores.
+
 ### 7.2 Auditoría encadenada y sellada
 
 - **Cadena común** en `vec_autorizacion_atestada_v3` (AD207, sellado diferido):
