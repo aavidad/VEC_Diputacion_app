@@ -1,6 +1,7 @@
 """Rechazos previos a restaurar o borrar una instancia."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -37,6 +38,7 @@ class CopiaLocalTest(unittest.TestCase):
                 with patch.object(copia, 'REPO', self.repo), self.assertRaises(ValueError):
                     copia.migraciones([self.lista])
 
+
     def test_no_omite_duplicado_ni_huella_alterada(self):
         with patch.object(copia, 'REPO', self.repo):
             with self.assertRaises(ValueError):
@@ -69,6 +71,19 @@ class CopiaLocalTest(unittest.TestCase):
         self.assertEqual(plan[0][2], b'BEGIN; COMMIT;')
         self.assertEqual(copia.hashlib.sha256(plan[0][2]).hexdigest(), plan[0][1])
 
+    def test_lista_unica_de_main_es_valida_y_completa(self):
+        lista = Path(__file__).with_name('lista_sql_main_tras_hz37.txt')
+        rutas = [c[0] for c in (l.split('#', 1)[0].split() for l in lista.read_text().splitlines()) if c]
+        self.assertTrue(rutas)
+        self.assertEqual(len(rutas), len(set(rutas)))
+        patch.stopall()
+        plan = copia.migraciones([lista])
+        self.assertEqual([str(r.relative_to(copia.REPO)) for r, _, _ in plan], rutas)
+        nuevas = copia.subprocess.check_output(['git', '-C', str(copia.REPO), 'diff', '--name-only',
+                     '--diff-filter=A', copia.REFERENCIA, 'HEAD', '--', 'deploy/postgresql'], text=True).split()
+        self.assertEqual(sorted(rutas), sorted(r for r in nuevas if r.endswith('.up.sql')),
+                         'Toda migración nueva de main debe estar en la lista única')
+
     def test_interrupcion_de_estado_conserva_el_anterior(self):
         estado = self.raiz / 'estado.json'
         copia.guardar(estado, {'preparada': False})
@@ -90,6 +105,49 @@ class CopiaLocalTest(unittest.TestCase):
         with patch.object(copia, 'BASE', self.raiz), self.assertRaises(ValueError):
             copia.Copia('l', 'focal')
 
+    def test_binario_alterado_o_enlazado_no_se_arranca(self):
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'focal')
+        instancia.raiz.mkdir(mode=0o700)
+        binario = instancia.raiz / 'vec-server'
+        binario.write_bytes(b'binario-verificado')
+        binario.chmod(0o700)
+        estado = {'binario_sha256': copia.sha256(binario)}
+        instancia.validar_binario(estado)
+        binario.write_bytes(b'binario-distinto')
+        with self.assertRaisesRegex(ValueError, 'binario no coincide'):
+            instancia.validar_binario(estado)
+        binario.unlink()
+        binario.symlink_to(self.sql)
+        with self.assertRaises(ValueError):
+            instancia.validar_binario(estado)
+
+    def test_compilacion_rechaza_cambios_y_revision_distinta(self):
+        self.historial.side_effect = None
+        self.historial.return_value = b' M cmd/vec-server/main.go\n'
+        with self.assertRaisesRegex(ValueError, 'árbol limpio'):
+            copia.verificar_fuente()
+        self.historial.return_value = b''
+        with patch.object(copia, 'revision', return_value='otra'), self.assertRaises(ValueError):
+            copia.verificar_fuente('esperada')
+
+    def test_preparador_exige_fichero_privado_externo_sin_enlaces(self):
+        preparador = self.raiz / 'preparar.py'
+        preparador.write_text('pass\n')
+        with patch.dict(os.environ, {'VEC_COPIA_DATOS_SCRIPT': str(preparador)}), \
+                patch.object(copia, 'REPO', self.repo), \
+                patch.object(copia, 'BASE', self.raiz / 'copias'):
+            preparador.chmod(0o644)
+            with self.assertRaisesRegex(ValueError, 'fichero privado'):
+                copia.validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT')
+            preparador.chmod(0o600)
+            self.assertEqual(copia.validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT'), preparador)
+            enlace = self.raiz / 'enlace.py'
+            enlace.symlink_to(preparador)
+            os.environ['VEC_COPIA_DATOS_SCRIPT'] = str(enlace)
+            with self.assertRaisesRegex(ValueError, 'fichero privado'):
+                copia.validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT')
+
     def test_otro_arbol_no_puede_usar_la_instancia(self):
         with patch.object(copia, 'BASE', self.raiz):
             instancia = copia.Copia('l', 'focal')
@@ -109,6 +167,44 @@ class CopiaLocalTest(unittest.TestCase):
                 instancia.exportar(str(destino))
             self.assertFalse(destino.exists())
             self.assertEqual(list(self.raiz.glob('.vec-clon-*')), [])
+
+    def test_reinicio_conserva_configuracion_de_modulos(self):
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'modulos')
+            instancia.raiz.mkdir()
+            ruta = instancia.raiz / 'entorno_modulos.json'
+            copia.guardar(ruta, {'VEC_CT_DATABASE_URL': 'conexion-local'})
+            estado = {'entorno_modulos_sha256': copia.sha256(ruta)}
+            with patch.object(instancia, 'leer', return_value=estado):
+                self.assertEqual(instancia.entorno_modulos(), {'VEC_CT_DATABASE_URL': 'conexion-local'})
+                ruta.write_text('{"VEC_CT_DATABASE_URL":"otra-conexion"}')
+                with self.assertRaises(ValueError):
+                    instancia.entorno_modulos()
+
+    def test_configuracion_ajena_no_se_abre(self):
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'modulos')
+            instancia.raiz.mkdir()
+            ruta = instancia.raiz / 'entorno_modulos.json'
+            copia.guardar(ruta, {'VEC_CT_DATABASE_URL': 'conexion-local'})
+            estado = {'entorno_modulos_sha256': copia.sha256(ruta)}
+            with patch.object(instancia, 'leer', return_value=estado):
+                ruta.chmod(0o644)
+                with self.assertRaises(ValueError):
+                    instancia.entorno_modulos()
+
+    def test_portal_sin_modulos_no_lee_configuracion(self):
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'portal')
+            with patch.object(instancia, 'leer', return_value={}):
+                self.assertEqual(instancia.entorno_modulos(), {})
+
+    def test_clave_postgresql_solo_legible_por_su_dueno(self):
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'clave')
+            instancia.raiz.mkdir()
+            instancia.pg_password()
+            self.assertEqual((instancia.raiz / 'postgres.password').stat().st_mode & 0o777, 0o600)
 
 
 if __name__ == '__main__':
