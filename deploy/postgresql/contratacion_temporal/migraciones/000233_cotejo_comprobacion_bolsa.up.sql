@@ -11,7 +11,7 @@ DO $pre$ BEGIN
  OR to_regprocedure('vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint)') IS NULL
  OR encode(sha256(convert_to(pg_get_functiondef(
   to_regprocedure('vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint)')),'UTF8')),'hex')
-  IS DISTINCT FROM '6f205203e889b378557bc361141fbe57190075ecbabdbdd6e70dc6dfc7473244'
+  IS DISTINCT FROM '777f09f2514dad4ac9a552de4a992d15ab2b6f1a8dad94cfd8401e1d5498fe23'
  OR to_regprocedure('vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(jsonb,boolean)') IS NOT NULL
  THEN RAISE EXCEPTION 'CT233: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;

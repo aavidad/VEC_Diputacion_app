@@ -1,11 +1,12 @@
 \set ON_ERROR_STOP on
 -- En copia desechable después de CT233/AD290/B133. No simula autorización.
 BEGIN;
-SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL timezone='UTC';
+-- El operador crea la utilidad temporal; el propietario no necesita TEMP.
 CREATE FUNCTION pg_temp.hecho(v jsonb) RETURNS jsonb LANGUAGE sql AS $f$
  SELECT jsonb_build_object('valor',v,'documento_ref','ref:'||repeat('b',64),'huella',repeat('a',64))
 $f$;
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 DO $test$ DECLARE h jsonb;c jsonb;r jsonb;caso jsonb;
 BEGIN
  c:='{"fuente_normativa":"Reglamento de bolsas, BOP 9/2026, art. 9, apartado cuarto (numerado 3)","mejora":{
