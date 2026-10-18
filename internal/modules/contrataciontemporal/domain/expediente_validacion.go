@@ -15,8 +15,10 @@ func (e Expediente) Validar() error {
 		uint64(len(e.Actuaciones))+primeraSecuencia-1 != e.Version {
 		return ErrExpedienteInvalido
 	}
-	if e.InstruccionCompartida != nil && !e.instruccionCompartidaValida() {
-		return ErrExpedienteInvalido
+	if e.InstruccionCompartida != nil {
+		if err := e.validarInstruccionCompartida(); err != nil {
+			return err
+		}
 	}
 	if e.Analisis != nil && e.Analisis.Validar() != nil {
 		return ErrExpedienteInvalido

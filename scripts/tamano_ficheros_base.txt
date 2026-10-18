@@ -202,4 +202,4 @@
 834 deploy/postgresql/bolsa_llamamientos/migraciones/000117_origen_oferta_ct_publicacion.up.sql
 1838 deploy/postgresql/autorizacion_atestada_v3/migraciones/000284_justificante_bolsa_consumo_externo.up.sql
 814 internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql.go
-821 deploy/postgresql/contratacion_temporal/migraciones/000234_derivacion_nombramiento.up.sql
+808 deploy/postgresql/contratacion_temporal/migraciones/000234_derivacion_nombramiento.up.sql

@@ -374,7 +374,7 @@ RRHH creará desde su ficha un expediente de nombramiento con el mismo número
 seguido de «-P» y el número de plaza. Cada hijo tendrá su aceptación de plaza,
 su permiso y su recibo propios. Conserva la instrucción original como
 antecedente compartido; no vuelve a registrar los actos del padre.
-El primer corte prepara la derivación y el panel del padre. Siguen pendientes
+La derivación y el panel del padre se preparan en cortes separados. Siguen pendientes
 el ensayo y la conexión de la propuesta, resolución, incorporación, alta en
 Personal y cese de cada hijo. El cese de una persona no debe cambiar el de la
 otra. Esta variante no modifica el recorrido singular de los pasos 1 a 21.
