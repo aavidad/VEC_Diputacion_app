@@ -27,6 +27,11 @@ END $metadatos$;
 DO $golden$
 DECLARE c text:='can_'||repeat('a',43);opciones jsonb;h text;ctx text;
 BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE
+  p.oid='vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
+  AND p.pronargs=16 AND p.proargtypes=
+   '25 1009 3802 20 25 1184 17 17 17 17 1700 1700 17 17 17 17'::oidvector AND p.prokind='f')
+ THEN RAISE EXCEPTION 'B138: firma de escritora divergente' USING ERRCODE='55000'; END IF;
  opciones:=jsonb_build_array(
   jsonb_build_object('clave','vacante','catalogo_id','vec.contratacion_temporal.reglas',
    'catalogo_version',3,'catalogo_huella_sha256',repeat('b',64),'entrada_clave','c12.modalidad.vacante'),
