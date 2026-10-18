@@ -75,8 +75,10 @@ demás audiencias internas cuando el selector está activo.
 Comprobar en la copia: arranque con el selector apagado y encendido; `GET`
 propio 200 con apunte de lectura; `PUT` 201 con recibo; repetición 200 con el
 mismo recibo; tras reiniciar aplicación y PostgreSQL, la misma versión, orden,
-recibo y fecha. Una candidatura ajena o una sesión externa se rechazan y dejan
-su auditoría. `POST` responde 405.
+recibo y fecha. No se admiten contextos de otra candidatura ni sesiones
+externas. Los rechazos posteriores a la preparación de la sesión dejan
+auditoría nominal de Bolsa; si falla antes el cotejo del candidato, el registro
+compartido de sesión y contexto no expresa la acción denegada. `POST` responde 405.
 
 ## Estado (16/10)
 

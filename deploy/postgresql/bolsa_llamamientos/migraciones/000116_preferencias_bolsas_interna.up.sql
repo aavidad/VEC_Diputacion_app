@@ -36,7 +36,9 @@ BEGIN
  WHERE c.conrelid='vec_bolsa_llamamientos.preferencia_bolsas_version'::regclass
   AND c.contype='c' AND c.convalidated
   AND strpos(pg_get_constraintdef(c.oid,false),'clave_idempotencia')>0;
- IF total<>1 OR strpos(definicion,'^[A-Za-z0-9._:-]{8,128}$')=0
+ IF total<>1 OR nombre IS DISTINCT FROM 'preferencia_bolsas_version_clave_idempotencia_check'
+ OR encode(sha256(convert_to(definicion,'UTF8')),'hex') IS DISTINCT FROM
+  'd2d14fbf346ebf6fff0f0bbbeed7ce0759c8624766a5abe9a07f86c8cd7b00b7'
  OR EXISTS(SELECT 1 FROM pg_attribute a
   WHERE a.attrelid='vec_bolsa_llamamientos.preferencia_bolsas_version'::regclass
    AND a.attname IN ('actor_ref_interno','perfil_ref_interno') AND NOT a.attisdropped)
