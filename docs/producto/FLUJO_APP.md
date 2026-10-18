@@ -368,13 +368,6 @@ entre la unidad que tramita y la del puesto y la asignación de los permisos
 necesarios para la activación. Este ejercicio no cambia
 los pasos 1 a 21 del caso singular.
 
-La continuación acordada crea un expediente de nombramiento por cada persona
-que acepte una plaza. Cada hijo parte del expediente fiscalizado y conserva su
-plaza y su recibo; después sigue los pasos de propuesta a cierre por separado.
-El primer corte prepara la operación de derivación, pero aún responde «no
-disponible» hasta conectar su autorización y ensayar las dos plazas en la copia
-local. La ficha del padre y el recorrido completo pertenecen al siguiente corte.
-
 ### 4.0.1 Vista general
 
 Es el recorrido que hará Alberto en la presentación, cambiando de perfil. Cada

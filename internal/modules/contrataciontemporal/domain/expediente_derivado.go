@@ -39,11 +39,8 @@ type AltaExpedienteDerivado struct {
 
 func NuevoExpedienteDerivado(alta AltaExpedienteDerivado) (Expediente, error) {
 	// Esta guarda precede a Validar y Clonar: un padre cíclico no debe recorrerse.
-	if alta.Padre.InstruccionCompartida != nil ||
-		alta.Padre.Validar() != nil || !padreDerivable(alta.Padre) ||
-		!referenciaValida(alta.Referencia) || alta.Referencia == alta.Padre.Referencia ||
-		!referenciaValida(alta.OfertaRef) || alta.NumeroPlaza == 0 ||
-		alta.NumeroPlaza > alta.Padre.Solicitud.NumeroPersonas {
+	if alta.Padre.InstruccionCompartida != nil || alta.Padre.Validar() != nil ||
+		!padreDerivable(alta.Padre) || len(alta.PreimagenPadreJSON) < 2 || len(alta.PreimagenPadreJSON) > 262144 {
 		return Expediente{}, ErrExpedienteInvalido
 	}
 	actuacion := DatosActuacion{
@@ -51,17 +48,6 @@ func NuevoExpedienteDerivado(alta AltaExpedienteDerivado) (Expediente, error) {
 		UnidadRef: alta.Padre.Asignacion.UnidadRef, ReciboRef: alta.ReciboRef,
 		RealizadaEn: alta.CreadaEn, FaseDestino: FaseFiscalizacion,
 		EstadoDestino: EstadoEnCurso,
-	}
-	if actuacion.validar() != nil || alta.CreadaEn.Before(alta.Padre.ActualizadoEn) {
-		return Expediente{}, ErrExpedienteInvalido
-	}
-	for _, a := range alta.Padre.Actuaciones {
-		if a.ReciboRef == alta.ReciboRef {
-			return Expediente{}, ErrExpedienteInvalido
-		}
-	}
-	if err := validarPreimagenPadre(alta.PreimagenPadreJSON, alta.Padre); err != nil {
-		return Expediente{}, errors.Join(ErrExpedienteInvalido, err)
 	}
 	padre := alta.Padre.Clonar()
 	huella := huellaPreimagenPadre(alta.PreimagenPadreJSON)
@@ -79,8 +65,8 @@ func NuevoExpedienteDerivado(alta AltaExpedienteDerivado) (Expediente, error) {
 	hijo.Actuaciones = []Actuacion{hijo.nuevaActuacion(
 		padre.FaseActual, padre.EstadoActual, actuacion, 6,
 	)}
-	if hijo.Validar() != nil {
-		return Expediente{}, ErrExpedienteInvalido
+	if err := hijo.Validar(); err != nil {
+		return Expediente{}, err
 	}
 	return hijo, nil
 }
@@ -125,9 +111,7 @@ func validarPreimagenPadre(raw string, padre Expediente) error {
 	if desdeRaw.InstruccionCompartida != nil {
 		return ErrExpedienteInvalido
 	}
-	if err := desdeRaw.Validar(); err != nil {
-		return err
-	}
+
 	if !reflect.DeepEqual(desdeRaw.Clonar(), padre.Clonar()) {
 		return ErrExpedienteInvalido
 	}
