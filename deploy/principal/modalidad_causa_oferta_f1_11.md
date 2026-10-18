@@ -7,13 +7,14 @@ lecturas actuales. No añade filtros ni cambia las respuestas del aspirante.
 ## Instalación
 
 Usar PostgreSQL 18 y una copia propia del volcado de referencia HZ37. Instalar
-la lista completa `lista_sql_main_tras_hz37.txt`, sin combinarla con
-listas antiguas. Preparar antes los LOGIN nominales que exige AD278, siguiendo
+la lista completa `lista_sql_main_tras_hz37.txt`, sin combinarla con listas
+antiguas. Preparar antes los LOGIN nominales que exige AD278, siguiendo
 `LEEME_copia_local.md`; ese ajuste es un dato de copia, no una concesión nueva.
-La lista termina con CT235 y B136, en ese orden. El subconjunto
-`lista_sql_codexo_modalidad_causa_oferta_f1_11_20261018.txt` sirve solo para
-una copia que ya tenga las 82 entradas anteriores; no se combina con la completa. Las guardas cotejan las definiciones, propietarios,
-configuración y permisos instalados; cualquier diferencia revierte la migración.
+La lista tiene 87 entradas: las 85 de main y, al final, CT235 y B136 en ese
+orden. El subconjunto `lista_sql_codexo_modalidad_causa_oferta_f1_11_20261018.txt`
+sirve solo para una copia que ya tenga las 85 anteriores; no se combina con la
+lista completa. Las guardas cotejan definiciones, propietarios, configuración
+y permisos instalados; cualquier diferencia revierte la migración.
 No se modifica el núcleo de autorización ni se añade configuración al arranque.
 
 Las nuevas reservas exigen un análisis con modalidad y causa válidas y la versión
@@ -36,20 +37,34 @@ modalidad o causa antes de publicar debe impedir el efecto. Reiniciar aplicació
 y PostgreSQL y volver a consultar y recuperar la operación. Comprobar también el
 arranque sin activar el puente CT-Bolsa y con su configuración existente.
 
-Estado a 18/10: pruebas focales de Go conformes; 75 migraciones instaladas en la
-copia propia (73 del prefijo de main y CT235/B136), con las dos pruebas SQL
-conformes. Las SQL ensayadas corresponden al commit `05f646756`; la lista del
-prefijo procede de `8dd52c11` (#1195) y todas sus huellas coinciden con main.
-Semgrep local sin hallazgos; GoSec no señala líneas nuevas, con errores de carga
-heredados al analizar la composición. La aplicación y PostgreSQL arrancan y se
-reinician sin activar el puente, con salud y portal disponibles. Quedan
-pendientes la reserva y publicación reales y su consulta y recuperación desde
-el navegador tras reiniciar. Se incorporó después main `86c0bf1a0`, con el montaje de F0-28, y la candidata
-F1-12. La lista completa contiene ahora 84 entradas. El ensayo anterior de 75
-entradas sigue siendo la evidencia existente; falta validar el conjunto actualizado.
+Estado a 18/10, candidata `6f95ef7e9`: en una copia nueva se instalaron una vez
+las 87 migraciones (85 de main, CT235 y B136), con 87 confirmaciones y ningún
+error. Las dos pruebas SQL focales terminaron sin error y revirtieron sus
+transacciones. Las cinco puertas de CI pasaron. Las pruebas Go y las dos
+revisiones independientes del cambio son favorables. Chrome abrió la ficha de
+Contratación temporal de RRHH con respuesta 200. Esa lectura no acredita una
+reserva ni una oferta publicada desde el expediente.
 
-Las dos revisiones independientes de `05f646756` son favorables para código y
-SQL. La guarda de publicación exige el par en ofertas nuevas con origen CT,
-después de devolver una posible oferta histórica; la prueba
-`TestPublicarOfertaF111CTNuevaExigeParYRecuperaLegado` cubre los dos caminos del
-servicio. No se han simulado firmas ni consumos para sustituir el recorrido.
+La activación CT→oferta sigue pendiente. La receta compartida aún no aporta
+los tres perfiles y motivos publicados por Administración ni el material
+privado `identidad/ofertas-ct.json` que exige el puente. También se debe cotejar
+el cliente M10 de organización indicado por `VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`
+con el organismo y el catálogo de puestos de la copia. El archivo privado no
+concede permisos; la guía `activacion_codexs_varias_plazas_ct_20261015.md`
+describe las vías de gobierno que deben comprobarse antes de usarlo.
+
+Las altas directas enviadas por HTTP no prueban que la petición original llevara
+`numero_personas` literal ni que conservara su necesidad de la RPT. La vía del
+centro sí conserva esa necesidad. El caso plural debe nacer por las pantallas
+del producto, con una modalidad cuyo catálogo permita dos personas, y llegar
+a fiscalización favorable con Intervención. La modalidad de sustitución solo
+permite una persona. No se atribuye a los expedientes singulares anteriores una
+fiscalización o un recibo plural.
+
+Quedan por comprobar el arranque sin y con la configuración privada, la reserva
+y publicación desde el expediente, sus recibos, la lectura en RRHH y Mi Bolsa,
+la recuperación con la misma clave y el reinicio de aplicación y PostgreSQL.
+La guarda de publicación exige modalidad y causa en ofertas CT nuevas después
+de permitir la recuperación literal de una oferta histórica; esto está cubierto
+por pruebas focales, pero todavía no por ese recorrido. F1-11 no se declara
+terminada ni lista para instalar por la sola lectura 200 de la ficha.
