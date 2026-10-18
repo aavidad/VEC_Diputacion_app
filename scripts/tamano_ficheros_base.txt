@@ -200,4 +200,4 @@
 845 data/catalogos/bolsa/reglas.v7.json
 834 deploy/postgresql/bolsa_llamamientos/migraciones/000117_origen_oferta_ct_publicacion.up.sql
 1838 deploy/postgresql/autorizacion_atestada_v3/migraciones/000284_justificante_bolsa_consumo_externo.up.sql
-803 internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql.go
+814 internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql.go
