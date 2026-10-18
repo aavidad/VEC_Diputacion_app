@@ -131,7 +131,11 @@ examinar sus registros; se borra y se crea otra, sin reaplicar SQL.
 
 El resultado vive en `/dev/shm/vec/pg/<equipo>-<instancia>`, con padre `0700`.
 El volcado y sus anexos aportan nombres de propietarios y beneficiarios para
-crear roles `NOLOGIN`. El guion no abre ni restaura el fichero de roles
+crear roles `NOLOGIN`. El guion recupera también los grupos declarados como
+`NOLOGIN` en los ficheros `roles*_up.sql` del repositorio cuando aparecen citados en el
+esquema o en la lista SQL validada. Deja que cada migración de esa lista cree
+los roles que declara por sí misma. La creación comprueba si el rol ya existe;
+no añade membresías ni permisos. El guion no abre ni restaura el fichero de roles
 globales, sus contraseñas ni sus membresías. La restauración conserva las ACL
 de los objetos; después aplica las ACL de la base y los tipos. No convierte
 esos roles en identidades operativas de la aplicación.
