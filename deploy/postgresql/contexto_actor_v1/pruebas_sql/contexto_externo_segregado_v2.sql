@@ -41,6 +41,17 @@ BEGIN
  IF antes IS DISTINCT FROM despues THEN RAISE EXCEPTION 'provisión escribió historia compartida'; END IF;
  IF NOT vec_contexto_actor_v1.acreditar_candidato_externo_v1('per_ctx15_sintetico_00000000001','prf_ctx15_sintetico_00000000001','can_ctx15_sintetico_000000000001') THEN RAISE EXCEPTION 'AUT16 no acredita propia'; END IF;
  IF vec_contexto_actor_v1.acreditar_candidato_externo_v1('per_ctx15_sintetico_00000000001','prf_ctx15_sintetico_00000000001','can_ctx15_ajeno_000000000000001') THEN RAISE EXCEPTION 'AUT16 acredita candidato ajeno'; END IF;
+ IF NOT vec_contexto_actor_v1.acreditar_perfil_usuarios_externo_v1('cta_ctx15_sintetico_00000000002','per_ctx15_sintetico_00000000001','prf_ctx15_sintetico_00000000002') THEN RAISE EXCEPTION 'AUT17 no acredita propia'; END IF;
+END $prueba$;
+RESET ROLE;
+SET LOCAL ROLE vec_autorizacion_propietario;
+DO $acreditacion_consumidor$
+BEGIN
+ IF vec_contexto_actor_v1.acreditar_candidato_externo_v1(
+   'per_ctx15_sintetico_00000000001','prf_ctx15_sintetico_00000000001',
+   'can_ctx15_sintetico_000000000001') IS NOT TRUE THEN
+  RAISE EXCEPTION 'AUT16 no acredita propia como consumidor';
+ END IF;
  -- Conserva las negativas de identidad cruzada de la provisión retirada.
  IF vec_contexto_actor_v1.acreditar_candidato_externo_v1(
    'per_ctx15_sintetico_00000000001','prf_ctx15_sintetico_00000000002',
@@ -63,8 +74,7 @@ BEGIN
    WHERE p.oid='vec_contexto_actor_v1.acreditar_candidato_externo_v1(text,text,text)'::regprocedure
      AND a.grantee=0)
  THEN RAISE EXCEPTION 'AUT16: ACL de acreditación externa abierta'; END IF;
- IF NOT vec_contexto_actor_v1.acreditar_perfil_usuarios_externo_v1('cta_ctx15_sintetico_00000000002','per_ctx15_sintetico_00000000001','prf_ctx15_sintetico_00000000002') THEN RAISE EXCEPTION 'AUT17 no acredita propia'; END IF;
-END $prueba$;
+END $acreditacion_consumidor$;
 RESET ROLE;
 SET LOCAL SESSION AUTHORIZATION prueba_ctx15_candidato;
 SELECT * FROM vec_contexto_actor_v1.acreditar_runtime_candidato_externo_v1();
