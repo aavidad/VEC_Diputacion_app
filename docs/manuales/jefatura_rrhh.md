@@ -76,13 +76,15 @@ La candidata de «Bolsas → Reglas y baremación → Cambios de situación» pe
 En «Mi Bolsa» el aspirante ve, por cada bolsa, la categoría, su posición (por ejemplo, «12 de 140»), su situación y su historial de llamamientos, contratos y renuncias. También ordena sus bolsas por preferencia y responde a las ofertas que le llegan.
 
 La elección de modalidades de ofertas aún no está activada. Cuando se habilite,
-la persona podrá limitar las ofertas abiertas a las que no haya respondido y
-los avisos que quiera recibir. Si aún no tiene una elección guardada, verá
-todas. Si guarda una lista vacía, se ocultarán las ofertas abiertas sin
+se ofrecerá en el área personal externa del aspirante. La persona podrá limitar
+las ofertas abiertas a las que no haya respondido y los avisos que quiera
+recibir. Si aún no tiene una elección guardada, verá todas. Si guarda una lista
+vacía, se ocultarán las ofertas abiertas sin
 respuesta que tengan modalidad identificada; las ya respondidas y el historial
 seguirán visibles. «Ver todas» mostrará las ofertas ocultas sin cambiar lo
 guardado. La elección no cambia su inscripción, su puesto en la bolsa ni a
-quién se llama directamente.
+quién se llama directamente. El acceso corporativo actual conserva la consulta
+y el guardado del orden de bolsas.
 
 Si presenta una renuncia justificada, adjunta un PDF de hasta 16 MiB y recibe
 un recibo de VEC. Debe guardar el PDF original: su área personal no permite

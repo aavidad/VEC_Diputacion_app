@@ -535,6 +535,11 @@ Estado: **pendiente de ensayo**. F1-13 se construye en cuatro cortes: base,
 servicio, API y filtro de ofertas y avisos. La pantalla de elección es F1-14.
 Todavía no hay un recorrido de modalidades acreditado en Mi Bolsa.
 
+La API nueva del tercer corte corresponde al portal externo real y no enlaza el
+Mi Bolsa antiguo de desarrollo. La consulta y el guardado corporativos actuales
+conservan sus rutas en la API; falta comprobar la nueva lectura y el guardado
+externos con la concesión gobernada.
+
 La elección voluntaria filtra solo ofertas publicadas, abiertas, sin respuesta
 y con modalidad identificada, además de los avisos que la persona solicita.
 Sin selección guardada (`null`) se muestran todas. Una selección vacía (`[]`)

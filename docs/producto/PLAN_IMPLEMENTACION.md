@@ -175,9 +175,14 @@ el arranque en cidonia corresponden a dirección.
 
 **F1-13, O: elección de modalidades de ofertas publicadas.** Se divide en cuatro
 cortes: base de permisos y persistencia (AUT104 y B138), servicio, API y filtro
-de vista y avisos. AD291 depende del equipo R; la clasificación de las ofertas
-por modalidad depende de F1-11 (#1200). La elección no cambia la inscripción,
-el orden de bolsa ni los llamamientos directos. La pantalla queda para F1-14.
+de vista y avisos. AD296 depende del equipo R para las dos lecturas; la
+clasificación de ofertas por modalidad depende de F1-11 (#1200).
+La elección no cambia la inscripción, el orden de bolsa ni los llamamientos
+directos. La pantalla queda para F1-14.
+El tercer corte conecta el portal externo real sin enlazar Mi Bolsa antiguo de
+desarrollo; conserva en la API los GET/PUT corporativos. Incluye la transición
+gobernada de la consulta de ocho a diez campos y la sustitución de la fuente v1
+por la v2 con el censo íntegro. El preparador de S sigue pendiente.
 PR1 no se fusiona hasta ensayar su base junto con la API del tercer corte.
 SQL, GET/PUT, recibos, reinicio y Chrome de F1-13 siguen sin comprobarse.
 Contrato de activación y límites en

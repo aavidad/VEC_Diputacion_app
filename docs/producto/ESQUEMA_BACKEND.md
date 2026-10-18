@@ -415,10 +415,14 @@ conserva versión, recibo, actor, perfil y una instantánea de opciones que el
 servicio debe acreditar contra el catálogo vigente.
 AUT104 mantiene la lectura anterior de ocho campos y admite una proyección
 nominal de cinco campos para modalidades. B138 guarda la elección y exige
-AD291 y AUT104 antes de instalarse. La API prevista usa la ruta actual con
-`?tipo=modalidades`; el servicio, su montaje y el filtro de vista y avisos
-siguen pendientes de ensayo. La clasificación por modalidad de cada oferta
-depende de F1-11 (#1200). Ver el guion de F1-13 en
+AD296 y AUT104 antes de instalarse. El tercer corte prepara la transición
+gobernada de la consulta de ocho a diez campos y la sustitución de la fuente
+v1 por la v2 con el censo íntegro; el preparador de S sigue pendiente.
+La API prevista usa `?tipo=modalidades` en el portal externo real, sin enlazar
+Mi Bolsa antiguo de desarrollo. Los GET/PUT corporativos conservan su API.
+Servicio, montaje y filtro de vista y avisos siguen pendientes de ensayo.
+La clasificación por modalidad de cada oferta depende de F1-11 (#1200).
+Ver el guion de F1-13 en
 `deploy/principal/candidata_hz39/aspirante/modalidades.md`.
 
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
