@@ -16,7 +16,7 @@ import {
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
-import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261016-ct-ofertas-ct231-v1";
+import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261018-f119-derivacion-v1";
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
@@ -33,6 +33,7 @@ import { crearClienteSeguimientoCeseHTTP } from "./cliente-http-seguimiento-cese
 import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20261016-ct-ofertas-ct231-v1";
 import { crearClienteReincorporacionRRHHHTTP, RUTA_CAPACIDAD_REINCORPORACION_RRHH, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js?v=20260928-rrhh-reincorporacion-v1";
 import { crearClienteRecuperacionFirmasV2, RUTA_CONSULTA_FIRMAS_V2 } from "./cliente-http-recuperacion-firmas-v2.js?v=20261016-r1-o-integracion-v7";
+import { crearClienteDerivacionHTTP, RUTA_DERIVACION_NOMBRAMIENTO } from "./cliente-http-derivacion.js?v=20261018-f119-derivacion-v1";
 import {
   MAXIMO_ERROR_BYTES,
   MAXIMO_FRAGMENTOS,
@@ -69,6 +70,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   resolucionFormalizacion: RUTA_RESOLUCION_FORMALIZACION,
   incorporacionEjercicio: RUTA_INCORPORACION_EJERCICIO,
   consultaFirmasV2: RUTA_CONSULTA_FIRMAS_V2,
+  derivacionNombramiento: RUTA_DERIVACION_NOMBRAMIENTO,
   fichaGINPIX: RUTA_FICHA_GINPIX,
   seguimientoIncorporacion: RUTA_SEGUIMIENTO_INCORPORACION,
   anotacionAdministrativa: RUTA_ANOTACION_ADMINISTRATIVA,
@@ -603,6 +605,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     reincorporacionTitular: crearClienteReincorporacionRRHHHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     firmasV2: crearClienteRecuperacionFirmasV2({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
+    ...crearClienteDerivacionHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearConsultaReciboRespuestaClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearConsultaComunicacionesExpedienteClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearResolucionFormalizacionClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),

@@ -1,0 +1,29 @@
+{
+  "general": {
+    "titulo": "Appointments by position",
+    "ayuda": "Each awarded and accepted position will have its own case. The proposal and decision will be handled later in each person's case.",
+    "abrir_ayuda": "Help about appointments",
+    "simbolo_ayuda": "?",
+    "cargando": "Checking positions and existing cases…",
+    "sin_oferta": "This case has no confirmed offer for multiple positions.",
+    "sin_aceptadas": "There are no awarded positions with prior acceptance yet.",
+    "plaza": "Position {numero}",
+    "pendiente": "Case has not been created",
+    "creada": "Case created",
+    "crear": "Create case for this position",
+    "confirmar_titulo": "Create case for position {numero}",
+    "confirmar_advertencia": "VEC will check the award and acceptance before creating the case. Review the receipt before continuing.",
+    "abrir": "Open case {numero}",
+    "reintentar": "Retry lookup",
+    "recuperar": "Check previous result",
+    "incierto": "The result could not be confirmed. Check it before repeating the same request.",
+    "confirmado": "Case created with a receipt. Open it to continue.",
+    "error_consulta": "Positions or cases could not be checked. Retry the lookup.",
+    "error_oferta_pagina": "The linked offer is not fully available in the Job Pool response. Try again later.",
+    "error_403": "You do not have permission to view or create this case.",
+    "error_409": "The data changed or this position already has a case. Refresh the case.",
+    "error_503": "The service needed to create the case is unavailable. Try again later.",
+    "error_generico": "The case could not be created. Check the result before trying again.",
+    "sin_montaje": "Appointments cannot be checked now. Reload the case."
+  }
+}

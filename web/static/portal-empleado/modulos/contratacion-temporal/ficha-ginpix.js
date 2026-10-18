@@ -1,6 +1,6 @@
 import { validarConsultaB2ParaFichaGINPIX } from "./contrato-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
 import { NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261016-ct-ofertas-ct231-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261018-f119-derivacion-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 
 export const CLAVES_I18N_FICHA_GINPIX = Object.freeze(["ficha_ginpix_titulo", "ficha_ginpix_resumen_titulo", "ficha_ginpix_destino", "ficha_ginpix_categoria", "ficha_ginpix_inicio", "ficha_ginpix_fin", "ficha_ginpix_sin_fin", "ficha_ginpix_registrada", "ficha_ginpix_recibo", "ficha_ginpix_exportacion_manual", "ficha_ginpix_exportacion_manual_disponible", "ficha_ginpix_transmision", "ficha_ginpix_transmision_pendiente", "ficha_ginpix_nombre_archivo", "ficha_ginpix_descargar", "ficha_ginpix_descargando", "ficha_ginpix_conflicto", "ficha_ginpix_denegada", "ficha_ginpix_error"]);

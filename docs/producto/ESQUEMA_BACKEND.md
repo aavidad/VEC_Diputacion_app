@@ -482,6 +482,19 @@ Puertos Go: `internal/modules/contrataciontemporal/ports/`; adaptadores en
 `adapters/postgres/`. Detalle técnico por migración:
 `deploy/postgresql/contratacion_temporal/README.md`.
 
+F1-19 prepara `nombramiento_derivado_v1` (CT234): vínculo único entre
+organización, padre y plaza, hijo opaco, aceptación nominal, recibo y evidencia
+de adjudicación del dueño Bolsa (B135). El hijo inicia su historia propia en
+versión 6 con una actuación de derivación; `instruccion_compartida` conserva la
+instantánea íntegra del padre y sus recibos originales. El alta distingue la
+reserva ordinaria del origen derivado, sin rellenar reservas ni HMAC ficticios.
+El consumidor de autorización y la audiencia son propios del hijo y dependen
+de R al final de la cadena del núcleo. La ruta preparada es
+`POST /api/vec/contratacion-temporal/nombramientos/derivaciones`; devuelve solo
+el recibo y las referencias del hijo. La copia completa, las preimágenes y el
+ensayo del conjunto siguen pendientes; no se declara instalada esta migración.
+La adaptación de la cadena singular posterior pertenece al corte siguiente.
+
 ### 8.3 Méritos (`vec_meritos`, RUM)
 
 El Registro Único de Méritos guarda **hechos** declarados por una persona

@@ -1,0 +1,29 @@
+{
+  "general": {
+    "titulo": "Nombramientos por plaza",
+    "ayuda": "Cada plaza adjudicada y aceptada tendrá su propio expediente. La propuesta y la resolución se tramitarán después en la ficha de cada persona.",
+    "abrir_ayuda": "Ayuda sobre los nombramientos",
+    "simbolo_ayuda": "?",
+    "cargando": "Comprobando las plazas y los expedientes existentes…",
+    "sin_oferta": "Este expediente no tiene una oferta de varias plazas confirmada.",
+    "sin_aceptadas": "Todavía no hay plazas adjudicadas con aceptación previa.",
+    "plaza": "Plaza {numero}",
+    "pendiente": "Pendiente de crear expediente",
+    "creada": "Expediente creado",
+    "crear": "Crear expediente para esta plaza",
+    "confirmar_titulo": "Crear expediente para la plaza {numero}",
+    "confirmar_advertencia": "VEC comprobará la adjudicación y la aceptación antes de crear el expediente. Revise el justificante para continuar.",
+    "abrir": "Abrir expediente {numero}",
+    "reintentar": "Reintentar consulta",
+    "recuperar": "Comprobar resultado anterior",
+    "incierto": "No se pudo confirmar la creación. Compruebe el resultado antes de repetir la misma solicitud.",
+    "confirmado": "Expediente creado con justificante. Puede abrir su ficha para continuar.",
+    "error_consulta": "No se pudieron comprobar las plazas o los expedientes. Reintente la consulta.",
+    "error_oferta_pagina": "La oferta vinculada no aparece completa en la consulta de Bolsa. Reintente más tarde.",
+    "error_403": "No tiene permiso para consultar o crear este expediente.",
+    "error_409": "Los datos han cambiado o la plaza ya tiene expediente. Actualice la ficha.",
+    "error_503": "El servicio necesario para crear el expediente no está disponible. Reintente más tarde.",
+    "error_generico": "No se pudo crear el expediente. Compruebe el resultado antes de volver a intentarlo.",
+    "sin_montaje": "No se puede consultar los nombramientos en este momento. Vuelva a cargar la ficha."
+  }
+}

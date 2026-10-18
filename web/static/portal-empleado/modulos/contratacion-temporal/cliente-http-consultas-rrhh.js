@@ -11,7 +11,7 @@ const MAXIMO_EXPEDIENTES = 100;
 const MAXIMO_HITOS = 2_000;
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const PATRON_CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
-const PATRON_NUMERO = /^[0-9]{4}\/[A-Za-z0-9._-]{1,40}$/u;
+const PATRON_NUMERO = /^[0-9]{4}\/[A-Za-z0-9._-]{1,40}(?:-P(?:[1-9]|[1-9][0-9]|100))?$/u;
 const PATRON_TEXTO_CUADRO = /^[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ/._ -]{0,80}$/u;
 const PATRON_CURSOR = /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/u;
 const PATRON_INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
@@ -122,7 +122,7 @@ function validarResumen(entrada) {
   if (!camposCerrados(entrada, obligatorios, ["modalidad_clave", "unidad_ref", "plazo_fase", "urgente"])
     || !referencia(entrada.expediente_ref) || !referencia(entrada.flujo_ref)
     || !referencia(entrada.centro_ref) || !referencia(entrada.categoria_ref)
-    || !cadena(entrada.numero_visible, { maximo: 45, patron: PATRON_NUMERO })
+    || !cadena(entrada.numero_visible, { maximo: 50, patron: PATRON_NUMERO })
     || !entero(entrada.version, 1) || !entero(entrada.flujo_version, 1)
     || typeof entrada.flujo_huella_sha256 !== "string"
     || !/^[a-f0-9]{64}$/u.test(entrada.flujo_huella_sha256)
