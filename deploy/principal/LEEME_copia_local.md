@@ -89,9 +89,14 @@ debilita su guarda. Las demás conexiones se crean con nombres y contraseñas
 nuevos. El registro privado conserva sus valores y la huella del entorno.
 
 Tras el productor de datos, el guion coteja los 22 LOGIN internos: opciones
-sin privilegios de administración y una sola membresía para cada conexión de
-peticiones. El gobierno de arranque es la excepción: necesita seis arcos
-concretos, definidos en `copia_local_verificacion.py`, y no admite otros.
+sin privilegios de administración y membresías directas exactas. La conexión
+de importación CONVOCA conserva los grupos `vec_bolsa_importacion_convoca_ejecutor`
+y `vec_bolsa_importacion_convoca_recuperador`, ambos con `INHERIT TRUE`,
+`SET TRUE` y `ADMIN FALSE`, como exige el contrato H1 de
+`scripts/recorridos/clon_bolsa_material.py` para importar y recuperar la operación.
+Las demás conexiones de peticiones tienen un solo grupo. El gobierno de
+arranque necesita seis arcos concretos, definidos en `copia_local_verificacion.py`,
+y no admite otros.
 Los propietarios y el proyector conservan las opciones exactas de `SET` e
 `INHERIT`; no se trasladan a los LOGIN de peticiones. H retirará esta
 excepción al completar F0-08 con el contrato nominal de R.
@@ -132,7 +137,11 @@ examinar sus registros; se borra y se crea otra, sin reaplicar SQL.
 
 El resultado vive en `/dev/shm/vec/pg/<equipo>-<instancia>`, con padre `0700`.
 El volcado y sus anexos aportan nombres de propietarios y beneficiarios para
-crear roles `NOLOGIN`. El guion no abre ni restaura el fichero de roles
+crear roles `NOLOGIN`. El guion recupera también los grupos declarados como
+`NOLOGIN` en los ficheros `roles*_up.sql` del repositorio cuando aparecen citados en el
+esquema o en la lista SQL validada. Deja que cada migración de esa lista cree
+los roles que declara por sí misma. La creación comprueba si el rol ya existe;
+no añade membresías ni permisos. El guion no abre ni restaura el fichero de roles
 globales, sus contraseñas ni sus membresías. La restauración conserva las ACL
 de los objetos; después aplica las ACL de la base y los tipos. No convierte
 esos roles en identidades operativas de la aplicación.
