@@ -107,11 +107,11 @@
 1781 web/static/portal-empleado/portal-modulos-coordinador.js
 1865 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1131 web/static/portal-empleado/portal-componentes.css
-2273 web/static/portal-empleado/portal.js
+2275 web/static/portal-empleado/portal.js
 1538 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1148 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-1276 web/static/portal-empleado/portal-i18n.test.mjs
+1278 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 953 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
@@ -173,7 +173,7 @@
 3752 deploy/postgresql/autorizacion_atestada_v3/migraciones/000262_cartera_meritos_preimagen_actual.up.sql
 1142 deploy/postgresql/contratacion_temporal/migraciones/000209_firma_pdf_tres_pasos.up.sql
 845 deploy/postgresql/autorizacion/migraciones/000093_correspondencia_organizacion_firma_ct.up.sql
-1151 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
+1153 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
 1009 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
 850 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_desarrollo.go
 678 deploy/postgresql/contratacion_temporal/migraciones/000215_necesidad_peticion_centro.down.sql
@@ -204,3 +204,4 @@
 834 deploy/postgresql/bolsa_llamamientos/migraciones/000117_origen_oferta_ct_publicacion.up.sql
 1838 deploy/postgresql/autorizacion_atestada_v3/migraciones/000284_justificante_bolsa_consumo_externo.up.sql
 814 internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql.go
+991 web/static/portal-empleado/portal-bolsas-ofertas.test.mjs
