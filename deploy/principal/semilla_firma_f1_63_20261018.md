@@ -87,6 +87,8 @@ una correspondencia de organización y conservó las cuatro asignaciones ya
 preparadas. Repetirla dejó iguales la historia y los punteros. Dos revisiones
 independientes comprobaron el SQL final y sus guardas de destino.
 
-Falta publicar los cargos competenciales, enlaces, certificados y el plan
-de cinco pasos, firmar el nuevo expediente y recuperar sus PDF desde la
-ficha después de reiniciar. Este ensayo de datos no acredita esos actos.
+Faltan las catorce publicaciones nominales de Administración: cinco cargos,
+cinco enlaces y cuatro certificados; también el plan de cinco pasos. Después
+hay que comprobar en Chrome las cinco firmas nuevas del expediente y
+recuperar sus PDF desde la ficha tras reiniciar. Este ensayo de datos no
+acredita esos actos.
