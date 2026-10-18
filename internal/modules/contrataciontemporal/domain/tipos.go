@@ -14,6 +14,7 @@ import (
 )
 
 var (
+	patronNumeroDerivado = regexp.MustCompile(`^[0-9]{4}/[A-Za-z0-9._-]{1,40}-P(?:[1-9]|[1-9][0-9]|100)$`)
 	ErrDatoInvalido       = errors.New("contratacion temporal: dato invalido")
 	ErrExpedienteInvalido = errors.New("contratacion temporal: expediente invalido")
 	ErrVersionEnConflicto = errors.New("contratacion temporal: version en conflicto")
@@ -229,7 +230,7 @@ func GrupoSubgrupoValido(valor string) bool {
 // visible para que persistencia y recibos no acepten formas que el agregado
 // rechazaría.
 func NumeroExpedienteValido(valor string) bool {
-	return patronNumero.MatchString(valor)
+	return patronNumero.MatchString(valor) || patronNumeroDerivado.MatchString(valor)
 }
 
 // InstanteUTCCanonico expone exclusivamente la regla de representación
