@@ -40,7 +40,7 @@ func (s *ConsultaOfertasModalidades) Consultar(ctx context.Context, orden Orden)
 	if err != nil {
 		return bolsa.InstantaneaMiBolsa{}, err
 	}
-	if estado.Version == 0 {
+	if estado.Version == 0 || estado.ModalidadesGuardadas == nil {
 		return instantanea, nil
 	}
 	guardadas := make(map[string]struct{}, len(estado.ModalidadesGuardadas))

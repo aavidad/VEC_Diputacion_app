@@ -60,12 +60,14 @@ func TestConsultaOfertasModalidades(t *testing.T) {
 		esperadas []string
 	}{
 		{"sin preferencia", 0, nil, []string{"coincide", "otra", "historica", "disposicion", "antecedente"}},
+		{"restablecida a todas", 2, nil, []string{"coincide", "otra", "historica", "disposicion", "antecedente"}},
 		{"selección", 1, []string{"interinidad"}, []string{"coincide", "historica", "disposicion", "antecedente"}},
 		{"vacío explícito", 1, []string{}, []string{"historica", "disposicion", "antecedente"}},
 		{"historia y disposición", 2, []string{"eventual"}, []string{"otra", "historica", "disposicion", "antecedente"}},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
+			original := append([]bolsa.OfertaPortalCandidato(nil), base...)
 			consulta := &consultorOfertasModalidadesPrueba{instantanea: bolsa.InstantaneaMiBolsa{Ofertas: base}}
 			lector := &lectorOfertasModalidadesPrueba{estado: bolsa.EstadoPreferenciasModalidades{Version: caso.version, ModalidadesGuardadas: caso.elegidas}}
 			servicio, err := NuevoConsultaOfertasModalidades(consulta, lector)
@@ -80,7 +82,7 @@ func TestConsultaOfertasModalidades(t *testing.T) {
 			for _, o := range resultado.Ofertas {
 				refs = append(refs, o.OfertaRef)
 			}
-			if !reflect.DeepEqual(refs, caso.esperadas) || len(consulta.instantanea.Ofertas) != len(base) ||
+			if !reflect.DeepEqual(refs, caso.esperadas) || !reflect.DeepEqual(consulta.instantanea.Ofertas, original) ||
 				consulta.llamadas != 1 || lector.llamadas != 1 || !reflect.DeepEqual(consulta.orden, orden) || !reflect.DeepEqual(lector.orden, orden) {
 				t.Fatalf("refs=%v, consultas=%d, preferencias=%d", refs, consulta.llamadas, lector.llamadas)
 			}
