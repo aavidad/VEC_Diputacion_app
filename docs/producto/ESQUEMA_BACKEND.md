@@ -187,6 +187,12 @@ Reglas:
 - Las altas de LOGIN, su retirada y los cambios de membresía los hace el DBA
   (Dirección) por el circuito central; nunca una petición HTTP.
 
+El primer corte de F1-09 prepara `comprobacion_ofrecimiento_v1` en Bolsa: historia
+de solo adición, hechos y referencias documentales, política aplicada y recibo.
+CT233 coteja el contexto del expediente como operación privada entre propietarios;
+AD290 exige la acción propia. Su habilitación central y su conexión a la pantalla
+siguen pendientes. Guion: `deploy/principal/comprobacion_ofrecimiento_f1_09_20261016.md`.
+
 ## 5. Contrato de transacción
 
 Toda llamada a una función de escritura, y la mayoría de lecturas auditadas, va así:

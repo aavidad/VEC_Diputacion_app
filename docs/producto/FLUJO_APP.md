@@ -801,6 +801,7 @@ con el contexto del expediente y las versiones esperadas. La persona que tramita
 no indica el resultado: lo calcula Bolsa. Mientras falte su habilitación, solo
 este registro queda cerrado. La pantalla F1-57 y la proyección del contexto en
 las listas existentes siguen pendientes; F1-10 comprobará el acto al reservar.
+El descuento de antecedentes permanece apagado.
 
 La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
 requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
