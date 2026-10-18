@@ -16,9 +16,9 @@ import {
 } from "./portal-bolsas-contrato.js?v=20261016-r1-o-integracion-v7";
 import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20261011-ct-bolsa-vinculo-v1";
 import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261018-f171-main-v1";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261018-f171-denegacion-post-v2";
 import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261018-f171-main-v1";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261018-f171-denegacion-post-v2";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261016-r1-o-integracion-v7";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261016-r1-o-integracion-v7";
@@ -592,8 +592,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     if (directa?.pendiente && ["revision", "enviando", "incierto"].includes(directa.paso)) {
       const { bolsa, participacion } = directa.pendiente;
       const clave = claveParticipacion(bolsa, participacion);
-      cambiosSituacionPendientes.set(clave, { ...cambiosSituacionPendientes.get(clave),
-        directa: { pendiente: directa.pendiente } });
+      cambiosSituacionPendientes.set(clave, { directa: { pendiente: directa.pendiente } });
     }
     invalidarSeleccionMasiva();
     // Una lectura anterior no puede restaurar datos tras perder autorización.
@@ -619,6 +618,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
     renderizar,
+    alDenegarConfirmacion: retirarCandidatosDenegados,
     recargar: async (participacionRef) => {
       const bolsaRef = estado.bolsaSeleccionada;
       const modal = estado.modalFicha;

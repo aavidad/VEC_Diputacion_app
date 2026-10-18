@@ -610,7 +610,7 @@ test("aceptación directa solo aparece con marca, llamamiento y fecha; el POST c
   globalThis.fetch = async (ruta, opciones) => {
     if (!ruta.endsWith("/confirmacion")) return response(503, { error: { codigo: "servicio_no_disponible" } });
     peticiones.push({ ruta, opciones });
-    if (peticiones.length === 1) return response(403, { error: { codigo: "acceso_denegado" } });
+    if (peticiones.length === 1) throw new Error("respuesta de red perdida");
     return response(200, { data: { participacion_ref: aceptacionDirecta.participacion_ref,
       situacion: "pendiente_incorporacion", desde: "2026-10-16T11:00:00Z",
       respuesta_ref: "respuesta:1", resolucion_ref: "resolucion:1", recibo_ref: "recibo:1",
@@ -633,7 +633,7 @@ test("aceptación directa solo aparece con marca, llamamiento y fecha; el POST c
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(peticiones.length, 1);
     assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, true);
-    assert.equal(focos.at(-1), "[data-directa-paso]", "403 devuelve el foco al resultado");
+    assert.equal(focos.at(-1), "[data-directa-paso]", "la red incierta devuelve el foco al resultado");
     click("directa-repetir"); await new Promise((resolve) => setImmediate(resolve));
     assert.equal(peticiones.length, 2);
     assert.equal(peticiones[0].opciones.referrerPolicy, "no-referrer");

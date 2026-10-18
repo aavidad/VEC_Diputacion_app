@@ -382,7 +382,8 @@ function renderizarPaso(estado, escaparHTML, candidato) {
   return `<form data-b8-form="operacion" data-b8-paso="${etapa}"><p><strong>${textoPortal("txt_operacion_seleccionada")}</strong> ${escaparHTML(etiqueta)}</p><h5>${textoPortal("txt_paso_de_tres", { etapa, nombre: traducirPortal(etapa === 1 ? "txt_motivo" : etapa === 2 ? "txt_justificante" : "txt_validacion") })}</h5>${revision}${campos}<p class="mensaje-error" role="alert">${escaparHTML(estado.errorFormulario || "")}</p><div class="acciones-vista"><button type="button" class="boton-secundario" data-b8-accion="anterior" ${etapa === 1 || estado.enviando ? "disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${estado.enviando ? traducirPortal("txt_registrando") : etapa < 3 ? traducirPortal("txt_continuar") : validarDisponibilidad ? traducirPortal("txt_b8_confirmar_disponibilidad") : traducirPortal("txt_confirmar_operacion_nombre", { operacion: etiqueta })}</button></div></form>`;
 }
 
-export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, consultarReglas = consultarReglasSituacion,
+export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, alDenegarConfirmacion,
+  consultarReglas = consultarReglasSituacion,
   consultarOperaciones = consultarOperacionesSituacion, consultarReincorporaciones,
   consultarDocumentales = consultarSolicitudesDocumentalesRRHH }) {
   async function cargar(modalFicha, { incluirSecciones = true } = {}) {
@@ -494,6 +495,11 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     const respuesta = await confirmarAceptacionDirecta(bolsa, participacion, llamamiento, cuerpo, clave);
     if (estado.modalFicha !== modal || modal.operacionesB8?.directa !== acto) return;
     modal.enviandoCambioSituacion = false;
+    if ([401, 403].includes(respuesta.status)) {
+      alDenegarConfirmacion(respuesta.mensaje);
+      renderizar();
+      return;
+    }
     if (!respuesta.ok) {
       acto.error = respuesta.mensaje;
       acto.paso = respuesta.status === 409 ? "conflicto" : "incierto";
