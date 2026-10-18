@@ -142,6 +142,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
+	materialPreferenciasBolsasInternas               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPreparacionBases                         [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
 	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
@@ -497,6 +498,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		descriptoresMaterial = append(descriptoresMaterial, descriptores[:]...)
 	}
 	descriptoresMaterial = materialCargaConvocaDesarrollo(descriptoresMaterial, seleccion.borradoresBolsa) // B1: ver bolsa_carga_convoca_gobernada.go
+	preferenciasBolsasInternas := preferenciasBolsasInternasSolicitadas()
+	if preferenciasBolsasInternas {
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialOrdenarPreferenciasBolsasInternaV3())
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -535,6 +540,16 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if etapa = "material_aspirantes"; aspirantesActivo {
 		if dependencias.materialAspirantes, err = publicarMaterialAspirantesEnLote(ctx, gobierno, material, reloj, catalogoMaterial); err != nil {
 			return vacias, err
+		}
+	}
+	if preferenciasBolsasInternas {
+		// Opcional: sin clave publicada la ruta interna queda en 503 y el
+		// resto del arranque sigue.
+		dependencias.materialPreferenciasBolsasInternas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaOrdenarPreferenciasBolsasInterna)
+		if err != nil {
+			slog.Warn("preferencias de Mi Bolsa interna sin clave publicada")
+			dependencias.materialPreferenciasBolsasInternas, err = nil, nil
 		}
 	}
 	if seleccion.plantillasCatalogo {

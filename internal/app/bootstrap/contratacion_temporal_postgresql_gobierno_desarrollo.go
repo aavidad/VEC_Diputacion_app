@@ -315,6 +315,9 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// preferencias entre bolsas del aspirante (AD248), ambas externas.
 		audienciaPresentarAlegacionExternaV3,
 		puertosbolsa.AudienciaOrdenarPreferenciasBolsas,
+		// Preferencias entre bolsas desde la sesión corporativa (AD279); solo
+		// con VEC_BOLSA_PREFERENCIAS_INTERNA_ENABLED=true.
+		puertosbolsa.AudienciaOrdenarPreferenciasBolsasInterna,
 		// Descarga de justificantes: dos consumidores nominales de RRHH.
 		audienciaJustificanteBolsaRRHH,
 		audienciaJustificanteBolsaPrepararRRHH,
