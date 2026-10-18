@@ -18,7 +18,9 @@ var clavePreferenciaModalidad = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,79}$`)
 
 // HuellaSolicitudPreferenciasModalidades fija la selección y la instantánea
 // gobernada que el servidor ligará al recurso de autorización V3. El orden de
-// entrada no tiene significado; nil expresa todas y [] expresa ninguna.
+// entrada no tiene significado; nil expresa todas y [] expresa ninguna. La
+// pertenencia a las opciones vigentes se comprueba en SQL solo al crear una
+// versión: una opción retirada aún debe permitir recuperar el recibo original.
 func HuellaSolicitudPreferenciasModalidades(candidato string, version uint64,
 	seleccion []string, disponibles []ports.ModalidadPreferencia,
 ) (string, error) {
@@ -55,9 +57,6 @@ func HuellaSolicitudPreferenciasModalidades(candidato string, version uint64,
 	for indice, clave := range ordenSeleccion {
 		if !clavePreferenciaModalidad.MatchString(clave) ||
 			(indice > 0 && ordenSeleccion[indice-1] == clave) {
-			return "", ports.ErrOrdenPreferenciasInvalido
-		}
-		if _, disponible := claves[clave]; !disponible {
 			return "", ports.ErrOrdenPreferenciasInvalido
 		}
 	}
