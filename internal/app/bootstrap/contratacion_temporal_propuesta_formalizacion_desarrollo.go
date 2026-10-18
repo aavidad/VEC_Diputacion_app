@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"net/http"
 
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
@@ -19,6 +20,12 @@ import (
 
 type clavePropuestaFormalizacionDesarrollo struct{}
 type claveMaterialPropuestaFormalizacionDesarrollo struct{}
+type claveDetallePropuestaDerivadaDesarrollo struct{}
+
+type detallePropuestaDerivadaLigado struct {
+	solicitud ports.SolicitudPropuestaFormalizacion
+	detalle   ports.DetalleExpedienteRRHH
+}
 
 type propuestaFormalizacionLigadaDesarrollo struct {
 	antecedente ports.AntecedentePropuestaFormalizacion
@@ -33,6 +40,8 @@ type registroPropuestaFormalizacionDesarrollo interface {
 type ejecutorPropuestaFormalizacionDesarrollo struct {
 	soporte                *soporteAltaContratacionTemporalDesarrollo
 	lector                 ports.LectorExpedienteSeleccionLlamamiento
+	detalle                httpinterno.ConsultorDetalleRRHH
+	fronteras              catalogoFronterasComunDesarrollo
 	registro               registroPropuestaFormalizacionDesarrollo
 	bolsa                  puertosbolsa.RepositorioLlamamientoDesarrollo
 	resultadoEmisionNativo puertosbolsa.LectorResultadoEmisionCT
@@ -116,9 +125,15 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 	if s.OrganizacionRef != organizacion.OrganizacionRef || !e.publicaciones.admite(s) {
 		return vacio, application.ErrSolicitudPropuestaFormalizacionInvalida
 	}
-	if dependenciaEsNulaContratacionTemporalDesarrollo(e.lector) || dependenciaEsNulaContratacionTemporalDesarrollo(e.registro) ||
-		(s.DerivacionRef == "" && dependenciaEsNulaContratacionTemporalDesarrollo(e.bolsa)) ||
+	if dependenciaEsNulaContratacionTemporalDesarrollo(e.registro) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(e.servicio) {
+		return vacio, application.ErrPropuestaFormalizacionNoDisponible
+	}
+	if s.DerivacionRef != "" {
+		return e.prepararPropuestaDerivada(ctx, s)
+	}
+	if dependenciaEsNulaContratacionTemporalDesarrollo(e.lector) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(e.bolsa) {
 		return vacio, application.ErrPropuestaFormalizacionNoDisponible
 	}
 	// La preimagen que habilita este intento es la versión OCC de la solicitud.
@@ -141,17 +156,6 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 	}
 	if err != nil {
 		return vacio, errorPreparacionPropuestaDesarrollo(err)
-	}
-	if s.DerivacionRef != "" {
-		if a.ValidarPara(s) != nil || a.Derivacion == nil ||
-			!antecedenteDerivacionLigadoAlHijoPropuesta(expediente, *a.Derivacion, s) {
-			return vacio, application.ErrResolucionFormalizacionNoAceptada
-		}
-		m := ports.MaterialPropuestaFormalizacion{Etapa: "confirmacion", Solicitud: s.Clonar(),
-			AceptacionDerivada: a.Derivacion}
-		ctx = context.WithValue(ctx, clavePropuestaFormalizacionDesarrollo{}, propuestaFormalizacionLigadaDesarrollo{antecedente: a, material: m})
-		ctx = context.WithValue(ctx, claveMaterialPropuestaFormalizacionDesarrollo{}, m)
-		return e.servicio.PrepararYConfirmar(ctx, s)
 	}
 	if a.ValidarPara(s) != nil || a.Resolucion.Politica != politicaManualDesarrollo() ||
 		!consultaJustificanteLigadaAlExpedienteDesarrollo(expediente, a.Resolucion.Solicitud) {
@@ -186,12 +190,94 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 	return e.servicio.PrepararYConfirmar(ctx, s)
 }
 
+func (e *ejecutorPropuestaFormalizacionDesarrollo) prepararPropuestaDerivada(ctx context.Context,
+	s ports.SolicitudPropuestaFormalizacion,
+) (ports.ResultadoPropuestaFormalizacion, error) {
+	vacio := ports.ResultadoPropuestaFormalizacion{}
+	if e == nil || e.soporte == nil || e.fronteras.identidad == nil ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(e.detalle) {
+		return vacio, application.ErrPropuestaFormalizacionNoDisponible
+	}
+	c, valida := e.soporte.capacidadValida(ctx)
+	f, existe := fronteraSeguridadComunDesdeContexto(ctx)
+	ahora := e.soporte.reloj.Ahora()
+	if !valida || c.ruta != httpinterno.RutaPropuestaFormalizacion || c.metodo != http.MethodPost ||
+		!existe || !e.fronteras.mismaInstancia(f.catalogo) ||
+		f.ruta != c.ruta || f.metodo != c.metodo || f.descriptor.Clave != "ct-formalizacion-proponer" ||
+		f.descriptor.ClaveCapacidad != postgresct.AccionPropuestaFormalizacion ||
+		!f.descriptor.admitePerfil(e.soporte.contexto.Resultado.Contexto.PerfilActivoRef) ||
+		!domain.InstanteUTCCanonico(c.certificadoVerificadoEn) ||
+		!domain.InstanteUTCCanonico(c.certificadoValidoHasta) ||
+		ahora.Before(c.certificadoVerificadoEn) || !ahora.Before(c.certificadoValidoHasta) {
+		return vacio, application.ErrPropuestaFormalizacionDenegada
+	}
+	lectura, err := subconsultaDetalleContratacionTemporalDesarrollo(ctx, e.soporte, e.fronteras)
+	if err != nil {
+		return vacio, application.ErrPropuestaFormalizacionDenegada
+	}
+	q, err := ports.NuevaSolicitudDetalleRRHH(s.ExpedienteRef, 0)
+	if err != nil {
+		return vacio, application.ErrSolicitudPropuestaFormalizacionInvalida
+	}
+	d, err := e.detalle.Consultar(lectura, q)
+	if ctx.Err() != nil {
+		return vacio, ctx.Err()
+	}
+	if err != nil {
+		return vacio, application.ErrPropuestaFormalizacionNoDisponible
+	}
+	if d.InstruccionCompartida == nil || d.Resumen.Version < 6 {
+		return vacio, application.ErrPropuestaFormalizacionNoDisponible
+	}
+	if !detalleHijoPropuestaDerivadaValido(d, s) {
+		return vacio, application.ErrResolucionFormalizacionNoAceptada
+	}
+	ctx = context.WithValue(ctx, claveDetallePropuestaDerivadaDesarrollo{}, detallePropuestaDerivadaLigado{
+		solicitud: s.Clonar(), detalle: d.Clonar()})
+	ctx = context.WithValue(ctx, claveMaterialPropuestaFormalizacionDesarrollo{}, ports.MaterialPropuestaFormalizacion{
+		Etapa: "consulta", Solicitud: s.Clonar()})
+	a, err := e.registro.LeerAntecedente(ctx, s)
+	if ctx.Err() != nil {
+		return vacio, ctx.Err()
+	}
+	if err != nil {
+		return vacio, errorPreparacionPropuestaDesarrollo(err)
+	}
+	if a.ValidarPara(s) != nil || a.Derivacion == nil ||
+		!antecedenteDerivacionLigadoAlDetallePropuesta(d, *a.Derivacion, s) {
+		return vacio, application.ErrResolucionFormalizacionNoAceptada
+	}
+	m := ports.MaterialPropuestaFormalizacion{Etapa: "confirmacion", Solicitud: s.Clonar(),
+		AceptacionDerivada: a.Derivacion}
+	ctx = context.WithValue(ctx, clavePropuestaFormalizacionDesarrollo{}, propuestaFormalizacionLigadaDesarrollo{antecedente: a, material: m})
+	ctx = context.WithValue(ctx, claveMaterialPropuestaFormalizacionDesarrollo{}, m)
+	return e.servicio.PrepararYConfirmar(ctx, s)
+}
+
+func detalleHijoPropuestaDerivadaValido(d ports.DetalleExpedienteRRHH, s ports.SolicitudPropuestaFormalizacion) bool {
+	i := d.InstruccionCompartida
+	return i != nil && d.Resumen.Validar() == nil && d.Resumen.ExpedienteRef == s.ExpedienteRef &&
+		d.Resumen.OrganizacionRef == s.OrganizacionRef && d.Resumen.Version >= 6 &&
+		i.DerivacionRef == s.DerivacionRef &&
+		(d.Resumen.Version > 6 || d.Resumen.FaseClave == domain.FaseFiscalizacion &&
+			d.Resumen.EstadoClave == domain.EstadoEnCurso)
+}
+
+func antecedenteDerivacionLigadoAlDetallePropuesta(d ports.DetalleExpedienteRRHH,
+	a ports.EvidenciaAceptacionDerivada, s ports.SolicitudPropuestaFormalizacion) bool {
+	i := d.InstruccionCompartida
+	return i != nil && a.ValidarPara(s) == nil && detalleHijoPropuestaDerivadaValido(d, s) &&
+		a.PadreRef == i.PadreRef && a.HijoRef == d.Resumen.ExpedienteRef &&
+		a.DerivacionRef == i.DerivacionRef && a.OfertaRef == i.OfertaRef &&
+		a.NumeroPlaza == i.NumeroPlaza && a.ReciboDerivacionRef == i.ReciboDerivacionRef
+}
+
 func expedienteFiscalizadoParaPropuestaDesarrollo(
 	expediente ports.ExpedienteParaSeleccion,
 	s ports.SolicitudPropuestaFormalizacion,
 ) bool {
 	e := expediente.Fiscalizado
-	return e.Validar() == nil && (e.InstruccionCompartida != nil) == (s.DerivacionRef != "") &&
+	return e.Validar() == nil && e.InstruccionCompartida == nil && s.DerivacionRef == "" &&
 		e.Referencia == s.ExpedienteRef &&
 		e.OrganizacionRef == s.OrganizacionRef &&
 		e.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
@@ -200,17 +286,6 @@ func expedienteFiscalizadoParaPropuestaDesarrollo(
 		e.FaseActual == domain.FaseFiscalizacion && e.EstadoActual == domain.EstadoEnCurso &&
 		e.Fiscalizacion != nil && (e.Fiscalizacion.Resultado == domain.FiscalizacionFavorable ||
 		e.Fiscalizacion.Resultado == domain.FiscalizacionFavorableConObservaciones)
-}
-
-func antecedenteDerivacionLigadoAlHijoPropuesta(expediente ports.ExpedienteParaSeleccion,
-	a ports.EvidenciaAceptacionDerivada, s ports.SolicitudPropuestaFormalizacion) bool {
-	hijo := expediente.Fiscalizado
-	i := hijo.InstruccionCompartida
-	return i != nil && a.ValidarPara(s) == nil &&
-		a.HijoRef == hijo.Referencia && a.PadreRef == i.ExpedientePadre.Referencia &&
-		a.OfertaRef == i.OfertaRef && a.NumeroPlaza == i.NumeroPlaza &&
-		a.ReciboDerivacionRef == i.ReciboDerivacionRef &&
-		i.ExpedientePadre.OrganizacionRef == s.OrganizacionRef
 }
 
 func acreditarAceptacionBolsaPropuestaDesarrollo(ctx context.Context, repo puertosbolsa.RepositorioLlamamientoDesarrollo,

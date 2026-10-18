@@ -151,7 +151,7 @@ func (d DetalleExpedienteRRHH) entradaCanonicaMinimizada() (
 			d.Cobertura, referenciaCobertura,
 			d.Asignacion, referenciaAsignacion,
 			d.Fiscalizacion, referenciaFiscalizacion, referenciaSubsanacion,
-			d.Hitos, *d.InstruccionCompartida,
+			d.Hitos, *d.InstruccionCompartida, d.PropuestaFormalizacion,
 		)
 	}
 	return NuevaEntradaDetalleExpedienteRRHHMinimizadaV3(

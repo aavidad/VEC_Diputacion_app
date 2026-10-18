@@ -13,6 +13,7 @@ const (
 	cabeceraCanonContenidoDetalleRRHHV3 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V3\n"
 	cabeceraCanonContenidoDetalleRRHHV4 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V4\n"
 	cabeceraCanonContenidoDetalleRRHHV5 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V5\n"
+	cabeceraCanonContenidoDetalleRRHHV6 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V6\n"
 )
 
 func (c *constructorCanonResultadoRRHH) periodoFin(fin time.Time, causa domain.ClaveCatalogo) {
@@ -71,6 +72,9 @@ func (e EntradaDetalleExpedienteRRHHMinimizada) ExportarContenidoCanonicoParaSQL
 	if detalle.InstruccionCompartida != nil {
 		cabecera = cabeceraCanonContenidoDetalleRRHHV5
 	}
+	if detalle.PropuestaFormalizacion != nil {
+		cabecera = cabeceraCanonContenidoDetalleRRHHV6
+	}
 	constructor := nuevoConstructorCanonResultadoRRHH(cabecera)
 	if detalle.InstruccionCompartida != nil {
 		constructor.periodoV4 = true
@@ -116,6 +120,12 @@ func (e EntradaDetalleExpedienteRRHHMinimizada) ExportarContenidoCanonicoParaSQL
 		for _, hito := range i.HitosPadre {
 			constructor.hito(hito)
 		}
+	}
+	if p := detalle.PropuestaFormalizacion; p != nil {
+		constructor.texto(p.PropuestaRef)
+		constructor.texto(p.ReciboRef)
+		constructor.enteroSinSigno(p.Version)
+		constructor.instante(p.ConfirmadaEn)
 	}
 	canon, err := constructor.finalizar()
 	if err != nil {

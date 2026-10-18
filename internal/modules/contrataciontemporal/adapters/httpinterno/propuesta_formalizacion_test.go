@@ -304,8 +304,39 @@ func TestManejadorPropuestaFormalizacionDerivadaRechazaOrigenesMezclados(t *test
 				if s.DerivacionRef != e.DerivacionRef || s.LlamamientoRef != "" || s.ResolucionLlamamientoAceptadaRef != "" || s.ReciboResolucionAceptadaRef != "" {
 					t.Fatalf("origen mezclado en solicitud: %+v", s)
 				}
+				for _, campo := range []string{
+					`"derivacion_ref":"` + e.DerivacionRef + `"`, `"llamamiento_ref":""`,
+					`"resolucion_llamamiento_aceptada_ref":""`, `"recibo_resolucion_aceptada_ref":""`,
+				} {
+					if !strings.Contains(w.Body.String(), campo) {
+						t.Fatalf("falta eco %s: %s", campo, w.Body.String())
+					}
+				}
 			}
 		})
+	}
+}
+
+func TestManejadorPropuestaFormalizacionDerivadaReplayConservaSelector(t *testing.T) {
+	e := entradaPropuestaFormalizacionHTTPPrueba()
+	e.DerivacionRef, e.VersionEsperada = "derivacion:ct234:http-01", 6
+	e.LlamamientoRef, e.ResolucionLlamamientoAceptadaRef, e.ReciboResolucionAceptadaRef = "", "", ""
+	b, err := json.Marshal(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ejecutor := &ejecutorPropuestaFormalizacionHTTPPrueba{responder: func(_ context.Context,
+		s ports.SolicitudPropuestaFormalizacion) (ports.ResultadoPropuestaFormalizacion, error) {
+		return resultadoPropuestaFormalizacionHTTPPrueba(s, ports.ResultadoPropuestaFormalizacionReplay), nil
+	}}
+	h := nuevoManejadorPropuestaFormalizacionHTTPPrueba(t, autoridadPropuestaFormalizacionHTTPValidaPrueba(), ejecutor)
+	r := httptest.NewRequest(http.MethodPost, RutaPropuestaFormalizacion, bytes.NewReader(b))
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"derivacion_ref":"`+e.DerivacionRef+`"`) ||
+		!strings.Contains(w.Body.String(), `"recibo_resolucion_aceptada_ref":""`) {
+		t.Fatalf("replay perdió selector: estado=%d cuerpo=%s", w.Code, w.Body.String())
 	}
 }
 
@@ -510,7 +541,8 @@ func TestContratoHTTPPropuestaFormalizacionNoAceptaAutoridadNiEfectoExterno(
 	salida := reflect.TypeOf(propuestaFormalizacionSalidaJSON{})
 	esperados := []string{
 		"Esquema", "EstadoLocal", "PropuestaRef", "ReciboLocalRef",
-		"VersionResultante", "ConfirmadaEn",
+		"VersionResultante", "ConfirmadaEn", "DerivacionRef", "LlamamientoRef",
+		"ResolucionLlamamientoAceptadaRef", "ReciboResolucionAceptadaRef",
 	}
 	if salida.NumField() != len(esperados) {
 		t.Fatalf("salida no minima: %v", salida)

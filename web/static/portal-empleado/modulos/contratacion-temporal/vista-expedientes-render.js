@@ -121,6 +121,19 @@ export function contextoLlamamientoDesdeEstado(estado, reciboFiscalizacion = nul
     || expediente?.demostracion !== false || estado.cuadro?.demostracion !== false
     || estado.expediente_ref !== expediente.expediente_ref
     || !Array.isArray(estado.cuadro.expedientes)) return null;
+  const instruccion = expediente.instruccion_compartida;
+  const resumenDerivado = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
+    referencia === expediente.expediente_ref
+  ));
+  const derivado = instruccion?.derivacion_ref && expediente.version === 6
+    && (!resumenDerivado || (resumenDerivado.version === 6 && resumenDerivado.fase_clave === "fiscalizacion"))
+    && expediente.numero_personas === 1
+    && expediente.historial?.length === 1
+    && expediente.historial[0].secuencia === 6
+    && expediente.historial[0].accion_clave === "contratacion_temporal.nombramiento.derivar"
+    && ["favorable", "favorable_con_observaciones"].includes(expediente.fiscalizacion?.resultado_clave);
+  if (derivado) return Object.freeze({ expediente_ref: expediente.expediente_ref,
+    version_esperada: 6, numero_personas: 1, derivacion_ref: instruccion.derivacion_ref });
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
     referencia === expediente.expediente_ref
   ));

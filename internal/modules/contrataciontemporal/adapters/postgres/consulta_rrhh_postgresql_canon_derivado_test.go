@@ -65,3 +65,78 @@ func TestDecodificarDetalleDerivadoV5ReproduceCanonYRechazaMezclas(t *testing.T)
 		t.Fatal("se admitió recibo inválido")
 	}
 }
+
+// Mismo exportador de puertos con propuesta real en hito propio 7.
+const canonDetalleDerivadoV6Base64 = "VkVDLUNULUNPTlRFTklETy1ERVRBTExFLVJSSEgtVjYKMjM6ZXhwZWRpZW50ZTpycmhoOmhpam86MDEKMzE6b3JnYW5pemFjaW9uOmRpcHV0YWNp" +
+	"b24tZ3JhbmFkYQoxNDoyMDI2L0NULU1JTi1QMQoxOjcKMjE6Zmx1am86cnJoaDptaW5pbWl6YWRvCjE6MQo2NDphYWFhYWFhYWFhYWFhYWFhYWFh" +
+	"YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhCjEyOm5vbWJyYW1pZW50bwo4OmVuX2N1cnNvCjIyOmNlbnRybzpy" +
+	"cmhoOm1pbmltaXphZG8KMjU6Y2F0ZWdvcmlhOnJyaGg6bWluaW1pemFkYQoxMTppbnRlcmluaWRhZAoyMjp1bmlkYWQ6cnJoaDptaW5pbWl6YWRh" +
+	"CjI3OjIwMjYtMDctMjZUMDg6MDM6MDAuMDAwMDAwWgoyNzoyMDI2LTA3LTI2VDA4OjA0OjAwLjAwMDAwMFoKMjpDMgoxMTpzdXN0aXR1Y2lvbgoy" +
+	"NzoyMDI2LTA4LTI2VDAwOjAwOjAwLjAwMDAwMFoKMzM6ZmVjaGE6MjAyNi0wOS0yNlQwMDowMDowMC4wMDAwMDBaCjI6MTUKMToxCjE6MgoxMTpp" +
+	"bnRlcmluaWRhZAoyNTpjYXRlZ29yaWE6cnJoaDptaW5pbWl6YWRhCjExOnN1c3RpdHVjaW9uCjI3OjIwMjYtMDgtMjZUMDA6MDA6MDAuMDAwMDAw" +
+	"WgozMzpmZWNoYToyMDI2LTA5LTI2VDAwOjAwOjAwLjAwMDAwMFoKNToxMDAwMAoxMjpub19yZXF1ZXJpZGEKMToxCjY6MTI1MDAwCjM6RVVSCjIz" +
+	"OmZ1ZW50ZTpjb3N0ZTptaW5pbWl6YWRhCjA6CjE6MQoxOjMKNTpib2xzYQoxOjAKMjk6cHJvY2VkaW1pZW50bzpycmhoOm1pbmltaXphZG8KMjE6" +
+	"Ym9sc2E6cnJoaDptaW5pbWl6YWRhCjE6MQoxNDpkaXNwb25pYmlsaWRhZAoxMDphZmlybWF0aXZhCjE6MQoxOjQKMjI6dW5pZGFkOnJyaGg6bWlu" +
+	"aW1pemFkYQoyNzoyMDI2LTA3LTI2VDA4OjAwOjAwLjAwMDAwMFoKMDoKMToxCjE6NgoxOjAKOTpmYXZvcmFibGUKMTowCjI3OjIwMjYtMDctMjZU" +
+	"MDg6MDI6MDAuMDAwMDAwWgoxOjAKMToyCjE6NgoxOjYKNDI6Y29udHJhdGFjaW9uX3RlbXBvcmFsLm5vbWJyYW1pZW50by5kZXJpdmFyCjI3OjIw" +
+	"MjYtMDctMjZUMDg6MDM6MDAuMDAwMDAwWgoxMzpmaXNjYWxpemFjaW9uCjEzOmZpc2NhbGl6YWNpb24KODplbl9jdXJzbwo4OmVuX2N1cnNvCjE6" +
+	"NwoxOjcKMzM6cmVnaXN0cmFyX3Byb3B1ZXN0YV9mb3JtYWxpemFjaW9uCjI3OjIwMjYtMDctMjZUMDg6MDQ6MDAuMDAwMDAwWgoxMzpmaXNjYWxp" +
+	"emFjaW9uCjEyOm5vbWJyYW1pZW50bwo4OmVuX2N1cnNvCjg6ZW5fY3Vyc28KMTY6ZGVyaXZhY2lvbjpjdDowMQoyNjpleHBlZGllbnRlOnJyaGg6" +
+	"bWluaW1pemFkbwoxMToyMDI2L0NULU1JTgoxMjpvZmVydGE6Y3Q6MDEKMToxCjEyOnJlY2libzpjdDowMQo2NDphYWFhYWFhYWFhYWFhYWFhYWFh" +
+	"YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhCjI3OjIwMjYtMDctMjZUMDc6NTc6MDAuMDAwMDAwWgoyNzoyMDI2" +
+	"LTA3LTI2VDA4OjAyOjAwLjAwMDAwMFoKMTo2CjE6MQoxOjEKMjI6YWN0dWFjaW9uLm1pbmltaXphZGEuMQoyNzoyMDI2LTA3LTI2VDA3OjU3OjAw" +
+	"LjAwMDAwMFoKMDoKOTpzb2xpY2l0dWQKOTpwZW5kaWVudGUKODplbl9jdXJzbwoxOjIKMToyCjIyOmFjdHVhY2lvbi5taW5pbWl6YWRhLjIKMjc6" +
+	"MjAyNi0wNy0yNlQwNzo1ODowMC4wMDAwMDBaCjk6c29saWNpdHVkCjEzOmdlc3Rpb25fYm9sc2EKODplbl9jdXJzbwo4OmVuX2N1cnNvCjE6Mwox" +
+	"OjMKMjI6YWN0dWFjaW9uLm1pbmltaXphZGEuMwoyNzoyMDI2LTA3LTI2VDA3OjU5OjAwLjAwMDAwMFoKMTM6Z2VzdGlvbl9ib2xzYQoxNzphc2ln" +
+	"bmFjaW9uX3VuaWRhZAo4OmVuX2N1cnNvCjg6ZW5fY3Vyc28KMTo0CjE6NAoyMjphY3R1YWNpb24ubWluaW1pemFkYS40CjI3OjIwMjYtMDctMjZU" +
+	"MDg6MDA6MDAuMDAwMDAwWgoxNzphc2lnbmFjaW9uX3VuaWRhZAoxNDp1bmlkYWRfZ2VzdG9yYQo4OmVuX2N1cnNvCjg6ZW5fY3Vyc28KMTo1CjE6" +
+	"NQo0Njpjb250cmF0YWNpb25fdGVtcG9yYWwuaW5mb3JtZV9qdXJpZGljby5nZW5lcmFyCjI3OjIwMjYtMDctMjZUMDg6MDE6MDAuMDAwMDAwWgox" +
+	"NDp1bmlkYWRfZ2VzdG9yYQoxNjppbmZvcm1lX2p1cmlkaWNvCjg6ZW5fY3Vyc28KODplbl9jdXJzbwoxOjYKMTo2CjQ1OmNvbnRyYXRhY2lvbl90" +
+	"ZW1wb3JhbC5maXNjYWxpemFjaW9uLnJlZ2lzdHJhcgoyNzoyMDI2LTA3LTI2VDA4OjAyOjAwLjAwMDAwMFoKMTY6aW5mb3JtZV9qdXJpZGljbwox" +
+	"MzpmaXNjYWxpemFjaW9uCjg6ZW5fY3Vyc28KODplbl9jdXJzbwoxNTpwcm9wdWVzdGE6Y3Q6MDEKMTk6cmVjaWJvOnByb3B1ZXN0YTowMQoxOjcK" +
+	"Mjc6MjAyNi0wNy0yNlQwODowNDowMC4wMDAwMDBaCg=="
+
+func TestDecodificarDetalleDerivadoV6PropuestaEstricto(t *testing.T) {
+	canon, err := base64.StdEncoding.DecodeString(canonDetalleDerivadoV6Base64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := decodificarContenidoDetalleRRHHPostgreSQL(canon)
+	if err != nil || d.version != 7 {
+		t.Fatalf("decodificar V6: %v", err)
+	}
+	if _, err := (analizadorCanonConsultaRRHHPostgreSQL{}).analizarDetalle(
+		canon, d.actualizadoEn.Add(time.Minute), d.expedienteRef, d.version); err != nil {
+		t.Fatalf("reproducir V6: %v", err)
+	}
+	casos := map[string][]byte{
+		"referencia": bytes.Replace(canon, []byte("propuesta:ct:01"), bytes.Repeat([]byte("!"), len("propuesta:ct:01")), 1),
+		"recibo":     bytes.Replace(canon, []byte("recibo:propuesta:01"), bytes.Repeat([]byte("!"), len("recibo:propuesta:01")), 1),
+	}
+	version := bytes.Clone(canon)
+	indice := bytes.LastIndex(version, []byte("1:7\n"))
+	if indice < 0 {
+		t.Fatal("falta versión de propuesta")
+	}
+	version[indice+2] = '8'
+	casos["versión"] = version
+	fecha := bytes.Clone(canon)
+	marca := []byte(d.actualizadoEn.Format("2006-01-02T15:04:05.000000Z"))
+	indice = bytes.LastIndex(fecha, marca)
+	if indice < 0 {
+		t.Fatal("falta fecha de propuesta")
+	}
+	fecha[indice+18] = '1'
+	casos["fecha"] = fecha
+	for nombre, alterado := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			if bytes.Equal(alterado, canon) {
+				t.Fatal("la adulteración no cambió el canon")
+			}
+			if _, err := (analizadorCanonConsultaRRHHPostgreSQL{}).analizarDetalle(
+				alterado, d.actualizadoEn.Add(time.Minute), d.expedienteRef, d.version); err == nil {
+				t.Fatal("se admitió propuesta adulterada")
+			}
+		})
+	}
+}

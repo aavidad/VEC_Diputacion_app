@@ -41,6 +41,12 @@ func calcularHuellaDetalleRRHH(
 		e.instante(i.ActualizadoEnPadre)
 		e.hitos(i.HitosPadre)
 	}
+	if p := detalle.PropuestaFormalizacion; p != nil {
+		e.cadena(p.PropuestaRef)
+		e.cadena(p.ReciboRef)
+		e.u64(p.Version)
+		e.instante(p.ConfirmadaEn)
+	}
 	var resultado [sha256.Size]byte
 	copy(resultado[:], destino.Sum(nil))
 	return resultado

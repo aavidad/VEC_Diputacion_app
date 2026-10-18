@@ -538,6 +538,7 @@ export function versionPropuestaDocumentalValida(entrada) {
 
 export function validarExpedienteContratacionTemporal(entrada) {
   const tieneInstruccionCompartida = esRegistro(entrada) && Object.hasOwn(entrada, "instruccion_compartida");
+  const tienePropuestaDerivada = esRegistro(entrada) && Object.hasOwn(entrada, "propuesta_formalizacion");
   const tieneNumeroPersonas = esRegistro(entrada) && Object.hasOwn(entrada, "numero_personas");
   const tieneResultadoBolsa = esRegistro(entrada) && Object.hasOwn(entrada, "resultado_bolsa");
   const propuestaHistorica = esRegistro(entrada) && Object.hasOwn(entrada, "version_propuesta_documental");
@@ -556,6 +557,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     ...(propuestaHistorica ? ["version_propuesta_documental"] : []),
     ...(tieneResultadoBolsa ? ["resultado_bolsa"] : []),
     ...(tieneInstruccionCompartida ? ["instruccion_compartida"] : []),
+    ...(tienePropuestaDerivada ? ["propuesta_formalizacion"] : []),
   ], "expediente de contratación temporal");
   if (entrada.esquema !== ESQUEMA_EXPEDIENTE || typeof entrada.demostracion !== "boolean"
     || !(tieneInstruccionCompartida
@@ -613,6 +615,20 @@ export function validarExpedienteContratacionTemporal(entrada) {
     };
     if (instruccionCompartida.padre_ref === entrada.expediente_ref) throw new TypeError("padre idéntico al hijo");
   }
+  let propuestaDerivada;
+  if (tienePropuestaDerivada) {
+    const propuesta = entrada.propuesta_formalizacion;
+    exigirCamposExactos(propuesta, ["propuesta_ref", "recibo_ref", "version", "confirmada_en", "fecha_visible"],
+      "propuesta derivada");
+    if (!instruccionCompartida || entrada.version < 7 || propuesta.version !== 7
+      || historial.find((h) => h.secuencia === 7)?.accion_clave !== "registrar_propuesta_formalizacion") {
+      throw new TypeError("propuesta derivada no válida");
+    }
+    propuestaDerivada = { propuesta_ref: referencia(propuesta.propuesta_ref, "propuesta_ref"),
+      recibo_ref: referencia(propuesta.recibo_ref, "recibo_ref"), version: 7,
+      confirmada_en: instante(propuesta.confirmada_en, "confirmada_en"),
+      fecha_visible: cadenaNoVacia(propuesta.fecha_visible, "fecha_visible", 80) };
+  }
   const tareas = unicos(lista(
     entrada.tareas,
     "tareas",
@@ -646,6 +662,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     fases,
     ...(tieneHistorial ? { historial } : {}),
     ...(instruccionCompartida ? { instruccion_compartida: instruccionCompartida } : {}),
+    ...(propuestaDerivada ? { propuesta_formalizacion: propuestaDerivada } : {}),
     ...(tieneAnalisisPrevio ? { analisis_previo: validarDatosPreviosAnalisis(entrada.analisis_previo) } : {}),
     ...(tieneDatosPeticion ? { datos_peticion: validarDatosPeticionAnalisis(entrada.datos_peticion) } : {}),
     ...(tieneFiscalizacion ? { fiscalizacion: validarFiscalizacionExpediente(entrada.fiscalizacion) } : {}),

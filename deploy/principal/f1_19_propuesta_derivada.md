@@ -2,12 +2,12 @@
 
 Tarea F1-19. Continúa la propuesta existente desde el expediente individual
 creado por una plaza aceptada. Está preparada en código; faltan la instalación
-conjunta, la conexión de la ficha y el recorrido positivo.
+conjunta y el recorrido positivo.
 
-Instalar CT236 una sola vez tras AD291/AD292 y B135→CT234 en una copia propia
+Instalar CT236 una sola vez tras AD291/AD292 y B135→CT234→CT237 en una copia propia
 con la lista completa de main. La lista del corte y la común conservan las
 huellas; el guion privado reproduce las definiciones desde sus preimágenes
-instaladas y la postimagen explícita de CT234, sin reaplicar migraciones.
+instaladas y las postimágenes explícitas de CT234 y CT237, sin reaplicar migraciones.
 No añade perfiles ni reconstruye el núcleo de autorización.
 
 La ruta existente de propuesta admite `derivacion_ref` como selector opaco.
@@ -16,8 +16,11 @@ la versión esperada es 6. Los compromisos de tipo, plantilla, firma y anexos
 conservan sus comprobaciones. El servidor consulta la aceptación acreditada,
 la coteja con la instrucción del hijo y confirma la propuesta por el mismo
 servicio y permiso. No se fabrican resoluciones ni justificantes previos.
-La ficha obtendrá el selector del detalle autorizado del hijo; no se pide
-escribir una referencia técnica. Esta conexión sigue pendiente.
+La ficha obtiene el selector del detalle autorizado del hijo. Tras confirmar,
+la misma lectura recupera las referencias de propuesta y recibo, la versión 7
+y su fecha. La confirmación se muestra en modo de lectura, también tras
+recargar y en versiones posteriores; no habilita otro envío. El canon V6
+incorpora estos cuatro campos y conserva V5 cuando no hay propuesta.
 
 En la candidata conjunta, crear dos hijos y preparar cada propuesta desde su
 ficha. Cotejar versiones 7, recibos y actuaciones propias; repetir con la misma

@@ -598,6 +598,10 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
       padre_disponible: padreDisponible,
       historial_padre: historialDesdeHitos(detalle.instruccion_compartida.hitos_padre, locale, t),
     } } : {}),
+    ...(detalle.propuesta_formalizacion ? { propuesta_formalizacion: {
+      ...detalle.propuesta_formalizacion,
+      fecha_visible: fechaCivil(detalle.propuesta_formalizacion.confirmada_en, locale, true),
+    } } : {}),
     ...(detalle.fiscalizacion ? { fiscalizacion: {
       resultado_clave: detalle.fiscalizacion.resultado_clave,
       resultado: etiqueta(detalle.fiscalizacion.resultado_clave, t),

@@ -6,6 +6,9 @@ SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL statement_timeout='15s';
 DO $test$
 DECLARE f regprocedure; p record; caso record; fuente text; mensaje text; estado text;
+ v_material vec_contratacion_temporal.materializacion_detalle_rrhh_v1;
+ v_detalle vec_contratacion_temporal.entrada_detalle_expediente_rrhh_v1;
+ v_meta jsonb; v_canon bytea; v_tail bytea; v_campo text; v_fecha timestamptz;
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_attribute a
     WHERE a.attrelid='vec_contratacion_temporal.propuesta_formalizacion'::regclass
@@ -22,6 +25,14 @@ BEGIN
         AND c.conname='propuesta_formalizacion_check3' AND c.convalidated
         AND strpos(pg_get_constraintdef(c.oid),'AceptacionDerivada')>0)
  THEN RAISE EXCEPTION 'CT236: tabla o origen disjunto ausente'; END IF;
+ IF (SELECT count(*) FROM pg_attribute a
+      WHERE a.attrelid='vec_contratacion_temporal.entrada_detalle_expediente_rrhh_v1'::regclass
+        AND a.attnum>0 AND NOT a.attisdropped)<>18
+    OR NOT EXISTS(SELECT 1 FROM pg_attribute a
+      WHERE a.attrelid='vec_contratacion_temporal.entrada_detalle_expediente_rrhh_v1'::regclass
+        AND a.attname='propuesta_formalizacion' AND a.attnum=18
+        AND a.atttypid='jsonb'::regtype)
+ THEN RAISE EXCEPTION 'CT236: detalle sin propuesta opcional'; END IF;
  FOREACH f IN ARRAY ARRAY[
   'vec_contratacion_temporal.leer_antecedente_propuesta_formalizacion_ct211_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
   'vec_contratacion_temporal.registrar_propuesta_formalizacion_nativa_ct211_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
@@ -34,6 +45,25 @@ BEGIN
           WHERE replace(cfg,' ','')='search_path=pg_catalog,pg_temp')
   THEN RAISE EXCEPTION 'CT236: función sin propietario o ruta fija: %',f; END IF;
  END LOOP;
+ SELECT proowner,prosecdef,provolatile,proparallel,proconfig,prosrc INTO STRICT p
+  FROM pg_proc WHERE oid='vec_contratacion_temporal.materializar_detalle_rrhh_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,numeric)'::regprocedure;
+ IF p.proowner<>'vec_contratacion_temporal_propietario'::regrole
+    OR p.prosecdef IS NOT TRUE OR p.provolatile<>'s' OR p.proparallel<>'u'
+    OR NOT EXISTS(SELECT 1 FROM unnest(p.proconfig) cfg
+      WHERE replace(cfg,' ','')='search_path=pg_catalog,pg_temp')
+    OR strpos(p.prosrc,'v_propuesta.recibo_ref IS DISTINCT FROM v_hito_propuesta->>''recibo_ref''')=0
+    OR strpos(p.prosrc,'v_hay_propuesta IS DISTINCT FROM v_hay_hito')=0
+    OR strpos(p.prosrc,'evento.payload_huella_sha256=encode(sha256(evento.payload_canonico)')=0
+ THEN RAISE EXCEPTION 'CT236: materializador sin origen de recibo íntegro'; END IF;
+ SELECT proowner,prosecdef,provolatile,proparallel,proconfig,prosrc INTO STRICT p
+  FROM pg_proc WHERE oid='vec_contratacion_temporal.canon_contenido_detalle_rrhh_v1(timestamp with time zone,vec_contratacion_temporal.entrada_detalle_expediente_rrhh_v1)'::regprocedure;
+ IF p.proowner<>'vec_contratacion_temporal_propietario'::regrole
+    OR p.prosecdef IS NOT FALSE OR p.provolatile<>'i' OR p.proparallel<>'s'
+    OR NOT EXISTS(SELECT 1 FROM unnest(p.proconfig) cfg
+      WHERE replace(cfg,' ','')='search_path=pg_catalog,pg_temp')
+    OR strpos(p.prosrc,'VEC-CT-CONTENIDO-DETALLE-RRHH-V6')=0
+    OR strpos(p.prosrc,'VEC-CT-CONTENIDO-DETALLE-RRHH-V5')=0
+ THEN RAISE EXCEPTION 'CT236: canon de detalle divergente'; END IF;
  IF has_function_privilege('vec_contratacion_temporal_ejecutor',
    'vec_contratacion_temporal.acreditar_antecedente_derivado_ct236_v1(jsonb,jsonb)'::regprocedure,'EXECUTE')
  THEN RAISE EXCEPTION 'CT236: helper privado expuesto'; END IF;
@@ -81,6 +111,58 @@ BEGIN
        jsonb_set(caso.nuevo,'{actuaciones,1,accion_clave}',
          '"accion:ajena"'::jsonb),7) IS NOT FALSE
   THEN RAISE EXCEPTION 'CT236: transición derivada admitida fuera de propuesta'; END IF;
+ END LOOP;
+
+ -- Si existe el acto auténtico, recupera el mismo detalle autorizado y
+ -- prueba el recibo visible, V5 previo y el rechazo de una versión adulterada.
+ IF EXISTS(SELECT 1 FROM vec_contratacion_temporal.propuesta_formalizacion propuesta
+    WHERE propuesta.derivacion_ref IS NOT NULL
+      AND NOT EXISTS(SELECT 1 FROM vec_contratacion_temporal.publicacion_version_rrhh pub
+        WHERE pub.expediente_ref=propuesta.expediente_ref AND pub.version=7))
+ THEN RAISE EXCEPTION 'CT236: propuesta derivada sin publicación v7'; END IF;
+ FOR caso IN SELECT propuesta.*,pub.corte_global
+  FROM vec_contratacion_temporal.propuesta_formalizacion propuesta
+  JOIN vec_contratacion_temporal.publicacion_version_rrhh pub
+    ON pub.expediente_ref=propuesta.expediente_ref AND pub.version=7
+  WHERE propuesta.derivacion_ref IS NOT NULL
+    AND NOT EXISTS(SELECT 1 FROM vec_contratacion_temporal.propuesta_sustitucion_v1 x
+      WHERE x.propuesta_anterior_ref=propuesta.propuesta_ref) LOOP
+  v_material:=vec_contratacion_temporal.materializar_detalle_rrhh_v1(
+    ROW(caso.organizacion_ref,'organizacion',caso.organizacion_ref)::vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+    ROW(caso.expediente_ref,7)::vec_contratacion_temporal.consulta_detalle_rrhh_v1,
+    caso.corte_global);
+  v_detalle:=v_material.detalle;
+  v_meta:=v_detalle.propuesta_formalizacion;
+  v_fecha:=(v_detalle.resumen).actualizado_en;
+  IF v_meta IS DISTINCT FROM jsonb_build_object('propuesta_ref',caso.propuesta_ref,
+       'recibo_ref',caso.recibo_ref,'version',7,
+       'confirmada_en',to_char(caso.confirmada_en AT TIME ZONE 'UTC',
+         'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))
+  THEN RAISE EXCEPTION 'CT236: detalle no recupera el recibo original'; END IF;
+  v_canon:=vec_contratacion_temporal.canon_contenido_detalle_rrhh_v1(v_fecha,v_detalle);
+  IF substring(v_canon FROM 1 FOR octet_length(
+       convert_to('VEC-CT-CONTENIDO-DETALLE-RRHH-V6'||chr(10),'UTF8'))) IS DISTINCT FROM
+       convert_to('VEC-CT-CONTENIDO-DETALLE-RRHH-V6'||chr(10),'UTF8')
+  THEN RAISE EXCEPTION 'CT236: cabecera V6 ausente'; END IF;
+  v_tail:=''::bytea;
+  FOREACH v_campo IN ARRAY ARRAY[v_meta->>'propuesta_ref',v_meta->>'recibo_ref',
+      v_meta->>'version',v_meta->>'confirmada_en'] LOOP
+    v_tail:=v_tail||vec_contratacion_temporal.encuadrar_valor_rrhh_v1(
+      vec_contratacion_temporal.codificar_texto_utf8_rrhh_v1(v_campo));
+  END LOOP;
+  IF substring(v_canon FROM octet_length(v_canon)-octet_length(v_tail)+1) IS DISTINCT FROM v_tail
+  THEN RAISE EXCEPTION 'CT236: cola V6 divergente'; END IF;
+  v_detalle.propuesta_formalizacion:=NULL;
+  v_canon:=vec_contratacion_temporal.canon_contenido_detalle_rrhh_v1(v_fecha,v_detalle);
+  IF substring(v_canon FROM 1 FOR octet_length(
+       convert_to('VEC-CT-CONTENIDO-DETALLE-RRHH-V5'||chr(10),'UTF8'))) IS DISTINCT FROM
+       convert_to('VEC-CT-CONTENIDO-DETALLE-RRHH-V5'||chr(10),'UTF8')
+  THEN RAISE EXCEPTION 'CT236: canon V5 alterado'; END IF;
+  v_detalle.propuesta_formalizacion:=jsonb_set(v_meta,'{version}','8'::jsonb);
+  BEGIN
+    PERFORM vec_contratacion_temporal.canon_contenido_detalle_rrhh_v1(v_fecha,v_detalle);
+    RAISE EXCEPTION 'CT236: metadata alterada aceptada';
+  EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
  END LOOP;
 
  BEGIN

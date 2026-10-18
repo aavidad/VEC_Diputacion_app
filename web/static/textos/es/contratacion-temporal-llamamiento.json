@@ -228,6 +228,7 @@
     "llamamiento_intencion_despachada": "Llamada",
     "llamamiento_continuacion_confirmada_en": "Llamada el",
     "llamamiento_propuesta": "Propuesta de nombramiento",
+    "llamamiento_propuesta_derivada_ayuda": "Esta plaza procede de una oferta adjudicada. Revise los documentos y guarde la propuesta de este expediente. La propuesta es un borrador sin firma.",
     "llamamiento_propuesta_pantalla_sobrelinea": "Candidatura aceptada",
     "llamamiento_propuesta_pantalla_titulo": "Preparar la propuesta de nombramiento",
     "llamamiento_propuesta_pantalla_ayuda": "La aceptación confirmada permite revisar y registrar la propuesta mediante la acción siguiente.",

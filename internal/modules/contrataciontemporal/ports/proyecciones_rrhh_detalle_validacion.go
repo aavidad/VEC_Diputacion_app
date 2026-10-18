@@ -92,6 +92,14 @@ func (d DetalleExpedienteRRHH) validarContenidoPublicable() error {
 	if d.InstruccionCompartida != nil && d.InstruccionCompartida.validarPara(d) != nil {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
+	if d.InstruccionCompartida != nil && len(d.Hitos) > 1 &&
+		d.Hitos[1].AccionClave == "registrar_propuesta_formalizacion" &&
+		d.PropuestaFormalizacion == nil {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	if d.PropuestaFormalizacion != nil && d.PropuestaFormalizacion.validarPara(d) != nil {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
 	if d.Analisis == nil {
 		if d.Resumen.ModalidadClave != "" {
 			return ErrResultadoConsultaRRHHNoConfiable
@@ -202,6 +210,10 @@ func (d DetalleExpedienteRRHH) Clonar() DetalleExpedienteRRHH {
 		instruccion := *d.InstruccionCompartida
 		instruccion.HitosPadre = clonarHitosRRHH(instruccion.HitosPadre)
 		d.InstruccionCompartida = &instruccion
+	}
+	if d.PropuestaFormalizacion != nil {
+		propuesta := *d.PropuestaFormalizacion
+		d.PropuestaFormalizacion = &propuesta
 	}
 	if d.Analisis != nil {
 		analisis := *d.Analisis

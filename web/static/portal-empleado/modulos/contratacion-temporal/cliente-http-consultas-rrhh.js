@@ -314,11 +314,26 @@ function validarInstruccionCompartida(entrada, resumen, hitos) {
   return Object.freeze({ ...structuredClone(entrada), hitos_padre: entrada.hitos_padre.map(validarHito) });
 }
 
+function validarPropuestaDerivada(entrada, detalle) {
+  const hito = detalle.hitos.find((item) => item.secuencia === 7);
+  if (!camposCerrados(entrada, ["propuesta_ref", "recibo_ref", "version", "confirmada_en"])
+    || !detalle.instruccion_compartida || detalle.resumen.version < 7
+    || !referencia(entrada.propuesta_ref) || !referencia(entrada.recibo_ref)
+    || entrada.version !== 7 || !instante(entrada.confirmada_en)
+    || hito?.version_expediente !== 7 || hito.accion_clave !== "registrar_propuesta_formalizacion"
+    || hito.fase_destino !== "nombramiento" || hito.estado_destino !== "en_curso"
+    || entrada.confirmada_en !== hito.realizada_en
+    || Date.parse(entrada.confirmada_en) > Date.parse(detalle.resumen.actualizado_en)) {
+    throw new TypeError("propuesta derivada RRHH no válida");
+  }
+  return Object.freeze({ ...entrada });
+}
+
 function validarDetalle(entrada) {
   if (!camposCerrados(
     entrada,
     ["esquema", "resumen", "solicitud", "hitos"],
-    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion", "capacidades_ficha", "resultado_bolsa", "instruccion_compartida"],
+    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion", "capacidades_ficha", "resultado_bolsa", "instruccion_compartida", "propuesta_formalizacion"],
   ) || entrada.esquema !== ESQUEMA_DETALLE || !Array.isArray(entrada.hitos)
     || entrada.hitos.length > MAXIMO_HITOS) {
     throw new TypeError("detalle RRHH no válido");
@@ -331,6 +346,8 @@ function validarDetalle(entrada) {
   };
   if (Object.hasOwn(entrada, "instruccion_compartida")) salida.instruccion_compartida = validarInstruccionCompartida(
     entrada.instruccion_compartida, salida.resumen, salida.hitos);
+  if (Object.hasOwn(entrada, "propuesta_formalizacion")) salida.propuesta_formalizacion = validarPropuestaDerivada(
+    entrada.propuesta_formalizacion, salida);
   if (Object.hasOwn(entrada, "analisis")) salida.analisis = validarAnalisis(entrada.analisis);
   if (Object.hasOwn(entrada, "cobertura")) salida.cobertura = validarCobertura(entrada.cobertura);
   if (Object.hasOwn(entrada, "asignacion")) salida.asignacion = validarAsignacion(entrada.asignacion);

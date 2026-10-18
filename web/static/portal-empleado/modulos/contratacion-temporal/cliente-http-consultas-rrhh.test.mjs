@@ -133,6 +133,24 @@ test("detalle derivado conserva antecedentes separados y rechaza campos o secuen
   await assert.rejects(consultar({ ...base, instruccion_compartida: { ...compartida, otro: true } }));
   await assert.rejects(consultar({ ...base, hitos: [{ ...propio, secuencia: 1 }] }));
   await assert.rejects(consultar({ ...base, resumen: { ...base.resumen, numero_visible: `${resumen.numero_visible}-P1` } }));
+  const confirmadaEn = "2026-09-03T10:05:00Z";
+  const hito7 = { ...propio, secuencia: 7, version_expediente: 7,
+    accion_clave: "registrar_propuesta_formalizacion", realizada_en: confirmadaEn,
+    fase_destino: "nombramiento" };
+  const v7 = { ...base, resumen: { ...base.resumen, version: 7, fase_clave: "nombramiento",
+    actualizado_en: confirmadaEn }, hitos: [propio, hito7],
+  propuesta_formalizacion: { propuesta_ref: "propuesta:derivada:2", recibo_ref: "recibo:propuesta:2",
+    version: 7, confirmada_en: confirmadaEn } };
+  assert.equal((await consultar(v7)).propuesta_formalizacion.recibo_ref, "recibo:propuesta:2");
+  const { propuesta_formalizacion: _sinMetadato, ...v7SinMetadato } = v7;
+  assert.equal(Object.hasOwn(await consultar(v7SinMetadato), "propuesta_formalizacion"), false);
+  for (const alterado of [
+    { ...v7, propuesta_formalizacion: { ...v7.propuesta_formalizacion, ajeno: true } },
+    { ...v7, propuesta_formalizacion: { ...v7.propuesta_formalizacion, recibo_ref: "" } },
+    { ...v7, propuesta_formalizacion: { ...v7.propuesta_formalizacion, confirmada_en: "2026-09-03T10:05:01Z" } },
+    { ...v7, hitos: [propio, { ...hito7, accion_clave: "otro_acto" }] },
+    { ...v7, instruccion_compartida: undefined },
+  ]) await assert.rejects(consultar(alterado));
 });
 
 test("iguala los límites y vocabularios cerrados del contrato Go", async () => {

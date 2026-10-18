@@ -7,7 +7,7 @@ import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderiza
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION, ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
-  CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
+  CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_PROPUESTA_DERIVADA, CAMPOS_RECIBO_PROPUESTA,
   PUBLICACIONES_FORMALIZACION, RESPUESTA_EXPIRACION } from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
 
 /** Recibo que habilita el siguiente llamamiento: la renuncia resuelta o la
@@ -335,7 +335,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
           && estado.recuperacionOferta?.disponible && estado.numeroPersonasSolicitadas !== 1
           && (estado.numeroPersonasSolicitadas > 1 || estado.recuperacionOferta.identificada) ? `<button class="boton-secundario" type="button"
             data-ct-llamamiento-recuperar-oferta ${paso.ocupado || estado.recuperacionOferta.ocupado ? "disabled" : ""}>${e(t("llamamiento_recuperar_oferta"))}</button>` : ""}
-        ${operacion === "propuesta" && !paso.disponible && paso.aceptacion && !paso.calculando
+        ${operacion === "propuesta" && !paso.disponible && (paso.aceptacion || paso.derivacionRef) && !paso.calculando
           ? `<button class="boton-secundario" type="button" data-ct-llamamiento-reintentar-publicaciones>${e(t("llamamiento_reintentar_publicaciones"))}</button>` : ""}
         </div>
       </form>
@@ -352,6 +352,12 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         ? `<p class="ct-estado ct-estado-${estado.recuperacionOferta.tono}" role="${estado.recuperacionOferta.tono === "error" ? "alert" : "status"}">${e(t(estado.recuperacionOferta.mensaje))}</p>` : ""}
     </section>`;
   }
+  if (estado.propuesta.derivacionRef) return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
+    aria-labelledby="ct-llamamiento-titulo"><header class="ct-cabecera"><div>
+      <h2 id="ct-llamamiento-titulo">${e(t("llamamiento_propuesta"))}</h2></div></header>
+    <p class="cuerpo-panel">${e(t("llamamiento_propuesta_derivada_ayuda"))}</p>
+    <div data-ct-documentacion-formalizacion></div>
+    ${formulario("propuesta", CAMPOS_PROPUESTA_DERIVADA)}</section>`;
   const consulta = estado.consultaRespuesta;
   const restaurada = estado.comunicaciones?.estado === "lista" ? estado.comunicaciones.seleccionada : null;
   const antecedenteConsulta = [estado.comunicacion, estado.comunicacion_siguiente].some((paso) =>

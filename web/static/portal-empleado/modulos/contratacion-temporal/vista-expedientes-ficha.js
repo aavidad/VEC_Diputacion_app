@@ -8,6 +8,7 @@
  * deduce responsables o plazos que el servidor no haya dado.
  */
 import { faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
+import { justificanteTraducido, referenciaCopiableTraducida } from "../../portal-justificante.js";
 
 function escapar(valor) {
   return String(valor ?? "")
@@ -207,6 +208,16 @@ export function renderizarListaDocumentos(documentos, t) {
 export function renderizarHistorialFicha(expediente, t, faseDeCampo = () => "general") {
   const historial = Array.isArray(expediente.historial) ? expediente.historial : [];
   const compartida = expediente.instruccion_compartida;
+  const propuesta = expediente.propuesta_formalizacion;
+  const reciboPropuesta = propuesta ? `<section class="ct-recibo" aria-labelledby="ct-exp-propuesta-recuperada-titulo">
+    <h4 id="ct-exp-propuesta-recuperada-titulo">${escapar(t("ficha_propuesta_confirmada"))}</h4>
+    <p>${escapar(t("ficha_propuesta_limite"))}</p>
+    <dl><div><dt>${escapar(t("ficha_propuesta_ref"))}</dt><dd>${referenciaCopiableTraducida(
+      propuesta.propuesta_ref, escapar, t, t("ficha_propuesta_ref"))}</dd></div>
+      <div><dt>${escapar(t("ficha_propuesta_recibo"))}</dt><dd>${justificanteTraducido(
+        propuesta.recibo_ref, escapar, t)}</dd></div>
+      <div><dt>${escapar(t("ficha_propuesta_fecha"))}</dt><dd>${escapar(propuesta.fecha_visible)}</dd></div></dl>
+  </section>` : "";
   const frasesDe = (hitos) => `<ol class="historial-frases">${[...hitos].reverse().map((hito) => `<li>
         <div><time>${escapar(hito.fecha)}</time>${escapar(hito.accion)}
           <span class="texto-secundario"> · ${escapar(t("ficha_historial_fase", { fase: hito.fase }))}</span></div>
@@ -222,6 +233,7 @@ export function renderizarHistorialFicha(expediente, t, faseDeCampo = () => "gen
     && PATRON_REFERENCIA.test(String(campo.valor ?? "").trim()));
   return `<section class="panel ct-exp-ficha-historial" aria-labelledby="ct-exp-ficha-historial-titulo">
     <div class="cabecera-panel"><h3 id="ct-exp-ficha-historial-titulo">${escapar(t("ficha_historial_titulo"))}</h3></div>
+    ${reciboPropuesta}
     ${frases}
     <details class="detalle-tecnico-plegado ct-exp-historial">
       <summary>${escapar(t("ficha_detalle_tecnico"))}</summary>

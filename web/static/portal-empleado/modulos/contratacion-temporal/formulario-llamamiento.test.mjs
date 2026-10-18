@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { File } from "node:buffer";
 import test from "node:test";
 import { fechaRespuestaMadridUTC } from "./formulario-llamamiento.js?v=20261008-alta-rpt-circular-v6";
+import { contextoLlamamientoDesdeEstado } from "./vista-expedientes-render.js";
 import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
 import {
@@ -688,6 +689,52 @@ test("aceptación tras subsanación ofrece propuesta v8 y conserva recibo v9", a
  assert.equal(solicitudes[0].version_esperada, 8);
  assert.match(raiz.innerHTML, /Propuesta guardada/u);
  cerrar();
+});
+
+test("hijo derivado prepara la propuesta desde su detalle sin aceptación manual", async () => {
+  const derRef = "derivacion:ct:plaza:2";
+  const estado = estadoSeleccionado();
+  estado.cuadro.expedientes = [];
+  Object.assign(estado.expediente, { historial: [{ secuencia: 6,
+    accion_clave: "contratacion_temporal.nombramiento.derivar" }],
+  fiscalizacion: { resultado_clave: "favorable" },
+  instruccion_compartida: { derivacion_ref: derRef } });
+  const contexto = contextoLlamamientoDesdeEstado(estado);
+  assert.deepEqual(contexto, { expediente_ref: EXPEDIENTE, version_esperada: 6,
+    numero_personas: 1, derivacion_ref: derRef });
+  const raiz = raizPrueba(), solicitudes = [];
+  let falloInicial = true;
+  const cerrar = montar(raiz, { consultarComunicacionesExpediente: undefined,
+    prepararPropuestaFormalizacion: async (solicitud) => {
+      solicitudes.push(solicitud);
+      if (falloInicial) { falloInicial = false; throw new Error("respuesta_no_confirmada"); }
+      return { esquema: "vec.contratacion-temporal.propuesta-formalizacion-local.v1",
+        estado_local: "confirmado", propuesta_ref: "propuesta:derivada:2", recibo_local_ref: "recibo:propuesta:derivada:2",
+        version_resultante: 7, confirmada_en: "2026-09-06T10:00:00.123456Z",
+        derivacion_ref: derRef, llamamiento_ref: "", resolucion_llamamiento_aceptada_ref: "",
+        recibo_resolucion_aceptada_ref: "" };
+    },
+  }, { contexto, fetchPublicaciones: async () => new Response(PUBLICACIONES_PROPUESTA,
+    { status: 200, headers: { "Content-Type": "application/json" } }) });
+  for (let intento = 0; intento < 20 && !raiz.innerHTML.includes("Documentos cargados"); intento += 1)
+    await new Promise(setImmediate);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="propuesta"/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="seleccion"|Aceptación confirmada/u);
+  assert.match(raiz.innerHTML, /name="derivacion_ref" value="derivacion:ct:plaza:2" type="hidden" readonly/u);
+  assert.doesNotMatch(raiz.innerHTML, /<label[^>]*derivacion_ref/u);
+  await raiz.enviar("propuesta", { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174005",
+    derivacion_ref: "derivacion:inventada", version_esperada: 99, llamamiento_ref: "llamamiento:inventado" });
+  assert.equal(solicitudes.length, 1);
+  assert.equal(solicitudes[0].derivacion_ref, derRef);
+  assert.deepEqual([solicitudes[0].llamamiento_ref, solicitudes[0].resolucion_llamamiento_aceptada_ref,
+    solicitudes[0].recibo_resolucion_aceptada_ref], ["", "", ""]);
+  assert.equal(solicitudes[0].version_esperada, 6);
+  await raiz.enviar("propuesta", { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174099",
+    derivacion_ref: "derivacion:otra" });
+  assert.equal(solicitudes.length, 2);
+  assert.deepEqual(solicitudes[1], solicitudes[0]);
+  assert.match(raiz.innerHTML, /Propuesta guardada/u);
+  cerrar();
 });
 
 test("revisar propuesta conserva la navegación y enfoca su formulario sin enviar", () => {

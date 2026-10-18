@@ -228,6 +228,7 @@
     "llamamiento_intencion_despachada": "Called",
     "llamamiento_continuacion_confirmada_en": "Called on",
     "llamamiento_propuesta": "Appointment proposal",
+    "llamamiento_propuesta_derivada_ayuda": "This position comes from an awarded offer. Review the documents and save the proposal in this case. The proposal is an unsigned draft.",
     "llamamiento_propuesta_pantalla_sobrelinea": "Candidature accepted",
     "llamamiento_propuesta_pantalla_titulo": "Prepare the appointment proposal",
     "llamamiento_propuesta_pantalla_ayuda": "Confirmed acceptance permits the proposal to be reviewed and recorded using the following action.",

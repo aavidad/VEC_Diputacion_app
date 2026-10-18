@@ -87,6 +87,7 @@ type EntradaDetalleExpedienteRRHHMinimizada struct {
 	referenciaSubsanacion   ReferenciaHitoSubsanacionFiscalizacionRRHH
 	hitos                   []HitoExpedienteRRHH
 	instruccionCompartida   *InstruccionCompartidaRRHH
+	propuestaFormalizacion  *PropuestaFormalizacionRRHH
 	// canonV3 marca que la entrada procede del canon V3 (migración 000106):
 	// el bloque de fiscalización se codifica siempre, presente o no.
 	canonV3 bool
@@ -217,14 +218,28 @@ func (e EntradaDetalleExpedienteRRHHMinimizada) validarReferencias() error {
 	if !cabe {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
+	adicional := uint64(0)
 	if e.instruccionCompartida != nil {
 		material, err := json.Marshal(e.instruccionCompartida)
-		if err != nil || uint64(len(material))+base+64 > limiteBytesEntradaDetalleRRHHMinimizada ||
+		adicional += uint64(len(material)) + 64
+		if err != nil ||
 			e.instruccionCompartida.validarPara(DetalleExpedienteRRHH{
 				Resumen: e.resumen, Hitos: e.hitos,
 			}) != nil {
 			return ErrResultadoConsultaRRHHNoConfiable
 		}
+	}
+	if e.propuestaFormalizacion != nil {
+		material, err := json.Marshal(e.propuestaFormalizacion)
+		adicional += uint64(len(material)) + 32
+		if err != nil || e.propuestaFormalizacion.validarPara(DetalleExpedienteRRHH{
+			Resumen: e.resumen, Hitos: e.hitos, InstruccionCompartida: e.instruccionCompartida,
+		}) != nil {
+			return ErrResultadoConsultaRRHHNoConfiable
+		}
+	}
+	if adicional > limiteBytesEntradaDetalleRRHHMinimizada-base {
+		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	return validarComponentesEntradaDetalleRRHHMinimizada(
 		e.resumen, e.solicitud, e.analisis, e.referenciaAnalisis,
@@ -270,13 +285,14 @@ func reconstruirDetalleExpedienteRRHHMinimizado(
 	}
 	detalle := DetalleExpedienteRRHH{
 		Resumen: entrada.resumen, Solicitud: entrada.solicitud,
-		Analisis:              clonarAnalisisOperativoMinimizadoRRHH(entrada.analisis),
-		Cobertura:             clonarCoberturaOperativaMinimizadaRRHH(entrada.cobertura),
-		Asignacion:            clonarAsignacionOperativaMinimizadaRRHH(entrada.asignacion),
-		Fiscalizacion:         clonarFiscalizacionOperativaMinimizadaRRHH(entrada.fiscalizacion),
-		Hitos:                 clonarHitosRRHH(entrada.hitos),
-		InstruccionCompartida: clonarInstruccionCompartidaRRHH(entrada.instruccionCompartida),
-		canonV3:               entrada.canonV3,
+		Analisis:               clonarAnalisisOperativoMinimizadoRRHH(entrada.analisis),
+		Cobertura:              clonarCoberturaOperativaMinimizadaRRHH(entrada.cobertura),
+		Asignacion:             clonarAsignacionOperativaMinimizadaRRHH(entrada.asignacion),
+		Fiscalizacion:          clonarFiscalizacionOperativaMinimizadaRRHH(entrada.fiscalizacion),
+		Hitos:                  clonarHitosRRHH(entrada.hitos),
+		InstruccionCompartida:  clonarInstruccionCompartidaRRHH(entrada.instruccionCompartida),
+		PropuestaFormalizacion: clonarPropuestaFormalizacionRRHH(entrada.propuestaFormalizacion),
+		canonV3:                entrada.canonV3,
 	}
 	hitosInstruccion := detalle.hitosDeInstruccion()
 	if detalle.Analisis != nil {
@@ -463,7 +479,11 @@ func NuevaEntradaDetalleExpedienteRRHHMinimizadaDerivadaV1(
 	fiscalizacion *FiscalizacionOperativaRRHH, referenciaFiscalizacion ReferenciaHitoFiscalizacionRRHH,
 	referenciaSubsanacion ReferenciaHitoSubsanacionFiscalizacionRRHH,
 	hitos []HitoExpedienteRRHH, instruccion InstruccionCompartidaRRHH,
+	propuesta ...*PropuestaFormalizacionRRHH,
 ) (EntradaDetalleExpedienteRRHHMinimizada, error) {
+	if len(propuesta) > 1 {
+		return EntradaDetalleExpedienteRRHHMinimizada{}, ErrResultadoConsultaRRHHNoConfiable
+	}
 	entrada := EntradaDetalleExpedienteRRHHMinimizada{
 		resumen: resumen, solicitud: solicitud,
 		analisis: clonarAnalisisOperativoMinimizadoRRHH(analisis), referenciaAnalisis: referenciaAnalisis,
@@ -473,6 +493,9 @@ func NuevaEntradaDetalleExpedienteRRHHMinimizadaDerivadaV1(
 		referenciaFiscalizacion: referenciaFiscalizacion, referenciaSubsanacion: referenciaSubsanacion,
 		hitos: clonarHitosRRHH(hitos), instruccionCompartida: clonarInstruccionCompartidaRRHH(&instruccion),
 		canonV3: true,
+	}
+	if len(propuesta) == 1 {
+		entrada.propuestaFormalizacion = clonarPropuestaFormalizacionRRHH(propuesta[0])
 	}
 	if analisis == nil || cobertura == nil || asignacion == nil || fiscalizacion == nil ||
 		entrada.validarReferencias() != nil {

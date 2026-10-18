@@ -18,18 +18,19 @@ type envoltorioDetalleRRHH struct {
 }
 
 type detalleRRHHJSON struct {
-	Esquema               string                         `json:"esquema"`
-	Resumen               resumenRRHHJSON                `json:"resumen"`
-	Solicitud             solicitudRRHHJSON              `json:"solicitud"`
-	Analisis              *analisisRRHHJSON              `json:"analisis,omitempty"`
-	Cobertura             *coberturaRRHHJSON             `json:"cobertura,omitempty"`
-	Asignacion            *asignacionRRHHJSON            `json:"asignacion,omitempty"`
-	Fiscalizacion         *fiscalizacionRRHHJSON         `json:"fiscalizacion,omitempty"`
-	Hitos                 []hitoExpedienteRRHHJSON       `json:"hitos"`
-	InstruccionCompartida *instruccionCompartidaRRHHJSON `json:"instruccion_compartida,omitempty"`
-	PresentacionFlujo     *presentacionFlujoRRHHJSON     `json:"presentacion_flujo,omitempty"`
-	CapacidadesFicha      *capacidadesFichaRRHHJSON      `json:"capacidades_ficha,omitempty"`
-	ResultadoBolsa        *ports.ResultadoBolsaRRHH      `json:"resultado_bolsa,omitempty"`
+	Esquema                string                          `json:"esquema"`
+	Resumen                resumenRRHHJSON                 `json:"resumen"`
+	Solicitud              solicitudRRHHJSON               `json:"solicitud"`
+	Analisis               *analisisRRHHJSON               `json:"analisis,omitempty"`
+	Cobertura              *coberturaRRHHJSON              `json:"cobertura,omitempty"`
+	Asignacion             *asignacionRRHHJSON             `json:"asignacion,omitempty"`
+	Fiscalizacion          *fiscalizacionRRHHJSON          `json:"fiscalizacion,omitempty"`
+	Hitos                  []hitoExpedienteRRHHJSON        `json:"hitos"`
+	InstruccionCompartida  *instruccionCompartidaRRHHJSON  `json:"instruccion_compartida,omitempty"`
+	PropuestaFormalizacion *propuestaFormalizacionRRHHJSON `json:"propuesta_formalizacion,omitempty"`
+	PresentacionFlujo      *presentacionFlujoRRHHJSON      `json:"presentacion_flujo,omitempty"`
+	CapacidadesFicha       *capacidadesFichaRRHHJSON       `json:"capacidades_ficha,omitempty"`
+	ResultadoBolsa         *ports.ResultadoBolsaRRHH       `json:"resultado_bolsa,omitempty"`
 }
 
 type capacidadesFichaRRHHJSON struct {
@@ -163,6 +164,13 @@ type instruccionCompartidaRRHHJSON struct {
 	HitosPadre          []hitoExpedienteRRHHJSON `json:"hitos_padre"`
 }
 
+type propuestaFormalizacionRRHHJSON struct {
+	PropuestaRef string `json:"propuesta_ref"`
+	ReciboRef    string `json:"recibo_ref"`
+	Version      uint64 `json:"version"`
+	ConfirmadaEn string `json:"confirmada_en"`
+}
+
 func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 	salida := detalleRRHHJSON{
 		Esquema: esquemaConsultaDetalleRRHH,
@@ -247,6 +255,12 @@ func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 			compartida.HitosPadre[n] = proyectarHitoDetalleRRHH(hito)
 		}
 		salida.InstruccionCompartida = compartida
+	}
+	if p := entrada.PropuestaFormalizacion; p != nil {
+		salida.PropuestaFormalizacion = &propuestaFormalizacionRRHHJSON{
+			PropuestaRef: p.PropuestaRef, ReciboRef: p.ReciboRef,
+			Version: p.Version, ConfirmadaEn: instanteConsultaRRHH(p.ConfirmadaEn),
+		}
 	}
 	return salida
 }

@@ -123,8 +123,10 @@ test("hijo muestra antecedentes del padre separados de su derivación y conserva
   const cliente = clienteFalso([]);
   let versionHijo = 6;
   let hitosHijo = [propio];
+  let propuestaServidor = null;
   cliente.consultarDetalleRRHH = async () => ({ esquema: "vec.contratacion-temporal.detalle-rrhh.v1",
-    resumen: { ...hijoResumen, version: versionHijo, fase_clave: versionHijo > 6 ? "nombramiento" : "fiscalizacion" },
+    resumen: { ...hijoResumen, version: versionHijo, fase_clave: versionHijo > 6 ? "nombramiento" : "fiscalizacion",
+      actualizado_en: versionHijo > 6 ? "2026-09-03T10:05:00Z" : hijoResumen.actualizado_en },
     solicitud: { grupo_subgrupo: "A2", motivo_clave: "sustitucion", numero_personas: 1,
       periodo_inicio: "2026-09-04T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z" },
     hitos: hitosHijo, instruccion_compartida: { derivacion_ref: "derivacion:ct:2", padre_ref: resumen.expediente_ref,
@@ -132,6 +134,7 @@ test("hijo muestra antecedentes del padre separados de su derivación y conserva
       recibo_derivacion_ref: "recibo:derivacion:2", huella_padre_sha256: "b".repeat(64),
       creado_en_padre: "2026-09-03T08:00:00Z", actualizado_en_padre: "2026-09-03T09:00:00Z",
       hitos_padre: padre },
+    ...(propuestaServidor ? { propuesta_formalizacion: propuestaServidor } : {}),
     presentacion_flujo: { referencia: "flujo:rrhh:presentacion", fase_actual: "fiscalizacion",
       fases: [{ clave: "gestion_bolsa", orden: 1, clave_i18n: "contratacion_temporal.fase.gestion_bolsa" },
         { clave: "fiscalizacion", orden: 2, clave_i18n: "contratacion_temporal.fase.fiscalizacion" }] },
@@ -158,6 +161,25 @@ test("hijo muestra antecedentes del padre separados de su derivación y conserva
   assert.equal(disponible.instruccion_compartida.padre_disponible, true);
   assert.match(renderizarHistorialFicha(disponible, t), /data-ct-exp-abrir="expediente:ct:001"/);
   assert.match(renderizarCabeceraFicha(disponible, presentador.obtenerEstado(), t), /Abrir expediente principal 2026\/CT-0001/);
+  versionHijo = 7;
+  hitosHijo = [propio, { ...propio, secuencia: 7, version_expediente: 7,
+    accion_clave: "registrar_propuesta_formalizacion", realizada_en: "2026-09-03T10:05:00Z",
+    fase_destino: "nombramiento" }];
+  propuestaServidor = { propuesta_ref: "propuesta:derivada:2", recibo_ref: "recibo:propuesta:2",
+    version: 7, confirmada_en: "2026-09-03T10:05:00Z" };
+  await presentador.seleccionarExpedienteDesdeEnlace(hijoResumen.expediente_ref, 7);
+  const recuperada = presentador.obtenerEstado().expediente;
+  assert.equal(recuperada.propuesta_formalizacion.recibo_ref, "recibo:propuesta:2");
+  const confirmacion = renderizarHistorialFicha(recuperada, t);
+  assert.match(confirmacion, /Propuesta guardada en este expediente/);
+  assert.match(confirmacion, /data-copiar-justificante="recibo:propuesta:2"/);
+  assert.doesNotMatch(confirmacion, /<form|data-ct-llamamiento-form/u);
+  propuestaServidor = null;
+  await presentador.seleccionarExpedienteDesdeEnlace(hijoResumen.expediente_ref, 7);
+  assert.doesNotMatch(renderizarHistorialFicha(presentador.obtenerEstado().expediente, t),
+    /Propuesta guardada en este expediente/u);
+  propuestaServidor = { propuesta_ref: "propuesta:derivada:2", recibo_ref: "recibo:propuesta:2",
+    version: 7, confirmada_en: "2026-09-03T10:05:00Z" };
   versionHijo = 8;
   hitosHijo = [propio, { ...propio, secuencia: 7, version_expediente: 7,
     accion_clave: "registrar_propuesta_formalizacion", fase_destino: "nombramiento" },
@@ -165,6 +187,7 @@ test("hijo muestra antecedentes del padre separados de su derivación y conserva
     fase_origen: "nombramiento", fase_destino: "nombramiento" }];
   await presentador.seleccionarExpedienteDesdeEnlace(hijoResumen.expediente_ref, 8);
   assert.equal(presentador.obtenerEstado().expediente.version_propuesta_documental, 7);
+  propuestaServidor = null;
   hitosHijo = [propio, { ...hitosHijo[1], accion_clave: "otra_actuacion" }, hitosHijo[2]];
   await presentador.seleccionarExpedienteDesdeEnlace(hijoResumen.expediente_ref, 8);
   assert.equal(Object.hasOwn(presentador.obtenerEstado().expediente, "version_propuesta_documental"), false);

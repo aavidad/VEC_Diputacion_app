@@ -45,6 +45,9 @@ func (p *proveedorPropuestaFormalizacionDesarrollo) PrepararPropuestaFormalizaci
 		l.material.AceptacionDerivada != nil && l.material.AceptacionDerivada.ValidarPara(s) != nil {
 		return ports.MaterialPropuestaFormalizacion{}, ports.ErrOperacionPropuestaFormalizacionDenegada
 	}
+	if s.DerivacionRef != "" && !contextoPropuestaDerivadaLigado(ctx, s, l.antecedente.Derivacion) {
+		return ports.MaterialPropuestaFormalizacion{}, ports.ErrOperacionPropuestaFormalizacionDenegada
+	}
 	return l.material.Clonar(), nil
 }
 
@@ -68,6 +71,9 @@ func (p *proveedorPropuestaFormalizacionDesarrollo) AutorizarPropuestaFormalizac
 		!reflect.DeepEqual(esperado.AceptacionDerivada, m.AceptacionDerivada) {
 		return vacio, ports.ErrOperacionPropuestaFormalizacionDenegada
 	}
+	if m.Solicitud.DerivacionRef != "" && !contextoPropuestaDerivadaLigado(ctx, m.Solicitud, m.AceptacionDerivada) {
+		return vacio, ports.ErrOperacionPropuestaFormalizacionDenegada
+	}
 	recurso, err := postgresct.RecursoPropuestaFormalizacion(m)
 	if err != nil {
 		return vacio, err
@@ -83,7 +89,8 @@ func motivoPropuestaFormalizacionDesarrollo() dominiovec.ReferenciaEntradaCatalo
 
 func solicitudAutorizacionPropuestaDesarrolloValida(ctx context.Context, d dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
 	m, ok := ctx.Value(claveMaterialPropuestaFormalizacionDesarrollo{}).(ports.MaterialPropuestaFormalizacion)
-	if !ok || m.Validar() != nil || m.Solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+	if !ok || m.Validar() != nil || m.Solicitud.DerivacionRef != "" ||
+		m.Solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 		m.Solicitud.ExpedienteRef != p.expediente.Fiscalizado.Referencia ||
 		!expedienteFiscalizadoParaPropuestaDesarrollo(p.expediente, m.Solicitud) ||
 		d.Accion != postgresct.AccionPropuestaFormalizacion || d.ReferenciaMotivo != motivoPropuestaFormalizacionDesarrollo() {
@@ -98,12 +105,7 @@ func solicitudAutorizacionPropuestaDesarrolloValida(ctx context.Context, d domin
 			!reflect.DeepEqual(l.material.AceptacionDerivada, m.AceptacionDerivada) {
 			return false
 		}
-		if m.AceptacionDerivada != nil {
-			if !antecedenteDerivacionLigadoAlHijoPropuesta(p.expediente, *m.AceptacionDerivada, m.Solicitud) ||
-				l.antecedente.Derivacion == nil || *l.antecedente.Derivacion != *m.AceptacionDerivada {
-				return false
-			}
-		} else if l.antecedente.Resolucion.Politica != politicaManualDesarrollo() ||
+		if l.antecedente.Resolucion.Politica != politicaManualDesarrollo() ||
 			(m.AceptacionBolsa != nil && m.AceptacionBolsa.ValidarPara(l.antecedente) != nil) ||
 			(m.AceptacionBolsaNativa != nil && m.AceptacionBolsaNativa.ValidarPara(l.antecedente) != nil) {
 			return false
@@ -113,6 +115,41 @@ func solicitudAutorizacionPropuestaDesarrolloValida(ctx context.Context, d domin
 	r := d.Recurso
 	return err == nil && r.Referencia == e.Referencia && r.ModuloID == e.ModuloID && r.Tipo == e.Tipo &&
 		maps.Equal(r.Ambitos, e.Ambitos) && maps.Equal(r.Atributos, e.Atributos)
+}
+
+func contextoPropuestaDerivadaLigado(ctx context.Context, s ports.SolicitudPropuestaFormalizacion,
+	e *ports.EvidenciaAceptacionDerivada,
+) bool {
+	l, ok := ctx.Value(claveDetallePropuestaDerivadaDesarrollo{}).(detallePropuestaDerivadaLigado)
+	return ok && solicitudPropuestaDesarrolloIgual(l.solicitud, s) &&
+		detalleHijoPropuestaDerivadaValido(l.detalle, s) &&
+		(e == nil || antecedenteDerivacionLigadoAlDetallePropuesta(l.detalle, *e, s))
+}
+
+func solicitudAutorizacionPropuestaDerivadaDesarrolloValida(ctx context.Context,
+	d dominiovec.DatosSolicitudAutorizacionLigadaV3,
+) bool {
+	m, ok := ctx.Value(claveMaterialPropuestaFormalizacionDesarrollo{}).(ports.MaterialPropuestaFormalizacion)
+	if !ok || m.Validar() != nil || m.Solicitud.DerivacionRef == "" ||
+		m.Solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		!contextoPropuestaDerivadaLigado(ctx, m.Solicitud, m.AceptacionDerivada) ||
+		d.Accion != postgresct.AccionPropuestaFormalizacion || d.ReferenciaMotivo != motivoPropuestaFormalizacionDesarrollo() ||
+		d.Finalidad != "gestionar_contratacion_temporal" {
+		return false
+	}
+	if m.Etapa == "confirmacion" {
+		l, existe := ctx.Value(clavePropuestaFormalizacionDesarrollo{}).(propuestaFormalizacionLigadaDesarrollo)
+		if !existe || l.antecedente.ValidarPara(m.Solicitud) != nil || l.antecedente.Derivacion == nil ||
+			!contextoPropuestaDerivadaLigado(ctx, m.Solicitud, l.antecedente.Derivacion) ||
+			l.material.Validar() != nil || !solicitudPropuestaDesarrolloIgual(l.material.Solicitud, m.Solicitud) ||
+			!reflect.DeepEqual(l.material.AceptacionDerivada, m.AceptacionDerivada) {
+			return false
+		}
+	}
+	esperado, err := postgresct.RecursoPropuestaFormalizacion(m)
+	r := d.Recurso
+	return err == nil && r.Referencia == esperado.Referencia && r.ModuloID == esperado.ModuloID &&
+		r.Tipo == esperado.Tipo && maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
 }
 
 func configurarAutoridadPropuestaFormalizacionDesarrollo(ctx context.Context, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo, desde time.Time) error {

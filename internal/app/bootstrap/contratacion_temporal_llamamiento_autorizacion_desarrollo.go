@@ -102,6 +102,12 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 	if ruta == httpinterno.RutaResolucionFormalizacion {
 		return solicitudAutorizacionResolucionFormalizacionValida(ctx, datos)
 	}
+	if ruta == httpinterno.RutaPropuestaFormalizacion {
+		if m, ok := ctx.Value(claveMaterialPropuestaFormalizacionDesarrollo{}).(ports.MaterialPropuestaFormalizacion); ok &&
+			m.Solicitud.DerivacionRef != "" {
+			return solicitudAutorizacionPropuestaDerivadaDesarrolloValida(ctx, datos)
+		}
+	}
 	p, ok := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
 	if !ok || p.expediente.Fiscalizado.Validar() != nil ||
 		p.expediente.Fiscalizado.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||

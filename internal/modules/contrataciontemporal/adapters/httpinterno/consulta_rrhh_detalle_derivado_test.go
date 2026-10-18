@@ -54,3 +54,33 @@ func TestConsultaRRHHDetalleDerivadoProyectaInstruccionSinConfundirHitos(t *test
 		t.Fatal("el legado añadió el bloque derivado")
 	}
 }
+
+func TestConsultaRRHHDetalleDerivadoProyectaPropuestaMinima(t *testing.T) {
+	instante := time.Date(2026, 10, 18, 8, 4, 0, 0, time.UTC)
+	detalle := ports.DetalleExpedienteRRHH{PropuestaFormalizacion: &ports.PropuestaFormalizacionRRHH{
+		PropuestaRef: "propuesta:ct:01", ReciboRef: "recibo:propuesta:01",
+		Version: 7, ConfirmadaEn: instante,
+	}}
+	contenido, err := json.Marshal(proyectarDetalleRRHH(detalle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]json.RawMessage
+	if json.Unmarshal(contenido, &wire) != nil {
+		t.Fatal("detalle ilegible")
+	}
+	var propuesta map[string]json.RawMessage
+	if json.Unmarshal(wire["propuesta_formalizacion"], &propuesta) != nil || len(propuesta) != 4 {
+		t.Fatalf("la propuesta debe contener cuatro campos: %s", wire["propuesta_formalizacion"])
+	}
+	if string(propuesta["version"]) != "7" || string(propuesta["confirmada_en"]) != `"2026-10-18T08:04:00Z"` {
+		t.Fatal("versión o fecha de confirmación distintas del recibo")
+	}
+	detalle.PropuestaFormalizacion = nil
+	legado, _ := json.Marshal(proyectarDetalleRRHH(detalle))
+	wire = make(map[string]json.RawMessage)
+	_ = json.Unmarshal(legado, &wire)
+	if _, aparece := wire["propuesta_formalizacion"]; aparece {
+		t.Fatal("la ausencia de propuesta añadió un bloque")
+	}
+}

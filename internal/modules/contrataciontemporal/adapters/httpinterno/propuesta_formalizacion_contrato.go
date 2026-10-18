@@ -301,12 +301,16 @@ type envoltorioPropuestaFormalizacion struct {
 // propuestaFormalizacionSalidaJSON acredita solo el resultado local. Omite
 // auditoria interna y no contiene documento, firma, registro ni descarga.
 type propuestaFormalizacionSalidaJSON struct {
-	Esquema           string `json:"esquema"`
-	EstadoLocal       string `json:"estado_local"`
-	PropuestaRef      string `json:"propuesta_ref"`
-	ReciboLocalRef    string `json:"recibo_local_ref"`
-	VersionResultante uint64 `json:"version_resultante"`
-	ConfirmadaEn      string `json:"confirmada_en"`
+	Esquema                          string  `json:"esquema"`
+	EstadoLocal                      string  `json:"estado_local"`
+	PropuestaRef                     string  `json:"propuesta_ref"`
+	ReciboLocalRef                   string  `json:"recibo_local_ref"`
+	VersionResultante                uint64  `json:"version_resultante"`
+	ConfirmadaEn                     string  `json:"confirmada_en"`
+	DerivacionRef                    string  `json:"derivacion_ref,omitempty"`
+	LlamamientoRef                   *string `json:"llamamiento_ref,omitempty"`
+	ResolucionLlamamientoAceptadaRef *string `json:"resolucion_llamamiento_aceptada_ref,omitempty"`
+	ReciboResolucionAceptadaRef      *string `json:"recibo_resolucion_aceptada_ref,omitempty"`
 }
 
 func proyectarPropuestaFormalizacion(
@@ -320,7 +324,7 @@ func proyectarPropuestaFormalizacion(
 	if resultado.EsReplayConfirmado() {
 		estadoHTTP = http.StatusOK
 	}
-	return propuestaFormalizacionSalidaJSON{
+	salida := propuestaFormalizacionSalidaJSON{
 		Esquema:           EsquemaPropuestaFormalizacion,
 		EstadoLocal:       string(resultado.Estado),
 		PropuestaRef:      resultado.PropuestaRef,
@@ -329,7 +333,14 @@ func proyectarPropuestaFormalizacion(
 		ConfirmadaEn: resultado.ConfirmadaEn.UTC().Format(
 			time.RFC3339Nano,
 		),
-	}, estadoHTTP, true
+	}
+	if solicitud.DerivacionRef != "" {
+		vacia := ""
+		salida.DerivacionRef = solicitud.DerivacionRef
+		salida.LlamamientoRef, salida.ResolucionLlamamientoAceptadaRef,
+			salida.ReciboResolucionAceptadaRef = &vacia, &vacia, &vacia
+	}
+	return salida, estadoHTTP, true
 }
 
 var (
