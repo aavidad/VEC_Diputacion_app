@@ -69,8 +69,11 @@ func (r *RepositorioComprobacionPostgreSQL) RegistrarComprobacion(ctx context.Co
 		return cero, ports.ErrComprobacionDependencia
 	}
 	sum := sha256.Sum256([]byte(i.CanonPostgreSQL))
-	if hex.EncodeToString(sum[:]) != i.HuellaSHA256 || !intencionComprobacionLigada(i) {
+	if hex.EncodeToString(sum[:]) != i.HuellaSHA256 {
 		return cero, ports.ErrComprobacionDependencia
+	}
+	if err := validarIntencionComprobacionLigada(i); err != nil {
+		return cero, err
 	}
 	return registrarComprobacionConRecuperacion(ctx, i, r.registrarUnaComprobacion)
 }
@@ -172,16 +175,22 @@ func commitComprobacionIndeterminado(err error) bool {
 }
 
 // Compara el contenido semántico, sin confundir JSON de Go con jsonb::text.
-func intencionComprobacionLigada(i ports.IntencionComprobacion) bool {
+func validarIntencionComprobacionLigada(i ports.IntencionComprobacion) error {
 	b, err := json.Marshal(i.Solicitud)
 	if err != nil {
-		return false
+		return fmt.Errorf("%w: %w", ports.ErrComprobacionDependencia, err)
 	}
 	var enviada, normalizada any
-	if json.Unmarshal(b, &enviada) != nil || json.Unmarshal([]byte(i.CanonPostgreSQL), &normalizada) != nil {
-		return false
+	if err := json.Unmarshal(b, &enviada); err != nil {
+		return fmt.Errorf("%w: %w", ports.ErrComprobacionDependencia, err)
 	}
-	return reflect.DeepEqual(enviada, normalizada)
+	if err := json.Unmarshal([]byte(i.CanonPostgreSQL), &normalizada); err != nil {
+		return fmt.Errorf("%w: %w", ports.ErrComprobacionDependencia, err)
+	}
+	if !reflect.DeepEqual(enviada, normalizada) {
+		return ports.ErrComprobacionDependencia
+	}
+	return nil
 }
 
 func reciboComprobacionValido(r ports.ReciboComprobacion, q ports.SolicitudComprobacion) bool {

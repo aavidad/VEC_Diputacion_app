@@ -111,11 +111,26 @@ func TestIntencionComprobacionLigada(t *testing.T) {
 		t.Fatal(err)
 	}
 	i := ports.IntencionComprobacion{Solicitud: q, CanonPostgreSQL: string(b)}
-	if !intencionComprobacionLigada(i) {
-		t.Fatal("intención original rechazada")
+	if err := validarIntencionComprobacionLigada(i); err != nil {
+		t.Fatal(err)
 	}
 	i.Solicitud.Contexto.ParticipacionRef = "participacion:otra"
-	if intencionComprobacionLigada(i) {
+	if err := validarIntencionComprobacionLigada(i); !errors.Is(err, ports.ErrComprobacionDependencia) {
 		t.Fatal("intención alterada aceptada")
+	}
+}
+
+func TestIntencionComprobacionPropagaJSONInvalido(t *testing.T) {
+	for _, i := range []ports.IntencionComprobacion{
+		{Solicitud: ports.SolicitudComprobacion{Hechos: map[string]ports.HechoComprobacion{
+			"trabaja_en_diputacion": {Valor: json.RawMessage("{")},
+		}}},
+		{CanonPostgreSQL: "{"},
+	} {
+		err := validarIntencionComprobacionLigada(i)
+		var sintaxis *json.SyntaxError
+		if !errors.Is(err, ports.ErrComprobacionDependencia) || !errors.As(err, &sintaxis) {
+			t.Fatalf("causa de JSON perdida: %v", err)
+		}
 	}
 }

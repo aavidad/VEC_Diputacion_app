@@ -8,7 +8,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -126,7 +125,7 @@ func ReferenciasRutaComprobacionOfrecimiento(r *http.Request) (string, string, b
 		return "", "", false
 	}
 	for _, v := range []string{s[0], s[2]} {
-		if _, err := url.PathUnescape(v); err != nil || strings.ContainsAny(v, "?# \\%") || len(v) > 512 {
+		if strings.ContainsAny(v, "?# \\%") || len(v) > 512 {
 			return "", "", false
 		}
 	}

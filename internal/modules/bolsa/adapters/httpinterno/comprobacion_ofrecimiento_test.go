@@ -49,6 +49,29 @@ func peticionComprobacionPrueba(cuerpo string) *http.Request {
 	r.Header.Set("Idempotency-Key", "clave:12345678")
 	return r
 }
+func TestReferenciasComprobacionExigenRutaCanonica(t *testing.T) {
+	base := RutaComprobacionesOfrecimiento + "bolsa:uno/candidatos/participacion:uno/comprobaciones-ofrecimiento"
+	for _, caso := range []struct {
+		ruta   string
+		valida bool
+	}{
+		{base, true},
+		{strings.Replace(base, "bolsa:uno", "bolsa%3Auno", 1), false},
+		{strings.Replace(base, "bolsa:uno", "bolsa%2Funo", 1), false},
+		{strings.Replace(base, "participacion:uno", "participacion:%25", 1), false},
+		{strings.Replace(base, "participacion:uno", "participacion:niño", 1), false},
+		{strings.Replace(base, "bolsa:uno", strings.Repeat("a", 513), 1), false},
+		{base + "?dato=1", false},
+		{base + "/otro", false},
+	} {
+		r := httptest.NewRequest(http.MethodPost, caso.ruta, nil)
+		_, _, valida := ReferenciasRutaComprobacionOfrecimiento(r)
+		if valida != caso.valida {
+			t.Fatalf("ruta %q: válida=%v", caso.ruta, valida)
+		}
+	}
+}
+
 func TestComprobacionHTTPFronteraYReplay(t *testing.T) {
 	cuerpo := `{"contexto":{"bolsa_ref":"bolsa:uno","participacion_ref":"participacion:uno"},"hechos":{},"version_esperada":0}`
 	llamadas := 0
