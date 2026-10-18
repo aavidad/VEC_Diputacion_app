@@ -6,7 +6,8 @@ formulario que el aspirante externo. `GET` devuelve el orden y el último
 recibo. `PUT` exige la versión esperada y una clave de idempotencia, y devuelve
 un recibo; repetir la misma clave con el mismo orden devuelve el recibo y la
 fecha originales. Sin el selector, la ruta no se monta y el servidor arranca
-igual. Con el selector y alguna pieza ausente, solo esta ruta responde 503.
+igual. Con Usuarios operativo, si falta una dependencia propia de preferencias,
+solo esta ruta responde 503.
 
 ## SQL, en este orden y una sola vez
 
