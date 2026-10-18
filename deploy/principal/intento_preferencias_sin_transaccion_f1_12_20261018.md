@@ -8,10 +8,10 @@ su transacción real; un intento no acredita acceso a los datos.
 ## Activación prevista
 
 1. Usar una copia local de la principal con PostgreSQL 18 y datos ficticios.
-   Dirección usa la lista única en este orden: el bloque F1-12
-   (AD279, AUT96, B116 y AD275), AD294 y después AD288. En una copia que ya
-   recibió AD246 o AD275, coteja su historia y no las reaplica. AD294 se
-   instala una sola vez, sin lista parcial.
+   La lista única contiene main tras HZ37 y las SQL propias en su orden exacto:
+   el bloque F1-12 (AD279, AUT96, B116 y AD275), después AD288 y AD294.
+   En una copia que ya recibió AD246 o AD275, cotejar su historia y no
+   reaplicarlas. AD294 se instala una sola vez, sin lista parcial.
 2. AD294 coteja la función instalada de AD246 antes de reconstruir solo
    `registrar_intento_lectura_preferencias_bolsas_v1(bytea,bytea,jsonb)`.
    Exige la huella previa
@@ -32,9 +32,11 @@ permisos ni configuración. No se añade otra ruta ni otra pantalla.
 
 ## Evidencia pendiente
 
-La prueba SQL de fuente y permisos está preparada, pero falta ejecutarla en
-una copia nueva. También faltan el GET real autorizado y denegado, el arranque
-con y sin configuración y el reinicio. Esta guía no acredita instalación ni
-recorrido. Vuelta atrás: conservar la copia y el binario anteriores; si falla
-la preimagen, corregir la causa y preparar otra candidata. No ejecutar DOWN
-ni reaplicar AD246 o AD275.
+AD294 quedó instalada en las dos copias nuevas de `601686060`, con 98 SQL
+en orden. Ambas arrancaron y reiniciaron con la comprobación pública del guion.
+En la externa, un único GET real devolvió 403 `acceso_denegado` y una sola
+fila de intento nominal denegado con `transaccion_origen` nulo. La prueba
+no acredita acceso a los datos: falta publicar el rol externo y comprobar
+el GET 200 y la transacción real de la lectura positiva. Vuelta atrás:
+conservar copia y binario anteriores; si falla la preimagen, corregir la
+causa y preparar otra candidata. No ejecutar DOWN ni reaplicar AD246 o AD275.
