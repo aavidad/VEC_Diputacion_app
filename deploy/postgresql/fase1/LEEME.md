@@ -55,7 +55,8 @@ La restauración se verifica contando las filas de las 662 tablas, antes de
 aplicar cualquier preparación.
 
 La preparación de CI crea solo el migrador sin LOGIN que necesita CTX45,
-dos LOGIN ficticios sin contraseña y sus dos orígenes técnicos para AD278.
+dos LOGIN ficticios sin contraseña, sus dos orígenes técnicos para AD278
+y el tipo documental de resolución firmada definido por D9.
 Sus vigencias son de 90 días; cada LOGIN recibe un único grupo. No concede
 perfiles ni acciones de negocio. La base conserva las comprobaciones de las
 migraciones y la seguridad por filas. Para aplicarla, el archivo de

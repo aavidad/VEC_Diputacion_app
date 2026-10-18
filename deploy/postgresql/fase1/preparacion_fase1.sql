@@ -1,7 +1,9 @@
 -- Semilla pública F0-29 para la copia desechable HZ37 sin datos.
 -- Fuente: AD172 (tabla y RLS), AD233 (audiencias y operaciones),
--- AD278 (orígenes) y contexto_actor_v1/roles_up.sql (migrador de CTX45).
--- Sólo prepara procedencia técnica: no publica permisos de negocio, actos,
+-- AD278 (orígenes), contexto_actor_v1/roles_up.sql (migrador de CTX45)
+-- y documentos/migraciones/000009_custodia_documento_firmado.up.sql
+-- (tipo documental reservado que D19 espera en la copia).
+-- Sólo prepara procedencia y catálogo técnicos: no publica permisos de negocio, actos,
 -- personas, firmas, recibos ni material criptográfico.
 -- Ejecutar una vez como superusuario local tras restaurar esquema_hz37.sql.gz
 -- y antes de lista_sql_main_tras_hz37.txt; nunca instalar en producción.
@@ -177,4 +179,7 @@ BEGIN
   END IF;
 END $post_filas$;
 RESET ROLE;
+INSERT INTO vec_documentos.tipo_reservado_firmado VALUES
+ ('ref:f0074a505ef2a693dfd5bf2195228c47a7ce2a1435d4acf6a6b9f50e89e5663c',
+  'contratacion_temporal.resolucion_firmada.v1','contratacion_temporal');
 COMMIT;
