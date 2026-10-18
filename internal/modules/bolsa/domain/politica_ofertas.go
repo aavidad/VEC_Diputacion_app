@@ -15,6 +15,9 @@ type PoliticaOfertas struct {
 	// Plazas es opcional (duda 75). Sin él, cada oferta tiene una sola plaza y
 	// la adjudicación confirmada la cubre, como en las versiones anteriores.
 	Plazas *PlazasPoliticaOfertas `json:"plazas,omitempty"`
+	// Su ausencia conserva las publicaciones anteriores: solo disponibles y
+	// ninguna modalidad excluida por una preferencia no declarada.
+	CriteriosOfrecimiento *CriteriosOfrecimiento `json:"criterios_ofrecimiento,omitempty"`
 }
 
 // PlazasPoliticaOfertas gobierna las ofertas con varias plazas: si se llama a
@@ -90,6 +93,11 @@ func (p PoliticaOfertas) Validar() error {
 		!ConfirmacionAdjudicacionValida(p.Adjudicacion.Confirmacion) ||
 		p.NoCubierta.Accion != "llamamiento_directo" || p.NoCubierta.Condicion != "sin_disposiciones_elegibles" {
 		return ErrPoliticaOfertasInvalida
+	}
+	if p.CriteriosOfrecimiento != nil {
+		if err := p.CriteriosOfrecimiento.Validar(); err != nil {
+			return ErrPoliticaOfertasInvalida
+		}
 	}
 	if p.Plazas != nil {
 		return p.Plazas.Validar()

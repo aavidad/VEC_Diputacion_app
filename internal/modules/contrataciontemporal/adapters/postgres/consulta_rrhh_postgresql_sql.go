@@ -124,8 +124,9 @@ SELECT contenido_canonico,
        expediente_ref,
        version_expediente::bigint,
        total,
-       recibo_sello_sha256
-  FROM vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1(
+       recibo_sello_sha256,
+       numero_personas
+  FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_numero_ct225(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
        ROW($4::text, $5::numeric)::
@@ -163,8 +164,9 @@ SELECT contenido_canonico,
        version_expediente::bigint,
        total,
        recibo_sello_sha256,
-       resultado_bolsa
-  FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(
+       resultado_bolsa,
+       numero_personas
+  FROM vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_con_numero_ct225(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
        ROW($4::text, $5::numeric)::
@@ -224,6 +226,132 @@ SELECT contenido_canonico,
        total,
        recibo_sello_sha256
   FROM vec_contratacion_temporal.consultar_original_propuesta_rrhh_atestado_v1(
+       ROW($1::text, $2::text, $3::text)::
+           vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+       ROW($4::text, $5::numeric)::
+           vec_contratacion_temporal.consulta_detalle_rrhh_v1,
+       $6::bytea,
+       $7::bytea,
+       $8::bytea,
+       $9::bytea,
+       $10::numeric,
+       $11::numeric,
+       $12::bytea,
+       $13::bytea,
+       $14::bytea,
+       $15::bytea
+  )`
+
+	consultaDetalleConSelectoresRRHHPostgreSQL = `
+SELECT contenido_canonico,
+       esquema,
+       acceso_ref,
+       secuencia::bigint,
+       anterior_sha256,
+       huella_sha256,
+       vinculo_identidad_huella_sha256,
+       alcance_huella_sha256,
+       registrada_en,
+       auditoria_vec_ref,
+       auditoria_vec_huella_sha256,
+       consumo_vec_huella_sha256,
+       contenido_huella_sha256,
+       resultado_huella_sha256,
+       cursor_huella_sha256,
+       generada_en,
+       expediente_ref,
+       version_expediente::bigint,
+       total,
+       recibo_sello_sha256,
+       numero_personas,
+       selectores_canon,
+       selectores_huella_sha256,
+       sello_selectores_sha256,
+       recibo_selectores_canon
+  FROM vec_contratacion_temporal.consultar_detalle_rrhh_selectores_con_numero_ct225(
+       ROW($1::text, $2::text, $3::text)::
+           vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+       ROW($4::text, $5::numeric)::
+           vec_contratacion_temporal.consulta_detalle_rrhh_v1,
+       $6::bytea,
+       $7::bytea,
+       $8::bytea,
+       $9::bytea,
+       $10::numeric,
+       $11::numeric,
+       $12::bytea,
+       $13::bytea,
+       $14::bytea,
+       $15::bytea,
+       $16::jsonb
+  )`
+	consultaDetalleConBolsaYSelectoresRRHHPostgreSQL = `
+SELECT contenido_canonico,
+       esquema,
+       acceso_ref,
+       secuencia::bigint,
+       anterior_sha256,
+       huella_sha256,
+       vinculo_identidad_huella_sha256,
+       alcance_huella_sha256,
+       registrada_en,
+       auditoria_vec_ref,
+       auditoria_vec_huella_sha256,
+       consumo_vec_huella_sha256,
+       contenido_huella_sha256,
+       resultado_huella_sha256,
+       cursor_huella_sha256,
+       generada_en,
+       expediente_ref,
+       version_expediente::bigint,
+       total,
+       recibo_sello_sha256,
+       resultado_bolsa,
+       numero_personas,
+       selectores_canon,
+       selectores_huella_sha256,
+       sello_selectores_sha256,
+       recibo_selectores_canon
+  FROM vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_selectores_con_numero_ct225(
+       ROW($1::text, $2::text, $3::text)::
+           vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+       ROW($4::text, $5::numeric)::
+           vec_contratacion_temporal.consulta_detalle_rrhh_v1,
+       $6::bytea,
+       $7::bytea,
+       $8::bytea,
+       $9::bytea,
+       $10::numeric,
+       $11::numeric,
+       $12::bytea,
+       $13::bytea,
+       $14::bytea,
+       $15::bytea,
+       $16::text,
+       $17::jsonb
+  )`
+	consultaOriginalPropuestaConSelectoresRRHHPostgreSQL = `
+SELECT contenido_canonico,
+       esquema,
+       acceso_ref,
+       secuencia::bigint,
+       anterior_sha256,
+       huella_sha256,
+       vinculo_identidad_huella_sha256,
+       alcance_huella_sha256,
+       registrada_en,
+       auditoria_vec_ref,
+       auditoria_vec_huella_sha256,
+       consumo_vec_huella_sha256,
+       contenido_huella_sha256,
+       resultado_huella_sha256,
+       cursor_huella_sha256,
+       generada_en,
+       expediente_ref,
+       version_expediente::bigint,
+       total,
+       recibo_sello_sha256
+  FROM vec_contratacion_temporal.consultar_original_propuesta_rrhh_con_selectores_v1(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
        ROW($4::text, $5::numeric)::

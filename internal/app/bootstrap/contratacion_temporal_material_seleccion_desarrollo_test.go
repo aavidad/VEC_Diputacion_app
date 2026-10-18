@@ -17,7 +17,7 @@ func seleccionMaterialCTCompletaDesarrollo() seleccionMaterialCTDesarrollo {
 	return seleccionMaterialCTDesarrollo{
 		borradoresBolsa: true, miBolsa: true, portalCandidato: true,
 		dietas: true, cronos: true, documentos: true, cronosResolucion: true, cronosAvisos: true,
-		fichaPropiaPersonal: true, exportacionServiciosPersonal: true, historiaServiciosPersonal: true, historiaRelacionesPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true, vinculoEmisionBolsa: true,
+		fichaPropiaPersonal: true, exportacionServiciosPersonal: true, historiaServiciosPersonal: true, historiaRelacionesPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true, vinculoEmisionBolsa: true, seleccionOferta: true,
 		incorporacionAcreditada: true, incorporacionB2: true, reincorporacionTitular: true, politicaOfertas: true,
 		plantillasCatalogo: true, plantillasDocumental: true, ajustesReglasCT: true, inscripcionBolsa: true,
 	}

@@ -25,6 +25,7 @@ type seleccionLlamamientoEntradaJSON struct {
 	ExpedienteRef     string `json:"expediente_ref"`
 	VersionEsperada   uint64 `json:"version_esperada"`
 	ClaveIdempotencia string `json:"clave_idempotencia"`
+	Accion            string `json:"accion,omitempty"`
 }
 
 func seleccionLlamamientoDesdePeticion(
@@ -48,6 +49,7 @@ func seleccionLlamamientoDesdePeticion(
 	}
 	if !ports.ClaveIdempotenciaValida(entrada.ClaveIdempotencia) ||
 		!domain.ReferenciaOpacaValida(entrada.ExpedienteRef) ||
+		(entrada.Accion != "" && entrada.Accion != "recuperar_oferta") ||
 		entrada.VersionEsperada == 0 || entrada.VersionEsperada > 9007199254740991 {
 		return seleccionLlamamientoEntradaJSON{},
 			errContenidoCoberturaNoValido
@@ -197,6 +199,8 @@ func errorEntradaSeleccionLlamamiento(err error) errorPublicoCobertura {
 
 func clasificarErrorSeleccionLlamamiento(err error) errorPublicoCobertura {
 	switch {
+	case errors.Is(err, ports.ErrCriteriosOfrecimientoPendientesRRHH):
+		return nuevoErrorSeleccionLlamamiento(http.StatusConflict, "comprobacion_ofrecimiento_pendiente")
 	case errors.Is(err, application.ErrClaveSeleccionLlamamientoEnColision):
 		return errorConflictoSeleccionLlamamientoNoReintentable
 	case errors.Is(err, application.ErrEjecucionSeleccionLlamamientoIndeterminada),
@@ -230,6 +234,20 @@ func responderErrorSeleccionLlamamiento(
 	w http.ResponseWriter, peticion *http.Request,
 	problema errorPublicoCobertura, causas ...error,
 ) {
+	var pendiente *ports.ErrorCriteriosOfrecimientoPendientesRRHH
+	if problema.codigo == "comprobacion_ofrecimiento_pendiente" && len(causas) > 0 &&
+		errors.As(causas[0], &pendiente) && pendiente != nil &&
+		pendiente.Comprobacion.BolsaRef != "" && pendiente.Comprobacion.OrdenActa > 0 &&
+		pendiente.Comprobacion.MotivoClave == "pendiente_comprobacion_rrhh" {
+		responderJSONCobertura(w, peticion, problema.estado, struct {
+			Error                    detalleErrorCobertura                   `json:"error"`
+			ComprobacionOfrecimiento ports.ComprobacionOfrecimientoPendiente `json:"comprobacion_ofrecimiento"`
+		}{Error: detalleErrorCobertura{
+			Codigo: problema.codigo, ClaveI18n: problema.claveI18n,
+			CorrelacionRef: nuevaCorrelacionCobertura(),
+		}, ComprobacionOfrecimiento: pendiente.Comprobacion}, causas...)
+		return
+	}
 	responderJSONCobertura(
 		w, peticion, problema.estado,
 		envoltorioErrorCobertura{Error: detalleErrorCobertura{

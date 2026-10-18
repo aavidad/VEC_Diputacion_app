@@ -347,7 +347,9 @@ def validate_container(info: dict, port: int, state: Path | None = None) -> None
         fail("clone PostgreSQL port is not exclusively loopback")
 
 
-def certificate(material: Path, name: str, subject: str) -> None:
+def certificate(material: Path, name: str, subject: str, *, days: int = 90) -> None:
+    if type(days) is not int or not 60 <= days <= 90:
+        fail("certificate_validity_outside_development_window")
     mtls = material / "mtls"
     key, csr, ext, crt = (mtls / (name + x) for x in (".key", ".csr", ".ext", ".crt"))
     run(["openssl", "genpkey", "-algorithm", "EC", "-pkeyopt", "ec_paramgen_curve:P-256", "-out", str(key)])
@@ -355,7 +357,7 @@ def certificate(material: Path, name: str, subject: str) -> None:
          f"/CN={name}-clon-local/O=VEC Desarrollo/OU=NO AUTORITATIVO", "-out", str(csr)])
     private_write(ext, "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=clientAuth\n"
                   + f"subjectAltName=URI:urn:vec:{subject}\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\n")
-    run(["openssl", "x509", "-req", "-sha256", "-days", "397", "-in", str(csr),
+    run(["openssl", "x509", "-req", "-sha256", "-days", str(days), "-in", str(csr),
          "-CA", str(material / "ca/ca.crt"), "-CAkey", str(material / "ca/ca.key"),
          "-CAserial", str(material / "ca/serie"), "-extfile", str(ext), "-out", str(crt)])
     password = mtls / (name + ".p12.password")

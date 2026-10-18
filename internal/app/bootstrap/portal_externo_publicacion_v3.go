@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/config"
 	postgresqlcompartido "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/shared/telemetria"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
@@ -129,6 +131,10 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 	if ctx == nil || pool == nil || len(materiales) != len(consumidoresPortalExternoV3) {
 		return falloPublicacionConfianzaExterna(nil)
 	}
+	// Una configuración inválida cierra esta operación incluso en un replay.
+	if _, err := config.EntornoGobiernoAdmin().ValidezGobiernoAdmin(0, os.Getenv(config.EnvGobiernoAdminValidezHoras)); err != nil {
+		return falloPublicacionConfianzaExterna(err)
+	}
 	var esperada []byte
 	err := reintentarSerializacionCTDesarrollo(ctx, func() error {
 		esperada = nil
@@ -146,7 +152,7 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 			return falloPublicacionConfianzaExterna(nil)
 		}
 		lista := ordenarMaterialExternoV3(materiales)
-		if len(lista) != 23 {
+		if !materialPublicableExternoV3Exacto(materiales, lista) {
 			return falloPublicacionConfianzaExterna(nil)
 		}
 		var reutilizadas []coordenadaClaveExternaV3
@@ -189,6 +195,13 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 				}
 			}
 		}
+		if len(estado.Actual) != 0 && string(estado.Actual) != "null" &&
+			(len(actual.Claves) == 23 || len(actual.Claves) == 25) && len(lista) == 28 {
+			reutilizadas, err = coordenadasAmpliacionExternaV3(lista, actual, estado)
+			if err != nil {
+				return err
+			}
+		}
 		if estado.SecuenciaSiguiente == 0 || estado.SecuenciaSiguiente > uint64(maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo) {
 			return falloPublicacionConfianzaExterna(nil)
 		}
@@ -206,8 +219,16 @@ func publicarConfianzaExternaV3(ctx context.Context, pool *pgxpool.Pool,
 			}
 		}
 		publicada := ahora.UTC().Truncate(time.Microsecond)
+		validaDesde, validaHasta := lista[0].validaDesde, lista[0].validaHasta
+		if reutilizadas != nil {
+			validaDesde, validaHasta = actual.Raiz.ValidaDesde, actual.Raiz.ValidaHasta
+		}
+		expira, err := caducidadNuevaPublicacionConfianza(publicada, validaHasta)
+		if err != nil {
+			return falloPublicacionConfianzaExterna(err)
+		}
 		if err := coordinarMaterialExternoV3(lista, "confianza:atestacion:externo:"+numeroDecimal64(estado.SecuenciaSiguiente),
-			estado.SecuenciaSiguiente, publicada, publicada.Add(24*time.Hour), lista[0].validaDesde, lista[0].validaHasta, versiones); err != nil {
+			estado.SecuenciaSiguiente, publicada, expira, validaDesde, validaHasta, versiones); err != nil {
 			return err
 		}
 		propuesta, err := serializarMaterialExternoV3(lista)
@@ -276,6 +297,135 @@ func ordenarMaterialExternoV3(materiales map[string][]materialAtestacionContrata
 	}
 	sort.Slice(lista, func(i, j int) bool { return lista[i].audienciaConsumo < lista[j].audienciaConsumo })
 	return lista
+}
+
+// El número de claves viene del catálogo y de las audiencias cerradas de cada
+// consumidor. Una lista del mismo tamaño con claves repetidas o ajenas falla.
+func materialPublicableExternoV3Exacto(materiales map[string][]materialAtestacionContratacionTemporalDesarrollo,
+	lista []*materialAtestacionContratacionTemporalDesarrollo) bool {
+	if len(materiales) != len(consumidoresPortalExternoV3) {
+		return false
+	}
+	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterialPortalExternoV3())
+	if err != nil {
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo("catalogo_material_externo", "contrato_invalido")
+		return false
+	}
+	if len(catalogo.porAudiencia) == 0 || len(lista) != len(catalogo.porAudiencia) {
+		return false
+	}
+	esperadas := make([]string, 0, len(catalogo.porAudiencia))
+	vistas := make(map[string]bool, len(catalogo.porAudiencia))
+	for _, consumidor := range consumidoresPortalExternoV3 {
+		audiencias := audienciasConsumidorPortalExternoV3(consumidor)
+		material, existe := materiales[consumidor]
+		if !existe || len(audiencias) == 0 || len(material) != len(audiencias) {
+			return false
+		}
+		for i, audiencia := range audiencias {
+			if _, declarada := catalogo.descriptorPara(audiencia); !declarada ||
+				vistas[audiencia] || material[i].audienciaConsumo != audiencia {
+				return false
+			}
+			vistas[audiencia] = true
+			esperadas = append(esperadas, audiencia)
+		}
+	}
+	if len(esperadas) != len(catalogo.porAudiencia) {
+		return false
+	}
+	sort.Strings(esperadas)
+	for i, audiencia := range esperadas {
+		if lista[i] == nil || lista[i].audienciaConsumo != audiencia {
+			return false
+		}
+	}
+	return true
+}
+
+// Las ampliaciones conocidas 23→28 y 25→28 conservan las coordenadas de
+// todas las claves anteriores. Solo las audiencias M4 y Bolsa publicadas por
+// este corte pueden recibir coordenadas nuevas. La historia pública previa
+// debe coincidir íntegra con los secretos y la raíz actuales.
+func coordenadasAmpliacionExternaV3(lista []*materialAtestacionContratacionTemporalDesarrollo,
+	actual materialPublicoExternoV3, estado estadoPublicacionExternaV3) ([]coordenadaClaveExternaV3, error) {
+	fallo := func() ([]coordenadaClaveExternaV3, error) {
+		return nil, falloPublicacionConfianzaExterna(nil)
+	}
+	if len(lista) != 28 || lista[0] == nil || (len(actual.Claves) != 23 && len(actual.Claves) != 25) ||
+		actual.Raiz.HuellaSPKI != lista[0].spkiHuella ||
+		actual.Raiz.ClaveID != "clave:atestacion:externo:"+lista[0].spkiHuella {
+		return fallo()
+	}
+	permitidas := map[string]bool{
+		audienciaJustificanteBolsaSubir:     true,
+		audienciaJustificanteBolsaDescargar: true,
+		audienciaJustificanteBolsaPreparar:  true,
+	}
+	if len(actual.Claves) == 23 {
+		permitidas[audienciaSubirComprobanteM4] = true
+		permitidas[audienciaDescargarComprobanteM4] = true
+	}
+	porAudiencia := make(map[string]coordenadaClaveExternaV3, len(actual.Claves))
+	for _, clave := range actual.Claves {
+		if clave.Audiencia == "" || clave.Version == 0 || clave.Revision == 0 || clave.Orden == 0 ||
+			porAudiencia[clave.Audiencia].Audiencia != "" {
+			return fallo()
+		}
+		porAudiencia[clave.Audiencia] = clave
+	}
+	coordenadas := make([]coordenadaClaveExternaV3, len(lista))
+	anteriores := make([]*materialAtestacionContratacionTemporalDesarrollo, 0, len(actual.Claves))
+	coordenadasAnteriores := make([]coordenadaClaveExternaV3, 0, len(actual.Claves))
+	nuevas := make([]int, 0, len(permitidas))
+	for i, material := range lista {
+		if material == nil {
+			return fallo()
+		}
+		if clave, existe := porAudiencia[material.audienciaConsumo]; existe {
+			coordenadas[i] = clave
+			anteriores = append(anteriores, material)
+			coordenadasAnteriores = append(coordenadasAnteriores, clave)
+			continue
+		}
+		if !permitidas[material.audienciaConsumo] {
+			return fallo()
+		}
+		delete(permitidas, material.audienciaConsumo)
+		nuevas = append(nuevas, i)
+	}
+	if len(anteriores) != len(actual.Claves) || len(permitidas) != 0 ||
+		len(nuevas) != len(lista)-len(actual.Claves) {
+		return fallo()
+	}
+	if err := coordinarMaterialExternoV3(anteriores, actual.Configuracion.Revision, actual.Configuracion.Secuencia,
+		actual.Configuracion.PublicadaEn, actual.Configuracion.ExpiraEn, actual.Raiz.ValidaDesde,
+		actual.Raiz.ValidaHasta, coordenadasAnteriores); err != nil {
+		return fallo()
+	}
+	propuestaAnterior, err := serializarMaterialExternoV3(anteriores)
+	if err != nil {
+		return fallo()
+	}
+	coincide, err := publicoIgualExternoV3(propuestaAnterior, estado.Actual)
+	if err != nil || !coincide {
+		return fallo()
+	}
+	limite := uint64(maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo)
+	if estado.VersionSiguiente == 0 || estado.RevisionSiguiente == 0 || estado.OrdenSiguiente == 0 ||
+		estado.VersionSiguiente > limite-uint64(len(nuevas)-1) ||
+		estado.RevisionSiguiente > limite-uint64(len(nuevas)-1) ||
+		estado.OrdenSiguiente > limite-uint64(len(nuevas)-1) {
+		return fallo()
+	}
+	for i, posicion := range nuevas {
+		coordenadas[posicion] = coordenadaClaveExternaV3{
+			Audiencia: lista[posicion].audienciaConsumo,
+			Version:   estado.VersionSiguiente + uint64(i), Revision: estado.RevisionSiguiente + uint64(i),
+			Orden: estado.OrdenSiguiente + uint64(i),
+		}
+	}
+	return coordenadas, nil
 }
 
 type coordenadaClaveExternaV3 struct {

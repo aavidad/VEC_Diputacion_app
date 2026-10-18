@@ -72,6 +72,7 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
+	cuentasInternasJustificanteRRHH                  map[string]cuentaNominalJustificanteRRHH
 	soportesLectoresDocumentosBolsa                  map[string]*soporteAltaContratacionTemporalDesarrollo
 	soporteDocumentosBolsa                           *soporteAltaContratacionTemporalDesarrollo
 	poolDocumentosBolsa                              *pgxpool.Pool
@@ -103,6 +104,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
+	materialPreferenciasBolsasInternas               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
 	proveedorMaterialOrganizacionHistorica           *proveedorMaterialAltaContratacionTemporalDesarrollo
 	sesionOrganizacionHistorica                      *proveedorSesionConsultaRRHHDesarrollo
@@ -151,6 +153,11 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) instalarDelegadoComu
 	a.delegado = delegado
 	a.instalado = true
 	return nil
+}
+
+func sustituyeRutaFirmasR5PorNominalCT(firmaVecActiva bool, ruta string) bool {
+	return firmaVecActiva && (ruta == httpinterno.RutaConsultaFirmasR5V2 ||
+		ruta == httpinterno.RutaRecuperacionFirmasR5V2)
 }
 
 func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigadaV3(
@@ -769,6 +776,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	declaracionesFrontera = append(declaracionesFrontera, fronteraJustificanteBolsaRRHHDesarrollo(perfilesConsulta))
 	if alta.postgresql.vinculoEmisionBolsa {
 		declaracionesFrontera = append(declaracionesFrontera, fronteraVinculoEmisionBolsaDesarrollo(perfilCTCatalogo))
 	}
@@ -1103,6 +1111,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		autoridadSubsanacion = subsanacionReal.autoridad
 		ejecutorSubsanacion = subsanacionReal.servicio
 	}
+	var consultorEstadoSeleccionOferta httpinterno.ConsultorEstadoSeleccionOferta
+	if consulta, ok := seleccionReal.(httpinterno.ConsultorEstadoSeleccionOferta); ok {
+		consultorEstadoSeleccionOferta = consulta
+	}
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			PresentacionFlujoRRHH:           presentacionFlujoRRHH,
@@ -1124,6 +1136,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			BorradorRRHH:                    borradorRRHH,
 			BorradorRRHHDOCX:                borradorRRHHDOCX,
 			EjecutorSeleccion:               seleccionReal,
+			ConsultorEstadoSeleccionOferta:  consultorEstadoSeleccionOferta,
 			AutoridadPropuestaFormalizacion: autoridadPropuestaReal,
 			EjecutorPropuestaFormalizacion:  propuestaReal,
 			AutoridadAsignacion:             alta.soporte,
@@ -1163,8 +1176,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	if firmasR5V2 != nil {
 		for _, rutaFirmaR5 := range firmasR5V2.rutas {
-			if firmaVecActiva && rutaFirmaR5.Ruta == httpinterno.RutaConsultaFirmasR5V2 {
-				continue // La consulta nominal ocupa la única ruta exacta R5.
+			if sustituyeRutaFirmasR5PorNominalCT(firmaVecActiva, rutaFirmaR5.Ruta) {
+				continue // El montaje nominal ocupa ambas rutas exactas R5.
 			}
 			rutas = append(rutas, rutaFirmaR5)
 		}
@@ -1346,6 +1359,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 				return nil, nil, nil, err
 			}
 			cerrarClienteM10CT = configurarDatosEmisionConstituidaOpcionalCT(cfg, seleccion.puente, reglasLlamamiento, reloj.Ahora)
+			cerrarOfertas := configurarSeleccionOfertaOpcionalCT(cfg, &alta, seleccion,
+				bolsa.preparador, catalogoFronteras, derivador, reloj)
+			cerrarDatos := cerrarClienteM10CT
+			cerrarClienteM10CT = func() { cerrarOfertas(); cerrarDatos() }
 		}
 		if len(incorporacion) == 1 && incorporacion[0].nominales != nil &&
 			incorporacion[0].nominales.montajeB2 != nil {
@@ -1589,6 +1606,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialUsuariosCorreos:                          alta.postgresql.materialUsuariosCorreos,
 		materialUsuariosImagen:                           alta.postgresql.materialUsuariosImagen,
 		materialAspirantes:                               alta.postgresql.materialAspirantes,
+		materialPreferenciasBolsasInternas:               alta.postgresql.materialPreferenciasBolsasInternas,
 		materialOrganizacionHistorica:                    alta.postgresql.materialOrganizacionHistorica,
 		proveedorMaterialOrganizacionHistorica:           alta.postgresql.proveedorMaterialOrganizacionHistorica,
 		sesionOrganizacionHistorica:                      consultasRRHH.identidad,

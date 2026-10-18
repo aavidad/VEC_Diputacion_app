@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"vec-diputacion-granada/internal/app/bootstrap"
 	"vec-diputacion-granada/internal/app/composicion/internactproveedores"
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
@@ -28,16 +30,29 @@ type inventarioPreparadoOH struct {
 	Contextos       map[string]internagobierno.AmbitoOrganizacionHistorica `json:"contextos"`
 }
 
-func (p preparacion) prepararOrganizacionHistorica(ctx context.Context, entrada string) (bool, error) {
+func (p preparacion) prepararOrganizacionHistorica(ctx context.Context, entrada, motivosServidor string) (bool, error) {
 	if ctx == nil || p.dep.abrirGobierno == nil || p.dep.reloj == nil {
 		return false, errCancelada
+	}
+	if p.inventarioCT != "" && motivosServidor != "" || p.incorporacionMotivosRRHHDSN != "" ||
+		motivosServidor != "" && (!rutaCanonica(motivosServidor) || dentroDeGit(motivosServidor)) {
+		return false, errMotivoOH
 	}
 	destino, err := abrirDestino(p.salida)
 	if err != nil {
 		return false, err
 	}
 	defer destino.cerrar()
-	ct, err := leerDatosCT(p.inventarioCT)
+	if err := comprobarIdempotencia(p.idempotencia); err != nil {
+		return false, err
+	}
+	var ct datosCT
+	var huellaSPKI string
+	if motivosServidor != "" {
+		ct, huellaSPKI, err = leerDatosCTServidor(p.idempotencia, p.dep.reloj())
+	} else {
+		ct, err = leerDatosCT(p.inventarioCT)
+	}
 	if err != nil {
 		return false, err
 	}
@@ -52,11 +67,8 @@ func (p preparacion) prepararOrganizacionHistorica(ctx context.Context, entrada 
 		return false, errInventarioOH
 	}
 	defer m.Cerrar()
-	if m.CatalogoMotivos != ct.catalogo {
+	if motivosServidor == "" && m.CatalogoMotivos != ct.catalogo {
 		return false, errMotivoOH
-	}
-	if err := comprobarIdempotencia(p.idempotencia); err != nil {
-		return false, err
 	}
 	clave, err := bootstrap.DerivarClaveOrganizacionHistoricaDesdeMaterialDesarrollo(p.idempotencia, p.dep.reloj())
 	defer clave.Borrar()
@@ -75,15 +87,22 @@ func (p preparacion) prepararOrganizacionHistorica(ctx context.Context, entrada 
 		return false, errGobiernoConexion
 	}
 	defer g.cerrar()
-	capacidad, err := cotejarClaveOH(ctx, g, ct, clave)
+	capacidad, err := cotejarClaveOH(ctx, g, ct, huellaSPKI, clave)
 	if err != nil {
 		return false, err
 	}
 	validar := p.dep.validarMotivoOH
 	if validar == nil {
 		validar = validarMotivoOrganizacionHistorica
+		if motivosServidor != "" {
+			validar = validarMotivoOrganizacionHistoricaServidor
+		}
 	}
-	if err := validar(ctx, p.inventarioCT, m.MotivoConsulta, p.dep.reloj()); err != nil {
+	rutaMotivo := p.inventarioCT
+	if motivosServidor != "" {
+		rutaMotivo = motivosServidor
+	}
+	if err := validar(ctx, rutaMotivo, m.MotivoConsulta, p.dep.reloj()); err != nil {
 		return false, errMotivoOH
 	}
 	// Los contextos se conservan sin inferir asignaciones ni sustituir F1.
@@ -145,7 +164,7 @@ func (p preparacion) prepararOrganizacionHistorica(ctx context.Context, entrada 
 	return sync, nil
 }
 
-func cotejarClaveOH(ctx context.Context, g fuenteGobierno, ct datosCT, c bootstrap.ClaveCapacidadOrganizacionHistoricaV3) (capacidadInventario, error) {
+func cotejarClaveOH(ctx context.Context, g fuenteGobierno, ct datosCT, huellaSPKI string, c bootstrap.ClaveCapacidadOrganizacionHistoricaV3) (capacidadInventario, error) {
 	var vacia capacidadInventario
 	if c.DescriptorCapacidadOrganizacionHistoricaV3 != bootstrap.DescriptorCapacidadOrganizacionHistoricaV3Desarrollo() || c.EmisorID != ct.emisor {
 		return vacia, errClaveOH
@@ -155,7 +174,9 @@ func cotejarClaveOH(ctx context.Context, g fuenteGobierno, ct datosCT, c bootstr
 		return vacia, errClaveOH
 	}
 	r, err := g.raizVigente(ctx)
-	if err != nil || !r.Vigente || r.ClaveID != ct.raizID || r.Version != ct.raizVersion || r.Audiencia != ct.audiencia {
+	if err != nil || !r.Vigente || r.ClaveID != ct.raizID || r.Audiencia != ct.audiencia ||
+		(huellaSPKI == "" && r.Version != ct.raizVersion) ||
+		(huellaSPKI != "" && (r.Version == 0 || r.HuellaSPKI != huellaSPKI)) {
 		return vacia, errRaiz
 	}
 	return capacidadInventario{ClaveID: f.ClaveID, Version: f.Version, Archivo: claveOHNombre, SHA256: c.SHA256, EmisorID: f.EmisorID, Desde: f.Desde, Hasta: f.Hasta, RevisionGobierno: f.Revision, HuellaGobierno: f.HuellaGobierno}, nil
@@ -194,4 +215,18 @@ func validarMotivoOrganizacionHistorica(ctx context.Context, inventarioCT string
 	defer m.Cerrar()
 	d := m.Pools["motivos_autorizacion"]
 	return bootstrap.ValidarMotivoPreparacionOrganizacionHistorica(ctx, d.DSN, d.Login, motivo, ahora)
+}
+
+// El modo combinado usa un DSN privado propio del evaluador de motivos OH.
+// El validador nominal exige la única membresía PostgreSQL de motivos OH.
+func validarMotivoOrganizacionHistoricaServidor(ctx context.Context, archivoDSN string, motivo core.ReferenciaEntradaCatalogo, ahora time.Time) error {
+	dsn, err := leerDSN(archivoDSN, "")
+	if err != nil {
+		return errMotivoOH
+	}
+	c, err := pgxpool.ParseConfig(dsn)
+	if err != nil || c.ConnConfig == nil || c.ConnConfig.User == "" {
+		return errMotivoOH
+	}
+	return bootstrap.ValidarMotivoPreparacionOrganizacionHistorica(ctx, dsn, c.ConnConfig.User, motivo, ahora)
 }

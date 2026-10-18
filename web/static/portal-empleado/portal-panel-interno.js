@@ -10,13 +10,13 @@
 import { finVigenciaBolsaPortal, LOCALIZACION_PORTAL, MENSAJES_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261011-ct-bolsa-vinculo-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261016-f1-06-directa-v2";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261018-f171-main-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
-import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261013-bolsa-ranking-n4";
+import { canalesAviso, enlaceSeguimiento, renderizarAccionJustificanteRenuncia, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261016-r1-o-integracion-v7";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-r-fichas-idioma-nav-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261016-f1-06-directa-v2";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261018-f171-main-v1";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=20260930-portales-i18n-integracion-v1";
@@ -32,10 +32,10 @@ const TEXTOS_VINCULO_CT = (await cargarTextos("portal-bolsa")).seccion("vinculo_
 
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
-import { RUTA_PANTALLA_CARGA_CONVOCA } from "./portal-menu-bolsa.js?v=20261016-s6-reglas-recibo-v2";
+import { RUTA_PANTALLA_CARGA_CONVOCA } from "./portal-menu-bolsa.js?v=20261018-f104-main-v1";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4";
-import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261013-bolsa-ranking-n4";
+import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
+import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261016-r1-o-integracion-v7";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
@@ -802,6 +802,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <div class="fila-resumen"><dt>${traducirBolsaInterna("contacto_contador")}</dt><dd>${numero(candidato.contactos_total)}</dd></div>
                 ${renderizarOrigenContacto({ estado: modal.contactoOrigen || {}, escaparHTML })}
               </dl>
+              ${renderizarAccionJustificanteRenuncia({ bolsaRef: bolsa.bolsa_ref, participacionRef: candidato.participacion_ref, nombre: candidato.nombre_visible, escaparHTML, ficha: true })}
               ${renderizarRegistroContacto({ estado: modal.registroContacto || {}, escaparHTML })}
               ${reciboSituacion}
               ${reciboContacto}

@@ -108,7 +108,7 @@ func ExportarSeudonimosPortalExterno(cfg config.Config) ([]byte, error) {
 		s, err := seudonimizador.SeudonimizarAlta(context.Background(), postgresidentidad.IdentificadoresAlta{
 			EspacioIdentidad: espacioIdentidadSesionDesarrollo,
 			AsercionID:       "preparacion-cuenta", SesionID: "preparacion-alias",
-			CuentaID: "desarrollo:" + cuenta.ref, SujetoID: cuenta.sujeto,
+			CuentaID: identificadorCuentaSesionExternaDesarrollo(cuenta.ref), SujetoID: cuenta.sujeto,
 		})
 		if err != nil {
 			return nil, ErrSeudonimosPortalExternoInvalidos

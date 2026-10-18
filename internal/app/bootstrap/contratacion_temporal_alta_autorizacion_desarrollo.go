@@ -35,7 +35,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 	principalValido := principalContratacionTemporalDesarrolloValido(capacidad.principal)
 	if s.lectorConsultasRRHH {
 		principalValido = (rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
-			s.tecnicoConsultaRRHH && rutaDocumentosBolsaRRHHDesarrollo(capacidad.ruta)) &&
+			s.tecnicoConsultaRRHH && (rutaDocumentosBolsaRRHHDesarrollo(capacidad.ruta) || rutaJustificanteBolsaRRHHDesarrollo(capacidad.ruta))) &&
 			principalSinteticoContratacionTemporalDesarrolloValido(capacidad.principal)
 	}
 	if s.peticionesCentro {
@@ -85,12 +85,13 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		ruta == httpinterno.RutaSubsanacionReparos ||
 		rutaFirmaDocumentoCTDesarrollo(ruta) ||
 		rutaSeguimientoCeseDesarrollo(ruta) || rutaCancelacionCTDesarrollo(ruta) ||
+		ruta == httpinterno.RutaConsultaEstadoSeleccionOferta ||
 		rutaLlamamientoContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaConsultaCircuitoRRHH ||
 		rutaFirmasR5V2CTDesarrollo(ruta) || rutaOriginalFirmableCTDesarrollo(ruta) ||
 		rutaFirmaExternaV2CTDesarrollo(ruta) ||
 		ruta == httpinterno.RutaVinculosEmisionBolsa ||
-		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta) || rutaDocumentosBolsaRRHHDesarrollo(ruta)
+		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta) || (rutaDocumentosBolsaRRHHDesarrollo(ruta) || rutaJustificanteBolsaRRHHDesarrollo(ruta))
 
 }
 

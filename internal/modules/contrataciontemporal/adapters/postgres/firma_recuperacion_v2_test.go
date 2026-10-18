@@ -101,6 +101,48 @@ func TestRecuperacionPGConfirmaCanonOriginalSoloTrasCommit(t *testing.T) {
 	}
 }
 
+func TestRecuperacionPGReservaCanonNominalParaLaFilaExacta(t *testing.T) {
+	m, w := fixtureRecuperacionSQL175(t)
+	base, err := proyectarLecturaFirmasSQL172(m, w.respuestaFirmasR5SQL172)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previa := base.Firmas[0]
+	previa.FirmaRef, previa.ClaveIdempotencia = "firma:anterior", "clave-firma-anterior-000001"
+	base.Firmas = append([]ports.FirmaRegistrada{previa}, base.Firmas...)
+	revision := base.RevisionesPDF[0]
+	revision.FirmaRef = previa.FirmaRef
+	base.RevisionesPDF = append([]ports.FirmaRegistradaRevisionPDFV2{revision}, base.RevisionesPDF...)
+	anterior := w.Recuperaciones[0]
+	anterior.FirmaRef, anterior.CanonNominal = previa.FirmaRef, ""
+	filas := []recuperacionFirmaSQL175{anterior, w.Recuperaciones[0]}
+	salida, err := proyectarRecuperacionesSQL175(m, base, filas)
+	if err != nil || len(salida) != 2 || salida[0].CanonNominal != "" ||
+		salida[0].CanonNominalSHA256 != anterior.CanonNominalSHA256 || salida[0].CanonNominalRef != anterior.CanonNominalRef ||
+		salida[1].CanonNominal != w.Recuperaciones[0].CanonNominal {
+		t.Fatalf("se perdió el canon exacto o se expuso el anterior: %v", err)
+	}
+	filas[0].CanonNominal = w.Recuperaciones[0].CanonNominal
+	if _, err := proyectarRecuperacionesSQL175(m, base, filas); !errors.Is(err, ports.ErrResultadoFirmaDocumentoInvalido) {
+		t.Fatal("se aceptó el canon de una firma anterior")
+	}
+	filas[0].CanonNominal = ""
+	filas[1].CanonNominal = ""
+	if _, err := proyectarRecuperacionesSQL175(m, base, filas); !errors.Is(err, ports.ErrResultadoFirmaDocumentoInvalido) {
+		t.Fatal("se aceptó la firma exacta sin su canon")
+	}
+}
+
+func TestRecuperacionPGClaveAusenteConservaColeccionesVacias(t *testing.T) {
+	m, _ := fixtureRecuperacionSQL175(t)
+	filas, err := proyectarRecuperacionesSQL175(m, ports.LecturaFirmasR5V2{
+		RevisionesPDF: []ports.FirmaRegistradaRevisionPDFV2{},
+	}, []recuperacionFirmaSQL175{})
+	if err != nil || filas == nil || len(filas) != 0 {
+		t.Fatalf("la clave ausente perdió la respuesta vacía: %v", err)
+	}
+}
+
 func TestRecuperacionPGDeniegaCapacidad44YMaterialAjenoAntesDeBegin(t *testing.T) {
 	m, _ := fixtureRecuperacionSQL175(t)
 	tx := &txFirmaV2Prueba{t: t}

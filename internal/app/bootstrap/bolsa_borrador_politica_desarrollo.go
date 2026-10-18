@@ -428,7 +428,11 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAuto
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
 	if referencia == motivoPublicarPoliticaOfertasBolsaDesarrollo() || referencia == motivoConsultarPoliticaOfertasBolsaDesarrollo() {
-		if !versionRolBolsaConPoliticaOfertas(instantanea.VersionRol.Version) {
+		accion := puertosbolsa.AccionPublicarPoliticaOfertas
+		if referencia == motivoConsultarPoliticaOfertasBolsaDesarrollo() {
+			accion = puertosbolsa.AccionConsultarPoliticaOfertas
+		}
+		if !concesionPoliticaOfertasPublicadaExacta(instantanea.VersionRol.Concesiones, accion) {
 			return dominiovec.ErrSolicitudAutorizacionInvalida
 		}
 		return nil
@@ -451,6 +455,33 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAuto
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
 	return nil
+}
+
+// La versión numérica describe una rama de provisión sintética, no las
+// concesiones de una versión posterior publicada por Administración.
+func concesionPoliticaOfertasPublicadaExacta(concesiones []dominiovec.ConcesionRol, accion string) bool {
+	finalidad := puertosbolsa.FinalidadPoliticaOfertas
+	consulta := accion == puertosbolsa.AccionConsultarPoliticaOfertas
+	if consulta {
+		finalidad = puertosbolsa.FinalidadConsultarPoliticaOfertas
+	} else if accion != puertosbolsa.AccionPublicarPoliticaOfertas {
+		return false
+	}
+	coincidencias := 0
+	for _, c := range concesiones {
+		if c.Accion != accion {
+			continue
+		}
+		if c.ModuloID != "bolsa" || c.TipoRecurso != "bolsa_constituida" ||
+			len(c.Finalidades) != 1 || c.Finalidades[0] != finalidad ||
+			c.GarantiaMinima != dominiovec.AuthAssuranceHigh || len(c.Obligaciones) != 0 ||
+			(consulta && (len(c.CamposPermitidos) != 1 || c.CamposPermitidos[0] != puertosbolsa.CampoConsultarPoliticaOfertas)) ||
+			(!consulta && len(c.CamposPermitidos) != 0) {
+			return false
+		}
+		coincidencias++
+	}
+	return coincidencias == 1
 }
 
 func (p *politicaBorradorLlamamientoBolsaDesarrollo) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(

@@ -67,14 +67,14 @@ migración esté en Git no significa que esté instalada en la principal.
 | `autorizacion_atestada_v3` | `vec_autorizacion_atestada_v3` | Consumo de la capacidad V3: gobierno de claves, consumo único de cada decisión, consumidores nominales por módulo y la **cadena de auditoría común**. | `consumo_decision_v3`, `atestacion_decision_v3`, `auditoria_consumo_v3`, `eslabon_auditoria_v5`, `pendiente_sellado_auditoria_v5`, `sellado_auditoria_v5`, `capturas_sello_periodico_v1`, `revocacion_*` | 296 |
 | `autorizacion_atestada_v2`, `confianza_atestacion_v2`, `ejecucion_documental_v4` | homónimos | Generaciones anteriores (VEC-AD-2 y ejecución documental V4). Se conservan; no se amplían. | — | 4 / 2 / 2 |
 | `catalogos_configurables` | `vec_catalogos_configurables` | Catálogos versionados que RRHH puede cambiar: categorías de la RPT y sus usos, plan de firma. | `publicacion`, `entrada_publicada`, `categoria_control`, `uso`, `historia`, `plan_firma_*` | 12 |
-| `documentos` | `vec_documentos` | Metadatos y custodia de documentos; los bytes van al almacén de objetos. | `documento`, `documento_firmado`, `identificador_documental`, `referencia_externa`, `tipo_reservado_firmado`, `outbox` | 16 |
+| `documentos` | `vec_documentos` | Metadatos y custodia de documentos; los bytes van al almacén de objetos. D20 añade `subida_local`, historia, frontera, lecturas y outbox; D22 acota el justificante de renuncia y su lectura por RRHH. | `documento`, `documento_firmado`, `identificador_documental`, `referencia_externa`, `tipo_reservado_firmado`, `outbox`; en la rama de justificantes, `subida_local`, `subida_local_historia`, `frontera_subida_local`, `subida_local_lectura`, `subida_local_outbox` | 16 en `origin/main`; D20 y D22 pendientes de integración |
 | `usuarios_vec` | `vec_usuarios`, `vec_usuarios_correos_avisos` | Preferencias, correos propios e imagen de la persona. | `preferencias_*`, `correos_*`, `imagen_*` | 21 |
 
 ### 2.2 Módulos de negocio
 
 | Directorio | Esquema | Para qué sirve | Tablas que conviene conocer | Migr. |
 | --- | --- | --- | --- | ---: |
-| `bolsa_llamamientos` | `vec_bolsa_llamamientos` | Corazón de Bolsa: constitución, participaciones, situación, contactos, llamamientos, sanciones, ofertas, inscripción, alegaciones. | ver §8.1 | 148 |
+| `bolsa_llamamientos` | `vec_bolsa_llamamientos` | Corazón de Bolsa: constitución, participaciones, situación, contactos, llamamientos, sanciones, ofertas, inscripción, alegaciones. B119 relaciona la respuesta con el justificante documental y conserva su preparación. | ver §8.1; en la rama de justificantes, `preparacion_justificante_renuncia_b119` y `respuesta_justificante_documental_b119` | 148 en `origin/main`; B119 pendiente de integración |
 | `bolsa_convocatorias` | `vec_bolsa_convocatorias` | Borradores y versiones de convocatorias y bases. | `borrador_convocatoria_*`, `version_convocatoria`, `preparacion_bases_*_v3` | 16 |
 | `bolsa_baremacion`, `bolsa_reglas_baremo`, `bolsa_calculo_experiencia` | homónimos | Baremaciones de una persona, reglas de baremo versionadas y cálculo oficial de experiencia. | — | 10 / 7 / 2 |
 | `bolsa_importacion_convoca` | `vec_bolsa_importacion_convoca` | Importación de actas de CONVOCA (filas cifradas, original en custodia externa). | — | 10 |
@@ -275,6 +275,17 @@ recuperado solo sirve para devolver un recibo ya existente. Las lecturas de
 datos personales (ficha, contactos, detalle de expediente, consulta propia de
 méritos) también consumen V3 y quedan registradas.
 
+F1-36A prepara AD286 (`comprobar_consumo_recuperacion_firmas_ct_v2`) para
+revalidar el consumo V3 con la unidad histórica, CT228 para recuperar el acto
+original exacto y su corte, y AUT103 para publicar por el gobierno de cargos
+la operación `consultar_detalle_selectores`. Esta mantiene la acción
+`expediente.consultar`, agrega solo `selectores_recuperacion_firmas` y conserva
+las concesiones de cuadro y descarga. La ruta nominal de recuperación usa su
+audiencia ya existente y el permiso positivo `recuperar_r5` del cargo de firma,
+con los 48 campos exactos; consultar o firmar no sustituyen ese permiso.
+No incluye AUT102, CT229, la fuente
+ampliada de la ficha ni el panel; estos pertenecen a B y C.
+
 Los perfiles, roles y concesiones se publican por migración o desde
 administración con su propio gobierno (dos aprobaciones, CAS, recibo,
 auditoría). Una concesión nunca se crea por una petición de negocio.
@@ -354,14 +365,48 @@ Políticas versionadas que RRHH puede cambiar sin tocar código:
 `politica_orden_bolsa`, `politica_transiciones_situacion`, `politica_avisos_bolsa`,
 `politica_cese_bolsa`, `politica_segregacion`, `politica_ofertas_version`.
 
+El apartado opcional `criterios_ofrecimiento` de la política conserva su fuente,
+modalidad, causa y condiciones. El origen nativo de CT guarda la versión aplicada
+y los eventos usados; la concesión de lectura de origen versión 2 declara esos
+campos expresamente. El enlace contractual de B13 admite también
+`origen_llamamiento_ct_v1`, con cotejo de expediente, organización y categoría.
+Una fecha o causa ausente mantiene la comprobación pendiente cuando afecta al
+ofrecimiento; no acredita disponibilidad ni una excepción.
+
+El seguimiento `GET /api/vec/bolsa/bolsas/{bolsa}/candidatos` puede pedir
+`llamamiento` y `exclusiones_desde`. El bloque `exclusiones_origen` usa una acción
+nominal propia, acotada a bolsa y llamamiento y auditada en la misma transacción.
+Devuelve el motivo, la posición, la versión de regla y hechos por tipo y fecha.
+Sin concesión o ante un fallo, se cierra solo ese bloque. Una comprobación
+pendiente anterior a la siguiente persona elegible detiene la selección de CT
+antes de reservar y produce un diagnóstico 409 con bolsa, posición y versión.
+Esta entrega conserva la detención: el acto que acredite los hechos y habilite
+la excepción, junto con el control del plazo en CT, pertenece al corte siguiente.
+
 Ojo: las tablas de propuesta de las migraciones Bolsa `000001` y `000002`
 (`necesidad_autoritativa`, `propuesta`…) **no están instaladas en la principal**; comprobar su existencia
 antes de usarlas (`revisar-sql-vec`). Los datos de contacto van cifrados; en
 listados se muestran enmascarados y la consulta completa en la ficha deja
 constancia de quién la hizo.
 
+La candidata B129 añade cabecera de aviso de oferta, instantánea de destinatarios e historia de intentos. La publicación y el vínculo del token se confirman en la misma transacción autorizada. B131 coteja el identificador principal guardado al insertar, compatible con la subtransacción de B117; no reescribe cabeceras históricas. El token deriva del material HMAC versionado existente con dominio propio; solo su huella y versión quedan en la cabecera. Reclamar confirma la marca incierta antes de la red. `proyectar_oferta_v2` incorpora el resumen sin otra lectura; los campos internos del token no salen al HTTP. No añade autoridad de Usuarios ni cambia el núcleo. B129 y B131 se instalaron una vez en la copia propia; regresión SQL y recorrido de correo tras reinicio conformes. Integración y segundo corte de reintento expreso pendientes. B132, todavía sin instalar, añade revisión prospectiva de avisos y un registro idempotente del reintento expreso. La variante tipada del POST existente liga bolsa, oferta, revisión, clave y confirmación de posible duplicado al material autorizado; consumo y rearme de inciertos comparten transacción. La proyección existente aporta revisión y último recibo; una recuperación por clave devuelve el recibo de ese acto.
+
 Puertos Go: `internal/modules/bolsa/ports/` (unos 86 ficheros);
 adaptadores en `internal/modules/bolsa/adapters/postgres*`.
+
+Las preferencias entre bolsas guardan versiones y recibos en
+`preferencia_bolsas_version` y publican su evento en
+`preferencia_bolsas_outbox`. La ruta propia
+`/api/vec/bolsa/mi-bolsa/preferencias` usa GET y PUT. La activación interna
+requiere, por este orden, la migración 000279 de Autorización atestada
+(consumidor central con la rama interna y restricción de lectura v2), la
+000096 de Autorización, la 000116 de Bolsa y la 000275 de Autorización
+atestada. Estas migraciones
+comprueban el permiso, consumen la escritura y registran la lectura y los
+intentos denegados. Bolsa separa las claves de idempotencia internas de las
+externas y conserva actor y perfil en las nuevas versiones internas.
+El orden y las precondiciones de instalación están en
+`deploy/principal/candidata_hz39/aspirante/preferencias_internas.md`.
 
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
 
@@ -405,6 +450,51 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 `plan_incorporacion_personal_b2_v1`. CT **no escribe** agregados de Bolsa ni de
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
+
+La conexión de ofertas de varias plazas está **preparada en código y SQL, sin
+ensayo integrado ni instalación acreditados**. CT220 amplía la ejecución de
+selección para reservar una variante de oferta con su comando original; añade
+`vinculo_oferta_bolsa_ct_v1`, `descarte_seleccion_oferta_ct_v1` y sus outbox.
+El mismo UUID recupera la intención y sus recibos, sin volver a capturar el
+origen B110. B120 permite a CT verificar nominalmente la oferta de Bolsa;
+B121 verifica y cierra una intención sin publicación cuando ya no se puede
+publicar con la captura original. Las restricciones únicas de Bolsa arbitran
+la publicación y el cierre tardío. AD278 aporta autorizaciones distintas para
+el vínculo, el cierre en Bolsa y el descarte en CT. El vínculo, su consulta y
+el descarte usan organización y unidad gestora del expediente; centro y
+categoría permanecen como datos cotejados. El cierre conserva unidad y ámbito
+de Bolsa. CT223 comparte el bloqueo
+de cabecera entre reserva y cancelación; no cambia la prohibición de cancelar
+un expediente fiscalizado. El descarte deja historia técnica y recibos, sin
+avanzar la fase ni la versión del expediente. La lista ordenada y las
+condiciones de activación están en
+`deploy/principal/activacion_codexs_varias_plazas_ct_20261015.md`.
+
+F1-36B, aún en rama, añade AUT102 y CT229 después de AD286, CT228 y AUT103
+del corte A. AUT102 comprueba por fachada nominal la asignación propia de cargo
+en la unidad histórica; solo restringe una ficha ya autorizada. CT229 forma
+los selectores desde firmas originales y guarda
+`prueba_selectores_recuperacion_rrhh_v1`, anexo privado e inmutable uno a uno
+con el acceso y recibo de ficha CT43. Conserva el sello de detalle y añade el
+sello del anexo; consumo V3, auditoría y recibos pertenecen a una transacción.
+No se activan roles ni asignaciones nuevos con estas SQL.
+
+CT230 adapta la confirmación O6 al recibo nativo
+del llamamiento constituido. Conserva las marcas canónicas de procedencia y
+evidencia y admite la ausencia de retención temporal solo bajo su contrato
+nominal completo; la rama anterior mantiene sus controles. `retener_hasta`
+es vigencia de la evidencia HMAC de Bolsa, no conservación del expediente.
+La conservación real de O6 sigue pendiente de CT-CUM-06 y de la política
+VEC-DOC-CONS-01. Activación y límites en
+[`recibo_nativo_o6_ct230_20261016.md`](../../deploy/principal/recibo_nativo_o6_ct230_20261016.md).
+
+CT231 añade una variante de fila de CT140 para la selección O6 confirmada
+pendiente de comunicación. Conserva la ruta, el lector y los once campos de
+permiso existentes; devuelve solo los ocho aplicables a la selección, con su
+versión y recibo reales. Los campos exclusivos de comunicación quedan ausentes.
+La selección se obtiene de Contratación, sin consultar tablas de Bolsa. No añade
+consumidor de autorización ni permisos por defecto. Activación y límites en
+[`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
 
 Puertos Go: `internal/modules/contrataciontemporal/ports/`; adaptadores en
 `adapters/postgres/`. Detalle técnico por migración:
@@ -551,6 +641,43 @@ Los códigos de tarea son otra cosa: `RUM03` es la tercera tarea del Registro
 Único de Méritos, `B6`/`B13` son tareas de Bolsa y coinciden a veces con el
 número de su migración, `O2-05` y similares son objetivos del tablero histórico.
 
+La rama del justificante de renuncia añade AD277 y AUT95 para la autorización
+atestada de la subida, D20 para la custodia común, M7 como dependencia
+documental, D22 para el justificante de Bolsa, B119 para vincularlo a la
+respuesta y CT222 para la frontera con Contratación temporal. AUT99, AD281 y
+D23 completan la autoridad externa de los actos propios de Bolsa. AD284 separa
+su consumo de la confianza interna, AUT100 incluye el LOGIN documental exacto
+en la revalidación de sesión y D24 conserva las longitudes de referencia sin
+cuantificadores incompatibles con PostgreSQL. D25 alinea la huella de preparación
+con el ámbito de la candidatura y conserva a Persona como principal y titular.
+B123 identifica la clave primaria al recuperar una preparación para evitar una
+colisión con el nombre de salida de la función; conserva su idempotencia y ACL.
+B124 y D26 incorporan el ámbito técnico de la descarga. B125 revoca las
+lecturas preliminares al ejecutor de Bolsa; D27 consume V3 antes de consultar
+la relación sensible y coteja las huellas contra el ámbito real en la misma
+transacción. El rol técnico mantiene `unidad_ref` y `ambito_ref`; la bolsa y
+la participación se cotejan como atributos. La fuente conjunta v3 conserva
+las acciones propias y la entrada RRHH versión 2; v1 y RRHH v2 quedan como
+antecedentes. El catálogo activo no admite acciones duplicadas.
+AD287 añade el tipo `preperfil_bolsa_rrhh` a la auditoría común, conservando
+el CHECK previo. CA46 e IS21 ofrecen solo entre propietarios los perfiles de
+la cuenta certificada revalidada; AUT101 es la fachada nominal de aplicación
+y devuelve únicamente un perfil propio, vigente y único con el permiso
+publicado de descarga y garantía alta, además de su acuse común. Un resultado
+vacío o ambiguo deniega. La sesión de la descarga se crea con ese perfil y
+el mismo par de autenticación/sesión; D27 conserva su autorización del recurso.
+La PR recoge las revisiones y el
+ensayo de la cadena en una copia de la principal; la guía `deploy/principal/justificante_renuncia_activacion.md`
+fija el orden de activación. La lectura y descarga pertenecen a cualquier
+técnica con permiso vigente de su rol, no a una cuenta nominal indicada en la
+configuración técnica.
+
+La activación externa sigue pendiente del productor de admisiones y del
+versionador de rol por fuente declarada: el acto externo actual solo añade
+preferencias. Las dos concesiones propias del justificante, las admisiones y
+el motivo preparados como datos ficticios de copia no acreditan actos
+gobernados. La concesión interna de RRHH usa el acto genérico vigente.
+
 ### 9.2 Reserva del número
 
 Antes de crear el fichero, reserva el número en `RESERVAS_MIGRACIONES.md`, en la
@@ -675,6 +802,11 @@ sola consulta paginada por cursor (`cursor_cuadro_rrhh` en CT), índices por
 | `/api/admin/…` (`perfiles/v1`, `seleccion-perfil/v1`, `copias/v1`) | `cmd/vec-admin`, subdominio propio con certificado mutuo | Administración |
 | `/api/interna/cronos/…` | composición de Cronos | Empleado en Cronos (prefijo heredado) |
 
+Mi Bolsa conserva una vía interna en el proceso combinado mientras el
+aspirante HZ37 usa la sesión corporativa. Su ruta de preferencias se monta
+solo al activar la capacidad interna con LOGIN, sesión y autorización
+propios. El proceso externo conserva su sesión y sus funciones nominales.
+
 `/api/candidates/…` y `/api/demo` son del prototipo antiguo (`internal/candidate`);
 no se amplían. `/api/v4/documents` no es una ruta de VEC: es el cliente del
 gestor documental externo.
@@ -714,6 +846,14 @@ Esa cobertura indica qué documentos consultar; no concede permiso de firma.
 La ficha conserva los errores de consulta de cada documento y muestra los
 cuatro documentos sin plan como pendientes, sin acciones de firma.
 
+La fuente interna de B devuelve como máximo 128 pares de `firma_ref` y selector
+(`expediente_ref`, `version_expediente`, `documento`, `paso_orden`,
+`clave_idempotencia`, `catalogo_huella`, `via`) con el recibo adicional
+(`acceso_ref`, `sello_detalle_sha256`, `sello_selectores_sha256`). En B no hay
+serializador HTTP ni panel para exponerlos. Una ficha antigua sigue con su
+contrato anterior; una lectura ampliada requiere ambos sellos, aun con lista
+vacía, y `[]` nunca autoriza un comodín.
+
 La lista de activación de #1137 ordena CT218, IS20, AUT97, CT219 y CT224. AUT97
 reconstruye el validador nominal desde su preimagen y cambia únicamente el
 alias SQL que colisionaba con la variable de asignación. No cambia permisos
@@ -726,11 +866,14 @@ reservada sin uso y no forma parte de esta entrega.
 CT226 añade la sonda `comprobar_catalogo_plantillas_base_v2` con organización
 explícita. Coteja la última publicación de esa organización o la provisión
 inicial común; una publicación ajena no desplaza la propia. Conserva los
-cotejos de huella, fuente, auditoría y evento de CT218. La firma V1 se mantiene
-como entrada de compatibilidad para la organización única de CT135. El portal
-pasa la misma organización que utiliza el repositorio de plantillas. No cambia
-historia ni recibos; su lista de activación es
-`deploy/principal/lista_sql_codexh_firma_ajustes_f1_37_20261015.txt`.
+cotejos de huella, fuente, auditoría y evento de CT218. El portal pasa la misma
+organización que utiliza el repositorio de plantillas. CT226 deja una entrada
+V1 de compatibilidad para la organización única de CT135. CT232 prepara su
+retirada, tras comprobar su definición, permisos y ausencia de dependencias;
+V2, la historia y los recibos siguen intactos. Las listas de activación son
+`deploy/principal/lista_sql_codexh_firma_ajustes_f1_37_20261015.txt` y
+`deploy/principal/lista_sql_codexh_plantillas_compat_f1_65a_20261016.txt`,
+en ese orden.
 
 La auditoría histórica admite la política de certificado personal de
 desarrollo acreditada en la fecha original para una cuenta interna
