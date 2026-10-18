@@ -220,7 +220,7 @@ ofrecimiento desde la petición del centro.
 
 ### 8.2 Firmas
 
-En la copia local, los permisos de las cuatro personas firmantes se preparan con los datos de arranque. Esta preparación tiene un responsable y se retirará cuando la asignación ordinaria desde Administración esté disponible. Faltan el ensayo de la nueva copia y su recuperación tras reiniciar.
+En la copia local ya se han preparado los permisos de las cuatro personas firmantes. Repetir la preparación conserva los mismos permisos y su historia. El equipo de Administración mantiene este guion hasta que los permisos se puedan asignar desde pantalla. Falta firmar el nuevo expediente y recuperar sus documentos después de reiniciar.
 
 **Para qué sirve.** Que cada cargo firme los documentos con su certificado, en el orden fijado, y que VEC compruebe que la firma es válida.
 

@@ -31,7 +31,7 @@ SELECT pg_catalog.set_config('vec.f163.firma',pg_catalog.jsonb_build_object(
 
 DO $pre$
 DECLARE j jsonb:=pg_catalog.current_setting('vec.f163.firma')::jsonb;
- f jsonb; r record; v record; p record; inicio timestamptz; fin timestamptz;
+ f jsonb; r record; cargo_publicado record; p record; inicio timestamptz; fin timestamptz;
  emision timestamptz; ahora timestamptz:=pg_catalog.clock_timestamp();
 BEGIN
  IF pg_catalog.current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
@@ -80,8 +80,8 @@ BEGIN
 
  -- Ninguna asignación canónica vigente de estas personas se interpreta como
  -- autorización para el ámbito legado. Detener también una segunda pasada.
- IF EXISTS (SELECT 1 FROM pg_catalog.jsonb_array_elements(j->'firmantes') f
-   JOIN vec_autorizacion.asignacion_perfil a ON a.principal_id=f->>'persona'
+ IF EXISTS (SELECT 1 FROM pg_catalog.jsonb_array_elements(j->'firmantes') firmante_dato
+   JOIN vec_autorizacion.asignacion_perfil a ON a.principal_id=firmante_dato->>'persona'
    JOIN vec_autorizacion.asignacion_perfil_actual ac ON ac.asignacion_ref=a.asignacion_ref
    CROSS JOIN LATERAL pg_catalog.jsonb_array_elements(a.documento->'ambitos') b
    WHERE a.documento->>'estado'='activa' AND b->>'clave'='organizacion_ref'
@@ -99,7 +99,7 @@ BEGIN
   THEN RAISE EXCEPTION 'F1-63: firmante sin perfil vigente' USING ERRCODE='55000'; END IF;
   SELECT vr.*,ar.vigente_desde AS rol_desde,ar.vigente_hasta AS rol_hasta,
          ar.ambitos_fijos AS rol_ambitos,c.estado AS control_estado,
-         c.huella_sha256 AS control_sha,ca.revision AS control_revision INTO v
+         c.huella_sha256 AS control_sha,ca.revision AS control_revision INTO cargo_publicado
     FROM vec_autorizacion.version_rol vr
     JOIN vec_autorizacion.rol_administrable_exacto_v1 ar
       ON ar.version_rol_ref=vr.version_rol_ref AND ar.huella_sha256=vr.huella_sha256
@@ -109,15 +109,15 @@ BEGIN
       ON c.version_rol_ref=ca.version_rol_ref AND c.revision=ca.revision
    WHERE vr.version_rol_ref='rol:ct_cargo_'||(f->>'papel')||'_firma_dev:v1';
   IF NOT FOUND THEN RAISE EXCEPTION 'F1-63: cargo de firma no publicado' USING ERRCODE='55000'; END IF;
-  IF v.control_estado<>'habilitada' OR v.rol_desde>inicio OR v.rol_hasta<fin
-     OR v.rol_ambitos IS DISTINCT FROM pg_catalog.jsonb_build_array(
+  IF cargo_publicado.control_estado<>'habilitada' OR cargo_publicado.rol_desde>inicio OR cargo_publicado.rol_hasta<fin
+     OR cargo_publicado.rol_ambitos IS DISTINCT FROM pg_catalog.jsonb_build_array(
        pg_catalog.jsonb_build_object('clave','organizacion_ref',
          'valores',pg_catalog.jsonb_build_array(j->>'organizacion_operativa_ref')))
      OR NOT EXISTS (SELECT 1 FROM pg_catalog.jsonb_array_elements(r.recibo->'cargos') c
-       WHERE c->>'version_rol_ref'=v.version_rol_ref
-         AND c->>'version_rol_sha256'=v.huella_sha256
-         AND c->>'control_sha256'=v.control_sha
-         AND (c->>'control_revision')::numeric=v.control_revision)
+       WHERE c->>'version_rol_ref'=cargo_publicado.version_rol_ref
+         AND c->>'version_rol_sha256'=cargo_publicado.huella_sha256
+         AND c->>'control_sha256'=cargo_publicado.control_sha
+         AND (c->>'control_revision')::numeric=cargo_publicado.control_revision)
   THEN RAISE EXCEPTION 'F1-63: cargo de firma no publicado o sin vigencia' USING ERRCODE='55000'; END IF;
  END LOOP;
 END $pre$;

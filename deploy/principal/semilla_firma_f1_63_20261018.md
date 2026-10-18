@@ -61,7 +61,7 @@ cat /ruta/privada/parametros-firma-f1-63.psql \
 La salida da la huella SHA-256 de la correspondencia y las cuatro huellas de
 asignación, sin referencias de persona. Guardar esa salida privada junto a
 la huella del archivo SQL
-`fd7a2e4716b10d4df15e2c6c9ddaebd8b8b6f279beff03e05f9321d051330c90`
+`29ee6cfba2d9deec67ca8a00c9b74fdfc90ebf3aaa3be5a1f9b1a6bd760306a5`
 y al inventario de filas anterior y posterior.
 Repetir con los mismos parámetros y comprobar cero cambios. La prueba focal
 `probar_datos_asignaciones_firma_legada.sql` hace dos pasadas y comprueba
@@ -79,7 +79,14 @@ La consulta histórica posterior utiliza esos originales, sin firmarlos de
 nuevo. Esta semilla se retira con F2-12 (permisos por datos) y F2-14 (base
 consolidada).
 
-Estado de este corte: archivos preparados para revisión. Aún faltan la lista
-completa de SQL de la principal, el kit ADMIN de L, los cargos y recibos
-publicados en esta copia, el ensayo SQL, las dos revisiones, la auditoría
-focal de seguridad y el recorrido en Chrome.
+El ensayo del 18/10 pasó en una copia local con las 78 migraciones de la
+lista de la principal y los 16 cargos publicados con recibo real. La prueba
+focal comprobó dos pasadas sin cambios y el rechazo `42501` de una
+asignación canónica; terminó en `ROLLBACK`. La aplicación posterior añadió
+una correspondencia de organización y conservó las cuatro asignaciones ya
+preparadas. Repetirla dejó iguales la historia y los punteros. Dos revisiones
+independientes comprobaron el SQL final y sus guardas de destino.
+
+Falta publicar los cargos competenciales, enlaces, certificados y el plan
+de cinco pasos, firmar el nuevo expediente y recuperar sus PDF desde la
+ficha después de reiniciar. Este ensayo de datos no acredita esos actos.
