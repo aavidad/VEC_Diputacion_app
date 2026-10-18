@@ -53,8 +53,10 @@ export async function consultarAvisosBolsa({ cursor = "", limite = 6, fetchImpl 
       return { ok: false, status: respuesta.status, mensaje: mensajes[respuesta.status] || traducirPortal("txt_no_se_pudieron_consultar_los_avisos_http", { estado: respuesta.status }) };
     }
     return { ok: true, datos: validarAvisosBolsa(await respuesta.json()) };
-  } catch (error) {
-    return { ok: false, status: 0, mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion_con_los_avisos") };
+  } catch {
+    // El mensaje técnico del navegador («Failed to fetch», contrato no válido…)
+    // no se muestra: la pantalla usa siempre el texto del catálogo.
+    return { ok: false, status: 0, mensaje: traducirPortal("txt_error_de_comunicacion_con_los_avisos") };
   }
 }
 
