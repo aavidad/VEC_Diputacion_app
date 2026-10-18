@@ -232,6 +232,38 @@ func nuevaRutaPreferenciasBolsasInternas(cfg config.Config,
 	if err != nil {
 		return fallo()
 	}
-	ruta.Manejador = manejador
+	modalidadesHTTP := bolsahttp.NuevoHandlerPreferenciasBolsasNoDisponible()
+	if !comprobarFuncionPreferenciasModalidades(ctx, pool) {
+		slog.Warn("preferencias de modalidades internas no disponibles", "etapa", "funcion_sql")
+	} else if catalogo, e := catalogoPreferenciasModalidadesDesarrollo(ctx, cfg); e != nil {
+		slog.Warn("preferencias de modalidades internas no disponibles", "etapa", "catalogo")
+	} else {
+		lecturaModalidadesPG, e := bolsapg.NuevaLecturaPreferenciasModalidadesInternaPostgreSQL(pool)
+		if e == nil {
+			escrituraModalidadesPG, errorEscritura := bolsapg.NuevaEscrituraPreferenciasModalidadesInternaPostgreSQL(pool)
+			e = errorEscritura
+			if e == nil {
+				lecturaModalidades, errorLectura := mibolsa.NuevaLecturaPreferenciasModalidadesInterna(
+					lecturaModalidadesPG, auditoriaPG, usuarios.interna.fuente, catalogo, reloj)
+				e = errorLectura
+				if e == nil {
+					escrituraModalidades, errorServicio := mibolsa.NuevoServicioPreferenciasModalidadesInterna(
+						escrituraModalidadesPG, catalogo, autorizador, proveedorPreferenciasBolsasInterna{delegado: material}, reloj)
+					e = errorServicio
+					if e == nil {
+						modalidadesHTTP, e = bolsahttp.NuevoHandlerPreferenciasModalidades(preparador, escrituraModalidades, lecturaModalidades)
+					}
+				}
+			}
+		}
+		if e != nil {
+			slog.Warn("preferencias de modalidades internas no disponibles", "etapa", "composicion")
+		}
+	}
+	selector, err := bolsahttp.NuevoSelectorPreferenciasModalidades(manejador, modalidadesHTTP)
+	if err != nil {
+		return fallo()
+	}
+	ruta.Manejador = selector
 	return ruta, cerrar
 }
