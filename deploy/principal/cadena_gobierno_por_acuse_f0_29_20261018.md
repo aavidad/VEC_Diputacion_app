@@ -13,7 +13,8 @@ anterior. No se repite el acto ni se cambian sus huellas.
    `deploy/principal/copia_local.py crear --modulos`, con sus preparadores
    propios de roles y datos nominales, pasando explícitamente
    `--lista-sql deploy/principal/lista_sql_main_tras_hz37.txt`.
-   La lista incluye las 85 migraciones de main y AD295, una sola vez.
+   La lista completa incluye main tras HZ37 y las SQL propias, con AD295
+   en su posición exacta y una sola vez.
 2. AD295 exige la definición instalada de AD235, su propietario y permisos.
    Amplía la misma función con una referencia opcional y retira la firma
    anterior. Solo el grupo lector actual puede ejecutarla; no cambia el núcleo.
@@ -60,7 +61,19 @@ Dos revisiones independientes de la fuente son favorables. GoSec cargó los
 dos paquetes completos: 80 avisos heredados y ninguno en las líneas añadidas;
 Semgrep local y las focales Go fueron conformes. La función de verificación
 conserva el límite de 100 registros y no trunca tramos para declararlos válidos.
-La integración y la comprobación de la candidata de dirección siguen pendientes.
+La candidata conjunta `601686060` instaló 98 SQL en dos copias nuevas;
+AD291, AD292 y CT238 pasaron sus focales con ROLLBACK y ambas copias
+reiniciaron con la comprobación pública del guion. El gobierno externo H6
+quedó confirmado una vez en la copia externa. La verificación ordinaria
+se detuvo porque faltaban tres archivos Go de la consola en la
+composición, no por un cambio de la lógica de AD295. La candidata
+`ec322e367` repuso esos tres archivos y el README exactos de esta PR.
+Su prueba focal completa pasó con código 0. La consola compilada por separado
+verificó el mismo plan, material y acuse con `-fase verificar -acuse` y
+terminó con código 0, sin reaplicar
+las 98 SQL ni ejecutar otro acto de gobierno. El recorrido ADMIN en la
+aplicación sigue pendiente. La verificación positiva anterior de
+`16725d3bd` conserva su alcance en aquella copia.
 
 Vuelta atrás: recuperar copia y binario anteriores. No ejecutar DOWN ni
 reinstalar una migración con historia. El cambio no añade configuración de
