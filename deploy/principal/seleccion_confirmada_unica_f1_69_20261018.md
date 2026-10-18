@@ -10,8 +10,10 @@ selección por cada persona.
 ## Activación de la candidata
 
 1. Partir de una copia local de la principal con PostgreSQL 18 y datos
-   ficticios. Pasar explícitamente `--lista-sql` con la lista única: 81
-   migraciones de main y después CT238, 82 en total. Instalarla una vez;
+   ficticios. Usar `copia_local.py crear --modulos --rrhh-original` con el
+   material original aprobado y los preparadores propios de la receta común.
+   Pasar explícitamente `--lista-sql` con la lista única: 85 migraciones
+   de main y después CT238, 86 en total. Instalarla una vez;
    no reaplicar SQL con historia.
 2. CT238 bloquea las escrituras de la tabla mientras comprueba que cada
    selección confirmada tiene organización y expediente y que no hay dos para
@@ -45,16 +47,30 @@ organización y expediente, esperó a la primera y, tras confirmarla, recibió
 no quedó ninguna fila de prueba. Esto acredita la unicidad del índice, no
 una autorización ni un acto O6 con recibo real.
 
-Con los módulos configurados, salud, portal, cuadro de contratación y Bolsas
-respondieron 200. Sin esa configuración, salud y portal respondieron 200 y
-Bolsas 503. Tras reiniciar aplicación, PostgreSQL y buzón local, las cuatro
-consultas configuradas volvieron a responder 200. La consulta detallada de
-comunicaciones respondió 503: falta la receta común de permisos de RRHH. No
-se repitió la petición para ocultar ese límite.
+En aquella copia, con los módulos configurados, proceso vivo (`/livez`),
+portal, cuadro de contratación y Bolsas respondieron 200. Sin módulos,
+`/livez` y portal respondieron 200 y Bolsas 503. El reinicio conservó esos
+resultados. La consulta detallada respondió 503 y motivó repetir el ensayo
+con la receta común de RRHH, sin cambiar CT238.
 
-Faltan el permiso y la receta de RRHH, el recorrido de selección y aviso con
-autorización real y la integración. La CI de la cabeza pasó cinco puertas,
-pero este corte no se declara listo ni cerrado.
+La nueva copia `1a48d9086`, desde main con las 85 migraciones y CT238, se creó
+en 84,6 segundos con los certificados y la identidad originales aprobados.
+Faltaban los dos grupos vacíos de Méritos: se aplicaron sus definiciones
+canónicas, sin miembros ni concesiones, tras dos revisiones y un ensayo con
+ROLLBACK. Las copias nuevas ya los reciben del guion común de main.
+
+Con el certificado RRHH, la misma consulta detallada respondió 200 y recuperó
+el recibo original de O6. Tras reiniciar, devolvió el mismo cuerpo y recibo.
+Chrome abrió la ficha, consultó las comunicaciones y mostró la fila del
+llamamiento, que se pudo seleccionar sin enviar otra petición de escritura.
+El recibo se cotejó en la respuesta y en la base: esa ficha de una selección
+ya comunicada no lo imprime. Las seis selecciones existentes ya estaban
+comunicadas; no se creó otro aviso para este ensayo.
+
+`/livez` respondió 200 y `/healthz` 503 en esta copia de montaje parcial;
+no se declara disponibilidad de todos los módulos. Dos revisiones de la
+fuente de CT238 son favorables. La integración y la candidata de dirección
+siguen pendientes.
 
 Vuelta atrás: conservar la candidata y la copia anteriores. Si la instalación
 se detiene, resolver la causa sobre datos ficticios y preparar otra copia. No
