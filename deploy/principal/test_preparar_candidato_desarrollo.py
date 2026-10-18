@@ -15,7 +15,7 @@ BOLSA = "bolsa:prueba:administrativo"
 
 class PrepararCandidatoDesarrolloTest(unittest.TestCase):
     def setUp(self):
-        scratch = os.environ["VEC_TEST_SCRATCH"]
+        scratch = os.environ.get("VEC_TEST_SCRATCH") or tempfile.gettempdir()
         self.temporal = tempfile.TemporaryDirectory(dir=scratch)
         self.addCleanup(self.temporal.cleanup)
         self.raiz = Path(self.temporal.name)
@@ -55,7 +55,7 @@ class PrepararCandidatoDesarrolloTest(unittest.TestCase):
         material.chmod(0o700)
         subprocess.run(
             ["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt",
-             "ec_paramgen_curve:P-256", "-nodes", "-days", "365", "-sha256",
+             "ec_paramgen_curve:P-256", "-nodes", "-days", "90", "-sha256",
              "-subj", "/CN=CA ficticia", "-addext", "basicConstraints=critical,CA:TRUE",
              "-addext", "keyUsage=critical,keyCertSign,cRLSign", "-keyout", str(ca / "ca.key"),
              "-out", str(ca / "ca.crt")],
