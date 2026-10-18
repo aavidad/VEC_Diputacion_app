@@ -415,9 +415,11 @@ servidor obtiene el número de personas de la necesidad sellada. CT239 admite
 esa cantidad sin exigir un puesto o una jornada superiores, siempre que la
 necesidad sea válida y las cantidades coincidan. Ajusta validación,
 reconstrucción, cardinalidad del alta y análisis; conserva los bytes de las
-altas anteriores, sus permisos y tablas. El ensayo focal con ROLLBACK es
-favorable; siguen pendientes las revisiones y el recorrido hasta la reserva
-de plazas. Activación: `deploy/principal/alta_plural_f1_73.md`.
+altas anteriores, sus permisos y tablas. Dos revisiones SQL, el ensayo en
+copia y el alta HTTP con recuperación tras reiniciar son favorables. La
+cantidad persiste hasta el informe jurídico; la reserva de plazas sigue
+pendiente del plan nominal de firma de la copia. Activación:
+`deploy/principal/alta_plural_f1_73.md`.
 
 Un **centro** presenta una **petición** que otra persona ratifica
 (`peticion_centro_revision`; no hay tabla `peticion_centro` propia, la

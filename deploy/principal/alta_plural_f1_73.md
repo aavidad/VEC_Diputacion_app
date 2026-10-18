@@ -41,7 +41,7 @@ un reinicio vigilado y comprobar arranque y acceso; si falla, restaurar ese
 conjunto anterior y volver a arrancar. No reaplicar SQL ni alterar historia
 para volver atrás.
 
-## Comprobación pendiente
+## Comprobación realizada y límites
 
 Las pruebas focales Go, `gopls` y las 79 pruebas de interfaz y caché son
 favorables para el corte anterior al SQL. La revisión de interfaz de T sobre
@@ -52,16 +52,35 @@ terna anterior, reconstrucción, bytes históricos y análisis. Los tres casos
 nuevos de diagnóstico también pasan; la causa SQL se conserva en el registro
 técnico sin exponerse en HTTP. La versión final declara las cuatro funciones
 de forma explícita y supera las guardas de `search_path` y del preparador de
-roles. Las revisiones finales y el ensayo integrado siguen pendientes.
+roles. S y el revisor SQL independiente dieron su conformidad sobre
+`bf7691183`: migración SHA-256
+`5422bedbbb837f29371f8c1326cf63233f72b916a12a2b2c30e0e32cfa3bf435`.
+La unión posterior con main conserva esos bytes y pasa 134 pruebas focales
+de interfaz, montaje y caché.
 
-El recorrido HTTP en Chrome, la fiscalización y la reserva real con CT235
-todavía no están acreditados. La aceptación debe conservar el reintento
-antiguo descrito arriba y comprobar un alta nueva de dos personas, con
-cantidad sellada transmitida hasta la reserva; también debe rechazar las
-divergencias. Un resultado focal de backend no sustituye ese recorrido.
+La copia de `bf7691183` instaló una vez las 87 migraciones de la lista y
+arrancó en 84,77 segundos. Sin la fuente opcional de necesidades,
+`/livez` respondió 200 y el catálogo de alta nuevo devolvió 503 con el error
+catalogado de configuración ausente. Tras declarar la fuente propia y
+reiniciar, el catálogo respondió 200.
 
-El único envío real del contrato nuevo devolvió 503. La conciliación anterior
-a la parada encontró cero expedientes y confirmaciones y una candidatura
-técnica preparatoria. Se conserva el cuerpo y su clave; antes de repetir la
-operación se recupera su estado por la vía existente. Ese envío no acredita
-un alta ni una reserva de plazas.
+El primer envío, anterior a CT239, había respondido 503 y se había conciliado
+sin expediente ni confirmación. Se conservó su cuerpo y su clave. Con CT239,
+el reenvío exacto desde Chrome respondió 201: expediente `2026/95073`, una
+alta y una confirmación. La solicitud y su necesidad conservan dos personas.
+El expediente avanzó desde la ficha hasta análisis, cobertura, asignación e
+informe jurídico, con respuesta 201 por cada operación y versión final 5.
+
+Tras reiniciar aplicación y PostgreSQL se recuperaron la cantidad, las cinco
+actuaciones y sus fechas. El reintento exacto del alta devolvió el mismo
+recibo original y su instante, sin otra alta ni confirmación. Las capturas
+de escritorio y móvil están en `docs/operacion/capturas/f1-73/`.
+
+La copia necesitaba declarar el catálogo de firma existente mediante
+`VEC_CT_CIRCUITO_FIRMA_SOURCE_PATH`; después del reinicio esa consulta
+respondió 200. La ficha sigue indicando que la firma nominal no está
+disponible: falta un plan aplicable a la organización y unidad del expediente.
+No se firmó, fiscalizó ni reservó con CT235. Esos pasos siguen pendientes de
+la preparación común de firma; no se sustituyen por cambios de fase o
+permisos mediante SQL. La PR permanece en borrador hasta resolver ese límite
+y completar las puertas de integración.
