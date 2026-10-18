@@ -123,8 +123,9 @@ func (s *ServicioPreferenciasBolsas) Ordenar(ctx context.Context, orden Orden, r
 	if err != nil {
 		return bolsa.ReciboPreferenciasBolsas{}, err
 	}
+	retorno := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if recibo.ReciboRef == "" || recibo.Version != versionEsperada+1 || recibo.RegistradoEn.IsZero() ||
-		recibo.RegistradoEn.After(ahora) || !slices.Equal(recibo.Orden, referencias) {
+		recibo.RegistradoEn.After(retorno) || !slices.Equal(recibo.Orden, referencias) {
 		return bolsa.ReciboPreferenciasBolsas{}, bolsa.ErrPreferenciasNoDisponibles
 	}
 	return recibo, nil
