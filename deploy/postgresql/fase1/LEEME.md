@@ -52,7 +52,8 @@ siete pruebas SQL existentes, en este orden:
    comprueba propietario y permisos; rechaza una cuenta sin acreditación.
 7. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
    contexto externo por la función vigente, comprueba su huella y versión,
-   acredita el candidato propio y rechaza el ajeno; comprueba resolución,
+   acredita el candidato propio, rechaza el ajeno y los cruces de persona o
+   perfil, y comprueba los permisos de ejecución; comprueba resolución,
    repetición y revocación sin modificar funciones o desactivar guardas.
 
 El guion comprueba que los bytes de cada prueba coinciden con `HEAD` y los pasa
