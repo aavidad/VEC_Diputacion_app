@@ -2,9 +2,12 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +18,118 @@ import (
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
+
+func concesionesFuenteBolsaPrueba(t *testing.T, nombre string, acciones ...string) []dominiovec.ConcesionRol {
+	t.Helper()
+	datos, err := os.ReadFile(filepath.Join("..", "..", "..", "deploy", "principal", nombre))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fuente struct {
+		Entradas []struct {
+			Concesion dominiovec.ConcesionRol `json:"concesion"`
+		} `json:"entradas"`
+	}
+	if err := json.Unmarshal(datos, &fuente); err != nil {
+		t.Fatal(err)
+	}
+	var resultado []dominiovec.ConcesionRol
+	for _, entrada := range fuente.Entradas {
+		for _, accion := range acciones {
+			if entrada.Concesion.Accion == accion {
+				resultado = append(resultado, entrada.Concesion)
+			}
+		}
+	}
+	if len(resultado) != len(acciones) {
+		t.Fatalf("fuente %s: faltan concesiones", nombre)
+	}
+	return resultado
+}
+
+func TestConfirmacionDirectaAdoptaRol21GobernadoSinProvision(t *testing.T) {
+	p, autoridad, datos := politicaProvisionBolsaPrueba(t, 0)
+	i, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
+		datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, p.reloj.Ahora(), 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i.VersionRol.Concesiones = append(i.VersionRol.Concesiones,
+		concesionesFuenteBolsaPrueba(t, "fuentes/bolsa_carga_convoca_b1_v1.json", puertosbolsa.AccionConfirmarCargaConvoca)...)
+	i.VersionRol.Concesiones = append(i.VersionRol.Concesiones,
+		concesionesFuenteBolsaPrueba(t, "inscripcion_recorrido_20261013/inscripcion_bolsa_actos_v1.json",
+			"bolsa.inscripcion.rrhh.motivos", "bolsa.inscripcion.rrhh.decidir", "bolsa.inscripcion.rrhh.incorporar")...)
+	i.VersionRol.Concesiones = append(i.VersionRol.Concesiones,
+		concesionesFuenteBolsaPrueba(t, "fuentes/bolsa_lecturas_rrhh_b103_v1.json",
+			"bolsa.inscripcion.rrhh.listar", "bolsa.inscripcion.rrhh.consultar",
+			"bolsa.inscripcion.rrhh.convocatorias.listar", "bolsa.rrhh.respuestas_llamamiento.consultar")...)
+	i.VersionRol.Concesiones = append(i.VersionRol.Concesiones,
+		concesionesFuenteBolsaPrueba(t, "fuentes/bolsa_origen_contacto_rrhh_v1.json",
+			dominiovec.AccionLecturaOrigenContactoBolsa)...)
+	i.VersionRol.Concesiones = append(i.VersionRol.Concesiones,
+		concesionesFuenteBolsaPrueba(t, "fuentes/bolsa_transiciones_situacion_rrhh_v1.json",
+			puertosbolsa.AccionConsultarTransicionesSituacion, puertosbolsa.AccionPublicarTransicionesSituacion)...)
+	i.VersionRol.Concesiones = append(i.VersionRol.Concesiones,
+		concesionesFuenteBolsaPrueba(t, "fuentes/bolsa_confirmacion_aceptacion_rrhh_v1.json",
+			puertosbolsa.AccionConfirmarAceptacionDirecta)...)
+	if len(i.VersionRol.Concesiones) != 21 {
+		t.Fatalf("rol gobernado incompleto: %d", len(i.VersionRol.Concesiones))
+	}
+	i.VersionRol.Version = 11
+	i.VersionRol.PublicadaPor = "seguridad:acto-gobernado"
+	i.AsignacionPerfil.VersionRolRef = i.VersionRol.Referencia()
+	i.AsignacionPerfil.EmitidaPor = "identidad:acto-gobernado"
+	i.ControlVigenciaVersionRol.VersionRolRef = i.VersionRol.Referencia()
+	i.ControlVigenciaVersionRol.ActualizadoPor = i.VersionRol.PublicadaPor
+	if err := i.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	autoridad.leida, autoridad.encontrada = instantaneaPublicadaDesarrollo{instantanea: i}, true
+	if err := p.PublicarInicialConPoliticaOfertas(context.Background()); err != nil ||
+		autoridad.publicadas != 0 || autoridad.preparadas != 0 || p.instantanea.VersionRol.Version != 11 {
+		t.Fatalf("el rol de 21 concesiones no se adoptó intacto: %v", err)
+	}
+	for nombre, alterar := range map[string]func(*dominiovec.InstantaneaAutorizacion){
+		"confirmacion_duplicada": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones = append(x.VersionRol.Concesiones, x.VersionRol.Concesiones[len(x.VersionRol.Concesiones)-1])
+		},
+		"campo_confirmacion": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[len(x.VersionRol.Concesiones)-1].CamposPermitidos = []string{"persona_ref"}
+		},
+		"finalidad_confirmacion": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[len(x.VersionRol.Concesiones)-1].Finalidades = []string{"otra_finalidad"}
+		},
+		"garantia_confirmacion": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[len(x.VersionRol.Concesiones)-1].GarantiaMinima = dominiovec.AuthAssuranceLow
+		},
+		"accion_ajena": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[len(x.VersionRol.Concesiones)-1].Accion = "bolsa.accion_ajena"
+		},
+		"campo_b103": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[13].CamposPermitidos = append(x.VersionRol.Concesiones[13].CamposPermitidos, "persona_ref")
+		},
+		"tipo_s6": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[18].TipoRecurso = "otro_recurso"
+		},
+		"b1_alterada": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[9].TipoRecurso = "otro_recurso"
+		},
+		"ambito_ajeno": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.AsignacionPerfil.Ambitos[0].Valores[0] = "unidad:otra"
+		},
+		"persona_ajena": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.AsignacionPerfil.PrincipalID = "per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			x := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(i)
+			alterar(&x)
+			if instantaneaBolsaConfirmacionCompatible(x, datos, p.soporte, p.reloj.Ahora(), 6) {
+				t.Fatal("instantánea alterada adoptada")
+			}
+		})
+	}
+}
 
 func TestConfirmacionDirectaPoliticaRegistraConcesionYDenegacion(t *testing.T) {
 	for _, permitida := range []bool{true, false} {
@@ -92,6 +207,39 @@ func TestConfirmacionDirectaAdoptaVersionPublicadaSinPublicarSemilla(t *testing.
 	if err := p.PublicarInicial(context.Background()); err != nil || autoridad.publicadas != 0 ||
 		autoridad.preparadas != 0 || p.instantanea.VersionRol.Version != 24 {
 		t.Fatalf("se reconstruyó o rechazó la versión publicada: %v", err)
+	}
+}
+
+func TestConfirmacionDirectaAdoptaSinB1ConYSinS6(t *testing.T) {
+	for _, conS6 := range []bool{false, true} {
+		p, autoridad, datos := politicaProvisionBolsaPrueba(t, 0)
+		i, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
+			datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, p.reloj.Ahora(), 5)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if conS6 {
+			i.VersionRol.Concesiones = append(i.VersionRol.Concesiones,
+				concesionesFuenteBolsaPrueba(t, "fuentes/bolsa_transiciones_situacion_rrhh_v1.json",
+					puertosbolsa.AccionConsultarTransicionesSituacion, puertosbolsa.AccionPublicarTransicionesSituacion)...)
+		}
+		i.VersionRol.Concesiones = append(i.VersionRol.Concesiones,
+			concesionesFuenteBolsaPrueba(t, "fuentes/bolsa_confirmacion_aceptacion_rrhh_v1.json",
+				puertosbolsa.AccionConfirmarAceptacionDirecta)...)
+		i.VersionRol.Version = 24
+		i.VersionRol.PublicadaPor = "seguridad:acto-gobernado"
+		i.AsignacionPerfil.VersionRolRef = i.VersionRol.Referencia()
+		i.AsignacionPerfil.EmitidaPor = "identidad:acto-gobernado"
+		i.ControlVigenciaVersionRol.VersionRolRef = i.VersionRol.Referencia()
+		i.ControlVigenciaVersionRol.ActualizadoPor = i.VersionRol.PublicadaPor
+		if err := i.Validar(); err != nil {
+			t.Fatal(err)
+		}
+		autoridad.leida, autoridad.encontrada = instantaneaPublicadaDesarrollo{instantanea: i}, true
+		if err := p.PublicarInicial(context.Background()); err != nil || autoridad.publicadas != 0 ||
+			autoridad.preparadas != 0 || p.instantanea.VersionRol.Version != 24 {
+			t.Fatalf("F171 sin B1 y con S6=%v no se adoptó: %v", conS6, err)
+		}
 	}
 }
 
