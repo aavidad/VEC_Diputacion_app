@@ -74,7 +74,7 @@ func escenarioDerivacionAplicacionPrueba(t *testing.T) (ports.SolicitudDerivacio
 		PadreRef: padre.Referencia, VersionPadre: 6, HijoRef: ports.HijoRefDerivacionNombramiento(padre.OrganizacionRef, padre.Referencia, 1),
 		OfertaRef: "oferta:" + strings.Repeat("a", 64), NumeroPlaza: 1, SecuenciaPlaza: 1,
 		ParticipacionRef: "participacion:ct:sintetica:01", ReciboAdjudicacionRef: "recibo:adjudicacion:sintetica:01",
-		ClaveIdempotencia: "a1234567-1234-4123-8123-123456789abc", UnidadRef: padre.Asignacion.UnidadRef, PadreCanonico: string(b),
+		ClaveIdempotencia: "a1234567-1234-4123-8123-123456789abc", UnidadRef: padre.Asignacion.UnidadRef,
 	}
 	instante := padre.ActualizadoEn.Add(time.Minute).Truncate(time.Second)
 	r := ports.ResultadoDerivacionNombramiento{
@@ -84,7 +84,7 @@ func escenarioDerivacionAplicacionPrueba(t *testing.T) (ports.SolicitudDerivacio
 		ReciboRef: "recibo:derivacion:sintetica:01", AuditoriaRef: "auditoria:ct:sintetica:01", ConfirmadaEn: instante,
 	}
 	r.Expediente, err = domain.NuevoExpedienteDerivado(domain.AltaExpedienteDerivado{
-		Padre: padre, Referencia: s.HijoRef, OfertaRef: s.OfertaRef, NumeroPlaza: 1,
+		Padre: padre, PreimagenPadreJSON: string(b), Referencia: s.HijoRef, OfertaRef: s.OfertaRef, NumeroPlaza: 1,
 		ActorRef: "actor:rrhh:sintetico:01", ReciboRef: r.ReciboRef, CreadaEn: instante,
 	})
 	if err != nil || r.ValidarPara(s) != nil {

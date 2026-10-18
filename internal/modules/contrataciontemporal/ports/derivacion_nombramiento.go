@@ -36,7 +36,7 @@ var (
 )
 
 // Entrada: solo las referencias elegidas por RRHH; el preparador confiable
-// resuelve organización, unidad, hijo y snapshot exacto del padre.
+// resuelve organización, unidad e identidad opaca del hijo.
 type EntradaDerivacionNombramiento struct {
 	PadreRef              string `json:"padre_ref"`
 	VersionPadre          uint64 `json:"version_padre"`
@@ -76,7 +76,6 @@ type SolicitudDerivacionNombramiento struct {
 	ReciboAdjudicacionRef string `json:"recibo_adjudicacion_ref"`
 	ClaveIdempotencia     string `json:"clave_idempotencia"`
 	UnidadRef             string `json:"unidad_ref"`
-	PadreCanonico         string `json:"padre_canonico"`
 }
 
 func (s SolicitudDerivacionNombramiento) Entrada() EntradaDerivacionNombramiento {
@@ -84,33 +83,11 @@ func (s SolicitudDerivacionNombramiento) Entrada() EntradaDerivacionNombramiento
 		s.SecuenciaPlaza, s.ParticipacionRef, s.ReciboAdjudicacionRef, s.ClaveIdempotencia}
 }
 
-func (s SolicitudDerivacionNombramiento) Padre() (domain.Expediente, error) {
-	var padre domain.Expediente
-	if len(s.PadreCanonico) < 2 || len(s.PadreCanonico) > MaximoMaterialDerivacionNombramiento ||
-		json.Unmarshal([]byte(s.PadreCanonico), &padre) != nil || padre.Validar() != nil {
-		return domain.Expediente{}, ErrDerivacionNombramientoInvalida
-	}
-	b, err := json.Marshal(padre)
-	if err != nil || string(b) != s.PadreCanonico || padre.InstruccionCompartida != nil ||
-		padre.OrganizacionRef != s.OrganizacionRef || padre.Referencia != s.PadreRef ||
-		padre.Version != s.VersionPadre || padre.Asignacion == nil || padre.Asignacion.UnidadRef != s.UnidadRef ||
-		padre.Fiscalizacion == nil || (padre.Fiscalizacion.Resultado != domain.FiscalizacionFavorable &&
-		padre.Fiscalizacion.Resultado != domain.FiscalizacionFavorableConObservaciones) ||
-		padre.FaseActual != domain.FaseFiscalizacion || padre.EstadoActual != domain.EstadoEnCurso ||
-		padre.Solicitud.NumeroPersonas < 2 || s.NumeroPlaza > padre.Solicitud.NumeroPersonas {
-		return domain.Expediente{}, ErrDerivacionNombramientoInvalida
-	}
-	return padre, nil
-}
-
 func (s SolicitudDerivacionNombramiento) Canon() ([]byte, error) {
 	if s.Esquema != EsquemaSolicitudDerivacionNombramiento || s.Entrada().Validar() != nil ||
 		!domain.ReferenciaOpacaValida(s.OrganizacionRef) || !domain.ReferenciaOpacaValida(s.UnidadRef) ||
 		s.HijoRef != HijoRefDerivacionNombramiento(s.OrganizacionRef, s.PadreRef, s.NumeroPlaza) {
 		return nil, ErrDerivacionNombramientoInvalida
-	}
-	if _, err := s.Padre(); err != nil {
-		return nil, err
 	}
 	b, err := json.Marshal(s)
 	if err != nil || len(b) > MaximoMaterialDerivacionNombramiento {
@@ -148,12 +125,24 @@ type ResultadoDerivacionNombramiento struct {
 }
 
 func (r ResultadoDerivacionNombramiento) ValidarPara(s SolicitudDerivacionNombramiento) error {
-	padre, err := s.Padre()
-	if err != nil || r.Esquema != EsquemaResultadoDerivacionNombramiento ||
+	if _, err := s.Canon(); err != nil || r.Expediente.InstruccionCompartida == nil {
+		return ErrDerivacionNombramientoNoConfiable
+	}
+	i := r.Expediente.InstruccionCompartida
+	padre := i.ExpedientePadre
+	if padre.InstruccionCompartida != nil || padre.Validar() != nil ||
+		padre.OrganizacionRef != s.OrganizacionRef || padre.Referencia != s.PadreRef ||
+		padre.Version != s.VersionPadre || padre.Asignacion == nil || padre.Asignacion.UnidadRef != s.UnidadRef ||
+		padre.Fiscalizacion == nil || (padre.Fiscalizacion.Resultado != domain.FiscalizacionFavorable &&
+		padre.Fiscalizacion.Resultado != domain.FiscalizacionFavorableConObservaciones) ||
+		padre.FaseActual != domain.FaseFiscalizacion || padre.EstadoActual != domain.EstadoEnCurso ||
+		padre.Solicitud.NumeroPersonas < 2 || s.NumeroPlaza > padre.Solicitud.NumeroPersonas ||
+		r.Esquema != EsquemaResultadoDerivacionNombramiento ||
 		(r.Estado != "confirmado" && r.Estado != "replay_confirmado") ||
 		r.PadreRef != s.PadreRef || r.HijoRef != s.HijoRef || r.NumeroPlaza != s.NumeroPlaza ||
 		r.TotalPersonas != padre.Solicitud.NumeroPersonas || r.Version != 6 ||
 		r.NumeroVisible != padre.NumeroVisible+"-P"+strconv.FormatUint(uint64(s.NumeroPlaza), 10) ||
+		i.OfertaRef != s.OfertaRef || i.ReciboDerivacionRef != r.ReciboRef ||
 		!domain.ReferenciaOpacaValida(r.AceptacionRef) || !domain.ReferenciaOpacaValida(r.ReciboRef) ||
 		!domain.ReferenciaOpacaValida(r.AuditoriaRef) || !domain.InstanteUTCCanonico(r.ConfirmadaEn) ||
 		r.Expediente.Validar() != nil || len(r.Expediente.Actuaciones) != 1 {
@@ -161,7 +150,8 @@ func (r ResultadoDerivacionNombramiento) ValidarPara(s SolicitudDerivacionNombra
 	}
 	a := r.Expediente.Actuaciones[0]
 	construido, err := domain.NuevoExpedienteDerivado(domain.AltaExpedienteDerivado{
-		Padre: padre, Referencia: r.HijoRef, OfertaRef: s.OfertaRef, NumeroPlaza: s.NumeroPlaza,
+		Padre: padre, PreimagenPadreJSON: i.PreimagenPadreJSON,
+		Referencia: r.HijoRef, OfertaRef: s.OfertaRef, NumeroPlaza: s.NumeroPlaza,
 		ActorRef: a.ActorRef, ReciboRef: r.ReciboRef, CreadaEn: r.ConfirmadaEn,
 	})
 	// Clonar normaliza las listas vacías del JSONB sin cambiar hechos ni
