@@ -143,7 +143,7 @@ RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET timezone='UTC' SET row_security=on
 SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
 DECLARE d jsonb;c jsonb;consumo record;previa record;politica record;entrada record;
- version_actual bigint;huella text;referencia text;recibo text;evento text;
+ version_actual bigint;huella text;contexto_sha text;referencia text;recibo text;evento text;
  instante timestamptz(6);resultado jsonb;hechos jsonb;conjunto jsonb;es_replay boolean;origen record;
 BEGIN
  IF session_user=current_user
@@ -175,11 +175,15 @@ BEGIN
  OR c->>'huella_politica_ofertas_sha256' !~ '^[0-9a-f]{64}$'
  THEN RAISE EXCEPTION 'B133: contexto inválido' USING ERRCODE='22023'; END IF;
  huella:=encode(sha256(convert_to(p::text,'UTF8')),'hex');
+ -- Canon del recurso V3, igual que B115 y RecursoAutorizable en Go.
+ contexto_sha:=encode(sha256(convert_to('{"ambitos":{"ambito_ref":'||to_json(c->>'ambito_ref')::text||
+  ',"unidad_ref":'||to_json(c->>'unidad_ref')::text||
+  '},"atributos":{"material_sha256":"'||huella||'"}}','UTF8')),'hex');
  SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.consumir_comprobacion_ofrecimiento_v1(
   p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
  d:=convert_from(p_decision,'UTF8')::jsonb;
  IF consumo.efecto_ref IS DISTINCT FROM c->>'participacion_ref'
- OR consumo.huella_efecto_sha256 IS DISTINCT FROM huella
+ OR consumo.huella_efecto_sha256 IS DISTINCT FROM contexto_sha
  OR d#>>'{ambitos,unidad_ref}' IS DISTINCT FROM c->>'unidad_ref'
  OR d#>>'{ambitos,ambito_ref}' IS DISTINCT FROM c->>'ambito_ref'
  THEN RAISE EXCEPTION 'B133: decisión ajena al acto' USING ERRCODE='42501'; END IF;

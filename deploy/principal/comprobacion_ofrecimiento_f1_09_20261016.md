@@ -32,7 +32,12 @@ CONFIG NUEVA: ninguna. La aplicación conserva su arranque y sus rutas.
    escritura con autorización real, idempotencia y concurrencia sigue pendiente.
 
 La escritura recibe una solicitud JSON y las diez piezas de autorización.
-La huella del efecto es SHA-256 de la representación PostgreSQL `solicitud::text`.
+El atributo de recurso `material_sha256` es SHA-256 de la representación
+PostgreSQL `solicitud::text`. La huella del efecto es la del contexto de recurso
+V3: los ámbitos `ambito_ref` y `unidad_ref`, junto a ese atributo. Se usa el
+mismo canon que `RecursoAutorizable` y B115; la huella del material no sustituye
+la del contexto. La aplicación normaliza el JSON con PostgreSQL antes de
+solicitar la autorización, sin consultar tablas de negocio.
 La solicitud contiene `contexto`, `hechos`, `version_esperada` y
 `clave_idempotencia`. Actor, perfil y fecha salen de la autorización consumida.
 Cada hecho contiene `valor`, `documento_ref` opaca de Documentos y `huella`;
@@ -65,7 +70,7 @@ hechos y evidencia quedan en el acto, sin lector nuevo.
 Vuelta atrás: mantener desactivado el consumidor y la pantalla. No ejecutar
 DOWN ni borrar actos. Este corte no instala configuraciones al arrancar.
 
-Comprobación local del 18/10: restauración de HZ37 con sus permisos, seguida
+Comprobación local inicial del 18/10: restauración de HZ37 con sus permisos, seguida
 de B117, CT221 y B118 de main. CT233, AD290 y B133 se instalaron una vez;
 el cálculo y las denegaciones de B133 terminaron en ROLLBACK. La preimagen de
 CT233 se cotejó contra el cuerpo instalado por CT221 de main. La utilidad
@@ -74,3 +79,5 @@ su permiso de base sin TEMP. El arranque base devolvió 200 en salud y portal
 antes y después de instalar, y tras reiniciar aplicación y PostgreSQL.
 No acredita módulos activados ni registro autorizado: faltan el alta central
 completa, la escritura positiva, su recuperación y la concurrencia.
+La corrección posterior del vínculo entre el material y el contexto V3 exige
+una copia nueva y revisión focal antes de actualizar esta evidencia.
