@@ -8,9 +8,47 @@
  */
 import { textoPortal, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
+import { cargarTextos } from "../comun/textos.js";
 import { crearClienteJustificanteRenuncia } from "./portal-bolsas-justificante-cliente.js?v=20261015-o-justificante-bolsa-v1";
+
+const TEXTOS_EXCLUSIONES = (await cargarTextos("bolsa-ofertas")).seccion("seguimiento_exclusiones");
+
+export function renderizarMotivosNoOfrecimiento(origen, { escaparHTML, numero, instanteVisible, candidatos = [], exclusionesDesde = 0 }) {
+  const tx = (clave, variables = {}) => {
+    let valor = TEXTOS_EXCLUSIONES[clave];
+    for (const [nombre, reemplazo] of Object.entries(variables)) valor = valor.replaceAll(`{${nombre}}`, String(reemplazo));
+    return escaparHTML(valor);
+  };
+  const contenido = (() => {
+    if (!origen) return `<p>${tx("sin_lectura")}</p>`;
+    if (origen.estado === "sin_permiso") return `<p>${tx("sin_permiso")}</p>`;
+    if (origen.estado === "no_disponible") return `<p role="alert">${tx("no_disponible")}</p>` +
+      `<div class="acciones-vista"><button type="button" class="boton-secundario" data-bolsa-accion="reintentar-candidatos">${escaparHTML(textoPortal("txt_reintentar"))}</button></div>`;
+    const pagina = origen.pagina;
+    if (!pagina?.exclusiones?.length) return `<p>${tx("vacio")}</p>`;
+    const nombresPorParticipacion = new Map(candidatos.map((candidato) => [candidato.participacion_ref, candidato.nombre_visible]));
+    const cuerpo = pagina.exclusiones.map((fila) => {
+      const motivo = Object.hasOwn(TEXTOS_EXCLUSIONES, fila.motivo_clave)
+        ? TEXTOS_EXCLUSIONES[fila.motivo_clave] : TEXTOS_EXCLUSIONES.motivo_no_disponible;
+      const version = pagina.criterios_ofrecimiento?.version_politica_ofertas;
+      const hechos = fila.hechos_relacion.length
+        ? `<ul>${fila.hechos_relacion.map((hecho) => `<li>${tx(`hecho_${hecho.tipo}`)}: <time datetime="${escaparHTML(hecho.ocurrido_en)}">${escaparHTML(instanteVisible(hecho.ocurrido_en))}</time></li>`).join("")}</ul>`
+        : `<p>${tx("sin_hechos")}</p>`;
+      const detalle = `<details><summary>${tx("ver_fundamento", { numero: numero(fila.hechos_relacion.length) })}</summary>` +
+        (version ? `<p>${tx("version_regla", { version: numero(version) })}</p>` : "") + hechos + `</details>`;
+      const nombre = nombresPorParticipacion.get(fila.participacion_ref) || fila.nombre_visible;
+      return `<tr><td>${numero(fila.orden_acta)}</td><td>${nombre
+        ? escaparHTML(nombre) : tx("persona_sin_nombre", { posicion: numero(fila.orden_acta) })}</td><td>${escaparHTML(motivo)}${detalle}</td></tr>`;
+    }).join("");
+    return `<p>${tx("total", { numero: numero(pagina.total_exclusiones) })}</p>` +
+      `<div class="tabla-contenedor" tabindex="0" role="region" aria-labelledby="bolsa-motivos-titulo"><table class="tabla-datos"><thead><tr><th scope="col">${tx("col_orden")}</th><th scope="col">${tx("col_persona")}</th><th scope="col">${tx("col_motivo")}</th></tr></thead><tbody>${cuerpo}</tbody></table></div>` +
+      `<div class="acciones-vista">${exclusionesDesde > 0 ? `<button type="button" class="boton-secundario" data-bolsa-accion="primera-pagina-exclusiones">${tx("primera_pagina")}</button>` : ""}` +
+      `${pagina.hay_mas ? `<button type="button" class="boton-secundario" data-bolsa-accion="pagina-exclusiones">${tx("pagina_siguiente")}</button>` : ""}</div>`;
+  })();
+  return `<section class="panel" aria-labelledby="bolsa-motivos-titulo"><div class="cabecera-panel"><h3 id="bolsa-motivos-titulo">${tx("titulo")}</h3></div><div class="cuerpo-panel">${contenido}</div></section>`;
+}
 
 /** Canales activos: el correo siempre (se envía al emitir); el teléfono si el servidor lo publica. */
 export function canalesAviso(datos) {
@@ -189,7 +227,10 @@ export function renderizarSeguimientoLlamamiento({
       <div class="acciones-vista"><button type="button" class="boton-primario" data-bolsa-accion="reintentar-candidatos">${textoPortal("txt_reintentar")}</button></div>`);
   }
   const { telefono } = canalesAviso(estadoCandidatos.datos);
-  if (!telefono) return estadoPanel("status", `<p>${textoPortal("panel_seg_no_disponible")}</p>`);
+  const motivos = renderizarMotivosNoOfrecimiento(estadoCandidatos.datos.exclusiones_origen,
+    { escaparHTML, numero, instanteVisible, candidatos: estadoCandidatos.datos.candidatos || [],
+      exclusionesDesde: estadoCandidatos.exclusionesDesde || 0 });
+  if (!telefono) return `${estadoPanel("status", `<p>${textoPortal("panel_seg_no_disponible")}</p>`)}${motivos}`;
   const respuestas = estadoCandidatos.datos.respuestas_portal;
   if (respuestas?.llamamiento_ref !== seguimiento.llamamiento_ref || !Array.isArray(respuestas.respuestas)) {
     return estadoPanel("alert", `<p><strong>${textoPortal("panel_seg_error_titulo")}</strong></p><p>${textoPortal("panel_seg_error")}</p>
@@ -199,7 +240,7 @@ export function renderizarSeguimientoLlamamiento({
     candidatos: estadoCandidatos.datos.candidatos || [], contactos: estadoCandidatos.datos.contactos || [],
     respuestasPortal: respuestas.respuestas, llamamientoRef: seguimiento.llamamiento_ref, telefono,
   });
-  if (filas.length === 0) return estadoPanel("status", `<p>${textoPortal("panel_seg_vacio")}</p>`);
+  if (filas.length === 0) return `${estadoPanel("status", `<p>${textoPortal("panel_seg_vacio")}</p>`)}${motivos}`;
   // Si alguien aceptó, el llamamiento está cubierto. Si nadie aceptó y nadie
   // queda pendiente, el siguiente paso es otro llamamiento de esta bolsa: el
   // asistente existente («iniciar-b7») con el origen de la petición si se conoce.
@@ -240,5 +281,5 @@ export function renderizarSeguimientoLlamamiento({
           <tbody>${cuerpo}</tbody>
         </table>
       </div>
-    </section>`;
+    </section>${motivos}`;
 }

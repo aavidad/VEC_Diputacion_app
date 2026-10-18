@@ -275,6 +275,17 @@ recuperado solo sirve para devolver un recibo ya existente. Las lecturas de
 datos personales (ficha, contactos, detalle de expediente, consulta propia de
 méritos) también consumen V3 y quedan registradas.
 
+F1-36A prepara AD286 (`comprobar_consumo_recuperacion_firmas_ct_v2`) para
+revalidar el consumo V3 con la unidad histórica, CT228 para recuperar el acto
+original exacto y su corte, y AUT103 para publicar por el gobierno de cargos
+la operación `consultar_detalle_selectores`. Esta mantiene la acción
+`expediente.consultar`, agrega solo `selectores_recuperacion_firmas` y conserva
+las concesiones de cuadro y descarga. La ruta nominal de recuperación usa su
+audiencia ya existente y el permiso positivo `recuperar_r5` del cargo de firma,
+con los 48 campos exactos; consultar o firmar no sustituyen ese permiso.
+No incluye AUT102, CT229, la fuente
+ampliada de la ficha ni el panel; estos pertenecen a B y C.
+
 Los perfiles, roles y concesiones se publican por migración o desde
 administración con su propio gobierno (dos aprobaciones, CAS, recibo,
 auditoría). Una concesión nunca se crea por una petición de negocio.
@@ -352,6 +363,24 @@ Políticas versionadas que RRHH puede cambiar sin tocar código:
 `politica_orden_bolsa`, `politica_transiciones_situacion`, `politica_avisos_bolsa`,
 `politica_cese_bolsa`, `politica_segregacion`, `politica_ofertas_version`.
 
+El apartado opcional `criterios_ofrecimiento` de la política conserva su fuente,
+modalidad, causa y condiciones. El origen nativo de CT guarda la versión aplicada
+y los eventos usados; la concesión de lectura de origen versión 2 declara esos
+campos expresamente. El enlace contractual de B13 admite también
+`origen_llamamiento_ct_v1`, con cotejo de expediente, organización y categoría.
+Una fecha o causa ausente mantiene la comprobación pendiente cuando afecta al
+ofrecimiento; no acredita disponibilidad ni una excepción.
+
+El seguimiento `GET /api/vec/bolsa/bolsas/{bolsa}/candidatos` puede pedir
+`llamamiento` y `exclusiones_desde`. El bloque `exclusiones_origen` usa una acción
+nominal propia, acotada a bolsa y llamamiento y auditada en la misma transacción.
+Devuelve el motivo, la posición, la versión de regla y hechos por tipo y fecha.
+Sin concesión o ante un fallo, se cierra solo ese bloque. Una comprobación
+pendiente anterior a la siguiente persona elegible detiene la selección de CT
+antes de reservar y produce un diagnóstico 409 con bolsa, posición y versión.
+Esta entrega conserva la detención: el acto que acredite los hechos y habilite
+la excepción, junto con el control del plazo en CT, pertenece al corte siguiente.
+
 Ojo: las tablas de propuesta de las migraciones Bolsa `000001` y `000002`
 (`necesidad_autoritativa`, `propuesta`…) **no están instaladas en la principal**; comprobar su existencia
 antes de usarlas (`revisar-sql-vec`). Los datos de contacto van cifrados; en
@@ -403,6 +432,32 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 `plan_incorporacion_personal_b2_v1`. CT **no escribe** agregados de Bolsa ni de
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
+
+F1-36B, aún en rama, añade AUT102 y CT229 después de AD286, CT228 y AUT103
+del corte A. AUT102 comprueba por fachada nominal la asignación propia de cargo
+en la unidad histórica; solo restringe una ficha ya autorizada. CT229 forma
+los selectores desde firmas originales y guarda
+`prueba_selectores_recuperacion_rrhh_v1`, anexo privado e inmutable uno a uno
+con el acceso y recibo de ficha CT43. Conserva el sello de detalle y añade el
+sello del anexo; consumo V3, auditoría y recibos pertenecen a una transacción.
+No se activan roles ni asignaciones nuevos con estas SQL.
+
+CT230 adapta la confirmación O6 al recibo nativo
+del llamamiento constituido. Conserva las marcas canónicas de procedencia y
+evidencia y admite la ausencia de retención temporal solo bajo su contrato
+nominal completo; la rama anterior mantiene sus controles. `retener_hasta`
+es vigencia de la evidencia HMAC de Bolsa, no conservación del expediente.
+La conservación real de O6 sigue pendiente de CT-CUM-06 y de la política
+VEC-DOC-CONS-01. Activación y límites en
+[`recibo_nativo_o6_ct230_20261016.md`](../../deploy/principal/recibo_nativo_o6_ct230_20261016.md).
+
+CT231 añade una variante de fila de CT140 para la selección O6 confirmada
+pendiente de comunicación. Conserva la ruta, el lector y los once campos de
+permiso existentes; devuelve solo los ocho aplicables a la selección, con su
+versión y recibo reales. Los campos exclusivos de comunicación quedan ausentes.
+La selección se obtiene de Contratación, sin consultar tablas de Bolsa. No añade
+consumidor de autorización ni permisos por defecto. Activación y límites en
+[`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
 
 Puertos Go: `internal/modules/contrataciontemporal/ports/`; adaptadores en
 `adapters/postgres/`. Detalle técnico por migración:
@@ -756,6 +811,14 @@ ligado al expediente y a su versión, organización, unidad y plan publicado.
 Esa cobertura indica qué documentos consultar; no concede permiso de firma.
 La ficha conserva los errores de consulta de cada documento y muestra los
 cuatro documentos sin plan como pendientes, sin acciones de firma.
+
+La fuente interna de B devuelve como máximo 128 pares de `firma_ref` y selector
+(`expediente_ref`, `version_expediente`, `documento`, `paso_orden`,
+`clave_idempotencia`, `catalogo_huella`, `via`) con el recibo adicional
+(`acceso_ref`, `sello_detalle_sha256`, `sello_selectores_sha256`). En B no hay
+serializador HTTP ni panel para exponerlos. Una ficha antigua sigue con su
+contrato anterior; una lectura ampliada requiere ambos sellos, aun con lista
+vacía, y `[]` nunca autoriza un comodín.
 
 La lista de activación de #1137 ordena CT218, IS20, AUT97, CT219 y CT224. AUT97
 reconstruye el validador nominal desde su preimagen y cambia únicamente el

@@ -618,8 +618,8 @@ test("ningún módulo del portal se pide con dos URL distintas (una sola descarg
   const versionIncorporacion = versionDe(codigoCoordinador,
     "./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js");
   for (const url of [
-    "/portal-empleado/portal-bolsas-api.js?v=20261016-justificante-integracion-v3",
-    "/portal-empleado/portal-bolsas-contrato.js?v=20261013-bolsa-ranking-n4",
+    "/portal-empleado/portal-bolsas-api.js?v=20261018-f009-main-v1",
+    "/portal-empleado/portal-bolsas-contrato.js?v=20261016-r1-o-integracion-v7",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
     `/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=${versionIncorporacion}`,
   ]) assert.ok(urls.has(url), `${url}: el portal debe alcanzar ambas ramas integradas`);
@@ -654,12 +654,12 @@ test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras
   for (const modulo of [
     "/portal-empleado/modulos/auditoria/i18n.js?v=20260928-usab-auditoria-v3",
     "/portal-empleado/modulos/documentos/i18n.js?v=20260928-ppt-v2",
-    "/portal-empleado/portal-bolsas-ofertas.js?v=20261016-justificante-integracion-v3",
+    "/portal-empleado/portal-bolsas-ofertas.js?v=20261016-r1-o-integracion-v7",
     "/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2",
-    "/portal-empleado/portal-bolsas-api.js?v=20261016-justificante-integracion-v3",
-    "/portal-empleado/portal-panel-interno.js?v=20261016-f009-justificante-v8",
+    "/portal-empleado/portal-bolsas-api.js?v=20261018-f009-main-v1",
+    "/portal-empleado/portal-panel-interno.js?v=20261018-f009-main-v1",
     "/portal-empleado/portal-i18n-contratos.js?v=20260930-portales-i18n-integracion-v1",
   ]) assert.ok(!estatico.has(modulo), `${modulo} se abre solo con su pantalla`);
   const grupos = [...html.matchAll(/<template data-estilos-vista="([^"]+)">([\s\S]*?)<\/template>/g)];

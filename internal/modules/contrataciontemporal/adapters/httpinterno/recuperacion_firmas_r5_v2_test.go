@@ -64,6 +64,14 @@ type lectorRecuperacionHTTPPrueba struct {
 	cancelar context.CancelFunc
 }
 
+type fuenteRecuperacionHTTPPrueba struct{ *fuenteConsultaV2Prueba }
+
+func (f *fuenteRecuperacionHTTPPrueba) ResolverContextoConsultaFirmasR5V2(ctx context.Context) (consultafirmasv2.Contexto, error) {
+	c, err := f.fuenteConsultaV2Prueba.ResolverContextoConsultaFirmasR5V2(ctx)
+	c.UnidadRef = "unidad:rrhh:prueba"
+	return c, err
+}
+
 func (l *lectorRecuperacionHTTPPrueba) RecuperarFirmasAutorizadasV2(_ context.Context, _ ct.MaterialConsultaFirmasR5V2, _ ct.CapacidadRecuperacionFirmasV2) (ct.LecturaRecuperacionFirmasV2, error) {
 	l.llamadas++
 	l.cerrado.cerrado = true
@@ -75,10 +83,10 @@ func (l *lectorRecuperacionHTTPPrueba) RecuperarFirmasAutorizadasV2(_ context.Co
 		Recuperaciones: []ct.RecuperacionFirmaV2{}}, l.err
 }
 
-func manejadorRecuperacionHTTPPrueba(t *testing.T) (http.Handler, *fuenteConsultaV2Prueba, *autorizadorRecuperacionHTTPPrueba,
+func manejadorRecuperacionHTTPPrueba(t *testing.T) (http.Handler, *fuenteRecuperacionHTTPPrueba, *autorizadorRecuperacionHTTPPrueba,
 	*lectorRecuperacionHTTPPrueba, *intentosConsultaV2Prueba, *fabricaConsultaV2Prueba) {
 	t.Helper()
-	fuente := &fuenteConsultaV2Prueba{}
+	fuente := &fuenteRecuperacionHTTPPrueba{fuenteConsultaV2Prueba: &fuenteConsultaV2Prueba{}}
 	autorizador := &autorizadorRecuperacionHTTPPrueba{t: t}
 	marca := &registroConsultaV2Prueba{}
 	lector := &lectorRecuperacionHTTPPrueba{cerrado: marca}
@@ -103,21 +111,13 @@ func peticionRecuperacionHTTPPrueba(t *testing.T, cuerpo string) *http.Request {
 	return r.WithContext(ctx)
 }
 
-func TestRecuperacionHTTPSalidaYCanonExacto(t *testing.T) {
+func TestRecuperacionHTTPSinClaveExactaYCanonSinAlteracion(t *testing.T) {
 	h, _, a, l, intentos, _ := manejadorRecuperacionHTTPPrueba(t)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, peticionRecuperacionHTTPPrueba(t, cuerpoConsultaV2()))
-	if w.Code != http.StatusOK || a.llamadas != 1 || l.llamadas != 1 || intentos.llamadas != 0 {
-		t.Fatalf("recuperación vacía no válida: HTTP%d", w.Code)
-	}
-	var cuerpo map[string]any
-	if err := json.Unmarshal(w.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatal(err)
-	}
-	data := cuerpo["data"].(map[string]any)
-	if data["esquema"] != EsquemaRecuperacionFirmasR5V2 || data["recuperacion"] != "recuperada" ||
-		len(data["campos_no_disponibles"].([]any)) != 0 || len(data["recuperaciones"].([]any)) != 0 || data["firma_eficaz"] != false {
-		t.Fatal("la respuesta convierte el estado o inventa firma eficaz")
+	if w.Code != http.StatusBadGateway || a.llamadas != 1 || l.llamadas != 1 || intentos.llamadas != 1 ||
+		strings.Contains(w.Body.String(), "recuperaciones") {
+		t.Fatalf("recuperación sin operación exacta expuesta: HTTP%d", w.Code)
 	}
 	canon := "{\n  \"esquema\": \"sintético\", \"ñ\": \"<&\"\n}"
 	vista := proyectarRecuperacionFirmasR5V2(consultafirmasv2.ResultadoRecuperacion{

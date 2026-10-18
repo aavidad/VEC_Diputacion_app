@@ -240,6 +240,13 @@ acredita que esté disponible.
 Cada fase deja una línea de arranque con fase, resultado y causa, sin rutas, DSN
 (cadenas de conexión a la base) ni datos de configuración.
 
+La copia local se prepara con `deploy/principal/copia_local.sh` (F0-28):
+restaura el volcado y sus permisos sin credenciales globales, genera material
+de 90 días y permite reiniciar o borrar una instancia propia. Este primer
+corte arranca el portal con funciones opcionales apagadas; las conexiones y
+actos de los módulos aún siguen la guía `deploy/principal/LEEME_copia_local.md`.
+El arranque HTTP no acredita el recorrido funcional.
+
 ### Arranque de Administración
 
 `vec-admin` requiere `VEC_ADMIN_USUARIOS_CONFIG_FILE`, el fichero privado de
@@ -291,6 +298,13 @@ La confianza y las claves nuevas no pueden rebasar la raíz existente. La
 ventana breve para aplicar cada plan no se amplía. AD282 ajusta los dos
 efectos de gobierno existentes; no añade permisos ni cambia publicaciones
 anteriores. Guion: `deploy/principal/vigencia_gobierno_admin_20261015.md`.
+
+F1-64 reutiliza esa misma variable para las publicaciones técnicas nuevas de CT
+y del portal externo. Conserva la vigente al reiniciar sin el ajuste. En CT, un plazo
+inferior a 24 horas empieza al publicar y puede renovarse el mismo día con
+otra referencia; los demás conservan medianoche UTC. El portal externo parte
+siempre del instante de publicación. No cambia raíces ni claves
+legadas. Activación: `deploy/principal/vigencias_publicaciones_f1_64_20261016.md`.
 
 ### Selectores `VEC_*_ENABLED`
 
@@ -469,6 +483,18 @@ permiso.
 - El caso de uso revalida la autorización justo antes del efecto, también al
   repetir una operación. Una concesión histórica o una referencia opaca no dan
   acceso por sí solas.
+- F1-36A prepara la recuperación exacta de una firma original con la clave y
+  el corte del acto, y comprueba la unidad histórica frente a la asignación
+  vigente de quien consulta. La asignación solo restringe: no concede acceso
+  a la ficha, no exige ser el firmante original ni consulta el plan actual.
+  Los pasos anteriores salen solo si están enlazados por `FirmaAnteriorRef`
+  desde la firma exacta. Se verifican internamente sus cánones, pero el texto
+  `CanonNominal` solo se devuelve para la firma exacta; de las anteriores se
+  entregan la referencia y la huella.
+  Una clave ausente no se sustituye por una búsqueda aproximada. El campo
+  `selectores_recuperacion_firmas` exige una concesión exacta; `[]` no es
+  comodín. La recuperación de Portafirmas sin unidad histórica sigue denegada.
+  La fuente autorizada de la ficha y el panel quedan para B y C.
 - Se conserva la separación de funciones: preparar, revisar, publicar, firmar y
   auditar requieren las personas y competencias de cada circuito. Una misma
   persona no cubre un doble control cambiando de perfil.
@@ -568,6 +594,16 @@ Una recuperación reutiliza la operación original; no se crea otra para aparent
 éxito. Tras reiniciar la aplicación y PostgreSQL, se deben ver los mismos
 recibos y fechas y nada duplicado. Una repetición o un reinicio nunca duplican
 efectos, recibos ni comunicaciones.
+
+F1-36B prepara una lectura ampliada de la ficha de Contratación temporal. La
+decisión vigente debe conceder exactamente `selectores_recuperacion_firmas`;
+una asignación propia y vigente de cargo de firma restringe el resultado a la
+organización y unidad históricas. SQL forma el selector y un anexo privado,
+inmutable y unido al recibo de esa consulta de ficha. Comprueba vigencia antes del
+cierre y en el momento de confirmar la transacción; el apunte de auditoría
+queda en la misma transacción. El recibo anterior de ficha no prueba por sí
+solo qué selectores se ofrecieron. B no publica aún esos campos por HTTP ni
+añade el panel; el ensayo SQL y la prueba de caducidad siguen pendientes.
 
 ## 8. Protección de datos
 
