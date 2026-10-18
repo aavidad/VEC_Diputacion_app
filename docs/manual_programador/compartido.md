@@ -501,8 +501,6 @@ func (c *Catalog) Lookup(locale, key string) (string, bool)
 func (c *Catalog) Message(locale, key string) (string, bool)
 
 func (c *Catalog) T(locale, key string) string
-
-func (c *Catalog) Translate(locale, key string) string
 ```
 
 ## Paquete `internal/vec/canonico/almacen`
