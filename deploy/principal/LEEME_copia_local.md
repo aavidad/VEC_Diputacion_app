@@ -495,6 +495,18 @@ La preparación se invoca una sola vez; un resultado incierto se concilia con
 el mismo plan y recibo. El reinicio solo arranca y comprueba lo ya preparado.
 La parada exige que PID, ejecutable propio e inicio del proceso coincidan.
 
+Si se interrumpe la preparación, conserva la instancia y su carpeta `admin`.
+No repitas `crear` ni la fase `preparar`. Mantén PostgreSQL y la aplicación
+con su sellador activos; Administración debe estar parada. La continuación
+nativa del mismo paquete se documenta en `LEEME.continuacion-ad295.md`:
+`continuar_admin_runtime_ad295.py --repo … --kit … --equipo … --instancia …
+--sid … --config-gobierno … --acuse-gobierno … --salida-verificacion …
+--comprobar` coteja por lectura el mismo gobierno. Después, el comando sin
+`--comprobar`, con otra salida nueva, continúa únicamente el runtime que falta.
+Usa la revisión, el identificador PostgreSQL y las rutas de esa copia; los
+informes nuevos quedan junto al acuse original. Un fallo de cotejo detiene
+la continuación y conserva los archivos para diagnóstico.
+
 Esta integración está en preparación: falta acreditar el ejecutor H6 sobre
 la candidata propia y el recorrido de ambos administradores. El suplemento
 del segundo RRHH queda aparcado por dirección: el ámbito antiguo de
