@@ -225,6 +225,9 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// Descarga de borradores de la consulta de detalle (AD199/CT177).
 		ports.AudienciaConsumoDescargaBorradorRRHHV3,
 		ports.AudienciaVincularEmisionBolsa,
+		ports.AudienciaVincularOfertaBolsaCT,
+		"vec_bolsa_llamamientos.oferta_ct.intencion_cerrar.v1",
+		"vec_contratacion_temporal.seleccion_oferta.descartar.v1",
 		// CT131: sólo al activar el gobierno de plantillas sintéticas.
 		audienciaCatalogoPlantillasCT,
 		"vec_contratacion_temporal.ajustes_reglas.v1",

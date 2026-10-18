@@ -75,6 +75,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		// Llamamiento: su autoridad decide en el PDP común (frontera por ruta
 		// y método en contratacion_temporal_llamamiento_pdp_comun_desarrollo.go).
 		httpinterno.RutaSeleccionLlamamiento:              {pdpCT(http.MethodPost)},
+		httpinterno.RutaConsultaEstadoSeleccionOferta:     {pdpCT(http.MethodGet)},
 		httpinterno.RutaRegistroComunicacionLlamamiento:   {pdpCT(http.MethodPost)},
 		httpinterno.RutaConsultaComunicacionesExpediente:  {pdpCT(http.MethodGet)},
 		httpinterno.RutaRegistroRespuestaRecibida:         {pdpCT(http.MethodPost)},
@@ -243,6 +244,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		rutaPlantillasDocumentalCTDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
+		r.URL.Path == httpinterno.RutaConsultaEstadoSeleccionOferta ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||
 		r.URL.Path == httpinterno.RutaConsultaReciboRespuesta ||
 		r.URL.Path == httpinterno.RutaConsultaComunicacionesExpediente ||

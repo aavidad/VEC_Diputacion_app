@@ -54,8 +54,8 @@ def guardar(ruta, valor):
 
 def memoria():
     disponible = int(re.search(r'MemAvailable:\s+(\d+)', Path('/proc/meminfo').read_text())[1])
-    if disponible < 40 * 1024**2:
-        raise ValueError('Menos de 40 GiB disponibles; retire solo sus copias sin uso y avise en el canal')
+    if disponible < 34 * 1024**2:
+        raise ValueError('Menos de 34 GiB disponibles (32 para el sistema y 2 para la copia); retire solo sus copias sin uso y avise en el canal')
 
 
 def puerto_libre(puerto):
@@ -160,7 +160,7 @@ class Copia:
                            stderr=subprocess.PIPE, check=True, timeout=120)
         with (self.raiz / 'roles.sql').open('wb') as destino:
             ejecutar([sys.executable, REPO / 'deploy/principal/copia_local_roles.py',
-                      self.raiz / 'esquema.sql', *acl], salida=destino)
+                      self.raiz / 'esquema.sql', *acl, '--roles-b119'], salida=destino)
         self.sql(self.raiz / 'roles.sql', 'restauracion.log')
         with dump.open('rb') as fuente, (self.raiz / 'restauracion.log').open('ab') as destino:
             subprocess.run(['docker', 'exec', '-i', '-u', 'postgres', self.nombre,

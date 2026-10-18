@@ -43,8 +43,9 @@ func TestSeleccionLlamamientoOrquestaPrimeraPosicionEvaluable(t *testing.T) {
 			e.llamamientos.llamadas, e.llamamientos.creaciones)
 	}
 	tipo := reflect.TypeOf(SolicitudSeleccionLlamamiento{})
-	if tipo.NumField() != 3 || tipo.Field(0).Name != "ExpedienteRef" ||
-		tipo.Field(1).Name != "VersionEsperada" || tipo.Field(2).Name != "ClaveIdempotencia" {
+	if tipo.NumField() != 4 || tipo.Field(0).Name != "ExpedienteRef" ||
+		tipo.Field(1).Name != "VersionEsperada" || tipo.Field(2).Name != "ClaveIdempotencia" ||
+		tipo.Field(3).Name != "RecuperarOferta" || tipo.Field(3).Type.Kind() != reflect.Bool {
 		t.Fatalf("la entrada permite elegir bolsa/candidato/posición: %v", tipo)
 	}
 }

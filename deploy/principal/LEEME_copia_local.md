@@ -34,7 +34,7 @@ documentos; compruébalo antes de darlo por bueno y corrige esta receta.
   administradores de copia y los clientes y configuraciones privadas de cada
   módulo. Pídeselo a dirección si no lo tienes.
 - Memoria: el sistema conserva siempre 32 GB. Antes de restaurar o compilar,
-  `free -g` debe dar 40 GB disponibles o más; si no, no restaures ni compiles,
+  `free -g` debe dar 34 GB disponibles o más (32 para el sistema y 2 para la copia); si no, no restaures ni compiles,
   borra copias y temporales tuyos que ya no uses y avisa en el canal. No toques
   copias ajenas.
 - Todo el trabajo va en memoria, bajo `/dev/shm/vec`:
@@ -90,6 +90,13 @@ crear roles `NOLOGIN`. El guion no abre ni restaura el fichero de roles
 globales, sus contraseñas ni sus membresías. La restauración conserva las ACL
 de los objetos; después aplica las ACL de la base y los tipos. No convierte
 esos roles en identidades operativas de la aplicación.
+
+F0-31: antes de las migraciones, el guion crea también
+`vec_externo_documentos_bolsa_datos` y `vec_interno_documentos_bolsa_rrhh`
+como `NOLOGIN`, aunque no aparezcan en el respaldo. B119 necesita ambos
+nombres. No se añaden contraseñas, membresías ni permisos; la preparación
+documental posterior sigue siendo necesaria para usarlos desde el portal.
+Si el respaldo ya cita uno de esos nombres, se crea una sola vez.
 
 El generador común crea CA, TLS y certificados de RRHH e Intervención de
 90 días. `VEC_DESARROLLO_VIGENCIA_DIAS` permite de 60 a 90 días al invocarlo
@@ -369,5 +376,5 @@ mismo volcado y las listas necesarias.
 | Rechazo de una fecha que es el mismo instante | Representación distinta: AUT32 compara texto con el canon nominal; CA25 y los motivos de Organización histórica exigen seis decimales | Generar las fechas en el formato canónico de cada guarda; corregir el dato de la copia |
 | Los datos de empleados firmantes piden 400 días de relación cubierta | Las asignaciones de la copia duran 90 días | Ajustar en la copia las relaciones a las vigencias existentes (P usó 89 días por SQL) |
 | Firma del paso 3 rechazada por unidad | CT224 solo admite el paso 3 con unidad y paso publicados en el plan vigente | Publicar el plan con esa unidad |
-| `free -g` por debajo de 40 GB | Copias o cachés acumuladas | No restaurar ni compilar; borrar lo propio y avisar |
+| `free -g` por debajo de 34 GB | Copias o cachés acumuladas | No restaurar ni compilar; borrar lo propio y avisar |
 | `git worktree move` falla hacia `/dev/shm` | Cambio de dispositivo | Copiar la carpeta y `git worktree repair` |
