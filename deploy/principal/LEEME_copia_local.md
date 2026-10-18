@@ -91,6 +91,13 @@ globales, sus contraseñas ni sus membresías. La restauración conserva las ACL
 de los objetos; después aplica las ACL de la base y los tipos. No convierte
 esos roles en identidades operativas de la aplicación.
 
+F0-31: antes de las migraciones, el guion crea también
+`vec_externo_documentos_bolsa_datos` y `vec_interno_documentos_bolsa_rrhh`
+como `NOLOGIN`, aunque no aparezcan en el respaldo. B119 necesita ambos
+nombres. No se añaden contraseñas, membresías ni permisos; la preparación
+documental posterior sigue siendo necesaria para usarlos desde el portal.
+Si el respaldo ya cita uno de esos nombres, se crea una sola vez.
+
 El generador común crea CA, TLS y certificados de RRHH e Intervención de
 90 días. `VEC_DESARROLLO_VIGENCIA_DIAS` permite de 60 a 90 días al invocarlo
 por separado; el guion de copia usa 90. Un material existente se verifica,
