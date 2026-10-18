@@ -300,7 +300,7 @@ function renderizarAceptacionDirecta(candidato, flujo, escaparHTML) {
     <button type="button" class="boton-primario" data-b8-accion="directa-actualizar">${textoPortal("txt_directa_actualizar")}</button>`;
   else contenido = `<p role="status">${textoPortal("txt_directa_confirmada")} ${acto.recibo.reutilizada ? textoPortal("txt_respuesta_recuperada") : ""}</p>
     <p>${textoPortal("txt_directa_fecha")}: <time datetime="${escaparHTML(acto.recibo.resuelta_en)}">${escaparHTML(instanteLegible(acto.recibo.resuelta_en))}</time></p>
-    <details><summary>${textoPortal("txt_directa_ver_referencias")}</summary><dl class="datos-clave"><div><dt>${textoPortal("txt_directa_ver_referencias")}</dt><dd><code>${escaparHTML(acto.recibo.recibo_ref)}</code></dd></div></dl></details>`;
+    <p>${justificanteTraducido(acto.recibo.recibo_ref, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>`;
   return `<section class="panel-separado" data-directa-raiz>${titulo}${hechos}${contenido}${acto.error ? `<p class="mensaje-error" role="alert">${escaparHTML(acto.error)}</p>` : ""}</section>`;
 }
 

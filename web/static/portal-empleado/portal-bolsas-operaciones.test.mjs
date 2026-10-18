@@ -643,7 +643,8 @@ test("aceptación directa solo aparece con marca, llamamiento y fecha; el POST c
     assert.match(peticiones[0].ruta, /\/respuestas\/llamamiento:[a-f0-9]{64}\/confirmacion$/u);
     assert.equal(estado.modalFicha.operacionesB8.directa.recibo.recibo_ref, "recibo:1");
     assert.match(visible(), /16\/10\/26, 13:00/u); assert.equal(recargas, 1);
-    assert.match(visible(), /<dl class="datos-clave">/u, "la referencia larga usa el contenedor común que parte el texto en móvil");
+    assert.match(visible(), /data-copiar-justificante="recibo:1"/u, "el recibo reutiliza el botón común de copia sin mostrar la referencia larga");
+    assert.doesNotMatch(visible(), />recibo:1</u);
     const focoAntesDeRecargar = focos.length;
     soltarRecarga();
     await new Promise((resolve) => setImmediate(resolve));
