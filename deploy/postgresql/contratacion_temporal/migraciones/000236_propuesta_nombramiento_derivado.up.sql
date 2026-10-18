@@ -213,7 +213,7 @@ CREATE OR REPLACE FUNCTION vec_contratacion_temporal.leer_antecedente_propuesta_
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'pg_catalog', 'pg_temp'
+ SET search_path=pg_catalog,pg_temp
  SET row_security TO 'on'
  SET "TimeZone" TO 'UTC'
  SET lock_timeout TO '2s'
@@ -443,14 +443,13 @@ BEGIN
     END IF;
     RAISE EXCEPTION 'CT211: consulta sin resultado' USING ERRCODE='P0615';
 END
-$function$
-
+$function$;
 
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.registrar_propuesta_formalizacion_nativa_ct211_v1(p_material text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'pg_catalog', 'pg_temp'
+ SET search_path=pg_catalog,pg_temp
  SET row_security TO 'on'
  SET "TimeZone" TO 'UTC'
  SET lock_timeout TO '2s'
@@ -866,8 +865,7 @@ EXCEPTION
     WHEN serialization_failure OR deadlock_detected OR lock_not_available THEN
         RAISE EXCEPTION 'propuesta no disponible' USING ERRCODE='P0614';
 END
-$function$
-
+$function$;
 
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.proteger_version_circuito_ct163()
 RETURNS trigger LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET row_security=on SET search_path=pg_catalog,pg_temp
