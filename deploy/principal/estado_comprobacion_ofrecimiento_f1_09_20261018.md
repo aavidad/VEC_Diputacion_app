@@ -20,7 +20,7 @@ lectores independientes y conserva el orden y la elegibilidad actuales.
    sin política de criterios y la recuperación de una reserva anterior.
 
 Lista propia: `lista_sql_codexr_estado_comprobacion_f1_09_20261018.txt`.
-Añadir sus dos filas a la lista única de main al llegar su turno en la cadena.
+La lista única incluye sus dos filas; su instalación espera el primer corte y AD288.
 Las preimágenes proceden de los cuerpos instalados por B118, CT233 y AD276.
 Las concesiones, el apunte de auditoría y los permisos de ejecución se conservan.
 El ejecutor no obtiene lectura directa de los hechos. La reserva histórica
