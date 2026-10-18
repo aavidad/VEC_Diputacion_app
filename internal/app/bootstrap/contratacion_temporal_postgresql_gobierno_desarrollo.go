@@ -218,12 +218,16 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		s2[0].Audiencia,
 		s2[1].Audiencia,
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
+		puertosbolsa.AudienciaPublicarTransicionesSituacion,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
 		postgrescontratacion.AudienciaConsultaCircuitoRRHH,
 		// Descarga de borradores de la consulta de detalle (AD199/CT177).
 		ports.AudienciaConsumoDescargaBorradorRRHHV3,
 		ports.AudienciaVincularEmisionBolsa,
+		ports.AudienciaVincularOfertaBolsaCT,
+		"vec_bolsa_llamamientos.oferta_ct.intencion_cerrar.v1",
+		"vec_contratacion_temporal.seleccion_oferta.descartar.v1",
 		// CT131: sólo al activar el gobierno de plantillas sintéticas.
 		audienciaCatalogoPlantillasCT,
 		"vec_contratacion_temporal.ajustes_reglas.v1",
@@ -310,6 +314,9 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// preferencias entre bolsas del aspirante (AD248), ambas externas.
 		audienciaPresentarAlegacionExternaV3,
 		puertosbolsa.AudienciaOrdenarPreferenciasBolsas,
+		// Preferencias entre bolsas desde la sesión corporativa (AD279); solo
+		// con VEC_BOLSA_PREFERENCIAS_INTERNA_ENABLED=true.
+		puertosbolsa.AudienciaOrdenarPreferenciasBolsasInterna,
 		// Descarga de justificantes: dos consumidores nominales de RRHH.
 		audienciaJustificanteBolsaRRHH,
 		audienciaJustificanteBolsaPrepararRRHH,

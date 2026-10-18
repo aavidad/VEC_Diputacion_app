@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { createHash, webcrypto } from "node:crypto";
 import { File } from "node:buffer";
 import { readFile } from "node:fs/promises";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261016-ct231-integracion-v1";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261018-t-f147-archivo-v1";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261018-t-f147-conectada-v2";
 
 
 export const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
@@ -61,7 +61,7 @@ export function claveDePrueba(raiz) {
   return (operacion) => raiz.borradores?.[operacion]?.elements.namedItem("clave_idempotencia")?.value
     ?? globalThis.crypto.randomUUID();
 }
-export const CONTEXTO = Object.freeze({ expediente_ref: EXPEDIENTE, version_esperada: 6 });
+export const CONTEXTO = Object.freeze({ expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 });
 export function montar(raiz, cliente = {}, extras = {}) {
   return montarFormularioLlamamiento({
     contexto: CONTEXTO, generarClaveIdempotencia: claveDePrueba(raiz),
@@ -79,7 +79,7 @@ export function estadoSeleccionado(expedienteRef = EXPEDIENTE) {
   return {
     vista: "expediente", carga: "listo", expediente_ref: expedienteRef,
     cuadro: { demostracion: false, expedientes: [{ expediente_ref: expedienteRef, version: 6, fase_clave: "llamamiento" }] },
-    expediente: { demostracion: false, expediente_ref: expedienteRef, version: 6,
+    expediente: { demostracion: false, expediente_ref: expedienteRef, version: 6, numero_personas: 1,
       numero_visible: "CT-SINTETICO-001", cabecera: [], fases: [], tareas: [],
     },
     tipo_mensaje: "informacion", mensaje_clave: "estado_expediente_listo", ocupado: false,

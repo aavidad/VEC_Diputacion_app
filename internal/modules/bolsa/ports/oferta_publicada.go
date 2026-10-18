@@ -18,6 +18,8 @@ var (
 	ErrOfertaNoDisponible           = errors.New("bolsa: ofertas publicadas no disponibles")
 	ErrOfertaInvalida               = errors.New("bolsa: oferta invalida")
 	ErrOfertaConflicto              = errors.New("bolsa: clave de oferta reutilizada con otro comando")
+	ErrOfertaRevisionAvisos         = errors.New("bolsa: revisión de avisos cambiada")
+	ErrOfertaAvisoEnCurso           = errors.New("bolsa: aviso en curso o no incierto")
 	ErrOfertaElegiblesInsuficientes = errors.New("bolsa: plazas superiores a personas elegibles")
 	ErrOfertaYaResuelta             = errors.New("bolsa: la oferta ya esta resuelta")
 	ErrOfertaPlazoAbierto           = errors.New("bolsa: el plazo de disposicion sigue abierto")
@@ -121,18 +123,22 @@ type ResolucionOferta struct {
 
 // OfertaPublicada es la proyección de una oferta en un instante.
 type OfertaPublicada struct {
-	OfertaRef          string                   `json:"oferta_ref"`
-	ReciboRef          string                   `json:"recibo_ref"`
-	BolsaRef           string                   `json:"bolsa_ref"`
-	Datos              dominiobolsa.DatosOferta `json:"datos"`
-	Plazo              PlazoOferta              `json:"plazo"`
-	PublicadaEn        time.Time                `json:"publicada_en"`
-	VenceAntesDe       time.Time                `json:"vence_antes_de"`
-	Estado             string                   `json:"estado"`
-	Disposiciones      []DisposicionOferta      `json:"disposiciones"`
-	DisposicionesTotal int                      `json:"disposiciones_total"`
-	Propuesta          *PropuestaOferta         `json:"propuesta"`
-	Resolucion         *ResolucionOferta        `json:"resolucion"`
+	Aviso                       *AvisosOferta            `json:"aviso,omitempty"`
+	ReintentoAviso              *ReintentoAvisoOferta    `json:"reintento_aviso,omitempty"`
+	AvisoConfiguracionPendiente bool                     `json:"aviso_configuracion_pendiente,omitempty"`
+	VersionTokenAviso           string                   `json:"-"`
+	OfertaRef                   string                   `json:"oferta_ref"`
+	ReciboRef                   string                   `json:"recibo_ref"`
+	BolsaRef                    string                   `json:"bolsa_ref"`
+	Datos                       dominiobolsa.DatosOferta `json:"datos"`
+	Plazo                       PlazoOferta              `json:"plazo"`
+	PublicadaEn                 time.Time                `json:"publicada_en"`
+	VenceAntesDe                time.Time                `json:"vence_antes_de"`
+	Estado                      string                   `json:"estado"`
+	Disposiciones               []DisposicionOferta      `json:"disposiciones"`
+	DisposicionesTotal          int                      `json:"disposiciones_total"`
+	Propuesta                   *PropuestaOferta         `json:"propuesta"`
+	Resolucion                  *ResolucionOferta        `json:"resolucion"`
 	// ConfirmacionAdjudicacion procede de la versión de política inmovilizada
 	// por la oferta. Vacía en políticas anteriores a la aceptación previa.
 	ConfirmacionAdjudicacion string `json:"confirmacion_adjudicacion,omitempty"`
@@ -161,6 +167,30 @@ type SolicitudConsultarOfertas struct {
 	ContextoActor dominiovec.ContextoActor
 	BolsaRef      string
 	Limite        int
+}
+
+type SolicitudReintentarAvisosOferta struct {
+	Vinculo            dominiovec.VinculoAutenticacionActorV2
+	ResultadoContexto  dominiovec.ResultadoContextoActorRegistradoV2
+	BolsaRef           string
+	OfertaRef          string
+	RevisionAvisos     int64
+	ConfirmarDuplicado bool
+	ClaveIdempotencia  string
+	Correlacion        dominiovec.ReferenciaCorrelacionAutorizacionV2
+	MotivoAutorizacion dominiovec.ReferenciaEntradaCatalogo
+}
+
+type ComandoReintentarAvisosOferta struct {
+	BolsaRef, OfertaRef, ActorRef, ClaveIdempotencia string
+	UnidadRef, AmbitoRef                             string
+	RevisionAvisos                                   int64
+	ConfirmarDuplicado                               bool
+	Material                                         puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+}
+
+type RepositorioReintentosAvisosOferta interface {
+	ReintentarAvisosSinConfirmacion(context.Context, ComandoReintentarAvisosOferta) (OfertaPublicada, error)
 }
 
 // SolicitudResolverOferta registra un acto sobre una plaza: confirmar la

@@ -111,6 +111,52 @@ func TestLecturaPreferenciasPropiaRevocadaYAjena(t *testing.T) {
 	}
 }
 
+func TestLecturaPreferenciasInternaConSesionYCanalPropios(t *testing.T) {
+	e := nuevoEntorno(t)
+	autenticacion := e.autenticacion
+	autenticacion.Superficie = dominiovec.SuperficieAutenticacionInternaCorporativaV1
+	vinculo, err := dominiovec.CrearVinculoAutenticacionActorV2(t.Context(),
+		&revalidadorVinculoAplicacionAdversarial{resultado: autenticacion},
+		dominiovec.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: autenticacion.AutenticacionRef, SesionRef: autenticacion.SesionRef},
+		resolutorContextoAutorizacionV3Prueba{resultado: e.resultado}, solicitudServicioContextoActorPrueba(),
+		&relojAutorizacionServicioPrueba{ahora: e.ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.orden.Vinculo = vinculo
+	i := &e.fuente.instantanea
+	i.VersionRol.RolID = "candidato_bolsa_portal_historial_propio_desarrollo"
+	i.AsignacionPerfil.VersionRolRef = i.VersionRol.Referencia()
+	i.ControlVigenciaVersionRol.VersionRolRef = i.VersionRol.Referencia()
+	c := &i.VersionRol.Concesiones[0]
+	c.Accion = bolsa.AccionConsultarPreferenciasBolsas
+	c.ModuloID = bolsa.ModuloMiBolsa
+	c.TipoRecurso = bolsa.TipoRecursoMiBolsa
+	c.Finalidades = []string{bolsa.FinalidadPreferenciasBolsas}
+	c.CamposPermitidos = bolsa.CamposLecturaPreferenciasBolsas()
+	c.GarantiaMinima = dominiovec.AuthAssuranceHigh
+	lector := new(lectorPreferenciasAplicacionPrueba)
+	auditor := new(auditorPreferenciasAplicacionPrueba)
+	servicio, err := NuevaLecturaPreferenciasBolsasInterna(lector, auditor, e.fuente, &relojAutorizacionServicioPrueba{ahora: e.ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := servicio.ConsultarPreferencias(t.Context(), e.orden); err != nil || lector.llamadas != 1 {
+		t.Fatalf("lectura interna propia: %v", err)
+	}
+	var captura map[string]any
+	if err := json.Unmarshal(lector.captura.OrdenJSON(), &captura); err != nil || captura["canal"] != string(dominiovec.SuperficieAutenticacionInternaCorporativaV1) {
+		t.Fatalf("canal interno no ligado al vinculo: %v", captura)
+	}
+	externa, err := NuevaLecturaPreferenciasBolsas(new(lectorPreferenciasAplicacionPrueba), auditor, e.fuente, &relojAutorizacionServicioPrueba{ahora: e.ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := externa.ConsultarPreferencias(t.Context(), e.orden); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
+		t.Fatalf("sesion interna entro en la autoridad externa: %v", err)
+	}
+}
+
 func TestFalloTrasCancelacionConservaPlazoDeAuditoria(t *testing.T) {
 	e := nuevoEntorno(t)
 	ctx, cancelar := context.WithCancel(t.Context())

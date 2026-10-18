@@ -652,3 +652,62 @@ func TestConsultasRRHHDesarrolloCapacidadRespetaVentanaCertificado(t *testing.T)
 		}
 	})
 }
+
+func TestConsultaEstadoOfertaGETRevalidaCertificadoRetiradoYAjeno(t *testing.T) {
+	alta, _, principal := escenarioConsultasRRHHDesarrolloPrueba(t)
+	const ruta = httpinterno.RutaConsultaEstadoSeleccionOferta
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	registrado := []byte("certificado_sintetico_estado_oferta")
+	huella := sha256.Sum256(registrado)
+	principal.Attributes["certificate_sha256"] = hex.EncodeToString(huella[:])
+	base, err := nuevoResolvedorIdentidadDesarrollo(identidadCertificadoDesarrollo{huella: huella, principal: principal})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct {
+		nombre   string
+		cert     []byte
+		hasta    time.Time
+		retirado bool
+		admitido bool
+	}{
+		{"vigente", registrado, ahora.Add(time.Hour), false, true},
+		{"caducado", registrado, ahora.Add(-time.Minute), false, false},
+		{"retirado_del_registro", registrado, ahora.Add(time.Hour), true, false},
+		{"ajeno", []byte("certificado_sintetico_ajeno"), ahora.Add(time.Hour), false, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			certificado := &x509.Certificate{Raw: caso.cert, NotBefore: ahora.Add(-time.Hour), NotAfter: caso.hasta}
+			peticion := httptest.NewRequest(http.MethodGet, ruta, nil)
+			peticion.RemoteAddr = "127.0.0.1:41000"
+			peticion.TLS = &tls.ConnectionState{HandshakeComplete: true, Version: tls.VersionTLS13,
+				PeerCertificates: []*x509.Certificate{certificado}, VerifiedChains: [][]*x509.Certificate{{certificado, {}}}}
+			resolvedor := *base
+			if caso.retirado {
+				resolvedor.porHuella = map[[sha256.Size]byte]dominiovec.Principal{}
+			}
+			llamadas := 0
+			middleware := &revalidadorConsultasContratacionTemporalDesarrollo{
+				autoridad: &autoridadConsultasContratacionTemporalDesarrollo{
+					sello: alta.soporte.sello, resolvedor: &resolvedor},
+				siguiente: http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+					llamadas++
+					capacidad, existe := r.Context().Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+					if caso.admitido {
+						if !existe || capacidad.ruta != ruta || capacidad.metodo != http.MethodGet ||
+							capacidad.consultaRRHH == nil || capacidad.contextoOperacion == nil ||
+							!capacidad.certificadoValidoHasta.Equal(caso.hasta) {
+							t.Fatal("GET vigente sin capacidad mTLS sellada")
+						}
+					} else if existe {
+						t.Fatal("certificado no vigente o ajeno obtuvo capacidad GET")
+					}
+				}),
+			}
+			middleware.ServeHTTP(httptest.NewRecorder(), peticion)
+			if llamadas != 1 {
+				t.Fatal("la petición no recorrió exactamente una vez el revalidador")
+			}
+		})
+	}
+}
