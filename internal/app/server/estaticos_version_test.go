@@ -98,3 +98,17 @@ func TestVersionWebNoPublicaMarcasNiFijaVersionInventada(t *testing.T) {
 		}
 	}
 }
+
+func TestVersionWebManifiestosPWARevalidanConHuellaDeTextos(t *testing.T) {
+	for ruta := range versionWeb().textos {
+		if !strings.HasPrefix(ruta, "/textos/") {
+			continue
+		}
+		r := httptest.NewRequest("GET", ruta+"?huella="+huellaCatalogosTextos(), nil)
+		w := httptest.NewRecorder()
+		staticHandler().ServeHTTP(w, r)
+		if w.Code != 200 || w.Header().Get("Cache-Control") != "no-cache" || w.Header().Get("ETag") == "" {
+			t.Fatalf("el manifiesto calculado debe revalidarse: %s %d %v", ruta, w.Code, w.Header())
+		}
+	}
+}
