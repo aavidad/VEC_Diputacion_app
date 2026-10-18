@@ -408,6 +408,19 @@ externas y conserva actor y perfil en las nuevas versiones internas.
 El orden y las precondiciones de instalación están en
 `deploy/principal/candidata_hz39/aspirante/preferencias_internas.md`.
 
+F1-13 prepara una elección de modalidades con historia propia en
+`preferencia_modalidades_version`, separada de `preferencia_bolsas_version`.
+`NULL` representa todas las modalidades y `[]` una selección vacía; cada cambio
+conserva versión, recibo, actor, perfil y una instantánea de opciones que el
+servicio debe acreditar contra el catálogo vigente.
+AUT104 mantiene la lectura anterior de ocho campos y admite una proyección
+nominal de cinco campos para modalidades. B138 guarda la elección y exige
+AD291 y AUT104 antes de instalarse. La API prevista usa la ruta actual con
+`?tipo=modalidades`; el servicio, su montaje y el filtro de vista y avisos
+siguen pendientes de ensayo. La clasificación por modalidad de cada oferta
+depende de F1-11 (#1200). Ver el guion de F1-13 en
+`deploy/principal/candidata_hz39/aspirante/modalidades.md`.
+
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
 
 Un **centro** presenta una **petición** que otra persona ratifica

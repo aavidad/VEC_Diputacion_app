@@ -33,14 +33,24 @@ func catalogoPreferenciasModalidadesDesarrollo(ctx context.Context, cfg config.C
 	return catalogo, nil
 }
 
-func comprobarFuncionPreferenciasModalidades(ctx context.Context, pool *pgxpool.Pool) bool {
+func comprobarFuncionPreferenciasModalidades(ctx context.Context, pool *pgxpool.Pool) error {
 	if ctx == nil || pool == nil {
-		return false
+		return errMiBolsaNoDisponible
 	}
 	var valida bool
-	err := pool.QueryRow(ctx, `WITH funcion AS (SELECT pg_catalog.to_regprocedure($1) AS oid)
-SELECT oid IS NOT NULL AND pg_catalog.has_function_privilege(session_user,oid,'EXECUTE')
- AND NOT pg_catalog.has_function_privilege('public',oid,'EXECUTE') FROM funcion`,
+	err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
+ WHERE p.oid=pg_catalog.to_regprocedure($1) AND p.prokind='f'
+ AND session_user=current_user
+ AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+ AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(
+  coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+  WHERE a.grantee=0 AND a.privilege_type='EXECUTE'))`,
 		firmaGuardarPreferenciasModalidades).Scan(&valida)
-	return err == nil && valida
+	if err != nil {
+		return err
+	}
+	if !valida {
+		return errMiBolsaNoDisponible
+	}
+	return nil
 }

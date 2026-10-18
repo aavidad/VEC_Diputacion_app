@@ -233,8 +233,9 @@ func nuevaRutaPreferenciasBolsasInternas(cfg config.Config,
 		return fallo()
 	}
 	modalidadesHTTP := bolsahttp.NuevoHandlerPreferenciasBolsasNoDisponible()
-	if !comprobarFuncionPreferenciasModalidades(ctx, pool) {
-		slog.Warn("preferencias de modalidades internas no disponibles", "etapa", "funcion_sql")
+	if err := comprobarFuncionPreferenciasModalidades(ctx, pool); err != nil {
+		slog.Warn("preferencias de modalidades internas no disponibles", "etapa", "funcion_sql",
+			"causa", causaFalloPostgreSQLCTDesarrollo(err))
 	} else if catalogo, e := catalogoPreferenciasModalidadesDesarrollo(ctx, cfg); e != nil {
 		slog.Warn("preferencias de modalidades internas no disponibles", "etapa", "catalogo")
 	} else {
