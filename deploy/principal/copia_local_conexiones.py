@@ -3,7 +3,7 @@
 F0-08 sigue pendiente: el pool de gobierno usa SET ROLE al propietario AD3.
 La única excepción SET TRUE es su arco al migrador AD3. El volcado carece de
 membresías globales; se restaura solo el arco migrador→propietario autorizado
-por roles_up.sql. Los otros quince LOGIN reciben SET FALSE.
+por roles_up.sql. El resto de LOGIN recibe SET FALSE.
 """
 
 from __future__ import annotations
@@ -38,6 +38,9 @@ GRUPOS = {
     "VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL": "vec_bolsa_llamamientos_registrador_frontera",
     "VEC_BOLSA_POLITICA_OFERTAS_CALCULADOR_DATABASE_URL": "vec_bolsa_llamamientos_calculador_politica",
     "VEC_AUDITORIA_SELLADO_DATABASE_URL": "vec_auditoria_encadenador",
+    "VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL": "vec_bolsa_convocatorias_ejecutor_consulta",
+    "VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL": "vec_bolsa_convocatorias_proyector_gobierno",
+    "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL": "vec_bolsa_convocatorias_verificador_recibo",
 }
 
 RESULTADO = "conexiones.json"

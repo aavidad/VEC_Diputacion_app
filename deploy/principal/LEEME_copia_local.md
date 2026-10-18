@@ -369,11 +369,17 @@ el primer corte sin módulos es el arranque ya comprobado.
 
 `--admin` requiere `--modulos` y `VEC_COPIA_ADMIN_KIT`. El kit privado debe
 contener `contrato-copia-local-admin-v1.json`, las huellas de sus ocho
-preparadores y sus dos binarios de gobierno, certificados de 90 días y
+preparadores y sus tres binarios, certificados de 90 días y
 gobierno de 89 días del conjunto de capacidades 5. El guion valida el kit
 antes de restaurar y exige acuses auditados en las fases ADMIN. Si una
 confirmación queda incierta, se conserva el plan para recuperarlo; no se
 prepara otro automáticamente.
+
+Cuando termina la preparación, la copia arranca `vec-admin` con el entorno
+generado por el kit y su puerto local. `parar`, `reiniciar` y `borrar`
+gestionan también ese proceso; comprueban su ejecutable y el instante de
+creación del PID antes de enviarle una señal. Administración recibe sus
+variables propias, sin heredar las conexiones de CT.
 
 La caché de compilación común es `/dev/shm/vec/go-build`. La de módulos
 se selecciona con `GOMODCACHE` antes de ejecutar el guion; debe contener

@@ -28,6 +28,36 @@ class CopiaFalsa:
 
 
 class CopiaLocalAdminTest(unittest.TestCase):
+    def preparar_entorno(self, raiz, texto):
+        run = raiz / "admin/h10"
+        carpeta = run / "vec-admin/config"
+        carpeta.mkdir(parents=True)
+        ruta = carpeta / "entorno.env"
+        ruta.write_text(texto)
+        ruta.chmod(0o600)
+        datos = {"VEC_ADMIN_ENTORNO_FILE": str(ruta), "VEC_ADMIN_RUN": str(run),
+                 "VEC_ADMIN_ESTADO": "preparado_con_acuses"}
+        archivo = raiz / "admin_preparacion.json"
+        archivo.write_text(json.dumps(datos))
+        archivo.chmod(0o600)
+        return CopiaFalsa(raiz)
+
+    def test_entorno_no_ejecuta_expansiones_del_shell(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            copia = self.preparar_entorno(raiz,
+                    "VEC_ADMIN_ESCUCHA=127.0.0.1:18482\nVEC_ADMIN_HOST=$(orden)\n")
+            self.assertEqual(admin.entorno(copia)["VEC_ADMIN_HOST"], "$(orden)")
+
+    def test_entorno_rechaza_otra_superficie_duplicados_y_escucha_publica(self):
+        for texto in ("VEC_CT_DATABASE_URL=valor\n", "PATH=valor\n",
+                      "VEC_ADMIN_ESCUCHA=127.0.0.1:18482\nVEC_ADMIN_ESCUCHA=127.0.0.1:18483\n",
+                      "VEC_ADMIN_ESCUCHA=0.0.0.0:18482\n"):
+            with self.subTest(texto=texto), tempfile.TemporaryDirectory() as temporal:
+                copia = self.preparar_entorno(Path(temporal), texto)
+                with self.assertRaises(ValueError):
+                    admin.entorno(copia)
+
     def test_cache_comun_admite_lectura_compartida_pero_no_escritura_publica(self):
         with tempfile.TemporaryDirectory() as temporal:
             cache = Path(temporal) / "go-build"

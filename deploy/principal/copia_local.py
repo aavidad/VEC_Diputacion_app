@@ -217,14 +217,15 @@ class Copia:
         guardar(self.estado, estado)
         self.arrancar()
         if args.admin:
-            self.parar()
-            self.pg()
+            # La aplicación mantiene el sellador nativo durante los actos
+            # ADMIN. Pararla aquí haría caducar el latido de auditoría.
             from copia_local_admin import preparar as preparar_admin
             resultado = preparar_admin(self, kit_admin)
             guardar(self.raiz / 'admin_preparacion.json', resultado)
             estado = self.leer()
             estado['admin_preparada'] = True
             guardar(self.estado, estado)
+            self.parar()
             self.arrancar()
         if args.modulos:
             estado = self.leer()
@@ -295,6 +296,8 @@ class Copia:
                 raise ValueError('La aplicación terminó; consulte app.log en su copia')
             try:
                 self.comprobar()
+                if estado.get('admin_preparada'):
+                    self.arrancar_admin()
                 return
             except (OSError, ValueError):
                 time.sleep(.5)
@@ -319,26 +322,50 @@ class Copia:
             raise ValueError('Configuración de módulos inválida')
         return entorno
 
-    def proceso(self, estado):
-        pid = estado.get('pid')
+    def arrancar_admin(self):
+        from copia_local_admin import entorno
+        estado = self.leer()
+        if self.proceso(estado, admin=True):
+            raise ValueError('Administración de esta copia ya está activa')
+        variables = entorno(self)
+        puerto = int(variables['VEC_ADMIN_ESCUCHA'].rsplit(':', 1)[1])
+        if not 1024 <= puerto <= 65535 or puerto in (estado['puerto_pg'], estado['puerto_app']):
+            raise ValueError('Puerto ADMIN inválido')
+        puerto_libre(puerto)
+        variables.update(PATH=os.environ['PATH'], LANG='C.UTF-8',
+            VEC_EXECUTION_PROFILE='desarrollo', VEC_AUTH_MODE='desarrollo',
+            VEC_DEVELOPMENT_GUARD='ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO')
+        with (self.raiz / 'admin.log').open('ab') as log:
+            proceso = subprocess.Popen([self.raiz / 'vec-admin'], cwd=REPO, env=variables,
+                        stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        estado['pid_admin'] = proceso.pid
+        estado['inicio_proceso_admin'] = Path(f'/proc/{proceso.pid}/stat').read_text().split()[21]
+        guardar(self.estado, estado)
+
+    def proceso(self, estado, admin=False):
+        sufijo = '_admin' if admin else ''
+        pid = estado.get('pid' + sufijo)
         if not pid:
             return False
         proc = Path(f'/proc/{pid}')
         try:
-            return (proc / 'exe').resolve() == self.raiz / 'vec-server' and (proc / 'stat').read_text().split()[21] == estado['inicio_proceso']
+            binario = 'vec-admin' if admin else 'vec-server'
+            return ((proc / 'exe').resolve() == self.raiz / binario
+                    and (proc / 'stat').read_text().split()[21] == estado['inicio_proceso' + sufijo])
         except FileNotFoundError:
             return False
 
     def parar(self):
         estado = self.leer()
-        if self.proceso(estado):
-            os.kill(estado['pid'], 15)
-            for _ in range(100):
-                if not self.proceso(estado):
-                    break
-                time.sleep(.1)
-            else:
-                raise ValueError('La aplicación sigue activa; se conserva su copia')
+        for admin in (True, False):
+            if self.proceso(estado, admin=admin):
+                os.kill(estado['pid_admin' if admin else 'pid'], 15)
+                for _ in range(100):
+                    if not self.proceso(estado, admin=admin):
+                        break
+                    time.sleep(.1)
+                else:
+                    raise ValueError('Un proceso propio sigue activo; se conserva su copia')
         if self.existe():
             self.docker('stop', '--time', '20', self.nombre, salida=subprocess.DEVNULL)
 

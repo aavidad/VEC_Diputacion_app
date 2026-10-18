@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import shutil
 import subprocess
 import sys
 
@@ -23,7 +24,7 @@ SCRIPTS = (
     "arranque_principal_h10.py", "registrar_encargo_local.py", "preparar_gobierno.py",
     "preparar_runtime.py", "preparar_vec_admin.py",
 )
-BINARIOS = ("bin/h-root-seed.test", "bin/vec-gobierno-usuarios-admin")
+BINARIOS = ("bin/h-root-seed.test", "bin/vec-gobierno-usuarios-admin", "bin/vec-admin")
 GOCACHE = "/dev/shm/vec/go-build"
 FASES = ("fuentes", "unidad", "bootstrap")
 GRUPOS = (
@@ -298,5 +299,30 @@ def preparar(copia, kit_path) -> dict[str, str]:
     for fase in ("claves", "base", "overlay", "runtime", "entorno"):
         _ejecutar(kit, "preparar_vec_admin.py", "--entrada", run / "entrada-vec-admin.json",
                  "--fase", fase, "--dia", dia)
+    shutil.copyfile(kit / "bin/vec-admin", raiz / "vec-admin")
+    (raiz / "vec-admin").chmod(0o700)
     return {"VEC_ADMIN_ENTORNO_FILE": str(run / "vec-admin/config" / f"entorno-{dia}.env"),
             "VEC_ADMIN_RUN": str(run), "VEC_ADMIN_ESTADO": "preparado_con_acuses"}
+
+
+def entorno(copia) -> dict[str, str]:
+    """Lee el entorno generado sin evaluarlo como órdenes de shell."""
+    raiz = Path(copia.raiz)
+    preparacion = _json_privado(raiz / "admin_preparacion.json")
+    run = raiz / "admin/h10"
+    ruta = Path(preparacion["VEC_ADMIN_ENTORNO_FILE"])
+    if (preparacion.get("VEC_ADMIN_ESTADO") != "preparado_con_acuses"
+            or preparacion.get("VEC_ADMIN_RUN") != str(run)
+            or ruta.parent != run / "vec-admin/config"):
+        raise ValueError("La configuración ADMIN no corresponde a esta copia")
+    _privado(ruta)
+    resultado = {}
+    for linea in ruta.read_text().splitlines():
+        clave, separador, valor = linea.partition("=")
+        if (not separador or not re.fullmatch(r"VEC_ADMIN_[A-Z0-9_]+", clave)
+                or clave in resultado or "\x00" in valor):
+            raise ValueError("Entorno ADMIN inválido")
+        resultado[clave] = valor
+    if not re.fullmatch(r"127\.0\.0\.1:[0-9]{4,5}", resultado.get("VEC_ADMIN_ESCUCHA", "")):
+        raise ValueError("ADMIN debe escuchar en un puerto local")
+    return resultado
