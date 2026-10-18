@@ -31,6 +31,7 @@ type escrituraModalidadesPrueba struct {
 	llamadas     int
 	registradoEn time.Time
 	replay       *bolsa.ReciboPreferenciasModalidades
+	err          error
 	despues      func()
 }
 
@@ -39,6 +40,9 @@ func (r *escrituraModalidadesPrueba) GuardarPreferenciasModalidades(_ context.Co
 ) (bolsa.ReciboPreferenciasModalidades, error) {
 	r.llamadas++
 	r.solicitud = s
+	if r.err != nil {
+		return bolsa.ReciboPreferenciasModalidades{}, r.err
+	}
 	if r.replay != nil {
 		original := *r.replay
 		original.Modalidades = slices.Clone(original.Modalidades)
@@ -131,7 +135,7 @@ func TestModalidadesDistinguenTodasYNingunaEnReciboYMaterial(t *testing.T) {
 	}
 }
 
-func TestModalidadesCatalogoFallaAntesDeAutorizarYSeleccionAjenaNoEscribe(t *testing.T) {
+func TestModalidadesCatalogoFallaAntesDeAutorizarYSQLRechazaNuevaClaveAjena(t *testing.T) {
 	e, s, catalogo, repo := entornoModalidadesPrueba(t)
 	catalogo.err = errors.New("catálogo no disponible")
 	_, err := s.GuardarModalidades(t.Context(), e.orden, nil, 0, "clave-modalidad-2")
@@ -139,9 +143,42 @@ func TestModalidadesCatalogoFallaAntesDeAutorizarYSeleccionAjenaNoEscribe(t *tes
 		t.Fatalf("fallo del catálogo alcanzó autoridad/escritura: %v", err)
 	}
 	catalogo.err = nil
+	// El doble representa la rama nueva de SQL: solo ella decide pertenencia
+	// tras comprobar si la clave recupera una operación original.
+	repo.err = bolsa.ErrOrdenPreferenciasInvalido
 	_, err = s.GuardarModalidades(t.Context(), e.orden, []string{"ajena"}, 0, "clave-modalidad-2")
-	if !errors.Is(err, bolsa.ErrOrdenPreferenciasInvalido) || e.emisor.llamadas != 0 || repo.llamadas != 0 {
-		t.Fatalf("clave ajena alcanzó autoridad/escritura: %v", err)
+	if !errors.Is(err, bolsa.ErrOrdenPreferenciasInvalido) || e.emisor.llamadas == 0 || repo.llamadas != 1 {
+		t.Fatalf("la escritura nominal no rechazó la clave ajena: %v", err)
+	}
+}
+
+func TestModalidadesReplayTrasRetirarOpcionConservaReciboYAutoridadNueva(t *testing.T) {
+	e, s, catalogo, repo := entornoModalidadesPrueba(t)
+	seleccion := []string{"sustitucion", "vacante"}
+	primero, err := s.GuardarModalidades(t.Context(), e.orden, seleccion, 2, "clave-modalidad-retirada")
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos, err := e.concesiones.orden.Datos()
+	exigir(t, err)
+	nominal, err := datos.Solicitud.Datos()
+	exigir(t, err)
+	huellaOriginal := nominal.Recurso.Atributos["material_sha256"]
+	repo.replay = &primero // Doble del SQL: no acredita sus guardas ni la transacción.
+	catalogo.disponibles = []bolsa.ModalidadPreferencia{modalidadPrueba("vacante", 2)}
+	repetido, err := s.GuardarModalidades(t.Context(), e.orden, seleccion, 2, "clave-modalidad-retirada")
+	if err != nil || !repetido.Reutilizado || repetido.ReciboRef != primero.ReciboRef ||
+		!repetido.RegistradoEn.Equal(primero.RegistradoEn) || repo.llamadas != 2 || catalogo.llamadas != 2 ||
+		!slices.Equal(repo.solicitud.Modalidades, seleccion) || len(repo.solicitud.Disponibles) != 1 {
+		t.Fatalf("replay con catálogo nuevo: %+v %v", repetido, err)
+	}
+	datos, err = e.concesiones.orden.Datos()
+	exigir(t, err)
+	nominal, err = datos.Solicitud.Datos()
+	exigir(t, err)
+	if nueva := nominal.Recurso.Atributos["material_sha256"]; nueva == huellaOriginal || len(nueva) != 64 ||
+		repo.solicitud.Material.ValidarEstructura() != nil {
+		t.Fatal("el reintento no emitió material V3 nuevo ligado al catálogo actual")
 	}
 }
 
