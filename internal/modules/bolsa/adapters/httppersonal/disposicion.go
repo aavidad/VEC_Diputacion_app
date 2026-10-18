@@ -99,17 +99,19 @@ func responderErrorDisposicion(w http.ResponseWriter, e error) {
 }
 
 type ofertaPortal struct {
-	Oferta       string  `json:"oferta"`
-	Bolsa        string  `json:"bolsa"`
-	Categoria    string  `json:"categoria"`
-	Centro       string  `json:"centro"`
-	FechaInicio  string  `json:"fecha_inicio"`
-	FechaFin     *string `json:"fecha_fin"`
-	Descripcion  string  `json:"descripcion"`
-	PublicadaEn  string  `json:"publicada_en"`
-	VenceAntesDe string  `json:"vence_antes_de"`
-	Estado       string  `json:"estado"`
-	Disposicion  *struct {
+	Oferta         string  `json:"oferta"`
+	Bolsa          string  `json:"bolsa"`
+	Categoria      string  `json:"categoria"`
+	Centro         string  `json:"centro"`
+	FechaInicio    string  `json:"fecha_inicio"`
+	FechaFin       *string `json:"fecha_fin"`
+	Descripcion    string  `json:"descripcion"`
+	ModalidadClave string  `json:"modalidad_clave,omitempty"`
+	CausaClave     string  `json:"causa_clave,omitempty"`
+	PublicadaEn    string  `json:"publicada_en"`
+	VenceAntesDe   string  `json:"vence_antes_de"`
+	Estado         string  `json:"estado"`
+	Disposicion    *struct {
 		Recibo        string `json:"recibo"`
 		ManifestadaEn string `json:"manifestada_en"`
 	} `json:"disposicion"`
@@ -124,6 +126,7 @@ func respuestaOfertas(i puertosbolsa.InstantaneaMiBolsa) []ofertaPortal {
 		x := ofertaPortal{
 			Oferta: o.OfertaRef, Bolsa: o.Bolsa, Categoria: o.Datos.Categoria, Centro: o.Datos.Centro,
 			FechaInicio: o.Datos.FechaInicio, Descripcion: o.Datos.Descripcion,
+			ModalidadClave: o.Datos.ModalidadClave, CausaClave: o.Datos.CausaClave,
 			PublicadaEn: o.PublicadaEn.UTC().Format(formatoInstantePortal), VenceAntesDe: o.VenceAntesDe.UTC().Format(formatoInstantePortal),
 			Estado: o.Estado,
 		}

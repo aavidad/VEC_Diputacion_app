@@ -41,6 +41,8 @@ type IntencionSeleccionOfertaCT struct {
 	CategoriaRef       string
 	CentroRef          string
 	UnidadGestoraRef   string
+	ModalidadClave     string
+	CausaClave         string
 	VersionExpediente  uint64
 	ClaveIdempotencia  string
 	ActorRef           string
@@ -58,6 +60,8 @@ func (i IntencionSeleccionOfertaCT) Validar() error {
 		!domain.ReferenciaOpacaValida(i.CategoriaRef) ||
 		!domain.ReferenciaOpacaValida(i.CentroRef) ||
 		!domain.ReferenciaOpacaValida(i.UnidadGestoraRef) ||
+		((i.ModalidadClave != "" || i.CausaClave != "") &&
+			(!domain.ClaveCatalogo(i.ModalidadClave).Valida() || !domain.ClaveCatalogo(i.CausaClave).Valida())) ||
 		i.VersionExpediente == 0 || i.VersionExpediente > 1<<53-1 ||
 		!ClaveIdempotenciaValida(i.ClaveIdempotencia) ||
 		!domain.ReferenciaOpacaValida(i.ActorRef) ||
@@ -99,14 +103,20 @@ func ClaveBolsaSeleccionOfertaCT(i IntencionSeleccionOfertaCT) string {
 
 // DatosOfertaSeleccionCT es la proyección neutra de la necesidad RPT.
 type DatosOfertaSeleccionCT struct {
-	Categoria   string `json:"categoria"`
-	Centro      string `json:"centro"`
-	FechaInicio string `json:"fecha_inicio"`
-	FechaFin    string `json:"fecha_fin,omitempty"`
-	Descripcion string `json:"descripcion"`
+	Categoria      string `json:"categoria"`
+	Centro         string `json:"centro"`
+	FechaInicio    string `json:"fecha_inicio"`
+	FechaFin       string `json:"fecha_fin,omitempty"`
+	Descripcion    string `json:"descripcion"`
+	ModalidadClave string `json:"modalidad_clave,omitempty"`
+	CausaClave     string `json:"causa_clave,omitempty"`
 }
 
 func (d DatosOfertaSeleccionCT) Validar() error {
+	if (d.ModalidadClave != "" || d.CausaClave != "") &&
+		(!domain.ClaveCatalogo(d.ModalidadClave).Valida() || !domain.ClaveCatalogo(d.CausaClave).Valida()) {
+		return ErrSeleccionOfertaCTInvalida
+	}
 	for _, texto := range []string{d.Categoria, d.Centro, d.Descripcion} {
 		if len(texto) < 2 || len(texto) > 2000 || strings.TrimSpace(texto) != texto {
 			return ErrSeleccionOfertaCTInvalida
@@ -154,6 +164,12 @@ func (c ComandoOfertaBolsaCT) ValidarPara(i IntencionSeleccionOfertaCT) error {
 		!claveBolsaSeleccionOfertaCT.MatchString(c.ClaveBolsa) ||
 		c.ClaveBolsa != ClaveBolsaSeleccionOfertaCT(i) ||
 		c.InicioPlazo != InicioSeleccionOfertaPublicacion {
+		return ErrSeleccionOfertaCTInvalida
+	}
+	// El comando histórico se recupera sin completar campos. En el formato
+	// nuevo, la captura en memoria debe coincidir con los datos congelados.
+	if c.Datos.ModalidadClave != "" && i.ModalidadClave != "" &&
+		(c.Datos.ModalidadClave != i.ModalidadClave || c.Datos.CausaClave != i.CausaClave) {
 		return ErrSeleccionOfertaCTInvalida
 	}
 	return nil
