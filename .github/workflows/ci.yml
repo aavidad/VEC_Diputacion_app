@@ -70,6 +70,8 @@ jobs:
           node-version: '20'
       - name: Aprovisionar el ZIP OSM de la Release publica
         run: scripts/aprovisionar_cartografia_osm.sh
+      - name: Probar los guiones de la copia local y su lista SQL
+        run: python3 -m unittest discover -s deploy/principal -p 'test_*.py'
       - name: Comprobar GoSec con paquetes completos y controles inseguros
         run: bash scripts/probar_gosec_local.sh
       - name: Puerta de calidad
