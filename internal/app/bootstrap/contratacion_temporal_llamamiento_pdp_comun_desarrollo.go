@@ -32,6 +32,8 @@ func fronterasLlamamientoComunDesarrollo() []fronteraLlamamientoComunDesarrollo 
 		{clave: "ct-llamamiento-seleccionar", ruta: cthttp.RutaSeleccionLlamamiento, metodo: http.MethodPost,
 			accion:      accionConsultarLlamamientoDesarrollo,
 			adicionales: append([]string{ctports.AccionReanudacionSeleccionLlamamiento, ctports.AccionReanudacionSolicitudLlamamiento}, accionesBolsaLlamamientoSeleccionDesarrollo()...)},
+		{clave: "ct-oferta-estado-consultar", ruta: cthttp.RutaConsultaEstadoSeleccionOferta, metodo: http.MethodGet,
+			accion: accionConsultarLlamamientoDesarrollo},
 		{clave: "ct-llamamiento-comunicacion-registrar", ruta: cthttp.RutaRegistroComunicacionLlamamiento, metodo: http.MethodPost,
 			accion:      ctpostgres.AccionRegistroComunicacionLlamamiento,
 			adicionales: []string{ctapplication.AccionDespacharCorreoLlamamiento, ctapplication.AccionRegistrarResultadoCorreoLlamamiento}},
