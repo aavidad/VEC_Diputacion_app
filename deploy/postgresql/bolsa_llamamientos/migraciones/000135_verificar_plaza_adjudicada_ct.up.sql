@@ -151,7 +151,7 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_proc p
     WHERE p.oid=f AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole
       AND p.prosecdef AND p.provolatile='v'
-      AND 'search_path=pg_catalog,pg_temp'=ANY(p.proconfig))
+      AND 'search_path=pg_catalog, pg_temp'=ANY(p.proconfig))
     OR EXISTS(SELECT 1 FROM pg_proc p
        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
        WHERE p.oid=f AND a.privilege_type='EXECUTE'
