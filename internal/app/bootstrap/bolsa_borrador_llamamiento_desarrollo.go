@@ -928,6 +928,8 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	repositorioOfertas.EstablecerTokensAvisoOferta(tokensAvisoOferta{dependenciasCT.derivador})
+	servicioOfertas.EstablecerAvisosOferta(componerDespachadorAvisoOferta(repositorioOfertas, fuenteCorreo, correoSMTP))
 	handlerOfertas, err := bolsahttp.NuevoHandlerOfertasPublicadas(preparador, servicioOfertas)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()

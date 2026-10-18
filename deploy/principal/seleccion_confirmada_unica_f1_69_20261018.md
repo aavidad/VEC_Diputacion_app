@@ -10,7 +10,7 @@ selección por cada persona.
 ## Activación prevista
 
 1. Partir de una copia local de la principal con PostgreSQL 18 y datos
-   ficticios. Dirección instala una vez la lista única de 78 migraciones de
+   ficticios. Dirección instala una vez la lista única de 81 migraciones de
    main y después CT238, en su orden. No se reaplican SQL con historia.
 2. CT238 bloquea las escrituras de la tabla mientras comprueba que cada
    selección confirmada tiene organización y expediente y que no hay dos para
