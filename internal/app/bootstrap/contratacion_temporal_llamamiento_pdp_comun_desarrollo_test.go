@@ -25,8 +25,8 @@ func TestLlamamientoDeclaradoEnElPDPComun(t *testing.T) {
 		t.Fatal(err)
 	}
 	declaradas := fronterasLlamamientoComunDesarrollo()
-	if len(declaradas) != 10 {
-		t.Fatalf("fronteras del llamamiento=%d, want 10", len(declaradas))
+	if len(declaradas) != 11 {
+		t.Fatalf("fronteras del llamamiento=%d, want 11", len(declaradas))
 	}
 	for _, f := range declaradas {
 		d, ok := fronteras.resolver(f.metodo, f.ruta)
@@ -42,6 +42,8 @@ func TestLlamamientoDeclaradoEnElPDPComun(t *testing.T) {
 	// Un método no declarado no hereda la frontera de su ruta.
 	for _, caso := range []struct{ metodo, ruta string }{
 		{http.MethodGet, cthttp.RutaSeleccionLlamamiento},
+		{http.MethodPost, cthttp.RutaConsultaEstadoSeleccionOferta},
+		{http.MethodHead, cthttp.RutaConsultaEstadoSeleccionOferta},
 		{http.MethodGet, cthttp.RutaResolucionFormalizacion},
 		{http.MethodPost, cthttp.RutaConsultaComunicacionesExpediente},
 		{http.MethodHead, cthttp.RutaConsultaReciboRespuesta},
@@ -53,6 +55,7 @@ func TestLlamamientoDeclaradoEnElPDPComun(t *testing.T) {
 	// Las acciones solo valen en su frontera: ni efectos de Bolsa fuera de su
 	// paso ni efectos del llamamiento en otras fronteras CT.
 	for _, caso := range []struct{ accion, frontera, capacidad string }{
+		{ctports.AccionVincularOfertaBolsaCT, "ct-oferta-estado-consultar", accionConsultarLlamamientoDesarrollo},
 		{puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo, "ct-llamamiento-seleccionar", accionConsultarLlamamientoDesarrollo},
 		{puertosbolsa.AccionPrepararOrdenDesarrollo, "ct-llamamiento-resolver", ctpostgres.AccionResolucionManualLlamamiento},
 		{puertosbolsa.AccionAbrirSiguienteLlamamientoDesarrollo, "ct-llamamiento-resolver", ctpostgres.AccionResolucionManualLlamamiento},
