@@ -1,7 +1,7 @@
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261018-f171-denegacion-post-v2";
+import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261018-f171-main-v3";
 import { instanteDesdeHoraMadrid } from "./hora-madrid.js";
-import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261018-f171-denegacion-post-v2";
+import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261018-f171-main-v3";
 import { renderizarJustificante } from "./portal-justificante.js";
 // Ofertas publicadas de una bolsa (Petición RRHH 3.06 y 3.07; Reglamento de
 // bolsas, art. 8.1): RRHH publica la oferta con su número de plazas; al vencer
@@ -509,6 +509,9 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
         `<div class="plaza-oferta__cabecera"><strong>${escapar(traducir("plaza", { numero: plaza.numero_de_plaza }))}</strong>` +
         `<span class="estado-chip ${ESTADOS_PLAZA[plaza.estado]}">${escapar(traducir(`plaza_${plaza.estado}`))}</span></div>` +
         (detalle.length ? `<p class="dato-secundario" id="${idPlazo}">${detalle.map(escapar).join(" · ")}</p>` : "") +
+        plaza.historial.filter((acto) => acto.tipo === "adjudicada" && typeof acto.recibo_ref === "string" &&
+          REFERENCIA.test(acto.recibo_ref) && instante(acto.registrado_en))
+          .map((acto) => reciboOferta(acto.recibo_ref, acto.registrado_en, false, "adjudicacion_recibo_fecha", "adjudicacion_recibo_titulo")).join("") +
         botonesPlaza(o, plaza) + "</li>";
     }).join("");
     return `<ol class="plazas-oferta" aria-label="${escapar(traducir("plazas_lista", { categoria: o.datos.categoria }))}">${elementos}</ol>`;
