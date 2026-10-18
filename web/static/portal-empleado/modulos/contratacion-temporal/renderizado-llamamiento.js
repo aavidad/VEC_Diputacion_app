@@ -1,5 +1,6 @@
 import { escaparHTML as e } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
 import { justificanteTraducido } from "../../portal-justificante.js";
+import { ESTADO_SELECCION_PENDIENTE_AVISO, claveFilaComunicacion } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct231-integracion-v1";
 import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261013-ct-firma-tres-v3";
 import { rutaCandidatosBolsaCompartible } from "../../portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
 import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261013-ct-firma-tres-v3";
@@ -75,12 +76,17 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     if (!lista || lista.estado === "sin_contexto") return "";
     const opciones = lista.estado === "lista" ? `<ol class="ct-comunicaciones-opciones">
       ${lista.filas.map((fila, indice) => {
-        const elegida = lista.seleccionada?.comunicacion_ref === fila.comunicacion_ref;
+        const elegida = lista.seleccionada && claveFilaComunicacion(lista.seleccionada) === claveFilaComunicacion(fila);
         const consulta = estado.consultaRespuesta;
-        const reciboSesion = [estado.respuesta, estado.respuesta_siguiente].some((paso) =>
+        const reciboSesion = fila.estado !== ESTADO_SELECCION_PENDIENTE_AVISO
+          && [estado.respuesta, estado.respuesta_siguiente].some((paso) =>
           paso.recibo?.comunicacion_ref === fila.comunicacion_ref
           && paso.recibo?.organizacion_ref === fila.organizacion_ref);
-        const estadoRespuesta = reciboSesion || fila.estado_respuesta === "registrada"
+        const avisoAnotado = fila.estado === ESTADO_SELECCION_PENDIENTE_AVISO && elegida
+          && estado.comunicacion.recibo?.version_resultante === 2;
+        const estadoRespuesta = avisoAnotado ? "aviso_anotado"
+          : fila.estado === ESTADO_SELECCION_PENDIENTE_AVISO ? "aviso_pendiente"
+          : reciboSesion || fila.estado_respuesta === "registrada"
           || elegida && consulta?.estado === "confirmado"
           ? "registrada" : fila.estado_respuesta === "sin_respuesta" && elegida && consulta?.estado === "ausente"
             ? "pendiente" : "por_comprobar";
@@ -91,7 +97,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
           total: lista.filas.length, fecha: fechaLista,
           estado: t("llamamiento_comunicaciones_respuesta_" + estadoRespuesta) });
         return `<li><button type="button" class="boton-secundario" data-ct-comunicacion-indice="${indice}"
-          ${elegida ? 'aria-current="true"' : ""}>${e(rotulo)}</button></li>`;
+          ${elegida ? 'aria-current="true"' : ""}>${e(rotulo)}${fila.estado === ESTADO_SELECCION_PENDIENTE_AVISO && !avisoAnotado
+            ? ` · ${e(t("llamamiento_continuar_aviso"))}` : ""}</button></li>`;
       }).join("")}</ol>` : "";
     return `<section class="ct-recibo" data-ct-llamamiento-estado="comunicaciones" tabindex="-1">
       <h3>${e(t("llamamiento_comunicaciones_titulo"))}</h3>
@@ -322,7 +329,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       && restaurada?.expediente_ref === consulta?.referencias?.expediente_ref);
   const bloqueaFlujo = consulta?.referencias && (["cargando", "confirmado", "denegado", "error"].includes(consulta.estado)
     || (consulta.estado === "ausente" && ((estado.comunicaciones?.estado === "lista"
-      && restaurada?.estado_respuesta !== "sin_respuesta") || !antecedenteConsulta)));
+      && (restaurada?.estado === ESTADO_SELECCION_PENDIENTE_AVISO
+        ? !estado.comunicacion.recibo : restaurada?.estado_respuesta !== "sin_respuesta")) || !antecedenteConsulta)));
   const bloqueaLista = ["cargando", "error", "denegado"].includes(estado.comunicaciones?.estado)
     || (estado.comunicaciones?.estado === "lista" && !restaurada);
   return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
@@ -337,9 +345,16 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     ${!estado.enlazado || bloqueaFlujo || bloqueaLista || estado.comunicaciones?.intentoNoConfirmado ? "</section>" : `
     ${resumenResultado()}
     ${restaurada ? "" : formulario("seleccion", CAMPOS_SELECCION)}
-    ${restaurada ? "" : `<details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
+    ${restaurada?.estado === ESTADO_SELECCION_PENDIENTE_AVISO && !estado.comunicacion.recibo
+      ? `<section class="ct-llamamiento-paso" data-ct-seleccion-pendiente-aviso><h3>${e(t("llamamiento_seleccion_pendiente_aviso"))}</h3>
+        <div class="ct-recibo" data-ct-llamamiento-recibo="seleccion">
+          <dl><div><dt>${e(t("llamamiento_recibo_ref"))}</dt><dd>${justificanteTraducido(restaurada.recibo_antecedente_ref, e, t)}</dd></div>
+          <div><dt>${e(t("llamamiento_confirmada_en"))}</dt><dd>${tiempoVisible(restaurada.registrada_en)}</dd></div></dl>
+        </div></section>` : ""}
+    ${restaurada && restaurada.estado !== ESTADO_SELECCION_PENDIENTE_AVISO ? "" : `<details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
       <summary><h3 id="ct-llamamiento-comunicacion-titulo">${e(t("llamamiento_comunicacion"))}</h3></summary>
-      ${estado.seleccion.recibo ? formulario("comunicacion", CAMPOS_COMUNICACION, true)
+      ${estado.seleccion.recibo || restaurada?.estado === ESTADO_SELECCION_PENDIENTE_AVISO
+        ? formulario("comunicacion", CAMPOS_COMUNICACION, true)
         : `<p role="status">${e(t("llamamiento_espera_seleccion"))}</p>`}
     </details>`}
     ${restaurada ? "" : renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora)}

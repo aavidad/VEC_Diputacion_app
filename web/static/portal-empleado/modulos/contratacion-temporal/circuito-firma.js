@@ -8,7 +8,7 @@
  */
 
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
-import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261016-r1-o-integracion-v7";
+import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261016-ct231-integracion-v1";
 import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261016-r1-o-integracion-v7";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
 import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261016-r1-o-integracion-v7";

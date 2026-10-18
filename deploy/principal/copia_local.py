@@ -55,8 +55,8 @@ def guardar(ruta, valor):
 
 def memoria():
     disponible = int(re.search(r'MemAvailable:\s+(\d+)', Path('/proc/meminfo').read_text())[1])
-    if disponible < 40 * 1024**2:
-        raise ValueError('Menos de 40 GiB disponibles; retire solo sus copias sin uso y avise en el canal')
+    if disponible < 34 * 1024**2:
+        raise ValueError('Menos de 34 GiB disponibles (32 para el sistema y 2 para la copia); retire solo sus copias sin uso y avise en el canal')
 
 
 def puerto_libre(puerto):
