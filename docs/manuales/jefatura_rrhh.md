@@ -220,7 +220,7 @@ ofrecimiento desde la petición del centro.
 
 ### 8.2 Firmas
 
-En la copia local ya se han preparado los permisos de las cuatro personas firmantes. Repetir la preparación conserva los mismos permisos y su historia. La vigencia de cada permiso comienza en su fecha de emisión o después. El equipo de Administración mantiene este guion hasta que los permisos se puedan asignar desde pantalla. Falta firmar el nuevo expediente y recuperar sus documentos después de reiniciar.
+En la copia local ya se han preparado los permisos de las cuatro personas firmantes. Repetir la preparación conserva los mismos permisos y su historia. La vigencia de cada permiso comienza en su fecha de emisión o después. Se publicaron cinco cargos de firma, las personas que los ejercen y cuatro certificados con sus recibos; un administrador creó el plan de cinco firmas y otro lo publicó. El primer arranque conjunto falló al consultar el cuadro y recuperó la configuración anterior. El equipo de Administración mantiene este guion hasta que los permisos se puedan asignar desde pantalla. Falta resolver esa consulta, firmar el nuevo expediente y recuperar sus documentos después de reiniciar.
 
 **Para qué sirve.** Que cada cargo firme los documentos con su certificado, en el orden fijado, y que VEC compruebe que la firma es válida.
 

@@ -93,8 +93,22 @@ Pasaron ese negativo, las dos pasadas y el rechazo canónico; todo terminó
 en `ROLLBACK`. Dos revisiones independientes comprobaron el SQL final y el
 nuevo ensayo.
 
-Faltan las catorce publicaciones nominales de Administración: cinco cargos,
-cinco enlaces y cuatro certificados; también el plan de cinco pasos. Después
-hay que comprobar en Chrome las cinco firmas nuevas del expediente y
-recuperar sus PDF desde la ficha tras reiniciar. Este ensayo de datos no
-acredita esos actos.
+En la copia propia ya se hicieron las catorce publicaciones nominales de
+Administración: cinco cargos, cinco enlaces y cuatro certificados, cada una
+con su recibo real. Un administrador creó el plan de cinco pasos y el segundo
+lo publicó, también con sus recibos. La configuración nominal se preparó
+desde esas publicaciones y se cotejó con la base.
+
+El montaje de Documentos pasó dos revisiones y un ensayo con reversión sin
+cambios en roles ni pertenencias. Se añadieron sus dos conexiones exclusivas.
+El primer arranque con firma y Documentos respondió en salud y portal, pero
+el cuadro de Contratación temporal devolvió `503`. El guion confirmó la
+vuelta atrás: restauró el entorno y la ausencia previa de los dos archivos
+de configuración; el cuadro y Bolsa volvieron a responder `200`.
+
+Falta resolver esa consulta antes de activar el conjunto, comprobar en Chrome
+las cinco firmas nuevas y recuperar sus PDF desde la ficha tras reiniciar.
+Los actos ya publicados no acreditan esas firmas pendientes. El expediente
+local elegido para el ensayo técnico es de acumulación de tareas; la
+aceptación completa de vacante del apartado 4.0 sigue pendiente en la copia
+del recorrido.
