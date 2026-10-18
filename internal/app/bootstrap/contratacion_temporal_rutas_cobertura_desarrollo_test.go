@@ -73,6 +73,59 @@ func rutaCoberturaCTPrueba(ruta string) vechttp.RutaExacta {
 	return vechttp.RutaExacta{Ruta: ruta, Manejador: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})}
 }
 
+func TestCoberturaR5RecuperacionCambiaDeLegadaANominalSinDuplicar(t *testing.T) {
+	legadas := []vechttp.RutaExacta{
+		rutaCoberturaCTPrueba(httpinterno.RutaConsultaFirmasR5V2),
+		rutaCoberturaCTPrueba(httpinterno.RutaRecuperacionFirmasR5V2),
+	}
+	nominales := fronterasFirmaVecR5CT(configuracionFirmasCT{configuracionSesionFirmanteV2: configuracionSesionFirmanteV2{
+		Firmantes: []seleccionNominalFirmaCT{{PerfilRef: "prf_firma_jefatura_00000000000000",
+			PerfilConsultaCTRef: "prf_consulta_jefatura_0000000000",
+			PerfilDocumentosRef: "prf_documentos_jefatura_00000000"}},
+	}})
+	conFrontera, err := nuevoCatalogoFronterasComunDesarrollo(nominales)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, activa := range []bool{false, true} {
+		var rutas []vechttp.RutaExacta
+		for _, r := range legadas {
+			if !sustituyeRutaFirmasR5PorNominalCT(activa, r.Ruta) {
+				rutas = append(rutas, r)
+			}
+		}
+		catalogo := catalogoFronterasComunDesarrollo{}
+		if activa {
+			catalogo = conFrontera
+			rutas = append(rutas, rutaCoberturaCTPrueba(httpinterno.RutaConsultaFirmasR5V2),
+				rutaCoberturaCTPrueba(httpinterno.RutaRecuperacionFirmasR5V2))
+		}
+		if len(rutas) != 2 || rutas[0].Ruta == rutas[1].Ruta ||
+			validarCoberturaRutasCTDesarrollo(rutas, catalogo) != nil {
+			t.Fatalf("rutas R5 activa=%t: %+v", activa, rutas)
+		}
+	}
+	metodo := inventarioRutasCTDesarrollo()[httpinterno.RutaRecuperacionFirmasR5V2][0]
+	for _, mala := range []struct{ clave, accion string }{
+		{"ct-firma-vec-consultar-ajena", "contratacion_temporal.documento.firmas_r5_v2.recuperar"},
+		{"ct-firma-vec-recuperar", "contratacion_temporal.documento.firmas_r5_v2.consultar"},
+	} {
+		cambiadas := append([]descriptorFronteraComunDesarrollo(nil), nominales...)
+		for i := range cambiadas {
+			if cambiadas[i].Ruta == httpinterno.RutaRecuperacionFirmasR5V2 {
+				cambiadas[i].Clave, cambiadas[i].ClaveCapacidad = mala.clave, mala.accion
+			}
+		}
+		catalogo, err := nuevoCatalogoFronterasComunDesarrollo(cambiadas)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := validarMetodoRutaCTDesarrollo(httpinterno.RutaRecuperacionFirmasR5V2, metodo, catalogo); !errors.Is(err, ErrCoberturaRutasCTDesarrollo) {
+			t.Fatalf("frontera cruzada admitida: %v", err)
+		}
+	}
+}
+
 func TestCoberturaRutasCTInventarioCompletoYOpcionales(t *testing.T) {
 	const perfil = "prf_cobertura_ct"
 	descriptores := descriptoresFronterasContratacionTemporalDesarrollo(perfil, []string{perfil}, true)

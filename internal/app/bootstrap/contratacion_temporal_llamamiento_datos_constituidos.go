@@ -71,8 +71,8 @@ func cargarClienteM10LlamamientoCT() (*personalhttp.ClienteOrganizacionHistorica
 // la misma transacción. El acuse lo produce exclusivamente el registrador SQL.
 var camposLecturaOrigenCT = []string{
 	"acta_ref", "bolsa_canonica", "bolsa_ref",
-	"categoria_ref", "corte", "entradas[].candidato_ref",
-	"entradas[].elegible", "entradas[].orden_acta", "entradas[].orden_vigente",
+	"categoria_ref", "corte", "criterios_ofrecimiento", "entradas[].candidato_ref",
+	"entradas[].elegible", "entradas[].eventos_relacion", "entradas[].orden_acta", "entradas[].orden_vigente",
 	"entradas[].participacion_ref", "entradas[].razon", "entradas[].situacion",
 	"huella_bolsa_sha256", "huella_instantanea_sha256", "huella_politica_sha256",
 	"instantanea_canonica", "instantanea_ref", "politica_provisional",
@@ -156,7 +156,10 @@ func nuevoConstructorOrdenOrigenCT(
 // Un expediente anterior sin ese vínculo no permite emitir en el circuito nativo.
 type resolutorPuestoRPTConstituidoCT func(context.Context, string, string) (string, error)
 
-var patronPuestoRPTConstituidoCT = regexp.MustCompile(`^puesto:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+// Personal conserva identificadores de importación con este formato hexadecimal.
+// Su contrato no asigna bits de versión o variante a esos identificadores.
+var patronPuestoRPTConstituidoCT = regexp.MustCompile(`^puesto:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+var patronCentroFuentePuestoRPTConstituidoCT = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 
 func nuevoProveedorDatosEmisionConstituidaCT(
 	rpt personalports.ConsultaRPTPublica, resolutor *reglas.Resolutor, ahora func() time.Time,
@@ -164,7 +167,7 @@ func nuevoProveedorDatosEmisionConstituidaCT(
 ) proveedorConfiguracionEmisionCT {
 	return func(ctx context.Context, d preparacionLlamamientoDesarrollo) (ports.ConfiguracionLlamamiento, string, domain.ReferenciaEntradaCatalogo, error) {
 		vacio := ports.ConfiguracionLlamamiento{}
-		if ctx == nil || ctx.Err() != nil || rpt == nil || resolutor == nil || !resolutor.Disponible() || ahora == nil || resolverPuesto == nil {
+		if ctx == nil || ctx.Err() != nil || rpt == nil || resolutor == nil || !resolutor.Disponible() || ahora == nil || resolverPuesto == nil || d.unidad == "" {
 			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
 		e := d.expediente.Fiscalizado
@@ -184,7 +187,11 @@ func nuevoProveedorDatosEmisionConstituidaCT(
 		if !ok {
 			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
-		puestoRef, err := resolverPuesto(ctx, codigo, d.unidad)
+		unidadPuesto, ok := unidadPuestoPublicadoCT(puesto)
+		if !ok {
+			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
+		}
+		puestoRef, err := resolverPuesto(ctx, codigo, unidadPuesto)
 		if err != nil || !patronPuestoRPTConstituidoCT.MatchString(puestoRef) {
 			return vacio, "", domain.ReferenciaEntradaCatalogo{}, ports.ErrEmisionLlamamientoNoDisponible
 		}
@@ -214,6 +221,16 @@ func nuevoProveedorDatosEmisionConstituidaCT(
 		}
 		return configuracion, puestoRef, motivoEmitirLlamamientoBolsaDesarrollo(), nil
 	}
+}
+
+// La carga RPT de Personal conserva el código de centro publicado en la
+// unidad:centro:<codigo>. La consulta histórica comprueba después el puesto
+// individual dentro de esa unidad; la unidad gestora de CT no interviene aquí.
+func unidadPuestoPublicadoCT(puesto personaldomain.PuestoRPTPublico) (string, bool) {
+	if !patronCentroFuentePuestoRPTConstituidoCT.MatchString(puesto.CentroCodigo) {
+		return "", false
+	}
+	return "unidad:centro:" + strings.ToLower(puesto.CentroCodigo), true
 }
 
 // El cliente HTTP existente de M10 entrega páginas con autorización V3 y

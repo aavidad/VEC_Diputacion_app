@@ -39,14 +39,19 @@ Cada tramo lleva una de estas marcas:
 
 | Marca | Significa |
 | --- | --- |
-| **En cidonia** | Instalado en cidonia (datos sintéticos) y visto funcionar en el navegador al menos una vez |
-| **En main, sin subir** | Programado y fusionado, pero todavía no instalado en cidonia |
+| **Funciona en la copia local** | Fusionado en `main` y visto funcionar en la copia local restaurada con el guion de F0-28 |
+| **En main, sin subir** | Programado y fusionado, pero todavía no visto funcionar en la copia local |
 | **Apagado** | Instalado o programado, pero su selector o su configuración no está puesto |
 | **Falta** | No existe todavía, o existe solo en una rama o PR sin fusionar |
 | *(por verificar)* | No se ha podido comprobar al escribir este documento |
 
-Que algo esté en `main` no significa que esté en cidonia, ni que se haya
-recorrido de punta a punta. El estado al día de cada tarea está en
+Desde el 16/10 cidonia está congelada y se trabaja en la copia local, así
+que el estado se mide allí. Donde el texto todavía dice «En cidonia», esa
+marca se puso al verlo en cidonia antes del 16/10 y vale como *(por verificar
+en copia local)* hasta que alguien lo vea funcionar en la copia.
+
+Que algo esté en `main` no significa que funcione en la copia local, ni que
+se haya recorrido de punta a punta. El estado al día de cada tarea está en
 `docs/producto/PLAN_IMPLEMENTACION.md`, apartado 2.
 
 ## 1. Las superficies
@@ -266,6 +271,19 @@ la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. A
 figura en ella como disponible y en el puesto que le toca el llamamiento (lo deja así el guion
 de datos). Si un dato no cuadra, se ajusta el dato, no el código (regla 5).
 
+**Variante de vacante para comprobar los criterios de ofrecimiento**
+(dirección, 15/10). Conserva la misma petición, expediente, puesto, bolsa y una
+persona solicitada. El análisis usa modalidad y causa de vacante. Con la regla
+publicada, la primera persona figura trabajando y carece de hechos fiables
+para comprobar la excepción: RRHH ve la posición, la versión de la regla y el
+motivo «Pendiente de comprobación»; la selección se detiene antes de crear el
+llamamiento o pasar a otra posición. Después se prepara la primera persona
+como disponible y la segunda trabajando para comprobar el ofrecimiento y los
+motivos del seguimiento. Los cambios son datos de la copia; los actos y la
+fiscalización de la variante se registran de nuevo con sus propios recibos.
+La fiscalización de una modalidad anterior conserva su contexto original.
+Esta variante sigue pendiente de completar el recorrido y el reinicio.
+
 **Pasos.** El recorrido principal empieza en la petición del centro (paso 1) y
 llega hasta el cese y la vuelta a la bolsa; es el que decide si la candidata
 está completa. Sigue el orden que tiene hoy el código (4.3.2): el llamamiento va
@@ -425,6 +443,11 @@ pendiente: no se enlaza por parecido de nombre o documento.
 
 Estado: **en main, sin subir** (#1081, #1105).
 
+El corte F1-45 comprueba la consulta de la cartera desde **Mis méritos** con
+`GET /api/vec/meritos/cartera`. La pantalla muestra los méritos y el total que
+devuelve esa consulta. La valoración por categoría de bolsa y los puntos
+esperan al motor común de baremación; no se calculan en el navegador.
+
 1. En **Mis méritos**, la aspirante pulsa **Añadir título o mérito** y elige el
    tipo: titulación, curso de asistencia, curso de superación (con horas),
    experiencia, idioma u otro (`POST /api/vec/meritos/cartera/declaraciones`).
@@ -493,6 +516,14 @@ Estado: **en main**; en cidonia falta la autoridad externa de la aspirante
 En «Orden de mis bolsas» la aspirante ordena sus bolsas
 (`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias`). Si aparece una bolsa nueva o
 se retira una, debe marcar «He revisado el orden» antes de guardar.
+
+#### Modalidades de ofertas publicadas
+
+La elección voluntaria de modalidades, cuando se habilite, solo filtra las
+ofertas publicadas que la persona ve y los avisos que solicita. No cambia la
+prelación ni la selección; tampoco equivale a renunciar. En el llamamiento
+directo se sigue el orden de la bolsa con independencia de esa elección
+(Reglamento de bolsas, arts. 8.1, 8.2.a y 11.1).
 
 #### Responder a un llamamiento
 
@@ -717,6 +748,19 @@ CT no tiene llamamiento propio: usa el de Bolsa sobre una bolsa constituida
 6. Tras una renuncia o expiración, RRHH abre expresamente el siguiente
    (`llamamientos/siguientes`). No hay aviso automático al siguiente.
 
+En la copia local, CT230 confirma y recupera el llamamiento nativo con su
+misma clave y recibo después de reiniciar, sin duplicar la oferta. Este ensayo
+no completa el recorrido del apartado 4.0.
+
+CT231 recupera la selección confirmada pendiente de aviso como una fila de la
+consulta existente de la ficha. Al volver a ella, RRHH ve su justificante y puede
+continuar el aviso; mientras siga pendiente, no se ofrece seleccionar otra
+persona. La fila no representa una comunicación anotada. En la copia local se
+comprobaron recarga, reinicio, registro del aviso desde el formulario y sustitución
+por la comunicación real con su recibo. Está pendiente de integración; el ensayo
+no completa el apartado 4.0. Activación y límites en
+[`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
+
 Con #1088 (**en main, sin subir**) la selección usa la bolsa constituida, su
 orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
 (`VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`; sin ella responde 503 y el resto
@@ -732,6 +776,32 @@ un reintento conserva fechas, política y oferta originales. Este corte no acred
 todavía la publicación desde la ficha de CT.
 
 **Candidata de aviso por correo (F1-18, primer corte ensayado).** Publicar fija las participaciones disponibles de la bolsa constituida y guarda cada aviso, con el correo del alta como fuente. «Gestionar ofertas» muestra pendientes, enviados, sin confirmación y fallidos. Desde el recibo se reintentan los pendientes conservando la intención original en memoria; tras corregir el enlace configurado a Mi Bolsa, «Actualizar estado» permite continuar. Chrome comprobó publicación, reinicio de aplicación y base de datos, recuperación con el mismo recibo y ausencia de reenvío automático de un resultado incierto. También se comprobaron configuración ausente e inválida y vista en castellano e inglés a 1440 y 390 píxeles. Enviado acredita aceptación por el servicio de correo y no cambia el plazo ni acredita notificación. La integración de este corte y el reintento expreso de los resultados inciertos siguen pendientes; F1-18 permanece abierta. El segundo corte, en preparación, añade «Reintentar envíos sin confirmación»: revisar la oferta y la advertencia de posible duplicado, confirmar y obtener un recibo propio. Conserva el identificador del mensaje y el recibo original; rechaza una revisión obsoleta o un envío en curso. Su instalación y recorrido están pendientes.
+
+**Candidata R1a comprobada en copia local, pendiente de integrar.** La selección explica por
+persona los hechos comprobados y el motivo aplicado, con el vínculo al contrato
+de origen del llamamiento de CT. Si falta un contrato anterior o un dato para
+comprobar la excepción de vacante, muestra «Pendiente de comprobación» y se
+detiene en esa persona. RRHH no pasa a la siguiente ni causa una exclusión
+definitiva por la falta de datos. La excepción corresponde al art. 9, apartado
+cuarto (numerado 3 en el BOP n.º 9 de 16/01/2026): solo vacantes para los
+vínculos tasados y con reducción del máximo de tres años por el tiempo previo
+en acumulación o sustitución. R1b deberá añadir el acto propio con el que RRHH
+registre los hechos, la evidencia y el recibo. Hoy ese acto no existe.
+
+La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
+requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
+de origen CT, y la concesión exacta al rol RRHH aprobada por dos
+administradores. Si falta el apartado de criterios, la selección conserva el
+orden y las reglas anteriores; la aplicación arranca. Si RRHH no tiene permiso
+para consultar motivos, el bloque indica que no están disponibles. En la copia
+local se guardó una política desde la pantalla y se conservaron versión, huella y
+recibo tras reiniciar; la bolsa estaba sin configurar antes. El seguimiento
+histórico mostró motivos y versión en castellano e inglés, en escritorio y móvil.
+En otra copia desechable, con el mismo análisis y las decisiones conservadas,
+CT detuvo con 409 la selección en la primera persona trabajando sin hechos:
+mostró posición y versión, no creó llamamiento y permitió abrir la bolsa.
+Alcance y límites en
+[`habilitacion_criterios_ofrecimiento_20261015.md`](../../deploy/principal/habilitacion_criterios_ofrecimiento_20261015.md).
 
 **Candidata de consulta de puestos.** El ofrecimiento usa la RPT publicada y
 la historia autorizada del puesto de Personal. La consulta existente se conecta
@@ -773,6 +843,18 @@ Reglas del llamamiento y sus canales (decisiones de Alberto del 02/10 al
 - Anotar «contactado» tras una llamada abre la respuesta en «Mi Bolsa» y pone en
   marcha el plazo, igual que el correo (regla b29). Los demás resultados de una
   llamada no reinician el plazo.
+
+El corte F1-21 separa la unidad que gestiona el expediente de la unidad a la que
+pertenece el puesto. La comprobación de Personal usa la unidad del puesto en la
+RPT publicada que conserva la petición; la autorización de Contratación y el
+origen del llamamiento en Bolsa siguen usando la unidad gestora. Si el centro
+no se puede vincular, el puesto pertenece a otra unidad o hay varios puestos
+compatibles, el ofrecimiento queda bloqueado. Este ajuste requiere el montaje
+de la consulta histórica de la PR #1150. El consumidor se comprobó en la copia
+local junto con R1a y la confirmación nativa: conservó el justificante al reiniciar
+y permitió anotar el aviso. Está pendiente de integración; no acredita todo el
+apartado 4.0. Activación y límites en
+[`puente_unidades_llamamiento_20261015.md`](../../deploy/principal/puente_unidades_llamamiento_20261015.md).
 
 #### 4.3.4 Documentos
 
@@ -1044,30 +1126,30 @@ efecto.
 
 ## 7. Resumen de estado por tramo
 
-| Tramo | En cidonia | En main, sin subir | Falta |
+| Tramo | Funciona en la copia local | En main, sin subir | Falta |
 | --- | --- | --- | --- |
-| Entrada por certificado y usuario web por perfil | Sí | | Directorio corporativo y Kerberos |
-| Selector de perfil activo | Solo en Administración (sin fuente durable) | | Portal interno |
-| Carga de bolsas desde CONVOCA | Sí | | |
-| Inscripción y admisión | Datos cargados | Código y API | Encender y mostrar la pestaña |
+| Entrada por certificado y usuario web por perfil | Sí *(por verificar en copia local)* | | Directorio corporativo y Kerberos |
+| Selector de perfil activo | Solo en Administración (sin fuente durable) *(por verificar en copia local)* | | Portal interno |
+| Carga de bolsas desde CONVOCA | Sí *(por verificar en copia local)* | | |
+| Inscripción y admisión | Datos cargados *(por verificar en copia local)* | Código y API | Encender y mostrar la pestaña |
 | Méritos (cartera) | | #1081, #1105 | Acreditación y puntos |
 | Alegaciones | | #1098, #1108 | |
 | Cuenta externa propia | | #1112 | Provisión en cidonia |
-| Mi Bolsa y respuesta al llamamiento | Sí | | Formulario de pausa y reactivación |
-| Preferencias entre bolsas | *(por verificar)* | Sí | Autoridad externa en cidonia |
-| Petición y ratificación del centro | Circuito anterior | #1114: conserva la necesidad RPT hasta el alta | Verificar la instalación de #1114 en cidonia |
-| Alta, análisis, cobertura, asignación, informe | Sí | | |
-| Fiscalización con reparo y subsanación | Fiscalización sí; reparo *(por verificar)* | | |
-| Llamamiento desde la bolsa constituida | Puente anterior | #1088 | Recorrido con la bolsa real |
+| Mi Bolsa y respuesta al llamamiento | Sí *(por verificar en copia local)* | | Formulario de pausa y reactivación |
+| Preferencias entre bolsas | *(por verificar en copia local)* | Sí | Autoridad externa en cidonia |
+| Petición y ratificación del centro | Circuito anterior *(por verificar en copia local)* | #1114: conserva la necesidad RPT hasta el alta | Verificar la instalación de #1114 en cidonia |
+| Alta, análisis, cobertura, asignación, informe | Sí *(por verificar en copia local)* | | |
+| Fiscalización con reparo y subsanación | Fiscalización sí; reparo *(por verificar)*; todo *(por verificar en copia local)* | | |
+| Llamamiento desde la bolsa constituida | Puente anterior *(por verificar en copia local)* | #1088 | Recorrido con la bolsa real |
 | Oferta con varias plazas desde CT | | | Conexión CT con ofertas de Bolsa |
-| Propuesta, resolución y documentos | Sí | | Plantillas Word de RRHH (duda 124) |
+| Propuesta, resolución y documentos | Sí *(por verificar en copia local)* | | Plantillas Word de RRHH (duda 124) |
 | Firma de tres cargos | | | #1099 y GrxFirma |
-| GINPIX | Ficha y confirmación manual | | Transmisión automática (duda 127) |
-| Incorporación acreditada por el centro | Sí | | |
-| Paso a Personal | Encendido | | Expediente con categoría RPT (#1070) |
-| Cese y vuelta a la bolsa | Cese sí | | Vuelta con bolsa constituida (CT213, B115) |
-| Administración de perfiles | Lista y ficha | Lote ordinario *(por verificar en cidonia)* | Pantalla de doble control, módulos y copias |
-| Auditoría por persona | Instalada, apagada | | Configuración (equipo L) |
+| GINPIX | Ficha y confirmación manual *(por verificar en copia local)* | | Transmisión automática (duda 127) |
+| Incorporación acreditada por el centro | Sí *(por verificar en copia local)* | | |
+| Paso a Personal | Encendido *(por verificar en copia local)* | | Expediente con categoría RPT (#1070) |
+| Cese y vuelta a la bolsa | Cese sí *(por verificar en copia local)* | | Vuelta con bolsa constituida (CT213, B115) |
+| Administración de perfiles | Lista y ficha *(por verificar en copia local)* | Lote ordinario *(por verificar en copia local)* | Pantalla de doble control, módulos y copias |
+| Auditoría por persona | Instalada, apagada *(por verificar en copia local)* | | Configuración (equipo L) |
 
 ## 8. Diferencias encontradas entre fuentes
 

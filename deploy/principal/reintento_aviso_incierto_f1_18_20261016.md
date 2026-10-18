@@ -14,6 +14,8 @@ En «Gestionar ofertas», abrir una oferta con un envío sin confirmación. «Re
 
 La autorización queda ligada a esa entrada y se consume con el cambio de estado. Solo se rearman avisos sin confirmación; se conserva el identificador de cada mensaje y el recibo, la fecha y el plazo originales de la oferta. El acto de reintento tiene además su propio recibo y fecha. Una revisión obsoleta o un envío todavía en curso se rechazan sin efectos. Repetir la misma clave y entrada recupera el acto sin rearmar de nuevo.
 
+Mientras una publicación esté pendiente de confirmación, el reintento manual permanece bloqueado. La prueba focal «una publicación incierta bloquea la confirmación manual hasta recuperar su recibo» comprueba que no se emite ese segundo acto y que la recuperación conserva la clave y el cuerpo originales.
+
 La intención permanece solo en memoria del navegador. Ante una respuesta incierta se recupera esa misma operación; no se crea otra clave automáticamente. Un nuevo resultado sin confirmación exige una nueva confirmación expresa. El correo aceptado por el servicio no acredita entrega ni notificación administrativa.
 
 ## Comprobaciones pendientes

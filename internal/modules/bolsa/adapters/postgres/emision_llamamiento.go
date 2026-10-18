@@ -67,6 +67,7 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Reservar(ctx context.Context, 
 	if json.Unmarshal(salidaJSON, &out) != nil {
 		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
 	}
+	normalizarInstantesEmisionLlamamiento(&out)
 	out.Reutilizada = reutilizada
 	if reutilizada {
 		return r.conFuentesCorreo(ctx, out, c.BolsaRef, c.ClaveIdempotencia)
@@ -93,6 +94,7 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) RecuperarOrigenEmisionCT(ctx c
 	if json.Unmarshal(raw, &out) != nil || out.ExpedienteRef != expedienteRef || out.ClaveCT != claveCT || out.UnidadRef == "" || out.LlamamientoRef == "" || out.ReciboRef == "" || out.AuditoriaRef == "" || validarLecturaOrigenCT(out.Lectura) != nil {
 		return ports.ReciboOrigenEmisionCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
 	}
+	normalizarInstanteOrigenCT(&out)
 	return out, nil
 }
 
@@ -139,6 +141,7 @@ func decodificarReservaLlamamientoCT(raw []byte, expedienteRef, claveCT string) 
 		len(out.Participaciones) != 1 || out.Participaciones[0] != out.OrigenCT.ParticipacionRef {
 		return ports.EmisionLlamamiento{}, ports.ErrOrigenLlamamientoCTNoDisponible
 	}
+	normalizarInstantesEmisionLlamamiento(&out)
 	out.Reutilizada = true
 	return out, nil
 }
@@ -172,6 +175,7 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) RegistrarContactos(ctx context
 	if json.Unmarshal(salidaJSON, &out) != nil {
 		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
 	}
+	normalizarInstantesEmisionLlamamiento(&out.EmisionLlamamiento)
 	return aplicarFuentesCorreo(out.EmisionLlamamiento, out.FuentesCorreo), nil
 }
 
@@ -187,8 +191,26 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Recuperar(ctx context.Context,
 	if json.Unmarshal(raw, &out) != nil {
 		return out, ports.ErrEmisionLlamamientoNoDisponible
 	}
+	normalizarInstantesEmisionLlamamiento(&out)
 	out.Reutilizada = true
 	return r.conFuentesCorreo(ctx, out, bolsa, clave)
+}
+
+// JSONB representa timestamptz UTC con offset +00:00; time.UnmarshalJSON puede
+// reconstruirlo con una Location distinta de time.UTC. Los puertos exigen la
+// ubicación canónica sin alterar el instante ni su precisión original.
+func normalizarInstantesEmisionLlamamiento(emision *ports.EmisionLlamamiento) {
+	if emision == nil {
+		return
+	}
+	emision.EmitidoEn = emision.EmitidoEn.UTC()
+	normalizarInstanteOrigenCT(emision.OrigenCT)
+}
+
+func normalizarInstanteOrigenCT(origen *ports.ReciboOrigenEmisionCT) {
+	if origen != nil {
+		origen.EmitidoEn = origen.EmitidoEn.UTC()
+	}
 }
 
 func (r *RepositorioEmisionLlamamientoPostgreSQL) ContarEnCurso(ctx context.Context, bolsa string) (int, error) {

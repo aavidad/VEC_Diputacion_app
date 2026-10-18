@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"time"
 
@@ -102,18 +101,11 @@ func (r *LectorOrigenLlamamientoCTAuditadoPostgreSQL) ConsultarOrigenCTAuditado(
 	if err != nil {
 		return vacio, nil, sinAcuse, ports.ErrOrigenLlamamientoCTNoDisponible
 	}
-	var salida struct {
-		Origen  ports.OrigenLlamamientoCT `json:"origen"`
-		Reserva *ports.ReservaOrigenCT    `json:"reserva"`
-		Acuse   struct {
-			AuditoriaRef   string    `json:"auditoria_ref"`
-			Secuencia      int64     `json:"secuencia"`
-			HuellaSHA256   string    `json:"huella_sha256"`
-			CorrelacionRef string    `json:"correlacion_ref"`
-			RegistradaEn   time.Time `json:"registrada_en"`
-		} `json:"acuse"`
+	salida, err := decodificarRespuestaOrigenCTAuditado(raw)
+	if err != nil {
+		return vacio, nil, sinAcuse, err
 	}
-	if json.Unmarshal(raw, &salida) != nil || salida.Origen.Corte.IsZero() {
+	if salida.Origen.Corte.IsZero() {
 		return vacio, nil, sinAcuse, ports.ErrOrigenLlamamientoCTNoDisponible
 	}
 	salida.Origen.Corte = salida.Origen.Corte.UTC()
@@ -144,10 +136,7 @@ func (r *LectorOrigenLlamamientoCTAuditadoPostgreSQL) ConsultarOrigenCTAuditado(
 	if salida.Reserva != nil {
 		coincide := false
 		for _, entrada := range salida.Origen.Entradas {
-			if entrada.ParticipacionRef == salida.Reserva.ParticipacionRef &&
-				entrada.CandidatoRef == salida.Reserva.CandidatoRef &&
-				entrada.OrdenVigente != nil &&
-				*entrada.OrdenVigente == salida.Reserva.OrdenSeleccionado {
+			if reservaCoincideEntradaOrigenCTAuditado(*salida.Reserva, entrada) {
 				coincide = true
 				break
 			}
@@ -168,4 +157,10 @@ func (r *LectorOrigenLlamamientoCTAuditadoPostgreSQL) ConsultarOrigenCTAuditado(
 		return vacio, nil, sinAcuse, ports.ErrOrigenLlamamientoCTNoDisponible
 	}
 	return salida.Origen, salida.Reserva, acuse, nil
+}
+
+func reservaCoincideEntradaOrigenCTAuditado(reserva ports.ReservaOrigenCT, entrada ports.EntradaOrigenLlamamientoCT) bool {
+	return reserva.OrdenSeleccionado != 0 && entrada.OrdenActa == reserva.OrdenSeleccionado &&
+		entrada.Elegible && entrada.OrdenVigente != nil && *entrada.OrdenVigente == 1 &&
+		entrada.ParticipacionRef == reserva.ParticipacionRef && entrada.CandidatoRef == reserva.CandidatoRef
 }

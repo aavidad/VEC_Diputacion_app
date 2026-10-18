@@ -16,6 +16,13 @@ if (( $# > 1 )); then
   fallar "uso: $0 [directorio-absoluto-fuera-del-repositorio]"
 fi
 
+# Validar antes de crear incluso el directorio padre del destino.
+VIGENCIA_DIAS=${VEC_DESARROLLO_VIGENCIA_DIAS:-90}
+if [[ ! "$VIGENCIA_DIAS" =~ ^[1-9][0-9]?$ ]] ||
+  (( VIGENCIA_DIAS < 60 || VIGENCIA_DIAS > 90 )); then
+  fallar "VEC_DESARROLLO_VIGENCIA_DIAS debe ser un entero entre 60 y 90"
+fi
+
 DIRECTORIO_SCRIPT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 RAIZ_REPOSITORIO=$(cd -- "$DIRECTORIO_SCRIPT/.." && pwd -P)
 RAIZ_ESTADO=${XDG_STATE_HOME:-${HOME:?HOME no definida}/.local/state}
@@ -284,7 +291,7 @@ for subdirectorio in ca tls mtls kms tsa identidad idempotencia; do
 done
 
 openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$TEMPORAL/ca/ca.key" 2>/dev/null
-openssl req -new -x509 -sha256 -days 825 -key "$TEMPORAL/ca/ca.key" \
+openssl req -new -x509 -sha256 -days "$VIGENCIA_DIAS" -key "$TEMPORAL/ca/ca.key" \
   -subj '/CN=VEC Desarrollo CA NO AUTORITATIVA/O=VEC Desarrollo/OU=NO AUTORITATIVO' \
   -addext 'basicConstraints=critical,CA:TRUE,pathlen:0' \
   -addext 'keyUsage=critical,keyCertSign,cRLSign' \
@@ -304,7 +311,7 @@ subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1
 subjectKeyIdentifier=hash
 authorityKeyIdentifier=keyid,issuer
 EXT
-openssl x509 -req -sha256 -days 397 -in "$TEMPORAL/tls/servidor.csr" \
+openssl x509 -req -sha256 -days "$VIGENCIA_DIAS" -in "$TEMPORAL/tls/servidor.csr" \
   -CA "$TEMPORAL/ca/ca.crt" -CAkey "$TEMPORAL/ca/ca.key" -CAserial "$TEMPORAL/ca/serie" \
   -extfile "$TEMPORAL/tls/servidor.ext" -out "$TEMPORAL/tls/servidor.crt" 2>/dev/null
 
@@ -320,7 +327,7 @@ subjectAltName=URI:urn:vec:desarrollo:operador-rrhh
 subjectKeyIdentifier=hash
 authorityKeyIdentifier=keyid,issuer
 EXT
-openssl x509 -req -sha256 -days 397 -in "$TEMPORAL/mtls/cliente.csr" \
+openssl x509 -req -sha256 -days "$VIGENCIA_DIAS" -in "$TEMPORAL/mtls/cliente.csr" \
   -CA "$TEMPORAL/ca/ca.crt" -CAkey "$TEMPORAL/ca/ca.key" -CAserial "$TEMPORAL/ca/serie" \
   -extfile "$TEMPORAL/mtls/cliente.ext" -out "$TEMPORAL/mtls/cliente.crt" 2>/dev/null
 openssl rand -hex 32 >"$TEMPORAL/mtls/cliente.p12.password"
@@ -341,7 +348,7 @@ subjectAltName=URI:urn:vec:desarrollo:intervencion
 subjectKeyIdentifier=hash
 authorityKeyIdentifier=keyid,issuer
 EXT
-openssl x509 -req -sha256 -days 397 -in "$TEMPORAL/mtls/intervencion.csr" \
+openssl x509 -req -sha256 -days "$VIGENCIA_DIAS" -in "$TEMPORAL/mtls/intervencion.csr" \
   -CA "$TEMPORAL/ca/ca.crt" -CAkey "$TEMPORAL/ca/ca.key" -CAserial "$TEMPORAL/ca/serie" \
   -extfile "$TEMPORAL/mtls/intervencion.ext" -out "$TEMPORAL/mtls/intervencion.crt" 2>/dev/null
 openssl rand -hex 32 >"$TEMPORAL/mtls/intervencion.p12.password"

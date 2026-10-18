@@ -1,0 +1,4 @@
+# F1-36A: aplicar solo migraciones ausentes en la copia, en este orden.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000286_recuperacion_firmas_unidad_historica.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000228_recuperacion_firmas_corte_historico.up.sql
+deploy/postgresql/autorizacion/migraciones/000103_concesion_consulta_firma_historica.up.sql

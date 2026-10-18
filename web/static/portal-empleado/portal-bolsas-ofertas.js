@@ -1,5 +1,5 @@
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261016-justificante-integracion-v3";
+import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261016-r1-o-integracion-v7";
 import { instanteDesdeHoraMadrid } from "./hora-madrid.js";
 import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
 import { renderizarJustificante } from "./portal-justificante.js";
@@ -358,7 +358,8 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
   }
 
   async function enviarReintentoIncierto() {
-    if (estado.enviando || !estado.bolsa || estado.carga !== "lista" ||
+    if (estado.enviando || estado.claveEnCurso || estado.incierta || estado.revisionPublicacion ||
+        !estado.bolsa || estado.carga !== "lista" ||
         (estado.reintentoAvisos?.incierta && !estado.intencionAvisoIncierto?.incierta)) return;
     let intento = estado.intencionAvisoIncierto;
     if (!intento) {
@@ -557,7 +558,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
     const revision = estado.revisionAvisoIncierto?.ofertaRef === o.oferta_ref ? `<section class="formulario-gobernado" data-ofertas-revision-incierta>` +
       `<h5>${escapar(traducir("reintento_incierto_revision", { categoria: o.datos.categoria, cuenta: estado.revisionAvisoIncierto.cuenta }))}</h5>` +
       `<p class="mensaje-error">${escapar(traducir("reintento_incierto_advertencia"))}</p><div class="acciones-fila">` +
-      `<button type="button" class="boton-primario" data-ofertas-accion="confirmar-reintento-incierto">${escapar(traducir("reintento_incierto_confirmar"))}</button>` +
+      `<button type="button" class="boton-primario" data-ofertas-accion="confirmar-reintento-incierto"${estado.enviando || estado.claveEnCurso || estado.incierta || estado.revisionPublicacion ? " disabled" : ""}>${escapar(traducir("reintento_incierto_confirmar"))}</button>` +
       `<button type="button" class="boton-secundario" data-ofertas-accion="cancelar-reintento-incierto">${escapar(traducir("cancelar"))}</button></div></section>` : "";
     return `<li class="oferta-ficha" data-oferta-ref="${escapar(o.oferta_ref)}" aria-labelledby="${idTitulo}">` +
       `<div class="oferta-ficha__cabecera"><div><h4 id="${idTitulo}">${escapar(d.categoria)}</h4><p class="dato-secundario">${escapar(d.centro)} · ${escapar(d.descripcion)}</p></div>` +

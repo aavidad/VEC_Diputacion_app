@@ -93,12 +93,13 @@ type bolsasRRHHDesarrollo struct {
 	cargar            func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 	// resumen y cargarBolsa acotan la lectura (ver alcanceCargaBolsasRRHH);
 	// si faltan, se usa cargar con todo el detalle.
-	resumen          func(context.Context) (datasetBolsasRRHHDesarrollo, error)
-	cargarBolsa      func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
-	mutar            http.Handler
-	contactos        lectorContactosBolsaDesarrollo
-	respuestasPortal lectorRespuestasPortalBolsaDesarrollo
-	avisos           *bolsaapplication.ServicioAvisosRRHH
+	resumen           func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	cargarBolsa       func(context.Context, string) (datasetBolsasRRHHDesarrollo, error)
+	mutar             http.Handler
+	contactos         lectorContactosBolsaDesarrollo
+	respuestasPortal  lectorRespuestasPortalBolsaDesarrollo
+	exclusionesOrigen lectorExclusionesOfrecimientoBolsaDesarrollo
+	avisos            *bolsaapplication.ServicioAvisosRRHH
 	// canales publica los canales de aviso activos para el asistente del
 	// llamamiento; sin él la lectura no los anuncia (el cliente asume correo).
 	canales proveedorCanalesLlamamientoDesarrollo
@@ -140,6 +141,7 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 		manejador.perfilPropio, _ = mutadores[0].(consultorPerfilPropioBolsaRRHH)
 		manejador.contactos, _ = mutadores[0].(lectorContactosBolsaDesarrollo)
 		manejador.respuestasPortal, _ = mutadores[0].(lectorRespuestasPortalBolsaDesarrollo)
+		manejador.exclusionesOrigen, _ = mutadores[0].(lectorExclusionesOfrecimientoBolsaDesarrollo)
 		manejador.canales, _ = mutadores[0].(proveedorCanalesLlamamientoDesarrollo)
 	}
 	return []vechttp.RutaExacta{
@@ -335,6 +337,9 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			vistas[dato.ParticipacionRef] = true
 		}
 		respuesta["respuestas_portal"] = map[string]any{"llamamiento_ref": respuestas.LlamamientoRef, "respuestas": respuestas.Respuestas}
+		if consulta.exclusionesSolicitadas {
+			respuesta["exclusiones_origen"] = h.consultarExclusionesOrigen(r.Context(), bolsaRef, consulta.llamamiento, consulta.exclusionesDesde)
+		}
 	}
 	if h.canales != nil {
 		canales := h.canales.CanalesLlamamientoActivos(r.Context())
@@ -474,7 +479,9 @@ type consultaCandidatosRRHH struct {
 	// llamamiento limita la lista a las personas de ese llamamiento (las que
 	// tienen algún aviso o llamada suyos), en el orden de la bolsa, para
 	// seguirlo por teléfono. No se combina con otros filtros ni con cursor.
-	llamamiento string
+	llamamiento            string
+	exclusionesDesde       int64
+	exclusionesSolicitadas bool
 }
 
 var patronLlamamientoCandidatosRRHH = regexp.MustCompile(`^llamamiento:[A-Za-z0-9:_-]{8,200}$`)
@@ -485,7 +492,7 @@ func consultaCandidatos(cruda string) (consultaCandidatosRRHH, bool) {
 		return resultado, true
 	}
 	valores, err := url.ParseQuery(cruda)
-	if err != nil || len(valores) > 5 {
+	if err != nil || len(valores) > 7 {
 		return resultado, false
 	}
 	for clave, valoresClave := range valores {
@@ -525,9 +532,19 @@ func consultaCandidatos(cruda string) (consultaCandidatosRRHH, bool) {
 				return resultado, false
 			}
 			resultado.llamamiento = valor
+		case "exclusiones_desde":
+			desde, e := strconv.ParseInt(valor, 10, 64)
+			if e != nil || desde < 0 {
+				return resultado, false
+			}
+			resultado.exclusionesDesde = desde
+			resultado.exclusionesSolicitadas = true
 		default:
 			return resultado, false
 		}
+	}
+	if resultado.exclusionesSolicitadas && resultado.llamamiento == "" {
+		return resultado, false
 	}
 	if resultado.llamamiento != "" && (resultado.estado != "" || resultado.texto != "" || resultado.cursor != "" || resultado.orden != "") {
 		return resultado, false
