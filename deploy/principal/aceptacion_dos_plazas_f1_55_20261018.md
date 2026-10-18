@@ -70,7 +70,8 @@ No acredita la asignación de perfiles desde Administración.
 
 ## Evidencia del 18/10
 
-Fuente congelada de producto `1a29dfefa`, con F1-18 de main integrada.
+Fuente congelada de producto `9b17b508a`, con F1-18 de main integrada.
+El preparador conserva los mismos bytes revisados de `1a29dfefa`.
 Copia creada en 83,32 s, actualizada con respaldo frío y las 81 migraciones
 cotejadas; B129, B131 y B132 se instalaron una sola vez al incorporarlas.
 La compilación se hizo sin red. Binario SHA-256:
@@ -98,7 +99,12 @@ La tercera posición siguió disponible y sin una respuesta a la oferta.
 El corte añade a cada plaza un detalle «Recibo de adjudicación» con su fecha
 y el botón de copiar. Reutiliza el historial de la consulta existente y el
 componente de justificantes; no pide más datos ni registra actos al abrirlo.
-La comprobación en Chrome de ese detalle y el reinicio final están pendientes.
+En Chrome, ambos detalles empezaron plegados; se abrieron con teclado y
+cada botón copió su referencia exacta. Tras el reinicio de app y PostgreSQL,
+la consulta dio 200 con la misma oferta, aceptaciones e historial. Conserva
+dos actos, dos recibos distintos y dos salidas; abrir y copiar no añadió actos.
+Antonio y Elena ven «Adjudicada a usted» con su certificado respectivo y
+mantienen su recibo y fecha de aceptación.
 
 Chrome del sistema con TLS y certificados comprobados, en castellano e
 inglés. Anchos de 1440, 1024 y 390 px sin desbordamiento horizontal y sin
@@ -106,12 +112,18 @@ scroll de documento en escritorio. Cero errores JavaScript, cookies y
 almacenamiento web. Se comprobó el foco inicial visible y un reflujo
 equivalente al 200 %; no es una auditoría completa de accesibilidad.
 
-Bash, Shellcheck y tres pruebas focales conformes. Las pruebas cubren las dos
+Bash, Shellcheck y tres pruebas focales del preparador conformes. Las pruebas cubren las dos
 identidades, recuperación, referencia distinta, entradas inválidas y los
 límites de 59, 60, 90, 91 y 397 días. Dos revisiones independientes favorables
 al código de `1a29dfefa`. Semgrep local: cinco reglas, dos archivos y cero
 hallazgos; conserva el aviso de análisis parcial de Bash, revisado también a
-mano y con Shellcheck. GoSec no aplica porque no cambia Go.
+mano y con Shellcheck. El corte web pasó las 34 pruebas del módulo, las
+seis de caché y tres comprobaciones focales del grafo y la precarga. Semgrep
+sobre JavaScript: cuatro reglas, dos archivos, cero hallazgos ni errores.
+El análisis visual automático no dio hallazgos. El código de la interfaz
+tiene revisión independiente favorable; las capturas y esta evidencia final
+se revisan antes de declararlo listo.
+GoSec no aplica porque no cambia Go.
 
 Los guiones, respuestas y capturas quedan fuera de Git. La consulta de personas
 importadas sigue pendiente de la clave de su staging; no se necesitó para
