@@ -46,6 +46,7 @@ type SolicitudSeleccionLlamamiento struct {
 	ExpedienteRef     string
 	VersionEsperada   uint64
 	ClaveIdempotencia string
+	RecuperarOferta   bool
 }
 
 // DatosReciboSeleccionLlamamientoParaAdaptador es la proyección mínima que
@@ -57,6 +58,52 @@ type DatosReciboSeleccionLlamamientoParaAdaptador struct {
 	LlamamientoRef      string
 	VersionLlamamiento  uint64
 	PoliticaProvisional *bool
+	Oferta              *DatosReciboSeleccionOfertaParaAdaptador
+	Descarte            *DatosReciboDescarteOfertaParaAdaptador
+}
+
+type EjecutorSeleccionSingularCT interface {
+	SeleccionarYLlamarParaAdaptador(context.Context, SolicitudSeleccionLlamamiento) (DatosReciboSeleccionLlamamientoParaAdaptador, error)
+}
+
+type EjecutorSeleccionOfertaPluralCT interface {
+	SeleccionarOfertaParaAdaptador(context.Context, SolicitudSeleccionLlamamiento) (DatosReciboSeleccionOfertaParaAdaptador, error)
+	RecuperarOfertaParaAdaptador(context.Context, SolicitudSeleccionLlamamiento) (DatosReciboSeleccionLlamamientoParaAdaptador, error)
+}
+
+// La cantidad procede del expediente fiscalizado leído por servidor. Una
+// recuperación conserva la intención original y nunca prepara una nueva.
+func SeleccionarSegunNumeroPersonasCT(ctx context.Context, expediente ports.ExpedienteParaSeleccion,
+	q SolicitudSeleccionLlamamiento, singular EjecutorSeleccionSingularCT,
+	ofertas EjecutorSeleccionOfertaPluralCT,
+) (DatosReciboSeleccionLlamamientoParaAdaptador, error) {
+	vacio := DatosReciboSeleccionLlamamientoParaAdaptador{}
+	if ctx == nil || expediente.Fiscalizado.Validar() != nil ||
+		expediente.Fiscalizado.Referencia != q.ExpedienteRef ||
+		expediente.Fiscalizado.Version != q.VersionEsperada ||
+		expediente.VersionActual < expediente.Fiscalizado.Version {
+		return vacio, ErrSolicitudSeleccionLlamamientoInvalida
+	}
+	if expediente.Fiscalizado.Solicitud.NumeroPersonas > 1 {
+		if dependenciaNula(ofertas) {
+			return vacio, ErrSeleccionOfertaNoDisponible
+		}
+		if q.RecuperarOferta {
+			return ofertas.RecuperarOfertaParaAdaptador(ctx, q)
+		}
+		o, err := ofertas.SeleccionarOfertaParaAdaptador(ctx, q)
+		if err != nil {
+			return vacio, err
+		}
+		return DatosReciboSeleccionLlamamientoParaAdaptador{Oferta: &o}, nil
+	}
+	if q.RecuperarOferta {
+		return vacio, ErrSolicitudSeleccionOfertaInvalida
+	}
+	if dependenciaNula(singular) {
+		return vacio, ErrServicioSeleccionLlamamientoInvalido
+	}
+	return singular.SeleccionarYLlamarParaAdaptador(ctx, q)
 }
 
 type ServicioSeleccionLlamamiento struct {

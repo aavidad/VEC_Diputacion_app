@@ -359,6 +359,8 @@ erDiagram
     INSCRIPCION_INCORPORACION }o--|| VINCULO_CANDIDATO : "crea participacion"
 ```
 
+Candidata F1-04/05: `GET/POST /api/vec/bolsa/politica-transiciones` conecta la política global B32 con el portal de RRHH. CAT14 ofrece una lectura nominal por versión y huella del catálogo `bolsa.transiciones_situacion`; AD283 registra el consumidor propio; B122 añade el acto de gobierno y su salida pendiente, con versión esperada, motivo, recibo y auditoría. El POST exige decisión V3 fresca y conserva el recibo original en un reintento. El publicador ordinario antiguo pierde EXECUTE para el ejecutor. La instalación única está comprobada en la copia propia con las ACL completas; el recorrido conserva versión y recibo después de reiniciar aplicación y PostgreSQL. B126 sustituye los cuantificadores no admitidos por predicados equivalentes de longitud y conjunto de caracteres, sin cambiar permisos ni cánones. B127 expone `publicada_en` desde la fila guardada; un reintento conserva el instante original. La activación de la candidata y la preimagen de AD283 tras la cadena central siguen pendientes. Su lista causal está en `deploy/principal/lista_sql_codexs_reglas_situacion_20261015.txt`.
+
 Políticas versionadas que RRHH puede cambiar sin tocar código:
 `politica_orden_bolsa`, `politica_transiciones_situacion`, `politica_avisos_bolsa`,
 `politica_cese_bolsa`, `politica_segregacion`, `politica_ofertas_version`.
@@ -432,6 +434,25 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 `plan_incorporacion_personal_b2_v1`. CT **no escribe** agregados de Bolsa ni de
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
+
+La conexión de ofertas de varias plazas está **preparada en código y SQL, sin
+ensayo integrado ni instalación acreditados**. CT220 amplía la ejecución de
+selección para reservar una variante de oferta con su comando original; añade
+`vinculo_oferta_bolsa_ct_v1`, `descarte_seleccion_oferta_ct_v1` y sus outbox.
+El mismo UUID recupera la intención y sus recibos, sin volver a capturar el
+origen B110. B120 permite a CT verificar nominalmente la oferta de Bolsa;
+B121 verifica y cierra una intención sin publicación cuando ya no se puede
+publicar con la captura original. Las restricciones únicas de Bolsa arbitran
+la publicación y el cierre tardío. AD278 aporta autorizaciones distintas para
+el vínculo, el cierre en Bolsa y el descarte en CT. El vínculo, su consulta y
+el descarte usan organización y unidad gestora del expediente; centro y
+categoría permanecen como datos cotejados. El cierre conserva unidad y ámbito
+de Bolsa. CT223 comparte el bloqueo
+de cabecera entre reserva y cancelación; no cambia la prohibición de cancelar
+un expediente fiscalizado. El descarte deja historia técnica y recibos, sin
+avanzar la fase ni la versión del expediente. La lista ordenada y las
+condiciones de activación están en
+`deploy/principal/activacion_codexs_varias_plazas_ct_20261015.md`.
 
 F1-36B, aún en rama, añade AUT102 y CT229 después de AD286, CT228 y AUT103
 del corte A. AUT102 comprueba por fachada nominal la asignación propia de cargo

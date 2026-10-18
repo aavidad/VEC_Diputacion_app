@@ -34,6 +34,14 @@ test("Configuración exige una lectura positiva del perfil propio", () => {
   assert.equal(vistaBolsaOfrecida("configuracion", { perfilPropioBolsa: false, politicaCese: true }), false);
 });
 
+test("reglas de situación se ofrecen con Bolsa consultable y conservan la vista de cese", () => {
+  assert.equal(vistaBolsaOfrecida("reglas-situacion", { bolsasConsultables: false }), false);
+  assert.equal(vistaBolsaOfrecida("reglas-situacion", { bolsasConsultables: true }), true);
+  assert.ok(VISTAS_INTERNAS_BOLSA.includes("reglas"));
+  assert.ok(VISTAS_INTERNAS_BOLSA.includes("reglas-situacion"));
+  assert.equal(categoriaDeVistaBolsa("reglas-situacion"), "reglas");
+});
+
 test("P-WEB-14 no anuncia un total mientras Bolsa sigue comprobando", () => {
   const accesos = [{ disponible: true, estado: "disponible" }, { disponible: false, estado: "cargando" }];
   assert.equal(resumenAccesosModulos(accesos, false), "Comprobando áreas");
@@ -146,15 +154,15 @@ test("el menú agrupa solo las rutas de gestión con superficie conservada", () 
   const vistas = [
     "resumen", "elaboracion", "convocatorias", "solicitudes", "meritos", "baremacion",
     "alegaciones", "importacion", "llamamientos", "contratos", "documentos",
-    "comunicaciones", "estadisticas", "auditoria", "configuracion", "reglas", "consulta",
+    "comunicaciones", "estadisticas", "auditoria", "configuracion", "reglas", "reglas-situacion", "consulta",
   ];
   const vistasMapeadas = Object.values(CATEGORIAS_MENU_BOLSA).flat();
   const fragmentoMenu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
   const vistasEnPlantilla = [...fragmentoMenu.matchAll(/data-vista="([a-z-]+)"/g)].map((item) => item[1]);
-  assert.equal(vistasMapeadas.length, 17);
-  assert.equal(new Set(vistasMapeadas).size, 17, "cada vista debe pertenecer a una sola categoría");
+  assert.equal(vistasMapeadas.length, 18);
+  assert.equal(new Set(vistasMapeadas).size, 18, "cada vista debe pertenecer a una sola categoría");
   assert.deepEqual([...vistasMapeadas].sort(), [...vistas].sort());
-  assert.equal(vistasEnPlantilla.length, 17);
+  assert.equal(vistasEnPlantilla.length, 18);
   assert.deepEqual([...vistasEnPlantilla].filter((vista) => vistas.includes(vista)).sort(), [
     ...vistas,
   ].sort());
@@ -172,10 +180,10 @@ test("el menú agrupa solo las rutas de gestión con superficie conservada", () 
   }
 });
 
-test("B5 completa las dieciocho vistas internas sin duplicar su enlace", () => {
+test("B5 completa las diecinueve vistas internas sin duplicar su enlace", () => {
   const vistasMenu = Object.values(CATEGORIAS_MENU_BOLSA).flat();
-  assert.equal(vistasMenu.length, 17);
-  assert.equal(VISTAS_INTERNAS_BOLSA.length, 18);
+  assert.equal(vistasMenu.length, 18);
+  assert.equal(VISTAS_INTERNAS_BOLSA.length, 19);
   assert.equal(VISTAS_INTERNAS_BOLSA.filter((vista) => vista === VISTA_CANDIDATOS_BOLSA).length, 1);
   assert.equal(categoriaDeVistaBolsa(VISTA_CANDIDATOS_BOLSA), "bolsas-candidatos");
   assert.doesNotMatch(html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "", /data-vista="bolsa-candidatos"/);

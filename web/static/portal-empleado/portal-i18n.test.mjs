@@ -1047,6 +1047,69 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal.js", "portal-panel-interno.js"]) versionesEspeciales.set(ruta, "20261016-f009-justificante-v8");
   versionesEspeciales.set("modulos/bolsa/rrhh-politica-cese-vista.js", "20261016-reglas-etiquetas-v6");
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal-bolsas-api.js", "portal-bolsa-configuracion.js"]) versionesEspeciales.set(ruta, "20261018-f009-main-v1");
+  // Las ofertas de varias plazas de CT, integradas con CT231, renuevan su cadena.
+  for (const ruta of [
+    "categorias-rpt/cliente.js",
+    "categorias-rpt/montaje.js",
+    "modulos/bolsa/carga-convoca/arranque.js",
+    "modulos/contratacion-temporal/adaptador-http-expedientes.js",
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/cliente-http-cambios-expediente.js",
+    "modulos/contratacion-temporal/cliente-http-cancelacion.js",
+    "modulos/contratacion-temporal/cliente-http-consulta-comunicaciones-expediente.js",
+    "modulos/contratacion-temporal/cliente-http-consulta-recibo-respuesta.js",
+    "modulos/contratacion-temporal/cliente-http-consultas-rrhh.js",
+    "modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
+    "modulos/contratacion-temporal/cliente-http-llamamiento.js",
+    "modulos/contratacion-temporal/cliente-http-transporte.js",
+    "modulos/contratacion-temporal/cliente-http-vinculo-bolsa.js",
+    "modulos/contratacion-temporal/cliente-http.js",
+    "modulos/contratacion-temporal/componentes-expedientes.js",
+    "modulos/contratacion-temporal/consulta-seguimiento.js",
+    "modulos/contratacion-temporal/contrato-expedientes.js",
+    "modulos/contratacion-temporal/contrato-llamamiento.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-cobertura.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-informe-juridico.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/presentador-expedientes.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vinculo-categoria-rpt.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-cambios.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "peticiones-centro/arranque-peticiones-centro.js",
+    "peticiones-centro/cancelaciones-centro.js",
+    "portal-modulos-coordinador.js",
+    "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261016-ct-ofertas-ct231-v1");
+  // F1-04 renueva sus importadores sin cambiar las hojas de Contratación.
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal-menu-bolsa.js"])
+    versionesEspeciales.set(ruta, "20261018-f104-main-v1");
+  // F0-09 une el catálogo propio con la navegación de situación publicada en main.
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-menu-bolsa.js",
+    "portal-panel-interno.js", "portal-bolsas-api.js", "portal-bolsa-configuracion.js",
+    "portal-bolsas-historial-ofrecimientos.js"])
+    versionesEspeciales.set(ruta, "20261018-f009-main-v2");
+  for (const ruta of ["modulos/bolsa/rrhh-politica-cese-vista.js", "portal-bolsas-ofertas.js"])
+    versionesEspeciales.set(ruta, "20261018-f009-main-v2");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;

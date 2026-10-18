@@ -14,7 +14,7 @@ const VISTAS_POR_CATEGORIA = Object.freeze({
   ]),
   llamamientos: Object.freeze(["llamamientos"]),
   contratos: Object.freeze(["contratos"]),
-  reglas: Object.freeze(["reglas", "baremacion"]),
+  reglas: Object.freeze(["reglas", "reglas-situacion", "baremacion"]),
   consulta: Object.freeze(["consulta"]),
   resumen: Object.freeze(["resumen"]),
   estadisticas: Object.freeze(["estadisticas"]),
@@ -100,6 +100,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
     case "llamamientos":
     case "comunicaciones":
     case "baremacion":
+    case "reglas-situacion":
     case VISTA_CANDIDATOS_BOLSA:
       return capacidades?.bolsasConsultables === true;
     case "elaboracion":
@@ -125,7 +126,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
  * el menú. Elaboración comprueba su API al abrirse por enlace.
  */
 export function vistaBolsaNavegable(vista, capacidades = {}) {
-  if (["solicitudes", "meritos", "convocatorias", "alegaciones", "importacion", "baremacion", "configuracion"].includes(vista)) return true;
+  if (["solicitudes", "meritos", "convocatorias", "alegaciones", "importacion", "baremacion", "configuracion", "reglas-situacion"].includes(vista)) return true;
   if (vista === "elaboracion") return capacidades?.borradores !== false;
   if (["documentos", "resumen", "estadisticas", "llamamientos", "comunicaciones", VISTA_CANDIDATOS_BOLSA].includes(vista)) return true;
   return vistaBolsaOfrecida(vista, capacidades);
