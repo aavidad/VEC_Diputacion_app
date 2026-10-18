@@ -12,6 +12,7 @@ const MAXIMO_HITOS = 2_000;
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const PATRON_CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const PATRON_NUMERO = /^[0-9]{4}\/[A-Za-z0-9._-]{1,40}$/u;
+const PATRON_NUMERO_DERIVADO = /^[0-9]{4}\/[A-Za-z0-9._-]{1,40}-P[1-9][0-9]*$/u;
 const PATRON_TEXTO_CUADRO = /^[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ/._ -]{0,80}$/u;
 const PATRON_CURSOR = /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/u;
 const PATRON_INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
@@ -122,7 +123,9 @@ function validarResumen(entrada) {
   if (!camposCerrados(entrada, obligatorios, ["modalidad_clave", "unidad_ref", "plazo_fase", "urgente"])
     || !referencia(entrada.expediente_ref) || !referencia(entrada.flujo_ref)
     || !referencia(entrada.centro_ref) || !referencia(entrada.categoria_ref)
-    || !cadena(entrada.numero_visible, { maximo: 45, patron: PATRON_NUMERO })
+    || !cadena(entrada.numero_visible, { maximo: 50 })
+    || !(PATRON_NUMERO.test(entrada.numero_visible)
+      || PATRON_NUMERO_DERIVADO.test(entrada.numero_visible))
     || !entero(entrada.version, 1) || !entero(entrada.flujo_version, 1)
     || typeof entrada.flujo_huella_sha256 !== "string"
     || !/^[a-f0-9]{64}$/u.test(entrada.flujo_huella_sha256)
@@ -288,11 +291,34 @@ function validarHito(entrada) {
   return structuredClone(entrada);
 }
 
+function validarInstruccionCompartida(entrada, resumen, hitos) {
+  const campos = ["derivacion_ref", "padre_ref", "numero_visible_padre", "oferta_ref", "numero_plaza",
+    "recibo_derivacion_ref", "huella_padre_sha256", "creado_en_padre", "actualizado_en_padre", "hitos_padre"];
+  if (!camposCerrados(entrada, campos)
+    || !["derivacion_ref", "padre_ref", "oferta_ref", "recibo_derivacion_ref"].every((campo) => referencia(entrada[campo]))
+    || entrada.padre_ref === resumen.expediente_ref
+    || !cadena(entrada.numero_visible_padre, { maximo: 45, patron: PATRON_NUMERO })
+    || !entero(entrada.numero_plaza, 1) || entrada.numero_plaza > 100
+    || resumen.numero_visible !== `${entrada.numero_visible_padre}-P${entrada.numero_plaza}`
+    || !/^[a-f0-9]{64}$/u.test(entrada.huella_padre_sha256)
+    || !instante(entrada.creado_en_padre) || !instante(entrada.actualizado_en_padre)
+    || Date.parse(entrada.actualizado_en_padre) < Date.parse(entrada.creado_en_padre)
+    || !Array.isArray(entrada.hitos_padre) || entrada.hitos_padre.length < 6
+    || entrada.hitos_padre.length > MAXIMO_HITOS
+    || !entrada.hitos_padre.every((hito, indice) => hito?.secuencia === indice + 1
+      && hito.version_expediente === indice + 1)
+    || !Array.isArray(hitos) || hitos.length !== resumen.version - 5
+    || hitos[0]?.accion_clave !== "contratacion_temporal.nombramiento.derivar"
+    || !hitos.every((hito, indice) => hito.secuencia === indice + 6
+      && hito.version_expediente === indice + 6)) throw new TypeError("instrucción compartida RRHH no válida");
+  return Object.freeze({ ...structuredClone(entrada), hitos_padre: entrada.hitos_padre.map(validarHito) });
+}
+
 function validarDetalle(entrada) {
   if (!camposCerrados(
     entrada,
     ["esquema", "resumen", "solicitud", "hitos"],
-    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion", "capacidades_ficha", "resultado_bolsa"],
+    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion", "capacidades_ficha", "resultado_bolsa", "instruccion_compartida"],
   ) || entrada.esquema !== ESQUEMA_DETALLE || !Array.isArray(entrada.hitos)
     || entrada.hitos.length > MAXIMO_HITOS) {
     throw new TypeError("detalle RRHH no válido");
@@ -303,6 +329,8 @@ function validarDetalle(entrada) {
     solicitud: validarSolicitudProyectada(entrada.solicitud),
     hitos: entrada.hitos.map(validarHito),
   };
+  if (Object.hasOwn(entrada, "instruccion_compartida")) salida.instruccion_compartida = validarInstruccionCompartida(
+    entrada.instruccion_compartida, salida.resumen, salida.hitos);
   if (Object.hasOwn(entrada, "analisis")) salida.analisis = validarAnalisis(entrada.analisis);
   if (Object.hasOwn(entrada, "cobertura")) salida.cobertura = validarCobertura(entrada.cobertura);
   if (Object.hasOwn(entrada, "asignacion")) salida.asignacion = validarAsignacion(entrada.asignacion);

@@ -104,6 +104,37 @@ test("consulta cuadro y detalle por las rutas reales sin credenciales del navega
   });
 });
 
+test("detalle derivado conserva antecedentes separados y rechaza campos o secuencias ajenas", async () => {
+  const padre = Array.from({ length: 6 }, (_, indice) => ({ secuencia: indice + 1,
+    version_expediente: indice + 1, accion_clave: indice === 5 ? "registrar_fiscalizacion" : "registrar_analisis",
+    realizada_en: "2026-09-03T08:00:00Z", fase_destino: "fiscalizacion",
+    estado_origen: "en_curso", estado_destino: "en_curso" }));
+  const propio = { secuencia: 6, version_expediente: 6,
+    accion_clave: "contratacion_temporal.nombramiento.derivar", realizada_en: "2026-09-03T10:00:00Z",
+    fase_origen: "fiscalizacion", fase_destino: "fiscalizacion", estado_origen: "en_curso", estado_destino: "en_curso" };
+  const compartida = { derivacion_ref: "derivacion:ct:2", padre_ref: resumen.expediente_ref,
+    numero_visible_padre: resumen.numero_visible, oferta_ref: "oferta:ct:2", numero_plaza: 2,
+    recibo_derivacion_ref: "recibo:derivacion:2", huella_padre_sha256: "b".repeat(64),
+    creado_en_padre: "2026-09-03T08:00:00Z", actualizado_en_padre: "2026-09-03T09:00:00Z",
+    hitos_padre: padre };
+  const base = { esquema: "vec.contratacion-temporal.detalle-rrhh.v1",
+    resumen: { ...resumen, expediente_ref: "expediente:ct:hijo2", numero_visible: `${resumen.numero_visible}-P2`,
+      version: 6, fase_clave: "fiscalizacion", estado_clave: "en_curso" },
+    solicitud: { grupo_subgrupo: "A2", motivo_clave: "sustitucion", numero_personas: 1,
+      periodo_inicio: "2026-09-04T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z" },
+    hitos: [propio], instruccion_compartida: compartida };
+  const consultar = async (datos) => crearClienteHTTPContratacionTemporal({
+    fetchImpl: async () => respuesta({ data: datos }),
+  }).consultarDetalleRRHH({ expediente_ref: base.resumen.expediente_ref, version_observada: 6 });
+  const detalle = await consultar(base);
+  assert.equal(detalle.hitos.length, 1);
+  assert.equal(detalle.instruccion_compartida.hitos_padre.length, 6);
+  assert.equal(detalle.instruccion_compartida.derivacion_ref, "derivacion:ct:2");
+  await assert.rejects(consultar({ ...base, instruccion_compartida: { ...compartida, otro: true } }));
+  await assert.rejects(consultar({ ...base, hitos: [{ ...propio, secuencia: 1 }] }));
+  await assert.rejects(consultar({ ...base, resumen: { ...base.resumen, numero_visible: `${resumen.numero_visible}-P1` } }));
+});
+
 test("iguala los límites y vocabularios cerrados del contrato Go", async () => {
   const cursor = "A".repeat(43);
   const cuerpos = [];

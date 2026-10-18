@@ -1,0 +1,2 @@
+# Tras main completo, AD291/AD292 y B135/CT234; no reaplicar instaladas.
+deploy/postgresql/contratacion_temporal/migraciones/000237_detalle_nombramiento_derivado.up.sql 6a026db6306124d80a9229636339831687f3edcfe610c9f521beee7e7e1b72a8

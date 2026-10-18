@@ -375,6 +375,10 @@ El primer corte prepara la operación de derivación, pero aún responde «no
 disponible» hasta conectar su autorización y ensayar las dos plazas en la copia
 local. La ficha del padre y el recorrido completo pertenecen al siguiente corte.
 
+La ficha del nombramiento separará los antecedentes originales de la petición
+y las actuaciones propias de esa persona. No atribuye al hijo los actos del
+padre. La lectura y su presentación están preparadas; falta el ensayo conjunto.
+
 ### 4.0.1 Vista general
 
 Es el recorrido que hará Alberto en la presentación, cambiando de perfil. Cada

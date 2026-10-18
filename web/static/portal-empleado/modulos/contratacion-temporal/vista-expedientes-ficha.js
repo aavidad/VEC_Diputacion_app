@@ -45,6 +45,8 @@ export function renderizarCabeceraFicha(expediente, estado, t) {
       <h3 class="ct-exp-ficha-titulo">${escapar(titulo || t("expediente_etiqueta"))}</h3>
       <p class="estado-linea">${fase ? `<span>${escapar(fase)}</span>` : ""}${estadoTexto
     ? `<span class="ct-exp-chip${resumen ? ` ct-fase-${escapar(resumen.estado_clave)}` : ""}">${escapar(estadoTexto)}</span>` : ""}</p>
+      ${expediente.instruccion_compartida ? `<p class="texto-secundario">${escapar(t("ficha_instruccion_compartida", {
+        numero: expediente.instruccion_compartida.numero_visible_padre }))}</p>` : ""}
     </div>
     <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escapar(t("ficha_volver_lista"))}</button>
   </header>`;
@@ -143,6 +145,7 @@ export function renderizarLineaFases(expediente, t) {
         <span class="marca" aria-hidden="true">${paso === "hecho" ? "✓" : escapar(fase.orden)}</span>
         <span class="nombre">${escapar(fase.etiqueta)}</span>
         <small>${escapar(t(texto[paso]))}</small>
+        ${fase.origen ? `<small>${escapar(t(fase.origen === "padre" ? "ficha_rail_origen_padre" : "ficha_rail_origen_hijo"))}</small>` : ""}
       </button>
     </li>`;
   }).join("")}</ol>
@@ -195,12 +198,16 @@ export function renderizarListaDocumentos(documentos, t) {
 /** Historial en frases (lo más reciente arriba) y, plegado, el detalle técnico. */
 export function renderizarHistorialFicha(expediente, t, faseDeCampo = () => "general") {
   const historial = Array.isArray(expediente.historial) ? expediente.historial : [];
-  const frases = historial.length === 0
-    ? `<p class="cuerpo-panel">${escapar(t("ficha_historial_vacio"))}</p>`
-    : `<ol class="historial-frases">${[...historial].reverse().map((hito) => `<li>
+  const compartida = expediente.instruccion_compartida;
+  const frasesDe = (hitos) => `<ol class="historial-frases">${[...hitos].reverse().map((hito) => `<li>
         <div><time>${escapar(hito.fecha)}</time>${escapar(hito.accion)}
           <span class="texto-secundario"> · ${escapar(t("ficha_historial_fase", { fase: hito.fase }))}</span></div>
       </li>`).join("")}</ol>`;
+  const frases = !compartida && historial.length === 0
+    ? `<p class="cuerpo-panel">${escapar(t("ficha_historial_vacio"))}</p>`
+    : compartida ? `<div class="cuerpo-panel"><h4>${escapar(t("ficha_historial_hijo_titulo"))}</h4>
+        ${frasesDe(historial)}<h4>${escapar(t("ficha_historial_padre_titulo", { numero: compartida.numero_visible_padre }))}</h4>
+        ${frasesDe(compartida.historial_padre)}</div>` : frasesDe(historial);
   // La referencia opaca de la bolsa no se muestra nunca como texto.
   const tecnicos = expediente.cabecera.filter((campo) => campo.clave !== "bolsa_cobertura"
     && PATRON_REFERENCIA.test(String(campo.valor ?? "").trim()));
@@ -249,7 +256,8 @@ export function renderizarDatosPeticion(expediente, t, { valorCampo, faseDeCampo
     .slice(0, MAXIMO_DATOS_CLAVE);
   const resto = visibles.filter((item) => !clave.includes(item));
   return `<section class="panel ct-exp-ficha-datos" aria-labelledby="ct-exp-ficha-datos-titulo">
-    <div class="cabecera-panel"><h3 id="ct-exp-ficha-datos-titulo">${escapar(t("ficha_datos_titulo"))}</h3></div>
+    <div class="cabecera-panel"><h3 id="ct-exp-ficha-datos-titulo">${escapar(t(expediente.instruccion_compartida
+      ? "ficha_datos_padre_titulo" : "ficha_datos_titulo"))}</h3></div>
     <dl class="datos-clave">${clave.map(fila).join("")}</dl>
     ${resto.length ? `<details class="detalle-tecnico-plegado">
       <summary>${escapar(t("ficha_datos_todos"))}</summary>

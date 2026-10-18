@@ -2,7 +2,7 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL,
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
-} from "./contrato-expedientes.js?v=20261016-ct-ofertas-ct231-v1";
+} from "./contrato-expedientes.js?v=20261018-f119-detalle-v1";
 import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { validarCatalogosAlta } from "./contrato.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
@@ -302,6 +302,7 @@ const MENSAJES_ACCIONES_HISTORIAL = new Map([
   ["contratacion_temporal.expediente.cerrar", "hito_cierre_expediente"],
   ["contratacion_temporal.expediente.cancelar", "hito_cancelacion_expediente"],
   ["contratacion_temporal.expediente.modificar_tras_nombramiento", "hito_modificacion_nombramiento"],
+  ["contratacion_temporal.nombramiento.derivar", "hito_derivacion_nombramiento"],
   ["registrar_solicitud", "hito_solicitud"],
   ["registrar_analisis", "hito_analisis"],
   ["registrar_cobertura", "hito_cobertura"],
@@ -436,6 +437,21 @@ function versionPropuestaHistorica(detalle) {
 
 // La propuesta actual se deriva de un hito autorizado, nunca de la versión sola.
 function versionPropuestaDocumental(detalle) {
+  if (detalle.instruccion_compartida) {
+    const { resumen, hitos } = detalle;
+    if (resumen.version < 7 || resumen.version > 9 || resumen.fase_clave !== "nombramiento"
+      || resumen.estado_clave !== "en_curso" || hitos.length !== resumen.version - 5
+      || !hitos.every((h, i) => h.secuencia === i + 6 && h.version_expediente === i + 6)) return null;
+    const propuesta = hitos.find((h) => h.secuencia === 7);
+    const resolucion = hitos.find((h) => h.secuencia === 8);
+    if (propuesta?.accion_clave !== "registrar_propuesta_formalizacion"
+      || propuesta.fase_destino !== "nombramiento" || propuesta.estado_destino !== "en_curso"
+      || (resumen.version >= 8 && (resolucion?.accion_clave !== "registrar_resolucion_formalizacion"
+        || resolucion.fase_origen !== "nombramiento" || resolucion.fase_destino !== "nombramiento"))
+      || (resumen.version === 9 && hitos.find((h) => h.secuencia === 9)?.accion_clave
+        !== "contratacion_temporal.anotacion_administrativa.registrar")) return null;
+    return 7;
+  }
   const historica = versionPropuestaHistorica(detalle);
   if (historica !== null) return historica;
   const { resumen, hitos } = detalle;
@@ -483,7 +499,11 @@ function railFasesDesdeHitos(detalle, traducir) {
     orden: fase.orden, etiqueta: traducir(fase.clave_i18n), estado_clave: ESTADO_FASE_PENDIENTE,
   }));
   const indice = (clave) => presentacion.fases.findIndex((f) => f.clave === clave);
-  for (const hito of detalle.hitos) {
+  const antecedentes = detalle.instruccion_compartida?.hitos_padre ?? [];
+  for (const [hito, procedencia] of [
+    ...antecedentes.map((item) => [item, "padre"]),
+    ...detalle.hitos.map((item) => [item, "hijo"]),
+  ]) {
     const origen = indice(FASE_VISUAL[hito.fase_origen]);
     const destino = indice(FASE_VISUAL[hito.fase_destino]);
     if (destino < 0) continue;
@@ -495,12 +515,15 @@ function railFasesDesdeHitos(detalle, traducir) {
         }
       } else {
         fases[origen].estado_clave = ESTADO_FASE_COMPLETADO;
+        if (antecedentes.length) fases[origen].origen = procedencia;
       }
     }
     fases[destino].estado_clave = estadoVisual(hito.estado_destino);
+    if (antecedentes.length && hito.accion_clave !== "contratacion_temporal.nombramiento.derivar") fases[destino].origen = procedencia;
     for (const clave of ACCIONES_FASES_VISUALES_COMPLETADAS[hito.accion_clave] ?? []) {
       const cumplida = indice(clave);
       if (cumplida >= 0) fases[cumplida].estado_clave = ESTADO_FASE_COMPLETADO;
+      if (cumplida >= 0 && antecedentes.length) fases[cumplida].origen = procedencia;
     }
   }
   const actual = indice(FASE_VISUAL[detalle.resumen.fase_clave]
@@ -566,6 +589,14 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
     ...datosPeticionParaAnalisis(detalle),
     fases: rail.fases,
     historial: historialDesdeHitos(detalle.hitos, locale, t),
+    ...(detalle.instruccion_compartida ? { instruccion_compartida: {
+      derivacion_ref: detalle.instruccion_compartida.derivacion_ref,
+      padre_ref: detalle.instruccion_compartida.padre_ref,
+      numero_visible_padre: detalle.instruccion_compartida.numero_visible_padre,
+      numero_plaza: detalle.instruccion_compartida.numero_plaza,
+      recibo_derivacion_ref: detalle.instruccion_compartida.recibo_derivacion_ref,
+      historial_padre: historialDesdeHitos(detalle.instruccion_compartida.hitos_padre, locale, t),
+    } } : {}),
     ...(detalle.fiscalizacion ? { fiscalizacion: {
       resultado_clave: detalle.fiscalizacion.resultado_clave,
       resultado: etiqueta(detalle.fiscalizacion.resultado_clave, t),
