@@ -161,12 +161,12 @@ class EnsayoFase1Test(unittest.TestCase):
                 ensayar.verificar_tablas_vacias('contenedor')
 
     def test_pruebas_usan_bytes_versionados_y_lista_cerrada(self):
-        self.assertEqual(len(ensayar.PRUEBAS_SQL), 4)
+        self.assertEqual(len(ensayar.PRUEBAS_SQL), 6)
         with mock.patch.object(ensayar.subprocess, 'check_output', return_value=b'SQL') as git:
             with mock.patch.object(Path, 'read_bytes', return_value=b'SQL'):
                 casos = ensayar.pruebas_versionadas()
         self.assertEqual([ruta for ruta, _ in casos], list(ensayar.PRUEBAS_SQL))
-        self.assertEqual([contenido for _, contenido in casos], [b'SQL'] * 4)
+        self.assertEqual([contenido for _, contenido in casos], [b'SQL'] * 6)
         self.assertEqual([llamada.args[0][-1] for llamada in git.call_args_list],
                          [f'HEAD:{ruta}' for ruta in ensayar.PRUEBAS_SQL])
         with mock.patch.object(ensayar.subprocess, 'check_output', return_value=b'alterado'):
