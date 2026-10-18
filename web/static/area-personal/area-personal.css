@@ -1,4 +1,5 @@
 /* Adaptador visual: el tema común antecede a esta hoja y gobierna los colores. */
+@import url("./mi-bolsa-preferencias-modalidades.css?v=20261018-f114-v1");
 body.area-personal-app {
   --ap-azul-950: var(--portal-azul-950); --ap-azul-900: var(--portal-azul-900);
   --ap-azul-800: var(--portal-azul-800); --ap-azul-700: var(--portal-azul-700);

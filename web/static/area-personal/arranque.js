@@ -1,4 +1,4 @@
-import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261015-o-justificante-bolsa-v4";
+import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261018-f114-v1";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20261015-o-justificante-bolsa-v4";
 import { cargarVistasDisponibles } from "./vistas-disponibles.js?v=20261005-b4b-v1";
