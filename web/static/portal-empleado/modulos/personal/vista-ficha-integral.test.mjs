@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
+import { prepararTextosPersonal } from "./i18n.js?v=VEC_WEB_VERSION";
 
 test.before(async () => { await prepararTextosPersonal(); });
 import { versionDe } from "../../versiones-cache.test-helper.mjs";
 import { readFileSync } from "node:fs";
-import { montarVistaFichaIntegralPersonal } from "./vista-ficha-integral.js?v=20261008-alta-rpt-circular-v4";
+import { montarVistaFichaIntegralPersonal } from "./vista-ficha-integral.js?v=VEC_WEB_VERSION";
 
 test("la ficha carga el catálogo i18n del corte F2 con versión de caché", () => {
   const codigo = readFileSync(new URL("./vista-ficha-integral.js", import.meta.url), "utf8");

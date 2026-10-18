@@ -1,4 +1,4 @@
-import { traducirVerificar } from "./i18n.js?v=20260924-cotejo-espera-i18n-v1";
+import { traducirVerificar } from "./i18n.js?v=VEC_WEB_VERSION";
 
 const RUTA_COTEJO_PUBLICO = "/api/publico/documentos/cotejo";
 const formulario = document.getElementById("formulario-cotejo");

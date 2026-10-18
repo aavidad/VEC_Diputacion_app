@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { renderizarCuadro, renderizarExpediente } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { renderizarCuadro, renderizarExpediente } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
 import {
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
@@ -11,7 +11,7 @@ import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./datos-presentacion.js";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=VEC_WEB_VERSION";
 
 function estadoVista(expediente, tareaRef = expediente.tareas[0].tarea_ref) {
   return {

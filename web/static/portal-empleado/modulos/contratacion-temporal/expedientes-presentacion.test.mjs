@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { versionDe, exigirMismaVersion } from "../../versiones-cache.test-helper.mjs";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
-import { renderizarCuadro, renderizarDocumentos, renderizarExpediente } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=VEC_WEB_VERSION";
+import { renderizarCuadro, renderizarDocumentos, renderizarExpediente } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
 import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarAuditoriaContratacionTemporal,
@@ -21,14 +21,14 @@ import {
   crearDocumentosContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./datos-presentacion.js";
-import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 const MENSAJES_EXPEDIENTES_CONTRATACION_EN = await cargarMensajesExpedientesContratacionEnIdioma("en");
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=VEC_WEB_VERSION";
 import {
   crearEjecutorAltaConRefresco,
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
+} from "./vista-expedientes.js?v=VEC_WEB_VERSION";
 
 function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });
@@ -352,7 +352,7 @@ test("el espacio operativo separa tareas y distribución en paneles legibles", a
     /\.ct-exp-mis-tareas,\s*\n\.ct-exp-distribucion\s*\{[\s\S]*border:[^;]+;[\s\S]*background:/u,
   );
   assert.match(estilos, /\.ct-exp-operativo\s*\{[\s\S]*grid-template-columns:/u);
-  assert.match(portal, /^\s*@import\s+url\(\s*["']\.\.\/comun\/tema-vec\.css\?v=20261001-codexf-accesibilidad-v1["']\s*\)\s*;/mu);
+  assert.match(portal, /^\s*@import\s+url\(\s*["']\.\.\/comun\/tema-vec\.css\?v=VEC_WEB_VERSION["']\s*\)\s*;/mu);
   const base = tema.match(/:root\s*\{([^}]*)\}/u)?.[1];
   assert.ok(base, "el tema común debe declarar sus tokens base en :root");
   for (const token of [

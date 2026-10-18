@@ -44,7 +44,7 @@ test("el área personal carga el tema permitido antes de sus alias y sin activos
   const arranque = html.match(/<script type="module" src="(\/area-personal\/arranque\.js\?v=[A-Za-z0-9_-]+)"><\/script>/u)?.[1];
   assert.ok(arranque, "falta la entrada versionada del Área personal");
   assert.deepEqual(JSON.parse(cache).propios.filter((ruta) => ruta.startsWith("/area-personal/arranque.js?")), [arranque]);
-  assert.match(html, /\/comun\/tema-vec\.css\?v=20261008-preferencias-arranque-v1/u);
+  assert.match(html, /\/comun\/tema-vec\.css\?v=VEC_WEB_VERSION/u);
   assert.match(portal, /\/comun\/tema-vec\.css\?v=/u);
   const enlaces = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/gu)].map(([, href]) => href);
   assert.equal(enlaces.findIndex((href) => href.startsWith("/comun/tema-vec.css?")) + 1,

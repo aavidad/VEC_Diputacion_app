@@ -5,7 +5,7 @@ import {
   cargarMensajesPortal,
   crearTraductorPortal,
   MENSAJES_PORTAL,
-} from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-i18n.js?v=VEC_WEB_VERSION";
 
 import { comprobarGrafoVersionado, exigirMismaVersion, versionDe } from "./versiones-cache.test-helper.mjs";
 

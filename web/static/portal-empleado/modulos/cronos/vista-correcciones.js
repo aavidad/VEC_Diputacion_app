@@ -1,4 +1,4 @@
-import { MENSAJES_CRONOS_C5 } from "./i18n-c5.js?v=20260929-i18n-textos-v1";
+import { MENSAJES_CRONOS_C5 } from "./i18n-c5.js?v=VEC_WEB_VERSION";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "vacio", "disponible", "error", "denegado"]);
 

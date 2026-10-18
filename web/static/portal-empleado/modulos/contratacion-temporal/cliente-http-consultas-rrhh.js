@@ -1,4 +1,4 @@
-import { validarMetadatosRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=20261016-firma-historica-v5";
+import { validarMetadatosRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=VEC_WEB_VERSION";
 import { validarResultadoBolsaCT } from "./contrato-resultado-bolsa.js";
 
 const RUTA_CUADRO = "/api/vec/contratacion-temporal/cuadro/consultas";

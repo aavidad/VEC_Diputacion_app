@@ -1,8 +1,8 @@
-import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20261007-u-dietas-catalogo-v1";
-import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20261007-pantallas-textos-final-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=VEC_WEB_VERSION";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=VEC_WEB_VERSION";
+import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=VEC_WEB_VERSION";
 
-import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260929-i18n-dietas-v1";
+import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=VEC_WEB_VERSION";
 
 const ETAPAS_CIRCUITO = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
 const nodo = (documento, etiqueta, texto = "") => {

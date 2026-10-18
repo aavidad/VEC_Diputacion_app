@@ -1,5 +1,5 @@
-import { ErrorConsultaBases, validarSelector, leerConsulta } from './contrato-http.js?v=20261003-s2-consulta-v2';
-import { MAXIMO_BYTES } from './modelo.js?v=20261003-s2-consulta-v1';
+import { ErrorConsultaBases, validarSelector, leerConsulta } from './contrato-http.js?v=VEC_WEB_VERSION';
+import { MAXIMO_BYTES } from './modelo.js?v=VEC_WEB_VERSION';
 
 export const RUTA_CONSULTA_BASES = '/api/vec/seleccion/preparacion-bases/consultar';
 const fallo = codigo => new ErrorConsultaBases(codigo);

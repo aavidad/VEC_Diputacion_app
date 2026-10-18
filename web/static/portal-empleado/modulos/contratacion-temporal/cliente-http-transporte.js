@@ -2,19 +2,19 @@
 
 import { RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
 import { RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
-import { conflictoLlamamientoValido, prefijoErrorLlamamiento, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { conflictoLlamamientoValido, prefijoErrorLlamamiento, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=VEC_WEB_VERSION";
 import { RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
-import { RUTA_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
+import { RUTA_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=VEC_WEB_VERSION";
 import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
 import { RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
 import { RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
 import { RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { CONFLICTOS_SEGUIMIENTO_CESE, RUTAS_SEGUIMIENTO_CESE } from "./cliente-http-seguimiento-cese.js";
-import { CONFLICTOS_CANCELACION_EXPEDIENTE, RUTAS_CANCELACION_EXPEDIENTE } from "./cliente-http-cancelacion.js?v=20261016-ct-ofertas-ct231-v1";
+import { CONFLICTOS_CANCELACION_EXPEDIENTE, RUTAS_CANCELACION_EXPEDIENTE } from "./cliente-http-cancelacion.js?v=VEC_WEB_VERSION";
 
-import { RUTA_VINCULO_BOLSA } from "./cliente-http-vinculo-bolsa.js?v=20261016-ct-ofertas-ct231-v1";
+import { RUTA_VINCULO_BOLSA } from "./cliente-http-vinculo-bolsa.js?v=VEC_WEB_VERSION";
 
 export const MAXIMO_ERROR_BYTES = 16 * 1024;
 export const MAXIMO_FRAGMENTOS = 4096;

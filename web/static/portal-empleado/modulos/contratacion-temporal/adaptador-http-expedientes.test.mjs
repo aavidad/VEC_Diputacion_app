@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=20261018-f136c-informe-v4";
-import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261018-f136c-informe-v4";
-import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261018-f136c-informe-v4";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261018-f136c-informe-v4";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=VEC_WEB_VERSION";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=VEC_WEB_VERSION";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",

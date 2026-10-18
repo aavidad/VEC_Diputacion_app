@@ -6,13 +6,13 @@ import {
   cargarCatalogoModulosInterno,
   crearCatalogoModulosDesdeManifiestos,
   extraerModulosEnvelopeCanonico,
-} from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-catalogo-modulos.js?v=VEC_WEB_VERSION";
 import {
   CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
+} from "./portal-modulos-coordinador.js?v=VEC_WEB_VERSION";
 
 function raizFalsa() {
   const eventos = new Map();

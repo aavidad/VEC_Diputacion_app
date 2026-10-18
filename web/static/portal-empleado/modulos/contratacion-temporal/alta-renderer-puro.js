@@ -1,6 +1,6 @@
 /** Presentación pura del alta CT, compartida con la petición previa del centro. */
-import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261018-f173-alta-v2";
-import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261018-f173-alta-v2";
+import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=VEC_WEB_VERSION";
+import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=VEC_WEB_VERSION";
 
 const CAMPOS_RPT_PUBLICACION = new Set(["rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]);
 const CAMPOS_RPT_INTERNOS = new Set(["puesto_codigo", ...CAMPOS_RPT_PUBLICACION]);

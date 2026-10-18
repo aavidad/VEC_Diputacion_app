@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
+import { prepararTextosPersonal } from "./i18n.js?v=VEC_WEB_VERSION";
 
 test.before(async () => { await prepararTextosPersonal(); });
 import { versionDe } from "../../versiones-cache.test-helper.mjs";
 import { readFileSync } from "node:fs";
 import { CAPACIDAD_CONSULTAR_PUESTO } from "./contrato.js";
 import { ErrorClienteCategoriasPersonal } from "./cliente-http-categorias.js";
-import { montarModuloPersonal } from "./vista.js?v=20261008-alta-rpt-circular-v4";
+import { montarModuloPersonal } from "./vista.js?v=VEC_WEB_VERSION";
 
 test("categorías carga el i18n actualizado para sus estados internos", () => {
   const codigo = readFileSync(new URL("./vista.js", import.meta.url), "utf8");

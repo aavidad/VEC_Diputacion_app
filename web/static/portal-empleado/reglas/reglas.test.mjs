@@ -44,10 +44,10 @@ test("el catálogo renovado usa una URL única en la pantalla y en sus consumido
   const html = leer("./index.html");
   const reglas = leer("./reglas.js");
   const version = exigirMismaVersion([html, reglas], "i18n.js");
-  assert.equal(version, "20261012-reglas-configuracion-v1");
+  assert.equal(version, "VEC_WEB_VERSION");
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
-  assert.equal(versionDe(html, "reglas.js"), "20261012-reglas-configuracion-v1");
+  assert.equal(versionDe(html, "reglas.js"), "VEC_WEB_VERSION");
   assert.equal(exigirMismaVersion([bolsa, etiquetas], "reglas.js"), version);
   // La pantalla de plazos lee las reglas a través de rrhh-plazos-api.js (una sola lectura compartida).
   assert.doesNotMatch(leer("../modulos/bolsa/rrhh-plazos-ui.js"), /reglas\/reglas\.js/u);
@@ -63,7 +63,7 @@ test("las versiones en caché se renuevan juntas y la pantalla está en el manif
   const js = leer("./reglas.js");
   assert.equal(versionDe(html, "reglas.js"), versionDe(html, "reglas.css"));
   assert.equal(versionDe(js, "i18n.js"), versionDe(html, "i18n.js"));
-  assert.equal(versionDe(html, "reglas.js"), "20261012-reglas-configuracion-v1");
+  assert.equal(versionDe(html, "reglas.js"), "VEC_WEB_VERSION");
   assert.equal(versionDe(js, "ajustes.js"), versionDe(html, "reglas.js"));
   for (const nombre of ["interno.manifest", "produccion.manifest"]) {
     const manifiesto = readFileSync(new URL(`../../../${nombre}`, import.meta.url), "utf8");

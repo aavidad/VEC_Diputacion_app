@@ -1,4 +1,4 @@
-import { sinBordes, textoRef } from "./texto-dietas.js?v=20260925-d5d6-v1";
+import { sinBordes, textoRef } from "./texto-dietas.js?v=VEC_WEB_VERSION";
 const RUTA_COMISIONES = "/api/vec/dietas/comisiones";
 const MAXIMO_CUERPO_SOLICITUD_BYTES = 16 * 1024;
 const MAXIMO_RESPUESTA_BYTES = 128 * 1024;

@@ -1,4 +1,4 @@
-import { MENSAJES_CRONOS_C9 } from "./i18n-c9.js?v=20260929-i18n-textos-v1";
+import { MENSAJES_CRONOS_C9 } from "./i18n-c9.js?v=VEC_WEB_VERSION";
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")

@@ -25,7 +25,7 @@ test("Área personal comparte la versión calculada entre entrada, módulos y ca
   assert.equal(versionesDe(arranque, "./cliente-http.js").length, 2);
   assert.ok(arranque.includes('from "./i18n.js"'));
   assert.ok(aplicacion.includes('from "./i18n.js"'));
-  assert.equal(JSON.parse(cache).version, "20261003-pwa-ci-v5");
+  assert.equal(JSON.parse(cache).version, "VEC_WEB_VERSION");
   for (const ruta of ["mi-bolsa-portal.js", "mi-bolsa-historial.js", "contrato.js", "cliente-http.js",
     "contacto-propio.js", "vistas/seguimiento-tramites.js", "aplicacion.js", "arranque.js"])
     assert.equal(manifiesto.split(`static/area-personal/${ruta}`).length - 1, 1, ruta);

@@ -1,5 +1,5 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=VEC_WEB_VERSION";
 
 const { cargarTextos, crearTextos } = await import("../../../comun/textos.js");
 const textos = await cargarTextos("solicitudes");

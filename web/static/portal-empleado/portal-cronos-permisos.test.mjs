@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal } from "./portal-modulos-coordinador.js?v=VEC_WEB_VERSION";
 import * as saldo from "./modulos/cronos/vista-saldo-conectado.js";
 import * as remoto from "./modulos/cronos/vista-remoto.js";
 import * as movimientos from "./modulos/cronos/vista-movimientos-conectado.js";
@@ -174,7 +174,7 @@ test("coordinador y vistas comparten i18n; permisos usa la fecha civil sin carga
   const permisos = await leer("modulos/cronos/vista-permisos-propios.js");
   for (const fuente of [cronosInterno, ...importadoresI18n]) assert.doesNotMatch(fuente, /\/i18n\.js["']/u, "sin importación sin versión");
   assert.doesNotMatch(permisos, /vista-movimientos-propios\.js/u);
-  assert.match(permisos, /from "\.\/fecha-civil\.js\?v=20261007-pantallas-textos-final-v1"/u);
+  assert.match(permisos, /from "\.\/fecha-civil\.js\?v=VEC_WEB_VERSION"/u);
   exigirMismaVersion([cronosInterno, ...importadoresI18n], "i18n.js");
   assert.equal(versionDe(cronosInterno, "vista-movimientos-propios.js"), "VEC_WEB_VERSION");
   // Los clientes siguen sin ?v= en todos los importadores (misma clase de error para instanceof).

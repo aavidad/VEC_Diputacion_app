@@ -5,16 +5,16 @@ import {
   validarSolicitudConsultaResultadoCobertura,
   validarSolicitudDecisionCobertura,
   validarSolicitudPropuestaCobertura,
-} from "./contrato-cobertura.js?v=20261002-ct-fin-modalidad-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js?v=20261012-reglas-configuracion-v1";
+} from "./contrato-cobertura.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=20261012-reglas-configuracion-v1";
+import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=VEC_WEB_VERSION";
 import {
   renderizarViasPreparacion, selectorPestanaPreparacion, textoPreparacion, viaPreparacionDeEvento,
 } from "./vias-preparacion-cobertura.js";
 import { cargarTextos } from "../../../comun/textos.js";
-import { CONFLICTOS_SIN_CREDITO_COBERTURA } from "./cliente-http-transporte.js?v=20261016-ct-ofertas-ct231-v1";
+import { CONFLICTOS_SIN_CREDITO_COBERTURA } from "./cliente-http-transporte.js?v=VEC_WEB_VERSION";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",

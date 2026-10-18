@@ -3,13 +3,13 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js";
 import { crearTraductorBaremacion, traducirBaremacion } from "./portal-i18n-baremacion.js";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=VEC_WEB_VERSION";
 
 test("la vista carga el catálogo i18n con URL nueva y el módulo resuelve", async () => {
   const codigo = readFileSync(new URL("./portal-vistas-baremacion.js", import.meta.url), "utf8");
-  const actual = new URL("./portal-i18n-baremacion.js?v=20260930-portales-i18n-integracion-v1", import.meta.url);
+  const actual = new URL("./portal-i18n-baremacion.js?v=VEC_WEB_VERSION", import.meta.url);
   assert.notEqual(actual.href, new URL("./portal-i18n-baremacion.js", import.meta.url).href);
-  assert.match(codigo, /from "\.\/portal-i18n-baremacion\.js\?v=20260930-portales-i18n-integracion-v1"/);
+  assert.match(codigo, /from "\.\/portal-i18n-baremacion\.js\?v=VEC_WEB_VERSION"/);
   const modulo = await import(actual.href);
   assert.equal(modulo.traducirBaremacion("ayuda"), "Ayuda");
 });
