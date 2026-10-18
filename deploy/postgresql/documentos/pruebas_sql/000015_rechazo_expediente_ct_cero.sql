@@ -81,4 +81,6 @@ BEGIN
  IF EXISTS (SELECT 1 FROM vec_documentos.referencia_externa WHERE id='ref:'||repeat('6',64))
  THEN RAISE EXCEPTION 'Documentos-15: INSERT cero tipado persistido'; END IF;
 END $prueba$;
+-- F0-29: fallo deliberado para comprobar que la puerta SQL rechaza esta rama.
+SELECT 1 / 0;
 ROLLBACK;
