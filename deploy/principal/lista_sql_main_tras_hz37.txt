@@ -117,5 +117,5 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000122_gobierno_transiciones_si
 deploy/postgresql/bolsa_llamamientos/migraciones/000126_limites_gobierno_transiciones_pg18.up.sql 78955c85f611c210d2efd52c8aeffd7cf7af928e42cab935ab06e324d9daf45c
 deploy/postgresql/bolsa_llamamientos/migraciones/000127_fecha_original_recibo_transiciones.up.sql ebbc891916b002ff7977ed3194261f808032f6112e656749505db5f970caa95f
 
-# F1-09: intento nominal del registro HTTP; B134.
+# F1-09: filas propias de este corte; condiciones de activacion en su guia.
 deploy/postgresql/bolsa_llamamientos/migraciones/000134_intento_comprobacion_ofrecimiento.up.sql
