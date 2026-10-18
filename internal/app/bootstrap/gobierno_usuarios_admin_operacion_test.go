@@ -1,6 +1,8 @@
 package bootstrap
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
@@ -11,7 +13,70 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/vec/auditoria"
 )
+
+func TestGobiernoUsuariosAcuseSeleccionaActoExacto(t *testing.T) {
+	cfg, reloj := configuracionGobiernoUsuariosPrueba(t)
+	m, err := PrepararMaterialUsuariosAdmin(t.Context(), cfg, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Cerrar()
+	plan, sha := planGobiernoUsuariosPrueba(t, m)
+	var p planGobiernoUsuariosAdmin
+	if decodificarGobiernoUsuarios([]byte(plan), &p) != nil {
+		t.Fatal("plan")
+	}
+	material := []byte("material sintetico de prueba")
+	mh := sha256.Sum256(material)
+	replay := false
+	base := acuseAuditoriaGobiernoUsuarios{Secuencia: 42, Huella: strings.Repeat("b", 64), Correlacion: "correlacion_" + strings.Repeat("1", 32), RegistradaEn: time.Date(2026, 10, 18, 11, 0, 0, 123000, time.UTC)}
+	intento := base
+	intento.AuditoriaRef, intento.SolicitudSHA256 = "aud_v3_gui_"+strings.Repeat("2", 32), sha
+	recibo := base
+	recibo.AuditoriaRef, recibo.PlanSHA256 = "aud_v3_gu_"+sha[:32], sha
+	recibo.PreimagenSHA256, recibo.ClavesSHA256 = p.PreimagenSHA256, strings.Repeat("c", 64)
+	recibo.MaterialSHA256, recibo.ConfiguracionRef, recibo.Replay = hex.EncodeToString(mh[:]), p.Configuracion.Revision, &replay
+	ir, err := json.Marshal(intento)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr, err := json.Marshal(recibo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acuse, err := json.Marshal(ConfirmacionGobiernoUsuariosAdmin{Estado: "permitido", Codigo: "gobierno_usuarios_registrado", Recibo: rr, AuditoriaIntento: ir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raiz, _ := raizOperacionGobiernoUsuarios(t)
+	for nombre, datos := range map[string][]byte{ArchivoPlanGobiernoUsuarios: []byte(plan), ArchivoMaterialGobiernoUsuarios: material, "acuse.json": acuse} {
+		if escribirPrivadoGobiernoUsuarios(raiz, nombre, datos) != nil {
+			t.Fatal("fichero privado", nombre)
+		}
+	}
+	objetivo, recibido, err := acuseGobiernoUsuariosParaVerificar(raiz, "acuse.json")
+	if err != nil || recibido != sha || objetivo.AuditoriaRef != recibo.AuditoriaRef {
+		t.Fatalf("acuse: %+v %s %v", objetivo, recibido, err)
+	}
+	registro := &auditoria.RegistroGobiernoUsuariosV1{RegistroOperacionMantenimientoV1: auditoria.RegistroOperacionMantenimientoV1{AuditoriaRef: recibo.AuditoriaRef, Secuencia: recibo.Secuencia, HuellaSHA256: recibo.Huella}, PlanSHA256: sha, PreimagenSHA256: recibo.PreimagenSHA256, ClavesSHA256: recibo.ClavesSHA256, ConfiguracionDestinoRef: recibo.ConfiguracionRef}
+	doc := auditoria.DocumentoVerificacionMixta{Registros: []auditoria.RegistroMixtoV2{{TipoRegistro: "gobierno_usuarios_admin", GobiernoUsuarios: registro}}}
+	if !contieneAcuseGobiernoUsuarios(doc, recibo, sha) {
+		t.Fatal("acto original ausente")
+	}
+	registro.HuellaSHA256 = strings.Repeat("d", 64)
+	if contieneAcuseGobiernoUsuarios(doc, recibo, sha) {
+		t.Fatal("huella ajena aceptada")
+	}
+	registro.HuellaSHA256 = recibo.Huella
+	if contieneAcuseGobiernoUsuarios(doc, recibo, strings.Repeat("d", 64)) || contieneAcuseGobiernoUsuarios(auditoria.DocumentoVerificacionMixta{}, recibo, sha) {
+		t.Fatal("plan o acto ausente aceptado")
+	}
+	if _, _, err := acuseGobiernoUsuariosParaVerificar(raiz, "../acuse.json"); !errors.Is(err, ErrGobiernoUsuariosAdmin) {
+		t.Fatal("ruta ajena")
+	}
+}
 
 // raizOperacionGobiernoUsuarios abre una carpeta 0700 propia fuera de Git.
 func raizOperacionGobiernoUsuarios(t *testing.T) (*os.Root, string) {
