@@ -128,5 +128,15 @@ BEGIN
  IF (SELECT count(*) FROM vec_contexto_actor_v1.contexto_externo_versiones WHERE provision_ref=s.provision_ref)<>2 THEN RAISE EXCEPTION 'perdió historia externa'; END IF;
 END $recibo_y_revocacion$;
 RESET ROLE;
-ROLLBACK;
+-- Solo el ensayo concurrente, dentro de su contenedor desechable, conserva
+-- caso2/v1. Toda ejecución ordinaria mantiene el ROLLBACK histórico.
+\if :{?ctx15_persistir_para_concurrencia}
+ \if :ctx15_persistir_para_concurrencia
+  COMMIT;
+ \else
+  ROLLBACK;
+ \endif
+\else
+ ROLLBACK;
+\endif
 \echo CTX15-PRUEBA-OK

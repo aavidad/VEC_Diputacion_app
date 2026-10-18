@@ -129,3 +129,18 @@ tipos fila restaurados no conservan en `pg_dump` sus restricciones originales
 de `PUBLIC`; la comprobación estricta del ejecutor detecta esa diferencia.
 La preparación repone la revocación original de tipos compuestos, dominios y
 enumerados sin cambiar la función que exige los privilegios mínimos.
+
+Después del reinicio se ensaya una carrera real de publicación de contexto
+externo. Solo en ese punto el fixture admite conservar sus datos mediante
+`-v ctx15_persistir_para_concurrencia=1`; las siete ejecuciones ordinarias
+siguen terminando en `ROLLBACK`. Los datos permanecen únicamente en el
+contenedor desechable, que se retira al terminar.
+
+Dos sesiones `SERIALIZABLE` leen la misma versión y huella. La primera publica
+una sucesora y mantiene la transacción abierta. La segunda intenta publicar
+sobre la versión anterior; el conductor comprueba en PostgreSQL que espera
+a la primera, permite el `COMMIT` y exige `40001` en la segunda. Al final
+coteja una única sucesora, su huella, el puntero y la historia anterior. Las
+esperas tienen límite y las dos sesiones se cierran también si falla el ensayo.
+Esto acredita la carrera del publicador de contexto; no sustituye la prueba
+de autorización nominal con certificado del recorrido completo.
