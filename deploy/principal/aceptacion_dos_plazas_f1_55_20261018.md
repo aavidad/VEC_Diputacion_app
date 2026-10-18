@@ -72,8 +72,13 @@ No acredita la asignación de perfiles desde Administración.
 
 ## Evidencia del 18/10
 
-Fuente congelada de producto `9b17b508a`, con F1-18 de main integrada.
-El preparador conserva los mismos bytes revisados de `1a29dfefa`.
+Aplicación e interfaz congeladas en `9b17b508a`, con F1-18 de main integrada.
+El preparador `49f414009` elimina la hora previa de sus cinco proyecciones,
+con dos revisiones focales favorables. En la copia se preparó otra identidad
+sin responder a la oferta: sus cinco filas quedaron por debajo de 90 días
+(máximo 7.775.998,990279 segundos frente a 7.776.000). La tercera persona
+siguió disponible, sin respuesta ni adjudicación. Las dos identidades del
+recorrido, creadas antes del ajuste, conservan sus fechas al recuperarlas.
 Copia creada en 83,32 s, actualizada con respaldo frío y las 81 migraciones
 cotejadas; B129, B131 y B132 se instalaron una sola vez al incorporarlas.
 La compilación se hizo sin red. Binario SHA-256:
@@ -117,7 +122,7 @@ equivalente al 200 %; no es una auditoría completa de accesibilidad.
 Bash, Shellcheck y tres pruebas focales del preparador conformes. Las pruebas cubren las dos
 identidades, recuperación, referencia distinta, entradas inválidas y los
 límites de 59, 60, 90, 91 y 397 días. Dos revisiones independientes favorables
-al código de `1a29dfefa`. Semgrep local: cinco reglas, dos archivos y cero
+al preparador, con comprobación focal del intervalo en `49f414009`. Semgrep local: cinco reglas, dos archivos y cero
 hallazgos; conserva el aviso de análisis parcial de Bash, revisado también a
 mano y con Shellcheck. El corte web pasó las 34 pruebas del módulo, las
 seis de caché y tres comprobaciones focales del grafo y la precarga. Semgrep
