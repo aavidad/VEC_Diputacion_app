@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -138,5 +139,17 @@ func TestDerivacionAdmiteNumeroPadreMaximoYPlazaCien(t *testing.T) {
 	h, err := NuevoExpedienteDerivado(a)
 	if err != nil || h.Validar() != nil || len(h.NumeroVisible) != 50 {
 		t.Fatalf("número derivado de 50 caracteres: %v", err)
+	}
+}
+
+func TestExpedienteDerivadoPropagaFalloDeHuella(t *testing.T) {
+	hijo, err := NuevoExpedienteDerivado(altaDerivacionPrueba(padreDerivacionPrueba(t), 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hijo.InstruccionCompartida.ExpedientePadre.CreadoEn = time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
+	var falloJSON *json.MarshalerError
+	if err := hijo.Validar(); !errors.Is(err, ErrExpedienteInvalido) || !errors.As(err, &falloJSON) {
+		t.Fatalf("el fallo de la huella debe llegar a quien valida: %v", err)
 	}
 }

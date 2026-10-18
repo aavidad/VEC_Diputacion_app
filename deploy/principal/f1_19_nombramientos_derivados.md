@@ -7,18 +7,15 @@ acreditada la continuación del hijo por propuesta, resolución, Personal y cese
 
 ## Activación
 
-Usar una copia propia de PostgreSQL 18 con la lista completa de main, incluida
-F1-16. Esperar al consumidor nominal AD292 y al perfil/audiencia agrupados por
-R en F0-18; después instalar B135→CT234 una vez según la lista de este corte.
-Cotejar las definiciones instaladas, sus huellas, propietario y permisos antes
-de instalar. Las cinco reconstrucciones explícitas se regeneran desde el
-volcado cotejado; el guion y las huellas se conservan en el material de entrega.
+Usar PostgreSQL 18 propio con main completo, incluida F1-16. Tras AD291/AD292
+de R, instalar B135→CT234 una vez según la lista de este corte.
+Cotejar antes cuerpos instalados, huellas, propietario y permisos. El guion
+privado reproduce las cinco definiciones explícitas desde el volcado cotejado.
 No preparar firmas ni recibos fingidos ni modificar la cadena de autorización.
 
-La composición actual responde 503: recibe un puerto de aplicación, pero aún
-no configura la autoridad propia del hijo. No hereda permisos del padre.
-El segundo corte conectará el archivo privado `identidad/nombramientos-ct.json`.
-Un 503 o un doble de prueba no acreditan la creación del hijo.
+La composición responde 503 hasta conectar la autoridad propia del hijo en
+el segundo corte, con `identidad/nombramientos-ct.json`. No hereda permisos
+del padre. Un 503 o un doble de prueba no acreditan la creación del hijo.
 
 ## Comprobación conjunta pendiente
 
