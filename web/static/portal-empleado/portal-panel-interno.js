@@ -32,7 +32,7 @@ const TEXTOS_VINCULO_CT = (await cargarTextos("portal-bolsa")).seccion("vinculo_
 
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
-import { RUTA_PANTALLA_CARGA_CONVOCA } from "./portal-menu-bolsa.js?v=20261018-f009-main-v2";
+import { RUTA_PANTALLA_CARGA_CONVOCA } from "./portal-menu-bolsa.js?v=20261018-f009-main-v3";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
 import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261016-r1-o-integracion-v7";

@@ -1,11 +1,14 @@
 # Copia local de VEC para ensayar y recorrer
 
 El guion `deploy/principal/copia_local.sh` restaura la base de referencia,
-aplica las listas SQL indicadas y arranca el portal con certificados nuevos.
-Tarea F0-28 del tablero. Este primer corte arranca con las funciones opcionales
-apagadas: todavía no prepara las conexiones nominales ni los actos de los
-módulos. Un portal que responde 200 acredita el arranque, no el recorrido de
-Bolsa y Contratación. Los apartados 3 a 8 conservan esa preparación pendiente.
+aplica las listas SQL indicadas y arranca el portal. Por defecto genera
+certificados nuevos; la opción `--rrhh-original` conserva la identidad de RRHH.
+Tarea F0-28 del tablero. Sin selectores arranca con las funciones opcionales
+apagadas. `--modulos` prepara conexiones nuevas de Contratación y Bolsa y un
+buzón local; `--portal-externo` añade la preparación del aspirante desde el
+material privado de copia. El gobierno de administradores sigue pendiente.
+Un portal que responde 200 acredita el arranque; el recorrido requiere además
+las consultas y actuaciones de cada módulo.
 
 Reglas que no cambian:
 
@@ -62,6 +65,49 @@ No descarga herramientas ni imágenes para compilar. La variable
 Debe contener el volcado `principal-hz37-20261014.dump` y sus anexos
 `acl-base-20261014.sql` y `acl-tipos-20261014.sql`.
 
+Para montar Contratación y Bolsa, añade `--modulos --puerto-smtp 11081` y
+ten instalada también la imagen `axllent/mailpit:v1.27.8`. El buzón escucha
+solo en el puerto local elegido, exige STARTTLS y solo acepta direcciones
+`@example.test`; no se configura reenvío. Se comprueba el rechazo de otro
+dominio antes de arrancar la aplicación. `parar`, `reiniciar` y `borrar`
+incluyen el buzón de esa instancia.
+
+La preparación de los datos ficticios usa los productores del kit privado:
+`VEC_COPIA_ROLES_SCRIPT`, antes de instalar SQL, y `VEC_COPIA_DATOS_SCRIPT`,
+después de crear las credenciales. Para el aspirante se añade
+`VEC_COPIA_PORTAL_SCRIPT` y `--portal-externo`, que requiere `--modulos`.
+Cada variable apunta a un archivo privado propio, fuera de Git y de la
+carpeta de PostgreSQL, sin enlaces ni permisos de grupo o de otros usuarios.
+Los productores reciben únicamente `--raiz <instancia>` y dejan su registro
+en ella. Las rutas y los datos concretos del kit no se versionan.
+
+El productor previo debe preparar los dos LOGIN que figuran en
+`configuracion_origen_consumos_v1` para los orígenes de Contratación y Bolsa:
+grupos exactos, membresía exclusiva, `INHERIT TRUE`, `SET FALSE`, sin
+administración y con vigencia de 90 días. AD278 comprueba esos datos; no se
+debilita su guarda. Las demás conexiones se crean con nombres y contraseñas
+nuevos. El registro privado conserva sus valores y la huella del entorno.
+
+Tras el productor de datos, el guion coteja los 22 LOGIN internos: opciones
+sin privilegios de administración y una sola membresía para cada conexión de
+peticiones. El gobierno de arranque es la excepción: necesita seis arcos
+concretos, definidos en `copia_local_verificacion.py`, y no admite otros.
+Los propietarios y el proyector conservan las opciones exactas de `SET` e
+`INHERIT`; no se trasladan a los LOGIN de peticiones. H retirará esta
+excepción al completar F0-08 con el contrato nominal de R.
+
+El lector de motivos conserva caducidad nula porque así lo exige su
+comprobación instalada. Es una excepción de datos de esta copia; su TLS y
+los demás LOGIN nuevos duran 90 días. Se ha comunicado a dirección para
+retirarla al adaptar ese contrato. El cotejo rechaza cualquier otra caducidad
+nula o vigencia fuera de 60 a 90 días.
+
+El productor del aspirante se ejecuta con la aplicación y el sellado de
+auditoría activos. Al terminar se reinician PostgreSQL y la aplicación para
+cargar su configuración. La preparación debe publicar identidad, contexto,
+asignación y confianza mediante los productores existentes. Las admisiones
+técnicas y los datos ficticios de copia no acreditan actos de administración.
+
 Desde la raíz de tu rama:
 
 ```sh
@@ -105,6 +151,51 @@ sin renovar sus certificados ni cambiar sus claves. PostgreSQL usa TLS con
 esa CA nueva. La aplicación se inicia con un entorno explícito, sin heredar
 conexiones ni selectores de otra copia.
 
+### Copia con la identidad original de RRHH
+
+Para recorrer una asignación histórica ligada al certificado de RRHH, añade
+`--rrhh-original <carpeta_material>` a `crear --modulos`. La carpeta indicada
+debe contener el material histórico de desarrollo correspondiente al respaldo
+HZ37. El guion selecciona las piezas internas de CA, certificados, identidades,
+KMS, TSA e idempotencia. Exige también `identidad/bolsa-bback.json` y coteja su
+certificado y sujeto con la identidad de RRHH. Incluye, cuando existen, las
+identidades de centros, consultas de RRHH, solicitante y ratificador con sus
+certificados, claves y paquetes importables, y los dos catálogos públicos. Si
+`identidad/centros.json` referencia a `centro-solicitante` y
+`centro-ratificador`, ambas identidades y sus certificados se copian y cotejan
+antes de publicar el material.
+Comprueba que cada pieza seleccionada y sus carpetas pertenecen al usuario,
+son privadas y no tienen enlaces. La fuente se abre solo para lectura y el
+conjunto seleccionado se publica en un destino nuevo.
+
+```sh
+deploy/principal/copia_local.sh crear --equipo l --instancia rrhh-original \
+  --puerto-pg 55481 --puerto-app 18481 --puerto-smtp 11081 --modulos \
+  --rrhh-original "$VEC_COPIA_MATERIAL_RRHH" \
+  --lista-sql deploy/principal/candidata_hz39/lista_sql.txt
+```
+
+La CA, el certificado y la clave de cliente, su paquete PKCS#12, la identidad,
+las claves KMS y TSA, B-BACK y las demás piezas seleccionadas conservan
+exactamente sus bytes. El certificado histórico de cliente puede tener una
+vigencia de 397 días:
+no se renueva porque la asignación existente está ligada a su huella. Solo el
+certificado y la clave del servidor se generan de nuevo por 90 días, firmados
+por la CA original. La huella del servidor en el manifiesto de la copia se
+calcula a partir del certificado nuevo. PostgreSQL y el portal usan ese servidor.
+Las conexiones a PostgreSQL se crean para la copia con `sslmode=verify-full` y
+la CA original; nunca se activan las conexiones del material fuente.
+
+El guion deriva `desarrollo.env` en el destino con rutas de la copia. No abre
+ni traslada scripts antiguos, respaldos, ficheros `.dsn`, otros `.env` ni
+descriptores de conexión de módulos. Si una pieza seleccionada contiene un DSN,
+la creación se detiene antes de publicar material. Los productores privados
+preparan las conexiones y configuraciones opcionales para esta instancia.
+`estado.json` registra `material_modo: rrhh_original`,
+que permite a los productores conservar la raíz histórica de autorización.
+El perfil de permisos de esta receta requiere la publicación vigente sin carga
+de CONVOCA ni B103; no se restablece una raíz de autorización nueva.
+
 Conserva los mismos argumentos de equipo e instancia para estas órdenes:
 
 ```sh
@@ -117,8 +208,14 @@ deploy/principal/copia_local.sh borrar --equipo l --instancia recorrido
 
 `reiniciar` detiene aplicación y PostgreSQL y los vuelve a crear con los
 mismos datos. Comprueba `/livez` y `/portal-empleado/` por HTTPS con CA y
-certificado de cliente verificados. `arrancar` rechaza una copia incompleta o
+certificado de cliente verificados. Con `--modulos`, comprueba además la
+consulta del cuadro de Contratación y el listado de bolsas. La disponibilidad
+global de otras funciones opcionales no se deduce de estas comprobaciones.
+`arrancar` rechaza una copia incompleta o
 una revisión de código distinta; crea otra instancia cuando cambie la rama.
+La compilación exige índice y árbol limpios antes y después de generar el
+binario. Su SHA-256 queda en el estado; cada arranque lo coteja y exige la
+misma fuente limpia, también para los archivos web que se sirven desde ella.
 `borrar` comprueba el árbol de trabajo creador, la marca de propiedad y la
 etiqueta del contenedor antes
 de detener y eliminar únicamente su instancia. No actúa sobre puertos o

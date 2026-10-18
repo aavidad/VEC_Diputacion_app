@@ -7,7 +7,7 @@ const versionEntradaAnterior = "20261002-r1-post401-v4";
 // La integración de las ofertas de CT con CT231 renueva entrada, coordinador
 // y la cadena de Contratación cambiada; el alta conserva su cohorte.
 const versionCoordinador = "20261016-ct-ofertas-ct231-v1";
-const versionCoordinadorEntrada = "20261018-f009-main-v2";
+const versionCoordinadorEntrada = "20261018-f009-main-v3";
 const versionEntrada = versionCoordinadorEntrada;
 const versionClienteCT = versionCoordinador;
 const versionClienteConsulta = versionCoordinador;

@@ -277,7 +277,16 @@ class MaterialTests(unittest.TestCase):
                 if sql.startswith("BEGIN;"): return b""
                 return json.dumps(next(snapshots)).encode()
             physical = {"session": material.IMPORTACION_LOGIN, "current": material.IMPORTACION_LOGIN, "tls": True, "member": True, "database": "postgres"}
+            # El ensayo de permisos usa su propia fuente aprobada. El contrato
+            # histórico de producción sigue rechazando cualquier otro cuerpo.
             with patch.object(material, "approved_material_plan"), patch.object(material.socket, "create_connection", side_effect=OSError), \
+                 patch.object(material, "run", side_effect=[json.dumps([container]).encode(), b"fuente alterada"]), \
+                 patch.object(material, "query") as sin_efectos:
+                with self.assertRaisesRegex(material.MaterialError, "source contract changed"):
+                    material.repair_importacion_connect(args, root, source)
+                sin_efectos.assert_not_called()
+            with patch.object(material, "approved_material_plan"), patch.object(material.socket, "create_connection", side_effect=OSError), \
+                 patch.object(material, "IMPORTACION_SOURCE_SHA", hashlib.sha256(source_bytes).hexdigest()), \
                  patch.object(material, "run", side_effect=[json.dumps([container]).encode(), source_bytes]), \
                  patch.object(material, "query", side_effect=query), patch.object(material, "physical_pool_query", return_value=physical) as probe:
                 material.repair_importacion_connect(args, root, source)

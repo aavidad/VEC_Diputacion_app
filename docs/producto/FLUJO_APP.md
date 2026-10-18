@@ -368,6 +368,8 @@ entre la unidad que tramita y la del puesto y la asignación de los permisos
 necesarios para la activación. Este ejercicio no cambia
 los pasos 1 a 21 del caso singular.
 
+**Ensayo F1-55 (18/10).** La copia local registra dos aceptaciones previas desde Mi Bolsa y adjudica por orden, aunque la segunda posición aceptó antes que la primera. Al perder la respuesta de la primera adjudicación, la misma intención recuperó con 200 el recibo y la fecha tras reiniciar aplicación y PostgreSQL, sin duplicar el acto. Las dos plazas quedaron cubiertas; la tercera persona siguió disponible sin responder. Cada adjudicación permite abrir y copiar su recibo y consultar su fecha; comprobado desde Chrome tras reiniciar, sin otra escritura. No responder no produce un acto ni una baja. La cancelación queda en F1-17; la continuación hasta formalización en CT sigue pendiente. La preparación de las dos identidades reutiliza el guion existente; la autoridad de RRHH procede del arranque de desarrollo documentado, sin asignación manual ni cambio de huellas. Evidencia y límites en `deploy/principal/aceptacion_dos_plazas_f1_55_20261018.md`.
+
 ### 4.0.1 Vista general
 
 Es el recorrido que hará Alberto en la presentación, cambiando de perfil. Cada
@@ -786,6 +788,8 @@ se han comprobado la publicación de dos plazas, su consulta y aceptación desde
 Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
 un reintento conserva fechas, política y oferta originales. Este corte no acredita
 todavía la publicación desde la ficha de CT.
+
+**Candidatas de aviso por correo (F1-18, ensayadas en copia local).** Publicar fija las participaciones disponibles de la bolsa constituida y guarda cada aviso con el correo del alta como fuente. «Gestionar ofertas» muestra pendientes, enviados, sin confirmación y fallidos. El 18/10 se repitió el ensayo en una copia nueva con la receta interna: publicación de dos plazas desde pantalla, pendientes conservados con enlace ausente e inválido y recuperación tras reiniciar aplicación y PostgreSQL. «Actualizar estado» permite continuar al corregir la configuración. Un contacto ausente deja un aviso fallido. El segundo corte (#1184) añade «Reintentar envíos sin confirmación»: revisar la oferta y la advertencia de posible duplicado, confirmar y obtener un recibo propio. Se comprobaron cancelar sin envío, confirmación, respuesta perdida y recuperación con la misma clave y recibo tras reiniciar; otra clave durante el envío recibe conflicto. Los dos mensajes del reintento conservan identificador y contenido. Chrome comprobó castellano e inglés a 1440 y 390 píxeles, sin desbordamiento horizontal. La ficha de candidatos importados sigue fuera del alcance; se accede por Llamamientos → Gestionar ofertas. Enviado acredita aceptación por el servicio de correo; no cambia el plazo ni acredita entrega o notificación. La integración de ambos cortes sigue pendiente y F1-18 permanece abierta.
 
 **Candidata R1a comprobada en copia local, pendiente de integrar.** La selección explica por
 persona los hechos comprobados y el motivo aplicado, con el vínculo al contrato

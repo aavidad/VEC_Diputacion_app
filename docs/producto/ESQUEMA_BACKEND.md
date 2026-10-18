@@ -389,8 +389,24 @@ antes de usarlas (`revisar-sql-vec`). Los datos de contacto van cifrados; en
 listados se muestran enmascarados y la consulta completa en la ficha deja
 constancia de quién la hizo.
 
+La candidata B129 añade cabecera de aviso de oferta, instantánea de destinatarios e historia de intentos. La publicación y el vínculo del token se confirman en la misma transacción autorizada. B131 coteja el identificador principal guardado al insertar, compatible con la subtransacción de B117; no reescribe cabeceras históricas. El token deriva del material HMAC versionado existente con dominio propio; solo su huella y versión quedan en la cabecera. Reclamar confirma la marca incierta antes de la red. `proyectar_oferta_v2` incorpora el resumen sin otra lectura; los campos internos del token no salen al HTTP. No añade autoridad de Usuarios ni cambia el núcleo. B129 y B131 se instalaron una vez en la copia propia; regresión SQL y recorrido de correo tras reinicio conformes. Integración y segundo corte de reintento expreso pendientes. B132, todavía sin instalar, añade revisión prospectiva de avisos y un registro idempotente del reintento expreso. La variante tipada del POST existente liga bolsa, oferta, revisión, clave y confirmación de posible duplicado al material autorizado; consumo y rearme de inciertos comparten transacción. La proyección existente aporta revisión y último recibo; una recuperación por clave devuelve el recibo de ese acto.
+
 Puertos Go: `internal/modules/bolsa/ports/` (unos 86 ficheros);
 adaptadores en `internal/modules/bolsa/adapters/postgres*`.
+
+Las preferencias entre bolsas guardan versiones y recibos en
+`preferencia_bolsas_version` y publican su evento en
+`preferencia_bolsas_outbox`. La ruta propia
+`/api/vec/bolsa/mi-bolsa/preferencias` usa GET y PUT. La activación interna
+requiere, por este orden, la migración 000279 de Autorización atestada
+(consumidor central con la rama interna y restricción de lectura v2), la
+000096 de Autorización, la 000116 de Bolsa y la 000275 de Autorización
+atestada. Estas migraciones
+comprueban el permiso, consumen la escritura y registran la lectura y los
+intentos denegados. Bolsa separa las claves de idempotencia internas de las
+externas y conserva actor y perfil en las nuevas versiones internas.
+El orden y las precondiciones de instalación están en
+`deploy/principal/candidata_hz39/aspirante/preferencias_internas.md`.
 
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
 
@@ -785,6 +801,11 @@ sola consulta paginada por cursor (`cursor_cuadro_rrhh` en CT), índices por
 | `/api/publico/…` | proceso externo y `cmd/vec-publico` | Consulta anónima pública. Rechaza `Authorization` y cookies |
 | `/api/admin/…` (`perfiles/v1`, `seleccion-perfil/v1`, `copias/v1`) | `cmd/vec-admin`, subdominio propio con certificado mutuo | Administración |
 | `/api/interna/cronos/…` | composición de Cronos | Empleado en Cronos (prefijo heredado) |
+
+Mi Bolsa conserva una vía interna en el proceso combinado mientras el
+aspirante HZ37 usa la sesión corporativa. Su ruta de preferencias se monta
+solo al activar la capacidad interna con LOGIN, sesión y autorización
+propios. El proceso externo conserva su sesión y sus funciones nominales.
 
 `/api/candidates/…` y `/api/demo` son del prototipo antiguo (`internal/candidate`);
 no se amplían. `/api/v4/documents` no es una ruta de VEC: es el cliente del
