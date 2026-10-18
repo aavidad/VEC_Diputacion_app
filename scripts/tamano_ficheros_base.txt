@@ -95,7 +95,7 @@
 1076 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 957 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 931 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
-1024 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
+1055 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
 1287 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 744 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
 848 web/static/bolsa/bolsa.css
@@ -108,18 +108,18 @@
 1865 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1131 web/static/portal-empleado/portal-componentes.css
 2254 web/static/portal-empleado/portal.js
-1524 web/static/portal-empleado/portal-bolsas-api.js
+1538 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1160 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-1210 web/static/portal-empleado/portal-i18n.test.mjs
+1263 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 953 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
 2020 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.js
-780 internal/app/server/server_test.go
+782 internal/app/server/server_test.go
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1889 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1894 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 967 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 1048 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 983 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
@@ -162,7 +162,7 @@
 1791 deploy/postgresql/autorizacion_atestada_v3/migraciones/000241_preferencias_bolsas.up.sql
 2998 deploy/postgresql/autorizacion_atestada_v3/migraciones/000247_campos_canonicos_original_firmable.up.sql
 822 internal/app/bootstrap/contratacion_temporal_perfiles_fijos_rrhh_desarrollo.go
-818 internal/app/bootstrap/bolsa_rrhh_desarrollo.go
+835 internal/app/bootstrap/bolsa_rrhh_desarrollo.go
 
 3043 deploy/postgresql/autorizacion_atestada_v3/migraciones/000256_objetivo_version_rol_inscripcion_externa.up.sql
 1212 deploy/postgresql/autorizacion/migraciones/000078_cartera_meritos_persona_externa.up.sql
@@ -172,8 +172,8 @@
 3752 deploy/postgresql/autorizacion_atestada_v3/migraciones/000262_cartera_meritos_preimagen_actual.up.sql
 1142 deploy/postgresql/contratacion_temporal/migraciones/000209_firma_pdf_tres_pasos.up.sql
 845 deploy/postgresql/autorizacion/migraciones/000093_correspondencia_organizacion_firma_ct.up.sql
-1124 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
-928 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
+1132 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
+1009 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
 850 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_desarrollo.go
 678 deploy/postgresql/contratacion_temporal/migraciones/000215_necesidad_peticion_centro.down.sql
 780 deploy/postgresql/contratacion_temporal/migraciones/000215_necesidad_peticion_centro.up.sql
@@ -189,6 +189,9 @@
 334 web/static/textos/en/peticiones-centro.json
 334 web/static/textos/es/peticiones-centro.json
 806 scripts/operacion/preparar_expediente_alta_b2/preparar.py
+851 deploy/postgresql/contratacion_temporal/migraciones/000230_recibo_nativo_seleccion_bolsa.up.sql
+1131 deploy/postgresql/bolsa_llamamientos/migraciones/000118_criterios_contextuales_ofrecimiento.up.sql
+1109 deploy/postgresql/contratacion_temporal/migraciones/000229_selectores_recuperacion_detalle_rrhh.up.sql
 4027 deploy/postgresql/autorizacion_atestada_v3/migraciones/000277_justificante_bolsa_documental.up.sql
 887 deploy/postgresql/documentos/migraciones/000022_justificante_renuncia_bolsa.up.sql
 3212 deploy/postgresql/autorizacion_atestada_v3/migraciones/000281_despacho_documentos_bolsa_externa.up.sql

@@ -4,14 +4,14 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261016-firma-historica-justificante-v7";
-const versionEntrada = "20261016-firma-historica-justificante-v7";
-const versionClienteCT = "20261014-ginpix-personal-b2-v1";
-const versionClienteConsulta = "20261016-firma-historica-v5";
+const versionCoordinador = "20261018-firma-historica-ct231-v1";
+const versionEntrada = "20261018-firma-historica-ct231-v1";
+const versionClienteCT = "20261016-ct231-integracion-v1";
+const versionClienteConsulta = "20261018-firma-historica-ct231-v1";
 const versionBaseCT = "20261013-ct-firma-tres-v3";
-const versionCircuito = "20261016-firma-historica-v5";
-const versionVista = "20261016-firma-historica-v5";
-const versionVistaPortal = "20261016-firma-historica-v5";
+const versionCircuito = "20261018-firma-historica-ct231-v1";
+const versionVista = "20261018-firma-historica-ct231-v1";
+const versionVistaPortal = "20261018-firma-historica-ct231-v1";
 const versionAdaptador = "20261016-firma-historica-v5";
 const versionRender = "20261016-firma-historica-v5";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
@@ -39,7 +39,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
-  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionVista);
+  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", "20261018-firma-historica-ct231-v1");
   exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
 });
 

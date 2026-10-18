@@ -8,7 +8,7 @@ import {
   VISTAS_MODULOS_PERSONALES,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-} from "../../portal-modulos-coordinador.js?v=20261008-w-ct-borradores-main-v2";
+} from "../../portal-modulos-coordinador.js?v=20261018-firma-historica-ct231-v1";
 
 const directorio = new URL("./", import.meta.url);
 const [

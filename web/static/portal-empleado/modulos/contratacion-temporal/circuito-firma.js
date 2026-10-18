@@ -8,10 +8,10 @@
  */
 
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261016-firma-historica-v5";
-import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261016-firma-historica-v5";
+import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261018-firma-historica-ct231-v1";
 import { cargarTextosFaseFirma, ordenR5ResolucionConfirmado, renderizarFaseFirma, renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261016-firma-historica-v5";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261016-firma-historica-v4";
+import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=20261018-firma-historica-ct231-v1";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1";
 import { crearClienteDescargaFirmaV2 } from "./cliente-http-descarga-firma-v2.js?v=20261016-firma-historica-v4";
 
