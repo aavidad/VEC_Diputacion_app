@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -23,13 +24,15 @@ const (
 // privado sólo existe en la composición y no se registra como ruta HTTP.
 // El perfil Bolsa procede del manifiesto B-BACK publicado, nunca de HTTP.
 type operacionBolsaNativaCT struct {
-	ct       *soporteAltaContratacionTemporalDesarrollo
-	bolsa    *soporteSesionBorradorBolsaDesarrollo
-	publico  catalogoFronterasComunDesarrollo
-	privado  catalogoFronterasComunDesarrollo
-	sesion   *seguridadComunDesarrollo
-	servicio *appbolsa.ServicioSituacionParticipacion
-	emision  *appbolsa.ServicioEmisionLlamamiento
+	ct                *soporteAltaContratacionTemporalDesarrollo
+	bolsa             *soporteSesionBorradorBolsaDesarrollo
+	publico           catalogoFronterasComunDesarrollo
+	privado           catalogoFronterasComunDesarrollo
+	sesion            *seguridadComunDesarrollo
+	servicio          *appbolsa.ServicioSituacionParticipacion
+	emision           *appbolsa.ServicioEmisionLlamamiento
+	ofertas           *appbolsa.ServicioOfertasPublicadas
+	preparadorOfertas *preparadorBorradorLlamamientoDesarrollo
 }
 
 func nuevaOperacionBolsaNativaCT(
@@ -123,9 +126,18 @@ func nuevaOperacionBolsaNativaCT(
 		return nil, err
 	}
 	m.emisionInternaCT = emision
+	var ofertas *appbolsa.ServicioOfertasPublicadas
+	if m.repositorioOfertas != nil && m.calculadoraOfertas != nil {
+		var errOfertas error
+		ofertas, errOfertas = appbolsa.NuevoServicioOfertasPublicadas(&preparador, emisorB7,
+			m.repositorioOfertas, m.calculadoraOfertas, reloj.Ahora)
+		if errOfertas != nil {
+			slog.Warn("ofertas de CT no compuestas", "error", errOfertas)
+		}
+	}
 	return &operacionBolsaNativaCT{ct: soporteCT, bolsa: m.preparador.soporte,
 		publico: publico, privado: privado, sesion: sesion, servicio: servicio,
-		emision: emision}, nil
+		emision: emision, ofertas: ofertas, preparadorOfertas: &preparador}, nil
 }
 
 // Contexto devuelve el actor Bolsa sólo después de comprobar la capacidad

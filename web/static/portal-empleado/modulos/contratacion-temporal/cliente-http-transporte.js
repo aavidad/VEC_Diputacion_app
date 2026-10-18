@@ -2,7 +2,7 @@
 
 import { RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
 import { RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
-import { conflictoLlamamientoValido, prefijoErrorLlamamiento } from "./cliente-http-llamamiento.js";
+import { conflictoLlamamientoValido, prefijoErrorLlamamiento, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
 import { RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
 import { RUTA_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
@@ -12,9 +12,9 @@ import { RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo
 import { RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
 import { RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { CONFLICTOS_SEGUIMIENTO_CESE, RUTAS_SEGUIMIENTO_CESE } from "./cliente-http-seguimiento-cese.js";
-import { CONFLICTOS_CANCELACION_EXPEDIENTE, RUTAS_CANCELACION_EXPEDIENTE } from "./cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
+import { CONFLICTOS_CANCELACION_EXPEDIENTE, RUTAS_CANCELACION_EXPEDIENTE } from "./cliente-http-cancelacion.js?v=20261016-ct-ofertas-ct231-v1";
 
-import { RUTA_VINCULO_BOLSA } from "./cliente-http-vinculo-bolsa.js?v=20261011-bolsa-b103-privacidad-v1";
+import { RUTA_VINCULO_BOLSA } from "./cliente-http-vinculo-bolsa.js?v=20261016-ct-ofertas-ct231-v1";
 
 export const MAXIMO_ERROR_BYTES = 16 * 1024;
 export const MAXIMO_FRAGMENTOS = 4096;
@@ -358,6 +358,8 @@ export const CONFLICTOS_SIN_CREDITO_COBERTURA = Object.freeze([
 ]);
 
 export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
+  if (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento && estado === 503
+    && codigo === "seleccion_oferta_indeterminada") return true;
   if (ruta.split("?")[0] === RUTA_VINCULO_BOLSA && estado === 409) {
     return codigo === "vinculo_en_conflicto";
   }
@@ -438,9 +440,22 @@ export async function construirErrorRespuesta(respuesta, signal, ruta, errorClie
     });
   }
   const detalle = envoltorio?.error;
+  const comprobacionPendiente = ruta === rutas.seleccionLlamamiento && respuesta.status === 409
+    && detalle?.codigo === "comprobacion_ofrecimiento_pendiente";
+  const comprobacion = envoltorio?.comprobacion_ofrecimiento;
+  const conVersion = comprobacion && Object.hasOwn(comprobacion, "version_politica_ofertas");
+  const comprobacionValida = !comprobacionPendiente || (exigirCamposExactos(comprobacion,
+    ["bolsa_ref", "orden_acta", ...(conVersion ? ["version_politica_ofertas"] : []), "motivo_clave"])
+    && typeof comprobacion.bolsa_ref === "string"
+    && /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(comprobacion.bolsa_ref)
+    && Number.isSafeInteger(comprobacion.orden_acta) && comprobacion.orden_acta > 0
+    && (!conVersion || Number.isSafeInteger(comprobacion.version_politica_ofertas)
+      && comprobacion.version_politica_ofertas > 0)
+    && comprobacion.motivo_clave === "pendiente_comprobacion_rrhh");
   const campoAlta = ruta === rutas.alta && respuesta.status === 422
     && detalle?.campo === "numero_expediente_moad";
-  if (!exigirCamposExactos(envoltorio, ["error"])
+  if (!exigirCamposExactos(envoltorio, ["error", ...(comprobacionPendiente ? ["comprobacion_ofrecimiento"] : [])])
+    || !comprobacionValida
     || !exigirCamposExactos(
       detalle,
       ["codigo", "clave_i18n", "correlacion_ref", ...(campoAlta ? ["campo"] : [])],
@@ -459,6 +474,7 @@ export async function construirErrorRespuesta(respuesta, signal, ruta, errorClie
     correlacionRef: detalle.correlacion_ref,
     campo: campoAlta ? detalle.campo : "",
     envelopeValido: true,
+    comprobacionOfrecimiento: comprobacionPendiente ? Object.freeze({ ...comprobacion }) : null,
   });
 }
 

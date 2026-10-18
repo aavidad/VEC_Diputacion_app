@@ -41,7 +41,7 @@ const (
 // El proceso externo solo recibe claves derivadas para estas audiencias.
 var consumidoresPortalExternoV3 = []string{
 	"usuarios_preferencias", "usuarios_correos", "usuarios_imagen", "mi_bolsa", "portal_candidato", consumidorInscripcionPortalExternoV3,
-	consumidorPreferenciasBolsasPortalExternoV3, consumidorMeritosCarteraPortalExternoV3,
+	consumidorPreferenciasBolsasPortalExternoV3, consumidorMeritosCarteraPortalExternoV3, consumidorJustificantesBolsaExterno,
 }
 
 const (
@@ -115,8 +115,11 @@ func audienciasConsumidorPortalExternoV3(consumidor string) []string {
 		return []string{audienciaPresentarInscripcionExternaV3, audienciaPresentarAlegacionExternaV3}
 	case consumidorPreferenciasBolsasPortalExternoV3:
 		return []string{puertosbolsa.AudienciaOrdenarPreferenciasBolsas}
+	case consumidorJustificantesBolsaExterno:
+		return []string{audienciaJustificanteBolsaSubir, audienciaJustificanteBolsaDescargar, audienciaJustificanteBolsaPreparar}
 	case consumidorMeritosCarteraPortalExternoV3:
-		return []string{puertosmeritos.AudienciaRetirarCartera, descriptoresMaterialMeritosInternosDesarrollo()[0].Audiencia}
+		return []string{puertosmeritos.AudienciaRetirarCartera, descriptoresMaterialMeritosInternosDesarrollo()[0].Audiencia,
+			audienciaSubidaLocalActoModulo, audienciaSubidaLocalDescargaPropia}
 	default:
 		return nil
 	}
@@ -129,6 +132,9 @@ func audienciasInventarioPortalExternoV3(consumidor string, cantidad int) []stri
 	audiencias := audienciasConsumidorPortalExternoV3(consumidor)
 	if consumidor == consumidorInscripcionPortalExternoV3 && cantidad == 1 {
 		return audiencias[:1]
+	}
+	if consumidor == consumidorMeritosCarteraPortalExternoV3 && cantidad == 2 {
+		return audiencias[:2]
 	}
 	if audiencias != nil && cantidad == len(audiencias) {
 		return audiencias
@@ -152,6 +158,8 @@ func descriptoresMaterialPortalExternoV3() []descriptorMaterialConsumidorV3Desar
 	todos = append(todos, descriptorMaterialOrdenarPreferenciasBolsasExternaV3())
 	todos = append(todos, descriptorMaterialRetirarCarteraExternaV3())
 	todos = append(todos, descriptoresMaterialMeritosInternosDesarrollo()[0])
+	todos = append(todos, descriptoresMaterialSubidaLocalExternaV3()...)
+	todos = append(todos, descriptoresMaterialJustificantesBolsaExternos()...)
 	externas := map[string]bool{}
 	for _, consumidor := range consumidoresPortalExternoV3 {
 		for _, audiencia := range audienciasConsumidorPortalExternoV3(consumidor) {
@@ -522,6 +530,29 @@ func materialJSONV3PortalExterno(inv inventarioV3PortalExterno, consumidor strin
 		HuellaGobierno   string `json:"huella_gobierno_sha256"`
 		HuellaSecreto    string `json:"huella_secreto_sha256"`
 		EmisorID         string `json:"emisor_id"`
+	}
+	// El preflight documental consume preparación antes de subir o descargar.
+	// Su orden de transporte es independiente del índice de ficheros derivado
+	// y ya publicado en el inventario externo.
+	if consumidor == consumidorJustificantesBolsaExterno {
+		if len(claves) != 3 {
+			return nil, ErrMaterialV3PortalExternoInvalido
+		}
+		porAudiencia := make(map[string]claveInventarioV3PortalExterno, 3)
+		for _, c := range claves {
+			if _, repetida := porAudiencia[c.Audiencia]; repetida {
+				return nil, ErrMaterialV3PortalExternoInvalido
+			}
+			porAudiencia[c.Audiencia] = c
+		}
+		claves = make([]claveInventarioV3PortalExterno, 0, 3)
+		for _, audiencia := range []string{audienciaJustificanteBolsaPreparar, audienciaJustificanteBolsaSubir, audienciaJustificanteBolsaDescargar} {
+			c, existe := porAudiencia[audiencia]
+			if !existe {
+				return nil, ErrMaterialV3PortalExternoInvalido
+			}
+			claves = append(claves, c)
+		}
 	}
 	lista := make([]clave, 0, len(claves))
 	for _, c := range claves {

@@ -512,8 +512,34 @@ func nuevaAutorizacionMiBolsaPortalExterno(fuente puertosvec.FuenteAutorizacion,
 // la cuenta exterior y el vínculo vigente único con el candidato. Comparte el
 // registro de sesión y contexto ya acreditado para el Área personal externa.
 type preparadorMiBolsaPortalExterno struct {
-	preferencias *autoridadPreferenciasUsuariosDesarrollo
-	identidad    *identidadCandidatoBolsaDesarrollo
+	preferencias  *autoridadPreferenciasUsuariosDesarrollo
+	identidad     *identidadCandidatoBolsaDesarrollo
+	superficie    dominiovec.SuperficieAutenticacionActorV1
+	cuentaInterna cuentaUsuariosPreferenciasDesarrollo
+}
+
+func cuentaSesionMiBolsa(preferencias *autoridadPreferenciasUsuariosDesarrollo,
+	identidad *identidadCandidatoBolsaDesarrollo, principal dominiovec.Principal,
+	superficie dominiovec.SuperficieAutenticacionActorV1,
+	cuentaInterna cuentaUsuariosPreferenciasDesarrollo) (cuentaUsuariosPreferenciasDesarrollo, bool) {
+	vacia := cuentaUsuariosPreferenciasDesarrollo{}
+	if preferencias == nil || identidad == nil || principal.ID == "" {
+		return vacia, false
+	}
+	huella := principal.Attributes["certificate_sha256"]
+	if superficie == dominiovec.SuperficieAutenticacionInternaCorporativaV1 {
+		return cuentaInterna, cuentaInterna.CertificadoSHA256 == huella && cuentaInterna.Sujeto == principal.ID &&
+			cuentaInterna.CuentaRef != "" && cuentaInterna.PerfilRef != "" &&
+			cuentaInterna.CuentaRef != identidad.cuentaRef && cuentaInterna.PerfilRef != identidad.perfilRef
+	}
+	if superficie != dominiovec.SuperficieAutenticacionExternaPersonalV1 {
+		return vacia, false
+	}
+	cuenta := cuentaUsuariosPreferenciasDesarrollo{cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{
+		Sujeto: principal.ID, CuentaRef: identidad.cuentaRef,
+		PerfilRef: identidad.perfilRef, CertificadoSHA256: huella,
+	}}
+	return cuenta, cuenta.CuentaRef != "" && cuenta.PerfilRef != ""
 }
 
 func (p *preparadorMiBolsaPortalExterno) PrepararMiBolsa(r *http.Request) (mibolsa.Orden, error) {
@@ -530,15 +556,13 @@ func (p *preparadorMiBolsaPortalExterno) PrepararMiBolsa(r *http.Request) (mibol
 		principal.AuthMethod != dominiovec.AuthMethodCertificate || principal.AuthAssurance != dominiovec.AuthAssuranceHigh {
 		return mibolsa.Orden{}, bolsahttp.ErrAutenticacionAusente
 	}
-	// Preferencias y Bolsa usan perfiles y cuentas propios incluso para la
-	// misma persona. Compartimos únicamente la infraestructura de sesión; la
-	// cuenta de Bolsa sale del material candidato cotejado con el certificado.
-	cuenta := cuentaUsuariosPreferenciasDesarrollo{cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{
-		Sujeto: principal.ID, CuentaRef: p.identidad.cuentaRef,
-		PerfilRef: p.identidad.perfilRef, CertificadoSHA256: principal.Attributes["certificate_sha256"],
-	}}
-	if cuenta.CuentaRef == "" || cuenta.PerfilRef == "" ||
-		p.preferencias.superficie != dominiovec.SuperficieAutenticacionExternaPersonalV1 {
+	// Cada superficie toma su cuenta de la autoridad que la acreditó.
+	superficie := p.superficie
+	if superficie == "" {
+		superficie = dominiovec.SuperficieAutenticacionExternaPersonalV1
+	}
+	cuenta, valida := cuentaSesionMiBolsa(p.preferencias, p.identidad, principal, superficie, p.cuentaInterna)
+	if !valida || p.preferencias.superficie != superficie {
 		return mibolsa.Orden{}, bolsahttp.ErrAutenticacionAusente
 	}
 	ahora := p.preferencias.reloj.Ahora().UTC().Truncate(time.Microsecond)
@@ -553,7 +577,7 @@ func (p *preparadorMiBolsaPortalExterno) PrepararMiBolsa(r *http.Request) (mibol
 	ahora = p.preferencias.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if err != nil || vinculo.ValidarPara(resultado) != nil ||
 		resultado.Contexto.PersonaRef != p.identidad.personaRef ||
-		resultado.Contexto.PerfilActivoRef != p.identidad.perfilRef ||
+		resultado.Contexto.PerfilActivoRef != cuenta.PerfilRef ||
 		!vigenciaMiBolsaPortalExterno(certificado, p.identidad, vinculo, resultado, ahora) {
 		return mibolsa.Orden{}, errMiBolsaNoDisponible
 	}
@@ -597,6 +621,7 @@ func vigenciaMiBolsaPortalExterno(certificado *x509.Certificate,
 // composición exterior. El constructor no publica perfiles, motivos, cuentas
 // ni claves; esa provisión pertenece al proceso interno y exige huella y CAS.
 type dependenciasMiBolsaPortalExterno struct {
+	justificantes         http.Handler
 	preparador            bolsahttp.Preparador
 	autorizador           *aplicacionvec.ServicioAutorizacionSolicitudLigadaV3
 	bolsa                 *pgxpool.Pool
@@ -656,6 +681,11 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 		return nil, errMiBolsaNoDisponible
 	}
 	rutas := []vechttp.RutaExacta{{Ruta: bolsahttp.RutaMiBolsa, Manejador: consultaHTTP}}
+	justificantes := d.justificantes
+	if justificantes == nil {
+		justificantes = bolsahttp.NuevoHandlerJustificanteRenunciaNoDisponible()
+	}
+	rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsahttp.RutaJustificantesMiBolsa, Manejador: justificantes})
 	preferenciasHTTP := bolsahttp.NuevoHandlerPreferenciasBolsasNoDisponible()
 	if d.proveedorPreferencias != nil {
 		if d.fuentePreferencias == nil {

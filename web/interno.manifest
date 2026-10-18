@@ -417,10 +417,16 @@ static/textos/en/bolsa.json
 static/portal-empleado/modulos/bolsa/rrhh-plazos-api.js
 static/portal-empleado/modulos/bolsa/rrhh-plazos-i18n.js
 static/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js
+static/portal-empleado/modulos/bolsa/rrhh-criterios-ofrecimiento.js
+static/portal-empleado/modulos/bolsa/criterios-ofrecimiento/v1.json
 static/portal-empleado/modulos/bolsa/rrhh-plazos.css
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-vista.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese.css
+static/portal-empleado/modulos/bolsa/reglas-situacion-api.js
+static/portal-empleado/modulos/bolsa/reglas-situacion-ui.js
+static/textos/es/bolsa-reglas-transiciones.json
+static/textos/en/bolsa-reglas-transiciones.json
 static/textos/es/auditoria.json
 static/textos/en/auditoria.json
 static/portal-empleado/modulos/auditoria/auditoria-rrhh.css
@@ -684,3 +690,4 @@ static/portal-empleado/modulos/bolsa/documentos-api.js
 static/portal-empleado/modulos/bolsa/documentos-vista.js
 static/textos/es/bolsa-documentos.json
 static/textos/en/bolsa-documentos.json
+static/portal-empleado/portal-bolsas-justificante-cliente.js

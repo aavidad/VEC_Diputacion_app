@@ -19,17 +19,28 @@ import (
 // LecturaPreferenciasBolsas evalúa la autorización actual de cada GET. No
 // convierte la captura en una concesión reutilizable ni emite material V3.
 type LecturaPreferenciasBolsas struct {
-	lector  bolsa.LecturaPreferenciasBolsas
-	auditor bolsa.AuditoriaIntentosPreferenciasBolsas
-	fuente  puertosvec.FuenteAutorizacion
-	reloj   puertosvec.Reloj
+	lector     bolsa.LecturaPreferenciasBolsas
+	auditor    bolsa.AuditoriaIntentosPreferenciasBolsas
+	fuente     puertosvec.FuenteAutorizacion
+	reloj      puertosvec.Reloj
+	superficie dominiovec.SuperficieAutenticacionActorV1
 }
 
 func NuevaLecturaPreferenciasBolsas(lector bolsa.LecturaPreferenciasBolsas, auditor bolsa.AuditoriaIntentosPreferenciasBolsas, fuente puertosvec.FuenteAutorizacion, reloj puertosvec.Reloj) (*LecturaPreferenciasBolsas, error) {
+	return nuevaLecturaPreferenciasBolsasSuperficie(lector, auditor, fuente, reloj, dominiovec.SuperficieAutenticacionExternaPersonalV1)
+}
+
+// La lectura interna conserva el mismo contrato de autorización y auditoría,
+// pero exige un vínculo corporativo y una fachada SQL nominal de esa superficie.
+func NuevaLecturaPreferenciasBolsasInterna(lector bolsa.LecturaPreferenciasBolsas, auditor bolsa.AuditoriaIntentosPreferenciasBolsas, fuente puertosvec.FuenteAutorizacion, reloj puertosvec.Reloj) (*LecturaPreferenciasBolsas, error) {
+	return nuevaLecturaPreferenciasBolsasSuperficie(lector, auditor, fuente, reloj, dominiovec.SuperficieAutenticacionInternaCorporativaV1)
+}
+
+func nuevaLecturaPreferenciasBolsasSuperficie(lector bolsa.LecturaPreferenciasBolsas, auditor bolsa.AuditoriaIntentosPreferenciasBolsas, fuente puertosvec.FuenteAutorizacion, reloj puertosvec.Reloj, superficie dominiovec.SuperficieAutenticacionActorV1) (*LecturaPreferenciasBolsas, error) {
 	if nula(lector) || nula(auditor) || nula(fuente) || nula(reloj) {
 		return nil, bolsa.ErrPreferenciasNoDisponibles
 	}
-	return &LecturaPreferenciasBolsas{lector: lector, auditor: auditor, fuente: fuente, reloj: reloj}, nil
+	return &LecturaPreferenciasBolsas{lector: lector, auditor: auditor, fuente: fuente, reloj: reloj, superficie: superficie}, nil
 }
 
 func (s *LecturaPreferenciasBolsas) ConsultarPreferencias(ctx context.Context, orden Orden) (bolsa.EstadoPreferenciasBolsas, error) {
@@ -41,12 +52,12 @@ func (s *LecturaPreferenciasBolsas) ConsultarPreferencias(ctx context.Context, o
 		return vacio, err
 	}
 	ahora := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
-	actor, candidato, err := validarOrden(orden, ahora)
+	actor, candidato, err := validarOrdenPreferencias(orden, ahora, s.superficie)
 	if err != nil {
 		return vacio, err
 	}
 	datos, err := orden.Vinculo.Datos()
-	if err != nil || datos.CuentaPrivilegiada || datos.Superficie != dominiovec.SuperficieAutenticacionExternaPersonalV1 ||
+	if err != nil || datos.CuentaPrivilegiada || datos.Superficie != s.superficie ||
 		datos.GarantiaObservada != dominiovec.AuthAssuranceHigh {
 		return vacio, denegar(err)
 	}
@@ -173,7 +184,7 @@ func capturarIntentoFallidoPreferencias(orden Orden, actor dominiovec.ResultadoC
 		"recurso_ref":   "mi-bolsa:" + hex.EncodeToString(hRecurso[:]),
 		"finalidad_ref": bolsa.FinalidadPreferenciasBolsas,
 		"resultado":     resultado, "motivo_ref": "lectura_preferencias_bolsas_" + resultado,
-		"proceso": "vec-server", "canal": string(dominiovec.SuperficieAutenticacionExternaPersonalV1),
+		"proceso": "vec-server", "canal": string(datos.Superficie),
 		"correlacion_ref": correlacion,
 	})
 	if err != nil {
@@ -259,7 +270,7 @@ func capturarLecturaPreferencias(ctx context.Context, orden Orden,
 		RecursoRef: "mi-bolsa:" + candidato, CandidatoRef: candidato, TipoRecurso: bolsa.TipoRecursoMiBolsa,
 		FinalidadRef: bolsa.FinalidadPreferenciasBolsas, CamposPermitidos: bolsa.CamposLecturaPreferenciasBolsas(),
 		Resultado: "obtenida", MotivoRef: "lectura_preferencias_bolsas_correcta", Proceso: "vec-server",
-		Canal: string(dominiovec.SuperficieAutenticacionExternaPersonalV1), CorrelacionRef: correlacion,
+		Canal: string(datos.Superficie), CorrelacionRef: correlacion,
 		LecturaRevisionPermisos: strconv.FormatUint(e.RevisionPermisos, 10), LecturaInstantaneaSHA256: e.HuellaInstantaneaSHA256,
 		AsignacionRef: e.AsignacionRef, AsignacionVersion: e.AsignacionVersion, AsignacionHuellaSHA256: e.AsignacionHuellaSHA256,
 		VersionRolRef: e.VersionRolRef, VersionRolVersion: e.VersionRolVersion, VersionRolHuellaSHA256: e.VersionRolHuellaSHA256,

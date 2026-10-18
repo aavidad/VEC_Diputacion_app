@@ -240,6 +240,13 @@ acredita que esté disponible.
 Cada fase deja una línea de arranque con fase, resultado y causa, sin rutas, DSN
 (cadenas de conexión a la base) ni datos de configuración.
 
+La copia local se prepara con `deploy/principal/copia_local.sh` (F0-28):
+restaura el volcado y sus permisos sin credenciales globales, genera material
+de 90 días y permite reiniciar o borrar una instancia propia. Este primer
+corte arranca el portal con funciones opcionales apagadas; las conexiones y
+actos de los módulos aún siguen la guía `deploy/principal/LEEME_copia_local.md`.
+El arranque HTTP no acredita el recorrido funcional.
+
 ### Arranque de Administración
 
 `vec-admin` requiere `VEC_ADMIN_USUARIOS_CONFIG_FILE`, el fichero privado de
@@ -292,6 +299,13 @@ ventana breve para aplicar cada plan no se amplía. AD282 ajusta los dos
 efectos de gobierno existentes; no añade permisos ni cambia publicaciones
 anteriores. Guion: `deploy/principal/vigencia_gobierno_admin_20261015.md`.
 
+F1-64 reutiliza esa misma variable para las publicaciones técnicas nuevas de CT
+y del portal externo. Conserva la vigente al reiniciar sin el ajuste. En CT, un plazo
+inferior a 24 horas empieza al publicar y puede renovarse el mismo día con
+otra referencia; los demás conservan medianoche UTC. El portal externo parte
+siempre del instante de publicación. No cambia raíces ni claves
+legadas. Activación: `deploy/principal/vigencias_publicaciones_f1_64_20261016.md`.
+
 ### Selectores `VEC_*_ENABLED`
 
 Cada capacidad que necesita algo más que el núcleo se enciende con un selector de
@@ -340,6 +354,24 @@ concesiones siguen procediendo del gobierno de perfiles. Sin configuración de
 consulta válida, solo ese GET responde 503. El guion de la candidata está en
 `deploy/principal/organizacion_historica_combinado_20261015.md`.
 
+El preparador `vec-preparar-material-interno` admite el material de idempotencia
+del proceso combinado sin exigir `ct_v3.json`. Coteja la publicación vigente y
+el motivo mediante conexiones nominales separadas antes de emitir los dos
+archivos privados. Procedimiento y alcance del ensayo en
+`cmd/vec-preparar-material-interno/LEEME-OH.md`.
+
+Las preferencias entre bolsas de Mi Bolsa interna usan el selector opcional
+`VEC_BOLSA_PREFERENCIAS_INTERNA_ENABLED`. Requieren la sesión corporativa de
+Usuarios (`VEC_USUARIOS_PREFERENCIAS_ENABLED`) y un fichero privado propio,
+`identidad/bolsa-preferencias-interna.json`, con el DSN del LOGIN Bolsa nominal
+y la cuenta y perfil de candidato internos. El montaje reutiliza la
+infraestructura de sesión de Usuarios y lee la autoridad publicada. Al
+arrancar solo publica la clave de su audiencia con el gobierno de desarrollo de
+vec-server, como las demás audiencias internas; no crea permisos, LOGIN ni
+filas de origen. Si se solicita sin sus dependencias, la ruta
+de preferencias devuelve 503 y el servidor continúa. El contrato de
+activación está en `deploy/principal/candidata_hz39/aspirante/preferencias_internas.md`.
+
 ### Regla: ninguna configuración nueva tumba el arranque
 
 Si falta o está mal la configuración de una función, falla solo esa función. La
@@ -352,6 +384,22 @@ cerrada (404 o 503) y, en pantalla, explica que no está disponible.
 - Una dependencia opcional nunca se convierte en condición de arranque global.
 - Lo que exija configuración o actos previos se prepara y se ensaya en una copia
   antes de subirlo, no a ciegas en la principal.
+
+El justificante de renuncia de Bolsa usa configuración privada propia. Si faltan
+su fichero, sus claves o su conexión documental, la ruta afectada responde 503
+y el proceso sigue atendiendo las demás funciones. El registro indica la etapa
+y una clase de causa segura, sin DSN, claves ni datos de personas. La
+configuración interna de RRHH `identidad/bolsa-justificantes-rrhh.json` contiene
+solo `version`, `superficie` y `dsn_documentos`: identifica la superficie y el
+LOGIN técnico, no fija a Carmen ni a otra persona como lectora. Cada consulta
+exige el permiso vigente de la técnica en su rol.
+
+En desarrollo, las dos claves internas de la descarga de justificantes se
+registran con el protocolo técnico de gobierno ya usado por Contratación,
+después de validar su configuración. Se usan las coordenadas publicadas y la
+fuente renovable común. Un fallo cierra esa descarga y se registra; no detiene
+la aplicación. La confianza externa sigue preparándose antes por su publicador
+nominal. Ninguna de las dos operaciones asigna permisos funcionales.
 
 Cronos comprueba su configuración y conexiones antes de añadir sus audiencias
 al gobierno común. Si falla una dependencia propia, cierra sus rutas con 503
@@ -447,6 +495,18 @@ permiso.
 - El caso de uso revalida la autorización justo antes del efecto, también al
   repetir una operación. Una concesión histórica o una referencia opaca no dan
   acceso por sí solas.
+- F1-36A prepara la recuperación exacta de una firma original con la clave y
+  el corte del acto, y comprueba la unidad histórica frente a la asignación
+  vigente de quien consulta. La asignación solo restringe: no concede acceso
+  a la ficha, no exige ser el firmante original ni consulta el plan actual.
+  Los pasos anteriores salen solo si están enlazados por `FirmaAnteriorRef`
+  desde la firma exacta. Se verifican internamente sus cánones, pero el texto
+  `CanonNominal` solo se devuelve para la firma exacta; de las anteriores se
+  entregan la referencia y la huella.
+  Una clave ausente no se sustituye por una búsqueda aproximada. El campo
+  `selectores_recuperacion_firmas` exige una concesión exacta; `[]` no es
+  comodín. La recuperación de Portafirmas sin unidad histórica sigue denegada.
+  La fuente autorizada de la ficha y el panel quedan para B y C.
 - Se conserva la separación de funciones: preparar, revisar, publicar, firmar y
   auditar requieren las personas y competencias de cada circuito. Una misma
   persona no cubre un doble control cambiando de perfil.
@@ -539,6 +599,16 @@ Una recuperación reutiliza la operación original; no se crea otra para aparent
 éxito. Tras reiniciar la aplicación y PostgreSQL, se deben ver los mismos
 recibos y fechas y nada duplicado. Una repetición o un reinicio nunca duplican
 efectos, recibos ni comunicaciones.
+
+F1-36B prepara una lectura ampliada de la ficha de Contratación temporal. La
+decisión vigente debe conceder exactamente `selectores_recuperacion_firmas`;
+una asignación propia y vigente de cargo de firma restringe el resultado a la
+organización y unidad históricas. SQL forma el selector y un anexo privado,
+inmutable y unido al recibo de esa consulta de ficha. Comprueba vigencia antes del
+cierre y en el momento de confirmar la transacción; el apunte de auditoría
+queda en la misma transacción. El recibo anterior de ficha no prueba por sí
+solo qué selectores se ofrecieron. B no publica aún esos campos por HTTP ni
+añade el panel; el ensayo SQL y la prueba de caducidad siguen pendientes.
 
 ## 8. Protección de datos
 

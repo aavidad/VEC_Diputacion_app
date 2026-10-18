@@ -1,11 +1,13 @@
 # Copia local de VEC para ensayar y recorrer
 
-Receta única para montar en el equipo local una copia de la aplicación con
-los datos ficticios de la principal (cidonia), restaurarla, ponerla al día con
-`main`, arrancarla y recorrerla en Chrome. Reúne lo que cada equipo resolvió
-por su cuenta el 14 y el 15/10 (canal de coordinación, relevo de la PR #1128,
-`docs/producto/FLUJO_APP.md` y `docs/producto/TRD.md`). Tarea F0-25 del tablero
-(`docs/producto/TABLERO_TAREAS.md`).
+El guion `deploy/principal/copia_local.sh` restaura la base de referencia,
+aplica las listas SQL indicadas y arranca el portal con certificados nuevos.
+Tarea F0-28 del tablero. Sin selectores arranca con las funciones opcionales
+apagadas. `--modulos` prepara conexiones nuevas de Contratación y Bolsa y un
+buzón local; `--portal-externo` añade la preparación del aspirante desde el
+material privado de copia. El gobierno de administradores sigue pendiente.
+Un portal que responde 200 acredita el arranque; el recorrido requiere además
+las consultas y actuaciones de cada módulo.
 
 Reglas que no cambian:
 
@@ -30,12 +32,11 @@ documentos; compruébalo antes de darlo por bueno y corrige esta receta.
 - Un PostgreSQL 18 propio en contenedor (`postgres:18.4`, que es la imagen de
   los ensayos), un `vec-server` compilado desde tu rama y el Chrome del sistema
   manejado con Playwright.
-- El material privado de copia: el respaldo de la principal (volcado y
-  globales), las ACL de la base y de los tipos, el kit de los dos
+- El material privado de copia: el respaldo de la principal (volcado), las ACL de la base y de los tipos, el kit de los dos
   administradores de copia y los clientes y configuraciones privadas de cada
   módulo. Pídeselo a dirección si no lo tienes.
 - Memoria: el sistema conserva siempre 32 GB. Antes de restaurar o compilar,
-  `free -g` debe dar 40 GB disponibles o más; si no, no restaures ni compiles,
+  `free -g` debe dar 34 GB disponibles o más (32 para el sistema y 2 para la copia); si no, no restaures ni compiles,
   borra copias y temporales tuyos que ya no uses y avisa en el canal. No toques
   copias ajenas.
 - Todo el trabajo va en memoria, bajo `/dev/shm/vec`:
@@ -54,35 +55,180 @@ documentos; compruébalo antes de darlo por bueno y corrige esta receta.
 dispositivo). Haz commit y push, copia la carpeta y ejecuta
 `git worktree repair`, comprobando que la cabeza y el árbol coinciden.
 
-## 2. Restaurar la copia de la principal
+## 2. Crear y usar una copia con el guion
 
-Base de partida: lo instalado en cidonia, HZ37 con la web HZ38, código
-`44218865a` (`deploy/principal/candidata_hz39/LEEME.md`). El respaldo es la
-copia de seguridad de cidonia del 13/10.
+Requiere Docker, Python 3, OpenSSL, la imagen local `postgres:18.4`,
+la herramienta Go declarada en `go.mod` y sus dependencias ya descargadas.
+No descarga herramientas ni imágenes para compilar. La variable
+`VEC_COPIA_ORIGEN` apunta a la carpeta privada de referencia, solo de lectura.
+Debe contener el volcado `principal-hz37-20261014.dump` y sus anexos
+`acl-base-20261014.sql` y `acl-tipos-20261014.sql`.
 
-1. Crea la carpeta de datos en `/dev/shm/vec/pg/<letra>-<asunto>` y arranca un
-   PostgreSQL 18.4 vacío con las opciones del apartado 1.
-2. Restaura los globales (roles y grupos). Su lectura muestra verificadores de
-   contraseñas ficticias: no los vuelques a la salida de herramientas, al canal
-   ni a Git. Si ocurre, trata esa salida como sensible y avisa.
-3. Restaura el volcado de la base *(por verificar el formato y la orden
-   exacta: `pg_restore` o `psql`, según cómo venga el respaldo)*.
-4. Aplica las ACL de la base: el volcado no las incluye. Tras restaurar,
-   `PUBLIC` conserva `CONNECT` y `TEMP` y faltan los `CONNECT` nominales de los
-   grupos de sesión, y la aplicación se detiene en las comprobaciones previas.
-   No las reconstruyas a mano: el material privado trae el fichero exacto sacado
-   de cidonia (revoca todo a `PUBLIC` y concede los 151 permisos nominales de
-   conexión, creación y temporales).
-5. Aplica también las ACL de los tipos de fila, que el volcado tampoco
-   conserva (`deploy/principal/seleccion_bolsa_constituida/LEEME.md`).
-6. Configura TLS en PostgreSQL. Las conexiones de la aplicación verifican la
-   CA de PostgreSQL contra el nombre del servidor, y esa CA puede ser distinta
-   de la de la web *(por verificar cómo se genera el certificado del servidor
-   en una copia nueva; P reinició su copia con el TLS original)*.
-7. Comprueba que el contenedor, la base, el puerto y el material son de tu
-   copia y guarda una preimagen antes de seguir.
+Para montar Contratación y Bolsa, añade `--modulos --puerto-smtp 11081` y
+ten instalada también la imagen `axllent/mailpit:v1.27.8`. El buzón escucha
+solo en el puerto local elegido, exige STARTTLS y solo acepta direcciones
+`@example.test`; no se configura reenvío. Se comprueba el rechazo de otro
+dominio antes de arrancar la aplicación. `parar`, `reiniciar` y `borrar`
+incluyen el buzón de esa instancia.
+
+La preparación de los datos ficticios usa los productores del kit privado:
+`VEC_COPIA_ROLES_SCRIPT`, antes de instalar SQL, y `VEC_COPIA_DATOS_SCRIPT`,
+después de crear las credenciales. Para el aspirante se añade
+`VEC_COPIA_PORTAL_SCRIPT` y `--portal-externo`, que requiere `--modulos`.
+Cada variable apunta a un archivo privado propio, fuera de Git y de la
+carpeta de PostgreSQL, sin enlaces ni permisos de grupo o de otros usuarios.
+Los productores reciben únicamente `--raiz <instancia>` y dejan su registro
+en ella. Las rutas y los datos concretos del kit no se versionan.
+
+El productor previo debe preparar los dos LOGIN que figuran en
+`configuracion_origen_consumos_v1` para los orígenes de Contratación y Bolsa:
+grupos exactos, membresía exclusiva, `INHERIT TRUE`, `SET FALSE`, sin
+administración y con vigencia de 90 días. AD278 comprueba esos datos; no se
+debilita su guarda. Las demás conexiones se crean con nombres y contraseñas
+nuevos. El registro privado conserva sus valores y la huella del entorno.
+
+Tras el productor de datos, el guion coteja los 22 LOGIN internos: opciones
+sin privilegios de administración y una sola membresía para cada conexión de
+peticiones. El gobierno de arranque es la excepción: necesita seis arcos
+concretos, definidos en `copia_local_verificacion.py`, y no admite otros.
+Los propietarios y el proyector conservan las opciones exactas de `SET` e
+`INHERIT`; no se trasladan a los LOGIN de peticiones. H retirará esta
+excepción al completar F0-08 con el contrato nominal de R.
+
+El lector de motivos conserva caducidad nula porque así lo exige su
+comprobación instalada. Es una excepción de datos de esta copia; su TLS y
+los demás LOGIN nuevos duran 90 días. Se ha comunicado a dirección para
+retirarla al adaptar ese contrato. El cotejo rechaza cualquier otra caducidad
+nula o vigencia fuera de 60 a 90 días.
+
+El productor del aspirante se ejecuta con la aplicación y el sellado de
+auditoría activos. Al terminar se reinician PostgreSQL y la aplicación para
+cargar su configuración. La preparación debe publicar identidad, contexto,
+asignación y confianza mediante los productores existentes. Las admisiones
+técnicas y los datos ficticios de copia no acreditan actos de administración.
+
+Desde la raíz de tu rama:
+
+```sh
+deploy/principal/copia_local.sh crear --equipo l --instancia recorrido \
+  --puerto-pg 55481 --puerto-app 18481 \
+  --lista-sql deploy/principal/candidata_hz39/lista_sql.txt \
+  --lista-sql deploy/principal/candidata_hz39/lista_sql_firma_vigencias.txt
+```
+
+Elige tu letra, una instancia nueva y dos puertos libres. Se puede repetir
+`--lista-sql` para formar un único orden causal; las rutas y las huellas
+opcionales se validan antes de restaurar. Se conservan los bytes validados
+para aplicar y registrar exactamente la misma SQL. Una SQL repetida o una huella
+incorrecta rechazan la lista entera. Solo admite migraciones `.up.sql` bajo
+`deploy/postgresql`. Solo admite SQL añadida en la cabeza versionada después del corte de
+referencia `44218865a`. Rechaza conservadoramente cualquier SQL que ya
+existía en ese corte, aunque quedara sin instalar; esos huecos requieren
+un corte específico del módulo, no repetir una receta histórica. Revisa
+el orden del apartado 3. La orden `crear`
+rechaza un destino existente. Una restauración fallida se conserva para
+examinar sus registros; se borra y se crea otra, sin reaplicar SQL.
+
+El resultado vive en `/dev/shm/vec/pg/<equipo>-<instancia>`, con padre `0700`.
+El volcado y sus anexos aportan nombres de propietarios y beneficiarios para
+crear roles `NOLOGIN`. El guion no abre ni restaura el fichero de roles
+globales, sus contraseñas ni sus membresías. La restauración conserva las ACL
+de los objetos; después aplica las ACL de la base y los tipos. No convierte
+esos roles en identidades operativas de la aplicación.
+
+F0-31: antes de las migraciones, el guion crea también
+`vec_externo_documentos_bolsa_datos` y `vec_interno_documentos_bolsa_rrhh`
+como `NOLOGIN`, aunque no aparezcan en el respaldo. B119 necesita ambos
+nombres. No se añaden contraseñas, membresías ni permisos; la preparación
+documental posterior sigue siendo necesaria para usarlos desde el portal.
+Si el respaldo ya cita uno de esos nombres, se crea una sola vez.
+
+El generador común crea CA, TLS y certificados de RRHH e Intervención de
+90 días. `VEC_DESARROLLO_VIGENCIA_DIAS` permite de 60 a 90 días al invocarlo
+por separado; el guion de copia usa 90. Un material existente se verifica,
+sin renovar sus certificados ni cambiar sus claves. PostgreSQL usa TLS con
+esa CA nueva. La aplicación se inicia con un entorno explícito, sin heredar
+conexiones ni selectores de otra copia.
+
+Conserva los mismos argumentos de equipo e instancia para estas órdenes:
+
+```sh
+deploy/principal/copia_local.sh comprobar --equipo l --instancia recorrido
+deploy/principal/copia_local.sh reiniciar --equipo l --instancia recorrido
+deploy/principal/copia_local.sh parar --equipo l --instancia recorrido
+deploy/principal/copia_local.sh arrancar --equipo l --instancia recorrido
+deploy/principal/copia_local.sh borrar --equipo l --instancia recorrido
+```
+
+`reiniciar` detiene aplicación y PostgreSQL y los vuelve a crear con los
+mismos datos. Comprueba `/livez` y `/portal-empleado/` por HTTPS con CA y
+certificado de cliente verificados. Con `--modulos`, comprueba además la
+consulta del cuadro de Contratación y el listado de bolsas. La disponibilidad
+global de otras funciones opcionales no se deduce de estas comprobaciones.
+`arrancar` rechaza una copia incompleta o
+una revisión de código distinta; crea otra instancia cuando cambie la rama.
+La compilación exige índice y árbol limpios antes y después de generar el
+binario. Su SHA-256 queda en el estado; cada arranque lo coteja y exige la
+misma fuente limpia, también para los archivos web que se sirven desde ella.
+`borrar` comprueba el árbol de trabajo creador, la marca de propiedad y la
+etiqueta del contenedor antes
+de detener y eliminar únicamente su instancia. No actúa sobre puertos o
+contenedores encontrados por coincidencia.
+
+Los registros privados de restauración, SQL, compilación y aplicación y el
+diario `sql_aplicado.json` quedan en la instancia. `estado.json` conserva la
+revisión del código y los segundos empleados hasta obtener los dos 200.
+En el primer ensayo local sin SQL adicional se midieron 72,17 segundos;
+con B117 y comprobación de permisos, 64,95 segundos. En ambos se
+repitieron los dos 200 después de reiniciar ambos procesos. Falta la prueba
+de otro equipo y la preparación automática de los módulos para cerrar F0-28.
+
+### Regenerar el clon de ensayo SQL
+
+La copia antigua de septiembre carece de AD251. Para preparar su reemplazo,
+crea una instancia nueva desde el volcado de octubre, con las listas ya
+instaladas que deba tener tu base de ensayo. Después:
+
+```sh
+deploy/principal/copia_local.sh exportar-clon --equipo l --instancia recorrido \
+  --archivo-clon "$VEC_COPIA_CLON_DESTINO"
+```
+
+`VEC_COPIA_CLON_DESTINO` es una ruta absoluta nueva, fuera de Git y de la
+instancia. La exportación publica el archivo solo al terminar correctamente. Detiene
+ambos procesos y empaqueta el directorio
+de PostgreSQL en frío; deja la copia parada. El archivo contiene datos y
+material privado: no se sube a Git. La extracción también necesita un
+contenedor con 2 GiB; comprueba su resultado antes de intentar arrancarlo. Se puede usar como `VEC_CLON_ESTADO` con
+el ensayo local que ya acepta esa variable. No se sustituye su clon
+compartido ni se cambia el valor predeterminado del ensayo. Se restaura cada
+archivo de ensayo en una carpeta propia y se aplica una sola vez la lista
+de SQL nueva; para repetir se vuelve a extraer el clon frío.
 
 ## 3. Poner la copia al día con las SQL de `main`
+
+Usa esta lista: `deploy/principal/lista_sql_main_tras_hz37.txt`. Trae una
+sola vez, con su huella, cada migración añadida a `main` después de
+`44218865a`, en el orden en que se fusionaron sus PR y, dentro de cada PR, en
+el orden de su propia lista. Se pasa sola, con un único `--lista-sql`; no la
+combines con las listas antiguas de cada PR, que repiten migraciones y harían
+que el guion rechazara todo. Toda PR que añada migraciones añade sus líneas
+al final de esta lista en la misma PR, con la ruta y su SHA-256.
+
+Los dos roles sin LOGIN que necesita B119 los crea ya el guion (F0-31, apartado 2);
+no hace falta crearlos a mano.
+
+AD278 (F1-16) necesita además dos usuarios de origen con LOGIN que el guion
+todavía no prepara: `vec_ct_o207_runtime` (viene en el volcado sin LOGIN),
+miembro de `vec_contratacion_temporal_ejecutor`, y
+`vec_bolsa_llamamientos_desarrollo` (no viene en el volcado), miembro de
+`vec_bolsa_llamamientos_ejecutor`. Hasta que el guion lo haga, prepáralos en
+cuanto existan los roles del volcado y antes de que lleguen las migraciones:
+`ALTER ROLE vec_ct_o207_runtime LOGIN`, `CREATE ROLE vec_bolsa_llamamientos_desarrollo LOGIN`
+y los dos `GRANT` de pertenencia, sin contraseña.
+
+Lo que sigue explica de dónde sale la lista y cómo se hacía a mano hasta el
+18/10. Sirve para comprobarla, no para aplicar otra cosa.
 
 La copia tiene lo que tiene cidonia. Le faltan las migraciones fusionadas
 después de `44218865a`. Para saber cuáles son:
@@ -273,17 +419,16 @@ arranque, anótalo como fallo del producto.
 - Un recibo local no confirma por sí solo el efecto en otro módulo: comprueba
   también la pantalla del consumidor (Mi Bolsa, ficha de Personal).
 
-## 9. Reiniciar y comprobar que todo sigue
+## 9. Reinicio y recuperación
 
-1. Para `vec-server`.
-2. Para el contenedor de PostgreSQL. Con `--rm` desaparece, pero los datos
-   siguen en `/dev/shm/vec/pg/...`.
-3. Arranca otra vez el contenedor con la misma carpeta y las mismas opciones, y
-   después la aplicación.
-4. Repite las lecturas y los reintentos con la misma clave de operación: mismos
-   recibos y fechas, mismas versiones y ninguna fila duplicada.
+Usa `reiniciar` del apartado 2 para la copia creada por el guion. La orden
+conserva PostgreSQL y su material, y repite las comprobaciones HTTPS.
+Después de preparar los módulos, el ensayo del recorrido debe recuperar
+sus lecturas y recibos con las mismas claves de operación: mismas fechas y
+versiones, sin duplicados. Los dos 200 de arranque no sustituyen esa prueba.
 
-Si se apagó el equipo, `/dev/shm` está vacío: vuelve al apartado 2.
+Si se apagó el equipo, `/dev/shm` está vacío: crea otra instancia con el
+mismo volcado y las listas necesarias.
 
 ## 10. Problemas conocidos
 
@@ -305,5 +450,5 @@ Si se apagó el equipo, `/dev/shm` está vacío: vuelve al apartado 2.
 | Rechazo de una fecha que es el mismo instante | Representación distinta: AUT32 compara texto con el canon nominal; CA25 y los motivos de Organización histórica exigen seis decimales | Generar las fechas en el formato canónico de cada guarda; corregir el dato de la copia |
 | Los datos de empleados firmantes piden 400 días de relación cubierta | Las asignaciones de la copia duran 90 días | Ajustar en la copia las relaciones a las vigencias existentes (P usó 89 días por SQL) |
 | Firma del paso 3 rechazada por unidad | CT224 solo admite el paso 3 con unidad y paso publicados en el plan vigente | Publicar el plan con esa unidad |
-| `free -g` por debajo de 40 GB | Copias o cachés acumuladas | No restaurar ni compilar; borrar lo propio y avisar |
+| `free -g` por debajo de 34 GB | Copias o cachés acumuladas | No restaurar ni compilar; borrar lo propio y avisar |
 | `git worktree move` falla hacia `/dev/shm` | Cambio de dispositivo | Copiar la carpeta y `git worktree repair` |

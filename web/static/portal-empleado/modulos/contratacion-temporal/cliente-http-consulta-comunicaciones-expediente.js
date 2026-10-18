@@ -1,4 +1,4 @@
-import { referenciaLlamamientoValida } from "./contrato-llamamiento.js";
+import { referenciaLlamamientoValida } from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
 
 export const RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE = "/api/vec/contratacion-temporal/expedientes/comunicaciones";
 export const LIMITE_PAGINA_COMUNICACIONES = 10;
@@ -8,6 +8,11 @@ const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u;
 const CAMPOS_FILA = Object.freeze(["organizacion_ref", "expediente_ref", "llamamiento_ref",
   "comunicacion_ref", "version", "estado", "registrada_en", "recibo_comunicacion_ref",
   "antecedente_tipo", "recibo_antecedente_ref", "estado_respuesta"]);
+const CAMPOS_SELECCION_PENDIENTE = Object.freeze(["organizacion_ref", "expediente_ref", "llamamiento_ref",
+  "estado", "registrada_en", "version", "antecedente_tipo", "recibo_antecedente_ref"]);
+export const ESTADO_SELECCION_PENDIENTE_AVISO = "seleccion_confirmada_pendiente_aviso";
+export const claveFilaComunicacion = (fila) => fila.estado === ESTADO_SELECCION_PENDIENTE_AVISO
+  ? fila.llamamiento_ref : fila.comunicacion_ref;
 
 function registro(valor, campos, opcionales = []) {
   if (valor === null || typeof valor !== "object" || Array.isArray(valor)
@@ -50,6 +55,21 @@ export function validarPaginaComunicacionesExpediente(entrada, consulta) {
       .every(Boolean)) throw new TypeError("página de comunicaciones no válida");
   let anterior = null, organizacion = null;
   const filas = pagina.comunicaciones.map((entradaFila) => {
+    if (entradaFila?.estado === ESTADO_SELECCION_PENDIENTE_AVISO) {
+      const fila = registro(entradaFila, CAMPOS_SELECCION_PENDIENTE);
+      if (!["organizacion_ref", "expediente_ref", "llamamiento_ref", "recibo_antecedente_ref"].every((campo) =>
+        referenciaLlamamientoValida(fila[campo])) || fila.expediente_ref !== esperada.expediente_ref
+        || fila.antecedente_tipo !== "seleccion_confirmada" || fila.version !== 1 || !instante(fila.registrada_en)
+        || (organizacion !== null && organizacion !== fila.organizacion_ref)
+        || (anterior && (instanteOrdenComunicacion(fila.registrada_en) < instanteOrdenComunicacion(anterior.registrada_en)
+          || (instanteOrdenComunicacion(fila.registrada_en) === instanteOrdenComunicacion(anterior.registrada_en)
+            && claveFilaComunicacion(fila) <= claveFilaComunicacion(anterior))))) {
+        throw new TypeError("selección pendiente de aviso no válida");
+      }
+      organizacion = fila.organizacion_ref;
+      anterior = fila;
+      return Object.freeze(Object.fromEntries(CAMPOS_SELECCION_PENDIENTE.map((campo) => [campo, fila[campo]])));
+    }
     const fila = registro(entradaFila, CAMPOS_FILA);
     if (!["organizacion_ref", "llamamiento_ref", "comunicacion_ref", "recibo_comunicacion_ref", "recibo_antecedente_ref"]
       .every((campo) => referenciaLlamamientoValida(fila[campo]))
@@ -60,7 +80,7 @@ export function validarPaginaComunicacionesExpediente(entrada, consulta) {
       || (organizacion !== null && organizacion !== fila.organizacion_ref)
       || (anterior && (instanteOrdenComunicacion(fila.registrada_en) < instanteOrdenComunicacion(anterior.registrada_en)
         || (instanteOrdenComunicacion(fila.registrada_en) === instanteOrdenComunicacion(anterior.registrada_en)
-          && fila.comunicacion_ref <= anterior.comunicacion_ref)))) {
+          && fila.comunicacion_ref <= claveFilaComunicacion(anterior))))) {
       throw new TypeError("fila de comunicación no válida");
     }
     organizacion = fila.organizacion_ref;
@@ -70,7 +90,7 @@ export function validarPaginaComunicacionesExpediente(entrada, consulta) {
   const cursor = pagina.siguiente_cursor;
   if (cursor !== undefined && (typeof cursor !== "string" || !CURSOR.test(cursor)
     || filas.length !== LIMITE_PAGINA_COMUNICACIONES
-    || !cursor.startsWith(`${filas.at(-1).comunicacion_ref}#`))) {
+    || !cursor.startsWith(`${claveFilaComunicacion(filas.at(-1))}#`))) {
     throw new TypeError("cursor de comunicaciones no válido");
   }
   return Object.freeze({ expediente_ref: esperada.expediente_ref, comunicaciones: Object.freeze(filas),
@@ -87,9 +107,28 @@ export function crearConsultaComunicacionesExpedienteClienteHTTP({ ejecutar, val
       const { signal } = validarOpciones(opciones);
       const query = new URLSearchParams({ expediente_ref: entrada.expediente_ref,
         limite: String(LIMITE_PAGINA_COMUNICACIONES), ...(entrada.cursor ? { cursor: entrada.cursor } : {}) });
-      return ejecutar({ metodo: "GET", ruta: `${RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE}?${query}`,
+      const peticion = { metodo: "GET", ruta: `${RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE}?${query}`,
         signal, estadoEsperado: 200, maximoRespuesta: 16 * 1024, efecto: false,
-        validarRespuesta: (respuesta) => validarPaginaComunicacionesExpediente(respuesta, entrada) });
+        validarRespuesta: (respuesta) => validarPaginaComunicacionesExpediente(respuesta, entrada) };
+      return (async () => {
+        try { return await ejecutar(peticion); } catch (error) {
+          if (entrada.cursor !== undefined || signal?.aborted || error?.envelopeValido !== true
+            || error.estado !== 503 || error.codigo !== "servicio_no_disponible") throw error;
+          await new Promise((resolver) => {
+            let temporizador;
+            const terminar = () => {
+              clearTimeout(temporizador);
+              signal?.removeEventListener("abort", terminar);
+              resolver();
+            };
+            signal?.addEventListener("abort", terminar, { once: true });
+            temporizador = setTimeout(terminar, 100);
+            if (signal?.aborted) terminar();
+          });
+          if (signal?.aborted) throw error;
+          return ejecutar(peticion);
+        }
+      })();
     },
   });
 }

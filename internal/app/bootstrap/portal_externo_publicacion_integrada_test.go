@@ -168,6 +168,6 @@ func TestPreparacionConfianzaExternaPostgreSQL(t *testing.T) {
 	if renovado.Configuracion.Secuencia <= inv.Configuracion.Secuencia {
 		t.Fatal("la renovación no avanzó configuración")
 	}
-	t.Log("renovación con las mismas23claves y proveedor vivo: OK")
+	t.Log("renovación con el conjunto completo de claves y proveedor vivo: OK")
 
 }

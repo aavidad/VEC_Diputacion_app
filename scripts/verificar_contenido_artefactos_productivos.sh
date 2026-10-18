@@ -158,6 +158,9 @@ fi
 # lectura, almacenamiento o inclusion entre origenes. (grep en vez de ripgrep:
 # el ejecutor de CI no trae rg.)
 transportes_mtls_revisados=(
+	# Justificantes: rutas internas fijas, sin cache ni redirecciones.
+	static/area-personal/mi-bolsa-justificante-cliente.js
+	static/portal-empleado/portal-bolsas-justificante-cliente.js
 	# P7 común: rutas internas validadas, errores tipados y cola técnica sin datos personales.
 	static/comun/http.js
 	static/comun/registro-errores.js
@@ -199,6 +202,9 @@ transportes_mtls_revisados=(
 	# Clientes internos del portal (23/09): con omit el navegador no presenta el
 	# certificado mTLS ni la autenticación del proxy; mismo patrón que cliente-http.js.
 	static/portal-empleado/portal-bolsas-api.js
+	# Reglas globales de situación: GET/POST internos fijos, mTLS del mismo
+	# origen, no-store, redirect error y no-referrer; sin identidad del formulario.
+	static/portal-empleado/modulos/bolsa/reglas-situacion-api.js
 	static/portal-empleado/portal-bolsas-avisos.js
 	static/portal-empleado/portal-bolsas-operaciones.js
 	static/portal-empleado/portal-llamamientos-api.js
