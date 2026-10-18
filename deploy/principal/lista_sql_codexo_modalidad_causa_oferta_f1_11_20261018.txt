@@ -1,3 +1,4 @@
-# Tarea: F1-11. Después del prefijo completo lista_sql_main_tras_hz37.txt.
+# Tarea: F1-11. Subconjunto de dos SQL; ya incluido en lista_sql_main_tras_hz37.txt.
+# Usar solo si el prefijo de 82 entradas ya está instalado; no combinar ambas listas.
 deploy/postgresql/contratacion_temporal/migraciones/000235_modalidad_causa_oferta.up.sql cb33eb2c12fe2f0689c416676b3f47b2620caaa767adb3b9f9bedbe1a2dbe5ed
 deploy/postgresql/bolsa_llamamientos/migraciones/000136_modalidad_causa_oferta.up.sql e761b8607939a58ebcbca9bbbe56a8bcdefe02712dd46c9667a1b70278f1a1b7
