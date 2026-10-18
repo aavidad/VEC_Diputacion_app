@@ -56,7 +56,7 @@ a `psql` con `ON_ERROR_STOP=1`. Un fallo detiene el ensayo con estado distinto
 de cero. Estas pruebas usan las funciones instaladas y sus transacciones
 terminan en `ROLLBACK`. CT230 queda fuera porque exige confirmaciones O6
 históricas, ausentes en la copia sin datos. Tampoco se acreditan aún la
-autorización nominal positiva, la concurrencia, el reinicio ni el recorrido
+autorización nominal positiva, la concurrencia ni el recorrido
 completo: necesitan un expediente y autoridades nominales válidos.
 
 Se necesita Docker y la imagen fijada `postgres:18.4-bookworm` disponible
@@ -95,3 +95,11 @@ preparación debe estar confirmado y coincidir con HEAD:
 ```sh
 python3 deploy/postgresql/fase1/ensayar.py --preparacion
 ```
+
+Con `--pruebas`, las seis comprobaciones se repiten después de reiniciar el
+mismo contenedor PostgreSQL, esperando su disponibilidad TCP. No se restaura
+el esquema, no se reinstalan migraciones ni se vuelve a preparar la semilla.
+Un fallo de reinicio o de cualquiera de las comprobaciones detiene la puerta.
+Esto comprueba la persistencia de las funciones y sus restricciones; las
+pruebas transaccionales siguen terminando en `ROLLBACK`. No acredita la
+persistencia de un expediente ni sustituye el recorrido funcional completo.
