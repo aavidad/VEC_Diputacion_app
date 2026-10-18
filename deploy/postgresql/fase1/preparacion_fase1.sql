@@ -3,6 +3,7 @@
 -- AD278 (orígenes), contexto_actor_v1/roles_up.sql (migrador de CTX45)
 -- y documentos/migraciones/000009_custodia_documento_firmado.up.sql
 -- (tipo documental reservado que D19 espera en la copia).
+-- CTX15 aporta la fila inicial del contador técnico de contexto externo.
 -- Sólo prepara procedencia y catálogo técnicos: no publica permisos de negocio, actos,
 -- personas, firmas, recibos ni material criptográfico.
 -- Ejecutar una vez como superusuario local tras restaurar esquema_hz37.sql.gz
@@ -75,6 +76,35 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 END $pre$;
+
+-- CTX15 inicializa este contador; el volcado de solo esquema omite la fila.
+-- Se repone después de verificar todas las tablas vacías, sin cambiar guardas.
+DO $control_ctx15_pre$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'vec_contexto_actor_v1'
+      AND c.relname = 'control_generacion_contexto_externo_v1'
+      AND c.relkind = 'r' AND c.relrowsecurity AND c.relforcerowsecurity
+      AND c.relowner = 'vec_contexto_actor_v1_propietario'::regrole
+  ) THEN RAISE EXCEPTION 'F0-29: control técnico CTX15 incompatible'
+    USING ERRCODE = '55000';
+  END IF;
+END $control_ctx15_pre$;
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+INSERT INTO vec_contexto_actor_v1.control_generacion_contexto_externo_v1
+  (control_id, generacion) VALUES (true, 0);
+DO $control_ctx15_post$
+BEGIN
+  IF (SELECT count(*) FROM vec_contexto_actor_v1.control_generacion_contexto_externo_v1) <> 1
+     OR NOT EXISTS (
+       SELECT 1 FROM vec_contexto_actor_v1.control_generacion_contexto_externo_v1
+       WHERE control_id AND generacion = 0)
+  THEN RAISE EXCEPTION 'F0-29: fila técnica CTX15 divergente'
+    USING ERRCODE = '55000';
+  END IF;
+END $control_ctx15_post$;
+RESET ROLE;
 
 -- D14 creó esta fila antes de activar RLS; HZ37 conservó sólo su esquema.
 -- La copia vacía repone el mismo catálogo técnico, sin conceder permisos.
