@@ -1104,12 +1104,41 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal-menu-bolsa.js"])
     versionesEspeciales.set(ruta, "20261018-f104-main-v1");
   // F0-09 une el catálogo propio con la navegación de situación publicada en main.
-  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-menu-bolsa.js",
-    "portal-panel-interno.js", "portal-bolsas-api.js", "portal-bolsa-configuracion.js",
-    "portal-bolsas-historial-ofrecimientos.js"])
+  for (const ruta of ["portal-menu-bolsa.js", "portal-panel-interno.js", "portal-bolsas-api.js",
+    "portal-bolsa-configuracion.js", "portal-bolsas-historial-ofrecimientos.js",
+    "modulos/bolsa/rrhh-politica-cese-vista.js", "portal-bolsas-ofertas.js"])
     versionesEspeciales.set(ruta, "20261018-f009-main-v3");
-  for (const ruta of ["modulos/bolsa/rrhh-politica-cese-vista.js", "portal-bolsas-ofertas.js"])
-    versionesEspeciales.set(ruta, "20261018-f009-main-v3");
+  // F1-74 renueva la ficha, sus importadores y la entrada del portal.
+  for (const ruta of [
+    "modulos/contratacion-temporal/circuito-firma-acciones.js",
+    "modulos/contratacion-temporal/circuito-firma.js",
+    "modulos/contratacion-temporal/componentes-expedientes.js",
+    "modulos/contratacion-temporal/documentacion-formalizacion.js",
+    "modulos/contratacion-temporal/fase-firma.js",
+    "modulos/contratacion-temporal/ficha-ginpix.js",
+    "modulos/contratacion-temporal/formulario-anotacion-administrativa.js",
+    "modulos/contratacion-temporal/formulario-cierre-administrativo.js",
+    "modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
+    "modulos/contratacion-temporal/formulario-llamamiento.js",
+    "modulos/contratacion-temporal/formulario-propuesta-formalizacion.js",
+    "modulos/contratacion-temporal/formulario-resolucion-formalizacion.js",
+    "modulos/contratacion-temporal/gestor-resultado-bolsa.js",
+    "modulos/contratacion-temporal/incorporacion-personal-b2.js",
+    "modulos/contratacion-temporal/informe-tras-subsanacion.js",
+    "modulos/contratacion-temporal/renderizado-llamamiento.js",
+    "modulos/contratacion-temporal/renderizado-plazo-llamamiento.js",
+    "modulos/contratacion-temporal/seguimiento-incorporacion.js",
+    "modulos/contratacion-temporal/vinculo-categoria-rpt.js",
+    "modulos/contratacion-temporal/vista-expedientes-borrador.js",
+    "modulos/contratacion-temporal/vista-expedientes-ficha.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-incorporacion.js",
+    "modulos/contratacion-temporal/vista-expedientes-render.js",
+    "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+  ]) versionesEspeciales.set(ruta, "20261018-f174-v1");
+  for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261018-f009-f174-v1");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
