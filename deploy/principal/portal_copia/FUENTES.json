@@ -1,0 +1,16 @@
+{
+  "archivos_sha256": {
+    "__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canon_asignacion/main.go": "a1e3cf6ede0c39694eb58ffad0fc4530f3789f3a7a2323a7440c9f13f9aecd60",
+    "preparar_clasificacion_externa.py": "d165771e2af3a894a946bca8df6db94e0bf8d9ae07a248535d5bb14f745f7964",
+    "preparar_portal.py": "bdf7ee73297d71e5799f89284842a65fb7958322dbec2badb24beef7b53ef041",
+    "test_preparador_portal.py": "c59745d9c2a37367f70279342fff39823250c44ef4794e868584eb08ccf48e11"
+  },
+  "base_sha256": {
+    "preparar_clasificacion_externa.py": "cc0cafc5833c3740d854f01c299cf5b4de030775fd24b0e8855e5f148a182843",
+    "preparar_portal.py": "e05b389e42b36b2bd3ace31937830850116deac4758fc49d68e2a4f7da198d2f"
+  },
+  "cambio": "Retiene la asignación antes del efecto y reconcilia por lectura exacta tras COMMIT incierto; clasificación nunca activa inscripción; candado heredado o propio, etiqueta/puerto/SID y binario cotejados antes de efectos. Solo fuente, sin ensayo PostgreSQL. El canon Go conserva su código normalizado por gofmt, ahora versionado y compilado desde el módulo raíz; no genera otro módulo privado.",
+  "correccion_previa_sha256": "f0fd48005b3b804ffeb5804722beca7b4a8d9586b2ffbce8d5015e367a9c3afc",
+  "version": 1
+}
