@@ -19,13 +19,13 @@ import {
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes-render.js?v=20261018-f136c-informe-v4";
-import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-f136c-informe-v4";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-f136c-informe-v6";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261018-f136c-informe-v4";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261018-f136c-informe-v4";
 import { crearGestorRecuperacionFirmasHistoricas } from "./gestor-recuperacion-firmas-historicas.js?v=20261016-firma-historica-v5";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261018-f136c-informe-v4";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261018-f136c-informe-v4";
-import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261011-ct-bolsa-vinculo-v1";
+import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261018-f136c-informe-v4";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261018-f136c-informe-v4";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
@@ -46,7 +46,7 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
 }
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261018-f136c-informe-v4";
-export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-f136c-informe-v4";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-f136c-informe-v6";
 export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261018-f136c-informe-v4";
 
 export function insertarAvisoEnlaceLegado(raiz, texto) {
