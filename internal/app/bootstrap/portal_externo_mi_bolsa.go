@@ -301,6 +301,11 @@ func funcionesMiBolsaPortalExternoExactasConAlegaciones(obtenidas []string, func
 	} else if funcionesB114 != 0 || b114Exacta {
 		return false
 	}
+	// La función B138 solo amplía la lista si este LOGIN puede ejecutarla.
+	// Su firma, propietario y ACL se comprueban en el catálogo SQL de abajo.
+	if slices.Contains(obtenidas, "guardar_preferencias_modalidades_v1") {
+		esperadas = append(esperadas, "guardar_preferencias_modalidades_v1")
+	}
 	if len(obtenidas) != len(esperadas) {
 		return false
 	}
@@ -412,6 +417,34 @@ func comprobarACLMiBolsaPortalExternoConAlegaciones(ctx context.Context, consult
   ),false) AS exacta
  FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='presentar_alegacion_v1'
+), b138 AS (
+ SELECT count(*)::integer AS total,
+  coalesce(bool_and(
+   p.oid=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')::oid
+   AND p.prokind='f' AND p.provolatile='v' AND p.prosecdef
+   AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole
+   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']::text[]
+   AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+   AND (SELECT count(*) FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+    WHERE a.privilege_type='EXECUTE')=3
+   AND (SELECT count(DISTINCT a.grantee) FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+    WHERE a.privilege_type='EXECUTE' AND NOT a.is_grantable
+      AND a.grantee IN ('vec_bolsa_llamamientos_propietario'::regrole,
+                        'vec_bolsa_llamamientos_portal_externo'::regrole,
+                        'vec_bolsa_llamamientos_preferencias_interna'::regrole))=3
+   AND EXISTS(SELECT 1 FROM pg_catalog.pg_class t
+    WHERE t.oid=pg_catalog.to_regclass('vec_bolsa_llamamientos.preferencia_modalidades_version')
+      AND t.relkind='r' AND t.relowner='vec_bolsa_llamamientos_propietario'::regrole
+      AND t.relrowsecurity AND t.relforcerowsecurity
+      AND (SELECT count(*)=8 AND count(DISTINCT a.privilege_type)=8 AND
+        bool_and(a.grantee=t.relowner AND a.grantor=t.relowner AND NOT a.is_grantable
+         AND a.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER','MAINTAIN'))
+       FROM pg_catalog.aclexplode(coalesce(t.relacl,pg_catalog.acldefault('r',t.relowner))) a) IS TRUE)
+   AND pg_catalog.to_regprocedure('vec_bolsa_llamamientos.huella_solicitud_modalidades_v1(text,bigint,text[],jsonb)') IS NOT NULL
+   AND pg_catalog.to_regprocedure('vec_bolsa_llamamientos.huella_contexto_modalidades_v1(text,text)') IS NOT NULL
+  ),false) AS exacta
+ FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='guardar_preferencias_modalidades_v1'
 )
 SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM funciones),ARRAY[]::text[]),
  (SELECT coalesce(bool_and(prosecdef),false) FROM funciones)
@@ -438,7 +471,9 @@ SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM fun
  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n
    WHERE left(n.nspname,4)='vec_' AND n.nspname<>'vec_bolsa_llamamientos'
      AND (pg_catalog.has_schema_privilege(session_user,n.oid,'USAGE')
-          OR pg_catalog.has_schema_privilege(session_user,n.oid,'CREATE'))),
+          OR pg_catalog.has_schema_privilege(session_user,n.oid,'CREATE')))
+ AND (NOT EXISTS(SELECT 1 FROM funciones f WHERE f.proname='guardar_preferencias_modalidades_v1')
+      OR (SELECT total=1 AND exacta FROM b138)),
  (SELECT total FROM b96),(SELECT exacta FROM b96),
  (SELECT total FROM b104),(SELECT exacta FROM b104),
  (SELECT total FROM b104_lectura),(SELECT exacta FROM b104_lectura),
