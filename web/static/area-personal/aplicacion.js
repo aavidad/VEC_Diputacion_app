@@ -8,15 +8,15 @@ import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-mi
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import {
   renderizarLlamamientos, renderizarSeccionOfertasMiBolsa, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261018-f114-v1";
+} from "./vistas/seguimiento-tramites.js?v=20261018-f114-parcial-v1";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261015-o-justificante-bolsa-v4";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { actualizarCamposRenunciaJustificada, enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261015-o-justificante-bolsa-v4";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v4";
 import { crearControladorPreferenciasBolsas } from "./mi-bolsa-preferencias-bolsas.js?v=20261012-preferencias-bolsas-v1";
-import { crearControladorPreferenciasModalidades } from "./mi-bolsa-preferencias-modalidades.js?v=20261018-f114-v1";
-import { validarRespuestaMiBolsa } from "./contrato.js?v=20261015-o-justificante-bolsa-v4";
+import { crearControladorPreferenciasModalidades } from "./mi-bolsa-preferencias-modalidades.js?v=20261018-f114-parcial-v1";
+import { validarRespuestaMiBolsa } from "./contrato.js?v=20261018-f114-parcial-v1";
 
 
 const RUTAS = Object.freeze({
@@ -65,6 +65,7 @@ export async function consultarTodasOfertasMiBolsa(fetchImpl, { signal } = {}) {
     const texto = await respuesta.text();
     if (new TextEncoder().encode(texto).byteLength > 512 * 1024) throw new TypeError();
     const instantanea = validarRespuestaMiBolsa(JSON.parse(texto));
+    if (instantanea.ofertas_no_disponibles === true) throw new TypeError();
     return { ...instantanea, ofertas: instantanea.ofertas ?? [] };
   } catch { throw Object.assign(new Error("ver_todas"), { codigo: "verTodasError" }); }
 }
@@ -650,6 +651,7 @@ function atenderAccion(estado, boton) {
     return;
   }
   if (accion === "reintentar") return cargar(estado);
+  if (accion === "ver-todas-ofertas") return estado.controladorPreferenciasModalidades?.verTodas();
   if (accion === "pagina-participaciones") {
     estado.paginaParticipaciones = Math.max(1, Number(boton.dataset.pagina || 1));
     return renderizar(estado, { enfocar: true });
@@ -799,6 +801,7 @@ async function cargar(estado) {
     estado.portalMiBolsa = respuesta?.consulta?.portal || null;
     estado.accionesPortal = respuesta?.consulta?.acciones_portal || null;
     estado.ofertasMiBolsa = respuesta?.consulta?.ofertas || null;
+    estado.ofertasNoDisponibles = respuesta?.consulta?.ofertas_no_disponibles === true;
     estado.contactosMiBolsa = respuesta?.consulta?.contactos || null;
     estado.fuenteBolsa = respuesta?.fuente || "real";
     estado.causaBolsa = respuesta?.causa || "";
@@ -868,6 +871,7 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     destruirHistorialMiBolsa: null,
     controladorPreferenciasBolsas: null,
     controladorPreferenciasModalidades: null,
+    ofertasNoDisponibles: false,
     desmontarOportunidades: null,
     fetchImpl,
     participaciones: [],

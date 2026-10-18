@@ -22,6 +22,7 @@
       "verTodasAutenticacion": "Identifíquese de nuevo para ver todas las ofertas.",
       "verTodasDenegado": "No tiene permiso para ver todas las ofertas.",
       "sinOfertas": "No hay ofertas publicadas que mostrar ahora.",
+      "ofertasNoDisponibles": "Las ofertas no se pudieron cargar. Puede seguir consultando su posición y su historial.",
       "recargar": "Volver a consultar",
       "reintentarGuardado": "Reintentar el mismo guardado",
       "autenticacion": "Identifíquese de nuevo para consultar sus preferencias.",
