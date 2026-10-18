@@ -1,5 +1,5 @@
 // Package httppersonal transporta la consulta propia sin aceptar identidad,
-// perfil, candidato ni selector desde HTTP.
+// perfil ni candidato desde HTTP.
 package httppersonal
 
 import (
@@ -29,6 +29,10 @@ type Preparador interface {
 type Consultor interface {
 	Consultar(context.Context, mibolsa.Orden) (puertosbolsa.InstantaneaMiBolsa, error)
 }
+type consultorOfertasSinFiltro interface {
+	ConsultarTodasLasOfertas(context.Context, mibolsa.Orden) (puertosbolsa.InstantaneaMiBolsa, error)
+}
+
 type Handler struct {
 	preparador Preparador
 	consultor  Consultor
@@ -56,9 +60,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responder(w, 405, errorRespuesta{"metodo_no_permitido"})
 		return
 	}
-	if r.URL.RawQuery != "" || r.URL.ForceQuery || r.ContentLength != 0 || len(r.TransferEncoding) != 0 || !cuerpoAusente(r) || cabeceraProhibida(r.Header) {
+	todasLasOfertas := r.URL.RawQuery == "ofertas=todas"
+	if (r.URL.RawQuery != "" && !todasLasOfertas) || r.URL.ForceQuery || r.ContentLength != 0 || len(r.TransferEncoding) != 0 || !cuerpoAusente(r) || cabeceraProhibida(r.Header) {
 		responder(w, 400, errorRespuesta{"peticion_no_permitida"})
 		return
+	}
+	consultar := h.consultor.Consultar
+	if todasLasOfertas {
+		completo, ok := h.consultor.(consultorOfertasSinFiltro)
+		if !ok || nula(completo) {
+			responder(w, 400, errorRespuesta{"peticion_no_permitida"})
+			return
+		}
+		consultar = completo.ConsultarTodasLasOfertas
 	}
 	campos, err := h.camposVisibles(r.Context())
 	if err != nil {
@@ -70,7 +84,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderError(w, err)
 		return
 	}
-	resultado, err := h.consultor.Consultar(r.Context(), orden)
+	resultado, err := consultar(r.Context(), orden)
 	if err != nil {
 		publicarAcuseLecturaFallida(w, err)
 		registrarFalloTecnicoMiBolsa(err)
