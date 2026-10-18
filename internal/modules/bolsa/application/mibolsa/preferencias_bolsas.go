@@ -22,16 +22,37 @@ type ServicioPreferenciasBolsas struct {
 	autorizador puertosvec.AutorizadorSolicitudLigadaV3
 	proveedor   bolsa.ProveedorMaterialPreferenciasBolsas
 	reloj       puertosvec.Reloj
+	superficie  dominiovec.SuperficieAutenticacionActorV1
+	audiencia   string
 }
 
 func NuevoServicioPreferenciasBolsas(repositorio bolsa.EscrituraPreferenciasBolsas,
 	autorizador puertosvec.AutorizadorSolicitudLigadaV3,
 	proveedor bolsa.ProveedorMaterialPreferenciasBolsas, reloj puertosvec.Reloj,
 ) (*ServicioPreferenciasBolsas, error) {
+	return nuevoServicioPreferenciasBolsasSuperficie(repositorio, autorizador, proveedor, reloj, dominiovec.SuperficieAutenticacionExternaPersonalV1)
+}
+
+func NuevoServicioPreferenciasBolsasInterna(repositorio bolsa.EscrituraPreferenciasBolsas,
+	autorizador puertosvec.AutorizadorSolicitudLigadaV3,
+	proveedor bolsa.ProveedorMaterialPreferenciasBolsas, reloj puertosvec.Reloj,
+) (*ServicioPreferenciasBolsas, error) {
+	return nuevoServicioPreferenciasBolsasSuperficie(repositorio, autorizador, proveedor, reloj, dominiovec.SuperficieAutenticacionInternaCorporativaV1)
+}
+
+func nuevoServicioPreferenciasBolsasSuperficie(repositorio bolsa.EscrituraPreferenciasBolsas,
+	autorizador puertosvec.AutorizadorSolicitudLigadaV3,
+	proveedor bolsa.ProveedorMaterialPreferenciasBolsas, reloj puertosvec.Reloj,
+	superficie dominiovec.SuperficieAutenticacionActorV1,
+) (*ServicioPreferenciasBolsas, error) {
 	if nula(repositorio) || nula(autorizador) || nula(proveedor) || nula(reloj) {
 		return nil, bolsa.ErrPreferenciasNoDisponibles
 	}
-	return &ServicioPreferenciasBolsas{repositorio: repositorio, autorizador: autorizador, proveedor: proveedor, reloj: reloj}, nil
+	audiencia := bolsa.AudienciaOrdenarPreferenciasBolsas
+	if superficie == dominiovec.SuperficieAutenticacionInternaCorporativaV1 {
+		audiencia = bolsa.AudienciaOrdenarPreferenciasBolsasInterna
+	}
+	return &ServicioPreferenciasBolsas{repositorio: repositorio, autorizador: autorizador, proveedor: proveedor, reloj: reloj, superficie: superficie, audiencia: audiencia}, nil
 }
 
 // Ordenar exige V3 antes del efecto y vuelve a cotejar el material atestado.
@@ -50,7 +71,7 @@ func (s *ServicioPreferenciasBolsas) Ordenar(ctx context.Context, orden Orden, r
 		return bolsa.ReciboPreferenciasBolsas{}, bolsa.ErrOrdenPreferenciasInvalido
 	}
 	ahora := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
-	actor, candidato, err := validarOrden(orden, ahora)
+	actor, candidato, err := validarOrdenPreferencias(orden, ahora, s.superficie)
 	if err != nil {
 		return bolsa.ReciboPreferenciasBolsas{}, err
 	}
@@ -86,9 +107,9 @@ func (s *ServicioPreferenciasBolsas) Ordenar(ctx context.Context, orden Orden, r
 		return bolsa.ReciboPreferenciasBolsas{}, errors.Join(bolsa.ErrPreferenciasNoDisponibles, err)
 	}
 	ahora = s.reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if _, _, err = validarOrden(orden, ahora); err != nil ||
+	if _, _, err = validarOrdenPreferencias(orden, ahora, s.superficie); err != nil ||
 		!materialExacto(material, nominal, decision, confirmacion, actor, ahora,
-			bolsa.AccionOrdenarPreferenciasBolsas, bolsa.AudienciaOrdenarPreferenciasBolsas) {
+			bolsa.AccionOrdenarPreferenciasBolsas, s.audiencia) {
 		return bolsa.ReciboPreferenciasBolsas{}, denegar(err)
 	}
 	if err := ctx.Err(); err != nil {
@@ -102,8 +123,9 @@ func (s *ServicioPreferenciasBolsas) Ordenar(ctx context.Context, orden Orden, r
 	if err != nil {
 		return bolsa.ReciboPreferenciasBolsas{}, err
 	}
+	retorno := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if recibo.ReciboRef == "" || recibo.Version != versionEsperada+1 || recibo.RegistradoEn.IsZero() ||
-		recibo.RegistradoEn.After(ahora) || !slices.Equal(recibo.Orden, referencias) {
+		recibo.RegistradoEn.After(retorno) || !slices.Equal(recibo.Orden, referencias) {
 		return bolsa.ReciboPreferenciasBolsas{}, bolsa.ErrPreferenciasNoDisponibles
 	}
 	return recibo, nil

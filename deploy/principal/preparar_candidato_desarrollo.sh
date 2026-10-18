@@ -4,7 +4,41 @@ set -Eeuo pipefail
 umask 077
 
 fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
-for orden in podman openssl python3 sha256sum flock stat mktemp realpath git date; do
+motor=podman
+identidad_slug=candidato
+nombre_visible='Persona candidata'
+candidato_solicitado=
+candidato_indicado=0
+while (($#)); do
+  case $1 in
+    --motor|--identidad|--nombre|--candidato-ref)
+      opcion=$1
+      shift
+      (($#)) || fallar "falta el valor de $opcion"
+      case $opcion in
+        --motor) motor=$1 ;;
+        --identidad) identidad_slug=$1 ;;
+        --nombre) nombre_visible=$1 ;;
+        --candidato-ref) candidato_solicitado=$1; candidato_indicado=1 ;;
+      esac
+      ;;
+    *) fallar "opción desconocida: $1" ;;
+  esac
+  shift
+done
+[[ $motor == podman || $motor == docker ]] || fallar 'motor inválido (podman o docker)'
+[[ $identidad_slug =~ ^[a-z][a-z0-9-]{0,36}$ ]] || fallar 'identidad inválida'
+[[ $identidad_slug != *- ]] || fallar 'identidad inválida'
+if ((candidato_indicado)); then
+  [[ $candidato_solicitado =~ ^can_[A-Za-z0-9_-]{22,128}$ ]] || fallar 'referencia candidata inválida'
+fi
+python3 - "$nombre_visible" <<'PY' || fallar 'nombre visible inválido'
+import sys
+nombre = sys.argv[1]
+if not nombre or nombre != nombre.strip() or len(nombre) > 120 or not all(c.isprintable() for c in nombre):
+    raise SystemExit(1)
+PY
+for orden in "$motor" openssl python3 sha256sum flock stat mktemp realpath git date; do
   command -v "$orden" >/dev/null || fallar "falta $orden"
 done
 
@@ -41,7 +75,7 @@ exec 9>"$material/.preparar-candidato.lock"
 flock -x 9
 
 psql_contenedor() {
-  podman exec -i "$postgres" psql -X -q -v ON_ERROR_STOP=1 -U "$usuario" -d "$base" "$@"
+  "$motor" exec -i "$postgres" psql -X -q -v ON_ERROR_STOP=1 -U "$usuario" -d "$base" "$@"
 }
 
 cert=$material/mtls/candidato.crt
@@ -53,6 +87,12 @@ manifiesto=$material/identidad/bolsa-candidato.json
 for ruta in "$cert" "$clave" "$p12" "$password" "$identidad" "$manifiesto"; do
   [[ ! -L $ruta ]] || fallar 'hay un enlace simbólico en el material candidato'
 done
+cn='candidato-bolsa-desarrollo'
+san=urn:vec:desarrollo:candidato-bolsa
+if [[ $identidad_slug != candidato ]]; then
+  cn="${cn}-${identidad_slug}"
+  san="${san}:${identidad_slug}"
+fi
 
 if [[ -e $cert || -e $clave || -e $p12 || -e $password ]]; then
   [[ -f $cert && -f $clave && -f $p12 && -f $password ]] || fallar 'material candidato parcial; revisar manualmente sin sobrescribir'
@@ -61,18 +101,18 @@ else
   trap 'rm -rf -- "${temporal:-}"' EXIT
   openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$temporal/candidato.key" 2>/dev/null
   openssl req -new -sha256 -key "$temporal/candidato.key" \
-    -subj '/CN=candidato-bolsa-desarrollo/O=VEC Desarrollo/OU=NO AUTORITATIVO' \
+    -subj "/CN=$cn/O=VEC Desarrollo/OU=NO AUTORITATIVO" \
     -out "$temporal/candidato.csr" 2>/dev/null
-  cat >"$temporal/candidato.ext" <<'EXT'
+  cat >"$temporal/candidato.ext" <<EXT
 basicConstraints=critical,CA:FALSE
 keyUsage=critical,digitalSignature
 extendedKeyUsage=clientAuth
-subjectAltName=URI:urn:vec:desarrollo:candidato-bolsa
+subjectAltName=URI:$san
 subjectKeyIdentifier=hash
 authorityKeyIdentifier=keyid,issuer
 EXT
   serial=0x$(openssl rand -hex 16)
-  openssl x509 -req -sha256 -days 397 -in "$temporal/candidato.csr" \
+  openssl x509 -req -sha256 -days 90 -in "$temporal/candidato.csr" \
     -CA "$material/ca/ca.crt" -CAkey "$material/ca/ca.key" -set_serial "$serial" \
     -extfile "$temporal/candidato.ext" -out "$temporal/candidato.crt" 2>/dev/null
   openssl rand -hex 32 >"$temporal/candidato.p12.password"
@@ -93,8 +133,11 @@ for ruta in "$cert" "$clave" "$p12" "$password"; do
 done
 openssl verify -purpose sslclient -CAfile "$material/ca/ca.crt" "$cert" >/dev/null || fallar 'certificado ajeno a la CA o sin uso cliente'
 openssl x509 -in "$cert" -checkend 0 -noout >/dev/null || fallar 'certificado candidato caducado'
-openssl x509 -in "$cert" -noout -subject -nameopt RFC2253 | grep -Eq '(^|,)CN=candidato-bolsa-desarrollo($|,)' || fallar 'CN candidato incorrecto'
-openssl x509 -in "$cert" -noout -ext subjectAltName | grep -Fq 'URI:urn:vec:desarrollo:candidato-bolsa' || fallar 'SAN candidato incorrecto'
+openssl x509 -in "$cert" -noout -subject -nameopt RFC2253 | grep -Eq "(^|,)CN=$cn($|,)" || fallar 'CN candidato incorrecto'
+openssl x509 -in "$cert" -noout -ext subjectAltName | grep -Eq "(^|[,[:space:]])URI:$san($|[,[:space:]])" || fallar 'SAN candidato incorrecto'
+inicio_segundos=$(date -u -d "$(openssl x509 -in "$cert" -startdate -noout | cut -d= -f2)" +%s)
+fin_segundos=$(date -u -d "$(openssl x509 -in "$cert" -enddate -noout | cut -d= -f2)" +%s)
+((fin_segundos - inicio_segundos >= 60 * 86400 && fin_segundos - inicio_segundos <= 90 * 86400)) || fallar 'certificado candidato con vigencia fuera de 60 a 90 días'
 [[ $(openssl x509 -in "$cert" -pubkey -noout | openssl pkey -pubin -outform DER 2>/dev/null | sha256sum | cut -d' ' -f1) == \
    $(openssl pkey -in "$clave" -pubout -outform DER 2>/dev/null | sha256sum | cut -d' ' -f1) ]] || fallar 'certificado y clave no coinciden'
 openssl pkcs12 -in "$p12" -passin "file:$password" -noout 2>/dev/null || fallar 'PKCS#12 inválido'
@@ -120,12 +163,14 @@ intencion=$material/identidad/.bolsa-candidato-intencion.json
 [[ ! -L $intencion ]] || fallar 'intención privada enlazada'
 if [[ -e $intencion ]]; then
   [[ -f $intencion && $(stat -c %a -- "$intencion") == 600 ]] || fallar 'intención privada insegura'
-  fila=$(python3 - "$intencion" "$huella" <<'PY'
+  fila=$(python3 - "$intencion" "$huella" "$candidato_solicitado" <<'PY'
 import json, re, sys
 with open(sys.argv[1], encoding='utf-8') as archivo:
     datos = json.load(archivo)
 if datos.get('certificate_sha256') != sys.argv[2] or datos.get('version') != 1:
     raise SystemExit('intención privada no corresponde al certificado')
+if sys.argv[3] and datos.get('candidato_ref') != sys.argv[3]:
+    raise SystemExit('intención privada de otro candidato')
 for clave in ('candidato_ref', 'participacion_ref', 'bolsa_ref'):
     valor = datos.get(clave)
     if not isinstance(valor, str) or not valor or '|' in valor or '\n' in valor or '\r' in valor:
@@ -136,22 +181,26 @@ PY
 else
   # Sin intención: primera participación por bolsa, orden y referencia.
   if [[ -f $manifiesto ]]; then
-    bolsa=$(python3 - "$manifiesto" <<'PY'
+    seleccion_ref=$(python3 - "$manifiesto" "$candidato_solicitado" <<'PY'
 import json, sys
 with open(sys.argv[1], encoding='utf-8') as archivo:
-    print(json.load(archivo)['candidato_ref'])
+    candidato = json.load(archivo)['candidato_ref']
+if sys.argv[2] and candidato != sys.argv[2]:
+    raise SystemExit('manifiesto privado de otro candidato')
+print(candidato)
 PY
     )
     seleccion="AND vc.candidato_ref = :'seleccion'"
     vigencia=''
   else
-    seleccion="AND (:'seleccion' = '' OR c.bolsa_ref = :'seleccion')"
+    seleccion_ref=$candidato_solicitado
+    seleccion="AND (:'seleccion' = '' OR vc.candidato_ref = :'seleccion')"
     vigencia="AND b.estado = 'vigente' AND b.vigente_desde <= clock_timestamp()
       AND (b.vigente_hasta IS NULL OR clock_timestamp() < b.vigente_hasta)
       AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.bolsa_constituida posterior
                       WHERE posterior.bolsa_ref = b.bolsa_ref AND posterior.version > b.version)"
   fi
-  fila=$(psql_contenedor -At -F '|' -v seleccion="$bolsa" <<SQL
+  fila=$(psql_contenedor -At -F '|' -v seleccion="$seleccion_ref" -v bolsa="$bolsa" <<SQL
   SET ROLE vec_bolsa_llamamientos_propietario;
   SELECT vc.candidato_ref, vc.participacion_ref, c.bolsa_ref
   FROM vec_bolsa_llamamientos.vinculo_candidato vc
@@ -162,7 +211,7 @@ PY
   JOIN vec_bolsa_llamamientos.bolsa_constituida b
     ON b.bolsa_ref = c.bolsa_ref AND b.version = c.version_bolsa
    AND b.huella_bolsa_sha256 = c.huella_bolsa_sha256
-  WHERE true $vigencia $seleccion
+  WHERE true $vigencia $seleccion AND (:'bolsa' = '' OR c.bolsa_ref = :'bolsa')
   ORDER BY c.bolsa_ref, e.orden, vc.participacion_ref LIMIT 1;
 SQL
   )
@@ -192,10 +241,10 @@ fi
 
 temporal=$(mktemp -d -- "$material/.proyeccion-candidato.XXXXXXXX")
 trap 'rm -rf -- "${temporal:-}"' EXIT
-python3 - "$temporal" "$material" "$huella" "$candidato" "$participacion" "$bolsa_ref" "$hasta" <<'PY'
+python3 - "$temporal" "$material" "$huella" "$candidato" "$participacion" "$bolsa_ref" "$hasta" "$nombre_visible" <<'PY'
 import hashlib, json, pathlib, re, sys
 
-destino, material, huella, candidato, participacion, bolsa_ref, hasta = sys.argv[1:]
+destino, material, huella, candidato, participacion, bolsa_ref, hasta, nombre_visible = sys.argv[1:]
 destino, material = pathlib.Path(destino), pathlib.Path(material)
 if not re.fullmatch(r'[0-9a-f]{64}', huella) or not re.fullmatch(r'can_[A-Za-z0-9_-]{22,128}', candidato):
     raise SystemExit('referencia inválida')
@@ -217,7 +266,7 @@ vinculo = hash_ref('vin_', base + b'\0candidato')
 procedencia = hash_ref('prc_', base + b'\0procedencia')
 huella_procedencia = hashlib.sha256(b'vec.mi-bolsa.proyeccion.v1\0' + base + b'\0' + candidato.encode()).hexdigest()
 identidad = dict(version=1, autoridad='no_autoritativo', certificate_sha256=huella,
-                 subject=subject, display_name='Persona candidata', roles=['candidato_bolsa'])
+                 subject=subject, display_name=nombre_visible, roles=['candidato_bolsa'])
 # Material de ejecuciones anteriores: solo cambiaba el nombre visible. Se
 # admite y se sustituye para que repetir el script siga siendo idempotente.
 identidad_anterior = dict(identidad, display_name='Candidato sintético')
@@ -387,7 +436,7 @@ done
 rm -f -- "$intencion"
 
 printf 'Candidato de desarrollo preparado; proyección ensayada y confirmada.\n'
-printf 'Reiniciar solo la aplicación: podman restart %q\n' "$aplicacion"
+printf 'Reiniciar solo la aplicación: %q restart %q\n' "$motor" "$aplicacion"
 printf 'Consulta: curl --fail-with-body --cert %q --key %q --cacert %q %q\n' \
   "$cert" "$clave" "$material/ca/ca.crt" "${url%/}/api/vec/bolsa/mi-bolsa"
 printf 'PKCS#12 para navegador: %s (contraseña en %s).\n' "$p12" "$password"
