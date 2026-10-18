@@ -29,6 +29,19 @@ hace peticiones por cada fila al abrir la ficha. La recuperación vuelve a
 autorizar y registra cada acceso. La vista enseña fecha, estado histórico y
 recibo del registro original; no enseña identidad canónica ni huellas.
 
+## Preparación del informe antes de Intervención
+
+La ficha permite comprobar el informe preparado en `informe_juridico/en_curso`
+desde la versión 5. La resolución conserva su condición de nombramiento desde
+la versión 7; una asignación de unidad no habilita la firma del informe.
+
+El arranque nominal necesita las dos fuentes distintas indicadas en
+`candidata_hz39/firma/LEEME.md`: el circuito de RRHH y el catálogo de firma.
+El archivo de credencial del cliente del verificador debe contener la credencial
+sin salto de línea final. Se conserva el archivo original del verificador.
+En la copia H se ha comprobado el arranque conjunto; el nuevo recorrido de
+cinco firmas y su recuperación siguen pendientes.
+
 ## Comprobación y límites
 
 En una copia sintética, consultar una firma con asignación vigente. Cotejar

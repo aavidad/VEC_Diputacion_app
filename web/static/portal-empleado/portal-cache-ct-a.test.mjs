@@ -6,8 +6,8 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 // La integración de las ofertas de CT con CT231 renueva entrada, coordinador
 // y la cadena de Contratación cambiada; el alta conserva su cohorte.
-const versionCoordinador = "20261018-firma-historica-ct-ofertas-v2";
-const versionCoordinadorEntrada = "20261018-f136c-f104-v1";
+const versionCoordinador = "20261018-f136c-informe-v3";
+const versionCoordinadorEntrada = "20261018-f136c-informe-v3";
 const versionEntrada = versionCoordinadorEntrada;
 const versionClienteCT = "20261016-ct-ofertas-ct231-v1";
 const versionClienteConsulta = versionCoordinador;

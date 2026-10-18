@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { createHash, webcrypto } from "node:crypto";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261018-firma-historica-ct-ofertas-v2";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261018-f136c-informe-v3";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261018-f136c-informe-v3";
 import {
   validarSolicitudSeleccionLlamamiento, validarReciboSeleccionLlamamiento,
   validarSolicitudComunicacionLlamamiento, CAMPOS_COMUNICACION_SIGUIENTE,

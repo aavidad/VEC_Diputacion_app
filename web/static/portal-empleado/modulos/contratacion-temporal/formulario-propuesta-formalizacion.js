@@ -1,5 +1,5 @@
 /** Orientación de la pantalla RRHH 13 hacia la única acción real CT65. */
-import { escaparHTML } from "./componentes-expedientes.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261018-f136c-informe-v3";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 // La pantalla original pide generación automática posterior a la selección.

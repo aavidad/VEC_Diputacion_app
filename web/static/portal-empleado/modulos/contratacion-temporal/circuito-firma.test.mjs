@@ -6,8 +6,8 @@ import {
   crearClienteHTTPCircuitoFirma, crearGestorCircuitoFirma, renderizarCircuitoFirma,
   RUTA_CIRCUITO_FIRMA, validarCircuitoFirma, renderizarPreparacionResolucion,
 
-} from "./circuito-firma.js?v=20261018-firma-historica-ct-ofertas-v2";
-import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261018-firma-historica-ct-ofertas-v2";
+} from "./circuito-firma.js?v=20261018-f136c-informe-v3";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261018-f136c-informe-v3";
 import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
@@ -657,8 +657,8 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
     readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
   ]);
   const versiones = new Map([
-    ["circuito-firma.js", "20261018-firma-historica-ct-ofertas-v2"],
-    ["vista-expedientes.js", "20261018-f136c-f104-v1"],
+    ["circuito-firma.js", "20261018-f136c-informe-v3"],
+    ["vista-expedientes.js", "20261018-f136c-informe-v3"],
 
   ]);
   const anterior = "20260929-custodia-506-v1";

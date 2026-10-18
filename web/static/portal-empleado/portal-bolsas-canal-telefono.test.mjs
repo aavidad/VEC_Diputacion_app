@@ -12,7 +12,7 @@ import { canalesAviso, enlaceSeguimiento, filasSeguimiento } from "./portal-bols
 import { leerCandidatosBolsaCompartible, leerLlamamientoBolsaCompartible,
   rutaCandidatosBolsaCompartible, rutaLlamamientoBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
-import { renderizarExpediente } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { renderizarExpediente } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261018-f136c-informe-v3";
 import { crearTraductorExpedientesContratacion } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 
 await prepararTextosTelefono();

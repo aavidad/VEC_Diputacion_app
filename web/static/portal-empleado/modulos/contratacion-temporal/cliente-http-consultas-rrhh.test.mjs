@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   crearClienteHTTPContratacionTemporal,
   RUTAS_HTTP_CONTRATACION_TEMPORAL,
-} from "./cliente-http.js?v=20261018-firma-historica-ct-ofertas-v2";
+} from "./cliente-http.js?v=20261018-f136c-informe-v3";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",

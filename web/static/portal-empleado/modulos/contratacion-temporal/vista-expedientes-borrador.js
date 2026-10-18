@@ -2,8 +2,8 @@
 
 import {
   crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH, tipoBorradorDeAccion,
-} from "./cliente-http-informe-definitivo.js?v=20261018-firma-historica-ct-ofertas-v2";
-import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261018-firma-historica-ct-ofertas-v2";
+} from "./cliente-http-informe-definitivo.js?v=20261018-f136c-informe-v3";
+import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261018-f136c-informe-v3";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
 
 export function crearGestorDescargaBorradorRRHH({

@@ -5,7 +5,7 @@ import {
   ErrorClienteHTTPContratacionTemporal,
   RUTAS_HTTP_CONTRATACION_TEMPORAL,
   crearClienteHTTPContratacionTemporal,
-} from "./cliente-http.js?v=20261018-firma-historica-ct-ofertas-v2";
+} from "./cliente-http.js?v=20261018-f136c-informe-v3";
 import {
   liberaBloqueoResultadoCobertura,
   validarPropuestaCobertura,

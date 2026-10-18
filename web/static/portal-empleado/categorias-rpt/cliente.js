@@ -1,4 +1,4 @@
-import { crearClienteHTTPContratacionTemporal } from "../modulos/contratacion-temporal/cliente-http.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { crearClienteHTTPContratacionTemporal } from "../modulos/contratacion-temporal/cliente-http.js?v=20261018-f136c-informe-v3";
 import { crearPuertoCategorias } from "./puerto.js?v=20261001-rpt-categorias-v1";
 
 export const PLAZO_CONSULTA_MS = 10000;
