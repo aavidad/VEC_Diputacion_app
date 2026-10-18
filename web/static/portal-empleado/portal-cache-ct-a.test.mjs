@@ -4,16 +4,21 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-const versionCoordinador = "20261016-ct231-integracion-v1";
-const versionEntrada = versionCoordinador;
+// La integración de las ofertas de CT con CT231 renueva entrada, coordinador
+// y la cadena de Contratación cambiada; el alta conserva su cohorte.
+const versionCoordinador = "20261016-ct-ofertas-ct231-v1";
+const versionCoordinadorEntrada = "20261018-f104-main-v1";
+const versionEntrada = versionCoordinadorEntrada;
 const versionClienteCT = versionCoordinador;
 const versionClienteConsulta = versionCoordinador;
+const versionClienteRPT = versionCoordinador;
 const versionBaseCT = "20261013-ct-firma-tres-v3";
 const versionCircuito = versionCoordinador;
+const versionAccionesFirma = versionCoordinador;
 const versionVista = versionCoordinador;
 const versionVistaPortal = versionCoordinador;
-const versionAdaptador = "20261016-r1-o-integracion-v7";
-const versionRender = "20261013-ct-firma-tres-v3";
+const versionAdaptador = versionCoordinador;
+const versionRender = versionCoordinador;
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -25,8 +30,8 @@ test("la extracción CT renueva cada padre hasta la entrada del portal", async (
     readFile(new URL("modulos/contratacion-temporal/vista-expedientes.js", raiz), "utf8"),
   ]);
   const versionEntrada = exigirVersiones(html, "/portal-empleado/portal.js", posterior(versionEntradaAnterior));
-  exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinador);
-  exigirVersiones(portal, "./portal-modulos-coordinador.js", versionCoordinador);
+  exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinadorEntrada);
+  exigirVersiones(portal, "./portal-modulos-coordinador.js", versionCoordinadorEntrada);
   exigirVersiones(expediente, "./seguimiento-cese.js", "20261007-pantallas-textos-final-v1");
 });
 
@@ -39,7 +44,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
-  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", "20261016-r1-o-integracion-v7");
+  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionCoordinador);
   exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
 });
 
@@ -53,7 +58,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
     readFile(new URL("../../interno.manifest", raiz), "utf8"),
     readFile(new URL("../../produccion.manifest", raiz), "utf8"),
   ]);
-  const nueva = versionCoordinador;
+  const nueva = versionCoordinadorEntrada;
   const firma = versionCircuito;
 
   // portal.js puede renovarse después por otros cambios; basta que sea posterior.
@@ -67,9 +72,11 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   // La consulta de circuito RRHH no cambió: conserva su URL anterior.
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
-  exigirVersiones(circuito, "./circuito-firma-acciones.js", versionCircuito);
+  exigirVersiones(circuito, "./circuito-firma-acciones.js", versionAccionesFirma);
+  exigirVersiones(circuito, "./cliente-http-descarga-firma-v2.js", "20261016-r1-o-integracion-v7");
   for (const manifiesto of [interno, produccion]) {
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/firma-externa-cliente\.js$/mu);
+    assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/cliente-http-descarga-firma-v2\.js$/mu);
   }
 });
 
@@ -93,8 +100,8 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   exigirVersiones(formalizacion, "../documentos/cliente-http.js", version);
   exigirVersiones(firma, "../documentos/cliente-http.js", version);
   exigirVersiones(categorias, "./arranque.js", "20261008-hz8-idioma-v1");
-  exigirVersiones(montajeCategorias, "./cliente.js", cohorteCT);
-  exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", cohorteCT);
+  exigirVersiones(montajeCategorias, "./cliente.js", versionClienteRPT);
+  exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", versionClienteRPT);
 });
 
 test("Alta por circular renueva su cadena y no reutiliza módulos sin las exportaciones nuevas", async () => {
@@ -130,8 +137,8 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   ]);
   const aristas = [
     [html, "/portal-empleado/portal.js", cohorteEntrada],
-    [html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinador],
-    [portal, "./portal-modulos-coordinador.js", versionCoordinador],
+    [html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinadorEntrada],
+    [portal, "./portal-modulos-coordinador.js", versionCoordinadorEntrada],
     [coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteClienteHTTP],
     [cliente, "./cliente-http-alta.js", cohorte],
     [cliente, "./cliente-http-transporte.js", versionClienteCT],

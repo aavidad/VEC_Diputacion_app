@@ -272,7 +272,7 @@ test("el formulario de llamamiento pinta el panel tras la aceptación con su ins
   const raiz = raizPrueba();
   const fuente = fuentePrueba();
   const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: async () => resolucionConfirmada }, {
-    contexto: { expediente_ref: EXP, version_esperada: 6 }, fuenteDocumentacionFormalizacion: fuente,
+    contexto: { expediente_ref: EXP, version_esperada: 6, numero_personas: 1 }, fuenteDocumentacionFormalizacion: fuente,
     fetchPublicaciones: async () => new Response(PUBLICACIONES_PROPUESTA, { status: 200, headers: { "Content-Type": "application/json" } }),
   });
   assert.equal(fuente.llamadas.consultar.length, 0);
