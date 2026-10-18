@@ -44,7 +44,11 @@ BEGIN
  OR vec_bolsa_llamamientos.huella_solicitud_modalidades_v1(c,0,NULL,opciones) IS NOT DISTINCT FROM
   vec_bolsa_llamamientos.huella_solicitud_modalidades_v1(c,0,ARRAY[]::text[],opciones)
  THEN RAISE EXCEPTION 'B138: huella Go/SQL divergente' USING ERRCODE='55000'; END IF;
- IF has_function_privilege('public','vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ IF EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+  WHERE p.oid IN ('vec_bolsa_llamamientos.huella_solicitud_modalidades_v1(text,bigint,text[],jsonb)'::regprocedure,
+   'vec_bolsa_llamamientos.huella_contexto_modalidades_v1(text,text)'::regprocedure,
+   'vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
+   AND a.grantee=0 AND a.privilege_type='EXECUTE')
  OR has_function_privilege('vec_bolsa_llamamientos_portal_externo','vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') IS NOT TRUE
  OR has_function_privilege('vec_bolsa_llamamientos_preferencias_interna','vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') IS NOT TRUE
  OR NOT EXISTS(SELECT 1 FROM pg_class t WHERE t.oid='vec_bolsa_llamamientos.preferencia_modalidades_version'::regclass
