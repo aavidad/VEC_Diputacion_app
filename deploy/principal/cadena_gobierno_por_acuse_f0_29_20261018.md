@@ -36,10 +36,25 @@ sus filas terminan en ROLLBACK y no acreditan un acto de administración.
 `ad235_lector_gobierno_admin.sql` conserva los controles de lectura y denegación
 con la firma vigente. Las pruebas Go comprueban la vinculación al acuse.
 
-Pendientes de la cabeza final: ejecución SQL, verificación del acuse real
-conservado, arranque, reinicio y revisión independiente. Este documento todavía
-no acredita esos resultados. La función de verificación conserva su límite de
-100 registros y no trunca tramos para declararlos válidos.
+La candidata `ed5987b82` instaló una vez las 82 SQL en 76,02 segundos.
+Pasaron los casos de AD295 y la prueba de permisos de AD235, ambos con
+ROLLBACK. Esta última comprueba los 13 campos vigentes de la instantánea,
+incluido el contador incorporado por AD266. La primera copia sin preparar los
+orígenes nominales se detuvo en AD278; se descartó y no cuenta como ensayo.
+
+En la copia propia que conservaba el acto confirmado se instaló AD295 una
+sola vez. La consola nueva, con el perfil de desarrollo existente y `-acuse`,
+devolvió `cadena_verificada` para el mismo plan, material y acuse que antes
+obtenía cobertura vacía. No se repitió preparar ni aplicar. El arranque con
+módulos y el reinicio de aplicación, PostgreSQL y buzón de la copia nueva
+pasaron las cuatro consultas: salud, portal, contratación y Bolsas. La
+aplicación mantiene su configuración de arranque; este corte no añade ninguna.
+
+Dos revisiones independientes de la fuente son favorables. GoSec cargó los
+dos paquetes completos: 80 avisos heredados y ninguno en las líneas añadidas;
+Semgrep local y las focales Go fueron conformes. La función de verificación
+conserva el límite de 100 registros y no trunca tramos para declararlos válidos.
+La integración y la comprobación de la candidata de dirección siguen pendientes.
 
 Vuelta atrás: recuperar copia y binario anteriores. No ejecutar DOWN ni
 reinstalar una migración con historia. El cambio no añade configuración de
