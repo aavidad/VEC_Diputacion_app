@@ -117,5 +117,12 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000122_gobierno_transiciones_si
 deploy/postgresql/bolsa_llamamientos/migraciones/000126_limites_gobierno_transiciones_pg18.up.sql 78955c85f611c210d2efd52c8aeffd7cf7af928e42cab935ab06e324d9daf45c
 deploy/postgresql/bolsa_llamamientos/migraciones/000127_fecha_original_recibo_transiciones.up.sql ebbc891916b002ff7977ed3194261f808032f6112e656749505db5f970caa95f
 
+# Tarea F1-18, aviso durable de ofertas: B129 y B131, una sola vez
+deploy/postgresql/bolsa_llamamientos/migraciones/000129_aviso_oferta_durable.up.sql 41cc07a701d408fc0dc638d812c58ac5115de80871bff302368721b15ea7b271
+deploy/postgresql/bolsa_llamamientos/migraciones/000131_vinculo_aviso_subtransaccion.up.sql abcd636de72d8cd457227a4d772d9c2005839ae81508e1b0993f8d12026e8972
+
+# Tarea F1-18, reintento expreso de avisos inciertos: B132, una sola vez
+deploy/postgresql/bolsa_llamamientos/migraciones/000132_reintento_aviso_incierto.up.sql dc3460b11d2205839d737c2eb6584272f4116adc310e765a3627a70b1abff33b
+
 # Tarea F1-12: intento nominal externo sin transacción; después del corte interno F1-12.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000294_intento_preferencias_sin_transaccion.up.sql 2da1d1cf9184ee8bcbdf38c2e804a06bfaa26fad3dbddbd0c5f0e38ee2578e96
