@@ -8,17 +8,17 @@
  * sin acceder al DOM global.
  */
 import { finVigenciaBolsaPortal, LOCALIZACION_PORTAL, MENSAJES_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261018-f136c-informe-v6";
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261011-ct-bolsa-vinculo-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261018-f171-main-v4";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
 import { canalesAviso, enlaceSeguimiento, renderizarAccionJustificanteRenuncia, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261016-r1-o-integracion-v7";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-r-fichas-idioma-nav-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-traza-idioma-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261018-f171-main-v4";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
-import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261018-f175-contacto-propio-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
@@ -813,7 +813,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               ${renderizarSanciones({ estado: modal.sancionesB24 || {}, escaparHTML })}
             </div>
             <div class="acciones-vista">
-              <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">${textoPortal("txt_cambiar_situacion")}</button>
+              <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion"${modal.operacionesB8?.directa ? " disabled" : ""}>${textoPortal("txt_cambiar_situacion")}</button>
               <button type="button" class="boton-secundario" data-bolsa-auditoria="${escaparHTML(candidato.participacion_ref)}">${textoPortal("auditoria_participacion_accion")}</button>
               <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha"${cierreBloqueado ? " disabled" : ""}>${textoPortal("txt_cerrar")}</button>
             </div>

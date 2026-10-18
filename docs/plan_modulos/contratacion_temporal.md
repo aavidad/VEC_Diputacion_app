@@ -23,10 +23,49 @@ Base comprobada: `origin/main@033fda6ed` más las PR fusionadas el 08/10 (#895 a
 | 5 | **Plazos de CT editables en pantalla.** Hoy los plazos de CT solo se leen. | Codex-Y, PR #919, sólo CT190 y CT191. Ensayo y correcciones de la revisión en curso; Claude revisa las SQL y fusiona. Al fusionarla se cierran #233, #237 y #240. | RRHH cambia un plazo, queda versión y auditoría, y el cuadro lo usa. |
 | 6 | **Tarjetas de plazo en Inicio (CT192).** | Codex-S, rama `codexs-ct-filtros-plazos-20261008` sin PR. | Cada tarjeta abre su lista filtrada. |
 | 7 | **Cuadro de CT por debajo de 300 ms.** #916 fusionada: elimina las relecturas por fila si falla la preparación de reglas. Medida local nominal: p95 HTTPS 208,978 ms con 5.071 expedientes; no se atribuye esa cifra al parche Go ni a cidonia. | Codex-X; medición y límites en el acta de rendimiento. | 27 consultas con límites 1 y 100; auditoría por petición, sin N+1. |
-| 8 | **Documentos de la ficha en un solo sitio.** | Codex-S. Hay un commit `046a2f2fa` solo en local, sin subir. | Todos los documentos del expediente se ven y descargan desde la ficha. |
+| 8 | **Documentos de la ficha en un solo sitio (F1-42).** | `046a2f2fa` integrado por #914. El 18/10 se comprobaron 16 descargas de documentos generados desde la ficha. Queda por comprobar la lista de documentos incorporados con su módulo activado. | Ocho tipos en PDF y Word; informe recuperado tras reiniciar. Evidencia y límites debajo. |
 | 9 | **Retirada de dos rutas inoperativas de cierre.** #915 elimina `RutaCerrarAdministrativamente` y `RutaReabrirExcepcionalmente`, sus dependencias vacías y entradas de inventario. La pantalla conserva `/seguimiento/cerrar-sin-cese` y su preparación; `/cierres-expediente` mantiene su autoridad. | Codex-V: candidato revisado y puerta local verde; pendiente CI de integración y fusión de Claude. | Las dos URL dejan de despacharse. No se implementa reapertura ni se equipara al cierre sin cese; el rechazo genérico depende del perfil y la identidad. |
 | 10 | **Bandeja de Intervención.** No consta una bandeja propia; el formulario de fiscalización se abre desde la ficha. | Comprobar con RRHH si hace falta. | — |
 | 11 | **Firma de dos personas.** Ver [firmas.md](firmas.md). | Codex-V. | — |
+
+## Documentos desde la ficha — 18 de octubre de 2026
+
+Comprobación de F1-42 sobre `main@0a029c73f`, con el código ya integrado de
+#914. No cambia la interfaz, los permisos ni las plantillas. CONFIG NUEVA:
+ninguna. SQL nueva: ninguna.
+
+La copia local se preparó con `deploy/principal/copia_local.py crear
+--modulos --rrhh-original`, las fuentes de preparación de F0-28 y
+`deploy/principal/lista_sql_main_tras_hz37.txt`. Arrancó en 91,57 segundos.
+Se conservó su identidad original de RRHH; todas las conexiones eran propias.
+Para repetir el recorrido:
+
+1. Entrar como RRHH en el portal y abrir Contratación temporal.
+2. Buscar `2026/CT-000127`, en nombramiento y versión 9, y abrir su ficha.
+3. En «Documentos», descargar PDF y Word de informe, resolución, diligencia,
+   toma de posesión, notificación, comunicación al centro, contrato laboral
+   y nombramiento.
+4. Reiniciar la aplicación y PostgreSQL con la orden `reiniciar` del mismo
+   guion. Volver a la ficha y descargar el informe en PDF y Word.
+
+Chrome del sistema descargó los 16 archivos. Los PDF se pudieron leer y los
+Word contenían un documento válido; todos identificaban el expediente
+consultado. Después del reinicio, el informe en ambos formatos conservó
+exactamente sus bytes. La recuperación se hizo a 390 px. El bloque también
+se comprobó a 1440 px: sin desborde horizontal en ambos anchos y sin
+desplazamiento de la página en escritorio.
+
+Capturas: [escritorio](../operacion/capturas/f1-42/documentos-1440.png) y
+[móvil](../operacion/capturas/f1-42/documentos-390.png).
+
+Límites: la copia no contiene ceses ni modificaciones registrados. La petición
+del borrador de cese devuelve `409/documento_no_disponible`; no se acredita
+la descarga de esos dos tipos ni se han creado actos para obtenerla. El módulo
+común de Documentos no estaba activado y su lista muestra un error de consulta.
+Quedan pendientes los documentos incorporados y los originales firmados con
+su activación. La publicación de plantillas se conserva íntegra: no se cambió
+su contenido ni se sustituyeron sus huellas. Esta comprobación acredita los
+documentos generados y no el recorrido completo de firma o contratación.
 
 ## Esperan a RRHH
 
