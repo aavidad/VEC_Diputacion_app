@@ -28,7 +28,11 @@ CONFIG NUEVA: ninguna. La aplicación conserva su arranque y sus rutas.
 3. Admitir la fuente `fuentes/bolsa_comprobacion_ofrecimiento_rrhh_v1.json`
    y publicar el rol por propuesta y cierre de dos administradores distintos,
    conservando las concesiones y los ámbitos existentes. El material dura 90 días.
-   La consulta de motivos no concede esta escritura.
+   La consulta de motivos no concede esta escritura. El canon de fuente,
+   serializado con los tipos Go de dominio, tiene huella
+   `cfa1d4e8c3fdab65180c3f85d87c74f22c7844afc0754df023be0b4209eb6b68`.
+   La lista vacía de campos se omite en el JSON por `omitempty`; la concesión
+   sigue permitiendo cero campos. Esta fuente aún no está admitida.
 4. Ejecutar `bolsa_llamamientos/pruebas_sql/b133_calculo_y_denegacion.sql`
    desde el directorio de SQL. Las pruebas revierten sus datos. El ensayo de
    escritura con autorización real, idempotencia y concurrencia sigue pendiente.
