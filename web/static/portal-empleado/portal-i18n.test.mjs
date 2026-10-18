@@ -1249,7 +1249,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
-  ]) versionesEspeciales.set(ruta, "20261018-f173-alta-v5");
+  ]) versionesEspeciales.set(ruta, ruta === "portal.js" ? "20261018-f179-cabecera-v1" : "20261018-f173-alta-v5");
 
   const aristas = [];
   const codigo = new Map();
