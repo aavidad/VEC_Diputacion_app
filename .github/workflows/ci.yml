@@ -63,12 +63,17 @@ jobs:
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
+          cache-dependency-path: go.sum
       - name: Instalar Node para las pruebas web
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
       - name: Aprovisionar el ZIP OSM de la Release publica
         run: scripts/aprovisionar_cartografia_osm.sh
+      - name: Probar los guiones de la copia local y su lista SQL
+        run: python3 -m unittest discover -s deploy/principal -p 'test_*.py'
+      - name: Comprobar GoSec con paquetes completos y controles inseguros
+        run: bash scripts/probar_gosec_local.sh
       - name: Puerta de calidad
         run: scripts/verificar_calidad.sh
       # El conductor O3a V5 (runner endurecido) queda fuera del CI por la

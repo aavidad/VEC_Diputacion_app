@@ -3,7 +3,7 @@ import re
 import subprocess
 from urllib.parse import parse_qs, urlsplit
 
-from copia_local_conexiones import GRUPOS, GOBIERNO
+from copia_local_conexiones import GRUPOS, GOBIERNO, membresias
 
 # Excepción de arranque hasta retirar el gobierno por propietarios (F0-08).
 # No se aplica a los LOGIN que atienden peticiones.
@@ -36,7 +36,7 @@ def consulta(copia):
         vistos.add(login)
         # El resolutor instalado exige caducidad NULL; no se modifica su guarda.
         logins.append(f"('{login}',{'true' if variable == MOTIVOS else 'false'})")
-        permitidos = ARCOS_GOBIERNO if variable == GOBIERNO else {grupo: (True, False)}
+        permitidos = ARCOS_GOBIERNO if variable == GOBIERNO else membresias(variable, grupo)
         for rol, (hereda, cambia) in permitidos.items():
             arcos.append(f"('{login}','{rol}',{str(hereda).lower()},{str(cambia).lower()})")
     return ("WITH logins(login,sin_caducidad) AS (VALUES " + ','.join(logins) + "), "
@@ -55,6 +55,9 @@ def consulta(copia):
             "SELECT login,grupo,hereda,cambia FROM reales) UNION ALL "
             "(SELECT login,grupo,hereda,cambia FROM reales EXCEPT "
             "SELECT login,grupo,hereda,cambia FROM esperados)) "
+            "AND NOT EXISTS(SELECT 1 FROM logins l LEFT JOIN reales r ON r.login=l.login "
+            "GROUP BY l.login HAVING count(r.login)<>"
+            "(SELECT count(*) FROM esperados e WHERE e.login=l.login)) "
             "AND NOT EXISTS(SELECT 1 FROM reales WHERE administra) "
             "AND NOT EXISTS(SELECT 1 FROM esperados e JOIN pg_catalog.pg_roles g ON g.rolname=e.grupo "
             "WHERE g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole "

@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { accionesPlaza, crearClienteOfertas, crearSuperficieOfertasBolsa, crearTraductorOfertas, mensajeError, validarOfertasBolsa,
-  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261018-f118-reintento-reglas-v1";
+  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261018-f155-recibos-plaza-v1";
 
 function plaza(numero, extra = {}) {
   return { numero_de_plaza: numero, estado: "vacante", secuencia: 0, participacion_ref: null, orden_vigente: null,
@@ -41,9 +42,9 @@ function boton(dataset) {
 test("la entrada y la caché cargan la versión de ofertas con avisos", async () => {
   const [portal, html, cache] = await Promise.all(["portal.js", "index.html", "cache-publica-v1.json"]
     .map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
-  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261018-f118-reintento-reglas-v1/);
-  assert.match(html, /portal\.js\?v=20261018-f118-reintento-reglas-v1/);
-  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261018-f118-reintento-reglas-v1"));
+  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261018-f155-recibos-plaza-v1/);
+  assert.match(html, /portal\.js\?v=20261018-f155-recibos-plaza-v1/);
+  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261018-f155-recibos-plaza-v1"));
 });
 
 test("la ficha abre el historial autorizado de la oferta elegida y lo desmonta al cerrar", async () => {
@@ -928,7 +929,7 @@ test("tras el plazo muestra cada plaza, pide confirmación y registra el acto co
   assert.match(html, /Antes: n\.º 3 renunció/);
   assert.match(html, /Pasar a llamamiento directo/);
   assert.match(html, /No quedan personas que se ofrecieran/);
-  assert.doesNotMatch(html.replace(/<[^>]+>/g, " "), /p:5|p:1|recibo:plaza-oferta|oferta:2/, "sin referencias internas en el texto visible");
+  assert.doesNotMatch(html.replace(/<details\b[\s\S]*?<\/details>/g, "").replace(/<[^>]+>/g, " "), /p:5|p:1|recibo:plaza-oferta|oferta:2/, "sin referencias internas en el texto visible");
   // Primer clic: solo pide confirmación.
   s.manejarClick(boton({ ofertasAccion: "preparar", ofertaRef: "oferta:2", plaza: "2", tipo: "adjudicada", secuencia: "2", participacionRef: "p:5", orden: "5" }));
   assert.equal(actos.length, 0);
@@ -950,6 +951,68 @@ test("tras el plazo muestra cada plaza, pide confirmación y registra el acto co
   s.manejarClick(boton({ ofertasAccion: "confirmar" }));
   await turno();
   assert.deepEqual([actos[2][0].tipo, actos[2][0].participacion_ref, actos[2][1]], ["llamamiento_directo", null, "clave-acto-2"]);
+});
+
+test("cada adjudicación recuperada conserva su recibo plegado, su fecha y su copia", async () => {
+  const recibos = ["a", "b", "c"].map((letra) => `recibo:plaza-oferta:${letra.repeat(64)}`);
+  const fechas = ["2026-10-16T08:15:00Z", "2026-10-18T08:47:24.802096Z", "2026-10-18T09:25:00Z"];
+  const acto = (indice, secuencia) => ({ tipo: "adjudicada", secuencia, orden_vigente: secuencia,
+    recibo_ref: recibos[indice], registrado_en: fechas[indice] });
+  const recuperada = oferta({ estado: "adjudicada", numero_plazas: 2, politica_plazas: politica,
+    plazas: [plaza(1, { estado: "cubierta", secuencia: 3, historial: [acto(0, 1),
+      { tipo: "renuncia", secuencia: 2, orden_vigente: 1, recibo_ref: "recibo:renuncia:1", registrado_en: fechas[0] }, acto(1, 3)] }),
+    plaza(2, { estado: "cubierta", secuencia: 1, historial: [acto(2, 1)] })] });
+  let consultas = 0;
+  const s = crearSuperficieOfertasBolsa({ cliente: { consultar: async () => { consultas++; return sobre([recuperada]); } } });
+  const formato = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" });
+  const comprobar = () => {
+    const html = s.renderizar();
+    const plazas = [...html.matchAll(/<li class="plaza-oferta"[\s\S]*?<\/li>/g)].map(([plazaHTML]) => plazaHTML);
+    const detalles = plazas.map((plazaHTML) => [...plazaHTML.matchAll(/<details([^>]*)>[\s\S]*?<\/details>/g)]);
+    assert.deepEqual(detalles.map((lista) => lista.length), [2, 1]);
+    const recibosHTML = detalles.flat();
+    recibosHTML.forEach(([detalle, atributos], indice) => {
+      assert.doesNotMatch(atributos, /\bopen\b/, "el recibo empieza plegado");
+      assert.match(detalle, /<summary>Recibo de adjudicación<\/summary>/);
+      assert.ok(detalle.includes(`data-copiar-justificante="${recibos[indice]}"`));
+      assert.ok(detalle.includes(formato.format(new Date(fechas[indice]))));
+      assert.doesNotMatch(detalle, /Publicada el/);
+    });
+    for (const plazaHTML of plazas) {
+      assert.doesNotMatch(plazaHTML.replace(/<details\b[\s\S]*?<\/details>/g, ""), /recibo:|data-copiar-justificante/);
+      assert.doesNotMatch(plazaHTML.replace(/<[^>]+>/g, " "), /recibo:plaza-oferta/, "la referencia no se muestra como texto");
+    }
+    return recibosHTML;
+  };
+  s.activar("bolsa:1"); await turno();
+  const detalles = comprobar();
+  const copias = [];
+  let copiar;
+  instalarCopiaJustificantes({ addEventListener: (_tipo, oyente) => { copiar = oyente; } }, {
+    writeText: async (referencia) => { copias.push(referencia); },
+  });
+  for (const [detalle] of detalles) {
+    const b = { dataset: { copiarJustificante: /data-copiar-justificante="([^"]+)"/.exec(detalle)[1],
+      textoCopiado: /data-texto-copiado="([^"]+)"/.exec(detalle)[1] } };
+    copiar({ target: { closest: () => b } }); await turno();
+    assert.equal(b.textContent, "Referencia copiada");
+  }
+  assert.deepEqual(copias, recibos);
+  assert.equal(consultas, 1, "mostrar y copiar no consulta ni registra actos");
+  s.desmontar(); s.activar("bolsa:1"); await turno();
+  comprobar();
+  assert.equal(consultas, 2, "la recarga recupera los mismos recibos del historial");
+});
+
+test("no ofrece recibos de adjudicación con referencia o fecha incompletas", async () => {
+  const incompletos = [{}, { recibo_ref: "recibo:plaza-oferta:1" }, { registrado_en: "2026-10-18T08:47:24Z" },
+    { recibo_ref: "recibo:plaza-oferta:1", registrado_en: "mañana" },
+    { recibo_ref: '<script>alert(1)</script>', registrado_en: "2026-10-18T08:47:24Z" }];
+  const s = crearSuperficieOfertasBolsa({ cliente: { consultar: async () => sobre([oferta({
+    plazas: [plaza(1, { historial: incompletos.map((extra, indice) => ({ tipo: "adjudicada", secuencia: indice + 1, ...extra })) })],
+  })]) } });
+  s.activar("bolsa:1"); await turno();
+  assert.doesNotMatch(s.renderizar(), /Recibo de adjudicación|alert\(1\)|Invalid Date/);
 });
 
 test("un conflicto descarta la confirmación, recarga y explica el cambio", async () => {

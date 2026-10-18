@@ -368,6 +368,8 @@ entre la unidad que tramita y la del puesto y la asignación de los permisos
 necesarios para la activación. Este ejercicio no cambia
 los pasos 1 a 21 del caso singular.
 
+**Ensayo F1-55 (18/10).** La copia local registra dos aceptaciones previas desde Mi Bolsa y adjudica por orden, aunque la segunda posición aceptó antes que la primera. Al perder la respuesta de la primera adjudicación, la misma intención recuperó con 200 el recibo y la fecha tras reiniciar aplicación y PostgreSQL, sin duplicar el acto. Las dos plazas quedaron cubiertas; la tercera persona siguió disponible sin responder. Cada adjudicación permite abrir y copiar su recibo y consultar su fecha; comprobado desde Chrome tras reiniciar, sin otra escritura. No responder no produce un acto ni una baja. La cancelación queda en F1-17; la continuación hasta formalización en CT sigue pendiente. La preparación de las dos identidades reutiliza el guion existente; la autoridad de RRHH procede del arranque de desarrollo documentado, sin asignación manual ni cambio de huellas. Evidencia y límites en `deploy/principal/aceptacion_dos_plazas_f1_55_20261018.md`.
+
 ### 4.0.1 Vista general
 
 Es el recorrido que hará Alberto en la presentación, cambiando de perfil. Cada
@@ -772,6 +774,13 @@ comprobaron recarga, reinicio, registro del aviso desde el formulario y sustituc
 por la comunicación real con su recibo. Está pendiente de integración; el ensayo
 no completa el apartado 4.0. Activación y límites en
 [`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
+
+F1-69 prepara un control en la base para que un expediente conserve una sola
+selección confirmada, también cuando la oferta cubre varias plazas. Al volver
+a la ficha se recupera la selección original para continuar el aviso; las
+referencias de los pasos posteriores no crean otra selección. Sigue pendiente
+ensayar el control y el recorrido completo antes de integrarlo. La ruta y la
+pantalla son las actuales.
 
 Con #1088 (**en main, sin subir**) la selección usa la bolsa constituida, su
 orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
