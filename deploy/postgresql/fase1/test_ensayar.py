@@ -160,6 +160,66 @@ class EnsayoFase1Test(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'No se encontraron tablas'):
                 ensayar.verificar_tablas_vacias('contenedor')
 
+    def test_pruebas_usan_bytes_versionados_y_lista_cerrada(self):
+        self.assertEqual(len(ensayar.PRUEBAS_SQL), 4)
+        with mock.patch.object(ensayar.subprocess, 'check_output', return_value=b'SQL') as git:
+            with mock.patch.object(Path, 'read_bytes', return_value=b'SQL'):
+                casos = ensayar.pruebas_versionadas()
+        self.assertEqual([ruta for ruta, _ in casos], list(ensayar.PRUEBAS_SQL))
+        self.assertEqual([contenido for _, contenido in casos], [b'SQL'] * 4)
+        self.assertEqual([llamada.args[0][-1] for llamada in git.call_args_list],
+                         [f'HEAD:{ruta}' for ruta in ensayar.PRUEBAS_SQL])
+        with mock.patch.object(ensayar.subprocess, 'check_output', return_value=b'alterado'):
+            with self.assertRaisesRegex(ValueError, 'difiere de la cabeza versionada'):
+                ensayar.pruebas_versionadas()
+
+    def test_pruebas_siguen_instalacion_y_fallo_sql_sale_con_estado_uno(self):
+        from deploy.principal import copia_local, copia_local_roles
+
+        with tempfile.TemporaryDirectory(dir='/dev/shm') as temporal:
+            eventos = []
+
+            def esquema(destino):
+                ruta = destino / 'esquema.sql'
+                ruta.write_bytes(b'ESQUEMA')
+                return ruta
+
+            def ejecutar_sql(_nombre, contenido, etapa):
+                eventos.append((contenido, etapa))
+                if contenido == b'PRUEBA2':
+                    raise ValueError('Falló la prueba funcional')
+                return mock.Mock(stdout=b'')
+
+            with (mock.patch.object(ensayar, 'comprobar_destino', return_value=Path(temporal)),
+                  mock.patch.object(ensayar, 'preparar_esquema', side_effect=esquema),
+                  mock.patch.object(ensayar, 'preparacion_versionada', return_value=b'PREPARACION'),
+                  mock.patch.object(ensayar, 'pruebas_versionadas', return_value=[
+                      ('primera.sql', b'PRUEBA1'), ('segunda.sql', b'PRUEBA2')]),
+                  mock.patch.object(copia_local, 'migraciones', return_value=[
+                      (ensayar.RAIZ / 'migracion.sql', 'huella', b'MIGRACION')]),
+                  mock.patch.object(copia_local_roles, 'extract', return_value=[]),
+                  mock.patch.object(ensayar, 'comandos_docker'),
+                  mock.patch.object(ensayar, 'contenedor_propio', return_value=True),
+                  mock.patch.object(ensayar.subprocess, 'run',
+                                    return_value=mock.Mock(returncode=0)),
+                  mock.patch.object(ensayar, 'sql', side_effect=ejecutar_sql),
+                  mock.patch.object(ensayar, 'verificar_tablas_vacias'),
+                  mock.patch('sys.argv', ['ensayar.py', '--pruebas'])):
+                self.assertEqual(ensayar.main(), 1)
+            self.assertEqual([etapa for _, etapa in eventos], [
+                'la creación de roles sin LOGIN', 'la restauración del esquema HZ37',
+                'la preparación versionada de la fase 1', 'la migración migracion.sql',
+                'la prueba primera.sql', 'la prueba segunda.sql'])
+            self.assertEqual([contenido for contenido, _ in eventos][1:], [
+                b'ESQUEMA', b'PREPARACION', b'MIGRACION', b'PRUEBA1', b'PRUEBA2'])
+            self.assertIn('la prueba segunda.sql', eventos[-1][1])
+            self.assertEqual(list(Path(temporal).iterdir()), [])
+
+    def test_pruebas_y_solo_base_son_incompatibles(self):
+        with mock.patch.object(ensayar, 'comprobar_destino', return_value=Path('/dev/shm')):
+            with self.assertRaisesRegex(ValueError, '--solo-base'):
+                ensayar.ejecutar(solo_base=True, pruebas=True)
+
 
 if __name__ == '__main__':
     unittest.main()

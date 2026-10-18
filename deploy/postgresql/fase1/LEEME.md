@@ -12,6 +12,7 @@ Desde la raíz del repositorio:
 ```sh
 python3 deploy/postgresql/fase1/ensayar.py --solo-base
 python3 deploy/postgresql/fase1/ensayar.py --preparacion
+python3 deploy/postgresql/fase1/ensayar.py --pruebas
 ```
 
 `--solo-base` comprueba únicamente la restauración del esquema. El segundo
@@ -24,9 +25,25 @@ contiene datos. El resultado indica cuántas tablas se comprobaron.
 La opción `--preparacion` ejecuta antes de la lista únicamente
 `deploy/postgresql/fase1/preparacion_fase1.sql`, comprobando que coincide con
 la versión confirmada en Git. La opción no se admite con `--solo-base`.
-Ambos terminan con estado distinto de cero si falla una validación, el
-arranque, la restauración o una migración. No ejecutan datos de prueba ni
-acreditan todavía las pruebas SQL del recorrido de la fase 1.
+`--pruebas` incluye esa preparación, instala la misma lista y ejecuta estas
+cuatro pruebas SQL existentes, en este orden:
+
+1. `bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql`: valida criterios
+   de ofrecimiento y el permiso del validador sin crear un llamamiento.
+2. `documentos/pruebas_sql/000014_referencia_expediente_tipado.sql`: comprueba
+   formatos, catálogo y rechazo de una referencia de otro módulo.
+3. `documentos/pruebas_sql/000015_rechazo_expediente_ct_cero.sql`: rechaza la
+   referencia de expediente CT con identificador cero.
+4. `autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql`: comprueba
+   el rechazo temprano 42501 ante una entrada nula.
+
+El guion comprueba que los bytes de cada prueba coinciden con `HEAD` y los pasa
+a `psql` con `ON_ERROR_STOP=1`. Un fallo detiene el ensayo con estado distinto
+de cero. Estas pruebas usan las funciones instaladas y sus transacciones
+terminan en `ROLLBACK`. CT230 queda fuera porque exige confirmaciones O6
+históricas, ausentes en la copia sin datos. Tampoco se acreditan aún la
+autorización nominal positiva, la concurrencia, el reinicio ni el recorrido
+completo: necesitan un expediente y autoridades nominales válidos.
 
 Se necesita Docker y la imagen fijada `postgres:18.4-bookworm` disponible
 localmente con la huella indicada en `ensayar.py`. El contenedor usa

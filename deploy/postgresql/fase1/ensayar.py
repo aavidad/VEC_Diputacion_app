@@ -17,6 +17,12 @@ RAIZ = Path(__file__).resolve().parents[3]
 FASE = Path(__file__).resolve().parent
 IMAGEN = 'postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296'
 BASE = Path('/dev/shm')
+PRUEBAS_SQL = (
+    'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql',
+    'deploy/postgresql/documentos/pruebas_sql/000014_referencia_expediente_tipado.sql',
+    'deploy/postgresql/documentos/pruebas_sql/000015_rechazo_expediente_ct_cero.sql',
+    'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql',
+)
 
 
 def memoria_disponible():
@@ -78,6 +84,21 @@ def preparacion_versionada():
     if contenido != versionado:
         raise ValueError('La preparación SQL difiere de la cabeza versionada')
     return contenido
+
+
+def pruebas_versionadas():
+    pruebas = []
+    for relativa in PRUEBAS_SQL:
+        ruta = RAIZ / relativa
+        if ruta.resolve(strict=True) != ruta or not ruta.is_file():
+            raise ValueError(f'La prueba SQL debe ser el archivo regular previsto: {relativa}')
+        contenido = ruta.read_bytes()
+        versionado = subprocess.check_output([
+            'git', '-C', str(RAIZ), 'show', f'HEAD:{relativa}'], timeout=30)
+        if contenido != versionado:
+            raise ValueError(f'La prueba SQL difiere de la cabeza versionada: {relativa}')
+        pruebas.append((relativa, contenido))
+    return pruebas
 
 
 def comandos_docker(*argumentos, entrada=None, timeout=180):
@@ -158,15 +179,16 @@ END $$;"""
     print(f'Tablas sin filas verificadas: {cantidad}')
 
 
-def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False):
+def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False, pruebas=False):
     sys.path.insert(0, str(RAIZ))
     from deploy.principal.copia_local_roles import extract, ROLES_B119
     from deploy.principal.copia_local import migraciones
 
     base = comprobar_destino(datos_dir or os.environ.get('VEC_PG18_DATOS_DIR', '/dev/shm'))
-    if solo_base and preparacion:
-        raise ValueError('--preparacion no corresponde a --solo-base')
-    fixture = preparacion_versionada() if preparacion else None
+    if solo_base and (preparacion or pruebas):
+        raise ValueError('--preparacion y --pruebas no corresponden a --solo-base')
+    fixture = preparacion_versionada() if preparacion or pruebas else None
+    casos = pruebas_versionadas() if pruebas else ()
     deltas = [] if solo_base else migraciones([lista or RAIZ / 'deploy/principal/lista_sql_main_tras_hz37.txt'])
     nombre = 'vec-fase1-' + secrets.token_hex(6)
     propio = base / nombre
@@ -201,7 +223,11 @@ def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False):
             sql(nombre, fixture, 'la preparación versionada de la fase 1')
         for ruta, _huella, contenido in deltas:
             sql(nombre, contenido, f'la migración {ruta.relative_to(RAIZ)}')
+        for relativa, contenido in casos:
+            sql(nombre, contenido, f'la prueba {relativa}')
         print(f'Esquema HZ37 restaurado; migraciones ensayadas: {len(deltas)}')
+        if pruebas:
+            print(f'Pruebas SQL superadas: {len(casos)}')
     finally:
         limpiar_copia(nombre, etiqueta, propio)
 
@@ -213,9 +239,10 @@ def main():
     parser.add_argument('--lista', type=Path)
     parser.add_argument('--datos-dir', type=Path)
     parser.add_argument('--preparacion', action='store_true')
+    parser.add_argument('--pruebas', action='store_true')
     args = parser.parse_args()
     try:
-        ejecutar(args.solo_base, args.lista, args.datos_dir, args.preparacion)
+        ejecutar(args.solo_base, args.lista, args.datos_dir, args.preparacion, args.pruebas)
     except (OSError, ValueError, subprocess.SubprocessError, KeyError,
             gzip.BadGzipFile, json.JSONDecodeError) as exc:
         print(f'Ensayo detenido: {exc}', file=sys.stderr)

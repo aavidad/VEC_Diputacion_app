@@ -151,5 +151,5 @@ jobs:
         run: python3 -m unittest discover -s deploy/postgresql/fase1 -p 'test_*.py'
       - name: Descargar PostgreSQL 18 fijado por huella
         run: docker pull postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296
-      - name: Restaurar el esquema sin datos y ensayar la lista única
-        run: python3 deploy/postgresql/fase1/ensayar.py --preparacion
+      - name: Instalar la lista única y ejecutar las pruebas SQL funcionales
+        run: python3 deploy/postgresql/fase1/ensayar.py --pruebas
