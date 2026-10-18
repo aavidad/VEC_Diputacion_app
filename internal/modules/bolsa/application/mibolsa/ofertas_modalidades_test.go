@@ -122,8 +122,15 @@ func TestConsultaOfertasModalidadesErrores(t *testing.T) {
 	}
 	consulta.err = nil
 	consulta.instantanea.Ofertas = []bolsa.OfertaPortalCandidato{{OfertaRef: "oferta:1", Estado: bolsa.EstadoOfertaPortalAbierta}}
-	if _, err := servicio.Consultar(t.Context(), Orden{}); !errors.Is(err, falloPreferencias) {
-		t.Fatalf("fallo de preferencias oculto: %v", err)
+	consulta.instantanea.Participaciones = []bolsa.ParticipacionMiBolsa{{Bolsa: "bolsa:propia"}}
+	resultado, err := servicio.Consultar(t.Context(), Orden{})
+	if err != nil || !resultado.OfertasNoDisponibles || len(resultado.Ofertas) != 0 ||
+		!reflect.DeepEqual(resultado.Participaciones, consulta.instantanea.Participaciones) || len(consulta.instantanea.Ofertas) != 1 {
+		t.Fatalf("fallo parcial no preservó participaciones ni cerró ofertas: %+v, %v", resultado, err)
+	}
+	resultado, err = servicio.ConsultarTodasLasOfertas(t.Context(), Orden{})
+	if err != nil || resultado.OfertasNoDisponibles || len(resultado.Ofertas) != 1 || lector.llamadas != 1 {
+		t.Fatalf("consulta explícita de todas no recuperó la oferta: %+v, %v", resultado, err)
 	}
 }
 

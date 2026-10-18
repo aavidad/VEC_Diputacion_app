@@ -2,6 +2,8 @@ package mibolsa
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 
 	bolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
@@ -38,7 +40,17 @@ func (s *ConsultaOfertasModalidades) Consultar(ctx context.Context, orden Orden)
 	}
 	estado, err := s.lector.ConsultarPreferenciasModalidades(ctx, orden)
 	if err != nil {
-		return bolsa.InstantaneaMiBolsa{}, err
+		if ctx.Err() != nil {
+			return bolsa.InstantaneaMiBolsa{}, ctx.Err()
+		}
+		causa := "lectura_no_disponible"
+		if errors.Is(err, bolsa.ErrPreferenciasNoDisponibles) {
+			causa = "preferencias_no_disponibles"
+		}
+		slog.WarnContext(ctx, "preferencias de modalidades no disponibles", "operacion", "consultar_mi_bolsa", "etapa", "modalidades", "causa", causa)
+		instantanea.Ofertas = nil
+		instantanea.OfertasNoDisponibles = true
+		return instantanea, nil
 	}
 	if estado.Version == 0 || estado.ModalidadesGuardadas == nil {
 		return instantanea, nil

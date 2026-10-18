@@ -55,6 +55,26 @@ type preparadorPrueba struct {
 	err      error
 }
 
+func TestMiBolsaExponeFalloParcialSinPerderParticipaciones(t *testing.T) {
+	i := puertosbolsa.InstantaneaMiBolsa{OfertasNoDisponibles: true,
+		Participaciones: []puertosbolsa.ParticipacionMiBolsa{{Bolsa: "bolsa:propia"}}}
+	contenido, err := json.Marshal(nuevaRespuesta(i))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recibida struct {
+		Data struct {
+			OfertasNoDisponibles bool              `json:"ofertas_no_disponibles"`
+			Ofertas              json.RawMessage   `json:"ofertas"`
+			Participaciones      []json.RawMessage `json:"participaciones"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(contenido, &recibida) != nil || !recibida.Data.OfertasNoDisponibles ||
+		len(recibida.Data.Ofertas) != 0 || len(recibida.Data.Participaciones) != 1 {
+		t.Fatalf("se perdió el estado parcial de la consulta: %s", contenido)
+	}
+}
+
 func (p *preparadorPrueba) PrepararMiBolsa(*http.Request) (mibolsa.Orden, error) {
 	p.llamadas++
 	return mibolsa.Orden{}, p.err
