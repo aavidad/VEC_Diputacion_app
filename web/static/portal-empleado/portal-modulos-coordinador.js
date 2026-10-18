@@ -17,7 +17,7 @@ import {
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20261012-ct-personal-ficha-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-alegaciones-v2";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261018-f104-main-v1";
 import { cargarTextos } from "../comun/textos.js";
 import { INDICE_IDIOMAS } from "../comun/idioma.js";
 import {
@@ -148,7 +148,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261018-firma-historica-ct-ofertas-v2");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261018-f136c-f104-v1");
       const [auditoriaVista, auditoriaCliente, original, preflight, firmaVec, autoFirma, documentos] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),

@@ -2,7 +2,7 @@
 
 import { validarReciboAlta } from "./contrato.js?v=20261013-ct-firma-tres-v3";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261016-ct231-integracion-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261016-ct-ofertas-ct231-v1";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261018-firma-historica-ct-ofertas-v2";
@@ -23,7 +23,7 @@ import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedient
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { crearGestorRecuperacionFirmasHistoricas } from "./gestor-recuperacion-firmas-historicas.js?v=20261016-firma-historica-v5";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261018-f136c-f104-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261018-firma-historica-ct-ofertas-v2";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261011-ct-bolsa-vinculo-v1";
 

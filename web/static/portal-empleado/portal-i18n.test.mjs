@@ -1176,6 +1176,13 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes.js", "20261018-firma-historica-ct-ofertas-v2");
   versionesEspeciales.set("portal-modulos-coordinador.js", "20261018-firma-historica-ct-ofertas-v2");
   versionesEspeciales.set("portal.js", "20261018-firma-historica-ct-ofertas-v2");
+  // F1-04 renueva sus importadores sin cambiar las hojas de Contratación.
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal-menu-bolsa.js"])
+    versionesEspeciales.set(ruta, "20261018-f104-main-v1");
+  versionesEspeciales.set("portal.js", "20261018-f136c-f104-v1");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261018-f136c-f104-v1");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes.js", "20261018-f136c-f104-v1");
+  versionesEspeciales.set("modulos/contratacion-temporal/vista-expedientes-incorporacion.js", "20261018-f136c-f104-v1");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
