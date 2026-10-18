@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"errors"
 	"slices"
 	"testing"
 
@@ -50,7 +49,7 @@ func servicioSituacionComposicionPrueba(t *testing.T, repo puertosbolsa.Reposito
 	return servicio
 }
 
-func TestComposicionPublicaLaPoliticaDeTransicionesDelCatalogo(t *testing.T) {
+func TestComposicionSoloLeeYRestringePoliticaTransiciones(t *testing.T) {
 	compuestas, err := nuevasReglasEjemploDesarrollo(configuracionDesarrolloReglasEjemplo(rutaReglasBolsaEjemploPrueba, ""), nil, relojPresentacionReglasEjemplo)
 	if err != nil {
 		t.Fatal(err)
@@ -60,24 +59,23 @@ func TestComposicionPublicaLaPoliticaDeTransicionesDelCatalogo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(repo.publicadas) != 1 || !slices.Contains(repo.publicadas[0].Politica.Pares(), "renuncia>no_disponible") ||
-		slices.Contains(repo.publicadas[0].Politica.Pares(), "renuncia>disponible") || len(repo.publicadas[0].CatalogoSHA256) != 64 {
-		t.Fatalf("publicación: %+v", repo.publicadas)
+	if len(repo.publicadas) != 0 {
+		t.Fatalf("el arranque escribió una política: %+v", repo.publicadas)
 	}
 	codigo, cuerpo := consultarReglasSituacionPrueba(t, ruta.Manejador, rutaReglasSituacionBolsaDesarrollo)
-	if codigo != 200 || !slices.Equal(cuerpo.Data.Transiciones["renuncia"], []string{"no_disponible", "excluido"}) {
-		t.Fatalf("la pantalla ofrece lo publicado: %d %v", codigo, cuerpo.Data.Transiciones)
+	if codigo != 200 || !slices.Equal(cuerpo.Data.Transiciones["renuncia"], []string{"excluido"}) {
+		t.Fatalf("la pantalla ofrece la intersección: %d %v", codigo, cuerpo.Data.Transiciones)
 	}
 }
 
-func TestComposicionNoArrancaSiLaBaseRechazaLaPolitica(t *testing.T) {
+func TestComposicionArrancaAunqueFalleLecturaPosterior(t *testing.T) {
 	compuestas, err := nuevasReglasEjemploDesarrollo(configuracionDesarrolloReglasEjemplo(rutaReglasBolsaEjemploPrueba, ""), nil, relojPresentacionReglasEjemplo)
 	if err != nil {
 		t.Fatal(err)
 	}
 	repo := &repositorioPoliticaTransicionesComposicionPrueba{err: puertosbolsa.ErrSituacionParticipacionNoDisponible}
-	if _, err := componerReglasSituacionBolsaDesarrollo(compuestas.bolsa, &manejadorParticipacionBolsaDesarrollo{servicioSituacion: servicioSituacionComposicionPrueba(t, repo)}); !errors.Is(err, errPoliticaTransicionesEjemploNoValida) {
-		t.Fatalf("una base que rechaza la política impide arrancar: %v", err)
+	if _, err := componerReglasSituacionBolsaDesarrollo(compuestas.bolsa, &manejadorParticipacionBolsaDesarrollo{servicioSituacion: servicioSituacionComposicionPrueba(t, repo)}); err != nil || len(repo.publicadas) != 0 {
+		t.Fatalf("el arranque debe ser de solo lectura: %v %+v", err, repo.publicadas)
 	}
 }
 
