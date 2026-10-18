@@ -122,3 +122,9 @@ contexto externo, según su bootstrap y CTX15. No crea pertenencias. Retira
 los privilegios de `PUBLIC` sobre la base aislada, como exige el contrato de
 ejecución mínimo; no cambia permisos de funciones, tablas ni esquemas. El
 volcado de esquema conserva esas otras concesiones.
+
+Se reproduce asimismo el cierre de tipos de CTX1 en su propio esquema. Los
+tipos fila restaurados no conservan en `pg_dump` sus restricciones originales
+de `PUBLIC`; la comprobación estricta del ejecutor detecta esa diferencia.
+La preparación repone la revocación original de tipos compuestos, dominios y
+enumerados sin cambiar la función que exige los privilegios mínimos.

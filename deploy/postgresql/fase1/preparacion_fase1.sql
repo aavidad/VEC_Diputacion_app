@@ -129,6 +129,17 @@ BEGIN
     USING ERRCODE = '55000';
   END IF;
 END $control_ctx15_post$;
+-- Cierre de tipos de CTX1: pg_dump no conserva la ACL de los tipos fila.
+DO $cerrar_tipos_contexto$
+DECLARE t record;
+BEGIN
+  FOR t IN
+    SELECT ty.typname FROM pg_type ty JOIN pg_namespace ns ON ns.oid = ty.typnamespace
+    WHERE ns.nspname = 'vec_contexto_actor_v1' AND ty.typtype IN ('c', 'd', 'e')
+  LOOP
+    EXECUTE format('REVOKE ALL ON TYPE vec_contexto_actor_v1.%I FROM PUBLIC, vec_contexto_actor_v1_runtime', t.typname);
+  END LOOP;
+END $cerrar_tipos_contexto$;
 RESET ROLE;
 
 -- D14 creó esta fila antes de activar RLS; HZ37 conservó sólo su esquema.
