@@ -9,15 +9,16 @@ const versionEntradaAnterior = "20261002-r1-post401-v4";
 const versionCoordinador = "20261016-ct-ofertas-ct231-v1";
 const versionAltaDirectaV2 = "20261018-f173-alta-v2";
 const versionCompartida = "20261018-f173-f174-v1";
-const versionCoordinadorEntrada = versionCompartida;
-const versionEntrada = versionCompartida;
+const versionUnionMain = "20261018-f173-alta-v4";
+const versionCoordinadorEntrada = versionUnionMain;
+const versionEntrada = versionUnionMain;
 const versionClienteCT = versionCoordinador;
 const versionClienteConsulta = versionAltaDirectaV2;
 const versionClienteRPT = versionAltaDirectaV2;
 const versionCircuito = versionCompartida;
 const versionAccionesFirma = versionCompartida;
 const versionVista = versionCompartida;
-const versionVistaPortal = versionCompartida;
+const versionVistaPortal = versionUnionMain;
 const versionAdaptador = versionAltaDirectaV2;
 const versionRender = "20261018-f174-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
@@ -46,7 +47,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
   exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionAltaDirectaV2);
-  exigirVersiones(llamamiento, "./vista-expedientes.js", versionCompartida);
+  exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
 });
 
 test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuito de firma", async () => {

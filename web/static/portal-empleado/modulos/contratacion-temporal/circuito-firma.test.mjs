@@ -658,7 +658,7 @@ test("los importadores locales de la vista y el circuito evitan las URLs immutab
   ]);
   const versiones = new Map([
     ["circuito-firma.js", "20261018-f173-f174-v1"],
-    ["vista-expedientes.js", "20261018-f173-f174-v1"],
+    ["vista-expedientes.js", "20261018-f173-alta-v4"],
   ]);
   const anterior = "20260929-custodia-506-v1";
   const importadores = [

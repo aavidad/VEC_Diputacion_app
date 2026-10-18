@@ -1126,15 +1126,37 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261018-f174-v1");
+  // F1-76 renueva avisos de Bolsas, fiscalización y sus importadores.
+  for (const ruta of [
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-bolsas-avisos.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261018-f176-v1");
+
+  for (const ruta of ["portal-bolsas-operaciones.js", "portal-bolsas-sanciones.js"])
+    versionesEspeciales.set(ruta, "20261018-f171-main-v4");
+  // F1-75 renueva el registro de contacto y sus importadores de Bolsa.
+  versionesEspeciales.set("portal-bolsas-contacto-registro.js", "20261018-f175-contacto-propio-v1");
+  // F1-71 sobre F1-75: la unión renueva la entrada y los módulos de Bolsa que cambiaron ambas.
+  for (const ruta of ["portal-baremacion-ranking.js", "portal-bolsas-api.js", "portal-bolsas-historial-ofrecimientos.js",
+    "portal-bolsas-ofertas.js", "portal-panel-interno.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261018-f171-integracion-v1");
+
+  // Unión F1-71 con F1-76.
+  for (const ruta of ["portal-panel-interno.js", "portal.js"]) versionesEspeciales.set(ruta, "20261018-f171-f176-v1");
+
+  // F1-73 sobre F1-74: alta directa v2 y cabecera de fiscalización.
   for (const ruta of [
     "modulos/contratacion-temporal/circuito-firma-acciones.js",
     "modulos/contratacion-temporal/circuito-firma.js",
     "modulos/contratacion-temporal/consulta-seguimiento.js",
     "modulos/contratacion-temporal/vista-expedientes-borrador.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
-    "modulos/contratacion-temporal/vista-expedientes.js",
-    "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261018-f173-f174-v1");
+  // Unión F1-73 con F1-76 y F1-71.
+  for (const ruta of ["modulos/contratacion-temporal/vista-expedientes.js", "portal-modulos-coordinador.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261018-f173-alta-v4");
 
   const aristas = [];
   const codigo = new Map();
