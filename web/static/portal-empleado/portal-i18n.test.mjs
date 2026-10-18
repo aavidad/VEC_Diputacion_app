@@ -1134,12 +1134,17 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-bolsas-avisos.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261018-f176-v1");
 
+  for (const ruta of ["portal-bolsas-operaciones.js", "portal-bolsas-sanciones.js"])
+    versionesEspeciales.set(ruta, "20261018-f171-main-v4");
   // F1-75 renueva el registro de contacto y sus importadores de Bolsa.
-  for (const ruta of ["portal-bolsas-contacto-registro.js", "portal-bolsas-api.js", "portal-panel-interno.js",
-    "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js"])
-    versionesEspeciales.set(ruta, "20261018-f175-contacto-propio-v1");
-  // F1-76 sobre F1-75: la entrada y el panel interno llevan la versión de la unión.
-  for (const ruta of ["portal.js", "portal-panel-interno.js"]) versionesEspeciales.set(ruta, "20261018-f176-integracion-v1");
+  versionesEspeciales.set("portal-bolsas-contacto-registro.js", "20261018-f175-contacto-propio-v1");
+  // F1-71 sobre F1-75: la unión renueva la entrada y los módulos de Bolsa que cambiaron ambas.
+  for (const ruta of ["portal-baremacion-ranking.js", "portal-bolsas-api.js", "portal-bolsas-historial-ofrecimientos.js",
+    "portal-bolsas-ofertas.js", "portal-panel-interno.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261018-f171-integracion-v1");
+
+  // Unión F1-71 con F1-76.
+  for (const ruta of ["portal-panel-interno.js", "portal.js"]) versionesEspeciales.set(ruta, "20261018-f171-f176-v1");
 
   const aristas = [];
   const codigo = new Map();

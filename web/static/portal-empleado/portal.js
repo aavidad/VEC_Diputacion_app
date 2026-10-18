@@ -132,7 +132,7 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261018-f175-contacto-propio-v1"),
+        import("./portal-bolsas-ofertas.js?v=20261018-f171-integracion-v1"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261016-r1-o-integracion-v7"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -456,7 +456,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261018-f175-contacto-propio-v1");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261018-f171-integracion-v1");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -1049,6 +1049,11 @@ function alCambiarFichaCT(ficha) {
     history.pushState(null, "", ruta);
 }
 function navegar(vista, opciones = {}) {
+  if (estado.modalFicha?.operacionesB8?.directa && (estado.modalFicha.enviandoCambioSituacion || estado.modalFicha.resultadoInciertoCambioSituacion)) {
+    if (opciones.desdeRuta === true && estado.modalFicha.rutaApertura) compensarHistorialGestionOfertas(estado.modalFicha.rutaApertura);
+    document.querySelector?.("[data-directa-paso]")?.focus?.();
+    return;
+  }
   if (salidaGestionOfertasBloqueada()) {
     if (opciones.desdeRuta === true) compensarHistorialGestionOfertas();
     else anunciarSalidaGestionOfertas();
@@ -1209,7 +1214,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     const controlador = new AbortController(); controladorRankingBolsa = controlador;
     contenedor.innerHTML = `<div data-ranking-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel">${textoPortal("estado_modulo_comprobando")}</div></section></div>`;
     const raiz = contenedor.querySelector("[data-ranking-montaje]");
-    Promise.all([import("./portal-baremacion-ranking.js?v=20261016-r1-o-integracion-v7"), import("./portal-bolsas-api.js?v=20261018-f175-contacto-propio-v1")]).then(async ([vista, cliente]) => {
+    Promise.all([import("./portal-baremacion-ranking.js?v=20261018-f171-integracion-v1"), import("./portal-bolsas-api.js?v=20261018-f171-integracion-v1")]).then(async ([vista, cliente]) => {
       if (controlador.signal.aborted || estado.vista !== "baremacion") return;
       const montaje = await vista.montarRankingBolsa({ raiz, bolsas: estado.datosBolsas.datos.bolsas, consultar: cliente.consultarCandidatosBolsa, signal: controlador.signal, escaparHTML });
       if (controlador.signal.aborted) { montaje?.desmontar(); return; }
@@ -1903,9 +1908,10 @@ function anunciarSalidaGestionOfertas() {
   if (traducirOfertas) anunciar(traducirOfertas("salida_incierta"));
 }
 
-function compensarHistorialGestionOfertas() {
+function compensarHistorialGestionOfertas(rutaVisible = rutaVisibleGestionOfertasBolsa) {
   const rutaActual = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  if (rutaActual === rutaVisibleGestionOfertasBolsa) { compensandoHistorialGestionOfertas = false; return; }
+  if (rutaActual === rutaVisible) { compensandoHistorialGestionOfertas = false; return; }
+  if (rutaVisible !== rutaVisibleGestionOfertasBolsa) { history.pushState(null, "", rutaVisible); return; }
   if (compensandoHistorialGestionOfertas) return;
   compensandoHistorialGestionOfertas = true;
   const marcaDestino = history.state?.vecOfertas;
@@ -2001,8 +2007,8 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261018-f176-integracion-v1"),
-    import("./portal-bolsas-api.js?v=20261018-f175-contacto-propio-v1"),
+    import("./portal-panel-interno.js?v=20261018-f171-f176-v1"),
+    import("./portal-bolsas-api.js?v=20261018-f171-integracion-v1"),
     import("./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261016-ct-ofertas-ct231-v1"),
   ]).then(([panel, bolsas, rutas, ct]) => {
@@ -2100,6 +2106,8 @@ function instalarEventosAvisosBolsa() {
 }
 
 function instalarEnlacesBolsa() {
+  const fichaProtegida = () => Boolean(estado.modalFicha?.enviandoCambioSituacion
+    || estado.modalFicha?.resultadoInciertoCambioSituacion);
   document.addEventListener("click", async (evento) => {
     const control = evento.target?.closest?.('[data-accion="ver-bolsa"][data-bolsa-ref]');
     if (!control || !porId("espacio-trabajo")?.contains(control)) return;
@@ -2107,6 +2115,7 @@ function instalarEnlacesBolsa() {
     evento.stopImmediatePropagation();
     if (esEnlace && (evento.button > 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey)) return;
     evento.preventDefault();
+    if (fichaProtegida()) { document.querySelector?.("[data-directa-paso]")?.focus?.(); return; }
     if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
     const vistaAlClic = estado.vista;
     const cuadroBolsaAlClic = estado.datosBolsas;
@@ -2137,7 +2146,8 @@ function instalarEnlacesBolsa() {
       // y su origen solo valen para la selección que atendió este clic.
       if (!porId("espacio-trabajo")?.contains(control) || estado.vista !== vistaAlClic
         || (!esFichaCT && estado.datosBolsas !== cuadroBolsaAlClic)
-        || esFichaCT && (estado.vista !== "contratacion-temporal" || contextoBolsaCT !== fichaCT)) return;
+        || esFichaCT && (estado.vista !== "contratacion-temporal" || contextoBolsaCT !== fichaCT)
+        || fichaProtegida()) return;
       const origen = datos.origenExpediente ? { expediente_ref: datos.origenExpediente, referencia: datos.origenReferencia,
         centro: datos.origenCentro, fecha_inicio: datos.origenInicio } : null;
       const href = esEnlace ? control.getAttribute("href") : esLlamamientoCT
@@ -2188,6 +2198,12 @@ function instalarEnlacesBolsa() {
     aplicarRutaCandidatosBolsa();
   }, true);
   window.addEventListener("popstate", () => {
+    if (fichaProtegida()) {
+      const ruta = estado.modalFicha?.rutaApertura || rutaCandidatosAplicada?.ruta;
+      if (ruta) compensarHistorialGestionOfertas(ruta);
+      document.querySelector?.("[data-directa-paso]")?.focus?.();
+      return;
+    }
     const vista = vistaDesdeHash();
     if (salidaGestionOfertasBloqueada()) {
       compensarHistorialGestionOfertas();
