@@ -7,7 +7,8 @@ const versionEntradaAnterior = "20261002-r1-post401-v4";
 // La integración de las ofertas de CT con CT231 renueva entrada, coordinador
 // y la cadena de Contratación cambiada; el alta conserva su cohorte.
 const versionCoordinador = "20261016-ct-ofertas-ct231-v1";
-const versionEntrada = versionCoordinador;
+const versionCoordinadorEntrada = "20261018-f104-main-v1";
+const versionEntrada = versionCoordinadorEntrada;
 const versionClienteCT = versionCoordinador;
 const versionClienteConsulta = versionCoordinador;
 const versionClienteRPT = versionCoordinador;
@@ -29,8 +30,8 @@ test("la extracción CT renueva cada padre hasta la entrada del portal", async (
     readFile(new URL("modulos/contratacion-temporal/vista-expedientes.js", raiz), "utf8"),
   ]);
   const versionEntrada = exigirVersiones(html, "/portal-empleado/portal.js", posterior(versionEntradaAnterior));
-  exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinador);
-  exigirVersiones(portal, "./portal-modulos-coordinador.js", versionCoordinador);
+  exigirVersiones(html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinadorEntrada);
+  exigirVersiones(portal, "./portal-modulos-coordinador.js", versionCoordinadorEntrada);
   exigirVersiones(expediente, "./seguimiento-cese.js", "20261007-pantallas-textos-final-v1");
 });
 
@@ -57,7 +58,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
     readFile(new URL("../../interno.manifest", raiz), "utf8"),
     readFile(new URL("../../produccion.manifest", raiz), "utf8"),
   ]);
-  const nueva = versionCoordinador;
+  const nueva = versionCoordinadorEntrada;
   const firma = versionCircuito;
 
   // portal.js puede renovarse después por otros cambios; basta que sea posterior.
@@ -136,8 +137,8 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   ]);
   const aristas = [
     [html, "/portal-empleado/portal.js", cohorteEntrada],
-    [html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinador],
-    [portal, "./portal-modulos-coordinador.js", versionCoordinador],
+    [html, "/portal-empleado/portal-modulos-coordinador.js", versionCoordinadorEntrada],
+    [portal, "./portal-modulos-coordinador.js", versionCoordinadorEntrada],
     [coordinador, "./modulos/contratacion-temporal/cliente-http.js", cohorteClienteHTTP],
     [cliente, "./cliente-http-alta.js", cohorte],
     [cliente, "./cliente-http-transporte.js", versionClienteCT],

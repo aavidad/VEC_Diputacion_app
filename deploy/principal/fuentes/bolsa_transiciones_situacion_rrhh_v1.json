@@ -1,0 +1,61 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:politica_transiciones_rrhh",
+  "version": 1,
+  "huella_sha256": "73054b4984021a3a4ffed20aa3a163dc7f365af41067c73fea8e0bae4ed29815",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.politica_transiciones.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:politica_transiciones_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.politica_transiciones.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"politica_transiciones_global\",\"finalidades\":[\"consultar_politica_transiciones_bolsa\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"politica_transiciones\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-15T00:00:00Z\",\"vigente_hasta\":\"2027-01-13T00:00:00Z\"},{\"referencia\":\"accion:bolsa.politica_transiciones.publicar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:politica_transiciones_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.politica_transiciones.publicar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"politica_transiciones_global\",\"finalidades\":[\"gobierno_politica_transiciones_bolsa\"],\"garantia_minima\":\"alto\"},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-15T00:00:00Z\",\"vigente_hasta\":\"2027-01-13T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.politica_transiciones.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:politica_transiciones_rrhh",
+      "fuente_version": 1,
+      "concesion": {
+        "accion": "bolsa.politica_transiciones.consultar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "politica_transiciones_global",
+        "finalidades": [
+          "consultar_politica_transiciones_bolsa"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "politica_transiciones"
+        ],
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-15T00:00:00Z",
+      "vigente_hasta": "2027-01-13T00:00:00Z",
+      "fuente_huella_sha256": "73054b4984021a3a4ffed20aa3a163dc7f365af41067c73fea8e0bae4ed29815"
+    },
+    {
+      "referencia": "accion:bolsa.politica_transiciones.publicar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:politica_transiciones_rrhh",
+      "fuente_version": 1,
+      "concesion": {
+        "accion": "bolsa.politica_transiciones.publicar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "politica_transiciones_global",
+        "finalidades": [
+          "gobierno_politica_transiciones_bolsa"
+        ],
+        "garantia_minima": "alto"
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-15T00:00:00Z",
+      "vigente_hasta": "2027-01-13T00:00:00Z",
+      "fuente_huella_sha256": "73054b4984021a3a4ffed20aa3a163dc7f365af41067c73fea8e0bae4ed29815"
+    }
+  ]
+}
