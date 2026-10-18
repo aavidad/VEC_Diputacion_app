@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Extrae roles citados por propietarios y ACL de tres volcados SQL.
+"""Extrae grupos NOLOGIN citados por el volcado y las migraciones validadas.
 
-Uso: python3 copia_local_roles.py esquema.sql acl-base.sql acl-tipos.sql > roles.sql
+Uso: python3 copia_local_roles.py esquema.sql acl-base.sql acl-tipos.sql
+     [--fuente-roles roles_up.sql] [--migracion delta.up.sql] > roles.sql
 Solo prepara roles NOLOGIN; no reproduce credenciales, membresías ni privilegios.
 """
 
@@ -26,7 +27,7 @@ class SQLNoAdmitido(ValueError):
     pass
 
 
-def tokens(sql: str):
+def tokens(sql: str, *, body=False, versioned=False):
     """Separa sentencias sin interpretar el contenido de literales ni comentarios."""
     i = 0
     size = len(sql)
@@ -58,7 +59,8 @@ def tokens(sql: str):
         if char == '\\' and not statement and not sql[sql.rfind('\n', 0, i) + 1:i].strip():
             end = sql.find('\n', i)
             line = sql[i:size if end < 0 else end]
-            if not re.match(r'^\\(?:un)?restrict(?:\s|$)', line):
+            if not (re.match(r'^\\(?:un)?restrict(?:\s|$)', line)
+                    or (versioned and line.strip() == r'\set ON_ERROR_STOP on')):
                 raise SQLNoAdmitido('metacomando no admitido')
             i = size if end < 0 else end + 1
             continue
@@ -67,6 +69,7 @@ def tokens(sql: str):
             escaped = bool(statement and statement[-1].kind == 'word'
                            and statement[-1].value.upper() in {'E', 'U&'})
             i += 1
+            start = i
             while i < size:
                 if escaped and sql[i] == '\\':
                     i += 2
@@ -80,7 +83,7 @@ def tokens(sql: str):
                     i += 1
             else:
                 raise SQLNoAdmitido('literal sin cierre')
-            statement.append(Token('literal', ''))
+            statement.append(Token('literal', sql[start:i - 1]))
             continue
         if char == '"':
             i += 1
@@ -107,7 +110,7 @@ def tokens(sql: str):
                 end = sql.find(delimiter, i + len(delimiter))
                 if end < 0:
                     raise SQLNoAdmitido('cuerpo sin cierre')
-                statement.append(Token('literal', ''))
+                statement.append(Token('body', sql[i + len(delimiter):end]))
                 i = end + len(delimiter)
                 continue
         if char == ';':
@@ -126,7 +129,9 @@ def tokens(sql: str):
         statement.append(Token('symbol', char))
         i += 1
     if statement:
-        raise SQLNoAdmitido('sentencia sin terminador')
+        if not body:
+            raise SQLNoAdmitido('sentencia sin terminador')
+        yield statement
 
 
 def keyword(token, value):
@@ -251,6 +256,113 @@ def statement_roles(parts):
     return []
 
 
+def declared_role(parts, *, require_nologin=True):
+    if (len(parts) < 3 or not keyword(parts[0], 'CREATE')
+            or not keyword(parts[1], 'ROLE')):
+        return None
+    name = role(parts[2])
+    if require_nologin:
+        options = parts[3:]
+        if (any(keyword(part, 'LOGIN') for part in options)
+                or not any(keyword(part, 'NOLOGIN') for part in options)):
+            return None
+    return name
+
+
+def literal_role(part):
+    if part.kind != 'literal':
+        return None
+    name = part.value.replace("''", "'")
+    # Las referencias admitidas son nombres simples de rol, no expresiones SQL.
+    if not re.fullmatch(r'[a-z_][a-z_0-9]*', name):
+        return None
+    return role(Token('word', name))
+
+
+def literal_role_argument(parts):
+    if len(parts) == 1:
+        return literal_role(parts[0])
+    if (len(parts) == 4 and parts[1].value == ':' and parts[2].value == ':'
+            and any(keyword(parts[3], kind) for kind in ('TEXT', 'NAME', 'REGROLE'))):
+        return literal_role(parts[0])
+    return None
+
+
+def referenced_roles(parts):
+    found = set(name for name in statement_roles(parts) if name is not None)
+    for index, part in enumerate(parts):
+        if (keyword(part, 'TO_REGROLE') and index + 3 < len(parts)
+                and parts[index + 1].value == '('
+                and parts[index + 3].value == ')'):
+            name = literal_role(parts[index + 2])
+            if name:
+                found.add(name)
+        if (part.kind == 'literal' and index + 3 < len(parts)
+                and parts[index + 1].value == ':' and parts[index + 2].value == ':'
+                and keyword(parts[index + 3], 'REGROLE')):
+            name = literal_role(part)
+            if name:
+                found.add(name)
+        if (keyword(part, 'PG_HAS_ROLE') and index + 4 < len(parts)
+                and parts[index + 1].value == '('):
+            # Dos argumentos: rol y modo; tres: usuario, rol y modo.
+            depth = 0
+            arguments = []
+            current = []
+            for pos in range(index + 2, len(parts)):
+                if parts[pos].value == '(':
+                    depth += 1
+                elif parts[pos].value == ')':
+                    if depth == 0:
+                        arguments.append(current)
+                        break
+                    depth -= 1
+                if parts[pos].value == ',' and depth == 0:
+                    arguments.append(current)
+                    current = []
+                    continue
+                current.append(parts[pos])
+            target = arguments[1] if len(arguments) == 3 else arguments[0] if len(arguments) == 2 else []
+            name = literal_role_argument(target)
+            if name:
+                found.add(name)
+        if part.kind == 'body':
+            for nested in tokens(part.value, body=True):
+                found.update(referenced_roles(nested))
+    return found
+
+
+def declarations(paths, *, require_nologin=True):
+    names = set()
+    for path in paths:
+        for statement in tokens(path.read_text(encoding='utf-8'), versioned=True):
+            names.update(statement_declarations(statement, require_nologin=require_nologin))
+    return names
+
+
+def statement_declarations(parts, *, require_nologin=True):
+    found = set()
+    for index in range(len(parts) - 2):
+        if keyword(parts[index], 'CREATE') and keyword(parts[index + 1], 'ROLE'):
+            name = declared_role(parts[index:], require_nologin=require_nologin)
+            if name:
+                found.add(name)
+    for part in parts:
+        if part.kind == 'body':
+            for nested in tokens(part.value, body=True):
+                found.update(statement_declarations(nested, require_nologin=require_nologin))
+    return found
+
+
+def supplementary_roles(schema_paths, sources, migrations):
+    canonical = declarations(sources)
+    cited = set()
+    for path in [*schema_paths, *migrations]:
+        for statement in tokens(path.read_text(encoding='utf-8'), versioned=path in migrations):
+            cited.update(referenced_roles(statement))
+    return (canonical & cited) - declarations(migrations, require_nologin=False)
+
+
 def extract(paths):
     names = set()
     for path in paths:
@@ -260,21 +372,39 @@ def extract(paths):
 
 
 def main(argv):
-    b119 = argv[-1:] == ['--roles-b119']
-    if b119:
-        argv = argv[:-1]
-    if len(argv) != 4:
-        print('Uso: copia_local_roles.py esquema.sql acl-base.sql acl-tipos.sql [--roles-b119]', file=sys.stderr)
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('volcados', type=Path, nargs=3)
+    parser.add_argument('--fuente-roles', type=Path, action='append', default=[])
+    parser.add_argument('--migracion', type=Path, action='append', default=[])
+    parser.add_argument('--roles-b119', action='store_true')
+    try:
+        args = parser.parse_args(argv[1:])
+    except SystemExit as exc:
+        return exc.code
+    if args.migracion and not args.fuente_roles:
+        print('Faltan declaraciones canónicas de roles.', file=sys.stderr)
         return 2
     try:
-        names = sorted(set(extract([Path(arg) for arg in argv[1:]])) | (ROLES_B119 if b119 else set()))
+        names = sorted(set(extract(args.volcados))
+                       | supplementary_roles(args.volcados, args.fuente_roles, args.migracion)
+                       | (ROLES_B119 if args.roles_b119 else set()))
     except (OSError, UnicodeError, SQLNoAdmitido) as exc:
         # Los ficheros de origen pueden ser privados; nunca mostrar ruta ni contenido.
         print(f'No se pudo preparar el SQL de roles ({type(exc).__name__}).', file=sys.stderr)
         return 1
-    for name in names:
-        quoted = name.replace('"', '""')
-        print(f'CREATE ROLE "{quoted}" NOLOGIN;')
+    if names:
+        delimiter = '$vec_copia_roles$'
+        while any(delimiter in name for name in names):
+            delimiter = delimiter[:-1] + '_$'
+        print(f'DO {delimiter} BEGIN')
+        for name in names:
+            quoted = name.replace('"', '""')
+            literal = name.replace('\\', '\\\\').replace("'", "''")
+            print(f"  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = E'{literal}') THEN")
+            print(f'    CREATE ROLE "{quoted}" NOLOGIN;')
+            print('  END IF;')
+        print(f'END {delimiter};')
     return 0
 
 
