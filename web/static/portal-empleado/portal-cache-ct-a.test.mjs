@@ -4,21 +4,22 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-// La integración de CT231 conserva sus módulos; el alta directa v2 renueva
-// su cadena de carga hasta la entrada del portal.
+// La integración de F1-73 y F1-74 renueva los módulos compartidos
+// y conserva una única cadena de carga hasta la entrada del portal.
 const versionCoordinador = "20261016-ct-ofertas-ct231-v1";
 const versionAltaDirectaV2 = "20261018-f173-alta-v2";
-const versionCoordinadorEntrada = versionAltaDirectaV2;
-const versionEntrada = versionAltaDirectaV2;
+const versionCompartida = "20261018-f173-f174-v1";
+const versionCoordinadorEntrada = versionCompartida;
+const versionEntrada = versionCompartida;
 const versionClienteCT = versionCoordinador;
 const versionClienteConsulta = versionAltaDirectaV2;
 const versionClienteRPT = versionAltaDirectaV2;
-const versionCircuito = versionAltaDirectaV2;
-const versionAccionesFirma = versionAltaDirectaV2;
-const versionVista = versionAltaDirectaV2;
-const versionVistaPortal = versionAltaDirectaV2;
+const versionCircuito = versionCompartida;
+const versionAccionesFirma = versionCompartida;
+const versionVista = versionCompartida;
+const versionVistaPortal = versionCompartida;
 const versionAdaptador = versionAltaDirectaV2;
-const versionRender = versionCoordinador;
+const versionRender = "20261018-f174-v1";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -45,7 +46,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
   exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionAltaDirectaV2);
-  exigirVersiones(llamamiento, "./vista-expedientes.js", versionCoordinador);
+  exigirVersiones(llamamiento, "./vista-expedientes.js", versionCompartida);
 });
 
 test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuito de firma", async () => {
