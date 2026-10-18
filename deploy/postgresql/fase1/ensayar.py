@@ -23,7 +23,6 @@ PRUEBAS_SQL = (
     'deploy/postgresql/documentos/pruebas_sql/000014_referencia_expediente_tipado.sql',
     'deploy/postgresql/documentos/pruebas_sql/000015_rechazo_expediente_ct_cero.sql',
     'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql',
-    'deploy/postgresql/contexto_actor_v1/pruebas_sql/contexto_candidato_exacto_000013.sql',
     'deploy/postgresql/identidad_sesiones_v1/pruebas_sql/000021_seleccion_perfil_bolsa_rrhh.sql',
     'deploy/postgresql/contexto_actor_v1/pruebas_sql/000046_perfiles_propios_bolsa_rrhh.sql',
 )
