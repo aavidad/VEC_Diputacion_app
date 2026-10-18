@@ -228,12 +228,13 @@ func nuevaMiBolsaPortalExterno(ctx context.Context, cfg config.Config,
 		}
 	}
 	if d.proveedorPreferencias != nil {
-		d.modalidadesSQL = comprobarFuncionPreferenciasModalidades(ctx, bolsa)
-		if !d.modalidadesSQL {
-			slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "funcion_sql")
+		if errorFuncion := comprobarFuncionPreferenciasModalidades(ctx, bolsa); errorFuncion != nil {
+			slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "funcion_sql",
+				"causa", causaFalloPostgreSQLCTDesarrollo(errorFuncion))
 		} else if catalogo, e := catalogoPreferenciasModalidadesDesarrollo(ctx, cfg); e != nil {
 			slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "catalogo")
 		} else {
+			d.modalidadesSQL = true
 			d.catalogoModalidades = catalogo
 		}
 	}

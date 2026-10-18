@@ -173,6 +173,16 @@ HZ38: P prepara la publicación nominal de la confianza externa (opción B).
 El criterio de configuración está en `TRD.md`, apartado 1. La integración y
 el arranque en cidonia corresponden a dirección.
 
+**F1-13, O: elección de modalidades de ofertas publicadas.** Se divide en cuatro
+cortes: base de permisos y persistencia (AUT104 y B138), servicio, API y filtro
+de vista y avisos. AD291 depende del equipo R; la clasificación de las ofertas
+por modalidad depende de F1-11 (#1200). La elección no cambia la inscripción,
+el orden de bolsa ni los llamamientos directos. La pantalla queda para F1-14.
+PR1 no se fusiona hasta ensayar su base junto con la API del tercer corte.
+SQL, GET/PUT, recibos, reinicio y Chrome de F1-13 siguen sin comprobarse.
+Contrato de activación y límites en
+`deploy/principal/candidata_hz39/aspirante/modalidades.md`.
+
 PR abiertas (el estado de borrador se comprueba en GitHub):
 
 | PR | Qué | Equipo | Fase |

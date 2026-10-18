@@ -531,11 +531,18 @@ se retira una, debe marcar «He revisado el orden» antes de guardar.
 
 #### Modalidades de ofertas publicadas
 
-La elección voluntaria de modalidades, cuando se habilite, solo filtra las
-ofertas publicadas que la persona ve y los avisos que solicita. No cambia la
-prelación ni la selección; tampoco equivale a renunciar. En el llamamiento
-directo se sigue el orden de la bolsa con independencia de esa elección
-(Reglamento de bolsas, arts. 8.1, 8.2.a y 11.1).
+Estado: **pendiente de ensayo**. F1-13 se construye en cuatro cortes: base,
+servicio, API y filtro de ofertas y avisos. La pantalla de elección es F1-14.
+Todavía no hay un recorrido de modalidades acreditado en Mi Bolsa.
+
+La elección voluntaria filtra solo ofertas publicadas, abiertas, sin respuesta
+y con modalidad identificada, además de los avisos que la persona solicita.
+Sin selección guardada (`null`) se muestran todas. Una selección vacía (`[]`)
+oculta esas ofertas filtrables; las ofertas respondidas y el historial siguen
+visibles. «Ver todas» muestra temporalmente las ofertas sin guardar otro valor.
+La elección no cambia la inscripción, la prelación, la selección ni el
+llamamiento directo, y no equivale a renunciar. En ese llamamiento se sigue el
+orden de la bolsa (Reglamento de bolsas, arts. 8.1, 8.2.a y 11.1).
 
 #### Responder a un llamamiento
 
@@ -1190,6 +1197,7 @@ efecto.
 | Cuenta externa propia | | #1112 | Provisión en cidonia |
 | Mi Bolsa y respuesta al llamamiento | Sí *(por verificar en copia local)* | | Formulario de pausa y reactivación |
 | Preferencias entre bolsas | *(por verificar en copia local)* | Sí | Autoridad externa en cidonia |
+| Preferencias de modalidades de ofertas | | | Cuatro cortes F1-13 sin ensayo conjunto; F1-14 añade la pantalla |
 | Petición y ratificación del centro | Circuito anterior *(por verificar en copia local)* | #1114: conserva la necesidad RPT hasta el alta | Verificar la instalación de #1114 en cidonia |
 | Alta, análisis, cobertura, asignación, informe | Sí *(por verificar en copia local)* | | |
 | Fiscalización con reparo y subsanación | Fiscalización sí; reparo *(por verificar)*; todo *(por verificar en copia local)* | | |
