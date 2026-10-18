@@ -1134,6 +1134,12 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-bolsas-avisos.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261018-f176-v1");
 
+  // F1-75 renueva el registro de contacto y sus importadores de Bolsa.
+  for (const ruta of ["portal-bolsas-contacto-registro.js", "portal-bolsas-api.js", "portal-panel-interno.js",
+    "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-ofertas.js"])
+    versionesEspeciales.set(ruta, "20261018-f175-contacto-propio-v1");
+  versionesEspeciales.set("portal.js", "20261018-f175-integracion-v2");
+
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
