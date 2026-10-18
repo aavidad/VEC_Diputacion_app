@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -10,6 +12,52 @@ import (
 	"testing"
 	"time"
 )
+
+func TestVersionarRolBolsaExternaModalidadesFuentePublicada(t *testing.T) {
+	leer := func(nombre string) struct {
+		HuellaSHA256  string                          `json:"huella_sha256"`
+		EntradasCanon string                          `json:"entradas_canon"`
+		Entradas      []EntradaAccionAdministracionV1 `json:"entradas"`
+	} {
+		t.Helper()
+		ruta := filepath.Join("..", "..", "..", "deploy", "principal", "fuentes", nombre)
+		b, err := os.ReadFile(ruta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fuente struct {
+			HuellaSHA256  string                          `json:"huella_sha256"`
+			EntradasCanon string                          `json:"entradas_canon"`
+			Entradas      []EntradaAccionAdministracionV1 `json:"entradas"`
+		}
+		if err := json.Unmarshal(b, &fuente); err != nil || len(fuente.Entradas) != 2 {
+			t.Fatalf("fuente ilegible: %v", err)
+		}
+		huella := sha256.Sum256([]byte(fuente.EntradasCanon))
+		if hex.EncodeToString(huella[:]) != fuente.HuellaSHA256 {
+			t.Fatal("canon de fuente divergente")
+		}
+		return fuente
+	}
+	v1 := leer("bolsa_preferencias_bolsas_propias_v1.json")
+	v2 := leer("bolsa_preferencias_bolsas_propias_v2.json")
+	c, base, i, _ := escenarioModalidadesBolsaExterna(t, "p8")
+	base.Rol.Concesiones[7] = v1.Entradas[0].Concesion
+	base.Rol.Concesiones[8] = v1.Entradas[1].Concesion
+	refrescarBaseExterna(t, &base, &i)
+	c.Entradas = v2.Entradas
+	c.VigenteDesde = time.Date(2026, 10, 18, 0, 0, 0, 0, time.UTC)
+	c.VigenteHasta = time.Date(2027, 1, 16, 0, 0, 0, 0, time.UTC)
+	for j := range i.Selecciones {
+		i.Selecciones[j].EntradaRef = c.Entradas[j].Referencia
+		i.Selecciones[j].EntradaVersion = c.Entradas[j].Version
+	}
+	refrescarCatalogoExterno(t, &c, &i)
+	plan, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, c.VigenteDesde.Add(time.Hour))
+	if err != nil || !sustitucionModalidadesBolsaExterna(base.Rol.Concesiones, plan.DefinicionNueva.Concesiones) {
+		t.Fatalf("fuente v2 incompatible con plan cerrado: %v", err)
+	}
+}
 
 func TestVersionarRolInscripcionCoincideConFuenteOchoAcciones(t *testing.T) {
 	ruta := filepath.Join("..", "..", "..", "deploy", "principal", "inscripcion_recorrido_20261013", "inscripcion_bolsa_actos_v1.json")
@@ -480,5 +528,237 @@ func TestVersionarRolBolsaExternaAlegacionesRespetaDosHistorias(t *testing.T) {
 		if got := accionesDeltaBolsaExterna(rol, 2); got != nil {
 			t.Fatal("aceptó base previa alterada")
 		}
+	}
+}
+
+// Matriz de AUT104: cada estado conserva sus concesiones y cambia solo la consulta.
+func escenarioModalidadesBolsaExterna(t *testing.T, estado string) (CatalogoAccionesAdministracionV1, PerfilPublicadoAdministracionV1, IntencionVersionarRolBolsaExterna, time.Time) {
+	t.Helper()
+	c, base, i, ahora := escenarioVersionarRolBolsaExterna(t)
+	preferencias := make([]ConcesionRol, 2)
+	for j := range preferencias {
+		preferencias[j] = copiarConcesionesVersionarBolsa([]ConcesionRol{c.Entradas[j].Concesion})[0]
+	}
+	preferencias[0].Obligaciones = []string{"auditar"}
+	inscripcion := make([]ConcesionRol, 0, 5)
+	for j, accion := range accionesInscripcionBolsaExterna {
+		con := ConcesionRol{Accion: accion, ModuloID: "bolsa", GarantiaMinima: AuthAssuranceHigh,
+			CamposPermitidos: camposInscripcionBolsaExterna(accion)}
+		switch j {
+		case 0, 1:
+			con.TipoRecurso, con.Finalidades = "convocatoria_inscripcion", []string{"consulta_convocatoria_abierta"}
+		case 2, 3:
+			con.TipoRecurso, con.Finalidades = "solicitud_inscripcion", []string{"consulta_inscripcion_propia"}
+		case 4:
+			con.TipoRecurso, con.Finalidades = "inscripcion_convocatoria", []string{"presentar_inscripcion"}
+		}
+		inscripcion = append(inscripcion, con)
+	}
+	alegaciones := []ConcesionRol{
+		{Accion: accionesAlegacionesBolsaExterna[0], ModuloID: "bolsa", TipoRecurso: "alegaciones_propias",
+			Finalidades: []string{"consulta_alegaciones_propias"}, GarantiaMinima: AuthAssuranceHigh,
+			CamposPermitidos: camposAlegacionesBolsaExterna()},
+		{Accion: accionesAlegacionesBolsaExterna[1], ModuloID: "bolsa", TipoRecurso: "alegacion_bolsa",
+			Finalidades: []string{"presentacion_alegacion_propia"}, GarantiaMinima: AuthAssuranceHigh},
+	}
+	base.Rol.Concesiones = copiarConcesionesVersionarBolsa(base.Rol.Concesiones)
+	switch estado {
+	case "p8":
+		base.Rol.Version = 2
+		base.Rol.Concesiones = append(base.Rol.Concesiones, preferencias...)
+	case "pi8":
+		base.Rol.Version = 3
+		base.Rol.Concesiones = append(base.Rol.Concesiones, preferencias...)
+		base.Rol.Concesiones = append(base.Rol.Concesiones, inscripcion...)
+	case "ip8":
+		base.Rol.Version = 3
+		base.Rol.Concesiones = append(base.Rol.Concesiones, inscripcion...)
+		base.Rol.Concesiones = append(base.Rol.Concesiones, preferencias...)
+	case "pia8":
+		base.Rol.Version = 4
+		base.Rol.Concesiones = append(base.Rol.Concesiones, preferencias...)
+		base.Rol.Concesiones = append(base.Rol.Concesiones, inscripcion...)
+		base.Rol.Concesiones = append(base.Rol.Concesiones, alegaciones...)
+	case "ipa8":
+		base.Rol.Version = 4
+		base.Rol.Concesiones = append(base.Rol.Concesiones, inscripcion...)
+		base.Rol.Concesiones = append(base.Rol.Concesiones, preferencias...)
+		base.Rol.Concesiones = append(base.Rol.Concesiones, alegaciones...)
+	default:
+		t.Fatal("estado de prueba desconocido")
+	}
+	refrescarBaseExterna(t, &base, &i)
+	for j := range c.Entradas {
+		c.Entradas[j].Referencia = "accion:" + accionesVersionarRolBolsaExterna[j]
+		c.Entradas[j].Version, c.Entradas[j].FuenteVersion = 2, 2
+		c.Entradas[j].FuenteRef = "fuente:bolsa:preferencias_bolsas_propias"
+		if j == 0 {
+			c.Entradas[j].Concesion.CamposPermitidos = camposPreferenciasModalidadesBolsaExterna()
+			c.Entradas[j].Concesion.Obligaciones = []string{"auditar"}
+		}
+		i.Selecciones[j].EntradaRef, i.Selecciones[j].EntradaVersion = c.Entradas[j].Referencia, 2
+	}
+	refrescarCatalogoExterno(t, &c, &i)
+	return c, base, i, ahora
+}
+
+func TestVersionarRolBolsaExternaModalidadesEstadosFinitos(t *testing.T) {
+	for _, estado := range []string{"p8", "pi8", "ip8", "pia8", "ipa8"} {
+		t.Run(estado, func(t *testing.T) {
+			c, base, i, ahora := escenarioModalidadesBolsaExterna(t, estado)
+			if got := estadoRolBolsaExterna(base.Rol); got != estado {
+				t.Fatalf("estado %s", got)
+			}
+			plan, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if plan.DefinicionNueva.Version != base.Rol.Version+1 ||
+				len(plan.DefinicionNueva.Concesiones) != len(base.Rol.Concesiones) ||
+				!sustitucionModalidadesBolsaExterna(base.Rol.Concesiones, plan.DefinicionNueva.Concesiones) {
+				t.Fatal("la sustitución cambió concesiones distintas de la consulta")
+			}
+			h, err := plan.HuellaSHA256()
+			reconstruido, e := ReconstruirPlanVersionarRolBolsaExterna(c, base, i, ahora)
+			h2, e2 := reconstruido.HuellaSHA256()
+			if err != nil || e != nil || e2 != nil || h != h2 || !reflect.DeepEqual(plan, reconstruido) {
+				t.Fatal("preparación y reconstrucción difieren")
+			}
+			base.Rol.Concesiones[0].Finalidades[0] = "alterada"
+			if plan.Base.Rol.Concesiones[0].Finalidades[0] == "alterada" {
+				t.Fatal("plan comparte concesiones")
+			}
+		})
+	}
+}
+
+func TestVersionarRolBolsaExternaModalidadesDeniegaCambiosAjenos(t *testing.T) {
+	for _, caso := range []struct {
+		nombre string
+		mutar  func(*PlanVersionarRolBolsaExterna)
+	}{
+		{"consulta_extra", func(p *PlanVersionarRolBolsaExterna) {
+			j := indiceConsultaPreferenciasBolsaExterna(p.DefinicionNueva.Concesiones)
+			p.DefinicionNueva.Concesiones[j].CamposPermitidos = append(p.DefinicionNueva.Concesiones[j].CamposPermitidos, "dni")
+		}},
+		{"ordenar_cambiado", func(p *PlanVersionarRolBolsaExterna) {
+			j := slices.IndexFunc(p.DefinicionNueva.Concesiones, func(c ConcesionRol) bool { return c.Accion == accionesVersionarRolBolsaExterna[1] })
+			p.DefinicionNueva.Concesiones[j].CamposPermitidos = []string{"orden_guardado"}
+		}},
+		{"otra_concesion", func(p *PlanVersionarRolBolsaExterna) {
+			p.DefinicionNueva.Concesiones[0].Finalidades = []string{"otra"}
+		}},
+		{"seleccion_mezclada", func(p *PlanVersionarRolBolsaExterna) {
+			p.Selecciones[1] = p.Selecciones[0]
+		}},
+		{"version_objetivo", func(p *PlanVersionarRolBolsaExterna) {
+			p.DefinicionNueva.Version++
+		}},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			c, base, i, ahora := escenarioModalidadesBolsaExterna(t, "pi8")
+			plan, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora)
+			if err != nil {
+				t.Fatal(err)
+			}
+			caso.mutar(&plan)
+			if _, err := plan.HuellaSHA256(); err == nil {
+				t.Fatal("plan alterado admitido")
+			}
+		})
+	}
+	for _, estado := range []string{"p8", "pi8", "ip8", "pia8", "ipa8"} {
+		t.Run(estado+"_version_desconocida", func(t *testing.T) {
+			c, base, i, ahora := escenarioModalidadesBolsaExterna(t, estado)
+			base.Rol.Version = 9
+			refrescarBaseExterna(t, &base, &i)
+			if _, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora); err == nil {
+				t.Fatal("cabeza ajena admitida")
+			}
+		})
+	}
+	for _, caso := range []struct {
+		nombre string
+		mutar  func(*CatalogoAccionesAdministracionV1, *IntencionVersionarRolBolsaExterna)
+	}{
+		{"ordenar_fuente", func(c *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaExterna) {
+			c.Entradas[1].Concesion.CamposPermitidos = []string{"orden_guardado"}
+			refrescarCatalogoExterno(t, c, i)
+		}},
+		{"selecciones_mezcladas", func(_ *CatalogoAccionesAdministracionV1, i *IntencionVersionarRolBolsaExterna) {
+			i.Selecciones[1] = i.Selecciones[0]
+		}},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			c, base, i, ahora := escenarioModalidadesBolsaExterna(t, "pi8")
+			caso.mutar(&c, &i)
+			if _, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora); err == nil {
+				t.Fatal("el preparador aceptó la selección o concesión ajena")
+			}
+		})
+	}
+}
+
+func catalogoDeltaBolsaExternaPrueba(t *testing.T, c *CatalogoAccionesAdministracionV1,
+	i *IntencionVersionarRolBolsaExterna, concesiones []ConcesionRol) {
+	t.Helper()
+	c.Entradas = nil
+	i.Selecciones = nil
+	for _, con := range concesiones {
+		e := EntradaAccionAdministracionV1{Referencia: "accion:" + con.Accion, Version: 1,
+			FuenteRef: "fuente:bolsa:prueba", FuenteVersion: 1, FuenteHuellaSHA256: strings.Repeat("b", 64),
+			Concesion: con, DimensionesAmbito: []string{"candidato_ref"},
+			ClaseControl: string(ClaseControlPerfilOrdinario), VigenteDesde: c.VigenteDesde}
+		h, err := e.HuellaSHA256()
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Entradas = append(c.Entradas, e)
+		i.Selecciones = append(i.Selecciones, SeleccionAccionAdministracionV1{
+			EntradaRef: e.Referencia, EntradaVersion: 1, EntradaHuellaSHA256: h})
+	}
+	h, err := c.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	i.CatalogoHuellaSHA256 = h
+}
+
+func TestVersionarRolBolsaExternaModalidadesConservaContinuaciones(t *testing.T) {
+	c, base, i, ahora := escenarioModalidadesBolsaExterna(t, "p8")
+	base.Rol.Version = 1
+	base.Rol.Concesiones = copiarConcesionesVersionarBolsa(base.Rol.Concesiones[:7])
+	refrescarBaseExterna(t, &base, &i)
+	alta, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora)
+	if err != nil || len(alta.DefinicionNueva.Concesiones) != 9 ||
+		estadoRolBolsaExterna(VersionRol{RolID: base.Rol.RolID, Version: 2, Concesiones: alta.DefinicionNueva.Concesiones}) != "p10" {
+		t.Fatalf("alta inicial de consulta10 rechazada: %v", err)
+	}
+	for _, caso := range []struct {
+		estado      string
+		delta       string
+		inicio, fin int
+	}{
+		{"p8", "inscripcion", 9, 14}, {"pi8", "alegaciones", 14, 16},
+	} {
+		t.Run(caso.estado+"_"+caso.delta, func(t *testing.T) {
+			c, base, i, ahora := escenarioModalidadesBolsaExterna(t, caso.estado)
+			upgrade, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora)
+			if err != nil {
+				t.Fatal(err)
+			}
+			base.Rol.Version = upgrade.DefinicionNueva.Version
+			base.Rol.Concesiones = copiarConcesionesVersionarBolsa(upgrade.DefinicionNueva.Concesiones)
+			refrescarBaseExterna(t, &base, &i)
+			_, conocido, _, _ := escenarioModalidadesBolsaExterna(t, map[string]string{"p8": "pi8", "pi8": "pia8"}[caso.estado])
+			catalogoDeltaBolsaExternaPrueba(t, &c, &i, conocido.Rol.Concesiones[caso.inicio:caso.fin])
+			siguiente, err := PrepararPlanVersionarRolBolsaExterna(c, base, i, ahora)
+			if err != nil || len(siguiente.DefinicionNueva.Concesiones) != len(base.Rol.Concesiones)+len(i.Selecciones) {
+				t.Fatalf("continuación rechazada: %v", err)
+			}
+			if _, err := siguiente.HuellaSHA256(); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
