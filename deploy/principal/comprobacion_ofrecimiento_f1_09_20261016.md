@@ -72,16 +72,20 @@ hechos y evidencia quedan en el acto, sin lector nuevo.
 Vuelta atrás: mantener desactivado el consumidor y la pantalla. No ejecutar
 DOWN ni borrar actos. Este corte no instala configuraciones al arrancar.
 
-Comprobación local inicial del 18/10: restauración de HZ37 con sus permisos, seguida
-de B117, CT221 y B118 de main. CT233, AD290 y B133 se instalaron una vez;
-el cálculo y las denegaciones de B133 terminaron en ROLLBACK. La preimagen de
-CT233 se cotejó contra el cuerpo instalado por CT221 de main. La utilidad
-temporal de las pruebas la crea el operador; el propietario de Bolsa conserva
-su permiso de base sin TEMP. El arranque base devolvió 200 en salud y portal
-antes y después de instalar, y tras reiniciar aplicación y PostgreSQL.
-No acredita módulos activados ni registro autorizado: faltan el alta central
-completa, la escritura positiva, su recuperación y la concurrencia.
-La corrección posterior del vínculo entre el material y el contexto V3 exige
-una copia nueva y revisión focal antes de actualizar esta evidencia.
-El ensayo final espera la lista completa de main posterior a HZ37 ordenada
-por dirección el 18/10 a las 07:24; no se instalan nuevas listas parciales.
+Ensayo local del 18/10, candidata conjunta `169dca4ae`: main `9f2a072c7`,
+primer corte `82a345058` y consumidor HTTP `6528fed78`. Se restauró HZ37 con
+sus permisos y se instalaron las 73 SQL de main de la lista completa de dirección
+(`f25173a2`), seguidas de CT233, AD290, B133 y B134. Antes de AD278 se
+prepararon los dos LOGIN técnicos ficticios de origen CT y Bolsa con sus grupos
+exactos, INHERIT y vigencia de 90 días. No se cambió ninguna guarda.
+
+Las 77 migraciones terminaron y la comprobación de permisos pasó. El cálculo,
+el vínculo entre material y contexto V3 y las denegaciones de B133 pasaron;
+B134 registró el intento nominal y rechazó cruces de acción y clase. Sus datos
+se revirtieron. La aplicación compiló sin red y devolvió 200 en salud y portal
+al arrancar y después de reiniciar aplicación y PostgreSQL.
+Chrome del sistema cargó el portal base; sin configuración, las consultas de
+los módulos y las preferencias devuelven 503. Esto no acredita su uso funcional.
+Siguen pendientes la configuración conjunta, el alta central AD291 y la escritura
+con autorización real, recuperación, idempotencia y concurrencia. Las dos
+revisiones independientes de fuente son favorables; no sustituyen ese ensayo.
