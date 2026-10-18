@@ -13,7 +13,7 @@ anterior. No se repite el acto ni se cambian sus huellas.
    `deploy/principal/copia_local.py crear --modulos`, con sus preparadores
    propios de roles y datos nominales, pasando explícitamente
    `--lista-sql deploy/principal/lista_sql_main_tras_hz37.txt`.
-   La lista incluye las 81 migraciones de main y AD295, una sola vez.
+   La lista incluye las 85 migraciones de main y AD295, una sola vez.
 2. AD295 exige la definición instalada de AD235, su propietario y permisos.
    Amplía la misma función con una referencia opcional y retira la firma
    anterior. Solo el grupo lector actual puede ejecutarla; no cambia el núcleo.
@@ -36,7 +36,7 @@ sus filas terminan en ROLLBACK y no acreditan un acto de administración.
 `ad235_lector_gobierno_admin.sql` conserva los controles de lectura y denegación
 con la firma vigente. Las pruebas Go comprueban la vinculación al acuse.
 
-La candidata `ed5987b82` instaló una vez las 82 SQL en 76,02 segundos.
+La candidata `a035d46ef` instaló una vez las 86 SQL en 81,1 segundos.
 Pasaron los casos de AD295 y la prueba de permisos de AD235, ambos con
 ROLLBACK. Esta última comprueba los 13 campos vigentes de la instantánea,
 incluido el contador incorporado por AD266. La primera copia sin preparar los
@@ -45,9 +45,15 @@ orígenes nominales se detuvo en AD278; se descartó y no cuenta como ensayo.
 En la copia propia que conservaba el acto confirmado se instaló AD295 una
 sola vez. La consola nueva, con el perfil de desarrollo existente y `-acuse`,
 devolvió `cadena_verificada` para el mismo plan, material y acuse que antes
-obtenía cobertura vacía. No se repitió preparar ni aplicar. El arranque con
-módulos y el reinicio de aplicación, PostgreSQL y buzón de la copia nueva
-pasaron las cuatro consultas: salud, portal, contratación y Bolsas. La
+obtenía cobertura vacía. No se repitió preparar ni aplicar. La continuación nativa de Administración, recompilada desde `16725d3bd`,
+comprobó el mismo acto, completó el arranque y abrió `/admin/usuarios/` con
+respuesta 200 mediante HTTPS y certificado del acto original. Aún no acredita
+la consulta de personas.
+
+El arranque con módulos y el reinicio de aplicación, PostgreSQL y buzón de
+la copia nueva de 86 migraciones pasaron las cuatro consultas: proceso vivo
+(`/livez`), portal, contratación y Bolsas. Estas comprobaciones no equivalen
+a la disponibilidad de todos los módulos de `/healthz`. La
 aplicación mantiene su configuración de arranque; este corte no añade ninguna.
 
 Dos revisiones independientes de la fuente son favorables. GoSec cargó los
