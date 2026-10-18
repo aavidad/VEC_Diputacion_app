@@ -167,6 +167,15 @@ al final de esta lista en la misma PR, con la ruta y su SHA-256.
 Los dos roles sin LOGIN que necesita B119 los crea ya el guion (F0-31, apartado 2);
 no hace falta crearlos a mano.
 
+AD278 (F1-16) necesita además dos usuarios de origen con LOGIN que el guion
+todavía no prepara: `vec_ct_o207_runtime` (viene en el volcado sin LOGIN),
+miembro de `vec_contratacion_temporal_ejecutor`, y
+`vec_bolsa_llamamientos_desarrollo` (no viene en el volcado), miembro de
+`vec_bolsa_llamamientos_ejecutor`. Hasta que el guion lo haga, prepáralos en
+cuanto existan los roles del volcado y antes de que lleguen las migraciones:
+`ALTER ROLE vec_ct_o207_runtime LOGIN`, `CREATE ROLE vec_bolsa_llamamientos_desarrollo LOGIN`
+y los dos `GRANT` de pertenencia, sin contraseña.
+
 Lo que sigue explica de dónde sale la lista y cómo se hacía a mano hasta el
 18/10. Sirve para comprobarla, no para aplicar otra cosa.
 

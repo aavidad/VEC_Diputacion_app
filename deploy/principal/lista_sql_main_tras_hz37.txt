@@ -15,6 +15,9 @@
 #
 # B119 y vecinas necesitan los roles sin LOGIN vec_externo_documentos_bolsa_datos
 # y vec_interno_documentos_bolsa_rrhh; copia_local.py los crea desde F0-31.
+# AD278 necesita con LOGIN vec_ct_o207_runtime (miembro de
+# vec_contratacion_temporal_ejecutor) y vec_bolsa_llamamientos_desarrollo
+# (miembro de vec_bolsa_llamamientos_ejecutor); ver el apartado 3 del LEEME.
 
 # PR #1120 922e50533 — orden de deploy/principal/lista_sql_codexp_confianza_externa_20261014.txt
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000263_publicador_nominal_confianza_externa.up.sql ae50a5911f6ae8e0c6841533c1293f1b9c8f493e09197809f06e6e6cfa0aba14
