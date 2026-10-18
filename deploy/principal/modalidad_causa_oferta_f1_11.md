@@ -7,11 +7,12 @@ lecturas actuales. No añade filtros ni cambia las respuestas del aspirante.
 ## Instalación
 
 Usar PostgreSQL 18 y una copia propia del volcado de referencia HZ37. Instalar
-primero la lista completa `lista_sql_main_tras_hz37.txt`, sin combinarla con
+la lista completa `lista_sql_main_tras_hz37.txt`, sin combinarla con
 listas antiguas. Preparar antes los LOGIN nominales que exige AD278, siguiendo
 `LEEME_copia_local.md`; ese ajuste es un dato de copia, no una concesión nueva.
-Después aplicar una sola vez `lista_sql_codexo_modalidad_causa_oferta_f1_11_20261018.txt`:
-CT235 y B136, en ese orden. Las guardas cotejan las definiciones, propietarios,
+La lista termina con CT235 y B136, en ese orden. El subconjunto
+`lista_sql_codexo_modalidad_causa_oferta_f1_11_20261018.txt` sirve solo para
+una copia que ya tenga las 82 entradas anteriores; no se combina con la completa. Las guardas cotejan las definiciones, propietarios,
 configuración y permisos instalados; cualquier diferencia revierte la migración.
 No se modifica el núcleo de autorización ni se añade configuración al arranque.
 
@@ -43,7 +44,9 @@ Semgrep local sin hallazgos; GoSec no señala líneas nuevas, con errores de car
 heredados al analizar la composición. La aplicación y PostgreSQL arrancan y se
 reinician sin activar el puente, con salud y portal disponibles. Quedan
 pendientes la reserva y publicación reales y su consulta y recuperación desde
-el navegador tras reiniciar. La composición de CT en la copia depende de F0-28.
+el navegador tras reiniciar. Se incorporó después main `86c0bf1a0`, con el montaje de F0-28, y la candidata
+F1-12. La lista completa contiene ahora 84 entradas. El ensayo anterior de 75
+entradas sigue siendo la evidencia existente; falta validar el conjunto actualizado.
 
 Las dos revisiones independientes de `05f646756` son favorables para código y
 SQL. La guarda de publicación exige el par en ofertas nuevas con origen CT,
