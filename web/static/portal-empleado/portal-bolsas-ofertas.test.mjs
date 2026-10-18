@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { accionesPlaza, crearClienteOfertas, crearSuperficieOfertasBolsa, crearTraductorOfertas, mensajeError, validarOfertasBolsa,
-  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261018-f118-reglas-v1";
+  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261018-f118-reintento-reglas-v1";
 
 function plaza(numero, extra = {}) {
   return { numero_de_plaza: numero, estado: "vacante", secuencia: 0, participacion_ref: null, orden_vigente: null,
@@ -41,9 +41,9 @@ function boton(dataset) {
 test("la entrada y la caché cargan la versión de ofertas con avisos", async () => {
   const [portal, html, cache] = await Promise.all(["portal.js", "index.html", "cache-publica-v1.json"]
     .map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
-  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261018-f118-reglas-v1/);
-  assert.match(html, /portal\.js\?v=20261018-f118-reglas-v1/);
-  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261018-f118-reglas-v1"));
+  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261018-f118-reintento-reglas-v1/);
+  assert.match(html, /portal\.js\?v=20261018-f118-reintento-reglas-v1/);
+  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261018-f118-reintento-reglas-v1"));
 });
 
 test("la ficha abre el historial autorizado de la oferta elegida y lo desmonta al cerrar", async () => {
@@ -95,6 +95,392 @@ test("el aviso es opcional y solo admite recuentos enteros coherentes", () => {
   for (const invalido of [null, {}, { ...aviso, pendientes: -1 }, { ...aviso, enviados: 1.5 },
     { ...aviso, sin_confirmacion: "1" }, { ...aviso, total: 4 }, { ...aviso, total: Number.MAX_SAFE_INTEGER + 1 }]) {
     assert.throws(() => validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta({ aviso: invalido })] } }));
+  }
+});
+
+test("la revisión y el recibo manual son opcionales y rechazan datos ajenos", () => {
+  const aviso = { total: 2, pendientes: 0, enviados: 1, sin_confirmacion: 1, fallidos: 0, revision: 3 };
+  const reintento_aviso = { recibo_ref: "recibo:reintento:1", registrado_en: "2026-10-16T06:10:00Z", rearmados: 1 };
+  assert.equal(validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta({ aviso, reintento_aviso })] } }).ofertas[0].aviso.revision, 3);
+  for (const invalido of [-1, 1.5, "3", null]) {
+    assert.throws(() => validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta({ aviso: { ...aviso, revision: invalido } })] } }));
+  }
+  for (const invalido of [null, { ...reintento_aviso, recibo_ref: "<script>" }, { ...reintento_aviso, registrado_en: "mañana" },
+    { ...reintento_aviso, rearmados: -1 }]) {
+    assert.throws(() => validarOfertasBolsa({ data: { esquema: ESQUEMA_OFERTAS_BOLSA, ofertas: [oferta({ reintento_aviso: invalido })] } }));
+  }
+});
+
+test("el cliente envía solo la variante tipada y su propia clave de reintento", async () => {
+  const llamadas = [];
+  const cliente = crearClienteOfertas({ fetchImpl: async (ruta, opciones) => { llamadas.push({ ruta, opciones }); return respuesta(201, {
+    data: oferta({ reintento_aviso: { recibo_ref: "recibo:reintento:1", registrado_en: "2026-10-16T06:10:00Z", rearmados: 1 } }),
+  }); } });
+  const cuerpo = { tipo: "reintentar_avisos_sin_confirmacion", bolsa_ref: "bolsa:1", oferta_ref: "oferta:1",
+    revision_avisos: 3, confirmar_posible_duplicado: true };
+  assert.equal((await cliente.reintentarAvisosSinConfirmacion(cuerpo, "clave-manual-1")).ok, true);
+  assert.equal(llamadas[0].ruta, RUTA_OFERTAS_BOLSA);
+  assert.equal(llamadas[0].opciones.headers["Idempotency-Key"], "clave-manual-1");
+  assert.deepEqual(JSON.parse(llamadas[0].opciones.body), cuerpo);
+  assert.equal(llamadas[0].opciones.credentials, "same-origin");
+  assert.equal((await cliente.reintentarAvisosSinConfirmacion({ ...cuerpo, confirmar_posible_duplicado: false }, "clave-erronea")).ok, false);
+  assert.equal(llamadas.length, 1);
+});
+
+test("la revisión manual exige confirmación y conserva el recibo de publicación", async () => {
+  const aviso = { total: 2, pendientes: 0, enviados: 1, sin_confirmacion: 1, fallidos: 0, revision: 3 };
+  const reintento_aviso = { recibo_ref: "recibo:reintento:1", registrado_en: "2026-10-16T06:10:00Z", rearmados: 1 };
+  let vista = oferta({ aviso });
+  const llamadas = [];
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => sobre([vista], "publicacion"),
+    reintentarAvisosSinConfirmacion: async (cuerpo, clave) => { llamadas.push({ cuerpo, clave });
+      vista = oferta({ aviso: { ...aviso, pendientes: 0, enviados: 2, sin_confirmacion: 0, revision: 4 }, reintento_aviso });
+      return { ok: true, status: 201, oferta: vista }; },
+  }, generarClave: () => "clave-manual-1" });
+  superficie.activar("bolsa:1"); await turno();
+  assert.match(superficie.renderizar(), /Reintentar envíos sin confirmación/);
+  superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:1" }));
+  assert.match(superficie.renderizar(), /El correo puede haberse recibido/);
+  assert.match(superficie.renderizar(), /Auxiliar &lt;b&gt;.*1 persona/);
+  assert.equal(llamadas.length, 0);
+  superficie.manejarClick(boton({ ofertasAccion: "cancelar-reintento-incierto" }));
+  assert.equal(llamadas.length, 0);
+  superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:1" }));
+  superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+  assert.deepEqual(llamadas, [{ cuerpo: { tipo: "reintentar_avisos_sin_confirmacion", bolsa_ref: "bolsa:1", oferta_ref: "oferta:1",
+    revision_avisos: 3, confirmar_posible_duplicado: true }, clave: "clave-manual-1" }]);
+  assert.match(superficie.renderizar(), /Recibo del reintento de avisos/);
+  assert.match(superficie.renderizar(), /Reintento registrado el/);
+  assert.match(superficie.renderizar(), /Publicada el/);
+  assert.match(superficie.renderizar(), /recibo:reintento:1/);
+  assert.match(superficie.renderizar(), /recibo:oferta:1/);
+  assert.doesNotMatch(superficie.renderizar().replaceAll(/data-copiar-justificante="[^"]*"/g, ""), /recibo:reintento:1/);
+  assert.equal(superficie.estado().intencionAvisoIncierto, null);
+  superficie.desmontar();
+});
+
+test("sin revisión o con configuración pendiente no aparece el reintento manual", async () => {
+  const base = { total: 1, pendientes: 0, enviados: 0, sin_confirmacion: 1, fallidos: 0 };
+  const superficie = crearSuperficieOfertasBolsa({ cliente: { consultar: async () => sobre([
+    oferta({ aviso: base }), oferta({ oferta_ref: "oferta:2", aviso: { ...base, revision: 1 }, aviso_configuracion_pendiente: true }),
+  ]) } });
+  superficie.activar("bolsa:1"); await turno();
+  assert.doesNotMatch(superficie.renderizar(), /Reintentar envíos sin confirmación/);
+  superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:1" }));
+  assert.equal(superficie.estado().revisionAvisoIncierto, null);
+  superficie.desmontar();
+});
+
+test("la red incierta conserva cuerpo y clave; la recuperación expresa no rearma otra vez", async () => {
+  const aviso = { total: 1, pendientes: 0, enviados: 0, sin_confirmacion: 1, fallidos: 0, revision: 2 };
+  const reintento_aviso = { recibo_ref: "recibo:reintento:estable", registrado_en: "2026-10-16T06:20:00Z", rearmados: 1 };
+  let vista = oferta({ aviso });
+  const llamadas = [];
+  let claves = 0;
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => sobre([vista], "publicacion"),
+    reintentarAvisosSinConfirmacion: async (cuerpo, clave) => { llamadas.push({ cuerpo: { ...cuerpo }, clave });
+      if (llamadas.length === 1) throw new Error("red interrumpida");
+      vista = oferta({ aviso: { ...aviso, pendientes: 0, enviados: 1, sin_confirmacion: 0, revision: 3 }, reintento_aviso });
+      return { ok: true, status: 200, oferta: vista }; },
+  }, generarClave: () => `clave-${++claves}` });
+  const focos = [];
+  superficie.instalar({ addEventListener() {}, querySelector(selector) { return { focus() { focos.push(selector); } }; } });
+  superficie.activar("bolsa:1"); await turno();
+  superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:1" }));
+  superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+  assert.equal(claves, 1);
+  assert.match(superficie.renderizar(), /Recuperar el resultado del reintento/);
+  assert.equal(superficie.estado().intencionAvisoIncierto.incierta, true);
+  assert.equal(focos.at(-1), '[data-oferta-ref="oferta:1"] [data-ofertas-accion="repetir-reintento-incierto"]');
+  superficie.manejarClick(boton({ ofertasAccion: "repetir-reintento-incierto" })); await turno();
+  assert.equal(claves, 1);
+  assert.deepEqual(llamadas[1], llamadas[0]);
+  assert.equal(superficie.estado().intencionAvisoIncierto, null);
+  assert.match(superficie.renderizar(), /recibo:reintento:estable/);
+  superficie.desmontar();
+});
+
+test("503 consulta la configuración y permite recuperar la misma intención tras actualizar", async () => {
+  const aviso = { total: 1, pendientes: 0, enviados: 0, sin_confirmacion: 1, fallidos: 0, revision: 2 };
+  const reintento_aviso = { recibo_ref: "recibo:reintento:503", registrado_en: "2026-10-16T06:40:00Z", rearmados: 1 };
+  let configuracionPendiente = false; let consultas = 0; let claves = 0;
+  const llamadas = [];
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => { consultas++; return sobre([oferta({ aviso, aviso_configuracion_pendiente: configuracionPendiente })], "publicacion"); },
+    reintentarAvisosSinConfirmacion: async (cuerpo, clave) => { llamadas.push({ cuerpo: { ...cuerpo }, clave });
+      if (llamadas.length === 1) { configuracionPendiente = true; return { ok: false, status: 503, codigo: "aviso_sin_configuracion" }; }
+      return { ok: true, status: 200, oferta: oferta({ aviso: { ...aviso, enviados: 1, sin_confirmacion: 0, revision: 3 }, reintento_aviso }) }; },
+  }, generarClave: () => `clave-${++claves}` });
+  const focos = [];
+  superficie.instalar({ addEventListener() {}, querySelector(selector) { return { focus() { focos.push(selector); } }; } });
+  superficie.activar("bolsa:1"); await turno();
+  superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:1" }));
+  superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+  assert.equal(consultas, 2, "el 503 provoca una consulta sin otro POST");
+  assert.equal(llamadas.length, 1);
+  assert.equal(superficie.estado().intencionAvisoIncierto.incierta, true);
+  assert.match(superficie.renderizar(), /Falta configurar el envío de avisos de las ofertas/);
+  assert.match(superficie.renderizar(), /Actualizar estado/);
+  assert.match(superficie.renderizar(), /aria-label="Actualizar estado de los avisos de Auxiliar &lt;b&gt;, Residencia, inicio/);
+  assert.equal(focos.at(-1), '[data-oferta-ref="oferta:1"] [data-ofertas-accion="recargar"]');
+  assert.doesNotMatch(superficie.renderizar(), /Recuperar el resultado del reintento/);
+  configuracionPendiente = false;
+  superficie.manejarClick(boton({ ofertasAccion: "recargar" })); await turno();
+  assert.match(superficie.renderizar(), /Recuperar el resultado del reintento/);
+  assert.match(focos.at(-1), /repetir-reintento-incierto/);
+  superficie.manejarClick(boton({ ofertasAccion: "repetir-reintento-incierto" })); await turno();
+  assert.deepEqual(llamadas[1], llamadas[0]);
+  assert.equal(claves, 1, "la recuperación no genera otra clave");
+  assert.match(superficie.renderizar(), /recibo:reintento:503/);
+  superficie.desmontar();
+});
+
+test("tras publicar, el 503 manual muestra la configuración y enfoca Actualizar en esa oferta", async () => {
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return { categoria: "Auxiliar", centro: "Residencia", fecha_inicio: "2026-11-23",
+    descripcion: "Cobertura", numero_plazas: "1" }[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const aviso = { total: 2, pendientes: 0, enviados: 1, sin_confirmacion: 1, fallidos: 0, revision: 4 };
+  let publicada = false; let configuracionPendiente = false; let claves = 0;
+  const focos = [];
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => sobre(publicada ? [oferta({ aviso, aviso_configuracion_pendiente: configuracionPendiente })] : [], "publicacion"),
+    publicar: async () => { publicada = true; return { ok: true, status: 201, oferta: oferta({ aviso }) }; },
+    reintentarAvisosSinConfirmacion: async () => { configuracionPendiente = true; return { ok: false, status: 503, codigo: "servicio_no_disponible" }; },
+  }, generarClave: () => `clave-${++claves}` });
+  superficie.instalar({ addEventListener() {}, querySelector(selector) { return { focus() { focos.push(selector); } }; } });
+  try {
+    superficie.activar("bolsa:1"); await turno();
+    superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    assert.ok(superficie.estado().reciboPublicacion, "se conserva el recibo de publicación");
+    superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:1" }));
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+    const html = superficie.renderizar();
+    assert.match(html, /Falta configurar el envío de avisos de las ofertas/);
+    assert.match(html, /data-ofertas-accion="recargar"[^>]*>Actualizar estado/);
+    assert.equal(focos.at(-1), '[data-oferta-ref="oferta:1"] [data-ofertas-accion="recargar"]');
+    assert.equal(superficie.estado().reciboPublicacion.referencia, "recibo:oferta:1");
+    assert.equal(superficie.estado().intencionAvisoIncierto.clave, "clave-2");
+  } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
+});
+
+test("P pendiente y M manual conservan sus controles y recibos separados", async () => {
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return { categoria: "Auxiliar", centro: "Residencia", fecha_inicio: "2026-11-23",
+    descripcion: "Cobertura", numero_plazas: "1" }[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const publicada = oferta({ oferta_ref: "oferta:publicada", recibo_ref: "recibo:oferta:publicada",
+    aviso: { total: 1, pendientes: 1, enviados: 0, sin_confirmacion: 0, fallidos: 0, revision: 1 }, aviso_configuracion_pendiente: true });
+  const manual = oferta({ oferta_ref: "oferta:manual", recibo_ref: "recibo:oferta:manual",
+    aviso: { total: 1, pendientes: 0, enviados: 0, sin_confirmacion: 1, fallidos: 0, revision: 2 } });
+  let ofertas = [manual]; let denegar = false; let claves = 0;
+  const publicaciones = [];
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => denegar ? { ok: false, status: 403 } : sobre(ofertas, "publicacion"),
+    publicar: async (_bolsa, datos, plazas, notificacion, clave) => { publicaciones.push({ datos: { ...datos }, plazas, notificacion, clave });
+      if (publicaciones.length === 1) { ofertas = [publicada, manual]; return { ok: true, status: 201, oferta: publicada }; }
+      ofertas[0] = { ...ofertas[0], aviso: { ...publicada.aviso, pendientes: 0, enviados: 1, revision: 2 } };
+      return { ok: true, status: 200, oferta: ofertas[0] }; },
+    reintentarAvisosSinConfirmacion: async () => { ofertas = [publicada, oferta({ ...manual,
+      aviso: { ...manual.aviso, pendientes: 1, sin_confirmacion: 0, revision: 3 },
+      reintento_aviso: { recibo_ref: "recibo:reintento:manual", registrado_en: "2026-10-16T07:00:00Z", rearmados: 1 } })];
+    return { ok: true, status: 201, oferta: ofertas[1] }; },
+  }, generarClave: () => `clave-${++claves}` });
+  try {
+    superficie.activar("bolsa:1"); await turno();
+    superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:manual" }));
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+    const html = superficie.renderizar();
+    const banner = html.split('<ul class="ofertas-lista">')[0];
+    assert.match(banner, /data-copiar-justificante="recibo:reintento:manual"/);
+    assert.doesNotMatch(banner, /recibo:oferta:publicada|aviso_configuracion_pendiente|Falta configurar|recuperar-avisos/);
+    assert.match(html, /data-copiar-justificante="recibo:oferta:publicada"/);
+    assert.match(html, /Falta configurar el envío de avisos de las ofertas/);
+    assert.equal(superficie.estado().reciboPublicacion.referencia, "recibo:oferta:publicada");
+    assert.equal(superficie.estado().reintentoAvisos.clave, "clave-1");
+    assert.equal(superficie.estado().intencionAvisoIncierto.clave, "clave-2");
+    assert.match(html, /data-ofertas-accion="recargar" data-oferta-ref="oferta:publicada"/);
+    ofertas[0] = { ...ofertas[0], aviso_configuracion_pendiente: false };
+    superficie.manejarClick(boton({ ofertasAccion: "recargar", ofertaRef: "oferta:publicada" })); await turno();
+    assert.match(superficie.renderizar(), /data-ofertas-accion="recuperar-avisos" data-oferta-ref="oferta:publicada"/);
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos", ofertaRef: "oferta:publicada" })); await turno();
+    assert.deepEqual(publicaciones[1], publicaciones[0], "P conserva cuerpo y clave originales");
+    assert.equal(superficie.estado().reciboAvisoIncierto, null);
+    assert.equal(superficie.estado().intencionAvisoIncierto.clave, "clave-2", "M conserva su intención pendiente");
+    const despues = superficie.renderizar();
+    const bannerP = despues.split('<ul class="ofertas-lista">')[0];
+    assert.match(bannerP, /data-copiar-justificante="recibo:oferta:publicada"/);
+    assert.doesNotMatch(bannerP, /recibo:reintento:manual|repetir-reintento-incierto/);
+    assert.match(despues, /data-copiar-justificante="recibo:reintento:manual"/);
+    assert.match(despues, /data-ofertas-accion="repetir-reintento-incierto" data-oferta-ref="oferta:manual"/);
+    denegar = true; superficie.recargarPoliticaSegura(); await turno();
+    assert.equal(superficie.estado().reintentoAvisos, null);
+    assert.equal(superficie.estado().intencionAvisoIncierto, null);
+    assert.deepEqual(superficie.estado().ofertas, []);
+  } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
+});
+
+test("P y M inciertos recuperan cada clave propia sin POST cruzado y permiten GET", async () => {
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return { categoria: "Auxiliar", centro: "Residencia", fecha_inicio: "2026-11-23",
+    descripcion: "Cobertura", numero_plazas: "1" }[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const p = oferta({ oferta_ref: "oferta:p", recibo_ref: "recibo:oferta:p",
+    aviso: { total: 1, pendientes: 1, enviados: 0, sin_confirmacion: 0, fallidos: 0, revision: 1 } });
+  const m = oferta({ oferta_ref: "oferta:m", recibo_ref: "recibo:oferta:m",
+    aviso: { total: 1, pendientes: 0, enviados: 0, sin_confirmacion: 1, fallidos: 0, revision: 2 } });
+  let ofertas = [m]; let consultas = 0; let claves = 0;
+  const publicaciones = [], manuales = [], focos = [];
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => { consultas++; return sobre(ofertas, "publicacion"); },
+    publicar: async (_bolsa, datos, plazas, notificacion, clave) => { publicaciones.push({ datos: { ...datos }, plazas, notificacion, clave });
+      if (publicaciones.length === 1) { ofertas = [p, m]; return { ok: true, status: 201, oferta: p }; }
+      if (publicaciones.length === 2) throw new Error("respuesta perdida de P");
+      const pendiente = publicaciones.length === 3 ? 1 : 0;
+      ofertas[0] = { ...p, aviso: { ...p.aviso, pendientes: pendiente, enviados: 1 - pendiente, revision: publicaciones.length } };
+      return { ok: true, status: 200, oferta: ofertas[0] }; },
+    reintentarAvisosSinConfirmacion: async (cuerpo, clave) => { manuales.push({ cuerpo: { ...cuerpo }, clave });
+      if (manuales.length === 1) throw new Error("respuesta perdida");
+      ofertas[1] = { ...m, aviso: { ...m.aviso, revision: 3 },
+        reintento_aviso: { recibo_ref: "recibo:reintento:m", registrado_en: "2026-10-16T07:10:00Z", rearmados: 1 } };
+      return { ok: true, status: 200, oferta: ofertas[1] }; },
+  }, generarClave: () => `clave-${++claves}` });
+  superficie.instalar({ addEventListener() {}, querySelector(selector) { return { focus() { focos.push(selector); } }; } });
+  try {
+    superficie.activar("bolsa:1"); await turno();
+    superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:m" }));
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+    assert.equal(superficie.estado().intencionAvisoIncierto.incierta, true);
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos", ofertaRef: "oferta:p" })); await turno();
+    assert.equal(publicaciones.length, 1, "M incierta bloquea el POST cruzado de P");
+    assert.equal(superficie.recargarPoliticaSegura(), true); await turno();
+    assert.ok(consultas >= 3, "GET sigue permitido con M incierta");
+    superficie.estado().reintentoAvisos.incierta = true;
+    assert.doesNotMatch(superficie.renderizar(), /data-ofertas-accion="recuperar-avisos"/);
+    superficie.manejarClick(boton({ ofertasAccion: "repetir-reintento-incierto", ofertaRef: "oferta:m" })); await turno();
+    assert.deepEqual(manuales[1], manuales[0], "M recupera su cuerpo y clave aunque P sea incierta");
+    assert.equal(superficie.estado().intencionAvisoIncierto, null);
+    assert.match(superficie.renderizar(), /Recuperar resultado de los avisos/);
+    superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:m" }));
+    assert.equal(superficie.estado().revisionAvisoIncierto, null, "P incierta bloquea una nueva intención M");
+    assert.equal(manuales.length, 2);
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos", ofertaRef: "oferta:p" })); await turno();
+    assert.deepEqual(publicaciones[1], publicaciones[0], "P recupera su cuerpo y clave originales");
+    assert.equal(superficie.estado().reintentoAvisos.incierta, true);
+    assert.equal(focos.at(-1), '[data-oferta-ref="oferta:p"] [data-ofertas-accion="recuperar-avisos"]');
+    assert.match(superficie.renderizar(), /Recuperar resultado de los avisos/);
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos", ofertaRef: "oferta:p" })); await turno();
+    assert.deepEqual(publicaciones[2], publicaciones[0]);
+    assert.equal(superficie.estado().reintentoAvisos.incierta, false, "el éxito con pendientes vuelve al estado conocido");
+    assert.match(superficie.renderizar(), /Reintentar avisos pendientes/);
+    superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos", ofertaRef: "oferta:p" })); await turno();
+    assert.deepEqual(publicaciones[3], publicaciones[0]);
+    assert.equal(superficie.estado().reintentoAvisos, null);
+    assert.equal(claves, 2);
+  } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
+});
+
+test("una publicación incierta bloquea la confirmación manual hasta recuperar su recibo", async () => {
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { get(clave) { return { categoria: "Auxiliar", centro: "Residencia", fecha_inicio: "2026-11-23",
+    descripcion: "Cobertura", numero_plazas: "1" }[clave] ?? ""; } };
+  const formulario = { closest: () => formulario, reportValidity: () => true };
+  const manual = oferta({ aviso: { total: 1, pendientes: 0, enviados: 0, sin_confirmacion: 1, fallidos: 0, revision: 2 } });
+  const publicada = oferta({ oferta_ref: "oferta:nueva", recibo_ref: "recibo:oferta:nueva" });
+  const publicaciones = [], reintentos = [];
+  let claves = 0;
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => sobre([manual], "publicacion"),
+    publicar: async (bolsa, datos, plazas, notificacion, clave) => {
+      publicaciones.push(structuredClone({ bolsa, datos, plazas, notificacion, clave }));
+      if (publicaciones.length === 1) throw new Error("respuesta perdida");
+      return { ok: true, status: 200, oferta: publicada };
+    },
+    reintentarAvisosSinConfirmacion: async (cuerpo, clave) => {
+      reintentos.push({ cuerpo, clave });
+      return { ok: false, status: 409, codigo: "aviso_revision_obsoleta" };
+    },
+  }, generarClave: () => `clave-${++claves}` });
+  try {
+    superficie.activar("bolsa:1"); await turno();
+    superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: manual.oferta_ref }));
+    superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+    assert.equal(reintentos.length, 0, "la revisión de publicación impide confirmar otro acto");
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    assert.equal(superficie.estado().incierta, true);
+    assert.match(superficie.renderizar(), /data-ofertas-accion="confirmar-reintento-incierto" disabled/);
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+    assert.equal(reintentos.length, 0, "no emite otro POST mientras desconoce la publicación");
+    assert.equal(claves, 1);
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-publicacion" })); await turno();
+    assert.deepEqual(publicaciones[1], publicaciones[0], "recupera la publicación con cuerpo y clave originales");
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+    assert.equal(reintentos.length, 1, "el recibo recuperado permite continuar la revisión manual");
+    assert.equal(reintentos[0].cuerpo.oferta_ref, manual.oferta_ref);
+    assert.equal(reintentos[0].clave, "clave-2");
+  } finally { superficie.desmontar(); globalThis.FormData = anteriorFormData; }
+});
+
+test("un reintento con pendientes continúa con la misma clave y un incierto nuevo exige otra revisión", async () => {
+  const aviso = { total: 2, pendientes: 0, enviados: 1, sin_confirmacion: 1, fallidos: 0, revision: 4 };
+  const recibo = { recibo_ref: "recibo:reintento:2", registrado_en: "2026-10-16T06:30:00Z", rearmados: 1 };
+  let vista = oferta({ aviso });
+  const llamadas = [];
+  let claves = 0;
+  const superficie = crearSuperficieOfertasBolsa({ cliente: {
+    consultar: async () => sobre([vista], "publicacion"),
+    reintentarAvisosSinConfirmacion: async (cuerpo, clave) => { llamadas.push({ cuerpo: { ...cuerpo }, clave });
+      vista = oferta({ aviso: llamadas.length === 1 ? { ...aviso, pendientes: 1, sin_confirmacion: 0, revision: 5 }
+        : { ...aviso, pendientes: 0, sin_confirmacion: 1, revision: 6 }, reintento_aviso: recibo });
+      return { ok: true, status: llamadas.length === 1 ? 201 : 200, oferta: vista }; },
+  }, generarClave: () => `clave-${++claves}` });
+  superficie.activar("bolsa:1"); await turno();
+  superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:1" }));
+  superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+  assert.match(superficie.renderizar(), /Continuar el envío pendiente/);
+  superficie.manejarClick(boton({ ofertasAccion: "repetir-reintento-incierto" })); await turno();
+  assert.deepEqual(llamadas[1], llamadas[0]);
+  assert.equal(claves, 1);
+  assert.equal(superficie.estado().intencionAvisoIncierto, null);
+  assert.match(superficie.renderizar(), /Reintentar envíos sin confirmación/);
+  assert.equal(llamadas.length, 2, "el nuevo sin confirmar no genera otro POST");
+  superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:1" }));
+  assert.match(superficie.renderizar(), /El correo puede haberse recibido/);
+  assert.equal(llamadas.length, 2);
+  superficie.desmontar();
+});
+
+test("409 consulta el estado actual sin otra clave y 401 borra la intención manual", async () => {
+  const aviso = { total: 1, pendientes: 0, enviados: 0, sin_confirmacion: 1, fallidos: 0, revision: 2 };
+  for (const status of [409, 401]) {
+    let consultas = 0; let envios = 0;
+    const superficie = crearSuperficieOfertasBolsa({ cliente: {
+      consultar: async () => { consultas++; return sobre([oferta({ aviso: { ...aviso, revision: consultas > 1 ? 3 : 2 } })], "publicacion"); },
+      reintentarAvisosSinConfirmacion: async () => { envios++; return { ok: false, status,
+        codigo: status === 409 ? "aviso_revision_obsoleta" : "sin_permiso" }; },
+    }, generarClave: () => "clave-unica" });
+    superficie.activar("bolsa:1"); await turno();
+    superficie.manejarClick(boton({ ofertasAccion: "preparar-reintento-incierto", ofertaRef: "oferta:1" }));
+    superficie.manejarClick(boton({ ofertasAccion: "confirmar-reintento-incierto" })); await turno();
+    assert.equal(envios, 1);
+    assert.equal(superficie.estado().intencionAvisoIncierto, null);
+    if (status === 409) {
+      assert.equal(consultas, 2);
+      assert.equal(superficie.estado().ofertas[0].aviso.revision, 3);
+      assert.match(superficie.renderizar(), /Los avisos han cambiado/);
+    } else {
+      assert.deepEqual(superficie.estado().ofertas, []);
+      assert.equal(superficie.estado().carga, "error");
+    }
+    superficie.desmontar();
   }
 });
 
@@ -183,10 +569,12 @@ test("un reintento incierto bloquea otra operación y los rechazos de acceso ret
   const aviso = { total: 1, pendientes: 1, enviados: 0, sin_confirmacion: 0, fallidos: 0 };
   try {
     for (const fallo of ["red", 401, 403]) {
-      let llamadas = 0;
+      const llamadas = [];
       const superficie = crearSuperficieOfertasBolsa({ cliente: {
         consultar: async () => sobre([], "publicacion"),
-        publicar: async () => { llamadas++; if (llamadas === 1) return { ok: true, status: 201, oferta: oferta({ aviso }) };
+        publicar: async (bolsa, datos, plazas, notificacion, clave) => {
+          llamadas.push(structuredClone({ bolsa, datos, plazas, notificacion, clave }));
+          if (llamadas.length === 1) return { ok: true, status: 201, oferta: oferta({ aviso }) };
           if (fallo === "red") throw new Error("conexión perdida");
           return { ok: false, status: fallo, codigo: "sin_permiso" }; },
       }, generarClave: () => "clave-original" });
@@ -199,8 +587,15 @@ test("un reintento incierto bloquea otra operación y los rechazos de acceso ret
         assert.equal(superficie.estado().reintentoAvisos.clave, "clave-original");
         assert.equal(superficie.estado().reintentoAvisos.incierta, true);
         assert.match(superficie.renderizar(), /No se pudo confirmar el resultado/);
-        superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos" }));
-        assert.equal(llamadas, 2);
+        superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+        for (const accion of ["confirmar-publicacion", "preparar", "confirmar", "preparar-reintento-incierto"]) {
+          superficie.manejarClick(boton({ ofertasAccion: accion, ofertaRef: "oferta:otra" }));
+        }
+        assert.equal(llamadas.length, 2, "el resultado incierto bloquea operaciones distintas");
+        superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos" })); await turno();
+        assert.equal(llamadas.length, 3, "permite recuperar la misma intención");
+        assert.deepEqual(llamadas[2], llamadas[0], "conserva bolsa, cuerpo y clave originales");
+        assert.equal(superficie.estado().reintentoAvisos.incierta, true);
       } else {
         assert.equal(superficie.estado().reintentoAvisos, null);
         assert.deepEqual(superficie.estado().ofertas, []);
@@ -272,6 +667,8 @@ test("el cliente envía bolsa, datos, número de plazas y el acto de la plaza, s
 test("los errores del servidor se traducen sin mostrar códigos y los plurales usan el catálogo", () => {
   const t = crearTraductorOfertas();
   assert.match(mensajeError(t, { status: 409, codigo: "propuesta_cambiada" }), /La plaza ha cambiado/);
+  assert.match(mensajeError(t, { status: 409, codigo: "aviso_revision_obsoleta" }), /Los avisos han cambiado/);
+  assert.match(mensajeError(t, { status: 409, codigo: "aviso_envio_en_curso" }), /Hay un envío en curso/);
   assert.match(mensajeError(t, { status: 409, codigo: "respuesta_abierta" }), /en plazo para responder/);
   assert.match(mensajeError(t, { status: 409, codigo: "politica_sin_plazas" }), /no admite varias plazas/);
   assert.match(mensajeError(t, { status: 409, codigo: "personas_elegibles_insuficientes" }), /Reduzca las plazas o revise la disponibilidad/);
@@ -352,9 +749,9 @@ test("la superficie publica con número de plazas y clave estable al reintentar,
   assert.equal(enviadas[0][2].notificada_en, "2026-09-25T08:00:00.000000Z", "el navegador no determina la zona");
   const conRecibo = s.renderizar();
   assert.match(conRecibo, /Oferta publicada\. El plazo termina el/);
-  assert.match(conRecibo, /<details open><summary>Recibo<\/summary>/, "el número y la fecha quedan visibles tras publicar");
+  assert.match(conRecibo, /<details open><summary>Recibo<\/summary>/, "el recibo y su fecha quedan visibles tras publicar");
   assert.equal((conRecibo.match(/<summary>Recibo<\/summary>/g) || []).length, 2, "el recibo real aparece en la confirmación y en la ficha");
-  assert.match(conRecibo, /<dt>Referencia del recibo<\/dt><dd>recibo:oferta:1<\/dd>/);
+  assert.match(conRecibo, /<dt>Referencia del recibo<\/dt><dd><button[^>]+data-copiar-justificante="recibo:oferta:1"/);
   assert.match(conRecibo, /<dt>Publicada el<\/dt><dd>25 sept 2026/);
   datos.numero_plazas = "101";
   s.manejarSubmit({ target: formulario, preventDefault() {} });

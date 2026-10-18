@@ -18,6 +18,8 @@ var (
 	ErrOfertaNoDisponible           = errors.New("bolsa: ofertas publicadas no disponibles")
 	ErrOfertaInvalida               = errors.New("bolsa: oferta invalida")
 	ErrOfertaConflicto              = errors.New("bolsa: clave de oferta reutilizada con otro comando")
+	ErrOfertaRevisionAvisos         = errors.New("bolsa: revisión de avisos cambiada")
+	ErrOfertaAvisoEnCurso           = errors.New("bolsa: aviso en curso o no incierto")
 	ErrOfertaElegiblesInsuficientes = errors.New("bolsa: plazas superiores a personas elegibles")
 	ErrOfertaYaResuelta             = errors.New("bolsa: la oferta ya esta resuelta")
 	ErrOfertaPlazoAbierto           = errors.New("bolsa: el plazo de disposicion sigue abierto")
@@ -122,6 +124,7 @@ type ResolucionOferta struct {
 // OfertaPublicada es la proyección de una oferta en un instante.
 type OfertaPublicada struct {
 	Aviso                       *AvisosOferta            `json:"aviso,omitempty"`
+	ReintentoAviso              *ReintentoAvisoOferta    `json:"reintento_aviso,omitempty"`
 	AvisoConfiguracionPendiente bool                     `json:"aviso_configuracion_pendiente,omitempty"`
 	VersionTokenAviso           string                   `json:"-"`
 	OfertaRef                   string                   `json:"oferta_ref"`
@@ -164,6 +167,30 @@ type SolicitudConsultarOfertas struct {
 	ContextoActor dominiovec.ContextoActor
 	BolsaRef      string
 	Limite        int
+}
+
+type SolicitudReintentarAvisosOferta struct {
+	Vinculo            dominiovec.VinculoAutenticacionActorV2
+	ResultadoContexto  dominiovec.ResultadoContextoActorRegistradoV2
+	BolsaRef           string
+	OfertaRef          string
+	RevisionAvisos     int64
+	ConfirmarDuplicado bool
+	ClaveIdempotencia  string
+	Correlacion        dominiovec.ReferenciaCorrelacionAutorizacionV2
+	MotivoAutorizacion dominiovec.ReferenciaEntradaCatalogo
+}
+
+type ComandoReintentarAvisosOferta struct {
+	BolsaRef, OfertaRef, ActorRef, ClaveIdempotencia string
+	UnidadRef, AmbitoRef                             string
+	RevisionAvisos                                   int64
+	ConfirmarDuplicado                               bool
+	Material                                         puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+}
+
+type RepositorioReintentosAvisosOferta interface {
+	ReintentarAvisosSinConfirmacion(context.Context, ComandoReintentarAvisosOferta) (OfertaPublicada, error)
 }
 
 // SolicitudResolverOferta registra un acto sobre una plaza: confirmar la

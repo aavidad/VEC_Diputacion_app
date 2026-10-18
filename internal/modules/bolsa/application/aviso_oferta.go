@@ -33,11 +33,14 @@ func (s *ServicioOfertasPublicadas) EstablecerAvisosOferta(d *DespachadorAvisosO
 }
 
 func (s *ServicioOfertasPublicadas) despacharAvisos(ctx context.Context, o ports.OfertaPublicada) ports.OfertaPublicada {
-	if o.Aviso == nil || o.Aviso.Pendientes == 0 {
+	if o.Aviso == nil {
 		return o
 	}
 	if s.avisos == nil {
-		o.AvisoConfiguracionPendiente = true
+		o.AvisoConfiguracionPendiente = o.Aviso.Pendientes > 0 || o.Aviso.SinConfirmacion > 0
+		return o
+	}
+	if o.Aviso.Pendientes == 0 {
 		return o
 	}
 	// Presupuesto técnico por petición: no limita destinatarios ni cambia el

@@ -206,7 +206,8 @@ func (s *ServicioOfertasPublicadas) ConsultarOfertas(ctx context.Context, q puer
 	ofertas, err := s.repositorio.Listar(ctx, q.BolsaRef, s.reloj().UTC().Truncate(time.Microsecond), q.Limite)
 	if err == nil && s.avisos == nil {
 		for i := range ofertas {
-			ofertas[i].AvisoConfiguracionPendiente = ofertas[i].Aviso != nil && ofertas[i].Aviso.Pendientes > 0
+			ofertas[i].AvisoConfiguracionPendiente = ofertas[i].Aviso != nil &&
+				(ofertas[i].Aviso.Pendientes > 0 || ofertas[i].Aviso.SinConfirmacion > 0)
 		}
 	}
 	return ofertas, err
