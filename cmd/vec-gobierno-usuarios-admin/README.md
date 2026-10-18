@@ -128,12 +128,12 @@ de las claves publicadas.
    ```sh
    vec-gobierno-usuarios-admin -fase verificar -config /ruta/privada/config.json \
      -textos ... -timeout 30s
+   ```
 
    Añadir `-acuse acuse-aplicar.json` para comprobar el tramo sellado que
    contiene ese acto, incluso si después se registraron otros gobiernos.
    La consola coteja el acuse con el plan y material privados originales.
    Sin `-acuse` conserva la consulta general del último sufijo de gobierno.
-   ```
 
 ## Conjunto de capacidades (AD198)
 
