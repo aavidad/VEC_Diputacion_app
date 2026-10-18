@@ -149,6 +149,23 @@ de SQL nueva; para repetir se vuelve a extraer el clon frío.
 
 ## 3. Poner la copia al día con las SQL de `main`
 
+Usa esta lista: `deploy/principal/lista_sql_main_tras_hz37.txt`. Trae una
+sola vez, con su huella, cada migración añadida a `main` después de
+`44218865a`, en el orden en que se fusionaron sus PR y, dentro de cada PR, en
+el orden de su propia lista. Se pasa sola, con un único `--lista-sql`; no la
+combines con las listas antiguas de cada PR, que repiten migraciones y harían
+que el guion rechazara todo. Toda PR que añada migraciones añade sus líneas
+al final de esta lista en la misma PR, con la ruta y su SHA-256.
+
+Hasta que F0-31 lo resuelva en el guion, B119 y sus vecinas necesitan dos
+roles sin LOGIN que no vienen en el volcado: `vec_externo_documentos_bolsa_datos`
+y `vec_interno_documentos_bolsa_rrhh`. Créalos en cuanto responda el
+PostgreSQL de tu copia, antes de que lleguen las migraciones, con
+`docker exec -u postgres vec-copia-<letra>-<instancia> psql -X -c "CREATE ROLE <rol> NOLOGIN;"`.
+
+Lo que sigue explica de dónde sale la lista y cómo se hacía a mano hasta el
+18/10. Sirve para comprobarla, no para aplicar otra cosa.
+
 La copia tiene lo que tiene cidonia. Le faltan las migraciones fusionadas
 después de `44218865a`. Para saber cuáles son:
 
