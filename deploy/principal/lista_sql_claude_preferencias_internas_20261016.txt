@@ -1,9 +1,7 @@
-# F1-12, preferencias de Mi Bolsa interna. Para la copia HZ37, pasar primero
-# --lista-sql deploy/principal/lista_sql_main_tras_hz37.txt y después
-# --lista-sql deploy/principal/lista_sql_claude_preferencias_internas_20261016.txt.
-# La lista común aporta 78 migraciones y esta añade cuatro en el orden indicado.
-# AD279 comprueba que el consumidor central instalado tiene la huella
-# 3c3e5f8a…ecda; si no, no escribe nada. No reaplicar ni hacer DOWN.
+# F1-12 — Subconjunto de las cuatro migraciones propias.
+# La lista completa es lista_sql_main_tras_hz37.txt (82 entradas).
+# No combinar ambas listas: estas cuatro filas ya figuran al final de la completa.
+# AD279 exige la preimagen 3c3e5f8a…ecda. No reaplicar ni hacer DOWN.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000279_preferencias_bolsas_internas.up.sql 5ddaf6d3a3776425420256bdc742ae5badb62067c60ddfac53dce2d9caf63dbf
 deploy/postgresql/autorizacion/migraciones/000096_lectura_preferencias_bolsas_interna.up.sql 98b29d06a128cf4303fe2c821457a724478dcc86029d41078d259a1f387f3b1a
 deploy/postgresql/bolsa_llamamientos/migraciones/000116_preferencias_bolsas_interna.up.sql 2d1c495793cdb0e838d9e6800deadd92a87f6947580e9891f8c4c19c0790cf52

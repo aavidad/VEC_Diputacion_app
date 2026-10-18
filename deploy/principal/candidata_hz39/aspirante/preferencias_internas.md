@@ -10,7 +10,11 @@ igual. Con el selector y alguna pieza ausente, solo esta ruta responde 503.
 
 ## SQL, en este orden y una sola vez
 
-Lista: `deploy/principal/lista_sql_claude_preferencias_internas_20261016.txt`.
+Lista completa de 82 entradas: `deploy/principal/lista_sql_main_tras_hz37.txt`.
+Conserva las 78 de main y añade las cuatro de esta tarea al final.
+`deploy/principal/lista_sql_claude_preferencias_internas_20261016.txt` contiene
+solo esas cuatro para una copia que ya tenga instaladas las 78 anteriores;
+no se combina con la lista completa.
 Va detrás de la cadena fija del núcleo #1147 → #1144 (AD276) → #1146 (AD278)
 → #1155 (AD283) y delante de AD288 (#1176) y AD273.
 
@@ -76,6 +80,15 @@ demás audiencias internas cuando el selector está activo.
   prepara otra identidad de la copia. No se selecciona el montaje externo de
   Mi Bolsa en ese proceso. La configuración completa de Contratación temporal
   publica la clave de capacidad que usa la escritura interna.
+- Auditoría: configurar `VEC_AUDITORIA_SELLADO_DATABASE_URL` con el LOGIN
+  exclusivo del grupo `vec_auditoria_encadenador`. El proceso debe mantener
+  activo su sellador; si el latido supera el plazo admitido, la auditoría
+  rechaza la operación. No se actualiza ese latido por SQL.
+- Datos de la copia: certificado, sujeto, cuenta y persona deben corresponder
+  al contexto corporativo emitido por la aplicación. La candidatura vinculada
+  debe tener al menos una participación vigente para poder guardar un orden.
+  Renovar el certificado exige revisar esas referencias. Los certificados y
+  las asignaciones de la copia tienen una vigencia máxima de 90 días.
 
 Comprobar en la copia: arranque con el selector apagado y encendido; `GET`
 propio 200 con apunte de lectura; `PUT` 201 con recibo; repetición 200 con el
@@ -95,9 +108,25 @@ El consumidor central conserva la huella `a4649132…fb2`. La guarda de B116
 exige nombre y huella exactos de la restricción anterior: acepta la preimagen
 esperada y rechaza una con una condición adicional, sin sustituirla.
 La prueba de recibo SQL usa un doble transaccional del consumidor; por sí sola
-no comprueba la firma real. La identidad corporativa de Antonio, las dos
-superficies de Usuarios, la concesión y el LOGIN están preparados como datos
-de la copia. Sus sondas nominales pasan. El montaje conjunto de Contratación
-todavía no completa la ruta de Mi Bolsa y preferencias responde 503.
-Quedan el GET y PUT reales con recibo y la recuperación tras reiniciar ambos
-procesos. F1-12 continúa pendiente de ese recorrido.
+no comprueba la firma real. La identidad corporativa de Antonio, las dos superficies de Usuarios, la
+concesión y el LOGIN se prepararon como datos de la copia, con vigencias de
+90 días como máximo. El recorrido HTTP se completó con el certificado
+corporativo y el binario de `97adc3c5a`:
+
+- Lectura 200 y guardado 201 con recibo; repetición 200 con la misma versión,
+  orden, referencia y fecha.
+- Tras detener y arrancar la aplicación y PostgreSQL, lectura 200 con el
+  mismo estado y repetición 200 con el recibo original.
+- Sin el selector, arranque con salud 200 y ruta de preferencias 404; al
+  reactivarlo se conserva el estado anterior.
+- Recuperación de una respuesta fallida: antes de corregir la comparación
+  temporal, SQL había confirmado el guardado y HTTP había devuelto 503.
+  Repetir aquella misma petición después de la corrección devolvió 200 y
+  recuperó su recibo, sin crear otra versión.
+
+La comparación de fechas usa ahora el reloj posterior al retorno del
+repositorio. Las pruebas focales aceptan una fecha registrada durante la
+escritura y rechazan una fecha posterior a ese retorno. Dos revisiones
+independientes comprobaron el cambio sobre `97adc3c5a`; las cuatro SQL y
+las huellas del núcleo permanecen intactas. Las 19 pruebas del guion de copia
+pasan con la lista completa de 82 migraciones.
