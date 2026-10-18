@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -89,23 +90,29 @@ func preferenciasBolsasInternasSolicitadas() bool {
 	return os.Getenv(envBolsaPreferenciasInternas) == "true"
 }
 
-func comprobarACLPreferenciasBolsasInternas(ctx context.Context, pool *pgxpool.Pool) bool {
-	if ctx == nil || pool == nil {
-		return false
-	}
-	var valida bool
-	err := pool.QueryRow(ctx, `SELECT session_user=$1 AND current_user=session_user
+// Los objetos de autorización se inspeccionan por catálogo: este LOGIN solo
+// tiene USAGE de Bolsa y ejecuta las fachadas de su propietario.
+const consultaACLPreferenciasBolsasInternas = `WITH requeridas(esquema,nombre,argumentos) AS (VALUES
+ ('vec_autorizacion','cotejar_lectura_preferencias_bolsas_actual_interna_v1','jsonb, text, text'),
+ ('vec_autorizacion_atestada_v3','registrar_y_consumir_preferencias_bolsas_interna_v3_atestada','bytea, bytea, bytea, bytea, numeric, numeric, bytea, bytea, bytea, bytea'),
+ ('vec_autorizacion_atestada_v3','registrar_lectura_preferencias_bolsas_interna_v1','bytea, bytea, jsonb'),
+ ('vec_autorizacion_atestada_v3','registrar_intento_lectura_preferencias_bolsas_interna_v1','bytea, bytea, jsonb')
+)
+SELECT session_user=$1 AND current_user=session_user
  AND has_schema_privilege(session_user,'vec_bolsa_llamamientos','USAGE')
  AND NOT has_schema_privilege(session_user,'vec_bolsa_llamamientos','CREATE')
  AND to_regprocedure('vec_bolsa_llamamientos.consultar_preferencias_bolsas_interna_v1(text,bytea,bytea,jsonb)') IS NOT NULL
  AND to_regprocedure('vec_bolsa_llamamientos.registrar_intento_lectura_preferencias_bolsas_interna_v1(text,bytea,bytea,jsonb)') IS NOT NULL
  AND to_regprocedure('vec_bolsa_llamamientos.ordenar_preferencias_bolsas_interna_v1(text,text[],bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
- AND to_regprocedure('vec_autorizacion.cotejar_lectura_preferencias_bolsas_actual_interna_v1(jsonb,text,text)') IS NOT NULL
- AND to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_interna_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
- AND to_regprocedure('vec_autorizacion_atestada_v3.registrar_lectura_preferencias_bolsas_interna_v1(bytea,bytea,jsonb)') IS NOT NULL
- AND to_regprocedure('vec_autorizacion_atestada_v3.registrar_intento_lectura_preferencias_bolsas_interna_v1(bytea,bytea,jsonb)') IS NOT NULL
+ AND NOT EXISTS(SELECT 1 FROM requeridas r WHERE NOT EXISTS(
+  SELECT 1 FROM pg_catalog.pg_proc p
+  JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname=r.esquema AND p.proname=r.nombre AND p.prokind='f'
+   AND pg_catalog.oidvectortypes(p.proargtypes)=r.argumentos))
  AND EXISTS(SELECT 1 FROM pg_catalog.pg_constraint c
-  WHERE c.conrelid=to_regclass('vec_autorizacion_atestada_v3.auditoria_consumo_v3')
+  JOIN pg_catalog.pg_class t ON t.oid=c.conrelid
+  JOIN pg_catalog.pg_namespace n ON n.oid=t.relnamespace
+  WHERE n.nspname='vec_autorizacion_atestada_v3' AND t.relname='auditoria_consumo_v3'
    AND c.conname='auditoria_lectura_preferencias_bolsas_formato_v2'
    AND c.contype='c' AND c.convalidated
    AND strpos(pg_catalog.pg_get_constraintdef(c.oid,false),'interna_corporativa')>0)
@@ -114,9 +121,21 @@ func comprobarACLPreferenciasBolsasInternas(ctx context.Context, pool *pgxpool.P
  AND has_function_privilege(session_user,'vec_bolsa_llamamientos.ordenar_preferencias_bolsas_interna_v1(text,text[],bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  AND NOT has_function_privilege('public','vec_bolsa_llamamientos.consultar_preferencias_bolsas_interna_v1(text,bytea,bytea,jsonb)','EXECUTE')
  AND NOT has_function_privilege('public','vec_bolsa_llamamientos.registrar_intento_lectura_preferencias_bolsas_interna_v1(text,bytea,bytea,jsonb)','EXECUTE')
- AND NOT has_function_privilege('public','vec_bolsa_llamamientos.ordenar_preferencias_bolsas_interna_v1(text,text[],bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')`,
-		loginBolsaPreferenciasInternas).Scan(&valida)
-	return err == nil && valida
+ AND NOT has_function_privilege('public','vec_bolsa_llamamientos.ordenar_preferencias_bolsas_interna_v1(text,text[],bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')`
+
+func comprobarACLPreferenciasBolsasInternas(ctx context.Context, pool *pgxpool.Pool) error {
+	if ctx == nil || pool == nil {
+		return errMiBolsaNoDisponible
+	}
+	var valida bool
+	if err := pool.QueryRow(ctx, consultaACLPreferenciasBolsasInternas,
+		loginBolsaPreferenciasInternas).Scan(&valida); err != nil {
+		return fmt.Errorf("comprobar metadatos de preferencias internas: %w", err)
+	}
+	if !valida {
+		return fmt.Errorf("%w: permisos o metadatos de preferencias internas incompatibles", errMiBolsaNoDisponible)
+	}
+	return nil
 }
 
 // La capacidad es opcional. Un material o una dependencia incompletos dejan
@@ -163,7 +182,11 @@ func nuevaRutaPreferenciasBolsasInternas(cfg config.Config,
 	topologia, err := acreditarTopologiaPostgreSQLPreferenciasUsuarios(ctx, usuarios.interna.motivosPool)
 	if err != nil || login != loginBolsaPreferenciasInternas ||
 		cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx, pool, topologia) != nil ||
-		usuarios.interna.logins[login] || !comprobarACLPreferenciasBolsasInternas(ctx, pool) {
+		usuarios.interna.logins[login] {
+		return fallo()
+	}
+	if err := comprobarACLPreferenciasBolsasInternas(ctx, pool); err != nil {
+		slog.Warn("preferencias de Mi Bolsa interna no disponibles", "etapa", "metadatos_acl", "causa", err)
 		return fallo()
 	}
 	motivos, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2(usuarios.interna.motivosPool,
