@@ -132,4 +132,4 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000275_lectura_preferenci
 deploy/postgresql/contratacion_temporal/migraciones/000238_seleccion_confirmada_unica.up.sql 5b710d37ee1bb25479566b864235e26e4316ccc08ac9db44e55eebcb2799df00
 
 # F1-73 — Cantidad de la necesidad sellada en el alta directa; no reaplicar.
-deploy/postgresql/contratacion_temporal/migraciones/000239_cantidad_necesidad_sellada.up.sql 91f8a61a0c6e2bd39739094a7bae9397cefb0355f670aa30646c49f9ff89cd98
+deploy/postgresql/contratacion_temporal/migraciones/000239_cantidad_necesidad_sellada.up.sql 5422bedbbb837f29371f8c1326cf63233f72b916a12a2b2c30e0e32cfa3bf435

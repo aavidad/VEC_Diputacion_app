@@ -47,8 +47,12 @@ Las pruebas focales Go, `gopls` y las 79 pruebas de interfaz y caché son
 favorables para el corte anterior al SQL. La revisión de interfaz de T sobre
 `4b5c02707` es favorable. S detectó que el SQL instalado todavía exigía la
 terna de puesto, jornada y número: dirección autorizó CT239 para resolverlo.
-El SQL y los ajustes de diagnóstico guardados durante la parada siguen
-pendientes de ensayo y revisión sobre la cabeza final.
+El SQL pasó el ensayo focal con ROLLBACK: cantidades coherentes y divergentes,
+terna anterior, reconstrucción, bytes históricos y análisis. Los tres casos
+nuevos de diagnóstico también pasan; la causa SQL se conserva en el registro
+técnico sin exponerse en HTTP. La versión final declara las cuatro funciones
+de forma explícita y supera las guardas de `search_path` y del preparador de
+roles. Las revisiones finales y el ensayo integrado siguen pendientes.
 
 El recorrido HTTP en Chrome, la fiscalización y la reserva real con CT235
 todavía no están acreditados. La aceptación debe conservar el reintento
