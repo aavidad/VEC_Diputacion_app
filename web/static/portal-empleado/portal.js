@@ -1304,6 +1304,9 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
       contenedor.innerHTML = `<section class="panel" ${error ? 'role="alert"' : 'role="status" aria-busy="true"'}><div class="cuerpo-panel"><p>${textoPortal(carga === "denegado" ? "txt_la_sesion_actual_no_dispone_de_permisos_suficien" : error ? "txt_no_se_pudieron_cargar_las_bolsas_de_trabajo" : "estado_modulo_comprobando")}</p>${carga === "error" ? `<button type="button" class="boton-secundario" data-bolsa-ruta-reintentar>${textoPortal("accion_reintentar")}</button>` : ""}</div></section>`;
       return;
     }
+    // Retira el aviso «Comprobando…» pintado mientras cargaban las bolsas:
+    // la vista documental se añade al contenedor y no lo vacía por sí misma.
+    contenedor.replaceChildren();
     const controlador = new AbortController();
     vistaDocumentosBolsa = { desmontar: () => controlador.abort() };
     void recursosVistas.get("documentosBolsa").montarVistaDocumentosBolsa({ raiz: contenedor,
