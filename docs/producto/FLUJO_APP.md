@@ -998,7 +998,7 @@ guarda en Documentos.
 | Dar o quitar el perfil de administrador, alta y baja de Intervención | Propuesta de una persona y cierre por otra distinta (`/propuestas`, `/propuestas/{ref}/cierre`) | Solo API; sin pantalla. Falta |
 | Publicar una versión nueva de un rol (por ejemplo, el rol de RRHH de Bolsa) | Propuesta y cierre por dos administradores (`/gobierno-version-bolsa*`, `/gobierno-roles/*`) | Solo API y línea de órdenes |
 | Admitir o ratificar catálogos de acciones | `cmd/vec-catalogo-acciones-admitir`, `cmd/vec-ratificar-catalogo-admin`, con aprobación por huella | Línea de órdenes |
-| Asignar cargos de firma en la copia local | Semilla declarada de copia; la publicación de roles conserva `cmd/vec-publicar-cargos-firma` | F1-63: ensayo SQL local superado, con repetición sin cambios y rechazo de asignación canónica. H mantiene esta preparación hasta F2-12 y F2-14; falta el nuevo recorrido de firma y no se asignan desde pantalla |
+| Asignar cargos de firma en la copia local | Semilla declarada de copia; la publicación de roles conserva `cmd/vec-publicar-cargos-firma` | F1-63: ensayo SQL local superado, con repetición sin cambios y rechazo de fechas incoherentes y de asignación canónica. H mantiene esta preparación hasta F2-12 y F2-14; falta el nuevo recorrido de firma y no se asignan desde pantalla |
 | Activar o desactivar módulos | `/admin/modulos/` solo prepara; se aplica con `VEC_PORTAL_MODULOS_VISIBLES` y reinicio | Pantalla sin montar |
 | Copias de seguridad | `cmd/vec-copias-*`; la pantalla `/admin/copias/` existe sin página ni ruta | Aparcado |
 | Consultar la auditoría por persona | Módulo de auditoría del portal | Falta encenderla (equipo L) |

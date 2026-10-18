@@ -28,7 +28,7 @@ El fichero privado de parámetros psql `0600` aporta:
 | `persona_tecnico`, `persona_jefatura`, `persona_diputacion`, `persona_secretaria` | Personas ficticias del kit de firmantes de esa copia. |
 | `perfil_tecnico`, `perfil_jefatura`, `perfil_diputacion`, `perfil_secretaria` | Perfil de firma activo y propio de cada persona; distinto de los perfiles de consulta y Documentos. |
 | `plan_aut53_sha256` | SHA-256 del plan de 16 cargos V1 **publicado** por AUT53 en esa copia, con registro, auditoría y recibo reales. |
-| `vigente_desde`, `vigente_hasta`, `emitida_en` | Texto UTC de segundos enteros `YYYY-MM-DDTHH:MM:SSZ`, fijado una vez y conservado para el reintento. La vigencia restante queda entre 60 y 90 días y está cubierta por perfil y cargos publicados. |
+| `vigente_desde`, `vigente_hasta`, `emitida_en` | Texto UTC de segundos enteros `YYYY-MM-DDTHH:MM:SSZ`, fijado una vez y conservado para el reintento. La emisión no es posterior al inicio. La vigencia restante queda entre 60 y 90 días y está cubierta por perfil y cargos publicados. |
 
 No se pasan claves, certificados, alias HMAC, aprobaciones ni recibos como
 datos de la semilla. Se toma de la copia el registro AUT53 y su recibo. La
@@ -61,7 +61,7 @@ cat /ruta/privada/parametros-firma-f1-63.psql \
 La salida da la huella SHA-256 de la correspondencia y las cuatro huellas de
 asignación, sin referencias de persona. Guardar esa salida privada junto a
 la huella del archivo SQL
-`29ee6cfba2d9deec67ca8a00c9b74fdfc90ebf3aaa3be5a1f9b1a6bd760306a5`
+`325ba75e879218433d7cb97708a80c4cfc6ab6fee0ba479d87ce91a17373d329`
 y al inventario de filas anterior y posterior.
 Repetir con los mismos parámetros y comprobar cero cambios. La prueba focal
 `probar_datos_asignaciones_firma_legada.sql` hace dos pasadas y comprueba
@@ -84,8 +84,14 @@ lista de la principal y los 16 cargos publicados con recibo real. La prueba
 focal comprobó dos pasadas sin cambios y el rechazo `42501` de una
 asignación canónica; terminó en `ROLLBACK`. La aplicación posterior añadió
 una correspondencia de organización y conservó las cuatro asignaciones ya
-preparadas. Repetirla dejó iguales la historia y los punteros. Dos revisiones
-independientes comprobaron el SQL final y sus guardas de destino.
+preparadas. Repetirla dejó iguales la historia y los punteros.
+
+El ensayo posterior corrigió la comparación de fechas para seguir la regla
+del dominio: la emisión no puede ser posterior al inicio de vigencia. El
+nuevo negativo exige `22023` para ese caso, con ambas fechas en el pasado.
+Pasaron ese negativo, las dos pasadas y el rechazo canónico; todo terminó
+en `ROLLBACK`. Dos revisiones independientes comprobaron el SQL final y el
+nuevo ensayo.
 
 Faltan las catorce publicaciones nominales de Administración: cinco cargos,
 cinco enlaces y cuatro certificados; también el plan de cinco pasos. Después

@@ -61,7 +61,7 @@ BEGIN
  emision:=(j->>'emitida_en')::timestamptz;
  IF inicio IS NULL OR fin IS NULL OR emision IS NULL
     OR NOT pg_catalog.isfinite(inicio) OR NOT pg_catalog.isfinite(fin) OR NOT pg_catalog.isfinite(emision)
-    OR inicio>ahora OR emision>ahora OR emision<inicio
+    OR inicio>ahora OR emision>ahora OR emision>inicio
     OR fin<ahora+interval '60 days' OR fin>ahora+interval '90 days'
  THEN RAISE EXCEPTION 'F1-63: vigencia fuera de 60 a 90 días' USING ERRCODE='22023'; END IF;
 

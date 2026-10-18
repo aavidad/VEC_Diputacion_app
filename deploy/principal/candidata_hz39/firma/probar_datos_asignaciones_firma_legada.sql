@@ -31,6 +31,29 @@ BEGIN
  THEN RAISE EXCEPTION 'F1-63 prueba: segunda pasada cambió historia o punteros' USING ERRCODE='55000'; END IF;
 END $replay$;
 
+-- El dominio exige que la emisión no sea posterior al inicio de vigencia.
+-- Las dos fechas del negativo quedan en el pasado: no se confunde con una
+-- denegación por fecha futura y no debe llegar a crear correspondencias.
+\set f163_desde_original :vigente_desde
+SELECT pg_catalog.to_char((:'emitida_en')::timestamptz-interval '1 second',
+ 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS f163_desde_invalido \gset
+SAVEPOINT f163_cronologia;
+\set vigente_desde :f163_desde_invalido
+\set ON_ERROR_STOP off
+\set solo_precondicion 1
+\ir datos_asignaciones_firma_legada.sql
+\unset solo_precondicion
+\set ON_ERROR_STOP on
+\set vigente_desde :f163_desde_original
+ROLLBACK TO SAVEPOINT f163_cronologia;
+SELECT pg_catalog.set_config('vec.f163.pre_estado',:'f163_pre_estado',true);
+DO $cronologia$
+BEGIN
+ IF pg_catalog.current_setting('vec.f163.pre_estado') <> '22023' THEN
+  RAISE EXCEPTION 'F1-63 prueba: emisión posterior al inicio no denegada' USING ERRCODE='55000';
+ END IF;
+END $cronologia$;
+
 -- Una asignación canónica vigente para la primera persona debe denegar la
 -- semilla, incluso si las cuatro asignaciones legadas ya estaban completas.
 SET LOCAL ROLE vec_autorizacion_propietario;
