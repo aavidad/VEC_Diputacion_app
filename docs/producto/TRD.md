@@ -360,6 +360,18 @@ el motivo mediante conexiones nominales separadas antes de emitir los dos
 archivos privados. Procedimiento y alcance del ensayo en
 `cmd/vec-preparar-material-interno/LEEME-OH.md`.
 
+Las preferencias entre bolsas de Mi Bolsa interna usan el selector opcional
+`VEC_BOLSA_PREFERENCIAS_INTERNA_ENABLED`. Requieren la sesión corporativa de
+Usuarios (`VEC_USUARIOS_PREFERENCIAS_ENABLED`) y un fichero privado propio,
+`identidad/bolsa-preferencias-interna.json`, con el DSN del LOGIN Bolsa nominal
+y la cuenta y perfil de candidato internos. El montaje reutiliza la
+infraestructura de sesión de Usuarios y lee la autoridad publicada. Al
+arrancar solo publica la clave de su audiencia con el gobierno de desarrollo de
+vec-server, como las demás audiencias internas; no crea permisos, LOGIN ni
+filas de origen. Si se solicita sin sus dependencias, la ruta
+de preferencias devuelve 503 y el servidor continúa. El contrato de
+activación está en `deploy/principal/candidata_hz39/aspirante/preferencias_internas.md`.
+
 ### Regla: ninguna configuración nueva tumba el arranque
 
 Si falta o está mal la configuración de una función, falla solo esa función. La
@@ -819,7 +831,7 @@ vocabulario.
 
 ## 14. Pruebas e integración continua
 
-### Las cinco puertas de la CI
+### Las seis puertas de la CI
 
 La CI (integración continua) es la batería automática que GitHub ejecuta en cada
 PR y en cada envío a `main` (`.github/workflows/ci.yml`):
@@ -831,6 +843,7 @@ PR y en cada envío a `main` (`.github/workflows/ci.yml`):
 | `puerta-artefactos-productivos` | Construye las imágenes pública e interna y comprueba su contenido y su fallo cerrado | 2 a 5 min |
 | `puerta-postgresql-contexto-actor-v3` | Identidad y autorización V3 en un PostgreSQL 18 real | 2 min |
 | `puerta-postgresql-bolsa-publica` | Proyección pública de Bolsa en PostgreSQL 18 con TLS | 2 min |
+| `puerta-postgresql-recorrido-fase1` | Restaura el esquema HZ37 sin datos, comprueba tablas vacías y aplica la lista única posterior | Por medir en CI |
 
 `scripts/verificar_calidad.sh` ejecuta: comprobación de `search_path`, `gofmt`,
 `go mod verify`, `go test ./...`, `go test -race ./...`, `go vet ./...`,

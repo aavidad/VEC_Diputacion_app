@@ -6,8 +6,8 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 // La integración de las ofertas de CT con CT231 renueva entrada, coordinador
 // y la cadena de Contratación cambiada; el alta conserva su cohorte.
-const versionCoordinador = "20261018-f136c-informe-v3";
-const versionCoordinadorEntrada = "20261018-f136c-informe-v3";
+const versionCoordinador = "20261018-f136c-informe-v4";
+const versionCoordinadorEntrada = "20261018-f136c-informe-v4";
 const versionEntrada = versionCoordinadorEntrada;
 const versionClienteCT = "20261016-ct-ofertas-ct231-v1";
 const versionClienteConsulta = versionCoordinador;
@@ -18,7 +18,7 @@ const versionAccionesFirma = versionCoordinador;
 const versionVista = versionCoordinador;
 const versionVistaPortal = versionCoordinadorEntrada;
 const versionAdaptador = versionCoordinador;
-const versionRender = versionCoordinador;
+const versionRender = "20261018-f136c-informe-v4";
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);

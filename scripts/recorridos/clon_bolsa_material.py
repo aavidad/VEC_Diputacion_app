@@ -397,7 +397,9 @@ def _historical_manifest(clone: Clone, material: Path) -> dict:
       FROM vec_autorizacion.asignacion_perfil_actual v
       JOIN vec_autorizacion.asignacion_perfil a ON a.perfil_activo_ref=v.perfil_activo_ref
       AND a.asignacion_ref=v.asignacion_ref
-      WHERE v.acto_ref='acto:bolsa:bback:asignacion:v1';"""))
+      WHERE a.documento->>'estado'='activa'
+        AND pg_catalog.starts_with(a.documento->>'version_rol_ref',
+          'rol:tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo:');"""))
     matching = [a for a in rows if a.get("perfil_activo_ref") == profile]
     if len(matching) > 1 or (matching and matching[0].get("estado") != "activa"):
         raise ProvisionError("rrhh_bback_historical_profile_mismatch")

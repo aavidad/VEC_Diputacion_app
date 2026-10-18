@@ -46,9 +46,9 @@ const PREIMAGEN = {
     "rotulos_en": "4b385dd66a73578fc25568f6b49ab63b40a899577dd202c8b03d652270cca20b"
   },
   "i18n-ficha-lista.js": {
-    // La ficha añade firmas_historicas_error; las claves anteriores conservan su huella aparte.
-    "MENSAJES_FICHA_LISTA_EN": "d91cf74d36fb60c05ca9c206a052d413a7accaf5a32e2758ff8a383e077a4fbd",
-    "MENSAJES_FICHA_LISTA_ES": "8f2d4e753d974d2371611eb722a2f9db5e333845e05498df1fca76b927104e6b"
+    // F1-74 aporta los mensajes de fiscalización y C el error de firmas históricas.
+    "MENSAJES_FICHA_LISTA_EN": "b1b986b0393d8d4843d517b79b425536fb83c39bdcb147e29a502719bc047887",
+    "MENSAJES_FICHA_LISTA_ES": "ddf03fbe54a3b91147d7536fd213ec24867692da62b30e2503e9b2c5da0d4009"
   },
   "i18n-informe-tras-subsanacion.js": {
     "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "f2cf9af7062644110924a3c5a72d29235c556281e30b46dc008781723678067d",
@@ -71,8 +71,8 @@ const PREIMAGEN = {
   }
 };
 const PREIMAGEN_FICHA_LISTA_ANTERIOR = Object.freeze({
-  MENSAJES_FICHA_LISTA_EN: "f7eb988f54b9ac84f9b1844b889f16a9c5db4a819f575ae5839364e3b1eba719",
-  MENSAJES_FICHA_LISTA_ES: "7ff24a5cdc854030c4b125889f8f3b59e4716ac73845674a842744335c4c59b0",
+  MENSAJES_FICHA_LISTA_EN: "9150a2587a75e61eaf689150c1ed5a7eb8b154f50da041431d44fb2eb446b06a",
+  MENSAJES_FICHA_LISTA_ES: "f104ba579849f09ba63661d23f925889abe7b2f4e8831b060a37527f01c59558",
 });
 // ANA002 añade cinco rótulos de contexto; la preimagen sigue comprobando todos los textos anteriores.
 const CLAVES_CONTEXTO_ANA002 = Object.freeze([

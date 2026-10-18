@@ -309,7 +309,7 @@ conveniente».
 | 6 | Carmen | Ficha, Asignación | Asigna la unidad gestora | Recibo; `asignacion_unidad/en_curso`, v4 |
 | 7 | Carmen | Ficha, Informe jurídico | Prepara el informe | Recibo; `informe_juridico/en_curso`, v5 |
 | 7b | Carmen y después Jefatura (firmantes) | Ficha, Firma | Firman con sus certificados el informe de remisión a Intervención, en ese orden; la fiscalización exige ambas firmas verificadas | Un recibo por firma y el PDF con las dos firmas verificadas |
-| 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6 |
+| 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6. Con el resultado favorable explícito, la ficha orienta al llamamiento sin cambiar esa fase ni pedir otra fiscalización |
 | 9 | Carmen | Ficha, Llamamiento y comunicación | Abre el llamamiento desde la bolsa Administrativo y registra la comunicación | Recibo del llamamiento con Antonio como llamado; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas) |
 | 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo de dos días | Recibo de su respuesta |
 | 10a (si renuncia con causa justificada) | Antonio; después Carmen u otra técnica de RRHH con permiso vigente | Mi Bolsa; ficha del candidato en Bolsas | Antonio adjunta un PDF del justificante, confirma la renuncia y conserva el recibo. RRHH consulta y descarga el documento desde la ficha; también queda en el seguimiento | Documento custodiado tras antivirus; recibo de VEC y lectura de RRHH auditada. No cambia la rama de aceptación del paso 10 |
@@ -367,6 +367,8 @@ envío de correo. También siguen pendientes la consulta de Organización histó
 entre la unidad que tramita y la del puesto y la asignación de los permisos
 necesarios para la activación. Este ejercicio no cambia
 los pasos 1 a 21 del caso singular.
+
+**Ensayo F1-55 (18/10).** La copia local registra dos aceptaciones previas desde Mi Bolsa y adjudica por orden, aunque la segunda posición aceptó antes que la primera. Al perder la respuesta de la primera adjudicación, la misma intención recuperó con 200 el recibo y la fecha tras reiniciar aplicación y PostgreSQL, sin duplicar el acto. Las dos plazas quedaron cubiertas; la tercera persona siguió disponible sin responder. Cada adjudicación permite abrir y copiar su recibo y consultar su fecha; comprobado desde Chrome tras reiniciar, sin otra escritura. No responder no produce un acto ni una baja. La cancelación queda en F1-17; la continuación hasta formalización en CT sigue pendiente. La preparación de las dos identidades reutiliza el guion existente; la autoridad de RRHH procede del arranque de desarrollo documentado, sin asignación manual ni cambio de huellas. Evidencia y límites en `deploy/principal/aceptacion_dos_plazas_f1_55_20261018.md`.
 
 ### 4.0.1 Vista general
 
@@ -773,6 +775,13 @@ por la comunicación real con su recibo. Está pendiente de integración; el ens
 no completa el apartado 4.0. Activación y límites en
 [`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
 
+F1-69 prepara un control en la base para que un expediente conserve una sola
+selección confirmada, también cuando la oferta cubre varias plazas. Al volver
+a la ficha se recupera la selección original para continuar el aviso; las
+referencias de los pasos posteriores no crean otra selección. Sigue pendiente
+ensayar el control y el recorrido completo antes de integrarlo. La ruta y la
+pantalla son las actuales.
+
 Con #1088 (**en main, sin subir**) la selección usa la bolsa constituida, su
 orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
 (`VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`; sin ella responde 503 y el resto
@@ -786,6 +795,8 @@ se han comprobado la publicación de dos plazas, su consulta y aceptación desde
 Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
 un reintento conserva fechas, política y oferta originales. Este corte no acredita
 todavía la publicación desde la ficha de CT.
+
+**Candidatas de aviso por correo (F1-18, ensayadas en copia local).** Publicar fija las participaciones disponibles de la bolsa constituida y guarda cada aviso con el correo del alta como fuente. «Gestionar ofertas» muestra pendientes, enviados, sin confirmación y fallidos. El 18/10 se repitió el ensayo en una copia nueva con la receta interna: publicación de dos plazas desde pantalla, pendientes conservados con enlace ausente e inválido y recuperación tras reiniciar aplicación y PostgreSQL. «Actualizar estado» permite continuar al corregir la configuración. Un contacto ausente deja un aviso fallido. El segundo corte (#1184) añade «Reintentar envíos sin confirmación»: revisar la oferta y la advertencia de posible duplicado, confirmar y obtener un recibo propio. Se comprobaron cancelar sin envío, confirmación, respuesta perdida y recuperación con la misma clave y recibo tras reiniciar; otra clave durante el envío recibe conflicto. Los dos mensajes del reintento conservan identificador y contenido. Chrome comprobó castellano e inglés a 1440 y 390 píxeles, sin desbordamiento horizontal. La ficha de candidatos importados sigue fuera del alcance; se accede por Llamamientos → Gestionar ofertas. Enviado acredita aceptación por el servicio de correo; no cambia el plazo ni acredita entrega o notificación. La integración de ambos cortes sigue pendiente y F1-18 permanece abierta.
 
 **Candidata R1a comprobada en copia local, pendiente de integrar.** La selección explica por
 persona los hechos comprobados y el motivo aplicado, con el vínculo al contrato

@@ -13,7 +13,7 @@ import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-ex
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js?v=20261011-ct-bolsa-vinculo-v1";
+} from "./vista-expedientes-ficha.js?v=20261018-f174-v1";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 

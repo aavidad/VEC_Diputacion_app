@@ -8,6 +8,8 @@
     "ficha_expediente_numero": "Case {numero}",
     "ficha_siguiente_paso_fase": "Next step: {fase}",
     "ficha_siguiente_paso_fiscalizacion_intervencion": "Intervention must record the audit result. Once it does, the next step will appear here.",
+    "ficha_siguiente_paso_fiscalizacion_favorable_titulo": "Next step: call-up",
+    "ficha_siguiente_paso_fiscalizacion_favorable_que": "The favourable audit result has been recorded. Continue in the “Call-up” section of this case file.",
     "ficha_siguiente_paso_espera": "Waiting for another unit",
     "ficha_siguiente_paso_terminado": "Case finished",
     "ficha_siguiente_paso_cobertura_titulo": "Next step: choose the recruitment route",
