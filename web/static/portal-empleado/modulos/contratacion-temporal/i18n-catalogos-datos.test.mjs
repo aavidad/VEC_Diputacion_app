@@ -49,8 +49,9 @@ const PREIMAGEN = {
     // Excepción a la preimagen (06/10/2026): filtros «Vencen hoy», «Con una
     // incidencia abierta» y «Sin plazo calculado» a los que lleva la portada, y
     // aviso de filtro parcial que ya no habla solo de la búsqueda.
-    "MENSAJES_FICHA_LISTA_EN": "f7eb988f54b9ac84f9b1844b889f16a9c5db4a819f575ae5839364e3b1eba719",
-    "MENSAJES_FICHA_LISTA_ES": "7ff24a5cdc854030c4b125889f8f3b59e4716ac73845674a842744335c4c59b0"
+    // F1-74 incorpora dos mensajes para la fiscalización favorable registrada.
+    "MENSAJES_FICHA_LISTA_EN": "9150a2587a75e61eaf689150c1ed5a7eb8b154f50da041431d44fb2eb446b06a",
+    "MENSAJES_FICHA_LISTA_ES": "f104ba579849f09ba63661d23f925889abe7b2f4e8831b060a37527f01c59558"
   },
   "i18n-informe-tras-subsanacion.js": {
     "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "f2cf9af7062644110924a3c5a72d29235c556281e30b46dc008781723678067d",
