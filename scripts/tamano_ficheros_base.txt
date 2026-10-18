@@ -104,8 +104,8 @@
 998 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 835 web/static/portal-empleado/modulos/dietas/dietas.css
 2017 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1781 web/static/portal-empleado/portal-modulos-coordinador.js
-1865 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
+1793 web/static/portal-empleado/portal-modulos-coordinador.js
+1894 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1131 web/static/portal-empleado/portal-componentes.css
 2278 web/static/portal-empleado/portal.js
 1538 web/static/portal-empleado/portal-bolsas-api.js

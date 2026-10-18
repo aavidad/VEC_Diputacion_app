@@ -563,7 +563,8 @@ export function crearCoordinadorModulosPortal({
           catalogosAlta: primera ? vigente(catalogosAltaLista) : null };
         promesaCompleto ??= recursos.cargarCompleto().then((partes) => cargarContratacionTemporal({
           consultar, exigirVigente, notificar,
-          recursosRecibidos: { ...recursos, ...partes, cargarCuadroLigero: null, tomarCuadroLista, tomarCatalogosAlta },
+          recursosRecibidos: { ...recursos, ...partes, cargarCuadroLigero: null, tomarCuadroLista, tomarCatalogosAlta,
+            soloIntervencion: perfilIntervencion },
         })).then(({ contratacionTemporal }) => contratacionTemporal)
           .catch((error) => { promesaCompleto = null; throw error; });
         return promesaCompleto;
@@ -677,7 +678,14 @@ export function crearCoordinadorModulosPortal({
     // y categoría aparecen en cuanto llegan (se avisa con `notificar`). Abrir
     // Contratación espera a que terminen, para que el alta y la bandeja se
     // monten ya con ellos.
-    const promesaAlta = consultar((opciones) => cliente.obtenerCatalogosAlta(opciones)).then((valor) => {
+    // La lista ya acreditó que la sesión tiene solo el perfil de Intervención:
+    // su pantalla es la fiscalización, que no usa alta, cuadro ni configuración
+    // del análisis de RRHH. No se piden (el servidor las denegaría igualmente).
+    const soloIntervencion = recursos.soloIntervencion === true;
+    const noUsadaPorIntervencion = () => Promise.reject(Object.assign(
+      new Error("lectura de RRHH no usada por Intervención"), { codigo: "no_usada_intervencion" }));
+    const promesaAlta = (soloIntervencion ? noUsadaPorIntervencion()
+      : consultar((opciones) => cliente.obtenerCatalogosAlta(opciones))).then((valor) => {
       try {
         alta = Object.freeze({
           catalogos: recursos.contrato.validarCatalogosAlta(valor),
@@ -696,8 +704,10 @@ export function crearCoordinadorModulosPortal({
       if (alta === null) void centrosOrganizacion()?.then((centros) => { if (centros) notificar(); });
     });
     // La portada solo necesita los recuentos de todo el cuadro, no sus filas.
-    const consultaCuadro = consultar((opciones) => fuente.resumenInicio(opciones));
-    const promesaConfiguracion = consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones));
+    const consultaCuadro = soloIntervencion ? noUsadaPorIntervencion()
+      : consultar((opciones) => fuente.resumenInicio(opciones));
+    const promesaConfiguracion = soloIntervencion ? noUsadaPorIntervencion()
+      : consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones));
     promesaConfiguracion.then((valor) => entregarModalidades(valor?.modalidades ?? null), () => entregarModalidades(null));
     // Desde la lista (ficha, alta o filtros), la vista se va a montar: se
     // descarga ya, tras lanzar las consultas para no retrasarlas. Un fallo se
@@ -1500,6 +1510,8 @@ export function crearCoordinadorModulosPortal({
           zonaHoraria: ZONA_HORARIA_PORTAL,
           confirmarOperacion,
           anunciar,
+          expedienteRef,
+          expedienteVersion: opciones?.expedienteVersion ?? null,
         })
         : await temporal.montar({
           raiz,
