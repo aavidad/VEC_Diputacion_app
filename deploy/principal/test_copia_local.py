@@ -69,6 +69,19 @@ class CopiaLocalTest(unittest.TestCase):
         self.assertEqual(plan[0][2], b'BEGIN; COMMIT;')
         self.assertEqual(copia.hashlib.sha256(plan[0][2]).hexdigest(), plan[0][1])
 
+    def test_lista_unica_de_main_es_valida_y_completa(self):
+        lista = Path(__file__).with_name('lista_sql_main_tras_hz37.txt')
+        rutas = [c[0] for c in (l.split('#', 1)[0].split() for l in lista.read_text().splitlines()) if c]
+        self.assertTrue(rutas)
+        self.assertEqual(len(rutas), len(set(rutas)))
+        patch.stopall()
+        plan = copia.migraciones([lista])
+        self.assertEqual([str(r.relative_to(copia.REPO)) for r, _, _ in plan], rutas)
+        nuevas = copia.subprocess.check_output(['git', '-C', str(copia.REPO), 'diff', '--name-only',
+                     '--diff-filter=A', copia.REFERENCIA, 'HEAD', '--', 'deploy/postgresql'], text=True).split()
+        self.assertEqual(sorted(rutas), sorted(r for r in nuevas if r.endswith('.up.sql')),
+                         'Toda migración nueva de main debe estar en la lista única')
+
     def test_interrupcion_de_estado_conserva_el_anterior(self):
         estado = self.raiz / 'estado.json'
         copia.guardar(estado, {'preparada': False})

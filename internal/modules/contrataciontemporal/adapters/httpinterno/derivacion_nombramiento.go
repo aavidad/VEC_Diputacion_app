@@ -16,53 +16,19 @@ import (
 const RutaDerivacionNombramiento = "/api/vec/contratacion-temporal/nombramientos/derivaciones"
 const maximoCuerpoDerivacionNombramiento = 4096
 
-type ejecutorDerivacionNombramiento interface {
+type EjecutorDerivacionNombramiento interface {
 	Derivar(context.Context, ports.EntradaDerivacionNombramiento) (ports.ResultadoDerivacionNombramiento, error)
 }
 
 type manejadorDerivacionNombramiento struct {
-	ejecutor ejecutorDerivacionNombramiento
+	ejecutor EjecutorDerivacionNombramiento
 }
 
-func NuevoManejadorDerivacionNombramiento(e ejecutorDerivacionNombramiento) (http.Handler, error) {
+func NuevoManejadorDerivacionNombramiento(e EjecutorDerivacionNombramiento) (http.Handler, error) {
 	if dependenciaNula(e) {
 		return nil, ports.ErrDerivacionNombramientoNoDisponible
 	}
 	return &manejadorDerivacionNombramiento{ejecutor: e}, nil
-}
-
-type entradaDerivacionNombramientoJSON struct {
-	PadreRef              string `json:"padre_ref"`
-	VersionPadre          uint64 `json:"version_padre"`
-	OfertaRef             string `json:"oferta_ref"`
-	NumeroPlaza           uint32 `json:"numero_plaza"`
-	SecuenciaPlaza        uint32 `json:"secuencia_plaza"`
-	ParticipacionRef      string `json:"participacion_ref"`
-	ReciboAdjudicacionRef string `json:"recibo_adjudicacion_ref"`
-	ClaveIdempotencia     string `json:"clave_idempotencia"`
-}
-
-func (e entradaDerivacionNombramientoJSON) puerto() ports.EntradaDerivacionNombramiento {
-	return ports.EntradaDerivacionNombramiento{
-		PadreRef: e.PadreRef, VersionPadre: e.VersionPadre, OfertaRef: e.OfertaRef,
-		NumeroPlaza: e.NumeroPlaza, SecuenciaPlaza: e.SecuenciaPlaza,
-		ParticipacionRef: e.ParticipacionRef, ReciboAdjudicacionRef: e.ReciboAdjudicacionRef,
-		ClaveIdempotencia: e.ClaveIdempotencia,
-	}
-}
-
-type reciboDerivacionNombramientoJSON struct {
-	Esquema       string `json:"esquema"`
-	Estado        string `json:"estado"`
-	PadreRef      string `json:"padre_ref"`
-	HijoRef       string `json:"hijo_ref"`
-	NumeroVisible string `json:"numero_visible"`
-	NumeroPlaza   uint32 `json:"numero_plaza"`
-	TotalPersonas uint32 `json:"total_personas"`
-	Version       uint64 `json:"version"`
-	AceptacionRef string `json:"aceptacion_ref"`
-	ReciboRef     string `json:"recibo_ref"`
-	ConfirmadaEn  string `json:"confirmada_en"`
 }
 
 func (h *manejadorDerivacionNombramiento) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -86,14 +52,8 @@ func (h *manejadorDerivacionNombramiento) ServeHTTP(w http.ResponseWriter, r *ht
 		responderErrorDerivacionNombramiento(w, r, errorCuerpoCoberturaDemasiadoGrande)
 		return
 	}
-	if r.Body == nil || r.Body == http.NoBody || r.ContentLength == 0 ||
-		len(r.Trailer) != 0 || !transferenciaAltaPermitida(r.TransferEncoding) ||
-		!cabecerasPropuestaFormalizacionPermitidas(r) {
-		responderErrorDerivacionNombramiento(w, r, errorPeticionCoberturaNoPermitida)
-		return
-	}
-	if !tipoContenidoJSON(r.Header) || !acceptCompatibleJSON(r.Header) {
-		responderErrorDerivacionNombramiento(w, r, errorTipoCoberturaNoAdmitido)
+	if problema := validarMetadatosPropuestaFormalizacion(r); problema != nil {
+		responderErrorDerivacionNombramiento(w, r, *problema)
 		return
 	}
 	contenido, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maximoCuerpoDerivacionNombramiento+1))
@@ -105,14 +65,14 @@ func (h *manejadorDerivacionNombramiento) ServeHTTP(w http.ResponseWriter, r *ht
 		responderErrorDerivacionNombramiento(w, r, errorPeticionCoberturaNoValida)
 		return
 	}
-	var entrada entradaDerivacionNombramientoJSON
+	var entrada ports.EntradaDerivacionNombramiento
 	dec := json.NewDecoder(bytes.NewReader(contenido))
 	dec.DisallowUnknownFields()
-	if dec.Decode(&entrada) != nil || dec.Decode(&struct{}{}) != io.EOF || entrada.puerto().Validar() != nil {
+	if dec.Decode(&entrada) != nil || dec.Decode(&struct{}{}) != io.EOF || entrada.Validar() != nil {
 		responderErrorDerivacionNombramiento(w, r, errorContenidoCoberturaInvalido)
 		return
 	}
-	resultado, err := h.ejecutor.Derivar(r.Context(), entrada.puerto())
+	resultado, err := h.ejecutor.Derivar(r.Context(), entrada)
 	if err != nil {
 		responderErrorDerivacionNombramiento(w, r, clasificarErrorDerivacionNombramiento(err), err)
 		return
@@ -129,13 +89,15 @@ func (h *manejadorDerivacionNombramiento) ServeHTTP(w http.ResponseWriter, r *ht
 		estado = http.StatusOK
 	}
 	responderJSONCobertura(w, r, estado, struct {
-		Data reciboDerivacionNombramientoJSON `json:"data"`
-	}{
-		Data: reciboDerivacionNombramientoJSON{resultado.Esquema, resultado.Estado, resultado.PadreRef,
-			resultado.HijoRef, resultado.NumeroVisible, resultado.NumeroPlaza, resultado.TotalPersonas,
-			resultado.Version, resultado.AceptacionRef, resultado.ReciboRef,
-			resultado.ConfirmadaEn.UTC().Format("2006-01-02T15:04:05.999999999Z07:00")},
-	})
+		Data map[string]any `json:"data"`
+	}{Data: map[string]any{
+		"esquema": resultado.Esquema, "estado": resultado.Estado,
+		"padre_ref": resultado.PadreRef, "hijo_ref": resultado.HijoRef,
+		"numero_visible": resultado.NumeroVisible, "numero_plaza": resultado.NumeroPlaza,
+		"total_personas": resultado.TotalPersonas, "version": resultado.Version,
+		"aceptacion_ref": resultado.AceptacionRef, "recibo_ref": resultado.ReciboRef,
+		"confirmada_en": resultado.ConfirmadaEn.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"),
+	}})
 }
 
 func clasificarErrorDerivacionNombramiento(err error) errorPublicoCobertura {
@@ -158,7 +120,8 @@ func clasificarErrorDerivacionNombramiento(err error) errorPublicoCobertura {
 func responderErrorDerivacionNombramiento(w http.ResponseWriter, r *http.Request, e errorPublicoCobertura, causas ...error) {
 	// Se reutiliza el contrato de errores de CT; ninguna referencia de persona,
 	// snapshot o material firmado aparece en la respuesta.
+	e.claveI18n = "api.contratacion_temporal.cobertura.error." + e.codigo
 	responderErrorCobertura(w, r, e, causas...)
 }
 
-var _ ejecutorDerivacionNombramiento = (*application.ServicioDerivacionNombramiento)(nil)
+var _ EjecutorDerivacionNombramiento = (*application.ServicioDerivacionNombramiento)(nil)

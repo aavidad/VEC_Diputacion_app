@@ -12,15 +12,11 @@ DO $pre$
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
     OR current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
-    OR to_regclass('vec_bolsa_llamamientos.origen_oferta_ct_v1') IS NULL
-    OR to_regclass('vec_bolsa_llamamientos.origen_oferta_ct_outbox_v1') IS NULL
-    OR to_regclass('vec_bolsa_llamamientos.oferta_publicada') IS NULL
-    OR to_regclass('vec_bolsa_llamamientos.plazas_oferta') IS NULL
-    OR to_regclass('vec_bolsa_llamamientos.acto_plaza_oferta') IS NULL
-    OR to_regclass('vec_bolsa_llamamientos.acto_plaza_oferta_outbox') IS NULL
-    OR to_regclass('vec_bolsa_llamamientos.disposicion_oferta') IS NULL
-    OR to_regclass('vec_bolsa_llamamientos.disposicion_oferta_candidato') IS NULL
-    OR to_regclass('vec_bolsa_llamamientos.politica_ofertas_version') IS NULL
+    OR EXISTS(SELECT 1 FROM unnest(ARRAY[
+      'origen_oferta_ct_v1','origen_oferta_ct_outbox_v1','oferta_publicada',
+      'plazas_oferta','acto_plaza_oferta','acto_plaza_oferta_outbox',
+      'disposicion_oferta','disposicion_oferta_candidato','politica_ofertas_version']) n(nombre)
+      WHERE to_regclass('vec_bolsa_llamamientos.'||n.nombre) IS NULL)
     OR to_regprocedure('vec_bolsa_llamamientos.verificar_oferta_ct_v1(text,text,bigint,text,text,text,text,text,text,integer,jsonb,text)') IS NULL
     OR to_regprocedure('vec_contexto_actor_v1.acreditar_persona_candidato_incorporacion_v1(text)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.verificar_plaza_adjudicada_ct_v1(text,text,text,integer,integer,text,text)') IS NOT NULL
@@ -47,15 +43,12 @@ BEGIN
     OR current_setting('transaction_isolation')<>'serializable'
     OR current_setting('transaction_read_only')<>'off'
  THEN RAISE EXCEPTION 'B135: sesión denegada' USING ERRCODE='42501'; END IF;
- IF p_organizacion IS NULL OR p_organizacion<>btrim(p_organizacion)
-    OR octet_length(p_organizacion) NOT BETWEEN 1 AND 256
-    OR p_padre IS NULL OR p_padre<>btrim(p_padre)
-    OR octet_length(p_padre) NOT BETWEEN 1 AND 256
+ IF EXISTS(SELECT 1 FROM unnest(ARRAY[p_organizacion,p_padre,p_participacion]) x(referencia)
+     WHERE x.referencia IS NULL OR x.referencia<>btrim(x.referencia)
+       OR octet_length(x.referencia) NOT BETWEEN 1 AND 256)
     OR p_oferta IS NULL OR p_oferta !~ '^oferta:[0-9a-f]{64}$'
     OR p_plaza IS NULL OR p_plaza NOT BETWEEN 1 AND 100
     OR p_secuencia IS NULL OR p_secuencia NOT BETWEEN 1 AND 10000
-    OR p_participacion IS NULL OR p_participacion<>btrim(p_participacion)
-    OR octet_length(p_participacion) NOT BETWEEN 1 AND 256
     OR p_recibo_adjudicacion IS NULL
     OR p_recibo_adjudicacion !~ '^recibo:plaza-oferta:[0-9a-f]{64}$'
  THEN RAISE EXCEPTION 'B135: selector inválido' USING ERRCODE='22023'; END IF;

@@ -2,12 +2,9 @@ package application
 
 import (
 	"context"
-	"errors"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
-
-var ErrServicioDerivacionNombramientoNoDisponible = errors.New("contratacion temporal: servicio de derivacion no disponible")
 
 type ServicioDerivacionNombramiento struct {
 	preparador  ports.PreparadorDerivacionNombramiento
@@ -19,7 +16,7 @@ func NuevoServicioDerivacionNombramiento(p ports.PreparadorDerivacionNombramient
 	a ports.AutorizadorDerivacionNombramiento, t ports.TransaccionDerivacionNombramiento,
 ) (*ServicioDerivacionNombramiento, error) {
 	if dependenciaNula(p) || dependenciaNula(a) || dependenciaNula(t) {
-		return nil, ErrServicioDerivacionNombramientoNoDisponible
+		return nil, ports.ErrDerivacionNombramientoNoDisponible
 	}
 	return &ServicioDerivacionNombramiento{p, a, t}, nil
 }
@@ -29,7 +26,7 @@ func (s *ServicioDerivacionNombramiento) Derivar(ctx context.Context,
 ) (ports.ResultadoDerivacionNombramiento, error) {
 	vacio := ports.ResultadoDerivacionNombramiento{}
 	if s == nil || ctx == nil || dependenciaNula(s.preparador) || dependenciaNula(s.autorizador) || dependenciaNula(s.transaccion) {
-		return vacio, ErrServicioDerivacionNombramientoNoDisponible
+		return vacio, ports.ErrDerivacionNombramientoNoDisponible
 	}
 	if err := e.Validar(); err != nil {
 		return vacio, err
@@ -41,10 +38,7 @@ func (s *ServicioDerivacionNombramiento) Derivar(ctx context.Context,
 	if err != nil {
 		return vacio, err
 	}
-	if sol.Entrada() != e {
-		return vacio, ports.ErrDerivacionNombramientoNoConfiable
-	}
-	if _, err = sol.Canon(); err != nil {
+	if _, err = sol.Canon(); err != nil || sol.Entrada() != e {
 		return vacio, ports.ErrDerivacionNombramientoNoConfiable
 	}
 	if err = ctx.Err(); err != nil {

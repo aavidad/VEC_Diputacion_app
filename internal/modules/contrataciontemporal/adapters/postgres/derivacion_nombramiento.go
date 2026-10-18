@@ -176,11 +176,15 @@ func ejecutarDerivacionNombramiento(ctx context.Context, conn sesionDerivacionNo
 		set_config('idle_in_transaction_session_timeout','20s',true)`); err != nil {
 		return resultado, errorDerivacionNombramiento(ctx, err)
 	}
+	personaVersion, perfilVersion := a.PersonaVersion(), a.PerfilVersion()
+	if personaVersion > maximoVersionEnteraPostgreSQL || perfilVersion > maximoVersionEnteraPostgreSQL {
+		return resultado, ports.ErrDerivacionNombramientoDenegada
+	}
 	var salida string
 	err = tx.QueryRow(ctx, `SELECT vec_contratacion_temporal.derivar_nombramiento_ct234_v1(
 		$1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text`,
 		string(canon), a.CapacidadCanonica(), a.DecisionCanonica(), a.MotivoCanonico(), a.ContextoActorCanonico(),
-		int64(a.PersonaVersion()), int64(a.PerfilVersion()), a.PayloadVECAD3(), a.SobreCOSESign1(),
+		int64(personaVersion), int64(perfilVersion), a.PayloadVECAD3(), a.SobreCOSESign1(),
 		a.EvidenciaVerificacion(), a.RaizPublicaSPKI()).Scan(&salida)
 	if err != nil {
 		return resultado, errorDerivacionNombramiento(ctx, err)

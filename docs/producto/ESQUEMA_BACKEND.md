@@ -359,6 +359,8 @@ erDiagram
     INSCRIPCION_INCORPORACION }o--|| VINCULO_CANDIDATO : "crea participacion"
 ```
 
+Candidata F1-04/05: `GET/POST /api/vec/bolsa/politica-transiciones` conecta la política global B32 con el portal de RRHH. CAT14 ofrece una lectura nominal por versión y huella del catálogo `bolsa.transiciones_situacion`; AD283 registra el consumidor propio; B122 añade el acto de gobierno y su salida pendiente, con versión esperada, motivo, recibo y auditoría. El POST exige decisión V3 fresca y conserva el recibo original en un reintento. El publicador ordinario antiguo pierde EXECUTE para el ejecutor. La instalación única está comprobada en la copia propia con las ACL completas; el recorrido conserva versión y recibo después de reiniciar aplicación y PostgreSQL. B126 sustituye los cuantificadores no admitidos por predicados equivalentes de longitud y conjunto de caracteres, sin cambiar permisos ni cánones. B127 expone `publicada_en` desde la fila guardada; un reintento conserva el instante original. La activación de la candidata y la preimagen de AD283 tras la cadena central siguen pendientes. Su lista causal está en `deploy/principal/lista_sql_codexs_reglas_situacion_20261015.txt`.
+
 Políticas versionadas que RRHH puede cambiar sin tocar código:
 `politica_orden_bolsa`, `politica_transiciones_situacion`, `politica_avisos_bolsa`,
 `politica_cese_bolsa`, `politica_segregacion`, `politica_ofertas_version`.
@@ -432,6 +434,15 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 `plan_incorporacion_personal_b2_v1`. CT **no escribe** agregados de Bolsa ni de
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
+
+F1-19 prepara un expediente hijo por cada plaza aceptada de una oferta del
+padre fiscalizado. Bolsa verifica la aceptación y CT conserva la relación con
+padre, plaza y recibo en una operación atómica. La ruta
+`POST /api/vec/contratacion-temporal/nombramientos/derivaciones` admite los ocho
+campos de la guía de activación; la composición actual responde 503 hasta
+conectar el productor de autorización. Faltan la instalación conjunta y el
+ensayo positivo. Véase
+[`f1_19_nombramientos_derivados.md`](../../deploy/principal/f1_19_nombramientos_derivados.md).
 
 La conexión de ofertas de varias plazas está **preparada en código y SQL, sin
 ensayo integrado ni instalación acreditados**. CT220 amplía la ejecución de

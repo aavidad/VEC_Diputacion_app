@@ -91,6 +91,13 @@ globales, sus contraseñas ni sus membresías. La restauración conserva las ACL
 de los objetos; después aplica las ACL de la base y los tipos. No convierte
 esos roles en identidades operativas de la aplicación.
 
+F0-31: antes de las migraciones, el guion crea también
+`vec_externo_documentos_bolsa_datos` y `vec_interno_documentos_bolsa_rrhh`
+como `NOLOGIN`, aunque no aparezcan en el respaldo. B119 necesita ambos
+nombres. No se añaden contraseñas, membresías ni permisos; la preparación
+documental posterior sigue siendo necesaria para usarlos desde el portal.
+Si el respaldo ya cita uno de esos nombres, se crea una sola vez.
+
 El generador común crea CA, TLS y certificados de RRHH e Intervención de
 90 días. `VEC_DESARROLLO_VIGENCIA_DIAS` permite de 60 a 90 días al invocarlo
 por separado; el guion de copia usa 90. Un material existente se verifica,
@@ -148,6 +155,29 @@ archivo de ensayo en una carpeta propia y se aplica una sola vez la lista
 de SQL nueva; para repetir se vuelve a extraer el clon frío.
 
 ## 3. Poner la copia al día con las SQL de `main`
+
+Usa esta lista: `deploy/principal/lista_sql_main_tras_hz37.txt`. Trae una
+sola vez, con su huella, cada migración añadida a `main` después de
+`44218865a`, en el orden en que se fusionaron sus PR y, dentro de cada PR, en
+el orden de su propia lista. Se pasa sola, con un único `--lista-sql`; no la
+combines con las listas antiguas de cada PR, que repiten migraciones y harían
+que el guion rechazara todo. Toda PR que añada migraciones añade sus líneas
+al final de esta lista en la misma PR, con la ruta y su SHA-256.
+
+Los dos roles sin LOGIN que necesita B119 los crea ya el guion (F0-31, apartado 2);
+no hace falta crearlos a mano.
+
+AD278 (F1-16) necesita además dos usuarios de origen con LOGIN que el guion
+todavía no prepara: `vec_ct_o207_runtime` (viene en el volcado sin LOGIN),
+miembro de `vec_contratacion_temporal_ejecutor`, y
+`vec_bolsa_llamamientos_desarrollo` (no viene en el volcado), miembro de
+`vec_bolsa_llamamientos_ejecutor`. Hasta que el guion lo haga, prepáralos en
+cuanto existan los roles del volcado y antes de que lleguen las migraciones:
+`ALTER ROLE vec_ct_o207_runtime LOGIN`, `CREATE ROLE vec_bolsa_llamamientos_desarrollo LOGIN`
+y los dos `GRANT` de pertenencia, sin contraseña.
+
+Lo que sigue explica de dónde sale la lista y cómo se hacía a mano hasta el
+18/10. Sirve para comprobarla, no para aplicar otra cosa.
 
 La copia tiene lo que tiene cidonia. Le faltan las migraciones fusionadas
 después de `44218865a`. Para saber cuáles son:

@@ -916,6 +916,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		declaracionesFrontera = append(declaracionesFrontera, bolsaFronteras...)
+		declaracionesFrontera = append(declaracionesFrontera, fronterasGobiernoTransicionesBolsaDesarrollo(perfilBolsa)...)
 	}
 	var soportesAuditoria soportesAuditoriaConsultaDesarrollo
 	if auditoriaActiva {
@@ -1413,20 +1414,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			cerrarBorrador()
 		}
 	}()
-	var baseDerivacion *preparadorBorradorLlamamientoDesarrollo
-	if bolsa, ok := manejadorSituacion.(*manejadorParticipacionBolsaDesarrollo); ok && bolsa != nil {
-		baseDerivacion = bolsa.preparador
-	}
-	derivacionNombramiento, cerrarDerivacion, err := nuevaRutaDerivacionNombramientoDesarrollo(
-		cfg, &alta, baseDerivacion, seguridadBorrador, derivador, reloj)
+	derivacionNombramiento, err := nuevaRutaDerivacionNombramientoDesarrollo(&alta, nil)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	defer func() {
-		if cerrarBorradorPendiente {
-			cerrarDerivacion()
-		}
-	}()
 	rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaDerivacionNombramiento, Manejador: derivacionNombramiento})
 	rutas = append(rutas, rutasBorrador...)
 	cerrarPreparacionBases := func() {}
@@ -1649,7 +1640,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cerrarFronteraAuditoria()
 		cerrarAuditoria()
 		cerrarBorrador()
-		cerrarDerivacion()
 		cerrarClienteM10CT()
 		cerrarIncorporacion()
 		consultasRRHH.cerrar()
