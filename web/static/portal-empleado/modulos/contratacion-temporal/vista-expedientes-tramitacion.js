@@ -1,11 +1,11 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261018-f119-detalle-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261018-f119-detalle-v2";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v6";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v6";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261016-ct-ofertas-ct231-v1";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261011-ct-bolsa-vinculo-v1";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261018-f119-detalle-v1";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261018-f119-detalle-v2";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
@@ -17,7 +17,7 @@ import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261018-f119-detalle-v1";
+} from "./vista-expedientes-render.js?v=20261018-f119-detalle-v2";
 import { montarAltaContratacionTemporal } from "./vista.js?v=20261013-ct-firma-tres-v3";
 import { justificanteTraducido } from "../../portal-justificante.js";
 

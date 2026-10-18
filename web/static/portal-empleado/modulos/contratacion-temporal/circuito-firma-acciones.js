@@ -3,10 +3,10 @@
  * vista no ejecuta acciones hasta que el servidor acredite el preflight R5.
  */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261018-f119-detalle-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261018-f119-detalle-v2";
 import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261016-r1-o-integracion-v7";
 import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261016-r1-o-integracion-v7";
-import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261018-f119-detalle-v1";
+import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261018-f119-detalle-v2";
 
 /** Une el circuito del catálogo con el estado real registrado. */
 export function fusionarEstadoFirmas(circuito, estado) {
