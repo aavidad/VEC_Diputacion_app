@@ -10,6 +10,7 @@ import { justificanteTraducido } from "./portal-justificante.js";
 
 const BASE = "/api/vec/bolsa/bolsas";
 const ORIGENES = Object.freeze(["", "convoca"]);
+const ORIGEN_PROPIO_FORMULARIO = "propio";
 const CORREO = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/u;
 const TELEFONO = /^(?:\+[0-9]{9,15}|[6789][0-9]{8})$/u;
 
@@ -67,7 +68,8 @@ export function validarComandoContacto(c) {
 
 export function leerComandoContacto(datos) {
   const campo = (nombre) => String(datos.get(nombre) ?? "").trim();
-  return { correo: campo("correo"), telefono_1: campo("telefono_1"), telefono_2: campo("telefono_2"), motivo: campo("motivo"), origen: campo("origen") };
+  const origen = campo("origen");
+  return { correo: campo("correo"), telefono_1: campo("telefono_1"), telefono_2: campo("telefono_2"), motivo: campo("motivo"), origen: origen === ORIGEN_PROPIO_FORMULARIO ? "" : origen };
 }
 
 export async function registrarContacto(bolsa, participacion, comando, clave, { fetchImpl = fetch } = {}) {
@@ -103,13 +105,13 @@ export function renderizarRegistroContacto({ estado = {}, escaparHTML = html } =
     return `<div class="acciones-vista" data-contacto-rrhh="true">${exito}<button type="button" class="boton-secundario" data-contacto-rrhh-accion="abrir">${e(t("abrir"))}</button></div>`;
   }
   const f = estado.formulario || {};
-  const origen = (valor, etiqueta) => `<option value="${e(valor)}" ${(f.origen ?? "") === valor ? "selected" : ""}>${e(t(etiqueta))}</option>`;
+  const origen = (valor, etiqueta) => `<option value="${e(valor)}" ${(f.origen || ORIGEN_PROPIO_FORMULARIO) === valor ? "selected" : ""}>${e(t(etiqueta))}</option>`;
   const error = estado.error ? `<p class="mensaje-error" role="alert">${e(estado.error)}</p>` : "";
   return `<form data-contacto-rrhh-form="registro" class="formulario-gobernado" data-contacto-rrhh="true"><fieldset><legend>${e(t("titulo"))}</legend><div class="rejilla-formulario">
     ${campo(t("correo"), `<input type="email" name="correo" maxlength="254" autocomplete="off" value="${e(f.correo || "")}">`, e)}
     ${campo(t("telefono_1"), `<input type="tel" name="telefono_1" maxlength="20" autocomplete="off" value="${e(f.telefono_1 || "")}">`, e)}
     ${campo(t("telefono_2"), `<input type="tel" name="telefono_2" maxlength="20" autocomplete="off" value="${e(f.telefono_2 || "")}">`, e)}
-    ${campo(t("origen"), `<select name="origen" required>${origen("", "origen_propio")}${origen("convoca", "origen_convoca")}</select>`, e)}
+    ${campo(t("origen"), `<select name="origen" required>${origen(ORIGEN_PROPIO_FORMULARIO, "origen_propio")}${origen("convoca", "origen_convoca")}</select>`, e)}
     </div>${campo(t("motivo"), `<textarea name="motivo" required maxlength="1000">${e(f.motivo || "")}</textarea>`, e)}</fieldset>${error}
     <div class="acciones-formulario"><button type="button" class="boton-secundario" data-contacto-rrhh-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${e(t("cancelar"))}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${e(estado.enviando ? t("registrando") : t("registrar"))}</button></div></form>`;
 }

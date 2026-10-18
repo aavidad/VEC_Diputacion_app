@@ -8,7 +8,7 @@ const versionEntradaAnterior = "20261002-r1-post401-v4";
 // y la cadena de Contratación cambiada; el alta conserva su cohorte.
 const versionCoordinador = "20261018-f136c-informe-v4";
 const versionCoordinadorEntrada = "20261018-f136c-informe-v4";
-const versionEntrada = versionCoordinadorEntrada;
+const versionEntrada = "20261018-f136c-informe-v5";
 const versionClienteCT = "20261016-ct-ofertas-ct231-v1";
 const versionClienteConsulta = versionCoordinador;
 const versionClienteRPT = versionCoordinador;

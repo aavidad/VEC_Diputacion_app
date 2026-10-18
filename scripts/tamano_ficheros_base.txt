@@ -111,7 +111,7 @@
 1538 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1160 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-1398 web/static/portal-empleado/portal-i18n.test.mjs
+1404 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 953 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
@@ -205,3 +205,4 @@
 1838 deploy/postgresql/autorizacion_atestada_v3/migraciones/000284_justificante_bolsa_consumo_externo.up.sql
 814 internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql.go
 1054 web/static/portal-empleado/portal-bolsas-ofertas.test.mjs
+3397 deploy/postgresql/autorizacion_atestada_v3/migraciones/000288_confirmacion_aceptacion_bolsa.up.sql
