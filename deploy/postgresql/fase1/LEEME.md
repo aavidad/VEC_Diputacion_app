@@ -116,3 +116,9 @@ comprueba el contexto externo; no acredita una autenticación con certificado
 ni una decisión completa de autorización. El SQL existente conserva fechas
 fijas de su fixture entre 2020 y 2099; no se incorporan al material ni a los
 perfiles duraderos de una copia de desarrollo.
+
+La preparación repone también `NOINHERIT` y `CONNECT` de los dos grupos de
+contexto externo, según su bootstrap y CTX15. No crea pertenencias. Retira
+los privilegios de `PUBLIC` sobre la base aislada, como exige el contrato de
+ejecución mínimo; no cambia permisos de funciones, tablas ni esquemas. El
+volcado de esquema conserva esas otras concesiones.

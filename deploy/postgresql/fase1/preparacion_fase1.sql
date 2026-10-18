@@ -77,6 +77,31 @@ BEGIN
   END IF;
 END $pre$;
 
+-- Los roles globales y ACL de base no pertenecen al volcado de esquema.
+-- Contratos: roles_candidato_externo_up.sql y CTX15, sin pertenencias nuevas.
+DO $grupos_ctx15$
+DECLARE nombre text;
+BEGIN
+  IF (SELECT count(*) FROM pg_roles
+      WHERE rolname IN ('vec_contexto_actor_v1_candidato_externo',
+                        'vec_contexto_actor_v1_usuarios_externo')) <> 2
+     OR EXISTS (
+       SELECT 1 FROM pg_roles WHERE rolname IN (
+         'vec_contexto_actor_v1_candidato_externo', 'vec_contexto_actor_v1_usuarios_externo')
+       AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole
+            OR rolreplication OR rolbypassrls OR rolconfig IS NOT NULL))
+  THEN RAISE EXCEPTION 'F0-29: grupos externos de contexto incompatibles'
+    USING ERRCODE = '55000';
+  END IF;
+  FOREACH nombre IN ARRAY ARRAY[
+    'vec_contexto_actor_v1_candidato_externo', 'vec_contexto_actor_v1_usuarios_externo']
+  LOOP
+    EXECUTE format('ALTER ROLE %I NOINHERIT', nombre);
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), nombre);
+  END LOOP;
+  EXECUTE format('REVOKE ALL ON DATABASE %I FROM PUBLIC', current_database());
+END $grupos_ctx15$;
+
 -- CTX15 inicializa este contador; el volcado de solo esquema omite la fila.
 -- Se repone después de verificar todas las tablas vacías, sin cambiar guardas.
 DO $control_ctx15_pre$
