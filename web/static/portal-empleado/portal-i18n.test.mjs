@@ -1126,6 +1126,13 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261018-f174-v1");
+  // F1-76 renueva avisos de Bolsas, fiscalización y sus importadores.
+  for (const ruta of [
+    "modulos/contratacion-temporal/formulario-llamamiento-pruebas.js",
+    "modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js",
+    "modulos/contratacion-temporal/vista-expedientes.js",
+    "portal-bolsas-avisos.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal.js",
+  ]) versionesEspeciales.set(ruta, "20261018-f176-v1");
 
   const aristas = [];
   const codigo = new Map();
