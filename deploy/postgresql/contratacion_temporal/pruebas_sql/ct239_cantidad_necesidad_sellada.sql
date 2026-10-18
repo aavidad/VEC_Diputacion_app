@@ -13,6 +13,9 @@ DECLARE
   v2 jsonb;
   v_legacy text;
   v_nuevo text;
+  v_agregado jsonb;
+  v_agregado_plural jsonb;
+  v_periodo_utc jsonb;
   v_total bigint;
   v_distintos bigint;
 BEGIN
@@ -75,6 +78,35 @@ BEGIN
     OR (v_nuevo::jsonb #>> '{numero_personas}') IS DISTINCT FROM
        (v_nuevo::jsonb #>> '{necesidad,campos,numero_personas}') THEN
    RAISE EXCEPTION 'CT239: canon V1/V2 o cantidad CT235 divergente';
+ END IF;
+ -- Una versión integral válida anterior sirve de estructura real para CT202;
+ -- la variante se comprueba solo en memoria y se revierte con la transacción.
+ SELECT agregado_json::jsonb INTO v_agregado
+   FROM vec_contratacion_temporal.expediente_version_integral
+  WHERE vec_contratacion_temporal.expediente_analisis_valido_v2(
+          agregado_json::jsonb,false) IS TRUE
+    AND NOT ((agregado_json::jsonb->'solicitud') ? 'necesidad')
+  LIMIT 1;
+ IF v_agregado IS NULL THEN
+   RAISE EXCEPTION 'CT239: falta agregado V1 válido para analizar';
+ END IF;
+ v_periodo_utc:=v_agregado #> '{solicitud,periodo}';
+ n:=pg_catalog.jsonb_set(n,'{periodo}',
+   pg_catalog.jsonb_build_object(
+     'inicio',pg_catalog.left(v_periodo_utc->>'inicio',10),
+     'fin',pg_catalog.left(v_periodo_utc->>'fin',10)));
+ v_agregado_plural:=pg_catalog.jsonb_set(v_agregado,'{solicitud}',
+   (v_agregado->'solicitud') || pg_catalog.jsonb_build_object(
+     'motivo_clave','sustitucion','numero_personas',2,
+     'necesidad',pg_catalog.jsonb_set(n,'{periodo}',v_periodo_utc)));
+ IF vec_contratacion_temporal.expediente_analisis_valido_v2(
+      v_agregado_plural,false) IS NOT TRUE
+    OR vec_contratacion_temporal.expediente_analisis_valido_v2(
+      pg_catalog.jsonb_set(v_agregado_plural,
+        '{solicitud,numero_personas}','3'::jsonb),false) IS NOT FALSE
+    OR vec_contratacion_temporal.expediente_analisis_valido_v2(
+      v_agregado_plural #- '{solicitud,numero_personas}',false) IS NOT TRUE THEN
+   RAISE EXCEPTION 'CT239: analisis CT202 divergente';
  END IF;
  SELECT pg_catalog.count(*), pg_catalog.count(*) FILTER (WHERE
    vec_contratacion_temporal.reconstruir_efecto_segun_esquema_v3(

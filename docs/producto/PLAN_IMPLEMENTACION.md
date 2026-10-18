@@ -132,6 +132,13 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 
 ### 2.3 En curso
 
+**F1-73, alta directa para varias personas.** El formulario obtiene una sola
+cantidad de la necesidad sellada y conserva el reintento de las altas
+anteriores. CT239 adapta cuatro funciones instaladas, sin permisos nuevos.
+El ensayo focal con ROLLBACK es favorable; faltan las revisiones finales,
+el ensayo integrado y el recorrido HTTP hasta la reserva de plazas, con
+reinicio. Guion: `deploy/principal/alta_plural_f1_73.md`.
+
 **F1-37, ajustes de firma.** Límite PDF de 2 MiB en firma VEC, cotas de transporte
 calculadas aparte, cierre de auditoría seguro y sonda de plantillas por
 organización (CT226, sobre CT218). Reutiliza las pantallas de plantillas y la

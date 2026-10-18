@@ -16,7 +16,17 @@ fase y origen; este cambio no las modifica.
 
 ## Activación y vuelta atrás
 
-CONFIG NUEVA: ninguna. SQL a instalar: ninguna.
+CONFIG NUEVA: ninguna. SQL a instalar: CT239, una sola vez después de
+las migraciones de la lista única
+[`lista_sql_main_tras_hz37.txt`](lista_sql_main_tras_hz37.txt).
+
+CT239 ajusta cuatro funciones instaladas de Contratación temporal. La
+solicitud puede llevar únicamente el número superior si la necesidad sellada
+es válida y ambas cantidades coinciden. La validación del análisis aplica
+la misma regla; la reconstrucción conserva ese número sin inventar puesto
+ni jornada. Una solicitud histórica sin número superior conserva sus bytes.
+La migración coteja cuerpos, propietario, permisos, configuración y atributos
+antes y después. No añade permisos ni modifica expedientes existentes.
 
 Publicar juntos el binario, los ficheros web y la cohorte de caché del mismo
 corte. No activar el emisor nuevo con un servidor que solo admita el esquema
@@ -34,11 +44,20 @@ para volver atrás.
 ## Comprobación pendiente
 
 Las pruebas focales Go, `gopls` y las 79 pruebas de interfaz y caché son
-favorables. Una revisión independiente del backend también es favorable;
-quedan pendientes la revisión de S y la revisión de usabilidad de T.
+favorables para el corte anterior al SQL. La revisión de interfaz de T sobre
+`4b5c02707` es favorable. S detectó que el SQL instalado todavía exigía la
+terna de puesto, jornada y número: dirección autorizó CT239 para resolverlo.
+El SQL y los ajustes de diagnóstico guardados durante la parada siguen
+pendientes de ensayo y revisión sobre la cabeza final.
 
 El recorrido HTTP en Chrome, la fiscalización y la reserva real con CT235
 todavía no están acreditados. La aceptación debe conservar el reintento
 antiguo descrito arriba y comprobar un alta nueva de dos personas, con
 cantidad sellada transmitida hasta la reserva; también debe rechazar las
 divergencias. Un resultado focal de backend no sustituye ese recorrido.
+
+El único envío real del contrato nuevo devolvió 503. La conciliación anterior
+a la parada encontró cero expedientes y confirmaciones y una candidatura
+técnica preparatoria. Se conserva el cuerpo y su clave; antes de repetir la
+operación se recupera su estado por la vía existente. Ese envío no acredita
+un alta ni una reserva de plazas.
