@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -292,25 +293,41 @@ func TestPaginasIncompletasNoConfirmanVersion(t *testing.T) {
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
-			c := clientePrueba(t, func(w http.ResponseWriter, r *http.Request) {
-				switch r.URL.Path {
-				case "/api/v4/sources/2/actions/document_upload/execute/":
-					w.WriteHeader(http.StatusCreated)
-					_, _ = io.WriteString(w, `{"id":5}`)
-				case "/api/v4/documents/5/":
-					_, _ = io.WriteString(w, `{"id":5,"file_latest":{"id":6},"version_active":{"id":7}}`)
-				case "/api/v4/documents/5/versions/7/pages/":
-					_, _ = io.WriteString(w, caso.respuesta)
-				default:
-					http.NotFound(w, r)
+			synctest.Test(t, func(t *testing.T) {
+				handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					switch r.URL.Path {
+					case "/api/v4/sources/2/actions/document_upload/execute/":
+						w.WriteHeader(http.StatusCreated)
+						_, _ = io.WriteString(w, `{"id":5}`)
+					case "/api/v4/documents/5/":
+						_, _ = io.WriteString(w, `{"id":5,"file_latest":{"id":6},"version_active":{"id":7}}`)
+					case "/api/v4/documents/5/versions/7/pages/":
+						_, _ = io.WriteString(w, caso.respuesta)
+					case "/api/v4/documents/5/files/6/download/":
+						_, _ = w.Write(contenido)
+					default:
+						if !responderPaginas(w, r) {
+							http.NotFound(w, r)
+						}
+					}
+				})
+				// Las respuestas son síncronas: solo la espera de reconciliación
+				// consume el plazo virtual, sin depender de TLS ni del ejecutor.
+				c, err := Nuevo(Configuracion{URLBase: "https://mayan.example.test", Token: "token-sintetico", FuenteID: "2", TipoDocumentoID: "3", ClienteHTTP: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+					w := httptest.NewRecorder()
+					handler.ServeHTTP(w, r)
+					return w.Result(), nil
+				})}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Millisecond)
+				defer cancelar()
+				doc, err := c.IngerirOriginal(ctx, ordenPrueba(t, contenido), bytes.NewReader(contenido))
+				if !errors.Is(err, ErrIndeterminado) || doc.DocumentoID != "5" || doc.VersionID != "" {
+					t.Fatalf("doc=%+v err=%v", doc, err)
 				}
 			})
-			ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Millisecond)
-			defer cancelar()
-			doc, err := c.IngerirOriginal(ctx, ordenPrueba(t, contenido), bytes.NewReader(contenido))
-			if !errors.Is(err, ErrIndeterminado) || doc.DocumentoID != "5" || doc.VersionID != "" {
-				t.Fatalf("doc=%+v err=%v", doc, err)
-			}
 		})
 	}
 }
