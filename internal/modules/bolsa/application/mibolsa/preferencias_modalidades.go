@@ -63,6 +63,7 @@ func (s *ServicioPreferenciasModalidades) GuardarModalidades(ctx context.Context
 		return vacio, bolsa.ErrOrdenPreferenciasInvalido
 	}
 	seleccion = slices.Clone(seleccion)
+	slices.Sort(seleccion)
 	actor, candidato, err := s.autoridad.identificar(orden)
 	if err != nil {
 		return vacio, err

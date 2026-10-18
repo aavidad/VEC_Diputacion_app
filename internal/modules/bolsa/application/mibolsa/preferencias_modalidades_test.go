@@ -30,7 +30,7 @@ type escrituraModalidadesPrueba struct {
 	solicitud    bolsa.GuardarPreferenciasModalidades
 	llamadas     int
 	registradoEn time.Time
-	reutilizado  bool
+	replay       *bolsa.ReciboPreferenciasModalidades
 	despues      func()
 }
 
@@ -39,6 +39,12 @@ func (r *escrituraModalidadesPrueba) GuardarPreferenciasModalidades(_ context.Co
 ) (bolsa.ReciboPreferenciasModalidades, error) {
 	r.llamadas++
 	r.solicitud = s
+	if r.replay != nil {
+		original := *r.replay
+		original.Modalidades = slices.Clone(original.Modalidades)
+		original.Reutilizado = true
+		return original, nil
+	}
 	fecha := r.registradoEn
 	if fecha.IsZero() {
 		fecha = s.ConsultadaEn
@@ -47,8 +53,7 @@ func (r *escrituraModalidadesPrueba) GuardarPreferenciasModalidades(_ context.Co
 		r.despues()
 	}
 	return bolsa.ReciboPreferenciasModalidades{ReciboRef: "recibo:modalidades:prueba",
-		Version: s.VersionEsperada + 1, Modalidades: slices.Clone(s.Modalidades), RegistradoEn: fecha,
-		Reutilizado: r.reutilizado}, nil
+		Version: s.VersionEsperada + 1, Modalidades: slices.Clone(s.Modalidades), RegistradoEn: fecha}, nil
 }
 
 func modalidadPrueba(clave string, version int) bolsa.ModalidadPreferencia {
@@ -178,18 +183,35 @@ func TestModalidadesRechazanReciboFuturo(t *testing.T) {
 
 func TestModalidadesConservanReciboEnReplay(t *testing.T) {
 	e, s, _, repo := entornoModalidadesPrueba(t)
-	seleccion := []string{"vacante"}
+	seleccion := []string{"vacante", "sustitucion"}
+	canonica := []string{"sustitucion", "vacante"}
 	primero, err := s.GuardarModalidades(t.Context(), e.orden, seleccion, 2, "clave-modalidad-replay")
-	if err != nil || primero.Reutilizado || repo.llamadas != 1 {
+	if err != nil || primero.Reutilizado || repo.llamadas != 1 ||
+		!slices.Equal(repo.solicitud.Modalidades, canonica) || !slices.Equal(primero.Modalidades, canonica) ||
+		!slices.Equal(seleccion, []string{"vacante", "sustitucion"}) {
 		t.Fatalf("primera escritura rechazada: %v", err)
 	}
-	repo.reutilizado = true
-	repetido, err := s.GuardarModalidades(t.Context(), e.orden, seleccion, 2, "clave-modalidad-replay")
-	if err != nil || !repetido.Reutilizado || repo.llamadas != 2 ||
+	datos, err := e.concesiones.orden.Datos()
+	exigir(t, err)
+	nominal, err := datos.Solicitud.Datos()
+	exigir(t, err)
+	huellaPrimera := nominal.Recurso.Atributos["material_sha256"]
+	if len(huellaPrimera) != 64 {
+		t.Fatal("falta huella de selección")
+	}
+	repo.replay = &primero
+	replayOrden := []string{"sustitucion", "vacante"}
+	repetido, errGuardar := s.GuardarModalidades(t.Context(), e.orden, replayOrden, 2, "clave-modalidad-replay")
+	datos, err = e.concesiones.orden.Datos()
+	exigir(t, err)
+	nominal, err = datos.Solicitud.Datos()
+	exigir(t, err)
+	if errGuardar != nil || !repetido.Reutilizado || repo.llamadas != 2 ||
 		repetido.ReciboRef != primero.ReciboRef || repetido.Version != primero.Version ||
 		!repetido.RegistradoEn.Equal(primero.RegistradoEn) ||
-		!slices.Equal(repetido.Modalidades, primero.Modalidades) {
-		t.Fatalf("replay no conservó recibo: %v", err)
+		!slices.Equal(repetido.Modalidades, canonica) || !slices.Equal(repo.solicitud.Modalidades, canonica) ||
+		!slices.Equal(replayOrden, canonica) || nominal.Recurso.Atributos["material_sha256"] != huellaPrimera {
+		t.Fatalf("replay no conservó recibo: %v", errGuardar)
 	}
 }
 
