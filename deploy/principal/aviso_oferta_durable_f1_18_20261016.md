@@ -1,6 +1,6 @@
 # Avisos de ofertas por correo
 
-Tarea F1-18, primer corte: publicación, estado y recuperación de avisos pendientes desde «Gestionar ofertas». El ensayo local está terminado. La integración corresponde a dirección. El reintento expreso de un envío sin confirmación queda para el segundo corte; F1-18 sigue abierta hasta entonces.
+Tarea F1-18, primer corte: publicación, estado y recuperación de avisos pendientes desde «Gestionar ofertas». El ensayo local está terminado. El segundo corte añade el reintento expreso de un envío sin confirmación y también está ensayado. F1-18 sigue abierta hasta que dirección integre ambos.
 
 ## Activación
 

@@ -55,7 +55,7 @@ Se comprobó la pantalla final en castellano e inglés, a 1440 y 390 píxeles:
 sin desbordamiento horizontal, sin scroll de documento en escritorio y sin
 errores JavaScript. No hubo cookies ni almacenamiento web. Las primeras
 capturas del cambio de idioma se descartaron por tomarse durante la carga;
-las definitivas esperan el formulario visible. TLS y certificado de cliente
+las definitivas comprueban que las dos ofertas están visibles. TLS y certificado de cliente
 se verificaron, sin omitir errores. Los fallos previos de la ficha importada
 y los cortes de conexión durante los reinicios quedan fuera de esa afirmación.
 
