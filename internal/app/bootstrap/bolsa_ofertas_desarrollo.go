@@ -271,6 +271,27 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudPublicarOfert
 	return puertosbolsa.SolicitudPublicarOferta{Notificacion: entrada.Notificacion, Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, Datos: entrada.Datos, NumeroPlazas: entrada.NumeroPlazas, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
 }
 
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudReintentarAvisosOferta(
+	ctx context.Context, entrada bolsahttp.EntradaReintentarAvisosOferta,
+) (puertosbolsa.SolicitudReintentarAvisosOferta, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudReintentarAvisosOferta{}, err
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudReintentarAvisosOferta{}, err
+	}
+	return puertosbolsa.SolicitudReintentarAvisosOferta{
+		Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado,
+		BolsaRef: entrada.BolsaRef, OfertaRef: entrada.OfertaRef,
+		RevisionAvisos:     entrada.RevisionAvisos,
+		ConfirmarDuplicado: entrada.ConfirmarPosibleDuplicado,
+		ClaveIdempotencia:  entrada.ClaveIdempotencia, Correlacion: correlacion,
+		MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo(),
+	}, nil
+}
+
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudResolverOferta(ctx context.Context, entrada bolsahttp.EntradaResolverOferta) (puertosbolsa.SolicitudResolverOferta, error) {
 	contexto, err := p.contextoRevalidado(ctx)
 	if err != nil {
