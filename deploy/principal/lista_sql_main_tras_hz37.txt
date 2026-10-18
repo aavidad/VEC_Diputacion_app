@@ -129,6 +129,7 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000279_preferencias_bolsa
 deploy/postgresql/autorizacion/migraciones/000096_lectura_preferencias_bolsas_interna.up.sql 98b29d06a128cf4303fe2c821457a724478dcc86029d41078d259a1f387f3b1a
 deploy/postgresql/bolsa_llamamientos/migraciones/000116_preferencias_bolsas_interna.up.sql 2d1c495793cdb0e838d9e6800deadd92a87f6947580e9891f8c4c19c0790cf52
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000275_lectura_preferencias_bolsas_interna.up.sql e9c18e8a4265f722317cf3dbd2705daf8d2e17d94722ce554bfd442dfb518d98
+deploy/postgresql/contratacion_temporal/migraciones/000238_seleccion_confirmada_unica.up.sql 5b710d37ee1bb25479566b864235e26e4316ccc08ac9db44e55eebcb2799df00
 
-# F1-13 — AD296: instalar después de AD288, AD294, AD293 y AD295; antes de AD291.
+# F1-13 — AD296; depende de AD288, AD294, AD293 y AD295 en candidata completa.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000296_proyecciones_preferencias_fijas.up.sql 6b9c544dd5f3a5727b44419111b52260ac38f3cf1f11be8a5c87518a3603a10b
