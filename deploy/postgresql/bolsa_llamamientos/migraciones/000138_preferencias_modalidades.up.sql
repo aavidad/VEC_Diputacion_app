@@ -157,8 +157,9 @@ BEGIN
    OR e->>'catalogo_id' IS DISTINCT FROM 'vec.contratacion_temporal.reglas'
    OR jsonb_typeof(e->'catalogo_version') IS DISTINCT FROM 'number'
    OR e->>'catalogo_version' !~ '^[1-9][0-9]{0,18}$'
-   OR e->>'catalogo_huella_sha256' !~ '^[0-9a-f]{64}$'
-   OR e->>'entrada_clave' IS DISTINCT FROM 'c12.modalidad.'||e->>'clave')
+   OR jsonb_typeof(e->'catalogo_huella_sha256') IS DISTINCT FROM 'string'
+   OR (e->>'catalogo_huella_sha256' ~ '^[0-9a-f]{64}$') IS NOT TRUE
+   OR e->>'entrada_clave' IS DISTINCT FROM 'c12.modalidad.'||(e->>'clave'))
  OR (SELECT count(DISTINCT e->>'clave') FROM jsonb_array_elements(p_disponibles) e)
     <>jsonb_array_length(p_disponibles)
  OR EXISTS(SELECT 1 FROM unnest(p_modalidades) s WHERE s !~ '^[a-z][a-z0-9._-]{1,79}$'
