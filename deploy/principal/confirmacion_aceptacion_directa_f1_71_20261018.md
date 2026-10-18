@@ -1,8 +1,8 @@
 # Confirmación de una aceptación directa de Bolsa
 
-Estado: preparación para revisión; no instalar. La fuente inicial parte del
-consumidor real después de AD283. La candidata exige AD279 antes de AD288;
-las huellas deben medirse otra vez sobre esa versión y revisarse antes del ensayo.
+Tarea F1-71. Fuente reconstruida desde el consumidor central instalado tras
+AD279, cotejado con main `c3b2fcfe4b`. Pendientes el ensayo conjunto con B128,
+las dos revisiones finales y la CI. No instalar fuera de esa candidata.
 
 ## Consumidor y alcance
 
@@ -31,8 +31,9 @@ permisos y política del corte de S; este borrador no acredita que estén activa
 
 1. Congelar la cadena completa fijada por dirección, incluidos AD279 y el corte
    de S que contiene B128. No reaplicar migraciones ni usar una preimagen antigua.
-2. Exportar el cuerpo instalado del consumidor central y su restricción de
-   audiencias. Reconstruir desde ambos, preservando las capacidades anteriores.
+2. Usar la lista canónica `lista_sql_main_tras_hz37.txt`: las 85 SQL de main
+   y después AD288. Cotejar las preimágenes que figuran al final de esta guía;
+   la instalación se detiene si difieren. Preserva las capacidades anteriores.
 3. Actualizar y revisar dos veces la fuente exacta, los permisos y las pruebas.
 4. Instalar AD288 una sola vez en una copia nueva y ejecutar las pruebas focales.
 5. Arrancar con y sin la activación del corte de S. Su ausencia debe cerrar
@@ -46,8 +47,18 @@ se altera una decisión ya consumida. Dirección integra; no se toca cidonia.
 
 ## Evidencia pendiente
 
-La preparación de las huellas se calculó con objetos temporales y rollback sobre
-la versión real posterior a AD283. AD288 no está instalada. Faltan AD279, las
-pruebas focales completas, las dos revisiones de la fuente final y la aceptación
-con el consumidor web de S. Las 3.369 líneas se deben principalmente al cuerpo
-instalado del consumidor central, que debe reconstruirse entero y conservarse.
+La función central previa se extrajo por lectura de la copia propia con AD279
+instalada. La restricción nueva se normalizó en una tabla temporal con ROLLBACK;
+no se alteró el núcleo para calcularla. Preimagen central:
+`a46491328a00b33d5d9276c9fa6b4eec6287ba015d865df14aed807fe2d58fb2`; posterior prevista:
+`edfe261f77e3ce275bc1930e16b56b2c73d3bd3b2f73a8412455bb1f3cd57037`. Restricción previa:
+`504fd62c39258745ea34f9a7033e8993a2b44d78feed7eab2e3ffa01f0a94b15`; posterior prevista:
+`c4888893d1951ec31f7674fb8e145a10af263e94c7d47a76ee749bd82b38c109`.
+
+AD288 no está instalada. Faltan el ensayo, las dos revisiones de la fuente final
+y la aceptación desde la pantalla de S. El focal
+`ad288_confirmacion_aceptacion_bolsa.sql` comprueba los permisos nominales y
+la denegación temprana sin consumo; no sustituye las pruebas firmadas de B128. Las 3397 líneas de SQL incluyen la reconstrucción
+literal del cuerpo instalado; el cambio de su lógica se limita a las mismas dos
+alternativas nominales de la preparación anterior. No se pierde la consulta de
+preferencias incorporada por AD279.

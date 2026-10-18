@@ -205,4 +205,4 @@
 1838 deploy/postgresql/autorizacion_atestada_v3/migraciones/000284_justificante_bolsa_consumo_externo.up.sql
 814 internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql.go
 991 web/static/portal-empleado/portal-bolsas-ofertas.test.mjs
-3369 deploy/postgresql/autorizacion_atestada_v3/migraciones/000288_confirmacion_aceptacion_bolsa.up.sql
+3397 deploy/postgresql/autorizacion_atestada_v3/migraciones/000288_confirmacion_aceptacion_bolsa.up.sql

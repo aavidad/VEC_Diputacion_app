@@ -1,3 +1,0 @@
-# BORRADOR: no instalar. Pendiente de preimagen real tras AD279 y ensayo conjunto.
-# Orden de dirección: O AD277/281/284/287 -> R AD276 -> S AD278/283 -> O AD279 -> R AD288 -> AD273.
-deploy/postgresql/autorizacion_atestada_v3/migraciones/000288_confirmacion_aceptacion_bolsa.up.sql

@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- AD288: aceptación directa B17; consumidor nominal de B128.
--- Preparada sobre la preimagen REAL tras AD283; AD279 debe precederla en la candidata.
+-- F1-71: reconstruida desde la definición instalada de AD279 (main c3b2fcfe4b).
 -- No concede permisos personales ni reinterpreta decisiones consumidas.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
@@ -17,7 +17,7 @@ BEGIN
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
  OR current_user<>'vec_autorizacion_atestada_v3_propietario' OR f IS NULL
  OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM
-  '3c3e5f8a67efa5e37772e3197c91ff7fbe00c9b9ca1a2dfc8bcd9c3e7c76ecda'
+  'a46491328a00b33d5d9276c9fa6b4eec6287ba015d865df14aed807fe2d58fb2'
  OR NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=f AND prosecdef
   AND proowner='vec_autorizacion_atestada_v3_propietario'::regrole
   AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
@@ -25,7 +25,7 @@ BEGIN
  OR (SELECT encode(sha256(convert_to(pg_get_constraintdef(oid,true),'UTF8')),'hex')
   FROM pg_constraint WHERE conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND conname='clave_capacidad_version_audiencia_consumo_check' AND convalidated) IS DISTINCT FROM
-  '6564e630a7a4a498f08af8e02399475fc22f768d5ad6060d6f27e2062d705308'
+  '504fd62c39258745ea34f9a7033e8993a2b44d78feed7eab2e3ffa01f0a94b15'
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_resolucion_respuesta_revision_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  OR (SELECT count(*) FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
   WHERE login_nombre='vec_bolsa_llamamientos_desarrollo'
@@ -136,6 +136,19 @@ BEGIN
            )
            OR (p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_bolsa_externa'
             AND vec_autorizacion_atestada_v3.login_documentos_bolsa_v1(false) IS TRUE)
+           OR (p_perfil_mutacion IS NOT DISTINCT FROM 'preferencias_bolsas_interna'
+            AND session_user='vec_interno_bolsa_preferencias_desarrollo'
+            AND current_setting('role')='none'
+            AND EXISTS (SELECT 1 FROM pg_roles l JOIN pg_auth_members m ON m.member=l.oid
+              JOIN pg_roles g ON g.oid=m.roleid
+              WHERE l.rolname=session_user AND l.rolcanlogin AND l.rolinherit
+                AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
+                AND l.rolconfig IS NULL AND g.rolname='vec_bolsa_llamamientos_preferencias_interna'
+                AND NOT(g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
+                AND g.rolconfig IS NULL AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
+                AND (SELECT count(*) FROM pg_auth_members x WHERE x.member=l.oid)=1
+                AND NOT EXISTS(SELECT 1 FROM pg_auth_members x WHERE x.member=g.oid)
+                AND NOT EXISTS(SELECT 1 FROM pg_db_role_setting x WHERE x.setrole IN(l.oid,g.oid))))
            OR (p_perfil_mutacion IS NOT DISTINCT FROM 'documentos_bolsa_rrhh'
             AND vec_autorizacion_atestada_v3.login_documentos_bolsa_v1(true) IS TRUE)
            OR (p_perfil_mutacion IS NOT DISTINCT FROM 'meritos_cartera_retirada'
@@ -297,6 +310,7 @@ BEGIN
                AND p_perfil_mutacion IS DISTINCT FROM 'documentos_subida_local_externa'
                AND p_perfil_mutacion IS DISTINCT FROM 'documentos_bolsa_externa'
                AND p_perfil_mutacion IS DISTINCT FROM 'documentos_bolsa_rrhh'
+               AND p_perfil_mutacion IS DISTINCT FROM 'preferencias_bolsas_interna'
                AND p_perfil_mutacion IS DISTINCT FROM 'meritos_cartera_retirada'
                AND p_perfil_mutacion IS DISTINCT FROM 'consulta_politica_ofertas_bolsa'
                AND p_perfil_mutacion IS DISTINCT FROM 'consulta_persona_aceptacion_ct_bolsa'
@@ -2786,6 +2800,20 @@ BEGIN
   ELSE '["contenido"]'::jsonb END)
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
            OR (
+ p_perfil_mutacion IS NOT DISTINCT FROM 'preferencias_bolsas_interna'
+ AND c->>'operacion' IS NOT DISTINCT FROM 'bolsa.preferencias_bolsas.ordenar_propias'
+ AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec.bolsa.preferencias-bolsas.ordenar.interna.v1'
+ AND c->>'efecto_ref' ~ '^mi-bolsa:can_[A-Za-z0-9_-]{22,128}$'
+ AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
+ AND d->>'modulo_id' IS NOT DISTINCT FROM 'bolsa'
+ AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'participaciones_candidato'
+ AND d->>'finalidad' IS NOT DISTINCT FROM 'gestion_preferencias_bolsas_propias'
+ AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
+ AND d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
+           OR (
  p_perfil_mutacion IN ('documentos_bolsa_externa','documentos_bolsa_rrhh')
  AND c->>'operacion' IN ('bolsa.justificante_renuncia.subir_propio',
    'bolsa.justificante_renuncia.descargar_propio','bolsa.justificante_renuncia.descargar_rrhh')
@@ -3350,11 +3378,11 @@ DO $post$ DECLARE f regprocedure;
 BEGIN
  f:='vec_autorizacion_atestada_v3.registrar_y_consumir_resolucion_respuesta_revision_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  IF encode(sha256(convert_to(pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex') IS DISTINCT FROM
-  '95c5594cb170bb5ab89fc6007ce138d86c5ab67a34df238cc95912ef27ac66a1'
+  'edfe261f77e3ce275bc1930e16b56b2c73d3bd3b2f73a8412455bb1f3cd57037'
  OR (SELECT encode(sha256(convert_to(pg_get_constraintdef(oid,true),'UTF8')),'hex')
   FROM pg_constraint WHERE conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
    AND conname='clave_capacidad_version_audiencia_consumo_check' AND convalidated) IS DISTINCT FROM
-  '8967eaf22f2c24ad8af2efa228f231f10d5b705bc17582eef2ab2213583ac22e'
+  'c4888893d1951ec31f7674fb8e145a10af263e94c7d47a76ee749bd82b38c109'
  OR NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=f AND prosecdef
   AND proowner='vec_autorizacion_atestada_v3_propietario'::regrole
   AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
