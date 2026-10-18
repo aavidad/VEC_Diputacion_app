@@ -19,7 +19,7 @@ import {
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes-render.js?v=20261018-f174-v1";
-import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-f174-v1";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-f176-v1";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261018-f174-v1";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261018-f174-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261018-f174-v1";
@@ -45,7 +45,7 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
 }
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261018-f174-v1";
-export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-f174-v1";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-f176-v1";
 export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261018-f174-v1";
 
 export function insertarAvisoEnlaceLegado(raiz, texto) {
