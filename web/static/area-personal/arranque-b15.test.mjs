@@ -49,15 +49,15 @@ test("Mi Bolsa conserva su cohorte y la entrada de inscripción usa la URL nueva
   const cohorte = "20261015-o-justificante-bolsa-v4";
   for (const [fuente, ruta] of [[contrato, "./mi-bolsa-portal.js"],
     [seguimiento, "../mi-bolsa-portal.js"], [aplicacion, "./mi-bolsa-portal.js"],
-    [aplicacion, "./contacto-propio.js"],
     [aplicacion, "./mi-bolsa-historial.js"], [seguimiento, "../mi-bolsa-historial.js"]]) {
     assert.equal(versionDe(fuente, ruta), cohorte, ruta);
   }
   for (const [fuente, ruta] of [[cliente, "./contrato.js"], [contacto, "./cliente-http.js"], [arranque, "./cliente-http.js"],
-    [aplicacion, "./contrato.js"], [aplicacion, "./vistas/seguimiento-tramites.js"], [aplicacion, "./mi-bolsa-preferencias-modalidades.js"],
-    [seguimiento, "../mi-bolsa-preferencias-modalidades.js"]]) {
-    assert.equal(versionDe(fuente, ruta), "20261018-f114-parcial-v1", ruta);
+    [aplicacion, "./contrato.js"], [aplicacion, "./contacto-propio.js"], [aplicacion, "./vistas/seguimiento-tramites.js"]]) {
+    assert.equal(versionDe(fuente, ruta), "20261018-f114-externo-v1", ruta);
   }
+  assert.equal(versionDe(aplicacion, "./mi-bolsa-preferencias-modalidades.js"), "20261018-f114-parcial-v1");
+  assert.equal(versionDe(seguimiento, "../mi-bolsa-preferencias-modalidades.js"), "20261018-f114-parcial-v1");
   const entrada = versionDe(html, "/area-personal/arranque.js");
   assert.ok(entrada, "falta la entrada versionada vigente");
   assert.equal(versionDe(arranque, "./aplicacion.js"), entrada);

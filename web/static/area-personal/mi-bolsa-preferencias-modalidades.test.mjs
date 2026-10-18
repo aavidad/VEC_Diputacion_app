@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { cargarPreferenciasModalidades, crearControladorPreferenciasModalidades, guardarPreferenciasModalidades, renderizarPreferenciasModalidades, validarEstadoPreferenciasModalidades } from "./mi-bolsa-preferencias-modalidades.js";
-import { consultarTodasOfertasMiBolsa, datosMinimosMiBolsa } from "./aplicacion.js";
+import { consultarTodasOfertasMiBolsa, datosMinimosMiBolsa, montarPreferenciasModalidadesSiAplica } from "./aplicacion.js";
 import { renderizarLlamamientos, renderizarSeccionOfertasMiBolsa } from "./vistas/seguimiento-tramites.js";
 
 const reglasCT = JSON.parse(await readFile(new URL("../../../data/catalogos/contratacion-temporal/reglas.v3.json", import.meta.url), "utf8"));
@@ -89,6 +89,22 @@ test("Ver todas valida la respuesta completa y conserva la vista filtrada al fal
   await assert.rejects(consultarTodasOfertasMiBolsa(async () => ({ status: 403 })), (e) => e.codigo === "verTodasDenegado");
   await assert.rejects(consultarTodasOfertasMiBolsa(async () => respuesta({ data: { ofertas: [] } })), (e) => e.codigo === "verTodasError");
   await assert.rejects(consultarTodasOfertasMiBolsa(async () => respuesta({ ...origen, data: { ...origen.data, ofertas_no_disponibles: true } })), (e) => e.codigo === "verTodasError");
+});
+
+test("el panel solo se monta con la marca del portal externo", () => {
+  const datos = datosMinimosMiBolsa({ consultada_en: "2026-10-18T10:00:00.000000Z" });
+  const antigua = renderizarLlamamientos(datos, {});
+  assert.doesNotMatch(antigua, /id="preferencias-modalidades"/u);
+  assert.match(antigua, /id="historial-mi-bolsa"/u);
+  const nueva = renderizarLlamamientos(datos, { ofertasSegunModalidades: true });
+  assert.match(nueva, /id="preferencias-modalidades"/u);
+  let montajes = 0, consultas = 0;
+  const fabrica = () => { montajes++; return { montar() { consultas++; } }; };
+  const estadoBase = { fetchImpl: async () => { consultas++; }, vista: "llamamientos", generacionVista: 1 };
+  assert.equal(montarPreferenciasModalidadesSiAplica(estadoBase, {}, fabrica), null);
+  assert.equal(montajes, 0); assert.equal(consultas, 0);
+  const montado = montarPreferenciasModalidadesSiAplica({ ...estadoBase, ofertasSegunModalidades: true }, {}, fabrica);
+  assert.ok(montado); assert.equal(montajes, 1); assert.equal(consultas, 1);
 });
 
 test("el callback fallido se explica dentro del panel sin cambiar la elección", async () => {

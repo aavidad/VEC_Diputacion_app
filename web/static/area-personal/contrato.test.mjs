@@ -64,6 +64,19 @@ test("fallo opcional de ofertas conserva la instantánea y exige indicador boole
   assert.equal(validarRespuestaMiBolsa(base).ofertas_no_disponibles, false);
 });
 
+test("solo una marca booleana activa el filtrado por modalidades", () => {
+  const respuesta = { data: { esquema: "vec.bolsa.mi-bolsa.v1", consultada_en: "2026-10-18T10:00:00.000000Z", participaciones: [] } };
+  assert.equal(validarRespuestaMiBolsa(respuesta).ofertas_segun_modalidades, undefined);
+  respuesta.data.ofertas_segun_modalidades = true;
+  assert.equal(validarRespuestaMiBolsa(respuesta).ofertas_segun_modalidades, true);
+  respuesta.data.ofertas_segun_modalidades = false;
+  assert.equal(validarRespuestaMiBolsa(respuesta).ofertas_segun_modalidades, false);
+  for (const invalido of ["true", 1, null]) {
+    respuesta.data.ofertas_segun_modalidades = invalido;
+    assert.throws(() => validarRespuestaMiBolsa(respuesta), /indicador de ofertas por modalidad/u);
+  }
+});
+
 test("mi bolsa admite solo el resultado mínimo del llamamiento propio", () => {
   const base = { data: { esquema: "vec.bolsa.mi-bolsa.v1", consultada_en: "2026-09-23T10:00:00.000000Z", participaciones: [
     { bolsa: "bolsa:prueba:01", categoria: "Auxiliar", version: 3, orden_inicial: 12, total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null,
