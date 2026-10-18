@@ -142,7 +142,8 @@ func TestConsultaOfertasModalidadesSinOfertasEvitaOtraLectura(t *testing.T) {
 		t.Fatal(err)
 	}
 	resultado, err := servicio.Consultar(t.Context(), Orden{})
-	if err != nil || resultado.Ofertas != nil || consulta.llamadas != 1 || lector.llamadas != 0 {
+	if err != nil || resultado.Ofertas != nil || !resultado.OfertasSegunModalidades ||
+		consulta.llamadas != 1 || lector.llamadas != 0 {
 		t.Fatalf("consulta vacía: preferencias=%d, error=%v", lector.llamadas, err)
 	}
 }

@@ -56,7 +56,7 @@ type preparadorPrueba struct {
 }
 
 func TestMiBolsaExponeFalloParcialSinPerderParticipaciones(t *testing.T) {
-	i := puertosbolsa.InstantaneaMiBolsa{OfertasNoDisponibles: true,
+	i := puertosbolsa.InstantaneaMiBolsa{OfertasNoDisponibles: true, OfertasSegunModalidades: true,
 		Participaciones: []puertosbolsa.ParticipacionMiBolsa{{Bolsa: "bolsa:propia"}}}
 	contenido, err := json.Marshal(nuevaRespuesta(i))
 	if err != nil {
@@ -64,12 +64,13 @@ func TestMiBolsaExponeFalloParcialSinPerderParticipaciones(t *testing.T) {
 	}
 	var recibida struct {
 		Data struct {
-			OfertasNoDisponibles bool              `json:"ofertas_no_disponibles"`
-			Ofertas              json.RawMessage   `json:"ofertas"`
-			Participaciones      []json.RawMessage `json:"participaciones"`
+			OfertasNoDisponibles    bool              `json:"ofertas_no_disponibles"`
+			OfertasSegunModalidades bool              `json:"ofertas_segun_modalidades"`
+			Ofertas                 json.RawMessage   `json:"ofertas"`
+			Participaciones         []json.RawMessage `json:"participaciones"`
 		} `json:"data"`
 	}
-	if json.Unmarshal(contenido, &recibida) != nil || !recibida.Data.OfertasNoDisponibles ||
+	if json.Unmarshal(contenido, &recibida) != nil || !recibida.Data.OfertasNoDisponibles || !recibida.Data.OfertasSegunModalidades ||
 		len(recibida.Data.Ofertas) != 0 || len(recibida.Data.Participaciones) != 1 {
 		t.Fatalf("se perdió el estado parcial de la consulta: %s", contenido)
 	}

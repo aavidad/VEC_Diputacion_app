@@ -70,6 +70,9 @@ type InstantaneaMiBolsa struct {
 	// OfertasNoDisponibles cierra solo esta sección si no se pudo consultar
 	// la elección propia; el resto de la instantánea conserva su autorización.
 	OfertasNoDisponibles bool
+	// OfertasSegunModalidades anuncia la elección propia en esta consulta.
+	// No sustituye la autorización del guardado ni de la lectura.
+	OfertasSegunModalidades bool
 	// Contactos solo existe si la consulta pidió el estado de su contacto.
 	Contactos []ContactoPortalCandidato
 	// NombrePropio solo existe si la composición sabe resolverlo y la

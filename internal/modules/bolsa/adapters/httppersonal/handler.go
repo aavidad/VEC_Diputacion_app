@@ -205,8 +205,9 @@ type respuesta struct {
 		Portal         []estadoPortal  `json:"portal,omitempty"`
 		AccionesPortal *accionesPortal `json:"acciones_portal,omitempty"`
 		// Ofertas solo aparece si está compuesta la disposición a ofertas.
-		Ofertas              []ofertaPortal `json:"ofertas,omitempty"`
-		OfertasNoDisponibles bool           `json:"ofertas_no_disponibles,omitempty"`
+		Ofertas                 []ofertaPortal `json:"ofertas,omitempty"`
+		OfertasNoDisponibles    bool           `json:"ofertas_no_disponibles,omitempty"`
+		OfertasSegunModalidades bool           `json:"ofertas_segun_modalidades,omitempty"`
 		// Contactos solo aparece si está compuesta la confirmación del contacto.
 		Contactos []contactoPortal `json:"contactos,omitempty"`
 		// El nombre de la titular solo aparece en su propia consulta.
@@ -251,6 +252,7 @@ func nuevaRespuesta(i puertosbolsa.InstantaneaMiBolsa) respuesta {
 	r.Data.Portal, r.Data.AccionesPortal = respuestaPortal(i)
 	r.Data.Ofertas = respuestaOfertas(i)
 	r.Data.OfertasNoDisponibles = i.OfertasNoDisponibles
+	r.Data.OfertasSegunModalidades = i.OfertasSegunModalidades
 	r.Data.Contactos = respuestaContactos(i)
 	if i.NombrePropio != nil {
 		r.Data.NombreVisible, r.Data.Iniciales = i.NombrePropio.Visible, i.NombrePropio.Iniciales

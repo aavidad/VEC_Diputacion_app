@@ -35,6 +35,7 @@ func (s *ConsultaOfertasModalidades) Consultar(ctx context.Context, orden Orden)
 	if err != nil {
 		return bolsa.InstantaneaMiBolsa{}, err
 	}
+	instantanea.OfertasSegunModalidades = true
 	if len(instantanea.Ofertas) == 0 {
 		return instantanea, nil
 	}
@@ -78,5 +79,9 @@ func (s *ConsultaOfertasModalidades) ConsultarTodasLasOfertas(ctx context.Contex
 	if s == nil || nula(s.consulta) || ctx == nil {
 		return bolsa.InstantaneaMiBolsa{}, ErrServicioMiBolsaInvalido
 	}
-	return s.consulta.Consultar(ctx, orden)
+	instantanea, err := s.consulta.Consultar(ctx, orden)
+	if err == nil {
+		instantanea.OfertasSegunModalidades = true
+	}
+	return instantanea, err
 }
