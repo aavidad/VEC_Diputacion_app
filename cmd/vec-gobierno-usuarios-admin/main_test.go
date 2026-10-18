@@ -53,7 +53,7 @@ func nuevoEscenario(t *testing.T) *escenario {
 			e.llamadas++
 			return bootstrap.ConfirmacionGobiernoUsuariosAdmin{Estado: "permitido", Codigo: "gobierno_usuarios_registrado"}, nil
 		},
-		verificar: func(context.Context, string, time.Duration, *os.Root, string) (auditoria.InformeVerificacion, error) {
+		verificar: func(context.Context, string, time.Duration, *os.Root, string, string) (auditoria.InformeVerificacion, error) {
 			e.llamadas++
 			return auditoria.InformeVerificacion{Estado: "verificada"}, nil
 		},
@@ -431,12 +431,35 @@ func TestPrepararEmiteSoloHuellas(t *testing.T) {
 func TestVerificarRechazoYNombreNuevo(t *testing.T) {
 	e := nuevoEscenario(t)
 	var nombre string
-	e.ops.verificar = func(_ context.Context, _ string, _ time.Duration, _ *os.Root, n string) (auditoria.InformeVerificacion, error) {
+	e.ops.verificar = func(_ context.Context, _ string, _ time.Duration, _ *os.Root, n, _ string) (auditoria.InformeVerificacion, error) {
 		nombre = n
 		return auditoria.InformeVerificacion{Estado: "rechazada"}, nil
 	}
 	if code, d, _, _ := e.ejecutar(e.args("verificar")); code != 1 || d.Codigo != "cadena_rechazada" || filepath.Base(nombre) != nombre || !strings.HasPrefix(nombre, "verificacion-cadena-20261005T090000Z") {
 		t.Fatal("verificación", d.Codigo, nombre)
+	}
+}
+
+func TestVerificarAcuseOpcionalSeEntregaAlLector(t *testing.T) {
+	e := nuevoEscenario(t)
+	var recibido []string
+	e.ops.verificar = func(_ context.Context, _ string, _ time.Duration, _ *os.Root, _, acuse string) (auditoria.InformeVerificacion, error) {
+		recibido = append(recibido, acuse)
+		return auditoria.InformeVerificacion{Estado: "verificada"}, nil
+	}
+	for _, caso := range []struct {
+		args  []string
+		acuse string
+	}{
+		{e.args("verificar"), ""},
+		{e.args("verificar", "-acuse", "acuse-aplicado.json"), "acuse-aplicado.json"},
+	} {
+		if code, d, _, _ := e.ejecutar(caso.args); code != 0 || d.Codigo != "cadena_verificada" || recibido[len(recibido)-1] != caso.acuse {
+			t.Fatalf("verificación: %d %+v %v", code, d, recibido)
+		}
+	}
+	if code, d, _, _ := e.ejecutar(e.args("verificar", "-acuse", "../ajeno")); code != 1 || d.Codigo != "acuse_inseguro" || len(recibido) != 2 {
+		t.Fatal("acuse ajeno llegó al lector", d.Codigo)
 	}
 }
 

@@ -22,7 +22,7 @@ SELECT pg_temp.comprobar('grupo',(SELECT NOT rolcanlogin AND NOT rolsuper AND NO
 -- 2. Solo las dos fachadas; preimágenes de AD188/AD198 siguen solo del propietario.
 SELECT pg_temp.comprobar('acl',
  has_function_privilege('vec_autorizacion_atestada_v3_lector_gobierno','vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(integer)','EXECUTE')
- AND has_function_privilege('vec_autorizacion_atestada_v3_lector_gobierno','vec_autorizacion_atestada_v3.cadena_gobierno_admin_lectura_v1(text)','EXECUTE')
+ AND has_function_privilege('vec_autorizacion_atestada_v3_lector_gobierno','vec_autorizacion_atestada_v3.cadena_gobierno_admin_lectura_v1(text,text)','EXECUTE')
  AND NOT has_function_privilege('vec_autorizacion_atestada_v3_lector_gobierno','vec_autorizacion_atestada_v3.preimagen_gobierno_capacidades_admin_v1(integer)','EXECUTE')
  AND NOT has_function_privilege('vec_autorizacion_atestada_v3_lector_gobierno','vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1()','EXECUTE')
  AND NOT has_function_privilege('vec_autorizacion_atestada_v3_lector_gobierno','vec_autorizacion_atestada_v3.aprovisionar_gobierno_capacidades_admin_v1(text,text,text)','EXECUTE')
@@ -33,7 +33,7 @@ SELECT pg_temp.comprobar('acl',
   WHERE p.oid IN('vec_autorizacion_atestada_v3.preimagen_gobierno_capacidades_admin_v1(integer)'::regprocedure,'vec_autorizacion_atestada_v3.preimagen_gobierno_usuarios_admin_v1()'::regprocedure)
   AND a.grantee<>p.proowner)
  AND NOT EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-  WHERE p.oid IN('vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(integer)'::regprocedure,'vec_autorizacion_atestada_v3.cadena_gobierno_admin_lectura_v1(text)'::regprocedure)
+  WHERE p.oid IN('vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1(integer)'::regprocedure,'vec_autorizacion_atestada_v3.cadena_gobierno_admin_lectura_v1(text,text)'::regprocedure)
   AND (a.grantee=0 OR a.is_grantable)));
 
 -- 3. Un LOGIN lector como el del kit: lee por las fachadas y nada más.

@@ -111,7 +111,7 @@ func TestGobiernoLectorAD235PostgreSQLPrivado(t *testing.T) {
 	if su.QueryRow(ctx, consultaCadenaGobiernoAnteriorAD235, auditoria.EsquemaVerificacionGobiernoUsuarios).Scan(&antes) != nil {
 		t.Fatal("cadena_anterior")
 	}
-	despues, err := leerDocumentoGobiernoLectura(ctx, lector, consultaCadenaGobiernoLectura, auditoria.EsquemaVerificacionGobiernoUsuarios)
+	despues, err := leerDocumentoGobiernoLectura(ctx, lector, consultaCadenaGobiernoLectura, auditoria.EsquemaVerificacionGobiernoUsuarios, nil)
 	if err != nil || !bytes.Equal(antes, despues) {
 		t.Fatal("cadena_distinta")
 	}

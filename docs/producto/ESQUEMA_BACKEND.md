@@ -564,6 +564,15 @@ validez (`valida_hasta`). RBAC es necesario; las políticas ABAC solo restringen
 Los perfiles no se suman y no hay comodines. Reglas completas:
 `docs/producto/FLUJO_APP.md`, apartado 6.
 
+AD295 (F0-29) amplía el lector existente de la cadena de gobierno ADMIN:
+`cadena_gobierno_admin_lectura_v1(text,text DEFAULT NULL)`. La segunda referencia
+identifica el asiento del acuse y devuelve su tramo contiguo sellado, aunque
+haya registros posteriores de otros tipos o de otro gobierno. Sin referencia
+conserva el sufijo anterior. Retira la firma de un argumento; conserva el grupo
+lector, propietario y permisos. La consola valida el acuse privado contra su
+plan y material y coteja el acto dentro del tramo antes de declararlo verificado.
+No publica claves, modifica asientos ni repite un acto de administración.
+
 ### 8.6 ContextoActor (`vec_contexto_actor_v1`)
 
 Resuelve, a partir de la cuenta (`cta_…`) y el perfil (`prf_…`) que ya acreditó la

@@ -123,3 +123,6 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000131_vinculo_aviso_subtransac
 
 # Tarea F1-18, reintento expreso de avisos inciertos: B132, una sola vez
 deploy/postgresql/bolsa_llamamientos/migraciones/000132_reintento_aviso_incierto.up.sql dc3460b11d2205839d737c2eb6584272f4116adc310e765a3627a70b1abff33b
+
+# Tarea F0-29 — AD295, lectura de cadena por acuse
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000295_cadena_gobierno_por_acuse.up.sql dd57cb9755c26bd18f39bb3170a9842f6a94931e7ebd063c107495e0eb13fbd7
