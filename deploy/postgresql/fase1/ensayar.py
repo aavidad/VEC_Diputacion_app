@@ -253,11 +253,17 @@ def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False, pru
             esperar_postgresql(nombre, etiqueta)
             for relativa, contenido in casos:
                 sql(nombre, contenido, f'la prueba tras reiniciar {relativa}')
+            if not contenedor_propio(nombre, etiqueta):
+                raise ValueError('El contenedor propio no está disponible para la concurrencia')
+            from deploy.postgresql.fase1 import concurrencia_contexto
+            fixture_externo = dict(casos)[PRUEBAS_SQL[-1]]
+            concurrencia_contexto.ensayar(nombre, etiqueta, fixture_externo)
         print(f'Esquema HZ37 restaurado; migraciones ensayadas: {len(deltas)}')
         if base_hz37 is not None:
             print('Reconciliación de la copia HZ37: Documentos D15 instalada')
         if pruebas:
             print(f'Pruebas SQL superadas: {len(casos)} antes y {len(casos)} después del reinicio')
+            print('Concurrencia CAS de contexto externo superada')
     finally:
         limpiar_copia(nombre, etiqueta, propio)
 
