@@ -17,6 +17,7 @@ RAIZ = Path(__file__).resolve().parents[3]
 FASE = Path(__file__).resolve().parent
 IMAGEN = 'postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296'
 BASE = Path('/dev/shm')
+D15_SQL = 'deploy/postgresql/documentos/migraciones/000015_rechazo_expediente_ct_cero.up.sql'
 PRUEBAS_SQL = (
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql',
     'deploy/postgresql/documentos/pruebas_sql/000014_referencia_expediente_tipado.sql',
@@ -73,31 +74,40 @@ def preparar_esquema(destino):
     return salida
 
 
-def preparacion_versionada():
-    ruta = FASE / 'preparacion_fase1.sql'
+def contenido_versionado(relativa):
+    ruta = RAIZ / relativa
     if ruta.resolve(strict=True) != ruta or not ruta.is_file():
-        raise ValueError('La preparación SQL debe ser el archivo regular previsto')
+        raise ValueError(f'El archivo debe ser el regular previsto: {relativa}')
     contenido = ruta.read_bytes()
     versionado = subprocess.check_output([
-        'git', '-C', str(RAIZ), 'show',
-        'HEAD:deploy/postgresql/fase1/preparacion_fase1.sql'], timeout=30)
+        'git', '-C', str(RAIZ), 'show', f'HEAD:{relativa}'], timeout=30)
     if contenido != versionado:
-        raise ValueError('La preparación SQL difiere de la cabeza versionada')
+        raise ValueError(f'El archivo difiere de la cabeza versionada: {relativa}')
     return contenido
+
+
+def preparacion_versionada():
+    return contenido_versionado('deploy/postgresql/fase1/preparacion_fase1.sql')
+
+
+def base_hz37_versionada():
+    lista = contenido_versionado('deploy/postgresql/fase1/lista_sql_base_hz37.txt')
+    filas = lista.decode('ascii').splitlines()
+    if len(filas) != 1 or len(filas[0].split()) != 2:
+        raise ValueError('La lista base HZ37 debe contener solo D15 y su huella')
+    relativa, huella = filas[0].split()
+    if relativa != D15_SQL or len(huella) != 64:
+        raise ValueError('La lista base HZ37 no identifica D15')
+    contenido = contenido_versionado(D15_SQL)
+    if hashlib.sha256(contenido).hexdigest() != huella:
+        raise ValueError('La huella de D15 no coincide')
+    return relativa, contenido
 
 
 def pruebas_versionadas():
     pruebas = []
     for relativa in PRUEBAS_SQL:
-        ruta = RAIZ / relativa
-        if ruta.resolve(strict=True) != ruta or not ruta.is_file():
-            raise ValueError(f'La prueba SQL debe ser el archivo regular previsto: {relativa}')
-        contenido = ruta.read_bytes()
-        versionado = subprocess.check_output([
-            'git', '-C', str(RAIZ), 'show', f'HEAD:{relativa}'], timeout=30)
-        if contenido != versionado:
-            raise ValueError(f'La prueba SQL difiere de la cabeza versionada: {relativa}')
-        pruebas.append((relativa, contenido))
+        pruebas.append((relativa, contenido_versionado(relativa)))
     return pruebas
 
 
@@ -188,6 +198,7 @@ def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False, pru
     if solo_base and (preparacion or pruebas):
         raise ValueError('--preparacion y --pruebas no corresponden a --solo-base')
     fixture = preparacion_versionada() if preparacion or pruebas else None
+    base_hz37 = base_hz37_versionada() if fixture is not None else None
     casos = pruebas_versionadas() if pruebas else ()
     deltas = [] if solo_base else migraciones([lista or RAIZ / 'deploy/principal/lista_sql_main_tras_hz37.txt'])
     nombre = 'vec-fase1-' + secrets.token_hex(6)
@@ -221,11 +232,15 @@ def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False, pru
         verificar_tablas_vacias(nombre)
         if fixture is not None:
             sql(nombre, fixture, 'la preparación versionada de la fase 1')
+            relativa, contenido = base_hz37
+            sql(nombre, contenido, f'la reconciliación HZ37 {relativa}')
         for ruta, _huella, contenido in deltas:
             sql(nombre, contenido, f'la migración {ruta.relative_to(RAIZ)}')
         for relativa, contenido in casos:
             sql(nombre, contenido, f'la prueba {relativa}')
         print(f'Esquema HZ37 restaurado; migraciones ensayadas: {len(deltas)}')
+        if base_hz37 is not None:
+            print('Reconciliación de la copia HZ37: Documentos D15 instalada')
         if pruebas:
             print(f'Pruebas SQL superadas: {len(casos)}')
     finally:

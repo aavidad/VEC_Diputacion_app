@@ -823,7 +823,7 @@ PR y en cada envío a `main` (`.github/workflows/ci.yml`):
 | `puerta-artefactos-productivos` | Construye las imágenes pública e interna y comprueba su contenido y su fallo cerrado | 2 a 5 min |
 | `puerta-postgresql-contexto-actor-v3` | Identidad y autorización V3 en un PostgreSQL 18 real | 2 min |
 | `puerta-postgresql-bolsa-publica` | Proyección pública de Bolsa en PostgreSQL 18 con TLS | 2 min |
-| `puerta-postgresql-recorrido-fase1` | Restaura el esquema HZ37 sin datos, comprueba tablas vacías y aplica la lista única posterior | Por medir en CI |
+| `puerta-postgresql-recorrido-fase1` | Restaura el esquema sin datos, prepara los catálogos mínimos, instala la migración documental ausente y la lista posterior, y ejecuta cuatro pruebas SQL funcionales | Instalación: 29 s; ampliación por medir |
 
 `scripts/verificar_calidad.sh` ejecuta: comprobación de `search_path`, `gofmt`,
 `go mod verify`, `go test ./...`, `go test -race ./...`, `go vet ./...`,

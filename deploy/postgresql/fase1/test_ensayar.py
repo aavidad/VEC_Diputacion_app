@@ -173,6 +173,23 @@ class EnsayoFase1Test(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'difiere de la cabeza versionada'):
                 ensayar.pruebas_versionadas()
 
+    def test_reconciliacion_hz37_exige_d15_exacto_y_huella(self):
+        sql = b'MIGRACION D15'
+        fila = f'{ensayar.D15_SQL} {hashlib.sha256(sql).hexdigest()}\n'.encode()
+        with mock.patch.object(ensayar, 'contenido_versionado',
+                               side_effect=[fila, sql]) as leer:
+            self.assertEqual(ensayar.base_hz37_versionada(), (ensayar.D15_SQL, sql))
+        self.assertEqual([llamada.args[0] for llamada in leer.call_args_list], [
+            'deploy/postgresql/fase1/lista_sql_base_hz37.txt', ensayar.D15_SQL])
+        otra = b'deploy/postgresql/otro.sql ' + hashlib.sha256(sql).hexdigest().encode()
+        with mock.patch.object(ensayar, 'contenido_versionado', return_value=otra):
+            with self.assertRaisesRegex(ValueError, 'no identifica D15'):
+                ensayar.base_hz37_versionada()
+        with mock.patch.object(ensayar, 'contenido_versionado',
+                               side_effect=[fila, b'distinto']):
+            with self.assertRaisesRegex(ValueError, 'huella de D15'):
+                ensayar.base_hz37_versionada()
+
     def test_pruebas_siguen_instalacion_y_fallo_sql_sale_con_estado_uno(self):
         from deploy.principal import copia_local, copia_local_roles
 
@@ -193,6 +210,8 @@ class EnsayoFase1Test(unittest.TestCase):
             with (mock.patch.object(ensayar, 'comprobar_destino', return_value=Path(temporal)),
                   mock.patch.object(ensayar, 'preparar_esquema', side_effect=esquema),
                   mock.patch.object(ensayar, 'preparacion_versionada', return_value=b'PREPARACION'),
+                  mock.patch.object(ensayar, 'base_hz37_versionada',
+                                    return_value=(ensayar.D15_SQL, b'D15')),
                   mock.patch.object(ensayar, 'pruebas_versionadas', return_value=[
                       ('primera.sql', b'PRUEBA1'), ('segunda.sql', b'PRUEBA2')]),
                   mock.patch.object(copia_local, 'migraciones', return_value=[
@@ -208,10 +227,13 @@ class EnsayoFase1Test(unittest.TestCase):
                 self.assertEqual(ensayar.main(), 1)
             self.assertEqual([etapa for _, etapa in eventos], [
                 'la creación de roles sin LOGIN', 'la restauración del esquema HZ37',
-                'la preparación versionada de la fase 1', 'la migración migracion.sql',
+                'la preparación versionada de la fase 1',
+                f'la reconciliación HZ37 {ensayar.D15_SQL}',
+                'la migración migracion.sql',
                 'la prueba primera.sql', 'la prueba segunda.sql'])
             self.assertEqual([contenido for contenido, _ in eventos][1:], [
-                b'ESQUEMA', b'PREPARACION', b'MIGRACION', b'PRUEBA1', b'PRUEBA2'])
+                b'ESQUEMA', b'PREPARACION', b'D15', b'MIGRACION',
+                b'PRUEBA1', b'PRUEBA2'])
             self.assertIn('la prueba segunda.sql', eventos[-1][1])
             self.assertEqual(list(Path(temporal).iterdir()), [])
 

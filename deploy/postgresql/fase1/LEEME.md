@@ -22,10 +22,19 @@ todas las tablas ordinarias y vistas materializadas de `public` y los esquemas
 `vec_`, incluidas las hojas de particiones. Excluyen objetos propios de
 extensiones, cuentan las filas reales de cada relación y fallan si alguna
 contiene datos. El resultado indica cuántas tablas se comprobaron.
-La opción `--preparacion` ejecuta antes de la lista únicamente
+La opción `--preparacion` ejecuta primero
 `deploy/postgresql/fase1/preparacion_fase1.sql`, comprobando que coincide con
-la versión confirmada en Git. La opción no se admite con `--solo-base`.
-`--pruebas` incluye esa preparación, instala la misma lista y ejecuta estas
+la versión confirmada en Git. Repone la fila técnica del catálogo D14 que
+falta en el volcado sin datos, después de verificar las 662 tablas vacías.
+Después instala D15 una sola vez desde
+`deploy/postgresql/fase1/lista_sql_base_hz37.txt`, antes de la lista general.
+La lista propia y D15 deben coincidir por bytes con `HEAD`, y la huella de D15
+debe ser la publicada en esa lista. La opción no se admite con `--solo-base`.
+
+Aunque D15 ya estaba en Git antes del corte HZ37, el esquema de esa copia
+conserva la función de D14. Esta instalación reconcilia solo la copia nueva de
+CI; no cambia la lista general de migraciones ni reaplica D15 en otras bases.
+`--pruebas` incluye esa preparación y ejecuta estas
 cuatro pruebas SQL existentes, en este orden:
 
 1. `bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql`: valida criterios

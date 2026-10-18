@@ -21,6 +21,7 @@ BEGIN
   IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
      OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = current_user AND rolsuper)
      OR to_regclass('vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1') IS NULL
+     OR to_regclass('vec_documentos.modulo_referencia_expediente_v1') IS NULL
      OR to_regrole('vec_autorizacion_atestada_v3_propietario') IS NULL
      OR to_regrole('vec_contratacion_temporal_ejecutor') IS NULL
      OR to_regrole('vec_bolsa_llamamientos_ejecutor') IS NULL
@@ -42,6 +43,12 @@ BEGIN
       AND c.relname = 'configuracion_origen_consumos_v1'
       AND c.relkind = 'r' AND c.relrowsecurity AND c.relforcerowsecurity
       AND c.relowner = 'vec_autorizacion_atestada_v3_propietario'::regrole
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'vec_documentos'
+      AND c.relname = 'modulo_referencia_expediente_v1'
+      AND c.relkind = 'r' AND c.relrowsecurity AND c.relforcerowsecurity
+      AND c.relowner = 'vec_documentos_propietario'::regrole
   ) THEN RAISE EXCEPTION 'F0-29: propietario o RLS incompatibles' USING ERRCODE = '55000';
   END IF;
 
@@ -68,6 +75,23 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 END $pre$;
+
+-- D14 creó esta fila antes de activar RLS; HZ37 conservó sólo su esquema.
+-- La copia vacía repone el mismo catálogo técnico, sin conceder permisos.
+INSERT INTO vec_documentos.modulo_referencia_expediente_v1
+  (codigo, modulo_id, version, patron_id)
+VALUES ('ct', 'contratacion_temporal', 1, '^[0-9a-f]{64}$');
+DO $catalogo_d14$
+BEGIN
+  IF (SELECT count(*) FROM vec_documentos.modulo_referencia_expediente_v1) <> 1
+     OR NOT EXISTS (
+       SELECT 1 FROM vec_documentos.modulo_referencia_expediente_v1
+       WHERE codigo = 'ct' AND modulo_id = 'contratacion_temporal'
+         AND version = 1 AND patron_id = '^[0-9a-f]{64}$')
+  THEN RAISE EXCEPTION 'F0-29: catálogo técnico D14 divergente'
+    USING ERRCODE = '55000';
+  END IF;
+END $catalogo_d14$;
 
 -- El extractor de roles del DDL no ve este grupo: CTX45 le concede EXECUTE.
 CREATE ROLE vec_contexto_actor_v1_migrador NOLOGIN NOSUPERUSER
