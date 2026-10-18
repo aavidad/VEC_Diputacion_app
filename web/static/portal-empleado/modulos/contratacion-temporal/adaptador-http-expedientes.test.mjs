@@ -6,6 +6,7 @@ import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./c
 import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
 import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { renderizarCabeceraFicha, renderizarHistorialFicha, renderizarLineaFases } from "./vista-expedientes-ficha.js";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",
@@ -105,6 +106,81 @@ test("F5 consulta un único detalle autorizado por referencia y versión, sin re
   assert.deepEqual(llamadas[0].solicitud,
     { expediente_ref: resumen.expediente_ref, version_observada: resumen.version });
   await assert.rejects(() => adaptador.obtener(resumen.expediente_ref), /fuera del cuadro consultado/);
+});
+
+test("hijo muestra antecedentes del padre separados de su derivación y conserva su referencia propia", async () => {
+  const hijoResumen = { ...resumen, expediente_ref: "expediente:ct:hijo2",
+    numero_visible: `${resumen.numero_visible}-P2`, version: 6, fase_clave: "fiscalizacion", estado_clave: "en_curso" };
+  const padre = Array.from({ length: 6 }, (_, i) => ({ secuencia: i + 1, version_expediente: i + 1,
+    accion_clave: ["registrar_solicitud", "registrar_analisis", "registrar_cobertura", "registrar_asignacion",
+      "registrar_informe_juridico", "registrar_fiscalizacion"][i],
+    realizada_en: "2026-09-03T08:00:00Z", fase_origen: i === 0 ? "solicitud" : "asignacion_unidad",
+    fase_destino: i === 5 ? "fiscalizacion" : "asignacion_unidad",
+    estado_origen: "en_curso", estado_destino: "en_curso" }));
+  const propio = { secuencia: 6, version_expediente: 6,
+    accion_clave: "contratacion_temporal.nombramiento.derivar", realizada_en: "2026-09-03T10:00:00Z",
+    fase_origen: "fiscalizacion", fase_destino: "fiscalizacion", estado_origen: "en_curso", estado_destino: "en_curso" };
+  const cliente = clienteFalso([]);
+  let versionHijo = 6;
+  let hitosHijo = [propio];
+  cliente.consultarDetalleRRHH = async () => ({ esquema: "vec.contratacion-temporal.detalle-rrhh.v1",
+    resumen: { ...hijoResumen, version: versionHijo, fase_clave: versionHijo > 6 ? "nombramiento" : "fiscalizacion" },
+    solicitud: { grupo_subgrupo: "A2", motivo_clave: "sustitucion", numero_personas: 1,
+      periodo_inicio: "2026-09-04T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z" },
+    hitos: hitosHijo, instruccion_compartida: { derivacion_ref: "derivacion:ct:2", padre_ref: resumen.expediente_ref,
+      numero_visible_padre: resumen.numero_visible, oferta_ref: "oferta:ct:2", numero_plaza: 2,
+      recibo_derivacion_ref: "recibo:derivacion:2", huella_padre_sha256: "b".repeat(64),
+      creado_en_padre: "2026-09-03T08:00:00Z", actualizado_en_padre: "2026-09-03T09:00:00Z",
+      hitos_padre: padre },
+    presentacion_flujo: { referencia: "flujo:rrhh:presentacion", fase_actual: "fiscalizacion",
+      fases: [{ clave: "gestion_bolsa", orden: 1, clave_i18n: "contratacion_temporal.fase.gestion_bolsa" },
+        { clave: "fiscalizacion", orden: 2, clave_i18n: "contratacion_temporal.fase.fiscalizacion" }] },
+  });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente: adaptador,
+    capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"] });
+  await presentador.seleccionarExpedienteDesdeEnlace(hijoResumen.expediente_ref, 6);
+  const expediente = presentador.obtenerEstado().expediente;
+  assert.equal(expediente.instruccion_compartida.derivacion_ref, "derivacion:ct:2");
+  assert.deepEqual(expediente.historial.map((h) => h.secuencia), [6]);
+  assert.deepEqual(expediente.instruccion_compartida.historial_padre.map((h) => h.secuencia), [1, 2, 3, 4, 5, 6]);
+  const t = crearTraductorExpedientesContratacion();
+  const html = renderizarHistorialFicha(expediente, t);
+  assert.match(html, /Antecedentes del expediente principal/);
+  assert.match(html, /Expediente creado desde una plaza adjudicada/);
+  assert.match(renderizarLineaFases(expediente, t), /Del expediente principal/);
+  assert.equal(expediente.instruccion_compartida.padre_disponible, false);
+  assert.doesNotMatch(html, /data-ct-exp-abrir=/);
+  assert.match(html, /no está en esta lista/);
+  await presentador.cargar({ texto: "", estado: "", fase: "" });
+  await presentador.seleccionarExpedienteDesdeEnlace(hijoResumen.expediente_ref, 6);
+  const disponible = presentador.obtenerEstado().expediente;
+  assert.equal(disponible.instruccion_compartida.padre_disponible, true);
+  assert.match(renderizarHistorialFicha(disponible, t), /data-ct-exp-abrir="expediente:ct:001"/);
+  assert.match(renderizarCabeceraFicha(disponible, presentador.obtenerEstado(), t), /Abrir expediente principal 2026\/CT-0001/);
+  versionHijo = 8;
+  hitosHijo = [propio, { ...propio, secuencia: 7, version_expediente: 7,
+    accion_clave: "registrar_propuesta_formalizacion", fase_destino: "nombramiento" },
+  { ...propio, secuencia: 8, version_expediente: 8, accion_clave: "registrar_resolucion_formalizacion",
+    fase_origen: "nombramiento", fase_destino: "nombramiento" }];
+  await presentador.seleccionarExpedienteDesdeEnlace(hijoResumen.expediente_ref, 8);
+  assert.equal(presentador.obtenerEstado().expediente.version_propuesta_documental, 7);
+  hitosHijo = [propio, { ...hitosHijo[1], accion_clave: "otra_actuacion" }, hitosHijo[2]];
+  await presentador.seleccionarExpedienteDesdeEnlace(hijoResumen.expediente_ref, 8);
+  assert.equal(Object.hasOwn(presentador.obtenerEstado().expediente, "version_propuesta_documental"), false);
+});
+
+test("el nombre accesible del raíl incluye procedencia en castellano e inglés", async () => {
+  const fases = [{ fase_ref: "presentacion:flujo:solicitud", orden: 1, etiqueta: "Solicitud", estado_clave: "completado", origen: "padre" },
+    { fase_ref: "presentacion:flujo:nombramiento", orden: 2, etiqueta: "Nombramiento", estado_clave: "en_curso", origen: "hijo" }];
+  const traducirES = crearTraductorExpedientesContratacion();
+  const traducirEN = crearTraductorExpedientesContratacion(await cargarMensajesExpedientesContratacionEnIdioma("en"));
+  const es = renderizarLineaFases({ fases }, traducirES);
+  const en = renderizarLineaFases({ fases }, traducirEN);
+  assert.match(es, /aria-label="[^"]*Del expediente principal"/);
+  assert.match(es, /aria-label="[^"]*De este expediente"/);
+  assert.match(en, /aria-label="[^"]*From the main case"/);
+  assert.match(en, /aria-label="[^"]*From this case"/);
 });
 
 test("la lectura autorizada del resumen permite montar la lista aunque Alta esté ausente", async () => {

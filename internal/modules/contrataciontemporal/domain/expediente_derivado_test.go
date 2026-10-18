@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -32,10 +33,15 @@ func padreDerivacionPrueba(t *testing.T) Expediente {
 }
 
 func altaDerivacionPrueba(p Expediente, plaza uint32) AltaExpedienteDerivado {
+	preimagen, err := json.Marshal(p)
+	if err != nil {
+		panic(err)
+	}
 	return AltaExpedienteDerivado{
 		Padre: p, Referencia: "expediente:hijo:plaza:01", OfertaRef: "oferta:padre:01",
 		NumeroPlaza: plaza, ActorRef: "actor:rrhh:derivacion:01",
 		ReciboRef: "recibo:derivacion:plaza:01", CreadaEn: p.ActualizadoEn.Add(time.Minute),
+		PreimagenPadreJSON: string(preimagen),
 	}
 }
 
@@ -138,5 +144,73 @@ func TestDerivacionAdmiteNumeroPadreMaximoYPlazaCien(t *testing.T) {
 	h, err := NuevoExpedienteDerivado(a)
 	if err != nil || h.Validar() != nil || len(h.NumeroVisible) != 50 {
 		t.Fatalf("número derivado de 50 caracteres: %v", err)
+	}
+}
+
+func TestExpedienteDerivadoValidaPreimagenExacta(t *testing.T) {
+	p := padreDerivacionPrueba(t)
+	a := altaDerivacionPrueba(p, 1)
+	rawEquivalente := strings.ReplaceAll(a.PreimagenPadreJSON, "Z\"", ".000000Z\"")
+	if rawEquivalente == a.PreimagenPadreJSON {
+		t.Fatal("la preimagen de prueba no cambió")
+	}
+	a.PreimagenPadreJSON = rawEquivalente
+	hijo, err := NuevoExpedienteDerivado(a)
+	if err != nil || hijo.Validar() != nil ||
+		hijo.InstruccionCompartida.HuellaPadreSHA256 != huellaPreimagenPadre(rawEquivalente) {
+		t.Fatalf("representación temporal equivalente rechazada: %v", err)
+	}
+	hijo.InstruccionCompartida.HuellaPadreSHA256 = strings.Repeat("a", 64)
+	if hijo.Validar() == nil {
+		t.Fatal("se admitió una huella ajena a la preimagen")
+	}
+	hijo.InstruccionCompartida.PreimagenPadreJSON = strings.Replace(rawEquivalente, "2026-08-01", "2026-08-02", 1)
+	hijo.InstruccionCompartida.HuellaPadreSHA256 = huellaPreimagenPadre(hijo.InstruccionCompartida.PreimagenPadreJSON)
+	if hijo.Validar() == nil {
+		t.Fatal("se admitió un periodo divergente con huella recalculada")
+	}
+}
+
+func TestExpedienteDerivadoRechazaPreimagenDivergenteYCamposAjenos(t *testing.T) {
+	p := padreDerivacionPrueba(t)
+	casos := map[string]func(*AltaExpedienteDerivado){
+		"ausente":          func(a *AltaExpedienteDerivado) { a.PreimagenPadreJSON = "" },
+		"demasiado grande": func(a *AltaExpedienteDerivado) { a.PreimagenPadreJSON = strings.Repeat("x", 262145) },
+		"utf8 inválido":    func(a *AltaExpedienteDerivado) { a.PreimagenPadreJSON = string([]byte{0xff, '{', '}'}) },
+		"campo desconocido": func(a *AltaExpedienteDerivado) {
+			a.PreimagenPadreJSON = strings.TrimSuffix(a.PreimagenPadreJSON, "}") + `,"campo_ajeno":1}`
+		},
+		"campo anidado desconocido": func(a *AltaExpedienteDerivado) {
+			a.PreimagenPadreJSON = strings.Replace(a.PreimagenPadreJSON, `"solicitud":{`, `"solicitud":{"campo_ajeno":1,`, 1)
+		},
+		"periodo divergente": func(a *AltaExpedienteDerivado) {
+			a.PreimagenPadreJSON = strings.Replace(a.PreimagenPadreJSON, "2026-08-01", "2026-08-02", 1)
+		},
+	}
+	for nombre, alterar := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			a := altaDerivacionPrueba(p, 1)
+			alterar(&a)
+			if _, err := NuevoExpedienteDerivado(a); err == nil {
+				t.Fatal("se admitió una preimagen ajena")
+			}
+		})
+	}
+}
+
+func TestExpedienteDerivadoPropagaFalloDeDecodificacion(t *testing.T) {
+	a := altaDerivacionPrueba(padreDerivacionPrueba(t), 1)
+	a.PreimagenPadreJSON = "{invalido}"
+	var falloJSON *json.SyntaxError
+	if _, err := NuevoExpedienteDerivado(a); !errors.Is(err, ErrExpedienteInvalido) || !errors.As(err, &falloJSON) {
+		t.Fatalf("el fallo JSON debe llegar a quien valida: %v", err)
+	}
+	hijo, err := NuevoExpedienteDerivado(altaDerivacionPrueba(padreDerivacionPrueba(t), 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hijo.InstruccionCompartida.PreimagenPadreJSON = "{invalido}"
+	if err := hijo.Validar(); !errors.Is(err, ErrExpedienteInvalido) || !errors.As(err, &falloJSON) {
+		t.Fatalf("el error de la instantánea debe propagarse: %v", err)
 	}
 }

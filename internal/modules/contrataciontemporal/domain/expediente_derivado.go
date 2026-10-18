@@ -4,9 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"io"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const AccionDerivarNombramiento ClaveCatalogo = "contratacion_temporal.nombramiento.derivar"
@@ -19,25 +23,24 @@ type InstruccionCompartida struct {
 	NumeroPlaza         uint32     `json:"numero_plaza"`
 	ReciboDerivacionRef string     `json:"recibo_derivacion_ref"`
 	HuellaPadreSHA256   string     `json:"huella_padre_sha256"`
+	PreimagenPadreJSON  string     `json:"preimagen_padre_json"`
 }
 
 type AltaExpedienteDerivado struct {
-	Padre       Expediente
-	Referencia  string
-	OfertaRef   string
-	NumeroPlaza uint32
-	ActorRef    string
-	ReciboRef   string
-	CreadaEn    time.Time
+	Padre              Expediente
+	Referencia         string
+	OfertaRef          string
+	NumeroPlaza        uint32
+	ActorRef           string
+	ReciboRef          string
+	CreadaEn           time.Time
+	PreimagenPadreJSON string
 }
 
 func NuevoExpedienteDerivado(alta AltaExpedienteDerivado) (Expediente, error) {
 	// Esta guarda precede a Validar y Clonar: un padre cíclico no debe recorrerse.
-	if alta.Padre.InstruccionCompartida != nil ||
-		alta.Padre.Validar() != nil || !padreDerivable(alta.Padre) ||
-		!referenciaValida(alta.Referencia) || alta.Referencia == alta.Padre.Referencia ||
-		!referenciaValida(alta.OfertaRef) || alta.NumeroPlaza == 0 ||
-		alta.NumeroPlaza > alta.Padre.Solicitud.NumeroPersonas {
+	if alta.Padre.InstruccionCompartida != nil || alta.Padre.Validar() != nil ||
+		!padreDerivable(alta.Padre) || len(alta.PreimagenPadreJSON) < 2 || len(alta.PreimagenPadreJSON) > 262144 {
 		return Expediente{}, ErrExpedienteInvalido
 	}
 	actuacion := DatosActuacion{
@@ -46,19 +49,8 @@ func NuevoExpedienteDerivado(alta AltaExpedienteDerivado) (Expediente, error) {
 		RealizadaEn: alta.CreadaEn, FaseDestino: FaseFiscalizacion,
 		EstadoDestino: EstadoEnCurso,
 	}
-	if actuacion.validar() != nil || alta.CreadaEn.Before(alta.Padre.ActualizadoEn) {
-		return Expediente{}, ErrExpedienteInvalido
-	}
-	for _, a := range alta.Padre.Actuaciones {
-		if a.ReciboRef == alta.ReciboRef {
-			return Expediente{}, ErrExpedienteInvalido
-		}
-	}
 	padre := alta.Padre.Clonar()
-	huella, err := huellaExpedientePadre(padre)
-	if err != nil {
-		return Expediente{}, ErrExpedienteInvalido
-	}
+	huella := huellaPreimagenPadre(alta.PreimagenPadreJSON)
 	hijo := padre.Clonar()
 	hijo.Referencia, hijo.NumeroVisible, hijo.Version = alta.Referencia,
 		padre.NumeroVisible+"-P"+strconv.FormatUint(uint64(alta.NumeroPlaza), 10), 6
@@ -68,12 +60,13 @@ func NuevoExpedienteDerivado(alta AltaExpedienteDerivado) (Expediente, error) {
 	hijo.InstruccionCompartida = &InstruccionCompartida{
 		ExpedientePadre: padre, OfertaRef: alta.OfertaRef, NumeroPlaza: alta.NumeroPlaza,
 		ReciboDerivacionRef: alta.ReciboRef, HuellaPadreSHA256: huella,
+		PreimagenPadreJSON: alta.PreimagenPadreJSON,
 	}
 	hijo.Actuaciones = []Actuacion{hijo.nuevaActuacion(
 		padre.FaseActual, padre.EstadoActual, actuacion, 6,
 	)}
-	if hijo.Validar() != nil {
-		return Expediente{}, ErrExpedienteInvalido
+	if err := hijo.Validar(); err != nil {
+		return Expediente{}, err
 	}
 	return hijo, nil
 }
@@ -92,30 +85,57 @@ func numeroDerivadoValido(numero, numeroPadre string, plaza uint32) bool {
 		numero == numeroPadre+"-P"+strconv.FormatUint(uint64(plaza), 10)
 }
 
-func huellaExpedientePadre(p Expediente) (string, error) {
-	material, err := json.Marshal(p)
-	if err != nil {
-		return "", err
-	}
-	huella := sha256.Sum256(material)
-	return hex.EncodeToString(huella[:]), nil
+func huellaPreimagenPadre(raw string) string {
+	huella := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(huella[:])
 }
 
-func (e Expediente) instruccionCompartidaValida() bool {
+func validarPreimagenPadre(raw string, padre Expediente) error {
+	if len(raw) < 2 || len(raw) > 262144 || !utf8.ValidString(raw) ||
+		padre.InstruccionCompartida != nil {
+		return ErrExpedienteInvalido
+	}
+	decodificador := json.NewDecoder(strings.NewReader(raw))
+	decodificador.DisallowUnknownFields()
+	var desdeRaw Expediente
+	if err := decodificador.Decode(&desdeRaw); err != nil {
+		return err
+	}
+	var resto any
+	if err := decodificador.Decode(&resto); err != io.EOF {
+		if err != nil {
+			return err
+		}
+		return ErrExpedienteInvalido
+	}
+	if desdeRaw.InstruccionCompartida != nil {
+		return ErrExpedienteInvalido
+	}
+
+	if !reflect.DeepEqual(desdeRaw.Clonar(), padre.Clonar()) {
+		return ErrExpedienteInvalido
+	}
+	return nil
+}
+
+func (e Expediente) validarInstruccionCompartida() error {
 	i := e.InstruccionCompartida
 	if i == nil || i.ExpedientePadre.InstruccionCompartida != nil {
-		return false
+		return ErrExpedienteInvalido
 	}
 	p := i.ExpedientePadre
-	huella, err := huellaExpedientePadre(p)
-	if err != nil || p.Validar() != nil || !padreDerivable(p) ||
+	if err := validarPreimagenPadre(i.PreimagenPadreJSON, p); err != nil {
+		return errors.Join(ErrExpedienteInvalido, err)
+	}
+	huella := huellaPreimagenPadre(i.PreimagenPadreJSON)
+	if p.Validar() != nil || !padreDerivable(p) ||
 		!referenciaValida(i.OfertaRef) || i.NumeroPlaza == 0 ||
 		i.NumeroPlaza > p.Solicitud.NumeroPersonas ||
 		!referenciaValida(i.ReciboDerivacionRef) || i.HuellaPadreSHA256 != huella ||
 		e.Referencia == p.Referencia ||
 		!numeroDerivadoValido(e.NumeroVisible, p.NumeroVisible, i.NumeroPlaza) ||
 		e.OrganizacionRef != p.OrganizacionRef || e.Flujo != p.Flujo {
-		return false
+		return ErrExpedienteInvalido
 	}
 	solicitud := p.Solicitud.clonar()
 	solicitud.NumeroPersonas = 1
@@ -127,7 +147,7 @@ func (e Expediente) instruccionCompartidaValida() bool {
 		!reflect.DeepEqual(e.InformeJuridico, p.InformeJuridico) ||
 		!reflect.DeepEqual(e.Fiscalizacion, p.Fiscalizacion) ||
 		!reflect.DeepEqual(e.Circuito, p.Circuito) {
-		return false
+		return ErrExpedienteInvalido
 	}
 	primera := e.Actuaciones[0]
 	if primera.AccionClave != AccionDerivarNombramiento ||
@@ -137,12 +157,12 @@ func (e Expediente) instruccionCompartidaValida() bool {
 		primera.ReciboRef != i.ReciboDerivacionRef ||
 		primera.RealizadaEn.Before(p.ActualizadoEn) ||
 		len(primera.DocumentosRef) != 0 || primera.RetornoRef != "" {
-		return false
+		return ErrExpedienteInvalido
 	}
 	for _, a := range p.Actuaciones {
 		if a.ReciboRef == primera.ReciboRef {
-			return false
+			return ErrExpedienteInvalido
 		}
 	}
-	return true
+	return nil
 }

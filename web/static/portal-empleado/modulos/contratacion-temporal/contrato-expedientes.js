@@ -64,6 +64,9 @@ const ESQUEMA_RECIBO = "vec.contratacion_temporal.recibo-actuacion.v1";
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const PATRON_CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const PATRON_NUMERO = /^[0-9]{4}\/[A-Za-z0-9._-]{1,40}$/u;
+const PATRON_NUMERO_DERIVADO = /^[0-9]{4}\/[A-Za-z0-9._-]{1,40}-P[1-9][0-9]*$/u;
+const numeroVisibleValido = (numero) => typeof numero === "string" && numero.length <= 50
+  && (PATRON_NUMERO.test(numero) || PATRON_NUMERO_DERIVADO.test(numero));
 const PATRON_HUELLA = /^[a-f0-9]{64}$/u;
 const PATRON_CURSOR_RRHH = /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/u;
 const TONOS = new Set(["neutro", "informacion", "exito", "aviso", "peligro"]);
@@ -191,7 +194,7 @@ function validarResumen(entrada, nombre) {
     || (tieneUrgente && entrada.urgente !== true)
     || (tieneDiaPlazo && !/^\d{4}-\d{2}-\d{2}$/u.test(entrada.plazo_ultimo_dia))
     || (tienePlazoEstado && !ESTADOS_PLAZO.has(entrada.plazo_estado))
-    || !PATRON_NUMERO.test(entrada.numero_visible)
+    || !numeroVisibleValido(entrada.numero_visible)
     || (tieneFaseClave && !PATRON_CLAVE.test(entrada.fase_clave))
     || !Number.isSafeInteger(entrada.version) || entrada.version < 1) {
     throw new TypeError(`${nombre} no válido`);
@@ -267,14 +270,18 @@ export function validarCuadroContratacionTemporal(entrada) {
 }
 
 function validarFase(entrada, nombre) {
-  exigirCamposExactos(entrada, ["fase_ref", "orden", "etiqueta", "estado_clave"], nombre);
+  const tieneOrigen = esRegistro(entrada) && Object.hasOwn(entrada, "origen");
+  exigirCamposExactos(entrada, ["fase_ref", "orden", "etiqueta", "estado_clave",
+    ...(tieneOrigen ? ["origen"] : [])], nombre);
   if (!Number.isSafeInteger(entrada.orden) || entrada.orden < 1
-    || !ESTADOS.has(entrada.estado_clave)) throw new TypeError(`${nombre} no válida`);
+    || !ESTADOS.has(entrada.estado_clave)
+    || (tieneOrigen && !["padre", "hijo"].includes(entrada.origen))) throw new TypeError(`${nombre} no válida`);
   return {
     fase_ref: referencia(entrada.fase_ref, `${nombre}.fase_ref`),
     orden: entrada.orden,
     etiqueta: cadenaNoVacia(entrada.etiqueta, `${nombre}.etiqueta`),
     estado_clave: entrada.estado_clave,
+    ...(tieneOrigen ? { origen: entrada.origen } : {}),
   };
 }
 
@@ -505,6 +512,17 @@ function validarActuacion(entrada, nombre) {
 // Describe sólo la cadena documental proyectada; el servidor autoriza cada descarga.
 export function versionPropuestaDocumentalValida(entrada) {
   const propuesta = entrada.version_propuesta_documental;
+  if (entrada.instruccion_compartida) {
+    if (propuesta !== 7 || ![7, 8, 9].includes(entrada.version)
+      || !Array.isArray(entrada.historial) || entrada.historial.length !== entrada.version - 5
+      || !entrada.historial.every((h, i) => h.secuencia === i + 6 && h.version_expediente === i + 6)
+      || entrada.historial.find((h) => h.secuencia === 7)?.accion_clave !== "registrar_propuesta_formalizacion") return false;
+    return (entrada.version < 8
+      || entrada.historial.find((h) => h.secuencia === 8)?.accion_clave === "registrar_resolucion_formalizacion")
+      && (entrada.version < 9
+        || entrada.historial.find((h) => h.secuencia === 9)?.accion_clave
+          === "contratacion_temporal.anotacion_administrativa.registrar");
+  }
   if ([8, 9].includes(entrada.version) && propuesta === 7) return true;
   if (!Number.isSafeInteger(propuesta) || propuesta <= 7
     || !Number.isSafeInteger(entrada.version) || entrada.version < propuesta
@@ -519,6 +537,7 @@ export function versionPropuestaDocumentalValida(entrada) {
 }
 
 export function validarExpedienteContratacionTemporal(entrada) {
+  const tieneInstruccionCompartida = esRegistro(entrada) && Object.hasOwn(entrada, "instruccion_compartida");
   const tieneNumeroPersonas = esRegistro(entrada) && Object.hasOwn(entrada, "numero_personas");
   const tieneResultadoBolsa = esRegistro(entrada) && Object.hasOwn(entrada, "resultado_bolsa");
   const propuestaHistorica = esRegistro(entrada) && Object.hasOwn(entrada, "version_propuesta_documental");
@@ -536,9 +555,11 @@ export function validarExpedienteContratacionTemporal(entrada) {
     ...(tieneDatosPeticion ? ["datos_peticion"] : []),
     ...(propuestaHistorica ? ["version_propuesta_documental"] : []),
     ...(tieneResultadoBolsa ? ["resultado_bolsa"] : []),
+    ...(tieneInstruccionCompartida ? ["instruccion_compartida"] : []),
   ], "expediente de contratación temporal");
   if (entrada.esquema !== ESQUEMA_EXPEDIENTE || typeof entrada.demostracion !== "boolean"
-    || !PATRON_NUMERO.test(entrada.numero_visible)
+    || !(tieneInstruccionCompartida
+      ? numeroVisibleValido(entrada.numero_visible) : PATRON_NUMERO.test(entrada.numero_visible))
     || !Number.isSafeInteger(entrada.version) || entrada.version < 1
     || !Number.isSafeInteger(entrada.flujo_version) || entrada.flujo_version < 1
     || (tieneNumeroPersonas && (!Number.isSafeInteger(entrada.numero_personas)
@@ -563,6 +584,34 @@ export function validarExpedienteContratacionTemporal(entrada) {
   ) : [];
   if (historial.some((hito, indice) => indice > 0 && hito.secuencia <= historial[indice - 1].secuencia)) {
     throw new TypeError("historial de hitos desordenado");
+  }
+  let instruccionCompartida;
+  if (tieneInstruccionCompartida) {
+    const origen = entrada.instruccion_compartida;
+    exigirCamposExactos(origen, ["derivacion_ref", "padre_ref", "numero_visible_padre", "numero_plaza",
+      "recibo_derivacion_ref", "padre_disponible", "historial_padre"], "instrucción compartida");
+    if (!PATRON_NUMERO.test(origen.numero_visible_padre)
+      || !Number.isSafeInteger(origen.numero_plaza) || origen.numero_plaza < 1 || origen.numero_plaza > 100
+      || entrada.numero_visible !== `${origen.numero_visible_padre}-P${origen.numero_plaza}`
+      || entrada.version < 6 || historial.length !== entrada.version - 5
+      || typeof origen.padre_disponible !== "boolean"
+      || historial[0]?.secuencia !== 6
+      || historial[0]?.accion_clave !== "contratacion_temporal.nombramiento.derivar"
+      || !historial.every((h, i) => h.secuencia === i + 6 && h.version_expediente === i + 6)) {
+      throw new TypeError("instrucción compartida no válida");
+    }
+    const historialPadre = lista(origen.historial_padre, "historial del padre", LIMITES_EXPEDIENTES_PRESENTACION.hitos, validarHitoHistorial);
+    if (historialPadre.length < 6 || !historialPadre.every((h, i) => h.secuencia === i + 1
+      && h.version_expediente === i + 1)) throw new TypeError("historial del padre no válido");
+    instruccionCompartida = {
+      derivacion_ref: referencia(origen.derivacion_ref, "derivacion_ref"),
+      padre_ref: referencia(origen.padre_ref, "padre_ref"),
+      numero_visible_padre: origen.numero_visible_padre, numero_plaza: origen.numero_plaza,
+      recibo_derivacion_ref: referencia(origen.recibo_derivacion_ref, "recibo_derivacion_ref"),
+      padre_disponible: origen.padre_disponible,
+      historial_padre: historialPadre,
+    };
+    if (instruccionCompartida.padre_ref === entrada.expediente_ref) throw new TypeError("padre idéntico al hijo");
   }
   const tareas = unicos(lista(
     entrada.tareas,
@@ -596,6 +645,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     ), "clave", "cabecera"),
     fases,
     ...(tieneHistorial ? { historial } : {}),
+    ...(instruccionCompartida ? { instruccion_compartida: instruccionCompartida } : {}),
     ...(tieneAnalisisPrevio ? { analisis_previo: validarDatosPreviosAnalisis(entrada.analisis_previo) } : {}),
     ...(tieneDatosPeticion ? { datos_peticion: validarDatosPeticionAnalisis(entrada.datos_peticion) } : {}),
     ...(tieneFiscalizacion ? { fiscalizacion: validarFiscalizacionExpediente(entrada.fiscalizacion) } : {}),

@@ -10,7 +10,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
 
-func solicitudDerivacionPrueba(t *testing.T) SolicitudDerivacionNombramiento {
+func solicitudDerivacionPrueba(t *testing.T) (SolicitudDerivacionNombramiento, domain.Expediente, string) {
 	t.Helper()
 	b, err := os.ReadFile("../domain/testdata/expediente_nombramiento_v7.json")
 	if err != nil {
@@ -34,31 +34,28 @@ func solicitudDerivacionPrueba(t *testing.T) SolicitudDerivacionNombramiento {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return SolicitudDerivacionNombramiento{
+	s := SolicitudDerivacionNombramiento{
 		Esquema:         EsquemaSolicitudDerivacionNombramiento,
 		OrganizacionRef: padre.OrganizacionRef, PadreRef: padre.Referencia, VersionPadre: padre.Version,
 		HijoRef:   HijoRefDerivacionNombramiento(padre.OrganizacionRef, padre.Referencia, 1),
 		OfertaRef: "oferta:" + strings.Repeat("a", 64), NumeroPlaza: 1, SecuenciaPlaza: 1,
 		ParticipacionRef: "participacion:ct:sintetica:01", ReciboAdjudicacionRef: "recibo:adjudicacion:sintetica:01",
 		ClaveIdempotencia: "a1234567-1234-4123-8123-123456789abc",
-		UnidadRef:         padre.Asignacion.UnidadRef, PadreCanonico: string(b),
+		UnidadRef:         padre.Asignacion.UnidadRef,
 	}
+	return s, padre, string(b)
 }
 
 func TestDerivacionCanonYResultadoExacto(t *testing.T) {
-	s := solicitudDerivacionPrueba(t)
+	s, padre, preimagen := solicitudDerivacionPrueba(t)
 	canon, err := s.Canon()
 	if err != nil {
 		t.Fatal(err)
 	}
 	var campos map[string]any
-	if err = json.Unmarshal(canon, &campos); err != nil || len(campos) != 13 ||
-		campos["padre_canonico"] != s.PadreCanonico || campos["hijo_ref"] != s.HijoRef {
+	if err = json.Unmarshal(canon, &campos); err != nil || len(campos) != 12 ||
+		campos["padre_canonico"] != nil || campos["hijo_ref"] != s.HijoRef {
 		t.Fatalf("canon inesperado: %v", err)
-	}
-	padre, err := s.Padre()
-	if err != nil {
-		t.Fatal(err)
 	}
 	instante := padre.ActualizadoEn.Add(time.Minute).Truncate(time.Second)
 	r := ResultadoDerivacionNombramiento{
@@ -68,7 +65,7 @@ func TestDerivacionCanonYResultadoExacto(t *testing.T) {
 		ReciboRef: "recibo:derivacion:sintetica:01", AuditoriaRef: "auditoria:ct:sintetica:01", ConfirmadaEn: instante,
 	}
 	r.Expediente, err = domain.NuevoExpedienteDerivado(domain.AltaExpedienteDerivado{
-		Padre: padre, Referencia: r.HijoRef, OfertaRef: s.OfertaRef, NumeroPlaza: 1,
+		Padre: padre, PreimagenPadreJSON: preimagen, Referencia: r.HijoRef, OfertaRef: s.OfertaRef, NumeroPlaza: 1,
 		ActorRef: "actor:rrhh:sintetico:01", ReciboRef: r.ReciboRef, CreadaEn: instante,
 	})
 	if err != nil || r.ValidarPara(s) != nil {
@@ -89,6 +86,20 @@ func TestDerivacionCanonYResultadoExacto(t *testing.T) {
 	desdeSQL.Expediente.Solicitud.Periodo.Inicio = desdeSQL.Expediente.Solicitud.Periodo.Inicio.Add(time.Hour)
 	if desdeSQL.ValidarPara(s) == nil {
 		t.Fatal("se aceptó un período distinto del padre")
+	}
+	preimagenAlterada := r
+	preimagenAlterada.Expediente = r.Expediente.Clonar()
+	preimagenAlterada.Expediente.InstruccionCompartida.PreimagenPadreJSON += " "
+	if preimagenAlterada.ValidarPara(s) == nil {
+		t.Fatal("se aceptó una preimagen que no coincide con su huella")
+	}
+	periodoAlterado := r
+	periodoAlterado.Expediente = r.Expediente.Clonar()
+	periodoAlterado.Expediente.InstruccionCompartida.ExpedientePadre.Solicitud.Periodo.Inicio =
+		periodoAlterado.Expediente.InstruccionCompartida.ExpedientePadre.Solicitud.Periodo.Inicio.Add(time.Hour)
+	periodoAlterado.Expediente.Solicitud.Periodo.Inicio = periodoAlterado.Expediente.Solicitud.Periodo.Inicio.Add(time.Hour)
+	if periodoAlterado.ValidarPara(s) == nil {
+		t.Fatal("se aceptó padre e hijo alterados sin cambiar la preimagen SQL")
 	}
 	r.Estado = "replay_confirmado"
 	if err = r.ValidarPara(s); err != nil {

@@ -28,6 +28,19 @@ func calcularHuellaDetalleRRHH(
 	e.asignacion(detalle.Asignacion)
 	e.fiscalizacion(detalle.Fiscalizacion)
 	e.hitos(detalle.Hitos)
+	if detalle.InstruccionCompartida != nil {
+		i := detalle.InstruccionCompartida
+		e.cadena(i.DerivacionRef)
+		e.cadena(i.PadreRef)
+		e.cadena(i.NumeroVisiblePadre)
+		e.cadena(i.OfertaRef)
+		e.u64(uint64(i.NumeroPlaza))
+		e.cadena(i.ReciboDerivacionRef)
+		e.cadena(i.HuellaPadreSHA256)
+		e.instante(i.CreadoEnPadre)
+		e.instante(i.ActualizadoEnPadre)
+		e.hitos(i.HitosPadre)
+	}
 	var resultado [sha256.Size]byte
 	copy(resultado[:], destino.Sum(nil))
 	return resultado

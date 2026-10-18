@@ -1,6 +1,6 @@
 import { referenciaEmpleadoB2Valida } from "../personal/registro-b2-cliente.js?v=20261012-ct-personal-ficha-v1";
 import { validarConsultaB2, validarSolicitudPlanB2, validarSolicitudConfirmacionB2, validarReciboB2, fechaCivilB2 } from "./contrato-incorporacion-personal-b2.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261016-ct-ofertas-ct231-v1";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261018-f119-detalle-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 
 export const cargarTextosIncorporacionPersonalB2 = (opciones) => cargarTextos("contratacion-temporal-incorporacion-personal-b2", opciones);
