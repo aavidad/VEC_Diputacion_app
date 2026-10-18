@@ -1,0 +1,26 @@
+# Preferencias de modalidad de ofertas (F1-13)
+
+Esta capacidad permite que la aspirante elija qué modalidades de **ofertas publicadas** quiere ver y sobre cuáles recibir avisos. La elección no cambia su inscripción, el orden de la bolsa, la selección ni los llamamientos directos. Tampoco cuenta como renuncia. Sin selección guardada (`null`) se muestran todas las modalidades; una selección guardada vacía (`[]`) oculta las ofertas abiertas sin respuesta que tienen una modalidad identificada. Conserva las ofertas con respuesta y el historial; «Ver todas» permite consultarlas temporalmente sin guardar otra elección.
+
+## Entregas previstas
+
+1. **Base de permisos y persistencia (PR1).** AUT104 adapta la lectura propia a la proyección de orden existente, de ocho campos, y a la nueva consulta de modalidades, de cinco. B138 guarda por separado las versiones y recibos de la elección y conserva la lectura anterior. La fuente propuesta para el catálogo es [`bolsa_preferencias_bolsas_propias_v2.json`](../../fuentes/bolsa_preferencias_bolsas_propias_v2.json). Esta base todavía no ofrece una función completa a la persona.
+2. **Servicio y persistencia (PR2).** Conecta el catálogo vigente con la elección, su huella y el repositorio nominal. Conserva la selección vacía y la opción de todas, la versión y el recibo.
+3. **API y composición (PR3).** El servidor debe conectar `GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades` con la sesión, la concesión vigente y las funciones nominales. Debe devolver versión y recibo, y recuperar el mismo recibo al repetir una clave con la misma elección. El orden de bolsas conserva su consulta y guardado actuales.
+4. **Vista y avisos (PR4).** La elección se aplica a la vista de ofertas publicadas y a los avisos solicitados por la persona. La comprobación debe demostrar que el orden de llamamiento y la inscripción no cambian. La pantalla para elegir modalidades, el aviso por selección vacía y «Ver todas» pertenecen al recorrido de F1-14.
+
+**PR1 no se fusiona hasta ensayarla junto con la API de PR3 en una copia local y validar GET/PUT.** PR4 se comprueba después con la vista, los avisos y el recorrido en Chrome. AD291, a cargo del equipo R, sigue pendiente y B138 exige su instalación junto con AUT104 como precondición; el orden causal completo debe quedar fijado en la lista de instalación antes del ensayo.
+
+## Fuente y gobierno de la concesión
+
+La fuente v2 conserva las dos acciones propias de preferencias y amplía los campos concedidos a la lectura. AUT104 admite que el GET anterior pida sus ocho campos y que el nuevo pida exactamente los cinco de modalidades; ninguno obtiene la proyección de la otra consulta por añadir campos en la petición. La fuente declara 90 días de vigencia: desde el **18 de octubre de 2026 a las 00:00 UTC** hasta antes del **16 de enero de 2027 a las 00:00 UTC**. Su huella de contenido canónico es `1b3532afc450c8b18c6670d15e78972f2311f5e12715cffbfd14b2f156053633`; la huella SHA-256 del archivo es `4a3d7ddbf3695dea535ae3d1dc5bf70a9db9d347e41087539220375550d61dcd`.
+
+El archivo en Git es una propuesta, no una concesión publicada. Para activarla, dirección debe comprobar la versión y el catálogo vigentes, admitir la fuente por el acto de gobierno del catálogo y publicar la nueva versión del rol por la propuesta y el cierre de dos administradores que ya usa el producto. La guía anterior de [preferencias entre bolsas](../../habilitacion_preferencias_bolsas_20261013.md) describe esas vías para la fuente v1; sus datos, versiones y acuses no se reutilizan como si acreditaran la v2. Antes de ejecutar un acto nuevo hay que comprobar que esas vías aceptan la nueva versión y sus dos campos adicionales. Si falta esa comprobación, la publicación del rol queda pendiente. La activación no se hace escribiendo filas privadas por SQL.
+
+Las modalidades disponibles deben salir del catálogo gobernado que corresponde a la oferta y a su versión, no de nombres enviados por el navegador. B138 exige una instantánea de esas opciones al guardar y rechaza claves ausentes de ella. PR2 debe resolver ese catálogo; PR4 debe usarlo al filtrar vista y avisos. F1-14 presentará las opciones sin inventarlas cuando falte el catálogo.
+
+## Estado y comprobaciones pendientes (18/10/2026)
+
+PR1 está en preparación. **No se han ensayado AUT104 ni B138 en la copia**, ni se han comprobado `GET/PUT`, recibos, reinicio o Chrome para esta capacidad. AD291 y la API de PR3 están pendientes. La fuente v2 tampoco consta aquí como admitida ni la nueva versión del rol como publicada. No hay un recorrido F1-13 acreditado en la web.
+
+El ensayo conjunto debe instalar la lista causal revisada en una copia local, ejecutar las pruebas SQL de AUT104 y B138 y comprobar con datos ficticios: `null` muestra todas las modalidades, `[]` oculta las ofertas abiertas sin respuesta y con modalidad identificada, una clave desconocida se rechaza, y una repetición conserva versión, recibo y fecha tras reiniciar aplicación y PostgreSQL. Después debe contrastar la vista y los avisos con las ofertas publicadas, sin alterar la inscripción, la posición en bolsa ni el llamamiento directo. Los fallos de configuración deben cerrar solo esta función y dejar disponible el resto de Mi Bolsa.
