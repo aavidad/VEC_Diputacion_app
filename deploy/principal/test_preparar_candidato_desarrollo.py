@@ -148,17 +148,28 @@ class PrepararCandidatoDesarrolloTest(unittest.TestCase):
         extension.write_text("basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\n"
                              "extendedKeyUsage=clientAuth\n"
                              "subjectAltName=URI:urn:vec:desarrollo:candidato-bolsa:antonio\n")
-        subprocess.run(["openssl", "x509", "-req", "-days", "397", "-in", str(csr),
-                        "-CA", str(ca / "ca.crt"), "-CAkey", str(ca / "ca.key"),
-                        "-set_serial", "0x9876", "-extfile", str(extension), "-out", str(cert)],
-                       check=True, capture_output=True, env=self.env)
-        cert.chmod(0o600)
-        antes = len(self.llamadas())
-        largo = self.ejecutar(primero, "--motor", "docker", "--identidad", "antonio",
-                              "--nombre", "Antonio Reyes Álvarez", "--candidato-ref", CANDIDATOS[0])
-        self.assertNotEqual(largo.returncode, 0)
-        self.assertIn("superior a 90 días", largo.stderr)
-        self.assertEqual(len(self.llamadas()), antes)
+        for dias in (59, 60, 91, 397):
+            with self.subTest(dias=dias):
+                subprocess.run(["openssl", "x509", "-req", "-days", str(dias), "-in", str(csr),
+                                "-CA", str(ca / "ca.crt"), "-CAkey", str(ca / "ca.key"),
+                                "-set_serial", "0x9876", "-extfile", str(extension), "-out", str(cert)],
+                               check=True, capture_output=True, env=self.env)
+                subprocess.run(["openssl", "pkcs12", "-export", "-inkey", str(clave), "-in", str(cert),
+                                "-certfile", str(ca / "ca.crt"), "-out", str(primero / "mtls/candidato.p12"),
+                                "-passout", "file:" + str(primero / "mtls/candidato.p12.password")],
+                               check=True, capture_output=True, env=self.env)
+                for nombre in ("candidato.json", "bolsa-candidato.json"):
+                    (primero / "identidad" / nombre).unlink(missing_ok=True)
+                antes = len(self.llamadas())
+                resultado = self.ejecutar(primero, "--motor", "docker", "--identidad", "antonio",
+                                          "--nombre", "Antonio Reyes Álvarez", "--candidato-ref", CANDIDATOS[0])
+                if dias == 60:
+                    self.assertEqual(resultado.returncode, 0, resultado.stderr)
+                    self.assertEqual(len(self.llamadas()), antes + 3)
+                else:
+                    self.assertNotEqual(resultado.returncode, 0)
+                    self.assertIn("fuera de 60 a 90 días", resultado.stderr)
+                    self.assertEqual(len(self.llamadas()), antes)
 
     def test_entradas_invalidas_antes_de_efectos(self):
         inexistente = self.raiz / "no-creado"

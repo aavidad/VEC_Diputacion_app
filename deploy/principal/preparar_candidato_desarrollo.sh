@@ -137,7 +137,7 @@ openssl x509 -in "$cert" -noout -subject -nameopt RFC2253 | grep -Eq "(^|,)CN=$c
 openssl x509 -in "$cert" -noout -ext subjectAltName | grep -Eq "(^|[,[:space:]])URI:$san($|[,[:space:]])" || fallar 'SAN candidato incorrecto'
 inicio_segundos=$(date -u -d "$(openssl x509 -in "$cert" -startdate -noout | cut -d= -f2)" +%s)
 fin_segundos=$(date -u -d "$(openssl x509 -in "$cert" -enddate -noout | cut -d= -f2)" +%s)
-((fin_segundos > inicio_segundos && fin_segundos - inicio_segundos <= 90 * 86400)) || fallar 'certificado candidato con vigencia superior a 90 días'
+((fin_segundos - inicio_segundos >= 60 * 86400 && fin_segundos - inicio_segundos <= 90 * 86400)) || fallar 'certificado candidato con vigencia fuera de 60 a 90 días'
 [[ $(openssl x509 -in "$cert" -pubkey -noout | openssl pkey -pubin -outform DER 2>/dev/null | sha256sum | cut -d' ' -f1) == \
    $(openssl pkey -in "$clave" -pubout -outform DER 2>/dev/null | sha256sum | cut -d' ' -f1) ]] || fallar 'certificado y clave no coinciden'
 openssl pkcs12 -in "$p12" -passin "file:$password" -noout 2>/dev/null || fallar 'PKCS#12 inválido'
