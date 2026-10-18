@@ -35,7 +35,7 @@ Aunque D15 ya estaba en Git antes del corte HZ37, el esquema de esa copia
 conserva la función de D14. Esta instalación reconcilia solo la copia nueva de
 CI; no cambia la lista general de migraciones ni reaplica D15 en otras bases.
 `--pruebas` incluye esa preparación y ejecuta estas
-cuatro pruebas SQL existentes, en este orden:
+siete pruebas SQL existentes, en este orden:
 
 1. `bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql`: valida criterios
    de ofrecimiento y el permiso del validador sin crear un llamamiento.
@@ -45,6 +45,20 @@ cuatro pruebas SQL existentes, en este orden:
    referencia de expediente CT con identificador cero.
 4. `autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql`: comprueba
    el rechazo temprano 42501 ante una entrada nula.
+5. `contexto_actor_v1/pruebas_sql/contexto_candidato_exacto_000013.sql`: publica
+   una provisión de candidato con datos ficticios transaccionales; acepta su
+   combinación exacta de persona, perfil y candidato, rechaza las tres
+   combinaciones cruzadas y comprueba las restricciones de ejecución.
+6. `identidad_sesiones_v1/pruebas_sql/000021_seleccion_perfil_bolsa_rrhh.sql`:
+   comprueba propietario y permisos; rechaza la consulta de perfiles propios
+   con una sesión inexistente.
+7. `contexto_actor_v1/pruebas_sql/000046_perfiles_propios_bolsa_rrhh.sql`:
+   comprueba propietario y permisos; rechaza una cuenta sin acreditación.
+
+La provisión de candidato usa la función instalada y calcula la huella de sus
+datos. Su preparación es una fixture SQL aislada, no una identidad certificada
+ni una decisión completa de autorización. No sustituye funciones, no desactiva
+disparadores y no persiste sus datos.
 
 El guion comprueba que los bytes de cada prueba coinciden con `HEAD` y los pasa
 a `psql` con `ON_ERROR_STOP=1`. Un fallo detiene el ensayo con estado distinto
