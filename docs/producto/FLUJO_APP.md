@@ -348,13 +348,25 @@ esta tabla.
 | Punto | Lo que hay escrito | Para la presentación |
 | --- | --- | --- |
 | Orden del ofrecimiento y la fiscalización | RRHH (02/10) y el circuito v2 ponen oferta y adjudicación antes del informe de Jefatura y de Intervención; el código hace el llamamiento después de la fiscalización favorable | Se sigue el orden del código. La pantalla puede pintar las doce fases del circuito v2, pero los pasos se hacen como en la tabla anterior |
-| Momento de la propuesta | Circuito v2: tras la adjudicación; código: exige `fiscalizacion/en_curso` | El del código: propuesta tras fiscalizar y aceptar |
+| Momento de la propuesta | Circuito v2: tras la adjudicación; código: exige `fiscalizacion/en_curso` y un llamamiento aceptado | En el recorrido singular se registra después de fiscalizar y resolver la aceptación. Queda pendiente la continuación desde una oferta adjudicada |
 | Dos o tres firmantes | RRHH habló de resolución firmada por la Diputada con visto bueno de Dirección o Jefatura (dos); el catálogo v2 pide tres pasos | Tres: Jefatura, Diputado/a y Secretaría General, como dice el catálogo |
 | Petición firmada por técnico y Diputado/a | RRHH la pide firmada; el código la presenta y la ratifica otra persona del centro, sin firma | Presentación y ratificación sin firma, como hace el código |
 | Autorización de la Dirección de RRHH | Paso 2 del orden de RRHH; el código no tiene un paso propio | No se representa; la vía de cobertura y el informe la sustituyen en la presentación |
 | Unidad de Lucía | `docs/manuales/centro.md` la sitúa en TRANSFORMACIÓN DIGITAL | Se usa la que fija este caso; el manual se corrige cuando K confirme centro y puesto |
-| Una o varias plazas | Bolsa admite ofertas con varias plazas; el expediente no las usa | Una plaza y una persona |
 | Cuándo cuenta la incorporación | Duda 140: con el alta en Personal o con la toma de posesión | Se muestran las dos: acreditación del centro y alta en Personal |
+
+**Variante de varias plazas, separada del caso de aceptación.** Dirección autorizó
+el 15/10 ensayar una petición del mismo puesto Administrativo para dos personas:
+Antonio y otra persona ficticia ya disponible en la bolsa. El ensayo previsto llega hasta la
+publicación, respuesta y adjudicación de las dos plazas en Bolsa, conservando
+los recibos de la oferta y de su vínculo con CT. La publicación desde CT N2
+sigue preparada en código, sin ensayo conjunto de SQL, configuración, Chrome
+y reinicio. **Pendiente:** continuar con la propuesta desde una oferta adjudicada;
+el recibo de la oferta no acredita propuesta, nombramiento, incorporación ni
+envío de correo. También siguen pendientes la consulta de Organización histórica, la correspondencia
+entre la unidad que tramita y la del puesto y la asignación de los permisos
+necesarios para la activación. Este ejercicio no cambia
+los pasos 1 a 21 del caso singular.
 
 ### 4.0.1 Vista general
 
@@ -813,12 +825,45 @@ sin completar. El montaje se ensaya en la copia local; todavía no acredita el
 ofrecimiento ni corrige por sí solo la separación entre unidad gestora y unidad
 del puesto.
 
+El segundo corte, **preparado en código y todavía sin ensayo integrado**, añade
+una respuesta distinta al mismo `POST /api/vec/contratacion-temporal/llamamientos/seleccion`.
+Para una persona conserva el llamamiento anterior. Para varias, CT obtiene del
+expediente la cantidad solicitada, la necesidad y la bolsa constituida; exige
+entre 2 y 100 plazas y que no superen las personas elegibles. La ficha no envía
+cantidad, bolsa ni candidatos. CT toma una vez la captura vigente del orden de
+Bolsa, reserva el comando original y pide a Bolsa una oferta de esa cantidad.
+Bolsa publica y devuelve su recibo; CT confirma el vínculo con recibo propio.
+La ficha muestra ambos, las plazas y el plazo, y lleva a «Gestionar ofertas»
+en Bolsa. La publicación no demuestra un aviso por correo. El vínculo, su consulta y el
+descarte comprueban la organización y la unidad gestora del expediente. El
+centro y la categoría se cotejan con su necesidad; no definen esos permisos.
+El cierre en Bolsa conserva el ámbito y la unidad de la bolsa.
 
-La oferta con varias plazas, la adjudicación por posición y el llamamiento
-directo existen en Bolsa (`internal/modules/bolsa/domain/oferta_publicada.go`,
-`politica_ofertas.go`, `/api/vec/bolsa/ofertas`), pero el expediente de CT no
-los usa: el número de personas de la solicitud no se traduce en varias plazas.
-Falta.
+La variante de dos personas del apartado 4.0 llega hasta la adjudicación en
+Bolsa. **Pendiente:** continuación de la propuesta desde la oferta adjudicada.
+La propuesta del recorrido singular exige un llamamiento aceptado; la oferta
+adjudicada todavía no acredita que ese requisito esté cubierto.
+
+Ante una respuesta incierta, RRHH conserva la solicitud original. Al recargar
+la ficha, una consulta autorizada por expediente recupera el intento guardado
+y sus recibos; no se publica otra oferta automáticamente. Si falla esa consulta,
+se impide preparar otra oferta hasta poder comprobar el resultado. Si el servidor identifica una oferta indeterminada, RRHH
+puede pulsar «Recuperar operación»: la petición añade `accion: recuperar_oferta`
+sin cambiar los tres campos originales. Puede devolver la oferta ya publicada
+con el mismo recibo. Si han pasado más de cinco minutos y Bolsa acredita que
+no hubo publicación, B121 cierra la intención y CT registra un descarte con
+dos recibos. Solo tras ver ese cierre RRHH puede confirmar «Preparar nueva
+oferta»; la nueva solicitud obtiene otra clave al confirmar. Los justificantes
+del cierre siguen visibles mientras se prepara y se recupera la siguiente.
+Una falta de reserva no se presenta como cierre: se reintenta la solicitud
+original. Los recibos y la recuperación aún necesitan instalación, arranque
+y recorrido en Chrome de la candidata conjunta.
+
+La guarda del tercer corte toma el bloqueo de cabecera compartido con la
+reserva. Terminar una intención de oferta no permite cancelar un expediente
+ya fiscalizado si la política vigente lo prohíbe. Siguen pendientes la retirada
+de una oferta publicada y una intención durable de aviso por correo.
+
 
 Reglas del llamamiento y sus canales (decisiones de Alberto del 02/10 al
 08/10):

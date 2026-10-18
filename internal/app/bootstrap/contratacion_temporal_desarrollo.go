@@ -1109,6 +1109,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		autoridadSubsanacion = subsanacionReal.autoridad
 		ejecutorSubsanacion = subsanacionReal.servicio
 	}
+	var consultorEstadoSeleccionOferta httpinterno.ConsultorEstadoSeleccionOferta
+	if consulta, ok := seleccionReal.(httpinterno.ConsultorEstadoSeleccionOferta); ok {
+		consultorEstadoSeleccionOferta = consulta
+	}
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			PresentacionFlujoRRHH:           presentacionFlujoRRHH,
@@ -1130,6 +1134,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			BorradorRRHH:                    borradorRRHH,
 			BorradorRRHHDOCX:                borradorRRHHDOCX,
 			EjecutorSeleccion:               seleccionReal,
+			ConsultorEstadoSeleccionOferta:  consultorEstadoSeleccionOferta,
 			AutoridadPropuestaFormalizacion: autoridadPropuestaReal,
 			EjecutorPropuestaFormalizacion:  propuestaReal,
 			AutoridadAsignacion:             alta.soporte,
@@ -1352,6 +1357,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 				return nil, nil, nil, err
 			}
 			cerrarClienteM10CT = configurarDatosEmisionConstituidaOpcionalCT(cfg, seleccion.puente, reglasLlamamiento, reloj.Ahora)
+			cerrarOfertas := configurarSeleccionOfertaOpcionalCT(cfg, &alta, seleccion,
+				bolsa.preparador, catalogoFronteras, derivador, reloj)
+			cerrarDatos := cerrarClienteM10CT
+			cerrarClienteM10CT = func() { cerrarOfertas(); cerrarDatos() }
 		}
 		if len(incorporacion) == 1 && incorporacion[0].nominales != nil &&
 			incorporacion[0].nominales.montajeB2 != nil {
