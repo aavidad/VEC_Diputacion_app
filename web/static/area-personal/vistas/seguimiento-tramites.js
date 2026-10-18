@@ -83,7 +83,7 @@ export function renderizarLlamamientos(datos, estado = {}) {
   return `${encabezadoVista(b("titulo"), "", ayudaLlamamiento)}
     ${fichaParticipaciones}
     <div id="preferencias-bolsas" aria-live="polite">${renderizarPreferenciasBolsas()}</div>
-    <div id="preferencias-modalidades">${renderizarPreferenciasModalidades()}</div>
+    ${estado.ofertasSegunModalidades === true ? `<div id="preferencias-modalidades">${renderizarPreferenciasModalidades()}</div>` : ""}
     <div id="historial-mi-bolsa" aria-live="polite">${renderizarHistorialMiBolsa()}</div>
     <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}<div id="ofertas-mi-bolsa">${renderizarSeccionOfertasMiBolsa(estado.ofertasMiBolsa, { noDisponibles: estado.ofertasNoDisponibles === true })}</div></div><aside>
       ${estado.accionesPortal

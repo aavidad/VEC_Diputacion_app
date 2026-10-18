@@ -8,15 +8,15 @@ import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-mi
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import {
   renderizarLlamamientos, renderizarSeccionOfertasMiBolsa, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261018-f114-parcial-v1";
+} from "./vistas/seguimiento-tramites.js?v=20261018-f114-externo-v1";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-mibolsa-respuesta-anterior-v1";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261015-o-justificante-bolsa-v4";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261018-f114-externo-v1";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { actualizarCamposRenunciaJustificada, enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261015-o-justificante-bolsa-v4";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v4";
 import { crearControladorPreferenciasBolsas } from "./mi-bolsa-preferencias-bolsas.js?v=20261012-preferencias-bolsas-v1";
 import { crearControladorPreferenciasModalidades } from "./mi-bolsa-preferencias-modalidades.js?v=20261018-f114-parcial-v1";
-import { validarRespuestaMiBolsa } from "./contrato.js?v=20261018-f114-parcial-v1";
+import { validarRespuestaMiBolsa } from "./contrato.js?v=20261018-f114-externo-v1";
 
 
 const RUTAS = Object.freeze({
@@ -68,6 +68,24 @@ export async function consultarTodasOfertasMiBolsa(fetchImpl, { signal } = {}) {
     if (instantanea.ofertas_no_disponibles === true) throw new TypeError();
     return { ...instantanea, ofertas: instantanea.ofertas ?? [] };
   } catch { throw Object.assign(new Error("ver_todas"), { codigo: "verTodasError" }); }
+}
+
+export function montarPreferenciasModalidadesSiAplica(estado, host, fabrica = crearControladorPreferenciasModalidades) {
+  if (estado?.ofertasSegunModalidades !== true || !host) return null;
+  const controlador = fabrica({
+    host, api: estado.fetchImpl,
+    onVerTodas: async ({ signal }) => {
+      const generacionActual = estado.generacionVista;
+      const instantanea = await consultarTodasOfertasMiBolsa(estado.fetchImpl, { signal });
+      if (signal.aborted || estado.vista !== "llamamientos" || estado.generacionVista !== generacionActual) return;
+      const region = porId("ofertas-mi-bolsa");
+      if (!region) throw new Error("ver_todas");
+      region.innerHTML = renderizarSeccionOfertasMiBolsa(instantanea.ofertas, { mostrarVacio: true });
+      region.scrollIntoView?.({ block: "nearest" });
+    },
+  });
+  controlador.montar();
+  return controlador;
 }
 
 export function conservarResultadoContactoPropio(estado, { reciboRef, version, correo }) {
@@ -322,19 +340,9 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
     estado.controladorPreferenciasBolsas ??= crearControladorPreferenciasBolsas({ fetchImpl: estado.fetchImpl });
     estado.controladorPreferenciasBolsas.montar({ contenedor: porId("preferencias-bolsas"),
       participaciones: estado.participaciones });
-    estado.controladorPreferenciasModalidades = crearControladorPreferenciasModalidades({
-      host: porId("preferencias-modalidades"), api: estado.fetchImpl,
-      onVerTodas: async ({ signal }) => {
-        const generacionActual = estado.generacionVista;
-        const instantanea = await consultarTodasOfertasMiBolsa(estado.fetchImpl, { signal });
-        if (signal.aborted || estado.vista !== "llamamientos" || estado.generacionVista !== generacionActual) return;
-        const region = porId("ofertas-mi-bolsa");
-        if (!region) throw new Error("ver_todas");
-        region.innerHTML = renderizarSeccionOfertasMiBolsa(instantanea.ofertas, { mostrarVacio: true });
-        region.scrollIntoView?.({ block: "nearest" });
-      },
-    });
-    estado.controladorPreferenciasModalidades.montar();
+    if (estado.ofertasSegunModalidades === true) {
+      estado.controladorPreferenciasModalidades = montarPreferenciasModalidadesSiAplica(estado, porId("preferencias-modalidades"));
+    }
     estado.destruirHistorialMiBolsa = montarHistorialMiBolsa({
       contenedor: porId("historial-mi-bolsa"), fetchImpl: estado.fetchImpl,
     })?.destruir ?? null;
@@ -802,6 +810,7 @@ async function cargar(estado) {
     estado.accionesPortal = respuesta?.consulta?.acciones_portal || null;
     estado.ofertasMiBolsa = respuesta?.consulta?.ofertas || null;
     estado.ofertasNoDisponibles = respuesta?.consulta?.ofertas_no_disponibles === true;
+    estado.ofertasSegunModalidades = respuesta?.consulta?.ofertas_segun_modalidades === true;
     estado.contactosMiBolsa = respuesta?.consulta?.contactos || null;
     estado.fuenteBolsa = respuesta?.fuente || "real";
     estado.causaBolsa = respuesta?.causa || "";
@@ -872,6 +881,7 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     controladorPreferenciasBolsas: null,
     controladorPreferenciasModalidades: null,
     ofertasNoDisponibles: false,
+    ofertasSegunModalidades: false,
     desmontarOportunidades: null,
     fetchImpl,
     participaciones: [],

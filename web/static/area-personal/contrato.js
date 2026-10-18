@@ -113,6 +113,9 @@ export function validarRespuestaMiBolsa(entrada) {
     throw new TypeError("El esquema de mi bolsa no es compatible.");
   }
   exigirInstante(datos.consultada_en, "mi-bolsa.consultada_en");
+  if (datos.ofertas_segun_modalidades !== undefined && typeof datos.ofertas_segun_modalidades !== "boolean") {
+    throw new TypeError("El indicador de ofertas por modalidad no es válido.");
+  }
   if (datos.ofertas_no_disponibles !== undefined && typeof datos.ofertas_no_disponibles !== "boolean") {
     throw new TypeError("La disponibilidad de ofertas de mi bolsa no es válida.");
   }
