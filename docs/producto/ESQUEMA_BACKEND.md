@@ -444,6 +444,10 @@ conectar el productor de autorización. Faltan la instalación conjunta y el
 ensayo positivo. Véase
 [`f1_19_nombramientos_derivados.md`](../../deploy/principal/f1_19_nombramientos_derivados.md).
 
+CT236 prepara la propuesta del hijo en las operaciones CT211 existentes, con
+un origen de aceptación disjunto y referencias antiguas vacías. La instalación
+y el recorrido siguen pendientes; véase `deploy/principal/f1_19_propuesta_derivada.md`.
+
 La conexión de ofertas de varias plazas está **preparada en código y SQL, sin
 ensayo integrado ni instalación acreditados**. CT220 amplía la ejecución de
 selección para reservar una variante de oferta con su comando original; añade
