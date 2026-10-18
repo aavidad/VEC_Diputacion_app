@@ -12,6 +12,7 @@ Desde la raíz del repositorio:
 ```sh
 python3 deploy/postgresql/fase1/ensayar.py --solo-base
 python3 deploy/postgresql/fase1/ensayar.py --preparacion
+python3 deploy/postgresql/fase1/ensayar.py --pruebas
 ```
 
 `--solo-base` comprueba únicamente la restauración del esquema. El segundo
@@ -21,12 +22,37 @@ todas las tablas ordinarias y vistas materializadas de `public` y los esquemas
 `vec_`, incluidas las hojas de particiones. Excluyen objetos propios de
 extensiones, cuentan las filas reales de cada relación y fallan si alguna
 contiene datos. El resultado indica cuántas tablas se comprobaron.
-La opción `--preparacion` ejecuta antes de la lista únicamente
+La opción `--preparacion` ejecuta primero
 `deploy/postgresql/fase1/preparacion_fase1.sql`, comprobando que coincide con
-la versión confirmada en Git. La opción no se admite con `--solo-base`.
-Ambos terminan con estado distinto de cero si falla una validación, el
-arranque, la restauración o una migración. No ejecutan datos de prueba ni
-acreditan todavía las pruebas SQL del recorrido de la fase 1.
+la versión confirmada en Git. Repone la fila técnica del catálogo D14 que
+falta en el volcado sin datos, después de verificar las 662 tablas vacías.
+Después instala D15 una sola vez desde
+`deploy/postgresql/fase1/lista_sql_base_hz37.txt`, antes de la lista general.
+La lista propia y D15 deben coincidir por bytes con `HEAD`, y la huella de D15
+debe ser la publicada en esa lista. La opción no se admite con `--solo-base`.
+
+Aunque D15 ya estaba en Git antes del corte HZ37, el esquema de esa copia
+conserva la función de D14. Esta instalación reconcilia solo la copia nueva de
+CI; no cambia la lista general de migraciones ni reaplica D15 en otras bases.
+`--pruebas` incluye esa preparación y ejecuta estas
+cuatro pruebas SQL existentes, en este orden:
+
+1. `bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql`: valida criterios
+   de ofrecimiento y el permiso del validador sin crear un llamamiento.
+2. `documentos/pruebas_sql/000014_referencia_expediente_tipado.sql`: comprueba
+   formatos, catálogo y rechazo de una referencia de otro módulo.
+3. `documentos/pruebas_sql/000015_rechazo_expediente_ct_cero.sql`: rechaza la
+   referencia de expediente CT con identificador cero.
+4. `autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql`: comprueba
+   el rechazo temprano 42501 ante una entrada nula.
+
+El guion comprueba que los bytes de cada prueba coinciden con `HEAD` y los pasa
+a `psql` con `ON_ERROR_STOP=1`. Un fallo detiene el ensayo con estado distinto
+de cero. Estas pruebas usan las funciones instaladas y sus transacciones
+terminan en `ROLLBACK`. CT230 queda fuera porque exige confirmaciones O6
+históricas, ausentes en la copia sin datos. Tampoco se acreditan aún la
+autorización nominal positiva, la concurrencia, el reinicio ni el recorrido
+completo: necesitan un expediente y autoridades nominales válidos.
 
 Se necesita Docker y la imagen fijada `postgres:18.4-bookworm` disponible
 localmente con la huella indicada en `ensayar.py`. El contenedor usa
