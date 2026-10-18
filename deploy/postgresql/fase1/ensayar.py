@@ -191,6 +191,20 @@ END $$;"""
     print(f'Tablas sin filas verificadas: {cantidad}')
 
 
+def esperar_postgresql(nombre, etiqueta):
+    for _ in range(120):
+        if not contenedor_propio(nombre, etiqueta):
+            raise ValueError('PostgreSQL terminó durante el arranque')
+        listo = subprocess.run(['docker', 'exec', '-u', 'postgres', nombre,
+                                'pg_isready', '-h', '127.0.0.1', '-U', 'postgres'],
+                               capture_output=True)
+        if listo.returncode == 0:
+            break
+        time.sleep(0.5)
+    else:
+        raise ValueError('PostgreSQL no respondió en 60 segundos')
+
+
 def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False, pruebas=False):
     sys.path.insert(0, str(RAIZ))
     from deploy.principal.copia_local_roles import extract, ROLES_B119
@@ -218,17 +232,7 @@ def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False, pru
                         '--label', f'vec.fase1={etiqueta}', '-e', 'PGDATA=/datos',
                         '-e', 'POSTGRES_HOST_AUTH_METHOD=trust',
                         '-v', f'{propio / "data"}:/datos', IMAGEN)
-        for _ in range(120):
-            if not contenedor_propio(nombre, etiqueta):
-                raise ValueError('PostgreSQL terminó durante el arranque')
-            listo = subprocess.run(['docker', 'exec', '-u', 'postgres', nombre,
-                                    'pg_isready', '-h', '127.0.0.1', '-U', 'postgres'],
-                                   capture_output=True)
-            if listo.returncode == 0:
-                break
-            time.sleep(0.5)
-        else:
-            raise ValueError('PostgreSQL no respondió en 60 segundos')
+        esperar_postgresql(nombre, etiqueta)
         sql(nombre, sentencias, 'la creación de roles sin LOGIN')
         sql(nombre, esquema.read_bytes(), 'la restauración del esquema HZ37')
         verificar_tablas_vacias(nombre)
@@ -240,11 +244,19 @@ def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False, pru
             sql(nombre, contenido, f'la migración {ruta.relative_to(RAIZ)}')
         for relativa, contenido in casos:
             sql(nombre, contenido, f'la prueba {relativa}')
+        if pruebas:
+            # Reiniciar el mismo PGDATA: no reinstalar SQL ni preparar datos.
+            if not contenedor_propio(nombre, etiqueta):
+                raise ValueError('El contenedor propio no está disponible para reiniciar')
+            comandos_docker('restart', '--time', '10', nombre)
+            esperar_postgresql(nombre, etiqueta)
+            for relativa, contenido in casos:
+                sql(nombre, contenido, f'la prueba tras reiniciar {relativa}')
         print(f'Esquema HZ37 restaurado; migraciones ensayadas: {len(deltas)}')
         if base_hz37 is not None:
             print('Reconciliación de la copia HZ37: Documentos D15 instalada')
         if pruebas:
-            print(f'Pruebas SQL superadas: {len(casos)}')
+            print(f'Pruebas SQL superadas: {len(casos)} antes y {len(casos)} después del reinicio')
     finally:
         limpiar_copia(nombre, etiqueta, propio)
 
