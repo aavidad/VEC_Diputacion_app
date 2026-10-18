@@ -787,6 +787,13 @@ por la comunicación real con su recibo. Está pendiente de integración; el ens
 no completa el apartado 4.0. Activación y límites en
 [`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
 
+F1-69 prepara un control en la base para que un expediente conserve una sola
+selección confirmada, también cuando la oferta cubre varias plazas. Al volver
+a la ficha se recupera la selección original para continuar el aviso; las
+referencias de los pasos posteriores no crean otra selección. Sigue pendiente
+ensayar el control y el recorrido completo antes de integrarlo. La ruta y la
+pantalla son las actuales.
+
 Con #1088 (**en main, sin subir**) la selección usa la bolsa constituida, su
 orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
 (`VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`; sin ella responde 503 y el resto
