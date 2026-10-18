@@ -90,6 +90,11 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 			return recuperada, nil
 		}
 	}
+	// Las operaciones CT históricas sin claves se recuperan con su intención
+	// original; una publicación CT nueva exige modalidad y causa gobernadas.
+	if q.OrigenCT != nil && q.Datos.ModalidadClave == "" {
+		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaInvalida
+	}
 	inicio, err := s.inicioPlazoDisposicion(ctx, q.BolsaRef)
 	if err != nil {
 		return puertosbolsa.OfertaPublicada{}, err

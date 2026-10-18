@@ -155,6 +155,10 @@ BEGIN
   RETURN QUERY SELECT vec_bolsa_llamamientos.proyectar_oferta_v2(previa.oferta_ref,clock_timestamp()),true;
   RETURN;
  END IF;
+ -- Una oferta CT nueva conserva el par del análisis; el replay anterior
+ -- conserva su comando literal y ya terminó antes de esta guarda.
+ IF p_origen IS NOT NULL AND (p_datos ?& ARRAY['modalidad_clave','causa_clave']) IS NOT TRUE THEN
+  RAISE EXCEPTION 'B136: nueva oferta CT sin modalidad y causa' USING ERRCODE='22023'; END IF;
  v_ahora:=clock_timestamp();
  IF p_publicada>v_ahora+interval '1 minute' OR p_publicada<v_ahora-interval '5 minutes'
     OR p_vence<=v_ahora OR p_publicada<>date_trunc('microseconds',p_publicada) THEN
@@ -337,7 +341,7 @@ BEGIN
 END $function$;
 DO $post_funciones$ BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamp with time zone,timestamp with time zone,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer,jsonb)'::regprocedure
-  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='e93537e69893580cd4bf1dc51cb7768112fa8e39fa595a30e22f941336fb8e72'
+  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='c1c717eeceb3fa35acb0ee005190ddf0d9bd31091695d3f3a8a7cb38f1659b78'
   AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole AND p.prosecdef IS TRUE
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']::text[] AND p.proacl::text='{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}')
  THEN RAISE EXCEPTION 'F1-11: postimagen incompatible: publicar_oferta_v5' USING ERRCODE='55000'; END IF;
