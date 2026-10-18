@@ -38,14 +38,14 @@ var (
 // Entrada: solo las referencias elegidas por RRHH; el preparador confiable
 // resuelve organización, unidad, hijo y snapshot exacto del padre.
 type EntradaDerivacionNombramiento struct {
-	PadreRef              string
-	VersionPadre          uint64
-	OfertaRef             string
-	NumeroPlaza           uint32
-	SecuenciaPlaza        uint32
-	ParticipacionRef      string
-	ReciboAdjudicacionRef string
-	ClaveIdempotencia     string
+	PadreRef              string `json:"padre_ref"`
+	VersionPadre          uint64 `json:"version_padre"`
+	OfertaRef             string `json:"oferta_ref"`
+	NumeroPlaza           uint32 `json:"numero_plaza"`
+	SecuenciaPlaza        uint32 `json:"secuencia_plaza"`
+	ParticipacionRef      string `json:"participacion_ref"`
+	ReciboAdjudicacionRef string `json:"recibo_adjudicacion_ref"`
+	ClaveIdempotencia     string `json:"clave_idempotencia"`
 }
 
 func (e EntradaDerivacionNombramiento) Validar() error {
@@ -161,10 +161,8 @@ func (r ResultadoDerivacionNombramiento) ValidarPara(s SolicitudDerivacionNombra
 	}
 	a := r.Expediente.Actuaciones[0]
 	construido, err := domain.NuevoExpedienteDerivado(domain.AltaExpedienteDerivado{
-		Padre: padre, Referencia: r.HijoRef, NumeroVisible: r.NumeroVisible, OfertaRef: s.OfertaRef, NumeroPlaza: s.NumeroPlaza,
-		Actuacion: domain.DatosActuacion{AccionClave: domain.AccionDerivarNombramiento,
-			ActorRef: a.ActorRef, UnidadRef: s.UnidadRef, ReciboRef: r.ReciboRef,
-			RealizadaEn: r.ConfirmadaEn, FaseDestino: domain.FaseFiscalizacion, EstadoDestino: domain.EstadoEnCurso},
+		Padre: padre, Referencia: r.HijoRef, OfertaRef: s.OfertaRef, NumeroPlaza: s.NumeroPlaza,
+		ActorRef: a.ActorRef, ReciboRef: r.ReciboRef, CreadaEn: r.ConfirmadaEn,
 	})
 	// Clonar normaliza las listas vacías del JSONB sin cambiar hechos ni
 	// recibos. La comparación sigue abarcando todo el agregado hijo.

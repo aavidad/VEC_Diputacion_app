@@ -1413,7 +1413,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			cerrarBorrador()
 		}
 	}()
-	derivacionNombramiento, err := nuevaRutaDerivacionNombramientoDesarrollo(&alta, nil)
+	derivacionNombramiento, err := nuevaRutaDerivacionNombramientoDesarrollo(nil)
 	if err != nil {
 		return nil, nil, nil, err
 	}

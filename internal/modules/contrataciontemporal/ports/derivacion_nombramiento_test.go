@@ -68,10 +68,8 @@ func TestDerivacionCanonYResultadoExacto(t *testing.T) {
 		ReciboRef: "recibo:derivacion:sintetica:01", AuditoriaRef: "auditoria:ct:sintetica:01", ConfirmadaEn: instante,
 	}
 	r.Expediente, err = domain.NuevoExpedienteDerivado(domain.AltaExpedienteDerivado{
-		Padre: padre, Referencia: r.HijoRef, NumeroVisible: r.NumeroVisible, OfertaRef: s.OfertaRef, NumeroPlaza: 1,
-		Actuacion: domain.DatosActuacion{AccionClave: domain.AccionDerivarNombramiento,
-			ActorRef: "actor:rrhh:sintetico:01", UnidadRef: s.UnidadRef, ReciboRef: r.ReciboRef, RealizadaEn: instante,
-			FaseDestino: domain.FaseFiscalizacion, EstadoDestino: domain.EstadoEnCurso},
+		Padre: padre, Referencia: r.HijoRef, OfertaRef: s.OfertaRef, NumeroPlaza: 1,
+		ActorRef: "actor:rrhh:sintetico:01", ReciboRef: r.ReciboRef, CreadaEn: instante,
 	})
 	if err != nil || r.ValidarPara(s) != nil {
 		t.Fatalf("resultado válido: %v", err)

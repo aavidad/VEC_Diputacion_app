@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strconv"
+	"time"
 )
 
 const AccionDerivarNombramiento ClaveCatalogo = "contratacion_temporal.nombramiento.derivar"
@@ -21,12 +22,13 @@ type InstruccionCompartida struct {
 }
 
 type AltaExpedienteDerivado struct {
-	Padre         Expediente
-	Referencia    string
-	NumeroVisible string
-	OfertaRef     string
-	NumeroPlaza   uint32
-	Actuacion     DatosActuacion
+	Padre       Expediente
+	Referencia  string
+	OfertaRef   string
+	NumeroPlaza uint32
+	ActorRef    string
+	ReciboRef   string
+	CreadaEn    time.Time
 }
 
 func NuevoExpedienteDerivado(alta AltaExpedienteDerivado) (Expediente, error) {
@@ -34,20 +36,21 @@ func NuevoExpedienteDerivado(alta AltaExpedienteDerivado) (Expediente, error) {
 	if alta.Padre.InstruccionCompartida != nil ||
 		alta.Padre.Validar() != nil || !padreDerivable(alta.Padre) ||
 		!referenciaValida(alta.Referencia) || alta.Referencia == alta.Padre.Referencia ||
-		!numeroDerivadoValido(alta.NumeroVisible, alta.Padre.NumeroVisible, alta.NumeroPlaza) ||
 		!referenciaValida(alta.OfertaRef) || alta.NumeroPlaza == 0 ||
-		alta.NumeroPlaza > alta.Padre.Solicitud.NumeroPersonas ||
-		alta.Actuacion.validar() != nil ||
-		alta.Actuacion.AccionClave != AccionDerivarNombramiento ||
-		alta.Actuacion.FaseDestino != FaseFiscalizacion ||
-		alta.Actuacion.EstadoDestino != EstadoEnCurso ||
-		alta.Actuacion.UnidadRef != alta.Padre.Asignacion.UnidadRef ||
-		alta.Actuacion.RealizadaEn.Before(alta.Padre.ActualizadoEn) ||
-		len(alta.Actuacion.DocumentosRef) != 0 || alta.Actuacion.RetornoRef != "" {
+		alta.NumeroPlaza > alta.Padre.Solicitud.NumeroPersonas {
+		return Expediente{}, ErrExpedienteInvalido
+	}
+	actuacion := DatosActuacion{
+		AccionClave: AccionDerivarNombramiento, ActorRef: alta.ActorRef,
+		UnidadRef: alta.Padre.Asignacion.UnidadRef, ReciboRef: alta.ReciboRef,
+		RealizadaEn: alta.CreadaEn, FaseDestino: FaseFiscalizacion,
+		EstadoDestino: EstadoEnCurso,
+	}
+	if actuacion.validar() != nil || alta.CreadaEn.Before(alta.Padre.ActualizadoEn) {
 		return Expediente{}, ErrExpedienteInvalido
 	}
 	for _, a := range alta.Padre.Actuaciones {
-		if a.ReciboRef == alta.Actuacion.ReciboRef {
+		if a.ReciboRef == alta.ReciboRef {
 			return Expediente{}, ErrExpedienteInvalido
 		}
 	}
@@ -57,16 +60,17 @@ func NuevoExpedienteDerivado(alta AltaExpedienteDerivado) (Expediente, error) {
 		return Expediente{}, ErrExpedienteInvalido
 	}
 	hijo := padre.Clonar()
-	hijo.Referencia, hijo.NumeroVisible, hijo.Version = alta.Referencia, alta.NumeroVisible, 6
+	hijo.Referencia, hijo.NumeroVisible, hijo.Version = alta.Referencia,
+		padre.NumeroVisible+"-P"+strconv.FormatUint(uint64(alta.NumeroPlaza), 10), 6
 	hijo.Solicitud.NumeroPersonas = 1
-	hijo.CreadoEn, hijo.ActualizadoEn = alta.Actuacion.RealizadaEn, alta.Actuacion.RealizadaEn
+	hijo.CreadoEn, hijo.ActualizadoEn = alta.CreadaEn, alta.CreadaEn
 	hijo.FaseActual, hijo.EstadoActual = FaseFiscalizacion, EstadoEnCurso
 	hijo.InstruccionCompartida = &InstruccionCompartida{
 		ExpedientePadre: padre, OfertaRef: alta.OfertaRef, NumeroPlaza: alta.NumeroPlaza,
-		ReciboDerivacionRef: alta.Actuacion.ReciboRef, HuellaPadreSHA256: huella,
+		ReciboDerivacionRef: alta.ReciboRef, HuellaPadreSHA256: huella,
 	}
 	hijo.Actuaciones = []Actuacion{hijo.nuevaActuacion(
-		padre.FaseActual, padre.EstadoActual, alta.Actuacion, 6,
+		padre.FaseActual, padre.EstadoActual, actuacion, 6,
 	)}
 	if hijo.Validar() != nil {
 		return Expediente{}, ErrExpedienteInvalido

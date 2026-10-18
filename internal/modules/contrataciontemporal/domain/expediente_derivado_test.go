@@ -33,14 +33,9 @@ func padreDerivacionPrueba(t *testing.T) Expediente {
 
 func altaDerivacionPrueba(p Expediente, plaza uint32) AltaExpedienteDerivado {
 	return AltaExpedienteDerivado{
-		Padre: p, Referencia: "expediente:hijo:plaza:01", NumeroVisible: p.NumeroVisible + "-P1",
-		OfertaRef: "oferta:padre:01", NumeroPlaza: plaza,
-		Actuacion: DatosActuacion{
-			AccionClave: AccionDerivarNombramiento, ActorRef: "actor:rrhh:derivacion:01",
-			UnidadRef: p.Asignacion.UnidadRef, ReciboRef: "recibo:derivacion:plaza:01",
-			RealizadaEn: p.ActualizadoEn.Add(time.Minute),
-			FaseDestino: FaseFiscalizacion, EstadoDestino: EstadoEnCurso,
-		},
+		Padre: p, Referencia: "expediente:hijo:plaza:01", OfertaRef: "oferta:padre:01",
+		NumeroPlaza: plaza, ActorRef: "actor:rrhh:derivacion:01",
+		ReciboRef: "recibo:derivacion:plaza:01", CreadaEn: p.ActualizadoEn.Add(time.Minute),
 	}
 }
 
@@ -51,6 +46,10 @@ func TestDerivacionConservaInstruccionYAvanzaAVersionSiete(t *testing.T) {
 		t.Fatalf("derivar: %v", err)
 	}
 	if h.Version != 6 || len(h.Actuaciones) != 1 || h.Actuaciones[0].Secuencia != 6 ||
+		h.Actuaciones[0].AccionClave != AccionDerivarNombramiento ||
+		h.Actuaciones[0].UnidadRef != p.Asignacion.UnidadRef ||
+		h.Actuaciones[0].FaseDestino != FaseFiscalizacion ||
+		len(h.Actuaciones[0].DocumentosRef) != 0 ||
 		h.Actuaciones[0].ActorRef != "actor:rrhh:derivacion:01" ||
 		h.Actuaciones[0].ReciboRef != "recibo:derivacion:plaza:01" ||
 		h.InstruccionCompartida.ExpedientePadre.Actuaciones[5].ReciboRef != p.Actuaciones[5].ReciboRef ||
@@ -80,9 +79,10 @@ func TestDerivacionRechazaPadreInvalidoYCiclo(t *testing.T) {
 	casos := map[string]func(*AltaExpedienteDerivado){
 		"sin fiscalización":       func(a *AltaExpedienteDerivado) { a.Padre.Fiscalizacion = nil },
 		"plaza fuera de petición": func(a *AltaExpedienteDerivado) { a.NumeroPlaza = 3 },
-		"recibo del padre":        func(a *AltaExpedienteDerivado) { a.Actuacion.ReciboRef = p.Actuaciones[5].ReciboRef },
+		"recibo del padre":        func(a *AltaExpedienteDerivado) { a.ReciboRef = p.Actuaciones[5].ReciboRef },
 		"mismo expediente":        func(a *AltaExpedienteDerivado) { a.Referencia = p.Referencia },
-		"número ajeno a la plaza": func(a *AltaExpedienteDerivado) { a.NumeroVisible = p.NumeroVisible + "-P2" },
+		"actor inválido":          func(a *AltaExpedienteDerivado) { a.ActorRef = "" },
+		"instante anterior":       func(a *AltaExpedienteDerivado) { a.CreadaEn = p.ActualizadoEn.Add(-time.Minute) },
 		"padre derivado":          func(a *AltaExpedienteDerivado) { a.Padre.InstruccionCompartida = &InstruccionCompartida{} },
 	}
 	for nombre, cambiar := range casos {
@@ -110,8 +110,8 @@ func TestDerivacionRechazaInstruccionDivergenteYSeparaDosPlazas(t *testing.T) {
 		t.Fatal(err)
 	}
 	a2 := altaDerivacionPrueba(p, 2)
-	a2.Referencia, a2.NumeroVisible = "expediente:hijo:plaza:02", p.NumeroVisible+"-P2"
-	a2.Actuacion.ReciboRef = "recibo:derivacion:plaza:02"
+	a2.Referencia = "expediente:hijo:plaza:02"
+	a2.ReciboRef = "recibo:derivacion:plaza:02"
 	h2, err := NuevoExpedienteDerivado(a2)
 	if err != nil || h2.Validar() != nil || h1.InstruccionCompartida.NumeroPlaza != 1 ||
 		h2.InstruccionCompartida.NumeroPlaza != 2 {
@@ -135,7 +135,6 @@ func TestDerivacionAdmiteNumeroPadreMaximoYPlazaCien(t *testing.T) {
 		t.Fatal("padre válido de longitud máxima")
 	}
 	a := altaDerivacionPrueba(p, 100)
-	a.NumeroVisible = p.NumeroVisible + "-P100"
 	h, err := NuevoExpedienteDerivado(a)
 	if err != nil || h.Validar() != nil || len(h.NumeroVisible) != 50 {
 		t.Fatalf("número derivado de 50 caracteres: %v", err)
