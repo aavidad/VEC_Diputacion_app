@@ -7,7 +7,7 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261018-f174-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261018-f176-v1";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
@@ -17,7 +17,7 @@ import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal,
 
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20261007-pantallas-textos-final-v1";
-import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261018-f176-v1";
 
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
@@ -1309,6 +1309,9 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
       contenedor.innerHTML = `<section class="panel" ${error ? 'role="alert"' : 'role="status" aria-busy="true"'}><div class="cuerpo-panel"><p>${textoPortal(carga === "denegado" ? "txt_la_sesion_actual_no_dispone_de_permisos_suficien" : error ? "txt_no_se_pudieron_cargar_las_bolsas_de_trabajo" : "estado_modulo_comprobando")}</p>${carga === "error" ? `<button type="button" class="boton-secundario" data-bolsa-ruta-reintentar>${textoPortal("accion_reintentar")}</button>` : ""}</div></section>`;
       return;
     }
+    // Retira el aviso «Comprobando…» pintado mientras cargaban las bolsas:
+    // la vista documental se añade al contenedor y no lo vacía por sí misma.
+    contenedor.replaceChildren();
     const controlador = new AbortController();
     vistaDocumentosBolsa = { desmontar: () => controlador.abort() };
     void recursosVistas.get("documentosBolsa").montarVistaDocumentosBolsa({ raiz: contenedor,
@@ -2004,7 +2007,7 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261018-f171-integracion-v1"),
+    import("./portal-panel-interno.js?v=20261018-f171-f176-v1"),
     import("./portal-bolsas-api.js?v=20261018-f171-integracion-v1"),
     import("./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261016-ct-ofertas-ct231-v1"),
