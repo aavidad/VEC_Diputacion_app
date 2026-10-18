@@ -1,0 +1,3 @@
+# Requiere main completo y el consumidor AD292 de R; no repetir migraciones instaladas.
+deploy/postgresql/bolsa_llamamientos/migraciones/000135_verificar_plaza_adjudicada_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000234_derivacion_nombramiento.up.sql
