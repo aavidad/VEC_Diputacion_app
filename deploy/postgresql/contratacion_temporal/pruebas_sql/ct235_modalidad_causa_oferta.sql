@@ -33,6 +33,20 @@ BEGIN
  c:=jsonb_set(c,'{datos,causa_clave}','"baja_temporal"'::jsonb);
  IF vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(c,i) IS NOT TRUE THEN
   RAISE EXCEPTION 'CT235: par válido rechazado'; END IF;
+ c:=jsonb_set(c,'{datos,modalidad_clave}','true'::jsonb);
+ IF vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(c,i) IS NOT FALSE THEN
+  RAISE EXCEPTION 'CT235: modalidad booleana aceptada'; END IF;
+ c:=jsonb_set(c,'{datos,modalidad_clave}','null'::jsonb);
+ IF vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(c,i) IS NOT FALSE THEN
+  RAISE EXCEPTION 'CT235: modalidad JSON null aceptada'; END IF;
+ c:=jsonb_set(c,'{datos,modalidad_clave}','"sustitucion"'::jsonb);
+ c:=jsonb_set(c,'{datos,causa_clave}','true'::jsonb);
+ IF vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(c,i) IS NOT FALSE THEN
+  RAISE EXCEPTION 'CT235: causa booleana aceptada'; END IF;
+ c:=jsonb_set(c,'{datos,causa_clave}','null'::jsonb);
+ IF vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(c,i) IS NOT FALSE THEN
+  RAISE EXCEPTION 'CT235: causa JSON null aceptada'; END IF;
+ c:=jsonb_set(c,'{datos,causa_clave}','"baja_temporal"'::jsonb);
  c:=jsonb_set(c,'{datos,modalidad_clave}','"Sustitucion"'::jsonb);
  IF vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(c,i) IS NOT FALSE THEN
   RAISE EXCEPTION 'CT235: modalidad no canónica aceptada'; END IF;

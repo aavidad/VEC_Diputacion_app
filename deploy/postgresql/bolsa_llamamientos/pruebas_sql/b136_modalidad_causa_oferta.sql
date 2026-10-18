@@ -54,6 +54,27 @@ BEGIN
   PERFORM vec_bolsa_llamamientos.huella_operacion_oferta_v6(
    'vec.bolsa.oferta.recuperar.v1','bolsa:administracion','ct-oferta:clave',
    'per_1234567890123456789012',2,
+   jsonb_set(datos,'{modalidad_clave}','true'::jsonb),origen,NULL,NULL,NULL,NULL);
+  RAISE EXCEPTION 'B136: modalidad booleana admitida';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.huella_operacion_oferta_v6(
+   'vec.bolsa.oferta.recuperar.v1','bolsa:administracion','ct-oferta:clave',
+   'per_1234567890123456789012',2,
+   jsonb_set(datos,'{causa_clave}','true'::jsonb),origen,NULL,NULL,NULL,NULL);
+  RAISE EXCEPTION 'B136: causa booleana admitida';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.huella_operacion_oferta_v6(
+   'vec.bolsa.oferta.recuperar.v1','bolsa:administracion','ct-oferta:clave',
+   'per_1234567890123456789012',2,
+   jsonb_set(datos,'{modalidad_clave}','null'::jsonb),origen,NULL,NULL,NULL,NULL);
+  RAISE EXCEPTION 'B136: modalidad JSON null admitida';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.huella_operacion_oferta_v6(
+   'vec.bolsa.oferta.recuperar.v1','bolsa:administracion','ct-oferta:clave',
+   'per_1234567890123456789012',2,
    jsonb_set(datos,'{causa_clave}','null'::jsonb),origen,NULL,NULL,NULL,NULL);
   RAISE EXCEPTION 'B136: causa JSON null admitida';
  EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;

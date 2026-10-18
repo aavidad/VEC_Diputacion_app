@@ -30,6 +30,8 @@ BEGIN
   p_publicada,p_vence,p_plazo);
  IF p_origen IS NULL OR jsonb_typeof(p_datos) IS DISTINCT FROM 'object'
     OR NOT (p_datos ?& ARRAY['modalidad_clave','causa_clave'])
+    OR jsonb_typeof(p_datos->'modalidad_clave') IS DISTINCT FROM 'string'
+    OR jsonb_typeof(p_datos->'causa_clave') IS DISTINCT FROM 'string'
     OR coalesce(p_datos->>'modalidad_clave' ~ '^[a-z][a-z0-9._-]{1,79}$',false) IS NOT TRUE
     OR coalesce(p_datos->>'causa_clave' ~ '^[a-z][a-z0-9._-]{1,79}$',false) IS NOT TRUE THEN
   RAISE EXCEPTION 'B136: par de modalidad y causa inválido' USING ERRCODE='22023'; END IF;
@@ -47,6 +49,8 @@ DO $patch$ DECLARE v_def text; BEGIN
  IF (p_datos ? 'modalidad_clave') IS DISTINCT FROM (p_datos ? 'causa_clave')
     OR ((p_datos ? 'modalidad_clave') AND
       (p_origen IS NULL
+       OR jsonb_typeof(p_datos->'modalidad_clave') IS DISTINCT FROM 'string'
+       OR jsonb_typeof(p_datos->'causa_clave') IS DISTINCT FROM 'string'
        OR coalesce(p_datos->>'modalidad_clave' ~ '^[a-z][a-z0-9._-]{1,79}$',false) IS NOT TRUE
        OR coalesce(p_datos->>'causa_clave' ~ '^[a-z][a-z0-9._-]{1,79}$',false) IS NOT TRUE)) THEN
   RAISE EXCEPTION 'B136: modalidad y causa incompletas' USING ERRCODE='22023'; END IF;$m08d1fcn0$);
@@ -80,7 +84,7 @@ DO $patch$ DECLARE v_def text; BEGIN
  END IF;
  v_comando:=encode(sha256(convert_to(p_bolsa||chr(31)||p_datos::text,'UTF8')),'hex');$m08d1fcn3$);
  EXECUTE v_def;
- IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamp with time zone,timestamp with time zone,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer,jsonb)'::regprocedure AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='36d249e59395e8f4d41ae3f56bed59b0124fb46903a8ad3274530a254830813f' AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole AND p.prosecdef IS TRUE AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']::text[] AND p.proacl::text='{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}') THEN RAISE EXCEPTION 'F1-11: postimagen SQL incompatible: publicar_oferta_v5' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamp with time zone,timestamp with time zone,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer,jsonb)'::regprocedure AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='e93537e69893580cd4bf1dc51cb7768112fa8e39fa595a30e22f941336fb8e72' AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole AND p.prosecdef IS TRUE AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']::text[] AND p.proacl::text='{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}') THEN RAISE EXCEPTION 'F1-11: postimagen SQL incompatible: publicar_oferta_v5' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef('vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text)'::regprocedure) INTO v_def;
  IF (length(v_def)-length(replace(v_def,$ma9d43ao0$h:=vec_bolsa_llamamientos.huella_operacion_oferta_v5(
   'vec.bolsa.oferta.recuperar.v1',p_bolsa,p_clave,p_actor,p_numero_plazas,p_datos,p_origen,p_notificacion,NULL,NULL,NULL);$ma9d43ao0$,'')))<>length($ma9d43ao0$h:=vec_bolsa_llamamientos.huella_operacion_oferta_v5(
@@ -89,6 +93,8 @@ DO $patch$ DECLARE v_def text; BEGIN
   'vec.bolsa.oferta.recuperar.v1',p_bolsa,p_clave,p_actor,p_numero_plazas,p_datos,p_origen,p_notificacion,NULL,NULL,NULL);$ma9d43ao0$,$ma9d43an0$IF (p_datos ? 'modalidad_clave') IS DISTINCT FROM (p_datos ? 'causa_clave')
     OR ((p_datos ? 'modalidad_clave') AND
       (p_origen IS NULL
+       OR jsonb_typeof(p_datos->'modalidad_clave') IS DISTINCT FROM 'string'
+       OR jsonb_typeof(p_datos->'causa_clave') IS DISTINCT FROM 'string'
        OR coalesce(p_datos->>'modalidad_clave' ~ '^[a-z][a-z0-9._-]{1,79}$',false) IS NOT TRUE
        OR coalesce(p_datos->>'causa_clave' ~ '^[a-z][a-z0-9._-]{1,79}$',false) IS NOT TRUE)) THEN
   RAISE EXCEPTION 'B136: modalidad y causa incompletas' USING ERRCODE='22023'; END IF;
@@ -102,7 +108,7 @@ DO $patch$ DECLARE v_def text; BEGIN
    p_datos,p_origen,p_notificacion,NULL,NULL,NULL);
  END IF;$ma9d43an0$);
  EXECUTE v_def;
- IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text)'::regprocedure AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='db4b735cc2773a552074dca30dacf1682f93c8534bf07bf17223312493e90936' AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole AND p.prosecdef IS TRUE AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']::text[] AND p.proacl::text='{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}') THEN RAISE EXCEPTION 'F1-11: postimagen SQL incompatible: recuperar_oferta_operacion_v1' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text)'::regprocedure AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='b5eaaefceb2c988b670afdb3a89ffef129fb226ef173e8c9c8885215efcf023c' AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole AND p.prosecdef IS TRUE AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']::text[] AND p.proacl::text='{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}') THEN RAISE EXCEPTION 'F1-11: postimagen SQL incompatible: recuperar_oferta_operacion_v1' USING ERRCODE='55000'; END IF;
 END $patch$;
 DO $post$ BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_bolsa_llamamientos.huella_operacion_oferta_v6(text,text,text,text,integer,jsonb,jsonb,jsonb,timestamptz,timestamptz,jsonb)'::regprocedure

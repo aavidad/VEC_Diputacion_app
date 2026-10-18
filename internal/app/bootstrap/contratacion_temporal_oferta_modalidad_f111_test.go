@@ -28,6 +28,11 @@ func TestF111ComandoCongelaModalidadYConservaLegado(t *testing.T) {
 	if err := nuevo.ValidarPara(i); err != nil {
 		t.Fatal(err)
 	}
+	sinCaptura := i
+	sinCaptura.ModalidadClave, sinCaptura.CausaClave = "", ""
+	if err := nuevo.ValidarPara(sinCaptura); err == nil {
+		t.Fatal("el comando nuevo carece de captura de modalidad y causa")
+	}
 	nuevo.Datos.CausaClave = "programa"
 	if err := nuevo.ValidarPara(i); err == nil {
 		t.Fatal("se aceptó una causa distinta de la captura del análisis")

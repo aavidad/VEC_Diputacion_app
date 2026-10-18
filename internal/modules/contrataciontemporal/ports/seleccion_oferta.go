@@ -168,7 +168,7 @@ func (c ComandoOfertaBolsaCT) ValidarPara(i IntencionSeleccionOfertaCT) error {
 	}
 	// El comando histórico se recupera sin completar campos. En el formato
 	// nuevo, la captura en memoria debe coincidir con los datos congelados.
-	if c.Datos.ModalidadClave != "" && i.ModalidadClave != "" &&
+	if c.Datos.ModalidadClave != "" &&
 		(c.Datos.ModalidadClave != i.ModalidadClave || c.Datos.CausaClave != i.CausaClave) {
 		return ErrSeleccionOfertaCTInvalida
 	}
