@@ -10,7 +10,8 @@ anterior. No se repite el acto ni se cambian sus huellas.
 
 1. Congelar la candidata y conservar el binario y la copia anteriores. Crear
    una copia propia con PostgreSQL 18 y datos ficticios mediante
-   `deploy/principal/copia_local.py crear`, pasando explícitamente
+   `deploy/principal/copia_local.py crear --modulos`, con sus preparadores
+   propios de roles y datos nominales, pasando explícitamente
    `--lista-sql deploy/principal/lista_sql_main_tras_hz37.txt`.
    La lista incluye las 81 migraciones de main y AD295, una sola vez.
 2. AD295 exige la definición instalada de AD235, su propietario y permisos.
