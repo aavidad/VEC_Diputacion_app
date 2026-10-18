@@ -12,13 +12,14 @@ import (
 )
 
 const (
-	AccionConsultarPreferenciasBolsas  = "bolsa.preferencias_bolsas.consultar_propias"
-	AccionOrdenarPreferenciasBolsas    = "bolsa.preferencias_bolsas.ordenar_propias"
-	AccionConsultarPreferenciaRRHH     = "bolsa.preferencias_bolsas.consultar_rrhh"
-	AudienciaOrdenarPreferenciasBolsas = "vec.bolsa.preferencias-bolsas.ordenar.v1"
-	FinalidadPreferenciasBolsas        = "gestion_preferencias_bolsas_propias"
-	FinalidadPreferenciaRRHH           = "seleccion_simultanea_bolsas"
-	CampoPreferenciasBolsas            = "orden_preferencias_bolsas"
+	AccionConsultarPreferenciasBolsas         = "bolsa.preferencias_bolsas.consultar_propias"
+	AccionOrdenarPreferenciasBolsas           = "bolsa.preferencias_bolsas.ordenar_propias"
+	AccionConsultarPreferenciaRRHH            = "bolsa.preferencias_bolsas.consultar_rrhh"
+	AudienciaOrdenarPreferenciasBolsas        = "vec.bolsa.preferencias-bolsas.ordenar.v1"
+	AudienciaOrdenarPreferenciasBolsasInterna = "vec.bolsa.preferencias-bolsas.ordenar.interna.v1"
+	FinalidadPreferenciasBolsas               = "gestion_preferencias_bolsas_propias"
+	FinalidadPreferenciaRRHH                  = "seleccion_simultanea_bolsas"
+	CampoPreferenciasBolsas                   = "orden_preferencias_bolsas"
 )
 
 // La proyección B104 es cerrada; su orden coincide con la concesión nominal.

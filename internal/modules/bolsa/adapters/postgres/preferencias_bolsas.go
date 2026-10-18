@@ -15,8 +15,12 @@ import (
 )
 
 const funcionOrdenarPreferenciasBolsas = "vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1"
+const funcionOrdenarPreferenciasBolsasInterna = "vec_bolsa_llamamientos.ordenar_preferencias_bolsas_interna_v1"
 
-type EscrituraPreferenciasBolsasPostgreSQL struct{ pool iniciadorTransacciones }
+type EscrituraPreferenciasBolsasPostgreSQL struct {
+	pool    iniciadorTransacciones
+	funcion string
+}
 
 var _ bolsa.EscrituraPreferenciasBolsas = (*EscrituraPreferenciasBolsasPostgreSQL)(nil)
 
@@ -24,13 +28,21 @@ func NuevaEscrituraPreferenciasBolsasPostgreSQL(pool *pgxpool.Pool) (*EscrituraP
 	if valorNulo(pool) {
 		return nil, bolsa.ErrPreferenciasNoDisponibles
 	}
-	return &EscrituraPreferenciasBolsasPostgreSQL{pool: pool}, nil
+	return &EscrituraPreferenciasBolsasPostgreSQL{pool: pool, funcion: funcionOrdenarPreferenciasBolsas}, nil
+}
+
+func NuevaEscrituraPreferenciasBolsasInternaPostgreSQL(pool *pgxpool.Pool) (*EscrituraPreferenciasBolsasPostgreSQL, error) {
+	if valorNulo(pool) {
+		return nil, bolsa.ErrPreferenciasNoDisponibles
+	}
+	return &EscrituraPreferenciasBolsasPostgreSQL{pool: pool, funcion: funcionOrdenarPreferenciasBolsasInterna}, nil
 }
 
 func (a *EscrituraPreferenciasBolsasPostgreSQL) OrdenarPreferenciasBolsas(ctx context.Context,
 	s bolsa.OrdenarPreferenciasBolsas,
 ) (bolsa.ReciboPreferenciasBolsas, error) {
-	if ctx == nil || a == nil || valorNulo(a.pool) || s.CandidatoRef == "" ||
+	if ctx == nil || a == nil || valorNulo(a.pool) ||
+		(a.funcion != funcionOrdenarPreferenciasBolsas && a.funcion != funcionOrdenarPreferenciasBolsasInterna) || s.CandidatoRef == "" ||
 		s.ConsultadaEn.IsZero() || s.Material.ValidarEstructura() != nil || len(s.Orden) == 0 ||
 		s.VersionEsperada >= 2147483647 {
 		return bolsa.ReciboPreferenciasBolsas{}, bolsa.ErrOrdenPreferenciasInvalido
@@ -64,7 +76,7 @@ func (a *EscrituraPreferenciasBolsasPostgreSQL) ordenarIntento(ctx context.Conte
 	m := s.Material
 	var version int64
 	var resultado bolsa.ReciboPreferenciasBolsas
-	err = tx.QueryRow(ctx, `SELECT * FROM `+funcionOrdenarPreferenciasBolsas+`(
+	err = tx.QueryRow(ctx, `SELECT * FROM `+a.funcion+`(
  $1::text,$2::text[],$3::bigint,$4::text,$5::timestamptz,
  $6::bytea,$7::bytea,$8::bytea,$9::bytea,$10::numeric,$11::numeric,
  $12::bytea,$13::bytea,$14::bytea,$15::bytea)`,
