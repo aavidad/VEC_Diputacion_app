@@ -35,5 +35,3 @@ Son de la **aplicación real**, tomadas el 18 de octubre de 2026 en Chrome sobre
 - `ratificador/`: la dirección del centro ratifica la petición.
 - `rrhh/`: Recursos Humanos con las bolsas, el llamamiento, el expediente y los documentos.
 - `intervencion/`: Intervención y su formulario de fiscalización.
-
-Algunas capturas muestran a propósito lo que todavía no funciona, por ejemplo los méritos del aspirante o el cese sin incorporación.
