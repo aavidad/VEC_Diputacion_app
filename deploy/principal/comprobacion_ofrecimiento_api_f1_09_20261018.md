@@ -5,12 +5,15 @@ opcional; depende del primer corte SQL de la PR #1190. No termina F1-09:
 faltan la proyección del contexto en las listas existentes, la pantalla
 F1-57 y la comprobación de CT antes de reservar (F1-10).
 
-CONFIG NUEVA: ninguna. SQL nuevo en este corte: ninguno.
+CONFIG NUEVA: ninguna. B134 amplía la bitácora existente con la acción y
+clase nominales de la comprobación; conserva las demás acciones y su historia.
 
 ## Activación
 
 1. Dirección instala la lista completa de main posterior a HZ37 y el primer
-   corte F1-09, una sola vez. No instalar listas parciales ni repetir SQL.
+   corte F1-09, y después B134, una sola vez. No instalar listas parciales
+   ni repetir SQL. La bitácora distingue el intento de registrar hechos de
+   un cambio de situación, también cuando el POST se rechaza antes de V3.
 2. El alta central de AD291, junto a F0-18/AD273, admite la acción, audiencia
    y origen nominal de consumo. Sigue al final de la cadena de dirección.
 3. Dos administradores publican la concesión
@@ -45,7 +48,11 @@ negocio. Solicita V3 con ambos ámbitos y el atributo `material_sha256`.
 B133 coteja la huella de ese contexto antes de guardar. Un registro nuevo
 devuelve 201; la misma intención, 200 y su recibo original. Un contexto,
 versión o material divergente da 409; sin permiso, 403. El recibo solo
-entrega referencias, versiones, resultado, motivo y fecha.
+entrega referencias, versiones, resultado, motivo y fecha. Si se pierde la
+respuesta al COMMIT, se reconcilia una vez la misma intención y se coteja su
+recibo. Si tampoco se confirma, devuelve `resultado_no_confirmado`; la pantalla
+mantiene la misma operación para recuperar su resultado. Una fecha imposible
+se trata como dato inválido, sin atribuirla a falta de habilitación.
 
 Las pruebas focales de Go cubren la frontera HTTP, la audiencia, el material,
 la denegación antes de escribir y el recibo. No acreditan una escritura real

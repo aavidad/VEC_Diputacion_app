@@ -135,6 +135,8 @@ func ReferenciasRutaComprobacionOfrecimiento(r *http.Request) (string, string, b
 
 func responderErrorComprobacion(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, ports.ErrComprobacionResultadoNoConfirmado):
+		responderCodigoComprobacion(w, 503, "resultado_no_confirmado")
 	case errors.Is(err, vd.ErrAutorizacionDenegada), errors.Is(err, vd.ErrPermissionDenied):
 		responderCodigoComprobacion(w, 403, "acceso_denegado")
 	case errors.Is(err, ports.ErrComprobacionConflicto):

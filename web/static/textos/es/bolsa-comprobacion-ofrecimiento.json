@@ -1,9 +1,10 @@
 {
   "errores": {
+    "resultado_no_confirmado": "No se ha podido confirmar el resultado. Reintente la misma comprobación para recuperar su recibo.",
     "comprobacion_ofrecimiento_no_habilitada": "La comprobación aún no está habilitada. Consulte con la persona administradora.",
     "comprobacion_en_conflicto": "Los datos han cambiado. Actualice la ficha antes de registrar la comprobación.",
     "solicitud_invalida": "Revise los datos de la comprobación.",
-    "acceso_denegado": "No tiene permiso para registrar esta comprobación.",
+    "acceso_denegado": "No tiene permiso para registrar esta comprobación. Consulte con la persona administradora.",
     "servicio_no_disponible": "No se ha podido registrar la comprobación. Vuelva a intentarlo."
   }
 }

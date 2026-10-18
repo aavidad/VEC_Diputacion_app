@@ -3,6 +3,7 @@ package httpinterno
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,6 +20,14 @@ func (p preparadorComprobacionPrueba) PrepararComprobacionOfrecimiento(_ context
 		return ports.SolicitudComprobacion{}, p.err
 	}
 	return ports.SolicitudComprobacion{Contexto: e.Contexto, Hechos: e.Hechos, VersionEsperada: e.VersionEsperada, ClaveIdempotencia: e.ClaveIdempotencia}, nil
+}
+
+func TestComprobacionHTTPResultadoNoConfirmado(t *testing.T) {
+	w := httptest.NewRecorder()
+	responderErrorComprobacion(w, errors.Join(ports.ErrComprobacionResultadoNoConfirmado, vd.ErrAutorizacionDenegada))
+	if w.Code != 503 || !strings.Contains(w.Body.String(), `"resultado_no_confirmado"`) {
+		t.Fatalf("estado ambiguo: %d %s", w.Code, w.Body.String())
+	}
 }
 
 type servicioComprobacionPrueba struct {

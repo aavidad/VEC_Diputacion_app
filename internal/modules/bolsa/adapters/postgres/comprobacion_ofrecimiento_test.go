@@ -1,8 +1,11 @@
 package postgres
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"testing"
 	"time"
@@ -36,7 +39,7 @@ func TestErroresComprobacionSQL(t *testing.T) {
 	for _, c := range []struct {
 		code string
 		want error
-	}{{"VBC01", ports.ErrComprobacionConflicto}, {"42501", vd.ErrAutorizacionDenegada}, {"22023", ports.ErrComprobacionInvalida}, {"VA172", ports.ErrComprobacionDependencia}} {
+	}{{"VBC01", ports.ErrComprobacionConflicto}, {"42501", vd.ErrAutorizacionDenegada}, {"22023", ports.ErrComprobacionInvalida}, {"22007", ports.ErrComprobacionInvalida}, {"22008", ports.ErrComprobacionInvalida}, {"VA172", ports.ErrComprobacionDependencia}} {
 		err := errorComprobacionSQL(&pgconn.PgError{Code: c.code})
 		if !errors.Is(err, c.want) {
 			t.Errorf("%s: %v", c.code, err)
@@ -58,6 +61,46 @@ func TestErroresComprobacionSQL(t *testing.T) {
 		if got := reintentarComprobacion(c.err); got != c.reintentar {
 			t.Errorf("%s: reintentar=%t", c.nombre, got)
 		}
+	}
+}
+
+func TestRecuperacionComprobacionCommitInciertoAcotada(t *testing.T) {
+	q := ports.SolicitudComprobacion{VersionEsperada: 2, ClaveIdempotencia: "clave:misma", Contexto: ports.ContextoComprobacion{VersionPoliticaOfertas: 7}}
+	i := ports.IntencionComprobacion{Solicitud: q, CanonPostgreSQL: `{"clave_idempotencia":"clave:misma"}`}
+	ref := "comprobacion:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	recibo := ports.ReciboComprobacion{ComprobacionRef: ref, Version: 3, VersionEsperada: 2, VersionPoliticaOfertas: 7, Resultado: "pendiente", MotivoClave: "antecedentes_incompletos", ReciboRef: "recibo:" + ref, EventoRef: "evento:" + ref, AuditoriaRef: "auditoria:001", RegistradaEn: time.Date(2026, 10, 18, 8, 0, 0, 0, time.UTC), Reutilizada: true}
+	for _, fallaRecuperacion := range []bool{false, true} {
+		llamadas := 0
+		ejecutar := func(ctx context.Context, recibida ports.IntencionComprobacion) (ports.ReciboComprobacion, error) {
+			llamadas++
+			if ctx.Err() != nil || recibida.CanonPostgreSQL != i.CanonPostgreSQL || recibida.Solicitud.ClaveIdempotencia != q.ClaveIdempotencia || llamadas > 2 {
+				t.Fatal("intención o límite alterados")
+			}
+			if llamadas == 1 {
+				return ports.ReciboComprobacion{}, fmt.Errorf("%w: respuesta perdida", errCommitComprobacionIndeterminado)
+			}
+			if fallaRecuperacion {
+				return ports.ReciboComprobacion{}, &pgconn.PgError{Code: "42501"}
+			}
+			return recibo, nil
+		}
+		r, err := registrarComprobacionConRecuperacion(context.Background(), i, ejecutar)
+		if llamadas != 2 {
+			t.Fatalf("recuperación=%t llamadas=%d", fallaRecuperacion, llamadas)
+		}
+		if fallaRecuperacion {
+			if !errors.Is(err, ports.ErrComprobacionResultadoNoConfirmado) || r.ReciboRef != "" {
+				t.Fatalf("resultado incierto: %+v, %v", r, err)
+			}
+		} else if err != nil || r.ReciboRef != recibo.ReciboRef {
+			t.Fatalf("recibo original: %+v, %v", r, err)
+		}
+	}
+}
+
+func TestClasificacionCommitComprobacion(t *testing.T) {
+	if commitComprobacionIndeterminado(pgx.ErrTxCommitRollback) || commitComprobacionIndeterminado(&pgconn.PgError{Code: "40001"}) || commitComprobacionIndeterminado(&pgconn.PgError{Code: "42501"}) || !commitComprobacionIndeterminado(errors.New("respuesta perdida")) {
+		t.Fatal("clasificación de COMMIT")
 	}
 }
 

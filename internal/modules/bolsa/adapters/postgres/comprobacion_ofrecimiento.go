@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"reflect"
 	"regexp"
 	"strings"
@@ -27,6 +28,7 @@ const ajustesComprobacionSQL = `SELECT set_config('search_path','pg_catalog',tru
 
 var referenciaReciboComprobacion = regexp.MustCompile(`^comprobacion:[0-9a-f]{64}$`)
 var errRollbackComprobacion = errors.New("rollback de comprobacion fallido")
+var errCommitComprobacionIndeterminado = errors.New("commit de comprobacion indeterminado")
 
 type RepositorioComprobacionPostgreSQL struct{ pool *pgxpool.Pool }
 
@@ -70,15 +72,37 @@ func (r *RepositorioComprobacionPostgreSQL) RegistrarComprobacion(ctx context.Co
 	if hex.EncodeToString(sum[:]) != i.HuellaSHA256 || !intencionComprobacionLigada(i) {
 		return cero, ports.ErrComprobacionDependencia
 	}
+	return registrarComprobacionConRecuperacion(ctx, i, r.registrarUnaComprobacion)
+}
+
+func registrarComprobacionConRecuperacion(ctx context.Context, i ports.IntencionComprobacion, ejecutar func(context.Context, ports.IntencionComprobacion) (ports.ReciboComprobacion, error)) (ports.ReciboComprobacion, error) {
+	var cero ports.ReciboComprobacion
 	var err error
 	for intento := 0; intento < 3; intento++ {
 		if ctx.Err() != nil {
 			return cero, ctx.Err()
 		}
 		var recibo ports.ReciboComprobacion
-		recibo, err = r.registrarUnaComprobacion(ctx, i)
+		recibo, err = ejecutar(ctx, i)
 		if err == nil {
 			return recibo, nil
+		}
+		if errors.Is(err, errCommitComprobacionIndeterminado) {
+			if errors.Is(err, errRollbackComprobacion) {
+				slog.Warn("bolsa: rollback anterior no confirmado")
+			}
+			// Un COMMIT sin respuesta puede haber escrito. B133 comprueba de nuevo
+			// la misma decisión, clave y material, y devuelve el recibo original.
+			limite, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 20*time.Second)
+			recuperado, fallo := ejecutar(limite, i)
+			cancelar()
+			if fallo != nil || !reciboComprobacionValido(recuperado, i.Solicitud) {
+				if fallo == nil {
+					fallo = ports.ErrComprobacionDependencia
+				}
+				return cero, fmt.Errorf("%w: %w", ports.ErrComprobacionResultadoNoConfirmado, errors.Join(err, fallo))
+			}
+			return recuperado, nil
 		}
 		if errors.Is(err, errRollbackComprobacion) || !reintentarComprobacion(err) {
 			return cero, errorComprobacionSQL(err)
@@ -130,10 +154,21 @@ func (r *RepositorioComprobacionPostgreSQL) registrarUnaComprobacion(ctx context
 		return ports.ReciboComprobacion{}, ports.ErrComprobacionDependencia
 	}
 	if err = tx.Commit(ctx); err != nil {
+		if commitComprobacionIndeterminado(err) {
+			return ports.ReciboComprobacion{}, fmt.Errorf("%w: %w", errCommitComprobacionIndeterminado, err)
+		}
 		return ports.ReciboComprobacion{}, err
 	}
 	confirmado = true
 	return out, nil
+}
+
+func commitComprobacionIndeterminado(err error) bool {
+	if errors.Is(err, pgx.ErrTxCommitRollback) {
+		return false
+	}
+	var p *pgconn.PgError
+	return !errors.As(err, &p)
 }
 
 // Compara el contenido semántico, sin confundir JSON de Go con jsonb::text.
@@ -172,7 +207,7 @@ func errorComprobacionSQL(err error) error {
 			return fmt.Errorf("%w: %w", ports.ErrComprobacionConflicto, err)
 		case "42501":
 			return fmt.Errorf("%w: %w", vd.ErrAutorizacionDenegada, err)
-		case "22023":
+		case "22023", "22007", "22008":
 			return fmt.Errorf("%w: %w", ports.ErrComprobacionInvalida, err)
 		}
 	}

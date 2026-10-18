@@ -17,9 +17,10 @@ const (
 )
 
 var (
-	ErrComprobacionInvalida    = errors.New("bolsa: comprobacion invalida")
-	ErrComprobacionConflicto   = errors.New("bolsa: comprobacion en conflicto")
-	ErrComprobacionDependencia = errors.New("bolsa: comprobacion no disponible")
+	ErrComprobacionInvalida              = errors.New("bolsa: comprobacion invalida")
+	ErrComprobacionConflicto             = errors.New("bolsa: comprobacion en conflicto")
+	ErrComprobacionDependencia           = errors.New("bolsa: comprobacion no disponible")
+	ErrComprobacionResultadoNoConfirmado = errors.New("bolsa: resultado de comprobacion no confirmado")
 )
 
 type ContextoComprobacion struct {

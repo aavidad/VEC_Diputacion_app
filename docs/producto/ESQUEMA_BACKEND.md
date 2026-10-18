@@ -389,6 +389,9 @@ antes de autorizar y queda como atributo del contexto V3, conforme a B115.
 La escritura B133 consume esa autorización y valida CT233 en la misma
 transacción; depende del primer corte SQL y del alta central AD291/F0-18.
 Sin material de la audiencia nueva responde 503, sin impedir el arranque.
+B134 conserva la acción nominal del intento de comprobación en la bitácora
+existente. Un COMMIT sin respuesta se reconcilia con la misma intención;
+si no se puede confirmar, el resultado se comunica como indeterminado.
 La proyección mínima en las listas existentes y la pantalla F1-57 siguen
 pendientes. Guion: `deploy/principal/comprobacion_ofrecimiento_api_f1_09_20261018.md`.
 

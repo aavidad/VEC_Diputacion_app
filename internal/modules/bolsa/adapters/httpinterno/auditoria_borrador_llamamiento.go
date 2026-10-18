@@ -110,10 +110,8 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 }
 
 func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIntentoBorradorLlamamiento, puertosbolsa.ClaseRutaIntentoBorradorLlamamiento, bool) {
-	// La bitácora de frontera agrupa escrituras de la ficha. El consumo V3
-	// conserva la acción nominal de comprobación y no cambia la situación.
 	if _, _, ok := ReferenciasRutaComprobacionOfrecimiento(r); ok && r.Method == http.MethodPost {
-		return puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ClaseRutaSituacionParticipacion, true
+		return puertosbolsa.AccionIntentoRegistrarComprobacionOfrecimiento, puertosbolsa.ClaseRutaComprobacionOfrecimiento, true
 	}
 	// La lectura documental RRHH comparte la clase durable de consulta de
 	// situación, pero conserva su acción V3 nominal en el caso de uso.
