@@ -2,8 +2,9 @@
 
 Tarea F1-09, segundo corte de servidor. Añade el adaptador HTTP y su montaje
 opcional; depende del primer corte SQL de la PR #1190. No termina F1-09:
-faltan la proyección del contexto en las listas existentes, la pantalla
-F1-57 y la comprobación de CT antes de reservar (F1-10).
+la proyección del contexto y del estado del acto se entrega en las PR #1201
+y #1203. También faltan la pantalla F1-57 y la comprobación de CT antes de
+reservar (F1-10).
 
 CONFIG NUEVA: ninguna. B134 amplía la bitácora existente con la acción y
 clase nominales de la comprobación; conserva las demás acciones y su historia.
@@ -16,6 +17,9 @@ clase nominales de la comprobación; conserva las demás acciones y su historia.
    un cambio de situación, también cuando el POST se rechaza antes de V3.
 2. El alta central de AD291, junto a F0-18/AD273, admite la acción, audiencia
    y origen nominal de consumo. Sigue al final de la cadena de dirección.
+   Antes de AD291 se instala AD288 y después B137/AD293, según la lista
+   única y sus dependencias; la proyección debe quedar comprobada antes
+   del recorrido completo.
 3. Dos administradores publican la concesión
    `bolsa.comprobacion_ofrecimiento.registrar`, recurso `participacion_bolsa`,
    finalidad `gestionar_contratacion_temporal`, garantía alta, ámbitos
@@ -38,8 +42,9 @@ con JSON, `Accept: application/json` e `Idempotency-Key`. El cuerpo lleva
 `internal/modules/bolsa/ports/comprobacion_ofrecimiento.go`.
 
 La pantalla debe recibir el contexto desde la proyección autorizada de las
-listas existentes. Aún no está disponible: no se pide a RRHH que escriba
-referencias, versiones o huellas ni se toma el filtro de navegación por autoridad.
+listas existentes. #1201 aporta el contexto y #1203 el estado del acto; ambas
+deben estar instaladas antes del recorrido completo. No se pide a RRHH que
+escriba referencias, versiones o huellas ni se toma el filtro de navegación por autoridad.
 Cada hecho lleva valor, referencia opaca de documento y huella. El servidor
 añade actor y fecha de verificación; el cliente nunca aporta el resultado.
 
@@ -72,5 +77,30 @@ canon compartido con Go y denegaciones. La aplicación compiló sin red y salud
 y portal devolvieron 200 tras arrancar y reiniciar aplicación y PostgreSQL.
 Chrome del sistema cargó el portal base. Las consultas de módulos y preferencias
 siguen cerradas con 503 sin configuración: el ensayo no acredita una selección
-ni un registro autorizado. Configuración conjunta, alta central AD291,
-idempotencia y concurrencia reales siguen pendientes.
+ni un registro autorizado. El alta central AD291, el registro autorizado, su repetición y la concurrencia
+reales siguen pendientes.
+
+
+Ensayo interno posterior: candidata `350da6e75`, con las 78 migraciones de
+main y las cuatro propias, instaladas una vez. Con la configuración interna,
+salud, portal, cuadro de contratación y Bolsas devolvieron 200. Sin ella,
+el mismo binario devolvió 200 en salud y portal, y 503 en Bolsas. Aplicación,
+PostgreSQL y buzón local reiniciaron correctamente.
+
+La petición real con `Idempotency-Key` detectó que el enrutador exterior no
+reconocía este POST. `04ad4c8f8` corrigió el despacho por la ruta exacta;
+la prueba focal y la revisión independiente resultaron favorables. Después,
+el POST devolvió 503 con
+`error.codigo=comprobacion_ofrecimiento_no_habilitada`, dejó un intento
+nominal en la bitácora y ningún acto nuevo. Este resultado acredita el cierre
+antes de habilitar la operación. No acredita una escritura autorizada.
+
+La candidata `2f296ca09` incorpora el guion de copia de main `86c0bf1a0`.
+Su código Go coincide con el ensayo anterior; las 82 fuentes SQL conservan
+sus huellas, sin reaplicación. Compilación sin red, cotejo del binario y arranque
+vigilado conformes, con 200 en las cuatro consultas anteriores. La prueba de
+lista pasó sus 19 casos. Se guardaron el binario y el estado anteriores para
+volver atrás. La lista de candidatos necesita recargar el fichero con el
+material de la copia y una concesión de importación publicada; el kit ADMIN
+común prepara esos actos. El registro positivo, la recuperación del recibo
+y la concurrencia siguen pendientes de AD291 y de la activación completa.
