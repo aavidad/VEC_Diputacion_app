@@ -107,11 +107,11 @@
 1781 web/static/portal-empleado/portal-modulos-coordinador.js
 1865 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1131 web/static/portal-empleado/portal-componentes.css
-2254 web/static/portal-empleado/portal.js
+2256 web/static/portal-empleado/portal.js
 1524 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
 1148 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-1178 web/static/portal-empleado/portal-i18n.test.mjs
+1179 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 953 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
