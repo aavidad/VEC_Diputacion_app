@@ -774,7 +774,7 @@ modalidades. Conserva la autoridad vigente, el contexto, los permisos y la
 transacción del positivo. Los intentos de AD294/AD275 mantienen su cuerpo y
 su transacción vacía. Las cuatro funciones reciben un marcador de compatibilidad;
 no concede permiso. La consulta de modalidades necesita además AUT104, B138 y
-el servicio de O. No se reconstruye el consumidor central. Orden: AD295, AD296
+la API de preferencias. No se reconstruye el consumidor central. Orden: AD295, AD296
 y AD291. Activación en `deploy/principal/proyecciones_preferencias_f1_13_20261018.md`.
 
 ### 9.7 Rendimiento
