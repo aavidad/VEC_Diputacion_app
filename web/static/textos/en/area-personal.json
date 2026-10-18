@@ -74,6 +74,7 @@
       "verTodasAutenticacion": "Identify yourself again to view all offers.",
       "verTodasDenegado": "You do not have permission to view all offers.",
       "sinOfertas": "There are no published offers to show right now.",
+      "ofertasNoDisponibles": "Offers could not be loaded. You can still view your place in the job pool and your history.",
       "recargar": "Load again",
       "reintentarGuardado": "Retry the same save",
       "autenticacion": "Identify yourself again to view your preferences.",

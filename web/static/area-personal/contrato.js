@@ -113,6 +113,12 @@ export function validarRespuestaMiBolsa(entrada) {
     throw new TypeError("El esquema de mi bolsa no es compatible.");
   }
   exigirInstante(datos.consultada_en, "mi-bolsa.consultada_en");
+  if (datos.ofertas_no_disponibles !== undefined && typeof datos.ofertas_no_disponibles !== "boolean") {
+    throw new TypeError("La disponibilidad de ofertas de mi bolsa no es válida.");
+  }
+  if (datos.ofertas_no_disponibles === true && datos.ofertas !== undefined) {
+    throw new TypeError("La respuesta no puede incluir ofertas al declarar fallida su lectura.");
+  }
   datos.campos_visibles = validarCamposMiBolsa(datos.campos_visibles);
   const visible = (campo) => campoVisibleMiBolsa(datos.campos_visibles, campo);
   exigirLista(datos.participaciones, "mi-bolsa.participaciones").forEach((participacion, indice) => {

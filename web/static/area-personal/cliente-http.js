@@ -1,4 +1,4 @@
-import { validarRespuestaMiBolsa } from "./contrato.js?v=20261015-o-justificante-bolsa-v4";
+import { validarRespuestaMiBolsa } from "./contrato.js?v=20261018-f114-parcial-v1";
 import { traducir } from "./i18n.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 

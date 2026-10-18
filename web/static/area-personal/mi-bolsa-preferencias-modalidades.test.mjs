@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { cargarPreferenciasModalidades, crearControladorPreferenciasModalidades, guardarPreferenciasModalidades, renderizarPreferenciasModalidades, validarEstadoPreferenciasModalidades } from "./mi-bolsa-preferencias-modalidades.js";
-import { consultarTodasOfertasMiBolsa } from "./aplicacion.js";
-import { renderizarSeccionOfertasMiBolsa } from "./vistas/seguimiento-tramites.js";
+import { consultarTodasOfertasMiBolsa, datosMinimosMiBolsa } from "./aplicacion.js";
+import { renderizarLlamamientos, renderizarSeccionOfertasMiBolsa } from "./vistas/seguimiento-tramites.js";
 
-const fuente = (clave) => ({ catalogo_id: "ct.modalidad", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64), entrada_clave: clave });
-const opciones = ["sustitucion", "vacante", "acumulacion_tareas", "programa", "relevo"].map((clave) => ({ clave, fuente: fuente(clave) }));
+const reglasCT = JSON.parse(await readFile(new URL("../../../data/catalogos/contratacion-temporal/reglas.v3.json", import.meta.url), "utf8"));
+const entradasModalidad = reglasCT.catalogo.entradas.filter((entrada) => entrada.clave.startsWith("c12.modalidad."));
+const fuente = (entrada) => ({ catalogo_id: reglasCT.catalogo.id, catalogo_version: reglasCT.catalogo.version,
+  catalogo_huella_sha256: "a".repeat(64), entrada_clave: entrada.clave });
+const opciones = entradasModalidad.map((entrada) => ({ clave: entrada.clave.slice("c12.modalidad.".length), fuente: fuente(entrada) }));
 const estado = (seleccion = null, extra = {}) => ({ version: 1, modalidades_guardadas: seleccion, modalidades_disponibles: opciones, recibo_ref: null, registrado_en: null, ...extra });
 const respuesta = (valor, status = 200) => ({ status, text: async () => JSON.stringify(valor) });
 const tick = () => new Promise((resolver) => setImmediate(resolver));
@@ -23,6 +26,7 @@ function host() {
 }
 
 test("GET usa el selector exacto y exige catálogo gobernado conocido", async () => {
+  assert.equal(opciones.length, 5);
   const llamadas = [];
   const datos = await cargarPreferenciasModalidades({ api: async (ruta, config) => { llamadas.push([ruta, config]); return respuesta(estado(null)); } });
   assert.equal(datos.modalidades_guardadas, null);
@@ -30,7 +34,9 @@ test("GET usa el selector exacto y exige catálogo gobernado conocido", async ()
   assert.equal(llamadas[0][1].method, "GET");
   assert.equal(llamadas[0][1].credentials, "same-origin");
   assert.equal(llamadas[0][1].cache, "no-store");
-  assert.throws(() => validarEstadoPreferenciasModalidades(estado(null, { modalidades_disponibles: [...opciones, { clave: "ajena", fuente: fuente("ajena") }] })), /respuesta/u);
+  assert.throws(() => validarEstadoPreferenciasModalidades(estado(null, { modalidades_disponibles: [...opciones, { clave: "ajena", fuente: fuente({ clave: "c12.modalidad.ajena" }) }] })), /respuesta/u);
+  assert.throws(() => validarEstadoPreferenciasModalidades(estado(null, { modalidades_disponibles: [{ ...opciones[0], fuente: fuente(entradasModalidad[1]) }, ...opciones.slice(1)] })), /respuesta/u);
+  assert.throws(() => validarEstadoPreferenciasModalidades(estado(null, { modalidades_disponibles: [{ ...opciones[0], fuente: { ...opciones[0].fuente, catalogo_id: "otro.catalogo" } }, ...opciones.slice(1)] })), /respuesta/u);
   assert.throws(() => validarEstadoPreferenciasModalidades(estado(["ajena"])), /respuesta/u);
   assert.throws(() => validarEstadoPreferenciasModalidades(estado(null, { persona_ref: "ajena" })), /respuesta/u);
   await assert.rejects(cargarPreferenciasModalidades({ api: async () => ({ status: 403 }) }), (error) => error.codigo === "denegado");
@@ -74,8 +80,15 @@ test("Ver todas valida la respuesta completa y conserva la vista filtrada al fal
   assert.equal(config.method, "GET"); assert.equal(config.credentials, "same-origin");
   assert.deepEqual(todas.ofertas, []);
   assert.match(renderizarSeccionOfertasMiBolsa(todas.ofertas, { mostrarVacio: true }), /No hay ofertas publicadas/u);
+  assert.match(renderizarSeccionOfertasMiBolsa(null, { noDisponibles: true }), /Las ofertas no se pudieron cargar/u);
+  assert.match(renderizarSeccionOfertasMiBolsa(null, { noDisponibles: true }), /data-accion="ver-todas-ofertas"/u);
+  const parcial = renderizarLlamamientos(datosMinimosMiBolsa({ consultada_en: "2026-10-18T10:00:00.000000Z" }), { ofertasNoDisponibles: true });
+  assert.match(parcial, /id="historial-mi-bolsa"/u);
+  assert.match(parcial, /Las ofertas no se pudieron cargar/u);
+  assert.doesNotMatch(parcial, /No hay ofertas publicadas/u);
   await assert.rejects(consultarTodasOfertasMiBolsa(async () => ({ status: 403 })), (e) => e.codigo === "verTodasDenegado");
   await assert.rejects(consultarTodasOfertasMiBolsa(async () => respuesta({ data: { ofertas: [] } })), (e) => e.codigo === "verTodasError");
+  await assert.rejects(consultarTodasOfertasMiBolsa(async () => respuesta({ ...origen, data: { ...origen.data, ofertas_no_disponibles: true } })), (e) => e.codigo === "verTodasError");
 });
 
 test("el callback fallido se explica dentro del panel sin cambiar la elección", async () => {

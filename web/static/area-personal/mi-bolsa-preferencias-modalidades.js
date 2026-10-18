@@ -3,6 +3,8 @@ import { escaparHTML } from "./vistas/comunes.js";
 
 export const RUTA_PREFERENCIAS_MODALIDADES = "/api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades";
 const MAXIMO_BYTES = 64 * 1024;
+const CATALOGO_MODALIDADES = "vec.contratacion_temporal.reglas";
+const PREFIJO_MODALIDAD = "c12.modalidad.";
 const CLAVES = new Set(["sustitucion", "vacante", "acumulacion_tareas", "programa", "relevo"]);
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u;
 const CAMPOS_ESTADO = ["version", "modalidades_guardadas", "modalidades_disponibles", "recibo_ref", "registrado_en"];
@@ -26,8 +28,8 @@ export function validarEstadoPreferenciasModalidades(v) {
   const vistas = new Set();
   for (const disponible of v.modalidades_disponibles) {
     if (!mismasClaves(disponible, ["clave", "fuente"]) || !CLAVES.has(disponible.clave) || vistas.has(disponible.clave) ||
-      !mismasClaves(disponible.fuente, CAMPOS_FUENTE) || disponible.fuente.entrada_clave !== disponible.clave ||
-      typeof disponible.fuente.catalogo_id !== "string" || !disponible.fuente.catalogo_id ||
+      !mismasClaves(disponible.fuente, CAMPOS_FUENTE) || disponible.fuente.entrada_clave !== PREFIJO_MODALIDAD + disponible.clave ||
+      disponible.fuente.catalogo_id !== CATALOGO_MODALIDADES ||
       !Number.isSafeInteger(disponible.fuente.catalogo_version) || disponible.fuente.catalogo_version < 1 ||
       typeof disponible.fuente.catalogo_huella_sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(disponible.fuente.catalogo_huella_sha256) ||
       t(`opciones.${disponible.clave}`) === `areaPersonal.miBolsa.preferenciasModalidades.opciones.${disponible.clave}`) throw fallo("respuesta");
@@ -122,7 +124,7 @@ export function crearControladorPreferenciasModalidades({ host, api = globalThis
     } catch (error) {
       if (!destruido && !controller.signal.aborted) {
         verTodasEstado = ["verTodasAutenticacion", "verTodasDenegado"].includes(error?.codigo) ? error.codigo : "verTodasError";
-        abierto = true; pintar();
+        abierto = true; pintar(); host?.scrollIntoView?.({ block: "nearest" });
       }
     } finally { if (verTodas === controller) verTodas = null; }
   }
@@ -188,6 +190,7 @@ export function crearControladorPreferenciasModalidades({ host, api = globalThis
   }
   function alternar(evento) { if (evento.target?.matches?.("[data-modalidades-detalles]")) abierto = evento.target.open; }
   return {
+    verTodas() { void consultarTodas(); },
     montar() {
       if (!host || destruido) return null;
       if (!montado) { host.addEventListener("click", pulsar); host.addEventListener("change", cambiar); host.addEventListener("toggle", alternar, true); montado = true; }

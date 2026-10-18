@@ -6,14 +6,16 @@ import { renderizarOfertasMiBolsa, textoOfertas } from "../mi-bolsa-ofertas.js";
 import { renderizarContactoMiBolsa, textoContacto } from "../mi-bolsa-contacto.js";
 import { renderizarHistorialMiBolsa } from "../mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v4";
 import { renderizarPreferenciasBolsas } from "../mi-bolsa-preferencias-bolsas.js?v=20261012-preferencias-bolsas-v1";
-import { renderizarPreferenciasModalidades } from "../mi-bolsa-preferencias-modalidades.js?v=20261018-f114-v1";
+import { renderizarPreferenciasModalidades } from "../mi-bolsa-preferencias-modalidades.js?v=20261018-f114-parcial-v1";
 
 const b = (clave, variables) => traducir(`areaPersonal.vista.miBolsa.${clave}`, variables);
 const u = (clave, variables) => traducir(`areaPersonal.vista.subsanaciones.${clave}`, variables);
 const g = (clave, variables) => traducir(`areaPersonal.vista.alegaciones.${clave}`, variables);
 const h = (texto) => escaparHTML(texto);
 
-export function renderizarSeccionOfertasMiBolsa(ofertas, { mostrarVacio = false } = {}) {
+export function renderizarSeccionOfertasMiBolsa(ofertas, { mostrarVacio = false, noDisponibles = false } = {}) {
+  if (noDisponibles) return panel(textoOfertas("titulo"), textoOfertas("subtitulo"),
+    `<div class="estado-error" role="alert"><p>${h(traducir("areaPersonal.miBolsa.preferenciasModalidades.ofertasNoDisponibles"))}</p><button type="button" class="boton-secundario" data-accion="ver-todas-ofertas">${h(traducir("areaPersonal.miBolsa.preferenciasModalidades.verTodas"))}</button></div>`);
   if (!Array.isArray(ofertas) || !ofertas.length) return mostrarVacio
     ? panel(textoOfertas("titulo"), textoOfertas("subtitulo"), `<p class="estado-vacio">${h(traducir("areaPersonal.miBolsa.preferenciasModalidades.sinOfertas"))}</p>`)
     : "";
@@ -83,7 +85,7 @@ export function renderizarLlamamientos(datos, estado = {}) {
     <div id="preferencias-bolsas" aria-live="polite">${renderizarPreferenciasBolsas()}</div>
     <div id="preferencias-modalidades">${renderizarPreferenciasModalidades()}</div>
     <div id="historial-mi-bolsa" aria-live="polite">${renderizarHistorialMiBolsa()}</div>
-    <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}<div id="ofertas-mi-bolsa">${renderizarSeccionOfertasMiBolsa(estado.ofertasMiBolsa)}</div></div><aside>
+    <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}<div id="ofertas-mi-bolsa">${renderizarSeccionOfertasMiBolsa(estado.ofertasMiBolsa, { noDisponibles: estado.ofertasNoDisponibles === true })}</div></div><aside>
       ${estado.accionesPortal
     ? panel(textoPortal("titulo"), textoPortal("subtitulo"), renderizarPortalMiBolsa(participaciones, estado.portalMiBolsa, estado.accionesPortal))
     : panel(traducir("areaPersonal.miBolsa.disponibilidad.titulo"), traducir("areaPersonal.miBolsa.disponibilidad.subtitulo"), `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.disponibilidad.detalle"))}</p>`)}

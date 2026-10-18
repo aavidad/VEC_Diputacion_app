@@ -43,6 +43,27 @@ test("mi bolsa valida la situación actual sin exigirla a la respuesta antigua",
   assert.equal(validarRespuestaMiBolsa(base).participaciones[0].situacion_actual.estado, "en_revision");
 });
 
+test("fallo opcional de ofertas conserva la instantánea y exige indicador booleano", () => {
+  const base = { data: { esquema: "vec.bolsa.mi-bolsa.v1", consultada_en: "2026-10-18T10:00:00.000000Z",
+    participaciones: [{ bolsa: "bolsa:prueba:01", categoria: "Auxiliar", version: 3, orden_inicial: 12,
+      total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00.000000Z", vigente_hasta: null }],
+    ofertas_no_disponibles: true } };
+  const parcial = validarRespuestaMiBolsa(base);
+  assert.equal(parcial.ofertas_no_disponibles, true);
+  assert.equal(parcial.participaciones[0].bolsa, "bolsa:prueba:01");
+  assert.equal(Object.isFrozen(parcial.participaciones), true);
+  for (const invalido of ["true", 1, null]) {
+    base.data.ofertas_no_disponibles = invalido;
+    assert.throws(() => validarRespuestaMiBolsa(base), /disponibilidad de ofertas/u);
+  }
+  base.data.ofertas_no_disponibles = true;
+  base.data.ofertas = [];
+  assert.throws(() => validarRespuestaMiBolsa(base), /lectura/u);
+  delete base.data.ofertas;
+  base.data.ofertas_no_disponibles = false;
+  assert.equal(validarRespuestaMiBolsa(base).ofertas_no_disponibles, false);
+});
+
 test("mi bolsa admite solo el resultado mínimo del llamamiento propio", () => {
   const base = { data: { esquema: "vec.bolsa.mi-bolsa.v1", consultada_en: "2026-09-23T10:00:00.000000Z", participaciones: [
     { bolsa: "bolsa:prueba:01", categoria: "Auxiliar", version: 3, orden_inicial: 12, total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null,
