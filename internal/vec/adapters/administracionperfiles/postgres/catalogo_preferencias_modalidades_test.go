@@ -40,7 +40,8 @@ func TestFuentePreferenciasModalidadesCanonYAlcance(t *testing.T) {
 			t.Fatal("cambió la concesión de escritura")
 		}
 	}
-	esperados := append(slices.Clone(previa.Entradas[0].Concesion.CamposPermitidos), "modalidades_guardadas", "modalidades_disponibles")
+	esperados := append(slices.Clone(previa.Entradas[0].Concesion.CamposPermitidos[:6]), "modalidades_guardadas", "modalidades_disponibles")
+	esperados = append(esperados, previa.Entradas[0].Concesion.CamposPermitidos[6:]...)
 	if !slices.Equal(nueva.Entradas[0].Concesion.CamposPermitidos, esperados) {
 		t.Fatal("campos ajenos en la ampliación")
 	}
