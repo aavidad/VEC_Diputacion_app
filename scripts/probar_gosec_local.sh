@@ -7,8 +7,32 @@ trap 'rm -rf -- "$temporal_gosec"' EXIT
 cd "$temporal_gosec"
 printf 'module vec-control-gosec\n\ngo 1.25.12\n' > go.mod
 
+python3 - "$raiz_gosec/scripts/gosec_local.py" "$temporal_gosec" <<'PY'
+import importlib.util
+import os
+from pathlib import Path
+import sys
+spec = importlib.util.spec_from_file_location('gosec', sys.argv[1])
+modulo = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(modulo)
+go = Path(modulo.seleccionar_go())
+os.environ['PATH'] = str(go.parent) + os.pathsep + os.environ['PATH']
+os.environ['GOMODCACHE'] = str(Path(sys.argv[2]) / 'cache-vacia')
+if not Path(modulo.seleccionar_go()).samefile(go):
+    raise SystemExit('Go del PATH exacto no funciona con caché de módulos vacía')
+PY
+
 printf 'package control\nfunc Valor() int { return 1 }\n' > control.go
 python3 "$raiz_gosec/scripts/gosec_local.py" . > limpio.json
+
+mkdir vacio
+if python3 "$raiz_gosec/scripts/gosec_local.py" . ./vacio/... > parcial.json 2> parcial.log; then
+  printf 'GoSec aceptó omitir un patrón sin paquetes.\n' >&2
+  exit 1
+else
+  estado_gosec=$?
+  [[ "$estado_gosec" -eq 2 ]] || exit 1
+fi
 
 cat > control.go <<'GO'
 // Code generated for the security control. DO NOT EDIT.
@@ -48,4 +72,4 @@ else
   estado_gosec=$?
   [[ "$estado_gosec" -eq 2 ]] || exit 1
 fi
-printf 'GoSec: fuente correcta, TLS inseguro y errores de carga comprobados.\n'
+printf 'GoSec: herramienta, cobertura, fuente correcta, TLS inseguro y errores de carga comprobados.\n'

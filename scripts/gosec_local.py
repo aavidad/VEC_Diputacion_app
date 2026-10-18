@@ -4,11 +4,29 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
 
 HERRAMIENTAS = Path(__file__).resolve().parent
+
+
+def seleccionar_go():
+    declaradas = re.findall(r'^toolchain\s+(go\d+\.\d+\.\d+)\s*(?://.*)?$',
+                            (HERRAMIENTAS.parent / 'go.mod').read_text(), re.MULTILINE)
+    if len(declaradas) != 1:
+        raise ValueError('El proyecto debe declarar una versión exacta de Go')
+    candidato = shutil.which('go')
+    if candidato:
+        version = subprocess.check_output([candidato, 'version'], text=True, timeout=10,
+                    env={**os.environ, 'GOENV': 'off', 'GOTOOLCHAIN': 'local',
+                         'GOPROXY': 'off', 'GOSUMDB': 'off'})
+        if re.fullmatch(r'go version ' + re.escape(declaradas[0]) + r' \S+/\S+\n?', version):
+            return candidato
+    return subprocess.check_output([HERRAMIENTAS / 'seleccionar_toolchain_go_local.sh'],
+                                    text=True).strip()
 
 
 def resultado(informe):
@@ -40,11 +58,15 @@ def main():
         directorio = Path(paquete.removesuffix('/...'))
         if paquete.startswith('-') or not directorio.is_dir():
             parser.error('Indique directorios de paquetes; no archivos Go sueltos')
-    go = subprocess.check_output([HERRAMIENTAS / 'seleccionar_toolchain_go_local.sh'],
-                                 text=True).strip()
-    entorno = {**os.environ, 'GOTOOLCHAIN': 'local'}
+    go = seleccionar_go()
+    entorno = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOENV': 'off'}
     entorno['PATH'] = str(Path(go).parent) + os.pathsep + entorno['PATH']
     entorno['GOWORK'] = 'off'
+    coincidencias = subprocess.check_output([go, 'list', '-f',
+                    '{{range .Match}}{{println .}}{{end}}', *args.paquetes],
+                    text=True, env=entorno, timeout=60)
+    if not set(args.paquetes).issubset(set(coincidencias.splitlines())):
+        raise ValueError('Algún patrón no contiene paquetes; no se acepta un análisis parcial')
     with tempfile.TemporaryDirectory(prefix='vec-gosec-') as temporal:
         binario = Path(temporal) / 'vec-gosec'
         subprocess.run([go, '-C', HERRAMIENTAS.parent / 'tools/vecgosec',
