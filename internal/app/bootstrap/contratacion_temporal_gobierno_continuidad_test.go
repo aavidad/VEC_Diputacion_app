@@ -135,6 +135,39 @@ func TestGobiernoPostgreSQLContinuidadNominalAD330YAD331(t *testing.T) {
 	}
 }
 
+func TestGobiernoTransicionesBolsaAudienciaNominalPublicableYPropia(t *testing.T) {
+	audiencia := descriptorMaterialGobiernoTransicionesBolsaDesarrollo().Audiencia
+	if audiencia != ports.AudienciaPublicarTransicionesSituacion {
+		t.Fatal("el descriptor de publicación cambió de audiencia")
+	}
+	apariciones := 0
+	for _, publicada := range audienciasConsumoGobiernoCTDesarrollo() {
+		if publicada == audiencia {
+			apariciones++
+		}
+	}
+	if apariciones != 1 || !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(audiencia) {
+		t.Fatal("la publicación de transiciones no tiene audiencia propia exacta")
+	}
+	propio, err := gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
+		context.Background(), &txGobiernoContinuidadPrueba{audienciaActual: audiencia},
+	)
+	if err != nil || !propio {
+		t.Fatalf("el gobierno publicado no se reconoce como propio: propio=%t err=%v", propio, err)
+	}
+	for _, ajena := range []string{audiencia + ".otra", "vec_bolsa_llamamientos.politica_transiciones.*"} {
+		if audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(ajena) {
+			t.Fatalf("audiencia ajena admitida: %s", ajena)
+		}
+		propio, err := gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
+			context.Background(), &txGobiernoContinuidadPrueba{audienciaActual: ajena},
+		)
+		if err != nil || propio {
+			t.Fatalf("gobierno ajeno reconocido: propio=%t err=%v", propio, err)
+		}
+	}
+}
+
 // Toda audiencia que se añade al catálogo común debe poder publicarla el
 // gobierno de CT; si no, el arranque con ese módulo activo cae entero.
 func TestAudienciasDietasPublicablesPorElGobiernoCT(t *testing.T) {
