@@ -916,6 +916,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		declaracionesFrontera = append(declaracionesFrontera, bolsaFronteras...)
+		declaracionesFrontera = append(declaracionesFrontera, fronterasGobiernoTransicionesBolsaDesarrollo(perfilBolsa)...)
 	}
 	var soportesAuditoria soportesAuditoriaConsultaDesarrollo
 	if auditoriaActiva {
