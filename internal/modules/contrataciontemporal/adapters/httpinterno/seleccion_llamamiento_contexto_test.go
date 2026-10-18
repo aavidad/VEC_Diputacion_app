@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -44,5 +45,28 @@ func TestSeleccionLlamamiento409PublicaSoloContextoCoherente(t *testing.T) {
 	var invalido map[string]json.RawMessage
 	if json.Unmarshal(r.Body.Bytes(), &invalido) != nil || invalido["comprobacion_ofrecimiento"] != nil {
 		t.Fatalf("publicó contexto inválido: %s", r.Body.String())
+	}
+	c.UnidadRef = "unidad:uno"
+	causa.Comprobacion.Estado = &ports.EstadoComprobacionPendiente{VersionEsperada: 0}
+	r = grabar()
+	var conEstado struct {
+		Comprobacion struct {
+			Estado json.RawMessage `json:"estado"`
+		} `json:"comprobacion_ofrecimiento"`
+	}
+	if json.Unmarshal(r.Body.Bytes(), &conEstado) != nil || string(conEstado.Comprobacion.Estado) != `{"version_esperada":0}` {
+		t.Fatalf("ausencia actual no exacta: %s", r.Body.String())
+	}
+	vigente := false
+	ref := "comprobacion:" + strings.Repeat("a", 64)
+	causa.Comprobacion.Estado = &ports.EstadoComprobacionPendiente{VersionEsperada: 3, ComprobacionRef: ref,
+		ReciboRef: "recibo:" + ref, RegistradaEn: time.Date(2026, 10, 18, 8, 0, 0, 0, time.UTC),
+		VersionPoliticaOfertas: 6, Resultado: "pendiente", MotivoClave: "antecedentes_incompletos", Vigente: &vigente}
+	r = grabar()
+	var ocho map[string]any
+	if json.Unmarshal(r.Body.Bytes(), &conEstado) != nil || json.Unmarshal(conEstado.Comprobacion.Estado, &ocho) != nil ||
+		len(ocho) != 8 || ocho["version_esperada"] != float64(3) || ocho["vigente"] != false ||
+		strings.Contains(r.Body.String(), "candidato_ref") || strings.Contains(r.Body.String(), "hechos") {
+		t.Fatalf("último acto incompleto o filtrado: %s", r.Body.String())
 	}
 }

@@ -50,6 +50,7 @@ func enriquecerErrorCriteriosPendientesCT(
 		return err
 	}
 	var participacion string
+	var estadoBolsa *puertosbolsa.EstadoComprobacionOfrecimiento
 	for _, entrada := range origen.registro.Entradas {
 		if entrada.OrdenActa == pendiente.Comprobacion.OrdenActa {
 			if participacion != "" || entrada.Razon != "pendiente_comprobacion_rrhh" ||
@@ -57,9 +58,16 @@ func enriquecerErrorCriteriosPendientesCT(
 				return ports.ErrRespuestaBolsaNoConfiable
 			}
 			participacion = entrada.ParticipacionRef
+			estadoBolsa = entrada.ComprobacionOfrecimiento
 		}
 	}
 	criterios := origen.registro.CriteriosOfrecimiento
+	e := d.expediente.Fiscalizado
+	if e.Analisis == nil || e.Asignacion == nil || e.Analisis.CategoriaRef != d.categoria ||
+		e.Asignacion.UnidadRef != d.unidad || string(e.Analisis.ModalidadClave) != criterios.ModalidadOfrecida ||
+		string(e.Analisis.CausaClave) != criterios.CausaOfrecida {
+		return ports.ErrRespuestaBolsaNoConfiable
+	}
 	contexto := ports.ContextoComprobacionPendiente{
 		AmbitoRef: ambitoRef, BolsaRef: origen.registro.BolsaRef,
 		CategoriaRef: d.categoria, CausaOfrecida: criterios.CausaOfrecida,
@@ -78,6 +86,29 @@ func enriquecerErrorCriteriosPendientesCT(
 		origen.instantanea.Version != origen.registro.VersionInstantanea {
 		return ports.ErrRespuestaBolsaNoConfiable
 	}
-	pendiente.Comprobacion.Contexto = &contexto
+	comprobacion := pendiente.Comprobacion
+	comprobacion.Contexto = &contexto
+	if estadoBolsa != nil {
+		if estadoBolsa.Validar() != nil {
+			return ports.ErrRespuestaBolsaNoConfiable
+		}
+		estado := ports.EstadoComprobacionPendiente{
+			VersionEsperada: estadoBolsa.VersionEsperada,
+			ComprobacionRef: estadoBolsa.ComprobacionRef, ReciboRef: estadoBolsa.ReciboRef,
+			RegistradaEn:           estadoBolsa.RegistradaEn,
+			VersionPoliticaOfertas: estadoBolsa.VersionPoliticaOfertas,
+			Resultado:              estadoBolsa.Resultado, MotivoClave: estadoBolsa.MotivoClave,
+			Vigente: estadoBolsa.Vigente,
+		}
+		if estadoBolsa.Vigente != nil {
+			vigente := *estadoBolsa.Vigente
+			estado.Vigente = &vigente
+		}
+		if !estado.ValidoPara(comprobacion) {
+			return ports.ErrRespuestaBolsaNoConfiable
+		}
+		comprobacion.Estado = &estado
+	}
+	pendiente.Comprobacion = comprobacion
 	return pendiente
 }

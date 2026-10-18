@@ -803,7 +803,11 @@ detiene, su respuesta incluye las referencias y versiones del expediente,
 la necesidad, la bolsa y la participación que ya se han consultado con permiso.
 La futura pantalla las enviará al registrar la comprobación; RRHH no tendrá
 que escribirlas. Este corte conserva la detención y el orden de la bolsa.
-Aún faltan la consulta del estado del acto y la pantalla de registro.
+La ampliación de la misma consulta auditada prepara también el estado del acto:
+si existe, conserva su versión y recibo, aunque el contexto haya cambiado;
+si no existe, acredita esa ausencia. Una consulta antigua sin ese dato no
+permite deducir que nunca hubo comprobación. La consulta completa y la pantalla
+de registro siguen pendientes de integrar y recorrer juntas.
 
 La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
 requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos

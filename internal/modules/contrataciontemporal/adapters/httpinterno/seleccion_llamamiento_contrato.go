@@ -239,7 +239,8 @@ func responderErrorSeleccionLlamamiento(
 		errors.As(causas[0], &pendiente) && pendiente != nil &&
 		pendiente.Comprobacion.BolsaRef != "" && pendiente.Comprobacion.OrdenActa > 0 &&
 		pendiente.Comprobacion.MotivoClave == "pendiente_comprobacion_rrhh" &&
-		(pendiente.Comprobacion.Contexto == nil || pendiente.Comprobacion.Contexto.ValidoPara(pendiente.Comprobacion)) {
+		(pendiente.Comprobacion.Contexto == nil || pendiente.Comprobacion.Contexto.ValidoPara(pendiente.Comprobacion)) &&
+		(pendiente.Comprobacion.Estado == nil || pendiente.Comprobacion.Estado.ValidoPara(pendiente.Comprobacion)) {
 		responderJSONCobertura(w, peticion, problema.estado, struct {
 			Error                    detalleErrorCobertura                   `json:"error"`
 			ComprobacionOfrecimiento ports.ComprobacionOfrecimientoPendiente `json:"comprobacion_ofrecimiento"`
