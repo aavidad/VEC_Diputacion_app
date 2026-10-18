@@ -351,6 +351,36 @@ mismo volcado y las listas necesarias.
 
 ## 10. Problemas conocidos
 
+### Preparación del segundo corte de F0-28
+
+`crear --modulos` prepara conexiones nominales nuevas de Bolsa, Contratación
+y sellado de auditoría. Requiere `VEC_COPIA_DATOS_SCRIPT`, la ruta absoluta
+del preparador privado de datos de esa copia. El fichero pertenece a la
+cuenta operadora, tiene modo `0600` y queda fuera de Git y de PGDATA. Recibe
+`--raiz` con la carpeta de la instancia. Esta preparación sigue en ensayo:
+el primer corte sin módulos es el arranque ya comprobado.
+
+`--admin` requiere `--modulos` y `VEC_COPIA_ADMIN_KIT`. El kit privado debe
+contener `contrato-copia-local-admin-v1.json`, las huellas de sus ocho
+preparadores y sus dos binarios de gobierno, certificados de 90 días y
+gobierno de 89 días del conjunto de capacidades 5. El guion valida el kit
+antes de restaurar y exige acuses auditados en las fases ADMIN. Si una
+confirmación queda incierta, se conserva el plan para recuperarlo; no se
+prepara otro automáticamente.
+
+La caché de compilación común es `/dev/shm/vec/go-build`. La de módulos
+se selecciona con `GOMODCACHE` antes de ejecutar el guion; debe contener
+la herramienta Go de `go.mod` y sus dependencias. Si se usa la caché local
+antigua organizada como GOPATH, `GOMODCACHE` apunta a su subcarpeta
+`pkg/mod`. `compilacion.json` registra la herramienta, ambas cachés y la
+revisión empleadas. La compilación no descarga dependencias.
+
+Conserva en disco, fuera de Git y con permisos privados, el kit adaptado,
+los preparadores, sus fuentes y las notas necesarias para repetir el ensayo.
+Las carpetas de trabajo confirmadas y PGDATA son los únicos elementos
+desechables en memoria. Tras un reinicio se reconstruye la copia con ese
+material conservado; no se reutilizan certificados ni recibos de otro ensayo.
+
 | Síntoma | Causa | Arreglo |
 | --- | --- | --- |
 | La aplicación se detiene en la comprobación previa de preferencias o de Contratación | Faltan las ACL de la base tras restaurar | Aplicar el fichero de ACL de base del material privado (apartado 2) |

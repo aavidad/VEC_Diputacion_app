@@ -145,6 +145,10 @@ class Copia:
         kit_admin = os.environ.get('VEC_COPIA_ADMIN_KIT') if args.admin else None
         if args.admin and not kit_admin:
             raise ValueError('ADMIN requiere VEC_COPIA_ADMIN_KIT privado y vigente')
+        if args.admin:
+            from copia_local_admin import _comprobar_kit
+            _comprobar_kit(self, Path(kit_admin), dict(
+                puerto_pg=args.puerto_pg, puerto_app=args.puerto_app))
         origen = Path(os.environ['VEC_COPIA_ORIGEN']).resolve(strict=True)
         dump = origen / 'principal-hz37-20261014.dump'
         acl = [origen / 'acl-base-20261014.sql', origen / 'acl-tipos-20261014.sql']
@@ -199,10 +203,15 @@ class Copia:
                 ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
         memoria()
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
+        entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+        modcache = subprocess.check_output([go, 'env', 'GOMODCACHE'],
+                                          env=entorno_go, text=True).strip()
+        guardar(self.raiz / 'compilacion.json', dict(go=go, gomodcache=modcache,
+                gocache=entorno_go['GOCACHE'], revision=revision()))
         with (self.raiz / 'compilacion.log').open('wb') as log:
             ejecutar([go, 'build', '-p', '6', '-o', self.raiz / 'vec-server', './cmd/vec-server'],
-                      cwd=REPO, salida=log, entorno={**os.environ, 'GOTOOLCHAIN': 'local',
-                          'GOPROXY': 'off', 'GOSUMDB': 'off', 'GOENV': 'off'})
+                      cwd=REPO, salida=log, entorno=entorno_go)
         estado = self.leer()
         estado['preparada'] = True
         guardar(self.estado, estado)

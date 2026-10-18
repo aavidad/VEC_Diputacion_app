@@ -24,7 +24,7 @@ SCRIPTS = (
     "preparar_runtime.py", "preparar_vec_admin.py",
 )
 BINARIOS = ("bin/h-root-seed.test", "bin/vec-gobierno-usuarios-admin")
-GOCACHE = "/dev/shm/vec/codexl-go-build"
+GOCACHE = "/dev/shm/vec/go-build"
 FASES = ("fuentes", "unidad", "bootstrap")
 GRUPOS = (
     "vec_admin_fuentes_iniciales_ejecutor", "vec_personal_unidad_inicial_ejecutor",
@@ -55,6 +55,15 @@ def _huella(ruta: Path) -> str:
         return hashlib.file_digest(entrada, "sha256").hexdigest()
 
 
+def _cache_compilacion() -> None:
+    # Caché común de los equipos: no contiene el material privado del kit.
+    ruta = Path(GOCACHE)
+    dato = ruta.lstat()
+    if (ruta.resolve(strict=True) != ruta or not stat.S_ISDIR(dato.st_mode)
+            or dato.st_uid != os.getuid() or dato.st_mode & 0o002):
+        raise ValueError("Caché Go ausente, enlazada o escribible por otras cuentas")
+
+
 def _comprobar_kit(copia, kit: Path, estado: dict) -> dict:
     raiz = Path(copia.raiz)
     if (not kit.is_absolute() or kit.is_relative_to(raiz)
@@ -67,7 +76,7 @@ def _comprobar_kit(copia, kit: Path, estado: dict) -> dict:
             or contrato.get("conjunto_capacidades") != 5
             or contrato.get("gocache") != GOCACHE):
         raise ValueError("Kit ADMIN antiguo: preparar gobierno de 89 días, certificados de 90 y conjunto 5")
-    _privado(Path(GOCACHE), directorio=True)
+    _cache_compilacion()
     for clave, nombres in (("scripts_sha256", SCRIPTS), ("bin_sha256", BINARIOS)):
         huellas = contrato.get(clave)
         if not isinstance(huellas, dict) or set(huellas) != set(nombres):

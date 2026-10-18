@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('copia', Path(__file__).with_name('copia_local.py'))
@@ -37,6 +38,18 @@ class CopiaLocalTest(unittest.TestCase):
                 self.lista.write_text(str(fuente))
                 with patch.object(copia, 'REPO', self.repo), self.assertRaises(ValueError):
                     copia.migraciones([self.lista])
+
+    def test_kit_incompatible_para_antes_de_crear_o_restaurar_la_copia(self):
+        args = SimpleNamespace(puerto_pg=55481, puerto_app=18481, modulos=True, admin=True)
+        with patch.object(copia, 'BASE', self.raiz), \
+             patch.object(copia, 'memoria'), patch.object(copia, 'puerto_libre'), \
+             patch.object(copia, 'validar_ejecutor_privado'), \
+             patch.dict(os.environ, {'VEC_COPIA_ADMIN_KIT': '/kit-privado'}), \
+             patch('copia_local_admin._comprobar_kit', side_effect=ValueError('kit antiguo')):
+            instancia = copia.Copia('l', 'kit-incompatible')
+            with self.assertRaisesRegex(ValueError, 'kit antiguo'):
+                instancia.crear(args)
+            self.assertFalse(instancia.raiz.exists())
 
     def test_no_omite_duplicado_ni_huella_alterada(self):
         with patch.object(copia, 'REPO', self.repo):

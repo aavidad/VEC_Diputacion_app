@@ -28,6 +28,21 @@ class CopiaFalsa:
 
 
 class CopiaLocalAdminTest(unittest.TestCase):
+    def test_cache_comun_admite_lectura_compartida_pero_no_escritura_publica(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            cache = Path(temporal) / "go-build"
+            cache.mkdir(mode=0o755)
+            with patch.object(admin, "GOCACHE", str(cache)):
+                admin._cache_compilacion()
+                cache.chmod(0o777)
+                with self.assertRaisesRegex(ValueError, "Caché Go"):
+                    admin._cache_compilacion()
+            cache.chmod(0o700)
+            enlace = Path(temporal) / "enlace"
+            enlace.symlink_to(cache)
+            with patch.object(admin, "GOCACHE", str(enlace)), self.assertRaises(ValueError):
+                admin._cache_compilacion()
+
     def test_kit_antiguo_para_antes_de_sql_y_sin_carpeta_admin(self):
         with tempfile.TemporaryDirectory(prefix="vec-admin-") as temporal:
             base = Path(temporal)
