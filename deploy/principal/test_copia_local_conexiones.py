@@ -46,7 +46,7 @@ class TestConexiones(unittest.TestCase):
     def test_nueva_instancia_genera_identidades_y_env_privado(self):
         env = modulo.preparar(self.copia)
         self.assertEqual(set(env), set(modulo.GRUPOS))
-        self.assertEqual(len(env), 20)
+        self.assertEqual(len(env), 22)
         sql, log = self.copia.sql_ejecutado[0]
         self.assertEqual(log, "conexiones.log")
         self.assertTrue(sql.startswith("BEGIN;"))

@@ -41,6 +41,8 @@ GRUPOS = {
     "VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL": "vec_bolsa_convocatorias_ejecutor_consulta",
     "VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL": "vec_bolsa_convocatorias_proyector_gobierno",
     "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL": "vec_bolsa_convocatorias_verificador_recibo",
+    "VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL": "vec_bolsa_importacion_convoca_ejecutor",
+    "VEC_BOLSA_B103_FUENTE_AUTORIZACION_DATABASE_URL": "vec_autorizacion_fuente",
 }
 
 RESULTADO = "conexiones.json"

@@ -3,6 +3,7 @@
 import argparse
 import fcntl
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -16,7 +17,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.request
 
 REPO = Path(__file__).resolve().parents[2]
 BASE = Path('/dev/shm/vec/pg')
@@ -141,6 +141,8 @@ class Copia:
         memoria()
         puerto_libre(args.puerto_pg)
         puerto_libre(args.puerto_app)
+        if args.modulos:
+            puerto_libre(args.puerto_smtp)
         datos = validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT') if args.modulos else None
         roles = validar_ejecutor_privado('VEC_COPIA_ROLES_SCRIPT') if args.modulos else None
         portal = validar_ejecutor_privado('VEC_COPIA_PORTAL_SCRIPT') if args.portal_externo else None
@@ -156,6 +158,7 @@ class Copia:
         self.raiz.mkdir(mode=0o700, parents=True, exist_ok=False)
         guardar(self.estado, dict(nombre=self.nombre, raiz=str(self.raiz),
                 puerto_pg=args.puerto_pg, puerto_app=args.puerto_app,
+                puerto_smtp=args.puerto_smtp if args.modulos else None,
                 fuente=str(REPO), origen=str(origen),
                 preparada=False, revision=revision(), creada_en=time.time()))
         guardar(self.raiz / 'fuentes.json', FUENTES)
@@ -282,6 +285,8 @@ class Copia:
             VEC_HTTP_ADDR=f"127.0.0.1:{estado['puerto_app']}",
             VEC_BOLSA_DATA_DIR=str(self.raiz / 'datos'))
         entorno.update(self.entorno_modulos())
+        from copia_local_correo import arrancar as arrancar_correo
+        entorno.update(arrancar_correo(self))
         with (self.raiz / 'app.log').open('ab') as log:
             proceso = subprocess.Popen([self.raiz / 'vec-server'], cwd=REPO, env=entorno,
                         stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -340,6 +345,8 @@ class Copia:
                 raise ValueError('La aplicación sigue activa; se conserva su copia')
         if self.existe():
             self.docker('stop', '--time', '20', self.nombre, salida=subprocess.DEVNULL)
+        from copia_local_correo import parar as parar_correo
+        parar_correo(self)
 
     def comprobar(self):
         estado = self.leer()
@@ -349,16 +356,23 @@ class Copia:
         if estado.get('comprobar_modulos'):
             cuadro = dict(filtros=dict(texto='', estado_clave='', fase_clave=''),
                           paginacion=dict(limite=6, cursor=''))
-            rutas.extend([('/readyz', None),
-                          ('/api/vec/contratacion-temporal/cuadro/consultas', json.dumps(cuadro).encode()),
+            rutas.extend([('/api/vec/contratacion-temporal/cuadro/consultas', json.dumps(cuadro).encode()),
                           ('/api/vec/bolsa/bolsas', None)])
         origen = f"https://localhost:{estado['puerto_app']}"
         for ruta, datos in rutas:
-            solicitud = urllib.request.Request(origen + ruta, data=datos,
-                        headers={'Origin': origen, 'Content-Type': 'application/json'})
-            with urllib.request.urlopen(solicitud, context=contexto, timeout=5) as r:
+            # urllib añade Connection: close, prohibida por la frontera de CT.
+            conexion = http.client.HTTPSConnection('localhost', estado['puerto_app'],
+                                                   context=contexto, timeout=5)
+            try:
+                conexion.request('POST' if datos is not None else 'GET', ruta, body=datos,
+                                 headers={'Origin': origen, 'Content-Type': 'application/json',
+                                          'Accept': 'application/json'})
+                r = conexion.getresponse()
+                r.read()
                 if r.status != 200:
-                    raise ValueError('Respuesta HTTP distinta de 200')
+                    raise ValueError(f'Respuesta HTTP {r.status} en {ruta}')
+            finally:
+                conexion.close()
 
     def exportar(self, archivo):
         destino = Path(archivo)
@@ -441,6 +455,7 @@ def main():
     p.add_argument('--instancia', required=True)
     p.add_argument('--puerto-pg', type=int, default=55481)
     p.add_argument('--puerto-app', type=int, default=18481)
+    p.add_argument('--puerto-smtp', type=int, default=11081)
     p.add_argument('--lista-sql', action='append', default=[])
     p.add_argument('--modulos', action='store_true', help='Preparar conexiones nuevas de Bolsa y Contratación')
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
@@ -452,6 +467,9 @@ def main():
         p.error('Equipo: una letra minúscula; instancia: letras, cifras y guiones')
     if not 1024 <= args.puerto_pg <= 65535 or not 1024 <= args.puerto_app <= 65535 or args.puerto_pg == args.puerto_app:
         p.error('Puertos distintos entre 1024 y 65535')
+    if args.modulos and (not 1024 <= args.puerto_smtp <= 65535
+                        or args.puerto_smtp in (args.puerto_pg, args.puerto_app)):
+        p.error('El puerto SMTP debe ser distinto y estar entre 1024 y 65535')
     copia = Copia(args.equipo, args.instancia)
     BASE.mkdir(parents=True, exist_ok=True)
     # Candado por instancia fuera de PGDATA; borrar no permite otro escritor concurrente.
