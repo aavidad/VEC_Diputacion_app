@@ -787,6 +787,8 @@ Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
 un reintento conserva fechas, política y oferta originales. Este corte no acredita
 todavía la publicación desde la ficha de CT.
 
+**Candidata de aviso por correo (F1-18, primer corte ensayado).** Publicar fija las participaciones disponibles de la bolsa constituida y guarda cada aviso, con el correo del alta como fuente. «Gestionar ofertas» muestra pendientes, enviados, sin confirmación y fallidos. Desde el recibo se reintentan los pendientes conservando la intención original en memoria; tras corregir el enlace configurado a Mi Bolsa, «Actualizar estado» permite continuar. Chrome comprobó publicación, reinicio de aplicación y base de datos, recuperación con el mismo recibo y ausencia de reenvío automático de un resultado incierto. También se comprobaron configuración ausente e inválida y vista en castellano e inglés a 1440 y 390 píxeles. Enviado acredita aceptación por el servicio de correo y no cambia el plazo ni acredita notificación. La integración de este corte y el reintento expreso de los resultados inciertos siguen pendientes; F1-18 permanece abierta.
+
 **Candidata R1a comprobada en copia local, pendiente de integrar.** La selección explica por
 persona los hechos comprobados y el motivo aplicado, con el vínculo al contrato
 de origen del llamamiento de CT. Si falta un contrato anterior o un dato para
