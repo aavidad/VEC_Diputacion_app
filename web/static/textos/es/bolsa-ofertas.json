@@ -41,6 +41,8 @@
     "recibo_referencia": "Referencia del recibo",
     "recibo_copiar": "Copiar referencia",
     "recibo_copiado": "Referencia copiada",
+    "adjudicacion_recibo_titulo": "Recibo de adjudicación",
+    "adjudicacion_recibo_fecha": "Adjudicada el",
     "recibo_fecha": "Publicada el",
     "aviso_total": {
       "one": "Aviso por correo para {cuenta} persona",
