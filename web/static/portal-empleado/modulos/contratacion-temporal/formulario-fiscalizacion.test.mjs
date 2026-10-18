@@ -4,8 +4,8 @@ import test from "node:test";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
 import { renderizarModuloContratacionTemporal,
   montarModuloContratacionTemporal,
-  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { contextoFiscalizacionDesdeEstado } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
+  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js?v=20261018-firma-historica-ct-ofertas-v2";
+import { contextoFiscalizacionDesdeEstado } from "./vista-expedientes-render.js?v=20261018-firma-historica-ct-ofertas-v2";
 
 const EXPEDIENTE = "expediente:ct:fiscalizacion:formulario-001";
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";

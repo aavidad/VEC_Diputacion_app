@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js?v=20261018-firma-historica-ct231-v1";
+import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js?v=20261018-firma-historica-ct-ofertas-v2";
 import {
   crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE,
   validarPaginaComunicacionesExpediente, instanteOrdenComunicacion, claveFilaComunicacion,
