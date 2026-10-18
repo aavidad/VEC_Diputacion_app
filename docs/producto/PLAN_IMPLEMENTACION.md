@@ -132,15 +132,6 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 
 ### 2.3 En curso
 
-**F0-24A, preparación de perfiles.** Se añaden pruebas que fijan el canon
-y su huella, se prueban
-las respuestas excepcionales del catálogo y se coteja la unidad con el puerto
-existente antes de emitir la autorización de preparación. No añade SQL ni
-rutas. Guion: `deploy/principal/preparacion_lote_f0_24a_20261016.md`.
-F0-24 conserva pendientes la relación de AD198 con la auditoría y la renovación
-operativa; F0-23 espera una publicación de confianza vigente para el recorrido
-en la copia local.
-
 **F1-37, ajustes de firma.** Límite PDF de 2 MiB en firma VEC, cotas de transporte
 calculadas aparte, cierre de auditoría seguro y sonda de plantillas por
 organización (CT226, sobre CT218). Reutiliza las pantallas de plantillas y la
@@ -199,6 +190,37 @@ Son dos expedientes distintos: P conserva la comprobación del caso único de
 `FLUJO_APP.md` 4.0. La fase 1 y la instalación en cidonia siguen pendientes.
 El guion de activación, la lista SQL y los límites están en
 `deploy/principal/candidata_hz39/firma/LEEME.md`.
+
+**F1-36A, H: base de recuperación histórica.** En rama: AD286, CT228,
+AUT103, montaje nominal del consumidor existente de recuperación V2 y
+publicador de cargos con su permiso positivo de recuperación. Las fuentes SQL
+se ensayaron en copia propia con dos revisiones; arranque con configuración
+anterior y nueva, reinicio y recuperación de originales comprobados. Falta CI
+antes de integrar. Este
+corte conserva las asignaciones de consulta vigentes y no ofrece un panel nuevo;
+la recuperación exige renovar por Administración el cargo de firma. B conectará
+la fuente autorizada y el anexo de la ficha; C montará la pantalla y gobernará
+las asignaciones. Hasta C sigue abierto F1-36. Guion A:
+`deploy/principal/firma_historica_base_f1_36a_20261016.md`.
+
+**F1-36B, H: fuente de ficha y justificante.** En rama: AUT102, CT229 y el
+lector interno que forma los selectores de las firmas originales y su anexo
+sellado. Depende de AD286, CT228 y AUT103 del corte A. En la copia H se
+ensayaron las SQL una vez, con dos revisiones; la ficha ampliada y el original
+histórico rechazan al confirmar una decisión que caducó después de leer,
+sin dejar efectos parciales. Los cuatro cargos de consulta se publicaron por
+el CLI existente; sus asignaciones se prepararon como datos ficticios
+expresamente autorizados, sin atribuirles actos de Administración. C añade
+la respuesta HTTP y el panel; quedan Chrome y reinicio conjunto. F1-36 sigue
+abierto. Guion:
+`deploy/principal/firma_historica_fuente_f1_36b_20261016.md`.
+
+F1-64 configura, sin SQL nuevo, las publicaciones técnicas nuevas de CT y
+del portal externo. Dos revisiones y focales favorables; arranque con y sin el
+valor, publicación externa de 90 días y recuperación sin acortarla comprobados.
+La raíz y la clave legadas conservan su encargo separado de rotación. Dirección
+acepta la cobertura parcial de GoSec hasta F0-29 (L); falta la CI documental
+final e integración. Guion: `deploy/principal/vigencias_publicaciones_f1_64_20261016.md`.
 
 Ramas sin PR conservadas en el relevo de Claude del 12/10 (fichero
 `RELEVO_CLAUDE_20261012.md` de la carpeta principal, fuera de Git). Ninguna
@@ -524,6 +546,13 @@ Decisiones tomadas con Alberto el 12/10 que todavía no están programadas
 enteras. Cómo las ve cada perfil se describe en `FLUJO_APP.md`.
 
 **Cartera de méritos y puntuación por bolsa.**
+
+El corte F1-45 de la fase 1 muestra los títulos, cursos y demás méritos que
+devuelve la cartera personal existente, con sus datos y su estado. Se comprueba
+la lectura autorizada desde «Mis méritos» y su recuperación tras reiniciar.
+La valoración por categoría y los puntos de los apartados siguientes quedan
+para el motor común de baremación, fuera de este corte y de la fase 1
+(decisión de dirección del 16/10, 05:39).
 
 - La persona incorpora una vez sus títulos y cursos a una cartera personal en
   «Mi Bolsa», aunque aún no se apunte a ninguna bolsa. Puede pedir retirar un
