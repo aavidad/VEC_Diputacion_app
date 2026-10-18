@@ -4,6 +4,7 @@
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
+SET LOCAL timezone='UTC';
 SET LOCAL statement_timeout='15s';
 SET LOCAL enable_seqscan=off;
 DO $test$ DECLARE

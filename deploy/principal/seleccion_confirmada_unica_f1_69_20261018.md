@@ -22,6 +22,11 @@ selección por cada persona.
    ruta y la pantalla actuales. Comprobar también arranque con y sin la
    configuración existente, reinicio y conservación de la selección original.
 
+La prueba `ct238_seleccion_confirmada_unica.sql` utiliza una selección
+singular confirmada de la copia HZ37. Si no existe, se prepara mediante el
+recorrido habitual de selección antes de ejecutar la prueba. Sus filas de
+comprobación se revierten; no acreditan actos ni consumos de autorización.
+
 El índice único de CT238 cubre solo las filas confirmadas de O6 y usa la
 organización y el expediente guardados en la solicitud. También sirve a la
 consulta CT231. No añade estados, permisos, funciones ni un lector nuevo.
