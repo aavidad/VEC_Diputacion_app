@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strconv"
 	"time"
@@ -101,21 +102,24 @@ func huellaExpedientePadre(p Expediente) (string, error) {
 	return hex.EncodeToString(huella[:]), nil
 }
 
-func (e Expediente) instruccionCompartidaValida() bool {
+func (e Expediente) validarInstruccionCompartida() error {
 	i := e.InstruccionCompartida
 	if i == nil || i.ExpedientePadre.InstruccionCompartida != nil {
-		return false
+		return ErrExpedienteInvalido
 	}
 	p := i.ExpedientePadre
 	huella, err := huellaExpedientePadre(p)
-	if err != nil || p.Validar() != nil || !padreDerivable(p) ||
+	if err != nil {
+		return errors.Join(ErrExpedienteInvalido, err)
+	}
+	if p.Validar() != nil || !padreDerivable(p) ||
 		!referenciaValida(i.OfertaRef) || i.NumeroPlaza == 0 ||
 		i.NumeroPlaza > p.Solicitud.NumeroPersonas ||
 		!referenciaValida(i.ReciboDerivacionRef) || i.HuellaPadreSHA256 != huella ||
 		e.Referencia == p.Referencia ||
 		!numeroDerivadoValido(e.NumeroVisible, p.NumeroVisible, i.NumeroPlaza) ||
 		e.OrganizacionRef != p.OrganizacionRef || e.Flujo != p.Flujo {
-		return false
+		return ErrExpedienteInvalido
 	}
 	solicitud := p.Solicitud.clonar()
 	solicitud.NumeroPersonas = 1
@@ -127,7 +131,7 @@ func (e Expediente) instruccionCompartidaValida() bool {
 		!reflect.DeepEqual(e.InformeJuridico, p.InformeJuridico) ||
 		!reflect.DeepEqual(e.Fiscalizacion, p.Fiscalizacion) ||
 		!reflect.DeepEqual(e.Circuito, p.Circuito) {
-		return false
+		return ErrExpedienteInvalido
 	}
 	primera := e.Actuaciones[0]
 	if primera.AccionClave != AccionDerivarNombramiento ||
@@ -137,12 +141,12 @@ func (e Expediente) instruccionCompartidaValida() bool {
 		primera.ReciboRef != i.ReciboDerivacionRef ||
 		primera.RealizadaEn.Before(p.ActualizadoEn) ||
 		len(primera.DocumentosRef) != 0 || primera.RetornoRef != "" {
-		return false
+		return ErrExpedienteInvalido
 	}
 	for _, a := range p.Actuaciones {
 		if a.ReciboRef == primera.ReciboRef {
-			return false
+			return ErrExpedienteInvalido
 		}
 	}
-	return true
+	return nil
 }
