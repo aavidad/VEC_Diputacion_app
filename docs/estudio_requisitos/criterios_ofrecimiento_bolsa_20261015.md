@@ -1,0 +1,57 @@
+# Criterios de ofrecimiento de Bolsa
+
+Consulta de fuentes oficiales: 15 de octubre de 2026. Esta ficha distingue las reglas publicadas de la Diputación de Granada de las prácticas de otras entidades. La decisión de cada llamamiento debe conservar bolsa, posición, modalidad, situación de la persona, hechos comprobados y versión de la regla aplicada.
+
+## Regla publicada en Granada
+
+El [Reglamento de Granada, BOP de 16/01/2026](https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1768521622300-final-680c0e98.pdf) exige seleccionar por prelación entre quienes están disponibles, tanto al publicar una oferta como en el llamamiento directo (art. 8). Su art. 9.1 impide ofrecer un nuevo nombramiento o contrato a quien ya presta servicios en la Diputación. El art. 9, apartado cuarto (numerado 3 en el BOP n.º 9 de 16/01/2026), establece una excepción concreta: si le corresponde una **vacante** por prelación, se le ofrece aunque esté en activo cuando ocupa un puesto por acumulación de tareas, por sustitución de una baja que no haya superado nueve meses, o por programa temporal cuyo nombramiento inicial preveía menos de nueve meses. Hay que comprobar el tipo de relación, su duración y que el puesto ofrecido sea una vacante. El máximo de tres años de la vacante se reduce por el tiempo ya desempeñado en acumulación o sustitución. Si faltan los contratos anteriores o sus fechas, el resultado queda pendiente de comprobación. El art. 11.2 exceptúa de la baja definitiva la renuncia al vínculo vigente por esa vacante.
+
+Tras finalizar una relación temporal, el art. 9 establece no disponibilidad en todas las bolsas durante un mínimo de cinco meses, o nueve meses para acumulación de tareas. El art. 10.c trata como justificada, previa acreditación, la renuncia a un llamamiento de quien está trabajando y en alta en el Régimen General de la Seguridad Social. El art. 11 distingue los efectos de la renuncia injustificada al llamamiento y de la renuncia al vínculo vigente.
+
+La [modificación definitiva de 14/05/2026](https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/2026_Mod_Reglamento_sel_per_temporal_Bolsa_Empleo-1778713220300-final-241a2c51.pdf) solo añade la disposición adicional sobre adhesión expresa y publicada de organismos autónomos, para categorías ya existentes y respetando la prelación. No modifica los arts. 8 a 11. Las [bases de Operario, BOP de 05/03/2026, base 1.1](https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1772668856613-final-3881cc2e.pdf) prevén cualquiera de las modalidades de funcionario interino del art. 10.1 del Estatuto Básico. Estas bases no establecen una elección individual de modalidades de oferta.
+
+La [corrección del BOP de 27/01/2026](https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1769472066115-final-42c9b1bc.pdf) cambia solo la fecha del acuerdo plenario citada en la exposición; no altera esos artículos. Se han comprobado el Reglamento, su corrección, la modificación de mayo y las bases de Operario. Antes de aplicar el criterio a otra categoría hay que leer sus propias bases y cualquier resolución posterior que la afecte; esta consulta no certifica un texto consolidado de todas las bolsas.
+
+En esas fuentes de Granada no se ha identificado una regla general de «mejora de empleo» fuera del apartado cuarto del art. 9, ni un catálogo de modalidades que cada integrante pueda aceptar o excluir antes del llamamiento. Por ahora, la regla de ofrecimiento será: no ofrecer a quien presta servicios en la Diputación, salvo la vacante tasada de ese apartado; para quien sí esté disponible, considerar las modalidades permitidas por las bases de su bolsa. Cada bolsa debe citar sus bases y la versión de la regla. Las preferencias de modalidad solo filtran la vista y los avisos voluntarios de ofertas publicadas (arts. 8.1 y 11.1.b); no alteran la selección, la renuncia ni el llamamiento directo (arts. 8.2.a y 11.1.a).
+
+## Corte R1a en preparación
+
+La candidata prepara un diagnóstico de cada persona del llamamiento con el motivo y los hechos comprobados. Conserva el enlace al contrato de origen de CT mediante `origen_llamamiento_ct_v1`. Cuando faltan datos del vínculo o del tiempo previo, el diagnóstico dice «Pendiente de comprobación» y detiene la selección en esa persona. RRHH no puede pasar a la siguiente ni registrar una exclusión definitiva por esa falta de datos. El acto propio para que RRHH registre los hechos con evidencia y recibo corresponde a R1b y aún no existe.
+
+La activación requiere la política opcional `criterios_ofrecimiento`, el descriptor de fuente `origen_ct_rrhh` v2 para el snapshot y los eventos de origen CT, y la concesión exacta del rol RRHH aprobada por dos administradores. Sin el apartado de criterios, la aplicación arranca y la selección conserva el orden y las reglas anteriores. Sin permiso para consultar motivos, el bloque indica que la información no está disponible. Este corte aún necesita integración, ensayo conjunto, instalación y comprobación en navegador.
+
+## Contraste de otras entidades
+
+El contraste muestra opciones de diseño, sin incorporarlas a Granada:
+
+- La [Diputación de Sevilla, Reglamento definitivo publicado el 08/01/2026](https://bopsevilla.dipusevilla.es/publica/buscador-anuncios/anuncio/Aprobacion-definitiva-del-reglamento-de-la-bolsa-de-empleo-temporal-00002/) regula separadamente la renuncia a una oferta y al nombramiento o contrato (art. 5, según el [acuerdo plenario publicado](https://bopsevilla.dipusevilla.es/export/sites/bop/.galleries/Documentos-BOPs-en-PDF/bop-08_01_2026-cc6f2a72-ebc4-11f0-8bcf-0050569ff69d-1767830439564.pdf)). El PDF de transparencia fechado 13/06/2025 no respondió al consultarlo; se usa la publicación definitiva, sin trasladar sus efectos.
+- La [Bolsa Única de personal laboral de la Junta de Andalucía, BOJA de 05/05/2026, apartados 7.2, 9 y 10.3](https://www.juntadeandalucia.es/boja/2026/85/49) permite indicar provincia, localidad y uno, varios o todos los tipos de oferta: vacante, sustitución y programa o necesidad estacional. La asignación atiende a esa elección y a la prelación. Esa facultad está escrita en su propio reglamento; no aparece en el de Granada.
+- La [Agencia de Medio Ambiente y Agua de Andalucía, BOJA de 07/09/2026, bases 3.4 y reglamento arts. 14 a 18](https://www.juntadeandalucia.es/boja/2026/173/36) permite elegir puestos y provincias; regula por separado la suspensión de disponibilidad y la renuncia justificada. Tampoco es una regla aplicable a Granada.
+- La [Generalitat Valenciana, convocatoria publicada en el DOGV de 20/12/2018](https://dogv.gva.es/datos/2018/12/20/pdf/2018_11851.pdf) prevé expresamente nombramientos provisionales por mejora de empleo. El ejemplo confirma que esa vía requiere regulación propia; no basta llamarla «mejora» en un catálogo local.
+
+## Cuestiones internas pendientes
+
+Las dudas 18, 157 y 158 ya preguntan por bajas, revisión de la respuesta y retorno tras cese. Las preguntas 163 y 164 de `dudas.md` se limitan al circuito de mejora fuera de la excepción publicada y a las preferencias por modalidad. La pregunta 165 pide precisar el alcance de la reducción del plazo y los antecedentes que se descuentan. Hasta que RRHH aporte la regla aprobada, ninguna respuesta a esas preguntas altera el orden o las causas de baja del Reglamento.
+
+
+## Criterio provisional para el acto de comprobación
+
+Dirección fijó el 15/10/2026 que el acto registre hechos y documentos comprobados,
+con resultado calculado para el expediente, la necesidad y la participación.
+No cambia la situación general de la persona ni crea contratos antiguos en la
+proyección de Bolsa. La falta de datos mantiene la comprobación pendiente.
+
+Para el siguiente corte, la regla tomará por defecto solo el tiempo efectivamente
+trabajado en la relación vigente de la que procede la persona, hasta su cese
+efectivo. El alcance de «en este caso» se configurará inicialmente para el supuesto
+de programas. Son criterios provisionales de dirección, preguntados a RRHH en la
+165; no se presentan como un texto consolidado del Reglamento. La resolución se
+detendrá mientras no conste el cese efectivo. El ofrecimiento condicionado exige
+que Contratación compruebe también el plazo al formalizar.
+
+La regla distingue el supuesto en el que se aplica el descuento de los tipos de
+relación cuyo tiempo puede descontarse. La propuesta inicial limita el primer
+dato a programas, como criterio provisional pendiente de confirmar por RRHH, y
+conserva acumulación de tareas y sustitución en el segundo. La cita del BOP se
+muestra aparte. Una política anterior sin el dato del supuesto sigue deteniendo
+la selección para comprobar los hechos; no deduce un descuento automático.

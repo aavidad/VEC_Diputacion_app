@@ -338,6 +338,7 @@ type manejadorParticipacionBolsaDesarrollo struct {
 	preparador                                                                                                        *preparadorBorradorLlamamientoDesarrollo
 	servicio                                                                                                          *aplicacionbolsa.ServicioContactoParticipacion
 	respuestas                                                                                                        *aplicacionbolsa.ServicioRespuestasPortalRRHH
+	exclusiones                                                                                                       *aplicacionbolsa.ServicioExclusionesOfrecimientoRRHH
 	// servicioSituacion permite componer después las reglas de transición.
 	servicioSituacion *aplicacionbolsa.ServicioSituacionParticipacion
 	// La suboperación CT usa nuevas instancias nominales sobre estas mismas
@@ -956,6 +957,13 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		return nil, nil, nil, vacio, nil, nil, err
 	}
 	mutador := &manejadorParticipacionBolsaDesarrollo{registradorPerfil: registradorDocumentales, procesoPerfil: procesoDocumentales, canales: canales, situacion: handlerSituacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, politicaSituacion: politicaB, materialSituacion: alta.postgresql.proveedorMaterialSituacion, repositorioSituacion: repositorioSituacion, materialEmision: alta.postgresql.proveedorMaterialEmision, repositorioEmision: repositorioEmision, correoFuente: fuenteCorreo, correoEmisor: correoEmisor, correoPersonalizado: correoPersonalizado, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	// El constructor no consulta SQL ni concesiones. Una función o permiso aún
+	// no instalado afecta solo a este bloque del seguimiento.
+	servicioExclusiones, err := nuevoServicioExclusionesOfrecimientoRRHH(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	mutador.exclusiones = servicioExclusiones
 	proyectorFicha, err := nuevoProyectorDisponibilidadFichaOperacionesBolsa(
 		preparador, politicaBolsa, dependenciasCT.reloj, mutador.solicitudesDocumentales, mutador.reincorporaciones)
 	if err != nil {
