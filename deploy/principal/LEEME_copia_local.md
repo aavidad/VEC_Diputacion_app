@@ -89,9 +89,14 @@ debilita su guarda. Las demás conexiones se crean con nombres y contraseñas
 nuevos. El registro privado conserva sus valores y la huella del entorno.
 
 Tras el productor de datos, el guion coteja los 22 LOGIN internos: opciones
-sin privilegios de administración y una sola membresía para cada conexión de
-peticiones. El gobierno de arranque es la excepción: necesita seis arcos
-concretos, definidos en `copia_local_verificacion.py`, y no admite otros.
+sin privilegios de administración y membresías directas exactas. La conexión
+de importación CONVOCA conserva los grupos `vec_bolsa_importacion_convoca_ejecutor`
+y `vec_bolsa_importacion_convoca_recuperador`, ambos con `INHERIT TRUE`,
+`SET TRUE` y `ADMIN FALSE`, como exige el contrato H1 de
+`scripts/recorridos/clon_bolsa_material.py` para importar y recuperar la operación.
+Las demás conexiones de peticiones tienen un solo grupo. El gobierno de
+arranque necesita seis arcos concretos, definidos en `copia_local_verificacion.py`,
+y no admite otros.
 Los propietarios y el proyector conservan las opciones exactas de `SET` e
 `INHERIT`; no se trasladan a los LOGIN de peticiones. H retirará esta
 excepción al completar F0-08 con el contrato nominal de R.
