@@ -78,6 +78,46 @@ class EnsayoFase1Test(unittest.TestCase):
             self.assertIn('--restart=no', argumentos)
             self.assertIn('PGDATA=/datos', argumentos)
 
+    def test_espera_al_servidor_definitivo_antes_de_ejecutar_sql(self):
+        from deploy.principal import copia_local_roles
+
+        with tempfile.TemporaryDirectory(dir='/dev/shm') as temporal:
+            eventos = []
+
+            def esquema(destino):
+                ruta = destino / 'esquema.sql'
+                ruta.write_bytes(b'CREATE SCHEMA ejemplo;')
+                return ruta
+
+            def disponibilidad(argumentos, **_opciones):
+                # El servidor temporal acepta el socket Unix, pero todavía
+                # no atiende TCP. Un sondeo Unix adelantaría la primera SQL.
+                if '-h' not in argumentos:
+                    eventos.append('unix_temporal')
+                    return mock.Mock(returncode=0)
+                if 'tcp_pendiente' not in eventos:
+                    eventos.append('tcp_pendiente')
+                    return mock.Mock(returncode=1)
+                eventos.append('tcp_definitivo')
+                return mock.Mock(returncode=0)
+
+            def ejecutar_sql(*_argumentos):
+                eventos.append('sql')
+                return mock.Mock(stdout=b'')
+
+            with (mock.patch.object(ensayar, 'comprobar_destino', return_value=Path(temporal)),
+                  mock.patch.object(ensayar, 'preparar_esquema', side_effect=esquema),
+                  mock.patch.object(copia_local_roles, 'extract', return_value=[]),
+                  mock.patch.object(ensayar, 'comandos_docker'),
+                  mock.patch.object(ensayar, 'contenedor_propio', return_value=True),
+                  mock.patch.object(ensayar, 'limpiar_copia'),
+                  mock.patch.object(ensayar.subprocess, 'run', side_effect=disponibilidad),
+                  mock.patch.object(ensayar.time, 'sleep'),
+                  mock.patch.object(ensayar, 'sql', side_effect=ejecutar_sql),
+                  mock.patch.object(ensayar, 'verificar_tablas_vacias')):
+                ensayar.ejecutar(solo_base=True)
+            self.assertEqual(eventos[:3], ['tcp_pendiente', 'tcp_definitivo', 'sql'])
+
     def test_pgdata_ajeno_al_uid_se_vacia_con_montaje_limitado(self):
         with tempfile.TemporaryDirectory(dir='/dev/shm') as temporal:
             base = Path(temporal)

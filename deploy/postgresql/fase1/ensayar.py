@@ -187,7 +187,8 @@ def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False):
             if not contenedor_propio(nombre, etiqueta):
                 raise ValueError('PostgreSQL terminó durante el arranque')
             listo = subprocess.run(['docker', 'exec', '-u', 'postgres', nombre,
-                                    'pg_isready', '-U', 'postgres'], capture_output=True)
+                                    'pg_isready', '-h', '127.0.0.1', '-U', 'postgres'],
+                                   capture_output=True)
             if listo.returncode == 0:
                 break
             time.sleep(0.5)
