@@ -1,4 +1,4 @@
-import { referenciaLlamamientoValida } from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { referenciaLlamamientoValida } from "./contrato-llamamiento.js?v=20261018-f119-propuesta-v1";
 
 export const RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE = "/api/vec/contratacion-temporal/expedientes/comunicaciones";
 export const LIMITE_PAGINA_COMUNICACIONES = 10;

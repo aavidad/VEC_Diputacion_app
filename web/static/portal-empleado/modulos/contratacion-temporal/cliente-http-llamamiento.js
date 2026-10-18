@@ -6,9 +6,9 @@ import {
   validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
   validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
   snapshotsFormalizacionDesarrollo, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
-} from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
-import { RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js?v=20261016-ct-ofertas-ct231-v1";
-import { RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct-ofertas-ct231-v1";
+} from "./contrato-llamamiento.js?v=20261018-f119-propuesta-v1";
+import { RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js?v=20261018-f119-propuesta-v1";
+import { RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261018-f119-propuesta-v1";
 
 export const RUTAS_LLAMAMIENTO = Object.freeze({
   seleccionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/seleccion",

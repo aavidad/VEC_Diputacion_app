@@ -1,14 +1,14 @@
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261018-f119-detalle-v1";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261018-f119-propuesta-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { ESTADO_SELECCION_PENDIENTE_AVISO, claveFilaComunicacion } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct-ofertas-ct231-v1";
-import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261018-f119-detalle-v1";
+import { ESTADO_SELECCION_PENDIENTE_AVISO, claveFilaComunicacion } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261018-f119-propuesta-v1";
+import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261018-f119-propuesta-v1";
 import { rutaCandidatosBolsaCompartible } from "../../portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
-import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261018-f119-detalle-v1";
+import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261018-f119-propuesta-v1";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION, ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_PROPUESTA_DERIVADA, CAMPOS_RECIBO_PROPUESTA,
-  PUBLICACIONES_FORMALIZACION, RESPUESTA_EXPIRACION } from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+  PUBLICACIONES_FORMALIZACION, RESPUESTA_EXPIRACION } from "./contrato-llamamiento.js?v=20261018-f119-propuesta-v1";
 
 /** Recibo que habilita el siguiente llamamiento: la renuncia resuelta o la
  * expiración confirmada por RRHH (sin respuesta en plazo). */

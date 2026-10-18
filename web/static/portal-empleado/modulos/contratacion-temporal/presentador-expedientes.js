@@ -8,7 +8,7 @@ import {
   validarDocumentosContratacionTemporal,
   validarExpedienteContratacionTemporal,
   validarReciboActuacion,
-} from "./contrato-expedientes.js?v=20261018-f119-detalle-v1";
+} from "./contrato-expedientes.js?v=20261018-f119-propuesta-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 
 const traducirCT = crearTraductorContratacionTemporal();
