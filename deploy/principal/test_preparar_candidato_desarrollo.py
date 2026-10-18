@@ -99,7 +99,7 @@ class PrepararCandidatoDesarrolloTest(unittest.TestCase):
             self.assertIn("vc.candidato_ref = :'seleccion'", consulta["sql"])
             cert = material / "mtls/candidato.crt"
             texto = subprocess.check_output(
-                ["openssl", "x509", "-in", str(cert), "-noout", "-subject", "-ext",
+                ["openssl", "x509", "-in", str(cert), "-noout", "-subject", "-nameopt", "RFC2253", "-ext",
                  "subjectAltName"], text=True, env=self.env,
             )
             self.assertIn("candidato-bolsa-desarrollo-" + slug, texto)
@@ -196,7 +196,7 @@ class PrepararCandidatoDesarrolloTest(unittest.TestCase):
         self.assertEqual(identidad["display_name"], "Persona candidata")
         texto = subprocess.check_output(
             ["openssl", "x509", "-in", str(material / "mtls/candidato.crt"), "-noout",
-             "-subject", "-ext", "subjectAltName"], text=True, env=self.env,
+             "-subject", "-nameopt", "RFC2253", "-ext", "subjectAltName"], text=True, env=self.env,
         )
         self.assertIn("CN=candidato-bolsa-desarrollo", texto)
         self.assertIn("URI:urn:vec:desarrollo:candidato-bolsa", texto)
