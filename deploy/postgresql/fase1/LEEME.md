@@ -11,7 +11,7 @@ Desde la raíz del repositorio:
 
 ```sh
 python3 deploy/postgresql/fase1/ensayar.py --solo-base
-python3 deploy/postgresql/fase1/ensayar.py
+python3 deploy/postgresql/fase1/ensayar.py --preparacion
 ```
 
 `--solo-base` comprueba únicamente la restauración del esquema. El segundo
@@ -21,8 +21,7 @@ todas las tablas ordinarias y vistas materializadas de `public` y los esquemas
 `vec_`, incluidas las hojas de particiones. Excluyen objetos propios de
 extensiones, cuentan las filas reales de cada relación y fallan si alguna
 contiene datos. El resultado indica cuántas tablas se comprobaron.
-Cuando esté aprobada la preimagen sintética de las pruebas SQL, la opción
-`--preparacion` ejecutará antes de la lista únicamente
+La opción `--preparacion` ejecuta antes de la lista únicamente
 `deploy/postgresql/fase1/preparacion_fase1.sql`, comprobando que coincide con
 la versión confirmada en Git. La opción no se admite con `--solo-base`.
 Ambos terminan con estado distinto de cero si falla una validación, el

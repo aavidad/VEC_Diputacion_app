@@ -139,6 +139,8 @@ jobs:
       - name: Descargar el repositorio
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # El lector común coteja las altas SQL desde la referencia HZ37.
+          fetch-depth: 0
           persist-credentials: false
       - name: Probar el aislamiento y la limpieza del ensayo
         run: python3 -m unittest discover -s deploy/postgresql/fase1 -p 'test_*.py'
