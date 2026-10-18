@@ -150,6 +150,7 @@ class Copia:
         datos = validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT') if args.modulos else None
         roles = validar_ejecutor_privado('VEC_COPIA_ROLES_SCRIPT') if args.modulos else None
         portal = validar_ejecutor_privado('VEC_COPIA_PORTAL_SCRIPT') if args.portal_externo else None
+        admin = validar_ejecutor_privado('VEC_COPIA_ADMIN_SCRIPT') if args.administracion else None
         origen = Path(os.environ['VEC_COPIA_ORIGEN']).resolve(strict=True)
         dump = origen / 'principal-hz37-20261014.dump'
         acl = [origen / 'acl-base-20261014.sql', origen / 'acl-tipos-20261014.sql']
@@ -237,6 +238,14 @@ class Copia:
         estado['preparada'] = True
         guardar(self.estado, estado)
         self.arrancar()
+        if admin:
+            from copia_local_administracion import ejecutar as ejecutar_admin, huella_ejecutor
+            estado = self.leer()
+            estado['administracion'] = dict(ejecutor=str(admin), sha256=huella_ejecutor(admin))
+            guardar(self.estado, estado)
+            ejecutar_admin(self, 'preparar')
+            ejecutar_admin(self, 'arrancar')
+            ejecutar_admin(self, 'comprobar')
         if args.portal_externo:
             # La app mantiene el sellado real mientras el productor provisiona
             # identidad, contexto y confianza. El reinicio carga su entorno.
@@ -320,10 +329,15 @@ class Copia:
             if proceso.poll() is not None:
                 raise ValueError('La aplicación terminó; consulte app.log en su copia')
             try:
-                self.comprobar()
-                return
+                self.comprobar(comprobar_admin=False)
             except (OSError, ValueError):
                 time.sleep(.5)
+                continue
+            if estado.get('admin_preparada'):
+                from copia_local_administracion import ejecutar as ejecutar_admin
+                ejecutar_admin(self, 'arrancar')
+                ejecutar_admin(self, 'comprobar')
+            return
         raise ValueError('La aplicación no respondió en 60 segundos')
 
     def entorno_modulos(self):
@@ -366,6 +380,8 @@ class Copia:
 
     def parar(self):
         estado = self.leer()
+        from copia_local_administracion import parar as parar_admin
+        parar_admin(self)
         if self.proceso(estado):
             os.kill(estado['pid'], 15)
             for _ in range(100):
@@ -379,7 +395,7 @@ class Copia:
         from copia_local_correo import parar as parar_correo
         parar_correo(self)
 
-    def comprobar(self):
+    def comprobar(self, comprobar_admin=True):
         estado = self.leer()
         contexto = ssl.create_default_context(cafile=str(self.material / 'ca/ca.crt'))
         contexto.load_cert_chain(str(self.material / 'mtls/cliente.crt'), str(self.material / 'mtls/cliente.key'))
@@ -404,6 +420,9 @@ class Copia:
                     raise ValueError(f'Respuesta HTTP {r.status} en {ruta}')
             finally:
                 conexion.close()
+        if comprobar_admin and estado.get('admin_preparada'):
+            from copia_local_administracion import ejecutar as ejecutar_admin
+            ejecutar_admin(self, 'comprobar')
 
     def exportar(self, archivo):
         destino = Path(archivo)
@@ -498,10 +517,13 @@ def main():
     p.add_argument('--modulos', action='store_true', help='Preparar conexiones nuevas de Bolsa y Contratación')
     p.add_argument('--rrhh-original', type=Path, help='Conservar el conjunto privado original de RRHH en una copia nueva')
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
+    p.add_argument('--administracion', action='store_true', help='Preparar también Administración con su ejecutor privado')
     p.add_argument('--archivo-clon')
     args = p.parse_args()
     if args.portal_externo and not args.modulos:
         p.error('--portal-externo requiere --modulos')
+    if args.administracion and (args.orden != 'crear' or not args.modulos):
+        p.error('--administracion solo se admite en crear --modulos')
     if args.rrhh_original and (args.orden != 'crear' or not args.modulos):
         p.error('--rrhh-original solo se admite en crear --modulos')
     if not re.fullmatch('[a-z]', args.equipo) or not re.fullmatch('[a-z0-9][a-z0-9-]{0,40}', args.instancia):
@@ -516,6 +538,7 @@ def main():
     # Candado por instancia fuera de PGDATA; borrar no permite otro escritor concurrente.
     with (BASE / f'.{copia.nombre}.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        copia.candado = lock.fileno()
         if args.orden == 'crear':
             copia.crear(args)
         elif args.orden == 'reiniciar':

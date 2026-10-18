@@ -484,6 +484,20 @@ arranque, anótalo como fallo del producto.
 
 ## 9. Reinicio y recuperación
 
+La composición de Administración añade `--administracion` a `crear --modulos`.
+Requiere `VEC_COPIA_ADMIN_SCRIPT`, un ejecutor privado preparado para la misma
+candidata. Recibe `--raiz`, `--fase preparar|arrancar|comprobar` y
+`--candado-fd`: debe heredar ese descriptor al llamar al kit y conservar sus
+comprobaciones de revisión, huellas, etiqueta y sistema PostgreSQL.
+La preparación se invoca una sola vez; un resultado incierto se concilia con
+el mismo plan y recibo. El reinicio solo arranca y comprueba lo ya preparado.
+La parada exige que PID, ejecutable propio e inicio del proceso coincidan.
+
+Esta integración está en preparación: falta acreditar el ejecutor H6 sobre
+la candidata propia y el recorrido de ambos administradores. El suplemento
+del segundo RRHH queda aparcado por dirección: el ámbito antiguo de
+Contratación necesita una tarea propia para usar organización y unidad gobernadas.
+
 Usa `reiniciar` del apartado 2 para la copia creada por el guion. La orden
 conserva PostgreSQL y su material, y repite las comprobaciones HTTPS.
 Después de preparar los módulos, el ensayo del recorrido debe recuperar
