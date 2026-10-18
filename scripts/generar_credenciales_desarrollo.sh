@@ -12,8 +12,10 @@ for orden in openssl realpath mktemp install stat find sha256sum grep mv awk cut
   command -v "$orden" >/dev/null 2>&1 || fallar "falta la herramienta obligatoria: $orden"
 done
 
-if (( $# > 1 )); then
-  fallar "uso: $0 [directorio-absoluto-fuera-del-repositorio]"
+if [[ ${1:-} == --renovar-servidor ]]; then
+  (( $# == 2 )) || fallar "--renovar-servidor requiere material en preparación"
+elif (( $# > 1 )); then
+  fallar "uso: $0 [directorio-absoluto-fuera-del-repositorio] | --renovar-servidor <material-en-preparacion>"
 fi
 
 # Validar antes de crear incluso el directorio padre del destino.
@@ -26,8 +28,15 @@ fi
 DIRECTORIO_SCRIPT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 RAIZ_REPOSITORIO=$(cd -- "$DIRECTORIO_SCRIPT/.." && pwd -P)
 RAIZ_ESTADO=${XDG_STATE_HOME:-${HOME:?HOME no definida}/.local/state}
-DESTINO=${1:-${VEC_DEVELOPMENT_MATERIAL_DIR:-$RAIZ_ESTADO/vec-diputacion/desarrollo}}
+MODO_SERVIDOR=false
+if [[ ${1:-} == --renovar-servidor ]]; then
+  MODO_SERVIDOR=true
+  DESTINO=$2
+else
+  DESTINO=${1:-${VEC_DEVELOPMENT_MATERIAL_DIR:-$RAIZ_ESTADO/vec-diputacion/desarrollo}}
+fi
 [[ "$DESTINO" == /* ]] || fallar "el destino debe ser absoluto"
+DESTINO_SOLICITADO=$DESTINO
 DESTINO=$(realpath -m -- "$DESTINO")
 
 case "$DESTINO" in
@@ -37,9 +46,11 @@ case "$DESTINO" in
 esac
 
 PADRE=$(dirname -- "$DESTINO")
-mkdir -p -- "$PADRE"
-PADRE=$(realpath -- "$PADRE")
-[[ ! -L "$PADRE" ]] || fallar "el directorio padre no puede ser un enlace simbolico"
+if ! $MODO_SERVIDOR; then
+  mkdir -p -- "$PADRE"
+  PADRE=$(realpath -- "$PADRE")
+  [[ ! -L "$PADRE" ]] || fallar "el directorio padre no puede ser un enlace simbolico"
+fi
 
 archivos_obligatorios=(
   ca/ca.crt ca/ca.key ca/serie
@@ -100,6 +111,33 @@ mostrar_instrucciones_navegador() {
   printf '  5. Su contrasena independiente esta en %s; no la copie a registros.\n' \
     "$raiz/mtls/intervencion.p12.password"
   printf '  6. Abra https://localhost:<puerto>/portal-empleado/ con VEC en perfil desarrollo.\n'
+}
+
+generar_servidor() {
+  local raiz=$1 modo=$2
+  local -a serial_arg
+  if [[ "$modo" == original ]]; then
+    serial_arg=(-set_serial "0x$(openssl rand -hex 16)")
+  else
+    serial_arg=(-CAserial "$raiz/ca/serie")
+  fi
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$raiz/tls/servidor.key" 2>/dev/null
+  openssl req -new -sha256 -key "$raiz/tls/servidor.key" \
+    -subj '/CN=localhost/O=VEC Desarrollo/OU=NO AUTORITATIVO' \
+    -out "$raiz/tls/servidor.csr" 2>/dev/null
+  cat >"$raiz/tls/servidor.ext" <<'EXT'
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature
+extendedKeyUsage=serverAuth
+subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+EXT
+  openssl x509 -req -sha256 -days "$VIGENCIA_DIAS" -in "$raiz/tls/servidor.csr" \
+    -CA "$raiz/ca/ca.crt" -CAkey "$raiz/ca/ca.key" \
+    "${serial_arg[@]}" -extfile "$raiz/tls/servidor.ext" -out "$raiz/tls/servidor.crt" 2>/dev/null
+  rm -f -- "$raiz/tls/servidor.csr" "$raiz/tls/servidor.ext"
+  chmod 600 -- "$raiz/tls/servidor.crt" "$raiz/tls/servidor.key"
 }
 
 verificar_directorio() {
@@ -271,6 +309,27 @@ verificar_directorio() {
     fallar "segunda llave ausente en desarrollo.env"
 }
 
+if $MODO_SERVIDOR; then
+  [[ "$DESTINO_SOLICITADO" == "$DESTINO" &&
+     "$DESTINO" =~ ^/dev/shm/vec/pg/[a-z]-[a-z0-9][a-z0-9-]{0,40}/\.material-rrhh-[A-Za-z0-9_]{8}$ ]] ||
+    fallar "solo se renueva el staging de una copia local propia"
+  for directorio in /dev/shm/vec /dev/shm/vec/pg "$PADRE" "$DESTINO"; do
+    [[ -d "$directorio" && ! -L "$directorio" &&
+       $(realpath -e -- "$directorio") == "$directorio" &&
+       $(stat -c '%u' -- "$directorio") == "$EUID" ]] ||
+      fallar "el staging o sus padres no son directorios canónicos propios"
+  done
+  [[ $(stat -c '%a' -- "$PADRE") == 700 &&
+     $(stat -c '%a' -- "$DESTINO") == 700 ]] ||
+    fallar "la instancia y el staging deben ser privados"
+  [[ -f "$DESTINO/ca/ca.crt" && -f "$DESTINO/ca/ca.key" && ! -L "$DESTINO/ca/ca.key" ]] ||
+    fallar "CA original incompleta"
+  [[ -z "$(find "$DESTINO" -type l -print -quit)" ]] || fallar "material enlazado"
+  generar_servidor "$DESTINO" original
+  openssl verify -purpose sslserver -CAfile "$DESTINO/ca/ca.crt" "$DESTINO/tls/servidor.crt" >/dev/null
+  exit 0
+fi
+
 if [[ -e "$DESTINO" || -L "$DESTINO" ]]; then
   verificar_directorio "$DESTINO"
   printf 'Credenciales de desarrollo ya existentes y verificadas: %s\n' "$DESTINO"
@@ -299,21 +358,7 @@ openssl req -new -x509 -sha256 -days "$VIGENCIA_DIAS" -key "$TEMPORAL/ca/ca.key"
   -out "$TEMPORAL/ca/ca.crt" 2>/dev/null
 openssl rand -hex 16 >"$TEMPORAL/ca/serie"
 
-openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$TEMPORAL/tls/servidor.key" 2>/dev/null
-openssl req -new -sha256 -key "$TEMPORAL/tls/servidor.key" \
-  -subj '/CN=localhost/O=VEC Desarrollo/OU=NO AUTORITATIVO' \
-  -out "$TEMPORAL/tls/servidor.csr" 2>/dev/null
-cat >"$TEMPORAL/tls/servidor.ext" <<'EXT'
-basicConstraints=critical,CA:FALSE
-keyUsage=critical,digitalSignature
-extendedKeyUsage=serverAuth
-subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1
-subjectKeyIdentifier=hash
-authorityKeyIdentifier=keyid,issuer
-EXT
-openssl x509 -req -sha256 -days "$VIGENCIA_DIAS" -in "$TEMPORAL/tls/servidor.csr" \
-  -CA "$TEMPORAL/ca/ca.crt" -CAkey "$TEMPORAL/ca/ca.key" -CAserial "$TEMPORAL/ca/serie" \
-  -extfile "$TEMPORAL/tls/servidor.ext" -out "$TEMPORAL/tls/servidor.crt" 2>/dev/null
+generar_servidor "$TEMPORAL" nuevo
 
 openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$TEMPORAL/mtls/cliente.key" 2>/dev/null
 openssl req -new -sha256 -key "$TEMPORAL/mtls/cliente.key" \
