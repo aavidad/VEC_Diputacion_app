@@ -121,13 +121,12 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 	protegidaCT := esRutaContratacionTemporalDesarrollo(r)
 	fronteraComun, protegidaComun := m.fronteras.resolver(r.Method, r.URL.Path)
 	// La frontera Bolsa de la ruta base sólo acredita la lectura del perfil
-	// propio. El cuadro y sus filtros conservan su cierre anterior: no reciben
-	// capacidad ni frontera de sesión sin una consulta exactamente reconocida.
+	// propio. El cuadro y sus filtros conservan su revalidación anterior;
+	// no reciben la frontera adicional del perfil propio.
 	if protegidaComun && r.URL.Path == bolsahttp.RutaBolsasGestion &&
 		(r.Method == http.MethodGet || r.Method == http.MethodHead) &&
 		r.URL.RawQuery != "perfil=propio" {
-		m.siguiente.ServeHTTP(w, r)
-		return
+		protegidaComun = false
 	}
 	if !protegidaCT && !protegidaComun {
 		m.siguiente.ServeHTTP(w, r)
