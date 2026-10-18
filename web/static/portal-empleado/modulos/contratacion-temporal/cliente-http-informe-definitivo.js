@@ -1,5 +1,5 @@
 /** Descarga binaria de la consulta RRHH; no registra actuaciones ni genera documentos. */
-import { ErrorClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261018-f136c-informe-v4";
+import { ErrorClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261018-f173-alta-v5";
 import { RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261018-f136c-informe-v4";
 
 // Perfiles de representación, no de identidad ni autorización.

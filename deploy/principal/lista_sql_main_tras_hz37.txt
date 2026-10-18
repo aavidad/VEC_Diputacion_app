@@ -135,5 +135,7 @@ deploy/postgresql/contratacion_temporal/migraciones/000238_seleccion_confirmada_
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000288_confirmacion_aceptacion_bolsa.up.sql 88d014083dd8a7e692b40c7ec617c7b8ebca84c2824ec93d77ea3457670c52b2
 # F1-71 — B128; requiere AD288 inmediatamente antes.
 deploy/postgresql/bolsa_llamamientos/migraciones/000128_confirmar_aceptacion_directa.up.sql d0f4ecb2f495c8306f197c1541b7fa1356ad9733825e132fbf3806753d596312
+# F1-73 — Cantidad de la necesidad sellada en el alta directa; no reaplicar.
+deploy/postgresql/contratacion_temporal/migraciones/000239_cantidad_necesidad_sellada.up.sql 5422bedbbb837f29371f8c1326cf63233f72b916a12a2b2c30e0e32cfa3bf435
 # F1-12 — AD294, intento nominal externo sin transacción.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000294_intento_preferencias_sin_transaccion.up.sql e184a2c337ef33d8fd1696306ad0c19643d77f6caebddd912c99baa37a78b65e

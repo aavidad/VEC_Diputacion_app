@@ -1,6 +1,6 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
-import { validarReciboAlta } from "./contrato.js?v=20261013-ct-firma-tres-v3";
+import { validarReciboAlta } from "./contrato.js?v=20261018-f173-alta-v2";
 import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
 import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261016-ct-ofertas-ct231-v1";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261018-f136c-informe-v4";
@@ -20,11 +20,11 @@ import {
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes-render.js?v=20261018-f136c-informe-v4";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261018-f136c-informe-v6";
-import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261018-f136c-informe-v4";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261018-f136c-informe-v4";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261018-f173-alta-v5";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261018-f173-alta-v5";
 import { crearGestorRecuperacionFirmasHistoricas } from "./gestor-recuperacion-firmas-historicas.js?v=20261016-firma-historica-v5";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261018-f136c-informe-v4";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261018-f136c-informe-v4";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261018-f173-alta-v5";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261018-f136c-informe-v4";
 
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261018-f136c-informe-v4";

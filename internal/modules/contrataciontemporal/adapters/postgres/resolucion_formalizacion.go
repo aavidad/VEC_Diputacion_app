@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -184,8 +183,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarPreparacionYRegistrarAcceso(ctx 
 	var raw string
 	// Misma fila de detalle/recibo de acceso; añade solo la preparación ligada
 	// en servidor a la misma instantánea nominal. No usa el pool de efectos.
-	consulta := strings.Replace(consultaDetalleRRHHPostgreSQL, "recibo_sello_sha256", "recibo_sello_sha256, preparacion::text", 1)
-	consulta = strings.Replace(consulta, "consultar_detalle_rrhh_atestado_v1", "consultar_preparacion_resolucion_v1", 1)
+	consulta := consultaPreparacionResolucionRRHHPostgreSQL
 	destinos := append(destinosDetalleConsultaRRHH(&salida), &raw)
 	type resultado struct {
 		detalle     ports.DetalleExpedienteRRHH
@@ -229,6 +227,50 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarPreparacionYRegistrarAcceso(ctx 
 	}
 	return r.detalle, r.preparacion.Clonar(), nil
 }
+
+// consultaPreparacionResolucionRRHHPostgreSQL lee de CT69 el cierre del
+// detalle RRHH y la preparación. Es una constante propia: antes se derivaba
+// del detalle ordinario sustituyendo texto, y cuando ese detalle pasó a leer
+// la cifra de personas de CT225 la sustitución dejó de apuntar a CT69 y
+// PostgreSQL rechazaba la columna «preparacion». CT69 no devuelve la cifra.
+const consultaPreparacionResolucionRRHHPostgreSQL = `
+SELECT contenido_canonico,
+       esquema,
+       acceso_ref,
+       secuencia::bigint,
+       anterior_sha256,
+       huella_sha256,
+       vinculo_identidad_huella_sha256,
+       alcance_huella_sha256,
+       registrada_en,
+       auditoria_vec_ref,
+       auditoria_vec_huella_sha256,
+       consumo_vec_huella_sha256,
+       contenido_huella_sha256,
+       resultado_huella_sha256,
+       cursor_huella_sha256,
+       generada_en,
+       expediente_ref,
+       version_expediente::bigint,
+       total,
+       recibo_sello_sha256,
+       preparacion::text
+  FROM vec_contratacion_temporal.consultar_preparacion_resolucion_v1(
+       ROW($1::text, $2::text, $3::text)::
+           vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+       ROW($4::text, $5::numeric)::
+           vec_contratacion_temporal.consulta_detalle_rrhh_v1,
+       $6::bytea,
+       $7::bytea,
+       $8::bytea,
+       $9::bytea,
+       $10::numeric,
+       $11::numeric,
+       $12::bytea,
+       $13::bytea,
+       $14::bytea,
+       $15::bytea
+  )`
 
 func decodificarPreparacionResolucion(raw, expediente string, version uint64) (ports.PreparacionResolucionFormalizacion, error) {
 	z := ports.PreparacionResolucionFormalizacion{}
