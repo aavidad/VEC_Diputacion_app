@@ -69,8 +69,9 @@ def main():
         raise ValueError('Algún patrón no contiene paquetes; no se acepta un análisis parcial')
     with tempfile.TemporaryDirectory(prefix='vec-gosec-') as temporal:
         binario = Path(temporal) / 'vec-gosec'
-        subprocess.run([go, '-C', HERRAMIENTAS.parent / 'tools/vecgosec',
-                        'build', '-mod=readonly', '-p', '6', '-o', binario, '.'],
+        subprocess.run([go, '-C', HERRAMIENTAS.parent,
+                        'build', '-mod=readonly', '-p', '6', '-o', binario,
+                        './tools/vecgosec'],
                        env=entorno, check=True, timeout=300)
         # Este binario solo incorpora el adaptador local. No usa el CLI de
         # autofix, proveedores remotos, claves de API ni exclusiones de reglas.

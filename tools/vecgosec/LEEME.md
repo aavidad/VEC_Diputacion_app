@@ -23,7 +23,11 @@ proyecto, compila el adaptador en una carpeta temporal y lo elimina al terminar.
 Acepta el ejecutable de `PATH` si tiene la versión exacta declarada; si no,
 usa la caché local existente. Así funciona también con `setup-go` en un
 ejecutor limpio. Cada patrón debe corresponder al menos a un paquete.
-El primer uso necesita descargar las dependencias fijadas en `go.mod` y `go.sum`.
+El primer uso necesita descargar las dependencias fijadas en los `go.mod` y
+`go.sum` de la raíz. El adaptador forma parte del módulo Go principal para
+que los controles de arquitectura lo incluyan.
+La selección de versiones del módulo principal usa `x/tools v0.48.0` y
+`x/mod v0.38.0`, requeridas por `x/text v0.41.0`; GoSec permanece en 2.25.0.
 
 El resultado JSON va a la salida estándar o a un archivo nuevo con permisos
 privados. El estado de salida es `0` sin hallazgos, `1` con hallazgos y `2` si
