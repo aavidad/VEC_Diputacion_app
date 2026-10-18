@@ -5,7 +5,7 @@ import { crearControladorContactoPropio, capturarCorreoEnviado, montarContactoPr
 import { crearClienteOperacionesContactoPropio, RUTAS_OPERACIONES_CONTACTO } from "./cliente-http.js?v=20260929-credenciales-proxy-v1";
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 import { traducir } from "./i18n.js";
-import { exigirRenovado } from "../portal-empleado/versiones-cache.test-helper.mjs";
+import { exigirMismaVersion } from "../portal-empleado/versiones-cache.test-helper.mjs";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const REF = `opr_${"a".repeat(22)}`;
@@ -53,7 +53,7 @@ test("Contacto y arranque comparten la URL versionada del cliente HTTP", async (
     readFile(new URL("./contacto-propio.js", import.meta.url), "utf8"),
     readFile(new URL("./arranque.js", import.meta.url), "utf8"),
   ]);
-  exigirRenovado([contacto, arranque], "./cliente-http.js", ["20260924-f2-b11-v1", "20260924-f2-b11-v2"]);
+  exigirMismaVersion([contacto, arranque], "./cliente-http.js");
 });
 
 test("prepara 201 y confirma 201 solo por acción explícita, conserva recibo original", async () => {

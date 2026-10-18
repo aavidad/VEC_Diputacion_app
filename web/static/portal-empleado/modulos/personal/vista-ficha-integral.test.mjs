@@ -3,14 +3,14 @@ import test from "node:test";
 import { prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
 
 test.before(async () => { await prepararTextosPersonal(); });
-import { exigirVersiones, posterior } from "../../versiones-cache.test-helper.mjs";
+import { versionDe } from "../../versiones-cache.test-helper.mjs";
 import { readFileSync } from "node:fs";
 import { montarVistaFichaIntegralPersonal } from "./vista-ficha-integral.js?v=20261008-alta-rpt-circular-v4";
 
 test("la ficha carga el catálogo i18n del corte F2 con versión de caché", () => {
   const codigo = readFileSync(new URL("./vista-ficha-integral.js", import.meta.url), "utf8");
   // i18n de Personal renovado (organización histórica): nunca la URL immutable previa.
-  exigirVersiones(codigo, "./i18n.js", posterior("20260924-f2-web2"));
+  versionDe(codigo, "./i18n.js");
 });
 
 function raizFalsa() {

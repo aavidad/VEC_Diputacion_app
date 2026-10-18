@@ -276,17 +276,17 @@ test("el conflicto de catálogo o revisión retira el formulario pendiente", asy
 
 test("clientes con mTLS del mismo origen renuevan su versión en cascada", async () => {
   const { readFile } = await import("node:fs/promises");
-  const { exigirRenovado } = await import("../../versiones-cache.test-helper.mjs");
+  const { versionDe, exigirMismaVersion } = await import("../../versiones-cache.test-helper.mjs");
   const leer = (nombre) => readFile(new URL(`./${nombre}`, import.meta.url), "utf8");
   const [registro, actos, catalogos] = await Promise.all(["registro-b2.js", "registro-b2-actos.js", "registro-b2-catalogos.js"].map(leer));
-  exigirRenovado([registro, actos], "registro-b2-cliente.js", "20260925-b2-registro-v1");
-  exigirRenovado(catalogos, "registro-b2-catalogos-cliente.js", "20260925-b2-registro-v3");
-  exigirRenovado(registro, "registro-b2-actos.js", "20260925-b2-registro-v3");
-  exigirRenovado(registro, "registro-b2-catalogos.js", "20260925-b2-registro-v3");
+  exigirMismaVersion([registro, actos], "registro-b2-cliente.js");
+  versionDe(catalogos, "registro-b2-catalogos-cliente.js");
+  versionDe(registro, "registro-b2-actos.js");
+  versionDe(registro, "registro-b2-catalogos.js");
   const coordinador = await readFile(new URL("../../portal-modulos-coordinador.js", import.meta.url), "utf8");
-  exigirRenovado(coordinador, "registro-b2.js", "20260925-b2-sin-codigos-v1");
-  exigirRenovado([registro, actos, catalogos], "i18n.js", "20260925-b2-sin-codigos-v1");
-  exigirRenovado(coordinador, "modulos/personal/i18n.js", "20260925-b2-sin-codigos-v1");
+  versionDe(coordinador, "registro-b2.js");
+  exigirMismaVersion([registro, actos, catalogos], "i18n.js");
+  versionDe(coordinador, "modulos/personal/i18n.js");
 });
 
 function paginaEmpleados({ cursor = "", siguiente = "", empleados } = {}) {

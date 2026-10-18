@@ -3,7 +3,7 @@ import test from "node:test";
 import { prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
 
 test.before(async () => { await prepararTextosPersonal(); });
-import { exigirVersiones, posterior } from "../../versiones-cache.test-helper.mjs";
+import { versionDe } from "../../versiones-cache.test-helper.mjs";
 import { readFileSync } from "node:fs";
 import { CAPACIDAD_CONSULTAR_PUESTO } from "./contrato.js";
 import { ErrorClienteCategoriasPersonal } from "./cliente-http-categorias.js";
@@ -12,7 +12,7 @@ import { montarModuloPersonal } from "./vista.js?v=20261008-alta-rpt-circular-v4
 test("categorías carga el i18n actualizado para sus estados internos", () => {
   const codigo = readFileSync(new URL("./vista.js", import.meta.url), "utf8");
   // i18n de Personal renovado (organización histórica): nunca la URL immutable previa.
-  exigirVersiones(codigo, "./i18n.js", posterior("20260924-personal-interno-estados-v1"));
+  versionDe(codigo, "./i18n.js");
 });
 
 function raizFalsa() {

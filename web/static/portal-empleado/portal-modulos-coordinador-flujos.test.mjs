@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { exigirRenovado, exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
+import { exigirMismaVersion, versionDe } from "./versiones-cache.test-helper.mjs";
 import {
   cargarCatalogoModulosInterno,
   crearCatalogoModulosDesdeManifiestos,
@@ -450,104 +450,22 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
   assert.doesNotMatch(estilos, /\.tarjeta-modulo-bloqueada/);
 });
 
-test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionShellF2 = "20260924-f2-shell-v1";
-  const versionTemaBase = "20260924-f2-tema-base-v2";
-  const versionSaltoMovil = "20260924-f2-salto-movil-v3";
-  const versionCacheF2 = "20260924-f2-cache-v2";
-  const versionCachePersonal = "20260924-f2-cache-v3";
-  const versionPersonalInterno = "20260924-p1-personal-interno-v2";
-  const versionPersonalEstados = "20260924-f2-personal-estados-v4";
-  const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
-  const versionDietasShell = "20260924-web-paradas-periodos-v1";
-  const versionEntradaAyuda = "20260924-rescate-web-v4";
-  const versionVistasC = "20260924-web-c-v1";
-  const versionDietasRecuperacion = "20260924-dietas-recuperacion-v3";
-  const versionDietasVista = "20260924-web-paradas-periodos-v1";
-  const versionPublicada = "20260925-aspecto-v1";
-  const versionCarga = "20260923-p4-estado-modulos-v1";
-  const versionModuloBolsa = "20260924-rescate-web-v4";
-  const versionSubsanacion = "20260924-web-subsanacion-v1";
-  const versionClientePersonal = versionPersonalInterno;
-  const versionCatalogo = versionCronosPermisos;
-  const versionCronos = "20260924-web-paradas-periodos-v1";
-  const versionDietasCSS = "20260924-dietas-ayuda-icono-v1";
-  const versionRPT = "20260920-personal-rpt-publica-v3";
-  const versionEstilos = "20260920-personal-rpt-publica-v3";
-  const versionFlujos = "20260923-pweb16-v1";
-  const [portal, html] = await Promise.all([
-    readFile(new URL("portal.js", import.meta.url), "utf8"),
-    readFile(new URL("index.html", import.meta.url), "utf8"),
-  ]);
-  const coordinador = await readFile(
-    new URL("portal-modulos-coordinador.js", import.meta.url),
-    "utf8",
-  );
-  // Los recursos cambiados después de su versión publicada exigen una URL
-  // posterior y única entre sus importadores; los demás conservan la exacta.
-  exigirRenovado(portal, "./portal-modulos-coordinador.js", versionDietasShell);
-  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v5/u);
-  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v4/u);
-  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-v3/u);
-  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-f2-dietas-consulta-v2/u);
-  assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCronosPermisos}`));
-  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-f2-cronos-permisos-v1/u);
-  assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalEstados}`));
-  assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalInterno}`));
-  // El límite de carga cambió (recorrido del 25/09): su URL avanza.
-  exigirRenovado(coordinador, "./portal-modulos-carga.js", versionCarga);
-  exigirRenovado(portal, "./portal-bolsas-api.js", versionModuloBolsa);
-  exigirRenovado([portal, coordinador], "./portal-i18n.js", [versionEntradaAyuda, versionCronosPermisos]);
-  exigirRenovado(portal, "./portal-eventos.js", versionEntradaAyuda);
-  exigirRenovado([portal], "./portal-inicio.js", versionCronosPermisos);
-  exigirRenovado(portal, "./portal-borradores-ui.js", versionCronosPermisos);
-  exigirRenovado(coordinador, "./portal-catalogo-modulos.js", versionCatalogo);
-  // El cliente del catálogo pasó a presentar el certificado mTLS: URL renovada.
-  exigirRenovado(coordinador, "./modulos/personal/cliente-http-categorias.js", versionClientePersonal);
-  // RPT y estructura públicas solo las pide el cargador opcional de catálogos
-  // públicos, nunca el cargador principal de Personal.
-  const cargadorPersonal = coordinador.split("personal: async () => {")[1].split("personal_catalogos_publicos: async () => {")[0];
+test("HTML y módulos comparten la versión calculada en los enlaces comunes", async () => {
+  const leer = (ruta) => readFile(new URL(ruta, import.meta.url), "utf8");
+  const [html, portal, coordinador] = await Promise.all([
+    "index.html", "portal.js", "portal-modulos-coordinador.js",
+  ].map(leer));
+  exigirMismaVersion([html, portal], "portal-modulos-coordinador.js");
+  exigirMismaVersion([portal, coordinador], "portal-i18n.js");
+  for (const recurso of ["portal-modulos-carga.js", "portal-catalogo-modulos.js",
+    "modulos/personal/cliente-http-categorias.js", "modulos/personal/vista.js",
+    "modulos/dietas/vista-recorridos.js", "modulos/cronos/vista-permisos-propios.js"])
+    versionDe(coordinador, `./${recurso}`);
+  for (const recurso of ["portal-modulos.css", "portal-flujos.css", "portal.css",
+    "modulos/dietas/dietas.css", "modulos/cronos/cronos.css"])
+    versionDe(html, `/portal-empleado/${recurso}`);
+  const cargadorPersonal = coordinador.split("personal: async () => {")[1]
+    .split("personal_catalogos_publicos: async () => {")[0];
   assert.doesNotMatch(cargadorPersonal, /modulos\/personal\/(?:cliente-http|vista)-rpt-publica\.js/);
   assert.doesNotMatch(cargadorPersonal, /estructura-organizativa-publica\.js/);
-  // La vista interna conserva su versión renovada.
-  for (const [vista, montajes, versionVista] of [["vista.js", 1, versionPersonalEstados]]) {
-    exigirVersiones(coordinador, `./modulos/personal/${vista}`, posterior(versionVista), montajes);
-  }
-  assert.doesNotMatch(coordinador, new RegExp(`modulos/personal/vista\\.js\\?v=${versionCachePersonal}`));
-  exigirRenovado(html, "/portal-empleado/portal.js", versionEntradaAyuda);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/u);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v4/u);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-v3/u);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-dietas-consulta-v2/u);
-  assert.doesNotMatch(html, new RegExp(`portal\\.js\\?v=${versionCronosPermisos}`));
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cronos-permisos-v1/u);
-  assert.doesNotMatch(html, new RegExp(`portal\\.js\\?v=${versionPersonalEstados}`));
-  assert.doesNotMatch(html, new RegExp(`portal\\.js\\?v=${versionPersonalInterno}`));
-  exigirRenovado(html, "/portal-empleado/portal-modulos.css", versionEstilos);
-  exigirRenovado(html, "/portal-empleado/portal-flujos.css", versionFlujos);
-  exigirRenovado(html, "/portal-empleado/portal.css", versionSaltoMovil);
-  assert.doesNotMatch(html, new RegExp(`portal\\.css\\?v=${versionTemaBase}`));
-  assert.doesNotMatch(html, /portal\.css\?v=20260924-f2-salto-movil-v1/u);
-  assert.doesNotMatch(html, /portal\.css\?v=20260924-f2-salto-movil-v2/u);
-  assert.doesNotMatch(html, new RegExp(`portal\\.css\\?v=${versionShellF2}`));
-  exigirRenovado(html, "/portal-empleado/modulos/contratacion-temporal/expedientes-operativo.css", versionShellF2);
-  exigirRenovado(coordinador, "./modulos/cronos/vista-saldo-conectado.js", "20260925-tanda-v1");
-  exigirRenovado(coordinador, "./modulos/cronos/vista-permisos-propios.js", "20260925-tanda-v1");
-  // Dietas solo tiene montaje interno: un cargador, renovado respecto a lo publicado.
-  assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-itinerario\.js/u);
-  const versionDietasMontaje = exigirVersiones(coordinador, "./modulos/dietas/vista-recorridos.js", posterior(versionDietasVista), 1);
-  assert.notEqual(versionDietasMontaje, versionPublicada);
-  // La vista se renueva por el catálogo i18n; el mapa no ha cambiado y conserva
-  // su propia URL. Los clientes HTTP también conservan su URL de montaje.
-  assert.notEqual(exigirVersiones(coordinador, "./modulos/dietas/mapa-ruta.js", posterior(versionDietasVista), 1), versionPublicada);
-  for (const cliente of ["cliente-borradores-http", "cliente-asignacion-http", "calculador-rutas-http"])
-    assert.notEqual(exigirVersiones(coordinador, `./modulos/dietas/${cliente}.js`, posterior(versionDietasVista), 1), versionPublicada);
-  assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-sin-guia-v1/u);
-  assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-icono-v1/u);
-  assert.doesNotMatch(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietasRecuperacion}`));
-  assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-f2-dietas-consulta-v2/u);
-  assert.doesNotMatch(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionShellF2}`));
-  exigirRenovado(html, "/portal-empleado/modulos/cronos/cronos.css", versionCronos);
-  exigirRenovado(html, "/portal-empleado/modulos/dietas/dietas.css", [versionDietasCSS, versionPublicada]);
-  exigirRenovado(html, "/portal-empleado/modulos/dietas/borradores-propios.css", versionPublicada);
 });

@@ -12,7 +12,7 @@ import * as clienteSaldo from "./modulos/cronos/cliente-saldo-http.js";
 import * as clienteRemoto from "./modulos/cronos/cliente-remoto-http.js";
 import * as clienteSolicitudes from "./modulos/cronos/cliente-solicitudes-http.js";
 import * as i18n from "./modulos/cronos/i18n.js";
-import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
+import { versionDe, exigirMismaVersion } from "./versiones-cache.test-helper.mjs";
 
 function raizFalsa() {
   const documento = {
@@ -143,7 +143,7 @@ test("el cargador interno nominal y el manifiesto contienen el recorrido sin nue
   assert.doesNotMatch(cronosInterno, /cronos\/vista\.js|vista-recorridos\.js/u);
   for (const vista of ["vista-saldo-conectado.js", "vista-remoto.js", "vista-movimientos-conectado.js",
     "vista-movimientos-propios.js", "vista-permisos-propios.js"]) {
-    exigirRenovado(cronosInterno, `./modulos/cronos/${vista}`, ["20260925-tanda-v1", "20260925-cronos-pantallas-v1"]);
+    versionDe(cronosInterno, `./modulos/cronos/${vista}`);
     assert.match(manifiesto, new RegExp(`static/portal-empleado/modulos/cronos/${vista.replaceAll(".", "\\.")}`, "u"), vista);
   }
   for (const cliente of ["cliente-saldo-http.js", "cliente-remoto-http.js", "cliente-solicitudes-http.js"]) {
@@ -151,26 +151,16 @@ test("el cargador interno nominal y el manifiesto contienen el recorrido sin nue
     assert.match(manifiesto, new RegExp(`static/portal-empleado/modulos/cronos/${cliente.replaceAll(".", "\\.")}`, "u"), cliente);
   }
   for (const hoja of ["cronos-conectado.css", "vista-solicitudes.css"]) {
-    exigirRenovado(html, `/portal-empleado/modulos/cronos/${hoja}`, "20260925-tanda-v1");
+    versionDe(html, `/portal-empleado/modulos/cronos/${hoja}`);
     assert.match(manifiesto, new RegExp(`static/portal-empleado/modulos/cronos/${hoja.replaceAll(".", "\\.")}`, "u"), hoja);
   }
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/i18n-solicitudes\.js/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/vista-recorridos\.js/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/permisos\.css/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/i18n-permisos\.js/u);
-  exigirRenovado(portal, "./portal-modulos-coordinador.js", ["20260924-web-paradas-periodos-v1", "20260925-tanda-v1", "20260925-cronos-pantallas-v1"]);
-  exigirRenovado(html, "/portal-empleado/portal.js", ["20260924-rescate-web-v4", "20260925-tanda-v1", "20260925-cronos-pantallas-v1"]);
-  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v5/u);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/u);
-  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v4/u);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v4/u);
-  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-v3/u);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-v3/u);
-  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-f2-dietas-consulta-v2/u);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-dietas-consulta-v2/u);
-  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-f2-cronos-permisos-v2/u);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cronos-permisos-v2/u);
-  exigirRenovado([portal, coordinador], "./portal-i18n.js", ["20260924-rescate-web-v4", "20260924-f2-cronos-permisos-v2"]);
+  versionDe(portal, "./portal-modulos-coordinador.js");
+  versionDe(html, "/portal-empleado/portal.js");
+  exigirMismaVersion([portal, coordinador], "./portal-i18n.js");
   assert.doesNotMatch(html, /data-vista="cronos-permisos"/u);
 });
 
@@ -185,9 +175,8 @@ test("coordinador y vistas comparten i18n; permisos usa la fecha civil sin carga
   for (const fuente of [cronosInterno, ...importadoresI18n]) assert.doesNotMatch(fuente, /\/i18n\.js["']/u, "sin importación sin versión");
   assert.doesNotMatch(permisos, /vista-movimientos-propios\.js/u);
   assert.match(permisos, /from "\.\/fecha-civil\.js\?v=20261007-pantallas-textos-final-v1"/u);
-  exigirRenovado([cronosInterno, ...importadoresI18n], "i18n.js", ["20260925-tanda-v1"]);
-  assert.equal(exigirRenovado(cronosInterno, "vista-movimientos-propios.js",
-    ["20260925-cronos-pantallas-v1", "20261007-pantallas-textos-final-v1"]), "20261007-u-dietas-catalogo-v1");
+  exigirMismaVersion([cronosInterno, ...importadoresI18n], "i18n.js");
+  assert.equal(versionDe(cronosInterno, "vista-movimientos-propios.js"), "VEC_WEB_VERSION");
   // Los clientes siguen sin ?v= en todos los importadores (misma clase de error para instanceof).
   for (const fuente of [cronosInterno, permisos, ...importadoresI18n]) assert.doesNotMatch(fuente, /cliente-[a-z-]+-http\.js\?v=/u);
 });

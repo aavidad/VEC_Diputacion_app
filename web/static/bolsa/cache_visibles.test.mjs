@@ -7,7 +7,7 @@ const versionI18n = "20260930-codexe-publico-v2-v1";
 const versionI18nIndice = "20260930-codexe-publico-v2-v1";
 const versionControlador = "20261001-convoca-preparacion-v1";
 const versionLista = "20260930-codexe-publico-v2-v1";
-const versionAnterior = "20260924-bolsa-publica-final";
+const versionAnterior = "anterior";
 const versionListaAnterior = "20260924-bolsa-ayuda-v3";
 
 function scriptsDelHTML(html) {

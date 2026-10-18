@@ -1,60 +1,67 @@
 import assert from "node:assert/strict";
+import { readFile, readdir } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-// Comprobaciones compartidas de caché immutable: cuando cambia un módulo, su
-// URL (`?v=`) cambia y todos sus importadores piden la misma URL nueva. Así las
-// pruebas no persiguen el literal de cada renovación, sino la invariante.
+export const MARCADOR_VERSION_WEB = "VEC_WEB_VERSION";
 
 function escapar(texto) {
   return texto.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
-/** Devuelve todas las versiones con que `fuente` referencia `recurso`. */
 export function versionesDe(fuente, recurso) {
   const patron = new RegExp(`(?<![\\w-])${escapar(recurso)}\\?v=([\\w.-]+)`, "gu");
   return [...fuente.matchAll(patron)].map(([, version]) => version);
 }
 
-/** Devuelve la única versión con que `fuente` referencia `recurso`. */
 export function versionDe(fuente, recurso) {
   const versiones = new Set(versionesDe(fuente, recurso));
-  assert.equal(versiones.size, 1, `${recurso} debe referenciarse con una sola versión: ${[...versiones].join(", ") || "ninguna"}`);
+  assert.equal(versiones.size, 1, `${recurso}: se espera una sola URL versionada`);
   return [...versiones][0];
 }
 
-/**
- * Exige que todas las `fuentes` referencien `recurso` con una misma versión y
- * que no sea ninguna de las `anteriores` ya publicadas (una caché immutable
- * las conservaría). Devuelve esa versión vigente.
- */
-export function exigirRenovado(fuentes, recurso, anteriores) {
-  const lista = Array.isArray(fuentes) ? fuentes : [fuentes];
-  const versiones = new Set();
-  for (const fuente of lista) {
-    const propias = versionesDe(fuente, recurso);
-    assert.ok(propias.length > 0, `${recurso} debe referenciarse versionado en cada importador`);
-    propias.forEach((version) => versiones.add(version));
-  }
-  assert.equal(versiones.size, 1, `${recurso} no admite referencias mixtas: ${[...versiones].join(", ")}`);
-  const [vigente] = versiones;
-  for (const anterior of Array.isArray(anteriores) ? anteriores : [anteriores])
-    assert.notEqual(vigente, anterior, `${recurso} no puede reutilizar la versión publicada ${anterior}`);
-  return vigente;
+export function exigirMismaVersion(fuentes, recurso) {
+  const versiones = fuentes.map((fuente) => versionDe(fuente, recurso));
+  assert.equal(new Set(versiones).size, 1, `${recurso}: URL distinta entre importadores`);
+  assert.equal(versiones[0], MARCADOR_VERSION_WEB, `${recurso}: versión calculada por el servidor`);
+  return versiones[0];
 }
 
-/** Marca una versión esperada como «cualquiera posterior a `anterior`». */
-export const posterior = (anterior) => Object.freeze({ posterior: anterior });
+const URL_VERSIONADA = /["'`]((?:\.{1,2}\/|\/portal-empleado\/)[^"'`\s?#]+\.(?:js|css))\?v=([\w.-]+)["'`]/gu;
 
-/**
- * Comprueba una arista importador→recurso: `cantidad` referencias con una
- * única versión, que es exactamente `esperada` (recurso sin cambios) o
- * distinta de `esperada.posterior` (recurso renovado). Devuelve la vigente.
- */
-export function exigirVersiones(codigo, recurso, esperada, cantidad = 1) {
-  const encontradas = versionesDe(codigo, recurso);
-  assert.equal(encontradas.length, cantidad, `${recurso}: número de referencias versionadas`);
-  assert.equal(new Set(encontradas).size, 1, `${recurso} no admite referencias mixtas: ${encontradas.join(", ")}`);
-  const [vigente] = encontradas;
-  if (typeof esperada === "string") assert.equal(vigente, esperada, recurso);
-  else assert.notEqual(vigente, esperada.posterior, `${recurso} no puede reutilizar la versión publicada ${esperada.posterior}`);
-  return vigente;
+async function archivosDe(directorio) {
+  const entradas = await readdir(directorio, { withFileTypes: true });
+  const rutas = await Promise.all(entradas.map(async (entrada) => {
+    const ruta = path.join(directorio, entrada.name);
+    if (entrada.isDirectory()) return archivosDe(ruta);
+    return entrada.isFile() && ruta.endsWith(".js") ? [ruta] : [];
+  }));
+  return rutas.flat();
+}
+
+/** Compara las URL literales de un mismo recurso en JS, HTML y caché pública. */
+export async function comprobarGrafoVersionado(raizURL) {
+  const raiz = fileURLToPath(raizURL);
+  const ficheros = [...await archivosDe(raiz), path.join(raiz, "index.html"), path.join(raiz, "cache-publica-v1.json")];
+  const destinos = new Map();
+  for (const fichero of ficheros) {
+    const fuente = await readFile(fichero, "utf8");
+    for (const [, recurso, version] of fuente.matchAll(URL_VERSIONADA)) {
+      const destino = recurso.startsWith("/portal-empleado/")
+        ? recurso.slice("/portal-empleado/".length)
+        : path.relative(raiz, path.resolve(path.dirname(fichero), recurso)).split(path.sep).join("/");
+      if (destino.startsWith("..")) continue;
+      const referencias = destinos.get(destino) ?? [];
+      referencias.push({ importador: path.relative(raiz, fichero), version });
+      destinos.set(destino, referencias);
+    }
+  }
+  assert.ok(destinos.has("portal.js"), "la entrada figura en HTML y caché");
+  assert.ok(destinos.has("portal-i18n.js"), "el catálogo figura en el grafo");
+  for (const [destino, referencias] of destinos) {
+    const versiones = new Set(referencias.map(({ version }) => version));
+    assert.equal(versiones.size, 1, `${destino}: versiones distintas en ${JSON.stringify(referencias)}`);
+    assert.equal([...versiones][0], MARCADOR_VERSION_WEB, `${destino}: versión manual en ${JSON.stringify(referencias)}`);
+  }
+  return destinos;
 }

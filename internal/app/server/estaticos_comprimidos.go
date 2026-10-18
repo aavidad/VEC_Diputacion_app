@@ -162,7 +162,7 @@ func directorioEstaticos() string {
 // cacheSegunVersion: con ?v= la URL cambia con el contenido y se guarda un
 // año sin preguntar; sin versión se guarda pero se revalida siempre (304).
 func cacheSegunVersion(r *http.Request) string {
-	if r.URL.Query().Get("v") != "" {
+	if web := versionWeb(); web != nil && r.URL.Query().Get("v") == web.version {
 		return "public, max-age=31536000, immutable"
 	}
 	return "no-cache"

@@ -17,10 +17,10 @@ function bloque(selector) {
   return css.slice(inicio + selector.length + 2, css.indexOf("}", inicio));
 }
 
-const enlaceTema = /<link rel="stylesheet" href="\/comun\/tema-vec\.css\?v=[A-Za-z0-9-]+">/gu;
-const enlaceOportunidades = /<link rel="stylesheet" href="\/comun\/oportunidades\/oportunidades\.css\?v=[A-Za-z0-9-]+">/gu;
-const enlaceCorreos = /<link rel="stylesheet" href="\/comun\/correos-propios\.css\?v=[A-Za-z0-9-]+">/gu;
-const enlaceImagen = /<link rel="stylesheet" href="\/comun\/imagen-propia\.css\?v=[A-Za-z0-9-]+">/gu;
+const enlaceTema = /<link rel="stylesheet" href="\/comun\/tema-vec\.css\?v=[A-Za-z0-9_-]+">/gu;
+const enlaceOportunidades = /<link rel="stylesheet" href="\/comun\/oportunidades\/oportunidades\.css\?v=[A-Za-z0-9_-]+">/gu;
+const enlaceCorreos = /<link rel="stylesheet" href="\/comun\/correos-propios\.css\?v=[A-Za-z0-9_-]+">/gu;
+const enlaceImagen = /<link rel="stylesheet" href="\/comun\/imagen-propia\.css\?v=[A-Za-z0-9_-]+">/gu;
 const recursoComunNoAutorizado = /(?:src|href)="\/comun\/|@import[^;]*\/comun\//u;
 
 function comprobarRecursosComunes(htmlActual, cssActual, aplicacionActual) {
@@ -41,7 +41,7 @@ function comprobarRecursosComunes(htmlActual, cssActual, aplicacionActual) {
 test("el área personal carga el tema permitido antes de sus alias y sin activos ajenos", () => {
   assert.match(html, /<html lang="es" data-tema="institucional">/);
   comprobarRecursosComunes(html, css, aplicacion);
-  const arranque = html.match(/<script type="module" src="(\/area-personal\/arranque\.js\?v=[A-Za-z0-9-]+)"><\/script>/u)?.[1];
+  const arranque = html.match(/<script type="module" src="(\/area-personal\/arranque\.js\?v=[A-Za-z0-9_-]+)"><\/script>/u)?.[1];
   assert.ok(arranque, "falta la entrada versionada del Área personal");
   assert.deepEqual(JSON.parse(cache).propios.filter((ruta) => ruta.startsWith("/area-personal/arranque.js?")), [arranque]);
   assert.match(html, /\/comun\/tema-vec\.css\?v=20261008-preferencias-arranque-v1/u);

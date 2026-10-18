@@ -808,6 +808,14 @@ Los nombres del código van en castellano coherente, salvo términos técnicos
 universales y convenciones de Go. No se mezcla castellano e inglés en el mismo
 vocabulario.
 
+Los estáticos públicos usan una versión común calculada al construir el servidor:
+SHA-256 de los nombres y bytes del manifiesto web, en orden. En las fuentes,
+`?v=VEC_WEB_VERSION` es un marcador que se sustituye antes de servir HTML,
+módulos y políticas de caché. No se renuevan cadenas por módulo. Solo la huella
+vigente permite caché `immutable`; otra versión obliga a revalidar. Para activar
+un cambio se publican juntos binario, manifiesto y estáticos y se reinicia la app.
+No necesita configuración ni SQL. La vuelta atrás restaura ese mismo conjunto.
+
 ## 13. Calidad del código
 
 - Comentarios de documentación donde la intención o el contrato no sean obvios.
