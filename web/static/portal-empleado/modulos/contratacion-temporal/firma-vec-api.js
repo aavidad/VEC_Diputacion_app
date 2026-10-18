@@ -1,7 +1,7 @@
 /** Registro V2: el original se selecciona por su vínculo custodiado, sin enviar sus bytes. */
 export const RUTA_REGISTRO_FIRMA_VEC = "/api/vec/contratacion-temporal/firmas-documento/registro-vec";
 const ESQUEMA = "vec.contratacion-temporal.registro-firma-vec.v2";
-const MAXIMO_PDF = 1 << 20;
+const MAXIMO_PDF = 2 << 20;
 const MAXIMO_RESPUESTA = 64 * 1024;
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const DOCUMENTO = /^[a-z][a-z0-9_]{1,63}$/u;
@@ -92,7 +92,8 @@ export function validarReciboFirmaV2(datos, solicitud, externo = false) {
   const custodia = datos?.documento_custodiado;
   const verificacion = datos?.verificacion_tecnica;
   const revision = datos?.revision_pdf;
-  if (!campos(datos, claves) || datos.esquema !== (externo ? "vec.contratacion-temporal.registro-firma-externa.v2" : ESQUEMA) || datos.firma_eficaz !== false
+  if (!campos(datos, claves, ["garantia_autenticacion"])
+    || (Object.hasOwn(datos ?? {}, "garantia_autenticacion") && (externo || datos.garantia_autenticacion !== "sustancial")) || datos.esquema !== (externo ? "vec.contratacion-temporal.registro-firma-externa.v2" : ESQUEMA) || datos.firma_eficaz !== false
     || datos.expediente_ref !== solicitud.expedienteRef || datos.version_expediente !== solicitud.version
     || datos.documento !== solicitud.documento || datos.paso_orden !== solicitud.pasoOrden
     || !referenciaValida(datos.recibo_ref) || !referenciaValida(datos.firma_ref) || !referenciaValida(datos.paso_ref)

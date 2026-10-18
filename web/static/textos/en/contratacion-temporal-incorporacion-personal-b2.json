@@ -58,13 +58,28 @@
   "empleado": "Employee",
   "relacion": "Employment relationship",
   "ocupacion": "Post occupancy",
-  "limite": "Recording the start of work does not complete official signing or give the document administrative effect.",
+  "limite": "The document is officially signed in the signing process.",
   "motivo": "Reason (required)",
   "documento": "Commencement of service document (required)",
   "sin_documento": "No document is available. Review the appointment formalities before proceeding.",
   "sin_catalogos": "Personnel terms are unavailable. Human Resources must review the catalogues.",
   "revision_lista": "Review these details before recording commencement of service.",
   "clase_ocupacion": "Occupancy type (required)",
+  "rrhh": {
+    "ct": {
+      "incorporacion": {
+        "b2": {
+          "clase_ocupacion": {
+            "opcion": {
+              "titular": "Holder",
+              "provisional": "Provisional",
+              "temporal": "Temporary"
+            }
+          }
+        }
+      }
+    }
+  },
   "personal": {
     "ocupacion": {
       "clase": {
@@ -86,5 +101,20 @@
   "ct_incorporacion_b2_previo_documento": "Appointment document available",
   "ct_incorporacion_b2_previo_rpt": "Current post verified",
   "ct_incorporacion_b2_previo_plaza": "Available establishment position verified",
-  "ct_incorporacion_b2_previo_periodo": "Commencement period verified"
+  "ct_incorporacion_b2_previo_periodo": "Commencement period verified",
+  "catalogo_registro": {
+    "regimen": {
+      "funcionario_interino": "Interim civil servant",
+      "laboral_temporal": "Temporary staff under employment contract"
+    },
+    "modalidad": {
+      "interino_plaza_vacante": "Interim appointment to a vacant post",
+      "interino_sustitucion_titular": "Interim appointment to replace the post holder",
+      "interino_programa_temporal": "Interim appointment for a temporary programme",
+      "interino_exceso_acumulacion_tareas": "Interim appointment for an excess or build-up of work",
+      "laboral_sustitucion": "Replacement contract",
+      "laboral_circunstancias_produccion": "Contract for production needs"
+    }
+  },
+  "abrir_ficha_personal": "Open personnel record"
 }

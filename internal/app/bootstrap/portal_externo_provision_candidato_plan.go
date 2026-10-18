@@ -224,7 +224,7 @@ func PrepararProvisionCandidatoExterno(cfg config.Config, f FuenteProvisionCandi
 		return p, nil
 	}
 	identidad := &identidadCandidatoBolsaDesarrollo{cuentaRef: s.Cuenta.Referencia, personaRef: s.Persona.Referencia, perfilRef: s.Perfil.Referencia, candidatoRef: s.VinculoCandidato.CandidatoRef}
-	semilla, err := semillaMiBolsaPortalExterno(identidad, ahora, "areaPersonal.miBolsa.rolPortal")
+	semilla, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, true, false)
 	if err != nil {
 		return p, ErrProvisionCandidatoExterno
 	}

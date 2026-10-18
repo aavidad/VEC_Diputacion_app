@@ -113,7 +113,7 @@ test("muestra documentos, plazo desde la aceptación, procedencia y ayuda solo t
   assert.match(html, /3 días hábiles · hasta el 30 de septiembre de 2026 \(incluido\)/u);
   assert.match(html, /Margen mínimo hasta la incorporación/u);
   // El origen de la regla y su referencia no se rotulan en la pantalla de trabajo.
-  assert.doesNotMatch(fueraDeAyuda, /Regla de ejemplo|vec\.bolsa\.reglas:1|SHA-256/u);
+  assert.doesNotMatch(fueraDeAyuda, /Regla pendiente de aprobación|vec\.bolsa\.reglas:1|SHA-256/u);
   assert.match(html, /<tr data-ct-formalizacion-documento="titulacion">[\s\S]*?Aportado[\s\S]*?Anotado con el n\.º VEC-2026-7/u);
   assert.match(html, /<tr data-ct-formalizacion-documento="documento_identidad">[\s\S]*?Pendiente[\s\S]*?data-ct-formalizacion-anotar="documento_identidad"/u);
   assert.match(html, /<tr data-ct-formalizacion-documento="otro_documento"><th scope="row">Documento «otro_documento»<\/th>[\s\S]*?Sin política de conservación/u);
@@ -272,7 +272,7 @@ test("el formulario de llamamiento pinta el panel tras la aceptación con su ins
   const raiz = raizPrueba();
   const fuente = fuentePrueba();
   const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: async () => resolucionConfirmada }, {
-    contexto: { expediente_ref: EXP, version_esperada: 6 }, fuenteDocumentacionFormalizacion: fuente,
+    contexto: { expediente_ref: EXP, version_esperada: 6, numero_personas: 1 }, fuenteDocumentacionFormalizacion: fuente,
     fetchPublicaciones: async () => new Response(PUBLICACIONES_PROPUESTA, { status: 200, headers: { "Content-Type": "application/json" } }),
   });
   assert.equal(fuente.llamadas.consultar.length, 0);

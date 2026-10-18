@@ -1,6 +1,6 @@
 # Ficha de requisitos de VEC Incompatibilidades — 4 de octubre de 2026
 
-Estado: estudio funcional; no acredita implementación ni autoriza nuevas funciones sobre datos reales. Parte del mapa de módulos aprobado el 23/09 y conserva la prioridad de la cola en curso. Formato de referencia: [ficha Cronos](ficha_cronos_2026-09-23.md). Fuentes de alcance: [matriz normativa](matriz_normativa_rrhh_2026.md), [catálogo funcional](catalogo_funcional_rrhh_y_hoja_ruta.md) y [materias reservadas](materias_reservadas_economicas_y_relaciones_laborales.md), apartados 9 y 12. Fuentes públicas consultadas el 04/10/2026.
+Estado: estudio funcional; no acredita implementación ni autoriza nuevas funciones sobre datos reales. Parte del mapa de módulos aprobado el 23/09 y conserva la prioridad de la cola en curso. Formato de referencia: [ficha Cronos](ficha_cronos_2026-09-23.md). Fuentes de alcance: [matriz normativa](matriz_normativa_rrhh_2026.md), [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md) y [materias reservadas](materias_reservadas_economicas_y_relaciones_laborales.md), apartados 9 y 12. Fuentes públicas consultadas el 04/10/2026.
 
 ## Lo que debe hacer
 

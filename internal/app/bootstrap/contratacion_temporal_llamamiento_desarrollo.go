@@ -15,14 +15,27 @@ import (
 )
 
 type ejecutorSeleccionLlamamientoDesarrollo struct {
-	soporte     *soporteAltaContratacionTemporalDesarrollo
-	lector      ports.LectorExpedienteSeleccionLlamamiento
-	autorizador *autorizadorLlamamientoDesarrollo
-	preparar    func(ports.ExpedienteParaSeleccion, string) (preparacionLlamamientoDesarrollo, error)
-	servicio    httpinterno.EjecutorSeleccionLlamamiento
+	soporte       *soporteAltaContratacionTemporalDesarrollo
+	puente        *puenteBolsaLlamamientoDesarrollo
+	lector        ports.LectorExpedienteSeleccionLlamamiento
+	autorizador   *autorizadorLlamamientoDesarrollo
+	preparar      func(ports.ExpedienteParaSeleccion, string) (preparacionLlamamientoDesarrollo, error)
+	servicio      httpinterno.EjecutorSeleccionLlamamiento
+	ofertas       *application.ServicioSeleccionOfertaCT
+	estadoOfertas *application.ServicioConsultaEstadoSeleccionOfertaCT
 }
 
 var _ httpinterno.EjecutorSeleccionLlamamiento = (*ejecutorSeleccionLlamamientoDesarrollo)(nil)
+var _ httpinterno.ConsultorEstadoSeleccionOferta = (*ejecutorSeleccionLlamamientoDesarrollo)(nil)
+
+func (e *ejecutorSeleccionLlamamientoDesarrollo) ConsultarEstadoSeleccionOfertaParaAdaptador(
+	ctx context.Context, expediente string,
+) (application.DatosEstadoSeleccionOfertaParaAdaptador, error) {
+	if e == nil || e.estadoOfertas == nil {
+		return application.DatosEstadoSeleccionOfertaParaAdaptador{}, application.ErrSeleccionOfertaNoDisponible
+	}
+	return e.estadoOfertas.ConsultarEstadoSeleccionOfertaParaAdaptador(ctx, expediente)
+}
 
 func nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg config.Config, alta *dependenciasAltaContratacionTemporalDesarrollo,
 	derivador *derivadorIdentidadOperacionDesarrollo, reloj relojContratacionTemporalDesarrollo,
@@ -62,7 +75,7 @@ func nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg config.Conf
 		return nil, nil, err
 	}
 	seleccion := &ejecutorSeleccionLlamamientoDesarrollo{
-		soporte: alta.soporte, lector: lector, preparar: prepararReferenciasLlamamientoDesarrollo, servicio: servicio,
+		soporte: alta.soporte, puente: puente, lector: lector, preparar: prepararReferenciasLlamamientoDesarrollo, servicio: servicio,
 		autorizador: &autorizadorLlamamientoDesarrollo{alta: alta, material: alta.postgresql.proveedorMaterialBolsa},
 	}
 	comunicacion, err := nuevoEjecutorComunicacionLlamamientoDesarrollo(cfg, alta.postgresql.ejecucion, alta,
@@ -126,8 +139,12 @@ func (e *ejecutorSeleccionLlamamientoDesarrollo) SeleccionarYLlamarParaAdaptador
 	if err := e.autorizador.exigirLecturaSeleccion(ctx, expediente); err != nil {
 		return vacio, err
 	}
-	// El servicio conserva la recuperación terminal existente. El proveedor
-	// rechaza efectos nuevos sobre versiones históricas; el replay sigue ligado
-	// al mismo expediente, intención y actor autorizado en esta petición.
-	return e.servicio.SeleccionarYLlamarParaAdaptador(ctx, solicitud)
+	ctx = context.WithValue(ctx, claveEstadoOrigenConstituidoCT{}, &estadoOrigenConstituidoCT{
+		organizacion: expediente.Fiscalizado.OrganizacionRef,
+		expediente:   expediente.Fiscalizado.Referencia,
+		version:      expediente.Fiscalizado.Version,
+		clave:        solicitud.ClaveIdempotencia,
+	})
+	return application.SeleccionarSegunNumeroPersonasCT(ctx, expediente, solicitud,
+		e.servicio, e.ofertas)
 }

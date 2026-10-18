@@ -2,11 +2,13 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"reflect"
@@ -16,6 +18,8 @@ import (
 	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
+	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/catalogoalta"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -27,6 +31,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personalrpt "vec-diputacion-granada/internal/modules/personal/adapters/rptpublica"
+	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	docxvec "vec-diputacion-granada/internal/vec/adapters/documentos/docx"
 	pdfvec "vec-diputacion-granada/internal/vec/adapters/documentos/pdf"
@@ -57,6 +62,7 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 	principal               vecdomain.Principal
 	consultaRRHH            *contextoConsultaRRHHPeticionDesarrollo
 	contextoOperacion       *contextoOperacionCTDesarrollo
+	original                *capturaContextosOriginalCT
 	vinculoCanalTLS         [32]byte
 	certificadoVerificadoEn time.Time
 	certificadoValidoHasta  time.Time
@@ -66,6 +72,11 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
+	cuentasInternasJustificanteRRHH                  map[string]cuentaNominalJustificanteRRHH
+	soportesLectoresDocumentosBolsa                  map[string]*soporteAltaContratacionTemporalDesarrollo
+	soporteDocumentosBolsa                           *soporteAltaContratacionTemporalDesarrollo
+	poolDocumentosBolsa                              *pgxpool.Pool
+	prepararOriginal                                 func(*autoridadDocumentosDesarrollo, *seudonimizadorAlmacenDesarrollo) ([]vechttp.RutaExacta, error)
 	sello                                            *selloConsultasContratacionTemporalDesarrollo
 	resolvedor                                       *resolvedorIdentidadDesarrollo
 	noCompuesta                                      *capacidadNoCompuestaContratacionTemporalDesarrollo
@@ -93,6 +104,10 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
+	materialPreferenciasBolsasInternas               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
+	proveedorMaterialOrganizacionHistorica           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	sesionOrganizacionHistorica                      *proveedorSesionConsultaRRHHDesarrollo
 	plazosOfertasBolsa                               *calculadoraPlazoOfertaDesarrollo
 	// presentadorCobertura permite activar después los avisos de la vía de
 	// cobertura, cuando Bolsa y las reglas de ejemplo ya están compuestas.
@@ -103,6 +118,8 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	personalizacionB7 *fuentePersonalizacionB7
 	// firmaDocumento es nil salvo con VEC_CT_FIRMA_REGISTRO_ENABLED=true.
 	firmaDocumento *firmaDocumentoCTDesarrollo
+	// El montaje VEC se cierra cuando Documentos ya ha compuesto el original.
+	firmaVecR5 *montajeFirmaVecR5CT
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -136,6 +153,11 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) instalarDelegadoComu
 	a.delegado = delegado
 	a.instalado = true
 	return nil
+}
+
+func sustituyeRutaFirmasR5PorNominalCT(firmaVecActiva bool, ruta string) bool {
+	return firmaVecActiva && (ruta == httpinterno.RutaConsultaFirmasR5V2 ||
+		ruta == httpinterno.RutaRecuperacionFirmasR5V2)
 }
 
 func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigadaV3(
@@ -270,6 +292,14 @@ func descriptoresFronterasIncorporacionB2Desarrollo() []descriptorFronteraComunD
 	vinculoGET.Metodo = http.MethodGet
 	categoriasGET := fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-categorias-rpt-listar", accionListarCategoriasRPTB2, httpinterno.RutaCategoriasRPTB2, nil)
 	categoriasGET.Metodo = http.MethodGet
+	catalogosGET := fronteraContratacionTemporalDesarrollo("personal-b2-catalogos-consultar", personal.AccionConsultarCatalogoEmpleadoB2, vechttp.RutaCatalogosRegistroEmpleadoB2, nil)
+	catalogosGET.Metodo = http.MethodGet
+	fichaGET := fronteraContratacionTemporalDesarrollo("personal-b2-ficha-consultar", personal.AccionFichaEmpleadoB2, strings.TrimSuffix(vechttp.PrefijoFichaEmpleadoB2, "/"), nil)
+	fichaGET.Metodo, fichaGET.DetalleColeccion = http.MethodGet, true
+	empleadosGET := fronteraContratacionTemporalDesarrollo("personal-b2-empleados-consultar", personal.AccionEmpleadosB2, vechttp.RutaEmpleadosOrganismoB2, nil)
+	empleadosGET.Metodo = http.MethodGet
+	vacantesGET := fronteraContratacionTemporalDesarrollo("personal-b2-vacantes-consultar", personal.AccionVacantesB2, vechttp.RutaVacantesEmpleadoB2, nil)
+	vacantesGET.Metodo = http.MethodGet
 	return []descriptorFronteraComunDesarrollo{
 		planGET,
 		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-plan-registrar", ports.AccionRegistrarPlanNominalB2, httpinterno.RutaPlanB2, nil),
@@ -277,6 +307,10 @@ func descriptoresFronterasIncorporacionB2Desarrollo() []descriptorFronteraComunD
 		vinculoGET,
 		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-vinculo-rpt-registrar", ports.AccionRegistrarVinculoCategoriaRPT, httpinterno.RutaVinculoCategoriaRPTB2, nil),
 		categoriasGET,
+		catalogosGET,
+		fichaGET, empleadosGET, vacantesGET,
+		fronteraContratacionTemporalDesarrollo("personal-b2-catalogos-gobernar", accionFronteraCatalogoEmpleadoB2, vechttp.RutaCatalogosRegistroEmpleadoB2, nil),
+		fronteraContratacionTemporalDesarrollo("ct-incorporacion-b2-catalogos-registro-gobernar", accionFronteraCatalogoEmpleadoB2, rutaCatalogosRegistroEmpleadoB2, nil),
 	}
 }
 
@@ -318,6 +352,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	cfg, resolvedorDesarrollo, derivador, registro := dependencias.cfg, dependencias.resolvedor, dependencias.derivador, dependencias.registro
+	configuracionFirmaVec, firmaVecActiva, err := leerConfiguracionFirmaVecR5(cfg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if firmaVecActiva && (!cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas()) {
+		return nil, nil, nil, errMontajeFirmaVecR5
+	}
 	plantillasActivas, err := plantillasCatalogoCTDesarrolloSolicitado(cfg)
 	ajustesCTActivos, errAjustes := ajustesReglasCTSolicitados(cfg)
 	if errAjustes != nil || ajustesCTActivos && !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
@@ -353,7 +394,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	autoridadesBolsaConfiguradas := debeComponerBorradorLlamamientoDesarrollo(cfg) &&
 		(strings.TrimSpace(os.Getenv(config.EnvAutorizacionFuenteDatabaseURL)) != "" ||
 			strings.TrimSpace(os.Getenv(config.EnvAutorizacionMotivosEvaluadorDatabaseURL)) != "")
-	if plantillasActivas || documentalActiva || preparacionBasesActiva || ajustesCTActivos || autoridadesBolsaConfiguradas {
+	if plantillasActivas || documentalActiva || preparacionBasesActiva || ajustesCTActivos || autoridadesBolsaConfiguradas || firmaVecActiva {
 		if !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
@@ -531,6 +572,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	cerrarCobertura := true
+	defer func() {
+		if cerrarCobertura {
+			coberturaReal.cerrar()
+		}
+	}()
 	asignacionReal, err := nuevasDependenciasAsignacionContratacionTemporalDesarrollo(
 		derivador,
 		&alta,
@@ -593,12 +640,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if firmaDocumento != nil {
 		firmaDocumento.informeTrasSubsanacion = fuenteInformeNuevo
 	}
-	cerrarCobertura := true
-	defer func() {
-		if cerrarCobertura {
-			coberturaReal.cerrar()
-		}
-	}()
 	rutaCatalogosAlta, err := nuevaRutaCatalogosAltaContratacionTemporalDesarrollo(origen)
 	if err != nil {
 		return nil, nil, nil, err
@@ -624,6 +665,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var consultaReciboRespuestaReal http.Handler
 	var consultaComunicacionesReal http.Handler
 	var eventoPlazoReal http.Handler
+	var poolAuditoriaLecturasCT *pgxpool.Pool
+	var configuracionAuditoriaLecturasCT configuracionAuditoriaIntentosDesarrollo
 	if alta.postgresql.bolsa != nil {
 		if alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.ejecucion == nil {
 			return nil, nil, nil, ports.ErrConsultaRRHHNoDisponible
@@ -634,12 +677,21 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			alta.postgresql.registroAutorizacion.Config().ConnConfig.User,
 			alta.postgresql.bolsa.Config().ConnConfig.User,
 		}
-		alta.auditoriaLecturasCT, alta.procesoAuditoriaLecturasCT, alta.cerrarAuditoriaLecturasCT, err =
-			AbrirRegistradorIntentosAuditoriaDesarrollo(ctxIntentos, cfg, alta.postgresql.ejecucion, reservadosIntentos)
+		configuracionAuditoriaLecturasCT, err = leerConfiguracionAuditoriaIntentosDesarrollo(cfg)
+		if err != nil {
+			cancelarIntentos()
+			return nil, nil, nil, err
+		}
+		var registrador *postgresvec.RegistradorIntentosAuditoriaPostgreSQL
+		registrador, poolAuditoriaLecturasCT, alta.cerrarAuditoriaLecturasCT, err =
+			abrirComponentesRegistradorIntentosAuditoriaDesarrollo(ctxIntentos, cfg, alta.postgresql.ejecucion,
+				reservadosIntentos, configuracionAuditoriaLecturasCT)
 		cancelarIntentos()
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		alta.auditoriaLecturasCT = registrador
+		alta.procesoAuditoriaLecturasCT = configuracionAuditoriaLecturasCT.Proceso
 		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj, origen.etiquetasReferenciasCatalogosAlta())
 		if err != nil {
 			return nil, nil, nil, err
@@ -697,6 +749,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		lectoresConsulta = append(lectoresConsulta, lector.perfilRef)
 	}
 	perfilesConsulta := perfilesConsultaContratacionTemporalDesarrollo(perfilCTCatalogo, lectoresConsulta)
+	if firmaVecActiva {
+		for _, firmante := range configuracionFirmaVec.Firmantes {
+			perfilesConsulta = append(perfilesConsulta, firmante.PerfilConsultaCTRef)
+		}
+	}
 	reincorporacionTitular, err := selectorCapacidadRRHHDesarrollo(cfg, envCTReincorporacionTitularEnabled)
 	if err != nil || (reincorporacionTitular && (!seguimientoCeseSolicitado(cfg) || !cfg.BolsaBorradoresEnabled)) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
@@ -719,6 +776,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	declaracionesFrontera = append(declaracionesFrontera, fronteraJustificanteBolsaRRHHDesarrollo(perfilesConsulta))
 	if alta.postgresql.vinculoEmisionBolsa {
 		declaracionesFrontera = append(declaracionesFrontera, fronteraVinculoEmisionBolsaDesarrollo(perfilCTCatalogo))
 	}
@@ -726,14 +784,50 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		declaracionesFrontera = append(declaracionesFrontera, descriptoresFronteraAjustesReglasCT(perfilCTCatalogo)...)
 	}
 	if consultaCircuitoRRHH != nil {
+		perfilesCircuito := []string{perfilCTCatalogo}
 		declaracionesFrontera = append(declaracionesFrontera,
 			fronteraContratacionTemporalDesarrollo("ct-circuito-rrhh-consultar",
 				postgresct.AccionConsultaCircuitoRRHH, httpinterno.RutaConsultaCircuitoRRHH,
-				[]string{perfilCTCatalogo}))
+				perfilesCircuito))
 	}
 	declaracionesFrontera, err = asignarPerfilesFijosEnFronterasCTDesarrollo(alta.soporte, perfilCTCatalogo, declaracionesFrontera)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	// Primero resolver el perfil fijo legado con su guarda original. Los
+	// perfiles nominales explícitos se añaden después sólo a esta consulta.
+	if firmaVecActiva && consultaCircuitoRRHH != nil {
+		for i := range declaracionesFrontera {
+			d := &declaracionesFrontera[i]
+			if d.Ruta != httpinterno.RutaConsultaCircuitoRRHH || d.Metodo != http.MethodPost {
+				continue
+			}
+			vistos := map[string]bool{d.PerfilesActivosRef[0]: true}
+			for _, firmante := range configuracionFirmaVec.Firmantes {
+				perfil := firmante.PerfilConsultaCircuitoRef
+				if !perfilActivoSeguridadComunValido(perfil) || vistos[perfil] {
+					return nil, nil, nil, ErrActivacionDesarrolloInvalida
+				}
+				vistos[perfil] = true
+				d.PerfilesActivosRef = append(d.PerfilesActivosRef, perfil)
+			}
+		}
+	}
+	if alta.soporte.perfilesOriginal != nil {
+		fronteraOriginal, e := fronteraOriginalFirmableCTDesarrollo(alta.soporte.perfilesOriginal)
+		if e != nil {
+			return nil, nil, nil, e
+		}
+		if firmaVecActiva {
+			for _, firmante := range configuracionFirmaVec.Firmantes {
+				fronteraOriginal.PerfilesActivosRef = append(fronteraOriginal.PerfilesActivosRef,
+					firmante.PerfilConsultaCTRef, firmante.PerfilDocumentosRef)
+			}
+		}
+		declaracionesFrontera = append(declaracionesFrontera, fronteraOriginal)
+	}
+	if firmaVecActiva {
+		declaracionesFrontera = append(declaracionesFrontera, fronterasFirmaVecR5CT(configuracionFirmaVec)...)
 	}
 	if legadoConfigurado {
 		declaracionesFrontera, err = asignarPerfilesNominalesIncorporacionEnFronteras(alta.soporte, declaracionesFrontera)
@@ -759,7 +853,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		declaracionesFrontera = append(declaracionesFrontera,
 			descriptoresFronterasReincorporacionTitularDesarrollo(perfilReincorporacionTitular)...)
 	}
-	if candidato := resolvedorDesarrollo.candidatoBolsa; candidato != nil {
+	if candidato := resolvedorDesarrollo.candidatoBolsa; candidato != nil && !miBolsaExternaSeleccionadaEnCombinado(cfg) {
 		if !debeComponerMiBolsaDesarrollo(cfg) || !perfilActivoSeguridadComunValido(candidato.perfilRef) {
 			return nil, nil, nil, errMiBolsaNoDisponible
 		}
@@ -823,6 +917,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		declaracionesFrontera = append(declaracionesFrontera, bolsaFronteras...)
+		declaracionesFrontera = append(declaracionesFrontera, fronterasGobiernoTransicionesBolsaDesarrollo(perfilBolsa)...)
 	}
 	var soportesAuditoria soportesAuditoriaConsultaDesarrollo
 	if auditoriaActiva {
@@ -830,7 +925,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		fronterasAuditoria, err := descriptoresFronterasAuditoriaRRHHDesarrollo(soportesAuditoria.PerfilCT, soportesAuditoria.PerfilBolsa)
+		fronterasAuditoria, err := descriptoresFronterasAuditoriaSesionRRHH(soportesAuditoria.PerfilCT)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -863,11 +958,71 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		cuadroReal, detalleReal, originalPropuestaReal = consultasRRHH.cuadroHTTP, consultasRRHH.detalleHTTP, consultasRRHH.originalPropuestaHTTP
 		etiquetas := origen.etiquetasReferenciasCatalogosAlta()
-		// Descargas con logotipo; la formalización guarda la huella de su PDF y sigue sin él.
-		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas}
+		// Descargas con nombre y logotipo; formalización y original firmable conservan sus bytes.
+		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
 		borradorFormalizacion = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
-		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas}
+		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{Membrete: true}, Etiquetas: etiquetas, Plantillas: plantillas, OmitirReferencias: true}
 	}
+	// CT201 consume el detalle V3 y lee B98 en la misma transacción antes de
+	// devolverlo. La respuesta firme nativa conserva así su acuse nominal.
+	var lectorResultadoNativo *lectorResultadoEmisionCTDesdeDetalle
+	if alta.postgresql.vinculoEmisionBolsa && consultasRRHH.detalle != nil {
+		if seleccion, ok := seleccionReal.(*ejecutorSeleccionLlamamientoDesarrollo); ok && seleccion.puente != nil {
+			lectorResultadoNativo = &lectorResultadoEmisionCTDesdeDetalle{
+				soporte: alta.soporte, fronteras: catalogoFronteras, detalle: consultasRRHH.detalle,
+			}
+			if err := seleccion.puente.configurarLectorResultadoEmisionCT(lectorResultadoNativo); err != nil {
+				return nil, nil, nil, err
+			}
+		}
+	}
+	var montajeFirmaVec *montajeFirmaVecR5CT
+	defer func() {
+		if cerrarAlta && montajeFirmaVec != nil {
+			montajeFirmaVec.cerrarAuditoriaSiExiste()
+		}
+	}()
+	var lecturasFirmaVec *montajeLecturasFirmaV2
+	if firmaVecActiva {
+		if firmaDocumento == nil || alta.soporte.perfilesOriginal == nil || consultasRRHH.identidad == nil || consultaCircuitoRRHH == nil ||
+			fuenteAutorizacionPlantillas == nil || motivosEvaluadorPlantillas == nil {
+			return nil, nil, nil, errMontajeFirmaVecR5
+		}
+		ctxFirmaVec, cancelarFirmaVec := context.WithTimeout(context.Background(), plazoarranque.Ampliar(30*time.Second))
+		montajeFirmaVec, err = prepararMontajeFirmaVecR5CT(ctxFirmaVec, cfg, configuracionFirmaVec, &alta,
+			consultasRRHH, resolvedorDesarrollo, fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas, derivador)
+		if err != nil {
+			cancelarFirmaVec()
+			return nil, nil, nil, err
+		}
+		lecturasFirmaVec, err = nuevasLecturasFirmaV2(ctxFirmaVec, montajeFirmaVec, derivador, motivosEvaluadorPlantillas)
+		cancelarFirmaVec()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		montajeFirmaVec.nominal.lecturas = lecturasFirmaVec
+		cuadroReal = consultorCuadroFirmaV2{legacy: cuadroReal, nominal: lecturasFirmaVec.cuadro}
+		detalleReal = consultorDetalleFirmaV2{legacy: detalleReal, nominal: lecturasFirmaVec.detalle}
+		originalPropuestaReal = consultorDetalleFirmaV2{legacy: originalPropuestaReal, nominal: lecturasFirmaVec.historico}
+		consultasRRHH.descargas = selectorDescargaFirmaV2{legacy: consultasRRHH.descargas, nominal: lecturasFirmaVec.descargas}
+	}
+	documentalMontadoFicha, errDocumentalFicha := plantillasDocumentalCTDesarrolloSolicitado(cfg)
+	if errDocumentalFicha != nil {
+		documentalMontadoFicha = false
+		slog.Warn("ct.cobertura_documental_no_disponible", "etapa", "configuracion", "error.type", fmt.Sprintf("%T", errDocumentalFicha))
+	}
+	coberturaFirmaNominal := consultorDetalleConCoberturaFirmaNominalRRHH{
+		lector: detalleReal, documentalMontado: documentalMontadoFicha,
+	}
+	if montajeFirmaVec != nil {
+		coberturaFirmaNominal.plan = montajeFirmaVec.plan
+		coberturaFirmaNominal.fijado = domain.VersionPlanFirmaV2{
+			Referencia:   montajeFirmaVec.configuracion.Plan.Referencia,
+			Version:      montajeFirmaVec.configuracion.Plan.Version,
+			HuellaSHA256: montajeFirmaVec.configuracion.Plan.HuellaSHA256,
+		}
+	}
+	detalleReal = coberturaFirmaNominal
 	defer func() {
 		if cerrarAlta {
 			consultasRRHH.cerrar()
@@ -917,6 +1072,19 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			}
 		}
 	}
+	if lectorResultadoNativo != nil && len(incorporacion) == 1 && incorporacion[0].nominales != nil {
+		b2 := incorporacion[0].nominales.montajeB2
+		if propuesta, ok := propuestaReal.(*ejecutorPropuestaFormalizacionDesarrollo); ok && b2 != nil &&
+			b2.autoridad != nil && !dependenciaEsNulaContratacionTemporalDesarrollo(b2.aceptacionNativa) {
+			actorAnclaje := func(ctx context.Context) (puertosbolsa.ActorConfiablePersonaAceptacionCT, error) {
+				actual, err := b2.autoridad.contexto(ctx, puertosbolsa.AccionConsultaAnclajeAceptacionNativaCT)
+				return puertosbolsa.ActorConfiablePersonaAceptacionCT{Vinculo: actual.Vinculo, Resultado: actual.Resultado}, err
+			}
+			if err := propuesta.configurarFuentesNativasPropuestaCT(lectorResultadoNativo, b2.aceptacionNativa, actorAnclaje); err != nil {
+				return nil, nil, nil, err
+			}
+		}
+	}
 	lectorVisualLegado, err := LeerLectorFlujoVisualRRHH(
 		strings.NewReader(config.PresentacionFlujoRRHHDesarrollo()),
 	)
@@ -943,6 +1111,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		autoridadSubsanacion = subsanacionReal.autoridad
 		ejecutorSubsanacion = subsanacionReal.servicio
 	}
+	var consultorEstadoSeleccionOferta httpinterno.ConsultorEstadoSeleccionOferta
+	if consulta, ok := seleccionReal.(httpinterno.ConsultorEstadoSeleccionOferta); ok {
+		consultorEstadoSeleccionOferta = consulta
+	}
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			PresentacionFlujoRRHH:           presentacionFlujoRRHH,
@@ -964,6 +1136,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			BorradorRRHH:                    borradorRRHH,
 			BorradorRRHHDOCX:                borradorRRHHDOCX,
 			EjecutorSeleccion:               seleccionReal,
+			ConsultorEstadoSeleccionOferta:  consultorEstadoSeleccionOferta,
 			AutoridadPropuestaFormalizacion: autoridadPropuestaReal,
 			EjecutorPropuestaFormalizacion:  propuestaReal,
 			AutoridadAsignacion:             alta.soporte,
@@ -979,8 +1152,19 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if lecturasFirmaVec != nil {
+		if err := lecturasFirmaVec.envolverRutas(rutas); err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
 	if consultaCircuitoRRHH != nil {
+		if lecturasFirmaVec != nil {
+			consultaCircuitoRRHH, err = lecturasFirmaVec.envolverCircuito(consultaCircuitoRRHH)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		}
 		if dependenciaEsNulaContratacionTemporalDesarrollo(alta.postgresql.registradorAuditoriaFrontera) {
 			return nil, nil, nil, ports.ErrConsultaCircuitoRRHHNoDisponible
 		}
@@ -991,32 +1175,41 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaConsultaCircuitoRRHH, Manejador: consultaCircuitoRRHH})
 	}
 	if firmasR5V2 != nil {
-		rutas = append(rutas, firmasR5V2.rutas...)
+		for _, rutaFirmaR5 := range firmasR5V2.rutas {
+			if sustituyeRutaFirmasR5PorNominalCT(firmaVecActiva, rutaFirmaR5.Ruta) {
+				continue // El montaje nominal ocupa ambas rutas exactas R5.
+			}
+			rutas = append(rutas, rutaFirmaR5)
+		}
 	}
+	var coleccionesPersonalB2 []vechttp.RutaColeccion
 	if len(incorporacion) == 1 && incorporacion[0].nominales != nil && incorporacion[0].nominales.montajeB2 != nil {
-		rutasB2, err := incorporacion[0].nominales.montajeB2.rutas(alta.soporte, catalogoFronteras)
+		rutasB2, err := incorporacion[0].nominales.montajeB2.rutas(alta.soporte, catalogoFronteras, alta.postgresql.registradorAuditoriaFrontera)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		rutas = append(rutas, rutasB2...)
+		b2 := incorporacion[0].nominales.montajeB2
+		fichaGINPIX, err := nuevaRutaFichaGINPIXB2(b2, alta.soporte, catalogoFronteras)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, fichaGINPIX)
+		consultasPersonal, colecciones, err := rutasRegistroEmpleadoPersonalB2(b2.ficha, b2.empleados, b2.autoridad, alta.postgresql.registradorAuditoriaFrontera, alta.soporte, catalogoFronteras)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, consultasPersonal...)
+		coleccionesPersonalB2 = colecciones
 	}
 	if incorporacionV2 != nil {
-		mapeo, err := nuevoMapeoFichaGINPIXDesarrollo()
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		ficha, err := contratacioncomposicion.NuevaRutaFichaGINPIXV2(incorporacionV2, mapeo)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		rutas = append(rutas, ficha)
 		seguimiento, err := contratacioncomposicion.NuevaRutaConsultaSeguimientoV2(incorporacionV2)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		rutas = append(rutas, seguimiento)
 		for i := range rutas {
-			if rutas[i].Ruta == httpinterno.RutaIncorporacionEjercicioV2 || rutas[i].Ruta == httpinterno.RutaFichaGINPIXV2 || rutas[i].Ruta == httpinterno.RutaConsultaSeguimientoV2 {
+			if rutas[i].Ruta == httpinterno.RutaIncorporacionEjercicioV2 || rutas[i].Ruta == httpinterno.RutaConsultaSeguimientoV2 {
 				rutas[i].Manejador = ligarContextoIncorporacionV2Desarrollo(rutas[i].Manejador, alta.soporte, catalogoFronteras)
 			}
 		}
@@ -1104,6 +1297,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var envolverBorrador func(http.Handler) http.Handler
 	var manejadorSituacion http.Handler
 	cerrarBorrador := func() {}
+	cerrarClienteM10CT := func() {}
+	cerrarClienteM10CTPendiente := true
+	defer func() {
+		if cerrarClienteM10CTPendiente {
+			cerrarClienteM10CT()
+		}
+	}()
 	personalizacionB7 := &fuentePersonalizacionB7{}
 	var autorizacionesPreparacionBases []descriptorAutorizacionComunDesarrollo
 	if preparacionBasesActiva {
@@ -1113,19 +1313,100 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, err
 		}
 	}
+	if montajeFirmaVec != nil {
+		adicionales, e := montajeFirmaVec.autorizaciones()
+		if e != nil {
+			return nil, nil, nil, e
+		}
+		autorizacionesPreparacionBases = append(autorizacionesPreparacionBases, adicionales...)
+	}
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
 		if consultasRRHH.identidad == nil {
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		var errBorrador error
 		rutasBorrador, coleccionesBorrador, manejadorSituacion, seguridadBorrador, envolverBorrador, cerrarBorrador, errBorrador = nuevasDependenciasBorradorLlamamientoDesarrollo(
-			context.Background(), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad, personalizacionB7,
+			contextoMontajeFirmaVecR5CT(context.Background(), montajeFirmaVec), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad, personalizacionB7,
 			autorizacionesPreparacionBases,
 			autoridadesCargaConvoca,
 			alta.postgresql.proveedorMaterialConsultaReincorporacionTitular,
 		)
 		if errBorrador != nil {
 			return nil, nil, nil, errBorrador
+		}
+		var operacionNativa *operacionBolsaNativaCT
+		if seleccion, ok := seleccionReal.(*ejecutorSeleccionLlamamientoDesarrollo); ok {
+			bolsa, compuesta := manejadorSituacion.(*manejadorParticipacionBolsaDesarrollo)
+			if !compuesta || bolsa == nil || bolsa.emision == nil || seleccion.puente == nil {
+				return nil, nil, nil, ports.ErrIntegracionBolsaNoDisponible
+			}
+			operacionNativa, err = nuevaOperacionBolsaNativaCT(bolsa, alta.soporte, catalogoFronteras, reloj)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			derivadorToken, err := nuevoDerivadorTokenFinalizacionCTDesarrollo(derivador)
+			if err != nil || operacionNativa.emision.EstablecerDerivadorTokenFinalizacionCT(derivadorToken) != nil {
+				return nil, nil, nil, ports.ErrIntegracionBolsaNoDisponible
+			}
+			if err := seleccion.puente.configurarOperacionNativaCT(operacionNativa); err != nil {
+				return nil, nil, nil, err
+			}
+			if err := seleccion.puente.configurarEmisorNativoLlamamientoCT(emisorNativoPrivadoCT{puente: seleccion.puente}); err != nil {
+				return nil, nil, nil, err
+			}
+			configurarOrigenConstituidoOpcionalCT(poolAuditoriaLecturasCT, configuracionAuditoriaLecturasCT, seleccion.puente)
+			if err := seleccion.puente.configurarAuditoriaLecturaOrdenCT(nuevoConstructorOrdenOrigenCT(&alta, seleccion.puente, bolsa.preparador, configuracionAuditoriaLecturasCT.Proceso, configuracionAuditoriaLecturasCT.Canal)); err != nil {
+				return nil, nil, nil, err
+			}
+			cerrarClienteM10CT = configurarDatosEmisionConstituidaOpcionalCT(cfg, seleccion.puente, reglasLlamamiento, reloj.Ahora)
+			cerrarOfertas := configurarSeleccionOfertaOpcionalCT(cfg, &alta, seleccion,
+				bolsa.preparador, catalogoFronteras, derivador, reloj)
+			cerrarDatos := cerrarClienteM10CT
+			cerrarClienteM10CT = func() { cerrarOfertas(); cerrarDatos() }
+		}
+		if len(incorporacion) == 1 && incorporacion[0].nominales != nil &&
+			incorporacion[0].nominales.montajeB2 != nil {
+			b2 := incorporacion[0].nominales.montajeB2
+			bolsa, ok := manejadorSituacion.(*manejadorParticipacionBolsaDesarrollo)
+			if !ok || bolsa == nil || bolsa.preparador == nil || bolsa.servicioSituacion == nil ||
+				alta.postgresql.bolsa == nil || b2.autoridad == nil ||
+				dependenciaEsNulaContratacionTemporalDesarrollo(b2.aceptacionNativa) {
+				return nil, nil, nil, ports.ErrIntegracionBolsaNoDisponible
+			}
+			if operacionNativa == nil {
+				operacionNativa, err = nuevaOperacionBolsaNativaCT(bolsa, alta.soporte, catalogoFronteras, reloj)
+				if err != nil {
+					return nil, nil, nil, err
+				}
+			}
+			repoAlta, err := postgresbolsa.NuevoRepositorioAltaNativaCTPostgreSQL(alta.postgresql.bolsa)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			repoCese, err := postgresbolsa.NuevoRepositorioCeseNativoCTPostgreSQL(alta.postgresql.bolsa)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			altaNativa, err := aplicacionbolsa.NuevoServicioAltaNativaCT(operacionNativa.servicio, repoAlta)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			ceseNativo, err := aplicacionbolsa.NuevoServicioCeseNativoCT(operacionNativa.servicio, repoCese)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			efectos := &efectosBolsaNativosB115{anclaje: b2.aceptacionNativa,
+				alta: altaNativa, cese: ceseNativo,
+				actorAnclaje: func(ctx context.Context) (puertosbolsa.ActorConfiablePersonaAceptacionCT, error) {
+					actual, err := b2.autoridad.contexto(ctx, puertosbolsa.AccionConsultaAnclajeAceptacionNativaCT)
+					return puertosbolsa.ActorConfiablePersonaAceptacionCT{Vinculo: actual.Vinculo, Resultado: actual.Resultado}, err
+				},
+				actorSituacion: operacionNativa.Contexto,
+				motivo:         motivoCambiarSituacionParticipacionBolsaDesarrollo(),
+			}
+			if err := b2.configurarEfectosBolsaNativosB115(efectos); err != nil {
+				return nil, nil, nil, err
+			}
 		}
 	}
 	cerrarBorradorPendiente := true
@@ -1225,7 +1506,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cerrarAuditoria = detener
 		rutas = append(rutas, rutasAuditoria...)
 	}
-	if resolvedorDesarrollo.candidatoBolsa != nil {
+	if resolvedorDesarrollo.candidatoBolsa != nil && !miBolsaExternaSeleccionadaEnCombinado(cfg) {
 		if !debeComponerMiBolsaDesarrollo(cfg) || consultasRRHH.identidad == nil {
 			return nil, nil, nil, errMiBolsaNoDisponible
 		}
@@ -1288,7 +1569,14 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			}
 		}
 	}
+	var soportesDocumentos map[string]*soporteAltaContratacionTemporalDesarrollo
+	if lectores, ok := consultasRRHH.cuadroHTTP.(*multiplexoresLectoresRRHHDesarrollo); ok {
+		soportesDocumentos = lectores.soportes
+	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
+		soportesLectoresDocumentosBolsa:                  soportesDocumentos,
+		soporteDocumentosBolsa:                           alta.soporte,
+		poolDocumentosBolsa:                              alta.postgresql.bolsa,
 		sello:                                            sello,
 		resolvedor:                                       resolvedorDesarrollo,
 		noCompuesta:                                      noCompuesta,
@@ -1300,7 +1588,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		manejadorSituacionParticipacion:                  manejadorSituacion,
 		plazosOfertasBolsa:                               dependencias.plazosOfertasBolsa,
 		personalizacionB7:                                personalizacionB7,
-		coleccionesAdicionales:                           coleccionesBorrador,
+		coleccionesAdicionales:                           append(coleccionesBorrador, coleccionesPersonalB2...),
 		registradorAuditoriaFronteraRutasExactas:         registradorFrontera,
 		materialDietas:                                   alta.postgresql.materialDietas,
 		materialCronos:                                   alta.postgresql.materialCronos,
@@ -1318,20 +1606,38 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialUsuariosCorreos:                          alta.postgresql.materialUsuariosCorreos,
 		materialUsuariosImagen:                           alta.postgresql.materialUsuariosImagen,
 		materialAspirantes:                               alta.postgresql.materialAspirantes,
+		materialPreferenciasBolsasInternas:               alta.postgresql.materialPreferenciasBolsasInternas,
+		materialOrganizacionHistorica:                    alta.postgresql.materialOrganizacionHistorica,
+		proveedorMaterialOrganizacionHistorica:           alta.postgresql.proveedorMaterialOrganizacionHistorica,
+		sesionOrganizacionHistorica:                      consultasRRHH.identidad,
 		presentadorCobertura:                             coberturaReal.presentador,
 		situacionBolsaCobertura:                          coberturaReal.situacionBolsa,
 		firmaDocumento:                                   firmaDocumento,
+		firmaVecR5:                                       montajeFirmaVec,
+	}
+	if alta.soporte.perfilesOriginal != nil {
+		autoridad.prepararOriginal = func(documentos *autoridadDocumentosDesarrollo, seudonimos *seudonimizadorAlmacenDesarrollo) ([]vechttp.RutaExacta, error) {
+			if montajeFirmaVec == nil {
+				return nuevaRutaOriginalFirmableCTDesarrollo(&alta, consultasRRHH, borradorFormalizacion, documentos, seudonimos, reloj)
+			}
+			return montarOriginalYFirmaVecR5(&alta, consultasRRHH, borradorFormalizacion, documentos, seudonimos,
+				reloj, firmaDocumento, montajeFirmaVec)
+		}
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	dependencias.cerrar = func() {
+		if montajeFirmaVec != nil {
+			montajeFirmaVec.cerrarAuditoriaSiExiste()
+		}
 		cerrarPreparacionBases()
 		cerrarBaremo()
 		cerrarAutoridadesPlantillas()
 		cerrarFronteraAuditoria()
 		cerrarAuditoria()
 		cerrarBorrador()
+		cerrarClienteM10CT()
 		cerrarIncorporacion()
 		consultasRRHH.cerrar()
 		coberturaReal.cerrar()
@@ -1340,10 +1646,96 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	cerrarCobertura = false
 	cerrarAlta = false
 	cerrarBorradorPendiente = false
+	cerrarClienteM10CTPendiente = false
 	cerrarAuditoriaPendiente = false
 	cerrarFronteraAuditoriaPendiente = false
 	cerrarAutoridadesPlantillasPendiente = false
 	return rutas, autoridad, dependencias.Cerrar, nil
+}
+
+func advertirSeleccionConstituidaCT(etapa string, err error) {
+	// Sólo códigos internos fijos: los errores de fichero, TLS y SQL pueden
+	// contener rutas o material privado que no pertenece al registro.
+	causa := "dependencia_no_disponible"
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		causa = "plazo_agotado"
+	case etapa == "rpt_ruta" && errors.Is(err, personal.ErrConsultaRPTPublicaInvalida):
+		causa = "fuente_ausente"
+	case etapa == "rpt_fuente" && errors.Is(err, personal.ErrConsultaRPTPublicaInvalida):
+		causa = "ruta_no_admitida"
+	case etapa == "rpt_publicacion" && errors.Is(err, personal.ErrRPTPublicaNoDisponible):
+		causa = "publicacion_no_verificada"
+	case etapa == "m10_configuracion" && errors.Is(err, puertosbolsa.ErrEmisionLlamamientoNoDisponible):
+		causa = "material_privado_no_admitido"
+	case etapa == "datos_emision" && errors.Is(err, ports.ErrIntegracionBolsaNoDisponible):
+		causa = "proveedor_no_compuesto"
+	case (etapa == "lector_origen" || etapa == "preflight_origen") && errors.Is(err, puertosbolsa.ErrOrigenLlamamientoCTNoDisponible):
+		causa = "capacidad_no_confirmada"
+	}
+	slog.Warn("contratación temporal: selección constituida no disponible", "etapa", etapa, "causa", causa)
+}
+
+func configurarOrigenConstituidoOpcionalCT(pool *pgxpool.Pool, c configuracionAuditoriaIntentosDesarrollo,
+	puente *puenteBolsaLlamamientoDesarrollo,
+) {
+	if puente == nil {
+		return
+	}
+	lector, err := postgresbolsa.NuevoLectorOrigenLlamamientoCTAuditadoPostgreSQL(pool, c.Proceso, c.Canal)
+	if err != nil {
+		advertirSeleccionConstituidaCT("lector_origen", err)
+		return
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
+	defer cancelar()
+	if err := lector.Preflight(ctx); err != nil {
+		advertirSeleccionConstituidaCT("preflight_origen", err)
+		return
+	}
+	if err := puente.configurarOrigenConstituidoLlamamientoCT(lector); err != nil {
+		advertirSeleccionConstituidaCT("origen", err)
+	}
+}
+
+// Un material M10 opcional defectuoso deja el puente nativo sin datos de
+// emisión. El emisor ya está configurado: no puede reabrir la fuente fija.
+func configurarDatosEmisionConstituidaOpcionalCT(cfg config.Config, puente *puenteBolsaLlamamientoDesarrollo,
+	resolutor *reglas.Resolutor, ahora func() time.Time,
+) func() {
+	cerrar := func() {}
+	if os.Getenv(rutaClienteM10LlamamientoCT) == "" || puente == nil {
+		return cerrar
+	}
+	if cfg.RPTCatalogoPath == "" {
+		advertirSeleccionConstituidaCT("rpt_ruta", personal.ErrConsultaRPTPublicaInvalida)
+		return cerrar
+	}
+	perfilRPT, err := personalrpt.NuevaFuente(cfg.RPTCatalogoPath)
+	if err != nil {
+		advertirSeleccionConstituidaCT("rpt_fuente", err)
+		return cerrar
+	}
+	ctxRPT, cancelarRPT := context.WithTimeout(context.Background(), plazoarranque.Ampliar(10*time.Second))
+	_, err = perfilRPT.ObtenerRPTPublica(ctxRPT)
+	cancelarRPT()
+	if err != nil {
+		advertirSeleccionConstituidaCT("rpt_publicacion", err)
+		return cerrar
+	}
+	clienteM10, organismoRef, err := cargarClienteM10LlamamientoCT()
+	if err != nil {
+		advertirSeleccionConstituidaCT("m10_configuracion", err)
+		return cerrar
+	}
+	resolverPuesto := nuevoResolutorPuestoRPTConstituidoCT(clienteM10, organismoRef, ahora)
+	if err := puente.configurarDatosEmisionConstituidaCT(nuevoProveedorDatosEmisionConstituidaCT(
+		perfilRPT, resolutor, ahora, resolverPuesto)); err != nil {
+		clienteM10.Cerrar()
+		advertirSeleccionConstituidaCT("datos_emision", err)
+		return cerrar
+	}
+	return clienteM10.Cerrar
 }
 
 func debeComponerBorradorLlamamientoDesarrollo(cfg config.Config) bool {
@@ -1379,146 +1771,13 @@ func (i identidadSesionAuditoriaConsultaDesarrollo) ResolverIdentidadConsulta(ct
 	return auditoria.IdentidadResuelta{Vinculo: resuelta.Vinculo, Resultado: resuelta.Resultado, Correlacion: correlacion}, nil
 }
 
-func nuevasRutasAuditoriaConsultaDesarrollo(
-	ctx context.Context, cfg config.Config, alta *dependenciasAltaContratacionTemporalDesarrollo,
-	soportes soportesAuditoriaConsultaDesarrollo, identidadBase *proveedorSesionConsultaRRHHDesarrollo,
-	fronteras catalogoFronterasComunDesarrollo, reloj relojContratacionTemporalDesarrollo,
-) ([]vechttp.RutaExacta, func(), error) {
-	fallo := func(cerrar func()) ([]vechttp.RutaExacta, func(), error) {
-		if cerrar != nil {
-			cerrar()
-		}
-		return nil, nil, errAutoridadesAuditoriaConsultaDesarrollo
-	}
-	if ctx == nil || ctx.Err() != nil || alta == nil || alta.postgresql.gobierno == nil ||
-		alta.postgresql.registroAutorizacion == nil || alta.postgresql.bolsa == nil ||
-		alta.postgresql.proveedorMaterialAuditoriaCT == nil || alta.postgresql.proveedorMaterialAuditoriaBolsa == nil ||
-		soportes.CT == nil || soportes.Bolsa == nil || identidadBase == nil || fronteras.identidad == nil {
-		return fallo(nil)
-	}
-	ctRef, bolsaRef, err := cfg.ExpedientesAuditoriaConsultaDesarrollo()
-	if err != nil {
-		return fallo(nil)
-	}
-	dsnCT, _, err := cfg.ContratacionTemporalPostgreSQL.DSNConsultasRRHHSeparados()
-	if err != nil {
-		return fallo(nil)
-	}
-	dsnMotivos, err := cfg.DSNMotivosAuditoriaDesarrollo()
-	if err != nil {
-		return fallo(nil)
-	}
-	dsnFuente, err := cfg.DSNFuenteAutorizacionAuditoriaDesarrollo()
-	if err != nil {
-		return fallo(nil)
-	}
-	sonda, cancelar := context.WithTimeout(ctx, plazoarranque.Ampliar(60*time.Second))
-	defer cancelar()
-	poolCT, err := abrirPoolConsultaAuditoriaCTDesarrollo(sonda, dsnCT)
-	if err != nil {
-		return fallo(nil)
-	}
-	poolFuente, err := abrirPoolAutoridadAuditoriaDesarrollo(sonda, dsnFuente, config.RolFuenteAutorizacionAuditoriaDesarrollo, "vec-auditoria-fuente")
-	if err != nil {
-		poolCT.Close()
-		return fallo(nil)
-	}
-	poolMotivos, err := abrirPoolAutoridadAuditoriaDesarrollo(sonda, dsnMotivos, config.RolMotivosAuditoriaDesarrollo, "vec-auditoria-motivos")
-	if err != nil {
-		poolFuente.Close()
-		poolCT.Close()
-		return fallo(nil)
-	}
-	cerrar := func() { poolMotivos.Close(); poolFuente.Close(); poolCT.Close() }
-	if preflightAuditoriaConsultaDesarrollo(sonda, poolFuente, poolMotivos, alta.postgresql.bolsa) != nil {
-		return fallo(cerrar)
-	}
-	for _, soporte := range []struct {
-		base      *soporteAltaContratacionTemporalDesarrollo
-		operacion string
-	}{
-		{soportes.CT, soportes.OperacionContextoCT}, {soportes.Bolsa, soportes.OperacionContextoBolsa},
-	} {
-		if publicarResultadoContextoPostgreSQLDesarrollo(sonda, alta.postgresql.gobierno, soporte.base.contexto.Resultado, soporte.operacion) != nil {
-			return fallo(cerrar)
-		}
-		esperado, err := contextoEsperadoRegistradoDesarrollo(sonda, identidadBase.resolutor, soporte.base)
-		if err != nil {
-			return fallo(cerrar)
-		}
-		soporte.base.contextoEsperadoRegistrado = esperado
-	}
-	validador, err := postgresvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(poolMotivos, catalogoMotivosAuditoriaConsultaDesarrollo)
-	if err != nil {
-		return fallo(cerrar)
-	}
-	opciones, err := configurarOpcionesAuditoriaConsultaDesarrollo(sonda, cfg, alta.postgresql.gobierno, validador, reloj)
-	if err != nil {
-		return fallo(cerrar)
-	}
-	for _, s := range []struct {
-		base                       *soporteAltaContratacionTemporalDesarrollo
-		fuente, perfil, expediente string
-	}{
-		{soportes.CT, "ct", soportes.PerfilCT, ctRef},
-		{soportes.Bolsa, "bolsa", soportes.PerfilBolsa, bolsaRef},
-	} {
-		semilla, err := instantaneaAuditoriaConsultaNominalDesarrollo(s.base.principalID, s.perfil, s.fuente, s.expediente, opciones.FinalidadRef, reloj.Ahora())
-		if err != nil || publicarInstantaneaAuditoriaConsultaDesarrollo(sonda, alta.postgresql.gobierno, poolFuente, s.base, semilla) != nil {
-			return fallo(cerrar)
-		}
-	}
-	identidadCT, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(soportes.CT,
-		identidadBase.registro, identidadBase.revalidador, reloj, identidadBase.resolutor, fronteras)
-	if err != nil {
-		return fallo(cerrar)
-	}
-	identidadBolsa, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(soportes.Bolsa,
-		identidadBase.registro, identidadBase.revalidador, reloj, identidadBase.resolutor, fronteras)
-	if err != nil {
-		return fallo(cerrar)
-	}
-	emisorCT, emisorBolsa, err := nuevosEmisoresAuditoriaConsultaDesarrollo(dependenciasAutoridadesAuditoriaConsultaDesarrollo{
-		FuenteCT: poolFuente, FuenteBolsa: poolFuente,
-		RegistroCT: alta.postgresql.registroAutorizacion, RegistroBolsa: alta.postgresql.registroAutorizacion,
-		MotivosCT: poolMotivos, MotivosBolsa: poolMotivos,
-		MaterialCT: alta.postgresql.proveedorMaterialAuditoriaCT, MaterialBolsa: alta.postgresql.proveedorMaterialAuditoriaBolsa,
-		PerfilCT: soportes.PerfilCT, PerfilBolsa: soportes.PerfilBolsa,
-		ExpedienteCT: ctRef, ExpedienteBolsa: bolsaRef, Opciones: opciones, Reloj: reloj,
-	})
-	if err != nil {
-		return fallo(cerrar)
-	}
-	proveedorOpciones, _, err := nuevoProveedorOpcionesAuditoriaConsultaDesarrollo(sonda, cfg, reloj, validador)
-	if err != nil {
-		return fallo(cerrar)
-	}
-	rutas, err := nuevasRutasAuditoriaConsultaConIdentidadesRRHH(dependenciasIdentidadAuditoriaConsultaRRHH{
-		PoolCT: poolCT, PoolBolsa: alta.postgresql.bolsa,
-		EmisorCT: emisorCT, EmisorBolsa: emisorBolsa,
-		IdentidadOpciones: identidadSesionAuditoriaConsultaDesarrollo{identidadCT, auditoria.FuenteConsultaGeneral, auditoria.RutaOpciones, http.MethodGet},
-		IdentidadCT:       identidadSesionAuditoriaConsultaDesarrollo{identidadCT, auditoria.FuenteConsultaCT, auditoria.RutaConsulta, http.MethodPost},
-		IdentidadBolsa:    identidadSesionAuditoriaConsultaDesarrollo{identidadBolsa, auditoria.FuenteConsultaBolsa, auditoria.RutaConsulta, http.MethodPost},
-		Opciones:          proveedorOpciones,
-		Intentos: auditoria.ConfiguracionIntentos{
-			Registrador: alta.auditoriaLecturasCT, Proceso: alta.procesoAuditoriaLecturasCT,
-			Canal:     string(vecdomain.SuperficieAutenticacionInternaCorporativaV1),
-			Finalidad: opciones.FinalidadRef, Motivo: opciones.Motivo,
-		},
-	})
-	if err != nil {
-		return fallo(cerrar)
-	}
-	return rutas, cerrar, nil
-}
-
 func configurarOpcionesAuditoriaConsultaDesarrollo(ctx context.Context, cfg config.Config, gobierno *pgxpool.Pool,
 	validador *postgresvec.ValidadorReferenciaMotivoPostgreSQLV2, reloj relojContratacionTemporalDesarrollo) (auditoria.Opciones, error) {
 	ruta, err := cfg.RutaCatalogoAuditoriaConsultaDesarrollo()
 	if err != nil || gobierno == nil || validador == nil {
 		return auditoria.Opciones{}, errAutoridadesAuditoriaConsultaDesarrollo
 	}
-	consulta, err := fichero.NuevaConsultaCatalogos(ruta)
+	consulta, err := fichero.NuevaConsultaCatalogoProvisionable(ruta)
 	if err != nil {
 		return auditoria.Opciones{}, errAutoridadesAuditoriaConsultaDesarrollo
 	}
@@ -1532,7 +1791,7 @@ func configurarOpcionesAuditoriaConsultaDesarrollo(ctx context.Context, cfg conf
 		return auditoria.Opciones{}, errAutoridadesAuditoriaConsultaDesarrollo
 	}
 	declaradas, err := p.Configuradas(ctx)
-	if err != nil || !declaradas.EsEjemplo ||
+	if err != nil ||
 		publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, gobierno,
 			[]vecdomain.ReferenciaEntradaCatalogo{declaradas.Motivo}, reloj.Ahora()) != nil {
 		return auditoria.Opciones{}, errAutoridadesAuditoriaConsultaDesarrollo

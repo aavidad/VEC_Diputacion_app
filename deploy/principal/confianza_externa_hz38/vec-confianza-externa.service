@@ -1,0 +1,12 @@
+[Unit]
+Description=Renovación administrativa de la confianza externa de VEC
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/vec/confianza-externa/renovacion.env
+ExecStart=/usr/bin/bash %h/.local/libexec/vec/renovar-confianza-externa.sh
+UMask=0077
+TimeoutStartSec=180
+NoNewPrivileges=yes
+PrivateTmp=yes
+Restart=no

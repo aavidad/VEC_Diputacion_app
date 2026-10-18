@@ -55,6 +55,10 @@ normalizar_manifiesto() {
 						[[ "${nombre}" != interno ]] ||
 							fallar "Catalogo de enlaces publico en superficie interna: ${ruta}"
 						;;
+					static/portal-empleado/modulos/bolsa/criterios-ofrecimiento/v1.json)
+						[[ "${nombre}" != publico ]] ||
+							fallar "Catalogo de criterios de Bolsa en superficie publica: ${ruta}"
+						;;
 					static/portal-empleado/cache-publica-v1.json | \
 					static/area-personal/cache-publica-v1.json | \
 					static/area-personal/vistas.json | \

@@ -11,6 +11,7 @@ import (
 	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
 	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -74,6 +75,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		// Llamamiento: su autoridad decide en el PDP común (frontera por ruta
 		// y método en contratacion_temporal_llamamiento_pdp_comun_desarrollo.go).
 		httpinterno.RutaSeleccionLlamamiento:              {pdpCT(http.MethodPost)},
+		httpinterno.RutaConsultaEstadoSeleccionOferta:     {pdpCT(http.MethodGet)},
 		httpinterno.RutaRegistroComunicacionLlamamiento:   {pdpCT(http.MethodPost)},
 		httpinterno.RutaConsultaComunicacionesExpediente:  {pdpCT(http.MethodGet)},
 		httpinterno.RutaRegistroRespuestaRecibida:         {pdpCT(http.MethodPost)},
@@ -88,7 +90,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		httpinterno.RutaReasignaciones:                          {nominalCT(http.MethodPost, "contratacion_temporal_asignacion_desarrollo.go:nuevasDependenciasAsignacionContratacionTemporalDesarrollo")},
 		httpinterno.RutaResultadosFiscalizacion:                 {nominalCT(http.MethodPost, "contratacion_temporal_fiscalizacion_desarrollo.go:soporteFiscalizacionContratacionTemporalDesarrollo")},
 		httpinterno.RutaIncorporacionEjercicioV2:                {nominalCT(http.MethodGet, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo"), nominalCT(http.MethodPost, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo")},
-		httpinterno.RutaFichaGINPIXV2:                           {nominalCT(http.MethodGet, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo")},
+		httpinterno.RutaFichaGINPIXV2:                           {nominalCT(http.MethodGet, "composicion_incorporacion_personal_b2.go:ligarContextoIncorporacionPersonalB2")},
 		httpinterno.RutaConsultaSeguimientoV2:                   {nominalCT(http.MethodGet, "contratacion_temporal_incorporacion_v2.go:ligarContextoIncorporacionV2Desarrollo")},
 		httpinterno.RutaAnotacionesAdministrativas:              {nominalCT(http.MethodPost, continuidad)},
 		httpinterno.RutaRecuperacionAnotacionesAdministrativas:  {nominalCT(http.MethodGet, continuidad)},
@@ -111,12 +113,17 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		rutaConfiguracionAnalisisContratacionTemporalDesarrollo: {nominalCT(http.MethodGet, "contratacion_temporal_analisis_desarrollo.go:manejadorConfiguracionAnalisisContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_analisis_desarrollo.go:manejadorConfiguracionAnalisisContratacionTemporalDesarrollo")},
 		rutaCircuitoFirmaContratacionTemporalDesarrollo:         {nominalCT(http.MethodGet, "contratacion_temporal_circuito_firma_desarrollo.go:manejadorCircuitoFirmaContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_circuito_firma_desarrollo.go:manejadorCircuitoFirmaContratacionTemporalDesarrollo")},
 		httpinterno.RutaDocumentacionFormalizacion:              {nominalCT(http.MethodGet, "contratacion_temporal_documentacion_formalizacion_desarrollo.go:nuevaRutaDocumentacionFormalizacionDesarrollo")},
+		httpinterno.RutaPreflightFirmaR5:                        {pdpCT(http.MethodPost)},
+		httpinterno.RutaRegistroFirmaVec:                        {pdpCT(http.MethodPost)},
+		httpinterno.RutaDescargaFirmaR5V2:                       {pdpCT(http.MethodPost)},
+		httpinterno.RutaOriginalFirmableCT:                      {pdpCT(http.MethodPost)},
 		httpinterno.RutaFirmaDocumento:                          {pdpCT(http.MethodPost)},
 		httpinterno.RutaConsultaFirmaDocumento:                  {pdpCT(http.MethodPost)},
 		httpinterno.RutaPlanB2:                                  {pdpCT(http.MethodGet), pdpCT(http.MethodPost)},
 		httpinterno.RutaConfirmacionB2:                          {pdpCT(http.MethodPost)},
 		httpinterno.RutaVinculoCategoriaRPTB2:                   {pdpCT(http.MethodGet), pdpCT(http.MethodPost)},
 		httpinterno.RutaCategoriasRPTB2:                         {pdpCT(http.MethodGet)},
+		rutaCatalogosRegistroEmpleadoB2:                         {pdpCT(http.MethodPost)},
 	}
 }
 
@@ -202,6 +209,18 @@ func validarMetodoRutaCTDesarrollo(ruta string, metodo metodoRutaCTDesarrollo, f
 		return nil
 	}
 	if resuelta {
+		// Consulta y recuperación R5 legadas tienen autoridad nominal propia.
+		// Con firma VEC activa, cada ruta recibe su frontera nominal exacta.
+		consultaNominal := ruta == httpinterno.RutaConsultaFirmasR5V2 &&
+			frontera.Clave == "ct-firma-vec-consultar" && frontera.ClaveCapacidad == ports.AccionConsultarFirmasR5V2
+		recuperacionNominal := ruta == httpinterno.RutaRecuperacionFirmasR5V2 &&
+			frontera.Clave == "ct-firma-vec-recuperar" && frontera.ClaveCapacidad == ports.AccionRecuperarFirmasR5V2
+		if (consultaNominal || recuperacionNominal) && metodo.metodo == http.MethodPost &&
+			metodo.guardia == "contratacion_temporal_firmas_r5_v2_desarrollo.go:fuenteNominalFirmasR5V2CTDesarrollo" &&
+			frontera.Metodo == http.MethodPost && frontera.Ruta == ruta &&
+			frontera.Superficie == superficieInternaSeguridadComunDesarrollo {
+			return nil
+		}
 		return fmt.Errorf("%w: frontera PDP no inventariada %s %q", ErrCoberturaRutasCTDesarrollo, metodo.metodo, ruta)
 	}
 	return nil
@@ -216,18 +235,23 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if _, noCompuesta := rutasCapacidadNoCompuestaContratacionTemporal[r.URL.Path]; noCompuesta {
 		return true
 	}
-	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaPlanB2 || r.URL.Path == httpinterno.RutaConfirmacionB2 || r.URL.Path == httpinterno.RutaVinculoCategoriaRPTB2 || r.URL.Path == httpinterno.RutaCategoriasRPTB2 || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
+	if _, lecturaPersonal := accionConsultaRegistroPersonalB2(r.URL.Path, r.Method); lecturaPersonal {
+		return true
+	}
+	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaPlanB2 || r.URL.Path == httpinterno.RutaConfirmacionB2 || r.URL.Path == httpinterno.RutaVinculoCategoriaRPTB2 || r.URL.Path == httpinterno.RutaCategoriasRPTB2 || r.URL.Path == rutaCatalogosRegistroEmpleadoB2 || r.URL.Path == vechttp.RutaCatalogosRegistroEmpleadoB2 || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
 		rutaPlantillasCatalogoCTDesarrollo(r.URL.Path) ||
 		r.URL.Path == ajusteshttp.Ruta ||
 		rutaPlantillasDocumentalCTDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
+		r.URL.Path == httpinterno.RutaConsultaEstadoSeleccionOferta ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||
 		r.URL.Path == httpinterno.RutaConsultaReciboRespuesta ||
 		r.URL.Path == httpinterno.RutaConsultaComunicacionesExpediente ||
 		r.URL.Path == httpinterno.RutaConsultaCircuitoRRHH ||
 		r.URL.Path == httpinterno.RutaVinculosEmisionBolsa ||
-		rutaFirmasR5V2CTDesarrollo(r.URL.Path) ||
+		rutaFirmasR5V2CTDesarrollo(r.URL.Path) || rutaFirmaVecR5CT(r.URL.Path) ||
+		r.URL.Path == httpinterno.RutaOriginalFirmableCT ||
 		r.URL.Path == httpinterno.RutaEventoPlazoLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaResultadosFiscalizacion ||
@@ -243,7 +267,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaAsignaciones ||
 		r.URL.Path == httpinterno.RutaReasignaciones ||
 		r.URL.Path == httpinterno.RutaPreparacionesInformeJuridico ||
-		r.URL.Path == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(r.URL.Path) || rutaBolsasOperacionesRRHHDesarrollo(r.URL.Path) ||
+		r.URL.Path == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(r.URL.Path) || rutaBolsasOperacionesRRHHDesarrollo(r.URL.Path) || rutaDocumentosBolsaRRHHDesarrollo(r.URL.Path) || rutaJustificanteBolsaRRHHDesarrollo(r.URL.Path) ||
 		r.URL.Path == rutaEstadisticasBolsaRRHHDesarrollo ||
 		r.URL.Path == rutaAvisosBolsaRRHHDesarrollo ||
 		r.URL.Path == bolsahttp.RutaPlazoRespuestaLlamamiento ||

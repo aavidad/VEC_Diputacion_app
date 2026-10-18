@@ -1,5 +1,6 @@
+import { referenciaEmpleadoB2Valida } from "../personal/registro-b2-cliente.js?v=20261012-ct-personal-ficha-v1";
 import { validarConsultaB2, validarSolicitudPlanB2, validarSolicitudConfirmacionB2, validarReciboB2, fechaCivilB2 } from "./contrato-incorporacion-personal-b2.js";
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=20261016-ct-ofertas-ct231-v1";
 import { cargarTextos } from "../../../comun/textos.js";
 
 export const cargarTextosIncorporacionPersonalB2 = (opciones) => cargarTextos("contratacion-temporal-incorporacion-personal-b2", opciones);
@@ -18,6 +19,16 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     try { valor = t(clave); } catch { valor = resolverEtiqueta?.(clave); }
     if (typeof valor !== "string" || !valor || valor === clave) throw new TypeError("etiqueta_b2_no_disponible");
     return valor;
+  };
+  // Régimen y modalidad se rotulan por su referencia en el catálogo de textos
+  // del idioma («regimen:laboral-temporal» → catalogo_registro.regimen.laboral_temporal);
+  // una entrada que RRHH publique sin traducción muestra la denominación publicada.
+  const rotuloCatalogo = (opcion) => {
+    try {
+      const valor = t(`catalogo_registro.${String(opcion.ref).replaceAll(":", ".").replaceAll("-", "_")}`);
+      if (typeof valor === "string" && valor) return valor;
+    } catch { /* referencia sin texto en el catálogo del idioma */ }
+    return opcion.denominacion;
   };
   let activo = true, controlador = null, consulta = null, opcionesGuardadas = null, recibo = null, fase = "datos", mensaje = "cargando";
   let intencion = null, plan = null, incierto = false, denegado = false, errores = {}, valores = {}, modificado = false;
@@ -89,7 +100,7 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     if (!vacante || !regimen || !modalidad || !clase || !documento) throw new TypeError("seleccion_b2_no_disponible");
     return `<dl class="ct-resumen">${fila("persona", t("persona_aceptada"))}
       ${fila("puesto", `${vacante.puesto_etiqueta} · ${vacante.plaza_etiqueta}`)}
-      ${fila("regimen", regimen.denominacion)}${fila("modalidad", modalidad.denominacion)}${fila("clase_ocupacion", traducirDato(clase.texto_clave))}
+      ${fila("regimen", rotuloCatalogo(regimen))}${fila("modalidad", rotuloCatalogo(modalidad))}${fila("clase_ocupacion", traducirDato(clase.texto_clave))}
       ${fila("desde", fecha(s.desde))}${fila("hasta", s.hasta ? fecha(s.hasta) : t("sin_fin"))}
       ${fila("motivo", traducirDato(`motivo.${s.motivo_clave}`))}${fila("documento", traducirDato(documento.etiqueta_clave_i18n))}</dl>`;
   }
@@ -112,8 +123,8 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     return `<form class="ct-formulario" data-b2-form novalidate><fieldset class="ct-bloque"${controlador ? " disabled" : ""}>
       <legend>${e(t("contexto"))}</legend><p>${e(t("persona_aceptada"))}</p>
       <div class="ct-campos">${select("vacante", "puesto", o.vacantes, (x) => `${x.puesto_etiqueta} · ${x.plaza_etiqueta}`)}
-        ${select("regimen", "regimen", o.regimenes, (x) => x.denominacion)}
-        ${select("modalidad", "modalidad", o.modalidades, (x) => x.denominacion)}
+        ${select("regimen", "regimen", o.regimenes, rotuloCatalogo)}
+        ${select("modalidad", "modalidad", o.modalidades, rotuloCatalogo)}
         ${select("clase_ocupacion", "clase_ocupacion", o.clases_ocupacion, (x) => traducirDato(x.texto_clave), true)}${datoFecha("desde")}${datoFecha("hasta")}
         ${select("motivo", "motivo", o.motivos, (x) => traducirDato(`motivo.${x}`))}
         ${select("documento", "documento", o.documentos, (x) => traducirDato(x.etiqueta_clave_i18n))}</div>
@@ -127,7 +138,8 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
       if (recibo) {
         cuerpo = `<section class="ct-recibo" role="status"><h4>${e(t("confirmada"))}</h4><dl class="ct-resumen">
           ${fila("recibo", recibo.recibo_ref)}${fila("fecha_registro", textos.fecha(recibo.registrada_en, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }))}
-          </dl><p>${e(t("siguiente"))}</p><p>${e(t("limite"))}</p><details><summary>${e(t("detalle_tecnico"))}</summary><dl>
+          </dl>${referenciaEmpleadoB2Valida(recibo.empleado_ref) ? `<div class="ct-acciones"><button type="button" class="boton-secundario"
+          data-vista="personal-registro" data-personal-empleado-ref="${e(recibo.empleado_ref)}">${e(t("abrir_ficha_personal"))}</button></div>` : ""}<p>${e(t("siguiente"))}</p><p>${e(t("limite"))}</p><details><summary>${e(t("detalle_tecnico"))}</summary><dl>
           ${["plan", "empleado", "relacion", "ocupacion"].map((k) => fila(k, recibo[`${k}_ref`])).join("")}</dl></details></section>`;
       } else if (!denegado && consulta) {
         const previos = `<h4>${e(t("prerrequisitos"))}</h4><ul>${consulta.prerrequisitos.map((p) => `<li>${e(traducirDato(p.clave_i18n))}: ${e(t(p.cumplido ? "cumplido" : "pendiente"))}</li>`).join("")}</ul>`;
@@ -160,8 +172,9 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
   }
   function aceptarConsulta(datos) {
     const c = validarConsultaB2(datos, expedienteRef);
-    if (c.version_expediente_actual < versionEsperada || (!c.plan && c.version_expediente_actual !== versionEsperada)) throw Object.assign(new Error(), { estado: 409, envelopeValido: true });
-    if (intencion && c.plan && JSON.stringify(c.plan.intencion) !== JSON.stringify(intencion)) throw Object.assign(new Error(), { estado: 409, envelopeValido: true });
+    if (!c.recibo && (c.version_expediente_actual < versionEsperada
+      || (!c.plan && c.version_expediente_actual !== versionEsperada))) throw Object.assign(new Error(), { estado: 409, envelopeValido: true });
+    if (!c.recibo && intencion && c.plan && JSON.stringify(c.plan.intencion) !== JSON.stringify(intencion)) throw Object.assign(new Error(), { estado: 409, envelopeValido: true });
     const seleccionCambiada = Boolean(intencion && !c.plan && !seleccionCompatible(c, intencion));
     if (seleccionCambiada && !intencionEnviada) { intencion = null; catalogoRevision = null; fase = "datos"; }
     reintentoBloqueado = seleccionCambiada && intencionEnviada;

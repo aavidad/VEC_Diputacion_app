@@ -171,7 +171,7 @@ func proyectarLecturaFirmasSQL172(m ports.MaterialConsultaFirmasR5V2, w respuest
 			v.PasoOrden != base.PasoOrden || v.CatalogoHuella != base.CatalogoHuella ||
 			!domain.HuellaSHA256FirmaValida(v.CertificadoHuella) || v.FirmanteRef != "ref:"+v.CertificadoHuella ||
 			v.RevisionHuellaSHA256 != base.FirmadoHuella || v.OrdenFirmaPDF != base.PasoOrden ||
-			v.OrdenFirmaPDF < 1 || v.OrdenFirmaPDF > 2 ||
+			v.OrdenFirmaPDF < 1 || v.OrdenFirmaPDF > ports.MaximoPasosFirmasVerificadasV2 ||
 			!domain.ReferenciaOpacaValida(v.EntradaDocumentoRef) ||
 			v.EntradaDocumentoVersion < 1 || v.EntradaDocumentoVersion > 9007199254740991 ||
 			!domain.HuellaSHA256FirmaValida(v.EntradaDocumentoHuella) ||
@@ -184,7 +184,7 @@ func proyectarLecturaFirmasSQL172(m ports.MaterialConsultaFirmasR5V2, w respuest
 			(v.OrdenFirmaPDF == 1 && (textoFirma118(v.FirmaAnteriorRef) != "" || textoFirma118(v.ReciboAnteriorRef) != "" ||
 				v.EntradaDocumentoRef != base.OriginalRef || v.EntradaDocumentoVersion != base.OriginalVersion ||
 				v.EntradaDocumentoHuella != base.OriginalHuella)) ||
-			(v.OrdenFirmaPDF == 2 && !antecedenteRevisionFirmaSQL172(v, base, porRef, porRevision)) ||
+			(v.OrdenFirmaPDF > 1 && !antecedenteRevisionFirmaSQL172(v, base, porRef, porRevision)) ||
 			!domain.HuellaSHA256FirmaValida(v.ContenidoFirmadoHuellaSHA256) ||
 			len(v.EvidenciaFirmasCanonica) < 2 || len(v.EvidenciaFirmasCanonica) > 32768 ||
 			json.Compact(&compacto, []byte(v.EvidenciaFirmasCanonica)) != nil ||
@@ -217,12 +217,28 @@ func antecedenteRevisionFirmaSQL172(v firmaRevisionPDFSQL172, base ports.FirmaRe
 	previa, existe := firmas[ref]
 	revision, revisada := revisiones[ref]
 	return existe && revisada && domain.ReferenciaOpacaValida(ref) &&
-		previa.ReciboRef == textoFirma118(v.ReciboAnteriorRef) && revision.OrdenFirmaPDF == 1 &&
-		previa.PasoOrden == 1 && previa.Secuencia+1 == base.Secuencia &&
+		previa.ReciboRef == textoFirma118(v.ReciboAnteriorRef) && revision.OrdenFirmaPDF == v.OrdenFirmaPDF-1 &&
+		previa.PasoOrden == base.PasoOrden-1 && previa.Secuencia+1 == base.Secuencia &&
 		previa.Documento == base.Documento && previa.CatalogoRef == base.CatalogoRef && previa.CatalogoHuella == base.CatalogoHuella &&
 		previa.OriginalRef == base.OriginalRef && previa.OriginalVersion == base.OriginalVersion && previa.OriginalHuella == base.OriginalHuella &&
 		v.EntradaDocumentoRef == previa.DocumentoCustodiaRef && v.EntradaDocumentoVersion == previa.DocumentoCustodiaVersion &&
-		v.EntradaDocumentoHuella == previa.FirmadoHuella && v.EntradaDocumentoLongitud == revision.RevisionLongitud
+		v.EntradaDocumentoHuella == previa.FirmadoHuella && v.EntradaDocumentoLongitud == revision.RevisionLongitud &&
+		evidenciaRevisionExtiendeSQL172(v.EvidenciaFirmasCanonica, revision.EvidenciaFirmasCanonica, v.OrdenFirmaPDF)
+}
+
+func evidenciaRevisionExtiendeSQL172(actual, anterior string, orden int) bool {
+	var cadena, prefijo []json.RawMessage
+	if orden < 2 || orden > ports.MaximoPasosFirmasVerificadasV2 ||
+		json.Unmarshal([]byte(actual), &cadena) != nil || json.Unmarshal([]byte(anterior), &prefijo) != nil ||
+		len(cadena) != orden || len(prefijo) != orden-1 {
+		return false
+	}
+	for i := range prefijo {
+		if !bytes.Equal(cadena[i], prefijo[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func limpiarParametrosFirma172(parametros []any) {

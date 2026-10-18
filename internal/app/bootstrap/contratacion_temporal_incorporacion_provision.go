@@ -2,14 +2,13 @@ package bootstrap
 
 import (
 	"context"
-	"errors"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	domct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	alta "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lectura "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
@@ -185,9 +184,13 @@ func configurarSesionesNominalesIncorporacion(ctx context.Context, p *perfilesNo
 
 type claveContextosNominalesIncorporacion struct{}
 type capturaContextosNominalesIncorporacion struct {
-	mu          sync.Mutex
-	propietario *perfilesNominalesIncorporacion
-	contextos   map[string]ct.ContextoAutorizacionAltaV3
+	capturaPerfilesNominalesCT
+	propietario       *perfilesNominalesIncorporacion
+	asignacionesB2    map[*perfilFijoCTDesarrollo]instantaneaPublicadaDesarrollo
+	muPersonasB2      chan struct{}
+	personasB2        map[clavePersonaBolsaB2]lecturaPersonaBolsaB2
+	personasNativasB2 map[clavePersonaNativaB2]lecturaPersonaNativaB2
+	preparacionB2     *preparacionIncorporacionB2
 }
 
 func (p *perfilesNominalesIncorporacion) resolver(ctx context.Context, perfil *perfilFijoCTDesarrollo) (ct.ContextoAutorizacionAltaV3, error) {
@@ -195,73 +198,176 @@ func (p *perfilesNominalesIncorporacion) resolver(ctx context.Context, perfil *p
 	if p == nil || p.soporte == nil || perfil == nil || ctx == nil || ctx.Value(claveIncorporacionV2Desarrollo{}) != p.soporte.sello {
 		return vacio, ct.ErrAutorizacionDenegada
 	}
-	if err := ctx.Err(); err != nil {
-		return vacio, err
-	}
 	holder, ok := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
 	if !ok || holder == nil || !p.contiene(perfil) {
 		return vacio, ct.ErrAutorizacionDenegada
 	}
-	if _, valida := p.soporte.capacidadValida(ctx); !valida {
+	holder.mu.Lock()
+	ajeno := holder.propietario != nil && holder.propietario != p
+	holder.mu.Unlock()
+	if ajeno {
 		return vacio, ct.ErrAutorizacionDenegada
 	}
+	contexto, err := resolverContextoPerfilNominalCT(ctx, p.soporte, perfil, &holder.capturaPerfilesNominalesCT, p)
+	if err != nil {
+		return vacio, err
+	}
 	holder.mu.Lock()
-	defer holder.mu.Unlock()
 	if holder.propietario != nil && holder.propietario != p {
+		holder.mu.Unlock()
 		return vacio, ct.ErrAutorizacionDenegada
 	}
 	holder.propietario = p
-	if holder.contextos == nil {
-		holder.contextos = map[string]ct.ContextoAutorizacionAltaV3{}
-	}
-	contexto, existe := holder.contextos[perfil.clave]
-	if !existe {
-		if perfil.sesionOperativa == nil {
-			return vacio, ct.ErrConsultaRRHHNoDisponible
-		}
-		comun, err := perfil.sesionOperativa.ResolverContexto(ctx)
-		if err != nil {
-			return vacio, err
-		}
-		contexto = ct.ContextoAutorizacionAltaV3{Vinculo: comun.Vinculo, Resultado: comun.Resultado}
-		if !mismoContextoEsperadoRegistradoDesarrollo(perfil.contextoEsperadoRegistrado, contexto.Resultado) {
-			return vacio, ct.ErrAutorizacionDenegada
-		}
-		holder.contextos[perfil.clave] = contexto
-	}
-	v, err := contexto.Vinculo.Datos()
-	if err != nil || v.PrincipalID != perfil.plantilla.AsignacionPerfil.PrincipalID || v.PerfilActivoRef != perfil.perfilRef() || contexto.ValidarPara(ct.SolicitudResolverContextoAutorizacionAltaV3{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef, PerfilRef: perfil.perfilRef()}, p.soporte.reloj.Ahora()) != nil {
-		return vacio, ct.ErrAutorizacionDenegada
-	}
-	resultado, err := contexto.Resultado.Clonar()
-	if err != nil {
-		return vacio, ct.ErrAutorizacionDenegada
-	}
-	return ct.ContextoAutorizacionAltaV3{Vinculo: contexto.Vinculo, Resultado: resultado}, nil
+	holder.mu.Unlock()
+	return contexto, nil
 }
 
 func (p *perfilesNominalesIncorporacion) consumir(ctx context.Context, perfil *perfilFijoCTDesarrollo) error {
-	if p == nil || p.soporte == nil || perfil == nil || ctx == nil {
+	_, err := p.leerAsignacionConsumible(ctx, perfil)
+	return err
+}
+
+// Sólo B2 reutiliza la primera lectura del perfil en la petición. Cada
+// emisión conserva consumir después del PDP, que siempre vuelve a la fuente.
+func (p *perfilesNominalesIncorporacion) consumirInicialB2(ctx context.Context, perfil *perfilFijoCTDesarrollo) error {
+	if p == nil || p.soporte == nil || perfil == nil || ctx == nil || !p.contiene(perfil) || ctx.Value(claveIncorporacionV2Desarrollo{}) != p.soporte.sello {
 		return ct.ErrAutorizacionDenegada
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	p.soporte.mu.Lock()
-	lector, ok := p.soporte.autoridadAsignaciones.(lectorAsignacionPublicadaCTDesarrollo)
-	p.soporte.mu.Unlock()
-	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(lector) {
-		return ct.ErrConsultaRRHHNoDisponible
-	}
-	publicada, encontrada, err := lector.leerAsignacionPublicada(ctx, perfil.perfilRef())
-	if err != nil {
-		return errors.Join(ct.ErrConsultaRRHHNoDisponible, err)
-	}
-	if !encontrada || publicada.actoAsignacion != actoAsignacionPerfilFijoCTDesarrollo {
+	holder, ok := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	if !ok || holder == nil {
 		return ct.ErrAutorizacionDenegada
+	}
+	holder.mu.Lock()
+	defer holder.mu.Unlock()
+	if holder.propietario != p {
+		return ct.ErrAutorizacionDenegada
+	}
+	publicada, existe := holder.asignacionesB2[perfil]
+	if !existe {
+		var err error
+		publicada, err = p.leerAsignacionConsumible(ctx, perfil)
+		if err != nil {
+			return err
+		}
+		publicada.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
+		if holder.asignacionesB2 == nil {
+			holder.asignacionesB2 = map[*perfilFijoCTDesarrollo]instantaneaPublicadaDesarrollo{}
+		}
+		holder.asignacionesB2[perfil] = publicada
 	}
 	if _, valida := instantaneaConsumible(publicada, perfil.plantilla, p.soporte.reloj.Ahora()); !valida {
 		return ct.ErrAutorizacionDenegada
 	}
 	return nil
+}
+
+func (p *perfilesNominalesIncorporacion) leerAsignacionConsumible(ctx context.Context, perfil *perfilFijoCTDesarrollo) (instantaneaPublicadaDesarrollo, error) {
+	if p == nil || !p.contiene(perfil) {
+		return instantaneaPublicadaDesarrollo{}, ct.ErrAutorizacionDenegada
+	}
+	return leerAsignacionConsumiblePerfilNominalCT(ctx, p.soporte, perfil)
+}
+
+// La captura sólo vive en la petición nominal. El material existente contiene
+// valores y liga la proyección al contrato que devuelve el servicio de CT.
+type preparacionIncorporacionB2 struct {
+	fuente     *fuentesIncorporacionPersonalB2
+	identidad  core.DatosVinculoAutenticacionActorV2
+	material   domct.PlanIncorporacionPersonalB2
+	proyeccion httpinterno.ProyeccionIncorporacionPersonalB2HTTP
+}
+
+func copiarProyeccionPreparacionB2(p httpinterno.ProyeccionIncorporacionPersonalB2HTTP) httpinterno.ProyeccionIncorporacionPersonalB2HTTP {
+	p.Prerrequisitos = slices.Clone(p.Prerrequisitos)
+	p.Opciones.Vacantes = slices.Clone(p.Opciones.Vacantes)
+	p.Opciones.Regimenes = slices.Clone(p.Opciones.Regimenes)
+	p.Opciones.Modalidades = slices.Clone(p.Opciones.Modalidades)
+	p.Opciones.ClasesOcupacion = slices.Clone(p.Opciones.ClasesOcupacion)
+	p.Opciones.Motivos = slices.Clone(p.Opciones.Motivos)
+	p.Opciones.Documentos = slices.Clone(p.Opciones.Documentos)
+	if p.Plan != nil {
+		plan := *p.Plan
+		p.Plan = &plan
+	}
+	if p.Recibo != nil {
+		recibo := *p.Recibo
+		p.Recibo = &recibo
+	}
+	return p
+}
+
+func (f *fuentesIncorporacionPersonalB2) capturarPreparacionB2(ctx context.Context, m domct.PlanIncorporacionPersonalB2, p httpinterno.ProyeccionIncorporacionPersonalB2HTTP) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	holder, _ := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	if holder == nil || f.autoridad == nil || f.autoridad.perfiles == nil {
+		return nil
+	}
+	perfil := f.autoridad.perfiles.b2[ct.AccionRegistrarPlanNominalB2]
+	if perfil == nil {
+		return nil
+	}
+	holder.mu.Lock()
+	defer holder.mu.Unlock()
+	if holder.propietario != f.autoridad.perfiles {
+		return nil
+	}
+	c, ok := holder.contextos[perfil.clave]
+	if !ok {
+		return nil
+	}
+	identidad, err := c.Vinculo.Datos()
+	if err != nil {
+		return err
+	}
+	holder.preparacionB2 = &preparacionIncorporacionB2{f, identidad, m, copiarProyeccionPreparacionB2(p)}
+	return nil
+}
+
+func (f *fuentesIncorporacionPersonalB2) opcionesTrasPreparacionB2(ctx context.Context, c ct.ContratoPlanNominalB2) (httpinterno.ProyeccionIncorporacionPersonalB2HTTP, error) {
+	var cero httpinterno.ProyeccionIncorporacionPersonalB2HTTP
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	holder, _ := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+	if holder == nil {
+		return f.ConsultarOpcionesIncorporacionB2(ctx, c.Material.ExpedienteRef)
+	}
+	holder.mu.Lock()
+	captura := holder.preparacionB2
+	propietario := holder.propietario
+	holder.mu.Unlock()
+	if captura == nil || captura.fuente != f || f.autoridad == nil || propietario != f.autoridad.perfiles || captura.material != c.Material {
+		return f.ConsultarOpcionesIncorporacionB2(ctx, c.Material.ExpedienteRef)
+	}
+	actual, err := f.autoridad.contexto(ctx, ct.AccionRegistrarPlanNominalB2)
+	if err != nil {
+		return cero, err
+	}
+	identidad, err := actual.Vinculo.Datos()
+	if err != nil {
+		return cero, err
+	}
+	if identidad != captura.identidad {
+		return f.ConsultarOpcionesIncorporacionB2(ctx, c.Material.ExpedienteRef)
+	}
+	// La captura no concede acceso: cada perfil relee su asignación vigente.
+	for _, accion := range []string{ct.AccionConsultarDetalleRRHH, ct.AccionLeerPlanNominalB2} {
+		if _, err := f.autoridad.contexto(ctx, accion); err != nil {
+			return cero, err
+		}
+		if err := propietario.consumir(ctx, propietario.b2[accion]); err != nil {
+			return cero, err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	m := c.Material
+	a := ct.AntecedentesPlanNominalB2{OrganizacionRef: m.OrganizacionRef, ExpedienteRef: m.ExpedienteRef, VersionExpediente: m.VersionExpediente, CategoriaRef: m.CategoriaRef, DocumentoRef: m.DocumentoRef, DocumentoSHA256: m.DocumentoSHA256, AceptacionRef: m.AceptacionRef, AceptacionReciboRef: m.AceptacionReciboRef, Bolsa: m.Bolsa}
+	return f.completarOpcionesIncorporacionB2(ctx, copiarProyeccionPreparacionB2(captura.proyeccion), a)
 }

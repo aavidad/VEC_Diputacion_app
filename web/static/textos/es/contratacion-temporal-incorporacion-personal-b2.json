@@ -58,13 +58,28 @@
   "empleado": "Empleado",
   "relacion": "Relación de servicio",
   "ocupacion": "Ocupación del puesto",
-  "limite": "Registrar la incorporación no completa la firma oficial ni da eficacia administrativa al documento.",
+  "limite": "La firma oficial del documento se hace en el circuito de firma.",
   "motivo": "Motivo (obligatorio)",
   "documento": "Documento de la incorporación (obligatorio)",
   "sin_documento": "No hay documento disponible. Revise la formalización antes de continuar.",
   "sin_catalogos": "Las condiciones de Personal no están disponibles. RRHH debe revisar sus catálogos.",
   "revision_lista": "Revise estos datos antes de registrar la incorporación.",
   "clase_ocupacion": "Tipo de ocupación (obligatorio)",
+  "rrhh": {
+    "ct": {
+      "incorporacion": {
+        "b2": {
+          "clase_ocupacion": {
+            "opcion": {
+              "titular": "Titular",
+              "provisional": "Provisional",
+              "temporal": "Temporal"
+            }
+          }
+        }
+      }
+    }
+  },
   "personal": {
     "ocupacion": {
       "clase": {
@@ -86,5 +101,20 @@
   "ct_incorporacion_b2_previo_documento": "Documento de formalización disponible",
   "ct_incorporacion_b2_previo_rpt": "Puesto vigente comprobado",
   "ct_incorporacion_b2_previo_plaza": "Plaza disponible comprobada",
-  "ct_incorporacion_b2_previo_periodo": "Periodo de incorporación comprobado"
+  "ct_incorporacion_b2_previo_periodo": "Periodo de incorporación comprobado",
+  "catalogo_registro": {
+    "regimen": {
+      "funcionario_interino": "Funcionario interino",
+      "laboral_temporal": "Personal laboral temporal"
+    },
+    "modalidad": {
+      "interino_plaza_vacante": "Interinidad por plaza vacante",
+      "interino_sustitucion_titular": "Interinidad por sustitución del titular",
+      "interino_programa_temporal": "Interinidad por programa temporal",
+      "interino_exceso_acumulacion_tareas": "Interinidad por exceso o acumulación de tareas",
+      "laboral_sustitucion": "Contrato de sustitución",
+      "laboral_circunstancias_produccion": "Contrato por circunstancias de la producción"
+    }
+  },
+  "abrir_ficha_personal": "Abrir ficha en Personal"
 }

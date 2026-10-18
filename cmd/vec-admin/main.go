@@ -32,6 +32,10 @@ func main() {
 		}
 		log.Fatalf("%s: %s", errorArranque(etapa), telemetria.MensajeErrorArranque(causa))
 	}
+	rutaUsuarios := os.Getenv("VEC_ADMIN_USUARIOS_CONFIG_FILE")
+	if rutaUsuarios == "" {
+		fallarConfiguracion("usuarios_config", nil)
+	}
 	retirada, err := time.Parse(time.RFC3339, os.Getenv("VEC_ADMIN_RETIRADA_EN"))
 	if err != nil {
 		fallarConfiguracion("retirada", err)
@@ -59,76 +63,84 @@ func main() {
 	}
 	var servidor *http.Server
 	var cerrar func()
-	if rutaUsuarios := os.Getenv("VEC_ADMIN_USUARIOS_CONFIG_FILE"); rutaUsuarios != "" {
-		// El modo lo fija el archivo privado cerrado; una configuración inválida
-		// nunca cae al arranque heredado de perfiles.
-		usuarios, errorConfig := cargarConfiguracionUsuariosMetadatosPrivada(rutaUsuarios, privada)
-		if errorConfig != nil {
-			fallarConfiguracion("usuarios_config", errorConfig)
-		}
-		// El lote sólo existe junto a las lecturas de usuarios y con su propio
-		// archivo privado; sin él, el proceso no abre ninguna escritura.
-		var lote *configuracionLotePrivada
-		if rutaLote := os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE"); rutaLote != "" {
-			c, errorLote := cargarConfiguracionLotePrivada(rutaLote, privada, usuarios, runtime)
-			if errorLote != nil {
-				fallarConfiguracion("lote_config", errorLote)
-			}
-			lote = &c
-		}
-		// El gobierno del plan de firma sólo existe junto a las lecturas de
-		// usuarios y con su propio archivo privado.
-		var plan *configuracionPlanFirmaPrivada
-		if rutaPlan := os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE"); rutaPlan != "" {
-			c, errorPlan := cargarConfiguracionPlanFirmaPrivada(rutaPlan, lote, privada, usuarios, runtime)
-			if errorPlan != nil {
-				fallarConfiguracion("plan_firma_config", errorPlan)
-			}
-			plan = &c
-		}
-		// Los efectos nominales (cargos competenciales, certificados
-		// nominales), igual: sólo con las lecturas de usuarios y cada uno con
-		// su propio archivo privado.
-		var efectos []efectoConfigurado
-		for _, e := range efectosADMIN() {
-			ruta := os.Getenv(e.variable)
-			if ruta == "" {
-				continue
-			}
-			otros := make([]configuracionEfectoPrivada, 0, len(efectos))
-			for _, o := range efectos {
-				otros = append(otros, o.cfg)
-			}
-			c, errorEfecto := cargarConfiguracionEfectoPrivada(ruta, e.audiencia, otros, lote, plan, privada, usuarios, runtime)
-			if errorEfecto != nil {
-				fallarConfiguracion(e.nombre+"_config", errorEfecto)
-			}
-			efectos = append(efectos, efectoConfigurado{efectoADMIN: e, cfg: c})
-		}
-		var gobierno *configuracionGobiernoRolesPrivada
-		if rutaGobierno := os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE"); rutaGobierno != "" {
-			c, errorGobierno := cargarConfiguracionGobiernoRolesPrivada(rutaGobierno, privada, usuarios, runtime, lote, plan, efectos)
-			if errorGobierno != nil {
-				fallarConfiguracion("gobierno_roles_config", errorGobierno)
-			}
-			gobierno = &c
-		}
-		var versionBolsa *configuracionVersionBolsaPrivada
-		if rutaVersion := os.Getenv("VEC_ADMIN_VERSION_BOLSA_CONFIG_FILE"); rutaVersion != "" {
-			c, errorVersion := cargarConfiguracionVersionBolsaPrivada(rutaVersion, privada, usuarios, runtime, lote, plan, efectos, gobierno)
-			if errorVersion != nil {
-				fallarConfiguracion("version_bolsa_config", errorVersion)
-			}
-			versionBolsa = &c
-		}
-		servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConVersionBolsa(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno, versionBolsa, fuenteCatalogoGobiernoOficial)
-	} else if os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE") != "" ||
-		os.Getenv("VEC_ADMIN_CARGOS_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_CERTIFICADOS_CONFIG_FILE") != "" ||
-		os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE") != "" || os.Getenv("VEC_ADMIN_VERSION_BOLSA_CONFIG_FILE") != "" {
-		fallarConfiguracion("lote_sin_usuarios", nil)
-	} else {
-		servidor, cerrar, err = componerProcesoADMINConRuntime(configServidor, privada, runtime)
+	// El modo lo fija el archivo privado cerrado; una configuración inválida
+	// nunca cae al arranque heredado de perfiles.
+	usuarios, errorConfig := cargarConfiguracionUsuariosMetadatosPrivada(rutaUsuarios, privada)
+	if errorConfig != nil {
+		fallarConfiguracion("usuarios_config", errorConfig)
 	}
+	// El lote sólo existe junto a las lecturas de usuarios y con su propio
+	// archivo privado; sin él, el proceso no abre ninguna escritura.
+	var lote *configuracionLotePrivada
+	if rutaLote := os.Getenv("VEC_ADMIN_LOTE_CONFIG_FILE"); rutaLote != "" {
+		c, errorLote := cargarConfiguracionLotePrivada(rutaLote, privada, usuarios, runtime)
+		if errorLote != nil {
+			fallarConfiguracion("lote_config", errorLote)
+		}
+		lote = &c
+	}
+	// El gobierno del plan de firma sólo existe junto a las lecturas de
+	// usuarios y con su propio archivo privado.
+	var plan *configuracionPlanFirmaPrivada
+	if rutaPlan := os.Getenv("VEC_ADMIN_PLAN_FIRMA_CONFIG_FILE"); rutaPlan != "" {
+		c, errorPlan := cargarConfiguracionPlanFirmaPrivada(rutaPlan, lote, privada, usuarios, runtime)
+		if errorPlan != nil {
+			fallarConfiguracion("plan_firma_config", errorPlan)
+		}
+		plan = &c
+	}
+	// Los efectos nominales (cargos competenciales, certificados
+	// nominales), igual: sólo con las lecturas de usuarios y cada uno con
+	// su propio archivo privado.
+	var efectos []efectoConfigurado
+	for _, e := range efectosADMIN() {
+		ruta := os.Getenv(e.variable)
+		if ruta == "" {
+			continue
+		}
+		otros := make([]configuracionEfectoPrivada, 0, len(efectos))
+		for _, o := range efectos {
+			otros = append(otros, o.cfg)
+		}
+		c, errorEfecto := cargarConfiguracionEfectoPrivada(ruta, e.audiencia, otros, lote, plan, privada, usuarios, runtime)
+		if errorEfecto != nil {
+			fallarConfiguracion(e.nombre+"_config", errorEfecto)
+		}
+		efectos = append(efectos, efectoConfigurado{efectoADMIN: e, cfg: c})
+	}
+	var gobierno *configuracionGobiernoRolesPrivada
+	if rutaGobierno := os.Getenv("VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE"); rutaGobierno != "" {
+		c, errorGobierno := cargarConfiguracionGobiernoRolesPrivada(rutaGobierno, privada, usuarios, runtime, lote, plan, efectos)
+		if errorGobierno != nil {
+			fallarConfiguracion("gobierno_roles_config", errorGobierno)
+		}
+		gobierno = &c
+	}
+	var versionBolsa *configuracionVersionBolsaPrivada
+	if rutaVersion := os.Getenv("VEC_ADMIN_VERSION_BOLSA_CONFIG_FILE"); rutaVersion != "" {
+		c, errorVersion := cargarConfiguracionVersionBolsaPrivada(rutaVersion, privada, usuarios, runtime, lote, plan, efectos, gobierno)
+		if errorVersion != nil {
+			fallarConfiguracion("version_bolsa_config", errorVersion)
+		}
+		versionBolsa = &c
+	}
+	var versionBolsaB103 *configuracionVersionBolsaB103Privada
+	if rutaVersionB103 := os.Getenv("VEC_ADMIN_VERSION_BOLSA_B103_CONFIG_FILE"); rutaVersionB103 != "" {
+		c, errorVersion := cargarConfiguracionVersionBolsaB103Privada(rutaVersionB103, privada, usuarios, runtime, lote, plan, efectos, gobierno, versionBolsa)
+		if errorVersion != nil {
+			fallarConfiguracion("version_bolsa_b103_config", errorVersion)
+		}
+		versionBolsaB103 = &c
+	}
+	var versionBolsaExterna *configuracionVersionBolsaExternaPrivada
+	if rutaExterna := os.Getenv("VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE"); rutaExterna != "" {
+		c, errorVersion := cargarConfiguracionVersionBolsaExternaPrivada(rutaExterna, privada, usuarios, runtime, lote, plan, efectos, gobierno, versionBolsa, versionBolsaB103)
+		if errorVersion != nil {
+			fallarConfiguracion("version_bolsa_externa_config", errorVersion)
+		}
+		versionBolsaExterna = &c
+	}
+	servidor, cerrar, err = componerProcesoUsuariosMetadatosADMINConVersionBolsaExterna(configServidor, privada, usuarios, runtime, lote, plan, efectos, gobierno, versionBolsa, versionBolsaB103, versionBolsaExterna, fuenteCatalogoGobiernoOficial)
 	if err != nil {
 		if cerrar != nil {
 			cerrar()
@@ -192,12 +204,13 @@ func etapaComposicionADMIN(err error) string {
 
 // Lista positiva de las etapas emitidas por los dos compositores ADMIN y sus
 // piezas de lote, plan de firma y efectos nominales. Los índices de pool van
-// de 0 a 18 con ambos gobiernos opcionales montados.
+// de 0 a 20 con los tres gobiernos opcionales montados.
 func etapaComposicionADMINPermitida(etapa string) bool {
 	switch etapa {
 	case "emisor_identidad", "configuracion", "lote_configuracion", "plan_firma_configuracion", "gobierno_roles_config", "gobierno_roles_configuracion", "gobierno_roles_fuente",
 		"gobierno_roles_pool", "gobierno_roles_confianza_metadatos", "gobierno_roles_confianza_material", "gobierno_roles_servicio",
 		"version_bolsa_config", "version_bolsa_configuracion", "version_bolsa_fuente", "version_bolsa_pool", "version_bolsa_confianza_metadatos", "version_bolsa_confianza_material", "version_bolsa_servicio",
+		"version_bolsa_b103_config", "version_bolsa_b103_configuracion", "version_bolsa_b103_fuente", "version_bolsa_b103_pool", "version_bolsa_b103_confianza_metadatos", "version_bolsa_b103_confianza_material", "version_bolsa_b103_servicio",
 		"firmante_publica", "firmante", "confianza_metadatos", "confianza_material", "confianza_cadena",
 		"emisor_usuarios", "auditoria_intentos", "auditoria_nominal", "frontera_tecnica", "auditor_compuesto",
 		"lector_usuarios", "lecturas_usuarios", "selector", "seudonimos", "identificadores", "servidor",
@@ -215,7 +228,7 @@ func etapaComposicionADMINPermitida(etapa string) bool {
 			}
 		}
 	}
-	for i := 0; i < 19; i++ {
+	for i := 0; i < 21; i++ {
 		prefijo := "pool_" + strconv.Itoa(i)
 		for _, sufijo := range []string{"_dsn", "_config", "_abrir", "_login"} {
 			if etapa == prefijo+sufijo {

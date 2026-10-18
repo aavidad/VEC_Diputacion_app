@@ -2,14 +2,19 @@ package ports
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	almacencanonico "vec-diputacion-granada/internal/vec/canonico/almacen"
+	"vec-diputacion-granada/internal/vec/domain"
 )
 
 var (
@@ -468,6 +473,65 @@ type AlmacenObjetos interface {
 	Eliminar(context.Context, SolicitudEliminarObjeto) (EvidenciaOperacionAlmacen, error)
 }
 
+// RecuperadorOperacionSubidaLocal es opcional para almacenes capaces de
+// conciliar una escritura/promoción cuya respuesta se perdió. La consulta es
+// de solo lectura, exige capacidad V3 nueva y devuelve la evidencia ORIGINAL
+// guardada junto al índice idempotente; nunca la atribuye a la decisión nueva.
+type RecuperadorOperacionSubidaLocal interface {
+	RecuperarOperacionSubidaLocal(context.Context, SolicitudRecuperarOperacionSubidaLocal) (ResultadoOperacionObjeto, bool, error)
+}
+
+type SolicitudRecuperarOperacionSubidaLocal struct {
+	Contexto             ContextoOperacionAlmacen
+	Fase                 FaseAlmacenSubidaLocal
+	ClaveIdempotencia    string
+	MIME                 string
+	Tamano               int64
+	HuellaSHA256         string
+	Origen               ReferenciaObjetoAlmacen
+	EvidenciaAnalisisRef string
+}
+
+func (s SolicitudRecuperarOperacionSubidaLocal) Validar() error {
+	if s.Contexto.validarParaPaso(AccionAlmacenLeer) != nil ||
+		(s.Fase != FaseAlmacenSubidaLocalRecuperarEscritura && s.Fase != FaseAlmacenSubidaLocalRecuperarPromocion) ||
+		!referenciaOpacaAlmacenValida(s.ClaveIdempotencia, 512) ||
+		s.MIME != "application/pdf" || s.Tamano < 1 || !esSHA256Hexadecimal(s.HuellaSHA256) {
+		return ErrSolicitudAlmacenInvalida
+	}
+	if s.Fase == FaseAlmacenSubidaLocalRecuperarEscritura {
+		if s.Origen != (ReferenciaObjetoAlmacen{}) || s.EvidenciaAnalisisRef != "" {
+			return ErrSolicitudAlmacenInvalida
+		}
+	} else if s.Origen.Validar() != nil || !referenciaOpacaAlmacenValida(s.EvidenciaAnalisisRef, 512) {
+		return ErrSolicitudAlmacenInvalida
+	}
+	return nil
+}
+
+// HuellaEfectoRecuperacionSubidaLocal fija clave, fase, PDF y origen antes de
+// pedir al PDP. La misma fórmula se comprueba dentro del adaptador de ficheros
+// bajo el cerrojo. No contiene la clave ni datos personales en el contexto.
+func HuellaEfectoRecuperacionSubidaLocal(s SolicitudRecuperarOperacionSubidaLocal,
+	cargaID string) (string, error) {
+	if !referenciaOpacaAlmacenValida(cargaID, 512) ||
+		(s.Fase != FaseAlmacenSubidaLocalRecuperarEscritura && s.Fase != FaseAlmacenSubidaLocalRecuperarPromocion) ||
+		!referenciaOpacaAlmacenValida(s.ClaveIdempotencia, 512) || s.MIME != "application/pdf" ||
+		s.Tamano < 1 || !esSHA256Hexadecimal(s.HuellaSHA256) ||
+		(s.Fase == FaseAlmacenSubidaLocalRecuperarEscritura &&
+			(s.Origen != (ReferenciaObjetoAlmacen{}) || s.EvidenciaAnalisisRef != "")) ||
+		(s.Fase == FaseAlmacenSubidaLocalRecuperarPromocion &&
+			(s.Origen.Validar() != nil || !referenciaOpacaAlmacenValida(s.EvidenciaAnalisisRef, 512))) {
+		return "", ErrSolicitudAlmacenInvalida
+	}
+	clave := sha256.Sum256([]byte(s.ClaveIdempotencia))
+	valores := []string{"vec.almacen.recuperar-subida-local.v1", cargaID, string(s.Fase),
+		hex.EncodeToString(clave[:]), s.MIME, strconv.FormatInt(s.Tamano, 10), s.HuellaSHA256,
+		s.Origen.Referencia, s.Origen.Version, s.EvidenciaAnalisisRef}
+	suma := sha256.Sum256([]byte(strings.Join(valores, "\x00")))
+	return "efecto-carga:sha256:" + hex.EncodeToString(suma[:]), nil
+}
+
 type SolicitudPrepararCargaDirecta struct {
 	Contexto          ContextoOperacionAlmacen
 	ClaveIdempotencia string
@@ -656,6 +720,37 @@ type EmisorReciboCargaDirecta interface {
 		context.Context,
 		SolicitudEmitirReciboCargaDirecta,
 	) (ReciboCargaDirecta, error)
+}
+
+type EmisorReciboCargaDirectaV3 interface {
+	PrepararEmision(context.Context, SolicitudEmitirReciboCargaDirecta, domain.CargaDocumental,
+		domain.ResultadoContextoActorRegistradoV2, domain.ManifiestoPreparacionCargaDirectaV1) (PreparacionEmisionReciboCargaDirectaV3, error)
+	RegistrarEmisionPreparada(context.Context, PreparacionEmisionReciboCargaDirectaV3,
+		AutorizacionCargaDocumentalV3) (ReciboCargaDirecta, error)
+}
+
+type RepositorioRegistroReciboCargaDirectaV3 interface {
+	RegistrarReciboCargaDirectaV3(context.Context, RegistroReciboCargaDirectaV3) (ResultadoRegistroReciboCargaDirecta, error)
+}
+
+func (i InstruccionesCargaDirecta) PrepararReciboConfirmacionV3(
+	ctx context.Context, solicitud SolicitudPrepararCargaDirecta, capacidades CapacidadesAlmacenObjetos,
+	emisor EmisorReciboCargaDirectaV3, carga domain.CargaDocumental,
+	actor domain.ResultadoContextoActorRegistradoV2, manifiesto domain.ManifiestoPreparacionCargaDirectaV1,
+) (PreparacionEmisionReciboCargaDirectaV3, error) {
+	if dependenciaPuertoAlmacenNula(emisor) || i.ValidarPara(solicitud, capacidades) != nil {
+		return PreparacionEmisionReciboCargaDirectaV3{}, ErrReciboCargaDirectaNoDisponible
+	}
+	datos, vinculo, err := i.canonicas.DatosVerificados()
+	if err != nil {
+		return PreparacionEmisionReciboCargaDirectaV3{}, ErrReciboCargaDirectaNoDisponible
+	}
+	peticion := SolicitudEmitirReciboCargaDirecta{contexto: solicitud.Contexto, sesionRef: datos.SesionRef,
+		expiraEn: datos.ExpiraEn, vinculoSolicitudSHA256: vinculo}
+	if peticion.Validar() != nil {
+		return PreparacionEmisionReciboCargaDirectaV3{}, ErrReciboCargaDirectaNoDisponible
+	}
+	return emisor.PrepararEmision(ctx, peticion, carga, actor, manifiesto)
 }
 
 func (i InstruccionesCargaDirecta) EmitirReciboConfirmacion(
@@ -920,6 +1015,17 @@ type ConsumidorReciboCargaDirecta interface {
 	) (ComprobanteConsumoReciboCargaDirecta, error)
 }
 
+type ConsumidorReciboCargaDirectaV3 interface {
+	PrepararConsumo(context.Context, SolicitudConsumirReciboCargaDirecta,
+		domain.CargaDocumental, domain.ResultadoContextoActorRegistradoV2) (PreparacionConsumoReciboCargaV3, error)
+	ConsumirPreparado(context.Context, PreparacionConsumoReciboCargaV3,
+		AutorizacionCargaDocumentalV3) (ComprobanteConsumoReciboCargaDirecta, error)
+}
+
+type RepositorioConsumoReciboCargaDirectaV3 interface {
+	ConsumirReciboCargaDirectaV3(context.Context, ConsumoReciboCargaDirectaV3) (ResultadoConsumoReciboCargaDirecta, error)
+}
+
 // VerificadorAtestacionConsumoReciboCargaDirecta es una dependencia de
 // seguridad obligatoria del nucleo. Una implementacion que solo compruebe la
 // forma o devuelva nil no es apta para produccion: debe verificar con la clave
@@ -985,6 +1091,41 @@ type ResultadoConsumoReciboCargaDirecta = almacencanonico.ResultadoConsumoRecibo
 type RepositorioRecibosCargaDirecta interface {
 	RegistrarReciboCargaDirecta(context.Context, RegistroReciboCargaDirecta) (ResultadoRegistroReciboCargaDirecta, error)
 	ConsumirReciboCargaDirecta(context.Context, OrdenConsumoReciboCargaDirecta) (ResultadoConsumoReciboCargaDirecta, error)
+}
+
+// ConsumoReciboCargaDirectaPersistido conserva la fecha de validez original.
+// Nunca se prolonga al consultar, y el estado/versión permiten CAS del
+// resultado remoto sin reabrir el recibo ni el grupo.
+type ConsumoReciboCargaDirectaPersistido struct {
+	Resultado   ResultadoConsumoReciboCargaDirecta
+	ValidaHasta time.Time
+	Estado      string
+	Version     uint64
+}
+
+func (c ConsumoReciboCargaDirectaPersistido) Validar() error {
+	if c.Resultado.Validar() != nil || c.ValidaHasta.IsZero() ||
+		c.ValidaHasta.Location() != time.UTC ||
+		!c.Resultado.ConsumidoEn.Before(c.ValidaHasta) || c.Version == 0 {
+		return ErrReciboCargaDirectaNoValido
+	}
+	switch c.Estado {
+	case "pendiente", "confirmado", "indeterminado":
+		return nil
+	default:
+		return ErrReciboCargaDirectaNoValido
+	}
+}
+
+// RepositorioConsultaConsumoReciboCargaDirecta añade lectura nominal al
+// repositorio durable. No modifica ni renueva un consumo existente.
+type RepositorioConsultaConsumoReciboCargaDirecta interface {
+	ConsultarConsumoReciboCargaDirecta(context.Context, string) (ConsumoReciboCargaDirectaPersistido, error)
+}
+
+// RecuperadorReciboCargaDirecta reatestigua solo el consumo exacto ya durable.
+type RecuperadorReciboCargaDirecta interface {
+	RecuperarConsumoReciboCargaDirecta(context.Context, SolicitudConsumirReciboCargaDirecta) (ComprobanteConsumoReciboCargaDirecta, error)
 }
 
 // SolicitudConfirmarCargaDirecta solo puede construirse mediante la fabrica
@@ -1094,6 +1235,16 @@ type GestorCargaDirecta interface {
 	PrepararCargaDirecta(context.Context, SolicitudPrepararCargaDirecta) (InstruccionesCargaDirecta, error)
 	ConfirmarCargaDirecta(context.Context, SolicitudConfirmarCargaDirecta) (ResultadoOperacionObjeto, error)
 	AbandonarCargaDirecta(context.Context, ContextoOperacionAlmacen, string) error
+}
+
+// VerificadorConfirmacionCargaDirecta consulta solo el objeto final ya
+// observado. Exige una version exacta persistida antes de usar el resultado:
+// una respuesta perdida que no dejo version sigue indeterminada. La consulta
+// no puede reemitir PUT, mover objetos ni limpiar la sesion temporal.
+type VerificadorConfirmacionCargaDirecta interface {
+	VerificarConfirmacionCargaDirecta(
+		context.Context, SolicitudConfirmarCargaDirecta, ObjetoAlmacenado,
+	) (ObjetoAlmacenado, error)
 }
 
 type SolicitudSellarIdempotenciaCarga = almacencanonico.SolicitudSellarIdempotenciaCarga

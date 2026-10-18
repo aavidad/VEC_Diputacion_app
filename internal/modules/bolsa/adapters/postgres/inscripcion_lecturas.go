@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -17,12 +18,15 @@ const consultaLecturaInscripcion = `SELECT vec_bolsa_llamamientos.consultar_insc
 	$1::text,$2::jsonb,$3::bytea,$4::bytea,$5::jsonb)`
 
 type sobreLecturaInscripcion struct {
-	Resultado      string          `json:"resultado"`
-	Proyeccion     json.RawMessage `json:"proyeccion"`
-	AuditoriaRef   string          `json:"auditoria_ref"`
-	CorrelacionRef string          `json:"correlacion_ref"`
-	ConsultadaEn   time.Time       `json:"consultada_en"`
+	Resultado         string          `json:"resultado"`
+	Proyeccion        json.RawMessage `json:"proyeccion"`
+	AuditoriaRef      string          `json:"auditoria_ref"`
+	CorrelacionRef    string          `json:"correlacion_ref"`
+	ConsultadaEn      time.Time       `json:"consultada_en"`
+	PersonaRefInterna string          `json:"persona_ref_interna,omitempty"`
 }
+
+var personaInternaDetalleRRHH = regexp.MustCompile(`^per_[A-Za-z0-9_-]{22,128}$`)
 
 func consultarInscripcion[T any](ctx context.Context, r *RepositorioInscripcionesPostgreSQL,
 	actor inscripcion.Actor, accion, recurso string, filtro inscripcion.Filtro,
@@ -59,14 +63,26 @@ func consultarInscripcion[T any](ctx context.Context, r *RepositorioInscripcione
 		}
 		switch salida.Resultado {
 		case "no_encontrada":
-			if !bytes.Equal(bytes.TrimSpace(salida.Proyeccion), []byte("null")) {
+			if !bytes.Equal(bytes.TrimSpace(salida.Proyeccion), []byte("null")) || salida.PersonaRefInterna != "" {
 				return inscripcion.ErrNoDisponible
 			}
 			return nil
 		case "obtenida":
 			if len(salida.Proyeccion) == 0 || bytes.Equal(bytes.TrimSpace(salida.Proyeccion), []byte("null")) ||
 				validarCamposProyeccionInscripcion(salida.Proyeccion, actor.Lectura.Campos) != nil ||
-				decodificarInscripcionEstricta(salida.Proyeccion, &proyeccion) != nil || validar(proyeccion) != nil {
+				decodificarInscripcionEstricta(salida.Proyeccion, &proyeccion) != nil {
+				return inscripcion.ErrNoDisponible
+			}
+			if accion == inscripcion.AccionDetalleRRHH {
+				objetivo, ok := any(&proyeccion).(*inscripcion.Solicitud)
+				if !ok || (salida.PersonaRefInterna != "" && !personaInternaDetalleRRHH.MatchString(salida.PersonaRefInterna)) {
+					return inscripcion.ErrNoDisponible
+				}
+				objetivo.PersonaRef = salida.PersonaRefInterna
+			} else if salida.PersonaRefInterna != "" {
+				return inscripcion.ErrNoDisponible
+			}
+			if validar(proyeccion) != nil {
 				return inscripcion.ErrNoDisponible
 			}
 			return nil
@@ -164,12 +180,12 @@ func (r *RepositorioInscripcionesPostgreSQL) seleccionarLectorInscripcion(canal,
 	var lector iniciadorTransacciones
 	switch accion {
 	case inscripcion.AccionListarAbiertas, inscripcion.AccionDetalleAbierta,
-		inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia:
+		inscripcion.AccionListarPropias, inscripcion.AccionDetallePropia, inscripcion.AccionObjetosAlegacion:
 		if canal != "externa_personal" {
 			return nil, inscripcion.ErrAccesoDenegado
 		}
 		lector = r.lectorExterno
-	case inscripcion.AccionListarRRHH, inscripcion.AccionConvocatoriasRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH:
+	case inscripcion.AccionListarRRHH, inscripcion.AccionConvocatoriasRRHH, inscripcion.AccionDetalleRRHH, inscripcion.AccionMotivosRRHH, inscripcion.AccionAlegacionesRRHH:
 		if canal != "interna_corporativa" {
 			return nil, inscripcion.ErrAccesoDenegado
 		}
@@ -338,6 +354,7 @@ func (r *RepositorioInscripcionesPostgreSQL) ConvocatoriasRRHH(ctx context.Conte
 			for _, convocatoria := range p.Convocatorias {
 				if !inscripcion.ConvocatoriaRefValida(convocatoria.ConvocatoriaRef) ||
 					convocatoria.Titulo == "" || utf8.RuneCountInString(convocatoria.Titulo) > 180 ||
+					convocatoria.Pendientes > uint64(1<<53)-1 ||
 					convocatoria.CategoriasResumen == "" || len(convocatoria.CategoriasResumen) > 2048 ||
 					convocatoria.PlazoFin.IsZero() || convocatoria.EstadoPublicacion == "" {
 					return inscripcion.ErrNoDisponible
@@ -354,6 +371,21 @@ func (r *RepositorioInscripcionesPostgreSQL) DetalleRRHH(ctx context.Context, ac
 	}
 	return consultarInscripcion(ctx, r, actor, inscripcion.AccionDetalleRRHH, recurso, inscripcion.Filtro{},
 		selectorDetalleInscripcion{SolicitudRef: ref}, validarSolicitudInscripcion(ref, true))
+}
+
+// CapturaDetalleRRHHMeritos entrega al consumidor interno la decisión vigente
+// de la misma solicitud. Bolsa vuelve a verificarla en la transacción de Méritos.
+func CapturaDetalleRRHHMeritos(actor inscripcion.Actor, ref string) ([]byte, error) {
+	recurso, err := recursoInscripcionLectura(actor, inscripcion.AccionDetalleRRHH, inscripcion.Filtro{}, ref)
+	if err != nil {
+		return nil, err
+	}
+	_, _, captura, err := prepararCapturaLecturaInscripcion(actor,
+		inscripcion.AccionDetalleRRHH, recurso, inscripcion.Filtro{})
+	if err != nil {
+		return nil, err
+	}
+	return captura, nil
 }
 
 func (r *RepositorioInscripcionesPostgreSQL) MotivosRRHH(ctx context.Context, actor inscripcion.Actor, decision string) (inscripcion.CatalogoMotivos, error) {
@@ -380,7 +412,8 @@ func (r *RepositorioInscripcionesPostgreSQL) MotivosRRHH(ctx context.Context, ac
 
 func validarSolicitudInscripcion(ref string, detalleRRHH bool) func(inscripcion.Solicitud) error {
 	return func(s inscripcion.Solicitud) error {
-		if s.SolicitudRef != ref || s.Validar() != nil || s.DeclaracionRef == "" {
+		if s.SolicitudRef != ref || s.Validar() != nil || s.DeclaracionRef == "" ||
+			s.ConvocatoriaTitulo == "" {
 			return inscripcion.ErrNoDisponible
 		}
 		if detalleRRHH && (s.BasesRef == "" || s.CatalogoVersion == 0 || s.PlazoInicio == nil ||
@@ -406,7 +439,7 @@ func validarPaginaInscripcion(limite int) func(inscripcion.Pagina) error {
 			return inscripcion.ErrNoDisponible
 		}
 		for _, s := range p.Solicitudes {
-			if s.Validar() != nil || s.DeclaracionRef == "" {
+			if s.Validar() != nil || s.DeclaracionRef == "" || s.ConvocatoriaTitulo == "" {
 				return inscripcion.ErrNoDisponible
 			}
 		}

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearBorradorAlta, crearComandoPeticionCentro, validarBorradorAlta, validarComandoAlta } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
+import { crearBorradorAlta, crearComandoPeticionCentro, validarBorradorAlta, validarCatalogosAlta, validarComandoAlta,
+  validarComandoPeticionCentroNecesidad } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
 import { extraerBorrador } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-v1";
 import {
   pedir,
@@ -10,6 +11,9 @@ import {
   validarReciboPeticionCentro,
   registrarOperacionPeticionCentro,
   registrarAltaRRHH,
+  prepararNecesidadesPeticionesCentro,
+  puestoPerteneceAlContexto,
+  iniciarPeticionCentro,
 } from "./peticiones-centro.js?v=20261008-alta-rpt-circular-v6";
 
 const catalogos = {
@@ -22,6 +26,158 @@ const catalogos = {
 
 const contexto = { actor: { referencia: "actor:sintetico:001", nombre: "Persona de prueba", cargo: "Cargo sintético", centro: "Centro sintético", puede_presentar: true, puede_ratificar: false }, catalogos };
 const peticion = { referencia: "peticion:centro:001", version: 1, estado: "pendiente_ratificacion", configuracion: { solicitante: { actor_ref: "actor:sintetico:001", puesto_ref: "puesto:sintetico:001" } }, solicitud: { centro_ref: "cen_sintetico_001", categoria_ref: "cat_sintetica_001", grupo_subgrupo: "C2", motivo_clave: "sustitucion", detalle: "Necesidad sintética", periodo: { inicio: "2026-09-01T00:00:00Z", fin: "2026-09-30T00:00:00Z" } }, creada_en: "2026-09-06T08:00:00Z" };
+
+test("la petición nueva envía la elección de necesidad y conserva el readback ratificable", async (t) => {
+  const huella = "a".repeat(64);
+  const rpt = "b".repeat(64);
+  const baseCausa = (clave, campos, fecha_fin = "obligatoria", extra = {}) => ({
+    clave, etiqueta_clave: `ct.necesidad.${clave}`, fuente_ref: "circular:ct:20260219",
+    fuente_url: "https://www.dipgra.es/circular.pdf", regla_ref: `regla:ct:${clave}`,
+    fecha_fin, maximo_meses: 36, campos_permitidos: ["numero_personas", ...campos],
+    campos_obligatorios: ["numero_personas", ...campos], ...extra,
+  });
+  const datos = { esquema: "vec.contratacion_temporal.catalogos_alta.v2",
+    centros: catalogos.centros, categorias: catalogos.categorias, documentos: [],
+    necesidades: { referencia: "catalogo:ct:necesidades:001", version: 2,
+      huella_sha256: huella, es_ejemplo: true, fuente_ref: "circular:ct:20260219",
+      fuente_url: "https://www.dipgra.es/circular.pdf", jornada_referencia_minutos: 2250,
+      jornada_fuente_ref: "operador:ct:provisional", causas: [
+        baseCausa("vacante", ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]),
+        baseCausa("sustitucion", ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"],
+          "opcional", { causa_fin: "reincorporacion_titular" }),
+        baseCausa("acumulacion_tareas", ["justificacion_temporal"]),
+        baseCausa("programa_temporal", ["programa_denominacion", "programa_fin",
+          "proyecto_codigo", "financiacion_ref", "rc_ref", "intervencion_ref"]),
+      ] } };
+  const borrador = { ...crearBorradorAlta({ conPeticionCentro: true, conNecesidad: true,
+    jornadaReferenciaMinutos: 2250 }), centro_ref: "cen_sintetico_001", contacto_ref: "con_sintetico_001",
+  categoria_ref: "cat_sintetica_001", grupo_subgrupo: "C2", motivo_clave: "vacante",
+  detalle: "Cobertura durante el periodo indicado.", inicio: "2026-11-02", fin: "2026-12-31",
+  numero_personas: "1", puesto_codigo: "P-217", puesto_solicitado: "Administrativo C2",
+  rpt_catalogo_ref: "rpt-dipgra-2026", rpt_catalogo_huella_sha256: rpt };
+  assert.equal(validarBorradorAlta(borrador, datos).valido, true);
+  const comando = crearComandoPeticionCentro(borrador, datos, "f3134ee2-61af-467d-aa58-dc71f07553b6");
+  assert.equal(comando.esquema, "vec.ct.alta_necesidad.v1");
+  assert.equal(comando.necesidad.campos.puesto_codigo, "P-217");
+  assert.equal(comando.solicitud.puesto_solicitado, "Administrativo C2");
+  assert.equal(Object.hasOwn(comando, "numero_expediente_moad"), false);
+  assert.equal(Object.hasOwn(comando.necesidad, "catalogo_instantanea"), false);
+  assert.deepEqual(validarComandoPeticionCentroNecesidad(comando), comando);
+  await prepararNecesidadesPeticionesCentro();
+  const ratificable = { ...peticion, solicitud: { ...comando.solicitud,
+    necesidad: { ...comando.necesidad, periodo: comando.solicitud.periodo,
+      catalogo_instantanea: "contenido-sellado-servidor" } } };
+  const html = renderizarPeticionCentro({ contexto: { ...contexto, catalogos: datos,
+    actor: { ...contexto.actor, puede_presentar: false, puede_ratificar: true } },
+  modo: "ratificacion", peticion: ratificable });
+  assert.match(html, /Administrativo C2/);
+  assert.match(html, /P-217/);
+  assert.match(html, /37:30/);
+  assert.doesNotMatch(html, /contenido-sellado-servidor|rpt-dipgra-2026|a{64}|b{64}/u);
+  const htmlRRHH = renderizarPeticionesCentroRRHH({ entrega: {
+    peticion: { ...ratificable, version: 2, estado: "ratificada" }, estado_entrega: "pendiente" } });
+  assert.match(htmlRRHH, /Administrativo C2/);
+  assert.match(htmlRRHH, /P-217/);
+  assert.doesNotMatch(htmlRRHH, /contenido-sellado-servidor|rpt-dipgra-2026|a{64}|b{64}/u);
+  const sinPuestoRPT = { ...borrador, motivo_clave: "acumulacion_tareas", puesto_codigo: "",
+    rpt_catalogo_ref: "", rpt_catalogo_huella_sha256: "", puesto_solicitado: "Apoyo administrativo",
+    justificacion_temporal: "Refuerzo de tareas durante el periodo previsto." };
+  assert.equal(validarBorradorAlta(sinPuestoRPT, datos).valido, true);
+  const sinRPT = crearComandoPeticionCentro(sinPuestoRPT, datos, "e3134ee2-61af-467d-aa58-dc71f07553b6");
+  assert.equal(Object.hasOwn(sinRPT.necesidad.campos, "puesto_codigo"), false);
+  assert.equal(sinRPT.solicitud.puesto_solicitado, "Apoyo administrativo");
+  const formulario = renderizarPeticionCentro({ contexto: { ...contexto, catalogos: validarCatalogosAlta(datos) },
+    modo: "formulario", estado: { fase: "edicion", disponible: true, ocupado: false,
+      borrador: sinPuestoRPT, catalogos: validarCatalogosAlta(datos), errores: {}, mensaje_clave: "estado_disponible",
+      tipo_mensaje: "informacion" } });
+  assert.match(formulario, /name="puesto_solicitado" type="text"/);
+  assert.doesNotMatch(formulario, /name="puesto_busqueda"/);
+
+  await t.test("un fallo RPT tardío conserva los cambios escritos mientras se consultaba", async () => {
+    const anteriorFetch = globalThis.fetch;
+    const anteriorFormData = globalThis.FormData;
+    let rechazarRPT;
+    globalThis.fetch = () => new Promise((_resolver, rechazar) => { rechazarRPT = rechazar; });
+    globalThis.FormData = class {
+      constructor(form) { this.valores = form.valores; }
+      get(campo) { return this.valores[campo] ?? null; }
+      getAll(campo) { return this.valores[campo] ?? []; }
+    };
+    const oyentes = new Map();
+    const formularioVivo = { valores: { ...borrador, puesto_codigo: "", puesto_solicitado: "",
+      rpt_catalogo_ref: "", rpt_catalogo_huella_sha256: "", jornada_horas: "37:30",
+      rc_existe: "no" },
+    querySelector(selector) { return ["puesto_solicitado", "puesto_codigo", "jornada_horas"]
+      .some((campo) => selector === `[name="${campo}"]`) ? {} : null; } };
+    const busqueda = { value: "P-217", focus() {} };
+    const raiz = { innerHTML: "", isConnected: true, setAttribute() {}, querySelectorAll() { return []; },
+      insertAdjacentHTML(_posicion, html) { this.innerHTML = html + this.innerHTML; },
+      addEventListener(tipo, fn) { oyentes.set(tipo, fn); },
+      querySelector(selector) {
+        if (selector === "#ct-puesto_busqueda") return busqueda;
+        if (selector === "[data-ct-form]") return this.innerHTML.includes("data-ct-form") ? formularioVivo : null;
+        return null;
+      },
+      async pulsar(dataset) { await oyentes.get("click")({ target: { closest: () => ({ dataset }) },
+        preventDefault() {} }); },
+    };
+    try {
+      await iniciarPeticionCentro({ raiz, cliente: async (ruta) => ruta.endsWith("/contexto")
+        ? { ...contexto, catalogos: datos, vinculos_rpt: { categorias: [], centros: [] } }
+        : { peticiones: [] } });
+      await raiz.pulsar({ accion: "nueva" });
+      const pendiente = raiz.pulsar({ ctAccion: "buscar-puesto" });
+      await new Promise((resolver) => setImmediate(resolver));
+      assert.equal(typeof rechazarRPT, "function");
+      formularioVivo.valores.detalle = "Dato escrito durante la consulta RPT.";
+      formularioVivo.valores.observaciones = "Observación escrita mientras esperaba.";
+      rechazarRPT(new Error("sin conexión"));
+      await pendiente;
+      assert.match(raiz.innerHTML, /Dato escrito durante la consulta RPT/u);
+      assert.match(raiz.innerHTML, /Observación escrita mientras esperaba/u);
+      assert.match(raiz.innerHTML, /No se pudo consultar la RPT/u);
+    } finally {
+      globalThis.fetch = anteriorFetch;
+      globalThis.FormData = anteriorFormData;
+    }
+  });
+});
+
+test("un rechazo expreso de la necesidad no se trata como resultado incierto", async () => {
+  const error = Object.assign(new Error("datos incompatibles"), { status: 422 });
+  await assert.rejects(registrarOperacionPeticionCentro(async () => { throw error; },
+    { operacion: "presentar", clave_idempotencia: "f3134ee2-61af-467d-aa58-dc71f07553b6" },
+    "actor:sintetico:001"), (causa) => causa === error && !causa.indeterminado);
+});
+
+test("la selección RPT exige vínculos explícitos de centro y categoría", () => {
+  const puesto = { rpt_categoria_clave: "administracion", rpt_centro_codigo: "520" };
+  const borrador = { categoria_ref: "categoria:rpt:administracion", centro_ref: "centro:rpt:520" };
+  const contextoRPT = { vinculos_rpt: {
+    categorias: [{ categoria_ref: borrador.categoria_ref, rpt_categoria_clave: "administracion" }],
+    centros: [{ centro_ref: borrador.centro_ref, rpt_centro_codigo: "520" }],
+  } };
+  assert.equal(puestoPerteneceAlContexto(puesto, contextoRPT, borrador), true);
+  assert.equal(puestoPerteneceAlContexto(puesto, contextoRPT,
+    { ...borrador, centro_ref: "centro-520" }), false);
+  assert.equal(puestoPerteneceAlContexto(puesto, { vinculos_rpt: { categorias: [], centros: [] } },
+    borrador), false);
+  assert.equal(puestoPerteneceAlContexto(puesto, {}, borrador), false);
+});
+
+test("el contacto del catálogo se traduce y los nombres propios se conservan", () => {
+  for (const [etiqueta, visible] of [["pc_contacto_secretaria", "Secretaría del centro"], ["Lucía Romero", "Lucía Romero"]]) {
+    const datos = structuredClone(catalogos);
+    datos.centros[0].contactos[0].etiqueta = etiqueta;
+    const borrador = { ...crearBorradorAlta({ conPeticionCentro: true, jornadaReferenciaMinutos: 2250 }),
+      centro_ref: datos.centros[0].referencia, contacto_ref: datos.centros[0].contactos[0].referencia };
+    const html = renderizarPeticionCentro({ contexto: { ...contexto, catalogos: datos }, modo: "formulario",
+      estado: { fase: "edicion", disponible: true, ocupado: false, borrador, catalogos: datos, errores: {}, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
+    assert.ok(html.includes(visible));
+    assert.doesNotMatch(html, /pc_contacto_secretaria/);
+    assert.equal(datos.centros[0].contactos[0].etiqueta, etiqueta);
+  }
+});
 
 test("renderer comparte el formulario de alta y deja claro el circuito previo", () => {
   const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado: { fase: "edicion", disponible: true, ocupado: false, borrador: crearBorradorAlta({ conPeticionCentro: true, jornadaReferenciaMinutos: 2250 }), catalogos, errores: {}, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
@@ -190,10 +346,23 @@ test("detalle incluye crédito y documentos; ratificada no ofrece otra ratificac
   const html = renderizarPeticionCentro({ contexto: ctx, peticion: completa });
   assert.match(html, /RC-SINTETICA/);
   assert.match(html, /doc:rc:001/);
-  assert.match(html, /doc:adjunto:001/);
+  assert.match(html, /<dt>Documentos aportados<\/dt><dd>Dato no disponible\. Actualice la bandeja\.<\/dd>/u);
+  assert.doesNotMatch(html, /<dt>Documentos aportados<\/dt><dd>doc:adjunto:001/u);
   assert.match(html, /data-accion="abrir-ratificacion"/);
   completa.version = 2; completa.estado = "ratificada";
   assert.doesNotMatch(renderizarPeticionCentro({ contexto: ctx, peticion: completa }), /data-accion="abrir-ratificacion"/);
+});
+
+test("el detalle del centro no revela referencias cuando faltan etiquetas del catálogo", () => {
+  const incompleta = structuredClone(peticion);
+  incompleta.solicitud.contacto_ref = "con_sintetico_ausente";
+  incompleta.solicitud.categoria_ref = "cat_sintetica_ausente";
+  incompleta.solicitud.documentos_adjuntos = ["doc:adjunto:ausente"];
+  const html = renderizarPeticionCentro({ contexto, peticion: incompleta });
+  for (const campo of ["Contacto", "Categoría", "Documentos aportados"]) {
+    assert.match(html, new RegExp(`<dt>${campo}</dt><dd>Dato no disponible\\. Actualice la bandeja\\.`, "u"));
+  }
+  assert.doesNotMatch(html, /<dd[^>]*>(con_sintetico_ausente|cat_sintetica_ausente|doc:adjunto:ausente)/u);
 });
 
 test("un recibo confirmado permite volver a la bandeja sin repetir la presentación", () => {
@@ -214,6 +383,8 @@ test("la vista RRHH no usa el contexto de centros y conserva datos, ratificació
   assert.match(html, /Revisión sintética/);
   assert.match(html, /Referencia del expediente/);
   assert.match(html, /expediente:ct:001/);
+  assert.match(html, /Número visible[^]*CT-001[^]*<details class="pc-detalle-tecnico"><summary>Ver detalle técnico<\/summary>/u);
+  assert.ok(html.indexOf("CT-001") < html.indexOf("expediente:ct:001"));
   assert.match(html, /\/portal-empleado\/\?lang=es#contratacion-temporal/);
   assert.doesNotMatch(html, /Persona de prueba/);
   const preparada = renderizarPeticionesCentroRRHH({ peticiones: [{ peticion: ratificada, estado_entrega: "preparada" }], entrega: { peticion: ratificada, estado_entrega: "preparada" } });
@@ -222,6 +393,8 @@ test("la vista RRHH no usa el contexto de centros y conserva datos, ratificació
 	assert.match(pendiente, /data-accion="abrir-alta-rrhh"/);
 	assert.match(pendiente, /Crear expediente en RRHH/);
   assert.doesNotMatch(html, /data-accion="abrir-alta-rrhh"/);
+  const sinNumero = renderizarPeticionesCentroRRHH({ peticiones: [{ ...entrega, recibo_alta: { ...entrega.recibo_alta, numero_visible: "" } }] });
+  assert.doesNotMatch(sinNumero, /Expediente expediente:ct:001/u);
   assert.match(renderizarPeticionesCentroRRHH({ entrega: { peticion: ratificada, estado_entrega: "preparada" }, modo: "confirmar" }), /Crear expediente en RRHH/);
 });
 
@@ -281,7 +454,7 @@ test("la portada del centro no enseña referencias ni códigos y solo abre el de
   const ctx = { ...contexto, actor: { ...contexto.actor, centro: "Residencia sintética" } };
   const html = renderizarPeticionCentro({ contexto: ctx, peticiones: [ratificada] });
   assert.doesNotMatch(html.replaceAll(/data-seleccionar="[^"]*"/gu, ""), /peticion:centro|centro-520/u);
-  assert.match(html, /Petición del 6 sept 2026/u);
+  assert.match(html, /C2 sintética · 6 sept 2026/u);
   assert.match(html, /Residencia sintética/u);
   assert.match(html, />Ratificada</u);
   assert.match(html, /Sin fechas indicadas/u);
@@ -291,6 +464,54 @@ test("la portada del centro no enseña referencias ni códigos y solo abre el de
   assert.match(sinUnidad, /class="pc-panel pc-detalle"/u);
   assert.match(sinUnidad, /data-accion="cerrar-detalle"/u);
   assert.doesNotMatch(sinUnidad.replaceAll(/data-seleccionar="[^"]*"/gu, ""), /peticion:centro|centro-520/u);
+});
+
+test("las peticiones del mismo día muestran categoría y puesto en ambas bandejas", () => {
+  const a = { ...structuredClone(peticion), solicitud: { ...peticion.solicitud, puesto_solicitado: "RPT-ADM-0133", numero_personas: 1 } };
+  const b = { ...structuredClone(peticion), referencia: "peticion:centro:002", solicitud: { ...peticion.solicitud, puesto_solicitado: "RPT-PRG-0420", numero_personas: 2 } };
+  const centro = renderizarPeticionCentro({ contexto, peticiones: [a, b] });
+  assert.match(centro, /C2 sintética · RPT-ADM-0133 · 1 persona · 6 sept 2026/u);
+  assert.match(centro, /C2 sintética · RPT-PRG-0420 · 2 personas · 6 sept 2026/u);
+  const rrhh = renderizarPeticionesCentroRRHH({ peticiones: [a, b].map((p) => ({ peticion: p, estado_entrega: "pendiente" })),
+    etiquetas: { categorias: { cat_sintetica_001: "Administración C2" } } });
+  assert.match(rrhh, /Administración C2 · RPT-ADM-0133 · 1 persona · 6 sept 2026/u);
+  assert.match(rrhh, /Administración C2 · RPT-PRG-0420 · 2 personas · 6 sept 2026/u);
+  assert.match(rrhh, /aria-label="Revisar: Administración C2 · RPT-ADM-0133 · 1 persona · 6 sept 2026">Revisar<\/button>/u);
+  assert.doesNotMatch(rrhh.replaceAll(/data-seleccionar-rrhh="[^"]*"/gu, ""), /peticion:centro:/u);
+  const detalle = renderizarPeticionesCentroRRHH({ entrega: { peticion: a, estado_entrega: "pendiente" }, etiquetas: { categorias: { cat_sintetica_001: "Administración C2" } } });
+  assert.match(detalle, /<details class="pc-detalle-tecnico"><summary>Ver detalle técnico<\/summary>/u);
+  assert.ok(detalle.indexOf("Administración C2") < detalle.indexOf("<details class="), "la referencia técnica queda plegada tras los datos de negocio");
+});
+
+test("dos peticiones con el mismo resumen reciben ordinales distintos en ambas bandejas", () => {
+  const primera = { ...structuredClone(peticion), solicitud: { ...peticion.solicitud,
+    puesto_solicitado: "Archivo & documentación", numero_personas: 1 } };
+  const segunda = { ...structuredClone(primera), referencia: "peticion:centro:002",
+    solicitud: { ...primera.solicitud, detalle: "Otra necesidad" } };
+  const centro = renderizarPeticionCentro({ contexto, peticiones: [primera, segunda] });
+  const rrhh = renderizarPeticionesCentroRRHH({ peticiones: [primera, segunda].map((p) => ({
+    peticion: p, estado_entrega: "pendiente",
+  })) });
+  for (const [html, accion] of [[centro, "Ver"], [rrhh, "Revisar"]]) {
+    assert.match(html, /Archivo &amp; documentación · 1 persona · 6 sept 2026 · petición 1/u);
+    assert.match(html, /Archivo &amp; documentación · 1 persona · 6 sept 2026 · petición 2/u);
+    assert.match(html, new RegExp(`aria-label="${accion}: [^"]*Archivo &amp; documentación[^"]*petición 1"`, "u"));
+    assert.match(html, new RegExp(`aria-label="${accion}: [^"]*Archivo &amp; documentación[^"]*petición 2"`, "u"));
+    assert.doesNotMatch(html, /&amp;amp;/u);
+  }
+});
+
+test("el puesto recibido no rompe atributos de los enlaces y botones de la bandeja", () => {
+  const puesto = '"><img src=x onerror=alert(1)>';
+  const recibida = { ...peticion, solicitud: { ...peticion.solicitud, puesto_solicitado: puesto } };
+  const html = renderizarPeticionesCentroRRHH({ peticiones: [{ peticion: recibida,
+    estado_entrega: "confirmada", recibo_alta: { expediente_ref: "expediente:ct:001", numero_visible: "2026/CT-001" } }],
+  });
+  assert.doesNotMatch(html, /<img/u);
+  assert.match(html, /&quot;&gt;&lt;img/u);
+  const centro = renderizarPeticionCentro({ contexto, peticiones: [recibida] });
+  assert.doesNotMatch(centro, /<img/u);
+  assert.match(centro, /&quot;&gt;&lt;img/u);
 });
 
 
@@ -336,9 +557,42 @@ test("la vista RRHH nombra centro, contacto, categoría, motivo y personas con l
   assert.doesNotMatch(html, /<dd[^>]*>(cen_sintetico_001|con_sintetico_001|cat_sintetica_001|per_sol)/u);
   // El nombre solo vale para el mismo puesto que guarda la petición.
   assert.doesNotMatch(html, /Manuel García Robles/u);
-  assert.match(html, /per_rat · rpt-520-001/u);
-  // Sin etiquetas, la vista sigue mostrando las referencias y el motivo vacío.
+  assert.match(html, /Dato no disponible\. Actualice la bandeja\./u);
+  assert.doesNotMatch(html, /per_rat · rpt-520-001/u);
+  // Sin etiquetas, la vista pide actualizar la bandeja y conserva el motivo vacío.
   const sin = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega });
-  assert.match(sin, /cen_sintetico_001/u);
+  assert.match(sin, /Dato no disponible\. Actualice la bandeja\./u);
+  assert.doesNotMatch(sin, /<dd[^>]*>cen_sintetico_001/u);
   assert.match(sin, /<dt>Motivo<\/dt><dd>—<\/dd>/u);
+});
+
+test("RRHH conserva el cargo de cada petición de una misma persona y escapa sus etiquetas", () => {
+  const ratificada = { ...structuredClone(peticion), estado: "ratificada",
+    configuracion: { solicitante: { actor_ref: "per_sol", puesto_ref: "puesto:anterior" } } };
+  const entrega = { peticion: ratificada, estado_entrega: "pendiente" };
+  const etiquetas = {
+    intervinientes: { per_sol: { nombre: "Nombre actual", cargo: "Cargo actual", puesto_ref: "puesto:actual" } },
+    intervinientes_por_puesto: { per_sol: {
+      "puesto:anterior": { nombre: "Lucía <img src=x onerror=alert(1)>", cargo: "Jefatura de Servicio", puesto_ref: "puesto:anterior" },
+      "puesto:actual": { nombre: "Lucía Fernández Castillo", cargo: "Subdirección de Informática", puesto_ref: "puesto:actual" },
+    } },
+  };
+  const html = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega, etiquetas });
+  assert.match(html, /Lucía &lt;img src=x onerror=alert\(1\)&gt; · Jefatura de Servicio/u);
+  assert.doesNotMatch(html, /<img|Nombre actual|Subdirección de Informática/u);
+  ratificada.configuracion.solicitante.puesto_ref = "puesto:actual";
+  const actual = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega, etiquetas });
+  assert.match(actual, /Lucía Fernández Castillo · Subdirección de Informática/u);
+  assert.doesNotMatch(actual, /Jefatura de Servicio|Nombre actual/u);
+  // Una entrada exacta incoherente no se sustituye por el mapa antiguo.
+  etiquetas.intervinientes_por_puesto.per_sol["puesto:actual"].puesto_ref = "puesto:ajeno";
+  const incoherente = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega, etiquetas });
+  assert.match(incoherente, /Dato no disponible\. Actualice la bandeja\./u);
+  assert.doesNotMatch(incoherente, /Nombre actual|Lucía Fernández Castillo/u);
+});
+
+test("el centro no atribuye el cargo actual a una petición sin etiqueta del puesto histórico", () => {
+  const html = renderizarPeticionCentro({ contexto, peticion, modo: "detalle" });
+  assert.match(html, /<dd>Persona de prueba<\/dd>/u);
+  assert.doesNotMatch(html, /<dd>Persona de prueba · Cargo sintético<\/dd>/u);
 });

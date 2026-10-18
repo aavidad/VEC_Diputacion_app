@@ -39,6 +39,7 @@ type DependenciasRutas struct {
 	BorradorRRHH                    ports.RenderizadorBorradorRRHH
 	BorradorRRHHDOCX                httpinterno.RenderizadorBorradorRRHHDOCX
 	EjecutorSeleccion               httpinterno.EjecutorSeleccionLlamamiento
+	ConsultorEstadoSeleccionOferta  httpinterno.ConsultorEstadoSeleccionOferta
 	AutoridadPropuestaFormalizacion httpinterno.AutoridadServidorPropuestaFormalizacion
 	EjecutorPropuestaFormalizacion  httpinterno.EjecutorPropuestaFormalizacion
 	AutoridadAsignacion             httpinterno.AutoridadContextoCanalAsignacion
@@ -92,6 +93,14 @@ func NuevasRutas(
 	)
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
+	}
+	var estadoSeleccionOferta http.Handler
+	if dependencias.ConsultorEstadoSeleccionOferta != nil {
+		estadoSeleccionOferta, err = httpinterno.NuevoManejadorConsultaEstadoSeleccionOferta(
+			dependencias.ConsultorEstadoSeleccionOferta)
+		if err != nil {
+			return nil, ErrRutasContratacionTemporalInvalidas
+		}
 	}
 	propuesta, err := httpinterno.NuevoManejadorPropuestaFormalizacion(
 		dependencias.AutoridadPropuestaFormalizacion,
@@ -253,6 +262,11 @@ func NuevasRutas(
 			Ruta:      httpinterno.RutaReasignaciones,
 			Manejador: asignacion,
 		},
+	}
+	if estadoSeleccionOferta != nil {
+		rutas = append(rutas, httpapi.RutaExacta{
+			Ruta: httpinterno.RutaConsultaEstadoSeleccionOferta, Manejador: estadoSeleccionOferta,
+		})
 	}
 	if subsanacion != nil {
 		rutas = append(rutas, httpapi.RutaExacta{

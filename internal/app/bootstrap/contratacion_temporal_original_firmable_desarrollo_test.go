@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"maps"
+	"net/http"
 	"slices"
 	"strings"
 	"testing"
@@ -384,26 +385,39 @@ func nuevoEscenarioOriginalPDP(t *testing.T) escenarioOriginalPDP {
 	t.Helper()
 	s, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	ahora := s.reloj.Ahora()
-	p, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoOriginalFirmableCTDesarrollo,
-		[]string{httpinterno.RutaOriginalFirmableCT},
-		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
-			return instantaneaOriginalFirmableCTDesarrollo(actor, ref, ahora)
-		})
-	if err != nil || s.registrarPerfilFijoCTDesarrollo(p) != nil {
+	if _, e := nuevoPerfilNominalOriginalCT(s, principal, clavePerfilOriginalDetalleCT, ahora); e != nil {
+		t.Fatalf("preparar detalle nominal: %v", e)
+	}
+	par, err := nuevosPerfilesNominalesOriginalCT(s, principal, ahora)
+	if err != nil || s.registrarPerfilFijoCTDesarrollo(par.detalle) != nil || s.registrarPerfilFijoCTDesarrollo(par.documentos) != nil {
 		t.Fatal(err)
 	}
-	p.contextoEsperadoRegistrado = p.contexto.Resultado
-	p.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: p.contexto}
+	s.perfilesOriginal = par
 	asignaciones := s.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
-	asignaciones.asignaciones = map[string]instantaneaPublicadaDesarrollo{p.perfilRef(): {
-		instantanea: clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(p.plantilla), actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}}
+	asignaciones.asignaciones = map[string]instantaneaPublicadaDesarrollo{}
+	for _, p := range []*perfilFijoCTDesarrollo{par.detalle, par.documentos} {
+		p.contextoEsperadoRegistrado = p.contexto.Resultado
+		p.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: p.contexto}
+		asignaciones.asignaciones[p.perfilRef()] = instantaneaPublicadaDesarrollo{
+			instantanea: clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(p.plantilla), actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}
+	}
 	servicio, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(s, s, s, s, s.reloj, seguridadvec.GeneradorReferenciasCriptograficas{},
 		aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: time.Minute})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return escenarioOriginalPDP{pdp: pdpCTOriginalFirmableDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{
-		soporte: s, autorizador: servicio}}, soporte: s, perfil: p, principal: principal}
+		soporte: s, autorizador: servicio}}, soporte: s, perfil: par.documentos, principal: principal}
+}
+
+func contextoRutaOriginalPrueba(e escenarioOriginalPDP, ruta string) context.Context {
+	base := contextoRutaCoberturaDesarrolloPrueba(e.soporte, e.principal, ruta)
+	c := base.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+	c.metodo = http.MethodPost
+	c.consultaRRHH = &contextoConsultaRRHHPeticionDesarrollo{}
+	c.original = &capturaContextosOriginalCT{}
+	c.vinculoCanalTLS[0] = 1
+	return context.WithValue(base, claveCapacidadConsultasContratacionTemporalDesarrollo{}, c)
 }
 
 func (e escenarioOriginalPDP) descarga(t *testing.T, ruta string) (context.Context, dominiovec.RecursoAutorizable) {
@@ -419,7 +433,7 @@ func (e escenarioOriginalPDP) descarga(t *testing.T, ruta string) (context.Conte
 	}
 	esperado := &esperadoOriginalFirmableCTDesarrollo{documentoRef: ref, expedienteRef: expediente, version: s.OriginalVersion}
 	esperado.fijarPreimagen(docports.AccionDescargar, preimagen)
-	ctx := contextoRutaCoberturaDesarrolloPrueba(e.soporte, e.principal, ruta)
+	ctx := contextoRutaOriginalPrueba(e, ruta)
 	return context.WithValue(ctx, claveOriginalFirmableCTDesarrollo{}, esperado), recurso
 }
 
@@ -429,6 +443,16 @@ func (e escenarioOriginalPDP) descarga(t *testing.T, ruta string) (context.Conte
 func TestOriginalFirmablePDPConsumePerfilFijoDeLaRuta(t *testing.T) {
 	e := nuevoEscenarioOriginalPDP(t)
 	ctx, recurso := e.descarga(t, httpinterno.RutaOriginalFirmableCT)
+	if _, err := e.soporte.perfilesOriginal.resolver(ctx, e.soporte.perfilesOriginal.documentos); err != nil {
+		t.Fatalf("contexto nominal documental: %v", err)
+	}
+	if _, estado := e.soporte.consumirPerfilFijoCTDesarrolloConEstado(ctx, e.soporte.perfilesOriginal.documentos); estado != perfilFijoConsumoVigente {
+		t.Fatalf("asignación documental no consumible: %v", estado)
+	}
+	operativo, errOperativo := e.soporte.contextoOperativoDesarrollo(ctx)
+	if errOperativo != nil || !contextoRegistradoPerfilFijoCTDesarrollo(operativo.Resultado.Contexto, e.soporte.perfilesOriginal.documentos) {
+		t.Fatalf("contexto documental operativo: %v, registrado=%v", errOperativo, contextoRegistradoPerfilFijoCTDesarrollo(operativo.Resultado.Contexto, e.soporte.perfilesOriginal.documentos))
+	}
 	pedida, err := e.pdp.solicitarOriginalV3(ctx, docports.AccionDescargar, finalidadDescargaDocumento, recurso)
 	if err != nil {
 		t.Fatal(err)
@@ -440,7 +464,12 @@ func TestOriginalFirmablePDPConsumePerfilFijoDeLaRuta(t *testing.T) {
 	if pedida.actor.PerfilActivoRef != e.perfil.perfilRef() {
 		t.Fatal("decisión con otro perfil")
 	}
-	if motivo, ok := e.soporte.motivoAutorizacionParaRuta(httpinterno.RutaOriginalFirmableCT); !ok || motivo != motivoOriginalFirmableCTDesarrollo() {
+	datosMotivo, err := pedida.solicitud.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctxMotivo := context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datosMotivo)
+	if motivo, ok := e.soporte.motivoAutorizacionParaContexto(ctxMotivo, httpinterno.RutaOriginalFirmableCT); !ok || motivo != motivoOriginalFirmableCTDesarrollo() {
 		t.Fatal("motivo de la ruta del original")
 	}
 
@@ -450,7 +479,7 @@ func TestOriginalFirmablePDPConsumePerfilFijoDeLaRuta(t *testing.T) {
 	pre := []byte(`{"accion":"documentos.original_firmable.reservar"}`)
 	w := &esperadoOriginalFirmableCTDesarrollo{documentoRef: recurso.Referencia, escritura: true}
 	w.fijarPreimagen(docports.AccionReservarOriginalFirmable, pre)
-	cw := context.WithValue(contextoRutaCoberturaDesarrolloPrueba(e.soporte, e.principal, httpinterno.RutaOriginalFirmableCT), claveOriginalFirmableCTDesarrollo{}, w)
+	cw := context.WithValue(contextoRutaOriginalPrueba(e, httpinterno.RutaOriginalFirmableCT), claveOriginalFirmableCTDesarrollo{}, w)
 	reserva, err := e.pdp.solicitarOriginalV3(cw, docports.AccionReservarOriginalFirmable, docports.FinalidadOriginalFirmable,
 		recursoDocumentosPrueba(tipoRecursoOriginalFirmableCT, recurso.Referencia, map[string]string{"preimagen_sha256": sha256HexPrueba(pre)}))
 	if err != nil {

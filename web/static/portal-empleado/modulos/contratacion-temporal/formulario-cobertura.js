@@ -7,14 +7,14 @@ import {
   validarSolicitudPropuestaCobertura,
 } from "./contrato-cobertura.js?v=20261002-ct-fin-modalidad-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js?v=20261002-ct-fin-modalidad-v1";
+import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js?v=20261012-reglas-configuracion-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=20261007-pantallas-textos-final-v1";
+import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=20261012-reglas-configuracion-v1";
 import {
   renderizarViasPreparacion, selectorPestanaPreparacion, textoPreparacion, viaPreparacionDeEvento,
 } from "./vias-preparacion-cobertura.js";
 import { cargarTextos } from "../../../comun/textos.js";
-import { CONFLICTOS_SIN_CREDITO_COBERTURA } from "./cliente-http-transporte.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { CONFLICTOS_SIN_CREDITO_COBERTURA } from "./cliente-http-transporte.js?v=20261016-ct-ofertas-ct231-v1";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",

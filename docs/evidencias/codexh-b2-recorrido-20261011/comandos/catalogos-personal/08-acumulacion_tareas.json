@@ -1,0 +1,11 @@
+{
+  "operacion": "publicar",
+  "tipo": "modalidad",
+  "ref": "modalidad:acumulacion_tareas",
+  "version": 1,
+  "revision": 1,
+  "denominacion": "Acumulación de tareas",
+  "huella_sha256": "579b28b24fdd7aeb26039d4cb75859b579cc973c3b1ea09112a72f85ed2c6d33",
+  "vigente_desde": "2026-10-11",
+  "vigente_hasta": ""
+}

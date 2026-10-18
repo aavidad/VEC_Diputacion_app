@@ -32,6 +32,19 @@ const RECIBO = {
   organizacion_ref: "organizacion:sintetica:001", llamamiento_ref: "llamamiento:sintetico:001",
   version_llamamiento: 1,
 };
+
+test("recibo de selección admite solo el booleano opcional de política provisional", () => {
+  assert.equal(Object.hasOwn(validarReciboSeleccionLlamamiento(RECIBO), "politica_provisional"), false);
+  for (const valor of [false, true]) {
+    assert.equal(validarReciboSeleccionLlamamiento({ ...RECIBO, politica_provisional: valor })
+      .politica_provisional, valor);
+  }
+  for (const valor of [null, 0, "false", {}]) {
+    assert.throws(() => validarReciboSeleccionLlamamiento({ ...RECIBO, politica_provisional: valor }), TypeError);
+  }
+  assert.throws(() => validarReciboSeleccionLlamamiento({ ...RECIBO, politica_provisional: true,
+    aprobada: true }), TypeError);
+});
 const REGISTRO = {
   esquema: "vec.contratacion-temporal.registro-comunicacion-llamamiento.v1",
   estado_local: "confirmado", comunicacion_ref: "comunicacion:sintetica:001",
@@ -400,6 +413,9 @@ test("no confirma un recibo incompatible ni el de otra versión", async () => {
 test("conserva códigos de conflicto y no trata caídas del servicio como rechazos previos", async () => {
   for (const [metodo, solicitud, status, codigo, prefijo, indeterminado] of [
     ["seleccionarLlamamiento", SELECCION, 409, "conflicto_no_reintentable", "seleccion", true],
+    ["seleccionarLlamamiento", SELECCION, 409, "seleccion_oferta_descartada", "seleccion", true],
+    ["recuperarOferta", SELECCION, 409, "seleccion_oferta_sin_reserva", "seleccion", true],
+    ["seleccionarLlamamiento", SELECCION, 503, "seleccion_oferta_indeterminada", "seleccion", true],
     ["registrarComunicacionLlamamiento", COMUNICACION, 409, "version_en_conflicto", "comunicacion", true],
     ["registrarComunicacionLlamamiento", COMUNICACION_SIGUIENTE, 409, "clave_idempotencia_reutilizada", "comunicacion", true],
     ["registrarComunicacionLlamamiento", COMUNICACION_SIGUIENTE, 503, "servicio_no_disponible", "comunicacion", true],
@@ -420,6 +436,47 @@ test("conserva códigos de conflicto y no trata caídas del servicio como rechaz
       return true;
     });
   }
+});
+
+test("el 503 propio identifica solo selección; otra ruta rechaza el mismo código", async () => {
+  const codigo = "seleccion_oferta_indeterminada";
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ error: {
+    codigo, clave_i18n: `api.contratacion_temporal.comunicacion_llamamiento.error.${codigo}`,
+    correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+  } }, 503) });
+  await assert.rejects(cliente.registrarComunicacionLlamamiento(COMUNICACION), (error) => {
+    assert.equal(error.codigo, "respuesta_error_no_valida");
+    assert.notEqual(error.envelopeValido, true);
+    return true;
+  });
+});
+
+test("el cliente real conserva UUID tras 503 propio y recupera la oferta por la misma ruta", async () => {
+  const huella = "a".repeat(64);
+  const oferta = { esquema: "vec.contratacion-temporal.recibo-seleccion-oferta.v1", estado: "confirmado",
+    organizacion_ref: "organizacion:sintetica:001", expediente_ref: SELECCION.expediente_ref,
+    bolsa_ref: "bolsa:sintetica:001", oferta_ref: `oferta:${huella}`,
+    recibo_oferta_ref: `recibo:oferta:${huella}`, recibo_vinculo_ref: "recibo:vinculo:001",
+    numero_plazas: 2, publicada_en: "2026-10-15T10:00:00Z", vence_antes_de: "2026-10-17T10:00:00Z" };
+  const cuerpos = [];
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
+    assert.equal(ruta, RUTAS_LLAMAMIENTO.seleccionLlamamiento);
+    const cuerpo = JSON.parse(opciones.body);
+    cuerpos.push(cuerpo);
+    return cuerpo.accion === "recuperar_oferta" ? respuesta({ data: oferta }, 200)
+      : respuesta({ error: { codigo: "seleccion_oferta_indeterminada",
+        clave_i18n: "api.contratacion_temporal.seleccion_llamamiento.error.seleccion_oferta_indeterminada",
+        correlacion_ref: "corr_0123456789abcdef0123456789abcdef" } }, 503);
+  } });
+  await assert.rejects(cliente.seleccionarLlamamiento(SELECCION), (error) => {
+    assert.equal(error.codigo, "seleccion_oferta_indeterminada");
+    assert.equal(error.envelopeValido, true);
+    return true;
+  });
+  assert.deepEqual(await cliente.recuperarOferta(SELECCION), oferta);
+  assert.deepEqual(Object.keys(cuerpos[0]), ["expediente_ref", "version_esperada", "clave_idempotencia"]);
+  assert.deepEqual(Object.keys(cuerpos[1]), [...Object.keys(cuerpos[0]), "accion"]);
+  assert.deepEqual(cuerpos[1], { ...cuerpos[0], accion: "recuperar_oferta" });
 });
 
 test("respuesta recibida: POST canónico sin clave, eco normalizado UTC y replay", async () => {

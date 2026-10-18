@@ -16,15 +16,18 @@ test("la consulta pide la forma enmascarada y valida el origen", async () => {
   const res = await consultarOrigenContacto("bolsa:1", "participacion:1", { fetchImpl: async (url, opciones) => {
     pedida = url;
     assert.equal(opciones.method, "GET");
-    return respuesta(200, { data: { origen: { origen: "convoca", estado: "vencido", ultimo_dia: "2027-09-28", vigente_hasta: "2027-09-28T22:00:00Z", regla_ref: "r" } } })();
+    return respuesta(200, { data: { sin_contacto: false, origen: { origen: "convoca", estado: "vencido", ultimo_dia: "2027-09-28", vigente_hasta: "2027-09-28T22:00:00Z", regla_ref: "r" } } })();
   } });
   assert.equal(pedida, "/api/vec/bolsa/bolsas/bolsa:1/candidatos/participacion:1/datos-contacto");
   assert.ok(!pedida.includes("ver=completo"), "nunca se pide el claro");
   assert.equal(res.ok, true);
   assert.equal(res.datos.origen.estado, "vencido");
-  assert.deepEqual(await consultarOrigenContacto("b", "p", { fetchImpl: respuesta(404, {}) }), { ok: true, datos: { sin_contacto: true, origen: null } });
+  assert.deepEqual(await consultarOrigenContacto("b", "p", { fetchImpl: respuesta(404, {}) }), { ok: false, status: 404, codigo: "error_servidor" });
+  assert.deepEqual(await consultarOrigenContacto("b", "p", { fetchImpl: respuesta(200, { data: { sin_contacto: true, origen: null } }) }), { ok: true, datos: { sin_contacto: true, origen: null } });
+  assert.equal((await consultarOrigenContacto("b", "p", { fetchImpl: respuesta(200, { data: { origen: null } }) })).codigo, "respuesta_invalida");
+  assert.equal((await consultarOrigenContacto("b", "p", { fetchImpl: respuesta(200, { data: { sin_contacto: true, origen: { origen: "convoca", estado: "vigente", ultimo_dia: "2027-09-28" } } }) })).codigo, "respuesta_invalida");
   assert.equal((await consultarOrigenContacto("b", "p", { fetchImpl: respuesta(403, {}) })).status, 403);
-  const invalida = await consultarOrigenContacto("b", "p", { fetchImpl: respuesta(200, { data: { origen: { origen: "otro", estado: "vigente", ultimo_dia: "2027-09-28" } } }) });
+  const invalida = await consultarOrigenContacto("b", "p", { fetchImpl: respuesta(200, { data: { sin_contacto: false, origen: { origen: "otro", estado: "vigente", ultimo_dia: "2027-09-28" } } }) });
   assert.equal(invalida.codigo, "respuesta_invalida");
   assert.equal((await consultarOrigenContacto("b", "p", { fetchImpl: async () => { throw new Error("red"); } })).codigo, "error_red");
 });

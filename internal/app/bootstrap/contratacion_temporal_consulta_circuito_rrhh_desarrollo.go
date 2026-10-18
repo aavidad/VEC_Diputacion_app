@@ -275,7 +275,8 @@ func nuevoManejadorConsultaCircuitoRRHHDesarrollo(
 		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
 			return nuevaInstantaneaConsultaCircuitoRRHHDesarrollo(principalID, perfilRef, ahora)
 		})
-	if err != nil || vinculo.PrincipalID != s.principalID {
+	// El vínculo acredita la persona canónica de F1; principalID es el sujeto del canal.
+	if err != nil || vinculo.PrincipalID != s.contexto.Resultado.Contexto.PersonaRef {
 		return nil, ports.ErrConsultaCircuitoRRHHNoDisponible
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))

@@ -22,23 +22,25 @@ import (
 // Activos contiene únicamente los archivos públicos del ensamblaje ADMIN.
 type DependenciasPerfiles struct {
 	// ContextoConexion se obtiene del resolver ADMIN, nunca del cliente.
-	ContextoConexion      func(context.Context, net.Conn) context.Context
-	Sesiones              api.ResolvedorSesion
-	Lecturas              api.FuenteLecturas
-	Catalogo              ports.CatalogoRolesAdministrables
-	Actos                 ports.AutoridadActosAdministracionPerfiles
-	Auditor               api.AuditorFrontera
-	Reloj                 ports.Reloj
-	Activos               fs.FS
-	ObservadorSelector    adminselector.FuenteObservacion
-	FuenteSeleccion       FuenteSeleccionAuditadaADMIN
-	AudienciaSelector     string
-	SoloUsuariosMetadatos bool
-	Lote                  *LoteADMIN
-	GobiernoPlan          api.ServicioGobiernoPlanFirmaADMIN
-	GobiernoRolNuevo      *MontajeGobiernoRolNuevoADMIN
-	GobiernoVersionBolsa  *MontajeVersionBolsaADMIN
-	Efectos               []EfectoNominalMontado
+	ContextoConexion            func(context.Context, net.Conn) context.Context
+	Sesiones                    api.ResolvedorSesion
+	Lecturas                    api.FuenteLecturas
+	Catalogo                    ports.CatalogoRolesAdministrables
+	Actos                       ports.AutoridadActosAdministracionPerfiles
+	Auditor                     api.AuditorFrontera
+	Reloj                       ports.Reloj
+	Activos                     fs.FS
+	ObservadorSelector          adminselector.FuenteObservacion
+	FuenteSeleccion             FuenteSeleccionAuditadaADMIN
+	AudienciaSelector           string
+	SoloUsuariosMetadatos       bool
+	Lote                        *LoteADMIN
+	GobiernoPlan                api.ServicioGobiernoPlanFirmaADMIN
+	GobiernoRolNuevo            *MontajeGobiernoRolNuevoADMIN
+	GobiernoVersionBolsa        *MontajeVersionBolsaADMIN
+	GobiernoVersionBolsaB103    *MontajeVersionBolsaB103ADMIN
+	GobiernoVersionBolsaExterna *MontajeVersionBolsaExternaADMIN
+	Efectos                     []EfectoNominalMontado
 }
 
 // MontajeGobiernoRolNuevoADMIN exige la fuente publicada y el servicio
@@ -53,6 +55,16 @@ type MontajeGobiernoRolNuevoADMIN struct {
 type MontajeVersionBolsaADMIN struct {
 	Servicio api.ServicioVersionarRolBolsaADMIN
 	Fuente   ports.FuenteCatalogoAccionesAdministracionV1
+}
+
+// B103 conserva la misma sesión ADMIN y fuente AUT58, con autoridad propia.
+type MontajeVersionBolsaB103ADMIN struct {
+	Servicio api.ServicioVersionarRolBolsaB103ADMIN
+	Fuente   ports.FuenteCatalogoAccionesAdministracionV1
+}
+
+type MontajeVersionBolsaExternaADMIN struct {
+	Servicio ports.ServicioVersionarRolBolsaExterna
 }
 
 type handlerPerfilesADMIN struct {
@@ -84,7 +96,7 @@ func NuevoServidorConPerfiles(cfg Configuracion, deps DependenciasPerfiles) (*ht
 }
 
 func nuevoHandlerPerfiles(host hostAdmin, deps DependenciasPerfiles) (*handlerPerfilesADMIN, error) {
-	if deps.GobiernoRolNuevo != nil || deps.GobiernoVersionBolsa != nil {
+	if deps.GobiernoRolNuevo != nil || deps.GobiernoVersionBolsa != nil || deps.GobiernoVersionBolsaB103 != nil || deps.GobiernoVersionBolsaExterna != nil {
 		return nil, ErrConfiguracion
 	}
 	servicio, err := application.NuevoServicioAdministracionPerfiles(deps.Catalogo, deps.Actos, deps.Reloj)
@@ -148,6 +160,22 @@ func NuevoServidorConLecturas(cfg Configuracion, deps DependenciasPerfiles) (*ht
 		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(v.Servicio) ||
 			dependenciaComposicionNula(v.Fuente) || dependenciaComposicionNula(deps.Reloj) ||
 			handler.ConVersionarRolBolsa(v.Servicio, v.Fuente, deps.Reloj) != nil {
+			return nil, ErrConfiguracion
+		}
+	}
+	if deps.GobiernoVersionBolsaB103 != nil {
+		v := deps.GobiernoVersionBolsaB103
+		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(v.Servicio) ||
+			dependenciaComposicionNula(v.Fuente) || dependenciaComposicionNula(deps.Reloj) ||
+			handler.ConVersionarRolBolsaB103(v.Servicio, v.Fuente, deps.Reloj) != nil {
+			return nil, ErrConfiguracion
+		}
+	}
+	if deps.GobiernoVersionBolsaExterna != nil {
+		v := deps.GobiernoVersionBolsaExterna
+		if !deps.SoloUsuariosMetadatos || dependenciaComposicionNula(v.Servicio) ||
+			dependenciaComposicionNula(deps.Reloj) ||
+			handler.ConVersionarRolBolsaExterna(v.Servicio, deps.Reloj) != nil {
 			return nil, ErrConfiguracion
 		}
 	}

@@ -20,6 +20,7 @@ type seleccionMaterialCTDesarrollo struct {
 	fichaPropiaPersonal, firmaDocumento, seguimientoCese, personalB2 bool
 	cancelacion                                                      bool
 	vinculoEmisionBolsa                                              bool
+	seleccionOferta                                                  bool
 	exportacionServiciosPersonal                                     bool
 	historiaServiciosPersonal                                        bool
 	historiaRelacionesPersonal                                       bool
@@ -96,8 +97,8 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 	}
 	s = seleccionMaterialCTDesarrollo{
 		borradoresBolsa:              cfg.BolsaBorradoresEnabled,
-		miBolsa:                      debeComponerMiBolsaDesarrollo(cfg),
-		portalCandidato:              debeComponerPortalCandidatoDesarrollo(cfg),
+		miBolsa:                      debeComponerMiBolsaDesarrollo(cfg) && !miBolsaExternaSeleccionadaEnCombinado(cfg),
+		portalCandidato:              debeComponerPortalCandidatoDesarrollo(cfg) && !miBolsaExternaSeleccionadaEnCombinado(cfg),
 		dietas:                       dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled),
 		cronos:                       cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled),
 		documentos:                   documentosSolicitados(cfg.DocumentosEnabled),
@@ -243,6 +244,11 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.vinculoEmisionBolsa {
 		d = append(d, descriptorMaterialVinculoEmisionBolsaDesarrollo())
+	}
+	if s.seleccionOferta {
+		d = append(d, descriptorMaterialSeleccionOfertaCTDesarrollo(),
+			descriptorMaterialCierreIntencionOfertaCTDesarrollo(),
+			descriptorMaterialDescarteSeleccionOfertaCTDesarrollo())
 	}
 	if s.plantillasCatalogo {
 		d = append(d, descriptoresMaterialPlantillasCTDesarrollo()...)

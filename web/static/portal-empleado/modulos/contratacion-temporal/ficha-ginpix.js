@@ -1,8 +1,10 @@
-import { validarReciboV2ParaFichaGINPIX } from "./contrato-ficha-ginpix.js";
-import { NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { validarConsultaB2ParaFichaGINPIX } from "./contrato-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
+import { NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261016-ct-ofertas-ct231-v1";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-export const CLAVES_I18N_FICHA_GINPIX = Object.freeze(["ficha_ginpix_titulo", "ficha_ginpix_resumen_titulo", "ficha_ginpix_destino", "ficha_ginpix_categoria", "ficha_ginpix_inicio", "ficha_ginpix_fin", "ficha_ginpix_registrada", "ficha_ginpix_recibo", "ficha_ginpix_exportacion_manual", "ficha_ginpix_exportacion_manual_disponible", "ficha_ginpix_transmision", "ficha_ginpix_transmision_pendiente", "ficha_ginpix_nombre_archivo", "ficha_ginpix_descargar", "ficha_ginpix_aviso", "ficha_ginpix_descargando", "ficha_ginpix_error"]);
+
+export const CLAVES_I18N_FICHA_GINPIX = Object.freeze(["ficha_ginpix_titulo", "ficha_ginpix_resumen_titulo", "ficha_ginpix_destino", "ficha_ginpix_categoria", "ficha_ginpix_inicio", "ficha_ginpix_fin", "ficha_ginpix_sin_fin", "ficha_ginpix_registrada", "ficha_ginpix_recibo", "ficha_ginpix_exportacion_manual", "ficha_ginpix_exportacion_manual_disponible", "ficha_ginpix_transmision", "ficha_ginpix_transmision_pendiente", "ficha_ginpix_nombre_archivo", "ficha_ginpix_descargar", "ficha_ginpix_descargando", "ficha_ginpix_conflicto", "ficha_ginpix_denegada", "ficha_ginpix_error"]);
+
 function contextoResumenGINPIX(valor) {
   if (valor === undefined) return null;
   if (!valor || typeof valor !== "object" || Array.isArray(valor) || Object.getPrototypeOf(valor) !== Object.prototype
@@ -18,9 +20,35 @@ function fechaGINPIX(valor, locale, zonaHoraria, incluyeHora = false) {
   try { return new Intl.DateTimeFormat(locale, { ...opciones, timeZone: zonaHoraria }).format(new Date(valor)); }
   catch { return valor; }
 }
-export function montarFichaGINPIX({ raiz, cliente, recibo, descargarArchivo, mensajes = {}, resumen, locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
-  if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren || typeof cliente?.descargarFichaGINPIX !== "function" || typeof descargarArchivo !== "function") throw new TypeError("dependencias de ficha GINPIX no válidas");
-  const r = validarReciboV2ParaFichaGINPIX(recibo); const contexto = contextoResumenGINPIX(resumen); let activa = true, ocupada = false, controlador; const t = crearTraductorContratacionTemporal(mensajes); const pintar = () => { if (activa) raiz.innerHTML = `<section data-ct-ficha-ginpix><h3>${escaparHTML(t("ficha_ginpix_titulo"))}</h3>${contexto ? `<section class="ct-resumen-documentos" aria-labelledby="ct-ficha-ginpix-resumen"><h4 id="ct-ficha-ginpix-resumen">${escaparHTML(t("ficha_ginpix_resumen_titulo"))}</h4><dl class="ct-resumen"><div><dt>${escaparHTML(t("ficha_ginpix_destino"))}</dt><dd>${escaparHTML(contexto.centro)}</dd></div><div><dt>${escaparHTML(t("ficha_ginpix_categoria"))}</dt><dd>${escaparHTML(contexto.categoria)}</dd></div><div><dt>${escaparHTML(t("ficha_ginpix_inicio"))}</dt><dd><time datetime="${escaparHTML(r.periodo_incorporacion.desde)}">${escaparHTML(fechaGINPIX(r.periodo_incorporacion.desde, locale, "UTC"))}</time></dd></div><div><dt>${escaparHTML(t("ficha_ginpix_fin"))}</dt><dd><time datetime="${escaparHTML(r.periodo_incorporacion.hasta)}">${escaparHTML(fechaGINPIX(r.periodo_incorporacion.hasta, locale, "UTC"))}</time></dd></div><div><dt>${escaparHTML(t("ficha_ginpix_registrada"))}</dt><dd><time datetime="${escaparHTML(r.registrada_en)}">${escaparHTML(fechaGINPIX(r.registrada_en, locale, zonaHoraria, true))}</time></dd></div><div><dt>${escaparHTML(t("ficha_ginpix_recibo"))}</dt><dd><code>${escaparHTML(r.recibo_ref)}</code></dd></div><div><dt>${escaparHTML(t("ficha_ginpix_exportacion_manual"))}</dt><dd>${escaparHTML(t("ficha_ginpix_exportacion_manual_disponible"))}</dd></div><div><dt>${escaparHTML(t("ficha_ginpix_transmision"))}</dt><dd>${escaparHTML(t("ficha_ginpix_transmision_pendiente"))}</dd></div></dl></section>` : ""}<dl class="ct-resumen">${contexto ? "" : `<div><dt>${escaparHTML(t("ficha_ginpix_recibo"))}</dt><dd><code>${escaparHTML(r.recibo_ref)}</code></dd></div>`}<div><dt>${escaparHTML(t("ficha_ginpix_nombre_archivo"))}</dt><dd><code>${escaparHTML(NOMBRE_FICHA_GINPIX)}</code></dd></div></dl><button type="button" data-ct-ficha-ginpix-descargar aria-disabled="false" aria-busy="false">${escaparHTML(t("ficha_ginpix_descargar"))}</button><p data-ct-ficha-ginpix-estado role="status" aria-live="polite"></p></section>`; };
+
+export function montarFichaGINPIX({ raiz, cliente, consulta, descargarArchivo, mensajes = {}, resumen, locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+  if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
+    || typeof cliente?.descargarFichaGINPIX !== "function" || typeof descargarArchivo !== "function") throw new TypeError("dependencias de ficha GINPIX no válidas");
+  const c = validarConsultaB2ParaFichaGINPIX(consulta);
+  const r = c.recibo;
+  const periodo = c.plan.intencion;
+  const contexto = contextoResumenGINPIX(resumen);
+  const t = crearTraductorContratacionTemporal(mensajes);
+  let activa = true, ocupada = false, controlador;
+  const fila = (clave, valor) => `<div><dt>${escaparHTML(t(clave))}</dt><dd>${valor}</dd></div>`;
+  const fecha = (valor) => `<time datetime="${escaparHTML(valor)}">${escaparHTML(fechaGINPIX(valor, locale, "UTC"))}</time>`;
+  const pintar = () => {
+    if (!activa) return;
+    raiz.innerHTML = `<section data-ct-ficha-ginpix><h3>${escaparHTML(t("ficha_ginpix_titulo"))}</h3>
+      ${contexto ? `<section class="ct-resumen-documentos" aria-labelledby="ct-ficha-ginpix-resumen"><h4 id="ct-ficha-ginpix-resumen">${escaparHTML(t("ficha_ginpix_resumen_titulo"))}</h4><dl class="ct-resumen">
+        ${fila("ficha_ginpix_destino", escaparHTML(contexto.centro))}${fila("ficha_ginpix_categoria", escaparHTML(contexto.categoria))}
+        ${fila("ficha_ginpix_inicio", fecha(periodo.desde))}
+        ${fila("ficha_ginpix_fin", periodo.hasta ? fecha(periodo.hasta) : escaparHTML(t("ficha_ginpix_sin_fin")))}
+        ${fila("ficha_ginpix_registrada", `<time datetime="${escaparHTML(r.registrada_en)}">${escaparHTML(fechaGINPIX(r.registrada_en, locale, zonaHoraria, true))}</time>`)}
+        ${fila("ficha_ginpix_recibo", `<code>${escaparHTML(r.recibo_ref)}</code>`)}
+        ${fila("ficha_ginpix_exportacion_manual", escaparHTML(t("ficha_ginpix_exportacion_manual_disponible")))}
+        ${fila("ficha_ginpix_transmision", escaparHTML(t("ficha_ginpix_transmision_pendiente")))}
+        </dl></section>` : ""}
+      <dl class="ct-resumen">${contexto ? "" : fila("ficha_ginpix_recibo", `<code>${escaparHTML(r.recibo_ref)}</code>`)}
+        ${fila("ficha_ginpix_nombre_archivo", `<code>${escaparHTML(NOMBRE_FICHA_GINPIX)}</code>`)}</dl>
+      <button type="button" data-ct-ficha-ginpix-descargar aria-disabled="false" aria-busy="false">${escaparHTML(t("ficha_ginpix_descargar"))}</button>
+      <p data-ct-ficha-ginpix-estado role="status" aria-live="polite"></p></section>`;
+  };
   pintar();
   const boton = raiz.querySelector?.("[data-ct-ficha-ginpix-descargar]");
   const estadoVisible = raiz.querySelector?.("[data-ct-ficha-ginpix-estado]");
@@ -31,17 +59,24 @@ export function montarFichaGINPIX({ raiz, cliente, recibo, descargarArchivo, men
     if (estadoVisible) estadoVisible.textContent = estado ? t(estado) : "";
   }
   async function alPulsar(evento) {
-    if (!evento.target?.matches?.("[data-ct-ficha-ginpix-descargar]") || ocupada || (raiz.contains && !raiz.contains(evento.target))) return;
+    if (!activa || !evento.target?.matches?.("[data-ct-ficha-ginpix-descargar]") || ocupada || (raiz.contains && !raiz.contains(evento.target))) return;
     ocupada = true;
     const control = new AbortController(); controlador = control;
     let estado = "ficha_ginpix_descargando";
     actualizarEstado(estado);
     try {
-      const archivo = await cliente.descargarFichaGINPIX(r, { signal: control.signal });
+      const archivo = await cliente.descargarFichaGINPIX(c, { signal: control.signal });
       if (activa && !control.signal.aborted) await descargarArchivo(archivo, NOMBRE_FICHA_GINPIX);
       estado = "";
-    } catch { if (!control.signal.aborted) estado = "ficha_ginpix_error"; }
-    finally {
+    } catch (error) {
+      if (!control.signal.aborted) {
+        if (error?.envelopeValido && [401, 403].includes(error.estado)) {
+          activa = false;
+          raiz.innerHTML = `<p role="status" aria-live="polite">${escaparHTML(t("ficha_ginpix_denegada"))}</p>`;
+        } else estado = error?.envelopeValido && error.estado === 409
+          ? "ficha_ginpix_conflicto" : "ficha_ginpix_error";
+      }
+    } finally {
       ocupada = false;
       if (controlador === control) controlador = null;
       actualizarEstado(estado);

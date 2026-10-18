@@ -1,5 +1,5 @@
-import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261009-centro-campos-cohorte-v5";
-import { crearVinculoBolsaClienteHTTP } from "./cliente-http-vinculo-bolsa.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261013-ct-firma-tres-v3";
+import { crearVinculoBolsaClienteHTTP } from "./cliente-http-vinculo-bolsa.js?v=20261016-ct-ofertas-ct231-v1";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -16,22 +16,23 @@ import {
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
 import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
-import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261016-ct-ofertas-ct231-v1";
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
-import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
-import { crearConsultaReciboRespuestaClienteHTTP, RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js";
-import { crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js";
+import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { crearConsultaReciboRespuestaClienteHTTP, RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js?v=20261016-ct-ofertas-ct231-v1";
+import { crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct-ofertas-ct231-v1";
 import { crearResolucionFormalizacionClienteHTTP, RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { crearIncorporacionEjercicioClienteHTTP, RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
-import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js";
+import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
 import { crearClienteSeguimientoIncorporacion, RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { crearClienteAnotacionAdministrativaHTTP, RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
 import { crearClienteCierreAdministrativoHTTP, RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
 import { crearClienteSubsanacionReparosHTTP, RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
 import { crearClienteSeguimientoCeseHTTP } from "./cliente-http-seguimiento-cese.js";
-import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
+import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20261016-ct-ofertas-ct231-v1";
 import { crearClienteReincorporacionRRHHHTTP, RUTA_CAPACIDAD_REINCORPORACION_RRHH, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js?v=20260928-rrhh-reincorporacion-v1";
+import { crearClienteRecuperacionFirmasV2, RUTA_CONSULTA_FIRMAS_V2 } from "./cliente-http-recuperacion-firmas-v2.js?v=20261016-r1-o-integracion-v7";
 import {
   MAXIMO_ERROR_BYTES,
   MAXIMO_FRAGMENTOS,
@@ -47,7 +48,7 @@ import {
   extraerDatos,
   construirErrorRespuesta,
   construirCabeceras,
-} from "./cliente-http-transporte.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+} from "./cliente-http-transporte.js?v=20261016-ct-ofertas-ct231-v1";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
@@ -67,6 +68,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   consultaComunicacionesExpediente: RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE,
   resolucionFormalizacion: RUTA_RESOLUCION_FORMALIZACION,
   incorporacionEjercicio: RUTA_INCORPORACION_EJERCICIO,
+  consultaFirmasV2: RUTA_CONSULTA_FIRMAS_V2,
   fichaGINPIX: RUTA_FICHA_GINPIX,
   seguimientoIncorporacion: RUTA_SEGUIMIENTO_INCORPORACION,
   anotacionAdministrativa: RUTA_ANOTACION_ADMINISTRATIVA,
@@ -95,6 +97,7 @@ export class ErrorClienteHTTPContratacionTemporal extends Error {
     correlacionRef = null,
     campo = "",
     envelopeValido = false,
+    comprobacionOfrecimiento = null,
     resultadoIndeterminado = codigo === "operacion_pendiente"
       || codigo === "resultado_indeterminado",
   } = {}) {
@@ -108,6 +111,7 @@ export class ErrorClienteHTTPContratacionTemporal extends Error {
     this.correlacionRef = correlacionRef;
     this.campo = campo;
     this.envelopeValido = envelopeValido;
+    this.comprobacionOfrecimiento = comprobacionOfrecimiento;
     this.resultadoIndeterminado = resultadoIndeterminado;
     this.requiereRecuperacion = resultadoIndeterminado;
     this.reintentoPermitido = false;
@@ -142,6 +146,7 @@ function convertirEnResultadoIndeterminado(error) {
     correlacionRef: error.correlacionRef,
     campo: error.campo,
     envelopeValido: error.envelopeValido,
+    comprobacionOfrecimiento: error.comprobacionOfrecimiento,
     resultadoIndeterminado: true,
   });
 }
@@ -596,6 +601,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     seguimientoCese: crearClienteSeguimientoCeseHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
     cancelacion: crearClienteCancelacionHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
     reincorporacionTitular: crearClienteReincorporacionRRHHHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
+    firmasV2: crearClienteRecuperacionFirmasV2({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearConsultaReciboRespuestaClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearConsultaComunicacionesExpedienteClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),

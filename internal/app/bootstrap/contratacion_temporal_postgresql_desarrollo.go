@@ -22,7 +22,6 @@ import (
 	"vec-diputacion-granada/internal/shared/plazoarranque"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
-	"vec-diputacion-granada/internal/vec/auditoria"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -93,6 +92,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	confirmador                       *pgxpool.Pool
 	lectorResultado                   *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
 	vinculoEmisionBolsa               bool
+	seleccionOferta                   bool
 	registradorAuditoriaFrontera      *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
 	auditoriaFrontera                 *pgxpool.Pool
 	candidaturas                      ports.ResolutorCandidaturaAlta
@@ -141,9 +141,11 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
+	materialPreferenciasBolsasInternas               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPreparacionBases                         [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
 	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
+	proveedorMaterialOrganizacionHistorica           *proveedorMaterialAltaContratacionTemporalDesarrollo
 	errMaterialOrganizacionHistorica                 error
 	detenerRenovacion                                func()
 	detenerEntregaContratos                          func()
@@ -427,6 +429,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	dependencias.vinculoEmisionBolsa = seleccion.vinculoEmisionBolsa
+	// CT220, B120 y AD278 son una capacidad opcional: su ausencia cierra solo
+	// la oferta múltiple y nunca impide el arranque de Contratación temporal.
+	seleccion.seleccionOferta = detectarSeleccionOfertaCTDesarrollo(ctx, ejecucion)
+	dependencias.seleccionOferta = seleccion.seleccionOferta
 	// CT137/AD3-100 deben existir y conservar sus ACL antes de publicar la
 	// audiencia documental. Se reutiliza el pool ejecutor ya acreditado.
 	if seleccion.plantillasDocumental {
@@ -490,17 +496,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		descriptores := DescriptoresMaterialPreparacionBasesV3()
 		descriptoresMaterial = append(descriptoresMaterial, descriptores[:]...)
 	}
-	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
-	if err != nil {
-		return vacias, err
-	}
-	if auditoriaActiva {
-		if _, err := cfg.RutaCatalogoAuditoriaConsultaDesarrollo(); err != nil {
-			return vacias, err
-		}
-		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialAuditoriaConsultaDesarrollo())
-	}
 	descriptoresMaterial = materialCargaConvocaDesarrollo(descriptoresMaterial, seleccion.borradoresBolsa) // B1: ver bolsa_carga_convoca_gobernada.go
+	preferenciasBolsasInternas := preferenciasBolsasInternasSolicitadas()
+	if preferenciasBolsasInternas {
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialOrdenarPreferenciasBolsasInternaV3())
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -541,6 +541,16 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 	}
+	if preferenciasBolsasInternas {
+		// Opcional: sin clave publicada la ruta interna queda en 503 y el
+		// resto del arranque sigue.
+		dependencias.materialPreferenciasBolsasInternas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaOrdenarPreferenciasBolsasInterna)
+		if err != nil {
+			slog.Warn("preferencias de Mi Bolsa interna sin clave publicada")
+			dependencias.materialPreferenciasBolsasInternas, err = nil, nil
+		}
+	}
 	if seleccion.plantillasCatalogo {
 		etapa = "material_plantillas_catalogo"
 		dependencias.proveedorMaterialPlantillasCatalogo, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
@@ -579,37 +589,6 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			crear:       proveedoresDietas[audienciaConsumoCrearDietasDesarrollo],
 			consultar:   proveedoresDietas[audienciaConsumoConsultarDietasDesarrollo],
 			adicionales: proveedoresDietas,
-		}
-	}
-	etapa = "material_cronos"
-	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
-		var cronos [8]*proveedorMaterialAltaContratacionTemporalDesarrollo
-		for i, audiencia := range audienciasCronosEmpleadoDesarrollo() {
-			cronos[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
-			if err != nil {
-				return vacias, err
-			}
-		}
-		dependencias.materialCronos = materialCronosDesdeProveedores(cronos)
-		if cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled) {
-			var resolucion [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
-			for i, audiencia := range audienciasCronosResolucionDesarrollo() {
-				resolucion[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
-				if err != nil {
-					return vacias, err
-				}
-			}
-			dependencias.materialCronos = dependencias.materialCronos.conResolucion(resolucion)
-		}
-		if cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled) {
-			var notificaciones [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
-			for i, audiencia := range audienciasCronosNotificacionesDesarrollo() {
-				notificaciones[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
-				if err != nil {
-					return vacias, err
-				}
-			}
-			dependencias.materialCronos = dependencias.materialCronos.conNotificaciones(notificaciones)
 		}
 	}
 	etapa = "material_documentos"
@@ -675,19 +654,6 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 		dependencias.proveedorMaterialConsultaFirmasDocumento, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, ports.AudienciaConsultaFirmasDocumentoV3)
-		if err != nil {
-			return vacias, err
-		}
-	}
-	etapa = "material_auditoria_rrhh"
-	if auditoriaActiva {
-		dependencias.proveedorMaterialAuditoriaCT, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
-			ctx, gobierno, material, reloj, catalogoMaterial, auditoria.AudienciaConsumo)
-		if err != nil {
-			return vacias, err
-		}
-		dependencias.proveedorMaterialAuditoriaBolsa, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
-			ctx, gobierno, material, reloj, catalogoMaterial, auditoria.AudienciaConsumo)
 		if err != nil {
 			return vacias, err
 		}
@@ -920,13 +886,33 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	// capacidad sin material; no interrumpe las capacidades anteriores.
 	catalogoOH, activoOH, falloOH := seleccionarMaterialOrganizacionHistorica(cfg, descriptoresMaterial)
 	if falloOH == nil && activoOH {
-		dependencias.materialOrganizacionHistorica, falloOH = publicarMaterialOrganizacionHistorica(ctx, gobierno, material, catalogoOH)
+		dependencias.materialOrganizacionHistorica, dependencias.proveedorMaterialOrganizacionHistorica, falloOH =
+			publicarMaterialOrganizacionHistoricaConProveedor(material, catalogoOH,
+				func(derivado *materialAtestacionContratacionTemporalDesarrollo) error {
+					return publicarGobiernoAtestacionContratacionTemporalDesarrollo(ctx, gobierno, derivado)
+				},
+				func(derivado materialAtestacionContratacionTemporalDesarrollo) (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
+					return nuevoProveedorMaterialAutorizacionBaseDesarrollo(derivado, reloj)
+				})
 	}
 	dependencias.errMaterialOrganizacionHistorica = falloOH
 	if falloOH != nil {
 		registrarFalloPostgreSQLContratacionTemporalDesarrollo(
 			"material_organizacion_historica", "capacidad_no_disponible",
 		)
+	}
+	// Cronos es opcional: se publica después de completar CT y con un plazo
+	// propio. Un agotamiento suyo no cancela las conexiones ni los pasos de CT.
+	etapa = "material_cronos"
+	if seleccion.cronos {
+		cancelar() // Ya terminaron las operaciones de CT que usan su plazo.
+		ctxCronos, cancelarCronos := contextoPublicacionCronos(ctx)
+		var falloCronos error
+		dependencias.materialCronos, falloCronos = publicarMaterialCronosEnLote(ctxCronos, gobierno, material, reloj, catalogoMaterial, seleccion)
+		cancelarCronos()
+		if falloCronos != nil {
+			registrarFalloCronosArranque(marcarFalloComponenteArranque("cronos_material_v3", falloCronos))
+		}
 	}
 	completa = true
 	return dependencias, nil

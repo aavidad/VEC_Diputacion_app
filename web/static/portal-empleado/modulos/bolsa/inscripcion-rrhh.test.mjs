@@ -6,7 +6,8 @@ import { leerRutaInscripcionesRRHH, rutaInscripcionesRRHH,
 import { cargarTextos } from "../../../comun/textos.js";
 
 const solicitud = { solicitud_ref: "solicitud:1", recibo_ref: "recibo:solicitud:1",
-  convocatoria_ref: "convocatoria:1", categoria_ref: "categoria:1", categoria: "Auxiliar administrativo",
+  convocatoria_ref: "convocatoria:1", convocatoria_titulo: "Bolsa de personal de apoyo",
+  categoria_ref: "categoria:1", categoria: "Auxiliar administrativo",
   declaracion_ref: "declaracion:1", bolsa_ref: null, persona_resumen: "Lucía Martín",
   estado: "pendiente", version: 1, registrada_en: "2026-10-08T10:00:00Z", motivo_codigo: null };
 const detalle = { ...solicitud, bases_ref: "bases:1", catalogo_version: 1,
@@ -15,7 +16,7 @@ const detalle = { ...solicitud, bases_ref: "bases:1", catalogo_version: 1,
     estado: "cumple", fuente_ref: "fuente:1", evidencia_ref: "evidencia:1" }] };
 const convocatoriaHistorica = { convocatoria_ref: "convocatoria:historica", titulo: "Bolsa de personal de apoyo",
   categorias_resumen: "Auxiliar administrativo", plazo_fin: "2025-10-08T23:59:59Z",
-  estado_publicacion: "sustituida" };
+  estado_publicacion: "sustituida", pendientes: 1 };
 // Respuesta real con flujo de bytes, como la que lee el transporte común.
 const respuesta = (status, data, cuerpo = { data }) => new Response(JSON.stringify(cuerpo),
   { status, headers: { "Content-Type": "application/json" } });
@@ -162,11 +163,12 @@ test("selector histórico se abre antes de la bandeja y enlaza filtro exacto", a
   let lecturasLista = 0;
   let ruta;
   const vista = await montarInscripcionesRRHH({ raiz,
-    localizacion: new URL("https://vec.example/portal-empleado/#solicitudes"),
+    localizacion: new URL("https://vec.example/portal-empleado/?inscripcion_estado=rechazada#solicitudes"),
     historial: { pushState: (_estado, _titulo, destino) => { ruta = destino; } },
     cliente: { convocatorias: async () => ({ convocatorias: [convocatoriaHistorica], total: 1,
       cursor_siguiente: null }),
-      listar: async ({ convocatoria }) => { lecturasLista++; assert.equal(convocatoria, "convocatoria:historica");
+      listar: async ({ convocatoria, estado }) => { lecturasLista++; assert.equal(convocatoria, "convocatoria:historica");
+        assert.equal(estado, "pendiente");
         return { convocatoria_titulo: "Bolsa de personal de apoyo", solicitudes: [], total: 0, cursor_siguiente: null }; },
       detalle: async () => detalle, motivos: async () => ({ motivos: [] }),
       decidir: async () => ({}), incorporar: async () => ({}) } });
@@ -175,6 +177,9 @@ test("selector histórico se abre antes de la bandeja y enlaza filtro exacto", a
   assert.match(raiz.innerHTML, /Categoría: Auxiliar administrativo/u);
   assert.match(raiz.innerHTML, /Sustituida/u);
   assert.match(raiz.innerHTML, /Plazo finalizado/u);
+  assert.match(raiz.innerHTML, /1 solicitud pendiente/u);
+  assert.match(raiz.innerHTML, /href="[^"]*inscripcion_convocatoria=convocatoria%3Ahistorica[^"]*"/u);
+  assert.doesNotMatch(raiz.innerHTML, /href="[^"]*inscripcion_estado=rechazada[^"]*"/u);
   let impedido = false;
   eventos.get("click")({ target: { closest: () => ({ dataset: { inscripcionElegir: "convocatoria:historica" },
     matches: () => true, hasAttribute: () => false }) }, ctrlKey: true,
@@ -186,6 +191,7 @@ test("selector histórico se abre antes de la bandeja y enlaza filtro exacto", a
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(lecturasLista, 1);
   assert.match(ruta, /inscripcion_convocatoria=convocatoria%3Ahistorica/u);
+  assert.doesNotMatch(ruta, /inscripcion_estado=/u);
   vista.desmontar();
 });
 
@@ -444,4 +450,32 @@ test("incorporar sin número de acta avisa junto al campo, lleva el foco y no en
   assert.match(raiz.innerHTML, /Escriba el número del acta/u);
   assert.equal(enfocados.at(-1), "[data-inscripcion-evidencia]");
   vista.desmontar();
+});
+
+
+test("Convocatorias reutiliza el selector, conserva idioma y abre solicitudes sin leerlas antes del clic", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", addEventListener: (tipo, fn) => eventos.set(tipo, fn),
+    removeEventListener: (tipo) => eventos.delete(tipo), contains: () => true,
+    replaceChildren() { this.innerHTML = ""; } };
+  let lecturas = 0; let destino;
+  const sinConsulta = () => { throw new Error("lectura de solicitudes prematura"); };
+  const vista = await montarInscripcionesRRHH({ raiz, soloConvocatorias: true,
+    localizacion: new URL("https://vec.example/portal-empleado/?lang=en&inscripcion_convocatoria=anterior#bolsa/convocatorias"),
+    cargarCatalogo: (nombre) => cargarTextos(nombre, { idioma: "en", porDefecto: "en" }),
+    historial: { pushState() {} }, alAbrirSolicitudes: (ruta) => { destino = ruta; },
+    cliente: { convocatorias: async ({ idioma }) => { lecturas++; assert.equal(idioma, "en");
+      return { convocatorias: [convocatoriaHistorica], total: 1, cursor_siguiente: null }; },
+      listar: sinConsulta, detalle: sinConsulta, motivos: sinConsulta, decidir: sinConsulta, incorporar: sinConsulta } });
+  await new Promise((r) => setImmediate(r));
+  assert.match(raiz.innerHTML, /Recruitment notices/u);
+  assert.match(raiz.innerHTML, /Application deadline passed/u);
+  assert.doesNotMatch(raiz.innerHTML, /Solicitudes|Convocatorias publicadas/u);
+  const ruta = raiz.innerHTML.match(/href="([^"]+)" data-inscripcion-elegir/u)[1].replaceAll("&amp;", "&");
+  assert.match(ruta, /lang=en.*inscripcion_convocatoria=convocatoria%3Ahistorica.*#bolsa\/solicitudes/u);
+  const accion = { dataset: { inscripcionElegir: "convocatoria:historica" }, matches: () => true,
+    hasAttribute: () => false, getAttribute: () => ruta };
+  eventos.get("click")({ target: { closest: () => accion }, preventDefault() {} });
+  assert.equal(destino, ruta); assert.equal(lecturas, 1);
+  vista.desmontar(); assert.equal(raiz.innerHTML, "");
 });

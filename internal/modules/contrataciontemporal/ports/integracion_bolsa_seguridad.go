@@ -90,6 +90,7 @@ type EvidenciaDurableIntegracionBolsa struct {
 	EmitidaEn             time.Time `json:"emitida_en"`
 	ValidaHasta           time.Time `json:"valida_hasta"`
 	RetenerHasta          time.Time `json:"retener_hasta"`
+	SinRetencionDeclarada bool      `json:"sin_retencion_declarada,omitempty"`
 }
 
 func (e EvidenciaDurableIntegracionBolsa) Validar() error {
@@ -108,10 +109,10 @@ func (e EvidenciaDurableIntegracionBolsa) Validar() error {
 		!huellaSHA256BolsaValida(e.HuellaRespuestaSHA256) ||
 		!instanteBolsaCanonico(e.EmitidaEn) ||
 		!instanteBolsaCanonico(e.ValidaHasta) ||
-		!instanteBolsaCanonico(e.RetenerHasta) ||
 		!e.ValidaHasta.After(e.EmitidaEn) ||
 		e.ValidaHasta.Sub(e.EmitidaEn) > VigenciaMaximaPeticionIntegracionBolsa ||
-		!e.RetenerHasta.After(e.ValidaHasta) {
+		!((e.SinRetencionDeclarada && e.RetenerHasta.IsZero()) ||
+			(!e.SinRetencionDeclarada && instanteBolsaCanonico(e.RetenerHasta) && e.RetenerHasta.After(e.ValidaHasta))) {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
 	return nil
@@ -167,7 +168,8 @@ func evidenciasDurablesBolsaIguales(
 		) &&
 		primera.EmitidaEn.Equal(segunda.EmitidaEn) &&
 		primera.ValidaHasta.Equal(segunda.ValidaHasta) &&
-		primera.RetenerHasta.Equal(segunda.RetenerHasta)
+		primera.RetenerHasta.Equal(segunda.RetenerHasta) &&
+		primera.SinRetencionDeclarada == segunda.SinRetencionDeclarada
 }
 
 func (c ComprobanteEvidenciaIntegracionBolsa) instanteVerificacion() time.Time {
@@ -250,7 +252,7 @@ func (v *VerificadorEvidenciaIntegracionBolsa) reautenticar(
 	if ctx == nil || v == nil || dependenciaIntegracionBolsaNula(v.verificador) ||
 		evidencia.Validar() != nil || !instanteBolsaCanonico(instante) ||
 		instante.Before(evidencia.EmitidaEn) ||
-		!instante.Before(evidencia.RetenerHasta) ||
+		(!evidencia.SinRetencionDeclarada && !instante.Before(evidencia.RetenerHasta)) ||
 		evidencia.AutoridadRef != v.autoridadEsperada ||
 		!v.anillo.contiene(evidencia.ClaveVerificacionRef) ||
 		!huellasBolsaIguales(
@@ -311,6 +313,7 @@ func nuevaEvidenciaDurableBolsa(
 		EmitidaEn:             procedencia.Evidencia.EmitidaEn,
 		ValidaHasta:           procedencia.Evidencia.ValidaHasta,
 		RetenerHasta:          procedencia.Evidencia.RetenerHasta,
+		SinRetencionDeclarada: procedencia.SinRetencionDeclarada,
 	}
 }
 
@@ -330,6 +333,9 @@ func materialAutenticacionRespuestaBolsa(
 	c.instante("emitida_en", evidencia.EmitidaEn)
 	c.instante("valida_hasta", evidencia.ValidaHasta)
 	c.instante("retener_hasta", evidencia.RetenerHasta)
+	if evidencia.SinRetencionDeclarada {
+		c.booleano("sin_retencion_declarada", true)
+	}
 	return c.bytes()
 }
 

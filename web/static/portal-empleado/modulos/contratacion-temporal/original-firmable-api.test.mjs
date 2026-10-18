@@ -33,6 +33,21 @@ test("el original se recupera por referencia y versión, con sus bytes y huella 
   assert.equal(enviada.opciones.credentials, "same-origin"); assert.equal(enviada.opciones.cache, "no-store");
   assert.equal(enviada.opciones.redirect, "error"); assert.equal(enviada.opciones.referrerPolicy, "no-referrer");
 });
+test("original de 2 MiB se prepara intacto y uno mayor se cierra", async () => {
+  const maximo = 2 * 1024 * 1024;
+  const grande = Buffer.alloc(maximo, 0x78);
+  grande.write("%PDF-", 0, "ascii"); grande.write("%%EOF", maximo - 5, "ascii");
+  const comprobar = async (contenido, admite) => {
+    const hash = createHash("sha256").update(contenido).digest("hex");
+    const data = datos(); data.pdf_base64 = contenido.toString("base64");
+    data.original_sha256 = hash; data.documento_custodiado.huella_sha256 = hash;
+    const cliente = crearClienteOriginalFirmable({ fetchImpl: async () => respuesta(data) });
+    if (admite) assert.deepEqual(Buffer.from((await cliente.preparar(solicitud)).contenido), contenido);
+    else await assert.rejects(cliente.preparar(solicitud), { codigo: "resultado_no_confiable" });
+  };
+  await comprobar(grande, true);
+  await comprobar(Buffer.concat([grande, Buffer.from("x")]), false);
+});
 test("otra versión, otro PDF o custodia ajena no entrega bytes para firmar", async () => {
   for (const alterar of [(d) => { d.original_version++; }, (d) => { d.expediente_ref = "expediente:otro"; },
     (d) => { d.pdf_base64 = Buffer.from("%PDF-1.7\najeno\n%%EOF").toString("base64"); },
@@ -46,7 +61,9 @@ test("otra versión, otro PDF o custodia ajena no entrega bytes para firmar", as
 test("denegación, límite de respuesta y cancelación cierran la descarga", async () => {
   await assert.rejects(crearClienteOriginalFirmable({ fetchImpl: async () => respuesta({}, 403) }).preparar(solicitud),
     (e) => e.codigo === "acceso_denegado");
-  const grande = respuesta(datos()); grande.headers.set("Content-Length", "2000000");
+  await assert.rejects(crearClienteOriginalFirmable({ fetchImpl: async () => respuesta({}, 404) }).preparar(solicitud),
+    (e) => e.codigo === "servicio_no_disponible", "una ruta ausente no acredita falta de permiso");
+  const grande = respuesta(datos()); grande.headers.set("Content-Length", String(Math.ceil((2 * 1024 * 1024) / 3) * 4 + 16384 + 1));
   await assert.rejects(crearClienteOriginalFirmable({ fetchImpl: async () => grande }).preparar(solicitud),
     (e) => e.codigo === "resultado_no_confiable");
   const c = new AbortController(); let llamadas = 0; c.abort();
@@ -73,6 +90,11 @@ test("prepara la revisión previa con Documentos, ámbito y huella exactos sin r
   const segundo = { ...primero, pasoOrden: 2, revisionEntradaRef: `ref:${"f".repeat(64)}`, revisionEntradaVersion: 1, revisionEntradaHuella: anteriorHuella };
   assert.deepEqual(await deps.obtenerOriginal(segundo, { vinculoOriginal }), anterior);
   assert.deepEqual(consulta.cuerpo, { expediente_ref: datos().documento_custodiado.expediente_ref, documento_ref: segundo.revisionEntradaRef, version: 1 });
+  const consultaAnterior = consulta;
+  const tercero = { ...segundo, pasoOrden: 3, entradaPDFBase64: Buffer.from(anterior).toString("base64") };
+  assert.deepEqual(await deps.obtenerOriginal(tercero, { vinculoOriginal }), anterior);
+  assert.equal(consulta, consultaAnterior, "el PDF ya leído por preflight no dispara otra descarga");
+  await assert.rejects(deps.obtenerOriginal({ ...tercero, entradaPDFBase64: Buffer.from(pdf).toString("base64") }, { vinculoOriginal }));
   await assert.rejects(deps.obtenerOriginal({ ...segundo, expedienteRef: "expediente:ajeno" }, { vinculoOriginal }), (e) => e.codigo === "resultado_no_confiable");
   await assert.rejects(deps.obtenerOriginal({ ...segundo, revisionEntradaHuella: "a".repeat(64) }, { vinculoOriginal }));
 });
@@ -81,4 +103,33 @@ test("la preparación exige puertos explícitos y conserva la cancelación", asy
   const deps = crearDependenciasPreparacionFirma({ clienteOriginal: { preparar() {} }, clientePreflight: { consultar() {} }, crearDocumentos() {} });
   const c = new AbortController(); c.abort();
   await assert.rejects(deps.obtenerOriginal(solicitud, { signal: c.signal }), (e) => e.codigo === "operacion_abortada");
+});
+
+
+test("la preparación exige el comprobante confirmado y conserva su número y fecha", async () => {
+  const d = datos();
+  d.esquema = "vec.contratacion-temporal.original-firmable.v2";
+  d.comprobante = { numero_vec: "VEC-2026-17", custodiado_en: "2026-10-12T09:00:00.123456Z" };
+  let accept;
+  const cliente = crearClienteOriginalFirmable({ exigirComprobante: true, fetchImpl: async (_ruta, opciones) => {
+    accept = opciones.headers.Accept; return respuesta(d);
+  } });
+  const primero = await cliente.preparar(solicitud);
+  const repetido = await cliente.preparar(solicitud);
+  assert.deepEqual(primero.comprobante, d.comprobante);
+  assert.deepEqual(repetido.comprobante, primero.comprobante);
+  assert.deepEqual(repetido.contenido, primero.contenido);
+  assert.equal(accept, "application/vnd.vec.ct.original-firmable.v2+json");
+  for (const alterar of [
+    (v) => { delete v.comprobante; },
+    (v) => { v.comprobante.numero_vec = "envio:inventado"; },
+    (v) => { v.comprobante.custodiado_en = ""; },
+    (v) => { v.comprobante.custodiado_en = "2026-10-12T09:00:00+02:00"; },
+    (v) => { v.comprobante.firmado = true; },
+    (v) => { v.esquema = "vec.contratacion-temporal.original-firmable.v1"; },
+  ]) {
+    const alterado = structuredClone(d); alterar(alterado);
+    await assert.rejects(crearClienteOriginalFirmable({ exigirComprobante: true,
+      fetchImpl: async () => respuesta(alterado) }).preparar(solicitud), (e) => e.codigo === "resultado_no_confiable");
+  }
 });

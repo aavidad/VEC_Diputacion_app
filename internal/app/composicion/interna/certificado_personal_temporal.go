@@ -10,7 +10,6 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"io"
 	"net/http"
@@ -20,6 +19,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
+	"vec-diputacion-granada/internal/vec/adapters/seguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -74,36 +74,17 @@ func (r *registroCertificadosPersonales) leerCRL() (*x509.RevocationList, error)
 		return nil, err
 	}
 	defer clear(contenido)
-	bloque, resto := pem.Decode(contenido)
-	if bloque == nil || bloque.Type != "X509 CRL" || len(bloque.Headers) != 0 ||
-		len(bytes.TrimSpace(resto)) != 0 {
-		return nil, ErrCertificadoPersonalNoDisponible
-	}
-	lista, err := x509.ParseRevocationList(bloque.Bytes)
-	if err != nil || lista == nil || lista.ThisUpdate.IsZero() || lista.NextUpdate.IsZero() {
+	lista, err := seguridad.LeerCRLFirmaR5(contenido)
+	if err != nil {
 		return nil, ErrCertificadoPersonalNoDisponible
 	}
 	return lista, nil
 }
 
-func (r *registroCertificadosPersonales) comprobarCRL(
-	certificado, autoridad *x509.Certificate, ahora time.Time,
-) error {
-	if certificado == nil || autoridad == nil || ahora.Before(certificado.NotBefore) ||
-		!ahora.Before(certificado.NotAfter) || ahora.Before(autoridad.NotBefore) ||
-		!ahora.Before(autoridad.NotAfter) {
-		return ErrCertificadoPersonalNoDisponible
-	}
+func (r *registroCertificadosPersonales) comprobarCRL(certificado, autoridad *x509.Certificate, ahora time.Time) error {
 	lista, err := r.leerCRL()
-	if err != nil || !bytes.Equal(lista.RawIssuer, autoridad.RawSubject) ||
-		lista.CheckSignatureFrom(autoridad) != nil ||
-		ahora.Before(lista.ThisUpdate) || !ahora.Before(lista.NextUpdate) {
+	if err != nil || seguridad.ComprobarCRLFirmaR5(lista, certificado, autoridad, ahora) != nil {
 		return ErrCertificadoPersonalNoDisponible
-	}
-	for _, entrada := range lista.RevokedCertificateEntries {
-		if entrada.SerialNumber != nil && entrada.SerialNumber.Cmp(certificado.SerialNumber) == 0 {
-			return ErrCertificadoPersonalNoDisponible
-		}
 	}
 	return nil
 }

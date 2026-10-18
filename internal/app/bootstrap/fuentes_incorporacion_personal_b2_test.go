@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"math"
+	"reflect"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,7 +18,105 @@ import (
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	pp "vec-diputacion-granada/internal/modules/personal/ports"
+	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+type catalogosIncorporacionB2Prueba func(context.Context, personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error)
+
+func (c catalogosIncorporacionB2Prueba) Consultar(ctx context.Context, s personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+	return c(ctx, s)
+}
+
+func TestIncorporacionB2CatalogosParalelosConActorPropioYDosLecturas(t *testing.T) {
+	a, ctx, _ := escenarioCapturaAsignacionB2Prueba(t)
+	ctx, cancelar := context.WithTimeout(ctx, 2*time.Second)
+	defer cancelar()
+	inicios := make(chan personal.SolicitudConsultaCatalogoEmpleadoB2, 2)
+	liberar := make(chan struct{})
+	var una sync.Once
+	abrir := func() { una.Do(func() { close(liberar) }) }
+	defer abrir()
+	f := &fuentesIncorporacionPersonalB2{autoridad: a, organismoRef: "organismo:prueba"}
+	f.catalogos = catalogosIncorporacionB2Prueba(func(ctx context.Context, s personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+		if s.Actor.Principal.Attributes == nil {
+			s.Actor.Principal.Attributes = map[string]string{}
+		}
+		s.Actor.Principal.Attributes["prueba_paralelo"] = s.Tipo
+		inicios <- s
+		select {
+		case <-liberar:
+		case <-ctx.Done():
+			return pp.ResultadoConsultaCatalogoEmpleadoB2{}, ctx.Err()
+		}
+		if s.Actor.Principal.Attributes["prueba_paralelo"] != s.Tipo {
+			return pp.ResultadoConsultaCatalogoEmpleadoB2{}, errors.New("actor compartido entre consultas")
+		}
+		return pp.ResultadoConsultaCatalogoEmpleadoB2{OrganismoRef: s.OrganismoRef, Entradas: []personal.EntradaCatalogoRegistroEmpleadoB2{{Tipo: s.Tipo, Ref: "catalogo:" + s.Tipo}}}, nil
+	})
+	type resultado struct {
+		catalogos [2]pp.ResultadoConsultaCatalogoEmpleadoB2
+		err       error
+	}
+	termino := make(chan resultado, 1)
+	go func() { r, err := f.consultarCatalogosB2(ctx); termino <- resultado{r, err} }()
+	solicitudes := map[string]personal.SolicitudConsultaCatalogoEmpleadoB2{}
+	for range 2 {
+		select {
+		case s := <-inicios:
+			solicitudes[s.Tipo] = s
+		case <-ctx.Done():
+			t.Fatal("las dos consultas no empezaron antes de terminar la primera")
+		}
+	}
+	regimen, modalidad := solicitudes["regimen"], solicitudes["modalidad"]
+	if len(solicitudes) != 2 || regimen.Actor.PerfilActivoRef != modalidad.Actor.PerfilActivoRef || regimen.Actor.PersonaRef != modalidad.Actor.PersonaRef ||
+		regimen.OrganismoRef != f.organismoRef || modalidad.OrganismoRef != f.organismoRef || regimen.Estado != "publicada" || modalidad.Estado != "publicada" || regimen.Limite != 100 || modalidad.Limite != 100 {
+		t.Fatal("las lecturas alteraron actor, organismo o selector")
+	}
+	abrir()
+	r := <-termino
+	if r.err != nil || r.catalogos[0].Entradas[0].Tipo != "regimen" || r.catalogos[1].Entradas[0].Tipo != "modalidad" {
+		t.Fatalf("se mezclaron resultados: %+v", r)
+	}
+	actor, err := a.actor(ctx, personal.AccionConsultarCatalogoEmpleadoB2)
+	if err != nil || actor.Principal.Attributes["prueba_paralelo"] != "" {
+		t.Fatalf("consulta alteró actor nominal: %v", err)
+	}
+}
+
+func TestIncorporacionB2CatalogosEsperanAmbasYConservanErrores(t *testing.T) {
+	for _, caso := range []string{"denegada", "caida_y_denegada", "cancelada"} {
+		t.Run(caso, func(t *testing.T) {
+			a, ctx, _ := escenarioCapturaAsignacionB2Prueba(t)
+			ctx, cancelar := context.WithCancel(ctx)
+			defer cancelar()
+			var llamadas atomic.Int32
+			f := &fuentesIncorporacionPersonalB2{autoridad: a, organismoRef: "organismo:prueba"}
+			f.catalogos = catalogosIncorporacionB2Prueba(func(_ context.Context, s personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+				llamadas.Add(1)
+				if caso == "cancelada" {
+					if s.Tipo == "regimen" {
+						cancelar()
+						return pp.ResultadoConsultaCatalogoEmpleadoB2{}, context.Canceled
+					}
+					return pp.ResultadoConsultaCatalogoEmpleadoB2{}, personal.ErrRegistroEmpleadoB2NoDisponible
+				}
+				if caso == "caida_y_denegada" && s.Tipo == "modalidad" {
+					return pp.ResultadoConsultaCatalogoEmpleadoB2{}, personal.ErrRegistroEmpleadoB2NoDisponible
+				}
+				return pp.ResultadoConsultaCatalogoEmpleadoB2{}, personal.ErrRegistroEmpleadoB2Denegado
+			})
+			r, err := f.consultarCatalogosB2(ctx)
+			if llamadas.Load() != 2 || r[0].Entradas != nil || r[1].Entradas != nil {
+				t.Fatalf("no esperó ambas o devolvió resultado parcial: %d %+v", llamadas.Load(), r)
+			}
+			if caso != "cancelada" && !errors.Is(err, personal.ErrRegistroEmpleadoB2Denegado) ||
+				caso != "denegada" && !errors.Is(err, personal.ErrRegistroEmpleadoB2NoDisponible) || caso == "cancelada" && !errors.Is(err, context.Canceled) {
+				t.Fatalf("se ocultó causa de una consulta: %v", err)
+			}
+		})
+	}
+}
 
 type clasesIncorporacionB2Prueba struct {
 	resultado pp.ResultadoClasesOcupacionCT
@@ -254,5 +355,364 @@ func TestIncorporacionB2TraduccionNoTruncaVersionesCT(t *testing.T) {
 		if _, err := contratoAplicacionB2(ct.ContratoPlanNominalB2{Material: m, PlanVersion: version}); !errors.Is(err, ct.ErrPlanNominalB2Conflicto) {
 			t.Fatalf("plan %d: procedencia truncada: %v", version, err)
 		}
+	}
+}
+
+type vacantesPreparacionB2Prueba func(context.Context, personal.SolicitudVacantesB2) (pp.ResultadoVacantesB2, error)
+
+func (v vacantesPreparacionB2Prueba) ConsultarVacantes(ctx context.Context, q personal.SolicitudVacantesB2) (pp.ResultadoVacantesB2, error) {
+	return v(ctx, q)
+}
+
+type anclajePreparacionB2Prueba func(context.Context, bp.SolicitudConsultaAnclajeAceptacionCT) (bp.ResultadoConsultaAnclajeAceptacionCT, error)
+
+func (a anclajePreparacionB2Prueba) ConsultarAnclajeAceptacionCT(ctx context.Context, q bp.SolicitudConsultaAnclajeAceptacionCT) (bp.ResultadoConsultaAnclajeAceptacionCT, error) {
+	return a(ctx, q)
+}
+
+func escenarioProyeccionPreparacionB2(t *testing.T) (*fuentesIncorporacionPersonalB2, context.Context, ct.ContratoPlanNominalB2, httpct.ProyeccionIncorporacionPersonalB2HTTP, *lectorAsignacionB2ContadoPrueba, *lectorDetalleIncorporacionB2Prueba) {
+	t.Helper()
+	a, ctx, lector := escenarioCapturaAsignacionB2Prueba(t)
+	if _, err := a.actor(ctx, ct.AccionRegistrarPlanNominalB2); err != nil {
+		t.Fatal(err)
+	}
+	detalle := &lectorDetalleIncorporacionB2Prueba{err: errors.New("lectura completa del detalle")}
+	f := &fuentesIncorporacionPersonalB2{autoridad: a, organizacionRef: "organizacion:prueba", organismoRef: "organismo:prueba", reloj: a.reloj, detalle: detalle}
+	m := materialPreparacionB2Prueba(t)
+	m.OrganizacionRef, m.OrganismoRef = f.organizacionRef, f.organismoRef
+	m.ExpedienteRef = "expediente:prueba"
+	d := ct.DetalleExpedienteRRHH{Resumen: ct.ResumenExpedienteRRHH{Version: m.VersionExpediente}, Solicitud: ct.SolicitudOperativaRRHH{MotivoClave: domct.ClaveCatalogo(m.MotivoClave)}, Analisis: &ct.AnalisisOperativoRRHH{PeriodoInicio: time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)}}
+	antecedentes := ct.AntecedentesPlanNominalB2{ExpedienteRef: m.ExpedienteRef, VersionExpediente: m.VersionExpediente, CategoriaRef: m.CategoriaRef, DocumentoRef: m.DocumentoRef, DocumentoSHA256: m.DocumentoSHA256, AnalisisVersion: 2, AnalisisReciboRef: "recibo:analisis", AnalisisSHA256: strings.Repeat("b", 64), AceptacionRef: m.AceptacionRef, AceptacionReciboRef: m.AceptacionReciboRef, Bolsa: m.Bolsa}
+	p := proyeccionCTIncorporacionB2(m.ExpedienteRef, d, antecedentes)
+	f.vacantes = vacantesPreparacionB2Prueba(func(_ context.Context, q personal.SolicitudVacantesB2) (pp.ResultadoVacantesB2, error) {
+		if q.Actor.PerfilActivoRef != a.perfiles.b2[personal.AccionVacantesB2].perfilRef() || q.Limite != 100 || string(q.Corte.VigenteEn) != m.Desde {
+			t.Fatal("selector nominal de vacantes cambiado")
+		}
+		return pp.ResultadoVacantesB2{Pagina: personal.PaginaVacantesB2{Vacantes: []personal.VacantePlazaB2{
+			{PlazaRef: "94e49fa4-78fe-01bb-3e51-a0f58827006b", PuestoRef: "9a35a8d5-0c73-73fd-18bc-5ba501b68889", VersionPlantillaRef: "plantilla:uno", VersionRPTRef: "rpt:uno", UnidadRef: "unidad:uno", CodigoPlazaFuente: "001", PuestoDenominacion: "Puesto uno"},
+			{PlazaRef: "plaza:bd016f88-0457-df90-512e-04161de75944", PuestoRef: "puesto:c327f762-a171-2127-7354-6089f0238264", VersionPlantillaRef: "plantilla:dos", VersionRPTRef: "rpt:dos", UnidadRef: "unidad:dos", CodigoPlazaFuente: "002", PuestoDenominacion: "Puesto dos"},
+			{PlazaRef: "plaza:sin-uuid", PuestoRef: "puesto:c327f762-a171-2127-7354-6089f0238264", VersionPlantillaRef: "plantilla:tres", VersionRPTRef: "rpt:tres", UnidadRef: "unidad:tres", CodigoPlazaFuente: "003", PuestoDenominacion: "Puesto tres"},
+		}}}, nil
+	})
+	f.catalogos = catalogosIncorporacionB2Prueba(func(_ context.Context, q personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+		return pp.ResultadoConsultaCatalogoEmpleadoB2{Entradas: []personal.EntradaCatalogoRegistroEmpleadoB2{{Ref: q.Tipo + ":uno", Version: 1, Denominacion: "Uno", VigenteDesde: "2026-01-01"}, {Ref: q.Tipo + ":dos", Version: 2, Denominacion: "Dos", VigenteDesde: "2026-01-01"}}}, nil
+	})
+	f.clases = &clasesIncorporacionB2Prueba{resultado: pp.ResultadoClasesOcupacionCT{Catalogo: personal.CatalogoClasesOcupacionCT{Ref: "catalogo:clases", Version: 3, HuellaSHA256: strings.Repeat("c", 64), Opciones: []personal.OpcionClaseOcupacionCT{{Valor: "temporal", TextoClave: "personal.clases.temporal"}, {Valor: "sustitucion", TextoClave: "personal.clases.sustitucion"}}}}}
+	f.anclaje = anclajePreparacionB2Prueba(func(_ context.Context, q bp.SolicitudConsultaAnclajeAceptacionCT) (bp.ResultadoConsultaAnclajeAceptacionCT, error) {
+		if q.Selector.LlamamientoRef != m.Bolsa.LlamamientoRef {
+			t.Fatal("anclaje cambió selector")
+		}
+		return bp.ResultadoConsultaAnclajeAceptacionCT{Estado: "pendiente"}, nil
+	})
+	if err := f.capturarPreparacionB2(ctx, m, p); err != nil {
+		t.Fatal(err)
+	}
+	completo, err := f.completarOpcionesIncorporacionB2(ctx, copiarProyeccionPreparacionB2(p), antecedentes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f, ctx, ct.ContratoPlanNominalB2{Material: m}, completo, lector, detalle
+}
+
+func TestIncorporacionB2PreparacionReutilizaCTYConservaOpcionesCompletas(t *testing.T) {
+	f, ctx, c, esperada, _, detalle := escenarioProyeccionPreparacionB2(t)
+	for range 2 { // La misma captura también sirve tras el replay del registro nominal.
+		r, err := f.opcionesTrasPreparacionB2(ctx, c)
+		if err != nil || !reflect.DeepEqual(r, esperada) {
+			t.Fatalf("respuesta distinta: %+v err=%v", r, err)
+		}
+		if len(r.Opciones.Vacantes) != 2 || len(r.Opciones.Regimenes) != 2 || len(r.Opciones.Modalidades) != 2 || len(r.Opciones.ClasesOcupacion) != 2 {
+			t.Fatal("se sustituyó lista por selección")
+		}
+		if r.Opciones.Vacantes[0].PlazaRef != "plaza:94e49fa4-78fe-01bb-3e51-a0f58827006b" ||
+			r.Opciones.Vacantes[0].PuestoRef != "puesto:9a35a8d5-0c73-73fd-18bc-5ba501b68889" ||
+			r.Opciones.Vacantes[1].PlazaRef != "plaza:bd016f88-0457-df90-512e-04161de75944" {
+			t.Fatal("la selección debe usar referencias tipadas de Personal")
+		}
+		r.Prerrequisitos[0].Cumplido = true
+		r.Opciones.Motivos[0] = "ajeno"
+	}
+	if detalle.llamadas != 0 {
+		t.Fatalf("repitió detalle %d veces", detalle.llamadas)
+	}
+}
+
+func TestIncorporacionB2PreparacionUsaConsultaCompletaSiCapturaNoCoincide(t *testing.T) {
+	for _, caso := range []string{"ausente", "peticion", "fuente", "expediente", "version", "selector", "actor", "sin_holder"} {
+		t.Run(caso, func(t *testing.T) {
+			f, ctx, c, _, _, detalle := escenarioProyeccionPreparacionB2(t)
+			holder := ctx.Value(claveContextosNominalesIncorporacion{}).(*capturaContextosNominalesIncorporacion)
+			switch caso {
+			case "ausente":
+				holder.preparacionB2 = nil
+			case "peticion":
+				ctx = context.WithValue(ctx, claveContextosNominalesIncorporacion{}, &capturaContextosNominalesIncorporacion{})
+			case "fuente":
+				otra := *f
+				f = &otra
+			case "expediente":
+				c.Material.ExpedienteRef = "expediente:otro"
+			case "version":
+				c.Material.VersionExpediente++
+			case "selector":
+				c.Material.Bolsa.LlamamientoRef = "llamamiento:otro"
+			case "actor":
+				holder.preparacionB2.identidad.PrincipalID = "persona:otra"
+			case "sin_holder":
+				ctx = context.Background()
+			}
+			_, err := f.opcionesTrasPreparacionB2(ctx, c)
+			if !errors.Is(err, detalle.err) || detalle.llamadas != 1 {
+				t.Fatalf("fallback incompleto: lecturas=%d err=%v", detalle.llamadas, err)
+			}
+		})
+	}
+}
+
+func TestIncorporacionB2PreparacionRevalidaRevocacionYFalloEnMismaPeticion(t *testing.T) {
+	for _, caso := range []string{"detalle_revocado", "plan_revocado", "fuente_caida", "cancelada", "vacantes_caidas", "catalogo_denegado", "clases_caidas", "anclaje_caido"} {
+		t.Run(caso, func(t *testing.T) {
+			f, ctx, c, _, lector, detalle := escenarioProyeccionPreparacionB2(t)
+			// Los dos perfiles ya están capturados cuando cambia la fuente.
+			for _, accion := range []string{ct.AccionConsultarDetalleRRHH, ct.AccionLeerPlanNominalB2} {
+				if _, err := f.autoridad.actor(ctx, accion); err != nil {
+					t.Fatal(err)
+				}
+			}
+			esperado := ct.ErrAutorizacionDenegada
+			switch caso {
+			case "detalle_revocado", "plan_revocado":
+				accion := ct.AccionLeerPlanNominalB2
+				if caso == "detalle_revocado" {
+					accion = ct.AccionConsultarDetalleRRHH
+				}
+				perfil := f.autoridad.perfiles.b2[accion]
+				publicada := lector.base.publicadas[perfil.perfilRef()]
+				publicada.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
+				publicada.instantanea.AsignacionPerfil.Estado = core.EstadoAsignacionPerfilRevocada
+				lector.base.publicadas[perfil.perfilRef()] = publicada
+			case "fuente_caida":
+				lector.base.errorLectura = errors.New("caida")
+				esperado = ct.ErrConsultaRRHHNoDisponible
+			case "cancelada":
+				var cancelar context.CancelFunc
+				ctx, cancelar = context.WithCancel(ctx)
+				cancelar()
+				esperado = context.Canceled
+			case "vacantes_caidas":
+				esperado = personal.ErrRegistroEmpleadoB2NoDisponible
+				f.vacantes = vacantesPreparacionB2Prueba(func(context.Context, personal.SolicitudVacantesB2) (pp.ResultadoVacantesB2, error) {
+					return pp.ResultadoVacantesB2{}, esperado
+				})
+			case "catalogo_denegado":
+				esperado = personal.ErrRegistroEmpleadoB2Denegado
+				f.catalogos = catalogosIncorporacionB2Prueba(func(context.Context, personal.SolicitudConsultaCatalogoEmpleadoB2) (pp.ResultadoConsultaCatalogoEmpleadoB2, error) {
+					return pp.ResultadoConsultaCatalogoEmpleadoB2{}, esperado
+				})
+			case "clases_caidas":
+				esperado = personal.ErrRegistroEmpleadoB2NoDisponible
+				f.clases.(*clasesIncorporacionB2Prueba).err = esperado
+			case "anclaje_caido":
+				esperado = bp.ErrConsultaPersonaAceptacionCTNoDisponible
+				f.anclaje = anclajePreparacionB2Prueba(func(context.Context, bp.SolicitudConsultaAnclajeAceptacionCT) (bp.ResultadoConsultaAnclajeAceptacionCT, error) {
+					return bp.ResultadoConsultaAnclajeAceptacionCT{}, esperado
+				})
+			}
+			r, err := f.opcionesTrasPreparacionB2(ctx, c)
+			if !errors.Is(err, esperado) || !reflect.ValueOf(r).IsZero() || detalle.llamadas != 0 {
+				t.Fatalf("captura evitó control o devolvió parcial: %+v err=%v", r, err)
+			}
+		})
+	}
+}
+
+func materialPreparacionB2Prueba(t *testing.T) domct.PlanIncorporacionPersonalB2 {
+	t.Helper()
+	h := strings.Repeat("a", 64)
+	fuente := domct.FuentePlanPersonalB2{Ref: "fuente:original", Version: 1, SHA256: h}
+	m := domct.PlanIncorporacionPersonalB2{
+		OrganizacionRef: "org:uno", UnidadCTRef: "unidad:rrhh", ExpedienteRef: "expediente:uno", VersionExpediente: 8,
+		AnalisisVersion: 2, AnalisisReciboRef: "recibo:analisis", AnalisisSHA256: h, PropuestaReciboRef: "recibo:propuesta",
+		AceptacionRef: "aceptacion:uno", AceptacionReciboRef: "recibo:aceptacion",
+		Bolsa: domct.SelectorBolsaPlanB2{UnidadRef: "unidad:uno", CategoriaRef: "categoria:uno", NecesidadRef: "necesidad:uno",
+			AceptacionOperacionRef: "operacion:aceptacion", AceptacionRegistroSHA256: h, AperturaOperacionRef: "operacion:apertura",
+			AperturaRegistroSHA256: h, LlamamientoRef: "llamamiento:uno", PropuestaRef: "propuesta:uno"},
+		PersonaRef: "per_aaaaaaaaaaaaaaaaaaaaaaaa", PersonaVersion: 1, PersonaFuente: fuente, PersonaReciboBolsaRef: "recibo:bolsa",
+		OrganismoRef: "organismo:uno", UnidadRef: "unidad:uno", FuenteOrganizacion: domct.FuenteSinVersionPlanB2{Ref: fuente.Ref, SHA256: h},
+		FuentePlantilla: domct.InstrumentoPlanPersonalB2{Ref: "11111111-1111-4111-8111-111111111111", Revision: 1, FuenteRef: fuente.Ref, FuenteSHA256: h},
+		FuenteRPT:       domct.InstrumentoPlanPersonalB2{Ref: "22222222-2222-4222-8222-222222222222", Revision: 1, FuenteRef: fuente.Ref, FuenteSHA256: h},
+		VersionPlazaRef: "plantilla:uno", VersionPuestoRef: "rpt:uno", RevisionPlaza: 1, RevisionPuesto: 1,
+		PuestoRef: "puesto:uno", PlazaRef: "plaza:uno", CatalogoRPTID: "catalogo:rpt", CatalogoRPTModulo: "personal",
+		CatalogoRPTVersion: 1, CatalogoRPTSHA256: h, CategoriaRef: "categoria:uno", VinculoRevision: 1, VinculoReciboRef: "recibo:vinculo",
+		Regimen: domct.EntradaPlanPersonalB2{Ref: "regimen:uno", Version: 1}, Modalidad: domct.EntradaPlanPersonalB2{Ref: "modalidad:uno", Version: 1},
+		ClaseOcupacion: "temporal", Desde: "2026-09-30", MotivoClave: "incorporacion", DocumentoRef: "documento:uno", DocumentoSHA256: h,
+		EjercicioSintetico: true,
+	}
+	if err := m.Validar(); err != nil {
+		t.Fatalf("plan de prueba inválido: %v", err)
+	}
+	return m
+}
+
+type detalleCompartidoB2Prueba func(context.Context, ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error)
+
+func (f detalleCompartidoB2Prueba) Consultar(ctx context.Context, s ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+	return f(ctx, s)
+}
+
+func TestIncorporacionB2DetalleCompartidoUnaLecturaConcurrenteYCopias(t *testing.T) {
+	ctx := context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "GET", ruta: httpct.RutaPlanB2})
+	ctx, cancelar := context.WithTimeout(contextoDetalleCompartidoB2(ctx), 2*time.Second)
+	defer cancelar()
+	inicio := make(chan struct{})
+	liberar := make(chan struct{})
+	var una sync.Once
+	abrir := func() { una.Do(func() { close(liberar) }) }
+	defer abrir()
+	var llamadas atomic.Int32
+	f := &fuentesIncorporacionPersonalB2{organizacionRef: "organizacion:prueba"}
+	f.detalle = detalleCompartidoB2Prueba(func(ctx context.Context, s ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+		if llamadas.Add(1) == 1 {
+			close(inicio)
+			select {
+			case <-liberar:
+			case <-ctx.Done():
+				return ct.DetalleExpedienteRRHH{}, ctx.Err()
+			}
+		}
+		return ct.DetalleExpedienteRRHH{Resumen: ct.ResumenExpedienteRRHH{ExpedienteRef: s.ExpedienteRef(), Version: 9}, Asignacion: &ct.AsignacionOperativaRRHH{UnidadRef: "unidad:prueba"}}, nil
+	})
+	type resultado struct {
+		detalle ct.DetalleExpedienteRRHH
+		err     error
+	}
+	resultados := make(chan resultado, 8)
+	arrancan := make(chan struct{}, 8)
+	for range 8 {
+		go func() {
+			arrancan <- struct{}{}
+			d, err := f.detalleActual(ctx, "expediente:prueba")
+			resultados <- resultado{d, err}
+		}()
+	}
+	for range 8 {
+		<-arrancan
+	}
+	select {
+	case <-inicio:
+	case <-ctx.Done():
+		t.Fatal("no comenzó la lectura nominal")
+	}
+	if llamadas.Load() != 1 {
+		t.Fatal("la consulta concurrente duplicó la lectura nominal")
+	}
+	abrir()
+	for range 8 {
+		select {
+		case r := <-resultados:
+			if r.err != nil || r.detalle.Resumen.Version != 9 || r.detalle.Asignacion.UnidadRef != "unidad:prueba" {
+				t.Fatalf("detalle compartido incorrecto: %+v %v", r.detalle, r.err)
+			}
+			r.detalle.Asignacion.UnidadRef = "unidad:alterada"
+		case <-ctx.Done():
+			t.Fatal("las lecturas no terminaron")
+		}
+	}
+	if llamadas.Load() != 1 {
+		t.Fatal("los clones repitieron el acceso")
+	}
+	d, err := f.detalleActual(ctx, "expediente:prueba")
+	if err != nil || d.Asignacion.UnidadRef != "unidad:prueba" {
+		t.Fatal("un consumidor alteró el detalle capturado")
+	}
+	// Nueva petición, expediente, organización y fuente no comparten detalle.
+	if _, err := f.detalleActual(contextoDetalleCompartidoB2(ctx), "expediente:prueba"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.detalleActual(ctx, "expediente:otro"); err != nil {
+		t.Fatal(err)
+	}
+	f.organizacionRef = "organizacion:otra"
+	if _, err := f.detalleActual(ctx, "expediente:prueba"); err != nil {
+		t.Fatal(err)
+	}
+	otraFuente := *f
+	if _, err := otraFuente.detalleActual(ctx, "expediente:prueba"); err != nil || llamadas.Load() != 5 {
+		t.Fatalf("detalle compartido fuera de su clave: llamadas=%d err=%v", llamadas.Load(), err)
+	}
+	post := context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "POST", ruta: httpct.RutaPlanB2})
+	for range 2 {
+		if _, err := f.detalleActual(contextoDetalleCompartidoB2(post), "expediente:prueba"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if llamadas.Load() != 7 {
+		t.Fatal("una escritura reutilizó el detalle de la consulta GET")
+	}
+}
+
+func TestIncorporacionB2DetalleCompartidoNoCapturaErroresYCancelaEspera(t *testing.T) {
+	for _, fallo := range []error{ct.ErrAutorizacionDenegada, ct.ErrConsultaRRHHNoDisponible} {
+		ctx := context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "GET", ruta: httpct.RutaPlanB2})
+		ctx = contextoDetalleCompartidoB2(ctx)
+		var llamadas int
+		f := &fuentesIncorporacionPersonalB2{detalle: detalleCompartidoB2Prueba(func(context.Context, ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+			llamadas++
+			if llamadas == 1 {
+				return ct.DetalleExpedienteRRHH{Resumen: ct.ResumenExpedienteRRHH{Version: 9}}, fallo
+			}
+			return ct.DetalleExpedienteRRHH{Resumen: ct.ResumenExpedienteRRHH{Version: 9}}, nil
+		})}
+		d, err := f.detalleActual(ctx, "expediente:prueba")
+		if !errors.Is(err, fallo) || !reflect.DeepEqual(d, ct.DetalleExpedienteRRHH{}) {
+			t.Fatalf("el fallo publicó datos parciales: %+v err=%v", d, err)
+		}
+		if d, err = f.detalleActual(ctx, "expediente:prueba"); err != nil || d.Resumen.Version != 9 || llamadas != 2 {
+			t.Fatal("el fallo reemplazó una lectura nominal posterior")
+		}
+	}
+	ctx := context.WithValue(context.Background(), claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "GET", ruta: httpct.RutaPlanB2})
+	ctx, cancelar := context.WithTimeout(contextoDetalleCompartidoB2(ctx), 2*time.Second)
+	defer cancelar()
+	inicio := make(chan struct{})
+	liberar := make(chan struct{})
+	defer close(liberar)
+	var llamadas atomic.Int32
+	f := &fuentesIncorporacionPersonalB2{detalle: detalleCompartidoB2Prueba(func(ctx context.Context, _ ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+		llamadas.Add(1)
+		close(inicio)
+		select {
+		case <-liberar:
+		case <-ctx.Done():
+			return ct.DetalleExpedienteRRHH{}, ctx.Err()
+		}
+		return ct.DetalleExpedienteRRHH{}, nil
+	})}
+	termino := make(chan error, 1)
+	go func() { _, err := f.detalleActual(ctx, "expediente:prueba"); termino <- err }()
+	<-inicio
+	espera, cancelarEspera := context.WithCancel(ctx)
+	terminoEspera := make(chan error, 1)
+	go func() { _, err := f.detalleActual(espera, "expediente:prueba"); terminoEspera <- err }()
+	cancelarEspera()
+	select {
+	case err := <-terminoEspera:
+		if !errors.Is(err, context.Canceled) || llamadas.Load() != 1 {
+			t.Fatalf("espera cancelada releyó o ignoró cancelación: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("la espera cancelada quedó bloqueada por la lectura")
+	}
+	cancelar()
+	if err := <-termino; !errors.Is(err, context.Canceled) {
+		t.Fatalf("lectura cancelada convertida en éxito: %v", err)
+	}
+}
+
+func TestIncorporacionB2DetalleRechazaContextoNulo(t *testing.T) {
+	f := &fuentesIncorporacionPersonalB2{}
+	d, err := f.detalleActual(nil, "expediente:prueba")
+	if !errors.Is(err, ct.ErrAutorizacionDenegada) || !reflect.DeepEqual(d, ct.DetalleExpedienteRRHH{}) {
+		t.Fatalf("contexto nulo no rechazado: %+v err=%v", d, err)
 	}
 }

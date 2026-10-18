@@ -1,0 +1,10 @@
+# Lectura RRHH de Méritos. Base: HZ24 + AD256 (#1079) + AD253/RUM5 + M4 (AUT80/AUT81/CC13/
+# AUT78/AD262/RUM4) instalados sólo donde correspondan, en orden causal.
+# No repetir esas migraciones ni aplicar DOWN. PostgreSQL 18.4, datos sintéticos.
+# La persona objetivo procede del hook autorizado de Bolsa tras DetalleRRHH;
+# nunca del query HTTP ni de PersonaResumen. El mismo actor usa su login
+# vec_bolsa_inscripciones_rrhh_lector, miembro único del grupo lector RRHH
+# existente. No crear concesión V3 para esta lectura.
+deploy/postgresql/bolsa_llamamientos/migraciones/000111_objetivo_meritos_rrhh.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000255_revision_rrhh_meritos.up.sql
+deploy/postgresql/meritos/migraciones/000006_revision_rrhh.up.sql

@@ -52,48 +52,97 @@ type fachadaIncorporacionPersonalB2 struct {
 	personal        consumidorEfectivoPersonalB2
 	autoridad       *autoridadIncorporacionPersonalB2
 	fuentes         *fuentesIncorporacionPersonalB2
+	efectosNativos  *efectosBolsaNativosB115
 }
 
 func (f *fachadaIncorporacionPersonalB2) Consultar(ctx context.Context, exp string) (httpct.ProyeccionIncorporacionPersonalB2HTTP, error) {
 	var cero httpct.ProyeccionIncorporacionPersonalB2HTTP
-	if f == nil || ctx == nil {
+	if f == nil || ctx == nil || f.ct == nil || f.opciones == nil {
 		return cero, httpct.ErrManejadorIncorporacionPersonalB2
 	}
-	p, e := f.opciones.ConsultarOpcionesIncorporacionB2(ctx, exp)
-	if e != nil {
-		return cero, errorHTTPNominalB2(ctx, e)
-	}
+	ctx = contextoDetalleCompartidoB2(ctx)
 	c, e := f.ct.LeerContratoPlanNominal(ctx, f.organizacionRef, exp)
 	if errors.Is(e, ct.ErrPlanNominalB2NoEncontrado) {
+		p, e := f.opciones.ConsultarOpcionesIncorporacionB2(ctx, exp)
+		if e != nil {
+			return cero, errorHTTPNominalB2(ctx, e)
+		}
 		p.Estado = "sin_plan"
 		return p, nil
 	}
 	if e != nil {
 		return cero, errorHTTPNominalB2(ctx, e)
 	}
-	if e = f.fuentes.validarFuentesContratoB2(ctx, c); e != nil {
-		return cero, errorHTTPNominalB2(ctx, e)
-	}
-	p.Plan = planHTTPIncorporacionB2(c)
-	p.Estado = "plan_preparado"
 	o, encontrado, e := f.ct.LeerOrigenIncorporacionB2(ctx, f.organizacionRef, exp)
 	if e != nil {
 		return cero, errorHTTPNominalB2(ctx, e)
 	}
 	if encontrado {
-		actor, e := f.autoridad.actor(ctx, ct.AccionLeerPlanNominalB2)
-		if e != nil {
-			return cero, errorHTTPNominalB2(ctx, e)
-		}
-		if _, e = f.fuentes.VerificarHechosPersonalB2(ctx, c, o.Confirmacion.Hechos, actor); e != nil {
-			return cero, errorHTTPNominalB2(ctx, e)
-		}
-		r := reciboHTTPIncorporacionB2(o)
-		p.Estado = "incorporacion_confirmada"
-		p.Recibo = &r
+		return f.consultarConfirmada(ctx, exp, c, o)
 	}
+	p, e := f.opciones.ConsultarOpcionesIncorporacionB2(ctx, exp)
+	if e != nil {
+		return cero, errorHTTPNominalB2(ctx, e)
+	}
+	if f.fuentes == nil {
+		return cero, httpct.ErrManejadorIncorporacionPersonalB2
+	}
+	if e = f.fuentes.validarFuentesContratoB2(ctx, c); e != nil {
+		return cero, errorHTTPNominalB2(ctx, e)
+	}
+	p.Plan = planHTTPIncorporacionB2(c)
+	p.Estado = "plan_preparado"
 	return p, nil
 }
+
+// La confirmación es historia de CT. Tras el cese, Personal y RPT ya tienen
+// versiones nuevas: releerlas como si el plan aún fuera preparable ocultaría
+// un recibo válido. Ambas lecturas CT de arriba autorizan y auditan el ámbito
+// actual antes de exponer esta proyección histórica.
+func (f *fachadaIncorporacionPersonalB2) consultarConfirmada(ctx context.Context, exp string, c ct.ContratoPlanNominalB2, o ct.OrigenIncorporacionPersonalB2) (httpct.ProyeccionIncorporacionPersonalB2HTTP, error) {
+	var cero httpct.ProyeccionIncorporacionPersonalB2HTTP
+	m, h := o.Confirmacion, o.Confirmacion.Hechos
+	if c.Protocolo != ct.ProtocoloIncorporacionPersonalB2 || o.Protocolo != c.Protocolo || c.Solicitud.OrganizacionRef != f.organizacionRef || c.Material.ExpedienteRef != exp ||
+		m.OrganizacionRef != f.organizacionRef || m.ExpedienteRef != exp || m.UnidadCTRef != c.Material.UnidadCTRef || m.PlanRef != c.PlanRef || m.PlanVersion != c.PlanVersion || m.PlanSHA256 != c.PlanSHA256 ||
+		!domct.ReferenciaOpacaValida(c.PlanRef) || !domct.HuellaPlanPersonalB2Valida(c.PlanSHA256) || !ct.ReciboOrigenIncorporacionPersonalB2(o.ReciboRef) ||
+		!domct.ReferenciaOpacaValida(o.AuditoriaRef) || !domct.ReferenciaOpacaValida(o.OutboxRef) || !domct.InstanteUTCCanonico(o.RegistradoEn) || o.FirmaOficial || o.EficaciaAdministrativa || !hechosConfirmadosB2Validos(h) {
+		return cero, httpct.ErrManejadorIncorporacionPersonalB2
+	}
+	if f.fuentes == nil || f.fuentes.detalle == nil {
+		return cero, httpct.ErrManejadorIncorporacionPersonalB2
+	}
+	d, e := f.fuentes.detalleActual(ctx, exp)
+	if e != nil {
+		return cero, errorHTTPNominalB2(ctx, e)
+	}
+	if d.Resumen.Validar() != nil || d.Resumen.OrganizacionRef != f.organizacionRef || d.Resumen.ExpedienteRef != exp || d.Resumen.Version < c.Material.VersionExpediente || d.Resumen.UnidadRef != m.UnidadCTRef {
+		return cero, httpct.ErrManejadorIncorporacionPersonalB2
+	}
+	r := reciboHTTPIncorporacionB2(o)
+	return httpct.ProyeccionIncorporacionPersonalB2HTTP{
+		Esquema: httpct.EsquemaConsultaIncorporacionPersonalB2, ExpedienteRef: exp, VersionExpedienteActual: d.Resumen.Version,
+		Estado: "incorporacion_confirmada", Prerrequisitos: []httpct.PrerrequisitoB2{},
+		Opciones: httpct.OpcionesIncorporacionPersonalB2{Vacantes: []httpct.OpcionVacanteB2{}, Regimenes: []httpct.OpcionCatalogoB2{}, Modalidades: []httpct.OpcionCatalogoB2{}, ClasesOcupacion: []httpct.OpcionClaseOcupacionB2{}, Motivos: []string{}, Documentos: []httpct.OpcionDocumentoB2{}},
+		Plan:     planHTTPIncorporacionB2(c), Recibo: &r,
+	}, nil
+}
+
+func hechosConfirmadosB2Validos(h ct.HechosPersonalIncorporacionB2) bool {
+	if (h.ModoPersonal != "alta_empleado" && h.ModoPersonal != "nueva_relacion") ||
+		!domct.VersionPlanPersonalB2Valida(h.PersonalPlanVersion) || !domct.VersionPlanPersonalB2Valida(h.RelacionVersion) || !domct.VersionPlanPersonalB2Valida(h.OcupacionVersion) ||
+		!domct.HuellaPlanPersonalB2Valida(h.PersonalPlanSHA256) ||
+		(h.ModoPersonal == "alta_empleado" && h.AltaReciboRef != h.RelacionReciboRef) ||
+		(h.ModoPersonal == "nueva_relacion" && h.AltaReciboRef != "") {
+		return false
+	}
+	for _, ref := range []string{h.PersonalPlanRef, h.PersonalPlanReciboRef, h.EmpleadoRef, h.RelacionRef, h.RelacionReciboRef, h.OcupacionRef, h.OcupacionReciboRef, h.RPTConfirmacionRef, h.RPTReciboRef, h.SeguimientoRef} {
+		if !domct.ReferenciaOpacaValida(ref) {
+			return false
+		}
+	}
+	return true
+}
+
 func (f *fachadaIncorporacionPersonalB2) Preparar(ctx context.Context, e httpct.EntradaPlanB2) (httpct.ProyeccionIncorporacionPersonalB2HTTP, error) {
 	var cero httpct.ProyeccionIncorporacionPersonalB2HTTP
 	if f == nil || ctx == nil || e.Validar() != nil {
@@ -107,7 +156,15 @@ func (f *fachadaIncorporacionPersonalB2) Preparar(ctx context.Context, e httpct.
 	if err != nil {
 		return cero, errorHTTPNominalB2(ctx, err)
 	}
-	p, err := f.opciones.ConsultarOpcionesIncorporacionB2(ctx, e.ExpedienteRef)
+	var p httpct.ProyeccionIncorporacionPersonalB2HTTP
+	// Sólo el montaje nominal comparte estas instancias; otros consumidores
+	// conservan la consulta completa aunque el contexto contenga una captura.
+	servicio, nominal := f.ct.(*appct.ServicioPlanNominalB2)
+	if fuentes, ok := f.opciones.(*fuentesIncorporacionPersonalB2); ok && nominal && fuentes == f.fuentes && fuentes.servicioCT == servicio {
+		p, err = fuentes.opcionesTrasPreparacionB2(ctx, c)
+	} else {
+		p, err = f.opciones.ConsultarOpcionesIncorporacionB2(ctx, e.ExpedienteRef)
+	}
 	if err != nil {
 		return cero, errorHTTPNominalB2(ctx, err)
 	}
@@ -144,13 +201,30 @@ func (f *fachadaIncorporacionPersonalB2) Confirmar(ctx context.Context, e httpct
 	if err != nil {
 		return cero, err
 	}
-	actor, err := f.autoridad.actor(ctx, ct.AccionConfirmarOrigenB2)
+	actualCT, err := f.autoridad.contexto(ctx, ct.AccionConfirmarOrigenB2)
 	if err != nil {
 		return cero, errorHTTPNominalB2(ctx, err)
+	}
+	actor, err := actualCT.Resultado.Contexto.Clonar()
+	if err != nil {
+		return cero, errorHTTPNominalB2(ctx, ct.ErrPlanNominalB2Denegado)
+	}
+	ligadura, err := actualCT.Vinculo.Datos()
+	if err != nil || ligadura.PrincipalID != actor.Principal.ID {
+		return cero, errorHTTPNominalB2(ctx, ct.ErrPlanNominalB2Denegado)
 	}
 	o, err := f.ct.ConfirmarOrigenIncorporacionB2(ctx, ct.ConfirmacionOrigenIncorporacionB2{OrganizacionRef: f.organizacionRef, UnidadCTRef: c.Material.UnidadCTRef, ExpedienteRef: e.ExpedienteRef, PlanRef: c.PlanRef, PlanVersion: c.PlanVersion, PlanSHA256: c.PlanSHA256, Hechos: hechos}, actor)
 	if err != nil {
 		return cero, errorHTTPNominalB2(ctx, err)
+	}
+	if !c.Material.BolsaNativa.IsZero() {
+		if f.efectosNativos == nil {
+			return cero, errorHTTPNominalB2(ctx, ct.ErrPlanNominalB2NoDisponible)
+		}
+		original, _ := ctx.Value(claveContextoCTOriginalB115{}).(context.Context)
+		if err := f.efectosNativos.confirmarAlta(ctx, original, c, o, actualCT); err != nil {
+			return cero, errorHTTPNominalB2(ctx, errors.Join(ct.ErrPlanNominalB2NoDisponible, err))
+		}
 	}
 	return reciboHTTPIncorporacionB2(o), nil
 }
@@ -202,12 +276,18 @@ func errorHTTPNominalB2(ctx context.Context, e error) error {
 
 type rutaPeticionIncorporacionB2 struct{ metodo, ruta string }
 type claveRutaPeticionIncorporacionB2 struct{}
+type claveContextoCTOriginalB115 struct{}
 
 func ligarContextoIncorporacionPersonalB2(h http.Handler, soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		original := r.Context()
 		previo := rutaPeticionIncorporacionB2{r.Method, r.URL.Path}
-		if ((previo.ruta == httpct.RutaPlanB2 || previo.ruta == httpct.RutaVinculoCategoriaRPTB2) && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) || (previo.ruta == httpct.RutaCategoriasRPTB2 && previo.metodo == http.MethodGet) {
+		_, lecturaPersonal := accionConsultaRegistroPersonalB2(previo.ruta, previo.metodo)
+		if lecturaPersonal || ((previo.ruta == httpct.RutaPlanB2 || previo.ruta == httpct.RutaVinculoCategoriaRPTB2 || previo.ruta == httpapi.RutaCatalogosRegistroEmpleadoB2) && (previo.metodo == http.MethodGet || previo.metodo == http.MethodPost)) || (previo.ruta == httpct.RutaConfirmacionB2 && previo.metodo == http.MethodPost) || (previo.ruta == httpct.RutaCategoriasRPTB2 && previo.metodo == http.MethodGet) || (previo.ruta == httpct.RutaFichaGINPIXV2 && previo.metodo == http.MethodGet) || (previo.ruta == rutaCatalogosRegistroEmpleadoB2 && previo.metodo == http.MethodPost) {
 			if ctx, ok := contextoNominalIncorporacionPersonalB2(r.Context(), soporte, fronteras, previo); ok {
+				if previo.metodo == http.MethodPost && previo.ruta == httpct.RutaConfirmacionB2 {
+					ctx = context.WithValue(ctx, claveContextoCTOriginalB115{}, original)
+				}
 				r = r.WithContext(ctx)
 			}
 		}
@@ -240,13 +320,56 @@ func (a *autoridadIncorporacionPersonalB2) ResolverContextoIncorporacionEjercici
 var _ httpct.EjecutorIncorporacionPersonalB2 = (*fachadaIncorporacionPersonalB2)(nil)
 
 type montajeIncorporacionPersonalB2 struct {
-	fachada   *fachadaIncorporacionPersonalB2
-	autoridad *autoridadIncorporacionPersonalB2
+	fachada             *fachadaIncorporacionPersonalB2
+	autoridad           *autoridadIncorporacionPersonalB2
+	aceptacionNativa    bp.ConsultaAceptacionNativaCT
+	efectosBolsaNativos *efectosBolsaNativosB115
+	finCeseMontado      *finCesePersonalB2Desarrollo
 	// cese es nil si la configuración no fija cese_fecha_efecto.
 	cese       *inc.CesePersonalB2
 	vinculo    *fachadaVinculoCategoriaRPTB2
 	categorias *fachadaCategoriasRPTB2
-	cerrar     func()
+	catalogos  *apppersonal.ServicioCatalogosRegistroEmpleadoB2
+	ficha      *apppersonal.ServicioRegistroEmpleadoB2
+	empleados  *apppersonal.ServicioEmpleadosRegistroB2
+	// gobiernoCatalogo es nil si la configuración no habilita publicar y
+	// retirar entradas del catálogo de registro de empleado.
+	gobiernoCatalogo *apppersonal.ServicioCatalogosRegistroEmpleadoB2
+	cerrar           func()
+}
+
+func (m *montajeIncorporacionPersonalB2) configurarEfectosBolsaNativosB115(e *efectosBolsaNativosB115) error {
+	if m == nil || m.fachada == nil || e == nil || m.efectosBolsaNativos != nil ||
+		dependenciaBootstrapNula(e.alta) || dependenciaBootstrapNula(e.cese) ||
+		dependenciaBootstrapNula(e.anclaje) || e.actorAnclaje == nil || e.actorSituacion == nil ||
+		!core.ReferenciaMotivoAutorizacionV2Valida(e.motivo) {
+		return ct.ErrComposicionIncorporacionAplicacion
+	}
+	m.efectosBolsaNativos = e
+	m.fachada.efectosNativos = e
+	if m.finCeseMontado != nil {
+		m.finCeseMontado.efectos = e
+	}
+	return nil
+}
+
+// Las dos consultas B113 comparten servicio, pero cada una conserva motivo,
+// emisor y acción V3 propios. El selector no concede otra capacidad.
+type proveedoresAceptacionNativaB113 struct {
+	anclaje bp.ProveedorAutorizacionConsultaAceptacionNativaCT
+	persona bp.ProveedorAutorizacionConsultaAceptacionNativaCT
+}
+
+func (p proveedoresAceptacionNativaB113) AutorizarConsultaAceptacionNativaCT(
+	ctx context.Context, entrada bp.PreparacionConsultaAceptacionNativaCT, persona bool,
+) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	if persona && !dependenciaBootstrapNula(p.persona) {
+		return p.persona.AutorizarConsultaAceptacionNativaCT(ctx, entrada, true)
+	}
+	if !persona && !dependenciaBootstrapNula(p.anclaje) {
+		return p.anclaje.AutorizarConsultaAceptacionNativaCT(ctx, entrada, false)
+	}
+	return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ct.ErrAutorizacionDenegada
 }
 
 // fachadaVinculoCategoriaRPTB2 reutiliza el ServicioVinculoCategoriaRPT que el
@@ -293,7 +416,7 @@ func (f *fachadaVinculoCategoriaRPTB2) RegistrarVinculo(ctx context.Context, e h
 	return r, nil
 }
 
-func (m *montajeIncorporacionPersonalB2) rutas(soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) ([]httpapi.RutaExacta, error) {
+func (m *montajeIncorporacionPersonalB2) rutas(soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo, registrador vp.RegistradorAuditoriaFronteraRutaExacta) ([]httpapi.RutaExacta, error) {
 	if m == nil || m.fachada == nil || m.autoridad == nil {
 		return nil, ct.ErrComposicionIncorporacionAplicacion
 	}
@@ -312,7 +435,20 @@ func (m *montajeIncorporacionPersonalB2) rutas(soporte *soporteAltaContratacionT
 		return nil, e
 	}
 	l = ligarContextoIncorporacionPersonalB2(l, soporte, fronteras)
-	return []httpapi.RutaExacta{{Ruta: httpct.RutaPlanB2, Manejador: h}, {Ruta: httpct.RutaConfirmacionB2, Manejador: h}, {Ruta: httpct.RutaVinculoCategoriaRPTB2, Manejador: v}, {Ruta: httpct.RutaCategoriasRPTB2, Manejador: l}}, nil
+	r := []httpapi.RutaExacta{{Ruta: httpct.RutaPlanB2, Manejador: h}, {Ruta: httpct.RutaConfirmacionB2, Manejador: h}, {Ruta: httpct.RutaVinculoCategoriaRPTB2, Manejador: v}, {Ruta: httpct.RutaCategoriasRPTB2, Manejador: l}}
+	personalCatalogos, e := rutaPersonalCatalogosEmpleadoB2(m.catalogos, m.gobiernoCatalogo, m.autoridad, registrador, soporte, fronteras)
+	if e != nil {
+		return nil, e
+	}
+	r = append(r, personalCatalogos)
+	if m.gobiernoCatalogo != nil {
+		c, e := rutaCatalogosEmpleadoB2(m.gobiernoCatalogo, m.autoridad, registrador, soporte, fronteras)
+		if e != nil {
+			return nil, e
+		}
+		r = append(r, c)
+	}
+	return r, nil
 }
 
 // Se invoca al cargar el archivo privado, antes de montar los handlers. Cada
@@ -355,6 +491,13 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	ficha, e := apppersonal.NuevoServicioRegistroEmpleadoB2(autoridad, repoFicha)
 	if e != nil {
 		return nil, e
+	}
+	var empleados *apppersonal.ServicioEmpleadosRegistroB2
+	if operacionConfiguradaB2(c, claveEmpleadosPersonalB2) {
+		empleados, e = apppersonal.NuevoServicioEmpleadosRegistroB2(autoridad, repoFicha)
+		if e != nil {
+			return nil, e
+		}
 	}
 	fuenteFicha, e := fuentePersonal.NuevaFuenteRegistroEmpleadoB2(ficha)
 	if e != nil {
@@ -409,6 +552,29 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	if e != nil {
 		return nil, e
 	}
+	emisorAnclaje, e := autoridad.emisorMaterial(bp.AccionConsultaAnclajeAceptacionNativaCT)
+	if e != nil {
+		return nil, e
+	}
+	proveedorAnclajeNativo, e := appbolsa.NuevoProveedorNominalConsultaAceptacionNativaCT(
+		emisorAnclaje, c.Operaciones["bolsa_anclaje"].Motivo, correlacion, reloj.Ahora)
+	if e != nil {
+		return nil, e
+	}
+	proveedorPersonaNativa, e := appbolsa.NuevoProveedorNominalConsultaAceptacionNativaCT(
+		emisorBolsa, c.Operaciones["bolsa_persona"].Motivo, correlacion, reloj.Ahora)
+	if e != nil {
+		return nil, e
+	}
+	proveedorNativo := proveedoresAceptacionNativaB113{anclaje: proveedorAnclajeNativo, persona: proveedorPersonaNativa}
+	repoNativo, e := pgbolsa.NuevoRepositorioConsultaAceptacionNativaCTPostgreSQL(nuevos["bolsa_persona"], reloj.Ahora)
+	if e != nil {
+		return nil, e
+	}
+	aceptacionNativa, e := appbolsa.NuevoServicioConsultaAceptacionNativaCT(proveedorNativo, repoNativo, reloj.Ahora)
+	if e != nil {
+		return nil, e
+	}
 	fuenteVinculos, e := pgct.NuevaFuenteVinculoCategoriaRPTPostgreSQL(existentes["registro_ct"])
 	if e != nil {
 		return nil, e
@@ -421,14 +587,10 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	if e != nil {
 		return nil, e
 	}
-	externas, e := NuevasFuentesContextoIncorporacionB2(ConfiguracionFuentesContextoIncorporacionB2{Bolsa: bolsa, ActorBolsa: func(ctx context.Context) (bp.ActorConfiablePersonaAceptacionCT, error) {
+	externas, e := NuevasFuentesContextoIncorporacionB2(ConfiguracionFuentesContextoIncorporacionB2{Bolsa: bolsa, BolsaNativa: aceptacionNativa, ActorBolsa: func(ctx context.Context) (bp.ActorConfiablePersonaAceptacionCT, error) {
 		actual, e := autoridad.contexto(ctx, bp.AccionConsultaPersonaAceptacionCT)
 		return bp.ActorConfiablePersonaAceptacionCT{Vinculo: actual.Vinculo, Resultado: actual.Resultado}, e
 	}, Vinculos: vinculos, Publicacion: publicacion, AutoridadRPT: autoridad})
-	if e != nil {
-		return nil, e
-	}
-	emisorAnclaje, e := autoridad.emisorMaterial(bp.AccionConsultaAnclajeAceptacionCT)
 	if e != nil {
 		return nil, e
 	}
@@ -452,6 +614,7 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	fuentes.personal = personalServicio
 	fuentes.clases = personalServicio
 	fuentes.anclaje = anclaje
+	fuentes.anclajeNativo = aceptacionNativa
 	servicioCT, e := appct.NuevoServicioPlanNominalB2(fuentes, autoridad, lectorCT)
 	if e != nil {
 		return nil, e
@@ -470,8 +633,20 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	if e != nil {
 		return nil, e
 	}
+	var gobiernoCatalogo *apppersonal.ServicioCatalogosRegistroEmpleadoB2
+	if operacionConfiguradaB2(c, claveCatalogoPublicarB2) {
+		// Publicar y retirar escriben con el LOGIN de actos de Personal, no con
+		// el de consultas que usa el plan para leer el catálogo.
+		repoGobierno, e := pgpersonal.NuevoRepositorioRegistroEmpleadoB2PostgreSQL(nuevos["personal_actos"])
+		if e != nil {
+			return nil, e
+		}
+		if gobiernoCatalogo, e = apppersonal.NuevoServicioCatalogosRegistroEmpleadoB2(autoridad, repoGobierno); e != nil {
+			return nil, e
+		}
+	}
 	completo = true
 	vinculo := &fachadaVinculoCategoriaRPTB2{organizacionRef: org, catalogoID: c.CatalogoRPTID, moduloID: c.ModuloRPTID, servicio: vinculos}
 	categorias := &fachadaCategoriasRPTB2{catalogoID: c.CatalogoRPTID, autoridad: autoridad, lector: lectorRPT}
-	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, cese: cese, vinculo: vinculo, categorias: categorias, cerrar: cerrar}, nil
+	return &montajeIncorporacionPersonalB2{fachada: fachada, autoridad: autoridad, aceptacionNativa: aceptacionNativa, cese: cese, vinculo: vinculo, categorias: categorias, catalogos: catalogos, ficha: ficha, empleados: empleados, gobiernoCatalogo: gobiernoCatalogo, cerrar: cerrar}, nil
 }

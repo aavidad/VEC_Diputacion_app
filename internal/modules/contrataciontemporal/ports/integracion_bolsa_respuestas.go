@@ -122,7 +122,11 @@ type ReciboOrdenBolsa struct {
 	OrdenCompleta     bool                                 `json:"orden_completa"`
 	// OrdenRecuperada atesta con permiso nuevo una orden ya confirmada; no
 	// sustituye su fecha original por la fecha de la petición actual.
-	OrdenRecuperada   bool                                 `json:"orden_recuperada,omitempty"`
+	OrdenRecuperada bool `json:"orden_recuperada,omitempty"`
+	// OrdenAtestada identifica una lectura autenticada de un orden ya
+	// constituido. Su AuditoriaRef es el acuse nominal real de esa lectura;
+	// no declara recibo ni evento de preparación de orden en Bolsa.
+	OrdenAtestada     bool                                 `json:"orden_atestada,omitempty"`
 	Orden             ReferenciaVersionadaIntegracionBolsa `json:"orden"`
 	AccionLlamamiento ReferenciaVersionadaIntegracionBolsa `json:"accion_llamamiento"`
 	TotalPosiciones   uint32                               `json:"total_posiciones"`
@@ -159,16 +163,16 @@ func (r ReciboOrdenBolsa) ValidarDurablePara(
 			contexto, comando.Necesidad,
 		) || r.Bolsa != comando.Bolsa || r.Politica != comando.Politica ||
 		r.TotalPosiciones > comando.MaximoPosiciones ||
-		!domain.ReferenciaOpacaValida(r.ReciboRef) ||
-		!domain.ReferenciaOpacaValida(r.AuditoriaRef) ||
-		!domain.ReferenciaOpacaValida(r.EventoRef) ||
+		(r.OrdenAtestada && (r.ReciboRef != "" || !domain.ReferenciaOpacaValida(r.AuditoriaRef) || r.EventoRef != "")) ||
+		(!r.OrdenAtestada && (!domain.ReferenciaOpacaValida(r.ReciboRef) ||
+			!domain.ReferenciaOpacaValida(r.AuditoriaRef) || !domain.ReferenciaOpacaValida(r.EventoRef))) ||
 		!instanteBolsaCanonico(r.ConfirmadaEn) ||
 		(!r.OrdenRecuperada && r.ConfirmadaEn.Before(contexto.SolicitadaEn)) ||
 		r.ConfirmadaEn.After(r.Procedencia.Evidencia.EmitidaEn) {
 		return ErrRespuestaBolsaNoConfiable
 	}
 	if !r.OrdenGenerada {
-		if r.OrdenRecuperada || r.OrdenCompleta || r.Orden != (ReferenciaVersionadaIntegracionBolsa{}) ||
+		if r.OrdenRecuperada || r.OrdenAtestada || r.OrdenCompleta || r.Orden != (ReferenciaVersionadaIntegracionBolsa{}) ||
 			r.AccionLlamamiento != (ReferenciaVersionadaIntegracionBolsa{}) ||
 			r.TotalPosiciones != 0 {
 			return ErrRespuestaBolsaNoConfiable
@@ -253,7 +257,8 @@ func NuevoComandoSolicitarLlamamientoBolsa(
 		return ComandoSolicitarLlamamientoBolsa{}, ErrPeticionIntegracionBolsaInvalida
 	}
 	if !preparacion.ComprobanteOrden.instanteVerificacion().Equal(instante) ||
-		!instante.Before(preparacion.ReciboOrden.Procedencia.Evidencia.RetenerHasta) {
+		(!preparacion.ReciboOrden.Procedencia.SinRetencionDeclarada &&
+			!instante.Before(preparacion.ReciboOrden.Procedencia.Evidencia.RetenerHasta)) {
 		return ComandoSolicitarLlamamientoBolsa{}, ErrEvidenciaBolsaNoAutenticada
 	}
 	material := materialReciboOrdenBolsa(preparacion.ComandoOrden, preparacion.ReciboOrden)
@@ -396,7 +401,8 @@ func (r ReciboSolicitudLlamamientoBolsa) validarDurableParaDatos(
 	if r.Propuesta.Validar() != nil || r.AccionEvento.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(r.LlamamientoRef) ||
 		r.SeleccionRef.Validar() != nil ||
-		r.RetencionSeleccion.Validar() != nil ||
+		(r.Procedencia.SinRetencionDeclarada && r.RetencionSeleccion != (ReferenciaVersionadaIntegracionBolsa{})) ||
+		(!r.Procedencia.SinRetencionDeclarada && r.RetencionSeleccion.Validar() != nil) ||
 		r.OrdenSeleccionado == 0 ||
 		r.OrdenSeleccionado > datosComando.TotalPosicionesOrden ||
 		r.OrdenSeleccionado > datosComando.MaximaPosicionEvaluable {

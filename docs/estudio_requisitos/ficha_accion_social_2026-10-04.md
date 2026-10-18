@@ -2,7 +2,7 @@
 
 Estado: estudio para RRHH. Describe ayudas al personal y, como alcance posterior separado, anticipos y plan de pensiones. No acredita una aplicación actual ni autoriza conceder ayudas con importes históricos.
 
-Sigue el formato de [Cronos](ficha_cronos_2026-09-23.md), desarrolla ASO-001-ASO-003 del [catálogo, §8](catalogo_funcional_rrhh_y_hoja_ruta.md#8-acción-social-prl-igualdad-y-relaciones-laborales) y toma como antecedentes la [matriz normativa](matriz_normativa_rrhh_2026.md) y [las materias reservadas, §4](materias_reservadas_economicas_y_relaciones_laborales.md#4-acción-social-y-pensiones). Se aplican E02-E07 de `ESPECIFICACIONES_AGENTES.md`: persona común, puertos entre autoridades, permisos positivos y mínima exposición de datos familiares y sanitarios.
+Sigue el formato de [Cronos](ficha_cronos_2026-09-23.md), desarrolla ASO-001-ASO-003 del [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md) y toma como antecedentes la [matriz normativa](matriz_normativa_rrhh_2026.md) y [las materias reservadas, §4](materias_reservadas_economicas_y_relaciones_laborales.md#4-acción-social-y-pensiones). Se aplican E02-E07 de `ESPECIFICACIONES_AGENTES.md`: persona común, puertos entre autoridades, permisos positivos y mínima exposición de datos familiares y sanitarios.
 
 ## Qué debe hacer
 

@@ -1,25 +1,25 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20261008-ct-inicio-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20261014-cronos-activacion-v1";
 import { FILTRO_INCIDENCIA_CT, filtroServidorCTValido, leerFiltroCTDeRuta,
-  limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+  limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261011-bolsa-b103-privacidad-v1";
 import { leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261007-pantallas-textos-final-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261018-f104-main-v1";
 
-import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261007-pantallas-textos-final-v1";
+import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
-import { instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261018-f104-main-v1";
+import { bolsasVigentesParaLlamamiento, instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261015-ofertas-recibo-v3";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20261007-pantallas-textos-final-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1";
 
-import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20261007-auditoria-disponibilidad-v1";
+import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
 import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261007-pantallas-textos-final-v1";
 import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20261010-http-carga-v1";
@@ -104,26 +104,36 @@ const erroresRecursosVistas = new Set();
 const grupoRecursosVista = (vista) => vista === "portal" ? "inicio"
   : vista === "mis-tramites" ? "accesos"
     : vista === "contratos" && !vistaBolsaPendienteNoCompuesta(vista) ? "operaciones"
+    : vista === "documentos" ? "documentosBolsa"
     : vista === VISTA_DOCUMENTOS_EXPEDIENTE ? "documentos"
-  : vista === "auditoria" ? "auditoria" : vista === "llamamientos" ? "ofertas" : null;
+  : vista === "auditoria" ? "auditoria" : vista === "llamamientos" ? "ofertas"
+    : vista === "reglas-situacion" ? "reglasSituacion" : null;
 function cargarRecursosVista(grupo) {
   if (cargasRecursosVistas.has(grupo)) return;
   const carga = grupo === "inicio"
     ? Promise.all([
-      import("./portal-inicio.js?v=20261010-ct-vinculo-rpt-cohorte-v10"),
+      import("./portal-inicio.js?v=20261016-r1-o-integracion-v7"),
       import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2"),
     ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
     : grupo === "accesos"
       ? import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2")
       : grupo === "operaciones"
         ? import("./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1")
+      : grupo === "documentosBolsa"
+        ? import("./modulos/bolsa/documentos-vista.js?v=20261013-documentos-bolsa-v2")
+      : grupo === "reglasSituacion"
+        ? Promise.all([
+          import("./modulos/bolsa/reglas-situacion-api.js?v=20261018-f104-main-v1"),
+          import("./modulos/bolsa/reglas-situacion-ui.js?v=20261018-f104-main-v1"),
+          import("../comun/textos.js").then((moduloTextos) => moduloTextos.cargarTextos("bolsa-reglas-transiciones")),
+        ]).then(([api, ui, textos]) => ({ ...api, ...ui, textos }))
       : grupo === "documentos"
     ? import("./modulos/documentos/i18n.js?v=20260928-ppt-v2")
     : grupo === "auditoria"
-      ? import("./modulos/auditoria/vista.js?v=20261007-pantallas-textos-final-v1")
+      ? import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261010-ct-vinculo-rpt-cohorte-v10"),
-        import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1"),
+        import("./portal-bolsas-ofertas.js?v=20261018-f155-recibos-plaza-v1"),
+        import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261016-r1-o-integracion-v7"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
   carga.then((recursos) => {
@@ -160,9 +170,10 @@ const TITULOS = Object.freeze({
   llamamientos: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo_llamamient"), traducirPortal("txt_nuevo_llamamiento")],
   contratos: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_contratos_ceses_y_reincorporaciones")],
   reglas: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_reglas_y_versiones")],
+  "reglas-situacion": [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_reglas_situacion_bolsa")],
   consulta: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_consulta_segura_para_candidatos")],
   estadisticas: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_estadisticas")],
-  documentos: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_documentos_y_firma")],
+  documentos: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("bolsa_documentos_titulo")],
   comunicaciones: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_correo_y_mensajeria")],
   auditoria: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_auditoria_y_trazabilidad")],
   configuracion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_configuracion_y_roles")],
@@ -197,6 +208,7 @@ const VISTAS_BOLSA_SIN_LECTURA = new Set([
   "contratos",
   "auditoria",
   "reglas",
+  "configuracion",
 ]);
 const requiereLecturaBolsas = (vista) => moduloDeVistaPortal(vista) === "bolsa"
   && !VISTAS_BOLSA_SIN_LECTURA.has(vista);
@@ -291,6 +303,7 @@ function cargarEstilosVista(grupo) {
   }).finally(() => { cargasEstilosVistas.delete(grupo); });
 }
 function grupoTextosDeVista(vista) {
+  if (vista === "documentos") return null;
   if (vista === "mis-preferencias") return "preferencias";
   return moduloDeVistaPortal(vista) === "bolsa" ? "bolsa" : null;
 }
@@ -330,7 +343,7 @@ function esperarTextosDeVista(grupo) {
 function instalarReintentoTextosVista() {
   const espacio = porId("espacio-trabajo");
   espacio?.addEventListener("click", (evento) => {
-    if (!evento.target?.closest?.("[data-bolsa-ruta-reintentar]") || estado.vista !== "bolsa-candidatos") return;
+    if (!evento.target?.closest?.("[data-bolsa-ruta-reintentar]") || !["bolsa-candidatos", "documentos"].includes(estado.vista)) return;
     void controladorBolsas?.cargarBolsas();
   });
   espacio?.addEventListener("click", (evento) => {
@@ -367,9 +380,29 @@ function instalarReintentoTextosVista() {
     void prepararResumenInicioVisible();
   });
 }
+let vistaDocumentosBolsa = null;
 let vistaAuditoriaBolsa = null;
 let vistaPoliticaCese = null;
+let vistaReglasSituacion = null;
+let vistaConfiguracionBolsa = null;
+let controladorConfiguracionBolsa = null;
+function desmontarConfiguracionBolsa() {
+  controladorConfiguracionBolsa?.abort(); controladorConfiguracionBolsa = null;
+  vistaConfiguracionBolsa?.desmontar(); vistaConfiguracionBolsa = null;
+}
+let vistaRankingBolsa = null;
+let controladorRankingBolsa = null;
+function desmontarRankingBolsa() {
+  controladorRankingBolsa?.abort(); controladorRankingBolsa = null;
+  vistaRankingBolsa?.desmontar(); vistaRankingBolsa = null;
+}
 let vistaInscripcionesBolsa = null;
+let controladorAlegacionesBolsa = null;
+let vistaAlegacionesBolsa = null;
+function desmontarAlegacionesBolsa() {
+  controladorAlegacionesBolsa?.abort(); controladorAlegacionesBolsa = null;
+  vistaAlegacionesBolsa?.desmontar(); vistaAlegacionesBolsa = null;
+}
 let controladorInscripcionesBolsa = null;
 function desmontarInscripcionesBolsa() {
   controladorInscripcionesBolsa?.abort();
@@ -423,7 +456,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261010-ct-vinculo-rpt-cohorte-v10");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261016-r1-o-integracion-v7");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -467,10 +500,16 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
       const registrarDesmontar = (limpiar) => { desmontarRegistrado = limpiar; };
       montarVistaBolsa(vista, raiz, opciones);
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
-        controladorBolsas?.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieOfertasBolsa?.desmontar(); superficieRRHHPlazos?.desmontar(); }
+        if (estado.vista !== vista) { controladorBolsas?.cancelarPeticiones(); cancelarAvisosBolsa(); }
+        if (vista === "llamamientos") { cerrarGestionOfertasBolsa(); }
+        if (vista === "documentos") { vistaDocumentosBolsa?.desmontar(); vistaDocumentosBolsa = null; }
         if (vista === "auditoria") { vistaAuditoriaBolsa?.desmontar(); vistaAuditoriaBolsa = null; }
         if (vista === "reglas") { vistaPoliticaCese?.desmontar(); vistaPoliticaCese = null; }
-        if (vista === "solicitudes") desmontarInscripcionesBolsa(); } });
+        if (vista === "reglas-situacion") { vistaReglasSituacion?.desmontar(); vistaReglasSituacion = null; }
+        if (vista === "configuracion") desmontarConfiguracionBolsa();
+        if (vista === "baremacion") desmontarRankingBolsa();
+        if (vista === "alegaciones") desmontarAlegacionesBolsa();
+        if (["solicitudes", "meritos", "convocatorias"].includes(vista)) desmontarInscripcionesBolsa(); } });
     },
   }),
   confirmarOperacion: (descriptor) => window.confirm(traducirPortal("txt_confirmar_operacion", { titulo: descriptor.titulo, advertencia: descriptor.advertencia, referencia: descriptor.referencia })) });
@@ -606,9 +645,10 @@ function capacidadesBolsa() {
     borradores: borradores?.disponible === true ? true
       : (borradores?.estado === "denegado" || borradores?.estado === "error" ? false : null),
     contratacionTemporal: coordinadorModulos.vistaDisponible("contratacion-temporal"),
-    auditoriaReferencia: estado.auditoriaReferencia !== "",
+    auditoriaConsulta: estado.fuenteLista === true || coordinadorModulos.vistaDisponible("contratacion-temporal"),
     politicaCese: estado.politicaCese !== null,
     inscripciones: estado.inscripcionesDisponibles === true,
+    cargaConvoca: estado.cargaConvocaDisponible === true,
   };
 }
 function vistaPermitida(vista) {
@@ -954,7 +994,10 @@ function vistaDesdeHash() {
 }
 
 function rutaDeVista(vista) { return vista === "mis-preferencias" ? "#mis-preferencias" : rutaDeVistaPortal(vista); }
-function tituloDeVista(vista) { return TITULOS[vista] || TITULOS.portal; }
+function tituloDeVista(vista) {
+  if (vista === "bolsa-candidatos" && new URLSearchParams(window.location.search).get("bolsa_global") === "llamamientos") return TITULOS.comunicaciones;
+  return TITULOS[vista] || TITULOS.portal;
+}
 function moduloActivoDeVista(vista) { return moduloDeVistaPortal(vista); }
 function actualizarNavegacionModulos() {
   const contenedor = porId("navegacion-modulos-dinamica");
@@ -964,6 +1007,9 @@ function actualizarNavegacionModulos() {
   contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
   const enlacePlantillas = porId("enlace-plantillas-rrhh");
   if (enlacePlantillas) enlacePlantillas.hidden = estado.plantillasAutorizadas !== true;
+  if (moduloActivo === "bolsa") cargaConvocaDisponible();
+  const enlaceConvoca = porId("navegacion-bolsa")?.querySelector('[data-vista="importacion"]');
+  if (enlaceConvoca) enlaceConvoca.setAttribute("href", RUTA_PANTALLA_CARGA_CONVOCA);
   aplicarDisponibilidadMenuBolsa(porId("navegacion-bolsa"), capacidadesBolsa())
     .forEach((indicador, indice) => { indicador.textContent = String(indice + 1); });
   const fase = porId("texto-estado-modulos-portal");
@@ -1003,13 +1049,29 @@ function alCambiarFichaCT(ficha) {
     history.pushState(null, "", ruta);
 }
 function navegar(vista, opciones = {}) {
+  if (salidaGestionOfertasBloqueada()) {
+    if (opciones.desdeRuta === true) compensarHistorialGestionOfertas();
+    else anunciarSalidaGestionOfertas();
+    return;
+  }
+  if (vista !== "llamamientos" || opciones.desdeRuta !== true) rutaOfertasSolicitadaRef = "";
+  const ubicacionSinOfertas = { pathname: window.location.pathname, search: busquedaSinGestionOfertasBolsa() };
+  if (vista === "comunicaciones" && rutasBolsa) {
+    history.pushState(null, "", rutasBolsa.rutaGlobalBolsaCompartible(ubicacionSinOfertas.search, "llamamientos"));
+    navegar("bolsa-candidatos", { ...opciones, desdeRuta: true });
+    return;
+  }
+  if (vista === "importacion") {
+    window.location.assign(RUTA_PANTALLA_CARGA_CONVOCA);
+    return;
+  }
   if (!Object.hasOwn(TITULOS, vista)) return;
   if (vista !== VISTA_PLANTILLAS_RRHH) destinoPlantillasInicial = false;
   if (vista !== "reglas") destinoPoliticaCeseInicial = false;
   if (sondearCapacidadAlAbrir(vista)) return;
   if (!vistaPermitida(vista) && vistaBolsaPendienteNoCompuesta(vista)) {
     const hash = rutaDeVista(vista);
-    const ruta = rutaPortalConFiltroCT(window.location, hash);
+    const ruta = rutaPortalConFiltroCT(ubicacionSinOfertas, hash);
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
       history.pushState(null, "", ruta);
     estado.vista = vista;
@@ -1021,7 +1083,7 @@ function navegar(vista, opciones = {}) {
   if (!vistaPermitida(vista)) {
     const vistaSegura = "portal";
     const hashSeguro = rutaDeVista(vistaSegura);
-    const rutaSegura = rutaPortalConFiltroCT(window.location, hashSeguro);
+    const rutaSegura = rutaPortalConFiltroCT(ubicacionSinOfertas, hashSeguro);
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== rutaSegura)
       history.replaceState(null, "", rutaSegura);
     estado.vista = vistaSegura;
@@ -1052,21 +1114,22 @@ function navegar(vista, opciones = {}) {
         && !opciones.filtroLista?.fase ? FILTRO_INCIDENCIA_CT : null))
     : null;
   if (vista === "resumen" && rutasBolsa) {
-    const ruta = rutasBolsa.rutaResumenBolsasCompartible(limpiarFiltroCTDeBusqueda(window.location.search));
+    const ruta = rutasBolsa.rutaResumenBolsasCompartible(limpiarFiltroCTDeBusqueda(ubicacionSinOfertas.search));
     if (`${window.location.search}${window.location.hash}` !== ruta) history.pushState(null, "", ruta);
   } else if (opciones.desdeRuta !== true) {
-    const ruta = rutaPortalConFiltroCT(window.location, hash,
+    const ruta = rutaPortalConFiltroCT(ubicacionSinOfertas, hash,
       vista === "contratacion-temporal" && filtroServidorCTValido(filtroServidorRuta) ? filtroServidorRuta : null);
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
       history.pushState(null, "", ruta);
   } else if (vista !== "contratacion-temporal") {
-    const ruta = rutaPortalConFiltroCT(window.location, hash, null,
+    const ruta = rutaPortalConFiltroCT(vista === "llamamientos" ? window.location : ubicacionSinOfertas, hash, null,
       { conservarLlamamiento: vista === "llamamientos" && opciones.desdeRuta === true });
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
       history.replaceState(null, "", ruta);
   }
   estado.vista = vista;
-  if (vista === "llamamientos" && estado.datosBolsas?.carga === "listo") selectorLlamamientos?.consumirRuta();
+  if (vista === "llamamientos" && estado.datosBolsas?.carga === "listo"
+    && !new URLSearchParams(window.location.search).has(CLAVE_RUTA_GESTION_OFERTAS)) selectorLlamamientos?.consumirRuta();
   const fichaRuta = vista === "contratacion-temporal" && opciones.desdeRuta === true
     ? leerFichaCTDeRuta(window.location.search) : null;
   estado.opcionesVista = vista === "contratacion-temporal"
@@ -1085,16 +1148,124 @@ function navegar(vista, opciones = {}) {
   anunciar(traducirPortal("txt_vista_abierta", { vista: tituloDeVista(vista)[1] }));
 }
 function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } = {}) {
-  if (vista === "solicitudes") {
+  if (vista === "alegaciones") {
+    if (controladorAlegacionesBolsa && contenedor.querySelector("[data-alegaciones-montaje]")) return;
+    desmontarAlegacionesBolsa();
+    const controlador = new AbortController(); controladorAlegacionesBolsa = controlador;
+    contenedor.innerHTML = `<div data-alegaciones-montaje><p role="status">${textoPortal("estado_modulo_comprobando")}</p></div>`;
+    const raiz = contenedor.querySelector("[data-alegaciones-montaje]");
+    import("../comun/alegaciones-vista.js?v=20261013-alegaciones-v1").then(async ({ montarAlegaciones }) => {
+      if (controlador.signal.aborted || estado.vista !== vista) return;
+      const montaje = await montarAlegaciones({ contenedor: raiz, modo: "rrhh", escaparHTML, signal: controlador.signal });
+      if (controlador.signal.aborted || estado.vista !== vista) { montaje.desmontar(); return; }
+      vistaAlegacionesBolsa = montaje;
+    }).catch((error) => {
+      if (controlador.signal.aborted || estado.vista !== vista) return;
+      console.error("alegaciones_montaje", { tipo: error?.name });
+      raiz.innerHTML = `<p role="alert">${textoPortal("estado_modulo_no_disponible_titulo")}</p><button type="button" class="boton-secundario" data-alegaciones-montaje-reintentar>${textoPortal("accion_reintentar")}</button>`;
+      raiz.querySelector("[data-alegaciones-montaje-reintentar]")?.addEventListener("click", () => {
+        desmontarAlegacionesBolsa(); montarVistaBolsa(vista, contenedor, opciones);
+      }, { once: true });
+    });
+    return;
+  }
+
+  if (vista === "comunicaciones") {
+    navegar(vista, { ...opciones, enfocar: false });
+    return;
+  }
+  if (vista === "importacion") {
+    window.location.replace(RUTA_PANTALLA_CARGA_CONVOCA);
+    return;
+  }
+  if (vista === "configuracion") {
+    if (controladorConfiguracionBolsa && contenedor.querySelector("[data-configuracion-montaje]")) return;
+    desmontarConfiguracionBolsa();
+    const controlador = new AbortController(); controladorConfiguracionBolsa = controlador;
+    contenedor.innerHTML = `<div data-configuracion-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel">${textoPortal("estado_modulo_comprobando")}</div></section></div>`;
+    const raiz = contenedor.querySelector("[data-configuracion-montaje]");
+    import("./portal-bolsa-configuracion.js?v=20261016-r1-o-integracion-v7").then(async ({ montarConfiguracionBolsa }) => {
+      if (controlador.signal.aborted || estado.vista !== vista) return;
+      const montaje = await montarConfiguracionBolsa({ raiz, signal: controlador.signal, escaparHTML });
+      if (controlador.signal.aborted) { montaje?.desmontar(); return; }
+      vistaConfiguracionBolsa = montaje;
+    }).catch((error) => {
+      if (controlador.signal.aborted) return;
+      console.error("configuracion_bolsa_carga", { tipo: error?.name });
+      raiz.innerHTML = `<section class="panel" role="alert"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_no_disponible_titulo")}</p><button type="button" class="boton-secundario" data-configuracion-carga-reintentar>${textoPortal("accion_reintentar")}</button></div></section>`;
+      raiz.querySelector("[data-configuracion-carga-reintentar]")?.addEventListener("click", () => { desmontarConfiguracionBolsa(); montarVistaBolsa(vista, contenedor); }, { once: true });
+    });
+    return;
+  }
+  if (vista === "baremacion") {
+    if (controladorRankingBolsa && contenedor.querySelector("[data-ranking-montaje]")) { vistaRankingBolsa?.actualizarRuta(); return; }
+    if (estado.datosBolsas?.carga !== "listo") {
+      const error = ["error", "denegado"].includes(estado.datosBolsas?.carga);
+      contenedor.innerHTML = `<section class="panel" ${error ? 'role="alert"' : 'role="status" aria-busy="true"'}><div class="cuerpo-panel">${textoPortal(error ? "txt_no_se_pudieron_cargar_las_bolsas_de_trabajo" : "estado_modulo_comprobando")}${error ? `<button type="button" class="boton-secundario" data-bolsa-accion="reintentar-bolsas">${textoPortal("accion_reintentar")}</button>` : ""}</div></section>`;
+      if (!estado.datosBolsas) pedirCuadroBolsas();
+      return;
+    }
+    desmontarRankingBolsa();
+    const controlador = new AbortController(); controladorRankingBolsa = controlador;
+    contenedor.innerHTML = `<div data-ranking-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel">${textoPortal("estado_modulo_comprobando")}</div></section></div>`;
+    const raiz = contenedor.querySelector("[data-ranking-montaje]");
+    Promise.all([import("./portal-baremacion-ranking.js?v=20261016-r1-o-integracion-v7"), import("./portal-bolsas-api.js?v=20261016-r1-o-integracion-v7")]).then(async ([vista, cliente]) => {
+      if (controlador.signal.aborted || estado.vista !== "baremacion") return;
+      const montaje = await vista.montarRankingBolsa({ raiz, bolsas: estado.datosBolsas.datos.bolsas, consultar: cliente.consultarCandidatosBolsa, signal: controlador.signal, escaparHTML });
+      if (controlador.signal.aborted) { montaje?.desmontar(); return; }
+      vistaRankingBolsa = montaje;
+    }).catch((error) => {
+      if (controlador.signal.aborted) return;
+      console.error("ranking_vista_carga", { tipo: error?.name });
+      raiz.innerHTML = `<section class="panel" role="alert"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_no_disponible_titulo")}</p><button type="button" class="boton-secundario" data-ranking-carga-reintentar>${textoPortal("accion_reintentar")}</button></div></section>`;
+      raiz.querySelector("[data-ranking-carga-reintentar]")?.addEventListener("click", () => { desmontarRankingBolsa(); montarVistaBolsa(vista, contenedor); }, { once: true });
+    });
+    return;
+  }
+  if (["solicitudes", "meritos", "convocatorias"].includes(vista)) {
     if (controladorInscripcionesBolsa && contenedor.querySelector("[data-inscripciones-montaje]")) return;
     desmontarInscripcionesBolsa();
     const controlador = new AbortController();
     controladorInscripcionesBolsa = controlador;
     contenedor.innerHTML = `<div data-inscripciones-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_comprobando")}</p></div></section></div>`;
     const raiz = contenedor.querySelector("[data-inscripciones-montaje]");
-    import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261010-http-carga-v1").then(async ({ montarInscripcionesRRHH }) => {
+    const solicitudMeritos = vista === "meritos" ? new URLSearchParams(window.location.search).get("meritos_solicitud") : null;
+    if (solicitudMeritos) {
+      import("./modulos/meritos/revision-rrhh.js?v=20261013-meritos-integracion-v8").then(async ({ montarRevisionMeritosRRHH }) => {
+        if (controlador.signal.aborted || estado.vista !== vista) return;
+        const montaje = await montarRevisionMeritosRRHH({ raiz, solicitudRef: solicitudMeritos,
+          escaparHTML, nombre: opciones.nombrePersona || "", signal: controlador.signal,
+          alVolver: () => {
+            const url = new URL(window.location.href); url.searchParams.delete("meritos_solicitud"); url.searchParams.delete("meritos_cursor");
+            history.pushState(null, "", url.pathname + url.search + "#bolsa/solicitudes");
+            navegar("solicitudes", { desdeRuta: true });
+          } });
+        if (controlador.signal.aborted || estado.vista !== vista) { montaje?.desmontar(); return; }
+        vistaInscripcionesBolsa = montaje;
+      }).catch((error) => {
+        if (controlador.signal.aborted || estado.vista !== vista) return;
+        console.error("meritos_revision_montaje", { tipo: error?.name });
+        raiz.innerHTML = `<section class="panel" role="alert"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_no_disponible_titulo")}</p><button type="button" class="boton-secundario" data-meritos-montaje-reintentar>${textoPortal("accion_reintentar")}</button></div></section>`;
+        raiz.querySelector("[data-meritos-montaje-reintentar]")?.addEventListener("click", () => {
+          desmontarInscripcionesBolsa(); montarVistaBolsa(vista, contenedor, opciones);
+        }, { once: true });
+      });
+      return;
+    }
+    import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261013-meritos-integracion-v8").then(async ({ montarInscripcionesRRHH }) => {
       if (controlador.signal.aborted || estado.vista !== vista) return;
       const montaje = await montarInscripcionesRRHH({ raiz, signal: controlador.signal,
+        revisionMeritos: vista === "meritos",
+        alAbrirMeritos: (ref, nombre) => {
+          const url = new URL(window.location.href); url.searchParams.set("meritos_solicitud", ref); url.searchParams.delete("meritos_cursor");
+          history.pushState(null, "", url.pathname + url.search + "#bolsa/meritos");
+          navegar("meritos", { desdeRuta: true, nombrePersona: nombre });
+        },
+        soloConvocatorias: vista === "convocatorias",
+        alAbrirSolicitudes: (ruta) => {
+          history.pushState(null, "", ruta);
+          navegar("solicitudes", { desdeRuta: true });
+        },
         alDenegacion: () => { estado.solicitudes = []; },
         alDisponibilidad: (disponible) => {
           if (estado.inscripcionesDisponibles === disponible) return;
@@ -1123,6 +1294,37 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     contenedor.innerHTML = `<section class="panel" ${error ? 'role="alert"' : 'role="status" aria-busy="true"'}><div class="cuerpo-panel"><p>${textoPortal(carga === "denegado" ? "txt_la_sesion_actual_no_dispone_de_permisos_suficien" : error ? "txt_no_se_pudieron_cargar_las_bolsas_de_trabajo" : "estado_modulo_comprobando")}</p>${carga === "error" ? `<button type="button" class="boton-secundario" data-bolsa-ruta-reintentar>${textoPortal("accion_reintentar")}</button>` : ""}</div></section>`;
     return;
   }
+  if (vista === "documentos") {
+    if (vistaDocumentosBolsa && contenedor.querySelector("[data-bolsa-documentos]")) return;
+    vistaDocumentosBolsa?.desmontar();
+    vistaDocumentosBolsa = null;
+    if (estado.datosBolsas?.carga !== "listo") {
+      const carga = estado.datosBolsas?.carga;
+      const error = carga === "error" || carga === "denegado";
+      contenedor.innerHTML = `<section class="panel" ${error ? 'role="alert"' : 'role="status" aria-busy="true"'}><div class="cuerpo-panel"><p>${textoPortal(carga === "denegado" ? "txt_la_sesion_actual_no_dispone_de_permisos_suficien" : error ? "txt_no_se_pudieron_cargar_las_bolsas_de_trabajo" : "estado_modulo_comprobando")}</p>${carga === "error" ? `<button type="button" class="boton-secundario" data-bolsa-ruta-reintentar>${textoPortal("accion_reintentar")}</button>` : ""}</div></section>`;
+      return;
+    }
+    const controlador = new AbortController();
+    vistaDocumentosBolsa = { desmontar: () => controlador.abort() };
+    void recursosVistas.get("documentosBolsa").montarVistaDocumentosBolsa({ raiz: contenedor,
+      bolsas: estado.datosBolsas.datos.bolsas, anunciar,
+      registrarDesmontar: (limpiar) => { vistaDocumentosBolsa = { desmontar: () => { controlador.abort(); limpiar(); } }; },
+      abrirCandidatos: (bolsaRef) => {
+        estado.bolsaSeleccionada = bolsaRef;
+        estado.filtrosBolsa = { estado: "", texto: "" };
+        navegar("bolsa-candidatos", { enfocar: false });
+        void controladorBolsas.cargarCandidatosBolsa(bolsaRef, { enfocarDestino: true });
+      }, signal: controlador.signal,
+    }).then((montaje) => {
+      if (controlador.signal.aborted || estado.vista !== vista) { montaje?.desmontar(); return; }
+      vistaDocumentosBolsa = montaje;
+    }).catch(() => {
+      if (controlador.signal.aborted || estado.vista !== vista) return;
+      vistaDocumentosBolsa = null;
+      contenedor.innerHTML = `<section class="panel" role="alert"><div class="cuerpo-panel"><p>${textoPortal("descripcion_superficie_no_montada")}</p><button type="button" class="boton-secundario" data-recursos-vista-reintentar>${textoPortal("accion_reintentar")}</button></div></section>`;
+    });
+    return;
+  }
   if (vista === "reglas") {
     if (vistaPoliticaCese && contenedor.querySelector("[data-politica-cese]")) return;
     vistaPoliticaCese?.desmontar();
@@ -1131,17 +1333,22 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
       alDenegacion: () => { estado.politicaCese = null; actualizarNavegacionModulos(); } });
     return;
   }
+  if (vista === "reglas-situacion") {
+    if (vistaReglasSituacion && contenedor.querySelector("[data-reglas-situacion]")) return;
+    vistaReglasSituacion?.desmontar();
+    const recursos = recursosVistas.get("reglasSituacion");
+    if (!recursos) { renderizar(); return; }
+    vistaReglasSituacion = recursos.montarReglasSituacionBolsa({ raiz: contenedor,
+      cliente: recursos.crearClienteReglasSituacionBolsa(), textos: recursos.textos, anunciar });
+    return;
+  }
   if (vista === "auditoria") {
     if (vistaAuditoriaBolsa && contenedor.querySelector("[data-auditoria-vista]")) return;
     vistaAuditoriaBolsa?.desmontar();
     vistaAuditoriaBolsa = null;
-    if (!estado.auditoriaReferencia) {
-      contenedor.innerHTML = `<section class="panel"><div class="cuerpo-panel vacio-controlado" role="status">${textoPortal("auditoria_sin_ficha")}</div></section>`;
-      return;
-    }
     vistaAuditoriaBolsa = recursosVistas.get("auditoria").montarVistaAuditoria({ raiz: contenedor,
       fuente: crearFuenteAuditoriaHTTP(), expedienteRef: estado.auditoriaReferencia,
-      fuenteContexto: "bolsa", anunciar });
+      fuenteContexto: estado.auditoriaReferencia ? "bolsa" : "ct", anunciar });
     return;
   }
   if (vista === "contratos") {
@@ -1150,7 +1357,47 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     return;
   }
   if (vista === "llamamientos") {
+    const solicitada = rutaOfertasSolicitadaRef || new URLSearchParams(window.location.search).get(CLAVE_RUTA_GESTION_OFERTAS) || "";
+    if (solicitada && estado.datosBolsas?.carga === "listo") {
+      if (bolsasVigentesParaLlamamiento(estado.datosBolsas).some((bolsa) => bolsa.bolsa_ref === solicitada)) {
+        rutaOfertasSolicitadaRef = solicitada;
+        modoGestionOfertasBolsa = solicitada;
+        rutaVisibleGestionOfertasBolsa = rutaGestionOfertasBolsa(solicitada);
+        asegurarHistorialGestionOfertas();
+        estado.bolsaSeleccionada = solicitada;
+        estado.llamamientoDesdeMenu = true;
+      } else {
+        rutaOfertasSolicitadaRef = "";
+        cerrarGestionOfertasBolsa();
+        history.replaceState(null, "", rutaGestionOfertasBolsa());
+      }
+    }
+    const bolsaRef = estado.llamamientoDesdeMenu ? estado.bolsaSeleccionada : "";
+    const vigente = bolsasVigentesParaLlamamiento(estado.datosBolsas).some((bolsa) => bolsa.bolsa_ref === bolsaRef);
+    if (modoGestionOfertasBolsa && (!vigente || modoGestionOfertasBolsa !== bolsaRef)) cerrarGestionOfertasBolsa();
+    const traducirOfertas = recursosVistas.get("ofertas")?.crearTraductorOfertas();
+    porId("titulo-vista").textContent = modoGestionOfertasBolsa && traducirOfertas ? traducirOfertas("gestionar_ofertas") : TITULOS.llamamientos[1];
+    if (vigente && modoGestionOfertasBolsa === bolsaRef && superficieOfertasBolsa && superficieRRHHPlazos) {
+      if (contenedor.querySelector("[data-montaje-ofertas-bolsa]")) return;
+      const t = recursosVistas.get("ofertas").crearTraductorOfertas();
+      contenedor.innerHTML = `<section data-montaje-ofertas-bolsa aria-labelledby="gestion-ofertas-bolsa-titulo">` +
+        `<div class="acciones-vista"><button type="button" class="boton-secundario" data-gestion-ofertas-accion="volver">${escaparHTML(t("volver_llamamiento"))}</button>` +
+        `<p class="dato-secundario" data-gestion-ofertas-aviso hidden role="status">${escaparHTML(t("salida_incierta"))}</p></div>` +
+        `<h2 id="gestion-ofertas-bolsa-titulo" tabindex="-1">${escaparHTML(t("gestion_titulo"))}</h2>` +
+        `<details data-politica-ofertas-bolsa><summary>${escaparHTML(t("politica_titulo"))}</summary><div data-politica-ofertas-contenido>${superficieRRHHPlazos.renderizar()}</div></details>` +
+        `<div data-ofertas-bolsa-contenido>${superficieOfertasBolsa.renderizar()}</div></section>`;
+      superficieRRHHPlazos.instalar(document);
+      superficieRRHHPlazos.activar(bolsaRef);
+      superficieOfertasBolsa.activar(bolsaRef);
+      actualizarSalidaGestionOfertasBolsa();
+      contenedor.querySelector("#gestion-ofertas-bolsa-titulo")?.focus({ preventScroll: true });
+      return;
+    }
     contenedor.innerHTML = renderizarPantallaLlamamientos({ estado, encabezadoVista, escaparHTML, presentador: presentadorPanelInterno });
+    if (vigente && superficieOfertasBolsa && superficieRRHHPlazos) {
+      const t = recursosVistas.get("ofertas").crearTraductorOfertas();
+      contenedor.insertAdjacentHTML("afterbegin", `<div class="acciones-vista"><button type="button" class="boton-secundario" data-gestion-ofertas-accion="abrir">${escaparHTML(t("gestionar_ofertas"))}</button></div>`);
+    }
     return;
   }
   if (vista === "elaboracion") {
@@ -1227,7 +1474,7 @@ function aplicarRutaCandidatosBolsa() {
   estado.origenLlamamientoB7 = filtro.origen ? Object.freeze({ ...filtro.origen, bolsa_ref: filtro.bolsaRef }) : null;
   estado.datosCandidatos = null;
   const carga = controladorBolsas.cargarCandidatosBolsa(filtro.bolsaRef, { enfocarDestino: true });
-  if (filtro.origen) {
+  if (filtro.origen && !filtro.seguimiento) {
     void carga.then(() => {
       if (estado.vista !== "bolsa-candidatos" || estado.bolsaSeleccionada !== filtro.bolsaRef
         || estado.datosCandidatos?.carga !== "listo" || estado.filtrosBolsa?.nuevo_llamamiento) return;
@@ -1241,7 +1488,8 @@ function aplicarRutaCandidatosBolsa() {
 
 function actualizarVistaBolsa({ activar = false } = {}) { actualizarNavegacionModulos();
   if (estado.vista === "bolsa-candidatos" && estado.datosBolsas?.carga === "listo") aplicarRutaCandidatosBolsa();
-  if (estado.vista === "llamamientos" && estado.datosBolsas?.carga === "listo") selectorLlamamientos?.consumirRuta();
+  if (estado.vista === "llamamientos" && estado.datosBolsas?.carga === "listo"
+    && !new URLSearchParams(window.location.search).has(CLAVE_RUTA_GESTION_OFERTAS)) selectorLlamamientos?.consumirRuta();
   const contenedor = porId("espacio-trabajo");
   if (contenedor && VISTAS_INTERNAS_BOLSA.includes(estado.vista)) {
     if (estado.vista.startsWith("seleccion-")) { renderizar(); return; }
@@ -1261,7 +1509,7 @@ function renderizar() {
   const grupoEstilos = grupoEstilosDeVista(estado.vista);
   const estilosVistaNecesarios = grupoEstilos && coordinadorModulos.vistaDisponible(estado.vista);
   if (estilosVistaNecesarios) cargarEstilosVista(grupoEstilos);
-  const necesitaBolsaBase = estado.vista !== "solicitudes" && moduloDeVistaPortal(estado.vista) === "bolsa"
+  const necesitaBolsaBase = !["solicitudes", "meritos", "convocatorias", "alegaciones"].includes(estado.vista) && moduloDeVistaPortal(estado.vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(estado.vista);
   if (necesitaBolsaBase && !controladorBolsas && !promesaBolsaBase && !errorBolsaBase) {
     void prepararBolsaBase().catch(() => {});
@@ -1339,10 +1587,27 @@ function renderizar() {
   if (grupoRecursos === "ofertas" && !superficieOfertasBolsa) {
     const recursos = recursosVistas.get("ofertas");
     superficieOfertasBolsa = recursos.crearSuperficieOfertasBolsa({ anunciar,
-      alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
+      alCambiar: () => { if (estado.vista === "llamamientos" && modoGestionOfertasBolsa) {
+        const destino = document.querySelector("[data-ofertas-bolsa-contenido]");
+        if (destino) destino.innerHTML = superficieOfertasBolsa.renderizar();
+        actualizarSalidaGestionOfertasBolsa();
+      } } });
     superficieOfertasBolsa.instalar(document);
     superficieRRHHPlazos = recursos.crearSuperficieRRHHPlazos({ anunciar,
-      alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
+      alCambiar: () => { if (estado.vista === "llamamientos" && modoGestionOfertasBolsa) {
+        const destino = document.querySelector("[data-politica-ofertas-contenido]");
+        if (destino) {
+          const activo = destino.contains(document.activeElement) ? document.activeElement : null;
+          const nombre = activo?.name;
+          const accion = activo?.dataset?.rrhhPlazosAccion;
+          destino.innerHTML = superficieRRHHPlazos.renderizar();
+          const siguiente = nombre ? [...destino.querySelectorAll("[name]")].find((control) => control.name === nombre)
+            : accion ? [...destino.querySelectorAll("[data-rrhh-plazos-accion]")].find((control) => control.dataset.rrhhPlazosAccion === accion) : null;
+          siguiente?.focus({ preventScroll: true });
+        }
+      } },
+      alPublicar: () => { if (estado.vista === "llamamientos" && modoGestionOfertasBolsa) superficieOfertasBolsa.recargarPoliticaSegura(); } });
+    instalarEventosGestionOfertasBolsa();
   }
   const [migas, titulo] = tituloDeVista(estado.vista);
   const moduloActivo = moduloActivoDeVista(estado.vista);
@@ -1366,7 +1631,8 @@ function renderizar() {
     if (actual) boton.setAttribute("aria-current", "page");
     else boton.removeAttribute("aria-current");
   });
-  sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista);
+  sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista === "bolsa-candidatos"
+    && new URLSearchParams(window.location.search).get("bolsa_global") === "llamamientos" ? "comunicaciones" : estado.vista);
   if (estado.vista === "mis-preferencias") {
     coordinadorModulos.retirarVistaMontada();
     estado.vistaMontada = "";
@@ -1553,6 +1819,105 @@ const superficieBorradores = crearSuperficieBorradoresPortal({
 // Ofertas publicadas de la bolsa elegida (art. 8.1): módulo propio con sus eventos.
 let superficieOfertasBolsa = null;
 let superficieRRHHPlazos = null;
+let modoGestionOfertasBolsa = "";
+let rutaOfertasSolicitadaRef = "";
+let rutaVisibleGestionOfertasBolsa = "";
+let marcaHistorialGestionOfertas = "";
+let compensandoHistorialGestionOfertas = false;
+let eventosGestionOfertasInstalados = false;
+const CLAVE_RUTA_GESTION_OFERTAS = "ofertas_bolsa_ref";
+
+function busquedaSinGestionOfertasBolsa() {
+  const parametros = new URLSearchParams(window.location.search);
+  parametros.delete(CLAVE_RUTA_GESTION_OFERTAS);
+  return parametros.size ? `?${parametros}` : "";
+}
+
+function rutaGestionOfertasBolsa(bolsaRef = "") {
+  const parametros = new URLSearchParams(busquedaSinGestionOfertasBolsa());
+  if (bolsaRef) parametros.set(CLAVE_RUTA_GESTION_OFERTAS, bolsaRef);
+  return `${window.location.pathname}${parametros.size ? `?${parametros}` : ""}#bolsa/llamamientos`;
+}
+
+function asegurarHistorialGestionOfertas() {
+  if (history.state?.vecOfertas?.lado === "gestion") {
+    marcaHistorialGestionOfertas = history.state.vecOfertas.id;
+    return;
+  }
+  // Un enlace directo también necesita una entrada anterior reconocible para Atrás.
+  marcaHistorialGestionOfertas = globalThis.crypto.randomUUID();
+  const anterior = history.state && typeof history.state === "object" ? history.state : {};
+  history.replaceState({ ...anterior, vecOfertas: { id: marcaHistorialGestionOfertas, lado: "origen" } }, "", rutaGestionOfertasBolsa());
+  history.pushState({ ...anterior, vecOfertas: { id: marcaHistorialGestionOfertas, lado: "gestion" } }, "", rutaVisibleGestionOfertasBolsa);
+}
+
+function cerrarGestionOfertasBolsa() {
+  if (!modoGestionOfertasBolsa) return;
+  modoGestionOfertasBolsa = "";
+  rutaVisibleGestionOfertasBolsa = "";
+  marcaHistorialGestionOfertas = "";
+  compensandoHistorialGestionOfertas = false;
+  superficieOfertasBolsa?.desmontar();
+  superficieRRHHPlazos?.desmontar();
+}
+
+function instalarEventosGestionOfertasBolsa() {
+  if (eventosGestionOfertasInstalados) return;
+  eventosGestionOfertasInstalados = true;
+  document.addEventListener("click", (evento) => {
+    const boton = evento.target.closest?.("[data-gestion-ofertas-accion]");
+    if (!boton || estado.vista !== "llamamientos") return;
+    const bolsaRef = estado.llamamientoDesdeMenu ? estado.bolsaSeleccionada : "";
+    if (boton.dataset.gestionOfertasAccion === "abrir") {
+      if (!bolsaRef || !bolsasVigentesParaLlamamiento(estado.datosBolsas).some((bolsa) => bolsa.bolsa_ref === bolsaRef)) return;
+      modoGestionOfertasBolsa = bolsaRef;
+      rutaOfertasSolicitadaRef = bolsaRef;
+      rutaVisibleGestionOfertasBolsa = rutaGestionOfertasBolsa(bolsaRef);
+      marcaHistorialGestionOfertas = globalThis.crypto.randomUUID();
+      const estadoAnterior = history.state && typeof history.state === "object" ? history.state : {};
+      history.replaceState({ ...estadoAnterior, vecOfertas: { id: marcaHistorialGestionOfertas, lado: "origen" } }, "", window.location.href);
+      history.pushState({ ...estadoAnterior, vecOfertas: { id: marcaHistorialGestionOfertas, lado: "gestion" } }, "", rutaVisibleGestionOfertasBolsa);
+      actualizarVistaBolsa();
+    } else if (boton.dataset.gestionOfertasAccion === "volver" && modoGestionOfertasBolsa) {
+      if (salidaGestionOfertasBloqueada()) return;
+      cerrarGestionOfertasBolsa();
+      rutaOfertasSolicitadaRef = "";
+      history.pushState(null, "", rutaGestionOfertasBolsa());
+      if (estado.datosCandidatos?.carga !== "listo") void controladorBolsas?.cargarCandidatosBolsa(bolsaRef);
+      actualizarVistaBolsa();
+      porId("espacio-trabajo")?.querySelector('[data-gestion-ofertas-accion="abrir"]')?.focus({ preventScroll: true });
+    }
+  });
+}
+
+function salidaGestionOfertasBloqueada() {
+  const oferta = superficieOfertasBolsa?.estado();
+  return Boolean(modoGestionOfertasBolsa && (oferta?.enviando || oferta?.claveEnCurso));
+}
+
+function anunciarSalidaGestionOfertas() {
+  const traducirOfertas = recursosVistas.get("ofertas")?.crearTraductorOfertas();
+  if (traducirOfertas) anunciar(traducirOfertas("salida_incierta"));
+}
+
+function compensarHistorialGestionOfertas() {
+  const rutaActual = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (rutaActual === rutaVisibleGestionOfertasBolsa) { compensandoHistorialGestionOfertas = false; return; }
+  if (compensandoHistorialGestionOfertas) return;
+  compensandoHistorialGestionOfertas = true;
+  const marcaDestino = history.state?.vecOfertas;
+  const haciaAtras = marcaDestino?.id === marcaHistorialGestionOfertas && marcaDestino.lado === "origen";
+  history.go(haciaAtras || !marcaHistorialGestionOfertas ? 1 : -1);
+  anunciarSalidaGestionOfertas();
+}
+
+function actualizarSalidaGestionOfertasBolsa() {
+  const boton = document.querySelector('[data-gestion-ofertas-accion="volver"]');
+  const aviso = document.querySelector("[data-gestion-ofertas-aviso]");
+  const bloqueada = salidaGestionOfertasBloqueada();
+  if (boton) boton.disabled = bloqueada;
+  if (aviso) aviso.hidden = !bloqueada;
+}
 
 function instalarEventosBorradores() {
   document.addEventListener("click", (evento) => {
@@ -1602,7 +1967,7 @@ let selectorLlamamientos = null;
 let promesaRutasBolsa = null;
 function prepararRutasBolsa() {
   if (rutasBolsa) return Promise.resolve(rutasBolsa);
-  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js?v=20261010-ct-vinculo-rpt-cohorte-v10")
+  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7")
     .then((rutas) => { rutasBolsa = rutas; return rutas; })
     .catch((error) => { promesaRutasBolsa = null; throw error; });
   return promesaRutasBolsa;
@@ -1611,7 +1976,7 @@ let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
 function vistaNecesitaBolsa(vista = estado.vista) {
-  return vista === "portal" || (vista !== "solicitudes" && moduloDeVistaPortal(vista) === "bolsa"
+  return vista === "portal" || (!["solicitudes", "meritos", "convocatorias", "alegaciones"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(vista));
 }
 // La carga desde CONVOCA solo se ofrece si el servidor monta sus rutas; se
@@ -1619,7 +1984,7 @@ function vistaNecesitaBolsa(vista = estado.vista) {
 function cargaConvocaDisponible() {
   if (estado.cargaConvocaDisponible === null) {
     estado.cargaConvocaDisponible = false;
-    import("../comun/http.js?v=20261010-http-carga-v1")
+    import("../comun/http.js?v=20261012-sonda-frontera-v1")
       .then(({ rutaEnvioPublicada }) => rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca"))
       .then((disponible) => {
         if (disponible !== true) return;
@@ -1633,10 +1998,11 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261010-b1-carga-v1"),
-    import("./portal-bolsas-api.js?v=20261010-ct-vinculo-rpt-cohorte-v10"),
-    import("./portal-bolsas-ruta-filtros.js?v=20261010-ct-vinculo-rpt-cohorte-v10"),
-  ]).then(([panel, bolsas, rutas]) => {
+    import("./portal-panel-interno.js?v=20261018-f104-main-v1"),
+    import("./portal-bolsas-api.js?v=20261016-r1-o-integracion-v7"),
+    import("./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7"),
+    import("./modulos/contratacion-temporal/cliente-http.js?v=20261016-ct-ofertas-ct231-v1"),
+  ]).then(([panel, bolsas, rutas, ct]) => {
     if (!vistaNecesitaBolsa()) {
       promesaBolsaBase = null;
       return;
@@ -1656,8 +2022,11 @@ function prepararBolsaBase() {
   cargaConvocaDisponible,
     });
 
+    const clienteCT = ct.crearClienteHTTPContratacionTemporal();
     const controlador = bolsas.crearControladorBolsas({
       estado, renderizar: actualizarVistaBolsa, navegar, obtenerFuenteLectura: () => null,
+      consultarIdentidadAtestada: async () => (await consultarSesionPortal({ incluirIdentidadAtestada: true })).identidadAtestada,
+      vincularLlamamientoBolsa: (solicitud) => clienteCT.vincularLlamamientoBolsa(solicitud),
     });
     controlador.instalar();
     selectorLlamamientos = instalarSelectorLlamamientos({ documento: document, estado, controladorBolsas: controlador,
@@ -1817,8 +2186,17 @@ function instalarEnlacesBolsa() {
   }, true);
   window.addEventListener("popstate", () => {
     const vista = vistaDesdeHash();
+    if (salidaGestionOfertasBloqueada()) {
+      compensarHistorialGestionOfertas();
+      return;
+    }
+    rutaOfertasSolicitadaRef = vista === "llamamientos"
+      ? new URLSearchParams(window.location.search).get(CLAVE_RUTA_GESTION_OFERTAS) || "" : "";
+    if (!rutaOfertasSolicitadaRef && modoGestionOfertasBolsa) cerrarGestionOfertasBolsa();
     if (vista !== estado.vista || vista === "contratacion-temporal")
       navegar(vista, { enfocar: false, desdeRuta: true });
+    else if (vista === "llamamientos") actualizarVistaBolsa();
+    if (vista === "baremacion") vistaRankingBolsa?.actualizarRuta();
     if (vista !== "bolsa-candidatos") return;
     rutaCandidatosAplicada = null;
     aplicarRutaCandidatosBolsa();
@@ -1833,7 +2211,7 @@ function instalarEventosAuditoriaBolsa() {
     if (estado.modalFicha?.abierto !== true
       || estado.modalFicha.candidato?.participacion_ref !== referencia) return;
     evento.preventDefault();
-    estado.auditoriaReferencia = referencia;
+    estado.auditoriaReferencia = estado.bolsaSeleccionada;
     navegar("auditoria");
   });
 }

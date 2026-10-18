@@ -52,10 +52,14 @@ func (j JustificanteRespuestaRecibida) ValidarPara(s SolicitudResolverLlamamient
 	}
 	for _, ref := range []ReferenciaVersionadaIntegracionBolsa{seleccion.Necesidad, seleccion.Bolsa,
 		seleccion.Orden, seleccion.Politica, seleccion.Resultado, seleccion.Propuesta,
-		seleccion.AccionEvento, seleccion.RetencionSeleccion} {
+		seleccion.AccionEvento} {
 		if ref.Validar() != nil {
 			return ErrResultadoRespuestaRecibidaNoConfiable
 		}
+	}
+	if (seleccion.Procedencia.SinRetencionDeclarada && seleccion.RetencionSeleccion != (ReferenciaVersionadaIntegracionBolsa{})) ||
+		(!seleccion.Procedencia.SinRetencionDeclarada && seleccion.RetencionSeleccion.Validar() != nil) {
+		return ErrResultadoRespuestaRecibidaNoConfiable
 	}
 	return nil
 }

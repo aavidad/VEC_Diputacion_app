@@ -3,10 +3,10 @@
  * vista no ejecuta acciones hasta que el servidor acredite el preflight R5.
  */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
-import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261003-ct-firma-v2-v1";
-import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261003-ct-firma-v2-v1";
-import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261016-ct-ofertas-ct231-v1";
+import { validarPreflightFirma } from "./preflight-firma-api.js?v=20261016-r1-o-integracion-v7";
+import { huellaPDFFirmado, validarReciboFirmaV2 } from "./firma-vec-api.js?v=20261016-r1-o-integracion-v7";
+import { PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js?v=20261016-ct-ofertas-ct231-v1";
 
 /** Une el circuito del catálogo con el estado real registrado. */
 export function fusionarEstadoFirmas(circuito, estado) {
@@ -33,7 +33,7 @@ export function fusionarEstadoFirmas(circuito, estado) {
 export function renderizarAccionesPaso(circuito, documento, paso, t) {
   if ((!circuito.registro && circuito.preflight_compuesto !== true) || circuito.acciones === false
     || (circuito.preflight_compuesto !== true && documento.paso_pendiente !== paso.orden)
-    || !Object.hasOwn(PERFILES_BORRADOR_RRHH, documento.documento)) return "";
+    || documento.acciones === false || !Object.hasOwn(PERFILES_BORRADOR_RRHH, documento.documento)) return "";
   const avisoId = `ct-firma-resultado-${documento.documento}-${paso.orden}`;
   const compuesto = circuito.preflight_compuesto === true;
   return `<div class="ct-circuito-acciones" data-ct-firma-controles data-ct-firma-documento="${escaparHTML(documento.documento)}" data-ct-firma-paso="${paso.orden}">
@@ -45,7 +45,7 @@ export function renderizarAccionesPaso(circuito, documento, paso, t) {
 }
 
 function pdfValido(bytes) {
-  return bytes instanceof Uint8Array && bytes.length >= 10 && bytes.length <= 1024 * 1024
+  return bytes instanceof Uint8Array && bytes.length >= 10 && bytes.length <= 2 * 1024 * 1024
     && new TextDecoder().decode(bytes.subarray(0, 5)) === "%PDF-"
     && new TextDecoder().decode(bytes.subarray(-1024)).includes("%%EOF");
 }
@@ -128,7 +128,7 @@ export function crearAccionesFirma({
     const p = s.preflight; const id = `ct-firma-${s.contexto.documento}-${s.contexto.pasoOrden}`;
     const vec = p.vias_disponibles.includes("certificado_vec") && typeof autofirma?.firmarPDF === "function" && typeof registrarVec === "function";
     const externa = p.vias_disponibles.includes("portafirmas_registro_rrhh") && typeof registrarExterna === "function";
-    s.bloque.innerHTML = `<p id="${id}-resultado" class="ct-circuito-resultado" role="status" aria-live="polite" tabindex="-1" data-ct-firma-resultado>${escaparHTML(t(p.paso_pendiente === 0 ? "circuito_firma_completo" : vec || externa ? "circuito_firma_opciones" : "circuito_firma_sin_vias"))}</p>
+    s.bloque.innerHTML = `<p id="${id}-resultado" class="ct-circuito-resultado" role="status" aria-live="polite" tabindex="-1" data-ct-firma-resultado>${escaparHTML(t(p.paso_pendiente === 0 ? "circuito_firma_completo" : vec || externa ? "circuito_firma_opciones" : "circuito_firma_sin_vias"))}${p.garantia_autenticacion === "sustancial" ? ` · ${escaparHTML(t("circuito_firma_garantia_sustancial"))}` : ""}</p>
       ${p.paso_pendiente > 1 ? `<p>${escaparHTML(t("circuito_firma_siguiente_original"))}</p>` : ""}
       ${vec ? `<button type="button" class="boton-primario" data-ct-firma-accion="certificado_vec" aria-describedby="${id}-resultado">${escaparHTML(t("circuito_firma_autofirma_prueba"))}</button>` : ""}
       ${externa ? `<button type="button" class="boton-secundario" data-ct-firma-accion="descargar" aria-describedby="${id}-resultado">${escaparHTML(t("circuito_firma_descargar_externo"))}</button>
@@ -157,7 +157,8 @@ export function crearAccionesFirma({
       if (!p || p.catalogo_ref !== actual.catalogoRef || p.catalogo_huella !== actual.catalogoHuella
         || (p.paso_pendiente === 1 && p.entrada_documento_sha256 !== vinculo?.originalHuella)) throw { codigo: "conflicto" };
       s.solicitud = { ...solicitud, pasoOrden: p.paso_pendiente, revisionEntradaRef: p.entrada_documento_ref,
-        revisionEntradaVersion: p.entrada_documento_version, revisionEntradaHuella: p.entrada_documento_sha256 };
+        revisionEntradaVersion: p.entrada_documento_version, revisionEntradaHuella: p.entrada_documento_sha256,
+ entradaPDFBase64: p.entrada_pdf_base64 };
       s.vinculo = vinculo; s.preflight = p;
       if (igual(recuperacion?.contexto, actual) && recuperacion.solicitud.originalRef === solicitud.originalRef
         && recuperacion.solicitud.originalVersion === solicitud.originalVersion
@@ -252,7 +253,7 @@ export function crearAccionesFirma({
       const referenciaPortafirmas = s.bloque.querySelector?.("[data-ct-firma-referencia]")?.value?.trim();
       const fecha = s.bloque.querySelector?.("[data-ct-firma-fecha]")?.value;
       if (s.reintento) {
-        if (!fichero || fichero.size > 1024 * 1024 || fichero.size < 10
+        if (!fichero || fichero.size > 2 * 1024 * 1024 || fichero.size < 10
           || referenciaPortafirmas !== s.reintento.referencia || fecha !== s.reintento.fecha) {
           decir(s, "circuito_firma_recuperacion", {}, true); return;
         }
@@ -264,7 +265,7 @@ export function crearAccionesFirma({
         }
       }
       limpiarCamposExternos(s);
-      if (!fichero || fichero.size > 1024 * 1024 || fichero.size < 10) {
+      if (!fichero || fichero.size > 2 * 1024 * 1024 || fichero.size < 10) {
         campoExternoInvalido(s, "[data-ct-firma-pdf]", "circuito_firma_pdf_requerido"); return;
       }
       if (!referenciaPortafirmas || referenciaPortafirmas.length > 256) {
@@ -295,8 +296,10 @@ export function crearAccionesFirma({
     if (!recibo) throw { codigo: "resultado_no_confiable" };
     s.recibo = recibo;
     recuperacion = null;
-    const aviso = t("circuito_firma_registro_confirmado", { recibo: recibo.recibo_ref });
-    decir(s, "circuito_firma_registro_confirmado", { recibo: recibo.recibo_ref }, true);
+    const claveConfirmacion = recibo.garantia_autenticacion === "sustancial"
+      ? "circuito_firma_registro_confirmado_sustancial" : "circuito_firma_registro_confirmado";
+    const aviso = t(claveConfirmacion, { recibo: recibo.recibo_ref });
+    decir(s, claveConfirmacion, { recibo: recibo.recibo_ref }, true);
     s.preflight = null; s.reintento = null;
     // El recibo ya está confirmado. Un fallo al refrescar no lo convierte en fallo de registro.
     try { await alCambiar?.(aviso, recibo); } catch { /* se conserva la confirmación y se cierran acciones */ }

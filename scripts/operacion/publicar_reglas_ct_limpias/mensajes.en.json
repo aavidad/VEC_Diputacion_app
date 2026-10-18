@@ -1,0 +1,19 @@
+{
+  "uso": "Usage: publicar.sh --comprobar | --aplicar PUBLICA-REGLAS-CT-LIMPIAS",
+  "comprobar_argumentos": "--comprobar takes no other arguments.",
+  "aplicar_confirmacion": "Use --aplicar PUBLICA-REGLAS-CT-LIMPIAS.",
+  "fuente_modificada": "A source file is missing or its contents have changed.",
+  "metadatos_incompatibles": "Source metadata does not match the expected version.",
+  "base_no_disponible": "The CT190/191/148 database could not be queried with the specified technical account.",
+  "respuesta_invalida": "The database returned an invalid response.",
+  "base_inactiva": "The CT rules base is inactive. Check the preserved version.",
+  "base_incompatible": "The active version differs from the expected version. Check the previous state.",
+  "ajustes_incompatibles": "The current CT148 adjustments version does not match the expected base.",
+  "rebase_incierto": "The adjustment link could not be verified. Repeat the same command to check its result.",
+  "rebase_no_confirmado": "The adjustment link was not confirmed. Check the latest record before continuing.",
+  "preparador_ausente": "Set VEC_REGLAS_CT_PREPARADOR to the cmd/vec-preparar-catalogo-reglas-ct executable.",
+  "fuente_cambio": "The CT source changed during preparation.",
+  "canonico_divergente": "The CT canonical catalog hash does not match.",
+  "publicacion_incierta": "Publication could not be verified. Repeat the same command to check its result.",
+  "publicacion_no_confirmada": "Publication was not confirmed. Check the latest record before continuing."
+}

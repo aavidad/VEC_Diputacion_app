@@ -56,6 +56,26 @@ test("el cliente envía solo el PDF firmado y las referencias declaradas al POST
   assert.equal(cuerpo.firmado_base64, Buffer.from(pdf).toString("base64"));
   assert.equal(Object.hasOwn(cuerpo, "actor_ref"), false);
 });
+test("registro externo conserva 2 MiB y rechaza exceso antes del POST", async () => {
+  const maximo = 2 * 1024 * 1024;
+  const firmado = Buffer.alloc(maximo, 0x78);
+  firmado.write("%PDF-", 0, "ascii"); firmado.write("%%EOF", maximo - 5, "ascii");
+  const hash = createHash("sha256").update(firmado).digest("hex");
+  const data = recibo();
+  data.documento_custodiado.huella_sha256 = hash;
+  data.verificacion_tecnica.firmado_sha256 = hash;
+  data.revision_pdf.revision_sha256 = hash;
+  let peticiones = 0;
+  const cliente = crearClienteFirmaExterna({ fetchImpl: async (_ruta, opciones) => {
+    peticiones++;
+    assert.equal(JSON.parse(opciones.body).firmado_base64, firmado.toString("base64"));
+    return respuesta({ data });
+  } });
+  assert.equal((await cliente.registrar({ ...solicitud, firmado })).firma_eficaz, false);
+  await assert.rejects(cliente.registrar({ ...solicitud, firmado: Buffer.concat([firmado, Buffer.from("x")]) }),
+    { codigo: "contenido_no_valido" });
+  assert.equal(peticiones, 1);
+});
 
 test("replay conserva el recibo y rechaza una respuesta que afirma eficacia o procedencia verificada", async () => {
   const cliente = crearClienteFirmaExterna({ fetchImpl: async () => respuesta({ data: recibo(true) }, 200) });
@@ -111,9 +131,9 @@ test("sin preflight R5, ningún DTO sintético abre la vista ni emite el POST ex
   const html = renderizarAccionesPaso({ registro: { verificacion: true, externo: {
     permitido: true, original_ref: solicitud.originalRef, original_version: 3,
   } } }, { documento: "resolucion", paso_pendiente: 1 }, { orden: 1 }, t);
-  assert.match(html, /Firmar en PRUEBA<\/button>/u);
-  assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA/u);
-  assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA/u);
+  assert.match(html, /Firmar con certificado<\/button>/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Firmar con certificado/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Devolver</u);
   assert.doesNotMatch(html, /data-ct-firma-accion|type="file"/u);
   let llamados = 0;
   const acciones = crearAccionesFirma({ clienteExterno: { registrar: async () => { llamados++; } },

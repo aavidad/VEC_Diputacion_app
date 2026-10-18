@@ -4,16 +4,17 @@ import { idiomaActivoAreaPersonal, iniciarI18nAreaPersonal, textosErrorCargaArea
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
   sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261007-p7-imagen-v1";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261009-inscripcion-v1";
-import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261009-inscripcion-v1";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import {
-  renderizarAlegaciones, renderizarLlamamientos, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261009-inscripcion-v1";
-import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261009-inscripcion-v1";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261009-inscripcion-v1";
+  renderizarLlamamientos, renderizarSubsanaciones,
+} from "./vistas/seguimiento-tramites.js?v=20261015-o-justificante-bolsa-v4";
+import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261015-o-justificante-bolsa-v4";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261009-inscripcion-v1";
-import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261009-inscripcion-v1";
+import { actualizarCamposRenunciaJustificada, enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261015-o-justificante-bolsa-v4";
+import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v4";
+import { crearControladorPreferenciasBolsas } from "./mi-bolsa-preferencias-bolsas.js?v=20261012-preferencias-bolsas-v1";
 
 
 const RUTAS = Object.freeze({
@@ -24,9 +25,10 @@ const RUTAS = Object.freeze({
       : renderizarPreferencias(estado.preferencias)) + (estado.imagen?.renderizar() ?? "") + (estado.correos?.renderizar() ?? "")],
   oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
+  meritos: ["areaPersonal.rutas.meritos", () => '<div id="meritos-reales-montaje"></div>'],
   llamamientos: ["areaPersonal.rutas.llamamientos", renderizarLlamamientos],
   subsanaciones: ["areaPersonal.rutas.subsanaciones", renderizarSubsanaciones],
-  alegaciones: ["areaPersonal.rutas.alegaciones", renderizarAlegaciones],
+  alegaciones: ["areaPersonal.rutas.alegaciones", () => '<div id="alegaciones-reales-montaje"></div>'],
   mensajes: ["areaPersonal.rutas.mensajes", renderizarMensajes],
   certificados: ["areaPersonal.rutas.certificados", renderizarCertificados],
   inscripcion: ["areaPersonal.rutas.inscripcion", () => '<div id="inscripcion-bolsa-montaje"></div>'],
@@ -66,6 +68,8 @@ const PARAMETROS_URL_ADMITIDOS = Object.freeze(new Set(["vista", "id", "lang"]))
 
 export function exigirParametrosConocidos(parametros) {
   for (const nombre of parametros.keys()) {
+    if (nombre === "filtro" && parametros.get("vista") === "meritos") continue;
+    if (nombre === "alega_cursor" && parametros.get("vista") === "alegaciones") continue;
     if (!PARAMETROS_URL_ADMITIDOS.has(nombre)) throw new TypeError(t("parametrosNoAdmitidos"));
   }
 }
@@ -186,7 +190,7 @@ export function datosMinimosMiBolsa(consulta) {
   const nombre = consulta.nombre_visible || "";
   return Object.freeze({
     meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en, busqueda_convocatorias_disponible: false },
-    sesion: { nombre_visible: nombre, iniciales: (nombre && consulta.iniciales) || "—", metodo: traducir("areaPersonal.miBolsa.identidad.metodoNoFacilitado"), persona_ref: null },
+    sesion: { nombre_visible: nombre, iniciales: (nombre && consulta.iniciales) || "—", metodo: "", persona_ref: null },
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
     perfil: { referencia: null, nombre_visible: nombre, identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
     plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
@@ -231,7 +235,9 @@ function actualizarShell(estado) {
   // La etiqueta del botón tapa su contenido: el nombre va también en ella y en el title del botón.
   const botonSesion = nombreSesion.closest?.(".sesion-usuario");
   if (botonSesion) { botonSesion.title = nombre; botonSesion.setAttribute("aria-label", nombre ? traducir("areaPersonal.preferencias.menuIdentidadNombre", { nombre }) : traducir("areaPersonal.preferencias.menuIdentidad")); }
-  porId("perfil-sesion").textContent = datos.sesion.metodo;
+  const perfilSesion = porId("perfil-sesion");
+  perfilSesion.textContent = datos.sesion.metodo;
+  perfilSesion.hidden = !datos.sesion.metodo;
   document.querySelectorAll("[data-ruta]").forEach((enlace) => {
     const activa = enlace.dataset.ruta === vista;
     if (activa) enlace.setAttribute("aria-current", "page"); else enlace.removeAttribute("aria-current");
@@ -248,10 +254,25 @@ function actualizarShell(estado) {
 function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {}) {
   if (!estado.datos) return;
   const generacion = ++estado.generacionVista;
+  if (estado.montajeMeritos) {
+    estado.pendienteRetiradaMeritos = estado.montajeMeritos.pendiente();
+    estado.montajeMeritos.desmontar();
+    estado.montajeMeritos = null;
+  }
+  if (estado.montajeAlegaciones) {
+    estado.pendienteAlegacion = estado.montajeAlegaciones.pendiente();
+    estado.montajeAlegaciones.desmontar(); estado.montajeAlegaciones = null;
+  }
+  estado.controladorAlegaciones?.abort(); estado.controladorAlegaciones = null;
   estado.destruirInscripcionBolsa?.();
   estado.destruirInscripcionBolsa = null;
   estado.destruirHistorialMiBolsa?.();
   estado.destruirHistorialMiBolsa = null;
+  if (estado.vista === "llamamientos") estado.controladorPreferenciasBolsas?.desmontar();
+  else {
+    estado.controladorPreferenciasBolsas?.destruir();
+    estado.controladorPreferenciasBolsas = null;
+  }
   estado.desmontarOportunidades?.();
   estado.desmontarOportunidades = null;
   estado.destruirContactoPropio?.();
@@ -264,6 +285,8 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
   if (estado.vista === "inscripcion") montarVistaInscripcion(estado, generacion);
+  if (estado.vista === "meritos") montarVistaMeritos(estado, generacion);
+  if (estado.vista === "alegaciones") montarVistaAlegaciones(estado, generacion);
   if (estado.avisoInicio && estado.vista !== "preferencias") {
     const aviso = document.createElement("p");
     aviso.className = "preferencias-estado preferencias-aviso";
@@ -271,6 +294,9 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
     porId("espacio-trabajo").prepend(aviso);
   }
   if (estado.vista === "llamamientos") {
+    estado.controladorPreferenciasBolsas ??= crearControladorPreferenciasBolsas({ fetchImpl: estado.fetchImpl });
+    estado.controladorPreferenciasBolsas.montar({ contenedor: porId("preferencias-bolsas"),
+      participaciones: estado.participaciones });
     estado.destruirHistorialMiBolsa = montarHistorialMiBolsa({
       contenedor: porId("historial-mi-bolsa"), fetchImpl: estado.fetchImpl,
     })?.destruir ?? null;
@@ -315,6 +341,43 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   }
 }
 
+function montarVistaAlegaciones(estado, generacion) {
+  const contenedor = porId("alegaciones-reales-montaje");
+  const vigente = () => estado.generacionVista === generacion && estado.vista === "alegaciones";
+  const controlador = new AbortController(); estado.controladorAlegaciones = controlador;
+  contenedor.innerHTML = `<p role="status">${escaparHTML(traducir("areaPersonal.html.cargandoInformacion"))}</p>`;
+  estado.cargarVistaAlegaciones().then(async ({ montarAlegaciones }) => {
+    if (!vigente() || controlador.signal.aborted) return;
+    const { crearClienteAlegaciones } = await import("../comun/alegaciones-cliente.js?v=20261013-alegaciones-v1");
+    if (!vigente() || controlador.signal.aborted) return;
+    const montaje = await montarAlegaciones({ contenedor, modo: "propias", escaparHTML,
+      cliente: crearClienteAlegaciones({ fetchImpl: estado.fetchImpl }), signal: controlador.signal,
+      localizacion: window.location, historial: window.history, pendiente: estado.pendienteAlegacion });
+    if (!vigente() || controlador.signal.aborted) { montaje.desmontar(); return; }
+    estado.montajeAlegaciones = montaje;
+  }).catch((error) => {
+    if (!vigente() || controlador.signal.aborted) return;
+    console.error("alegaciones_vista_carga", { tipo: error?.name ?? "Error" });
+    contenedor.innerHTML = renderizarErrorCargaAreaPersonal(error);
+  });
+}
+
+function montarVistaMeritos(estado, generacion) {
+  const contenedor = porId("meritos-reales-montaje");
+  const vigente = () => estado.generacionVista === generacion && estado.vista === "meritos";
+  contenedor.innerHTML = `<p role="status">${escaparHTML(traducir("areaPersonal.html.cargandoInformacion"))}</p>`;
+  estado.cargarVistaMeritos().then(({ montarMeritosReales }) => {
+    if (!vigente()) return;
+    estado.montajeMeritos = montarMeritosReales({ contenedor, fetchImpl: estado.fetchImpl,
+      idioma: idiomaActivoAreaPersonal(), ubicacion: window.location,
+      historial: window.history, pendiente: estado.pendienteRetiradaMeritos });
+  }).catch((error) => {
+    if (!vigente()) return;
+    console.error("meritos_vista_carga", { tipo: error?.name ?? "Error" });
+    contenedor.innerHTML = renderizarErrorCargaAreaPersonal(error);
+  });
+}
+
 // La vista de inscripción se carga aparte y no depende de Mi Bolsa: la API
 // resuelve la identidad y autoriza cada petición, aunque no haya participación.
 function montarVistaInscripcion(estado, generacion) {
@@ -337,10 +400,12 @@ function montarVistaInscripcion(estado, generacion) {
 }
 
 // Entrar o salir de inscripción rehace los datos: su contenedor no usa los de Mi Bolsa.
-function recargarPorInscripcion(estado) {
-  if (estado.vista !== "inscripcion" && !estado.soloInscripcion) return false;
+function recargarPorVistaIndependiente(estado) {
+  if (!["inscripcion", "meritos", "alegaciones"].includes(estado.vista) && !estado.soloInscripcion && !estado.soloMeritos && !estado.soloAlegaciones) return false;
   estado.datos = null;
   estado.soloInscripcion = false;
+  estado.soloMeritos = false;
+  estado.soloAlegaciones = false;
   void cargar(estado);
   return true;
 }
@@ -353,7 +418,7 @@ function navegar(estado, vista) {
   window.history.pushState({ vista }, "", crearURL(estado, vista));
   cerrarMenu();
   cerrarMenuIdentidad();
-  if (recargarPorInscripcion(estado)) return;
+  if (recargarPorVistaIndependiente(estado)) return;
   if (vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
     estado.datos = null;
     estado.soloPreferencias = false;
@@ -430,7 +495,7 @@ function verSesion(estado) {
   const prefijoTraduccion = "areaPersonal.sesion.";
   const campos = [...(sesion.nombre_visible ? [[traducir(`${prefijoTraduccion}persona`), escaparHTML(sesion.nombre_visible)]] : []),
     ...(sesion.persona_ref ? [[traducir(`${prefijoTraduccion}referencia`), escaparHTML(sesion.persona_ref)]] : []),
-    [traducir(`${prefijoTraduccion}metodo`), escaparHTML(sesion.metodo)],
+    ...(sesion.metodo ? [[traducir(`${prefijoTraduccion}metodo`), escaparHTML(sesion.metodo)]] : []),
     [traducir(`${prefijoTraduccion}origen`), escaparHTML(estado.datos.meta.origen)]];
   mostrarDetalle(traducir(`${prefijoTraduccion}titulo`), `${listaDatos(campos)}<p class="nota">${escaparHTML(traducir(`${prefijoTraduccion}autoridadServidor`))}</p>`);
 }
@@ -557,11 +622,30 @@ function atenderAccion(estado, boton) {
 
 function conectarEventos(estado) {
   document.addEventListener("input", () => { estado.interaccionVersion += 1; });
-  document.addEventListener("change", () => { estado.interaccionVersion += 1; });
+  document.addEventListener("change", (evento) => {
+    estado.interaccionVersion += 1;
+    if (evento.target?.matches?.('[data-portal-mi-bolsa="responder"] [name="respuesta"]')) {
+      actualizarCamposRenunciaJustificada(evento.target.closest('[data-portal-mi-bolsa]'));
+    }
+  });
   document.addEventListener("keydown", () => { estado.interaccionVersion += 1; });
   window.addEventListener("scroll", () => { estado.interaccionVersion += 1; }, { passive: true });
   document.addEventListener("click", (evento) => {
     estado.interaccionVersion += 1;
+    const reintentarRespuesta = evento.target.closest("[data-portal-reintentar]");
+    if (reintentarRespuesta) {
+      if (evento.detail > 1) return;
+      const formulario = reintentarRespuesta.closest("[data-portal-mi-bolsa]");
+      if (formulario) void enviarPortalMiBolsa(formulario, {
+        fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado), reintentoExplicito: true,
+      });
+      return;
+    }
+    const volverRevision = evento.target.closest("[data-portal-revision-volver]");
+    if (volverRevision) {
+      volverRespuestaPortalMiBolsa(volverRevision.closest("[data-portal-mi-bolsa]"));
+      return;
+    }
     if (!evento.target.closest(".identidad-cabecera") && !porId("menu-identidad")?.hidden) cerrarMenuIdentidad();
     const enlace = evento.target.closest("[data-ruta]");
     if (enlace) {
@@ -583,7 +667,12 @@ function conectarEventos(estado) {
       return;
     }
     if (formulario.dataset.portalMiBolsa) {
-      enviarPortalMiBolsa(formulario, { fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado) });
+      void revisarRespuestaPortalMiBolsa(formulario).then((enviar) => {
+        if (enviar) void enviarPortalMiBolsa(formulario, { fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado) });
+      }).catch(() => {
+        const resultado = formulario.querySelector("[data-portal-resultado]");
+        if (resultado) resultado.textContent = textoPortal("error.servicio_no_disponible");
+      });
       return;
     }
     if (formulario.dataset.accion === "buscar-ayuda") {
@@ -601,7 +690,7 @@ function conectarEventos(estado) {
     const inicioAjeno = inicioAjenoElegido(estado.preferencias.estado);
     estado.vista = parametros.has("vista") ? rutaDesdeURL(estado) : inicioAjeno ? "inicio" : "llamamientos";
     estado.avisoInicio = !parametros.has("vista") && inicioAjeno;
-    if (recargarPorInscripcion(estado)) return;
+    if (recargarPorVistaIndependiente(estado)) return;
     if (estado.vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
       estado.datos = null;
       estado.soloPreferencias = false;
@@ -630,6 +719,15 @@ function conectarEventos(estado) {
 const inicioAjenoElegido = (e) => Boolean(e && e.version > 0 && e.valores?.inicio !== "bolsas"); // solo elección guardada (versión > 0)
 async function cargar(estado) {
   const carga = ++estado.cargaDatosVersion;
+  if (["meritos", "alegaciones"].includes(estado.vista) && rutaDisponible(estado, estado.vista)) {
+    const base = datosMinimosMiBolsa({ consultada_en: "" });
+    estado.datos = { ...base, meta: { origen: traducir(`areaPersonal.rutas.${estado.vista}`) } };
+    estado.soloMeritos = estado.vista === "meritos";
+    estado.soloAlegaciones = estado.vista === "alegaciones";
+    estado.error = null;
+    renderizar(estado);
+    return;
+  }
   if (estado.vista === "inscripcion" && rutaDisponible(estado, "inscripcion")) {
     const base = datosMinimosMiBolsa({ consultada_en: "" });
     estado.datos = { ...base, meta: { origen: "shell_inscripcion" }, sesion: { ...base.sesion, metodo: "" } };
@@ -653,6 +751,8 @@ async function cargar(estado) {
     if (carga !== estado.cargaDatosVersion) return;
     estado.miBolsaIntentada = true;
     const datos = datosDeRespuesta(respuesta);
+    estado.controladorPreferenciasBolsas?.destruir();
+    estado.controladorPreferenciasBolsas = null;
     estado.datos = exigirDatosOperativos(datos);
     estado.soloPreferencias = false;
     estado.participaciones = respuesta?.consulta?.participaciones || [];
@@ -679,7 +779,9 @@ async function cargar(estado) {
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
   errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
-  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261009-inscripcion-v1") } = {}) {
+  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-respuesta-anterior-v1"),
+  cargarVistaMeritos = () => import("./meritos-reales-montaje.js?v=20261013-meritos-recorrido-v1"),
+  cargarVistaAlegaciones = () => import("../comun/alegaciones-vista.js?v=20261013-alegaciones-v1") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }
@@ -691,10 +793,19 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     vistasDisponibles,
     datos: null,
     cargarVistaInscripcion,
+    cargarVistaMeritos,
+    cargarVistaAlegaciones,
+    montajeAlegaciones: null,
+    controladorAlegaciones: null,
+    pendienteAlegacion: null,
     destruirInscripcionBolsa: null,
+    montajeMeritos: null,
+    pendienteRetiradaMeritos: null,
     generacionVista: 0,
     cargaDatosVersion: 0,
     soloInscripcion: false,
+    soloMeritos: false,
+    soloAlegaciones: false,
     miBolsaIntentada: false,
     vista: parametros.has("vista") ? rutaDesdeURL({ vistasDisponibles }) : inicioAjeno ? "inicio" : "llamamientos",
     clientePreferencias,
@@ -716,6 +827,7 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     controladorContactoPropio: null,
     destruirContactoPropio: null,
     destruirHistorialMiBolsa: null,
+    controladorPreferenciasBolsas: null,
     desmontarOportunidades: null,
     fetchImpl,
     participaciones: [],
@@ -751,7 +863,7 @@ export function aplicarPreferenciasInicialesAplazadas(estado, lectura, error = n
       const metodo = metodoIdentidadPreferencias(true);
       estado.datos.sesion.metodo = metodo;
       const perfilSesion = porId("perfil-sesion");
-      if (perfilSesion) perfilSesion.textContent = metodo;
+      if (perfilSesion) { perfilSesion.textContent = metodo; perfilSesion.hidden = false; }
     }
     estado.filasPreferidas = lectura.estado.valores.filas;
     if (estado.ajusteVisualVersion === 0) {

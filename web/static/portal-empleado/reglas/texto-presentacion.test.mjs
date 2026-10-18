@@ -29,6 +29,9 @@ function explicaciones(seccion, ruta = [], salida = []) {
   for (const [clave, valor] of Object.entries(seccion)) {
     if (typeof valor.original === "string") {
       salida.push({ clave: ruta.join("."), campo: clave, entrada: valor });
+      for (const [variante, entrada] of Object.entries(valor.variantes ?? {})) {
+        salida.push({ clave: ruta.join("."), campo: clave, variante, entrada });
+      }
     } else explicaciones(valor, [...ruta, clave], salida);
   }
   return salida;
@@ -36,6 +39,20 @@ function explicaciones(seccion, ruta = [], salida = []) {
 
 test("las explicaciones ES/EN conservan su fuente y no modifican las reglas", async () => {
   const es = await catalogo("es");
+  const fuentes = Object.fromEntries(await Promise.all([
+    ["bolsa", ["bolsa_reglas.ejemplo.demo.json", "bolsa_reglas.rrhh-20261002.v2.json",
+      "bolsa_reglas.rrhh-20261002.v3.json", "bolsa_reglas.rrhh-20261002.v4.json",
+      "bolsa_reglas.rrhh-20261008.v5.json"], "../../../../data/catalogos/bolsa/reglas.v6.json"],
+    ["contratacion_temporal", ["ct_reglas.ejemplo.demo.json", "ct_reglas.ejemplo.demo.v2.json",
+      "ct_reglas.ejemplo.demo.v3.json", "ct_reglas.ejemplo.demo.v4.json"],
+    ["../../../../data/catalogos/contratacion-temporal/reglas.v2.json",
+      "../../../../data/catalogos/contratacion-temporal/reglas.v3.json"]],
+  ].map(async ([modulo, demos, vigente]) => [modulo, [
+    ...await Promise.all(demos.map(async (nombre) => JSON.parse(await readFile(
+      new URL(`../../../../data/demo/reglas/${nombre}`, import.meta.url), "utf8")).catalogo)),
+    ...await Promise.all((Array.isArray(vigente) ? vigente : [vigente]).map(async (ruta) =>
+      JSON.parse(await readFile(new URL(ruta, import.meta.url), "utf8")).catalogo)),
+  ]])));
   for (const idioma of ["es", "en"]) {
     const presentacion = await catalogo(idioma);
     assert.deepEqual(Object.keys(presentacion), Object.keys(es));
@@ -43,9 +60,14 @@ test("las explicaciones ES/EN conservan su fuente y no modifican las reglas", as
       assert.deepEqual(Object.keys(reglas), Object.keys(es[modulo]));
       const base = explicaciones(es[modulo]);
       const propias = explicaciones(reglas);
-      assert.deepEqual(propias.map(({ clave, campo }) => [clave, campo]), base.map(({ clave, campo }) => [clave, campo]));
-      for (const { clave, campo, entrada } of propias) {
-        assert.equal(entrada.original, base.find((e) => e.clave === clave && e.campo === campo).entrada.original);
+      assert.deepEqual(propias.map(({ clave, campo, variante }) => [clave, campo, variante]),
+        base.map(({ clave, campo, variante }) => [clave, campo, variante]));
+      for (const { clave, campo, variante, entrada } of propias) {
+        assert.equal(entrada.original, base.find((e) => e.clave === clave && e.campo === campo && e.variante === variante).entrada.original);
+        const valores = fuentes[modulo].map((fuente) => fuente.entradas.find((fila) => fila.clave === clave))
+          .filter(Boolean).map((fila) => campo === "etiqueta" || campo === "descripcion" ? fila[campo] : fila.atributos[campo]);
+        assert.ok(valores.includes(entrada.original), `${modulo}.${clave}.${campo}: original sin fuente conocida`);
+        if (variante === "configuracion") assert.equal(entrada.original, valores.at(-1));
         assert.ok(entrada.texto);
         const regla = Object.freeze({ clave, [campo]: entrada.original, version: 1 });
         assert.deepEqual(textoPresentacionRegla(modulo, regla, campo, { presentacion, idioma }),

@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -17,7 +18,10 @@ import (
 	"vec-diputacion-granada/internal/app/server"
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/portafirmasapagado"
+	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	"vec-diputacion-granada/internal/shared/plazoarranque"
+	"vec-diputacion-granada/internal/shared/telemetria"
+	vecfichero "vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -266,14 +270,29 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("resolvedor_identidad", err)
 	}
-	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, resolvedor); err != nil {
-		return nil, nil, marcarFalloComponenteArranque("identidades_preferencias", err)
+	// Cronos comparte el gobierno V3 de CT. Sus dependencias privadas se
+	// comprueban antes de seleccionar las audiencias que publicará CT.
+	identidadCronos, _ := resolvedor.(*resolvedorIdentidadDesarrollo)
+	cronosSolicitado, falloCronos := prepararCronosAntesDeCT(cfg, identidadCronos)
+	configuracionCT := cfg
+	if falloCronos != nil {
+		registrarFalloCronosArranque(falloCronos)
+		configuracionCT = configuracionCTSinCronos(cfg)
 	}
+	falloPreferencias := validarIdentidadesPreferenciasAntesDeCT(cfg, resolvedor)
 	consultaCategorias, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("categorias_profesionales", err)
 	}
 	consultasPersonal := nuevasConsultasPublicasPersonal(cfg, categoriasPersonal, registro)
+	servidorSinCT := func(componente string, causa error) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
+		fallo := marcarFalloComponenteArranque(componente, causa)
+		slog.Warn("contratacion_temporal_no_disponible", "componente", ComponenteFalloArranque(fallo), "causa", telemetria.ClaseErrorArranque(fallo))
+		return nuevoServidorSinContratacionTemporalDesarrollo(cfg, composicion, resolvedor, consultaCategorias, categoriasPersonal, consultasPersonal, emisor)
+	}
+	if falloPreferencias != nil {
+		return servidorSinCT("identidades_preferencias", falloPreferencias)
+	}
 	rutasCalendarios, consultaCalendarios, cerrarCalendarios, err := nuevasRutasYConsultaCalendariosDesarrollo(cfg)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("calendarios", err)
@@ -292,18 +311,21 @@ func nuevoServidorDesarrollo(
 	// El circuito de firma ya se consulta desde el detalle del expediente.
 	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
 	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("reglas_ejemplo", err)
+		return servidorSinCT("reglas_ejemplo", err)
 	}
 	reglasEjemplo.calendarios = consultaCalendarios
 	rutaFormalizacion, err := nuevaRutaDocumentacionFormalizacionDesarrollo(reglasEjemplo.bolsa)
 	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("documentacion_formalizacion", err)
+		return servidorSinCT("documentacion_formalizacion", err)
 	}
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalConReglasDesarrollo(
-		cfg, reglasEjemplo, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
+		configuracionCT, reglasEjemplo, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
 	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("contratacion_temporal", err)
+		if cerrarContratacion != nil {
+			cerrarContratacion()
+		}
+		return servidorSinCT("contratacion_temporal", err)
 	}
 	completa := false
 	defer func() {
@@ -329,6 +351,21 @@ func nuevoServidorDesarrollo(
 	}
 	configurarAvisosViaCoberturaDesarrollo(autoridadContratacion, reglasEjemplo.bolsa, fuenteConstituida)
 	cancelarBolsas()
+	if fuenteConstituida != nil && autoridadContratacion != nil && autoridadContratacion.soporteDocumentosBolsa != nil && autoridadContratacion.poolDocumentosBolsa != nil {
+		ctxDocumentos, cancelarDocumentos := context.WithTimeout(context.Background(), 15*time.Second)
+		registrador, proceso, detener, errDocumentos := AbrirRegistradorIntentosAuditoriaDesarrollo(
+			ctxDocumentos, cfg, autoridadContratacion.poolDocumentosBolsa, nil)
+		cancelarDocumentos()
+		if errDocumentos != nil {
+			registrarFalloFuenteConstituidaRRHHDesarrollo("auditoria_documentos_bolsa", errDocumentos)
+		} else {
+			anterior := cerrarContratacion
+			cerrarContratacion = func() { detener(); anterior() }
+			resolver := resolverSoporteDocumentosBolsa(autoridadContratacion.soporteDocumentosBolsa, autoridadContratacion.soportesLectoresDocumentosBolsa)
+			fuenteConstituida.controlDocumentos = nuevoControlLecturaDocumentosBolsa(
+				resolver, nuevoAuditorDocumentosBolsa(resolver, registrador, proceso, autoridadContratacion.registradorAuditoriaFronteraRutasExactas))
+		}
+	}
 	autoridadContratacion.personalizacionB7.fijar(fuenteConstituida)
 	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, fuenteConstituida, autoridadContratacion.manejadorSituacionParticipacion)
 	if err != nil {
@@ -387,9 +424,13 @@ func nuevoServidorDesarrollo(
 		rutasContratacion = append(rutasContratacion, comisionesDietas.rutas...)
 		coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, comisionesDietas.colecciones...)
 	}
-	cronosEmpleado, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialCronos)
-	if err != nil {
-		return nil, nil, marcarFalloComponenteArranque("cronos_empleado", err)
+	var cronosEmpleado *autoridadCronosEmpleadoDesarrollo
+	if cronosSolicitado && falloCronos == nil {
+		cronosEmpleado, err = nuevasRutasCronosEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialCronos)
+		if err != nil {
+			falloCronos = marcarFalloComponenteArranque("cronos_empleado", err)
+			registrarFalloCronosArranque(falloCronos)
+		}
 	}
 	if cronosEmpleado != nil {
 		defer func() {
@@ -398,7 +439,8 @@ func nuevoServidorDesarrollo(
 			}
 		}()
 	}
-	inscripcionRRHH, err := nuevaInscripcionRRHHDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialInscripcionBolsa)
+	inscripcionRRHH, err := nuevaInscripcionRRHHDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia,
+		autoridadContratacion.materialInscripcionBolsa, fuenteConstituida)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("inscripcion_bolsa_rrhh", err)
 	}
@@ -426,6 +468,20 @@ func nuevoServidorDesarrollo(
 		if err := autoridadContratacion.firmaDocumento.componerCustodia(documentos); err != nil {
 			return nil, nil, marcarFalloComponenteArranque("custodia_documentos_firma", err)
 		}
+	}
+	originalActivo, selectorOriginalErr := selectorCapacidadRRHHDesarrollo(cfg, envCTOriginalFirmableEnabled)
+	if selectorOriginalErr != nil {
+		return nil, nil, marcarFalloComponenteArranque("original_firmable_ct", selectorOriginalErr)
+	}
+	if originalActivo && autoridadContratacion.prepararOriginal == nil {
+		return nil, nil, marcarFalloComponenteArranque("original_firmable_ct", errMontajeOriginalFirmableCTNoDisponible)
+	}
+	if autoridadContratacion.prepararOriginal != nil {
+		original, err := autoridadContratacion.prepararOriginal(documentos, composicion.seudonimosAlmacen)
+		if err != nil {
+			return nil, nil, marcarFalloComponenteArranque("original_firmable_ct", err)
+		}
+		rutasContratacion = append(rutasContratacion, original...)
 	}
 	personalEmpleado, err := nuevasRutasPersonalEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialPersonalFichaPropia, autoridadContratacion.materialPersonalExportacionServicios, autoridadContratacion.materialPersonalHistoriaServicios, autoridadContratacion.materialPersonalHistoriaRelaciones)
 	if err != nil {
@@ -464,6 +520,33 @@ func nuevoServidorDesarrollo(
 		}()
 		rutasContratacion = append(rutasContratacion, rutaUsuariosPreferencias(usuariosPreferencias)...)
 	}
+	identidadPersonal, _ := resolvedor.(*resolvedorIdentidadDesarrollo)
+	justificanteRRHH, cerrarJustificanteRRHH := nuevaRutaJustificanteRenunciaRRHH(cfg,
+		identidadPersonal, usuariosPreferencias, composicion.derivadorIdempotencia, autoridadContratacion)
+	defer func() {
+		if !completa {
+			cerrarJustificanteRRHH()
+		}
+	}()
+	preferenciasBolsasInternas, cerrarPreferenciasBolsasInternas := nuevaRutaPreferenciasBolsasInternas(cfg,
+		identidadPersonal, usuariosPreferencias, autoridadContratacion.materialPreferenciasBolsasInternas)
+	defer func() {
+		if !completa {
+			cerrarPreferenciasBolsasInternas()
+		}
+	}()
+	if preferenciasBolsasInternas != nil {
+		rutasContratacion = append(rutasContratacion, *preferenciasBolsasInternas)
+	}
+	bolsaPersonal, inscripcionExterna, cerrarInscripcionExterna, err := nuevasRutasBolsaPersonalCombinado(cfg, identidadPersonal, emisor)
+	if err != nil {
+		return nil, nil, marcarFalloComponenteArranque("inscripcion_bolsa_externa", err)
+	}
+	defer func() {
+		if !completa {
+			cerrarInscripcionExterna()
+		}
+	}()
 	autoridadExactas := vechttp.AutoridadRutasExactas(autoridadContratacion)
 	if comisionesDietas != nil {
 		autoridadExactas = autoridadExactasConDietas{delegada: autoridadContratacion, dietas: comisionesDietas}
@@ -485,16 +568,35 @@ func nuevoServidorDesarrollo(
 		}
 		registradorFrontera = frontera
 	}
+	ctxOH, cancelarOH := context.WithTimeout(context.Background(), plazoarranque.Ampliar(20*time.Second))
+	montajeOH, errOH := nuevoMontajeOrganizacionHistoricaCombinada(ctxOH, cfg, autoridadContratacion, registradorFrontera)
+	cancelarOH()
+	if errOH != nil && cfg.OrganizacionHistoricaConsultaEnabled != "" && cfg.OrganizacionHistoricaConsultaEnabled != "false" {
+		causa := "capacidad_no_disponible"
+		if errors.Is(errOH, vecports.ErrVinculoCorporativoRRHHNoDisponible) {
+			causa = "vinculo_corporativo_no_disponible"
+		}
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo("organizacion_historica_consulta", causa)
+	}
+	if montajeOH != nil {
+		rutasContratacion = append(rutasContratacion, vechttp.RutaExacta{Ruta: vechttp.RutaOrganizacionHistoricaPersonal, Manejador: montajeOH.manejador})
+		defer func() {
+			if !completa {
+				montajeOH.cerrar()
+			}
+		}()
+	}
 	if err = validarCoberturaRutasCTDesarrollo(rutasContratacion, autoridadContratacion.fronterasSeguridadComun); err != nil {
 		return nil, nil, marcarFalloComponenteArranque("cobertura_rutas_ct", err)
 	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
-		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
+		cfg, emisor, resolvedorCarcasaFirmaCT(resolvedor, autoridadContratacion.firmaVecR5), categoriasPersonal, rutasContratacion, autoridadExactas,
 		registradorFrontera, autoridadDietas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("vec_shell", err)
 	}
+	vecAPI = componerRaizConJustificanteRenunciaRRHH(vecAPI, justificanteRRHH, registradorFrontera)
 	vecAPI = autoridadContratacion.proteger(vecAPI)
 	if comisionesDietas != nil {
 		vecAPI = comisionesDietas.proteger(vecAPI)
@@ -504,6 +606,9 @@ func nuevoServidorDesarrollo(
 	}
 	if usuariosPreferencias != nil {
 		vecAPI = usuariosPreferencias.proteger(vecAPI)
+	}
+	if montajeOH != nil {
+		vecAPI = montajeOH.proteger(autoridadContratacion, vecAPI)
 	}
 	cfgPublica := cfg
 	cfgPublica.AuthMode = config.AuthModeDisabled
@@ -515,7 +620,16 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("bolsas_publicas", err)
 	}
-	servidor, err := server.NewHTTPServer(cfg, componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado), personalEmpleado), consultasPersonal), inscripcionRRHH))
+	raizCronos := componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado)
+	if cronosSolicitado && falloCronos != nil {
+		raizCronos = componerRaizConCronosIndisponible(raizCronos)
+	}
+	raiz := componerRaizConInscripcionRRHH(componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(raizCronos, personalEmpleado), consultasPersonal), inscripcionRRHH)
+	raizFinal := componerRaizConBolsaPersonalExterna(raiz, bolsaPersonal, inscripcionExterna)
+	if montajeOH == nil {
+		raizFinal = protegerOrganizacionHistoricaNoDisponible(raizFinal)
+	}
+	servidor, err := server.NewHTTPServer(cfg, raizFinal)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)
 	}
@@ -523,7 +637,13 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("configuracion_tls", err)
 	}
-	servidor.RegisterOnShutdown(cerrarContratacion)
+	if montajeOH != nil {
+		// OH usa la sesión y el emisor V3 compartidos con CT. Ambos cierres
+		// esperan el mismo drenaje antes de soltar cualquiera de esos recursos.
+		servidor.RegisterOnShutdown(func() { montajeOH.barrera.detener(); cerrarContratacion() })
+	} else {
+		servidor.RegisterOnShutdown(cerrarContratacion)
+	}
 	servidor.RegisterOnShutdown(cerrarDietas)
 	servidor.RegisterOnShutdown(cerrarCalendarios)
 	if comisionesDietas != nil {
@@ -538,11 +658,17 @@ func nuevoServidorDesarrollo(
 	if inscripcionRRHH != nil {
 		servidor.RegisterOnShutdown(inscripcionRRHH.cerrar)
 	}
+	servidor.RegisterOnShutdown(cerrarInscripcionExterna)
+	servidor.RegisterOnShutdown(cerrarJustificanteRRHH)
+	servidor.RegisterOnShutdown(cerrarPreferenciasBolsasInternas)
 	if personalEmpleado != nil {
 		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
 	}
 	if usuariosPreferencias != nil {
 		servidor.RegisterOnShutdown(usuariosPreferencias.cerrar)
+	}
+	if montajeOH != nil {
+		servidor.RegisterOnShutdown(montajeOH.cerrar)
 	}
 	detenerSellado, err := iniciarSelladoAuditoria(context.Background(), cfg)
 	if err != nil {
@@ -552,6 +678,86 @@ func nuevoServidorDesarrollo(
 	completa = true
 	calendariosCompletos = true
 	return servidor, composicion, nil
+}
+
+// La autoridad de CT aporta también material y fronteras de Bolsa RRHH,
+// Documentos, Dietas, Cronos, Personal empleado y Usuarios. Si no se compone,
+// esas rutas no se registran ni se sustituyen por una autoridad ficticia.
+// La carcasa conserva la identidad validada y las consultas públicas de
+// Personal, construidas antes y sin dependencia de CT.
+func nuevoServidorSinContratacionTemporalDesarrollo(
+	cfg config.Config,
+	composicion *ComposicionSeguridadDesarrollo,
+	resolvedor vechttp.DemoIdentityResolver,
+	consultaCategorias *vecfichero.ConsultaCatalogos,
+	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
+	consultasPersonal consultasPublicasPersonal,
+	emisor vecports.EmisorIncidenciasTecnicas,
+) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
+	api, err := newVECShellAPICompuestaConIdentidadYRutas(cfg, emisor, resolvedor, categoriasPersonal, nil, nil, nil, nil)
+	if err != nil {
+		return nil, nil, marcarFalloComponenteArranque("vec_shell", err)
+	}
+	cfgPublica := cfg
+	cfgPublica.AuthMode = config.AuthModeDisabled
+	publicaBolsa, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
+	if err != nil {
+		slog.Warn("bolsa_publica_no_disponible", "causa", telemetria.ClaseErrorArranque(err))
+	}
+	raiz := componerRaizConPersonalPublico(composeVECShellAPIConBolsasPublicas(api, publicaBolsa, nil), consultasPersonal)
+	siguiente := raiz
+	raiz = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
+		if r != nil && r.URL != nil && rutaDependienteContratacionTemporal(r.URL.Path) {
+			responderContratacionTemporalNoDisponible(w, r)
+			return
+		}
+		siguiente.ServeHTTP(w, r)
+	})
+	servidor, err := server.NewHTTPServer(cfg, raiz)
+	if err != nil {
+		return nil, nil, marcarFalloComponenteArranque("servidor_http", err)
+	}
+	servidor.TLSConfig, err = composicion.ConfiguracionTLS()
+	if err != nil {
+		return nil, nil, marcarFalloComponenteArranque("configuracion_tls", err)
+	}
+	detenerSellado, err := iniciarSelladoAuditoria(context.Background(), cfg)
+	if err != nil {
+		slog.Warn("sellado_auditoria_no_disponible", "causa", telemetria.ClaseErrorArranque(err))
+	} else {
+		servidor.RegisterOnShutdown(detenerSellado)
+	}
+	return servidor, composicion, nil
+}
+
+func responderContratacionTemporalNoDisponible(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	if r.Method == http.MethodHead {
+		return
+	}
+	if _, err := io.WriteString(w, `{"codigo":"servicio_no_disponible"}`); err != nil {
+		slog.Warn("contratacion_temporal_respuesta_interrumpida", "causa", "escritura_respuesta_no_disponible")
+	}
+}
+
+func rutaDependienteContratacionTemporal(ruta string) bool {
+	for _, prefijo := range [...]string{
+		"/api/vec/contratacion-temporal", "/api/vec/bolsa", "/api/vec/documentos",
+		"/api/vec/auditoria", "/api/vec/calendarios", "/api/vec/reglas/vigentes",
+		"/api/vec/dietas/comisiones", "/api/vec/usuarios", "/api/vec/aspirantes",
+		"/api/vec/personal/asignaciones-dietas", "/api/vec/personal/relaciones-dietas",
+		"/api/vec/personal/organizacion-historica",
+		"/api/vec/personal/solicitudes-rectificacion-dietas", "/api/vec/cronos",
+		"/api/interna/cronos", "/api/interna/personal",
+	} {
+		if ruta == prefijo || strings.HasPrefix(ruta, prefijo+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func descriptoresProveedoresDesarrollo(

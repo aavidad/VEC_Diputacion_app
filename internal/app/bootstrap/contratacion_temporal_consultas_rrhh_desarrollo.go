@@ -19,9 +19,11 @@ import (
 )
 
 type dependenciasConsultasRRHHDesarrollo struct {
-	emisorCuadro          *emisorMaterialRenovableCTDesarrollo
-	materialDetalle       *proveedorMaterialAltaContratacionTemporalDesarrollo
-	sesion                ports.SesionConsultaRRHH
+	emisorCuadro    *emisorMaterialRenovableCTDesarrollo
+	materialDetalle *proveedorMaterialAltaContratacionTemporalDesarrollo
+	sesion          ports.SesionConsultaRRHH
+	// La firma VEC reutiliza la fachada histórica v7 con otra sesión nominal.
+	sesionOriginal        ports.SesionConsultaRRHH
 	motivos               ports.ResolutorMotivoConsultaRRHH
 	identidad             *proveedorSesionConsultaRRHHDesarrollo
 	autoridad             *autoridadConsultasRRHHDesarrollo
@@ -36,8 +38,9 @@ type dependenciasConsultasRRHHDesarrollo struct {
 	plazosFase            ports.CalculadoraPlazoFaseRRHH
 	// descargas autoriza y registra la descarga de borradores de la ruta de
 	// detalle (AD199/CT177); con lectores, la del lector de la petición.
-	descargas ports.RegistradorDescargaBorradorRRHH
-	cerrar    func()
+	descargas    ports.RegistradorDescargaBorradorRRHH
+	repoDescarga ports.RepositorioDescargaBorradorRRHH
+	cerrar       func()
 }
 
 func nuevasDependenciasLectoresRRHHDesarrollo(
@@ -68,8 +71,13 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		if err != nil {
 			return vacio, err
 		}
-		if err = publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, soporte); err != nil {
-			return vacio, err
+		// Alta ya publicó el contexto fijo con su propia operación. El lector
+		// técnico lo consume; una publicación genérica colisionaría con el
+		// contexto dinámico. Los lectores ordinarios conservan su circuito.
+		if !soporte.tecnicoConsultaRRHH {
+			if err = publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, soporte); err != nil {
+				return vacio, err
+			}
 		}
 		local := &dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte, autorizador: autorizador, postgresql: alta.postgresql}
 		identidad, cerrarIdentidad, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, cfg.ContratacionTemporalPostgreSQL, local, derivador, reloj, soporte, fronteras)
@@ -273,12 +281,34 @@ func nuevoSoporteLectorRRHHDesarrollo(
 	alta *dependenciasAltaContratacionTemporalDesarrollo, lector identidadConsultaRRHHDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
 ) (*soporteAltaContratacionTemporalDesarrollo, autorizadorLigadoContratacionTemporalDesarrollo, error) {
-	if alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil || lector.identidad.principal.ID == "" {
+	if alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil || lector.identidad.principal.ID == "" || len(lector.identidad.principal.Roles) != 1 {
 		return nil, nil, ports.ErrConsultaRRHHNoDisponible
 	}
-	contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(lector.identidad.principal, reloj.Ahora())
-	if err != nil {
-		return nil, nil, err
+	var contexto ports.ContextoAutorizacionAltaV3
+	if lector.identidad.principal.Roles[0] == rolTecnicoRRHHContratacionTemporalDesarrollo {
+		if alta.soporte.principalID != lector.identidad.principal.ID ||
+			alta.soporte.certificadoSHA256 != lector.identidad.principal.Attributes["certificate_sha256"] {
+			return nil, nil, ports.ErrConsultaRRHHNoDisponible
+		}
+		encontrado := false
+		for _, fijo := range alta.soporte.perfilesFijosRegistrados() {
+			if fijo != nil && fijo.clave == clavePerfilFijoAltaCTDesarrollo && fijo.perfilRef() == lector.perfilRef {
+				if encontrado {
+					return nil, nil, ports.ErrConsultaRRHHNoDisponible
+				}
+				contexto = fijo.contexto
+				encontrado = true
+			}
+		}
+		if !encontrado {
+			return nil, nil, ports.ErrConsultaRRHHNoDisponible
+		}
+	} else {
+		var err error
+		contexto, err = nuevoContextoSinteticoContratacionTemporalDesarrollo(lector.identidad.principal, reloj.Ahora())
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	datos, err := contexto.Vinculo.Datos()
 	if err != nil || datos.PerfilActivoRef != lector.perfilRef {
@@ -471,7 +501,7 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
-	base := dependenciasConsultasRRHHDesarrollo{descargas: descargas, materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: consultorDetalleConDisponibilidadRRHH{lector: detalle, documentalMontado: documentalMontado}, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, plazosFase: dependenciasCT.plazosFase, cerrar: cerrar}
+	base := dependenciasConsultasRRHHDesarrollo{descargas: descargas, repoDescarga: repoDescarga, materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, sesionOriginal: sesionOriginal, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: consultorDetalleConDisponibilidadRRHH{lector: detalle, documentalMontado: documentalMontado}, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, plazosFase: dependenciasCT.plazosFase, cerrar: cerrar}
 	if len(lectores) > 0 {
 		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base, fronteras, documentalMontado)
 		if err != nil {

@@ -22,11 +22,13 @@ import (
 // las de AUT53 para fallar antes de pedir la aprobación; la base las vuelve a
 // comprobar y es la autoridad.
 const (
-	esquemaCargos = "vec.admin.cargos-firma.cargos.v1"
-	esquemaPlan   = "vec.admin.cargos-firma.plan.v1"
-	finalidadV2   = "gestionar_contratacion_temporal"
-	maximoCargos  = 16
-	maximoCaduca  = 24 * time.Hour
+	esquemaCargos           = "vec.admin.cargos-firma.cargos.v1"
+	esquemaPlan             = "vec.admin.cargos-firma.plan.v1"
+	esquemaCargosDesarrollo = "vec.admin.cargos-firma.cargos.v2"
+	esquemaPlanDesarrollo   = "vec.admin.cargos-firma.plan.v2"
+	finalidadV2             = "gestionar_contratacion_temporal"
+	maximoCargos            = 16
+	maximoCaduca            = 24 * time.Hour
 )
 
 var errCargos = errors.New("cargos_invalidos")
@@ -116,12 +118,21 @@ func concesionV2(op string) (vd.ConcesionRol, bool) {
 	return vd.ConcesionRol{}, false
 }
 
-func validarCargo(c cargoEntrada) error {
+func validarCargo(c cargoEntrada) error { return validarCargoModo(c, false) }
+
+func validarCargoModo(c cargoEntrada, desarrollo bool) error {
+	maxOps, minComp := 2, 1
+	if desarrollo {
+		maxOps, minComp = 5, 0
+		if !rolDesarrolloValido(c) {
+			return errCargos
+		}
+	}
 	if !reRolID.MatchString(c.RolID) || reRolVedado.MatchString(c.RolID) || c.Version < 1 || c.Version > 999999999 ||
 		utf8.RuneCountInString(c.Nombre) < 3 || utf8.RuneCountInString(c.Nombre) > 200 || reIntervencio.MatchString(c.Nombre) ||
 		strings.TrimSpace(c.Nombre) != c.Nombre || strings.IndexFunc(c.Nombre, unicode.IsControl) >= 0 ||
 		(c.Version == 1) != (c.VersionAnteriorSHA256 == "") || (c.Version > 1 && !reHuella.MatchString(c.VersionAnteriorSHA256)) ||
-		len(c.OperacionesV2) > 2 || len(c.Competencias) < 1 || len(c.Competencias) > 8 ||
+		len(c.OperacionesV2) > maxOps || len(c.Competencias) < minComp || len(c.Competencias) > 8 ||
 		!reRegla.MatchString(c.ReglaAsignacion) || !reOrg.MatchString(c.OrganizacionRef) ||
 		!segundos(c.VigenteDesde) || !segundos(c.VigenteHasta) || !c.VigenteHasta.After(c.VigenteDesde) ||
 		c.DuracionPropuestaSegundos < 60 || c.DuracionPropuestaSegundos > 31536000 {
@@ -129,7 +140,7 @@ func validarCargo(c cargoEntrada) error {
 	}
 	anterior := ""
 	for _, op := range c.OperacionesV2 {
-		if _, ok := concesionV2(op); !ok || op <= anterior {
+		if _, ok := concesionModo(op, desarrollo); !ok || op <= anterior {
 			return errCargos
 		}
 		anterior = op
@@ -150,18 +161,22 @@ func segundos(t time.Time) bool {
 // versionRol construye el mismo documento que documento_rol_cargo_firma_v1:
 // V2 en el orden del plan y después las competencias, todo de CT y alto.
 func versionRol(c cargoEntrada, operacionRef string, preparado time.Time) (vd.VersionRol, error) {
+	return versionRolModo(c, operacionRef, preparado, false)
+}
+
+func versionRolModo(c cargoEntrada, operacionRef string, preparado time.Time, desarrollo bool) (vd.VersionRol, error) {
 	if c.Version > uint64(int(^uint(0)>>1)) {
 		return vd.VersionRol{}, errCargos
 	}
 	v := vd.VersionRol{RolID: c.RolID, Version: int(c.Version), Nombre: c.Nombre, Estado: vd.EstadoVersionRolPublicada,
 		PublicadaPor: "operacion:cargos_firma:" + operacionRef, PublicadaEn: preparado}
 	for _, op := range c.OperacionesV2 {
-		x, _ := concesionV2(op)
+		x, _ := concesionModo(op, desarrollo)
 		v.Concesiones = append(v.Concesiones, x)
 	}
 	for _, x := range c.Competencias {
 		v.Concesiones = append(v.Concesiones, vd.ConcesionRol{Accion: x.Accion, ModuloID: ctports.ModuloContratacion, TipoRecurso: x.TipoRecurso,
-			Finalidades: []string{x.Finalidad}, GarantiaMinima: vd.AuthAssuranceHigh})
+			Finalidades: []string{x.Finalidad}, GarantiaMinima: garantiaModo(desarrollo)})
 	}
 	return v, v.Validar()
 }
@@ -170,18 +185,23 @@ func versionRol(c cargoEntrada, operacionRef string, preparado time.Time) (vd.Ve
 // No consulta la base: la CAS de versión y las exclusiones de AUT49 las
 // comprueba la operación al aplicar.
 func prepararPlan(f ficheroCargos, operacionRef string, preparado time.Time, caduca time.Duration) (documentoPlan, error) {
-	if f.Esquema != esquemaCargos || len(f.Cargos) < 1 || len(f.Cargos) > maximoCargos || !reOperacion.MatchString(operacionRef) ||
+	desarrollo := f.Esquema == esquemaCargosDesarrollo
+	if (!desarrollo && f.Esquema != esquemaCargos) || len(f.Cargos) < 1 || len(f.Cargos) > maximoCargos || !reOperacion.MatchString(operacionRef) ||
 		!segundos(preparado) || caduca < time.Minute || caduca > maximoCaduca || caduca%time.Second != 0 {
 		return documentoPlan{}, errCargos
 	}
-	p := documentoPlan{Esquema: esquemaPlan, OperacionRef: operacionRef, PreparadoEn: preparado, CaducaEn: preparado.Add(caduca)}
+	esquema := esquemaPlan
+	if desarrollo {
+		esquema = esquemaPlanDesarrollo
+	}
+	p := documentoPlan{Esquema: esquema, OperacionRef: operacionRef, PreparadoEn: preparado, CaducaEn: preparado.Add(caduca)}
 	vistos := map[string]bool{}
 	for _, c := range f.Cargos {
-		if validarCargo(c) != nil || vistos[c.RolID] || !c.VigenteHasta.After(preparado) {
+		if validarCargoModo(c, desarrollo) != nil || vistos[c.RolID] || !c.VigenteHasta.After(preparado) {
 			return documentoPlan{}, errCargos
 		}
 		vistos[c.RolID] = true
-		v, err := versionRol(c, operacionRef, preparado)
+		v, err := versionRolModo(c, operacionRef, preparado, desarrollo)
 		if err != nil {
 			return documentoPlan{}, errCargos
 		}

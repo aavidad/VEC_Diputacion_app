@@ -66,7 +66,7 @@ function estructura() {
   };
 }
 
-test("la ayuda y la advertencia quedan detrás de ?; en pantalla solo la pastilla «En preparación»", async () => {
+test("la ayuda y la advertencia quedan detrás de ?; en pantalla solo la pastilla de procedencia", async () => {
   const r = raiz();
   const modulo = await montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: { async obtener() { return estructura(); } } });
   const vista = r.querySelector("[data-personal-estructura-organizativa-publica]");
@@ -80,7 +80,7 @@ test("la ayuda y la advertencia quedan detrás de ?; en pantalla solo la pastill
   assert.equal(contenido.children.at(-1).className, "rpt-huella");
   const css = readFileSync(new URL("../../portal-modulos.css", import.meta.url), "utf8");
   assert.match(css, /\.modulo-personal \.rpt-huella\s*\{[^}]*overflow-wrap:\s*anywhere/u);
-  assert.match(textoVisible(vista), /En preparación/u);
+  assert.match(textoVisible(vista), /Según la RPT publicada/u);
   assert.doesNotMatch(textoVisible(vista), /no acredita vigencia administrativa|Portal del Empleado → Personal/u);
   assert.match(textoVisible(vista), /14 delegaciones/u);
   assert.doesNotMatch(textoVisible(vista), /Huella SHA-256|demo-v1|2026-09-06T00:00:00Z/u);
@@ -88,7 +88,7 @@ test("la ayuda y la advertencia quedan detrás de ?; en pantalla solo la pastill
   assert.equal(contenido.hidden, false);
   assert.equal(boton.atributos.get("aria-expanded"), "true");
   assert.match(textoVisible(vista), /demo-v1/u);
-  assert.match(textoVisible(vista), /Estructura en preparación.*no acredita vigencia administrativa/u);
+  assert.match(textoVisible(vista), /Estructura tomada de la RPT publicada/u);
   assert.match(textoVisible(vista), /0e52d878526d6a5e7ee4ab6f525ef92a70144aef665f0b031fca6051564e054c/u);
   assert.doesNotMatch(textoVisible(vista), /2026-09-06T00:00:00Z/u);
   boton.listeners.click();
@@ -103,7 +103,7 @@ test("la marca de estructura en preparación es una pastilla del tema", async ()
   const componentes = readFileSync(new URL("../../portal-componentes.css", import.meta.url), "utf8");
   assert.equal(aviso.tagName, "span");
   assert.equal(aviso.className, "estado-chip");
-  assert.equal(aviso.textContent, "En preparación");
+  assert.equal(aviso.textContent, "Según la RPT publicada");
   assert.match(componentes, /\.estado-chip\s*\{[^}]*white-space:\s*nowrap/u);
   modulo.desmontar();
 });

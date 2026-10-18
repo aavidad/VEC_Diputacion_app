@@ -16,15 +16,23 @@
  * Son datos públicos de la interfaz, sin datos personales. En la superficie
  * interna el certificado de cliente TLS exige credenciales del mismo origen;
  * no se envían a otro origen, no se sigue ninguna redirección y no se manda
- * `Referer`. El índice se lee sin guardar; los catálogos llevan `?huella=`
- * (`VERSION_TEXTOS` de `textos.js`) y se guardan: cambiar una traducción exige
- * actualizar esa huella, y la prueba `textos-version.test.mjs` lo recuerda.
+ * `Referer`. El índice se lee sin guardar y su respuesta trae, en la cabecera
+ * `X-VEC-Huella-Textos`, la huella que el servidor calcula de todos los
+ * catálogos; los catálogos se piden con `?huella=` y se guardan. Así cambiar
+ * una traducción no exige tocar código: basta desplegar.
  *
  * En Node (pruebas y herramientas) el módulo se carga desde `file:` y lee el
  * fichero del repositorio; el navegador nunca usa esa rama.
  */
 
 const LIMITE_BYTES = 2 * 1024 * 1024;
+const PATRON_HUELLA = /^[0-9a-f]{16}$/u;
+let huellaCatalogos = "";
+
+/** Huella de los catálogos anunciada por el servidor con el índice ("" si no la hay). */
+export function huellaTextos() {
+  return huellaCatalogos;
+}
 
 async function leerFicheroLocal(url) {
   const { readFile } = await import("node:fs/promises");
@@ -95,6 +103,10 @@ export async function leerPorRed(url, fetchImpl, signal) {
     if (!respuesta?.ok) {
       if (intento === 0 && [502, 503].includes(respuesta?.status)) { await esperarReintento(signal); continue; }
       throw new Error(`recurso JSON no disponible (${respuesta?.status ?? "sin respuesta"})`);
+    }
+    if (url.pathname === URL_INDICE_IDIOMAS.pathname) {
+      const huella = respuesta.headers?.get?.("X-VEC-Huella-Textos") ?? "";
+      huellaCatalogos = PATRON_HUELLA.test(huella) ? huella : "";
     }
     const declarado = Number(respuesta.headers?.get?.("Content-Length"));
     if (Number.isFinite(declarado) && declarado > LIMITE_BYTES) throw new Error("recurso JSON demasiado grande");

@@ -1,6 +1,6 @@
 # Plan del Canal interno de información — 4 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [OBJETIVOS.md](OBJETIVOS.md).
+**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 ## Estado del primer corte — 7 de octubre de 2026
 
@@ -66,9 +66,9 @@ DPD/Responsable deben resolver cómo materializar recepción, investigación y c
 sin retrasar la supresión legal por la formulación provincial del apartado 13.
 
 Aplican [materias reservadas, §8 y bóveda §8.1](../estudio_requisitos/materias_reservadas_economicas_y_relaciones_laborales.md),
-[arquitectura](../portal_vec/arquitectura_tecnica.md),
+[arquitectura](../producto/TRD.md),
 [contrato de módulos](../portal_vec/contrato_modulos_vec.md),
-[roles y ámbitos](../portal_vec/matriz_roles_y_ambitos.md) y
+[roles y ámbitos](../producto/FLUJO_APP.md) y
 [cumplimiento](../portal_vec/cumplimiento_y_seguridad.md).
 La duda 136 de [dudas.md](../../dudas.md) pide enlace o integración admitida,
 aprobación, contrato, custodios/suplencias y política de eliminación. No se vuelve

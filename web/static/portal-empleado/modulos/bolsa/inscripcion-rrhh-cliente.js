@@ -1,4 +1,4 @@
-import { consultarJSON, ErrorConsultaJSON } from "../../../comun/http.js?v=20261010-http-carga-v1";
+import { consultarJSON, ErrorConsultaJSON } from "../../../comun/http.js?v=20261012-sonda-frontera-v1";
 
 const BASE = "/api/vec/bolsa/rrhh/inscripciones";
 const SEGMENTO = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,511}$/u;
@@ -25,6 +25,8 @@ function solicitudValida(item) {
     && (item.bolsa_ref == null || referencia(item.bolsa_ref))
     && typeof item.categoria === "string" && item.categoria.trim().length > 0
     && bytesUTF8(item.categoria) <= 2048
+    && typeof item.convocatoria_titulo === "string" && item.convocatoria_titulo.trim().length > 0
+    && Array.from(item.convocatoria_titulo).length <= 180
     && (item.persona_resumen == null
       || typeof item.persona_resumen === "string" && item.persona_resumen.length <= 240)
     && ESTADOS.has(item.estado)
@@ -86,6 +88,7 @@ export function crearClienteInscripcionesRRHH({ fetchImpl = globalThis.fetch } =
           && typeof item.categorias_resumen === "string" && item.categorias_resumen.trim().length > 0
           && bytesUTF8(item.categorias_resumen) <= 2048
           && typeof item.plazo_fin === "string" && Number.isFinite(Date.parse(item.plazo_fin))
+          && Number.isSafeInteger(item.pendientes) && item.pendientes >= 0
           && ["publicada", "sustituida", "retirada"].includes(item.estado_publicacion))) {
         throw new TypeError("convocatorias incompatibles");
       }

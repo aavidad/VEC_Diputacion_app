@@ -1,0 +1,43 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:origen_contacto_rrhh",
+  "version": 1,
+  "huella_sha256": "3b49bec78ec518eb61d76ef52fb09ecd6d6006e6ca7bc00f9fddef26932cb232",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.datos_contacto_participacion.origen.consultar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:origen_contacto_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.datos_contacto_participacion.origen.consultar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"participacion_bolsa\",\"finalidades\":[\"consulta_origen_datos_contacto_participacion\"],\"garantia_minima\":\"alto\",\"campos_permitidos\":[\"enmascarados\",\"origen\",\"participacion_ref\",\"registrada_en\",\"sin_contacto\",\"version\"],\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-01T00:00:00Z\",\"vigente_hasta\":\"2027-10-01T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.datos_contacto_participacion.origen.consultar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:origen_contacto_rrhh",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "3b49bec78ec518eb61d76ef52fb09ecd6d6006e6ca7bc00f9fddef26932cb232",
+      "concesion": {
+        "accion": "bolsa.datos_contacto_participacion.origen.consultar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "participacion_bolsa",
+        "finalidades": [
+          "consulta_origen_datos_contacto_participacion"
+        ],
+        "garantia_minima": "alto",
+        "campos_permitidos": [
+          "enmascarados",
+          "origen",
+          "participacion_ref",
+          "registrada_en",
+          "sin_contacto",
+          "version"
+        ],
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-01T00:00:00Z",
+      "vigente_hasta": "2027-10-01T00:00:00Z"
+    }
+  ]
+}

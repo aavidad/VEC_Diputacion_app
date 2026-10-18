@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -153,6 +154,23 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) resolverConRevisionManual(ct
 		copia := *j.Continuacion
 		j.Continuacion = &copia
 	}
+	var respuestaNativa *puertosbolsa.ResultadoParticipacionEmisionCT
+	if j.Seleccion.Procedencia.SinRetencionDeclarada {
+		// La respuesta firme del portal se lee antes del commit CT mediante el
+		// detalle nominal B98. No se fabrica una resolución Bolsa heredada.
+		verificador, disponible := e.aceptador.(interface {
+			verificarRespuestaPortalConstituidaCT(context.Context, ports.SolicitudResolverLlamamiento,
+				ports.ReciboSolicitudLlamamientoBolsa) (puertosbolsa.ResultadoParticipacionEmisionCT, error)
+		})
+		if !disponible || j.Continuacion != nil {
+			return vacio, application.ErrComunicacionLlamamientoNoDisponible
+		}
+		respuesta, fallo := verificador.verificarRespuestaPortalConstituidaCT(ctx, s, j.Seleccion)
+		if fallo != nil {
+			return vacio, application.ErrComunicacionLlamamientoNoDisponible
+		}
+		respuestaNativa = &respuesta
+	}
 	ligada := aceptacionRevisadaDesarrollo{solicitud: s, justificante: j, politica: politica}
 	ctx = context.WithValue(ctx, claveResolucionManualDesarrollo{}, ligada)
 	local, err := e.servicio.Resolver(ctx, s)
@@ -161,6 +179,14 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) resolverConRevisionManual(ct
 	}
 	if local.ValidarPara(s) != nil || local.Politica != politica || local.ResueltaEn.Before(j.Respuesta.RegistradaEn) {
 		return vacio, application.ErrResultadoComunicacionLlamamientoNoConfiable
+	}
+	if respuestaNativa != nil {
+		if respuestaNativa.RespondidaEn == nil || local.ResueltaEn.Before(*respuestaNativa.RespondidaEn) {
+			return vacio, application.ErrResultadoComunicacionLlamamientoNoConfiable
+		}
+		// B30 ya persistió la decisión firme de la persona. CT conserva su
+		// resolución propia; la situación Bolsa se trata como efecto separado.
+		return local, nil
 	}
 	// El commit CT queda durable incluso si Bolsa falla. No hay compensación
 	// destructiva ni recibo de éxito parcial: reintento explícito, misma clave,
@@ -327,6 +353,21 @@ func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, 
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaContexto(ctx context.Context, ruta string) (dominiovec.ReferenciaEntradaCatalogo, bool) {
+	if ruta == httpinterno.RutaOriginalFirmableCT && ctx != nil && s.perfilesOriginal != nil {
+		d, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
+		if !ok {
+			return dominiovec.ReferenciaEntradaCatalogo{}, false
+		}
+		if d.Accion == ports.AccionConsultarDetalleRRHH && s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, d) {
+			return s.motivoDetalleRRHH, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoDetalleRRHH)
+		}
+		if (d.Accion == docports.AccionDescargar || d.Accion == docports.AccionReservarOriginalFirmable ||
+			d.Accion == docports.AccionConfirmarOriginalFirmable || d.Accion == puertosvec.AccionNegocioEscribirOriginalFirmable) &&
+			solicitudAutorizacionOriginalFirmableCTDesarrolloValida(ctx, d) {
+			return motivoOriginalFirmableCTDesarrollo(), true
+		}
+		return dominiovec.ReferenciaEntradaCatalogo{}, false
+	}
 	if ruta == rutaEntregaPeticionCentro {
 		if _, ok := altaDePeticionConfiable(ctx); ok {
 			return s.motivo, true

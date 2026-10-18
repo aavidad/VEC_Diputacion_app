@@ -42,6 +42,8 @@ func (v *VerificadorAlta) VerificarPuestoRPTAlta(
 	for _, puesto := range catalogo.Puestos {
 		if puesto.Codigo == solicitud.PuestoCodigo {
 			resultado.ExisteEnPublicacion = true
+			resultado.CategoriaClave = puesto.CategoriaClave
+			resultado.CentroCodigo = puesto.CentroCodigo
 			break
 		}
 	}

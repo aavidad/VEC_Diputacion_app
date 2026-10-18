@@ -23,8 +23,8 @@ const PREIMAGEN = {
     "MENSAJES_ANALISIS_CATALOGO_ES": "7ebc3646ea6e5b35e13f785b67726b16d2957740c91a899382dd7f05d6ff0aa8"
   },
   "i18n-avisos-via-cobertura.js": {
-    "MENSAJES_AVISOS_VIA_COBERTURA_EN": "8b1395a10ed65f002ccec703cb5fe8aef1b66d37b4bf2f29bc1fe6fc1feb1d34",
-    "MENSAJES_AVISOS_VIA_COBERTURA_ES": "6d7de62fde85ab0b5004464ce518235e0c18f7041449414197b419812821dbcb"
+    "MENSAJES_AVISOS_VIA_COBERTURA_EN": "210732a4a5da432fa0c5d6eb0e544331d9b38ee1c23ad0d4783be0d07bd2387a",
+    "MENSAJES_AVISOS_VIA_COBERTURA_ES": "d2c54f54d09f6b274eb268bc29c58f497f7c9cbdb8c4bb0662c8e0e0812ea2e4"
   },
   "i18n-borradores-publicados.js": {
     // Excepción a la preimagen: corrección EN de bp_subtitulo posterior al traslado.
@@ -59,8 +59,9 @@ const PREIMAGEN = {
   "i18n-llamamiento.js": {
     // Excepción a la preimagen: textos reescritos en lenguaje llano (05/10/2026), sin
     // clave de operación ni modo manual en pantalla; los límites pasan a la ayuda «?».
-    "MENSAJES_LLAMAMIENTO_EN": "01cf19c78d4178976b57cf40991ab35583f098b94696073b273c8cffbe0971d7",
-    "MENSAJES_LLAMAMIENTO_ES": "59fefb4d78cab9bb79bdda15fc54c79d187a4ee0f503d18afc7430c34c21de7b"
+    // 12/10/2026: sin avisos de no validez en la validación manual.
+    "MENSAJES_LLAMAMIENTO_EN": "bc4a75a142e9fe7c02ea378f9721aa184f2b6c9a92c87671f1c16c135aad1242",
+    "MENSAJES_LLAMAMIENTO_ES": "0382ad2891ac444918f8d32c49d8e5d0b2e9c326ffaae6a8416dec5f76bdaffb"
   },
   "i18n-subsanacion-reparos.js": {
     "MENSAJES_SUBSANACION_REPAROS_EN": "d3dc09b6d8b28dfbfd56e64d54e6d40b9f3dd988562a67c28e1ccde882f6a12d",
@@ -114,11 +115,13 @@ const CLAVES_REINCORPORACION_CAPACIDAD = Object.freeze([
   "reincorporacion_capacidad_no_habilitada",
 ]);
 const CLAVES_FICHA_SIN_BOLSA = Object.freeze([
-  "ficha_llamamiento_sin_bolsa", "ficha_llamamiento_bolsa_error",
+  "ficha_llamamiento_sin_bolsa", "ficha_llamamiento_sin_bolsa_historica", "ficha_llamamiento_bolsa_error",
   "ficha_llamamiento_bolsa_denegado", "ficha_llamamiento_bolsa_reintentar",
+  "ficha_llamamiento_bolsa_no_localizada",
 ]);
 const CLAVES_GUIA_COBERTURA = Object.freeze([
   "ficha_siguiente_paso_cobertura_titulo", "ficha_siguiente_paso_cobertura_que",
+  "ficha_siguiente_paso_fiscalizacion_intervencion",
 ]);
 // La respuesta real de Bolsa amplía la ficha; la huella de las claves anteriores sigue fija.
 const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
@@ -135,8 +138,34 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
   "resultado_bolsa_anterior", "resultado_bolsa_error_lectura", "resultado_bolsa_revisar",
   "resultado_bolsa_contacto", "resultado_bolsa_fecha_contacto", "resultado_bolsa_justificante_contacto", "resultado_bolsa_contacto_contactado", "resultado_bolsa_contacto_comunica", "resultado_bolsa_contacto_no_contesta", "resultado_bolsa_contacto_buzon", "resultado_bolsa_contacto_acepta", "resultado_bolsa_contacto_rechaza", "resultado_bolsa_contacto_aplazado", "resultado_bolsa_contacto_otro", "resultado_bolsa_contacto_enviado", "resultado_bolsa_contacto_no_enviado", "resultado_bolsa_contacto_numero_erroneo", "resultado_bolsa_contacto_no_entregado", "resultado_bolsa_contacto_entrega_declarada",
 ]);
-// Nuevas claves de Alta: se comprueban aparte sin reescribir la preimagen anterior.
-const CLAVES_CAPACIDAD_ALTA = Object.freeze({
+// Las claves añadidas se comprueban aparte sin reescribir la preimagen anterior.
+const CLAVES_ADICIONALES = Object.freeze({
+  "i18n-cancelacion.js": ["error_seleccion_oferta_pendiente"],
+  // R1 añade el aviso de comprobación pendiente; CT231, las del aviso pendiente
+  // tras la selección confirmada; F1-16, las de las ofertas de varias plazas.
+  "i18n-llamamiento.js": [
+    "llamamiento_estado_oferta_cargando", "llamamiento_estado_oferta_error",
+    "llamamiento_estado_oferta_denegado", "llamamiento_estado_oferta_reintentar",
+    "llamamiento_cantidad_no_disponible",
+    "llamamiento_orden_bolsa_provisional", "llamamiento_iniciar_seleccion",
+    "llamamiento_publicar_oferta", "llamamiento_confirmacion_seleccion_neutra",
+    "llamamiento_confirmacion_oferta", "llamamiento_oferta_recibo",
+    "llamamiento_oferta_plazas", "llamamiento_oferta_publicada_en",
+    "llamamiento_oferta_vence_antes_de", "llamamiento_oferta_justificante",
+    "llamamiento_oferta_vinculo", "llamamiento_oferta_sin_aviso",
+    "llamamiento_oferta_gestionar", "llamamiento_recuperar_oferta",
+    "llamamiento_oferta_resultado_incierto", "llamamiento_confirmacion_recuperar_oferta",
+    "llamamiento_recuperando_oferta", "llamamiento_recuperacion_oferta_incierta",
+    "llamamiento_oferta_sin_reserva", "llamamiento_oferta_descartada",
+    "llamamiento_oferta_descartada_en", "llamamiento_oferta_cierre_bolsa",
+    "llamamiento_oferta_recibo_descarte", "llamamiento_oferta_descartada_sin_publicar",
+    "llamamiento_preparar_nueva_oferta", "llamamiento_confirmacion_nueva_oferta",
+    "llamamiento_comprobacion_pendiente", "llamamiento_comprobacion_version",
+    "llamamiento_comprobacion_ver_bolsa",
+    "llamamiento_comunicaciones_respuesta_aviso_pendiente", "llamamiento_comunicaciones_respuesta_aviso_anotado",
+    "llamamiento_seleccion_pendiente_aviso",
+    "llamamiento_continuar_aviso",
+  ],
   "i18n-textos-vistas.js": ["motivo_sustitucion"],
   "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
     "necesidades_alta_no_disponibles_detalle"],
@@ -203,12 +232,12 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
         preimagen = Object.fromEntries(Object.entries(valor)
           .filter(([clave]) => !CLAVES_BORRADORES_FICHA.includes(clave)));
       }
-      if (CLAVES_CAPACIDAD_ALTA[archivo]) {
-        for (const clave of CLAVES_CAPACIDAD_ALTA[archivo]) {
+      if (CLAVES_ADICIONALES[archivo]) {
+        for (const clave of CLAVES_ADICIONALES[archivo]) {
           assert.ok(typeof valor[clave] === "string" && valor[clave].trim(), `${nombre}.${clave}`);
         }
         preimagen = Object.fromEntries(Object.entries(preimagen)
-          .filter(([clave]) => !CLAVES_CAPACIDAD_ALTA[archivo].includes(clave)));
+          .filter(([clave]) => !CLAVES_ADICIONALES[archivo].includes(clave)));
       }
       assert.equal(huella(preimagen), anterior, nombre);
       assert.ok(Object.isFrozen(valor), nombre);

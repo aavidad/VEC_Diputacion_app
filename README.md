@@ -34,9 +34,9 @@ El diseño es hexagonal: `domain` expresa reglas, `application` coordina casos d
 | [deploy/postgresql](deploy/postgresql) | Migraciones y funciones de persistencia por autoridad. |
 | [cmd](cmd) | Entradas de servidor y utilidades operativas. |
 
-La separación de casos de uso y transportes permite incorporar otros clientes con las mismas reglas y autorización. **En `main` existe el cliente web y hay comandos de operación acotados; no hay un cliente de escritorio general ni una CLI con paridad funcional con el portal.** El [contrato de módulos](docs/portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026) explica el registro real y sus límites: añadir un módulo requiere composición, dependencias y revisión, y no supone instalación dinámica ni publicación automática de sus rutas.
+La separación de casos de uso y transportes permite incorporar otros clientes con las mismas reglas y autorización. **En `main` existe el cliente web y hay comandos de operación acotados; no hay un cliente de escritorio general ni una CLI con paridad funcional con el portal.** El [contrato de módulos](docs/portal_vec/contrato_modulos_vec.md) explica el registro real y sus límites: añadir un módulo requiere composición, dependencias y revisión, y no supone instalación dinámica ni publicación automática de sus rutas.
 
-La autorización deniega por defecto: exige actor, acción, recurso, ámbito, finalidad y campos permitidos. PostgreSQL añade identidades técnicas y privilegios separados; la decisión funcional sigue en la autoridad del servidor. La auditoría, las versiones y los recibos permiten comprobar qué ocurrió, sin convertir la autenticación en firma ni una referencia de correo en prueba de entrega. Véanse [roles y ámbitos](docs/portal_vec/matriz_roles_y_ambitos.md), [seguridad y cumplimiento](docs/portal_vec/cumplimiento_y_seguridad.md) y [persistencia PostgreSQL](docs/portal_vec/seguridad_persistencia_postgresql.md).
+La autorización deniega por defecto: exige actor, acción, recurso, ámbito, finalidad y campos permitidos. PostgreSQL añade identidades técnicas y privilegios separados; la decisión funcional sigue en la autoridad del servidor. La auditoría, las versiones y los recibos permiten comprobar qué ocurrió, sin convertir la autenticación en firma ni una referencia de correo en prueba de entrega. Véanse [roles y ámbitos](docs/producto/FLUJO_APP.md), [seguridad y cumplimiento](docs/portal_vec/cumplimiento_y_seguridad.md) y [persistencia PostgreSQL](docs/portal_vec/seguridad_persistencia_postgresql.md).
 
 ## Documentación
 
@@ -46,8 +46,8 @@ La autorización deniega por defecto: exige actor, acción, recurso, ámbito, fi
 | Usar Bolsa y el portal | [Manual de usuario del portal y Bolsa](docs/manual_usuario/manual_portal_bolsas.md). |
 | Administrar y operar el entorno | [Manual de Sistemas](docs/manual_sistemas/README.md). |
 | Entender la administración técnica y el gobierno funcional de RRHH | [Manual de administración](docs/manual_administracion/README.md): alcance y límites actuales; la consola ADMIN aún no está operativa. |
-| Desarrollar o integrar módulos | [Manual del programador](docs/manual_programador/README.md), [arquitectura técnica](docs/portal_vec/arquitectura_tecnica.md) y [especificaciones para agentes](ESPECIFICACIONES_AGENTES.md). |
-| Consultar el procedimiento de referencia | [Expediente de Contratación temporal remitido por RRHH](docs/portal_vec/expediente_contratacion_temporal_rrhh.md). |
+| Desarrollar o integrar módulos | [Manual del programador](docs/manual_programador/README.md), [arquitectura técnica](docs/producto/TRD.md) y [especificaciones para agentes](ESPECIFICACIONES_AGENTES.md). |
+| Consultar el procedimiento de referencia | [Flujo de Contratación temporal (FLUJO_APP, apartado 4.3)](docs/producto/FLUJO_APP.md). |
 
 La ayuda contextual del portal se abre desde el botón **«?»** cuando está disponible en la pantalla. Los manuales describen el uso y los límites de cada recorrido; no sustituyen el permiso del actor ni la comprobación de un entorno concreto.
 

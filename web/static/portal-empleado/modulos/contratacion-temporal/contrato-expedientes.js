@@ -519,6 +519,7 @@ export function versionPropuestaDocumentalValida(entrada) {
 }
 
 export function validarExpedienteContratacionTemporal(entrada) {
+  const tieneNumeroPersonas = esRegistro(entrada) && Object.hasOwn(entrada, "numero_personas");
   const tieneResultadoBolsa = esRegistro(entrada) && Object.hasOwn(entrada, "resultado_bolsa");
   const propuestaHistorica = esRegistro(entrada) && Object.hasOwn(entrada, "version_propuesta_documental");
   const tieneAnalisisPrevio = esRegistro(entrada) && Object.hasOwn(entrada, "analisis_previo");
@@ -528,6 +529,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
   exigirCamposExactos(entrada, [
     "esquema", "demostracion", "expediente_ref", "numero_visible", "version",
     "flujo_ref", "flujo_version", "flujo_huella", "cabecera", "fases", "tareas",
+    ...(tieneNumeroPersonas ? ["numero_personas"] : []),
     ...(tieneHistorial ? ["historial"] : []),
     ...(tieneFiscalizacion ? ["fiscalizacion"] : []),
     ...(tieneAnalisisPrevio ? ["analisis_previo"] : []),
@@ -539,6 +541,8 @@ export function validarExpedienteContratacionTemporal(entrada) {
     || !PATRON_NUMERO.test(entrada.numero_visible)
     || !Number.isSafeInteger(entrada.version) || entrada.version < 1
     || !Number.isSafeInteger(entrada.flujo_version) || entrada.flujo_version < 1
+    || (tieneNumeroPersonas && (!Number.isSafeInteger(entrada.numero_personas)
+      || entrada.numero_personas < 1 || entrada.numero_personas > 100))
     || (propuestaHistorica && (entrada.demostracion !== false
       || !versionPropuestaDocumentalValida(entrada)))
     || typeof entrada.flujo_huella !== "string" || !PATRON_HUELLA.test(entrada.flujo_huella)) {
@@ -580,6 +584,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     expediente_ref: referencia(entrada.expediente_ref, "expediente_ref"),
     numero_visible: entrada.numero_visible,
     version: entrada.version,
+    ...(tieneNumeroPersonas ? { numero_personas: entrada.numero_personas } : {}),
     flujo_ref: referencia(entrada.flujo_ref, "flujo_ref"),
     flujo_version: entrada.flujo_version,
     flujo_huella: entrada.flujo_huella,

@@ -43,6 +43,8 @@ func TestServidorIntegradoSirveSoloSuperficiesEnumeradas(t *testing.T) {
 		{path: "/area-personal/", contentType: "text/html", want: "Mi área personal"},
 		{path: "/portal-empleado/", contentType: "text/html", want: "Portal del Empleado"},
 		{path: "/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json", contentType: "application/json", want: "tipo:ct:propuesta-desarrollo:20260906"},
+		{path: "/portal-empleado/modulos/bolsa/criterios-ofrecimiento/v1.json", contentType: "application/json", want: "bolsa:criterios-ofrecimiento:reglamento:20261015"},
+		{path: "/portal-empleado/modulos/bolsa/rrhh-criterios-ofrecimiento.js", contentType: "javascript", want: "renderizarCriteriosOfrecimiento"},
 		{path: "/verificar/", contentType: "text/html", want: "Comprobación de documentos"},
 		{path: "/styles.css", contentType: "text/css", want: ".listings"},
 		{path: "/locales/es.json", contentType: "application/json", want: "api.candidate.created"},

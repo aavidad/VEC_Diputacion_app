@@ -1,0 +1,2 @@
+# CT226 sobre CT218 instalada; una sola vez. Sin DOWN ni reaplicación.
+deploy/postgresql/contratacion_temporal/migraciones/000226_catalogo_plantillas_por_organizacion.up.sql

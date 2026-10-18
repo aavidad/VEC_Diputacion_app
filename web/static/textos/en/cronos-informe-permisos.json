@@ -15,7 +15,7 @@
   "desconocido": "Not available",
   "vacio": "No rows are available for this report.",
   "limite": "Unavailable values remain pending; they do not mean zero.",
-  "sintetico": "SYNTHETIC EXAMPLE. Not valid for administrative use. The example rules are not approved. Employee downloads remain pending.",
+  "sintetico": "DRAFT FOR REVIEW. Not valid for administrative use. The proposed rules are not approved. Employee downloads remain pending.",
   "nombre_sintetico": "Example employee: {{nombre}}",
   "unidades": {
     "dia": "Days",

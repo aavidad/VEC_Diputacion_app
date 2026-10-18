@@ -73,9 +73,69 @@ func rutaCoberturaCTPrueba(ruta string) vechttp.RutaExacta {
 	return vechttp.RutaExacta{Ruta: ruta, Manejador: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})}
 }
 
+func TestCoberturaR5RecuperacionCambiaDeLegadaANominalSinDuplicar(t *testing.T) {
+	legadas := []vechttp.RutaExacta{
+		rutaCoberturaCTPrueba(httpinterno.RutaConsultaFirmasR5V2),
+		rutaCoberturaCTPrueba(httpinterno.RutaRecuperacionFirmasR5V2),
+	}
+	nominales := fronterasFirmaVecR5CT(configuracionFirmasCT{configuracionSesionFirmanteV2: configuracionSesionFirmanteV2{
+		Firmantes: []seleccionNominalFirmaCT{{PerfilRef: "prf_firma_jefatura_00000000000000",
+			PerfilConsultaCTRef: "prf_consulta_jefatura_0000000000",
+			PerfilDocumentosRef: "prf_documentos_jefatura_00000000"}},
+	}})
+	conFrontera, err := nuevoCatalogoFronterasComunDesarrollo(nominales)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, activa := range []bool{false, true} {
+		var rutas []vechttp.RutaExacta
+		for _, r := range legadas {
+			if !sustituyeRutaFirmasR5PorNominalCT(activa, r.Ruta) {
+				rutas = append(rutas, r)
+			}
+		}
+		catalogo := catalogoFronterasComunDesarrollo{}
+		if activa {
+			catalogo = conFrontera
+			rutas = append(rutas, rutaCoberturaCTPrueba(httpinterno.RutaConsultaFirmasR5V2),
+				rutaCoberturaCTPrueba(httpinterno.RutaRecuperacionFirmasR5V2))
+		}
+		if len(rutas) != 2 || rutas[0].Ruta == rutas[1].Ruta ||
+			validarCoberturaRutasCTDesarrollo(rutas, catalogo) != nil {
+			t.Fatalf("rutas R5 activa=%t: %+v", activa, rutas)
+		}
+	}
+	metodo := inventarioRutasCTDesarrollo()[httpinterno.RutaRecuperacionFirmasR5V2][0]
+	for _, mala := range []struct{ clave, accion string }{
+		{"ct-firma-vec-consultar-ajena", "contratacion_temporal.documento.firmas_r5_v2.recuperar"},
+		{"ct-firma-vec-recuperar", "contratacion_temporal.documento.firmas_r5_v2.consultar"},
+	} {
+		cambiadas := append([]descriptorFronteraComunDesarrollo(nil), nominales...)
+		for i := range cambiadas {
+			if cambiadas[i].Ruta == httpinterno.RutaRecuperacionFirmasR5V2 {
+				cambiadas[i].Clave, cambiadas[i].ClaveCapacidad = mala.clave, mala.accion
+			}
+		}
+		catalogo, err := nuevoCatalogoFronterasComunDesarrollo(cambiadas)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := validarMetodoRutaCTDesarrollo(httpinterno.RutaRecuperacionFirmasR5V2, metodo, catalogo); !errors.Is(err, ErrCoberturaRutasCTDesarrollo) {
+			t.Fatalf("frontera cruzada admitida: %v", err)
+		}
+	}
+}
+
 func TestCoberturaRutasCTInventarioCompletoYOpcionales(t *testing.T) {
 	const perfil = "prf_cobertura_ct"
 	descriptores := descriptoresFronterasContratacionTemporalDesarrollo(perfil, []string{perfil}, true)
+	escenarioOriginal := nuevoEscenarioOriginalPDP(t)
+	fronteraOriginal, err := fronteraOriginalFirmableCTDesarrollo(escenarioOriginal.soporte.perfilesOriginal)
+	if err != nil {
+		t.Fatalf("frontera real del original CT: %v", err)
+	}
+	descriptores = append(descriptores, fronteraOriginal)
+	descriptores = append(descriptores, fronterasFirmaVecR5CT(configuracionFirmasCT{configuracionSesionFirmanteV2: configuracionSesionFirmanteV2{Firmantes: []seleccionNominalFirmaCT{{PerfilRef: perfil, PerfilConsultaCTRef: "prf_cobertura_consulta_ct", PerfilDocumentosRef: "prf_cobertura_documentos"}}}})...)
 	descriptores = append(descriptores, descriptoresFronterasReincorporacionTitularDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasCTDesarrollo(perfil)...)
 	descriptores = append(descriptores, descriptoresFronterasPlantillasDocumentalCTDesarrollo(perfil)...)
@@ -182,6 +242,12 @@ func TestFronterasIncorporacionB2SoloPerfilesNominalesYAccionesExactas(t *testin
 		{http.MethodGet, httpinterno.RutaVinculoCategoriaRPTB2, "contratacion_temporal.categoria_rpt.vinculo.consultar"},
 		{http.MethodPost, httpinterno.RutaVinculoCategoriaRPTB2, "contratacion_temporal.categoria_rpt.vinculo.registrar"},
 		{http.MethodGet, httpinterno.RutaCategoriasRPTB2, "vec.catalogos.categorias.listar_habilitadas"},
+		{http.MethodGet, vechttp.RutaCatalogosRegistroEmpleadoB2, "personal.registro_empleado.catalogo.consultar"},
+		{http.MethodGet, "/api/vec/personal/empleados", "personal.registro_empleado.ficha.consultar"},
+		{http.MethodGet, vechttp.RutaEmpleadosOrganismoB2, "personal.registro_empleado.empleados.consultar"},
+		{http.MethodGet, vechttp.RutaVacantesEmpleadoB2, "personal.registro_empleado.vacantes.consultar"},
+		{http.MethodPost, vechttp.RutaCatalogosRegistroEmpleadoB2, "personal.registro_empleado.catalogo.publicar"},
+		{http.MethodPost, rutaCatalogosRegistroEmpleadoB2, "personal.registro_empleado.catalogo.publicar"},
 	}
 	if len(descriptores) != len(esperadas) {
 		t.Fatalf("fronteras B2: %d", len(descriptores))
@@ -207,7 +273,7 @@ func TestFronterasIncorporacionB2AsignanPerfilesAntesDelCatalogo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, par := range []struct{ metodo, ruta string }{{http.MethodGet, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaConfirmacionB2}, {http.MethodGet, httpinterno.RutaCategoriasRPTB2}} {
+	for _, par := range []struct{ metodo, ruta string }{{http.MethodGet, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaPlanB2}, {http.MethodPost, httpinterno.RutaConfirmacionB2}, {http.MethodGet, httpinterno.RutaCategoriasRPTB2}, {http.MethodPost, rutaCatalogosRegistroEmpleadoB2}} {
 		d, ok := catalogo.resolver(par.metodo, par.ruta)
 		if !ok || d.admitePerfil(base) || len(d.PerfilesActivosRef) != len(gruposPerfilesIncorporacionB2()) {
 			t.Fatalf("frontera B2 sin perfiles nominales cerrados: %s %s", par.metodo, par.ruta)
@@ -277,5 +343,47 @@ func TestCoberturaRutasCTRestringeElManejadorFinalAntesDeEjecutarlo(t *testing.T
 	}
 	if llamadas != 2 {
 		t.Fatalf("ejecuciones nominales: %d", llamadas)
+	}
+}
+
+func TestOriginalR5CoberturaExigeFronteraYRestringeVerbos(t *testing.T) {
+	e := nuevoEscenarioOriginalPDP(t)
+	frontera, err := fronteraOriginalFirmableCTDesarrollo(e.soporte.perfilesOriginal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, declarada := range []bool{false, true} {
+		fs := descriptoresFronterasContratacionTemporalDesarrollo("prf_catalogo_ct", []string{"prf_catalogo_ct"})
+		if declarada {
+			fs = append(fs, frontera)
+		}
+		catalogo, err := nuevoCatalogoFronterasComunDesarrollo(fs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		llamadas := 0
+		rutas := []vechttp.RutaExacta{{Ruta: httpinterno.RutaOriginalFirmableCT, Manejador: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { llamadas++; w.WriteHeader(http.StatusNoContent) })}}
+		err = validarCoberturaRutasCTDesarrollo(rutas, catalogo)
+		if !declarada {
+			if !errors.Is(err, ErrCoberturaRutasCTDesarrollo) {
+				t.Fatalf("sin frontera: %v", err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, metodo := range []string{http.MethodGet, http.MethodPut, http.MethodDelete} {
+			w := httptest.NewRecorder()
+			rutas[0].Manejador.ServeHTTP(w, httptest.NewRequest(metodo, httpinterno.RutaOriginalFirmableCT, nil))
+			if w.Code != http.StatusMethodNotAllowed || llamadas != 0 || w.Header().Get("Allow") != "POST" {
+				t.Fatalf("verbo=%s HTTP=%d llamadas=%d", metodo, w.Code, llamadas)
+			}
+		}
+		w := httptest.NewRecorder()
+		rutas[0].Manejador.ServeHTTP(w, httptest.NewRequest(http.MethodPost, httpinterno.RutaOriginalFirmableCT, nil))
+		if w.Code != http.StatusNoContent || llamadas != 1 {
+			t.Fatalf("POST=%d llamadas=%d", w.Code, llamadas)
+		}
 	}
 }

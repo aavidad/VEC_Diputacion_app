@@ -45,6 +45,8 @@ type SolicitudEmitirLlamamiento struct {
 	ClaveIdempotencia  string
 	Correlacion        dominiovec.ReferenciaCorrelacionAutorizacionV2
 	MotivoAutorizacion dominiovec.ReferenciaEntradaCatalogo
+	// OrigenCT sólo se usa en la reserva nativa originada por Contratación.
+	OrigenCT *OrigenEmisionCT
 }
 
 type SolicitudRecuperarLlamamiento struct {
@@ -63,6 +65,7 @@ type ComandoEmitirLlamamiento struct {
 	Confirmacion                                                     puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
 	Material                                                         puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	TokenFinalizacion                                                []byte
+	OrigenCT                                                         *OrigenEmisionCT
 }
 
 type ResultadoContactoEmision struct {
@@ -86,6 +89,7 @@ type EmisionLlamamiento struct {
 	// AvisosContacto se calcula a la hora de la respuesta y no se persiste
 	// (duda 45: contacto de origen CONVOCA vencido sin confirmar).
 	AvisosContacto []AvisoContactoEmision `json:"avisos_contacto,omitempty"`
+	OrigenCT       *ReciboOrigenEmisionCT `json:"origen_ct,omitempty"`
 }
 
 type RepositorioEmisionLlamamiento interface {

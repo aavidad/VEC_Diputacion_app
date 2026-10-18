@@ -65,7 +65,7 @@ test("dos pestañas accesibles: bolsa abierta, SAE cerrada y solo informativa", 
   assert.match(html, /<button type="button" role="tab" id="ct-prueba-pestana-bolsa_vigente"[^>]*aria-selected="true" tabindex="0"[^>]*>Por bolsa de trabajo<\/button>/u);
   assert.match(html, /id="ct-prueba-pestana-oferta_sae"[^>]*aria-selected="false" tabindex="-1"[^>]*>Por oferta al SAE<\/button>/u);
   assert.match(html, /id="ct-prueba-panel-oferta_sae"[^>]*data-ct-preparacion-via="oferta_sae" hidden>/u);
-  assert.match(html, /Lista de ejemplo, pendiente de que RRHH la confirme/u);
+  assert.match(html, /Lista pendiente de que RRHH la confirme/u);
   assert.match(html, /Ficha de preparación de la cobertura/u);
   assert.match(html, /Nota informativa sobre la oferta al SAE/u);
   assert.match(html, /La oferta al SAE no se prepara ni se envía desde aquí/u);

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
 	"vec-diputacion-granada/internal/shared/i18n"
 )
@@ -82,9 +83,9 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 	fallo := func(codigo string) int { return emitir(errores, diagnostico{Codigo: codigo}, 1) }
 
 	duracion, err := time.ParseDuration(timeout)
-	faseValida := fase == "preparar" || fase == "aplicar" || fase == "verificar" || fase == "version-bolsa"
+	faseValida := fase == "preparar" || fase == "aplicar" || fase == "verificar" || fase == "version-bolsa" || fase == "version-bolsa-externa"
 	// aplicar crea un acuse nuevo; version-bolsa lee el acuse de aplicar.
-	acuseCoherente := (fase == "aplicar" || fase == "version-bolsa") == (acuse != "")
+	acuseCoherente := (fase == "aplicar" || fase == "version-bolsa" || fase == "version-bolsa-externa") == (acuse != "")
 	if parseErr != nil || err != nil || duracion <= 0 || duracion > limiteTimeout || f.NArg() != 0 || !faseValida || !acuseCoherente || rutaConfig == "" || ops.incompletas() || ahora == nil {
 		return fallo("uso_invalido")
 	}
@@ -99,6 +100,10 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 	err = decodificarEstricto(b, &cfg)
 	clear(b)
 	if err != nil || cfg.validar(fase) != nil {
+		return fallo("configuracion_invalida")
+	}
+	validez, err := config.EntornoGobiernoAdmin().ValidezGobiernoAdmin(cfg.HorasValidezClaves, os.Getenv(config.EnvGobiernoAdminValidezHoras))
+	if err != nil {
 		return fallo("configuracion_invalida")
 	}
 	raiz, err := bootstrap.AbrirRaizPrivadaDenominacionPersona(filepath.Join(cfg.Salida, bootstrap.ArchivoConfiguracionGobiernoUsuarios))
@@ -118,7 +123,7 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 
 	switch fase {
 	case "preparar":
-		origen := bootstrap.MaterialOrigenGobiernoUsuariosAdmin{DirectorioMaterial: cfg.DirectorioMaterial, RutaConfiguracionHMAC: cfg.RutaConfiguracionHMAC, ArchivoSemillaRaiz: cfg.ArchivoSemillaRaiz, ValidezClaves: time.Duration(cfg.HorasValidezClaves) * time.Hour, ConjuntoVersion: cfg.ConjuntoCapacidades}
+		origen := bootstrap.MaterialOrigenGobiernoUsuariosAdmin{DirectorioMaterial: cfg.DirectorioMaterial, RutaConfiguracionHMAC: cfg.RutaConfiguracionHMAC, ArchivoSemillaRaiz: cfg.ArchivoSemillaRaiz, ValidezClaves: validez, ConjuntoVersion: cfg.ConjuntoCapacidades}
 		r, err := ops.preparar(ctx, cfg.DSNLectura, duracion, origen, raiz)
 		if err != nil {
 			return fallo("preparacion_fallida")
@@ -127,6 +132,12 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 	case "version-bolsa":
 		d := bootstrap.DestinoOverlayVersionBolsaAdmin{DirectorioSalida: cfg.Salida, PoolGobierno: cfg.VersionBolsa.PoolGobierno, PoolCatalogo: cfg.VersionBolsa.PoolCatalogo, Motivos: cfg.VersionBolsa.Motivos}
 		if ops.versionBolsa(raiz, d, acuse) != nil {
+			return fallo("version_bolsa_fallida")
+		}
+		return emitir(salida, diagnostico{Codigo: "version_bolsa_escrita"}, 0)
+	case "version-bolsa-externa":
+		d := bootstrap.DestinoOverlayVersionBolsaAdmin{DirectorioSalida: cfg.Salida, PoolGobierno: cfg.VersionBolsaExterna.PoolGobierno, PoolCatalogo: cfg.VersionBolsaExterna.PoolCatalogo, Motivos: cfg.VersionBolsaExterna.Motivos}
+		if ops.versionBolsaExterna(raiz, d, acuse) != nil {
 			return fallo("version_bolsa_fallida")
 		}
 		return emitir(salida, diagnostico{Codigo: "version_bolsa_escrita"}, 0)

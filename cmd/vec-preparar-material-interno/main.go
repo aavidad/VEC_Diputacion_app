@@ -32,7 +32,7 @@ import (
 // shell que la exportó. Se recomienda -dsn-archivo.
 const variableDSN = "VEC_PREPARAR_MATERIAL_GOBIERNO_DSN"
 
-var errUso = errors.New("uso: vec-preparar-material-interno (-inventario-ct RUTA/ct_v3.json | -incorporacion-motivos-rrhh-dsn RUTA.dsn con -incorporacion-config [-incorporacion-motivos-rrhh-login LOGIN]) -material-idempotencia RUTA/idempotencia (-motivos RUTA | -incorporacion-config RUTA | -organizacion-historica-config RUTA) -salida DIRECTORIO_NUEVO [-dsn-archivo RUTA]")
+var errUso = errors.New("uso: vec-preparar-material-interno -material-idempotencia RUTA/idempotencia -salida DIRECTORIO_NUEVO [-dsn-archivo RUTA] y exactamente uno: (-inventario-ct RUTA/ct_v3.json con -motivos RUTA), (-inventario-ct RUTA/ct_v3.json o -incorporacion-motivos-rrhh-dsn RUTA.dsn con -incorporacion-config RUTA), (-inventario-ct RUTA/ct_v3.json o -organizacion-historica-motivos-dsn RUTA.dsn con -organizacion-historica-config RUTA)")
 
 type dependencias struct {
 	abrirGobierno  func(context.Context, string) (fuenteGobierno, error)
@@ -65,6 +65,7 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 	banderas.SetOutput(io.Discard)
 	var o opciones
 	var configuracionOH string
+	var motivosOHServidor string
 	banderas.StringVar(&o.inventarioCT, "inventario-ct", "", "ruta absoluta de ct_v3.json existente")
 	banderas.StringVar(&o.idempotencia, "material-idempotencia", "", "subdirectorio idempotencia del material de desarrollo de vec-server (0700)")
 	banderas.StringVar(&o.motivos, "motivos", "", "fichero JSON 0600 con los ocho motivos B2")
@@ -74,10 +75,20 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 	banderas.StringVar(&o.incorporacionMotivosRRHHDSN, "incorporacion-motivos-rrhh-dsn", "", "DSN privado 0600 del resolutor RRHH al derivar CT desde idempotencia")
 	banderas.StringVar(&o.incorporacionMotivosRRHHLogin, "incorporacion-motivos-rrhh-login", "", "LOGIN nominal esperado del DSN RRHH; opcional solo en incorporación desde vec-server")
 	banderas.StringVar(&configuracionOH, "organizacion-historica-config", "", "inventario OH privado con motivo y ámbitos admitidos")
+	banderas.StringVar(&motivosOHServidor, "organizacion-historica-motivos-dsn", "", "DSN privado del evaluador nominal de motivos OH al derivar CT desde vec-server")
 	errParse := banderas.Parse(args)
-	loginRRHHIndicado := false
+	var loginRRHHIndicado, inventarioIndicado, motivosB2Indicado, motivosOHIndicado bool
 	banderas.Visit(func(f *flag.Flag) {
-		loginRRHHIndicado = loginRRHHIndicado || f.Name == "incorporacion-motivos-rrhh-login"
+		switch f.Name {
+		case "incorporacion-motivos-rrhh-login":
+			loginRRHHIndicado = true
+		case "inventario-ct":
+			inventarioIndicado = true
+		case "incorporacion-motivos-rrhh-dsn":
+			motivosB2Indicado = true
+		case "organizacion-historica-motivos-dsn":
+			motivosOHIndicado = true
+		}
 	})
 	modos := 0
 	for _, v := range []string{o.motivos, o.incorporacionConfig, configuracionOH} {
@@ -86,11 +97,15 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 		}
 	}
 	ctLegado := o.inventarioCT != ""
-	ctServidor := o.incorporacionMotivosRRHHDSN != ""
+	ctServidorB2 := o.incorporacionMotivosRRHHDSN != ""
+	ctServidorOH := motivosOHServidor != ""
 	if errParse != nil || banderas.NArg() != 0 || o.idempotencia == "" || modos != 1 || o.salida == "" ||
-		(o.incorporacionConfig != "" && ctLegado == ctServidor) ||
-		(o.incorporacionConfig == "" && (!ctLegado || ctServidor)) ||
-		(loginRRHHIndicado && (!ctServidor || o.incorporacionMotivosRRHHLogin == "")) {
+		(inventarioIndicado && !ctLegado) || (motivosB2Indicado && !ctServidorB2) || (motivosOHIndicado && !ctServidorOH) ||
+		(o.incorporacionConfig != "" && (ctLegado == ctServidorB2 || motivosOHIndicado)) ||
+		(configuracionOH != "" && (ctLegado == ctServidorOH || motivosB2Indicado || loginRRHHIndicado)) ||
+		(o.motivos != "" && (!ctLegado || motivosB2Indicado || motivosOHIndicado)) ||
+		(loginRRHHIndicado && (o.incorporacionConfig == "" || !ctServidorB2 || o.incorporacionMotivosRRHHLogin == "")) ||
+		(motivosOHIndicado && configuracionOH == "") {
 		fmt.Fprintln(errores, errUso)
 		return 2
 	}
@@ -102,7 +117,7 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 	var sincronizado bool
 	var err error
 	if configuracionOH != "" {
-		sincronizado, err = p.prepararOrganizacionHistorica(ctx, configuracionOH)
+		sincronizado, err = p.prepararOrganizacionHistorica(ctx, configuracionOH, motivosOHServidor)
 	} else if o.incorporacionConfig != "" {
 		sincronizado, err = p.prepararIncorporacion(ctx)
 	} else {
@@ -128,7 +143,7 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 		return 0
 	}
 	if o.incorporacionConfig != "" {
-		fmt.Fprintln(salida, "material incorporación B2 preparado y validado: servidor.json y 22 operaciones cotejadas")
+		fmt.Fprintln(salida, "material incorporación B2 preparado y validado: servidor.json y operaciones cotejadas")
 		return 0
 	}
 	fmt.Fprintln(salida, "material Personal B2 preparado y validado: personal_b2_v3.json (formato 4) y 8 claves de capacidad")

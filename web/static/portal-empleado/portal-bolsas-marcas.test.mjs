@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa, validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261001-ct-a-i18n-v1";
 import { validarCandidato } from "./portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1";
-import { consultarSeleccionMasivaBolsa, seleccionarParticipacionesPorEstado } from "./portal-bolsas-api.js?v=20261008-bolsa-global-v2";
+import { consultarSeleccionMasivaBolsa, seleccionarParticipacionesPorEstado } from "./portal-bolsas-api.js?v=20261015-firma-ofertas-justificante-integracion-v2";
 
 const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 const marcasCompletas = { presta_servicios: "excluir", en_revision: "renuncia_pendiente", encadenamiento: { dias_acumulados: 578, umbral_meses: 18, ventana_meses: 24 } };
@@ -45,6 +45,21 @@ test("rotula en revisión, servicios y encadenamiento sin referencias internas",
   assert.match(ficha, /Encadenamiento de contratos/);
   assert.doesNotMatch(html + ficha, /b16|b17|000041|participacion:/);
   assert.throws(() => traducirMarcasBolsa("inexistente"));
+});
+
+test("una respuesta de Mi bolsa sin reflejar se rotula y deja a la persona sin turno", () => {
+  for (const motivo of ["aceptacion_pendiente", "renuncia_pendiente"]) {
+    assert.equal(validarMarcasCandidato({ presta_servicios: null, en_revision: motivo, encadenamiento: null }).en_revision, motivo);
+  }
+  const ficha = renderizarMarcasFicha({ marcas: { presta_servicios: null, en_revision: "aceptacion_pendiente", encadenamiento: null } }, escapar);
+  assert.match(ficha, /Revisión pendiente[\s\S]*Ha aceptado en «Mi bolsa»\. Confírmelo con «Cambiar situación»/);
+  const chips = renderizarChipsMarcas({ marcas: { presta_servicios: null, en_revision: "renuncia_pendiente", encadenamiento: null } }, escapar);
+  assert.match(chips, /En revisión/);
+  assert.match(chips, /Ha renunciado en «Mi bolsa»/);
+  const fueraDeTurno = { ...candidatoBase, orden: null, razon_orden: "respuesta_portal_pendiente" };
+  assert.equal(validarCandidato(fueraDeTurno).razon_orden, "respuesta_portal_pendiente");
+  assert.throws(() => validarCandidato({ ...fueraDeTurno, orden: 1 }), /respuesta del portal pendiente con turno/);
+  assert.equal(validarCandidato({ ...candidatoBase, orden: null, razon_orden: "cese_pendiente", estado_clave: "no_disponible" }).razon_orden, "cese_pendiente");
 });
 
 test("quien ya presta servicios en modo excluir no entra en la selección del llamamiento", async () => {

@@ -6,6 +6,8 @@
     {"variable": "VEC_AUTH_MODE", "tipo": "comun", "uso_real": true, "nota": "Segunda llave de desarrollo."},
     {"variable": "VEC_DEVELOPMENT_GUARD", "tipo": "comun", "uso_real": true, "nota": "Reconocimiento expreso de la doble llave."},
     {"variable": "VEC_DEVELOPMENT_MATERIAL_DIR", "tipo": "comun", "uso_real": true, "nota": "Material privado de identidad (bolsa-bback.json, bolsa-candidato.json, claves)."},
+    {"variable": "VEC_MATERIAL_PORTAL_EXTERNO_DIR", "tipo": "comun", "uso_real": false, "nota": "Material privado externo separado para Mi Bolsa, Preferencias e inscripción del aspirante en el proceso combinado."},
+    {"variable": "VEC_DOCUMENTOS_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_DEVELOPMENT_MATERIAL_DIR"], "nota": "Servicio de Documentos con identidad/documentos.json dentro del material de identidad."},
     {"variable": "VEC_USUARIOS_PREFERENCIAS_ENABLED", "tipo": "selector", "uso_real": false, "nota": "Preferencias del usuario; base de «Mis correos»."},
     {"variable": "VEC_USUARIOS_CORREOS_ENABLED", "tipo": "selector", "uso_real": false, "requiere": ["VEC_USUARIOS_PREFERENCIAS_ENABLED"], "nota": "«Mis correos»; los avisos de Bolsa por correo cuelgan de aquí."},
     {"variable": "VEC_RRHH_AUDITORIA_ENABLED", "tipo": "selector", "uso_real": false, "requiere": ["VEC_BOLSA_BORRADORES_ENABLED", "VEC_CT_CONSULTAS_RRHH_DATABASE_URL", "VEC_CT_MOTIVOS_RRHH_DATABASE_URL", "VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL", "VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL", "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL"], "nota": "Consulta de auditoría de RRHH sobre expedientes de CT y Bolsa."},
@@ -22,6 +24,7 @@
     {"variable": "VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL", "tipo": "conexion", "uso_real": true, "requiere": ["VEC_CT_REGISTRO_IDENTIDAD_DATABASE_URL", "VEC_CT_CONSULTAS_RRHH_DATABASE_URL"]},
     {"variable": "VEC_CT_CONTEXTO_ACTOR_DATABASE_URL", "tipo": "conexion", "uso_real": true, "requiere": ["VEC_CT_REGISTRO_IDENTIDAD_DATABASE_URL", "VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL"]},
 
+    {"variable": "VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Configuración privada del cliente de organización y RPT para seleccionar desde la bolsa constituida; sin ella esa selección permanece cerrada."},
     {"variable": "VEC_CT_REGLAS_SOURCE_PATH", "tipo": "catalogo", "uso_real": true, "nota": "Reglas de CT; lo exigen cese, cancelación e incorporación acreditada."},
     {"variable": "VEC_CT_REGLAS_AJUSTES_MOTIVOS_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Motivos que RRHH puede elegir al cambiar un plazo de CT."},
     {"variable": "VEC_CT_CAUSAS_CESE_SOURCE_PATH", "tipo": "catalogo", "uso_real": true},
@@ -42,7 +45,9 @@
     {"variable": "VEC_CT_INCORPORACION_ACREDITADA_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_SEGUIMIENTO_CESE_ENABLED", "VEC_CT_REGLAS_SOURCE_PATH", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL"], "nota": "Confirmación de GINPIX e incorporación; la baja por no incorporación usa su propio relevo."},
     {"variable": "VEC_CT_REINCORPORACION_TITULAR_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_SEGUIMIENTO_CESE_ENABLED", "VEC_BOLSA_BORRADORES_ENABLED"]},
     {"variable": "VEC_CT_FIRMA_REGISTRO_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_CT_CIRCUITO_FIRMA_SOURCE_PATH"]},
+    {"variable": "VEC_CT_ORIGINAL_FIRMABLE_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_DOCUMENTOS_ENABLED"], "nota": "Preparación y recuperación del original custodiado para firma."},
     {"variable": "VEC_CT_FIRMAS_R5_V2_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_CT_GOBIERNO_DATABASE_URL", "VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL"]},
+    {"variable": "VEC_CT_FIRMA_VEC_R5_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_FIRMA_REGISTRO_ENABLED", "VEC_CT_ORIGINAL_FIRMABLE_ENABLED", "VEC_CT_FIRMAS_R5_V2_ENABLED", "VEC_DOCUMENTOS_ENABLED"], "nota": "Firma nominal con certificado en el circuito CT."},
     {"variable": "VEC_CT_PLANTILLAS_GOBIERNO_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_CT_PLANTILLAS_SOURCE_PATH"]},
     {"variable": "VEC_CT_PLANTILLAS_DOCUMENTAL_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_CT_PLANTILLAS_SOURCE_PATH"]},
     {"variable": "VEC_CT_PROVISION_PERFILES_CENTRO_APROBACION", "tipo": "ajuste", "uso_real": false, "requiere": ["VEC_CT_PROVISION_PERFILES_CENTRO_PREIMAGENES"], "nota": "Sin las preimágenes la aprobación se ignora en silencio."},
@@ -68,8 +73,10 @@
     {"variable": "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL", "tipo": "conexion", "uso_real": false, "requiere": ["VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL", "VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL"]},
 
     {"variable": "VEC_BOLSA_REGLAS_SOURCE_PATH", "tipo": "catalogo", "uso_real": true},
+    {"variable": "VEC_BOLSA_TRANSICIONES_GOBIERNO_CONFIG_JSON", "tipo": "catalogo", "uso_real": false, "nota": "Selecciona el catálogo normativo, el perfil activo y el motivo publicados para consultar y editar las reglas de situación. Sin selección válida solo se cierra esta función."},
     {"variable": "VEC_BOLSA_ROLES_SEGREGACION_SOURCE_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Sin él rige la exclusión de siempre."},
     {"variable": "VEC_BOLSA_CORREO_LLAMAMIENTO_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Sin él rige el catálogo versionado del correo."},
+    {"variable": "VEC_BOLSA_AVISO_OFERTA_ENLACE", "tipo": "ajuste", "uso_real": false, "nota": "Enlace HTTPS a Mi Bolsa para el aviso de ofertas. Sin él o si es inválido se conservan los avisos pendientes."},
     {"variable": "VEC_BOLSA_CANALES_LLAMAMIENTO_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Sin él rige el catálogo versionado: correo y teléfono activos; SMS y Telegram apagados."},
     {"variable": "VEC_BOLSA_PUBLIC_SOURCE_PATH", "tipo": "catalogo", "uso_real": false},
     {"variable": "VEC_BOLSA_CATEGORIES_SOURCE_PATH", "tipo": "catalogo", "uso_real": false, "requiere": ["VEC_BOLSA_CATEGORIES_CATALOG_ID", "VEC_BOLSA_CATEGORIES_CATALOG_VERSION", "VEC_BOLSA_CATEGORIES_CATALOG_SHA256"]},
@@ -91,10 +98,12 @@
     {"variable": "VEC_BOLSA_CARGA_CONVOCA_PROVISION_PREIMAGEN_SHA256", "tipo": "ajuste", "uso_real": false, "nota": "Retirada: la aplicación rechaza su presencia; la carga exige una plantilla publicada por administración."},
     {"variable": "VEC_BOLSA_CARGA_CONVOCA_PROVISION_OBJETIVO_SHA256", "tipo": "ajuste", "uso_real": false, "nota": "Retirada: la aplicación rechaza su presencia; la carga exige una plantilla publicada por administración."},
 
+    {"variable": "VEC_BOLSA_B103_FUENTE_AUTORIZACION_DATABASE_URL", "tipo": "conexion", "uso_real": false, "requiere": ["VEC_BOLSA_BORRADORES_ENABLED"], "nota": "LOGIN privado miembro solo de vec_autorizacion_fuente; habilita la lectura auditada de respuestas en el seguimiento. Sin él, solo ese seguimiento falla cerrado."},
     {"variable": "VEC_BOLSA_BORRADORES_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_CT_DATABASE_URL", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL", "VEC_DEVELOPMENT_MATERIAL_DIR"], "nota": "Pantallas internas de RRHH de Bolsa (borrador de llamamiento, B-BACK)."},
     {"variable": "VEC_BOLSA_PORTAL_CANDIDATO_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_BOLSA_REGLAS_SOURCE_PATH", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "VEC_DEVELOPMENT_MATERIAL_DIR"], "nota": "Acciones propias del candidato en «Mi bolsa»."},
     {"variable": "VEC_BOLSA_POLITICA_OFERTAS_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_BOLSA_BORRADORES_ENABLED", "VEC_BOLSA_POLITICA_OFERTAS_CALCULADOR_DATABASE_URL"]},
     {"variable": "VEC_BOLSA_CESE_CT_ENABLED", "tipo": "selector", "uso_real": true, "requiere": ["VEC_BOLSA_BORRADORES_ENABLED", "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL", "VEC_BOLSA_CESE_CT_DATABASE_URL"], "nota": "Vuelta a Bolsa tras el cese en CT; necesita el relevo de contratos activo."},
-    {"variable": "VEC_BOLSA_AVISOS_MIS_CORREOS_ENABLED", "tipo": "selector", "uso_real": false, "requiere": ["VEC_USUARIOS_CORREOS_ENABLED", "VEC_USUARIOS_PREFERENCIAS_ENABLED"], "nota": "Avisos de ofertas de Bolsa por correo."}
+    {"variable": "VEC_BOLSA_AVISOS_MIS_CORREOS_ENABLED", "tipo": "selector", "uso_real": false, "requiere": ["VEC_USUARIOS_CORREOS_ENABLED", "VEC_USUARIOS_PREFERENCIAS_ENABLED"], "nota": "Avisos de ofertas de Bolsa por correo."},
+    {"variable": "VEC_BOLSA_PREFERENCIAS_INTERNA_ENABLED", "tipo": "selector", "uso_real": false, "requiere": ["VEC_USUARIOS_PREFERENCIAS_ENABLED"], "nota": "Orden de bolsas de Mi Bolsa con la sesión corporativa; sin sus piezas solo esa ruta responde 503."}
   ]
 }

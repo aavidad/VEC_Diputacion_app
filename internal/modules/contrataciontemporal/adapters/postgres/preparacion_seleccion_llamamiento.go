@@ -86,7 +86,7 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaAviso
 	defer cancelar()
 	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
-		return vacio, errorLecturaSeleccion(ctx)
+		return vacio, errorLecturaSeleccion(ctx, err)
 	}
 	defer revertirTransaccion(tx)
 	var contenido []byte
@@ -95,16 +95,26 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaAviso
 		organizacion, referencia, llamamiento).Scan(&contenido, &actual)
 	defer borrarBytes(contenido)
 	var expediente domain.Expediente
-	if err != nil || actual < 6 || actual > int64(ports.MaximoEnteroSeguroIntegracionBolsa) ||
-		len(contenido) > 3*1024*1024 || decodificarExpedienteSQL(contenido, &expediente) != nil ||
-		expediente.Validar() != nil || expediente.Referencia != referencia || expediente.OrganizacionRef != organizacion ||
+	if err != nil {
+		return vacio, errorLecturaSeleccion(ctx, err)
+	}
+	if actual < 6 || actual > int64(ports.MaximoEnteroSeguroIntegracionBolsa) || len(contenido) > 3*1024*1024 {
+		return vacio, errorLecturaSeleccion(ctx)
+	}
+	if err := decodificarExpedienteSQL(contenido, &expediente); err != nil {
+		return vacio, errorLecturaSeleccion(ctx, err)
+	}
+	if err := expediente.Validar(); err != nil {
+		return vacio, errorLecturaSeleccion(ctx, err)
+	}
+	if expediente.Referencia != referencia || expediente.OrganizacionRef != organizacion ||
 		expediente.Version < 6 || expediente.Version > uint64(actual) ||
 		expediente.FaseActual != domain.FaseFiscalizacion || expediente.EstadoActual != domain.EstadoEnCurso ||
 		expediente.Fiscalizacion == nil || expediente.Fiscalizacion.Resultado == domain.FiscalizacionDesfavorable {
 		return vacio, errorLecturaSeleccion(ctx)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return vacio, errorLecturaSeleccion(ctx)
+		return vacio, errorLecturaSeleccion(ctx, err)
 	}
 	return ports.ExpedienteParaSeleccion{Fiscalizado: expediente, VersionActual: uint64(actual)}, nil
 }
@@ -138,9 +148,24 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerNumeroVisibleVigent
 	return numero, nil
 }
 
-func errorLecturaSeleccion(ctx context.Context) error {
+// El texto permanece público y fijo. Unwrap conserva la causa para el
+// clasificador seguro del servidor, sin incluir mensajes SQL en Error.
+type errorLecturaSeleccionConCausa struct{ causa error }
+
+func (e errorLecturaSeleccionConCausa) Error() string {
+	return ports.ErrIntegracionBolsaNoDisponible.Error()
+}
+
+func (e errorLecturaSeleccionConCausa) Unwrap() []error {
+	return []error{ports.ErrIntegracionBolsaNoDisponible, e.causa}
+}
+
+func errorLecturaSeleccion(ctx context.Context, causas ...error) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
+	}
+	if len(causas) > 0 && causas[0] != nil {
+		return errorLecturaSeleccionConCausa{causa: causas[0]}
 	}
 	return ports.ErrIntegracionBolsaNoDisponible
 }

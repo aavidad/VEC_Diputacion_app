@@ -164,7 +164,12 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Registrar(ctx context.Contex
 	if ctx.Err() != nil {
 		return vacio, ctx.Err()
 	}
-	if err != nil || expediente.Fiscalizado.Validar() != nil ||
+	if err != nil {
+		slog.ErrorContext(ctx, "contratacion temporal: lectura de aviso confirmado no disponible",
+			"etapa", "leer_expediente_aviso_confirmado", "causa", causaFalloPostgreSQLCTDesarrollo(err))
+		return vacio, application.ErrComunicacionLlamamientoNoDisponible
+	}
+	if expediente.Fiscalizado.Validar() != nil ||
 		!expedienteComunicacionLlamamientoDesarrolloValido(expediente, solicitud) {
 		return vacio, application.ErrComunicacionLlamamientoNoDisponible
 	}
@@ -365,7 +370,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) despacharCorreoSintetico(ctx
 	mensaje := smtp.Mensaje{
 		Destino:     fmt.Sprintf("candidatura-%x@sintetico.invalid", sumaDestinatario[:6]),
 		Asunto:      fmt.Sprintf("Llamamiento de contratación temporal: expediente %s", numero),
-		Cuerpo:      fmt.Sprintf("Diputación de Granada — Recursos Humanos.\nLlamamiento de contratación temporal.\n\nExpediente: %s\nCategoría: %s\nCentro: %s\nPlazo de respuesta: pendiente de definición por RRHH; este mensaje no abre plazo.\n\nPerfil de desarrollo con datos sintéticos: este correo no acredita entrega ni produce efectos administrativos.", numero, expediente.Solicitud.CategoriaRef, expediente.Solicitud.CentroRef),
+		Cuerpo:      fmt.Sprintf("Diputación de Granada — Recursos Humanos.\nLlamamiento de contratación temporal.\n\nExpediente: %s\nCategoría: %s\nCentro: %s\n\nPara responder a este llamamiento, póngase en contacto con el Servicio de Recursos Humanos.", numero, expediente.Solicitud.CategoriaRef, expediente.Solicitud.CentroRef),
 		MessageID:   fmt.Sprintf("<llamamiento-%x@sintetico.invalid>", sumaMensaje[:12]),
 		FechaOrigen: recibo.RegistradaEn,
 	}

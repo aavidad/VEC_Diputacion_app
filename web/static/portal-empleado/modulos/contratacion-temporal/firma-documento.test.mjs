@@ -139,8 +139,8 @@ test("fusiona el estado real y deja cerrados los controles del paso pendiente", 
   assert.equal(fusion.documentos[0].pasos[1].estado, "pendiente_firma");
   assert.equal(renderizarAccionesPaso(fusion, fusion.documentos[0], fusion.documentos[0].pasos[0], t), "");
   const html = renderizarAccionesPaso(fusion, fusion.documentos[0], fusion.documentos[0].pasos[1], t);
-  assert.match(html, /<button[^>]*disabled[^>]*>Firmar en PRUEBA<\/button>/u);
-  assert.match(html, /<button[^>]*disabled[^>]*>Devolver en PRUEBA<\/button>/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Firmar con certificado<\/button>/u);
+  assert.match(html, /<button[^>]*disabled[^>]*>Devolver<\/button>/u);
   assert.match(html, /Todavía no puede firmar este documento con certificado en VEC/u);
   assert.doesNotMatch(html, /data-ct-firma-accion=|<label|<textarea/u);
   assert.equal(fusionarEstadoFirmas(circuitoCatalogo(), validarEstadoFirmas(estadoServidor({ huella_sha256: "f".repeat(64) }))), null);
@@ -181,10 +181,11 @@ test("clics forjados de firma y devolución no descargan, no abren AutoFirma ni 
   assert.deepEqual(efectos, { descarga: 0, autofirma: 0, registro: 0, aviso: 0 });
 });
 
-test("la ayuda y los textos dicen que la firma no tiene eficacia administrativa", async () => {
+test("la ayuda y los textos explican el paso siguiente sin avisos de no validez", async () => {
   const ayuda = await readFile(new URL("../../../textos/es/portal-ayuda.json", import.meta.url), "utf8");
-  assert.match(ayuda, /"ayuda_contenido_421": ".*AutoFirma.*no tiene eficacia administrativa.*portafirmas corporativo/u);
-  assert.match(t("circuito_firma_registrada", { recibo: "r" }), /No tiene eficacia administrativa hasta el portafirmas corporativo/u);
+  assert.match(ayuda, /"ayuda_contenido_421": ".*AutoFirma.*portafirmas corporativo/u);
+  assert.doesNotMatch(ayuda, /"ayuda_contenido_421": "[^"]*(?:prueba|eficacia)/u);
+  assert.match(t("circuito_firma_registrada", { recibo: "r" }), /Siguiente paso: Portafirmas/u);
 });
 
 test("cliente del registro: el PDF firmado custodiado se valida en estado y recibo", () => {

@@ -2,10 +2,13 @@ package postgres
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -24,6 +27,7 @@ import (
 type RepositorioConstitucionPostgreSQL struct{ pool *pgxpool.Pool }
 
 var _ ports.RepositorioConstitucion = (*RepositorioConstitucionPostgreSQL)(nil)
+var _ ports.FuenteOrigenLlamamientoCT = (*RepositorioConstitucionPostgreSQL)(nil)
 
 func NuevoRepositorioConstitucionPostgreSQL(pool *pgxpool.Pool) (*RepositorioConstitucionPostgreSQL, error) {
 	if pool == nil {
@@ -155,6 +159,19 @@ func (recibo reciboConstitucionJSON) traducir() (ports.ReciboConstitucion, error
 }
 
 func (r *RepositorioConstitucionPostgreSQL) ListarVigentes(ctx context.Context) ([]ports.ConstitucionVigente, error) {
+	return r.listarVigentes(ctx, "", false)
+}
+
+// ListarVigentesBolsa usa la misma función y validador que ListarVigentes,
+// filtrando antes de transferir y validar los canónicos de otras bolsas.
+func (r *RepositorioConstitucionPostgreSQL) ListarVigentesBolsa(ctx context.Context, bolsaRef string) ([]ports.ConstitucionVigente, error) {
+	if bolsaRef == "" || bolsaRef != strings.TrimSpace(bolsaRef) || len(bolsaRef) > 512 {
+		return nil, ports.ErrConstitucionBolsaNoDisponible
+	}
+	return r.listarVigentes(ctx, bolsaRef, true)
+}
+
+func (r *RepositorioConstitucionPostgreSQL) listarVigentes(ctx context.Context, bolsaRef string, filtrada bool) ([]ports.ConstitucionVigente, error) {
 	if ctx == nil || r == nil || r.pool == nil {
 		return nil, ports.ErrConstitucionBolsaNoDisponible
 	}
@@ -163,8 +180,14 @@ func (r *RepositorioConstitucionPostgreSQL) ListarVigentes(ctx context.Context) 
 		return nil, ports.ErrConstitucionBolsaNoDisponible
 	}
 	defer tx.Rollback(context.Background())
-	filas, err := tx.Query(ctx, `SELECT acta_ref, categoria_ref, estado, instantanea_canonica, total_participaciones, confirmada_en
-		FROM vec_bolsa_llamamientos.listar_constituciones_v1()`)
+	consulta := `SELECT acta_ref, categoria_ref, estado, instantanea_canonica, total_participaciones, confirmada_en
+		FROM vec_bolsa_llamamientos.listar_constituciones_v1()`
+	var filas pgx.Rows
+	if filtrada {
+		filas, err = tx.Query(ctx, consulta+` WHERE bolsa_ref=$1`, bolsaRef)
+	} else {
+		filas, err = tx.Query(ctx, consulta)
+	}
 	if err != nil {
 		return nil, errorConstitucion(ctx, err)
 	}
@@ -186,6 +209,9 @@ func (r *RepositorioConstitucionPostgreSQL) ListarVigentes(ctx context.Context) 
 		v.Bolsa = dominio.BolsaConstituida{BolsaRef: instantanea.BolsaRef, Version: instantanea.VersionBolsa,
 			CategoriaRef: v.CategoriaRef, ListadoDefinitivoRef: instantanea.ListadoDefinitivoRef,
 			VersionListado: instantanea.VersionListado, HuellaListadoSHA256: instantanea.HuellaListadoSHA256}
+		if filtrada && (v.Bolsa.BolsaRef != bolsaRef || len(resultado) != 0) {
+			return nil, ports.ErrConstitucionBolsaNoDisponible
+		}
 		resultado = append(resultado, v)
 	}
 	if filas.Err() != nil {
@@ -348,4 +374,135 @@ func (r *RepositorioConstitucionPostgreSQL) BolsaConstituidaVigente(ctx context.
 		return false, errorConstitucion(ctx, err)
 	}
 	return vigente, nil
+}
+
+// ConsultarOrigenLlamamientoCT entrega el orden completo que decide Bolsa. B110
+// obtiene canónicos, política y orden en un único snapshot PostgreSQL.
+const consultaOrigenLlamamientoCT = `SELECT acta_ref,categoria_ref,bolsa_ref,version_bolsa,
+ huella_bolsa_sha256,bolsa_canonica,instantanea_ref,version_instantanea,
+ huella_instantanea_sha256,instantanea_canonica,politica_ref,version_politica,
+ politica_canonica,politica_provisional,corte,bolsa_vigente_hasta,politica_vigente_hasta,entradas
+ FROM vec_bolsa_llamamientos.leer_origen_llamamiento_ct_v1($1::text)`
+
+func (r *RepositorioConstitucionPostgreSQL) ConsultarOrigenLlamamientoCT(ctx context.Context, categoriaRef string) (ports.OrigenLlamamientoCT, error) {
+	if ctx == nil || r == nil || r.pool == nil || categoriaRef == "" || categoriaRef != strings.TrimSpace(categoriaRef) || len(categoriaRef) > 512 {
+		return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	return decodificarOrigenLlamamientoCT(ctx, r.pool.QueryRow(ctx, consultaOrigenLlamamientoCT, categoriaRef), categoriaRef)
+}
+
+func decodificarOrigenLlamamientoCT(ctx context.Context, fila pgx.Row, categoriaRef string) (ports.OrigenLlamamientoCT, error) {
+	var o ports.OrigenLlamamientoCT
+	var bolsaCanon, instantaneaCanon, politicaCanon, entradasJSON []byte
+	var versionBolsa, versionInstantanea, versionPolitica int64
+	err := fila.Scan(
+		&o.ActaRef, &o.CategoriaRef, &o.BolsaRef, &versionBolsa,
+		&o.HuellaBolsaSHA256, &bolsaCanon, &o.InstantaneaRef, &versionInstantanea,
+		&o.HuellaInstantaneaSHA256, &instantaneaCanon, &o.PoliticaRef, &versionPolitica,
+		&politicaCanon, &o.PoliticaProvisional, &o.Corte, &o.BolsaVigenteHasta, &o.PoliticaVigenteHasta, &entradasJSON)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "P1101" {
+			return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTAmbiguo
+		}
+		return ports.OrigenLlamamientoCT{}, errorConstitucion(ctx, err)
+	}
+	if versionBolsa <= 0 || versionInstantanea <= 0 || versionPolitica <= 0 ||
+		categoriaRef != o.CategoriaRef || o.ActaRef == "" || o.BolsaRef == "" || o.InstantaneaRef == "" || o.PoliticaRef == "" ||
+		huellaCanonicaOrigenCT(bolsaCanon) != o.HuellaBolsaSHA256 ||
+		huellaCanonicaOrigenCT(instantaneaCanon) != o.HuellaInstantaneaSHA256 {
+		return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	var bolsa dominio.BolsaConstituida
+	var instantanea dominio.InstantaneaOrdenBolsa
+	if json.Unmarshal(bolsaCanon, &bolsa) != nil || json.Unmarshal(instantaneaCanon, &instantanea) != nil ||
+		bolsa.Validar() != nil || instantanea.Validar() != nil ||
+		bolsa.BolsaRef != o.BolsaRef || bolsa.Version != uint64(versionBolsa) || bolsa.CategoriaRef != categoriaRef ||
+		instantanea.BolsaRef != o.BolsaRef || instantanea.VersionBolsa != uint64(versionBolsa) ||
+		instantanea.InstantaneaRef != o.InstantaneaRef || instantanea.Version != uint64(versionInstantanea) ||
+		instantanea.HuellaBolsaSHA256 != o.HuellaBolsaSHA256 {
+		return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	var entradas []struct {
+		EventosRelacion  *[]string `json:"eventos_relacion,omitempty"`
+		OrdenActa        uint64    `json:"orden_acta"`
+		OrdenVigente     *uint64   `json:"orden_vigente"`
+		ParticipacionRef string    `json:"participacion_ref"`
+		CandidatoRef     string    `json:"candidato_ref"`
+		Situacion        string    `json:"situacion"`
+		Razon            string    `json:"razon"`
+	}
+	if json.Unmarshal(entradasJSON, &entradas) != nil || len(entradas) != len(instantanea.Entradas) || len(entradas) == 0 {
+		return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	o.Entradas = make([]ports.EntradaOrigenLlamamientoCT, len(entradas))
+	for i, e := range entradas {
+		if e.OrdenActa != uint64(i+1) || e.OrdenActa != instantanea.Entradas[i].Orden ||
+			e.ParticipacionRef != instantanea.Entradas[i].Participacion.ParticipacionRef ||
+			e.Situacion == "" || e.Razon == "" || (e.OrdenVigente != nil && (e.CandidatoRef == "" || *e.OrdenVigente == 0)) {
+			return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+		}
+		o.Entradas[i] = ports.EntradaOrigenLlamamientoCT{OrdenActa: e.OrdenActa,
+			EventosRelacion: e.EventosRelacion,
+			OrdenVigente:    e.OrdenVigente, ParticipacionRef: e.ParticipacionRef,
+			CandidatoRef: e.CandidatoRef, Situacion: e.Situacion, Razon: e.Razon,
+			Elegible: e.OrdenVigente != nil}
+	}
+	o.VersionBolsa, o.VersionInstantanea, o.VersionPolitica = uint64(versionBolsa), uint64(versionInstantanea), uint64(versionPolitica)
+	o.BolsaCanonica, o.InstantaneaCanonica = append([]byte(nil), bolsaCanon...), append([]byte(nil), instantaneaCanon...)
+	o.HuellaPoliticaSHA256 = huellaCanonicaOrigenCT(politicaCanon)
+	o.Corte = o.Corte.UTC()
+	if validarLecturaOrigenCT(o) != nil {
+		return ports.OrigenLlamamientoCT{}, ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	return o, nil
+}
+
+func validarLecturaOrigenCT(o ports.OrigenLlamamientoCT) error {
+	if err := o.CriteriosOfrecimiento.Validar(); err != nil {
+		return err
+	}
+	if o.ActaRef == "" || o.CategoriaRef == "" || o.BolsaRef == "" || o.PoliticaRef == "" ||
+		o.VersionBolsa == 0 || o.VersionInstantanea == 0 || o.VersionPolitica == 0 ||
+		o.Corte.IsZero() ||
+		huellaCanonicaOrigenCT(o.BolsaCanonica) != o.HuellaBolsaSHA256 ||
+		huellaCanonicaOrigenCT(o.InstantaneaCanonica) != o.HuellaInstantaneaSHA256 ||
+		len(o.Entradas) == 0 {
+		return ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	var bolsa dominio.BolsaConstituida
+	var instantanea dominio.InstantaneaOrdenBolsa
+	if json.Unmarshal(o.BolsaCanonica, &bolsa) != nil || json.Unmarshal(o.InstantaneaCanonica, &instantanea) != nil ||
+		bolsa.Validar() != nil || instantanea.Validar() != nil ||
+		bolsa.BolsaRef != o.BolsaRef || bolsa.Version != o.VersionBolsa || bolsa.CategoriaRef != o.CategoriaRef ||
+		instantanea.InstantaneaRef != o.InstantaneaRef || instantanea.Version != o.VersionInstantanea ||
+		instantanea.BolsaRef != o.BolsaRef || instantanea.VersionBolsa != o.VersionBolsa ||
+		instantanea.HuellaBolsaSHA256 != o.HuellaBolsaSHA256 || len(o.Entradas) != len(instantanea.Entradas) {
+		return ports.ErrOrigenLlamamientoCTNoDisponible
+	}
+	for i, entrada := range o.Entradas {
+		if o.CriteriosOfrecimiento != nil && entrada.EventosRelacion == nil {
+			return ports.ErrOrigenLlamamientoCTNoDisponible
+		}
+		if entrada.EventosRelacion != nil {
+			for _, ref := range *entrada.EventosRelacion {
+				if ref == "" {
+					return ports.ErrOrigenLlamamientoCTNoDisponible
+				}
+			}
+		}
+		if entrada.OrdenActa != uint64(i+1) || entrada.OrdenActa != instantanea.Entradas[i].Orden ||
+			entrada.ParticipacionRef != instantanea.Entradas[i].Participacion.ParticipacionRef ||
+			entrada.Situacion == "" || entrada.Razon == "" ||
+			entrada.Elegible != (entrada.OrdenVigente != nil) ||
+			(entrada.Elegible && (entrada.CandidatoRef == "" || *entrada.OrdenVigente == 0)) {
+			return ports.ErrOrigenLlamamientoCTNoDisponible
+		}
+	}
+	return nil
+}
+
+func huellaCanonicaOrigenCT(canon []byte) string {
+	h := sha256.Sum256(canon)
+	return hex.EncodeToString(h[:])
 }

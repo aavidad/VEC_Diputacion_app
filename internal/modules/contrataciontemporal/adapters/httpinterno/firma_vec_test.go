@@ -61,6 +61,7 @@ func materialRegistroFirmaV2Prueba(via string, pdf []byte) ports.MaterialFirmaVe
 		base.FechaPortafirmasDeclarada = ""
 	}
 	base.PoliticaVerificacion = "politica:vec:firma:verificacion-autonoma:v2"
+	base.CargoFirmante = "car_firmante_001"
 	huella := sha256.Sum256(pdf)
 	base.FirmadoHuella = hex.EncodeToString(huella[:])
 	evidencia := json.RawMessage(`[{}]`)
@@ -69,7 +70,7 @@ func materialRegistroFirmaV2Prueba(via string, pdf []byte) ports.MaterialFirmaVe
 		MaterialFirmaExterna: base, CatalogoVersion: 1,
 		PerfilActivoOperadorRef: "perfil:operador:001", CuentaFirmanteRef: "cuenta:firmante:001",
 		VinculoCredencialFirmanteRef: "vinculo:credencial:001", VinculoCredencialFirmanteRevision: 1,
-		VinculoCredencialFirmanteHuella: strings.Repeat("a", 64), RolIDFirmante: base.CargoFirmante,
+		VinculoCredencialFirmanteHuella: strings.Repeat("a", 64), RolIDFirmante: "ct_cargo_firmante_001",
 		EntradaDocumentoRef: base.OriginalRef, EntradaDocumentoVersion: base.OriginalVersion, EntradaDocumentoLongitud: 1,
 		EntradaDocumentoHuella: base.OriginalHuella, OrdenFirmaPDF: 1, ByteRange: [4]uint64{0, 1, 2, uint64(len(pdf)) - 2},
 		RevisionHuellaSHA256: base.FirmadoHuella, ContenidoFirmadoHuellaSHA256: strings.Repeat("c", 64), RevisionLongitud: uint64(len(pdf)),

@@ -1,4 +1,5 @@
 export const ESQUEMA_RECUPERACION_FIRMAS_V2 = "vec.contratacion-temporal.recuperacion-firmas-r5.v2";
+export const ESQUEMA_CONSULTA_FIRMAS_V2 = "vec.contratacion-temporal.consulta-firmas-r5.v2";
 
 const REF = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const CLAVE_DOCUMENTO = /^[a-z][a-z0-9_]{1,63}$/u;
@@ -54,7 +55,7 @@ export function validarSolicitudRecuperacionFirmasV2(x) {
   if (!exacto(x, ["expediente_ref", "version_expediente", "documento", "paso_orden",
     "clave_idempotencia", "catalogo_huella", "via"])
     || !coincide(x.expediente_ref, REF) || !entero(x.version_expediente, 1)
-    || !coincide(x.documento, CLAVE_DOCUMENTO) || ![1, 2].includes(x.paso_orden)
+    || !coincide(x.documento, CLAVE_DOCUMENTO) || ![1, 2, 3].includes(x.paso_orden)
     || !coincide(x.clave_idempotencia, CLAVE_IDEMPOTENCIA) || !coincide(x.catalogo_huella, SHA)
     || !["certificado_vec", "portafirmas_registro_rrhh"].includes(x.via)) {
     throw new TypeError("solicitud_recuperacion_firmas_invalida");
@@ -64,7 +65,7 @@ export function validarSolicitudRecuperacionFirmasV2(x) {
 
 function validarFirma(x, solicitud) {
   if (!exacto(x, CAMPOS_FIRMA) || !coincide(x.firma_ref, REF) || !coincide(x.recibo_ref, REF)
-    || !fecha(x.registrada_en) || !entero(x.secuencia, 1) || ![1, 2].includes(x.paso_orden)
+    || !fecha(x.registrada_en) || !entero(x.secuencia, 1) || ![1, 2, 3].includes(x.paso_orden)
     || !coincide(x.paso_ref, REF) || !entero(x.version_expediente, 1)
     || x.version_expediente > solicitud.version_expediente
     || !["", "certificado_vec", "portafirmas_registro_rrhh"].includes(x.via)
@@ -85,11 +86,11 @@ function validarFirma(x, solicitud) {
   }
   if (x.revision_pdf !== null) {
     const r = x.revision_pdf;
-    if (!exacto(r, CAMPOS_REVISION) || ![1, 2].includes(r.orden_firma)
+    if (!exacto(r, CAMPOS_REVISION) || ![1, 2, 3].includes(r.orden_firma)
       || r.orden_firma !== x.paso_orden
       || typeof r.firma_anterior_ref !== "string" || typeof r.recibo_anterior_ref !== "string"
       || r.orden_firma === 1 && (r.firma_anterior_ref !== "" || r.recibo_anterior_ref !== "")
-      || r.orden_firma === 2 && (!coincide(r.firma_anterior_ref, REF) || !coincide(r.recibo_anterior_ref, REF))
+      || r.orden_firma > 1 && (!coincide(r.firma_anterior_ref, REF) || !coincide(r.recibo_anterior_ref, REF))
       || !documento(r.entrada_documento) || !entero(r.entrada_longitud, 1)
       || !Array.isArray(r.byte_range) || r.byte_range.length !== 4
       || !r.byte_range.every((v) => entero(v))
@@ -107,6 +108,52 @@ function validarFirma(x, solicitud) {
         || r.entrada_documento.huella_sha256 !== x.original.huella_sha256
       )) throw new TypeError("revision_historica_invalida");
   }
+}
+
+/** La consulta nominal comparte la validación de cada firma y su cadena con recuperación. */
+export function validarRespuestaConsultaFirmasV2(x, solicitud) {
+  const q = validarSolicitudRecuperacionFirmasV2(solicitud);
+  const claves = ["esquema", "expediente_ref", "version_expediente", "documento", "historia_revision",
+    "historia_sha256", "firmas", "recuperacion", "campos_no_disponibles", "firma_eficaz"];
+  const conGarantia = Object.hasOwn(x ?? {}, "garantia_autenticacion");
+  if (!exacto(x, conGarantia ? ["garantia_autenticacion", ...claves] : claves)
+    || x.esquema !== ESQUEMA_CONSULTA_FIRMAS_V2 || x.expediente_ref !== q.expediente_ref
+    || x.version_expediente !== q.version_expediente || x.documento !== q.documento
+    || !entero(x.historia_revision) || !coincide(x.historia_sha256, SHA)
+    || x.recuperacion !== "parcial" || x.firma_eficaz !== false
+    || !Array.isArray(x.campos_no_disponibles)
+    || x.campos_no_disponibles.length !== 2
+    || !["material_root_sha256", "canon_nominal"].every((campo) => x.campos_no_disponibles.includes(campo))
+    || conGarantia && x.garantia_autenticacion !== "sustancial"
+    || !Array.isArray(x.firmas) || x.firmas.length > 128) {
+    throw new TypeError("respuesta_consulta_firmas_invalida");
+  }
+  const firmas = new Map();
+  for (const firma of x.firmas) {
+    validarFirma(firma, q);
+    if (firma.via !== "" && (firma.resultado !== "firmado"
+      || firma.revision_pdf === null || firma.documento_custodiado === null)) {
+      throw new TypeError("firma_consulta_sin_revision");
+    }
+    if (firma.catalogo_huella !== q.catalogo_huella || firmas.has(firma.firma_ref)) {
+      throw new TypeError("firma_consulta_cruzada");
+    }
+    firmas.set(firma.firma_ref, firma);
+  }
+  for (const firma of firmas.values()) {
+    if (firma.paso_orden < 2 || firma.revision_pdf === null) continue;
+    const revision = firma.revision_pdf;
+    const previa = firmas.get(revision.firma_anterior_ref);
+    if (!previa || previa.paso_orden !== firma.paso_orden - 1 || !previa.revision_pdf
+      || !previa.documento_custodiado || revision.recibo_anterior_ref !== previa.recibo_ref
+      || firma.secuencia !== previa.secuencia + 1
+      || revision.entrada_documento.documento_ref !== previa.documento_custodiado.documento_ref
+      || revision.entrada_documento.version !== previa.documento_custodiado.version
+      || revision.entrada_documento.huella_sha256 !== previa.documento_custodiado.huella_sha256) {
+      throw new TypeError("cadena_consulta_firmas_invalida");
+    }
+  }
+  return Object.freeze({ ...x, firmas: Object.freeze([...firmas.values()].map((firma) => Object.freeze(firma))) });
 }
 
 async function validarCanon(rec, firma, solicitud, cryptoImpl) {
@@ -149,7 +196,7 @@ async function validarCanon(rec, firma, solicitud, cryptoImpl) {
     || canon.circuito?.huella_sha256 !== firma.catalogo_huella
     || canon.fecha_historica !== firma.registrada_en
     || revision.orden_firma === 1 && recurso.entrada_revision !== null
-    || revision.orden_firma === 2 && (
+    || revision.orden_firma > 1 && (
       recurso.entrada_revision?.referencia !== revision.entrada_documento.documento_ref
       || recurso.entrada_revision?.version !== revision.entrada_documento.version
       || recurso.entrada_revision?.huella_sha256 !== revision.entrada_documento.huella_sha256
@@ -182,12 +229,12 @@ export async function validarRespuestaRecuperacionFirmasV2(x, solicitud, cryptoI
     firmas.set(firma.firma_ref, firma);
   }
   for (const firma of firmas.values()) {
-    if (firma.paso_orden !== 2 || firma.revision_pdf === null) continue;
+    if (firma.paso_orden < 2 || firma.revision_pdf === null) continue;
     const revision = firma.revision_pdf;
     const previa = firmas.get(revision.firma_anterior_ref);
     const custodia = previa?.documento_custodiado;
     const revisionPrevia = previa?.revision_pdf;
-    if (!previa || previa.paso_orden !== 1 || !custodia || !revisionPrevia
+    if (!previa || previa.paso_orden !== firma.paso_orden - 1 || !custodia || !revisionPrevia
       || revision.recibo_anterior_ref !== previa.recibo_ref
       || firma.secuencia !== previa.secuencia + 1
       || firma.catalogo_ref !== previa.catalogo_ref

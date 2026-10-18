@@ -53,7 +53,7 @@ async function arrancar(origen = null) {
       // La marca vuelve al portal en el mismo idioma que esta página.
       document.querySelector(".pc-marca")?.setAttribute("href", `/portal-empleado/?lang=${encodeURIComponent(pc.idioma)}`);
       instalarValidacionI18n(document, traducir);
-      const peticiones = await import("./peticiones-centro.js?v=20261009-centro-campos-cohorte-v5");
+      const peticiones = await import("./peticiones-centro.js?v=20261013-ct-firma-tres-v3");
       peticiones.instalarAyudaPeticionCentro(document);
       ayuda.disabled = false;
       await peticiones.iniciarPeticionCentro();
@@ -62,7 +62,7 @@ async function arrancar(origen = null) {
       if (new URLSearchParams(location.search).get("vista") !== "rrhh") {
         await Promise.all([
           import("./incorporaciones-centro.js?v=20261009-retoques-textos-v1"),
-          import("./cancelaciones-centro.js?v=20261009-retoques-textos-v1"),
+          import("./cancelaciones-centro.js?v=20261016-ct-ofertas-ct231-v1"),
         ]);
       }
       montado = true;

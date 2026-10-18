@@ -461,7 +461,7 @@ test("conflicto de contenido en inglés bloquea otro POST y remite al expediente
 test("el expediente fiscalizado seleccionado rellena el formulario sin POST y sin enseñar referencia, versión ni clave", async () => {
   const montaje = await montarExpedienteSeleccionado(estadoSeleccionado());
   const html = montaje.formulario().innerHTML;
-  assert.match(html, /Llamamiento de este expediente/u); assert.match(html, /Llamar a la siguiente persona/u);
+  assert.match(html, /Llamamiento de este expediente/u); assert.match(html, /Llamar a la siguiente persona de la bolsa/u);
   assert.match(html, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value="expediente:ct:sintetico:001"[^>]*type="hidden"/u); assert.match(html, /id="ct-llamamiento-seleccion-version_esperada"[^>]*value="6"[^>]*type="hidden"/u);
   assert.doesNotMatch(html, /clave_idempotencia|data-ct-llamamiento-clave|Versión 6 del expediente|Referencia del expediente|Versión esperada/u);
   assert.equal(montaje.peticiones(), 0);
@@ -504,7 +504,7 @@ test("enlaza fiscalización y exige confirmación sin inventar candidato ni auto
   const raiz = raizPrueba(); let llamadas = 0;
   const desmontar = montar(raiz, { seleccionarLlamamiento: () => { llamadas += 1; } },
     { confirmarOperacion: () => false });
-  assert.equal(desmontar.actualizarContexto({ expediente_ref: EXPEDIENTE, version_esperada: 6 }), true); assert.match(raiz.innerHTML, /Llamamiento de este expediente/u); assert.match(raiz.innerHTML, /value="expediente:ct:sintetico:001"/u);
+  assert.equal(desmontar.actualizarContexto({ expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 }), true); assert.match(raiz.innerHTML, /Llamamiento de este expediente/u); assert.match(raiz.innerHTML, /value="expediente:ct:sintetico:001"/u);
   await raiz.enviar("seleccion", seleccion());
   assert.equal(llamadas, 0); assert.doesNotMatch(raiz.innerHTML, /candidatura_ref|name="actor_ref"/u);
   desmontar();
@@ -524,6 +524,20 @@ test("doble envío no duplica operación y el recibo minimizado abre comunicaci�
   assert.match(raiz.innerHTML, /<details data-ct-llamamiento-datos-registrados="seleccion"><summary>Ver los datos guardados<\/summary>/u);
   assert.match(raiz.innerHTML, /<\/form>\s*<\/details>[\s\S]*?data-ct-llamamiento-recibo="seleccion"/u);
   assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="seleccion"/u); assert.match(raiz.innerHTML, /data-ct-llamamiento-comunicacion open/u); assert.doesNotMatch(raiz.innerHTML, /Persona llamada\. El justificante no muestra sus datos\./u); assert.equal(solicitudes[0].version_esperada, 6);
+});
+
+test("el recibo de selección señala el orden provisional solo cuando Bolsa lo afirma", async () => {
+  for (const valor of [undefined, false, true]) {
+    const raiz = raizPrueba();
+    const desmontar = montar(raiz, { seleccionarLlamamiento: async () =>
+      valor === undefined ? recibo : { ...recibo, politica_provisional: valor } });
+    await raiz.enviar("seleccion", seleccion());
+    const reciboVisible = raiz.innerHTML.match(/<section class="ct-recibo" data-ct-llamamiento-recibo="seleccion"[\s\S]*?<\/section>/u)?.[0];
+    assert.ok(reciboVisible);
+    assert.equal(reciboVisible.includes("Se aplicó el orden provisional de la bolsa"), valor === true);
+    assert.doesNotMatch(reciboVisible, /aprobado|aprobada|politica_provisional|servidor|SHA/u);
+    desmontar();
+  }
 });
 
 test("respuesta perdida: recuperación usa petición congelada aunque cambien controles", async () => {
@@ -663,7 +677,7 @@ test("aceptación tras subsanación ofrece propuesta v8 y conserva recibo v9", a
     propuesta_ref: "propuesta:sintetica:posterior", recibo_local_ref: "recibo:propuesta:posterior",
     version_resultante: 9, confirmada_en: "2026-09-06T10:00:00.123456Z" };
   },
- }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 8 },
+ }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 8, numero_personas: 1 },
   fetchPublicaciones: async () => new Response(PUBLICACIONES_PROPUESTA,
    { status: 200, headers: { "Content-Type": "application/json" } }) });
  await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });

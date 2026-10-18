@@ -27,7 +27,7 @@ const (
 
 // EsRutaPortal indica si la ruta pertenece a «Mi bolsa» del candidato.
 func EsRutaPortal(ruta string) bool {
-	return ruta == RutaMiBolsa || ruta == RutaMiBolsaHistorial || ruta == RutaMiBolsaSolicitudes || ruta == RutaMiBolsaSolicitudesDocumentales || ruta == RutaMiBolsaRespuestas || ruta == RutaMiBolsaDisposiciones || ruta == RutaMiBolsaContacto
+	return ruta == RutaJustificantesMiBolsa || ruta == RutaMiBolsa || ruta == RutaMiBolsaHistorial || ruta == RutaMiBolsaSolicitudes || ruta == RutaMiBolsaSolicitudesDocumentales || ruta == RutaMiBolsaRespuestas || ruta == RutaMiBolsaDisposiciones || ruta == RutaMiBolsaContacto || ruta == RutaPreferenciasBolsas
 }
 
 // AccionPortalEn devuelve las acciones que admite cada ruta y método.
@@ -37,6 +37,10 @@ func AccionPortalEn(metodo, ruta string) []string {
 		return []string{puertosbolsa.AccionConsultarMiBolsa}
 	case metodo == http.MethodGet && ruta == RutaMiBolsaHistorial:
 		return []string{puertosbolsa.AccionConsultarHistorialPropio}
+	case metodo == http.MethodGet && ruta == RutaPreferenciasBolsas:
+		return []string{puertosbolsa.AccionConsultarPreferenciasBolsas}
+	case metodo == http.MethodPut && ruta == RutaPreferenciasBolsas:
+		return []string{puertosbolsa.AccionOrdenarPreferenciasBolsas}
 	case metodo == http.MethodPost && ruta == RutaMiBolsaSolicitudes:
 		return []string{puertosbolsa.AccionSolicitarPausaPropia, puertosbolsa.AccionSolicitarReactivacionPropia}
 	case metodo == http.MethodPost && ruta == RutaMiBolsaSolicitudesDocumentales:
@@ -345,6 +349,7 @@ type estadoPortal struct {
 		Modo         string `json:"modo"`
 		Recibo       string `json:"recibo"`
 		RespondidaEn string `json:"respondida_en"`
+		EnRevision   bool   `json:"en_revision"`
 	} `json:"ultima_respuesta"`
 }
 
@@ -407,7 +412,8 @@ func respuestaPortal(i puertosbolsa.InstantaneaMiBolsa) ([]estadoPortal, *accion
 				Modo         string `json:"modo"`
 				Recibo       string `json:"recibo"`
 				RespondidaEn string `json:"respondida_en"`
-			}{Respuesta: u.Respuesta, Modo: u.Modo, Recibo: u.Recibo, RespondidaEn: u.RespondidaEn.UTC().Format(formatoInstantePortal)}
+				EnRevision   bool   `json:"en_revision"`
+			}{Respuesta: u.Respuesta, Modo: u.Modo, Recibo: u.Recibo, RespondidaEn: u.RespondidaEn.UTC().Format(formatoInstantePortal), EnRevision: u.EnRevision}
 		}
 		estados = append(estados, e)
 	}

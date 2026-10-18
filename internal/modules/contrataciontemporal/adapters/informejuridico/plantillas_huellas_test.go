@@ -35,35 +35,34 @@ func variantesHuellas() map[string]struct {
 	}{"base": {base, nil}, "rico": {rico, et}, "vacio": {vacio, et}, "v9": {detalleInformeDefinitivoPruebaVersionNueve(), nil}}
 }
 
-// huellasPDFAnteriores son los SHA-256 de los PDF que generaba el texto
-// escrito en Go antes de pasar al catálogo de plantillas. La resolución de
-// formalización conserva la huella de su PDF: el catálogo de ejemplo debe
-// reproducir exactamente los mismos bytes.
+// huellasPDFAnteriores fijan los PDF del catálogo que reproducen el contenido
+// antes escrito en Go, con cabecera 1.4 y /ID. Los originales ya custodiados
+// conservan sus bytes y huellas previas.
 var huellasPDFAnteriores = map[string]string{
-	"base/comunicacion_centro":  "59059b4cb8bdafce4836660d0e33294b1a95aff697b664eb100abfbfc8d7acd2",
-	"base/diligencia":           "76f14c94e9f6956a5453ae3678230347fd35722ad4d5b435e6feb9288ee0881d",
-	"base/informe_definitivo":   "76a7348d4631306937679b98c692f477e068ded5b76a6e01c3914cdc76653451",
-	"base/notificacion":         "c33840d5a2d3a1d9b0534601c89787b3b4065ada152ab56497e0a3a9e2b473aa",
-	"base/resolucion":           "a85aed6b6972fdc9fcda6111010a06a6d41cf9a3b9c54934f09018131c9dbd72",
-	"base/toma_posesion":        "1c5999411f990cc107087df0e8c63c750ddd0855557e85cdc5fe5d2a61654705",
-	"rico/comunicacion_centro":  "6bf1a74a3638f0f2e784deb1c498d0fb6db11a3c00909fc63b13dc22da129f14",
-	"rico/diligencia":           "3742e6025cff6593c4d83196e593c2ed4d1aa0318c15a86742a37cdc566e4ad5",
-	"rico/informe_definitivo":   "e8c156632ca0114054c289685373063199ed09310fce0ad780772772e56a8425",
-	"rico/notificacion":         "24a70e7ed6e0467bb5c0e7eb3ec94efe99940b9333ce93c0f49e54b9035a0a7e",
-	"rico/resolucion":           "8e1869884d9d2b6dac025f9a924595414eebfb24d92675c8776e035985bafd25",
-	"rico/toma_posesion":        "cab3c7efad95758cdf62b425cf716bdfde0a16605ba7c4dc3c0299552924bc67",
-	"v9/comunicacion_centro":    "5e2ba0aa77d8f0585037ac7e9efa09c9b20f5e87466af4e125ac760087bfb69e",
-	"v9/diligencia":             "3864942a674aa40ab77e1444ff712959207b09dea5b8447d5af2393175d8a98f",
-	"v9/informe_definitivo":     "757ffa2a662a15447c57919ac50b4fe7b8ef45651ae33b1e01fdf6ba56da4175",
-	"v9/notificacion":           "da5c1c12d448110747373941711932ccf3daff650ebec45324b7531342c1e110",
-	"v9/resolucion":             "853f7352340fae44feb31c335f6e25ba3f5594cce670f4ed29e091b4d14c337f",
-	"v9/toma_posesion":          "e2e2b350255cba141edfe95315181e565ec26ed4f2ce70b8869a9e80f788f6ed",
-	"vacio/comunicacion_centro": "2bd78a9de577941c08a980bada6bf724fdc7c3df67a61c3252857bfbd5220760",
-	"vacio/diligencia":          "3742e6025cff6593c4d83196e593c2ed4d1aa0318c15a86742a37cdc566e4ad5",
-	"vacio/informe_definitivo":  "12eb413b0fe13dab1b62e1b22428195cc416f3446003d577733f7c1d8de6598e",
-	"vacio/notificacion":        "24a70e7ed6e0467bb5c0e7eb3ec94efe99940b9333ce93c0f49e54b9035a0a7e",
-	"vacio/resolucion":          "8cc3bf0f2fadbb962a278ac42746bff2e89c060e0900353f774f006a2da567ee",
-	"vacio/toma_posesion":       "a2d3e4e82f8b31f23a384d52dd6e39acf3798f80559c957a6b19dd6f1dd35720",
+	"base/comunicacion_centro":  "9e7fd76d3a1b9fb06e6efdb9632f8c69ed4ad1b4b6c305ed86031b6b3d7748a0",
+	"base/diligencia":           "2f10bbf12311eb513c25554915ad07464bba322d2be8cc4e0e6c5aac55aa7308",
+	"base/informe_definitivo":   "154f25f175ccb995df36a69e0491269a2989f70ef8d9be88d7b5af193aefb994",
+	"base/notificacion":         "b13c6285c9e85de38341a3f47ad76ccfbafd51ec1eaabebd0c3bb3d949d651ef",
+	"base/resolucion":           "7c7425bdff85fe7c46bb19e4251cf3a44e65e890eba774965f6e93d5acdef05d",
+	"base/toma_posesion":        "18d2b433995d66972adc7d02fde9049ad30f7f2b07caaefce5e5793cb87a5381",
+	"rico/comunicacion_centro":  "d4f1ca39ac7be85943c38f5e75effba16ce64a2470883798f781527d2315cf23",
+	"rico/diligencia":           "108d1ae6889851aa3b597cdf33299daedb6eb140a5040f1489c519206d590d70",
+	"rico/informe_definitivo":   "9180f76a15955c9e1ad379c68887fadfc80426093ee10ea72132cb8e3a8eca3a",
+	"rico/notificacion":         "0cdeb57f20ea5f0a27162088d503bed4c1bcdea50d158b88dd207380a4609e7f",
+	"rico/resolucion":           "2ad80323360c39ec8eecda38540e7f0e4dc7ab2b264570f2da0f257bf9503337",
+	"rico/toma_posesion":        "f98e0d80227b2a61b11d25b1898a82726d1ec1954f70dfb59b238ad3e9a7a85b",
+	"v9/comunicacion_centro":    "c7f8768076ba75b7142888cbfec5e3ddb4786f8ff1963f1808ea7adca697b5ee",
+	"v9/diligencia":             "9ec0fb252b27519a3cc15e51d27a33f027bd50171f0a9e13fa5a62a0a5b94b3c",
+	"v9/informe_definitivo":     "360eaba25b6471219c5956d1d29f68f911360ba210273156117a8787c49a978b",
+	"v9/notificacion":           "244b1b6af43462e1e86f46714787edb8cd473e8b2659d06b866f4a3c6456d87a",
+	"v9/resolucion":             "55b4c646b4a21d6bf1f249b543d2e1563ebc9e6a71611fa84067c52dbe1b42d7",
+	"v9/toma_posesion":          "6b754d1b10e10289e7142e94c441ff10af87ad7dd6c36344b03f54707d378fea",
+	"vacio/comunicacion_centro": "f3149943c5c503a5d93457a86933a72ebca625e5786aff1e95c29a63edd1a046",
+	"vacio/diligencia":          "108d1ae6889851aa3b597cdf33299daedb6eb140a5040f1489c519206d590d70",
+	"vacio/informe_definitivo":  "1a67f737d177ac5f348a50e9ce9a016a9010f8048506dcddb96b3e0c7a888173",
+	"vacio/notificacion":        "0cdeb57f20ea5f0a27162088d503bed4c1bcdea50d158b88dd207380a4609e7f",
+	"vacio/resolucion":          "0be70f4cbaebd435b88b1a6d7322eec5c79d4ef5fd95688a38092d1411e291a8",
+	"vacio/toma_posesion":       "d2d18557879c4facc904bc29014012a00b0b0f197e34079cf15bcf90f37b6722",
 }
 
 func TestPlantillasReproducenLosBorradoresAnteriores(t *testing.T) {
@@ -77,7 +76,7 @@ func TestPlantillasReproducenLosBorradoresAnteriores(t *testing.T) {
 			}
 			h := sha256.Sum256(b)
 			if want := huellasPDFAnteriores[nombre+"/"+string(tipo)]; hex.EncodeToString(h[:]) != want {
-				t.Errorf("%s/%s: el PDF cambió respecto al texto anterior", nombre, tipo)
+				t.Errorf("%s/%s: huella obtenida %s, esperada %s", nombre, tipo, hex.EncodeToString(h[:]), want)
 			}
 			vistos++
 		}

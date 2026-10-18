@@ -56,12 +56,12 @@ certificado tampoco prueban una relación de servicio.
 Los catálogos y reglas que gobiernan una actuación pertenecen a su autoridad
 y versión. Una mejora concreta de este diseño es poder cambiar una definición
 admitida conservando qué versión usó cada expediente, sin reinterpretar su
-historia. El [contrato de módulos](../portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026)
+historia. El [contrato de módulos](../portal_vec/contrato_modulos_vec.md)
 detalla el límite entre extensiones existentes y ampliaciones aún previstas.
 
 ### Seguridad, recibos e historia
 
-La [matriz de roles y ámbitos](../portal_vec/matriz_roles_y_ambitos.md)
+La [matriz de roles y ámbitos](../producto/FLUJO_APP.md)
 define denegación por defecto: las operaciones conectadas a V3 exigen una
 concesión central positiva, exacta y vigente para actor, acción, recurso,
 ámbito, finalidad, perfil, campos y obligaciones. El perfil o un botón visible
@@ -727,7 +727,7 @@ intención CT y la coteja al retornar; CT conserva su referencia original y oper
 estable. Corrige el rechazo accidental del UUID sin relajar validadores.
 El recibo original de renuncia conserva su intención pendiente histórica; el nuevo
 confirma continuidad posterior. No se conecta automáticamente a la comunicación
-del sucesor ni se expone identidad/posición. [Recuperación exacta](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia).
+del sucesor ni se expone identidad/posición. [Recuperación exacta](../../GUIA_RECORRIDO_ALBERTO.md).
 
 ### Aviso local al sucesor, sin nueva ruta
 
@@ -740,7 +740,7 @@ clave/material. Habilita una declaración separada, sin rearmar la resolución a
 política local v2 y selección padre; no lee/escribe Bolsa. Versión resultante `2`, aviso JSON v2 y outbox pendiente
 con `recibo_continuacion_ref`; no envío ni plazo. CT62 instalada en ambas bases, no reaplicar/DOWN.
 `201`, negativos `403` sin efectos y recuperación `200` tras reinicio principal, mismo recibo/fecha/v2/outbox.
-[Evidencia](../../GUIA_RECORRIDO_ALBERTO.md#aviso-local-al-sucesor-ct62).
+[Evidencia](../../GUIA_RECORRIDO_ALBERTO.md).
 
 ### Declaración del sucesor, mismo contrato de diez campos
 
@@ -753,7 +753,7 @@ CT63 adapta solo la función CT56: consumo fresco antes del replay exacto materi
 cadena CT62/CT60 verificada antes de omitir las dos comparaciones con el llamamiento/recibo raíz. Sin efectos Bolsa.
 Instalada en ambas bases; no reaplicar ni DOWN con historial. `201` real y cruces `409` sin efectos;
 siete operaciones `200` tras reinicio principal, mismos justificante/recibo/auditoría/fecha e historia;
-solo cambia `estado` a `replay_registrada_por_rrhh`. [Evidencia y recuperación](../../GUIA_RECORRIDO_ALBERTO.md#declaración-de-respuesta-del-sucesor-ct63).
+solo cambia `estado` a `replay_registrada_por_rrhh`. [Evidencia y recuperación](../../GUIA_RECORRIDO_ALBERTO.md).
 No resuelve automáticamente al sucesor ni altera la resolución anterior.
 
 ### Resolución manual del sucesor, mismo contrato de once campos
@@ -768,7 +768,7 @@ Primer `503` dejó CT durable y Bolsa pendiente: excepción de formato solo para
 Recuperación misma clave: ocho POST `200` antes y después del reinicio principal, mismos recibo/fecha/evaluación/auditoría;
 tres resoluciones CT y ocho operaciones/historias/outbox Bolsa, anteriores intactos.
 CT64 instalada en ambas bases; no reaplicar ni DOWN con resolución sucesora.
-[Ficha y recuperación](../../GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
+[Ficha y recuperación](../../GUIA_RECORRIDO_ALBERTO.md).
 La propuesta posterior CT65 ya es recorrible, sin envío, plazo legal ni firma.
 
 ### Propuesta de nombramiento desde aceptación
@@ -785,7 +785,7 @@ Consulta interna con `Continuacion` opcional y selección raíz íntegra; apertu
 sin otro DTO web. CT65 instalada en ambas bases; no reaplicar ni DOWN con propuesta sucesora.
 El ajuste CT60 liga `soloRecuperacion` a versión actual mayor que `6` y exige apertura existente
 antes del servicio, conservando permiso fresco y replay completo; no permite un nuevo llamamiento desde v7.
-[Novena operación del panel y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#propuesta-desde-la-aceptación-del-sucesor-ct65);
+[Novena operación del panel y evidencia](../../GUIA_RECORRIDO_ALBERTO.md);
 no es otro paso RRHH. Propuesta original y antecedentes conservados; seis PDF cerrados, no repetidos.
 Las cuatro publicaciones proceden del único asset `formalizacion-desarrollo.json`,
 con SHA256 de contenido UTF-8, carga sin credenciales ni caché y fallo cerrado.
@@ -793,7 +793,7 @@ El permiso propio `contratacion_temporal.formalizacion.propuesta.registrar` liga
 material completo y etapas; CT61 consume V3 fresco antes de lectura/replay.
 El commit une propuesta, versión integral `7`, actuación y outbox; replay conserva
 material/actor/perfil y recibo/fecha. DOWN bloqueado con historia. Sin firma,
-renderizado documental ni nueva aceptación Bolsa. [Claves y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
+renderizado documental ni nueva aceptación Bolsa. [Claves y evidencia](../../GUIA_RECORRIDO_ALBERTO.md).
 
 ### Seis borradores desde la misma consulta RRHH
 
@@ -822,7 +822,7 @@ El mismo archivo `cliente-http-informe-definitivo.js` ofrece
 Manejador, exclusión de descargas simultáneas, cancelación y revocación de Blob compartidos;
 el error conserva el detalle, sin almacenamiento ni reintento automático. Sin nuevo manifiesto.
 PDF sin SQL propio; AD3-21 corrige la lectura existente. AD3-20/CT61 y AD3-21 instaladas
-en ambas bases, no reaplicar. [Recorrido y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
+en ambas bases, no reaplicar. [Recorrido y evidencia](../../GUIA_RECORRIDO_ALBERTO.md).
 Disponibles **6/6 borradores**; la resolución manual sintética del objetivo 10
 ya es recuperable, pero su circuito de firma oficial sigue pendiente;
 **5/8 más partes del sexto y séptimo**, sin firmas ni otro paso RRHH completo.
@@ -899,7 +899,7 @@ No admitir cuenta, perfil o permisos declarados por el navegador.
 | Navegación y montaje web | [portal.js](../../web/static/portal-empleado/portal.js) y [portal-modulos-coordinador.js](../../web/static/portal-empleado/portal-modulos-coordinador.js). |
 | Formulario, vista, contrato y cliente HTTP | [modulos/contratacion-temporal](../../web/static/portal-empleado/modulos/contratacion-temporal/): `formulario-*.js`, `vista*.js`, `contrato-*.js` y `cliente-http-*.js`. |
 | Textos visibles | [portal-i18n.js](../../web/static/portal-empleado/portal-i18n.js); en el módulo, `i18n.js`, `i18n-expedientes.js` e `i18n-llamamiento.js`; backend compartido en [internal/shared/i18n](../../internal/shared/i18n/). |
-| Texto de los documentos del expediente | [data/demo/plantillas/ct_plantillas_documentos.ejemplo.demo.json](../../data/demo/plantillas/ct_plantillas_documentos.ejemplo.demo.json) (paquete de ejemplo): título, `parrafo.NN` con campos `{{campo}}` y bloques `{{?campo}}…{{/campo}}` / `{{!campo}}…{{/campo}}`, `modalidades`, `firmantes` y `requiere_accion`. `VEC_CT_PLANTILLAS_SOURCE_PATH` lo sustituye por otro fichero del mismo formato. La lista cerrada de campos y la validación al arrancar están en [plantillas_borrador.go](../../internal/modules/contrataciontemporal/adapters/informejuridico/plantillas_borrador.go) y [campos_borrador.go](../../internal/modules/contrataciontemporal/adapters/informejuridico/campos_borrador.go). |
+| Texto de los documentos del expediente | [data/catalogos/contratacion-temporal/plantillas_documentos.v3.json](../../data/catalogos/contratacion-temporal/plantillas_documentos.v3.json) (versión 3; la v1 y la v2 siguen en `data/demo/plantillas/` porque la v1 es la preimagen instalada en el servidor de desarrollo): título, `parrafo.NN` con campos `{{campo}}` y bloques `{{?campo}}…{{/campo}}` / `{{!campo}}…{{/campo}}`, `modalidades`, `firmantes` y `requiere_accion`. `VEC_CT_PLANTILLAS_SOURCE_PATH` lo sustituye por otro fichero del mismo formato. La lista cerrada de campos y la validación al arrancar están en [plantillas_borrador.go](../../internal/modules/contrataciontemporal/adapters/informejuridico/plantillas_borrador.go) y [campos_borrador.go](../../internal/modules/contrataciontemporal/adapters/informejuridico/campos_borrador.go). |
 | Publicar un recurso estático del recorrido | [web/produccion.manifest](../../web/produccion.manifest), leído por [estaticos_produccion.go](../../internal/app/server/estaticos_produccion.go). Revisar los otros manifiestos solo si cambia su superficie. |
 
 Para ampliar una acción existente, seguir su cadena completa: contrato y

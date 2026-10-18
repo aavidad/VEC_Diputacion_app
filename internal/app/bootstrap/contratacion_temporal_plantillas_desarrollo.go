@@ -34,7 +34,7 @@ import (
 // rutaPlantillasCTEjemplo es el catálogo de plantillas que trae el
 // repositorio. VEC_CT_PLANTILLAS_SOURCE_PATH lo sustituye por otro con el
 // mismo formato; en ambos casos se valida entero al arrancar.
-const rutaPlantillasCTEjemplo = "data/demo/plantillas/ct_plantillas_documentos.ejemplo.demo.json"
+const rutaPlantillasCTEjemplo = "data/catalogos/contratacion-temporal/plantillas_documentos.v3.json"
 
 var errPlantillasCTNoDisponibles = errors.New("bootstrap: catalogo de plantillas de contratacion temporal no disponible")
 
@@ -75,7 +75,10 @@ func plantillasBorradorCTDesdeFichero(ruta string, instante time.Time) (*informe
 // consumen el arranque y la CLI de provisión. La huella se calcula después
 // con CatalogoConfigurable.HuellaSHA256, sobre el contenido canónico validado.
 func CargarCatalogoPlantillasCT(ruta string) (vecdomain.CatalogoConfigurable, error) {
-	consulta, err := fichero.NuevaConsultaCatalogos(ruta)
+	// El fichero no es la autoridad: se instala por el canal migrador y el
+	// arranque lo coteja con la huella provisionada. Por eso admite paquetes
+	// sin la marca de demostración, con los demás controles intactos.
+	consulta, err := fichero.NuevaConsultaCatalogoProvisionable(ruta)
 	if err != nil {
 		return vecdomain.CatalogoConfigurable{}, errors.Join(errPlantillasCTNoDisponibles, err)
 	}
@@ -501,7 +504,7 @@ func nuevasRutasPlantillasCTDesarrollo(ctx context.Context, cfg config.Config,
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible
 	}
-	if err := comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, catalogo); err != nil {
+	if err := comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, organizacionAltaContratacionTemporalDesarrollo, catalogo); err != nil {
 		return nil, err
 	}
 	if soporte.contexto.Resultado.Contexto.PerfilActivoRef == alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef ||
@@ -618,7 +621,7 @@ func nuevasRutasPlantillasDocumentalCTDesarrollo(
 		return nil, plantillasapp.ErrNoDisponible
 	}
 	catalogo, err := CargarCatalogoPlantillasCT(cfg.Normalize().ReglasEjemplo.CTPlantillasSourcePath)
-	if err != nil || comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, catalogo) != nil {
+	if err != nil || comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, organizacionAltaContratacionTemporalDesarrollo, catalogo) != nil {
 		return nil, plantillasapp.ErrNoDisponible
 	}
 	fuente, err := postgresvec.NuevoAlmacenAutorizacion(fuentePool)

@@ -104,6 +104,12 @@
     "propuesta_vigente": "Current appointment proposal",
     "propuesta_vigente_desde": "Recorded on {fecha}.",
     "propuesta_anterior": "Previous proposal ({orden})",
-    "propuesta_sustituida": "Recorded on {desde}; superseded following failure to take up post ({motivo}) on {fecha}."
+    "propuesta_sustituida": "Recorded on {desde}; superseded following failure to take up post ({motivo}) on {fecha}.",
+    "cese_justificante_comunicacion_reincorporacion": "notice that the post holder is returning",
+    "cese_justificante_escrito_renuncia": "resignation letter signed by the employee",
+    "cese_justificante_informe_centro": "report from the workplace",
+    "cese_justificante_informe_periodo_prueba": "probation period report",
+    "cese_justificante_resolucion_cobertura": "decision to fill the vacancy permanently",
+    "cese_justificante_resolucion_fin_programa": "decision ending the programme"
   }
 }

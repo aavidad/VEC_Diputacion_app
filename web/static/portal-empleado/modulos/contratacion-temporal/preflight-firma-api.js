@@ -4,7 +4,9 @@ const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const DOCUMENTO = /^[a-z][a-z0-9_]{1,63}$/u;
 const HUELLA = /^[0-9a-f]{64}$/u;
 const VIAS = ["certificado_vec", "portafirmas_registro_rrhh"];
-const MAXIMO_RESPUESTA = 16 * 1024;
+const MAXIMO_PDF = 2 * 1024 * 1024;
+const MAXIMO_RESPUESTA = Math.ceil(MAXIMO_PDF / 3) * 4 + 16 * 1024;
+const longitudBase64 = (v) => (v.length / 4) * 3 - (v.endsWith("==") ? 2 : v.endsWith("=") ? 1 : 0);
 const CAMPOS = ["esquema", "version_expediente", "documento", "catalogo_ref", "catalogo_huella", "paso_pendiente",
   "original_ref", "original_version", "vias_disponibles", "entrada_documento_ref", "entrada_documento_version", "entrada_documento_sha256"];
 
@@ -13,17 +15,20 @@ export class ErrorPreflightFirma extends Error {
 }
 function entero(v) { return Number.isSafeInteger(v) && v > 0; }
 function referencia(v) { return typeof v === "string" && REFERENCIA.test(v); }
-function exacto(v, claves) {
+function exacto(v, claves, opcionales = []) {
   return v !== null && typeof v === "object" && Object.getPrototypeOf(v) === Object.prototype
-    && Object.keys(v).length === claves.length && claves.every((c) => Object.hasOwn(v, c));
+    && claves.every((c) => Object.hasOwn(v, c))
+    && Object.keys(v).every((c) => claves.includes(c) || opcionales.includes(c));
 }
 export function validarPreflightFirma(datos, solicitud) {
-  if (!exacto(datos, CAMPOS) || datos.esquema !== "vec.contratacion-temporal.preflight-firma.v2"
+  if (!exacto(datos, CAMPOS, ["garantia_autenticacion", "entrada_pdf_base64"])
+    || (Object.hasOwn(datos ?? {}, "entrada_pdf_base64") && (typeof datos.entrada_pdf_base64 !== "string" || datos.entrada_pdf_base64.length > Math.ceil(MAXIMO_PDF / 3) * 4 || longitudBase64(datos.entrada_pdf_base64) > MAXIMO_PDF || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(datos.entrada_pdf_base64)))
+ || (Object.hasOwn(datos ?? {}, "garantia_autenticacion") && datos.garantia_autenticacion !== "sustancial") || datos.esquema !== "vec.contratacion-temporal.preflight-firma.v2"
     || !solicitud || datos.version_expediente !== solicitud.version
     || !entero(datos.version_expediente) || datos.documento !== solicitud.documento
     || !DOCUMENTO.test(datos.documento) || !referencia(datos.catalogo_ref)
     || typeof datos.catalogo_huella !== "string" || !HUELLA.test(datos.catalogo_huella)
-    || !Number.isSafeInteger(datos.paso_pendiente) || datos.paso_pendiente < 0 || datos.paso_pendiente > 2
+    || !Number.isSafeInteger(datos.paso_pendiente) || datos.paso_pendiente < 0 || datos.paso_pendiente > 3
     || datos.original_ref !== solicitud.originalRef || !referencia(datos.original_ref)
     || datos.original_version !== solicitud.originalVersion || !entero(datos.original_version)
     || !Array.isArray(datos.vias_disponibles) || datos.vias_disponibles.length > 2

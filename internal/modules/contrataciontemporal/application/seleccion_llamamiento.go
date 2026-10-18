@@ -46,16 +46,64 @@ type SolicitudSeleccionLlamamiento struct {
 	ExpedienteRef     string
 	VersionEsperada   uint64
 	ClaveIdempotencia string
+	RecuperarOferta   bool
 }
 
 // DatosReciboSeleccionLlamamientoParaAdaptador es la proyección mínima que
 // puede cruzar una frontera después de autenticar el recibo completo de Bolsa.
 type DatosReciboSeleccionLlamamientoParaAdaptador struct {
-	ReciboRef          string
-	ConfirmadaEn       time.Time
-	OrganizacionRef    string
-	LlamamientoRef     string
-	VersionLlamamiento uint64
+	ReciboRef           string
+	ConfirmadaEn        time.Time
+	OrganizacionRef     string
+	LlamamientoRef      string
+	VersionLlamamiento  uint64
+	PoliticaProvisional *bool
+	Oferta              *DatosReciboSeleccionOfertaParaAdaptador
+	Descarte            *DatosReciboDescarteOfertaParaAdaptador
+}
+
+type EjecutorSeleccionSingularCT interface {
+	SeleccionarYLlamarParaAdaptador(context.Context, SolicitudSeleccionLlamamiento) (DatosReciboSeleccionLlamamientoParaAdaptador, error)
+}
+
+type EjecutorSeleccionOfertaPluralCT interface {
+	SeleccionarOfertaParaAdaptador(context.Context, SolicitudSeleccionLlamamiento) (DatosReciboSeleccionOfertaParaAdaptador, error)
+	RecuperarOfertaParaAdaptador(context.Context, SolicitudSeleccionLlamamiento) (DatosReciboSeleccionLlamamientoParaAdaptador, error)
+}
+
+// La cantidad procede del expediente fiscalizado leído por servidor. Una
+// recuperación conserva la intención original y nunca prepara una nueva.
+func SeleccionarSegunNumeroPersonasCT(ctx context.Context, expediente ports.ExpedienteParaSeleccion,
+	q SolicitudSeleccionLlamamiento, singular EjecutorSeleccionSingularCT,
+	ofertas EjecutorSeleccionOfertaPluralCT,
+) (DatosReciboSeleccionLlamamientoParaAdaptador, error) {
+	vacio := DatosReciboSeleccionLlamamientoParaAdaptador{}
+	if ctx == nil || expediente.Fiscalizado.Validar() != nil ||
+		expediente.Fiscalizado.Referencia != q.ExpedienteRef ||
+		expediente.Fiscalizado.Version != q.VersionEsperada ||
+		expediente.VersionActual < expediente.Fiscalizado.Version {
+		return vacio, ErrSolicitudSeleccionLlamamientoInvalida
+	}
+	if expediente.Fiscalizado.Solicitud.NumeroPersonas > 1 {
+		if dependenciaNula(ofertas) {
+			return vacio, ErrSeleccionOfertaNoDisponible
+		}
+		if q.RecuperarOferta {
+			return ofertas.RecuperarOfertaParaAdaptador(ctx, q)
+		}
+		o, err := ofertas.SeleccionarOfertaParaAdaptador(ctx, q)
+		if err != nil {
+			return vacio, err
+		}
+		return DatosReciboSeleccionLlamamientoParaAdaptador{Oferta: &o}, nil
+	}
+	if q.RecuperarOferta {
+		return vacio, ErrSolicitudSeleccionOfertaInvalida
+	}
+	if dependenciaNula(singular) {
+		return vacio, ErrServicioSeleccionLlamamientoInvalido
+	}
+	return singular.SeleccionarYLlamarParaAdaptador(ctx, q)
 }
 
 type ServicioSeleccionLlamamiento struct {
@@ -451,6 +499,11 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamarParaAdaptador(
 		return DatosReciboSeleccionLlamamientoParaAdaptador{},
 			ErrResultadoSeleccionLlamamientoNoConfiable
 	}
+	var politicaProvisional *bool
+	if recibo.Procedencia.SinRetencionDeclarada {
+		valor := recibo.Procedencia.PoliticaProvisional
+		politicaProvisional = &valor
+	}
 	return DatosReciboSeleccionLlamamientoParaAdaptador{
 		ReciboRef: recibo.ReciboRef, ConfirmadaEn: recibo.ConfirmadaEn,
 		OrganizacionRef: recibo.OrganizacionRef,
@@ -458,7 +511,8 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamarParaAdaptador(
 		// Versión inicial pactada para esta alta. El replay devuelve el mismo
 		// antecedente, no afirma consultar la versión actual del llamamiento.
 		// Propuesta.Version pertenece a otro objeto y no se usa como sustituto.
-		VersionLlamamiento: 1,
+		VersionLlamamiento:  1,
+		PoliticaProvisional: politicaProvisional,
 	}, nil
 }
 
@@ -620,6 +674,8 @@ func normalizarFalloSeleccionLlamamiento(ctx context.Context, err error) error {
 		}
 	}
 	switch {
+	case errors.Is(err, ports.ErrCriteriosOfrecimientoPendientesRRHH):
+		return err
 	case errors.Is(err, context.Canceled):
 		return context.Canceled
 	case errors.Is(err, context.DeadlineExceeded):

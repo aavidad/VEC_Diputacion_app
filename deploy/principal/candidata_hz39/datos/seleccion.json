@@ -1,0 +1,38 @@
+{
+  "centro_ref": "centro-520",
+  "unidad_ref": "unidad:centro:520",
+  "centro_codigo": "520",
+  "centro_denominacion_catalogo": "TRANSFORMACIÓN DIGITAL",
+  "categoria_ref": "categoria:rpt:administrativo",
+  "grupo": "C1",
+  "puesto_rpt_codigo": "9",
+  "puesto_personal_codigo": "9/01",
+  "puesto_ref": "puesto:af15e447-2f66-6e35-496b-c4bc5f5a0b0b",
+  "revision_puesto": 1,
+  "plaza_codigo": "2026/0033",
+  "plaza_ref": "plaza:e1a86b24-6bd4-f636-82b7-ba6c0a1c7aec",
+  "revision_plaza": 1,
+  "version_plantilla_ref": "plantilla:d2de7f51-95b2-5a1f-8597-0c31cbe22a4a",
+  "version_rpt_ref": "rpt:56b39fd1-57e3-fe5a-6a48-9044eb9d7d4d",
+  "bolsa_ref": "bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk",
+  "version_bolsa": 1,
+  "instantanea_ref": "instantanea:constitucion:algicjlleggibhgagmjmoipmakdijibk",
+  "organismo_ref": "org_0e4b1d56ba2e24fb8e4808cbc7abb660",
+  "regimen": {
+    "ref": "regimen:funcionario_interino",
+    "version": 1
+  },
+  "modalidad": {
+    "ref": "modalidad:vacante",
+    "version": 1
+  },
+  "aspirante": {
+    "nombre": "Antonio Reyes Álvarez",
+    "persona_ref": "per_8014599251fc9a7aff11113c502e3317",
+    "candidato_ref": "can_Vxd6XlZE9ctNzw38AUSmgQbCcRyoFKhaojDaFsEKC1M",
+    "participacion_ref": "participacion:chgljjfcdiflpedmjpdgmdhifofdioip",
+    "situacion": "disponible",
+    "orden_acta": 1,
+    "orden_vigente": 1
+  }
+}

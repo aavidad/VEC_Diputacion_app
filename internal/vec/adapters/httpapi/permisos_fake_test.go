@@ -29,19 +29,23 @@ func TestPermissionsForRolesMatrizPositivaExacta(t *testing.T) {
 	)
 
 	casos := map[string][]string{
-		"ciudadano":        ciudadano,
-		"candidate":        ciudadano,
-		"administrador":    administradorTecnico,
-		"system_admin":     administradorTecnico,
-		"jefatura_rrhh":    carcasa,
-		"tecnico_rrhh":     carcasa,
-		"validator_l2":     carcasa,
-		"intervencion":     carcasa,
-		"administrativo":   carcasa,
-		"validator_l1":     carcasa,
-		"personal_interno": carcasa,
-		"jefe_servicio":    carcasa,
-		"jefe_seccion":     carcasa,
+		"ciudadano":                     ciudadano,
+		"candidate":                     ciudadano,
+		"administrador":                 administradorTecnico,
+		"system_admin":                  administradorTecnico,
+		"jefatura_rrhh":                 carcasa,
+		"tecnico_rrhh":                  carcasa,
+		"validator_l2":                  carcasa,
+		"intervencion":                  carcasa,
+		"ct_cargo_tecnico_firma_dev":    carcasa,
+		"ct_cargo_jefatura_firma_dev":   carcasa,
+		"ct_cargo_diputacion_firma_dev": carcasa,
+		"ct_cargo_secretaria_firma_dev": carcasa,
+		"administrativo":                carcasa,
+		"validator_l1":                  carcasa,
+		"personal_interno":              carcasa,
+		"jefe_servicio":                 carcasa,
+		"jefe_seccion":                  carcasa,
 	}
 
 	for rol, esperados := range casos {

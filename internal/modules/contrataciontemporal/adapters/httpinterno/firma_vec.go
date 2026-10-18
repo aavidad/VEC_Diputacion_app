@@ -101,6 +101,11 @@ func (h *manejadorRegistroFirmaVec) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responderErrorAutoridadRegistroFirma(w, r, err, responderErrorRegistroFirmaVec)
 		return
 	}
+	garantia, err := garantiaAutenticacionFirmaV2(r.Context(), h.autoridad)
+	if err != nil {
+		responderErrorAutoridadRegistroFirma(w, r, err, responderErrorRegistroFirmaVec)
+		return
+	}
 	if r.Context().Err() != nil {
 		responderErrorRegistroFirmaVec(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", r.Context().Err())
 		return
@@ -124,9 +129,24 @@ func (h *manejadorRegistroFirmaVec) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responderErrorRegistroFirmaVec(w, r, http.StatusBadGateway, "resultado_no_confiable")
 		return
 	}
+	if garantia != "" {
+		fuenteActo, presente := h.autoridad.(FuenteGarantiaActoFirmaV2)
+		if !presente {
+			responderErrorRegistroFirmaVec(w, r, http.StatusBadGateway, "resultado_no_confiable")
+			return
+		}
+		observada, err := fuenteActo.GarantiaActoFirmaV2(r.Context(), *resultado.MaterialMultiple)
+		if err != nil || observada != garantia {
+			responderErrorRegistroFirmaVec(w, r, http.StatusBadGateway, "resultado_no_confiable", err)
+			return
+		}
+	}
 	data := vistaRegistroFirmaVerificada(resultado.MaterialMultiple.MaterialFirmaExterna, resultado.Recibo, resultado.Custodiado, resultado.MotivoVerificacion)
 	data["esquema"] = EsquemaRegistroFirmaVec
 	completarVistaRegistroFirmaV2(data, resultado.MaterialMultiple)
+	if garantia != "" {
+		data["garantia_autenticacion"] = garantia
+	}
 	estado := http.StatusCreated
 	if resultado.Recibo.YaRegistrada {
 		estado = http.StatusOK

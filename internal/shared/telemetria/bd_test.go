@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -29,13 +30,17 @@ func TestOperacionSinValores(t *testing.T) {
 		"COMMIT":                                                          "commit",
 		"":                                                                "sql",
 	} {
-		if got := operacion(sql); got != want {
-			t.Errorf("operacion(%q) = %q, se esperaba %q", sql, got, want)
+		if got, _ := clasificarOperacion(sql); got != want {
+			t.Errorf("clasificarOperacion(%q) = %q, se esperaba %q", sql, got, want)
 		}
 	}
 }
 
 func TestAccesoCuentaConsultasYMarcaLaPeticionN1(t *testing.T) {
+	synctest.Test(t, probarAccesoCuentaConsultasYMarcaLaPeticionN1)
+}
+
+func probarAccesoCuentaConsultasYMarcaLaPeticionN1(t *testing.T) {
 	var b bytes.Buffer
 	o := opciones(&b)
 	o.Consultas = 20

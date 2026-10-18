@@ -43,6 +43,7 @@ function clienteFalso(llamadas) {
         solicitud: {
           grupo_subgrupo: "A2",
           motivo_clave: "sustitucion",
+          numero_personas: 2,
           periodo_inicio: "2026-09-04T00:00:00Z",
           periodo_fin: "2026-12-31T00:00:00Z",
         },
@@ -99,6 +100,7 @@ test("F5 consulta un único detalle autorizado por referencia y versión, sin re
   await presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
   assert.equal(presentador.obtenerEstado().expediente_ref, resumen.expediente_ref);
   assert.equal(presentador.obtenerEstado().carga, "listo");
+  assert.equal(presentador.obtenerEstado().expediente.numero_personas, 2);
   assert.deepEqual(llamadas.map((llamada) => llamada.operacion), ["detalle"]);
   assert.deepEqual(llamadas[0].solicitud,
     { expediente_ref: resumen.expediente_ref, version_observada: resumen.version });
@@ -511,7 +513,7 @@ test("no marca la obtención de candidato sin mapeo acreditado del servidor", as
   assert.ok(expediente.fases.every(({ estado_clave }) => estado_clave === "pendiente"));
 });
 
-test("la rectificación conserva una fase actual visible si el servidor sigue en solicitud", async () => {
+test("con el análisis hecho y el servidor aún en solicitud, lista y ficha conservan la misma fase", async () => {
   const cliente = clienteFalso([]);
   cliente.consultarDetalleRRHH = async () => ({
     esquema: "vec.contratacion-temporal.detalle-rrhh.v1",
@@ -532,9 +534,9 @@ test("la rectificación conserva una fase actual visible si el servidor sigue en
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
   await adaptador.listar();
   const expediente = await adaptador.obtener(resumen.expediente_ref);
-  assert.equal(expediente.fases[0].estado_clave, "en_curso");
-  assert.equal(expediente.fases[1].estado_clave, "completado");
-  assert.equal(expediente.fases.filter(({ estado_clave }) => estado_clave === "en_curso").length, 1);
+  assert.deepEqual(expediente.fases.map(({ estado_clave }) => estado_clave), ["en_curso", "pendiente", "pendiente"]);
+  // La cabecera nombra la misma fase que el raíl.
+  assert.match(expediente.cabecera.find(({ clave }) => clave === "fase").valor, /Solicitud/u);
 });
 
 test("completa sólo la obtención de candidato desde la propuesta formalizada", async () => {
@@ -812,7 +814,7 @@ test("raíl deriva los cinco estados y reabre fases tras un retorno real", async
     {accion_clave:"contratacion_temporal.cobertura.decidir",fase_origen:"solicitud",fase_destino:"asignacion_unidad",estado_destino:"en_curso"},
   ];
   assert.deepEqual((await proyectar("asignacion_unidad","en_curso",analisisEnSolicitud)).slice(0,4),["completado","completado","en_curso","pendiente"]);
-  assert.deepEqual((await proyectar("solicitud","en_curso",analisisEnSolicitud.slice(0,2))).slice(0,3),["completado","completado","pendiente"]);
+  assert.deepEqual((await proyectar("solicitud","en_curso",analisisEnSolicitud.slice(0,2))).slice(0,3),["en_curso","pendiente","pendiente"]);
 });
 
 test("adaptador obtiene catálogo por cliente.catalogosAlta si obtenerCatalogos devuelve null, una sola vez por montaje", async () => {
@@ -897,6 +899,21 @@ test("sin análisis, el expediente lleva los datos de la petición para prerrell
   assert.equal(expediente.analisis_previo, undefined);
 });
 
+test("sin modalidad en el expediente, se propone el motivo que pidió el centro", async () => {
+  const cliente = clienteFalso([]);
+  const obtenerDetalle = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const detalle = await obtenerDetalle(...args);
+    delete detalle.analisis; delete detalle.cobertura;
+    return { ...detalle, resumen: { ...detalle.resumen, modalidad_clave: "" },
+      solicitud: { ...detalle.solicitud, motivo_clave: "acumulacion_tareas" } };
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(resumen.expediente_ref);
+  assert.equal(expediente.datos_peticion.modalidad_clave, "acumulacion_tareas");
+});
+
 test("con análisis registrado, el expediente no ofrece datos de la petición", async () => {
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteFalso([]) });
   await adaptador.listar();
@@ -941,6 +958,37 @@ test("una relectura fallida retira los metadatos previos sin permitir consultas 
   assert.equal(fuente.resolverDisponibilidadOpcional("borradores_publicados", contexto), null);
 });
 
+test("firma nominal solo se ofrece con cobertura única del mismo detalle autorizado", async () => {
+  const cliente = clienteFalso([]);
+  const leer = cliente.consultarDetalleRRHH;
+  const contexto = { expediente_ref: resumen.expediente_ref, version_observada: resumen.version };
+  let firma = { ...contexto, estado: "disponible", unidad_ref: "unidad:rrhh",
+    plan_ref: "plan:firma:1", plan_version: 1, plan_sha256: "a".repeat(64),
+    documentos: ["informe_definitivo", "resolucion"] };
+  cliente.consultarDetalleRRHH = async (...args) => ({ ...await leer(...args),
+    capacidades_ficha: { firma_nominal: firma } });
+  const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await fuente.listar();
+  await fuente.obtener(contexto.expediente_ref);
+  assert.deepEqual(fuente.resolverDisponibilidadOpcional("firma_nominal", contexto)?.documentos,
+    ["informe_definitivo", "resolucion"]);
+  assert.equal(fuente.resolverDisponibilidadOpcional("firma_nominal", { ...contexto, version_observada: 99 }), null);
+  for (const invalida of [
+    { ...firma, expediente_ref: "expediente:otro" },
+    { ...firma, version_observada: contexto.version_observada + 1 },
+    { ...firma, documentos: ["resolucion", "resolucion"] },
+    { ...firma, plan_sha256: "incorrecta" },
+    { ...firma, estado: "no_disponible" },
+  ]) {
+    firma = invalida;
+    await fuente.obtener(contexto.expediente_ref);
+    assert.equal(fuente.resolverDisponibilidadOpcional("firma_nominal", contexto), null);
+  }
+  firma = { ...contexto, estado: "no_disponible", unidad_ref: "unidad:rrhh", documentos: [] };
+  await fuente.obtener(contexto.expediente_ref);
+  assert.equal(fuente.resolverDisponibilidadOpcional("firma_nominal", contexto)?.estado, "no_disponible");
+});
+
 test("la ficha abierta desde el cuadro se refresca con la versión del recibo, no con la del cuadro", async () => {
   // Reproduce cidonia 09/10: tras registrar el análisis (v2 → v3) el refresco
   // pedía version_observada 2, el servidor ya no la publica y respondía 404.
@@ -977,4 +1025,24 @@ test("la ficha abierta desde el cuadro se refresca con la versión del recibo, n
   assert.equal(llamadas.filter(({ operacion }) => operacion === "detalle").at(-1).solicitud.version_observada,
     versionServidor);
   assert.equal(presentador.obtenerEstado().expediente.version, versionServidor);
+});
+
+test("las comprobaciones de cobertura llevan su resultado en el tono (sí, no, no consta)", async () => {
+  const cliente = clienteFalso([]);
+  const leer = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const detalle = await leer(...args);
+    return { ...detalle, cobertura: { ...detalle.cobertura, comprobaciones: [
+      { clave: "existe_bolsa_vigente", resultado: "afirmativa" },
+      { clave: "hay_candidaturas_disponibles", resultado: "negativa" },
+      { clave: "sae_consultado", resultado: "no_consta" },
+    ] } };
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar();
+  const { cabecera } = await adaptador.obtener(resumen.expediente_ref);
+  const tono = (clave) => cabecera.find((c) => c.clave === `comprobacion_${clave}`)?.tono;
+  assert.equal(tono("existe_bolsa_vigente"), "exito");
+  assert.equal(tono("hay_candidaturas_disponibles"), "aviso");
+  assert.equal(tono("sae_consultado"), "neutro");
 });

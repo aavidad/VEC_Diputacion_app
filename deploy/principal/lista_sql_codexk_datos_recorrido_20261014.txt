@@ -1,0 +1,5 @@
+# Datos, después de HZ37 y las SQL nuevas de la candidata HZ39.
+# psql -X -v ON_ERROR_STOP=1 -v organismo=<organismo_ref> -f <archivo>
+deploy/principal/candidata_hz39/datos/organizacion_520_administrativo.sql
+deploy/principal/candidata_hz39/datos/antonio_disponible.sql
+deploy/principal/candidata_hz39/datos/cargo_manuel.sql

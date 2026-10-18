@@ -25,6 +25,14 @@ func NuevaConfianzaVersionarRolBolsaV3(cfg ConfiguracionConfianzaPerfilesV3,
 	})
 }
 
+// El acto externo usa el PDP ADMIN existente, con dos audiencias propias.
+func NuevaConfianzaVersionarRolBolsaExternaV3(cfg ConfiguracionConfianzaPerfilesV3,
+	deps DependenciasConfianzaPerfilesV3) (ConfianzaPerfilesV3, error) {
+	return nuevaConfianzaConAudienciasV3(cfg, deps, []string{
+		gobierno.AudienciaVersionarRolBolsaExternaProponer, gobierno.AudienciaVersionarRolBolsaExternaAprobar,
+	})
+}
+
 type EmisorVersionarRolBolsaV3 struct {
 	emisores map[string]*confianza.EmisorMaterialAutorizacionAtestadaV3
 	motivos  map[string]domain.ReferenciaEntradaCatalogo
@@ -41,6 +49,22 @@ func NuevoEmisorVersionarRolBolsaV3(
 		return nil, ErrConfiguracion
 	}
 	for _, audiencia := range []string{gobierno.AudienciaVersionarRolBolsaProponer, gobierno.AudienciaVersionarRolBolsaAprobar} {
+		if emisores[audiencia] == nil || !domain.ReferenciaMotivoAutorizacionV2Valida(motivos[audiencia]) {
+			return nil, ErrConfiguracion
+		}
+	}
+	return &EmisorVersionarRolBolsaV3{emisores: maps.Clone(emisores), motivos: maps.Clone(motivos), reloj: reloj}, nil
+}
+
+func NuevoEmisorVersionarRolBolsaExternaV3(
+	emisores map[string]*confianza.EmisorMaterialAutorizacionAtestadaV3,
+	motivos map[string]domain.ReferenciaEntradaCatalogo, reloj ports.Reloj,
+) (*EmisorVersionarRolBolsaV3, error) {
+	audiencias := []string{gobierno.AudienciaVersionarRolBolsaExternaProponer, gobierno.AudienciaVersionarRolBolsaExternaAprobar}
+	if len(emisores) != len(audiencias) || len(motivos) != len(audiencias) || dependenciaConfianzaPerfilesNula(reloj) {
+		return nil, ErrConfiguracion
+	}
+	for _, audiencia := range audiencias {
 		if emisores[audiencia] == nil || !domain.ReferenciaMotivoAutorizacionV2Valida(motivos[audiencia]) {
 			return nil, ErrConfiguracion
 		}
@@ -93,7 +117,16 @@ func (e *EmisorVersionarRolBolsaV3) EmitirVersionarRolBolsa(ctx context.Context,
 	}
 	recurso, err := gobierno.RecursoVersionarRolBolsa(efecto, snapshot.AsignacionPerfil)
 	if err != nil {
-		return vacia, ports.ConClaseVersionBolsa("v3_recurso", domain.ErrActoAdministracionPerfilesInvalido)
+		// AUT75 conserva las acciones y audiencias ADMIN, pero firma un plan
+		// de cuatro concesiones con otro canon. Cada parser exige su esquema
+		// exacto y coteja el material antes de derivar el recurso autorizable.
+		recurso, err = gobierno.RecursoVersionarRolBolsaB103(efecto, snapshot.AsignacionPerfil)
+		if err != nil {
+			recurso, err = gobierno.RecursoVersionarRolBolsaExterna(efecto, snapshot.AsignacionPerfil)
+			if err != nil {
+				return vacia, ports.ConClaseVersionBolsa("v3_recurso", domain.ErrActoAdministracionPerfilesInvalido)
+			}
+		}
 	}
 	vinculo, err := evidencia.Vinculo.Datos()
 	if err != nil {

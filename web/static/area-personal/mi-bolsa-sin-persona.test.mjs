@@ -31,7 +31,7 @@ test("la identidad no facilitada usa las claves del catálogo real y el respaldo
   assert.ok(leer.pedidas.includes("es/area-personal.json"));
   const datos = datosMinimosMiBolsa({ consultada_en: "2026-09-24T09:00:00Z", participaciones: [] });
   assert.equal(datos.sesion.nombre_visible, "");
-  assert.equal(datos.sesion.metodo, traducir(claves[1]));
+  assert.equal(datos.sesion.metodo, "");
   assert.equal(datos.perfil.identificador_visible, traducir(claves[2]));
   const respaldo = await import("./i18n.js?prueba-respaldo-mi-bolsa");
   for (const clave of claves) assert.equal(respaldo.traducir(clave), catalogo[clave]);

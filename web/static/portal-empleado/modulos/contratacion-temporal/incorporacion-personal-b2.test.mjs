@@ -410,3 +410,55 @@ test("catálogo propio resuelve las clases ES/EN sin depender de traducciones an
     assert.match(x.r.innerHTML, new RegExp(titular, "u")); x.desmontar();
   }
 });
+
+test("régimen y modalidad se rotulan por referencia en cada idioma; sin traducción, la denominación publicada", async () => {
+  const esperado = { es: ["Funcionario interino", "Interinidad por sustitución del titular"],
+    en: ["Interim civil servant", "Interim appointment to replace the post holder"] };
+  for (const idioma of ["es", "en"]) {
+    const traduccion = await cargarTextos("contratacion-temporal-incorporacion-personal-b2", { idioma, porDefecto: "es" });
+    const c = inicial();
+    c.opciones.regimenes = [{ ref: "regimen:funcionario-interino", version: 1, denominacion: "Funcionario interino" },
+      { ref: "regimen:otro-propio", version: 1, denominacion: "Régimen <propio>" }];
+    c.opciones.modalidades = [{ ref: "modalidad:interino-sustitucion-titular", version: 1, denominacion: "Interinidad por sustitución del titular" }];
+    const x = await montar(clienteBase({ consultar: async () => c }), { textos: traduccion });
+    for (const rotulo of esperado[idioma]) assert.ok(x.r.innerHTML.includes(rotulo), `${idioma}: falta ${rotulo}`);
+    assert.match(x.r.innerHTML, /Régimen &lt;propio&gt;/u);
+    if (idioma === "en") assert.doesNotMatch(x.r.innerHTML, /Funcionario interino/u);
+    x.desmontar();
+  }
+});
+
+
+test("el recibo permite abrir sólo la ficha del empleado confirmado por Personal", async () => {
+  const empleado = `emp_${"A".repeat(32)}`;
+  const conEmpleado = { ...historia(), recibo: { ...recibo, empleado_ref: empleado } };
+  const x = await montar(clienteBase({ consultar: async () => conEmpleado }));
+  assert.match(x.r.innerHTML, /data-vista="personal-registro"/u);
+  assert.match(x.r.innerHTML, new RegExp(`data-personal-empleado-ref="${empleado}"`, "u"));
+  assert.match(x.r.innerHTML, />Abrir ficha en Personal<\/button>/u);
+  x.desmontar();
+  const sinReferencia = await montar(clienteBase({ consultar: async () => historia() }));
+  assert.doesNotMatch(sinReferencia.r.innerHTML, /data-personal-empleado-ref/u);
+  sinReferencia.desmontar();
+});
+
+test("tras el cese, el recibo B2 y el enlace Personal sobreviven a una versión CT posterior y al refresco", async () => {
+  const empleado = `emp_${"A".repeat(32)}`;
+  const confirmada = { ...historia(), recibo: { ...recibo, empleado_ref: empleado } };
+  let lecturas = 0;
+  const x = await montar(clienteBase({ consultar: async () => { lecturas++; return confirmada; },
+    preparar: () => assert.fail("no se prepara otra incorporación"),
+    confirmar: () => assert.fail("no se confirma otra incorporación") }), { versionEsperada: 10 });
+  assert.match(x.r.innerHTML, /recibo:b2:original/u);
+  assert.match(x.r.innerHTML, new RegExp(`data-personal-empleado-ref="${empleado}"`, "u"));
+  assert.doesNotMatch(x.r.innerHTML, /data-b2-accion="consultar"|data-b2-form/u);
+  await x.r.click("consultar");
+  assert.equal(lecturas, 2);
+  assert.match(x.r.innerHTML, /recibo:b2:original/u);
+  x.desmontar();
+
+  const pendiente = await montar(clienteBase({ consultar: async () => inicial(),
+    preparar: () => assert.fail("no se prepara con versión obsoleta") }), { versionEsperada: 10 });
+  assert.doesNotMatch(pendiente.r.innerHTML, /data-b2-form|recibo:b2:original/u);
+  pendiente.desmontar();
+});

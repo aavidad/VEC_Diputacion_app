@@ -218,11 +218,16 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		s2[0].Audiencia,
 		s2[1].Audiencia,
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
+		puertosbolsa.AudienciaPublicarTransicionesSituacion,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
+		postgrescontratacion.AudienciaConsultaCircuitoRRHH,
 		// Descarga de borradores de la consulta de detalle (AD199/CT177).
 		ports.AudienciaConsumoDescargaBorradorRRHHV3,
 		ports.AudienciaVincularEmisionBolsa,
+		ports.AudienciaVincularOfertaBolsaCT,
+		"vec_bolsa_llamamientos.oferta_ct.intencion_cerrar.v1",
+		"vec_contratacion_temporal.seleccion_oferta.descartar.v1",
 		// CT131: sólo al activar el gobierno de plantillas sintéticas.
 		audienciaCatalogoPlantillasCT,
 		"vec_contratacion_temporal.ajustes_reglas.v1",
@@ -274,6 +279,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// publica con VEC_CT_FIRMA_REGISTRO_ENABLED.
 		ports.AudienciaFirmaDocumentoV3,
 		ports.AudienciaConsultaFirmasDocumentoV3,
+		ports.AudienciaFirmaVecV2,
+		ports.AudienciaFirmaExternaV2,
 		// Consulta (AD162) y recuperación (AD178) de firmas V2; sólo con
 		// VEC_CT_FIRMAS_R5_V2_ENABLED.
 		ports.AudienciaConsultaFirmasR5V2,
@@ -303,6 +310,16 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// externo; revisar e incorporar en vec-server. Sólo con
 		// VEC_BOLSA_INSCRIPCIONES_ENABLED.
 		audienciaPresentarInscripcionExternaV3,
+		// Alegaciones (AD260) dentro del consumidor inscripcion_bolsa y
+		// preferencias entre bolsas del aspirante (AD248), ambas externas.
+		audienciaPresentarAlegacionExternaV3,
+		puertosbolsa.AudienciaOrdenarPreferenciasBolsas,
+		// Preferencias entre bolsas desde la sesión corporativa (AD279); solo
+		// con VEC_BOLSA_PREFERENCIAS_INTERNA_ENABLED=true.
+		puertosbolsa.AudienciaOrdenarPreferenciasBolsasInterna,
+		// Descarga de justificantes: dos consumidores nominales de RRHH.
+		audienciaJustificanteBolsaRRHH,
+		audienciaJustificanteBolsaPrepararRRHH,
 		descriptoresMaterialInscripcionRRHHDesarrollo()[0].Audiencia,
 		descriptoresMaterialInscripcionRRHHDesarrollo()[1].Audiencia,
 		puertosbolsa.AudienciaManifestarDisposicionPropia,
@@ -431,9 +448,42 @@ func prepararConfiguracionGobiernoPostgreSQLContratacionTemporalDesarrollo(
 	tx pgx.Tx,
 	material *materialAtestacionContratacionTemporalDesarrollo,
 ) error {
+	// El arranque deriva la vigencia configurada, pero primero debe adoptar la
+	// publicación durable. El lector común comprueba raíz exacta, revocaciones,
+	// checkpoint, secuencia y huella bajo el mismo cerrojo del publicador.
+	actual := *material
+	var secuenciaActual int64
+	err := tx.QueryRow(ctx, `SELECT c.revision,c.secuencia,c.huella_configuracion_sha256,c.publicada_en,c.expira_en
+	  FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
+	  JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version c
+	    ON c.revision=p.configuracion_revision
+	 WHERE p.orden=(SELECT max(orden) FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual)`,
+	).Scan(&actual.configuracionRef, &secuenciaActual, &actual.configuracionHuella, &actual.publicadaEn, &actual.expiraEn)
+	if err == nil {
+		if secuenciaActual < 1 || secuenciaActual > maximoVersionGobiernoPostgreSQLContratacionTemporalDesarrollo {
+			return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+		}
+		actual.configuracionOrden = uint64(secuenciaActual)
+		ahora := time.Now().UTC()
+		verificada, err := leerConfiguracionRenovableCTDesarrollo(ctx, tx, actual, ahora)
+		if err != nil {
+			return err
+		}
+		if verificada.expiraEn.After(ahora) {
+			*material = verificada
+			return nil
+		}
+		admin, err := publicacionAdministrativaCTDesarrollo(ctx, tx, verificada.configuracionRef)
+		if err != nil || admin || !publicacionTecnicaCTDesarrollo(verificada.publicadaEn, verificada.expiraEn, verificada.configuracionRef, verificada.configuracionOrden) {
+			return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+		}
+		// Solo la publicación técnica propia puede renovarse al caducar.
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	}
 	var revision, huella string
 	var secuencia int64
-	err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT c.revision,c.secuencia,c.huella_configuracion_sha256
 		  FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
 		  JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version c

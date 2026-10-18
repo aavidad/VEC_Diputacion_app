@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"regexp"
+	"strings"
 
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
@@ -87,7 +88,8 @@ func (s *ServicioConsultaIncorporacionCT) ConsultarHechosIncorporacionCT(ctx con
 		}
 	}
 	if nr != 1 || no != 1 || relacion.UnidadRef != x.UnidadRef || ocupacion.UnidadRef != x.UnidadRef ||
-		ocupacion.RelacionRef != x.RelacionRef || ocupacion.PuestoRef != x.PuestoRef || ocupacion.PlazaRef != x.PlazaRef ||
+		ocupacion.RelacionRef != x.RelacionRef || !mismoInstrumentoRPTIncorporacionCT(ocupacion.PuestoRef, x.PuestoRef, "puesto:") ||
+		!mismoInstrumentoRPTIncorporacionCT(ocupacion.PlazaRef, x.PlazaRef, "plaza:") ||
 		relacion.Estado != "vigente" || ocupacion.Estado != "vigente" || ocupacion.Clase == "reserva" ||
 		!trazaVigenteIncorporacionCT(relacion.Traza, x.Corte.VigenteEn) || !trazaVigenteIncorporacionCT(ocupacion.Traza, x.Corte.VigenteEn) {
 		return cero, domain.ErrRegistroEmpleadoB2Conflicto
@@ -95,6 +97,15 @@ func (s *ServicioConsultaIncorporacionCT) ConsultarHechosIncorporacionCT(ctx con
 	return ports.HechosIncorporacionCT{Esquema: EsquemaHechosIncorporacionCT, Seleccion: x,
 		Relacion: relacion.Traza, Ocupacion: ocupacion.Traza, RegimenRef: relacion.RegimenRef,
 		ModalidadRef: ocupacion.ModalidadRef, ClaseOcupacion: ocupacion.Clase, Evidencia: r.Evidencia}, nil
+}
+
+// Personal conserva el UUID de la RPT; el plan versionado identifica su tipo.
+func mismoInstrumentoRPTIncorporacionCT(historia, plan, prefijo string) bool {
+	if historia == plan {
+		return true
+	}
+	identificador, tipado := strings.CutPrefix(plan, prefijo)
+	return tipado && !strings.Contains(historia, ":") && historia == identificador
 }
 
 func trazaVigenteIncorporacionCT(t domain.TrazaEmpleadoB2, en domain.FechaCivil) bool {

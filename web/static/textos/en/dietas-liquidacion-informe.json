@@ -8,7 +8,7 @@
   },
   "rotulos": {
     "titulo": "Travel expense settlement preparation",
-    "estado": "Test draft · pending approval",
+    "estado": "Draft · pending approval",
     "limite": "This proposal has not been registered. It does not confirm approval, financial review or payment.",
     "comision": "Business trip",
     "version": "Version",
@@ -39,7 +39,7 @@
     "justificante_ref": "Declared supporting document reference",
     "justificante_huella": "Declared supporting document SHA-256 fingerprint",
     "catalogo_otros_gastos": "Other expenses catalogue version",
-    "tope_linea": "Per-line cap in the example catalogue",
+    "tope_linea": "Per-line cap in the catalogue",
     "justificante_limite": "The supporting document reference and fingerprint were declared. This report does not confirm verification or custody.",
     "ruta": "Route",
     "origen_codigo": "Origin (code)",

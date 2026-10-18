@@ -53,6 +53,17 @@ func componerProcesoUsuariosMetadatosADMINConGobierno(cfg administracion.Configu
 // La extensión B1 conserva el montaje anterior cuando falta su overlay. Cada
 // gobierno tiene dos LOGIN segregados: ejecutor y lector de catálogo AUT58.
 func componerProcesoUsuariosMetadatosADMINConVersionBolsa(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado, gobierno *configuracionGobiernoRolesPrivada, versionBolsa *configuracionVersionBolsaPrivada, nuevaFuente construirFuenteCatalogoGobiernoRoles) (*http.Server, func(), error) {
+	return componerProcesoUsuariosMetadatosADMINConVersionBolsaB103(cfg, base, u, runtime, lote, plan, efectos, gobierno, versionBolsa, nil, nuevaFuente)
+}
+
+// B103 se monta únicamente con su overlay privado y un LOGIN ejecutor AUT75
+// separado de B1 y del lector de catálogo.
+func componerProcesoUsuariosMetadatosADMINConVersionBolsaB103(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado, gobierno *configuracionGobiernoRolesPrivada, versionBolsa *configuracionVersionBolsaPrivada, versionBolsaB103 *configuracionVersionBolsaB103Privada, nuevaFuente construirFuenteCatalogoGobiernoRoles) (*http.Server, func(), error) {
+	return componerProcesoUsuariosMetadatosADMINConVersionBolsaExterna(cfg, base, u, runtime, lote, plan, efectos, gobierno, versionBolsa, versionBolsaB103, nil, nuevaFuente)
+}
+
+// La extensión externa sólo existe si se presenta su overlay privado completo.
+func componerProcesoUsuariosMetadatosADMINConVersionBolsaExterna(cfg administracion.Configuracion, base configuracionPerfilesPrivada, u configuracionUsuariosMetadatosPrivada, runtime configuracionRuntimeADMIN, lote *configuracionLotePrivada, plan *configuracionPlanFirmaPrivada, efectos []efectoConfigurado, gobierno *configuracionGobiernoRolesPrivada, versionBolsa *configuracionVersionBolsaPrivada, versionBolsaB103 *configuracionVersionBolsaB103Privada, versionBolsaExterna *configuracionVersionBolsaExternaPrivada, nuevaFuente construirFuenteCatalogoGobiernoRoles) (*http.Server, func(), error) {
 	fallo := func(etapa string) (*http.Server, func(), error) { return nil, nil, errorArranque(etapa) }
 	falloConClase := func(etapa string, err error) (*http.Server, func(), error) {
 		registrarClaseFallo(etapa, err)
@@ -78,7 +89,13 @@ func componerProcesoUsuariosMetadatosADMINConVersionBolsa(cfg administracion.Con
 	if versionBolsa != nil && validarConfiguracionVersionBolsaPrivada(*versionBolsa, base, u, runtime, lote, plan, efectos, gobierno) != nil {
 		return fallo("version_bolsa_configuracion")
 	}
-	if (gobierno != nil || versionBolsa != nil) && nuevaFuente == nil {
+	if versionBolsaB103 != nil && validarConfiguracionVersionBolsaB103Privada(*versionBolsaB103, base, u, runtime, lote, plan, efectos, gobierno, versionBolsa) != nil {
+		return fallo("version_bolsa_b103_configuracion")
+	}
+	if versionBolsaExterna != nil && validarConfiguracionVersionBolsaExternaPrivada(*versionBolsaExterna, base, u, runtime, lote, plan, efectos, gobierno, versionBolsa, versionBolsaB103) != nil {
+		return fallo("version_bolsa_externa_configuracion")
+	}
+	if (gobierno != nil || versionBolsa != nil || versionBolsaB103 != nil || versionBolsaExterna != nil) && nuevaFuente == nil {
 		// Una configuración presente sin lector AUT58 no puede arrancar
 		// ignorada ni montar una ruta incompleta.
 		return fallo("gobierno_roles_fuente")
@@ -119,6 +136,14 @@ func componerProcesoUsuariosMetadatosADMINConVersionBolsa(cfg administracion.Con
 	indiceVersionBolsa := len(rutas)
 	if versionBolsa != nil {
 		rutas = append(rutas, versionBolsa.PoolGobierno, versionBolsa.PoolCatalogo)
+	}
+	indiceVersionBolsaB103 := len(rutas)
+	if versionBolsaB103 != nil {
+		rutas = append(rutas, versionBolsaB103.PoolGobierno, versionBolsaB103.PoolCatalogo)
+	}
+	indiceVersionBolsaExterna := len(rutas)
+	if versionBolsaExterna != nil {
+		rutas = append(rutas, versionBolsaExterna.PoolGobierno, versionBolsaExterna.PoolCatalogo)
 	}
 	pools := make([]*pgxpool.Pool, 0, len(rutas))
 	cierres := []func(){}
@@ -309,11 +334,37 @@ func componerProcesoUsuariosMetadatosADMINConVersionBolsa(cfg administracion.Con
 			return nil, nil, err
 		}
 	}
+	var montajeVersionBolsaB103 *administracion.MontajeVersionBolsaB103ADMIN
+	if versionBolsaB103 != nil {
+		fuenteCatalogo, err := nuevaFuente(ctx, pools[indiceVersionBolsaB103+1])
+		if err != nil || fuenteCatalogo == nil {
+			return fallo("version_bolsa_b103_fuente")
+		}
+		montajeVersionBolsaB103, err = componerVersionBolsaB103ADMIN(ctx, base, *versionBolsaB103,
+			pools[0], pools[1], pools[2], pools[indiceVersionBolsaB103], pools[indiceVersionBolsaB103+1],
+			fuenteCatalogo, firmante, reloj)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	var montajeVersionBolsaExterna *administracion.MontajeVersionBolsaExternaADMIN
+	if versionBolsaExterna != nil {
+		fuenteCatalogo, err := nuevaFuente(ctx, pools[indiceVersionBolsaExterna+1])
+		if err != nil || fuenteCatalogo == nil {
+			return fallo("version_bolsa_externa_fuente")
+		}
+		montajeVersionBolsaExterna, err = componerVersionBolsaExternaADMIN(ctx, base, *versionBolsaExterna,
+			pools[0], pools[1], pools[2], pools[indiceVersionBolsaExterna], pools[indiceVersionBolsaExterna+1],
+			fuenteCatalogo, firmante, reloj)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
 	servidor, err := administracion.ComponerServidorPerfiles(ctx, cfg, administracion.DependenciasComposicionPerfiles{
 		Confianza: cadena, PoolCuentas: pools[5], PoolContextoADMIN: pools[10],
 		FuenteIdentificadoresADMIN: fuenteIdentificadores, ConfiguracionContextoADMIN: selector.ConfiguracionContextoADMIN{Proceso: runtime.ProcesoContexto}, PoolRegistroSesion: pools[3], PoolRevalidacionSesion: pools[4],
 		Seudonimizador: seudonimos, EspacioIdentidad: base.Identidad.EspacioIdentidad, DominioHMACRef: base.Identidad.DominioRef,
-		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true, Lote: autoridadLote, GobiernoPlan: servicioPlan, GobiernoRolNuevo: montajeGobierno, GobiernoVersionBolsa: montajeVersionBolsa, Efectos: montados})
+		Lecturas: lecturas, FuenteSeleccion: seleccion, Auditor: auditor, Reloj: reloj, Activos: os.DirFS(base.ActivosDirectorio), SoloUsuariosMetadatos: true, Lote: autoridadLote, GobiernoPlan: servicioPlan, GobiernoRolNuevo: montajeGobierno, GobiernoVersionBolsa: montajeVersionBolsa, GobiernoVersionBolsaB103: montajeVersionBolsaB103, GobiernoVersionBolsaExterna: montajeVersionBolsaExterna, Efectos: montados})
 	if err != nil {
 		return falloConClase("servidor", err)
 	}

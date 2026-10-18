@@ -1,8 +1,8 @@
 /** Recupera el PDF original que el servidor custodia una sola vez. */
-import { huellaPDFFirmado } from "./firma-vec-api.js?v=20261003-ct-firma-v2-v1";
+import { huellaPDFFirmado } from "./firma-vec-api.js?v=20261016-r1-o-integracion-v7";
 
 export const RUTA_ORIGINAL_FIRMABLE = "/api/vec/contratacion-temporal/firmas-documento/original";
-const MAXIMO_PDF = 1 << 20;
+const MAXIMO_PDF = 2 << 20;
 const MAXIMO_RESPUESTA = Math.ceil(MAXIMO_PDF / 3) * 4 + 16384;
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const DOCUMENTO = /^[a-z][a-z0-9_]{1,63}$/u;
@@ -41,11 +41,24 @@ async function leerJSON(respuesta) {
   catch { throw new ErrorOriginalFirmable("resultado_no_confiable"); }
 }
 
-async function validar(datos, solicitud) {
+async function validar(datos, solicitud, exigirComprobante) {
   const claves = ["esquema", "expediente_ref", "version_observada", "documento", "original_ref",
     "original_version", "original_sha256", "tipo_ref", "mime", "pdf_base64", "documento_custodiado"];
   const c = datos?.documento_custodiado;
-  if (!exacto(datos, claves) || datos.esquema !== "vec.contratacion-temporal.original-firmable.v1"
+  const esquema = exigirComprobante ? "vec.contratacion-temporal.original-firmable.v2"
+    : "vec.contratacion-temporal.original-firmable.v1";
+  const comprobante = exigirComprobante ? datos?.comprobante : null;
+  if (exigirComprobante) {
+    claves.push("comprobante");
+    if (!exacto(comprobante, ["numero_vec", "custodiado_en"])
+      || !/^VEC-[0-9]{4}-[0-9]{1,12}$/u.test(comprobante.numero_vec)
+      || typeof comprobante.custodiado_en !== "string"
+      || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u.test(comprobante.custodiado_en)
+      || !Number.isFinite(Date.parse(comprobante.custodiado_en))) {
+      throw new ErrorOriginalFirmable("resultado_no_confiable");
+    }
+  }
+  if (!exacto(datos, claves) || datos.esquema !== esquema
     || datos.expediente_ref !== solicitud.expedienteRef || datos.version_observada !== solicitud.version
     || datos.documento !== solicitud.documento || !DOCREF.test(datos.original_ref)
     || datos.original_version !== solicitud.version || !HUELLA.test(datos.original_sha256)
@@ -68,10 +81,11 @@ async function validar(datos, solicitud) {
     || await huellaPDFFirmado(contenido) !== datos.original_sha256) throw new ErrorOriginalFirmable("resultado_no_confiable");
   return Object.freeze({ contexto: Object.freeze({ expedienteRef: solicitud.expedienteRef, version: solicitud.version, documento: solicitud.documento }), originalRef: datos.original_ref, originalVersion: datos.original_version,
     originalHuella: datos.original_sha256, tipoRef: datos.tipo_ref,
-    documentoCustodiado: Object.freeze({ ...c }), contenido });
+    documentoCustodiado: Object.freeze({ ...c }),
+    ...(exigirComprobante ? { comprobante: Object.freeze({ ...comprobante }) } : {}), contenido });
 }
 
-export function crearClienteOriginalFirmable({ fetchImpl = globalThis.fetch } = {}) {
+export function crearClienteOriginalFirmable({ fetchImpl = globalThis.fetch, exigirComprobante = false } = {}) {
   return Object.freeze({ async preparar(solicitud, { signal } = {}) {
     const { expedienteRef, version, documento } = solicitud ?? {};
     if (!REFERENCIA.test(expedienteRef ?? "") || !entero(version) || !DOCUMENTO.test(documento ?? "")) {
@@ -82,7 +96,7 @@ export function crearClienteOriginalFirmable({ fetchImpl = globalThis.fetch } = 
     let respuesta;
     try {
       respuesta = await fetchImpl(RUTA_ORIGINAL_FIRMABLE, {
-        method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json", Accept: exigirComprobante ? "application/vnd.vec.ct.original-firmable.v2+json" : "application/json" },
         body: JSON.stringify({ expediente_ref: expedienteRef, version_observada: version, documento }),
         signal, mode: "same-origin", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
       });
@@ -90,11 +104,11 @@ export function crearClienteOriginalFirmable({ fetchImpl = globalThis.fetch } = 
     if (signal?.aborted || respuesta.redirected || respuesta.status !== 200) {
       void respuesta.body?.cancel?.().catch(() => {});
       throw new ErrorOriginalFirmable(signal?.aborted ? "operacion_abortada"
-        : [401, 403, 404].includes(respuesta.status) ? "acceso_denegado" : "servicio_no_disponible");
+        : [401, 403].includes(respuesta.status) ? "acceso_denegado" : "servicio_no_disponible");
     }
     const envoltorio = await leerJSON(respuesta);
     if (!exacto(envoltorio, ["data"])) throw new ErrorOriginalFirmable("resultado_no_confiable");
-    const original = await validar(envoltorio.data, solicitud);
+    const original = await validar(envoltorio.data, solicitud, exigirComprobante);
     if (signal?.aborted) throw new ErrorOriginalFirmable("operacion_abortada");
     return original;
   } });
@@ -118,8 +132,16 @@ export function crearDependenciasPreparacionFirma({ clienteOriginal, clientePref
         if (await huellaPDFFirmado(vinculo.contenido) !== vinculo.originalHuella) throw new ErrorOriginalFirmable("resultado_no_confiable");
         return new Uint8Array(vinculo.contenido);
       }
-      if (solicitud.pasoOrden !== 2 || solicitud.revisionEntradaRef === vinculo.originalRef
+      if (![2, 3].includes(solicitud.pasoOrden) || solicitud.revisionEntradaRef === vinculo.originalRef
         || !DOCREF.test(vinculo.documentoCustodiado?.expediente_ref ?? "")) throw new ErrorOriginalFirmable("resultado_no_confiable");
+      if (typeof solicitud.entradaPDFBase64 === "string") {
+        let binario;
+        try { binario = atob(solicitud.entradaPDFBase64); } catch { throw new ErrorOriginalFirmable("resultado_no_confiable"); }
+        if (binario.length < 10 || binario.length > MAXIMO_PDF) throw new ErrorOriginalFirmable("resultado_no_confiable");
+        const contenido = Uint8Array.from(binario, (c) => c.charCodeAt(0));
+        if (await huellaPDFFirmado(contenido) !== solicitud.revisionEntradaHuella) throw new ErrorOriginalFirmable("resultado_no_confiable");
+        return contenido;
+      }
       const fuente = crearDocumentos({ expedienteRef: vinculo.documentoCustodiado.expediente_ref });
       const archivo = await fuente.descargar(solicitud.revisionEntradaRef, { version: solicitud.revisionEntradaVersion,
         huella: solicitud.revisionEntradaHuella, mime: "application/pdf", signal });

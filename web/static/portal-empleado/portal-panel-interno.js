@@ -9,15 +9,15 @@
  */
 import { finVigenciaBolsaPortal, LOCALIZACION_PORTAL, MENSAJES_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261011-ct-bolsa-vinculo-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
-import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261009-ayuda-contacto-v1";
-import { canalesAviso, enlaceSeguimiento, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
+import { canalesAviso, enlaceSeguimiento, renderizarAccionJustificanteRenuncia, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261016-r1-o-integracion-v7";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-r-fichas-idioma-nav-v1";
 import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-traza-idioma-v1";
-import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=20260930-portales-i18n-integracion-v1";
@@ -25,14 +25,17 @@ import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { actorTraducido, justificanteTraducido, referenciaCopiableTraducida } from "./portal-justificante.js";
 import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { IDIOMA_ACTUAL } from "../comun/idioma.js";
+import { cargarTextos } from "../comun/textos.js";
+
+const TEXTOS_VINCULO_CT = (await cargarTextos("portal-bolsa")).seccion("vinculo_ct");
 
 
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
-const RUTA_PANTALLA_CARGA_CONVOCA = `/portal-empleado/modulos/bolsa/carga-convoca/?lang=${encodeURIComponent(IDIOMA_ACTUAL)}`;
+import { RUTA_PANTALLA_CARGA_CONVOCA } from "./portal-menu-bolsa.js?v=20261018-f104-main-v1";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
-import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261010-ct-vinculo-rpt-cohorte-v10";
+import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
+import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261016-r1-o-integracion-v7";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
@@ -358,7 +361,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         <div class="rejilla-kpi cuadro-b12-kpi" aria-label="${textoPortal("txt_resumen_de_las_bolsas_de_trabajo")}">
           <a class="tarjeta-kpi" href="${escaparHTML(rutaResumenBolsasCompartible(globalThis.location?.search ?? ""))}" data-vista="resumen"><span class="icono-kpi" aria-hidden="true">${icono("bolsas")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_bolsas_visibles")}</span><strong class="valor-kpi">${numero(bolsas.length)}</strong></div></a>
           ${kpiGlobal("personas", "txt_aspirantes", totalAspirantes, "todos")}
-          ${kpiGlobal("persona_ok", "txt_disponibles", totalDisponibles, "disponible", "kpi--exito")}
+          ${kpiGlobal("persona_ok", totalDisponibles === 1 ? "txt_disponible" : "txt_disponibles", totalDisponibles, "disponible", "kpi--exito")}
           ${kpiGlobal("persona_baja", "txt_personas_en_renuncia", totalPersonasEnRenuncia, "renuncia", "kpi--advertencia")}
         </div>
         <div class="tabla-contenedor">
@@ -419,6 +422,15 @@ export function crearPresentadorPanelInterno(dependencias) {
       <div class="rejilla-kpi">${tarjetaKPI("documento", numero(i.convocatorias_borrador), traducirPortal("txt_borrador"))}${tarjetaKPI("en_curso", numero(i.convocatorias_revision), traducirPortal("txt_en_revision"))}${tarjetaKPI("contrato", numero(i.convocatorias_pendientes_firma), traducirPortal("txt_pendientes_de_firma"))}${tarjetaKPI("correcto", numero(i.convocatorias_publicadas), traducirPortal("txt_publicadas"))}</div>
       ${tablaConvocatorias(datos)}`;
   }
+  function renderizarEstadoVinculo(flujo) {
+    if (!flujo.vinculoEstado) return "";
+    const estado = flujo.vinculoEstado;
+    const clase = estado === "pendiente" ? "nota-pendiente" : "";
+    return `<div class="${clase}" role="status" aria-live="polite" tabindex="-1" data-b7-vinculo="${estado}">
+      <p>${TEXTOS_VINCULO_CT[estado]}</p>${estado === "confirmado" && flujo.recibo_vinculo_ref
+        ? `<p>${justificanteTraducido(flujo.recibo_vinculo_ref, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : ""}${estado === "pendiente"
+        ? `<button type="button" class="boton-secundario" data-bolsa-accion="reintentar-vinculo-b7">${TEXTOS_VINCULO_CT.reintentar}</button>` : ""}</div>`;
+  }
   function renderizarNuevoLlamamiento(bolsa, candidatos, flujo, fuente = {}) {
     const paso = Math.max(1, Math.min(4, Number(flujo.paso) || 1));
     const plazoAnterior = String(flujo.configuracion?.plazo || "");
@@ -454,7 +466,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       const canales=`<fieldset class="campo campo-ancho"><legend>${t("panel_b7_canal")}</legend><label><input type="checkbox" checked disabled> ${t("panel_b7_canal_correo_emitir")}</label>${telefono?`<label><input type="checkbox" name="seguimiento_telefono" value="1"${flujo.canales?.telefono===false?"":" checked"}> ${t("panel_b7_canal_telefono")}</label>`:""}</fieldset>`;
       contenido=`<form class="panel" data-bolsa-form="b7-paso3"><div class="cabecera-panel"><h3>3. ${t("panel_b7_paso_configurar")}</h3></div><div class="cuerpo-panel rejilla-formulario rejilla-llamamiento">${campoB7(t("panel_b7_referencia"),`<input name="referencia" required minlength="2" maxlength="160" value="${valorOrigen("referencia")}"${fijo("referencia")}>`)}${campoB7(t("panel_b7_categoria"),`<input name="categoria" required value="${escaparHTML(c.categoria||bolsa.categoria)}">`)}${campoB7(t("panel_b7_centro"),`<input name="centro" required minlength="2" maxlength="200" value="${valorOrigen("centro")}"${fijo("centro")}>`)}${campoB7(t("panel_b7_modalidad"),`<select name="modalidad" required>${modalidades.map(([modalidad,clave])=>`<option value="${escaparHTML(modalidad)}" ${c.modalidad===modalidad?"selected":""}>${t(clave)}</option>`).join("")}</select>`)}${campoB7(t("panel_b7_fecha_inicio"),`<input type="date" name="fecha_inicio" required value="${valorOrigen("fecha_inicio")}"${fijo("fecha_inicio")}>`)}${canales}${campoB7(t("panel_b7_plazo_indicado"),`<input name="plazo" required minlength="2" maxlength="160" value="${escaparHTML(plazoEditable)}">`,true)}${campoB7(t("panel_b7_descripcion_campo"),`<textarea name="descripcion" required minlength="2" maxlength="1000">${escaparHTML(c.descripcion||"")}</textarea>`,true)}<input type="hidden" name="plantilla_version" value="${escaparHTML(flujo.plantilla_version||"bolsa-llamamiento-v1")}">${campoB7(t("panel_b7_asunto"),`<input name="asunto" required value="${escaparHTML(c.asunto||traducirPortal("panel_b7_asunto_defecto", { categoria: bolsa.categoria }))}">`,true)}${campoB7(t("panel_b7_texto_correo"),`<textarea name="cuerpo" required maxlength="4000">${escaparHTML(flujo.cuerpoBorrador||traducirPortal("panel_b7_cuerpo_defecto"))}</textarea>`,true)}${renderizarMarcadoresCorreo(flujo)}${flujo.error?`<p role="alert" class="mensaje-error campo-ancho">${escaparHTML(flujo.error)}</p>`:""}<div class="campo-ancho acciones-formulario"><button type="submit" class="boton-primario">${t("panel_b7_revisar")}</button></div></div></form>`;
     }
-    if(paso===4){const c=flujo.configuracion||{};const revisionRequerida=flujo.revision_obligatoria===true;contenido=`<section class="panel"><div class="cabecera-panel"><h3>4. ${t("panel_b7_paso_revisar")}</h3><span class="estado-chip advertencia">${t("panel_b7_confirmacion_pendiente")}</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>${t("panel_b7_necesidad")}</dt><dd>${escaparHTML(c.referencia)}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_centro_modalidad")}</dt><dd>${escaparHTML(c.centro)} · ${escaparHTML(c.modalidad)}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_candidatos")}</dt><dd>${t("panel_b7_seleccionados", { cantidad: numero(flujo.participaciones?.length||0) })}${flujo.totalElegibles > (flujo.participaciones?.length||0) ? `${t("panel_b7_de_elegibles", { cantidad: numero(flujo.totalElegibles) })}` : ""}${t("panel_b7_orden_preferencia")}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_canal")}</dt><dd>${t(flujo.canales?.telefono?"panel_b7_canal_detalle_telefono":"panel_b7_canal_detalle")}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_plazo")}</dt><dd>${escaparHTML(c.plazo)}</dd></div></dl>${renderizarVistaPreviaCorreo(flujo, candidatos)}<form class="confirmacion-llamamiento" data-bolsa-form="b7-paso4" data-cantidad="${numero(flujo.participaciones?.length||0)}"><label class="casilla-confirmacion"><input type="checkbox" name="confirmacion" required> <span>${t("panel_b7_confirmar", { cantidad: numero(flujo.participaciones?.length||0) })}</span></label><div class="acciones-formulario"><button type="submit" class="boton-primario" ${flujo.enviando||flujo.recibo||revisionRequerida?"disabled":""}${revisionRequerida?` aria-describedby="b7-motivo-revision" aria-label="${t("panel_b7_revision_requerida")}"`:""}>${flujo.enviando?t("panel_b7_enviando"):flujo.recibo?t("panel_b7_emitido"):revisionRequerida?t("panel_b7_revision_pendiente"):t("panel_b7_emitir")}</button></div></form>${revisionRequerida?`<p id="b7-motivo-revision" class="nota-pendiente" role="status">${t("panel_b7_revision_requerida")}</p>`:""}${flujo.error?`<p role="alert" tabindex="-1" data-b7-emision-error class="mensaje-error">${escaparHTML(flujo.error)}</p>`:""}${flujo.error_422?`<div><button type="button" class="boton-secundario" data-bolsa-accion="b7-revisar-configuracion">${t("panel_b7_revisar_configuracion")}</button> <button type="button" class="boton-secundario" data-bolsa-accion="b7-volver-seleccion">${t("panel_b7_actualizar_seleccion")}</button></div>`:""}${flujo.recibo?`<section class="mensaje-exito" tabindex="-1" data-b7-recibo><p><strong>${t("panel_b7_llamamiento_emitido")}</strong></p><p>${t("panel_b7_estado_emitido")}</p><p>${justificanteTraducido(flujo.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p><div class="acciones-vista">${flujo.canales?.telefono&&flujo.llamamiento_ref?enlaceSeguimiento({bolsaRef:bolsa.bolsa_ref,llamamientoRef:flujo.llamamiento_ref,escaparHTML,clase:"boton-primario",contenido:t("panel_b7_empezar_llamadas")}):""}<button type="button" class="boton-secundario" data-bolsa-accion="ver-historico-b7">${t("panel_b7_abrir_historico")}</button></div></section>${renderizarAvisosContactoEmision({ avisos: flujo.avisos_contacto, candidatos, escaparHTML })}`:""}</div></section>`}
+    if(paso===4){const c=flujo.configuracion||{};const revisionRequerida=flujo.revision_obligatoria===true;contenido=`<section class="panel"><div class="cabecera-panel"><h3>4. ${t("panel_b7_paso_revisar")}</h3><span class="estado-chip ${flujo.recibo ? "exito" : "advertencia"}">${t(flujo.recibo ? "panel_b7_emitido" : "panel_b7_confirmacion_pendiente")}</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>${t("panel_b7_necesidad")}</dt><dd>${escaparHTML(c.referencia)}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_centro_modalidad")}</dt><dd>${escaparHTML(c.centro)} · ${escaparHTML(c.modalidad)}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_candidatos")}</dt><dd>${t("panel_b7_seleccionados", { cantidad: numero(flujo.participaciones?.length||0) })}${flujo.totalElegibles > (flujo.participaciones?.length||0) ? `${t("panel_b7_de_elegibles", { cantidad: numero(flujo.totalElegibles) })}` : ""}${t("panel_b7_orden_preferencia")}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_canal")}</dt><dd>${t(flujo.canales?.telefono?"panel_b7_canal_detalle_telefono":"panel_b7_canal_detalle")}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_plazo")}</dt><dd>${escaparHTML(c.plazo)}</dd></div></dl>${renderizarVistaPreviaCorreo(flujo, candidatos)}<form class="confirmacion-llamamiento" data-bolsa-form="b7-paso4" data-cantidad="${numero(flujo.participaciones?.length||0)}"><label class="casilla-confirmacion"><input type="checkbox" name="confirmacion" required> <span>${t("panel_b7_confirmar", { cantidad: numero(flujo.participaciones?.length||0) })}</span></label><div class="acciones-formulario"><button type="submit" class="boton-primario" ${flujo.enviando||flujo.recibo||revisionRequerida?"disabled":""}${revisionRequerida?` aria-describedby="b7-motivo-revision" aria-label="${t("panel_b7_revision_requerida")}"`:""}>${flujo.enviando?t("panel_b7_enviando"):flujo.recibo?t("panel_b7_emitido"):revisionRequerida?t("panel_b7_revision_pendiente"):t("panel_b7_emitir")}</button></div></form>${revisionRequerida?`<p id="b7-motivo-revision" class="nota-pendiente" role="status">${t("panel_b7_revision_requerida")}</p>`:""}${flujo.error?`<p role="alert" tabindex="-1" data-b7-emision-error class="mensaje-error">${escaparHTML(flujo.error)}</p>`:""}${flujo.error_422?`<div><button type="button" class="boton-secundario" data-bolsa-accion="b7-revisar-configuracion">${t("panel_b7_revisar_configuracion")}</button> <button type="button" class="boton-secundario" data-bolsa-accion="b7-volver-seleccion">${t("panel_b7_actualizar_seleccion")}</button></div>`:""}${flujo.recibo?`<section class="mensaje-exito" tabindex="-1" data-b7-recibo><p><strong>${t("panel_b7_llamamiento_emitido")}</strong></p><p>${t("panel_b7_estado_emitido")}</p>${renderizarEstadoVinculo(flujo)}<p>${justificanteTraducido(flujo.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p><div class="acciones-vista">${flujo.canales?.telefono&&flujo.llamamiento_ref?enlaceSeguimiento({bolsaRef:bolsa.bolsa_ref,llamamientoRef:flujo.llamamiento_ref,escaparHTML,clase:"boton-primario",contenido:t("panel_b7_empezar_llamadas"),origen:flujo.origen}):""}<button type="button" class="boton-secundario" data-bolsa-accion="ver-historico-b7">${t("panel_b7_abrir_historico")}</button></div></section>${renderizarAvisosContactoEmision({ avisos: flujo.avisos_contacto, candidatos, escaparHTML })}`:""}</div></section>`}
     return `${encabezadoVista("",traducirPortal("panel_b7_titulo"),"",`<button type="button" class="boton-secundario" data-bolsa-accion="cancelar-b7" ${flujo.enviando?"disabled":""}>${flujo.enviando?t("panel_b7_envio_curso"):t("panel_b7_cancelar")}</button>`)}${rail}<div class="distribucion-llamamiento"><div>${contenido}</div>${resumen}</div>`;
   }
   function renderizarCandidatosBolsa() {
@@ -583,8 +595,10 @@ export function crearPresentadorPanelInterno(dependencias) {
             <td><strong>${c.orden === null ? "—" : `#${numero(c.orden)}`}</strong>${c.razon_orden !== "orden_acta" ? `<br><small>${escaparHTML(c.razon_orden === "restriccion_cese"
               ? traducirPortal("bolsa_razon_restriccion_cese", { fecha: instanteVisible(c.disponible_desde) })
               : c.razon_orden === "retorno_tras_cese" ? traducirPortal("bolsa_razon_retorno_tras_cese")
+              : c.razon_orden === "respuesta_portal_pendiente" ? traducirPortal("bolsa_razon_respuesta_portal_pendiente")
+              : c.razon_orden === "cese_pendiente" ? traducirPortal("bolsa_razon_cese_pendiente")
                 : c.razon_orden === "reposicion_tras_contrato" ? traducirPortal("txt_reposicion_tras_contrato")
-                  : c.razon_orden === "pausa" ? traducirPortal("txt_pausa")
+                  : c.razon_orden === "pausa" ? traducirPortal("bolsa_razon_pausa")
                     : c.razon_orden === "sin_turno" ? traducirPortal("bolsa_turno_sin_puesto") : etiquetaClave(c.razon_orden))}</small>` : ""}</td>
             <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="${textoPortal("txt_aria_abrir_ficha_de", { persona: c.nombre_visible })}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
             <td><code>${escaparHTML(c.documento_enmascarado)}</code></td>
@@ -731,13 +745,25 @@ export function crearPresentadorPanelInterno(dependencias) {
       : `<div class="fila-resumen"><dt>${textoPortal("txt_ultimo_llamamiento")}</dt><dd>${textoPortal("txt_sin_llamamientos_registrados")}</dd></div>`;
     const destinos = destinosSituacion(modal.reglasSituacion, candidato.estado_clave);
     const fechaPropuesta = fechaDisponiblePropuesta(modal.reglasSituacion, modal.reposicion);
+    const borrador = modal.borradorCambioSituacion || {};
+    const revision = modal.revisionCambioSituacion;
+    const cierreBloqueado = modal.enviandoCambioSituacion || modal.resultadoInciertoCambioSituacion;
     const cambio = modal.cambioSituacion ? `
-      <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
-        <label>${textoPortal("txt_destino")} <select name="situacion" required><option value="">${textoPortal("txt_elija_nueva_situacion")}</option>${destinos.map((d) => `<option value="${d}">${escaparHTML(etiquetaClave(d))}</option>`).join("")}</select></label>
+      <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}"${revision ? " novalidate" : ""}>
+        <div data-bolsa-cambio-edicion${revision ? " hidden" : ""}><label>${textoPortal("txt_destino")} <select name="situacion" required><option value="">${textoPortal("txt_elija_nueva_situacion")}</option>${destinos.map((d) => `<option value="${d}"${borrador.situacion === d ? " selected" : ""}>${escaparHTML(etiquetaEstadoBolsa(d))}</option>`).join("")}</select></label>
         ${renderizarCamposReposicion({ reglas: modal.reglasSituacion, candidato, estadoReposicion: modal.reposicion, escaparHTML })}
-        <label data-bolsa-fecha-disponible>${textoPortal("txt_fecha_de_disponibilidad")} <input type="datetime-local" name="fecha_disponible"${fechaPropuesta ? ` value="${escaparHTML(fechaPropuesta)}"` : ""}></label>
-        <label>${textoPortal("txt_motivo")} <textarea name="motivo" required maxlength="1000"></textarea></label>
-        <button type="submit" class="boton-primario"${destinos.length ? "" : " disabled"}>${textoPortal("txt_guardar_cambio")}</button>
+        <label data-bolsa-fecha-disponible>${textoPortal("txt_fecha_de_disponibilidad")} <input type="datetime-local" name="fecha_disponible"${borrador.fecha || fechaPropuesta ? ` value="${escaparHTML(borrador.fecha || fechaPropuesta)}"` : ""}></label>
+        <label>${textoPortal("txt_motivo")} <textarea name="motivo" required maxlength="1000">${escaparHTML(borrador.motivo || "")}</textarea></label>
+        <button type="submit" class="boton-primario"${destinos.length ? "" : " disabled"}>${textoPortal("txt_revisar_cambio_situacion")}</button></div>
+        ${revision ? `<section class="panel" data-bolsa-cambio-revision tabindex="-1" aria-label="${textoPortal("txt_revisar_cambio_situacion")}">
+          <div class="cabecera-panel"><h4>${textoPortal("txt_revisar_cambio_situacion")}</h4></div><div class="cuerpo-panel">
+          <dl class="resumen-expediente">
+            <div class="fila-resumen"><dt>${textoPortal("txt_destino")}</dt><dd>${escaparHTML(etiquetaEstadoBolsa(revision.situacion))}</dd></div>
+            <div class="fila-resumen"><dt>${textoPortal("txt_motivo")}</dt><dd>${escaparHTML(revision.motivo)}</dd></div>
+            ${revision.fechaDisponible ? `<div class="fila-resumen"><dt>${textoPortal("txt_fecha_de_disponibilidad")}</dt><dd>${escaparHTML(instanteVisible(revision.fechaDisponible))}</dd></div>` : ""}
+          </dl>${modal.enviandoCambioSituacion ? `<p role="status">${textoPortal("txt_guardando")}</p>` : ""}${modal.resultadoInciertoCambioSituacion ? `<p class="nota aviso">${textoPortal("txt_resultado_cambio_incierto")}</p>` : ""}
+          <button type="button" class="boton-secundario" data-bolsa-accion="volver-cambio-situacion"${modal.resultadoInciertoCambioSituacion || modal.enviandoCambioSituacion ? " disabled" : ""}>${textoPortal("txt_volver_a_editar_cambio")}</button>
+          <button type="submit" class="boton-primario"${modal.enviandoCambioSituacion ? " disabled" : ""}>${textoPortal("txt_confirmar_cambio_situacion")}</button></div></section>` : ""}
         <p class="mensaje-error" role="alert">${escaparHTML(modal.errorCambioSituacion || "")}</p>
       </form>` : "";
     const reciboSituacion = modal.reciboSituacion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_cambio_registrado")} ${justificanteTraducido(modal.reciboSituacion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";
@@ -761,7 +787,7 @@ export function crearPresentadorPanelInterno(dependencias) {
           <section id="${escaparHTML(fichaId)}" class="panel" data-bolsa-ficha-inline="true" tabindex="-1" aria-labelledby="titulo-${escaparHTML(fichaId)}">
             <div class="cabecera-panel">
               <h3 id="titulo-${escaparHTML(fichaId)}">${textoPortal("txt_ficha_de_persona", { nombre: candidato.nombre_visible })}</h3>
-              <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-ficha" aria-label="${textoPortal("txt_cerrar_ficha_de_persona", { nombre: candidato.nombre_visible })}">×</button>
+              <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-ficha" aria-label="${textoPortal("txt_cerrar_ficha_de_persona", { nombre: candidato.nombre_visible })}"${cierreBloqueado ? " disabled" : ""}>×</button>
             </div>
             <div class="cuerpo-panel">
               <dl class="resumen-expediente">
@@ -776,6 +802,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <div class="fila-resumen"><dt>${traducirBolsaInterna("contacto_contador")}</dt><dd>${numero(candidato.contactos_total)}</dd></div>
                 ${renderizarOrigenContacto({ estado: modal.contactoOrigen || {}, escaparHTML })}
               </dl>
+              ${renderizarAccionJustificanteRenuncia({ bolsaRef: bolsa.bolsa_ref, participacionRef: candidato.participacion_ref, nombre: candidato.nombre_visible, escaparHTML, ficha: true })}
               ${renderizarRegistroContacto({ estado: modal.registroContacto || {}, escaparHTML })}
               ${reciboSituacion}
               ${reciboContacto}
@@ -788,7 +815,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <div class="acciones-vista">
               <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">${textoPortal("txt_cambiar_situacion")}</button>
               <button type="button" class="boton-secundario" data-bolsa-auditoria="${escaparHTML(candidato.participacion_ref)}">${textoPortal("auditoria_participacion_accion")}</button>
-              <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha">${textoPortal("txt_cerrar")}</button>
+              <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha"${cierreBloqueado ? " disabled" : ""}>${textoPortal("txt_cerrar")}</button>
             </div>
           </section>
           ${cambio}

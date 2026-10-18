@@ -8,7 +8,7 @@
     "ayudaTitulo": "Reglas vigentes",
     "ayudaCerrar": "Cerrar",
     "ayudaQue": "Esta pantalla muestra, sin permitir cambios, los plazos, límites y listas que aplican hoy Bolsa y Peticiones de personal temporal.",
-    "ayudaOrigen": "«Reglamento» cita el artículo del Reglamento de bolsas publicado. «Ejemplo» es un valor de trabajo que RRHH todavía no ha aprobado; la columna «Duda de RRHH» indica qué pregunta lo resolverá.",
+    "ayudaOrigen": "Las citas del Reglamento muestran su artículo. Los demás valores se leen junto con su versión y sus notas, sin atribuirles una fuente normativa.",
     "ayudaVersion": "Cada regla se identifica por su catálogo y versión. Un cambio de valor se publica como versión nueva del catálogo, sin tocar el programa.",
     "filtros": "Filtros de reglas",
     "filtroModulo": "Módulo",
@@ -16,16 +16,18 @@
     "filtroTexto": "Buscar",
     "todos": "Todos",
     "origen_reglamento": "Reglamento",
-    "origen_ejemplo": "Ejemplo",
+    "origen_ejemplo": "Propuesta",
+    "origen_configuracion": "Configuradas",
     "cargando": "Cargando reglas…",
     "sinResultados": "Ninguna regla coincide con los filtros.",
     "kpiTotal": "Reglas vigentes",
     "kpiReglamento": "Del Reglamento",
-    "kpiEjemplo": "De ejemplo",
+    "kpiEjemplo": "Propuestas",
+    "kpiConfiguracion": "Configuradas",
     "modulo_bolsa": "Bolsa",
     "modulo_contratacion_temporal": "Peticiones de personal temporal",
     "catalogoVersion": "Versión {version} del catálogo",
-    "paqueteEjemplo": "Paquete de ejemplo",
+    "paqueteEjemplo": "Paquete de propuestas",
     "estado_sin_catalogo": "Sin catálogo de reglas cargado: el módulo aplica su comportamiento actual.",
     "estado_no_disponible": "El catálogo de reglas no está disponible en este momento.",
     "contadorReglas": "{cantidad} reglas",
@@ -33,11 +35,11 @@
     "colValor": "Valor",
     "colUnidad": "Unidad",
     "colOrigen": "Origen",
-    "colDuda": "Duda de RRHH",
+    "colDuda": "Notas",
     "colVersion": "Versión",
     "origenArticulo": "Reglamento, {articulo}",
-    "origenEjemplo": "Ejemplo",
-    "parteEjemplo": "Parte de ejemplo: {texto}",
+    "origenEjemplo": "Propuesta",
+    "parteEjemplo": "Parte propuesta: {texto}",
     "sinValor": "No aplica",
     "computo_administrativo": "Cómputo administrativo",
     "computo_civil": "Cómputo civil",
@@ -57,14 +59,15 @@
     "error_autenticacion_requerida": "Identifíquese con su certificado para consultar las reglas.",
     "error_acceso_denegado": "Su perfil no permite consultar las reglas.",
     "error_respuesta": "No se han podido leer las reglas. Pulse Reintentar y, si sigue igual, avise a Informática.",
-    "ayudaDetalle": "Pulse el nombre de una regla para leerla entera: qué establece, en qué norma se basa, qué valores admite y qué duda de RRHH queda por contestar. Vuelva a pulsarlo para cerrarla.",
-    "ayudaResolver": "En esta pantalla no se cambian reglas. Las dudas las contesta el Departamento de RRHH fuera de VEC. Cuando se aprueba un valor, se publica una versión nueva del catálogo y esa versión es la que aparece aquí.",
+    "ayudaDetalle": "Pulse el nombre de una regla para leer qué establece, su referencia o criterio y las notas que constan. Vuelva a pulsarlo para cerrar el detalle.",
+    "ayudaResolver": "Esta página es de consulta. Los cambios se publican en una versión nueva del catálogo y se conservan las anteriores.",
     "detalleQue": "Qué establece",
-    "detalleNorma": "Norma en que se basa",
+    "detalleNorma": "Referencia o criterio",
     "detalleOrigen": "Origen",
-    "detalleDuda": "Duda de RRHH",
+    "detalleDuda": "Notas",
     "detalleSinDescripcion": "El catálogo no describe esta regla.",
-    "reintentar": "Reintentar"
+    "reintentar": "Reintentar",
+    "parteConfigurada": "Parte configurada: {texto}"
   },
   "presentacion": {
     "bolsa": {
@@ -74,13 +77,69 @@
             "original": "Las consecuencias posibles son las entradas «b24.sancion.*» de este catálogo; las de efecto «excluir» son también las causas de baja definitiva (art. 11) que RRHH elige al dar de baja. Contra la resolución cabe recurso de reposición en un mes desde su notificación.",
             "texto": "Las consecuencias previstas se recogen en las reglas de sanciones de esta lista. Solo las que excluyen a la persona de la bolsa son causas de baja definitiva, según el artículo 11; RRHH elige la que corresponda. Contra la resolución cabe recurso de reposición durante un mes desde su notificación."
           }
+        },
+        "sancion": {
+          "baja_llamamiento_directo": {
+            "ejemplo_parcial": {
+              "original": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo.",
+              "texto": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de operación.",
+                  "texto": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de operación."
+                }
+              }
+            }
+          },
+          "baja_sin_contacto": {
+            "ejemplo_parcial": {
+              "original": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo.",
+              "texto": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de operación.",
+                  "texto": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de operación."
+                }
+              }
+            }
+          },
+          "baja_publicacion": {
+            "ejemplo_parcial": {
+              "original": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo.",
+              "texto": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de operación.",
+                  "texto": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de operación."
+                }
+              }
+            }
+          },
+          "baja_renuncia_nombramiento": {
+            "ejemplo_parcial": {
+              "original": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo.",
+              "texto": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de operación.",
+                  "texto": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de operación."
+                }
+              }
+            }
+          }
         }
       },
       "b26": {
         "agotamiento": {
           "ejemplo_parcial": {
             "original": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de ejemplo; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
-            "texto": "En este ejemplo, VEC propone el agotamiento provisional cuando las personas disponibles no superan el umbral configurado. RRHH lo confirma mediante resolución expresa."
+            "texto": "VEC propone el agotamiento provisional cuando las personas disponibles no superan el umbral configurado. RRHH lo confirma mediante resolución expresa.",
+            "variantes": {
+              "configuracion": {
+                "original": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de operación; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
+                "texto": "VEC propone el agotamiento provisional cuando las personas disponibles no superan el umbral configurado. RRHH lo confirma mediante resolución expresa."
+              }
+            }
           }
         }
       },
@@ -89,13 +148,25 @@
           "disponible": {
             "duda": {
               "original": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
-              "texto": "Duda 62. VEC publica al arrancar los cambios de situación permitidos y aplica la lista publicada."
+              "texto": "Duda 62. VEC publica al arrancar los cambios de situación permitidos y aplica la lista publicada.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Respuesta 18 de RRHH (02/10/2026); decisión configurable y versionada.",
+                  "texto": "RRHH confirmó el 02/10/2026 que esta decisión se configura y conserva por versiones."
+                }
+              }
             }
           },
           "renuncia": {
             "duda": {
               "original": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
-              "texto": "Duda 62. VEC publica al arrancar los cambios permitidos tras una renuncia y aplica la lista publicada."
+              "texto": "Duda 62. VEC publica al arrancar los cambios permitidos tras una renuncia y aplica la lista publicada.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Respuesta 18 de RRHH (02/10/2026); decisión configurable y versionada.",
+                  "texto": "RRHH confirmó el 02/10/2026 que esta decisión se configura y conserva por versiones."
+                }
+              }
             }
           }
         }
@@ -111,6 +182,76 @@
           "descripcion": {
             "original": "Se llama a la siguiente persona que se ofreció para esa misma plaza; si no queda nadie, la plaza pasa a llamamiento directo. Valores posibles: «siguiente_en_orden» o «llamamiento_directo».",
             "texto": "Se llama a la siguiente persona que se ofreció para esa misma plaza. También puede configurarse el llamamiento directo; si no queda nadie en el primer caso, la plaza pasa a llamamiento directo."
+          }
+        }
+      },
+      "b08": {
+        "sin_respuesta_baja": {
+          "ejemplo_parcial": {
+            "original": "El Reglamento no dice que no responder equivalga a no aceptar: tratar la falta de respuesta dentro del plazo como no aceptación es un supuesto de ejemplo. También lo es que VEC proponga la baja y RRHH la confirme.",
+            "texto": "El Reglamento no dice que no responder equivalga a no aceptar: tratar la falta de respuesta dentro del plazo como no aceptación es un supuesto de ejemplo. También lo es que VEC proponga la baja y RRHH la confirme.",
+            "variantes": {
+              "configuracion": {
+                "original": "El Reglamento no dice que no responder equivalga a no aceptar: tratar la falta de respuesta dentro del plazo como no aceptación es un criterio de operación. También se prevé que VEC proponga la baja y RRHH la confirme.",
+                "texto": "El Reglamento no dice que no responder equivalga a no aceptar: tratar la falta de respuesta dentro del plazo como no aceptación es un criterio de operación. También se prevé que VEC proponga la baja y RRHH la confirme."
+              }
+            }
+          }
+        }
+      },
+      "b09": {
+        "siguiente_candidato": {
+          "ejemplo_parcial": {
+            "original": "La confirmación por RRHH es un circuito de ejemplo.",
+            "texto": "La confirmación por RRHH es un circuito de ejemplo.",
+            "variantes": {
+              "configuracion": {
+                "original": "La confirmación por RRHH es un circuito de operación.",
+                "texto": "La confirmación por RRHH es un circuito de operación."
+              }
+            }
+          }
+        }
+      },
+      "b11": {
+        "acreditar_renuncia_justificada": {
+          "ejemplo_parcial": {
+            "original": "El plazo de diez días hábiles es de ejemplo (art. 73.1 de la Ley 39/2015).",
+            "texto": "El plazo de diez días hábiles es de ejemplo (art. 73.1 de la Ley 39/2015).",
+            "variantes": {
+              "configuracion": {
+                "original": "El plazo de diez días hábiles es un criterio de operación (art. 73.1 de la Ley 39/2015).",
+                "texto": "El plazo de diez días hábiles es un criterio de operación (art. 73.1 de la Ley 39/2015)."
+              }
+            }
+          }
+        }
+      },
+      "b17": {
+        "aviso_encadenamiento": {
+          "duda": {
+            "original": "El umbral es un parámetro de ejemplo; RRHH debe fijar el criterio.",
+            "texto": "El umbral es un parámetro de ejemplo; RRHH debe fijar el criterio.",
+            "variantes": {
+              "configuracion": {
+                "original": "RRHH debe fijar el criterio de umbral.",
+                "texto": "RRHH debe fijar el criterio de umbral."
+              }
+            }
+          }
+        }
+      },
+      "b23": {
+        "plazo_incorporacion": {
+          "ejemplo_parcial": {
+            "original": "El mínimo de un día hábil es de ejemplo.",
+            "texto": "El mínimo de un día hábil es de ejemplo.",
+            "variantes": {
+              "configuracion": {
+                "original": "El mínimo de un día hábil es un criterio de operación.",
+                "texto": "El mínimo de un día hábil es un criterio de operación."
+              }
+            }
           }
         }
       }
@@ -199,6 +340,18 @@
               "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.programas_temporales.",
               "texto": "RRHH puede elegir esta modalidad al analizar la solicitud. Su duración máxima se fija en la regla «Duración máxima: programas temporales»."
             }
+          },
+          "relevo": {
+            "descripcion": {
+              "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Sin duración máxima en las reglas de ejemplo.",
+              "texto": "Modalidad que RRHH puede elegir al analizar la solicitud. Sin duración máxima en las reglas de ejemplo.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Esta versión no fija una duración máxima.",
+                  "texto": "Modalidad que RRHH puede elegir al analizar la solicitud. Esta versión no fija una duración máxima."
+                }
+              }
+            }
           }
         }
       },
@@ -248,11 +401,163 @@
         "sustitucion_reserva_retorno_ejemplo": {
           "descripcion": {
             "original": "Una persona se incorpora para sustituir temporalmente a quien conserva su puesto. RRHH debe confirmar la modalidad y los documentos que acreditan la ocupación, la reserva y el retorno. Esta regla de prueba se puede cambiar o retirar; no registra ninguno de esos actos.",
-            "texto": "Una persona sustituye temporalmente a quien conserva su puesto. RRHH debe confirmar la modalidad y qué documentos acreditan la ocupación, la reserva del puesto y el retorno. El ejemplo se puede cambiar o retirar; no registra estos actos."
+            "texto": "Una persona sustituye temporalmente a quien conserva su puesto. RRHH debe confirmar la modalidad y qué documentos acreditan la ocupación, la reserva del puesto y el retorno."
           },
           "duda": {
             "original": "Duda 99.",
             "texto": "Duda 99."
+          }
+        }
+      },
+      "c14": {
+        "entrada_rc": {
+          "sintetica_001": {
+            "etiqueta": {
+              "original": "Retención de crédito sintética 001",
+              "texto": "Retención de crédito sintética 001",
+              "variantes": {
+                "configuracion": {
+                  "original": "Retención de crédito 001",
+                  "texto": "Retención de crédito 001"
+                }
+              }
+            },
+            "descripcion": {
+              "original": "Retención de crédito de ejemplo con la que se ensaya el análisis; la real la da el sistema de Intervención.",
+              "texto": "Retención de crédito de ejemplo con la que se ensaya el análisis; la real la da el sistema de Intervención.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Retención de crédito de operación usada en el análisis. La referencia y confirmación auténticas corresponden a Intervención.",
+                  "texto": "Retención de crédito de operación usada en el análisis. La referencia y confirmación auténticas corresponden a Intervención."
+                }
+              }
+            }
+          }
+        }
+      },
+      "c17": {
+        "via_cobertura": {
+          "bolsa_vigente": {
+            "descripcion": {
+              "original": "Vía preferente de cobertura: exige que exista una bolsa vigente de la categoría y que tenga candidaturas disponibles. Documentos y datos de preparación: ejemplo pendiente de RRHH — duda 73; no son requisitos aprobados.",
+              "texto": "Vía preferente de cobertura: exige que exista una bolsa vigente de la categoría y que tenga candidaturas disponibles. Documentos y datos de preparación: ejemplo pendiente de RRHH — duda 73; no son requisitos aprobados.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Vía preferente de cobertura: exige que exista una bolsa vigente de la categoría y que tenga candidaturas disponibles. Documentos y datos de preparación pendientes de revisión por RRHH (duda 73).",
+                  "texto": "Vía preferente de cobertura: exige que exista una bolsa vigente de la categoría y que tenga candidaturas disponibles. Documentos y datos de preparación pendientes de revisión por RRHH (duda 73)."
+                }
+              }
+            },
+            "duda": {
+              "original": "Duda 7: vías y comprobaciones. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
+              "texto": "Duda 7: vías y comprobaciones. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Duda 7: vías y comprobaciones. Documentos y datos pendientes de revisión por RRHH (duda 73).",
+                  "texto": "Duda 7: vías y comprobaciones. Documentos y datos pendientes de revisión por RRHH (duda 73)."
+                }
+              }
+            }
+          },
+          "oferta_sae": {
+            "descripcion": {
+              "original": "Vía alternativa: oferta al Servicio Andaluz de Empleo cuando está disponible. Elegirla antes que la preferente exige motivo. Esta lista es solo informativa: no abre, tramita ni envía ofertas al SAE. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
+              "texto": "Vía alternativa: oferta al Servicio Andaluz de Empleo cuando está disponible. Elegirla antes que la preferente exige motivo. Esta lista es solo informativa: no abre, tramita ni envía ofertas al SAE. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Vía alternativa: oferta al Servicio Andaluz de Empleo cuando está disponible. Elegirla antes que la preferente exige motivo. Esta lista es solo informativa: no abre, tramita ni envía ofertas al SAE. Documentos y datos de preparación pendientes de revisión por RRHH (duda 73).",
+                  "texto": "Vía alternativa: oferta al Servicio Andaluz de Empleo cuando está disponible. Elegirla antes que la preferente exige motivo. Esta lista es solo informativa: no abre, tramita ni envía ofertas al SAE. Documentos y datos de preparación pendientes de revisión por RRHH (duda 73)."
+                }
+              }
+            },
+            "duda": {
+              "original": "Duda 7: cuándo procede la oferta al SAE. Documentos y datos: ejemplo pendiente de RRHH — duda 73; canal y trámite de SAE pendientes de la duda 72.",
+              "texto": "Duda 7: cuándo procede la oferta al SAE. Documentos y datos: ejemplo pendiente de RRHH — duda 73; canal y trámite de SAE pendientes de la duda 72.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Duda 7: cuándo procede la oferta al SAE. Documentos y datos pendientes de revisión por RRHH (duda 73); canal y trámite de SAE pendientes de la duda 72.",
+                  "texto": "Duda 7: cuándo procede la oferta al SAE. Documentos y datos pendientes de revisión por RRHH (duda 73); canal y trámite de SAE pendientes de la duda 72."
+                }
+              }
+            }
+          },
+          "nueva_convocatoria_bolsa": {
+            "descripcion": {
+              "original": "Vía alternativa: convocar una bolsa nueva de la categoría. Elegirla antes que la preferente exige motivo. Documentos y datos de preparación: ejemplo pendiente de RRHH — duda 73; no son requisitos aprobados.",
+              "texto": "Vía alternativa: convocar una bolsa nueva de la categoría. Elegirla antes que la preferente exige motivo. Documentos y datos de preparación: ejemplo pendiente de RRHH — duda 73; no son requisitos aprobados.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Vía alternativa: convocar una bolsa nueva de la categoría. Elegirla antes que la preferente exige motivo. Documentos y datos de preparación pendientes de revisión por RRHH (duda 73).",
+                  "texto": "Vía alternativa: convocar una bolsa nueva de la categoría. Elegirla antes que la preferente exige motivo. Documentos y datos de preparación pendientes de revisión por RRHH (duda 73)."
+                }
+              }
+            },
+            "duda": {
+              "original": "Duda 7: cuándo procede una nueva convocatoria. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
+              "texto": "Duda 7: cuándo procede una nueva convocatoria. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
+              "variantes": {
+                "configuracion": {
+                  "original": "Duda 7: cuándo procede una nueva convocatoria. Documentos y datos pendientes de revisión por RRHH (duda 73).",
+                  "texto": "Duda 7: cuándo procede una nueva convocatoria. Documentos y datos pendientes de revisión por RRHH (duda 73)."
+                }
+              }
+            }
+          }
+        }
+      },
+      "c03": {
+        "plazo_fiscalizacion": {
+          "etiqueta": {
+            "original": "Plazo de fiscalización",
+            "texto": "Plazo de fiscalización"
+          },
+          "descripcion": {
+            "original": "Diez días hábiles; cinco si la tramitación es urgente.",
+            "texto": "Diez días hábiles; cinco si la tramitación es urgente.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "Diez días hábiles para fiscalizar el expediente completo; cinco si la tramitación se ha declarado urgente.",
+                "texto": "Diez días hábiles para fiscalizar el expediente completo; cinco si la tramitación se ha declarado urgente."
+              }
+            }
+          },
+          "duda": {
+            "original": "Cotejar el texto del art. 13.1 con Intervención.",
+            "texto": "Cotejar el texto del art. 13.1 con Intervención.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "El cómputo empieza el día siguiente a la recepción del expediente completo. La fiscalización limitada previa también tiene un plazo de cinco días; VEC no identifica ese régimen por separado.",
+                "texto": "El cómputo empieza el día siguiente a la recepción del expediente completo. La fiscalización limitada previa también tiene un plazo de cinco días; VEC no identifica ese régimen por separado."
+              }
+            }
+          }
+        }
+      },
+      "c04": {
+        "plazo_subsanacion": {
+          "etiqueta": {
+            "original": "Plazo de subsanación",
+            "texto": "Plazo de subsanación"
+          },
+          "descripcion": {
+            "original": "Diez días hábiles para subsanar.",
+            "texto": "Diez días hábiles para subsanar.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "Quince días hábiles para subsanar el reparo y remitir de nuevo el expediente a Intervención.",
+                "texto": "Quince días hábiles para subsanar el reparo y remitir de nuevo el expediente a Intervención."
+              }
+            }
+          },
+          "duda": {
+            "original": "Pendiente de RRHH.",
+            "texto": "Pendiente de RRHH.",
+            "variantes": {
+              "normativa_v3": {
+                "original": "VEC cuenta desde que el servicio recibe el reparo. La aceptación del reparo no se registra por separado.",
+                "texto": "VEC cuenta desde que el servicio recibe el reparo. La aceptación del reparo no se registra por separado."
+              }
+            }
           }
         }
       }

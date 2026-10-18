@@ -2,6 +2,7 @@ package incorporacionejercicio
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -28,6 +29,7 @@ type actosCeseB2Prueba struct {
 	ultima      pd.SolicitudHechoEmpleadoB2
 	falloAntes  error
 	falloTras   error
+	falloTipo   string
 	instante    time.Time
 	secuenciaID int
 }
@@ -55,21 +57,54 @@ func (a *actosCeseB2Prueba) RegistrarHecho(_ context.Context, s pd.SolicitudHech
 	if ultima == nil || s.EmpleadoRef != a.ficha.ficha.EmpleadoRef {
 		return pp.ResultadoHechoEmpleadoB2{}, pd.ErrRegistroEmpleadoB2NoEncontrado
 	}
-	if ultima.Traza.Version != s.RelacionVersionEsperada || s.RevisionEsperada != s.RelacionVersionEsperada+1 {
+	if ultima.Traza.Version != s.RelacionVersionEsperada {
 		return pp.ResultadoHechoEmpleadoB2{}, pd.ErrRegistroEmpleadoB2Conflicto
 	}
-	nueva := *ultima
-	nueva.Estado = s.Estado
-	nueva.Traza.Version = s.RevisionEsperada
-	nueva.Traza.Desde, nueva.Traza.Hasta = s.VigenteDesde, s.VigenteHasta
-	nueva.Traza.ActoRef, nueva.Traza.FuenteRef, nueva.Traza.FuenteVersion = s.Procedencia.ActoRef, s.Procedencia.FuenteRef, s.Procedencia.FuenteVersion
-	a.ficha.ficha.Relaciones = append(a.ficha.ficha.Relaciones, nueva)
+	hechoRef := s.RelacionRef
+	switch s.Tipo {
+	case "relacion":
+		if ultima.Estado != "vigente" || s.RevisionEsperada != s.RelacionVersionEsperada+1 {
+			return pp.ResultadoHechoEmpleadoB2{}, pd.ErrRegistroEmpleadoB2Conflicto
+		}
+		nueva := *ultima
+		nueva.Estado = s.Estado
+		nueva.Traza.Version = s.RevisionEsperada
+		nueva.Traza.Desde, nueva.Traza.Hasta = s.VigenteDesde, s.VigenteHasta
+		nueva.Traza.ActoRef, nueva.Traza.FuenteRef, nueva.Traza.FuenteVersion = s.Procedencia.ActoRef, s.Procedencia.FuenteRef, s.Procedencia.FuenteVersion
+		a.ficha.ficha.Relaciones = append(a.ficha.ficha.Relaciones, nueva)
+	case "ocupacion":
+		if ultima.Estado != "finalizada" || ultima.Traza.Hasta != s.VigenteHasta ||
+			ultima.Traza.ActoRef != s.Procedencia.ActoRef || ultima.Traza.FuenteRef != s.Procedencia.FuenteRef ||
+			ultima.Traza.FuenteVersion != s.Procedencia.FuenteVersion {
+			return pp.ResultadoHechoEmpleadoB2{}, pd.ErrRegistroEmpleadoB2Conflicto
+		}
+		var anterior *pd.OcupacionEmpleadoB2
+		for i := range a.ficha.ficha.Ocupaciones {
+			o := &a.ficha.ficha.Ocupaciones[i]
+			if o.OcupacionRef == s.OcupacionRef && (anterior == nil || o.Traza.Version > anterior.Traza.Version) {
+				anterior = o
+			}
+		}
+		if anterior == nil || anterior.RelacionRef != s.RelacionRef || anterior.Estado != "vigente" ||
+			anterior.Traza.Version+1 != s.RevisionEsperada {
+			return pp.ResultadoHechoEmpleadoB2{}, pd.ErrRegistroEmpleadoB2Conflicto
+		}
+		nueva := *anterior
+		nueva.Estado = "finalizada"
+		nueva.Traza.Version = s.RevisionEsperada
+		nueva.Traza.Hasta = s.VigenteHasta
+		nueva.Traza.ActoRef, nueva.Traza.FuenteRef, nueva.Traza.FuenteVersion = s.Procedencia.ActoRef, s.Procedencia.FuenteRef, s.Procedencia.FuenteVersion
+		a.ficha.ficha.Ocupaciones = append(a.ficha.ficha.Ocupaciones, nueva)
+		hechoRef = s.OcupacionRef
+	default:
+		return pp.ResultadoHechoEmpleadoB2{}, pd.ErrRegistroEmpleadoB2Invalido
+	}
 	a.secuenciaID++
 	rec := pp.ReciboActoRegistroEmpleadoB2{ReciboRef: "perrec_" + strings.Repeat(string(rune('a'+a.secuenciaID)), 32), EmpleadoRef: s.EmpleadoRef,
-		RelacionRef: s.RelacionRef, HechoRef: s.RelacionRef, Tipo: "relacion", Version: s.RevisionEsperada, RegistradoEn: a.instante, EfectoRef: s.EmpleadoRef}
+		RelacionRef: s.RelacionRef, HechoRef: hechoRef, Tipo: s.Tipo, Version: s.RevisionEsperada, RegistradoEn: a.instante, EfectoRef: s.EmpleadoRef}
 	a.recibos[clave], a.materiales[clave] = rec, s
 	a.escrituras++
-	if a.falloTras != nil {
+	if a.falloTras != nil && (a.falloTipo == "" || a.falloTipo == s.Tipo) {
 		// La transacción de Personal confirmó, pero la respuesta no llegó.
 		return pp.ResultadoHechoEmpleadoB2{}, a.falloTras
 	}
@@ -110,6 +145,7 @@ type escenarioCeseB2 struct {
 const (
 	empleadoCeseB2     = "emp_eeeeeeeeeeeeeeeeeeeeeeee"
 	relacionCeseB2     = "rel_rrrrrrrrrrrrrrrrrrrrrrrr"
+	ocupacionCeseB2    = "ocu_oooooooooooooooooooooooo"
 	origenReciboCeseB2 = ct.PrefijoReciboOrigenIncorporacionPersonalB2 + "5f0c2a4e-8d1b-4c7a-9e3f-1a2b3c4d5e6f"
 )
 
@@ -129,10 +165,17 @@ func nuevoEscenarioCeseB2(t *testing.T, regla ReglaFechaCesePersonalB2) *escenar
 			OrganismoRef: d.OrganismoRef, UnidadRef: d.UnidadRef, RegimenRef: d.Regimen.Ref, ModalidadRef: d.Modalidad.Ref, Estado: "vigente",
 			Traza: pd.TrazaEmpleadoB2{Desde: d.Desde, Hasta: "2027-03-31", RegistradaEn: ahora.Add(-time.Hour), Version: 1,
 				ActoRef: d.Procedencia.ActoRef, FuenteRef: d.Procedencia.FuenteRef, FuenteVersion: d.Procedencia.FuenteVersion},
-			CatalogoSnapshot: pd.SnapshotCatalogoEmpleadoB2{Regimen: snapshot("regimen", d.Regimen.Ref), Modalidad: snapshot("modalidad", d.Modalidad.Ref)}}}}}
+			CatalogoSnapshot: pd.SnapshotCatalogoEmpleadoB2{Regimen: snapshot("regimen", d.Regimen.Ref), Modalidad: snapshot("modalidad", d.Modalidad.Ref)}}},
+		Ocupaciones: []pd.OcupacionEmpleadoB2{{OcupacionRef: ocupacionCeseB2, RelacionRef: relacionCeseB2,
+			PlazaRef: e.contrato.PlazaRef, PuestoRef: e.contrato.PuestoRef, UnidadRef: d.UnidadRef,
+			ModalidadRef: d.Modalidad.Ref, Clase: d.ClaseOcupacion, Estado: "vigente",
+			Traza: pd.TrazaEmpleadoB2{Desde: d.Desde, Hasta: "2027-03-31", RegistradaEn: ahora.Add(-time.Hour), Version: 1,
+				ActoRef: d.Procedencia.ActoRef, FuenteRef: d.Procedencia.FuenteRef, FuenteVersion: d.Procedencia.FuenteVersion},
+			CatalogoSnapshot: pd.SnapshotCatalogoEmpleadoB2{Modalidad: snapshot("modalidad", d.Modalidad.Ref)}}}}}
 	e.origen = &origenCeseB2Prueba{encontrado: true, origen: ct.OrigenIncorporacionPersonalB2{Protocolo: ct.ProtocoloIncorporacionPersonalB2, ReciboRef: origenReciboCeseB2,
 		Confirmacion: ct.ConfirmacionOrigenIncorporacionB2{OrganizacionRef: e.contrato.OrganizacionRef, ExpedienteRef: e.contrato.ExpedienteRef,
-			Hechos: ct.HechosPersonalIncorporacionB2{EmpleadoRef: empleadoCeseB2, RelacionRef: relacionCeseB2, RelacionVersion: 1}}}}
+			Hechos: ct.HechosPersonalIncorporacionB2{EmpleadoRef: empleadoCeseB2, RelacionRef: relacionCeseB2, RelacionVersion: 1,
+				OcupacionRef: ocupacionCeseB2, OcupacionVersion: 1}}}}
 	e.actos = &actosCeseB2Prueba{ficha: e.ficha, recibos: map[string]pp.ReciboActoRegistroEmpleadoB2{},
 		materiales: map[string]pd.SolicitudHechoEmpleadoB2{}, instante: ahora}
 	e.solicitud = SolicitudCesePersonalB2{Recibo: ct.ReciboOperacionSeguimiento{Operacion: ct.OperacionRegistrarCese,
@@ -170,8 +213,10 @@ func TestCesePersonalB2FinalizaRelacionConRevisionEsperadaYReglaDeFecha(t *testi
 			if err != nil {
 				t.Fatal(err)
 			}
-			s := e.actos.ultima
-			if !r.Aplica || r.VigenteHasta != caso.hasta || r.Recibo.Version != 2 || r.RelacionRef != relacionCeseB2 || e.actos.escrituras != 1 {
+			s := e.actos.materiales[r.IdempotenciaRef]
+			o := e.actos.ultima
+			if !r.Aplica || r.VigenteHasta != caso.hasta || r.Recibo.Version != 2 || r.OcupacionRecibo.Version != 2 ||
+				r.RelacionRef != relacionCeseB2 || r.OcupacionRef != ocupacionCeseB2 || e.actos.escrituras != 2 {
 				t.Fatalf("resultado inesperado: %+v", r)
 			}
 			if s.Tipo != "relacion" || s.Estado != "finalizada" || s.RelacionVersionEsperada != 1 || s.RevisionEsperada != 2 ||
@@ -184,6 +229,31 @@ func TestCesePersonalB2FinalizaRelacionConRevisionEsperadaYReglaDeFecha(t *testi
 			if p.ActoRef != e.solicitud.Recibo.ReciboRef || p.FuenteRef != e.solicitud.Recibo.ReciboRef || p.FuenteVersion != 10 ||
 				p.Validar() != nil || p.IdempotenciaRef != r.IdempotenciaRef {
 				t.Fatalf("procedencia no ligada al recibo del cese: %+v", p)
+			}
+			if o.Tipo != "ocupacion" || o.Estado != "finalizada" || o.OcupacionRef != ocupacionCeseB2 ||
+				o.RelacionVersionEsperada != 2 || o.RevisionEsperada != 2 || o.VigenteHasta != caso.hasta ||
+				o.Procedencia.IdempotenciaRef == p.IdempotenciaRef || o.Procedencia.FuenteHuellaSHA256 != p.FuenteHuellaSHA256 ||
+				r.OcupacionRecibo.HechoRef != ocupacionCeseB2 {
+				t.Fatalf("cierre de ocupación incorrecto: %+v, recibo %+v", o, r.OcupacionRecibo)
+			}
+			for _, casoMaterial := range []struct {
+				solicitud pd.SolicitudHechoEmpleadoB2
+				esquema   string
+				selector  bool
+			}{{s, "vec.personal.registro-empleado-b2.hecho.v1", false},
+				{o, "vec.personal.registro-empleado-b2.hecho-cierre-ocupacion.v1", true}} {
+				m, err := pd.NuevoMaterialHechoEmpleadoB2(casoMaterial.solicitud)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var datos map[string]any
+				if err := json.Unmarshal(m.Canonico(), &datos); err != nil {
+					t.Fatal(err)
+				}
+				_, selector := datos["ocupacion_ref"]
+				if datos["esquema"] != casoMaterial.esquema || selector != casoMaterial.selector {
+					t.Fatalf("material histórico alterado o selector ausente: %s", m.Canonico())
+				}
 			}
 		})
 	}
@@ -199,7 +269,9 @@ func TestCesePersonalB2RepetirMismoCeseDevuelveMismoReciboSinOtraRevision(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if segundo.Recibo != primero.Recibo || segundo.IdempotenciaRef != primero.IdempotenciaRef || e.actos.escrituras != 1 || len(e.ficha.ficha.Relaciones) != 2 {
+	if segundo.Recibo != primero.Recibo || segundo.OcupacionRecibo != primero.OcupacionRecibo ||
+		segundo.IdempotenciaRef != primero.IdempotenciaRef || e.actos.escrituras != 2 ||
+		len(e.ficha.ficha.Relaciones) != 2 || len(e.ficha.ficha.Ocupaciones) != 2 {
 		t.Fatalf("el reintento duplicó o cambió el recibo: %+v / %+v, escrituras=%d", primero, segundo, e.actos.escrituras)
 	}
 	otro := nuevoEscenarioCeseB2(t, CeseUltimoDiaTrabajado)
@@ -221,11 +293,31 @@ func TestCesePersonalB2FalloTrasConfirmarPersonalYReintentoDejaUnSoloRecibo(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if e.actos.escrituras != 1 || len(e.ficha.ficha.Relaciones) != 2 || r.Recibo.Version != 2 || e.actos.llamadas != 2 {
+	if e.actos.escrituras != 2 || len(e.ficha.ficha.Relaciones) != 2 || len(e.ficha.ficha.Ocupaciones) != 2 ||
+		r.Recibo.Version != 2 || r.OcupacionRecibo.Version != 2 || e.actos.llamadas != 3 {
 		t.Fatalf("el reintento duplicó la revisión: escrituras=%d revisiones=%d", e.actos.escrituras, len(e.ficha.ficha.Relaciones))
 	}
-	if e.actos.ultima.RelacionVersionEsperada != 1 || e.actos.ultima.RevisionEsperada != 2 {
+	if e.actos.materiales[r.IdempotenciaRef].RelacionVersionEsperada != 1 || e.actos.ultima.RevisionEsperada != 2 {
 		t.Fatalf("el reintento no repitió la solicitud original: %+v", e.actos.ultima)
+	}
+}
+
+func TestCesePersonalB2FalloTrasCerrarOcupacionRecuperaAmbosRecibos(t *testing.T) {
+	e := nuevoEscenarioCeseB2(t, CesePrimerDiaSinRelacion)
+	e.actos.falloTras, e.actos.falloTipo = pd.ErrRegistroEmpleadoB2NoDisponible, "ocupacion"
+	if _, err := e.finalizar(); err == nil || e.actos.escrituras != 2 {
+		t.Fatalf("no se conservó el cierre pendiente de respuesta: %v, escrituras=%d", err, e.actos.escrituras)
+	}
+	recibos := map[string]pp.ReciboActoRegistroEmpleadoB2{}
+	for clave, recibo := range e.actos.recibos {
+		recibos[clave] = recibo
+	}
+	e.actos.falloTras = nil
+	r, err := e.finalizar()
+	if err != nil || r.Recibo.Version != 2 || r.OcupacionRecibo.Version != 2 ||
+		e.actos.escrituras != 2 || len(e.ficha.ficha.Relaciones) != 2 || len(e.ficha.ficha.Ocupaciones) != 2 ||
+		!reflect.DeepEqual(e.actos.recibos, recibos) {
+		t.Fatalf("reintento de ocupación: %v, resultado=%+v, escrituras=%d", err, r, e.actos.escrituras)
 	}
 }
 
@@ -272,6 +364,20 @@ func TestCesePersonalB2RechazaRelacionDeOtroEmpleadoOOrganismo(t *testing.T) {
 		{"relacion_de_otro_organismo", func(e *escenarioCeseB2) { e.ficha.ficha.Relaciones[0].OrganismoRef = "organismo:otro" }, ct.ErrConflictoIncorporacionAplicacion},
 		{"relacion_ausente", func(e *escenarioCeseB2) {
 			e.origen.origen.Confirmacion.Hechos.RelacionRef = "rel_xxxxxxxxxxxxxxxxxxxxxxxx"
+		}, ct.ErrConflictoIncorporacionAplicacion},
+		{"ocupacion_ausente", func(e *escenarioCeseB2) {
+			e.origen.origen.Confirmacion.Hechos.OcupacionRef = "ocu_xxxxxxxxxxxxxxxxxxxxxxxx"
+		}, ct.ErrConflictoIncorporacionAplicacion},
+		{"ocupacion_otra_relacion", func(e *escenarioCeseB2) {
+			e.ficha.ficha.Ocupaciones[0].RelacionRef = "rel_xxxxxxxxxxxxxxxxxxxxxxxx"
+		}, ct.ErrConflictoIncorporacionAplicacion},
+		{"ocupacion_revision_ajena", func(e *escenarioCeseB2) {
+			e.ficha.ficha.Ocupaciones[0].Traza.Version = 3
+		}, ct.ErrConflictoIncorporacionAplicacion},
+		{"ocupacion_cerrada_por_otro_cese", func(e *escenarioCeseB2) {
+			o := e.ficha.ficha.Ocupaciones[0]
+			o.Estado, o.Traza.Version, o.Traza.ActoRef = "finalizada", 2, "acto:otro"
+			e.ficha.ficha.Ocupaciones = append(e.ficha.ficha.Ocupaciones, o)
 		}, ct.ErrConflictoIncorporacionAplicacion},
 		{"origen_de_otro_expediente", func(e *escenarioCeseB2) { e.origen.origen.Confirmacion.ExpedienteRef = "expediente:otro" }, ct.ErrConflictoIncorporacionAplicacion},
 		{"otro_actor_rrhh", func(e *escenarioCeseB2) { e.solicitud.Recibo.ActorRef = "principal:otro" }, ct.ErrDenegadaIncorporacionAplicacion},
@@ -344,7 +450,8 @@ func TestCesePersonalB2LecturaQueNoVeLaRevisionFinalSeResuelvePorRepeticion(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if segundo.Recibo != primero.Recibo || e.actos.escrituras != 1 || !reflect.DeepEqual(e.actos.ultima, original) {
+	if segundo.Recibo != primero.Recibo || segundo.OcupacionRecibo != primero.OcupacionRecibo ||
+		e.actos.escrituras != 2 || !reflect.DeepEqual(e.actos.ultima, original) {
 		t.Fatalf("la lectura atrasada produjo otra solicitud o revisión: %+v / %+v", primero, segundo)
 	}
 }

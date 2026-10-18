@@ -4,9 +4,10 @@ import { crearClientePoliticaOfertas, ESQUEMA_POLITICA_OFERTAS, RUTA_POLITICA_OF
   RUTA_CAPACIDAD_POLITICA_OFERTAS,
   validarPoliticaEditable, validarPoliticaRecibida, cargarEjemploPlazas, cargarConfirmacionAdjudicacion, plazasCompletas, crearLectorReglasCompartido } from "./rrhh-plazos-api.js";
 import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
-import { crearSuperficieRRHHPlazos as crearSuperficieRRHHPlazosReal, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1";
+import { traducirPortal } from "../../portal-i18n.js";
+import { crearSuperficieRRHHPlazos as crearSuperficieRRHHPlazosReal, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js?v=20261016-r1-o-integracion-v7";
 import { cargarEjemploPlazas as cargarEjemploPlazasSuperficie,
-  cargarConfirmacionAdjudicacion as cargarConfirmacionSuperficie } from "./rrhh-plazos-api.js?v=20261007-pantallas-textos-final-v1";
+  cargarConfirmacionAdjudicacion as cargarConfirmacionSuperficie } from "./rrhh-plazos-api.js?v=20261016-r1-o-integracion-v7";
 
 const crearSuperficieRRHHPlazos = (opciones) => crearSuperficieRRHHPlazosReal({ cargarConfirmacion: async () => null, ...opciones });
 
@@ -29,6 +30,10 @@ const vigente = (bolsaRef = "bolsa:1", extra = {}) => ({ data: { esquema: ESQUEM
   puede_publicar: false, ...extra } });
 const respuesta = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 const turno = () => new Promise((resolver) => setTimeout(resolver, 0));
+const crearTraductorPrueba = () => {
+  const plazos = crearTraductorRRHHPlazos();
+  return (clave, variables) => clave.startsWith("panel_") ? traducirPortal(clave, variables) : plazos(clave, variables);
+};
 
 test("consulta la política por bolsa y publica una versión con recibo e idempotencia", async () => {
   const llamadas = [];
@@ -107,9 +112,29 @@ test("la política acepta 48 horas naturales continuas y conserva el rango propi
   assert.throws(() => validarPoliticaEditable(dias), /política/u);
 });
 
+test("la política admite inicio por publicación y exige que el recibo confirme el inicio enviado", async () => {
+  const publica = structuredClone(POLITICA);
+  publica.plazo.inicio = "publicacion";
+  assert.equal(validarPoliticaEditable(publica).plazo.inicio, "publicacion");
+  const enviadas = [];
+  const cliente = crearClientePoliticaOfertas({ fetchImpl: async (_ruta, opciones) => {
+    enviadas.push(JSON.parse(opciones.body));
+    return respuesta(201, vigente("bolsa:1", { version: 2, recibo_ref: "recibo:politica:2", politica: publica }));
+  } });
+  const resultado = await cliente.publicar({ bolsa_ref: "bolsa:1", version_esperada: 1, clave_idempotencia: "politica-2", politica: publica });
+  assert.equal(resultado.politica.politica.plazo.inicio, "publicacion");
+  assert.equal(enviadas[0].politica.plazo.inicio, "publicacion");
+  const incoherente = crearClientePoliticaOfertas({ fetchImpl: async () => respuesta(201,
+    vigente("bolsa:1", { version: 2, recibo_ref: "recibo:politica:2", politica: POLITICA })) });
+  await assert.rejects(incoherente.publicar({ bolsa_ref: "bolsa:1", version_esperada: 1,
+    clave_idempotencia: "politica-2", politica: publica }), /incoherente/);
+});
+
 test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST válido", async () => {
   let intentos = 0;
   const claves = [];
+  const publicadas = [];
+  const anuncios = [];
   const cliente = { consultar: async () => ({ ok: true, politica: vacia("bolsa:1", { puede_publicar: true }).data }),
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }),
     publicar: async (comando) => {
@@ -117,19 +142,23 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
       return intentos === 1 ? { ok: false, status: 503 } :
         { ok: true, politica: vigente("bolsa:1", { recibo_ref: "recibo:politica:1" }).data };
     } };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
-    generarClave: () => "misma-clave", cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo });
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(),
+    generarClave: () => "misma-clave", cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo,
+    anunciar: (texto) => anuncios.push(texto),
+    alPublicar: (politica) => publicadas.push(politica.version) });
   superficie.activar("bolsa:1"); await turno();
-  assert.match(superficie.renderizar(), /Regla de ejemplo/);
+  assert.match(superficie.renderizar(), /Regla pendiente de aprobación/);
   assert.match(superficie.renderizar(), /Oferta no cubierta/);
   assert.match(superficie.renderizar(), /Días hábiles/);
   assert.match(superficie.renderizar(), /name="cantidad"[^>]*value="2"/u);
   assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
   superficie.manejarClick({ target: { disabled: false, dataset: { rrhhPlazosAccion: "ayuda" }, closest: () => ({ disabled: false, dataset: { rrhhPlazosAccion: "ayuda" } }) } });
   assert.doesNotMatch(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
-  assert.match(superficie.renderizar(), /fecha y hora del correo externo/u);
+  assert.match(superficie.renderizar(), /artículo 8\.1 distingue/u);
+  assert.match(superficie.renderizar(), /2026_Reglamento_seleccion_de_personal_y_bolsas_bop_16_01_2026\.pdf/u);
+  assert.match(superficie.renderizar(), /name="inicio"[^>]*required[^>]*>.*value="notificacion" selected/u);
   assert.match(superficie.renderizar(), /Correo externo declarado por RRHH/u);
-  assert.match(superficie.renderizar(), /catálogo de Bolsa/);
+  assert.match(superficie.renderizar(), /Publicación de la oferta/);
   assert.match(superficie.renderizar(), /Correo externo declarado por RRHH/);
   assert.match(superficie.renderizar(), /Inicio del plazo/);
   assert.match(superficie.renderizar(), /Guardar política de esta bolsa/);
@@ -141,13 +170,55 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
   assert.match(superficie.renderizar(), /Reintentar el mismo guardado/);
   superficie.manejarSubmit({ target: formulario, preventDefault() {} }); await turno();
   assert.deepEqual(claves, ["misma-clave", "misma-clave"]);
-  assert.match(superficie.renderizar(), /recibo:politica:1/);
+  const html = superficie.renderizar();
+  assert.match(html, /Versión 1/u);
+  assert.match(html, /Justificante registrado/u);
+  assert.match(html, /data-copiar-justificante="recibo:politica:1"/u);
+  assert.doesNotMatch(html.replace(/data-copiar-justificante="[^"]*"/gu, ""), /recibo:politica:1/u);
+  assert.equal(anuncios.length, 1);
+  assert.doesNotMatch(anuncios[0], /recibo:politica:1/u);
+  assert.deepEqual(publicadas, [1]);
+});
+
+test("el GET recupera el recibo original después de recargar y no lo inventa si falta", async () => {
+  let lecturas = 0, publicaciones = 0;
+  const cliente = crearClientePoliticaOfertas({ fetchImpl: async (ruta, opciones) => {
+    if (opciones.method === "GET" && ruta.startsWith(`${RUTA_POLITICA_OFERTAS}?`)) {
+      lecturas += 1;
+      return respuesta(200, vigente("bolsa:1", { recibo_ref: "recibo:politica:original" }));
+    }
+    if (ruta === RUTA_CAPACIDAD_POLITICA_OFERTAS) return respuesta(403, { error: { codigo: "denegado" } });
+    publicaciones += 1;
+    throw new Error("no se publica al cargar");
+  } });
+  for (let carga = 0; carga < 2; carga += 1) {
+    const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(),
+      cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo });
+    superficie.activar("bolsa:1"); await turno();
+    const html = superficie.renderizar();
+    assert.match(html, /Versión 1/u);
+    assert.match(html, /Justificante registrado/u);
+    assert.match(html, /data-copiar-justificante="recibo:politica:original"/u);
+    assert.doesNotMatch(html.replace(/data-copiar-justificante="[^"]*"/gu, ""), /recibo:politica:original/u);
+    superficie.desmontar();
+  }
+  assert.equal(lecturas, 2);
+  assert.equal(publicaciones, 0);
+  for (const politica of [vacia().data, vigente().data]) {
+    const superficie = crearSuperficieRRHHPlazos({ cliente: {
+      consultar: async () => ({ ok: true, politica }),
+      consultarCapacidad: async () => ({ ok: false, status: 403 }),
+    }, traducir: crearTraductorPrueba(), cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo });
+    superficie.activar("bolsa:1"); await turno();
+    assert.doesNotMatch(superficie.renderizar(), /data-copiar-justificante=/u);
+    superficie.desmontar();
+  }
 });
 
 test("el selector recupera el plazo del catálogo y deja vacía la unidad sin propuesta", async () => {
   const cliente = { consultar: async () => ({ ok: true, politica: vacia().data }),
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }) };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(),
     cargarPlazo: async () => ({ ...PLAZO_CATALOGO, cantidad: 12 }) });
   superficie.activar("bolsa:1"); await turno();
   const control = (name, value) => ({ target: { name, value, closest: () => ({}) } });
@@ -160,7 +231,7 @@ test("el selector recupera el plazo del catálogo y deja vacía la unidad sin pr
   assert.deepEqual([superficie.estado().borrador.plazo.cantidad, superficie.estado().borrador.plazo.computo],
     [12, "administrativo"]);
   assert.match(superficie.renderizar(), /max="30"/);
-  assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden>[^<]*correo externo/u);
+  assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden>[^<]*Elija el hecho que abre el plazo/u);
 });
 
 test("el plazo inicial sale de la regla publicada y válida del catálogo de Bolsa", async () => {
@@ -172,22 +243,33 @@ test("el plazo inicial sale de la regla publicada y válida del catálogo de Bol
   assert.deepEqual(await cargarPlazoCatalogo({ cliente: lector({ ...regla, inicio: "notificacion" }) }), { ...PLAZO_CATALOGO, cantidad: 3 });
   assert.deepEqual(await cargarPlazoCatalogo({ cliente: lector({ ...regla, unidad: "dias_naturales" }) }),
     { ...PLAZO_CATALOGO, cantidad: 3, unidad: "dias_naturales" });
-  assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, inicio: "publicacion" }) }), null);
+  assert.deepEqual(await cargarPlazoCatalogo({ cliente: lector({ ...regla, inicio: "publicacion" }) }),
+    { ...PLAZO_CATALOGO, cantidad: 3, inicio: "publicacion" });
   assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, origen: "ejemplo" }) }), null);
   assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, unidad: "horas_naturales" }) }), null);
   assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, cantidad: 31 }) }), null);
   assert.equal(await cargarPlazoCatalogo({ cliente: { reglas: async () => { throw new Error("sin red"); } } }), null);
 });
 
+test("una política nueva propone el inicio publicado por el catálogo, sin forzar el de otra versión", async () => {
+  const cliente = { consultar: async () => ({ ok: true, politica: vacia().data }),
+    consultarCapacidad: async () => ({ ok: true, puede_publicar: true }) };
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(),
+    cargarEjemplo: conEjemplo, cargarPlazo: async () => ({ ...PLAZO_CATALOGO, inicio: "publicacion" }) });
+  superficie.activar("bolsa:1"); await turno();
+  assert.equal(superficie.estado().borrador.plazo.inicio, "publicacion");
+  assert.match(superficie.renderizar(), /name="inicio"[^>]*required[^>]*>.*value="publicacion" selected/u);
+});
+
 test("la política vigente tiene prioridad y la falta de catálogo no propone cifras", async () => {
   const cliente = { consultar: async () => ({ ok: true, politica: vigente().data }),
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }) };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(),
     cargarPlazo: conPlazoCatalogo });
   superficie.activar("bolsa:1"); await turno();
   assert.deepEqual(superficie.estado().borrador.plazo, POLITICA.plazo);
   const sinCatalogo = crearSuperficieRRHHPlazos({ cliente: { ...cliente,
-    consultar: async () => ({ ok: true, politica: vacia().data }) }, traducir: crearTraductorRRHHPlazos(),
+    consultar: async () => ({ ok: true, politica: vacia().data }) }, traducir: crearTraductorPrueba(),
     cargarPlazo: async () => null });
   sinCatalogo.activar("bolsa:1"); await turno();
   assert.equal(sinCatalogo.estado().borrador.plazo.cantidad, null);
@@ -205,7 +287,7 @@ test("la versión legada permanece intacta y el borrador guarda inicio desde B10
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }),
     publicar: async (comando) => { enviadas.push(comando); return { ok: true,
       politica: vigente("bolsa:1", { version: 2, recibo_ref: "recibo:politica:2", politica: comando.politica }).data }; } };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(),
     cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo, generarClave: () => "politica-legada-2" });
   superficie.activar("bolsa:1"); await turno();
   assert.equal(Object.hasOwn(superficie.estado().vigente.politica.plazo, "inicio"), false);
@@ -226,7 +308,7 @@ test("sin la regla B10 vigente una versión antigua no permite guardar", async (
   const cliente = { consultar: async () => ({ ok: true, politica: validarPoliticaRecibida(legada) }),
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }),
     publicar: async () => { publicadas++; return { ok: false, status: 500 }; } };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(),
     cargarEjemplo: conEjemplo, cargarPlazo: async () => null });
   superficie.activar("bolsa:1"); await turno();
   assert.match(superficie.renderizar(), /Espere a que se cargue la regla vigente/);
@@ -240,7 +322,7 @@ test("si el catálogo tarda, no sustituye un plazo que RRHH ya ha introducido", 
   let resolverCatalogo;
   const cliente = { consultar: async () => ({ ok: true, politica: vacia().data }),
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }) };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(),
     cargarPlazo: () => new Promise((resolver) => { resolverCatalogo = resolver; }) });
   superficie.activar("bolsa:1"); await turno();
   superficie.manejarCambio({ target: { name: "unidad", value: "horas_naturales", closest: () => ({}) } });
@@ -256,7 +338,7 @@ test("al cambiar de bolsa ignora una consulta tardía del ámbito anterior", asy
     ? new Promise((resolver) => { resolverAnterior = resolver; })
     : { ok: true, politica: vigente("bolsa:2").data },
   consultarCapacidad: async () => ({ ok: true, puede_publicar: false }) };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos() });
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba() });
   superficie.activar("bolsa:1"); superficie.activar("bolsa:2"); await turno();
   resolverAnterior({ ok: true, politica: vigente("bolsa:1").data }); await turno();
   assert.equal(superficie.estado().vigente.bolsa_ref, "bolsa:2");
@@ -292,7 +374,7 @@ test("la proyección GET nunca habilita edición y respuestas tardías no cruzan
   consultarCapacidad: async (bolsaRef) => bolsaRef === "bolsa:1"
     ? new Promise((resolver) => { resolverAnterior = resolver; })
     : { ok: true, puede_publicar: false } };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos() });
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba() });
   superficie.activar("bolsa:1"); await turno();
   assert.doesNotMatch(superficie.renderizar(), /type="submit"/);
   superficie.activar("bolsa:2"); await turno();
@@ -306,7 +388,7 @@ test("la revocación de capacidad tras 403 deshabilita la edición", async () =>
   const cliente = { consultar: async () => ({ ok: true, politica: vacia("bolsa:1").data }),
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }),
     publicar: async () => ({ ok: false, status: 403 }) };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(),
     cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo });
   superficie.activar("bolsa:1"); await turno();
   assert.match(superficie.renderizar(), /type="submit"/);
@@ -324,7 +406,7 @@ test("durante la comprobación y ante un fallo de capacidad mantiene solo lectur
     consultarCapacidad: async () => ++intentos === 1
       ? new Promise((resolver) => { resolverPrimera = resolver; })
       : { ok: true, puede_publicar: true } };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos() });
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba() });
   superficie.activar("bolsa:1"); await turno();
   assert.match(superficie.renderizar(), /Comprobando permiso de edición/);
   assert.doesNotMatch(superficie.renderizar(), /type="submit"/);
@@ -365,7 +447,7 @@ test("la superficie rellena las plazas con el ejemplo, respeta lo que cambia RRH
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }),
     publicar: async (comando) => { enviadas.push(comando.politica); return { ok: true, politica: vigente("bolsa:1", { version: 2, recibo_ref: "recibo:politica:2",
       politica: { ...structuredClone(POLITICA), plazas: comando.politica.plazas } }).data }; } };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(), cargarEjemplo: conEjemplo,
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(), cargarEjemplo: conEjemplo,
     generarClave: () => "politica-clave-2" });
   superficie.activar("bolsa:1"); await turno();
   const html = superficie.renderizar();
@@ -384,7 +466,7 @@ test("sin paquete de ejemplo las plazas quedan por elegir y no se guarda una pol
   let publicadas = 0;
   const cliente = { consultar: async () => ({ ok: true, politica: vacia("bolsa:1", { puede_publicar: true }).data }),
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }), publicar: async () => { publicadas++; return { ok: false, status: 500 }; } };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(), cargarEjemplo: async () => null });
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(), cargarEjemplo: async () => null });
   superficie.activar("bolsa:1"); await turno();
   assert.match(superficie.renderizar(), /<option value="" selected>Elija una opción<\/option>/u);
   superficie.manejarCambio({ target: { name: "municipio_sede", value: "18087", closest: () => ({}) } });
@@ -420,7 +502,7 @@ test("guardar una versión nueva adopta la aceptación previa del catálogo sin 
       return { ok: true, politica: { ...antigua, version: 2, politica: comando.politica, recibo_ref: "recibo:politica:2" } };
     },
   };
-  const s = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+  const s = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorPrueba(),
     cargarEjemplo: conEjemplo, cargarConfirmacion: async () => "aceptacion_previa" });
   s.activar("bolsa:1"); await turno();
   assert.equal(antigua.politica.adjudicacion.confirmacion, undefined);
@@ -467,7 +549,7 @@ test("abrir el llamamiento pide las reglas vigentes una sola vez", async () => {
   try {
     const cliente = { consultar: async () => ({ ok: true, politica: vacia("bolsa:1").data }),
       consultarCapacidad: async () => ({ ok: true, puede_publicar: false }) };
-    const superficie = crearSuperficieRRHHPlazosReal({ cliente, traducir: crearTraductorRRHHPlazos(),
+    const superficie = crearSuperficieRRHHPlazosReal({ cliente, traducir: crearTraductorPrueba(),
       cargarEjemplo: esperarConsumidor(cargarEjemploPlazasSuperficie),
       cargarPlazo: esperarConsumidor(cargarPlazoCatalogo),
       cargarConfirmacion: esperarConsumidor(cargarConfirmacionSuperficie) });

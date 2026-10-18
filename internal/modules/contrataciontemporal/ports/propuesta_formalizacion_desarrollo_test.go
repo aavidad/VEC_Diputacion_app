@@ -6,7 +6,50 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
+
+func TestMaterialPropuestaFormalizacionNativaSinAceptacionLegada(t *testing.T) {
+	s, a, vieja := propuestaDesarrolloPrueba(t)
+	a.Justificante.Seleccion.Procedencia.SinRetencionDeclarada = true
+	a.Justificante.Seleccion.Procedencia.Evidencia.RetenerHasta = time.Time{}
+	a.Justificante.Seleccion.RetencionSeleccion = ReferenciaVersionadaIntegracionBolsa{}
+	if a.ValidarPara(s) != nil {
+		t.Fatal("antecedente CT nativo inválido")
+	}
+	nativa := EvidenciaAceptacionBolsaNativa{
+		Selector: domain.SelectorBolsaPlanB2Nativo{
+			OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
+			ClaveCT: a.SeleccionClave, UnidadRef: "unidad:rrhh", CategoriaRef: "categoria:uno",
+			NecesidadRef:   a.Justificante.Seleccion.Necesidad.Referencia,
+			BolsaRef:       a.Justificante.Seleccion.Bolsa.Referencia,
+			LlamamientoRef: s.LlamamientoRef, ReciboEmisionRef: a.Justificante.Seleccion.ReciboRef,
+			ReciboRespuestaRef: "recibo:respuesta:nativa",
+		},
+		RespuestaRef: "respuesta:nativa", RespondidaEn: a.Resolucion.ResueltaEn.Add(-time.Second),
+	}
+	m := MaterialPropuestaFormalizacion{Etapa: "confirmacion", Solicitud: s, AceptacionBolsaNativa: &nativa}
+	if m.Validar() != nil || nativa.ValidarPara(a) != nil {
+		t.Fatal("evidencia B113 real rechazada")
+	}
+	b, err := json.Marshal(m)
+	if err != nil || bytes.Contains(b, []byte(`"AceptacionBolsa":`)) ||
+		!bytes.Contains(b, []byte(`"AceptacionBolsaNativa":`)) ||
+		bytes.Contains(b, []byte(`"AperturaOperacionRef"`)) {
+		t.Fatal("el material nativo arrastró ledger antiguo", err)
+	}
+	mezcla := m
+	mezcla.AceptacionBolsa = &vieja
+	if mezcla.Validar() == nil {
+		t.Fatal("dos autoridades de aceptación simultáneas")
+	}
+	cruzada := nativa
+	cruzada.Selector.ReciboEmisionRef = "recibo:otro"
+	if cruzada.ValidarPara(a) == nil {
+		t.Fatal("emisión B7 ajena aceptada")
+	}
+}
 
 func TestPropuestaFormalizacionDesarrolloSucesorConservaRaizYMaterial(t *testing.T) {
 	s, a, e := propuestaDesarrolloPrueba(t)

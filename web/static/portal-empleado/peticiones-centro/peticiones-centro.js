@@ -5,9 +5,12 @@ import {
   validarCatalogosAlta,
   numeroExpedienteMOADValido,
   jornadaVisibleDesdeMinutos,
-} from "../modulos/contratacion-temporal/contrato.js?v=20261009-centro-campos-cohorte-v5";
+  ESQUEMA_CATALOGOS_NECESIDADES,
+} from "../modulos/contratacion-temporal/contrato.js?v=20261013-ct-firma-tres-v3";
 import { extraerBorrador, formulario as renderizarFormularioPuro,
-  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-cohorte-v5";
+  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261013-ct-firma-tres-v3";
+import { cargarCatalogosContratacionEnIdioma } from "../modulos/contratacion-temporal/i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { crearClienteHTTPRPTPublica } from "../modulos/personal/cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO, MENSAJES_AYUDA_PETICIONES_CENTRO,
   TEXTOS_LOCALES_PETICIONES_CENTRO, prepararAnalisisPeticionesCentro,
@@ -24,8 +27,48 @@ const MAX_BODY = 2 * 1024 * 1024;
 const TIMEOUT_MS = 15_000;
 const traducirCentro = traducirPeticionesCentro;
 const TEXTO = TEXTOS_LOCALES_PETICIONES_CENTRO;
+let mensajesNecesidades = null;
+export async function prepararNecesidadesPeticionesCentro() {
+  if (mensajesNecesidades) return mensajesNecesidades;
+  const catalogo = await cargarCatalogosContratacionEnIdioma("contratacion-temporal-necesidades-alta",
+    IDIOMA_EFECTIVO_PETICIONES_CENTRO);
+  mensajesNecesidades = catalogo.actual;
+  return mensajesNecesidades;
+}
+function mensajeNecesidades(clave) {
+  return String(clave ?? "").split(".").reduce((valor, parte) => valor?.[parte], mensajesNecesidades);
+}
+function seleccionarPuestoPublicadoRPT(pagina, codigo) {
+  const puesto = pagina?.total === 1 && Array.isArray(pagina.items) ? pagina.items[0] : null;
+  if (!puesto || puesto.codigo !== codigo || !puesto.denominacion?.trim()) return null;
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(pagina.fuente?.importacion)
+    || !/^[a-f0-9]{64}$/u.test(pagina.fuente?.huella_sha256)) {
+    throw new TypeError("publicación RPT incompatible");
+  }
+  return { codigo, denominacion: puesto.denominacion,
+    rpt_categoria_clave: puesto.categoria_clave, rpt_centro_codigo: puesto.centro_codigo,
+    rpt_catalogo_ref: pagina.fuente.importacion,
+    rpt_catalogo_huella_sha256: pagina.fuente.huella_sha256 };
+}
+export function puestoPerteneceAlContexto(puesto, contexto, borrador) {
+  const vinculos = contexto?.vinculos_rpt;
+  if (!Array.isArray(vinculos?.categorias) || !Array.isArray(vinculos?.centros)) return false;
+  return vinculos.categorias.some(({ categoria_ref: referencia, rpt_categoria_clave: clave }) =>
+    referencia === borrador.categoria_ref && clave === puesto.rpt_categoria_clave)
+    && vinculos.centros.some(({ centro_ref: referencia, rpt_centro_codigo: codigo }) =>
+      referencia === borrador.centro_ref && codigo === puesto.rpt_centro_codigo);
+}
+const traducirFormulario = (clave, variables = {}) => {
+  const plantilla = mensajeNecesidades(clave);
+  if (typeof plantilla !== "string") return traducirCentro(clave, variables);
+  return Object.entries(variables).reduce((valor, [nombre, dato]) =>
+    valor.replaceAll(`{${nombre}}`, String(dato)), plantilla);
+};
 
 const textoCT = (clave, variables) => esc(traducirCentro(clave, variables));
+
+const etiquetaContacto = (etiqueta) => etiqueta === "pc_contacto_secretaria"
+  ? traducirCentro(etiqueta) : etiqueta;
 
 function esc(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -139,11 +182,37 @@ function fecha(valor, hora = false) {
 
 const fechaValida = (valor) => Boolean(valor) && Number.isFinite(Date.parse(valor));
 
-// Nombre legible de la petición: número de expediente si ya lo tiene, o la
-// fecha en que se creó. Nunca la referencia técnica.
-function nombrePeticion(peticion, expediente) {
-  if (expediente?.numero_visible) return traducirCentro("pc_expediente_enlace", { numero: expediente.numero_visible });
-  return fechaValida(peticion?.creada_en) ? traducirCentro("pc_peticion_del", { fecha: fecha(peticion.creada_en) }) : traducirCentro("pc_peticion_sin_fecha");
+// El catálogo ya recibido permite distinguir peticiones del mismo día sin
+// revelar su referencia técnica. RRHH recibe las mismas etiquetas en la bandeja.
+function nombrePeticion(peticion, contexto = null, etiquetas = null) {
+  const solicitud = peticion?.solicitud;
+  const categoria = contexto?.catalogos?.categorias?.find((v) => v.referencia === solicitud?.categoria_ref)?.etiqueta
+    || etiquetas?.categorias?.[solicitud?.categoria_ref];
+  const puesto = solicitud?.puesto_solicitado?.trim();
+  const base = categoria && puesto && categoria.trim().toLowerCase() !== puesto.toLowerCase()
+    ? traducirCentro("pc_peticion_categoria_puesto", { categoria, puesto })
+    : categoria || puesto || traducirCentro("pc_peticion_necesidad");
+  const cantidad = solicitud?.numero_personas;
+  const necesidad = Number.isSafeInteger(cantidad) && cantidad > 0
+    ? traducirCentro(cantidad === 1 ? "pc_peticion_una_persona" : "pc_peticion_personas", { necesidad: base, cantidad })
+    : base;
+  return fechaValida(peticion?.creada_en)
+    ? traducirCentro("pc_peticion_resumen_fecha", { necesidad, fecha: fecha(peticion.creada_en) })
+    : necesidad;
+}
+
+function nombresEnLista(peticiones, contexto = null, etiquetas = null) {
+  const entradas = peticiones.map((peticion) => [peticion?.referencia,
+    nombrePeticion(peticion, contexto, etiquetas)]);
+  const totales = new Map();
+  for (const [, nombre] of entradas) totales.set(nombre, (totales.get(nombre) || 0) + 1);
+  const ordinales = new Map();
+  return new Map(entradas.map(([referencia, nombre]) => {
+    if (totales.get(nombre) === 1) return [referencia, nombre];
+    const numero = (ordinales.get(nombre) || 0) + 1;
+    ordinales.set(nombre, numero);
+    return [referencia, traducirCentro("pc_peticion_ordinal", { necesidad: nombre, numero })];
+  }));
 }
 
 // Un código («centro-520», «cen_…») no se enseña: se usa la etiqueta del
@@ -187,10 +256,15 @@ function camposDetalle(filas) {
   }).join("")}</dl>`;
 }
 
+function detalleTecnico(filas) {
+  return `<details class="pc-detalle-tecnico"><summary>${textoCT("pc_detalle_tecnico")}</summary>${camposDetalle(filas)}</details>`;
+}
+
 // Nombre de una persona interviniente si el servidor lo da para el mismo
 // puesto que guarda la petición; si no, null.
-function nombreInterviniente(intervinientes, participante) {
-  const persona = intervinientes?.[participante?.actor_ref];
+function nombreInterviniente(intervinientes, participante, porPuesto) {
+  const persona = porPuesto?.[participante?.actor_ref]?.[participante?.puesto_ref]
+    ?? intervinientes?.[participante?.actor_ref];
   if (!persona || persona.puesto_ref !== participante?.puesto_ref || !persona.nombre) return null;
   return [persona.nombre, persona.cargo].filter(Boolean).join(" · ");
 }
@@ -204,37 +278,64 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
   const c = peticion.configuracion?.solicitante;
   const actor = contexto?.actor;
   const intervinientes = contexto ? contexto.intervinientes : etiquetas?.intervinientes;
-  const solicitante = nombreInterviniente(intervinientes, c);
+  const porPuesto = contexto ? contexto.intervinientes_por_puesto : etiquetas?.intervinientes_por_puesto;
+  const solicitante = nombreInterviniente(intervinientes, c, porPuesto);
   const catalogos = contexto?.catalogos;
   const centro = catalogos?.centros?.find((v) => v.referencia === s.centro_ref);
-  const etiqueta = (opciones, referencia) => opciones?.find((v) => v.referencia === referencia)?.etiqueta || referencia || "—";
-  const nombre = (grupo, opciones, referencia) => (contexto ? etiqueta(opciones, referencia) : etiquetas?.[grupo]?.[referencia] || referencia || "—");
-  const etiquetaMotivo = (contexto ? catalogos?.motivos?.find((v) => v.clave === s.motivo_clave)?.etiqueta : etiquetas?.motivos?.[s.motivo_clave]) || "—";
+  const etiqueta = (opciones, referencia) => !referencia ? "—"
+    : opciones?.find((v) => v.referencia === referencia)?.etiqueta || textoCT("pc_dato_no_disponible");
+  const nombre = (grupo, opciones, referencia) => {
+    const valor = contexto ? etiqueta(opciones, referencia)
+      : etiquetas?.[grupo]?.[referencia] || textoCT("pc_dato_no_disponible");
+    return grupo === "contactos" ? etiquetaContacto(valor) : valor;
+  };
+  const motivoCatalogo = contexto ? catalogos?.motivos?.find((v) => v.clave === s.motivo_clave)?.etiqueta : etiquetas?.motivos?.[s.motivo_clave];
+  const etiquetaMotivo = mensajeNecesidades(motivoCatalogo) || motivoCatalogo || "—";
+  const necesidad = s.necesidad;
+  const REFERENCIAS_NECESIDAD = new Set(["titular_ref", "vacancia_fuente_ref", "financiacion_ref",
+    "rc_ref", "intervencion_ref", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]);
+  const camposNecesidad = necesidad?.campos && typeof necesidad.campos === "object"
+    ? Object.entries(necesidad.campos).filter(([campo, valor]) => valor && campo !== "numero_personas"
+      && !REFERENCIAS_NECESIDAD.has(campo)) : [];
   const rc = s.rc?.existe
-    ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)} · ${s.rc.documento_ref}`
+    ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)}`
     : traducirCentro("ct_txt_sin_retencion_de_credito_aportada");
-  const filas = [...(contexto ? [] : [[TEXTO.peticionRef, peticion.referencia], [TEXTO.version, peticion.version]]),
-    [TEXTO.estado, estadoPeticion(peticion.estado)],
+  const filas = [[TEXTO.estado, estadoPeticion(peticion.estado)],
     [traducirCentro("ct_txt_centro"), contexto ? nombreCentro(s.centro_ref, contexto) : nombre("centros", null, s.centro_ref)],
     [traducirCentro("ct_txt_contacto"), nombre("contactos", centro?.contactos, s.contacto_ref)],
     [traducirCentro("ct_txt_categoria"), nombre("categorias", catalogos?.categorias, s.categoria_ref)], [traducirCentro("ct_txt_grupo_o_subgrupo"), s.grupo_subgrupo], [traducirCentro("ct_txt_motivo"), etiquetaMotivo],
-    ...(s.puesto_solicitado ? [
+    ...(s.puesto_solicitado && !necesidad ? [
       [traducirCentro("numero_personas"), s.numero_personas],
       [traducirCentro("jornada_semanal"), jornadaVisibleDesdeMinutos(s.jornada_minutos)],
       [traducirCentro("puesto_solicitado"), s.puesto_solicitado],
     ] : []),
+    ...(necesidad ? [
+      [traducirFormulario("numero_personas"), Number.isSafeInteger(s.numero_personas)
+        ? new Intl.NumberFormat(LOCALIZACION).format(s.numero_personas) : "—"],
+      [traducirFormulario("jornada_minutos"), jornadaVisibleDesdeMinutos(necesidad.jornada_minutos)],
+      ...camposNecesidad.map(([campo, valor]) => [traducirFormulario(campo),
+        campo === "numero_personas" && /^[1-9][0-9]*$/u.test(valor)
+          ? new Intl.NumberFormat(LOCALIZACION).format(Number(valor))
+          : campo === "programa_fin" && /^\d{4}-\d{2}-\d{2}$/u.test(valor)
+            ? fecha(`${valor}T00:00:00Z`) : valor]),
+      ...(s.puesto_solicitado ? [[traducirCentro("puesto_solicitado"), s.puesto_solicitado]] : []),
+    ] : []),
     [traducirCentro("ct_txt_detalle"), s.detalle], [traducirCentro("ct_txt_periodo"), periodoLegible(s.periodo)], [traducirCentro("ct_txt_observaciones"), s.observaciones || "—"],
     [traducirCentro("ct_txt_retencion_de_credito"), rc], [traducirCentro("ct_txt_documentos_aportados"), (s.documentos_adjuntos || []).map((ref) => nombre("documentos", catalogos?.documentos, ref)).join(" · ") || traducirCentro("ct_txt_ninguno")],
     [TEXTO.solicitanteDatos, solicitante
-      || (contexto ? (c?.actor_ref === actor?.referencia ? [actor?.nombre, actor?.cargo].filter(Boolean).join(" · ") || "—" : "—")
-        : `${c?.actor_ref || "—"} · ${c?.puesto_ref || traducirCentro("ct_txt_cargo_resuelto_por_identidad")}`)],
+      || (contexto ? (c?.actor_ref === actor?.referencia ? actor?.nombre || "—" : "—")
+        : textoCT("pc_dato_no_disponible"))],
     [traducirCentro("ct_txt_creada_en"), fecha(peticion.creada_en, true)]];
   if (peticion.estado === "ratificada") {
     const rat = peticion.configuracion?.ratificador;
-    filas.push([traducirCentro("ct_txt_ratificador_y_cargo"), nombreInterviniente(intervinientes, rat) || (contexto ? "—" : `${rat?.actor_ref || "—"} · ${rat?.puesto_ref || "—"}`)],
+    filas.push([traducirCentro("ct_txt_ratificador_y_cargo"), nombreInterviniente(intervinientes, rat, porPuesto) || (contexto ? "—" : textoCT("pc_dato_no_disponible"))],
       [traducirCentro("ct_txt_motivo_de_ratificacion"), peticion.motivo_ratificacion], [traducirCentro("ct_txt_ratificada_en"), fecha(peticion.ratificada_en, true)]);
   }
-  return camposDetalle(filas);
+  const tecnicos = [
+    ...(contexto ? [] : [[TEXTO.peticionRef, peticion.referencia], [TEXTO.version, peticion.version]]),
+    ...(s.rc?.documento_ref ? [[textoCT("pc_documento_referencia"), s.rc.documento_ref]] : []),
+  ];
+  return camposDetalle(filas) + (tecnicos.length ? detalleTecnico(tecnicos) : "");
 }
 
 function reciboHTML(recibo) {
@@ -272,30 +373,36 @@ function urlExpedienteRRHH(expedienteRef) {
   return urlPortalContratacion(expedienteRef);
 }
 
-function enlaceExpedienteRRHH(peticion, recibo) {
+function enlaceExpedienteRRHH(peticion, recibo, etiquetas, nombre = nombrePeticion(peticion, null, etiquetas)) {
   if (!recibo?.expediente_ref) return "";
-  const numero = recibo.numero_visible || recibo.expediente_ref;
-  return ` <a class="pc-enlace-expediente" href="${esc(urlExpedienteRRHH(recibo.expediente_ref))}" aria-label="${textoCT("pc_expediente_enlace_rrhh_aria", { peticion: peticion?.referencia, numero })}">${textoCT("pc_expediente_enlace", { numero })}</a>`;
+  const numero = recibo.numero_visible;
+  const etiqueta = numero ? textoCT("pc_expediente_enlace_rrhh_aria", { peticion: nombre, numero }) : textoCT("pc_abrir_expediente");
+  return ` <a class="pc-enlace-expediente" href="${esc(urlExpedienteRRHH(recibo.expediente_ref))}" aria-label="${etiqueta}">${numero ? textoCT("pc_expediente_enlace", { numero }) : textoCT("pc_abrir_expediente")}</a>`;
 }
 
 // Enlace de una petición del centro a la fila de su expediente en la bandeja
 // de incorporaciones de la misma página: el centro no tiene vista de expediente.
-function enlaceExpedienteCentro(peticion, expediente) {
+function enlaceExpedienteCentro(peticion, expediente, contexto, nombre = nombrePeticion(peticion, contexto)) {
   if (!expediente) return "";
-  return ` <a class="pc-enlace-expediente" href="#${esc(expediente.destino)}" data-pc-ir-expediente="${esc(expediente.destino)}" aria-label="${textoCT("pc_expediente_enlace_centro_aria", { peticion: nombrePeticion(peticion), numero: expediente.numero_visible })}">${textoCT("pc_expediente_enlace", { numero: expediente.numero_visible })}</a>`;
+  return ` <a class="pc-enlace-expediente" href="#${esc(expediente.destino)}" data-pc-ir-expediente="${esc(expediente.destino)}" aria-label="${textoCT("pc_expediente_enlace_centro_aria", { peticion: nombre, numero: expediente.numero_visible })}">${textoCT("pc_expediente_enlace", { numero: expediente.numero_visible })}</a>`;
 }
 
 function reciboAltaRRHHHTML(recibo) {
   if (!recibo) return "";
-  const filas = [[TEXTO.rrhhExpediente, recibo.expediente_ref], [traducirCentro("ct_txt_numero_visible"), recibo.numero_visible], [TEXTO.version, recibo.version],
-    [TEXTO.reciboRef, recibo.recibo_ref], [traducirCentro("ct_txt_referencia_de_auditoria"), recibo.auditoria_ref], [traducirCentro("ct_txt_referencia_de_evento"), recibo.evento_ref],
-    [traducirCentro("ct_txt_confirmada_en"), fecha(recibo.confirmada_en, true)]];
-  return `<section class="pc-panel pc-recibo" role="status"><h2>${esc(TEXTO.rrhhRecibo)}</h2>${camposDetalle(filas.map(([k, v]) => [k, v || "—"]))}${recibo.expediente_ref ? `<p class="pc-acciones"><a class="boton-primario" href="${esc(urlExpedienteRRHH(recibo.expediente_ref))}">${textoCT("pc_abrir_expediente")}</a><a class="boton-secundario" href="${esc(urlPortalContratacion())}">${esc(TEXTO.rrhhBandeja)}</a></p>` : ""}</section>`;
+  const principales = [[traducirCentro("ct_txt_numero_visible"), recibo.numero_visible], [traducirCentro("ct_txt_confirmada_en"), fecha(recibo.confirmada_en, true)]];
+  const tecnicos = [[TEXTO.rrhhExpediente, recibo.expediente_ref], [TEXTO.version, recibo.version],
+    [TEXTO.reciboRef, recibo.recibo_ref], [traducirCentro("ct_txt_referencia_de_auditoria"), recibo.auditoria_ref], [traducirCentro("ct_txt_referencia_de_evento"), recibo.evento_ref]];
+  const valorSeguro = (filas) => filas.map(([k, v]) => [k, v || "—"]);
+  return `<section class="pc-panel pc-recibo" role="status"><h2>${esc(TEXTO.rrhhRecibo)}</h2>${camposDetalle(valorSeguro(principales))}${detalleTecnico(valorSeguro(tecnicos))}${recibo.expediente_ref ? `<p class="pc-acciones"><a class="boton-primario" href="${esc(urlExpedienteRRHH(recibo.expediente_ref))}">${textoCT("pc_abrir_expediente")}</a><a class="boton-secundario" href="${esc(urlPortalContratacion())}">${esc(TEXTO.rrhhBandeja)}</a></p>` : ""}</section>`;
 }
 
-function tablaRRHH(peticiones, seleccionada) {
+function tablaRRHH(peticiones, seleccionada, etiquetas) {
   if (!peticiones.length) return `<p>${esc(TEXTO.rrhhSinPeticiones)}</p>`;
-  return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${esc(TEXTO.rrhhTitulo)}</caption><thead><tr><th>${textoCT("ct_txt_referencia")}</th><th>${textoCT("ct_txt_estado_de_entrega")}</th><th>${textoCT("ct_txt_ratificacion")}</th><th>${textoCT("ct_txt_accion")}</th></tr></thead><tbody>${peticiones.map(({ peticion, estado_entrega: estadoEntrega, recibo_alta: reciboAlta }) => `<tr${peticion?.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(peticion?.referencia)}</td><td><span class="pc-estado pc-estado-${esc(estadoEntrega)}">${esc(textoEstadoEntrega(estadoEntrega))}</span>${estadoEntrega === "confirmada" ? enlaceExpedienteRRHH(peticion, reciboAlta) : ""}</td><td>${esc(peticion?.ratificada_en ? fecha(peticion.ratificada_en, true) : "—")}</td><td><button type="button" data-seleccionar-rrhh="${esc(peticion?.referencia)}">${esc(TEXTO.seleccionar)}</button></td></tr>`).join("")}</tbody></table></div>`;
+  const nombres = nombresEnLista(peticiones.map(({ peticion }) => peticion), null, etiquetas);
+  return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${esc(TEXTO.rrhhTitulo)}</caption><thead><tr><th>${textoCT("pc_col_peticion")}</th><th>${textoCT("ct_txt_estado_de_entrega")}</th><th>${textoCT("ct_txt_ratificacion")}</th><th>${textoCT("ct_txt_accion")}</th></tr></thead><tbody>${peticiones.map(({ peticion, estado_entrega: estadoEntrega, recibo_alta: reciboAlta }) => {
+    const nombre = nombres.get(peticion?.referencia);
+    return `<tr${peticion?.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(nombre)}</td><td><span class="pc-estado pc-estado-${esc(estadoEntrega)}">${esc(textoEstadoEntrega(estadoEntrega))}</span>${estadoEntrega === "confirmada" ? enlaceExpedienteRRHH(peticion, reciboAlta, etiquetas, nombre) : ""}</td><td>${esc(peticion?.ratificada_en ? fecha(peticion.ratificada_en, true) : "—")}</td><td><button type="button" data-seleccionar-rrhh="${esc(peticion?.referencia)}" aria-label="${textoCT("pc_revisar_peticion", { peticion: nombre })}">${esc(TEXTO.seleccionar)}</button></td></tr>`;
+  }).join("")}</tbody></table></div>`;
 }
 
 export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null, modo = "bandeja", confirmado = false, recibo = null, mensaje = "", numeroMOAD = "", politicaNumero = null, errorNumero = false, etiquetas = null } = {}) {
@@ -306,7 +413,7 @@ export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null
   if (modo === "confirmar") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.rrhhConfirmar)}</h2>${detallePeticion(peticion, null, etiquetas)}<div class="ct-campo"><label for="pc-numero-moad">${textoCT("numero_moad_obligatorio")}</label><input id="pc-numero-moad" name="numero_expediente_moad" type="text" required maxlength="45" autocomplete="off" value="${esc(numeroMOAD)}" ${politicaNumero?.ejemplo ? `placeholder="${textoCT("numero_moad_ejemplo", { ejemplo: politicaNumero.ejemplo })}"` : ""}${errorNumero ? ' aria-invalid="true" aria-describedby="pc-numero-moad-error"' : ""}>${errorNumero ? `<span class="ct-error-campo" id="pc-numero-moad-error">${textoCT("error_numero_moad")}</span>` : ""}</div><p class="pc-aviso">${esc(TEXTO.rrhhAviso)}</p><label class="pc-confirmacion"><input type="checkbox" name="confirmacion-alta-rrhh"${confirmado ? " checked" : ""}> ${esc(TEXTO.rrhhConfirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-alta-rrhh">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-alta-rrhh">${esc(TEXTO.rrhhConfirmar)}</button></div></section>`;
   if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.rrhhAviso)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar-alta-rrhh">${esc(traducirCentro("ct_txt_reintentar_la_misma_operacion"))}</button></div></section>`;
   const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, null, etiquetas)}${entrega?.recibo_alta && !recibo ? reciboAltaRRHHHTML(entrega.recibo_alta) : ""}${["pendiente", "preparada"].includes(entrega?.estado_entrega) ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-alta-rrhh">${esc(entrega.estado_entrega === "preparada" ? TEXTO.rrhhCompletar : TEXTO.rrhhConfirmar)}</button>${entrega.estado_entrega === "preparada" ? `<button type="button" class="boton-secundario" data-accion="recuperar-alta-anterior">${textoCT("numero_moad_recuperar_alta_anterior")}</button>` : ""}</div>` : ""}</aside>`;
-  return `${cabecera}${error}${recibo ? reciboAltaRRHHHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(TEXTO.rrhhTitulo)}</h2>${tablaRRHH(peticiones, peticion?.referencia)}<p>${textoCT("ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum")}</p><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="recargar-rrhh">${esc(TEXTO.recargar)}</button><a class="boton-secundario" href="${esc(urlPortalContratacion())}">${esc(TEXTO.volver)}</a></div></section>${detalle}</div>`;
+  return `${cabecera}${error}${recibo ? reciboAltaRRHHHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(TEXTO.rrhhTitulo)}</h2>${tablaRRHH(peticiones, peticion?.referencia, etiquetas)}<p>${textoCT("ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum")}</p><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="recargar-rrhh">${esc(TEXTO.recargar)}</button><a class="boton-secundario" href="${esc(urlPortalContratacion())}">${esc(TEXTO.volver)}</a></div></section>${detalle}</div>`;
 }
 
 export async function registrarAltaRRHH(cliente, comando) {
@@ -326,15 +433,23 @@ export async function registrarAltaRRHH(cliente, comando) {
 
 function tabla(peticiones, seleccionada, expedientes = new Map(), contexto = null) {
   if (!peticiones.length) return `<p>${textoCT("pc_sin_peticiones")}</p>`;
+  const nombres = nombresEnLista(peticiones, contexto);
   return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${textoCT("pc_lista_centro")}</caption><thead><tr><th>${textoCT("pc_col_peticion")}</th><th>${textoCT("ct_txt_centro")}</th><th>${textoCT("ct_txt_periodo")}</th><th>${textoCT("ct_txt_estado")}</th><th>${textoCT("ct_txt_accion")}</th></tr></thead><tbody>${peticiones.map((p) => {
-    const nombre = nombrePeticion(p);
-    return `<tr${p.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(nombre)}</td><td>${esc(nombreCentro(p.solicitud?.centro_ref, contexto))}</td><td>${esc(periodoLegible(p.solicitud?.periodo))}</td><td><span class="pc-estado pc-estado-${esc(p.estado === "ratificada" ? "ratificada" : "pendiente")}">${esc(estadoPeticion(p.estado))}</span>${enlaceExpedienteCentro(p, expedientes.get(p.referencia))}</td><td><button type="button" data-seleccionar="${esc(p.referencia)}" aria-label="${esc(`${traducirCentro("pc_ver")}: ${nombre}`)}">${textoCT("pc_ver")}</button></td></tr>`;
+    const nombre = nombres.get(p.referencia);
+    return `<tr${p.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(nombre)}</td><td>${esc(nombreCentro(p.solicitud?.centro_ref, contexto))}</td><td>${esc(periodoLegible(p.solicitud?.periodo))}</td><td><span class="pc-estado pc-estado-${esc(p.estado === "ratificada" ? "ratificada" : "pendiente")}">${esc(estadoPeticion(p.estado))}</span>${enlaceExpedienteCentro(p, expedientes.get(p.referencia), contexto, nombre)}</td><td><button type="button" data-seleccionar="${esc(p.referencia)}" aria-label="${textoCT("pc_ver_peticion", { peticion: nombre })}">${textoCT("pc_ver")}</button></td></tr>`;
   }).join("")}</tbody></table></div>`;
 }
 
 function formularioHTML(contexto, estado, revision) {
-  const contenido = revision ? renderizarRevisionPura(estado, traducirCentro, LOCALIZACION, traducirCentro)
-    : renderizarFormularioPuro(estado, traducirCentro, traducirCentro);
+  const traducir = estado.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES
+    ? traducirFormulario : traducirCentro;
+  estado = { ...estado, catalogos: { ...estado.catalogos,
+    centros: (estado.catalogos?.centros ?? []).map((centro) => ({ ...centro,
+      contactos: (centro.contactos ?? []).map((contacto) => ({ ...contacto, etiqueta: etiquetaContacto(contacto.etiqueta) })),
+    })),
+  } };
+  const contenido = revision ? renderizarRevisionPura(estado, traducir, LOCALIZACION, traducir)
+    : renderizarFormularioPuro(estado, traducir, traducir);
   return `<section class="pc-panel ct-alta"><h2>${esc(TEXTO.solicitante)}</h2><p class="pc-aviso">${esc(TEXTO.confirmarPregunta)}</p>${contenido}<button type="button" class="boton-secundario" data-accion="cancelar-ratificacion">${esc(TEXTO.cancelar)}</button></section>`;
 }
 
@@ -353,7 +468,9 @@ export function renderizarPeticionCentro({ contexto, peticiones = [], peticion =
   if (modo === "ratificacion") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.ratificador)}</h2>${detallePeticion(peticion, contexto)}<p class="pc-aviso">${esc(TEXTO.confirmarPregunta)}</p><label for="motivo-ratificacion">${esc(TEXTO.motivo)}</label><input id="motivo-ratificacion" name="motivo_ratificacion" value="${esc(motivo)}" maxlength="1000" required aria-describedby="motivo-ratificacion-ayuda"><small id="motivo-ratificacion-ayuda">${esc(TEXTO.motivoAyuda)}</small><label class="pc-confirmacion"><input type="checkbox" name="confirmacion_ratificacion"${confirmado ? " checked" : ""}> ${esc(TEXTO.confirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-ratificacion">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-ratificar">${esc(TEXTO.confirmarRatificar)}</button></div></section>`;
   if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.peticionNoEnviada)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar">${esc(traducirCentro("ct_txt_reintentar_la_misma_operacion"))}</button></div></section>`;
   // El recuadro de datos solo aparece cuando hay una petición elegida.
-  const detalle = peticion ? `<aside class="pc-panel pc-detalle" aria-labelledby="pc-detalle-titulo"><h2 id="pc-detalle-titulo">${textoCT("pc_detalle_titulo")}: ${esc(nombrePeticion(peticion, expedientes.get(peticion.referencia)))}</h2>${detallePeticion(peticion, contexto)}<div class="pc-acciones">${peticion.estado === "pendiente_ratificacion" && peticion.version === 1 && actor?.puede_ratificar ? `<button type="button" class="boton-primario" data-accion="abrir-ratificacion">${esc(TEXTO.ratificador)}</button>` : ""}<button type="button" class="boton-secundario" data-accion="cerrar-detalle">${textoCT("pc_cerrar_detalle")}</button></div></aside>` : "";
+  const nombreDetalle = peticion ? nombresEnLista(peticiones, contexto).get(peticion.referencia)
+    || nombrePeticion(peticion, contexto) : "";
+  const detalle = peticion ? `<aside class="pc-panel pc-detalle" aria-labelledby="pc-detalle-titulo"><h2 id="pc-detalle-titulo">${textoCT("pc_detalle_titulo")}: ${esc(nombreDetalle)}</h2>${detallePeticion(peticion, contexto)}<div class="pc-acciones">${peticion.estado === "pendiente_ratificacion" && peticion.version === 1 && actor?.puede_ratificar ? `<button type="button" class="boton-primario" data-accion="abrir-ratificacion">${esc(TEXTO.ratificador)}</button>` : ""}<button type="button" class="boton-secundario" data-accion="cerrar-detalle">${textoCT("pc_cerrar_detalle")}</button></div></aside>` : "";
   return `${cabecera}${error}${recibo ? reciboHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${textoCT(esSolicitante ? "pc_lista_centro" : "pc_lista_ratificar")}</h2>${tabla(peticiones, peticion?.referencia, expedientes, contexto)}<p>${textoCT("pc_ultimas")}</p><div class="pc-acciones">${esSolicitante ? `<button type="button" class="boton-primario" data-accion="nueva">${textoCT("pc_nueva")}</button>` : ""}<button type="button" class="boton-secundario" data-accion="recargar">${textoCT("pc_actualizar")}</button><button type="button" class="boton-secundario" data-accion="volver-contratacion">${textoCT("pc_volver")}</button></div></section>${detalle}</div>`;
 }
 
@@ -369,7 +486,7 @@ export async function registrarOperacionPeticionCentro(cliente, comando, actorRe
   } catch (error) {
     // Solo un rechazo explícito permite descartar la clave. Transporte, lectura
     // o recibo inválido no prueban que PostgreSQL no haya confirmado.
-    if ([400, 401, 403, 409].includes(error?.status)) throw error;
+    if ([400, 401, 403, 409, 422].includes(error?.status)) throw error;
     throw Object.assign(new Error(TEXTO.estadoPendiente), { indeterminado: true });
   }
 }
@@ -403,7 +520,10 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
         || bandeja.peticiones.some((item) => !item?.peticion?.referencia || item.peticion.version !== 2
           || !["pendiente", "preparada", "confirmada"].includes(item.estado_entrega))) throw new Error(TEXTO.rrhhError);
       peticiones = bandeja.peticiones;
-      // Nombres de presentación; si faltan, la vista enseña las referencias.
+      if (peticiones.some((item) => item.peticion?.solicitud?.necesidad)) {
+        await prepararNecesidadesPeticionesCentro();
+      }
+      // Nombres de presentación para la bandeja y el detalle de RRHH.
       etiquetas = bandeja.etiquetas && typeof bandeja.etiquetas === "object" ? bandeja.etiquetas : null;
       if (peticiones.some((item) => item.peticion?.solicitud?.periodo?.causa_fin)) {
         await prepararAnalisisPeticionesCentro();
@@ -524,9 +644,12 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     if (!ocupado && modo === "bandeja" && contexto) dibujar();
   });
   let estado = null; let recibo = null; let mensaje = "";
+  const clienteRPT = crearClienteHTTPRPTPublica();
+  let consultaPuesto = null;
   let ocupado = false; let operacionPendiente = null; let resultadoIncierto = false; let motivo = ""; let confirmado = false;
   let generacionContexto = 0; let preparandoAnalisis = false;
   const retirarDatos = (error) => {
+    consultaPuesto?.abort(); consultaPuesto = null;
     generacionContexto += 1; preparandoAnalisis = false;
     const confirmada = Boolean(recibo);
     resultadoIncierto = resultadoIncierto || Boolean(operacionPendiente);
@@ -554,6 +677,9 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
       || bandeja.peticiones.some((p) => !p?.referencia || !p.solicitud || ![1, 2].includes(p.version)
         || !["pendiente_ratificacion", "ratificada"].includes(p.estado))) throw new Error(TEXTO.error);
     peticiones = bandeja.peticiones;
+    if (peticiones.some((item) => item.solicitud?.necesidad)) {
+      await prepararNecesidadesPeticionesCentro();
+    }
     if (peticiones.some((item) => item.solicitud?.periodo?.causa_fin)) {
       await prepararAnalisis();
     }
@@ -561,13 +687,17 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
   };
   const cargar = async () => {
     if ((ocupado && !preparandoAnalisis) || operacionPendiente) return;
+    consultaPuesto?.abort(); consultaPuesto = null;
     generacionContexto += 1; preparandoAnalisis = false;
     ocupado = true; mensaje = "";
     try {
       const nuevo = await cliente(RUTAS.contexto);
       if (!nuevo?.actor?.referencia || nuevo.actor.puede_presentar === nuevo.actor.puede_ratificar) throw new Error(TEXTO.error);
-      validarCatalogosAlta(nuevo.catalogos);
-      contexto = nuevo;
+      const catalogosValidados = validarCatalogosAlta(nuevo.catalogos);
+      if (nuevo.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
+        await prepararNecesidadesPeticionesCentro();
+      }
+      contexto = { ...nuevo, catalogos: catalogosValidados };
       await cargarBandeja();
       if (resultadoIncierto) {
         contexto = undefined; peticiones = []; peticion = null;
@@ -595,7 +725,9 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
       } else {
         operacionPendiente = null;
         modo = cuerpo.operacion === "presentar" ? "formulario" : "bandeja";
-        mensaje = error.status === 409 ? TEXTO.conflicto : TEXTO.error;
+        if (modo === "formulario" && estado) estado = { ...estado, fase: "edicion" };
+        mensaje = error.status === 409 ? TEXTO.conflicto
+          : error.status === 422 ? TEXTO.noCoinciden : TEXTO.error;
         if (error.status === 409) {
           modo = "bandeja";
           try { await cargarBandeja(); } catch (lecturaError) { retirarDatos(lecturaError); }
@@ -618,7 +750,11 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
       || (modo === "sin_verificar" && control.dataset.accion !== "recargar")
       || (operacionPendiente && control.dataset.accion !== "reintentar")) return;
     event.preventDefault();
-    if (control.dataset.ctEnfocar) { raiz.querySelector(`#ct-${control.dataset.ctEnfocar}`)?.focus(); return; }
+    if (control.dataset.ctEnfocar) {
+      const campo = ["puesto_codigo", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]
+        .includes(control.dataset.ctEnfocar) ? "puesto_busqueda" : control.dataset.ctEnfocar;
+      raiz.querySelector(`#ct-${campo}`)?.focus(); return;
+    }
     const accion = control.dataset.accion || ({ volver: "editar", confirmar: "confirmar-presentar" })[control.dataset.ctAccion];
     try {
     if (control.dataset.seleccionar) { peticion = peticiones.find((p) => p.referencia === control.dataset.seleccionar) || null; dibujar(); return; }
@@ -646,8 +782,11 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
         || contexto?.actor?.referencia !== actorInicial || contexto.actor.puede_presentar !== true
         || modo !== "bandeja" || raiz.isConnected === false) return;
       modo = "formulario"; recibo = null;
+      const conNecesidad = contextoInicial.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES;
       estado = estadoBase(contextoInicial.catalogos, { ...crearBorradorAlta({ conPeticionCentro: true,
-        jornadaReferenciaMinutos: contextoInicial.jornada_referencia_minutos }),
+        conNecesidad, jornadaReferenciaMinutos: conNecesidad
+          ? contextoInicial.catalogos.necesidades.jornada_referencia_minutos
+          : contextoInicial.jornada_referencia_minutos }),
       centro_ref: contextoInicial.catalogos.centros[0]?.referencia || "" });
       mensaje = ""; dibujar(); return;
     }
@@ -655,9 +794,83 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     if (accion === "volver-contratacion") { globalThis.location.href = urlPortalContratacion(); return; }
     if (accion === "editar") { modo = "formulario"; dibujar(); return; }
     if (accion === "abrir-ratificacion" && contexto?.actor.puede_ratificar && peticion?.version === 1) { modo = "ratificacion"; recibo = null; motivo = ""; confirmado = false; dibujar(); return; }
-    if (accion === "cancelar-ratificacion") { modo = "bandeja"; dibujar(); return; }
+    if (accion === "cancelar-ratificacion") {
+      consultaPuesto?.abort(); consultaPuesto = null; modo = "bandeja"; dibujar(); return;
+    }
     if (accion === "cerrar-detalle") { peticion = null; dibujar(); return; }
     if (accion === "reintentar" && operacionPendiente) { await ejecutar(operacionPendiente); return; }
+    if (control.dataset.ctAccion === "ayuda") {
+      const ayuda = raiz.querySelector("[data-ct-ayuda]");
+      if (ayuda) { ayuda.hidden = !ayuda.hidden; control.setAttribute("aria-expanded", String(!ayuda.hidden)); }
+      return;
+    }
+    if (control.dataset.ctAccion === "buscar-puesto" && modo === "formulario"
+      && contexto?.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
+      consultaPuesto?.abort();
+      const formulario = raiz.querySelector("[data-ct-form]");
+      const codigo = raiz.querySelector("#ct-puesto_busqueda")?.value?.trim() || "";
+      if (!formulario) return;
+      estado = estadoBase(contexto.catalogos, { ...extraerBorrador(formulario, false),
+        puesto_codigo: "", puesto_solicitado: "", rpt_catalogo_ref: "",
+        rpt_catalogo_huella_sha256: "" },
+        { busquedaPuesto: codigo, puestoRPT: { mensaje: "puesto_buscando" } });
+      const centroBuscado = estado.borrador.centro_ref;
+      const categoriaBuscada = estado.borrador.categoria_ref;
+      const motivoBuscado = estado.borrador.motivo_clave;
+      const formularioVivo = () => {
+        const actual = raiz.querySelector("[data-ct-form]");
+        if (!actual) return null;
+        return { borrador: extraerBorrador(actual, false),
+          codigo: raiz.querySelector("#ct-puesto_busqueda")?.value ?? "" };
+      };
+      const sinSeleccion = (vivo, mensaje) => {
+        const requiereRPT = contexto.catalogos.necesidades.causas.find(
+          ({ clave }) => clave === vivo.borrador.motivo_clave)?.campos_permitidos.includes("puesto_codigo");
+        return estadoBase(contexto.catalogos, { ...vivo.borrador,
+          puesto_codigo: "", puesto_solicitado: requiereRPT ? "" : vivo.borrador.puesto_solicitado,
+          rpt_catalogo_ref: "", rpt_catalogo_huella_sha256: "" },
+        { busquedaPuesto: vivo.codigo, ...(mensaje ? { puestoRPT: { mensaje } } : {}) });
+      };
+      const mismaConsulta = (vivo) => vivo.codigo === codigo
+        && vivo.borrador.centro_ref === centroBuscado
+        && vivo.borrador.categoria_ref === categoriaBuscada
+        && vivo.borrador.motivo_clave === motivoBuscado;
+      dibujar();
+      if (!/^[A-Z0-9][A-Z0-9-]{0,63}$/u.test(codigo)) {
+        estado = { ...estado, puestoRPT: { mensaje: "puesto_no_encontrado" } }; dibujar(); return;
+      }
+      const controlador = new AbortController(); consultaPuesto = controlador;
+      try {
+        const pagina = await clienteRPT.listar({ vista: "puestos", q: "", codigo_puesto: codigo,
+          limit: 1, offset: 0 }, { signal: controlador.signal });
+        if (consultaPuesto !== controlador || controlador.signal.aborted || raiz.isConnected === false) return;
+        const vivo = formularioVivo();
+        if (!vivo) return;
+        if (!mismaConsulta(vivo)) { estado = sinSeleccion(vivo); return; }
+        const puesto = seleccionarPuestoPublicadoRPT(pagina, codigo);
+        estado = puesto && puestoPerteneceAlContexto(puesto, contexto, vivo.borrador)
+          ? estadoBase(contexto.catalogos, { ...vivo.borrador,
+          puesto_codigo: puesto.codigo, puesto_solicitado: puesto.denominacion,
+          rpt_catalogo_ref: puesto.rpt_catalogo_ref,
+          rpt_catalogo_huella_sha256: puesto.rpt_catalogo_huella_sha256 },
+        { busquedaPuesto: codigo, puestoRPT: { codigo, denominacion: puesto.denominacion,
+          mensaje: "puesto_seleccionado" } })
+          : sinSeleccion(vivo, puesto ? "puesto_ambito_no_disponible" : "puesto_no_encontrado");
+      } catch (error) {
+        if (consultaPuesto !== controlador || controlador.signal.aborted || raiz.isConnected === false) return;
+        const vivo = formularioVivo();
+        if (!vivo) return;
+        estado = sinSeleccion(vivo, mismaConsulta(vivo)
+          ? (error instanceof TypeError ? "puesto_publicacion_pendiente" : "puesto_consulta_error")
+          : "");
+      } finally {
+        if (consultaPuesto === controlador) {
+          consultaPuesto = null;
+          if (raiz.isConnected !== false) { dibujar(); raiz.querySelector("#ct-puesto_busqueda")?.focus(); }
+        }
+      }
+      return;
+    }
     if (accion === "confirmar-presentar" && modo === "revision" && contexto?.actor.puede_presentar) {
       const comando = crearComandoPeticionCentro(estado.borrador, contexto.catalogos, claveUUID());
       await ejecutar({ operacion: "presentar", ...comando }); return;
@@ -676,7 +889,9 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     if (ocupado || operacionPendiente || resultadoIncierto || !contexto || ["denegado", "sin_verificar"].includes(modo)) return;
     const borrador = extraerBorrador(event.target, false);
     const validacion = validarBorradorAlta(borrador, contexto.catalogos);
-    estado = { ...estadoBase(contexto.catalogos, borrador), errores: validacion.errores, fase: validacion.valido ? "revision" : "edicion" };
+    estado = { ...estadoBase(contexto.catalogos, borrador,
+      { puestoRPT: estado?.puestoRPT, busquedaPuesto: estado?.busquedaPuesto }),
+    errores: validacion.errores, fase: validacion.valido ? "revision" : "edicion" };
     modo = validacion.valido ? "revision" : "formulario"; dibujar();
     raiz.querySelector(validacion.valido ? "#ct-revision-titulo" : "[data-ct-error-general]")?.focus();
   });
@@ -688,10 +903,44 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
     const borrador = extraerBorrador(formulario, false);
     if (campo === "centro_ref") borrador.contacto_ref = "";
     if (campo === "categoria_ref") borrador.grupo_subgrupo = "";
+    if (["centro_ref", "categoria_ref"].includes(campo)
+      && contexto.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES
+      && contexto.catalogos.necesidades.causas.find(({ clave }) => clave === borrador.motivo_clave)
+        ?.campos_permitidos.includes("puesto_codigo")) {
+      borrador.puesto_solicitado = "";
+      borrador.puesto_codigo = "";
+      borrador.rpt_catalogo_ref = "";
+      borrador.rpt_catalogo_huella_sha256 = "";
+    }
+    if (campo === "motivo_clave" && contexto.catalogos.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
+      borrador.puesto_solicitado = "";
+      borrador.puesto_codigo = "";
+      borrador.rpt_catalogo_ref = "";
+      borrador.rpt_catalogo_huella_sha256 = "";
+    }
     if (campo === "motivo_clave" && contexto.catalogos.motivos.find(
       ({ clave }) => clave === borrador.motivo_clave)?.fecha_fin === "no_aplica") borrador.fin = "";
-    estado = estadoBase(contexto.catalogos, borrador); dibujar();
+    const limpiarPuesto = ["motivo_clave", "centro_ref", "categoria_ref"].includes(campo);
+    estado = estadoBase(contexto.catalogos, borrador,
+      { puestoRPT: limpiarPuesto ? null : estado?.puestoRPT,
+        busquedaPuesto: limpiarPuesto ? "" : estado?.busquedaPuesto }); dibujar();
     raiz.querySelector(campo === "rc_existe" ? `[name="rc_existe"][value="${borrador.rc_existe ? "si" : "no"}"]` : `#ct-${campo}`)?.focus();
+  });
+  raiz.addEventListener("input", (event) => {
+    if (event.target?.name !== "puesto_busqueda" || modo !== "formulario" || !estado?.puestoRPT?.codigo) return;
+    if (event.target.value === estado.puestoRPT.codigo) return;
+    const formulario = event.target.closest("[data-ct-form]");
+    if (!formulario) return;
+    consultaPuesto?.abort(); consultaPuesto = null;
+    estado = estadoBase(contexto.catalogos, { ...extraerBorrador(formulario, false), puesto_codigo: "",
+      puesto_solicitado: "", rpt_catalogo_ref: "", rpt_catalogo_huella_sha256: "" },
+    { busquedaPuesto: event.target.value });
+    for (const campo of ["puesto_codigo", "puesto_solicitado", "rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]) {
+      const oculto = formulario.querySelector(`[name="${campo}"]`);
+      if (oculto) oculto.value = "";
+    }
+    const resultado = formulario.querySelector("[data-ct-puesto-resultado]");
+    if (resultado) resultado.textContent = traducirFormulario("puesto_sin_seleccion");
   });
   globalThis.addEventListener?.("beforeunload", (event) => { if (ocupado || operacionPendiente) { event.preventDefault(); event.returnValue = ""; } });
   raiz.innerHTML = `<p class="pc-cargando">${esc(TEXTO.cargar)}</p>`;

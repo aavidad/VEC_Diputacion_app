@@ -5,25 +5,34 @@ description: Implementa SQL e identidad/autorización de VEC conservando histori
 
 # Persistir y autorizar VEC
 
-Inspeccionar migraciones, funciones, roles y puertos existentes antes de editar.
-Separar preparación de código, revisión e instalación efectiva: un archivo SQL
-confirmado en Git no demuestra que la base lo haya recibido.
+Las reglas están en `docs/producto/ESQUEMA_BACKEND.md` (base de datos) y
+`docs/producto/TRD.md` (identidad, autorización y efectos). Esta skill es el orden de
+trabajo. Inspeccionar migraciones, funciones, roles y puertos existentes antes de editar.
+Un archivo SQL confirmado en Git no demuestra que la base lo haya recibido.
 
-1. Identificar la operación nominal y sus datos de entrada, autoridad, escritura,
-   lectura y recuperación. Resolver actor y permisos desde la frontera confiable.
-2. Mantener juntas las escrituras que constituyen el efecto: versión, actuación,
-   recibo, auditoría y outbox según el contrato existente. Conservar idempotencia.
-3. Añadir una migración nueva cuando proceda. No modificar una migración instalada,
-   reaplicarla ni ejecutar DOWN sobre el historial conservado.
-4. Verificar las precondiciones y la autorización vigente también en recuperación.
-   Una concesión histórica o una referencia opaca por sí solas no conceden acceso.
-5. Preservar publicaciones, definiciones, huellas y referencias originales. No cambiar
-   una definición inmutable para hacer que una transición nueva parezca autorizada.
-6. Preparar la comprobación focal y pedir dos revisiones independientes sobre el mismo
-   contenido. Corregir los hallazgos con el menor parche que resuelva su causa.
-7. Entregar migración/funciones afectadas, precondiciones, dependencias, validación y
-   recuperación prevista. Instalar sólo por el canal autorizado y comprobar el recibo.
+1. Identificar la operación nominal: datos de entrada, autoridad, escritura, lectura y
+   recuperación. Actor y permisos salen de la frontera confiable
+   (`docs/producto/TRD.md` §5 Identidad y sesión, §6 Autorización).
+2. Escribir el efecto completo en una transacción con idempotencia y versión esperada:
+   `docs/producto/TRD.md` §7 y `docs/producto/ESQUEMA_BACKEND.md` §5 Contrato de
+   transacción y §6 Historia, versiones e idempotencia.
+3. Si hace falta SQL nuevo, reservar el número y escribir la migración con su cabecera y
+   guarda de preimagen; nunca reaplicar ni `DOWN` sobre historia:
+   `docs/producto/ESQUEMA_BACKEND.md` §9.2, §9.3 y §9.5. Roles, ACL y RLS: §4.
+4. Consumir la decisión V3 antes de tocar filas, también al recuperar una operación:
+   `docs/producto/ESQUEMA_BACKEND.md` §7.1 y `docs/producto/TRD.md` §6.
+5. Conservar publicaciones, definiciones, huellas y referencias originales: una clave
+   publicada no cambia de significado (`docs/producto/TRD.md` §6, «Perfiles y
+   concesiones»; `docs/producto/ESQUEMA_BACKEND.md` §9.3, «Reconstruir una función
+   instalada»).
+6. Ensayar en el clon, pedir las revisiones independientes que tocan (dos si afecta a
+   identidad, autorización o criptografía) sobre el mismo contenido y corregir con el
+   menor parche que resuelva la causa: `docs/producto/ESQUEMA_BACKEND.md` §9.6, skills
+   `ensayar-sql` y `revisar-sql-vec`, agente `revisor-sql-vec`.
+7. Entregar migración y funciones afectadas, precondiciones, dependencias, validación y
+   recuperación prevista. Instala Dirección por el canal autorizado y comprueba el recibo
+   (`docs/producto/ESQUEMA_BACKEND.md` §9.6, paso 4).
 
-Usar datos sintéticos. No imprimir credenciales, material de sesión o secretos en
-logs, ejemplos o documentación. Respetar los permisos recibidos también al delegar;
-una operación denegada no se envía a otro agente o canal para eludir su control.
+Datos sintéticos y nada de secretos en registros, ejemplos ni documentación:
+`docs/producto/TRD.md` §8 y §11. Respetar los permisos recibidos también al delegar: una
+operación denegada no se envía a otro agente o canal para eludir su control.

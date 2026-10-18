@@ -96,6 +96,17 @@
     "accion_rechazar": "rechazar",
     "accion_incorporar": "incorporar a la bolsa",
     "persona_aspirante": "la persona aspirante",
-    "registrado_el": "Registrado el {fecha}."
+    "registrado_el": "Registrado el {fecha}.",
+    "pendientes": {
+      "one": "{cuenta} solicitud pendiente",
+      "other": "{cuenta} solicitudes pendientes"
+    },
+    "revision_meritos_titulo": "Revisión de títulos y méritos",
+    "convocatorias_titulo": "Convocatorias de bolsas",
+    "convocatorias_listado": "Convocatorias publicadas e históricas",
+    "convocatorias_ayuda_boton": "Ayuda sobre convocatorias",
+    "convocatorias_ayuda": "Consulte la categoría, el estado y el fin del plazo de cada convocatoria. Pulse una convocatoria para ver sus solicitudes pendientes. También puede consultar las convocatorias cuyo plazo ha terminado.",
+    "convocatorias_no_disponible": "No se pudieron abrir las convocatorias. Consulte con la persona responsable de bolsas.",
+    "convocatorias_denegada": "No puede consultar las convocatorias con su acceso actual. Consulte con la persona responsable de permisos."
   }
 }

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"regexp"
+	"strconv"
 	"testing"
 
 	"vec-diputacion-granada/internal/vec/domain"
@@ -22,8 +24,21 @@ func TestRenderizadorGeneraPDFConUnicodeSinAccionesActivas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Renderizar() error = %v", err)
 	}
-	if !bytes.HasPrefix(datos, []byte("%PDF-")) || !bytes.HasSuffix(bytes.TrimSpace(datos), []byte("%%EOF")) {
+	if !bytes.HasPrefix(datos, []byte("%PDF-1.4\n")) || !bytes.HasSuffix(bytes.TrimSpace(datos), []byte("%%EOF")) {
 		t.Fatalf("salida no parece un PDF completo: inicio=%q tamano=%d", datos[:min(8, len(datos))], len(datos))
+	}
+	identificadores := regexp.MustCompile(`(?s)\ntrailer\n<<\n.*?/ID \[<([0-9a-f]{32})> <([0-9a-f]{32})>\]\n>>\nstartxref\n`).FindSubmatch(datos)
+	if len(identificadores) != 3 || !bytes.Equal(identificadores[1], identificadores[2]) {
+		t.Fatal("el original no contiene dos elementos /ID estables e iguales")
+	}
+	referenciaXref := regexp.MustCompile(`startxref\n([0-9]+)\n%%EOF`).FindSubmatch(datos)
+	if len(referenciaXref) != 2 {
+		t.Fatal("falta el desplazamiento xref")
+	}
+	desplazamiento, err := strconv.Atoi(string(referenciaXref[1]))
+	if err != nil || desplazamiento < 0 || desplazamiento >= len(datos) ||
+		!bytes.HasPrefix(datos[desplazamiento:], []byte("xref\n")) {
+		t.Fatal("/ID alteró el desplazamiento xref")
 	}
 	for _, prohibido := range [][]byte{[]byte("/JavaScript"), []byte("/Launch"), []byte("/Type /EmbeddedFile"), []byte("/URI")} {
 		if bytes.Contains(datos, prohibido) {
@@ -36,6 +51,14 @@ func TestRenderizadorGeneraPDFConUnicodeSinAccionesActivas(t *testing.T) {
 	}
 	if !bytes.Equal(datos, repetido) {
 		t.Fatal("el mismo contenido no produjo exactamente el mismo PDF")
+	}
+	distinto, err := renderizador.Renderizar(context.Background(), domain.ContenidoDocumento{Titulo: "Otro documento"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	otrosID := regexp.MustCompile(`/ID \[<([0-9a-f]{32})> <([0-9a-f]{32})>\]`).FindSubmatch(distinto)
+	if len(otrosID) != 3 || bytes.Equal(identificadores[1], otrosID[1]) {
+		t.Fatal("documentos distintos comparten el primer ID")
 	}
 }
 

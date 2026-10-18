@@ -63,6 +63,8 @@ test("referencia, estado o cursor ajenos no inician GET de candidaturas", () => 
 test("popstate cambia la vista al volver y hashchange no duplica el montaje de candidaturas", () => {
   const inicioInstalacion = portal.indexOf("function instalarEnlacesBolsa()");
   const finInstalacion = portal.indexOf("function instalarEventosAuditoriaBolsa()", inicioInstalacion);
+  const inicioGuarda = portal.indexOf("function salidaGestionOfertasBloqueada()");
+  const finGuarda = portal.indexOf("function anunciarSalidaGestionOfertas()", inicioGuarda);
   assert.ok(inicioInstalacion > 0 && finInstalacion > inicioInstalacion);
   const oyentes = new Map(), navegaciones = [];
   let aplicadas = 0;
@@ -73,8 +75,11 @@ test("popstate cambia la vista al volver y hashchange no duplica el montaje de c
   const navegar = (vista) => { estado.vista = vista; navegaciones.push(vista); };
   const contexto = { document: { addEventListener() {} }, window: { location,
     addEventListener(tipo, escucha) { oyentes.set(tipo, escucha); } }, estado, vistaDesdeHash,
-  navegar, aplicarRutaCandidatosBolsa: () => { aplicadas += 1; }, rutaCandidatosAplicada: null };
-  runInNewContext(`${portal.slice(inicioInstalacion, finInstalacion)}; instalarEnlacesBolsa()`, contexto);
+  navegar, aplicarRutaCandidatosBolsa: () => { aplicadas += 1; }, rutaCandidatosAplicada: null,
+  modoGestionOfertasBolsa: "", superficieOfertasBolsa: null, rutaOfertasSolicitadaRef: "",
+  CLAVE_RUTA_GESTION_OFERTAS: "ofertas_bolsa_ref", URLSearchParams,
+  actualizarVistaBolsa: () => {}, cerrarGestionOfertasBolsa: () => {} };
+  runInNewContext(`${portal.slice(inicioGuarda, finGuarda)}\n${portal.slice(inicioInstalacion, finInstalacion)}; instalarEnlacesBolsa()`, contexto);
   const hashchange = () => { const vista = vistaDesdeHash(); if (vista !== estado.vista) navegar(vista); };
 
   location.hash = "#bolsa/resumen"; oyentes.get("popstate")(); hashchange();
@@ -103,9 +108,9 @@ test("la cohorte de CSS, entrada y helper coincide con las URL servidas", async 
   assert.notEqual(versionRaiz, "20261008-r-traza-idioma-v1");
   assert.notEqual(versionRaiz, "20261008-r-personas-fichas-v3");
   assert.equal(versionDe(cache, "/portal-empleado/portal.js"), versionRaiz);
-  assert.equal(versionDe(html, "/portal-empleado/portal-capacidades.css"), "20261008-bolsa-enlaces-v1");
-  assert.equal(versionDe(html, "/portal-empleado/portal-componentes.css"), "20261009-inscripciones-rrhh-v1");
-  assert.equal(versionDe(cache, "/portal-empleado/portal-componentes.css"), "20261009-inscripciones-rrhh-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal-capacidades.css"), "20261015-t-tabla-situaciones-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal-componentes.css"), "20261015-s-cambio-situacion-v1");
+  assert.equal(versionDe(cache, "/portal-empleado/portal-componentes.css"), "20261015-s-cambio-situacion-v1");
   for (const manifiesto of [interno, produccion]) {
     assert.equal(manifiesto.split("static/portal-empleado/portal-bolsas-ruta-filtros.js").length - 1, 1);
   }

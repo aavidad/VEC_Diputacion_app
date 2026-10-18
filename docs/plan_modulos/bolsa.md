@@ -2,7 +2,7 @@
 
 **Estado a 8 de octubre de 2026:** Bolsa funciona en cidonia con HZ8 instalado (canales del llamamiento y seguimiento por teléfono, reglas de RRHH v5, «Mi Bolsa» del aspirante y documentos encendidos); faltan la vuelta a la bolsa tras un cese, la carga del Excel de CONVOCA desde una pantalla y el correo de la Diputación.
 
-Base comprobada: `origin/main@033fda6ed` más las PR fusionadas el 08/10 (#895 a #904). Los criterios para dar Bolsa por cerrada están en [OBJETIVOS.md](OBJETIVOS.md). Las preguntas a RRHH se citan por su número en [`dudas.md`](../../dudas.md).
+Base comprobada: `origin/main@033fda6ed` más las PR fusionadas el 08/10 (#895 a #904). Los criterios para dar Bolsa por cerrada están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md). Las preguntas a RRHH se citan por su número en [`dudas.md`](../../dudas.md).
 
 ## Ceses sin candidato — revisión de #774, 8 de octubre de 2026
 
@@ -51,7 +51,7 @@ hash. La mejora de consultas RRHH va aparte en #917.
 | 1 | **Vuelta a la bolsa tras el cese de CT.** En cidonia falta `VEC_BOLSA_CESE_CT_ENABLED` y el LOGIN del relevo. El LOGIN y el entorno están preparados en #771. | Claude, en el despliegue de cidonia. | Cese en CT y la persona vuelve a «Disponible» (o «disponible desde») en su bolsa, también tras reiniciar. |
 | 2 | **Cese sin candidato vinculado sin bloquear el relevo** (CT197, B81, B90), también en bolsa constituida si la participación consta en su acta. | PR #774 integrada en `main`; falta instalar y recorrer el relevo en cidonia. | Comprobar alta, cursor, vínculo posterior, restricción B45 y estado pendiente en «Mi Bolsa». |
 | 3 | **Carga de bolsas desde el Excel de CONVOCA en pantalla (B1).** #751 conserva el núcleo y CLI segregado; #752 añade vista previa paginada con consumo V3 y confirmación; #759 presenta el recorrido ES/EN. Las tres PR siguen candidatas en ese orden. | Codex-U corrige y verifica; Claude revisa SQL y fusiona. Faltan la concesión B1 gobernada y su asignación nominal; no se crean al arrancar. Duda 144 pendiente. | Verificaciones locales y Chrome con API de prueba; falta RRHH → API nominal → PostgreSQL → recibo y recuperación tras reinicio. |
-| 4 | **Recorrido de la oferta con varias plazas y del llamamiento directo**, de punta a punta. El código está; falta el acta. Va dentro del recorrido completo de [OBJETIVOS.md](OBJETIVOS.md). | Claude, con el recorrido de CT. | Acta con varias aceptaciones, adjudicación por posición, «sin respuesta» sin consecuencia y llamamiento directo. |
+| 4 | **Recorrido de la oferta con varias plazas y del llamamiento directo**, de punta a punta. El código está; falta el acta. Va dentro del recorrido completo de [plan de implementación](../producto/PLAN_IMPLEMENTACION.md). | Claude, con el recorrido de CT. | Acta con varias aceptaciones, adjudicación por posición, «sin respuesta» sin consecuencia y llamamiento directo. |
 | 5 | **Reglas que ya no encajan con el Reglamento (duda 147).** El Reglamento (BOP 16/01/2026, arts. 8 y 11) no recoge el plazo de 24 horas por plaza ni «no responder equivale a no aceptar» en la oferta. Basta con cambiar el catálogo. | Dirección decide; luego, cambio de catálogo. | Catálogo nuevo cargado y la pregunta 147 retirada de `dudas.md`. |
 | 6 | **Renuncia justificada con el fichero.** Hoy «Mi Bolsa» envía la huella y la referencia del justificante, no el fichero. Con documentos ya encendidos, hay que comprobar si la custodia lo recoge. | Sin dueño. Comprobar antes de encargar. | El justificante se descarga desde la ficha de RRHH. |
 | 7 | **Cifras globales de Bolsa pulsables.** Las cifras por bolsa ya llevan a su lista (#883). Los tres totales globales y «llamamientos en curso» necesitan una lectura global paginada con auditoría en la misma transacción. Hoy cuentan participaciones, no personas. | Equipo V. No hay rama. | Cada total abre su lista filtrada con el mismo número. |
@@ -106,3 +106,35 @@ Medición con 2.390 participaciones: lector de cuatro consultas p95 19,96 ms
 (100 muestras); manejador HTTP de resumen p95 17,31 ms y páginas p95 < 1 ms
 (30 muestras por filtro). HTTP medido sobre el cargador y manejador reales contra
 el clon: no incluye TLS ni la frontera nominal. B94: EXPLAIN ANALYZE 2,64 ms.
+
+## Acceso a Mi Bolsa desde una carga CONVOCA — 11 de octubre
+
+La carga ya crea la participación y su referencia de candidato. El DNI
+enmascarado y el nombre no permiten acreditar quién es su titular. Para dar
+acceso se reutiliza la provisión exterior existente: una autoridad verifica el
+enlace entre persona, fila importada y cuenta ligada al certificado, y publica
+el contexto nominal mediante huella y CAS. Las filas ambiguas quedan pendientes;
+no se enlazan por coincidencia de máscara o nombre. No hace falta otro portal ni
+otra ruta de Mi Bolsa. Falta la correspondencia verificada de la autoridad de
+personas; este cambio no aprovisiona cuentas ni permisos.
+
+
+## Alegaciones de inscripción y participación — 13 de octubre
+
+La entrega en preparación permite presentar una alegación sobre una decisión
+histórica de admisión o rechazo, o sobre un acto de una participación existente.
+Conserva la titularidad, el acto y su versión, el recibo de presentación en VEC,
+la historia y la consulta de RRHH por ámbito. Los títulos de convocatorias se
+recuperan por lote; las bolsas sin etiqueta histórica se distinguen por la fecha
+de su constitución. Se reutiliza el nombre de B7 cuando esté disponible; en los
+demás casos la pantalla indica «Nombre no disponible».
+
+Siguiente corte acordado por Dirección el 13/10 a las 11:45: pedir a O, dueño de
+Inscripción, que B96 proyecte el resumen de persona de cada solicitud con su
+autoridad existente. No resolver nombres mediante CN del certificado ni
+referencias opacas, ni abrir una segunda autoridad de identidad.
+
+La instalación causal y las comprobaciones focales no acreditan todavía el
+recorrido con aspirante y RRHH. Dirección publicará las concesiones, realizará
+la prueba en navegador y medirá los tiempos. El registro no es un asiento de
+entrada oficial ni resuelve la alegación.

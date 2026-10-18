@@ -124,10 +124,14 @@ type Config struct {
 	ExecutionProfile                            string
 	DevelopmentGuard                            string
 	DevelopmentMaterialDir                      string
+	ExternoMaterialDir                          string
 	PortalProceso                               string
 	ExternoPreflightV3DatabaseURL               string
 	ExternoBolsaPublicaPostgreSQL               ConfiguracionPostgreSQLPublica
 	ExternoBolsaPostgreSQL                      ConfiguracionPostgreSQLExterna
+	ExternoMeritosCarteraPostgreSQL             ConfiguracionPostgreSQLExterna
+	ExternoMeritosOperacionPostgreSQL           ConfiguracionPostgreSQLExterna
+	ExternoMeritosFronteraPostgreSQL            ConfiguracionPostgreSQLExterna
 	BolsaInscripcionesLectorPostgreSQL          ConfiguracionPostgreSQLExterna
 	BolsaInscripcionesRRHHLectorPostgreSQL      ConfiguracionPostgreSQLExterna
 	ExternoCalendariosPostgreSQL                ConfiguracionPostgreSQLExterna
@@ -213,6 +217,8 @@ type Config struct {
 	PersonalEmpleadoEnabled                     string
 	PersonalB2GobiernoEnabled                   string
 	OrganizacionHistoricaGobiernoEnabled        string
+	OrganizacionHistoricaConsultaEnabled        string
+	OrganizacionHistoricaMaterialDir            string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
 	BolsaConstitucionPostgreSQL                 ConfiguracionPostgreSQLBolsaConstitucion
@@ -223,6 +229,11 @@ type Config struct {
 	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
 	CalendariosPostgreSQL                       ConfiguracionCalendarios
+
+	ExternoMeritosRegistroAutorizacionPostgreSQL ConfiguracionPostgreSQLExterna
+	ExternoMeritosMotivosAutorizacionPostgreSQL  ConfiguracionPostgreSQLExterna
+	ExternoMeritosFuenteAutorizacionPostgreSQL   ConfiguracionPostgreSQLExterna
+	ExternoMeritosContextoPostgreSQL             ConfiguracionPostgreSQLExterna
 }
 
 func Load() Config {
@@ -242,6 +253,7 @@ func Load() Config {
 		ExecutionProfile:       envFirst(EnvExecutionProfile),
 		DevelopmentGuard:       envFirst(EnvDevelopmentGuard),
 		DevelopmentMaterialDir: envFirst(EnvDevelopmentMaterialDir),
+		ExternoMaterialDir:     os.Getenv(EnvExternoMaterialDir),
 		PortalProceso:          os.Getenv(EnvPortalProceso),
 		IncorporacionV2File:    envFirst(EnvIncorporacionV2File),
 		ContratacionTemporalSubsanacionPoliticaFile: envFirst(EnvContratacionTemporalSubsanacionPoliticaFile),
@@ -251,6 +263,9 @@ func Load() Config {
 			dsn: os.Getenv(EnvExternoBolsaPublicaDatabaseURL),
 		},
 		ExternoBolsaPostgreSQL:                 ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaDatabaseURL)},
+		ExternoMeritosCarteraPostgreSQL:        ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosCarteraDatabaseURL)},
+		ExternoMeritosOperacionPostgreSQL:      ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosOperacionDatabaseURL)},
+		ExternoMeritosFronteraPostgreSQL:       ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosFronteraDatabaseURL)},
 		BolsaInscripcionesLectorPostgreSQL:     ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaInscripcionesLectorDatabaseURL)},
 		BolsaInscripcionesRRHHLectorPostgreSQL: ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvBolsaInscripcionesRRHHLectorDatabaseURL)},
 		ExternoBolsaFronteraPostgreSQL:         ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaFronteraDatabaseURL)},
@@ -372,6 +387,13 @@ func Load() Config {
 			dsnAuditoriaFrontera:     envFirst(EnvContratacionTemporalAuditoriaFronteraDatabaseURL),
 		},
 		OrganizacionHistoricaGobiernoEnabled: envFirst(EnvOrganizacionHistoricaGobiernoEnabled),
+		OrganizacionHistoricaConsultaEnabled: envFirst(EnvOrganizacionHistoricaConsultaEnabled),
+		OrganizacionHistoricaMaterialDir:     envFirst(EnvOrganizacionHistoricaMaterialDir),
+
+		ExternoMeritosRegistroAutorizacionPostgreSQL: ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosRegistroAutorizacionDatabaseURL)},
+		ExternoMeritosMotivosAutorizacionPostgreSQL:  ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosMotivosAutorizacionDatabaseURL)},
+		ExternoMeritosFuenteAutorizacionPostgreSQL:   ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosFuenteAutorizacionDatabaseURL)},
+		ExternoMeritosContextoPostgreSQL:             ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoMeritosContextoDatabaseURL)},
 	}.Normalize()
 }
 
@@ -495,6 +517,8 @@ func (c Config) Normalize() Config {
 	c.PersonalEmpleadoEnabled = strings.TrimSpace(c.PersonalEmpleadoEnabled)
 	c.PersonalB2GobiernoEnabled = strings.TrimSpace(c.PersonalB2GobiernoEnabled)
 	c.OrganizacionHistoricaGobiernoEnabled = strings.TrimSpace(c.OrganizacionHistoricaGobiernoEnabled)
+	c.OrganizacionHistoricaConsultaEnabled = strings.TrimSpace(c.OrganizacionHistoricaConsultaEnabled)
+	c.OrganizacionHistoricaMaterialDir = strings.TrimSpace(c.OrganizacionHistoricaMaterialDir)
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
 	c.BolsaConstitucionPostgreSQL = c.BolsaConstitucionPostgreSQL.normalizar()
@@ -505,6 +529,13 @@ func (c Config) Normalize() Config {
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPublicaPostgreSQL = c.ExternoBolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPostgreSQL = c.ExternoBolsaPostgreSQL.normalizar()
+	c.ExternoMeritosCarteraPostgreSQL = c.ExternoMeritosCarteraPostgreSQL.normalizar()
+	c.ExternoMeritosOperacionPostgreSQL = c.ExternoMeritosOperacionPostgreSQL.normalizar()
+	c.ExternoMeritosFronteraPostgreSQL = c.ExternoMeritosFronteraPostgreSQL.normalizar()
+	c.ExternoMeritosRegistroAutorizacionPostgreSQL = c.ExternoMeritosRegistroAutorizacionPostgreSQL.normalizar()
+	c.ExternoMeritosMotivosAutorizacionPostgreSQL = c.ExternoMeritosMotivosAutorizacionPostgreSQL.normalizar()
+	c.ExternoMeritosFuenteAutorizacionPostgreSQL = c.ExternoMeritosFuenteAutorizacionPostgreSQL.normalizar()
+	c.ExternoMeritosContextoPostgreSQL = c.ExternoMeritosContextoPostgreSQL.normalizar()
 	c.BolsaInscripcionesLectorPostgreSQL = c.BolsaInscripcionesLectorPostgreSQL.normalizar()
 	c.BolsaInscripcionesRRHHLectorPostgreSQL = c.BolsaInscripcionesRRHHLectorPostgreSQL.normalizar()
 	c.ExternoBolsaFronteraPostgreSQL = c.ExternoBolsaFronteraPostgreSQL.normalizar()

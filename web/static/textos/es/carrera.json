@@ -5,13 +5,13 @@
   "saltar": "Saltar al contenido",
   "idioma": "Idioma",
   "navegacion": "Navegación del módulo",
-  "limite": "Ejercicio con datos sintéticos. Las comprobaciones preparan la revisión; no reconocen grado, progresión ni derecho a participar.",
+  "limite": "Borrador para revisión. Las comprobaciones no reconocen grado, progresión ni derecho a participar.",
   "carga": "Cargando los casos del ejercicio. Espere un momento.",
   "error": "No se ha podido cargar el ejercicio. Pulse Reintentar. Si el problema continúa, avise a Informática.",
   "ayuda": {
     "boton": "? Ayuda",
     "titulo": "Cómo revisar el ejercicio",
-    "elegir": "Filtre por vía y elija una persona de ejemplo.",
+    "elegir": "Filtre por vía y elija una persona.",
     "revisar": "Revise los datos disponibles y los motivos pendientes. El nivel del puesto y el grado personal son datos distintos.",
     "descargar": "Descargue el borrador para revisar sus fuentes y versiones. La descarga no inicia un trámite."
   },
@@ -88,7 +88,7 @@
       "registro": "Inscripción en Personal"
     },
     "motivo": {
-      "disponible": "El dato está disponible en el ejercicio sintético. Debe contrastarse con su fuente antes de tramitar.",
+      "disponible": "El dato está disponible. Contrástelo con su fuente antes de tramitar.",
       "datos_incompletos": "Faltan datos de la persona para preparar la revisión.",
       "fuente_incompleta": "Falta una fuente o su versión.",
       "regimen_pendiente": "Falta confirmar el régimen aplicable.",
@@ -98,7 +98,7 @@
       "periodos_solapados": "Hay periodos solapados. Deben revisarse antes de computarlos.",
       "evidencia_incompleta": "Falta la evidencia o su acreditación.",
       "politica_pendiente": "No se ha confirmado una política aprobada para este procedimiento.",
-      "politica_preparada": "Hay una política de ejemplo preparada. Su aprobación sigue pendiente.",
+      "politica_preparada": "Hay una política preparada. Su aprobación sigue pendiente.",
       "convenio_pendiente": "Falta confirmar el convenio y su versión aplicable.",
       "curso_prueba_pendiente": "Falta confirmar el curso y la prueba exigidos por el procedimiento.",
       "convocatoria_pendiente": "Faltan las bases versionadas de la convocatoria.",

@@ -1,0 +1,9 @@
+# Personal41-44: el objetivo (plan, plaza, persona, empleado o entrada) de los recursos V3 de Personal B2 pasa de
+# los ámbitos a los atributos firmados; Personal44 baja además statement_timeout de las dos fachadas del plan a 15 s.
+# Requieren Personal18, 19, 20 y 23 tal como están instaladas (preimagen exacta). Una sola vez, en este orden; sin DOWN.
+# Van con el vec-server de la misma PR: sin él, ficha, alta, hecho, catálogo y plan se deniegan (fallo cerrado).
+# Prueba posterior (LOGIN de planes B2, ROLLBACK): deploy/postgresql/personal/pruebas_sql/plan_b2_objetivo_atributos_000044.sql
+deploy/postgresql/personal/migraciones/000041_ficha_b2_empleado_en_atributos.up.sql
+deploy/postgresql/personal/migraciones/000042_actos_b2_objetivo_en_atributos.up.sql
+deploy/postgresql/personal/migraciones/000043_catalogo_b2_entrada_en_atributos.up.sql
+deploy/postgresql/personal/migraciones/000044_plan_b2_objetivo_en_atributos.up.sql

@@ -1,7 +1,7 @@
 /**
  * Controladores de interacción del Portal del Empleado.
  *
- * Recibe sus dependencias desde `portal.js?v=20261002-ct-fin-modalidad-v1`: no conoce repositorios ni decide
+ * Recibe sus dependencias desde `portal.js?v=20261016-r1-o-integracion-v7`: no conoce repositorios ni decide
  * negocio. Las acciones sin comando de servidor compuesto permanecen
  * informativas y nunca producen efectos administrativos en el navegador.
  */
@@ -374,10 +374,19 @@ export function crearControladorPortal(dependencias) {
 
   function instalar() {
     document.addEventListener("click", (evento) => {
+      const salto = evento.target.closest('a.salto-contenido[href="#contenido-principal"]');
+      if (salto) {
+        evento.preventDefault();
+        porId("contenido-principal")?.focus?.({ preventScroll: true });
+        return;
+      }
       const botonVista = evento.target.closest("[data-vista]");
       if (botonVista && !botonVista.disabled) {
         evento.preventDefault();
         const opciones = {};
+        if (botonVista.dataset.vista === "personal-registro" && botonVista.dataset.personalEmpleadoRef) {
+          opciones.empleadoRef = botonVista.dataset.personalEmpleadoRef;
+        }
         if (botonVista.dataset.ctExpVista) {
           opciones.subvista = botonVista.dataset.ctExpVista;
         }

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -88,8 +89,15 @@ func TestRutasMiBolsaExteriorSoloSiDependenciasCompletas(t *testing.T) {
 		t.Fatal("montó Bolsa sin autoridad")
 	}
 	rutas, err := nuevasRutasMiBolsaPortalExterno(d)
-	if err != nil || len(rutas) != 2 || rutas[0].Ruta != bolsahttp.RutaMiBolsa || rutas[1].Ruta != bolsahttp.RutaMiBolsaHistorial {
+	if err != nil || len(rutas) != 4 || rutas[0].Ruta != bolsahttp.RutaMiBolsa ||
+		rutas[1].Ruta != bolsahttp.RutaJustificantesMiBolsa ||
+		rutas[2].Ruta != bolsahttp.RutaPreferenciasBolsas || rutas[3].Ruta != bolsahttp.RutaMiBolsaHistorial {
 		t.Fatalf("rutas de consulta: %v, %v", rutas, err)
+	}
+	w := httptest.NewRecorder()
+	rutas[1].Manejador.ServeHTTP(w, httptest.NewRequest(http.MethodGet, bolsahttp.RutaJustificantesMiBolsa, nil))
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("justificantes sin configuración: %d", w.Code)
 	}
 	d.reglas = reglasPortalCandidatoDesarrollo{}
 	if _, err := nuevasRutasMiBolsaPortalExterno(d); err == nil {
@@ -99,10 +107,11 @@ func TestRutasMiBolsaExteriorSoloSiDependenciasCompletas(t *testing.T) {
 		d.proveedores[par[1]] = &proveedorMaterialAltaContratacionTemporalDesarrollo{}
 	}
 	rutas, err = nuevasRutasMiBolsaPortalExterno(d)
-	if err != nil || len(rutas) != 7 {
+	if err != nil || len(rutas) != 9 {
 		t.Fatalf("rutas propias: %v, %v", rutas, err)
 	}
-	esperadas := []string{bolsahttp.RutaMiBolsa, bolsahttp.RutaMiBolsaHistorial,
+	esperadas := []string{bolsahttp.RutaMiBolsa, bolsahttp.RutaJustificantesMiBolsa,
+		bolsahttp.RutaPreferenciasBolsas, bolsahttp.RutaMiBolsaHistorial,
 		bolsahttp.RutaMiBolsaSolicitudes, bolsahttp.RutaMiBolsaSolicitudesDocumentales, bolsahttp.RutaMiBolsaRespuestas,
 		bolsahttp.RutaMiBolsaDisposiciones, bolsahttp.RutaMiBolsaContacto}
 	for i, ruta := range rutas {

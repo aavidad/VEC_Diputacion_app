@@ -12,6 +12,7 @@ import (
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -74,6 +75,7 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		{"ct-expediente-cancelar", string(ctdomain.AccionCancelarExpediente), cthttp.RutaCancelacionesExpediente},
 		{"ct-cancelacion-consultar", accionConsultarCancelacionCTDesarrollo, cthttp.RutaCancelacionExpediente},
 		{"ct-llamamiento-seleccionar", accionConsultarLlamamientoDesarrollo, cthttp.RutaSeleccionLlamamiento},
+		{"ct-oferta-estado-consultar", accionConsultarLlamamientoDesarrollo, cthttp.RutaConsultaEstadoSeleccionOferta},
 		{"ct-llamamiento-comunicacion-registrar", ctpostgres.AccionRegistroComunicacionLlamamiento, cthttp.RutaRegistroComunicacionLlamamiento},
 		{"ct-llamamiento-comunicaciones-consultar", ctpostgres.AccionConsultaComunicacionesExpediente, cthttp.RutaConsultaComunicacionesExpediente},
 		{"ct-llamamiento-respuesta-registrar", ctpostgres.AccionRegistroRespuestaRecibida, cthttp.RutaRegistroRespuestaRecibida},
@@ -100,7 +102,7 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		}
 		metodo := http.MethodPost
 		if par.clave == "ct-peticiones-centro-rrhh-consultar" || par.clave == "ct-llamamiento-comunicaciones-consultar" ||
-			par.clave == "ct-llamamiento-recibo-respuesta-consultar" {
+			par.clave == "ct-llamamiento-recibo-respuesta-consultar" || par.clave == "ct-oferta-estado-consultar" {
 			metodo = http.MethodGet
 		}
 		if frontera.Clave != par.clave || frontera.Metodo != metodo || frontera.Ruta != par.ruta || frontera.ClaveCapacidad != par.accion || !reflect.DeepEqual(frontera.PerfilesActivosRef, perfilesEsperados) {
@@ -234,6 +236,39 @@ func TestDescriptoresContratacionTemporalAutorizanLecturasDeCobertura(t *testing
 		}
 		if _, ok := catalogo.politicaPara(caso.accion, "ct-cobertura-decidir", clavePoliticaContratacionTemporalDesarrollo, caso.accion); ok {
 			t.Fatalf("%s admitida por la frontera de la decisión", caso.accion)
+		}
+	}
+}
+
+func TestOriginalR5CatalogoComunEnlazaSoloOperacionesDeclaradas(t *testing.T) {
+	e := nuevoEscenarioOriginalPDP(t)
+	frontera, err := fronteraOriginalFirmableCTDesarrollo(e.soporte.perfilesOriginal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fronteras := descriptoresFronterasContratacionTemporalDesarrollo("prf_catalogo_ct", []string{"prf_catalogo_ct"})
+	fronteras = append(fronteras, frontera)
+	catalogoFronteras, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	politica := politicaDescriptoresCTPrueba(t)
+	acciones := []string{ctports.AccionConsultarDetalleRRHH, docports.AccionDescargar, docports.AccionReservarOriginalFirmable, docports.AccionConfirmarOriginalFirmable, vecports.AccionNegocioEscribirOriginalFirmable}
+	for _, activo := range []bool{false, true} {
+		catalogo, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptoresAutorizacionContratacionTemporalDesarrollo(politica, false, false, false, false, activo))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, accion := range acciones {
+			_, admite := catalogo.politicaPara(accion, frontera.Clave, frontera.ClavePolitica, frontera.ClaveCapacidad)
+			if admite != activo {
+				t.Fatalf("accion=%s esperado=%v observado=%v", accion, activo, admite)
+			}
+		}
+		for _, accion := range []string{ctports.AccionFirmarDocumento, ctports.AccionCrearSolicitud, docports.AccionCustodiarFirmado} {
+			if _, admite := catalogo.politicaPara(accion, frontera.Clave, frontera.ClavePolitica, frontera.ClaveCapacidad); admite {
+				t.Fatalf("frontera original admitió %s", accion)
+			}
 		}
 	}
 }

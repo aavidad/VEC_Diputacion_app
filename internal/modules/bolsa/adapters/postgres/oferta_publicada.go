@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"time"
@@ -17,13 +18,16 @@ import (
 // plazas y registrar actos por plaza, y B28/B58 para consultar. La
 // autorización se consume dentro de la transacción que escribe la oferta o el
 // acto, junto con su auditoría y outbox.
-type RepositorioOfertasPublicadasPostgreSQL struct{ pool *pgxpool.Pool }
+type RepositorioOfertasPublicadasPostgreSQL struct {
+	pool        *pgxpool.Pool
+	tokensAviso ports.DerivadorTokenAvisoOferta
+}
 
 func NuevoRepositorioOfertasPublicadasPostgreSQL(pool *pgxpool.Pool) (*RepositorioOfertasPublicadasPostgreSQL, error) {
 	if pool == nil {
 		return nil, ports.ErrOfertaNoDisponible
 	}
-	return &RepositorioOfertasPublicadasPostgreSQL{pool}, nil
+	return &RepositorioOfertasPublicadasPostgreSQL{pool: pool}, nil
 }
 
 func (r *RepositorioOfertasPublicadasPostgreSQL) Publicar(ctx context.Context, c ports.ComandoPublicarOferta) (ports.OfertaPublicada, error) {
@@ -32,20 +36,53 @@ func (r *RepositorioOfertasPublicadasPostgreSQL) Publicar(ctx context.Context, c
 	}
 	datos, errDatos := json.Marshal(c.Datos)
 	plazo, errPlazo := serializarPlazoOfertaPostgreSQL(c.Plazo)
-	if errDatos != nil || errPlazo != nil {
+	origen, errOrigen := serializarOrigenOfertaCT(c.OrigenCT)
+	if errDatos != nil || errPlazo != nil || errOrigen != nil {
 		return ports.OfertaPublicada{}, ports.ErrOfertaInvalida
 	}
 	m := c.Material
 	var salida []byte
 	var reutilizada bool
-	err := r.pool.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.publicar_oferta_v4($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20,$21,$22::integer)`,
-		c.OfertaRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, datos, plazo, c.PublicadaEn, c.VenceAntesDe,
-		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(),
-		m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(), c.UnidadRef, c.AmbitoRef, c.NumeroPlazas).Scan(&salida, &reutilizada)
+	tx, err := r.transaccionOferta(ctx)
 	if err != nil {
 		return ports.OfertaPublicada{}, errorOferta(err)
 	}
-	return decodificarOferta(salida, reutilizada)
+	defer revertir(tx)
+	err = tx.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.publicar_oferta_v5($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20,$21,$22::integer,$23::jsonb)`,
+		c.OfertaRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, datos, plazo, c.PublicadaEn, c.VenceAntesDe,
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(),
+		m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(), c.UnidadRef, c.AmbitoRef, c.NumeroPlazas, origen).Scan(&salida, &reutilizada)
+	if err != nil {
+		return ports.OfertaPublicada{}, errorOferta(err)
+	}
+	oferta, err := decodificarOferta(salida, reutilizada)
+	if err != nil {
+		return ports.OfertaPublicada{}, err
+	}
+	if oferta.Aviso != nil && !reutilizada {
+		if r.tokensAviso == nil {
+			return ports.OfertaPublicada{}, ports.ErrOfertaNoDisponible
+		}
+		token, version, e := r.tokensAviso.DerivarTokenAvisoOferta(ctx, oferta.OfertaRef, "")
+		if e != nil || len(token) != 32 {
+			clear(token)
+			return ports.OfertaPublicada{}, ports.ErrOfertaNoDisponible
+		}
+		huella := sha256.Sum256(token)
+		clear(token)
+		if e = tx.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.vincular_despacho_aviso_v1($1,$2,$3,$4,$5)`,
+			oferta.OfertaRef, c.ActorRef, c.ClaveIdempotencia, huella[:], version).Scan(&salida); e != nil {
+			return ports.OfertaPublicada{}, errorOferta(e)
+		}
+		oferta, err = decodificarOferta(salida, reutilizada)
+		if err != nil {
+			return ports.OfertaPublicada{}, err
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return ports.OfertaPublicada{}, errorOferta(err)
+	}
+	return oferta, nil
 }
 
 func (r *RepositorioOfertasPublicadasPostgreSQL) Resolver(ctx context.Context, c ports.ComandoResolverOferta) (ports.OfertaPublicada, error) {
@@ -86,6 +123,13 @@ func decodificarOferta(salida []byte, reutilizada bool) (ports.OfertaPublicada, 
 		return ports.OfertaPublicada{}, ports.ErrOfertaNoDisponible
 	}
 	oferta.Reutilizada = reutilizada
+	var interno struct {
+		Version string `json:"aviso_version_token"`
+	}
+	if json.Unmarshal(salida, &interno) != nil {
+		return ports.OfertaPublicada{}, ports.ErrOfertaNoDisponible
+	}
+	oferta.VersionTokenAviso = interno.Version
 	return oferta, nil
 }
 
@@ -108,6 +152,9 @@ func decodificarListaOfertas(salida []byte) ([]ports.OfertaPublicada, error) {
 // ofertaCompleta exige la proyección B58: una entrada por plaza, numeradas
 // desde 1 y con estado.
 func ofertaCompleta(o ports.OfertaPublicada) bool {
+	if o.Aviso != nil && !o.Aviso.Validar() {
+		return false
+	}
 	if o.OfertaRef == "" || o.Estado == "" || o.NumeroPlazas < 1 || len(o.Plazas) != o.NumeroPlazas ||
 		!dominiobolsa.ConfirmacionAdjudicacionValida(o.ConfirmacionAdjudicacion) {
 		return false
@@ -130,6 +177,10 @@ func errorOferta(err error) error {
 			return dominiovec.ErrAutorizacionDenegada
 		case "VBO01":
 			return ports.ErrOfertaConflicto
+		case "VBO10":
+			return ports.ErrOfertaRevisionAvisos
+		case "VBO11":
+			return ports.ErrOfertaAvisoEnCurso
 		case "VBO02":
 			return ports.ErrOfertaYaResuelta
 		case "VBO03":
@@ -140,6 +191,8 @@ func errorOferta(err error) error {
 			return ports.ErrOfertaRespuestaAbierta
 		case "VBO08":
 			return ports.ErrOfertaPoliticaSinPlazas
+		case "VBO09":
+			return ports.ErrOfertaElegiblesInsuficientes
 		case "22023", "23503":
 			return ports.ErrOfertaInvalida
 		}

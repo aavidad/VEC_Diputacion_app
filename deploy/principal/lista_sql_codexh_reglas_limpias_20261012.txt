@@ -1,0 +1,9 @@
+# Operación de datos, no migraciones/DDL. CT148/190/191 ya instaladas; no reaplicar.
+# 1. Desplegar #1065 y #1068 más la PR de este guion.
+# 2. Compilar/instalar cmd/vec-preparar-catalogo-reglas-ct como indica LEEME.
+# 3. Detener admisión y ejecutar publicar.sh --comprobar.
+# 4. publicar.sh --aplicar PUBLICA-REGLAS-CT-LIMPIAS usa publicadorCT190 existente.
+# 5. Si hay ajustes CT148, ejecuta scripts/operacion/publicar_reglas_ct_limpias/rebase_ajustes.sql.
+# 6. Repetir --comprobar (replay), configurar las tres SOURCE_PATH exactas del LEEME y arrancar.
+# 7. Chrome: Reglas vigentes y Plazos muestran versiones2/6, ajuste preservado; circuito firma2.
+# SQL nuevo sólo DATOS: sin funciones nuevas, permisos o historia reescritos.

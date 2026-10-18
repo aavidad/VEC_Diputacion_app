@@ -228,8 +228,23 @@ func (h *Handler) registrarClaseVersionBolsa(r *http.Request, clase string) {
 		clase = "sin_clase"
 	}
 	ruta := "propuestas"
-	if r != nil && r.URL != nil && r.URL.Path == RutaVersionarRolBolsaCerrar {
-		ruta = "cierres"
+	if r != nil && r.URL != nil {
+		switch r.URL.Path {
+		case RutaVersionarRolBolsaCerrar:
+			ruta = "cierres"
+		case RutaVersionarRolBolsaB103Proponer:
+			ruta = "b103_propuestas"
+		case RutaVersionarRolBolsaB103Cerrar:
+			ruta = "b103_cierres"
+		case RutaVersionarRolBolsaRRHHProponer:
+			ruta = "rrhh_propuestas"
+		case RutaVersionarRolBolsaRRHHCerrar:
+			ruta = "rrhh_cierres"
+		case RutaVersionarRolBolsaExternaProponer:
+			ruta = "externa_propuestas"
+		case RutaVersionarRolBolsaExternaCerrar:
+			ruta = "externa_cierres"
+		}
 	}
 	correlacion := ""
 	if r != nil {

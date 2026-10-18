@@ -3,6 +3,7 @@ package ports
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 var (
@@ -12,7 +13,7 @@ var (
 	ErrOriginalFirmableCTNoEncontrado = errors.New("vec: original firmable CT no encontrado")
 )
 
-const LimiteOriginalFirmableCT = 1 << 20
+const LimiteOriginalFirmableCT = 2 << 20
 
 // OriginalRef es una expectativa, nunca una ruta ni una fuente de autoridad.
 // El navegador no aporta bytes ni huella a este contrato.
@@ -40,6 +41,10 @@ type OriginalFirmableCT struct {
 	Referencia, TipoRef, HuellaSHA256 string
 	Version                           uint64
 	Contenido                         []byte
+	// El comprobante procede del documento confirmado y de su lectura
+	// autorizada. No es un recibo de envío ni una evidencia de firma.
+	NumeroVEC    string
+	CustodiadoEn time.Time
 }
 
 // CustodiaOriginalFirmableCT se implementa con el servicio Documentos y su

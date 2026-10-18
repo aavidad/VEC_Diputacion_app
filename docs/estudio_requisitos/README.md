@@ -1,220 +1,121 @@
-# Estudio de requisitos del portal transversal de RRHH
+# Estudio de requisitos del portal de RRHH
 
-**Continuidad — 19 de septiembre de 2026:** [estudio integral actualizado](analisis_integral_rrhh.md#15-síntesis-vigente-para-los-agentes)
-y [contrato de ampliación como plugin](../portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026).
-Son la lectura común para Personal, RRHH, Dietas, Cronos, Bolsa y Formación.
-Conservan el catálogo completo y distinguen lo implementado de lo diseñado.
-Las fases de julio inferiores son históricas: la prioridad vigente es terminar
-Contratación independiente de decisiones de RRHH, después Bolsa y apoyo a los
-otros módulos autorizados. Formación/ficha integral se estudian, no se programan
-ahora. La exposición por módulo es configurable como objetivo; Cronos exterior
-autenticado no habilita Personal o Dietas exteriores. Los manuales definitivos
-se elaborarán tras validación de RRHH.
+Lo vigente de este estudio está ahora en los documentos de producto de
+[docs/producto/](../producto/):
 
-## Orientación documental — 10 de septiembre de 2026
+- orden de las fuentes, puerta institucional antes de programar y decisiones
+  de producto: [PRD §6, «De dónde salen las reglas»](../producto/PRD.md#de-dónde-salen-las-reglas)
+  y el resto del [PRD](../producto/PRD.md);
+- decisiones técnicas (arquitectura, conectores, seguridad, despliegue):
+  [TRD](../producto/TRD.md);
+- qué falta y en qué orden: [PLAN_IMPLEMENTACION](../producto/PLAN_IMPLEMENTACION.md).
 
-Este índice reúne el estudio histórico de julio y sus fuentes. No es la guía
-de uso, el inventario del servidor ni una orden de retomar planes antiguos.
-Se mantienen las fechas y el contenido de los estudios, decisiones y auditorías.
-Para el producto actual, consulte:
+Esta carpeta guarda los estudios, fichas y actas de cada materia, con sus
+citas completas. La versión anterior de este índice, con el estudio de julio de
+2026, está en la historia de Git de este fichero.
 
-- [Entrada general y estado funcional](../../README.md).
-- [Uso del portal](../manual_usuario/manual_portal_bolsas.md) y
-  [procedimiento para RRHH](../manual_rrhh/README.md).
-- [Desarrollo y composición](../manual_programador/README.md).
-- [Sistemas: entorno privado vigente](../manual_sistemas/README.md#entorno-privado-vigente).
+## Decisiones de despliegue que aún no están en el TRD
 
-El Manual 00 y los planes de plataforma enlazados más abajo son preparación
-pendiente de aprobación, no instrucciones de instalación de la instancia
-privada. Los relevos, cifras y bloqueos de julio/agosto describen sus cortes;
-no sustituyen las órdenes actuales ni autorizan datos reales.
+Tomadas en julio de 2026 para el paso a datos reales; las valida Sistemas. El
+detalle está en [despliegue_contenedores_y_escalado.md](despliegue_contenedores_y_escalado.md)
+y en el [Manual 00 para Sistemas](manual_sistemas_preparacion_plataforma.md),
+que es la puerta previa a instalar.
 
-## Estudio conservado — corte del 17 de julio de 2026
+- Primera implantación austera: tres máquinas virtuales (NGINX, servicios y
+  datos) con Podman Quadlet o Docker Compose. Dos solo como excepción con
+  riesgo aceptado; una sola, solo sin datos reales.
+- Kubernetes, colas externas, almacén S3 distribuido, alta disponibilidad y
+  autoescalado se aplazan, no se descartan. Imágenes OCI, servicios sin estado
+  y puertos sustituibles permiten pasar después sin reescribir.
+- En esa fase, PostgreSQL lleva los trabajos duraderos y la bandeja de salida.
+  Las copias externas, la restauración, la auditoría remota, el antivirus y los
+  controles ENS y RGPD no se aplazan.
+- PostgreSQL es la base inicial; Oracle sería un adaptador y unas migraciones
+  propias si algún día hiciera falta.
+- Se prepara para ENS de categoría ALTA, sin declarar conformidad antes de la
+  categorización y la auditoría.
 
-Estado: **documentación de trabajo; todavía no es el pliego ni la especificación final**.
+Siguen pendientes, además de lo que recoge el PRD §14: volumetría,
+disponibilidad, tiempos de recuperación (RTO y RPO), presupuesto operativo e
+inventario de la infraestructura de la Diputación (red, balanceo, almacenamiento,
+identidad, certificados, copias y segundo centro de datos).
 
-Fecha de corte del estudio: 17 de julio de 2026.
+## Índice de la carpeta
 
-## Orden de las fuentes
+**Decisiones, actas y dudas**
 
-1. Necesidades expresadas por RRHH y decisiones de la Diputación.
-2. `Peticion.pdf`, pliegos y evidencias de `convoca_dipgra`.
-3. Normativa vigente, categorización, análisis de riesgos y criterios de los órganos
-   competentes.
-4. Procedimientos reales levantados con las unidades que los ejecutan.
-5. Patrones útiles de otras administraciones.
-6. Prototipos y documentación técnica actual, que deberán adaptarse a las decisiones
-   anteriores.
+- [Decisiones de RRHH sobre Contratación temporal y Bolsa (2/10/2026)](decisiones_rrhh_2026-10-02.md)
+- [Acta del recorrido de Contratación temporal y Bolsa (5/10/2026)](acta_recorrido_ct_bolsa_20261005.md)
+- [Contraste de las dudas de RRHH con otras aplicaciones](dudas_contraste_otras_apps_2026-09-30.md)
+- [Petición de RRHH: transcripción y lectura técnica](peticion_rrhh_transcripcion_y_lectura.md)
+- [Petición a Informática sobre integraciones](peticion_informatica_integraciones_2026-09-23.md)
+- [Referencia del portal público de CONVOCA](referencia_convoca_publica_2026-09-23.md)
 
-## Puerta institucional previa al código
+**Normativa y modelo**
 
-Ninguna regla funcional se diseña ni programa directamente desde una idea,
-una práctica de otra Administración o un prototipo. Antes de abrir una tarea
-de código se debe:
+- [Matriz normativa de Recursos Humanos](matriz_normativa_rrhh_2026.md)
+- [RPT, plazas, puestos, ocupaciones y vacantes](modelo_historico_rpt_plazas_puestos_y_vacantes.md)
+- [Calendario hábil y laboral con historia](calendario_habil_laboral_historico.md)
+- [Turnos, festivos y compensaciones](turnos_festivos_y_compensaciones.md)
+- [Materias económicas, reservadas y relaciones laborales](materias_reservadas_economicas_y_relaciones_laborales.md)
+- [Archivo documental de RRHH](archivo_documental_rrhh_relacionado.md)
+- [Datos personales de las inscripciones y RGPD](datos_personales_inscripciones_rgpd_2026-09-29.md)
+- [Plazos configurables](plazos_configurables_2026-09-30.md)
+- [Lo que queda del análisis integral](analisis_integral_rrhh.md)
 
-1. revisar la documentación oficial de la Diputación aplicable: RPT,
-   plantilla, acuerdos, convenio, reglamentos, resoluciones, circulares, BOP,
-   formularios y manuales del procedimiento real;
-2. comprobar sus modificaciones, derogaciones, fecha de efectos y ámbito
-   personal, material y organizativo;
-3. identificar el órgano y sistema que son fuente maestra de cada dato;
-4. registrar documento, versión, fecha de consulta, apartado aplicable y dudas;
-5. obtener casos anonimizados o públicos para convertirlos en pruebas de
-   aceptación;
-6. validar con la unidad competente cualquier vacío o contradicción.
+**Fichas por módulo**
 
-Una fuente antigua no se trata automáticamente como vigente. Una ausencia de
-documentación produce una incidencia y un resultado no determinable, nunca una
-regla inventada. Las prácticas útiles de otras Administraciones solo completan
-el diseño cuando no contradicen la normativa ni la forma de trabajo de la
-Diputación.
+- Base: [fichas B1 a B5](fichas_base_B1_B5_2026-09-25.md),
+  [requisitos y oportunidades (S1 y B15)](diseno_s1_b15_requisitos_2026-09-23.md)
+- Bolsa y CONVOCA: [adaptación de Bolsa a CONVOCA](ficha_adaptacion_bolsa_convoca_2026-09-16.md),
+  [inscripción externa de CONVOCA](convoca_inscripcion_externa_contrato_2026-10-01.md)
+- Baremación: [baremación configurable y datos de oficio](baremacion_configurable_jornada_y_datos_de_oficio.md),
+  [baremador en concursos y provisión](integracion_baremador_concursos_provision.md),
+  [recorrer el baremador en local](recorridos_baremador_local.md),
+  [pendientes de la versión 2](pendientes_v2.md)
+- Cronos: [ficha](ficha_cronos_2026-09-23.md),
+  [seguridad y despliegue](seguridad_y_despliegue_cronos.md)
+- Dietas: [ficha](ficha_dietas_2026-09-23.md),
+  [inventario](inventario_dietas_2026-10-01.md),
+  [catálogo de tarifas](dietas_catalogo_rrhh_2026-10-01.md),
+  [liquidación](dietas_liquidacion_2026-10-01.md),
+  [informes](dietas_informes_2026-10-01.md),
+  [ensayo de devengo](dietas_simulacion_devengo_2026-10-01.md)
+- [Cronos y Dietas: qué falta para instalar](cronos_dietas_instalacion_2026-10-04.md)
+- Provisión: [ficha](ficha_provision_2026-10-04.md),
+  [recorrido y persistencia](provision_recorrido_y_persistencia_2026-10-01.md)
+- Otros módulos: [acción social](ficha_accion_social_2026-10-04.md),
+  [canal interno de información](ficha_canal_interno_informacion_2026-10-04.md),
+  [formación](ficha_formacion_2026-10-04.md),
+  [igualdad](ficha_igualdad_2026-10-04.md),
+  [incompatibilidades](ficha_incompatibilidades_2026-10-04.md),
+  [nóminas](ficha_nominas_2026-10-04.md),
+  [prevención de riesgos laborales](ficha_prevencion_riesgos_laborales_2026-10-04.md),
+  [régimen disciplinario](ficha_regimen_disciplinario_2026-10-04.md),
+  [relaciones sindicales](ficha_relaciones_sindicales_2026-10-04.md)
+- [Borrador de certificado de servicios (CER-001)](certificados_borrador_servicios.md)
 
-## Documentos incorporados
+**Acceso, administración, firma y auditoría**
 
-- [Análisis integral del portal de Recursos Humanos](analisis_integral_rrhh.md).
-- [Matriz normativa de Recursos Humanos a julio de 2026](matriz_normativa_rrhh_2026.md).
-- [Catálogo funcional y hoja de ruta del portal integral de RRHH](catalogo_funcional_rrhh_y_hoja_ruta.md).
-- [Transcripción y lectura técnica de la petición de RRHH](peticion_rrhh_transcripcion_y_lectura.md).
-- [Baremacion configurable, jornada y servicios obtenidos de oficio](baremacion_configurable_jornada_y_datos_de_oficio.md).
-- [Decisiones del calculador exacto de experiencia V1](../portal_vec/decisiones_calculador_experiencia_v1.md).
-- [Gobierno y publicación de reglas de experiencia](../portal_vec/gobierno_publicacion_reglas_experiencia.md).
-- [Cálculo oficial de experiencia](../portal_vec/calculo_oficial_experiencia.md).
-- [Brecha funcional verificada de Bolsa a 17 de julio de 2026](../portal_vec/brecha_funcional_bolsa_2026-07-17.md).
-- [Integracion del Baremador de puestos singularizados y otros procesos](integracion_baremador_concursos_provision.md).
-- [Modelo historico de RPT, plazas, puestos, ocupaciones y vacantes](modelo_historico_rpt_plazas_puestos_y_vacantes.md).
-- [Calendario habil, laboral y de jornada con historia reproducible](calendario_habil_laboral_historico.md).
-- [Turnos, festivos, disponibilidades y compensaciones](turnos_festivos_y_compensaciones.md).
-- [Materias económicas, reservadas y relaciones laborales](materias_reservadas_economicas_y_relaciones_laborales.md).
-- [Archivo documental relacionado de Recursos Humanos](archivo_documental_rrhh_relacionado.md).
-- [Brechas para un producto profesional, seguro y trazable](brechas_para_producto_profesional.md).
-- [Sistema de diseño, plantillas y temas visuales](sistema_diseno_y_temas.md).
-- [Ayuda, documentación, audio y asistente](ayuda_documentacion_audio_y_asistente.md).
-- [Espacio de trabajo colaborativo y agenda compartida](espacio_trabajo_colaborativo_y_agenda.md).
-- [Arquitectura de despliegue, contenedores y escalado](despliegue_contenedores_y_escalado.md).
-- [Manual 00 para Sistemas: preparación e instalación de la plataforma](manual_sistemas_preparacion_plataforma.md).
-- [Seguridad y despliegue del módulo Cronos](seguridad_y_despliegue_cronos.md).
-- [Acceso interno de técnicos, RRHH y administración](acceso_interno_tecnicos_administracion.md).
-- [Matriz inicial de perfiles, roles y ambitos](../portal_vec/matriz_roles_y_ambitos.md).
-- [Método de desarrollo asistido con Orquesta V06](metodo_desarrollo_orquestado_v06.md).
-- [Inventario de manuales públicos descargados](../referencias_portales_aapp/README.md).
-- [Comparativa y composición recomendada](../referencias_portales_aapp/comparativa_y_composicion_recomendada.md).
-- [Comparativa de sistemas integrales de RRHH](../referencias_portales_aapp/comparativa_sistemas_integrales_rrhh.md).
-- [Decisión de espacios y persistencia PostgreSQL/Oracle](../referencias_portales_aapp/decision_espacios_y_persistencia.md).
-- [Registro cronologico de decisiones, alternativas y motivos](../portal_vec/registro_decisiones.md).
-- [Dominio de Bolsa, autobaremacion y revision firmada](../portal_vec/dominio_y_autobaremacion.md).
-- [Versiones gobernadas de convocatoria de Bolsa](../portal_vec/convocatorias_gobernadas.md).
-- [Firma, CSV, QR y cotejo documental](../portal_vec/firma_csv_qr_y_cotejo.md).
-- [Almacen documental seguro e intercambiable](../portal_vec/almacen_documental_seguro.md).
-- [Pagos, tasas y conciliacion](../portal_vec/pagos_tasas_y_conciliacion.md).
-- [Seguridad, privilegios y seguridad por filas en PostgreSQL](../portal_vec/seguridad_persistencia_postgresql.md).
-- [Atestacion criptografica y registro durable de decisiones](../portal_vec/atestacion_criptografica_decisiones.md).
-- [Catalogo comun y gobernado de categorias profesionales](../portal_vec/catalogo_categorias_profesionales.md).
-- [Convocatorias de Bolsa gobernadas y versionadas](../portal_vec/convocatorias_gobernadas.md).
-- [Registro versionado de fuentes de autoridad](../portal_vec/registro_fuentes_autoridad.md).
+- [Acceso interno de técnicos, RRHH y administración](acceso_interno_tecnicos_administracion.md)
+- [Administración de perfiles](administracion_perfiles_2026-09-30.md)
+- [Contrato con el verificador de firma](contrato_verificador_firma_vec.md)
+- [Cobertura de auditoría (3/10/2026)](cobertura_auditoria_2026-10-03.md)
 
-Este `README` conserva el índice de la memoria histórica. El registro de decisiones
-explica el por que; las especificaciones de capacidad describen el que y el
-como; las pruebas y el codigo acreditan que parte esta ya implantada. En el
-documento final no se confundira una decision, un prototipo y una capacidad
-productiva verificada.
+**Diseño, ayuda y trabajo en equipo**
 
-## Decisiones ya incorporadas
+- [Sistema de diseño y temas](sistema_diseno_y_temas.md),
+  [colores de los temas](temas_colores_fuentes_2026-09-30.md),
+  [temas instalables](temas_instalables_2026-10-04.md)
+- [Accesibilidad personalizable, ayuda, audio y asistente](ayuda_documentacion_audio_y_asistente.md)
+- [Espacio de trabajo colaborativo y agenda](espacio_trabajo_colaborativo_y_agenda.md)
 
-- Portal genérico de RRHH; Bolsa es el primer módulo, no toda la aplicación.
-- Persona canónica y datos reutilizables con procedencia, versión y autorización.
-- Portal externo, portal del empleado, espacio del responsable y área interna de RRHH
-  separados, aunque compartan núcleo.
-- Una sesión tiene un único perfil; los privilegios no se suman.
-- Arquitectura hexagonal y conectores sustituibles.
-- PostgreSQL inicial; Oracle futuro mediante adaptador y migraciones propios.
-- Configuración funcional gobernada para la variabilidad ordinaria.
-- API, web, CLI, MCP y futuro escritorio como adaptadores de los mismos casos de uso.
-- Máxima trazabilidad, seguridad desde el diseño y preparación para ENS categoría ALTA,
-  sin declarar conformidad antes de su categorización y auditoría.
-- Documentación y manuales mantenidos durante el desarrollo.
-- Sistema de diseño central con temas heredables y acentos opcionales por módulo.
-- Preferencias visuales por persona dentro de variantes accesibles aprobadas, sin CSS
-  arbitrario ni almacenamiento de diagnósticos.
-- Una fuente de ayuda gobernada generará HTML accesible, manuales, PDF, audio, búsqueda y
-  corpus del asistente, evitando mantener contenidos contradictorios.
-- El futuro espacio de trabajo colaborativo tendrá tareas y agenda compartida por ámbitos
-  exactos. Google Calendar, CalDAV o Microsoft 365 serán conectores sustituibles; no se
-  reabrirá el antiguo agregado transversal ni se retrasará por ello la entrega de Bolsa.
-- Cronos será un enclave exclusivamente interno de Mulhacén, sin rutas, artefactos, datos,
-  mapas, conectores o credenciales compartidos con el portal público.
-- Módulo lógico y contenedor no son equivalentes: se separará el despliegue por frontera de
-  seguridad, escalado, fallo o ciclo de vida.
-- Producción se prepara para clúster público e interno separados, NGINX sobre Gateway API y
-  escalado HPA/KEDA; la plataforma exacta será validada por Sistemas.
-- La primera implantación con datos reales será austera: Bolsa en tres VM —NGINX, servicios
-  y datos— con Podman Quadlet o Docker Compose v2; dos VM solo como excepción con riesgo
-  aceptado y una VM únicamente sin datos reales.
-- Kubernetes, broker, S3 distribuido, alta disponibilidad y autoescalado se aplazan, no se
-  descartan. Se mantienen imágenes OCI, servicios sin estado y puertos sustituibles para
-  migrar sin reescribir Bolsa.
-- En la fase austera PostgreSQL aporta trabajos duraderos y bandeja de salida; los
-  documentos pueden usar un volumen dedicado detrás del puerto de almacenamiento. Copias
-  externas, restauración, auditoría remota, cuarentena, antivirus y controles ENS/RGPD no
-  se aplazan.
-- El Manual 00 de Sistemas y sus anexos de producto/versión son una puerta previa al
-  despliegue de la aplicación.
-- Orquesta V06 queda estudiada pero temporalmente suspendida por indicacion del
-  responsable mientras se repara. El trabajo se paraleliza con subagentes
-  directos separados; un resultado de agente no equivale a codigo integrado
-  hasta su revision y pruebas globales.
-- El autobaremo ciudadano y el baremo administrativo son resultados distintos.
-  El candidato no puede autovalidar estados y el resultado oficial solo computa
-  decisiones tecnicas eficaces.
-- La aceptacion o rechazo de un merito/documento se expresa mediante decisiones
-  firmadas e inmutables. Una revision inspectora crea una rectificacion
-  append-only, recalcula y conserva todas las versiones; nunca sobrescribe ni
-  borra el pasado.
-- Se adopta una composicion de patrones oficiales: merito y puntuacion
-  declarada/validada de VEC, historico de SACYL, cierre colegiado del INAP y
-  cotejo/alegaciones de bases locales; se añaden firma por decision, decimal
-  fijo y doble control configurable por riesgo.
-- Las bases de cada convocatoria gobiernan una version exacta del baremo. RRHH
-  utilizara reglas declarativas, simuladas y firmadas; jornada, solapes,
-  conversiones y redondeos no tienen valores juridicos ocultos por defecto.
-- Los servicios internos se obtendran de oficio desde Personal. Nomina se usa
-  como reconciliacion, no como unica fuente, y una indisponibilidad nunca se
-  convierte en cero puntos.
-- Calendarios es un contexto transversal: separa dia natural, habilidad
-  administrativa, apertura del centro y jornada programada. Cada calculo
-  conserva politica, fuentes y versiones; la ausencia de fuente produce un
-  resultado indeterminado y nunca una regla oculta de lunes a viernes.
-- Toda tarea funcional tiene una puerta institucional previa: fuentes de la
-  Diputacion, vigencia, ambito, procedimiento real y casos de prueba deben
-  constar antes de programar. Si falta autoridad documental, se consulta a la
-  unidad competente y no se inventa comportamiento.
-- El archivo de RRHH es una capa logica transversal sobre el almacen seguro:
-  conserva originales, indices, metadatos, relaciones, series y retencion sin
-  duplicar ficheros por modulo ni confundir un dossier con un expediente legal.
-- Categorias profesionales y convocatorias dejan de ser listas estaticas: se
-  gobiernan por catalogo y version exacta. La fuente de demostracion contiene
-  68 categorias —58 recuperadas de OPES y diez contrastadas en publicaciones
-  BOP— y el arranque impide publicar una convocatoria que cite una categoria
-  ausente.
-- Se implanta primero un registro canonico y versionado de fuentes de autoridad
-  para que bases, RPT, calendarios, convenios y decisiones funcionales citen el
-  documento, version, precepto, vigencia y estado exactos. Su primer corte de
-  dominio sigue en **NO-GO productivo** hasta cerrar persistencia, verificacion
-  criptografica y de competencia, segregacion y anclaje externo de la historia.
+**Plataforma, rendimiento y método**
 
-## Trabajo pendiente antes de redactar las especificaciones definitivas
+- [Despliegue, contenedores y escalado](despliegue_contenedores_y_escalado.md)
+- [Manual 00 para Sistemas](manual_sistemas_preparacion_plataforma.md)
+- [Aguante del portal público ante miles de personas](rendimiento_carga_20261006.md)
+- [Brechas para un producto profesional](brechas_para_producto_profesional.md)
+- [Método Orquesta V06 (suspendido)](metodo_desarrollo_orquestado_v06.md)
 
-- Talleres con RRHH sobre tramitación, baremación, llamamientos, contratos y excepciones.
-- Inventario de sistemas corporativos y responsables de cada dato.
-- Validación con Sistemas, Seguridad, Secretaría/Asesoría, Archivo y DPD.
-- Categorización ENS, análisis de riesgos y evaluación de impacto.
-- Matriz completa de roles, ámbitos, incompatibilidades y delegaciones.
-- Catálogo de procedimientos, documentos, firmas, registros, notificaciones y plazos.
-- Volumetría, disponibilidad, RTO/RPO y presupuesto operativo.
-- Inventario de hipervisor, redes, balanceo/WAF, almacenamiento, identidad, PKI, registro,
-  secretos, SIEM, copias y segundo CPD para completar el libro ejecutable de instalación.
-- Decisión RKE2/OpenShift/plataforma corporativa y conector de autoaprovisionamiento de
-  nodos, si la infraestructura permite crearlos por API.
-- EIPD, negociación y diseño definitivo de Cronos/GPS, incluida la elección entre APN
-  privada en tiempo real o carga diferida sin tránsito exterior.
-- Rebaselado de los documentos existentes de `docs/portal_vec`, varios de los cuales aún
-  describen un único portal que cambia por rol.
+La carpeta [capturas/](capturas/) guarda imágenes de apoyo de las actas.

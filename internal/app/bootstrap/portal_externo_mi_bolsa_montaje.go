@@ -2,11 +2,14 @@ package bootstrap
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
+	bolsapuertos "vec-diputacion-granada/internal/modules/bolsa/ports"
+	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
 	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
@@ -19,26 +22,26 @@ import (
 func nuevaMiBolsaPortalExterno(ctx context.Context, cfg config.Config,
 	identidad *resolvedorIdentidadDesarrollo, derivador *derivadorIdentidadOperacionDesarrollo,
 	preflight *pgxpool.Pool, incidencias vecports.EmisorIncidenciasTecnicas,
-) (http.Handler, func(), error) {
+) (http.Handler, *autoridadPreferenciasUsuariosDesarrollo, func(), error) {
 	nada := func() {}
 	portal, err := cfg.BolsaPortalCandidatoDesarrolloActivo()
 	bolsaDSN, sinBolsa := cfg.ExternoBolsaPostgreSQL.DSN()
 	if err != nil {
-		return nil, nada, err
+		return nil, nil, nada, err
 	}
 	if sinBolsa != nil {
 		if portal {
-			return nil, nada, errMiBolsaNoDisponible
+			return nil, nil, nada, errMiBolsaNoDisponible
 		}
-		return nil, nada, nil
+		return nil, nil, nada, nil
 	}
 	if ctx == nil || identidad == nil || identidad.candidatoBolsa == nil ||
 		derivador == nil || !derivador.valido() || preflight == nil || incidencias == nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	topologia, err := acreditarTopologiaPostgreSQLPreferenciasUsuarios(ctx, preflight)
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	entradas := []struct {
 		configuracion config.ConfiguracionPostgreSQLExterna
@@ -70,124 +73,168 @@ func nuevaMiBolsaPortalExterno(ctx context.Context, cfg config.Config,
 	for _, entrada := range entradas {
 		dsn, err := entrada.configuracion.DSN()
 		if err != nil {
-			return nil, nada, errMiBolsaNoDisponible
+			return nil, nil, nada, errMiBolsaNoDisponible
 		}
 		pool, login, err := abrirPoolMiBolsaPortalExterno(ctx, dsn, entrada.rol)
 		if err != nil {
-			return nil, nada, errMiBolsaNoDisponible
+			return nil, nil, nada, errMiBolsaNoDisponible
 		}
 		pools = append(pools, pool)
 		if logins[login] || cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx, pool, topologia) != nil {
-			return nil, nada, errMiBolsaNoDisponible
+			return nil, nil, nada, errMiBolsaNoDisponible
 		}
 		logins[login] = true
 	}
 	bolsa, login, err := abrirBolsaMiBolsaPortalExterno(ctx, bolsaDSN)
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	pools = append(pools, bolsa)
 	if logins[login] || cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx, bolsa, topologia) != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	logins[login] = true
 	dsnFrontera, err := cfg.ExternoBolsaFronteraPostgreSQL.DSN()
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	frontera, auditoria, err := abrirAuditoriaMiBolsaPortalExterno(ctx, dsnFrontera)
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	pools = append(pools, frontera)
 	if logins[frontera.Config().ConnConfig.User] || cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx, frontera, topologia) != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	registro, err := identidadpg.NuevoRegistroSesionesExternoPostgreSQL(ctx, pools[0], pools[1],
 		&seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	revalidador, err := identidadpg.NuevoRevalidadorAutenticacionActorExternoPostgreSQL(ctx, pools[1])
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	resolutor, err := contextopg.NuevoResolutorRegistroContextoActorExternoPostgreSQLV1(ctx, pools[2])
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	servicioContexto, err := vecapp.NuevoServicioContextoActorProductivoV2(resolutor,
 		contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(), relojRutasDietas{})
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	contextos, err := vecapp.NuevaAutoridadContextoActorRegistradoV2(servicioContexto)
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	sesion, err := nuevaSesionMiBolsaPortalExterno(identidad, registro, revalidador, contextos)
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
+	}
+	// Inscripción usa esta misma autoridad de sesión externa. La cuenta procede
+	// del material candidato cotejado con el certificado, nunca de la superficie
+	// interna de Preferencias ni de un segundo registro de sesiones.
+	candidato := identidad.candidatoBolsa
+	huella := candidato.identidad.principal.Attributes["certificate_sha256"]
+	if !huellaCertificadoInscripcionValida(huella) || candidato.identidad.principal.ID == "" ||
+		candidato.cuentaRef == "" || candidato.perfilRef == "" {
+		return nil, nil, nada, errMiBolsaNoDisponible
+	}
+	sesion.ruta = usuarioshttp.RutaMisPreferenciasAreaPersonal
+	sesion.cuentas = map[string]cuentaUsuariosPreferenciasDesarrollo{
+		huella: {cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{
+			CertificadoSHA256: huella, Sujeto: candidato.identidad.principal.ID,
+			CuentaRef: candidato.cuentaRef, PerfilRef: candidato.perfilRef,
+		}},
 	}
 	fuente, err := vecpg.NuevoAlmacenAutorizacionExterna(pools[3])
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	decisiones, err := vecpg.NuevoAlmacenAutorizacionExterna(pools[4])
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	motivos, err := nuevosMotivosMiBolsaPortalExterno(pools[5])
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	autorizador, err := nuevaAutorizacionMiBolsaPortalExterno(fuente, decisiones, decisiones, motivos)
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	proveedores, err := nuevosProveedoresV3PortalExterno(ctx, cfg.DevelopmentMaterialDir, preflight, "mi_bolsa", relojContratacionTemporalDesarrollo{})
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	d := dependenciasMiBolsaPortalExterno{preparador: &preparadorMiBolsaPortalExterno{preferencias: sesion, identidad: identidad.candidatoBolsa},
-		autorizador: autorizador, bolsa: bolsa, proveedores: proveedores, reloj: relojContratacionTemporalDesarrollo{}}
+		autorizador: autorizador, bolsa: bolsa, proveedores: proveedores,
+		fuentePreferencias: fuente, reloj: relojContratacionTemporalDesarrollo{}}
+	var preferenciasSQL bool
+	if err := bolsa.QueryRow(ctx, `SELECT pg_catalog.to_regprocedure(
+	 'vec_bolsa_llamamientos.consultar_preferencias_bolsas_v1(text,bytea,bytea,jsonb)') IS NOT NULL`).Scan(&preferenciasSQL); err != nil {
+		return nil, nil, nada, errMiBolsaNoDisponible
+	}
+	if preferenciasSQL {
+		inventario, err := leerInventarioV3PortalExterno(cfg.DevelopmentMaterialDir)
+		if err != nil {
+			return nil, nil, nada, errMiBolsaNoDisponible
+		}
+		if len(inventario.Consumidores[consumidorPreferenciasBolsasPortalExternoV3]) != 0 {
+			material, err := nuevosProveedoresV3PortalExterno(ctx, cfg.DevelopmentMaterialDir,
+				preflight, consumidorPreferenciasBolsasPortalExternoV3, relojContratacionTemporalDesarrollo{})
+			if err != nil {
+				slog.Error("material de preferencias entre bolsas no disponible", "causa", err)
+			} else {
+				d.proveedorPreferencias = material[bolsapuertos.AudienciaOrdenarPreferenciasBolsas]
+				if d.proveedorPreferencias == nil {
+					slog.Error("audiencia de preferencias entre bolsas no disponible")
+				}
+			}
+		}
+	}
 	if portal {
 		if comprobarMigracionesPortalCandidatoDesarrollo(ctx, bolsa) != nil {
-			return nil, nada, errMiBolsaNoDisponible
+			return nil, nil, nada, errMiBolsaNoDisponible
 		}
 		dsnCalendarios, err := cfg.ExternoCalendariosPostgreSQL.DSN()
 		if err != nil {
-			return nil, nada, errMiBolsaNoDisponible
+			return nil, nil, nada, errMiBolsaNoDisponible
 		}
 		calendarioPool, calendarios, err := nuevaConsultaCalendariosMiBolsaPortalExterno(ctx, dsnCalendarios, topologia)
 		if err != nil {
-			return nil, nada, errMiBolsaNoDisponible
+			return nil, nil, nada, errMiBolsaNoDisponible
 		}
 		pools = append(pools, calendarioPool)
 		if logins[calendarioPool.Config().ConnConfig.User] {
-			return nil, nada, errMiBolsaNoDisponible
+			return nil, nil, nada, errMiBolsaNoDisponible
 		}
 		reglas, err := nuevasReglasEjemploDesarrollo(cfg, calendarios, relojCalendariosDesarrollo{})
 		if err != nil || reglas.bolsa == nil {
-			return nil, nada, errMiBolsaNoDisponible
+			return nil, nil, nada, errMiBolsaNoDisponible
 		}
 		d.reglas = reglasPortalCandidatoDesarrollo{resolutor: reglas.bolsa}
 		d.campos, err = camposPortalMiBolsaDesarrollo(reglas.bolsa)
 		if err != nil {
-			return nil, nada, errMiBolsaNoDisponible
+			return nil, nil, nada, errMiBolsaNoDisponible
 		}
 		acciones, err := nuevosProveedoresV3PortalExterno(ctx, cfg.DevelopmentMaterialDir, preflight, "portal_candidato", relojContratacionTemporalDesarrollo{})
 		if err != nil {
-			return nil, nada, errMiBolsaNoDisponible
+			return nil, nil, nada, errMiBolsaNoDisponible
 		}
 		for audiencia, proveedor := range acciones {
 			d.proveedores[audiencia] = proveedor
 		}
 	}
+	justificantes, cerrarJustificantes := montarJustificantesBolsaExternos(ctx, cfg, preflight, topologia, fuente, decisiones, pools[5])
+	d.justificantes = justificantes
+	cerrarAnterior := cerrar
+	cerrar = func() { cerrarJustificantes(); cerrarAnterior() }
 	manejador, err := nuevaAPIMiBolsaPortalExterno(identidad, incidencias, auditoria, d)
 	if err != nil {
-		return nil, nada, errMiBolsaNoDisponible
+		return nil, nil, nada, errMiBolsaNoDisponible
 	}
 	completa = true
-	return manejador, cerrar, nil
+	return manejador, sesion, cerrar, nil
 }

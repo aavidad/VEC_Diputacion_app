@@ -19,7 +19,10 @@ func lecturaRecuperacionPrueba(t *testing.T) ports.LecturaRecuperacionFirmasV2 {
 	base := lecturaPrueba()
 	f, revision := base.Firmas[0], base.RevisionesPDF[0]
 	f.CertificadoHuella = revision.CertificadoHuella
+	f.ClaveIdempotencia = solicitudPrueba().ClaveIdempotencia
+	revision.ClaveIdempotencia = f.ClaveIdempotencia
 	base.Firmas[0] = f
+	base.RevisionesPDF[0] = revision
 	ref := func(referencia, huella string) vecdomain.ReferenciaHistoricaCompetenciaV1 {
 		return vecdomain.ReferenciaHistoricaCompetenciaV1{Referencia: referencia, Version: 1, HuellaSHA256: huella}
 	}
@@ -99,7 +102,15 @@ func TestRecuperacionCruzaCanonHistoricoConFirmaYRevision(t *testing.T) {
 		"duplicada": func(x *ports.LecturaRecuperacionFirmasV2) {
 			x.Recuperaciones = append(x.Recuperaciones, x.Recuperaciones[0])
 		},
-		"firma ajena": func(x *ports.LecturaRecuperacionFirmasV2) { x.Recuperaciones[0].FirmaRef = "firma:ajena" },
+		"firma ajena":   func(x *ports.LecturaRecuperacionFirmasV2) { x.Recuperaciones[0].FirmaRef = "firma:ajena" },
+		"clave ausente": func(x *ports.LecturaRecuperacionFirmasV2) { x.Firmas[0].ClaveIdempotencia = "clave:otra" },
+		"unidad ajena": func(x *ports.LecturaRecuperacionFirmasV2) {
+			mutarCanonPrueba(t, x, func(c *vecdomain.CanonCompetenciaFirmanteHistoricaV1) {
+				c.Recurso.UnidadRef = "unidad:ajena"
+				c.Competencia.AmbitoUnidadRef = "unidad:ajena"
+				c.RelacionCT.UnidadRef = "unidad:ajena"
+			})
+		},
 		"documento": func(x *ports.LecturaRecuperacionFirmasV2) {
 			mutarCanonPrueba(t, x, func(c *vecdomain.CanonCompetenciaFirmanteHistoricaV1) {
 				c.Recurso.DocumentoRef, c.Recurso.RecursoAutorizableRef, c.Competencia.RecursoRef = "ref:ajeno", "ref:ajeno", "ref:ajeno"
@@ -147,6 +158,31 @@ func TestRecuperacionCruzaCanonHistoricoConFirmaYRevision(t *testing.T) {
 	}
 }
 
+func TestRecuperacionAnteriorSoloReferenciaYHuella(t *testing.T) {
+	l := lecturaRecuperacionPrueba(t)
+	m := materialRecuperacionPrueba()
+	base, err := proyectar(m, l.LecturaFirmasR5V2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registro := l.Firmas[0]
+	registro.ClaveIdempotencia = "clave-firma-anterior-000001"
+	previa := l.Recuperaciones[0]
+	previa.CanonNominal = ""
+	if err := validarRecuperacion(m, base.Firmas[0], registro, previa); err != nil {
+		t.Fatalf("la firma anterior sin canon, con su huella y referencia, fue rechazada: %v", err)
+	}
+	previa.CanonNominal = l.Recuperaciones[0].CanonNominal
+	if err := validarRecuperacion(m, base.Firmas[0], registro, previa); !errors.Is(err, ports.ErrResultadoFirmaDocumentoInvalido) {
+		t.Fatal("el canon de otra firma llegó a la salida")
+	}
+	previa.CanonNominal = ""
+	previa.CanonNominalSHA256 = "invalida"
+	if err := validarRecuperacion(m, base.Firmas[0], registro, previa); !errors.Is(err, ports.ErrResultadoFirmaDocumentoInvalido) {
+		t.Fatal("la firma anterior perdió la comprobación de huella")
+	}
+}
+
 func mutarCanonPrueba(t *testing.T, l *ports.LecturaRecuperacionFirmasV2, cambiar func(*vecdomain.CanonCompetenciaFirmanteHistoricaV1)) {
 	t.Helper()
 	v := &l.Recuperaciones[0]
@@ -169,7 +205,7 @@ func materialRecuperacionPrueba() ports.MaterialConsultaFirmasR5V2 {
 	return ports.MaterialConsultaFirmasR5V2{MaterialConsultaFirmasR5: ports.MaterialConsultaFirmasR5{
 		OrganizacionRef: "organizacion:central", ExpedienteRef: q.ExpedienteRef, VersionExpediente: q.VersionExpediente,
 		Documento: q.Documento, FirmantePrincipalCandidatoRef: "per_candidato_nominal", PasoOrden: q.PasoOrden,
-		ClaveIdempotencia: q.ClaveIdempotencia, CatalogoHuella: q.CatalogoHuella}, Via: q.Via}
+		ClaveIdempotencia: q.ClaveIdempotencia, CatalogoHuella: q.CatalogoHuella}, Via: q.Via, UnidadRef: "unidad:prueba"}
 }
 
 type autorizadorRecuperacionPrueba struct {
@@ -231,7 +267,7 @@ func (l *lectorRecuperacionPrueba) RecuperarFirmasAutorizadasV2(context.Context,
 func TestServicioRecuperacionExigeCapacidadPropiaYNoExponeTrasCancelar(t *testing.T) {
 	a := &autorizadorRecuperacionPrueba{t: t, ajena: true}
 	l := &lectorRecuperacionPrueba{l: lecturaRecuperacionPrueba(t)}
-	s, err := NuevaRecuperacion(&fuentePrueba{c: Contexto{"organizacion:central", "per_candidato_nominal"}}, a, l)
+	s, err := NuevaRecuperacion(&fuentePrueba{c: Contexto{OrganizacionRef: "organizacion:central", UnidadRef: "unidad:rrhh", FirmantePrincipalCandidatoRef: "per_candidato_nominal"}}, a, l)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,5 +290,26 @@ func TestServicioRecuperacionExigeCapacidadPropiaYNoExponeTrasCancelar(t *testin
 	r, err := s.Recuperar(ctx, solicitudPrueba())
 	if !errors.Is(err, context.Canceled) || !CubiertoPorLector(err) || len(r.Recuperaciones) != 0 {
 		t.Fatalf("cancelación expone datos: %v", err)
+	}
+}
+
+func TestServicioRecuperacionExigeUnidadActualYAdmiteOtroConsultante(t *testing.T) {
+	a := &autorizadorRecuperacionPrueba{t: t}
+	l := &lectorRecuperacionPrueba{l: lecturaRecuperacionPrueba(t)}
+	fuente := &fuentePrueba{c: Contexto{
+		OrganizacionRef: "organizacion:central", UnidadRef: "",
+		FirmantePrincipalCandidatoRef: "per_consultante_distinto",
+	}}
+	s, err := NuevaRecuperacion(fuente, a, l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Recuperar(context.Background(), solicitudPrueba()); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || a.llamado != 0 || l.llamado != 0 {
+		t.Fatalf("unidad ausente obtuvo autorización: %v", err)
+	}
+	fuente.c.UnidadRef = "unidad:prueba"
+	r, err := s.Recuperar(context.Background(), solicitudPrueba())
+	if err != nil || len(r.Recuperaciones) != 1 || a.llamado != 1 || l.llamado != 1 {
+		t.Fatalf("otro consultante autorizado perdió la recuperación: %v", err)
 	}
 }

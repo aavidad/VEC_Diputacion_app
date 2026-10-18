@@ -112,6 +112,17 @@ func (c calculadoraPlazoPoliticaOfertasBolsaDesarrollo) PlazoDisposicionBolsa(ct
 	return c.servicio.PlazoDisposicionBolsa(ctx, bolsa, publicada)
 }
 
+// El inicio del plazo pertenece a la política publicada de cada bolsa. El
+// selector histórico conserva la notificación cuando B47 no está activo.
+func (c calculadoraPlazoPoliticaOfertasBolsaDesarrollo) InicioPlazoDisposicion(ctx context.Context, bolsa string) (string, error) {
+	if c.servicio == nil {
+		return "", puertosbolsa.ErrOfertaNoDisponible
+	}
+	return c.servicio.InicioPlazoDisposicion(ctx, bolsa)
+}
+
+var _ puertosbolsa.CalculadoraInicioPlazoOferta = calculadoraPlazoPoliticaOfertasBolsaDesarrollo{}
+
 // preparadorPoliticaOfertasBolsaDesarrollo mantiene la entrada de B47 dentro
 // de la sesión y los ámbitos Bolsa ya revalidados por B-BACK.
 type preparadorPoliticaOfertasBolsaDesarrollo struct {
@@ -258,6 +269,27 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudPublicarOfert
 		return puertosbolsa.SolicitudPublicarOferta{}, err
 	}
 	return puertosbolsa.SolicitudPublicarOferta{Notificacion: entrada.Notificacion, Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, Datos: entrada.Datos, NumeroPlazas: entrada.NumeroPlazas, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudReintentarAvisosOferta(
+	ctx context.Context, entrada bolsahttp.EntradaReintentarAvisosOferta,
+) (puertosbolsa.SolicitudReintentarAvisosOferta, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudReintentarAvisosOferta{}, err
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudReintentarAvisosOferta{}, err
+	}
+	return puertosbolsa.SolicitudReintentarAvisosOferta{
+		Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado,
+		BolsaRef: entrada.BolsaRef, OfertaRef: entrada.OfertaRef,
+		RevisionAvisos:     entrada.RevisionAvisos,
+		ConfirmarDuplicado: entrada.ConfirmarPosibleDuplicado,
+		ClaveIdempotencia:  entrada.ClaveIdempotencia, Correlacion: correlacion,
+		MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo(),
+	}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudResolverOferta(ctx context.Context, entrada bolsahttp.EntradaResolverOferta) (puertosbolsa.SolicitudResolverOferta, error) {

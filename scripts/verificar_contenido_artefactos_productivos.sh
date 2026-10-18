@@ -158,6 +158,9 @@ fi
 # lectura, almacenamiento o inclusion entre origenes. (grep en vez de ripgrep:
 # el ejecutor de CI no trae rg.)
 transportes_mtls_revisados=(
+	# Justificantes: rutas internas fijas, sin cache ni redirecciones.
+	static/area-personal/mi-bolsa-justificante-cliente.js
+	static/portal-empleado/portal-bolsas-justificante-cliente.js
 	# P7 común: rutas internas validadas, errores tipados y cola técnica sin datos personales.
 	static/comun/http.js
 	static/comun/registro-errores.js
@@ -189,6 +192,9 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-informe-definitivo.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-circuito-rrhh.js
 	static/portal-empleado/modulos/contratacion-temporal/firma-externa-cliente.js
+	# Descarga nominal revisada: POST interno fijo, respuesta y PDF acotados;
+	# same-origin, no-store, redirect error y no-referrer.
+	static/portal-empleado/modulos/contratacion-temporal/cliente-http-descarga-firma-v2.js
 	# Firma V2: rutas internas fijas, mTLS del mismo origen y respuestas acotadas.
 	static/portal-empleado/modulos/contratacion-temporal/preflight-firma-api.js
 	static/portal-empleado/modulos/contratacion-temporal/original-firmable-api.js
@@ -196,6 +202,9 @@ transportes_mtls_revisados=(
 	# Clientes internos del portal (23/09): con omit el navegador no presenta el
 	# certificado mTLS ni la autenticación del proxy; mismo patrón que cliente-http.js.
 	static/portal-empleado/portal-bolsas-api.js
+	# Reglas globales de situación: GET/POST internos fijos, mTLS del mismo
+	# origen, no-store, redirect error y no-referrer; sin identidad del formulario.
+	static/portal-empleado/modulos/bolsa/reglas-situacion-api.js
 	static/portal-empleado/portal-bolsas-avisos.js
 	static/portal-empleado/portal-bolsas-operaciones.js
 	static/portal-empleado/portal-llamamientos-api.js
@@ -294,6 +303,9 @@ transportes_mtls_revisados=(
 	# fijas, same-origin, no-store, redirect error y no-referrer.
 	static/portal-empleado/modulos/bolsa/rrhh-plazos-api.js
 	static/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js
+	# Documentos Bolsa: dos GET internos acotados y revisados; sin actor del navegador.
+	# mTLS del mismo origen, no-store, redirect error, no-referrer y JSON limitado a 1 MiB.
+	static/portal-empleado/modulos/bolsa/documentos-api.js
 	static/portal-empleado/modulos/auditoria/cliente-http.js
 	static/portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-cliente.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-borradores-publicados.js

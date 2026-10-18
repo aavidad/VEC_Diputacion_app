@@ -256,8 +256,9 @@ test("la integración B7 renueva controlador y presentador desde la entrada HTML
     // Entrada, panel interno y controlador (que ahora importa i18n con la misma
     // URL que el resto del portal) cambiaron después y piden una posterior.
     // CT consulta la misma API de Bolsa al abrir una ficha; ambas aristas
-    // deben conservar exactamente la misma URL immutable.
-    const cantidad = recurso === "portal-bolsas-api.js" ? 2 : 1;
+    // deben conservar exactamente la misma URL immutable. El ranking reutiliza
+    // también ese cliente; las tres referencias tienen la misma URL.
+    const cantidad = recurso === "portal-bolsas-api.js" ? 3 : 1;
     const nueva = exigirVersiones(codigo, prefijo + recurso, posterior(versionEntradaAyuda), cantidad);
     assert.notEqual(nueva, previa, recurso);
     assert.ok(!codigo.includes(`${prefijo}${recurso}?v=${previa}`), `${recurso}: no queda URL antigua`);
@@ -293,12 +294,12 @@ test("Cronos renueva la importación interna de permisos y su hoja de estilo", a
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
   const portal = await readFile(new URL("portal.js", raiz), "utf8");
   const cacheAnterior = new Map([
-    ["portal.js?v=20260924-web-integrada-v1", "entrada anterior"],
+    ["portal.js?v=20261015-firma-ofertas-justificante-integracion-v2", "entrada anterior"],
     ["portal-modulos-coordinador.js?v=20260924-web-integrada-v1", "coordinador anterior"],
   ]);
   const entrada = exigirVersiones(html, "/portal-empleado/portal.js", posterior(versionEntradaAyuda));
   const coordinadorVigente = exigirVersiones(portal, "./portal-modulos-coordinador.js", posterior(versionIntegracion));
-  assert.ok(!html.includes("portal.js?v=20260924-web-integrada-v1"));
+  assert.ok(!html.includes("portal.js?v=20261015-firma-ofertas-justificante-integracion-v2"));
   assert.ok(!portal.includes("portal-modulos-coordinador.js?v=20260924-web-integrada-v1"));
   assert.ok(!cacheAnterior.has(`portal.js?v=${entrada}`));
   assert.ok(!cacheAnterior.has(`portal-modulos-coordinador.js?v=${coordinadorVigente}`));

@@ -14,23 +14,22 @@ import (
 
 type disponibilidadPreflightPrueba struct {
 	err     error
-	alterar func(*ports.DisponibilidadFirmaR5Verificada)
+	alterar func(*ports.PreparacionViaFirmaR5)
 	vistas  []ports.SolicitudDisponibilidadFirmaR5
 }
 
-func (f *disponibilidadPreflightPrueba) VerificarDisponibilidadFirmaR5(_ context.Context, q ports.SolicitudDisponibilidadFirmaR5) ([]ports.DisponibilidadFirmaR5Verificada, error) {
+func (f *disponibilidadPreflightPrueba) PrepararViasFirmaR5(_ context.Context, q ports.SolicitudDisponibilidadFirmaR5) ([]ports.PreparacionViaFirmaR5, error) {
 	f.vistas = append(f.vistas, q)
 	if f.err != nil {
 		return nil, f.err
 	}
-	c := ports.ComprobanteComponenteFirmaR5{Referencia: "comprobacion:sintetica:001", HuellaSHA256: strings.Repeat("e", 64)}
-	d := ports.DisponibilidadFirmaR5Verificada{Solicitud: q, Via: ports.ViaFirmaCertificadoVEC,
-		Original: ports.ComprobanteComponenteFirmaR5{Referencia: q.Preflight.OriginalRef, HuellaSHA256: q.OriginalHuella}, Verificador: c, Competencia: c, Perfil: c, Custodia: c, Registro: c,
-		ComprobadaEn: time.Now().UTC().Truncate(time.Microsecond).Add(-time.Second), ValidaHasta: time.Now().UTC().Truncate(time.Microsecond).Add(time.Minute)}
+	d := ports.PreparacionViaFirmaR5{Solicitud: q, Via: ports.ViaFirmaCertificadoVEC,
+		Original:    ports.ComprobanteComponenteFirmaR5{Referencia: q.Preflight.OriginalRef, HuellaSHA256: q.OriginalHuella},
+		PreparadaEn: time.Now().UTC().Truncate(time.Microsecond).Add(-time.Second), ValidaHasta: time.Now().UTC().Truncate(time.Microsecond).Add(time.Minute)}
 	if f.alterar != nil {
 		f.alterar(&d)
 	}
-	return []ports.DisponibilidadFirmaR5Verificada{d}, nil
+	return []ports.PreparacionViaFirmaR5{d}, nil
 }
 
 func solicitudPreflightPrueba() ports.SolicitudPreflightFirmaR5 {
@@ -40,7 +39,7 @@ func solicitudPreflightPrueba() ports.SolicitudPreflightFirmaR5 {
 		ExpedienteRef: "expediente:ct:001", VersionObservada: 7}, Documento: "informe_definitivo", OriginalRef: "original:ct:001", OriginalVersion: 1}
 }
 
-func servicioPreflightPrueba(d ports.VerificadorDisponibilidadFirmaR5) (*ServicioPreflightFirmaR5, *autorizadorConsultaFirmasR5Prueba, *registroExternoPrueba) {
+func servicioPreflightPrueba(d ports.PreparadorViasFirmaR5) (*ServicioPreflightFirmaR5, *autorizadorConsultaFirmasR5Prueba, *registroExternoPrueba) {
 	registro := &registroExternoPrueba{historiaHuella: strings.Repeat("d", 64)}
 	autorizador := &autorizadorConsultaFirmasR5Prueba{}
 	base := &ServicioFirmaDocumento{circuito: circuitoFirmaPrueba{}, original: &originalExternoPrueba{contenido: []byte("original sintetico")}}
@@ -65,28 +64,25 @@ func TestPreflightFirmaR5NilMantieneViasCerradasConLecturaNominal(t *testing.T) 
 	}
 }
 
-func TestPreflightFirmaR5DisponibilidadExigeEvidenciaExacta(t *testing.T) {
+func TestPreflightFirmaR5PreparacionExigeLigadurasExactas(t *testing.T) {
 	casos := []struct {
 		nombre  string
-		alterar func(*ports.DisponibilidadFirmaR5Verificada)
+		alterar func(*ports.PreparacionViaFirmaR5)
 	}{
-		{"actor", func(d *ports.DisponibilidadFirmaR5Verificada) { d.Solicitud.ActorRef = "per_ajeno_sintetico_002" }},
-		{"perfil", func(d *ports.DisponibilidadFirmaR5Verificada) { d.Solicitud.PerfilRef = "perfil:ajeno" }},
-		{"documento", func(d *ports.DisponibilidadFirmaR5Verificada) { d.Solicitud.Preflight.Documento = "resolucion" }},
-		{"original", func(d *ports.DisponibilidadFirmaR5Verificada) { d.Solicitud.Preflight.OriginalVersion = 2 }},
-		{"paso", func(d *ports.DisponibilidadFirmaR5Verificada) { d.Solicitud.PasoOrden = 2 }},
-		{"catalogo", func(d *ports.DisponibilidadFirmaR5Verificada) { d.Solicitud.CatalogoHuella = strings.Repeat("f", 64) }},
-		{"original_componente", func(d *ports.DisponibilidadFirmaR5Verificada) { d.Original.HuellaSHA256 = strings.Repeat("f", 64) }},
-		{"verificador", func(d *ports.DisponibilidadFirmaR5Verificada) { d.Verificador = ports.ComprobanteComponenteFirmaR5{} }},
-		{"competencia", func(d *ports.DisponibilidadFirmaR5Verificada) { d.Competencia = ports.ComprobanteComponenteFirmaR5{} }},
-		{"perfil_no_verificado", func(d *ports.DisponibilidadFirmaR5Verificada) { d.Perfil = ports.ComprobanteComponenteFirmaR5{} }},
-		{"caducada", func(d *ports.DisponibilidadFirmaR5Verificada) {
+		{"actor", func(d *ports.PreparacionViaFirmaR5) { d.Solicitud.ActorRef = "per_ajeno_sintetico_002" }},
+		{"perfil", func(d *ports.PreparacionViaFirmaR5) { d.Solicitud.PerfilRef = "perfil:ajeno" }},
+		{"documento", func(d *ports.PreparacionViaFirmaR5) { d.Solicitud.Preflight.Documento = "resolucion" }},
+		{"original", func(d *ports.PreparacionViaFirmaR5) { d.Solicitud.Preflight.OriginalVersion = 2 }},
+		{"paso", func(d *ports.PreparacionViaFirmaR5) { d.Solicitud.PasoOrden = 2 }},
+		{"catalogo", func(d *ports.PreparacionViaFirmaR5) { d.Solicitud.CatalogoHuella = strings.Repeat("f", 64) }},
+		{"original_componente", func(d *ports.PreparacionViaFirmaR5) { d.Original.HuellaSHA256 = strings.Repeat("f", 64) }},
+		{"caducada", func(d *ports.PreparacionViaFirmaR5) {
 			d.ValidaHasta = time.Now().UTC().Truncate(time.Microsecond).Add(-time.Second)
 		}},
-		{"futura", func(d *ports.DisponibilidadFirmaR5Verificada) {
-			d.ComprobadaEn = time.Now().UTC().Truncate(time.Microsecond).Add(time.Minute)
+		{"futura", func(d *ports.PreparacionViaFirmaR5) {
+			d.PreparadaEn = time.Now().UTC().Truncate(time.Microsecond).Add(time.Minute)
 		}},
-		{"via_desconocida", func(d *ports.DisponibilidadFirmaR5Verificada) { d.Via = "otra" }},
+		{"via_desconocida", func(d *ports.PreparacionViaFirmaR5) { d.Via = "otra" }},
 	}
 	for _, tc := range casos {
 		t.Run(tc.nombre, func(t *testing.T) {
@@ -167,7 +163,7 @@ func TestPreflightFirmaR5ContextoVacioYCancelacionDenieganAntesDeLeer(t *testing
 func TestPreflightFirmaR5CambioDeCabezaDuranteDisponibilidadDescartaVias(t *testing.T) {
 	d := &disponibilidadPreflightPrueba{}
 	s, _, registro := servicioPreflightPrueba(d)
-	d.alterar = func(_ *ports.DisponibilidadFirmaR5Verificada) { registro.historiaRevision++ }
+	d.alterar = func(_ *ports.PreparacionViaFirmaR5) { registro.historiaRevision++ }
 	r, err := s.consultarNominal(context.Background(), solicitudPreflightPrueba(), "per_actual_sintetico_001", strings.Repeat("a", 64))
 	if !errors.Is(err, ports.ErrPreflightFirmaR5NoDisponible) || len(r.ViasDisponibles) != 0 {
 		t.Fatalf("cabeza sustituida aceptada: %+v %v", r, err)
@@ -185,7 +181,7 @@ func (r registroPreflightCoincidenciaPrueba) ConsultarFirmasAutorizadas(ctx cont
 
 func TestPreflightFirmaR5NoConfundeRegistradorExternoConFirmante(t *testing.T) {
 	for _, via := range []string{ports.ViaFirmaCertificadoVEC, ports.ViaFirmaExternaPortafirmas} {
-		d := &disponibilidadPreflightPrueba{alterar: func(p *ports.DisponibilidadFirmaR5Verificada) { p.Via = via }}
+		d := &disponibilidadPreflightPrueba{alterar: func(p *ports.PreparacionViaFirmaR5) { p.Via = via }}
 		s, _, registro := servicioPreflightPrueba(d)
 		s.firmas.registro = registroPreflightCoincidenciaPrueba{registro}
 		r, err := s.consultarNominal(context.Background(), solicitudPreflightPrueba(), "per_actual_sintetico_001", strings.Repeat("a", 64))
@@ -224,5 +220,29 @@ func TestPreflightFirmaR5RechazaCapacidadDeOtroContextoAntesDeConsumir(t *testin
 				t.Fatalf("contexto exacto rechazado: %v", err)
 			}
 		})
+	}
+}
+
+// Detiene la consulta en el autorizador para comprobar el material previo a
+// canonización, capacidad y acceso SQL; no reescribe el material en el emisor.
+type capturaAmbitosPreflightV2 struct {
+	material ports.MaterialConsultaFirmasR5V2
+}
+
+func (a *capturaAmbitosPreflightV2) AutorizarConsultaFirmasR5V2(_ context.Context, m ports.MaterialConsultaFirmasR5V2) (ports.CapacidadConsultaFirmasR5V2, error) {
+	a.material = m
+	return ports.CapacidadConsultaFirmasR5V2{}, ports.ErrFirmaDocumentoDenegada
+}
+func TestPreflightV2UsaViaYUnidadNominalAntesDeAutorizar(t *testing.T) {
+	s, _, _ := servicioPreflightPrueba(nil)
+	a := &capturaAmbitosPreflightV2{}
+	s.firmas.multiple = &dependenciasFirmaMultipleR5{consulta: a}
+	s.viaConsulta, s.unidadConsulta = ports.ViaFirmaCertificadoVEC, "unidad:rrhh"
+	q := solicitudPreflightPrueba()
+	_, _, _, err := s.leerHistoriaPreflightFirmaR5(context.Background(), q.Canal.OrganizacionRef,
+		q.Canal.ExpedienteRef, q.Documento, q.Canal.VersionObservada, "per_actual_sintetico_001", "clave-firma-preflight-001", 1)
+	if !errors.Is(err, ports.ErrFirmaDocumentoDenegada) || a.material.Via != ports.ViaFirmaCertificadoVEC ||
+		a.material.UnidadRef != "unidad:rrhh" || a.material.OrganizacionRef != q.Canal.OrganizacionRef {
+		t.Fatalf("material nominal de consulta perdido: %+v %v", a.material, err)
 	}
 }

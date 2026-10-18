@@ -1,6 +1,6 @@
 /** Presentación pura del alta CT, compartida con la petición previa del centro. */
-import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
-import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261009-centro-campos-cohorte-v5";
+import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=20261013-ct-firma-tres-v3";
+import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=20261013-ct-firma-tres-v3";
 
 const CAMPOS_RPT_PUBLICACION = new Set(["rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]);
 const CAMPOS_RPT_INTERNOS = new Set(["puesto_codigo", ...CAMPOS_RPT_PUBLICACION]);
@@ -268,12 +268,24 @@ function camposNecesidad(estado, t, deshabilitado) {
       ${errorCampo(estado, campo, t)}
     </div>`;
   }).join("")}
+      ${causa && Object.hasOwn(estado.borrador, "puesto_solicitado") && !campos.includes("puesto_codigo")
+    ? campoPuestoSolicitado(estado, t, deshabilitado) : ""}
     </div>
   </fieldset>`;
 }
 
+function campoPuestoSolicitado(estado, t, deshabilitado) {
+  return `<div class="ct-campo ct-campo-ancho">
+    <label for="ct-puesto_solicitado">${escaparHTML(t("puesto_solicitado"))} <b aria-hidden="true">*</b></label>
+    <input id="ct-puesto_solicitado" name="puesto_solicitado" type="text" maxlength="160" required
+      value="${escaparHTML(estado.borrador.puesto_solicitado)}"
+      ${atributosAccesibles(estado, "puesto_solicitado")}${deshabilitado ? " disabled" : ""}>
+    ${errorCampo(estado, "puesto_solicitado", t)}
+  </div>`;
+}
+
 function camposPeticionCentro(estado, tCentro, deshabilitado) {
-  if (!Object.hasOwn(estado.borrador, "puesto_solicitado")) return "";
+  if (!Object.hasOwn(estado.borrador, "puesto_solicitado") || esNecesidad(estado)) return "";
   return `<fieldset class="ct-bloque">
     <legend>${escaparHTML(tCentro("peticion_puesto_leyenda"))}</legend>
     <div class="ct-campos">
@@ -291,13 +303,7 @@ function camposPeticionCentro(estado, tCentro, deshabilitado) {
           ${atributosAccesibles(estado, "jornada_minutos")}${deshabilitado ? " disabled" : ""}>
         ${errorCampo(estado, "jornada_minutos", tCentro)}
       </div>
-      <div class="ct-campo ct-campo-ancho">
-        <label for="ct-puesto_solicitado">${escaparHTML(tCentro("puesto_solicitado"))} <b aria-hidden="true">*</b></label>
-        <input id="ct-puesto_solicitado" name="puesto_solicitado" type="text" maxlength="160" required
-          value="${escaparHTML(estado.borrador.puesto_solicitado)}"
-          ${atributosAccesibles(estado, "puesto_solicitado")}${deshabilitado ? " disabled" : ""}>
-        ${errorCampo(estado, "puesto_solicitado", tCentro)}
-      </div>
+      ${campoPuestoSolicitado(estado, tCentro, deshabilitado)}
     </div>
   </fieldset>`;
 }
@@ -439,6 +445,10 @@ export function formulario(estado, t, tCentro) {
   const deshabilitado = !estado.disponible || estado.ocupado;
   return `${resumenErrores(estado, t)}
   <form class="ct-formulario" data-ct-form novalidate>
+    ${esNecesidad(estado) && Object.hasOwn(estado.borrador, "puesto_solicitado")
+      && estado.catalogos.necesidades.causas.find(({ clave }) => clave === estado.borrador.motivo_clave)
+        ?.campos_permitidos.includes("puesto_codigo")
+    ? `<input type="hidden" name="puesto_solicitado" value="${escaparHTML(estado.borrador.puesto_solicitado)}">` : ""}
     ${camposCentro(estado, t, deshabilitado)}
     ${camposPeticionCentro(estado, tCentro, deshabilitado)}
     ${camposDetalle(estado, t, deshabilitado)}
@@ -514,10 +524,12 @@ export function revision(estado, t, locale, tCentro) {
       ${filaResumen(t("resumen_categoria"), categoria?.etiqueta ?? borrador.categoria_ref)}
       ${filaResumen(t("resumen_grupo"), grupo)}
       ${filaResumen(t("resumen_motivo"), motivo)}
-      ${Object.hasOwn(borrador, "puesto_solicitado") ? filaResumen(tCentro("numero_personas"), borrador.numero_personas)
+      ${Object.hasOwn(borrador, "puesto_solicitado") && !esNecesidad(estado) ? filaResumen(tCentro("numero_personas"), borrador.numero_personas)
     + filaResumen(tCentro("jornada_semanal"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos))
     + filaResumen(tCentro("puesto_solicitado"), borrador.puesto_solicitado) : ""}
       ${esNecesidad(estado) ? filaResumen(t("jornada_minutos"), jornadaVisibleDesdeMinutos(borrador.jornada_minutos)) : ""}
+      ${esNecesidad(estado) && Object.hasOwn(borrador, "puesto_solicitado")
+    ? filaResumen(tCentro("puesto_solicitado"), borrador.puesto_solicitado) : ""}
       ${esNecesidad(estado) ? estado.catalogos.necesidades.causas.find(
     (dato) => dato.clave === borrador.motivo_clave)?.campos_permitidos
     .filter((campo) => borrador[campo] && !CAMPOS_RPT_PUBLICACION.has(campo))
@@ -558,7 +570,8 @@ export function revision(estado, t, locale, tCentro) {
 export function extraerBorrador(formularioDOM, conNumeroMOAD = true) {
   const datos = new FormData(formularioDOM);
   const peticionCentro = Boolean(formularioDOM.querySelector?.('[name="puesto_solicitado"]'));
-  const necesidad = !peticionCentro && Boolean(formularioDOM.querySelector?.('[name="jornada_horas"]'));
+  const necesidad = Boolean(formularioDOM.querySelector?.('[name="jornada_horas"]'))
+    && (!peticionCentro || Boolean(formularioDOM.querySelector?.('[name="puesto_codigo"]')));
   const jornadaEntrada = String(datos.get("jornada_horas") ?? "").trim();
   const minutosJornada = minutosDesdeJornadaVisible(jornadaEntrada);
   // Si la jornada no se entiende se conserva lo tecleado para repintarlo y que

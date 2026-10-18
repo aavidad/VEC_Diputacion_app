@@ -379,7 +379,7 @@ func prohibirCookiesYAutorizacionProxyConLimite(next http.Handler, limite int64)
 			return
 		}
 		if peticionPuedeTransportarTrailers(r) {
-			if err := materializarCuerpoYTrailers(r, limite); err != nil {
+			if err := materializarCuerpoYTrailers(r, limiteCuerpoSolicitud(r, limite)); err != nil {
 				if errors.Is(err, errCuerpoHTTPDemasiadoGrande) {
 					http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
 					return
@@ -594,7 +594,7 @@ func rechazarCabecerasProxyFake(next http.Handler) http.Handler {
 func limitRequestBody(next http.Handler, limit int64) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil && r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
-			r.Body = http.MaxBytesReader(w, r.Body, limit)
+			r.Body = http.MaxBytesReader(w, r.Body, limiteCuerpoSolicitud(r, limit))
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -681,6 +681,7 @@ func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(path, "/textos/") && strings.HasSuffix(path, ".json") {
 		// Catálogos públicos de textos por idioma: ver cacheCatalogoTextos.
 		fijarCacheEstatico(w, cacheCatalogoTextos(r))
+		anunciarHuellaTextos(w, path)
 		return
 	}
 	if path == "/" || strings.HasSuffix(path, ".html") || strings.HasSuffix(path, ".json") {

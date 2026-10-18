@@ -10,13 +10,13 @@ import (
 
 func CanonicoDescriptorFirmaVerificadaV2(m ports.MaterialFirmaVerificadaV2, d ports.DescriptorConstructorFirmaV2) ([]byte, error) {
 	orden, paso := m.OrdenFirmaPDF, m.PasoOrden
-	if orden < 1 || orden > 2 || paso < 1 || paso > 2 {
+	if orden < 1 || orden > ports.MaximoPasosFirmasVerificadasV2 || paso < 1 || paso > ports.MaximoPasosFirmasVerificadasV2 {
 		return nil, ports.ErrCompetenciaFirmanteNoAcreditada
 	}
 	r, s := d.Recurso, d.Seleccion
 	if d.Esquema != "vec.competencia-firmante.constructor-ct.v1" || d.CertificadoDERSHA256 != m.CertificadoHuella || d.FechaHistorica != nil ||
 		s.PerfilEsperadoRef != m.PerfilFirmanteRef || s.PerfilActivoRef != m.PerfilActivoFirmanteRef || s.RolID != m.RolIDFirmante ||
-		!domain.ReferenciaOpacaValida(s.CargoRef) || !domain.ReferenciaOpacaValida(s.EnlaceEjercicioRef) ||
+		s.CargoRef != m.CargoFirmante || !domain.ReferenciaOpacaValida(s.CargoRef) || !domain.ReferenciaOpacaValida(s.EnlaceEjercicioRef) ||
 		r.OrganizacionRef != m.OrganizacionRef || r.UnidadRef != m.UnidadFirmanteRef || r.ExpedienteRef != m.ExpedienteRef ||
 		r.DocumentoRef != m.OriginalRef || r.RecursoAutorizableRef != r.DocumentoRef || r.ModuloID != ports.ModuloContratacion ||
 		!domain.ReferenciaOpacaValida(r.TipoRecurso) || !domain.HuellaSHA256FirmaValida(r.RecursoContextoSHA256) ||
@@ -26,7 +26,7 @@ func CanonicoDescriptorFirmaVerificadaV2(m ports.MaterialFirmaVerificadaV2, d po
 		d.PasoRef != m.PasoRef || d.PasoOrden != uint64(paso) || !domain.ReferenciaOpacaValida(d.Accion) || !domain.ReferenciaOpacaValida(d.Finalidad) || d.Motivo.Validar() != nil {
 		return nil, ports.ErrCompetenciaFirmanteNoAcreditada
 	}
-	if (m.OrdenFirmaPDF == 1 && r.EntradaRevision != nil) || (m.OrdenFirmaPDF == 2 && (r.EntradaRevision == nil ||
+	if (m.OrdenFirmaPDF == 1 && r.EntradaRevision != nil) || (m.OrdenFirmaPDF > 1 && (r.EntradaRevision == nil ||
 		r.EntradaRevision.Referencia != m.EntradaDocumentoRef || r.EntradaRevision.Version != m.EntradaDocumentoVersion || r.EntradaRevision.HuellaSHA256 != m.EntradaDocumentoHuella)) {
 		return nil, ports.ErrCompetenciaFirmanteNoAcreditada
 	}

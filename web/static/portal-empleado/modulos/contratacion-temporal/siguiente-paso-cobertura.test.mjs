@@ -74,3 +74,35 @@ test("la guía inglesa usa el catálogo de la ficha", async () => {
   assert.match(html, /The analysis has been recorded\. Choose how to cover the request in the section below\./u);
   assert.doesNotMatch(html, /Siguiente paso: decidir/u);
 });
+
+test("un cliente de fiscalización ausente no se confunde con un perfil ajeno", () => {
+  const enFiscalizacion = { ...estado, cuadro: { ...estado.cuadro, expedientes: [
+    { ...resumen, fase_clave: "fiscalizacion" },
+  ] } };
+  const sinCliente = renderizarModuloContratacionTemporal(enFiscalizacion, {
+    fiscalizacionDisponible: false, fiscalizacionAjena: false,
+  });
+  assert.match(sinCliente, /data-ct-exp-accion="ir-tramite"/u);
+  assert.doesNotMatch(sinCliente, /Pendiente de Intervención/u);
+  const perfilAjeno = renderizarModuloContratacionTemporal(enFiscalizacion, {
+    fiscalizacionDisponible: false, fiscalizacionAjena: true,
+  });
+  assert.doesNotMatch(perfilAjeno, /data-ct-exp-accion="ir-tramite"/u);
+});
+
+test("justo tras registrar el análisis, la cobertura aparece aunque el cuadro siga en la versión anterior", () => {
+  const conHito = { ...expediente, historial: [{ ...expediente.historial[0],
+    accion_clave: "contratacion_temporal.analisis.registrar", version_expediente: 2 }] };
+  const cuadroAnterior = { ...estado.cuadro, expedientes: [{ ...resumen, version: 1 }] };
+  const html = renderizarModuloContratacionTemporal({ ...estado, expediente: conHito, cuadro: cuadroAnterior },
+    { analisisDisponible: true, coberturaDisponible: true });
+  assert.match(html, /data-ct-exp-cobertura/u);
+  // Otra actuación posterior al cuadro (no el análisis) no se da por buena.
+  const otroHito = { ...conHito, historial: [{ ...conHito.historial[0], accion_clave: "contratacion_temporal.cobertura.decidir" }] };
+  assert.doesNotMatch(renderizarModuloContratacionTemporal({ ...estado, expediente: otroHito, cuadro: cuadroAnterior },
+    { analisisDisponible: true, coberturaDisponible: true }), /data-ct-exp-cobertura/u);
+  // Ni un cuadro dos versiones por detrás.
+  assert.doesNotMatch(renderizarModuloContratacionTemporal({ ...estado, expediente: { ...conHito, version: 3,
+    historial: [{ ...conHito.historial[0], version_expediente: 3 }] }, cuadro: cuadroAnterior },
+  { analisisDisponible: true, coberturaDisponible: true }), /data-ct-exp-cobertura/u);
+});

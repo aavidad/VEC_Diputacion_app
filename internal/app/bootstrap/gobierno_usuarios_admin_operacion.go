@@ -20,6 +20,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/administracion"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
@@ -49,7 +50,7 @@ const limiteArchivoGobiernoUsuarios = 16384
 // proveedor HMAC y semilla del firmante de la raíz ya publicada.
 type MaterialOrigenGobiernoUsuariosAdmin struct {
 	DirectorioMaterial, RutaConfiguracionHMAC, ArchivoSemillaRaiz string
-	// ValidezClaves acota la ventana de las claves nuevas (1 h a 24 h).
+	// ValidezClaves acota la ventana de las claves nuevas según el perfil.
 	ValidezClaves time.Duration
 	// ConjuntoVersion 0: gobierno de usuarios (AD188). 1 o más: conjunto de
 	// capacidades ADMIN de AD198 (incluye el lote ordinario de perfiles).
@@ -66,25 +67,26 @@ type PreparacionGobiernoUsuariosAdmin struct {
 }
 
 type instantaneaGobiernoUsuarios struct {
-	Revision    string    `json:"revision"`
-	Secuencia   uint64    `json:"secuencia"`
-	SPKI        string    `json:"spki"`
-	ClaveID     string    `json:"clave_id"`
-	Version     uint64    `json:"version"`
-	Audiencia   string    `json:"audiencia"`
-	Desde       time.Time `json:"desde"`
-	Hasta       time.Time `json:"hasta"`
-	Orden       uint64    `json:"orden"`
-	MaxVersion  uint64    `json:"max_version"`
-	MaxRevision uint64    `json:"max_revision"`
-	PreSHA      string    `json:"pre_sha"`
+	SecuenciaGlobalSiguiente uint64    `json:"secuencia_global_siguiente"`
+	Revision                 string    `json:"revision"`
+	Secuencia                uint64    `json:"secuencia"`
+	SPKI                     string    `json:"spki"`
+	ClaveID                  string    `json:"clave_id"`
+	Version                  uint64    `json:"version"`
+	Audiencia                string    `json:"audiencia"`
+	Desde                    time.Time `json:"desde"`
+	Hasta                    time.Time `json:"hasta"`
+	Orden                    uint64    `json:"orden"`
+	MaxVersion               uint64    `json:"max_version"`
+	MaxRevision              uint64    `json:"max_revision"`
+	PreSHA                   string    `json:"pre_sha"`
 }
 
 // Desde AD235 preparar y verificar leen por dos fachadas SECURITY DEFINER de
 // solo lectura, con EXECUTE solo para el grupo NOLOGIN
 // vec_autorizacion_atestada_v3_lector_gobierno: el LOGIN de dsn_lectura ya no
-// tiene que ser superusuario ni leer tablas privadas. Devuelven el mismo jsonb
-// que las consultas anteriores (lo comprueba el ensayo con base real). La
+// tiene que ser superusuario ni leer tablas privadas. La instantánea conserva
+// la raíz CT y su preimagen; AD266 añade la siguiente secuencia global. La
 // instantánea lleva solo la huella de la preimagen de AD188 (conjunto 0) o de
 // AD198 (conjunto 1 o más), nunca la preimagen ni secretos.
 const (
@@ -126,12 +128,41 @@ func descriptoresClavesUsuariosAdmin(conjunto []AudienciaCapacidadAdmin, secuenc
 	return entradas
 }
 
+func expiracionConfianzaGobiernoUsuarios(now, raizHasta time.Time, validez time.Duration) (time.Time, error) {
+	expira := now.Add(max(24*time.Hour, validez))
+	if expira.After(raizHasta.UTC()) {
+		return time.Time{}, ErrGobiernoUsuariosAdmin
+	}
+	return expira, nil
+}
+
+// La fase aplicar comprueba el material que quedó preparado. El JSON de la
+// consola puede haber cambiado entre fases. No exige clave <= confianza aquí:
+// un replay histórico debe llegar al revalidador SQL antes de la guarda nueva.
+func validarVigenciaPreparadaGobiernoUsuarios(cfg ConfiguracionMaterialUsuariosAdmin, p planGobiernoUsuariosAdmin, entorno config.Config) error {
+	if p.PreparadoEn.IsZero() || len(cfg.Entradas) == 0 ||
+		!cfg.Gobierno.PublicadaEn.Equal(p.Configuracion.PublicadaEn) ||
+		!cfg.Gobierno.ExpiraEn.Equal(p.Configuracion.ExpiraEn) ||
+		entorno.ValidarValidezGobiernoAdmin(cfg.Gobierno.ExpiraEn.Sub(cfg.Gobierno.PublicadaEn)) != nil {
+		return ErrGobiernoUsuariosAdmin
+	}
+	for _, clave := range cfg.Entradas {
+		if entorno.ValidarValidezGobiernoAdmin(clave.ValidaHasta.Sub(p.PreparadoEn)) != nil {
+			return ErrGobiernoUsuariosAdmin
+		}
+	}
+	return nil
+}
+
 // PrepararGobiernoUsuariosAdmin lee la configuración vigente con un pool de
 // lectura, deriva las dos claves con el proveedor existente y escribe plan,
 // material y configuración en la carpeta privada. No publica nada.
 func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, origen MaterialOrigenGobiernoUsuariosAdmin, salida *os.Root, reloj ports.Reloj) (PreparacionGobiernoUsuariosAdmin, error) {
 	var vacio PreparacionGobiernoUsuariosAdmin
-	if ctx == nil || lectura == nil || salida == nil || dependenciaBootstrapNula(reloj) || origen.ValidezClaves < time.Hour || origen.ValidezClaves > 24*time.Hour {
+	if origen.ValidezClaves == 0 {
+		origen.ValidezClaves = 24 * time.Hour
+	}
+	if ctx == nil || lectura == nil || salida == nil || dependenciaBootstrapNula(reloj) || config.EntornoGobiernoAdmin().ValidarValidezGobiernoAdmin(origen.ValidezClaves) != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
 	conjunto, ok := AudienciasConjuntoCapacidadesAdmin(origen.ConjuntoVersion)
@@ -146,14 +177,22 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 	if decodificarGobiernoUsuarios(raw, &actual) != nil || !shaGobiernoUsuarios.MatchString(actual.PreSHA) {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
+	if actual.SecuenciaGlobalSiguiente <= actual.Secuencia {
+		return vacio, fmt.Errorf("%w: secuencia_global_siguiente actual=%d esperado=mayor_que_%d", ErrGobiernoUsuariosAdmin, actual.SecuenciaGlobalSiguiente, actual.Secuencia)
+	}
 	pub, err := publicaRaizGobiernoUsuarios(actual.SPKI)
 	if err != nil {
 		return vacio, err
 	}
 	now := reloj.Ahora().UTC().Truncate(time.Microsecond)
 	dia := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	// La confianza debe cubrir hasta la última clave, sin prolongar la raíz.
+	expiraConfianza, err := expiracionConfianzaGobiernoUsuarios(now, actual.Hasta, origen.ValidezClaves)
+	if err != nil {
+		return vacio, err
+	}
 	cfg := ConfiguracionMaterialUsuariosAdmin{DirectorioMaterial: origen.DirectorioMaterial, RutaConfiguracionHMAC: origen.RutaConfiguracionHMAC, ArchivoSemillaRaiz: origen.ArchivoSemillaRaiz, PrefijoEvidencia: "evidencia:firma:admin:usuarios:", Raiz: administracion.MaterialRaizPerfilesV3{ClaveID: actual.ClaveID, Version: actual.Version, Audiencia: actual.Audiencia, Publica: pub, Estado: confianza.EstadoClaveAtestacionAutorizacionV3Activa, ValidaDesde: actual.Desde.UTC(), ValidaHasta: actual.Hasta.UTC()}}
-	cfg.Gobierno = administracion.GobiernoConfianzaPerfilesV3{Revision: "confianza:atestacion:ct:desarrollo:" + dia.Format("2006-01-02") + ":r" + strconv.FormatUint(actual.Secuencia+1, 10), Secuencia: actual.Secuencia + 1, PublicadaEn: dia, ExpiraEn: dia.Add(24 * time.Hour)}
+	cfg.Gobierno = administracion.GobiernoConfianzaPerfilesV3{Revision: "confianza:atestacion:ct:desarrollo:" + dia.Format("2006-01-02") + ":r" + strconv.FormatUint(actual.SecuenciaGlobalSiguiente, 10), Secuencia: actual.SecuenciaGlobalSiguiente, PublicadaEn: now, ExpiraEn: expiraConfianza}
 	raiz, err := confianza.NuevaRaizPublicaAtestacionAutorizacionV3EdDSA(cfg.Raiz.ClaveID, cfg.Raiz.Version, pub, cfg.Raiz.Audiencia, cfg.Raiz.Estado, cfg.Raiz.ValidaDesde, cfg.Raiz.ValidaHasta, time.Time{})
 	if err != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
@@ -178,7 +217,7 @@ func PrepararGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, o
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
 	// El plan caduca a las dos horas como máximo y nunca después de las claves
-	// ni de la configuración diaria, para no aplicar material ya vencido.
+	// ni de la configuración publicada, para no aplicar material ya vencido.
 	caduca := now.Add(min(2*time.Hour, origen.ValidezClaves))
 	if cfg.Gobierno.ExpiraEn.Before(caduca) {
 		caduca = cfg.Gobierno.ExpiraEn
@@ -231,8 +270,21 @@ func AplicarGobiernoUsuariosAdminPreparado(ctx context.Context, operador *pgxpoo
 	if ctx == nil || operador == nil || salida == nil || dependenciaBootstrapNula(reloj) || !nombreAcuseGobiernoUsuariosValido(nombreAcuse) {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
-	// El acuse se reserva antes de enviar nada: un destino existente se
-	// rechaza sin tocar la base y sólo se conserva si llega a guardarse.
+	data, err := leerPrivadoGobiernoUsuarios(salida, ArchivoConfiguracionGobiernoUsuarios)
+	defer borrarBytes(data)
+	var cfg ConfiguracionMaterialUsuariosAdmin
+	if err != nil || decodificarGobiernoUsuarios(data, &cfg) != nil {
+		return vacio, ErrGobiernoUsuariosAdmin
+	}
+	plan, err := leerPrivadoGobiernoUsuarios(salida, ArchivoPlanGobiernoUsuarios)
+	if err != nil {
+		return vacio, ErrGobiernoUsuariosAdmin
+	}
+	var p planGobiernoUsuariosAdmin
+	if decodificarGobiernoUsuarios(plan, &p) != nil || validarVigenciaPreparadaGobiernoUsuarios(cfg, p, config.EntornoGobiernoAdmin()) != nil {
+		return vacio, ErrGobiernoUsuariosAdmin
+	}
+	// El acuse se reserva antes de leer material o enviar nada a la base.
 	archivo, err := reservarPrivadoGobiernoUsuarios(salida, nombreAcuse)
 	if err != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
@@ -244,12 +296,6 @@ func AplicarGobiernoUsuariosAdminPreparado(ctx context.Context, operador *pgxpoo
 			_ = salida.Remove(nombreAcuse)
 		}
 	}()
-	data, err := leerPrivadoGobiernoUsuarios(salida, ArchivoConfiguracionGobiernoUsuarios)
-	defer borrarBytes(data)
-	var cfg ConfiguracionMaterialUsuariosAdmin
-	if err != nil || decodificarGobiernoUsuarios(data, &cfg) != nil {
-		return vacio, ErrGobiernoUsuariosAdmin
-	}
 	// Las fechas proceden de los bytes originales, no del reloj.
 	cfg.Raiz.ValidaDesde, cfg.Raiz.ValidaHasta = cfg.Raiz.ValidaDesde.UTC(), cfg.Raiz.ValidaHasta.UTC()
 	cfg.Gobierno.PublicadaEn, cfg.Gobierno.ExpiraEn = cfg.Gobierno.PublicadaEn.UTC(), cfg.Gobierno.ExpiraEn.UTC()
@@ -269,10 +315,6 @@ func AplicarGobiernoUsuariosAdminPreparado(ctx context.Context, operador *pgxpoo
 	original, err := leerPrivadoGobiernoUsuarios(salida, ArchivoMaterialGobiernoUsuarios)
 	defer borrarBytes(original)
 	if err != nil || !bytes.Equal(original, secreto.Bytes()) {
-		return vacio, ErrGobiernoUsuariosAdmin
-	}
-	plan, err := leerPrivadoGobiernoUsuarios(salida, ArchivoPlanGobiernoUsuarios)
-	if err != nil {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
 	h := sha256.Sum256(plan)

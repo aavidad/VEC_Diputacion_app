@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"time"
@@ -218,7 +219,10 @@ type SellosOperacionSeguimiento struct {
 // PreparacionOperacionSeguimiento es la lectura previa: expediente vigente o,
 // si la misma intención ya se confirmó, su recibo original.
 type PreparacionOperacionSeguimiento struct {
-	Expediente             domain.Expediente
+	Expediente domain.Expediente
+	// ExpedienteAnteriorJSON conserva la preimagen JSONB literal de SQL para su CAS.
+	// El expediente tipado sigue siendo la autoridad de las reglas de dominio.
+	ExpedienteAnteriorJSON json.RawMessage `json:"-"`
 	Referencias            ReferenciasEfectoSeguimiento
 	AmbitoIdempotenciaHMAC string
 	HuellaPeticionHMAC     string

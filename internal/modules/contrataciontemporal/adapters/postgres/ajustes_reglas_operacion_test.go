@@ -17,6 +17,7 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 	vecpruebas "vec-diputacion-granada/internal/vec/pruebas"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 type filaHuellaAjustesCTPrueba struct{ huella string }
@@ -57,6 +58,12 @@ func (l *lectorAjustesCTPrueba) ConsultarAjustesReglasCT(_ context.Context, _ ve
 		panic("paginación inesperada")
 	}
 	return app.Lectura{Historial: []app.CambioHistorico{}}, nil
+}
+
+type lectorHistoriaAjustesCTPrueba struct{ lectura app.Lectura }
+
+func (l lectorHistoriaAjustesCTPrueba) ConsultarAjustesReglasCT(context.Context, vecdomain.ContextoActor, int, *int64) (app.Lectura, error) {
+	return l.lectura, nil
 }
 
 func (p *proveedorAjustesCTPrueba) AutorizarAjustesReglasCT(_ context.Context, _ vecdomain.ContextoActor, accion string, recurso vecdomain.RecursoAutorizable) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -186,5 +193,57 @@ func TestConsultaAjustesCTReutilizaCT148V3YAdmiteLectorDeSesion(t *testing.T) {
 	lectura, err := r.Consultar(t.Context(), actor, 20, nil)
 	if err != nil || lectura.Historial == nil || lector.llamadas != 1 || proveedor.consultas != 0 || pool.consultas != 0 || pool.transacciones != 0 {
 		t.Fatalf("la consulta usó V3/SQL fuera del lector: %+v, %v, %+v, %+v", lectura, err, proveedor, pool)
+	}
+}
+
+func TestConsultaAjustesCTAdmiteSoloRebaseOperativoSinCambios(t *testing.T) {
+	ref := referenciaRebaseAjustesCT
+	instante := time.Date(2026, 10, 12, 20, 40, 0, 0, time.UTC)
+	preparar := func() app.Lectura {
+		return app.Lectura{Vigente: &reglas.VersionAjustes{Version: 2},
+			VigenteBaseVersion: 2, VigenteBaseHuella: huellaBaseRebaseAjustesCT,
+			Historial: []app.CambioHistorico{
+				{Version: 2, VigenteDesde: instante.Add(time.Minute), MotivoClave: motivoRebaseAjustesCT,
+					Referencia: &ref, BaseVersion: 2, ReciboRef: "recibo:rebase", Cambios: []app.Cambio{}},
+				{Version: 1, VigenteDesde: instante, MotivoClave: "actualizacion", BaseVersion: 1,
+					ReciboRef: "recibo:original", Cambios: []app.Cambio{{ReglaClave: "c04.plazo_subsanacion", Campo: "cantidad", Anterior: "10", Nuevo: "8"}}},
+			}}
+	}
+	consultar := func(lectura app.Lectura) error {
+		pool := &ejecutorAjustesCTPrueba{}
+		proveedor := &proveedorAjustesCTPrueba{}
+		r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesReglasCT)
+		if err != nil {
+			return err
+		}
+		r.lector = lectorHistoriaAjustesCTPrueba{lectura: lectura}
+		_, err = r.Consultar(t.Context(), actorAjustesCTPrueba(t), 20, nil)
+		if pool.consultas != 0 || proveedor.consultas != 0 || pool.transacciones != 0 {
+			t.Fatal("el lector autorizado no debe abrir otra operación V3")
+		}
+		return err
+	}
+	if err := consultar(preparar()); err != nil {
+		t.Fatalf("AJ1 real y AJ2 rebase: %v", err)
+	}
+	casos := map[string]func(*app.Lectura){
+		"motivo distinto":     func(l *app.Lectura) { l.Historial[0].MotivoClave = "actualizacion" },
+		"referencia distinta": func(l *app.Lectura) { otra := "operacion:otra"; l.Historial[0].Referencia = &otra },
+		"sin referencia":      func(l *app.Lectura) { l.Historial[0].Referencia = nil },
+		"base distinta":       func(l *app.Lectura) { l.Historial[0].BaseVersion = 1 },
+		"huella distinta":     func(l *app.Lectura) { l.VigenteBaseHuella = strings.Repeat("a", 64) },
+		"version inicial":     func(l *app.Lectura) { l.Historial[0].Version = 1 },
+		"nota imprevista":     func(l *app.Lectura) { nota := "otra"; l.Historial[0].Nota = &nota },
+		"lista ausente":       func(l *app.Lectura) { l.Historial[0].Cambios = nil },
+		"normal vacío":        func(l *app.Lectura) { l.Historial[1].Cambios = []app.Cambio{} },
+	}
+	for nombre, alterar := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			lectura := preparar()
+			alterar(&lectura)
+			if err := consultar(lectura); !errors.Is(err, app.ErrNoDisponible) {
+				t.Fatalf("historial incompatible admitido: %v", err)
+			}
+		})
 	}
 }

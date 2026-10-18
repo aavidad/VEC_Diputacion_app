@@ -110,6 +110,9 @@ func nuevaAPIMiBolsaPortalExterno(identidad *resolvedorIdentidadDesarrollo,
 	}
 	frontera := &fronteraMiBolsaPortalExterno{preparador: d.preparador}
 	d.preparador = frontera
+	if d.justificantes != nil {
+		d.justificantes = auditarRechazosJustificantePropio(d.justificantes, auditoria)
+	}
 	rutas, err := nuevasRutasMiBolsaPortalExterno(d)
 	if err != nil {
 		return nil, err

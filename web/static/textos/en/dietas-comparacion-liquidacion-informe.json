@@ -4,7 +4,7 @@
   "rotulos": {
     "titulo": "Comparison of travel expense proposals",
     "estado": "Local comparison, not recorded",
-    "limite": "These figures are test proposals. They do not confirm approval, financial review or payment.",
+    "limite": "These figures are proposals pending approval.",
     "importes": "Amounts proposed for recognition",
     "rechazos": "Amounts proposed for rejection",
     "tabla_ayuda": "Compare the two proposals by line. On small screens, scroll within the table to see all columns.",

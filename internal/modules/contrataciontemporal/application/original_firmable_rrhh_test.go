@@ -113,6 +113,60 @@ func TestFuenteOriginalRRHHConsultaVersionV3YRenderizaUnaVez(t *testing.T) {
 	}
 }
 
+func TestOriginalInformePrevioAdmiteEmisionYReemisionAntesDeFiscalizacion(t *testing.T) {
+	for _, nombre := range []string{"inicial", "expediente_informe_nuevo_v8.json"} {
+		t.Run(nombre, func(t *testing.T) {
+			f, in, actual, historico, _, render := prepararFuenteOriginalRRHHPrueba(t)
+			archivo := "../domain/testdata/" + nombre
+			if nombre == "inicial" {
+				archivo = "../domain/testdata/expediente_nombramiento_v7.json"
+			}
+			contenido, err := os.ReadFile(archivo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var e domain.Expediente
+			if err := json.Unmarshal(contenido, &e); err != nil {
+				t.Fatal(err)
+			}
+			if nombre == "inicial" {
+				e.Version = 5
+				e.Actuaciones = e.Actuaciones[:5]
+				e.Fiscalizacion = nil
+				e.FaseActual, e.EstadoActual = domain.FaseInformeJuridico, domain.EstadoEnCurso
+				e.ActualizadoEn = e.Actuaciones[4].RealizadaEn
+			}
+			if err := e.Validar(); err != nil {
+				t.Fatal(err)
+			}
+			ahora := e.ActualizadoEn.Add(time.Minute)
+			contexto := contextoConsultaRRHHV3Prueba(t, ahora)
+			q, err := ports.NuevaSolicitudDetalleRRHH(e.Referencia, e.Version)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cap := capacidadConsultaDetalleRRHHV3Prueba(t, contexto, q, ahora)
+			recibo := reciboConsultaRRHHPrueba(t, contexto, cap, ahora, e.Referencia, e.Version, 1)
+			actual.detalle, err = ports.NuevoDetalleExpedienteRRHH(e, recibo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			in.ExpedienteRef = e.Referencia
+			in.Documento = string(ports.BorradorInformeDefinitivo)
+			in.OriginalVersion = e.Version
+			in.OriginalRef = identidadOriginalFirmableRRHH(in).Referencia()
+			if _, err := f.ObtenerPDFOriginalCT(t.Context(), in); err != nil || historico.llamadas != 0 || render.version != e.Version {
+				t.Fatalf("informe previo rechazado o reconstruido por propuesta: %v", err)
+			}
+			in.OriginalVersion--
+			in.OriginalRef = identidadOriginalFirmableRRHH(in).Referencia()
+			if _, err := f.ObtenerPDFOriginalCT(t.Context(), in); !errors.Is(err, vecports.ErrOriginalFirmableCTConflicto) || historico.llamadas != 0 {
+				t.Fatal("se reconstruyó un informe de una versión anterior")
+			}
+		})
+	}
+}
+
 func TestFuenteOriginalRRHHRecuperaPropuestaV7ConFachadaHistorica(t *testing.T) {
 	t.Parallel()
 	f, in, actual, historico, tipos, render := prepararFuenteOriginalRRHHPrueba(t)
@@ -138,14 +192,68 @@ func TestFuenteOriginalRRHHRecuperaPropuestaV7ConFachadaHistorica(t *testing.T) 
 		render.llamadas != 1 || render.version != 7 {
 		t.Fatal("la propuesta no usó su fachada histórica v7")
 	}
+	posterior := in
+	posterior.Documento = string(ports.BorradorDiligencia)
+	posterior.OriginalVersion = 9
+	posterior.OriginalRef = identidadOriginalFirmableRRHH(posterior).Referencia()
+	if _, err := f.ObtenerPDFOriginalCT(context.Background(), posterior); err != nil ||
+		historico.llamadas != 1 || render.version != 9 {
+		t.Fatalf("documento posterior perdió la propuesta antecedente v7: %v", err)
+	}
 	historico.err = ports.ErrConsultaRRHHNoDisponible
-	if _, err := f.ObtenerPDFOriginalCT(context.Background(), in); !errors.Is(err, ports.ErrConsultaRRHHNoDisponible) || render.llamadas != 1 {
+	if _, err := f.ObtenerPDFOriginalCT(context.Background(), in); !errors.Is(err, ports.ErrConsultaRRHHNoDisponible) || render.llamadas != 2 {
 		t.Fatal("caída V3 histórica permitió una representación nueva")
 	}
 	historico.err = nil
 	historico.detalle.Hitos[6].AccionClave = "otra_propuesta"
-	if _, err := f.ObtenerPDFOriginalCT(context.Background(), in); !errors.Is(err, vecports.ErrOriginalFirmableCTConflicto) || render.llamadas != 1 {
+	if _, err := f.ObtenerPDFOriginalCT(context.Background(), in); !errors.Is(err, vecports.ErrOriginalFirmableCTConflicto) || render.llamadas != 2 {
 		t.Fatal("historia v7 divergente se representó como original")
+	}
+}
+
+func TestFuenteOriginalRRHHAdmitePropuestaV9TrasReemisionSinAbrirHistoriaV8(t *testing.T) {
+	t.Parallel()
+	f, in, actual, historico, _, render := prepararFuenteOriginalRRHHPrueba(t)
+	contenido, err := os.ReadFile("../domain/testdata/expediente_informe_nuevo_v9.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var expediente domain.Expediente
+	if err := json.Unmarshal(contenido, &expediente); err != nil || expediente.Validar() != nil {
+		t.Fatalf("antecedente de reemisión inválido: %v", err)
+	}
+	ahora := expediente.ActualizadoEn.Add(time.Minute)
+	contexto := contextoConsultaRRHHV3Prueba(t, ahora)
+	solicitud, err := ports.NuevaSolicitudDetalleRRHH(expediente.Referencia, expediente.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capacidad := capacidadConsultaDetalleRRHHV3Prueba(t, contexto, solicitud, ahora)
+	recibo := reciboConsultaRRHHPrueba(t, contexto, capacidad, ahora, expediente.Referencia, expediente.Version, 1)
+	actual.detalle, err = ports.NuevoDetalleExpedienteRRHH(expediente, recibo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// La fachada V3 proyecta la propuesta vigente tras la reemisión. Los ocho
+	// hitos anteriores provienen del expediente validado y permanecen iguales.
+	actual.detalle.Hitos[8].AccionClave = "registrar_propuesta_formalizacion"
+	actual.detalle.Hitos[8].FaseDestino = domain.FaseNombramiento
+	actual.detalle.Resumen.FaseClave = domain.FaseNombramiento
+	if actual.detalle.ValidarContenidoPublicablePara(solicitud) != nil {
+		t.Fatal("proyección de la propuesta vigente inválida")
+	}
+	in.ExpedienteRef = expediente.Referencia
+	in.OriginalVersion = 9
+	in.OriginalRef = identidadOriginalFirmableRRHH(in).Referencia()
+	if _, err := f.ObtenerPDFOriginalCT(t.Context(), in); err != nil || historico.llamadas != 0 ||
+		render.version != 9 || render.llamadas != 1 {
+		t.Fatalf("propuesta v9 vigente no representada por lectura actual: %v", err)
+	}
+	in.OriginalVersion = 8
+	in.OriginalRef = identidadOriginalFirmableRRHH(in).Referencia()
+	if _, err := f.ObtenerPDFOriginalCT(t.Context(), in); !errors.Is(err, vecports.ErrOriginalFirmableCTConflicto) ||
+		historico.llamadas != 0 || render.llamadas != 1 {
+		t.Fatal("se abrió una versión histórica distinta de la propuesta v7")
 	}
 }
 

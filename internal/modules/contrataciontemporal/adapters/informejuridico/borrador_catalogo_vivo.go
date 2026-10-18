@@ -31,11 +31,12 @@ type BorradorCatalogado struct {
 // y ofrece una salida con referencia y huella para el recibo HTTP. Cada llamada
 // obtiene una sola instantánea: un cambio de versión no mezcla texto y recibo.
 type RenderizadorBorradorCatalogoVivo struct {
-	Proveedor ProveedorPlantillasBorrador
-	PDF       vecports.RenderizadorDocumento
-	DOCX      vecports.RenderizadorDocumento
-	Etiquetas EtiquetadorReferencias
-	Ahora     func() time.Time
+	Proveedor         ProveedorPlantillasBorrador
+	PDF               vecports.RenderizadorDocumento
+	DOCX              vecports.RenderizadorDocumento
+	Etiquetas         EtiquetadorReferencias
+	Ahora             func() time.Time
+	OmitirReferencias bool
 }
 
 func (r RenderizadorBorradorCatalogoVivo) GenerarPDF(
@@ -95,9 +96,9 @@ func (r RenderizadorBorradorCatalogoVivo) generar(
 	}
 	var contenido []byte
 	if formato == vecdomain.FormatoDocumentoPDF {
-		contenido, err = (RenderizadorBorradorDesarrollo{PDF: r.PDF, Etiquetas: r.Etiquetas, Plantillas: plantillas}).RenderizarBorrador(ctx, tipo, detalle)
+		contenido, err = (RenderizadorBorradorDesarrollo{PDF: r.PDF, Etiquetas: r.Etiquetas, Plantillas: plantillas, OmitirReferencias: r.OmitirReferencias}).RenderizarBorrador(ctx, tipo, detalle)
 	} else {
-		contenido, err = (RenderizadorBorradorDOCXDesarrollo{DOCX: r.DOCX, Etiquetas: r.Etiquetas, Plantillas: plantillas}).RenderizarBorradorDOCX(ctx, tipo, detalle)
+		contenido, err = (RenderizadorBorradorDOCXDesarrollo{DOCX: r.DOCX, Etiquetas: r.Etiquetas, Plantillas: plantillas, OmitirReferencias: r.OmitirReferencias}).RenderizarBorradorDOCX(ctx, tipo, detalle)
 	}
 	if err != nil {
 		return BorradorCatalogado{}, err

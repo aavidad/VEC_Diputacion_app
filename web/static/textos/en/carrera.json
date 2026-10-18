@@ -5,13 +5,13 @@
   "saltar": "Skip to content",
   "idioma": "Language",
   "navegacion": "Module navigation",
-  "limite": "Exercise with synthetic data. Checks prepare a review; they do not recognise a personal grade, progression or eligibility to apply.",
+  "limite": "Draft for review. These checks do not recognise a personal grade, progression or eligibility to apply.",
   "carga": "Loading the exercise cases. Please wait.",
   "error": "The exercise could not be loaded. Select Retry. If the problem continues, contact IT.",
   "ayuda": {
     "boton": "? Help",
     "titulo": "How to review the exercise",
-    "elegir": "Filter by route and select an example person.",
+    "elegir": "Filter by route and select a person.",
     "revisar": "Review the available data and pending reasons. Position level and personal grade are separate data.",
     "descargar": "Download the draft to review its sources and versions. Downloading does not start a procedure."
   },
@@ -88,7 +88,7 @@
       "registro": "Entry in Personnel"
     },
     "motivo": {
-      "disponible": "The data is available in the synthetic exercise. Check its source before processing.",
+      "disponible": "The data is available. Check its source before processing.",
       "datos_incompletos": "Person data is missing for the review.",
       "fuente_incompleta": "A source or its version is missing.",
       "regimen_pendiente": "The applicable regime requires confirmation.",
@@ -98,7 +98,7 @@
       "periodos_solapados": "Some periods overlap. Review them before calculating service.",
       "evidencia_incompleta": "Evidence or its accreditation is missing.",
       "politica_pendiente": "An approved policy has not been confirmed for this procedure.",
-      "politica_preparada": "An example policy is prepared. Its approval remains pending.",
+      "politica_preparada": "A policy is prepared. Its approval remains pending.",
       "convenio_pendiente": "The applicable agreement and its version require confirmation.",
       "curso_prueba_pendiente": "The course and test required by the procedure need confirmation.",
       "convocatoria_pendiente": "The versioned call rules are missing.",

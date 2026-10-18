@@ -6,7 +6,7 @@ import {
   extraerDatosEnvelopeCanonico,
   validarPanelBolsa,
 } from "./portal-contrato.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261008-b1-traza-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261015-firma-ofertas-justificante-integracion-v2";
 import { MENSAJES_PORTAL, traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 await prepararTextosPortal("ayuda");
 const { AYUDA_PORTAL_BOLSA } = await import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1");
@@ -422,7 +422,7 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.match(apiLlamamientos, /const RUTA_PROPUESTAS_LLAMAMIENTO = "\/api\/vec\/bolsa\/propuestas-llamamiento"/);
   assert.match(apiLlamamientos, /if \(capacidad !== true\)/);
   assert.match(apiLlamamientos, /esquema: "vec\.bolsa\.propuesta-llamamiento\.solicitud\.v1"/);
-  assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /Idempotency-Key|randomUUID|claveIdempotenciaPropuesta/);
+  assert.doesNotMatch(`${apiLlamamientos}\n${flujoLlamamientos}`, /Idempotency-Key|randomUUID|claveIdempotenciaPropuesta/);
   assert.match(flujoLlamamientos, /cliente\.solicitar\(\{ necesidadId, capacidad \}\)/);
   assert.doesNotMatch(javascript, /import\("\.\/portal-presentacion-adaptador\.js/);
   assert.doesNotMatch(javascript, /^import .*portal-presentacion-adaptador/m);
@@ -464,7 +464,7 @@ test("la navegación productiva rechaza vistas de presentación y Selección sin
   assert.match(javascript, /if \(vista\.startsWith\("seleccion-"\)\) return false/);
   assert.match(javascript, /function vistaPermitida\(vista\)/);
   assert.match(javascript, /history\.replaceState\(null, "", rutaSegura\)/);
-  assert.match(javascript, /rutaPortalConFiltroCT\(window\.location, hashSeguro\)/);
+  assert.match(javascript, /rutaPortalConFiltroCT\(ubicacionSinOfertas, hashSeguro\)/);
   assert.match(eventos, /navegar\(vista, \{ enfocar: false, desdeRuta: true \}\)/);
 });
 
@@ -494,7 +494,9 @@ test("el portal conserva el shell rico y delega el catálogo sin fijar módulos 
     "baremacion", "alegaciones", "importacion", "llamamientos", "estadisticas", "auditoria", "configuracion"])
     assert.match(html, new RegExp(`data-vista="${vista}"`));
   assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratos"/);
-  assert.match(html, /data-categoria-bolsa="documentos" data-vista="documentos"[^>]*disabled/u);
+  const documentos = html.match(/<button\b[^>]*data-categoria-bolsa="documentos" data-vista="documentos"[^>]*>/u);
+  assert.ok(documentos, "falta el acceso a los documentos de Bolsa");
+  assert.doesNotMatch(documentos[0], /\bdisabled(?:\s|=|>)/u);
   assert.match(javascript, /renderizarPantallaLlamamientos/u);
   assert.match(javascript, /instalarSelectorLlamamientos/u);
   assert.equal(traducirPortal("txt_elija_una_bolsa_para_iniciar_un_llamamiento"), "Elija una bolsa para iniciar un llamamiento.");

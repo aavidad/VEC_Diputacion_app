@@ -63,6 +63,7 @@ type SolicitudHechoEmpleadoB2 struct {
 	EmpleadoRef             string
 	OrganismoRef            string
 	RelacionRef             string
+	OcupacionRef            string
 	RevisionEsperada        int64
 	RelacionVersionEsperada int64
 	UnidadRef               string
@@ -121,6 +122,10 @@ func NuevoMaterialHechoEmpleadoB2(s SolicitudHechoEmpleadoB2) (MaterialActoRegis
 		s.Procedencia.Validar() != nil || s.Actor.Validar() != nil || !hechoRegistroB2Valido(s) {
 		return MaterialActoRegistroEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido
 	}
+	esquema := "vec.personal.registro-empleado-b2.hecho.v1"
+	if s.OcupacionRef != "" {
+		esquema = "vec.personal.registro-empleado-b2.hecho-cierre-ocupacion.v1"
+	}
 	return nuevoMaterialActoB2("hecho", s.EmpleadoRef, s.OrganismoRef, s.Actor, struct {
 		Esquema                 string                    `json:"esquema"`
 		Operacion               string                    `json:"operacion"`
@@ -128,6 +133,7 @@ func NuevoMaterialHechoEmpleadoB2(s SolicitudHechoEmpleadoB2) (MaterialActoRegis
 		EmpleadoRef             string                    `json:"empleado_ref"`
 		OrganismoRef            string                    `json:"organismo_ref"`
 		RelacionRef             string                    `json:"relacion_ref"`
+		OcupacionRef            string                    `json:"ocupacion_ref,omitempty"`
 		RevisionEsperada        int64                     `json:"revision_esperada"`
 		RelacionVersionEsperada int64                     `json:"relacion_version_esperada"`
 		UnidadRef               string                    `json:"unidad_ref"`
@@ -148,7 +154,7 @@ func NuevoMaterialHechoEmpleadoB2(s SolicitudHechoEmpleadoB2) (MaterialActoRegis
 		VigenteHasta            string                    `json:"vigente_hasta"`
 		Procedencia             ProcedenciaActoEmpleadoB2 `json:"procedencia"`
 		Actor                   identidadActoB2           `json:"actor"`
-	}{"vec.personal.registro-empleado-b2.hecho.v1", "hecho", s.Tipo, s.EmpleadoRef, s.OrganismoRef, s.RelacionRef, s.RevisionEsperada, s.RelacionVersionEsperada, s.UnidadRef, s.Regimen, s.Modalidad, s.Situacion, s.ClaseServicio, s.ClaseOcupacion, s.Estado, s.PlazaRef, s.PuestoRef, s.VersionPlazaRef, s.VersionPuestoRef, s.PeriodoDesde.Texto(), s.PeriodoHasta.Texto(), s.DiasReconocidos, s.VigenteDesde.Texto(), s.VigenteHasta.Texto(), s.Procedencia, identidadActoRegistroB2(s.Actor)})
+	}{esquema, "hecho", s.Tipo, s.EmpleadoRef, s.OrganismoRef, s.RelacionRef, s.OcupacionRef, s.RevisionEsperada, s.RelacionVersionEsperada, s.UnidadRef, s.Regimen, s.Modalidad, s.Situacion, s.ClaseServicio, s.ClaseOcupacion, s.Estado, s.PlazaRef, s.PuestoRef, s.VersionPlazaRef, s.VersionPuestoRef, s.PeriodoDesde.Texto(), s.PeriodoHasta.Texto(), s.DiasReconocidos, s.VigenteDesde.Texto(), s.VigenteHasta.Texto(), s.Procedencia, identidadActoRegistroB2(s.Actor)})
 }
 
 type identidadActoB2 struct {
@@ -180,7 +186,9 @@ func nuevoMaterialActoB2(tipo, ref, organismo string, actor core.ContextoActor, 
 	if tipo == "hecho" {
 		accionTipo = "hecho_empleado_rrhh"
 	}
-	recurso := core.RecursoAutorizable{Referencia: ref, ModuloID: "personal", Tipo: accionTipo, Ambitos: map[string]string{"objetivo_ref": ref, "organismo_ref": organismo}, Atributos: map[string]string{"operacion": tipo, "material_sha256": hex.EncodeToString(suma[:])}}
+	// Ámbito: el organismo; el objetivo concreto va en los atributos firmados
+	// y Personal42 lo coteja con la fila que escribe.
+	recurso := core.RecursoAutorizable{Referencia: ref, ModuloID: "personal", Tipo: accionTipo, Ambitos: map[string]string{"organismo_ref": organismo}, Atributos: map[string]string{"objetivo_ref": ref, "operacion": tipo, "material_sha256": hex.EncodeToString(suma[:])}}
 	if _, err = recurso.HuellaContextoAutorizacionSHA256(); err != nil {
 		return MaterialActoRegistroEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido
 	}
@@ -222,18 +230,20 @@ func hechoRegistroB2Valido(s SolicitudHechoEmpleadoB2) bool {
 		return false
 	}
 	if s.Tipo == "relacion" {
-		return ((s.RelacionRef == "" && s.RelacionVersionEsperada == 0) || (ReferenciaRelacionValida(s.RelacionRef) && s.RelacionVersionEsperada >= 1)) && patronReferenciaB2.MatchString(s.UnidadRef) && s.Regimen.Validar() == nil && s.Modalidad.Validar() == nil && s.Situacion.Vacia() && s.ClaseServicio.Vacia() && s.ClaseOcupacion == "" && estadoRelacionB2Valido(s.Estado)
+		return s.OcupacionRef == "" && ((s.RelacionRef == "" && s.RelacionVersionEsperada == 0) || (ReferenciaRelacionValida(s.RelacionRef) && s.RelacionVersionEsperada >= 1)) && patronReferenciaB2.MatchString(s.UnidadRef) && s.Regimen.Validar() == nil && s.Modalidad.Validar() == nil && s.Situacion.Vacia() && s.ClaseServicio.Vacia() && s.ClaseOcupacion == "" && estadoRelacionB2Valido(s.Estado)
 	}
 	if !ReferenciaRelacionValida(s.RelacionRef) || s.RelacionVersionEsperada < 1 {
 		return false
 	}
 	switch s.Tipo {
 	case "ocupacion":
-		return s.Regimen.Vacia() && s.Modalidad.Validar() == nil && s.Situacion.Vacia() && s.ClaseServicio.Vacia() && referenciaOrganizacionB2Valida(s.PlazaRef) && (s.PuestoRef == "" || referenciaOrganizacionB2Valida(s.PuestoRef)) && patronReferenciaB2.MatchString(s.UnidadRef) && (s.ClaseOcupacion == "titular" || s.ClaseOcupacion == "provisional" || s.ClaseOcupacion == "temporal" || s.ClaseOcupacion == "reserva") && patronReferenciaB2.MatchString(s.VersionPlazaRef)
+		cierre := s.OcupacionRef != "" && patronOcupacionCargo.MatchString(s.OcupacionRef) && s.Estado == "finalizada" && s.RevisionEsperada >= 2
+		alta := s.OcupacionRef == ""
+		return (cierre || alta) && s.Regimen.Vacia() && s.Modalidad.Validar() == nil && s.Situacion.Vacia() && s.ClaseServicio.Vacia() && referenciaOrganizacionB2Valida(s.PlazaRef) && (s.PuestoRef == "" || referenciaOrganizacionB2Valida(s.PuestoRef)) && patronReferenciaB2.MatchString(s.UnidadRef) && (s.ClaseOcupacion == "titular" || s.ClaseOcupacion == "provisional" || s.ClaseOcupacion == "temporal" || s.ClaseOcupacion == "reserva") && patronReferenciaB2.MatchString(s.VersionPlazaRef)
 	case "servicio":
-		return s.Regimen.Vacia() && s.Modalidad.Vacia() && s.Situacion.Vacia() && s.ClaseServicio.Validar() == nil && s.ClaseOcupacion == "" && s.PeriodoDesde.Validar() == nil && s.PeriodoHasta.Validar() == nil && s.PeriodoDesde.AntesDe(s.PeriodoHasta) && s.DiasReconocidos >= 0 && (s.Estado == "declarado" || s.Estado == "comprobado" || s.Estado == "reconocido")
+		return s.OcupacionRef == "" && s.Regimen.Vacia() && s.Modalidad.Vacia() && s.Situacion.Vacia() && s.ClaseServicio.Validar() == nil && s.ClaseOcupacion == "" && s.PeriodoDesde.Validar() == nil && s.PeriodoHasta.Validar() == nil && s.PeriodoDesde.AntesDe(s.PeriodoHasta) && s.DiasReconocidos >= 0 && (s.Estado == "declarado" || s.Estado == "comprobado" || s.Estado == "reconocido")
 	case "situacion":
-		return s.Regimen.Vacia() && s.Modalidad.Vacia() && s.Situacion.Validar() == nil && s.ClaseServicio.Vacia() && s.ClaseOcupacion == "" && (s.Estado == "vigente" || s.Estado == "finalizada" || s.Estado == "rectificada")
+		return s.OcupacionRef == "" && s.Regimen.Vacia() && s.Modalidad.Vacia() && s.Situacion.Validar() == nil && s.ClaseServicio.Vacia() && s.ClaseOcupacion == "" && (s.Estado == "vigente" || s.Estado == "finalizada" || s.Estado == "rectificada")
 	}
 	return false
 }

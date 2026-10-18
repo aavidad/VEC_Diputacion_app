@@ -474,7 +474,6 @@ const (
 var (
 	ErrNoLocalesFound = errors.New("i18n: no locale files found")
 	ErrLocaleRequired = errors.New("i18n: locale is required")
-	ErrKeyRequired    = errors.New("i18n: key is required")
 )
 ```
 
@@ -485,11 +484,11 @@ type Catalog struct {
 	// Has unexported fields.
 }
 
-func Load(opts ...Option) (*Catalog, error)
+func Load() (*Catalog, error)
 
-func LoadDir(dir string, opts ...Option) (*Catalog, error)
+func LoadDir(dir string) (*Catalog, error)
 
-func LoadFS(fsys fs.FS, dir string, opts ...Option) (*Catalog, error)
+func LoadFS(fsys fs.FS, dir string) (*Catalog, error)
 
 func New(defaultLocale string, messages map[string]map[string]string) (*Catalog, error)
 
@@ -502,12 +501,6 @@ func (c *Catalog) Lookup(locale, key string) (string, bool)
 func (c *Catalog) Message(locale, key string) (string, bool)
 
 func (c *Catalog) T(locale, key string) string
-
-func (c *Catalog) Translate(locale, key string) string
-
-type Option func(*config)
-
-func WithDefaultLocale(locale string) Option
 ```
 
 ## Paquete `internal/vec/canonico/almacen`

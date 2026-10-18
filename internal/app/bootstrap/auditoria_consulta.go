@@ -307,7 +307,7 @@ func (r registradorFronterasPorSuperficieDesarrollo) RegistrarAuditoriaFronteraR
 		return auditoria.ErrDenegada
 	}
 	switch orden.Superficie {
-	case vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal:
+	case vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal, vecports.SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH:
 		if dependenciaAuditoriaConsultaNula(r.ct) {
 			return auditoria.ErrNoDisponible
 		}
@@ -509,7 +509,7 @@ func nuevoProveedorOpcionesAuditoriaConsultaDesarrollo(
 	if err != nil {
 		return nil, auditoria.Opciones{}, errAutoridadesAuditoriaConsultaDesarrollo
 	}
-	consulta, err := fichero.NuevaConsultaCatalogos(ruta)
+	consulta, err := fichero.NuevaConsultaCatalogoProvisionable(ruta)
 	if err != nil {
 		return nil, auditoria.Opciones{}, errAutoridadesAuditoriaConsultaDesarrollo
 	}
@@ -525,7 +525,7 @@ func nuevoProveedorOpcionesAuditoriaConsultaDesarrollo(
 		return nil, auditoria.Opciones{}, errAutoridadesAuditoriaConsultaDesarrollo
 	}
 	opciones, err := proveedor.Actuales(ctx)
-	if err != nil || !opciones.EsEjemplo || opciones.PermisoRequerido != auditoria.AccionConsultar {
+	if err != nil || opciones.PermisoRequerido != auditoria.AccionConsultar {
 		return nil, auditoria.Opciones{}, errAutoridadesAuditoriaConsultaDesarrollo
 	}
 	return proveedor, opciones, nil

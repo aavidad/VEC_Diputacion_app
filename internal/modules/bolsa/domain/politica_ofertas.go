@@ -5,10 +5,9 @@ import (
 	"regexp"
 )
 
-// PoliticaOfertas conserva el plazo y el calendario configurables de cada
-// bolsa. RRHH ha fijado dos días desde la notificación (02/10/2026); la
-// unidad y el calendario siguen siendo configurables. La edición crea una
-// nueva versión; las ofertas anteriores conservan la que las gobernó.
+// PoliticaOfertas conserva el inicio, plazo y calendario configurables de
+// cada bolsa. La edición crea una versión nueva; las ofertas anteriores
+// conservan la política que las gobernó.
 type PoliticaOfertas struct {
 	Plazo        PlazoPoliticaOfertas        `json:"plazo"`
 	Adjudicacion AdjudicacionPoliticaOfertas `json:"adjudicacion"`
@@ -16,6 +15,9 @@ type PoliticaOfertas struct {
 	// Plazas es opcional (duda 75). Sin él, cada oferta tiene una sola plaza y
 	// la adjudicación confirmada la cubre, como en las versiones anteriores.
 	Plazas *PlazasPoliticaOfertas `json:"plazas,omitempty"`
+	// Su ausencia conserva las publicaciones anteriores: solo disponibles y
+	// ninguna modalidad excluida por una preferencia no declarada.
+	CriteriosOfrecimiento *CriteriosOfrecimiento `json:"criterios_ofrecimiento,omitempty"`
 }
 
 // PlazasPoliticaOfertas gobierna las ofertas con varias plazas: si se llama a
@@ -48,13 +50,19 @@ func (p PlazasPoliticaOfertas) Validar() error {
 }
 
 type PlazoPoliticaOfertas struct {
-	// Vacío conserva la forma histórica; las nuevas ofertas exigen notificación.
+	// Vacío conserva la forma histórica; las nuevas ofertas exigen un inicio
+	// explícito. Publicación usa el instante durable de la oferta.
 	Inicio        string `json:"inicio,omitempty"`
 	Unidad        string `json:"unidad"`
 	Cantidad      int    `json:"cantidad"`
 	Computo       string `json:"computo"`
 	MunicipioSede string `json:"municipio_sede"`
 }
+
+const (
+	InicioPlazoOfertaPublicacion  = "publicacion"
+	InicioPlazoOfertaNotificacion = "notificacion"
+)
 
 type AdjudicacionPoliticaOfertas struct {
 	Criterio     string `json:"criterio"`
@@ -79,12 +87,17 @@ func (p PoliticaOfertas) Validar() error {
 	plazoValido := ((unidad == "dias_habiles" || unidad == "dias_naturales") &&
 		cantidad >= 1 && cantidad <= 30 && computo == "administrativo") ||
 		(unidad == "horas_naturales" && cantidad >= 1 && cantidad <= 720 && computo == "continuo_utc")
-	if !plazoValido || (p.Plazo.Inicio != "" && p.Plazo.Inicio != "notificacion") ||
+	if !plazoValido || (p.Plazo.Inicio != "" && p.Plazo.Inicio != InicioPlazoOfertaNotificacion && p.Plazo.Inicio != InicioPlazoOfertaPublicacion) ||
 		!municipioINE.MatchString(p.Plazo.MunicipioSede) ||
 		p.Adjudicacion.Criterio != "orden_vigente" || p.Adjudicacion.Elegibilidad != "disposicion_en_plazo" ||
 		!ConfirmacionAdjudicacionValida(p.Adjudicacion.Confirmacion) ||
 		p.NoCubierta.Accion != "llamamiento_directo" || p.NoCubierta.Condicion != "sin_disposiciones_elegibles" {
 		return ErrPoliticaOfertasInvalida
+	}
+	if p.CriteriosOfrecimiento != nil {
+		if err := p.CriteriosOfrecimiento.Validar(); err != nil {
+			return ErrPoliticaOfertasInvalida
+		}
 	}
 	if p.Plazas != nil {
 		return p.Plazas.Validar()
@@ -92,13 +105,13 @@ func (p PoliticaOfertas) Validar() error {
 	return nil
 }
 
-// ValidarParaOfertasNuevas impide que una versión histórica sin origen
-// explícito se interprete como una política desde la notificación.
+// ValidarParaOfertasNuevas impide reinterpretar una versión histórica sin
+// inicio explícito. La versión vigente decide entre publicación y notificación.
 func (p PoliticaOfertas) ValidarParaOfertasNuevas() error {
 	if err := p.Validar(); err != nil {
 		return err
 	}
-	if p.Plazo.Inicio != "notificacion" {
+	if p.Plazo.Inicio != InicioPlazoOfertaNotificacion && p.Plazo.Inicio != InicioPlazoOfertaPublicacion {
 		return ErrPoliticaOfertasInvalida
 	}
 	return nil

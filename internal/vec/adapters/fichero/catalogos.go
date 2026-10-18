@@ -31,6 +31,7 @@ var (
 
 	patronRevisionPaquete = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,79}$`)
 	patronSHA256Paquete   = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	patronRefOpacaPaquete = regexp.MustCompile(`^(?:(?:car|per|enc|cta|prf|org)_[a-f0-9]{32}|ref:[a-f0-9]{64})$`)
 	patronDNIPaquete      = regexp.MustCompile(`(?i)(?:^|[^0-9])[0-9]{8}[A-Z](?:$|[^A-Z0-9])`)
 	patronNIEPaquete      = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9])[XYZ][0-9]{7}[A-Z](?:$|[^A-Z0-9])`)
 	patronNIFPaquete      = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9])[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J](?:$|[^A-Z0-9])`)
@@ -63,6 +64,21 @@ type ConsultaCatalogos struct {
 }
 
 func NuevaConsultaCatalogos(ruta string) (*ConsultaCatalogos, error) {
+	return nuevaConsultaCatalogos(ruta, true)
+}
+
+// NuevaConsultaCatalogoProvisionable lee un paquete que no lleva la marca de
+// demostración porque no es la autoridad: solo es la fuente que se instala por
+// el canal migrador y que el arranque coteja con la huella guardada en
+// PostgreSQL. Mantiene todos los demás controles del paquete (tamaño, claves
+// duplicadas o desconocidas, datos personales y secretos, metadatos y
+// catálogo canónico). Si el paquete sí declara demostración, se exige el aviso
+// igual que en NuevaConsultaCatalogos.
+func NuevaConsultaCatalogoProvisionable(ruta string) (*ConsultaCatalogos, error) {
+	return nuevaConsultaCatalogos(ruta, false)
+}
+
+func nuevaConsultaCatalogos(ruta string, exigirDemostracion bool) (*ConsultaCatalogos, error) {
 	ruta = strings.TrimSpace(ruta)
 	if ruta == "" {
 		return nil, fmt.Errorf("%w: ruta vacia", domain.ErrCatalogoConfigurableInvalido)
@@ -80,14 +96,14 @@ func NuevaConsultaCatalogos(ruta string) (*ConsultaCatalogos, error) {
 	if err != nil || len(contenido) == 0 || len(contenido) > maximoBytesPaqueteCatalogo {
 		return nil, fmt.Errorf("%w: tamano no permitido", domain.ErrCatalogoConfigurableInvalido)
 	}
-	return nuevaConsultaCatalogosDesdeJSON(contenido)
+	return nuevaConsultaCatalogosDesdeJSONConMarca(contenido, exigirDemostracion)
 }
 
 func nuevaConsultaCatalogosDesdeJSON(contenido []byte) (*ConsultaCatalogos, error) {
-	if patronDNIPaquete.Match(contenido) || patronNIEPaquete.Match(contenido) || patronNIFPaquete.Match(contenido) || patronCorreoPaquete.Match(contenido) ||
-		patronTelefonoPaquete.Match(contenido) || patronIBANPaquete.Match(contenido) || patronClavePaquete.Match(contenido) {
-		return nil, fmt.Errorf("%w: posible dato personal o secreto", domain.ErrCatalogoConfigurableInvalido)
-	}
+	return nuevaConsultaCatalogosDesdeJSONConMarca(contenido, true)
+}
+
+func nuevaConsultaCatalogosDesdeJSONConMarca(contenido []byte, exigirDemostracion bool) (*ConsultaCatalogos, error) {
 	if err := validarJSONCatalogoSinClavesDuplicadas(contenido); err != nil {
 		return nil, fmt.Errorf("%w: contenido JSON rechazado", domain.ErrCatalogoConfigurableInvalido)
 	}
@@ -100,7 +116,10 @@ func nuevaConsultaCatalogosDesdeJSON(contenido []byte) (*ConsultaCatalogos, erro
 	if err := exigirFinJSONCatalogo(decodificador); err != nil {
 		return nil, fmt.Errorf("%w: mas de un documento JSON", domain.ErrCatalogoConfigurableInvalido)
 	}
-	if err := validarPaqueteCatalogo(paquete); err != nil {
+	if err := validarPrivacidadPaqueteCatalogo(contenido); err != nil {
+		return nil, err
+	}
+	if err := validarPaqueteCatalogo(paquete, exigirDemostracion); err != nil {
 		return nil, err
 	}
 	canonico, err := paquete.Catalogo.ClonarCanonico()
@@ -116,6 +135,76 @@ func nuevaConsultaCatalogosDesdeJSON(contenido []byte) (*ConsultaCatalogos, erro
 			Aviso:         paquete.Fuente.Aviso,
 		},
 	}, nil
+}
+
+func validarPrivacidadPaqueteCatalogo(contenido []byte) error {
+	var datos any
+	decodificador := json.NewDecoder(bytes.NewReader(contenido))
+	decodificador.UseNumber()
+	if err := decodificador.Decode(&datos); err != nil {
+		return fmt.Errorf("%w: contenido JSON rechazado", domain.ErrCatalogoConfigurableInvalido)
+	}
+	if contieneDatoPrivadoCatalogo(datos, "") {
+		return fmt.Errorf("%w: posible dato personal o secreto", domain.ErrCatalogoConfigurableInvalido)
+	}
+	return nil
+}
+
+func contieneDatoPrivadoCatalogo(valor any, ruta string) bool {
+	switch dato := valor.(type) {
+	case map[string]any:
+		for clave, hijo := range dato {
+			if contienePatronPrivadoCatalogo(clave) {
+				return true
+			}
+			rutaHijo := clave
+			if ruta != "" {
+				rutaHijo = ruta + "." + clave
+			}
+			if texto, ok := hijo.(string); ok &&
+				valorOpacoCatalogoValido(ruta, clave, texto) {
+				// Una huella o referencia comprobada puede contener cifras
+				// parecidas a un teléfono; jamás se exime texto libre.
+				if patronClavePaquete.MatchString(texto) {
+					return true
+				}
+				continue
+			}
+			if contieneDatoPrivadoCatalogo(hijo, rutaHijo) {
+				return true
+			}
+		}
+	case []any:
+		for _, hijo := range dato {
+			if contieneDatoPrivadoCatalogo(hijo, ruta+"[]") {
+				return true
+			}
+		}
+	case string:
+		return contienePatronPrivadoCatalogo(dato)
+	case json.Number:
+		return contienePatronPrivadoCatalogo(dato.String())
+	}
+	return false
+}
+
+// Decisión de dirección del 15/10/2026: las huellas SHA-256 tipadas de
+// 64 hex y los campos *_ref con formato opaco cerrado no son texto libre.
+// Las referencias admitidas son (car|per|enc|cta|prf|org)_<32 hex> o
+// ref:<64 hex>. Ninguna otra referencia, número o texto evita el detector.
+func valorOpacoCatalogoValido(ruta, clave, valor string) bool {
+	if (ruta == "fuente" && clave == "origen_sha256") ||
+		(ruta == "catalogo.entradas[].atributos" && strings.HasSuffix(clave, "_sha256")) {
+		return patronSHA256Paquete.MatchString(valor)
+	}
+	return strings.HasSuffix(clave, "_ref") && patronRefOpacaPaquete.MatchString(valor)
+}
+
+func contienePatronPrivadoCatalogo(valor string) bool {
+	return patronDNIPaquete.MatchString(valor) || patronNIEPaquete.MatchString(valor) ||
+		patronNIFPaquete.MatchString(valor) || patronCorreoPaquete.MatchString(valor) ||
+		patronTelefonoPaquete.MatchString(valor) || patronIBANPaquete.MatchString(valor) ||
+		patronClavePaquete.MatchString(valor)
 }
 
 func (c *ConsultaCatalogos) ObtenerCatalogo(ctx context.Context, id string, version int) (domain.CatalogoConfigurable, error) {
@@ -239,10 +328,11 @@ func (c *ConsultaCatalogos) ObtenerMetadatosFuenteCatalogos(ctx context.Context)
 	return c.metadatos, nil
 }
 
-func validarPaqueteCatalogo(paquete paqueteCatalogo) error {
+func validarPaqueteCatalogo(paquete paqueteCatalogo, exigirDemostracion bool) error {
 	fuente := paquete.Fuente
-	if paquete.VersionEsquema != versionEsquemaPaqueteCatalogo || !fuente.Demostracion ||
-		!strings.Contains(strings.ToUpper(fuente.Aviso), "DEMOSTRACI") ||
+	if paquete.VersionEsquema != versionEsquemaPaqueteCatalogo ||
+		(exigirDemostracion && !fuente.Demostracion) ||
+		(fuente.Demostracion && !strings.Contains(strings.ToUpper(fuente.Aviso), "DEMOSTRACI")) ||
 		!patronRevisionPaquete.MatchString(fuente.Revision) ||
 		!patronSHA256Paquete.MatchString(fuente.OrigenSHA256) ||
 		fuente.ActualizadaEn.IsZero() || fuente.ActualizadaEn.Location() != time.UTC ||

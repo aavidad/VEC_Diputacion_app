@@ -1,0 +1,11 @@
+{
+  "operacion": "publicar",
+  "tipo": "regimen",
+  "ref": "regimen:funcionario_interino",
+  "version": 1,
+  "revision": 1,
+  "denominacion": "Funcionario interino",
+  "huella_sha256": "b71173918fecb9a1c69548616e7e61e9928cdfa9978c8ad5d14ee852c20f9460",
+  "vigente_desde": "2026-10-11",
+  "vigente_hasta": ""
+}

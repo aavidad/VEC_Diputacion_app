@@ -1,0 +1,35 @@
+# Orden causal para un clon que parte del estado anterior a la inscripción.
+# Inscripción sigue apagada: estas migraciones no crean claves, asignaciones ni permisos ADMIN.
+# En una base con parte de esta cadena ya instalada, verificar el inventario y aplicar
+# únicamente el sufijo pendiente. Nunca reaplicar UP ni ejecutar DOWN con historia.
+# roles_up, revalidación y BC1 no fijan lock_timeout/statement_timeout: aplicarlos con PGOPTIONS="-c lock_timeout=5s -c statement_timeout=60s".
+# AD228 y AD236 toman ACCESS EXCLUSIVE sobre clave_capacidad_version: aplicarlas con la aplicación parada.
+# AD236 endurece también contra nulos las dos puertas globales del núcleo V3 (afecta a todos sus consumidores: Dietas, Personal, Cronos, CT…).
+# Cada «# <huella>» fija la SHA256 de la ruta siguiente.
+# Primero: lista_sql_inscripcion_nucleo_20261010.txt.
+# 3f49a405fd798bea91a66c00bb3135b4f250c02c19f441771d1abc1c66b5533f
+deploy/postgresql/bolsa_convocatorias/roles_up.sql
+# fc63053318b5f2d4b5b53d5265ec98f5b6bcaec5f086b1c04fbf4732685a1209
+deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000001_revalidacion_convocatorias.up.sql
+# 818916065270d42bf263fbe679196fdac3ecb6cb4a43dc9b4856b1993451ce1e
+deploy/postgresql/bolsa_convocatorias/migraciones/000001_almacen_convocatorias.up.sql
+# e5cffe00f4487b74f36c02c1fdc057ce326427fcf59666c11c1fc3cdd9915f73
+deploy/postgresql/contexto_actor_v1/migraciones/000038_candidato_persona_inscripcion.up.sql
+# 71aab8097ecedc2ffaa0fefa8d59e5860fb0d76bcf82ac93ff71c369eb303426
+deploy/postgresql/catalogos_configurables/migraciones/000011_lectura_lote_categorias_inscripcion.up.sql
+# 8cfe217b4144f250c8c144be4c5ed7ab84324d30f6c1d5447505d72196c8adf6
+deploy/postgresql/bolsa_convocatorias/migraciones/000009_comprobar_publicacion_inscripcion.up.sql
+# 66a6fdca1f7a12d5df0d8e6c56f9fb46571f798c48bfdad0ead19e68e51d5a30
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000228_inscripcion_v3_auditoria.up.sql
+# d213a213fa3604d37af398d49cb2076c6a675f2e44e70420afa98afdcb8bf1b4
+deploy/postgresql/bolsa_llamamientos/migraciones/000096_inscripcion_convocatoria.up.sql
+# Segundo: lista_sql_inscripcion_incorporacion_20261010.txt.
+# 612696787df1eac4630c5bbb801d4592ea4f7a3b266729197a445100ab3b98a9
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000229_incorporacion_inscripcion_v3.up.sql
+# b547a2019da01f4538af2519e01777c636605943ef5e650fa75d6e3c21114ad8
+deploy/postgresql/bolsa_llamamientos/migraciones/000097_incorporacion_inscripcion.up.sql
+# Tercero: consumidor nominal de perfiles ADMIN.
+# b184cd896d2581440918e9ae767bc36e44e8200abb7a553f8d1a4099bbba5e42
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000236_consumidor_actos_admin_perfiles.up.sql
+# d29f596204374e6daac48c7b472f27ed097c8bec9ec1ac727aaf593f26ae7ce2
+deploy/postgresql/autorizacion/migraciones/000074_consumo_nominal_actos_admin_v2.up.sql

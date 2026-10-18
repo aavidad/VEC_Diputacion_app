@@ -99,6 +99,10 @@ func TestPoliticaInicioExplicitoSoloObligatorioParaOfertasNuevas(t *testing.T) {
 		t.Fatal("política de notificación explícita rechazada")
 	}
 	p.Plazo.Inicio = "publicacion"
+	if p.Validar() != nil || p.ValidarParaOfertasNuevas() != nil {
+		t.Fatal("política de publicación explícita rechazada")
+	}
+	p.Plazo.Inicio = "desconocido"
 	if p.Validar() == nil || p.ValidarParaOfertasNuevas() == nil {
 		t.Fatal("origen no ejecutable aceptado")
 	}

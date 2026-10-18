@@ -278,13 +278,16 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		return nil
 	}
 	superficie := superficieAuditoriaFronteraRutaExacta(ruta)
-	// Usuarios y Aspirantes fallan cerrado: una denegación sin anotar es 503.
+	// Usuarios, Aspirantes, Meritos y Personal fallan cerrado si falta el apunte.
 	// Aspirantes nunca anota persona.
 	usuarios := superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
-		superficie == ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
-	bolsa := superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
+		superficie == ports.SuperficieAuditoriaFronteraRutaExactaAspirantes ||
+		superficie == ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera
+	bolsa := superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato || superficie == ports.SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH
 	preparacion := superficie == ports.SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases ||
 		superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo
+	personal := superficie == ports.SuperficieAuditoriaFronteraRutaExactaPersonal
+	organizacionHistorica := superficie == ports.SuperficieAuditoriaFronteraRutaExactaOrganizacionHistoricaPersonal
 	if h == nil || dependenciaRutaExactaNula(h.registradorAuditoriaFronteraRutasExactas) {
 		if usuarios {
 			return errAuditoriaFronteraUsuariosNoDisponible
@@ -292,7 +295,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
 		}
-		if preparacion {
+		if preparacion || personal || organizacionHistorica {
 			return ErrAutoridadRutaExactaNoDisponible
 		}
 		return nil
@@ -303,7 +306,11 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		Superficie:     superficie,
 		Ruta:           ruta,
 	}
-	if superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias &&
+	if personal {
+		orden.Ruta = RutaAuditoriaRegistroEmpleadoB2(ruta)
+	}
+	if (superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
+		superficie == ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera) &&
 		motivo == ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado {
 		orden.ActorRef, _ = ctx.Value(claveActorAuditoriaPreferenciasUsuarios{}).(string)
 	}
@@ -318,7 +325,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
 		}
-		if preparacion {
+		if preparacion || personal || organizacionHistorica {
 			return ErrAutoridadRutaExactaNoDisponible
 		}
 		return nil
@@ -341,7 +348,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if bolsa {
 			return errAuditoriaFronteraBolsaNoDisponible
 		}
-		if preparacion {
+		if preparacion || personal || organizacionHistorica {
 			return ErrAutoridadRutaExactaNoDisponible
 		}
 	}
@@ -349,7 +356,12 @@ func (h *Handler) registrarDenegacionRutaExacta(
 }
 
 func superficieAuditoriaFronteraRutaExacta(ruta string) string {
+	if domain.RutaAuditoriaDocumentosBolsaRRHHValida(ruta) {
+		return ports.SuperficieAuditoriaFronteraRutaExactaDocumentosBolsaRRHH
+	}
 	switch ruta {
+	case RutaOrganizacionHistoricaPersonal:
+		return ports.SuperficieAuditoriaFronteraRutaExactaOrganizacionHistoricaPersonal
 	case "/api/vec/auditoria/opciones", "/api/vec/auditoria/consultas":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAuditoria
 	case "/api/vec/usuarios/mis-preferencias", "/api/vec/usuarios/area-personal/mis-preferencias",
@@ -359,16 +371,24 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 	case "/api/vec/bolsa/mi-bolsa", "/api/vec/bolsa/mi-bolsa/historial",
 		"/api/vec/bolsa/mi-bolsa/solicitudes", "/api/vec/bolsa/mi-bolsa/respuestas",
 		"/api/vec/bolsa/mi-bolsa/solicitudes-documentales",
-		"/api/vec/bolsa/mi-bolsa/disposiciones", "/api/vec/bolsa/mi-bolsa/contacto":
+		"/api/vec/bolsa/mi-bolsa/disposiciones", "/api/vec/bolsa/mi-bolsa/contacto",
+		"/api/vec/bolsa/mi-bolsa/preferencias", "/api/vec/bolsa/mi-bolsa/justificantes":
 		return ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
 	case "/api/vec/aspirantes/area-personal/mi-ficha":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAspirantes
+	case "/api/vec/meritos/cartera", "/api/vec/meritos/cartera/retiradas", "/api/vec/meritos/cartera/declaraciones":
+		return ports.SuperficieAuditoriaFronteraRutaExactaMeritosCartera
+	case RutaCatalogosRegistroEmpleadoB2, RutaEmpleadosOrganismoB2, RutaVacantesEmpleadoB2:
+		return ports.SuperficieAuditoriaFronteraRutaExactaPersonal
 	case "/api/vec/seleccion/preparacion-bases/guardar", "/api/vec/seleccion/preparacion-bases/consultar":
 		return ports.SuperficieAuditoriaFronteraRutaExactaSeleccionPreparacionBases
 	case "/api/vec/bolsa/reglas-baremo/borradores/alta", "/api/vec/bolsa/reglas-baremo/versiones/consultar",
 		"/api/vec/bolsa/reglas-baremo/recibos/recuperar":
 		return ports.SuperficieAuditoriaFronteraRutaExactaBolsaReglasBaremo
 	default:
+		if strings.HasPrefix(ruta, PrefijoFichaEmpleadoB2) {
+			return ports.SuperficieAuditoriaFronteraRutaExactaPersonal
+		}
 		return ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
 	}
 }
