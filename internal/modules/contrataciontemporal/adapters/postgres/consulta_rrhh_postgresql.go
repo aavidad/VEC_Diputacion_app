@@ -254,6 +254,7 @@ func (s *SesionConsultaRRHHPostgreSQL) consultarDetalle(
 	defer clear(salida.contenidoCanonico)
 	var resultadoBolsaRaw []byte
 	defer clear(resultadoBolsaRaw)
+	var numeroPersonas int16
 	var selectoresRaw, reciboSelectoresCanon []byte
 	var selectoresHuella, selloSelectores string
 	defer clear(selectoresRaw)
@@ -273,6 +274,10 @@ func (s *SesionConsultaRRHHPostgreSQL) consultarDetalle(
 		}
 		argumentosSQL = append(argumentosSQL, cursor)
 		destinos = append(destinos, &resultadoBolsaRaw)
+	}
+	conNumeroPersonas := consultaDetalleRRHHConNumeroPersonas(consulta)
+	if conNumeroPersonas {
+		destinos = append(destinos, &numeroPersonas)
 	}
 	if conSelectores {
 		var filtroSQL any
@@ -328,6 +333,12 @@ func (s *SesionConsultaRRHHPostgreSQL) consultarDetalle(
 				return ports.DetalleExpedienteRRHH{},
 					ports.ErrResultadoConsultaRRHHNoConfiable
 			}
+			if conNumeroPersonas {
+				if numeroPersonas < 1 || numeroPersonas > 100 {
+					return ports.DetalleExpedienteRRHH{}, ports.ErrResultadoConsultaRRHHNoConfiable
+				}
+				detalle.Solicitud.NumeroPersonas = uint32(numeroPersonas)
+			}
 			if consulta == consultaDetalleConBolsaRRHHPostgreSQL || consulta == consultaDetalleConBolsaYSelectoresRRHHPostgreSQL {
 				resultado, err := ResultadoBolsaRRHHDesdeSQL(resultadoBolsaRaw)
 				if err != nil {
@@ -349,6 +360,18 @@ func (s *SesionConsultaRRHHPostgreSQL) consultarDetalle(
 			return detalle, nil
 		},
 	)
+}
+
+// consultaDetalleRRHHConNumeroPersonas indica si la lectura devuelve, tras el
+// recibo y el resultado de Bolsa, la cifra de personas de CT225. Las cuatro
+// lecturas del detalle ordinario la incluyen; la del original de la propuesta no.
+func consultaDetalleRRHHConNumeroPersonas(consulta string) bool {
+	switch consulta {
+	case consultaDetalleRRHHPostgreSQL, consultaDetalleConBolsaRRHHPostgreSQL,
+		consultaDetalleConSelectoresRRHHPostgreSQL, consultaDetalleConBolsaYSelectoresRRHHPostgreSQL:
+		return true
+	}
+	return false
 }
 
 func validarAnexoSelectoresRRHH(

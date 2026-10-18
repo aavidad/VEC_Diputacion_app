@@ -73,6 +73,7 @@
     {"variable": "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL", "tipo": "conexion", "uso_real": false, "requiere": ["VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL", "VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL"]},
 
     {"variable": "VEC_BOLSA_REGLAS_SOURCE_PATH", "tipo": "catalogo", "uso_real": true},
+    {"variable": "VEC_BOLSA_TRANSICIONES_GOBIERNO_CONFIG_JSON", "tipo": "catalogo", "uso_real": false, "nota": "Selecciona el catálogo normativo, el perfil activo y el motivo publicados para consultar y editar las reglas de situación. Sin selección válida solo se cierra esta función."},
     {"variable": "VEC_BOLSA_ROLES_SEGREGACION_SOURCE_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Sin él rige la exclusión de siempre."},
     {"variable": "VEC_BOLSA_CORREO_LLAMAMIENTO_PATH", "tipo": "catalogo", "uso_real": false, "nota": "Sin él rige el catálogo versionado del correo."},
     {"variable": "VEC_BOLSA_AVISO_OFERTA_ENLACE", "tipo": "ajuste", "uso_real": false, "nota": "Enlace HTTPS a Mi Bolsa para el aviso de ofertas. Sin él o si es inválido se conservan los avisos pendientes."},

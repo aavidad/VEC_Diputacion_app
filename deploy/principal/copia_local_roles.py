@@ -10,6 +10,11 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+# F0-31: B119 exige estos nombres antes de instalar. El respaldo HZ37 no
+# los cita. Solo se crean sin LOGIN; su activación documental es posterior.
+ROLES_B119 = {'vec_externo_documentos_bolsa_datos',
+              'vec_interno_documentos_bolsa_rrhh'}
+
 
 @dataclass(frozen=True)
 class Token:
@@ -255,11 +260,14 @@ def extract(paths):
 
 
 def main(argv):
+    b119 = argv[-1:] == ['--roles-b119']
+    if b119:
+        argv = argv[:-1]
     if len(argv) != 4:
-        print('Uso: copia_local_roles.py esquema.sql acl-base.sql acl-tipos.sql', file=sys.stderr)
+        print('Uso: copia_local_roles.py esquema.sql acl-base.sql acl-tipos.sql [--roles-b119]', file=sys.stderr)
         return 2
     try:
-        names = extract([Path(arg) for arg in argv[1:]])
+        names = sorted(set(extract([Path(arg) for arg in argv[1:]])) | (ROLES_B119 if b119 else set()))
     except (OSError, UnicodeError, SQLNoAdmitido) as exc:
         # Los ficheros de origen pueden ser privados; nunca mostrar ruta ni contenido.
         print(f'No se pudo preparar el SQL de roles ({type(exc).__name__}).', file=sys.stderr)

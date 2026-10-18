@@ -207,6 +207,8 @@ func errorResultadoSeguimiento(resultado string) error {
 		return ports.ErrCancelacionNoAdmitida
 	case "tras_fiscalizacion":
 		return ports.ErrCancelacionTrasFiscalizacion
+	case "seleccion_oferta_pendiente":
+		return ports.ErrCancelacionConOfertaPendiente
 	case "cancelacion_existente":
 		return ports.ErrCancelacionYaRegistrada
 	case "ginpix_existente":
