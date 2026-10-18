@@ -160,7 +160,7 @@ class Copia:
                            stderr=subprocess.PIPE, check=True, timeout=120)
         with (self.raiz / 'roles.sql').open('wb') as destino:
             ejecutar([sys.executable, REPO / 'deploy/principal/copia_local_roles.py',
-                      self.raiz / 'esquema.sql', *acl], salida=destino)
+                      self.raiz / 'esquema.sql', *acl, '--roles-b119'], salida=destino)
         self.sql(self.raiz / 'roles.sql', 'restauracion.log')
         with dump.open('rb') as fuente, (self.raiz / 'restauracion.log').open('ab') as destino:
             subprocess.run(['docker', 'exec', '-i', '-u', 'postgres', self.nombre,
