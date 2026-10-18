@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- B138: selección propia de modalidades, con historia separada del orden de bolsas.
--- Instalar después de AD291 y AUT104. Las lecturas reutilizan B104 y B116.
+-- Instalar después de AD296 y AUT104. Las lecturas reutilizan B104 y B116.
 BEGIN;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -18,6 +18,20 @@ BEGIN
  OR to_regrole('vec_bolsa_llamamientos_portal_externo') IS NULL
  OR to_regrole('vec_bolsa_llamamientos_preferencias_interna') IS NULL
  OR to_regprocedure('vec_autorizacion.cotejar_campos_preferencias_modalidades_aut104(jsonb,jsonb)') IS NULL
+ -- AD296 debe dejar las dos fachadas auditadas con proyecciones de 8/5 campos.
+ -- Se cotejan cuerpo y privilegios antes de sustituir las lectoras de Bolsa.
+ OR (SELECT encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') FROM pg_proc p
+     WHERE p.oid='vec_autorizacion_atestada_v3.registrar_lectura_preferencias_bolsas_v1(bytea,bytea,jsonb)'::regprocedure
+      AND p.prokind='f' AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
+      AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','lock_timeout=2s','statement_timeout=10s']::text[]
+      AND p.proacl::text='{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario,vec_bolsa_llamamientos_propietario=X/vec_autorizacion_atestada_v3_propietario}')
+    IS DISTINCT FROM '014ea7fbf8229619c736d0ebcea7964634dbd7c545b9b6a76d659d5a2a334bf8'
+ OR (SELECT encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') FROM pg_proc p
+     WHERE p.oid='vec_autorizacion_atestada_v3.registrar_lectura_preferencias_bolsas_interna_v1(bytea,bytea,jsonb)'::regprocedure
+      AND p.prokind='f' AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
+      AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','lock_timeout=2s','statement_timeout=10s']::text[]
+      AND p.proacl::text='{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario,vec_bolsa_llamamientos_propietario=X/vec_autorizacion_atestada_v3_propietario}')
+    IS DISTINCT FROM '0a6ec140c5b7b4c52a2242269418397c527f446fc21c131af91a7cd0d728c5dc'
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_interna_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR has_function_privilege('vec_bolsa_llamamientos_propietario','vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') IS NOT TRUE
@@ -157,8 +171,9 @@ BEGIN
    OR e->>'catalogo_id' IS DISTINCT FROM 'vec.contratacion_temporal.reglas'
    OR jsonb_typeof(e->'catalogo_version') IS DISTINCT FROM 'number'
    OR e->>'catalogo_version' !~ '^[1-9][0-9]{0,18}$'
-   OR e->>'catalogo_huella_sha256' !~ '^[0-9a-f]{64}$'
-   OR e->>'entrada_clave' IS DISTINCT FROM 'c12.modalidad.'||e->>'clave')
+   OR jsonb_typeof(e->'catalogo_huella_sha256') IS DISTINCT FROM 'string'
+   OR (e->>'catalogo_huella_sha256' ~ '^[0-9a-f]{64}$') IS NOT TRUE
+   OR e->>'entrada_clave' IS DISTINCT FROM 'c12.modalidad.'||(e->>'clave'))
  OR (SELECT count(DISTINCT e->>'clave') FROM jsonb_array_elements(p_disponibles) e)
     <>jsonb_array_length(p_disponibles)
  OR EXISTS(SELECT 1 FROM unnest(p_modalidades) s WHERE s !~ '^[a-z][a-z0-9._-]{1,79}$'

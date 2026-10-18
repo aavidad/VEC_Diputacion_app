@@ -41,6 +41,8 @@
     "recibo_referencia": "Receipt reference",
     "recibo_copiar": "Copy reference",
     "recibo_copiado": "Reference copied",
+    "adjudicacion_recibo_titulo": "Allocation receipt",
+    "adjudicacion_recibo_fecha": "Allocated on",
     "recibo_fecha": "Published on",
     "aviso_total": {
       "one": "Email alert for {cuenta} person",

@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- B138 en copia desechable, después de AD291/AUT104/B138. Todo revierte.
+-- B138 en copia desechable, después de AD296/AUT104/B138. Todo revierte.
 -- Este doble V3 prueba atomicidad, CAS y replay; no acredita firma real.
 BEGIN;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
@@ -91,7 +91,7 @@ BEGIN
 END $material$;
 SET SESSION AUTHORIZATION vec_externo_bolsa_desarrollo;
 DO $efecto$
-DECLARE p prueba_b138%ROWTYPE;q prueba_b138%ROWTYPE;r1 record;r2 record;r3 record;r4 record;
+DECLARE p prueba_b138%ROWTYPE;q prueba_b138%ROWTYPE;r1 record;r2 record;r3 record;r4 record;campo text;
 BEGIN
  SELECT * INTO STRICT p FROM prueba_b138 WHERE tipo='0';
  SELECT * INTO STRICT r1 FROM vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(
@@ -122,6 +122,25 @@ BEGIN
    p.candidato,ARRAY['vacante','vacante'],p.opciones,0,'clave-prueba-b138-dup',clock_timestamp(),
    p.capacidad,p.decision,'\x06',p.contexto,1,1,'\x01','\x01','\x01','\x01');
   RAISE EXCEPTION 'B138: selección duplicada aceptada' USING ERRCODE='55000';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+ FOREACH campo IN ARRAY ARRAY['clave','catalogo_id','catalogo_version',
+  'catalogo_huella_sha256','entrada_clave'] LOOP
+  BEGIN
+   PERFORM * FROM vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(
+    p.candidato,ARRAY['sustitucion','vacante'],
+    jsonb_set(p.opciones,ARRAY['0',campo],'null'::jsonb),0,
+    'clave-prueba-b138-null',clock_timestamp(),p.capacidad,p.decision,
+    '\x07',p.contexto,1,1,'\x01','\x01','\x01','\x01');
+   RAISE EXCEPTION 'B138: campo nulo aceptado' USING ERRCODE='55000';
+  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+ END LOOP;
+ BEGIN
+  PERFORM * FROM vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(
+   p.candidato,ARRAY['sustitucion','vacante'],
+   jsonb_set(p.opciones,'{0,catalogo_huella_sha256}',to_jsonb(repeat('1',64)::numeric)),0,
+   'clave-prueba-b138-tipo',clock_timestamp(),p.capacidad,p.decision,
+   '\x08',p.contexto,1,1,'\x01','\x01','\x01','\x01');
+  RAISE EXCEPTION 'B138: huella numérica aceptada' USING ERRCODE='55000';
  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
  BEGIN
   PERFORM * FROM vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(

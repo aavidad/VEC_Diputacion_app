@@ -139,6 +139,9 @@ class Copia:
 
     def crear(self, args):
         verificar_fuente()
+        if args.rrhh_original:
+            from copia_local_rrhh import validar
+            validar(args.rrhh_original, REPO, BASE)
         memoria()
         puerto_libre(args.puerto_pg)
         puerto_libre(args.puerto_app)
@@ -161,7 +164,8 @@ class Copia:
                 puerto_pg=args.puerto_pg, puerto_app=args.puerto_app,
                 puerto_smtp=args.puerto_smtp if args.modulos else None,
                 fuente=str(REPO), origen=str(origen),
-                preparada=False, revision=revision(), creada_en=time.time()))
+                preparada=False, revision=revision(), creada_en=time.time(),
+                material_modo='rrhh_original' if args.rrhh_original else 'nuevo'))
         guardar(self.raiz / 'fuentes.json', FUENTES)
         self.pg_password()
         self.pg()
@@ -190,9 +194,13 @@ class Copia:
             diario.append(dict(ruta=str(ruta.relative_to(REPO)), sha256=huella))
             guardar(self.raiz / 'sql_aplicado.json', diario)
         self.comprobar_acl(acl, permitir_nuevas=True)
-        with (self.raiz / 'material.log').open('wb') as log:
-            ejecutar([REPO / 'scripts/generar_credenciales_desarrollo.sh', self.material],
-                      salida=log, entorno={**os.environ, 'VEC_DESARROLLO_VIGENCIA_DIAS': '90'})
+        if args.rrhh_original:
+            from copia_local_rrhh import preparar
+            preparar(args.rrhh_original, self.material, REPO, BASE)
+        else:
+            with (self.raiz / 'material.log').open('wb') as log:
+                ejecutar([REPO / 'scripts/generar_credenciales_desarrollo.sh', self.material],
+                          salida=log, entorno={**os.environ, 'VEC_DESARROLLO_VIGENCIA_DIAS': '90'})
         self.tls_pg()
         if args.modulos:
             from copia_local_conexiones import preparar
@@ -482,11 +490,14 @@ def main():
     p.add_argument('--puerto-smtp', type=int, default=11081)
     p.add_argument('--lista-sql', action='append', default=[])
     p.add_argument('--modulos', action='store_true', help='Preparar conexiones nuevas de Bolsa y Contratación')
+    p.add_argument('--rrhh-original', type=Path, help='Conservar el conjunto privado original de RRHH en una copia nueva')
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
     p.add_argument('--archivo-clon')
     args = p.parse_args()
     if args.portal_externo and not args.modulos:
         p.error('--portal-externo requiere --modulos')
+    if args.rrhh_original and (args.orden != 'crear' or not args.modulos):
+        p.error('--rrhh-original solo se admite en crear --modulos')
     if not re.fullmatch('[a-z]', args.equipo) or not re.fullmatch('[a-z0-9][a-z0-9-]{0,40}', args.instancia):
         p.error('Equipo: una letra minúscula; instancia: letras, cifras y guiones')
     if not 1024 <= args.puerto_pg <= 65535 or not 1024 <= args.puerto_app <= 65535 or args.puerto_pg == args.puerto_app:
