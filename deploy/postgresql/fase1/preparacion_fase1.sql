@@ -189,7 +189,11 @@ VALUES
   ('vec_bolsa_llamamientos_desarrollo',
    'vec_bolsa_llamamientos.llamamiento.emitir.v1',
    'llamamiento.emitir.v1',
-   'bolsa_llamamientos_ci', 'interna_corporativa');
+   'bolsa_llamamientos_ci', 'interna_corporativa'),
+  ('vec_bolsa_llamamientos_desarrollo',
+   'vec_bolsa_llamamientos.situacion_participacion.cambiar.v1',
+   'bolsa.situacion_participacion.cambiar',
+   'vec-server', 'interna_corporativa');
 RESET ROLE;
 
 DO $post$
@@ -249,7 +253,7 @@ END $post$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 DO $post_filas$
 BEGIN
-  IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1) <> 2
+  IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1) <> 3
      OR NOT EXISTS (
        SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
        WHERE login_nombre = 'vec_ct_o207_runtime'
@@ -263,6 +267,13 @@ BEGIN
          AND audiencia_consumo = 'vec_bolsa_llamamientos.llamamiento.emitir.v1'
          AND operacion = 'llamamiento.emitir.v1'
          AND proceso = 'bolsa_llamamientos_ci'
+         AND canal_permitido = 'interna_corporativa')
+     OR NOT EXISTS (
+       SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+       WHERE login_nombre = 'vec_bolsa_llamamientos_desarrollo'
+         AND audiencia_consumo = 'vec_bolsa_llamamientos.situacion_participacion.cambiar.v1'
+         AND operacion = 'bolsa.situacion_participacion.cambiar'
+         AND proceso = 'vec-server'
          AND canal_permitido = 'interna_corporativa')
   THEN RAISE EXCEPTION 'F0-29: orígenes previos de AD278 incompatibles'
     USING ERRCODE = '55000';
