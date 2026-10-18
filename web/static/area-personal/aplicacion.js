@@ -7,14 +7,16 @@ import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=2026
 import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import {
-  renderizarLlamamientos, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261015-o-justificante-bolsa-v4";
+  renderizarLlamamientos, renderizarSeccionOfertasMiBolsa, renderizarSubsanaciones,
+} from "./vistas/seguimiento-tramites.js?v=20261018-f114-v1";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-mibolsa-respuesta-anterior-v1";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261015-o-justificante-bolsa-v4";
 import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
 import { actualizarCamposRenunciaJustificada, enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261015-o-justificante-bolsa-v4";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v4";
 import { crearControladorPreferenciasBolsas } from "./mi-bolsa-preferencias-bolsas.js?v=20261012-preferencias-bolsas-v1";
+import { crearControladorPreferenciasModalidades } from "./mi-bolsa-preferencias-modalidades.js?v=20261018-f114-v1";
+import { validarRespuestaMiBolsa } from "./contrato.js?v=20261015-o-justificante-bolsa-v4";
 
 
 const RUTAS = Object.freeze({
@@ -46,6 +48,26 @@ const OPERACIONES = Object.freeze(new Set([
 const rutaDisponible = (estado, vista) => Object.hasOwn(RUTAS, vista) && estado.vistasDisponibles.has(vista);
 const tituloOperacion = (operacion) => (OPERACIONES.has(operacion) ? traducir(`areaPersonal.operacion.${operacion}`) : "");
 const t = (clave, variables) => traducir(`areaPersonal.app.${clave}`, variables);
+
+export async function consultarTodasOfertasMiBolsa(fetchImpl, { signal } = {}) {
+  let respuesta;
+  try {
+    respuesta = await fetchImpl("/api/vec/bolsa/mi-bolsa?ofertas=todas", {
+      method: "GET", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
+      headers: { Accept: "application/json" }, signal,
+    });
+  } catch { throw Object.assign(new Error("ver_todas"), { codigo: "verTodasError" }); }
+  if (respuesta?.status !== 200) {
+    const codigo = ({ 401: "verTodasAutenticacion", 403: "verTodasDenegado" })[respuesta?.status] || "verTodasError";
+    throw Object.assign(new Error("ver_todas"), { codigo });
+  }
+  try {
+    const texto = await respuesta.text();
+    if (new TextEncoder().encode(texto).byteLength > 512 * 1024) throw new TypeError();
+    const instantanea = validarRespuestaMiBolsa(JSON.parse(texto));
+    return { ...instantanea, ofertas: instantanea.ofertas ?? [] };
+  } catch { throw Object.assign(new Error("ver_todas"), { codigo: "verTodasError" }); }
+}
 
 export function conservarResultadoContactoPropio(estado, { reciboRef, version, correo }) {
   estado.contactoPropio = { ...estado.contactoPropio, version };
@@ -268,6 +290,8 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   estado.destruirInscripcionBolsa = null;
   estado.destruirHistorialMiBolsa?.();
   estado.destruirHistorialMiBolsa = null;
+  estado.controladorPreferenciasModalidades?.destruir();
+  estado.controladorPreferenciasModalidades = null;
   if (estado.vista === "llamamientos") estado.controladorPreferenciasBolsas?.desmontar();
   else {
     estado.controladorPreferenciasBolsas?.destruir();
@@ -297,6 +321,19 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
     estado.controladorPreferenciasBolsas ??= crearControladorPreferenciasBolsas({ fetchImpl: estado.fetchImpl });
     estado.controladorPreferenciasBolsas.montar({ contenedor: porId("preferencias-bolsas"),
       participaciones: estado.participaciones });
+    estado.controladorPreferenciasModalidades = crearControladorPreferenciasModalidades({
+      host: porId("preferencias-modalidades"), api: estado.fetchImpl,
+      onVerTodas: async ({ signal }) => {
+        const generacionActual = estado.generacionVista;
+        const instantanea = await consultarTodasOfertasMiBolsa(estado.fetchImpl, { signal });
+        if (signal.aborted || estado.vista !== "llamamientos" || estado.generacionVista !== generacionActual) return;
+        const region = porId("ofertas-mi-bolsa");
+        if (!region) throw new Error("ver_todas");
+        region.innerHTML = renderizarSeccionOfertasMiBolsa(instantanea.ofertas, { mostrarVacio: true });
+        region.scrollIntoView?.({ block: "nearest" });
+      },
+    });
+    estado.controladorPreferenciasModalidades.montar();
     estado.destruirHistorialMiBolsa = montarHistorialMiBolsa({
       contenedor: porId("historial-mi-bolsa"), fetchImpl: estado.fetchImpl,
     })?.destruir ?? null;
@@ -753,6 +790,8 @@ async function cargar(estado) {
     const datos = datosDeRespuesta(respuesta);
     estado.controladorPreferenciasBolsas?.destruir();
     estado.controladorPreferenciasBolsas = null;
+    estado.controladorPreferenciasModalidades?.destruir();
+    estado.controladorPreferenciasModalidades = null;
     estado.datos = exigirDatosOperativos(datos);
     estado.soloPreferencias = false;
     estado.participaciones = respuesta?.consulta?.participaciones || [];
@@ -828,6 +867,7 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     destruirContactoPropio: null,
     destruirHistorialMiBolsa: null,
     controladorPreferenciasBolsas: null,
+    controladorPreferenciasModalidades: null,
     desmontarOportunidades: null,
     fetchImpl,
     participaciones: [],

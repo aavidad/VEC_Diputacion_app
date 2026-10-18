@@ -55,7 +55,9 @@ test("Mi Bolsa conserva su cohorte y la entrada de inscripción usa la URL nueva
     [arranque, "./cliente-http.js"]]) {
     assert.equal(versionDe(fuente, ruta), cohorte, ruta);
   }
-  assert.equal(versionDe(aplicacion, "./vistas/seguimiento-tramites.js"), "20261015-o-justificante-bolsa-v4");
+  assert.equal(versionDe(aplicacion, "./vistas/seguimiento-tramites.js"), "20261018-f114-v1");
+  assert.equal(versionDe(aplicacion, "./mi-bolsa-preferencias-modalidades.js"), "20261018-f114-v1");
+  assert.equal(versionDe(seguimiento, "../mi-bolsa-preferencias-modalidades.js"), "20261018-f114-v1");
   const entrada = versionDe(html, "/area-personal/arranque.js");
   assert.ok(entrada, "falta la entrada versionada vigente");
   assert.equal(versionDe(arranque, "./aplicacion.js"), entrada);
@@ -65,7 +67,7 @@ test("Mi Bolsa conserva su cohorte y la entrada de inscripción usa la URL nueva
   assert.equal(versionesDe(arranque, "./cliente-http.js").length, 2,
     "la carga inicial y la diferida usan el mismo cliente HTTP");
   assert.equal(JSON.parse(cache).version, "20261003-pwa-ci-v5");
-  for (const ruta of ["mi-bolsa-portal.js", "mi-bolsa-historial.js", "contrato.js", "cliente-http.js", "contacto-propio.js",
+  for (const ruta of ["mi-bolsa-portal.js", "mi-bolsa-historial.js", "mi-bolsa-preferencias-modalidades.js", "mi-bolsa-preferencias-modalidades.css", "contrato.js", "cliente-http.js", "contacto-propio.js",
     "vistas/seguimiento-tramites.js", "aplicacion.js", "arranque.js"]) {
     assert.equal(manifiesto.split(`static/area-personal/${ruta}`).length - 1, 1, ruta);
   }
