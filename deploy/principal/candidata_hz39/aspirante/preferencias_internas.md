@@ -69,23 +69,35 @@ demás audiencias internas cuando el selector está activo.
   `persona_ref`, `candidato_ref`). La cuenta y el perfil son distintos de los
   del aspirante externo.
 - Selectores: `VEC_BOLSA_PREFERENCIAS_INTERNA_ENABLED=true` y
-  `VEC_USUARIOS_PREFERENCIAS_ENABLED=true` con su material interno; el portal
-  externo no debe estar combinado en el mismo proceso.
+  `VEC_USUARIOS_PREFERENCIAS_ENABLED=true`. Esta ruta se sirve desde el proceso
+  combinado: Usuarios exige sus dos configuraciones, interna y externa, con
+  certificados, cuentas, perfiles y conexiones separados. El certificado de
+  Antonio se incluye en Usuarios interno; para completar Usuarios externo se
+  prepara otra identidad de la copia. No se selecciona el montaje externo de
+  Mi Bolsa en ese proceso. La configuración completa de Contratación temporal
+  publica la clave de capacidad que usa la escritura interna.
 
 Comprobar en la copia: arranque con el selector apagado y encendido; `GET`
 propio 200 con apunte de lectura; `PUT` 201 con recibo; repetición 200 con el
 mismo recibo; tras reiniciar aplicación y PostgreSQL, la misma versión, orden,
 recibo y fecha. No se admiten contextos de otra candidatura ni sesiones
-externas. Los rechazos posteriores a la preparación de la sesión dejan
-auditoría nominal de Bolsa; si falla antes el cotejo del candidato, el registro
+externas. Cuando GET llega a evaluar la concesión, una denegación registra el
+intento de lectura; si falla antes el cotejo del candidato, el registro
 compartido de sesión y contexto no expresa la acción denegada. `POST` responde 405.
 
-## Estado (16/10)
+## Estado (18/10)
 
 Ensayado en una copia de HZ37 con main y las SQL de #1144, #1146 y #1155: las
-cuatro migraciones se instalan una vez y la prueba focal pasa. El recorrido
-HTTP con recibo y reinicio en copia está pendiente: necesita la identidad
-interna del aspirante, Usuarios interno activo, la concesión y el LOGIN
-anteriores. CT225 y CT227 de #1146 no entran sobre main en esa copia (la
-consulta de detalle de RRHH de main tiene otra huella); no afecta al
-consumidor central.
+cuatro migraciones se instalan una vez y la prueba focal pasa. El ensayo final
+incluye las 66 migraciones de main, siete de F1-16, cinco de F1-04 y estas
+cuatro; CT225 y CT227 se instalan sin el conflicto de preimagen anterior.
+El consumidor central conserva la huella `a4649132…fb2`. La guarda de B116
+exige nombre y huella exactos de la restricción anterior: acepta la preimagen
+esperada y rechaza una con una condición adicional, sin sustituirla.
+La prueba de recibo SQL usa un doble transaccional del consumidor; por sí sola
+no comprueba la firma real. La identidad corporativa de Antonio, las dos
+superficies de Usuarios, la concesión y el LOGIN están preparados como datos
+de la copia. Sus sondas nominales pasan. El montaje conjunto de Contratación
+todavía no completa la ruta de Mi Bolsa y preferencias responde 503.
+Quedan el GET y PUT reales con recibo y la recuperación tras reiniciar ambos
+procesos. F1-12 continúa pendiente de ese recorrido.
