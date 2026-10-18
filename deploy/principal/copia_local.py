@@ -228,6 +228,7 @@ class Copia:
             # identidad, contexto y confianza. El reinicio carga su entorno.
             with (self.raiz / 'portal-preparacion.log').open('ab') as log:
                 ejecutar([sys.executable, portal, '--raiz', self.raiz], salida=log)
+            comprobar_conexiones(self)
             estado = self.leer()
             estado['portal_externo_preparado'] = True
             guardar(self.estado, estado)
