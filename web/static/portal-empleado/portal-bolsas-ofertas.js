@@ -1,5 +1,5 @@
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261018-f171-main-v4";
+import { crearSuperficieHistorialOfrecimientos, traducirHistorialOfrecimientos } from "./portal-bolsas-historial-ofrecimientos.js?v=20261018-f171-integracion-v1";
 import { instanteDesdeHoraMadrid } from "./hora-madrid.js";
 import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20261018-f171-main-v4";
 import { renderizarJustificante } from "./portal-justificante.js";
