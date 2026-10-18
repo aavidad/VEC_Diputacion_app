@@ -88,6 +88,9 @@ En «Configuración, roles y permisos» consulta su perfil, las acciones que pue
 realizar y la política de disponibilidad tras un cese. Si falta un permiso,
 Administración publica una versión del rol con dos personas administradoras
 distintas. La nueva versión conserva sus asignaciones y los permisos anteriores.
+El ensayo local del 18 de octubre comprobó estas dos pantallas y recuperó
+tras reiniciar el recibo del cambio de rol. La selección desde Bolsa en Contratación temporal sigue
+pendiente de su activación conjunta; publicar el permiso no basta para acreditarla.
 
 En la ficha del candidato, Carmen o cualquier otra técnica de RRHH con el permiso
 vigente de su rol puede consultar y descargar el justificante de una renuncia

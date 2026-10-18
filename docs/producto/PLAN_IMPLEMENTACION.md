@@ -132,6 +132,14 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 
 ### 2.3 En curso
 
+**F0-09, permisos de consulta de RRHH.** La candidata c186438fd tiene cinco
+puertas verdes. En copia local, dos administradores publicaron el rol; perfil,
+política y recibo del cambio de rol están comprobados, también tras reiniciar. El origen CT
+actual requiere la fuente v2 de 40 campos, admitida antes de añadirla al rol:
+el acto existente no sustituye una acción ya concedida. Siguen pendientes esa
+publicación, Organización histórica y la selección con vínculo RPT compatible.
+Activación y límites en `deploy/principal/f0_09_rol_rrhh_20261016.md`.
+
 **F1-37, ajustes de firma.** Límite PDF de 2 MiB en firma VEC, cotas de transporte
 calculadas aparte, cierre de auditoría seguro y sonda de plantillas por
 organización (CT226, sobre CT218). Reutiliza las pantallas de plantillas y la
