@@ -654,7 +654,7 @@ test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras
   for (const modulo of [
     "/portal-empleado/modulos/auditoria/i18n.js?v=20260928-usab-auditoria-v3",
     "/portal-empleado/modulos/documentos/i18n.js?v=20260928-ppt-v2",
-    "/portal-empleado/portal-bolsas-ofertas.js?v=20261018-f118-reintento-reglas-v1",
+    "/portal-empleado/portal-bolsas-ofertas.js?v=20261018-f155-recibos-plaza-v1",
     "/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1",
     "/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2",
