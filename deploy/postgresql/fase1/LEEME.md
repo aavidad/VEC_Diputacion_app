@@ -42,11 +42,8 @@ con propietario interno, usa una ejecución breve de la misma imagen, sin red
 y con 64 MiB de límite, para vaciar exclusivamente su carpeta de datos.
 
 El esquema contiene propietarios y ACL que requieren roles previos. Los
-roles extraídos y los dos de B119 se crean sin LOGIN. La lista única explica
-que AD278 necesita dos identidades con LOGIN y membresías nominales de la
-copia de origen. Este ensayo no crea credenciales ni concede esas membresías:
-si falta una preimagen, informa del fallo de la migración y termina. Tampoco
-reproduce las membresías globales que no están en el DDL versionado.
+roles extraídos y los dos de B119 se crean sin LOGIN. Los demás requisitos
+de origen de AD278 se preparan con la semilla pública descrita abajo.
 
 El archivo de esquema ocupa 1,49 MB comprimido (13,45 MB de SQL). Se extrajo
 con PostgreSQL 18 mediante `pg_restore --schema-only --no-comments

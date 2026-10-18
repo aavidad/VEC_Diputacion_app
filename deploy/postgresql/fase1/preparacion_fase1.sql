@@ -124,9 +124,9 @@ BEGIN
        OR rol.rolvaliduntil < clock_timestamp() + INTERVAL '60 days'
        OR rol.rolvaliduntil > clock_timestamp() + INTERVAL '90 days'
        OR rol.admin_option OR NOT rol.inherit_option OR rol.set_option
-       OR rol.roleid <> CASE rol.rolname
+       OR rol.roleid <> (CASE rol.rolname
            WHEN 'vec_ct_o207_runtime' THEN 'vec_contratacion_temporal_ejecutor'::regrole
-           ELSE 'vec_bolsa_llamamientos_ejecutor'::regrole END
+           ELSE 'vec_bolsa_llamamientos_ejecutor'::regrole END)
     THEN RAISE EXCEPTION 'F0-29: rol o membresía fuera del contrato: %', rol.rolname
       USING ERRCODE = '55000';
     END IF;
