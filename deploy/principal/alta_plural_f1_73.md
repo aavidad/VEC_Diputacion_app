@@ -82,5 +82,5 @@ respondió 200. La ficha sigue indicando que la firma nominal no está
 disponible: falta un plan aplicable a la organización y unidad del expediente.
 No se firmó, fiscalizó ni reservó con CT235. Esos pasos siguen pendientes de
 la preparación común de firma; no se sustituyen por cambios de fase o
-permisos mediante SQL. La PR permanece en borrador hasta resolver ese límite
-y completar las puertas de integración.
+permisos mediante SQL. La reserva de varias plazas con CT235 se comprobará
+en la copia cuando exista ese plan de firma.
