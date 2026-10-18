@@ -53,7 +53,7 @@ async function arrancar(origen = null) {
       // La marca vuelve al portal en el mismo idioma que esta página.
       document.querySelector(".pc-marca")?.setAttribute("href", `/portal-empleado/?lang=${encodeURIComponent(pc.idioma)}`);
       instalarValidacionI18n(document, traducir);
-      const peticiones = await import("./peticiones-centro.js?v=20261013-ct-firma-tres-v3");
+      const peticiones = await import("./peticiones-centro.js?v=20261018-f173-alta-v2");
       peticiones.instalarAyudaPeticionCentro(document);
       ayuda.disabled = false;
       await peticiones.iniciarPeticionCentro();
