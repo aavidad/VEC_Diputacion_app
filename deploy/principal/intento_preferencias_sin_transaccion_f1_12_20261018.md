@@ -9,7 +9,7 @@ su transacción real; un intento no acredita acceso a los datos.
 
 1. Usar una copia local de la principal con PostgreSQL 18 y datos ficticios.
    La lista única contiene main tras HZ37 y las SQL propias en su orden exacto:
-   el bloque F1-12 (AD279, AUT96, B116 y AD275), después AD288 y AD294.
+   el bloque F1-12 (AD279, AUT96, B116 y AD275), después AD288, B128 y AD294.
    En una copia que ya recibió AD246 o AD275, cotejar su historia y no
    reaplicarlas. AD294 se instala una sola vez, sin lista parcial.
 2. AD294 coteja la función instalada de AD246 antes de reconstruir solo
