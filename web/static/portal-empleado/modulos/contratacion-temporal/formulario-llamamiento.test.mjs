@@ -2,16 +2,16 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { File } from "node:buffer";
 import test from "node:test";
-import { fechaRespuestaMadridUTC } from "./formulario-llamamiento.js?v=20261018-f136c-informe-v3";
+import { fechaRespuestaMadridUTC } from "./formulario-llamamiento.js?v=20261018-f136c-informe-v4";
 import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261018-f136c-informe-v3";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261018-f136c-informe-v4";
 import {
   CLAVE, EXPEDIENTE, PUBLICACIONES_PROPUESTA, seleccion, recibo,
   raizPrueba, montar, estadoSeleccionado, montarExpedienteSeleccionado,
   CORREO, HUELLA, archivoCorreo, comunicacionRegistrada, declaracion,
   justificante, abrirRespuesta, CLAVE_RESOLUCION, revisionManual,
   resolucionConfirmada, reciboResolucion, abrirResolucion,
-} from "./formulario-llamamiento-pruebas.js?v=20261018-f136c-informe-v3";
+} from "./formulario-llamamiento-pruebas.js?v=20261018-f136c-informe-v4";
 
 const MENSAJES_LLAMAMIENTO_EN = (await cargarCatalogosContratacionEnIdioma(
   "contratacion-temporal-llamamiento", "en",
