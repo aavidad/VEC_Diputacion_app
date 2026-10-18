@@ -69,6 +69,8 @@ jobs:
           node-version: '20'
       - name: Aprovisionar el ZIP OSM de la Release publica
         run: scripts/aprovisionar_cartografia_osm.sh
+      - name: Probar los guiones de la copia local y su lista SQL
+        run: python3 -m unittest discover -s deploy/principal -p 'test_*.py'
       - name: Puerta de calidad
         run: scripts/verificar_calidad.sh
       # El conductor O3a V5 (runner endurecido) queda fuera del CI por la
