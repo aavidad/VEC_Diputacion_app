@@ -768,6 +768,15 @@ propietario, sus privilegios, su RLS, sus índices, sus restricciones y su prueb
 5. La aplicación **no migra al arrancar**. Algunos módulos publican al arrancar
    versiones de políticas desde el catálogo (filas de datos, no esquema).
 
+AD296 (F1-13) reconstruye solo las dos fachadas de auditoría de preferencias
+para admitir las proyecciones exactas de ocho campos de Bolsas o cinco de
+modalidades. Conserva la autoridad vigente, el contexto, los permisos y la
+transacción del positivo. Los intentos de AD294/AD275 mantienen su cuerpo y
+su transacción vacía. Las cuatro funciones reciben un marcador de compatibilidad;
+no concede permiso. La consulta de modalidades necesita además AUT104, B138 y
+el servicio de O. No se reconstruye el consumidor central. Orden: AD295, AD296
+y AD291. Activación en `deploy/principal/proyecciones_preferencias_f1_13_20261018.md`.
+
 ### 9.7 Rendimiento
 
 Lecturas por debajo de 300 ms p95 con volumen real y sin N+1: listas con una
