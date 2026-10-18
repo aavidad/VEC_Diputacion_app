@@ -1,4 +1,4 @@
-# Confirmar una aceptación directa pendiente — primer corte de F1-06
+# Confirmar una aceptación directa pendiente — F1-71
 
 Dirección confirmó el 16/10/2026 a las 01:39 este alcance: RRHH confirma una aceptación de llamamiento directo desde la ficha existente. Se reutiliza la lista nominal de candidatos; este corte no añade una bandeja ni otra lectura. La admisión y el rechazo de justificaciones quedan pendientes de la integración de #1147 y de su cotejo nominal de custodia. CAT15 permanece reservada y sin activar.
 
@@ -16,7 +16,7 @@ Una resolución inmutable conserva respuesta, canon, clave, recibo y evento pend
 
 ## Activación y límites
 
-El [guion de activación](../../deploy/principal/confirmacion_aceptacion_directa_f1_06_20261016.md) describe publicación del permiso por dos administradores, origen de consumo, orden SQL y reinicio. AD288 corresponde a R; B128 conserva la escritura de Bolsa. Se reutiliza la política global de #1155 y su publicación normativa. No se activa CAT15 ni se interpreta una referencia documental como prueba de custodia.
+El [guion de activación](../../deploy/principal/aceptacion_desde_ficha_f1_71_20261018.md) describe publicación del permiso por dos administradores, origen de consumo, orden SQL y reinicio. AD288 corresponde a R; B128 conserva la escritura de Bolsa. Se reutiliza la política global de #1155 y su publicación normativa. No se activa CAT15 ni se interpreta una referencia documental como prueba de custodia.
 
 La regla de confirmación es provisional y configurable mediante la política de situación mientras RRHH responde la duda 157. El [Reglamento publicado el 16 de enero de 2026](https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1768521622300-final-680c0e98.pdf), artículos 10 y 11, se aplica al posterior corte de justificaciones según el procedimiento acreditado. El [cambio del 14 de mayo](https://bop.dipgra.es/export/sites/bop/.galleries/Documentos-Anuncios-en-PDF/firmado-1778713220300-final-241a2c51.pdf) regula la adhesión de organismos autónomos; no aporta un vínculo entre esta respuesta y una oferta publicada.
 
