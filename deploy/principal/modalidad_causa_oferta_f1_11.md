@@ -20,7 +20,7 @@ vigente del expediente. Se obtiene mediante el análisis ordinario de RRHH. Una
 oferta anterior se recupera con el comando guardado, sin completar sus campos
 con el análisis actual. Las ofertas nativas sin origen de CT mantienen su contrato.
 
-## Comprobación pendiente
+## Comprobación
 
 Ejecutar las pruebas `ct235_modalidad_causa_oferta.sql` y
 `b136_modalidad_causa_oferta.sql` de sus módulos después de instalar las dos SQL.
@@ -37,8 +37,16 @@ arranque sin activar el puente CT-Bolsa y con su configuración existente.
 
 Estado a 18/10: pruebas focales de Go conformes; 75 migraciones instaladas en la
 copia propia (73 del prefijo de main y CT235/B136), con las dos pruebas SQL
-conformes. Las SQL ensayadas corresponden al commit `53593f247`; la lista del
+conformes. Las SQL ensayadas corresponden al commit `05f646756`; la lista del
 prefijo procede de `8dd52c11` (#1195) y todas sus huellas coinciden con main.
-Semgrep local sin hallazgos. Quedan pendientes la reserva y publicación reales,
-el recorrido en navegador y el reinicio. La composición de CT en la copia
-depende del trabajo F0-28.
+Semgrep local sin hallazgos; GoSec no señala líneas nuevas, con errores de carga
+heredados al analizar la composición. La aplicación y PostgreSQL arrancan y se
+reinician sin activar el puente, con salud y portal disponibles. Quedan
+pendientes la reserva y publicación reales y su consulta y recuperación desde
+el navegador tras reiniciar. La composición de CT en la copia depende de F0-28.
+
+Las dos revisiones independientes de `05f646756` son favorables para código y
+SQL. La guarda de publicación exige el par en ofertas nuevas con origen CT,
+después de devolver una posible oferta histórica; la prueba
+`TestPublicarOfertaF111CTNuevaExigeParYRecuperaLegado` cubre los dos caminos del
+servicio. No se han simulado firmas ni consumos para sustituir el recorrido.
