@@ -1419,7 +1419,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		baseDerivacion = bolsa.preparador
 	}
 	derivacionNombramiento, cerrarDerivacion, err := nuevaRutaDerivacionNombramientoDesarrollo(
-		cfg, &alta, baseDerivacion, seguridadBorrador, derivador, reloj)
+		cfg, &alta, baseDerivacion, consultasRRHH.detalle, seguridadBorrador, derivador, reloj)
 	if err != nil {
 		return nil, nil, nil, err
 	}

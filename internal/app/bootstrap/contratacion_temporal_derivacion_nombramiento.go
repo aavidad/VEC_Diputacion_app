@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -21,33 +20,67 @@ import (
 // La lectura histórica conserva la preimagen de la clave original durante un
 // replay, aunque la cabeza actual del expediente padre haya avanzado.
 type preparadorDerivacionNombramientoDesarrollo struct {
-	soporte *soporteAltaContratacionTemporalDesarrollo
-	lector  ports.LectorExpedienteSeleccionLlamamiento
+	soporte   *soporteAltaContratacionTemporalDesarrollo
+	fronteras catalogoFronterasComunDesarrollo
+	detalle   httpinterno.ConsultorDetalleRRHH
 }
 
 func (p preparadorDerivacionNombramientoDesarrollo) PrepararDerivacionNombramiento(ctx context.Context,
 	e ports.EntradaDerivacionNombramiento,
 ) (ports.SolicitudDerivacionNombramiento, error) {
 	vacio := ports.SolicitudDerivacionNombramiento{}
-	if ctx == nil || p.soporte == nil || dependenciaEsNulaContratacionTemporalDesarrollo(p.lector) || e.Validar() != nil {
+	if ctx == nil || p.soporte == nil || p.fronteras.identidad == nil ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(p.detalle) || e.Validar() != nil {
 		return vacio, ports.ErrDerivacionNombramientoNoDisponible
 	}
 	c, valida := p.soporte.capacidadValida(ctx)
-	if !valida || c.ruta != httpinterno.RutaDerivacionNombramiento || c.metodo != http.MethodPost {
+	frontera, existe := fronteraSeguridadComunDesdeContexto(ctx)
+	ahora := p.soporte.reloj.Ahora()
+	if !valida || !existe || !p.fronteras.mismaInstancia(frontera.catalogo) ||
+		frontera.ruta != httpinterno.RutaDerivacionNombramiento || frontera.metodo != http.MethodPost ||
+		frontera.descriptor.Clave != "ct-nombramiento-derivar" ||
+		frontera.descriptor.ClaveCapacidad != string(domain.AccionDerivarNombramiento) ||
+		!frontera.descriptor.admitePerfil(p.soporte.contexto.Resultado.Contexto.PerfilActivoRef) ||
+		c.ruta != frontera.ruta || c.metodo != frontera.metodo || c.consultaRRHH == nil ||
+		!domain.InstanteUTCCanonico(c.certificadoVerificadoEn) ||
+		!domain.InstanteUTCCanonico(c.certificadoValidoHasta) ||
+		ahora.Before(c.certificadoVerificadoEn) || !ahora.Before(c.certificadoValidoHasta) {
 		return vacio, ports.ErrDerivacionNombramientoDenegada
 	}
-	padre, err := p.lector.LeerExpedienteParaSeleccion(ctx,
-		organizacionAltaContratacionTemporalDesarrollo, e.PadreRef, e.VersionPadre)
+	lectura, err := subconsultaDetalleContratacionTemporalDesarrollo(ctx, p.soporte, p.fronteras)
 	if err != nil {
-		return vacio, ports.ErrDerivacionNombramientoNoDisponible
+		return vacio, ports.ErrDerivacionNombramientoDenegada
 	}
-	if padre.Fiscalizado.Asignacion == nil || padre.Fiscalizado.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		padre.Fiscalizado.Referencia != e.PadreRef || padre.Fiscalizado.Version != e.VersionPadre {
+	padre, err := p.leerDetalle(lectura, e.PadreRef)
+	if ctx.Err() != nil {
+		return vacio, ctx.Err()
+	}
+	if err != nil && !errors.Is(err, ports.ErrDerivacionNombramientoDenegada) &&
+		!errors.Is(err, ports.ErrDerivacionNombramientoNoDisponible) {
+		return vacio, err
+	}
+	if err == nil && padre.Resumen.Version < e.VersionPadre {
 		return vacio, ports.ErrDerivacionNombramientoNoConfiable
 	}
-	canon, err := json.Marshal(padre.Fiscalizado)
-	if err != nil {
-		return vacio, ports.ErrDerivacionNombramientoNoDisponible
+	unidad := ""
+	if err == nil && padre.Resumen.Version == e.VersionPadre {
+		if padre.Resumen.FaseClave != domain.FaseFiscalizacion ||
+			padre.Resumen.EstadoClave != domain.EstadoEnCurso || padre.Fiscalizacion == nil ||
+			(padre.Fiscalizacion.ResultadoClave != domain.FiscalizacionFavorable &&
+				padre.Fiscalizacion.ResultadoClave != domain.FiscalizacionFavorableConObservaciones) {
+			return vacio, ports.ErrDerivacionNombramientoNoConfiable
+		}
+		unidad = padre.Asignacion.UnidadRef
+	} else {
+		// Si el padre avanzó o no es observable, otra lectura nominal del hijo
+		// recupera su unidad. El SQL posterior coteja la preimagen original.
+		hijoRef := ports.HijoRefDerivacionNombramiento(
+			organizacionAltaContratacionTemporalDesarrollo, e.PadreRef, e.NumeroPlaza)
+		hijo, fallo := p.leerDetalle(lectura, hijoRef)
+		if fallo != nil || hijo.Resumen.Version < 6 {
+			return vacio, ports.ErrDerivacionNombramientoNoDisponible
+		}
+		unidad = hijo.Asignacion.UnidadRef
 	}
 	s := ports.SolicitudDerivacionNombramiento{Esquema: ports.EsquemaSolicitudDerivacionNombramiento,
 		OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, PadreRef: e.PadreRef,
@@ -55,12 +88,36 @@ func (p preparadorDerivacionNombramientoDesarrollo) PrepararDerivacionNombramien
 			organizacionAltaContratacionTemporalDesarrollo, e.PadreRef, e.NumeroPlaza),
 		OfertaRef: e.OfertaRef, NumeroPlaza: e.NumeroPlaza, SecuenciaPlaza: e.SecuenciaPlaza,
 		ParticipacionRef: e.ParticipacionRef, ReciboAdjudicacionRef: e.ReciboAdjudicacionRef,
-		ClaveIdempotencia: e.ClaveIdempotencia, UnidadRef: padre.Fiscalizado.Asignacion.UnidadRef,
-		PadreCanonico: string(canon)}
+		ClaveIdempotencia: e.ClaveIdempotencia, UnidadRef: unidad}
 	if _, err := s.Canon(); err != nil {
 		return vacio, err
 	}
 	return s, nil
+}
+
+func (p preparadorDerivacionNombramientoDesarrollo) leerDetalle(ctx context.Context, ref string) (ports.DetalleExpedienteRRHH, error) {
+	vacio := ports.DetalleExpedienteRRHH{}
+	q, err := ports.NuevaSolicitudDetalleRRHH(ref, 0)
+	if err != nil {
+		return vacio, ports.ErrDerivacionNombramientoInvalida
+	}
+	d, err := p.detalle.Consultar(ctx, q)
+	if ctx.Err() != nil {
+		return vacio, ctx.Err()
+	}
+	if err != nil {
+		if errors.Is(err, ports.ErrAutorizacionDenegada) || errors.Is(err, ports.ErrConsultaRRHHNoObservable) {
+			return vacio, ports.ErrDerivacionNombramientoDenegada
+		}
+		return vacio, ports.ErrDerivacionNombramientoNoDisponible
+	}
+	if d.Resumen.Validar() != nil || d.Resumen.ExpedienteRef != ref ||
+		d.Resumen.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		d.Asignacion == nil || !domain.ReferenciaOpacaValida(d.Asignacion.UnidadRef) ||
+		(d.Resumen.UnidadRef != "" && d.Resumen.UnidadRef != d.Asignacion.UnidadRef) {
+		return vacio, ports.ErrDerivacionNombramientoNoConfiable
+	}
+	return d, nil
 }
 
 type autorizadorDerivacionNombramientoDesarrollo struct {
@@ -120,6 +177,7 @@ func clasificarAutoridadDerivacionNombramiento(err error) error {
 func nuevaRutaDerivacionNombramientoDesarrollo(cfg config.Config,
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
 	base *preparadorBorradorLlamamientoDesarrollo,
+	detalle httpinterno.ConsultorDetalleRRHH,
 	fronteras catalogoFronterasComunDesarrollo,
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
@@ -128,10 +186,6 @@ func nuevaRutaDerivacionNombramientoDesarrollo(cfg config.Config,
 	if alta == nil || alta.soporte == nil || alta.postgresql.ejecucion == nil {
 		h, err := httpinterno.NuevoManejadorDerivacionNombramiento(derivacionNombramientoNoCompuesta{})
 		return h, cerrar, err
-	}
-	lector, err := postgresct.NuevoLectorExpedienteSeleccionLlamamientoPostgreSQL(alta.postgresql.ejecucion)
-	if err != nil {
-		return nil, cerrar, err
 	}
 	registro, err := postgresct.NuevoRegistroDerivacionNombramientoPostgreSQL(alta.postgresql.ejecucion)
 	if err != nil {
@@ -151,7 +205,7 @@ func nuevaRutaDerivacionNombramientoDesarrollo(cfg config.Config,
 		}
 	}
 	servicio, err := application.NuevoServicioDerivacionNombramiento(
-		preparadorDerivacionNombramientoDesarrollo{soporte: alta.soporte, lector: lector},
+		preparadorDerivacionNombramientoDesarrollo{soporte: alta.soporte, fronteras: fronteras, detalle: detalle},
 		autoridad, registro)
 	if err != nil {
 		cerrar()
