@@ -1,5 +1,5 @@
 # F1-12 — Subconjunto de las cuatro migraciones propias.
-# La lista completa es lista_sql_main_tras_hz37.txt (82 entradas).
+# La lista completa es lista_sql_main_tras_hz37.txt (85 entradas).
 # No combinar ambas listas: estas cuatro filas ya figuran al final de la completa.
 # AD279 exige la preimagen 3c3e5f8a…ecda. No reaplicar ni hacer DOWN.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000279_preferencias_bolsas_internas.up.sql 5ddaf6d3a3776425420256bdc742ae5badb62067c60ddfac53dce2d9caf63dbf

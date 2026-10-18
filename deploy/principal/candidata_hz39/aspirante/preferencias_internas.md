@@ -11,10 +11,10 @@ solo esta ruta responde 503.
 
 ## SQL, en este orden y una sola vez
 
-Lista completa de 82 entradas: `deploy/principal/lista_sql_main_tras_hz37.txt`.
-Conserva las 78 de main y añade las cuatro de esta tarea al final.
+Lista completa de 85 entradas: `deploy/principal/lista_sql_main_tras_hz37.txt`.
+Conserva las 81 de main y añade las cuatro de esta tarea al final.
 `deploy/principal/lista_sql_claude_preferencias_internas_20261016.txt` contiene
-solo esas cuatro para una copia que ya tenga instaladas las 78 anteriores;
+solo esas cuatro para una copia que ya tenga instaladas las 81 anteriores;
 no se combina con la lista completa.
 Va detrás de la cadena fija del núcleo #1147 → #1144 (AD276) → #1146 (AD278)
 → #1155 (AD283) y delante de AD288 (#1176) y AD273.
@@ -41,6 +41,8 @@ Va detrás de la cadena fija del núcleo #1147 → #1144 (AD276) → #1146 (AD27
    que B104 no admite, con actor y perfil, para que cada superficie recupere
    solo sus propios recibos.
 4. AD275 crea las dos fachadas de lectura auditada para la sesión interna.
+   El intento fallido guarda `transaccion_origen` nula, como exige su tipo de
+   asiento; la lectura positiva conserva la transacción real.
 
 Prueba focal, después de las cuatro:
 `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000279_preferencias_bolsas_internas.sql`.
@@ -128,6 +130,10 @@ corporativo y el binario de `97adc3c5a`:
 La comparación de fechas usa ahora el reloj posterior al retorno del
 repositorio. Las pruebas focales aceptan una fecha registrada durante la
 escritura y rechazan una fecha posterior a ese retorno. Dos revisiones
-independientes comprobaron el cambio sobre `97adc3c5a`; las cuatro SQL y
-las huellas del núcleo permanecen intactas. Las 19 pruebas del guion de copia
-pasan con la lista completa de 82 migraciones.
+independientes comprobaron el cambio sobre `97adc3c5a`; las huellas del núcleo permanecen intactas. Después se corrigió solo el valor
+`transaccion_origen` del intento en AD275; dos revisiones estáticas son
+favorables. La prueba física añadida exige el sellador real y comprueba que
+el intento admite una transacción nula y la lectura positiva conserva la suya.
+La incorporación de F1-18 añade otras tres SQL a la lista de main. Las 19
+pruebas del guion de copia pasan con las 85 entradas; falta el ensayo fresco
+de ese conjunto y confirmar la prueba física y el recorrido sobre él.
