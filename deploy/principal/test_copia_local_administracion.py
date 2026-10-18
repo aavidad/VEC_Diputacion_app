@@ -12,6 +12,7 @@ import unittest
 from unittest.mock import patch
 
 import copia_local_administracion as admin
+import copia_local as conductor
 
 
 class AdministracionCopiaTest(unittest.TestCase):
@@ -48,6 +49,12 @@ with (r.parent/'.vec-copia-l-admin.lock').open('a') as otro:
     def test_hijo_hereda_candado_y_otro_escritor_sigue_excluido(self):
         admin.ejecutar(self.copia, 'comprobar')
         self.assertEqual((self.raiz / 'fase-confirmada').read_text(), 'comprobar')
+
+    def test_conductor_conserva_descriptor_para_preparador_externo(self):
+        conductor.ejecutar([sys.executable, str(self.script), '--raiz', str(self.raiz),
+                           '--fase', 'portal', '--candado-fd', str(self.lock.fileno()),
+                           '--puerto-admin', '19485'], descriptores=(self.lock.fileno(),))
+        self.assertEqual((self.raiz / 'fase-confirmada').read_text(), 'portal')
 
     def test_fuente_alterada_no_se_ejecuta(self):
         self.script.write_text("raise RuntimeError('no debe ejecutarse')")

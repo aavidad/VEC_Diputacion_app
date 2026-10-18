@@ -512,6 +512,12 @@ la candidata propia y el recorrido de ambos administradores. El suplemento
 del segundo RRHH queda aparcado por dirección: el ámbito antiguo de
 Contratación necesita una tarea propia para usar organización y unidad gobernadas.
 
+El preparador del portal externo recibe también `--candado-fd` de la fábrica
+y debe conservarlo hasta acabar. La invocación independiente del preparador
+adquiere el candado de esa misma instancia antes de comprobar su contenedor.
+Se necesita la receta actualizada; una receta antigua que solo acepte
+`--raiz` no satisface este contrato.
+
 Usa `reiniciar` del apartado 2 para la copia creada por el guion. La orden
 conserva PostgreSQL y su material, y repite las comprobaciones HTTPS.
 Después de preparar los módulos, el ensayo del recorrido debe recuperar

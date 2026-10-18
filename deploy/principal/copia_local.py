@@ -34,10 +34,10 @@ def sha256(ruta):
         return hashlib.file_digest(fuente, 'sha256').hexdigest()
 
 
-def ejecutar(args, *, entrada=None, salida=None, entorno=None, cwd=None):
+def ejecutar(args, *, entrada=None, salida=None, entorno=None, cwd=None, descriptores=()):
     return subprocess.run([str(a) for a in args], input=entrada, stdout=salida,
                           stderr=subprocess.STDOUT if salida else subprocess.PIPE,
-                          env=entorno, cwd=cwd, check=True, timeout=600)
+                          env=entorno, cwd=cwd, pass_fds=descriptores, check=True, timeout=600)
 
 
 def guardar(ruta, valor):
@@ -253,7 +253,9 @@ class Copia:
             # La app mantiene el sellado real mientras el productor provisiona
             # identidad, contexto y confianza. El reinicio carga su entorno.
             with (self.raiz / 'portal-preparacion.log').open('ab') as log:
-                ejecutar([sys.executable, portal, '--raiz', self.raiz], salida=log)
+                ejecutar([sys.executable, portal, '--raiz', self.raiz,
+                          '--candado-fd', str(self.candado)], salida=log,
+                         descriptores=(self.candado,))
             comprobar_conexiones(self)
             estado = self.leer()
             estado['portal_externo_preparado'] = True
