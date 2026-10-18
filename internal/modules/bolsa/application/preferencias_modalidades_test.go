@@ -85,6 +85,23 @@ func TestHuellaSolicitudPreferenciasModalidadesDistingueAusenciaYFuente(t *testi
 	}
 }
 
+func TestHuellaSolicitudPreferenciasModalidadesEncuadraClaveRetirada(t *testing.T) {
+	opciones := opcionesModalidadesPrueba()
+	actual, err := HuellaSolicitudPreferenciasModalidades(candidatoModalidadesPrueba, 3, []string{"vacante"}, opciones)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retirada, err := HuellaSolicitudPreferenciasModalidades(candidatoModalidadesPrueba, 3, []string{"vacante", "relevo"}, opciones)
+	if err != nil || retirada == actual {
+		t.Fatalf("clave retirada no quedó ligada a la huella: %s %v", retirada, err)
+	}
+	opciones[0].Fuente.CatalogoVersion++
+	conFuenteNueva, err := HuellaSolicitudPreferenciasModalidades(candidatoModalidadesPrueba, 3, []string{"vacante", "relevo"}, opciones)
+	if err != nil || conFuenteNueva == retirada {
+		t.Fatalf("instantánea nueva no quedó ligada a la huella: %s %v", conFuenteNueva, err)
+	}
+}
+
 func TestHuellaSolicitudPreferenciasModalidadesRechazos(t *testing.T) {
 	opciones := opcionesModalidadesPrueba()
 	paraSeleccion := []struct {
@@ -95,7 +112,6 @@ func TestHuellaSolicitudPreferenciasModalidadesRechazos(t *testing.T) {
 	}{
 		{"candidato", "can_corto", 0, nil},
 		{"versión", candidatoModalidadesPrueba, 2147483647, nil},
-		{"ajena", candidatoModalidadesPrueba, 0, []string{"ajena"}},
 		{"repetida", candidatoModalidadesPrueba, 0, []string{"vacante", "vacante"}},
 		{"clave inválida", candidatoModalidadesPrueba, 0, []string{"Vacante"}},
 	}
