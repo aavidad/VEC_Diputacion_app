@@ -509,6 +509,9 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), c
         `<div class="plaza-oferta__cabecera"><strong>${escapar(traducir("plaza", { numero: plaza.numero_de_plaza }))}</strong>` +
         `<span class="estado-chip ${ESTADOS_PLAZA[plaza.estado]}">${escapar(traducir(`plaza_${plaza.estado}`))}</span></div>` +
         (detalle.length ? `<p class="dato-secundario" id="${idPlazo}">${detalle.map(escapar).join(" · ")}</p>` : "") +
+        plaza.historial.filter((acto) => acto.tipo === "adjudicada" && typeof acto.recibo_ref === "string" &&
+          REFERENCIA.test(acto.recibo_ref) && instante(acto.registrado_en))
+          .map((acto) => reciboOferta(acto.recibo_ref, acto.registrado_en, false, "adjudicacion_recibo_fecha", "adjudicacion_recibo_titulo")).join("") +
         botonesPlaza(o, plaza) + "</li>";
     }).join("");
     return `<ol class="plazas-oferta" aria-label="${escapar(traducir("plazas_lista", { categoria: o.datos.categoria }))}">${elementos}</ol>`;

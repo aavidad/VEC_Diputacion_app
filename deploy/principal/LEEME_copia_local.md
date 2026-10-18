@@ -1,7 +1,8 @@
 # Copia local de VEC para ensayar y recorrer
 
 El guion `deploy/principal/copia_local.sh` restaura la base de referencia,
-aplica las listas SQL indicadas y arranca el portal con certificados nuevos.
+aplica las listas SQL indicadas y arranca el portal. Por defecto genera
+certificados nuevos; la opción `--rrhh-original` conserva la identidad de RRHH.
 Tarea F0-28 del tablero. Sin selectores arranca con las funciones opcionales
 apagadas. `--modulos` prepara conexiones nuevas de Contratación y Bolsa y un
 buzón local; `--portal-externo` añade la preparación del aspirante desde el
@@ -88,9 +89,14 @@ debilita su guarda. Las demás conexiones se crean con nombres y contraseñas
 nuevos. El registro privado conserva sus valores y la huella del entorno.
 
 Tras el productor de datos, el guion coteja los 22 LOGIN internos: opciones
-sin privilegios de administración y una sola membresía para cada conexión de
-peticiones. El gobierno de arranque es la excepción: necesita seis arcos
-concretos, definidos en `copia_local_verificacion.py`, y no admite otros.
+sin privilegios de administración y membresías directas exactas. La conexión
+de importación CONVOCA conserva los grupos `vec_bolsa_importacion_convoca_ejecutor`
+y `vec_bolsa_importacion_convoca_recuperador`, ambos con `INHERIT TRUE`,
+`SET TRUE` y `ADMIN FALSE`, como exige el contrato H1 de
+`scripts/recorridos/clon_bolsa_material.py` para importar y recuperar la operación.
+Las demás conexiones de peticiones tienen un solo grupo. El gobierno de
+arranque necesita seis arcos concretos, definidos en `copia_local_verificacion.py`,
+y no admite otros.
 Los propietarios y el proyector conservan las opciones exactas de `SET` e
 `INHERIT`; no se trasladan a los LOGIN de peticiones. H retirará esta
 excepción al completar F0-08 con el contrato nominal de R.
@@ -131,7 +137,11 @@ examinar sus registros; se borra y se crea otra, sin reaplicar SQL.
 
 El resultado vive en `/dev/shm/vec/pg/<equipo>-<instancia>`, con padre `0700`.
 El volcado y sus anexos aportan nombres de propietarios y beneficiarios para
-crear roles `NOLOGIN`. El guion no abre ni restaura el fichero de roles
+crear roles `NOLOGIN`. El guion recupera también los grupos declarados como
+`NOLOGIN` en los ficheros `roles*_up.sql` del repositorio cuando aparecen citados en el
+esquema o en la lista SQL validada. Deja que cada migración de esa lista cree
+los roles que declara por sí misma. La creación comprueba si el rol ya existe;
+no añade membresías ni permisos. El guion no abre ni restaura el fichero de roles
 globales, sus contraseñas ni sus membresías. La restauración conserva las ACL
 de los objetos; después aplica las ACL de la base y los tipos. No convierte
 esos roles en identidades operativas de la aplicación.
@@ -149,6 +159,51 @@ por separado; el guion de copia usa 90. Un material existente se verifica,
 sin renovar sus certificados ni cambiar sus claves. PostgreSQL usa TLS con
 esa CA nueva. La aplicación se inicia con un entorno explícito, sin heredar
 conexiones ni selectores de otra copia.
+
+### Copia con la identidad original de RRHH
+
+Para recorrer una asignación histórica ligada al certificado de RRHH, añade
+`--rrhh-original <carpeta_material>` a `crear --modulos`. La carpeta indicada
+debe contener el material histórico de desarrollo correspondiente al respaldo
+HZ37. El guion selecciona las piezas internas de CA, certificados, identidades,
+KMS, TSA e idempotencia. Exige también `identidad/bolsa-bback.json` y coteja su
+certificado y sujeto con la identidad de RRHH. Incluye, cuando existen, las
+identidades de centros, consultas de RRHH, solicitante y ratificador con sus
+certificados, claves y paquetes importables, y los dos catálogos públicos. Si
+`identidad/centros.json` referencia a `centro-solicitante` y
+`centro-ratificador`, ambas identidades y sus certificados se copian y cotejan
+antes de publicar el material.
+Comprueba que cada pieza seleccionada y sus carpetas pertenecen al usuario,
+son privadas y no tienen enlaces. La fuente se abre solo para lectura y el
+conjunto seleccionado se publica en un destino nuevo.
+
+```sh
+deploy/principal/copia_local.sh crear --equipo l --instancia rrhh-original \
+  --puerto-pg 55481 --puerto-app 18481 --puerto-smtp 11081 --modulos \
+  --rrhh-original "$VEC_COPIA_MATERIAL_RRHH" \
+  --lista-sql deploy/principal/candidata_hz39/lista_sql.txt
+```
+
+La CA, el certificado y la clave de cliente, su paquete PKCS#12, la identidad,
+las claves KMS y TSA, B-BACK y las demás piezas seleccionadas conservan
+exactamente sus bytes. El certificado histórico de cliente puede tener una
+vigencia de 397 días:
+no se renueva porque la asignación existente está ligada a su huella. Solo el
+certificado y la clave del servidor se generan de nuevo por 90 días, firmados
+por la CA original. La huella del servidor en el manifiesto de la copia se
+calcula a partir del certificado nuevo. PostgreSQL y el portal usan ese servidor.
+Las conexiones a PostgreSQL se crean para la copia con `sslmode=verify-full` y
+la CA original; nunca se activan las conexiones del material fuente.
+
+El guion deriva `desarrollo.env` en el destino con rutas de la copia. No abre
+ni traslada scripts antiguos, respaldos, ficheros `.dsn`, otros `.env` ni
+descriptores de conexión de módulos. Si una pieza seleccionada contiene un DSN,
+la creación se detiene antes de publicar material. Los productores privados
+preparan las conexiones y configuraciones opcionales para esta instancia.
+`estado.json` registra `material_modo: rrhh_original`,
+que permite a los productores conservar la raíz histórica de autorización.
+El perfil de permisos de esta receta requiere la publicación vigente sin carga
+de CONVOCA ni B103; no se restablece una raíz de autorización nueva.
 
 Conserva los mismos argumentos de equipo e instancia para estas órdenes:
 
