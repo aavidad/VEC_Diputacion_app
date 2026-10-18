@@ -6,8 +6,9 @@ continuar una selección. El descuento de antecedentes sigue apagado (duda 165).
 
 CONFIG NUEVA: ninguna. La aplicación conserva su arranque y sus rutas.
 
-1. Sobre una copia propia de la candidata con F1-08, instalar una sola vez
-   `lista_sql_codexr_comprobacion_ofrecimiento_f1_09_20261016.txt`.
+1. En una copia nueva, instalar una sola vez la lista completa de main tras HZ37
+   más las SQL propias en el orden único de la candidata. No usar la lista
+   parcial del primer corte para reponer una copia con historia.
 2. Dirección incorpora el perfil `comprobacion_ofrecimiento_bolsa` al núcleo
    en su reconstrucción coordinada. Hasta entonces la acción deniega. La audiencia
    es `vec.bolsa.comprobacion_ofrecimiento.v1`; acción
@@ -23,8 +24,8 @@ CONFIG NUEVA: ninguna. La aplicación conserva su arranque y sus rutas.
    sustituye estos requisitos. AD290 solo crea la fachada y no los instala;
    mientras falte alguno, el registro permanece cerrado. Las preimágenes y la
    instalación conjunta se fijan con dirección al final de la cadena vigente.
-   Dirección situó esta habilitación en AD291 junto a F0-18/AD273 (18/10,
-   07:19), para conservar una sola reconstrucción central.
+   AD291 reúne esta habilitación con F0-18/AD273 en una sola reconstrucción
+   central. Está instalada en la copia conjunta; falta publicar el permiso.
 3. Admitir la fuente `fuentes/bolsa_comprobacion_ofrecimiento_rrhh_v1.json`
    y publicar el rol por propuesta y cierre de dos administradores distintos,
    conservando las concesiones y los ámbitos existentes. El material dura 90 días.
@@ -90,6 +91,15 @@ se revirtieron. La aplicación compiló sin red y devolvió 200 en salud y porta
 al arrancar y después de reiniciar aplicación y PostgreSQL.
 Chrome del sistema cargó el portal base; sin configuración, las consultas de
 los módulos y las preferencias devuelven 503. Esto no acredita su uso funcional.
-Siguen pendientes la configuración conjunta, el alta central AD291 y la escritura
-con autorización real, recuperación, idempotencia y concurrencia. Las dos
+Siguen pendientes la configuración conjunta, la publicación del permiso y la
+escritura autorizada, con recuperación, idempotencia y concurrencia. AD291
+se instaló después en la copia conjunta `601686060`. Las dos
 revisiones independientes de fuente son favorables; no sustituyen ese ensayo.
+
+La candidata conjunta `601686060` instaló 98 SQL en el orden final en dos
+copias nuevas. AD291, AD292 y CT238 pasaron sus focales con ROLLBACK; ambas
+aplicaciones arrancaron y reiniciaron con la comprobación del guion. Las 97
+SQL anteriores son idénticas a la candidata `1ed8b0e42`; CT238 es la única
+SQL añadida y Go no cambió. No hubo registro F1-09 autorizado, recuperación
+de recibo ni prueba de idempotencia o concurrencia reales. Ese recorrido
+espera la publicación gobernada del permiso y la configuración conjunta.
