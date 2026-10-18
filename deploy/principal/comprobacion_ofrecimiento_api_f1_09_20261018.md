@@ -62,3 +62,15 @@ idempotencia, concurrencia y recuperación tras reiniciar con toda la activació
 Vuelta atrás: recuperar el binario anterior y su configuración conservada.
 No ejecutar DOWN ni borrar comprobaciones o recibos. La falta del material
 opcional mantiene cerrado este registro y conserva las otras operaciones.
+
+Ensayo local del 18/10: candidata conjunta `169dca4ae`, con main `9f2a072c7`,
+SQL `82a345058` y API `6528fed78`. Restauración HZ37 y sus permisos,
+73 SQL completas de main y las cuatro propias instaladas una vez. B134 pasó
+su guarda de cuerpo instalado, conservó los permisos y registró una denegación
+nominal; rechazó las parejas de acción y clase incompatibles. B133 pasó cálculo,
+canon compartido con Go y denegaciones. La aplicación compiló sin red y salud
+y portal devolvieron 200 tras arrancar y reiniciar aplicación y PostgreSQL.
+Chrome del sistema cargó el portal base. Las consultas de módulos y preferencias
+siguen cerradas con 503 sin configuración: el ensayo no acredita una selección
+ni un registro autorizado. Configuración conjunta, alta central AD291,
+idempotencia y concurrencia reales siguen pendientes.
