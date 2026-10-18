@@ -173,6 +173,9 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	esOperacion := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
 	if esOperacion {
 		_, _, esOperacion = bolsahttp.ReferenciasRutaOperacionesSituacion(r)
+		if !esOperacion {
+			_, _, esOperacion = bolsahttp.ReferenciasRutaComprobacionOfrecimiento(r)
+		}
 	}
 	esContacto := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
 	if esContacto {
