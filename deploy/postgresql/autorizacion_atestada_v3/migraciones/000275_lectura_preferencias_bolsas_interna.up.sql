@@ -368,7 +368,7 @@ BEGIN
   p_orden->>'accion',p_orden->>'modulo_id',p_orden->>'recurso_ref',
   p_orden->>'finalidad_ref',p_orden->>'resultado',p_orden->>'motivo_ref',
   p_orden->>'proceso',p_orden->>'canal',p_orden->>'correlacion_ref',
-  encode(sha256(p_vinculo_canonico),'hex'),pg_current_xact_id());
+  encode(sha256(p_vinculo_canonico),'hex'),NULL::xid8);
  RETURN QUERY SELECT v_ref,v_secuencia,v_huella,p_orden->>'correlacion_ref',v_instante;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_intento_lectura_preferencias_bolsas_interna_v1(bytea,bytea,jsonb) FROM PUBLIC;

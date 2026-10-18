@@ -6,14 +6,15 @@ formulario que el aspirante externo. `GET` devuelve el orden y el último
 recibo. `PUT` exige la versión esperada y una clave de idempotencia, y devuelve
 un recibo; repetir la misma clave con el mismo orden devuelve el recibo y la
 fecha originales. Sin el selector, la ruta no se monta y el servidor arranca
-igual. Con el selector y alguna pieza ausente, solo esta ruta responde 503.
+igual. Con Usuarios operativo, si falta una dependencia propia de preferencias,
+solo esta ruta responde 503.
 
 ## SQL, en este orden y una sola vez
 
-Lista completa de 82 entradas: `deploy/principal/lista_sql_main_tras_hz37.txt`.
-Conserva las 78 de main y añade las cuatro de esta tarea al final.
+Lista completa de 85 entradas: `deploy/principal/lista_sql_main_tras_hz37.txt`.
+Conserva las 81 de main y añade las cuatro de esta tarea al final.
 `deploy/principal/lista_sql_claude_preferencias_internas_20261016.txt` contiene
-solo esas cuatro para una copia que ya tenga instaladas las 78 anteriores;
+solo esas cuatro para una copia que ya tenga instaladas las 81 anteriores;
 no se combina con la lista completa.
 Va detrás de la cadena fija del núcleo #1147 → #1144 (AD276) → #1146 (AD278)
 → #1155 (AD283) y delante de AD288 (#1176) y AD273.
@@ -40,6 +41,8 @@ Va detrás de la cadena fija del núcleo #1147 → #1144 (AD276) → #1146 (AD27
    que B104 no admite, con actor y perfil, para que cada superficie recupere
    solo sus propios recibos.
 4. AD275 crea las dos fachadas de lectura auditada para la sesión interna.
+   El intento fallido guarda `transaccion_origen` nula, como exige su tipo de
+   asiento; la lectura positiva conserva la transacción real.
 
 Prueba focal, después de las cuatro:
 `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000279_preferencias_bolsas_internas.sql`.
@@ -100,33 +103,49 @@ compartido de sesión y contexto no expresa la acción denegada. `POST` responde
 
 ## Estado (18/10)
 
-Ensayado en una copia de HZ37 con main y las SQL de #1144, #1146 y #1155: las
-cuatro migraciones se instalan una vez y la prueba focal pasa. El ensayo final
-incluye las 66 migraciones de main, siete de F1-16, cinco de F1-04 y estas
-cuatro; CT225 y CT227 se instalan sin el conflicto de preimagen anterior.
+Ensayo fresco sobre HZ37: 85 migraciones instaladas una sola vez, con 85
+confirmaciones y ningún error (81 de main y AD279, AUT96, B116 y AD275).
 El consumidor central conserva la huella `a4649132…fb2`. La guarda de B116
-exige nombre y huella exactos de la restricción anterior: acepta la preimagen
-esperada y rechaza una con una condición adicional, sin sustituirla.
-La prueba de recibo SQL usa un doble transaccional del consumidor; por sí sola
-no comprueba la firma real. La identidad corporativa de Antonio, las dos superficies de Usuarios, la
-concesión y el LOGIN se prepararon como datos de la copia, con vigencias de
-90 días como máximo. El recorrido HTTP se completó con el certificado
-corporativo y el binario de `97adc3c5a`:
+acepta la preimagen exacta y rechaza una con una condición adicional, sin
+sustituirla. AD275 guarda una transacción nula en el intento nominal; la
+lectura positiva conserva su transacción real.
 
-- Lectura 200 y guardado 201 con recibo; repetición 200 con la misma versión,
-  orden, referencia y fecha.
+La prueba SQL focal terminó sin errores y con cinco transacciones revertidas.
+La parte de recibos usa un doble transaccional del consumidor y no acredita
+por sí sola la firma. La comprobación añadida de auditoría inserta sobre la
+tabla real, con el disparador y el sellador originales: acepta el intento sin
+transacción, rechaza el intento con transacción por la restricción exacta y
+acepta la lectura positiva con su transacción. No deja esos asientos de prueba.
+
+En los datos de la copia se omitieron 34 operaciones históricas ficticias que
+no cumplían una restricción anterior marcada como pendiente de validación.
+No tenían sanciones dependientes. Las otras 688 tablas comunes conservaron
+sus recuentos, incluidos los dos recibos previos de preferencias; las cuatro
+tablas nuevas de avisos quedaron vacías. La restricción, los disparadores y
+el modo ordinario de comprobación permanecen activos.
+
+El recorrido HTTP se completó con la sesión corporativa de Antonio y el
+binario de `eaeb16f8b`:
+
+- Lectura 200 y nuevo guardado 201 con recibo; repetición 200 con la misma
+  versión, orden, referencia y fecha.
 - Tras detener y arrancar la aplicación y PostgreSQL, lectura 200 con el
   mismo estado y repetición 200 con el recibo original.
 - Sin el selector, arranque con salud 200 y ruta de preferencias 404; al
   reactivarlo se conserva el estado anterior.
-- Recuperación de una respuesta fallida: antes de corregir la comparación
-  temporal, SQL había confirmado el guardado y HTTP había devuelto 503.
-  Repetir aquella misma petición después de la corrección devolvió 200 y
-  recuperó su recibo, sin crear otra versión.
+- La petición que antes había recibido 503 después de guardar también
+  recuperó su recibo original, sin otra versión.
 
-La comparación de fechas usa ahora el reloj posterior al retorno del
-repositorio. Las pruebas focales aceptan una fecha registrada durante la
-escritura y rechazan una fecha posterior a ese retorno. Dos revisiones
-independientes comprobaron el cambio sobre `97adc3c5a`; las cuatro SQL y
-las huellas del núcleo permanecen intactas. Las 19 pruebas del guion de copia
-pasan con la lista completa de 82 migraciones.
+El entorno activo conserva las conexiones nominales verificadas, adaptadas
+a la nueva copia, y su material de identidad. Se usa ese mismo entorno al
+reiniciar. El entorno que genera `--modulos` para unas identidades nuevas
+no sustituye al de unas identidades ya restauradas. La comprobación general
+del cuadro de Contratación con ese entorno nuevo no forma parte de esta
+aceptación; aquí se comprueba Mi Bolsa y la salud del proceso con su
+configuración explícita.
+
+La comparación de fechas usa el reloj posterior al retorno del repositorio:
+las pruebas focales aceptan una fecha registrada durante la escritura y
+rechazan una posterior al retorno. Dos revisiones independientes comprobaron
+ese cambio en `97adc3c5a` y otras dos la corrección de AD275 en `8ea2d3318`.
+Las 19 pruebas del guion de copia pasan con la lista completa de 85 entradas.
