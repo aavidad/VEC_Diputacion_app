@@ -7,11 +7,11 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261018-f174-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261018-f009-f174-v1";
 
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v3";
 import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261018-f104-main-v1";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261018-f009-main-v3";
 import { bolsasVigentesParaLlamamiento, instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261015-ofertas-recibo-v3";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 
@@ -21,7 +21,7 @@ import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-aviso
 
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
-import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261007-pantallas-textos-final-v1";
+import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261018-f009-main-v3";
 import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20261010-http-carga-v1";
 let tamanoPaginaMarco = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = tamanoPaginaMarco) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : tamanoPaginaMarco; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
@@ -132,7 +132,7 @@ function cargarRecursosVista(grupo) {
     : grupo === "auditoria"
       ? import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261018-f155-recibos-plaza-v1"),
+        import("./portal-bolsas-ofertas.js?v=20261018-f009-main-v3"),
         import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261016-r1-o-integracion-v7"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
@@ -244,6 +244,8 @@ const estado = {
   auditoriaReferencia: "",
   politicaCese: null,
   politicaCeseComprobada: false,
+  perfilPropioBolsa: false,
+  perfilPropioBolsaComprobado: false,
   inscripcionesDisponibles: null, // null sin comprobar; false si el servidor no publica la bandeja
   cargaConvocaDisponible: null, // null sin comprobar; true solo si el servidor monta la carga CONVOCA
   politicaCeseAusente: false, // 404: la instalación no compone la política de cese
@@ -456,7 +458,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261016-r1-o-integracion-v7");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261018-f009-main-v3");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -646,6 +648,7 @@ function capacidadesBolsa() {
       : (borradores?.estado === "denegado" || borradores?.estado === "error" ? false : null),
     contratacionTemporal: coordinadorModulos.vistaDisponible("contratacion-temporal"),
     auditoriaConsulta: estado.fuenteLista === true || coordinadorModulos.vistaDisponible("contratacion-temporal"),
+    perfilPropioBolsa: estado.perfilPropioBolsa === true,
     politicaCese: estado.politicaCese !== null,
     inscripciones: estado.inscripcionesDisponibles === true,
     cargaConvoca: estado.cargaConvocaDisponible === true,
@@ -657,8 +660,9 @@ function vistaPermitida(vista) {
   if (vista === "mis-preferencias") return true;
   if (vista === VISTA_PLANTILLAS_RRHH) return estado.plantillasAutorizadas === true;
   if (vista.startsWith("seleccion-")) return false;
-  // Con Bolsa en el catálogo, Reglas se abre para decir «no disponible» (404).
-  if (vista === "reglas" && estado.politicaCeseAusente) return coordinadorModulos.obtenerCatalogo().some((m) => m.clave === "bolsa");
+  // B45 autoriza Reglas por sí misma; un 404 deja explicar su ausencia si Bolsa figura en el catálogo.
+  if (vista === "reglas" && (estado.politicaCese !== null || estado.politicaCeseAusente))
+    return coordinadorModulos.obtenerCatalogo().some((m) => m.clave === "bolsa");
   if (moduloDeVistaPortal(vista) === "bolsa") return vistaBolsaNavegable(vista, capacidadesBolsa());
   if (VISTAS_MODULOS_PERSONALES.has(vista) || VISTAS_AUTOSERVICIO_EMPLEADO.has(vista)) {
     return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista)
@@ -731,6 +735,18 @@ function alCambiarModulos(clave) {
   if (clave === "catalogo" && vistaNecesitaBolsa()
     && !(cicloLecturaBolsas === secuenciaFuente && ["cargando", "listo"].includes(estado.datosBolsas?.carga))) {
     pedirCuadroBolsas();
+  }
+  if (clave === "catalogo") {
+    catalogoInternoPublicado = true;
+    if (coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) {
+      void comprobarAccesoPerfilBolsa();
+    } else {
+      consultaPerfilPropioBolsa?.abort();
+      consultaPerfilPropioBolsa = null;
+      estado.perfilPropioBolsa = false;
+      estado.perfilPropioBolsaComprobado = false;
+    }
+    if (resolverDestinoPoliticaCeseInicial()) return;
   }
   if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")
     && (destinoPlantillasInicial || plantillasConfirmadas)) {
@@ -805,14 +821,45 @@ function renderizarTrasCarga() {
   else if (estado.vistaMontada !== estado.vista) renderizar();
 }
 let secuenciaFuente = 0;
+let consultaPerfilPropioBolsa = null;
+async function comprobarAccesoPerfilBolsa() {
+  if (estado.perfilPropioBolsaComprobado || consultaPerfilPropioBolsa ||
+    !coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) return;
+  const controlador = new AbortController(), ciclo = secuenciaFuente;
+  consultaPerfilPropioBolsa = controlador;
+  try {
+    const { consultarPerfilPropioBolsa } = await import("./portal-bolsa-configuracion.js?v=20261018-f009-main-v3");
+    if (controlador.signal.aborted || ciclo !== secuenciaFuente) return;
+    await consultarPerfilPropioBolsa({ signal: controlador.signal });
+    if (controlador.signal.aborted || ciclo !== secuenciaFuente) return;
+    estado.perfilPropioBolsa = true;
+  } catch {
+    if (controlador.signal.aborted || ciclo !== secuenciaFuente) return;
+    estado.perfilPropioBolsa = false;
+  } finally {
+    if (consultaPerfilPropioBolsa === controlador) {
+      consultaPerfilPropioBolsa = null;
+      if (!controlador.signal.aborted && ciclo === secuenciaFuente) {
+        estado.perfilPropioBolsaComprobado = true;
+        actualizarNavegacionModulos();
+      }
+    }
+  }
+}
 async function cargarFuenteDatos() {
   const intento = ++secuenciaFuente;
+  catalogoInternoPublicado = false;
   generacionCuadroBolsas += 1;
   controladorBolsas?.cancelarPeticiones();
   estado.datosBolsas = null;
   contextoBolsaCT = null;
   cicloLecturaBolsas = 0;
+  consultaPerfilPropioBolsa?.abort();
+  consultaPerfilPropioBolsa = null;
+  estado.perfilPropioBolsa = false;
+  estado.perfilPropioBolsaComprobado = false;
   estado.errorFuente = "";
+  actualizarNavegacionModulos();
   consultaAccesoPlantillas?.abort();
   consultaAccesoPlantillas = null;
   estado.plantillasAutorizadas = false;
@@ -838,6 +885,7 @@ async function cargarFuenteDatos() {
     estado.errorFuente = traducirPortal("error_catalogo_modulos");
   });
   if (intento !== secuenciaFuente) return;
+  if (coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) void comprobarAccesoPerfilBolsa();
   if (estado.vista === "portal" && esPerfilRRHH()) await prepararResumenInicioVisible();
   if (intento !== secuenciaFuente) return;
   actualizarNavegacionModulos();
@@ -859,6 +907,21 @@ let plantillasConfirmadas = false;
 let consultaAccesoPoliticaCese = null;
 let destinoPoliticaCeseInicial = false;
 let politicaCeseConfirmada = false;
+let catalogoInternoPublicado = false;
+
+function resolverDestinoPoliticaCeseInicial() {
+  if (!destinoPoliticaCeseInicial || estado.vista !== "portal" || !estado.politicaCeseComprobada) return false;
+  if (!estado.politicaCese && !estado.politicaCeseAusente) {
+    destinoPoliticaCeseInicial = false; history.replaceState(null, "", rutaDeVista("portal")); return false;
+  }
+  if (!catalogoInternoPublicado) return false;
+  destinoPoliticaCeseInicial = false;
+  if (!coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) {
+    history.replaceState(null, "", rutaDeVista("portal")); return false;
+  }
+  navegar("reglas");
+  return true;
+}
 
 async function comprobarAccesoPoliticaCese() {
   if (estado.politicaCeseComprobada || consultaAccesoPoliticaCese) return;
@@ -870,25 +933,20 @@ async function comprobarAccesoPoliticaCese() {
     estado.politicaCese = politica;
     estado.politicaCeseComprobada = true;
     politicaCeseConfirmada = true;
-    if (destinoPoliticaCeseInicial && estado.vista === "portal") {
-      destinoPoliticaCeseInicial = false;
-      navegar("reglas");
-    }
+    resolverDestinoPoliticaCeseInicial();
   } catch (error) {
     if (consultaAccesoPoliticaCese !== controlador || controlador.signal.aborted) return;
     estado.politicaCese = null;
     estado.politicaCeseComprobada = true;
     estado.politicaCeseAusente = error?.estado === 404;
-    if (destinoPoliticaCeseInicial) {
-      destinoPoliticaCeseInicial = false;
-      // Sin la API (404) la vista lo dice; un 403 sigue en Inicio, sin revelarla.
-      if (estado.politicaCeseAusente && estado.vista === "portal") navegar("reglas");
-      else history.replaceState(null, "", rutaDeVista("portal"));
-    }
+    resolverDestinoPoliticaCeseInicial();
   } finally {
     if (consultaAccesoPoliticaCese === controlador) {
       consultaAccesoPoliticaCese = null;
-      actualizarNavegacionModulos();
+      if (estado.vista === "reglas") {
+        if (estado.politicaCese || estado.politicaCeseAusente) actualizarVistaBolsa();
+        else navegar("portal");
+      } else actualizarNavegacionModulos();
     }
   }
 }
@@ -897,7 +955,7 @@ async function comprobarAccesoPoliticaCese() {
 function sondearCapacidadAlAbrir(vista) {
   const plantillas = vista === VISTA_PLANTILLAS_RRHH && estado.plantillasAutorizadas !== true
     && consultaAccesoPlantillas === null && coordinadorModulos.vistaDisponible("contratacion-temporal");
-  const politica = vista === "reglas" && !estado.politicaCeseComprobada;
+  const politica = vista === "reglas" && estado.perfilPropioBolsa !== true && !estado.politicaCeseComprobada;
   if (!plantillas && !politica) return false;
   navegar("portal");
   if (plantillas) { destinoPlantillasInicial = true; void comprobarAccesoPlantillas(); }
@@ -1067,7 +1125,13 @@ function navegar(vista, opciones = {}) {
   }
   if (!Object.hasOwn(TITULOS, vista)) return;
   if (vista !== VISTA_PLANTILLAS_RRHH) destinoPlantillasInicial = false;
-  if (vista !== "reglas") destinoPoliticaCeseInicial = false;
+  if (vista !== "reglas") {
+    if (estado.vista === "reglas" || destinoPoliticaCeseInicial) {
+      consultaAccesoPoliticaCese?.abort(); consultaAccesoPoliticaCese = null;
+      estado.politicaCese = null; estado.politicaCeseComprobada = false; estado.politicaCeseAusente = false;
+    }
+    destinoPoliticaCeseInicial = false;
+  }
   if (sondearCapacidadAlAbrir(vista)) return;
   if (!vistaPermitida(vista) && vistaBolsaPendienteNoCompuesta(vista)) {
     const hash = rutaDeVista(vista);
@@ -1184,7 +1248,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     const controlador = new AbortController(); controladorConfiguracionBolsa = controlador;
     contenedor.innerHTML = `<div data-configuracion-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel">${textoPortal("estado_modulo_comprobando")}</div></section></div>`;
     const raiz = contenedor.querySelector("[data-configuracion-montaje]");
-    import("./portal-bolsa-configuracion.js?v=20261016-r1-o-integracion-v7").then(async ({ montarConfiguracionBolsa }) => {
+    import("./portal-bolsa-configuracion.js?v=20261018-f009-main-v3").then(async ({ montarConfiguracionBolsa }) => {
       if (controlador.signal.aborted || estado.vista !== vista) return;
       const montaje = await montarConfiguracionBolsa({ raiz, signal: controlador.signal, escaparHTML });
       if (controlador.signal.aborted) { montaje?.desmontar(); return; }
@@ -1209,7 +1273,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     const controlador = new AbortController(); controladorRankingBolsa = controlador;
     contenedor.innerHTML = `<div data-ranking-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel">${textoPortal("estado_modulo_comprobando")}</div></section></div>`;
     const raiz = contenedor.querySelector("[data-ranking-montaje]");
-    Promise.all([import("./portal-baremacion-ranking.js?v=20261016-r1-o-integracion-v7"), import("./portal-bolsas-api.js?v=20261016-r1-o-integracion-v7")]).then(async ([vista, cliente]) => {
+    Promise.all([import("./portal-baremacion-ranking.js?v=20261016-r1-o-integracion-v7"), import("./portal-bolsas-api.js?v=20261018-f009-main-v3")]).then(async ([vista, cliente]) => {
       if (controlador.signal.aborted || estado.vista !== "baremacion") return;
       const montaje = await vista.montarRankingBolsa({ raiz, bolsas: estado.datosBolsas.datos.bolsas, consultar: cliente.consultarCandidatosBolsa, signal: controlador.signal, escaparHTML });
       if (controlador.signal.aborted) { montaje?.desmontar(); return; }
@@ -1326,6 +1390,12 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     return;
   }
   if (vista === "reglas") {
+    if (!estado.politicaCeseComprobada) {
+      contenedor.innerHTML = `<section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel"><p>${textoPortal("estado_modulo_comprobando")}</p></div></section>`;
+      void comprobarAccesoPoliticaCese();
+      return;
+    }
+    if (!estado.politicaCese && !estado.politicaCeseAusente) { navegar("portal"); return; }
     if (vistaPoliticaCese && contenedor.querySelector("[data-politica-cese]")) return;
     vistaPoliticaCese?.desmontar();
     vistaPoliticaCese = montarVistaPoliticaCeseRRHH({ raiz: contenedor,
@@ -1509,7 +1579,7 @@ function renderizar() {
   const grupoEstilos = grupoEstilosDeVista(estado.vista);
   const estilosVistaNecesarios = grupoEstilos && coordinadorModulos.vistaDisponible(estado.vista);
   if (estilosVistaNecesarios) cargarEstilosVista(grupoEstilos);
-  const necesitaBolsaBase = !["solicitudes", "meritos", "convocatorias", "alegaciones"].includes(estado.vista) && moduloDeVistaPortal(estado.vista) === "bolsa"
+  const necesitaBolsaBase = !["solicitudes", "meritos", "convocatorias", "alegaciones", "reglas"].includes(estado.vista) && moduloDeVistaPortal(estado.vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(estado.vista);
   if (necesitaBolsaBase && !controladorBolsas && !promesaBolsaBase && !errorBolsaBase) {
     void prepararBolsaBase().catch(() => {});
@@ -1976,7 +2046,7 @@ let rutaCandidatosAplicada = null;
 let promesaBolsaBase = null;
 let errorBolsaBase = false;
 function vistaNecesitaBolsa(vista = estado.vista) {
-  return vista === "portal" || (!["solicitudes", "meritos", "convocatorias", "alegaciones"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
+  return vista === "portal" || (!["solicitudes", "meritos", "convocatorias", "alegaciones", "reglas"].includes(vista) && moduloDeVistaPortal(vista) === "bolsa"
     && !vistaBolsaPendienteNoCompuesta(vista));
 }
 // La carga desde CONVOCA solo se ofrece si el servidor monta sus rutas; se
@@ -1998,8 +2068,8 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261018-f104-main-v1"),
-    import("./portal-bolsas-api.js?v=20261016-r1-o-integracion-v7"),
+    import("./portal-panel-interno.js?v=20261018-f009-main-v3"),
+    import("./portal-bolsas-api.js?v=20261018-f009-main-v3"),
     import("./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261016-ct-ofertas-ct231-v1"),
   ]).then(([panel, bolsas, rutas, ct]) => {

@@ -1038,6 +1038,15 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js", "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261016-ct231-integracion-v1");
   versionesEspeciales.set("portal-llamamientos-selector.js", "20261015-ofertas-recibo-v3");
+  versionesEspeciales.set("modulos/bolsa/rrhh-plazos-ui.js", "20261016-r1-o-integracion-v7");
+  for (const ruta of ["portal-bolsas-global.js", "portal-bolsas-ofertas.js",
+    "portal-bolsas-historial-ofrecimientos.js", "portal-bolsas-seguimiento.js"])
+    versionesEspeciales.set(ruta, "20261016-r1-o-integracion-v7");
+  for (const ruta of ["portal-menu-bolsa.js", "portal-bolsa-configuracion.js"]) versionesEspeciales.set(ruta, "20261016-bolsa-perfil-propio-v2");
+  versionesEspeciales.set("portal-modulos-coordinador.js", "20261016-f009-main-integrada-v7");
+  for (const ruta of ["portal.js", "portal-panel-interno.js"]) versionesEspeciales.set(ruta, "20261016-f009-justificante-v8");
+  versionesEspeciales.set("modulos/bolsa/rrhh-politica-cese-vista.js", "20261016-reglas-etiquetas-v6");
+  for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal-bolsas-api.js", "portal-bolsa-configuracion.js"]) versionesEspeciales.set(ruta, "20261018-f009-main-v1");
   // Las ofertas de varias plazas de CT, integradas con CT231, renuevan su cadena.
   for (const ruta of [
     "categorias-rpt/cliente.js",
@@ -1094,8 +1103,11 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   // F1-04 renueva sus importadores sin cambiar las hojas de Contratación.
   for (const ruta of ["portal.js", "portal-modulos-coordinador.js", "portal-panel-interno.js", "portal-menu-bolsa.js"])
     versionesEspeciales.set(ruta, "20261018-f104-main-v1");
-  versionesEspeciales.set("portal-bolsas-ofertas.js", "20261018-f155-recibos-plaza-v1");
-  versionesEspeciales.set("portal.js", "20261018-f155-recibos-plaza-v1");
+  // F0-09 une el catálogo propio con la navegación de situación publicada en main.
+  for (const ruta of ["portal-menu-bolsa.js", "portal-panel-interno.js", "portal-bolsas-api.js",
+    "portal-bolsa-configuracion.js", "portal-bolsas-historial-ofrecimientos.js",
+    "modulos/bolsa/rrhh-politica-cese-vista.js", "portal-bolsas-ofertas.js"])
+    versionesEspeciales.set(ruta, "20261018-f009-main-v3");
   // F1-74 renueva la ficha, sus importadores y la entrada del portal.
   for (const ruta of [
     "modulos/contratacion-temporal/circuito-firma-acciones.js",
@@ -1124,9 +1136,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes-render.js",
     "modulos/contratacion-temporal/vista-expedientes-tramitacion.js",
     "modulos/contratacion-temporal/vista-expedientes.js",
-    "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, "20261018-f174-v1");
-
+  for (const ruta of ["portal-modulos-coordinador.js", "portal.js"])
+    versionesEspeciales.set(ruta, "20261018-f009-f174-v1");
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;

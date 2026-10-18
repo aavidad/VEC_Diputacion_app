@@ -13,7 +13,7 @@ import {
   sincronizarMenuBolsa,
   vistaBolsaPendienteNoCompuesta,
   vistaBolsaOfrecida,
-} from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-menu-bolsa.js?v=20261016-bolsa-perfil-propio-v2";
 
 test("Auditoría RRHH se abre sin partir de una ficha", () => {
   assert.equal(vistaBolsaOfrecida("auditoria", { panelInterno: true }), false);
@@ -21,9 +21,17 @@ test("Auditoría RRHH se abre sin partir de una ficha", () => {
   assert.equal(vistaBolsaOfrecida("auditoria", { auditoriaConsulta: true }), true);
 });
 
-test("Reglas de cese solo se ofrecen tras su consulta V3 positiva", () => {
+test("Reglas se ofrecen tras consultar el perfil propio y cotejan la política al abrir", () => {
   assert.equal(vistaBolsaOfrecida("reglas", { panelInterno: true }), false);
-  assert.equal(vistaBolsaOfrecida("reglas", { politicaCese: true }), true);
+  assert.equal(vistaBolsaOfrecida("reglas", { politicaCese: true, bolsasConsultables: true }), false);
+  assert.equal(vistaBolsaOfrecida("reglas", { perfilPropioBolsa: true }), true);
+});
+
+test("Configuración exige una lectura positiva del perfil propio", () => {
+  assert.equal(vistaBolsaOfrecida("configuracion", { bolsasConsultables: false, politicaCese: true }), false);
+  assert.equal(vistaBolsaOfrecida("configuracion", { bolsasConsultables: true, politicaCese: false }), false);
+  assert.equal(vistaBolsaOfrecida("configuracion", { perfilPropioBolsa: true, bolsasConsultables: false }), true);
+  assert.equal(vistaBolsaOfrecida("configuracion", { perfilPropioBolsa: false, politicaCese: true }), false);
 });
 
 test("reglas de situación se ofrecen con Bolsa consultable y conservan la vista de cese", () => {
@@ -348,18 +356,28 @@ function categoriasVisibles(raiz) {
     .map((control) => control.dataset.categoriaBolsa);
 }
 
+test("el perfil propio abre Configuración y Reglas desde el menú aunque el cuadro falle", () => {
+  const raiz = menuDesdeHTML();
+  aplicarDisponibilidadMenuBolsa(raiz, { perfilPropioBolsa: true, bolsasConsultables: false,
+    politicaCese: false, contratacionTemporal: true });
+  assert.deepEqual(categoriasVisibles(raiz), ["reglas", "auditoria"]);
+  aplicarDisponibilidadMenuBolsa(raiz, { perfilPropioBolsa: false, bolsasConsultables: true,
+    politicaCese: true, contratacionTemporal: true });
+  assert.equal(categoriasVisibles(raiz).includes("auditoria"), false);
+});
+
 test("sin panel interno ni borradores, el menú de Bolsa solo ofrece lo que tiene servicio", async () => {
   const { aplicarDisponibilidadMenuBolsa } = await import("./portal-menu-bolsa.js");
   const raiz = menuDesdeHTML();
   const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: true });
-  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones", "auditoria"]);
-  assert.equal(indicadores.length, 8, "se renumeran solo las categorías visibles");
-  // Los grupos Reglas y Auditoría aparecen: ranking y configuración usan la lectura RRHH.
+  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
+  assert.equal(indicadores.length, 7, "la lectura del cuadro no ofrece Configuración");
+  // Ranking usa el cuadro; Configuración exige una lectura propia adicional.
   assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").length, 3);
-  assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").filter((grupo) => !grupo.hidden).length, 3);
+  assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").filter((grupo) => !grupo.hidden).length, 2);
   // El aviso de Documentos de Bolsa no depende de la capacidad de CT.
   aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: false, contratacionTemporal: false });
-  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones", "auditoria"]);
+  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
 });
 
 test("el menú espera la lectura positiva de bolsas sin impedir el estado de una URL directa", async () => {
@@ -384,11 +402,11 @@ test("Elaboración solo se ofrece a RRHH cuando su API consta disponible", async
     .find((control) => control.getAttribute("data-vista") === "elaboracion");
   aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores: true, contratacionTemporal: true });
   assert.equal(elaboracion().hidden, false);
-  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones", "auditoria"]);
+  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
   for (const borradores of [null, false]) {
     aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: false, borradores, contratacionTemporal: true });
     assert.equal(elaboracion().hidden, true, String(borradores));
-    assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones", "auditoria"]);
+    assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
   }
 });
 
@@ -401,8 +419,8 @@ test("el panel antiguo no anuncia recorridos sin API compuesta", async () => {
   assert.deepEqual(grupoBolsas.querySelectorAll(".submenu-bolsa [data-vista]").filter((control) => !control.hidden)
     .map((control) => control.getAttribute("data-vista")), ["elaboracion", "alegaciones"]);
   const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { bolsasConsultables: true, panelInterno: true, borradores: true, contratacionTemporal: true });
-  assert.equal(indicadores.length, 8);
-  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones", "auditoria"]);
+  assert.equal(indicadores.length, 7);
+  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "reglas", "resumen", "estadisticas", "documentos", "comunicaciones"]);
 });
 
 test("la navegación directa a una vista de Bolsa sin servicio no se permite", async () => {

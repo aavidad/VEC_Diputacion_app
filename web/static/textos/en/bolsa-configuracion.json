@@ -60,6 +60,11 @@
     "bolsa_carga_convoca_importar": "Import pools from CONVOCA",
     "bolsa_inscripcion_decidir": "Decide registration requests",
     "bolsa_inscripcion_incorporar": "Add admitted applicants to the pool",
-    "bolsa_configuracion_consultar": "View my profile and configuration"
+    "bolsa_configuracion_consultar": "View my profile and configuration",
+    "bolsa_carga_convoca_confirmar": "Confirm the import of pools from CONVOCA",
+    "bolsa_inscripcion_rrhh_decidir": "Decide registration requests",
+    "bolsa_inscripcion_rrhh_incorporar": "Add admitted applicants to the pool",
+    "bolsa_inscripcion_rrhh_motivos": "View reasons for registration decisions",
+    "bolsa_origen_ct_consultar": "View the pool from a temporary recruitment case"
   }
 }

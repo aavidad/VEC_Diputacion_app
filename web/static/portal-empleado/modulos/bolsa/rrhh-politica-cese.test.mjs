@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClientePoliticaCeseRRHH, RUTA_POLITICA_CESE, validarPoliticaCeseRRHH } from "./rrhh-politica-cese-api.js";
-import { montarVistaPoliticaCeseRRHH, renderizarVistaPoliticaCeseRRHH } from "./rrhh-politica-cese-vista.js?v=20261007-pantallas-textos-final-v1";
-import { prepararTextosPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { montarVistaPoliticaCeseRRHH, renderizarVistaPoliticaCeseRRHH } from "./rrhh-politica-cese-vista.js?v=20261016-reglas-etiquetas-v6";
+import { cargarMensajesPortal, prepararTextosPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 await prepararTextosPortal("bolsa");
 
 const politica = Object.freeze({
@@ -67,7 +67,8 @@ test("la vista muestra versión, meses y mapeo del servidor; ayuda oculta tras ?
   assert.match(html, /Versión 2/u);
   assert.match(html, /5 meses naturales/u);
   assert.match(html, /9 meses naturales/u);
-  assert.match(html, /interinidad\|acumulacion_tareas/u);
+  assert.match(html, /Interinidad por acumulación de tareas/u);
+  assert.doesNotMatch(html, /interinidad\|acumulacion_tareas/u);
   assert.match(html, /Pendiente de aprobación por RRHH/u);
   assert.match(html, /id="politica-cese-ayuda"[^>]*hidden/u);
   const eventos = new Map();
@@ -78,6 +79,26 @@ test("la vista muestra versión, meses y mapeo del servidor; ayuda oculta tras ?
   assert.doesNotMatch(raiz.innerHTML, /id="politica-cese-ayuda"[^>]*hidden/u);
   vista.desmontar();
   assert.equal(eventos.size, 0);
+});
+
+test("las seis modalidades conocidas usan nombres legibles y el caso desconocido no muestra códigos", async () => {
+  const completa = { ...politica, mapeo: { ...politica.mapeo,
+    "contratacion_temporal.interinidad": "general",
+    "contratacion_temporal.interinidad|acumulacion_tareas": "acumulacion_tareas",
+    vacante: "general" } };
+  const html = renderizarVistaPoliticaCeseRRHH({ politica: completa });
+  for (const nombre of ["Interinidad", "Interinidad por acumulación de tareas",
+    "Interinidad (contratación temporal)", "Interinidad por acumulación de tareas (contratación temporal)",
+    "Relevo", "Vacante"]) assert.ok(html.includes(`<strong>${nombre}</strong>`), nombre);
+  assert.doesNotMatch(html, /contratacion_temporal\.|interinidad\|acumulacion_tareas|<small>interinidad|<small>relevo/u);
+  const desconocida = renderizarVistaPoliticaCeseRRHH({ politica: { ...politica,
+    mapeo: { "contratacion_temporal.nueva|acumulacion_tareas": "acumulacion_tareas" } } });
+  assert.match(desconocida, /Modalidad no identificada/u);
+  const filasDesconocidas = desconocida.match(/<tbody>[\s\S]*?<\/tbody>/u)?.[0] || "";
+  assert.doesNotMatch(filasDesconocidas, /contratacion_temporal\.nueva|<details|<code>/u);
+  const ingles = await cargarMensajesPortal("en");
+  assert.equal(ingles.politica_cese_ct_interinidad, "Interim appointment (temporary employment)");
+  assert.equal(ingles.politica_cese_no_identificada, "Unidentified appointment or contract type");
 });
 
 // Recorrido en cidonia del 06/10/2026: Reglas y versiones daba 404 en

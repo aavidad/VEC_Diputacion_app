@@ -100,7 +100,6 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
     case "llamamientos":
     case "comunicaciones":
     case "baremacion":
-    case "configuracion":
     case "reglas-situacion":
     case VISTA_CANDIDATOS_BOLSA:
       return capacidades?.bolsasConsultables === true;
@@ -110,8 +109,12 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
       return capacidades?.contratacionTemporal === true;
     case "auditoria":
       return capacidades?.auditoriaConsulta === true;
+    case "configuracion":
+      // El perfil propio habilita la entrada; cada lectura se autoriza otra vez al abrir.
+      return capacidades?.perfilPropioBolsa === true;
     case "reglas":
-      return capacidades?.politicaCese === true;
+      // La política se comprueba al abrir; no se deduce permiso del cuadro.
+      return capacidades?.perfilPropioBolsa === true;
     default:
       return false;
   }
