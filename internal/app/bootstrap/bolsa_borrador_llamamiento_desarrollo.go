@@ -650,6 +650,20 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	var politicaTransiciones politicaAutorizacionSolicitudLigadaV3Desarrollo
+	if seleccion, activa := leerSeleccionGobiernoTransicionesBolsa(); activa && autoridadesCargaConvoca != nil {
+		sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+		var disponible bool
+		politicaTransiciones, disponible, err = politicaTransicionesS6PostgreSQL(sonda,
+			autoridadesCargaConvoca.fuente, autoridadesCargaConvoca.motivos, alta.postgresql.registroAutorizacion,
+			soporteBolsa, seleccion.Motivo, dependenciasCT.reloj.Ahora())
+		cancelar()
+		if err != nil || !disponible {
+			slog.Warn("bolsa transiciones: edición no disponible", "etapa", "autorizacion")
+			politicaTransiciones = politicaAutorizacionSolicitudLigadaV3Desarrollo{}
+		}
+	}
+	descriptoresBolsa = append(descriptoresBolsa, autorizacionesGobiernoTransicionesBolsaDesarrollo(politicaTransiciones)...)
 	if cargaConvocaActiva {
 		descriptor, e := descriptorAutorizacionCargaConvocaGobernadaBolsaDesarrollo(politicaCargaConvoca)
 		if e != nil {
@@ -793,6 +807,8 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	cerrarIntentosDocumentales = detenerIntentosDocumentales
+	rutaGobiernoTransiciones := componerRutaGobiernoTransicionesBolsaDesarrollo(ctx, dependenciasCT, alta,
+		preparador, pdp, politicaTransiciones, servicioSituacion, registradorDocumentales, procesoDocumentales)
 	consultaDocumentales, err := nuevaConsultaDocumentalesBolsaAuditada(servicioSituacion, registradorDocumentales, procesoDocumentales)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
@@ -1021,7 +1037,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		}
 	}
 	completa = true
-	rutas := []vechttp.RutaExacta{rutaPoliticaCese, {Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaContactosOferta, Manejador: handlerContacto}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
+	rutas := []vechttp.RutaExacta{rutaPoliticaCese, rutaGobiernoTransiciones, {Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaContactosOferta, Manejador: handlerContacto}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
 	if cargaConvocaActiva {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsahttp.RutaVistaPreviaCargaConvoca, Manejador: handlerCargaConvoca},
 			vechttp.RutaExacta{Ruta: bolsahttp.RutaConfirmarCargaConvoca, Manejador: handlerCargaConvoca})
