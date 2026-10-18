@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { accionesPlaza, crearClienteOfertas, crearSuperficieOfertasBolsa, crearTraductorOfertas, mensajeError, validarOfertasBolsa,
-  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261018-f155-recibos-plaza-v1";
+  ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js?v=20261018-f175-contacto-propio-v1";
 
 function plaza(numero, extra = {}) {
   return { numero_de_plaza: numero, estado: "vacante", secuencia: 0, participacion_ref: null, orden_vigente: null,
@@ -42,9 +42,9 @@ function boton(dataset) {
 test("la entrada y la caché cargan la versión de ofertas con avisos", async () => {
   const [portal, html, cache] = await Promise.all(["portal.js", "index.html", "cache-publica-v1.json"]
     .map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
-  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261018-f155-recibos-plaza-v1/);
-  assert.match(html, /portal\.js\?v=20261018-f174-v1/);
-  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261018-f174-v1"));
+  assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261018-f175-contacto-propio-v1/);
+  assert.match(html, /portal\.js\?v=20261018-f175-integracion-v2/);
+  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261018-f175-integracion-v2"));
 });
 
 test("la ficha abre el historial autorizado de la oferta elegida y lo desmonta al cerrar", async () => {
