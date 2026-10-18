@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- B138: selección propia de modalidades, con historia separada del orden de bolsas.
--- Instalar después de AD291 y AUT104. Las lecturas reutilizan B104 y B116.
+-- Instalar después de AD296 y AUT104. Las lecturas reutilizan B104 y B116.
 BEGIN;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -17,7 +17,25 @@ BEGIN
  OR to_regprocedure('vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  OR to_regrole('vec_bolsa_llamamientos_portal_externo') IS NULL
  OR to_regrole('vec_bolsa_llamamientos_preferencias_interna') IS NULL
- OR to_regprocedure('vec_autorizacion.cotejar_campos_preferencias_modalidades_aut104(jsonb,jsonb)') IS NULL
+ OR NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='vec_autorizacion'
+   AND p.proname='cotejar_campos_preferencias_modalidades_aut104'
+   AND p.proargtypes='3802 3802'::oidvector AND p.pronargs=2
+   AND p.prorettype=16::oid AND p.prokind='f')
+ -- AD296 debe dejar las dos fachadas auditadas con proyecciones de 8/5 campos.
+ -- Se cotejan cuerpo y privilegios antes de sustituir las lectoras de Bolsa.
+ OR (SELECT encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') FROM pg_proc p
+     WHERE p.oid='vec_autorizacion_atestada_v3.registrar_lectura_preferencias_bolsas_v1(bytea,bytea,jsonb)'::regprocedure
+      AND p.prokind='f' AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
+      AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','lock_timeout=2s','statement_timeout=10s']::text[]
+      AND p.proacl::text='{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario,vec_bolsa_llamamientos_propietario=X/vec_autorizacion_atestada_v3_propietario}')
+    IS DISTINCT FROM '014ea7fbf8229619c736d0ebcea7964634dbd7c545b9b6a76d659d5a2a334bf8'
+ OR (SELECT encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') FROM pg_proc p
+     WHERE p.oid='vec_autorizacion_atestada_v3.registrar_lectura_preferencias_bolsas_interna_v1(bytea,bytea,jsonb)'::regprocedure
+      AND p.prokind='f' AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND p.prosecdef
+      AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','lock_timeout=2s','statement_timeout=10s']::text[]
+      AND p.proacl::text='{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario,vec_bolsa_llamamientos_propietario=X/vec_autorizacion_atestada_v3_propietario}')
+    IS DISTINCT FROM '0a6ec140c5b7b4c52a2242269418397c527f446fc21c131af91a7cd0d728c5dc'
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_interna_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR has_function_privilege('vec_bolsa_llamamientos_propietario','vec_autorizacion_atestada_v3.registrar_y_consumir_preferencias_bolsas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') IS NOT TRUE
@@ -162,8 +180,7 @@ BEGIN
    OR e->>'entrada_clave' IS DISTINCT FROM 'c12.modalidad.'||(e->>'clave'))
  OR (SELECT count(DISTINCT e->>'clave') FROM jsonb_array_elements(p_disponibles) e)
     <>jsonb_array_length(p_disponibles)
- OR EXISTS(SELECT 1 FROM unnest(p_modalidades) s WHERE s !~ '^[a-z][a-z0-9._-]{1,79}$'
-   OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p_disponibles) e WHERE e->>'clave'=s))
+ OR EXISTS(SELECT 1 FROM unnest(p_modalidades) s WHERE s !~ '^[a-z][a-z0-9._-]{1,79}$')
  OR (p_modalidades IS NOT NULL AND
     (SELECT count(DISTINCT s) FROM unnest(p_modalidades) s) IS DISTINCT FROM cardinality(p_modalidades))
  THEN RAISE EXCEPTION 'B138: catálogo o selección divergente' USING ERRCODE='22023'; END IF;
@@ -221,14 +238,22 @@ BEGIN
    OR v_previa.perfil_ref IS DISTINCT FROM x->>'perfil_activo_ref'
    OR v_previa.superficie IS DISTINCT FROM v_superficie
    OR v_previa.version IS DISTINCT FROM p_version_esperada+1
-   OR v_previa.solicitud_huella_sha256 IS DISTINCT FROM v_huella
-   OR v_previa.contexto_huella_sha256 IS DISTINCT FROM v_contexto_h
-   OR v_previa.catalogo_snapshot IS DISTINCT FROM v_snapshot
    OR v_previa.modalidades IS DISTINCT FROM v_seleccion
+   OR v_previa.solicitud_huella_sha256 IS DISTINCT FROM
+    vec_bolsa_llamamientos.huella_solicitud_modalidades_v1(
+     p_candidato,p_version_esperada,v_previa.modalidades,v_previa.catalogo_snapshot)
+   OR v_previa.contexto_huella_sha256 IS DISTINCT FROM
+    vec_bolsa_llamamientos.huella_contexto_modalidades_v1(
+     p_candidato,v_previa.solicitud_huella_sha256)
+   OR v_previa.recibo_ref IS DISTINCT FROM 'recibo:preferencias-modalidades:'||encode(sha256(convert_to(
+    p_candidato||chr(31)||v_clave_interna||chr(31)||v_previa.solicitud_huella_sha256,'UTF8')),'hex')
   THEN RAISE EXCEPTION 'B138: clave reutilizada con otra selección' USING ERRCODE='VBP02'; END IF;
   RETURN QUERY SELECT true,v_previa.recibo_ref,v_previa.version,v_previa.modalidades,v_previa.registrada_en;
   RETURN;
  END IF;
+ IF EXISTS(SELECT 1 FROM unnest(p_modalidades) s
+  WHERE NOT EXISTS(SELECT 1 FROM jsonb_array_elements(v_snapshot) e WHERE e->>'clave'=s))
+ THEN RAISE EXCEPTION 'B138: modalidad no disponible' USING ERRCODE='22023'; END IF;
  SELECT coalesce(max(p.version),0) INTO v_version FROM vec_bolsa_llamamientos.preferencia_modalidades_version p
  WHERE p.candidato_ref=p_candidato;
  IF v_version<>p_version_esperada THEN
@@ -348,12 +373,12 @@ END $function$;
 DO $postlecturas$ BEGIN
  IF false
  OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_bolsa_llamamientos.consultar_preferencias_bolsas_v1(text,bytea,bytea,jsonb)'::regprocedure
-  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='2543f2eb222e9e1215a8e5452c53351cd881b62a4d1657a53ba1d4afd32c379f'
+  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='222e0b9b56ce6a8209b8a27ee1502157f6dbe57e808436c4b220f5d7f8645099'
   AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole AND p.prosecdef
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=10s']::text[]
   AND p.proacl::text='{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_portal_externo=X/vec_bolsa_llamamientos_propietario}')
  OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_bolsa_llamamientos.consultar_preferencias_bolsas_interna_v1(text,bytea,bytea,jsonb)'::regprocedure
-  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='8a39648767419fac9dd8a72359203cc38ccb932c5e37ad81448e41994c3389c4'
+  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='b3296f430ed4c984a0e68cea7511f2d844e5861cc7fc803bfd66bcee52572c59'
   AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole AND p.prosecdef
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=10s']::text[]
   AND p.proacl::text='{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_preferencias_interna=X/vec_bolsa_llamamientos_propietario}')
@@ -364,20 +389,26 @@ DO $post$
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_class t WHERE t.oid='vec_bolsa_llamamientos.preferencia_modalidades_version'::regclass
   AND t.relowner='vec_bolsa_llamamientos_propietario'::regrole
-  AND t.relrowsecurity AND t.relforcerowsecurity AND t.relacl IS NULL)
+  AND t.relrowsecurity AND t.relforcerowsecurity
+  AND (SELECT count(*)=8 AND count(DISTINCT a.privilege_type)=8 AND
+    bool_and(a.grantee=t.relowner AND a.grantor=t.relowner AND NOT a.is_grantable
+     AND a.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER','MAINTAIN'))
+   FROM aclexplode(coalesce(t.relacl,acldefault('r',t.relowner))) a) IS TRUE)
  OR (SELECT count(*) FROM pg_trigger t WHERE t.tgrelid='vec_bolsa_llamamientos.preferencia_modalidades_version'::regclass
   AND t.tgname IN ('preferencia_modalidades_version_inmutable','preferencia_modalidades_version_no_truncar')
   AND t.tgenabled='O')<>2
- OR has_function_privilege('public','vec_bolsa_llamamientos.huella_solicitud_modalidades_v1(text,bigint,text[],jsonb)','EXECUTE')
- OR has_function_privilege('public','vec_bolsa_llamamientos.huella_contexto_modalidades_v1(text,text)','EXECUTE')
- OR has_function_privilege('public','vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+  WHERE p.oid IN ('vec_bolsa_llamamientos.huella_solicitud_modalidades_v1(text,bigint,text[],jsonb)'::regprocedure,
+   'vec_bolsa_llamamientos.huella_contexto_modalidades_v1(text,text)'::regprocedure,
+   'vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
+   AND a.grantee=0 AND a.privilege_type='EXECUTE')
  OR has_function_privilege('vec_bolsa_llamamientos_portal_externo','vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') IS NOT TRUE
  OR has_function_privilege('vec_bolsa_llamamientos_preferencias_interna','vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') IS NOT TRUE
  OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
   AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole AND p.prosecdef
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']::text[])
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-  WHERE p.oid='vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea)'::regprocedure
+  WHERE p.oid='vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
   AND a.privilege_type='EXECUTE')<>3
  THEN RAISE EXCEPTION 'B138: tabla o ACL divergentes' USING ERRCODE='55000'; END IF;
 END $post$;
