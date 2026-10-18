@@ -391,19 +391,19 @@ BEGIN
   THEN RAISE EXCEPTION 'proyección candidato preexistente distinta o parcial'; END IF;
   INSERT INTO vec_contexto_actor_v1.procedencias VALUES ({p},1,{h},{authority});
   INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_versiones VALUES
-    ({c},1,{p},1,{h},{authority},'activo',clock_timestamp()-interval '1 hour',{fin});
+    ({c},1,{p},1,{h},{authority},'activo',clock_timestamp(),{fin});
   INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_actual VALUES ({c},1);
   INSERT INTO vec_contexto_actor_v1.persona_versiones VALUES
-    ({pe},1,{p},1,{h},{authority},'activo',clock_timestamp()-interval '1 hour',{fin});
+    ({pe},1,{p},1,{h},{authority},'activo',clock_timestamp(),{fin});
   INSERT INTO vec_contexto_actor_v1.persona_actual VALUES ({pe},1);
   INSERT INTO vec_contexto_actor_v1.perfil_versiones VALUES
-    ({pr},1,{pe},{p},1,{h},{authority},'activo',clock_timestamp()-interval '1 hour',{fin});
+    ({pr},1,{pe},{p},1,{h},{authority},'activo',clock_timestamp(),{fin});
   INSERT INTO vec_contexto_actor_v1.perfil_actual VALUES ({pr},1);
   INSERT INTO vec_contexto_actor_v1.vinculo_contexto_versiones VALUES
-    ({vc},1,{c},{pr},{pe},{p},1,{h},{authority},'activo',clock_timestamp()-interval '1 hour',{fin});
+    ({vc},1,{c},{pr},{pe},{p},1,{h},{authority},'activo',clock_timestamp(),{fin});
   INSERT INTO vec_contexto_actor_v1.vinculo_contexto_actual VALUES ({vc},1);
   INSERT INTO vec_contexto_actor_v1.vinculo_referencia_versiones VALUES
-    ({vr},1,{pe},'candidato',{can},{p},1,{h},{authority},'activo',clock_timestamp()-interval '1 hour',{fin});
+    ({vr},1,{pe},'candidato',{can},{p},1,{h},{authority},'activo',clock_timestamp(),{fin});
   INSERT INTO vec_contexto_actor_v1.vinculo_referencia_actual VALUES ({vr},1);
 END
 $proyectar$;

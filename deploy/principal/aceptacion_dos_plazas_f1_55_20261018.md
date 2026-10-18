@@ -37,7 +37,9 @@ VEC_DEVELOPMENT_MATERIAL_DIR="$material_elena" \
 
 El motor predeterminado es Podman.
 Los certificados nuevos duran 90 días; los existentes deben durar entre 60 y
-90. Un cambio de candidatura que no coincida con la intención o el manifiesto
+90. Las proyecciones nuevas empiezan al crearse y terminan con el
+certificado, sin añadir una hora previa: su intervalo total no supera los 90
+días. Recuperar una proyección existente conserva sus fechas. Un cambio de candidatura que no coincida con la intención o el manifiesto
 se rechaza antes de confirmar datos. La selección conserva el filtro de bolsa,
 la pertenencia al acta y el ensayo con ROLLBACK antes del COMMIT.
 
