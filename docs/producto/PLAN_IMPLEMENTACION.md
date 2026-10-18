@@ -132,13 +132,15 @@ la principal del 13/10 (`deploy/principal/habilitacion_ad262_actual_20261013.md`
 
 ### 2.3 En curso
 
-**F0-09, permisos de consulta de RRHH.** La candidata c186438fd tiene cinco
-puertas verdes. En copia local, dos administradores publicaron el rol; perfil,
-política y recibo del cambio de rol están comprobados, también tras reiniciar. El origen CT
-actual requiere la fuente v2 de 40 campos, admitida antes de añadirla al rol:
-el acto existente no sustituye una acción ya concedida. Siguen pendientes esa
-publicación, Organización histórica y la selección con vínculo RPT compatible.
-Activación y límites en `deploy/principal/f0_09_rol_rrhh_20261016.md`.
+**F0-09, permisos de consulta de RRHH.** La copia final admite primero el
+catálogo v7 con origen CT v2 de 40 campos y después publica el rol por dos
+administradores. Conserva las 18 concesiones previas y añade las tres exactas.
+Perfil y política responden 200 para RRHH y 403 para Intervención; el recibo del
+cambio de rol conserva referencia y fecha tras reiniciar. Administración arranca
+con y sin el fichero opcional del acto. La selección sigue indisponible con 409,
+sin 403; Organización histórica y M10 quedan fuera de esta tarea por orden del
+18/10. Pendiente de integración; activación y límites en
+`deploy/principal/f0_09_rol_rrhh_20261016.md`.
 
 **F1-37, ajustes de firma.** Límite PDF de 2 MiB en firma VEC, cotas de transporte
 calculadas aparte, cierre de auditoría seguro y sonda de plantillas por
