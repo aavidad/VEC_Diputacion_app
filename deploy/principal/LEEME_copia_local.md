@@ -2,10 +2,12 @@
 
 El guion `deploy/principal/copia_local.sh` restaura la base de referencia,
 aplica las listas SQL indicadas y arranca el portal con certificados nuevos.
-Tarea F0-28 del tablero. Este primer corte arranca con las funciones opcionales
-apagadas: todavía no prepara las conexiones nominales ni los actos de los
-módulos. Un portal que responde 200 acredita el arranque, no el recorrido de
-Bolsa y Contratación. Los apartados 3 a 8 conservan esa preparación pendiente.
+Tarea F0-28 del tablero. Sin selectores arranca con las funciones opcionales
+apagadas. `--modulos` prepara conexiones nuevas de Contratación y Bolsa y un
+buzón local; `--portal-externo` añade la preparación del aspirante desde el
+material privado de copia. El gobierno de administradores sigue pendiente.
+Un portal que responde 200 acredita el arranque; el recorrido requiere además
+las consultas y actuaciones de cada módulo.
 
 Reglas que no cambian:
 
@@ -62,6 +64,35 @@ No descarga herramientas ni imágenes para compilar. La variable
 Debe contener el volcado `principal-hz37-20261014.dump` y sus anexos
 `acl-base-20261014.sql` y `acl-tipos-20261014.sql`.
 
+Para montar Contratación y Bolsa, añade `--modulos --puerto-smtp 11081` y
+ten instalada también la imagen `axllent/mailpit:v1.27.8`. El buzón escucha
+solo en el puerto local elegido, exige STARTTLS y solo acepta direcciones
+`@example.test`; no se configura reenvío. Se comprueba el rechazo de otro
+dominio antes de arrancar la aplicación. `parar`, `reiniciar` y `borrar`
+incluyen el buzón de esa instancia.
+
+La preparación de los datos ficticios usa los productores del kit privado:
+`VEC_COPIA_ROLES_SCRIPT`, antes de instalar SQL, y `VEC_COPIA_DATOS_SCRIPT`,
+después de crear las credenciales. Para el aspirante se añade
+`VEC_COPIA_PORTAL_SCRIPT` y `--portal-externo`, que requiere `--modulos`.
+Cada variable apunta a un archivo privado propio, fuera de Git y de la
+carpeta de PostgreSQL, sin enlaces ni permisos de grupo o de otros usuarios.
+Los productores reciben únicamente `--raiz <instancia>` y dejan su registro
+en ella. Las rutas y los datos concretos del kit no se versionan.
+
+El productor previo debe preparar los dos LOGIN que figuran en
+`configuracion_origen_consumos_v1` para los orígenes de Contratación y Bolsa:
+grupos exactos, membresía exclusiva, `INHERIT TRUE`, `SET FALSE`, sin
+administración y con vigencia de 90 días. AD278 comprueba esos datos; no se
+debilita su guarda. Las demás conexiones se crean con nombres y contraseñas
+nuevos. El registro privado conserva sus valores y la huella del entorno.
+
+El productor del aspirante se ejecuta con la aplicación y el sellado de
+auditoría activos. Al terminar se reinician PostgreSQL y la aplicación para
+cargar su configuración. La preparación debe publicar identidad, contexto,
+asignación y confianza mediante los productores existentes. Las admisiones
+técnicas y los datos ficticios de copia no acreditan actos de administración.
+
 Desde la raíz de tu rama:
 
 ```sh
@@ -117,7 +148,10 @@ deploy/principal/copia_local.sh borrar --equipo l --instancia recorrido
 
 `reiniciar` detiene aplicación y PostgreSQL y los vuelve a crear con los
 mismos datos. Comprueba `/livez` y `/portal-empleado/` por HTTPS con CA y
-certificado de cliente verificados. `arrancar` rechaza una copia incompleta o
+certificado de cliente verificados. Con `--modulos`, comprueba además la
+consulta del cuadro de Contratación y el listado de bolsas. La disponibilidad
+global de otras funciones opcionales no se deduce de estas comprobaciones.
+`arrancar` rechaza una copia incompleta o
 una revisión de código distinta; crea otra instancia cuando cambie la rama.
 `borrar` comprueba el árbol de trabajo creador, la marca de propiedad y la
 etiqueta del contenedor antes
