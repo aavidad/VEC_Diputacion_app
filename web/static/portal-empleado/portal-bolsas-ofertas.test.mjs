@@ -527,10 +527,12 @@ test("un reintento incierto bloquea otra operación y los rechazos de acceso ret
   const aviso = { total: 1, pendientes: 1, enviados: 0, sin_confirmacion: 0, fallidos: 0 };
   try {
     for (const fallo of ["red", 401, 403]) {
-      let llamadas = 0;
+      const llamadas = [];
       const superficie = crearSuperficieOfertasBolsa({ cliente: {
         consultar: async () => sobre([], "publicacion"),
-        publicar: async () => { llamadas++; if (llamadas === 1) return { ok: true, status: 201, oferta: oferta({ aviso }) };
+        publicar: async (bolsa, datos, plazas, notificacion, clave) => {
+          llamadas.push(structuredClone({ bolsa, datos, plazas, notificacion, clave }));
+          if (llamadas.length === 1) return { ok: true, status: 201, oferta: oferta({ aviso }) };
           if (fallo === "red") throw new Error("conexión perdida");
           return { ok: false, status: fallo, codigo: "sin_permiso" }; },
       }, generarClave: () => "clave-original" });
@@ -543,8 +545,15 @@ test("un reintento incierto bloquea otra operación y los rechazos de acceso ret
         assert.equal(superficie.estado().reintentoAvisos.clave, "clave-original");
         assert.equal(superficie.estado().reintentoAvisos.incierta, true);
         assert.match(superficie.renderizar(), /No se pudo confirmar el resultado/);
-        superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos" }));
-        assert.equal(llamadas, 2);
+        superficie.manejarSubmit({ target: formulario, preventDefault() {} });
+        for (const accion of ["confirmar-publicacion", "preparar", "confirmar", "preparar-reintento-incierto"]) {
+          superficie.manejarClick(boton({ ofertasAccion: accion, ofertaRef: "oferta:otra" }));
+        }
+        assert.equal(llamadas.length, 2, "el resultado incierto bloquea operaciones distintas");
+        superficie.manejarClick(boton({ ofertasAccion: "recuperar-avisos" })); await turno();
+        assert.equal(llamadas.length, 3, "permite recuperar la misma intención");
+        assert.deepEqual(llamadas[2], llamadas[0], "conserva bolsa, cuerpo y clave originales");
+        assert.equal(superficie.estado().reintentoAvisos.incierta, true);
       } else {
         assert.equal(superficie.estado().reintentoAvisos, null);
         assert.deepEqual(superficie.estado().ofertas, []);
