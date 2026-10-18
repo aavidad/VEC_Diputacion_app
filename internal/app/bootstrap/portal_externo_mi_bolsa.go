@@ -674,11 +674,26 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 			return nil, errMiBolsaNoDisponible
 		}
 	}
+	lectorOfertas := mibolsa.LectorEstadoPreferenciasModalidades(lectorModalidadesNoDisponible{})
+	var lecturaModalidades *mibolsa.LecturaPreferenciasModalidades
+	if d.catalogoModalidades != nil && d.modalidadesSQL && d.proveedorPreferencias != nil && d.fuentePreferencias != nil {
+		lecturaModalidades, err = nuevaLecturaModalidadesPortalExterno(d)
+		if err != nil {
+			slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "lectura",
+				"causa", causaFalloPostgreSQLCTDesarrollo(err))
+		} else {
+			lectorOfertas = lecturaModalidades
+		}
+	}
+	consultaModalidades, err := mibolsa.NuevoConsultaOfertasModalidades(servicio, lectorOfertas)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
 	var consultaHTTP http.Handler
 	if d.campos == nil {
-		consultaHTTP, err = bolsahttp.Nuevo(preparador, servicio)
+		consultaHTTP, err = bolsahttp.Nuevo(preparador, consultaModalidades)
 	} else {
-		consultaHTTP, err = bolsahttp.NuevoConCampos(preparador, servicio, d.campos)
+		consultaHTTP, err = bolsahttp.NuevoConCampos(preparador, consultaModalidades, d.campos)
 	}
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
@@ -722,32 +737,20 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 		}
 	}
 	modalidadesHTTP := bolsahttp.NuevoHandlerPreferenciasBolsasNoDisponible()
-	if d.catalogoModalidades != nil && d.modalidadesSQL && d.proveedorPreferencias != nil && d.fuentePreferencias != nil {
-		lecturaModalidadesPG, e := bolsapg.NuevaLecturaPreferenciasModalidadesPostgreSQL(d.bolsa)
+	if lecturaModalidades != nil {
+		escrituraModalidadesPG, e := bolsapg.NuevaEscrituraPreferenciasModalidadesPostgreSQL(d.bolsa)
 		if e == nil {
-			auditoriaModalidadesPG, errorAuditoria := bolsapg.NuevaAuditoriaIntentosPreferenciasBolsasPostgreSQL(d.bolsa)
-			e = errorAuditoria
+			escrituraModalidades, errorServicio := mibolsa.NuevoServicioPreferenciasModalidades(
+				escrituraModalidadesPG, d.catalogoModalidades, propio,
+				proveedorPreferenciasBolsasPortalExterno{delegado: d.proveedorPreferencias}, d.reloj)
+			e = errorServicio
 			if e == nil {
-				escrituraModalidadesPG, errorEscritura := bolsapg.NuevaEscrituraPreferenciasModalidadesPostgreSQL(d.bolsa)
-				e = errorEscritura
-				if e == nil {
-					lecturaModalidades, errorLectura := mibolsa.NuevaLecturaPreferenciasModalidades(
-						lecturaModalidadesPG, auditoriaModalidadesPG, d.fuentePreferencias, d.catalogoModalidades, d.reloj)
-					e = errorLectura
-					if e == nil {
-						escrituraModalidades, errorServicio := mibolsa.NuevoServicioPreferenciasModalidades(
-							escrituraModalidadesPG, d.catalogoModalidades, propio,
-							proveedorPreferenciasBolsasPortalExterno{delegado: d.proveedorPreferencias}, d.reloj)
-						e = errorServicio
-						if e == nil {
-							modalidadesHTTP, e = bolsahttp.NuevoHandlerPreferenciasModalidades(preparador, escrituraModalidades, lecturaModalidades)
-						}
-					}
-				}
+				modalidadesHTTP, e = bolsahttp.NuevoHandlerPreferenciasModalidades(preparador, escrituraModalidades, lecturaModalidades)
 			}
 		}
 		if e != nil {
-			slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "composicion")
+			slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "composicion",
+				"causa", causaFalloPostgreSQLCTDesarrollo(e))
 		}
 	}
 	preferenciasHTTP, err = bolsahttp.NuevoSelectorPreferenciasModalidades(preferenciasHTTP, modalidadesHTTP)

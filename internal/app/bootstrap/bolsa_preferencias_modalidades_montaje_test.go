@@ -30,7 +30,7 @@ func TestCatalogoPreferenciasModalidadesDeclaradoYOpcional(t *testing.T) {
 }
 
 func TestModalidadesSinPreflightNoAbrenRutaNiIdentidad(t *testing.T) {
-	if comprobarFuncionPreferenciasModalidades(context.Background(), nil) {
+	if err := comprobarFuncionPreferenciasModalidades(context.Background(), nil); err == nil {
 		t.Fatal("preflight aceptó un pool ausente")
 	}
 	t.Setenv(envBolsaPreferenciasInternas, "true")
