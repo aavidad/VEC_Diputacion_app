@@ -662,6 +662,14 @@ preferencias. Las dos concesiones propias del justificante, las admisiones y
 el motivo preparados como datos ficticios de copia no acreditan actos
 gobernados. La concesión interna de RRHH usa el acto genérico vigente.
 
+F1-12 prepara AD294, después del bloque AD279/AUT96/B116/AD275 y antes de
+AD288. Reconstruye solo el registro del intento nominal externo de consultar
+preferencias de Mi Bolsa: `transaccion_origen` queda NULL, como exige su CHECK.
+La lectura autorizada mantiene `pg_current_xact_id()` y el GET existente.
+No cambia el núcleo, las audiencias, los permisos ni la configuración. AD246
+y AD275 conservan su historia y no se reaplican. Ensayo pendiente; guía en
+[`intento_preferencias_sin_transaccion_f1_12_20261018.md`](../../deploy/principal/intento_preferencias_sin_transaccion_f1_12_20261018.md).
+
 ### 9.2 Reserva del número
 
 Antes de crear el fichero, reserva el número en `RESERVAS_MIGRACIONES.md`, en la
