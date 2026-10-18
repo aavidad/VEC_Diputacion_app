@@ -186,7 +186,7 @@ func nuevaRutaPreferenciasBolsasInternas(cfg config.Config,
 		return fallo()
 	}
 	if err := comprobarACLPreferenciasBolsasInternas(ctx, pool); err != nil {
-		slog.Warn("preferencias de Mi Bolsa interna no disponibles", "etapa", "metadatos_acl", "causa", err)
+		slog.Warn("preferencias de Mi Bolsa interna no disponibles", "etapa", "metadatos_acl", "causa", causaFalloPostgreSQLCTDesarrollo(err))
 		return fallo()
 	}
 	motivos, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2(usuarios.interna.motivosPool,
