@@ -92,7 +92,7 @@
 13067 web/static/app.js
 910 web/static/area-personal/aplicacion.js
 602 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
-1048 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
+1078 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 958 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 931 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
 1235 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
@@ -104,14 +104,14 @@
 998 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 835 web/static/portal-empleado/modulos/dietas/dietas.css
 2017 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1793 web/static/portal-empleado/portal-modulos-coordinador.js
+1806 web/static/portal-empleado/portal-modulos-coordinador.js
 1894 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1131 web/static/portal-empleado/portal-componentes.css
 2294 web/static/portal-empleado/portal.js
 1587 web/static/portal-empleado/portal-bolsas-api.js
 1013 web/static/portal-empleado/portal-bolsas.test.mjs
-1148 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
-1340 web/static/portal-empleado/portal-i18n.test.mjs
+1160 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
+1433 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 953 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css

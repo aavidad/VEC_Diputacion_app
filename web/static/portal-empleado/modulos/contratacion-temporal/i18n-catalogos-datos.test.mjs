@@ -46,12 +46,9 @@ const PREIMAGEN = {
     "rotulos_en": "4b385dd66a73578fc25568f6b49ab63b40a899577dd202c8b03d652270cca20b"
   },
   "i18n-ficha-lista.js": {
-    // Excepción a la preimagen (06/10/2026): filtros «Vencen hoy», «Con una
-    // incidencia abierta» y «Sin plazo calculado» a los que lleva la portada, y
-    // aviso de filtro parcial que ya no habla solo de la búsqueda.
-    // F1-74 incorpora dos mensajes para la fiscalización favorable registrada.
-    "MENSAJES_FICHA_LISTA_EN": "9150a2587a75e61eaf689150c1ed5a7eb8b154f50da041431d44fb2eb446b06a",
-    "MENSAJES_FICHA_LISTA_ES": "f104ba579849f09ba63661d23f925889abe7b2f4e8831b060a37527f01c59558"
+    // F1-74 aporta los mensajes de fiscalización y C el error de firmas históricas.
+    "MENSAJES_FICHA_LISTA_EN": "b1b986b0393d8d4843d517b79b425536fb83c39bdcb147e29a502719bc047887",
+    "MENSAJES_FICHA_LISTA_ES": "ddf03fbe54a3b91147d7536fd213ec24867692da62b30e2503e9b2c5da0d4009"
   },
   "i18n-informe-tras-subsanacion.js": {
     "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "f2cf9af7062644110924a3c5a72d29235c556281e30b46dc008781723678067d",
@@ -73,6 +70,10 @@ const PREIMAGEN = {
     "MENSAJES_TEXTOS_VISTAS_ES": "837edbba7b1bbd2e492d3841a1dc65313f37f92e819681785bc819ed137f3ae8"
   }
 };
+const PREIMAGEN_FICHA_LISTA_ANTERIOR = Object.freeze({
+  MENSAJES_FICHA_LISTA_EN: "9150a2587a75e61eaf689150c1ed5a7eb8b154f50da041431d44fb2eb446b06a",
+  MENSAJES_FICHA_LISTA_ES: "f104ba579849f09ba63661d23f925889abe7b2f4e8831b060a37527f01c59558",
+});
 // ANA002 añade cinco rótulos de contexto; la preimagen sigue comprobando todos los textos anteriores.
 const CLAVES_CONTEXTO_ANA002 = Object.freeze([
   "ct_txt_contexto_fechas_consulta",
@@ -239,6 +240,12 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
         }
         preimagen = Object.fromEntries(Object.entries(preimagen)
           .filter(([clave]) => !CLAVES_ADICIONALES[archivo].includes(clave)));
+      }
+      if (archivo === "i18n-ficha-lista.js") {
+        assert.ok(typeof valor.firmas_historicas_error === "string" && valor.firmas_historicas_error.trim(), nombre);
+        const anteriorSinFirmas = Object.fromEntries(Object.entries(preimagen)
+          .filter(([clave]) => clave !== "firmas_historicas_error"));
+        assert.equal(huella(anteriorSinFirmas), PREIMAGEN_FICHA_LISTA_ANTERIOR[nombre], nombre);
       }
       assert.equal(huella(preimagen), anterior, nombre);
       assert.ok(Object.isFrozen(valor), nombre);

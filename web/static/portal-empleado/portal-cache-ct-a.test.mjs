@@ -4,23 +4,23 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-// La integración de F1-73 y F1-74 renueva los módulos compartidos
-// y conserva una única cadena de carga hasta la entrada del portal.
-const versionCoordinador = "20261016-ct-ofertas-ct231-v1";
+// La unión de F1-73 (alta directa v2) con F1-74, F1-76 y F1-36C renueva
+// los módulos compartidos y conserva una única cadena hasta la entrada.
+const versionCoordinador = "20261018-f136c-informe-v4";
 const versionAltaDirectaV2 = "20261018-f173-alta-v2";
-const versionCompartida = "20261018-f173-f174-v1";
-const versionUnionMain = "20261018-f173-alta-v4";
+const versionUnionMain = "20261018-f173-alta-v5";
+const versionCompartida = versionUnionMain;
 const versionCoordinadorEntrada = versionUnionMain;
 const versionEntrada = versionUnionMain;
-const versionClienteCT = versionCoordinador;
-const versionClienteConsulta = versionAltaDirectaV2;
-const versionClienteRPT = versionAltaDirectaV2;
-const versionCircuito = versionCompartida;
-const versionAccionesFirma = versionCompartida;
-const versionVista = versionCompartida;
+const versionClienteCT = "20261016-ct-ofertas-ct231-v1";
+const versionClienteConsulta = versionUnionMain;
+const versionClienteRPT = versionUnionMain;
+const versionCircuito = versionUnionMain;
+const versionAccionesFirma = versionUnionMain;
+const versionVista = versionUnionMain;
 const versionVistaPortal = versionUnionMain;
-const versionAdaptador = versionAltaDirectaV2;
-const versionRender = "20261018-f174-v1";
+const versionAdaptador = versionUnionMain;
+const versionRender = versionCoordinador;
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -46,7 +46,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
-  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionAltaDirectaV2);
+  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionUnionMain);
   exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
 });
 
@@ -75,7 +75,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
   exigirVersiones(circuito, "./circuito-firma-acciones.js", versionAccionesFirma);
-  exigirVersiones(circuito, "./cliente-http-descarga-firma-v2.js", "20261016-r1-o-integracion-v7");
+  exigirVersiones(circuito, "./cliente-http-descarga-firma-v2.js", "20261016-firma-historica-v4");
   for (const manifiesto of [interno, produccion]) {
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/firma-externa-cliente\.js$/mu);
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/cliente-http-descarga-firma-v2\.js$/mu);
@@ -103,7 +103,7 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   exigirVersiones(firma, "../documentos/cliente-http.js", version);
   exigirVersiones(categorias, "./arranque.js", "20261008-hz8-idioma-v1");
   exigirVersiones(montajeCategorias, "./cliente.js", versionClienteRPT);
-  exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", versionAltaDirectaV2);
+  exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", versionUnionMain);
 });
 
 test("Alta por circular renueva su cadena y no reutiliza módulos sin las exportaciones nuevas", async () => {
