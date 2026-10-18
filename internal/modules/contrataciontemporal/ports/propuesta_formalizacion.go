@@ -74,6 +74,7 @@ type SolicitudPropuestaFormalizacion struct {
 	ClaveIdempotencia                string
 	OrganizacionRef                  string
 	ExpedienteRef                    string
+	DerivacionRef                    string `json:",omitempty"`
 	LlamamientoRef                   string
 	ResolucionLlamamientoAceptadaRef string
 	ReciboResolucionAceptadaRef      string
@@ -92,12 +93,16 @@ func (s SolicitudPropuestaFormalizacion) Normalizar() (
 	SolicitudPropuestaFormalizacion,
 	error,
 ) {
+	derivada := s.DerivacionRef != ""
 	if !ClaveIdempotenciaValida(s.ClaveIdempotencia) ||
 		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(s.ExpedienteRef) ||
-		!domain.ReferenciaOpacaValida(s.LlamamientoRef) ||
-		!domain.ReferenciaOpacaValida(s.ResolucionLlamamientoAceptadaRef) ||
-		!domain.ReferenciaOpacaValida(s.ReciboResolucionAceptadaRef) ||
+		(derivada && (!domain.ReferenciaOpacaValida(s.DerivacionRef) ||
+			s.LlamamientoRef != "" || s.ResolucionLlamamientoAceptadaRef != "" ||
+			s.ReciboResolucionAceptadaRef != "" || s.VersionEsperada != 6)) ||
+		(!derivada && (!domain.ReferenciaOpacaValida(s.LlamamientoRef) ||
+			!domain.ReferenciaOpacaValida(s.ResolucionLlamamientoAceptadaRef) ||
+			!domain.ReferenciaOpacaValida(s.ReciboResolucionAceptadaRef))) ||
 		!enteroSeguroBolsa(s.VersionEsperada) ||
 		s.VersionEsperada == MaximoEnteroSeguroIntegracionBolsa ||
 		!s.TipoFormalizacion.valido() || !s.Plantilla.valido() ||
@@ -230,6 +235,7 @@ func solicitudesPropuestaFormalizacionIguales(
 	if primera.ClaveIdempotencia != segunda.ClaveIdempotencia ||
 		primera.OrganizacionRef != segunda.OrganizacionRef ||
 		primera.ExpedienteRef != segunda.ExpedienteRef ||
+		primera.DerivacionRef != segunda.DerivacionRef ||
 		primera.LlamamientoRef != segunda.LlamamientoRef ||
 		primera.ResolucionLlamamientoAceptadaRef != segunda.ResolucionLlamamientoAceptadaRef ||
 		primera.ReciboResolucionAceptadaRef != segunda.ReciboResolucionAceptadaRef ||
@@ -250,7 +256,7 @@ func solicitudesPropuestaFormalizacionIguales(
 
 func solicitudPropuestaFormalizacionEsCero(s SolicitudPropuestaFormalizacion) bool {
 	return s.ClaveIdempotencia == "" && s.OrganizacionRef == "" &&
-		s.ExpedienteRef == "" && s.LlamamientoRef == "" &&
+		s.ExpedienteRef == "" && s.DerivacionRef == "" && s.LlamamientoRef == "" &&
 		s.ResolucionLlamamientoAceptadaRef == "" &&
 		s.ReciboResolucionAceptadaRef == "" && s.VersionEsperada == 0 &&
 		s.TipoFormalizacion == (SnapshotGobernadoFormalizacion{}) &&

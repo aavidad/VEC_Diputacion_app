@@ -74,6 +74,9 @@ func (r *RegistroPropuestaFormalizacionPostgreSQL) LeerAntecedente(ctx context.C
 	var resultado ports.AntecedentePropuestaFormalizacion
 	m := ports.MaterialPropuestaFormalizacion{Etapa: "consulta", Solicitud: s.Clonar()}
 	err := r.ejecutar(ctx, m, &resultado, func() error {
+		if resultado.Derivacion != nil {
+			return resultado.ValidarPara(s)
+		}
 		// Solo ubicación UTC; no se truncan instantes ni se reescriben recibos.
 		resultado.Resolucion.ResueltaEn = resultado.Resolucion.ResueltaEn.UTC()
 		j := &resultado.Justificante
@@ -185,7 +188,7 @@ func (r *RegistroPropuestaFormalizacionPostgreSQL) ejecutar(ctx context.Context,
 			funcion = "vec_contratacion_temporal.registrar_propuesta_formalizacion_v2"
 		}
 	}
-	if m.AceptacionBolsaNativa != nil {
+	if m.AceptacionBolsaNativa != nil || m.AceptacionDerivada != nil {
 		funcion = "vec_contratacion_temporal.registrar_propuesta_formalizacion_nativa_ct211_v1"
 	}
 	var salida string

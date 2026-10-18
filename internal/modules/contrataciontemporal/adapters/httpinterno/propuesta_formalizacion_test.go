@@ -261,6 +261,54 @@ func TestManejadorPropuestaFormalizacionConfirmaConAutoridadSeparadaYSalidaMinim
 	}
 }
 
+func TestManejadorPropuestaFormalizacionDerivadaRechazaOrigenesMezclados(t *testing.T) {
+	autoridad := autoridadPropuestaFormalizacionHTTPValidaPrueba()
+	ejecutor := ejecutorPropuestaFormalizacionHTTPValidoPrueba()
+	h := nuevoManejadorPropuestaFormalizacionHTTPPrueba(t, autoridad, ejecutor)
+	base := entradaPropuestaFormalizacionHTTPPrueba()
+	base.DerivacionRef = "derivacion:ct234:http-01"
+	base.VersionEsperada = 6
+	base.LlamamientoRef, base.ResolucionLlamamientoAceptadaRef, base.ReciboResolucionAceptadaRef = "", "", ""
+	for _, caso := range []struct {
+		nombre string
+		mutar  func(*propuestaFormalizacionEntradaJSON)
+		estado int
+	}{
+		{"derivada", func(*propuestaFormalizacionEntradaJSON) {}, http.StatusCreated},
+		{"llamamiento", func(e *propuestaFormalizacionEntradaJSON) { e.LlamamientoRef = "llamamiento:ajeno" }, http.StatusUnprocessableEntity},
+		{"resolucion", func(e *propuestaFormalizacionEntradaJSON) { e.ResolucionLlamamientoAceptadaRef = "resolucion:ajena" }, http.StatusUnprocessableEntity},
+		{"recibo", func(e *propuestaFormalizacionEntradaJSON) { e.ReciboResolucionAceptadaRef = "recibo:ajeno" }, http.StatusUnprocessableEntity},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e := base
+			caso.mutar(&e)
+			b, err := json.Marshal(e)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := httptest.NewRequest(http.MethodPost, RutaPropuestaFormalizacion, bytes.NewReader(b))
+			r.Header.Set("Content-Type", "application/json; charset=utf-8")
+			r.Header.Set("Accept", "application/json")
+			w := httptest.NewRecorder()
+			antes := ejecutor.total()
+			h.ServeHTTP(w, r)
+			esperadas := 0
+			if caso.estado == http.StatusCreated {
+				esperadas = 1
+			}
+			if w.Code != caso.estado || ejecutor.total()-antes != esperadas {
+				t.Fatalf("estado=%d llamadas=%d cuerpo=%s", w.Code, ejecutor.total()-antes, w.Body.String())
+			}
+			if caso.estado == http.StatusCreated {
+				s, _ := ejecutor.ultima()
+				if s.DerivacionRef != e.DerivacionRef || s.LlamamientoRef != "" || s.ResolucionLlamamientoAceptadaRef != "" || s.ReciboResolucionAceptadaRef != "" {
+					t.Fatalf("origen mezclado en solicitud: %+v", s)
+				}
+			}
+		})
+	}
+}
+
 func TestManejadorPropuestaFormalizacionReplayEs200YLocal(t *testing.T) {
 	t.Parallel()
 	ejecutor := ejecutorPropuestaFormalizacionHTTPValidoPrueba()

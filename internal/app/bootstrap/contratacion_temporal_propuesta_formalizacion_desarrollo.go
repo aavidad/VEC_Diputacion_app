@@ -117,7 +117,8 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 		return vacio, application.ErrSolicitudPropuestaFormalizacionInvalida
 	}
 	if dependenciaEsNulaContratacionTemporalDesarrollo(e.lector) || dependenciaEsNulaContratacionTemporalDesarrollo(e.registro) ||
-		dependenciaEsNulaContratacionTemporalDesarrollo(e.bolsa) || dependenciaEsNulaContratacionTemporalDesarrollo(e.servicio) {
+		(s.DerivacionRef == "" && dependenciaEsNulaContratacionTemporalDesarrollo(e.bolsa)) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(e.servicio) {
 		return vacio, application.ErrPropuestaFormalizacionNoDisponible
 	}
 	// La preimagen que habilita este intento es la versión OCC de la solicitud.
@@ -140,6 +141,17 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 	}
 	if err != nil {
 		return vacio, errorPreparacionPropuestaDesarrollo(err)
+	}
+	if s.DerivacionRef != "" {
+		if a.ValidarPara(s) != nil || a.Derivacion == nil ||
+			!antecedenteDerivacionLigadoAlHijoPropuesta(expediente, *a.Derivacion, s) {
+			return vacio, application.ErrResolucionFormalizacionNoAceptada
+		}
+		m := ports.MaterialPropuestaFormalizacion{Etapa: "confirmacion", Solicitud: s.Clonar(),
+			AceptacionDerivada: a.Derivacion}
+		ctx = context.WithValue(ctx, clavePropuestaFormalizacionDesarrollo{}, propuestaFormalizacionLigadaDesarrollo{antecedente: a, material: m})
+		ctx = context.WithValue(ctx, claveMaterialPropuestaFormalizacionDesarrollo{}, m)
+		return e.servicio.PrepararYConfirmar(ctx, s)
 	}
 	if a.ValidarPara(s) != nil || a.Resolucion.Politica != politicaManualDesarrollo() ||
 		!consultaJustificanteLigadaAlExpedienteDesarrollo(expediente, a.Resolucion.Solicitud) {
@@ -179,7 +191,8 @@ func expedienteFiscalizadoParaPropuestaDesarrollo(
 	s ports.SolicitudPropuestaFormalizacion,
 ) bool {
 	e := expediente.Fiscalizado
-	return e.Validar() == nil && e.Referencia == s.ExpedienteRef &&
+	return e.Validar() == nil && (e.InstruccionCompartida != nil) == (s.DerivacionRef != "") &&
+		e.Referencia == s.ExpedienteRef &&
 		e.OrganizacionRef == s.OrganizacionRef &&
 		e.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
 		e.Version == s.VersionEsperada && expediente.VersionActual >= s.VersionEsperada &&
@@ -187,6 +200,17 @@ func expedienteFiscalizadoParaPropuestaDesarrollo(
 		e.FaseActual == domain.FaseFiscalizacion && e.EstadoActual == domain.EstadoEnCurso &&
 		e.Fiscalizacion != nil && (e.Fiscalizacion.Resultado == domain.FiscalizacionFavorable ||
 		e.Fiscalizacion.Resultado == domain.FiscalizacionFavorableConObservaciones)
+}
+
+func antecedenteDerivacionLigadoAlHijoPropuesta(expediente ports.ExpedienteParaSeleccion,
+	a ports.EvidenciaAceptacionDerivada, s ports.SolicitudPropuestaFormalizacion) bool {
+	hijo := expediente.Fiscalizado
+	i := hijo.InstruccionCompartida
+	return i != nil && a.ValidarPara(s) == nil &&
+		a.HijoRef == hijo.Referencia && a.PadreRef == i.ExpedientePadre.Referencia &&
+		a.OfertaRef == i.OfertaRef && a.NumeroPlaza == i.NumeroPlaza &&
+		a.ReciboDerivacionRef == i.ReciboDerivacionRef &&
+		i.ExpedientePadre.OrganizacionRef == s.OrganizacionRef
 }
 
 func acreditarAceptacionBolsaPropuestaDesarrollo(ctx context.Context, repo puertosbolsa.RepositorioLlamamientoDesarrollo,

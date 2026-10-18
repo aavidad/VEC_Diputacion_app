@@ -69,6 +69,7 @@ func (a anexoPropuestaFormalizacionJSON) puerto() ports.AnexoPropuestaFormalizac
 type propuestaFormalizacionEntradaJSON struct {
 	ClaveIdempotencia                string                             `json:"clave_idempotencia"`
 	ExpedienteRef                    string                             `json:"expediente_ref"`
+	DerivacionRef                    string                             `json:"derivacion_ref,omitempty"`
 	LlamamientoRef                   string                             `json:"llamamiento_ref"`
 	ResolucionLlamamientoAceptadaRef string                             `json:"resolucion_llamamiento_aceptada_ref"`
 	ReciboResolucionAceptadaRef      string                             `json:"recibo_resolucion_aceptada_ref"`
@@ -95,6 +96,7 @@ func (e propuestaFormalizacionEntradaJSON) solicitud(
 		ClaveIdempotencia:                e.ClaveIdempotencia,
 		OrganizacionRef:                  contexto.OrganizacionRef,
 		ExpedienteRef:                    e.ExpedienteRef,
+		DerivacionRef:                    e.DerivacionRef,
 		LlamamientoRef:                   e.LlamamientoRef,
 		ResolucionLlamamientoAceptadaRef: e.ResolucionLlamamientoAceptadaRef,
 		ReciboResolucionAceptadaRef:      e.ReciboResolucionAceptadaRef,

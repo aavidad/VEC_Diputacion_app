@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"maps"
+	"reflect"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -36,11 +37,15 @@ func (p *proveedorPropuestaFormalizacionDesarrollo) PrepararPropuestaFormalizaci
 	}
 	l, ok := ctx.Value(clavePropuestaFormalizacionDesarrollo{}).(propuestaFormalizacionLigadaDesarrollo)
 	if !ok || l.material.Etapa != "confirmacion" || !solicitudPropuestaDesarrolloIgual(l.material.Solicitud, s) ||
-		l.antecedente.ValidarPara(s) != nil || l.material.Validar() != nil || l.material.AceptacionBolsa.ValidarPara(l.antecedente) != nil {
+		l.antecedente.ValidarPara(s) != nil || l.material.Validar() != nil {
 		return ports.MaterialPropuestaFormalizacion{}, ports.ErrOperacionPropuestaFormalizacionDenegada
 	}
-	b := *l.material.AceptacionBolsa
-	return ports.MaterialPropuestaFormalizacion{Etapa: "confirmacion", Solicitud: s.Clonar(), AceptacionBolsa: &b}, nil
+	if l.material.AceptacionBolsa != nil && l.material.AceptacionBolsa.ValidarPara(l.antecedente) != nil ||
+		l.material.AceptacionBolsaNativa != nil && l.material.AceptacionBolsaNativa.ValidarPara(l.antecedente) != nil ||
+		l.material.AceptacionDerivada != nil && l.material.AceptacionDerivada.ValidarPara(s) != nil {
+		return ports.MaterialPropuestaFormalizacion{}, ports.ErrOperacionPropuestaFormalizacionDenegada
+	}
+	return l.material.Clonar(), nil
 }
 
 func (p *proveedorPropuestaFormalizacionDesarrollo) AutorizarPropuestaFormalizacion(ctx context.Context, m ports.MaterialPropuestaFormalizacion) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -58,8 +63,9 @@ func (p *proveedorPropuestaFormalizacionDesarrollo) AutorizarPropuestaFormalizac
 	}
 	esperado, ok := ctx.Value(claveMaterialPropuestaFormalizacionDesarrollo{}).(ports.MaterialPropuestaFormalizacion)
 	if !ok || esperado.Etapa != m.Etapa || !solicitudPropuestaDesarrolloIgual(esperado.Solicitud, m.Solicitud) ||
-		(esperado.AceptacionBolsa == nil) != (m.AceptacionBolsa == nil) ||
-		(m.AceptacionBolsa != nil && *esperado.AceptacionBolsa != *m.AceptacionBolsa) {
+		!reflect.DeepEqual(esperado.AceptacionBolsa, m.AceptacionBolsa) ||
+		!reflect.DeepEqual(esperado.AceptacionBolsaNativa, m.AceptacionBolsaNativa) ||
+		!reflect.DeepEqual(esperado.AceptacionDerivada, m.AceptacionDerivada) {
 		return vacio, ports.ErrOperacionPropuestaFormalizacionDenegada
 	}
 	recurso, err := postgresct.RecursoPropuestaFormalizacion(m)
@@ -85,10 +91,21 @@ func solicitudAutorizacionPropuestaDesarrolloValida(ctx context.Context, d domin
 	}
 	if m.Etapa == "confirmacion" {
 		l, existe := ctx.Value(clavePropuestaFormalizacionDesarrollo{}).(propuestaFormalizacionLigadaDesarrollo)
-		if !existe || l.antecedente.ValidarPara(m.Solicitud) != nil ||
-			l.material.Validar() != nil || l.material.AceptacionBolsa == nil ||
-			!solicitudPropuestaDesarrolloIgual(l.material.Solicitud, m.Solicitud) || *l.material.AceptacionBolsa != *m.AceptacionBolsa ||
-			l.antecedente.Resolucion.Politica != politicaManualDesarrollo() || m.AceptacionBolsa.ValidarPara(l.antecedente) != nil {
+		if !existe || l.antecedente.ValidarPara(m.Solicitud) != nil || l.material.Validar() != nil ||
+			!solicitudPropuestaDesarrolloIgual(l.material.Solicitud, m.Solicitud) ||
+			!reflect.DeepEqual(l.material.AceptacionBolsa, m.AceptacionBolsa) ||
+			!reflect.DeepEqual(l.material.AceptacionBolsaNativa, m.AceptacionBolsaNativa) ||
+			!reflect.DeepEqual(l.material.AceptacionDerivada, m.AceptacionDerivada) {
+			return false
+		}
+		if m.AceptacionDerivada != nil {
+			if !antecedenteDerivacionLigadoAlHijoPropuesta(p.expediente, *m.AceptacionDerivada, m.Solicitud) ||
+				l.antecedente.Derivacion == nil || *l.antecedente.Derivacion != *m.AceptacionDerivada {
+				return false
+			}
+		} else if l.antecedente.Resolucion.Politica != politicaManualDesarrollo() ||
+			(m.AceptacionBolsa != nil && m.AceptacionBolsa.ValidarPara(l.antecedente) != nil) ||
+			(m.AceptacionBolsaNativa != nil && m.AceptacionBolsaNativa.ValidarPara(l.antecedente) != nil) {
 			return false
 		}
 	}
