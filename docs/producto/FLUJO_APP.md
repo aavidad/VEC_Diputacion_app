@@ -368,6 +368,8 @@ entre la unidad que tramita y la del puesto y la asignación de los permisos
 necesarios para la activación. Este ejercicio no cambia
 los pasos 1 a 21 del caso singular.
 
+**Ensayo F1-55 en preparación (18/10).** Dirección actualiza la variante de dos plazas al modelo vigente: dos aceptaciones previas desde Mi Bolsa, adjudicación por orden entre quienes aceptan y recuperación del mismo recibo tras un fallo y un reinicio, sin duplicados. No responder a la oferta no produce un acto ni una baja. La cancelación queda fuera de este ensayo, en F1-17. La preparación de dos identidades ficticias reutiliza el preparador existente; el recorrido completo sigue pendiente.
+
 ### 4.0.1 Vista general
 
 Es el recorrido que hará Alberto en la presentación, cambiando de perfil. Cada
