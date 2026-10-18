@@ -97,11 +97,16 @@ func (h *manejadorSeleccionLlamamiento) ServeHTTP(
 			ExpedienteRef:     entrada.ExpedienteRef,
 			VersionEsperada:   entrada.VersionEsperada,
 			ClaveIdempotencia: entrada.ClaveIdempotencia,
+			RecuperarOferta:   entrada.Accion == "recuperar_oferta",
 		},
 	)
 	if err != nil {
+		problema, esOferta := clasificarErrorSeleccionOferta(err)
+		if !esOferta {
+			problema = clasificarErrorSeleccionLlamamiento(err)
+		}
 		responderErrorSeleccionLlamamiento(
-			w, r, clasificarErrorSeleccionLlamamiento(err), err,
+			w, r, problema, err,
 		)
 		return
 	}
@@ -109,6 +114,24 @@ func (h *manejadorSeleccionLlamamiento) ServeHTTP(
 		responderErrorSeleccionLlamamiento(
 			w, r, clasificarErrorSeleccionLlamamiento(err), err,
 		)
+		return
+	}
+	if recibo.Descarte != nil {
+		salida, valida := proyectarReciboDescarteOferta(recibo, entrada.ExpedienteRef)
+		if !valida || entrada.Accion != "recuperar_oferta" {
+			responderErrorSeleccionLlamamiento(w, r, errorResultadoSeleccionLlamamientoNoConfiable)
+			return
+		}
+		responderJSONCobertura(w, r, http.StatusOK, envoltorioReciboDescarteOferta{Data: salida})
+		return
+	}
+	if recibo.Oferta != nil {
+		salida, valida := proyectarReciboSeleccionOferta(recibo, entrada.ExpedienteRef)
+		if !valida {
+			responderErrorSeleccionLlamamiento(w, r, errorResultadoSeleccionLlamamientoNoConfiable)
+			return
+		}
+		responderJSONCobertura(w, r, http.StatusOK, envoltorioReciboSeleccionOferta{Data: salida})
 		return
 	}
 	salida, valida := proyectarReciboSeleccionLlamamiento(recibo)

@@ -5,7 +5,7 @@ export const RUTA_CANCELACION_EXPEDIENTE = "/api/vec/contratacion-temporal/cance
 export const RUTAS_CANCELACION_EXPEDIENTE = Object.freeze([RUTA_CANCELACIONES_EXPEDIENTE, RUTA_CANCELACION_EXPEDIENTE]);
 // Rechazos de negocio que devuelve el servidor con 409; ninguno escribe nada.
 export const CONFLICTOS_CANCELACION_EXPEDIENTE = Object.freeze([
-  "version_en_conflicto", "clave_reutilizada", "fase_no_admitida", "tras_fiscalizacion", "cancelacion_existente",
+  "version_en_conflicto", "clave_reutilizada", "fase_no_admitida", "tras_fiscalizacion", "seleccion_oferta_pendiente", "cancelacion_existente",
 ]);
 
 const MAXIMO = 8 * 1024;
