@@ -1,8 +1,9 @@
 # Confirmación de una aceptación directa de Bolsa
 
 Tarea F1-71. Fuente reconstruida desde el consumidor central instalado tras
-AD279, cotejado con main `c3b2fcfe4b`. Pendientes el ensayo conjunto con B128,
-las dos revisiones finales y la CI. No instalar fuera de esa candidata.
+AD279, cotejado con main `c3b2fcfe4b`. AD288 se instaló en la copia conjunta
+`601686060`; sigue pendiente el ensayo positivo con B128 y la pantalla de S.
+No activar fuera de esa candidata.
 
 ## Consumidor y alcance
 
@@ -31,8 +32,9 @@ permisos y política del corte de S; este borrador no acredita que estén activa
 
 1. Congelar la cadena completa fijada por dirección, incluidos AD279 y el corte
    de S que contiene B128. No reaplicar migraciones ni usar una preimagen antigua.
-2. Usar la lista canónica `lista_sql_main_tras_hz37.txt`: las 85 SQL de main
-   y después AD288. Cotejar las preimágenes que figuran al final de esta guía;
+2. Usar la lista canónica `lista_sql_main_tras_hz37.txt`: la lista completa
+   de main tras HZ37 más las SQL propias, con AD288 en su posición exacta.
+   Cotejar las preimágenes que figuran al final de esta guía;
    la instalación se detiene si difieren. Preserva las capacidades anteriores.
 3. Actualizar y revisar dos veces la fuente exacta, los permisos y las pruebas.
 4. Instalar AD288 una sola vez en una copia nueva y ejecutar las pruebas focales.
@@ -55,8 +57,12 @@ no se alteró el núcleo para calcularla. Preimagen central:
 `504fd62c39258745ea34f9a7033e8993a2b44d78feed7eab2e3ffa01f0a94b15`; posterior prevista:
 `c4888893d1951ec31f7674fb8e145a10af263e94c7d47a76ee749bd82b38c109`.
 
-AD288 no está instalada. Faltan el ensayo, las dos revisiones de la fuente final
-y la aceptación desde la pantalla de S. El focal
+AD288 está instalada en las dos copias nuevas de `601686060`, cada una con
+98 SQL; ambas arrancaron y reiniciaron con la comprobación pública del guion.
+Las focales AD291, AD292 y CT238 pasaron allí con ROLLBACK, pero no prueban
+la aceptación de F1-71. La fuente tiene dos revisiones favorables y se integró sin cambios de bytes.
+Faltan el ensayo positivo conjunto con B128 y la aceptación desde la pantalla
+de S. El focal
 `ad288_confirmacion_aceptacion_bolsa.sql` comprueba los permisos nominales y
 la denegación temprana sin consumo; no sustituye las pruebas firmadas de B128. Las 3397 líneas de SQL incluyen la reconstrucción
 literal del cuerpo instalado; el cambio de su lógica se limita a las mismas dos
