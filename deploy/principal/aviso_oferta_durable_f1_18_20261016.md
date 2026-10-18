@@ -14,7 +14,48 @@ El ensayo conjunto usó el código de reglas de #1155 (`e6f55733d`), requerido p
 
 El ajuste final `d226d00d4` registra el enlace en el inventario de configuración, como exige su prueba existente. Esa prueba focal pasó. El binario con ese metadato (`fb9110ff85cc77b89e3ae7739068f32d20847ec99c13734a35ace93fed28f3f4`) se reinició con enlace válido, ausente e inválido: página, sesión, bolsas, ofertas y salud de proceso respondieron 200. Tras integrar la principal en `10a0064b8`, la nueva composición con S6 y el ajuste R se compiló en el binario `bbc17704837772564dab3b17c62c8b9c58512145dccfa2b36825247d71335579`: los tres arranques repitieron esas respuestas 200 y la recuperación autorizada conservó recibo, fecha y plazo. La lógica propia del aviso mantiene la versión del recorrido descrito.
 
-## Recorrido comprobado
+## Ensayo conjunto del 18 de octubre
+
+La copia anterior se perdió al reiniciar el equipo el 17/10. El ensayo nuevo usa
+la receta interna de L `fef11a8c3`, sin portal externo, y el segundo corte
+`1c2588362`: 81 migraciones instaladas una vez, con las primeras 78 de la lista
+común intactas. El binario tiene SHA-256
+`cc04c373a5978eb5e4bbd51d9cb0a3b3469003f872c396bffca439d8b46224e6`.
+La creación terminó en 89,59 segundos. Las reglas de situación y los criterios
+previos ya están en la base de esta candidata.
+
+Para usar el plazo de dos días naturales se configuró el lector existente
+`VEC_CALENDARIOS_DATABASE_URL`, con LOGIN propio y solo el grupo
+`vec_calendarios_lector`. La copia ya contenía las tres versiones de 2026 para
+Granada, Andalucía y España. Sin esa conexión, publicar respondió 503 sin
+guardar oferta; después del reinicio se recuperó la misma clave y entrada.
+La política de Administrativo se publicó por la API nominal, versión 1,
+con su recibo y la aceptación previa exigida por la regla vigente.
+
+Chrome publicó una oferta de dos plazas: 201, recibo y doce avisos pendientes.
+Con enlace ausente y después inválido, aplicación y base reiniciaron y salud,
+portal, cuadro de CT y bolsas respondieron 200. «Actualizar estado» conservó
+los doce pendientes. Al configurar el enlace HTTPS y recuperar, quedaron doce
+fallidos porque no había contactos de alta; el transporte no recibió mensajes.
+Ese resultado se conservó. El contacto de una participación se registró por el
+POST nominal de datos de contacto, con cifrado y recibo, para la siguiente oferta.
+
+Otra oferta publicada desde pantalla dejó un aviso sin confirmación al cortar
+el buzón propio después de DATA y once fallidos por falta de contacto. No hubo
+reenvío automático. El reintento expreso, su respuesta perdida, la concurrencia
+y la recuperación tras reinicio se describen en la guía del segundo corte.
+Los dos mensajes recibidos por ese buzón tienen el mismo identificador y los
+mismos bytes; contienen el enlace a Mi Bolsa y omiten la descripción libre.
+
+La receta necesitó además los dos grupos NOLOGIN de Méritos ya declarados en
+el producto y el grupo recuperador de importación en el LOGIN de la copia,
+sin ADMIN ni SET. El staging importado sigue protegido con otra clave: la
+ficha de candidatos falla. «Gestionar ofertas» se abrió por el menú de
+llamamientos, que permite continuar de forma independiente. Este ensayo no
+acredita esa ficha, el portal externo ni correo corporativo. Los guiones,
+respuestas y capturas quedan fuera de Git; no se cambió código para preparar datos.
+
+## Recorrido histórico del 16 de octubre
 
 En Chrome del sistema, publicar desde «Gestionar ofertas» de una bolsa constituida con el buzón propio detenido: respuesta 201, recibo y dieciséis avisos pendientes. Se mantiene abierta la confirmación; la intención solo permanece en memoria, sin almacenamiento web.
 
