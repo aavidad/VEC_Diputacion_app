@@ -191,7 +191,7 @@ func ejecutarDerivacionNombramiento(ctx context.Context, conn sesionDerivacionNo
 	}
 	// El hijo incluye la instrucción compartida y, por ello, su recibo puede
 	// ocupar más que el material de entrada limitado a 256 KiB.
-	if len(salida) < 2 || len(salida) > 1<<20 ||
+	if len(salida) < 2 || len(salida) > 2<<20 ||
 		decodificarJSONEstricto([]byte(salida), &resultado) != nil || resultado.ValidarPara(s) != nil ||
 		resultado.Expediente.Actuaciones[0].ActorRef != actor {
 		return ports.ResultadoDerivacionNombramiento{}, ports.ErrDerivacionNombramientoNoConfiable

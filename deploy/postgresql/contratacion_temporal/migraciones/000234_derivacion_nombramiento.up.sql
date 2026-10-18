@@ -129,6 +129,9 @@ SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
     AND p_agregado->>'referencia'=p_hijo AND p_agregado->>'version'='6'
     AND p_agregado#>>'{instruccion_compartida,recibo_derivacion_ref}'=derivada.recibo_ref
     AND p_agregado#>'{instruccion_compartida,expediente_padre}'=padre.agregado_json
+    AND p_agregado#>>'{instruccion_compartida,preimagen_padre_json}'=padre.agregado_json::text
+    AND p_agregado#>>'{instruccion_compartida,huella_padre_sha256}'=
+        encode(sha256(convert_to(padre.agregado_json::text,'UTF8')),'hex')
     AND p_agregado->'circuito' IS NOT DISTINCT FROM padre.agregado_json->'circuito')
 $f$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.inicio_derivado_acreditado_ct234_v1(text,jsonb) FROM PUBLIC;
@@ -577,11 +580,11 @@ RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
 SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
 DECLARE
- m jsonb; d jsonb; padre jsonb; hijo jsonb; acto jsonb; bolsa jsonb; recibo jsonb;
+ m jsonb; d jsonb; hijo jsonb; acto jsonb; bolsa jsonb; recibo jsonb;
  consumo record; original vec_contratacion_temporal.nombramiento_derivado_v1%ROWTYPE;
  actual vec_contratacion_temporal.expediente_version_integral%ROWTYPE;
  seleccion vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6%ROWTYPE;
- h text; contexto_h text; campo text; referencia text; aceptacion text; recibo_ref text;
+ h text; contexto_h text; campo text; referencia text; aceptacion text; recibo_ref text; preimagen_padre text;
  ahora timestamptz(6); instante text; numero text; prueba bytea; evento text; payload bytea;
  secuencia numeric; anterior text; outbox_h text;
 BEGIN
@@ -597,8 +600,8 @@ BEGIN
  m:=p_material::jsonb;
  IF vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(m,ARRAY[
    'esquema','organizacion_ref','padre_ref','version_padre','hijo_ref','oferta_ref','numero_plaza',
-   'secuencia_plaza','participacion_ref','recibo_adjudicacion_ref','clave_idempotencia','unidad_ref','padre_canonico']) IS NOT TRUE
-    OR (SELECT count(*) FROM json_each(p_material::json))<>13
+   'secuencia_plaza','participacion_ref','recibo_adjudicacion_ref','clave_idempotencia','unidad_ref']) IS NOT TRUE
+    OR (SELECT count(*) FROM json_each(p_material::json))<>12
     OR m->>'esquema' IS DISTINCT FROM 'vec.ct.nombramiento.derivar.v1'
     OR m->>'clave_idempotencia' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
     OR jsonb_typeof(m->'version_padre') IS DISTINCT FROM 'number'
@@ -610,7 +613,6 @@ BEGIN
     OR jsonb_typeof(m->'secuencia_plaza') IS DISTINCT FROM 'number'
     OR m->>'secuencia_plaza' !~ '^[1-9][0-9]{0,4}$'
     OR (m->>'secuencia_plaza')::numeric NOT BETWEEN 1 AND 10000
-    OR jsonb_typeof(m->'padre_canonico') IS DISTINCT FROM 'string'
  THEN RAISE EXCEPTION 'CT234: solicitud inválida' USING ERRCODE='22023'; END IF;
  FOREACH campo IN ARRAY ARRAY['organizacion_ref','padre_ref','hijo_ref','oferta_ref',
    'participacion_ref','recibo_adjudicacion_ref','unidad_ref'] LOOP
@@ -661,7 +663,11 @@ BEGIN
           AND padre_original.agregado_json_huella_sha256=
              encode(sha256(convert_to(padre_original.agregado_json::text,'UTF8')),'hex')
           AND padre_original.agregado_json IS NOT DISTINCT FROM
-             original.recibo_json#>'{expediente,instruccion_compartida,expediente_padre}')
+             original.recibo_json#>'{expediente,instruccion_compartida,expediente_padre}'
+          AND original.recibo_json#>>'{expediente,instruccion_compartida,preimagen_padre_json}'=
+             padre_original.agregado_json::text
+          AND original.recibo_json#>>'{expediente,instruccion_compartida,huella_padre_sha256}'=
+             padre_original.agregado_json_huella_sha256)
      OR NOT EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_alta a
     JOIN vec_contratacion_temporal.expediente_version_integral v ON v.expediente_ref=a.expediente_ref AND v.version=6
     JOIN vec_contratacion_temporal.actuacion_expediente_integral ac ON ac.expediente_ref=v.expediente_ref AND ac.secuencia=6
@@ -684,44 +690,24 @@ BEGIN
  SELECT v.* INTO actual FROM vec_contratacion_temporal.expediente_integral_actual a
  JOIN vec_contratacion_temporal.expediente_version_integral v USING(expediente_ref,version)
  WHERE a.expediente_ref=m->>'padre_ref' FOR UPDATE OF a;
- padre:=(m->>'padre_canonico')::jsonb;
  IF actual.expediente_ref IS NULL OR actual.version<>(m->>'version_padre')::numeric
     OR actual.fase_clave<>'fiscalizacion' OR actual.estado<>'en_curso'
-    OR padre ? 'instruccion_compartida'
-    OR padre->>'referencia' IS DISTINCT FROM actual.expediente_ref
-    OR padre->>'version' IS DISTINCT FROM actual.version::text
-    OR padre->>'organizacion_ref' IS DISTINCT FROM m->>'organizacion_ref'
+    OR actual.agregado_json ? 'instruccion_compartida'
     OR actual.agregado_json->>'referencia' IS DISTINCT FROM actual.expediente_ref
     OR actual.agregado_json->>'version' IS DISTINCT FROM actual.version::text
     OR actual.agregado_json->>'organizacion_ref' IS DISTINCT FROM m->>'organizacion_ref'
     OR actual.agregado_json->>'fase_actual' IS DISTINCT FROM actual.fase_clave
     OR actual.agregado_json->>'estado_actual' IS DISTINCT FROM actual.estado
-    OR padre->>'numero_visible' IS DISTINCT FROM actual.agregado_json->>'numero_visible'
-    OR padre->'flujo' IS DISTINCT FROM actual.agregado_json->'flujo'
-    OR padre->>'fase_actual' IS DISTINCT FROM actual.fase_clave
-    OR padre->>'estado_actual' IS DISTINCT FROM actual.estado
-    OR padre#>>'{asignacion,unidad_ref}' IS DISTINCT FROM m->>'unidad_ref'
-    OR padre#>>'{asignacion,unidad_ref}' IS DISTINCT FROM actual.agregado_json#>>'{asignacion,unidad_ref}'
-    OR coalesce(padre#>>'{fiscalizacion,resultado}','') NOT IN ('favorable','favorable_con_observaciones')
-    OR padre#>>'{fiscalizacion,resultado}' IS DISTINCT FROM actual.agregado_json#>>'{fiscalizacion,resultado}'
-    OR padre#>>'{solicitud,categoria_ref}' IS DISTINCT FROM actual.agregado_json#>>'{solicitud,categoria_ref}'
-    OR (padre#>>'{solicitud,numero_personas}')::integer NOT BETWEEN 2 AND 100
-    OR padre#>>'{solicitud,numero_personas}' IS DISTINCT FROM actual.agregado_json#>>'{solicitud,numero_personas}'
-    OR (padre#>>'{solicitud,periodo,inicio}')::timestamptz IS DISTINCT FROM
-       (actual.agregado_json#>>'{solicitud,periodo,inicio}')::timestamptz
-    OR (padre#>>'{solicitud,periodo,fin}')::timestamptz IS DISTINCT FROM
-       (actual.agregado_json#>>'{solicitud,periodo,fin}')::timestamptz
-    OR padre#>>'{solicitud,periodo,causa_fin}' IS DISTINCT FROM
-       actual.agregado_json#>>'{solicitud,periodo,causa_fin}'
-    OR padre#>'{solicitud,periodo,politica_fin}' IS DISTINCT FROM
-       actual.agregado_json#>'{solicitud,periodo,politica_fin}'
-    OR (padre->>'creado_en')::timestamptz IS DISTINCT FROM
-       (actual.agregado_json->>'creado_en')::timestamptz
-    OR (padre->>'actualizado_en')::timestamptz IS DISTINCT FROM
-       (actual.agregado_json->>'actualizado_en')::timestamptz
+    OR actual.agregado_json#>>'{asignacion,unidad_ref}' IS DISTINCT FROM m->>'unidad_ref'
+    OR coalesce(actual.agregado_json#>>'{fiscalizacion,resultado}','') NOT IN
+       ('favorable','favorable_con_observaciones')
+    OR (actual.agregado_json#>>'{solicitud,numero_personas}')::integer NOT BETWEEN 2 AND 100
     OR actual.agregado_json_huella_sha256 IS DISTINCT FROM
        encode(sha256(convert_to(actual.agregado_json::text,'UTF8')),'hex') THEN
   RAISE EXCEPTION 'CT234: padre no derivable' USING ERRCODE='23505'; END IF;
+ preimagen_padre:=actual.agregado_json::text;
+ IF octet_length(preimagen_padre)>262144 THEN
+  RAISE EXCEPTION 'CT234: preimagen del padre demasiado grande' USING ERRCODE='22023'; END IF;
  IF EXISTS(SELECT 1 FROM vec_contratacion_temporal.nombramiento_derivado_v1
   WHERE organizacion_ref=m->>'organizacion_ref' AND padre_ref=m->>'padre_ref' AND numero_plaza=(m->>'numero_plaza')::integer) THEN
   RAISE EXCEPTION 'CT234: plaza ya derivada' USING ERRCODE='23505'; END IF;
@@ -757,10 +743,11 @@ BEGIN
   'solicitud',(actual.agregado_json->'solicitud')||jsonb_build_object('numero_personas',1),
   'instruccion_compartida',jsonb_build_object('expediente_padre',actual.agregado_json,'oferta_ref',m->>'oferta_ref',
    'numero_plaza',(m->>'numero_plaza')::integer,'recibo_derivacion_ref',recibo_ref,
-   'huella_padre_sha256',encode(sha256(convert_to(m->>'padre_canonico','UTF8')),'hex')));
+   'preimagen_padre_json',preimagen_padre,
+   'huella_padre_sha256',encode(sha256(convert_to(preimagen_padre,'UTF8')),'hex')));
  recibo:=jsonb_build_object('esquema','vec.ct.nombramiento.derivado.v1','estado','confirmado',
   'padre_ref',m->>'padre_ref','hijo_ref',m->>'hijo_ref','numero_visible',numero,'numero_plaza',(m->>'numero_plaza')::integer,
-  'total_personas',(padre#>>'{solicitud,numero_personas}')::integer,'version',6,'aceptacion_ref',aceptacion,
+  'total_personas',(actual.agregado_json#>>'{solicitud,numero_personas}')::integer,'version',6,'aceptacion_ref',aceptacion,
   'recibo_ref',recibo_ref,'auditoria_ref',consumo.auditoria_ref,'confirmada_en',instante,'expediente',hijo);
  INSERT INTO vec_contratacion_temporal.nombramiento_derivado_v1 VALUES(
   referencia,m->>'organizacion_ref',m->>'padre_ref',actual.version,m->>'hijo_ref',m->>'oferta_ref',(m->>'numero_plaza')::integer,

@@ -7,17 +7,18 @@ SET LOCAL statement_timeout='15s';
 DO $test$
 DECLARE f oid:=to_regprocedure(
  'vec_contratacion_temporal.derivar_nombramiento_ct234_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
- estado text; mensaje text; fechas_ok boolean;
+ estado text; mensaje text; fuente_sql text; fila record;
 BEGIN
- WITH casos(a,b,esperado) AS (VALUES
-   ('{"solicitud":{"periodo":{"inicio":"2026-10-18T06:00:00Z"}}}'::jsonb,
-    '{"solicitud":{"periodo":{"inicio":"2026-10-18T06:00:00.000000Z"}}}'::jsonb,true),
-   ('{"solicitud":{"periodo":{"inicio":"2026-10-18T06:00:00Z"}}}'::jsonb,
-    '{"solicitud":{"periodo":{"inicio":"2026-10-19T06:00:00Z"}}}'::jsonb,false))
- SELECT bool_and(((a#>>'{solicitud,periodo,inicio}')::timestamptz IS NOT DISTINCT FROM
-                  (b#>>'{solicitud,periodo,inicio}')::timestamptz) IS NOT DISTINCT FROM esperado)
- INTO fechas_ok FROM casos;
- IF fechas_ok IS NOT TRUE THEN RAISE EXCEPTION 'CT234: equivalencia de periodo divergente'; END IF;
+ SELECT prosrc INTO STRICT fuente_sql FROM pg_proc WHERE oid=f;
+ IF strpos(fuente_sql,'padre_canonico')>0
+    OR strpos(fuente_sql,'json_each(p_material::json))<>12')=0
+    OR strpos(fuente_sql,'preimagen_padre:=actual.agregado_json::text')=0
+    OR strpos(fuente_sql,'preimagen_padre_json')=0
+    OR strpos(fuente_sql,'octet_length(preimagen_padre)>262144')=0
+    OR strpos(fuente_sql,'sha256(convert_to(preimagen_padre,''UTF8''))')=0
+    OR strpos(fuente_sql,'preimagen_padre:=actual.agregado_json::text')<
+       strpos(fuente_sql,'registrar_y_consumir_derivacion_nombramiento_ct_v3_atestada')
+ THEN RAISE EXCEPTION 'CT234: material o lectura previa a V3 divergente'; END IF;
  IF f IS NULL OR NOT has_function_privilege('vec_contratacion_temporal_ejecutor',f,'EXECUTE')
     OR EXISTS(SELECT 1 FROM pg_proc p
        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
@@ -61,6 +62,9 @@ BEGIN
     OR v.origen_version IS DISTINCT FROM 'derivacion_nombramiento_ct234'
     OR v.agregado_json IS DISTINCT FROM d.recibo_json->'expediente'
     OR v.agregado_json#>'{instruccion_compartida,expediente_padre}' IS DISTINCT FROM fuente.agregado_json
+    OR v.agregado_json#>>'{instruccion_compartida,preimagen_padre_json}' IS DISTINCT FROM fuente.agregado_json::text
+    OR v.agregado_json#>>'{instruccion_compartida,huella_padre_sha256}' IS DISTINCT FROM
+       encode(sha256(convert_to(fuente.agregado_json::text,'UTF8')),'hex')
     OR fuente.agregado_json_huella_sha256 IS DISTINCT FROM
        encode(sha256(convert_to(fuente.agregado_json::text,'UTF8')),'hex')
     OR p.numero_visible IS DISTINCT FROM a.numero_visible
@@ -68,6 +72,17 @@ BEGIN
     OR fase.fase_desde IS DISTINCT FROM p.actualizado_en
     OR regla.fase_desde IS DISTINCT FROM fase.fase_desde
  ) THEN RAISE EXCEPTION 'CT234: hijo v6 sin publicación completa'; END IF;
+ FOR fila IN SELECT d.hijo_ref,v.agregado_json
+  FROM vec_contratacion_temporal.nombramiento_derivado_v1 d
+  JOIN vec_contratacion_temporal.expediente_version_integral v
+    ON v.expediente_ref=d.hijo_ref AND v.version=6 LOOP
+  IF vec_contratacion_temporal.inicio_derivado_acreditado_ct234_v1(
+       fila.hijo_ref,fila.agregado_json) IS NOT TRUE
+     OR vec_contratacion_temporal.inicio_derivado_acreditado_ct234_v1(
+       fila.hijo_ref,jsonb_set(fila.agregado_json,
+        '{instruccion_compartida,preimagen_padre_json}','"{}"'::jsonb)) IS NOT FALSE
+  THEN RAISE EXCEPTION 'CT234: preimagen alterada aceptada'; END IF;
+ END LOOP;
  IF EXISTS(
   SELECT 1 FROM vec_contratacion_temporal.nombramiento_derivado_v1 d
   JOIN vec_contratacion_temporal.expediente_integral_actual hijo
