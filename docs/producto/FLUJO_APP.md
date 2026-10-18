@@ -519,9 +519,17 @@ RRHH puede además pasar una participación a **En revisión** cuando espera un
 justificante para regularizarla; la aspirante ve «RRHH confirmará tu
 situación».
 
-Está preparado el primer paso: confirmar una aceptación de llamamiento directo
-desde la ficha del aspirante, con motivo, revisión y recibo. Falta activarlo y
-comprobar el recorrido completo. La admisión y el rechazo de justificantes siguen
+La candidata F1-71 permite, tras activar su permiso, confirmar una aceptación de
+llamamiento directo desde la ficha del aspirante: «Confirmar aceptación del
+llamamiento», motivo, revisión y confirmación. En la copia local se registraron
+desde el navegador la aceptación y su confirmación; tras perder la respuesta y
+reiniciar aplicación y PostgreSQL se recuperó el mismo recibo, fecha y motivo.
+Quedó una confirmación y se retiró la marca pendiente. Cambiar el motivo con la
+misma clave devolvió conflicto sin añadir efectos. El componente del recibo
+permite copiar su referencia en español e inglés, en móvil y con teclado.
+Faltan las comprobaciones finales de activación. El ensayo y sus
+límites están en la [guía de F1-71](../../deploy/principal/aceptacion_desde_ficha_f1_71_20261018.md).
+La integración sigue pendiente. La admisión y el rechazo de justificantes siguen
 pendientes. El [contrato](../plan_modulos/bolsa_respuestas_en_revision_contrato.md)
 conserva separadas la respuesta pendiente y la situación vigente; Regularizar y
 Excluir mantienen sus operaciones actuales.
