@@ -52,8 +52,8 @@ class TestConexiones(unittest.TestCase):
         self.assertTrue(sql.startswith("BEGIN;"))
         self.assertTrue(sql.endswith("COMMIT;\n"))
         self.assertEqual(sql.count("CREATE ROLE "), len(env))
-        self.assertEqual(sql.count("WITH ADMIN FALSE, INHERIT TRUE, SET FALSE"), len(env) - 1)
-        self.assertEqual(sql.count("WITH ADMIN FALSE, INHERIT TRUE, SET TRUE"), 1)
+        self.assertEqual(sql.count("WITH ADMIN FALSE, INHERIT TRUE, SET FALSE"), len(env) - 2)
+        self.assertEqual(sql.count("WITH ADMIN FALSE, INHERIT TRUE, SET TRUE"), 3)
         self.assertIn("Arco AD3 heredado distinto", sql)
         self.assertIn("Propietario AD3 distinto", sql)
         self.assertIn("Propietario AD3 con membresía", sql)
@@ -92,10 +92,16 @@ class TestConexiones(unittest.TestCase):
             self.assertRegex(parsed.username, r"^vcl_l_segunda_[0-9a-f]{12}_[0-9]{2}$")
             self.assertGreaterEqual(len(parsed.password), 32)
             usuarios.add(parsed.username)
-            set_option = "TRUE" if variable == modulo.GOBIERNO else "FALSE"
+            set_option = "TRUE" if variable in (modulo.GOBIERNO, modulo.CONVOCA) else "FALSE"
             self.assertIn("GRANT " + modulo.GRUPOS[variable] + " TO " + parsed.username +
                           " WITH ADMIN FALSE, INHERIT TRUE, SET " + set_option, sql)
+            if variable == modulo.CONVOCA:
+                self.assertIn("GRANT vec_bolsa_importacion_convoca_recuperador TO " +
+                              parsed.username +
+                              " WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;", sql)
         self.assertEqual(len(usuarios), len(env))
+        self.assertIn("(SELECT count(*) FROM esperados x WHERE x.login=e.login)", sql)
+        self.assertIn("m.inherit_option=e.hereda AND m.set_option=e.cambia", sql)
         archivo = self.copia.raiz / modulo.RESULTADO
         self.assertEqual(archivo.stat().st_mode & 0o777, 0o600)
         self.assertEqual(self.copia.raiz.stat().st_mode & 0o777, 0o700)
