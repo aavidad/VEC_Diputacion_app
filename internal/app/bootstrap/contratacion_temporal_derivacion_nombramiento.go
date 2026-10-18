@@ -3,19 +3,13 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
-	"time"
 
-	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
-	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
-	dominiovec "vec-diputacion-granada/internal/vec/domain"
-	puertosvec "vec-diputacion-granada/internal/vec/ports"
+	vp "vec-diputacion-granada/internal/vec/ports"
 )
 
 // La lectura histórica conserva la preimagen de la clave original durante un
@@ -63,106 +57,37 @@ func (p preparadorDerivacionNombramientoDesarrollo) PrepararDerivacionNombramien
 	return s, nil
 }
 
-type autorizadorDerivacionNombramientoDesarrollo struct {
-	perfil *autoridadPerfilOfertaCTDesarrollo
-	base   autoridadSeleccionOfertaCTDesarrollo
+// La autoridad se inyecta desde composición. Ausente, solo la derivación
+// queda cerrada; nunca se toma el permiso de consulta del padre.
+type autoridadDerivacionNoDisponible struct{}
+
+func (autoridadDerivacionNoDisponible) AutorizarDerivacionNombramiento(context.Context,
+	ports.SolicitudDerivacionNombramiento) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrDerivacionNombramientoNoDisponible
 }
 
-func (a autorizadorDerivacionNombramientoDesarrollo) AutorizarDerivacionNombramiento(ctx context.Context,
-	s ports.SolicitudDerivacionNombramiento,
-) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
-	vacio := puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
-	if a.perfil == nil || a.perfil.material == nil || a.perfil.pdp == nil {
-		return vacio, ports.ErrDerivacionNombramientoNoDisponible
-	}
-	recurso, err := s.Recurso()
-	if err != nil {
-		return vacio, err
-	}
-	hijo, actor, err := a.base.contextoPerfilOferta(ctx, a.perfil, http.MethodPost, httpinterno.RutaDerivacionNombramiento)
-	if err != nil {
-		return vacio, clasificarAutoridadDerivacionNombramiento(err)
-	}
-	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(hijo, seguridadvec.GeneradorReferenciasCriptograficas{})
-	if err != nil {
-		return vacio, ports.ErrDerivacionNombramientoNoDisponible
-	}
-	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{
-		VinculoAutenticacionActor: actor.Vinculo, ReferenciaMotivo: a.perfil.motivo,
-		Accion: string(domain.AccionDerivarNombramiento), Recurso: recurso,
-		Finalidad: "gestionar_contratacion_temporal", Correlacion: correlacion,
-	})
-	if err != nil {
-		return vacio, ports.ErrDerivacionNombramientoDenegada
-	}
-	decision, confirmacion, err := a.perfil.pdp.ExigirSolicitudLigadaV3(hijo, solicitud, actor.Resultado)
-	if err != nil {
-		return vacio, clasificarAutoridadDerivacionNombramiento(err)
-	}
-	material, err := a.perfil.material.proveerMaterialConfirmacion(hijo, solicitud, decision, confirmacion,
-		a.perfil.motivo, actor.Resultado)
-	if err != nil || material.ValidarEstructura() != nil ||
-		material.ResumenCapacidad().AudienciaConsumo() != ports.AudienciaDerivacionNombramiento {
-		return vacio, ports.ErrDerivacionNombramientoNoDisponible
-	}
-	return material, nil
-}
-
-func clasificarAutoridadDerivacionNombramiento(err error) error {
-	if errors.Is(err, ports.ErrIntegracionBolsaNoDisponible) ||
-		errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) ||
-		errors.Is(err, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) {
-		return ports.ErrDerivacionNombramientoNoDisponible
-	}
-	return ports.ErrDerivacionNombramientoDenegada
-}
-
-func nuevaRutaDerivacionNombramientoDesarrollo(cfg config.Config,
-	alta *dependenciasAltaContratacionTemporalDesarrollo,
-	base *preparadorBorradorLlamamientoDesarrollo,
-	fronteras catalogoFronterasComunDesarrollo,
-	derivador *derivadorIdentidadOperacionDesarrollo,
-	reloj relojContratacionTemporalDesarrollo,
-) (http.Handler, func(), error) {
-	cerrar := func() {}
+func nuevaRutaDerivacionNombramientoDesarrollo(alta *dependenciasAltaContratacionTemporalDesarrollo,
+	autoridad ports.AutorizadorDerivacionNombramiento) (http.Handler, error) {
 	if alta == nil || alta.soporte == nil || alta.postgresql.ejecucion == nil {
-		h, err := httpinterno.NuevoManejadorDerivacionNombramiento(derivacionNombramientoNoCompuesta{})
-		return h, cerrar, err
+		return httpinterno.NuevoManejadorDerivacionNombramiento(derivacionNombramientoNoCompuesta{})
 	}
 	lector, err := postgresct.NuevoLectorExpedienteSeleccionLlamamientoPostgreSQL(alta.postgresql.ejecucion)
 	if err != nil {
-		return nil, cerrar, err
+		return nil, err
 	}
 	registro, err := postgresct.NuevoRegistroDerivacionNombramientoPostgreSQL(alta.postgresql.ejecucion)
 	if err != nil {
-		return nil, cerrar, err
+		return nil, err
 	}
-	autoridad := autorizadorDerivacionNombramientoDesarrollo{}
-	if base != nil && derivador != nil {
-		ctx, cancelar := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancelar()
-		perfil, detener, disponible := nuevaAutoridadDerivacionNombramientoDesarrollo(ctx, cfg, alta,
-			base, fronteras, derivador, reloj)
-		if disponible {
-			autoridad = autorizadorDerivacionNombramientoDesarrollo{perfil: perfil,
-				base: autoridadSeleccionOfertaCTDesarrollo{alta: alta, publico: fronteras,
-					vinculo: perfil, reloj: reloj}}
-			cerrar = detener
-		}
+	if dependenciaEsNulaContratacionTemporalDesarrollo(autoridad) {
+		autoridad = autoridadDerivacionNoDisponible{}
 	}
 	servicio, err := application.NuevoServicioDerivacionNombramiento(
-		preparadorDerivacionNombramientoDesarrollo{soporte: alta.soporte, lector: lector},
-		autoridad, registro)
+		preparadorDerivacionNombramientoDesarrollo{soporte: alta.soporte, lector: lector}, autoridad, registro)
 	if err != nil {
-		cerrar()
-		return nil, func() {}, err
+		return nil, err
 	}
-	h, err := httpinterno.NuevoManejadorDerivacionNombramiento(servicio)
-	if err != nil {
-		cerrar()
-		return nil, func() {}, err
-	}
-	return h, cerrar, nil
+	return httpinterno.NuevoManejadorDerivacionNombramiento(servicio)
 }
 
 type derivacionNombramientoNoCompuesta struct{}

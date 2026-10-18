@@ -91,12 +91,9 @@ BEGIN
   ||expresion||') OR origen_version=''derivacion_nombramiento_ct234'')';
 END $origen$;
 
--- Las tres funciones instaladas conservan OID, propietario, ACL y cuerpo
--- salvo la sustitución única indicada. SHA de prosrc calculados desde las
--- últimas definiciones de origin/main: CT037, CT110 y CT190, respectivamente.
+-- La proyección RRHH conserva el CHECK original y solo amplía el número.
 DO $publicacion$
-DECLARE f regprocedure; p pg_proc%ROWTYPE; definicion text; marca text; nueva text;
- con record; expresion text;
+DECLARE con record; expresion text;
 BEGIN
  SELECT c.conname,pg_get_constraintdef(c.oid) AS definicion INTO STRICT con
  FROM pg_constraint c
@@ -113,71 +110,7 @@ BEGIN
   '''^([0-9]{4}/[A-Za-z0-9._-]{1,40}|[0-9]{4}/[A-Za-z0-9._-]{1,40}-P(100|[1-9][0-9]?))$''');
  EXECUTE format('ALTER TABLE vec_contratacion_temporal.publicacion_version_rrhh DROP CONSTRAINT %I',con.conname);
  EXECUTE format('ALTER TABLE vec_contratacion_temporal.publicacion_version_rrhh ADD CONSTRAINT %I %s',con.conname,expresion);
-
- f:='vec_contratacion_temporal.extraer_publicacion_rrhh_v1(text,numeric,jsonb,text,text,numeric,text,text,text,timestamp with time zone,text,text)'::regprocedure;
- SELECT * INTO STRICT p FROM pg_proc WHERE oid=f;
- IF encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')<>
-      'daba512040d294cd5f31d0627990509c661957bfbf42ba53f101c09a84d5361f'
-    OR p.proowner<>'vec_contratacion_temporal_propietario'::regrole
-    OR NOT p.prosecdef OR p.provolatile<>'s'
-    OR EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-       WHERE a.grantee<>p.proowner)
- THEN RAISE EXCEPTION 'CT234: preimagen del extractor divergente' USING ERRCODE='55000'; END IF;
- marca:=$m$OR COALESCE(numero_visible, '') !~
-            '^[0-9]{4}/[A-Za-z0-9._-]{1,40}$'$m$;
- nueva:=$n$OR (COALESCE(numero_visible, '') !~
-            '^[0-9]{4}/[A-Za-z0-9._-]{1,40}$'
-          AND NOT (COALESCE(numero_visible, '') ~
-            '^[0-9]{4}/[A-Za-z0-9._-]{1,40}-P(100|[1-9][0-9]?)$'
-            AND EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_alta alta_derivada
-              JOIN vec_contratacion_temporal.nombramiento_derivado_v1 derivada
-                ON derivada.derivacion_ref=alta_derivada.derivacion_ref
-              WHERE alta_derivada.expediente_ref=p_expediente_ref
-                AND alta_derivada.numero_visible=p_numero_esperado
-                AND derivada.hijo_ref=p_expediente_ref)))$n$;
- definicion:=pg_get_functiondef(f);
- IF length(definicion)-length(replace(definicion,marca,''))<>length(marca) THEN
-  RAISE EXCEPTION 'CT234: marca del extractor no única' USING ERRCODE='55000'; END IF;
- EXECUTE replace(definicion,marca,nueva);
- ALTER FUNCTION vec_contratacion_temporal.extraer_publicacion_rrhh_v1(
-  text,numeric,jsonb,text,text,numeric,text,text,text,timestamptz,text,text)
-  SET search_path TO pg_catalog,pg_temp;
 END $publicacion$;
-
-DO $inicio_hijo$
-DECLARE f regprocedure; p pg_proc%ROWTYPE; definicion text; marca text; nueva text;
-BEGIN
- FOREACH f IN ARRAY ARRAY[
-  'vec_contratacion_temporal.registrar_fase_entrada_publicacion_rrhh_v1()'::regprocedure,
-  'vec_contratacion_temporal.registrar_instantanea_fase_regla_v1()'::regprocedure] LOOP
-  SELECT * INTO STRICT p FROM pg_proc WHERE oid=f;
-  IF p.proowner<>'vec_contratacion_temporal_propietario'::regrole
-     OR NOT p.prosecdef OR p.provolatile<>'v'
-     OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM
-        (CASE WHEN f::text LIKE '%registrar_fase_entrada%'
-         THEN 'd42ae05e1fb4db85551379ceec97848eda218cdc5a99bb264b05225396104fdc'
-         ELSE '6a519c1c2ca4cd3b8af954bfd3fe3a5530c5a5e4b4d3d416ce18228d625767ac' END)
-     OR EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-        WHERE a.grantee<>p.proowner)
-  THEN RAISE EXCEPTION 'CT234: preimagen de fase divergente: %',f USING ERRCODE='55000'; END IF;
-  marca:=CASE WHEN f::text LIKE '%registrar_fase_entrada%'
-      THEN 'IF NEW.version > 1 THEN' ELSE 'IF NEW.version>1 THEN' END;
-  nueva:=$n$IF NEW.version>1 AND NOT (NEW.version=6 AND EXISTS(
-      SELECT 1 FROM vec_contratacion_temporal.expediente_alta alta_derivada
-      JOIN vec_contratacion_temporal.nombramiento_derivado_v1 derivada
-        ON derivada.derivacion_ref=alta_derivada.derivacion_ref
-      JOIN vec_contratacion_temporal.expediente_version_integral inicial
-        ON inicial.expediente_ref=derivada.hijo_ref AND inicial.version=6
-      WHERE alta_derivada.expediente_ref=NEW.expediente_ref
-        AND derivada.hijo_ref=NEW.expediente_ref
-        AND inicial.origen_version='derivacion_nombramiento_ct234')) THEN$n$;
-  definicion:=pg_get_functiondef(f);
-  IF length(definicion)-length(replace(definicion,marca,''))<>length(marca) THEN
-   RAISE EXCEPTION 'CT234: marca de fase no única: %',f USING ERRCODE='55000'; END IF;
-  EXECUTE replace(definicion,marca,nueva);
-  EXECUTE format('ALTER FUNCTION %s SET search_path TO pg_catalog,pg_temp',f);
- END LOOP;
-END $inicio_hijo$;
 
 -- En los BEFORE INSERT de CT163/CT164 todavía no existe la fila v6. La
 -- vinculación durable y el recibo del productor sustituyen solo su v5.
@@ -200,22 +133,35 @@ SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
 $f$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.inicio_derivado_acreditado_ct234_v1(text,jsonb) FROM PUBLIC;
 
-DO $circuito$
-DECLARE f regprocedure; p pg_proc%ROWTYPE; definicion text; marca text; nueva text;
+-- Cinco reconstrucciones acotadas: definición instalada, huella de prosrc y
+-- marca única. CREATE OR REPLACE mantiene OID y ACL; se cotejan después.
+DO $reconstruir$
+DECLARE parche record; f regprocedure; p pg_proc%ROWTYPE; definicion text;
+ marca text; nueva text; acl_antes aclitem[];
 BEGIN
- FOREACH f IN ARRAY ARRAY[
-  'vec_contratacion_temporal.proteger_version_circuito_ct163()'::regprocedure,
-  'vec_contratacion_temporal.proteger_version_circuito_ct164()'::regprocedure] LOOP
-  SELECT * INTO STRICT p FROM pg_proc WHERE oid=f;
-  IF p.proowner<>'vec_contratacion_temporal_propietario'::regrole
-     OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM
-        (CASE WHEN f::text LIKE '%ct163%'
-         THEN '4947358f5cebf637b199b783037e918e689835ebee677b36bd76f97bb6adbd37'
-         ELSE 'b0d331efa4763a8ad416fcedcf96bcb942a9e6d2dd91beb56bdee80dc9982aab' END)
-  THEN RAISE EXCEPTION 'CT234: preimagen del circuito divergente: %',f USING ERRCODE='55000'; END IF;
-  IF f::text LIKE '%ct163%' THEN
-   marca:=$m$    SELECT v.agregado_json INTO v_anterior$m$;
-   nueva:=$n$    IF NEW.version=6 AND NEW.origen_version='derivacion_nombramiento_ct234' THEN
+ FOR parche IN SELECT * FROM (VALUES
+  ('vec_contratacion_temporal.extraer_publicacion_rrhh_v1(text,numeric,jsonb,text,text,numeric,text,text,text,timestamp with time zone,text,text)',
+   'daba512040d294cd5f31d0627990509c661957bfbf42ba53f101c09a84d5361f', 's', true, false,
+   $m$OR COALESCE(numero_visible, '') !~
+            '^[0-9]{4}/[A-Za-z0-9._-]{1,40}$'$m$,
+   $n$OR (COALESCE(numero_visible, '') !~ '^[0-9]{4}/[A-Za-z0-9._-]{1,40}$'
+     AND NOT (COALESCE(numero_visible, '') ~ '^[0-9]{4}/[A-Za-z0-9._-]{1,40}-P(100|[1-9][0-9]?)$'
+       AND EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_alta alta_derivada
+         JOIN vec_contratacion_temporal.nombramiento_derivado_v1 derivada
+           ON derivada.derivacion_ref=alta_derivada.derivacion_ref
+         WHERE alta_derivada.expediente_ref=p_expediente_ref
+           AND alta_derivada.numero_visible=p_numero_esperado
+           AND derivada.hijo_ref=p_expediente_ref)))$n$),
+  ('vec_contratacion_temporal.registrar_fase_entrada_publicacion_rrhh_v1()',
+   'd42ae05e1fb4db85551379ceec97848eda218cdc5a99bb264b05225396104fdc', 'v', true, false,
+   'IF NEW.version > 1 THEN', NULL),
+  ('vec_contratacion_temporal.registrar_instantanea_fase_regla_v1()',
+   '6a519c1c2ca4cd3b8af954bfd3fe3a5530c5a5e4b4d3d416ce18228d625767ac', 'v', true, false,
+   'IF NEW.version>1 THEN', NULL),
+  ('vec_contratacion_temporal.proteger_version_circuito_ct163()',
+   '4947358f5cebf637b199b783037e918e689835ebee677b36bd76f97bb6adbd37', 'v', false, true,
+   $m$    SELECT v.agregado_json INTO v_anterior$m$,
+   $n$    IF NEW.version=6 AND NEW.origen_version='derivacion_nombramiento_ct234' THEN
         IF vec_contratacion_temporal.inicio_derivado_acreditado_ct234_v1(
             NEW.expediente_ref,NEW.agregado_json) IS NOT TRUE
            OR (v_tiene_circuito AND
@@ -223,11 +169,12 @@ BEGIN
         THEN RAISE EXCEPTION 'CT234: circuito inicial divergente' USING ERRCODE='55000'; END IF;
         RETURN NEW;
     END IF;
-    SELECT v.agregado_json INTO v_anterior$n$;
-  ELSE
-   marca:=$m$ IF NEW.version>1 THEN
-  SELECT agregado_json INTO v_anterior$m$;
-   nueva:=$n$ IF NEW.version=6 AND NEW.origen_version='derivacion_nombramiento_ct234' THEN
+    SELECT v.agregado_json INTO v_anterior$n$),
+  ('vec_contratacion_temporal.proteger_version_circuito_ct164()',
+   'b0d331efa4763a8ad416fcedcf96bcb942a9e6d2dd91beb56bdee80dc9982aab', 'v', false, true,
+   $m$ IF NEW.version>1 THEN
+  SELECT agregado_json INTO v_anterior$m$,
+   $n$ IF NEW.version=6 AND NEW.origen_version='derivacion_nombramiento_ct234' THEN
   IF vec_contratacion_temporal.inicio_derivado_acreditado_ct234_v1(
        NEW.expediente_ref,NEW.agregado_json) IS NOT TRUE
      OR vec_contratacion_temporal.circuito_agregado_valido_ct164(NEW.agregado_json) IS NOT TRUE
@@ -235,17 +182,47 @@ BEGIN
   RETURN NEW;
  END IF;
  IF NEW.version>1 THEN
-  SELECT agregado_json INTO v_anterior$n$;
-  END IF;
+  SELECT agregado_json INTO v_anterior$n$)
+ ) AS x(firma,prehash,volatilidad,acl_privada,hacer_definidor,marca,reemplazo) LOOP
+  f:=to_regprocedure(parche.firma);
+  IF f IS NULL THEN RAISE EXCEPTION 'CT234: función ausente: %',parche.firma USING ERRCODE='55000'; END IF;
+  SELECT * INTO STRICT p FROM pg_proc WHERE oid=f;
+  acl_antes:=p.proacl;
+  IF p.proowner<>'vec_contratacion_temporal_propietario'::regrole
+     OR p.provolatile IS DISTINCT FROM parche.volatilidad
+     OR p.prosecdef IS DISTINCT FROM (NOT parche.hacer_definidor)
+     OR NOT EXISTS(SELECT 1 FROM unnest(p.proconfig) cfg
+        WHERE replace(cfg,' ','')='search_path=pg_catalog')
+     OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM parche.prehash
+     OR (parche.acl_privada AND EXISTS(
+        SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+        WHERE a.grantee<>p.proowner))
+  THEN RAISE EXCEPTION 'CT234: preimagen divergente: %',f USING ERRCODE='55000'; END IF;
+  marca:=parche.marca;
+  nueva:=coalesce(parche.reemplazo,$fase$IF NEW.version>1 AND NOT (NEW.version=6 AND EXISTS(
+      SELECT 1 FROM vec_contratacion_temporal.expediente_version_integral inicial
+      WHERE inicial.expediente_ref=NEW.expediente_ref AND inicial.version=6
+        AND inicial.origen_version='derivacion_nombramiento_ct234'
+        AND vec_contratacion_temporal.inicio_derivado_acreditado_ct234_v1(
+          NEW.expediente_ref,inicial.agregado_json))) THEN$fase$);
   definicion:=pg_get_functiondef(f);
   IF length(definicion)-length(replace(definicion,marca,''))<>length(marca) THEN
-   RAISE EXCEPTION 'CT234: marca del circuito no única: %',f USING ERRCODE='55000'; END IF;
+   RAISE EXCEPTION 'CT234: marca no única: %',f USING ERRCODE='55000'; END IF;
   EXECUTE replace(definicion,marca,nueva);
-  EXECUTE format('ALTER FUNCTION %s SECURITY DEFINER',f);
+  IF parche.hacer_definidor THEN
+   EXECUTE format('ALTER FUNCTION %s SECURITY DEFINER',f);
+   EXECUTE format('ALTER FUNCTION %s SET row_security TO on',f);
+  END IF;
   EXECUTE format('ALTER FUNCTION %s SET search_path TO pg_catalog,pg_temp',f);
-  EXECUTE format('ALTER FUNCTION %s SET row_security TO on',f);
+  IF NOT EXISTS(SELECT 1 FROM pg_proc posterior WHERE posterior.oid=f
+      AND posterior.proowner=p.proowner AND posterior.proacl IS NOT DISTINCT FROM acl_antes
+      AND posterior.prosrc=replace(p.prosrc,marca,nueva)
+      AND posterior.prosecdef
+      AND EXISTS(SELECT 1 FROM unnest(posterior.proconfig) cfg
+        WHERE replace(cfg,' ','')='search_path=pg_catalog,pg_temp'))
+  THEN RAISE EXCEPTION 'CT234: reconstrucción divergente: %',f USING ERRCODE='55000'; END IF;
  END LOOP;
-END $circuito$;
+END $reconstruir$;
 
 -- Todo cierre de la cabecera del padre pasa por su versión actual. La
 -- derivación toca esa misma fila para que una instantánea SERIALIZABLE

@@ -20,20 +20,18 @@ de este corte. Antes deben cotejarse los cuerpos instalados, propietarios,
 configuraciones y permisos; el ensayo aún está pendiente. La instalación se
 detiene si falta una dependencia. Nunca preparar firmas ni recibos fingidos.
 
-## Activación
+## Activación y límite de este corte
 
-La composición usa el archivo privado optativo
-`identidad/nombramientos-ct.json`. Declara la asignación y el rol publicados,
-el motivo y las conexiones nominales separadas; no concede permisos. La
-misma fuente de autoridad y el gobierno técnico existentes preparan la
-audiencia `vec.ct.nombramiento-derivado.v1`. Sin archivo, perfil, consumidor o
-SQL, solo la derivación queda cerrada y la aplicación sigue arrancando.
-El esquema es `vec.ct.nombramientos.activacion.v1`. Contiene
-`derivacion` con `perfil_ref`, `rol` (`rol_id`, `version`, `huella_sha256`)
-y `motivo` (`catalogo_id`, `catalogo_version`, `catalogo_huella_sha256`,
-`entrada_clave`), además de `fuente_autorizacion_dsn_file` y
-`motivos_autorizacion_dsn_file`: nombres locales distintos bajo el árbol
-privado seguro. Las preimágenes y el ensayo final siguen pendientes.
+La composición recibe la autoridad propia del hijo mediante el puerto de
+aplicación. Este primer corte no configura ese productor y deniega por defecto:
+la ruta queda en 503 sin heredar ningún permiso del padre. El adaptador y la
+operación SQL conservan la validación completa de la decisión firmada.
+
+La activación configurable y el panel se conservan en el segundo corte,
+con el archivo privado `identidad/nombramientos-ct.json`. El positivo real se
+ensayará con R y esa composición, sobre una candidata conjunta identificada.
+Un 503 o un test con un doble no acredita la creación del hijo. No se declara
+lista esta PR solo por compilar o por pasar las denegaciones.
 
 ## Comprobar en la copia
 
