@@ -457,6 +457,14 @@ La conservación real de O6 sigue pendiente de CT-CUM-06 y de la política
 VEC-DOC-CONS-01. Activación y límites en
 [`recibo_nativo_o6_ct230_20261016.md`](../../deploy/principal/recibo_nativo_o6_ct230_20261016.md).
 
+CT231 añade una variante de fila de CT140 para la selección O6 confirmada
+pendiente de comunicación. Conserva la ruta, el lector y los once campos de
+permiso existentes; devuelve solo los ocho aplicables a la selección, con su
+versión y recibo reales. Los campos exclusivos de comunicación quedan ausentes.
+La selección se obtiene de Contratación, sin consultar tablas de Bolsa. No añade
+consumidor de autorización ni permisos por defecto. Activación y límites en
+[`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
+
 Puertos Go: `internal/modules/contrataciontemporal/ports/`; adaptadores en
 `adapters/postgres/`. Detalle técnico por migración:
 `deploy/postgresql/contratacion_temporal/README.md`.

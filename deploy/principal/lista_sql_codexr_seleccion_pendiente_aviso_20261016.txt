@@ -1,0 +1,2 @@
+# CT230 (#1170) instalada antes; aplicar solo CT231 pendiente, nunca reaplicar.
+deploy/postgresql/contratacion_temporal/migraciones/000231_seleccion_pendiente_aviso_consulta.up.sql
