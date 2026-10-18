@@ -119,6 +119,10 @@ Intervención abre la ficha y registra el resultado. Si hay reparo, el expedient
 
 ### Paso 7. Ofrecimiento a la bolsa
 
+Si el resultado favorable ya está registrado, la ficha indica «Siguiente paso:
+llamamiento». La fase y el historial conservan la fiscalización registrada; no
+se pide a Intervención que la repita. Si falta el resultado, se mantiene la espera.
+
 Con la fiscalización favorable, el técnico abre el llamamiento. VEC recorre la bolsa por orden, salta a quien no está disponible y envía a la persona a la que le toca un correo con la categoría, el centro, la modalidad, la fecha de inicio y el plazo. RRHH puede cambiar el texto de ese correo.
 
 La persona tiene dos días desde el aviso para contestar. Responde desde Mi Bolsa: acepta, renuncia o presenta una renuncia justificada. Si contesta por teléfono, el técnico anota la respuesta. Si no contesta en plazo, se entiende que no acepta, sin consecuencias en la bolsa, y el técnico abre el llamamiento a la siguiente persona.
