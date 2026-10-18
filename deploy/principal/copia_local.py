@@ -142,6 +142,7 @@ class Copia:
         puerto_libre(args.puerto_pg)
         puerto_libre(args.puerto_app)
         datos = validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT') if args.modulos else None
+        roles = validar_ejecutor_privado('VEC_COPIA_ROLES_SCRIPT') if args.modulos else None
         portal = validar_ejecutor_privado('VEC_COPIA_PORTAL_SCRIPT') if args.portal_externo else None
         origen = Path(os.environ['VEC_COPIA_ORIGEN']).resolve(strict=True)
         dump = origen / 'principal-hz37-20261014.dump'
@@ -176,6 +177,9 @@ class Copia:
         for ruta in acl:
             self.sql(ruta, 'restauracion.log')
         self.comprobar_acl(acl, permitir_nuevas=False)
+        if args.modulos:
+            with (self.raiz / 'roles-preparacion.log').open('ab') as log:
+                ejecutar([sys.executable, roles, '--raiz', self.raiz], salida=log)
         diario = []
         for ruta, huella, contenido in listas:
             self.sql_bytes(contenido, 'migraciones.log')
