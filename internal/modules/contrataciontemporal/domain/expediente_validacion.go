@@ -1,14 +1,21 @@
 package domain
 
 func (e Expediente) Validar() error {
+	primeraSecuencia := uint64(1)
+	if e.InstruccionCompartida != nil {
+		primeraSecuencia = 6
+	}
 	if !referenciaValida(e.Referencia) ||
 		!referenciaValida(e.OrganizacionRef) ||
-		!patronNumero.MatchString(e.NumeroVisible) ||
+		(e.InstruccionCompartida == nil && !patronNumero.MatchString(e.NumeroVisible)) ||
 		e.Version == 0 || e.Flujo.Validar() != nil || !e.FaseActual.Valida() ||
 		!e.EstadoActual.Valido() || e.Solicitud.Validar() != nil ||
 		!instanteCanonico(e.CreadoEn) || !instanteCanonico(e.ActualizadoEn) ||
 		e.ActualizadoEn.Before(e.CreadoEn) || len(e.Actuaciones) == 0 ||
-		uint64(len(e.Actuaciones)) != e.Version {
+		uint64(len(e.Actuaciones))+primeraSecuencia-1 != e.Version {
+		return ErrExpedienteInvalido
+	}
+	if e.InstruccionCompartida != nil && !e.instruccionCompartidaValida() {
 		return ErrExpedienteInvalido
 	}
 	if e.Analisis != nil && e.Analisis.Validar() != nil {
@@ -18,7 +25,7 @@ func (e Expediente) Validar() error {
 		e.ViaCobertura.Validar() != nil) {
 		return ErrExpedienteInvalido
 	}
-	if !historiaDecisionesCoberturaValida(e) {
+	if e.InstruccionCompartida == nil && !historiaDecisionesCoberturaValida(e) {
 		return ErrExpedienteInvalido
 	}
 	if e.Asignacion != nil && (e.ViaCobertura == nil || e.Asignacion.Validar() != nil) {
@@ -37,7 +44,7 @@ func (e Expediente) Validar() error {
 					e.Fiscalizacion.Retorno.ResponsableRef != e.Asignacion.ResponsableRef))) {
 		return ErrExpedienteInvalido
 	}
-	if e.Circuito != nil && !e.circuitoValido() {
+	if e.Circuito != nil && e.InstruccionCompartida == nil && !e.circuitoValido() {
 		return ErrExpedienteInvalido
 	}
 	anotacionesAdministrativas := 0
@@ -45,12 +52,13 @@ func (e Expediente) Validar() error {
 		if actuacion.AccionClave == AccionRegistrarAnotacionAdministrativa {
 			anotacionesAdministrativas++
 		}
-		if !actuacionValida(actuacion, uint64(indice+1)) {
+		if !actuacionValida(actuacion, uint64(indice)+primeraSecuencia) {
 			return ErrExpedienteInvalido
 		}
 		if indice == 0 {
-			if actuacion.FaseOrigen != "" || actuacion.EstadoOrigen != EstadoPendiente ||
-				!actuacion.RealizadaEn.Equal(e.CreadoEn) {
+			if !actuacion.RealizadaEn.Equal(e.CreadoEn) ||
+				(e.InstruccionCompartida == nil &&
+					(actuacion.FaseOrigen != "" || actuacion.EstadoOrigen != EstadoPendiente)) {
 				return ErrExpedienteInvalido
 			}
 			continue
@@ -65,18 +73,18 @@ func (e Expediente) Validar() error {
 	if anotacionesAdministrativas > 1 {
 		return ErrExpedienteInvalido
 	}
-	if e.Analisis != nil && !analisisLigadoAActuacion(e.Analisis, e.Actuaciones) {
+	if e.InstruccionCompartida == nil && e.Analisis != nil && !analisisLigadoAActuacion(e.Analisis, e.Actuaciones) {
 		return ErrExpedienteInvalido
 	}
-	if e.Asignacion != nil &&
+	if e.InstruccionCompartida == nil && e.Asignacion != nil &&
 		!asignacionLigadaAActuacion(e.Asignacion, e.Actuaciones) {
 		return ErrExpedienteInvalido
 	}
-	if e.InformeJuridico != nil &&
+	if e.InstruccionCompartida == nil && e.InformeJuridico != nil &&
 		!informeJuridicoLigadoAActuacion(e.InformeJuridico, e.Actuaciones) {
 		return ErrExpedienteInvalido
 	}
-	if e.Fiscalizacion != nil &&
+	if e.InstruccionCompartida == nil && e.Fiscalizacion != nil &&
 		!fiscalizacionLigadaAActuacion(e.Fiscalizacion, e.Actuaciones) {
 		return ErrExpedienteInvalido
 	}
@@ -227,6 +235,13 @@ func (e Expediente) Clonar() Expediente {
 	if e.Circuito != nil {
 		clon := e.Circuito.clonar()
 		e.Circuito = &clon
+	}
+	if e.InstruccionCompartida != nil {
+		clon := *e.InstruccionCompartida
+		if clon.ExpedientePadre.InstruccionCompartida == nil {
+			clon.ExpedientePadre = clon.ExpedientePadre.Clonar()
+		}
+		e.InstruccionCompartida = &clon
 	}
 	e.Actuaciones = append([]Actuacion(nil), e.Actuaciones...)
 	for indice := range e.Actuaciones {
