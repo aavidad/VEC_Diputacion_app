@@ -104,6 +104,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
+	materialPreferenciasBolsasInternas               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
 	proveedorMaterialOrganizacionHistorica           *proveedorMaterialAltaContratacionTemporalDesarrollo
 	sesionOrganizacionHistorica                      *proveedorSesionConsultaRRHHDesarrollo
@@ -1610,6 +1611,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialUsuariosCorreos:                          alta.postgresql.materialUsuariosCorreos,
 		materialUsuariosImagen:                           alta.postgresql.materialUsuariosImagen,
 		materialAspirantes:                               alta.postgresql.materialAspirantes,
+		materialPreferenciasBolsasInternas:               alta.postgresql.materialPreferenciasBolsasInternas,
 		materialOrganizacionHistorica:                    alta.postgresql.materialOrganizacionHistorica,
 		proveedorMaterialOrganizacionHistorica:           alta.postgresql.proveedorMaterialOrganizacionHistorica,
 		sesionOrganizacionHistorica:                      consultasRRHH.identidad,
