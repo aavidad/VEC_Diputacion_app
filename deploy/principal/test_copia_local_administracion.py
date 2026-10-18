@@ -29,6 +29,7 @@ class AdministracionCopiaTest(unittest.TestCase):
 from pathlib import Path
 p=argparse.ArgumentParser()
 p.add_argument('--raiz');p.add_argument('--fase');p.add_argument('--candado-fd',type=int)
+p.add_argument('--puerto-admin',type=int)
 a=p.parse_args()
 fcntl.flock(a.candado_fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
 r=Path(a.raiz)
@@ -40,7 +41,7 @@ with (r.parent/'.vec-copia-l-admin.lock').open('a') as otro:
 ''')
         self.script.chmod(0o600)
         self.estado = dict(administracion=dict(ejecutor=str(self.script),
-                          sha256=admin.huella_ejecutor(self.script)))
+                          sha256=admin.huella_ejecutor(self.script), puerto=19485))
         self.copia = SimpleNamespace(raiz=self.raiz, nombre='vec-copia-l-admin',
                                      candado=self.lock.fileno(), leer=lambda: self.estado)
 

@@ -485,6 +485,8 @@ arranque, anótalo como fallo del producto.
 ## 9. Reinicio y recuperación
 
 La composición de Administración añade `--administracion` a `crear --modulos`.
+El puerto se elige con `--puerto-admin` y debe estar libre y ser distinto de
+los puertos de PostgreSQL, la aplicación y el correo.
 Requiere `VEC_COPIA_ADMIN_SCRIPT`, un ejecutor privado preparado para la misma
 candidata. Recibe `--raiz`, `--fase preparar|arrancar|comprobar` y
 `--candado-fd`: debe heredar ese descriptor al llamar al kit y conservar sus

@@ -42,7 +42,8 @@ def ejecutar(copia, fase):
     fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     with (copia.raiz / 'administracion.log').open('ab') as log:
         subprocess.run([sys.executable, str(ruta), '--raiz', str(copia.raiz),
-                        '--fase', fase, '--candado-fd', str(fd)],
+                        '--fase', fase, '--candado-fd', str(fd),
+                        '--puerto-admin', str(control['puerto'])],
                        stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
                        pass_fds=(fd,), check=True, timeout=600)
 

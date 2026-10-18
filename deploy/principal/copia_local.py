@@ -151,6 +151,8 @@ class Copia:
         roles = validar_ejecutor_privado('VEC_COPIA_ROLES_SCRIPT') if args.modulos else None
         portal = validar_ejecutor_privado('VEC_COPIA_PORTAL_SCRIPT') if args.portal_externo else None
         admin = validar_ejecutor_privado('VEC_COPIA_ADMIN_SCRIPT') if args.administracion else None
+        if admin:
+            puerto_libre(args.puerto_admin)
         origen = Path(os.environ['VEC_COPIA_ORIGEN']).resolve(strict=True)
         dump = origen / 'principal-hz37-20261014.dump'
         acl = [origen / 'acl-base-20261014.sql', origen / 'acl-tipos-20261014.sql']
@@ -241,7 +243,8 @@ class Copia:
         if admin:
             from copia_local_administracion import ejecutar as ejecutar_admin, huella_ejecutor
             estado = self.leer()
-            estado['administracion'] = dict(ejecutor=str(admin), sha256=huella_ejecutor(admin))
+            estado['administracion'] = dict(ejecutor=str(admin), sha256=huella_ejecutor(admin),
+                                           puerto=args.puerto_admin)
             guardar(self.estado, estado)
             ejecutar_admin(self, 'preparar')
             ejecutar_admin(self, 'arrancar')
@@ -518,12 +521,16 @@ def main():
     p.add_argument('--rrhh-original', type=Path, help='Conservar el conjunto privado original de RRHH en una copia nueva')
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
     p.add_argument('--administracion', action='store_true', help='Preparar también Administración con su ejecutor privado')
+    p.add_argument('--puerto-admin', type=int, default=19481)
     p.add_argument('--archivo-clon')
     args = p.parse_args()
     if args.portal_externo and not args.modulos:
         p.error('--portal-externo requiere --modulos')
     if args.administracion and (args.orden != 'crear' or not args.modulos):
         p.error('--administracion solo se admite en crear --modulos')
+    if args.administracion and (not 1024 <= args.puerto_admin <= 65535
+            or args.puerto_admin in (args.puerto_pg, args.puerto_app, args.puerto_smtp)):
+        p.error('El puerto de Administración debe ser distinto y estar entre 1024 y 65535')
     if args.rrhh_original and (args.orden != 'crear' or not args.modulos):
         p.error('--rrhh-original solo se admite en crear --modulos')
     if not re.fullmatch('[a-z]', args.equipo) or not re.fullmatch('[a-z0-9][a-z0-9-]{0,40}', args.instancia):
