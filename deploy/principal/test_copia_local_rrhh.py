@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import secrets
 import shutil
+import stat
 import subprocess
 import tempfile
 import unittest
@@ -24,6 +25,12 @@ class MaterialRRHH(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.carpeta = Path(tempfile.mkdtemp(prefix='vec-rrhh-sintetico-'))
+        for padre in (BASE.parent, BASE):
+            padre.mkdir(mode=0o700, exist_ok=True)
+            datos = padre.lstat()
+            if (not stat.S_ISDIR(datos.st_mode) or datos.st_uid != os.getuid() or
+                    padre.resolve(strict=True) != padre):
+                raise ValueError('La raíz de las pruebas debe ser un directorio propio y canónico')
         cls.instancia = BASE / f'l-rrhhtest-{secrets.token_hex(4)}'
         cls.instancia.mkdir(mode=0o700)
         cls.origen = cls.carpeta / 'origen'
