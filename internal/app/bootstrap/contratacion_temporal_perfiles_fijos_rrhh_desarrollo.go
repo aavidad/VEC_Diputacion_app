@@ -762,7 +762,7 @@ func componerPerfilFijoLectorRRHHDesarrollo(
 	ctx context.Context, pool *pgxpool.Pool, s *soporteAltaContratacionTemporalDesarrollo,
 	aprobacion aprobacionProvisionPerfilesRRHHDesarrollo,
 ) error {
-	if s == nil || pool == nil || !s.lectorConsultasRRHH || s.tecnicoConsultaRRHH {
+	if s == nil || pool == nil || !s.lectorConsultasRRHH {
 		return ports.ErrConsultaRRHHNoDisponible
 	}
 	s.mu.Lock()

@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -68,7 +69,7 @@ func TestLectorTecnicoReutilizaElCircuitoDelAlta(t *testing.T) {
 		mux.detalles[id] != base.detalleHTTP || mux.originalesPropuesta[id] != base.originalPropuestaHTTP {
 		t.Fatal("la técnica no usa el cuadro, el detalle y el soporte del alta")
 	}
-	if alta.soporte.lectorConsultasRRHH || alta.soporte.tecnicoConsultaRRHH {
+	if alta.soporte.lectorConsultasRRHH {
 		t.Fatal("se alteró el soporte del alta")
 	}
 	deps.cerrar()
@@ -87,6 +88,10 @@ func TestLectorTecnicoDeniegaSiNoEsElTitularDelAlta(t *testing.T) {
 		},
 		"ámbito de centro": func(_ *dependenciasAltaContratacionTemporalDesarrollo, l *identidadConsultaRRHHDesarrollo) {
 			l.clase, l.ambitoRef = ctports.AmbitoCentroRRHH, "centro:rpt:520"
+		},
+		// Solo cambia la clase: el ámbito sigue siendo la organización.
+		"clase de centro con ámbito de organización": func(_ *dependenciasAltaContratacionTemporalDesarrollo, l *identidadConsultaRRHHDesarrollo) {
+			l.clase = ctports.AmbitoCentroRRHH
 		},
 		"organización ajena": func(_ *dependenciasAltaContratacionTemporalDesarrollo, l *identidadConsultaRRHHDesarrollo) {
 			l.organizacionRef, l.ambitoRef = "organizacion:otra", "organizacion:otra"
@@ -113,6 +118,37 @@ func TestLectorTecnicoDeniegaSiNoEsElTitularDelAlta(t *testing.T) {
 	lector.identidad.principal.Roles = []string{"lector_rrhh"}
 	if lectorTecnicoRRHHDesarrollo(lector) || lectorTecnicoEsTitularAltaDesarrollo(alta, lector) {
 		t.Fatal("un lector ordinario no usa el circuito del alta")
+	}
+}
+
+// Una técnica que no es la titular del alta detiene el arranque de las
+// consultas: no se registra en el multiplexor ni se le abre otro soporte.
+func TestArranqueLectoresDeniegaUnaTecnicaAjena(t *testing.T) {
+	for nombre, alterar := range map[string]func(*identidadConsultaRRHHDesarrollo){
+		"persona ajena": func(l *identidadConsultaRRHHDesarrollo) { l.identidad.principal.ID = "tecnico_ajeno" },
+		"certificado ajeno": func(l *identidadConsultaRRHHDesarrollo) {
+			l.identidad.principal.Attributes["certificate_sha256"] = strings.Repeat("e", 64)
+		},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			alta, _, lector := escenarioLectorTecnicoFijoPrueba(t)
+			alterar(&lector)
+			cerrado := 0
+			base := dependenciasConsultasRRHHDesarrollo{
+				cuadroHTTP: cuadroRRHHPrueba{}, detalleHTTP: detalleRRHHPrueba{"detalle"},
+				originalPropuestaHTTP: detalleRRHHPrueba{"original"}, cerrar: func() { cerrado++ },
+			}
+			deps, err := nuevasDependenciasLectoresRRHHDesarrollo(context.Background(), config.Config{}, alta, nil,
+				relojContratacionTemporalDesarrollo{}, []identidadConsultaRRHHDesarrollo{lector}, &postgresct.PoolConsultasRRHHPostgreSQL{},
+				motivosConsultaRRHHPrueba{}, dominiovec.ReferenciaEntradaCatalogo{}, dominiovec.ReferenciaEntradaCatalogo{}, base,
+				catalogoFronterasComunDesarrollo{}, false)
+			if !errors.Is(err, ctports.ErrConsultaRRHHNoDisponible) || deps.cuadroHTTP != nil || deps.cerrar != nil {
+				t.Fatalf("arrancó con una técnica ajena: %v", err)
+			}
+			if cerrado != 1 || alta.soporte.lectorConsultasRRHH {
+				t.Fatalf("el arranque denegado no cerró la base (%d) o alteró el alta", cerrado)
+			}
+		})
 	}
 }
 
