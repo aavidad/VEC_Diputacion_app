@@ -149,7 +149,8 @@ class Copia:
             puerto_libre(args.puerto_smtp)
         datos = validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT') if args.modulos else None
         roles = validar_ejecutor_privado('VEC_COPIA_ROLES_SCRIPT') if args.modulos else None
-        portal = validar_ejecutor_privado('VEC_COPIA_PORTAL_SCRIPT') if args.portal_externo else None
+        portal = REPO / 'deploy/principal/portal_copia' / (
+            'preparar_clasificacion_externa.py' if args.sin_inscripcion else 'preparar_portal.py')
         admin = validar_ejecutor_privado('VEC_COPIA_ADMIN_SCRIPT') if args.administracion else None
         if admin:
             puerto_libre(args.puerto_admin)
@@ -252,10 +253,14 @@ class Copia:
         if args.portal_externo:
             # La app mantiene el sellado real mientras el productor provisiona
             # identidad, contexto y confianza. El reinicio carga su entorno.
+            privado_portal = self.raiz / 'portal'
+            privado_portal.mkdir(mode=0o700)
+            verificar_fuente(self.leer()['revision'])
             with (self.raiz / 'portal-preparacion.log').open('ab') as log:
                 ejecutar([sys.executable, portal, '--raiz', self.raiz,
                           '--candado-fd', str(self.candado)], salida=log,
-                         descriptores=(self.candado,))
+                         descriptores=(self.candado,), entorno={**os.environ,
+                         'VEC_COPIA_PORTAL_ESTADO': str(privado_portal)})
             comprobar_conexiones(self)
             estado = self.leer()
             estado['portal_externo_preparado'] = True
@@ -524,6 +529,7 @@ def main():
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
     p.add_argument('--administracion', action='store_true', help='Preparar también Administración con su ejecutor privado')
     p.add_argument('--puerto-admin', type=int, default=19481)
+    p.add_argument('--sin-inscripcion', action='store_true', help='Preparar el portal sin activar inscripción')
     p.add_argument('--archivo-clon')
     args = p.parse_args()
     if args.portal_externo and not args.modulos:
@@ -533,6 +539,10 @@ def main():
     if args.administracion and (not 1024 <= args.puerto_admin <= 65535
             or args.puerto_admin in (args.puerto_pg, args.puerto_app, args.puerto_smtp)):
         p.error('El puerto de Administración debe ser distinto y estar entre 1024 y 65535')
+    if args.portal_externo and args.orden != 'crear':
+        p.error('--portal-externo solo se admite en crear')
+    if args.sin_inscripcion and not args.portal_externo:
+        p.error('--sin-inscripcion requiere --portal-externo')
     if args.rrhh_original and (args.orden != 'crear' or not args.modulos):
         p.error('--rrhh-original solo se admite en crear --modulos')
     if not re.fullmatch('[a-z]', args.equipo) or not re.fullmatch('[a-z0-9][a-z0-9-]{0,40}', args.instancia):
