@@ -361,7 +361,7 @@ func nuevoServidorDesarrollo(
 		} else {
 			anterior := cerrarContratacion
 			cerrarContratacion = func() { detener(); anterior() }
-			resolver := resolverSoporteDocumentosBolsa(autoridadContratacion.soporteDocumentosBolsa, autoridadContratacion.soportesLectoresDocumentosBolsa)
+			resolver := resolverSoporteDocumentosBolsa(autoridadContratacion.soporteDocumentosBolsa)
 			fuenteConstituida.controlDocumentos = nuevoControlLecturaDocumentosBolsa(
 				resolver, nuevoAuditorDocumentosBolsa(resolver, registrador, proceso, autoridadContratacion.registradorAuditoriaFronteraRutasExactas))
 		}

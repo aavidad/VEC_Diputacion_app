@@ -235,6 +235,38 @@ with open(sys.argv[2],'a') as otro:
             instancia.pg_password()
             self.assertEqual((instancia.raiz / 'postgres.password').stat().st_mode & 0o777, 0o600)
 
+    def test_parar_detiene_tambien_el_verificador_propio(self):
+        import copia_local_correo, copia_local_firma
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'firma')
+            with patch.object(instancia, 'leer', return_value={}), \
+                    patch.object(instancia, 'proceso', return_value=False), \
+                    patch.object(instancia, 'existe', return_value=False), \
+                    patch.object(copia_local_correo, 'parar'), \
+                    patch.object(copia_local_firma, 'parar_verificador') as parar_verificador:
+                instancia.parar()
+        parar_verificador.assert_called_once_with(instancia)
+
+    def test_firma_prepara_y_despues_reinicia(self):
+        import copia_local_firma
+        orden = []
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'firma')
+            with patch.object(instancia, 'leer', return_value={'entorno_modulos_sha256': 'a', 'revision': 'r'}), \
+                    patch.object(copia, 'verificar_fuente'), patch.object(copia, 'memoria'), \
+                    patch.object(instancia, 'pg', side_effect=lambda: orden.append('pg')), \
+                    patch.object(copia_local_firma, 'preparar', side_effect=lambda *a, **k: orden.append('preparar')), \
+                    patch.object(instancia, 'parar', side_effect=lambda: orden.append('parar')), \
+                    patch.object(instancia, 'arrancar', side_effect=lambda: orden.append('arrancar')):
+                instancia.firma(Path('/privado/firma.json'))
+        self.assertEqual(orden, ['pg', 'preparar', 'parar', 'arrancar'])
+
+    def test_firma_exige_copia_con_modulos(self):
+        with patch.object(copia, 'BASE', self.raiz):
+            instancia = copia.Copia('l', 'firma')
+            with patch.object(instancia, 'leer', return_value={'revision': 'r'}), self.assertRaises(ValueError):
+                instancia.firma(Path('/privado/firma.json'))
+
 
 if __name__ == '__main__':
     unittest.main()

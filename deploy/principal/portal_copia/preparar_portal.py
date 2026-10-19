@@ -129,6 +129,14 @@ def perfil_lector_tecnico(sujeto, certificado):
     return referencia_alta('prf_', sujeto, certificado, 'perfil-fijo-alta-perfil')
 
 
+def comprobar_certificado_rrhh(pem, certificado):
+    """Falla cerrado si el certificado PEM no es el de la huella declarada."""
+    cert = subprocess.run(['openssl', 'x509', '-outform', 'DER'], input=pem,
+                          capture_output=True, check=False, timeout=10)
+    if cert.returncode != 0 or not cert.stdout or hashlib.sha256(cert.stdout).hexdigest() != certificado:
+        fail('identidad_rrhh_primaria_invalida')
+
+
 def manifiesto_lector_tecnico(sujeto, perfil):
     # Formato de identidad/consultas-rrhh.json: la técnica de RRHH de la
     # copia, de ámbito de organización, con el perfil fijo de Alta.
@@ -304,10 +312,7 @@ def main_locked(a, r):
                 or not re.fullmatch('[0-9a-f]{64}', certificado)
                 or bolsa.get('sujeto') != sujeto or bolsa.get('certificado_sha256') != certificado):
             fail('identidad_rrhh_primaria_invalida')
-        cert = subprocess.run(['openssl', 'x509', '-outform', 'DER'], input=private_file(material / 'mtls/cliente.crt'),
-                              capture_output=True, check=False, timeout=10)
-        if cert.returncode != 0 or hashlib.sha256(cert.stdout).hexdigest() != certificado:
-            fail('identidad_rrhh_primaria_invalida')
+        comprobar_certificado_rrhh(private_file(material / 'mtls/cliente.crt'), certificado)
         # Contrato existente: referenciaAltaContratacionTemporalDesarrollo,
         # contratacion_temporal_alta_sellado_desarrollo.go. No crea una cuenta.
         # La técnica figura como lectora con el perfil fijo de Alta

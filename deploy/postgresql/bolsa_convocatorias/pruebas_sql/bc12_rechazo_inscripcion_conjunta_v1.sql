@@ -49,6 +49,13 @@ BEGIN
    huella_version_sha256,instancia_flujo_ref,registrada_en)
   VALUES(identificador,1,identificador||'#1','publicada',bytes,
    encode(sha256(bytes),'hex'),NULL,statement_timestamp());
+  -- BC14: sin publicación oficial declarada ninguna versión se abre.
+  PERFORM vec_bolsa_convocatorias.declarar_publicacion_oficial_bases_v1(jsonb_build_object(
+   'convocatoria_id',identificador,'secuencia',1,'huella_version_sha256',encode(sha256(bytes),'hex'),
+   'medio','bop_granada','boletin_numero',12,'anuncio_ref','ENSAYO-BC12-'||modalidad,
+   'fecha_publicacion',to_char((clock_timestamp() AT TIME ZONE 'Europe/Madrid')::date-2,'YYYY-MM-DD'),
+   'direccion',NULL,'sustituye_ref',NULL,'declarada_por','actor:prueba:bc12',
+   'motivo_ref','motivos_bolsa:1:publicacion_bases','clave_idempotencia','bc12-'||modalidad));
 
   IF modalidad IN('ausente','separada','conjunta') THEN
    efectiva:=CASE WHEN modalidad='ausente' THEN 'separada' ELSE modalidad END;

@@ -84,13 +84,8 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		if err != nil {
 			return vacio, err
 		}
-		// Alta ya publicó el contexto fijo con su propia operación. El lector
-		// técnico lo consume; una publicación genérica colisionaría con el
-		// contexto dinámico. Los lectores ordinarios conservan su circuito.
-		if !soporte.tecnicoConsultaRRHH {
-			if err = publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, soporte); err != nil {
-				return vacio, err
-			}
+		if err = publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, soporte); err != nil {
+			return vacio, err
 		}
 		local := &dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte, autorizador: autorizador, postgresql: alta.postgresql}
 		identidad, cerrarIdentidad, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, cfg.ContratacionTemporalPostgreSQL, local, derivador, reloj, soporte, fronteras)
@@ -105,12 +100,7 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		if err = autoridad.configurarProveedorContextoConsultaRRHHDesarrollo(identidad); err != nil {
 			return vacio, err
 		}
-		if soporte.tecnicoConsultaRRHH {
-			err = prepararInstantaneasInicialesLectorRRHHDesarrollo(ctx, soporte)
-		} else {
-			err = componerPerfilFijoLectorRRHHDesarrollo(ctx, alta.postgresql.gobierno, soporte, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg))
-		}
-		if err != nil {
+		if err = componerPerfilFijoLectorRRHHDesarrollo(ctx, alta.postgresql.gobierno, soporte, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg)); err != nil {
 			return vacio, err
 		}
 		material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, reloj.Ahora())
@@ -197,8 +187,10 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 	}}, nil
 }
 
-// prepararInstantaneasInicialesLectorRRHHDesarrollo es el paso de arranque del
-// perfil de un lector RRHH. Solo publica la semilla de cuadro si el perfil no
+// prepararInstantaneasInicialesLectorRRHHDesarrollo publicaba la semilla del
+// perfil dinámico de un lector RRHH. El arranque ya no la llama: los lectores
+// usan el perfil fijo y la técnica el circuito del alta. Solo la usan las
+// pruebas de PostgreSQL; retirarla con ellas queda para otra limpieza. Solo publica la semilla de cuadro si el perfil no
 // tiene asignación (publicación inicial transaccional); si la tiene, no
 // escribe nada. Una asignación ajena a la persona detiene el arranque; una
 // revocada, restringida por otro acto o que no es de consulta queda escrita en
@@ -211,10 +203,6 @@ func prepararInstantaneasInicialesLectorRRHHDesarrollo(ctx context.Context, sopo
 	autoridad, ok := soporte.autoridadAsignaciones.(*autoridadPostgreSQLContratacionTemporalDesarrollo)
 	if !ok || autoridad == nil || autoridad.pool == nil {
 		return ports.ErrConsultaRRHHNoDisponible
-	}
-	// El técnico RRHH comparte perfil con el alta: lo gobierna su arranque.
-	if soporte.tecnicoConsultaRRHH {
-		return nil
 	}
 	vinculo, err := soporte.contexto.Vinculo.Datos()
 	if err != nil {
@@ -330,31 +318,14 @@ func nuevoSoporteLectorRRHHDesarrollo(
 	if alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil || lector.identidad.principal.ID == "" || len(lector.identidad.principal.Roles) != 1 {
 		return nil, nil, ports.ErrConsultaRRHHNoDisponible
 	}
-	var contexto ports.ContextoAutorizacionAltaV3
-	if lector.identidad.principal.Roles[0] == rolTecnicoRRHHContratacionTemporalDesarrollo {
-		if alta.soporte.principalID != lector.identidad.principal.ID ||
-			alta.soporte.certificadoSHA256 != lector.identidad.principal.Attributes["certificate_sha256"] {
-			return nil, nil, ports.ErrConsultaRRHHNoDisponible
-		}
-		encontrado := false
-		for _, fijo := range alta.soporte.perfilesFijosRegistrados() {
-			if fijo != nil && fijo.clave == clavePerfilFijoAltaCTDesarrollo && fijo.perfilRef() == lector.perfilRef {
-				if encontrado {
-					return nil, nil, ports.ErrConsultaRRHHNoDisponible
-				}
-				contexto = fijo.contexto
-				encontrado = true
-			}
-		}
-		if !encontrado {
-			return nil, nil, ports.ErrConsultaRRHHNoDisponible
-		}
-	} else {
-		var err error
-		contexto, err = nuevoContextoSinteticoContratacionTemporalDesarrollo(lector.identidad.principal, reloj.Ahora())
-		if err != nil {
-			return nil, nil, err
-		}
+	// La técnica consulta con el circuito del alta y no llega aquí; si
+	// llegase, se deniega en vez de abrirle otro soporte.
+	if lectorTecnicoRRHHDesarrollo(lector) {
+		return nil, nil, ports.ErrConsultaRRHHNoDisponible
+	}
+	contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(lector.identidad.principal, reloj.Ahora())
+	if err != nil {
+		return nil, nil, err
 	}
 	datos, err := contexto.Vinculo.Datos()
 	if err != nil || datos.PerfilActivoRef != lector.perfilRef {
@@ -363,7 +334,7 @@ func nuevoSoporteLectorRRHHDesarrollo(
 	alta.soporte.mu.Lock()
 	registro := alta.soporte.registroDecisionesAnalisis
 	alta.soporte.mu.Unlock()
-	soporte := &soporteAltaContratacionTemporalDesarrollo{sello: alta.soporte.sello, principalID: lector.identidad.principal.ID, certificadoSHA256: lector.identidad.principal.Attributes["certificate_sha256"], lectorConsultasRRHH: true, tecnicoConsultaRRHH: lector.identidad.principal.Roles[0] == rolTecnicoRRHHContratacionTemporalDesarrollo, organizacionConsultaRRHH: lector.organizacionRef, claseAmbitoConsultaRRHH: lector.clase, ambitoConsultaRRHH: lector.ambitoRef, contexto: contexto, reloj: reloj, concesiones: make(map[string]struct{}), instantaneasPorSolicitud: make(map[string]dominiovec.InstantaneaAutorizacion), registroDecisionesAnalisis: registro}
+	soporte := &soporteAltaContratacionTemporalDesarrollo{sello: alta.soporte.sello, principalID: lector.identidad.principal.ID, certificadoSHA256: lector.identidad.principal.Attributes["certificate_sha256"], lectorConsultasRRHH: true, organizacionConsultaRRHH: lector.organizacionRef, claseAmbitoConsultaRRHH: lector.clase, ambitoConsultaRRHH: lector.ambitoRef, contexto: contexto, reloj: reloj, concesiones: make(map[string]struct{}), instantaneasPorSolicitud: make(map[string]dominiovec.InstantaneaAutorizacion), registroDecisionesAnalisis: registro}
 	soporte.autoridadAsignaciones = &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: alta.postgresql.gobierno, soporte: soporte}
 	base, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(soporte, soporte, soporte, soporte, reloj, seguridadvec.GeneradorReferenciasCriptograficas{}, aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
 	if err != nil {

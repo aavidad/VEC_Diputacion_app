@@ -27,6 +27,7 @@ PRUEBAS_SQL = (
     'deploy/postgresql/identidad_sesiones_v1/pruebas_sql/000021_seleccion_perfil_bolsa_rrhh.sql',
     'deploy/postgresql/contexto_actor_v1/pruebas_sql/000046_perfiles_propios_bolsa_rrhh.sql',
     'deploy/postgresql/bolsa_convocatorias/pruebas_sql/bc12_rechazo_inscripcion_conjunta_v1.sql',
+    'deploy/postgresql/bolsa_convocatorias/pruebas_sql/bc14_publicacion_oficial_bases.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b142_modalidad_inscripcion_aspirante.sql',
     # El último caso es el fixture de la concurrencia de contexto externo.
     'deploy/postgresql/contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql',
