@@ -462,6 +462,14 @@ la solicitud. El soporte conjunto corresponde a F1-41. F1-40 sigue abierta:
 `ConfirmarPublicacion` aún no tiene adaptador productivo. La convocatoria de
 ensayo es un dato de la copia, no un caso de aceptación alternativo al apartado 4.0.
 
+Corte F1-41 (servidor): en una convocatoria conjunta, la aspirante presenta una
+sola solicitud para las categorías que elige y recibe un único recibo. Si repite
+el envío con la misma clave, obtiene el mismo recibo y no se duplica nada. RRHH
+sigue viendo una solicitud por categoría. En una convocatoria separada, la
+aspirante puede presentar una solicitud por cada categoría. La pantalla de la
+aspirante todavía no ofrece la elección de varias categorías: es el corte
+siguiente, y hasta entonces la ficha conjunta sigue sin formulario.
+
 #### Constitución de la bolsa
 
 Una bolsa queda constituida, con su orden, por una de dos vías:

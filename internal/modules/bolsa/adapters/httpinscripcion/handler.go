@@ -30,6 +30,7 @@ type Preparador interface {
 	PrepararLecturaAspirante(*http.Request, string, string, inscripcion.Filtro, string) (inscripcion.Actor, error)
 	PrepararLecturaRRHH(*http.Request, string, string, inscripcion.Filtro, string) (inscripcion.Actor, error)
 	PrepararPresentacion(*http.Request, inscripcion.Presentacion) (inscripcion.Actor, error)
+	PrepararPresentacionConjunta(*http.Request, inscripcion.PresentacionConjunta) (inscripcion.Actor, error)
 	PrepararDecision(*http.Request, inscripcion.Decision) (inscripcion.Actor, error)
 	PrepararIncorporacion(*http.Request, inscripcion.Incorporacion) (inscripcion.Actor, error)
 }
@@ -38,6 +39,7 @@ type Aplicacion interface {
 	Abiertas(context.Context, inscripcion.Actor, int, string) (inscripcion.PaginaAbiertas, error)
 	DetalleAbierta(context.Context, inscripcion.Actor, string) (inscripcion.BolsaAbierta, error)
 	Presentar(context.Context, inscripcion.Actor, inscripcion.Presentacion) (inscripcion.Recibo, error)
+	PresentarConjunta(context.Context, inscripcion.Actor, inscripcion.PresentacionConjunta) (inscripcion.ReciboConjunto, error)
 	Propias(context.Context, inscripcion.Actor, inscripcion.Filtro) (inscripcion.Pagina, error)
 	Propia(context.Context, inscripcion.Actor, string) (inscripcion.Solicitud, error)
 	PendientesRRHH(context.Context, inscripcion.Actor, inscripcion.Filtro) (inscripcion.Pagina, error)
@@ -220,11 +222,23 @@ func (h *Handler) propias(w http.ResponseWriter, r *http.Request) {
 		var cuerpo struct {
 			ConvocatoriaRef   string                    `json:"convocatoria_ref"`
 			CategoriaRef      string                    `json:"categoria_ref"`
+			CategoriasRefs    *[]string                 `json:"categorias_refs"`
 			CatalogoVersion   uint64                    `json:"catalogo_version"`
 			ClaveIdempotencia string                    `json:"clave_idempotencia"`
 			Declaraciones     []inscripcion.Declaracion `json:"declaraciones"`
 		}
 		if !decodificar(w, r, &cuerpo) {
+			return
+		}
+		// Una lista de categorías es la solicitud conjunta: un solo recibo.
+		if cuerpo.CategoriasRefs != nil {
+			if cuerpo.CategoriaRef != "" {
+				responderError(w, 400, "datos_no_validos")
+				return
+			}
+			h.presentarConjunta(w, r, inscripcion.PresentacionConjunta{ConvocatoriaRef: cuerpo.ConvocatoriaRef,
+				CategoriasRefs: *cuerpo.CategoriasRefs, CatalogoVersion: cuerpo.CatalogoVersion,
+				ClaveIdempotencia: cuerpo.ClaveIdempotencia, Declaraciones: cuerpo.Declaraciones})
 			return
 		}
 		presentacion := inscripcion.Presentacion{
@@ -251,6 +265,28 @@ func (h *Handler) propias(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Allow", "GET, POST")
 		responderError(w, 405, "metodo_no_permitido")
 	}
+}
+
+func (h *Handler) presentarConjunta(w http.ResponseWriter, r *http.Request, presentacion inscripcion.PresentacionConjunta) {
+	if presentacion.Validar() != nil {
+		responderError(w, 400, "datos_no_validos")
+		return
+	}
+	actor, err := h.preparador.PrepararPresentacionConjunta(r, presentacion)
+	if err != nil {
+		responderFallo(w, r, err)
+		return
+	}
+	recibo, err := h.servicio.PresentarConjunta(r.Context(), actor, presentacion)
+	if err != nil {
+		responderFallo(w, r, err)
+		return
+	}
+	estado := http.StatusCreated
+	if recibo.Repetida {
+		estado = http.StatusOK
+	}
+	responder(w, estado, "vec.bolsa.inscripcion.recibo_conjunto.v1", recibo)
 }
 
 func (h *Handler) propia(w http.ResponseWriter, r *http.Request) {

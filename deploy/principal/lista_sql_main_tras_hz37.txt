@@ -189,3 +189,6 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000143_huella_contexto_orden_bo
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000300_motivo_proyeccion_preferencias.up.sql a74a98b12af7f1952cfb99298104d5daee61ca74fa56be4c738f54ef7751411c
 # F1-60 primer corte — B144, ámbito gobernado de la bolsa; solo depende de B7/B14/B79/B95 (en el volcado).
 deploy/postgresql/bolsa_llamamientos/migraciones/000144_ambito_gobernado_bolsa.up.sql b8cee22ff4b891148af793b6d19c0b9ff96acc1644d1dda6a1942a9e5b09e2c5
+# F1-41 — BC13 (comprobación de publicación para solicitud conjunta) y B146 (solicitud conjunta con recibo único y separada por categoría, contenido de B105); B146 exige BC13, tras B142.
+deploy/postgresql/bolsa_convocatorias/migraciones/000013_comprobacion_inscripcion_conjunta_v1.up.sql 9e838fea379dd729ce2518b73a96bfc5bc717f22b69bb53bdc4a9e5351ff6a8a
+deploy/postgresql/bolsa_llamamientos/migraciones/000146_solicitud_conjunta.up.sql e04afbc6541bb2a908328a339f4b7728107f4e08b00d8d6390344aff2cff3734
