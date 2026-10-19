@@ -46,3 +46,61 @@ certificado de RRHH, la ruta responde 503 con un cuerpo válido, 400 con un
 cuerpo vacío, 422 con `{}` y 405 a GET; sin certificado no se abre la conexión. Tras
 reiniciar PostgreSQL y aplicación (3,6 s), las consultas de Bolsa y
 Contratación temporal responden igual y no hay ningún hijo creado.
+
+## Segundo corte, parte 1: guardas del hijo (CT241)
+
+El hijo copia del padre la asignación, la fiscalización y el circuito, y queda
+con una persona. Antes de abrir la ruta se cierran dos cosas.
+
+Selección. El hijo ya tiene su plaza adjudicada y no entra en otra selección
+de Bolsa. Go lo rechaza en `SeleccionarSegunNumeroPersonasCT` (409, estado no
+seleccionable). Los dos lectores Go del expediente para selección y para
+aviso tampoco lo entregan, porque su agregado lleva dentro el del padre. En
+SQL lo rechazan con 23505 cinco funciones de CT:
+
+- la reserva singular O6, la reserva de oferta (sobre la postimagen de CT240)
+  y el vínculo de emisión de CT201; las dos últimas, antes de consumir la
+  autorización;
+- la lectura de modalidad y causa del origen (CT221) y el cotejo de la
+  comprobación (CT233). Por ellas pasan las entradas de Bolsa que crean
+  llamamientos y ofertas con origen CT (B110 y B117) y las comprobaciones de
+  ofrecimiento (B137 y B140). Así Bolsa no necesita leer tablas de CT.
+
+Autorización por campos copiados. Con 42501 se rechazan:
+
+- la consulta del estado de la oferta (CT225) y la preparación de su
+  contexto (CT227), que tomaban la unidad gestora copiada;
+- la consulta del circuito, que devolvía el circuito copiado del padre;
+- con un disparador común: toda versión nueva del hijo salvo la v6 de su
+  creación, su publicación en la proyección RRHH y su firma de documentos
+  CT118.
+
+La proyección RRHH alimenta la bandeja, el detalle, los cambios, el resumen
+y las estadísticas, y filtra por la unidad y el centro copiados. Además, el
+canon de la bandeja no admite el sufijo `-P`: un hijo publicado hacía fallar
+la página entera para todos los que comparten unidad con el padre. Por eso,
+mientras el hijo no tenga ámbito propio, CT234 no puede completar una
+derivación: la publicación de la v6 se rechaza y la operación se deshace
+entera. El corte siguiente debe dar al hijo su ámbito (rol
+`ct_nombramiento_derivado`) y sustituir este cierre antes de abrir la ruta.
+
+Sin cambios: las comunicaciones y las firmas R5 se autorizan con la
+organización del propio hijo y no devuelven nada suyo. La firma R5 con plan
+ya buscaba la asignación en la historia del hijo y la rechaza. Las demás
+transiciones (propuesta, resolución, cancelación, Personal, cese) quedaban
+cerradas por fase, versión o número visible; ahora las cierra además el
+disparador común.
+
+### Activación
+
+1. Copia con main completo, incluidos CT234 y CT240. Instalar CT241 una vez,
+   al final de `lista_sql_main_tras_hz37.txt`. Coteja la preimagen de ocho
+   funciones y fija su posimagen, propietario, permisos y configuración. Se
+   detiene si ya hay algún hijo dado de alta: habría que revisarlo a mano. La
+   reserva O6 y la consulta del circuito pasan a `search_path` con
+   `pg_temp` al final, como exige la puerta de calidad.
+2. Ejecutar `pruebas_sql/ct241_guardas_nombramiento_derivado.sql` en la copia
+   con datos: rechaza al hijo en cada vía y el expediente ordinario sigue
+   hasta el paso siguiente. Termina en `ROLLBACK`.
+3. Repetir la prueba tras reiniciar PostgreSQL y la aplicación.
+4. No reaplicar ni revertir CT241 una vez instalada.

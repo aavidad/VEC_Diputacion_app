@@ -525,7 +525,12 @@ padre, plaza y recibo en una operación atómica. La ruta
 `POST /api/vec/contratacion-temporal/nombramientos/derivaciones` admite los ocho
 campos de la guía de activación; la composición actual responde 503 hasta
 conectar el productor de autorización. Faltan la instalación conjunta y el
-ensayo positivo. Véase
+ensayo positivo. CT241 cierra después al hijo: no entra en otra selección de
+Bolsa (O6, oferta, vínculo CT201 y los cotejos CT221 y CT233 por los que
+pasan los llamamientos y ofertas de Bolsa con origen CT) y nada suyo se autoriza con la unidad, la
+fiscalización o el circuito copiados del padre. Un disparador común rechaza
+sus versiones nuevas, su publicación RRHH y sus firmas CT118, así que CT234
+no completa una derivación hasta que el hijo tenga ámbito propio. Véase
 [`f1_19_nombramientos_derivados.md`](../../deploy/principal/f1_19_nombramientos_derivados.md).
 
 La conexión de ofertas de varias plazas está **preparada en código y SQL, sin
