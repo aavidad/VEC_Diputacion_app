@@ -92,6 +92,16 @@ añadida a mano. Chrome del sistema, a 1440 y 390 px, sin desbordamiento.
 - Tras reiniciar aplicación y PostgreSQL, el enlace muestra el mismo recibo y
   «La no incorporación está confirmada»; las tablas no cambian.
 
+Repetido el mismo día en una copia nueva tras la revisión de usabilidad: quien
+propone ve el enlace con «Copiar enlace de revisión» (copiado comprobado) y el
+aviso de que otra persona tiene que confirmar, sin los botones, también en la
+página de revisión. La segunda persona ve la página en inglés con `lang=en`,
+confirma (201, versión 11, versión 9 intacta) y la página dice qué sigue, sin
+recibos técnicos y con el enlace a Peticiones de personal temporal. A 390 px
+no hay desbordamiento. Tras reiniciar, mismas tablas y mismo texto. El rechazo
+solo está probado en las pruebas de interfaz: la base sintética no tiene otro
+expediente con aceptación y sin incorporación.
+
 En este recorrido se corrigieron tres fallos: la página de revisión no estaba
 en los manifiestos web (404), la frontera común no admitía a la segunda persona
 en la consulta (403) y el historial mostraba las claves internas de la
