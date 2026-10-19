@@ -1,8 +1,8 @@
-import { ESQUEMA_CATALOGOS_NECESIDADES, LIMITES_ALTA_CONTRATACION, numeroExpedienteMOADValido } from "./contrato.js?v=20261018-f173-alta-v2";
-import { cargarMensajesNecesidadesAlta, crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { cabecera, escaparHTML, extraerBorrador, filaResumen, formulario, revision } from "./alta-renderer-puro.js?v=20261018-f173-alta-v2";
+import { ESQUEMA_CATALOGOS_NECESIDADES, LIMITES_ALTA_CONTRATACION, numeroExpedienteMOADValido } from "./contrato.js?v=VEC_WEB_VERSION";
+import { cargarMensajesNecesidadesAlta, crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { cabecera, escaparHTML, extraerBorrador, filaResumen, formulario, revision } from "./alta-renderer-puro.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { crearClienteHTTPRPTPublica } from "../personal/cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4";
+import { crearClienteHTTPRPTPublica } from "../personal/cliente-http-rpt-publica.js?v=VEC_WEB_VERSION";
 
 export function seleccionarPuestoPublicadoRPT(pagina, codigo) {
   const puesto = pagina?.total === 1 && Array.isArray(pagina.items) ? pagina.items[0] : null;

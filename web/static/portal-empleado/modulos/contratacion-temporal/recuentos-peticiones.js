@@ -7,7 +7,7 @@
  * deduce responsables ni tareas: un expediente «pendiente» es el que tiene el
  * plazo de su fase vencido o que vence hoy, o una incidencia abierta.
  */
-import { FASES_RRHH, faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
+import { FASES_RRHH, faseRRHH } from "./fases-rrhh-datos.js?v=VEC_WEB_VERSION";
 
 const TERMINADOS = new Set(["completado", "cancelado"]);
 const PATRON_DIA = /^\d{4}-\d{2}-\d{2}$/u;

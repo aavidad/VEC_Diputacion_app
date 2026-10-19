@@ -168,7 +168,7 @@
     }
     // La traducción del shell es opcional y nunca retrasa el aviso autónomo.
     try {
-      const idiomaPortal = await import("./portal-idioma.js?v=20261007-pantallas-textos-final-v1");
+      const idiomaPortal = await import("./portal-idioma.js?v=VEC_WEB_VERSION");
       if (vigente()) idiomaPortal.aplicarTextosPortal(document);
     } catch { /* El aviso autónomo conserva su texto. */ }
   }

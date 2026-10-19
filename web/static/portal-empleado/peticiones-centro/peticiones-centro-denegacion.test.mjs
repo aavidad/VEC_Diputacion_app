@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { iniciarPeticionCentro, iniciarPeticionesCentroRRHH, pedir } from "./peticiones-centro.js?v=20261008-alta-rpt-circular-v6";
+import { iniciarPeticionCentro, iniciarPeticionesCentroRRHH, pedir } from "./peticiones-centro.js?v=VEC_WEB_VERSION";
 
 const catalogos = {
   esquema: "vec.contratacion_temporal.catalogos_alta.v1",

@@ -1,5 +1,5 @@
-import { crearClienteCarrera, crearBorrador, leerErrorCatalogo } from './cliente.js?v=20261001-carrera-preparacion-v1';
-import { pintarCarrera, pintarEstado } from './vista.js?v=20261001-carrera-preparacion-v1';
+import { crearClienteCarrera, crearBorrador, leerErrorCatalogo } from './cliente.js?v=VEC_WEB_VERSION';
+import { pintarCarrera, pintarEstado } from './vista.js?v=VEC_WEB_VERSION';
 async function iniciar() {
 const { cargarTextos } = await import('../../../comun/textos.js');
 const { INDICE_IDIOMAS } = await import('../../../comun/idioma.js');

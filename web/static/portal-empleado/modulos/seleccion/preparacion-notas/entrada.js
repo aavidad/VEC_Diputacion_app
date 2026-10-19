@@ -1,5 +1,5 @@
-import { leerArchivo } from './modelo.js?v=20261004-s6-revision-notas-v1';
-import { pintarSalida, textosRevision } from './vista.js?v=20261004-s6-revision-notas-v1';
+import { leerArchivo } from './modelo.js?v=VEC_WEB_VERSION';
+import { pintarSalida, textosRevision } from './vista.js?v=VEC_WEB_VERSION';
 import { cargarTextos, urlCatalogo, crearTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 

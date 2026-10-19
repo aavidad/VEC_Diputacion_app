@@ -1,6 +1,6 @@
 import test from "node:test";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=VEC_WEB_VERSION";
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
 import assert from "node:assert/strict";
@@ -13,7 +13,7 @@ import {
   renderizarOperacionesSituacion,
   rutaOperacionesSituacion,
   operacionesDisponibles,
-} from "./portal-bolsas-operaciones.js?v=20261001-f-reconciliacion-323-v1";
+} from "./portal-bolsas-operaciones.js?v=VEC_WEB_VERSION";
 
 const aceptacionDirecta = { nombre_visible: "Ana Prueba", participacion_ref: "participacion:dos",
   estado_clave: "disponible", estado_desde: "2026-10-16T10:30:00Z",

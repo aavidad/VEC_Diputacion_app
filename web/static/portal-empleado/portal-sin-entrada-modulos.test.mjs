@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 await prepararTextosPortal("ayuda");
-const { TRAMITES_AYUDANTE_PORTAL } = await import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1");
+const { TRAMITES_AYUDANTE_PORTAL } = await import("./ayuda-contenido.js?v=VEC_WEB_VERSION");
 import {
   CLAVES_SIN_ENTRADA_PORTAL,
   crearCoordinadorModulosPortal,
   vistaConEntradaPortal,
-} from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261008-bolsa-global-v2";
+} from "./portal-modulos-coordinador.js?v=VEC_WEB_VERSION";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=VEC_WEB_VERSION";
 
 // El portal solo ofrece Bolsa y la contratación temporal: Personal, Cronos y
 // Dietas se siguen cargando (su URL directa funciona), pero no tienen entrada

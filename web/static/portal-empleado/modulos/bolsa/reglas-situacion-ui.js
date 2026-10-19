@@ -1,4 +1,4 @@
-import { parValido, validarPublicacionTransiciones } from "./reglas-situacion-api.js?v=20261018-f104-main-v1";
+import { parValido, validarPublicacionTransiciones } from "./reglas-situacion-api.js?v=VEC_WEB_VERSION";
 
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");

@@ -1,7 +1,7 @@
-import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
-import { montarCatalogoPermisosCronos } from "./vista-catalogo-permisos.js?v=20260929-i18n-textos-v1";
-import { montarVistaCorreccionesCronos } from "./vista-correcciones.js?v=20260929-i18n-textos-v1";
-import { montarVistaNotificacionesCronos } from "./vista-notificaciones.js?v=20260929-i18n-textos-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=VEC_WEB_VERSION";
+import { montarCatalogoPermisosCronos } from "./vista-catalogo-permisos.js?v=VEC_WEB_VERSION";
+import { montarVistaCorreccionesCronos } from "./vista-correcciones.js?v=VEC_WEB_VERSION";
+import { montarVistaNotificacionesCronos } from "./vista-notificaciones.js?v=VEC_WEB_VERSION";
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")

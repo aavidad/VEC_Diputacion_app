@@ -8,7 +8,7 @@ test("el portal carga el tema común inmediatamente después de sus tokens base"
     .map(([, href]) => href);
   const base = estilos.findIndex((href) => href.startsWith("/portal-empleado/portal.css?"));
   assert.notEqual(base, -1, "falta portal.css");
-  assert.match(estilos[base + 1] ?? "", /^\/comun\/tema-vec\.css\?v=[A-Za-z0-9-]+$/u);
+  assert.match(estilos[base + 1] ?? "", /^\/comun\/tema-vec\.css\?v=[A-Za-z0-9_-]+$/u);
   assert.equal(estilos.filter((href) => href.startsWith("/comun/tema-vec.css?")).length, 1);
 
   const manifiesto = await readFile(new URL("../../interno.manifest", import.meta.url), "utf8");

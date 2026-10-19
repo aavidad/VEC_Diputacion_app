@@ -1,4 +1,4 @@
-import { validarSelectorFicha, validarLecturaFicha } from "./contrato.js?v=20261001-s1-ficha-v1";
+import { validarSelectorFicha, validarLecturaFicha } from "./contrato.js?v=VEC_WEB_VERSION";
 
 /** Consumidor de lectura: el montaje aporta el lector y el catálogo común. */
 export function montarFichaConvocatoria(contenedor, { lector, textos, alVolver } = {}) {

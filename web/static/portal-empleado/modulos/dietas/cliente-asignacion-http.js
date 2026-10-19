@@ -1,4 +1,4 @@
-import { textoRef } from "./texto-dietas.js?v=20260925-d5d6-v1";
+import { textoRef } from "./texto-dietas.js?v=VEC_WEB_VERSION";
 const RUTA_ASIGNACION = "/api/vec/personal/asignaciones-dietas";
 const MAXIMO_RESPUESTA = 64 * 1024;
 const MOTIVOS_EMPLEADO = new Set(["empleado_no_disponible", "empleado_ambiguo"]);

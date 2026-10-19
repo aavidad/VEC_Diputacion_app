@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearCatalogoModulosDesdeManifiestos } from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
-import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
+import { crearCatalogoModulosDesdeManifiestos } from "./portal-catalogo-modulos.js?v=VEC_WEB_VERSION";
+import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js?v=VEC_WEB_VERSION";
 
 function raizFalsa() {
   const eventos = new Map();

@@ -1,5 +1,5 @@
 /** Contrato neutral y cerrado del alta de contratación temporal. */
-import { validarCatalogoPreparacion } from "./contrato-cobertura.js?v=20261002-ct-fin-modalidad-v1";
+import { validarCatalogoPreparacion } from "./contrato-cobertura.js?v=VEC_WEB_VERSION";
 
 export const CAPACIDAD_CREAR_SOLICITUD = "contratacion_temporal.solicitud.crear";
 

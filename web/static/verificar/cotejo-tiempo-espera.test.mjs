@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { traducirVerificar } from "./i18n.js?v=20260924-cotejo-espera-i18n-v1";
+import { traducirVerificar } from "./i18n.js?v=VEC_WEB_VERSION";
 
 const codigoFuente = await readFile(new URL("./verificar.js", import.meta.url), "utf8");
-const importacionI18n = 'import { traducirVerificar } from "./i18n.js?v=20260924-cotejo-espera-i18n-v1";\n\n';
+const importacionI18n = 'import { traducirVerificar } from "./i18n.js?v=VEC_WEB_VERSION";\n\n';
 assert.ok(codigoFuente.startsWith(importacionI18n));
 const codigo = codigoFuente.slice(importacionI18n.length);
 

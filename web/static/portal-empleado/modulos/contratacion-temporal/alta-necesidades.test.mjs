@@ -5,12 +5,12 @@ import {
   crearBorradorAlta, crearComandoAlta, jornadaVisibleDesdeMinutos,
   minutosDesdeJornadaVisible, validarBorradorAlta, validarCatalogosAlta,
   validarComandoAltaNecesidad,
-} from "./contrato.js?v=20261008-alta-circular-v3";
-import { crearAltaClienteHTTP } from "./cliente-http-alta.js?v=20261008-alta-circular-v3";
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-circular-v3";
+} from "./contrato.js?v=VEC_WEB_VERSION";
+import { crearAltaClienteHTTP } from "./cliente-http-alta.js?v=VEC_WEB_VERSION";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=VEC_WEB_VERSION";
 import { montarAltaContratacionTemporal, renderizarAltaContratacionTemporal,
-  seleccionarPuestoPublicadoRPT } from "./vista.js?v=20261008-alta-rpt-circular-v6";
-import { cargarMensajesNecesidadesAlta } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+  seleccionarPuestoPublicadoRPT } from "./vista.js?v=VEC_WEB_VERSION";
+import { cargarMensajesNecesidadesAlta } from "./i18n.js?v=VEC_WEB_VERSION";
 
 const CLAVE = "12345678-1234-4abc-8def-1234567890ab";
 const HUELLA = "a".repeat(64);

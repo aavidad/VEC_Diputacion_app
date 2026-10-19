@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderizarBloqueAvisos, validarAvisosBolsa } from "./portal-bolsas-avisos.js?v=20261002-rrhh17-v1";
+import { renderizarBloqueAvisos, validarAvisosBolsa } from "./portal-bolsas-avisos.js?v=VEC_WEB_VERSION";
 
 const sobre = (items, conteos) => ({ data: { esquema: "vec.bolsa.rrhh.avisos.v1", provisionalidad: "Pendiente", items, conteos, paginacion: { desde: 1, hasta: items.length, total: items.length } } });
 

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { raizPrueba, montar, seleccion } from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
-import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20260930-portales-i18n-integracion-v1";
+import { raizPrueba, montar, seleccion } from "./formulario-llamamiento-pruebas.js?v=VEC_WEB_VERSION";
+import { mensajeValidacionPortal } from "../../portal-idioma.js?v=VEC_WEB_VERSION";
 
 function escenario({ radio = false, radioExtra = false, anterior = null } = {}) {
   const raiz = raizPrueba(), nodos = new Map();

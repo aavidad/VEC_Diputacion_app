@@ -2,8 +2,8 @@
 // (Reglamento de bolsas, art. 8.2.a). Las reglas y su estado los calcula el
 // servidor con el catálogo; aquí solo se muestran y se registran intentos.
 // La baja se propone con la operación de exclusión existente (B8).
-import { traducirIntentos as t } from "./portal-i18n-intentos.js?v=20260930-portales-i18n-integracion-v1";
-import { LOCALIZACION_PORTAL, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { traducirIntentos as t } from "./portal-i18n-intentos.js?v=VEC_WEB_VERSION";
+import { LOCALIZACION_PORTAL, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "./portal-justificante.js";
 import { cargarTextos } from "../comun/textos.js";
 

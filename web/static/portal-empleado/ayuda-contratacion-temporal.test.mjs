@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 await prepararTextosPortal("ayuda");
 const { AYUDA_PORTAL_BOLSA, AYUDA_CONTRATACION_TEMPORAL,
   detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal,
-  renderizarAyudaContratacionTemporal } = await import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1");
+  renderizarAyudaContratacionTemporal } = await import("./ayuda-contenido.js?v=VEC_WEB_VERSION");
 
 test("la ayuda del portal de bolsa preexistente permanece intacta y conforme", () => {
   assert.equal(AYUDA_PORTAL_BOLSA.esquema, "vec.portal.ayuda.v1");

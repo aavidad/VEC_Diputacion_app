@@ -211,7 +211,7 @@ test("catálogos resuelven ES/EN sin faltantes y el grafo interno usa una URL po
   }
   for (const archivo of ["entry.js", "vista.js", "render.js", "propuestas.js", "propuestas-contratos.js", "cambio-perfiles.js", "cambio-contratos.js"]) {
     const s = await readFile(new URL(archivo, import.meta.url), "utf8");
-    for (const [, modulo] of s.matchAll(/from "(\.\/[^"]+)"/gu)) assert.equal(new URL(modulo, import.meta.url).search, "?v=20261005-admin-lote-pantalla-v1");
+    for (const [, modulo] of s.matchAll(/from "(\.\/[^"]+)"/gu)) assert.equal(new URL(modulo, import.meta.url).search, "?v=VEC_WEB_VERSION");
   }
 });
 

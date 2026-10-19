@@ -1,6 +1,6 @@
 /** Textos del circuito de firma de los borradores del expediente. */
 import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES, localizacionDe } from "../../../comun/idioma.js";
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=VEC_WEB_VERSION";
 
 const catalogos = await cargarCatalogosContratacion("contratacion-temporal-circuito-firma");
 export const MENSAJES_CIRCUITO_FIRMA_ES = catalogos.exportaciones.ES;

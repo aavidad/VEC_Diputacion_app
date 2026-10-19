@@ -1,4 +1,4 @@
-import { crearTraductorComunicaciones } from "./i18n.js?v=20260924-f2-web2";
+import { crearTraductorComunicaciones } from "./i18n.js?v=VEC_WEB_VERSION";
 
 const PESTANAS = Object.freeze([
   ["bandeja", "pestana_bandeja"],

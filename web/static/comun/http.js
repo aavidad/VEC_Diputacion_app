@@ -1,4 +1,4 @@
-import { registrarErrorCliente } from "./registro-errores.js?v=20261007-p7-http-v1";
+import { registrarErrorCliente } from "./registro-errores.js?v=VEC_WEB_VERSION";
 
 const MAXIMO_BYTES = 256 * 1024;
 const MAXIMO_MS = 15_000;
