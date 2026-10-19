@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -655,6 +656,8 @@ type dependenciasMiBolsaPortalExterno struct {
 	proveedores           map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	fuentePreferencias    puertosvec.FuenteAutorizacion
 	proveedorPreferencias *proveedorMaterialAltaContratacionTemporalDesarrollo
+	catalogoModalidades   bolsapuertos.CatalogoPreferenciasModalidades
+	modalidadesSQL        bool
 	campos                bolsapuertos.CamposPortalMiBolsa
 	reglas                bolsapuertos.ReglasPortalCandidato
 	reloj                 relojContratacionTemporalDesarrollo
@@ -744,6 +747,39 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 		if e != nil {
 			return nil, errMiBolsaNoDisponible
 		}
+	}
+	modalidadesHTTP := bolsahttp.NuevoHandlerPreferenciasBolsasNoDisponible()
+	if d.catalogoModalidades != nil && d.modalidadesSQL && d.proveedorPreferencias != nil && d.fuentePreferencias != nil {
+		lecturaModalidadesPG, e := bolsapg.NuevaLecturaPreferenciasModalidadesPostgreSQL(d.bolsa)
+		if e == nil {
+			auditoriaModalidadesPG, errorAuditoria := bolsapg.NuevaAuditoriaIntentosPreferenciasBolsasPostgreSQL(d.bolsa)
+			e = errorAuditoria
+			if e == nil {
+				escrituraModalidadesPG, errorEscritura := bolsapg.NuevaEscrituraPreferenciasModalidadesPostgreSQL(d.bolsa)
+				e = errorEscritura
+				if e == nil {
+					lecturaModalidades, errorLectura := mibolsa.NuevaLecturaPreferenciasModalidades(
+						lecturaModalidadesPG, auditoriaModalidadesPG, d.fuentePreferencias, d.catalogoModalidades, d.reloj)
+					e = errorLectura
+					if e == nil {
+						escrituraModalidades, errorServicio := mibolsa.NuevoServicioPreferenciasModalidades(
+							escrituraModalidadesPG, d.catalogoModalidades, propio,
+							proveedorPreferenciasBolsasPortalExterno{delegado: d.proveedorPreferencias}, d.reloj)
+						e = errorServicio
+						if e == nil {
+							modalidadesHTTP, e = bolsahttp.NuevoHandlerPreferenciasModalidades(preparador, escrituraModalidades, lecturaModalidades)
+						}
+					}
+				}
+			}
+		}
+		if e != nil {
+			slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "composicion")
+		}
+	}
+	preferenciasHTTP, err = bolsahttp.NuevoSelectorPreferenciasModalidades(preferenciasHTTP, modalidadesHTTP)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
 	}
 	rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsahttp.RutaPreferenciasBolsas, Manejador: preferenciasHTTP})
 	historial, err := mibolsa.NuevoHistorial(consulta, propio, proveedorHistorialMiBolsaDesarrollo{delegado: d.proveedores[bolsapuertos.AudienciaHistorialMiBolsa]}, d.reloj)
