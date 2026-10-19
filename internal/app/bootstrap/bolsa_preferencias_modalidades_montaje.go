@@ -3,11 +3,16 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	bolsapg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	reglasbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/reglasvec"
+	mibolsa "vec-diputacion-granada/internal/modules/bolsa/application/mibolsa"
 	bolsapuertos "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
@@ -73,4 +78,47 @@ func comprobarSQLPreferenciasModalidades(ctx context.Context, pool *pgxpool.Pool
 		return errMiBolsaNoDisponible
 	}
 	return nil
+}
+
+// handlerPreferenciasModalidadesPortalExterno compone GET/PUT de modalidades
+// con las mismas acciones propias de preferencias. Si falta B138, AD300, el
+// catálogo o la concesión, devuelve el manejador 503 y el orden de bolsas no
+// se ve afectado. El registro solo nombra la etapa, nunca el error.
+func handlerPreferenciasModalidadesPortalExterno(d dependenciasMiBolsaPortalExterno) http.Handler {
+	noDisponible := bolsahttp.NuevoHandlerPreferenciasBolsasNoDisponible()
+	if d.catalogoModalidades == nil || !d.modalidadesSQL || d.proveedorPreferencias == nil || d.fuentePreferencias == nil {
+		return noDisponible
+	}
+	fallo := func() http.Handler {
+		slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "composicion")
+		return noDisponible
+	}
+	lecturaPG, err := bolsapg.NuevaLecturaPreferenciasModalidadesPostgreSQL(d.bolsa)
+	if err != nil {
+		return fallo()
+	}
+	auditoriaPG, err := bolsapg.NuevaAuditoriaIntentosPreferenciasBolsasPostgreSQL(d.bolsa)
+	if err != nil {
+		return fallo()
+	}
+	escrituraPG, err := bolsapg.NuevaEscrituraPreferenciasModalidadesPostgreSQL(d.bolsa)
+	if err != nil {
+		return fallo()
+	}
+	lectura, err := mibolsa.NuevaLecturaPreferenciasModalidades(
+		lecturaPG, auditoriaPG, d.fuentePreferencias, d.catalogoModalidades, d.reloj)
+	if err != nil {
+		return fallo()
+	}
+	escritura, err := mibolsa.NuevoServicioPreferenciasModalidades(
+		escrituraPG, d.catalogoModalidades, d.autorizador,
+		proveedorPreferenciasBolsasPortalExterno{delegado: d.proveedorPreferencias}, d.reloj)
+	if err != nil {
+		return fallo()
+	}
+	manejador, err := bolsahttp.NuevoHandlerPreferenciasModalidades(d.preparador, escritura, lectura)
+	if err != nil {
+		return fallo()
+	}
+	return manejador
 }
