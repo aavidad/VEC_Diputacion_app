@@ -67,6 +67,19 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		}
 	}()
 	for _, lector := range lectores {
+		// La técnica de RRHH consulta con el circuito dinámico del alta: su
+		// cuenta, su perfil y su sesión ya están compuestos en base. Figurar
+		// en el manifiesto la identifica como lectora para otros módulos; no
+		// abre otro soporte sobre el contexto fijo de Alta, que no concede
+		// consultas ni comparte el acto de las asignaciones dinámicas.
+		if lectorTecnicoRRHHDesarrollo(lector) {
+			if !lectorTecnicoEsTitularAltaDesarrollo(alta, lector) ||
+				!mux.registrar(lector.identidad.principal.ID, alta.soporte, base.cuadroHTTP, base.detalleHTTP, base.originalPropuestaHTTP) {
+				return vacio, ports.ErrConsultaRRHHNoDisponible
+			}
+			mux.descargas[lector.identidad.principal.ID] = base.descargas
+			continue
+		}
 		soporte, autorizador, err := nuevoSoporteLectorRRHHDesarrollo(alta, lector, reloj)
 		if err != nil {
 			return vacio, err
@@ -275,6 +288,39 @@ func asignacionConsultaLectorRRHHCompatible(soporte *soporteAltaContratacionTemp
 		}
 	}
 	return false
+}
+
+// perfilesLectoresConsultaRRHHDesarrollo son los perfiles que las fronteras
+// de consulta admiten además del dinámico. La técnica consulta con éste.
+func perfilesLectoresConsultaRRHHDesarrollo(lectores []identidadConsultaRRHHDesarrollo) []string {
+	perfiles := make([]string, 0, len(lectores))
+	for _, lector := range lectores {
+		if !lectorTecnicoRRHHDesarrollo(lector) {
+			perfiles = append(perfiles, lector.perfilRef)
+		}
+	}
+	return perfiles
+}
+
+func lectorTecnicoRRHHDesarrollo(lector identidadConsultaRRHHDesarrollo) bool {
+	roles := lector.identidad.principal.Roles
+	return len(roles) == 1 && roles[0] == rolTecnicoRRHHContratacionTemporalDesarrollo
+}
+
+// lectorTecnicoEsTitularAltaDesarrollo admite reutilizar el circuito del alta
+// sólo si la entrada es exactamente la persona y el certificado de ese
+// soporte, con el ámbito de organización que ese circuito aplica. Cualquier
+// otro ámbito declarado deniega: el circuito base no sabría restringirlo.
+func lectorTecnicoEsTitularAltaDesarrollo(alta *dependenciasAltaContratacionTemporalDesarrollo, lector identidadConsultaRRHHDesarrollo) bool {
+	if alta == nil || alta.soporte == nil || alta.soporte.lectorConsultasRRHH || !lectorTecnicoRRHHDesarrollo(lector) {
+		return false
+	}
+	principal := lector.identidad.principal
+	return principal.ID != "" && principal.ID == alta.soporte.principalID &&
+		principal.Attributes["certificate_sha256"] != "" &&
+		principal.Attributes["certificate_sha256"] == alta.soporte.certificadoSHA256 &&
+		lector.organizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		lector.clase == ports.AmbitoOrganizacionRRHH && lector.ambitoRef == lector.organizacionRef
 }
 
 func nuevoSoporteLectorRRHHDesarrollo(
