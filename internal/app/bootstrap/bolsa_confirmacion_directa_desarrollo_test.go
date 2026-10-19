@@ -279,6 +279,79 @@ func TestConfirmacionDirectaAdoptaSoloExtrasExactosIncluidoB1(t *testing.T) {
 	}
 }
 
+func TestConfirmacionDirectaAdoptaRol21ConComprobacionExacta(t *testing.T) {
+	p, autoridad, datos := politicaProvisionBolsaPrueba(t, 0)
+	i, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
+		datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, p.reloj.Ahora(), 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []struct {
+		nombre   string
+		acciones []string
+	}{
+		{"fuentes/bolsa_carga_convoca_b1_v1.json", []string{puertosbolsa.AccionConfirmarCargaConvoca}},
+		{"inscripcion_recorrido_20261013/inscripcion_bolsa_actos_v1.json", []string{"bolsa.inscripcion.rrhh.motivos",
+			"bolsa.inscripcion.rrhh.decidir", "bolsa.inscripcion.rrhh.incorporar"}},
+		{"fuentes/bolsa_lecturas_rrhh_b103_v1.json", []string{"bolsa.inscripcion.rrhh.listar", "bolsa.inscripcion.rrhh.consultar",
+			"bolsa.inscripcion.rrhh.convocatorias.listar", "bolsa.rrhh.respuestas_llamamiento.consultar"}},
+		{"fuentes/bolsa_origen_contacto_rrhh_v1.json", []string{dominiovec.AccionLecturaOrigenContactoBolsa}},
+		{"fuentes/bolsa_transiciones_situacion_rrhh_v1.json", []string{puertosbolsa.AccionConsultarTransicionesSituacion,
+			puertosbolsa.AccionPublicarTransicionesSituacion}},
+		{"fuentes/bolsa_confirmacion_aceptacion_rrhh_v1.json", []string{puertosbolsa.AccionConfirmarAceptacionDirecta}},
+		{"fuentes/bolsa_comprobacion_ofrecimiento_rrhh_v1.json", []string{puertosbolsa.AccionComprobacionOfrecimiento}},
+	} {
+		i.VersionRol.Concesiones = append(i.VersionRol.Concesiones, concesionesFuenteBolsaPrueba(t, f.nombre, f.acciones...)...)
+	}
+	if len(i.VersionRol.Concesiones) != 22 {
+		t.Fatalf("rol gobernado incompleto: %d", len(i.VersionRol.Concesiones))
+	}
+	i.VersionRol.Version = 12
+	i.VersionRol.PublicadaPor = "seguridad:acto-gobernado"
+	i.AsignacionPerfil.VersionRolRef = i.VersionRol.Referencia()
+	i.AsignacionPerfil.EmitidaPor = "identidad:acto-gobernado"
+	i.ControlVigenciaVersionRol.VersionRolRef = i.VersionRol.Referencia()
+	i.ControlVigenciaVersionRol.ActualizadoPor = i.VersionRol.PublicadaPor
+	if err := i.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	autoridad.leida, autoridad.encontrada = instantaneaPublicadaDesarrollo{instantanea: i}, true
+	if err := p.PublicarInicialConPoliticaOfertas(context.Background()); err != nil ||
+		autoridad.publicadas != 0 || autoridad.preparadas != 0 || p.instantanea.VersionRol.Version != 12 {
+		t.Fatalf("el rol con confirmación y comprobación no se adoptó intacto: %v", err)
+	}
+	ultima := len(i.VersionRol.Concesiones) - 1
+	for nombre, alterar := range map[string]func(*dominiovec.InstantaneaAutorizacion){
+		"comprobacion_duplicada": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones = append(x.VersionRol.Concesiones, x.VersionRol.Concesiones[ultima])
+		},
+		"campo_comprobacion": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[ultima].CamposPermitidos = []string{"persona_ref"}
+		},
+		"finalidad_comprobacion": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[ultima].Finalidades = []string{"otra_finalidad"}
+		},
+		"garantia_comprobacion": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[ultima].GarantiaMinima = dominiovec.AuthAssuranceLow
+		},
+		"recurso_comprobacion": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[ultima].TipoRecurso = "otro_recurso"
+		},
+		"obligacion_comprobacion": func(x *dominiovec.InstantaneaAutorizacion) {
+			x.VersionRol.Concesiones[ultima].Obligaciones = nil
+		},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			x := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(i)
+			x.VersionRol.Concesiones = append([]dominiovec.ConcesionRol(nil), x.VersionRol.Concesiones...)
+			alterar(&x)
+			if instantaneaBolsaConfirmacionCompatible(x, datos, p.soporte, p.reloj.Ahora(), 6) {
+				t.Fatal("instantánea alterada adoptada")
+			}
+		})
+	}
+}
+
 func TestConfirmacionDirectaMuxLlegaAlHandlerNominal(t *testing.T) {
 	ruta := bolsahttp.RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/respuestas/llamamiento:01/confirmacion"
 	llamadas := 0

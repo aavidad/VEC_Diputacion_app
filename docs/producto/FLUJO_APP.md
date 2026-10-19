@@ -825,10 +825,12 @@ detiene en esa persona. RRHH no pasa a la siguiente ni causa una exclusión
 definitiva por la falta de datos. La excepción corresponde al art. 9, apartado
 cuarto (numerado 3 en el BOP n.º 9 de 16/01/2026): solo vacantes para los
 vínculos tasados y con reducción del máximo de tres años por el tiempo previo
-en acumulación o sustitución. El primer corte de F1-09 prepara ese acto en Bolsa: registra hechos con evidencia,
-calcula el resultado con la política publicada y conserva cada rectificación y su
-recibo. Sigue pendiente su habilitación, la API y la pantalla F1-57. Hasta completar
-F1-10 no permite continuar la selección; el descuento permanece apagado.
+en acumulación o sustitución. F1-09 prepara el registro de los hechos y su recibo:
+el canal de servidor recibe la comprobación desde la ficha de la participación,
+con el contexto del expediente y las versiones esperadas. La persona que tramita
+no indica el resultado: lo calcula Bolsa. Mientras falte su habilitación, solo
+este registro queda cerrado. La pantalla F1-57 y la proyección del contexto en
+las listas existentes siguen pendientes; F1-10 comprobará el acto al reservar.
 
 La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
 requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
