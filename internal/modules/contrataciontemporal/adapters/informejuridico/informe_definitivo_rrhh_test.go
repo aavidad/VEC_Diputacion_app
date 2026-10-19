@@ -396,3 +396,23 @@ func TestReferenciaConNombreConservaReferenciaSiFaltaNombre(t *testing.T) {
 		})
 	}
 }
+
+// La clave de catálogo «generar_informe_juridico» se cumple con la actuación
+// registrada del informe jurídico, no con un hito que copie esa clave.
+func TestAccionRequeridaTraduceInformeJuridico(t *testing.T) {
+	d := detalleInformeDefinitivoPrueba()
+	informe := PlantillaBorrador{RequiereAccion: accionCatalogoInformeJuridico}
+	cese := PlantillaBorrador{RequiereAccion: "registrar_cese"}
+	if !AccionRequeridaCumplida(PlantillaBorrador{}, d) || AccionRequeridaCumplida(informe, d) || AccionRequeridaCumplida(cese, d) {
+		t.Fatal("acción requerida sin actuación registrada")
+	}
+	d.Hitos[3].AccionClave = accionCatalogoInformeJuridico
+	if AccionRequeridaCumplida(informe, d) {
+		t.Fatal("la clave de catálogo no es la actuación registrada")
+	}
+	d.Hitos[4].AccionClave = domain.AccionEmitirInformeJuridico
+	d.Hitos[5].AccionClave = "registrar_cese"
+	if !AccionRequeridaCumplida(informe, d) || !AccionRequeridaCumplida(cese, d) {
+		t.Fatal("actuación registrada no reconocida")
+	}
+}
