@@ -430,7 +430,9 @@ aprobación o publicación de bases.
 BC12 reconstruye el comprobador usado por B96, el proyector y la lista existentes,
 desde sus definiciones instaladas. Lista y detalle incorporan la misma propiedad
 JSON. La modalidad conjunta devuelve B9608, traducido a 409 antes de insertar.
-Se conservan OID, propietario, ACL, volatilidad, paralelismo y configuración de
+Una modalidad que no sea `separada` ni `conjunta` es material incoherente: el
+comprobador responde 55000 y el proyector deja fuera solo esa versión, de modo
+que la lista y el resto de convocatorias siguen disponibles. Se conservan OID, propietario, ACL, volatilidad, paralelismo y configuración de
 cada función. SQL y activación en `deploy/principal/f1_40_modalidad_inscripcion.md`.
 
 Las preferencias entre bolsas guardan versiones y recibos en

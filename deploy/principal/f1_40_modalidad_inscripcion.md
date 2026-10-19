@@ -21,8 +21,9 @@ existentes después de BC9 y B96, con las prehuellas y poshuellas declaradas en
 su migración. `lista_sql_codexb_f1_40_20261015.txt` fija el orden. Antes de
 instalar, comprobar las dependencias y la definición instalada en PostgreSQL 18;
 no reaplicar una migración presente ni usar DOWN. La prueba focal SQL revierte
-sus filas: legado sin campo, modalidad separada, conjunta visible, y valores
-desconocido o nulo rechazados. Cotejar OID, propietario, ACL, configuración,
+sus filas: legado sin campo, modalidad separada y conjunta visible. Un valor
+desconocido o nulo es material incoherente: el comprobador responde 55000 y la
+lista deja fuera solo esa versión, sin fallar entera. Cotejar OID, propietario, ACL, configuración,
 volatilidad y paralelismo de las tres funciones.
 
 La copia de ensayo debe contener el prefijo completo de autorización externa.
@@ -95,6 +96,18 @@ dato una aprobación, un cierre o un recibo de dos administradores.
 - Recuperar las lecturas de la misma convocatoria después de reiniciar
   aplicación y PostgreSQL. Arrancar también sin la carga opcional: la función
   ausente falla localmente y la aplicación sigue disponible.
+
+En la copia del 19/10 la lectura de inscripción del portal externo no llega a
+responder, ni siquiera con una convocatoria separada. La autorización concede la
+lectura, pero el asiento de auditoría falla con P0002 («autenticacion historica
+no disponible»): coteja la autenticación solo en el almacén interno de
+identidad, y la sesión del aspirante está en `vec_identidad_externa_v1`. AD289
+corrigió el cotejo del contexto, no el de la autenticación. Es un defecto
+previo de main, ajeno a la modalidad, y bloquea el recorrido en Chrome hasta
+que una tarea propia lo corrija. Además, el decisor de lectura rechaza un rol o
+una asignación cuyo autor sea `seguridad:desarrollo:no-autoritativa` o
+`identidad:desarrollo:no-autoritativa`; el dato de acceso de la copia necesita
+un autor sintético propio y declarado como tal.
 
 La preparación de bases ya existente conserva su lectura anterior; esta PR no
 añade su guardado ni prueba un recibo de preparación. El ensayo de la candidata
