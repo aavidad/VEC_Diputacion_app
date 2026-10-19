@@ -33,16 +33,18 @@ import (
 )
 
 // preparadorBorradorLlamamientoDesarrollo une una entrada HTTP mínima a la
-// sesión nominal de Bolsa revalidada en esa misma petición. Unidad y ámbito
-// llegan del manifiesto privado publicado durante composición, nunca del
-// cliente.
+// sesión nominal de Bolsa revalidada en esa misma petición. En los actos sobre
+// una bolsa, unidad y ámbito son los de la bolsa (B144, F1-60); sin bolsa
+// (borrador, carga CONVOCA) llegan del manifiesto privado publicado durante
+// composición. Nunca del cliente.
 type preparadorBorradorLlamamientoDesarrollo struct {
 	sesion           *seguridadComunDesarrollo
 	soporte          *soporteSesionBorradorBolsaDesarrollo
 	fuenteRespuestas puertosvec.FuenteAutorizacion
 	generar          seguridadvec.GeneradorReferenciasCriptograficas
 	// vigentes admite las bolsas constituidas después de arrancar (carga
-	// CONVOCA). Sin él solo valen las del manifiesto bolsas_ref.
+	// CONVOCA) y da el ámbito de cada bolsa. Sin él se deniega todo acto
+	// sobre una bolsa.
 	vigentes consultaBolsaVigenteDesarrollo
 }
 
@@ -60,20 +62,14 @@ func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoSituacionParti
 	if p == nil || p.soporte == nil || actor.PersonaRef == "" || bolsaRef == "" || participacionRef == "" || p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" {
 		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, errBorradorNoDisponibleEn()
 	}
-	if err := p.admitirBolsa(ctx, bolsaRef); err != nil {
-		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, err
-	}
-	return puertosbolsa.ContextoSituacionParticipacionResuelto{UnidadRef: p.soporte.unidadRef, AmbitoRef: p.soporte.ambitoRef}, nil
+	return p.contextoBolsaAdmitida(ctx, bolsaRef)
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoContactosBolsa(ctx context.Context, actor dominiovec.ContextoActor, bolsaRef string) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
 	if p == nil || p.soporte == nil || actor.PersonaRef == "" || bolsaRef == "" || p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" {
 		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, errBorradorNoDisponibleEn()
 	}
-	if err := p.admitirBolsa(ctx, bolsaRef); err != nil {
-		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, err
-	}
-	return puertosbolsa.ContextoSituacionParticipacionResuelto{UnidadRef: p.soporte.unidadRef, AmbitoRef: p.soporte.ambitoRef}, nil
+	return p.contextoBolsaAdmitida(ctx, bolsaRef)
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudCambiarSituacion(ctx context.Context, entrada bolsahttp.EntradaCambiarSituacionParticipacion) (puertosbolsa.SolicitudCambiarSituacionParticipacion, error) {

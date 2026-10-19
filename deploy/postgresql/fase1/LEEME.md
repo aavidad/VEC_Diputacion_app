@@ -35,29 +35,34 @@ Aunque D15 ya estaba en Git antes del corte HZ37, el esquema de esa copia
 conserva la función de D14. Esta instalación reconcilia solo la copia nueva de
 CI; no cambia la lista general de migraciones ni reaplica D15 en otras bases.
 `--pruebas` incluye esa preparación y ejecuta estas
-diez pruebas SQL existentes, en este orden:
+once pruebas SQL existentes, en este orden:
 
 1. `bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql`: valida criterios
    de ofrecimiento y el permiso del validador sin crear un llamamiento.
 2. `bolsa_llamamientos/pruebas_sql/b144_ambito_gobernado_bolsa.sql`: declara el
    ámbito de una bolsa como propietario, rechaza otra unidad, la modificación y
    al ejecutor, y deniega una confirmación de carga desde otro ámbito.
-3. `documentos/pruebas_sql/000014_referencia_expediente_tipado.sql`: comprueba
+3. `bolsa_llamamientos/pruebas_sql/b145_ambito_actos_bolsa.sql`: la entrada web
+   lee el ámbito de la bolsa solo con su función, la confirmación de una
+   aceptación (B128) se deniega en una bolsa de otra unidad o sin ámbito, la
+   recuperación de una carga cuya bolsa no tiene ámbito también, y el rol de
+   línea de órdenes ya no constituye bolsas.
+4. `documentos/pruebas_sql/000014_referencia_expediente_tipado.sql`: comprueba
    formatos, catálogo y rechazo de una referencia de otro módulo.
-4. `documentos/pruebas_sql/000015_rechazo_expediente_ct_cero.sql`: rechaza la
+5. `documentos/pruebas_sql/000015_rechazo_expediente_ct_cero.sql`: rechaza la
    referencia de expediente CT con identificador cero.
-5. `autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql`: comprueba
+6. `autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql`: comprueba
    el rechazo temprano 42501 ante una entrada nula.
-6. `identidad_sesiones_v1/pruebas_sql/000021_seleccion_perfil_bolsa_rrhh.sql`:
+7. `identidad_sesiones_v1/pruebas_sql/000021_seleccion_perfil_bolsa_rrhh.sql`:
    comprueba propietario y permisos; rechaza la consulta de perfiles propios
    con una sesión inexistente.
-7. `contexto_actor_v1/pruebas_sql/000046_perfiles_propios_bolsa_rrhh.sql`:
+8. `contexto_actor_v1/pruebas_sql/000046_perfiles_propios_bolsa_rrhh.sql`:
    comprueba propietario y permisos; rechaza una cuenta sin acreditación.
-8. `bolsa_convocatorias/pruebas_sql/bc12_rechazo_inscripcion_conjunta_v1.sql`:
+9. `bolsa_convocatorias/pruebas_sql/bc12_rechazo_inscripcion_conjunta_v1.sql`:
    B96 rechaza una inscripción conjunta antes de guardar una individual.
-9. `bolsa_llamamientos/pruebas_sql/b142_modalidad_inscripcion_aspirante.sql`: la
+10. `bolsa_llamamientos/pruebas_sql/b142_modalidad_inscripcion_aspirante.sql`: la
    lista y la ficha del aspirante copian la modalidad sellada.
-10. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
+11. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
    contexto externo por la función vigente, comprueba su huella y versión,
    acredita el candidato propio, rechaza el ajeno y los cruces de persona o
    perfil, y comprueba los permisos de ejecución; comprueba resolución,

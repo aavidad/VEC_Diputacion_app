@@ -21,6 +21,7 @@ D15_SQL = 'deploy/postgresql/documentos/migraciones/000015_rechazo_expediente_ct
 PRUEBAS_SQL = (
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b144_ambito_gobernado_bolsa.sql',
+    'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b145_ambito_actos_bolsa.sql',
     'deploy/postgresql/documentos/pruebas_sql/000014_referencia_expediente_tipado.sql',
     'deploy/postgresql/documentos/pruebas_sql/000015_rechazo_expediente_ct_cero.sql',
     'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql',

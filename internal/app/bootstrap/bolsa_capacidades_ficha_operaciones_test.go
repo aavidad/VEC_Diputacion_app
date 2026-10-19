@@ -54,7 +54,9 @@ func TestFichaOperacionesBolsaProyectaLoteF1DelGETLeido(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	preparador := &preparadorBorradorLlamamientoDesarrollo{soporte: soporte}
+	bolsas := &bolsasVigentesFalsas{vigentes: map[string]bool{}}
+	bolsas.declarar("bolsa:b2:desarrollo", bolsapuertos.AmbitoBolsa{AmbitoRef: soporte.ambitoRef, UnidadRef: soporte.unidadRef})
+	preparador := &preparadorBorradorLlamamientoDesarrollo{soporte: soporte, vigentes: bolsas}
 	datos, err := soporte.soporteCanal.contexto.Vinculo.Datos()
 	if err != nil {
 		t.Fatal(err)
@@ -194,5 +196,56 @@ func TestFichaOperacionesBolsaProyectaLoteF1DelGETLeido(t *testing.T) {
 	resultado, err = p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q)
 	if err != nil || resultado.SolicitudesDocumentales.Estado != "disponible" || resultado.ReincorporacionesTitular.Estado != "no_autorizado" {
 		t.Fatalf("obligación no ejecutada anunciada: %+v err=%v", resultado, err)
+	}
+}
+
+// F1-60, prueba de aceptación: el actor tiene permiso en su unidad gestora y
+// la decisión V3 se lo concede en una bolsa de esa unidad; la misma consulta
+// sobre una bolsa declarada en otra unidad gestora se deniega, porque el
+// recurso lleva la unidad de la bolsa (B144) y no la del perfil.
+func TestFichaOperacionesBolsaDeOtraUnidadGestoraSeDeniega(t *testing.T) {
+	directorio, soporteCT, principal, ahora := fixtureSoporteSesionBorradorBolsa(t)
+	escribirManifiestoIdentidadBorradorBolsa(t, directorio, principal, ahora, nil)
+	soporte, err := nuevoSoporteSesionBorradorBolsaDesarrollo(directorio, soporteCT, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const propia, ajena = "bolsa:b2:desarrollo", "bolsa:otra-unidad:desarrollo"
+	bolsas := &bolsasVigentesFalsas{vigentes: map[string]bool{}}
+	bolsas.declarar(propia, bolsapuertos.AmbitoBolsa{AmbitoRef: soporte.ambitoRef, UnidadRef: soporte.unidadRef})
+	bolsas.constituirEn(ajena, bolsapuertos.AmbitoBolsa{AmbitoRef: soporte.ambitoRef, UnidadRef: "unidad:desarrollo:otra-gestora"})
+	preparador := &preparadorBorradorLlamamientoDesarrollo{soporte: soporte, vigentes: bolsas}
+	datos, err := soporte.soporteCanal.contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(context.Background(), seguridadvec.GeneradorReferenciasCriptograficas{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := bolsapuertos.SolicitudCambiarSituacionParticipacion{Vinculo: soporte.soporteCanal.contexto.Vinculo,
+		ResultadoContexto: soporte.soporteCanal.contexto.Resultado, BolsaRef: propia, ParticipacionRef: "participacion:b2",
+		Destino: "disponible", Motivo: "consulta", ClaveIdempotencia: "consulta", Correlacion: correlacion,
+		MotivoAutorizacion: motivoCambiarSituacionParticipacionBolsaDesarrollo()}
+	concesion, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
+		datos.PrincipalID, datos.PerfilActivoRef, soporte.unidadRef, soporte.ambitoRef, ahora, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fuente := &fuenteFichaOperacionesPrueba{instantanea: concesion}
+	documentales := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
+	p, err := nuevoProyectorDisponibilidadFichaOperacionesBolsa(preparador, fuente,
+		relojFijoAltaContratacionTemporalDesarrollo{ahora: ahora.Add(time.Minute)}, documentales, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado, err := p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q)
+	if err != nil || resultado.SolicitudesDocumentales.Estado != "disponible" {
+		t.Fatalf("bolsa de la propia unidad: %+v err=%v", resultado, err)
+	}
+	q.BolsaRef = ajena
+	resultado, err = p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q)
+	if err != nil || resultado.SolicitudesDocumentales.Estado != "no_autorizado" {
+		t.Fatalf("bolsa de otra unidad gestora no denegada: %+v err=%v", resultado, err)
 	}
 }

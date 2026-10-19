@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -75,7 +76,9 @@ func TestContextoSituacionB2ExigeBolsaDeclaradaEnIdentidad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	preparador := &preparadorBorradorLlamamientoDesarrollo{soporte: soporte}
+	bolsas := &bolsasVigentesFalsas{vigentes: map[string]bool{}}
+	bolsas.declarar("bolsa:b2:desarrollo", puertosbolsa.AmbitoBolsa{AmbitoRef: soporte.ambitoRef, UnidadRef: soporte.unidadRef})
+	preparador := &preparadorBorradorLlamamientoDesarrollo{soporte: soporte, vigentes: bolsas}
 	actor := soporte.soporteCanal.contexto.Resultado.Contexto
 	resuelto, err := preparador.ResolverContextoSituacionParticipacion(context.Background(), actor, "bolsa:b2:desarrollo", "participacion:b2")
 	if err != nil || resuelto.UnidadRef != soporte.unidadRef || resuelto.AmbitoRef != soporte.ambitoRef {

@@ -189,3 +189,5 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000143_huella_contexto_orden_bo
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000300_motivo_proyeccion_preferencias.up.sql a74a98b12af7f1952cfb99298104d5daee61ca74fa56be4c738f54ef7751411c
 # F1-60 primer corte — B144, ámbito gobernado de la bolsa; solo depende de B7/B14/B79/B95 (en el volcado).
 deploy/postgresql/bolsa_llamamientos/migraciones/000144_ambito_gobernado_bolsa.up.sql b8cee22ff4b891148af793b6d19c0b9ff96acc1644d1dda6a1942a9e5b09e2c5
+# F1-60 segundo corte — B145, los actos de Bolsa cotejan el ámbito de la bolsa (B128 en SQL), recuperación sin ámbito denegada y constitución por línea de órdenes retirada; tras B144.
+deploy/postgresql/bolsa_llamamientos/migraciones/000145_ambito_actos_bolsa.up.sql 7c4ee182da663700e778441068012bfb5799bb39dfd9201f877da858aa3ee8f5
