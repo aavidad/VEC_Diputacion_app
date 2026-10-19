@@ -413,6 +413,10 @@ El preparador conserva el candado de la instancia y coteja contenedor, puerto,
 identificador PostgreSQL y binario antes de operar. Guarda el documento y la
 referencia de asignación antes de confirmar; si se pierde la respuesta,
 reconcilia el mismo efecto por su huella y evento, sin publicar otro.
+La reanudación exige la misma revisión y el árbol limpio. La actualización
+del entorno conserva un intento privado antes de cambiar sus archivos: si
+se interrumpe entre el entorno y su huella, el mismo preparador completa esa
+publicación. Una modificación distinta detiene la recuperación.
 
 Una cabeza del rol candidato que exija Administración detiene la semilla con
 `requiere_publicacion_por_administracion`; no recupera una versión antigua.

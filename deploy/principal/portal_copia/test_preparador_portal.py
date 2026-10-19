@@ -24,6 +24,54 @@ ESPEC_CLAS.loader.exec_module(clasificacion)
 
 
 class PortalFabricaTest(unittest.TestCase):
+    def test_fuente_distinta_se_rechaza_antes_de_efectos(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            estado = {'fuente': str(raiz), 'raiz': str(raiz),
+                      'nombre': 'vec-copia-' + raiz.name, 'puerto_pg': 55485,
+                      'revision': 'revision-retenida'}
+            (raiz / 'estado.json').write_text(json.dumps(estado))
+            (raiz / 'compilacion.json').write_text('{"go":"go"}')
+            (raiz / 'vec-server').touch()
+            copia = mock.Mock()
+            copia.verificar_fuente.side_effect = ValueError('fuente_distinta')
+            with mock.patch.object(portal, 'private_dir'), mock.patch.object(portal, 'module', return_value=copia):
+                with self.assertRaisesRegex(ValueError, 'fuente_distinta'):
+                    portal.main_locked(mock.Mock(), raiz)
+            copia.verificar_fuente.assert_called_once_with('revision-retenida')
+            copia.Copia.assert_not_called()
+
+    def test_publicacion_entorno_recupera_interrupcion_sin_aceptar_cambios_ajenos(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            def guardar(ruta, datos):
+                ruta.write_text(json.dumps(datos, ensure_ascii=False, indent=2) + '\n')
+            def sha(ruta):
+                return hashlib.sha256(ruta.read_bytes()).hexdigest()
+            ruta, intento = raiz / 'entorno_modulos.json', raiz / 'intento.json'
+            guardar(ruta, {'VEC_ANTERIOR': 'true'})
+            estado = {'revision': 'retenida', 'entorno_modulos_sha256': sha(ruta)}
+            guardar(raiz / 'estado.json', estado)
+            nuevo = {'VEC_NUEVO': 'true'}
+            def interrumpir(ruta, datos):
+                if ruta.name == 'estado.json':
+                    raise InterruptedError('interrumpido')
+                guardar(ruta, datos)
+            copia = mock.Mock(sha256=sha, guardar=interrumpir)
+            with self.assertRaises(InterruptedError):
+                portal.publicar_entorno_retenido(copia, raiz, estado, intento, nuevo)
+            retenido = intento.read_bytes()
+            estado = json.loads((raiz / 'estado.json').read_text())
+            copia.guardar = guardar
+            portal.publicar_entorno_retenido(copia, raiz, estado, intento)
+            self.assertEqual(estado['entorno_modulos_sha256'], sha(ruta))
+            self.assertEqual(intento.read_bytes(), retenido)
+            self.assertEqual(json.loads(ruta.read_text()), nuevo)
+            guardar(ruta, {'VEC_AJENO': 'true'})
+            with self.assertRaisesRegex(RuntimeError, 'intento_entorno_divergente'):
+                portal.publicar_entorno_retenido(copia, raiz, estado, intento)
+            self.assertEqual(json.loads(ruta.read_text()), {'VEC_AJENO': 'true'})
+
     def test_candado_heredado_es_misma_descripcion_y_standalone_excluye(self):
         with tempfile.TemporaryDirectory() as temporal:
             base = Path(temporal)

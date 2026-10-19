@@ -180,6 +180,35 @@ def entorno_portal(environment, dsns, external, sin_inscripcion):
     return nuevo
 
 
+def publicar_entorno_retenido(copia, raiz, estado, intento_path, nuevo=None):
+    ruta = raiz / 'entorno_modulos.json'
+    if not intento_path.exists():
+        if nuevo is None:
+            return
+        if copia.sha256(ruta) != estado['entorno_modulos_sha256']:
+            fail('entorno_preimagen_cambio')
+        contenido = (json.dumps(nuevo, ensure_ascii=False, indent=2) + '\n').encode()
+        write(intento_path, {'revision': estado['revision'],
+              'anterior': estado['entorno_modulos_sha256'], 'nuevo': nuevo,
+              'huella_nueva': hashlib.sha256(contenido).hexdigest()})
+    intento = json.loads(private_file(intento_path))
+    contenido = (json.dumps(intento['nuevo'], ensure_ascii=False, indent=2) + '\n').encode()
+    anterior, siguiente = intento['anterior'], intento['huella_nueva']
+    actual = copia.sha256(ruta)
+    if (intento['revision'] != estado['revision']
+            or not re.fullmatch('[0-9a-f]{64}', anterior)
+            or hashlib.sha256(contenido).hexdigest() != siguiente
+            or (nuevo is not None and nuevo != intento['nuevo'])
+            or estado['entorno_modulos_sha256'] not in (anterior, siguiente)
+            or actual not in (anterior, siguiente)
+            or (estado['entorno_modulos_sha256'] == siguiente and actual != siguiente)):
+        fail('intento_entorno_divergente')
+    if actual == anterior:
+        copia.guardar(ruta, intento['nuevo'])
+    estado['entorno_modulos_sha256'] = siguiente
+    copia.guardar(raiz / 'estado.json', estado)
+
+
 def base_env():
     return {'PATH': os.environ['PATH'], 'HOME': os.environ['HOME'], 'LANG': 'C.UTF-8'}
 
@@ -213,17 +242,13 @@ def main_locked(a, r):
         fail('estado_portal_dentro_git')
     private_dir(r / 'material')
     copia = module(repo / 'deploy/principal/copia_local.py', 'copia_local_portal')
+    copia.verificar_fuente(state['revision'])
     equipo, instancia = r.name.split('-', 1)
     instancia_copia = copia.Copia(equipo, instancia)
     instancia_copia.validar_binario(state)
     if not a.solo_accesos_rrhh and not instancia_copia.proceso(state):
         fail('mantener_aplicacion_y_sellado_activos')
     env_path = r / 'entorno_modulos.json'
-    if copia.sha256(env_path) != state['entorno_modulos_sha256']:
-        fail('entorno_modificado')
-    environment = json.loads(private_file(env_path))
-    if a.sin_inscripcion and environment.get('VEC_BOLSA_INSCRIPCIONES_ENABLED') == 'true':
-        fail('clasificacion_con_inscripcion_previamente_activa')
     material = r / 'material'
     if not isinstance(state.get('creada_en'), (int, float)) or state['creada_en'] <= 0:
         fail('marca_de_copia_incompleta')
@@ -235,6 +260,13 @@ def main_locked(a, r):
     def comprobar_copia():
         return verificar_copia(instancia_copia, state, control_sid)
     comprobar_copia()
+    intento_entorno = work / 'entorno-intento.json'
+    publicar_entorno_retenido(copia, r, state, intento_entorno)
+    if copia.sha256(env_path) != state['entorno_modulos_sha256']:
+        fail('entorno_modificado')
+    environment = json.loads(private_file(env_path))
+    if a.sin_inscripcion and environment.get('VEC_BOLSA_INSCRIPCIONES_ENABLED') == 'true':
+        fail('clasificacion_con_inscripcion_previamente_activa')
     log = work / 'preparacion.log'
     if not log.exists():
         write(log, b'')
@@ -460,6 +492,7 @@ def main_locked(a, r):
     def provision_stage():
         binary = work / 'vec-provisionar-candidato-externo'
         if not binary.exists():
+            copia.verificar_fuente(state['revision'])
             build_env = dict(base_env(), GOPROXY='off', GOSUMDB='off', GOCACHE='/dev/shm/vec/go-build', GOTOOLCHAIN='local')
             invoke([go, 'build', '-p', '6', '-o', binary, './cmd/vec-provisionar-candidato-externo'],
                    log, env=build_env, cwd=repo)
@@ -576,6 +609,7 @@ ORDER BY vr.version DESC LIMIT 1"""
             helper = work / 'canon-asignacion'
             helper.mkdir(mode=0o700, exist_ok=True)
             build_env = dict(base_env(), GOTOOLCHAIN='local', GOPROXY='off', GOSUMDB='off', GOCACHE='/dev/shm/vec/go-build')
+            copia.verificar_fuente(state['revision'])
             invoke([go, 'build', '-p', '6', '-o', helper / 'canon-asignacion',
                     './deploy/principal/portal_copia/canon_asignacion'],
                    log, env=build_env, cwd=repo)
@@ -685,9 +719,7 @@ ORDER BY vr.version DESC LIMIT 1"""
         new_env = entorno_portal(environment, dsns, external, a.sin_inscripcion)
         if json.loads(private_file(env_path)) != environment or copia.sha256(env_path) != state['entorno_modulos_sha256']:
             fail('entorno_preimagen_cambio')
-        copia.guardar(env_path, new_env)
-        state['entorno_modulos_sha256'] = copia.sha256(env_path)
-        copia.guardar(r / 'estado.json', state)
+        publicar_entorno_retenido(copia, r, state, intento_entorno, new_env)
 
     step(work, 'entorno', config_stage)
     if a.sin_inscripcion and 'VEC_BOLSA_INSCRIPCIONES_ENABLED' in json.loads(private_file(env_path)):
