@@ -148,6 +148,28 @@ class PortalFabricaTest(unittest.TestCase):
         self.assertEqual(hijo.call_args.kwargs['pass_fds'], (7,))
         self.assertNotIn('VEC_BOLSA_INSCRIPCIONES_ENABLED', entorno)
 
+    def test_tecnica_rrhh_es_lectora_con_el_perfil_fijo_de_alta(self):
+        # Mismo vector que TestManifiestoLectorTecnicoDeLaCopiaCargaYCompone (Go).
+        sujeto, certificado = 'per_vector_tecnico', 'a' * 64
+        perfil = portal.perfil_lector_tecnico(sujeto, certificado)
+        self.assertEqual(perfil, 'prf_40c9ab032a57e021e5d044148feacb33')
+        self.assertNotEqual(perfil, portal.referencia_alta('prf_', sujeto, certificado, 'perfil'))
+        manifiesto = portal.manifiesto_lector_tecnico(sujeto, perfil)
+        self.assertEqual(manifiesto['autoridad'], 'no_autoritativo')
+        self.assertEqual(manifiesto['entradas'], [{
+            'certificate': 'mtls/cliente.crt', 'identity': 'identidad/identidad.json', 'subject': sujeto,
+            'perfil_ref': perfil, 'organizacion_ref': 'organizacion:desarrollo:dipgra',
+            'clase_ambito': 'organizacion', 'ambito_ref': 'organizacion:desarrollo:dipgra'}])
+
+    def test_material_rrhh_escribe_manifiesto_y_cuenta_con_el_mismo_perfil(self):
+        fuente = FUENTE.read_text()
+        etapa = fuente[fuente.index('    def rrhh_stage():'):fuente.index('    if a.solo_accesos_rrhh:')]
+        self.assertIn('perfil_lector_tecnico(sujeto, certificado)', etapa)
+        self.assertNotIn("('prf_', 'perfil')", etapa)
+        manifiesto = etapa.index("material / 'identidad/consultas-rrhh.json'")
+        self.assertLess(manifiesto, etapa.index('preparar_accesos_rrhh.py'))
+        self.assertIn("'perfil_ref': perfil", etapa)
+
 
 if __name__ == '__main__':
     unittest.main()
