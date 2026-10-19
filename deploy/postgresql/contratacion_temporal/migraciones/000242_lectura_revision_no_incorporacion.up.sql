@@ -101,7 +101,7 @@ BEGIN
     OR p.acl IS DISTINCT FROM
        '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC']
-    OR has_function_privilege('PUBLIC', 'vec_contratacion_temporal.consultar_cese_cierre_expediente_v1(text,text)', 'EXECUTE') THEN
+    OR has_function_privilege('public', 'vec_contratacion_temporal.consultar_cese_cierre_expediente_v1(text,text)', 'EXECUTE') THEN
   RAISE EXCEPTION 'CT242: ACL o postimagen incompatible' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;

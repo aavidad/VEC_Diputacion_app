@@ -210,3 +210,19 @@ test("el aviso de archivo de la no incorporación usa el idioma del panel y enfo
     assert.match(c.innerHTML, /Propose failure to take up post/u);
   } finally { quitar(); }
 });
+
+
+test("la revisión inglesa traduce el motivo recibido en castellano", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { general } = JSON.parse(await readFile(new URL("../../../textos/en/contratacion-temporal-seguimiento-cese.json", import.meta.url), "utf8"));
+  const mensajes = Object.fromEntries(Object.entries(general).map(([clave, valor]) => [`seguimiento_cese.${clave}`, valor]));
+  const c = contenedorFalso();
+  const quitar = montarPanelSeguimientoCese({ contenedor: c, contexto: { expediente_ref: EXP }, mensajes, soloNoIncorporacion: true,
+    cliente: { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta({
+      version_expediente: 9, fase_clave: "nombramiento", estado_clave: "en_curso", numero_expediente: "CT-2026-9", no_incorporacion_propuesta: propuesta,
+    }), EXP) } });
+  await esperar();
+  assert.match(c.innerHTML, /Does not attend at the specified time and place/u);
+  assert.doesNotMatch(c.innerHTML, /No se presenta/u);
+  quitar();
+});

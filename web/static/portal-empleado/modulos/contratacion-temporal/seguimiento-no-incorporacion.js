@@ -27,23 +27,25 @@ export function ofrecerPropuestaNoIncorporacion(estado, opciones) {
     && !estado.incorporacion && !estado.cese && !noIncorporacionVigente(estado);
 }
 
-function etiquetaMotivo(opciones, clave) {
+function etiquetaMotivo(opciones, clave, t) {
   const motivo = opciones?.no_incorporacion?.motivos?.find((m) => m.clave === clave);
-  return motivo ? motivo.etiqueta : clave;
+  const nombre = `no_incorporacion_motivo_${clave}`;
+  const traducida = t(nombre);
+  return traducida !== nombre ? traducida : (motivo ? motivo.etiqueta : t("no_incorporacion_motivo"));
 }
 
 /** Fila del resumen cuando consta la no incorporación o su propuesta. */
 export function filasNoIncorporacion(estado, opciones, t, fecha) {
   const n = noIncorporacionVigente(estado);
-  if (n) return [[t("no_incorporacion"), t("no_incorporacion_registrada", { motivo: etiquetaMotivo(opciones, n.motivo_clave), fecha: fecha(n.fecha_notificacion) })]];
+  if (n) return [[t("no_incorporacion"), t("no_incorporacion_registrada", { motivo: etiquetaMotivo(opciones, n.motivo_clave, t), fecha: fecha(n.fecha_notificacion) })]];
   const p = estado.no_incorporacion_propuesta;
-  if (p) return [[t("no_incorporacion"), t("no_incorporacion_propuesta_pendiente", { motivo: etiquetaMotivo(opciones, p.motivo_clave), fecha: fecha(p.fecha_notificacion) })]];
+  if (p) return [[t("no_incorporacion"), t("no_incorporacion_propuesta_pendiente", { motivo: etiquetaMotivo(opciones, p.motivo_clave, t), fecha: fecha(p.fecha_notificacion) })]];
   return [];
 }
 
 export function formularioNoIncorporacion({ opciones, t, escapar, deshabilitado }) {
   const regla = opciones.no_incorporacion;
-  const motivos = regla.motivos.map((m) => `<option value="${escapar(m.clave)}">${escapar(m.etiqueta)}</option>`).join("");
+  const motivos = regla.motivos.map((m) => `<option value="${escapar(m.clave)}">${escapar(etiquetaMotivo(opciones, m.clave, t))}</option>`).join("");
   const desactivado = deshabilitado === "disabled";
   // Con segunda persona nadie declara quién resuelve: lo resuelve quien confirma.
   const resuelta = regla.segunda_persona ? ""
@@ -74,7 +76,7 @@ export function formularioPropuestaNoIncorporacion({ estado, opciones, t, escapa
       <div class="ct-acciones"><button type="submit" class="${clase}" ${deshabilitado}>${escapar(t(boton))}</button></div></form>`;
   return `<section class="${revision ? "ct-seg-cese-revision" : "ct-seg-cese-form"}" aria-labelledby="ct-seg-no-inc-prop-titulo" data-ct-seg-propuesta>
       <${titulo} id="ct-seg-no-inc-prop-titulo">${escapar(t("no_incorporacion_propuesta_titulo"))}</${titulo}>
-      <dl class="ct-exp-fase-datos"><div><dt>${escapar(t("no_incorporacion_motivo"))}</dt><dd>${escapar(etiquetaMotivo(opciones, p.motivo_clave))}</dd></div>
+      <dl class="ct-exp-fase-datos"><div><dt>${escapar(t("no_incorporacion_motivo"))}</dt><dd>${escapar(etiquetaMotivo(opciones, p.motivo_clave, t))}</dd></div>
       <div><dt>${escapar(t("no_incorporacion_fecha"))}</dt><dd>${escapar(fecha(p.fecha_notificacion))}</dd></div>
       <div><dt>${escapar(t("no_incorporacion_resolucion"))}</dt><dd>${escapar(p.resolucion_ref)}</dd></div></dl>
       ${enlaceRevision ? `<a class="boton-secundario" href="${escapar(enlaceRevision)}">${escapar(t("revision_enlace"))}</a>` : ""}
