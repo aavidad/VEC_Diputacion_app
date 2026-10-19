@@ -3,6 +3,16 @@
 -- Desactiva solo las dos guardas de publicación V3 para aislar el trigger B129;
 -- no acredita autorización, firma ni publicación nominal del producto.
 BEGIN ISOLATION LEVEL SERIALIZABLE;
+CREATE TEMP TABLE prueba_b139_pares(
+ bolsa_ref text,participacion_a text,candidato_a text,participacion_b text,candidato_b text,
+ oferta_antes text,oferta_despues text,message_id_antes text
+) ON COMMIT DROP;
+CREATE TEMP TABLE prueba_b139_elegibles(bolsa_ref text,participacion_ref text,candidato_ref text) ON COMMIT DROP;
+CREATE TEMP TABLE prueba_b139_instantanea(participacion_ref text,message_id text) ON COMMIT DROP;
+CREATE TEMP TABLE prueba_b139_reclamo(participacion_ref text,message_id text,intento integer) ON COMMIT DROP;
+GRANT SELECT,INSERT,UPDATE ON prueba_b139_pares TO vec_bolsa_llamamientos_propietario;
+GRANT SELECT,INSERT ON prueba_b139_elegibles,prueba_b139_instantanea,prueba_b139_reclamo
+ TO vec_bolsa_llamamientos_propietario;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC';
@@ -18,16 +28,11 @@ BEGIN
 END $pre$;
 ALTER TABLE vec_bolsa_llamamientos.oferta_publicada DISABLE TRIGGER oferta_politica_b47;
 ALTER TABLE vec_bolsa_llamamientos.oferta_publicada DISABLE TRIGGER verificar_aceptacion_previa_oferta_b75;
-CREATE TEMP TABLE prueba_b139_pares(
- bolsa_ref text,participacion_a text,candidato_a text,participacion_b text,candidato_b text,
- oferta_antes text,oferta_despues text,message_id_antes text
-) ON COMMIT DROP;
-
 DO $focal$
 DECLARE r record;v_bolsa text;v_a record;v_b record;v_oferta text;v_i integer;
  v_candidato text;v_modalidades text[];v_version bigint;v_corte timestamptz:=clock_timestamp();
 BEGIN
- CREATE TEMP TABLE prueba_b139_elegibles ON COMMIT DROP AS
+ INSERT INTO prueba_b139_elegibles
  SELECT s.bolsa_ref,s.participacion_ref,vc.candidato_ref
  FROM vec_bolsa_llamamientos.situaciones_en_v1(v_corte) s
  JOIN vec_bolsa_llamamientos.vinculo_candidato vc ON vc.participacion_ref=s.participacion_ref
@@ -91,7 +96,7 @@ BEGIN
  UPDATE prueba_b139_pares SET message_id_antes=(SELECT message_id
   FROM vec_bolsa_llamamientos.aviso_oferta_destinatario
   WHERE oferta_ref=v_oferta AND participacion_ref=v_a.participacion_ref);
- CREATE TEMP TABLE prueba_b139_instantanea ON COMMIT DROP AS
+ INSERT INTO prueba_b139_instantanea
  SELECT participacion_ref,message_id FROM vec_bolsa_llamamientos.aviso_oferta_destinatario
  WHERE oferta_ref=v_oferta;
 
@@ -174,7 +179,6 @@ SELECT participacion_ref,message_id,intento FROM vec_bolsa_llamamientos.reclamar
  :'b139_oferta_antes',decode(repeat('11',32),'hex'),1) \gset reclamo_
 RESET SESSION AUTHORIZATION;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
-CREATE TEMP TABLE prueba_b139_reclamo(participacion_ref text,message_id text,intento integer) ON COMMIT DROP;
 INSERT INTO prueba_b139_reclamo VALUES(:'reclamo_participacion_ref',:'reclamo_message_id',:reclamo_intento);
 DO $reclamo$
 DECLARE r record;
