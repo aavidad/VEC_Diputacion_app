@@ -163,7 +163,7 @@ const CLAVES_ADICIONALES = Object.freeze({
     "llamamiento_oferta_recibo_descarte", "llamamiento_oferta_descartada_sin_publicar",
     "llamamiento_preparar_nueva_oferta", "llamamiento_confirmacion_nueva_oferta",
     "llamamiento_comprobacion_pendiente", "llamamiento_comprobacion_version",
-    "llamamiento_comprobacion_ver_bolsa",
+    "llamamiento_comprobacion_ver_bolsa", "llamamiento_comprobacion_comprobar",
     "llamamiento_comunicaciones_respuesta_aviso_pendiente", "llamamiento_comunicaciones_respuesta_aviso_anotado",
     "llamamiento_seleccion_pendiente_aviso",
     "llamamiento_continuar_aviso",

@@ -34,11 +34,15 @@ var rutasSoloExterno = rutasPortal{
 	exactas: []string{
 		"/area-personal",
 		"/api/vec/bolsa/area-personal",
+		"/api/vec/bolsa/inscripciones/convocatorias-abiertas",
+		"/api/vec/bolsa/inscripciones/propias",
 		"/api/vec/usuarios/contacto-propio",
 	},
 	prefijos: []string{
 		"/area-personal/",
 		"/api/vec/bolsa/area-personal/",
+		"/api/vec/bolsa/inscripciones/convocatorias-abiertas/",
+		"/api/vec/bolsa/inscripciones/propias/",
 		"/api/vec/bolsa/mi-",
 		"/api/vec/bolsa/mis-",
 		"/api/vec/usuarios/area-personal/",

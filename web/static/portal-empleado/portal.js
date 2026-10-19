@@ -1103,6 +1103,7 @@ function navegar(vista, opciones = {}) {
     estado.llamamientoDesdeCT = false;
     estado.origenLlamamientoB7 = null;
   }
+  if (vista !== "bolsa-candidatos") estado.comprobacionOfrecimiento = null;
   const hash = rutaDeVista(vista);
   if (vistaNecesitaBolsa(estado.vista) && !vistaNecesitaBolsa(vista)) {
     generacionCuadroBolsas += 1;
@@ -1480,8 +1481,13 @@ function aplicarRutaCandidatosBolsa() {
     ...(filtro.seguimiento ? { seguimiento: { llamamiento_ref: filtro.seguimiento, bolsa_ref: filtro.bolsaRef } } : {}) };
   // El origen de una petición de personal vive fuera de los filtros: el asistente lo copia al iniciarse.
   estado.origenLlamamientoB7 = filtro.origen ? Object.freeze({ ...filtro.origen, bolsa_ref: filtro.bolsaRef }) : null;
+  // Comprobación pendiente propuesta desde la selección CT: la ficha la ofrece a esa persona.
+  estado.comprobacionOfrecimiento = filtro.comprobacion ?? null;
   estado.datosCandidatos = null;
   const carga = controladorBolsas.cargarCandidatosBolsa(filtro.bolsaRef, { enfocarDestino: true });
+  if (filtro.comprobacion) {
+    void carga.then(() => controladorBolsas.abrirComprobacionOfrecimiento()).then((aviso) => { if (aviso) anunciar(aviso); });
+  }
   if (filtro.origen && !filtro.seguimiento) {
     void carga.then(() => {
       if (estado.vista !== "bolsa-candidatos" || estado.bolsaSeleccionada !== filtro.bolsaRef
@@ -2176,6 +2182,7 @@ function instalarEnlacesBolsa() {
       estado.filtrosBolsa = { estado: "", texto: "" };
       estado.datosCandidatos = null;
       estado.origenLlamamientoB7 = null;
+      estado.comprobacionOfrecimiento = null;
       rutaCandidatosAplicada = null;
       const ruta = `${destino.pathname}${destino.search}${destino.hash}`;
       if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
@@ -2190,6 +2197,7 @@ function instalarEnlacesBolsa() {
         : esHistoricoCT ? { pestana: "historico" } : {}) };
     estado.datosCandidatos = null;
     estado.origenLlamamientoB7 = null;
+    estado.comprobacionOfrecimiento = null;
     rutaCandidatosAplicada = null;
     const ruta = `${destino.pathname}${destino.search}${destino.hash}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
