@@ -8,6 +8,8 @@
     "ficha_expediente_numero": "Case {numero}",
     "ficha_siguiente_paso_fase": "Next step: {fase}",
     "ficha_siguiente_paso_fiscalizacion_intervencion": "Intervention must record the audit result. Once it does, the next step will appear here.",
+    "ficha_siguiente_paso_fiscalizacion_favorable_titulo": "Next step: call-up",
+    "ficha_siguiente_paso_fiscalizacion_favorable_que": "The favourable audit result has been recorded. Continue in the “Call-up” section of this case file.",
     "ficha_siguiente_paso_espera": "Waiting for another unit",
     "ficha_siguiente_paso_terminado": "Case finished",
     "ficha_siguiente_paso_cobertura_titulo": "Next step: choose the recruitment route",
@@ -171,6 +173,7 @@
     "resultado_bolsa_contacto_numero_erroneo": "Wrong number",
     "resultado_bolsa_contacto_no_entregado": "Email not delivered",
     "resultado_bolsa_contacto_entrega_declarada": "Delivery recorded by HR",
-    "resultado_bolsa_revisar": "Review the call-up in Job pools"
+    "resultado_bolsa_revisar": "Review the call-up in Job pools",
+    "firmas_historicas_error": "Earlier signatures cannot be shown. Reopen the case."
   }
 }

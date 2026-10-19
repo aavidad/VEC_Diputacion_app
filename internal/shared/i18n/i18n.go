@@ -101,10 +101,6 @@ func (c *Catalog) T(locale, key string) string {
 	return message
 }
 
-func (c *Catalog) Translate(locale, key string) string {
-	return c.T(locale, key)
-}
-
 func (c *Catalog) Message(locale, key string) (string, bool) {
 	if c == nil {
 		return "", false
@@ -117,10 +113,6 @@ func (c *Catalog) Message(locale, key string) (string, bool) {
 		return message, true
 	}
 	return c.messageFor(c.defaultLocale, key)
-}
-
-func (c *Catalog) Lookup(locale, key string) (string, bool) {
-	return c.Message(locale, key)
 }
 
 func (c *Catalog) DefaultLocale() string {

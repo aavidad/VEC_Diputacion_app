@@ -1,0 +1,12 @@
+{
+  "esquema": "vec.ci.esquema-base.v1",
+  "referencia": "HZ37",
+  "postgresql": "18",
+  "solo_esquema": true,
+  "sin_datos": true,
+  "sin_comentarios": true,
+  "sha256_sql": "5f69b0dc420e2e3cd7502da008892df9ad5bca1b873abfb99d6082102227b2ee",
+  "sha256_gzip": "838def8e78e2b61aefe1eb18656528a5057830a6d01a8ab154cc18c241409c32",
+  "bytes_sql": 13452812,
+  "bytes_gzip": 1488543
+}

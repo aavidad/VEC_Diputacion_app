@@ -143,6 +143,7 @@ const (
 	AccionIntentoRegistrarDatosContactoParticipacion AccionIntentoBorradorLlamamiento = "registrar_datos_contacto"
 	AccionIntentoEmitirLlamamiento                   AccionIntentoBorradorLlamamiento = "emitir_llamamiento"
 	AccionIntentoRecuperarLlamamiento                AccionIntentoBorradorLlamamiento = "recuperar_llamamiento"
+	AccionIntentoRegistrarComprobacionOfrecimiento   AccionIntentoBorradorLlamamiento = "registrar_comprobacion_ofrecimiento"
 )
 
 type ClaseRutaIntentoBorradorLlamamiento string
@@ -154,6 +155,7 @@ const (
 	ClaseRutaContactosParticipacion       ClaseRutaIntentoBorradorLlamamiento = "contactos"
 	ClaseRutaDatosContactoParticipacion   ClaseRutaIntentoBorradorLlamamiento = "datos_contacto"
 	ClaseRutaEmisionesLlamamiento         ClaseRutaIntentoBorradorLlamamiento = "emisiones"
+	ClaseRutaComprobacionOfrecimiento     ClaseRutaIntentoBorradorLlamamiento = "comprobacion_ofrecimiento"
 )
 
 type ResultadoIntentoBorradorLlamamiento string
@@ -176,9 +178,12 @@ type IntentoBorradorLlamamiento struct {
 }
 
 func (i IntentoBorradorLlamamiento) Validar() error {
+	if (i.Accion == AccionIntentoRegistrarComprobacionOfrecimiento) != (i.ClaseRuta == ClaseRutaComprobacionOfrecimiento) {
+		return ErrSolicitudBorradorLlamamientoInvalida
+	}
 	if i.Correlacion.Validar() != nil ||
-		(i.Accion != AccionIntentoCrearBorradorLlamamiento && i.Accion != AccionIntentoConsultarBorradorLlamamiento && i.Accion != AccionIntentoCambiarSituacionParticipacion && i.Accion != AccionIntentoRegistrarContactoParticipacion && i.Accion != AccionIntentoConsultarDatosContactoParticipacion && i.Accion != AccionIntentoRegistrarDatosContactoParticipacion && i.Accion != AccionIntentoEmitirLlamamiento && i.Accion != AccionIntentoRecuperarLlamamiento) ||
-		(i.ClaseRuta != ClaseRutaColeccionBorradorLlamamiento && i.ClaseRuta != ClaseRutaDetalleBorradorLlamamiento && i.ClaseRuta != ClaseRutaSituacionParticipacion && i.ClaseRuta != ClaseRutaContactosParticipacion && i.ClaseRuta != ClaseRutaDatosContactoParticipacion && i.ClaseRuta != ClaseRutaEmisionesLlamamiento) ||
+		(i.Accion != AccionIntentoCrearBorradorLlamamiento && i.Accion != AccionIntentoConsultarBorradorLlamamiento && i.Accion != AccionIntentoCambiarSituacionParticipacion && i.Accion != AccionIntentoRegistrarContactoParticipacion && i.Accion != AccionIntentoConsultarDatosContactoParticipacion && i.Accion != AccionIntentoRegistrarDatosContactoParticipacion && i.Accion != AccionIntentoEmitirLlamamiento && i.Accion != AccionIntentoRecuperarLlamamiento && i.Accion != AccionIntentoRegistrarComprobacionOfrecimiento) ||
+		(i.ClaseRuta != ClaseRutaColeccionBorradorLlamamiento && i.ClaseRuta != ClaseRutaDetalleBorradorLlamamiento && i.ClaseRuta != ClaseRutaSituacionParticipacion && i.ClaseRuta != ClaseRutaContactosParticipacion && i.ClaseRuta != ClaseRutaDatosContactoParticipacion && i.ClaseRuta != ClaseRutaEmisionesLlamamiento && i.ClaseRuta != ClaseRutaComprobacionOfrecimiento) ||
 		(i.ActorVerificado != "" && !patronActorIntentoBorradorLlamamiento.MatchString(i.ActorVerificado)) ||
 		(i.Resultado != ResultadoIntentoAutenticacionRequeridaBorradorLlamamiento &&
 			i.Resultado != ResultadoIntentoAccesoDenegadoBorradorLlamamiento &&

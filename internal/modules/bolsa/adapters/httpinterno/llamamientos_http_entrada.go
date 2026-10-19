@@ -126,8 +126,18 @@ func entradaPropuestaLlamamientoDesdePeticion(
 	return EntradaPreparacionPropuestaLlamamientoInterno{NecesidadRef: datos.NecesidadID}, nil
 }
 
-func decodificarCuerpoLlamamiento(w http.ResponseWriter, r *http.Request, destino any) error {
-	lector := http.MaxBytesReader(w, r.Body, maximoCuerpoSolicitudLlamamientoBytes+1)
+func decodificarCuerpoLlamamiento(w http.ResponseWriter, r *http.Request, destino any, limites ...int64) error {
+	maximo := int64(maximoCuerpoSolicitudLlamamientoBytes)
+	if len(limites) > 1 {
+		return errEntradaLlamamientoInvalida
+	}
+	if len(limites) == 1 {
+		if limites[0] < 1 || limites[0] > 16*1024 {
+			return errEntradaLlamamientoInvalida
+		}
+		maximo = limites[0]
+	}
+	lector := http.MaxBytesReader(w, r.Body, maximo+1)
 	contenido, err := io.ReadAll(lector)
 	if err != nil {
 		var demasiadoGrande *http.MaxBytesError
@@ -139,8 +149,11 @@ func decodificarCuerpoLlamamiento(w http.ResponseWriter, r *http.Request, destin
 	if len(contenido) == 0 {
 		return errEntradaLlamamientoInvalida
 	}
-	if len(contenido) > maximoCuerpoSolicitudLlamamientoBytes {
+	if int64(len(contenido)) > maximo {
 		return errEntradaLlamamientoDemasiadoGrande
+	}
+	if len(limites) == 1 && int64(len(contenido)) != r.ContentLength {
+		return errEntradaLlamamientoInvalida
 	}
 	if !utf8.Valid(contenido) {
 		return errEntradaLlamamientoInvalida

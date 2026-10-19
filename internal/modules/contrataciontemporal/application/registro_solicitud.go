@@ -42,6 +42,11 @@ type SolicitudRegistrarExpediente struct {
 }
 
 const EsquemaAltaNecesidadV1 = ports.EsquemaAltaNecesidadV1
+const EsquemaAltaNecesidadV2 = ports.EsquemaAltaNecesidadV2
+
+func esquemaAltaConNecesidad(esquema string) bool {
+	return esquema == EsquemaAltaNecesidadV1 || esquema == EsquemaAltaNecesidadV2
+}
 
 // claveFinAltaConfirmada sólo existe dentro de aplicación: ni HTTP ni un
 // llamador de otro paquete pueden insertar una confirmación en el contexto.
@@ -255,7 +260,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	if solicitud.EsquemaAlta == EsquemaAltaNecesidadV1 {
+	if esquemaAltaConNecesidad(solicitud.EsquemaAlta) {
 		sellada, err := s.prepararNecesidadAlta(
 			ctx, *solicitud.NecesidadEntrada, ambitosHMAC,
 			solicitud.OrganizacionRef, vinculo.PrincipalID, vinculo.PerfilActivoRef,
@@ -265,6 +270,11 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		}
 		solicitudCentro.Periodo = sellada.Periodo
 		solicitudCentro.Necesidad = &sellada
+		if solicitud.EsquemaAlta == EsquemaAltaNecesidadV2 {
+			if err := completarCantidadAltaNecesidadV2(&solicitudCentro, &sellada); err != nil {
+				return ports.ReciboAlta{}, err
+			}
+		}
 		if solicitudCentro.Validar() != nil {
 			return ports.ReciboAlta{}, ErrSolicitudRegistroInvalida
 		}
@@ -298,7 +308,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		}
 	}
 	ctxFlujo := ctx
-	if solicitud.EsquemaAlta == EsquemaAltaNecesidadV1 {
+	if esquemaAltaConNecesidad(solicitud.EsquemaAlta) {
 		ctxFlujo, err = contextoNecesidadAltaValidada(ctx, solicitud.OrganizacionRef, solicitudCentro.Necesidad)
 		if err != nil {
 			return ports.ReciboAlta{}, err
@@ -690,7 +700,7 @@ func validarSolicitudRegistro(
 		if solicitud.NecesidadEntrada != nil {
 			return ErrSolicitudRegistroInvalida
 		}
-	case EsquemaAltaNecesidadV1:
+	case EsquemaAltaNecesidadV1, EsquemaAltaNecesidadV2:
 		d := solicitud.NecesidadEntrada
 		if d == nil || !domain.NumeroExpedienteValido(solicitud.NumeroExpedienteMOAD) ||
 			d.Esquema != "vec.ct.necesidad_alta.v1" ||
