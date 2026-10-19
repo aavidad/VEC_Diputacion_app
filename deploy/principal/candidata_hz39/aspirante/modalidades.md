@@ -28,11 +28,15 @@ El ensayo sacó dos fallos, ya corregidos en esta PR:
 - AUT104 exigía un orden de concesiones que no coincide con la versión 1 publicada. Eso impedía cualquier versión nueva del rol. Ahora compara las siete concesiones de la versión 1 como conjunto exacto.
 - B138 concede la escritura de modalidades al grupo del portal externo, y el arranque de Mi Bolsa exige la lista exacta de funciones de ese grupo. Sin ajustar ese cotejo, la aplicación no arrancaba. Ahora admite esa función solo con su firma exacta, sin acceso público y junto a las tres funciones de preferencias.
 
-Antes de activar las modalidades (PR3) hay que resolver:
+## Parte 2: servicio y persistencia (19/10/2026)
 
-1. La decisión emitida para guardar modalidades comparte acción y audiencia con el guardado del orden de bolsas, y las funciones de ese guardado (B104 y B116) no recalculan la huella del contexto. Una migración nueva debe hacer que las dos la recalculen, o separar las audiencias.
-2. La fila de auditoría de la lectura debe decir qué proyección se leyó (ocho o cinco campos), con un motivo propio o una columna.
-3. PR2 debe sacar las modalidades disponibles del catálogo gobernado; SQL solo comprueba su forma. Las lecturas de cinco campos devuelven `modalidades_disponibles` vacío y PR2 o PR3 deben rellenarlo.
-4. La fuente v2 vence el 16 de enero de 2027, antes que la v1. Si esa fecha fija la vigencia de la versión del rol, todas las acciones de Mi Bolsa vencerían ese día; hay que confirmarlo al publicar.
+El servidor ya tiene el servicio de guardado y el de lectura de modalidades, con sus adaptadores de PostgreSQL. Ninguno está montado todavía en una ruta: eso es la parte 3.
+
+- Las modalidades disponibles salen del catálogo de reglas de Contratación temporal (`c12.modalidad.*`), con su versión y su huella. Si el catálogo no responde o no tiene modalidades, el servicio falla y no inventa opciones. La lectura rellena `modalidades_disponibles` con ese catálogo; SQL sigue devolviendo la lista vacía.
+- El guardado calcula la huella de la selección y del catálogo antes de pedir la decisión, y la liga al recurso. `null` (todas) y `[]` (ninguna) dan huellas distintas. Repetir la misma clave devuelve el mismo recibo aunque una modalidad se haya retirado del catálogo después.
+- B143 cierra el primer punto pendiente de la parte 1: el guardado del orden de bolsas (B104 y B116) vuelve a calcular la huella de su contexto fijo. Una decisión emitida para modalidades ya no sirve para cambiar el orden de bolsas.
+- AD300 cierra el segundo: la fila de auditoría de una lectura lleva `lectura_preferencias_modalidades_correcta` cuando se leen los cinco campos y `lectura_preferencias_bolsas_correcta` cuando se leen los ocho. La fachada rechaza cualquier otro par. Las dos migraciones van al final de la lista única, después de B138.
+
+Queda por confirmar la vigencia. La versión del rol toma como fin de vigencia el más temprano de sus entradas, así que, si se publica con la fuente v2, todas las acciones de Mi Bolsa vencen el 16 de enero de 2027. La fuente v2 fija 90 días a propósito y su prueba lo comprueba. Antes de esa fecha hay que publicar una fuente nueva; si dirección prefiere otra fecha, se cambia la fuente antes de admitirla, porque todavía no está admitida.
 
 Sigue sin acreditar: la fuente v2 admitida, la versión del rol publicada, el GET/PUT de modalidades con recibo y reinicio, y el recorrido en Chrome. Cuando lleguen, el ensayo debe comprobar con datos ficticios que `null` muestra todas las modalidades, que `[]` oculta las ofertas abiertas sin respuesta y con modalidad identificada, que una clave desconocida se rechaza y que una repetición conserva versión, recibo y fecha tras reiniciar. Después hay que contrastar la vista y los avisos con las ofertas publicadas, sin alterar la inscripción, la posición en bolsa ni el llamamiento directo. Un fallo de configuración debe cerrar solo esta función y dejar disponible el resto de Mi Bolsa.

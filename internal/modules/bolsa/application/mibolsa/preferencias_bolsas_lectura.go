@@ -302,7 +302,7 @@ func capturarLecturaPreferencias(ctx context.Context, orden Orden,
 		Accion:              bolsa.AccionConsultarPreferenciasBolsas, ModuloID: bolsa.ModuloMiBolsa,
 		RecursoRef: "mi-bolsa:" + candidato, CandidatoRef: candidato, TipoRecurso: bolsa.TipoRecursoMiBolsa,
 		FinalidadRef: bolsa.FinalidadPreferenciasBolsas, CamposPermitidos: slices.Clone(campos),
-		Resultado: "obtenida", MotivoRef: "lectura_preferencias_bolsas_correcta", Proceso: "vec-server",
+		Resultado: "obtenida", MotivoRef: motivoLecturaPreferencias(campos), Proceso: "vec-server",
 		Canal: string(datos.Superficie), CorrelacionRef: correlacion,
 		LecturaRevisionPermisos: strconv.FormatUint(e.RevisionPermisos, 10), LecturaInstantaneaSHA256: e.HuellaInstantaneaSHA256,
 		AsignacionRef: e.AsignacionRef, AsignacionVersion: e.AsignacionVersion, AsignacionHuellaSHA256: e.AsignacionHuellaSHA256,
@@ -317,4 +317,13 @@ func capturarLecturaPreferencias(ctx context.Context, orden Orden,
 		return vacia, bolsa.ErrPreferenciasNoDisponibles
 	}
 	return bolsa.NuevaCapturaLecturaPreferencias(candidato, correlacion, contexto, vinculo, ordenJSON, limite), nil
+}
+
+// motivoLecturaPreferencias deja en la fila de auditoría qué proyección se
+// leyó. AD300 exige este mismo par entre campos y motivo.
+func motivoLecturaPreferencias(campos []string) string {
+	if slices.Equal(campos, bolsa.CamposLecturaPreferenciasModalidades()) {
+		return "lectura_preferencias_modalidades_correcta"
+	}
+	return "lectura_preferencias_bolsas_correcta"
 }

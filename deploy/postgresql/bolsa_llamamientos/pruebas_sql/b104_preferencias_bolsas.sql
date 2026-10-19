@@ -119,6 +119,8 @@ SET LOCAL statement_timeout='15s';
 
 DO $contrato$
 DECLARE v_candidato text:='can_AAAAAAAAAAAAAAAAAAAAAA';
+ -- B143: la huella de la decisión es la del contexto fijo de Ordenar.
+ v_huella text:=encode(sha256(convert_to('{"ambitos":{"candidato_ref":"can_AAAAAAAAAAAAAAAAAAAAAA"},"atributos":{"propiedad":"candidato"}}','UTF8')),'hex');
  v_ajeno text:='can_BBBBBBBBBBBBBBBBBBBBBB';
  c jsonb; d jsonb; x jsonb; r record; v_recibo text; v_fecha timestamptz;
  v_sqlstate text;
@@ -126,13 +128,13 @@ BEGIN
  d:=jsonb_build_object('accion','bolsa.preferencias_bolsas.ordenar_propias',
   'modulo_id','bolsa','tipo_recurso','participaciones_candidato',
   'finalidad','gestion_preferencias_bolsas_propias','recurso_ref','mi-bolsa:'||v_candidato,
-  'contexto_recurso_huella_sha256',repeat('a',64),'campos_permitidos','[]'::jsonb,
+  'contexto_recurso_huella_sha256',v_huella,'campos_permitidos','[]'::jsonb,
   'obligaciones','[]'::jsonb);
  x:=jsonb_build_object('vinculos',jsonb_build_array(jsonb_build_object(
   'tipo','candidato','estado','activo','referencia',v_candidato)));
  c:=jsonb_build_object('operacion','bolsa.preferencias_bolsas.ordenar_propias',
   'audiencia_consumo','vec.bolsa.preferencias-bolsas.ordenar.v1',
-  'efecto_ref','mi-bolsa:'||v_candidato,'huella_efecto_sha256',repeat('a',64),
+  'efecto_ref','mi-bolsa:'||v_candidato,'huella_efecto_sha256',v_huella,
   'decision_ref','decision:preferencias:1');
  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.ordenar_preferencias_bolsas_v1(
   v_candidato,ARRAY['bolsa:b','bolsa:a'],0,'clave-prueba-cas-1',clock_timestamp(),
