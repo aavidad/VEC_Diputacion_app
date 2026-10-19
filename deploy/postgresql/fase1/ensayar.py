@@ -21,14 +21,16 @@ D15_SQL = 'deploy/postgresql/documentos/migraciones/000015_rechazo_expediente_ct
 PRUEBAS_SQL = (
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b144_ambito_gobernado_bolsa.sql',
-    'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b145_ambito_actos_bolsa.sql',
     'deploy/postgresql/documentos/pruebas_sql/000014_referencia_expediente_tipado.sql',
     'deploy/postgresql/documentos/pruebas_sql/000015_rechazo_expediente_ct_cero.sql',
     'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql',
     'deploy/postgresql/identidad_sesiones_v1/pruebas_sql/000021_seleccion_perfil_bolsa_rrhh.sql',
     'deploy/postgresql/contexto_actor_v1/pruebas_sql/000046_perfiles_propios_bolsa_rrhh.sql',
     'deploy/postgresql/bolsa_convocatorias/pruebas_sql/bc12_rechazo_inscripcion_conjunta_v1.sql',
+    'deploy/postgresql/bolsa_convocatorias/pruebas_sql/bc14_publicacion_oficial_bases.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b142_modalidad_inscripcion_aspirante.sql',
+    'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b146_solicitud_conjunta.sql',
+    'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b145_ambito_actos_bolsa.sql',
     # El último caso es el fixture de la concurrencia de contexto externo.
     'deploy/postgresql/contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql',
 )

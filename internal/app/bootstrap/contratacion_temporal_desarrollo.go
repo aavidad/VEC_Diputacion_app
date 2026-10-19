@@ -73,7 +73,6 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
 	cuentasInternasJustificanteRRHH                  map[string]cuentaNominalJustificanteRRHH
-	soportesLectoresDocumentosBolsa                  map[string]*soporteAltaContratacionTemporalDesarrollo
 	soporteDocumentosBolsa                           *soporteAltaContratacionTemporalDesarrollo
 	poolDocumentosBolsa                              *pgxpool.Pool
 	prepararOriginal                                 func(*autoridadDocumentosDesarrollo, *seudonimizadorAlmacenDesarrollo) ([]vechttp.RutaExacta, error)
@@ -743,11 +742,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil || (auditoriaActiva && (!cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas())) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
 	}
-	lectoresDeclarados := resolvedorDesarrollo.lectoresConsultaRRHH()
-	lectoresConsulta := make([]string, 0, len(lectoresDeclarados))
-	for _, lector := range lectoresDeclarados {
-		lectoresConsulta = append(lectoresConsulta, lector.perfilRef)
-	}
+	lectoresConsulta := perfilesLectoresConsultaRRHHDesarrollo(resolvedorDesarrollo.lectoresConsultaRRHH())
 	perfilesConsulta := perfilesConsultaContratacionTemporalDesarrollo(perfilCTCatalogo, lectoresConsulta)
 	if firmaVecActiva {
 		for _, firmante := range configuracionFirmaVec.Firmantes {
@@ -1588,12 +1583,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			}
 		}
 	}
-	var soportesDocumentos map[string]*soporteAltaContratacionTemporalDesarrollo
-	if lectores, ok := consultasRRHH.cuadroHTTP.(*multiplexoresLectoresRRHHDesarrollo); ok {
-		soportesDocumentos = lectores.soportes
-	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
-		soportesLectoresDocumentosBolsa:                  soportesDocumentos,
 		soporteDocumentosBolsa:                           alta.soporte,
 		poolDocumentosBolsa:                              alta.postgresql.bolsa,
 		sello:                                            sello,

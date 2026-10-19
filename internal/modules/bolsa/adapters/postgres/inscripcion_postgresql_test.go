@@ -177,6 +177,22 @@ func TestInscripcionProyeccionAbiertaListaYDetalle(t *testing.T) {
 	if err := validarBolsaAbiertaInscripcion(base, true); err != nil {
 		t.Fatalf("el detalle completo fue rechazado: %v", err)
 	}
+	base.SolicitudesPropias = []inscripcion.SolicitudPropiaCategoria{
+		{CategoriaRef: "categoria:a", SolicitudRef: "solicitud_inscripcion_a", Estado: "pendiente"},
+		{CategoriaRef: "categoria:b", SolicitudRef: "solicitud_inscripcion_b", Estado: "pendiente"},
+	}
+	if err := validarBolsaAbiertaInscripcion(base, true); err != nil {
+		t.Fatalf("las solicitudes propias por categoría fueron rechazadas: %v", err)
+	}
+	base.SolicitudesPropias[1].CategoriaRef = "categoria:c"
+	if err := validarBolsaAbiertaInscripcion(base, true); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("solicitud propia de categoría no publicada aceptada: %v", err)
+	}
+	base.SolicitudesPropias[1].CategoriaRef = "categoria:a"
+	if err := validarBolsaAbiertaInscripcion(base, true); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("solicitud propia repetida aceptada: %v", err)
+	}
+	base.SolicitudesPropias = nil
 	base.Categorias[1] = base.Categorias[0]
 	if err := validarBolsaAbiertaInscripcion(base, true); !errors.Is(err, inscripcion.ErrNoDisponible) {
 		t.Fatalf("el detalle duplicó una categoría: %v", err)
@@ -249,6 +265,7 @@ func TestInscripcionErrorPostgreSQLConservaCausaNominalSinTextoSQL(t *testing.T)
 		{"B9606", inscripcion.ErrRequisitoInvalido},
 		{"B9607", inscripcion.ErrNoDisponible},
 		{"B9608", inscripcion.ErrModalidadConjuntaPendiente},
+		{"B9609", inscripcion.ErrModalidadSeparada},
 		{"B9701", inscripcion.ErrVinculoIdentidadPendiente},
 		{"B9702", inscripcion.ErrActaNoDisponible},
 		{"B9703", inscripcion.ErrConflicto},

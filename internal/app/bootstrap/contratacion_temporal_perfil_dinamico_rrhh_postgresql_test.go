@@ -339,7 +339,7 @@ func soporteLectorRRHHPostgreSQLPrueba(t *testing.T, ctx context.Context, pool *
 		}
 		return i
 	}
-	s.lectorConsultasRRHH, s.tecnicoConsultaRRHH = true, false
+	s.lectorConsultasRRHH = true
 	s.instantaneaCuadroRRHH = nueva("consulta_cuadro_rrhh_desarrollo", "Consulta de bandeja de desarrollo", ports.AccionConsultarCuadroRRHH, ports.FinalidadConsultarCuadroRRHH, ports.TipoRecursoCuadroRRHH)
 	s.instantaneaDetalleRRHH = nueva("consulta_detalle_rrhh_desarrollo", "Consulta de expediente de desarrollo", ports.AccionConsultarDetalleRRHH, ports.FinalidadConsultarDetalleRRHH, ports.TipoRecursoExpediente)
 	return s

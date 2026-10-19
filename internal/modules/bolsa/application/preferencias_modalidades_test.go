@@ -149,3 +149,18 @@ func TestHuellaSolicitudPreferenciasModalidadesRechazos(t *testing.T) {
 		})
 	}
 }
+
+// Los candidatos externos provisionados llevan 32 hexadecimales tras «can_»;
+// B138 y AUT104 los admiten (22 a 128 caracteres) y la huella también.
+func TestHuellaSolicitudPreferenciasModalidadesAdmiteCandidatoExterno(t *testing.T) {
+	for _, candidato := range []string{"can_" + strings.Repeat("b", 32), "can_" + strings.Repeat("c", 22), "can_" + strings.Repeat("d", 128)} {
+		if _, err := HuellaSolicitudPreferenciasModalidades(candidato, 0, []string{}, opcionesModalidadesPrueba()); err != nil {
+			t.Fatalf("candidato %d caracteres rechazado: %v", len(candidato), err)
+		}
+	}
+	for _, candidato := range []string{"can_" + strings.Repeat("b", 21), "can_" + strings.Repeat("d", 129), "per_" + strings.Repeat("b", 32), "can_b/" + strings.Repeat("b", 30)} {
+		if _, err := HuellaSolicitudPreferenciasModalidades(candidato, 0, nil, opcionesModalidadesPrueba()); !errors.Is(err, ports.ErrOrdenPreferenciasInvalido) {
+			t.Fatalf("candidato %q aceptado: %v", candidato, err)
+		}
+	}
+}

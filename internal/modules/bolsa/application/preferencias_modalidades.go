@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strconv"
 
-	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
@@ -15,6 +14,11 @@ import (
 const dominioHuellaPreferenciasModalidades = "vec.bolsa.preferencias-modalidades.v1"
 
 var clavePreferenciaModalidad = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,79}$`)
+
+// Mismo formato que B138 (candidato_ref) y que el recurso «mi-bolsa:» de
+// AUT104. La referencia de constitución (43 caracteres) es más estrecha y
+// rechazaba a los candidatos externos provisionados con 32 hexadecimales.
+var candidatoPreferenciasModalidades = regexp.MustCompile(`^can_[A-Za-z0-9_-]{22,128}$`)
 
 // HuellaSolicitudPreferenciasModalidades fija la selección y la instantánea
 // gobernada que el servidor ligará al recurso de autorización V3. El orden de
@@ -24,7 +28,7 @@ var clavePreferenciaModalidad = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,79}$`)
 func HuellaSolicitudPreferenciasModalidades(candidato string, version uint64,
 	seleccion []string, disponibles []ports.ModalidadPreferencia,
 ) (string, error) {
-	if !constitucion.ReferenciaCandidatoValida(candidato) || version >= 2147483647 || len(seleccion) > 256 {
+	if !candidatoPreferenciasModalidades.MatchString(candidato) || version >= 2147483647 || len(seleccion) > 256 {
 		return "", ports.ErrOrdenPreferenciasInvalido
 	}
 	if len(disponibles) < 1 || len(disponibles) > 256 {

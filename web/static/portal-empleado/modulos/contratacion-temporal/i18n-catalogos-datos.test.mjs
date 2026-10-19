@@ -170,7 +170,10 @@ const CLAVES_ADICIONALES = Object.freeze({
   ],
   "i18n-textos-vistas.js": ["motivo_sustitucion"],
   "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
-    "necesidades_alta_no_disponibles_detalle"],
+    "necesidades_alta_no_disponibles_detalle",
+    // F1-89: orientación de la ficha tras preparar el informe jurídico.
+    "ficha_siguiente_paso_informe_titulo", "ficha_siguiente_paso_informe_que",
+    "ficha_siguiente_paso_informe_quien", "ficha_siguiente_paso_intervencion_quien"],
 });
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");
