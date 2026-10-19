@@ -1,10 +1,13 @@
 \set ON_ERROR_STOP on
 -- BC13 (F1-41): comprobación de publicación para la solicitud conjunta.
--- Función nueva, copia de la comprobación instalada por BC12 con tres cambios:
+-- Función nueva, copia de la comprobación instalada (BC12 y BC14) con tres
+-- cambios:
 -- exige la modalidad conjunta sellada (ausente o separada: B9609, distinto
 -- del B9608 de BC12), recibe la lista ordenada de categorías elegidas y la
 -- devuelve como seleccionadas.
--- BC9/BC12 quedan intactas. Sin tablas, datos ni DOWN; no se reaplica.
+-- Exige, como BC14, la publicación oficial declarada de las bases y su
+-- coherencia con el plazo. BC9/BC12/BC14 quedan intactas.
+-- Sin tablas, datos ni DOWN; no se reaplica.
 BEGIN;
 SET LOCAL ROLE vec_bolsa_convocatorias_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -22,12 +25,14 @@ BEGIN
  OR to_regprocedure('vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_conjunta_v1(text,jsonb)') IS NOT NULL
  OR to_regprocedure('vec_catalogos_configurables.comprobar_ambito_gestion_inscripcion_v1(text,integer,text,text)') IS NULL
  OR to_regprocedure('vec_bolsa_convocatorias.huella_id_inscripcion_v1(text)') IS NULL
- -- La modalidad sellada la introdujo BC12: su comprobación debe ser la instalada.
+ -- La modalidad sellada (BC12) y la publicación oficial de las bases (BC14):
+ -- la comprobación instalada debe ser la posimagen de BC14.
  OR to_regprocedure('vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)') IS NULL
  OR encode(sha256(convert_to(pg_get_functiondef(to_regprocedure(
     'vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)')),'UTF8')),'hex')
-    <>'510d5fb7fa0daa905cf8565f2e53de8d00b2ed5623bf0d5a1a028082cbc71547'
- THEN RAISE EXCEPTION 'BC13: falta BC12 o la preimagen es incompatible' USING ERRCODE='55000'; END IF;
+    <>'c74ea68b95fcee13e2e5c09c47a63d69d1214555b5f3a2a14659ae5287c758aa'
+ OR to_regprocedure('vec_bolsa_convocatorias.publicacion_oficial_vigente_v1(text,bigint,text)') IS NULL
+ THEN RAISE EXCEPTION 'BC13: falta BC12 o BC14 o la preimagen es incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
 CREATE FUNCTION vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_conjunta_v1(p_convocatoria_ref text, p_categorias_refs jsonb)
@@ -47,6 +52,7 @@ DECLARE
  requisitos jsonb; pendientes jsonb; categorias jsonb; instante timestamptz(6);
  abre timestamptz; cierra timestamptz; v_secuencia bigint;
  partes text[]; v_id_sha256 text; publicada timestamptz; activos integer:=0;
+ v_publicacion_oficial date;
 BEGIN
  IF current_user<>'vec_bolsa_convocatorias_propietario'
  OR current_setting('transaction_isolation')<>'serializable'
@@ -109,6 +115,12 @@ BEGIN
  OR c#>>'{comprobacion_dependencias,convocatoria_ref}' IS DISTINCT FROM v.referencia
  OR c->>'publicada_en' IS NULL
  THEN RAISE EXCEPTION 'BC13: material publicado incompleto' USING ERRCODE='55000'; END IF;
+ -- BC14: sin publicación oficial declarada no se revela modalidad, categorías
+ -- ni plazo; la respuesta es siempre la misma.
+ v_publicacion_oficial:=vec_bolsa_convocatorias.publicacion_oficial_vigente_v1(
+  v.convocatoria_id,v_secuencia,v.huella_version_sha256);
+ IF v_publicacion_oficial IS NULL
+ THEN RAISE EXCEPTION 'BC13: bases sin publicación oficial declarada' USING ERRCODE='B9602'; END IF;
  -- BC13 (F1-41): solo la modalidad conjunta sellada admite una solicitud para
  -- varias categorías. Ausente (histórica) o separada: la solicitud es por
  -- categoría y se responde B9609 antes de consumir nada más.
@@ -152,6 +164,10 @@ BEGIN
  IF activos<>1 THEN RAISE EXCEPTION 'BC13: plazo de inscripción cerrado o ambiguo' USING ERRCODE='B9602'; END IF;
  abre:=(plazo->>'abre_en')::timestamptz;
  cierra:=(plazo->>'cierra_en')::timestamptz;
+ -- BC14: el plazo sellado empieza de uno a cinco días naturales después de la
+ -- publicación declarada (hora de Madrid); si no encaja, no se abre.
+ IF ((abre AT TIME ZONE 'Europe/Madrid')::date-v_publicacion_oficial) NOT BETWEEN 1 AND 5
+ THEN RAISE EXCEPTION 'BC13: plazo incoherente con la publicación oficial' USING ERRCODE='B9602'; END IF;
 
  catalogo:=c#>'{contenido,catalogo_categorias}';
  politica:=c#>'{configuracion,catalogos}';

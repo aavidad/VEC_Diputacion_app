@@ -108,6 +108,32 @@ BEGIN
   VALUES(id,1,id||'#1','publicada',material,encode(sha256(material),'hex'),clock_timestamp());
  END LOOP;
 END $datos$;
+-- BC14: sin publicación oficial declarada ninguna versión se abre.
+SET LOCAL ROLE vec_bolsa_convocatorias_propietario;
+DO $publicacion$
+DECLARE modalidad text; id text; bytes bytea; codigo text;
+BEGIN
+ -- Antes de declararla, la conjunta no se abre (B9602, como BC14).
+ BEGIN
+  PERFORM vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_conjunta_v1(
+   current_setting('b146.conjunta'),'["cat.alpha","cat.beta"]'::jsonb);
+ EXCEPTION WHEN OTHERS THEN codigo:=SQLSTATE;
+ END;
+ IF codigo IS DISTINCT FROM 'B9602'
+ THEN RAISE EXCEPTION 'B146: conjunta sin publicación oficial devolvió %',codigo; END IF;
+ FOREACH modalidad IN ARRAY ARRAY['conjunta','separada'] LOOP
+  id:='proceso:bolsa:inscripcion-b146-'||modalidad;
+  SELECT version_canonica INTO STRICT bytes FROM vec_bolsa_convocatorias.version_convocatoria
+   WHERE convocatoria_id=id AND secuencia=1;
+  PERFORM vec_bolsa_convocatorias.declarar_publicacion_oficial_bases_v1(jsonb_build_object(
+   'convocatoria_id',id,'secuencia',1,'huella_version_sha256',encode(sha256(bytes),'hex'),
+   'medio','bop_granada','boletin_numero',146,'anuncio_ref','ENSAYO-B146-'||modalidad,
+   'fecha_publicacion',to_char(((clock_timestamp()-interval '1 hour') AT TIME ZONE 'Europe/Madrid')::date-2,'YYYY-MM-DD'),
+   'direccion',NULL,'sustituye_ref',NULL,'declarada_por','actor:prueba:b146',
+   'motivo_ref','motivos_bolsa:1:publicacion_bases','clave_idempotencia','b146-'||modalidad));
+ END LOOP;
+END $publicacion$;
+RESET ROLE;
 
 -- Constructor de las once listas para una presentación conjunta.
 CREATE FUNCTION pg_temp.b146_presentar(p_persona text,p_conv text,p_categorias text[],p_clave text,
