@@ -171,6 +171,8 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000292_fachada_derivacion
 # F1-19: requiere AD292 y AD291 de R instaladas antes de CT234; activación pendiente.
 deploy/postgresql/bolsa_llamamientos/migraciones/000135_verificar_plaza_adjudicada_ct.up.sql 8cc5609c395d8665ee68146c72aa4b37bf55b7618015ed26ab060d6d4a4632d4
 deploy/postgresql/contratacion_temporal/migraciones/000234_derivacion_nombramiento.up.sql 5743a1b363481f1af942a84c502b0a0d2166cf75096cbab70b22e278173fb1e0
+# F1-19 segundo corte — CT241, guardas del hijo (selección, lecturas y escrituras); tras CT234 y CT240.
+deploy/postgresql/contratacion_temporal/migraciones/000241_guardas_nombramiento_derivado.up.sql fd342c601163daf16908dfc6717479dba1fecbeeb3268d360193b94271f9e396
 # F1-40 — BC12, tras BC9 y B96 del esquema base; no reaplicar.
 deploy/postgresql/bolsa_convocatorias/migraciones/000012_rechazo_inscripcion_conjunta_v1.up.sql ca21824cc9236adb014d3cd3e1ef132d56287124b97b29bc963cf9670ded1931
 # F1-40 — B142, tras BC12; la lista y la ficha del aspirante llevan la modalidad.
