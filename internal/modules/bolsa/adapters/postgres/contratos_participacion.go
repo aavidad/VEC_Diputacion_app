@@ -20,6 +20,7 @@ var (
 )
 
 // ListarContratos consume el material V3 en la misma transacción que lee.
+// Usa la lectura v2 de B141, que añade la huella del evento.
 func (r *RepositorioSituacionParticipacionPostgreSQL) ListarContratos(ctx context.Context, ref, actor string, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) ([]ports.ContratoParticipacion, error) {
 	if r == nil || r.pool == nil || ctx == nil || ref == "" || actor == "" || m.ValidarEstructura() != nil {
 		return nil, ports.ErrContratosParticipacionNoDisponible
@@ -29,7 +30,7 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ListarContratos(ctx contex
 		return nil, fmt.Errorf("%w: %w", ports.ErrContratosParticipacionNoDisponible, err)
 	}
 	defer tx.Rollback(context.Background())
-	filas, err := tx.Query(ctx, `SELECT evento_ref,tipo,inicio,fin_previsto,coalesce(modalidad_clave,''),coalesce(categoria_ref,''),coalesce(causa_clave,''),expediente_ref,llamamiento_ref,ocurrido_en FROM vec_bolsa_llamamientos.listar_contratos_participacion_v1($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`, ref, actor, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
+	filas, err := tx.Query(ctx, `SELECT evento_ref,tipo,inicio,fin_previsto,coalesce(modalidad_clave,''),coalesce(categoria_ref,''),coalesce(causa_clave,''),expediente_ref,llamamiento_ref,ocurrido_en,huella_sha256 FROM vec_bolsa_llamamientos.listar_contratos_participacion_v2($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`, ref, actor, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
 	if err != nil {
 		return nil, errorContratosParticipacion(err)
 	}
@@ -37,7 +38,7 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ListarContratos(ctx contex
 	items := make([]ports.ContratoParticipacion, 0)
 	for filas.Next() {
 		var c ports.ContratoParticipacion
-		if err := filas.Scan(&c.EventoRef, &c.Tipo, &c.Inicio, &c.FinPrevisto, &c.ModalidadClave, &c.CategoriaRef, &c.CausaClave, &c.ExpedienteRef, &c.LlamamientoRef, &c.OcurridoEn); err != nil {
+		if err := filas.Scan(&c.EventoRef, &c.Tipo, &c.Inicio, &c.FinPrevisto, &c.ModalidadClave, &c.CategoriaRef, &c.CausaClave, &c.ExpedienteRef, &c.LlamamientoRef, &c.OcurridoEn, &c.HuellaSHA256); err != nil {
 			return nil, errorContratosParticipacion(err)
 		}
 		items = append(items, c)
