@@ -38,10 +38,22 @@ type AutorizadorLecturaSeguimiento interface {
 	AutorizarLecturaSeguimiento(ctx context.Context, organizacionRef, expedienteRef string) error
 }
 
-// La segunda revisión puede limitar la entrega tras leer el estado en el
-// servidor: una referencia conocida no basta para recibir otro expediente.
-type limitadorEntregaSeguimiento interface {
-	ValidarEntregaSeguimiento(context.Context, ports.EstadoSeguimientoExpediente) (revisionNoIncorporacion bool, err error)
+// AutorizadorEntregaSeguimiento añade, tras leer el estado en el servidor,
+// qué se entrega: una referencia conocida no basta para que la segunda
+// revisión reciba otro expediente. El panel de seguimiento exige las dos
+// comprobaciones; no hay entrega sin la segunda.
+type AutorizadorEntregaSeguimiento interface {
+	AutorizadorLecturaSeguimiento
+	ValidarEntregaSeguimiento(context.Context, ports.EstadoSeguimientoExpediente) (EntregaSeguimiento, error)
+}
+
+// EntregaSeguimiento dice qué recibe quien consulta. Revision limita la
+// respuesta a la propuesta de no incorporación (o al resultado propio);
+// PropuestaPropia avisa de que quien consulta hizo la propuesta pendiente,
+// sin decir quién es nadie.
+type EntregaSeguimiento struct {
+	Revision        bool
+	PropuestaPropia bool
 }
 
 type EjecutorOperacionesSeguimiento interface {
@@ -61,12 +73,12 @@ type EjecutorConfirmacionGINPIX interface {
 type manejadorSeguimiento struct {
 	ruta      string
 	autoridad AutoridadCanalSeguimiento
-	lectura   AutorizadorLecturaSeguimiento
+	lectura   AutorizadorEntregaSeguimiento
 	ejecutor  EjecutorOperacionesSeguimiento
 }
 
 // NuevosManejadoresSeguimiento devuelve los cuatro manejadores por ruta.
-func NuevosManejadoresSeguimiento(a AutoridadCanalSeguimiento, l AutorizadorLecturaSeguimiento, e EjecutorOperacionesSeguimiento) (map[string]http.Handler, error) {
+func NuevosManejadoresSeguimiento(a AutoridadCanalSeguimiento, l AutorizadorEntregaSeguimiento, e EjecutorOperacionesSeguimiento) (map[string]http.Handler, error) {
 	if dependenciaNula(a) || dependenciaNula(l) || dependenciaNula(e) {
 		return nil, errors.New("contratacion temporal http: cese, cierre y modificacion no disponibles")
 	}
@@ -283,25 +295,46 @@ func (h *manejadorSeguimiento) consultar(w http.ResponseWriter, r *http.Request,
 		responderErrorSeguimiento(w, r, codigo, clave, err)
 		return
 	}
-	revision := false
-	if limitador, ok := h.lectura.(limitadorEntregaSeguimiento); ok {
-		revision, err = limitador.ValidarEntregaSeguimiento(r.Context(), estado)
-		if err != nil {
-			responderErrorSeguimiento(w, r, http.StatusForbidden, "acceso_denegado", err)
-			return
-		}
+	entrega, err := h.lectura.ValidarEntregaSeguimiento(r.Context(), estado)
+	if err != nil {
+		responderErrorSeguimiento(w, r, http.StatusForbidden, "acceso_denegado", err)
+		return
 	}
 	proyeccion := estadoSeguimientoJSON(estado)
-	if revision {
-		// La historia de propuestas pertenece al detalle general de RRHH.
-		// La revisión solo necesita propuesta pendiente o recibo propio.
-		delete(proyeccion, "propuestas")
-		if estado.Acreditada.PropuestaNoIncorporacion != nil {
-			delete(proyeccion, "no_incorporacion")
+	if entrega.Revision {
+		proyeccion = proyeccionRevisionNoIncorporacion(proyeccion, estado)
+	}
+	if p, ok := proyeccion["no_incorporacion_propuesta"].(map[string]string); ok {
+		propia := map[string]any{}
+		for clave, valor := range p {
+			propia[clave] = valor
 		}
+		propia["propuesta_propia"] = entrega.PropuestaPropia
+		proyeccion["no_incorporacion_propuesta"] = propia
 	}
 	responderJSONCobertura(w, r, http.StatusOK, map[string]any{"data": map[string]any{
 		"esquema": "vec.contratacion-temporal.seguimiento-cese.v1", "opciones": opcionesSeguimientoJSON(opciones), "estado": proyeccion}})
+}
+
+// proyeccionRevisionNoIncorporacion enumera lo que recibe la segunda
+// revisión: identificación del expediente, los huecos (vacíos para ella) que
+// el contrato exige, y la propuesta pendiente o, si ya no la hay, la no
+// incorporación que ella resolvió. Un campo nuevo del detalle general no le
+// llega sin añadirlo aquí.
+func proyeccionRevisionNoIncorporacion(general map[string]any, estado ports.EstadoSeguimientoExpediente) map[string]any {
+	salida := map[string]any{}
+	for _, clave := range []string{"expediente_ref", "version_expediente", "fase_clave", "estado_clave", "numero_expediente",
+		"incorporacion", "cese", "cierre", "ginpix", "confirmacion_centro"} {
+		if valor, ok := general[clave]; ok {
+			salida[clave] = valor
+		}
+	}
+	if estado.Acreditada != nil && estado.Acreditada.PropuestaNoIncorporacion != nil {
+		salida["no_incorporacion_propuesta"] = general["no_incorporacion_propuesta"]
+	} else if valor, ok := general["no_incorporacion"]; ok {
+		salida["no_incorporacion"] = valor
+	}
+	return salida
 }
 
 func estadoErrorSeguimiento(err error) (int, string) {

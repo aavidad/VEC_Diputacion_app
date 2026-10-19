@@ -1062,12 +1062,15 @@ toma de posesión) y la fecha de efectos del cese siguen pendientes de RRHH
 
 En la candidata, RRHH propone la no incorporación desde el seguimiento de la
 ficha, con motivo, fecha de notificación y resolución. Si se exige otra
-persona, la propuesta ofrece un enlace a su revisión. Con su propio
-certificado, la segunda persona consulta la propuesta y la versión vigente y
-confirma o rechaza; el acceso no abre el cuadro general de expedientes. La
-confirmación devuelve un recibo y la consulta permite recuperar el resultado.
-Quien propuso no puede confirmar ni rechazar. La confirmación devuelve el
-expediente a fiscalización y Bolsa recibe el aviso de no incorporación.
+persona, la propuesta muestra el enlace de revisión con un botón para
+copiarlo; no hay aviso automático. Con su propio certificado, la segunda
+persona consulta la propuesta y la versión vigente y confirma o rechaza; el
+acceso no abre el cuadro general de expedientes. La revisión no enseña
+identificadores técnicos: dice qué ha pasado y ofrece volver a Peticiones de
+personal temporal. Quien propuso no ve confirmar ni rechazar (la consulta
+le indica solo que la propuesta es suya, sin decir quién la hizo) y el
+servidor se lo rechaza igualmente. La confirmación devuelve el expediente a
+fiscalización y Bolsa recibe el aviso de no incorporación.
 El historial nombra la propuesta, la confirmación y el rechazo.
 
 #### 4.3.8 Cese y vuelta a la bolsa

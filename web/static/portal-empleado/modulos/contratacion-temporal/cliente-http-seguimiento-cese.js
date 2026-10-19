@@ -160,8 +160,11 @@ export function validarConsultaSeguimientoCese(valor, expedienteRef) {
       || !fechaCivilValida(n.fecha_notificacion) || !REF.test(n.recibo_ref) || !INSTANTE.test(n.registrada_en)) throw new TypeError("no incorporación no válida");
   }
   if (e.no_incorporacion_propuesta !== undefined) {
-    const p = registro(e.no_incorporacion_propuesta, ["propuesta_ref", "motivo_clave", "resolucion_ref", "resolucion_sha256", "fecha_notificacion", "registrada_en"]);
-    if (!REF.test(p.propuesta_ref) || !MOTIVO.test(p.motivo_clave) || !REF.test(p.resolucion_ref) || !HUELLA.test(p.resolucion_sha256)
+    // propuesta_propia: booleano del servidor (quien consulta hizo la
+    // propuesta); nunca llega quién la hizo.
+    const p = registro(e.no_incorporacion_propuesta, ["propuesta_ref", "motivo_clave", "resolucion_ref", "resolucion_sha256", "fecha_notificacion", "registrada_en"],
+      ["propuesta_propia"]);
+    if ((p.propuesta_propia !== undefined && typeof p.propuesta_propia !== "boolean") || !REF.test(p.propuesta_ref) || !MOTIVO.test(p.motivo_clave) || !REF.test(p.resolucion_ref) || !HUELLA.test(p.resolucion_sha256)
       || !fechaCivilValida(p.fecha_notificacion) || !INSTANTE.test(p.registrada_en)) throw new TypeError("propuesta de no incorporación no válida");
   }
   // Con la incorporación acreditada el estado trae siempre las dos confirmaciones.

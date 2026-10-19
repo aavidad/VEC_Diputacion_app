@@ -19,13 +19,18 @@ type autoridadSeguimientoPrueba struct{ lecturaDenegada bool }
 type autoridadEntregaSeguimientoPrueba struct {
 	autoridadSeguimientoPrueba
 	denegar bool
+	propia  bool
 }
 
-func (a autoridadEntregaSeguimientoPrueba) ValidarEntregaSeguimiento(context.Context, ports.EstadoSeguimientoExpediente) (bool, error) {
+func (a autoridadEntregaSeguimientoPrueba) ValidarEntregaSeguimiento(context.Context, ports.EstadoSeguimientoExpediente) (EntregaSeguimiento, error) {
 	if a.denegar {
-		return false, ports.ErrAutorizacionDenegada
+		return EntregaSeguimiento{}, ports.ErrAutorizacionDenegada
 	}
-	return true, nil
+	return EntregaSeguimiento{Revision: true, PropuestaPropia: a.propia}, nil
+}
+
+func (autoridadSeguimientoPrueba) ValidarEntregaSeguimiento(context.Context, ports.EstadoSeguimientoExpediente) (EntregaSeguimiento, error) {
+	return EntregaSeguimiento{}, nil
 }
 
 func (autoridadSeguimientoPrueba) ResolverContextoCanalSeguimiento(context.Context) (application.ContextoCanalSeguimiento, error) {
@@ -90,8 +95,18 @@ func TestSeguimientoHTTPEntregaRevisionAcotadaConVersion(t *testing.T) {
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"version_expediente":9`) ||
 		!strings.Contains(w.Body.String(), `"numero_expediente":"2026/CT-9"`) ||
 		!strings.Contains(w.Body.String(), `"propuesta_ref":"recibo:propuesta:9"`) ||
-		strings.Contains(w.Body.String(), `"recibo:anterior:7"`) || strings.Contains(w.Body.String(), `"recibo:nombramiento:7"`) {
+		!strings.Contains(w.Body.String(), `"propuesta_propia":false`) ||
+		strings.Contains(w.Body.String(), `"recibo:anterior:7"`) || strings.Contains(w.Body.String(), `"recibo:nombramiento:7"`) ||
+		strings.Contains(w.Body.String(), `"propuestas"`) {
 		t.Fatalf("proyección de revisión: %d %s", w.Code, w.Body.String())
+	}
+	// Quien hizo la propuesta lo sabe por un booleano; nunca por su referencia.
+	estado.Acreditada.PropuestaNoIncorporacion.PropuestaActorRef = "per_quien_propone"
+	propia := autoridadEntregaSeguimientoPrueba{propia: true}
+	m, _ = NuevosManejadoresSeguimiento(propia, propia, ejecutor)
+	if w := peticionSeguimiento(t, m, RutaSeguimientoCese, `{"expediente_ref":"expediente:prueba"}`); w.Code != http.StatusOK ||
+		!strings.Contains(w.Body.String(), `"propuesta_propia":true`) || strings.Contains(w.Body.String(), "per_quien_propone") {
+		t.Fatalf("propuesta propia: %d %s", w.Code, w.Body.String())
 	}
 	denegado := autoridadEntregaSeguimientoPrueba{denegar: true}
 	m, _ = NuevosManejadoresSeguimiento(denegado, denegado, ejecutor)

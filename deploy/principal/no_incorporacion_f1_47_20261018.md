@@ -11,8 +11,10 @@ SQL nueva: CT242, al final de `lista_sql_main_tras_hz37.txt`.
 
 1. Instalar CT242 una sola vez, en el orden de la lista. Amplía la función
    `consultar_cese_cierre_expediente_v1` con versión, fase, estado y número
-   visible actuales. Conserva propietario y permisos; coteja la preimagen
-   instalada. No reaplicar ni hacer una reversión de SQL.
+   visible actuales, y `consultar_incorporacion_acreditada_v1` con quién hizo
+   la propuesta pendiente (solo para el servidor). Conserva propietario y
+   permisos; coteja la preimagen instalada de las dos. No reaplicar ni hacer
+   una reversión de SQL.
 2. Publicar juntos el binario y los estáticos de esta candidata, reiniciar y
    recargar el portal. La versión web se calcula con el mecanismo de F0-31.
 3. Conservar el circuito de Contratación: conexiones nominales, gobierno,

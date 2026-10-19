@@ -49,3 +49,13 @@ test("sin referencia única la página no consulta y al desmontar aborta la lect
   quitar();
   assert.equal(signal.aborted, true);
 });
+
+test("el idioma se importa con la misma URL que el resto del portal", async () => {
+  // Con otra URL el navegador carga otra copia de idioma.js que no recibe el
+  // idioma elegido y la página se queda en castellano aunque pida lang=en.
+  for (const archivo of ["./revision-no-incorporacion.js", "./seguimiento-cese.js"]) {
+    const codigo = await readFile(new URL(archivo, import.meta.url), "utf8");
+    assert.match(codigo, /from "\.\.\/\.\.\/\.\.\/comun\/idioma\.js";/u, archivo);
+    assert.doesNotMatch(codigo, /comun\/idioma\.js\?/u, archivo);
+  }
+});

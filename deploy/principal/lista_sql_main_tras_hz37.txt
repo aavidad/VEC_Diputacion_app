@@ -190,4 +190,4 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000300_motivo_proyeccion_
 # F1-60 primer corte — B144, ámbito gobernado de la bolsa; solo depende de B7/B14/B79/B95 (en el volcado).
 deploy/postgresql/bolsa_llamamientos/migraciones/000144_ambito_gobernado_bolsa.up.sql b8cee22ff4b891148af793b6d19c0b9ff96acc1644d1dda6a1942a9e5b09e2c5
 # F1-47 — CT242: metadatos actuales de la lectura exacta para segunda revisión de no incorporación; tras CT241.
-deploy/postgresql/contratacion_temporal/migraciones/000242_lectura_revision_no_incorporacion.up.sql 7d9590d1f48df69bd7e41a5e479cad24623dddde0b27e21575a17a1fbc1930de
+deploy/postgresql/contratacion_temporal/migraciones/000242_lectura_revision_no_incorporacion.up.sql 30bae173a84fcd4955e221fe8357b6e00301347928c896d7060f8b36e81208d9

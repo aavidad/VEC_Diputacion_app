@@ -97,21 +97,16 @@
   overflow-wrap: anywhere;
 }
 
-@media (min-width: 621px) {
-  .ct-revision-pagina {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
-  }
+/* Página de revisión: corta, se desplaza como cualquier página. */
+.ct-revision-pagina [data-revision-estado]:empty {
+  display: none;
+}
 
-  .ct-revision-pagina .ct-consulta-contenido {
-    width: 100%;
-    box-sizing: border-box;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    align-content: start;
-  }
+.ct-revision-pagina .ct-seg-cese {
+  margin-top: 0;
+}
+
+.ct-seg-cese-enlace input[readonly] {
+  width: 100%;
+  box-sizing: border-box;
 }

@@ -140,13 +140,17 @@ func TestSegundoRRHHRegistraLecturaExactaAntesDeEntregar(t *testing.T) {
 	pendiente := ports.EstadoSeguimientoExpediente{ExpedienteRef: "expediente:1", VersionExpediente: 8,
 		FaseClave: domain.FaseNombramiento, EstadoClave: domain.EstadoEnCurso,
 		Acreditada: &ports.EstadoIncorporacionAcreditada{PropuestaNoIncorporacion: &ports.EstadoPropuestaNoIncorporacion{}}}
-	if revision, err := original.ValidarEntregaSeguimiento(ctx, pendiente); err != nil || !revision {
-		t.Fatalf("propuesta pendiente denegada: revisión=%v error=%v", revision, err)
+	if entrega, err := original.ValidarEntregaSeguimiento(ctx, pendiente); err != nil || !entrega.Revision || entrega.PropuestaPropia {
+		t.Fatalf("propuesta pendiente denegada: entrega=%+v error=%v", entrega, err)
+	}
+	pendiente.Acreditada.PropuestaNoIncorporacion.PropuestaActorRef = vinculo.PrincipalID
+	if entrega, err := original.ValidarEntregaSeguimiento(ctx, pendiente); err != nil || !entrega.Revision || !entrega.PropuestaPropia {
+		t.Fatalf("la propia propuesta no se reconoce: entrega=%+v error=%v", entrega, err)
 	}
 	pendiente.Acreditada.PropuestaNoIncorporacion = nil
 	pendiente.Acreditada.NoIncorporacion = &ports.EstadoNoIncorporacion{ResueltaPor: vinculo.PrincipalID}
-	if revision, err := original.ValidarEntregaSeguimiento(ctx, pendiente); err != nil || !revision {
-		t.Fatalf("recibo propio tras reinicio denegado: revisión=%v error=%v", revision, err)
+	if entrega, err := original.ValidarEntregaSeguimiento(ctx, pendiente); err != nil || !entrega.Revision {
+		t.Fatalf("recibo propio tras reinicio denegado: entrega=%+v error=%v", entrega, err)
 	}
 	pendiente.Acreditada.NoIncorporacion.ResueltaPor = "per_ajena"
 	if _, err := original.ValidarEntregaSeguimiento(ctx, pendiente); err == nil {

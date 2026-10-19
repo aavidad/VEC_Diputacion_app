@@ -512,7 +512,10 @@ El orden y las precondiciones de instalación están en
 F1-47 amplía la consulta existente de seguimiento con la versión, fase,
 estado y número visible actuales del expediente (CT242). Fase y estado salen
 de las columnas de la versión vigente y el número es el de la numeración
-anual (CT142) cuando existe. La segunda persona
+anual (CT142) cuando existe. CT242 añade también a la consulta de
+incorporación acreditada (CT124) quién hizo la propuesta pendiente; el
+servidor lo compara con quien consulta y al navegador solo llega el booleano
+`propuesta_propia`. La segunda persona
 de RRHH usa su sesión nominal ligada al certificado y su permiso vigente;
 la lectura queda registrada antes de devolver la propuesta. No recibe acceso
 al cuadro general ni a las operaciones de cese, GINPIX o modificación. La

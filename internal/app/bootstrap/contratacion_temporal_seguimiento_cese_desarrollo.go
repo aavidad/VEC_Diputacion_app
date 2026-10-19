@@ -576,39 +576,63 @@ func (a *autoridadSeguimientoCeseDesarrollo) AutorizarLecturaSeguimiento(ctx con
 
 // La segunda hoja ve únicamente una propuesta pendiente que puede revisar o
 // la no incorporación que ella misma confirmó. El original conserva su
-// lectura completa. Esta guarda corre antes de entregar el JSON al navegador.
-func (a *autoridadSeguimientoCeseDesarrollo) ValidarEntregaSeguimiento(ctx context.Context, estado ports.EstadoSeguimientoExpediente) (bool, error) {
+// lectura completa. Esta guarda corre antes de entregar el JSON al navegador
+// y, con propuesta pendiente, dice si quien consulta es quien la hizo.
+func (a *autoridadSeguimientoCeseDesarrollo) ValidarEntregaSeguimiento(ctx context.Context, estado ports.EstadoSeguimientoExpediente) (httpinterno.EntregaSeguimiento, error) {
 	if a == nil || a.alta == nil || a.alta.soporte == nil {
-		return false, ports.ErrAutorizacionDenegada
+		return httpinterno.EntregaSeguimiento{}, ports.ErrAutorizacionDenegada
 	}
 	if elegida := a.paraPeticion(ctx); elegida != a {
 		return elegida.validarEntregaSegundoRRHH(ctx, estado)
 	}
-	return false, nil
+	propia, err := a.propuestaPropia(ctx, estado)
+	return httpinterno.EntregaSeguimiento{PropuestaPropia: propia}, err
 }
 
-func (a *autoridadSeguimientoCeseDesarrollo) validarEntregaSegundoRRHH(ctx context.Context, estado ports.EstadoSeguimientoExpediente) (bool, error) {
-	capacidad, valida := a.alta.soporte.capacidadValida(ctx)
-	if !valida || !rutaSegundoRRHHNoIncorporacion(capacidad.ruta, capacidad.metodo) ||
-		capacidad.ruta != httpinterno.RutaSeguimientoCese || !domain.ReferenciaOpacaValida(estado.ExpedienteRef) ||
-		estado.VersionExpediente == 0 || estado.Acreditada == nil || estado.Cese != nil || estado.Cierre != nil ||
-		estado.IncorporacionRef != "" || estado.Acreditada.GINPIX != nil || estado.Acreditada.Centro != nil {
-		return false, ports.ErrAutorizacionDenegada
-	}
-	if estado.Acreditada.PropuestaNoIncorporacion != nil &&
-		estado.FaseClave == domain.FaseNombramiento && estado.EstadoClave == domain.EstadoEnCurso {
-		return true, nil
+// propuestaPropia compara quien consulta con quien hizo la propuesta
+// pendiente. Sin propuesta, o sin autor conocido, no hay nada que avisar.
+func (a *autoridadSeguimientoCeseDesarrollo) propuestaPropia(ctx context.Context, estado ports.EstadoSeguimientoExpediente) (bool, error) {
+	if estado.Acreditada == nil || estado.Acreditada.PropuestaNoIncorporacion == nil ||
+		estado.Acreditada.PropuestaNoIncorporacion.PropuestaActorRef == "" {
+		return false, nil
 	}
 	operativo, err := a.alta.soporte.contextoOperativoDesarrollo(ctx)
 	if err != nil {
 		return false, ports.ErrAutorizacionDenegada
 	}
 	vinculo, err := operativo.Vinculo.Datos()
+	if err != nil {
+		return false, ports.ErrAutorizacionDenegada
+	}
+	return vinculo.PrincipalID == estado.Acreditada.PropuestaNoIncorporacion.PropuestaActorRef, nil
+}
+
+func (a *autoridadSeguimientoCeseDesarrollo) validarEntregaSegundoRRHH(ctx context.Context, estado ports.EstadoSeguimientoExpediente) (httpinterno.EntregaSeguimiento, error) {
+	capacidad, valida := a.alta.soporte.capacidadValida(ctx)
+	if !valida || !rutaSegundoRRHHNoIncorporacion(capacidad.ruta, capacidad.metodo) ||
+		capacidad.ruta != httpinterno.RutaSeguimientoCese || !domain.ReferenciaOpacaValida(estado.ExpedienteRef) ||
+		estado.VersionExpediente == 0 || estado.Acreditada == nil || estado.Cese != nil || estado.Cierre != nil ||
+		estado.IncorporacionRef != "" || estado.Acreditada.GINPIX != nil || estado.Acreditada.Centro != nil {
+		return httpinterno.EntregaSeguimiento{}, ports.ErrAutorizacionDenegada
+	}
+	if estado.Acreditada.PropuestaNoIncorporacion != nil &&
+		estado.FaseClave == domain.FaseNombramiento && estado.EstadoClave == domain.EstadoEnCurso {
+		propia, err := a.propuestaPropia(ctx, estado)
+		if err != nil {
+			return httpinterno.EntregaSeguimiento{}, err
+		}
+		return httpinterno.EntregaSeguimiento{Revision: true, PropuestaPropia: propia}, nil
+	}
+	operativo, err := a.alta.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return httpinterno.EntregaSeguimiento{}, ports.ErrAutorizacionDenegada
+	}
+	vinculo, err := operativo.Vinculo.Datos()
 	if err == nil && estado.Acreditada.NoIncorporacion != nil &&
 		estado.Acreditada.NoIncorporacion.ResueltaPor == vinculo.PrincipalID {
-		return true, nil
+		return httpinterno.EntregaSeguimiento{Revision: true}, nil
 	}
-	return false, ports.ErrAutorizacionDenegada
+	return httpinterno.EntregaSeguimiento{}, ports.ErrAutorizacionDenegada
 }
 
 func (a *autoridadSeguimientoCeseDesarrollo) autorizarLecturaReincorporacion(ctx context.Context, organizacionRef, expedienteRef string) error {

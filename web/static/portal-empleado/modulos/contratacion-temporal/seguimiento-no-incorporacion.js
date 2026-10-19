@@ -21,13 +21,18 @@ export function ofrecerNoIncorporacion(estado, opciones) {
     && !estado.no_incorporacion_propuesta;
 }
 
+/** Confirmar o rechazar solo se envía si no la hizo quien consulta. */
+export function propuestaResolubleNoIncorporacion(estado) {
+  return Boolean(estado?.no_incorporacion_propuesta) && estado.no_incorporacion_propuesta.propuesta_propia !== true;
+}
+
 /** La propuesta pendiente se ofrece para confirmar o rechazar. */
 export function ofrecerPropuestaNoIncorporacion(estado, opciones) {
   return Boolean(opciones?.no_incorporacion?.segunda_persona) && Boolean(estado.no_incorporacion_propuesta)
     && !estado.incorporacion && !estado.cese && !noIncorporacionVigente(estado);
 }
 
-function etiquetaMotivo(opciones, clave, t) {
+export function etiquetaMotivoNoIncorporacion(opciones, clave, t) {
   const motivo = opciones?.no_incorporacion?.motivos?.find((m) => m.clave === clave);
   const nombre = `no_incorporacion_motivo_${clave}`;
   const traducida = t(nombre);
@@ -37,15 +42,15 @@ function etiquetaMotivo(opciones, clave, t) {
 /** Fila del resumen cuando consta la no incorporación o su propuesta. */
 export function filasNoIncorporacion(estado, opciones, t, fecha) {
   const n = noIncorporacionVigente(estado);
-  if (n) return [[t("no_incorporacion"), t("no_incorporacion_registrada", { motivo: etiquetaMotivo(opciones, n.motivo_clave, t), fecha: fecha(n.fecha_notificacion) })]];
+  if (n) return [[t("no_incorporacion"), t("no_incorporacion_registrada", { motivo: etiquetaMotivoNoIncorporacion(opciones, n.motivo_clave, t), fecha: fecha(n.fecha_notificacion) })]];
   const p = estado.no_incorporacion_propuesta;
-  if (p) return [[t("no_incorporacion"), t("no_incorporacion_propuesta_pendiente", { motivo: etiquetaMotivo(opciones, p.motivo_clave, t), fecha: fecha(p.fecha_notificacion) })]];
+  if (p) return [[t("no_incorporacion"), t("no_incorporacion_propuesta_pendiente", { motivo: etiquetaMotivoNoIncorporacion(opciones, p.motivo_clave, t), fecha: fecha(p.fecha_notificacion) })]];
   return [];
 }
 
 export function formularioNoIncorporacion({ opciones, t, escapar, deshabilitado }) {
   const regla = opciones.no_incorporacion;
-  const motivos = regla.motivos.map((m) => `<option value="${escapar(m.clave)}">${escapar(etiquetaMotivo(opciones, m.clave, t))}</option>`).join("");
+  const motivos = regla.motivos.map((m) => `<option value="${escapar(m.clave)}">${escapar(etiquetaMotivoNoIncorporacion(opciones, m.clave, t))}</option>`).join("");
   const desactivado = deshabilitado === "disabled";
   // Con segunda persona nadie declara quién resuelve: lo resuelve quien confirma.
   const resuelta = regla.segunda_persona ? ""
@@ -65,7 +70,25 @@ export function formularioNoIncorporacion({ opciones, t, escapar, deshabilitado 
       <div class="ct-acciones"><button type="submit" class="boton-primario" ${deshabilitado}>${escapar(t(regla.segunda_persona ? "no_incorporacion_proponer" : "no_incorporacion_enviar"))}</button></div></form>`;
 }
 
-/** Propuesta pendiente: sus datos y los dos formularios de la segunda persona. */
+/**
+ * Enlace de revisión para enviarlo a otra persona de RRHH: no hay aviso
+ * automático, así que se explica y se ofrece copiarlo. El campo de solo
+ * lectura permite seleccionarlo a mano si el navegador no deja copiar.
+ */
+function bloqueEnlaceRevision(enlace, t, escapar) {
+  if (!enlace) return "";
+  return `<div class="ct-seg-cese-enlace"><p id="ct-seg-enlace-ayuda">${escapar(t("revision_enlace_ayuda"))}</p>
+      <label class="ct-campo ct-seg-cese-ancho"><span>${escapar(t("revision_enlace"))}</span>
+      <input type="text" readonly value="${escapar(enlace)}" data-ct-seg-enlace aria-describedby="ct-seg-enlace-ayuda"></label>
+      <div class="ct-acciones"><button type="button" class="boton-secundario" data-ct-seg-copiar-enlace>${escapar(t("revision_copiar"))}</button>
+      <span role="status" data-ct-seg-copiado></span></div></div>`;
+}
+
+/**
+ * Propuesta pendiente: sus datos y los dos formularios de la segunda persona.
+ * A quien la hizo no se le ofrecen: el servidor le diría que no puede
+ * (propuesta_propia llega como booleano, sin decir quién la propuso).
+ */
 export function formularioPropuestaNoIncorporacion({ estado, opciones, t, escapar, deshabilitado, fecha, enlaceRevision = "", revision = false }) {
   const p = estado.no_incorporacion_propuesta;
   const titulo = revision ? "h2" : "h4";
@@ -76,12 +99,13 @@ export function formularioPropuestaNoIncorporacion({ estado, opciones, t, escapa
       <div class="ct-acciones"><button type="submit" class="${clase}" ${deshabilitado}>${escapar(t(boton))}</button></div></form>`;
   return `<section class="${revision ? "ct-seg-cese-revision" : "ct-seg-cese-form"}" aria-labelledby="ct-seg-no-inc-prop-titulo" data-ct-seg-propuesta>
       <${titulo} id="ct-seg-no-inc-prop-titulo">${escapar(t("no_incorporacion_propuesta_titulo"))}</${titulo}>
-      <dl class="ct-exp-fase-datos"><div><dt>${escapar(t("no_incorporacion_motivo"))}</dt><dd>${escapar(etiquetaMotivo(opciones, p.motivo_clave, t))}</dd></div>
+      <dl class="ct-exp-fase-datos"><div><dt>${escapar(t("no_incorporacion_motivo"))}</dt><dd>${escapar(etiquetaMotivoNoIncorporacion(opciones, p.motivo_clave, t))}</dd></div>
       <div><dt>${escapar(t("no_incorporacion_fecha"))}</dt><dd>${escapar(fecha(p.fecha_notificacion))}</dd></div>
       <div><dt>${escapar(t("no_incorporacion_resolucion"))}</dt><dd>${escapar(p.resolucion_ref)}</dd></div></dl>
-      ${enlaceRevision ? `<a class="boton-secundario" href="${escapar(enlaceRevision)}">${escapar(t("revision_enlace"))}</a>` : ""}
-      ${paso("no_incorporacion_confirmar", "no_incorporacion_confirmar_titulo", "no_incorporacion_confirmar", "boton-primario")}
-      ${paso("no_incorporacion_rechazar", "no_incorporacion_rechazar_titulo", "no_incorporacion_rechazar", "boton-secundario")}</section>`;
+      ${bloqueEnlaceRevision(enlaceRevision, t, escapar)}
+      ${p.propuesta_propia === true ? `<p class="ct-seg-cese-motivo" role="note">${escapar(t("no_incorporacion_propuesta_propia"))}</p>`
+    : `${paso("no_incorporacion_confirmar", "no_incorporacion_confirmar_titulo", "no_incorporacion_confirmar", "boton-primario")}
+      ${paso("no_incorporacion_rechazar", "no_incorporacion_rechazar_titulo", "no_incorporacion_rechazar", "boton-secundario")}`}</section>`;
 }
 
 /**

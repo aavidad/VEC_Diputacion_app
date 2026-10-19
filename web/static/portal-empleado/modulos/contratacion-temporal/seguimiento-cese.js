@@ -2,8 +2,8 @@
 
 import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js?v=VEC_WEB_VERSION";
 import { cierreConGINPIXConfirmado, filasIncorporacionAcreditada, formularioConfirmacionGINPIX, ofrecerConfirmacionGINPIX } from "./seguimiento-incorporacion-acreditada.js?v=VEC_WEB_VERSION";
-import { filasNoIncorporacion, formularioNoIncorporacion, formularioPropuestaNoIncorporacion, ofrecerNoIncorporacion, ofrecerPropuestaNoIncorporacion,
-  solicitudNoIncorporacion, solicitudResolucionPropuestaNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=VEC_WEB_VERSION";
+import { etiquetaMotivoNoIncorporacion, filasNoIncorporacion, formularioNoIncorporacion, formularioPropuestaNoIncorporacion, ofrecerNoIncorporacion, ofrecerPropuestaNoIncorporacion,
+  propuestaResolubleNoIncorporacion, solicitudNoIncorporacion, solicitudResolucionPropuestaNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=VEC_WEB_VERSION";
 import { filasPropuestas } from "./seguimiento-propuestas.js?v=VEC_WEB_VERSION";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
 import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
@@ -60,7 +60,7 @@ export function montarPanelSeguimientoCese({
 
   function cabecera(estado) {
     if (soloNoIncorporacion) return `<header class="ct-exp-fase-panel-cabecera">
-      <button type="button" class="boton-secundario ct-seg-cese-ayuda" data-ct-seg-ayuda aria-expanded="${ayudaAbierta}" aria-controls="ct-seg-cese-ayuda" aria-label="${escapar(t("ayuda_boton"))}">?</button></header>
+      <button type="button" class="boton-secundario ct-seg-cese-ayuda" data-ct-seg-ayuda aria-expanded="${ayudaAbierta}" aria-controls="ct-seg-cese-ayuda" aria-label="${escapar(t("revision_ayuda_boton"))}">?</button></header>
       <p id="ct-seg-cese-ayuda" class="ct-seg-cese-texto-ayuda" ${ayudaAbierta ? "" : "hidden"}>${escapar(t("revision_ayuda"))}</p>`;
     const chip = estado.cierre ? ["estado_cerrado", "ct-fase-completado"] : estado.cese ? ["estado_cesado", "ct-fase-espera"] : ["estado_vigente", "ct-fase-en_curso"];
     return `<header class="ct-exp-fase-panel-cabecera"><div><h3 id="ct-seg-cese-titulo">${escapar(t("titulo"))}</h3><p>${escapar(t("subtitulo"))}</p></div>
@@ -70,11 +70,12 @@ export function montarPanelSeguimientoCese({
   }
 
   function resumen(estado, opciones) {
-    if (soloNoIncorporacion) return `<dl class="ct-exp-fase-datos">${[
-      ...filasNoIncorporacion(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
-      ...(estado.no_incorporacion?.recibo_ref ? [[t("revision_recibo"), estado.no_incorporacion.recibo_ref]] : []),
-    ]
-      .map(([a, b]) => `<div><dt>${escapar(a)}</dt><dd>${escapar(b)}</dd></div>`).join("")}</dl>`;
+    // En la revisión, la propuesta pendiente ya se cuenta en su bloque; el
+    // resumen solo aparece cuando la no incorporación está confirmada.
+    if (soloNoIncorporacion) {
+      const filas = estado.no_incorporacion_propuesta ? [] : filasNoIncorporacion(estado, opciones, t, (valor) => fechaVisible(valor, locale));
+      return filas.length ? `<dl class="ct-exp-fase-datos">${filas.map(([a, b]) => `<div><dt>${escapar(a)}</dt><dd>${escapar(b)}</dd></div>`).join("")}</dl>` : "";
+    }
     const causa = estado.cese ? opciones.causas_cese.find((c) => c.clave === estado.cese.causa_clave) : null;
     const filas = [
       [t("incorporacion"), estado.incorporacion ? t("incorporacion_inicio", { fecha: fechaVisible(estado.incorporacion.inicio, locale) }) : t("sin_incorporacion")],
@@ -88,6 +89,15 @@ export function montarPanelSeguimientoCese({
   }
 
   const deshabilitado = () => (ocupado ? "disabled" : "");
+
+  // Enlace completo para enviarlo a otra persona de RRHH; la referencia solo
+  // localiza el expediente, el servidor decide quién puede revisarlo.
+  const enlaceRevision = () => {
+    const ruta = `/portal-empleado/modulos/contratacion-temporal/revision-no-incorporacion.html?expediente_ref=${encodeURIComponent(contexto.expediente_ref)}&lang=${encodeURIComponent(IDIOMA_ACTUAL)}`;
+    const origen = globalThis.location?.origin;
+    return typeof origen === "string" && /^https?:\/\//u.test(origen) ? `${origen}${ruta}` : ruta;
+  };
+  const enlacePeticiones = () => `/portal-empleado/?lang=${encodeURIComponent(IDIOMA_ACTUAL)}#contratacion-temporal`;
 
   function formularioCese(opciones, estado) {
     const sinIncorporacion = !estado.incorporacion;
@@ -171,11 +181,16 @@ export function montarPanelSeguimientoCese({
     if (!soloNoIncorporacion && vigente && ofrecerNoIncorporacion(estado, opciones)) formularios.push(formularioNoIncorporacion({ opciones, t, escapar, deshabilitado: deshabilitado() }));
     if (vigente && ofrecerPropuestaNoIncorporacion(estado, opciones)) {
       formularios.push(formularioPropuestaNoIncorporacion({ estado, opciones, t, escapar, deshabilitado: deshabilitado(), fecha: (valor) => fechaVisible(valor, locale),
-        revision: soloNoIncorporacion, enlaceRevision: soloNoIncorporacion ? "" : `/portal-empleado/modulos/contratacion-temporal/revision-no-incorporacion.html?expediente_ref=${encodeURIComponent(contexto.expediente_ref)}&lang=${encodeURIComponent(IDIOMA_ACTUAL)}` }));
+        revision: soloNoIncorporacion, enlaceRevision: soloNoIncorporacion ? "" : enlaceRevision() }));
     }
     if (!soloNoIncorporacion && vigente && estado.cese && !estado.cierre) formularios.push(formularioCierre(opciones, estado));
-    if (soloNoIncorporacion && formularios.length === 0) formularios.push(`<p role="status">${escapar(t(estado.no_incorporacion ? "revision_confirmada" : "revision_sin_propuesta"))}</p>`);
-    contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" data-ct-seg-cese ${soloNoIncorporacion ? `aria-label="${escapar(t("no_incorporacion_propuesta_titulo"))}"` : 'aria-labelledby="ct-seg-cese-titulo"'} ${ocupado ? 'aria-busy="true"' : ""}>
+    if (soloNoIncorporacion && formularios.length === 0) {
+      const final = estado.rechazada ? "revision_rechazada" : estado.no_incorporacion ? "revision_confirmada" : "";
+      formularios.push(final
+        ? `<p>${escapar(t(final))}</p><p><a href="${escapar(enlacePeticiones())}">${escapar(t("revision_ir_peticiones"))}</a></p>`
+        : `<p role="status">${escapar(t("revision_sin_propuesta"))}</p>`);
+    }
+    contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" data-ct-seg-cese ${soloNoIncorporacion ? `aria-label="${escapar(t("revision_titulo"))}"` : 'aria-labelledby="ct-seg-cese-titulo"'} ${ocupado ? 'aria-busy="true"' : ""}>
       ${cabecera(estado)}${resumen(estado, opciones)}
       ${aviso ? `<p class="ct-exp-mensaje ct-tono-${aviso.tono}" role="${aviso.tono === "peligro" ? "alert" : "status"}" data-ct-seg-aviso tabindex="-1">${escapar(aviso.texto)}</p>` : ""}
       ${formularios.join("")}</section>`;
@@ -244,12 +259,19 @@ export function montarPanelSeguimientoCese({
       || datos?.estado?.fase_clave !== "nombramiento" || datos?.estado?.estado_clave !== "en_curso"
       || !Number.isSafeInteger(datos?.estado?.version_expediente)
       || !ofrecerPropuestaNoIncorporacion(datos?.estado, datos?.opciones))) return;
+    if (tipo.startsWith("no_incorporacion_") && !propuestaResolubleNoIncorporacion(datos?.estado)) return;
     const [metodo, solicitud] = solicitudPara(tipo, leerFormulario(formulario));
     let confirmada = false;
     const titulos = { cese: "cese_titulo", cierre: "cierre_titulo", modificacion: "modificacion_titulo", ginpix: "ginpix_titulo",
       no_incorporacion: datos?.opciones?.no_incorporacion?.segunda_persona ? "no_incorporacion_titulo_proponer" : "no_incorporacion_titulo",
       no_incorporacion_confirmar: "no_incorporacion_confirmar_titulo", no_incorporacion_rechazar: "no_incorporacion_rechazar_titulo" };
-    try { confirmada = confirmarOperacion({ titulo: t(titulos[tipo]), advertencia: t("confirmar"), referencia: contexto.expediente_ref }) === true; } catch {}
+    const propuesta = datos?.estado?.no_incorporacion_propuesta;
+    const detalle = tipo === "no_incorporacion_confirmar" || tipo === "no_incorporacion_rechazar"
+      ? t(`${tipo}_detalle`, { motivo: etiquetaMotivoNoIncorporacion(datos?.opciones, propuesta?.motivo_clave, t) }) : "";
+    try {
+      confirmada = confirmarOperacion({ titulo: t(titulos[tipo]), advertencia: detalle || t("confirmar"),
+        referencia: datos?.estado?.numero_expediente || contexto.expediente_ref }) === true;
+    } catch {}
     if (!confirmada) return;
     ocupado = true;
     aviso = { tono: "info", texto: t("enviando") };
@@ -258,8 +280,10 @@ export function montarPanelSeguimientoCese({
       const recibo = await cliente[metodo](solicitud, { signal: controlador.signal });
       if (controlador.signal.aborted) return;
       claves.delete(`${tipo}:${solicitud.version_esperada}`);
-      let texto = t("recibo", { recibo: recibo.recibo_ref, version: recibo.version_resultante });
-      if (recibo.coste_centimos) {
+      // La revisión no enseña identificadores técnicos: dice qué ha pasado.
+      let texto = soloNoIncorporacion ? t(tipo === "no_incorporacion_confirmar" ? "revision_aviso_confirmada" : "revision_aviso_rechazada")
+        : t("recibo", { recibo: recibo.recibo_ref, version: recibo.version_resultante });
+      if (!soloNoIncorporacion && recibo.coste_centimos) {
         texto += ` ${t("recibo_coste", { coste: new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(recibo.coste_centimos / 100) })}`;
       }
       aviso = { tono: "exito", texto };
@@ -268,7 +292,12 @@ export function montarPanelSeguimientoCese({
       pintar();
       contenedor.querySelector("[data-ct-seg-aviso]")?.focus?.();
       alConfirmar(recibo, aviso);
-      if (soloNoIncorporacion) cargar();
+      // Tras rechazar ya no hay nada que esta persona pueda consultar: se
+      // queda el aviso y el camino de vuelta. Tras confirmar, se relee.
+      if (soloNoIncorporacion && tipo === "no_incorporacion_rechazar") {
+        datos = { ...datos, estado: { ...datos.estado, no_incorporacion_propuesta: null, rechazada: true } };
+        pintar();
+      } else if (soloNoIncorporacion) cargar();
     } catch (error) {
       ocupado = false;
       if (controlador.signal.aborted) return;
@@ -297,6 +326,24 @@ export function montarPanelSeguimientoCese({
       if (texto) texto.hidden = !ayudaAbierta;
     } else if (boton.matches("[data-ct-seg-reintentar]")) {
       cargar();
+    } else if (boton.matches("[data-ct-seg-copiar-enlace]")) {
+      copiarEnlace();
+    }
+  }
+
+  // Copia el enlace de revisión; si el navegador no deja, lo selecciona para
+  // copiarlo a mano. El resultado se anuncia en la zona de estado del bloque.
+  async function copiarEnlace() {
+    const campo = contenedor.querySelector("[data-ct-seg-enlace]");
+    const salida = contenedor.querySelector("[data-ct-seg-copiado]");
+    if (!campo || !salida) return;
+    try {
+      await globalThis.navigator.clipboard.writeText(campo.value);
+      salida.textContent = t("revision_enlace_copiado");
+    } catch {
+      campo.focus?.();
+      campo.select?.();
+      salida.textContent = t("revision_enlace_no_copiado");
     }
   }
 
