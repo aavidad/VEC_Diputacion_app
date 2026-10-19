@@ -395,8 +395,9 @@ publicar mediante la lectura CT221 existente. El canon nuevo liga las dos claves
 al hash anterior; las ofertas históricas conservan sus datos y su canon. No se
 añaden tablas, permisos ni lecturas de tablas ajenas. Las proyecciones existentes
 de RRHH y Mi Bolsa conservan el objeto `datos` completo. Las dos migraciones
-y sus pruebas focales se ensayaron sobre las 73 SQL del prefijo de main. Sigue
-pendiente el recorrido de publicación y recuperación con reinicio.
+y sus tres pruebas focales se ensayaron al final de la lista común completa.
+Sigue pendiente el recorrido de publicación desde la ficha, que necesita los
+tres perfiles de ofertas de CT (F1-16) y el lote con unidad y ámbito (F0-04).
 
 El seguimiento `GET /api/vec/bolsa/bolsas/{bolsa}/candidatos` puede pedir
 `llamamiento` y `exclusiones_desde`. El bloque `exclusiones_origen` usa una acción

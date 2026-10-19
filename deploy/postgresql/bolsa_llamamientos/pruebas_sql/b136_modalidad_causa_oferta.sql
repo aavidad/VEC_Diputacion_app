@@ -90,4 +90,45 @@ BEGIN
      AND acl.grantee=0 AND acl.privilege_type='EXECUTE') THEN
   RAISE EXCEPTION 'B136: helper público'; END IF;
 END $test$;
+DO $denegaciones$
+DECLARE datos jsonb;origen jsonb;
+BEGIN
+ -- La publicación rechaza el par incompleto, y también el par sin origen CT,
+ -- antes de leer ninguna decisión de autorización.
+ datos:=jsonb_build_object('categoria','Administracion','centro','Granada',
+  'fecha_inicio','2026-10-20','descripcion','Cobertura temporal','modalidad_clave','sustitucion');
+ origen:=jsonb_build_object('expediente_ref','expediente:ct235');
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.publicar_oferta_v5('oferta:b136','recibo:b136','bolsa:administracion',
+   'per_1234567890123456789012','ct-oferta:clave',datos,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+   NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,2,origen);
+  RAISE EXCEPTION 'B136: publicación con par incompleto admitida';
+ EXCEPTION WHEN SQLSTATE '22023' THEN
+  IF SQLERRM<>'B136: modalidad y causa incompletas' THEN RAISE; END IF;
+ END;
+ datos:=datos||jsonb_build_object('causa_clave','baja_temporal');
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.publicar_oferta_v5('oferta:b136','recibo:b136','bolsa:administracion',
+   'per_1234567890123456789012','ct-oferta:clave',datos,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+   NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,2,NULL);
+  RAISE EXCEPTION 'B136: oferta nativa con modalidad admitida';
+ EXCEPTION WHEN SQLSTATE '22023' THEN
+  IF SQLERRM<>'B136: modalidad y causa incompletas' THEN RAISE; END IF;
+ END;
+ -- La recuperación solo la ejecuta el LOGIN de Bolsa en serializable.
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.recuperar_oferta_operacion_v1('bolsa:administracion',
+   'per_1234567890123456789012','ct-oferta:clave',datos,2,origen,NULL,NULL,NULL,NULL,NULL,
+   NULL,NULL,NULL,NULL,NULL,NULL,'unidad:rrhh','ambito:rrhh');
+  RAISE EXCEPTION 'B136: recuperación fuera de su LOGIN admitida';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+ END;
+ IF has_function_privilege('vec_contratacion_temporal_ejecutor',
+   'vec_bolsa_llamamientos.publicar_oferta_v5(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text,integer,jsonb)','EXECUTE')
+  OR has_function_privilege('vec_bolsa_llamamientos_ejecutor',
+   'vec_bolsa_llamamientos.huella_operacion_oferta_v6(text,text,text,text,integer,jsonb,jsonb,jsonb,timestamptz,timestamptz,jsonb)','EXECUTE')
+  OR NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor',
+   'vec_bolsa_llamamientos.recuperar_oferta_operacion_v1(text,text,text,jsonb,integer,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text)','EXECUTE') THEN
+  RAISE EXCEPTION 'B136: permisos de publicación distintos de lo esperado'; END IF;
+END $denegaciones$;
 ROLLBACK;
