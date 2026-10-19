@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -160,5 +162,26 @@ func TestFronterasDeConsultaNoAdmitenElPerfilFijoDeLaTecnica(t *testing.T) {
 	perfiles := perfilesLectoresConsultaRRHHDesarrollo([]identidadConsultaRRHHDesarrollo{tecnica, ordinario})
 	if len(perfiles) != 1 || perfiles[0] != ordinario.perfilRef || perfiles[0] == fijo.perfilRef() {
 		t.Fatalf("perfiles de consulta: %v", perfiles)
+	}
+}
+
+// Un soporte de lector de consultas solo alcanza las dos rutas de consulta.
+// Los documentos y el justificante de Bolsa quedan fuera aunque presente su
+// propia capacidad sellada: solo los sirve el soporte del alta.
+func TestCapacidadDeLectorNoAlcanzaDocumentosNiJustificanteDeBolsa(t *testing.T) {
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	soporte.lectorConsultasRRHH = true
+	for _, ruta := range []string{httpinterno.RutaConsultaCuadroRRHH, httpinterno.RutaConsultaDetalleRRHH} {
+		if _, ok := soporte.capacidadValida(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta)); !ok {
+			t.Fatalf("el lector no alcanza su consulta %s", ruta)
+		}
+	}
+	for _, ruta := range []string{rutaBolsasRRHHDesarrollo + "/bolsa:01/documentos", bolsahttp.RutaJustificanteRenunciaRRHH} {
+		if !rutaDocumentosBolsaRRHHDesarrollo(ruta) && !rutaJustificanteBolsaRRHHDesarrollo(ruta) {
+			t.Fatalf("la ruta %s no es de documentos ni de justificante", ruta)
+		}
+		if _, ok := soporte.capacidadValida(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta)); ok {
+			t.Fatalf("un lector de consultas alcanzó %s", ruta)
+		}
 	}
 }
