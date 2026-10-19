@@ -1,11 +1,20 @@
 \set ON_ERROR_STOP on
 -- CT241 / F1-19, segundo corte (guardas). Un nombramiento derivado (CT234)
--- tiene ya su plaza adjudicada: no puede entrar en otra selección de Bolsa ni
--- vincularse a otro llamamiento. Se añade la misma guarda (23505) a las tres
--- entradas reales: reserva singular O6, reserva de oferta (postimagen CT240) y
--- vínculo de emisión (CT201); en las dos últimas, antes de consumir la
--- autorización. Cuerpos instalados en main sin otro cambio; propietario y
--- ACL se conservan. La reserva O6 recibe además pg_temp al final de su
+-- copia del padre asignación, fiscalización y circuito, y tiene ya su plaza
+-- adjudicada. Hasta que tenga autoridad propia:
+--  1. no entra en otra selección de Bolsa ni se vincula a otro llamamiento
+--     (23505): reserva singular O6, reserva de oferta (postimagen CT240) y
+--     vínculo de emisión (CT201), las dos últimas antes de consumir la
+--     autorización;
+--  2. ninguna lectura ni efecto se autoriza con esos campos copiados (42501):
+--     consulta del estado de la oferta (CT225 y su contexto CT227), consulta
+--     del circuito, nuevas versiones del expediente salvo la v6 de su creación,
+--     publicación en la proyección RRHH (bandeja, detalle, cambios, resumen y
+--     estadísticas filtran por la unidad copiada) y firma de documentos CT118.
+-- La publicación del hijo queda cerrada: CT234 no puede completar una
+-- derivación hasta que el corte siguiente dé al hijo su propio ámbito.
+-- Cuerpos instalados en main sin otro cambio; propietario y ACL se conservan.
+-- La reserva O6 y la consulta del circuito reciben pg_temp al final de su
 -- search_path, como exige la puerta de funciones SECURITY DEFINER.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
@@ -20,14 +29,20 @@ BEGIN
  IF current_setting('server_version_num')::int NOT BETWEEN 180000 AND 189999
     OR current_user<>'vec_contratacion_temporal_propietario'
     OR to_regclass('vec_contratacion_temporal.nombramiento_derivado_v1') IS NULL
+    OR to_regclass('vec_contratacion_temporal.firma_documento_v1') IS NULL
+    OR to_regprocedure('vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()') IS NOT NULL
     OR NOT EXISTS(SELECT 1 FROM pg_attribute a
        WHERE a.attrelid='vec_contratacion_temporal.expediente_alta'::regclass
-         AND a.attname='derivacion_ref' AND NOT a.attisdropped) THEN
-  RAISE EXCEPTION 'CT241: dependencias incompatibles' USING ERRCODE='55000'; END IF;
+         AND a.attname='derivacion_ref' AND NOT a.attisdropped)
+    OR EXISTS(SELECT 1 FROM pg_trigger t WHERE t.tgname='expediente_derivado_ct241') THEN
+  RAISE EXCEPTION 'CT241: dependencias incompatibles o ya instalada' USING ERRCODE='55000'; END IF;
  FOR f IN SELECT * FROM (VALUES
  ('vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid,text,text)','5edef187208e21d903410b156c124c7b70eca8164dec39c813aa901e455043e3',ARRAY['search_path=pg_catalog','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s','idle_in_transaction_session_timeout=20s']),
  ('vec_contratacion_temporal.reservar_seleccion_oferta_ct220(jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','45f84d4328a28c909966560149e08fd51ad13c73e737657a889e07dc3d3dd735',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
- ('vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','6911e480b80031a664a4c89368b64e763cfaf2d5062fa5ce5c69ca6e7d4eae4b',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s'])
+ ('vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','6911e480b80031a664a4c89368b64e763cfaf2d5062fa5ce5c69ca6e7d4eae4b',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']),
+ ('vec_contratacion_temporal.consultar_estado_oferta_expediente_ct225(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','1ee860093ab0ce7e71d4b304a0f0ed6f2eae31f84a4e8952260a088aea50a35f',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
+ ('vec_contratacion_temporal.preparar_contexto_estado_oferta_ct227(text,text)','c8cf051570ba05571510092b70ecc052caa715f357ce1a5d83633f3ead2f45e7',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
+ ('vec_contratacion_temporal.consultar_circuito_rrhh_v1(text,text,bigint,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','70b90eca1790d935c58ea1ff9b7aeb23c9d646a509cbc96056f08c863e4be49e',ARRAY['search_path=pg_catalog','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=5s'])
  ) AS x(firma,huella,config) LOOP
   SELECT pg_get_userbyid(q.proowner) AS dueno,q.prosecdef,q.proacl::text AS acl,q.proconfig,
    encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex') AS huella
@@ -39,7 +54,7 @@ BEGIN
  END LOOP;
 END $pre$;
 
--- Reserva singular O6.
+-- reservar_seleccion_llamamiento_o6_v1.
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(p_clave uuid, p_huella text, p_solicitud_texto text)
  RETURNS TABLE(situacion text, solicitud_json text, reserva_ref text, efecto text, recibo_json text, artefacto_json text)
  LANGUAGE plpgsql
@@ -81,8 +96,7 @@ BEGIN
          WHERE alta.expediente_ref = p_solicitud->>'expediente_ref'
            AND alta.derivacion_ref IS NOT NULL
     ) THEN
-        RAISE EXCEPTION USING ERRCODE = '23505',
-            MESSAGE = 'CT241: expediente derivado sin selección nueva';
+        RAISE EXCEPTION USING ERRCODE = '23505', MESSAGE = 'CT241: expediente derivado sin selección nueva';
     END IF;
     INSERT INTO vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 (
         clave_idempotencia, huella_semantica, solicitud_json
@@ -130,7 +144,7 @@ BEGIN
 END
 $function$;
 
--- Reserva de oferta (postimagen CT240).
+-- reservar_seleccion_oferta_ct220.
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.reservar_seleccion_oferta_ct220(p_intencion jsonb, p_comando jsonb, p_material text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -242,7 +256,7 @@ BEGIN
  RETURN vec_contratacion_temporal.estado_seleccion_oferta_ct220(e);
 END $function$;
 
--- Vínculo de emisión de Bolsa (CT201).
+-- registrar_vinculo_emision_bolsa_ct_v1.
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(p_material text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -377,21 +391,287 @@ BEGIN
  RETURN salida;
 END $function$;
 
+-- consultar_estado_oferta_expediente_ct225.
+CREATE OR REPLACE FUNCTION vec_contratacion_temporal.consultar_estado_oferta_expediente_ct225(p_material text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET row_security TO 'on'
+ SET "TimeZone" TO 'UTC'
+ SET lock_timeout TO '2s'
+ SET statement_timeout TO '15s'
+AS $function$
+DECLARE m jsonb;d jsonb;h text;ctx text;c record;e vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6%ROWTYPE;
+ consumo record;
+BEGIN
+ IF current_user<>'vec_contratacion_temporal_propietario'
+    OR session_user=current_user
+    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER') IS TRUE
+    OR current_setting('transaction_isolation')<>'serializable'
+    OR current_setting('transaction_read_only')<>'off'
+    OR p_material IS NULL OR octet_length(p_material) NOT BETWEEN 128 AND 65536
+ THEN RAISE EXCEPTION 'CT225: lectura no autorizable' USING ERRCODE='42501'; END IF;
+ BEGIN
+  m:=p_material::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN
+  RAISE EXCEPTION 'CT225: material ilegible' USING ERRCODE='22023';
+ END;
+ IF jsonb_typeof(m)<>'object'
+    OR m->>'esquema' IS DISTINCT FROM 'vec.ct.seleccion-oferta.consulta-expediente.v1'
+    OR m-ARRAY['esquema','organizacion_ref','expediente_ref','version_observada',
+      'categoria_ref','centro_ref','actor_ref','perfil_ref']<>'{}'::jsonb
+    OR NOT (m ?& ARRAY['esquema','organizacion_ref','expediente_ref','version_observada',
+      'categoria_ref','centro_ref','actor_ref','perfil_ref'])
+    OR jsonb_typeof(m->'organizacion_ref') IS DISTINCT FROM 'string'
+    OR jsonb_typeof(m->'expediente_ref') IS DISTINCT FROM 'string'
+    OR jsonb_typeof(m->'categoria_ref') IS DISTINCT FROM 'string'
+    OR jsonb_typeof(m->'centro_ref') IS DISTINCT FROM 'string'
+    OR jsonb_typeof(m->'actor_ref') IS DISTINCT FROM 'string'
+    OR jsonb_typeof(m->'perfil_ref') IS DISTINCT FROM 'string'
+    OR jsonb_typeof(m->'version_observada')<>'number'
+    OR m->>'version_observada' !~ '^[1-9][0-9]{0,15}$'
+    OR length(m->>'organizacion_ref') NOT BETWEEN 2 AND 160
+    OR length(m->>'expediente_ref') NOT BETWEEN 2 AND 160
+    OR length(m->>'categoria_ref') NOT BETWEEN 2 AND 160
+    OR length(m->>'centro_ref') NOT BETWEEN 2 AND 160
+    OR length(m->>'actor_ref') NOT BETWEEN 2 AND 160
+    OR length(m->>'perfil_ref') NOT BETWEEN 2 AND 160
+ THEN RAISE EXCEPTION 'CT225: consulta inválida' USING ERRCODE='22023'; END IF;
+ -- CT241 / F1-19: la unidad del hijo es la copiada del padre; no autoriza.
+ IF EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_alta alta
+   WHERE alta.expediente_ref=m->>'expediente_ref' AND alta.derivacion_ref IS NOT NULL) THEN
+  RAISE EXCEPTION 'CT241: nombramiento derivado sin autoridad propia' USING ERRCODE='42501'; END IF;
+ -- Se bloquea la cabecera antes de leer O6; reserva, confirmación y
+ -- cancelación usan el mismo orden de bloqueo.
+ SELECT a.version,v.agregado_json INTO c
+ FROM vec_contratacion_temporal.expediente_integral_actual a
+ JOIN vec_contratacion_temporal.expediente_version_integral v
+   ON v.expediente_ref=a.expediente_ref AND v.version=a.version
+ WHERE a.expediente_ref=m->>'expediente_ref'
+   AND v.agregado_json->>'organizacion_ref'=m->>'organizacion_ref'
+ FOR SHARE OF a,v;
+ IF c.version IS NULL OR c.version::text IS DISTINCT FROM m->>'version_observada'
+    OR c.agregado_json#>>'{solicitud,categoria_ref}' IS DISTINCT FROM m->>'categoria_ref'
+    OR c.agregado_json#>>'{solicitud,centro_ref}' IS DISTINCT FROM m->>'centro_ref'
+ THEN RAISE EXCEPTION 'CT225: contexto CT cambió' USING ERRCODE='55000'; END IF;
+ IF c.agregado_json#>>'{asignacion,unidad_ref}' IS NULL
+    OR c.agregado_json#>>'{asignacion,unidad_ref}' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+ THEN RAISE EXCEPTION 'CT227: unidad gestora no acreditada' USING ERRCODE='42501'; END IF;
+ h:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
+ ctx:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":'||
+   to_json(m->>'organizacion_ref')::text||',"unidad_ref":'||
+   to_json(c.agregado_json#>>'{asignacion,unidad_ref}')::text||
+   '},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
+ IF d->>'principal_id' IS DISTINCT FROM m->>'actor_ref'
+    OR d->>'perfil_activo_ref' IS DISTINCT FROM m->>'perfil_ref'
+    OR d->>'accion' IS DISTINCT FROM 'contratacion_temporal.bolsa.oferta.vincular'
+    OR d->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
+    OR d->>'tipo_recurso' IS DISTINCT FROM 'vinculo_oferta_bolsa_expediente'
+    OR d->>'finalidad' IS DISTINCT FROM 'tramitacion_expediente_contratacion_temporal'
+    OR d->>'recurso_ref' IS DISTINCT FROM m->>'expediente_ref'
+    OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM ctx
+    OR d->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb
+    OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
+ THEN RAISE EXCEPTION 'CT225: decisión no ligada' USING ERRCODE='42501'; END IF;
+ SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_vinculo_oferta_bolsa_ct_v3_atestada(
+  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+  p_payload,p_sobre,p_evidencia,p_raiz);
+ IF consumo.efecto_ref IS DISTINCT FROM m->>'expediente_ref'
+    OR consumo.huella_efecto_sha256 IS DISTINCT FROM ctx
+    OR consumo.consumo_nuevo IS NOT TRUE
+ THEN RAISE EXCEPTION 'CT225: consumo V3 divergente' USING ERRCODE='42501'; END IF;
+ SELECT * INTO e FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 x
+ WHERE x.tipo_seleccion='oferta'
+   AND x.solicitud_json->>'organizacion_ref'=m->>'organizacion_ref'
+   AND x.solicitud_json->>'expediente_ref'=m->>'expediente_ref'
+ ORDER BY (x.situacion<>'descartada') DESC,x.actualizada_en DESC,x.clave_idempotencia DESC
+ LIMIT 1 FOR SHARE;
+ IF e.clave_idempotencia IS NULL THEN
+  RETURN jsonb_build_object('situacion','ausente');
+ END IF;
+ IF e.solicitud_json->>'actor_ref' IS DISTINCT FROM m->>'actor_ref'
+    OR e.solicitud_json->>'perfil_ref' IS DISTINCT FROM m->>'perfil_ref'
+    OR e.solicitud_json->>'categoria_ref' IS DISTINCT FROM m->>'categoria_ref'
+    OR e.solicitud_json->>'centro_ref' IS DISTINCT FROM m->>'centro_ref'
+    OR vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(e.comando_oferta_json,e.solicitud_json) IS NOT TRUE
+    OR (e.situacion='confirmada' AND
+      vec_contratacion_temporal.terminal_seleccion_oferta_valido_ct220(e) IS NOT TRUE)
+    OR (e.situacion='descartada' AND
+      vec_contratacion_temporal.terminal_descarte_oferta_valido_ct220(e) IS NOT TRUE)
+ THEN RAISE EXCEPTION 'CT225: ejecución incompatible' USING ERRCODE='55000'; END IF;
+ RETURN jsonb_build_object('situacion',e.situacion,
+  'intencion_original',e.solicitud_json,
+  'estado',vec_contratacion_temporal.estado_seleccion_oferta_ct220(e));
+END $function$;
+
+-- preparar_contexto_estado_oferta_ct227.
+CREATE OR REPLACE FUNCTION vec_contratacion_temporal.preparar_contexto_estado_oferta_ct227(p_organizacion text, p_expediente text)
+ RETURNS TABLE(version_actual bigint, categoria_ref text, centro_ref text, unidad_gestora_ref text)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET row_security TO 'on'
+ SET "TimeZone" TO 'UTC'
+ SET lock_timeout TO '2s'
+ SET statement_timeout TO '15s'
+AS $function$
+BEGIN
+ -- CT225 valida sesión, organización y expediente antes de exponer contexto.
+ IF current_user<>'vec_contratacion_temporal_propietario'
+    OR session_user=current_user
+    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER') IS TRUE
+ THEN RAISE EXCEPTION 'CT227: contexto denegado' USING ERRCODE='42501'; END IF;
+ -- CT241 / F1-19: no se prepara contexto con la unidad copiada del padre.
+ IF EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_alta alta
+   WHERE alta.expediente_ref=p_expediente AND alta.derivacion_ref IS NOT NULL) THEN
+  RAISE EXCEPTION 'CT241: nombramiento derivado sin autoridad propia' USING ERRCODE='42501'; END IF;
+ RETURN QUERY
+ SELECT c.version_actual,c.categoria_ref,c.centro_ref,
+        v.agregado_json#>>'{asignacion,unidad_ref}'
+ FROM vec_contratacion_temporal.preparar_contexto_estado_oferta_ct225(p_organizacion,p_expediente) c
+ JOIN vec_contratacion_temporal.expediente_integral_actual a
+   ON a.expediente_ref=p_expediente AND a.version=c.version_actual
+ JOIN vec_contratacion_temporal.expediente_version_integral v
+   ON v.expediente_ref=a.expediente_ref AND v.version=a.version
+ WHERE v.agregado_json->>'organizacion_ref'=p_organizacion
+   AND v.agregado_json#>>'{asignacion,unidad_ref}' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$';
+END $function$;
+
+-- consultar_circuito_rrhh_v1.
+CREATE OR REPLACE FUNCTION vec_contratacion_temporal.consultar_circuito_rrhh_v1(p_organizacion text, p_expediente text, p_version bigint, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
+ RETURNS TABLE(circuito_json jsonb, version_expediente bigint, flujo_json jsonb)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET row_security TO 'on'
+ SET "TimeZone" TO 'UTC'
+ SET lock_timeout TO '2s'
+ SET statement_timeout TO '5s'
+AS $function$
+DECLARE
+    v_material text;
+    v_material_huella text;
+    v_contexto_huella text;
+    v_decision jsonb;
+    v_consumo record;
+    v_agregado jsonb;
+BEGIN
+    IF current_user <> 'vec_contratacion_temporal_propietario'
+       OR session_user = current_user
+       OR NOT pg_catalog.pg_has_role(session_user, 'vec_contratacion_temporal_ejecutor', 'MEMBER')
+       OR pg_catalog.pg_has_role(session_user, 'vec_contratacion_temporal_propietario', 'MEMBER')
+       OR pg_catalog.pg_has_role(session_user, 'vec_contratacion_temporal_migrador', 'MEMBER')
+       OR p_organizacion IS NULL OR p_organizacion !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+       OR p_expediente IS NULL OR p_expediente !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+       OR p_version IS NULL OR p_version NOT BETWEEN 1 AND 9007199254740991
+       OR p_decision IS NULL OR pg_catalog.octet_length(p_decision) NOT BETWEEN 1 AND 524288 THEN
+        RAISE EXCEPTION 'consulta de circuito denegada' USING ERRCODE = '42501';
+    END IF;
+    -- CT241 / F1-19: el circuito del hijo es el copiado del padre; no se
+    -- consulta bajo el hijo hasta que tenga autoridad propia.
+    IF EXISTS (
+        SELECT 1 FROM vec_contratacion_temporal.expediente_alta alta
+         WHERE alta.expediente_ref = p_expediente AND alta.derivacion_ref IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'CT241: nombramiento derivado sin autoridad propia' USING ERRCODE = '42501';
+    END IF;
+    v_material := '{"expediente_ref":"' || p_expediente ||
+        '","organizacion_ref":"' || p_organizacion ||
+        '","version_expediente":' || p_version::text || '}';
+    v_material_huella := pg_catalog.encode(
+        pg_catalog.sha256(pg_catalog.convert_to(v_material, 'UTF8')), 'hex');
+    v_contexto_huella := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+        '{"ambitos":{"organizacion_ref":"' || p_organizacion ||
+        '"},"atributos":{"material_sha256":"' || v_material_huella || '"}}', 'UTF8')), 'hex');
+    v_decision := pg_catalog.convert_from(p_decision, 'UTF8')::jsonb;
+    IF v_decision ->> 'accion' IS DISTINCT FROM 'contratacion_temporal.circuito.consultar'
+       OR v_decision ->> 'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
+       OR v_decision ->> 'tipo_recurso' IS DISTINCT FROM 'expediente_circuito_rrhh'
+       OR v_decision ->> 'finalidad' IS DISTINCT FROM 'gestionar_contratacion_temporal'
+       OR v_decision ->> 'recurso_ref' IS DISTINCT FROM p_expediente
+       OR v_decision ->> 'contexto_recurso_huella_sha256' IS DISTINCT FROM v_contexto_huella
+       OR v_decision -> 'campos_permitidos' IS DISTINCT FROM '["circuito"]'::jsonb
+       OR v_decision -> 'obligaciones' IS DISTINCT FROM '["auditar"]'::jsonb THEN
+        RAISE EXCEPTION 'autorización de consulta de circuito divergente' USING ERRCODE = '42501';
+    END IF;
+    SELECT * INTO STRICT v_consumo FROM
+        vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_circuito_ct_v3_atestada(
+            v_material, p_capacidad, p_decision, p_motivo, p_contexto,
+            p_persona_version, p_perfil_version, p_payload, p_sobre,
+            p_evidencia, p_raiz);
+    IF v_consumo.efecto_ref IS DISTINCT FROM p_expediente
+       OR v_consumo.huella_efecto_sha256 IS DISTINCT FROM v_contexto_huella
+       OR v_consumo.consumo_nuevo IS NOT TRUE THEN
+        RAISE EXCEPTION 'consumo de circuito divergente' USING ERRCODE = '42501';
+    END IF;
+    SELECT v.agregado_json INTO v_agregado
+      FROM vec_contratacion_temporal.expediente_integral_actual a
+      JOIN vec_contratacion_temporal.expediente_version_integral v
+        ON v.expediente_ref = a.expediente_ref AND v.version = a.version
+     WHERE a.expediente_ref = p_expediente AND a.version = p_version
+       AND v.agregado_json ->> 'organizacion_ref' = p_organizacion;
+    IF NOT FOUND OR NOT vec_contratacion_temporal.circuito_vinculado_ct163(v_agregado) THEN
+        RETURN;
+    END IF;
+    RETURN QUERY SELECT v_agregado -> 'circuito', p_version, v_agregado -> 'flujo';
+END
+$function$;
+
+-- Guarda central de escritura: toda nueva versión del hijo, su publicación
+-- RRHH y sus firmas CT118 pasan por aquí. Solo admite la v6 de CT234.
+CREATE FUNCTION vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp SET row_security=on AS $f$
+BEGIN
+ IF TG_OP<>'INSERT' OR TG_WHEN<>'BEFORE' OR TG_LEVEL<>'ROW'
+    OR TG_TABLE_SCHEMA<>'vec_contratacion_temporal'
+    OR TG_TABLE_NAME NOT IN ('expediente_version_integral','publicacion_version_rrhh','firma_documento_v1') THEN
+  RAISE EXCEPTION 'CT241: disparador fuera de su tabla' USING ERRCODE='42501'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_alta alta
+    WHERE alta.expediente_ref=NEW.expediente_ref AND alta.derivacion_ref IS NOT NULL) THEN
+  RETURN NEW; END IF;
+ IF TG_TABLE_NAME='expediente_version_integral' THEN
+  IF NEW.version=6 AND NEW.origen_version='derivacion_nombramiento_ct234' THEN
+   RETURN NEW; END IF;
+ END IF;
+ RAISE EXCEPTION 'CT241: nombramiento derivado sin autoridad propia' USING ERRCODE='42501';
+END $f$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241() FROM PUBLIC;
+CREATE TRIGGER expediente_derivado_ct241 BEFORE INSERT ON vec_contratacion_temporal.expediente_version_integral
+ FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241();
+CREATE TRIGGER expediente_derivado_ct241 BEFORE INSERT ON vec_contratacion_temporal.publicacion_version_rrhh
+ FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241();
+CREATE TRIGGER expediente_derivado_ct241 BEFORE INSERT ON vec_contratacion_temporal.firma_documento_v1
+ FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241();
+
 DO $post$
 DECLARE f record; p record;
 BEGIN
  FOR f IN SELECT * FROM (VALUES
- ('vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid,text,text)','af2d9ff4aa9a26c12c2445833473b3427b9f6be4731c2c7f12121c5eaa249529',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s','idle_in_transaction_session_timeout=20s']),
+ ('vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid,text,text)','52a4058e93be16793cdd9cadc0778b452d48385848dbe167c58a2f84855b3730',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s','idle_in_transaction_session_timeout=20s']),
  ('vec_contratacion_temporal.reservar_seleccion_oferta_ct220(jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','6a8e5f1feff9051e960a8db3866669569c5c551eca009d7f6889c87f88e383e8',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
- ('vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','fd7421e9d5dba11dda82368873a8ea41a30fc5002f921e0f226b649ba13ac344',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s'])
+ ('vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','fd7421e9d5dba11dda82368873a8ea41a30fc5002f921e0f226b649ba13ac344',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']),
+ ('vec_contratacion_temporal.consultar_estado_oferta_expediente_ct225(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','82941407107240e6c27850e86c85b6d8706fe9fea8486f3e23ae207ebb4947f9',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
+ ('vec_contratacion_temporal.preparar_contexto_estado_oferta_ct227(text,text)','e596c2e5a65f4a29ce306021de21cfe416767c71f58006247d1ee76534284a92',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
+ ('vec_contratacion_temporal.consultar_circuito_rrhh_v1(text,text,bigint,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','0081675ff4ab7e4961dc1ee1f01b96922ccf78291f3d3eb9af4ce95e45fae732',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=5s']),
+ ('vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()','75d464994382f006ec6956673661ba894c4cc8fa65536e5beb6fc9c0947d9ae9',ARRAY['search_path=pg_catalog, pg_temp','row_security=on'])
  ) AS x(firma,huella,config) LOOP
   SELECT pg_get_userbyid(q.proowner) AS dueno,q.prosecdef,q.proacl::text AS acl,q.proconfig,
    encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex') AS huella
   INTO STRICT p FROM pg_proc q WHERE q.oid=f.firma::regprocedure;
   IF p.dueno<>'vec_contratacion_temporal_propietario' OR p.prosecdef IS NOT TRUE
-     OR p.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
+     OR (f.firma<>'vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()' AND p.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}')
+     OR (f.firma='vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()' AND p.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}')
      OR p.proconfig IS DISTINCT FROM f.config OR p.huella IS DISTINCT FROM f.huella THEN
    RAISE EXCEPTION 'CT241: postimagen incompatible: %',f.firma USING ERRCODE='55000'; END IF;
  END LOOP;
+ IF (SELECT count(*) FROM pg_trigger t
+     WHERE t.tgname='expediente_derivado_ct241' AND NOT t.tgisinternal AND t.tgenabled='O'
+       AND t.tgfoid='vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()'::regprocedure AND t.tgtype=7
+       AND t.tgrelid IN ('vec_contratacion_temporal.expediente_version_integral'::regclass,'vec_contratacion_temporal.publicacion_version_rrhh'::regclass,'vec_contratacion_temporal.firma_documento_v1'::regclass))<>3
+ THEN RAISE EXCEPTION 'CT241: disparadores incompletos' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;
