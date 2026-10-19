@@ -1,4 +1,4 @@
-import { validarIdentificador, validarLimites, seleccionarFicheros } from '../modelo.js?v=20261001-preparacion-v1';
+import { validarIdentificador, validarLimites, seleccionarFicheros } from '../modelo.js?v=VEC_WEB_VERSION';
 
 // Límite técnico del importador local, sin efecto sobre requisitos o plazos de inscripción.
 export const MAXIMO_ARCHIVO = 2 * 1024 * 1024;

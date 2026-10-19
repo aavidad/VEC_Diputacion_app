@@ -1,4 +1,4 @@
-import { fechaHistoriaServiciosValida, validarRespuestaHistoriaServicios } from "./cliente-http-historia-servicios-propia.js?v=20261004-personal-historia-v1";
+import { fechaHistoriaServiciosValida, validarRespuestaHistoriaServicios } from "./cliente-http-historia-servicios-propia.js?v=VEC_WEB_VERSION";
 
 export const CAMPOS_PREPARACION_RECTIFICACION = Object.freeze(["periodo_desde", "periodo_hasta", "dias_reconocidos", "estado", "clase"]);
 const fallo = (codigo, errores = {}) => Object.assign(new Error(codigo), { codigo, errores });

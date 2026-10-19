@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { cargarMensajesPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { cargarMensajesPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 import { renderizarPreferencias } from "../area-personal/preferencias.js";
 import { iniciarI18nAreaPersonal } from "../area-personal/i18n.js";
 

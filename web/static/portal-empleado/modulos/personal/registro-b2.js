@@ -1,16 +1,16 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
-import { ErrorRegistroB2, referenciaEmpleadoB2Valida } from "./registro-b2-cliente.js?v=20261012-ct-personal-ficha-v1";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20261012-ct-personal-ficha-v1";
-import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20261008-alta-rpt-circular-v4";
-import { crearTraductorTraza } from "./personal-traza-i18n.js?v=20261001-personal-expediente-v2";
-import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=20261002-b-vacantes-401-retoma-v2";
-import { crearPanelRelacionParaRPT } from "./preparacion-relacion-rpt.js?v=20261002-b-base-401-acumulada-v3";
-import { renderizarPreparacionAntecedentesCarrera, validarPreparacionAntecedentesCarrera } from "./preparacion-antecedentes-carrera.js?v=20261002-b-base-401-acumulada-v3";
+import { crearTraductorPersonal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { ErrorRegistroB2, referenciaEmpleadoB2Valida } from "./registro-b2-cliente.js?v=VEC_WEB_VERSION";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=VEC_WEB_VERSION";
+import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=VEC_WEB_VERSION";
+import { crearTraductorTraza } from "./personal-traza-i18n.js?v=VEC_WEB_VERSION";
+import { crearPanelPreparacionServiciosCER } from "./preparacion-servicios-cer.js?v=VEC_WEB_VERSION";
+import { crearPanelRelacionParaRPT } from "./preparacion-relacion-rpt.js?v=VEC_WEB_VERSION";
+import { renderizarPreparacionAntecedentesCarrera, validarPreparacionAntecedentesCarrera } from "./preparacion-antecedentes-carrera.js?v=VEC_WEB_VERSION";
 
-import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=20261004-personal-vacantes-filtro-v1";
+import { crearVistaVacantesB2 } from "./vacantes-b2-vista.js?v=VEC_WEB_VERSION";
 
-import { montarComparacionFichaB2 } from "./comparacion-ficha-b2.js?v=20261003-personal-comparacion-b2-v3";
+import { montarComparacionFichaB2 } from "./comparacion-ficha-b2.js?v=VEC_WEB_VERSION";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [

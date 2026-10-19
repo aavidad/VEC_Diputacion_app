@@ -1,5 +1,5 @@
 /** Textos de las comprobaciones automáticas de la vía de cobertura (fase 3). */
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=VEC_WEB_VERSION";
 const catalogos = await cargarCatalogosContratacion("contratacion-temporal-avisos-via-cobertura");
 
 export const MENSAJES_AVISOS_VIA_COBERTURA_ES = catalogos.exportaciones.ES;

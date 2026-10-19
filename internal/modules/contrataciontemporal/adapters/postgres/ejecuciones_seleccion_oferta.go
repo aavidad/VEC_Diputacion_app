@@ -267,7 +267,7 @@ func errorRegistroSeleccionOferta(ctx context.Context, err error) error {
 			return ports.ErrAutorizacionDenegada
 		case "22023":
 			return ports.ErrSeleccionOfertaCTInvalida
-		case "23505", "40001", "55000":
+		case "23505", "40001", "40P01", "55000":
 			return ports.ErrVinculoOfertaBolsaCTInvalido
 		}
 	}

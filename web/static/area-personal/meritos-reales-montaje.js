@@ -1,7 +1,7 @@
 import { cargarTextos, reintentarTextos } from "../comun/textos.js";
 import { idiomaActivoAreaPersonal, traducir } from "./i18n.js";
-import { crearClienteCartera, ErrorCartera } from "./meritos-reales-cliente.js?v=20261013-meritos-recorrido-v1";
-import { renderizarMeritosPropios } from "./meritos-reales-vista.js?v=20261013-meritos-recorrido-v1";
+import { crearClienteCartera, ErrorCartera } from "./meritos-reales-cliente.js?v=VEC_WEB_VERSION";
+import { renderizarMeritosPropios } from "./meritos-reales-vista.js?v=VEC_WEB_VERSION";
 
 const FILTROS = new Set(["todos", "disponibles", "retirados"]);
 
@@ -47,7 +47,7 @@ export function montarMeritosReales({ contenedor, fetchImpl = globalThis.fetch,
   const doc = contenedor.ownerDocument || document;
   const estilo = doc.createElement("link");
   estilo.rel = "stylesheet";
-  estilo.href = "/area-personal/meritos-reales-estilos.css?v=20261013-meritos-recorrido-v1";
+  estilo.href = "/area-personal/meritos-reales-estilos.css?v=VEC_WEB_VERSION";
   doc.head.append(estilo);
   const modelo = estadoInicial(ubicacion);
   modelo.pendiente = pendiente?.operacion === "declaracion" ? null : pendiente;

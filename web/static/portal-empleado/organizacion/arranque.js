@@ -1,7 +1,7 @@
 import { cargarTextos } from "../../comun/textos.js";
-import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
+import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=VEC_WEB_VERSION";
 
-const URL_ORGANIZACION = "./organizacion.js?v=20261007-pantallas-textos-final-v1";
+const URL_ORGANIZACION = "./organizacion.js?v=VEC_WEB_VERSION";
 const registrarFallo = (error) => globalThis.console?.error?.("organizacion.arranque.fallido", {
   codigo: error.codigo,
   causa: error.cause?.name,

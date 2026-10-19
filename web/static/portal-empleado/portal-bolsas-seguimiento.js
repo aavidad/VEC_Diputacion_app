@@ -6,12 +6,12 @@
  * están activos y qué resultados cierran el seguimiento lo publica el servidor
  * (`canales_llamamiento`); sin ese dato solo existe el correo.
  */
-import { textoPortal, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
-import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
+import { textoPortal, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { etiquetaResultadoTelefono } from "./portal-bolsas-intentos.js?v=VEC_WEB_VERSION";
+import { rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
 import { cargarTextos } from "../comun/textos.js";
-import { crearClienteJustificanteRenuncia } from "./portal-bolsas-justificante-cliente.js?v=20261015-o-justificante-bolsa-v1";
+import { crearClienteJustificanteRenuncia } from "./portal-bolsas-justificante-cliente.js?v=VEC_WEB_VERSION";
 
 const TEXTOS_EXCLUSIONES = (await cargarTextos("bolsa-ofertas")).seccion("seguimiento_exclusiones");
 

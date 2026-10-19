@@ -118,6 +118,7 @@ func (s *Servicio) ConvocatoriasRRHH(ctx context.Context, actor Actor, limite in
 
 func bolsaAbiertaValida(b BolsaAbierta, detalle bool) bool {
 	if !convocatoriaRefValida(b.ConvocatoriaRef) || b.Titulo == "" ||
+		!b.ModalidadInscripcion.ValidaParaPublicar() ||
 		b.NumeroCategorias == 0 || b.NumeroCategorias > 128 ||
 		b.CatalogoVersion == 0 ||
 		b.PlazoInicio.IsZero() || !b.PlazoFin.After(b.PlazoInicio) ||

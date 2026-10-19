@@ -1,24 +1,24 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261018-f136c-informe-v4";
-import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261016-ct-ofertas-ct231-v1";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261011-ct-bolsa-vinculo-v1";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261018-f173-alta-v5";
+import { escaparHTML } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=VEC_WEB_VERSION";
+import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=VEC_WEB_VERSION";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=VEC_WEB_VERSION";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=VEC_WEB_VERSION";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=VEC_WEB_VERSION";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261018-f173-alta-v2";
-import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261018-f173-alta-v2";
-import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=VEC_WEB_VERSION";
+import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=VEC_WEB_VERSION";
+import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=VEC_WEB_VERSION";
 import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261018-f136c-informe-v4";
-import { montarAltaContratacionTemporal } from "./vista.js?v=20261018-f173-alta-v2";
+} from "./vista-expedientes-render.js?v=VEC_WEB_VERSION";
+import { montarAltaContratacionTemporal } from "./vista.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 function enfocarElemento(raiz, selector) {

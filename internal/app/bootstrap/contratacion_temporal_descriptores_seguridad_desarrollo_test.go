@@ -85,6 +85,7 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		{"ct-llamamiento-plazo-evento", ctpostgres.AccionResolucionManualLlamamiento, cthttp.RutaEventoPlazoLlamamiento},
 		{"ct-formalizacion-proponer", ctpostgres.AccionPropuestaFormalizacion, cthttp.RutaPropuestaFormalizacion},
 		{"ct-formalizacion-resolver", ctpostgres.AccionResolucionFormalizacion, cthttp.RutaResolucionFormalizacion},
+		{"ct-nombramiento-derivar", string(ctdomain.AccionDerivarNombramiento), cthttp.RutaDerivacionNombramiento},
 		{"ct-peticiones-centro-rrhh-entregar", ctports.AccionEntregarPeticionRRHH, rutaEntregaPeticionCentro},
 		{"ct-peticiones-centro-rrhh-consultar", ctports.AccionConsultarPeticionesRRHH, rutaEntregaPeticionCentro},
 	}

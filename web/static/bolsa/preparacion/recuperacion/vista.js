@@ -1,6 +1,6 @@
 import { cargarTextos } from '../../../comun/textos.js';
 import { INDICE_IDIOMAS, resolverIdiomaNavegacion } from '../../../comun/idioma.js';
-import { leerArchivoLocal } from './material.js?v=20261002-codexa-s3-v1';
+import { leerArchivoLocal } from './material.js?v=VEC_WEB_VERSION';
 
 export function rutaElegirConvocatoria(idioma) {
   return `/bolsa/?${new URLSearchParams({ lang: idioma })}`;

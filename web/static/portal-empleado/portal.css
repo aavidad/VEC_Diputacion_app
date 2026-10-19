@@ -1,5 +1,5 @@
 /* Las vistas que cargan solo portal.css comparten la misma autoridad visual. */
-@import url("../comun/tema-vec.css?v=20261001-codexf-accesibilidad-v1");
+@import url("../comun/tema-vec.css?v=VEC_WEB_VERSION");
 
 * {
   box-sizing: border-box;

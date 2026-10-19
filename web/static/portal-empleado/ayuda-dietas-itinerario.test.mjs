@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 await prepararTextosPortal("ayuda");
-const { crearAyudanteTramites } = await import("./ayudante-tramites.js?v=20261007-pantallas-textos-final-v1");
+const { crearAyudanteTramites } = await import("./ayudante-tramites.js?v=VEC_WEB_VERSION");
 
 test("las instrucciones de alternativas y motivo D4 se consultan en el ayudante existente", () => {
   let pulsar;

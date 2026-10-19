@@ -1,5 +1,5 @@
-import { CAPACIDAD_CONSULTAR_PUESTO, validarConsultaCategorias } from "./contrato.js?v=20260920-personal-catalogo-v1";
-import { crearTraductorPersonal, formatearRecuentoCategorias } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
+import { CAPACIDAD_CONSULTAR_PUESTO, validarConsultaCategorias } from "./contrato.js?v=VEC_WEB_VERSION";
+import { crearTraductorPersonal, formatearRecuentoCategorias } from "./i18n.js?v=VEC_WEB_VERSION";
 
 function nodo(documento, etiqueta, texto = "") { const salida = documento.createElement(etiqueta); if (texto !== "") salida.textContent = texto; return salida; }
 function sigueMontada(raiz, contenedor) { return raiz.querySelector?.("[data-personal-categorias]") === contenedor; }

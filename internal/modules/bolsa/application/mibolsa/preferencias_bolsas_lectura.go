@@ -19,7 +19,11 @@ import (
 // LecturaPreferenciasBolsas evalúa la autorización actual de cada GET. No
 // convierte la captura en una concesión reutilizable ni emite material V3.
 type LecturaPreferenciasBolsas struct {
-	lector     bolsa.LecturaPreferenciasBolsas
+	lector bolsa.LecturaPreferenciasBolsas
+	autoridadLecturaPreferencias
+}
+
+type autoridadLecturaPreferencias struct {
 	auditor    bolsa.AuditoriaIntentosPreferenciasBolsas
 	fuente     puertosvec.FuenteAutorizacion
 	reloj      puertosvec.Reloj
@@ -40,12 +44,40 @@ func nuevaLecturaPreferenciasBolsasSuperficie(lector bolsa.LecturaPreferenciasBo
 	if nula(lector) || nula(auditor) || nula(fuente) || nula(reloj) {
 		return nil, bolsa.ErrPreferenciasNoDisponibles
 	}
-	return &LecturaPreferenciasBolsas{lector: lector, auditor: auditor, fuente: fuente, reloj: reloj, superficie: superficie}, nil
+	return &LecturaPreferenciasBolsas{lector: lector, autoridadLecturaPreferencias: autoridadLecturaPreferencias{auditor: auditor, fuente: fuente, reloj: reloj, superficie: superficie}}, nil
 }
 
 func (s *LecturaPreferenciasBolsas) ConsultarPreferencias(ctx context.Context, orden Orden) (bolsa.EstadoPreferenciasBolsas, error) {
-	vacio := bolsa.EstadoPreferenciasBolsas{}
-	if ctx == nil || s == nil || nula(s.lector) || nula(s.auditor) || nula(s.fuente) || nula(s.reloj) {
+	if s == nil || nula(s.lector) {
+		return bolsa.EstadoPreferenciasBolsas{}, bolsa.ErrPreferenciasNoDisponibles
+	}
+	captura, err := s.prepararLectura(ctx, orden, bolsa.CamposLecturaPreferenciasBolsas())
+	if err != nil {
+		return bolsa.EstadoPreferenciasBolsas{}, err
+	}
+	estado, err := s.lector.LeerPreferenciasBolsas(ctx, captura)
+	if err != nil {
+		return bolsa.EstadoPreferenciasBolsas{}, s.registrarErrorLectura(ctx, orden, captura, err)
+	}
+	return estado, nil
+}
+
+func (s *autoridadLecturaPreferencias) registrarErrorLectura(ctx context.Context, orden Orden, captura bolsa.CapturaLecturaPreferencias, causa error) error {
+	actor, errActor := orden.ResultadoContexto.Clonar()
+	datos, errDatos := orden.Vinculo.Datos()
+	if errActor != nil || errDatos != nil {
+		return bolsa.ErrPreferenciasNoDisponibles
+	}
+	resultado := "error"
+	if errors.Is(causa, dominiovec.ErrAutorizacionDenegada) {
+		resultado = "denegado"
+	}
+	return s.registrarFallo(ctx, orden, actor, captura.CandidatoRef(), datos, resultado)
+}
+
+func (s *autoridadLecturaPreferencias) prepararLectura(ctx context.Context, orden Orden, campos []string) (bolsa.CapturaLecturaPreferencias, error) {
+	vacio := bolsa.CapturaLecturaPreferencias{}
+	if ctx == nil || s == nil || nula(s.auditor) || nula(s.fuente) || nula(s.reloj) {
 		return vacio, bolsa.ErrPreferenciasNoDisponibles
 	}
 	if err := ctx.Err(); err != nil {
@@ -74,11 +106,10 @@ func (s *LecturaPreferenciasBolsas) ConsultarPreferencias(ctx context.Context, o
 	if instantanea.Validar() != nil {
 		return vacio, s.registrarFallo(ctx, orden, actor, candidato, datos, "error")
 	}
-	if !concesionLecturaPreferenciasExacta(instantanea) {
+	if !concesionLecturaPreferenciasExacta(instantanea, campos) {
 		return vacio, s.registrarFallo(ctx, orden, actor, candidato, datos, "denegado")
 	}
 	ahora = s.reloj.Ahora().UTC().Truncate(time.Microsecond)
-	campos := bolsa.CamposLecturaPreferenciasBolsas()
 	camposEvaluados := slices.Clone(campos)
 	slices.Sort(camposEvaluados)
 	evaluacion, err := dominiovec.EvaluarLecturaActualAutorizacionV3(orden.Vinculo, actor, instantanea,
@@ -93,22 +124,26 @@ func (s *LecturaPreferenciasBolsas) ConsultarPreferencias(ctx context.Context, o
 	if err := ctx.Err(); err != nil {
 		return vacio, s.registrarFallo(ctx, orden, actor, candidato, datos, "error")
 	}
-	captura, err := capturarLecturaPreferencias(ctx, orden, actor, candidato, datos, evaluacion, s.reloj)
+	captura, err := capturarLecturaPreferencias(ctx, orden, actor, candidato, datos, evaluacion, campos, s.reloj)
 	if err != nil {
 		return vacio, s.registrarFallo(ctx, orden, actor, candidato, datos, "error")
 	}
-	estado, err := s.lector.LeerPreferenciasBolsas(ctx, captura)
-	if err != nil {
-		resultado := "error"
-		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
-			resultado = "denegado"
-		}
-		return vacio, s.registrarFallo(ctx, orden, actor, candidato, datos, resultado)
-	}
-	return estado, nil
+	return captura, nil
 }
 
-func concesionLecturaPreferenciasExacta(i dominiovec.InstantaneaAutorizacion) bool {
+func concesionLecturaPreferenciasExacta(i dominiovec.InstantaneaAutorizacion, solicitados []string) bool {
+	proyeccion := slices.Clone(solicitados)
+	slices.Sort(proyeccion)
+	bolsas := bolsa.CamposLecturaPreferenciasBolsas()
+	slices.Sort(bolsas)
+	modalidades := bolsa.CamposLecturaPreferenciasModalidades()
+	slices.Sort(modalidades)
+	esBolsas := slices.Equal(proyeccion, bolsas)
+	if !esBolsas && !slices.Equal(proyeccion, modalidades) {
+		return false
+	}
+	union := bolsa.CamposConcesionPreferenciasPropias()
+	slices.Sort(union)
 	if i.VersionRol.RolID != "candidato_bolsa_portal_historial_propio_desarrollo" ||
 		i.AsignacionPerfil.EmitidaPor == "identidad:desarrollo:no-autoritativa" ||
 		i.VersionRol.PublicadaPor == "seguridad:desarrollo:no-autoritativa" ||
@@ -123,11 +158,9 @@ func concesionLecturaPreferenciasExacta(i dominiovec.InstantaneaAutorizacion) bo
 		n++
 		campos := slices.Clone(c.CamposPermitidos)
 		slices.Sort(campos)
-		esperados := bolsa.CamposLecturaPreferenciasBolsas()
-		slices.Sort(esperados)
 		if c.ModuloID != bolsa.ModuloMiBolsa || c.TipoRecurso != bolsa.TipoRecursoMiBolsa ||
 			!slices.Equal(c.Finalidades, []string{bolsa.FinalidadPreferenciasBolsas}) ||
-			!slices.Equal(campos, esperados) ||
+			(!slices.Equal(campos, union) && !(esBolsas && slices.Equal(campos, bolsas))) ||
 			c.GarantiaMinima != dominiovec.AuthAssuranceHigh ||
 			len(c.Obligaciones) > 1 || len(c.Obligaciones) == 1 && c.Obligaciones[0] != "auditar" {
 			return false
@@ -138,7 +171,7 @@ func concesionLecturaPreferenciasExacta(i dominiovec.InstantaneaAutorizacion) bo
 
 // La auditoría usa un plazo propio cuando la lectura agotó el contexto HTTP.
 // SQL coteja otra vez la sesión vigente y el candidato; ningún dato sale en el fallo.
-func (s *LecturaPreferenciasBolsas) registrarFallo(ctx context.Context, orden Orden,
+func (s *autoridadLecturaPreferencias) registrarFallo(ctx context.Context, orden Orden,
 	actor dominiovec.ResultadoContextoActorRegistradoV2, candidato string,
 	datos dominiovec.DatosVinculoAutenticacionActorV2, resultado string) error {
 	captura, err := capturarIntentoFallidoPreferencias(orden, actor, candidato, datos, resultado)
@@ -196,7 +229,7 @@ func capturarIntentoFallidoPreferencias(orden Orden, actor dominiovec.ResultadoC
 func capturarLecturaPreferencias(ctx context.Context, orden Orden,
 	actor dominiovec.ResultadoContextoActorRegistradoV2, candidato string,
 	datos dominiovec.DatosVinculoAutenticacionActorV2,
-	e dominiovec.ResultadoLecturaActualAutorizacionV3, reloj puertosvec.Reloj,
+	e dominiovec.ResultadoLecturaActualAutorizacionV3, campos []string, reloj puertosvec.Reloj,
 ) (bolsa.CapturaLecturaPreferencias, error) {
 	vacia := bolsa.CapturaLecturaPreferencias{}
 	var aleatorio [16]byte
@@ -268,7 +301,7 @@ func capturarLecturaPreferencias(ctx context.Context, orden Orden,
 		AutenticacionSHA256: datos.AutenticacionHuellaSHA256,
 		Accion:              bolsa.AccionConsultarPreferenciasBolsas, ModuloID: bolsa.ModuloMiBolsa,
 		RecursoRef: "mi-bolsa:" + candidato, CandidatoRef: candidato, TipoRecurso: bolsa.TipoRecursoMiBolsa,
-		FinalidadRef: bolsa.FinalidadPreferenciasBolsas, CamposPermitidos: bolsa.CamposLecturaPreferenciasBolsas(),
+		FinalidadRef: bolsa.FinalidadPreferenciasBolsas, CamposPermitidos: slices.Clone(campos),
 		Resultado: "obtenida", MotivoRef: "lectura_preferencias_bolsas_correcta", Proceso: "vec-server",
 		Canal: string(datos.Superficie), CorrelacionRef: correlacion,
 		LecturaRevisionPermisos: strconv.FormatUint(e.RevisionPermisos, 10), LecturaInstantaneaSHA256: e.HuellaInstantaneaSHA256,

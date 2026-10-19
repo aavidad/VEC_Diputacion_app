@@ -1,5 +1,5 @@
-import { comprobarClaves, forma } from '../preparacion-bases/modelo.js?v=20261003-s2-consulta-v1';
-import { validarHuella, validarRevision } from '../preparacion-bases/contrato-http.js?v=20261003-s2-consulta-v2';
+import { comprobarClaves, forma } from '../preparacion-bases/modelo.js?v=VEC_WEB_VERSION';
+import { validarHuella, validarRevision } from '../preparacion-bases/contrato-http.js?v=VEC_WEB_VERSION';
 
 // 2.000 solicitudes con motivos y referencias largos ocupan algo más de 5 MiB
 // indentados; 8 MiB cubren ese caso extremo sin abrir archivos arbitrarios.

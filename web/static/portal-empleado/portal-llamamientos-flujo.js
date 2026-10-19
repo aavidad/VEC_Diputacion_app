@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 /** Una confirmación HTTP no autoriza el paso siguiente sin un detalle real. */
 export async function resolverSolicitudPropuestaLlamamiento({
   necesidadId,

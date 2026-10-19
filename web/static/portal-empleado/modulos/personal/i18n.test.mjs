@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { MENSAJES_PERSONAL, crearTraductorPersonal, formatearFechaEstructuraOrganizativa, formatearRecuentoCategorias, formatearRecuentoRPT, prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
+import { MENSAJES_PERSONAL, crearTraductorPersonal, formatearFechaEstructuraOrganizativa, formatearRecuentoCategorias, formatearRecuentoRPT, prepararTextosPersonal } from "./i18n.js?v=VEC_WEB_VERSION";
 
 test.before(async () => {
   await prepararTextosPersonal();
@@ -99,7 +99,7 @@ test("un catálogo inaccesible no rompe la importación y permite otra preparaci
 });
 
 test("un JSON válido con general vacío no publica textos y se recupera al reintentar", async () => {
-  const aislado = await import("./i18n.js?v=20261008-alta-rpt-circular-v4");
+  const aislado = await import("./i18n.js?v=VEC_WEB_VERSION");
   const datos = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
   let lecturas = 0;
   await assert.rejects(aislado.prepararTextosPersonal({
@@ -125,7 +125,7 @@ function diferida() {
 }
 
 test("dos preparaciones simultáneas resuelven con el último idioma ya disponible", async () => {
-  const aislado = await import("./i18n.js?v=20261008-alta-rpt-circular-v4");
+  const aislado = await import("./i18n.js?v=VEC_WEB_VERSION");
   const datosES = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
   const datosEN = JSON.parse(await readFile(new URL("../../../textos/en/personal.json", import.meta.url), "utf8"));
   const primeraLectura = diferida();
@@ -146,7 +146,7 @@ test("dos preparaciones simultáneas resuelven con el último idioma ya disponib
 });
 
 test("si la última preparación falla, ninguna llamada anterior confirma textos obsoletos", async () => {
-  const aislado = await import("./i18n.js?v=20261008-alta-rpt-circular-v4");
+  const aislado = await import("./i18n.js?v=VEC_WEB_VERSION");
   const datos = JSON.parse(await readFile(new URL("../../../textos/es/personal.json", import.meta.url), "utf8"));
   const primeraLectura = diferida();
   const ultimaLectura = diferida();

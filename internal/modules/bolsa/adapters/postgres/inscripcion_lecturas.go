@@ -270,6 +270,7 @@ func (r *RepositorioInscripcionesPostgreSQL) DetalleAbierta(ctx context.Context,
 
 func validarBolsaAbiertaInscripcion(b inscripcion.BolsaAbierta, detalle bool) error {
 	if b.ConvocatoriaRef == "" || b.Titulo == "" || b.NumeroCategorias < 1 || b.NumeroCategorias > 128 ||
+		!b.ModalidadInscripcion.ValidaParaPublicar() ||
 		b.CatalogoVersion == 0 || b.PlazoInicio.IsZero() || !b.PlazoFin.After(b.PlazoInicio) ||
 		b.RequisitosResumen == "" || (b.EstadoPropio == nil) != (b.SolicitudRef == nil) ||
 		!b.PuedeIniciar && b.ImpedimentoEtiqueta == "" {
