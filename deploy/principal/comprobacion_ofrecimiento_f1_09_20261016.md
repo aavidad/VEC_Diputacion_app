@@ -77,6 +77,14 @@ hechos y evidencia quedan en el acto, sin lector nuevo.
 Vuelta atrás: mantener desactivado el consumidor y la pantalla. No ejecutar
 DOWN ni borrar actos. Este corte no instala configuraciones al arrancar.
 
+Ensayo del 19/10 sobre main `d57f97dc7`: la lista única completa, con AD288,
+B128, CT239 y AD294 delante, instala CT233, AD290 y B133 sin errores en una
+copia nueva. Las preimágenes de CT233 y B133 coinciden y AD290 no altera la
+huella que deja AD288. El registro sigue denegado hasta AD291. `evento_ref` es
+solo una referencia: B133 no escribe todavía ningún evento de salida.
+El ensayo siguiente es anterior a esas cuatro migraciones y usa copias propias
+con B134, AD291 y CT238, que no forman parte de esta PR.
+
 Ensayo local del 18/10, candidata conjunta `169dca4ae`: main `9f2a072c7`,
 primer corte `82a345058` y consumidor HTTP `6528fed78`. Se restauró HZ37 con
 sus permisos y se instalaron las 73 SQL de main de la lista completa de dirección

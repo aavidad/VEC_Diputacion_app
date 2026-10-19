@@ -45,6 +45,7 @@ CREATE POLICY comprobacion_propietario ON vec_bolsa_llamamientos.comprobacion_of
  TO vec_bolsa_llamamientos_propietario USING(current_user='vec_bolsa_llamamientos_propietario')
  WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
 REVOKE ALL ON vec_bolsa_llamamientos.comprobacion_ofrecimiento_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.comprobacion_ofrecimiento_v1 FROM PUBLIC;
 CREATE TRIGGER comprobacion_inmutable BEFORE UPDATE OR DELETE
  ON vec_bolsa_llamamientos.comprobacion_ofrecimiento_v1 FOR EACH ROW
  EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
@@ -98,7 +99,7 @@ BEGIN
  ELSIF valores ?& ARRAY['trabaja_en_diputacion','tipo_relacion','modalidad','inicio','fin_previsto','es_vacante','prelacion','antecedentes_completos']
   AND valores->>'antecedentes_completos'='true' THEN
   IF valores->>'trabaja_en_diputacion'='false' OR valores->>'es_vacante'='false'
-   OR c#>>'{mejora,habilitada}'<>'true' THEN
+   OR c#>>'{mejora,habilitada}' IS DISTINCT FROM 'true' THEN
    RETURN jsonb_build_object('resultado','no_aplicable','motivo_clave','sin_supuesto_articulo_9'); END IF;
   FOR condicion IN SELECT value FROM jsonb_array_elements(c#>'{mejora,condiciones_actuales}') LOOP
    IF condicion->>'modalidad' IS DISTINCT FROM valores->>'modalidad' THEN CONTINUE; END IF;
