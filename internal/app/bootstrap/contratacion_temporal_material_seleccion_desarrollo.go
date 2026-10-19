@@ -176,6 +176,7 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	d := descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()
 	if s.borradoresBolsa {
 		d = append(d, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
+		d = append(d, descriptorMaterialConfirmacionDirectaBolsaDesarrollo())
 	}
 	if s.reincorporacionTitular {
 		d = append(d, descriptorMaterialConsultaReincorporacionTitularBolsaDesarrollo())

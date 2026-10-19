@@ -19,6 +19,7 @@ export const LIMITES_ALTA_CONTRATACION = Object.freeze({
 const ESQUEMA_CATALOGOS = "vec.contratacion_temporal.catalogos_alta.v1";
 export const ESQUEMA_CATALOGOS_NECESIDADES = "vec.contratacion_temporal.catalogos_alta.v2";
 export const ESQUEMA_ALTA_NECESIDAD = "vec.ct.alta_necesidad.v1";
+export const ESQUEMA_ALTA_NECESIDAD_V2 = "vec.ct.alta_necesidad.v2";
 const CAMPOS_NECESIDAD = Object.freeze([
   "numero_personas", "puesto_codigo", "plaza_codigo", "titular_ref", "vacancia_fuente_ref",
   "rpt_catalogo_ref", "rpt_catalogo_huella_sha256",
@@ -861,7 +862,7 @@ export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
   const base = crearComandoPeticionCentro(solicitud, catalogoPeticion, claveIdempotencia);
   if (catalogosValidados.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
     return validarComandoAltaNecesidad({ ...base, numero_expediente_moad,
-      esquema: ESQUEMA_ALTA_NECESIDAD,
+      esquema: ESQUEMA_ALTA_NECESIDAD_V2,
       necesidad: crearNecesidadDesdeBorrador(borrador, catalogosValidados.necesidades) });
   }
   return validarComandoAlta({
@@ -873,10 +874,16 @@ export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
 export function validarComandoAltaNecesidad(comando) {
   exigirCamposExactos(comando, ["clave_idempotencia", "numero_expediente_moad", "solicitud",
     "esquema", "necesidad"], "alta con necesidad");
-  if (comando.esquema !== ESQUEMA_ALTA_NECESIDAD) throw new TypeError("esquema de alta incompatible");
+  if (comando.esquema !== ESQUEMA_ALTA_NECESIDAD
+    && comando.esquema !== ESQUEMA_ALTA_NECESIDAD_V2) throw new TypeError("esquema de alta incompatible");
   validarComandoAlta({ clave_idempotencia: comando.clave_idempotencia,
     numero_expediente_moad: comando.numero_expediente_moad, solicitud: comando.solicitud });
   validarNecesidadComando(comando.necesidad, comando.solicitud.motivo_clave);
+  if (comando.esquema === ESQUEMA_ALTA_NECESIDAD_V2
+    && (Object.hasOwn(comando.solicitud, "numero_personas")
+      || !Object.hasOwn(comando.necesidad.campos, "numero_personas"))) {
+    throw new TypeError("número de personas de alta no válido");
+  }
   return clonarYCongelarAlta(comando);
 }
 

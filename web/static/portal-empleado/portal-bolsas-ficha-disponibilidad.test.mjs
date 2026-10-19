@@ -2,6 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderizarReincorporacionesTitular, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js";
 import { consultarOperacionesSituacion, crearControladorOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js";
+import { crearControladorBolsas } from "./portal-bolsas-api.js";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js";
+await prepararTextosPortal("bolsa");
+await prepararMensajesContratos();
 
 const bolsa = "bolsa:uno", participacion = "participacion:uno", desde = "2026-10-08T08:00:00Z";
 const reglas = { ok: true, datos: { causas_baja: [], transiciones: { en_revision: ["disponible", "excluido"] } } };
@@ -72,6 +77,147 @@ test("una respuesta tardía al salir de la ficha no consulta las secciones de ot
   estado.modalFicha = { candidato: { participacion_ref: "participacion:otra" } };
   entregar(await leer(historial("disponible", "disponible"))); await carga;
   assert.equal(consultas, 0); assert.equal(estado.modalFicha.candidato.participacion_ref, "participacion:otra");
+});
+
+test("abrir otra ficha desde lista o histórico conserva la operación incierta y su clave", async () => {
+  for (const bloqueo of ["resultadoInciertoCambioSituacion", "enviandoCambioSituacion"]) {
+  const oyentes = new Map(), focos = [];
+  const documento = { addEventListener(tipo, fn) { oyentes.set(tipo, [...oyentes.get(tipo) || [], fn]); },
+    querySelector(selector) { return selector === "[data-directa-paso]" ? { focus: () => focos.push(selector) } : null; },
+    querySelectorAll() { return []; } };
+  const pendiente = Object.freeze({ clave: "clave-original", cuerpo: Object.freeze({ motivo: "Aceptación", situacion_desde_esperada: desde }),
+    llamamiento: "llamamiento:original" });
+  const modal = { candidato: { participacion_ref: participacion }, [bloqueo]: true,
+    intentosContacto: { recibo: "recibo:contacto" }, operacionesB8: { directa: { paso: "incierto", pendiente } } };
+  const estado = { bolsaSeleccionada: bolsa, modalFicha: modal, filtrosBolsa: { seguimiento: { llamamiento_ref: "llamamiento:original" }, pestana: "historico" },
+    datosCandidatos: { datos: { bolsa: { bolsa_ref: bolsa }, candidatos: [{ participacion_ref: "participacion:otra" }] } } };
+  const lecturas = [];
+  const controlador = crearControladorBolsas({ estado, renderizar() {}, navegar() {}, documento,
+    obtenerFuenteLectura: () => ({ consultarCandidatosBolsa: async (ref) => {
+      lecturas.push(ref); return { ok: true, datos: { bolsa: { bolsa_ref: ref }, candidatos: [] } };
+    } }) });
+  controlador.abrirFicha("participacion:otra");
+  assert.equal(estado.modalFicha, modal);
+  controlador.instalar();
+  const pulsar = (accion) => {
+    const boton = { dataset: { bolsaAccion: accion, participacionRef: "participacion:otra" } };
+    const evento = { target: { closest(selector) { return selector === "[data-bolsa-accion]" ? boton : null; } }, preventDefault() {} };
+    for (const oyente of oyentes.get("click") || []) oyente(evento);
+  };
+  pulsar("abrir-ficha"); pulsar("abrir-ficha-historico");
+  assert.equal(estado.modalFicha, modal);
+  assert.equal(estado.modalFicha.operacionesB8.directa.pendiente, pendiente);
+  assert.equal(estado.filtrosBolsa.pestana, "historico");
+  assert.ok(focos.length >= 2);
+  const datosAntes = estado.datosCandidatos;
+  void controlador.cargarCandidatosBolsa("bolsa:otra", { cursor: "siguiente" });
+  void controlador.cargarGlobalBolsa("disponibles");
+  assert.equal(estado.bolsaSeleccionada, bolsa, "la bolsa activa no cambia mientras se recupera el acto");
+  assert.equal(estado.datosCandidatos, datosAntes);
+  assert.deepEqual(lecturas, []);
+  modal[bloqueo] = false; modal.operacionesB8.directa = null; estado.filtrosBolsa = {};
+  await controlador.cargarCandidatosBolsa("bolsa:otra");
+  assert.equal(estado.bolsaSeleccionada, "bolsa:otra", "sin operación pendiente la navegación sigue funcionando");
+  assert.deepEqual(lecturas, ["bolsa:otra"]);
+  }
+});
+
+test("403 retira datos personales y conserva solo la intención hasta una lectura nominal autorizada", async () => {
+  let completar, lecturas = 0;
+  const datosPrevios = { carga: "listo", datos: { bolsa: { bolsa_ref: bolsa }, candidatos: [] } };
+  const pendiente = { clave: "original", cuerpo: { motivo: "Aceptación", situacion_desde_esperada: desde },
+    bolsa, participacion, llamamiento: "llamamiento:original" };
+  const modal = { candidato: { participacion_ref: participacion }, operacionesB8: { directa: { paso: "incierto", pendiente } } };
+  const estado = { bolsaSeleccionada: bolsa, modalFicha: modal, datosCandidatos: datosPrevios, filtrosBolsa: {} };
+  const controlador = crearControladorBolsas({ estado, renderizar() {}, navegar() {},
+    documento: { querySelector() { return null; } },
+    obtenerFuenteLectura: () => ({ consultarCandidatosBolsa: () => ++lecturas === 1
+      ? new Promise((resolve) => { completar = resolve; })
+      : Promise.resolve({ ok: true, datos: { bolsa: { bolsa_ref: bolsa },
+        candidatos: [{ participacion_ref: participacion, nombre_visible: "Elena", estado_clave: "disponible", estado_desde: desde }] } }) }) });
+  const carga = controlador.cargarCandidatosBolsa("bolsa:otra");
+  modal.resultadoInciertoCambioSituacion = true;
+  completar({ ok: false, status: 403, mensaje: "Permiso retirado" });
+  await carga;
+  assert.equal(estado.modalFicha, null);
+  assert.equal(estado.datosCandidatos.carga, "denegado");
+  assert.equal(estado.datosCandidatos.datos, null);
+  assert.equal(estado.bolsaSeleccionada, bolsa);
+  await controlador.cargarCandidatosBolsa(bolsa);
+  controlador.abrirFicha(participacion);
+  assert.equal(estado.modalFicha.operacionesB8.directa.pendiente, pendiente);
+  assert.equal(estado.modalFicha.operacionesB8.directa.paso, "incierto");
+  assert.equal(estado.modalFicha.resultadoInciertoCambioSituacion, true);
+});
+
+test("401 y 403 del POST retiran la ficha y exigen nueva lectura nominal antes de repetir la misma aceptación", async () => {
+  const fetchAnterior = globalThis.fetch, formAnterior = globalThis.FormData, documentoAnterior = globalThis.document;
+  const llamamiento = `llamamiento:${"a".repeat(64)}`;
+  const candidato = { participacion_ref: participacion, nombre_visible: "Elena García", estado_clave: "en_revision",
+    estado_desde: desde, marcas: { en_revision: "aceptacion_pendiente" }, ultimo_llamamiento: { llamamiento_ref: llamamiento } };
+  const contestar = (status, body) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  globalThis.FormData = class { constructor(form) { this.valores = form.valores; } get(clave) { return this.valores[clave]; } };
+  try {
+    for (const denegacion of [401, 403]) {
+      const oyentes = new Map(), peticiones = []; let lecturas = 0;
+      const documento = { addEventListener(tipo, fn) { oyentes.set(tipo, [...oyentes.get(tipo) || [], fn]); },
+        querySelector() { return null; }, querySelectorAll() { return []; } };
+      globalThis.document = documento;
+      globalThis.fetch = async (ruta, opciones) => {
+        if (ruta.endsWith("/confirmacion")) {
+          peticiones.push({ ruta, opciones });
+          return peticiones.length === 1
+            ? contestar(denegacion, { error: { codigo: "acceso_denegado" } })
+            : contestar(200, { data: { participacion_ref: participacion, situacion: "pendiente_incorporacion",
+              desde: "2026-10-18T10:00:00Z", respuesta_ref: "respuesta:1", resolucion_ref: "resolucion:1",
+              recibo_ref: "recibo:1", reutilizada: true, resuelta_en: "2026-10-18T10:00:00Z", motivo: "Aceptación comprobada" } });
+        }
+        return contestar(503, { error: { codigo: "servicio_no_disponible" } });
+      };
+      const estado = { bolsaSeleccionada: bolsa, filtrosBolsa: {},
+        datosCandidatos: { carga: "listo", datos: { bolsa: { bolsa_ref: bolsa }, candidatos: [candidato] } },
+        modalFicha: { abierto: true, bolsa: { bolsa_ref: bolsa }, candidato, operacionesB8: { carga: "listo", items: [] } } };
+      const controlador = crearControladorBolsas({ estado, renderizar() {}, navegar() {}, documento,
+        obtenerFuenteLectura: () => ({ consultarCandidatosBolsa: async () => {
+          lecturas++;
+          return lecturas === 1 ? { ok: false, status: denegacion, mensaje: "Acceso denegado" }
+            : { ok: true, datos: { bolsa: { bolsa_ref: bolsa }, candidatos: [candidato] } };
+        } }) });
+      controlador.instalar();
+      const click = (accion) => {
+        const boton = { dataset: { b8Accion: accion } };
+        const evento = { target: { closest: (selector) => selector === "[data-b8-accion]" ? boton : null }, preventDefault() {} };
+        for (const oyente of oyentes.get("click") || []) oyente(evento);
+      };
+      click("directa-abrir");
+      const formulario = { dataset: { b8Form: "aceptacion-directa" }, valores: { motivo: "Aceptación comprobada" } };
+      for (const oyente of oyentes.get("submit") || []) oyente({ target: formulario, preventDefault() {} });
+      const pendiente = estado.modalFicha.operacionesB8.directa.pendiente;
+      click("directa-confirmar");
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(peticiones.length, 1);
+      assert.equal(estado.modalFicha, null);
+      assert.equal(estado.datosCandidatos.carga, "denegado");
+      assert.equal(estado.datosCandidatos.datos, null);
+      controlador.abrirFicha(participacion);
+      click("directa-repetir");
+      assert.equal(estado.modalFicha, null);
+      assert.equal(peticiones.length, 1, "sin lectura autorizada no se repite el POST");
+      await controlador.cargarCandidatosBolsa(bolsa);
+      assert.equal(estado.modalFicha, null);
+      assert.equal(estado.datosCandidatos.datos, null, "otro GET denegado mantiene la lista vacía");
+      await controlador.cargarCandidatosBolsa(bolsa);
+      controlador.abrirFicha(participacion);
+      assert.equal(estado.modalFicha.operacionesB8.directa.pendiente, pendiente);
+      assert.equal(estado.modalFicha.operacionesB8.directa.paso, "incierto");
+      click("directa-repetir");
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(peticiones.length, 2);
+      assert.equal(peticiones[1].opciones.headers["Idempotency-Key"], peticiones[0].opciones.headers["Idempotency-Key"]);
+      assert.equal(peticiones[1].opciones.body, peticiones[0].opciones.body);
+      assert.equal(peticiones[1].ruta, peticiones[0].ruta);
+    }
+  } finally { globalThis.fetch = fetchAnterior; globalThis.FormData = formAnterior; globalThis.document = documentoAnterior; }
 });
 
 test("un servidor sin metadata conserva el lector anterior y sus secciones operativas", async () => {

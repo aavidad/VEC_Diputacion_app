@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -308,6 +309,75 @@ func TestBolsasRRHHDesarrolloDelegaB2ConIdempotencia(t *testing.T) {
 	manejador.ServeHTTP(respuesta, peticion)
 	if respuesta.Code != http.StatusBadRequest || llamadas != 1 {
 		t.Fatalf("cabecera de autoridad aceptada: status=%d llamadas=%d", respuesta.Code, llamadas)
+	}
+}
+
+func TestBolsasRRHHDesarrolloDelegaConfirmacionDirectaSoloRutaPostCanonica(t *testing.T) {
+	manejador := manejadorBolsasRRHHPrueba()
+	llamamiento := "llamamiento:" + strings.Repeat("a", 64)
+	if len(llamamiento) != 76 {
+		t.Fatal("referencia de ensayo distinta del recorrido")
+	}
+	ruta := rutaBolsasRRHHDesarrollo + "/bolsa:01/candidatos/participacion:01/respuestas/" + llamamiento + "/confirmacion"
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback", true, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d, ok := catalogo.resolver(http.MethodPost, ruta); !ok || d.Clave != claveFronteraConfirmacionDirectaBolsa ||
+		d.ClaveCapacidad != claveCapacidadConfirmacionDirectaBolsa {
+		t.Fatal("la ruta larga no conserva la frontera nominal F1-71")
+	}
+	if _, ok := catalogo.resolver(http.MethodGet, ruta); ok {
+		t.Fatal("GET adquirió la capacidad de escritura F1-71")
+	}
+	const cuerpo = `{"motivo":"Confirmación de prueba","situacion_desde_esperada":"2026-10-18T12:00:00Z"}`
+	llamadas := 0
+	manejador.mutar = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		llamadas++
+		leido, err := io.ReadAll(r.Body)
+		if err != nil || string(leido) != cuerpo || r.Header.Get("Idempotency-Key") != "reintento-1" ||
+			r.URL.Path != ruta || r.Method != http.MethodPost {
+			t.Fatal("el despacho alteró la intención nominal")
+		}
+		w.WriteHeader(http.StatusCreated)
+	})
+	nuevaPeticion := func(metodo, destino string) *http.Request {
+		r := httptest.NewRequest(metodo, destino, strings.NewReader(cuerpo))
+		r.Header.Set("Idempotency-Key", "reintento-1")
+		return r
+	}
+	peticion := nuevaPeticion(http.MethodPost, ruta)
+	respuesta := httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusCreated || llamadas != 1 {
+		t.Fatalf("F1-71 no delegada: estado=%d llamadas=%d cuerpo=%s", respuesta.Code, llamadas, respuesta.Body.String())
+	}
+	for _, caso := range []struct {
+		nombre, metodo, ruta string
+		cabecera             string
+	}{
+		{"metodo", http.MethodGet, ruta, ""},
+		{"segmento adicional", http.MethodPost, ruta + "/extra", ""},
+		{"consulta", http.MethodPost, ruta + "?fuera=1", ""},
+		{"actor inyectado", http.MethodPost, ruta, "X-Actor"},
+		{"autorizacion inyectada", http.MethodPost, ruta, "Authorization"},
+		{"cuerpo codificado", http.MethodPost, ruta, "Content-Encoding"},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			r := nuevaPeticion(caso.metodo, caso.ruta)
+			if caso.cabecera != "" {
+				r.Header.Set(caso.cabecera, "inyectado")
+			}
+			w := httptest.NewRecorder()
+			manejador.ServeHTTP(w, r)
+			if w.Code != http.StatusBadRequest || llamadas != 1 {
+				t.Fatalf("guardia exterior relajada: estado=%d llamadas=%d", w.Code, llamadas)
+			}
+		})
 	}
 }
 
