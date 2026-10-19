@@ -11,13 +11,22 @@ Cómo se protege:
 
 - CT235 exige el par en toda reserva nueva y lo coteja con la lectura CT221 del
   análisis vigente, en la misma versión del expediente. Si no coincide, la
-  reserva se deniega (42501) y no escribe nada.
+  reserva se deniega (42501) y no escribe nada. Las comprobaciones de CT220
+  (versión, fase, estado, vía, número de personas, centro, categoría, unidad,
+  vínculo previo y selección singular) se repiten también en el reintento con
+  la misma clave: si el expediente cambió, el reintento da 55000 y no renueva
+  la reserva.
 - B136 vuelve a cotejar el par al publicar y liga las dos claves a la huella
   de la operación (canon v6, encadenado al v5). Una oferta sin origen CT no
   puede llevar el par.
+- B136 exige además que la versión del expediente en el momento de publicar
+  sea la misma que guarda el origen de la oferta. Si el expediente avanzó de
+  versión entre la reserva y la publicación, la publicación se deniega (42501).
 - Una operación anterior a F1-11 se recupera con su comando guardado, sin
-  completar campos ni cambiar su huella. Las ofertas nativas de Bolsa siguen
-  como estaban.
+  completar campos ni cambiar su huella. Pero una reserva anterior a F1-11 que
+  no llegó a publicarse ya no se puede publicar, porque B136 pide el par a toda
+  oferta de CT nueva; habría que descartarla y reservar de nuevo. Hoy no hay
+  ninguna. Las ofertas nativas de Bolsa siguen como estaban.
 
 No toca el núcleo de autorización, ni acciones, audiencias, perfiles o
 permisos, ni la configuración de arranque.
@@ -32,7 +41,7 @@ configuración y sus permisos; cualquier diferencia revierte la migración.
 
 | Migración | SHA-256 del fichero |
 | --- | --- |
-| CT235 `contratacion_temporal/migraciones/000235_modalidad_causa_oferta.up.sql` | `cb33eb2c12fe2f0689c416676b3f47b2620caaa767adb3b9f9bedbe1a2dbe5ed` |
+| CT235 `contratacion_temporal/migraciones/000235_modalidad_causa_oferta.up.sql` | `68ee3f28234e7c8179154ed9c57da26561c995483143670934ce7e5484f745f7` |
 | B136 `bolsa_llamamientos/migraciones/000136_modalidad_causa_oferta.up.sql` | `e761b8607939a58ebcbca9bbbe56a8bcdefe02712dd46c9667a1b70278f1a1b7` |
 
 No reaplicar ninguna de las dos: su guarda previa rechaza una segunda
@@ -54,11 +63,20 @@ transacción revertida:
    escribir y que una operación anterior sin el par se recupera. Con el par del
    análisis reserva una sola vez; el reintento con la misma clave no duplica,
    cambiar la causa después de reservar da colisión y otra clave no abre una
-   segunda oferta del mismo expediente. Revisa también los permisos.
+   segunda oferta del mismo expediente. Si la reserva caduca sin publicar y el
+   expediente deja de ser seleccionable, el reintento da 55000 y la reserva
+   sigue caducada. Revisa también los permisos.
 3. `bolsa_llamamientos/pruebas_sql/b136_modalidad_causa_oferta.sql`: vectores
    del canon v5 y v6, rechazo del par incompleto y del par sin origen CT al
    publicar, recuperación denegada fuera del LOGIN de Bolsa y permisos del
-   ayudante.
+   ayudante. Después, como LOGIN de Bolsa y en serializable, publica una
+   oferta de CT sobre un expediente real de la copia, con dobles del consumo
+   V3 y del validador de origen y sin los disparadores de plazo de Bolsa:
+   la oferta de CT sin el par se rechaza (22023), un par distinto del análisis
+   se deniega en el cotejo (42501), una decisión calculada sin el par no
+   autoriza datos con él, el par del análisis publica una vez y el reintento
+   reutiliza la oferta. Al recuperar, una decisión sin el par se deniega, la
+   huella v6 encuentra la oferta y otra causa no la encuentra.
 
 ## Arranque
 
@@ -70,15 +88,17 @@ y Bolsa responde con normalidad.
 
 ## Ensayo del 19/10 (copia `claude-f111b`)
 
-Rama en `f135b4207`, con la principal unida hasta AD291. Copia nueva del
-volcado HZ37 con `--rrhh-original`, creada en 88 segundos: 101 migraciones de
-la lista común, 101 confirmadas y ningún error. Las tres pruebas SQL terminaron
-sin error y revirtieron sus transacciones; la tabla de ejecuciones siguió sin
-ofertas. La sonda de la copia dio 200 en salud, Bolsa, catálogos de alta,
-circuito de firma y configuración del análisis, y 403 en peticiones del centro
-para RRHH, que es lo esperado con este certificado. La consulta de estado de
-oferta dio 503. Tras reiniciar aplicación y PostgreSQL se repitieron la sonda,
-las tres pruebas y la consulta, con los mismos resultados.
+Cabeza de esta entrega, con la principal unida hasta AD291 y las guardas de
+CT220 fuera del bloque de reserva nueva. Copia nueva del volcado HZ37 con
+`--rrhh-original`, creada en 87 segundos: 101 migraciones de la lista común,
+101 confirmadas y ningún error. La huella instalada de
+`reservar_seleccion_oferta_ct220` coincide con la de la postimagen. Las tres
+pruebas SQL terminaron sin error y revirtieron sus transacciones; la tabla de
+ejecuciones siguió sin ofertas. La sonda de la copia dio 200 en salud, Bolsa,
+catálogos de alta, circuito de firma y configuración del análisis, y 403 en
+peticiones del centro para RRHH, que es lo esperado con este certificado. La
+consulta de estado de oferta dio 503. Tras reiniciar aplicación y PostgreSQL se
+repitieron la sonda, las tres pruebas y la consulta, con los mismos resultados.
 
 La copia anterior `claude-f111`, sin AD291, mostraba al arrancar el fallo de
 gobierno de CT por la audiencia de comprobación del ofrecimiento (23514). Con

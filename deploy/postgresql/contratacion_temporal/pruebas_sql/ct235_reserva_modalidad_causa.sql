@@ -134,7 +134,36 @@ BEGIN
    AND comando_oferta_json#>>'{datos,causa_clave}'=x.g#>>'{analisis,causa_clave}';
  IF n<>1 THEN RAISE EXCEPTION 'F1-11: reservas esperadas 1, hay %',n; END IF;
 
- -- 6. Otra clave para el mismo expediente no abre una segunda oferta.
+ -- 6. El reintento no salta las guardas de CT220: si la concesión caducó sin
+ -- publicar y el expediente cambió, la reserva no se renueva.
+ BEGIN
+  SET LOCAL session_replication_role=replica;
+  UPDATE vec_contratacion_temporal.expediente_version_integral
+  SET agregado_json=jsonb_set(agregado_json,'{solicitud,numero_personas}','3'::jsonb),
+      agregado_json_huella_sha256=encode(sha256(convert_to(
+       jsonb_set(agregado_json,'{solicitud,numero_personas}','3'::jsonb)::text,'UTF8')),'hex')
+  WHERE expediente_ref=x.expediente_ref AND version=x.version;
+  UPDATE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
+  SET creada_en=clock_timestamp()-interval '3 minutes',
+      actualizada_en=clock_timestamp()-interval '2 minutes',
+      lease_hasta=clock_timestamp()-interval '100 seconds'
+  WHERE clave_idempotencia=clave;
+  SET LOCAL session_replication_role=origin;
+  BEGIN
+   r:=vec_contratacion_temporal.reservar_seleccion_oferta_ct220(i,c,'material',
+    NULL,NULL,NULL,NULL,1,1,NULL,NULL,NULL,NULL);
+   RAISE EXCEPTION 'F1-11: reintento sobre expediente no seleccionable admitido: %',r;
+  EXCEPTION WHEN SQLSTATE '55000' THEN
+   IF SQLERRM<>'CT220: expediente ya no seleccionable' THEN RAISE; END IF;
+  END;
+  SELECT count(*) INTO n FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
+  WHERE clave_idempotencia=clave AND lease_hasta<clock_timestamp();
+  IF n<>1 THEN RAISE EXCEPTION 'F1-11: el reintento rechazado renovó la concesión'; END IF;
+  RAISE SQLSTATE 'P0F11';
+ EXCEPTION WHEN SQLSTATE 'P0F11' THEN NULL;
+ END;
+
+ -- 7. Otra clave para el mismo expediente no abre una segunda oferta.
  otra:='33333333-3333-4333-8333-333333333333';
  i:=jsonb_set(i-'huella_intencion','{clave_idempotencia}',to_jsonb(otra::text));
  i:=i||jsonb_build_object('huella_intencion',
@@ -149,7 +178,7 @@ BEGIN
  EXCEPTION WHEN unique_violation THEN NULL;
  END;
 
- -- 7. Permisos: el ayudante no es ejecutable fuera del propietario y PUBLIC no reserva.
+ -- 8. Permisos: el ayudante no es ejecutable fuera del propietario y PUBLIC no reserva.
  IF has_function_privilege('vec_contratacion_temporal_ejecutor',
    'vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(jsonb,jsonb)','EXECUTE')
   OR has_function_privilege('public',
@@ -157,7 +186,7 @@ BEGIN
   OR NOT has_function_privilege('vec_contratacion_temporal_ejecutor',
    'vec_contratacion_temporal.reservar_seleccion_oferta_ct220(jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') THEN
   RAISE EXCEPTION 'F1-11: permisos de la reserva distintos de lo esperado'; END IF;
- RAISE NOTICE 'F1-11: expediente % v% con %/%; siete comprobaciones superadas',
+ RAISE NOTICE 'F1-11: expediente % v% con %/%; ocho comprobaciones superadas',
   x.expediente_ref,x.version,x.g#>>'{analisis,modalidad_clave}',x.g#>>'{analisis,causa_clave}';
 END $test$;
 ROLLBACK;

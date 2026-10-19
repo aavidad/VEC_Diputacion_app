@@ -99,10 +99,6 @@ BEGIN
  SELECT * INTO STRICT v_auth FROM vec_contratacion_temporal.consumir_etapa_seleccion_oferta_ct220(
   'reservar',p_intencion,p_comando,NULL,p_material,p_capacidad,p_decision,p_motivo,p_contexto,
   p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
- IF NOT EXISTS(SELECT 1 FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 previa
-   WHERE previa.clave_idempotencia=(p_intencion->>'clave_idempotencia')::uuid) THEN
- IF p_comando->'datos' ?& ARRAY['modalidad_clave','causa_clave'] IS NOT TRUE THEN
-  RAISE EXCEPTION 'CT235: la nueva reserva exige modalidad y causa' USING ERRCODE='22023'; END IF;
  IF v_cabecera.version IS NULL THEN
   RAISE EXCEPTION 'CT220: expediente inexistente' USING ERRCODE='23503'; END IF;
  v_agregado:=v_cabecera.agregado_json;
@@ -123,6 +119,12 @@ BEGIN
    WHERE x.tipo_seleccion='llamamiento'
      AND x.solicitud_json->>'expediente_ref'=p_intencion->>'expediente_ref') THEN
   RAISE EXCEPTION 'CT220: expediente ya tiene selección singular' USING ERRCODE='23505'; END IF;
+ -- Las guardas de CT220 valen también para el reintento. Solo la reserva nueva
+ -- exige el par y lo coteja; la anterior a F1-11 se recupera sin él.
+ IF NOT EXISTS(SELECT 1 FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 previa
+   WHERE previa.clave_idempotencia=(p_intencion->>'clave_idempotencia')::uuid) THEN
+ IF p_comando->'datos' ?& ARRAY['modalidad_clave','causa_clave'] IS NOT TRUE THEN
+  RAISE EXCEPTION 'CT235: la nueva reserva exige modalidad y causa' USING ERRCODE='22023'; END IF;
  PERFORM 1 FROM vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(
    p_intencion->>'expediente_ref',p_intencion->>'categoria_ref',
    p_intencion->>'organizacion_ref',(p_intencion->>'version_expediente')::bigint) x
@@ -168,7 +170,7 @@ DO $post_funciones$ BEGIN
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']::text[] AND p.proacl::text='{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}')
  THEN RAISE EXCEPTION 'F1-11: postimagen incompatible: comando_seleccion_oferta_valido_ct220' USING ERRCODE='55000'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='vec_contratacion_temporal.reservar_seleccion_oferta_ct220(jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
-  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='3897e9a3f0129c1db8bdeaff18c10ca2ce18d0e1eff84823200412004a0b221b'
+  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='b190f4d197cba3a33556e58e414b370c547aa4b2070524efaca3e67d1e63e8e7'
   AND p.proowner='vec_contratacion_temporal_propietario'::regrole AND p.prosecdef IS TRUE
   AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']::text[] AND p.proacl::text='{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}')
  THEN RAISE EXCEPTION 'F1-11: postimagen incompatible: reservar_seleccion_oferta_ct220' USING ERRCODE='55000'; END IF;
