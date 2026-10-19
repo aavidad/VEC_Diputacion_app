@@ -9,7 +9,7 @@ Esta capacidad permite que la aspirante elija qué modalidades de **ofertas publ
 3. **API y composición (PR3).** El servidor debe conectar `GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades` con la sesión, la concesión vigente y las funciones nominales. Debe devolver versión y recibo, y recuperar el mismo recibo al repetir una clave con la misma elección. El orden de bolsas conserva su consulta y guardado actuales.
 4. **Vista y avisos (PR4).** La elección se aplica a la vista de ofertas publicadas y a los avisos solicitados por la persona. La comprobación debe demostrar que el orden de llamamiento y la inscripción no cambian. La pantalla para elegir modalidades, el aviso por selección vacía y «Ver todas» pertenecen al recorrido de F1-14.
 
-**PR1 no se fusiona hasta ensayarla junto con la API de PR3 en una copia local y validar GET/PUT.** PR4 se comprueba después con la vista, los avisos y el recorrido en Chrome. AD296, a cargo del equipo R, sigue pendiente y B138 exige su instalación junto con AUT104 como precondición; el orden causal completo debe quedar fijado en la lista de instalación antes del ensayo.
+PR1 puede entrar en main sola: instalada, no cambia lo que ve la aspirante mientras no se publique la versión del rol con los diez campos, y la API de modalidades llega en PR3. AUT104 y B138 se instalan juntas, en este orden y después de AD296, como fija la lista única. PR4 se comprueba después con la vista, los avisos y el recorrido en Chrome.
 
 ## Fuente y gobierno de la concesión
 
@@ -19,8 +19,20 @@ El archivo en Git es una propuesta, no una concesión publicada. Para activarla,
 
 Las modalidades disponibles deben salir del catálogo gobernado que corresponde a la oferta y a su versión, no de nombres enviados por el navegador. B138 exige una instantánea de esas opciones al guardar y rechaza claves ausentes de ella. PR2 debe resolver ese catálogo; PR4 debe usarlo al filtrar vista y avisos. F1-14 presentará las opciones sin inventarlas cuando falte el catálogo.
 
-## Estado y comprobaciones pendientes (18/10/2026)
+## Estado y comprobaciones pendientes (19/10/2026)
 
-PR1 está en preparación. **No se han ensayado AUT104 ni B138 en la copia**, ni se han comprobado `GET/PUT`, recibos, reinicio o Chrome para esta capacidad. AD296 y la API de PR3 están pendientes. La fuente v2 tampoco consta aquí como admitida ni la nueva versión del rol como publicada. No hay un recorrido F1-13 acreditado en la web.
+Ensayo en copia local con la lista única completa (101 SQL; AUT104 y B138 al final, después de AD296 y AD291). Las dos se instalaron y sus pruebas focales pasaron. La versión 1 del rol candidato instalada se reconoce como base, así que se pueden seguir publicando versiones nuevas del rol. Con B138 instalada la aplicación arranca y Mi Bolsa responde con el usuario candidato, también después de reiniciar aplicación y PostgreSQL. El orden de bolsas sigue denegado a ese candidato porque su rol no tiene la concesión de preferencias, igual que en main.
 
-El ensayo conjunto debe instalar la lista causal revisada en una copia local, ejecutar las pruebas SQL de AUT104 y B138 y comprobar con datos ficticios: `null` muestra todas las modalidades, `[]` oculta las ofertas abiertas sin respuesta y con modalidad identificada, una clave desconocida se rechaza, y una repetición conserva versión, recibo y fecha tras reiniciar aplicación y PostgreSQL. Después debe contrastar la vista y los avisos con las ofertas publicadas, sin alterar la inscripción, la posición en bolsa ni el llamamiento directo. Los fallos de configuración deben cerrar solo esta función y dejar disponible el resto de Mi Bolsa.
+El ensayo sacó dos fallos, ya corregidos en esta PR:
+
+- AUT104 exigía un orden de concesiones que no coincide con la versión 1 publicada. Eso impedía cualquier versión nueva del rol. Ahora compara las siete concesiones de la versión 1 como conjunto exacto.
+- B138 concede la escritura de modalidades al grupo del portal externo, y el arranque de Mi Bolsa exige la lista exacta de funciones de ese grupo. Sin ajustar ese cotejo, la aplicación no arrancaba. Ahora admite esa función solo con su firma exacta, sin acceso público y junto a las tres funciones de preferencias.
+
+Antes de activar las modalidades (PR3) hay que resolver:
+
+1. La decisión emitida para guardar modalidades comparte acción y audiencia con el guardado del orden de bolsas, y las funciones de ese guardado (B104 y B116) no recalculan la huella del contexto. Una migración nueva debe hacer que las dos la recalculen, o separar las audiencias.
+2. La fila de auditoría de la lectura debe decir qué proyección se leyó (ocho o cinco campos), con un motivo propio o una columna.
+3. PR2 debe sacar las modalidades disponibles del catálogo gobernado; SQL solo comprueba su forma. Las lecturas de cinco campos devuelven `modalidades_disponibles` vacío y PR2 o PR3 deben rellenarlo.
+4. La fuente v2 vence el 16 de enero de 2027, antes que la v1. Si esa fecha fija la vigencia de la versión del rol, todas las acciones de Mi Bolsa vencerían ese día; hay que confirmarlo al publicar.
+
+Sigue sin acreditar: la fuente v2 admitida, la versión del rol publicada, el GET/PUT de modalidades con recibo y reinicio, y el recorrido en Chrome. Cuando lleguen, el ensayo debe comprobar con datos ficticios que `null` muestra todas las modalidades, que `[]` oculta las ofertas abiertas sin respuesta y con modalidad identificada, que una clave desconocida se rechaza y que una repetición conserva versión, recibo y fecha tras reiniciar. Después hay que contrastar la vista y los avisos con las ofertas publicadas, sin alterar la inscripción, la posición en bolsa ni el llamamiento directo. Un fallo de configuración debe cerrar solo esta función y dejar disponible el resto de Mi Bolsa.
