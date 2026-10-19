@@ -217,6 +217,40 @@ que permite a los productores conservar la raíz histórica de autorización.
 El perfil de permisos de esta receta requiere la publicación vigente sin carga
 de CONVOCA ni B103; no se restablece una raíz de autorización nueva.
 
+### Segunda persona técnica de RRHH para no incorporación
+
+La opción `--segundo-rrhh` se usa solo al crear una copia nueva con `--modulos`.
+Prepara en el material privado una segunda persona ficticia, Antonio Ruiz
+Lozano, con certificado de cliente propio firmado por la CA de la copia. Su
+certificado dura como máximo 90 días; la asignación sintética dura 89. La
+identidad, la cuenta y el perfil tienen referencias distintas de las de Carmen.
+El perfil original de RRHH conserva su certificado y sus permisos.
+
+```sh
+deploy/principal/copia_local.sh crear --equipo l --instancia segundo-rrhh \
+  --puerto-pg 55481 --puerto-app 18481 --puerto-smtp 11081 --modulos \
+  --rrhh-original "$VEC_COPIA_MATERIAL_RRHH" --segundo-rrhh \
+  --lista-sql deploy/principal/candidata_hz39/lista_sql.txt
+```
+
+Usa los productores privados de roles y datos del apartado 2 y elige puertos
+libres de tu equipo. El respaldo debe contener la versión publicada
+`rol:seguimiento_cese_ct_desarrollo:v2`, su control de vigencia habilitado y
+las tablas de asignaciones de autorización. La semilla exige la concesión de
+no incorporación de ese rol y que el perfil nuevo no tenga otra asignación.
+Si falta una condición, `crear` se detiene y conserva la instancia incompleta
+para examinar sus registros; bórrala con la orden propia antes de repetir.
+
+El guion guarda `rrhh-adicional-semilla.json` y su huella en `estado.json`,
+registra la asignación sintética en una transacción y activa los catálogos de
+seguimiento de Contratación. Esa asignación solo sirve en la copia ficticia:
+no acredita publicación por Administración. El servidor comprueba la hoja, el
+sujeto, el perfil, la asignación vigente y la ruta de no incorporación. Si falta
+material o permiso para esa persona, conserva el acceso de la técnica original
+y deniega la operación de la segunda. No se instala ninguna migración nueva
+por esta opción. La comprobación del POST, su recibo y el reinicio corresponde
+al ensayo conjunto de la candidata.
+
 Conserva los mismos argumentos de equipo e instancia para estas órdenes:
 
 ```sh

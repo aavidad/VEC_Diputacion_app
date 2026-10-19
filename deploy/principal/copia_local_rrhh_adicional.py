@@ -48,7 +48,7 @@ BEGIN
  SELECT v.* INTO STRICT c FROM vec_autorizacion.control_vigencia_version_rol_actual a
   JOIN vec_autorizacion.control_vigencia_version_rol v USING(version_rol_ref,revision)
   WHERE a.version_rol_ref=r.version_rol_ref;
- IF r.documento->>'estado'<>'publicada' OR c.estado<>'habilitada'
+ IF r.documento->>'estado' IS DISTINCT FROM 'publicada' OR c.estado IS DISTINCT FROM 'habilitada'
   OR EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE rol_id=r.rol_id AND version>r.version)
   OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(r.documento->'concesiones') p
    WHERE p->>'accion'='contratacion_temporal.incorporacion.no_incorporacion'
