@@ -187,8 +187,10 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 	}}, nil
 }
 
-// prepararInstantaneasInicialesLectorRRHHDesarrollo es el paso de arranque del
-// perfil de un lector RRHH. Solo publica la semilla de cuadro si el perfil no
+// prepararInstantaneasInicialesLectorRRHHDesarrollo publicaba la semilla del
+// perfil dinámico de un lector RRHH. El arranque ya no la llama: los lectores
+// usan el perfil fijo y la técnica el circuito del alta. Solo la usan las
+// pruebas de PostgreSQL; retirarla con ellas queda para otra limpieza. Solo publica la semilla de cuadro si el perfil no
 // tiene asignación (publicación inicial transaccional); si la tiene, no
 // escribe nada. Una asignación ajena a la persona detiene el arranque; una
 // revocada, restringida por otro acto o que no es de consulta queda escrita en
