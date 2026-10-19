@@ -89,6 +89,18 @@ vigente de su rol puede consultar y descargar el justificante de una renuncia
 en las bolsas que tiene autorizadas.
 La actuación figura también en el seguimiento y la consulta queda auditada.
 
+### 4.5 Modalidad de inscripción de una convocatoria
+
+La convocatoria muestra si corresponde una solicitud por categoría o una para
+varias categorías. En este corte, la modalidad procede de la versión certificada
+cargada como dato de la copia. RRHH todavía no puede elegirla ni guardarla desde
+Preparación de bases; esa función espera la adaptación del núcleo vigente.
+
+La aspirante ve la modalidad en la lista y la ficha. Si es conjunta, la ficha
+explica que aún no puede presentar la solicitud desde esta página y no ofrece
+el formulario individual. Las bases no quedan aprobadas ni publicadas por esta
+carga de datos.
+
 ## 5. Un contrato temporal, paso a paso
 
 Este es el recorrido completo tal y como funciona hoy en VEC.

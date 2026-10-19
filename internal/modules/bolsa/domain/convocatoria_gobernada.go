@@ -151,11 +151,25 @@ type DocumentoPublicableConvocatoria struct {
 	URL         string `json:"url"`
 }
 
+// ModalidadInscripcionConvocatoria fija si cada categoria requiere una
+// inscripcion propia o si la convocatoria admite una inscripcion conjunta.
+type ModalidadInscripcionConvocatoria string
+
+const (
+	ModalidadInscripcionSeparada ModalidadInscripcionConvocatoria = "separada"
+	ModalidadInscripcionConjunta ModalidadInscripcionConvocatoria = "conjunta"
+)
+
+func (m ModalidadInscripcionConvocatoria) ValidaParaPublicar() bool {
+	return m == ModalidadInscripcionSeparada || m == ModalidadInscripcionConjunta
+}
+
 // ContenidoPublicableConvocatoria no contiene fase ni marcas de publicacion.
 // Esas piezas proceden, respectivamente, del flujo y del acto de gobierno.
 type ContenidoPublicableConvocatoria struct {
 	IdentificadorPublico string                            `json:"identificador_publico"`
 	Tipo                 string                            `json:"tipo"`
+	ModalidadInscripcion ModalidadInscripcionConvocatoria  `json:"modalidad_inscripcion,omitempty"`
 	CatalogoCategorias   ReferenciaCatalogoCategorias      `json:"catalogo_categorias"`
 	Categorias           []string                          `json:"categorias"`
 	Titulo               string                            `json:"titulo"`
@@ -169,7 +183,9 @@ type ContenidoPublicableConvocatoria struct {
 
 func (c ContenidoPublicableConvocatoria) Validar() error {
 	if !patronIdentificadorPublico.MatchString(c.IdentificadorPublico) ||
-		!claveCatalogoConvocatoriaValida(c.Tipo) || !c.CatalogoCategorias.Valida() ||
+		!claveCatalogoConvocatoriaValida(c.Tipo) ||
+		(c.ModalidadInscripcion != "" && !c.ModalidadInscripcion.ValidaParaPublicar()) ||
+		!c.CatalogoCategorias.Valida() ||
 		!textoConvocatoriaValido(c.Titulo, 180, false) ||
 		!textoConvocatoriaValido(c.Resumen, 500, false) ||
 		!textoConvocatoriaValido(c.Descripcion, 12000, true) ||
