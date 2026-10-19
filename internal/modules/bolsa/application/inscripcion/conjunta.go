@@ -92,6 +92,11 @@ func MaterialPresentacionConjunta(p PresentacionConjunta) ([]byte, string, error
 // PresentacionConjuntaDesdeMaterial reconstruye el comando y solo lo acepta si
 // vuelve a producir exactamente los mismos bytes.
 func PresentacionConjuntaDesdeMaterial(material []byte) (PresentacionConjunta, bool) {
+	p, err := presentacionConjuntaDesdeMaterial(material)
+	return p, err == nil
+}
+
+func presentacionConjuntaDesdeMaterial(material []byte) (PresentacionConjunta, error) {
 	var v struct {
 		Esquema           string        `json:"esquema"`
 		ConvocatoriaRef   string        `json:"convocatoria_ref"`
@@ -102,15 +107,18 @@ func PresentacionConjuntaDesdeMaterial(material []byte) (PresentacionConjunta, b
 	}
 	if len(material) == 0 || len(material) > 64*1024 || json.Unmarshal(material, &v) != nil ||
 		v.Esquema != EsquemaMaterialPresentacionConjunta {
-		return PresentacionConjunta{}, false
+		return PresentacionConjunta{}, ErrSolicitudInvalida
 	}
 	p := PresentacionConjunta{ConvocatoriaRef: v.ConvocatoriaRef, CategoriasRefs: v.CategoriasRefs,
 		CatalogoVersion: v.CatalogoVersion, ClaveIdempotencia: v.ClaveIdempotencia, Declaraciones: v.Declaraciones}
 	esperado, _, err := MaterialPresentacionConjunta(p)
-	if err != nil || !bytes.Equal(esperado, material) {
-		return PresentacionConjunta{}, false
+	if err != nil {
+		return PresentacionConjunta{}, err
 	}
-	return p, true
+	if !bytes.Equal(esperado, material) {
+		return PresentacionConjunta{}, ErrSolicitudInvalida
+	}
+	return p, nil
 }
 
 // SolicitudDeCategoria localiza la categoría cuya solicitud es ref.
@@ -133,25 +141,32 @@ type EscrituraAutorizada struct {
 // EscriturasConjuntasValidas exige una concesión por categoría, en el orden
 // canónico, ligada a su solicitud y a su recurso.
 func (a Actor) EscriturasConjuntasValidas(p PresentacionConjunta) bool {
+	return a.validarEscriturasConjuntas(p) == nil
+}
+
+func (a Actor) validarEscriturasConjuntas(p PresentacionConjunta) error {
 	categorias := p.Categorias()
 	if !a.Valido() || a.MaterialEscritura != nil || len(a.RecursoEscrituraCanonico) != 0 ||
 		p.Validar() != nil || len(a.EscriturasConjuntas) != len(categorias) {
-		return false
+		return ErrAccesoDenegado
 	}
 	for i, categoria := range categorias {
 		e := a.EscriturasConjuntas[i]
 		ref, err := ReferenciaSolicitud(a.PersonaRef, p.PorCategoria(categoria))
-		if err != nil || e.Material.ValidarEstructura() != nil || len(e.RecursoCanonico) == 0 || len(e.RecursoCanonico) > 8192 {
-			return false
+		if err != nil {
+			return err
+		}
+		if e.Material.ValidarEstructura() != nil || len(e.RecursoCanonico) == 0 || len(e.RecursoCanonico) > 8192 {
+			return ErrAccesoDenegado
 		}
 		huella := sha256.Sum256(e.RecursoCanonico)
 		resumen := e.Material.ResumenCapacidad()
 		if resumen.EfectoRef() != ref || resumen.EfectoHuellaSHA256() != hex.EncodeToString(huella[:]) ||
 			resumen.Operacion() != AccionPresentar {
-			return false
+			return ErrAccesoDenegado
 		}
 	}
-	return true
+	return nil
 }
 
 type CategoriaReciboConjunto struct {
