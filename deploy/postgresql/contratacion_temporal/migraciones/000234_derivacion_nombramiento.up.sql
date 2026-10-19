@@ -2,6 +2,14 @@
 -- F1-19. La instrucción sigue perteneciendo al padre; cada hijo tiene
 -- identidad, aceptación, actuación, autorización y recibo propios.
 BEGIN;
+-- El propietario no tiene TEMP en la base: el migrador crea la tabla de
+-- cotejo y solo cede al propietario leerla y escribirla en esta transacción.
+CREATE TEMP TABLE pg_temp.ct234_funciones_pre(
+ nombre text PRIMARY KEY,firma text NOT NULL,oid oid NOT NULL,propietario oid NOT NULL,
+ acl aclitem[],posthash text NOT NULL
+) ON COMMIT DROP;
+REVOKE ALL ON pg_temp.ct234_funciones_pre FROM PUBLIC;
+GRANT SELECT,INSERT ON pg_temp.ct234_funciones_pre TO vec_contratacion_temporal_propietario;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC';
@@ -138,10 +146,6 @@ REVOKE ALL ON FUNCTION vec_contratacion_temporal.inicio_derivado_acreditado_ct23
 
 -- CT234-GENERADO-INICIO
 -- Fuente: volcado instalado y migraciones CT037/110/190/163/164; cinco SHA previos y finales.
-CREATE TEMP TABLE pg_temp.ct234_funciones_pre(
- nombre text PRIMARY KEY,firma text NOT NULL,oid oid NOT NULL,propietario oid NOT NULL,
- acl aclitem[],posthash text NOT NULL
-) ON COMMIT DROP;
 DO $pre_funciones$
 DECLARE fila record;p pg_proc%ROWTYPE;f regprocedure;
 BEGIN
