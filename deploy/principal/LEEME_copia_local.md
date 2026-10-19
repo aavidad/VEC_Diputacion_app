@@ -251,6 +251,24 @@ y deniega la operación de la segunda. No se instala ninguna migración nueva
 por esta opción. La comprobación del POST, su recibo y el reinicio corresponde
 al ensayo conjunto de la candidata.
 
+Para ensayar la no incorporación, elige en la copia un expediente ficticio con
+aceptación registrada, sin incorporación ni cese, y con la regla vigente de dos
+personas. Consulta su versión y los motivos admitidos en la ficha de RRHH. Si
+no existe ese estado, prepara los datos por el recorrido del producto antes de
+seguir; no insertes filas a mano. Carmen propone desde la ficha con un motivo
+del catálogo, la referencia y huella de una resolución de la copia y la fecha
+de notificación. Guarda el recibo y la referencia de la propuesta. Después,
+Antonio Ruiz Lozano confirma esa propuesta por POST a
+`/api/vec/contratacion-temporal/no-incorporaciones`, usando su certificado
+`mtls/tecnico-rrhh-adicional.crt` y su clave privada. El cuerpo usa la versión
+actual del expediente, la referencia y los datos exactos de la propuesta,
+`paso: confirmar`, una clave de idempotencia nueva y `resuelta_por` vacío. La
+segunda hoja solo tiene acceso a ese POST; Carmen consulta la ficha para
+comprobar los dos recibos, la persona que resolvió y la nueva versión. Relee
+la ficha tras `reiniciar` con los mismos argumentos de instancia; recibos,
+versión e historia deben coincidir. Un POST de cese con la segunda hoja debe
+denegarse. Conserva los cuerpos y respuestas de esta copia fuera de Git.
+
 Conserva los mismos argumentos de equipo e instancia para estas órdenes:
 
 ```sh
