@@ -843,6 +843,15 @@ si no existe, acredita esa ausencia. Una consulta antigua sin ese dato no
 permite deducir que nunca hubo comprobación. La consulta completa y la pantalla
 de registro siguen pendientes de integrar y recorrer juntas.
 
+**Comprobación al reservar (primer corte de F1-10).** Antes de guardar una
+selección, el servidor contrasta otra vez el contexto y la última versión del
+acto de comprobación. Si han cambiado desde la consulta, detiene la operación
+y exige actualizar los datos. El estado del acto se proyecta solo para la
+persona pendiente de comprobación; cambiar de bolsa no oculta un acto anterior.
+Este control conserva el orden y los recibos anteriores. El descuento del
+tiempo trabajado, el ofrecimiento condicionado y la continuación hasta el cese
+efectivo siguen pendientes; este corte no los habilita.
+
 La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
 requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
 de origen CT, y la concesión exacta al rol RRHH aprobada por dos
