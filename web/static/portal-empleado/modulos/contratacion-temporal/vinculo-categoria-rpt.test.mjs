@@ -132,7 +132,11 @@ test("si el análisis cambió, avisa y registra una revisión nueva enlazada a l
 
 test("categoría del análisis sin publicar: lo explica y no ofrece registrar", async () => {
   const { r } = await montar(cliente({ listarCategoriasRPT: async () => ({ ...pagina(), categorias: pagina().categorias.slice(0, 1) }) }));
-  assert.match(r.innerHTML, /no figura entre las publicadas/u);
+  assert.match(r.innerHTML, /todavía no está publicada, así que no se puede vincular/u);
+  assert.match(r.innerHTML, /pida a quien gestiona el catálogo de categorías que la publique/u);
+  assert.match(r.innerHTML, /corríjala en el paso de análisis de esta ficha/u);
+  assert.match(r.innerHTML, /Después pulse Actualizar y vincule la categoría/u);
+  assert.doesNotMatch(r.innerHTML, /«\?»/u);
   assert.doesNotMatch(r.innerHTML, /data-vinculo-accion="vincular"/u);
 });
 
@@ -207,4 +211,11 @@ test("desmontar cancela y deja el contenedor vacío", async () => {
   desmontar();
   assert.equal(senal.aborted, true);
   assert.equal(r.innerHTML, "");
+});
+
+test("sin categorías publicadas: dice a quién pedirlo y que después se vincule", async () => {
+  const { r } = await montar(cliente({ listarCategoriasRPT: async () => ({ ...pagina(), categorias: [] }) }));
+  assert.match(r.innerHTML, /Todavía no hay categorías publicadas/u);
+  assert.match(r.innerHTML, /Después pulse Actualizar y vincule la categoría/u);
+  assert.doesNotMatch(r.innerHTML, /data-vinculo-accion="vincular"/u);
 });
