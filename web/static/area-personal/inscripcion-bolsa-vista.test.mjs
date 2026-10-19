@@ -378,8 +378,8 @@ test("al pasar a Mis solicitudes el foco va al título y la ficha vuelve a Mis s
 
 
 test("la modalidad conjunta se explica antes del formulario y nunca envía una solicitud individual", async () => {
-  for (const [idioma, mensaje, modalidad] of [["es", /Todavía no se puede presentar desde esta página/u, /Una solicitud para varias categorías/u],
-    ["en", /You cannot submit it from this page yet/u, /One application for several categories/u]]) {
+  for (const [idioma, mensaje, modalidad] of [["es", /esta página todavía no permite hacerlo/u, /Una solicitud para varias categorías/u],
+    ["en", /this page cannot do that yet/u, /One application for several categories/u]]) {
     const { contenedor, ventana, pulsar } = entorno();
     const conjunta = { ...bolsa, modalidad_inscripcion: "conjunta" };
     const { categorias: _categorias, ...resumenConjunta } = conjunta;

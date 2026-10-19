@@ -11,7 +11,7 @@
     "denegada": "Your access does not allow this request. Contact the support office for help.",
     "noEncontrada": "This job pool or application is no longer available. Return to the list and refresh it.",
     "noDisponible": "Applications to job pools are not open at the moment. Please check again later.",
-    "inscripcionConjuntaPendiente": "This call requires a joint application, which is not yet available. This application has not been submitted. Return to the job pools.",
+    "inscripcionConjuntaPendiente": "In this job pool you submit one application for several categories, and this page cannot do that yet. Your application has not been submitted. Return to the job pools.",
     "conflicto": "The job pool has changed or an application already exists. Check My applications before trying again.",
     "plazoCerrado": "The application period or requirements have changed. Return to the list and check the updated details.",
     "reintentar": "Try again",
@@ -30,7 +30,7 @@
     "modalidadInscripcion": "How to apply",
     "modalidadSeparada": "One application per category",
     "modalidadConjunta": "One application for several categories",
-    "modalidadConjuntaNoDisponible": "This job pool requires one application for several categories. You cannot submit it from this page yet. Return to the job pools and check again later.",
+    "modalidadConjuntaNoDisponible": "In this job pool you submit one application for several categories, and this page cannot do that yet. If the application period is about to end, contact the support office.",
     "categorias": {
       "one": "{cuenta} category",
       "other": "{cuenta} categories"
