@@ -142,6 +142,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) configurarLectorResultadoEmisionCT(le
 
 type origenConstituidoVerificadoCT struct {
 	registro     puertosbolsa.OrigenLlamamientoCT
+	ordenPermiso json.RawMessage
 	bolsa        dominiobolsa.BolsaConstituida
 	instantanea  dominiobolsa.InstantaneaOrdenBolsa
 	reserva      *puertosbolsa.ReservaOrigenCT
@@ -727,7 +728,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) cargarOrigenConstituidoCT(ctx context
 			return vacio, ports.ErrRespuestaBolsaNoConfiable
 		}
 	}
-	return origenConstituidoVerificadoCT{registro: o, bolsa: bolsa, instantanea: instantanea,
+	return origenConstituidoVerificadoCT{registro: o, ordenPermiso: bytes.Clone(captura.Permiso.Orden), bolsa: bolsa, instantanea: instantanea,
 		reserva: reserva, auditoriaRef: acuse.AuditoriaRef}, nil
 }
 
@@ -917,6 +918,10 @@ func (p *puenteBolsaLlamamientoDesarrollo) prepararOrigenConstituidoSinCacheCT(
 	}
 	seleccion, err := primeraElegibleOrigenConstituidoCT(origen.registro)
 	if err != nil {
+		var pendiente *ports.ErrorCriteriosOfrecimientoPendientesRRHH
+		if errors.As(err, &pendiente) {
+			return vacio, enriquecerErrorCriteriosPendientesCT(pendiente, origen, d)
+		}
 		// Una bolsa sin candidato disponible se informa por disponibilidad;
 		// aquí se conserva el origen para que esa consulta firme cero exacto.
 		if err != ports.ErrIntegracionBolsaNoDisponible {

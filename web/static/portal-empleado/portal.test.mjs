@@ -130,6 +130,7 @@ test("Bolsa se ofrece mientras se lee su cuadro o tras un fallo y deja de ofrece
   const estadoBolsa = { vista: "portal", datosBolsas: null };
   const disponibilidad = runInNewContext(`${javascript.slice(inicio, fin)}; disponibilidadBolsa`, {
     estado: estadoBolsa,
+    vistaNecesitaBolsa: () => true,
     accesoBolsaEfectivo,
     traducirPortal: (clave) => clave,
     coordinadorModulos: { obtenerCatalogo: () => [{ clave: "bolsa" }] },

@@ -84,8 +84,8 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 
 	duracion, err := time.ParseDuration(timeout)
 	faseValida := fase == "preparar" || fase == "aplicar" || fase == "verificar" || fase == "version-bolsa" || fase == "version-bolsa-externa"
-	// aplicar crea un acuse nuevo; version-bolsa lee el acuse de aplicar.
-	acuseCoherente := (fase == "aplicar" || fase == "version-bolsa" || fase == "version-bolsa-externa") == (acuse != "")
+	// verificar puede ligar la cadena al acuse; las otras fases conservan su contrato.
+	acuseCoherente := fase == "verificar" || ((fase == "aplicar" || fase == "version-bolsa" || fase == "version-bolsa-externa") == (acuse != ""))
 	if parseErr != nil || err != nil || duracion <= 0 || duracion > limiteTimeout || f.NArg() != 0 || !faseValida || !acuseCoherente || rutaConfig == "" || ops.incompletas() || ahora == nil {
 		return fallo("uso_invalido")
 	}
@@ -164,7 +164,7 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 		return emitir(errores, d, 1)
 	default:
 		nombre := "verificacion-cadena-" + ahora().UTC().Format("20060102T150405Z") + ".json"
-		informe, err := ops.verificar(ctx, cfg.DSNLectura, duracion, raiz, nombre)
+		informe, err := ops.verificar(ctx, cfg.DSNLectura, duracion, raiz, nombre, acuse)
 		if err != nil {
 			return fallo("verificacion_no_disponible")
 		}

@@ -80,3 +80,31 @@ func TestAltaNecesidadVersionadaNoAceptaInstantaneaDelCliente(t *testing.T) {
 		t.Fatal("esquema desconocido admitido")
 	}
 }
+
+func TestAltaNecesidadV2AceptaCantidadSoloEnNecesidad(t *testing.T) {
+	var sobre map[string]any
+	if err := json.Unmarshal(cuerpoNecesidadAltaPrueba(t), &sobre); err != nil {
+		t.Fatal(err)
+	}
+	sobre["esquema"] = application.EsquemaAltaNecesidadV2
+	sobre["necesidad"].(map[string]any)["campos"].(map[string]any)["numero_personas"] = "2"
+	contenido, err := json.Marshal(sobre)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entrada, err := solicitudAltaDesdePeticion(httptest.NewRecorder(), nuevaPeticionPrueba(t, contenido))
+	if err != nil || entrada.EsquemaAlta != application.EsquemaAltaNecesidadV2 ||
+		entrada.Solicitud.NumeroPersonas != 0 || entrada.Solicitud.JornadaMinutos != 0 ||
+		entrada.Solicitud.PuestoSolicitado != "" || entrada.Necesidad == nil ||
+		entrada.Necesidad.Campos["numero_personas"] != "2" {
+		t.Fatalf("alta v2 confundió dato del cliente con la solicitud sellada: %v", err)
+	}
+	delete(sobre, "necesidad")
+	sinNecesidad, err := json.Marshal(sobre)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := solicitudAltaDesdePeticion(httptest.NewRecorder(), nuevaPeticionPrueba(t, sinNecesidad)); err == nil {
+		t.Fatal("alta v2 sin necesidad fue admitida")
+	}
+}

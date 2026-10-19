@@ -1,0 +1,35 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:comprobacion_ofrecimiento_rrhh",
+  "version": 1,
+  "huella_sha256": "cfa1d4e8c3fdab65180c3f85d87c74f22c7844afc0754df023be0b4209eb6b68",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.comprobacion_ofrecimiento.registrar\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:comprobacion_ofrecimiento_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.comprobacion_ofrecimiento.registrar\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"participacion_bolsa\",\"finalidades\":[\"gestionar_contratacion_temporal\"],\"garantia_minima\":\"alto\",\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-16T00:00:00Z\",\"vigente_hasta\":\"2027-01-14T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.comprobacion_ofrecimiento.registrar",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:comprobacion_ofrecimiento_rrhh",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "cfa1d4e8c3fdab65180c3f85d87c74f22c7844afc0754df023be0b4209eb6b68",
+      "concesion": {
+        "accion": "bolsa.comprobacion_ofrecimiento.registrar",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "participacion_bolsa",
+        "finalidades": [
+          "gestionar_contratacion_temporal"
+        ],
+        "garantia_minima": "alto",
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-16T00:00:00Z",
+      "vigente_hasta": "2027-01-14T00:00:00Z"
+    }
+  ]
+}

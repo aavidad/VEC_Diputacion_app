@@ -91,21 +91,21 @@ type instantaneaGobiernoUsuarios struct {
 // AD198 (conjunto 1 o más), nunca la preimagen ni secretos.
 const (
 	consultaInstantaneaGobiernoLectura = `SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1($1::integer)`
-	consultaCadenaGobiernoLectura      = `SELECT vec_autorizacion_atestada_v3.cadena_gobierno_admin_lectura_v1($1::text)`
+	consultaCadenaGobiernoLectura      = `SELECT vec_autorizacion_atestada_v3.cadena_gobierno_admin_lectura_v1($1::text,$2::text)`
 )
 
 // leerDocumentoGobiernoLectura lanza una de las dos fachadas en una transacción
 // READ ONLY: aunque el LOGIN tuviera más permisos, la lectura no escribe. En
 // REPEATABLE READ la huella de la preimagen y el resto del documento salen de
 // la misma instantánea aunque otra sesión publique a la vez.
-func leerDocumentoGobiernoLectura(ctx context.Context, lectura *pgxpool.Pool, consulta string, argumento any) ([]byte, error) {
+func leerDocumentoGobiernoLectura(ctx context.Context, lectura *pgxpool.Pool, consulta string, argumentos ...any) ([]byte, error) {
 	tx, err := lectura.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return nil, ErrGobiernoUsuariosAdmin
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	var raw []byte
-	if tx.QueryRow(ctx, consulta, argumento).Scan(&raw) != nil || len(raw) == 0 {
+	if tx.QueryRow(ctx, consulta, argumentos...).Scan(&raw) != nil || len(raw) == 0 {
 		return nil, ErrGobiernoUsuariosAdmin
 	}
 	return raw, nil
@@ -331,20 +331,31 @@ func AplicarGobiernoUsuariosAdminPreparado(ctx context.Context, operador *pgxpoo
 	return acuse, nil
 }
 
-// VerificarCadenaGobiernoUsuariosAdmin exporta el tramo técnico contiguo
-// posterior al último evento de otra familia y lo recalcula. No atribuye
-// cobertura global ni autenticidad externa del checkpoint.
-func VerificarCadenaGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, salida *os.Root, nombre string) (auditoria.InformeVerificacion, error) {
+// VerificarCadenaGobiernoUsuariosAdmin recalcula el tramo sellado. Un acuse
+// permite seleccionar el tramo que contiene exactamente ese acto histórico.
+func VerificarCadenaGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.Pool, salida *os.Root, nombre string, acuse ...string) (auditoria.InformeVerificacion, error) {
 	var vacio auditoria.InformeVerificacion
-	if ctx == nil || lectura == nil || salida == nil || !nombreAcuseGobiernoUsuariosValido(nombre) {
+	if ctx == nil || lectura == nil || salida == nil || !nombreAcuseGobiernoUsuariosValido(nombre) || len(acuse) > 1 {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
-	data, err := leerDocumentoGobiernoLectura(ctx, lectura, consultaCadenaGobiernoLectura, auditoria.EsquemaVerificacionGobiernoUsuarios)
+	var ref any
+	var objetivo acuseAuditoriaGobiernoUsuarios
+	var planSHA string
+	if len(acuse) == 1 && acuse[0] != "" {
+		var err error
+		objetivo, planSHA, err = acuseGobiernoUsuariosParaVerificar(salida, acuse[0])
+		if err != nil {
+			return vacio, err
+		}
+		ref = objetivo.AuditoriaRef
+	}
+	data, err := leerDocumentoGobiernoLectura(ctx, lectura, consultaCadenaGobiernoLectura, auditoria.EsquemaVerificacionGobiernoUsuarios, ref)
 	if err != nil {
 		return vacio, err
 	}
 	var doc auditoria.DocumentoVerificacionMixta
-	if decodificarGobiernoUsuarios(data, &doc) != nil {
+	if decodificarGobiernoUsuarios(data, &doc) != nil || len(doc.Registros) > 100 ||
+		(ref != nil && !contieneAcuseGobiernoUsuarios(doc, objetivo, planSHA)) {
 		return vacio, ErrGobiernoUsuariosAdmin
 	}
 	informe := auditoria.VerificarCadenaGobiernoUsuariosV1(doc, doc.Manifiesto, 100)
@@ -353,6 +364,56 @@ func VerificarCadenaGobiernoUsuariosAdmin(ctx context.Context, lectura *pgxpool.
 		return informe, ErrGobiernoUsuariosAdmin
 	}
 	return informe, nil
+}
+
+func acuseGobiernoUsuariosParaVerificar(raiz *os.Root, nombre string) (acuseAuditoriaGobiernoUsuarios, string, error) {
+	var cero acuseAuditoriaGobiernoUsuarios
+	if !nombreAcuseGobiernoUsuariosValido(nombre) {
+		return cero, "", ErrGobiernoUsuariosAdmin
+	}
+	raw, err := leerPrivadoGobiernoUsuarios(raiz, nombre)
+	if err != nil {
+		return cero, "", err
+	}
+	defer borrarBytes(raw)
+	plan, err := leerPrivadoGobiernoUsuarios(raiz, ArchivoPlanGobiernoUsuarios)
+	if err != nil {
+		return cero, "", err
+	}
+	defer borrarBytes(plan)
+	material, err := leerPrivadoGobiernoUsuarios(raiz, ArchivoMaterialGobiernoUsuarios)
+	if err != nil {
+		return cero, "", err
+	}
+	defer borrarBytes(material)
+	h := sha256.Sum256(plan)
+	sha := hex.EncodeToString(h[:])
+	acuse, err := validarAcuseGobiernoUsuariosAdmin(raw, string(plan), sha, material)
+	if err != nil || acuse.Estado != "permitido" {
+		return cero, "", ErrGobiernoUsuariosAdmin
+	}
+	var recibo acuseAuditoriaGobiernoUsuarios
+	if decodificarGobiernoUsuarios(acuse.Recibo, &recibo) != nil {
+		return cero, "", ErrGobiernoUsuariosAdmin
+	}
+	return recibo, sha, nil
+}
+
+func contieneAcuseGobiernoUsuarios(doc auditoria.DocumentoVerificacionMixta, objetivo acuseAuditoriaGobiernoUsuarios, planSHA string) bool {
+	coincidencias := 0
+	for _, r := range doc.Registros {
+		if r.GobiernoUsuarios == nil || r.GobiernoUsuarios.AuditoriaRef != objetivo.AuditoriaRef {
+			continue
+		}
+		m := r.GobiernoUsuarios
+		if m.Secuencia != objetivo.Secuencia || m.HuellaSHA256 != objetivo.Huella ||
+			m.PlanSHA256 != planSHA || m.PreimagenSHA256 != objetivo.PreimagenSHA256 ||
+			m.ClavesSHA256 != objetivo.ClavesSHA256 || m.ConfiguracionDestinoRef != objetivo.ConfiguracionRef {
+			return false
+		}
+		coincidencias++
+	}
+	return coincidencias == 1
 }
 
 func publicaRaizGobiernoUsuarios(spki string) (ed25519.PublicKey, error) {

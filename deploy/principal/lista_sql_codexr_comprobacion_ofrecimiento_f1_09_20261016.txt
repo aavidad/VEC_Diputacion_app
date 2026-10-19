@@ -1,0 +1,4 @@
+# Sobre la candidata de dirección con F1-08 instalado. No reaplicar SQL instalada.
+deploy/postgresql/contratacion_temporal/migraciones/000233_cotejo_comprobacion_bolsa.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000290_consumidor_comprobacion_ofrecimiento.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000133_comprobacion_ofrecimiento.up.sql
