@@ -832,6 +832,13 @@ no indica el resultado: lo calcula Bolsa. Mientras falte su habilitación, solo
 este registro queda cerrado. La pantalla F1-57 y la proyección del contexto en
 las listas existentes siguen pendientes; F1-10 comprobará el acto al reservar.
 
+**Contexto de la comprobación preparado (F1-09).** Cuando la selección se
+detiene, su respuesta incluye las referencias y versiones del expediente,
+la necesidad, la bolsa y la participación que ya se han consultado con permiso.
+La futura pantalla las enviará al registrar la comprobación; RRHH no tendrá
+que escribirlas. Este corte conserva la detención y el orden de la bolsa.
+Aún faltan la consulta del estado del acto y la pantalla de registro.
+
 La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
 requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
 de origen CT, y la concesión exacta al rol RRHH aprobada por dos
