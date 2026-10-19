@@ -152,6 +152,8 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000293_estado_comprobacio
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000295_cadena_gobierno_por_acuse.up.sql af17aa1eca7dba6f3ae000030c4a2e0f5b9c0890ed30072c3374934b4359c3be
 # F1-13 — AD296; su guarda exige AD246, AD275 y AD294.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000296_proyecciones_preferencias_fijas.up.sql 6b9c544dd5f3a5727b44419111b52260ac38f3cf1f11be8a5c87518a3603a10b
+# F0-18 — AD291; depende de AD288, AD294, AD293, AD295 y AD296.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000291_comprobacion_derivacion_rrhh.up.sql 10d9778c7b3154d84679d1483413ae686b1279682932b172357f9ba0264d439c
 
 # F1-10: recotejo de comprobación al reservar; conserva la detención.
 deploy/postgresql/bolsa_llamamientos/migraciones/000140_recotejo_comprobacion_reserva.up.sql 4aa724defb7344c2a39c0d5994e57e41da565aa2f24eb1b81c2742db030cbde5
