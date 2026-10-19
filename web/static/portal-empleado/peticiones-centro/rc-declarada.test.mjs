@@ -34,7 +34,7 @@ test("con «Sí» y número de operación válido se envía la RC declarada sin 
   assert.equal(rc.documento_ref, "rc-declarado:220260001234");
   assert.equal(rc.numero, "220260001234");
   const html = formulario(b);
-  assert.match(html, /Número de operación de la RC en SICAL/u);
+  assert.match(html, /Número de operación en SICAL/u);
   assert.match(html, /RRHH o Intervención lo comprueban en SICAL/u);
   assert.match(html, /aria-describedby="ct-rc_numero-ayuda"/u);
   assert.match(html, /name="rc_numero"[^>]*maxlength="147"/u);
@@ -50,7 +50,7 @@ test("se rechazan DNI, NIE, espacios y números demasiado largos", () => {
   }
   assert.equal(operacionRCDeclaradaValida(`A${"1".repeat(146)}`), true);
   const html = formulario(conRC("12345678Z"), { rc_numero: "rc_operacion" });
-  assert.match(html, /No puede ser un DNI ni un NIE\./u);
+  assert.match(html, /No escriba un DNI ni un NIE\./u);
   assert.match(html, /aria-describedby="ct-rc_numero-ayuda ct-rc_numero-error"/u);
 });
 

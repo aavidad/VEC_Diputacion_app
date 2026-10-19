@@ -300,7 +300,7 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
       && !REFERENCIAS_NECESIDAD.has(campo)) : [];
   // Una RC declarada por el centro es un dato pendiente de comprobar por RRHH.
   const rc = s.rc?.existe
-    ? `${esRCDeclarada(s.rc) ? `${traducirCentro("resumen_rc_si")} · ` : ""}${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)}`
+    ? `${esRCDeclarada(s.rc) ? `${traducirCentro("resumen_rc_si")} · ` : ""}${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat(LOCALIZACION, { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)}`
     : traducirCentro("ct_txt_sin_retencion_de_credito_aportada");
   const filas = [[TEXTO.estado, estadoPeticion(peticion.estado)],
     [traducirCentro("ct_txt_centro"), contexto ? nombreCentro(s.centro_ref, contexto) : nombre("centros", null, s.centro_ref)],
