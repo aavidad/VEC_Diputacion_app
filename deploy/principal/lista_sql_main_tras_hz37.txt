@@ -148,3 +148,5 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000134_intento_comprobacion_ofr
 # F1-09: B137 y AD293, tras AD288 y el primer corte.
 deploy/postgresql/bolsa_llamamientos/migraciones/000137_estado_comprobacion_ofrecimiento.up.sql 9594d9c8f416d0ff92fdc9a28ea7141bae5666476403452029dea6a96855ba3c
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000293_estado_comprobacion_ofrecimiento.up.sql 70a0bab69b13e138e21d39280a6ccecd2286002a49fab3474254df166b5b699f
+# F0-29 — AD295, lectura de cadena por acuse.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000295_cadena_gobierno_por_acuse.up.sql af17aa1eca7dba6f3ae000030c4a2e0f5b9c0890ed30072c3374934b4359c3be
