@@ -1,6 +1,6 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
-import { MENSAJES_RECTIFICACION_ADMIN } from "./i18n-rectificacion-admin.js?v=20260929-i18n-dietas-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=VEC_WEB_VERSION";
+import { MENSAJES_RECTIFICACION_ADMIN } from "./i18n-rectificacion-admin.js?v=VEC_WEB_VERSION";
 
 const nodo = (d, etiqueta, valor = "") => { const n = d.createElement(etiqueta); n.textContent = valor; return n; };
 const refSolicitud = (valor) => typeof valor === "string" && /^srd_[0-9a-f]{32}$/u.test(valor);

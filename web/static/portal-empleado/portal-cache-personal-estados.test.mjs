@@ -1,93 +1,29 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
+import { exigirMismaVersion, versionDe } from "./versiones-cache.test-helper.mjs";
 
 const raiz = new URL("./", import.meta.url);
-const versionNueva = "20260924-f2-personal-estados-v4";
-const versionEntrada = "20260924-rescate-web-v4";
-const versionCoordinador = "20260924-web-paradas-periodos-v1";
-const versionI18n = "20260924-personal-interno-estados-v1";
+const leer = (ruta) => readFile(new URL(ruta, raiz), "utf8");
 
-function versiones(codigo, recurso) {
-  const nombre = recurso.replaceAll(".", "\\.");
-  return [...codigo.matchAll(new RegExp(`${nombre}\\?v=([^"']+)`, "gu"))].map((resultado) => resultado[1]);
-}
-
-test("una caché caliente descarga el grafo renovado hasta Personal i18n", async () => {
-  const cache = new Map([
-    ["/portal-empleado/portal.js?v=20261015-firma-ofertas-justificante-integracion-v2", "/* portal anterior */"],
-    ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-p1-personal-interno-v2", "/* coordinador anterior */"],
-    [`/portal-empleado/portal.js?v=${versionNueva}`, "/* portal anterior de Personal */"],
-    [`/portal-empleado/portal-modulos-coordinador.js?v=${versionNueva}`, "/* coordinador anterior de Personal */"],
-    ["/portal-empleado/portal.js?v=20261015-firma-ofertas-justificante-integracion-v2", "/* portal anterior de Cronos */"],
-    ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-f2-cronos-permisos-v1", "/* coordinador anterior de Cronos */"],
-    ["/portal-empleado/portal.js?v=20261015-firma-ofertas-justificante-integracion-v2", "/* portal anterior de Cronos */"],
-    ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-f2-cronos-permisos-v2", "/* coordinador anterior de Cronos */"],
-    ["/portal-empleado/portal.js?v=20261015-firma-ofertas-justificante-integracion-v2", "/* portal anterior de Dietas */"],
-    ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-f2-dietas-consulta-v2", "/* coordinador anterior de Dietas */"],
-    ["/portal-empleado/portal.js?v=20261015-firma-ofertas-justificante-integracion-v2", "/* portal anterior de C */"],
-    ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-web-c-v3", "/* coordinador anterior de C */"],
-    ["/portal-empleado/portal.js?v=20261015-firma-ofertas-justificante-integracion-v2", "/* portal anterior de ayuda Dietas */"],
-    ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-web-c-ayuda-v4", "/* coordinador anterior de ayuda Dietas */"],
-    ["/portal-empleado/portal.js?v=20261015-firma-ofertas-justificante-integracion-v2", "/* portal anterior de ayuda Dietas */"],
-    ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-web-c-ayuda-v5", "/* coordinador anterior de ayuda Dietas */"],
-    [`/portal-empleado/portal.js?v=${versionEntrada}`, "/* portal anterior del rescate */"],
-    [`/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`, "/* coordinador anterior de paradas */"],
-    ["/portal-empleado/modulos/personal/vista.js?v=20260924-f2-cache-v3", "/* vista anterior */"],
-    ["/portal-empleado/modulos/personal/i18n.js?v=20260924-f2-web2", "/* i18n anterior */"],
-    // Publicadas antes del i18n de organización histórica.
-    ["/portal-empleado/portal.js?v=20261015-firma-ofertas-justificante-integracion-v2", "/* portal anterior del aspecto */"],
-    ["/portal-empleado/portal-modulos-coordinador.js?v=20260925-aspecto-v1", "/* coordinador anterior del aspecto */"],
-    [`/portal-empleado/modulos/personal/vista.js?v=${versionNueva}`, "/* vista anterior de estados */"],
-    [`/portal-empleado/modulos/personal/i18n.js?v=${versionI18n}`, "/* i18n anterior de estados */"],
-  ]);
-  const urlsAntiguas = new Set(cache.keys());
-  const descargas = new Set();
-  const hitsAntiguos = [];
-  async function cargar(recurso, version) {
-    const url = `/portal-empleado/${recurso}?v=${version}`;
-    if (urlsAntiguas.has(url)) hitsAntiguos.push(url);
-    if (!cache.has(url)) {
-      cache.set(url, await readFile(new URL(recurso, raiz), "utf8"));
-      descargas.add(url);
-    }
-    return cache.get(url);
-  }
-
-  const html = await readFile(new URL("index.html", raiz), "utf8");
-  // Entrada y coordinador cambiaron después de sus últimas versiones
-  // publicadas (precargadas en la caché): piden una URL posterior.
-  const entrada = exigirVersiones(html, "/portal-empleado/portal.js", posterior(versionEntrada));
-  const portal = await cargar("portal.js", entrada);
-  const coordinadorVigente = exigirVersiones(portal, "./portal-modulos-coordinador.js", posterior(versionCoordinador));
-  const coordinador = await cargar("portal-modulos-coordinador.js", coordinadorVigente);
-  // El cargador interno usa la vista renovada.
-  const vistaVigente = exigirVersiones(coordinador, "./modulos/personal/vista.js", posterior(versionNueva), 1);
-  const vista = await cargar("modulos/personal/vista.js", vistaVigente);
-  const i18nVigente = exigirVersiones(vista, "./i18n.js", posterior(versionI18n));
-  await cargar("modulos/personal/i18n.js", i18nVigente);
-
-  assert.deepEqual(descargas, new Set([
-    `/portal-empleado/portal.js?v=${entrada}`,
-    `/portal-empleado/portal-modulos-coordinador.js?v=${coordinadorVigente}`,
-    `/portal-empleado/modulos/personal/vista.js?v=${vistaVigente}`,
-    `/portal-empleado/modulos/personal/i18n.js?v=${i18nVigente}`,
-  ]));
-  assert.deepEqual(hitsAntiguos, [], "ninguna respuesta immutable antigua se reutiliza");
+test("Personal comparte la cadena desde HTML hasta su catálogo", async () => {
+  const [html, cache, portal, coordinador, vista] = await Promise.all([
+    "index.html", "cache-publica-v1.json", "portal.js", "portal-modulos-coordinador.js",
+    "modulos/personal/vista.js",
+  ].map(leer));
+  exigirMismaVersion([html, cache], "portal.js");
+  exigirMismaVersion([html, portal], "portal-modulos-coordinador.js");
+  versionDe(coordinador, "./modulos/personal/vista.js");
+  versionDe(vista, "./i18n.js");
 });
 
-test("producto e interno empaquetan la cadena sin rutas de presentación internas", async () => {
+test("producto e interno empaquetan Personal sin rutas de presentación internas", async () => {
   const recursos = ["portal.js", "portal-modulos-coordinador.js", "modulos/personal/vista.js", "modulos/personal/i18n.js"];
   for (const nombre of ["produccion.manifest", "interno.manifest"]) {
-    const texto = await readFile(new URL(`../../${nombre}`, raiz), "utf8");
-    const entradas = texto.split(/\r?\n/u).map((linea) => linea.trim()).filter((linea) => linea && !linea.startsWith("#"));
-    for (const recurso of recursos) {
+    const entradas = (await leer(`../../${nombre}`)).split(/\r?\n/u).map((linea) => linea.trim());
+    for (const recurso of recursos)
       assert.ok(entradas.includes(`static/portal-empleado/${recurso}`), `${nombre}: falta ${recurso}`);
-    }
-    if (nombre === "interno.manifest") {
-      assert.deepEqual(entradas.filter((ruta) => /(?:^|[/-])presentacion(?:[./-]|$)/u.test(ruta)), [],
-        "el paquete interno excluye los activos de presentación");
-    }
+    if (nombre === "interno.manifest")
+      assert.deepEqual(entradas.filter((ruta) => /(?:^|[/-])presentacion(?:[./-]|$)/u.test(ruta)), []);
   }
 });

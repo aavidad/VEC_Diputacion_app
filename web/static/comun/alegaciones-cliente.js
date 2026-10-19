@@ -1,4 +1,4 @@
-import { consultarJSON, ErrorConsultaJSON } from "./http.js?v=20261012-sonda-frontera-v1";
+import { consultarJSON, ErrorConsultaJSON } from "./http.js?v=VEC_WEB_VERSION";
 
 const PROPIAS = "/api/vec/bolsa/alegaciones";
 const RRHH = "/api/vec/bolsa/rrhh/alegaciones";

@@ -1,5 +1,5 @@
 import { cargarTextos, reintentarTextos } from "../comun/textos.js";
-import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261016-f140-modalidad-v2";
+import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=VEC_WEB_VERSION";
 
 const CLAVES_PENDIENTES = new Map(); // Sólo memoria de esta pestaña, para repetir el mismo acto incierto.
 const ENVIOS_ACTIVOS = new Set();

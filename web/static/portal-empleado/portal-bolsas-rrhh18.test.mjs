@@ -1,12 +1,12 @@
 import test from "node:test";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=VEC_WEB_VERSION";
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
 import assert from "node:assert/strict";
 import { validarBolsa, validarCandidato, validarRespuestaCandidatosBolsa, validarRespuestaEstadisticas } from "./portal-bolsas-contrato.js";
-import { consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarSeleccionMasivaBolsa, seleccionarParticipacionesPorEstado } from "./portal-bolsas-api.js?v=20261015-firma-ofertas-justificante-integracion-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261015-firma-ofertas-justificante-integracion-v2";
+import { consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarSeleccionMasivaBolsa, seleccionarParticipacionesPorEstado } from "./portal-bolsas-api.js?v=VEC_WEB_VERSION";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=VEC_WEB_VERSION";
 
 const estadosLegacy = { disponible: 1, no_disponible: 0, trabajando: 0, pendiente_incorporacion: 0, renuncia: 0, excluido: 0, disponible_desde: 0 };
 const bolsa = { bolsa_ref: "bolsa:sintetica", categoria_clave: "auxiliar", categoria: "Auxiliar", tipo_lista: "cerrada", vigente_desde: "2026-09-01", vigente_hasta: null, total: 1, por_estado: estadosLegacy, llamamientos_en_curso: 0,

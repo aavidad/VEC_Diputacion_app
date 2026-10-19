@@ -7,13 +7,13 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
-import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=VEC_WEB_VERSION";
 import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
-import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=20261001-ct-a-i18n-v1";
-import { cargarMensajesTramitePortalEnIdioma, mensajesTramite, rotuloTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorContratacionTemporal, cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=VEC_WEB_VERSION";
+import { cargarMensajesTramitePortalEnIdioma, mensajesTramite, rotuloTramite } from "./i18n-fases-rrhh.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal, cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 
 // Huellas de las exportaciones originales en 463f7c176, anteriores al traslado.
 // Incluyen nombres, orden de claves, textos completos y marcadores sin duplicar los textos.

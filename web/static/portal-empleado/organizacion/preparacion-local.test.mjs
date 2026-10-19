@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
-import { crearTraductorPersonal, prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
+import { crearTraductorPersonal, prepararTextosPersonal } from "../modulos/personal/i18n.js?v=VEC_WEB_VERSION";
 
 await prepararTextosPersonal();
 const { iniciarPreparacionLocal, iniciarPestanasOrganizacion, MONTAJE_ORGANIZACION_HISTORICA,
-  PREPARACION_LOCAL_ORGANIZACION } = await import("./historico.js?v=20261008-alta-rpt-circular-v4");
+  PREPARACION_LOCAL_ORGANIZACION } = await import("./historico.js?v=VEC_WEB_VERSION");
 
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 const traducir = (clave, variables) => crearTraductorPersonal()(`organizacion_${clave}`, variables);

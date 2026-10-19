@@ -4,12 +4,12 @@
  * y nunca se muestra: un reintento de la misma operación reutiliza la petición
  * congelada (y su clave) para no duplicar el efecto.
  */
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261019-f182-intervencion-v1";
-import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=20261018-f136c-informe-v4";
-import { mensajeValidacionPortal } from "../../portal-idioma.js?v=20261007-pantallas-textos-final-v1";
-import { esValidacionRespuestaPendiente, esComprobacionOfrecimientoPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
-import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261018-f136c-informe-v4";
-import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20261012-reglas-configuracion-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=VEC_WEB_VERSION";
+import { mensajeValidacionPortal } from "../../portal-idioma.js?v=VEC_WEB_VERSION";
+import { esValidacionRespuestaPendiente, esComprobacionOfrecimientoPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js?v=VEC_WEB_VERSION";
+import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=VEC_WEB_VERSION";
+import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=VEC_WEB_VERSION";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
   CAMPOS_COMUNICACION_SIGUIENTE, TIPO_ANTECEDENTE_CONTINUACION,
@@ -25,11 +25,11 @@ import {
   CAMPOS_PROPUESTA, validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
   CAMPOS_EVENTO_PLAZO, CAMPOS_EVENTO_PLAZO_EDITABLES, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
   RESPUESTA_EXPIRACION,
-} from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
-import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261018-f136c-informe-v4";
-import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js?v=20261016-ct-ofertas-ct231-v1";
+} from "./contrato-llamamiento.js?v=VEC_WEB_VERSION";
+import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=VEC_WEB_VERSION";
+import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js?v=VEC_WEB_VERSION";
 import { ESTADO_SELECCION_PENDIENTE_AVISO, LIMITE_TOTAL_COMUNICACIONES, claveFilaComunicacion,
-  instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct-ofertas-ct231-v1";
+  instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js?v=VEC_WEB_VERSION";
 
 const OPERACION_COMUNICACION = Object.freeze({
   campos: CAMPOS_COMUNICACION, validar: validarSolicitudComunicacionLlamamiento,

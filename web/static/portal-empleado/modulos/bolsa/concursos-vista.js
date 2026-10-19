@@ -1,5 +1,5 @@
-import { aDecimal } from "./baremo-editor.js?v=20261002-a-restos-recuperacion-v1";
-import { escapar } from "./baremo-vista.js?v=20261002-a-restos-recuperacion-v1";
+import { aDecimal } from "./baremo-editor.js?v=VEC_WEB_VERSION";
+import { escapar } from "./baremo-vista.js?v=VEC_WEB_VERSION";
 
 export function renderizarConcursos(estado, { textos, ejemplos = [], ayuda = false, filtro = "" }) {
   const tr = (clave, v = {}) => textos.traducir(`concursos.${clave}`, v);

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
-import { renderizarCuadro } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=VEC_WEB_VERSION";
+import { renderizarCuadro } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
 import { validarCuadroContratacionTemporal } from "./contrato-expedientes.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 
 const t = crearTraductorExpedientesContratacion();
 const resumen = Object.freeze({

@@ -171,3 +171,38 @@ func TestFalloTrasCancelacionConservaPlazoDeAuditoria(t *testing.T) {
 		t.Fatalf("fallo tras cancelar perdió auditoría: %v, llamadas=%d, contexto=%t", err, auditor.llamadas, auditor.contextoVivo)
 	}
 }
+
+func TestLecturaPreferenciasBolsasConConcesionAmpliada(t *testing.T) {
+	e := nuevoEntorno(t)
+	i := &e.fuente.instantanea
+	i.VersionRol.RolID = "candidato_bolsa_portal_historial_propio_desarrollo"
+	i.AsignacionPerfil.VersionRolRef = i.VersionRol.Referencia()
+	i.ControlVigenciaVersionRol.VersionRolRef = i.VersionRol.Referencia()
+	c := &i.VersionRol.Concesiones[0]
+	c.Accion, c.ModuloID, c.TipoRecurso = bolsa.AccionConsultarPreferenciasBolsas, bolsa.ModuloMiBolsa, bolsa.TipoRecursoMiBolsa
+	c.Finalidades, c.GarantiaMinima = []string{bolsa.FinalidadPreferenciasBolsas}, dominiovec.AuthAssuranceHigh
+	c.CamposPermitidos = bolsa.CamposConcesionPreferenciasPropias()
+	lector, auditor := new(lectorPreferenciasAplicacionPrueba), new(auditorPreferenciasAplicacionPrueba)
+	servicio, err := NuevaLecturaPreferenciasBolsas(lector, auditor, e.fuente, &relojAutorizacionServicioPrueba{ahora: e.ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = servicio.ConsultarPreferencias(t.Context(), e.orden); err != nil {
+		t.Fatal(err)
+	}
+	var captura struct {
+		Campos []string `json:"campos_permitidos"`
+	}
+	if json.Unmarshal(lector.captura.OrdenJSON(), &captura) != nil || len(captura.Campos) != 8 {
+		t.Fatal("la consulta de bolsas amplió su proyección")
+	}
+	for _, campo := range captura.Campos {
+		if campo == "modalidades_guardadas" || campo == "modalidades_disponibles" {
+			t.Fatal("se filtraron campos de modalidades")
+		}
+	}
+	c.CamposPermitidos = append(c.CamposPermitidos, "campo_ajeno")
+	if _, err = servicio.ConsultarPreferencias(t.Context(), e.orden); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || lector.llamadas != 1 || auditor.llamadas != 1 {
+		t.Fatalf("concesión ajena permitió lectura: %v", err)
+	}
+}

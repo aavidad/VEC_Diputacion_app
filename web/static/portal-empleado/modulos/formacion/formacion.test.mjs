@@ -32,7 +32,7 @@ test('transport omits credentials and exports the unmodified original bytes', as
   const raw = new TextEncoder().encode(`  ${JSON.stringify(fixture(), null, 2)}\n`); let called;
   const cliente = crearClienteEscenario({ fetchImpl: async (ruta, opciones) => { called = { ruta, opciones }; return { ok: true, arrayBuffer: async () => raw.buffer }; } });
   const resultado = await cliente.cargar(); assert.deepEqual(resultado.bytes, raw);
-  assert.equal(called.ruta, './escenario.json?v=20261001-formacion-preparacion-v1');
+  assert.equal(called.ruta, './escenario.json?v=VEC_WEB_VERSION');
   for (const [k, v] of Object.entries({ credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer' })) assert.equal(called.opciones[k], v);
   await assert.rejects(crearClienteEscenario({ fetchImpl: async () => ({ ok: false }) }).cargar());
 });

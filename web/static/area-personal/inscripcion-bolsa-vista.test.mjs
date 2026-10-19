@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarInscripcionBolsa } from "./inscripcion-bolsa-vista.js?v=20261016-f140-modalidad-v3";
+import { montarInscripcionBolsa } from "./inscripcion-bolsa-vista.js?v=VEC_WEB_VERSION";
 
 const pausa = () => new Promise((resolver) => setTimeout(resolver, 20));
 const instante = "2026-10-09T09:00:00Z";

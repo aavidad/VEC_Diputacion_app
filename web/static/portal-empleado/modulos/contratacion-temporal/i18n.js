@@ -1,4 +1,4 @@
-import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=VEC_WEB_VERSION";
 const catalogosMOAD = await cargarCatalogosContratacion("contratacion-temporal-moad");
 const MENSAJES_MOAD_ES = catalogosMOAD.exportaciones.ES;
 const MENSAJES_MOAD_EN = catalogosMOAD.exportaciones.EN;
@@ -18,23 +18,23 @@ export async function cargarMensajesNecesidadesAlta(idioma) {
   return Object.freeze(aplanarMensajesNecesidades(catalogo.actual));
 }
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
-import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_DOCUMENTACION_FORMALIZACION_EN } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=VEC_WEB_VERSION";
+import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=VEC_WEB_VERSION";
+import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js?v=VEC_WEB_VERSION";
+import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=VEC_WEB_VERSION";
+import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js?v=VEC_WEB_VERSION";
+import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=VEC_WEB_VERSION";
+import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=VEC_WEB_VERSION";
+import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=VEC_WEB_VERSION";
+import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=VEC_WEB_VERSION";
+import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js?v=VEC_WEB_VERSION";
+import { MENSAJES_DOCUMENTACION_FORMALIZACION_EN } from "./i18n-documentacion-formalizacion.js?v=VEC_WEB_VERSION";
+import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js?v=VEC_WEB_VERSION";
+import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=VEC_WEB_VERSION";
+import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=VEC_WEB_VERSION";
+import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=VEC_WEB_VERSION";
 import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
-import { FASES_RRHH, rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
+import { FASES_RRHH, rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=VEC_WEB_VERSION";
 
 const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   ...MENSAJES_MOAD_ES,

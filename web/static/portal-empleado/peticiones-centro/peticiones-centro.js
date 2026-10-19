@@ -6,15 +6,15 @@ import {
   numeroExpedienteMOADValido,
   jornadaVisibleDesdeMinutos,
   ESQUEMA_CATALOGOS_NECESIDADES,
-} from "../modulos/contratacion-temporal/contrato.js?v=20261018-f173-alta-v2";
+} from "../modulos/contratacion-temporal/contrato.js?v=VEC_WEB_VERSION";
 import { extraerBorrador, formulario as renderizarFormularioPuro,
-  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261018-f173-alta-v2";
-import { cargarCatalogosContratacionEnIdioma } from "../modulos/contratacion-temporal/i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteHTTPRPTPublica } from "../modulos/personal/cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4";
+  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=VEC_WEB_VERSION";
+import { cargarCatalogosContratacionEnIdioma } from "../modulos/contratacion-temporal/i18n-catalogos.js?v=VEC_WEB_VERSION";
+import { crearClienteHTTPRPTPublica } from "../modulos/personal/cliente-http-rpt-publica.js?v=VEC_WEB_VERSION";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO, MENSAJES_AYUDA_PETICIONES_CENTRO,
   TEXTOS_LOCALES_PETICIONES_CENTRO, prepararAnalisisPeticionesCentro,
-  traducirPeticionesCentro } from "./i18n-peticiones-centro.js?v=20261007-pc-recuperacion-v1";
+  traducirPeticionesCentro } from "./i18n-peticiones-centro.js?v=VEC_WEB_VERSION";
 
 const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",

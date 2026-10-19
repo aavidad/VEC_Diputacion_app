@@ -4,7 +4,7 @@ import { renderizarSiguientePasoFicha } from "./vista-expedientes-ficha.js";
 import {
   crearTraductorExpedientesContratacion,
   cargarMensajesExpedientesContratacionEnIdioma,
-} from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+} from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 const MENSAJES_EXPEDIENTES_CONTRATACION_EN = await cargarMensajesExpedientesContratacionEnIdioma("en");
 
 const expediente = Object.freeze({

@@ -1,9 +1,9 @@
 /** Montaje aislado de la superficie de fiscalización de contratación temporal. */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261018-f136c-informe-v4";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261019-f182-intervencion-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261019-f182-intervencion-v1";
-import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=VEC_WEB_VERSION";
 
 export function montarModuloFiscalizacionContratacionTemporal({
   raiz,

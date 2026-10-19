@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=VEC_WEB_VERSION";
 import { crearControladorBolsas, consultarCandidatosBolsa } from "./portal-bolsas-api.js";
-import { ESQUEMA_CANDIDATOS } from "./portal-bolsas-contrato.js?v=20261007-pantallas-textos-final-v1";
+import { ESQUEMA_CANDIDATOS } from "./portal-bolsas-contrato.js?v=VEC_WEB_VERSION";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261013-alegaciones-v2";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=VEC_WEB_VERSION";
 
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();

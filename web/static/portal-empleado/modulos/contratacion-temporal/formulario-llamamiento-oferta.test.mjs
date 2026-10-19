@@ -4,7 +4,7 @@ import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-l
 import { ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
   validarSolicitudRecuperacionOferta, validarReciboSeleccion, validarReciboSeleccionOferta,
   validarReciboDescarteOferta, validarEstadoSeleccionOferta } from "./contrato-llamamiento.js";
-import { EXPEDIENTE, seleccion, raizPrueba, montar as montarBase, recibo as reciboSingular } from "./formulario-llamamiento-pruebas.js?v=20261018-f136c-informe-v4";
+import { EXPEDIENTE, seleccion, raizPrueba, montar as montarBase, recibo as reciboSingular } from "./formulario-llamamiento-pruebas.js?v=VEC_WEB_VERSION";
 
 const HUELLA = "a".repeat(64);
 const reciboOferta = Object.freeze({

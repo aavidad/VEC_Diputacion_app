@@ -1,10 +1,10 @@
-import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261016-f140-integracion-o-v4";
+import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=VEC_WEB_VERSION";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
-import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20261015-o-justificante-bolsa-v4";
-import { cargarVistasDisponibles } from "./vistas-disponibles.js?v=20261005-b4b-v1";
-import * as temaComun from "../comun/tema-vec.js?v=20260930-codexf-temas-v2";
+import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=VEC_WEB_VERSION";
+import { cargarVistasDisponibles } from "./vistas-disponibles.js?v=VEC_WEB_VERSION";
+import * as temaComun from "../comun/tema-vec.js?v=VEC_WEB_VERSION";
 import { INDICE_IDIOMAS, prepararIdiomas } from "../comun/idioma.js";
-import { peticionesEnSerie } from "../comun/imagen-propia.js?v=20261007-p7-http-v1";
+import { peticionesEnSerie } from "../comun/imagen-propia.js?v=VEC_WEB_VERSION";
 
 // Una sola cola para las consultas de Usuarios de esta página. La consulta a
 // Bolsa acaba antes de arrancar imagen o preferencias.
@@ -27,7 +27,7 @@ const controladorVisual = preferencias && typeof temaComun.aplicarPreferenciasVi
 
 async function resolverCliente() {
   exigirParametrosConocidos(new URLSearchParams(window.location.search));
-  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20261015-o-justificante-bolsa-v4");
+  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=VEC_WEB_VERSION");
   return { cliente: crearClienteHTTPAreaPersonal(), vistasDisponibles: await cargarVistasDisponibles() };
 }
 

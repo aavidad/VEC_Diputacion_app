@@ -8,16 +8,16 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v3";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { enlaceCTSinVersionFueraDePagina } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
+} from "./portal-catalogo-modulos.js?v=VEC_WEB_VERSION";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { enlaceCTSinVersionFueraDePagina } from "./portal-ct-ruta-ficha.js?v=VEC_WEB_VERSION";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20261012-ct-personal-ficha-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261018-f104-main-v1";
+} from "./portal-composicion-empleado.js?v=VEC_WEB_VERSION";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=VEC_WEB_VERSION";
 import { cargarTextos } from "../comun/textos.js";
 import { INDICE_IDIOMAS } from "../comun/idioma.js";
 import {
@@ -25,7 +25,7 @@ import {
   LIMITE_CARGA_MODULAR_MS,
   cargarModuloConLimite,
   consultarConLimite,
-} from "./portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1";
+} from "./portal-modulos-carga.js?v=VEC_WEB_VERSION";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 // Lo que la lista CT tiene en pantalla solo sirve a un clic reciente en ella.
@@ -105,21 +105,21 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
       bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones] = await Promise.all([
-      import("./modulos/cronos/vista-saldo-conectado.js?v=20261014-cronos-activacion-v1"),
-      import("./modulos/cronos/vista-remoto.js?v=20261014-cronos-activacion-v1"),
-      import("./modulos/cronos/vista-movimientos-conectado.js?v=20261001-cronos-movimientos-consulta-v1"),
-      import("./modulos/cronos/vista-movimientos-propios.js?v=20261007-u-dietas-catalogo-v1"),
-      import("./modulos/cronos/vista-permisos-propios.js?v=20261007-pantallas-textos-final-v1"),
+      import("./modulos/cronos/vista-saldo-conectado.js?v=VEC_WEB_VERSION"),
+      import("./modulos/cronos/vista-remoto.js?v=VEC_WEB_VERSION"),
+      import("./modulos/cronos/vista-movimientos-conectado.js?v=VEC_WEB_VERSION"),
+      import("./modulos/cronos/vista-movimientos-propios.js?v=VEC_WEB_VERSION"),
+      import("./modulos/cronos/vista-permisos-propios.js?v=VEC_WEB_VERSION"),
       import("./modulos/cronos/cliente-saldo-http.js"),
       import("./modulos/cronos/cliente-remoto-http.js"),
       import("./modulos/cronos/cliente-solicitudes-http.js"),
-      import("./modulos/cronos/i18n.js?v=20260929-i18n-textos-v1"),
-      import("./modulos/cronos/vista-bandeja-permisos.js?v=20261001-f-reconciliacion-321-v1"),
-      import("./modulos/cronos/vista-avisos-propios.js?v=20261001-cronos-avisos-confirmados-v1"),
+      import("./modulos/cronos/i18n.js?v=VEC_WEB_VERSION"),
+      import("./modulos/cronos/vista-bandeja-permisos.js?v=VEC_WEB_VERSION"),
+      import("./modulos/cronos/vista-avisos-propios.js?v=VEC_WEB_VERSION"),
       import("./modulos/cronos/cliente-resolucion-http.js"),
-      import("./modulos/cronos/i18n-resolucion.js?v=20261001-cronos-grafo-bandeja-v5"),
-      import("./modulos/cronos/vista-notificaciones-propias.js?v=20261001-cronos-c9-historial-v2"),
-      import("./modulos/cronos/vista-bandeja-notificaciones.js?v=20261001-cronos-c9-recuperacion-v3"),
+      import("./modulos/cronos/i18n-resolucion.js?v=VEC_WEB_VERSION"),
+      import("./modulos/cronos/vista-notificaciones-propias.js?v=VEC_WEB_VERSION"),
+      import("./modulos/cronos/vista-bandeja-notificaciones.js?v=VEC_WEB_VERSION"),
       import("./modulos/cronos/cliente-notificaciones-http.js"),
       import("./modulos/cronos/i18n-notificaciones.js"),
     ]);
@@ -129,34 +129,34 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js?v=20261018-f173-alta-v2"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261018-f173-alta-v5"),
+      import("./modulos/contratacion-temporal/contrato.js?v=VEC_WEB_VERSION"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=VEC_WEB_VERSION"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261019-f182-intervencion-v1"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261019-f182-intervencion-v1"),
-        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261016-ct-ofertas-ct231-v1"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=VEC_WEB_VERSION"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=VEC_WEB_VERSION"),
+        import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=VEC_WEB_VERSION"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
       return completos;
     };
-    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261016-firma-historica-v4");
+    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=VEC_WEB_VERSION");
     // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261019-f182-intervencion-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=VEC_WEB_VERSION");
       const [auditoriaVista, auditoriaCliente, original, preflight, firmaVec, autoFirma, documentos] = await Promise.all([
-        import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
-        import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),
-        import("./modulos/contratacion-temporal/original-firmable-api.js?v=20261018-firma-historica-ct231-v1"),
-        import("./modulos/contratacion-temporal/preflight-firma-api.js?v=20261016-firma-historica-v4"),
-        import("./modulos/contratacion-temporal/firma-vec-api.js?v=20261016-firma-historica-v4"),
-        import("./modulos/contratacion-temporal/firma-autofirma.js?v=20261016-firma-historica-v4"),
-        import("./modulos/documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1"),
+        import("./modulos/auditoria/vista.js?v=VEC_WEB_VERSION"),
+        import("./modulos/auditoria/cliente-http.js?v=VEC_WEB_VERSION"),
+        import("./modulos/contratacion-temporal/original-firmable-api.js?v=VEC_WEB_VERSION"),
+        import("./modulos/contratacion-temporal/preflight-firma-api.js?v=VEC_WEB_VERSION"),
+        import("./modulos/contratacion-temporal/firma-vec-api.js?v=VEC_WEB_VERSION"),
+        import("./modulos/contratacion-temporal/firma-autofirma.js?v=VEC_WEB_VERSION"),
+        import("./modulos/documentos/cliente-http.js?v=VEC_WEB_VERSION"),
       ]);
       let mensajesRecuperacionFirmas = null;
       let errorRecuperacionFirmas = null;
@@ -186,16 +186,16 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
   personal: async () => {
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia, contacto] = await Promise.all([
-      import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
-      import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista.js?v=20261012-textos-limpios-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20261008-alta-rpt-circular-v4"),
-      import("./modulos/personal/registro-b2.js?v=20261012-ct-personal-ficha-v1"),
-      import("./modulos/personal/registro-b2-cliente.js?v=20261012-ct-personal-ficha-v1"),
-      import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
-      import("./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4"),
-      import("./modulos/personal/cliente-http-ficha-propia.js?v=20261004-personal-relaciones-v1"),
-      import("./modulos/personal/vista-contacto-propio.js?v=20261007-pantallas-textos-final-v1"),
+      import("./modulos/personal/contrato.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/cliente-http-categorias.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/vista.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/vista-ficha-integral.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/registro-b2.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/registro-b2-cliente.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/registro-b2-catalogos-cliente.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/i18n.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/cliente-http-ficha-propia.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/vista-contacto-propio.js?v=VEC_WEB_VERSION"),
     ]);
     await i18n.prepararTextosPersonal();
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
@@ -206,11 +206,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // el servidor responde a su consulta con una página válida.
   personal_catalogos_publicos: async () => {
     const [clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, i18n] = await Promise.all([
-      import("./modulos/personal/cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4"),
-      import("./modulos/personal/vista-rpt-publica.js?v=20261008-alta-rpt-circular-v4"),
-      import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20261008-alta-rpt-circular-v4"),
-      import("./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4"),
+      import("./modulos/personal/cliente-http-rpt-publica.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/vista-rpt-publica.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=VEC_WEB_VERSION"),
+      import("./modulos/personal/i18n.js?v=VEC_WEB_VERSION"),
     ]);
     await i18n.prepararTextosPersonal();
     return Object.freeze({ clienteRPT, vistaRPT, clienteEstructura, vistaEstructura });
@@ -218,13 +218,13 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito, clienteRectificacion] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20261007-u-dietas-catalogo-v1"),
-      import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
-      import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
-      import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20261007-u-dietas-catalogo-v1"),
-      import("./modulos/dietas/cliente-circuito-http.js?v=20261001-dietas-decision-v1"),
-      import("./modulos/dietas/cliente-rectificacion-http.js?v=20261002-codexe-d7c-web-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=VEC_WEB_VERSION"),
+      import("./modulos/dietas/cliente-borradores-http.js?v=VEC_WEB_VERSION"),
+      import("./modulos/dietas/cliente-asignacion-http.js?v=VEC_WEB_VERSION"),
+      import("./modulos/dietas/calculador-rutas-http.js?v=VEC_WEB_VERSION"),
+      import("./modulos/dietas/mapa-ruta.js?v=VEC_WEB_VERSION"),
+      import("./modulos/dietas/cliente-circuito-http.js?v=VEC_WEB_VERSION"),
+      import("./modulos/dietas/cliente-rectificacion-http.js?v=VEC_WEB_VERSION"),
     ]);
     return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito, clienteRectificacion });
   },
@@ -232,8 +232,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // módulo cuando su montaje está compuesto; cada consulta la autoriza V3.
   documentos: async () => {
     const [vista, cliente] = await Promise.all([
-      import("./modulos/documentos/vista.js?v=20261007-pantallas-textos-final-v1"),
-      import("./modulos/documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1"),
+      import("./modulos/documentos/vista.js?v=VEC_WEB_VERSION"),
+      import("./modulos/documentos/cliente-http.js?v=VEC_WEB_VERSION"),
     ]);
     return Object.freeze({ vista, cliente });
   },
@@ -326,8 +326,8 @@ export function crearCoordinadorModulosPortal({
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
   cargarTramitesPropios = async () => {
     const [fuente, vista] = await Promise.all([
-      import("./modulos/solicitudes/fuente-tramites-propios.js?v=20261004-b-tramites-devoluciones-v2"),
-      import("./modulos/solicitudes/vista-tramites-propios.js?v=20261007-pantallas-textos-final-v1"),
+      import("./modulos/solicitudes/fuente-tramites-propios.js?v=VEC_WEB_VERSION"),
+      import("./modulos/solicitudes/vista-tramites-propios.js?v=VEC_WEB_VERSION"),
     ]);
     return { fuente, vista };
   },
@@ -464,7 +464,7 @@ export function crearCoordinadorModulosPortal({
         return promesaCatalogoNombres;
       };
       const nombresOrganizacion = () => {
-        promesaOrganizacionNombres ??= import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1")
+        promesaOrganizacionNombres ??= import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=VEC_WEB_VERSION")
           .then((modulo) => modulo.crearClienteHTTPEstructuraOrganizativaPublica({
             fetchImpl: fetchDelEntorno() ?? globalThis.fetch,
           }).obtener())
@@ -629,7 +629,7 @@ export function crearCoordinadorModulosPortal({
     const rotulosCircuito = (prefijo) => Object.fromEntries(Object.entries(fasesCircuito)
       .map(([clave, rotulo]) => [`${prefijo}circuito_${clave}`, rotulo]));
     const mensajesExpedientesIdioma = idiomaCircuito === "en"
-      ? await (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=20261007-pantallas-textos-final-v1"))
+      ? await (await import("./modulos/contratacion-temporal/i18n-expedientes.js?v=VEC_WEB_VERSION"))
         .cargarMensajesExpedientesContratacionEnIdioma(idiomaCircuito)
       : {};
     const mensajesExpedientes = {
@@ -664,7 +664,7 @@ export function crearCoordinadorModulosPortal({
     // consulta por carga; si falla, la lista sigue con la referencia.
     const centrosOrganizacion = () => {
       if (!altaResuelta || alta !== null) return null;
-      promesaCentrosOrganizacion ??= import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1")
+      promesaCentrosOrganizacion ??= import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=VEC_WEB_VERSION")
         .then((modulo) => modulo.crearClienteHTTPEstructuraOrganizativaPublica({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }).obtener())
         .then((estructura) => centrosDeOrganizacion(estructura.unidades))
         .catch(() => null)
@@ -1381,7 +1381,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261018-f173-alta-v5");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=VEC_WEB_VERSION");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
@@ -1390,7 +1390,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20261019-f182-intervencion-v1");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=VEC_WEB_VERSION");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }

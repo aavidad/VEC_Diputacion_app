@@ -5,7 +5,7 @@ import {
   periodoSuperaDuracionMaxima,
   validarConfiguracionAnalisis,
 } from "./contrato-analisis.js";
-import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=VEC_WEB_VERSION";
 
 // Opciones del análisis publicadas por el catálogo de reglas: modalidades sin
 // lista fija, duración máxima por modalidad (aviso o bloqueo) y urgencia.
@@ -223,8 +223,8 @@ test("sin marcar la urgencia el motivo escrito no viaja", async () => {
 });
 
 test("la bandeja marca los expedientes urgentes y rechaza una urgencia falsa", async () => {
-  const { crearAdaptadorHTTPExpedientesContratacionTemporal } = await import("./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6");
-  const { crearClienteHTTPContratacionTemporal } = await import("./cliente-http.js?v=20261008-alta-circular-v3");
+  const { crearAdaptadorHTTPExpedientesContratacionTemporal } = await import("./adaptador-http-expedientes.js?v=VEC_WEB_VERSION");
+  const { crearClienteHTTPContratacionTemporal } = await import("./cliente-http.js?v=VEC_WEB_VERSION");
   const { renderizarCuadro } = await import("./componentes-expedientes.js");
   const { crearTraductorExpedientesContratacion } = await import("./i18n-expedientes.js");
   const resumen = {

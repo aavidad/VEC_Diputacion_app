@@ -248,6 +248,10 @@ const firmaConsultarPreferenciasBolsasPortalExterno = "vec_bolsa_llamamientos.co
 
 const firmaIntentoPreferenciasBolsasPortalExterno = "vec_bolsa_llamamientos.registrar_intento_lectura_preferencias_bolsas_v1(text,bytea,bytea,jsonb)"
 
+// B138 concede al mismo grupo la escritura de modalidades (F1-13). Solo se
+// admite con la firma exacta y junto a las tres funciones de preferencias B104.
+const firmaGuardarModalidadesPortalExterno = "vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamp with time zone,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
+
 const firmaPresentarAlegacionPortalExterno = "vec_bolsa_llamamientos.presentar_alegacion_v1(text,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
 
 // El estado SQL se decide por todas las sobrecargas B96 existentes, no por
@@ -263,12 +267,13 @@ func funcionesMiBolsaPortalExternoExactasConPreferencias(obtenidas []string, fun
 ) bool {
 	return funcionesMiBolsaPortalExternoExactasConAlegaciones(obtenidas, funcionesB96, b96Exacta,
 		funcionesB104, b104Exacta, funcionesLecturaB104, lecturaB104Exacta,
-		funcionesIntentoB104, intentoB104Exacta, 0, false)
+		funcionesIntentoB104, intentoB104Exacta, 0, false, 0, false)
 }
 
 func funcionesMiBolsaPortalExternoExactasConAlegaciones(obtenidas []string, funcionesB96 int, b96Exacta bool,
 	funcionesB104 int, b104Exacta bool, funcionesLecturaB104 int, lecturaB104Exacta bool,
 	funcionesIntentoB104 int, intentoB104Exacta bool, funcionesB114 int, b114Exacta bool,
+	funcionesB138 int, b138Exacta bool,
 ) bool {
 	preferenciasExactas := funcionesB104 == 1 && b104Exacta && funcionesLecturaB104 == 1 && lecturaB104Exacta &&
 		funcionesIntentoB104 == 1 && intentoB104Exacta
@@ -298,6 +303,11 @@ func funcionesMiBolsaPortalExternoExactasConAlegaciones(obtenidas []string, func
 	if funcionesB114 == 1 && b114Exacta && funcionesB96 == 1 && b96Exacta {
 		esperadas = append(esperadas, "presentar_alegacion_v1")
 	} else if funcionesB114 != 0 || b114Exacta {
+		return false
+	}
+	if funcionesB138 == 1 && b138Exacta && preferenciasExactas {
+		esperadas = append(esperadas, "guardar_preferencias_modalidades_v1")
+	} else if funcionesB138 != 0 || b138Exacta {
 		return false
 	}
 	if len(obtenidas) != len(esperadas) {
@@ -411,6 +421,19 @@ func comprobarACLMiBolsaPortalExternoConAlegaciones(ctx context.Context, consult
   ),false) AS exacta
  FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='presentar_alegacion_v1'
+), b138 AS (
+ SELECT count(*)::integer AS total,
+  coalesce(bool_and(
+   p.oid=pg_catalog.to_regprocedure($7::text)::oid AND p.prosecdef
+   AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+   AND EXISTS(SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+    WHERE a.grantee=(SELECT r.oid FROM pg_catalog.pg_roles r WHERE r.rolname='vec_bolsa_llamamientos_portal_externo')
+      AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
+   AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+    WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+  ),false) AS exacta
+ FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='guardar_preferencias_modalidades_v1'
 )
 SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM funciones),ARRAY[]::text[]),
  (SELECT coalesce(bool_and(prosecdef),false) FROM funciones)
@@ -442,7 +465,8 @@ SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM fun
  (SELECT total FROM b104),(SELECT exacta FROM b104),
  (SELECT total FROM b104_lectura),(SELECT exacta FROM b104_lectura),
  (SELECT total FROM b104_intento),(SELECT exacta FROM b104_intento),
- (SELECT total FROM b114),(SELECT exacta FROM b114)`
+ (SELECT total FROM b114),(SELECT exacta FROM b114),
+ (SELECT total FROM b138),(SELECT exacta FROM b138)`
 	var funciones []string
 	var permitido bool
 	var funcionesB96 int
@@ -455,17 +479,20 @@ SELECT COALESCE((SELECT array_agg(proname::text ORDER BY proname::text) FROM fun
 	var intentoB104Exacta bool
 	var funcionesB114 int
 	var b114Exacta bool
+	var funcionesB138 int
+	var b138Exacta bool
 	return consultador.QueryRow(ctx, acl, firmaSolicitarInscripcionPortalExterno, firmaSolicitarDocumentalPortalExterno,
 		firmaOrdenarPreferenciasBolsasPortalExterno, firmaConsultarPreferenciasBolsasPortalExterno,
-		firmaIntentoPreferenciasBolsasPortalExterno, firmaPresentarAlegacionPortalExterno).
+		firmaIntentoPreferenciasBolsasPortalExterno, firmaPresentarAlegacionPortalExterno,
+		firmaGuardarModalidadesPortalExterno).
 		Scan(&funciones, &permitido, &funcionesB96, &b96Exacta, &funcionesB104, &b104Exacta,
 			&funcionesLecturaB104, &lecturaB104Exacta, &funcionesIntentoB104, &intentoB104Exacta,
-			&funcionesB114, &b114Exacta) == nil &&
+			&funcionesB114, &b114Exacta, &funcionesB138, &b138Exacta) == nil &&
 		permitido && (!requiereInscripcion || funcionesB96 == 1 && b96Exacta) &&
 		(!requiereAlegaciones || requiereInscripcion && funcionesB114 == 1 && b114Exacta) &&
 		funcionesMiBolsaPortalExternoExactasConAlegaciones(funciones, funcionesB96, b96Exacta,
 			funcionesB104, b104Exacta, funcionesLecturaB104, lecturaB104Exacta,
-			funcionesIntentoB104, intentoB104Exacta, funcionesB114, b114Exacta)
+			funcionesIntentoB104, intentoB104Exacta, funcionesB114, b114Exacta, funcionesB138, b138Exacta)
 }
 
 // nuevaSesionMiBolsaPortalExterno recibe los puertos nominales exteriores de

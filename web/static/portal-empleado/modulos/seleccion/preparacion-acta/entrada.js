@@ -1,5 +1,5 @@
-import { leerArchivo } from './modelo.js?v=20261007-s5-cotejo-local-v1';
-import { pintarSalida } from './vista.js?v=20261007-s5-cotejo-local-v1';
+import { leerArchivo } from './modelo.js?v=VEC_WEB_VERSION';
+import { pintarSalida } from './vista.js?v=VEC_WEB_VERSION';
 import { cargarTextos, reintentarTextos, urlCatalogo, crearTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON, montarSelectorIdioma } from '../../../../comun/idioma.js';
 

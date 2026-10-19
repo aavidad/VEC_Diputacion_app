@@ -776,6 +776,20 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if resolvedorDesarrollo.segundoTecnicoRRHH != nil {
+		contextoSegundo, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(
+			resolvedorDesarrollo.segundoTecnicoRRHH.principal, reloj.Ahora())
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		for i := range declaracionesFrontera {
+			if declaracionesFrontera[i].Ruta == httpinterno.RutaNoIncorporaciones &&
+				declaracionesFrontera[i].Metodo == http.MethodPost {
+				declaracionesFrontera[i].PerfilesActivosRef = append(declaracionesFrontera[i].PerfilesActivosRef,
+					contextoSegundo.Resultado.Contexto.PerfilActivoRef)
+			}
+		}
+	}
 	declaracionesFrontera = append(declaracionesFrontera, fronteraJustificanteBolsaRRHHDesarrollo(perfilesConsulta))
 	if alta.postgresql.vinculoEmisionBolsa {
 		declaracionesFrontera = append(declaracionesFrontera, fronteraVinculoEmisionBolsaDesarrollo(perfilCTCatalogo))
@@ -1415,6 +1429,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			cerrarBorrador()
 		}
 	}()
+	derivacionNombramiento, err := nuevaRutaDerivacionNombramientoDesarrollo(nil)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaDerivacionNombramiento, Manejador: derivacionNombramiento})
 	rutas = append(rutas, rutasBorrador...)
 	cerrarPreparacionBases := func() {}
 	if preparacionBasesActiva {

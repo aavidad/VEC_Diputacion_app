@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261016-f140-modalidad-v2";
+import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=VEC_WEB_VERSION";
 import { prepararIdiomas } from "../comun/idioma.js";
 
 await prepararIdiomas();

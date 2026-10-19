@@ -1,13 +1,13 @@
-import { montarVistaHistoriaRelacionesPropia } from "./vista-historia-relaciones-propia.js?v=20261004-personal-relaciones-v1";
-import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=20261004-b-revision-valor-v1";
+import { montarVistaHistoriaRelacionesPropia } from "./vista-historia-relaciones-propia.js?v=VEC_WEB_VERSION";
+import { montarVistaHistoriaServiciosPropia } from "./vista-historia-servicios-propia.js?v=VEC_WEB_VERSION";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
+import { crearTraductorPersonal } from "./i18n.js?v=VEC_WEB_VERSION";
 
-import { crearSelectorCorteServicios, esFechaCorteServicios, presentarFechaCorteServicios, traducirCorteServicios } from "./ficha-propia-corte.js?v=20261002-personal-servicios-csv-v1";
+import { crearSelectorCorteServicios, esFechaCorteServicios, presentarFechaCorteServicios, traducirCorteServicios } from "./ficha-propia-corte.js?v=VEC_WEB_VERSION";
 
-import { descargarResumenServicios } from "./servicios-descarga.js?v=20261004-personal-historia-v1";
-import { traducirExportacionServicios } from "./i18n-exportacion-servicios.js?v=20261004-personal-historia-v1";
-import { referenciaExportacionServiciosValida } from "./cliente-http-exportacion-servicios.js?v=20261004-personal-historia-v1";
+import { descargarResumenServicios } from "./servicios-descarga.js?v=VEC_WEB_VERSION";
+import { traducirExportacionServicios } from "./i18n-exportacion-servicios.js?v=VEC_WEB_VERSION";
+import { referenciaExportacionServiciosValida } from "./cliente-http-exportacion-servicios.js?v=VEC_WEB_VERSION";
 
 const PESTANAS = Object.freeze([
   ["ficha", "ficha_tab_ficha"], ["contacto", "ficha_tab_contacto"], ["relaciones", "ficha_tab_relaciones"],
