@@ -304,9 +304,9 @@ def main_locked(a, r):
                 or not re.fullmatch('[0-9a-f]{64}', certificado)
                 or bolsa.get('sujeto') != sujeto or bolsa.get('certificado_sha256') != certificado):
             fail('identidad_rrhh_primaria_invalida')
-        cert = subprocess.run(['openssl', 'x509', '-in', str(material / 'mtls/cliente.crt'), '-outform', 'DER'],
-                              capture_output=True, check=True, timeout=10).stdout
-        if hashlib.sha256(cert).hexdigest() != certificado:
+        cert = subprocess.run(['openssl', 'x509', '-outform', 'DER'], input=private_file(material / 'mtls/cliente.crt'),
+                              capture_output=True, check=False, timeout=10)
+        if cert.returncode != 0 or hashlib.sha256(cert.stdout).hexdigest() != certificado:
             fail('identidad_rrhh_primaria_invalida')
         # Contrato existente: referenciaAltaContratacionTemporalDesarrollo,
         # contratacion_temporal_alta_sellado_desarrollo.go. No crea una cuenta.

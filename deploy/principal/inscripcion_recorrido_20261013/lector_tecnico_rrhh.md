@@ -77,7 +77,7 @@ LECTOR
 ```
 
 El cargador mantiene CA, certificado, sujeto, referencia exacta, ámbito y
-unicidad. Si el perfil fijo no aparece una sola vez en el soporte de Alta,
-el montaje se deniega. Identificar al lector no concede las operaciones de
+unicidad, y fija para Carmen el perfil fijo de Alta. Contratación temporal no
+vuelve a comprobarlo: solo exige que sea la titular del alta. Identificar al lector no concede las operaciones de
 inscripción: dirección debe comprobar su asignación técnica y sus permisos
 vigentes antes de atribuir un recorrido terminado.
