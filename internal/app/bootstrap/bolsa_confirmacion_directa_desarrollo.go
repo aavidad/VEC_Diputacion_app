@@ -33,10 +33,10 @@ func contieneAccionConfirmacionDirecta(concesiones []dominiovec.ConcesionRol) bo
 }
 
 func concesionesConfirmacionDirectaExactas(restantes []dominiovec.ConcesionRol) bool {
-	if len(restantes) < 1 || len(restantes) > 12 {
+	if len(restantes) < 1 || len(restantes) > 13 {
 		return false
 	}
-	confirmaciones, cargas := 0, 0
+	confirmaciones, cargas, comprobaciones := 0, 0, 0
 	var s6 []dominiovec.ConcesionRol
 	vistas := make(map[string]bool, len(restantes))
 	for _, c := range restantes {
@@ -58,6 +58,11 @@ func concesionesConfirmacionDirectaExactas(restantes []dominiovec.ConcesionRol) 
 				return false
 			}
 			cargas++
+		case puertosbolsa.AccionComprobacionOfrecimiento:
+			if !concesionComprobacionOfrecimientoExacta(c) {
+				return false
+			}
+			comprobaciones++
 		case puertosbolsa.AccionConsultarTransicionesSituacion,
 			puertosbolsa.AccionPublicarTransicionesSituacion:
 			s6 = append(s6, c)
@@ -67,8 +72,17 @@ func concesionesConfirmacionDirectaExactas(restantes []dominiovec.ConcesionRol) 
 			}
 		}
 	}
-	return confirmaciones == 1 && cargas <= 1 &&
+	return confirmaciones == 1 && cargas <= 1 && comprobaciones <= 1 &&
 		(len(s6) == 0 || concesionesAdicionalesS6Exactas(s6))
+}
+
+// La comprobación de F1-09 convive con la confirmación directa en el mismo
+// rol con la forma exacta de su fuente gobernada, sin campos.
+func concesionComprobacionOfrecimientoExacta(c dominiovec.ConcesionRol) bool {
+	return c.ModuloID == "bolsa" && c.TipoRecurso == "participacion_bolsa" &&
+		slices.Equal(c.Finalidades, []string{puertosbolsa.FinalidadComprobacionOfrecimiento}) &&
+		len(c.CamposPermitidos) == 0 && slices.Equal(c.Obligaciones, []string{"auditar"}) &&
+		c.GarantiaMinima == dominiovec.AuthAssuranceHigh && c.Validar() == nil
 }
 
 func concesionB103CompatibleConConfirmacion(c dominiovec.ConcesionRol) bool {
