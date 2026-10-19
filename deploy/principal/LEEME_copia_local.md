@@ -230,7 +230,7 @@ El perfil original de RRHH conserva su certificado y sus permisos.
 deploy/principal/copia_local.sh crear --equipo l --instancia segundo-rrhh \
   --puerto-pg 55481 --puerto-app 18481 --puerto-smtp 11081 --modulos \
   --rrhh-original "$VEC_COPIA_MATERIAL_RRHH" --segundo-rrhh \
-  --lista-sql deploy/principal/candidata_hz39/lista_sql.txt
+  --lista-sql deploy/principal/lista_sql_main_tras_hz37.txt
 ```
 
 Usa los productores privados de roles y datos del apartado 2 y elige puertos
@@ -248,26 +248,23 @@ no acredita publicación por Administración. El servidor comprueba la hoja, el
 sujeto, el perfil, la asignación vigente y la ruta de no incorporación. Si falta
 material o permiso para esa persona, conserva el acceso de la técnica original
 y deniega la operación de la segunda. No se instala ninguna migración nueva
-por esta opción. La comprobación del POST, su recibo y el reinicio corresponde
-al ensayo conjunto de la candidata.
+por esta opción. Se combina con `--portal-externo` si hace falta.
 
-Para ensayar la no incorporación, elige en la copia un expediente ficticio con
-aceptación registrada, sin incorporación ni cese, y con la regla vigente de dos
-personas. Consulta su versión y los motivos admitidos en la ficha de RRHH. Si
-no existe ese estado, prepara los datos por el recorrido del producto antes de
-seguir; no insertes filas a mano. Carmen propone desde la ficha con un motivo
-del catálogo, la referencia y huella de una resolución de la copia y la fecha
-de notificación. Guarda el recibo y la referencia de la propuesta. Después,
-Antonio Ruiz Lozano confirma esa propuesta por POST a
-`/api/vec/contratacion-temporal/no-incorporaciones`, usando su certificado
-`mtls/tecnico-rrhh-adicional.crt` y su clave privada. El cuerpo usa la versión
-actual del expediente, la referencia y los datos exactos de la propuesta,
-`paso: confirmar`, una clave de idempotencia nueva y `resuelta_por` vacío. La
-segunda hoja solo tiene acceso a ese POST; Carmen consulta la ficha para
-comprobar los dos recibos, la persona que resolvió y la nueva versión. Relee
-la ficha tras `reiniciar` con los mismos argumentos de instancia; recibos,
-versión e historia deben coincidir. Un POST de cese con la segunda hoja debe
-denegarse. Conserva los cuerpos y respuestas de esta copia fuera de Git.
+Lo que falta para recorrer la no incorporación en la web con dos personas:
+la segunda hoja solo alcanza el POST de
+`/api/vec/contratacion-temporal/no-incorporaciones`. Para confirmar desde la
+pantalla, Antonio Ruiz Lozano necesita antes abrir el seguimiento y la ficha
+del expediente con la propuesta y su versión, y esa lectura acotada a su
+persona llega con la tarea F1-47. Hasta entonces el recorrido web completo del
+segundo técnico queda pendiente. No se envía el POST a mano para suplir la
+pantalla en ningún recorrido ni en ninguna demostración.
+
+En el ensayo técnico de esta opción basta comprobar tres cosas: que `crear`
+termina con la semilla registrada y su huella en `estado.json`, que el
+servidor arranca con la segunda hoja (sin el aviso «segundo técnico de RRHH
+sin …» en el registro) y que todo sigue igual tras `reiniciar`. Un GET de
+seguimiento o un POST de cese con la segunda hoja deben denegarse. Conserva
+los cuerpos y respuestas de esta copia fuera de Git.
 
 Conserva los mismos argumentos de equipo e instancia para estas órdenes:
 
