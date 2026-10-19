@@ -968,8 +968,9 @@ Con el catálogo v4 publicado (`plantillas_documentos.v4.json`, paso 2 de
 `scripts/operacion/firma_ct_tres_pasos/LEEME.md`), el informe definitivo es el
 informe previo a la fiscalización: se prepara y descarga en la versión 5, en
 cuanto el informe jurídico es la última actuación, y es el que se firma en el
-paso 7b. Cuando el expediente pasa a fiscalización deja de ofrecerse. Con el
-catálogo v3 sigue saliendo en la versión 7.
+paso 7b. Cuando el expediente pasa a fiscalización la ficha lo sigue listando
+como «Todavía no disponible» y ya no se descarga. Con el catálogo v3 sigue
+saliendo en la versión 7.
 
 #### 4.3.5 Fiscalización con reparo
 
