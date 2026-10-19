@@ -109,10 +109,13 @@ BEGIN
  PERFORM pg_advisory_xact_lock_shared(hashtextextended(
    'vec_identidad_sesiones_v1:migracion:cotejo_auditoria_intentos:v1',0));
  -- Despacho: cualquiera de las tres referencias en cualquiera de los almacenes.
+ -- En sesion_autenticacion_v1 solo sesión y autenticación, que tienen índice:
+ -- la aserción interna se busca en consumo_asercion (índice único). Así no se
+ -- recorre ni se bloquea en SERIALIZABLE la tabla entera de sesiones internas.
  SELECT EXISTS(SELECT 1 FROM vec_identidad_externa_v1.sesion x
                WHERE x.sesion_ref=v_ses OR x.autenticacion_ref=v_aut OR x.asercion_ref=v_ase),
         EXISTS(SELECT 1 FROM vec_autorizacion.sesion_autenticacion_v1 x
-               WHERE x.sesion_ref=v_ses OR x.autenticacion_ref=v_aut OR x.asercion_ref=v_ase)
+               WHERE x.sesion_ref=v_ses OR x.autenticacion_ref=v_aut)
         OR EXISTS(SELECT 1 FROM vec_identidad_sesiones_v1.consumo_asercion x
                WHERE x.sesion_ref=v_ses OR x.autenticacion_ref=v_aut OR x.asercion_ref=v_ase)
    INTO externo, interno;
@@ -128,7 +131,7 @@ BEGIN
    -- almacén externo segregado; entonces IS20 sin cambios.
    IF EXISTS(SELECT 1 FROM vec_identidad_externa_v1.cuenta k WHERE k.cuenta_ref=v_cta)
       OR EXISTS(SELECT 1 FROM vec_autorizacion.sesion_autenticacion_v1 x
-                WHERE (x.sesion_ref=v_ses OR x.autenticacion_ref=v_aut OR x.asercion_ref=v_ase)
+                WHERE (x.sesion_ref=v_ses OR x.autenticacion_ref=v_aut)
                   AND (x.superficie IS DISTINCT FROM 'externa_personal'
                     OR x.cuenta_privilegiada IS DISTINCT FROM false
                     OR EXISTS(SELECT 1 FROM vec_identidad_externa_v1.cuenta k
@@ -242,6 +245,9 @@ BEGIN
         AND has_function_privilege('vec_bolsa_llamamientos_propietario',f,'EXECUTE'))
     OR encode(sha256(convert_to(pg_get_functiondef(i),'UTF8')),'hex')
        IS DISTINCT FROM 'bff185afc93d70e7f5d1d4a8604f8d5d434aa017b624cbf5d122ce069bea6b24'
+    -- Posimagen exacta de la función nueva.
+    OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')
+       IS DISTINCT FROM 'ca870f4ee3ba01c22a5ab916d94954ebfac19a48f24dc702db5862898508d142'
  THEN RAISE EXCEPTION 'IS22: posimagen o ACL distinta' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;

@@ -300,7 +300,7 @@ BEGIN
    vec_autorizacion_atestada_v3.registrar_lectura_inscripcion_v1(m.contexto,m.vinculo,m.orden)
   WHERE m.caso='externo_canal_interno';
   RAISE EXCEPTION 'AD298: canal interno aceptó material externo';
- EXCEPTION WHEN insufficient_privilege OR no_data_found THEN NULL;
+ EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
 END $interno$;
 RESET SESSION AUTHORIZATION;
@@ -409,8 +409,10 @@ SET LOCAL SESSION AUTHORIZATION vec_bolsa_inscripciones_lector;
 DO $denegaciones$
 DECLARE r record; estado text;
 BEGIN
- FOR r IN SELECT unnest(ARRAY['inexistente','alterado','ajena','huella_ajena','caducada','ambos_sesion',
-   'ambos_aut','cuenta_externa_en_interno']) caso LOOP
+ -- Código exacto por caso: un P0002 sería el síntoma del defecto (503).
+ FOR r IN SELECT * FROM (VALUES('inexistente','42501'),('alterado','22023'),('ajena','22023'),
+   ('huella_ajena','42501'),('caducada','42501'),('ambos_sesion','42501'),('ambos_aut','42501'),
+   ('inactiva','42501'),('cuenta_externa_en_interno','42501')) x(caso,esperado) LOOP
   estado:=NULL;
   BEGIN
    PERFORM * FROM pg_temp.ad298_material m CROSS JOIN LATERAL
@@ -418,8 +420,8 @@ BEGIN
    WHERE m.caso=r.caso;
   EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS estado=RETURNED_SQLSTATE;
   END;
-  IF estado IS NULL OR estado NOT IN ('42501','22023') THEN
-   RAISE EXCEPTION 'AD298: lectura % obtuvo %',r.caso,coalesce(estado,'éxito');
+  IF estado IS DISTINCT FROM r.esperado THEN
+   RAISE EXCEPTION 'AD298: lectura % obtuvo % y se esperaba %',r.caso,coalesce(estado,'éxito'),r.esperado;
   END IF;
  END LOOP;
 END $denegaciones$;

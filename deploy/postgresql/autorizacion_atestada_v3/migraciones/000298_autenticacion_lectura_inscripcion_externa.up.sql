@@ -32,8 +32,10 @@ BEGIN
  OR (SELECT p.proacl FROM pg_proc p WHERE p.oid=(SELECT oid FROM pg_temp.ad298_meta)) IS DISTINCT FROM
     ARRAY['vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario',
      'vec_bolsa_llamamientos_propietario=X/vec_autorizacion_atestada_v3_propietario']::aclitem[]
- -- IS22 instalada y solo ejecutable por su propietario y el de AD3.
+ -- IS22 instalada con su posimagen exacta y solo ejecutable por su propietario y el de AD3.
  OR c IS NULL
+ OR encode(sha256(convert_to(pg_get_functiondef(c),'UTF8')),'hex')
+    IS DISTINCT FROM 'ca870f4ee3ba01c22a5ab916d94954ebfac19a48f24dc702db5862898508d142'
  OR NOT has_function_privilege('vec_autorizacion_atestada_v3_propietario',c,'EXECUTE')
  OR has_function_privilege('vec_bolsa_llamamientos_propietario',c,'EXECUTE')
  OR (SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid=c)<>2
