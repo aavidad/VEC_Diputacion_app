@@ -36,7 +36,7 @@ func camposLecturaInscripcionBolsa(accion string, rrhh bool) []string {
 		}
 		return resultado
 	}
-	bolsa := []string{"convocatoria_ref", "titulo", "numero_categorias", "categorias[].categoria_ref",
+	bolsa := []string{"convocatoria_ref", "titulo", "modalidad_inscripcion", "numero_categorias", "categorias[].categoria_ref",
 		"categorias[].categoria", "plazo_inicio", "plazo_fin", "catalogo_version", "requisitos_resumen",
 		"puede_iniciar", "impedimento_etiqueta", "estado_solicitud_propia", "solicitud_ref"}
 	bolsa = append(bolsa, prefijar("requisitos[].", requisitos)...)

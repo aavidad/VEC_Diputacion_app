@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
+import { montarFichaGINPIX } from "./ficha-ginpix.js?v=VEC_WEB_VERSION";
 import { consultaB2GINPIX } from "./ficha-ginpix-fixture.mjs";
 
 const consulta = consultaB2GINPIX();

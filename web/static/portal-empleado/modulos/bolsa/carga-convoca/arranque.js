@@ -1,7 +1,7 @@
 import { cargarTextos, reintentarTextos } from "../../../../comun/textos.js";
-import { crearClienteCategorias } from "../../../categorias-rpt/cliente.js?v=20261016-ct-ofertas-ct231-v1";
-import { crearClienteCargaConvoca } from "./cliente.js?v=20261010-b1-carga-v1";
-import { montarVistaCargaConvoca } from "./vista.js?v=20261016-r1-o-integracion-v7";
+import { crearClienteCategorias } from "../../../categorias-rpt/cliente.js?v=VEC_WEB_VERSION";
+import { crearClienteCargaConvoca } from "./cliente.js?v=VEC_WEB_VERSION";
+import { montarVistaCargaConvoca } from "./vista.js?v=VEC_WEB_VERSION";
 
 async function iniciar(reintento = false) {
   const error = document.getElementById("arranque-error");

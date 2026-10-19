@@ -187,6 +187,22 @@ Reglas:
 - Las altas de LOGIN, su retirada y los cambios de membresía los hace el DBA
   (Dirección) por el circuito central; nunca una petición HTTP.
 
+El primer corte de F1-09 prepara `comprobacion_ofrecimiento_v1` en Bolsa: historia
+de solo adición, hechos y referencias documentales, política aplicada y recibo.
+CT233 coteja el contexto del expediente como operación privada entre propietarios;
+AD290 exige la acción propia. Su habilitación central y su conexión a la pantalla
+siguen pendientes. Guion: `deploy/principal/comprobacion_ofrecimiento_f1_09_20261016.md`.
+
+El primer corte de F1-10 añade en Bolsa `version_comprobacion_reserva_v1`,
+un control de concurrencia por organización, expediente, necesidad y
+participación. El registro de hechos y las reservas comparten esa fila para
+rechazar una rectificación concurrente, también con una instantánea anterior.
+La historia de comprobaciones sigue siendo de solo adición. CT accede mediante
+la función privada `cotejar_comprobacion_reserva_ct_v1`, sin lectura directa de
+la tabla. La reserva singular B110 detiene además la selección si hay una persona
+pendiente en o antes del orden elegido; la oferta de varias plazas (CT240) solo
+recoteja. Guion: `deploy/principal/contexto_reserva_f1_10_20261019.md`.
+
 ## 5. Contrato de transacción
 
 Toda llamada a una función de escritura, y la mayoría de lecturas auditadas, va así:
@@ -275,6 +291,13 @@ recuperado solo sirve para devolver un recibo ya existente. Las lecturas de
 datos personales (ficha, contactos, detalle de expediente, consulta propia de
 méritos) también consumen V3 y quedan registradas.
 
+AD292, preparada y pendiente de instalación, añade la fachada nominal para
+derivar un nombramiento desde una plaza adjudicada. Solo el propietario CT
+puede llamarla. La fachada conserva el booleano de consumo del núcleo y coteja
+decisión, efecto y huella. CT234 comprueba primero el recibo original de la
+misma intención; exige consumo nuevo si debe crear el hijo. AD292 depende del
+perfil y audiencia que AD291 añade al núcleo y reutiliza el pool CT existente.
+
 F1-36A prepara AD286 (`comprobar_consumo_recuperacion_firmas_ct_v2`) para
 revalidar el consumo V3 con la unidad histórica, CT228 para recuperar el acto
 original exacto y su corte, y AUT103 para publicar por el gobierno de cargos
@@ -297,6 +320,15 @@ consumo, la auditoría y los recibos existentes. La herramienta rechaza en
 producción plazos superiores a 24 horas, también al aplicar material
 preparado antes en desarrollo. El plan de aplicación mantiene su caducidad
 breve.
+
+AD291, preparada y pendiente de instalación conjunta, añade al consumidor
+central solo dos perfiles técnicos: la comprobación del ofrecimiento de Bolsa
+(B133/AD290) y la derivación de nombramiento de Contratación temporal
+(AD292/CT234). Cada uno liga acción, audiencia, recurso, ámbitos y huella
+del efecto; el permiso de RRHH se publica por su gobierno habitual. Además,
+la rama documental RRHH exige certificado y garantía alta, conservando el
+consumo externo del justificante. F1-13 usa AD296 aparte; los consumidores de
+Cronos, Dietas y denominaciones administrativas esperan contratos posteriores.
 
 ### 7.2 Auditoría encadenada y sellada
 
@@ -373,6 +405,17 @@ campos expresamente. El enlace contractual de B13 admite también
 Una fecha o causa ausente mantiene la comprobación pendiente cuando afecta al
 ofrecimiento; no acredita disponibilidad ni una excepción.
 
+F1-11 añade `modalidad_clave` y `causa_clave` al objeto `datos` de la oferta.
+CT las toma de su análisis; `origen_ct` conserva la referencia y la versión del
+expediente. CT235 coteja ambas claves al reservar y B136 vuelve a cotejarlas al
+publicar mediante la lectura CT221 existente. El canon nuevo liga las dos claves
+al hash anterior; las ofertas históricas conservan sus datos y su canon. No se
+añaden tablas, permisos ni lecturas de tablas ajenas. Las proyecciones existentes
+de RRHH y Mi Bolsa conservan el objeto `datos` completo. Las dos migraciones
+y sus tres pruebas focales se ensayaron al final de la lista común completa.
+Sigue pendiente el recorrido de publicación desde la ficha, que necesita los
+tres perfiles de ofertas de CT (F1-16) y el lote con unidad y ámbito (F0-04).
+
 El seguimiento `GET /api/vec/bolsa/bolsas/{bolsa}/candidatos` puede pedir
 `llamamiento` y `exclusiones_desde`. El bloque `exclusiones_origen` usa una acción
 nominal propia, acotada a bolsa y llamamiento y auditada en la misma transacción.
@@ -382,6 +425,25 @@ pendiente anterior a la siguiente persona elegible detiene la selección de CT
 antes de reservar y produce un diagnóstico 409 con bolsa, posición y versión.
 Esta entrega conserva la detención: el acto que acredite los hechos y habilite
 la excepción, junto con el control del plazo en CT, pertenece al corte siguiente.
+
+F1-09 prepara `POST /api/vec/bolsa/bolsas/{bolsa}/candidatos/{participacion}/comprobaciones-ofrecimiento`:
+cuerpo `contexto`, `hechos` y `version_esperada`, con `Idempotency-Key`.
+La identidad procede de la sesión certificada; el ámbito se coteja con el
+resolutor existente. La huella del material se calcula sobre `jsonb::text`
+antes de autorizar y queda como atributo del contexto V3, conforme a B115.
+La escritura B133 consume esa autorización y valida CT233 en la misma
+transacción; depende del primer corte SQL y del alta central AD291/F0-18.
+Sin material de la audiencia nueva responde 503, sin impedir el arranque.
+B134 conserva la acción nominal del intento de comprobación en la bitácora
+existente. Un COMMIT sin respuesta se reconcilia con la misma intención;
+si no se puede confirmar, el resultado se comunica como indeterminado.
+La proyección mínima en las listas existentes y la pantalla F1-57 siguen
+pendientes. Guion: `deploy/principal/comprobacion_ofrecimiento_api_f1_09_20261018.md`.
+B141 (F1-57) admite como `documento_ref` la referencia legible del documento
+que RRHH custodia, con la guarda de B77, o el evento de contrato de Bolsa; la
+huella la calcula el navegador sin enviar el archivo. Añade
+`listar_contratos_participacion_v2`, igual que la v1 con `huella_sha256`, para
+que la ficha cite el contrato. Guion: `deploy/principal/documento_custodia_comprobacion_f1_57_20261019.md`.
 
 Ojo: las tablas de propuesta de las migraciones Bolsa `000001` y `000002`
 (`necesidad_autoritativa`, `propuesta`…) **no están instaladas en la principal**; comprobar su existencia
@@ -393,6 +455,27 @@ La candidata B129 añade cabecera de aviso de oferta, instantánea de destinatar
 
 Puertos Go: `internal/modules/bolsa/ports/` (unos 86 ficheros);
 adaptadores en `internal/modules/bolsa/adapters/postgres*`.
+
+La modalidad de inscripción vive como `modalidad_inscripcion,omitempty` dentro
+de `ContenidoPublicableConvocatoria`; queda cubierta por `huella_version_sha256`
+y por la huella del material de preparación. No hay columna de almacenamiento
+independiente. Con campo explícito usa contenido v5/estado v4; las versiones
+anteriores conservan contenido v4/estado v3 y sus bytes. Ausente significa
+separada; un valor desconocido se rechaza.
+
+En este corte la modalidad de ensayo entra por la carga de la versión
+certificada desde su fuente JSON, como dato de la copia. La elección y el
+guardado desde Preparación de bases no están activados sobre el núcleo vigente;
+su adaptación queda después de AD288. La carga no constituye un acto de
+aprobación o publicación de bases.
+
+BC12 reconstruye el comprobador usado por B96, el proyector y la lista existentes,
+desde sus definiciones instaladas. Lista y detalle incorporan la misma propiedad
+JSON. La modalidad conjunta devuelve B9608, traducido a 409 antes de insertar.
+Una modalidad que no sea `separada` ni `conjunta` es material incoherente: el
+comprobador responde 55000 y el proyector deja fuera solo esa versión, de modo
+que la lista y el resto de convocatorias siguen disponibles. Se conservan OID, propietario, ACL, volatilidad, paralelismo y configuración de
+cada función. SQL y activación en `deploy/principal/f1_40_modalidad_inscripcion.md`.
 
 Las preferencias entre bolsas guardan versiones y recibos en
 `preferencia_bolsas_version` y publican su evento en
@@ -409,6 +492,17 @@ El orden y las precondiciones de instalación están en
 `deploy/principal/candidata_hz39/aspirante/preferencias_internas.md`.
 
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
+
+F1-73 prepara el contrato de alta directa `vec.ct.alta_necesidad.v2`: el
+servidor obtiene el número de personas de la necesidad sellada. CT239 admite
+esa cantidad sin exigir un puesto o una jornada superiores, siempre que la
+necesidad sea válida y las cantidades coincidan. Ajusta validación,
+reconstrucción, cardinalidad del alta y análisis; conserva los bytes de las
+altas anteriores, sus permisos y tablas. Dos revisiones SQL, el ensayo en
+copia y el alta HTTP con recuperación tras reiniciar son favorables. La
+cantidad persiste hasta el informe jurídico; la reserva de plazas sigue
+pendiente del plan nominal de firma de la copia. Activación:
+`deploy/principal/alta_plural_f1_73.md`.
 
 Un **centro** presenta una **petición** que otra persona ratifica
 (`peticion_centro_revision`; no hay tabla `peticion_centro` propia, la
@@ -450,6 +544,20 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 `plan_incorporacion_personal_b2_v1`. CT **no escribe** agregados de Bolsa ni de
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
+
+F1-19 prepara un expediente hijo por cada plaza aceptada de una oferta del
+padre fiscalizado. Bolsa verifica la aceptación y CT conserva la relación con
+padre, plaza y recibo en una operación atómica. La ruta
+`POST /api/vec/contratacion-temporal/nombramientos/derivaciones` admite los ocho
+campos de la guía de activación; la composición actual responde 503 hasta
+conectar el productor de autorización. Faltan la instalación conjunta y el
+ensayo positivo. CT241 cierra después al hijo: no entra en otra selección de
+Bolsa (O6, oferta, vínculo CT201 y los cotejos CT221 y CT233 por los que
+pasan los llamamientos y ofertas de Bolsa con origen CT) y nada suyo se autoriza con la unidad, la
+fiscalización o el circuito copiados del padre. Un disparador común rechaza
+sus versiones nuevas, su publicación RRHH y sus firmas CT118, así que CT234
+no completa una derivación hasta que el hijo tenga ámbito propio. Véase
+[`f1_19_nombramientos_derivados.md`](../../deploy/principal/f1_19_nombramientos_derivados.md).
 
 La conexión de ofertas de varias plazas está **preparada en código y SQL, sin
 ensayo integrado ni instalación acreditados**. CT220 amplía la ejecución de
@@ -495,6 +603,16 @@ versión y recibo reales. Los campos exclusivos de comunicación quedan ausentes
 La selección se obtiene de Contratación, sin consultar tablas de Bolsa. No añade
 consumidor de autorización ni permisos por defecto. Activación y límites en
 [`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
+
+F1-69 prepara CT238: un índice único parcial en O6 impide más de una
+selección `confirmada` por organización y expediente. Antes de crearlo,
+bloquea las escrituras y rechaza duplicados o referencias ausentes, sin
+modificar historia. El índice sirve a la consulta CT231 y a la selección de
+una persona o de varias plazas: CT220 guarda una sola O6 para toda la oferta;
+las continuaciones usan la original y CT234 no crea O6 por cada persona en
+este corte. No añade estados, permisos ni funciones. Ensayo e instalación
+pendientes; guía en
+[`seleccion_confirmada_unica_f1_69_20261018.md`](../../deploy/principal/seleccion_confirmada_unica_f1_69_20261018.md).
 
 Puertos Go: `internal/modules/contrataciontemporal/ports/`; adaptadores en
 `adapters/postgres/`. Detalle técnico por migración:
@@ -577,6 +695,17 @@ asignación, versión de rol y huella del catálogo de políticas evaluadas, y s
 validez (`valida_hasta`). RBAC es necesario; las políticas ABAC solo restringen.
 Los perfiles no se suman y no hay comodines. Reglas completas:
 `docs/producto/FLUJO_APP.md`, apartado 6.
+
+AD295 (F0-29) amplía el lector existente de la cadena de gobierno ADMIN:
+`cadena_gobierno_admin_lectura_v1(text,text DEFAULT NULL)`. La segunda referencia
+identifica el asiento del acuse y devuelve su tramo contiguo sellado, aunque
+haya registros posteriores de otros tipos o de otro gobierno. Sin referencia
+conserva el sufijo anterior. Retira la firma de un argumento; conserva el grupo
+lector, propietario y permisos. La consola valida el acuse privado contra su
+plan y material y coteja el acto dentro del tramo antes de declararlo verificado.
+No publica claves, modifica asientos ni repite un acto de administración.
+Con la referencia, el grupo lector puede leer cualquier tramo histórico de
+gobierno, no solo el último; es el mismo dato y el mismo rol técnico.
 
 ### 8.6 ContextoActor (`vec_contexto_actor_v1`)
 
@@ -678,6 +807,15 @@ preferencias. Las dos concesiones propias del justificante, las admisiones y
 el motivo preparados como datos ficticios de copia no acreditan actos
 gobernados. La concesión interna de RRHH usa el acto genérico vigente.
 
+F1-12 prepara AD294, después del bloque AD279/AUT96/B116/AD275 y de
+AD288 y B128. Reconstruye solo el registro del intento nominal externo de consultar
+preferencias de Mi Bolsa: `transaccion_origen` queda NULL, como exige su CHECK.
+La lectura autorizada mantiene `pg_current_xact_id()` y el GET existente.
+No cambia el núcleo, las audiencias, los permisos ni la configuración. AD246
+y AD275 conservan su historia y no se reaplican. Ensayada con la lista
+completa y las pruebas de fase 1; guía en
+[`intento_preferencias_sin_transaccion_f1_12_20261018.md`](../../deploy/principal/intento_preferencias_sin_transaccion_f1_12_20261018.md).
+
 ### 9.2 Reserva del número
 
 Antes de crear el fichero, reserva el número en `RESERVAS_MIGRACIONES.md`, en la
@@ -768,6 +906,15 @@ propietario, sus privilegios, su RLS, sus índices, sus restricciones y su prueb
 5. La aplicación **no migra al arrancar**. Algunos módulos publican al arrancar
    versiones de políticas desde el catálogo (filas de datos, no esquema).
 
+AD296 (F1-13) reconstruye solo las dos fachadas de auditoría de preferencias
+para admitir las proyecciones exactas de ocho campos de Bolsas o cinco de
+modalidades. Conserva la autoridad vigente, el contexto, los permisos y la
+transacción del positivo. Los intentos de AD294/AD275 mantienen su cuerpo y
+su transacción vacía. Las cuatro funciones reciben un marcador de compatibilidad;
+no concede permiso. La consulta de modalidades necesita además AUT104, B138 y
+la API de preferencias. No se reconstruye el consumidor central. Orden: AD295, AD296
+y AD291. Activación en `deploy/principal/proyecciones_preferencias_f1_13_20261018.md`.
+
 ### 9.7 Rendimiento
 
 Lecturas por debajo de 300 ms p95 con volumen real y sin N+1: listas con una
@@ -846,13 +993,16 @@ Esa cobertura indica qué documentos consultar; no concede permiso de firma.
 La ficha conserva los errores de consulta de cada documento y muestra los
 cuatro documentos sin plan como pendientes, sin acciones de firma.
 
-La fuente interna de B devuelve como máximo 128 pares de `firma_ref` y selector
-(`expediente_ref`, `version_expediente`, `documento`, `paso_orden`,
-`clave_idempotencia`, `catalogo_huella`, `via`) con el recibo adicional
-(`acceso_ref`, `sello_detalle_sha256`, `sello_selectores_sha256`). En B no hay
-serializador HTTP ni panel para exponerlos. Una ficha antigua sigue con su
-contrato anterior; una lectura ampliada requiere ambos sellos, aun con lista
-vacía, y `[]` nunca autoriza un comodín.
+F1-36C prepara la serialización de B en la respuesta del detalle RRHH:
+`data.selectores_recuperacion_firmas` (máximo 128) y
+`data.recibo_selectores_recuperacion_firmas` (`acceso_ref`,
+`sello_detalle_sha256`, `sello_selectores_sha256`). Ambos campos deben aparecer
+juntos, también cuando la lista es `[]`; el detalle anterior omite ambos.
+Cada entrada liga `firma_ref` al selector exacto de expediente, versión,
+documento, paso, clave, huella de catálogo y vía. El navegador no construye
+selectores ni suma permisos. La pulsación usa la recuperación V2 existente y
+obtiene un acceso nuevo, mientras presenta el recibo del registro original.
+Este contrato está en rama y aún no acredita consulta en navegador.
 
 La lista de activación de #1137 ordena CT218, IS20, AUT97, CT219 y CT224. AUT97
 reconstruye el validador nominal desde su preimagen y cambia únicamente el

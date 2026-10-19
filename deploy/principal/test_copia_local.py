@@ -1,9 +1,12 @@
 """Rechazos previos a restaurar o borrar una instancia."""
 import importlib.util
+import fcntl
 import json
 import os
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -28,6 +31,16 @@ class CopiaLocalTest(unittest.TestCase):
                 if 'diff' in args else b'BEGIN; COMMIT;').start()
         self.addCleanup(patch.stopall)
 
+    def test_puerto_en_espera_queda_libre_y_uno_escuchando_no(self):
+        import socket
+        servidor = socket.socket(); servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        servidor.bind(('127.0.0.1', 0)); servidor.listen(); puerto = servidor.getsockname()[1]
+        cliente = socket.create_connection(('127.0.0.1', puerto)); aceptado, _ = servidor.accept()
+        with self.assertRaises(OSError):
+            copia.puerto_libre(puerto)
+        aceptado.close(); servidor.close(); cliente.recv(1); cliente.close()
+        copia.puerto_libre(puerto)
+
     def test_rechaza_down_y_fuga_fuera_del_repositorio(self):
         for ruta in ['000001.down.sql', '../../../exterior.up.sql']:
             with self.subTest(ruta=ruta):
@@ -37,6 +50,22 @@ class CopiaLocalTest(unittest.TestCase):
                 self.lista.write_text(str(fuente))
                 with patch.object(copia, 'REPO', self.repo), self.assertRaises(ValueError):
                     copia.migraciones([self.lista])
+
+    def test_preparador_hijo_conserva_la_exclusion_de_la_instancia(self):
+        ruta = self.raiz / 'instancia.lock'
+        programa = """import fcntl,sys
+fcntl.flock(int(sys.argv[1]),fcntl.LOCK_EX|fcntl.LOCK_NB)
+with open(sys.argv[2],'a') as otro:
+ try: fcntl.flock(otro,fcntl.LOCK_EX|fcntl.LOCK_NB)
+ except BlockingIOError: sys.exit(0)
+ sys.exit(3)
+"""
+        with ruta.open('a') as candado:
+            fcntl.flock(candado, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            resultado = copia.ejecutar([sys.executable, '-c', programa,
+                        str(candado.fileno()), str(ruta)], salida=subprocess.PIPE,
+                        descriptores=(candado.fileno(),))
+        self.assertEqual(resultado.returncode, 0)
 
 
     def test_no_omite_duplicado_ni_huella_alterada(self):

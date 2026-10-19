@@ -34,10 +34,10 @@ def sha256(ruta):
         return hashlib.file_digest(fuente, 'sha256').hexdigest()
 
 
-def ejecutar(args, *, entrada=None, salida=None, entorno=None, cwd=None):
+def ejecutar(args, *, entrada=None, salida=None, entorno=None, cwd=None, descriptores=()):
     return subprocess.run([str(a) for a in args], input=entrada, stdout=salida,
                           stderr=subprocess.STDOUT if salida else subprocess.PIPE,
-                          env=entorno, cwd=cwd, check=True, timeout=600)
+                          env=entorno, cwd=cwd, pass_fds=descriptores, check=True, timeout=600)
 
 
 def guardar(ruta, valor):
@@ -60,7 +60,9 @@ def memoria():
 
 
 def puerto_libre(puerto):
+    # Un puerto en TIME-WAIT tras parar la aplicación está libre; solo falla si alguien escucha.
     with socket.socket() as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(('127.0.0.1', puerto))
 
 
@@ -149,7 +151,8 @@ class Copia:
             puerto_libre(args.puerto_smtp)
         datos = validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT') if args.modulos else None
         roles = validar_ejecutor_privado('VEC_COPIA_ROLES_SCRIPT') if args.modulos else None
-        portal = validar_ejecutor_privado('VEC_COPIA_PORTAL_SCRIPT') if args.portal_externo else None
+        portal = REPO / 'deploy/principal/portal_copia' / (
+            'preparar_clasificacion_externa.py' if args.sin_inscripcion else 'preparar_portal.py')
         origen = Path(os.environ['VEC_COPIA_ORIGEN']).resolve(strict=True)
         dump = origen / 'principal-hz37-20261014.dump'
         acl = [origen / 'acl-base-20261014.sql', origen / 'acl-tipos-20261014.sql']
@@ -173,9 +176,15 @@ class Copia:
             subprocess.run(['docker', 'exec', '-i', '-u', 'postgres', self.nombre,
                             'pg_restore', '--schema-only', '--file=-'], stdin=fuente, stdout=destino,
                            stderr=subprocess.PIPE, check=True, timeout=120)
+        fuentes_roles = sorted((REPO / 'deploy/postgresql').glob('*/roles*_up.sql'))
+        preparar_roles = [sys.executable, REPO / 'deploy/principal/copia_local_roles.py',
+                          self.raiz / 'esquema.sql', *acl, '--roles-b119']
+        for fuente in fuentes_roles:
+            preparar_roles.extend(('--fuente-roles', fuente))
+        for ruta, _, _ in listas:
+            preparar_roles.extend(('--migracion', ruta))
         with (self.raiz / 'roles.sql').open('wb') as destino:
-            ejecutar([sys.executable, REPO / 'deploy/principal/copia_local_roles.py',
-                      self.raiz / 'esquema.sql', *acl, '--roles-b119'], salida=destino)
+            ejecutar(preparar_roles, salida=destino)
         self.sql(self.raiz / 'roles.sql', 'restauracion.log')
         with dump.open('rb') as fuente, (self.raiz / 'restauracion.log').open('ab') as destino:
             subprocess.run(['docker', 'exec', '-i', '-u', 'postgres', self.nombre,
@@ -213,6 +222,12 @@ class Copia:
                 ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
             from copia_local_verificacion import comprobar as comprobar_conexiones
             comprobar_conexiones(self)
+        if args.segundo_rrhh:
+            from copia_local_rrhh_adicional import preparar_copia
+            huella_semilla = preparar_copia(self)
+            estado = self.leer()
+            estado['rrhh_adicional_semilla_sha256'] = huella_semilla
+            guardar(self.estado, estado)
         memoria()
         verificar_fuente(self.leer()['revision'])
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
@@ -234,8 +249,14 @@ class Copia:
         if args.portal_externo:
             # La app mantiene el sellado real mientras el productor provisiona
             # identidad, contexto y confianza. El reinicio carga su entorno.
+            privado_portal = self.raiz / 'portal'
+            privado_portal.mkdir(mode=0o700)
+            verificar_fuente(self.leer()['revision'])
             with (self.raiz / 'portal-preparacion.log').open('ab') as log:
-                ejecutar([sys.executable, portal, '--raiz', self.raiz], salida=log)
+                ejecutar([sys.executable, portal, '--raiz', self.raiz,
+                          '--candado-fd', str(self.candado)], salida=log,
+                         descriptores=(self.candado,), entorno={**os.environ,
+                         'VEC_COPIA_PORTAL_ESTADO': str(privado_portal)})
             comprobar_conexiones(self)
             estado = self.leer()
             estado['portal_externo_preparado'] = True
@@ -492,10 +513,18 @@ def main():
     p.add_argument('--modulos', action='store_true', help='Preparar conexiones nuevas de Bolsa y Contratación')
     p.add_argument('--rrhh-original', type=Path, help='Conservar el conjunto privado original de RRHH en una copia nueva')
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
+    p.add_argument('--segundo-rrhh', action='store_true', help='Preparar una segunda persona técnica de RRHH')
+    p.add_argument('--sin-inscripcion', action='store_true', help='Preparar el portal sin activar inscripción')
     p.add_argument('--archivo-clon')
     args = p.parse_args()
     if args.portal_externo and not args.modulos:
         p.error('--portal-externo requiere --modulos')
+    if args.segundo_rrhh and (args.orden != 'crear' or not args.modulos):
+        p.error('--segundo-rrhh solo se admite en crear --modulos')
+    if args.portal_externo and args.orden != 'crear':
+        p.error('--portal-externo solo se admite en crear')
+    if args.sin_inscripcion and not args.portal_externo:
+        p.error('--sin-inscripcion requiere --portal-externo')
     if args.rrhh_original and (args.orden != 'crear' or not args.modulos):
         p.error('--rrhh-original solo se admite en crear --modulos')
     if not re.fullmatch('[a-z]', args.equipo) or not re.fullmatch('[a-z0-9][a-z0-9-]{0,40}', args.instancia):
@@ -510,6 +539,7 @@ def main():
     # Candado por instancia fuera de PGDATA; borrar no permite otro escritor concurrente.
     with (BASE / f'.{copia.nombre}.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        copia.candado = lock.fileno()
         if args.orden == 'crear':
             copia.crear(args)
         elif args.orden == 'reiniciar':

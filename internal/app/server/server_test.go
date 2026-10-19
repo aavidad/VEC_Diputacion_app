@@ -264,9 +264,9 @@ func TestServerCachesVersionedStaticAssets(t *testing.T) {
 	}{
 		{path: "/bolsa/", wantCache: "no-store"},
 		{path: "/bolsa/bolsa.js", wantCache: "no-cache"},
-		{path: "/bolsa/bolsa.js?v=20260621-fixes", wantCache: "public, max-age=31536000, immutable"},
-		{path: "/styles.css?v=20260621-fixes", wantCache: "public, max-age=31536000, immutable"},
-		{path: "/area-personal/arranque.js?v=20260718", wantCache: "public, max-age=31536000, immutable"},
+		{path: "/bolsa/bolsa.js?v=" + versionWeb().version, wantCache: "public, max-age=31536000, immutable"},
+		{path: "/styles.css?v=" + versionWeb().version, wantCache: "public, max-age=31536000, immutable"},
+		{path: "/area-personal/arranque.js?v=" + versionWeb().version, wantCache: "public, max-age=31536000, immutable"},
 	} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, tc.path, nil))

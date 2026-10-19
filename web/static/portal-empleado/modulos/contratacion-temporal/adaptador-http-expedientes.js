@@ -2,12 +2,12 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL,
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
-} from "./contrato-expedientes.js?v=20261016-ct-ofertas-ct231-v1";
-import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
-import { validarCatalogosAlta } from "./contrato.js?v=20261013-ct-firma-tres-v3";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
-import { faseRRHH } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
+} from "./contrato-expedientes.js?v=VEC_WEB_VERSION";
+import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=VEC_WEB_VERSION";
+import { validarCatalogosAlta } from "./contrato.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { faseRRHH } from "./i18n-fases-rrhh.js?v=VEC_WEB_VERSION";
 
 const ESTADOS_SERVIDOR_A_VISUAL = new Map([
   ["pendiente", "pendiente"],
@@ -580,6 +580,9 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
     // Sólo selección documental histórica; cada descarga exige autorización vigente.
     ...(versionPropuesta !== null ? { version_propuesta_documental: versionPropuesta } : {}),
     ...(detalle.resultado_bolsa ? { resultado_bolsa: detalle.resultado_bolsa } : {}),
+    ...(Object.hasOwn(detalle, "selectores_recuperacion_firmas")
+      ? { selectores_recuperacion_firmas: detalle.selectores_recuperacion_firmas,
+        recibo_selectores_recuperacion_firmas: detalle.recibo_selectores_recuperacion_firmas } : {}),
   });
 }
 

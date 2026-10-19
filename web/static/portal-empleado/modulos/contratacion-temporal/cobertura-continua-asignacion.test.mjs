@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261009-asignacion-cobertura-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=VEC_WEB_VERSION";
 
 // Caso del recorrido HZ13: la ficha v2 (fase «solicitud») solo pinta el panel
 // de cobertura. Tras el 201 de la decisión, la asignación debe abrirse junto al

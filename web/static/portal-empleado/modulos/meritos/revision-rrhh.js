@@ -1,4 +1,4 @@
-import { consultarJSON, ErrorConsultaJSON } from "../../../comun/http.js?v=20261012-sonda-frontera-v1";
+import { consultarJSON, ErrorConsultaJSON } from "../../../comun/http.js?v=VEC_WEB_VERSION";
 import { cargarTextos, reintentarTextos } from "../../../comun/textos.js";
 
 const RUTA = "/api/vec/meritos/rrhh/revision";

@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarCuadro } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { renderizarCuadro } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
 import { CAPACIDADES_CONTRATACION_TEMPORAL as CAP, validarCuadroContratacionTemporal, validarExpedienteContratacionTemporal } from "./contrato-expedientes.js";
 import { crearExpedienteContratacionTemporalPresentacion } from "./datos-presentacion.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=VEC_WEB_VERSION";
 import {
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
+} from "./vista-expedientes.js?v=VEC_WEB_VERSION";
 
 const CURSOR_B = "A".repeat(43);
 const CURSOR_C = "B".repeat(42) + "E";

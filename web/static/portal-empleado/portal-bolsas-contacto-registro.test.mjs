@@ -1,10 +1,32 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  crearControladorRegistroContacto, registrarContacto, renderizarRegistroContacto, rutaRegistroContacto, validarComandoContacto,
-} from "./portal-bolsas-contacto-registro.js?v=20261001-ct-a-i18n-v1";
+  crearControladorRegistroContacto, leerComandoContacto, registrarContacto, renderizarRegistroContacto, rutaRegistroContacto, validarComandoContacto,
+} from "./portal-bolsas-contacto-registro.js?v=VEC_WEB_VERSION";
 
 const valido = { correo: "persona@ejemplo.es", telefono_1: "600000001", telefono_2: "", motivo: "Corrección tras llamada", origen: "convoca" };
+
+test("el origen propio tiene valor seleccionable y envía el origen vacío del contrato", async () => {
+  for (const formulario of [{}, { origen: "" }]) {
+    const html = renderizarRegistroContacto({ estado: { abierto: true, formulario } });
+    assert.match(html, /<select name="origen" required>/u);
+    assert.match(html, /<option value="propio" selected>/u);
+    assert.doesNotMatch(html, /<option value=""/u);
+  }
+  for (const origen of ["propio", "convoca", "ajeno"]) {
+    const comando = leerComandoContacto(new Map(Object.entries({ ...valido, origen })));
+    const esperado = origen === "propio" ? "" : origen;
+    assert.equal(comando.origen, esperado);
+    const resultado = await registrarContacto("bolsa:1", "part:1", comando, "contacto-propio", {
+      fetchImpl: async (_ruta, opciones) => {
+        assert.notEqual(origen, "ajeno");
+        assert.equal(JSON.parse(opciones.body).origen, esperado);
+        return { status: 201, json: async () => ({ data: { version: 1, recibo_ref: "recibo:propio" } }) };
+      },
+    });
+    assert.equal(resultado.ok, origen !== "ajeno");
+  }
+});
 
 test("valida el comando como el dominio: correo o teléfono, motivo y origen admitido", () => {
   assert.equal(validarComandoContacto(valido), "");

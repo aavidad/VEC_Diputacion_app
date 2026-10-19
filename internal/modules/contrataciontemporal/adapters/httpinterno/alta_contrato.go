@@ -360,9 +360,9 @@ func solicitudAltaDesdePeticion(
 		return entradaAltaDecodificada{}, errNumeroMOADAltaNoValido
 	}
 	if (entrada.Esquema == "" && (camposSobre["esquema"] != nil || camposSobre["necesidad"] != nil)) ||
-		(entrada.Esquema == application.EsquemaAltaNecesidadV1 && entrada.Necesidad == nil) ||
-		(entrada.Esquema == application.EsquemaAltaNecesidadV1 && entrada.NumeroExpedienteMOAD == "") ||
-		(entrada.Esquema != "" && entrada.Esquema != application.EsquemaAltaNecesidadV1) {
+		(esquemaNecesidadAltaHTTP(entrada.Esquema) && entrada.Necesidad == nil) ||
+		(esquemaNecesidadAltaHTTP(entrada.Esquema) && entrada.NumeroExpedienteMOAD == "") ||
+		(entrada.Esquema != "" && !esquemaNecesidadAltaHTTP(entrada.Esquema)) {
 		return entradaAltaDecodificada{}, errContenidoAltaNoValido
 	}
 	solicitud, err := entrada.Solicitud.dominio()
@@ -389,6 +389,10 @@ func solicitudAltaDesdePeticion(
 		}
 	}
 	return salida, nil
+}
+
+func esquemaNecesidadAltaHTTP(esquema string) bool {
+	return esquema == application.EsquemaAltaNecesidadV1 || esquema == application.EsquemaAltaNecesidadV2
 }
 
 func validarJSONAltaSinDuplicados(contenido []byte) error {

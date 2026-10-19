@@ -27,7 +27,7 @@ test("el esquema PWA cerrado rechaza iconos y campos ajenos", async () => {
     datos => { datos.icons.push(datos.icons[0]); },
     datos => { datos.icons = {}; },
     datos => { datos.icons[0].src = "https://otro.example/icono.png"; },
-    datos => { datos.icons[0].src = "/pwa/icons/vec-512.png?v=20261002-pwa-v1"; },
+    datos => { datos.icons[0].src = "/pwa/icons/vec-512.png?v=VEC_WEB_VERSION"; },
     datos => { datos.icons[0].sizes = "512x512"; },
     datos => { datos.icons[0].type = "image/svg+xml"; },
     datos => { datos.icons[0].purpose = "maskable"; },
@@ -57,7 +57,7 @@ test("los manifiestos de cada portal tienen identidad, ámbito e idioma propios"
         ["192x192:any", "512x512:any", "192x192:maskable", "512x512:maskable"],
       );
       for (const icono of manifiesto.icons) {
-        assert.match(icono.src, /^\/pwa\/icons\/vec-[a-z0-9-]+\.png\?v=20261002-pwa-v1$/u);
+        assert.match(icono.src, /^\/pwa\/icons\/vec-[a-z0-9-]+\.png\?v=VEC_WEB_VERSION$/u);
         assert.equal(icono.type, "image/png");
       }
     }

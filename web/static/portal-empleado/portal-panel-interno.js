@@ -7,23 +7,24 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { finVigenciaBolsaPortal, LOCALIZACION_PORTAL, MENSAJES_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20261011-ct-bolsa-vinculo-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
-import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260930-portales-i18n-integracion-v1";
-import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
-import { canalesAviso, enlaceSeguimiento, renderizarAccionJustificanteRenuncia, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=20261016-r1-o-integracion-v7";
-import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-r-fichas-idioma-nav-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-traza-idioma-v1";
-import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
-import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
-import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=20260930-portales-i18n-integracion-v1";
-import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=20260930-portales-i18n-integracion-v1";
-import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { finVigenciaBolsaPortal, LOCALIZACION_PORTAL, MENSAJES_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=VEC_WEB_VERSION";
+import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=VEC_WEB_VERSION";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=VEC_WEB_VERSION";
+import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=VEC_WEB_VERSION";
+import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=VEC_WEB_VERSION";
+import { canalesAviso, enlaceSeguimiento, renderizarAccionJustificanteRenuncia, renderizarSeguimientoLlamamiento } from "./portal-bolsas-seguimiento.js?v=VEC_WEB_VERSION";
+import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=VEC_WEB_VERSION";
+import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=VEC_WEB_VERSION";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=VEC_WEB_VERSION";
+import { renderizarComprobacionOfrecimiento } from "./portal-bolsas-comprobacion.js?v=VEC_WEB_VERSION";
+import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=VEC_WEB_VERSION";
+import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=VEC_WEB_VERSION";
+import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=VEC_WEB_VERSION";
+import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=VEC_WEB_VERSION";
+import { icono } from "../comun/iconos-vec.js?v=VEC_WEB_VERSION";
 import { actorTraducido, justificanteTraducido, referenciaCopiableTraducida } from "./portal-justificante.js";
-import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i18n.js?v=VEC_WEB_VERSION";
 import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 import { cargarTextos } from "../comun/textos.js";
 
@@ -31,11 +32,11 @@ const TEXTOS_VINCULO_CT = (await cargarTextos("portal-bolsa")).seccion("vinculo_
 
 
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
-import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
-import { RUTA_PANTALLA_CARGA_CONVOCA } from "./portal-menu-bolsa.js?v=20261018-f104-main-v1";
-import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
-import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261016-r1-o-integracion-v7";
+import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=VEC_WEB_VERSION";
+import { RUTA_PANTALLA_CARGA_CONVOCA } from "./portal-menu-bolsa.js?v=VEC_WEB_VERSION";
+import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=VEC_WEB_VERSION";
+import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
+import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=VEC_WEB_VERSION";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde", "en_revision"]);
@@ -610,6 +611,10 @@ export function crearPresentadorPanelInterno(dependencias) {
           ${fichaAbierta ? renderizarModalFicha(modalFicha, fichaId) : ""}`;
       }).join("");
     }
+    // La ficha abierta desde una comprobación pendiente puede ser de una persona de otra página: se pinta arriba.
+    const comprobacionFuera = modalFicha?.abierto === true && modalFicha.comprobacionB57 && modalFicha.candidato
+      && !candidatos.some((item) => item.participacion_ref === modalFicha.candidato.participacion_ref);
+    if (comprobacionFuera) cuerpoTabla = renderizarModalFicha(modalFicha, `ficha-participacion-${modalFicha.candidato.participacion_ref}`) + cuerpoTabla;
     const paginacion = hayMas && cursorSiguiente
       ? `<div class="paginacion-bolsa">
            <button type="button" class="boton-secundario" data-bolsa-accion="pagina-siguiente" data-cursor="${escaparHTML(cursorSiguiente)}">${textoPortal("txt_cargar_siguientes_aspirantes")}</button>
@@ -702,7 +707,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>${traducirBolsaInterna("contacto_historico_titulo")}</h3><span class="estado-chip info">${textoPortal("txt_n_registros", { numero: numero(llamadas.length) })}</span></div><div class="tabla-contenedor" tabindex="0" role="region" aria-label="${traducirBolsaInterna("contacto_historico_descripcion")}"><table class="tabla-datos"><caption>${traducirBolsaInterna("contacto_historico_descripcion")}</caption><thead><tr><th scope="col">${textoPortal("txt_fecha")}</th><th scope="col">${textoPortal("txt_candidato")}</th><th scope="col">${textoPortal("txt_tipo")}</th><th scope="col">${textoPortal("txt_resultado")}</th><th scope="col">${textoPortal("txt_actor")}</th><th scope="col">${textoPortal("txt_contacto")}</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}</section>`;
     return `
       ${encabezadoVista("", tituloBolsa, "", accionesEncabezado)}
-      ${reciboFichaFuera}
+      ${reciboFichaFuera}${estadoCandidatos.avisoComprobacion ? `<div class="nota-pendiente" role="status"><p>${escaparHTML(estadoCandidatos.avisoComprobacion.texto)}</p><button type="button" class="boton-secundario" data-vista="contratacion-temporal">${escaparHTML(estadoCandidatos.avisoComprobacion.boton)}</button></div>` : ""}
       <div class="distribucion-llamamiento">
         <div>
           ${pestanas}
@@ -806,6 +811,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               ${renderizarRegistroContacto({ estado: modal.registroContacto || {}, escaparHTML })}
               ${reciboSituacion}
               ${reciboContacto}
+              ${renderizarComprobacionOfrecimiento({ modal, escaparHTML })}
               ${renderizarOperacionesSituacion({ candidato, estado: modal.operacionesB8 || {}, escaparHTML })}
               ${renderizarIntentosContacto({ candidato, estado: modal.intentosContacto || {}, escaparHTML, llamamientoRef: modal.llamamientoSeguimiento || "" })}
               ${renderizarContratosParticipacion({ estado: modal.contratosB13 || {}, escaparHTML, categoria: bolsa.categoria })}
@@ -813,7 +819,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               ${renderizarSanciones({ estado: modal.sancionesB24 || {}, escaparHTML })}
             </div>
             <div class="acciones-vista">
-              <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">${textoPortal("txt_cambiar_situacion")}</button>
+              <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion"${modal.operacionesB8?.directa ? " disabled" : ""}>${textoPortal("txt_cambiar_situacion")}</button>
               <button type="button" class="boton-secundario" data-bolsa-auditoria="${escaparHTML(candidato.participacion_ref)}">${textoPortal("auditoria_participacion_accion")}</button>
               <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha"${cierreBloqueado ? " disabled" : ""}>${textoPortal("txt_cerrar")}</button>
             </div>

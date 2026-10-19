@@ -1,7 +1,7 @@
 import { cargarTextos } from "../../comun/textos.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20261007-pantallas-textos-final-v1";
-import { traducirPortal } from "../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { ERROR_TEXTOS_PETICIONES_CENTRO, prepararTextosPeticionesCentro } from "./i18n-peticiones-centro.js?v=20261007-pc-recuperacion-v1";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=VEC_WEB_VERSION";
+import { traducirPortal } from "../portal-i18n.js?v=VEC_WEB_VERSION";
+import { ERROR_TEXTOS_PETICIONES_CENTRO, prepararTextosPeticionesCentro } from "./i18n-peticiones-centro.js?v=VEC_WEB_VERSION";
 
 const raiz = document.querySelector("#aplicacion");
 const ayuda = document.querySelector("#pc-ayuda-abrir");
@@ -53,7 +53,7 @@ async function arrancar(origen = null) {
       // La marca vuelve al portal en el mismo idioma que esta página.
       document.querySelector(".pc-marca")?.setAttribute("href", `/portal-empleado/?lang=${encodeURIComponent(pc.idioma)}`);
       instalarValidacionI18n(document, traducir);
-      const peticiones = await import("./peticiones-centro.js?v=20261013-ct-firma-tres-v3");
+      const peticiones = await import("./peticiones-centro.js?v=VEC_WEB_VERSION");
       peticiones.instalarAyudaPeticionCentro(document);
       ayuda.disabled = false;
       await peticiones.iniciarPeticionCentro();
@@ -61,8 +61,8 @@ async function arrancar(origen = null) {
       // RRHH no tiene su permiso de lectura y no debe pedirlos al abrir.
       if (new URLSearchParams(location.search).get("vista") !== "rrhh") {
         await Promise.all([
-          import("./incorporaciones-centro.js?v=20261009-retoques-textos-v1"),
-          import("./cancelaciones-centro.js?v=20261016-ct-ofertas-ct231-v1"),
+          import("./incorporaciones-centro.js?v=VEC_WEB_VERSION"),
+          import("./cancelaciones-centro.js?v=VEC_WEB_VERSION"),
         ]);
       }
       montado = true;

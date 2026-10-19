@@ -75,11 +75,15 @@ incluyen el buzón de esa instancia.
 La preparación de los datos ficticios usa los productores del kit privado:
 `VEC_COPIA_ROLES_SCRIPT`, antes de instalar SQL, y `VEC_COPIA_DATOS_SCRIPT`,
 después de crear las credenciales. Para el aspirante se añade
-`VEC_COPIA_PORTAL_SCRIPT` y `--portal-externo`, que requiere `--modulos`.
-Cada variable apunta a un archivo privado propio, fuera de Git y de la
+`--portal-externo`, que requiere `--modulos`, usa el preparador versionado en
+`portal_copia/`. No necesita un guion externo del equipo. Añade
+`--sin-inscripcion` para preparar solo las lecturas y la clasificación; ese
+modo nunca publica el selector de inscripción.
+Las dos variables de roles y datos apuntan a archivos privados propios, fuera de Git y de la
 carpeta de PostgreSQL, sin enlaces ni permisos de grupo o de otros usuarios.
-Los productores reciben únicamente `--raiz <instancia>` y dejan su registro
-en ella. Las rutas y los datos concretos del kit no se versionan.
+Esos dos productores reciben `--raiz <instancia>` y dejan su registro
+en ella. El preparador del portal recibe además el candado que mantiene la
+fábrica. Los datos concretos y el material privado de cada copia no se versionan.
 
 El productor previo debe preparar los dos LOGIN que figuran en
 `configuracion_origen_consumos_v1` para los orígenes de Contratación y Bolsa:
@@ -88,10 +92,23 @@ administración y con vigencia de 90 días. AD278 comprueba esos datos; no se
 debilita su guarda. Las demás conexiones se crean con nombres y contraseñas
 nuevos. El registro privado conserva sus valores y la huella del entorno.
 
-Tras el productor de datos, el guion coteja los 22 LOGIN internos: opciones
-sin privilegios de administración y una sola membresía para cada conexión de
-peticiones. El gobierno de arranque es la excepción: necesita seis arcos
-concretos, definidos en `copia_local_verificacion.py`, y no admite otros.
+La copia prepara también `VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL`
+con un LOGIN distinto, TLS verificado y pertenencia exclusiva al grupo del
+relevo: `INHERIT TRUE, SET TRUE, ADMIN FALSE`, según el apartado de relevo de
+`03_entorno.md`. La conexión no activa el seguimiento ni la incorporación:
+esos selectores y los catálogos se preparan para el recorrido que los use.
+El segundo RRHH que exige la regla c22 necesita su identidad y perfil
+publicados por el circuito de Administración; esta conexión no los concede.
+
+Tras el productor de datos, el guion coteja los 23 LOGIN internos: opciones
+sin privilegios de administración y membresías directas exactas. La conexión
+de importación CONVOCA conserva los grupos `vec_bolsa_importacion_convoca_ejecutor`
+y `vec_bolsa_importacion_convoca_recuperador`, ambos con `INHERIT TRUE`,
+`SET TRUE` y `ADMIN FALSE`, como exige el contrato H1 de
+`scripts/recorridos/clon_bolsa_material.py` para importar y recuperar la operación.
+Las demás conexiones de peticiones tienen un solo grupo. El gobierno de
+arranque necesita seis arcos concretos, definidos en `copia_local_verificacion.py`,
+y no admite otros.
 Los propietarios y el proyector conservan las opciones exactas de `SET` e
 `INHERIT`; no se trasladan a los LOGIN de peticiones. H retirará esta
 excepción al completar F0-08 con el contrato nominal de R.
@@ -132,7 +149,11 @@ examinar sus registros; se borra y se crea otra, sin reaplicar SQL.
 
 El resultado vive en `/dev/shm/vec/pg/<equipo>-<instancia>`, con padre `0700`.
 El volcado y sus anexos aportan nombres de propietarios y beneficiarios para
-crear roles `NOLOGIN`. El guion no abre ni restaura el fichero de roles
+crear roles `NOLOGIN`. El guion recupera también los grupos declarados como
+`NOLOGIN` en los ficheros `roles*_up.sql` del repositorio cuando aparecen citados en el
+esquema o en la lista SQL validada. Deja que cada migración de esa lista cree
+los roles que declara por sí misma. La creación comprueba si el rol ya existe;
+no añade membresías ni permisos. El guion no abre ni restaura el fichero de roles
 globales, sus contraseñas ni sus membresías. La restauración conserva las ACL
 de los objetos; después aplica las ACL de la base y los tipos. No convierte
 esos roles en identidades operativas de la aplicación.
@@ -195,6 +216,61 @@ preparan las conexiones y configuraciones opcionales para esta instancia.
 que permite a los productores conservar la raíz histórica de autorización.
 El perfil de permisos de esta receta requiere la publicación vigente sin carga
 de CONVOCA ni B103; no se restablece una raíz de autorización nueva.
+
+### Segunda persona técnica de RRHH para no incorporación
+
+La opción `--segundo-rrhh` se usa solo al crear una copia nueva con `--modulos`.
+Prepara en el material privado una segunda persona ficticia, Antonio Ruiz
+Lozano, con certificado de cliente propio firmado por la CA de la copia. Su
+certificado dura como máximo 90 días; la asignación sintética dura 89. La
+identidad, la cuenta y el perfil tienen referencias distintas de las de Carmen.
+El perfil original de RRHH conserva su certificado y sus permisos.
+
+```sh
+deploy/principal/copia_local.sh crear --equipo l --instancia segundo-rrhh \
+  --puerto-pg 55481 --puerto-app 18481 --puerto-smtp 11081 --modulos \
+  --rrhh-original "$VEC_COPIA_MATERIAL_RRHH" --segundo-rrhh \
+  --lista-sql deploy/principal/lista_sql_main_tras_hz37.txt
+```
+
+Usa los productores privados de roles y datos del apartado 2 y elige puertos
+libres de tu equipo. El respaldo debe contener la versión publicada
+`rol:seguimiento_cese_ct_desarrollo:v2`, su control de vigencia habilitado y
+las tablas de asignaciones de autorización. La semilla exige la concesión de
+no incorporación de ese rol y que el perfil nuevo no tenga otra asignación.
+Si falta una condición, `crear` se detiene y conserva la instancia incompleta
+para examinar sus registros; bórrala con la orden propia antes de repetir.
+
+El guion guarda `rrhh-adicional-semilla.json` y su huella en `estado.json`,
+registra la asignación sintética en una transacción y activa los catálogos de
+seguimiento de Contratación. Esa asignación solo sirve en la copia ficticia:
+no acredita publicación por Administración. Es gemela de la de Carmen: mismo
+emisor de desarrollo y mismo acto, y cada operación la ciñe al expediente
+concreto antes de decidir, igual que con ella. El servidor comprueba la hoja, el
+sujeto, el perfil, la asignación vigente y la ruta de no incorporación. Si falta
+material o permiso para esa persona, conserva el acceso de la técnica original
+y deniega la operación de la segunda. No se instala ninguna migración nueva
+por esta opción. Se combina con `--portal-externo` si hace falta.
+
+Lo que falta para recorrer la no incorporación en la web con dos personas:
+la segunda hoja solo alcanza el POST de
+`/api/vec/contratacion-temporal/no-incorporaciones`. Para confirmar desde la
+pantalla, Antonio Ruiz Lozano necesita antes abrir el seguimiento y la ficha
+del expediente con la propuesta y su versión, y esa lectura acotada a su
+persona llega con la tarea F1-47. Hasta entonces el recorrido web completo del
+segundo técnico queda pendiente. No se envía el POST a mano para suplir la
+pantalla en ningún recorrido ni en ninguna demostración. Con su certificado, las lecturas
+de Contratación, de Bolsa y de reglas y el resto de operaciones responden 403;
+solo responden lo común a cualquier persona identificada (sesión, menú,
+módulos y catálogos públicos de Personal). F1-47 ampliará a propósito lo que puede leer
+(seguimiento y ficha del expediente) cuando llegue.
+
+En el ensayo técnico de esta opción basta comprobar tres cosas: que `crear`
+termina con la semilla registrada y su huella en `estado.json`, que el
+servidor arranca con la segunda hoja (sin el aviso «segundo técnico de RRHH
+sin …» en el registro) y que todo sigue igual tras `reiniciar`. Un GET de
+seguimiento o un POST de cese con la segunda hoja deben denegarse. Conserva
+los cuerpos y respuestas de esta copia fuera de Git.
 
 Conserva los mismos argumentos de equipo e instancia para estas órdenes:
 
@@ -372,19 +448,37 @@ Perfiles y asignaciones de la copia:
 
 ## 5. Identidad del aspirante externo
 
-El respaldo HZ37 trae vacía la tabla de admisiones técnicas de identidad
-externa (`vec_identidad_externa_v1.llamante_autorizacion`). Sin ellas, Mi Bolsa
-devuelve «instantánea obsoleta» al revalidar la sesión.
+La orden `crear --modulos --portal-externo` usa los productores existentes
+para generar identidad, contexto, asignación y confianza del aspirante.
+Las admisiones técnicas ausentes del respaldo se generan como **semilla
+ficticia de esa copia**. No acreditan un acto de Administración ni F0-21.
+El material y los registros quedan bajo la carpeta privada `portal` de la
+instancia, y `borrar` los retira junto con ella.
 
-- En tu copia, restituye las admisiones por SQL y anótalo en tu guion de
-  ensayo como «dato de copia».
-- Nunca como activación: ni en `deploy/principal` ni presentado como
-  «aprobado por Identidad». No existe todavía el productor gobernado (una
-  función para un grupo ADMIN que exija aprobación, audite en la misma
-  transacción y permita retirar). Es tarea del tablero (consenso de seguridad
-  del 15/10).
-- Mi Bolsa exige además que el `candidato_ref` del manifiesto coincida con el
-  vínculo vigente de esa persona.
+```sh
+deploy/principal/copia_local.sh crear --equipo b --instancia aspirante \
+  --puerto-pg 55481 --puerto-app 18481 --puerto-smtp 11081 \
+  --modulos --portal-externo --sin-inscripcion \
+  --rrhh-original "$VEC_COPIA_ORIGEN/copia-20261014/material" \
+  --lista-sql deploy/principal/lista_sql_main_tras_hz37.txt
+```
+
+Usa los productores de roles y datos del apartado 2 y puertos libres propios.
+El preparador conserva el candado de la instancia y coteja contenedor, puerto,
+identificador PostgreSQL y binario antes de operar. Guarda el documento y la
+referencia de asignación antes de confirmar; si se pierde la respuesta,
+reconcilia el mismo efecto por su huella y evento, sin publicar otro.
+La reanudación exige la misma revisión y el árbol limpio. La actualización
+del entorno conserva un intento privado antes de cambiar sus archivos: si
+se interrumpe entre el entorno y su huella, el mismo preparador completa esa
+publicación. Una modificación distinta detiene la recuperación.
+
+Una cabeza del rol candidato que exija Administración detiene la semilla con
+`requiere_publicacion_por_administracion`; no recupera una versión antigua.
+En ese caso corresponde publicar el permiso por la vía gobernada. La sesión
+y su auditoría no necesitan AD295; el gobierno ADMIN sí mantiene sus requisitos.
+Las lecturas de Mi Bolsa y del historial no acreditan el envío de inscripción:
+ese POST y su recibo deben comprobarse en el recorrido que lo consume.
 
 ## 6. Organización histórica y lectura de Personal en el servidor combinado
 

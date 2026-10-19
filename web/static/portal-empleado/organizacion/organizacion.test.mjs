@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderizarCuadro } from "../modulos/contratacion-temporal/componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { renderizarCabeceraModulo } from "../modulos/contratacion-temporal/vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
-import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
+import { renderizarCuadro } from "../modulos/contratacion-temporal/componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { renderizarCabeceraModulo } from "../modulos/contratacion-temporal/vista-expedientes-render.js?v=VEC_WEB_VERSION";
+import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=VEC_WEB_VERSION";
 
 await prepararTextosPersonal();
 const {
@@ -14,7 +14,7 @@ const {
   validarOrganizacion,
   crearCliente,
   crearEstadoFormulario,
-} = await import("./organizacion.js?v=20261008-alta-rpt-circular-v4");
+} = await import("./organizacion.js?v=VEC_WEB_VERSION");
 
 const unidad = (extra = {}) => ({
   clave: "u-1",
@@ -245,7 +245,7 @@ test("filtra por texto, padre y acentos sin alterar la fuente", () => {
 test("expone endpoint real y no añade almacenamiento ni datos de demostración", async () => {
   let llamada;
   const body = new TextEncoder().encode(JSON.stringify(base()));
-  const cliente = (await import("./organizacion.js?v=20261008-alta-rpt-circular-v4")).crearCliente(
+  const cliente = (await import("./organizacion.js?v=VEC_WEB_VERSION")).crearCliente(
     async (url, options) => {
       llamada = { url, options };
       return {

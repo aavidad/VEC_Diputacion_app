@@ -1,4 +1,4 @@
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=VEC_WEB_VERSION";
 
 const catalogos = await cargarCatalogosContratacion("contratacion-temporal-borradores-publicados");
 

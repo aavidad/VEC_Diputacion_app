@@ -1,4 +1,4 @@
-import { nodo, panel, tabla } from '../dom.js?v=20261001-codexa-selectivos-s0-n2-v5';
+import { nodo, panel, tabla } from '../dom.js?v=VEC_WEB_VERSION';
 
 function datos(d, pares) {
   const dl = nodo(d, 'dl', undefined, 'datos-clave');

@@ -1,6 +1,6 @@
 import { cargarTextos } from '../../comun/textos.js';
 import { montarSelectorIdioma } from '../../comun/idioma.js';
-import { validarIdentificador, validarLimites, crearLectorDetalle, seleccionarFicheros, crearResumen } from './modelo.js?v=20261001-preparacion-v1';
+import { validarIdentificador, validarLimites, crearLectorDetalle, seleccionarFicheros, crearResumen } from './modelo.js?v=VEC_WEB_VERSION';
 
 export function textoResumen(resumen, textos) {
   const t = textos.traducir;

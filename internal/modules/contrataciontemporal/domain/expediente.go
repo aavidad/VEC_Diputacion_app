@@ -63,14 +63,15 @@ type Expediente struct {
 	ViaCobertura    *DecisionViaCobertura `json:"via_cobertura,omitempty"`
 	// DecisionesCobertura conserva la cadena gobernada de solo adición. La
 	// última publicación coincide con la proyección ViaCobertura.
-	DecisionesCobertura []PublicacionDecisionCoberturaGobernada `json:"decisiones_cobertura,omitempty"`
-	Asignacion          *AsignacionUnidad                       `json:"asignacion,omitempty"`
-	InformeJuridico     *InformeJuridicoEmitido                 `json:"informe_juridico,omitempty"`
-	Fiscalizacion       *FiscalizacionRegistrada                `json:"fiscalizacion,omitempty"`
-	Circuito            *CircuitoAdministrativo                 `json:"circuito,omitempty"`
-	CreadoEn            time.Time                               `json:"creado_en"`
-	ActualizadoEn       time.Time                               `json:"actualizado_en"`
-	Actuaciones         []Actuacion                             `json:"actuaciones"`
+	DecisionesCobertura   []PublicacionDecisionCoberturaGobernada `json:"decisiones_cobertura,omitempty"`
+	Asignacion            *AsignacionUnidad                       `json:"asignacion,omitempty"`
+	InformeJuridico       *InformeJuridicoEmitido                 `json:"informe_juridico,omitempty"`
+	Fiscalizacion         *FiscalizacionRegistrada                `json:"fiscalizacion,omitempty"`
+	InstruccionCompartida *InstruccionCompartida                  `json:"instruccion_compartida,omitempty"`
+	Circuito              *CircuitoAdministrativo                 `json:"circuito,omitempty"`
+	CreadoEn              time.Time                               `json:"creado_en"`
+	ActualizadoEn         time.Time                               `json:"actualizado_en"`
+	Actuaciones           []Actuacion                             `json:"actuaciones"`
 }
 
 type AltaExpediente struct {
@@ -456,7 +457,7 @@ func (e Expediente) nuevaActuacion(
 	version uint64,
 ) Actuacion {
 	return Actuacion{
-		Secuencia: uint64(len(e.Actuaciones) + 1), VersionExpediente: version,
+		Secuencia: version, VersionExpediente: version,
 		AccionClave: datos.AccionClave, ActorRef: datos.ActorRef,
 		UnidadRef: datos.UnidadRef, ReciboRef: datos.ReciboRef,
 		RealizadaEn: datos.RealizadaEn, FaseOrigen: faseOrigen,

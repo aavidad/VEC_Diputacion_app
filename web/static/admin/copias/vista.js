@@ -1,9 +1,9 @@
-import { crearClienteCopias, ErrorCopias } from "./cliente-http.js?v=20261001-cs09-copias-ux-v2";
-import { TEXTOS_COPIAS, traducirCopias as t, traducirCodigo as tc } from "./i18n.js?v=20261001-cs09-copias-ux-v2";
+import { crearClienteCopias, ErrorCopias } from "./cliente-http.js?v=VEC_WEB_VERSION";
+import { TEXTOS_COPIAS, traducirCopias as t, traducirCodigo as tc } from "./i18n.js?v=VEC_WEB_VERSION";
 import { icono } from "../../comun/iconos-vec.js";
-import { soporte } from "./vista-soporte.js?v=20261001-cs09-copias-ux-v2";
-import { pintarConfiguracion } from "./vista-configuracion.js?v=20261001-cs09-copias-ux-v2";
-import { pintarRecuperacion } from "./vista-recuperacion.js?v=20261001-cs09-copias-ux-v2";
+import { soporte } from "./vista-soporte.js?v=VEC_WEB_VERSION";
+import { pintarConfiguracion } from "./vista-configuracion.js?v=VEC_WEB_VERSION";
+import { pintarRecuperacion } from "./vista-recuperacion.js?v=VEC_WEB_VERSION";
 
 let secuencia = 0;
 /** Subpágina de la superficie ADMIN; el shell y su frontera permanecen en su propietario. */

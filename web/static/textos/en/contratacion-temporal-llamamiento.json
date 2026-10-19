@@ -75,6 +75,7 @@
     "llamamiento_comprobacion_pendiente": "The person in position {posicion} is awaiting an HR check. The call-up has not been created.",
     "llamamiento_comprobacion_version": "Rule checked: version {version}.",
     "llamamiento_comprobacion_ver_bolsa": "View the pool",
+    "llamamiento_comprobacion_comprobar": "Check on their record",
     "llamamiento_conflicto": "It could not be saved because the case has changed. Do not repeat it; tell IT.",
     "llamamiento_contenido_respuesta_en_conflicto": "Another reply is already recorded for this call-up. Open the case and check it before continuing.",
     "llamamiento_consulta_titulo": "Reply from the person called",

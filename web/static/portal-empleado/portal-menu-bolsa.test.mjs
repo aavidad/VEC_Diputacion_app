@@ -13,7 +13,7 @@ import {
   sincronizarMenuBolsa,
   vistaBolsaPendienteNoCompuesta,
   vistaBolsaOfrecida,
-} from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-menu-bolsa.js?v=VEC_WEB_VERSION";
 
 test("Auditoría RRHH se abre sin partir de una ficha", () => {
   assert.equal(vistaBolsaOfrecida("auditoria", { panelInterno: true }), false);
@@ -464,7 +464,7 @@ test("el llamamiento conserva B7 y monta gestión de ofertas solo tras elegir bo
 });
 
 test("Atrás durante un envío incierto vuelve a gestión sin sustituir la entrada del llamamiento", () => {
-  const inicio = codigoPortal.indexOf("function compensarHistorialGestionOfertas() {");
+  const inicio = codigoPortal.indexOf("function compensarHistorialGestionOfertas(");
   const fin = codigoPortal.indexOf("\nfunction actualizarSalidaGestionOfertasBolsa()", inicio);
   assert.ok(inicio > 0 && fin > inicio);
   const compensador = codigoPortal.slice(inicio, fin);
@@ -505,7 +505,7 @@ test("Atrás durante un envío incierto vuelve a gestión sin sustituir la entra
 test("enlace directo crea A/B y Forward incierto vuelve a B sin destruir C", () => {
   const inicioAsegurar = codigoPortal.indexOf("function asegurarHistorialGestionOfertas() {");
   const finAsegurar = codigoPortal.indexOf("\nfunction cerrarGestionOfertasBolsa()", inicioAsegurar);
-  const inicioCompensar = codigoPortal.indexOf("function compensarHistorialGestionOfertas() {");
+  const inicioCompensar = codigoPortal.indexOf("function compensarHistorialGestionOfertas(");
   const finCompensar = codigoPortal.indexOf("\nfunction actualizarSalidaGestionOfertasBolsa()", inicioCompensar);
   assert.ok(inicioAsegurar > 0 && finAsegurar > inicioAsegurar && inicioCompensar > 0 && finCompensar > inicioCompensar);
   const origen = "/portal-empleado/#bolsa/llamamientos";

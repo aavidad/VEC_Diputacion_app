@@ -8,7 +8,7 @@
  */
 
 import { renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
-import { noIncorporacionVigente } from "./seguimiento-propuestas.js?v=20260926-huecos-rrhh-v2";
+import { noIncorporacionVigente } from "./seguimiento-propuestas.js?v=VEC_WEB_VERSION";
 
 /**
  * Se ofrece sin incorporación, sin cese, sin no incorporación de la persona

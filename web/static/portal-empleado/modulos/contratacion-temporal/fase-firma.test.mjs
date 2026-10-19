@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { cargarTextos } from "../../../comun/textos.js";
 import { calcularFaseDocumento, cargarTextosFaseFirma, renderizarFaseFirma,
-  renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=20261001-ct-a-i18n-v1";
+  renderizarFirmadosEnDocumentos } from "./fase-firma.js?v=VEC_WEB_VERSION";
 
 const es = await cargarTextos("contratacion-temporal-firma", { idioma: "es", porDefecto: "es" });
 const en = await cargarTextos("contratacion-temporal-firma", { idioma: "en", porDefecto: "es" });

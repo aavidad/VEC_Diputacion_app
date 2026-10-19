@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { crearClienteConsultaSeguimientoInterno, montarConsultaSeguimientoInterno } from "./consulta-seguimiento.js?v=20261008-alta-rpt-circular-v6";
+import { crearClienteConsultaSeguimientoInterno, montarConsultaSeguimientoInterno } from "./consulta-seguimiento.js?v=VEC_WEB_VERSION";
 
 const expedienteRef = "expediente:ct:consulta";
 function vista(ref = expedienteRef) {

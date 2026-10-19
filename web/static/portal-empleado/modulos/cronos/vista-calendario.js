@@ -1,4 +1,4 @@
-import { crearTraductorCronosC4, MENSAJES_CRONOS_C4 } from "./i18n-c4.js?v=20260929-i18n-textos-v1";
+import { crearTraductorCronosC4, MENSAJES_CRONOS_C4 } from "./i18n-c4.js?v=VEC_WEB_VERSION";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const ANIO_MINIMO = 1900;

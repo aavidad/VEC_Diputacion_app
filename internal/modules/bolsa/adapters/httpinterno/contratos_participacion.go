@@ -82,6 +82,7 @@ func (h *HandlerContratosParticipacion) ServeHTTP(w http.ResponseWriter, r *http
 			"inicio": instanteOpcionalContrato(c.Inicio), "fin_previsto": instanteOpcionalContrato(c.FinPrevisto),
 			"modalidad_clave": c.ModalidadClave, "categoria_ref": c.CategoriaRef, "causa_clave": c.CausaClave,
 			"expediente_ref": c.ExpedienteRef, "ocurrido_en": c.OcurridoEn.UTC().Format(time.RFC3339Nano),
+			"huella_sha256": c.HuellaSHA256,
 		})
 	}
 	responderSituacion(w, http.StatusOK, map[string]any{"data": map[string]any{"esquema": EsquemaContratosParticipacion, "items": salida}})

@@ -228,7 +228,6 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 			return vacio, inscripcion.ErrSolicitudInvalida
 		}
 	}
-	ahora := c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 	sesion := c.SesionAspirante
 	canalEsperado := "externa_personal"
 	if rrhh {
@@ -247,6 +246,7 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 		}
 		return vacio, inscripcion.ErrSesionAusente
 	}
+	ahora := c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if !huellaCertificadoInscripcionValida(acreditacion.CertificadoHuellaSHA256) ||
 		acreditacion.Canal != canalEsperado || acreditacion.VerificadaEn.IsZero() ||
 		acreditacion.VerificadaEn.After(ahora) || !acreditacion.ValidaHasta.After(ahora) {

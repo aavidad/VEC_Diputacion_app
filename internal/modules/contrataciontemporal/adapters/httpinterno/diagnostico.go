@@ -94,10 +94,20 @@ func registrarFalloContratacion(r *http.Request, estado int, codigo, correlacion
 	var falloInterno *diagnostico.FalloConsultaRRHH
 	if errors.As(causa, &falloInterno) && falloInterno != nil {
 		etapa = falloInterno.EtapaSegura()
-		if len(falloInterno.CodigoSQL) == 5 && strings.IndexFunc(falloInterno.CodigoSQL, func(c rune) bool {
-			return !(c >= '0' && c <= '9' || c >= 'A' && c <= 'Z')
-		}) == -1 {
+		if codigoSQLSeguro(falloInterno.CodigoSQL) {
 			sqlstate = falloInterno.CodigoSQL
+		}
+	}
+	// La lectura de la instantánea original puede llegar como causa SQL sin
+	// FalloConsultaRRHH. Se clasifica solo en el alta y bajo su centinela.
+	if ruta == RutaAltaSolicitudes && etapa == "desconocida" &&
+		errors.Is(causa, ports.ErrFuenteNecesidadesAltaNoDisponible) {
+		var estadoSQL interface{ SQLState() string }
+		if errors.As(causa, &estadoSQL) {
+			codigo := estadoSQL.SQLState()
+			if codigoSQLSeguro(codigo) {
+				etapa, sqlstate = string(diagnostico.EtapaSQL), codigo
+			}
 		}
 	}
 	if etapaCobertura, ok := application.EtapaDiagnosticoDePresentacionPropuestaCobertura(causa); ok {
@@ -110,6 +120,12 @@ func registrarFalloContratacion(r *http.Request, estado int, codigo, correlacion
 		"estado_http", estado, "codigo", codigo,
 		"etapa", etapa, "sqlstate", sqlstate,
 		"centinela", centinelaSeguroContratacion(causa), "correlacion_ref", correlacion)
+}
+
+func codigoSQLSeguro(codigo string) bool {
+	return len(codigo) == 5 && strings.IndexFunc(codigo, func(c rune) bool {
+		return !(c >= '0' && c <= '9' || c >= 'A' && c <= 'Z')
+	}) == -1
 }
 
 // centinelaSeguroContratacion devuelve solo una clase fija de causas que la

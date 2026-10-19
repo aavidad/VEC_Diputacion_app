@@ -55,10 +55,10 @@ func TestPWARecursosPorFrontera(t *testing.T) {
 func TestPWAIconoVersionadoYManifiestoSinCacheHTTP(t *testing.T) {
 	handler := NewHandlerInternoWithConfig(config.Config{HTTPAllowedCIDRs: []string{"127.0.0.1/8"}}, http.NotFoundHandler())
 	for _, caso := range []struct{ ruta, cache string }{
-		{"/pwa/icons/vec-192.png?v=20261002-pwa-v1", "public, max-age=31536000, immutable"},
+		{"/pwa/icons/vec-192.png?v=" + versionWeb().version, "public, max-age=31536000, immutable"},
 		{"/pwa/icons/vec-192.png", "no-cache"},
-		{"/textos/es/pwa-portal-empleado.json?v=20261002-pwa-v1", "no-cache"},
-		{"/portal-empleado/cache-publica-v1.json?v=20261002-pwa-v4", "no-store"},
+		{"/textos/es/pwa-portal-empleado.json?v=" + versionWeb().version, "no-cache"},
+		{"/portal-empleado/cache-publica-v1.json?v=" + versionWeb().version, "no-store"},
 	} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, caso.ruta, nil))

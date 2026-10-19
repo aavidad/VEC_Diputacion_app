@@ -46,14 +46,14 @@ class TestConexiones(unittest.TestCase):
     def test_nueva_instancia_genera_identidades_y_env_privado(self):
         env = modulo.preparar(self.copia)
         self.assertEqual(set(env), set(modulo.GRUPOS))
-        self.assertEqual(len(env), 22)
+        self.assertEqual(len(env), 23)
         sql, log = self.copia.sql_ejecutado[0]
         self.assertEqual(log, "conexiones.log")
         self.assertTrue(sql.startswith("BEGIN;"))
         self.assertTrue(sql.endswith("COMMIT;\n"))
         self.assertEqual(sql.count("CREATE ROLE "), len(env))
-        self.assertEqual(sql.count("WITH ADMIN FALSE, INHERIT TRUE, SET FALSE"), len(env) - 1)
-        self.assertEqual(sql.count("WITH ADMIN FALSE, INHERIT TRUE, SET TRUE"), 1)
+        self.assertEqual(sql.count("WITH ADMIN FALSE, INHERIT TRUE, SET FALSE"), len(env) - 3)
+        self.assertEqual(sql.count("WITH ADMIN FALSE, INHERIT TRUE, SET TRUE"), 4)
         self.assertIn("Arco AD3 heredado distinto", sql)
         self.assertIn("Propietario AD3 distinto", sql)
         self.assertIn("Propietario AD3 con membresía", sql)
@@ -92,10 +92,16 @@ class TestConexiones(unittest.TestCase):
             self.assertRegex(parsed.username, r"^vcl_l_segunda_[0-9a-f]{12}_[0-9]{2}$")
             self.assertGreaterEqual(len(parsed.password), 32)
             usuarios.add(parsed.username)
-            set_option = "TRUE" if variable == modulo.GOBIERNO else "FALSE"
+            set_option = "TRUE" if variable in (modulo.GOBIERNO, modulo.CONVOCA, modulo.RELEVO_NO_INCORPORACION) else "FALSE"
             self.assertIn("GRANT " + modulo.GRUPOS[variable] + " TO " + parsed.username +
                           " WITH ADMIN FALSE, INHERIT TRUE, SET " + set_option, sql)
+            if variable == modulo.CONVOCA:
+                self.assertIn("GRANT vec_bolsa_importacion_convoca_recuperador TO " +
+                              parsed.username +
+                              " WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;", sql)
         self.assertEqual(len(usuarios), len(env))
+        self.assertIn("(SELECT count(*) FROM esperados x WHERE x.login=e.login)", sql)
+        self.assertIn("m.inherit_option=e.hereda AND m.set_option=e.cambia", sql)
         archivo = self.copia.raiz / modulo.RESULTADO
         self.assertEqual(archivo.stat().st_mode & 0o777, 0o600)
         self.assertEqual(self.copia.raiz.stat().st_mode & 0o777, 0o700)
@@ -132,6 +138,17 @@ class TestConexiones(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "SQL denegada"):
             modulo.preparar(self.copia)
         self.assertFalse((self.copia.raiz / modulo.RESULTADO).exists())
+    def test_relevo_no_incorporacion_conserva_grupo_exclusivo(self):
+        variable = modulo.RELEVO_NO_INCORPORACION
+        grupo = 'vec_bolsa_llamamientos_relevo_no_incorporacion'
+        self.assertEqual(modulo.membresias(variable, modulo.GRUPOS[variable]),
+                         {grupo: (True, True)})
+        env = modulo.preparar(self.copia)
+        login = urlsplit(env[variable]).username
+        sql = self.copia.sql_ejecutado[0][0]
+        self.assertIn('GRANT ' + grupo + ' TO ' + login +
+                      ' WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;', sql)
+
 
 
 if __name__ == "__main__":

@@ -5,7 +5,9 @@ Durante el alta solo se añade SET TRUE en su arco al migrador AD3. El volcado c
 membresías globales; se restaura solo el arco migrador→propietario autorizado
 por roles_up.sql. El productor de datos completa los arcos de gobierno que
 necesita el arranque; copia_local_verificacion coteja el contrato final.
-El resto de LOGIN recibe SET FALSE y una única membresía.
+El importador CONVOCA conserva sus dos grupos H1 con SET TRUE.
+El relevo de no incorporaciones conserva su único grupo con SET TRUE.
+Los demás LOGIN reciben SET FALSE y una única membresía.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from urllib.parse import quote, urlencode
 
 
 # Contratos vigentes de config y de los grupos comprobados por abrirPool.
-# Cada entrada da a un LOGIN una única membresía directa.
+# Mapa plano de la conexión y su grupo principal; la excepción H1 figura abajo.
 GRUPOS = {
     "VEC_CT_DATABASE_URL": "vec_contratacion_temporal_ejecutor",
     "VEC_CT_GOBIERNO_DATABASE_URL": "vec_autorizacion_atestada_v3_migrador",
@@ -45,12 +47,23 @@ GRUPOS = {
     "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL": "vec_bolsa_convocatorias_verificador_recibo",
     "VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL": "vec_bolsa_importacion_convoca_ejecutor",
     "VEC_BOLSA_B103_FUENTE_AUTORIZACION_DATABASE_URL": "vec_autorizacion_fuente",
+    "VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL": "vec_bolsa_llamamientos_relevo_no_incorporacion",
 }
 
 RESULTADO = "conexiones.json"
 GOBIERNO = "VEC_CT_GOBIERNO_DATABASE_URL"
+RELEVO_NO_INCORPORACION = "VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL"
+CONVOCA = "VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL"
+RECUPERADOR_CONVOCA = "vec_bolsa_importacion_convoca_recuperador"
 MIGRADOR = "vec_autorizacion_atestada_v3_migrador"
 PROPIETARIO_AD3 = "vec_autorizacion_atestada_v3_propietario"
+
+
+def membresias(variable: str, grupo: str) -> dict[str, tuple[bool, bool]]:
+    """Grupos directos y opciones INHERIT/SET del LOGIN de esta conexión."""
+    if variable == CONVOCA:
+        return {grupo: (True, True), RECUPERADOR_CONVOCA: (True, True)}
+    return {grupo: (True, variable in (GOBIERNO, RELEVO_NO_INCORPORACION))}
 
 
 def _privado(ruta: Path, *, directorio: bool) -> None:
@@ -81,7 +94,13 @@ def _rol(nombre: str, indice: int) -> str:
 def _sql(nombres: list[str], contrasenas: list[str], grupos: list[str], vence: str) -> bytes:
     """Plan completo: valida la preimagen antes de aplicar cualquier alta."""
     cadenas = lambda valores: ",".join("'" + valor + "'" for valor in valores)
-    pares = ",".join("('" + login + "','" + grupo + "')" for login, grupo in zip(nombres, grupos))
+    arcos = [(login, rol, hereda, cambia)
+             for variable, login, grupo in zip(GRUPOS, nombres, grupos)
+             for rol, (hereda, cambia) in membresias(variable, grupo).items()]
+    pares = ",".join("('" + login + "','" + rol + "')" for login, rol, _, _ in arcos)
+    pares_post = ",".join("('" + login + "','" + rol + "'," +
+                          str(hereda).lower() + "," + str(cambia).lower() + ")"
+                          for login, rol, hereda, cambia in arcos)
     lineas = [
         "BEGIN;",
         "SET LOCAL search_path=pg_catalog;",
@@ -164,12 +183,13 @@ def _sql(nombres: list[str], contrasenas: list[str], grupos: list[str], vence: s
             # El anexo de base no concede CONNECT al sellador. Se otorga
             # únicamente al nuevo LOGIN, sin alterar el grupo instalado.
             lineas.append("GRANT CONNECT ON DATABASE postgres TO " + login + ";")
-        lineas.append("GRANT " + grupo + " TO " + login +
-                      " WITH ADMIN FALSE, INHERIT TRUE, SET " +
-                      ("TRUE" if variable == GOBIERNO else "FALSE") + ";")
+        for rol, (hereda, cambia) in membresias(variable, grupo).items():
+            lineas.append("GRANT " + rol + " TO " + login +
+                          " WITH ADMIN FALSE, INHERIT " + ("TRUE" if hereda else "FALSE") +
+                          ", SET " + ("TRUE" if cambia else "FALSE") + ";")
     lineas.extend((
         "DO $post$ DECLARE v_fallos integer; BEGIN "
-        "WITH esperados(login,grupo) AS (VALUES " + pares + ") "
+        "WITH esperados(login,grupo,hereda,cambia) AS (VALUES " + pares_post + ") "
         "SELECT count(*) INTO v_fallos FROM esperados e "
         "LEFT JOIN pg_catalog.pg_roles r ON r.rolname=e.login "
         "LEFT JOIN pg_catalog.pg_roles g ON g.rolname=e.grupo "
@@ -177,10 +197,11 @@ def _sql(nombres: list[str], contrasenas: list[str], grupos: list[str], vence: s
         "r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR "
         "r.rolbypassrls OR r.rolconfig IS NOT NULL OR "
         "r.rolvaliduntil IS DISTINCT FROM '" + vence + "'::pg_catalog.timestamptz OR "
-        "(SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)<>1 OR "
+        "(SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)<>"
+        "(SELECT count(*) FROM esperados x WHERE x.login=e.login) OR "
         "NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m "
-        "WHERE m.member=r.oid AND m.roleid=g.oid AND m.inherit_option "
-        "AND m.set_option=(e.grupo='" + MIGRADOR + "') AND NOT m.admin_option); "
+        "WHERE m.member=r.oid AND m.roleid=g.oid AND m.inherit_option=e.hereda "
+        "AND m.set_option=e.cambia AND NOT m.admin_option); "
         "IF v_fallos<>0 THEN RAISE EXCEPTION 'LOGIN nominal no aislado'; END IF; "
         "IF (SELECT count(*) FROM pg_catalog.pg_roles r "
         "WHERE r.rolname IN ('" + MIGRADOR + "','" + PROPIETARIO_AD3 + "') "

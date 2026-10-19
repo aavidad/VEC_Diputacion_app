@@ -1,5 +1,5 @@
-import { crearClienteEscenario } from './cliente.js?v=20261001-formacion-preparacion-v1';
-import { pintarFormacion } from './vista.js?v=20261001-formacion-preparacion-v1';
+import { crearClienteEscenario } from './cliente.js?v=VEC_WEB_VERSION';
+import { pintarFormacion } from './vista.js?v=VEC_WEB_VERSION';
 import { cargarTextos } from '../../../comun/textos.js';
 import { montarSelectorIdioma } from '../../../comun/idioma.js';
 
@@ -58,7 +58,7 @@ try {
 } catch {
   // Respaldo público de datos para el fallo total del catálogo, sin afirmar traducción.
   try {
-    const r = await fetch('./error-catalogo.json?v=20261001-formacion-preparacion-v1', { credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer' });
+    const r = await fetch('./error-catalogo.json?v=VEC_WEB_VERSION', { credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer' });
     if (!r.ok) throw new Error('formacion.catalogo');
     const error = await r.json(); const p = document.createElement('p'); p.setAttribute('role', 'alert'); p.lang = error.idioma; p.textContent = error.mensaje; raiz.replaceChildren(p);
     document.querySelector('.selector-idioma').hidden = true; document.querySelector('.acciones-cabecera details').hidden = true;

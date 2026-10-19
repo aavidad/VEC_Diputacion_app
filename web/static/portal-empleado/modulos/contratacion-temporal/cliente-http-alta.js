@@ -3,8 +3,9 @@ import {
   validarComandoAlta,
   validarComandoAltaNecesidad,
   ESQUEMA_ALTA_NECESIDAD,
+  ESQUEMA_ALTA_NECESIDAD_V2,
   validarReciboAlta,
-} from "./contrato.js?v=20261013-ct-firma-tres-v3";
+} from "./contrato.js?v=VEC_WEB_VERSION";
 
 const MAXIMO_SOLICITUD_ALTA_BYTES = 256 * 1024;
 const MAXIMO_RESPUESTA_ALTA_BYTES = 16 * 1024;
@@ -26,6 +27,7 @@ export function crearAltaClienteHTTP({ ejecutar, validarOpciones } = {}) {
   async function registrarSolicitud(comando, opciones) {
     const { signal } = validarOpciones(opciones);
     const entrada = comando?.esquema === ESQUEMA_ALTA_NECESIDAD
+      || comando?.esquema === ESQUEMA_ALTA_NECESIDAD_V2
       ? validarComandoAltaNecesidad(comando) : validarComandoAlta(comando);
     return ejecutar({
       metodo: "POST",

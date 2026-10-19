@@ -1,5 +1,5 @@
 import { cargarTextos } from "../../../comun/textos.js";
-import { proyectarPaginaVacantesB2 } from "./vacantes-b2-proyeccion.js?v=20261002-b-base-401-acumulada-v3";
+import { proyectarPaginaVacantesB2 } from "./vacantes-b2-proyeccion.js?v=VEC_WEB_VERSION";
 
 const catalogo = await cargarTextos("personal-vacantes");
 const traducirPorDefecto = (codigoMensaje, variables) => catalogo.traducir(`general.${codigoMensaje}`, variables);

@@ -1,5 +1,6 @@
 /** Contrato neutral y cerrado del alta de contratación temporal. */
-import { validarCatalogoPreparacion } from "./contrato-cobertura.js?v=20261002-ct-fin-modalidad-v1";
+import { validarCatalogoPreparacion } from "./contrato-cobertura.js?v=VEC_WEB_VERSION";
+import { operacionRCDeclaradaValida, referenciaRCDeclarada } from "./rc-declarada.js?v=VEC_WEB_VERSION";
 
 export const CAPACIDAD_CREAR_SOLICITUD = "contratacion_temporal.solicitud.crear";
 
@@ -19,6 +20,7 @@ export const LIMITES_ALTA_CONTRATACION = Object.freeze({
 const ESQUEMA_CATALOGOS = "vec.contratacion_temporal.catalogos_alta.v1";
 export const ESQUEMA_CATALOGOS_NECESIDADES = "vec.contratacion_temporal.catalogos_alta.v2";
 export const ESQUEMA_ALTA_NECESIDAD = "vec.ct.alta_necesidad.v1";
+export const ESQUEMA_ALTA_NECESIDAD_V2 = "vec.ct.alta_necesidad.v2";
 const CAMPOS_NECESIDAD = Object.freeze([
   "numero_personas", "puesto_codigo", "plaza_codigo", "titular_ref", "vacancia_fuente_ref",
   "rpt_catalogo_ref", "rpt_catalogo_huella_sha256",
@@ -624,7 +626,9 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
   if (typeof borrador.rc_existe !== "boolean") {
     agregarError(errores, "rc_existe", "booleano");
   } else if (borrador.rc_existe) {
-    if (!referenciaValida(borrador.rc_numero)) agregarError(errores, "rc_numero", "referencia");
+    // El centro declara el número de operación de SICAL; no elige documento.
+    if (conPeticionCentro ? !operacionRCDeclaradaValida(borrador.rc_numero)
+      : !referenciaValida(borrador.rc_numero)) agregarError(errores, "rc_numero", conPeticionCentro ? "rc_operacion" : "referencia");
     if (!fechaCivilValida(borrador.rc_fecha)) agregarError(errores, "rc_fecha", "fecha");
     const importe = analizarEntradaMonetaria(borrador.rc_importe);
     if (importe === null || (!importe.excedeMaximo && importe.centimos <= 0)) {
@@ -632,7 +636,7 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
     } else if (importe.excedeMaximo) {
       agregarError(errores, "rc_importe", "importe_maximo");
     }
-    if (!catalogos.documentos.some(
+    if (conPeticionCentro ? borrador.rc_documento_ref !== "" : !catalogos.documentos.some(
       (opcion) => opcion.referencia === borrador.rc_documento_ref,
     )) {
       agregarError(errores, "rc_documento_ref", "opcion_catalogo");
@@ -759,7 +763,8 @@ export function crearComandoPeticionCentro(borrador, catalogos, claveIdempotenci
       numero: borrador.rc_numero,
       fecha: instanteCivilUTC(borrador.rc_fecha),
       importe: { centimos: centimosDesdeEntrada(borrador.rc_importe), moneda: "EUR" },
-      documento_ref: borrador.rc_documento_ref,
+      documento_ref: Object.hasOwn(borrador, "puesto_solicitado")
+        ? referenciaRCDeclarada(borrador.rc_numero) : borrador.rc_documento_ref,
     }
     : { existe: false };
   const comando = validarComandoPeticionCentro({
@@ -861,7 +866,7 @@ export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
   const base = crearComandoPeticionCentro(solicitud, catalogoPeticion, claveIdempotencia);
   if (catalogosValidados.esquema === ESQUEMA_CATALOGOS_NECESIDADES) {
     return validarComandoAltaNecesidad({ ...base, numero_expediente_moad,
-      esquema: ESQUEMA_ALTA_NECESIDAD,
+      esquema: ESQUEMA_ALTA_NECESIDAD_V2,
       necesidad: crearNecesidadDesdeBorrador(borrador, catalogosValidados.necesidades) });
   }
   return validarComandoAlta({
@@ -873,10 +878,16 @@ export function crearComandoAlta(borrador, catalogos, claveIdempotencia) {
 export function validarComandoAltaNecesidad(comando) {
   exigirCamposExactos(comando, ["clave_idempotencia", "numero_expediente_moad", "solicitud",
     "esquema", "necesidad"], "alta con necesidad");
-  if (comando.esquema !== ESQUEMA_ALTA_NECESIDAD) throw new TypeError("esquema de alta incompatible");
+  if (comando.esquema !== ESQUEMA_ALTA_NECESIDAD
+    && comando.esquema !== ESQUEMA_ALTA_NECESIDAD_V2) throw new TypeError("esquema de alta incompatible");
   validarComandoAlta({ clave_idempotencia: comando.clave_idempotencia,
     numero_expediente_moad: comando.numero_expediente_moad, solicitud: comando.solicitud });
   validarNecesidadComando(comando.necesidad, comando.solicitud.motivo_clave);
+  if (comando.esquema === ESQUEMA_ALTA_NECESIDAD_V2
+    && (Object.hasOwn(comando.solicitud, "numero_personas")
+      || !Object.hasOwn(comando.necesidad.campos, "numero_personas"))) {
+    throw new TypeError("número de personas de alta no válido");
+  }
   return clonarYCongelarAlta(comando);
 }
 

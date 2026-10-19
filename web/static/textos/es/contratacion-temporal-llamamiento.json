@@ -75,6 +75,7 @@
     "llamamiento_comprobacion_pendiente": "La persona en la posición {posicion} está pendiente de comprobación por RRHH. El llamamiento no se ha creado.",
     "llamamiento_comprobacion_version": "Regla consultada: versión {version}.",
     "llamamiento_comprobacion_ver_bolsa": "Ver la bolsa",
+    "llamamiento_comprobacion_comprobar": "Comprobar en su ficha",
     "llamamiento_conflicto": "No se ha podido guardar porque el expediente ha cambiado. No lo repita; avise a Informática.",
     "llamamiento_contenido_respuesta_en_conflicto": "Ya hay otra respuesta anotada para este llamamiento. Abra el expediente y revísela antes de seguir.",
     "llamamiento_consulta_titulo": "Respuesta de la persona llamada",

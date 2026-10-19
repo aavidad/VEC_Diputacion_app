@@ -5,9 +5,9 @@
  * subsanación está registrada y el informe nuevo todavía no. */
 
 import { validarSolicitudInformeJuridico } from "./contrato-informe-juridico.js";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261016-ct-ofertas-ct231-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL } from "./i18n-informe-tras-subsanacion.js?v=20261007-pantallas-textos-final-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL } from "./i18n-informe-tras-subsanacion.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 const ACCION_SUBSANACION = "contratacion_temporal.subsanacion_reparos.registrar";
