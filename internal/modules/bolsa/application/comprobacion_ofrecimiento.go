@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	vd "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
@@ -114,7 +115,9 @@ func validarSolicitudComprobacion(q ports.SolicitudComprobacion) error {
 		return ports.ErrComprobacionInvalida
 	}
 	for nombre, h := range q.Hechos {
-		if !strings.HasPrefix(h.DocumentoRef, "ref:") || len(h.DocumentoRef) != 68 || !huellaComprobacion.MatchString(strings.TrimPrefix(h.DocumentoRef, "ref:")) || !huellaComprobacion.MatchString(h.Huella) || len(h.Valor) == 0 {
+		// Igual que B141: referencia legible del documento en custodia de RRHH
+		// (guarda B77) o evento de contrato recibido por Bolsa.
+		if !(domain.ReferenciaDocumentoCustodiaValida(h.DocumentoRef) || domain.ReferenciaEventoContratoParticipacion(h.DocumentoRef)) || !huellaComprobacion.MatchString(h.Huella) || len(h.Valor) == 0 {
 			return ports.ErrComprobacionInvalida
 		}
 		var valor any

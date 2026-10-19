@@ -171,7 +171,7 @@ func nuevaInscripcionPortalExterno(ctx context.Context, cfg config.Config,
 	if err != nil {
 		return nil, nada, errMontajeInscripcionBolsa
 	}
-	instanteMotivos := time.Now().UTC()
+	instanteMotivos := time.Now().UTC().Truncate(time.Microsecond)
 	if motivoBase.ValidarReferenciaMotivoAutorizacionV2(ctx, motivo, instanteMotivos) != nil {
 		return nil, nada, errMontajeInscripcionBolsa
 	}

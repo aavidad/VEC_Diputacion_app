@@ -34,6 +34,21 @@ func TestFalloTecnicoNoRegistraDatosPersonales(t *testing.T) {
 	}
 }
 
+func TestInscripcionConjuntaPendienteTieneCodigoPropio(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, RutaPropias, nil)
+	responderFallo(w, r, inscripcion.ErrModalidadConjuntaPendiente)
+	var cuerpo struct {
+		Error struct {
+			Codigo string `json:"codigo"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &cuerpo); err != nil ||
+		w.Code != http.StatusConflict || cuerpo.Error.Codigo != "inscripcion_conjunta_pendiente" {
+		t.Fatalf("error de modalidad: estado=%d cuerpo=%q error=%v", w.Code, w.Body.String(), err)
+	}
+}
+
 func TestDetalleConvocatoriaConEtiquetasLargasSeEntregaCompletoComoJSON(t *testing.T) {
 	for _, etiqueta := range []string{strings.Repeat("<", 2048), strings.Repeat("\"", 2048), strings.Repeat("á", 1024)} {
 		categorias := make([]map[string]string, 128)

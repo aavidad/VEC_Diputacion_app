@@ -712,6 +712,8 @@ func responderFallo(w http.ResponseWriter, r *http.Request, err error) {
 		responderError(w, 422, "declaracion_invalida")
 	case errors.Is(err, inscripcion.ErrSolicitudExistente):
 		responderError(w, 409, "solicitud_existente")
+	case errors.Is(err, inscripcion.ErrModalidadConjuntaPendiente):
+		responderError(w, 409, "inscripcion_conjunta_pendiente")
 	case errors.Is(err, inscripcion.ErrClaveConflicto):
 		responderError(w, 409, "clave_en_conflicto")
 	case errors.Is(err, inscripcion.ErrActaNoDisponible):

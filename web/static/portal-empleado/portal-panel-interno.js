@@ -17,6 +17,7 @@ import { canalesAviso, enlaceSeguimiento, renderizarAccionJustificanteRenuncia, 
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=VEC_WEB_VERSION";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=VEC_WEB_VERSION";
 import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=VEC_WEB_VERSION";
+import { renderizarComprobacionOfrecimiento } from "./portal-bolsas-comprobacion.js?v=VEC_WEB_VERSION";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=VEC_WEB_VERSION";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=VEC_WEB_VERSION";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=VEC_WEB_VERSION";
@@ -610,6 +611,10 @@ export function crearPresentadorPanelInterno(dependencias) {
           ${fichaAbierta ? renderizarModalFicha(modalFicha, fichaId) : ""}`;
       }).join("");
     }
+    // La ficha abierta desde una comprobación pendiente puede ser de una persona de otra página: se pinta arriba.
+    const comprobacionFuera = modalFicha?.abierto === true && modalFicha.comprobacionB57 && modalFicha.candidato
+      && !candidatos.some((item) => item.participacion_ref === modalFicha.candidato.participacion_ref);
+    if (comprobacionFuera) cuerpoTabla = renderizarModalFicha(modalFicha, `ficha-participacion-${modalFicha.candidato.participacion_ref}`) + cuerpoTabla;
     const paginacion = hayMas && cursorSiguiente
       ? `<div class="paginacion-bolsa">
            <button type="button" class="boton-secundario" data-bolsa-accion="pagina-siguiente" data-cursor="${escaparHTML(cursorSiguiente)}">${textoPortal("txt_cargar_siguientes_aspirantes")}</button>
@@ -702,7 +707,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>${traducirBolsaInterna("contacto_historico_titulo")}</h3><span class="estado-chip info">${textoPortal("txt_n_registros", { numero: numero(llamadas.length) })}</span></div><div class="tabla-contenedor" tabindex="0" role="region" aria-label="${traducirBolsaInterna("contacto_historico_descripcion")}"><table class="tabla-datos"><caption>${traducirBolsaInterna("contacto_historico_descripcion")}</caption><thead><tr><th scope="col">${textoPortal("txt_fecha")}</th><th scope="col">${textoPortal("txt_candidato")}</th><th scope="col">${textoPortal("txt_tipo")}</th><th scope="col">${textoPortal("txt_resultado")}</th><th scope="col">${textoPortal("txt_actor")}</th><th scope="col">${textoPortal("txt_contacto")}</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}</section>`;
     return `
       ${encabezadoVista("", tituloBolsa, "", accionesEncabezado)}
-      ${reciboFichaFuera}
+      ${reciboFichaFuera}${estadoCandidatos.avisoComprobacion ? `<div class="nota-pendiente" role="status"><p>${escaparHTML(estadoCandidatos.avisoComprobacion.texto)}</p><button type="button" class="boton-secundario" data-vista="contratacion-temporal">${escaparHTML(estadoCandidatos.avisoComprobacion.boton)}</button></div>` : ""}
       <div class="distribucion-llamamiento">
         <div>
           ${pestanas}
@@ -806,6 +811,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               ${renderizarRegistroContacto({ estado: modal.registroContacto || {}, escaparHTML })}
               ${reciboSituacion}
               ${reciboContacto}
+              ${renderizarComprobacionOfrecimiento({ modal, escaparHTML })}
               ${renderizarOperacionesSituacion({ candidato, estado: modal.operacionesB8 || {}, escaparHTML })}
               ${renderizarIntentosContacto({ candidato, estado: modal.intentosContacto || {}, escaparHTML, llamamientoRef: modal.llamamientoSeguimiento || "" })}
               ${renderizarContratosParticipacion({ estado: modal.contratosB13 || {}, escaparHTML, categoria: bolsa.categoria })}

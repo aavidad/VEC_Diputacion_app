@@ -3,12 +3,26 @@ import { justificanteTraducido } from "../../portal-justificante.js";
 import { ESTADO_SELECCION_PENDIENTE_AVISO, claveFilaComunicacion } from "./cliente-http-consulta-comunicaciones-expediente.js?v=VEC_WEB_VERSION";
 import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=VEC_WEB_VERSION";
 import { rutaCandidatosBolsaCompartible } from "../../portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
+import { propuestaDesdeComprobacionPendiente } from "../../portal-bolsas-comprobacion-ruta.js?v=VEC_WEB_VERSION";
 import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=VEC_WEB_VERSION";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION, ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
   PUBLICACIONES_FORMALIZACION, RESPUESTA_EXPIRACION } from "./contrato-llamamiento.js?v=VEC_WEB_VERSION";
+
+// Enlace del aviso «pendiente de comprobación»: con contexto y estado del servidor lleva a la
+// ficha de esa persona en Bolsa; sin ellos, o si la propuesta no cabe, a la bolsa.
+export function enlaceComprobacionPendiente(comprobacion) {
+  const propuesta = propuestaDesdeComprobacionPendiente(comprobacion);
+  if (propuesta && propuesta.contexto.bolsa_ref === comprobacion.bolsa_ref) {
+    try {
+      const ruta = rutaCandidatosBolsaCompartible("", comprobacion.bolsa_ref, "", { comprobacion: propuesta });
+      if (ruta.length <= 4_096) return { ruta, clave: "llamamiento_comprobacion_comprobar" };
+    } catch { /* se ofrece la bolsa sin propuesta */ }
+  }
+  return { ruta: rutaCandidatosBolsaCompartible("", comprobacion.bolsa_ref), clave: "llamamiento_comprobacion_ver_bolsa" };
+}
 
 /** Recibo que habilita el siguiente llamamiento: la renuncia resuelta o la
  * expiración confirmada por RRHH (sin respuesta en plazo). */
@@ -345,7 +359,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         aria-live="polite" aria-atomic="true" tabindex="-1">${paso.comprobacionPendiente && operacion === "seleccion"
           ? `${e(t("llamamiento_comprobacion_pendiente", { posicion: paso.comprobacionPendiente.orden_acta }))}` +
             `${paso.comprobacionPendiente.version_politica_ofertas ? `<p>${e(t("llamamiento_comprobacion_version", { version: paso.comprobacionPendiente.version_politica_ofertas }))}</p>` : ""}` +
-            `<a class="boton-secundario" href="${e(`/portal-empleado/${rutaCandidatosBolsaCompartible("", paso.comprobacionPendiente.bolsa_ref)}`)}">${e(t("llamamiento_comprobacion_ver_bolsa"))}</a>`
+            `${((enlace) => `<a class="boton-secundario" href="${e(`/portal-empleado/${enlace.ruta}`)}">${e(t(enlace.clave))}</a>`)(enlaceComprobacionPendiente(paso.comprobacionPendiente))}`
           : e(t(paso.mensaje))}</div>
       ${recibo(operacion, paso.recibo)}
       ${operacion === "seleccion" && !paso.recibo && estado.recuperacionOferta?.mensaje
