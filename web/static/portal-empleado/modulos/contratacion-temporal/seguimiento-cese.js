@@ -6,7 +6,7 @@ import { filasNoIncorporacion, formularioNoIncorporacion, formularioPropuestaNoI
   solicitudNoIncorporacion, solicitudResolucionPropuestaNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=VEC_WEB_VERSION";
 import { filasPropuestas } from "./seguimiento-propuestas.js?v=VEC_WEB_VERSION";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
-import { IDIOMA_ACTUAL } from "../../../comun/idioma.js?v=VEC_WEB_VERSION";
+import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
 
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 

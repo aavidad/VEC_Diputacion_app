@@ -1,8 +1,8 @@
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=VEC_WEB_VERSION";
-import { validarReferenciaExpedienteSeguimiento } from "./contrato-seguimiento-incorporacion.js?v=VEC_WEB_VERSION";
+import { validarReferenciaExpedienteSeguimiento } from "./contrato-seguimiento-incorporacion.js";
 import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js?v=VEC_WEB_VERSION";
 import { montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=VEC_WEB_VERSION";
-import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../../../comun/idioma.js?v=VEC_WEB_VERSION";
+import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 /** La URL localiza el expediente; la versión y el permiso proceden de la consulta. */
 export function montarRevisionNoIncorporacion({ documento, localizacion, ventana, cliente, mensajes = {} } = {}) {
