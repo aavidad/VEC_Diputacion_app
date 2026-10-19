@@ -85,17 +85,27 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
   const espera = resumen?.estado_clave === "espera";
   const incidencia = resumen?.estado_clave === "incidencia";
   const guiaCobertura = coberturaPendiente === true && !bloqueado && !terminado && !espera;
+  const resultadoFiscalizacion = expediente.fiscalizacion?.resultado_clave;
+  const fiscalizacionFavorable = ["favorable", "favorable_con_observaciones"].includes(resultadoFiscalizacion)
+    && typeof expediente.fiscalizacion?.registrada_en === "string"
+    && expediente.fiscalizacion.registrada_en.trim() !== ""
+    && resumen?.fase_clave === "fiscalizacion" && resumen.estado_clave === "en_curso"
+    && resumen.version === expediente.version && estado.expediente_ref === expediente.expediente_ref
+    && !bloqueado && !terminado && !espera && !incidencia;
   // En fiscalización el acto es de Intervención: a quien no lo es se le dice
   // quién tiene que actuar, sin ofrecerle un trámite que no puede hacer.
-  const esperaIntervencion = fiscalizacionAjena === true && !bloqueado && !terminado && !incidencia
+  const esperaIntervencion = fiscalizacionAjena === true && !fiscalizacionFavorable
+    && resultadoFiscalizacion !== "desfavorable" && !bloqueado && !terminado && !incidencia
     && (resumen?.fase_clave === "fiscalizacion" || expediente.fases?.some(({ fase_ref: ref, estado_clave: e }) => (
       typeof ref === "string" && ref.endsWith(":fiscalizacion") && e !== "pendiente" && e !== "completado")));
   const titulo = guiaCobertura ? t("ficha_siguiente_paso_cobertura_titulo")
+    : fiscalizacionFavorable ? t("ficha_siguiente_paso_fiscalizacion_favorable_titulo")
     : esperaIntervencion ? t("ficha_siguiente_paso_espera")
     : terminado ? t("ficha_siguiente_paso_terminado")
     : (espera ? t("ficha_siguiente_paso_espera")
       : (nombreFase ? t("ficha_siguiente_paso_fase", { fase: nombreFase }) : t("siguiente_paso_titulo")));
   const que = guiaCobertura ? t("ficha_siguiente_paso_cobertura_que")
+    : fiscalizacionFavorable ? t("ficha_siguiente_paso_fiscalizacion_favorable_que")
     : esperaIntervencion ? t("ficha_siguiente_paso_fiscalizacion_intervencion")
     : accion?.etiqueta ?? (tarea ? t("siguiente_paso_espera", { tarea: tarea.etiqueta }) : t("siguiente_paso_sin_tarea"));
   const conPlazo = resumen?.plazo_estado && resumen.plazo_estado !== "no_calculado";
@@ -107,14 +117,14 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
     <div>
       <h3 id="ct-exp-siguiente-paso-titulo">${escapar(titulo)}</h3>
       <dl>
-        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera || guiaCobertura || esperaIntervencion ? escapar(que)
+        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera || guiaCobertura || fiscalizacionFavorable || esperaIntervencion ? escapar(que)
     : `<span class="ct-exp-que-con-tramite">${escapar(t("siguiente_paso_tramite_abajo"))}</span><span class="ct-exp-que-sin-tramite">${escapar(que)}</span>`}</dd></div>
-        ${tarea && !guiaCobertura ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(actor || t("siguiente_paso_quien_desconocido"))}</dd></div>` : ""}
+        ${tarea && !guiaCobertura && !fiscalizacionFavorable ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(actor || t("siguiente_paso_quien_desconocido"))}</dd></div>` : ""}
         <div><dt>${escapar(t("siguiente_paso_hasta"))}</dt><dd>${escapar(plazo)}</dd></div>
       </dl>
       <p id="ct-exp-siguiente-paso-estado" role="status" aria-live="polite" aria-atomic="true">${bloqueado ? escapar(t(mensajeBloqueo)) : ""}</p>
     </div>
-    ${terminado || espera || guiaCobertura || esperaIntervencion ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite"${bloqueado ? ' disabled aria-disabled="true" aria-describedby="ct-exp-siguiente-paso-estado"' : ""}>${escapar(t("ficha_ir_tramite"))}</button>`}
+    ${terminado || espera || guiaCobertura || fiscalizacionFavorable || esperaIntervencion ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite"${bloqueado ? ' disabled aria-disabled="true" aria-describedby="ct-exp-siguiente-paso-estado"' : ""}>${escapar(t("ficha_ir_tramite"))}</button>`}
   </section>`;
 }
 

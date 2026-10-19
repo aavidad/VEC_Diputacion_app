@@ -265,7 +265,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAltaAdmitido(
 	ctx context.Context, organizacionRef string, clave domain.ClaveCatalogo,
 	esquema string, necesidad *domain.DatosNecesidadAlta,
 ) (bool, error) {
-	if esquema == ports.EsquemaAltaNecesidadV1 {
+	if esquema == ports.EsquemaAltaNecesidadV1 || esquema == ports.EsquemaAltaNecesidadV2 {
 		return necesidad != nil && necesidad.CausaClave == clave &&
 			application.NecesidadAltaValidadaPara(ctx, organizacionRef, necesidad), nil
 	}

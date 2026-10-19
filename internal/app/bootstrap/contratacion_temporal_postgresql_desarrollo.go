@@ -108,6 +108,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialBorradorConsulta                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialSituacion                       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialComprobacion                    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConfirmacionDirecta             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaSolicitudesDocumentales *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaReincorporacionTitular  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialContacto                        *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -882,6 +883,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		if err != nil {
 			return vacias, err
 		}
+	}
+	if seleccion.borradoresBolsa {
+		dependencias.proveedorMaterialConfirmacionDirecta = proveedorConfirmacionDirectaOpcional(
+			ctx, gobierno, material, reloj, catalogoMaterial)
 	}
 	// Organización histórica es opcional e independiente de B2. La selección
 	// y la publicación usan el gobierno central, pero su fallo sólo deja esta

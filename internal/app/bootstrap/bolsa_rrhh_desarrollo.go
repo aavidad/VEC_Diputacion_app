@@ -170,6 +170,10 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if esMutacionSituacion {
 		_, _, esMutacionSituacion = bolsahttp.ReferenciasRutaSituacionParticipacion(r)
 	}
+	esConfirmacionDirecta := h != nil && h.mutar != nil && r != nil && r.Method == http.MethodPost
+	if esConfirmacionDirecta {
+		_, _, _, esConfirmacionDirecta = bolsahttp.ReferenciasRutaConfirmacionDirecta(r)
+	}
 	esOperacion := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
 	if esOperacion {
 		_, _, esOperacion = bolsahttp.ReferenciasRutaOperacionesSituacion(r)
@@ -198,7 +202,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	cabeceras := http.Header(nil)
 	if r != nil {
 		cabeceras = r.Header
-		if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
+		if esMutacionSituacion || esConfirmacionDirecta || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
 			cabeceras = r.Header.Clone()
 			cabeceras.Del("Idempotency-Key")
 		}
@@ -211,7 +215,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
+	if esMutacionSituacion || esConfirmacionDirecta || esOperacion || esContacto || esDatosContacto || esContratos || esSancion || esSolicitudesDocumentales {
 		h.mutar.ServeHTTP(w, r)
 		return
 	}

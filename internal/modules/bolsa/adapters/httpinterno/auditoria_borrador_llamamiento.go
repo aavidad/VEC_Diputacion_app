@@ -124,6 +124,11 @@ func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIn
 	if _, _, ok := ReferenciasRutaComprobacionOfrecimiento(r); ok && r.Method == http.MethodPost {
 		return puertosbolsa.AccionIntentoRegistrarComprobacionOfrecimiento, puertosbolsa.ClaseRutaComprobacionOfrecimiento, true
 	}
+	// La bitácora de frontera agrupa los actos sobre la ficha; la decisión V3
+	// y el consumo B128 conservan la acción nominal de confirmación.
+	if _, _, _, ok := ReferenciasRutaConfirmacionDirecta(r); ok && r.Method == http.MethodPost {
+		return puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ClaseRutaSituacionParticipacion, true
+	}
 	// La lectura documental RRHH comparte la clase durable de consulta de
 	// situación, pero conserva su acción V3 nominal en el caso de uso.
 	if r != nil && r.URL != nil && r.Method == http.MethodGet && r.URL.Path == RutaSolicitudesDocumentalesPendientesRRHH && r.URL.RawPath == "" {

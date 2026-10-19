@@ -187,6 +187,12 @@ Reglas:
 - Las altas de LOGIN, su retirada y los cambios de membresía los hace el DBA
   (Dirección) por el circuito central; nunca una petición HTTP.
 
+El primer corte de F1-09 prepara `comprobacion_ofrecimiento_v1` en Bolsa: historia
+de solo adición, hechos y referencias documentales, política aplicada y recibo.
+CT233 coteja el contexto del expediente como operación privada entre propietarios;
+AD290 exige la acción propia. Su habilitación central y su conexión a la pantalla
+siguen pendientes. Guion: `deploy/principal/comprobacion_ofrecimiento_f1_09_20261016.md`.
+
 ## 5. Contrato de transacción
 
 Toda llamada a una función de escritura, y la mayoría de lecturas auditadas, va así:
@@ -423,6 +429,17 @@ El orden y las precondiciones de instalación están en
 `deploy/principal/candidata_hz39/aspirante/preferencias_internas.md`.
 
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
+
+F1-73 prepara el contrato de alta directa `vec.ct.alta_necesidad.v2`: el
+servidor obtiene el número de personas de la necesidad sellada. CT239 admite
+esa cantidad sin exigir un puesto o una jornada superiores, siempre que la
+necesidad sea válida y las cantidades coincidan. Ajusta validación,
+reconstrucción, cardinalidad del alta y análisis; conserva los bytes de las
+altas anteriores, sus permisos y tablas. Dos revisiones SQL, el ensayo en
+copia y el alta HTTP con recuperación tras reiniciar son favorables. La
+cantidad persiste hasta el informe jurídico; la reserva de plazas sigue
+pendiente del plan nominal de firma de la copia. Activación:
+`deploy/principal/alta_plural_f1_73.md`.
 
 Un **centro** presenta una **petición** que otra persona ratifica
 (`peticion_centro_revision`; no hay tabla `peticion_centro` propia, la
@@ -702,6 +719,15 @@ preferencias. Las dos concesiones propias del justificante, las admisiones y
 el motivo preparados como datos ficticios de copia no acreditan actos
 gobernados. La concesión interna de RRHH usa el acto genérico vigente.
 
+F1-12 prepara AD294, después del bloque AD279/AUT96/B116/AD275 y de
+AD288 y B128. Reconstruye solo el registro del intento nominal externo de consultar
+preferencias de Mi Bolsa: `transaccion_origen` queda NULL, como exige su CHECK.
+La lectura autorizada mantiene `pg_current_xact_id()` y el GET existente.
+No cambia el núcleo, las audiencias, los permisos ni la configuración. AD246
+y AD275 conservan su historia y no se reaplican. Ensayada con la lista
+completa y las pruebas de fase 1; guía en
+[`intento_preferencias_sin_transaccion_f1_12_20261018.md`](../../deploy/principal/intento_preferencias_sin_transaccion_f1_12_20261018.md).
+
 ### 9.2 Reserva del número
 
 Antes de crear el fichero, reserva el número en `RESERVAS_MIGRACIONES.md`, en la
@@ -870,13 +896,16 @@ Esa cobertura indica qué documentos consultar; no concede permiso de firma.
 La ficha conserva los errores de consulta de cada documento y muestra los
 cuatro documentos sin plan como pendientes, sin acciones de firma.
 
-La fuente interna de B devuelve como máximo 128 pares de `firma_ref` y selector
-(`expediente_ref`, `version_expediente`, `documento`, `paso_orden`,
-`clave_idempotencia`, `catalogo_huella`, `via`) con el recibo adicional
-(`acceso_ref`, `sello_detalle_sha256`, `sello_selectores_sha256`). En B no hay
-serializador HTTP ni panel para exponerlos. Una ficha antigua sigue con su
-contrato anterior; una lectura ampliada requiere ambos sellos, aun con lista
-vacía, y `[]` nunca autoriza un comodín.
+F1-36C prepara la serialización de B en la respuesta del detalle RRHH:
+`data.selectores_recuperacion_firmas` (máximo 128) y
+`data.recibo_selectores_recuperacion_firmas` (`acceso_ref`,
+`sello_detalle_sha256`, `sello_selectores_sha256`). Ambos campos deben aparecer
+juntos, también cuando la lista es `[]`; el detalle anterior omite ambos.
+Cada entrada liga `firma_ref` al selector exacto de expediente, versión,
+documento, paso, clave, huella de catálogo y vía. El navegador no construye
+selectores ni suma permisos. La pulsación usa la recuperación V2 existente y
+obtiene un acceso nuevo, mientras presenta el recibo del registro original.
+Este contrato está en rama y aún no acredita consulta en navegador.
 
 La lista de activación de #1137 ordena CT218, IS20, AUT97, CT219 y CT224. AUT97
 reconstruye el validador nominal desde su preimagen y cambia únicamente el
