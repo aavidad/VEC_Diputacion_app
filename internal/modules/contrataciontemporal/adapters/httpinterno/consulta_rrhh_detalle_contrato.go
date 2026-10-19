@@ -18,17 +18,19 @@ type envoltorioDetalleRRHH struct {
 }
 
 type detalleRRHHJSON struct {
-	Esquema           string                     `json:"esquema"`
-	Resumen           resumenRRHHJSON            `json:"resumen"`
-	Solicitud         solicitudRRHHJSON          `json:"solicitud"`
-	Analisis          *analisisRRHHJSON          `json:"analisis,omitempty"`
-	Cobertura         *coberturaRRHHJSON         `json:"cobertura,omitempty"`
-	Asignacion        *asignacionRRHHJSON        `json:"asignacion,omitempty"`
-	Fiscalizacion     *fiscalizacionRRHHJSON     `json:"fiscalizacion,omitempty"`
-	Hitos             []hitoExpedienteRRHHJSON   `json:"hitos"`
-	PresentacionFlujo *presentacionFlujoRRHHJSON `json:"presentacion_flujo,omitempty"`
-	CapacidadesFicha  *capacidadesFichaRRHHJSON  `json:"capacidades_ficha,omitempty"`
-	ResultadoBolsa    *ports.ResultadoBolsaRRHH  `json:"resultado_bolsa,omitempty"`
+	Esquema                            string                                  `json:"esquema"`
+	Resumen                            resumenRRHHJSON                         `json:"resumen"`
+	Solicitud                          solicitudRRHHJSON                       `json:"solicitud"`
+	Analisis                           *analisisRRHHJSON                       `json:"analisis,omitempty"`
+	Cobertura                          *coberturaRRHHJSON                      `json:"cobertura,omitempty"`
+	Asignacion                         *asignacionRRHHJSON                     `json:"asignacion,omitempty"`
+	Fiscalizacion                      *fiscalizacionRRHHJSON                  `json:"fiscalizacion,omitempty"`
+	Hitos                              []hitoExpedienteRRHHJSON                `json:"hitos"`
+	PresentacionFlujo                  *presentacionFlujoRRHHJSON              `json:"presentacion_flujo,omitempty"`
+	CapacidadesFicha                   *capacidadesFichaRRHHJSON               `json:"capacidades_ficha,omitempty"`
+	ResultadoBolsa                     *ports.ResultadoBolsaRRHH               `json:"resultado_bolsa,omitempty"`
+	SelectoresRecuperacionFirmas       *[]ports.FirmaSelectorRecuperacionRRHH  `json:"selectores_recuperacion_firmas,omitempty"`
+	ReciboSelectoresRecuperacionFirmas *ports.ReciboSelectoresRecuperacionRRHH `json:"recibo_selectores_recuperacion_firmas,omitempty"`
 }
 
 type capacidadesFichaRRHHJSON struct {
@@ -163,6 +165,12 @@ func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 		},
 		Hitos:          make([]hitoExpedienteRRHHJSON, len(entrada.Hitos)),
 		ResultadoBolsa: entrada.ResultadoBolsa,
+	}
+	if filas, disponibles := entrada.SelectoresRecuperacionFirmas(); disponibles {
+		salida.SelectoresRecuperacionFirmas = &filas
+		if recibo, presente := entrada.ReciboSelectoresRecuperacionFirmas(); presente {
+			salida.ReciboSelectoresRecuperacionFirmas = &recibo
+		}
 	}
 	if entrada.EstadoBorradoresPublicados == ports.BorradoresRRHHSinMontaje ||
 		entrada.EstadoBorradoresPublicados == ports.BorradoresRRHHMontado {

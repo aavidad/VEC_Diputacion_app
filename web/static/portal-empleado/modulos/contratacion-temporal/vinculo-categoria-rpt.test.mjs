@@ -132,7 +132,7 @@ test("si el análisis cambió, avisa y registra una revisión nueva enlazada a l
 
 test("categoría del análisis sin publicar: lo explica y no ofrece registrar", async () => {
   const { r } = await montar(cliente({ listarCategoriasRPT: async () => ({ ...pagina(), categorias: pagina().categorias.slice(0, 1) }) }));
-  assert.match(r.innerHTML, /no está entre las categorías publicadas/u);
+  assert.match(r.innerHTML, /no figura entre las publicadas/u);
   assert.doesNotMatch(r.innerHTML, /data-vinculo-accion="vincular"/u);
 });
 
