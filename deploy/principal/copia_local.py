@@ -224,6 +224,9 @@ class Copia:
                 ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
             from copia_local_verificacion import comprobar as comprobar_conexiones
             comprobar_conexiones(self)
+        # BC14: tras la lista y el kit de datos, que cargan las versiones.
+        from copia_local_publicacion_bases import declarar as declarar_publicacion_bases
+        declarar_publicacion_bases(self)
         if args.segundo_rrhh:
             from copia_local_rrhh_adicional import preparar_copia
             huella_semilla = preparar_copia(self)

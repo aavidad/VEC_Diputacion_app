@@ -68,12 +68,20 @@ publicación de sus versiones antes de comprobarlas.
 ## Activación en una copia
 
 Después de BC14 ninguna convocatoria aparece abierta hasta que se declare su
-publicación. En la copia se aplica, como propietario de
-`vec_bolsa_convocatorias`, `declarar_ensayo_copia.sql`. Declara una
-publicación ficticia de la versión 2 de la bolsa de ensayo de auxiliar. Las
-listas de la copia solo admiten migraciones, así que este fichero lo aplica el
-kit privado de datos de la copia o se aplica a mano. El kit de Dirección para
-copias y presentaciones tiene que incluirlo.
+publicación. `copia_local.py crear` aplica `declarar_ensayo_copia.sql` después
+de la lista SQL y del kit de datos, que es quien carga las versiones
+(`copia_local_publicacion_bases.py`, registro en `publicacion-bases.log`). Las
+copias de presentación salen del mismo `crear`, así que también la reciben. El
+kit privado no cambia.
+
+La semilla declara, como propietario de `vec_bolsa_convocatorias`, una
+publicación ficticia para cada convocatoria cuya versión vigente tenga hoy un
+único plazo de inscripción abierto y aún no tenga declaración. La fecha es el
+día anterior al primer día del plazo, el medio es el tablón sin boletín y el
+anuncio y la clave llevan el prefijo COPIA. Así la copia conserva las
+convocatorias que tenía abiertas antes de BC14. Repetirla no escribe nada y,
+sin BC14 instalada, no hace nada. No se aplica en cidonia, en el servidor nuevo
+ni en producción.
 
 Comprobado en una copia propia: sin declaración la lista de abiertas estaba
 vacía. Después de declarar salió la versión 2 con su recibo. Tras reiniciar
