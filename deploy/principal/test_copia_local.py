@@ -31,6 +31,16 @@ class CopiaLocalTest(unittest.TestCase):
                 if 'diff' in args else b'BEGIN; COMMIT;').start()
         self.addCleanup(patch.stopall)
 
+    def test_puerto_en_espera_queda_libre_y_uno_escuchando_no(self):
+        import socket
+        servidor = socket.socket(); servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        servidor.bind(('127.0.0.1', 0)); servidor.listen(); puerto = servidor.getsockname()[1]
+        cliente = socket.create_connection(('127.0.0.1', puerto)); aceptado, _ = servidor.accept()
+        with self.assertRaises(OSError):
+            copia.puerto_libre(puerto)
+        aceptado.close(); servidor.close(); cliente.recv(1); cliente.close()
+        copia.puerto_libre(puerto)
+
     def test_rechaza_down_y_fuga_fuera_del_repositorio(self):
         for ruta in ['000001.down.sql', '../../../exterior.up.sql']:
             with self.subTest(ruta=ruta):
