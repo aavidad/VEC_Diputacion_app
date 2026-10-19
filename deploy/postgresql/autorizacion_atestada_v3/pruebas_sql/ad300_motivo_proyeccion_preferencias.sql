@@ -25,6 +25,18 @@ BEGIN
  THEN RAISE EXCEPTION 'AD300: restricción de formato divergente' USING ERRCODE='55000'; END IF;
 END $metadatos$;
 
+DO $roles$
+BEGIN
+ -- Como b138: el LOGIN externo de la copia, o uno equivalente que revierte.
+ IF to_regrole('vec_externo_bolsa_desarrollo') IS NULL THEN
+  CREATE ROLE vec_externo_bolsa_desarrollo LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ END IF;
+ IF NOT pg_has_role('vec_externo_bolsa_desarrollo','vec_bolsa_llamamientos_portal_externo','MEMBER') THEN
+  GRANT vec_bolsa_llamamientos_portal_externo TO vec_externo_bolsa_desarrollo
+   WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
+ END IF;
+END $roles$;
+
 -- La lectura de Bolsa y su fachada auditada comprueban el LOGIN de sesión.
 SET LOCAL SESSION AUTHORIZATION vec_externo_bolsa_desarrollo;
 DO $casos$
