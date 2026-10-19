@@ -83,10 +83,11 @@ convocatorias que tenía abiertas antes de BC14. Repetirla no escribe nada y,
 sin BC14 instalada, no hace nada. No se aplica en cidonia, en el servidor nuevo
 ni en producción.
 
-Comprobado en una copia propia: sin declaración la lista de abiertas estaba
-vacía. Después de declarar salió la versión 2 con su recibo. Tras reiniciar
-PostgreSQL y la aplicación seguía en la lista, y repetir la declaración devolvió
-el mismo recibo, con una sola fila y un solo evento.
+Comprobado en una copia nueva creada con `crear`: la semilla declaró la
+versión 2 de la convocatoria de Administrativo/a y la lista de abiertas la
+mostró. Tras reiniciar PostgreSQL y la aplicación seguía en la lista, y repetir
+la semilla no declaró nada nuevo: una sola fila y un solo evento. Sin la
+semilla, la lista estaba vacía.
 
 Al instalar BC14 en una base con convocatorias abiertas, todas desaparecen de la
 lista hasta que se anote su publicación. Es lo previsto.
