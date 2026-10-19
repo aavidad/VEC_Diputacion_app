@@ -293,7 +293,7 @@ ON_ERROR_STOP=1`, después ejecutar el `.up.sql` intacto. No reaplicar las
 migraciones antiguas ni ejecutar el `.down.sql` si hay vínculos.
 
 El staging de CONVOCA guarda las filas cifradas; la referencia `can_*` exige
-el mismo material KMS que utilizó `constituir-bolsa`. Por ello SQL no descifra
+el mismo material KMS que utilizó la constitución. Por ello SQL no descifra
 ni recibe la clave: `rellenar-vinculos-bolsa` usa el recuperador acreditado de
 CONVOCA, `DerivadorCandidatoHMAC` y el número de fila guardado en la
 constitución. Solo transmite pares `{fila_numero,candidato_ref}` a la función

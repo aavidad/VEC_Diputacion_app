@@ -403,8 +403,17 @@ solo reciben ámbito con `declarar_ambito_bolsa_v1`, que únicamente puede
 ejecutar el propietario. En la copia local se hace con la semilla del
 manifiesto `identidad/bolsa-bback.json`
 (`deploy/principal/copia_local_ambito_bolsas.py`), y una bolsa sin declarar se
-queda sin ámbito. Por ahora los actos de Bolsa siguen usando el ámbito fijo de
-la composición; cotejarlo con esta tabla es el segundo corte. Activación en
+queda sin ámbito.
+
+Desde el segundo corte (B145) los actos sobre una bolsa toman de esta tabla la
+unidad y el ámbito del recurso que autoriza la decisión V3, con
+`leer_ambito_bolsa_v1`, la única lectura concedida al ejecutor. Así la
+decisión los compara con la asignación real del actor: una bolsa de otra
+unidad gestora se deniega aunque el actor tenga permiso en la suya, y una
+bolsa sin ámbito se deniega siempre. La confirmación de una aceptación (B128)
+lo coteja además en SQL antes de consumir la decisión. La recuperación de una
+carga cuya bolsa no tiene ámbito también se deniega, y el rol de línea de
+órdenes ya no puede constituir bolsas. Activación en
 `deploy/principal/ambito_bolsa_f1_60.md`.
 
 Candidata F1-04/05: `GET/POST /api/vec/bolsa/politica-transiciones` conecta la política global B32 con el portal de RRHH. CAT14 ofrece una lectura nominal por versión y huella del catálogo `bolsa.transiciones_situacion`; AD283 registra el consumidor propio; B122 añade el acto de gobierno y su salida pendiente, con versión esperada, motivo, recibo y auditoría. El POST exige decisión V3 fresca y conserva el recibo original en un reintento. El publicador ordinario antiguo pierde EXECUTE para el ejecutor. La instalación única está comprobada en la copia propia con las ACL completas; el recorrido conserva versión y recibo después de reiniciar aplicación y PostgreSQL. B126 sustituye los cuantificadores no admitidos por predicados equivalentes de longitud y conjunto de caracteres, sin cambiar permisos ni cánones. B127 expone `publicada_en` desde la fila guardada; un reintento conserva el instante original. La activación de la candidata y la preimagen de AD283 tras la cadena central siguen pendientes. Su lista causal está en `deploy/principal/lista_sql_codexs_reglas_situacion_20261015.txt`.
