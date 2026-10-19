@@ -47,7 +47,8 @@ CONFIG NUEVA: ninguna. No cambia roles ni concesiones de RRHH. En Go solo
 cambia la traducción de errores de la oferta CT (40P01).
 
 1. Partir de la lista única de main tras HZ37, con F1-09 completa (B137 y
-   AD293). Instalar, en este orden y una sola vez, B140, AD297 y CT240 desde
+   AD293) y F1-11 instalada (CT235 y B136): CT240 parte de la reserva de
+   oferta de CT235 y conserva su exigencia de modalidad y causa. Instalar, en este orden y una sola vez, B140, AD297 y CT240 desde
    `deploy/principal/lista_sql_main_tras_hz37.txt`. Cada una comprueba la
    huella de los cuerpos que sustituye y la de los que deja; no hay DOWN.
 2. Conservar la configuración, instalar el binario nuevo, reiniciar la

@@ -1,5 +1,7 @@
 \set ON_ERROR_STOP on
 -- CT240 / F1-10: la reserva de oferta recoteja Bolsa antes de bloquear CT.
+-- Parte de la reserva que deja CT235 (F1-11) y conserva su exigencia del par
+-- modalidad y causa en la reserva nueva.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -15,7 +17,7 @@ DO $pre$ BEGIN
   'vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(jsonb)','EXECUTE') IS NOT TRUE
  OR encode(sha256(convert_to(pg_get_functiondef(
   'vec_contratacion_temporal.reservar_seleccion_oferta_ct220(jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex')
- IS DISTINCT FROM 'f83d3f430f67ef60f886836cc7ac170984a3ff0e44c83eee59300d8c0f86c6d9'
+ IS DISTINCT FROM 'b190f4d197cba3a33556e58e414b370c547aa4b2070524efaca3e67d1e63e8e7'
  THEN RAISE EXCEPTION 'CT240: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.reservar_seleccion_oferta_ct220(p_intencion jsonb, p_comando jsonb, p_material text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
@@ -79,6 +81,20 @@ BEGIN
    WHERE x.tipo_seleccion='llamamiento'
      AND x.solicitud_json->>'expediente_ref'=p_intencion->>'expediente_ref') THEN
   RAISE EXCEPTION 'CT220: expediente ya tiene selección singular' USING ERRCODE='23505'; END IF;
+ -- Las guardas de CT220 valen también para el reintento. Solo la reserva nueva
+ -- exige el par y lo coteja; la anterior a F1-11 se recupera sin él.
+ IF NOT EXISTS(SELECT 1 FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 previa
+   WHERE previa.clave_idempotencia=(p_intencion->>'clave_idempotencia')::uuid) THEN
+ IF p_comando->'datos' ?& ARRAY['modalidad_clave','causa_clave'] IS NOT TRUE THEN
+  RAISE EXCEPTION 'CT235: la nueva reserva exige modalidad y causa' USING ERRCODE='22023'; END IF;
+ PERFORM 1 FROM vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(
+   p_intencion->>'expediente_ref',p_intencion->>'categoria_ref',
+   p_intencion->>'organizacion_ref',(p_intencion->>'version_expediente')::bigint) x
+  WHERE x.modalidad_clave=p_comando#>>'{datos,modalidad_clave}'
+    AND x.causa_clave=p_comando#>>'{datos,causa_clave}'
+    AND x.version_expediente=(p_intencion->>'version_expediente')::bigint;
+ IF NOT FOUND THEN RAISE EXCEPTION 'CT235: modalidad o causa distinta del análisis vigente' USING ERRCODE='42501'; END IF;
+ END IF;
  v_ahora:=date_trunc('microseconds',clock_timestamp());
  INSERT INTO vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6(
   clave_idempotencia,huella_semantica,solicitud_json,reserva_ref,tipo_seleccion,comando_oferta_json)
@@ -118,7 +134,7 @@ DO $post$ DECLARE p record; BEGIN
  IF p.dueno<>'vec_contratacion_temporal_propietario' OR p.prosecdef IS NOT TRUE
  OR p.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']
- OR p.huella IS DISTINCT FROM '27a91dbe9d3c194edd39f7accad0fbf8b891968fbe8fbccef2605814ef0ff534'
+ OR p.huella IS DISTINCT FROM '45f84d4328a28c909966560149e08fd51ad13c73e737657a889e07dc3d3dd735'
  THEN RAISE EXCEPTION 'CT240: postimagen incompatible' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;
