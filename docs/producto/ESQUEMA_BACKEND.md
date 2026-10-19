@@ -187,6 +187,12 @@ Reglas:
 - Las altas de LOGIN, su retirada y los cambios de membresía los hace el DBA
   (Dirección) por el circuito central; nunca una petición HTTP.
 
+El primer corte de F1-09 prepara `comprobacion_ofrecimiento_v1` en Bolsa: historia
+de solo adición, hechos y referencias documentales, política aplicada y recibo.
+CT233 coteja el contexto del expediente como operación privada entre propietarios;
+AD290 exige la acción propia. Su habilitación central y su conexión a la pantalla
+siguen pendientes. Guion: `deploy/principal/comprobacion_ofrecimiento_f1_09_20261016.md`.
+
 ## 5. Contrato de transacción
 
 Toda llamada a una función de escritura, y la mayoría de lecturas auditadas, va así:
@@ -382,6 +388,20 @@ pendiente anterior a la siguiente persona elegible detiene la selección de CT
 antes de reservar y produce un diagnóstico 409 con bolsa, posición y versión.
 Esta entrega conserva la detención: el acto que acredite los hechos y habilite
 la excepción, junto con el control del plazo en CT, pertenece al corte siguiente.
+
+F1-09 prepara `POST /api/vec/bolsa/bolsas/{bolsa}/candidatos/{participacion}/comprobaciones-ofrecimiento`:
+cuerpo `contexto`, `hechos` y `version_esperada`, con `Idempotency-Key`.
+La identidad procede de la sesión certificada; el ámbito se coteja con el
+resolutor existente. La huella del material se calcula sobre `jsonb::text`
+antes de autorizar y queda como atributo del contexto V3, conforme a B115.
+La escritura B133 consume esa autorización y valida CT233 en la misma
+transacción; depende del primer corte SQL y del alta central AD291/F0-18.
+Sin material de la audiencia nueva responde 503, sin impedir el arranque.
+B134 conserva la acción nominal del intento de comprobación en la bitácora
+existente. Un COMMIT sin respuesta se reconcilia con la misma intención;
+si no se puede confirmar, el resultado se comunica como indeterminado.
+La proyección mínima en las listas existentes y la pantalla F1-57 siguen
+pendientes. Guion: `deploy/principal/comprobacion_ofrecimiento_api_f1_09_20261018.md`.
 
 Ojo: las tablas de propuesta de las migraciones Bolsa `000001` y `000002`
 (`necesidad_autoritativa`, `propuesta`…) **no están instaladas en la principal**; comprobar su existencia
@@ -599,6 +619,17 @@ validez (`valida_hasta`). RBAC es necesario; las políticas ABAC solo restringen
 Los perfiles no se suman y no hay comodines. Reglas completas:
 `docs/producto/FLUJO_APP.md`, apartado 6.
 
+AD295 (F0-29) amplía el lector existente de la cadena de gobierno ADMIN:
+`cadena_gobierno_admin_lectura_v1(text,text DEFAULT NULL)`. La segunda referencia
+identifica el asiento del acuse y devuelve su tramo contiguo sellado, aunque
+haya registros posteriores de otros tipos o de otro gobierno. Sin referencia
+conserva el sufijo anterior. Retira la firma de un argumento; conserva el grupo
+lector, propietario y permisos. La consola valida el acuse privado contra su
+plan y material y coteja el acto dentro del tramo antes de declararlo verificado.
+No publica claves, modifica asientos ni repite un acto de administración.
+Con la referencia, el grupo lector puede leer cualquier tramo histórico de
+gobierno, no solo el último; es el mismo dato y el mismo rol técnico.
+
 ### 8.6 ContextoActor (`vec_contexto_actor_v1`)
 
 Resuelve, a partir de la cuenta (`cta_…`) y el perfil (`prf_…`) que ya acreditó la
@@ -797,6 +828,15 @@ propietario, sus privilegios, su RLS, sus índices, sus restricciones y su prueb
    migración en Git **no demuestra** que esté instalada.
 5. La aplicación **no migra al arrancar**. Algunos módulos publican al arrancar
    versiones de políticas desde el catálogo (filas de datos, no esquema).
+
+AD296 (F1-13) reconstruye solo las dos fachadas de auditoría de preferencias
+para admitir las proyecciones exactas de ocho campos de Bolsas o cinco de
+modalidades. Conserva la autoridad vigente, el contexto, los permisos y la
+transacción del positivo. Los intentos de AD294/AD275 mantienen su cuerpo y
+su transacción vacía. Las cuatro funciones reciben un marcador de compatibilidad;
+no concede permiso. La consulta de modalidades necesita además AUT104, B138 y
+la API de preferencias. No se reconstruye el consumidor central. Orden: AD295, AD296
+y AD291. Activación en `deploy/principal/proyecciones_preferencias_f1_13_20261018.md`.
 
 ### 9.7 Rendimiento
 

@@ -704,7 +704,7 @@ inventan plazos, nombramientos eficaces ni incorporaciones.
 
 | Objetivo | Medida |
 | --- | --- |
-| Lecturas de pantallas (listas, fichas, cuadros) | Menos de 300 ms en el percentil 95 (p95: el 95 % de las peticiones tarda menos), medido por HTTP en cidonia con volumen real |
+| Lecturas de pantallas (listas, fichas, cuadros) | Menos de 300 ms en el percentil 95 (p95: el 95 % de las peticiones tarda menos), medido por HTTP en la copia local con el volumen de la principal |
 | Base común (sesión, módulos, preferencias) | Menos de 100 ms |
 | Consultas por petición | Sin N+1: nunca una consulta por cada fila de una lista. Se lee en bloque y se pagina |
 | Volumen | Miles de registros, con carga progresiva |
@@ -737,8 +737,9 @@ Telemetría por petición (`internal/shared/telemetria/`):
   Pruebas de carga: `scripts/carga/`.
 
 **Lo que falta.** El cuadro de Contratación temporal medía entre 363 y 372 ms de
-p95 el 08/10, por encima del objetivo. Faltaba medir todas las lecturas en
-cidonia (`docs/producto/PLAN_IMPLEMENTACION.md`, fase 1, condición 4).
+p95 el 08/10, por encima del objetivo. Falta medir todas las lecturas en la
+copia local (tablero, F1-34; `docs/producto/PLAN_IMPLEMENTACION.md`, fase 1,
+condición 4).
 
 ## 11. Seguridad
 
@@ -893,8 +894,11 @@ Cada subida a cidonia se llama «HZ» seguida de un número correlativo (HZ36 el
 5. Comprueba que la web responde (`/portal-empleado/` en 200).
 6. Si falla el SQL o el arranque, **vuelve atrás sola** a la versión anterior.
 
-Desde el 15/10 cidonia está fuera hasta nueva orden y todo se ensaya y se
-recorre en una copia local; lo que sigue vale para cuando vuelva.
+Desde el 15/10 cidonia está fuera y todo se ensaya y se recorre en una copia
+local. La única excepción fue la subida de la presentación del 18/10, con vuelta
+atrás al paquete anterior; después volvió a quedar congelada. La siguiente
+instalación irá a un servidor nuevo con CPU dedicada (tablero, F7-22); lo que
+sigue vale para entonces.
 cidonia nunca puede quedar apagada por un fallo de arranque. Si la versión nueva
 exige configuración o actos previos, se preparan y se ensayan antes en una copia.
 El registro de cada HZ (revisión, copia y vuelta atrás) se guarda fuera de Git.
