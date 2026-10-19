@@ -6,6 +6,7 @@ membresías globales; se restaura solo el arco migrador→propietario autorizado
 por roles_up.sql. El productor de datos completa los arcos de gobierno que
 necesita el arranque; copia_local_verificacion coteja el contrato final.
 El importador CONVOCA conserva sus dos grupos H1 con SET TRUE.
+El relevo de no incorporaciones conserva su único grupo con SET TRUE.
 Los demás LOGIN reciben SET FALSE y una única membresía.
 """
 
@@ -46,10 +47,12 @@ GRUPOS = {
     "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL": "vec_bolsa_convocatorias_verificador_recibo",
     "VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL": "vec_bolsa_importacion_convoca_ejecutor",
     "VEC_BOLSA_B103_FUENTE_AUTORIZACION_DATABASE_URL": "vec_autorizacion_fuente",
+    "VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL": "vec_bolsa_llamamientos_relevo_no_incorporacion",
 }
 
 RESULTADO = "conexiones.json"
 GOBIERNO = "VEC_CT_GOBIERNO_DATABASE_URL"
+RELEVO_NO_INCORPORACION = "VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL"
 CONVOCA = "VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL"
 RECUPERADOR_CONVOCA = "vec_bolsa_importacion_convoca_recuperador"
 MIGRADOR = "vec_autorizacion_atestada_v3_migrador"
@@ -60,7 +63,7 @@ def membresias(variable: str, grupo: str) -> dict[str, tuple[bool, bool]]:
     """Grupos directos y opciones INHERIT/SET del LOGIN de esta conexión."""
     if variable == CONVOCA:
         return {grupo: (True, True), RECUPERADOR_CONVOCA: (True, True)}
-    return {grupo: (True, variable == GOBIERNO)}
+    return {grupo: (True, variable in (GOBIERNO, RELEVO_NO_INCORPORACION))}
 
 
 def _privado(ruta: Path, *, directorio: bool) -> None:

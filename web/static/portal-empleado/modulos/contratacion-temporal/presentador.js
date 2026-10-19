@@ -11,7 +11,7 @@ import {
   validarBorradorAlta,
   validarCatalogosAlta,
   validarReciboAlta,
-} from "./contrato.js?v=20261013-ct-firma-tres-v3";
+} from "./contrato.js?v=20261018-f173-alta-v2";
 
 const FASE_EDICION = "edicion";
 const FASE_REVISION = "revision";

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash, webcrypto } from "node:crypto";
 import { File } from "node:buffer";
 import test from "node:test";
-import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261001-ct-a-i18n-v1";
+import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20261018-f136c-informe-v4";
 import {
   crearFuenteDocumentacionFormalizacionHTTP, validarDocumentacionFormalizacion, RUTA_DOCUMENTACION_FORMALIZACION,
 } from "./cliente-http-documentacion-formalizacion.js";
@@ -268,7 +268,7 @@ test("el cliente lista anotaciones externas por tipo y registra sin módulo ni c
 
 test("el formulario de llamamiento pinta el panel tras la aceptación con su instante y expediente", async () => {
   const { raizPrueba, abrirResolucion, resolucionConfirmada, revisionManual, CLAVE_RESOLUCION, PUBLICACIONES_PROPUESTA, EXPEDIENTE: EXP } =
-    await import("./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6");
+    await import("./formulario-llamamiento-pruebas.js?v=20261018-f136c-informe-v4");
   const raiz = raizPrueba();
   const fuente = fuentePrueba();
   const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: async () => resolucionConfirmada }, {
