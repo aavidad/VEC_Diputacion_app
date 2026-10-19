@@ -11,8 +11,12 @@
 --   núcleo de autorización; mientras tanto ninguna cuenta de aplicación puede
 --   declarar.
 -- * comprobar_publicacion_inscripcion_v1 y proyectar_abierta_inscripcion_v1
---   (postimagen BC12) exigen una declaración vigente de la versión con fecha
---   anterior al primer día del plazo. Sin ella la versión no se abre.
+--   (postimagen BC12) exigen una declaración vigente de la versión cuya fecha
+--   sea de uno a cuatro días naturales antes del primer día del plazo (hora de
+--   Madrid). El plazo empieza el día siguiente a la publicación (LPAC art. 30);
+--   el margen cubre un fin de semana y un festivo. Si la fecha real no encaja
+--   con el plazo sellado, RRHH publica otra versión con el plazo correcto.
+--   Sin declaración, o fuera de ese margen, la versión no se abre (B9602).
 -- Sin DOWN ni reaplicación. No rellena filas.
 BEGIN;
 SET LOCAL ROLE vec_bolsa_convocatorias_propietario;
@@ -95,7 +99,7 @@ CREATE TABLE vec_bolsa_convocatorias.publicacion_oficial_bases (
   AND anuncio_ref ~ '^[A-Za-z0-9][A-Za-z0-9./_-]{0,79}$'
   AND fecha_publicacion>=DATE '2000-01-01'
   AND (direccion IS NULL OR (octet_length(direccion) BETWEEN 12 AND 512
-   AND direccion ~ '^https://[A-Za-z0-9.-]{3,253}(/[!-~]*)?$'))),
+   AND direccion ~ '^https://[A-Za-z0-9.-]{3,253}(/[A-Za-z0-9._~:/?#@!$&()*+,;=%-]*)?$'))),
  CONSTRAINT publicacion_oficial_autoria CHECK (
   declarada_por ~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{2,159}$'
   AND motivo_ref ~ '^[a-z][a-z0-9._-]{0,127}:[1-9][0-9]{0,9}:[a-z][a-z0-9._-]{0,127}$'
@@ -116,6 +120,9 @@ CREATE UNIQUE INDEX publicacion_oficial_inicial_uq
 CREATE UNIQUE INDEX publicacion_oficial_sucesora_uq
  ON vec_bolsa_convocatorias.publicacion_oficial_bases(sustituye_ref)
  WHERE sustituye_ref IS NOT NULL;
+-- Lectura de la vigente por versión desde la lista y el comprobador.
+CREATE INDEX publicacion_oficial_version_ix
+ ON vec_bolsa_convocatorias.publicacion_oficial_bases(convocatoria_id,secuencia);
 
 CREATE TABLE vec_bolsa_convocatorias.publicacion_oficial_bases_evento (
  evento_ref text PRIMARY KEY,
@@ -128,20 +135,30 @@ CREATE TABLE vec_bolsa_convocatorias.publicacion_oficial_bases_evento (
    'bolsa.convocatoria.publicacion_oficial.corregida'))
 );
 
-DO $protecciones$
-DECLARE tabla text;
-BEGIN
- FOREACH tabla IN ARRAY ARRAY['publicacion_oficial_bases','publicacion_oficial_bases_evento'] LOOP
-  EXECUTE format('CREATE TRIGGER %I_inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_convocatorias.%I FOR EACH ROW EXECUTE FUNCTION vec_bolsa_convocatorias.rechazar_mutacion_inmutable()',tabla,tabla);
-  EXECUTE format('CREATE TRIGGER %I_no_truncar BEFORE TRUNCATE ON vec_bolsa_convocatorias.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_convocatorias.rechazar_mutacion_inmutable()',tabla,tabla);
-  EXECUTE format('ALTER TABLE vec_bolsa_convocatorias.%I ENABLE ROW LEVEL SECURITY',tabla);
-  EXECUTE format('ALTER TABLE vec_bolsa_convocatorias.%I FORCE ROW LEVEL SECURITY',tabla);
-  EXECUTE format('CREATE POLICY acceso_propietario_exacto ON vec_bolsa_convocatorias.%I FOR ALL TO vec_bolsa_convocatorias_propietario USING (current_user = %L) WITH CHECK (current_user = %L)',
-   tabla,'vec_bolsa_convocatorias_propietario','vec_bolsa_convocatorias_propietario');
-  EXECUTE format('REVOKE ALL ON vec_bolsa_convocatorias.%I FROM PUBLIC',tabla);
-  EXECUTE format('REVOKE ALL ON TYPE vec_bolsa_convocatorias.%I FROM PUBLIC',tabla);
- END LOOP;
-END $protecciones$;
+CREATE TRIGGER publicacion_oficial_bases_inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_convocatorias.publicacion_oficial_bases
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_convocatorias.rechazar_mutacion_inmutable();
+CREATE TRIGGER publicacion_oficial_bases_no_truncar BEFORE TRUNCATE ON vec_bolsa_convocatorias.publicacion_oficial_bases
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_convocatorias.rechazar_mutacion_inmutable();
+ALTER TABLE vec_bolsa_convocatorias.publicacion_oficial_bases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_convocatorias.publicacion_oficial_bases FORCE ROW LEVEL SECURITY;
+CREATE POLICY acceso_propietario_exacto ON vec_bolsa_convocatorias.publicacion_oficial_bases FOR ALL
+ TO vec_bolsa_convocatorias_propietario
+ USING (current_user = 'vec_bolsa_convocatorias_propietario')
+ WITH CHECK (current_user = 'vec_bolsa_convocatorias_propietario');
+REVOKE ALL ON vec_bolsa_convocatorias.publicacion_oficial_bases FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_convocatorias.publicacion_oficial_bases FROM PUBLIC;
+CREATE TRIGGER publicacion_oficial_bases_evento_inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_convocatorias.publicacion_oficial_bases_evento
+ FOR EACH ROW EXECUTE FUNCTION vec_bolsa_convocatorias.rechazar_mutacion_inmutable();
+CREATE TRIGGER publicacion_oficial_bases_evento_no_truncar BEFORE TRUNCATE ON vec_bolsa_convocatorias.publicacion_oficial_bases_evento
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_convocatorias.rechazar_mutacion_inmutable();
+ALTER TABLE vec_bolsa_convocatorias.publicacion_oficial_bases_evento ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_convocatorias.publicacion_oficial_bases_evento FORCE ROW LEVEL SECURITY;
+CREATE POLICY acceso_propietario_exacto ON vec_bolsa_convocatorias.publicacion_oficial_bases_evento FOR ALL
+ TO vec_bolsa_convocatorias_propietario
+ USING (current_user = 'vec_bolsa_convocatorias_propietario')
+ WITH CHECK (current_user = 'vec_bolsa_convocatorias_propietario');
+REVOKE ALL ON vec_bolsa_convocatorias.publicacion_oficial_bases_evento FROM PUBLIC;
+REVOKE ALL ON TYPE vec_bolsa_convocatorias.publicacion_oficial_bases_evento FROM PUBLIC;
 
 -- Fecha de la publicación oficial vigente de una versión exacta, o NULL. Solo
 -- la usan los lectores del propietario; sin concesiones.
@@ -184,6 +201,9 @@ BEGIN
  OR jsonb_typeof(d->'convocatoria_id') IS DISTINCT FROM 'string'
  OR jsonb_typeof(d->'secuencia') IS DISTINCT FROM 'number'
  OR coalesce(d->>'secuencia','') !~ '^[1-9][0-9]{0,15}$'
+ OR jsonb_typeof(d->'huella_version_sha256') IS DISTINCT FROM 'string'
+ OR jsonb_typeof(d->'medio') IS DISTINCT FROM 'string'
+ OR jsonb_typeof(d->'fecha_publicacion') IS DISTINCT FROM 'string'
  OR coalesce(d->>'huella_version_sha256','') !~ '^[0-9a-f]{64}$'
  OR coalesce(d->>'medio','') NOT IN ('bop_granada','tablon_edictos_electronico','boe','boja')
  OR coalesce(jsonb_typeof(d->'boletin_numero'),'') NOT IN ('number','null')
@@ -194,7 +214,7 @@ BEGIN
  OR coalesce(jsonb_typeof(d->'sustituye_ref'),'') NOT IN ('string','null')
  OR coalesce(d->>'anuncio_ref','') !~ '^[A-Za-z0-9][A-Za-z0-9./_-]{0,79}$'
  OR (jsonb_typeof(d->'direccion')='string' AND (octet_length(d->>'direccion') NOT BETWEEN 12 AND 512
-  OR d->>'direccion' !~ '^https://[A-Za-z0-9.-]{3,253}(/[!-~]*)?$'))
+  OR d->>'direccion' !~ '^https://[A-Za-z0-9.-]{3,253}(/[A-Za-z0-9._~:/?#@!$&()*+,;=%-]*)?$'))
  OR (jsonb_typeof(d->'sustituye_ref')='string' AND d->>'sustituye_ref' !~ '^publicacion_bases:[0-9a-f]{64}$')
  OR jsonb_typeof(d->'declarada_por') IS DISTINCT FROM 'string'
  OR d->>'declarada_por' !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{2,159}$'
@@ -221,6 +241,9 @@ BEGIN
   'sustituye_ref',d->>'sustituye_ref','declarada_por',d->>'declarada_por',
   'motivo_ref',d->>'motivo_ref','clave_idempotencia',d->>'clave_idempotencia')::text;
  v_huella:=encode(sha256(convert_to(v_canon,'UTF8')),'hex');
+ -- En READ COMMITTED el candado ordena las declaraciones. En REPEATABLE READ o
+ -- SERIALIZABLE la instantánea es anterior al candado: una concurrente falla
+ -- con 23505 o con error de serialización, nunca bifurca la cadena.
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_convocatorias:publicacion_oficial',0));
  SELECT * INTO fila FROM vec_bolsa_convocatorias.publicacion_oficial_bases
   WHERE clave_idempotencia=d->>'clave_idempotencia';
@@ -360,6 +383,12 @@ BEGIN
  OR c#>>'{comprobacion_dependencias,convocatoria_ref}' IS DISTINCT FROM v.referencia
  OR c->>'publicada_en' IS NULL
  THEN RAISE EXCEPTION 'BC9: material publicado incompleto' USING ERRCODE='55000'; END IF;
+ -- BC14: sin publicación oficial declarada no se revela modalidad, categorías
+ -- ni plazo; la respuesta es siempre la misma.
+ v_publicacion_oficial:=vec_bolsa_convocatorias.publicacion_oficial_vigente_v1(
+  v.convocatoria_id,v_secuencia,v.huella_version_sha256);
+ IF v_publicacion_oficial IS NULL
+ THEN RAISE EXCEPTION 'BC14: bases sin publicación oficial declarada' USING ERRCODE='B9602'; END IF;
  -- BC12: B96 solo presenta una categoria. Una version conjunta exige F1-41.
  -- La ausencia historica de la clave conserva la modalidad separada.
  IF c#>'{contenido,modalidad_inscripcion}' IS NOT NULL THEN
@@ -403,13 +432,10 @@ BEGIN
  IF activos<>1 THEN RAISE EXCEPTION 'BC9: plazo de inscripción cerrado o ambiguo' USING ERRCODE='B9602'; END IF;
  abre:=(plazo->>'abre_en')::timestamptz;
  cierra:=(plazo->>'cierra_en')::timestamptz;
- -- BC14: solo se abre con la publicación oficial de las bases declarada para
- -- esta versión exacta y con fecha anterior al primer día del plazo.
- v_publicacion_oficial:=vec_bolsa_convocatorias.publicacion_oficial_vigente_v1(
-  v.convocatoria_id,v_secuencia,v.huella_version_sha256);
- IF v_publicacion_oficial IS NULL
- OR v_publicacion_oficial>=(abre AT TIME ZONE 'Europe/Madrid')::date
- THEN RAISE EXCEPTION 'BC14: bases sin publicación oficial declarada' USING ERRCODE='B9601'; END IF;
+ -- BC14: el plazo sellado empieza de uno a cuatro días naturales después de la
+ -- publicación declarada (hora de Madrid); si no encaja, no se abre.
+ IF ((abre AT TIME ZONE 'Europe/Madrid')::date-v_publicacion_oficial) NOT BETWEEN 1 AND 4
+ THEN RAISE EXCEPTION 'BC14: plazo incoherente con la publicación oficial' USING ERRCODE='B9602'; END IF;
 
  catalogo:=c#>'{contenido,catalogo_categorias}';
  politica:=c#>'{configuracion,catalogos}';
@@ -549,11 +575,13 @@ BEGIN
  END LOOP;
  IF activos=0 THEN RETURN NULL; END IF;
  IF activos<>1 THEN RAISE EXCEPTION 'BC9: plazos abiertos ambiguos' USING ERRCODE='55000'; END IF;
- -- BC14: sin publicación oficial declarada antes del plazo no se proyecta.
+ -- BC14: sin publicación oficial declarada de uno a cuatro días naturales antes
+ -- del primer día del plazo (hora de Madrid) no se proyecta.
  v_publicacion_oficial:=vec_bolsa_convocatorias.publicacion_oficial_vigente_v1(
   p_id,p_secuencia,p_huella_sha256);
  IF v_publicacion_oficial IS NULL
- OR v_publicacion_oficial>=((plazo->>'abre_en')::timestamptz AT TIME ZONE 'Europe/Madrid')::date
+ OR (((plazo->>'abre_en')::timestamptz AT TIME ZONE 'Europe/Madrid')::date-v_publicacion_oficial)
+    NOT BETWEEN 1 AND 4
  THEN RETURN NULL; END IF;
 
  catalogo:=c#>'{contenido,catalogo_categorias}';
@@ -626,8 +654,8 @@ DO $post$
 DECLARE r record; f regprocedure; p record;
 BEGIN
  FOR r IN SELECT * FROM (VALUES
-   ('comprobar','vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)','80df8013324a3915386faddaa1073a5f32ec86362214ac80ed2e96670718cf23','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario,vec_bolsa_llamamientos_propietario=X/vec_bolsa_convocatorias_propietario}','v','u'),
-   ('proyectar','vec_bolsa_convocatorias.proyectar_abierta_inscripcion_v1(text,bigint,bytea,text,timestamp with time zone)','b15e0b0ba804d54c1e258702a64919b68874aa94df60f70cda08e27972b0e560','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario}','s','r')
+   ('comprobar','vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)','c29c3a425321709d5237975419bea86ce0a61292ef0ecd0c388847faf6422867','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario,vec_bolsa_llamamientos_propietario=X/vec_bolsa_convocatorias_propietario}','v','u'),
+   ('proyectar','vec_bolsa_convocatorias.proyectar_abierta_inscripcion_v1(text,bigint,bytea,text,timestamp with time zone)','1ea75498f4e9f78c4ef5bde4b4b506e7a8f21f510f23e1b33b585242e5f5c874','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario}','s','r')
   ) AS esperado(clave,firma,huella,acl,volatilidad,paralelismo) LOOP
   f:=to_regprocedure(r.firma);
   IF f IS NULL THEN RAISE EXCEPTION 'BC14: funcion causal ausente' USING ERRCODE='55000'; END IF;
@@ -646,6 +674,9 @@ BEGIN
  OR EXISTS(SELECT 1 FROM pg_class t CROSS JOIN LATERAL aclexplode(coalesce(t.relacl,acldefault('r',t.relowner))) a
    WHERE t.oid IN('vec_bolsa_convocatorias.publicacion_oficial_bases'::regclass,
     'vec_bolsa_convocatorias.publicacion_oficial_bases_evento'::regclass) AND a.grantee<>t.relowner)
+ OR EXISTS(SELECT 1 FROM pg_type y CROSS JOIN LATERAL aclexplode(coalesce(y.typacl,acldefault('T',y.typowner))) a
+   WHERE y.oid IN('vec_bolsa_convocatorias.publicacion_oficial_bases'::regtype,
+    'vec_bolsa_convocatorias.publicacion_oficial_bases_evento'::regtype) AND a.grantee<>y.typowner)
  OR EXISTS(SELECT 1 FROM pg_class t WHERE t.oid IN('vec_bolsa_convocatorias.publicacion_oficial_bases'::regclass,
     'vec_bolsa_convocatorias.publicacion_oficial_bases_evento'::regclass)
     AND (NOT t.relrowsecurity OR NOT t.relforcerowsecurity

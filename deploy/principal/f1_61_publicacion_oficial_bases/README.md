@@ -23,7 +23,8 @@ compone. Si F1-67 no lo consume, se retira allí.
   forzada para el propietario y ninguna concesión.
 - `declarar_publicacion_oficial_bases_v1(jsonb)`: solo la ejecuta el
   propietario del esquema. Valida cada campo (medio cerrado, boletín salvo en
-  el tablón, fecha real y no futura en hora de Madrid, enlace https). Exige que
+  el tablón, fecha real y no futura en hora de Madrid, enlace https sin
+  comillas ni ángulos). Exige que
   la versión esté publicada, que la huella coincida y que sea la última. Con la
   misma clave y el mismo contenido devuelve el recibo guardado; con otro
   contenido responde 23505. Una corrección sustituye a la declaración vigente
@@ -32,13 +33,33 @@ compone. Si F1-67 no lo consume, se retira allí.
   de una versión exacta.
 - Reconstruye `comprobar_publicacion_inscripcion_v1` y
   `proyectar_abierta_inscripcion_v1`. La preimagen exigida es la poshuella de
-  BC12; las poshuellas son `80df8013…` y `b15e0b0b…`. Conservan OID, ACL,
-  volatilidad y configuración. Sin declaración vigente con fecha anterior al
-  primer día del plazo, el comprobador responde B9601 y la lista y la ficha
-  dejan fuera la versión.
+  BC12; las poshuellas son `c29c3a42…` y `1ea75498…`. Conservan OID, ACL,
+  volatilidad y configuración.
+- Regla de apertura: la declaración vigente tiene que ser de uno a cuatro días
+  naturales anterior al primer día del plazo, en hora de Madrid. El plazo
+  empieza el día siguiente a la publicación (LPAC art. 30); el margen cubre un
+  fin de semana y un festivo. Sin declaración, o fuera del margen, el
+  comprobador responde B9602 (la aplicación lo muestra como plazo cerrado) y
+  la lista y la ficha dejan fuera la versión. Sin declaración, el comprobador
+  responde antes de mirar modalidad, categoría o plazo, así que no revela nada
+  de una convocatoria aún no publicada.
 
 El plazo sigue saliendo de la versión sellada. En este corte no se recalcula a
-partir de la fecha de publicación.
+partir de la fecha de publicación: si no encaja, RRHH publica una versión nueva
+con el plazo correcto y anota la publicación en ella.
+
+Dos límites conscientes:
+
+- No se impide anotar el mismo anuncio en dos versiones. Una versión nueva que
+  solo corrige el plazo en VEC sigue amparada por el mismo anuncio del boletín.
+  Que la anotación corresponde a esas bases lo afirma quien declara.
+- No se exige que la fecha sea posterior a la versión en VEC, por la misma
+  razón: la versión que corrige el plazo puede ser posterior al boletín. El
+  margen de cuatro días ya impide abrir con fechas antiguas.
+
+Las pruebas `bc9_*.sql` y `b96_abiertas_100x128_fixture.sql` son vectores
+históricos del estado anterior a BC14. No las usa ningún ensayo ni la CI y,
+si se ejecutan contra una base con BC14, sus versiones no se abren.
 
 Prueba focal: `pruebas_sql/bc14_publicacion_oficial_bases.sql`, incluida en
 `deploy/postgresql/fase1/ensayar.py --pruebas`. La de BC12 declara ahora la
@@ -59,6 +80,9 @@ vacía. Después de declarar salió la versión 2 con su recibo. Tras reiniciar
 PostgreSQL y la aplicación seguía en la lista, y repetir la declaración devolvió
 el mismo recibo, con una sola fila y un solo evento.
 
+Al instalar BC14 en una base con convocatorias abiertas, todas desaparecen de la
+lista hasta que se anote su publicación. Es lo previsto.
+
 El recorrido de la aspirante por HTTP necesita la inscripción encendida, que
 depende de F1-90.
 
@@ -75,13 +99,18 @@ Para que lo haga RRHH desde su pantalla hace falta:
    semana.
 2. Una fachada `SECURITY DEFINER` del propietario de convocatorias que consuma
    esa autorización y llame a `declarar_publicacion_oficial_bases_v1` en la
-   misma transacción.
-3. La ruta Go y la pantalla de RRHH, siguiendo el patrón de la comprobación de
+   misma transacción. `declarada_por` y `motivo_ref` salen de la autorización
+   consumida, nunca del JSON de la petición.
+3. La ruta Go y la pantalla de RRHH. La pantalla pinta el enlace escapado y,
+   si se quiere limitar a dominios oficiales, la lista va en catálogo. La ruta
+   y la pantalla siguen siguiendo el patrón de la comprobación de
    ofrecimiento de F1-09 (puerto, caso de uso, adaptador PostgreSQL y
    composición con denegación por defecto).
 
 ## Aviso para F1-41
 
-La comprobación de la solicitud conjunta de BC13 tiene que exigir también la
-declaración vigente, con la misma regla que BC14 aplica al comprobador
-individual.
+BC13 exige como preimagen de `comprobar_publicacion_inscripcion_v1` la
+poshuella de BC12 (`510d5fb7…`). Si BC14 se fusiona antes, BC13 se niega a
+instalarse. Quien fusione en segundo lugar cambia esa preimagen a `c29c3a42…`
+y hace que la comprobación conjunta exija también la declaración vigente, con
+la misma regla de uno a cuatro días.

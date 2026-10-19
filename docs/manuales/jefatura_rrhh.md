@@ -113,8 +113,12 @@ tiene recibo y no se borra; un error se arregla con una corrección que
 sustituye a la anterior.
 
 La inscripción solo se abre cuando la versión vigente tiene esa anotación y
-la fecha de publicación es anterior al primer día del plazo. Sin ella, la
-convocatoria no aparece a la aspirante aunque el plazo esté abierto.
+el plazo grabado en ella empieza entre el día siguiente a la publicación y
+cuatro días naturales después (un fin de semana y un festivo). Sin la
+anotación, o si las fechas no encajan, la convocatoria no aparece a la
+aspirante aunque el plazo esté abierto. Si el boletín sale antes o después de
+lo previsto, hay que preparar y publicar en VEC una versión nueva con el plazo
+correcto y anotar la publicación en esa versión.
 
 Hoy la anotación la hace Informática con la cuenta propietaria de la base de
 datos; en la copia local se carga como dato ficticio. Falta que RRHH pueda

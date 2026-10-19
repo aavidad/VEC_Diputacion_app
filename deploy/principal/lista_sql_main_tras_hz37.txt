@@ -190,4 +190,4 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000300_motivo_proyeccion_
 # F1-60 primer corte — B144, ámbito gobernado de la bolsa; solo depende de B7/B14/B79/B95 (en el volcado).
 deploy/postgresql/bolsa_llamamientos/migraciones/000144_ambito_gobernado_bolsa.up.sql b8cee22ff4b891148af793b6d19c0b9ff96acc1644d1dda6a1942a9e5b09e2c5
 # F1-61 — BC14: publicación oficial de las bases (declaración de solo adición); comprobar y proyectar de la inscripción la exigen. Después de BC12.
-deploy/postgresql/bolsa_convocatorias/migraciones/000014_publicacion_oficial_bases.up.sql 4bee84f103a2f9ce72baafc1a31525d19faf78c9fe11f154cf1dea8ae5d74ab2
+deploy/postgresql/bolsa_convocatorias/migraciones/000014_publicacion_oficial_bases.up.sql fc7b4e7be2a0813b1def3bf58c35b58b8b82a4cbc66f785c77767f8af275a1c9

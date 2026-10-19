@@ -472,18 +472,22 @@ recibo y evento, en una tabla de solo adición. Una corrección es una fila
 nueva que sustituye a la vigente.
 
 La lista, la ficha y la presentación de la aspirante exigen una declaración
-vigente de la versión exacta con fecha anterior al primer día del plazo
-(hora de Madrid). Sin ella la convocatoria no aparece y la presentación
-responde como publicación no vigente. Las fechas del plazo siguen siendo las
-selladas en la versión; calcularlas desde la publicación queda para un
-catálogo posterior.
+vigente de la versión exacta cuya fecha sea de uno a cuatro días naturales
+anterior al primer día del plazo (hora de Madrid): el plazo empieza el día
+siguiente a la publicación (LPAC art. 30) y el margen cubre un fin de semana y
+un festivo. Sin ella, o fuera del margen, la convocatoria no aparece y la
+presentación responde como plazo cerrado. Las fechas del plazo siguen siendo
+las selladas en la versión; si no encajan con la publicación, RRHH publica una
+versión nueva. Calcularlas desde la publicación queda para un catálogo
+posterior.
 
 Hoy solo declara el propietario de la base (despliegue o dato de copia,
 `deploy/principal/f1_61_publicacion_oficial_bases/`). El acto de RRHH desde
 la web, con su permiso, espera a su consumidor en el núcleo de autorización;
 hasta entonces ninguna cuenta de aplicación declara. `ConfirmarPublicacion`,
 el puerto de la publicación gobernada borrador→publicada, no se usa en este
-corte.
+corte. F1-40 sigue abierta hasta que RRHH pueda anotar la publicación desde la
+web y se recorra la inscripción de punta a punta.
 
 #### Constitución de la bolsa
 

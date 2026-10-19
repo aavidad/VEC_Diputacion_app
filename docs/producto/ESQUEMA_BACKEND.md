@@ -505,9 +505,10 @@ sustituciones. `declarar_publicacion_oficial_bases_v1(jsonb)` es solo del
 propietario: la misma clave y solicitud devuelven el recibo; otra solicitud con
 esa clave, una segunda declaración inicial o corregir una sustituida dan 23505.
 BC14 reconstruye también, desde la postimagen BC12, el comprobador y el
-proyector: sin declaración vigente con fecha anterior al primer día del plazo
-(hora de Madrid), el comprobador responde B9601 y el proyector deja fuera la
-versión. Conserva OID, ACL y configuración. Guía en
+proyector: sin declaración vigente de uno a cuatro días naturales anterior al
+primer día del plazo (hora de Madrid), el comprobador responde B9602 y el
+proyector deja fuera la versión. Sin declaración, el comprobador responde antes
+de mirar modalidad, categoría o plazo. Conserva OID, ACL y configuración. Guía en
 `deploy/principal/f1_61_publicacion_oficial_bases/README.md`.
 
 Las preferencias entre bolsas guardan versiones y recibos en
