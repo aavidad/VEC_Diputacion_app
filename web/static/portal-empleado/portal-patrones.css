@@ -406,6 +406,7 @@
   .tabla-datos.tabla-apilable th,
   .tabla-datos.tabla-apilable td { min-width: 0; min-height: 0; padding: 3px 0; border: 0; white-space: normal; text-align: left; }
   .tabla-datos.tabla-apilable td[data-etiqueta]::before { content: attr(data-etiqueta) ": "; color: var(--portal-muted); font-size: 0.8125rem; }
+  .tabla-datos.tabla-apilable th[data-etiqueta]::before { content: attr(data-etiqueta) ": "; color: var(--portal-muted); font-size: 0.8125rem; font-weight: 400; }
   .tabla-datos.tabla-apilable td small { display: inline; margin-left: 6px; }
   .tabla-datos.tabla-apilable td .ct-exp-chip { vertical-align: middle; }
   .tabla-datos.tabla-apilable th[scope="row"] { padding-bottom: 6px; font-size: 1rem; }

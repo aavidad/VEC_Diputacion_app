@@ -168,12 +168,17 @@ const CLAVES_ADICIONALES = Object.freeze({
     "llamamiento_seleccion_pendiente_aviso",
     "llamamiento_continuar_aviso",
   ],
-  "i18n-textos-vistas.js": ["motivo_sustitucion"],
+  // F1-93: textos de recibos e historial de la ficha, trasladados desde el código en lenguaje llano.
+  "i18n-textos-vistas.js": ["motivo_sustitucion", "cobertura_recibo_descripcion",
+    "asignacion_recibo_descripcion", "informe_recibo_descripcion", "informe_historial_titulo",
+    "informe_historial_descripcion", "informe_historial_tabla"],
   "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
     "necesidades_alta_no_disponibles_detalle",
     // F1-89: orientación de la ficha tras preparar el informe jurídico.
     "ficha_siguiente_paso_informe_titulo", "ficha_siguiente_paso_informe_que",
-    "ficha_siguiente_paso_informe_quien", "ficha_siguiente_paso_intervencion_quien"],
+    "ficha_siguiente_paso_informe_quien", "ficha_siguiente_paso_intervencion_quien",
+    // F1-93: la cabecera nombra el paso dentro de la fase.
+    "ficha_fase_con_subfase"],
 });
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");
