@@ -42,6 +42,15 @@ test("consulta sin credenciales web y valida el contrato", async () => {
   assert.equal(validarAvisosBolsa({ data: datos }), datos);
 });
 
+test("si la red falla muestra el texto del catálogo, no el error del navegador", async () => {
+  const caida = await consultarAvisosBolsa({ fetchImpl: async () => { throw new TypeError("Failed to fetch"); } });
+  assert.equal(caida.ok, false);
+  assert.equal(caida.mensaje, "Error de comunicación con los avisos.");
+  const invalida = await consultarAvisosBolsa({ fetchImpl: async () => ({ ok: true, json: async () => ({ data: { esquema: "otro" } }) }) });
+  assert.equal(invalida.mensaje, "Error de comunicación con los avisos.");
+  assert.doesNotMatch(renderizarBloqueAvisos({ estado: "error", error: caida.mensaje }), /Failed to fetch|Contrato/);
+});
+
 test("enlaza cada aviso a la ficha B5 exacta", () => {
   const aperturas = [];
   const control = { dataset: { accion: "abrir-ficha-b5", bolsaRef: "bolsa:opaca", participacionRef: "participacion:uno" } };

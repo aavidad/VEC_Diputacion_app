@@ -4,21 +4,23 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const versionEntradaAnterior = "20261002-r1-post401-v4";
-// La integración de las ofertas de CT con CT231 renueva entrada, coordinador
-// y la cadena de Contratación cambiada; el alta conserva su cohorte.
-const versionCoordinador = "20261016-ct-ofertas-ct231-v1";
-const versionCoordinadorEntrada = "20261018-f174-v1";
-const versionEntrada = "20261018-f174-v1";
-const versionClienteCT = versionCoordinador;
-const versionClienteConsulta = versionCoordinador;
-const versionClienteRPT = versionCoordinador;
-const versionBaseCT = "20261013-ct-firma-tres-v3";
-const versionCircuito = "20261018-f174-v1";
-const versionAccionesFirma = "20261018-f174-v1";
-const versionVista = "20261018-f174-v1";
-const versionVistaPortal = "20261018-f174-v1";
-const versionAdaptador = versionCoordinador;
-const versionRender = "20261018-f174-v1";
+// La unión de F1-73 (alta directa v2) con F1-74, F1-76 y F1-36C renueva
+// los módulos compartidos y conserva una única cadena hasta la entrada.
+const versionCoordinador = "20261018-f136c-informe-v4";
+const versionAltaDirectaV2 = "20261018-f173-alta-v2";
+const versionUnionMain = "20261018-f173-alta-v5";
+const versionCompartida = versionUnionMain;
+const versionCoordinadorEntrada = versionUnionMain;
+const versionEntrada = "20261018-f179-cabecera-v1";
+const versionClienteCT = "20261016-ct-ofertas-ct231-v1";
+const versionClienteConsulta = versionUnionMain;
+const versionClienteRPT = versionUnionMain;
+const versionCircuito = versionUnionMain;
+const versionAccionesFirma = versionUnionMain;
+const versionVista = versionUnionMain;
+const versionVistaPortal = versionUnionMain;
+const versionAdaptador = versionUnionMain;
+const versionRender = versionCoordinador;
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -44,7 +46,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
-  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionCoordinador);
+  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionUnionMain);
   exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
 });
 
@@ -73,7 +75,7 @@ test("la caché anterior carga la vista y el rail nuevos sin duplicar el circuit
   exigirVersiones(vista, "./vista-circuito-rrhh.js", "20261002-ct-r5-grafo-v2");
   exigirVersiones(vista, "./circuito-firma.js", firma);
   exigirVersiones(circuito, "./circuito-firma-acciones.js", versionAccionesFirma);
-  exigirVersiones(circuito, "./cliente-http-descarga-firma-v2.js", "20261016-r1-o-integracion-v7");
+  exigirVersiones(circuito, "./cliente-http-descarga-firma-v2.js", "20261016-firma-historica-v4");
   for (const manifiesto of [interno, produccion]) {
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/firma-externa-cliente\.js$/mu);
     assert.match(manifiesto, /^static\/portal-empleado\/modulos\/contratacion-temporal\/cliente-http-descarga-firma-v2\.js$/mu);
@@ -101,7 +103,7 @@ test("la ficha CT y Documentos renuevan las dos entradas sin reutilizar hojas an
   exigirVersiones(firma, "../documentos/cliente-http.js", version);
   exigirVersiones(categorias, "./arranque.js", "20261008-hz8-idioma-v1");
   exigirVersiones(montajeCategorias, "./cliente.js", versionClienteRPT);
-  exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", versionClienteRPT);
+  exigirVersiones(clienteCategorias, "../modulos/contratacion-temporal/cliente-http.js", versionUnionMain);
 });
 
 test("Alta por circular renueva su cadena y no reutiliza módulos sin las exportaciones nuevas", async () => {
@@ -120,11 +122,11 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const [html, portal, coordinador, cliente, altaHTTP, transporte, expedientes, tramitacion,
     vista, presentadorAlta, rendererAlta, i18n, contrato, interno, produccion, cache] = await Promise.all(
     nombres.map((nombre) => readFile(new URL(nombre, raiz), "utf8")));
-  const cohorte = versionBaseCT;
+  const cohorte = versionAltaDirectaV2;
   const cohorteNavegacion = "20261012-ct-b2-cese-v1";
   const cohorteClienteHTTP = versionClienteConsulta;
   const cohorteRPT = "20261008-alta-rpt-circular-v6";
-  const cohorteCapacidad = versionBaseCT;
+  const cohorteCapacidad = versionAltaDirectaV2;
   const cohorteIdioma = "20261011-ct-bolsa-vinculo-v1";
   const cohorteEntrada = versionEntrada;
   const cohorteFicha = versionVista;
@@ -150,6 +152,7 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
     [vista, "./contrato.js", cohorte],
     [vista, "./alta-renderer-puro.js", cohorte],
     [presentadorAlta, "./contrato.js", cohorte],
+    [altaHTTP, "./contrato.js", cohorte],
     [rendererAlta, "./contrato.js", cohorte, 2],
   ];
   for (const [fuente, ruta, version, cantidad = 1] of aristas) {

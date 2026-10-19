@@ -202,6 +202,10 @@ entradas de menú, pero el menú real de Bolsa es el fijo del HTML y el de CT lo
 compone su propia vista. Los manifiestos sirven hoy para saber qué módulos
 existen y qué permisos declaran.
 
+Al entrar directamente en Fiscalización, la cabecera termina de contar las
+áreas sin esperar una lectura de Bolsa que esa entrada no ha iniciado (F1-79).
+Bolsa se comprueba al abrir Inicio o una de sus pantallas.
+
 ### 3.3 Área personal de la aspirante (`/area-personal/`)
 
 El catálogo `web/static/area-personal/vistas.json` decide qué pestañas se
@@ -518,6 +522,21 @@ stateDiagram-v2
 RRHH puede además pasar una participación a **En revisión** cuando espera un
 justificante para regularizarla; la aspirante ve «RRHH confirmará tu
 situación».
+
+La candidata F1-71 permite, tras activar su permiso, confirmar una aceptación de
+llamamiento directo desde la ficha del aspirante: «Confirmar aceptación del
+llamamiento», motivo, revisión y confirmación. En la copia local se registraron
+desde el navegador la aceptación y su confirmación; tras perder la respuesta y
+reiniciar aplicación y PostgreSQL se recuperó el mismo recibo, fecha y motivo.
+Quedó una confirmación y se retiró la marca pendiente. Cambiar el motivo con la
+misma clave devolvió conflicto sin añadir efectos. El componente del recibo
+permite copiar su referencia en español e inglés, en móvil y con teclado.
+Faltan las comprobaciones finales de activación. El ensayo y sus
+límites están en la [guía de F1-71](../../deploy/principal/aceptacion_desde_ficha_f1_71_20261018.md).
+La integración sigue pendiente. La admisión y el rechazo de justificantes siguen
+pendientes. El [contrato](../plan_modulos/bolsa_respuestas_en_revision_contrato.md)
+conserva separadas la respuesta pendiente y la situación vigente; Regularizar y
+Excluir mantienen sus operaciones actuales.
 
 «Baja» no es un estado: corresponde a renuncia o exclusión. No existe la
 suspensión temporal (decisión de RRHH del 02/10). Desde `excluido` no se sale.

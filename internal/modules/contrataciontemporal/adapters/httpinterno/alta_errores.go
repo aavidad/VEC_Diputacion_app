@@ -110,6 +110,11 @@ func clasificarErrorAlta(err error) errorPublicoAlta {
 		// resultado indeterminado. La reconciliación prevalece para impedir un
 		// reintento ciego.
 		return errorOperacionPendiente
+	case errors.Is(err, ports.ErrPersistenciaNoDisponible) &&
+		errors.Is(err, ports.ErrFuenteNecesidadesAltaNoDisponible):
+		// La recuperación de la instantánea original ya era 503. Su causa
+		// interna sigue accesible a Is/As, pero no cambia el contrato público.
+		return errorServicioNoDisponible
 	case errors.Is(err, context.Canceled):
 		return errorPeticionCancelada
 	case errors.Is(err, context.DeadlineExceeded):

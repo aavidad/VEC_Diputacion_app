@@ -14,12 +14,13 @@ var patronHuellaPuestoRPTAlta = regexp.MustCompile(`^[a-f0-9]{64}$`)
 var ErrFuenteNecesidadesAltaNoDisponible = errors.New("contratacion temporal: fuente de necesidades de alta no disponible")
 
 const EsquemaAltaNecesidadV1 = "vec.ct.alta_necesidad.v1"
+const EsquemaAltaNecesidadV2 = "vec.ct.alta_necesidad.v2"
 
 func materialNecesidadAltaValido(esquema string, necesidad *domain.DatosNecesidadAlta, causa domain.ClaveCatalogo) bool {
 	if esquema == "" {
 		return necesidad == nil
 	}
-	return esquema == EsquemaAltaNecesidadV1 && necesidad != nil &&
+	return (esquema == EsquemaAltaNecesidadV1 || esquema == EsquemaAltaNecesidadV2) && necesidad != nil &&
 		necesidad.CausaClave == causa && necesidad.ValidarInstantanea() == nil
 }
 

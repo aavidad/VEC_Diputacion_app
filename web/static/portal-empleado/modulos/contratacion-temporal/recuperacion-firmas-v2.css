@@ -4,7 +4,14 @@
   overflow: auto;
 }
 
-.ct-recuperacion-firmas code {
+.ct-recuperacion-firmas-historicas [data-ct-recuperacion-historica-resultado] {
+  min-width: 0;
+}
+
+.ct-recuperacion-firmas-historicas [data-ct-recuperacion-historica-resultado] p {
   overflow-wrap: anywhere;
-  word-break: break-word;
+}
+
+.ct-recuperacion-firma-historica {
+  margin-block: var(--portal-espacio-4);
 }
