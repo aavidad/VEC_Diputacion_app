@@ -408,3 +408,16 @@ test("«Nuevo llamamiento al siguiente» abre el asistente y pone el foco en su 
   assert.equal(estado.filtrosBolsa.nuevo_llamamiento.paso, 1);
   assert.equal(enfocado, "paso");
 });
+
+test("F1-57 la ficha abierta desde una comprobación pendiente se pinta aunque la persona esté en otra página", () => {
+  const fuera = persona(9, "Rosa Navarro Gil");
+  const modal = { abierto: true, candidato: fuera, bolsa: BOLSA, comprobacionB57: { paso: "edicion" } };
+  const vista = presentador({ datos: listo(), filtros: { estado: "", texto: "" }, modal }).renderizarVista("bolsa-candidatos");
+  assert.match(vista, /id="ficha-participacion-participacion:sintetica:9"|ficha-participacion-participacion:sintetica:9/u);
+  const sinComprobacion = presentador({ datos: listo(), filtros: { estado: "", texto: "" }, modal: { ...modal, comprobacionB57: undefined } })
+    .renderizarVista("bolsa-candidatos");
+  assert.doesNotMatch(sinComprobacion, /ficha-participacion-participacion:sintetica:9/u);
+  const conAviso = presentador({ datos: { ...listo(), avisoComprobacion: { texto: "No encontrada", boton: "Ir" } }, filtros: { estado: "", texto: "" } })
+    .renderizarVista("bolsa-candidatos");
+  assert.match(conAviso, /<p>No encontrada<\/p><button type="button" class="boton-secundario" data-vista="contratacion-temporal">Ir<\/button>/u);
+});

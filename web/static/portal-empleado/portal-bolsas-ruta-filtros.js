@@ -1,11 +1,14 @@
 /** Enlaces compartibles de la lista autorizada de candidaturas de una bolsa. */
 import { SITUACIONES_PARTICIPACION_BOLSA } from "./portal-bolsas-contrato.js?v=VEC_WEB_VERSION";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
+import { codificarPropuestaComprobacion, decodificarPropuestaComprobacion } from "./portal-bolsas-comprobacion-ruta.js?v=VEC_WEB_VERSION";
 
 const CLAVE_BOLSA = "bolsa_ref";
 const CLAVE_ESTADO = "estado";
 // Seguimiento por teléfono de un llamamiento ya emitido.
 const CLAVE_SEGUIMIENTO = "seguimiento";
+// Comprobación del ofrecimiento propuesta desde la selección de Contratación temporal.
+const CLAVE_COMPROBACION = "comprobacion";
 // Origen de un llamamiento nuevo abierto desde una petición de personal. Junto
 // al seguimiento solo sirve para precargar el siguiente llamamiento.
 const CLAVES_ORIGEN = Object.freeze({
@@ -37,7 +40,7 @@ function estadoValido(estado) {
 }
 
 function quitarFiltros(parametros) {
-  for (const clave of [CLAVE_BOLSA, CLAVE_ESTADO, CLAVE_SEGUIMIENTO, "cursor", ...Object.values(CLAVES_ORIGEN), ...CLAVES_GLOBALES]) {
+  for (const clave of [CLAVE_BOLSA, CLAVE_ESTADO, CLAVE_SEGUIMIENTO, CLAVE_COMPROBACION, "cursor", ...Object.values(CLAVES_ORIGEN), ...CLAVES_GLOBALES]) {
     parametros.delete(clave);
   }
 }
@@ -70,14 +73,18 @@ export function leerGlobalBolsaCompartible(search) {
   }
   if (!FILTROS_GLOBALES.has(filtro) || (corte && !/^[a-f0-9]{64}$/u.test(corte))
     || (bolsa && (filtro !== "llamamientos" || !referenciaValida(bolsa)))
-    || [CLAVE_BOLSA, CLAVE_ESTADO, CLAVE_SEGUIMIENTO, "cursor", ...Object.values(CLAVES_ORIGEN)].some((clave) => parametros.has(clave))) {
+    || [CLAVE_BOLSA, CLAVE_ESTADO, CLAVE_SEGUIMIENTO, CLAVE_COMPROBACION, "cursor", ...Object.values(CLAVES_ORIGEN)].some((clave) => parametros.has(clave))) {
     throw new TypeError("filtro global de Bolsa no válido");
   }
   return Object.freeze({ filtro, corte, bolsa });
 }
 
-export function rutaCandidatosBolsaCompartible(search, bolsaRef, estado = "", { seguimiento = "", origen = null } = {}) {
+export function rutaCandidatosBolsaCompartible(search, bolsaRef, estado = "", { seguimiento = "", origen = null, comprobacion = null } = {}) {
   if (!referenciaValida(bolsaRef) || !estadoValido(estado)) throw new TypeError("filtro de Bolsa no válido");
+  const propuesta = comprobacion ? codificarPropuestaComprobacion(comprobacion) : "";
+  if (propuesta && (estado || seguimiento || origen || comprobacion.contexto.bolsa_ref !== bolsaRef)) {
+    throw new TypeError("comprobación de Bolsa no válida");
+  }
   if (seguimiento && (!referenciaValida(seguimiento) || estado)) throw new TypeError("seguimiento de Bolsa no válido");
   const origenValido = origen ? origenLlamamientoValido(origen) : null;
   if (origen && (!origenValido || estado)) throw new TypeError("origen del llamamiento no válido");
@@ -86,6 +93,7 @@ export function rutaCandidatosBolsaCompartible(search, bolsaRef, estado = "", { 
   parametros.set(CLAVE_BOLSA, bolsaRef);
   if (estado) parametros.set(CLAVE_ESTADO, estado);
   if (seguimiento) parametros.set(CLAVE_SEGUIMIENTO, seguimiento);
+  if (propuesta) parametros.set(CLAVE_COMPROBACION, propuesta);
   if (origenValido) {
     for (const [campo, clave] of Object.entries(CLAVES_ORIGEN)) {
       if (origenValido[campo]) parametros.set(clave, origenValido[campo]);
@@ -127,10 +135,12 @@ export function leerCandidatosBolsaCompartible(search, bolsasAutorizadas) {
   const bolsaRef = unico(parametros, CLAVE_BOLSA);
   const estado = unico(parametros, CLAVE_ESTADO) ?? "";
   const seguimiento = unico(parametros, CLAVE_SEGUIMIENTO) ?? "";
+  const crudaComprobacion = unico(parametros, CLAVE_COMPROBACION);
   const crudo = Object.fromEntries(Object.entries(CLAVES_ORIGEN).map(([campo, clave]) => [campo, unico(parametros, clave)]));
   const hayOrigen = Object.values(crudo).some((valor) => valor !== undefined);
-  if (parametros.has("cursor") || ((estado || seguimiento || hayOrigen) && bolsaRef === undefined)
-    || (seguimiento && estado) || (hayOrigen && estado)) {
+  const hayComprobacion = crudaComprobacion !== undefined;
+  if (parametros.has("cursor") || ((estado || seguimiento || hayOrigen || hayComprobacion) && bolsaRef === undefined)
+    || (seguimiento && estado) || (hayOrigen && estado) || (hayComprobacion && (estado || seguimiento || hayOrigen))) {
     throw new TypeError("filtro de Bolsa duplicado o incompleto");
   }
   if (bolsaRef === undefined) return null;
@@ -142,5 +152,9 @@ export function leerCandidatosBolsaCompartible(search, bolsasAutorizadas) {
   }
   // Un origen ilegible no impide abrir la bolsa: solo se descarta.
   const origen = hayOrigen ? origenLlamamientoValido(crudo) : null;
-  return Object.freeze({ bolsaRef, estado, ...(seguimiento ? { seguimiento } : {}), ...(origen ? { origen } : {}) });
+  // Igual que el origen: una comprobación ilegible o de otra bolsa se descarta.
+  const leida = hayComprobacion ? decodificarPropuestaComprobacion(crudaComprobacion) : null;
+  const comprobacion = leida?.contexto.bolsa_ref === bolsaRef ? leida : null;
+  return Object.freeze({ bolsaRef, estado, ...(seguimiento ? { seguimiento } : {}), ...(origen ? { origen } : {}),
+    ...(comprobacion ? { comprobacion } : {}) });
 }
