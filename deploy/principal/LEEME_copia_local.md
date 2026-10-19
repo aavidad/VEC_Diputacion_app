@@ -593,5 +593,65 @@ mismo volcado y las listas necesarias.
 | Con la inscripción encendida, el arranque que sigue a `--portal-externo` se detiene en `inscripcion_rrhh_cuentas_lectores` | La copia no declaraba a la técnica de RRHH en `identidad/consultas-rrhh.json` | Arreglado en F1-90: el preparador escribe el manifiesto. Una copia anterior se crea de nuevo |
 | `--portal-externo` se detiene en `fuente_privada_divergente` | El material de origen ya traía un `identidad/consultas-rrhh.json` distinto (otros lectores u otro formato) | Crear la copia con un material sin ese fichero; el preparador no mezcla manifiestos |
 | El aspirante abre la inscripción y recibe 403 | Su rol aún no tiene las acciones `bolsa.inscripcion.*` | Actos de Administración de `inscripcion_recorrido_20261013/gobierno_inscripcion.md` (F0-28, F1-29) |
+| La segunda firma del informe da 422 `firma_no_verificada` | GrxFirma 0.0.105 duplica `/Version` al cofirmar y su primera firma bloquea los campos | Firmar las dos veces con GrxFirma 0.0.106 o posterior, en un expediente sin firmas de la 0.0.105 (apartado 11) |
+| GrxFirma rechaza el origen de la copia con 403 | Su configuración no tiene permisos 600 o la confianza por decisión está apagada | `chmod 600` a sus ficheros y activar la confianza por decisión con el origen admitido |
 | `free -g` por debajo de 34 GB | Copias o cachés acumuladas | No restaurar ni compilar; borrar lo propio y avisar |
 | `git worktree move` falla hacia `/dev/shm` | Cambio de dispositivo | Copiar la carpeta y `git worktree repair` |
+
+## 11. Firma compuesta (orden `firma`)
+
+Para que el paso 7b del caso 4.0 funcione, la copia necesita el plan de firma
+publicado, los firmantes con certificado y asignación, sus admisiones en
+`identidad/firma-vec.json`, la v4 de plantillas, el circuito RRHH v2 y un
+verificador GrxFirma propio. Resultado y evidencia en
+[`firma_copia_f1_32_20261019.md`](../../docs/estudio_requisitos/firma_copia_f1_32_20261019.md).
+
+Con la copia creada con `--modulos` y en marcha:
+
+```sh
+python3 deploy/principal/copia_local.py firma --equipo d --instancia <nombre> \
+  --manifiesto-firma /ruta/privada/firma.json
+```
+
+El manifiesto es privado (`0600`, fuera de Git) y solo admite estas claves:
+
+```json
+{
+  "version": 1,
+  "etapas": [{"nombre": "admin", "orden": ["/ruta/privada/etapa-admin"]}],
+  "verificador": {"binario": "/ruta/privada/grxfirma-verificador",
+                  "binario_sha256": "<sha256>", "puerto": 63174}
+}
+```
+
+1. Las etapas son el camino largo de `candidata_hz39/firma/LEEME.md`:
+   Administración y sus cuatro montajes de efectos, firmantes, AUT53,
+   asignaciones, CA45, empleados, los 14 actos, el plan y `firma-vec.json`.
+   Cada etapa es un ejecutable privado (`0700`). Se ejecutan en orden, sin el
+   entorno del operador, con `VEC_COPIA_RAIZ`, `VEC_COPIA_NOMBRE`,
+   `VEC_COPIA_PUERTO_PG` y `VEC_COPIA_PUERTO_APP`. Su salida queda en
+   `firma-etapas/<nombre>.log`. Una etapa terminada no se repite mientras su
+   orden no cambie, y si una falla las siguientes no se ejecutan.
+2. Publica la v4 de plantillas (F1-86) con `publicar_informe.sh` sobre TLS
+   verificado. Si ya estaba publicada, el recibo dice `replay`.
+3. Copia el circuito RRHH v2 y el catálogo v4 de esta revisión a
+   `material/identidad/firma-recursos/` y comprueba que `firma-vec.json`
+   apunta al plan y a la CRL de esa carpeta y que no está retirado.
+4. Instala el verificador en `<copia>/verificador` (binario con su huella, CA
+   y TLS de la copia, CRL de clientes y una credencial nueva) y añade al
+   entorno de módulos las ocho variables de firma:
+   `VEC_CT_FIRMA_VEC_R5_ENABLED`, `VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`,
+   `VEC_CT_PLANTILLAS_SOURCE_PATH` y las cinco `VEC_FIRMA_VERIFICACION_*`.
+5. Reinicia la copia. Desde entonces `arrancar` levanta el verificador antes
+   que la aplicación y `parar` (y `borrar`) lo para. Solo se para el proceso
+   propio: mismo ejecutable y mismo instante de arranque.
+
+Después, aprueba la provisión de los perfiles fijos de RRHH
+(`firma_documento`, `lector_entrega_peticion`) como en la presentación y
+comprueba que el preflight ofrece `certificado_vec` a la persona del paso.
+
+Para firmar en Chrome hace falta GrxFirma 0.0.106 o posterior como lanzador
+de `afirma://`. Con la 0.0.105 la segunda firma del informe sale 422. Cada
+persona usa su propia carpeta personal, con `afirma://` permitido en Chrome
+para el origen de la copia y la configuración de GrxFirma en `0600`, la
+confianza por decisión activada y el origen admitido.
