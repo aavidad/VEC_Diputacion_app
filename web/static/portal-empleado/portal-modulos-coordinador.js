@@ -129,35 +129,46 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
   contratacion_temporal: async () => {
     const [contrato, cliente] = await Promise.all([
-      import("./modulos/contratacion-temporal/contrato.js?v=20261013-ct-firma-tres-v3"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20261016-ct-ofertas-ct231-v1"),
+      import("./modulos/contratacion-temporal/contrato.js?v=20261018-f173-alta-v2"),
+      import("./modulos/contratacion-temporal/cliente-http.js?v=20261018-f173-alta-v5"),
 
     ]);
     let completos;
     const cargarCompleto = () => {
       completos ??= Promise.all([
-        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261016-ct-ofertas-ct231-v1"),
-        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261016-ct-ofertas-ct231-v1"),
+        import("./modulos/contratacion-temporal/presentador-expedientes.js?v=20261018-f136c-informe-v4"),
+        import("./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261018-f173-alta-v5"),
         import("./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20261016-ct-ofertas-ct231-v1"),
       ]).then(([presentador, adaptador, incorporacionB2]) => ({ presentador, adaptador, incorporacionB2 }))
         .catch((error) => { completos = null; throw error; });
       return completos;
     };
-    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261011-bolsa-b103-privacidad-v1");
+    const cargarCuadroLigero = () => import("./modulos/contratacion-temporal/vista-cuadro-ligera.js?v=20261016-firma-historica-v4");
     // La vista (unos 130 ficheros) solo se carga al abrir CT. Importarla tras
     // los consumidores previos evita leer el catálogo de fases sin iniciar.
     // Auditoría comparte el cargador de textos con CT.
     const cargarVista = async () => {
-      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261016-ct-ofertas-ct231-v1");
+      const vista = await import("./modulos/contratacion-temporal/vista-expedientes.js?v=20261018-f173-alta-v5");
       const [auditoriaVista, auditoriaCliente, original, preflight, firmaVec, autoFirma, documentos] = await Promise.all([
         import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1"),
         import("./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1"),
-        import("./modulos/contratacion-temporal/original-firmable-api.js?v=20261016-r1-o-integracion-v7"),
-        import("./modulos/contratacion-temporal/preflight-firma-api.js?v=20261016-r1-o-integracion-v7"),
-        import("./modulos/contratacion-temporal/firma-vec-api.js?v=20261016-r1-o-integracion-v7"),
-        import("./modulos/contratacion-temporal/firma-autofirma.js?v=20261016-r1-o-integracion-v7"),
+        import("./modulos/contratacion-temporal/original-firmable-api.js?v=20261018-firma-historica-ct231-v1"),
+        import("./modulos/contratacion-temporal/preflight-firma-api.js?v=20261016-firma-historica-v4"),
+        import("./modulos/contratacion-temporal/firma-vec-api.js?v=20261016-firma-historica-v4"),
+        import("./modulos/contratacion-temporal/firma-autofirma.js?v=20261016-firma-historica-v4"),
         import("./modulos/documentos/cliente-http.js?v=20261007-pantallas-textos-final-v1"),
       ]);
+      let mensajesRecuperacionFirmas = null;
+      let errorRecuperacionFirmas = null;
+      try {
+        const idiomaRecuperacion = INDICE_IDIOMAS.idiomas.find(({ localizacion }) => localizacion === LOCALIZACION_PORTAL)?.codigo;
+        if (!idiomaRecuperacion) throw new TypeError("idioma_recuperacion_firmas_no_disponible");
+        const textosRecuperacion = await cargarTextos("contratacion-temporal-recuperacion-firmas-v2", { idioma: idiomaRecuperacion });
+        if (textosRecuperacion.idioma !== idiomaRecuperacion) throw new TypeError("idioma_recuperacion_firmas_incoherente");
+        mensajesRecuperacionFirmas = textosRecuperacion.seccion("general");
+      } catch (error) {
+        errorRecuperacionFirmas = error;
+      }
       const clienteOriginal = original.crearClienteOriginalFirmable({ exigirComprobante: true });
       const clientePreflight = preflight.crearClientePreflightFirma();
       const preparacion = original.crearDependenciasPreparacionFirma({
@@ -165,7 +176,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       });
       const clienteFirmaVec = firmaVec.crearClienteFirmaVec();
       const clienteAutoFirma = autoFirma.crearClienteAutoFirma();
-      return Object.freeze({ vista, auditoriaVista, auditoriaCliente, clienteOriginal,
+      return Object.freeze({ vista, auditoriaVista, auditoriaCliente, clienteOriginal, mensajesRecuperacionFirmas, errorRecuperacionFirmas,
         dependenciasFirma: Object.freeze({ ...preparacion,
           autofirma: clienteAutoFirma, registrarVec: (solicitud, opciones) => clienteFirmaVec.registrar(solicitud, opciones),
         }),
@@ -563,7 +574,8 @@ export function crearCoordinadorModulosPortal({
           catalogosAlta: primera ? vigente(catalogosAltaLista) : null };
         promesaCompleto ??= recursos.cargarCompleto().then((partes) => cargarContratacionTemporal({
           consultar, exigirVigente, notificar,
-          recursosRecibidos: { ...recursos, ...partes, cargarCuadroLigero: null, tomarCuadroLista, tomarCatalogosAlta },
+          recursosRecibidos: { ...recursos, ...partes, cargarCuadroLigero: null, tomarCuadroLista, tomarCatalogosAlta,
+            soloIntervencion: perfilIntervencion },
         })).then(({ contratacionTemporal }) => contratacionTemporal)
           .catch((error) => { promesaCompleto = null; throw error; });
         return promesaCompleto;
@@ -677,7 +689,14 @@ export function crearCoordinadorModulosPortal({
     // y categoría aparecen en cuanto llegan (se avisa con `notificar`). Abrir
     // Contratación espera a que terminen, para que el alta y la bandeja se
     // monten ya con ellos.
-    const promesaAlta = consultar((opciones) => cliente.obtenerCatalogosAlta(opciones)).then((valor) => {
+    // La lista ya acreditó que la sesión tiene solo el perfil de Intervención:
+    // su pantalla es la fiscalización, que no usa alta, cuadro ni configuración
+    // del análisis de RRHH. No se piden (el servidor las denegaría igualmente).
+    const soloIntervencion = recursos.soloIntervencion === true;
+    const noUsadaPorIntervencion = () => Promise.reject(Object.assign(
+      new Error("lectura de RRHH no usada por Intervención"), { codigo: "no_usada_intervencion" }));
+    const promesaAlta = (soloIntervencion ? noUsadaPorIntervencion()
+      : consultar((opciones) => cliente.obtenerCatalogosAlta(opciones))).then((valor) => {
       try {
         alta = Object.freeze({
           catalogos: recursos.contrato.validarCatalogosAlta(valor),
@@ -696,8 +715,10 @@ export function crearCoordinadorModulosPortal({
       if (alta === null) void centrosOrganizacion()?.then((centros) => { if (centros) notificar(); });
     });
     // La portada solo necesita los recuentos de todo el cuadro, no sus filas.
-    const consultaCuadro = consultar((opciones) => fuente.resumenInicio(opciones));
-    const promesaConfiguracion = consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones));
+    const consultaCuadro = soloIntervencion ? noUsadaPorIntervencion()
+      : consultar((opciones) => fuente.resumenInicio(opciones));
+    const promesaConfiguracion = soloIntervencion ? noUsadaPorIntervencion()
+      : consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones));
     promesaConfiguracion.then((valor) => entregarModalidades(valor?.modalidades ?? null), () => entregarModalidades(null));
     // Desde la lista (ficha, alta o filtros), la vista se va a montar: se
     // descarga ya, tras lanzar las consultas para no retrasarlas. Un fallo se
@@ -807,6 +828,8 @@ export function crearCoordinadorModulosPortal({
           const partes = await esperarVista();
           return partes.vista.montarModuloContratacionTemporal({ ...opciones, clienteResultadoBolsa: cliente,
             clienteFirmasV2: cliente.firmasV2, dependenciasFirma: partes.dependenciasFirma ?? {},
+            mensajesRecuperacionFirmas: partes.mensajesRecuperacionFirmas ?? null,
+            errorRecuperacionFirmas: partes.errorRecuperacionFirmas ?? null,
             clienteOriginalFirma: partes.clienteOriginal });
         },
         montarFiscalizacion: async (opciones) => (await esperarVista()).vista
@@ -1358,7 +1381,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_CATEGORIAS_RPT) {
-      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261016-ct-ofertas-ct231-v1");
+      const { montarCategoriasRPT } = await import("./categorias-rpt/montaje.js?v=20261018-f173-alta-v5");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarCategoriasRPT({ raiz });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
@@ -1500,6 +1523,8 @@ export function crearCoordinadorModulosPortal({
           zonaHoraria: ZONA_HORARIA_PORTAL,
           confirmarOperacion,
           anunciar,
+          expedienteRef,
+          expedienteVersion: opciones?.expedienteVersion ?? null,
         })
         : await temporal.montar({
           raiz,

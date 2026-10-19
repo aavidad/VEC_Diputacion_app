@@ -48,9 +48,9 @@ func TestCatalogMissingKeyFailsDeterministically(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 
-	message, ok := catalog.Lookup("es", "missing")
+	message, ok := catalog.Message("es", "missing")
 	if ok {
-		t.Fatalf("Lookup() ok = true, message = %q", message)
+		t.Fatalf("Message() ok = true, message = %q", message)
 	}
 	if got := catalog.T("es", "  missing  "); got != "missing" {
 		t.Fatalf("T(missing) = %q, want %q", got, "missing")

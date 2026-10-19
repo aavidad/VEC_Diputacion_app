@@ -125,6 +125,11 @@ func nuevoConstructorOrdenOrigenCT(
 		if err != nil {
 			return vacia, err
 		}
+		ordenConContexto, err := ordenOrigenCTConContextoComprobacion(permiso.Orden, d, preparador.soporte.ambitoRef)
+		if err != nil {
+			return vacia, err
+		}
+		permiso.Orden = ordenConContexto
 		intento, err := vecports.NuevaReferenciaIntentoAuditoria()
 		if err != nil {
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible

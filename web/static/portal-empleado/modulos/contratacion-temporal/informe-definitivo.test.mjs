@@ -86,6 +86,29 @@ async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
     descargas, creados, revocados };
 }
 
+test("el informe v5 permite comprobar la firma antes de fiscalizar, con el expediente actual", () => {
+  const previo = estadoReal();
+  previo.expediente.version = 5;
+  Object.assign(previo.cuadro.expedientes[0], { version: 5, fase_clave: "informe_juridico" });
+  assert.deepEqual(solicitudInformeDefinitivoDesdeEstado(previo, "informe_definitivo"), {
+    expediente_ref: previo.expediente_ref, version_observada: 5,
+  });
+  assert.equal(solicitudInformeDefinitivoDesdeEstado(previo), null);
+  assert.equal(solicitudInformeDefinitivoDesdeEstado(previo, "resolucion"), null);
+  for (const cambiar of [
+    (e) => { e.cuadro.expedientes[0].fase_clave = "asignacion_unidad"; },
+    (e) => { e.cuadro.expedientes[0].fase_clave = "gestion_bolsa"; },
+    (e) => { e.cuadro.expedientes[0].estado_clave = "completado"; },
+    (e) => { e.cuadro.expedientes[0].version = 4; },
+    (e) => { e.expediente.version = 4; },
+    (e) => { e.expediente_ref = "expediente:otro"; },
+  ]) {
+    const alterado = structuredClone(previo);
+    cambiar(alterado);
+    assert.equal(solicitudInformeDefinitivoDesdeEstado(alterado, "informe_definitivo"), null);
+  }
+});
+
 test("los diez borradores v7 reales sólo aparecen dentro de Documentos", () => {
   const estado = estadoReal();
   const html = renderizarModuloContratacionTemporal(estado);

@@ -52,7 +52,7 @@ test("una respuesta de Mi bolsa sin reflejar se rotula y deja a la persona sin t
     assert.equal(validarMarcasCandidato({ presta_servicios: null, en_revision: motivo, encadenamiento: null }).en_revision, motivo);
   }
   const ficha = renderizarMarcasFicha({ marcas: { presta_servicios: null, en_revision: "aceptacion_pendiente", encadenamiento: null } }, escapar);
-  assert.match(ficha, /Revisión pendiente[\s\S]*Ha aceptado en «Mi bolsa»\. Confírmelo con «Cambiar situación»/);
+  assert.match(ficha, /Revisión pendiente[\s\S]*Ha aceptado en «Mi bolsa»\. Pulse «Confirmar aceptación del llamamiento»/);
   const chips = renderizarChipsMarcas({ marcas: { presta_servicios: null, en_revision: "renuncia_pendiente", encadenamiento: null } }, escapar);
   assert.match(chips, /En revisión/);
   assert.match(chips, /Ha renunciado en «Mi bolsa»/);
