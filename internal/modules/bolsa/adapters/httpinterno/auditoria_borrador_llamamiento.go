@@ -3,6 +3,7 @@ package httpinterno
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -93,6 +94,16 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 		ClaseRuta:   clase,
 		Resultado:   resultadoIntentoBorradorLlamamiento(estado),
 	}
+	if accion == puertosbolsa.AccionIntentoRegistrarComprobacionOfrecimiento && estado == http.StatusServiceUnavailable {
+		var salida struct {
+			Error struct {
+				Codigo string `json:"codigo"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(respuesta.cuerpo.Bytes(), &salida) == nil && salida.Error.Codigo == "resultado_no_confirmado" {
+			intento.Resultado = puertosbolsa.ResultadoIntentoIndeterminadoBorradorLlamamiento
+		}
+	}
 	if !dependenciaNula(a.actor) {
 		if actor, verificado := a.actor.ActorVerificadoParaAuditoriaBorradorLlamamiento(ctxAuditoria); verificado {
 			intento.ActorVerificado = actor
@@ -110,6 +121,9 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 }
 
 func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIntentoBorradorLlamamiento, puertosbolsa.ClaseRutaIntentoBorradorLlamamiento, bool) {
+	if _, _, ok := ReferenciasRutaComprobacionOfrecimiento(r); ok && r.Method == http.MethodPost {
+		return puertosbolsa.AccionIntentoRegistrarComprobacionOfrecimiento, puertosbolsa.ClaseRutaComprobacionOfrecimiento, true
+	}
 	// La bitácora de frontera agrupa los actos sobre la ficha; la decisión V3
 	// y el consumo B128 conservan la acción nominal de confirmación.
 	if _, _, _, ok := ReferenciasRutaConfirmacionDirecta(r); ok && r.Method == http.MethodPost {
