@@ -75,11 +75,15 @@ incluyen el buzón de esa instancia.
 La preparación de los datos ficticios usa los productores del kit privado:
 `VEC_COPIA_ROLES_SCRIPT`, antes de instalar SQL, y `VEC_COPIA_DATOS_SCRIPT`,
 después de crear las credenciales. Para el aspirante se añade
-`VEC_COPIA_PORTAL_SCRIPT` y `--portal-externo`, que requiere `--modulos`.
-Cada variable apunta a un archivo privado propio, fuera de Git y de la
+`--portal-externo`, que requiere `--modulos`, usa el preparador versionado en
+`portal_copia/`. No necesita un guion externo del equipo. Añade
+`--sin-inscripcion` para preparar solo las lecturas y la clasificación; ese
+modo nunca publica el selector de inscripción.
+Las dos variables de roles y datos apuntan a archivos privados propios, fuera de Git y de la
 carpeta de PostgreSQL, sin enlaces ni permisos de grupo o de otros usuarios.
-Los productores reciben únicamente `--raiz <instancia>` y dejan su registro
-en ella. Las rutas y los datos concretos del kit no se versionan.
+Esos dos productores reciben `--raiz <instancia>` y dejan su registro
+en ella. El preparador del portal recibe además el candado que mantiene la
+fábrica. Los datos concretos y el material privado de cada copia no se versionan.
 
 El productor previo debe preparar los dos LOGIN que figuran en
 `configuracion_origen_consumos_v1` para los orígenes de Contratación y Bolsa:
@@ -88,7 +92,15 @@ administración y con vigencia de 90 días. AD278 comprueba esos datos; no se
 debilita su guarda. Las demás conexiones se crean con nombres y contraseñas
 nuevos. El registro privado conserva sus valores y la huella del entorno.
 
-Tras el productor de datos, el guion coteja los 22 LOGIN internos: opciones
+La copia prepara también `VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL`
+con un LOGIN distinto, TLS verificado y pertenencia exclusiva al grupo del
+relevo: `INHERIT TRUE, SET TRUE, ADMIN FALSE`, según el apartado de relevo de
+`03_entorno.md`. La conexión no activa el seguimiento ni la incorporación:
+esos selectores y los catálogos se preparan para el recorrido que los use.
+El segundo RRHH que exige la regla c22 necesita su identidad y perfil
+publicados por el circuito de Administración; esta conexión no los concede.
+
+Tras el productor de datos, el guion coteja los 23 LOGIN internos: opciones
 sin privilegios de administración y membresías directas exactas. La conexión
 de importación CONVOCA conserva los grupos `vec_bolsa_importacion_convoca_ejecutor`
 y `vec_bolsa_importacion_convoca_recuperador`, ambos con `INHERIT TRUE`,
@@ -381,19 +393,37 @@ Perfiles y asignaciones de la copia:
 
 ## 5. Identidad del aspirante externo
 
-El respaldo HZ37 trae vacía la tabla de admisiones técnicas de identidad
-externa (`vec_identidad_externa_v1.llamante_autorizacion`). Sin ellas, Mi Bolsa
-devuelve «instantánea obsoleta» al revalidar la sesión.
+La orden `crear --modulos --portal-externo` usa los productores existentes
+para generar identidad, contexto, asignación y confianza del aspirante.
+Las admisiones técnicas ausentes del respaldo se generan como **semilla
+ficticia de esa copia**. No acreditan un acto de Administración ni F0-21.
+El material y los registros quedan bajo la carpeta privada `portal` de la
+instancia, y `borrar` los retira junto con ella.
 
-- En tu copia, restituye las admisiones por SQL y anótalo en tu guion de
-  ensayo como «dato de copia».
-- Nunca como activación: ni en `deploy/principal` ni presentado como
-  «aprobado por Identidad». No existe todavía el productor gobernado (una
-  función para un grupo ADMIN que exija aprobación, audite en la misma
-  transacción y permita retirar). Es tarea del tablero (consenso de seguridad
-  del 15/10).
-- Mi Bolsa exige además que el `candidato_ref` del manifiesto coincida con el
-  vínculo vigente de esa persona.
+```sh
+deploy/principal/copia_local.sh crear --equipo b --instancia aspirante \
+  --puerto-pg 55481 --puerto-app 18481 --puerto-smtp 11081 \
+  --modulos --portal-externo --sin-inscripcion \
+  --rrhh-original "$VEC_COPIA_ORIGEN/copia-20261014/material" \
+  --lista-sql deploy/principal/lista_sql_main_tras_hz37.txt
+```
+
+Usa los productores de roles y datos del apartado 2 y puertos libres propios.
+El preparador conserva el candado de la instancia y coteja contenedor, puerto,
+identificador PostgreSQL y binario antes de operar. Guarda el documento y la
+referencia de asignación antes de confirmar; si se pierde la respuesta,
+reconcilia el mismo efecto por su huella y evento, sin publicar otro.
+La reanudación exige la misma revisión y el árbol limpio. La actualización
+del entorno conserva un intento privado antes de cambiar sus archivos: si
+se interrumpe entre el entorno y su huella, el mismo preparador completa esa
+publicación. Una modificación distinta detiene la recuperación.
+
+Una cabeza del rol candidato que exija Administración detiene la semilla con
+`requiere_publicacion_por_administracion`; no recupera una versión antigua.
+En ese caso corresponde publicar el permiso por la vía gobernada. La sesión
+y su auditoría no necesitan AD295; el gobierno ADMIN sí mantiene sus requisitos.
+Las lecturas de Mi Bolsa y del historial no acreditan el envío de inscripción:
+ese POST y su recibo deben comprobarse en el recorrido que lo consume.
 
 ## 6. Organización histórica y lectura de Personal en el servidor combinado
 

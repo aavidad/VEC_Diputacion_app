@@ -3,6 +3,7 @@
 -- AD278 (orígenes), contexto_actor_v1/roles_up.sql (migrador de CTX45)
 -- y documentos/migraciones/000009_custodia_documento_firmado.up.sql
 -- (tipo documental reservado que D19 espera en la copia).
+-- CTX15 aporta la fila inicial del contador técnico de contexto externo.
 -- Sólo prepara procedencia y catálogo técnicos: no publica permisos de negocio, actos,
 -- personas, firmas, recibos ni material criptográfico.
 -- Ejecutar una vez como superusuario local tras restaurar esquema_hz37.sql.gz
@@ -21,6 +22,7 @@ BEGIN
   IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
      OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = current_user AND rolsuper)
      OR to_regclass('vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1') IS NULL
+     OR to_regclass('vec_documentos.modulo_referencia_expediente_v1') IS NULL
      OR to_regrole('vec_autorizacion_atestada_v3_propietario') IS NULL
      OR to_regrole('vec_contratacion_temporal_ejecutor') IS NULL
      OR to_regrole('vec_bolsa_llamamientos_ejecutor') IS NULL
@@ -42,6 +44,12 @@ BEGIN
       AND c.relname = 'configuracion_origen_consumos_v1'
       AND c.relkind = 'r' AND c.relrowsecurity AND c.relforcerowsecurity
       AND c.relowner = 'vec_autorizacion_atestada_v3_propietario'::regrole
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'vec_documentos'
+      AND c.relname = 'modulo_referencia_expediente_v1'
+      AND c.relkind = 'r' AND c.relrowsecurity AND c.relforcerowsecurity
+      AND c.relowner = 'vec_documentos_propietario'::regrole
   ) THEN RAISE EXCEPTION 'F0-29: propietario o RLS incompatibles' USING ERRCODE = '55000';
   END IF;
 
@@ -68,6 +76,88 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 END $pre$;
+
+-- Los roles globales y ACL de base no pertenecen al volcado de esquema.
+-- Contratos: roles_candidato_externo_up.sql y CTX15, sin pertenencias nuevas.
+DO $grupos_ctx15$
+DECLARE nombre text;
+BEGIN
+  IF (SELECT count(*) FROM pg_roles
+      WHERE rolname IN ('vec_contexto_actor_v1_candidato_externo',
+                        'vec_contexto_actor_v1_usuarios_externo')) <> 2
+     OR EXISTS (
+       SELECT 1 FROM pg_roles WHERE rolname IN (
+         'vec_contexto_actor_v1_candidato_externo', 'vec_contexto_actor_v1_usuarios_externo')
+       AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole
+            OR rolreplication OR rolbypassrls OR rolconfig IS NOT NULL))
+  THEN RAISE EXCEPTION 'F0-29: grupos externos de contexto incompatibles'
+    USING ERRCODE = '55000';
+  END IF;
+  FOREACH nombre IN ARRAY ARRAY[
+    'vec_contexto_actor_v1_candidato_externo', 'vec_contexto_actor_v1_usuarios_externo']
+  LOOP
+    EXECUTE format('ALTER ROLE %I NOINHERIT', nombre);
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), nombre);
+  END LOOP;
+  EXECUTE format('REVOKE ALL ON DATABASE %I FROM PUBLIC', current_database());
+END $grupos_ctx15$;
+
+-- CTX15 inicializa este contador; el volcado de solo esquema omite la fila.
+-- Se repone después de verificar todas las tablas vacías, sin cambiar guardas.
+DO $control_ctx15_pre$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'vec_contexto_actor_v1'
+      AND c.relname = 'control_generacion_contexto_externo_v1'
+      AND c.relkind = 'r' AND c.relrowsecurity AND c.relforcerowsecurity
+      AND c.relowner = 'vec_contexto_actor_v1_propietario'::regrole
+  ) THEN RAISE EXCEPTION 'F0-29: control técnico CTX15 incompatible'
+    USING ERRCODE = '55000';
+  END IF;
+END $control_ctx15_pre$;
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+INSERT INTO vec_contexto_actor_v1.control_generacion_contexto_externo_v1
+  (control_id, generacion) VALUES (true, 0);
+DO $control_ctx15_post$
+BEGIN
+  IF (SELECT count(*) FROM vec_contexto_actor_v1.control_generacion_contexto_externo_v1) <> 1
+     OR NOT EXISTS (
+       SELECT 1 FROM vec_contexto_actor_v1.control_generacion_contexto_externo_v1
+       WHERE control_id AND generacion = 0)
+  THEN RAISE EXCEPTION 'F0-29: fila técnica CTX15 divergente'
+    USING ERRCODE = '55000';
+  END IF;
+END $control_ctx15_post$;
+-- Cierre de tipos de CTX1: pg_dump no conserva la ACL de los tipos fila.
+DO $cerrar_tipos_contexto$
+DECLARE t record;
+BEGIN
+  FOR t IN
+    SELECT ty.typname FROM pg_type ty JOIN pg_namespace ns ON ns.oid = ty.typnamespace
+    WHERE ns.nspname = 'vec_contexto_actor_v1' AND ty.typtype IN ('c', 'd', 'e')
+  LOOP
+    EXECUTE format('REVOKE ALL ON TYPE vec_contexto_actor_v1.%I FROM PUBLIC, vec_contexto_actor_v1_runtime', t.typname);
+  END LOOP;
+END $cerrar_tipos_contexto$;
+RESET ROLE;
+
+-- D14 creó esta fila antes de activar RLS; HZ37 conservó sólo su esquema.
+-- La copia vacía repone el mismo catálogo técnico, sin conceder permisos.
+INSERT INTO vec_documentos.modulo_referencia_expediente_v1
+  (codigo, modulo_id, version, patron_id)
+VALUES ('ct', 'contratacion_temporal', 1, '^[0-9a-f]{64}$');
+DO $catalogo_d14$
+BEGIN
+  IF (SELECT count(*) FROM vec_documentos.modulo_referencia_expediente_v1) <> 1
+     OR NOT EXISTS (
+       SELECT 1 FROM vec_documentos.modulo_referencia_expediente_v1
+       WHERE codigo = 'ct' AND modulo_id = 'contratacion_temporal'
+         AND version = 1 AND patron_id = '^[0-9a-f]{64}$')
+  THEN RAISE EXCEPTION 'F0-29: catálogo técnico D14 divergente'
+    USING ERRCODE = '55000';
+  END IF;
+END $catalogo_d14$;
 
 -- El extractor de roles del DDL no ve este grupo: CTX45 le concede EXECUTE.
 CREATE ROLE vec_contexto_actor_v1_migrador NOLOGIN NOSUPERUSER
@@ -99,7 +189,11 @@ VALUES
   ('vec_bolsa_llamamientos_desarrollo',
    'vec_bolsa_llamamientos.llamamiento.emitir.v1',
    'llamamiento.emitir.v1',
-   'bolsa_llamamientos_ci', 'interna_corporativa');
+   'bolsa_llamamientos_ci', 'interna_corporativa'),
+  ('vec_bolsa_llamamientos_desarrollo',
+   'vec_bolsa_llamamientos.situacion_participacion.cambiar.v1',
+   'bolsa.situacion_participacion.cambiar',
+   'vec-server', 'interna_corporativa');
 RESET ROLE;
 
 DO $post$
@@ -159,7 +253,7 @@ END $post$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 DO $post_filas$
 BEGIN
-  IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1) <> 2
+  IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1) <> 3
      OR NOT EXISTS (
        SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
        WHERE login_nombre = 'vec_ct_o207_runtime'
@@ -173,6 +267,13 @@ BEGIN
          AND audiencia_consumo = 'vec_bolsa_llamamientos.llamamiento.emitir.v1'
          AND operacion = 'llamamiento.emitir.v1'
          AND proceso = 'bolsa_llamamientos_ci'
+         AND canal_permitido = 'interna_corporativa')
+     OR NOT EXISTS (
+       SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1
+       WHERE login_nombre = 'vec_bolsa_llamamientos_desarrollo'
+         AND audiencia_consumo = 'vec_bolsa_llamamientos.situacion_participacion.cambiar.v1'
+         AND operacion = 'bolsa.situacion_participacion.cambiar'
+         AND proceso = 'vec-server'
          AND canal_permitido = 'interna_corporativa')
   THEN RAISE EXCEPTION 'F0-29: orígenes previos de AD278 incompatibles'
     USING ERRCODE = '55000';

@@ -1,0 +1,3 @@
+# F1-09: después de AD288 y del primer corte CT233/AD290/B133; antes de AD291.
+deploy/postgresql/bolsa_llamamientos/migraciones/000137_estado_comprobacion_ofrecimiento.up.sql 9594d9c8f416d0ff92fdc9a28ea7141bae5666476403452029dea6a96855ba3c
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000293_estado_comprobacion_ofrecimiento.up.sql 70a0bab69b13e138e21d39280a6ccecd2286002a49fab3474254df166b5b699f

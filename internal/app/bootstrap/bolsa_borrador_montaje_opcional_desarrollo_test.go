@@ -6,6 +6,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
 func TestBorradorLlamamientoNoSeComponeSinBolsaPostgreSQL(t *testing.T) {
@@ -49,10 +50,30 @@ func TestRutasBorradorLlamamientoExigenPerfilBolsaYMetodosExactos(t *testing.T) 
 		{http.MethodGet, bolsahttp.RutaBorradoresLlamamiento, false},
 		{http.MethodPost, bolsahttp.RutaBorradoresLlamamiento + "/detalle", false},
 		{http.MethodHead, bolsahttp.RutaBorradoresLlamamiento + "/detalle", false},
+		{http.MethodPost, bolsahttp.RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/respuestas/llamamiento:01/confirmacion", true},
+		{http.MethodGet, bolsahttp.RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/respuestas/llamamiento:01/confirmacion", false},
 	} {
 		descriptor, admite := catalogo.resolver(caso.metodo, caso.ruta)
 		if admite != caso.admite || (admite && (len(descriptor.PerfilesActivosRef) != 1 || descriptor.PerfilesActivosRef[0] != perfilBolsa)) {
 			t.Fatalf("%s %s: descriptor=%+v admite=%v", caso.metodo, caso.ruta, descriptor, admite)
 		}
+	}
+	ruta := bolsahttp.RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/respuestas/llamamiento:01/confirmacion"
+	d, ok := catalogo.resolver(http.MethodPost, ruta)
+	if !ok || d.Clave != claveFronteraConfirmacionDirectaBolsa ||
+		d.ClaveCapacidad != claveCapacidadConfirmacionDirectaBolsa ||
+		d.ClaveCapacidad == claveCapacidadSituacionParticipacionBolsa {
+		t.Fatalf("confirmación sin capacidad propia: %+v admite=%v", d, ok)
+	}
+	material := descriptorMaterialConfirmacionDirectaBolsaDesarrollo()
+	if material.Audiencia != puertosbolsa.AudienciaConfirmarAceptacionDirecta ||
+		!audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(material.Audiencia) {
+		t.Fatalf("confirmación sin gobierno propio: %+v", material)
+	}
+	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(
+		descriptoresMaterialSeleccionadosCTDesarrollo(seleccionMaterialCTDesarrollo{borradoresBolsa: true}))
+	seleccionado, presente := catalogoMaterial.descriptorPara(material.Audiencia)
+	if err != nil || !presente || seleccionado != material {
+		t.Fatalf("descriptor opcional incompatible con el catálogo base: %v", err)
 	}
 }

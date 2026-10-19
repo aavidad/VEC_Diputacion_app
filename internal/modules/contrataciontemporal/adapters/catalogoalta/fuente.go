@@ -3,6 +3,7 @@ package catalogoalta
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"reflect"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -51,7 +52,10 @@ func (f *Fuente) RecuperarInstantaneaNecesidadConfirmada(
 		return ports.ResultadoInstantaneaNecesidadAlta{}, ports.ErrFuenteNecesidadesAltaNoDisponible
 	}
 	resultado, err := f.recuperador.RecuperarInstantaneaNecesidadConfirmada(ctx, consulta)
-	if err != nil || resultado.Validar() != nil {
+	if err != nil {
+		return ports.ResultadoInstantaneaNecesidadAlta{}, errors.Join(ports.ErrFuenteNecesidadesAltaNoDisponible, err)
+	}
+	if resultado.Validar() != nil {
 		return ports.ResultadoInstantaneaNecesidadAlta{}, ports.ErrFuenteNecesidadesAltaNoDisponible
 	}
 	if resultado.Estado == ports.InstantaneaNecesidadConfirmadaV3 {
