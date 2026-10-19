@@ -154,6 +154,8 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000295_cadena_gobierno_po
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000296_proyecciones_preferencias_fijas.up.sql 6b9c544dd5f3a5727b44419111b52260ac38f3cf1f11be8a5c87518a3603a10b
 # F0-18 — AD291; depende de AD288, AD294, AD293, AD295 y AD296.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000291_comprobacion_derivacion_rrhh.up.sql 10d9778c7b3154d84679d1483413ae686b1279682932b172357f9ba0264d439c
+# F1-19 — AD292; depende de AD291 y precede a CT234.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000292_fachada_derivacion_nombramiento_ct.up.sql 7af2593ce88262eb12f5286ed58d06b5858b70130a661e6a7705304dc78d94cc
 # F1-19: requiere AD292 y AD291 de R instaladas antes de CT234; activación pendiente.
 deploy/postgresql/bolsa_llamamientos/migraciones/000135_verificar_plaza_adjudicada_ct.up.sql b4532ead7dc4d4dc55fbd12070a1880a3f46dc9042632ccf2618242a18e1130b
 deploy/postgresql/contratacion_temporal/migraciones/000234_derivacion_nombramiento.up.sql a542795617f225d5b7293f3266fde4d03e5d10881e80d07ed9476b8afcac1f90
