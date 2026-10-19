@@ -156,3 +156,5 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000296_proyecciones_prefe
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000291_comprobacion_derivacion_rrhh.up.sql 10d9778c7b3154d84679d1483413ae686b1279682932b172357f9ba0264d439c
 # F1-40 — BC12, tras BC9 y B96 del esquema base; no reaplicar.
 deploy/postgresql/bolsa_convocatorias/migraciones/000012_rechazo_inscripcion_conjunta_v1.up.sql ca21824cc9236adb014d3cd3e1ef132d56287124b97b29bc963cf9670ded1931
+# F1-40 — B142, tras BC12; la lista y la ficha del aspirante llevan la modalidad.
+deploy/postgresql/bolsa_llamamientos/migraciones/000142_modalidad_inscripcion_aspirante.up.sql 8888bfa509bbcd87cb33372cd545798067948c06afb1d3c03e1d0582eda635a2

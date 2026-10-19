@@ -74,6 +74,18 @@ BEGIN
    THEN RAISE EXCEPTION 'BC12: lista alterada por modalidad invalida'; END IF;
   END IF;
 
+  IF modalidad IN('ausente','separada') THEN
+   -- El comprobador debe superar la modalidad: sin ambito publicado se detiene
+   -- en CC11; nunca en B9608 ni en un rechazo de BC12.
+   BEGIN
+    PERFORM vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(referencia,'cat.alpha');
+   EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE='B9608' OR SQLERRM LIKE 'BC12:%'
+     OR SQLSTATE<>'B9601' OR SQLERRM NOT LIKE 'CC11:%' THEN
+     RAISE EXCEPTION 'BC12: % no supera la modalidad (% %)',modalidad,SQLSTATE,SQLERRM;
+    END IF;
+   END;
+  END IF;
   IF modalidad NOT IN('ausente','separada') THEN
    rechazado:=false;
    BEGIN

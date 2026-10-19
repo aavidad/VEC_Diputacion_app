@@ -26,6 +26,14 @@ desconocido o nulo es material incoherente: el comprobador responde 55000 y la
 lista deja fuera solo esa versión, sin fallar entera. Cotejar OID, propietario, ACL, configuración,
 volatilidad y paralelismo de las tres funciones.
 
+B142 va detrás de BC12. Reconstruye solo
+`vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1`, por la que
+pasan la lista y la ficha del aspirante, para que copie `modalidad_inscripcion`;
+sin ella la aplicación respondería «no disponible». Un valor que no sea
+separada ni conjunta responde 55000. Su guarda de entrada exige la poshuella de
+BC12. La prueba focal `b142_modalidad_inscripcion_aspirante.sql` y la de BC12
+forman parte de `deploy/postgresql/fase1/ensayar.py --pruebas`.
+
 La copia de ensayo debe contener el prefijo completo de autorización externa.
 Si incluye las 28 audiencias de #1147, preparar el material con su publicador
 antes de arrancar esta aplicación. En el ensayo se usa el productor congelado
