@@ -117,7 +117,7 @@ BEGIN
  IF c#>'{contenido,modalidad_inscripcion}' IS NOT NULL THEN
   IF jsonb_typeof(c#>'{contenido,modalidad_inscripcion}') IS DISTINCT FROM 'string'
    OR c#>>'{contenido,modalidad_inscripcion}' NOT IN('separada','conjunta')
-  THEN RAISE EXCEPTION 'BC12: modalidad de inscripcion invalida' USING ERRCODE='B9601'; END IF;
+  THEN RAISE EXCEPTION 'BC12: modalidad de inscripcion invalida' USING ERRCODE='55000'; END IF;
   IF c#>>'{contenido,modalidad_inscripcion}'='conjunta'
   THEN RAISE EXCEPTION 'BC12: inscripcion conjunta pendiente' USING ERRCODE='B9608'; END IF;
  END IF;
@@ -261,9 +261,6 @@ BEGIN
  OR c#>>'{contenido,identificador_publico}' IS NULL
  OR c#>>'{contenido,titulo}' IS NULL OR c#>>'{contenido,resumen}' IS NULL
  OR c#>>'{contenido,tipo}' IS NULL
- OR (c#>'{contenido,modalidad_inscripcion}' IS NOT NULL
-  AND (jsonb_typeof(c#>'{contenido,modalidad_inscripcion}') IS DISTINCT FROM 'string'
-   OR c#>>'{contenido,modalidad_inscripcion}' NOT IN('separada','conjunta')))
  OR c->>'publicada_en' IS NULL
  OR jsonb_typeof(c->'aprobacion_publicacion') IS DISTINCT FROM 'object'
  OR jsonb_typeof(c->'comprobacion_dependencias') IS DISTINCT FROM 'object'
@@ -275,6 +272,11 @@ BEGIN
   RAISE EXCEPTION 'BC9: fecha de publicación inválida' USING ERRCODE='55000'; END;
  IF publicada IS NULL OR NOT isfinite(publicada)
  THEN RAISE EXCEPTION 'BC9: fecha de publicación inválida' USING ERRCODE='55000'; END IF;
+ -- BC12: una modalidad invalida deja fuera solo esa version; la lista sigue.
+ IF c#>'{contenido,modalidad_inscripcion}' IS NOT NULL
+  AND (jsonb_typeof(c#>'{contenido,modalidad_inscripcion}') IS DISTINCT FROM 'string'
+   OR c#>>'{contenido,modalidad_inscripcion}' NOT IN('separada','conjunta'))
+ THEN RETURN NULL; END IF;
 
  FOR candidato IN SELECT valor FROM jsonb_array_elements(c#>'{contenido,plazos}') AS p(valor)
   WHERE valor->>'tipo'='inscripcion' LOOP
@@ -427,8 +429,8 @@ DO $post$
 DECLARE r record; f regprocedure; p record;
 BEGIN
  FOR r IN SELECT * FROM (VALUES
-   ('comprobar','vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)','f0c8f5095e3f51c233a58bce9a38c37ff2ce39df09ad95b2557ed1783a2fd59c','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario,vec_bolsa_llamamientos_propietario=X/vec_bolsa_convocatorias_propietario}','v','u'),
-   ('proyectar','vec_bolsa_convocatorias.proyectar_abierta_inscripcion_v1(text,bigint,bytea,text,timestamp with time zone)','0d99437c2406f7b99b495f04e969209c3219bc25334a35a60a0ce3c5645193ad','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario}','s','r'),
+   ('comprobar','vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)','510d5fb7fa0daa905cf8565f2e53de8d00b2ed5623bf0d5a1a028082cbc71547','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario,vec_bolsa_llamamientos_propietario=X/vec_bolsa_convocatorias_propietario}','v','u'),
+   ('proyectar','vec_bolsa_convocatorias.proyectar_abierta_inscripcion_v1(text,bigint,bytea,text,timestamp with time zone)','d47623ea04fef1e6eed09aebb017771ddea8bd685613fb3e63a939455ee40ef8','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario}','s','r'),
    ('listar','vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(text,integer)','d0a6951941fdac325e735641b618933843a692650233d37bedbbab8411c7689d','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario,vec_bolsa_llamamientos_propietario=X/vec_bolsa_convocatorias_propietario}','s','r')
   ) AS esperado(clave,firma,huella,acl,volatilidad,paralelismo) LOOP
   f:=to_regprocedure(r.firma);

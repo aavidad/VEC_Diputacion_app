@@ -60,14 +60,18 @@ BEGIN
      WHERE dato->>'convocatoria_ref'=referencia AND dato->>'modalidad_inscripcion'=efectiva)<>1
    THEN RAISE EXCEPTION 'BC12: modalidad ausente o divergente en lista'; END IF;
   ELSE
-   rechazado:=false;
-   BEGIN
-    PERFORM vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(referencia);
-   EXCEPTION WHEN SQLSTATE '55000' THEN
-    IF SQLERRM<>'BC9: material publicado incompleto' THEN RAISE; END IF;
-    rechazado:=true;
-   END;
-   IF NOT rechazado THEN RAISE EXCEPTION 'BC12: modalidad invalida proyectada'; END IF;
+   -- Una version con modalidad invalida queda fuera sin tumbar la lista.
+   IF vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(referencia) IS NOT NULL
+   THEN RAISE EXCEPTION 'BC12: modalidad invalida proyectada'; END IF;
+   pagina:=vec_bolsa_convocatorias.listar_abiertas_inscripcion_v1(NULL,100);
+   IF EXISTS(SELECT 1 FROM jsonb_array_elements(pagina->'items') AS x(dato)
+     WHERE dato->>'convocatoria_ref'=referencia)
+   OR (SELECT count(*) FROM jsonb_array_elements(pagina->'items') AS x(dato)
+     WHERE dato->>'convocatoria_ref' IN(
+      'cv1_'||vec_bolsa_convocatorias.huella_id_inscripcion_v1('convocatoria:bc12:ausente')||'_v1',
+      'cv1_'||vec_bolsa_convocatorias.huella_id_inscripcion_v1('convocatoria:bc12:separada')||'_v1',
+      'cv1_'||vec_bolsa_convocatorias.huella_id_inscripcion_v1('convocatoria:bc12:conjunta')||'_v1'))<>3
+   THEN RAISE EXCEPTION 'BC12: lista alterada por modalidad invalida'; END IF;
   END IF;
 
   IF modalidad NOT IN('ausente','separada') THEN
@@ -78,7 +82,7 @@ BEGIN
     WHEN SQLSTATE 'B9608' THEN
      IF modalidad<>'conjunta' THEN RAISE; END IF;
      rechazado:=true;
-    WHEN SQLSTATE 'B9601' THEN
+    WHEN SQLSTATE '55000' THEN
      IF modalidad NOT IN('desconocida','nula')
       OR SQLERRM<>'BC12: modalidad de inscripcion invalida' THEN RAISE; END IF;
      rechazado:=true;
