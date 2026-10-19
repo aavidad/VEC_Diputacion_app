@@ -107,6 +107,8 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialBorradorCrear                   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorConsulta                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialSituacion                       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialComprobacion                    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConfirmacionDirecta             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaSolicitudesDocumentales *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaReincorporacionTitular  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialContacto                        *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -739,6 +741,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		if cfg.BolsaBorradoresEnabled {
+			dependencias.proveedorMaterialComprobacion = proveedorComprobacionOfrecimiento(ctx, gobierno, material, reloj)
 			dependencias.proveedorMaterialCargaConvoca = proveedorCargaConvocaOpcionalDesarrollo(nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConfirmarCargaConvoca))
 			if seleccion.reincorporacionTitular {
 				etapa = "material_consulta_reincorporacion_titular_bolsa"
@@ -880,6 +883,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		if err != nil {
 			return vacias, err
 		}
+	}
+	if seleccion.borradoresBolsa {
+		dependencias.proveedorMaterialConfirmacionDirecta = proveedorConfirmacionDirectaOpcional(
+			ctx, gobierno, material, reloj, catalogoMaterial)
 	}
 	// Organización histórica es opcional e independiente de B2. La selección
 	// y la publicación usan el gobierno central, pero su fallo sólo deja esta

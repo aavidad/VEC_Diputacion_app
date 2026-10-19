@@ -1,9 +1,12 @@
 const CLAVES = Object.freeze([
-  "demo_titulo", "demo_aviso", "titulo", "descripcion", "limite", "consultar",
+  "demo_titulo", "demo_aviso", "titulo", "consultar",
   "cancelar", "cargando", "vacio", "cancelada", "denegada", "no_disponible",
-  "no_confiable", "firma", "firmado", "devuelto", "recibo", "fecha", "paso",
-  "detalle_tecnico", "firma_ref", "revision_sha256", "material_root_sha256",
-  "canon_nominal_sha256", "canon_nominal_ref",
+  "no_confiable", "firma", "firmado", "devuelto", "recibo_con_valor", "fecha",
+  "historicas_titulo", "historicas_consultar", "historicas_consultar_firma",
+  "historicas_paso", "historicas_version", "historicas_documento",
+  "historicas_documento_informe_definitivo", "historicas_documento_resolucion",
+  "historicas_documento_diligencia", "historicas_documento_toma_posesion",
+  "historicas_documento_notificacion", "historicas_documento_comunicacion_centro",
 ]);
 
 // Recibe la sección completa del catálogo común ya cargado. No decide idioma

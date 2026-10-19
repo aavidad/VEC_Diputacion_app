@@ -131,5 +131,28 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000116_preferencias_bolsas_inte
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000275_lectura_preferencias_bolsas_interna.up.sql e9c18e8a4265f722317cf3dbd2705daf8d2e17d94722ce554bfd442dfb518d98
 deploy/postgresql/contratacion_temporal/migraciones/000238_seleccion_confirmada_unica.up.sql 5b710d37ee1bb25479566b864235e26e4316ccc08ac9db44e55eebcb2799df00
 
+# F1-71 — AD288 tras AD279.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000288_confirmacion_aceptacion_bolsa.up.sql 88d014083dd8a7e692b40c7ec617c7b8ebca84c2824ec93d77ea3457670c52b2
+# F1-71 — B128; requiere AD288 inmediatamente antes.
+deploy/postgresql/bolsa_llamamientos/migraciones/000128_confirmar_aceptacion_directa.up.sql d0f4ecb2f495c8306f197c1541b7fa1356ad9733825e132fbf3806753d596312
+# F1-73 — Cantidad de la necesidad sellada en el alta directa; no reaplicar.
+deploy/postgresql/contratacion_temporal/migraciones/000239_cantidad_necesidad_sellada.up.sql 5422bedbbb837f29371f8c1326cf63233f72b916a12a2b2c30e0e32cfa3bf435
+# F1-12 — AD294, intento nominal externo sin transacción.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000294_intento_preferencias_sin_transaccion.up.sql e184a2c337ef33d8fd1696306ad0c19643d77f6caebddd912c99baa37a78b65e
+# F1-09: CT233, AD290 y B133; activar según guía.
+deploy/postgresql/contratacion_temporal/migraciones/000233_cotejo_comprobacion_bolsa.up.sql f2114b91edee7bf32ce5cceb17d251d8269946eb652a5e923b47320780bf391e
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000290_consumidor_comprobacion_ofrecimiento.up.sql 683a4856cd942dd6ef9dd8dfc7d6fbd8bced58d02262c7c1d067432fc38ddd6a
+deploy/postgresql/bolsa_llamamientos/migraciones/000133_comprobacion_ofrecimiento.up.sql 4e36313be2a174176e0a8317a8e4768cf21d9639c303cbae764334827ffc4f6b
+# Tarea F1-09 — B134, intento nominal
+deploy/postgresql/bolsa_llamamientos/migraciones/000134_intento_comprobacion_ofrecimiento.up.sql a9053eca027ecbd90291ac2f8d7ad48d91056d0770405b273b49318970c3740b
+# F1-09: B137 y AD293, tras AD288 y el primer corte.
+deploy/postgresql/bolsa_llamamientos/migraciones/000137_estado_comprobacion_ofrecimiento.up.sql 9594d9c8f416d0ff92fdc9a28ea7141bae5666476403452029dea6a96855ba3c
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000293_estado_comprobacion_ofrecimiento.up.sql 70a0bab69b13e138e21d39280a6ccecd2286002a49fab3474254df166b5b699f
+# F0-29 — AD295, lectura de cadena por acuse.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000295_cadena_gobierno_por_acuse.up.sql af17aa1eca7dba6f3ae000030c4a2e0f5b9c0890ed30072c3374934b4359c3be
+# F1-13 — AD296; su guarda exige AD246, AD275 y AD294.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000296_proyecciones_preferencias_fijas.up.sql 6b9c544dd5f3a5727b44419111b52260ac38f3cf1f11be8a5c87518a3603a10b
+# F0-18 — AD291; depende de AD288, AD294, AD293, AD295 y AD296.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000291_comprobacion_derivacion_rrhh.up.sql 10d9778c7b3154d84679d1483413ae686b1279682932b172357f9ba0264d439c
 # F1-19 — AD292; depende de AD291 y precede a CT234.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000292_fachada_derivacion_nombramiento_ct.up.sql 7af2593ce88262eb12f5286ed58d06b5858b70130a661e6a7705304dc78d94cc

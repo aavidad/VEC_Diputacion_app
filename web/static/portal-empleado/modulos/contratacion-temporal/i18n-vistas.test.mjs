@@ -35,6 +35,7 @@ test("el detalle añade sus tres fuentes al abrir expediente y lee cada JSON una
     "en/portal.json", "en/contratacion-temporal-ficha-lista.json",
     "en/contratacion-temporal-lista-plazos.json", "en/contratacion-temporal-analisis-catalogo.json",
     "en/contratacion-temporal-cambios-expediente.json",
+    "en/contratacion-temporal-recuperacion-firmas-v2.json",
     "en/contratacion-temporal-firma-incorporacion-expedientes.json",
   ].sort());
   assert.equal(resultado.idioma, "en");

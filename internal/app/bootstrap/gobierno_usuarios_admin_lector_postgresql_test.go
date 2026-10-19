@@ -111,7 +111,7 @@ func TestGobiernoLectorAD235PostgreSQLPrivado(t *testing.T) {
 	if su.QueryRow(ctx, consultaCadenaGobiernoAnteriorAD235, auditoria.EsquemaVerificacionGobiernoUsuarios).Scan(&antes) != nil {
 		t.Fatal("cadena_anterior")
 	}
-	despues, err := leerDocumentoGobiernoLectura(ctx, lector, consultaCadenaGobiernoLectura, auditoria.EsquemaVerificacionGobiernoUsuarios)
+	despues, err := leerDocumentoGobiernoLectura(ctx, lector, consultaCadenaGobiernoLectura, auditoria.EsquemaVerificacionGobiernoUsuarios, nil)
 	if err != nil || !bytes.Equal(antes, despues) {
 		t.Fatal("cadena_distinta")
 	}
@@ -159,10 +159,10 @@ func TestGobiernoLectorAD235PostgreSQLPrivado(t *testing.T) {
 		}
 	}
 	for _, q := range []struct {
-		sql string
-		arg any
-	}{{`SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1($1)`, int64(-1)}, {`SELECT vec_autorizacion_atestada_v3.cadena_gobierno_admin_lectura_v1($1)`, "Esquema Libre"}} {
-		_, err := lector.Exec(ctx, q.sql, q.arg)
+		sql  string
+		args []any
+	}{{`SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1($1)`, []any{int64(-1)}}, {`SELECT vec_autorizacion_atestada_v3.cadena_gobierno_admin_lectura_v1($1,$2)`, []any{"Esquema Libre", nil}}} {
+		_, err := lector.Exec(ctx, q.sql, q.args...)
 		var pgErr *pgconn.PgError
 		if !errors.As(err, &pgErr) || pgErr.Code != "22023" {
 			t.Fatalf("argumento_admitido %q", q.sql)
@@ -170,12 +170,12 @@ func TestGobiernoLectorAD235PostgreSQLPrivado(t *testing.T) {
 	}
 }
 
-// Sin base: preparar y verificar solo llaman a las dos fachadas de AD235, con
-// un único parámetro tipado y sin tocar tablas ni preimágenes privadas.
+// Sin base: preparar y verificar solo llaman a las fachadas de gobierno;
+// la instantánea recibe un parámetro y la cadena, esquema y acuse opcional.
 func TestGobiernoLectorAD235ConsultasSoloFachadas(t *testing.T) {
 	esperadas := map[string]string{
 		consultaInstantaneaGobiernoLectura: "SELECT vec_autorizacion_atestada_v3.instantanea_gobierno_admin_lectura_v1($1::integer)",
-		consultaCadenaGobiernoLectura:      "SELECT vec_autorizacion_atestada_v3.cadena_gobierno_admin_lectura_v1($1::text)",
+		consultaCadenaGobiernoLectura:      "SELECT vec_autorizacion_atestada_v3.cadena_gobierno_admin_lectura_v1($1::text,$2::text)",
 	}
 	for q, e := range esperadas {
 		if q != e || strings.Contains(q, "FROM") || strings.Contains(q, "preimagen_") {
@@ -189,7 +189,7 @@ func TestGobiernoLectorAD235ConsultasSoloFachadas(t *testing.T) {
 func TestGobiernoLectorAD235FalloLecturaGenerico(t *testing.T) {
 	r, d := raizOperacionGobiernoUsuarios(t)
 	pool := poolSinConexionGobiernoUsuarios(t)
-	if _, err := leerDocumentoGobiernoLectura(t.Context(), pool, consultaCadenaGobiernoLectura, auditoria.EsquemaVerificacionGobiernoUsuarios); err != ErrGobiernoUsuariosAdmin {
+	if _, err := leerDocumentoGobiernoLectura(t.Context(), pool, consultaCadenaGobiernoLectura, auditoria.EsquemaVerificacionGobiernoUsuarios, nil); err != ErrGobiernoUsuariosAdmin {
 		t.Fatal("error_no_generico")
 	}
 	if _, err := VerificarCadenaGobiernoUsuariosAdmin(t.Context(), pool, r, "verificacion.json"); err != ErrGobiernoUsuariosAdmin {

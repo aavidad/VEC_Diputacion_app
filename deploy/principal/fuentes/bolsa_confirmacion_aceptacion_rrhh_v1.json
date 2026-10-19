@@ -1,0 +1,32 @@
+{
+  "modulo_id": "bolsa",
+  "referencia": "fuente:bolsa:confirmacion_aceptacion_rrhh",
+  "version": 1,
+  "huella_sha256": "4292cbeb60ef2227fa896b37c764f2bd22d676183b39e3ffd171670be549e787",
+  "entradas_canon": "[{\"referencia\":\"accion:bolsa.respuesta_revision.resolver\",\"version\":1,\"fuente_ref\":\"fuente:bolsa:confirmacion_aceptacion_rrhh\",\"fuente_version\":1,\"concesion\":{\"accion\":\"bolsa.respuesta_revision.resolver\",\"modulo_id\":\"bolsa\",\"tipo_recurso\":\"respuesta_revision_bolsa\",\"finalidades\":[\"resolver_respuestas_bolsa_rrhh\"],\"garantia_minima\":\"alto\"},\"dimensiones_ambito\":[\"unidad_ref\",\"ambito_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-15T00:00:00Z\",\"vigente_hasta\":\"2027-01-13T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:bolsa.respuesta_revision.resolver",
+      "version": 1,
+      "fuente_ref": "fuente:bolsa:confirmacion_aceptacion_rrhh",
+      "fuente_version": 1,
+      "concesion": {
+        "accion": "bolsa.respuesta_revision.resolver",
+        "modulo_id": "bolsa",
+        "tipo_recurso": "respuesta_revision_bolsa",
+        "finalidades": [
+          "resolver_respuestas_bolsa_rrhh"
+        ],
+        "garantia_minima": "alto"
+      },
+      "dimensiones_ambito": [
+        "unidad_ref",
+        "ambito_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-15T00:00:00Z",
+      "vigente_hasta": "2027-01-13T00:00:00Z",
+      "fuente_huella_sha256": "4292cbeb60ef2227fa896b37c764f2bd22d676183b39e3ffd171670be549e787"
+    }
+  ]
+}

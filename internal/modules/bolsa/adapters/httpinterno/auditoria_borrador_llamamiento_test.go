@@ -93,17 +93,25 @@ func TestAuditoriaBorradorLlamamientoRegistraDenegacionDeSituacionB2(t *testing.
 	}
 }
 
-func TestAuditoriaOperacionesB8RegistraGETyPOST(t *testing.T) {
-	ruta := RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/operaciones"
+func TestAuditoriaOperacionesYConfirmacionRegistraGETyPOST(t *testing.T) {
+	base := RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/"
 	for _, caso := range []struct {
-		metodo string
-		accion puertosbolsa.AccionIntentoBorradorLlamamiento
-	}{{http.MethodGet, puertosbolsa.AccionIntentoConsultarBorradorLlamamiento}, {http.MethodPost, puertosbolsa.AccionIntentoCambiarSituacionParticipacion}} {
+		metodo, ruta string
+		estado       int
+		accion       puertosbolsa.AccionIntentoBorradorLlamamiento
+		resultado    puertosbolsa.ResultadoIntentoBorradorLlamamiento
+	}{
+		{http.MethodGet, base + "operaciones", 403, puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ResultadoIntentoAccesoDenegadoBorradorLlamamiento},
+		{http.MethodPost, base + "operaciones", 403, puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ResultadoIntentoAccesoDenegadoBorradorLlamamiento},
+		{http.MethodPost, base + "respuestas/llamamiento:01/confirmacion", 401, puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ResultadoIntentoAutenticacionRequeridaBorradorLlamamiento},
+		{http.MethodPost, base + "respuestas/llamamiento:01/confirmacion", 403, puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ResultadoIntentoAccesoDenegadoBorradorLlamamiento},
+		{http.MethodPost, base + "respuestas/llamamiento:01/confirmacion", 409, puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ResultadoIntentoIndeterminadoBorradorLlamamiento},
+	} {
 		registrador := &registradorIntentoBorradorDoble{}
-		h := nuevaAuditoriaBorradorPrueba(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusForbidden) }), registrador, nil)
+		h := nuevaAuditoriaBorradorPrueba(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(caso.estado) }), registrador, nil)
 		w := httptest.NewRecorder()
-		h.ServeHTTP(w, httptest.NewRequest(caso.metodo, ruta, nil))
-		if w.Code != http.StatusForbidden || len(registrador.intentos) != 1 || registrador.intentos[0].Accion != caso.accion || registrador.intentos[0].ClaseRuta != puertosbolsa.ClaseRutaSituacionParticipacion || registrador.intentos[0].Resultado != puertosbolsa.ResultadoIntentoAccesoDenegadoBorradorLlamamiento {
+		h.ServeHTTP(w, httptest.NewRequest(caso.metodo, caso.ruta, nil))
+		if w.Code != caso.estado || len(registrador.intentos) != 1 || registrador.intentos[0].Accion != caso.accion || registrador.intentos[0].ClaseRuta != puertosbolsa.ClaseRutaSituacionParticipacion || registrador.intentos[0].Resultado != caso.resultado {
 			t.Fatalf("B8 %s no auditado: estado=%d intentos=%#v", caso.metodo, w.Code, registrador.intentos)
 		}
 	}

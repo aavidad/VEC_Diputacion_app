@@ -1,9 +1,12 @@
 """Rechazos previos a restaurar o borrar una instancia."""
 import importlib.util
+import fcntl
 import json
 import os
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -37,6 +40,22 @@ class CopiaLocalTest(unittest.TestCase):
                 self.lista.write_text(str(fuente))
                 with patch.object(copia, 'REPO', self.repo), self.assertRaises(ValueError):
                     copia.migraciones([self.lista])
+
+    def test_preparador_hijo_conserva_la_exclusion_de_la_instancia(self):
+        ruta = self.raiz / 'instancia.lock'
+        programa = """import fcntl,sys
+fcntl.flock(int(sys.argv[1]),fcntl.LOCK_EX|fcntl.LOCK_NB)
+with open(sys.argv[2],'a') as otro:
+ try: fcntl.flock(otro,fcntl.LOCK_EX|fcntl.LOCK_NB)
+ except BlockingIOError: sys.exit(0)
+ sys.exit(3)
+"""
+        with ruta.open('a') as candado:
+            fcntl.flock(candado, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            resultado = copia.ejecutar([sys.executable, '-c', programa,
+                        str(candado.fileno()), str(ruta)], salida=subprocess.PIPE,
+                        descriptores=(candado.fileno(),))
+        self.assertEqual(resultado.returncode, 0)
 
 
     def test_no_omite_duplicado_ni_huella_alterada(self):
