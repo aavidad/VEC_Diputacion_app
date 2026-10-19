@@ -402,12 +402,14 @@ class Copia:
         parar_verificador(self)
 
     def firma(self, manifiesto):
-        """Compone la firma sobre una copia en marcha y la reinicia con el verificador."""
+        """Compone la firma de una copia con módulos y la reinicia con el verificador."""
         from copia_local_firma import preparar
         estado = self.leer()
-        if not estado.get('entorno_modulos_sha256') or not self.proceso(estado):
-            raise ValueError('La firma necesita una copia creada con --modulos y en marcha')
+        if not estado.get('entorno_modulos_sha256'):
+            raise ValueError('La firma necesita una copia creada con --modulos')
         verificar_fuente(estado['revision'])
+        # Las etapas privadas pueden necesitar la aplicación; la v4 solo PostgreSQL.
+        self.pg()
         memoria()
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',

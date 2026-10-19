@@ -73,6 +73,15 @@ class ManifiestoTest(Base):
             with self.subTest(etapas=etapas), self.assertRaises(ValueError):
                 firma.leer_manifiesto(self.manifiesto(etapas=etapas), self.estado)
 
+    def test_rechaza_carpeta_superior_modificable_por_otros(self):
+        ruta = self.manifiesto()
+        self.privada.chmod(0o777)
+        try:
+            with self.assertRaises(ValueError):
+                firma.leer_manifiesto(ruta, self.estado)
+        finally:
+            self.privada.chmod(0o700)
+
     def test_rechaza_puerto_de_la_copia_y_huella_distinta(self):
         verificador = {'binario': str(self.binario), 'puerto': 18481,
                        'binario_sha256': hashlib.sha256(self.binario.read_bytes()).hexdigest()}
@@ -94,6 +103,28 @@ class EtapasTest(Base):
         self.assertEqual(firma.ejecutar_etapas(self.copia, etapas), ['uno', 'dos'])
         self.assertEqual(firma.ejecutar_etapas(self.copia, etapas), [])
         self.assertEqual(traza.read_text().split(), ['uno', 'dos'])
+
+    def test_repite_la_etapa_si_cambia_su_ejecutable(self):
+        traza = self.privada / 'traza'
+        etapa = self.etapa('uno', f'echo a >> {traza}')
+        firma.ejecutar_etapas(self.copia, [etapa])
+        self.etapa('uno', f'echo b >> {traza}')
+        self.assertEqual(firma.ejecutar_etapas(self.copia, [etapa]), ['uno'])
+        self.assertEqual(traza.read_text().split(), ['a', 'b'])
+
+    def test_el_plazo_termina_la_etapa_y_sus_hijos(self):
+        etapa = self.etapa('lenta', 'sleep 37.13 & sleep 37.13')
+        with patch.object(firma, 'PLAZO_ETAPA', 0.3), self.assertRaises(ValueError):
+            firma.ejecutar_etapas(self.copia, [etapa])
+        self.assertFalse((self.raiz / 'firma-etapas/lenta.hecha').exists())
+        vivos = []
+        for proc in Path('/proc').iterdir():
+            try:
+                if (proc / 'cmdline').read_bytes() == b'sleep\x0037.13\x00':
+                    vivos.append(proc.name)
+            except OSError:
+                pass
+        self.assertEqual(vivos, [])
 
     def test_una_etapa_fallida_detiene_las_siguientes(self):
         traza = self.privada / 'traza'

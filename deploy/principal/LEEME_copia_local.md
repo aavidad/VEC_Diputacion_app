@@ -606,7 +606,7 @@ publicado, los firmantes con certificado y asignación, sus admisiones en
 verificador GrxFirma propio. Resultado y evidencia en
 [`firma_copia_f1_32_20261019.md`](../../docs/estudio_requisitos/firma_copia_f1_32_20261019.md).
 
-Con la copia creada con `--modulos` y en marcha:
+Con la copia creada con `--modulos` (si alguna etapa privada necesita la aplicación, arráncala antes):
 
 ```sh
 python3 deploy/principal/copia_local.py firma --equipo d --instancia <nombre> \
@@ -638,12 +638,14 @@ El manifiesto es privado (`0600`, fuera de Git) y solo admite estas claves:
    `material/identidad/firma-recursos/` y comprueba que `firma-vec.json`
    apunta al plan y a la CRL de esa carpeta y que no está retirado.
 4. Instala el verificador en `<copia>/verificador` (binario con su huella, CA
-   y TLS de la copia, CRL de clientes y una credencial nueva) y añade al
+   y TLS de la copia, CRL de clientes y su credencial, que se crea la primera
+   vez y se conserva después) y añade al
    entorno de módulos las ocho variables de firma:
    `VEC_CT_FIRMA_VEC_R5_ENABLED`, `VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`,
    `VEC_CT_PLANTILLAS_SOURCE_PATH` y las cinco `VEC_FIRMA_VERIFICACION_*`.
 5. Reinicia la copia. Desde entonces `arrancar` levanta el verificador antes
-   que la aplicación y `parar` (y `borrar`) lo para. Solo se para el proceso
+   que la aplicación (con la CRL vigente de `firma-recursos`) y `parar` (y
+   `borrar`) lo para. Solo se para el proceso
    propio: mismo ejecutable y mismo instante de arranque.
 
 Después, aprueba la provisión de los perfiles fijos de RRHH

@@ -20,9 +20,11 @@ from pathlib import Path
 import re
 import secrets
 import shutil
+import signal
 import ssl
 import stat
 import subprocess
+import tempfile
 import time
 
 CLAVES_MANIFIESTO = {'version', 'etapas', 'verificador'}
@@ -46,14 +48,24 @@ def _sha256(ruta):
         return hashlib.file_digest(fuente, 'sha256').hexdigest()
 
 
-def privado(ruta, *, directorio=False, ejecutable=False):
-    """Ruta absoluta, sin enlaces, del usuario y sin permisos de grupo ni otros."""
+def privado(ruta, *, directorio=False, ejecutable=False, padres=False):
+    """Ruta absoluta, sin enlaces, del usuario y sin permisos de grupo ni otros.
+
+    Con `padres`, además ninguna carpeta superior es modificable por otras cuentas
+    (salvo con bit pegajoso): lo que se ejecuta no se puede cambiar entre la
+    comprobación y el uso.
+    """
     ruta = Path(ruta)
     if not ruta.is_absolute() or '..' in ruta.parts:
         raise ValueError('Ruta privada no absoluta')
     for parte in (*reversed(ruta.parents), ruta):
         if parte.is_symlink():
             raise ValueError('Ruta privada con enlace simbólico')
+    for padre in ruta.parents if padres else ():
+        datos = padre.stat()
+        if (datos.st_uid not in (0, os.getuid())
+                or (datos.st_mode & 0o022 and not datos.st_mode & stat.S_ISVTX)):
+            raise ValueError(f'{padre}: carpeta modificable por otras cuentas')
     datos = ruta.stat()
     tipo = stat.S_ISDIR(datos.st_mode) if directorio else stat.S_ISREG(datos.st_mode)
     if not tipo or datos.st_uid != os.getuid() or stat.S_IMODE(datos.st_mode) & 0o077:
@@ -65,7 +77,7 @@ def privado(ruta, *, directorio=False, ejecutable=False):
 
 def leer_manifiesto(ruta, estado):
     """Valida el manifiesto privado. No admite claves desconocidas."""
-    manifiesto = json.loads(privado(ruta).read_text())
+    manifiesto = json.loads(privado(ruta, padres=True).read_text())
     if not isinstance(manifiesto, dict) or set(manifiesto) != CLAVES_MANIFIESTO or manifiesto['version'] != 1:
         raise ValueError('Manifiesto de firma con claves o versión distintas')
     etapas = manifiesto['etapas']
@@ -78,7 +90,7 @@ def leer_manifiesto(ruta, estado):
                 or etapa['nombre'] in nombres or not isinstance(etapa['orden'], list) or not etapa['orden']
                 or any(not isinstance(a, str) or '\x00' in a for a in etapa['orden'])):
             raise ValueError('Etapa de firma no válida')
-        privado(etapa['orden'][0], ejecutable=True)
+        privado(etapa['orden'][0], ejecutable=True, padres=True)
         nombres.add(etapa['nombre'])
     verificador = manifiesto['verificador']
     if not isinstance(verificador, dict) or set(verificador) != CLAVES_VERIFICADOR:
@@ -90,7 +102,7 @@ def leer_manifiesto(ruta, estado):
     huella = verificador['binario_sha256']
     if not isinstance(huella, str) or not re.fullmatch('[0-9a-f]{64}', huella):
         raise ValueError('Huella del verificador no válida')
-    if _sha256(privado(verificador['binario'], ejecutable=True)) != huella:
+    if _sha256(privado(verificador['binario'], ejecutable=True, padres=True)) != huella:
         raise ValueError('El binario del verificador no coincide con su huella')
     return manifiesto
 
@@ -106,15 +118,23 @@ def ejecutar_etapas(copia, etapas):
     hechas = []
     for etapa in etapas:
         nombre = etapa['nombre']
-        huella = hashlib.sha256(json.dumps(etapa['orden']).encode()).hexdigest()
+        # La marca cubre los argumentos y el contenido del ejecutable.
+        huella = hashlib.sha256(json.dumps([etapa['orden'], _sha256(etapa['orden'][0])]).encode()).hexdigest()
         marca = carpeta / f'{nombre}.hecha'
         if marca.exists() and marca.read_text().strip() == huella:
             continue
         with (carpeta / f'{nombre}.log').open('ab') as log:
-            resultado = subprocess.run(etapa['orden'], stdin=subprocess.DEVNULL, stdout=log,
+            proceso = subprocess.Popen(etapa['orden'], stdin=subprocess.DEVNULL, stdout=log,
                                        stderr=subprocess.STDOUT, env=entorno, cwd=carpeta,
-                                       timeout=PLAZO_ETAPA, check=False)
-        if resultado.returncode:
+                                       start_new_session=True)
+            try:
+                codigo = proceso.wait(timeout=PLAZO_ETAPA)
+            except subprocess.TimeoutExpired:
+                # Se termina el grupo entero: la etapa no deja procesos hijos vivos.
+                os.killpg(proceso.pid, signal.SIGKILL)
+                proceso.wait()
+                raise ValueError(f'La etapa {nombre} superó su plazo; consulte firma-etapas/{nombre}.log en su copia')
+        if codigo:
             raise ValueError(f'La etapa {nombre} falló; consulte firma-etapas/{nombre}.log en su copia')
         marca.write_text(huella + '\n')
         hechas.append(nombre)
@@ -148,6 +168,8 @@ def publicar_plantillas_v4(copia, repo, go, entorno_go):
     try:
         recibo = json.loads(resultado.stdout)
     except ValueError:
+        recibo = {}
+    if not isinstance(recibo, dict):
         recibo = {}
     if resultado.returncode or recibo.get('version') != 4 or recibo.get('resultado') not in ('registrado', 'replay'):
         # La salida de error puede contener la conexión: no se reenvía.
@@ -196,7 +218,7 @@ def recursos_firma(copia):
     if not configuracion.get('firmantes') or not configuracion.get('admisiones'):
         raise ValueError('firma-vec.json sin firmantes o admisiones')
     retirada = dt.datetime.fromisoformat(str(configuracion.get('retirada_en')).replace('Z', '+00:00'))
-    if retirada <= dt.datetime.now(dt.timezone.utc):
+    if retirada.tzinfo is None or retirada <= dt.datetime.now(dt.timezone.utc):
         raise ValueError('firma-vec.json ya está retirado')
     return recursos
 
@@ -271,11 +293,14 @@ def componer_entorno(copia, nuevas, verificador, guardar):
         raise ValueError('La firma necesita una copia creada con --modulos')
     entorno.update(nuevas)
     ruta = copia.raiz / 'entorno_modulos.json'
-    temporal = copia.raiz / '.entorno_modulos.firma'
-    descriptor = os.open(temporal, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(descriptor, 'w') as salida:
-        salida.write(json.dumps(entorno, ensure_ascii=False, indent=2, sort_keys=True) + '\n')
-    os.replace(temporal, ruta)
+    descriptor, nombre = tempfile.mkstemp(dir=copia.raiz, prefix='.entorno-')
+    temporal = Path(nombre)
+    try:
+        with os.fdopen(descriptor, 'w') as salida:
+            salida.write(json.dumps(entorno, ensure_ascii=False, indent=2, sort_keys=True) + '\n')
+        os.replace(temporal, ruta)
+    finally:
+        temporal.unlink(missing_ok=True)
     estado = copia.leer()
     estado['entorno_modulos_sha256'] = _sha256(ruta)
     estado['verificador'] = {'puerto': verificador['puerto'], 'binario_sha256': verificador['binario_sha256']}
@@ -305,7 +330,7 @@ def salud_verificador(copia, puerto):
         cuerpo = json.loads(respuesta.read(4096) or b'{}')
     finally:
         conexion.close()
-    if respuesta.status != 200 or cuerpo.get('ok') is not True or cuerpo.get('modo') != 'solo_verificacion':
+    if respuesta.status != 200 or not isinstance(cuerpo, dict) or cuerpo.get('ok') is not True or cuerpo.get('modo') != 'solo_verificacion':
         raise ValueError('El verificador no está en modo de solo verificación')
 
 
@@ -322,6 +347,11 @@ def arrancar_verificador(copia, guardar, puerto_libre):
     binario = privado(carpeta / 'grxfirma-verificador', ejecutable=True)
     if _sha256(binario) != datos['binario_sha256']:
         raise ValueError('El verificador de la copia cambió; se conserva parado')
+    # La CRL de clientes se renueva en firma-recursos; el verificador toma la vigente.
+    crl = copia.material / 'identidad/firma-recursos/clientes.crl'
+    if crl.exists() and _sha256(privado(crl)) != _sha256(carpeta / 'crl/clientes.crl'):
+        shutil.copyfile(crl, carpeta / 'crl/clientes.crl')
+        (carpeta / 'crl/clientes.crl').chmod(0o600)
     for nombre in ('ca.crt', 'tls.crt', 'tls.key', 'crl/clientes.crl', 'token'):
         privado(carpeta / nombre)
     comprobar_material_verificador(carpeta / 'ca.crt', carpeta / 'tls.crt', carpeta / 'tls.key',
