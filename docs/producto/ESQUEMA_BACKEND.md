@@ -627,6 +627,8 @@ conserva el sufijo anterior. Retira la firma de un argumento; conserva el grupo
 lector, propietario y permisos. La consola valida el acuse privado contra su
 plan y material y coteja el acto dentro del tramo antes de declararlo verificado.
 No publica claves, modifica asientos ni repite un acto de administración.
+Con la referencia, el grupo lector puede leer cualquier tramo histórico de
+gobierno, no solo el último; es el mismo dato y el mismo rol técnico.
 
 ### 8.6 ContextoActor (`vec_contexto_actor_v1`)
 

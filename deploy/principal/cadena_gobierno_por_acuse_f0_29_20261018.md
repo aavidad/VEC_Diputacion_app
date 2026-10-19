@@ -18,7 +18,9 @@ anterior. No se repite el acto ni se cambian sus huellas.
 2. AD295 exige la definición instalada de AD235, su propietario y permisos.
    Amplía la misma función con una referencia opcional y retira la firma
    anterior. Solo el grupo lector actual puede ejecutarla; no cambia el núcleo.
-3. Compilar la consola de esta candidata. Para comprobar el acto original,
+3. Instalar primero la SQL y solo después la consola nueva: contra una base
+   sin AD295 la consola nueva falla con un error genérico. Compilar la
+   consola de esta candidata. Para comprobar el acto original,
    usar `vec-gobierno-usuarios-admin -fase verificar -config <configuración>
    -textos <catálogo> -timeout 1m -acuse <acuse original>`. Mantener el mismo
    directorio privado con su plan, material y acuse. La consola coteja esos
@@ -37,43 +39,18 @@ sus filas terminan en ROLLBACK y no acreditan un acto de administración.
 `ad235_lector_gobierno_admin.sql` conserva los controles de lectura y denegación
 con la firma vigente. Las pruebas Go comprueban la vinculación al acuse.
 
-La candidata `a035d46ef` instaló una vez las 86 SQL en 81,1 segundos.
-Pasaron los casos de AD295 y la prueba de permisos de AD235, ambos con
-ROLLBACK. Esta última comprueba los 13 campos vigentes de la instantánea,
-incluido el contador incorporado por AD266. La primera copia sin preparar los
-orígenes nominales se detuvo en AD278; se descartó y no cuenta como ensayo.
+Ensayo del 19 de octubre, con main unido: una copia nueva instaló las 97 SQL
+de la lista, con AD295 al final, y la aplicación respondió en sus consultas
+públicas. La función quedó con la huella final que exige la migración y la
+focal de AD295 terminó sin errores. Una revisión SQL independiente repitió la
+lista completa en su propio PostgreSQL 18.4 y dio el visto bueno: reaplicar
+AD295 se detiene en su guarda sin efectos.
 
-En la copia propia que conservaba el acto confirmado se instaló AD295 una
-sola vez. La consola nueva, con el perfil de desarrollo existente y `-acuse`,
-devolvió `cadena_verificada` para el mismo plan, material y acuse que antes
-obtenía cobertura vacía. No se repitió preparar ni aplicar. La continuación nativa de Administración, recompilada desde `16725d3bd`,
-comprobó el mismo acto, completó el arranque y abrió `/admin/usuarios/` con
-respuesta 200 mediante HTTPS y certificado del acto original. Aún no acredita
-la consulta de personas.
-
-El arranque con módulos y el reinicio de aplicación, PostgreSQL y buzón de
-la copia nueva de 86 migraciones pasaron las cuatro consultas: proceso vivo
-(`/livez`), portal, contratación y Bolsas. Estas comprobaciones no equivalen
-a la disponibilidad de todos los módulos de `/healthz`. La
-aplicación mantiene su configuración de arranque; este corte no añade ninguna.
-
-Dos revisiones independientes de la fuente son favorables. GoSec cargó los
-dos paquetes completos: 80 avisos heredados y ninguno en las líneas añadidas;
-Semgrep local y las focales Go fueron conformes. La función de verificación
-conserva el límite de 100 registros y no trunca tramos para declararlos válidos.
-La candidata conjunta `601686060` instaló 98 SQL en dos copias nuevas;
-AD291, AD292 y CT238 pasaron sus focales con ROLLBACK y ambas copias
-reiniciaron con la comprobación pública del guion. El gobierno externo H6
-quedó confirmado una vez en la copia externa. La verificación ordinaria
-se detuvo porque faltaban tres archivos Go de la consola en la
-composición, no por un cambio de la lógica de AD295. La candidata
-`ec322e367` repuso esos tres archivos y el README exactos de esta PR.
-Su prueba focal completa pasó con código 0. La consola compilada por separado
-verificó el mismo plan, material y acuse con `-fase verificar -acuse` y
-terminó con código 0, sin reaplicar
-las 98 SQL ni ejecutar otro acto de gobierno. El recorrido ADMIN en la
-aplicación sigue pendiente. La verificación positiva anterior de
-`16725d3bd` conserva su alcance en aquella copia.
+En una copia anterior que conservaba un acto confirmado, la consola nueva con
+`-acuse` devolvió `cadena_verificada` para el mismo plan, material y acuse que
+antes daban cobertura vacía, sin repetir preparar ni aplicar. Administración
+arrancó y abrió `/admin/usuarios/` con el certificado de ese acto. Siguen
+pendientes la consulta de personas y el recorrido de administración completo.
 
 Vuelta atrás: recuperar copia y binario anteriores. No ejecutar DOWN ni
 reinstalar una migración con historia. El cambio no añade configuración de
