@@ -87,9 +87,11 @@ al final de la lista y después de B144. Cambia cuatro cosas:
   recuperación de una bolsa que ya existe sin ámbito. Antes la recuperación de
   una carga anterior a B144 devolvía el recibo original.
 - El rol constituidor de B80 pierde `constituir_bolsa_v1`,
-  `registrar_vinculos_candidato_v1` y el uso del esquema; queda sin miembros.
-  Su permiso de conexión a la base solo lo puede quitar el administrador y no
-  da acceso a nada. Se retira también la orden `vec-server constituir-bolsa` y su conexión
+  `registrar_vinculos_candidato_v1` y el uso del esquema. B145 exige que el rol
+  no tenga miembros y se detiene (55000) si los tiene: en un servidor donde se
+  creó una cuenta de conexión para la orden retirada, el administrador la quita
+  antes de instalar. Su permiso de conexión a la base solo lo puede quitar el
+  administrador y no da acceso a nada. Se retira también la orden `vec-server constituir-bolsa` y su conexión
   `VEC_BOLSA_CONSTITUCION_DATABASE_URL`. Una bolsa nueva solo se constituye
   con la carga gobernada de CONVOCA, que guarda su ámbito.
 
