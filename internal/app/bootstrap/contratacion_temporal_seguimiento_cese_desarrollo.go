@@ -444,10 +444,6 @@ func (a *autoridadSeguimientoCeseDesarrollo) ResolverContextoCanalSeguimiento(ct
 
 func (a *autoridadSeguimientoCeseDesarrollo) exigir(ctx context.Context, accion, finalidad string, recurso vecdomain.RecursoAutorizable) (vecdomain.SolicitudAutorizacionLigadaV3, vecdomain.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecdomain.ResultadoContextoActorRegistradoV2, error) {
 	if elegida := a.paraPeticion(ctx); elegida != a {
-		if !expedienteAdmitidoSegundoRRHH(elegida.alta.soporte.seguimientoCese.instantanea, recurso.Referencia) {
-			return vecdomain.SolicitudAutorizacionLigadaV3{}, vecdomain.DecisionAutorizacionLigadaV3{},
-				puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, vecdomain.ResultadoContextoActorRegistradoV2{}, ports.ErrAutorizacionDenegada
-		}
 		return elegida.exigir(ctx, accion, finalidad, recurso)
 	}
 	var (
@@ -488,9 +484,6 @@ func (a *autoridadSeguimientoCeseDesarrollo) exigir(ctx context.Context, accion,
 
 func (a *autoridadSeguimientoCeseDesarrollo) AutorizarOperacionSeguimiento(ctx context.Context, sol ports.SolicitudAutorizarOperacionSeguimiento) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	if elegida := a.paraPeticion(ctx); elegida != a {
-		if !expedienteAdmitidoSegundoRRHH(elegida.alta.soporte.seguimientoCese.instantanea, sol.Recurso.Referencia) {
-			return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrAutorizacionDenegada
-		}
 		return elegida.AutorizarOperacionSeguimiento(ctx, sol)
 	}
 	vacio := puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}

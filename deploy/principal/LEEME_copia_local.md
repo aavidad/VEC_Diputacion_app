@@ -244,7 +244,9 @@ para examinar sus registros; bórrala con la orden propia antes de repetir.
 El guion guarda `rrhh-adicional-semilla.json` y su huella en `estado.json`,
 registra la asignación sintética en una transacción y activa los catálogos de
 seguimiento de Contratación. Esa asignación solo sirve en la copia ficticia:
-no acredita publicación por Administración. El servidor comprueba la hoja, el
+no acredita publicación por Administración. Es gemela de la de Carmen: mismo
+emisor de desarrollo y mismo acto, y cada operación la ciñe al expediente
+concreto antes de decidir, igual que con ella. El servidor comprueba la hoja, el
 sujeto, el perfil, la asignación vigente y la ruta de no incorporación. Si falta
 material o permiso para esa persona, conserva el acceso de la técnica original
 y deniega la operación de la segunda. No se instala ninguna migración nueva
