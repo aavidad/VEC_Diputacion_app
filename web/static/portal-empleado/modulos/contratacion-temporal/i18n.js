@@ -432,7 +432,7 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   fiscalizacion_recibo_sobrelinea: "Fiscalización registrada",
   fiscalizacion_recibo_titulo: "Recibo del resultado de fiscalización",
   fiscalizacion_recibo_descripcion:
-    "El recibo acredita el resultado, el actor y el estado resultante del expediente.",
+    "El recibo deja constancia del resultado, de quién lo registró y de cómo queda el expediente.",
   fiscalizacion_recibo_expediente: "Referencia del expediente",
   fiscalizacion_recibo_resultado: "Resultado",
   fiscalizacion_recibo_fase: "Fase resultante",
@@ -832,7 +832,7 @@ const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   fiscalizacion_recuperar: "Recover original outcome",
   fiscalizacion_recibo_sobrelinea: "Financial review recorded",
   fiscalizacion_recibo_titulo: "Financial review outcome receipt",
-  fiscalizacion_recibo_descripcion: "The receipt confirms the outcome, actor and resulting case status.",
+  fiscalizacion_recibo_descripcion: "The receipt records the outcome, who registered it and where the case stands now.",
   fiscalizacion_recibo_expediente: "Case reference",
   fiscalizacion_recibo_resultado: "Outcome",
   fiscalizacion_recibo_fase: "Resulting stage",

@@ -6,21 +6,22 @@ import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 const versionEntradaAnterior = "20261002-r1-post401-v4";
 // La unión de F1-73 (alta directa v2) con F1-74, F1-76 y F1-36C renueva
 // los módulos compartidos y conserva una única cadena hasta la entrada.
-const versionCoordinador = "20261018-f136c-informe-v4";
 const versionAltaDirectaV2 = "20261018-f173-alta-v2";
 const versionUnionMain = "20261018-f173-alta-v5";
 const versionCompartida = versionUnionMain;
-const versionCoordinadorEntrada = versionUnionMain;
-const versionEntrada = "20261018-f179-cabecera-v1";
+// F1-82 renueva fiscalización, textos de Contratación y su cadena hasta la entrada.
+const versionF182 = "20261019-f182-intervencion-v1";
+const versionCoordinadorEntrada = versionF182;
+const versionEntrada = versionF182;
 const versionClienteCT = "20261016-ct-ofertas-ct231-v1";
 const versionClienteConsulta = versionUnionMain;
 const versionClienteRPT = versionUnionMain;
 const versionCircuito = versionUnionMain;
 const versionAccionesFirma = versionUnionMain;
-const versionVista = versionUnionMain;
-const versionVistaPortal = versionUnionMain;
-const versionAdaptador = versionUnionMain;
-const versionRender = versionCoordinador;
+const versionVista = versionF182;
+const versionVistaPortal = versionF182;
+const versionAdaptador = versionF182;
+const versionRender = versionF182;
 const versionContratacion = "20261007-pantallas-textos-final-v1";
 
 const raiz = new URL("./", import.meta.url);
@@ -46,7 +47,7 @@ test("Alta CT alcanza render y tramitación con una sola versión del formulario
   exigirVersiones(vista, "./vista-expedientes-render.js", versionRender, 2);
   exigirVersiones(vista, "./vista-expedientes-tramitacion.js", versionVista);
   exigirVersiones(tramitacion, "./vista-expedientes-render.js", versionRender);
-  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionUnionMain);
+  exigirVersiones(tramitacion, "./formulario-informe-juridico.js", versionF182);
   exigirVersiones(llamamiento, "./vista-expedientes.js", versionVistaPortal);
 });
 
@@ -125,8 +126,8 @@ test("Alta por circular renueva su cadena y no reutiliza módulos sin las export
   const cohorte = versionAltaDirectaV2;
   const cohorteNavegacion = "20261012-ct-b2-cese-v1";
   const cohorteClienteHTTP = versionClienteConsulta;
-  const cohorteRPT = "20261008-alta-rpt-circular-v6";
-  const cohorteCapacidad = versionAltaDirectaV2;
+  const cohorteRPT = versionF182;
+  const cohorteCapacidad = versionF182;
   const cohorteIdioma = "20261011-ct-bolsa-vinculo-v1";
   const cohorteEntrada = versionEntrada;
   const cohorteFicha = versionVista;
