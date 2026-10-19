@@ -220,6 +220,12 @@ class Copia:
                 ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
             from copia_local_verificacion import comprobar as comprobar_conexiones
             comprobar_conexiones(self)
+        if args.segundo_rrhh:
+            from copia_local_rrhh_adicional import preparar_copia
+            huella_semilla = preparar_copia(self)
+            estado = self.leer()
+            estado['rrhh_adicional_semilla_sha256'] = huella_semilla
+            guardar(self.estado, estado)
         memoria()
         verificar_fuente(self.leer()['revision'])
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
@@ -505,11 +511,14 @@ def main():
     p.add_argument('--modulos', action='store_true', help='Preparar conexiones nuevas de Bolsa y Contratación')
     p.add_argument('--rrhh-original', type=Path, help='Conservar el conjunto privado original de RRHH en una copia nueva')
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
+    p.add_argument('--segundo-rrhh', action='store_true', help='Preparar una segunda persona técnica de RRHH')
     p.add_argument('--sin-inscripcion', action='store_true', help='Preparar el portal sin activar inscripción')
     p.add_argument('--archivo-clon')
     args = p.parse_args()
     if args.portal_externo and not args.modulos:
         p.error('--portal-externo requiere --modulos')
+    if args.segundo_rrhh and (args.orden != 'crear' or not args.modulos):
+        p.error('--segundo-rrhh solo se admite en crear --modulos')
     if args.portal_externo and args.orden != 'crear':
         p.error('--portal-externo solo se admite en crear')
     if args.sin_inscripcion and not args.portal_externo:
