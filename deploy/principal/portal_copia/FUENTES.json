@@ -3,8 +3,8 @@
     "__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "canon_asignacion/main.go": "a1e3cf6ede0c39694eb58ffad0fc4530f3789f3a7a2323a7440c9f13f9aecd60",
     "preparar_clasificacion_externa.py": "d165771e2af3a894a946bca8df6db94e0bf8d9ae07a248535d5bb14f745f7964",
-    "preparar_portal.py": "835d984e437745d0e048679627aa75240ba493806d93d47c0dbd1746e870454c",
-    "test_preparador_portal.py": "1cb0542a5ca9d8f070357c6d0dbfe4380be3bd921c31b378334799649263c979"
+    "preparar_portal.py": "380fa797e820e7645c657df511103a4a92a36bf97e303ce2bc0572f0045b2fd1",
+    "test_preparador_portal.py": "1886943ae11dccd0434659f54abad46e5b212761fa7c150b416fdc98eb9a4bd1"
   },
   "base_sha256": {
     "preparar_clasificacion_externa.py": "cc0cafc5833c3740d854f01c299cf5b4de030775fd24b0e8855e5f148a182843",

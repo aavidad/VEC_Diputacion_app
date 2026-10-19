@@ -52,7 +52,7 @@ class PortalFabricaTest(unittest.TestCase):
             guardar(ruta, {'VEC_ANTERIOR': 'true'})
             estado = {'revision': 'retenida', 'entorno_modulos_sha256': sha(ruta)}
             guardar(raiz / 'estado.json', estado)
-            nuevo = {'VEC_NUEVO': 'true'}
+            nuevo = {'VEC_Z_ULTIMO': 'true', 'VEC_A_PRIMERO': 'true'}
             def interrumpir(ruta, datos):
                 if ruta.name == 'estado.json':
                     raise InterruptedError('interrumpido')

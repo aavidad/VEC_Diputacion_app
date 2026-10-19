@@ -187,12 +187,12 @@ def publicar_entorno_retenido(copia, raiz, estado, intento_path, nuevo=None):
             return
         if copia.sha256(ruta) != estado['entorno_modulos_sha256']:
             fail('entorno_preimagen_cambio')
-        contenido = (json.dumps(nuevo, ensure_ascii=False, indent=2) + '\n').encode()
+        contenido = (json.dumps(nuevo, ensure_ascii=False, indent=2, sort_keys=True) + '\n').encode()
         write(intento_path, {'revision': estado['revision'],
               'anterior': estado['entorno_modulos_sha256'], 'nuevo': nuevo,
               'huella_nueva': hashlib.sha256(contenido).hexdigest()})
     intento = json.loads(private_file(intento_path))
-    contenido = (json.dumps(intento['nuevo'], ensure_ascii=False, indent=2) + '\n').encode()
+    contenido = (json.dumps(intento['nuevo'], ensure_ascii=False, indent=2, sort_keys=True) + '\n').encode()
     anterior, siguiente = intento['anterior'], intento['huella_nueva']
     actual = copia.sha256(ruta)
     if (intento['revision'] != estado['revision']
@@ -204,7 +204,7 @@ def publicar_entorno_retenido(copia, raiz, estado, intento_path, nuevo=None):
             or (estado['entorno_modulos_sha256'] == siguiente and actual != siguiente)):
         fail('intento_entorno_divergente')
     if actual == anterior:
-        copia.guardar(ruta, intento['nuevo'])
+        copia.guardar(ruta, json.loads(contenido))
     estado['entorno_modulos_sha256'] = siguiente
     copia.guardar(raiz / 'estado.json', estado)
 
