@@ -4,6 +4,12 @@ import { ESTADO_SELECCION_PENDIENTE_AVISO, claveFilaComunicacion } from "./clien
 import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js?v=20261018-f136c-informe-v4";
 import { rutaCandidatosBolsaCompartible } from "../../portal-bolsas-ruta-filtros.js?v=20261019-f157-v1";
 import { propuestaDesdeComprobacionPendiente } from "../../portal-bolsas-comprobacion-ruta.js?v=20261019-f157-v1";
+import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261018-f136c-informe-v4";
+import { CAMPOS_SELECCION, CAMPOS_COMUNICACION, ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
+  CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
+  CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
+  CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
+  PUBLICACIONES_FORMALIZACION, RESPUESTA_EXPIRACION } from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
 
 // Enlace del aviso «pendiente de comprobación»: con contexto y estado del servidor lleva a la
 // ficha de esa persona en Bolsa; sin ellos, o si la propuesta no cabe, a la bolsa.
@@ -17,12 +23,6 @@ export function enlaceComprobacionPendiente(comprobacion) {
   }
   return { ruta: rutaCandidatosBolsaCompartible("", comprobacion.bolsa_ref), clave: "llamamiento_comprobacion_ver_bolsa" };
 }
-import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=20261018-f136c-informe-v4";
-import { CAMPOS_SELECCION, CAMPOS_COMUNICACION, ESQUEMA_RECIBO_SELECCION_OFERTA, ESQUEMA_RECIBO_DESCARTE_OFERTA,
-  CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
-  CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
-  CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
-  PUBLICACIONES_FORMALIZACION, RESPUESTA_EXPIRACION } from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
 
 /** Recibo que habilita el siguiente llamamiento: la renuncia resuelta o la
  * expiración confirmada por RRHH (sin respuesta en plazo). */

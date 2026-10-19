@@ -190,3 +190,27 @@ test("F1-57 el aviso de la selección CT lleva a la ficha con la propuesta, o a 
   assert.equal(sinContexto.clave, "llamamiento_comprobacion_ver_bolsa");
   assert.doesNotMatch(sinContexto.ruta, /comprobacion=/u);
 });
+
+test("F1-57 los enlaces del resumen de errores llevan el foco al campo sin cambiar de pantalla", () => {
+  const estado = { comprobacionOfrecimiento: propuesta, bolsaSeleccionada: "bolsa:conserjes" };
+  estado.modalFicha = modalCon();
+  const controlador = crearControladorComprobacion({ estado, renderizar() {} });
+  let enfocado = "";
+  let prevenido = false;
+  const radio = { focus: () => { enfocado = "radio"; } };
+  const documento = { getElementById: (id) => (id === "b57-hecho-es_vacante" ? { matches: (s) => s === "fieldset", querySelector: () => radio } : null) };
+  const enlace = { dataset: { b57Accion: "ir-campo", b57Campo: "b57-hecho-es_vacante" } };
+  enlace.closest = (s) => (s === "[data-b57-accion]" ? enlace : null);
+  assert.equal(controlador.manejarClick({ target: enlace, preventDefault: () => { prevenido = true; } }, documento), true);
+  assert.equal(prevenido, true);
+  assert.equal(enfocado, "radio");
+});
+
+test("F1-57 el recibo usa el justificante común y no enseña referencias ni versiones", () => {
+  const modal = modalCon();
+  Object.assign(modal.comprobacionB57, { paso: "recibo", recibo });
+  const html = renderizarComprobacionOfrecimiento({ modal, escaparHTML });
+  assert.match(html, /data-copiar-justificante="recibo:comprobacion:e{64}"/u);
+  assert.doesNotMatch(html.replace(/<[^>]+>/gu, " "), /recibo:comprobacion|Versión/u);
+  assert.match(html, /data-vista="contratacion-temporal"/u);
+});

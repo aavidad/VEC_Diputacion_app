@@ -871,10 +871,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     return Boolean(estado.modalFicha?.enviandoCambioSituacion || estado.modalFicha?.resultadoInciertoCambioSituacion);
   }
 
-  function abrirFicha(participacionRef) {
+  // `fuera` admite a la persona leída fuera de la página visible (comprobación del ofrecimiento).
+  function abrirFicha(participacionRef, fuera = null) {
     if (fichaProtegida()) { documento.querySelector?.("[data-directa-paso]")?.focus?.(); return; }
     const datos = estado.datosCandidatos?.datos;
-    const candidato = datos?.candidatos?.find((item) => item.participacion_ref === participacionRef);
+    const candidato = datos?.candidatos?.find((item) => item.participacion_ref === participacionRef)
+      ?? (fuera?.participacion_ref === participacionRef ? fuera : null);
     if (!candidato || !datos?.bolsa) return;
     estado.modalFicha?.controladorOperaciones?.abort();
     estado.modalFicha?.controladorReincorporaciones?.abort();
@@ -908,17 +910,39 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     if (seguimiento) documento.querySelector("[data-intentos-raiz='true']")?.scrollIntoView?.({ block: "start" });
   }
 
-  // Desde el aviso de la selección CT: abre la ficha de la persona pendiente si está en
-  // la página cargada; si no, devuelve el aviso para que la persona la busque.
-  async function abrirComprobacionOfrecimiento() {
-    const c = estado.comprobacionOfrecimiento?.contexto;
-    if (!c || estado.bolsaSeleccionada !== c.bolsa_ref || estado.datosCandidatos?.carga !== "listo" || estado.modalFicha) return "";
-    if (estado.datosCandidatos.datos?.candidatos?.some((item) => item.participacion_ref === c.participacion_ref)) {
-      abrirFicha(c.participacion_ref);
-      return "";
+  // Busca a la persona por orden de acta cuando no está en la página visible.
+  async function buscarPorActa(bolsaRef, participacionRef) {
+    const fuente = fuenteLectura();
+    const consultar = (ref, opciones) => (fuente?.consultarCandidatosBolsa
+      ? fuente.consultarCandidatosBolsa(ref, opciones, {}) : consultarCandidatosBolsa(ref, opciones));
+    let cursor = "";
+    for (let pagina = 0; pagina < 40; pagina += 1) {
+      const r = await consultar(bolsaRef, { orden: "acta", cursor, limite: 50 });
+      if (!r?.ok) return null;
+      const hallada = r.datos?.candidatos?.find((item) => item.participacion_ref === participacionRef);
+      if (hallada) return hallada;
+      if (!r.datos?.hay_mas || !r.datos.cursor_siguiente || r.datos.cursor_siguiente === cursor) return null;
+      cursor = r.datos.cursor_siguiente;
     }
+    return null;
+  }
+
+  // Desde el aviso de la selección CT: abre la ficha de la persona pendiente, esté o no en la
+  // página visible. Si no se encuentra, deja un aviso visible sobre la lista y lo devuelve.
+  async function abrirComprobacionOfrecimiento() {
+    const propuesta = estado.comprobacionOfrecimiento;
+    const c = propuesta?.contexto;
+    const carga = estado.datosCandidatos;
+    if (!c || estado.bolsaSeleccionada !== c.bolsa_ref || carga?.carga !== "listo" || estado.modalFicha) return "";
+    const candidato = carga.datos?.candidatos?.find((item) => item.participacion_ref === c.participacion_ref)
+      ?? await buscarPorActa(c.bolsa_ref, c.participacion_ref).catch(() => null);
+    if (estado.comprobacionOfrecimiento !== propuesta || estado.datosCandidatos !== carga || estado.modalFicha) return "";
+    if (candidato) { abrirFicha(c.participacion_ref, candidato); return ""; }
     const textos = await prepararTextosComprobacion().catch(() => null);
-    return textos ? textos.traducir("ficha.no_en_pagina", { posicion: c.orden_acta }) : "";
+    if (!textos || estado.datosCandidatos !== carga) return "";
+    carga.avisoComprobacion = textos.traducir("ficha.no_encontrada", { posicion: c.orden_acta });
+    renderizar();
+    return carga.avisoComprobacion;
   }
 
   // Tras anotar llamadas, la vista de seguimiento se vuelve a leer al dejar la ficha.

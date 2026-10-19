@@ -29,7 +29,6 @@
     "grupo_cierre": "Antecedentes",
     "documento_que_acredita": "Documento que lo acredita",
     "sin_documento": "Sin documento",
-    "opcional": "{campo} (opcional)",
     "si": "Sí",
     "no": "No",
     "sin_indicar": "Sin indicar",
@@ -37,7 +36,7 @@
     "hecho_tipo_relacion": "Tipo de relación actual",
     "hecho_modalidad": "Modalidad del contrato actual",
     "hecho_causa_relacion": "Causa del contrato actual",
-    "hecho_causa_relacion_pista": "Clave tal como figura en el contrato, por ejemplo baja.",
+    "hecho_causa_relacion_pista": "Escríbala como figura en el contrato registrado.",
     "hecho_inicio": "Inicio del contrato actual",
     "hecho_fin_previsto": "Fin previsto del contrato actual",
     "hecho_fin_inicial_programa": "Fin inicial del programa",
@@ -62,9 +61,7 @@
     "recibo_recuperada": "Esta comprobación ya estaba registrada; se muestra su recibo.",
     "recibo_resultado": "Resultado",
     "recibo_fecha": "Registrada el",
-    "recibo_version": "Versión",
-    "recibo_numero": "Recibo",
-    "siguiente_paso": "Vuelva al expediente y repita la selección.",
+    "siguiente_paso": "Abra el expediente en Peticiones de personal temporal y repita la selección.",
     "resultado_pendiente": "Pendiente",
     "resultado_no_aplicable": "No se aplica la mejora de empleo",
     "motivo_antecedentes_incompletos": "Faltan datos o documentos para decidir.",
@@ -85,15 +82,18 @@
     "error_hecho_clave": "«{hecho}» solo admite letras minúsculas sin tilde, cifras y los signos . _ -.",
     "error_hecho_fecha": "Escriba una fecha válida en «{hecho}».",
     "incierto": "No se ha podido confirmar si la comprobación quedó registrada. Pulse Reintentar: se recupera la misma, sin duplicarla.",
-    "no_en_pagina": "La persona en la posición {posicion} no aparece en esta página de la lista. Búsquela y abra su ficha para comprobar sus datos."
+    "no_encontrada": "No se ha encontrado en esta bolsa a la persona de la posición {posicion}. Puede que ya no figure en ella o que su perfil no permita verla. Vuelva al expediente y repita la selección.",
+    "ir_peticiones": "Ir a Peticiones de personal temporal",
+    "solo_acreditados": "Indique solo los datos que pueda acreditar con un documento. Los demás pueden quedar sin indicar.",
+    "documento_que_acredita_aria": "Documento que lo acredita: {hecho}"
   },
   "huella": {
-    "comprobado": "Documento comprobado en este equipo; su contenido no se guarda.",
     "calculando": "Comprobando el documento en este equipo…",
     "sin_archivo": "Elija el archivo del documento para poder continuar.",
     "demasiado_grande": "El archivo supera el tamaño máximo de {limite} MB. Elija una copia más ligera del documento.",
     "vacio": "El archivo está vacío. Elija el documento correcto.",
     "no_disponible": "Este navegador no permite comprobar el documento. Use un navegador actualizado.",
-    "error_lectura": "No se ha podido leer el archivo. Vuelva a elegirlo."
+    "error_lectura": "No se ha podido leer el archivo. Vuelva a elegirlo.",
+    "comprobado_nombre": "Documento {nombre} comprobado en este equipo; su contenido no se guarda."
   }
 }

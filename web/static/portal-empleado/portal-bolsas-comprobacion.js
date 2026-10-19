@@ -12,6 +12,7 @@
 import { cargarTextos } from "../comun/textos.js";
 import { LOCALIZACION_PORTAL, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
 import { calcularHuellaArchivo, LIMITE_HUELLA_ARCHIVO_BYTES } from "./portal-huella-archivo.js";
+import { justificanteTraducido } from "./portal-justificante.js";
 import { propuestaComprobacionValida } from "./portal-bolsas-comprobacion-ruta.js?v=20261019-f157-v1";
 
 const BASE = "/api/vec/bolsa/bolsas";
@@ -39,9 +40,9 @@ const TIPO_POR_MODALIDAD = Object.freeze({ acumulacion_tareas: "acumulacion", su
 export const HECHOS_COMPROBACION = Object.freeze([
   ["relacion", "trabaja_en_diputacion", "si_no"], ["relacion", "tipo_relacion", "opcion"], ["relacion", "modalidad", "modalidad"],
   ["relacion", "causa_relacion", "clave"], ["relacion", "inicio", "fecha"], ["relacion", "fin_previsto", "fecha"],
-  ["relacion", "fin_inicial_programa", "fecha", true], ["relacion", "fecha_inicial_baja", "fecha", true],
+  ["relacion", "fin_inicial_programa", "fecha"], ["relacion", "fecha_inicial_baja", "fecha"],
   ["puesto", "es_vacante", "si_no"], ["puesto", "prelacion", "fijo"], ["cierre", "antecedentes_completos", "si_no"],
-].map(([grupo, clave, tipo, opcional = false]) => Object.freeze({ grupo, clave, tipo, opcional })));
+].map(([grupo, clave, tipo]) => Object.freeze({ grupo, clave, tipo })));
 
 let TEXTOS = null;
 let preparacion = null;
@@ -212,9 +213,9 @@ function textoValor(clave, tipo, v) {
   return v;
 }
 
-function campoValor({ clave, tipo, opcional }, v, error, e) {
+function campoValor({ clave, tipo }, v, error, e) {
   const id = `b57-hecho-${clave}`;
-  const etiqueta = opcional ? t("ficha.opcional", { campo: textoHecho(clave) }) : textoHecho(clave);
+  const etiqueta = textoHecho(clave);
   const invalido = error ? ` aria-invalid="true" aria-describedby="${id}-error"` : "";
   const msg = error ? `<small id="${id}-error" class="mensaje-error">${e(error)}</small>` : "";
   if (tipo === "si_no") {
@@ -238,7 +239,7 @@ function bloqueDocumento(d, i, errores, bloqueado, e) {
   const ref = `b57-docref-${d.id}`;
   const archivo = `b57-docarchivo-${d.id}`;
   const err = (campo) => errores.find((x) => x.campo === campo)?.mensaje;
-  const estadoArchivo = err(archivo) || (d.calculando ? t("huella.calculando") : HUELLA.test(d.huella) ? t("huella.comprobado") : d.errorArchivo || "");
+  const estadoArchivo = err(archivo) || (d.calculando ? t("huella.calculando") : HUELLA.test(d.huella) ? t("huella.comprobado_nombre", { nombre: d.nombre ?? "" }) : d.errorArchivo || "");
   return `<fieldset class="grupo-campo" data-b57-documento="${e(d.id)}"><legend>${e(t("ficha.documento_n", { numero: n }))}</legend>
     <label class="campo" for="${ref}"><span>${e(t("ficha.documento_referencia"))}</span><input id="${ref}" data-b57-doc-ref="${e(d.id)}" value="${e(d.referencia)}" maxlength="256" autocomplete="off" aria-describedby="${ref}-pista"${err(ref) ? ' aria-invalid="true"' : ""}${bloqueado ? " disabled" : ""}><small id="${ref}-pista"${err(ref) ? ' class="mensaje-error"' : ""}>${e(err(ref) || t("ficha.documento_referencia_pista"))}</small></label>
     <label class="campo" for="${archivo}"><span>${e(t("ficha.documento_archivo", { numero: n }))}</span><input id="${archivo}" type="file" data-b57-doc-archivo="${e(d.id)}" aria-describedby="${archivo}-estado"${err(archivo) ? ' aria-invalid="true"' : ""}${bloqueado ? " disabled" : ""}><small id="${archivo}-estado" role="status">${e(estadoArchivo)}</small></label>
@@ -249,9 +250,8 @@ function renderizarRecibo(r, e) {
   return `<div class="mensaje-exito" role="status" tabindex="-1" data-b57-recibo><p><strong>${e(t("ficha.recibo_titulo"))}</strong>${r.reutilizada ? ` ${e(t("ficha.recibo_recuperada"))}` : ""}</p>
     <dl class="resumen-expediente"><div class="fila-resumen"><dt>${e(t("ficha.recibo_resultado"))}</dt><dd>${e(t(`ficha.resultado_${r.resultado}`))}<br><small>${e(t(`ficha.motivo_${r.motivo_clave}`))}</small></dd></div>
     <div class="fila-resumen"><dt>${e(t("ficha.recibo_fecha"))}</dt><dd><time datetime="${e(r.registrada_en)}">${e(new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { timeZone: ZONA_HORARIA_PORTAL, dateStyle: "short", timeStyle: "short" }).format(new Date(r.registrada_en)))}</time></dd></div>
-    <div class="fila-resumen"><dt>${e(t("ficha.recibo_version"))}</dt><dd>${e(new Intl.NumberFormat(LOCALIZACION_PORTAL).format(r.version))}</dd></div>
-    <div class="fila-resumen"><dt>${e(t("ficha.recibo_numero"))}</dt><dd><code>${e(r.recibo_ref)}</code></dd></div></dl>
-    <p>${e(t("ficha.siguiente_paso"))}</p></div>`;
+    </dl><p>${justificanteTraducido(r.recibo_ref, e, (clave) => traducirPortal(`panel_${clave}`))}</p>
+    <p>${e(t("ficha.siguiente_paso"))}</p><div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="contratacion-temporal">${e(t("ficha.ir_peticiones"))}</button></div></div>`;
 }
 
 /** Bloque de la ficha; vacío si la persona no llega desde una comprobación pendiente. */
@@ -267,16 +267,17 @@ export function renderizarComprobacionOfrecimiento({ modal, escaparHTML: e }) {
   const bloqueado = st.paso !== "edicion";
   const errorDe = (campo) => st.errores.find((x) => x.campo === campo)?.mensaje;
   const c = st.propuesta.contexto;
-  const resumenErrores = st.errores.length ? `<div class="mensaje-error" role="alert" tabindex="-1" data-b57-errores><p>${e(t("ficha.errores_resumen", { cuenta: st.errores.length }))}</p><ul>${st.errores.map((x) => `<li><a href="#${e(x.campo)}">${e(x.mensaje)}</a></li>`).join("")}</ul></div>` : "";
+  const resumenErrores = st.errores.length ? `<div class="mensaje-error" role="alert" tabindex="-1" data-b57-errores><p>${e(t("ficha.errores_resumen", { cuenta: st.errores.length }))}</p><ul>${st.errores.map((x) => `<li><a href="#${e(x.campo)}" data-b57-accion="ir-campo" data-b57-campo="${e(x.campo)}">${e(x.mensaje)}</a></li>`).join("")}</ul></div>` : "";
   const grupos = ["relacion", "puesto", "cierre"].map((grupo) => `<fieldset class="grupo-campo"><legend>${e(t(`ficha.grupo_${grupo}`))}</legend><div class="rejilla-formulario rejilla-llamamiento">${HECHOS_COMPROBACION.filter((h) => h.grupo === grupo).map((h) => {
     const idDoc = `b57-doc-${h.clave}`;
-    return `${campoValor(h, valor(h.clave), errorDe(`b57-hecho-${h.clave}`), e)}<label class="campo" for="${idDoc}"><span>${e(t("ficha.documento_que_acredita"))}</span><select id="${idDoc}" data-b57-doc-hecho="${h.clave}"${errorDe(idDoc) ? ` aria-invalid="true" aria-describedby="${idDoc}-error"` : ""}>${opcionesDocumento(st, contrato, doc(h.clave), e)}</select>${errorDe(idDoc) ? `<small id="${idDoc}-error" class="mensaje-error">${e(errorDe(idDoc))}</small>` : ""}</label>`;
+    return `${campoValor(h, valor(h.clave), errorDe(`b57-hecho-${h.clave}`), e)}<label class="campo" for="${idDoc}"><span>${e(t("ficha.documento_que_acredita"))}</span><select id="${idDoc}" data-b57-doc-hecho="${h.clave}" aria-label="${e(t("ficha.documento_que_acredita_aria", { hecho: textoHecho(h.clave) }))}"${errorDe(idDoc) ? ` aria-invalid="true" aria-describedby="${idDoc}-error"` : ""}>${opcionesDocumento(st, contrato, doc(h.clave), e)}</select>${errorDe(idDoc) ? `<small id="${idDoc}-error" class="mensaje-error">${e(errorDe(idDoc))}</small>` : ""}</label>`;
   }).join("")}</div></fieldset>`).join("");
   const documentos = `<fieldset class="grupo-campo"><legend>${e(t("ficha.documentos_titulo"))}</legend>${st.documentos.map((d, i) => bloqueDocumento(d, i, st.errores, bloqueado, e)).join("")}${!bloqueado && st.documentos.length < MAXIMO_DOCUMENTOS ? `<button type="button" class="boton-secundario" data-b57-accion="anadir-documento">${e(t("ficha.anadir_documento"))}</button>` : ""}</fieldset>`;
-  const edicion = `<form data-b57-form="comprobacion" novalidate${bloqueado ? " hidden" : ""}>${resumenErrores}${documentos}${grupos}<div class="acciones-vista"><button type="submit" class="boton-primario">${e(t("ficha.revisar"))}</button></div></form>`;
+  const edicion = `<form data-b57-form="comprobacion" novalidate${bloqueado ? " hidden" : ""}>${resumenErrores}<p>${e(t("ficha.solo_acreditados"))}</p>${documentos}${grupos}<div class="acciones-vista"><button type="submit" class="boton-primario">${e(t("ficha.revisar"))}</button></div></form>`;
   let revision = "";
   if (bloqueado && st.paso !== "recibo") {
-    const filas = HECHOS_COMPROBACION.filter((h) => st.hechos?.[h.clave]).map((h) => {
+    const filas = HECHOS_COMPROBACION.map((h) => {
+      if (!st.hechos?.[h.clave]) return `<div class="fila-resumen"><dt>${e(textoHecho(h.clave))}</dt><dd>${e(t("ficha.sin_indicar"))}</dd></div>`;
       const d = doc(h.clave);
       const n = st.documentos.findIndex((x) => x.id === d) + 1;
       const fuente = d === "contrato" ? textoContrato(contrato) : `${t("ficha.documento_n", { numero: n })} · ${st.documentos[n - 1]?.referencia ?? ""}`;
@@ -288,7 +289,7 @@ export function renderizarComprobacionOfrecimiento({ modal, escaparHTML: e }) {
       <button type="button" class="boton-primario" data-b57-accion="registrar"${st.paso === "enviando" ? " disabled" : ""}>${e(t(st.paso === "incierto" ? "ficha.reintentar" : "ficha.registrar"))}</button></div></div></section>`;
   }
   const aviso = `<p class="nota-pendiente">${e(t("ficha.detenida", { posicion: new Intl.NumberFormat(LOCALIZACION_PORTAL).format(c.orden_acta) }))}${st.propuesta.version_esperada > 0 ? ` ${e(t("ficha.rectificacion", { version: st.propuesta.version_esperada }))}` : ""}</p>`;
-  const cuerpo = st.paso === "recibo" ? renderizarRecibo(st.recibo, e) : `${aviso}${st.paso === "edicion" && st.mensaje ? `<p class="mensaje-error" role="alert">${e(st.mensaje)}</p>` : ""}${edicion}${revision}`;
+  const cuerpo = st.paso === "recibo" ? renderizarRecibo(st.recibo, e) : `${aviso}${st.paso === "edicion" && st.mensaje ? `<p class="mensaje-error" role="alert" tabindex="-1" data-b57-mensaje>${e(st.mensaje)}</p>` : ""}${edicion}${revision}`;
   const megas = new Intl.NumberFormat(LOCALIZACION_PORTAL, { maximumFractionDigits: 0 }).format(LIMITE_HUELLA_ARCHIVO_BYTES / (1024 * 1024));
   return `<section class="panel panel-separado" id="b57-comprobacion" data-b57-raiz="true" tabindex="-1" aria-labelledby="b57-titulo"><div class="cabecera-panel"><div><h4 id="b57-titulo">${e(t("ficha.titulo"))}</h4></div><details><summary aria-label="${e(t("ficha.ayuda_aria"))}">?</summary><p>${e(t("ficha.ayuda"))}</p><p>${e(t("ficha.ayuda_huella", { limite: megas }))}</p></details></div><div class="cuerpo-panel">${cuerpo}</div></section>`;
 }
@@ -310,7 +311,9 @@ export function crearControladorComprobacion({ estado, renderizar, fetchImpl, ca
     }
     if (estado.modalFicha !== modal) return true;
     renderizar();
-    globalThis.document?.querySelector?.("#b57-comprobacion")?.scrollIntoView?.({ block: "start" });
+    const raiz = globalThis.document?.querySelector?.("#b57-comprobacion");
+    raiz?.scrollIntoView?.({ block: "start" });
+    raiz?.focus?.({ preventScroll: true });
     return true;
   }
 
@@ -325,6 +328,7 @@ export function crearControladorComprobacion({ estado, renderizar, fetchImpl, ca
     // Un rechazo no tuvo efecto: el siguiente intento, corregido, lleva clave nueva.
     if (r.rechazo) { st.paso = "edicion"; st.clave = ""; st.cuerpo = ""; } else st.paso = "incierto";
     renderizar();
+    enfocar(documento, r.rechazo ? "[data-b57-mensaje]" : '[data-b57-accion="registrar"]');
   }
 
   function manejarClick(evento, documento) {
@@ -335,6 +339,12 @@ export function crearControladorComprobacion({ estado, renderizar, fetchImpl, ca
     evento.preventDefault();
     const accion = control.dataset.b57Accion;
     if (accion === "reintentar-textos") { void cargar(modal); return true; }
+    // El portal decide la pantalla por el hash: el enlace solo lleva el foco al campo.
+    if (accion === "ir-campo") {
+      const campo = documento.getElementById?.(control.dataset.b57Campo);
+      (campo?.matches?.("fieldset") ? campo.querySelector("input") : campo)?.focus?.();
+      return true;
+    }
     if (accion === "anadir-documento" && st.paso === "edicion" && st.documentos.length < MAXIMO_DOCUMENTOS) {
       const id = `d${st.siguiente++}`;
       st.documentos.push({ id, referencia: "", huella: "" });
@@ -379,16 +389,16 @@ export function crearControladorComprobacion({ estado, renderizar, fetchImpl, ca
       const x = st.documentos.find((y) => y.id === d.b57DocArchivo);
       if (!x) return;
       const lectura = (x.lectura ?? 0) + 1;
-      Object.assign(x, { lectura, huella: "", calculando: true, errorArchivo: "" });
+      Object.assign(x, { lectura, huella: "", nombre: "", calculando: true, errorArchivo: "" });
       const estadoTexto = objetivo.parentElement?.querySelector?.("[role=status]");
       if (estadoTexto) estadoTexto.textContent = t("huella.calculando");
       const archivo = objetivo.files?.length === 1 ? objetivo.files[0] : null;
       const r = archivo ? await calcularHuellaArchivo(archivo) : { ok: false, motivo: "sin_archivo" };
       if (x.lectura !== lectura) return;
       x.calculando = false;
-      if (r.ok) x.huella = r.huella;
+      if (r.ok) { x.huella = r.huella; x.nombre = archivo.name; }
       else x.errorArchivo = t(`huella.${r.motivo}`, { limite: new Intl.NumberFormat(LOCALIZACION_PORTAL).format(LIMITE_HUELLA_ARCHIVO_BYTES / (1024 * 1024)) });
-      if (estadoTexto?.isConnected) estadoTexto.textContent = r.ok ? t("huella.comprobado") : x.errorArchivo;
+      if (estadoTexto?.isConnected) estadoTexto.textContent = r.ok ? t("huella.comprobado_nombre", { nombre: x.nombre }) : x.errorArchivo;
     }
   }
 

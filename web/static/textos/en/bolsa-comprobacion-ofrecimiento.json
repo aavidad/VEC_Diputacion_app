@@ -29,7 +29,6 @@
     "grupo_cierre": "Background",
     "documento_que_acredita": "Document that proves it",
     "sin_documento": "No document",
-    "opcional": "{campo} (optional)",
     "si": "Yes",
     "no": "No",
     "sin_indicar": "Not given",
@@ -37,7 +36,7 @@
     "hecho_tipo_relacion": "Type of current relationship",
     "hecho_modalidad": "Type of current contract",
     "hecho_causa_relacion": "Reason for the current contract",
-    "hecho_causa_relacion_pista": "Key as it appears on the contract, for example baja.",
+    "hecho_causa_relacion_pista": "Enter it as it appears in the registered contract.",
     "hecho_inicio": "Start of the current contract",
     "hecho_fin_previsto": "Expected end of the current contract",
     "hecho_fin_inicial_programa": "Initial end of the programme",
@@ -62,9 +61,7 @@
     "recibo_recuperada": "This check was already registered; its receipt is shown.",
     "recibo_resultado": "Result",
     "recibo_fecha": "Registered on",
-    "recibo_version": "Version",
-    "recibo_numero": "Receipt",
-    "siguiente_paso": "Go back to the case and run the selection again.",
+    "siguiente_paso": "Open the case file in Temporary staff requests and repeat the selection.",
     "resultado_pendiente": "Pending",
     "resultado_no_aplicable": "The job improvement rule does not apply",
     "motivo_antecedentes_incompletos": "Details or documents are missing to decide.",
@@ -85,15 +82,18 @@
     "error_hecho_clave": "“{hecho}” only accepts lower-case letters without accents, digits and the signs . _ -.",
     "error_hecho_fecha": "Enter a valid date in “{hecho}”.",
     "incierto": "We could not confirm whether the check was registered. Select Retry: the same check is recovered, without duplicating it.",
-    "no_en_pagina": "The person at position {posicion} is not on this page of the list. Find them and open their record to check their details."
+    "no_encontrada": "The person in position {posicion} was not found in this pool. They may no longer be in it, or your profile may not allow you to see them. Go back to the case file and repeat the selection.",
+    "ir_peticiones": "Go to Temporary staff requests",
+    "solo_acreditados": "Only enter the details you can support with a document. The rest can be left blank.",
+    "documento_que_acredita_aria": "Document that proves it: {hecho}"
   },
   "huella": {
-    "comprobado": "Document checked on this computer; its content is not stored.",
     "calculando": "Checking the document on this computer…",
     "sin_archivo": "Choose the document file to continue.",
     "demasiado_grande": "The file is larger than {limite} MB. Choose a lighter copy of the document.",
     "vacio": "The file is empty. Choose the right document.",
     "no_disponible": "This browser cannot check the document. Use an up-to-date browser.",
-    "error_lectura": "The file could not be read. Choose it again."
+    "error_lectura": "The file could not be read. Choose it again.",
+    "comprobado_nombre": "Document {nombre} checked on this computer; its content is not stored."
   }
 }
