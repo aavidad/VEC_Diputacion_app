@@ -12,7 +12,7 @@ BEGIN
  c:=x.def;
  IF x.prosecdef IS NOT TRUE
  OR encode(sha256(convert_to(c,'UTF8')),'hex') IS DISTINCT FROM
-   '6c7777b7dc0232503cf834cb1373a576ab3fa995071ce4b86f09ab464e0e3a0a'
+   '27a91dbe9d3c194edd39f7accad0fbf8b891968fbe8fbccef2605814ef0ff534'
  OR x.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
  OR has_function_privilege('vec_contratacion_temporal_ejecutor',
    'vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(jsonb)','EXECUTE')

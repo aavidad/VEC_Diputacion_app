@@ -374,6 +374,15 @@ BEGIN
      OR x.valor->>'orden_acta' IS DISTINCT FROM x.n::text)
  THEN RAISE EXCEPTION 'B140: origen contextual inválido' USING ERRCODE='22023'; END IF;
  seleccionado:=(p_origen->>'orden_seleccionado')::bigint;
+ -- Antes de tomar cerrojos, el número de entradas debe ser el del acta real:
+ -- una lectura inflada no puede forzar miles de cerrojos y filas de control.
+ IF NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.constitucion c
+   JOIN vec_bolsa_llamamientos.instantanea_orden_bolsa i
+     ON i.instantanea_ref=c.instantanea_ref AND i.version=c.version_instantanea
+    AND i.huella_instantanea_sha256=c.huella_instantanea_sha256
+   WHERE c.acta_ref=p_origen->>'acta_ref' AND c.bolsa_ref=p_origen->>'bolsa_ref'
+     AND i.total_participaciones=jsonb_array_length(p_origen#>'{lectura,entradas}'))
+ THEN RAISE EXCEPTION 'B140: lectura distinta del acta' USING ERRCODE='55000'; END IF;
  -- B133 usa esta misma llave antes de leer CT y la política. La actualización
  -- fuerza 40001 si un acto se confirmó después del snapshot SERIALIZABLE.
  FOR e IN SELECT x.valor FROM jsonb_array_elements(p_origen#>'{lectura,entradas}') WITH ORDINALITY x(valor,n)
@@ -419,6 +428,10 @@ BEGIN
   'categoria_ref',p_origen->>'categoria_ref','version_expediente',p_origen->'version_expediente',
   'modalidad_ofrecida',p_origen#>>'{criterios_ofrecimiento,modalidad_ofrecida}',
   'causa_ofrecida',p_origen#>>'{criterios_ofrecimiento,causa_ofrecida}');
+ -- Un expediente cambiado entre la lectura y la reserva es un conflicto de
+ -- estado, no una denegación: se coteja antes de que la lectura lance 42501.
+ IF vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(contexto,true) IS NOT TRUE
+ THEN RAISE EXCEPTION 'B140: contexto cambiado' USING ERRCODE='55000'; END IF;
  SELECT * INTO STRICT bolsa FROM vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(
   contexto->>'categoria_ref',contexto->>'modalidad_ofrecida',contexto->>'causa_ofrecida',contexto);
  IF bolsa.acta_ref IS DISTINCT FROM p_origen->>'acta_ref'
@@ -448,10 +461,16 @@ BEGIN
   acto_actual:=actual->'comprobacion_ofrecimiento';
   IF acto_capturado ? 'registrada_en' THEN
    IF jsonb_typeof(acto_capturado->'registrada_en') IS DISTINCT FROM 'string'
-   OR acto_capturado->>'registrada_en' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+(Z|[+-][0-9]{2}:[0-9]{2})$'
+   OR acto_capturado->>'registrada_en' !~
+      '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\.[0-9]{1,6})?(Z|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$'
    THEN RAISE EXCEPTION 'B140: acto o selección cambiados' USING ERRCODE='55000'; END IF;
-   acto_capturado:=jsonb_set(acto_capturado,'{registrada_en}',
-    to_jsonb((acto_capturado->>'registrada_en')::timestamptz));
+   -- Una fecha imposible con forma válida (30 de febrero) también es 55000.
+   BEGIN
+    acto_capturado:=jsonb_set(acto_capturado,'{registrada_en}',
+     to_jsonb((acto_capturado->>'registrada_en')::timestamptz));
+   EXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow THEN
+    RAISE EXCEPTION 'B140: acto o selección cambiados' USING ERRCODE='55000';
+   END;
   END IF;
   IF acto_actual ? 'registrada_en' THEN
    acto_actual:=jsonb_set(acto_actual,'{registrada_en}',
@@ -763,7 +782,7 @@ DO $post$ DECLARE p record; acl_esperada text; huella_esperada text; BEGIN
     WHEN 'vec_bolsa_llamamientos.registrar_comprobacion_ofrecimiento_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
      THEN '4abd1757b2465812fb7f08c06f5c8e8702d70ef7b16c6bebcfadc94fdd3e433c'
     WHEN 'vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(jsonb)'::regprocedure
-     THEN '8eb02751df9746a5f687b58a2dfe2d58b5fb6f6c2bc02cf5aebd65873d6c2677'
+     THEN 'a842bbf148c20cc2db04c4b4b130920ffd70b9a4078ce88b8cd9e613bd51e4fc'
     ELSE 'f5035c9e1f83ae60a2cdc8d7b9a38232dfad207a1c0eff11a90cbfb0ffa56bc4' END;
   IF pg_get_userbyid(p.proowner)<>'vec_bolsa_llamamientos_propietario'
    OR p.prosecdef IS NOT TRUE

@@ -90,7 +90,7 @@ BEGIN
   PERFORM vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(
    jsonb_set(origen,'{version_expediente}',to_jsonb((ctx->>'version_expediente')::bigint+1)));
   RAISE EXCEPTION 'B140: versión de expediente distinta admitida';
- EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL; END;
  -- Acto registrado (v1) y vigente: la lectura nueva coteja aunque Go escriba la fecha con Z.
  SELECT version,huella_sha256 INTO STRICT po FROM vec_bolsa_llamamientos.politica_ofertas_version
  WHERE bolsa_ref=b.bolsa_ref ORDER BY version DESC LIMIT 1;
@@ -143,6 +143,28 @@ BEGIN
   PERFORM vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(z);
   RAISE EXCEPTION 'B140: instante distinto admitido';
  EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL; END;
+ -- Fechas mal formadas o imposibles: conflicto de estado (55000), no 22007/22008.
+ FOR ref IN SELECT unnest(ARRAY['2026-02-30T10:00:00Z','2026-10-19T25:00:00Z',
+   '2026-10-19T10:00Z','2026-10-19T10:00:00.1234567Z','2026-10-19T10:00:00+0000']) LOOP
+  z:=jsonb_set(capturada,'{lectura,entradas}',(SELECT jsonb_agg(CASE WHEN x.valor ? 'comprobacion_ofrecimiento'
+    THEN jsonb_set(x.valor,'{comprobacion_ofrecimiento,registrada_en}',to_jsonb(ref))
+    ELSE x.valor END ORDER BY x.n) FROM jsonb_array_elements(entradas) WITH ORDINALITY x(valor,n)));
+  BEGIN
+   PERFORM vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(z);
+   RAISE EXCEPTION 'B140: fecha mal formada admitida: %',ref;
+  EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL; END;
+ END LOOP;
+ -- Una lectura inflada se rechaza antes de tomar cerrojos o crear controles.
+ z:=jsonb_set(capturada,'{lectura,entradas}',(capturada#>'{lectura,entradas}')||jsonb_build_array(
+  jsonb_build_object('orden_acta',jsonb_array_length(capturada#>'{lectura,entradas}')+1,
+   'participacion_ref','participacion:b140:inflada','razon','pendiente_comprobacion_rrhh')));
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(z);
+  RAISE EXCEPTION 'B140: lectura inflada admitida';
+ EXCEPTION WHEN object_not_in_prerequisite_state THEN
+  IF SQLERRM<>'B140: lectura distinta del acta'
+  THEN RAISE EXCEPTION 'B140: lectura inflada rechazada tras los cerrojos: %',SQLERRM; END IF;
+ END;
  -- Ajuste B137 (2): una rectificación guardada con otra bolsa no se oculta.
  ref:='comprobacion:'||encode(sha256(convert_to('b140:2:'||(pendiente->>'participacion_ref'),'UTF8')),'hex');
  INSERT INTO vec_bolsa_llamamientos.comprobacion_ofrecimiento_v1(
@@ -204,13 +226,18 @@ DO $permisos$ DECLARE origen jsonb; BEGIN
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  EXECUTE 'RESET ROLE';
 END $permisos$;
-SELECT 'b140_recotejo_reserva: 0 fallos' AS resultado;
+SELECT valor::text AS b140_origen_valido FROM pg_temp.b140_caso WHERE nombre='origen' \gset
 ROLLBACK;
 
--- 5. Fuera de SERIALIZABLE el cotejo no se ejecuta.
+-- 5. Fuera de SERIALIZABLE el cotejo no se ejecuta, ni con un origen que
+-- acaba de cotejar bien. Sin la guarda, al haberse revertido el caso, el
+-- cotejo daría 55000 por el acta y no 22023.
 BEGIN ISOLATION LEVEL READ COMMITTED;
+SELECT set_config('b140.origen_valido',:'b140_origen_valido',true) IS NOT NULL AS preparado \gset
 DO $aislamiento$ BEGIN
- PERFORM vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1('{}'::jsonb);
+ PERFORM vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(
+  current_setting('b140.origen_valido')::jsonb);
  RAISE EXCEPTION 'B140: cotejo fuera de SERIALIZABLE admitido';
 EXCEPTION WHEN invalid_parameter_value THEN NULL; END $aislamiento$;
 ROLLBACK;
+SELECT 'b140_recotejo_reserva: 0 fallos' AS resultado;

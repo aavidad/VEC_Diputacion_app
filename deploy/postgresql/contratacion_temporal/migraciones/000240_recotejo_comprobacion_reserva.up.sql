@@ -33,8 +33,9 @@ DECLARE e vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6%ROWTYPE;
 BEGIN
  IF vec_contratacion_temporal.comando_seleccion_oferta_valido_ct220(p_comando,p_intencion) IS NOT TRUE THEN
   RAISE EXCEPTION 'CT220: comando de oferta inválido' USING ERRCODE='22023'; END IF;
- -- Misma fila que bloquea CT122 antes de cancelar. El corte 3 añadirá la
- -- guarda de reservas pendientes después de adquirir exactamente este lock.
+ -- Misma fila que bloquea CT122 antes de cancelar. Orden fijo desde CT240:
+ -- consumo de la autorización, cerrojo del expediente, cotejo con Bolsa y
+ -- FOR UPDATE de la cabecera.
  SELECT * INTO STRICT v_auth FROM vec_contratacion_temporal.consumir_etapa_seleccion_oferta_ct220(
   'reservar',p_intencion,p_comando,NULL,p_material,p_capacidad,p_decision,p_motivo,p_contexto,
   p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
@@ -117,7 +118,7 @@ DO $post$ DECLARE p record; BEGIN
  IF p.dueno<>'vec_contratacion_temporal_propietario' OR p.prosecdef IS NOT TRUE
  OR p.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']
- OR p.huella IS DISTINCT FROM '6c7777b7dc0232503cf834cb1373a576ab3fa995071ce4b86f09ab464e0e3a0a'
+ OR p.huella IS DISTINCT FROM '27a91dbe9d3c194edd39f7accad0fbf8b891968fbe8fbccef2605814ef0ff534'
  THEN RAISE EXCEPTION 'CT240: postimagen incompatible' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;
