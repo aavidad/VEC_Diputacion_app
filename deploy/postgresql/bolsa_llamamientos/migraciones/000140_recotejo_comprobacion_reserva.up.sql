@@ -17,7 +17,7 @@ DO $pre$ BEGIN
  IS DISTINCT FROM '401b1e9430d2d7c5be462ba733abb6378277b45d2224d1a554768fde93b9afac'
  OR encode(sha256(convert_to(pg_get_functiondef(
   'vec_bolsa_llamamientos.registrar_comprobacion_ofrecimiento_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex')
- IS DISTINCT FROM '155125748bb761af8ec6248b422095f08a4458295772102350d646d25566fef8'
+ IS DISTINCT FROM '155125748bb761af85c1b872e755079bf5df5944e6e6e448c20da05399575042'
  OR encode(sha256(convert_to(pg_get_functiondef(
   'vec_bolsa_llamamientos.reservar_llamamiento_ct_v1(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)'::regprocedure),'UTF8')),'hex')
  IS DISTINCT FROM '4b250b48f08751fdb3ea56f5b747beb00b9deef68f95c96628c02d95bb3c2990'
@@ -205,7 +205,7 @@ BEGIN
    v_const.version_instantanea,v_const.huella_instantanea_sha256,v_const.instantanea_canonica,
    v_politica.politica_ref,v_politica.version,convert_to(to_jsonb(v_politica)::text,'UTF8'),
    v_politica.provisional,v_corte,v_const.bolsa_vigente_hasta,v_politica.vigente_hasta,v_entradas,v_criterios;
-END $function$
+END $function$;
 
 CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.registrar_comprobacion_ofrecimiento_v1(p jsonb, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
  RETURNS jsonb
@@ -341,7 +341,7 @@ BEGIN
   'motivo_clave',previa.resultado->>'motivo_clave','version_politica_ofertas',previa.contexto->'version_politica_ofertas',
   'recibo_ref',previa.recibo_ref,'evento_ref',previa.evento_ref,'auditoria_ref',previa.auditoria_ref,
   'registrada_en',previa.registrada_en,'reutilizada',es_replay);
-END $function$
+END $function$;
 
 CREATE FUNCTION vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(p_origen jsonb)
  RETURNS boolean
@@ -353,7 +353,8 @@ CREATE FUNCTION vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(p_orig
  SET statement_timeout TO '15s'
 AS $function$
 DECLARE e jsonb; capturada jsonb; actual jsonb; contexto jsonb; bolsa record;
-        n bigint; version_actual bigint; version_control bigint;
+        n bigint; version_actual bigint; version_control bigint; seleccionado bigint;
+        acto_capturado jsonb; acto_actual jsonb;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable'
  OR current_setting('transaction_read_only')<>'off'
@@ -363,16 +364,20 @@ BEGIN
  OR jsonb_array_length(p_origen#>'{lectura,entradas}') NOT BETWEEN 1 AND 100000
  OR jsonb_typeof(p_origen#>'{lectura,criterios_ofrecimiento}') IS DISTINCT FROM 'object'
  OR p_origen->'criterios_ofrecimiento' IS DISTINCT FROM p_origen#>'{lectura,criterios_ofrecimiento}'
- OR p_origen->>'orden_seleccionado' !~ '^[1-9][0-9]{0,8}$'
+ -- La reserva singular B110 trae el orden del acta; la oferta CT220 no
+ -- selecciona persona y solo recoteja contexto y actos.
+ OR (p_origen ? 'orden_seleccionado' AND (
+   jsonb_typeof(p_origen->'orden_seleccionado') IS DISTINCT FROM 'number'
+   OR p_origen->>'orden_seleccionado' !~ '^[1-9][0-9]{0,8}$'))
  OR EXISTS(SELECT 1 FROM jsonb_array_elements(p_origen#>'{lectura,entradas}') WITH ORDINALITY x(valor,n)
    WHERE jsonb_typeof(x.valor) IS DISTINCT FROM 'object'
      OR x.valor->>'orden_acta' IS DISTINCT FROM x.n::text)
  THEN RAISE EXCEPTION 'B140: origen contextual inválido' USING ERRCODE='22023'; END IF;
+ seleccionado:=(p_origen->>'orden_seleccionado')::bigint;
  -- B133 usa esta misma llave antes de leer CT y la política. La actualización
  -- fuerza 40001 si un acto se confirmó después del snapshot SERIALIZABLE.
  FOR e IN SELECT x.valor FROM jsonb_array_elements(p_origen#>'{lectura,entradas}') WITH ORDINALITY x(valor,n)
   WHERE x.valor->>'razon'='pendiente_comprobacion_rrhh'
-    AND x.n<=(p_origen->>'orden_seleccionado')::bigint
   ORDER BY x.n LOOP
   IF e->>'participacion_ref' IS NULL OR e->>'orden_acta' !~ '^[1-9][0-9]{0,8}$'
   THEN RAISE EXCEPTION 'B140: entrada inválida' USING ERRCODE='22023'; END IF;
@@ -436,10 +441,26 @@ BEGIN
   OR capturada->'eventos_relacion' IS DISTINCT FROM actual->'eventos_relacion'
   OR (capturada ? 'comprobacion_ofrecimiento') IS DISTINCT FROM
      (actual ? 'comprobacion_ofrecimiento')
-  OR capturada->'comprobacion_ofrecimiento' IS DISTINCT FROM actual->'comprobacion_ofrecimiento'
   THEN RAISE EXCEPTION 'B140: acto o selección cambiados' USING ERRCODE='55000'; END IF;
-  IF actual->>'razon'='pendiente_comprobacion_rrhh'
-     AND (actual->>'orden_acta')::bigint<=(p_origen->>'orden_seleccionado')::bigint
+  -- CT conserva la lectura tras pasar por su adaptador: el instante del acto
+  -- se compara como instante, no por su forma textual.
+  acto_capturado:=capturada->'comprobacion_ofrecimiento';
+  acto_actual:=actual->'comprobacion_ofrecimiento';
+  IF acto_capturado ? 'registrada_en' THEN
+   IF jsonb_typeof(acto_capturado->'registrada_en') IS DISTINCT FROM 'string'
+   OR acto_capturado->>'registrada_en' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+(Z|[+-][0-9]{2}:[0-9]{2})$'
+   THEN RAISE EXCEPTION 'B140: acto o selección cambiados' USING ERRCODE='55000'; END IF;
+   acto_capturado:=jsonb_set(acto_capturado,'{registrada_en}',
+    to_jsonb((acto_capturado->>'registrada_en')::timestamptz));
+  END IF;
+  IF acto_actual ? 'registrada_en' THEN
+   acto_actual:=jsonb_set(acto_actual,'{registrada_en}',
+    to_jsonb((acto_actual->>'registrada_en')::timestamptz));
+  END IF;
+  IF acto_capturado IS DISTINCT FROM acto_actual
+  THEN RAISE EXCEPTION 'B140: acto o selección cambiados' USING ERRCODE='55000'; END IF;
+  IF seleccionado IS NOT NULL AND actual->>'razon'='pendiente_comprobacion_rrhh'
+     AND (actual->>'orden_acta')::bigint<=seleccionado
   THEN RAISE EXCEPTION 'B140: comprobación pendiente' USING ERRCODE='55000'; END IF;
  END LOOP;
  RETURN true;
@@ -701,11 +722,27 @@ BEGIN
   'bolsa_ref',p_bolsa,'estado','emision_reservada_resultado_pendiente',
   'participaciones',p_participaciones,'configuracion',p_configuracion,
   'emitido_en',p_emitido,'contactos','[]'::jsonb,'origen_ct',v_confirmacion),false;
-END $function$
+END $function$;
 
-DO $post$ DECLARE p record; BEGIN
+DO $post$ DECLARE p record; acl_esperada text; huella_esperada text; BEGIN
  IF (SELECT count(*) FROM vec_bolsa_llamamientos.version_comprobacion_reserva_v1)<>0
  THEN RAISE EXCEPTION 'B140: control inicial inesperado' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=
+   'vec_bolsa_llamamientos.version_comprobacion_reserva_v1'::regclass
+   AND c.relowner='vec_bolsa_llamamientos_propietario'::regrole
+   AND c.relrowsecurity AND c.relforcerowsecurity)
+ OR has_table_privilege('vec_bolsa_llamamientos_ejecutor',
+   'vec_bolsa_llamamientos.version_comprobacion_reserva_v1','SELECT,INSERT,UPDATE,DELETE')
+ OR has_table_privilege('vec_contratacion_temporal_propietario',
+   'vec_bolsa_llamamientos.version_comprobacion_reserva_v1','SELECT,INSERT,UPDATE,DELETE')
+ OR (SELECT count(*) FROM pg_policy pol WHERE pol.polrelid=
+   'vec_bolsa_llamamientos.version_comprobacion_reserva_v1'::regclass
+   AND pol.polname='version_comprobacion_propietario' AND pol.polcmd='*'
+   AND pol.polpermissive AND pol.polroles=ARRAY['vec_bolsa_llamamientos_propietario'::regrole]::oid[]
+   AND pol.polqual IS NOT NULL AND pol.polwithcheck IS NOT NULL)<>1
+ OR (SELECT count(*) FROM pg_policy pol WHERE pol.polrelid=
+   'vec_bolsa_llamamientos.version_comprobacion_reserva_v1'::regclass)<>1
+ THEN RAISE EXCEPTION 'B140: tabla o RLS incompatible' USING ERRCODE='55000'; END IF;
  FOR p IN SELECT q.oid,q.proowner,q.prosecdef,q.proacl::text AS acl,q.proconfig,
   encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex') AS huella
   FROM pg_proc q WHERE q.oid IN (
@@ -714,9 +751,27 @@ DO $post$ DECLARE p record; BEGIN
    'vec_bolsa_llamamientos.reservar_llamamiento_ct_v1(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)'::regprocedure,
    'vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(jsonb)'::regprocedure)
  LOOP
+  acl_esperada:=CASE p.oid
+    WHEN 'vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(text,text,text,jsonb)'::regprocedure
+     THEN '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_autorizacion_atestada_v3_propietario=X/vec_bolsa_llamamientos_propietario}'
+    WHEN 'vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(jsonb)'::regprocedure
+     THEN '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_contratacion_temporal_propietario=X/vec_bolsa_llamamientos_propietario}'
+    ELSE '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}' END;
+  huella_esperada:=CASE p.oid
+    WHEN 'vec_bolsa_llamamientos.leer_origen_llamamiento_ct_contextual_v1(text,text,text,jsonb)'::regprocedure
+     THEN 'cc6c1fef7cff07fdcca765328557ddc44908af04de869c739fc98691f521bd4a'
+    WHEN 'vec_bolsa_llamamientos.registrar_comprobacion_ofrecimiento_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
+     THEN '4abd1757b2465812fb7f08c06f5c8e8702d70ef7b16c6bebcfadc94fdd3e433c'
+    WHEN 'vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(jsonb)'::regprocedure
+     THEN '8eb02751df9746a5f687b58a2dfe2d58b5fb6f6c2bc02cf5aebd65873d6c2677'
+    ELSE 'f5035c9e1f83ae60a2cdc8d7b9a38232dfad207a1c0eff11a90cbfb0ffa56bc4' END;
   IF pg_get_userbyid(p.proowner)<>'vec_bolsa_llamamientos_propietario'
-   OR p.prosecdef IS NOT TRUE OR p.proconfig[1]<>'search_path=pg_catalog, pg_temp'
-   OR p.huella IS NULL
+   OR p.prosecdef IS NOT TRUE
+   OR (SELECT array_agg(x ORDER BY x COLLATE "C") FROM unnest(p.proconfig) x) IS DISTINCT FROM
+     ARRAY['TimeZone=UTC','lock_timeout=2s','row_security=on','search_path=pg_catalog, pg_temp',
+      'statement_timeout=15s']
+   OR p.acl IS DISTINCT FROM acl_esperada
+   OR p.huella IS DISTINCT FROM huella_esperada
   THEN RAISE EXCEPTION 'B140: postimagen incompatible %',p.oid USING ERRCODE='55000'; END IF;
  END LOOP;
 END $post$;

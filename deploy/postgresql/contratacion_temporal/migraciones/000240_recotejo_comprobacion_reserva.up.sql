@@ -41,7 +41,14 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 x
   WHERE x.clave_idempotencia=(p_intencion->>'clave_idempotencia')::uuid)
   AND p_comando#>'{origen_ct,lectura,criterios_ofrecimiento}' IS NOT NULL THEN
-  PERFORM vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(p_comando->'origen_ct');
+  -- El cotejo toma el expediente compartido antes del FOR UPDATE: dos reservas
+  -- del mismo expediente se ordenan aquí para no bloquearse entre sí.
+  PERFORM pg_advisory_xact_lock(hashtextextended(
+   'vec_contratacion_temporal:reserva-oferta:'||(p_intencion->>'expediente_ref'),0));
+  -- La oferta guarda los criterios dentro de su lectura; Bolsa los coteja en raíz.
+  PERFORM vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(
+   (p_comando->'origen_ct')||jsonb_build_object('criterios_ofrecimiento',
+    p_comando#>'{origen_ct,lectura,criterios_ofrecimiento}'));
  END IF;
  SELECT a.version,v.agregado_json INTO v_cabecera
  FROM vec_contratacion_temporal.expediente_integral_actual a
@@ -100,7 +107,7 @@ BEGIN
   WHERE clave_idempotencia=e.clave_idempotencia RETURNING * INTO e;
  END IF;
  RETURN vec_contratacion_temporal.estado_seleccion_oferta_ct220(e);
-END $function$
+END $function$;
 
 DO $post$ DECLARE p record; BEGIN
  SELECT pg_get_userbyid(q.proowner) AS dueno,q.prosecdef,q.proacl::text AS acl,q.proconfig,
@@ -110,6 +117,7 @@ DO $post$ DECLARE p record; BEGIN
  IF p.dueno<>'vec_contratacion_temporal_propietario' OR p.prosecdef IS NOT TRUE
  OR p.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']
- OR p.huella IS NULL THEN RAISE EXCEPTION 'CT240: postimagen incompatible' USING ERRCODE='55000'; END IF;
+ OR p.huella IS DISTINCT FROM '6c7777b7dc0232503cf834cb1373a576ab3fa995071ce4b86f09ab464e0e3a0a'
+ THEN RAISE EXCEPTION 'CT240: postimagen incompatible' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;

@@ -199,7 +199,9 @@ participación. El registro de hechos y las reservas comparten esa fila para
 rechazar una rectificación concurrente, también con una instantánea anterior.
 La historia de comprobaciones sigue siendo de solo adición. CT accede mediante
 la función privada `cotejar_comprobacion_reserva_ct_v1`, sin lectura directa de
-la tabla. Guion: `deploy/principal/contexto_reserva_f1_10_20261019.md`.
+la tabla. La reserva singular B110 detiene además la selección si hay una persona
+pendiente en o antes del orden elegido; la oferta de varias plazas (CT240) solo
+recoteja. Guion: `deploy/principal/contexto_reserva_f1_10_20261019.md`.
 
 ## 5. Contrato de transacción
 
