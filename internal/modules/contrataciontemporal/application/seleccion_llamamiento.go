@@ -84,6 +84,13 @@ func SeleccionarSegunNumeroPersonasCT(ctx context.Context, expediente ports.Expe
 		expediente.VersionActual < expediente.Fiscalizado.Version {
 		return vacio, ErrSolicitudSeleccionLlamamientoInvalida
 	}
+	// Un nombramiento derivado (F1-19) ya tiene su plaza adjudicada por Bolsa.
+	// Copia del padre la fiscalización favorable y queda con una persona, así
+	// que sin esta guarda iría por la vía singular a otro llamamiento. SQL lo
+	// rechaza también en las tres entradas (CT241).
+	if expediente.Fiscalizado.InstruccionCompartida != nil {
+		return vacio, ports.ErrEstadoExpedienteNoSeleccionable
+	}
 	if expediente.Fiscalizado.Solicitud.NumeroPersonas > 1 {
 		if dependenciaNula(ofertas) {
 			return vacio, ErrSeleccionOfertaNoDisponible

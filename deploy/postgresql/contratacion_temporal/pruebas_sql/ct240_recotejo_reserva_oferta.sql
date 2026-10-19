@@ -12,8 +12,10 @@ BEGIN
  FROM pg_proc p WHERE p.oid=f;
  c:=x.def;
  IF x.prosecdef IS NOT TRUE
- OR encode(sha256(convert_to(c,'UTF8')),'hex') IS DISTINCT FROM
-   '45f84d4328a28c909966560149e08fd51ad13c73e737657a889e07dc3d3dd735'
+ -- CT241 (F1-19) añade después la guarda del nombramiento derivado.
+ OR encode(sha256(convert_to(c,'UTF8')),'hex') NOT IN (
+   '45f84d4328a28c909966560149e08fd51ad13c73e737657a889e07dc3d3dd735',
+   '6a8e5f1feff9051e960a8db3866669569c5c551eca009d7f6889c87f88e383e8')
  OR x.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
  OR has_function_privilege('vec_contratacion_temporal_ejecutor',
    'vec_bolsa_llamamientos.cotejar_comprobacion_reserva_ct_v1(jsonb)','EXECUTE')
