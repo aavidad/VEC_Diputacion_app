@@ -1,7 +1,7 @@
 # Tablero de tareas de VEC
 
-Actualizado el 19 de octubre de 2026 sobre `origin/main@d57f97dc7`, después de
-la presentación.
+Actualizado el 19 de octubre de 2026 por la noche, sobre `origin/main` con #1256
+fusionada.
 
 Este tablero dice qué falta, quién lo hace y en qué estado está. Sustituye
 la lista de tareas que había en `PLAN_IMPLEMENTACION.md` §6; los criterios de
@@ -87,32 +87,54 @@ se copia de su salida.
 
 | Fase | Pendiente | Bloqueada | En curso | En revisión | Fusionada | Hecha | Aparcada | Cancelada | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 0 Base común | 14 | 4 | 6 | 1 | 8 | 0 | 3 | 1 | 37 |
-| 1 Bolsa y CT | 27 | 5 | 6 | 0 | 28 | 5 | 7 | 3 | 81 |
+| 0 Base común | 14 | 4 | 5 | 1 | 9 | 0 | 3 | 1 | 37 |
+| 1 Bolsa y CT | 18 | 5 | 12 | 0 | 39 | 5 | 7 | 3 | 89 |
 | 2 Personal y Organización | 10 | 3 | 1 | 0 | 0 | 0 | 0 | 1 | 15 |
 | 3 Cronos | 5 | 4 | 0 | 0 | 0 | 0 | 1 | 0 | 10 |
 | 4 Dietas | 2 | 4 | 0 | 0 | 0 | 0 | 1 | 0 | 7 |
 | 5 Sustituir Convoca | 8 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 13 |
 | 6 Resto de módulos | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 0 | 13 |
 | 7 Uso real y producción | 18 | 14 | 0 | 0 | 0 | 0 | 1 | 0 | 33 |
-| **Total** | **84** | **39** | **13** | **1** | **36** | **5** | **26** | **5** | **209** |
+| **Total** | **75** | **39** | **18** | **1** | **48** | **5** | **26** | **5** | **217** |
 
 F0-24A y F1-65A llevan letra y el recuento no las cuenta.
 
-Empezables ya: 20 en las fases 0 y 1 (pendientes con todas sus
+Empezables ya: 17 en las fases 0 y 1 (pendientes con todas sus
 dependencias hechas o fusionadas). De ellas, 13 tienen equipo:
 
 - H: F0-14, F0-15, F0-22, F0-23, F0-24 y F1-58.
 - O: F0-21 y F1-46.
-- P: F1-23, desde el 20/10.
-- R: F1-67 (AD288 ya está en `main` con F1-71).
-- T: F1-39 y F1-82.
+- R: F1-67.
+- S: F1-91, detrás de F1-89.
 - L: F0-37 (la semilla de la copia va dentro de F0-28).
 
-Sin equipo todavía: F0-11, F0-16, F0-17, F1-53, F1-56 (opcional), F1-60 y
-F1-62. Fuera de las fases 0 y 1 salen seis más (F2-01, F2-02, F3-02, F7-13,
-F7-23 y F7-30), pero la prioridad vigente no deja encargarlas antes de cerrar
-la fase 1.
+Sin equipo todavía: F0-11, F0-16, F0-17, F1-53, F1-56 (opcional) y F1-62.
+Fuera de las fases 0 y 1 salen seis más (F2-01, F2-02, F3-02, F7-13, F7-23 y
+F7-30), pero la prioridad vigente no deja encargarlas antes de cerrar la
+fase 1.
+
+Fase 1 sin aparcadas ni canceladas: 79 tareas. 44 están en `main`
+(39 fusionadas y 5 hechas), 12 en curso, 5 bloqueadas y 18 pendientes.
+
+### Cambios del 19/10 por la tarde y la noche
+
+- Fusionadas: F1-10 (#1245), F1-11 (#1200), F1-39 (#1255), F1-40 (#1177),
+  F1-57 (#1250 y #1252), F1-82 (#1244) y las nuevas F1-84 (#1251), F1-85
+  (#1253), F1-86 (#1260) y F1-87 (#1261). F1-87 sigue la decisión del canal
+  del 19/10 a las 21:55: el centro declara el número de la RC y nunca cuenta
+  como crédito acreditado; la duda 125 lleva la pregunta para RRHH.
+- Avanzan sin cerrarse: F1-19, con el primer corte (#1225 y #1204) y las
+  guardas del hijo (#1254); F1-13, con la parte 2 de 4 (#1257); F1-60, con el
+  primer corte (#1256); F1-23 y F1-24, con el arreglo del reinicio (#1259) y el
+  informe del recorrido 4.0, pasos 1 a 8 (#1258). Los pasos 1 a 7 funcionan
+  con reinicio; el 7b y el 8 esperan a que la copia componga la firma (F1-32,
+  relevo en #1262).
+- Tareas nuevas que salen del recorrido: F1-86, F1-87, F1-88 (referencias
+  técnicas a la vista), F1-89 (la ficha orienta mal y la fecha sale cortada),
+  F1-90 (la copia no arranca con la inscripción encendida) y F1-91 (errata
+  del caso 4.0 en `FLUJO_APP.md`).
+- Reparto: Claude lleva F1-90, F1-32, F1-13 parte 3, F1-60 segundo corte,
+  F1-41 y F1-61; Codex T, F1-47 y F1-88; Codex S, F1-89 y F1-91.
 
 ### Cambios del 18 y el 19/10
 
@@ -351,16 +373,16 @@ motivo y lecturas por debajo de 300 ms.
 | F1-07 | Justificante PDF de la renuncia justificada: lo sube el aspirante y RRHH lo descarga en la ficha según su rol (AD277, D22, B119, CT222). Primera de la cadena SQL | `internal/modules/bolsa`; Documentos | - | - | M | O | #1147 | Fusionada | 16/10 | PDF subido y descargado en Chrome; más de 16 MiB da 413 avisado antes; reinicio | RRHH 15/10 |
 | F1-08 | R1a: regla publicada de criterios (art. 9, apartado cuarto, y 11.2), motivos de exclusión visibles con lectura propia auditada (AD276) y parada «pendiente de comprobación por RRHH» | `internal/modules/bolsa`; `internal/modules/contrataciontemporal` | F1-21, F1-22 | Dudas 163 y 165 (configurables, no bloquean) | M | R | #1144, #1170 y #1178 | Fusionada | 16/10 | La selección nominal se detiene con el motivo; tabla de motivos con nombres; una bolsa sin política sigue el orden de siempre | RRHH 15/10 |
 | F1-09 | R1b, parte de servidor: acto de Bolsa que acredita los hechos del art. 9, apartado cuarto (evidencia, resultado calculado, versión esperada, recibo). Migraciones CT233, AD290, B133, B134, B137 y AD293. La pantalla va en F1-57 | `internal/modules/bolsa`; SQL de Bolsa | F1-07, F1-08 | Dudas 163 y 165 (configurables) | L | R | #1190, #1196, #1201 y #1203 fusionadas el 19/10 | Fusionada | 16/10 | RRHH resuelve un caso pendiente por la API y la selección sigue; reintento con el mismo recibo | RRHH 15/10 |
-| F1-10 | R1b en CT: confirmar contexto y reservar con ese acto; descontar solo el tiempo desempeñado; resolución detenida hasta el cese efectivo | `internal/modules/contrataciontemporal` | F1-09 | Duda 165 (configurable) | M | R | - | Pendiente | 15/10 | Un caso con cese futuro queda detenido con el motivo a la vista | RRHH 15/10 |
-| F1-11 | Modalidad y causa gobernadas en los datos de la oferta y en su canon de publicación (pacto entre R y S). Incluye la activación de F1-16. Pasa de R a O el 18/10, porque O la necesita para F1-13 y F1-14 | `internal/modules/bolsa` | F1-08, F1-16 | - | M | O | #1200 | En curso | 18/10 | Una oferta publicada lleva modalidad y causa con fuente y versión | RRHH 15/10; reparto de dirección 18/10 |
+| F1-10 | R1b en CT: confirmar contexto y reservar con ese acto; descontar solo el tiempo desempeñado; resolución detenida hasta el cese efectivo | `internal/modules/contrataciontemporal` | F1-09 | Duda 165 (configurable) | M | R | #1245 (B140, AD297 y CT240) | Fusionada | 19/10 | Un caso con cese futuro queda detenido con el motivo a la vista | RRHH 15/10 |
+| F1-11 | Modalidad y causa gobernadas en los datos de la oferta y en su canon de publicación (pacto entre R y S). Incluye la activación de F1-16. Pasa de R a O el 18/10, porque O la necesita para F1-13 y F1-14 | `internal/modules/bolsa` | F1-08, F1-16 | - | M | O | #1200 (CT235 y B136) | Fusionada | 19/10 | Una oferta publicada lleva modalidad y causa con fuente y versión | RRHH 15/10; reparto de dirección 18/10 |
 | F1-12 | Preferencias internas de «Mi Bolsa»: migración propia (AD279) con consumidor y control de auditoría sacados de AD273, y montaje | `internal/modules/bolsa`; `web/static/area-personal` | F1-16 | - | M | O | #1187 y #1211 | Fusionada | 18/10 | GET y PUT con recibo; reinicio en copia | RRHH 15/10 |
-| F1-13 | R1c, servidor: preferencias de modalidad en el portal externo real, con versión y recibo. Sin permiso propio por tipo de oferta: usa las mismas acciones de preferencias propias (consultar y ordenar) y el tipo va en el contrato de datos. Tres PR encadenadas; las dos lecturas van en AD296 y la sustitución del catálogo v1 por v2 usa `vec-catalogo-acciones-admitir` (AUT58 y AUT61). Las preferencias solo filtran la vista y los avisos de ofertas publicadas | `internal/modules/bolsa` | F1-11, F1-12 | Duda 164 (configurable) | M | O | #1220 (AD296) fusionada el 19/10; #1216 abierta | En curso | 18/10 | Prueba de que la preferencia no excluye ni cuenta como renuncia; las lecturas solo admiten los campos cerrados | RRHH 15/10; decisiones de dirección 18/10 08:36, 10:47, 11:50 y 11:55 |
+| F1-13 | R1c, servidor: preferencias de modalidad en el portal externo real, con versión y recibo. Sin permiso propio por tipo de oferta: usa las mismas acciones de preferencias propias (consultar y ordenar) y el tipo va en el contrato de datos. Tres PR encadenadas; las dos lecturas van en AD296 y la sustitución del catálogo v1 por v2 usa `vec-catalogo-acciones-admitir` (AUT58 y AUT61). Las preferencias solo filtran la vista y los avisos de ofertas publicadas | `internal/modules/bolsa` | F1-11, F1-12 | Duda 164 (configurable) | M | O | #1220 (AD296), #1216 (1 de 4) y #1257 (2 de 4, B143 y AD300) fusionadas; faltan la 3 (rutas, fuente v2 y publicación del rol) y la 4 (filtro de vista y avisos) | En curso | 19/10 | Prueba de que la preferencia no excluye ni cuenta como renuncia; las lecturas solo admiten los campos cerrados | RRHH 15/10; decisiones de dirección 18/10 08:36, 10:47, 11:50 y 11:55 |
 | F1-14 | R1c, pantalla: elegir modalidades en «Mi Bolsa» del portal externo real, aviso si la lista queda vacía y «Ver todas» sin guardar | `web/static/area-personal` | F1-13 | - | M | O | - | Pendiente | 18/10 | Chrome a 1440 y 390 px; reinicio | RRHH 15/10; decisión de dirección 18/10 11:50 |
 | F1-15 | Publicación de ofertas con plazo desde la publicación y recuperación del recibo (B117) | `internal/modules/bolsa` | - | - | - | S | #1145 | Hecha | 15/10 | Dos plazas, aceptación en «Mi Bolsa» y reinicio en la copia de S | RRHH 15/10 |
 | F1-16 | Publicar la oferta de varias plazas desde la ficha: reserva en CT, vínculo, cierre de intención y descarte (AD278, B120, B121, CT220), guarda de cancelación (CT223) y recuperación sin la clave del navegador | `internal/modules/contrataciontemporal`; `internal/modules/bolsa` | F1-07, F1-21, F1-22 | - | L | S | #1146 | Fusionada | 18/10 | Ensayo en copia: publicar, reintento, recarga tras respuesta incierta; cancelar con oferta en preparación da 409 | RRHH 15/10 |
 | F1-17 | Retirar la oferta publicada al cancelar el expediente: Bolsa consume `ct.expediente_cancelado.v1` con historia y no adjudica plazas de una oferta retirada. Aparcada el 18/10: no tiene consumidor; la pregunta 167 a RRHH (#1197) dirá si se puede anular un expediente ya fiscalizado | `internal/modules/bolsa` | F1-16, F1-18 | - | M | S | #1197 (pregunta a RRHH) | Aparcada | 18/10 | Cancelar retira la oferta una sola vez, también si el evento se repite | RRHH 15/10; decisión de dirección 18/10 |
 | F1-18 | Aviso de la oferta por correo como intención durable por el puerto de canales; no abre el plazo | `internal/modules/bolsa` | F1-16 | Correo real: duda 88 (vale el buzón de pruebas) | M | S | #1180 y #1184 | Fusionada | 18/10 | El aviso queda pendiente y se envía tras reiniciar, sin duplicar | RRHH 15/10 |
-| F1-19 | Propuesta de nombramiento desde una oferta adjudicada: un expediente hijo por persona, derivado del padre en v6, y un acto nuevo de aceptación de la plaza adjudicada. El consumidor de autorización (AD292) lo hace R después de F0-18. Queda una pregunta a RRHH sobre la resolución común, para una segunda versión | `internal/modules/contrataciontemporal` | F1-16, F0-18 | - | L | B | #1204 y #1225 (AD292) | En curso | 18/10 | Tras adjudicar dos plazas, propuesta con recibo para cada persona | RRHH 15/10; consenso de dirección con Fable y Astra 18/10 |
+| F1-19 | Propuesta de nombramiento desde una oferta adjudicada: un expediente hijo por persona, derivado del padre en v6, y un acto nuevo de aceptación de la plaza adjudicada. El consumidor de autorización (AD292) lo hace R después de F0-18. Queda una pregunta a RRHH sobre la resolución común, para una segunda versión | `internal/modules/contrataciontemporal` | F1-16, F0-18 | - | L | B | #1225 (AD292), #1204 (B135 y CT234) y #1254 (guardas, CT241) fusionadas; falta abrir la ruta, publicar `ct_nombramiento_derivado` y el panel del padre | En curso | 19/10 | Tras adjudicar dos plazas, propuesta con recibo para cada persona | RRHH 15/10; consenso de dirección con Fable y Astra 18/10 |
 | F1-20 | Variante de dos personas del caso 4.0 recorrida hasta la propuesta en la copia local | Recorrido | F1-19, F1-25 | - | S | Sin asignar | - | Pendiente | 15/10 | Dos aceptaciones, adjudicación por posición y propuestas; anotada en FLUJO 4.0 | FLUJO 4.0 |
 
 ### 6.2 Recorrido del caso 4.0 en copia local
@@ -369,8 +391,8 @@ motivo y lecturas por debajo de 300 ms.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | F1-21 | Separar la unidad gestora de CT de la unidad orgánica del puesto en el puente de la bolsa constituida. Es la puerta del camino crítico | `internal/app/bootstrap/contratacion_temporal_llamamiento_datos_constituidos.go:255` | - | - | M | R | #1153 | Fusionada | 16/10 | La selección del puesto 9/01 (unidad del centro 520) funciona con la unidad gestora de RRHH | Canal 15/10 |
 | F1-22 | Organización histórica en `vec-server` combinado, con su rol de lectura de seis campos | `internal/modules/personal`; organización | - | - | M | R | #1150 | Fusionada | 16/10 | GET 200 con la sesión de RRHH; sin configuración solo esa función da 503 | Canal 15/10 |
-| F1-23 | Retomar el ensayo de P: copia local al día con `main` (firma, ofertas), lista SQL causal, administradores, firmantes y empleados de copia. El equipo P empieza el 20/10 | `deploy/principal/candidata_hz39` | F0-03 (o renovar el material cada día) | - | M | P | #1128 | Pendiente | 19/10 | La copia arranca con todo lo fusionado y las ocho variables de la fase | Consenso de dirección 15/10 |
-| F1-24 | Pasos 1 a 8 (de la petición a la fiscalización, con las dos firmas del informe en 7b) | Recorrido | F1-23 | - | S | P | - | Pendiente | 15/10 | Recibo y versión de cada paso en Chrome | FLUJO 4.0 |
+| F1-23 | Retomar el ensayo de P: copia local al día con `main` (firma, ofertas), lista SQL causal, administradores, firmantes y empleados de copia. El equipo P empieza el 20/10 | `deploy/principal/candidata_hz39` | F0-03 (o renovar el material cada día) | - | M | P | #1259 fusionada (reinicio con puerto en espera); falta componer la firma (F1-32) | En curso | 19/10 | La copia arranca con todo lo fusionado y las ocho variables de la fase | Consenso de dirección 15/10 |
+| F1-24 | Pasos 1 a 8 (de la petición a la fiscalización, con las dos firmas del informe en 7b) | Recorrido | F1-23 | - | S | P | #1258 fusionada: pasos 1 a 7 correctos con reinicio; 7b y 8 esperan a F1-32 | En curso | 19/10 | Recibo y versión de cada paso en Chrome | FLUJO 4.0 |
 | F1-25 | Pasos 9 a 11: llamamiento desde la bolsa constituida, aceptación en «Mi Bolsa» y resolución | Recorrido | F1-21, F1-22, F1-24 | - | S | P | - | Pendiente | 15/10 | Recibo del llamamiento a Antonio y de su aceptación | FLUJO 4.0 |
 | F1-26 | Fiscalización con reparo y subsanación: montar la subsanación del reparo y la ruta de Plantillas, y recorrerlas | `internal/modules/contrataciontemporal`; Plantillas | F1-24 | - | M | P | - | Pendiente | 15/10 | Reparo, informe nuevo y fiscalización favorable con su recibo; la plantilla se abre desde su ruta | Consenso de dirección 15/10 |
 | F1-27 | Pasos 12 a 15: propuesta, resolución, documentos y tres firmas de la resolución en el mismo expediente | Recorrido | F1-25 | - | S | P | - | Pendiente | 15/10 | PDF verificados y descargables desde la ficha | FLUJO 4.0 |
@@ -383,7 +405,7 @@ motivo y lecturas por debajo de 300 ms.
 
 | ID | Tarea | Zona de código | Depende de | Bloqueo | Tam. | Equipo | Rama/PR | Estado | Desde | Cómo se comprueba | Fuente |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| F1-32 | Las ocho variables de la fase encendidas en la copia, incluida la verificación de firma; el aviso de dependencias no muestra ausencias | Configuración de la copia | F0-01, F1-23, F0-03 (o renovar el material cada día) | - | S | P | - | Pendiente | 15/10 | Registro de arranque limpio | PLAN §5, fase 1 |
+| F1-32 | Las ocho variables de la fase encendidas en la copia, incluida la verificación de firma; el aviso de dependencias no muestra ausencias | Configuración de la copia | F0-01, F1-23, F0-03 (o renovar el material cada día) | - | S | P | #1262 (relevo: administración compuesta; faltan cargos, certificados y plan de firma) | En curso | 19/10 | Registro de arranque limpio | PLAN §5, fase 1 |
 | F1-33 | Ningún «no disponible» sin motivo y ninguna respuesta 404 o 503 de Bolsa o CT durante el recorrido | `internal/modules/bolsa`; `internal/modules/contrataciontemporal` | F1-28 | - | M | P | - | Pendiente | 15/10 | Registro del recorrido sin esos códigos | PLAN §5, fase 1 |
 | F1-34 | Lecturas en el percentil 95 por debajo de 300 ms (cuadro de CT, lista, ficha, bolsas, candidatos y ficha del candidato) y base por debajo de 100 ms, medidas en copia local con el volumen de la principal | `internal/modules/contrataciontemporal`; `internal/modules/bolsa` | F1-23 | - | M | P | #1189 (medición entregada; faltan los candidatos y la ficha del candidato) | En curso | 16/10 | Medición HTTP con su acta de rendimiento | PLAN §5, fase 1 |
 
@@ -400,9 +422,9 @@ motivo y lecturas por debajo de 300 ms.
 | ID | Tarea | Zona de código | Depende de | Bloqueo | Tam. | Equipo | Rama/PR | Estado | Desde | Cómo se comprueba | Fuente |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | F1-38 | Manual de la jefatura de RRHH con el apartado 7 «Hoy, Falta, Al final» | `docs/` | - | - | - | Dirección | #1143 | Hecha | 15/10 | Es un documento: basta la fusión | Canal 15/10 |
-| F1-39 | Textos: cómo corregir o publicar la categoría antes de vincularla | `web/static`; `locales` | - | - | S | T | #1008 (rama conservada) | Pendiente | 15/10 | Revisión de usabilidad y fusión | PLAN §6 anterior al tablero |
-| F1-40 | Inscripción: regla por convocatoria para elegir solicitud separada o conjunta. Menores de BC12: una modalidad no válida da B9601 en vez de 55000 (`000012:117`) y el listado entero falla si una versión trae una modalidad no válida (`:279`) | `internal/modules/bolsa` | - | - | M | B | #1177 (desbloqueada por #1188) | En curso | 16/10 | RRHH la fija antes de publicar; queda en la versión de las bases. Falta el recorrido externo en Chrome, que espera a que F0-28 monte el portal externo | PLAN §6 anterior al tablero |
-| F1-41 | Solicitud conjunta con su recibo y reintento (B105 solo cubre la separada; no instalar B105 sola) | `internal/modules/bolsa` | F1-40 | - | M | Sin asignar | rama B105 | Pendiente | 15/10 | Las dos modalidades con recibo y reintento | PLAN §6 anterior al tablero |
+| F1-39 | Textos: cómo corregir o publicar la categoría antes de vincularla | `web/static`; `locales` | - | - | S | T | #1008 y #1255 | Fusionada | 19/10 | Revisión de usabilidad y fusión | PLAN §6 anterior al tablero |
+| F1-40 | Inscripción: regla por convocatoria para elegir solicitud separada o conjunta. Menores de BC12: una modalidad no válida da B9601 en vez de 55000 (`000012:117`) y el listado entero falla si una versión trae una modalidad no válida (`:279`) | `internal/modules/bolsa` | - | - | M | B | #1177 (BC12 y B142) | Fusionada | 19/10 | RRHH la fija antes de publicar; queda en la versión de las bases. Falta el recorrido externo en Chrome, que espera a que F0-28 monte el portal externo | PLAN §6 anterior al tablero |
+| F1-41 | Solicitud conjunta con su recibo y reintento (B105 solo cubre la separada; no instalar B105 sola) | `internal/modules/bolsa` | F1-40 | - | M | Claude | rama B105 | En curso | 19/10 | Las dos modalidades con recibo y reintento | PLAN §6 anterior al tablero |
 | F1-42 | Documentos del expediente en un solo sitio de la ficha: comprobar el commit `046a2f2fa`, que ya estaba en `main` | `web/static`; `internal/modules/contrataciontemporal` | - | - | S | T | #1231 | Fusionada | 18/10 | Todos se ven y se descargan desde la ficha | PLAN §6 anterior al tablero |
 | F1-43 | Tarjetas de plazo en Inicio (CT192): comprobar la rama `codexs-ct-filtros-plazos-20261008`. Aparcada el 16/10: ampliar el tipo V1 y reconstruir 16 funciones va contra las reglas de simplificación; espera a la tarea de lecturas de la fase 2 (F2-13) | `web/static` | - | - | S | T | rama sin PR | Aparcada | 16/10 | Cada tarjeta abre su lista filtrada | Borrador 15/10 |
 | F1-44 | Retirar la duda 162 citando la norma y corregir FLUJO 4.2, que aún dice puesto en texto libre (#1114 ya lo resolvió) | `dudas.md`; `docs/producto/FLUJO_APP.md` | - | - | S | T | #1159 | Fusionada | 15/10 | `dudas.md` sin la 162 y FLUJO 4.2 al día | Consenso de dirección 15/10 |
@@ -418,11 +440,11 @@ motivo y lecturas por debajo de 300 ms.
 | F1-54 | Corregir el catálogo de plazos de CT citando la norma: c04 con el art. 12.4 del RD 424/2017, y c03 | `cmd/vec-preparar-catalogo-reglas-ct`; catálogo de plazos | - | - | S | T | #1157 | Fusionada | 16/10 | Cada plazo del catálogo lleva su cita; c03 y c04 coinciden con la norma | Consenso de dirección 15/10 |
 | F1-55 | Reformulada el 18/10: oferta de dos plazas con aceptación previa, adjudicación por orden de la bolsa y recuperación tras un fallo. «Sin respuesta» solo existe en el llamamiento directo y no hay retirada por cancelación (F1-17 está aparcada) | `internal/modules/bolsa`; `internal/modules/contrataciontemporal` | F1-16 | - | M | S | #1207 | Fusionada | 18/10 | Dos personas aceptan, se adjudica por orden y cada plaza conserva su recibo tras recargar o reiniciar, sin duplicados | Consenso de dirección 15/10; decisión de dirección 18/10 09:27 |
 | F1-56 | Correspondencia verificada entre la persona y su fila de Convoca (opcional) | Carga de Convoca en Bolsa | - | - | M | Sin asignar | - | Pendiente | 15/10 | Cada persona cargada enlaza con una sola fila de Convoca, comprobada | Consenso de dirección 15/10 |
-| F1-57 | R1b, pantalla: RRHH resuelve el caso «pendiente de comprobación» desde la ficha del candidato | `web/static/bolsa` | F1-09 | - | M | T | - | Pendiente | 15/10 | Chrome a 1440 y 390 px: RRHH resuelve, ve el recibo y la selección sigue | Consenso de dirección 15/10 |
+| F1-57 | R1b, pantalla: RRHH resuelve el caso «pendiente de comprobación» desde la ficha del candidato | `web/static/bolsa` | F1-09 | - | M | T | #1250 (B141) y #1252 | Fusionada | 19/10 | Chrome a 1440 y 390 px: RRHH resuelve, ve el recibo y la selección sigue | Consenso de dirección 15/10 |
 | F1-58 | Firma de F1-36 por la vía de cargos de firma: AUT98 mínima, operación anexada, plan v2, sucesión de asignaciones y lector CT22x que acepte v2 | Firma; SQL de firma | F1-36 | - | M | H | - | Pendiente | 16/10 | Firma por cargo con plan v2 leída por CT tras reiniciar; ensayo SQL y dos revisiones | Consenso de dirección 16/10 |
 | F1-59 | Vínculo entre la respuesta publicada y su oferta, para abrir la resolución de la respuesta publicada en F1-06 | `internal/modules/bolsa`; `internal/modules/contrataciontemporal` | F1-06 | - | S | S | - | Cancelada | 16/10 | Desde F1-06 se abre la resolución de una respuesta publicada con su oferta. Cancelada el 16/10: en las ofertas publicadas solo existe Aceptar (disposiciones) y la adjudicación va por orden; no hay respuesta en revisión (FLUJO §4.1). S comprueba que disposiciones conserva `oferta_ref` | Consenso de dirección 16/10 |
-| F1-60 | La bolsa guarda su organización y su unidad gestora como dato gobernado de su constitución, para que los actos de Bolsa (B100, B17, B128) cotejen el ámbito del recurso con la asignación del actor | `internal/modules/bolsa`; SQL de `bolsa_llamamientos` | - | - | M | Sin asignar | - | Pendiente | 16/10 | Un acto sobre una bolsa de otra unidad gestora se deniega aunque el actor tenga permiso en la suya; ensayo y revisión SQL independiente | Consenso de dirección con Fable y Astra, 16/10 |
-| F1-61 | Pieza real que confirma la publicación de las bases de una convocatoria (`ConfirmarPublicacion` sin adaptador productivo), para cerrar F1-40 de extremo a extremo | `internal/modules/bolsa` | F1-40 | - | M | Sin asignar | - | Pendiente | 16/10 | RRHH elige la modalidad, publica las bases y la inscripción la consume, tras reiniciar | Consenso de dirección con Fable y Astra, 16/10 |
+| F1-60 | La bolsa guarda su organización y su unidad gestora como dato gobernado de su constitución, para que los actos de Bolsa (B100, B17, B128) cotejen el ámbito del recurso con la asignación del actor | `internal/modules/bolsa`; SQL de `bolsa_llamamientos` | - | - | M | Sin asignar | #1256 (primer corte, B144: guardar el ámbito) fusionada; segundo corte (cotejo en B100, B17 y B128) en curso | En curso | 19/10 | Un acto sobre una bolsa de otra unidad gestora se deniega aunque el actor tenga permiso en la suya; ensayo y revisión SQL independiente | Consenso de dirección con Fable y Astra, 16/10 |
+| F1-61 | Pieza real que confirma la publicación de las bases de una convocatoria (`ConfirmarPublicacion` sin adaptador productivo), para cerrar F1-40 de extremo a extremo | `internal/modules/bolsa` | F1-40 | - | M | Claude | - | En curso | 19/10 | RRHH elige la modalidad, publica las bases y la inscripción la consume, tras reiniciar | Consenso de dirección con Fable y Astra, 16/10 |
 | F1-62 | Productor administrativo gobernado para publicar catálogos configurables CC1; hoy solo se cargan en la copia con `generar_carga_cc1.py` | `internal/modules/administracion`; SQL de catálogos | - | - | M | Sin asignar | - | Pendiente | 16/10 | Un catálogo CC1 se publica con dos aprobaciones y su recibo, sin SQL a mano, y sigue tras reiniciar | Consenso de dirección 16/10 |
 | F1-63 | Organización legada de las firmas (CA45, AUT37, Personal31). Aparcada el 18/10 por consenso: queda como semilla declarada de la copia, con H como responsable; H la pone en el guion único y en FLUJO 4.4. Se retira con F2-12 y F2-14 | Firma; `internal/modules/administracion` | - | - | M | H | #1198 (semilla de la copia) | Aparcada | 18/10 | Las firmas de la copia salen de la semilla del guion, sin asignaciones por SQL a mano; al cerrar F2-12 y F2-14 la semilla desaparece | Consenso de dirección 16/10; decisión de dirección 18/10 |
 | F1-64 | Menores de vigencias de AD282: quitar la clave y la raíz fijas de desarrollo 2026-2036 y la vigencia fija de 24 h de `portal_externo_publicacion_v3.go`; las vigencias pasan a ser configurables (90 días como máximo en desarrollo y 24 h en producción). Cerrada el 18/10 con la parte 1: la raíz y la clave de desarrollo no se rotan, y la rotación con material propio pasa a la preparación de producción (F7-21) | Firma; `internal/modules/contrataciontemporal` | F1-36 | - | S | H | #1181 | Fusionada | 18/10 | Pruebas focales con vigencias distintas en desarrollo y en producción | Consenso de dirección 16/10; decisión de dirección 18/10 07:45 |
@@ -442,8 +464,16 @@ motivo y lecturas por debajo de 300 ms.
 | F1-79 | Dos rastros visibles para la presentación: la cabecera del portal al entrar en Fiscalización por un enlace y el cargo del ratificador | `web/static/portal.js` | - | - | S | S | #1240 | Fusionada | 18/10 | Chrome a 1440 y 390 px con la cabecera resuelta | Preparación de la presentación, 18/10 |
 | F1-80 | Guion de la presentación del 19/10: pasos por perfil, datos y puntos de parada, recorrido en la copia de la presentación. Queda fuera de Git | Fuera del repositorio | - | - | S | S | - | Hecha | 18/10 | Guion entregado el 18/10 con sus límites: inscripción, respuesta y aceptación, y cese no acreditados | Orden de dirección 18/10 |
 | F1-81 | Vídeos y capturas de la presentación en `docs/presentacion/2026-10-19/` | `docs/presentacion` | - | - | S | Dirección | #1242 | Hecha | 19/10 | Es un documento: basta la fusión | Petición de Alberto 18/10 |
-| F1-82 | Manual de Intervención (`docs/manuales/intervencion.md`). Hoy dice que Intervención no tuvo trámite propio, pero Fiscalización ya se ve en la copia y en la presentación | `docs/manuales` | - | - | S | T | - | Pendiente | 19/10 | El manual explica cómo fiscalizar, poner un reparo y dar la conformidad con lo que funciona en la copia local, con su apartado «Hoy, Falta, Al final» | Orden de dirección 19/10; regla de manuales 15/10 |
+| F1-82 | Manual de Intervención (`docs/manuales/intervencion.md`). Hoy dice que Intervención no tuvo trámite propio, pero Fiscalización ya se ve en la copia y en la presentación | `docs/manuales` | - | - | S | T | #1244 | Fusionada | 19/10 | El manual explica cómo fiscalizar, poner un reparo y dar la conformidad con lo que funciona en la copia local, con su apartado «Hoy, Falta, Al final» | Orden de dirección 19/10; regla de manuales 15/10 |
 | F1-83 | Unificar la sesión del antiguo «Mi Bolsa» interno de desarrollo con la del portal externo real, que es donde van F1-13 y F1-14 | `web/static/area-personal`; identidad | - | - | M | Sin asignar | - | Aparcada | 18/10 | El aspirante entra a «Mi Bolsa» por una sola vía y la interna de desarrollo se retira | Decisión de dirección 18/10 11:50 |
+| F1-84 | La lectura de la inscripción del aspirante coteja su sesión en el almacén externo (antes daba P0002 y 503 en toda lectura) | Identidad; `internal/modules/bolsa` | F1-68 | - | S | Claude | #1251 (IS22 y AD298) | Fusionada | 19/10 | Lectura 200 con asiento `externa_personal`, también tras reiniciar | Fallo visto al recorrer F1-40, 19/10 |
+| F1-85 | El intento denegado del aspirante coteja su sesión externa (`registrar_intento_nominal_v1`) | Identidad | F1-84 | - | S | Claude | #1253 (AD299) | Fusionada | 19/10 | Prueba SQL con ROLLBACK; hoy ninguna ruta del portal externo separado la usa | Mismo fallo que F1-84, 19/10 |
+| F1-86 | El informe definitivo está disponible para firmar tras el informe jurídico (v5) | `internal/modules/contrataciontemporal` | F1-24 | - | S | Claude | #1260 | Fusionada | 19/10 | Pasos 1 a 7 en Chrome y descarga en v5; en la copia hace falta publicar la v4 de plantillas | Recorrido F1-24, fallo 1 |
+| F1-87 | El centro declara el número de operación de la retención de crédito en SICAL; dato declarado, nunca crédito acreditado | `web/static`; `internal/modules/contrataciontemporal` | - | Duda 125 (provisional) | S | Claude | #1261 | Fusionada | 19/10 | Petición con RC declarada, ratificación y RRHH en Chrome, con reinicio | Recorrido F1-24, fallo 3; decisión del canal 19/10 21:55 |
+| F1-88 | Referencias técnicas visibles en pantalla durante el recorrido 4.0 (códigos internos y referencias sin nombre) | `web/static` | F1-24 | - | S | T | - | En curso | 19/10 | Recorrido 4.0 sin códigos internos a la vista | Recorrido F1-24, fallo 4 |
+| F1-89 | La ficha del expediente de CT orienta mal (qué toca ahora y quién) y la fecha del historial sale cortada | `web/static` | F1-24 | - | S | S | - | En curso | 19/10 | Ficha a 1440 y 390 px con reinicio | Recorrido F1-24, fallo 5 |
+| F1-90 | La copia local arranca con la inscripción del aspirante encendida (hoy falla `inscripcion_rrhh_cuentas_lectores`: montaje de inscripción no disponible) | `internal/app/bootstrap`; `deploy/principal` | F0-28 | - | M | Claude | - | En curso | 19/10 | Copia con inscripción encendida, portal externo preparado, lectura 200 en Chrome y reinicio | Visto en F1-13, F1-84 y F1-40, 19/10 |
+| F1-91 | Corregir el caso 4.0 de `FLUJO_APP.md`: dice 9/01 y el centro busca por 9 | `docs/producto` | - | - | S | S | - | Pendiente | 19/10 | Documento corregido | Recorrido F1-24, fallo 6 |
 
 ## 7. Fase 2. Personal y Organización (por capacidad)
 
