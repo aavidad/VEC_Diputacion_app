@@ -42,11 +42,13 @@ func TestLecturaModalidadesProyeccionCerradaYConcesionComun(t *testing.T) {
 	estado, err := servicio.ConsultarPreferenciasModalidades(t.Context(), e.orden)
 	var captura struct {
 		Campos []string `json:"campos_permitidos"`
+		Motivo string   `json:"motivo_ref"`
 	}
 	if err != nil || json.Unmarshal(lector.captura.OrdenJSON(), &captura) != nil ||
 		!slices.Equal(captura.Campos, bolsa.CamposLecturaPreferenciasModalidades()) ||
+		captura.Motivo != "lectura_preferencias_modalidades_correcta" ||
 		estado.ModalidadesGuardadas != nil || len(estado.ModalidadesDisponibles) != 1 {
-		t.Fatalf("lectura=%+v err=%v campos=%v", estado, err, captura.Campos)
+		t.Fatalf("lectura=%+v err=%v campos=%v motivo=%s", estado, err, captura.Campos, captura.Motivo)
 	}
 	// La misma concesión ampliada conserva el acceso al orden de bolsas.
 	bolsas, err := NuevaLecturaPreferenciasBolsas(new(lectorPreferenciasAplicacionPrueba), auditor, e.fuente, reloj)
@@ -73,5 +75,15 @@ func TestLecturaModalidadesProyeccionCerradaYConcesionComun(t *testing.T) {
 	}
 	if _, err = interno.ConsultarPreferenciasModalidades(t.Context(), e.orden); !errors.Is(err, core.ErrAutorizacionDenegada) || lector.llamadas != 1 {
 		t.Fatalf("sesión externa cruzó superficie: %v", err)
+	}
+}
+
+// AD300 exige que la fila de auditoría diga qué proyección se leyó.
+func TestMotivoLecturaPreferenciasSegunProyeccion(t *testing.T) {
+	if m := motivoLecturaPreferencias(bolsa.CamposLecturaPreferenciasBolsas()); m != "lectura_preferencias_bolsas_correcta" {
+		t.Fatalf("motivo de bolsas: %s", m)
+	}
+	if m := motivoLecturaPreferencias(bolsa.CamposLecturaPreferenciasModalidades()); m != "lectura_preferencias_modalidades_correcta" {
+		t.Fatalf("motivo de modalidades: %s", m)
 	}
 }
