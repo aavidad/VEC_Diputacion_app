@@ -71,7 +71,8 @@ export function formularioNoIncorporacion({ opciones, t, escapar, deshabilitado 
 }
 
 /**
- * Enlace de revisión para enviarlo a otra persona de RRHH: no hay aviso
+ * Enlace de revisión para que quien propone lo envíe a otra persona de RRHH
+ * (a la segunda ya no le hace falta): no hay aviso
  * automático, así que se explica y se ofrece copiarlo. El campo de solo
  * lectura permite seleccionarlo a mano si el navegador no deja copiar.
  */
@@ -80,7 +81,7 @@ function bloqueEnlaceRevision(enlace, t, escapar) {
   return `<div class="ct-seg-cese-enlace"><p id="ct-seg-enlace-ayuda">${escapar(t("revision_enlace_ayuda"))}</p>
       <label class="ct-campo ct-seg-cese-ancho"><span>${escapar(t("revision_enlace"))}</span>
       <input type="text" readonly value="${escapar(enlace)}" data-ct-seg-enlace aria-describedby="ct-seg-enlace-ayuda"></label>
-      <div class="ct-acciones"><button type="button" class="boton-secundario" data-ct-seg-copiar-enlace>${escapar(t("revision_copiar"))}</button></div>
+      <div class="ct-seg-cese-copiar"><button type="button" class="boton-secundario" data-ct-seg-copiar-enlace>${escapar(t("revision_copiar"))}</button></div>
       <p class="ct-seg-cese-copiado" role="status" data-ct-seg-copiado></p></div>`;
 }
 
@@ -102,7 +103,7 @@ export function formularioPropuestaNoIncorporacion({ estado, opciones, t, escapa
       <dl class="ct-exp-fase-datos"><div><dt>${escapar(t("no_incorporacion_motivo"))}</dt><dd>${escapar(etiquetaMotivoNoIncorporacion(opciones, p.motivo_clave, t))}</dd></div>
       <div><dt>${escapar(t("no_incorporacion_fecha"))}</dt><dd>${escapar(fecha(p.fecha_notificacion))}</dd></div>
       <div><dt>${escapar(t("no_incorporacion_resolucion"))}</dt><dd>${escapar(p.resolucion_ref)}</dd></div></dl>
-      ${bloqueEnlaceRevision(enlaceRevision, t, escapar)}
+      ${p.propuesta_propia === true ? bloqueEnlaceRevision(enlaceRevision, t, escapar) : ""}
       ${p.propuesta_propia === true ? `<p class="ct-seg-cese-motivo" role="note">${escapar(t("no_incorporacion_propuesta_propia"))}</p>`
     : `${paso("no_incorporacion_confirmar", "no_incorporacion_confirmar_titulo", "no_incorporacion_confirmar", "boton-primario")}
       ${paso("no_incorporacion_rechazar", "no_incorporacion_rechazar_titulo", "no_incorporacion_rechazar", "boton-secundario")}`}</section>`;

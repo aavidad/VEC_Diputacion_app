@@ -189,7 +189,7 @@ export function montarPanelSeguimientoCese({
     if (soloNoIncorporacion && formularios.length === 0) {
       const final = estado.rechazada ? "revision_rechazada" : estado.no_incorporacion ? "revision_confirmada" : "";
       formularios.push(final
-        ? `<p role="status" tabindex="-1" data-ct-seg-final>${escapar(t(final))}</p><p><a href="${escapar(enlacePeticiones())}">${escapar(t("revision_ir_peticiones"))}</a></p>`
+        ? `<p role="status" tabindex="-1" data-ct-seg-final>${escapar(t(final))}</p><p><a class="ct-seg-cese-volver" href="${escapar(enlacePeticiones())}">${escapar(t("revision_ir_peticiones"))}</a></p>`
         : `<p role="status">${escapar(t("revision_sin_propuesta"))}</p>`);
     }
     contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" data-ct-seg-cese ${soloNoIncorporacion ? `aria-label="${escapar(t("revision_titulo"))}"` : 'aria-labelledby="ct-seg-cese-titulo"'} ${ocupado ? 'aria-busy="true"' : ""}>

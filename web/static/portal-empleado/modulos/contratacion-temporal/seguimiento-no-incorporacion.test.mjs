@@ -104,9 +104,7 @@ test("la segunda persona ve la propuesta pendiente y la confirma o rechaza con s
   assert.doesNotMatch(c.innerHTML, /data-ct-seg-form="no_incorporacion"[ >]/u);
   assert.doesNotMatch(c.innerHTML, /recibo:ni:propuesta/u, "la referencia interna de la propuesta no se expone");
   assert.match(c.innerHTML, /resolucion:rrhh:2026\/0142/u, "la resolución se muestra para revisarla");
-  assert.match(c.innerHTML, /<input type="text" readonly value="[^"]*revision-no-incorporacion\.html\?expediente_ref=/u);
-  assert.match(c.innerHTML, /Copiar enlace de revisión/u);
-  assert.match(c.innerHTML, /Envíe este enlace a otra persona de RRHH\. No recibe aviso automático\./u);
+  assert.doesNotMatch(c.innerHTML, /Copiar enlace de revisión|Envíe este enlace/u, "la segunda persona no necesita el enlace");
   quitar();
   // Quien hizo la propuesta no ve Confirmar ni Rechazar: se le explica.
   const propia = contenedorFalso();
@@ -115,7 +113,9 @@ test("la segunda persona ve la propuesta pendiente y la confirma o rechaza con s
   await esperar();
   assert.doesNotMatch(propia.innerHTML, /data-ct-seg-form="no_incorporacion_(?:confirmar|rechazar)"/u);
   assert.match(propia.innerHTML, /Esta propuesta la ha hecho usted\. Otra persona de RRHH tiene que confirmarla o rechazarla\./u);
+  assert.match(propia.innerHTML, /<input type="text" readonly value="[^"]*revision-no-incorporacion\.html\?expediente_ref=/u);
   assert.match(propia.innerHTML, /Copiar enlace de revisión/u, "quien propone necesita el enlace para enviarlo");
+  assert.match(propia.innerHTML, /Envíe este enlace a otra persona de RRHH\. No recibe aviso automático\./u);
   quitarPropia();
   assert.throws(() => validarConsultaSeguimientoCese(consulta({ no_incorporacion_propuesta: { ...propuesta, propuesta_propia: "si" } }), EXP), TypeError);
   const [metodo, s] = solicitudResolucionPropuestaNoIncorporacion({ expediente_ref: EXP, version_esperada: 8, clave_idempotencia: "123e4567-e89b-42d3-a456-426614174001" },

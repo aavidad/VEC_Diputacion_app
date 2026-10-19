@@ -114,3 +114,12 @@
 .ct-seg-cese-copiado:empty {
   display: none;
 }
+
+.ct-seg-cese-copiar {
+  margin-top: 8px;
+}
+
+.ct-seg-cese-volver {
+  color: var(--portal-azul-700);
+  font-weight: 600;
+}
