@@ -19,7 +19,7 @@ test("el informe registrado orienta a revisar sus firmas e identifica quién sig
   const html = renderizarSiguientePasoFicha(expediente, estado, crearTraductorExpedientesContratacion());
   assert.match(html, /Siguiente paso: revisar las firmas del informe/u);
   assert.match(html, /Con ambas firmas verificadas, Intervención puede registrar la fiscalización/u);
-  assert.match(html, /Técnica de Recursos Humanos y Jefatura; después, Intervención/u);
+  assert.match(html, /Personal técnico de Recursos Humanos y Jefatura de Servicio; después, Intervención/u);
   assert.doesNotMatch(html, /Siguiente paso: Gestión de bolsa|data-ct-exp-accion="ir-tramite"/u);
   assert.equal(JSON.stringify({ expediente, estado }), antes);
 });
@@ -39,6 +39,6 @@ test("la orientación del informe se muestra solo en el idioma activo", async ()
   const t = crearTraductorExpedientesContratacion(await cargarMensajesExpedientesContratacionEnIdioma("en"));
   const html = renderizarSiguientePasoFicha(expediente, estado, t);
   assert.match(html, /Next step: review the report signatures/u);
-  assert.match(html, /Human Resources officer and Head of Service; then Financial Control/u);
+  assert.match(html, /Human Resources staff and Head of Service; then Financial Control/u);
   assert.doesNotMatch(html, /Siguiente paso|Técnica|Intervención/u);
 });
