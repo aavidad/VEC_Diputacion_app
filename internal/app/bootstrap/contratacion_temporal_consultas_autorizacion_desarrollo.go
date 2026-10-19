@@ -173,6 +173,11 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		m.autoridad.firmaVecR5.nominal.admitePrincipal(principal) {
 		validoRuta = true
 	}
+	// El segundo técnico de RRHH de la copia solo alcanza el POST de no
+	// incorporación; cualquier otra ruta, también las comunes, queda sin sellar.
+	if m.autoridad.resolvedor.esSegundoTecnicoRRHH(principal) {
+		validoRuta = r.Method == http.MethodPost && r.URL.Path == httpinterno.RutaNoIncorporaciones
+	}
 	if err == nil && validoRuta {
 		capacidad := capacidadConsultaContratacionTemporalDesarrollo{
 			sello:     m.autoridad.sello,

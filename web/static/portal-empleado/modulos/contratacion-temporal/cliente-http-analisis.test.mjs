@@ -6,7 +6,7 @@ import {
   ErrorClienteHTTPContratacionTemporal,
   RUTAS_HTTP_CONTRATACION_TEMPORAL,
   crearClienteHTTPContratacionTemporal,
-} from "./cliente-http.js?v=20261008-alta-circular-v3";
+} from "./cliente-http.js?v=VEC_WEB_VERSION";
 import {
   validarConfiguracionAnalisis,
   validarReciboAnalisis,

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { MENSAJES_RRHH_PLANTILLAS_ES, MENSAJES_RRHH_PLANTILLAS_EN } from "./rrhh-plantillas-i18n.js";
 import { MENSAJES_REINCORPORACION_RRHH_ES, MENSAJES_REINCORPORACION_RRHH_EN } from "./rrhh-reincorporacion-i18n.js";
-import { MENSAJES_BORRADORES_PUBLICADOS_ES, MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20261001-ct-a-i18n-v1";
+import { MENSAJES_BORRADORES_PUBLICADOS_ES, MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=VEC_WEB_VERSION";
 
 test("los tres catálogos RRHH C3/B55 conservan claves y marcadores en inglés", () => {
   for (const [es, en] of [

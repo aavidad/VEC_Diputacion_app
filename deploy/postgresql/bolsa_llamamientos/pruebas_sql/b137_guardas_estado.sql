@@ -1,4 +1,7 @@
 \set ON_ERROR_STOP on
+-- SUSTITUIDA por F1-10: B140 redefine la lectura contextual y cambia la huella
+-- que esta prueba fija. Tras B140 usar b140_recotejo_reserva.sql; esta solo
+-- vale en una copia con B137 y sin B140.
 -- Tras B137 en copia desechable; sin datos ni capacidad V3 sintética.
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 SET LOCAL search_path=pg_catalog,pg_temp;

@@ -1,4 +1,4 @@
-import { validarConsultaB2ParaFichaGINPIX, validarFichaGINPIX } from "./contrato-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
+import { validarConsultaB2ParaFichaGINPIX, validarFichaGINPIX } from "./contrato-ficha-ginpix.js?v=VEC_WEB_VERSION";
 
 export const RUTA_FICHA_GINPIX = "/api/vec/contratacion-temporal/incorporaciones-ejercicio/ficha-ginpix";
 export const NOMBRE_FICHA_GINPIX = "ficha-ginpix-personal.json";

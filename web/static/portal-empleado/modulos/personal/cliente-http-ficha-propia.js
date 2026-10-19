@@ -1,5 +1,5 @@
-import { crearClienteHistoriaRelacionesPropia } from "./cliente-http-historia-relaciones-propia.js?v=20261004-personal-relaciones-v1";
-import { crearClienteHistoriaServiciosPropia } from "./cliente-http-historia-servicios-propia.js?v=20261004-personal-historia-v1";
+import { crearClienteHistoriaRelacionesPropia } from "./cliente-http-historia-relaciones-propia.js?v=VEC_WEB_VERSION";
+import { crearClienteHistoriaServiciosPropia } from "./cliente-http-historia-servicios-propia.js?v=VEC_WEB_VERSION";
 /**
  * Ficha propia de la persona empleada («mis datos» de Personal).
  *
@@ -10,9 +10,9 @@ import { crearClienteHistoriaServiciosPropia } from "./cliente-http-historia-ser
  * puestos» y «Servicios» con denominaciones legibles; nada se guarda fuera
  * de la memoria de la vista montada.
  */
-import { crearTraductorFichaPropia, formatearDiasFichaPropia } from "./i18n-ficha-propia.js?v=20260929-i18n-personal-v1";
+import { crearTraductorFichaPropia, formatearDiasFichaPropia } from "./i18n-ficha-propia.js?v=VEC_WEB_VERSION";
 
-import { crearClienteExportacionServicios } from "./cliente-http-exportacion-servicios.js?v=20261004-personal-historia-v1";
+import { crearClienteExportacionServicios } from "./cliente-http-exportacion-servicios.js?v=VEC_WEB_VERSION";
 
 export const RUTA_FICHA_PROPIA = "/api/interna/personal/mi-ficha";
 export const PREFER_HISTORIA_SERVICIOS = "vec-personal-historia-servicios-v1";

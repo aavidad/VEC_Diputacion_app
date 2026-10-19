@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261001-ct-a-i18n-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=VEC_WEB_VERSION";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js";
 import { crearTraductorContratos, MENSAJES_CONTRATOS } from "./portal-i18n-contratos.js";
 
 test("el import de i18n de contratos renueva la URL del asset inmutable", () => {
   const codigo = readFileSync(new URL("./portal-vistas-operaciones.js", import.meta.url), "utf8");
-  assert.match(codigo, /from "\.\/portal-i18n-contratos\.js\?v=20260930-portales-i18n-integracion-v1";/u);
+  assert.match(codigo, /from "\.\/portal-i18n-contratos\.js\?v=VEC_WEB_VERSION";/u);
 });
 
 function utilidades() {

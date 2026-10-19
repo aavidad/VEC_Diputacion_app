@@ -185,7 +185,7 @@ VALUES
   ('vec_ct_o207_runtime',
    'vec_contratacion_temporal.vinculo_emision_bolsa.v1',
    'contratacion_temporal.bolsa.vincular',
-   'contratacion_temporal_ci', 'interna_corporativa'),
+   'vec-server', 'interna_corporativa'),
   ('vec_bolsa_llamamientos_desarrollo',
    'vec_bolsa_llamamientos.llamamiento.emitir.v1',
    'llamamiento.emitir.v1',
@@ -259,7 +259,7 @@ BEGIN
        WHERE login_nombre = 'vec_ct_o207_runtime'
          AND audiencia_consumo = 'vec_contratacion_temporal.vinculo_emision_bolsa.v1'
          AND operacion = 'contratacion_temporal.bolsa.vincular'
-         AND proceso = 'contratacion_temporal_ci'
+         AND proceso = 'vec-server'
          AND canal_permitido = 'interna_corporativa')
      OR NOT EXISTS (
        SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1

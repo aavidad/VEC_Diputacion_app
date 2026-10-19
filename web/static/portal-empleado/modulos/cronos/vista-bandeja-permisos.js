@@ -1,9 +1,9 @@
-import { crearTraductorResolucionCronos, periodoSolicitudCronos } from "./i18n-resolucion.js?v=20261001-cronos-grafo-bandeja-v5";
+import { crearTraductorResolucionCronos, periodoSolicitudCronos } from "./i18n-resolucion.js?v=VEC_WEB_VERSION";
 import { formatearCantidadCronos } from "./i18n-solicitudes.js";
 import {
   ErrorClienteResolucionCronos, MAXIMO_MOTIVO_RESOLUCION_CRONOS, PASOS_RESOLUCION_CRONOS, crearClienteResolucionCronosHTTP, motivoResolucionValido,
 } from "./cliente-resolucion-http.js";
-import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { icono } from "../../../comun/iconos-vec.js?v=VEC_WEB_VERSION";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 // El motivo se comprueba antes de enviar; un 400 del servidor es genérico.

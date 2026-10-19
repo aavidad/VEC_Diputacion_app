@@ -162,7 +162,7 @@ func directorioEstaticos() string {
 // cacheSegunVersion: con ?v= la URL cambia con el contenido y se guarda un
 // año sin preguntar; sin versión se guarda pero se revalida siempre (304).
 func cacheSegunVersion(r *http.Request) string {
-	if r.URL.Query().Get("v") != "" {
+	if web := versionWeb(); web != nil && r.URL.Query().Get("v") == web.version {
 		return "public, max-age=31536000, immutable"
 	}
 	return "no-cache"
@@ -173,6 +173,13 @@ func cacheSegunVersion(r *http.Request) string {
 // huella, sin huella o con los ?v= de los manifiestos PWA, se revalida (304):
 // así un despliegue a medias o una huella inventada nunca fijan contenido viejo.
 func cacheCatalogoTextos(r *http.Request) string {
+	// Los manifiestos PWA incluyen la versión web calculada; sus bytes no
+	// dependen solo de los catálogos. Nunca se fijan con la huella de idiomas.
+	if web := versionWeb(); web != nil {
+		if _, transformado := web.textos[r.URL.Path]; transformado {
+			return "no-cache"
+		}
+	}
 	if pedida := r.URL.Query().Get("huella"); pedida != "" && pedida == huellaCatalogosTextos() {
 		return "public, max-age=31536000, immutable"
 	}

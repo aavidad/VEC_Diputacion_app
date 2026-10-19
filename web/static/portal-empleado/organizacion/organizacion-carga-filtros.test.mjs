@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
+import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=VEC_WEB_VERSION";
 
 await prepararTextosPersonal();
 const {
@@ -8,7 +8,7 @@ const {
   ESQUEMA_ORGANIZACION,
   crearCliente,
   iniciarOrganizacion,
-} = await import("./organizacion.js?v=20261008-alta-rpt-circular-v4");
+} = await import("./organizacion.js?v=VEC_WEB_VERSION");
 
 function documento() {
   const elementos = new Map();

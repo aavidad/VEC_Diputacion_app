@@ -86,6 +86,9 @@ func (p preparadorSeleccionOfertaCTDesarrollo) PrepararIntencion(ctx context.Con
 		e.Asignacion == nil || e.Solicitud.NumeroPersonas < 2 || e.Solicitud.NumeroPersonas > 100 {
 		return vacia, ct.ErrSeleccionOfertaCTInvalida
 	}
+	if !e.Analisis.ModalidadClave.Valida() || !e.Analisis.CausaClave.Valida() {
+		return vacia, ct.ErrSeleccionOfertaCTInvalida
+	}
 	_, actor, err := p.autoridad.ContextoOferta(ctx)
 	if err != nil {
 		return vacia, err
@@ -99,7 +102,8 @@ func (p preparadorSeleccionOfertaCTDesarrollo) PrepararIntencion(ctx context.Con
 		ActorRef: actor.Resultado.Contexto.PersonaRef, PerfilRef: actor.Resultado.Contexto.PerfilActivoRef,
 		CategoriaRef: e.Analisis.CategoriaRef, CentroRef: e.Solicitud.CentroRef,
 		UnidadGestoraRef: e.Asignacion.UnidadRef,
-		Vinculo:          actor.Vinculo, ResultadoContexto: actor.Resultado,
+		ModalidadClave:   string(e.Analisis.ModalidadClave), CausaClave: string(e.Analisis.CausaClave),
+		Vinculo: actor.Vinculo, ResultadoContexto: actor.Resultado,
 		Correlacion: correlacion, MotivoAutorizacion: p.autoridad.MotivoOferta()}
 	i.HuellaIntencion = ct.HuellaIntencionSeleccionOfertaCT(i)
 	return i, i.Validar()
@@ -120,7 +124,8 @@ func (p preparadorSeleccionOfertaCTDesarrollo) PrepararComando(ctx context.Conte
 	if e.Referencia != i.ExpedienteRef || e.Version != i.VersionExpediente ||
 		e.OrganizacionRef != i.OrganizacionRef || d.expediente.VersionActual != e.Version ||
 		e.Analisis == nil || e.Asignacion == nil || e.Asignacion.UnidadRef != i.UnidadGestoraRef ||
-		e.Analisis.CategoriaRef != i.CategoriaRef || e.Solicitud.CentroRef != i.CentroRef {
+		e.Analisis.CategoriaRef != i.CategoriaRef || e.Solicitud.CentroRef != i.CentroRef ||
+		string(e.Analisis.ModalidadClave) != i.ModalidadClave || string(e.Analisis.CausaClave) != i.CausaClave {
 		return vacio, ct.ErrSeleccionOfertaCTInvalida
 	}
 	// El proveedor existente comprueba la necesidad y su publicación RPT; sus
@@ -153,7 +158,8 @@ func (p preparadorSeleccionOfertaCTDesarrollo) PrepararComando(ctx context.Conte
 		return vacio, err
 	}
 	datos := ct.DatosOfertaSeleccionCT{Categoria: configuracion.Categoria, Centro: configuracion.Centro,
-		FechaInicio: e.Analisis.Periodo.Inicio.UTC().Format(time.DateOnly), Descripcion: configuracion.Descripcion}
+		FechaInicio: e.Analisis.Periodo.Inicio.UTC().Format(time.DateOnly), Descripcion: configuracion.Descripcion,
+		ModalidadClave: i.ModalidadClave, CausaClave: i.CausaClave}
 	if !e.Analisis.Periodo.Fin.IsZero() {
 		datos.FechaFin = e.Analisis.Periodo.Fin.UTC().Format(time.DateOnly)
 	}

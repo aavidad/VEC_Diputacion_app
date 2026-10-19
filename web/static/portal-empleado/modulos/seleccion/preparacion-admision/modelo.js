@@ -1,5 +1,5 @@
-import { comprobarClaves, forma } from '../preparacion-bases/modelo.js?v=20261003-s2-consulta-v1';
-import { validarHuella, validarRevision } from '../preparacion-bases/contrato-http.js?v=20261003-s2-consulta-v2';
+import { comprobarClaves, forma } from '../preparacion-bases/modelo.js?v=VEC_WEB_VERSION';
+import { validarHuella, validarRevision } from '../preparacion-bases/contrato-http.js?v=VEC_WEB_VERSION';
 
 export const MAXIMO_BYTES = 4 * 1024 * 1024;
 export const CAUSAS = Object.freeze(['fuentes_no_verificadas', 'texto_libre', 'regla_ausente', 'evaluador_pendiente',

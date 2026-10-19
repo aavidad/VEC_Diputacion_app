@@ -2,8 +2,8 @@ import {
   extraerDatosEnvelopeLlamamiento,
   validarConfirmacionPropuestaLlamamiento,
   validarReferenciaOpacaLlamamiento,
-} from "./portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+} from "./portal-llamamientos-contrato.js?v=VEC_WEB_VERSION";
+import { traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 
 const RUTA_PROPUESTAS_LLAMAMIENTO = "/api/vec/bolsa/propuestas-llamamiento";
 const MAXIMO_RESPUESTA_BYTES = 8 * 1024;

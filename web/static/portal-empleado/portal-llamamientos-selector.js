@@ -1,4 +1,4 @@
-import { textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 
 /** La lectura autorizada de Bolsa ofrece las bolsas vigentes; emitir se autoriza al confirmar. */
 export function bolsasVigentesParaLlamamiento(estadoBolsas, ahora = new Date()) {

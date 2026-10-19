@@ -13,7 +13,7 @@ import {
   sincronizarMenuBolsa,
   vistaBolsaPendienteNoCompuesta,
   vistaBolsaOfrecida,
-} from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-menu-bolsa.js?v=VEC_WEB_VERSION";
 
 test("Auditoría RRHH se abre sin partir de una ficha", () => {
   assert.equal(vistaBolsaOfrecida("auditoria", { panelInterno: true }), false);

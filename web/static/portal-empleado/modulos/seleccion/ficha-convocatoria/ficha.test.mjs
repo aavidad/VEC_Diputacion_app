@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { cargarTextosFicha } from "./i18n.js";
-import { ErrorFichaConvocatoria, validarLecturaFicha, validarSelectorFicha } from "./contrato.js?v=20261001-s1-ficha-v1";
+import { ErrorFichaConvocatoria, validarLecturaFicha, validarSelectorFicha } from "./contrato.js?v=VEC_WEB_VERSION";
 import { crearLectorFichaHTTP, RUTA_FICHA_CONVOCATORIA } from "./cliente-http.js";
 import { montarFichaConvocatoria } from "./vista.js";
 import { montarFichaConvocatoriaHTTP } from "./montaje.js";
