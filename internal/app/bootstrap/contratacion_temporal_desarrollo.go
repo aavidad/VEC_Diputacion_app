@@ -743,11 +743,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil || (auditoriaActiva && (!cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas())) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
 	}
-	lectoresDeclarados := resolvedorDesarrollo.lectoresConsultaRRHH()
-	lectoresConsulta := make([]string, 0, len(lectoresDeclarados))
-	for _, lector := range lectoresDeclarados {
-		lectoresConsulta = append(lectoresConsulta, lector.perfilRef)
-	}
+	lectoresConsulta := perfilesLectoresConsultaRRHHDesarrollo(resolvedorDesarrollo.lectoresConsultaRRHH())
 	perfilesConsulta := perfilesConsultaContratacionTemporalDesarrollo(perfilCTCatalogo, lectoresConsulta)
 	if firmaVecActiva {
 		for _, firmante := range configuracionFirmaVec.Firmantes {
