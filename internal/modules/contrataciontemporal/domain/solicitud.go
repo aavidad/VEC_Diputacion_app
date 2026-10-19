@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +28,34 @@ func (d DeclaracionRC) Validar() error {
 	}
 	if !referenciaValida(d.Numero) || !fechaCivilCanonica(d.Fecha) ||
 		d.Importe.Validar(false) != nil || !referenciaValida(d.DocumentoRef) {
+		return ErrDatoInvalido
+	}
+	return nil
+}
+
+// PrefijoRCDeclarada marca la RC que declara el centro con el número de
+// operación de SICAL. Es un dato que comprueban RRHH o Intervención: no es un
+// documento custodiado ni acredita el crédito (regla provisional, duda 125).
+const PrefijoRCDeclarada = "rc-declarado:"
+
+var (
+	patronDocumentoIdentidadRC = regexp.MustCompile(`(?i)(([0-9][._:/#-]?){8}|[XYZ][._:/#-]?([0-9][._:/#-]?){7})[A-Z]`)
+	patronEtiquetaIdentidadRC  = regexp.MustCompile(`(?i)(^|[._:/#-])(dni|nie|nif|pasaporte|passport)([._:/#-]|$)`)
+)
+
+// ValidarDeclaradaPorCentro aplica a una petición nueva del centro: si hay
+// RC, su referencia es la declarada con el mismo número de operación, que no
+// puede tener forma de DNI o NIE. No se aplica al rehidratar lo ya guardado.
+func (d DeclaracionRC) ValidarDeclaradaPorCentro() error {
+	if err := d.Validar(); err != nil {
+		return err
+	}
+	if !d.Existe {
+		return nil
+	}
+	if d.DocumentoRef != PrefijoRCDeclarada+d.Numero ||
+		patronDocumentoIdentidadRC.MatchString(d.Numero) ||
+		patronEtiquetaIdentidadRC.MatchString(d.Numero) {
 		return ErrDatoInvalido
 	}
 	return nil

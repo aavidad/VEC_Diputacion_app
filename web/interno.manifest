@@ -309,6 +309,7 @@ static/portal-empleado/modulos/contratacion-temporal/documentacion-formalizacion
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-documentacion-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-documentacion-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/presentador.js
+static/portal-empleado/modulos/contratacion-temporal/rc-declarada.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/gestor-resultado-bolsa.js
 static/portal-empleado/modulos/contratacion-temporal/vista-circuito-rrhh.js
