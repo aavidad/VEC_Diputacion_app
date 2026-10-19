@@ -12,10 +12,11 @@
 --   declarar.
 -- * comprobar_publicacion_inscripcion_v1 y proyectar_abierta_inscripcion_v1
 --   (postimagen BC12) exigen una declaración vigente de la versión cuya fecha
---   sea de uno a cuatro días naturales antes del primer día del plazo (hora de
+--   sea de uno a cinco días naturales antes del primer día del plazo (hora de
 --   Madrid). El plazo empieza el día siguiente a la publicación (LPAC art. 30);
---   el margen cubre un fin de semana y un festivo. Si la fecha real no encaja
---   con el plazo sellado, RRHH publica otra versión con el plazo correcto.
+--   el margen cubre un fin de semana con dos festivos (Semana Santa). Si la
+--   fecha real no encaja con el plazo sellado, RRHH publica otra versión con
+--   el plazo correcto.
 --   Sin declaración, o fuera de ese margen, la versión no se abre (B9602).
 -- Sin DOWN ni reaplicación. No rellena filas.
 BEGIN;
@@ -432,9 +433,9 @@ BEGIN
  IF activos<>1 THEN RAISE EXCEPTION 'BC9: plazo de inscripción cerrado o ambiguo' USING ERRCODE='B9602'; END IF;
  abre:=(plazo->>'abre_en')::timestamptz;
  cierra:=(plazo->>'cierra_en')::timestamptz;
- -- BC14: el plazo sellado empieza de uno a cuatro días naturales después de la
+ -- BC14: el plazo sellado empieza de uno a cinco días naturales después de la
  -- publicación declarada (hora de Madrid); si no encaja, no se abre.
- IF ((abre AT TIME ZONE 'Europe/Madrid')::date-v_publicacion_oficial) NOT BETWEEN 1 AND 4
+ IF ((abre AT TIME ZONE 'Europe/Madrid')::date-v_publicacion_oficial) NOT BETWEEN 1 AND 5
  THEN RAISE EXCEPTION 'BC14: plazo incoherente con la publicación oficial' USING ERRCODE='B9602'; END IF;
 
  catalogo:=c#>'{contenido,catalogo_categorias}';
@@ -575,13 +576,13 @@ BEGIN
  END LOOP;
  IF activos=0 THEN RETURN NULL; END IF;
  IF activos<>1 THEN RAISE EXCEPTION 'BC9: plazos abiertos ambiguos' USING ERRCODE='55000'; END IF;
- -- BC14: sin publicación oficial declarada de uno a cuatro días naturales antes
+ -- BC14: sin publicación oficial declarada de uno a cinco días naturales antes
  -- del primer día del plazo (hora de Madrid) no se proyecta.
  v_publicacion_oficial:=vec_bolsa_convocatorias.publicacion_oficial_vigente_v1(
   p_id,p_secuencia,p_huella_sha256);
  IF v_publicacion_oficial IS NULL
  OR (((plazo->>'abre_en')::timestamptz AT TIME ZONE 'Europe/Madrid')::date-v_publicacion_oficial)
-    NOT BETWEEN 1 AND 4
+    NOT BETWEEN 1 AND 5
  THEN RETURN NULL; END IF;
 
  catalogo:=c#>'{contenido,catalogo_categorias}';
@@ -654,8 +655,8 @@ DO $post$
 DECLARE r record; f regprocedure; p record;
 BEGIN
  FOR r IN SELECT * FROM (VALUES
-   ('comprobar','vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)','c29c3a425321709d5237975419bea86ce0a61292ef0ecd0c388847faf6422867','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario,vec_bolsa_llamamientos_propietario=X/vec_bolsa_convocatorias_propietario}','v','u'),
-   ('proyectar','vec_bolsa_convocatorias.proyectar_abierta_inscripcion_v1(text,bigint,bytea,text,timestamp with time zone)','1ea75498f4e9f78c4ef5bde4b4b506e7a8f21f510f23e1b33b585242e5f5c874','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario}','s','r')
+   ('comprobar','vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_v1(text,text)','c74ea68b95fcee13e2e5c09c47a63d69d1214555b5f3a2a14659ae5287c758aa','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario,vec_bolsa_llamamientos_propietario=X/vec_bolsa_convocatorias_propietario}','v','u'),
+   ('proyectar','vec_bolsa_convocatorias.proyectar_abierta_inscripcion_v1(text,bigint,bytea,text,timestamp with time zone)','5315649e2377cb2c083887ba0350e270a461e187c8be58480c943fdba8e872aa','{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario}','s','r')
   ) AS esperado(clave,firma,huella,acl,volatilidad,paralelismo) LOOP
   f:=to_regprocedure(r.firma);
   IF f IS NULL THEN RAISE EXCEPTION 'BC14: funcion causal ausente' USING ERRCODE='55000'; END IF;

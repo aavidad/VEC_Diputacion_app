@@ -472,10 +472,10 @@ recibo y evento, en una tabla de solo adición. Una corrección es una fila
 nueva que sustituye a la vigente.
 
 La lista, la ficha y la presentación de la aspirante exigen una declaración
-vigente de la versión exacta cuya fecha sea de uno a cuatro días naturales
+vigente de la versión exacta cuya fecha sea de uno a cinco días naturales
 anterior al primer día del plazo (hora de Madrid): el plazo empieza el día
 siguiente a la publicación (LPAC art. 30) y el margen cubre un fin de semana y
-un festivo. Sin ella, o fuera del margen, la convocatoria no aparece y la
+dos festivos. Sin ella, o fuera del margen, la convocatoria no aparece y la
 presentación responde como plazo cerrado. Las fechas del plazo siguen siendo
 las selladas en la versión; si no encajan con la publicación, RRHH publica una
 versión nueva. Calcularlas desde la publicación queda para un catálogo

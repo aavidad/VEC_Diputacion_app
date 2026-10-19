@@ -114,9 +114,12 @@ sustituye a la anterior.
 
 La inscripción solo se abre cuando la versión vigente tiene esa anotación y
 el plazo grabado en ella empieza entre el día siguiente a la publicación y
-cuatro días naturales después (un fin de semana y un festivo). Sin la
-anotación, o si las fechas no encajan, la convocatoria no aparece a la
-aspirante aunque el plazo esté abierto. Si el boletín sale antes o después de
+cinco días naturales después (lo que dura un fin de semana con jueves y
+viernes festivos, como en Semana Santa). Sin la anotación, o si las fechas no
+encajan, la convocatoria no aparece a la aspirante aunque el plazo esté
+abierto. Si la aspirante llega a ella por un enlace, VEC le dice que el plazo
+está cerrado: ese aviso no significa que el plazo haya vencido, sino que aún
+no consta la publicación. Si el boletín sale antes o después de
 lo previsto, hay que preparar y publicar en VEC una versión nueva con el plazo
 correcto y anotar la publicación en esa versión.
 

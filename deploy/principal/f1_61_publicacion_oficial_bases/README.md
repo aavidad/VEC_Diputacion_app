@@ -33,12 +33,12 @@ compone. Si F1-67 no lo consume, se retira allí.
   de una versión exacta.
 - Reconstruye `comprobar_publicacion_inscripcion_v1` y
   `proyectar_abierta_inscripcion_v1`. La preimagen exigida es la poshuella de
-  BC12; las poshuellas son `c29c3a42…` y `1ea75498…`. Conservan OID, ACL,
+  BC12; las poshuellas son `c74ea68b…` y `5315649e…`. Conservan OID, ACL,
   volatilidad y configuración.
-- Regla de apertura: la declaración vigente tiene que ser de uno a cuatro días
+- Regla de apertura: la declaración vigente tiene que ser de uno a cinco días
   naturales anterior al primer día del plazo, en hora de Madrid. El plazo
   empieza el día siguiente a la publicación (LPAC art. 30); el margen cubre un
-  fin de semana y un festivo. Sin declaración, o fuera del margen, el
+  fin de semana y dos festivos. Sin declaración, o fuera del margen, el
   comprobador responde B9602 (la aplicación lo muestra como plazo cerrado) y
   la lista y la ficha dejan fuera la versión. Sin declaración, el comprobador
   responde antes de mirar modalidad, categoría o plazo, así que no revela nada
@@ -55,7 +55,7 @@ Dos límites conscientes:
   Que la anotación corresponde a esas bases lo afirma quien declara.
 - No se exige que la fecha sea posterior a la versión en VEC, por la misma
   razón: la versión que corrige el plazo puede ser posterior al boletín. El
-  margen de cuatro días ya impide abrir con fechas antiguas.
+  margen de cinco días ya impide abrir con fechas antiguas.
 
 Las pruebas `bc9_*.sql` y `b96_abiertas_100x128_fixture.sql` son vectores
 históricos del estado anterior a BC14. No las usa ningún ensayo ni la CI y,
@@ -111,6 +111,6 @@ Para que lo haga RRHH desde su pantalla hace falta:
 
 BC13 exige como preimagen de `comprobar_publicacion_inscripcion_v1` la
 poshuella de BC12 (`510d5fb7…`). Si BC14 se fusiona antes, BC13 se niega a
-instalarse. Quien fusione en segundo lugar cambia esa preimagen a `c29c3a42…`
+instalarse. Quien fusione en segundo lugar cambia esa preimagen a `c74ea68b…`
 y hace que la comprobación conjunta exija también la declaración vigente, con
-la misma regla de uno a cuatro días.
+la misma regla de uno a cinco días.

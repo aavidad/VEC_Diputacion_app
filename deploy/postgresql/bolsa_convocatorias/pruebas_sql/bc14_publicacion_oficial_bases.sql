@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 -- Vectores BC14 dentro de una transacción revertida, con datos ficticios.
 -- Una versión publicada en VEC no se abre a la inscripción hasta que consta
--- la publicación oficial de sus bases, de uno a cuatro días naturales antes del
+-- la publicación oficial de sus bases, de uno a cinco días naturales antes del
 -- primer día del plazo en hora de Madrid.
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL ROLE vec_bolsa_convocatorias_propietario;
@@ -101,15 +101,15 @@ BEGIN
    RAISE EXCEPTION 'BC14: entrada % admitida',fallo;
   EXCEPTION WHEN invalid_parameter_value OR check_violation THEN NULL; END;
  END LOOP;
- -- Corrección con fecha muy anterior al plazo sellado: tampoco abre.
+ -- Corrección seis días antes del primer día del plazo: tampoco abre.
  rt:=vec_bolsa_convocatorias.declarar_publicacion_oficial_bases_v1(base||jsonb_build_object(
-  'clave_idempotencia','bc14-prueba-0007','fecha_publicacion',to_char(hoy-10,'YYYY-MM-DD'),
+  'clave_idempotencia','bc14-prueba-0007','fecha_publicacion',to_char(hoy-7,'YYYY-MM-DD'),
   'sustituye_ref',r1->>'publicacion_ref'));
  IF vec_bolsa_convocatorias.detalle_abierta_inscripcion_v1(ref) IS NOT NULL
  THEN RAISE EXCEPTION 'BC14: publicación demasiado anterior al plazo abre la inscripción'; END IF;
- -- Corrección de la vigente con fecha coherente con el plazo: ahora sí abre.
+ -- Corrección cinco días antes (límite del margen): ahora sí abre.
  r3:=vec_bolsa_convocatorias.declarar_publicacion_oficial_bases_v1(base||jsonb_build_object(
-  'clave_idempotencia','bc14-prueba-0004','fecha_publicacion',to_char(hoy-3,'YYYY-MM-DD'),
+  'clave_idempotencia','bc14-prueba-0004','fecha_publicacion',to_char(hoy-6,'YYYY-MM-DD'),
   'sustituye_ref',rt->>'publicacion_ref','direccion',NULL,'anuncio_ref','ENSAYO-BOP-2026-000199','boletin_numero',199));
  IF (SELECT huella_anterior_sha256 FROM vec_bolsa_convocatorias.publicacion_oficial_bases
      WHERE publicacion_ref=r3->>'publicacion_ref')<>rt->>'huella_registro_sha256'
