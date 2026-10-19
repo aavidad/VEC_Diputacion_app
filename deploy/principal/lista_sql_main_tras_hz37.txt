@@ -152,5 +152,7 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000293_estado_comprobacio
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000295_cadena_gobierno_por_acuse.up.sql af17aa1eca7dba6f3ae000030c4a2e0f5b9c0890ed30072c3374934b4359c3be
 # F1-13 — AD296; su guarda exige AD246, AD275 y AD294.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000296_proyecciones_preferencias_fijas.up.sql 6b9c544dd5f3a5727b44419111b52260ac38f3cf1f11be8a5c87518a3603a10b
+# F0-18 — AD291; depende de AD288, AD294, AD293, AD295 y AD296.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000291_comprobacion_derivacion_rrhh.up.sql 10d9778c7b3154d84679d1483413ae686b1279682932b172357f9ba0264d439c
 # F1-40 — BC12, tras BC9 y B96 del esquema base; no reaplicar.
 deploy/postgresql/bolsa_convocatorias/migraciones/000012_rechazo_inscripcion_conjunta_v1.up.sql ca21824cc9236adb014d3cd3e1ef132d56287124b97b29bc963cf9670ded1931
