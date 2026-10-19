@@ -39,4 +39,30 @@ El servidor ya tiene el servicio de guardado y el de lectura de modalidades, con
 
 La vigencia se resolvió en la parte 3: la fuente v2 termina el 1 de octubre de 2027, igual que la v1.
 
+## Parte 3: API y composición (19/10/2026)
+
+La ruta `/api/vec/bolsa/mi-bolsa/preferencias` atiende las modalidades solo con la consulta exacta `?tipo=modalidades`. Sin consulta sigue sirviendo el orden de bolsas. Cualquier otra consulta recibe 400 y otro método, 405.
+
+- **GET** devuelve `version`, `modalidades_guardadas` (`null` si nunca se guardó, o la lista), `modalidades_disponibles` (clave y fuente del catálogo), `recibo_ref` y `registrado_en`.
+- **PUT** recibe `version`, `clave_idempotencia` y `modalidades` (`null` para todas, `[]` para ninguna). Responde 201 con recibo y versión nueva, o 200 con `reutilizado` si repite la clave con la misma elección.
+- Los errores salen como códigos fijos: 403 `acceso_denegado`, 409 `preferencias_desactualizadas`, 422 `orden_invalido`, 503 `servicio_no_disponible` y 500 `error_interno`. El texto interno del error nunca llega a la respuesta; una prueba lo comprueba con errores unidos.
+- El arranque comprueba que B138 existe con su firma exacta, que el usuario de conexión puede ejecutarla, que no tiene acceso público y que la restricción de auditoría ampliada por AD300 está validada e incluye el motivo de modalidades. Comprueba también el catálogo de modalidades. Si algo falla, registra solo la etapa y la consulta de modalidades responde 503. El orden de bolsas no se ve afectado.
+- La huella de la selección acepta el formato de candidato que usa B138 (`can_` y de 22 a 128 caracteres). Antes solo admitía la referencia de constitución, más corta, y rechazaba a los candidatos externos.
+- Vigencia: la fuente v2 vence ahora el 1 de octubre de 2027, como la v1. Alargarla no toca ninguna autoridad ajena: la v2 aún no está admitida en ningún catálogo. Las pruebas exigen que la v2 dure al menos 60 días y que no supere el catálogo que la admita.
+
+### Evidencia en copia local
+
+Copia propia con la lista única (`--sin-inscripcion` bastó). El ensayo SQL con pruebas restauró HZ37, instaló 118 migraciones y pasó 9 pruebas antes y 9 después del reinicio. En la copia, con la aplicación arrancada:
+
+- Sin la concesión publicada, la consulta de modalidades responde 403 y no 503, así que está montada. Una consulta inválida da 400 y un método no admitido, 405.
+- Con la restricción de AD300 vigente, la comprobación del arranque da verdadero; con la restricción anterior, falso (probado dentro de una transacción revertida).
+- Con un rol de semilla de copia, que no es un acto gobernado: PUT `[]` da 201 con recibo y versión 1. Repetirlo da 200 y `reutilizado`. Otra elección con la misma clave da 422, una versión antigua 409 y una clave desconocida 422. PUT `null` da 201 con otro recibo y versión 2. Tras reiniciar aplicación y PostgreSQL, las mismas repeticiones devuelven los mismos recibos y fechas. Hay dos filas (`{}` y `NULL`) y ningún duplicado.
+
+### Lo que falta para activarla
+
+- **GET con el rol de semilla.** La lectura rechaza los roles de la semilla de copia por la guarda contra emisores de desarrollo, y esa guarda no se rebaja. El GET solo se podrá acreditar con la versión del rol publicada por actos gobernados.
+- **Admitir la fuente v2 y publicar la versión del rol.** La copia no tiene todavía la cadena de administración necesaria (F0-28). Cuando la tenga, los pasos son: admitir la fuente v2 en un catálogo nuevo con `vec-catalogo-acciones-admitir` (AUT58 y AUT61), cuya vigencia cubra la de la v2; proponer la versión del rol candidato con los diez campos; y cerrarla con un segundo administrador. Después, repetir en la copia el GET y el PUT con recibo y reinicio usando el certificado de la aspirante.
+- **Asimetría heredada.** La escritura de preferencias (B104 y B138) acepta una decisión emitida para un rol de semilla y la lectura no. Ya ocurría antes de esta parte; se deja anotada para la revisión de seguridad.
+- **Parte 4 (B139).** Aplicar la elección a la vista de ofertas publicadas y a los avisos, sin tocar el orden de llamamiento ni la inscripción.
+
 Sigue sin acreditar: la fuente v2 admitida, la versión del rol publicada, el GET/PUT de modalidades con recibo y reinicio, y el recorrido en Chrome. Cuando lleguen, el ensayo debe comprobar con datos ficticios que `null` muestra todas las modalidades, que `[]` oculta las ofertas abiertas sin respuesta y con modalidad identificada, que una clave desconocida se rechaza y que una repetición conserva versión, recibo y fecha tras reiniciar. Después hay que contrastar la vista y los avisos con las ofertas publicadas, sin alterar la inscripción, la posición en bolsa ni el llamamiento directo. Un fallo de configuración debe cerrar solo esta función y dejar disponible el resto de Mi Bolsa.
