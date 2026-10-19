@@ -26,7 +26,7 @@ En «Resultado comunicado por Intervención», marque una opción:
 
 Si intenta registrar las dos últimas opciones sin observaciones, la pantalla pide completarlas y no envía el resultado.
 
-![Resultado desfavorable en móvil: la pantalla exige observaciones y permite escribir el motivo del reparo.](img/intervencion-reparo-movil.png)
+![Resultado desfavorable en móvil: observaciones cumplimentadas y resultado preparado para su registro.](img/intervencion-reparo-movil.png)
 
 ## 3. Confirmar y conservar el justificante
 
