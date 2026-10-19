@@ -140,6 +140,22 @@ BEGIN
  OR NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.aviso_oferta_destinatario
    WHERE oferta_ref=r.oferta_despues AND participacion_ref=r.participacion_b)
  THEN RAISE EXCEPTION 'B139: la siguiente publicación no tomó la versión nueva' USING ERRCODE='55000'; END IF;
+ -- Una oferta sin modalidad identificada llega a todos, también a quien eligió ninguna.
+ v_oferta:='oferta:'||encode(sha256(convert_to('b139-sin-modalidad:'||v_bolsa,'UTF8')),'hex');
+ INSERT INTO vec_bolsa_llamamientos.oferta_publicada
+  (oferta_ref,recibo_ref,bolsa_ref,actor_ref,clave_idempotencia,datos,plazo,
+   publicada_en,vence_antes_de,huella_comando_sha256,decision_ref)
+ VALUES(v_oferta,'recibo:'||v_oferta,v_bolsa,'per_actoractoractoractoractor',
+  'clave-prueba-b139-sin-modalidad','{}'::jsonb,
+  '{}'::jsonb,v_corte,v_corte+interval '1 day',repeat('d',64),'decision:prueba-b139-sin-modalidad');
+ UPDATE vec_bolsa_llamamientos.aviso_oferta_cabecera SET
+  huella_token=sha256(decode(repeat('44',32),'hex')),version_token='b139-prueba'
+ WHERE oferta_ref=v_oferta;
+ IF NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.aviso_oferta_destinatario
+   WHERE oferta_ref=v_oferta AND participacion_ref=r.participacion_a)
+ OR NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.aviso_oferta_destinatario
+   WHERE oferta_ref=v_oferta AND participacion_ref=r.participacion_b)
+ THEN RAISE EXCEPTION 'B139: una oferta sin modalidad excluyó a alguien' USING ERRCODE='55000'; END IF;
  -- NULL explícito vuelve a todas las modalidades para A en una publicación posterior.
  SELECT max(version)+1 INTO v_version
  FROM vec_bolsa_llamamientos.preferencia_modalidades_version WHERE candidato_ref=r.candidato_a;

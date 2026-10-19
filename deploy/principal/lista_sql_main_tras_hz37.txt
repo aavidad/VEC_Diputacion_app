@@ -189,3 +189,5 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000143_huella_contexto_orden_bo
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000300_motivo_proyeccion_preferencias.up.sql a74a98b12af7f1952cfb99298104d5daee61ca74fa56be4c738f54ef7751411c
 # F1-60 primer corte — B144, ámbito gobernado de la bolsa; solo depende de B7/B14/B79/B95 (en el volcado).
 deploy/postgresql/bolsa_llamamientos/migraciones/000144_ambito_gobernado_bolsa.up.sql b8cee22ff4b891148af793b6d19c0b9ff96acc1644d1dda6a1942a9e5b09e2c5
+# F1-13 parte 4 — B139: los avisos de ofertas respetan la elección de modalidades al congelar destinatarios; tras B138 y B136.
+deploy/postgresql/bolsa_llamamientos/migraciones/000139_avisos_modalidades.up.sql ef4c0b36253f63017fbb0591e7c29d9091d0a5ee48b0b16e18ebf3433bc31879
