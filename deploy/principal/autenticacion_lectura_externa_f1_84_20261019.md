@@ -52,8 +52,8 @@ respondía P0002 y toda lectura de inscripción del aspirante fallaba.
 No hay retirada automática. Si hiciera falta volver atrás, dirección decide
 una migración nueva; no se aplica ningún DOWN sobre historia.
 
-## Pendiente fuera de esta tarea
+## Continuación
 
-`registrar_intento_nominal_v1` (AD169, AD252 y AD259) también coteja solo con
-IS20 y admite el canal `externa_personal`. Un intento denegado del portal
-externo separado fallaría igual. Queda para otra tarea.
+`registrar_intento_nominal_v1` (AD169, AD252 y AD259) tenía el mismo fallo en
+los intentos denegados del portal externo. Lo arregla F1-85 con AD299; ver
+`intento_nominal_externo_f1_85_20261019.md`.
