@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { cargarMensajesPortal } from "./portal-i18n.js";
-import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20261008-r-traza-idioma-v1";
-import { consultarOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261001-ct-a-i18n-v1";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=VEC_WEB_VERSION";
+import { consultarOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=VEC_WEB_VERSION";
 
 const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 const cambio = (campo, valor_anterior, valor_nuevo) => ({ instante: "2026-09-25T08:00:00.123456Z", recibo_ref: "recibo:1", campo, valor_anterior, valor_nuevo, actor: "per_rrhh" });

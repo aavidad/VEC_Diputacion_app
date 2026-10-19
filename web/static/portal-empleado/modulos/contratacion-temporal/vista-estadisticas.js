@@ -9,12 +9,12 @@
  * - Sin uso de la palabra "demo".
  */
 
-import { generarCSVEstadisticas, PERIODOS_ESTADISTICAS } from "./contrato-estadisticas.js?v=20261008-alta-rpt-circular-v6";
-import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=20261008-alta-rpt-circular-v6";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { generarCSVEstadisticas, PERIODOS_ESTADISTICAS } from "./contrato-estadisticas.js?v=VEC_WEB_VERSION";
+import { consultarEstadisticas } from "./cliente-http-estadisticas.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
 import { IDIOMA_ACTUAL, localizacionDe } from "../../../comun/idioma.js";
 
-import { cargarFichaIndicadores, renderizarFichaIndicadores } from "../analitica/ficha-indicadores.js?v=20261001-ana002-v4";
+import { cargarFichaIndicadores, renderizarFichaIndicadores } from "../analitica/ficha-indicadores.js?v=VEC_WEB_VERSION";
 
 const traducirCT = crearTraductorContratacionTemporal();
 

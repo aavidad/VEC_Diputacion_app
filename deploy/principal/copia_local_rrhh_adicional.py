@@ -35,6 +35,9 @@ def preparar_copia(copia):
         salida.flush()
         os.fsync(salida.fileno())
     ruta.chmod(0o600)
+    # Gemela de la asignación operativa de la técnica original: mismo emisor y
+    # mismo acto del circuito de desarrollo, para que cada operación pueda
+    # ceñirla al expediente exacto como hace con ella.
     sql = f"""BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
@@ -48,7 +51,7 @@ BEGIN
  SELECT v.* INTO STRICT c FROM vec_autorizacion.control_vigencia_version_rol_actual a
   JOIN vec_autorizacion.control_vigencia_version_rol v USING(version_rol_ref,revision)
   WHERE a.version_rol_ref=r.version_rol_ref;
- IF r.documento->>'estado'<>'publicada' OR c.estado<>'habilitada'
+ IF r.documento->>'estado' IS DISTINCT FROM 'publicada' OR c.estado IS DISTINCT FROM 'habilitada'
   OR EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE rol_id=r.rol_id AND version>r.version)
   OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(r.documento->'concesiones') p
    WHERE p->>'accion'='contratacion_temporal.incorporacion.no_incorporacion'
@@ -62,7 +65,7 @@ BEGIN
   'perfil_activo_ref','{perfil}','principal_id','{persona}','version_rol_ref',r.version_rol_ref,
   'estado','activa','ambitos',jsonb_build_array(jsonb_build_object('clave','organizacion_ref',
    'valores',jsonb_build_array('organizacion:desarrollo:dipgra'))),
-  'emitida_por','semilla:desarrollo:rrhh-adicional',
+  'emitida_por','identidad:desarrollo:no-autoritativa',
   'emitida_en',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
   'vigente_desde',to_char(ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
   'vigente_hasta',to_char((ahora+interval '89 days') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
@@ -72,7 +75,7 @@ BEGIN
  VALUES('asignacion:{asignacion}:v1','{asignacion}',1,'{perfil}','{persona}',r.version_rol_ref,
   encode(sha256(convert_to(vec_autorizacion.canon_asignacion_perfil_admin_v1(doc),'UTF8')),'hex'),ahora,doc);
  INSERT INTO vec_autorizacion.asignacion_perfil_actual
- VALUES('{perfil}','asignacion:{asignacion}:v1',ahora,'semilla:desarrollo:rrhh-adicional','semilla:desarrollo:rrhh-adicional');
+ VALUES('{perfil}','asignacion:{asignacion}:v1',ahora,'identidad:desarrollo:no-autoritativa','acto:ct:desarrollo:asignacion:v1');
 END $semilla$;
 COMMIT;
 """

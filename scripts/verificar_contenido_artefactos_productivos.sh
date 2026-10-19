@@ -207,6 +207,9 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/bolsa/reglas-situacion-api.js
 	static/portal-empleado/portal-bolsas-avisos.js
 	static/portal-empleado/portal-bolsas-operaciones.js
+	# F1-57: registro de la comprobación del ofrecimiento; POST a ruta interna fija
+	# con segmentos codificados, same-origin, no-store, redirect error y no-referrer.
+	static/portal-empleado/portal-bolsas-comprobacion.js
 	static/portal-empleado/portal-llamamientos-api.js
 	static/portal-empleado/portal-llamamientos-operaciones-api.js
 	static/portal-empleado/portal-borrador-llamamiento-api.js

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=VEC_WEB_VERSION";
 
 function montarControlador({ estado, propuesta, datosPanel = { necesidades_llamamiento: [] }, navegar = () => {} } = {}) {
   const escuchas = new Map();

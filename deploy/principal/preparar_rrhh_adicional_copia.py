@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import stat
 import subprocess
 import tempfile
 
@@ -24,7 +25,9 @@ ARCHIVOS = (
 
 def privado(ruta: Path, directorio=False):
     info = ruta.lstat()
-    if ruta.is_symlink() or info.st_uid != os.getuid() or info.st_mode & 0o077 or ruta.is_dir() != directorio:
+    if (info.st_uid != os.getuid() or info.st_mode & 0o077
+            or (not stat.S_ISDIR(info.st_mode) if directorio
+                else not stat.S_ISREG(info.st_mode) or info.st_nlink != 1)):
         raise ValueError("La ruta del material debe ser propia y privada")
 
 

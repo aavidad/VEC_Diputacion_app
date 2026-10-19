@@ -5,7 +5,6 @@ import (
 	"mime"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"testing"
 
@@ -26,12 +25,12 @@ func TestActivosOportunidadesSoloEnSuperficieIntegrada(t *testing.T) {
 	interna := NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler())
 
 	for _, archivo := range rutas {
-		esperado, err := os.ReadFile("../../../web/static" + archivo.ruta)
+		esperado, err := leerFuenteWebVersionada("../../../web/static" + archivo.ruta)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, metodo := range []string{http.MethodGet, http.MethodHead} {
-			for _, version := range []string{"", "?v=b15"} {
+			for _, version := range []string{"", "?v=" + versionWeb().version} {
 				ruta := archivo.ruta + version
 				t.Run(metodo+" "+ruta, func(t *testing.T) {
 					rec := httptest.NewRecorder()

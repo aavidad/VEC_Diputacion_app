@@ -45,6 +45,18 @@ func (r *resolvedorIdentidadDesarrollo) registrarSegundoTecnicoRRHH(segundo iden
 	return nil
 }
 
+// esSegundoTecnicoRRHH reconoce la hoja y el sujeto exactos del segundo
+// técnico sintético de la copia.
+func (r *resolvedorIdentidadDesarrollo) esSegundoTecnicoRRHH(principal vecdomain.Principal) bool {
+	if r == nil || r.segundoTecnicoRRHH == nil || principal.ID == "" {
+		return false
+	}
+	segundo := r.segundoTecnicoRRHH.principal
+	return principal.ID == segundo.ID &&
+		principal.Attributes["certificate_sha256"] != "" &&
+		principal.Attributes["certificate_sha256"] == segundo.Attributes["certificate_sha256"]
+}
+
 func (r *resolvedorIdentidadDesarrollo) registrarTecnicoRRHHOriginal(original identidadCertificadoDesarrollo) error {
 	if r == nil || r.tecnicoRRHHOriginal != ([sha256.Size]byte{}) ||
 		len(original.principal.Roles) != 1 || original.principal.Roles[0] != "tecnico_rrhh" {

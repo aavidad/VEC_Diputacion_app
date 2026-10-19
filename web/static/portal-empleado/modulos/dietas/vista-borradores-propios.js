@@ -1,11 +1,11 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260929-i18n-dietas-v1";
-import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260929-i18n-dietas-v1";
-import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, numerarLineasOtroGasto, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260929-i18n-dietas-v1";
-import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20261007-u-dietas-catalogo-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=VEC_WEB_VERSION";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=VEC_WEB_VERSION";
+import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=VEC_WEB_VERSION";
+import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, numerarLineasOtroGasto, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=VEC_WEB_VERSION";
+import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=VEC_WEB_VERSION";
 import { validarCatalogoRutasDietas } from "./contrato.js";
-import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20261007-pantallas-textos-final-v1";
+import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=VEC_WEB_VERSION";
 
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.

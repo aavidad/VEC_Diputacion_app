@@ -217,6 +217,61 @@ que permite a los productores conservar la raíz histórica de autorización.
 El perfil de permisos de esta receta requiere la publicación vigente sin carga
 de CONVOCA ni B103; no se restablece una raíz de autorización nueva.
 
+### Segunda persona técnica de RRHH para no incorporación
+
+La opción `--segundo-rrhh` se usa solo al crear una copia nueva con `--modulos`.
+Prepara en el material privado una segunda persona ficticia, Antonio Ruiz
+Lozano, con certificado de cliente propio firmado por la CA de la copia. Su
+certificado dura como máximo 90 días; la asignación sintética dura 89. La
+identidad, la cuenta y el perfil tienen referencias distintas de las de Carmen.
+El perfil original de RRHH conserva su certificado y sus permisos.
+
+```sh
+deploy/principal/copia_local.sh crear --equipo l --instancia segundo-rrhh \
+  --puerto-pg 55481 --puerto-app 18481 --puerto-smtp 11081 --modulos \
+  --rrhh-original "$VEC_COPIA_MATERIAL_RRHH" --segundo-rrhh \
+  --lista-sql deploy/principal/lista_sql_main_tras_hz37.txt
+```
+
+Usa los productores privados de roles y datos del apartado 2 y elige puertos
+libres de tu equipo. El respaldo debe contener la versión publicada
+`rol:seguimiento_cese_ct_desarrollo:v2`, su control de vigencia habilitado y
+las tablas de asignaciones de autorización. La semilla exige la concesión de
+no incorporación de ese rol y que el perfil nuevo no tenga otra asignación.
+Si falta una condición, `crear` se detiene y conserva la instancia incompleta
+para examinar sus registros; bórrala con la orden propia antes de repetir.
+
+El guion guarda `rrhh-adicional-semilla.json` y su huella en `estado.json`,
+registra la asignación sintética en una transacción y activa los catálogos de
+seguimiento de Contratación. Esa asignación solo sirve en la copia ficticia:
+no acredita publicación por Administración. Es gemela de la de Carmen: mismo
+emisor de desarrollo y mismo acto, y cada operación la ciñe al expediente
+concreto antes de decidir, igual que con ella. El servidor comprueba la hoja, el
+sujeto, el perfil, la asignación vigente y la ruta de no incorporación. Si falta
+material o permiso para esa persona, conserva el acceso de la técnica original
+y deniega la operación de la segunda. No se instala ninguna migración nueva
+por esta opción. Se combina con `--portal-externo` si hace falta.
+
+Lo que falta para recorrer la no incorporación en la web con dos personas:
+la segunda hoja solo alcanza el POST de
+`/api/vec/contratacion-temporal/no-incorporaciones`. Para confirmar desde la
+pantalla, Antonio Ruiz Lozano necesita antes abrir el seguimiento y la ficha
+del expediente con la propuesta y su versión, y esa lectura acotada a su
+persona llega con la tarea F1-47. Hasta entonces el recorrido web completo del
+segundo técnico queda pendiente. No se envía el POST a mano para suplir la
+pantalla en ningún recorrido ni en ninguna demostración. Con su certificado, las lecturas
+de Contratación, de Bolsa y de reglas y el resto de operaciones responden 403;
+solo responden lo común a cualquier persona identificada (sesión, menú,
+módulos y catálogos públicos de Personal). F1-47 ampliará a propósito lo que puede leer
+(seguimiento y ficha del expediente) cuando llegue.
+
+En el ensayo técnico de esta opción basta comprobar tres cosas: que `crear`
+termina con la semilla registrada y su huella en `estado.json`, que el
+servidor arranca con la segunda hoja (sin el aviso «segundo técnico de RRHH
+sin …» en el registro) y que todo sigue igual tras `reiniciar`. Un GET de
+seguimiento o un POST de cese con la segunda hoja deben denegarse. Conserva
+los cuerpos y respuestas de esta copia fuera de Git.
+
 Conserva los mismos argumentos de equipo e instancia para estas órdenes:
 
 ```sh
@@ -569,5 +624,70 @@ mismo volcado y las listas necesarias.
 | Rechazo de una fecha que es el mismo instante | Representación distinta: AUT32 compara texto con el canon nominal; CA25 y los motivos de Organización histórica exigen seis decimales | Generar las fechas en el formato canónico de cada guarda; corregir el dato de la copia |
 | Los datos de empleados firmantes piden 400 días de relación cubierta | Las asignaciones de la copia duran 90 días | Ajustar en la copia las relaciones a las vigencias existentes (P usó 89 días por SQL) |
 | Firma del paso 3 rechazada por unidad | CT224 solo admite el paso 3 con unidad y paso publicados en el plan vigente | Publicar el plan con esa unidad |
+| Con la inscripción encendida, el arranque que sigue a `--portal-externo` se detiene en `inscripcion_rrhh_cuentas_lectores` | La copia no declaraba a la técnica de RRHH en `identidad/consultas-rrhh.json` | Arreglado en F1-90: el preparador escribe el manifiesto. Una copia anterior se crea de nuevo |
+| `--portal-externo` se detiene en `fuente_privada_divergente` | El material de origen ya traía un `identidad/consultas-rrhh.json` distinto (otros lectores u otro formato) | Crear la copia con un material sin ese fichero; el preparador no mezcla manifiestos |
+| El aspirante abre la inscripción y recibe 403 | Su rol aún no tiene las acciones `bolsa.inscripcion.*` | Actos de Administración de `inscripcion_recorrido_20261013/gobierno_inscripcion.md` (F0-28, F1-29) |
+| La segunda firma del informe da 422 `firma_no_verificada` | GrxFirma 0.0.105 duplica `/Version` al cofirmar y su primera firma bloquea los campos | Firmar las dos veces con GrxFirma 0.0.106 o posterior, en un expediente sin firmas de la 0.0.105 (apartado 11) |
+| GrxFirma rechaza el origen de la copia con 403 | Su configuración no tiene permisos 600 o la confianza por decisión está apagada | `chmod 600` a sus ficheros y activar la confianza por decisión con el origen admitido |
 | `free -g` por debajo de 34 GB | Copias o cachés acumuladas | No restaurar ni compilar; borrar lo propio y avisar |
 | `git worktree move` falla hacia `/dev/shm` | Cambio de dispositivo | Copiar la carpeta y `git worktree repair` |
+
+## 11. Firma compuesta (orden `firma`)
+
+Para que el paso 7b del caso 4.0 funcione, la copia necesita el plan de firma
+publicado, los firmantes con certificado y asignación, sus admisiones en
+`identidad/firma-vec.json`, la v4 de plantillas, el circuito RRHH v2 y un
+verificador GrxFirma propio. Resultado y evidencia en
+[`firma_copia_f1_32_20261019.md`](../../docs/estudio_requisitos/firma_copia_f1_32_20261019.md).
+
+Con la copia creada con `--modulos` (si alguna etapa privada necesita la aplicación, arráncala antes):
+
+```sh
+python3 deploy/principal/copia_local.py firma --equipo d --instancia <nombre> \
+  --manifiesto-firma /ruta/privada/firma.json
+```
+
+El manifiesto es privado (`0600`, fuera de Git) y solo admite estas claves:
+
+```json
+{
+  "version": 1,
+  "etapas": [{"nombre": "admin", "orden": ["/ruta/privada/etapa-admin"]}],
+  "verificador": {"binario": "/ruta/privada/grxfirma-verificador",
+                  "binario_sha256": "<sha256>", "puerto": 63174}
+}
+```
+
+1. Las etapas son el camino largo de `candidata_hz39/firma/LEEME.md`:
+   Administración y sus cuatro montajes de efectos, firmantes, AUT53,
+   asignaciones, CA45, empleados, los 14 actos, el plan y `firma-vec.json`.
+   Cada etapa es un ejecutable privado (`0700`). Se ejecutan en orden, sin el
+   entorno del operador, con `VEC_COPIA_RAIZ`, `VEC_COPIA_NOMBRE`,
+   `VEC_COPIA_PUERTO_PG` y `VEC_COPIA_PUERTO_APP`. Su salida queda en
+   `firma-etapas/<nombre>.log`. Una etapa terminada no se repite mientras su
+   orden no cambie, y si una falla las siguientes no se ejecutan.
+2. Publica la v4 de plantillas (F1-86) con `publicar_informe.sh` sobre TLS
+   verificado. Si ya estaba publicada, el recibo dice `replay`.
+3. Copia el circuito RRHH v2 y el catálogo v4 de esta revisión a
+   `material/identidad/firma-recursos/` y comprueba que `firma-vec.json`
+   apunta al plan y a la CRL de esa carpeta y que no está retirado.
+4. Instala el verificador en `<copia>/verificador` (binario con su huella, CA
+   y TLS de la copia, CRL de clientes y su credencial, que se crea la primera
+   vez y se conserva después) y añade al
+   entorno de módulos las ocho variables de firma:
+   `VEC_CT_FIRMA_VEC_R5_ENABLED`, `VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`,
+   `VEC_CT_PLANTILLAS_SOURCE_PATH` y las cinco `VEC_FIRMA_VERIFICACION_*`.
+5. Reinicia la copia. Desde entonces `arrancar` levanta el verificador antes
+   que la aplicación (con la CRL vigente de `firma-recursos`) y `parar` (y
+   `borrar`) lo para. Solo se para el proceso
+   propio: mismo ejecutable y mismo instante de arranque.
+
+Después, aprueba la provisión de los perfiles fijos de RRHH
+(`firma_documento`, `lector_entrega_peticion`) como en la presentación y
+comprueba que el preflight ofrece `certificado_vec` a la persona del paso.
+
+Para firmar en Chrome hace falta GrxFirma 0.0.106 o posterior como lanzador
+de `afirma://`. Con la 0.0.105 la segunda firma del informe sale 422. Cada
+persona usa su propia carpeta personal, con `afirma://` permitido en Chrome
+para el origen de la copia y la configuración de GrxFirma en `0600`, la
+confianza por decisión activada y el origen admitido.

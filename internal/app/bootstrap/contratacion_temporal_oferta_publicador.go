@@ -57,7 +57,8 @@ func (p publicadorOfertaBolsaCTDesarrollo) PublicarORecuperar(ctx context.Contex
 		return vacio, ct.ErrVinculoOfertaBolsaCTInvalido
 	}
 	datos := dominiobolsa.DatosOferta{Categoria: c.Datos.Categoria, Centro: c.Datos.Centro,
-		FechaInicio: c.Datos.FechaInicio, FechaFin: c.Datos.FechaFin, Descripcion: c.Datos.Descripcion}
+		FechaInicio: c.Datos.FechaInicio, FechaFin: c.Datos.FechaFin, Descripcion: c.Datos.Descripcion,
+		ModalidadClave: c.Datos.ModalidadClave, CausaClave: c.Datos.CausaClave}
 	q, err := p.puente.operacionNativa.preparadorOfertas.PrepararSolicitudPublicarOferta(captura.ctx,
 		bolsahttp.EntradaPublicarOferta{BolsaRef: c.BolsaRef, Datos: datos,
 			NumeroPlazas: c.NumeroPlazas, ClaveIdempotencia: c.ClaveBolsa})
@@ -76,7 +77,8 @@ func proyectarOfertaBolsaSeleccionCT(c ct.ComandoOfertaBolsaCT, oferta bolsa.Ofe
 	salida := ct.OfertaPublicadaSeleccionCT{ClaveBolsa: c.ClaveBolsa, BolsaRef: oferta.BolsaRef,
 		OfertaRef: oferta.OfertaRef, ReciboOfertaRef: oferta.ReciboRef, NumeroPlazas: oferta.NumeroPlazas,
 		Datos: ct.DatosOfertaSeleccionCT{Categoria: oferta.Datos.Categoria, Centro: oferta.Datos.Centro,
-			FechaInicio: oferta.Datos.FechaInicio, FechaFin: oferta.Datos.FechaFin, Descripcion: oferta.Datos.Descripcion},
+			FechaInicio: oferta.Datos.FechaInicio, FechaFin: oferta.Datos.FechaFin, Descripcion: oferta.Datos.Descripcion,
+			ModalidadClave: oferta.Datos.ModalidadClave, CausaClave: oferta.Datos.CausaClave},
 		PublicadaEn: oferta.PublicadaEn.UTC(), VenceAntesDe: oferta.VenceAntesDe.UTC()}
 	if err := salida.ValidarPara(c); err != nil {
 		return ct.OfertaPublicadaSeleccionCT{}, err

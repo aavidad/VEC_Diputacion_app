@@ -1,4 +1,4 @@
-import '../contrato-v2.js?v=20260930-codexe-publico-v2-v1';
+import '../contrato-v2.js?v=VEC_WEB_VERSION';
 
 const contrato = globalThis.VECBolsaContratoV2;
 const MAXIMO_RESPUESTA = 2 * 1024 * 1024;

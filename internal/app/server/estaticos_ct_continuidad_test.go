@@ -22,7 +22,7 @@ func TestStaticHandlerProduccionSirveContinuidadContratacionTemporal(t *testing.
 	handler := staticHandler()
 	for _, asset := range assets {
 		t.Run(asset, func(t *testing.T) {
-			contenido, err := os.ReadFile("../../../web/static" + prefijo + asset)
+			contenido, err := leerFuenteWebVersionada("../../../web/static" + prefijo + asset)
 			if err != nil {
 				t.Fatal(err)
 			}

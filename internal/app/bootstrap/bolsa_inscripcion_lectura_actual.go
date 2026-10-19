@@ -36,9 +36,11 @@ func camposLecturaInscripcionBolsa(accion string, rrhh bool) []string {
 		}
 		return resultado
 	}
-	bolsa := []string{"convocatoria_ref", "titulo", "numero_categorias", "categorias[].categoria_ref",
+	bolsa := []string{"convocatoria_ref", "titulo", "modalidad_inscripcion", "numero_categorias", "categorias[].categoria_ref",
 		"categorias[].categoria", "plazo_inicio", "plazo_fin", "catalogo_version", "requisitos_resumen",
-		"puede_iniciar", "impedimento_etiqueta", "estado_solicitud_propia", "solicitud_ref"}
+		"puede_iniciar", "impedimento_etiqueta", "estado_solicitud_propia", "solicitud_ref",
+		// F1-41: solicitudes propias por categoría (solo las rellena la ficha).
+		"solicitudes_propias[].categoria_ref", "solicitudes_propias[].solicitud_ref", "solicitudes_propias[].estado"}
 	bolsa = append(bolsa, prefijar("requisitos[].", requisitos)...)
 	solicitud := []string{"solicitud_ref", "recibo_ref", "convocatoria_ref", "convocatoria_titulo", "categoria_ref", "bolsa_ref",
 		"categoria", "declaracion_ref", "bases_ref", "catalogo_version", "plazo_inicio", "plazo_fin",

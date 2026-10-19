@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -68,6 +69,16 @@ class SegundoRRHHTest(unittest.TestCase):
             MODULO.cotejar_clave(self.material / dato["certificado"], clave_segunda)
         with self.assertRaisesRegex(ValueError, "ya existe|no se sobrescribe"):
             MODULO.preparar(self.material, "desarrollo:segunda-rrhh", "Elena Torres Ruiz")
+
+    def test_rechaza_fifo_y_enlace_multiple_antes_de_leer(self):
+        fifo = self.material / "entrada"
+        os.mkfifo(fifo, 0o600)
+        with self.assertRaisesRegex(ValueError, "propia y privada"):
+            MODULO.privado(fifo)
+        original = self.material / "ca/ca.crt"
+        os.link(original, self.material / "copia-ca.crt")
+        with self.assertRaisesRegex(ValueError, "propia y privada"):
+            MODULO.privado(original)
 
     def test_rechaza_sujeto_original_y_ca_incoherente(self):
         with self.assertRaises(ValueError):

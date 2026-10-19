@@ -1,9 +1,9 @@
-import { validarEscenario } from './modelo.js?v=20261001-formacion-preparacion-v1';
+import { validarEscenario } from './modelo.js?v=VEC_WEB_VERSION';
 
 export function crearClienteEscenario({ fetchImpl = globalThis.fetch } = {}) {
   return Object.freeze({
     async cargar({ signal } = {}) {
-      const respuesta = await fetchImpl('./escenario.json?v=20261001-formacion-preparacion-v1', {
+      const respuesta = await fetchImpl('./escenario.json?v=VEC_WEB_VERSION', {
         method: 'GET', credentials: 'omit', cache: 'no-store', redirect: 'error',
         referrerPolicy: 'no-referrer', headers: { Accept: 'application/json' }, signal,
       });

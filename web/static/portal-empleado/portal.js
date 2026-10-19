@@ -1,28 +1,28 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20261014-cronos-activacion-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=VEC_WEB_VERSION";
 import { FILTRO_INCIDENCIA_CT, filtroServidorCTValido, leerFiltroCTDeRuta,
-  limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=20261011-bolsa-b103-privacidad-v1";
-import { leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js?v=20261008-r-fichas-idioma-nav-v1";
-import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
-import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20261007-pantallas-textos-final-v1";
-import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20261007-pantallas-textos-final-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20261008-borradores-error-legible-v1";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20261007-pantallas-textos-final-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261018-f173-alta-v5";
+  limpiarFiltroCTDeBusqueda, rutaPortalConFiltroCT } from "./portal-ct-ruta-filtro.js?v=VEC_WEB_VERSION";
+import { leerFichaCTDeRuta, rutaConFichaCT } from "./portal-ct-ruta-ficha.js?v=VEC_WEB_VERSION";
+import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=VEC_WEB_VERSION";
+import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=VEC_WEB_VERSION";
+import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=VEC_WEB_VERSION";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=VEC_WEB_VERSION";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=VEC_WEB_VERSION";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_CATEGORIAS_RPT, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=VEC_WEB_VERSION";
 
-import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20261013-ct-firma-tres-v3";
-import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20261018-f104-main-v1";
-import { bolsasVigentesParaLlamamiento, instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=20261015-ofertas-recibo-v3";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=VEC_WEB_VERSION";
+import { crearTraductorPersonal, MENSAJES_PERSONAL } from "./modulos/personal/i18n.js?v=VEC_WEB_VERSION";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, RUTA_PANTALLA_CARGA_CONVOCA, sincronizarMenuBolsa, vistaBolsaNavegable, vistaBolsaPendienteNoCompuesta, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=VEC_WEB_VERSION";
+import { bolsasVigentesParaLlamamiento, instalarSelectorLlamamientos, renderizarPantallaLlamamientos } from "./portal-llamamientos-selector.js?v=VEC_WEB_VERSION";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, prepararTextosPortal, textosGrupoPortalPreparados } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20261007-pantallas-textos-final-v1";
-import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20261018-f136c-informe-v6";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=VEC_WEB_VERSION";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=VEC_WEB_VERSION";
 
-import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20261013-auditoria-rrhh-v1";
-import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
-import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20261007-pantallas-textos-final-v1";
-import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20261010-http-carga-v1";
+import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=VEC_WEB_VERSION";
+import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=VEC_WEB_VERSION";
+import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=VEC_WEB_VERSION";
+import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=VEC_WEB_VERSION";
 let tamanoPaginaMarco = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = tamanoPaginaMarco) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : tamanoPaginaMarco; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
     .filter((pagina) => pagina >= 1 && pagina <= calculo.paginas)
@@ -112,28 +112,28 @@ function cargarRecursosVista(grupo) {
   if (cargasRecursosVistas.has(grupo)) return;
   const carga = grupo === "inicio"
     ? Promise.all([
-      import("./portal-inicio.js?v=20261016-r1-o-integracion-v7"),
-      import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2"),
+      import("./portal-inicio.js?v=VEC_WEB_VERSION"),
+      import("./portal-accesos-empleado.js?v=VEC_WEB_VERSION"),
     ]).then(([inicio, accesos]) => ({ ...inicio, accesos }))
     : grupo === "accesos"
-      ? import("./portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2")
+      ? import("./portal-accesos-empleado.js?v=VEC_WEB_VERSION")
       : grupo === "operaciones"
-        ? import("./portal-vistas-operaciones.js?v=20260930-portales-i18n-integracion-v1")
+        ? import("./portal-vistas-operaciones.js?v=VEC_WEB_VERSION")
       : grupo === "documentosBolsa"
-        ? import("./modulos/bolsa/documentos-vista.js?v=20261013-documentos-bolsa-v2")
+        ? import("./modulos/bolsa/documentos-vista.js?v=VEC_WEB_VERSION")
       : grupo === "reglasSituacion"
         ? Promise.all([
-          import("./modulos/bolsa/reglas-situacion-api.js?v=20261018-f104-main-v1"),
-          import("./modulos/bolsa/reglas-situacion-ui.js?v=20261018-f104-main-v1"),
+          import("./modulos/bolsa/reglas-situacion-api.js?v=VEC_WEB_VERSION"),
+          import("./modulos/bolsa/reglas-situacion-ui.js?v=VEC_WEB_VERSION"),
           import("../comun/textos.js").then((moduloTextos) => moduloTextos.cargarTextos("bolsa-reglas-transiciones")),
         ]).then(([api, ui, textos]) => ({ ...api, ...ui, textos }))
       : grupo === "documentos"
-    ? import("./modulos/documentos/i18n.js?v=20260928-ppt-v2")
+    ? import("./modulos/documentos/i18n.js?v=VEC_WEB_VERSION")
     : grupo === "auditoria"
-      ? import("./modulos/auditoria/vista.js?v=20261013-auditoria-rrhh-v1")
+      ? import("./modulos/auditoria/vista.js?v=VEC_WEB_VERSION")
       : Promise.all([
-        import("./portal-bolsas-ofertas.js?v=20261018-f171-integracion-v1"),
-        import("./modulos/bolsa/rrhh-plazos-ui.js?v=20261016-r1-o-integracion-v7"),
+        import("./portal-bolsas-ofertas.js?v=VEC_WEB_VERSION"),
+        import("./modulos/bolsa/rrhh-plazos-ui.js?v=VEC_WEB_VERSION"),
       ]).then(([ofertas, plazos]) => ({ ...ofertas, ...plazos }));
   cargasRecursosVistas.set(grupo, carga);
   carga.then((recursos) => {
@@ -313,7 +313,7 @@ function textosVistaPreparados(grupo) {
 }
 async function prepararTextosBolsa() {
   const preparado = await prepararTextosPortal("bolsa");
-  const contratos = await import("./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1");
+  const contratos = await import("./portal-bolsas-contratos.js?v=VEC_WEB_VERSION");
   await contratos.prepararMensajesContratos(preparado.idioma);
   return preparado;
 }
@@ -456,7 +456,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261018-f171-integracion-v1");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=VEC_WEB_VERSION");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -573,8 +573,8 @@ function renderizarContenidoAyuda(contexto = null) {
         try {
           await prepararTextosPortal("ayuda");
           const [ayudaContenido, ayudanteTramites] = await Promise.all([
-            import("./ayuda-contenido.js?v=20261008-alta-etiquetas-ayuda-v2"),
-            import("./ayudante-tramites.js?v=20261008-alta-etiquetas-ayuda-v2"),
+            import("./ayuda-contenido.js?v=VEC_WEB_VERSION"),
+            import("./ayudante-tramites.js?v=VEC_WEB_VERSION"),
           ]);
           if (!activo || actual !== turno || estado.vista !== vistaAlAbrir) return;
           const ayuda = renderizarAyudaPreparada(contexto, ayudaContenido, ayudanteTramites);
@@ -909,7 +909,7 @@ async function comprobarAccesoPlantillas() {
   const controlador = new AbortController();
   consultaAccesoPlantillas = controlador;
   try {
-    const { crearClientePlantillasRRHH } = await import("./modulos/contratacion-temporal/rrhh-plantillas-cliente.js?v=20261008-alta-rpt-circular-v6");
+    const { crearClientePlantillasRRHH } = await import("./modulos/contratacion-temporal/rrhh-plantillas-cliente.js?v=VEC_WEB_VERSION");
     if (consultaAccesoPlantillas !== controlador || controlador.signal.aborted) return;
     await crearClientePlantillasRRHH().consultar({ signal: controlador.signal });
     if (consultaAccesoPlantillas !== controlador || controlador.signal.aborted) return;
@@ -1103,6 +1103,7 @@ function navegar(vista, opciones = {}) {
     estado.llamamientoDesdeCT = false;
     estado.origenLlamamientoB7 = null;
   }
+  if (vista !== "bolsa-candidatos") estado.comprobacionOfrecimiento = null;
   const hash = rutaDeVista(vista);
   if (vistaNecesitaBolsa(estado.vista) && !vistaNecesitaBolsa(vista)) {
     generacionCuadroBolsas += 1;
@@ -1159,7 +1160,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     const controlador = new AbortController(); controladorAlegacionesBolsa = controlador;
     contenedor.innerHTML = `<div data-alegaciones-montaje><p role="status">${textoPortal("estado_modulo_comprobando")}</p></div>`;
     const raiz = contenedor.querySelector("[data-alegaciones-montaje]");
-    import("../comun/alegaciones-vista.js?v=20261013-alegaciones-v1").then(async ({ montarAlegaciones }) => {
+    import("../comun/alegaciones-vista.js?v=VEC_WEB_VERSION").then(async ({ montarAlegaciones }) => {
       if (controlador.signal.aborted || estado.vista !== vista) return;
       const montaje = await montarAlegaciones({ contenedor: raiz, modo: "rrhh", escaparHTML, signal: controlador.signal });
       if (controlador.signal.aborted || estado.vista !== vista) { montaje.desmontar(); return; }
@@ -1189,7 +1190,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     const controlador = new AbortController(); controladorConfiguracionBolsa = controlador;
     contenedor.innerHTML = `<div data-configuracion-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel">${textoPortal("estado_modulo_comprobando")}</div></section></div>`;
     const raiz = contenedor.querySelector("[data-configuracion-montaje]");
-    import("./portal-bolsa-configuracion.js?v=20261016-r1-o-integracion-v7").then(async ({ montarConfiguracionBolsa }) => {
+    import("./portal-bolsa-configuracion.js?v=VEC_WEB_VERSION").then(async ({ montarConfiguracionBolsa }) => {
       if (controlador.signal.aborted || estado.vista !== vista) return;
       const montaje = await montarConfiguracionBolsa({ raiz, signal: controlador.signal, escaparHTML });
       if (controlador.signal.aborted) { montaje?.desmontar(); return; }
@@ -1214,7 +1215,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     const controlador = new AbortController(); controladorRankingBolsa = controlador;
     contenedor.innerHTML = `<div data-ranking-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel">${textoPortal("estado_modulo_comprobando")}</div></section></div>`;
     const raiz = contenedor.querySelector("[data-ranking-montaje]");
-    Promise.all([import("./portal-baremacion-ranking.js?v=20261018-f171-integracion-v1"), import("./portal-bolsas-api.js?v=20261018-f171-integracion-v1")]).then(async ([vista, cliente]) => {
+    Promise.all([import("./portal-baremacion-ranking.js?v=VEC_WEB_VERSION"), import("./portal-bolsas-api.js?v=VEC_WEB_VERSION")]).then(async ([vista, cliente]) => {
       if (controlador.signal.aborted || estado.vista !== "baremacion") return;
       const montaje = await vista.montarRankingBolsa({ raiz, bolsas: estado.datosBolsas.datos.bolsas, consultar: cliente.consultarCandidatosBolsa, signal: controlador.signal, escaparHTML });
       if (controlador.signal.aborted) { montaje?.desmontar(); return; }
@@ -1236,7 +1237,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     const raiz = contenedor.querySelector("[data-inscripciones-montaje]");
     const solicitudMeritos = vista === "meritos" ? new URLSearchParams(window.location.search).get("meritos_solicitud") : null;
     if (solicitudMeritos) {
-      import("./modulos/meritos/revision-rrhh.js?v=20261013-meritos-integracion-v8").then(async ({ montarRevisionMeritosRRHH }) => {
+      import("./modulos/meritos/revision-rrhh.js?v=VEC_WEB_VERSION").then(async ({ montarRevisionMeritosRRHH }) => {
         if (controlador.signal.aborted || estado.vista !== vista) return;
         const montaje = await montarRevisionMeritosRRHH({ raiz, solicitudRef: solicitudMeritos,
           escaparHTML, nombre: opciones.nombrePersona || "", signal: controlador.signal,
@@ -1257,7 +1258,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
       });
       return;
     }
-    import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=20261013-meritos-integracion-v8").then(async ({ montarInscripcionesRRHH }) => {
+    import("./modulos/bolsa/inscripcion-rrhh-vista.js?v=VEC_WEB_VERSION").then(async ({ montarInscripcionesRRHH }) => {
       if (controlador.signal.aborted || estado.vista !== vista) return;
       const montaje = await montarInscripcionesRRHH({ raiz, signal: controlador.signal,
         revisionMeritos: vista === "meritos",
@@ -1480,8 +1481,13 @@ function aplicarRutaCandidatosBolsa() {
     ...(filtro.seguimiento ? { seguimiento: { llamamiento_ref: filtro.seguimiento, bolsa_ref: filtro.bolsaRef } } : {}) };
   // El origen de una petición de personal vive fuera de los filtros: el asistente lo copia al iniciarse.
   estado.origenLlamamientoB7 = filtro.origen ? Object.freeze({ ...filtro.origen, bolsa_ref: filtro.bolsaRef }) : null;
+  // Comprobación pendiente propuesta desde la selección CT: la ficha la ofrece a esa persona.
+  estado.comprobacionOfrecimiento = filtro.comprobacion ?? null;
   estado.datosCandidatos = null;
   const carga = controladorBolsas.cargarCandidatosBolsa(filtro.bolsaRef, { enfocarDestino: true });
+  if (filtro.comprobacion) {
+    void carga.then(() => controladorBolsas.abrirComprobacionOfrecimiento()).then((aviso) => { if (aviso) anunciar(aviso); });
+  }
   if (filtro.origen && !filtro.seguimiento) {
     void carga.then(() => {
       if (estado.vista !== "bolsa-candidatos" || estado.bolsaSeleccionada !== filtro.bolsaRef
@@ -1976,7 +1982,7 @@ let selectorLlamamientos = null;
 let promesaRutasBolsa = null;
 function prepararRutasBolsa() {
   if (rutasBolsa) return Promise.resolve(rutasBolsa);
-  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7")
+  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION")
     .then((rutas) => { rutasBolsa = rutas; return rutas; })
     .catch((error) => { promesaRutasBolsa = null; throw error; });
   return promesaRutasBolsa;
@@ -1993,7 +1999,7 @@ function vistaNecesitaBolsa(vista = estado.vista) {
 function cargaConvocaDisponible() {
   if (estado.cargaConvocaDisponible === null) {
     estado.cargaConvocaDisponible = false;
-    import("../comun/http.js?v=20261012-sonda-frontera-v1")
+    import("../comun/http.js?v=VEC_WEB_VERSION")
       .then(({ rutaEnvioPublicada }) => rutaEnvioPublicada("/api/vec/bolsa/cargas-convoca"))
       .then((disponible) => {
         if (disponible !== true) return;
@@ -2007,10 +2013,10 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261018-f136c-informe-v6"),
-    import("./portal-bolsas-api.js?v=20261018-f171-integracion-v1"),
-    import("./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7"),
-    import("./modulos/contratacion-temporal/cliente-http.js?v=20261018-f173-alta-v5"),
+    import("./portal-panel-interno.js?v=VEC_WEB_VERSION"),
+    import("./portal-bolsas-api.js?v=VEC_WEB_VERSION"),
+    import("./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION"),
+    import("./modulos/contratacion-temporal/cliente-http.js?v=VEC_WEB_VERSION"),
   ]).then(([panel, bolsas, rutas, ct]) => {
     if (!vistaNecesitaBolsa()) {
       promesaBolsaBase = null;
@@ -2176,6 +2182,7 @@ function instalarEnlacesBolsa() {
       estado.filtrosBolsa = { estado: "", texto: "" };
       estado.datosCandidatos = null;
       estado.origenLlamamientoB7 = null;
+      estado.comprobacionOfrecimiento = null;
       rutaCandidatosAplicada = null;
       const ruta = `${destino.pathname}${destino.search}${destino.hash}`;
       if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
@@ -2190,6 +2197,7 @@ function instalarEnlacesBolsa() {
         : esHistoricoCT ? { pestana: "historico" } : {}) };
     estado.datosCandidatos = null;
     estado.origenLlamamientoB7 = null;
+    estado.comprobacionOfrecimiento = null;
     rutaCandidatosAplicada = null;
     const ruta = `${destino.pathname}${destino.search}${destino.hash}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)

@@ -1,5 +1,6 @@
 /** Contrato neutral y cerrado del alta de contratación temporal. */
-import { validarCatalogoPreparacion } from "./contrato-cobertura.js?v=20261002-ct-fin-modalidad-v1";
+import { validarCatalogoPreparacion } from "./contrato-cobertura.js?v=VEC_WEB_VERSION";
+import { operacionRCDeclaradaValida, referenciaRCDeclarada } from "./rc-declarada.js?v=VEC_WEB_VERSION";
 
 export const CAPACIDAD_CREAR_SOLICITUD = "contratacion_temporal.solicitud.crear";
 
@@ -625,7 +626,9 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
   if (typeof borrador.rc_existe !== "boolean") {
     agregarError(errores, "rc_existe", "booleano");
   } else if (borrador.rc_existe) {
-    if (!referenciaValida(borrador.rc_numero)) agregarError(errores, "rc_numero", "referencia");
+    // El centro declara el número de operación de SICAL; no elige documento.
+    if (conPeticionCentro ? !operacionRCDeclaradaValida(borrador.rc_numero)
+      : !referenciaValida(borrador.rc_numero)) agregarError(errores, "rc_numero", conPeticionCentro ? "rc_operacion" : "referencia");
     if (!fechaCivilValida(borrador.rc_fecha)) agregarError(errores, "rc_fecha", "fecha");
     const importe = analizarEntradaMonetaria(borrador.rc_importe);
     if (importe === null || (!importe.excedeMaximo && importe.centimos <= 0)) {
@@ -633,7 +636,7 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
     } else if (importe.excedeMaximo) {
       agregarError(errores, "rc_importe", "importe_maximo");
     }
-    if (!catalogos.documentos.some(
+    if (conPeticionCentro ? borrador.rc_documento_ref !== "" : !catalogos.documentos.some(
       (opcion) => opcion.referencia === borrador.rc_documento_ref,
     )) {
       agregarError(errores, "rc_documento_ref", "opcion_catalogo");
@@ -760,7 +763,8 @@ export function crearComandoPeticionCentro(borrador, catalogos, claveIdempotenci
       numero: borrador.rc_numero,
       fecha: instanteCivilUTC(borrador.rc_fecha),
       importe: { centimos: centimosDesdeEntrada(borrador.rc_importe), moneda: "EUR" },
-      documento_ref: borrador.rc_documento_ref,
+      documento_ref: Object.hasOwn(borrador, "puesto_solicitado")
+        ? referenciaRCDeclarada(borrador.rc_numero) : borrador.rc_documento_ref,
     }
     : { existe: false };
   const comando = validarComandoPeticionCentro({

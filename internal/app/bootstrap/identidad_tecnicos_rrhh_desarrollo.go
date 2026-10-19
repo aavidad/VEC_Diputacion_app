@@ -66,7 +66,7 @@ func cargarSegundoTecnicoRRHHDesarrollo(
 	}
 	certificado, err := decodificarCertificadoUnico(pem)
 	if err != nil || certificado == nil || certificado.IsCA ||
-		certificado.NotAfter.Sub(certificado.NotBefore) > 91*24*time.Hour ||
+		certificado.NotAfter.Sub(certificado.NotBefore) > 90*24*time.Hour ||
 		certificado.NotAfter.After(time.Now().UTC().Add(90*24*time.Hour)) {
 		return nil, ErrMaterialDesarrolloInvalido
 	}

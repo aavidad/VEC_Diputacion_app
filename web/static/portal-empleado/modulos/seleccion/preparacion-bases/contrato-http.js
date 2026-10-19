@@ -1,4 +1,4 @@
-import { forma, contenido, pendiente, ref, comprobarClaves, CAMPOS_REFERENCIA, MAXIMO_BYTES } from './modelo.js?v=20261003-s2-consulta-v1';
+import { forma, contenido, pendiente, ref, comprobarClaves, CAMPOS_REFERENCIA, MAXIMO_BYTES } from './modelo.js?v=VEC_WEB_VERSION';
 
 export class ErrorConsultaBases extends Error {
   constructor(codigo) { super(codigo); this.codigo = codigo; }

@@ -1,6 +1,6 @@
-import { crearPreparacionRectificacionPropia } from "./preparacion-rectificacion-propia.js?v=20261004-b-rectificacion-validacion-v3";
-import { traducirPreparacionRectificacion as t } from "./i18n-preparacion-rectificacion-propia.js?v=20261004-personal-rectificacion-v2";
-import { formatearFechaHistoriaServicios as fecha, formatearInstanteHistoriaServicios as instante, formatearNumeroHistoriaServicios as numero } from "./i18n-historia-servicios-propia.js?v=20261004-personal-historia-v1";
+import { crearPreparacionRectificacionPropia } from "./preparacion-rectificacion-propia.js?v=VEC_WEB_VERSION";
+import { traducirPreparacionRectificacion as t } from "./i18n-preparacion-rectificacion-propia.js?v=VEC_WEB_VERSION";
+import { formatearFechaHistoriaServicios as fecha, formatearInstanteHistoriaServicios as instante, formatearNumeroHistoriaServicios as numero } from "./i18n-historia-servicios-propia.js?v=VEC_WEB_VERSION";
 
 const nodo = (d, tipo, texto) => { const n = d.createElement(tipo); if (texto !== undefined) n.textContent = texto; return n; };
 const valor = (campo, dato) => campo.startsWith("periodo_") ? fecha(dato) : campo === "dias_reconocidos" ? numero(dato) : campo === "estado" ? t(`estados.${dato}`) : dato || t("general.no_consta");

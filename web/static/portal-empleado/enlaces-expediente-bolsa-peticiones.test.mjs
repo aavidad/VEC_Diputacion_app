@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderizarExpediente } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorExpedientesContratacion } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { EVENTO_EXPEDIENTES_CENTRO, renderizarPeticionCentro, renderizarPeticionesCentroRRHH } from "./peticiones-centro/peticiones-centro.js?v=20261008-alta-rpt-circular-v6";
+import { renderizarExpediente } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { EVENTO_EXPEDIENTES_CENTRO, renderizarPeticionCentro, renderizarPeticionesCentroRRHH } from "./peticiones-centro/peticiones-centro.js?v=VEC_WEB_VERSION";
 import { EVENTO_EXPEDIENTES_CENTRO as EVENTO_INCORPORACIONES, idFilaExpediente } from "./peticiones-centro/incorporaciones-centro.js";
 
 // Los datos que tiene sentido abrir llevan enlace a su pantalla, y solo si el
@@ -54,7 +54,7 @@ test("RRHH enlaza cada petición entregada con su expediente en Contratación te
 });
 
 test("los enlaces de Peticiones del centro hacia el portal conservan el idioma de la página", async () => {
-  const { urlPortalContratacion } = await import("./peticiones-centro/peticiones-centro.js?v=20261008-alta-rpt-circular-v6");
+  const { urlPortalContratacion } = await import("./peticiones-centro/peticiones-centro.js?v=VEC_WEB_VERSION");
   assert.equal(urlPortalContratacion(), "/portal-empleado/?lang=es#contratacion-temporal");
   assert.equal(urlPortalContratacion("expediente:ct:1"), "/portal-empleado/?lang=es&expediente=expediente%3Act%3A1#contratacion-temporal");
   const html = renderizarPeticionesCentroRRHH({ peticiones: [{ peticion, estado_entrega: "confirmada",

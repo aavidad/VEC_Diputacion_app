@@ -48,7 +48,7 @@ const contrasteAlto = { ...granate, ...valores(tema, "body.alto-contraste") };
 test("Verificar carga la hoja común antes de su CSS versionado y conserva el cotejo público", () => {
   const hojas = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((coincidencia) => coincidencia[1]);
   assert.deepEqual(hojas.map((href) => href.split("?", 1)[0]), ["/comun/tema-vec.css", "/verificar/verificar.css"]);
-  assert.equal(hojas[1], "/verificar/verificar.css?v=20260925-cotejo-publico-v2");
+  assert.equal(hojas[1], "/verificar/verificar.css?v=VEC_WEB_VERSION");
   // tema-vec.css cambió después de esta versión publicada: pide una URL nueva.
   const versionTema = new URL(hojas[0], "https://vec.example").searchParams.get("v");
   assert.ok(versionTema && versionTema !== "20260924-f2-tema-base-v2", "tema-vec.css renueva su URL");

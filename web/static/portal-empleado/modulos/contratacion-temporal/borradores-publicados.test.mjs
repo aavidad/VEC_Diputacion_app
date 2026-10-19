@@ -3,8 +3,8 @@ import { createHash, webcrypto } from "node:crypto";
 import test from "node:test";
 import { crearClienteBorradoresPublicados, RUTA_BORRADORES_DISPONIBLES,
   RUTA_BORRADORES_PUBLICADOS, validarBorradoresDisponibles } from "./cliente-http-borradores-publicados.js";
-import { montarBorradoresPublicados, renderizarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261008-alta-rpt-circular-v6";
-import { composicionPermiteLegado } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { montarBorradoresPublicados, renderizarBorradoresPublicados } from "./vista-borradores-publicados.js?v=VEC_WEB_VERSION";
+import { composicionPermiteLegado } from "./vista-expedientes.js?v=VEC_WEB_VERSION";
 
 const contexto = Object.freeze({ expediente_ref: "expediente:ct:1", version_observada: 8 });
 const catalogo = Object.freeze({ esquema: "vec.contratacion-temporal.borradores-disponibles.v1",

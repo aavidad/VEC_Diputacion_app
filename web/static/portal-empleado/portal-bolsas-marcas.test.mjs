@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa, validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261001-ct-a-i18n-v1";
-import { validarCandidato } from "./portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1";
-import { consultarSeleccionMasivaBolsa, seleccionarParticipacionesPorEstado } from "./portal-bolsas-api.js?v=20261015-firma-ofertas-justificante-integracion-v2";
+import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa, validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=VEC_WEB_VERSION";
+import { validarCandidato } from "./portal-bolsas-contrato.js?v=VEC_WEB_VERSION";
+import { consultarSeleccionMasivaBolsa, seleccionarParticipacionesPorEstado } from "./portal-bolsas-api.js?v=VEC_WEB_VERSION";
 
 const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 const marcasCompletas = { presta_servicios: "excluir", en_revision: "renuncia_pendiente", encadenamiento: { dias_acumulados: 578, umbral_meses: 18, ventana_meses: 24 } };

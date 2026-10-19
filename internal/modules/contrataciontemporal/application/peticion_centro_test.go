@@ -178,6 +178,9 @@ func TestPeticionCentroExigeJornadaPersonasYPuestoAntesDeEscribir(t *testing.T) 
 		{"sin jornada", func(s *domain.SolicitudCentro) { s.JornadaMinutos = 0 }},
 		{"sin personas", func(s *domain.SolicitudCentro) { s.NumeroPersonas = 0 }},
 		{"sin puesto", func(s *domain.SolicitudCentro) { s.PuestoSolicitado = "" }},
+		// El centro solo declara el número de operación de la RC en SICAL.
+		{"rc con documento custodiado", func(s *domain.SolicitudCentro) { s.RC = rcCentroPrueba("220260001234", "doc:rc:001") }},
+		{"rc con forma de dni", func(s *domain.SolicitudCentro) { s.RC = rcCentroPrueba("12345678Z", "rc-declarado:12345678Z") }},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			entrada := *solicitud
@@ -320,4 +323,10 @@ func servicioPeticionCentroPrueba(t *testing.T) (*ServicioPeticionCentro, *autor
 		t.Fatal(err)
 	}
 	return servicio, autoridad, repo, solicitud, ahora
+}
+
+func rcCentroPrueba(numero, documento string) domain.DeclaracionRC {
+	return domain.DeclaracionRC{Existe: true, Numero: numero,
+		Fecha:   time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC),
+		Importe: domain.Importe{Centimos: 123456, Moneda: "EUR"}, DocumentoRef: documento}
 }

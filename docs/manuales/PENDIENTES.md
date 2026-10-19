@@ -1,5 +1,11 @@
 # Recorridos pendientes
 
+## Comprobación de Intervención del 19 de octubre de 2026
+
+En una copia local se registraron una fiscalización favorable, otra favorable con observaciones y otra desfavorable, en tres expedientes distintos. Los tres devolvieron recibo. Se comprobaron los campos y la validación de observaciones en Chrome a 1440 y 390 píxeles. Tras reiniciar la aplicación y la base de datos, RRHH consultó la conformidad y el reparo: conservaban su versión, fecha e historial.
+
+La copia no tenía disponible el circuito de firma. Siguen pendientes la remisión con el informe firmado y el recorrido completo de reparo, subsanación, nuevo informe firmado y nueva fiscalización en un mismo expediente. También falta comprobar la consulta de antecedentes y la recuperación del recibo anterior desde el acceso propio de Intervención. Los pasos y las capturas están en [el manual de Intervención](intervencion.md).
+
 ## Comprobación del 9 de octubre de 2026
 
 Se recorrieron en orden la petición del centro, su ratificación, el expediente 2026/93001 que salió de ella, el llamamiento, el contacto telefónico y la aceptación desde Mi bolsa, siempre con la misma persona de la bolsa. Las imágenes del formulario del centro se tomaron aparte, con una petición de ejemplo que no se presentó.

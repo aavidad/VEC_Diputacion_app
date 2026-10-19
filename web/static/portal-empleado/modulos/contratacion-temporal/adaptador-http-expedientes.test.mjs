@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=20261018-f136c-informe-v4";
-import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261018-f136c-informe-v4";
-import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261018-f136c-informe-v4";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261018-f136c-informe-v4";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=VEC_WEB_VERSION";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=VEC_WEB_VERSION";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",
@@ -534,7 +534,7 @@ test("con el análisis hecho y el servidor aún en solicitud, lista y ficha cons
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
   await adaptador.listar();
   const expediente = await adaptador.obtener(resumen.expediente_ref);
-  assert.deepEqual(expediente.fases.map(({ estado_clave }) => estado_clave), ["en_curso", "pendiente", "pendiente"]);
+  assert.deepEqual(expediente.fases.map(({ estado_clave }) => estado_clave), ["en_curso", "completado", "pendiente"]);
   // La cabecera nombra la misma fase que el raíl.
   assert.match(expediente.cabecera.find(({ clave }) => clave === "fase").valor, /Solicitud/u);
 });
@@ -814,7 +814,7 @@ test("raíl deriva los cinco estados y reabre fases tras un retorno real", async
     {accion_clave:"contratacion_temporal.cobertura.decidir",fase_origen:"solicitud",fase_destino:"asignacion_unidad",estado_destino:"en_curso"},
   ];
   assert.deepEqual((await proyectar("asignacion_unidad","en_curso",analisisEnSolicitud)).slice(0,4),["completado","completado","en_curso","pendiente"]);
-  assert.deepEqual((await proyectar("solicitud","en_curso",analisisEnSolicitud.slice(0,2))).slice(0,3),["en_curso","pendiente","pendiente"]);
+  assert.deepEqual((await proyectar("solicitud","en_curso",analisisEnSolicitud.slice(0,2))).slice(0,3),["en_curso","completado","pendiente"]);
 });
 
 test("adaptador obtiene catálogo por cliente.catalogosAlta si obtenerCatalogos devuelve null, una sola vez por montaje", async () => {

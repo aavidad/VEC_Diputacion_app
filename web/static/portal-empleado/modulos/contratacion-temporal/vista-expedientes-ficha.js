@@ -7,7 +7,7 @@
  * HTML puro a partir del detalle ya autorizado: no ejecuta actuaciones ni
  * deduce responsables o plazos que el servidor no haya dado.
  */
-import { faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
+import { faseRRHH } from "./fases-rrhh-datos.js?v=VEC_WEB_VERSION";
 
 function escapar(valor) {
   return String(valor ?? "")
@@ -98,13 +98,25 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
     && resultadoFiscalizacion !== "desfavorable" && !bloqueado && !terminado && !incidencia
     && (resumen?.fase_clave === "fiscalizacion" || expediente.fases?.some(({ fase_ref: ref, estado_clave: e }) => (
       typeof ref === "string" && ref.endsWith(":fiscalizacion") && e !== "pendiente" && e !== "completado")));
-  const titulo = guiaCobertura ? t("ficha_siguiente_paso_cobertura_titulo")
+  const ultimoHito = expediente.historial?.at(-1);
+  const guiaInforme = !bloqueado && !terminado && !espera && !incidencia
+    && resumen?.fase_clave === "informe_juridico" && resumen.estado_clave === "en_curso"
+    && resumen.version === expediente.version && estado.expediente_ref === expediente.expediente_ref
+    && ultimoHito?.accion_clave === "contratacion_temporal.informe_juridico.generar"
+    && ultimoHito.version_expediente === expediente.version;
+  const quien = guiaInforme ? t("ficha_siguiente_paso_informe_quien")
+    : guiaCobertura || fiscalizacionFavorable ? t("unidad_recursos_humanos")
+    : esperaIntervencion ? t("ficha_siguiente_paso_intervencion_quien")
+    : tarea ? actor || t("siguiente_paso_quien_desconocido") : "";
+  const titulo = guiaInforme ? t("ficha_siguiente_paso_informe_titulo")
+    : guiaCobertura ? t("ficha_siguiente_paso_cobertura_titulo")
     : fiscalizacionFavorable ? t("ficha_siguiente_paso_fiscalizacion_favorable_titulo")
     : esperaIntervencion ? t("ficha_siguiente_paso_espera")
     : terminado ? t("ficha_siguiente_paso_terminado")
     : (espera ? t("ficha_siguiente_paso_espera")
       : (nombreFase ? t("ficha_siguiente_paso_fase", { fase: nombreFase }) : t("siguiente_paso_titulo")));
-  const que = guiaCobertura ? t("ficha_siguiente_paso_cobertura_que")
+  const que = guiaInforme ? t("ficha_siguiente_paso_informe_que")
+    : guiaCobertura ? t("ficha_siguiente_paso_cobertura_que")
     : fiscalizacionFavorable ? t("ficha_siguiente_paso_fiscalizacion_favorable_que")
     : esperaIntervencion ? t("ficha_siguiente_paso_fiscalizacion_intervencion")
     : accion?.etiqueta ?? (tarea ? t("siguiente_paso_espera", { tarea: tarea.etiqueta }) : t("siguiente_paso_sin_tarea"));
@@ -117,14 +129,14 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
     <div>
       <h3 id="ct-exp-siguiente-paso-titulo">${escapar(titulo)}</h3>
       <dl>
-        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera || guiaCobertura || fiscalizacionFavorable || esperaIntervencion ? escapar(que)
+        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera || guiaInforme || guiaCobertura || fiscalizacionFavorable || esperaIntervencion ? escapar(que)
     : `<span class="ct-exp-que-con-tramite">${escapar(t("siguiente_paso_tramite_abajo"))}</span><span class="ct-exp-que-sin-tramite">${escapar(que)}</span>`}</dd></div>
-        ${tarea && !guiaCobertura && !fiscalizacionFavorable ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(actor || t("siguiente_paso_quien_desconocido"))}</dd></div>` : ""}
+        ${quien ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(quien)}</dd></div>` : ""}
         <div><dt>${escapar(t("siguiente_paso_hasta"))}</dt><dd>${escapar(plazo)}</dd></div>
       </dl>
       <p id="ct-exp-siguiente-paso-estado" role="status" aria-live="polite" aria-atomic="true">${bloqueado ? escapar(t(mensajeBloqueo)) : ""}</p>
     </div>
-    ${terminado || espera || guiaCobertura || fiscalizacionFavorable || esperaIntervencion ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite"${bloqueado ? ' disabled aria-disabled="true" aria-describedby="ct-exp-siguiente-paso-estado"' : ""}>${escapar(t("ficha_ir_tramite"))}</button>`}
+    ${terminado || espera || guiaInforme || guiaCobertura || fiscalizacionFavorable || esperaIntervencion ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite"${bloqueado ? ' disabled aria-disabled="true" aria-describedby="ct-exp-siguiente-paso-estado"' : ""}>${escapar(t("ficha_ir_tramite"))}</button>`}
   </section>`;
 }
 

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=20261008-alta-rpt-circular-v4";
+import { prepararTextosPersonal } from "../modulos/personal/i18n.js?v=VEC_WEB_VERSION";
 
 await prepararTextosPersonal();
 const { MONTAJE_ORGANIZACION_HISTORICA, iniciarHistorico, iniciarImportacion,
-  iniciarPestanasOrganizacion } = await import("./historico.js?v=20261008-alta-rpt-circular-v4");
+  iniciarPestanasOrganizacion } = await import("./historico.js?v=VEC_WEB_VERSION");
 
 const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
 const etiqueta = (id) => html.match(new RegExp(`<[a-z]+[^>]*\\bid="${id}"[^>]*>`))?.[0] ?? "";

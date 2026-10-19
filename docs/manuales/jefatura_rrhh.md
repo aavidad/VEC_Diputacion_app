@@ -89,6 +89,45 @@ vigente de su rol puede consultar y descargar el justificante de una renuncia
 en las bolsas que tiene autorizadas.
 La actuación figura también en el seguimiento y la consulta queda auditada.
 
+### 4.5 Modalidad de inscripción de una convocatoria
+
+La convocatoria muestra si corresponde una solicitud por categoría o una para
+varias categorías. En este corte, la modalidad procede de la versión certificada
+cargada como dato de la copia. RRHH todavía no puede elegirla ni guardarla desde
+Preparación de bases; esa función espera la adaptación del núcleo vigente.
+
+La aspirante ve la modalidad en la lista y la ficha. Si es conjunta, la ficha
+explica que aún no puede presentar la solicitud desde esta página y no ofrece
+el formulario individual. Las bases no quedan aprobadas ni publicadas por esta
+carga de datos.
+
+### 4.6 Publicación oficial de las bases
+
+Las bases se publican fuera de VEC, en el boletín o el tablón que ellas mismas
+fijan, y el plazo de solicitudes se cuenta desde esa publicación. VEC no
+publica en el boletín: anota que la publicación se ha hecho. Por cada versión
+de la convocatoria guarda el medio (Boletín Oficial de la Provincia de
+Granada, tablón de edictos electrónico, BOE o BOJA), el número del boletín, la
+referencia del anuncio, la fecha y, si se quiere, el enlace. La anotación
+tiene recibo y no se borra; un error se arregla con una corrección que
+sustituye a la anterior.
+
+La inscripción solo se abre cuando la versión vigente tiene esa anotación y
+el plazo grabado en ella empieza entre el día siguiente a la publicación y
+cinco días naturales después (lo que dura un fin de semana con jueves y
+viernes festivos, como en Semana Santa). Sin la anotación, o si las fechas no
+encajan, la convocatoria no aparece a la aspirante aunque el plazo esté
+abierto. Si la aspirante llega a ella por un enlace, VEC le dice que el plazo
+está cerrado: ese aviso no significa que el plazo haya vencido, sino que aún
+no consta la publicación. Si el boletín sale antes o después de
+lo previsto, hay que preparar y publicar en VEC una versión nueva con el plazo
+correcto y anotar la publicación en esa versión.
+
+Hoy la anotación la hace Informática con la cuenta propietaria de la base de
+datos; en la copia local se carga como dato ficticio. Falta que RRHH pueda
+hacerla desde su pantalla, con su permiso, y que el plazo se calcule solo a
+partir de la fecha de publicación.
+
 ## 5. Un contrato temporal, paso a paso
 
 Este es el recorrido completo tal y como funciona hoy en VEC.
@@ -115,7 +154,7 @@ El técnico prepara el informe. Lo firman el técnico y la Jefatura del Servicio
 
 ### Paso 6. Intervención fiscaliza
 
-Intervención abre la ficha y registra el resultado. Si hay reparo, el expediente vuelve a RRHH, que lo subsana, hace un informe nuevo firmado por la Jefatura y lo devuelve a Intervención. Con el catálogo de plazos v3, Intervención tiene 10 días hábiles (5 si es urgente) y RRHH 15 para subsanar. Son plazos del Real Decreto 424/2017, arts. 10.2, 10.3 y 12.4; no se editan desde la pantalla. VEC cuenta la subsanación desde que el servicio recibe el reparo; no registra por separado su aceptación. Los expedientes anteriores conservan la versión con que se tramitaron.
+Intervención abre el expediente que le remite RRHH y registra el resultado. Si hay reparo, el expediente vuelve a RRHH, que lo subsana, hace un informe nuevo firmado por la Jefatura y lo devuelve a Intervención. Con el catálogo de plazos v3, Intervención tiene 10 días hábiles (5 si es urgente) y RRHH 15 para subsanar. Son plazos del Real Decreto 424/2017, arts. 10.2, 10.3 y 12.4; no se editan desde la pantalla. VEC cuenta la subsanación desde que el servicio recibe el reparo; no registra por separado su aceptación. Los expedientes anteriores conservan la versión con que se tramitaron.
 
 ### Paso 7. Ofrecimiento a la bolsa
 
@@ -176,6 +215,10 @@ Cada cambio queda guardado como una versión nueva, con su motivo y quién lo hi
 
 **Hoy.** Intervención puede abrir Fiscalización desde un enlace y ver en la
 cabecera el total de sus áreas disponibles al terminar la carga.
+El [manual de Intervención](intervencion.md) recoge el registro de conformidad,
+conformidad con observaciones y reparo comprobado el 19 de octubre en una copia
+local. En esa copia faltaba el circuito de firma; sigue pendiente completar
+la remisión firmada, la subsanación y la nueva fiscalización juntas.
 
 Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, qué falta y cómo queremos que funcione VEC cuando esté terminada.
 
@@ -185,20 +228,22 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Administración de perfiles | La lista de personas y su ficha funcionan con la configuración aprobada. Está preparado el cierre de la administración cuando falta esa configuración. | Instalar y comprobar este cierre en el entorno compartido; terminar la asignación de perfiles desde pantalla. | Los administradores gestionan los perfiles con los controles y aprobaciones que correspondan. |
 | Vigencia de Administración | Está preparada la renovación de su configuración hasta 90 días en desarrollo. Los permisos de las personas conservan sus propios plazos. | Instalar y comprobar la renovación en el entorno compartido. | La renovación mantiene el acceso administrativo y conserva el registro de lo publicado. |
 | Bolsas que vienen de Convoca | Se cargan desde el Excel de Convoca. | Nada para cargar las bolsas actuales. | La carga sirve solo para pasar a VEC las bolsas que ya existen. Las nuevas se hacen enteras en VEC. |
-| Convocatorias, inscripción, méritos y alegaciones | Programado: el aspirante se inscribe, declara sus méritos con documentos y presenta alegaciones; RRHH admite o rechaza. | Activarlo en el entorno de pruebas. | VEC sustituye a Convoca. El aspirante hace todo desde su área personal y RRHH lo revisa en pantalla. |
+| Convocatorias, inscripción, méritos y alegaciones | Programado: el aspirante se inscribe, declara sus méritos con documentos y presenta alegaciones; RRHH admite o rechaza. La inscripción solo se abre si consta la publicación oficial de las bases (apartado 4.6). | Activarlo en el entorno de pruebas. Que RRHH anote la publicación de las bases desde su pantalla. | VEC sustituye a Convoca. El aspirante hace todo desde su área personal y RRHH lo revisa en pantalla. |
 | Cartera personal de méritos | La consulta de títulos, cursos y experiencia está programada en «Mis méritos». | Activarla y comprobarla en el entorno compartido. | La persona consulta sus méritos y su estado. Más adelante podrá ver su valoración y sus puntos en cada bolsa. |
 | Preferencias de Mi Bolsa | La consulta de preferencias existe. Está preparado un ajuste para que un intento sin permiso quede registrado sin figurar como lectura realizada. | Ensayarlo en una copia con una persona autorizada y otra sin permiso; comprobar también el reinicio antes de integrarlo. | La persona consulta sus preferencias con su permiso, y los intentos rechazados quedan registrados. |
 | Baremación | No existe todavía. | Que RRHH cierre cómo se acreditan los méritos. | VEC calcula los puntos con el baremo de cada convocatoria, que RRHH puede cambiar. RRHH revisa y publica las listas provisional y definitiva. |
 | Situación de los candidatos | Las ocho situaciones funcionan y cambian solas con el expediente. RRHH ve las cifras y las listas. En la copia local se han publicado dos versiones de las reglas de cambio de situación desde pantalla, con motivo y recibo; después de reiniciar se conservan las reglas actuales y el recibo de la publicación anterior. | Integrar y activar la pantalla de reglas en la candidata. Activar y comprobar juntos la subida del PDF, su recibo, el antivirus y la descarga desde la ficha del candidato. | El aspirante aporta el justificante desde Mi Bolsa y RRHH lo consulta con su permiso. RRHH publica las reglas de cambio de situación desde pantalla. |
 | Confirmación de aceptación directa | Disponible en la candidata tras activar el permiso: desde la ficha, «Confirmar aceptación del llamamiento», motivo, revisión y confirmación. En la copia local se recuperó el mismo recibo después de perder la respuesta y reiniciar. | Integrar la función y completar las comprobaciones de activación. | RRHH confirma la aceptación del llamamiento directo; la persona pasa a pendiente de incorporación y conserva su respuesta y recibo. |
-| A quién se ofrece un puesto | Comprobado en copia local: regla guardada desde la web con su recibo, selección según el orden y motivos históricos visibles por persona. Comprobado desde la ficha: se detiene en la primera persona que trabaja sin datos fiables de su contrato y muestra la posición y la versión de la regla. El registro de los hechos y su recibo está programado. | Activar el permiso del registro y terminar la pantalla para comprobar los datos con su justificante; la regla aprobada para otros supuestos de mejora de empleo (duda 163). La elección de modalidades sigue pendiente de norma o bases propias (duda 164). Está preparada la adaptación de la consulta de preferencias para las modalidades; falta activarla y comprobarla junto con la pantalla. | RRHH ve los motivos y puede ofrecer una vacante a quien trabaja en los supuestos tasados del artículo 9 del Reglamento, tras comprobar el tiempo previo. |
+| A quién se ofrece un puesto | Comprobado en copia local: regla guardada desde la web con su recibo, selección según el orden y motivos históricos visibles por persona. Comprobado desde la ficha: se detiene en la primera persona que trabaja sin datos fiables de su contrato y muestra la posición y la versión de la regla. El registro de los hechos y su recibo está programado. | Activar el permiso del registro y terminar la pantalla para comprobar los datos con su justificante; la regla aprobada para otros supuestos de mejora de empleo (duda 163). La elección de modalidades sigue pendiente de norma o bases propias (duda 164). El servidor ya guarda y lee la elección de modalidades de la aspirante con su justificante; falta activar su permiso, aplicarla a la vista y a los avisos, y la pantalla. | RRHH ve los motivos y puede ofrecer una vacante a quien trabaja en los supuestos tasados del artículo 9 del Reglamento, tras comprobar el tiempo previo. |
+| Comprobación del ofrecimiento | Preparada la regla técnica que liga cada comprobación a la persona, la bolsa y los datos del expediente. Todavía no está activada. | Instalarla junto con el permiso de RRHH y comprobar el recibo, la corrección y la recuperación tras reiniciar. | RRHH deja constancia de lo comprobado antes de ofrecer el puesto. |
 | Comprobación del puesto ofrecido | Consulta del puesto en Personal comprobada en la copia local, con permiso, recibo y reinicio. | Completar el ofrecimiento desde la petición y comprobarlo en el recorrido. | VEC contrasta el puesto de la petición con su historia antes de ofrecerlo. |
 | Confirmación del llamamiento | En la copia local se recupera el mismo llamamiento y su justificante, también después de reiniciar. El control para conservar una sola selección confirmada por expediente está ensayado en copia local, también frente a dos confirmaciones simultáneas. La ficha muestra el llamamiento después de reiniciar. | Integrar el control y comprobar la candidata conjunta. | La ficha conserva el justificante original y permite continuar sin llamar otra vez a la persona. |
 | Aviso de la oferta | Comprobado en la copia local del 18/10: publicación desde «Gestionar ofertas», pendientes conservados tras reiniciar y configuración corregida sin perder la operación. Un contacto ausente queda fallido; un envío sin confirmación no se repite automáticamente. El envío no cambia el plazo. | Integrar los dos cortes ensayados: el segundo permite revisar y confirmar el reintento de un envío sin confirmación, y recuperar el mismo recibo tras reiniciar. El correo de la Diputación depende de Informática. | Conserva recibo y fecha; no repite automáticamente un envío cuyo resultado se desconoce. |
 | Retomar un aviso pendiente | Comprobado en copia local: la ficha recupera el llamamiento y su justificante tras reiniciar; permite anotar el aviso y conserva su recibo. | Integrar el cambio. Anotar el aviso no envía correo ni acredita recepción. | La ficha permite continuar el aviso y conserva el llamamiento original al recargar o reiniciar. |
 | Ofertas de varias plazas | Desde una bolsa seleccionada, RRHH abre «Gestionar ofertas», configura el inicio del plazo y publica la oferta. Bolsa adjudica las plazas por orden y conserva el recibo al reintentar. En la copia local del 18/10 aceptaron dos personas y se adjudicó por su orden, aunque respondieron al revés. La primera adjudicación se recuperó tras perder su respuesta y reiniciar, con el mismo recibo y fecha; no hubo duplicados. Cada plaza conserva la consulta y la copia del recibo de sus adjudicaciones después de reiniciar. No responder no causa baja. La publicación desde la ficha del expediente está preparada, con permisos de la organización y la unidad que lo tramita; aún falta ensayarla junto con la base y la configuración. La ficha consultará el intento guardado al recargar, para recuperar la misma operación sin preparar otra oferta; esta recuperación está pendiente de comprobar en el recorrido completo. | Ensayar la publicación desde el expediente y continuar con la propuesta desde la oferta adjudicada. También están pendientes la consulta de Organización histórica, la correspondencia entre la unidad que tramita y la del puesto y la asignación de los permisos necesarios. Después, retirar la oferta al cancelar y enviar el aviso por correo de la Diputación. | Una petición de varias personas se cubre con una sola oferta. |
+| Propuesta desde una oferta adjudicada | Está preparado el control que autoriza crear un expediente hijo para cada plaza adjudicada. Aún no está activado. | Instalarlo junto al recorrido de la propuesta; comprobar que repetirla devuelve el mismo recibo y no crea otro expediente. | RRHH prepara un nombramiento por cada plaza adjudicada y conserva la relación con el expediente de origen. |
 | Petición del centro | Se presenta y la ratifica otra persona del centro. | RRHH pidió que la petición vaya firmada por el técnico y por el Diputado o Diputada. | Petición firmada desde VEC. |
-| Comprobar un ofrecimiento pendiente | Preparadas la identificación del caso y la consulta de su última comprobación y recibo, distinguiendo los datos que han cambiado. RRHH no tendrá que escribir referencias internas. | Integrar y recorrer la consulta y la pantalla de registro. La selección sigue detenida hasta resolver la comprobación. | RRHH registra los hechos con sus justificantes y conserva el recibo. |
+| Comprobar un ofrecimiento pendiente | Preparada la pantalla en la ficha de la persona: el aviso «pendiente de comprobación» de la selección lleva a ella. Los datos del contrato que Bolsa ya conserva vienen rellenos. Para cada dato, RRHH elige el documento que lo acredita: el contrato registrado o un documento que guarda RRHH, indicado con su número de registro o de expediente. El navegador calcula la huella digital del archivo, que no se envía. Antes de registrar se revisan los datos; después se muestra el recibo, y si no llega respuesta se reintenta sin duplicar. La reserva comprueba de nuevo esos datos y detiene la operación si la comprobación ha cambiado desde la consulta. | Integrar el servidor y la pantalla, activar el permiso y recorrerlo con una persona pendiente real de la copia. La huella no prueba que VEC custodie el documento ni equivale a una firma. El descuento del tiempo trabajado y el ofrecimiento condicionado siguen pendientes. | RRHH registra los hechos con sus justificantes y conserva el recibo. |
 | Tramitación del expediente | Análisis, crédito, vía de cobertura, unidad, informe e Intervención. | Decidir con RRHH si el ofrecimiento va antes o después de Intervención. | El orden de las fases que fije RRHH, que se puede cambiar por configuración. |
 | Documentos | Comprobados desde la ficha ocho tipos en PDF y Word: 16 descargas con los datos del expediente. El informe se vuelve a descargar igual tras reiniciar, también en móvil. | Comprobar los documentos incorporados con su módulo activado y los de cese y modificación cuando haya casos registrados. Siguen pendientes las plantillas definitivas de RRHH. | Documentos con las plantillas oficiales, listos para firmar. |
 | Unidad del puesto ofrecido | Comprobada en la selección local: Personal consulta la unidad del puesto y se conserva la unidad gestora del expediente. | Integrar la composición ensayada y completar el recorrido. | RRHH puede gestionar un puesto de otro centro sin confundir ambas unidades. |

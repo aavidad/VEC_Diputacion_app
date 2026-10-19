@@ -4,10 +4,11 @@ import {
   validarReciboResultadoFiscalizacion,
   validarSolicitudResultadoFiscalizacion,
 } from "./contrato-fiscalizacion.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { MENSAJES_FIRMA_REMISION_ACTUAL } from "./i18n-firma-remision.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL } from "./i18n-informe-tras-subsanacion.js?v=20261007-pantallas-textos-final-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { MENSAJES_FIRMA_REMISION_ACTUAL } from "./i18n-firma-remision.js?v=VEC_WEB_VERSION";
+import { MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL } from "./i18n-informe-tras-subsanacion.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "../../portal-justificante.js";
+import { nombreEstado, nombreFaseRRHH } from "./i18n-fases-rrhh.js?v=VEC_WEB_VERSION";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
@@ -130,6 +131,18 @@ function renderizarFormulario(estado, t) {
   </form>`;
 }
 
+/**
+ * Rótulo del catálogo único de fases y estados. Si la clave no está en el
+ * catálogo, muestra la clave legible en lugar de interrumpir el recibo.
+ */
+export function rotuloTramiteSeguro(nombrar, clave) {
+  try {
+    const rotulo = nombrar(clave);
+    if (typeof rotulo === "string" && rotulo !== "") return rotulo;
+  } catch { /* Sin rótulo en el catálogo: se usa el respaldo. */ }
+  return String(clave ?? "").replaceAll("_", " ");
+}
+
 function renderizarRecibo(recibo, t, formateador) {
   return `<section class="ct-recibo" data-ct-fiscalizacion-recibo role="status"
     aria-live="polite" aria-atomic="true" tabindex="-1"
@@ -141,9 +154,9 @@ function renderizarRecibo(recibo, t, formateador) {
       <div><dt>${escaparHTML(t("fiscalizacion_recibo_resultado"))}</dt><dd>${
   escaparHTML(etiquetaResultado(recibo.resultado, t))}</dd></div>
       <div><dt>${escaparHTML(t("fiscalizacion_recibo_fase"))}</dt><dd>${
-  escaparHTML(recibo.fase_resultante.replaceAll("_", " "))}</dd></div>
+  escaparHTML(rotuloTramiteSeguro(nombreFaseRRHH, recibo.fase_resultante))}</dd></div>
       <div><dt>${escaparHTML(t("fiscalizacion_recibo_estado"))}</dt><dd>${
-  escaparHTML(recibo.estado_resultante.replaceAll("_", " "))}</dd></div>
+  escaparHTML(rotuloTramiteSeguro(nombreEstado, recibo.estado_resultante))}</dd></div>
       <div><dt>${escaparHTML(t("fiscalizacion_recibo_version"))}</dt><dd>${
   recibo.version_resultante}</dd></div>
       <div><dt>${escaparHTML(t("fiscalizacion_recibo_referencia"))}</dt><dd>${

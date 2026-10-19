@@ -1,5 +1,5 @@
-import { comprobarClaves, forma } from '../preparacion-bases/modelo.js?v=20261003-s2-consulta-v1';
-import { validarReferencia, validarRevision, validarHuella } from '../preparacion-bases/contrato-http.js?v=20261003-s2-consulta-v2';
+import { comprobarClaves, forma } from '../preparacion-bases/modelo.js?v=VEC_WEB_VERSION';
+import { validarReferencia, validarRevision, validarHuella } from '../preparacion-bases/contrato-http.js?v=VEC_WEB_VERSION';
 
 export const MAXIMO_BYTES = 4 * 1024 * 1024;
 export const FIJOS = Object.freeze({ antecedente_tribunal: 'antecedente_no_cotejado', fase_propuesta: 'pertenencia_no_verificada',

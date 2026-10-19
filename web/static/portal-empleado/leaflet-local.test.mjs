@@ -36,18 +36,18 @@ test("los activos locales coinciden con la distribución oficial aprobada", asyn
 
 test("el portal carga Leaflet local antes de evaluar sus módulos", async () => {
   const html = await readFile(new URL("index.html", directorioPortal), "utf8");
-  const cargaCSS = `href="${rutaWebLeaflet}leaflet.css?v=1.9.4"`;
-  const cargaJS = `src="${rutaWebLeaflet}leaflet.js?v=1.9.4"`;
+  const cargaCSS = `href="${rutaWebLeaflet}leaflet.css?v=VEC_WEB_VERSION"`;
+  const cargaJS = `src="${rutaWebLeaflet}leaflet.js?v=VEC_WEB_VERSION"`;
   const posicionLeaflet = html.indexOf(cargaJS);
   const posicionPrimerModulo = html.indexOf('<script type="module"');
 
   assert.ok(html.includes(cargaCSS), "falta la hoja de estilos local de Leaflet");
   assert.ok(posicionLeaflet >= 0, "falta el JavaScript local de Leaflet");
   assert.ok(posicionPrimerModulo > posicionLeaflet, "Leaflet debe cargarse antes del primer módulo");
-  assert.match(html, /leaflet\.css\?v=1\.9\.4" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"/);
-  assert.match(html, /leaflet\.js\?v=1\.9\.4" integrity="sha384-tM1WyRnQZLXgeuR\/dXHqqQcD5jN9\+bgKmZW55OJtM9Bv7zCG4VFwmgdJudAtzIni"/);
+  assert.match(html, /leaflet\.css\?v=VEC_WEB_VERSION" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"/);
+  assert.match(html, /leaflet\.js\?v=VEC_WEB_VERSION" integrity="sha384-tM1WyRnQZLXgeuR\/dXHqqQcD5jN9\+bgKmZW55OJtM9Bv7zCG4VFwmgdJudAtzIni"/);
 
-  const etiquetaLeaflet = html.match(/<script[^>]+leaflet\.js\?v=1\.9\.4[^>]*><\/script>/i)?.[0] ?? "";
+  const etiquetaLeaflet = html.match(/<script[^>]+leaflet\.js\?v=VEC_WEB_VERSION[^>]*><\/script>/i)?.[0] ?? "";
   assert.notEqual(etiquetaLeaflet, "", "la carga de Leaflet debe ser una etiqueta script cerrada");
   assert.doesNotMatch(etiquetaLeaflet, /\b(?:async|defer|type)\s*=/i, "la carga clásica debe terminar antes de evaluar módulos");
   assert.doesNotMatch(html, /<(?:script|link)\b[^>]*(?:https?:)?\/\//i, "el portal no puede cargar scripts ni estilos desde CDN");

@@ -57,14 +57,16 @@ func (s seleccionSoporteSeguimientoRRHH) ResolverContextoAutorizacionAltaV3(ctx 
 }
 
 // La hoja adicional no concede nada por sí sola. Solo se consume una
-// asignación ya publicada al perfil sintético y al actor exactos.
+// asignación ya publicada al perfil sintético y al actor exactos: la semilla
+// (solo organización) o la misma asignación ya ceñida por una operación
+// anterior a un expediente en nombramiento, como hace la técnica original.
 func instantaneaSegundoRRHHNoIncorporacionValida(i vecdomain.InstantaneaAutorizacion, principal, perfil string, ahora time.Time) bool {
 	if i.Validar() != nil || i.AsignacionPerfil.PrincipalID != principal ||
 		i.AsignacionPerfil.PerfilActivoRef != perfil ||
 		i.AsignacionPerfil.Estado != vecdomain.EstadoAsignacionPerfilActiva ||
 		!i.AsignacionPerfil.VigenteEn(ahora) ||
 		i.ControlVigenciaVersionRol.Estado != vecdomain.EstadoControlVigenciaVersionRolHabilitada ||
-		len(i.AsignacionPerfil.Ambitos) < 1 || len(i.AsignacionPerfil.Ambitos) > 2 {
+		len(i.AsignacionPerfil.Ambitos) < 1 || len(i.AsignacionPerfil.Ambitos) > 4 {
 		return false
 	}
 	ambitos := map[string]string{}
@@ -74,8 +76,29 @@ func instantaneaSegundoRRHHNoIncorporacionValida(i vecdomain.InstantaneaAutoriza
 		}
 		ambitos[ambito.Clave] = ambito.Valores[0]
 	}
-	if ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
-		(len(ambitos) == 2 && !domain.ReferenciaOpacaValida(ambitos["expediente_ref"])) {
+	for clave, valor := range ambitos {
+		switch clave {
+		case "organizacion_ref":
+			if valor != organizacionAltaContratacionTemporalDesarrollo {
+				return false
+			}
+		case "expediente_ref":
+			if !domain.ReferenciaOpacaValida(valor) {
+				return false
+			}
+		case "fase_previa":
+			if valor != string(domain.FaseNombramiento) {
+				return false
+			}
+		case "estado_previo":
+			if valor != string(domain.EstadoEnCurso) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	if ambitos["organizacion_ref"] == "" {
 		return false
 	}
 	for _, concesion := range i.VersionRol.Concesiones {
@@ -92,13 +115,13 @@ func instantaneaSegundoRRHHNoIncorporacionValida(i vecdomain.InstantaneaAutoriza
 	return false
 }
 
-func expedienteAdmitidoSegundoRRHH(i vecdomain.InstantaneaAutorizacion, expediente string) bool {
-	for _, ambito := range i.AsignacionPerfil.Ambitos {
-		if ambito.Clave == "expediente_ref" {
-			return len(ambito.Valores) == 1 && ambito.Valores[0] == expediente
-		}
-	}
-	return true
+// baseSegundoRRHH devuelve la instantánea con el ámbito de organización: cada
+// operación la vuelve a ceñir al expediente exacto antes de decidir.
+func baseSegundoRRHH(i vecdomain.InstantaneaAutorizacion) vecdomain.InstantaneaAutorizacion {
+	base := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(i)
+	base.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref",
+		Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}}
+	return base
 }
 
 // Preparación local: publica solo ContextoActor sintético mediante el productor
@@ -107,8 +130,11 @@ func expedienteAdmitidoSegundoRRHH(i vecdomain.InstantaneaAutorizacion, expedien
 func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *DependenciasCT,
 	alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo,
 ) (*soporteAltaContratacionTemporalDesarrollo, autorizadorLigadoContratacionTemporalDesarrollo) {
-	if dependencias == nil || dependencias.resolvedor == nil || dependencias.resolvedor.segundoTecnicoRRHH == nil ||
-		alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil {
+	if dependencias == nil || dependencias.resolvedor == nil || dependencias.resolvedor.segundoTecnicoRRHH == nil {
+		return nil, nil
+	}
+	if alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil {
+		avisoSegundoTecnicoRRHH("dependencias_alta")
 		return nil, nil
 	}
 	base, ok := alta.soporte.sesionOperativa.(*proveedorSesionConsultaRRHHDesarrollo)
@@ -119,26 +145,40 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 	principal := dependencias.resolvedor.segundoTecnicoRRHH.principal
 	contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(principal, reloj.Ahora())
 	if err != nil || contexto.Resultado.Validar() != nil {
+		registrarFalloSegundoTecnicoRRHH("contexto_sintetico", err)
 		return nil, nil
 	}
 	vinculo, err := contexto.Vinculo.Datos()
 	if err != nil || vinculo.PrincipalID != contexto.Resultado.Contexto.PersonaRef {
+		registrarFalloSegundoTecnicoRRHH("vinculo_contexto", err)
 		return nil, nil
 	}
 	perfil := vinculo.PerfilActivoRef
 	publicada, existe, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, alta.postgresql.gobierno, perfil)
-	if err != nil || !existe || !instantaneaSegundoRRHHNoIncorporacionValida(publicada.instantanea, vinculo.PrincipalID, perfil, reloj.Ahora()) {
+	if err != nil || !existe || publicada.actoAsignacion != actoAsignacionCTDesarrollo ||
+		!instantaneaSegundoRRHHNoIncorporacionValida(publicada.instantanea, vinculo.PrincipalID, perfil, reloj.Ahora()) {
 		slog.Warn("segundo técnico de RRHH sin asignación c22 consumible; no se activa no incorporación")
+		return nil, nil
+	}
+	alta.soporte.mu.Lock()
+	registro := alta.soporte.registroDecisionesAnalisis
+	alta.soporte.mu.Unlock()
+	if registro == nil {
+		avisoSegundoTecnicoRRHH("registro_decisiones")
 		return nil, nil
 	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
 		sello: alta.soporte.sello, principalID: principal.ID,
 		certificadoSHA256: principal.Attributes["certificate_sha256"],
 		contexto:          contexto, reloj: reloj,
-		seguimientoCese:          &soporteSeguimientoCeseDesarrollo{instantanea: publicada.instantanea},
-		concesiones:              make(map[string]struct{}),
-		instantaneasPorSolicitud: make(map[string]vecdomain.InstantaneaAutorizacion),
+		seguimientoCese:            &soporteSeguimientoCeseDesarrollo{instantanea: baseSegundoRRHH(publicada.instantanea)},
+		concesiones:                make(map[string]struct{}),
+		instantaneasPorSolicitud:   make(map[string]vecdomain.InstantaneaAutorizacion),
+		registroDecisionesAnalisis: registro,
 	}
+	// Igual que la técnica original y los lectores de RRHH: cada operación
+	// ciñe la asignación ya sembrada al expediente exacto antes de decidir.
+	soporte.autoridadAsignaciones = &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: alta.postgresql.gobierno, soporte: soporte}
 	if err := publicarResultadoContextoPostgreSQLDesarrollo(ctx, alta.postgresql.gobierno,
 		contexto.Resultado, operacionContextoContratacionTemporalDesarrollo(soporte)); err != nil {
 		slog.Warn("segundo técnico de RRHH sin contexto registrado; no se activa no incorporación")
@@ -146,6 +186,7 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 	}
 	derivador := dependencias.derivador
 	if derivador == nil || !derivador.valido() {
+		avisoSegundoTecnicoRRHH("derivador")
 		return nil, nil
 	}
 	seudonimos, err := (&seudonimizadorSesionDesarrollo{derivador: derivador}).SeudonimizarAlta(ctx,
@@ -158,12 +199,14 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 	}
 	esperado, err := contextoEsperadoRegistradoDesarrollo(ctx, base.resolutor, soporte)
 	if err != nil {
+		registrarFalloSegundoTecnicoRRHH("contexto_registrado", err)
 		return nil, nil
 	}
 	soporte.contextoEsperadoRegistrado = esperado
 	sesion, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(soporte, base.registro,
 		base.revalidador, reloj, base.resolutor, base.fronteras)
 	if err != nil {
+		registrarFalloSegundoTecnicoRRHH("sesion_nominal", err)
 		return nil, nil
 	}
 	soporte.sesionOperativa = sesion
@@ -171,7 +214,19 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 		reloj, seguridadvec.GeneradorReferenciasCriptograficas{},
 		aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
 	if err != nil {
+		registrarFalloSegundoTecnicoRRHH("autorizador", err)
 		return nil, nil
 	}
 	return soporte, autorizador
+}
+
+// avisoSegundoTecnicoRRHH deja en el registro técnico la etapa que impide
+// activar la segunda hoja, sin datos personales ni detalles internos.
+func avisoSegundoTecnicoRRHH(etapa string) {
+	slog.Warn("segundo técnico de RRHH no activado; se conserva el técnico original", "etapa", etapa)
+}
+
+// registrarFalloSegundoTecnicoRRHH registra además el error que impide activarlo.
+func registrarFalloSegundoTecnicoRRHH(etapa string, err error) {
+	slog.Warn("segundo técnico de RRHH no activado; se conserva el técnico original", "etapa", etapa, "error", err)
 }

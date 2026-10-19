@@ -13,11 +13,27 @@ import (
 )
 
 const (
-	vigenciaMaximaComprobacionDependencias  = 15 * time.Minute
-	maximoBytesVersionConvocatoriaGobernada = 8 * 1024 * 1024
-	esquemaContenidoVersionConvocatoria     = "bolsa.version-convocatoria.contenido.v4"
-	esquemaEstadoVersionConvocatoria        = "bolsa.version-convocatoria.estado.v3"
+	vigenciaMaximaComprobacionDependencias    = 15 * time.Minute
+	maximoBytesVersionConvocatoriaGobernada   = 8 * 1024 * 1024
+	esquemaContenidoVersionConvocatoriaLegado = "bolsa.version-convocatoria.contenido.v4"
+	esquemaContenidoVersionConvocatoria       = "bolsa.version-convocatoria.contenido.v5"
+	esquemaEstadoVersionConvocatoriaLegado    = "bolsa.version-convocatoria.estado.v3"
+	esquemaEstadoVersionConvocatoria          = "bolsa.version-convocatoria.estado.v4"
 )
+
+func esquemaContenidoParaModalidad(modalidad ModalidadInscripcionConvocatoria) string {
+	if modalidad == "" {
+		return esquemaContenidoVersionConvocatoriaLegado
+	}
+	return esquemaContenidoVersionConvocatoria
+}
+
+func esquemaEstadoParaModalidad(modalidad ModalidadInscripcionConvocatoria) string {
+	if modalidad == "" {
+		return esquemaEstadoVersionConvocatoriaLegado
+	}
+	return esquemaEstadoVersionConvocatoria
+}
 
 type EstadoGobiernoConvocatoria string
 
@@ -237,7 +253,7 @@ func (v VersionConvocatoriaGobernada) representacionContenidoSinValidar() ([]byt
 		Contenido            ContenidoPublicableConvocatoria        `json:"contenido"`
 		Configuracion        ConfiguracionFijadaConvocatoria        `json:"configuracion"`
 		ExpedienteRef        string                                 `json:"expediente_ref"`
-	}{esquemaContenidoVersionConvocatoria, v.ID, v.Secuencia, v.CodigoVersionPublica,
+	}{esquemaContenidoParaModalidad(contenido.ModalidadInscripcion), v.ID, v.Secuencia, v.CodigoVersionPublica,
 		v.VersionAnteriorRef, v.InstanciaFlujoRef,
 		materialAmbitoOrganizativoConvocatoriaDe(v.AmbitoOrganizativo),
 		contenido, configuracion, v.ExpedienteRef}
@@ -254,7 +270,7 @@ func (v VersionConvocatoriaGobernada) RepresentacionCanonica() ([]byte, error) {
 		return nil, err
 	}
 	material := materialEstadoVersionConvocatoria{
-		Esquema: esquemaEstadoVersionConvocatoria,
+		Esquema: esquemaEstadoParaModalidad(canonica.Contenido.ModalidadInscripcion),
 		ID:      canonica.ID, Secuencia: canonica.Secuencia,
 		CodigoVersionPublica: canonica.CodigoVersionPublica, Revision: canonica.Revision,
 		VersionAnteriorRef: canonica.VersionAnteriorRef, InstanciaFlujoRef: canonica.InstanciaFlujoRef,
@@ -302,7 +318,7 @@ func DecodificarVersionConvocatoriaGobernadaCanonica(
 	}
 	var resto any
 	if err := decodificador.Decode(&resto); !errors.Is(err, io.EOF) ||
-		material.Esquema != esquemaEstadoVersionConvocatoria {
+		material.Esquema != esquemaEstadoParaModalidad(material.Contenido.ModalidadInscripcion) {
 		return VersionConvocatoriaGobernada{}, ErrVersionConvocatoriaGobernadaInvalida
 	}
 

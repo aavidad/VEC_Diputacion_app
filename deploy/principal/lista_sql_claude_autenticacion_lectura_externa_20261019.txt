@@ -1,0 +1,5 @@
+# F1-84 — la lectura de inscripción del aspirante coteja su sesión externa.
+# Requiere instaladas IS07, IS20, CA47 y AD289. Orden: IS22 -> AD298.
+# Las dos comprueban su preimagen y se niegan a reaplicarse; sin DOWN.
+deploy/postgresql/identidad_sesiones_v1/migraciones/000022_cotejo_historico_autenticacion_portal_externo.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000298_autenticacion_lectura_inscripcion_externa.up.sql

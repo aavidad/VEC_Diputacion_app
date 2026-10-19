@@ -11,6 +11,7 @@
     "denegada": "Su acceso no permite hacer esta consulta. Pida ayuda a la oficina de atención.",
     "noEncontrada": "Esta bolsa o solicitud ya no está disponible. Vuelva al listado y actualícelo.",
     "noDisponible": "La inscripción en bolsas no está abierta en este momento. Vuelva a consultarla más tarde.",
+    "inscripcionConjuntaPendiente": "En esta bolsa se presenta una sola solicitud para varias categorías y esta página todavía no permite hacerlo. No se ha registrado su solicitud. Vuelva a las bolsas.",
     "conflicto": "La información de la bolsa ha cambiado o ya existe una solicitud. Consulte Mis solicitudes antes de repetir el envío.",
     "plazoCerrado": "El plazo o los requisitos de esta bolsa han cambiado. Vuelva al listado y consulte la ficha actualizada.",
     "reintentar": "Reintentar",
@@ -26,6 +27,10 @@
     "mostradas": "Mostradas {visibles} de {total} bolsas",
     "plazo": "Plazo de inscripción",
     "categoria": "Categoría",
+    "modalidadInscripcion": "Cómo se presenta la solicitud",
+    "modalidadSeparada": "Una solicitud por categoría",
+    "modalidadConjunta": "Una solicitud para varias categorías",
+    "modalidadConjuntaNoDisponible": "En esta bolsa se presenta una sola solicitud para varias categorías y esta página todavía no permite hacerlo. Si el plazo está a punto de terminar, contacte con la oficina de atención.",
     "categorias": {
       "one": "{cuenta} categoría",
       "other": "{cuenta} categorías"

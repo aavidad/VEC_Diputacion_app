@@ -1,4 +1,4 @@
-import { validarConsultaCircuitoRRHH, validarCircuitoRRHH } from "./contrato-circuito-rrhh.js?v=20261002-rrhh-circuito-v2";
+import { validarConsultaCircuitoRRHH, validarCircuitoRRHH } from "./contrato-circuito-rrhh.js?v=VEC_WEB_VERSION";
 
 export const RUTA_CONSULTA_CIRCUITO_RRHH = "/api/vec/contratacion-temporal/circuito/consulta";
 const MAXIMO_BYTES = 128 * 1024;

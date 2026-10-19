@@ -13,20 +13,21 @@ import {
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
-} from "./portal-bolsas-contrato.js?v=20261016-r1-o-integracion-v7";
-import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20261011-ct-bolsa-vinculo-v1";
-import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261018-f171-main-v4";
-import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261018-f171-main-v4";
-import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261016-r1-o-integracion-v7";
-export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261016-r1-o-integracion-v7";
-import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
-import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261018-f175-contacto-propio-v1";
-import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261016-r1-o-integracion-v7";
-import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
-import { canalesAviso, descargarJustificanteRenuncia } from "./portal-bolsas-seguimiento.js?v=20261016-r1-o-integracion-v7";
+} from "./portal-bolsas-contrato.js?v=VEC_WEB_VERSION";
+import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=VEC_WEB_VERSION";
+import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=VEC_WEB_VERSION";
+import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=VEC_WEB_VERSION";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=VEC_WEB_VERSION";
+import { crearControladorComprobacion, prepararTextosComprobacion } from "./portal-bolsas-comprobacion.js?v=VEC_WEB_VERSION";
+import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=VEC_WEB_VERSION";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=VEC_WEB_VERSION";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=VEC_WEB_VERSION";
+import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=VEC_WEB_VERSION";
+import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=VEC_WEB_VERSION";
+import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=VEC_WEB_VERSION";
+import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
+import { canalesAviso, descargarJustificanteRenuncia } from "./portal-bolsas-seguimiento.js?v=VEC_WEB_VERSION";
 import { cargarTextos } from "../comun/textos.js";
 
 const TEXTOS_VINCULO_CT = (await cargarTextos("portal-bolsa")).seccion("vinculo_ct");
@@ -611,6 +612,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     estado.datosCandidatos = { carga: "denegado", datos: null, error: mensaje };
   }
   const controladorIntentosContacto = crearControladorIntentosContacto({ estado, renderizar });
+  const controladorComprobacion = crearControladorComprobacion({ estado, renderizar });
   const controladorCorreoB7 = crearControladorCorreoLlamamiento({ estado, renderizar });
   const controladorOrigenContacto = crearControladorOrigenContacto({ estado, renderizar });
   // Tras registrar o corregir el contacto se vuelve a leer su origen.
@@ -869,10 +871,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     return Boolean(estado.modalFicha?.enviandoCambioSituacion || estado.modalFicha?.resultadoInciertoCambioSituacion);
   }
 
-  function abrirFicha(participacionRef) {
+  // `fuera` admite a la persona leída fuera de la página visible (comprobación del ofrecimiento).
+  function abrirFicha(participacionRef, fuera = null) {
     if (fichaProtegida()) { documento.querySelector?.("[data-directa-paso]")?.focus?.(); return; }
     const datos = estado.datosCandidatos?.datos;
-    const candidato = datos?.candidatos?.find((item) => item.participacion_ref === participacionRef);
+    const candidato = datos?.candidatos?.find((item) => item.participacion_ref === participacionRef)
+      ?? (fuera?.participacion_ref === participacionRef ? fuera : null);
     if (!candidato || !datos?.bolsa) return;
     estado.modalFicha?.controladorOperaciones?.abort();
     estado.modalFicha?.controladorReincorporaciones?.abort();
@@ -900,9 +904,46 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     void controladorOperacionesB8.cargar(estado.modalFicha);
     void controladorIntentosContacto.cargar(estado.modalFicha);
     void controladorOrigenContacto.cargar(estado.modalFicha);
+    void controladorComprobacion.cargar(estado.modalFicha);
     documento.querySelector("[data-bolsa-ficha-inline='true']")?.focus?.();
     // Desde el seguimiento, «Llamar» lleva directamente al registro de la llamada.
     if (seguimiento) documento.querySelector("[data-intentos-raiz='true']")?.scrollIntoView?.({ block: "start" });
+  }
+
+  // Busca a la persona por orden de acta cuando no está en la página visible.
+  async function buscarPorActa(bolsaRef, participacionRef) {
+    const fuente = fuenteLectura();
+    const consultar = (ref, opciones) => (fuente?.consultarCandidatosBolsa
+      ? fuente.consultarCandidatosBolsa(ref, opciones, {}) : consultarCandidatosBolsa(ref, opciones));
+    let cursor = "";
+    for (let pagina = 0; pagina < 40; pagina += 1) {
+      const r = await consultar(bolsaRef, { orden: "acta", cursor, limite: 50 });
+      if (!r?.ok) return null;
+      const hallada = r.datos?.candidatos?.find((item) => item.participacion_ref === participacionRef);
+      if (hallada) return hallada;
+      if (!r.datos?.hay_mas || !r.datos.cursor_siguiente || r.datos.cursor_siguiente === cursor) return null;
+      cursor = r.datos.cursor_siguiente;
+    }
+    return null;
+  }
+
+  // Desde el aviso de la selección CT: abre la ficha de la persona pendiente, esté o no en la
+  // página visible. Si no se encuentra, deja un aviso visible sobre la lista y lo devuelve.
+  async function abrirComprobacionOfrecimiento() {
+    const propuesta = estado.comprobacionOfrecimiento;
+    const c = propuesta?.contexto;
+    const carga = estado.datosCandidatos;
+    if (!c || estado.bolsaSeleccionada !== c.bolsa_ref || carga?.carga !== "listo" || estado.modalFicha) return "";
+    const candidato = carga.datos?.candidatos?.find((item) => item.participacion_ref === c.participacion_ref)
+      ?? await buscarPorActa(c.bolsa_ref, c.participacion_ref).catch(() => null);
+    if (estado.comprobacionOfrecimiento !== propuesta || estado.datosCandidatos !== carga || estado.modalFicha) return "";
+    if (candidato) { abrirFicha(c.participacion_ref, candidato); return ""; }
+    const textos = await prepararTextosComprobacion().catch(() => null);
+    if (!textos || estado.datosCandidatos !== carga) return "";
+    carga.avisoComprobacion = Object.freeze({ texto: textos.traducir("ficha.no_encontrada", { posicion: c.orden_acta }),
+      boton: textos.traducir("ficha.ir_peticiones") });
+    renderizar();
+    return carga.avisoComprobacion.texto;
   }
 
   // Tras anotar llamadas, la vista de seguimiento se vuelve a leer al dejar la ficha.
@@ -972,6 +1013,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     controladorOperacionesB8.instalar(documento);
     controladorIntentosContacto.instalar(documento);
     controladorSancionesB24.instalar(documento);
+    controladorComprobacion.instalar(documento);
     controladorRegistroContacto.instalar(documento);
     controladorCorreoB7.instalar(documento);
     documento.addEventListener("change", (evento) => {
@@ -1579,6 +1621,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     cargarGlobalBolsa,
     cargarEstadisticas,
     abrirFicha,
+    abrirComprobacionOfrecimiento,
     cerrarFicha,
     olvidarEmisionConfirmada,
 	    abrirContactos, cerrarContactos,
