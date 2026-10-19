@@ -44,7 +44,7 @@ En la comprobación, los recibos mostraron la versión resultante 6. La versión
 
 ## 4. Qué ocurre después
 
-Con un resultado favorable, RRHH continúa la tramitación. Después del recibo pueden aparecer avisos de que no tiene permiso para consultar los llamamientos. Esos avisos corresponden al apartado de llamamientos; si el recibo de fiscalización ya está confirmado, no vuelva a registrar el resultado por ese motivo.
+Con un resultado favorable, RRHH continúa la tramitación y se encarga del llamamiento. Su pantalla termina en el recibo.
 
 Con un resultado desfavorable, RRHH debe subsanar y remitir de nuevo el expediente. Pida el nuevo enlace y la versión actualizada antes de volver a fiscalizar. La subsanación y esa nueva fiscalización no se completaron en este recorrido.
 
@@ -60,7 +60,7 @@ Intervención abre el formulario desde el menú o un enlace, elige el resultado,
 
 ### Falta
 
-Completar en un mismo expediente la remisión con las firmas verificadas del informe, el reparo, la subsanación, el nuevo informe firmado y una nueva fiscalización. También queda pendiente consultar los antecedentes y recuperar el recibo anterior desde el acceso propio de Intervención. Hoy este acceso pide la referencia y la versión; no muestra una bandeja de expedientes remitidos. Además, el recibo muestra la fase con su nombre interno («fiscalizacion») y, debajo del recibo, aparece el formulario de llamamientos, que no corresponde a Intervención: ambos defectos están por corregir en la aplicación.
+Completar en un mismo expediente la remisión con las firmas verificadas del informe, el reparo, la subsanación, el nuevo informe firmado y una nueva fiscalización. También queda pendiente consultar los antecedentes y recuperar el recibo anterior desde el acceso propio de Intervención. Hoy este acceso pide la referencia y la versión; no muestra una bandeja de expedientes remitidos.
 
 ### Al final
 
