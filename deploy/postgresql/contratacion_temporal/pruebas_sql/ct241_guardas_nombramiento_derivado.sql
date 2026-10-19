@@ -16,41 +16,43 @@ DO $estructura$
 DECLARE x record; c text;
 BEGIN
  FOR x IN SELECT f.firma,f.huella,f.consumo,p.prosecdef,p.proacl::text AS acl,p.proconfig,
-   pg_get_functiondef(p.oid) AS def
+   pg_get_functiondef(p.oid) AS def,
+   '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,'||
+    coalesce(f.acl,'vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario')||'}' AS acl_esperada
   FROM (VALUES
    ('vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid,text,text)',
     '52a4058e93be16793cdd9cadc0778b452d48385848dbe167c58a2f84855b3730',
-    'INSERT INTO vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6'),
+    'INSERT INTO vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6',NULL),
    ('vec_contratacion_temporal.reservar_seleccion_oferta_ct220(jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
     '6a8e5f1feff9051e960a8db3866669569c5c551eca009d7f6889c87f88e383e8',
-    'consumir_etapa_seleccion_oferta_ct220('),
+    'consumir_etapa_seleccion_oferta_ct220(',NULL),
    ('vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
     'fd7421e9d5dba11dda82368873a8ea41a30fc5002f921e0f226b649ba13ac344',
-    'leer_ambitos_vinculo_emision_bolsa_ct_v1('),
+    'leer_ambitos_vinculo_emision_bolsa_ct_v1(',NULL),
    ('vec_contratacion_temporal.consultar_estado_oferta_expediente_ct225(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
     '82941407107240e6c27850e86c85b6d8706fe9fea8486f3e23ae207ebb4947f9',
-    'registrar_y_consumir_vinculo_oferta_bolsa_ct_v3_atestada('),
+    'registrar_y_consumir_vinculo_oferta_bolsa_ct_v3_atestada(',NULL),
    ('vec_contratacion_temporal.preparar_contexto_estado_oferta_ct227(text,text)',
     'e596c2e5a65f4a29ce306021de21cfe416767c71f58006247d1ee76534284a92',
-    'RETURN QUERY'),
+    'RETURN QUERY',NULL),
    ('vec_contratacion_temporal.consultar_circuito_rrhh_v1(text,text,bigint,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
     '0081675ff4ab7e4961dc1ee1f01b96922ccf78291f3d3eb9af4ce95e45fae732',
-    'registrar_y_consumir_consulta_circuito_ct_v3_atestada('),
+    'registrar_y_consumir_consulta_circuito_ct_v3_atestada(',NULL),
    ('vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint)',
     '0f2879ac5905b513bd313efb28711d517e2db84b21ae2845bba40ee883b4d09b',
-    'JOIN vec_contratacion_temporal.expediente_integral_actual a'),
+    'JOIN vec_contratacion_temporal.expediente_integral_actual a',
+    'vec_autorizacion_atestada_v3_propietario=X/vec_contratacion_temporal_propietario,'||
+    'vec_bolsa_llamamientos_propietario=X/vec_contratacion_temporal_propietario'),
    ('vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(jsonb,boolean)',
     '59fff3ea60ad4cfdb021766e491dbd2ad1f86ff352be74a54d13eca8deb105ab',
-    'JOIN vec_contratacion_temporal.expediente_integral_actual i')
-  ) AS f(firma,huella,consumo)
+    'JOIN vec_contratacion_temporal.expediente_integral_actual i',
+    'vec_bolsa_llamamientos_propietario=X/vec_contratacion_temporal_propietario')
+  ) AS f(firma,huella,consumo,acl)
   JOIN pg_proc p ON p.oid=f.firma::regprocedure LOOP
   c:=x.def;
-  IF x.prosecdef IS NOT TRUE
+  IF x.acl IS DISTINCT FROM x.acl_esperada
+     OR x.prosecdef IS NOT TRUE
      OR encode(sha256(convert_to(c,'UTF8')),'hex') IS DISTINCT FROM x.huella
-     OR x.acl IS DISTINCT FROM CASE
-        WHEN x.firma LIKE '%leer_modalidad_origen_bolsa_ct_v1%' THEN '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_autorizacion_atestada_v3_propietario=X/vec_contratacion_temporal_propietario,vec_bolsa_llamamientos_propietario=X/vec_contratacion_temporal_propietario}'
-        WHEN x.firma LIKE '%cotejar_comprobacion_bolsa_v1%' THEN '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_bolsa_llamamientos_propietario=X/vec_contratacion_temporal_propietario}'
-        ELSE '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}' END
      OR NOT ('search_path=pg_catalog, pg_temp'=ANY(x.proconfig))
   THEN RAISE EXCEPTION 'CT241: cuerpo, ACL o configuración divergente: %',x.firma; END IF;
   -- La guarda va antes del efecto (O6), antes de leer ámbitos y consumir la
