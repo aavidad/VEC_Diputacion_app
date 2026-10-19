@@ -68,15 +68,23 @@ var ErrDatosOfertaInvalidos = errors.New("bolsa: datos de oferta invalidos")
 // DatosOferta es lo que RRHH publica y ven las personas de la bolsa. Las
 // fechas son días civiles (AAAA-MM-DD); la de fin es opcional.
 type DatosOferta struct {
-	Categoria   string `json:"categoria"`
-	Centro      string `json:"centro"`
-	FechaInicio string `json:"fecha_inicio"`
-	FechaFin    string `json:"fecha_fin,omitempty"`
-	Descripcion string `json:"descripcion"`
+	Categoria      string `json:"categoria"`
+	Centro         string `json:"centro"`
+	FechaInicio    string `json:"fecha_inicio"`
+	FechaFin       string `json:"fecha_fin,omitempty"`
+	Descripcion    string `json:"descripcion"`
+	ModalidadClave string `json:"modalidad_clave,omitempty"`
+	CausaClave     string `json:"causa_clave,omitempty"`
 }
+
+var claveCatalogoOferta = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,79}$`)
 
 // Validar exige textos recortados y acotados y fechas coherentes.
 func (d DatosOferta) Validar() error {
+	if (d.ModalidadClave == "") != (d.CausaClave == "") ||
+		(d.ModalidadClave != "" && (!claveCatalogoOferta.MatchString(d.ModalidadClave) || !claveCatalogoOferta.MatchString(d.CausaClave))) {
+		return ErrDatosOfertaInvalidos
+	}
 	for _, texto := range []string{d.Categoria, d.Centro, d.FechaInicio, d.Descripcion} {
 		if !textoOfertaValido(texto) {
 			return ErrDatosOfertaInvalidos
