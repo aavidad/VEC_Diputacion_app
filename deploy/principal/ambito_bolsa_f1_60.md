@@ -90,7 +90,8 @@ al final de la lista y después de B144. Cambia cuatro cosas:
   `registrar_vinculos_candidato_v1` y el uso del esquema. B145 exige que el rol
   no tenga miembros y se detiene (55000) si los tiene: en un servidor donde se
   creó una cuenta de conexión para la orden retirada, el administrador la quita
-  antes de instalar. Su permiso de conexión a la base solo lo puede quitar el
+  antes de instalar (`REVOKE vec_bolsa_llamamientos_constituidor FROM <cuenta>;`)
+  y repite la migración. Su permiso de conexión a la base solo lo puede quitar el
   administrador y no da acceso a nada. Se retira también la orden `vec-server constituir-bolsa` y su conexión
   `VEC_BOLSA_CONSTITUCION_DATABASE_URL`. Una bolsa nueva solo se constituye
   con la carga gobernada de CONVOCA, que guarda su ámbito.
