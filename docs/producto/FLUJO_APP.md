@@ -461,9 +461,36 @@ ni publicación de bases.
 
 La ficha conjunta no ofrece formulario ni envío individual. El servidor también
 cierra esa presentación con `409 inscripcion_conjunta_pendiente` antes de insertar
-la solicitud. El soporte conjunto corresponde a F1-41. F1-40 sigue abierta:
-`ConfirmarPublicacion` aún no tiene adaptador productivo. La convocatoria de
+la solicitud. El soporte conjunto corresponde a F1-41. La convocatoria de
 ensayo es un dato de la copia, no un caso de aceptación alternativo al apartado 4.0.
+
+#### Publicación oficial de las bases
+
+Corte F1-61. Las bases se publican en el boletín o tablón que ellas fijan
+(BOP de Granada, tablón de edictos electrónico, BOE o BOJA) y el plazo se
+cuenta desde ahí (LPAC art. 45; TREBEP arts. 55 y 61). VEC no publica en esos
+medios: guarda la declaración del hecho por versión de la convocatoria, con
+medio, número de boletín, referencia del anuncio, fecha, enlace opcional,
+recibo y evento, en una tabla de solo adición. Una corrección es una fila
+nueva que sustituye a la vigente.
+
+La lista, la ficha y la presentación de la aspirante exigen una declaración
+vigente de la versión exacta cuya fecha sea de uno a cinco días naturales
+anterior al primer día del plazo (hora de Madrid): el plazo empieza el día
+siguiente a la publicación (LPAC art. 30) y el margen cubre un fin de semana y
+dos festivos. Sin ella, o fuera del margen, la convocatoria no aparece y la
+presentación responde como plazo cerrado. Las fechas del plazo siguen siendo
+las selladas en la versión; si no encajan con la publicación, RRHH publica una
+versión nueva. Calcularlas desde la publicación queda para un catálogo
+posterior.
+
+Hoy solo declara el propietario de la base (despliegue o dato de copia,
+`deploy/principal/f1_61_publicacion_oficial_bases/`). El acto de RRHH desde
+la web, con su permiso, espera a su consumidor en el núcleo de autorización;
+hasta entonces ninguna cuenta de aplicación declara. `ConfirmarPublicacion`,
+el puerto de la publicación gobernada borrador→publicada, no se usa en este
+corte. F1-40 sigue abierta hasta que RRHH pueda anotar la publicación desde la
+web y se recorra la inscripción de punta a punta.
 
 #### Constitución de la bolsa
 

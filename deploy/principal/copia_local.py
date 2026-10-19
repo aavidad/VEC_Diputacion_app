@@ -312,6 +312,10 @@ class Copia:
         verificar_fuente(estado['revision'])
         self.validar_binario(estado)
         self.pg()
+        # BC14: en cada arranque, ya con la lista y el kit de datos aplicados,
+        # declara los plazos de inscripción que se hayan abierto. Idempotente.
+        from copia_local_publicacion_bases import declarar as declarar_publicacion_bases
+        declarar_publicacion_bases(self)
         if self.proceso(estado):
             raise ValueError('La aplicación propia ya está activa')
         puerto_libre(estado['puerto_app'])

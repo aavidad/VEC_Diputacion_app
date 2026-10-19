@@ -101,6 +101,33 @@ explica que aún no puede presentar la solicitud desde esta página y no ofrece
 el formulario individual. Las bases no quedan aprobadas ni publicadas por esta
 carga de datos.
 
+### 4.6 Publicación oficial de las bases
+
+Las bases se publican fuera de VEC, en el boletín o el tablón que ellas mismas
+fijan, y el plazo de solicitudes se cuenta desde esa publicación. VEC no
+publica en el boletín: anota que la publicación se ha hecho. Por cada versión
+de la convocatoria guarda el medio (Boletín Oficial de la Provincia de
+Granada, tablón de edictos electrónico, BOE o BOJA), el número del boletín, la
+referencia del anuncio, la fecha y, si se quiere, el enlace. La anotación
+tiene recibo y no se borra; un error se arregla con una corrección que
+sustituye a la anterior.
+
+La inscripción solo se abre cuando la versión vigente tiene esa anotación y
+el plazo grabado en ella empieza entre el día siguiente a la publicación y
+cinco días naturales después (lo que dura un fin de semana con jueves y
+viernes festivos, como en Semana Santa). Sin la anotación, o si las fechas no
+encajan, la convocatoria no aparece a la aspirante aunque el plazo esté
+abierto. Si la aspirante llega a ella por un enlace, VEC le dice que el plazo
+está cerrado: ese aviso no significa que el plazo haya vencido, sino que aún
+no consta la publicación. Si el boletín sale antes o después de
+lo previsto, hay que preparar y publicar en VEC una versión nueva con el plazo
+correcto y anotar la publicación en esa versión.
+
+Hoy la anotación la hace Informática con la cuenta propietaria de la base de
+datos; en la copia local se carga como dato ficticio. Falta que RRHH pueda
+hacerla desde su pantalla, con su permiso, y que el plazo se calcule solo a
+partir de la fecha de publicación.
+
 ## 5. Un contrato temporal, paso a paso
 
 Este es el recorrido completo tal y como funciona hoy en VEC.
@@ -201,7 +228,7 @@ Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, 
 | Administración de perfiles | La lista de personas y su ficha funcionan con la configuración aprobada. Está preparado el cierre de la administración cuando falta esa configuración. | Instalar y comprobar este cierre en el entorno compartido; terminar la asignación de perfiles desde pantalla. | Los administradores gestionan los perfiles con los controles y aprobaciones que correspondan. |
 | Vigencia de Administración | Está preparada la renovación de su configuración hasta 90 días en desarrollo. Los permisos de las personas conservan sus propios plazos. | Instalar y comprobar la renovación en el entorno compartido. | La renovación mantiene el acceso administrativo y conserva el registro de lo publicado. |
 | Bolsas que vienen de Convoca | Se cargan desde el Excel de Convoca. | Nada para cargar las bolsas actuales. | La carga sirve solo para pasar a VEC las bolsas que ya existen. Las nuevas se hacen enteras en VEC. |
-| Convocatorias, inscripción, méritos y alegaciones | Programado: el aspirante se inscribe, declara sus méritos con documentos y presenta alegaciones; RRHH admite o rechaza. | Activarlo en el entorno de pruebas. | VEC sustituye a Convoca. El aspirante hace todo desde su área personal y RRHH lo revisa en pantalla. |
+| Convocatorias, inscripción, méritos y alegaciones | Programado: el aspirante se inscribe, declara sus méritos con documentos y presenta alegaciones; RRHH admite o rechaza. La inscripción solo se abre si consta la publicación oficial de las bases (apartado 4.6). | Activarlo en el entorno de pruebas. Que RRHH anote la publicación de las bases desde su pantalla. | VEC sustituye a Convoca. El aspirante hace todo desde su área personal y RRHH lo revisa en pantalla. |
 | Cartera personal de méritos | La consulta de títulos, cursos y experiencia está programada en «Mis méritos». | Activarla y comprobarla en el entorno compartido. | La persona consulta sus méritos y su estado. Más adelante podrá ver su valoración y sus puntos en cada bolsa. |
 | Preferencias de Mi Bolsa | La consulta de preferencias existe. Está preparado un ajuste para que un intento sin permiso quede registrado sin figurar como lectura realizada. | Ensayarlo en una copia con una persona autorizada y otra sin permiso; comprobar también el reinicio antes de integrarlo. | La persona consulta sus preferencias con su permiso, y los intentos rechazados quedan registrados. |
 | Baremación | No existe todavía. | Que RRHH cierre cómo se acreditan los méritos. | VEC calcula los puntos con el baremo de cada convocatoria, que RRHH puede cambiar. RRHH revisa y publica las listas provisional y definitiva. |
