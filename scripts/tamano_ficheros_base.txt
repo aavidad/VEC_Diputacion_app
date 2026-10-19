@@ -206,3 +206,4 @@
 814 internal/modules/contrataciontemporal/adapters/postgres/consulta_rrhh_postgresql.go
 1054 web/static/portal-empleado/portal-bolsas-ofertas.test.mjs
 3397 deploy/postgresql/autorizacion_atestada_v3/migraciones/000288_confirmacion_aceptacion_bolsa.up.sql
+3481 deploy/postgresql/autorizacion_atestada_v3/migraciones/000291_comprobacion_derivacion_rrhh.up.sql
