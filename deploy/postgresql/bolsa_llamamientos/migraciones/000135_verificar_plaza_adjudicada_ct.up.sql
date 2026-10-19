@@ -108,7 +108,7 @@ BEGIN
          AND e.bolsa_ref=origen.bolsa_ref AND e.numero_de_plaza=p_plaza
          AND e.secuencia=p_secuencia AND e.tipo='adjudicada'
          AND e.creada_en=acto.registrado_en)
- THEN RAISE EXCEPTION 'B135: plaza no adjudicada actualmente' USING ERRCODE='42501'; END IF;
+ THEN RAISE EXCEPTION 'B135: plaza no adjudicada actualmente' USING ERRCODE='23505'; END IF;
  SELECT * INTO disposicion FROM vec_bolsa_llamamientos.disposicion_oferta
   WHERE oferta_ref=p_oferta AND participacion_ref=p_participacion;
  SELECT * INTO candidato FROM vec_bolsa_llamamientos.disposicion_oferta_candidato
@@ -119,7 +119,7 @@ BEGIN
     OR disposicion.manifestada_en>acto.registrado_en
     OR candidato.registrada_en IS DISTINCT FROM disposicion.manifestada_en
     OR candidato.decision_ref IS NULL
- THEN RAISE EXCEPTION 'B135: disposición previa no acreditada' USING ERRCODE='42501'; END IF;
+ THEN RAISE EXCEPTION 'B135: disposición previa no acreditada' USING ERRCODE='23505'; END IF;
 
  persona:=vec_contexto_actor_v1.acreditar_persona_candidato_incorporacion_v1(candidato.candidato_ref);
  IF jsonb_typeof(persona) IS DISTINCT FROM 'object'
@@ -131,7 +131,7 @@ BEGIN
     OR persona#>>'{persona,ref}' !~ '^per_[A-Za-z0-9_-]{22,128}$'
     OR persona#>>'{vinculo,vigente_hasta}' IS NULL
     OR (persona#>>'{vinculo,vigente_hasta}')::timestamptz<=v_ahora
- THEN RAISE EXCEPTION 'B135: persona no acreditada' USING ERRCODE='42501'; END IF;
+ THEN RAISE EXCEPTION 'B135: persona no acreditada' USING ERRCODE='23505'; END IF;
  RETURN jsonb_build_object(
   'bolsa_ref',origen.bolsa_ref,'persona_ref',persona#>>'{persona,ref}',
   'candidato_ref',candidato.candidato_ref,'participacion_ref',p_participacion,

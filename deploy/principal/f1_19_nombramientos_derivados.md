@@ -36,12 +36,14 @@ privado las huellas y pruebas de instalación, actos, navegador y reinicio.
 Copia local nueva desde la cabeza unida a main, con la lista única completa:
 102 SQL instaladas una vez y sin errores, con AD291, AD292, B135 y CT234 al final.
 CT234 fallaba antes porque el propietario de Contratación temporal no puede
-crear tablas temporales; ahora la tabla de cotejo la crea el migrador y solo
-cede al propietario leerla y escribirla durante la transacción.
+crear tablas temporales; ahora la tabla de cotejo la crea la sesión que
+instala, antes de cambiar de rol, y solo cede al propietario leerla y
+escribirla durante la transacción. Si la base se instala con un rol sin TEMP,
+CT234 se detiene sin efectos.
 
 Las pruebas `ad292_…`, `b135_…` y `ct234_…` pasaron con `ROLLBACK`. Con el
-certificado de RRHH, la ruta responde 503 con un cuerpo válido, 422 con un
-cuerpo vacío y 405 a GET; sin certificado no se abre la conexión. Tras
+certificado de RRHH, la ruta responde 503 con un cuerpo válido, 400 con un
+cuerpo vacío, 422 con `{}` y 405 a GET; sin certificado no se abre la conexión. Tras
 reiniciar PostgreSQL y aplicación (3,6 s), las consultas de Bolsa y
 Contratación temporal responden igual y no hay ningún hijo creado.
 

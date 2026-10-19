@@ -2,8 +2,9 @@
 -- F1-19. La instrucción sigue perteneciendo al padre; cada hijo tiene
 -- identidad, aceptación, actuación, autorización y recibo propios.
 BEGIN;
--- El propietario no tiene TEMP en la base: el migrador crea la tabla de
--- cotejo y solo cede al propietario leerla y escribirla en esta transacción.
+-- El propietario no tiene TEMP en la base: la sesión que instala (la del
+-- superusuario) crea la tabla de cotejo antes de cambiar de rol y solo cede al
+-- propietario leerla y escribirla en esta transacción.
 CREATE TEMP TABLE pg_temp.ct234_funciones_pre(
  nombre text PRIMARY KEY,firma text NOT NULL,oid oid NOT NULL,propietario oid NOT NULL,
  acl aclitem[],posthash text NOT NULL
@@ -607,6 +608,7 @@ BEGIN
    'secuencia_plaza','participacion_ref','recibo_adjudicacion_ref','clave_idempotencia','unidad_ref']) IS NOT TRUE
     OR (SELECT count(*) FROM json_each(p_material::json))<>12
     OR m->>'esquema' IS DISTINCT FROM 'vec.ct.nombramiento.derivar.v1'
+    OR jsonb_typeof(m->'clave_idempotencia') IS DISTINCT FROM 'string'
     OR m->>'clave_idempotencia' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
     OR jsonb_typeof(m->'version_padre') IS DISTINCT FROM 'number'
     OR m->>'version_padre' !~ '^[1-9][0-9]{0,15}$'
@@ -705,7 +707,8 @@ BEGIN
     OR actual.agregado_json#>>'{asignacion,unidad_ref}' IS DISTINCT FROM m->>'unidad_ref'
     OR coalesce(actual.agregado_json#>>'{fiscalizacion,resultado}','') NOT IN
        ('favorable','favorable_con_observaciones')
-    OR (actual.agregado_json#>>'{solicitud,numero_personas}')::integer NOT BETWEEN 2 AND 100
+    OR coalesce((actual.agregado_json#>>'{solicitud,numero_personas}')::integer,0) NOT BETWEEN 2 AND 100
+    OR (m->>'numero_plaza')::integer>(actual.agregado_json#>>'{solicitud,numero_personas}')::integer
     OR actual.agregado_json_huella_sha256 IS DISTINCT FROM
        encode(sha256(convert_to(actual.agregado_json::text,'UTF8')),'hex') THEN
   RAISE EXCEPTION 'CT234: padre no derivable' USING ERRCODE='23505'; END IF;
@@ -722,7 +725,8 @@ BEGIN
  WHERE expediente_ref=m->>'padre_ref' AND version=actual.version;
  IF NOT FOUND THEN RAISE EXCEPTION 'CT234: cabecera del padre cambió' USING ERRCODE='40001'; END IF;
  SELECT * INTO seleccion FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
- WHERE solicitud_json->>'expediente_ref'=m->>'padre_ref' AND tipo_seleccion='oferta' AND situacion='confirmada';
+ WHERE solicitud_json->>'organizacion_ref'=m->>'organizacion_ref'
+  AND solicitud_json->>'expediente_ref'=m->>'padre_ref' AND tipo_seleccion='oferta' AND situacion='confirmada';
  IF seleccion.clave_idempotencia IS NULL
     OR vec_contratacion_temporal.terminal_seleccion_oferta_valido_ct220(seleccion) IS NOT TRUE
     OR seleccion.recibo_json->>'oferta_ref' IS DISTINCT FROM m->>'oferta_ref' THEN
