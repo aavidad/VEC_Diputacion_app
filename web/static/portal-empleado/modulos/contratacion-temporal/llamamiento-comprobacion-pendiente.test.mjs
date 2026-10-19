@@ -75,3 +75,49 @@ test("un recibo posterior retira el aviso pendiente", async () => {
   assert.match(raiz.innerHTML, /Persona llamada/u);
   cerrar();
 });
+
+const contexto = () => ({ ambito_ref: "ambito:sintetico:001", bolsa_ref: "bolsa:sintetica:001",
+  categoria_ref: "categoria:sintetica:001", causa_ofrecida: "sustitucion",
+  expediente_ref: "expediente:ct:sintetico:001", huella_politica_ofertas_sha256: "a".repeat(64),
+  modalidad_ofrecida: "interinidad", necesidad_ref: "necesidad:sintetica:001", orden_acta: 7,
+  organizacion_ref: "organizacion:sintetica:001", participacion_ref: "participacion:sintetica:007",
+  unidad_ref: "unidad:sintetica:001", version_bolsa: 4, version_expediente: 6,
+  version_instantanea: 2, version_politica_ofertas: 3 });
+const estado = (cambios = {}) => ({ version_esperada: 0, comprobacion_ref: "", recibo_ref: "",
+  registrada_en: "0001-01-01T00:00:00Z", version_politica_ofertas: 0, resultado: "", motivo_clave: "",
+  vigente: null, ...cambios });
+const completo = (cambios = {}) => ({ ...detalle(), contexto: contexto(), estado: estado(), ...cambios });
+
+test("el aviso con contexto y estado del corte se acepta como rechazo seguro", async () => {
+  for (const comprobacion of [completo(), completo({ estado: estado({ version_esperada: 2,
+    comprobacion_ref: "comprobacion:sintetica:001", recibo_ref: "recibo:sintetico:001",
+    registrada_en: "2026-10-19T10:00:00Z", version_politica_ofertas: 3, resultado: "no_cumple",
+    motivo_clave: "requisito_no_acreditado", vigente: true }) })]) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta(envelope(comprobacion)) });
+    await assert.rejects(cliente.seleccionarLlamamiento(solicitud), (error) => {
+      assert.equal(esComprobacionOfrecimientoPendiente(error), true);
+      assert.deepEqual(error.comprobacionOfrecimiento, comprobacion);
+      assert.ok(Object.isFrozen(error.comprobacionOfrecimiento.contexto));
+      return true;
+    });
+  }
+});
+
+test("un contexto o estado con campos de más o mal formados no se acepta", async () => {
+  const malos = [
+    completo({ contexto: { ...contexto(), nombre: "Persona" } }),
+    completo({ contexto: { ...contexto(), orden_acta: 0 } }),
+    completo({ contexto: { ...contexto(), huella_politica_ofertas_sha256: "z" } }),
+    completo({ estado: { ...estado(), dni: "00000000T" } }),
+    completo({ estado: estado({ version_esperada: 1 }) }),
+    completo({ estado: estado({ vigente: "si" }) }),
+  ];
+  for (const comprobacion of malos) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta(envelope(comprobacion)) });
+    await assert.rejects(cliente.seleccionarLlamamiento(solicitud), (error) => {
+      assert.equal(esComprobacionOfrecimientoPendiente(error), false);
+      assert.equal(error.codigo, "respuesta_error_no_valida");
+      return true;
+    });
+  }
+});

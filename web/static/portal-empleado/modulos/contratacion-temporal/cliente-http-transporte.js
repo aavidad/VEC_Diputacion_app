@@ -419,6 +419,56 @@ export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
   return codigo === "conflicto";
 }
 
+// El 409 de una persona pendiente de comprobación trae, desde F1-09, las
+// referencias del corte (contexto) y el último acto registrado (estado).
+// Solo referencias y versiones: ningún hecho ni dato de la persona.
+const CAMPOS_CONTEXTO_COMPROBACION = Object.freeze({
+  ambito_ref: "ref", bolsa_ref: "ref", categoria_ref: "ref", causa_ofrecida: "clave",
+  expediente_ref: "ref", huella_politica_ofertas_sha256: "huella", modalidad_ofrecida: "clave",
+  necesidad_ref: "ref", orden_acta: "entero", organizacion_ref: "ref", participacion_ref: "ref",
+  unidad_ref: "ref", version_bolsa: "entero", version_expediente: "entero",
+  version_instantanea: "entero", version_politica_ofertas: "entero",
+});
+const CAMPOS_ESTADO_COMPROBACION = Object.freeze([
+  "version_esperada", "comprobacion_ref", "recibo_ref", "registrada_en",
+  "version_politica_ofertas", "resultado", "motivo_clave", "vigente",
+]);
+const PATRON_REF_COMPROBACION = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,159}$/u;
+const PATRON_CLAVE_COMPROBACION = /^[a-z][a-z0-9_]{0,63}$/u;
+const PATRON_HUELLA_COMPROBACION = /^[0-9a-f]{64}$/u;
+
+function objetoPlano(valor) {
+  return valor !== null && typeof valor === "object" && !Array.isArray(valor);
+}
+
+function contextoComprobacionValido(contexto, exigirCamposExactos) {
+  if (!objetoPlano(contexto)
+    || !exigirCamposExactos(contexto, Object.keys(CAMPOS_CONTEXTO_COMPROBACION))) return false;
+  return Object.entries(CAMPOS_CONTEXTO_COMPROBACION).every(([campo, tipo]) => {
+    const valor = contexto[campo];
+    if (tipo === "entero") return Number.isSafeInteger(valor) && valor > 0;
+    if (typeof valor !== "string") return false;
+    if (tipo === "huella") return PATRON_HUELLA_COMPROBACION.test(valor);
+    if (tipo === "clave") return PATRON_CLAVE_COMPROBACION.test(valor);
+    return PATRON_REF_COMPROBACION.test(valor);
+  });
+}
+
+// version_esperada 0 significa que todavía no hay acto: las referencias
+// llegan vacías y la fecha es la cero del servidor.
+function estadoComprobacionValido(estado, exigirCamposExactos) {
+  if (!objetoPlano(estado) || !exigirCamposExactos(estado, CAMPOS_ESTADO_COMPROBACION)) return false;
+  const sinActo = estado.version_esperada === 0;
+  return Number.isSafeInteger(estado.version_esperada) && estado.version_esperada >= 0
+    && Number.isSafeInteger(estado.version_politica_ofertas) && estado.version_politica_ofertas >= 0
+    && ["comprobacion_ref", "recibo_ref", "registrada_en", "resultado", "motivo_clave"]
+      .every((campo) => typeof estado[campo] === "string" && estado[campo].length <= 160)
+    && (sinActo || (PATRON_REF_COMPROBACION.test(estado.comprobacion_ref)
+      && PATRON_REF_COMPROBACION.test(estado.recibo_ref)
+      && !Number.isNaN(Date.parse(estado.registrada_en))))
+    && (estado.vigente === null || typeof estado.vigente === "boolean");
+}
+
 export async function construirErrorRespuesta(respuesta, signal, ruta, errorCliente, ErrorClienteClass, exigirCamposExactos, rutas) {
   let envoltorio;
   try {
@@ -444,8 +494,13 @@ export async function construirErrorRespuesta(respuesta, signal, ruta, errorClie
     && detalle?.codigo === "comprobacion_ofrecimiento_pendiente";
   const comprobacion = envoltorio?.comprobacion_ofrecimiento;
   const conVersion = comprobacion && Object.hasOwn(comprobacion, "version_politica_ofertas");
+  const conContexto = comprobacion && Object.hasOwn(comprobacion, "contexto");
+  const conEstado = comprobacion && Object.hasOwn(comprobacion, "estado");
   const comprobacionValida = !comprobacionPendiente || (exigirCamposExactos(comprobacion,
-    ["bolsa_ref", "orden_acta", ...(conVersion ? ["version_politica_ofertas"] : []), "motivo_clave"])
+    ["bolsa_ref", "orden_acta", ...(conVersion ? ["version_politica_ofertas"] : []), "motivo_clave",
+      ...(conContexto ? ["contexto"] : []), ...(conEstado ? ["estado"] : [])])
+    && (!conContexto || contextoComprobacionValido(comprobacion.contexto, exigirCamposExactos))
+    && (!conEstado || estadoComprobacionValido(comprobacion.estado, exigirCamposExactos))
     && typeof comprobacion.bolsa_ref === "string"
     && /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(comprobacion.bolsa_ref)
     && Number.isSafeInteger(comprobacion.orden_acta) && comprobacion.orden_acta > 0
@@ -474,7 +529,9 @@ export async function construirErrorRespuesta(respuesta, signal, ruta, errorClie
     correlacionRef: detalle.correlacion_ref,
     campo: campoAlta ? detalle.campo : "",
     envelopeValido: true,
-    comprobacionOfrecimiento: comprobacionPendiente ? Object.freeze({ ...comprobacion }) : null,
+    comprobacionOfrecimiento: comprobacionPendiente ? Object.freeze({ ...comprobacion,
+      ...(conContexto ? { contexto: Object.freeze({ ...comprobacion.contexto }) } : {}),
+      ...(conEstado ? { estado: Object.freeze({ ...comprobacion.estado }) } : {}) }) : null,
   });
 }
 
