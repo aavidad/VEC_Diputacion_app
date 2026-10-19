@@ -324,6 +324,7 @@ var _ puertosbolsa.ResolutorContextoBorradorLlamamiento = (*preparadorBorradorLl
 var _ puertosvec.GeneradorReferenciaDecisionAutorizacion = seguridadvec.GeneradorReferenciasCriptograficas{}
 
 type emisorBorradorLlamamientoDesarrollo struct {
+	comprobacion                                                                                                            *emisorMaterialRenovableCTDesarrollo
 	crear, consultar, situacion, contacto, consultaContacto, datosContacto, consultaDatosContacto, emision, politicaOfertas *emisorMaterialRenovableCTDesarrollo
 	cargaConvoca                                                                                                            *emisorMaterialRenovableCTDesarrollo
 	consultaPoliticaOfertas                                                                                                 *emisorMaterialRenovableCTDesarrollo
@@ -333,6 +334,7 @@ type emisorBorradorLlamamientoDesarrollo struct {
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
+	comprobacion                                                                                                                           http.Handler
 	registradorPerfil                                                                                                                      puertosvec.RegistradorIntentosAuditoria
 	procesoPerfil                                                                                                                          string
 	situacion, operaciones, solicitudesDocumentales, contacto, datosContacto, contratos, sanciones, reincorporaciones, confirmacionDirecta http.Handler
@@ -364,6 +366,10 @@ type manejadorParticipacionBolsaDesarrollo struct {
 }
 
 func (m *manejadorParticipacionBolsaDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if _, _, ok := bolsahttp.ReferenciasRutaComprobacionOfrecimiento(r); ok && m.comprobacion != nil {
+		m.comprobacion.ServeHTTP(w, r)
+		return
+	}
 	if _, _, _, ok := bolsahttp.ReferenciasRutaConfirmacionDirecta(r); ok && m.confirmacionDirecta != nil {
 		m.confirmacionDirecta.ServeHTTP(w, r)
 		return
@@ -425,6 +431,10 @@ func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestada
 		return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, errBorradorNoDisponibleEn()
 	}
 	switch datos.Accion {
+	case puertosbolsa.AccionComprobacionOfrecimiento:
+		if e != nil && e.comprobacion != nil {
+			return e.comprobacion.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
 	case puertosbolsa.AccionCrearBorradorLlamamientoInterno:
 		if e != nil && e.crear != nil {
 			return e.crear.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
@@ -767,6 +777,12 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	preparador := &preparadorBorradorLlamamientoDesarrollo{sesion: seguridad, soporte: soporteBolsa, generar: seguridadvec.GeneradorReferenciasCriptograficas{}, vigentes: vigentes}
 	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion, confirmacionDirecta: emisorConfirmacion, consultaSolicitudesDocumentales: emisorDocumentales, contacto: emisorContacto, consultaContacto: emisorConsultaContacto, datosContacto: emisorDatosContacto, emision: emisorEmision, politicaOfertas: emisorPoliticaOfertas, consultaPoliticaOfertas: emisorConsultaPoliticaOfertas}
 	emisor.cargaConvoca = emisorCargaConvoca
+	if alta.postgresql.proveedorMaterialComprobacion != nil {
+		emisor.comprobacion, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialComprobacion)
+		if err != nil {
+			slog.Warn("comprobacion_ofrecimiento_no_habilitada", "etapa", "emisor")
+		}
+	}
 	if emisor.consultaDatosContacto, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialConsultaDatosContacto); err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -997,6 +1013,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}
 	mutador := &manejadorParticipacionBolsaDesarrollo{registradorPerfil: registradorDocumentales, procesoPerfil: procesoDocumentales, canales: canales, situacion: handlerSituacion, confirmacionDirecta: handlerConfirmacion, solicitudesDocumentales: handlerDocumentales, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, respuestas: servicioRespuestas, servicioSituacion: servicioSituacion, politicaSituacion: politicaB, materialSituacion: alta.postgresql.proveedorMaterialSituacion, repositorioSituacion: repositorioSituacion, materialEmision: alta.postgresql.proveedorMaterialEmision, repositorioEmision: repositorioEmision, correoFuente: fuenteCorreo, correoEmisor: correoEmisor, correoPersonalizado: correoPersonalizado, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	mutador.repositorioOfertas, mutador.calculadoraOfertas = repositorioOfertas, calculadoraOfertas
+	mutador.comprobacion = montarComprobacionOfrecimiento(alta.postgresql.bolsa, preparador, emisor)
 	// El constructor no consulta SQL ni concesiones. Una función o permiso aún
 	// no instalado afecta solo a este bloque del seguimiento.
 	servicioExclusiones, err := nuevoServicioExclusionesOfrecimientoRRHH(alta.postgresql.bolsa)

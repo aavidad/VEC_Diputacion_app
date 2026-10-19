@@ -8,8 +8,8 @@ la hoja de ruta de
 reglas de trabajo de `AGENTS.md`, E11 y E13 de `ESPECIFICACIONES_AGENTES.md` y
 las decisiones de orden de módulos y baremador de la memoria de dirección.
 
-Revisado el 16 de octubre de 2026 para F1-36C desde
-`origin/main@3216104e4`; C sigue en rama, sin integrar.
+Revisado el 19 de octubre de 2026 desde `origin/main@d57f97dc7`, después de la
+presentación (F0-32).
 
 Este documento es la única fuente de qué falta, en qué orden se construye,
 cómo se sabe que cada fase está terminada y cómo se trabaja. Es lectura
@@ -37,7 +37,9 @@ el otro en la misma entrega.
 ## Vocabulario mínimo
 
 - **cidonia**: el servidor donde se instala VEC para que RRHH lo vea, con datos
-  sintéticos. No es producción.
+  sintéticos. No es producción. Está congelado desde el 16/10, salvo la subida
+  de la presentación del 18/10; el avance se mide en la copia local y la
+  siguiente instalación irá a un servidor nuevo.
 - **HZ*n***: número de cada subida a cidonia. Cada una tiene copia fría de la
   base y un guion de vuelta atrás.
 - **Migración SQL**: cambio de la base. Su código empieza por las letras del
@@ -63,8 +65,10 @@ el otro en la misma entrega.
 - **Bolsa no se borra ni se subordina**: mantiene convocatorias, candidaturas,
   posiciones, reglas y llamamientos. CT no tiene llamamiento propio: usa el
   llamamiento real de Bolsa sobre una bolsa constituida.
-- **Después**: Cronos y luego Dietas (orden de Alberto del 07/10/2026), cada
-  uno detrás de la base de Personal que necesite.
+- **Después**: las cuatro tareas de simplificación de la fase 2 (F2-12 a F2-15,
+  plan aprobado por Alberto el 16/10) y luego el resto de Personal. Cronos y
+  Dietas están aparcados desde el 08/10 y se retoman después, cada uno detrás
+  de la base de Personal que necesite.
 - **Aparcado**: el resto de módulos, hasta cerrar Bolsa y CT. Sus planes se
   conservan y se retoman uno a uno.
 
@@ -81,11 +85,18 @@ de dirección. Las preguntas pendientes no detienen las partes que no dependen
 de ellas; lo que RRHH no ha decidido se configura en un catálogo y se pregunta
 en `dudas.md`.
 
-Que haya código en `main` no significa que esté instalado en cidonia ni que se
-haya recorrido en el navegador. Los datos son sintéticos y nada de esto es
+Que haya código en `main` no significa que se haya recorrido en el navegador
+en la copia local, ni que esté instalado en un servidor. Los datos son sintéticos y nada de esto es
 producción.
 
 ## 2. Estado actual
+
+Corte del 19/10/2026. El estado de cada tarea, con lo fusionado hasta hoy, está
+en [`TABLERO_TAREAS.md`](TABLERO_TAREAS.md), que manda si este apartado dice
+otra cosa. Los apartados 2.1 y 2.2 describen cidonia hasta el 13/10 y quedan
+como historia: el 18/10 se subió allí la versión de la presentación
+(`main@c01ff0589`) y desde entonces está congelada. Los textos de 2.3 a 2.5
+no se han reescrito en este corte.
 
 Lo marcado *pendiente de verificar* no se ha podido comprobar al escribir.
 
@@ -410,8 +421,9 @@ adelantado.
 
 ## 5. Fases y criterios de cierre
 
-Una fase está cerrada cuando su criterio se cumple **en cidonia, con datos
-sintéticos y en el navegador**, no en un clon ni en una prueba aislada.
+Una fase está cerrada cuando su criterio se cumple **en la copia local, con datos
+sintéticos, en el navegador y tras reiniciar**, no en una prueba aislada
+(orden de Alberto del 16/10: cidonia está congelada).
 
 ### 5.1 Puertas de cualquier capacidad
 
@@ -433,9 +445,10 @@ Para darla por terminada:
 - recorrido real con PostgreSQL, casos negativos y reinicio;
 - pantallas y documentos accesibles; ayuda tras el botón «?» actualizada;
 - migración ensayada sobre copia de la principal, con copia y vuelta atrás;
-- documentación al día en la misma PR (manual de usuario y el documento de
-  `docs/producto/` que cambie);
-- PR fusionada, subida a cidonia y prueba final en Chrome;
+- documentación al día en la misma PR: el manual de usuario (siempre el
+  apartado 7 de `docs/manuales/jefatura_rrhh.md`, «Hoy, Falta, Al final»,
+  regla del 15/10) y el documento de `docs/producto/` que cambie;
+- PR fusionada y prueba final en Chrome en la copia local;
 - RRHH ha visto la fase funcionando y la da por buena.
 
 ### Fase 0. Base común
@@ -456,7 +469,8 @@ Estado: 1 y 4 casi cumplidos; 2 parcial; 3 pendiente (equipo L).
 
 ### Fase 1. Bolsa y Contratación temporal (fase actual)
 
-Se cierra cuando se cumplen estas cuatro condiciones en cidonia:
+Se cierra cuando se cumplen estas cuatro condiciones en la copia local. La
+estimación de dirección del 18/10 es la segunda quincena de noviembre.
 
 1. **Recorrido completo de RRHH en Chrome, con reinicio.** Certificados
    sintéticos de personas distintas; petición del centro, ratificación, alta,
@@ -477,13 +491,14 @@ Se cierra cuando se cumplen estas cuatro condiciones en cidonia:
    de Bolsa o CT en el registro durante el recorrido.
 4. **Lecturas rápidas**: cuadro de CT, lista de expedientes, ficha, bolsas,
    candidatos y ficha del candidato por debajo de 300 ms en el percentil 95,
-   medido por HTTP en cidonia con el volumen de la principal. La base común
+   medido por HTTP en la copia local con el volumen de la principal. La base común
    (sesión, módulos, preferencias) por debajo de 100 ms.
 
-Desde el 13/10 el recorrido empieza antes: la persona aspirante se inscribe y
-aporta títulos y méritos en «Mi Bolsa», RRHH la admite y constituye la bolsa,
-y solo entonces el centro pide. Ese tramo forma parte de la condición 1
-(detalle en `FLUJO_APP.md`).
+El recorrido empieza en la petición del centro (`FLUJO_APP.md`, apartado 4.0).
+El tramo del aspirante (inscripción, títulos y méritos en «Mi Bolsa» y admisión
+por RRHH) se enseña aparte y no forma parte de la condición 1: el 14/10 Alberto
+aclaró que el recorrido puede empezar donde convenga. Sustituye a la nota del
+13/10, que lo ponía al principio.
 
 Estado a 13/10: ninguna condición acreditada con acta. En la 2 faltan la
 auditoría de RRHH y la verificación de firma (*pendiente de verificar* su
@@ -553,6 +568,13 @@ selección o baremación; Kerberos; correo de la Diputación; portafirmas y
 GINPIX reales; y la auditoría de seguridad con herramientas de ataque, que se
 reserva para cuando la aplicación esté terminada. Ninguna fase anterior
 autoriza datos reales.
+
+La preparación técnica de producción también va en esta fase (tablero, F7-17 a
+F7-33): instalación desde cero en una base vacía, servidores separados,
+retirada del montaje de desarrollo, servidor nuevo con CPU dedicada, prueba
+de carga antes de cada hito, administración solo desde la red corporativa,
+expediente electrónico, accesibilidad, respuesta a incidentes y análisis de
+riesgos.
 
 ## 6. Tareas pendientes
 
