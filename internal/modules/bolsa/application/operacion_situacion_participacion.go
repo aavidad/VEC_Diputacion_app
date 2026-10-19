@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"strings"
 	"time"
 
@@ -155,6 +156,21 @@ func (s *ServicioSituacionParticipacion) autorizarOperacion(ctx context.Context,
 }
 
 func (s *ServicioSituacionParticipacion) autorizarOperacionConAtributo(ctx context.Context, q ports.SolicitudCambiarSituacionParticipacion, atributo string, contextoRecurso *[]byte) (dominiovec.SolicitudAutorizacionLigadaV3, dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return s.autorizarOperacionConContrato(ctx, q, atributo, contextoRecurso, contratoOperacionSituacion{
+		accion: ports.AccionCambiarSituacionParticipacion, tipoRecurso: ports.TipoRecursoSituacionParticipacion,
+		finalidad: ports.FinalidadCambiarSituacionParticipacion, audiencia: ports.AudienciaCambiarSituacionParticipacion,
+		claveAtributo: "regularizacion_documental_sha256",
+	})
+}
+
+type contratoOperacionSituacion struct {
+	accion, tipoRecurso, finalidad, audiencia, claveAtributo string
+	// El acto nominal coteja pertenencia tras consumir V3, dentro de su TX.
+	pertenenciaEnTransaccion    bool
+	propagarInstantaneaObsoleta bool
+}
+
+func (s *ServicioSituacionParticipacion) autorizarOperacionConContrato(ctx context.Context, q ports.SolicitudCambiarSituacionParticipacion, atributo string, contextoRecurso *[]byte, contrato contratoOperacionSituacion) (dominiovec.SolicitudAutorizacionLigadaV3, dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	var a dominiovec.SolicitudAutorizacionLigadaV3
 	var d dominiovec.DecisionAutorizacionLigadaV3
 	var c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
@@ -166,33 +182,38 @@ func (s *ServicioSituacionParticipacion) autorizarOperacionConAtributo(ctx conte
 	if err != nil || resuelto.Validar() != nil {
 		return a, d, c, m, errorDependenciaSituacion(err)
 	}
-	pertenece, err := s.repositorio.ParticipacionPerteneceABolsa(ctx, q.BolsaRef, q.ParticipacionRef)
-	if err != nil {
-		return a, d, c, m, err
+	if !contrato.pertenenciaEnTransaccion {
+		pertenece, err := s.repositorio.ParticipacionPerteneceABolsa(ctx, q.BolsaRef, q.ParticipacionRef)
+		if err != nil {
+			return a, d, c, m, err
+		}
+		if !pertenece {
+			return a, d, c, m, dominiovec.ErrAutorizacionDenegada
+		}
 	}
-	if !pertenece {
-		return a, d, c, m, dominiovec.ErrAutorizacionDenegada
-	}
-	recurso := dominiovec.RecursoAutorizable{Referencia: q.ParticipacionRef, ModuloID: ports.ModuloSituacionParticipacion, Tipo: ports.TipoRecursoSituacionParticipacion, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
+	recurso := dominiovec.RecursoAutorizable{Referencia: q.ParticipacionRef, ModuloID: ports.ModuloSituacionParticipacion, Tipo: contrato.tipoRecurso, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
 	if atributo != "" {
-		recurso.Atributos = map[string]string{"regularizacion_documental_sha256": atributo}
+		recurso.Atributos = map[string]string{contrato.claveAtributo: atributo}
 		canon, canonErr := contextoRecursoRegularizacionCanonico(recurso)
 		if contextoRecurso == nil || canonErr != nil {
 			return a, d, c, m, dominiovec.ErrAutorizacionDenegada
 		}
 		*contextoRecurso = canon
 	}
-	a, err = dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: q.Vinculo, ReferenciaMotivo: q.MotivoAutorizacion, Accion: ports.AccionCambiarSituacionParticipacion, Recurso: recurso, Finalidad: ports.FinalidadCambiarSituacionParticipacion, Correlacion: q.Correlacion})
+	a, err = dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: q.Vinculo, ReferenciaMotivo: q.MotivoAutorizacion, Accion: contrato.accion, Recurso: recurso, Finalidad: contrato.finalidad, Correlacion: q.Correlacion})
 	if err != nil {
 		return a, d, c, m, dominiovec.ErrAutorizacionDenegada
 	}
 	var exportador puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3
 	d, c, exportador, err = s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, a, q.ResultadoContexto)
 	if err != nil || exportador == nil || d.ValidarPara(a) != nil {
+		if contrato.propagarInstantaneaObsoleta && errors.Is(err, puertosvec.ErrInstantaneaAutorizacionObsoleta) {
+			return a, d, c, m, err
+		}
 		return a, d, c, m, errorDependenciaSituacion(err)
 	}
 	m, err = exportador.ExportarMaterialParaConsumidor()
-	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(a, d, c, q.ResultadoContexto, q.MotivoAutorizacion, m, ports.AudienciaCambiarSituacionParticipacion) {
+	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(a, d, c, q.ResultadoContexto, q.MotivoAutorizacion, m, contrato.audiencia) {
 		return a, d, c, m, errorDependenciaSituacion(err)
 	}
 	return a, d, c, m, nil

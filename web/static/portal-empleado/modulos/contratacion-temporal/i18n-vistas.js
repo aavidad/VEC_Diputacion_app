@@ -12,6 +12,7 @@ const CUADRO = Object.freeze([
 ]);
 const EXPEDIENTE = Object.freeze([
   ...CUADRO,
+  ["contratacion-temporal-recuperacion-firmas-v2", "general"],
   ["contratacion-temporal-analisis-catalogo", "general"],
   ["contratacion-temporal-cambios-expediente", "general"],
   ["contratacion-temporal-firma-incorporacion-expedientes", "incorporacion"],
@@ -39,6 +40,8 @@ const VISTAS = Object.freeze({
 
 // Registro cerrado: la guarda de manifiestos puede comprobar cada origen JSON.
 const LECTORES = Object.freeze({
+  "contratacion-temporal-recuperacion-firmas-v2": [(opciones) => cargarTextos("contratacion-temporal-recuperacion-firmas-v2", opciones),
+    (idioma) => reintentarTextos("contratacion-temporal-recuperacion-firmas-v2", { idioma })],
   portal: [(opciones) => cargarTextos("portal", opciones), (idioma) => reintentarTextos("portal", { idioma })],
   "contratacion-temporal-ficha-lista": [(opciones) => cargarTextos("contratacion-temporal-ficha-lista", opciones),
     (idioma) => reintentarTextos("contratacion-temporal-ficha-lista", { idioma })],

@@ -17,6 +17,16 @@ RAIZ = Path(__file__).resolve().parents[3]
 FASE = Path(__file__).resolve().parent
 IMAGEN = 'postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296'
 BASE = Path('/dev/shm')
+D15_SQL = 'deploy/postgresql/documentos/migraciones/000015_rechazo_expediente_ct_cero.up.sql'
+PRUEBAS_SQL = (
+    'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql',
+    'deploy/postgresql/documentos/pruebas_sql/000014_referencia_expediente_tipado.sql',
+    'deploy/postgresql/documentos/pruebas_sql/000015_rechazo_expediente_ct_cero.sql',
+    'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql',
+    'deploy/postgresql/identidad_sesiones_v1/pruebas_sql/000021_seleccion_perfil_bolsa_rrhh.sql',
+    'deploy/postgresql/contexto_actor_v1/pruebas_sql/000046_perfiles_propios_bolsa_rrhh.sql',
+    'deploy/postgresql/contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql',
+)
 
 
 def memoria_disponible():
@@ -67,17 +77,41 @@ def preparar_esquema(destino):
     return salida
 
 
-def preparacion_versionada():
-    ruta = FASE / 'preparacion_fase1.sql'
+def contenido_versionado(relativa):
+    ruta = RAIZ / relativa
     if ruta.resolve(strict=True) != ruta or not ruta.is_file():
-        raise ValueError('La preparación SQL debe ser el archivo regular previsto')
+        raise ValueError(f'El archivo debe ser el regular previsto: {relativa}')
     contenido = ruta.read_bytes()
     versionado = subprocess.check_output([
-        'git', '-C', str(RAIZ), 'show',
-        'HEAD:deploy/postgresql/fase1/preparacion_fase1.sql'], timeout=30)
+        'git', '-C', str(RAIZ), 'show', f'HEAD:{relativa}'], timeout=30)
     if contenido != versionado:
-        raise ValueError('La preparación SQL difiere de la cabeza versionada')
+        raise ValueError(f'El archivo difiere de la cabeza versionada: {relativa}')
     return contenido
+
+
+def preparacion_versionada():
+    return contenido_versionado('deploy/postgresql/fase1/preparacion_fase1.sql')
+
+
+def base_hz37_versionada():
+    lista = contenido_versionado('deploy/postgresql/fase1/lista_sql_base_hz37.txt')
+    filas = lista.decode('ascii').splitlines()
+    if len(filas) != 1 or len(filas[0].split()) != 2:
+        raise ValueError('La lista base HZ37 debe contener solo D15 y su huella')
+    relativa, huella = filas[0].split()
+    if relativa != D15_SQL or len(huella) != 64:
+        raise ValueError('La lista base HZ37 no identifica D15')
+    contenido = contenido_versionado(D15_SQL)
+    if hashlib.sha256(contenido).hexdigest() != huella:
+        raise ValueError('La huella de D15 no coincide')
+    return relativa, contenido
+
+
+def pruebas_versionadas():
+    pruebas = []
+    for relativa in PRUEBAS_SQL:
+        pruebas.append((relativa, contenido_versionado(relativa)))
+    return pruebas
 
 
 def comandos_docker(*argumentos, entrada=None, timeout=180):
@@ -158,15 +192,31 @@ END $$;"""
     print(f'Tablas sin filas verificadas: {cantidad}')
 
 
-def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False):
+def esperar_postgresql(nombre, etiqueta):
+    for _ in range(120):
+        if not contenedor_propio(nombre, etiqueta):
+            raise ValueError('PostgreSQL terminó durante el arranque')
+        listo = subprocess.run(['docker', 'exec', '-u', 'postgres', nombre,
+                                'pg_isready', '-h', '127.0.0.1', '-U', 'postgres'],
+                               capture_output=True)
+        if listo.returncode == 0:
+            break
+        time.sleep(0.5)
+    else:
+        raise ValueError('PostgreSQL no respondió en 60 segundos')
+
+
+def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False, pruebas=False):
     sys.path.insert(0, str(RAIZ))
     from deploy.principal.copia_local_roles import extract, ROLES_B119
     from deploy.principal.copia_local import migraciones
 
     base = comprobar_destino(datos_dir or os.environ.get('VEC_PG18_DATOS_DIR', '/dev/shm'))
-    if solo_base and preparacion:
-        raise ValueError('--preparacion no corresponde a --solo-base')
-    fixture = preparacion_versionada() if preparacion else None
+    if solo_base and (preparacion or pruebas):
+        raise ValueError('--preparacion y --pruebas no corresponden a --solo-base')
+    fixture = preparacion_versionada() if preparacion or pruebas else None
+    base_hz37 = base_hz37_versionada() if fixture is not None else None
+    casos = pruebas_versionadas() if pruebas else ()
     deltas = [] if solo_base else migraciones([lista or RAIZ / 'deploy/principal/lista_sql_main_tras_hz37.txt'])
     nombre = 'vec-fase1-' + secrets.token_hex(6)
     propio = base / nombre
@@ -183,25 +233,37 @@ def ejecutar(solo_base=False, lista=None, datos_dir=None, preparacion=False):
                         '--label', f'vec.fase1={etiqueta}', '-e', 'PGDATA=/datos',
                         '-e', 'POSTGRES_HOST_AUTH_METHOD=trust',
                         '-v', f'{propio / "data"}:/datos', IMAGEN)
-        for _ in range(120):
-            if not contenedor_propio(nombre, etiqueta):
-                raise ValueError('PostgreSQL terminó durante el arranque')
-            listo = subprocess.run(['docker', 'exec', '-u', 'postgres', nombre,
-                                    'pg_isready', '-h', '127.0.0.1', '-U', 'postgres'],
-                                   capture_output=True)
-            if listo.returncode == 0:
-                break
-            time.sleep(0.5)
-        else:
-            raise ValueError('PostgreSQL no respondió en 60 segundos')
+        esperar_postgresql(nombre, etiqueta)
         sql(nombre, sentencias, 'la creación de roles sin LOGIN')
         sql(nombre, esquema.read_bytes(), 'la restauración del esquema HZ37')
         verificar_tablas_vacias(nombre)
         if fixture is not None:
             sql(nombre, fixture, 'la preparación versionada de la fase 1')
+            relativa, contenido = base_hz37
+            sql(nombre, contenido, f'la reconciliación HZ37 {relativa}')
         for ruta, _huella, contenido in deltas:
             sql(nombre, contenido, f'la migración {ruta.relative_to(RAIZ)}')
+        for relativa, contenido in casos:
+            sql(nombre, contenido, f'la prueba {relativa}')
+        if pruebas:
+            # Reiniciar el mismo PGDATA: no reinstalar SQL ni preparar datos.
+            if not contenedor_propio(nombre, etiqueta):
+                raise ValueError('El contenedor propio no está disponible para reiniciar')
+            comandos_docker('restart', '--time', '10', nombre)
+            esperar_postgresql(nombre, etiqueta)
+            for relativa, contenido in casos:
+                sql(nombre, contenido, f'la prueba tras reiniciar {relativa}')
+            if not contenedor_propio(nombre, etiqueta):
+                raise ValueError('El contenedor propio no está disponible para la concurrencia')
+            from deploy.postgresql.fase1 import concurrencia_contexto
+            fixture_externo = dict(casos)[PRUEBAS_SQL[-1]]
+            concurrencia_contexto.ensayar(nombre, etiqueta, fixture_externo)
         print(f'Esquema HZ37 restaurado; migraciones ensayadas: {len(deltas)}')
+        if base_hz37 is not None:
+            print('Reconciliación de la copia HZ37: Documentos D15 instalada')
+        if pruebas:
+            print(f'Pruebas SQL superadas: {len(casos)} antes y {len(casos)} después del reinicio')
+            print('Concurrencia CAS de contexto externo superada')
     finally:
         limpiar_copia(nombre, etiqueta, propio)
 
@@ -213,9 +275,10 @@ def main():
     parser.add_argument('--lista', type=Path)
     parser.add_argument('--datos-dir', type=Path)
     parser.add_argument('--preparacion', action='store_true')
+    parser.add_argument('--pruebas', action='store_true')
     args = parser.parse_args()
     try:
-        ejecutar(args.solo_base, args.lista, args.datos_dir, args.preparacion)
+        ejecutar(args.solo_base, args.lista, args.datos_dir, args.preparacion, args.pruebas)
     except (OSError, ValueError, subprocess.SubprocessError, KeyError,
             gzip.BadGzipFile, json.JSONDecodeError) as exc:
         print(f'Ensayo detenido: {exc}', file=sys.stderr)

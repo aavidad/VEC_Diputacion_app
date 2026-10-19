@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -159,6 +160,196 @@ class EnsayoFase1Test(unittest.TestCase):
         with mock.patch.object(ensayar, 'sql', side_effect=[mock.Mock(), mock.Mock(stdout=b'0\n')]):
             with self.assertRaisesRegex(ValueError, 'No se encontraron tablas'):
                 ensayar.verificar_tablas_vacias('contenedor')
+
+    def test_pruebas_usan_bytes_versionados_y_lista_cerrada(self):
+        self.assertEqual(len(ensayar.PRUEBAS_SQL), 7)
+        with mock.patch.object(ensayar.subprocess, 'check_output', return_value=b'SQL') as git:
+            with mock.patch.object(Path, 'read_bytes', return_value=b'SQL'):
+                casos = ensayar.pruebas_versionadas()
+        self.assertEqual([ruta for ruta, _ in casos], list(ensayar.PRUEBAS_SQL))
+        self.assertEqual([contenido for _, contenido in casos], [b'SQL'] * 7)
+        self.assertEqual([llamada.args[0][-1] for llamada in git.call_args_list],
+                         [f'HEAD:{ruta}' for ruta in ensayar.PRUEBAS_SQL])
+        with mock.patch.object(ensayar.subprocess, 'check_output', return_value=b'alterado'):
+            with self.assertRaisesRegex(ValueError, 'difiere de la cabeza versionada'):
+                ensayar.pruebas_versionadas()
+
+    def test_reconciliacion_hz37_exige_d15_exacto_y_huella(self):
+        sql = b'MIGRACION D15'
+        fila = f'{ensayar.D15_SQL} {hashlib.sha256(sql).hexdigest()}\n'.encode()
+        with mock.patch.object(ensayar, 'contenido_versionado',
+                               side_effect=[fila, sql]) as leer:
+            self.assertEqual(ensayar.base_hz37_versionada(), (ensayar.D15_SQL, sql))
+        self.assertEqual([llamada.args[0] for llamada in leer.call_args_list], [
+            'deploy/postgresql/fase1/lista_sql_base_hz37.txt', ensayar.D15_SQL])
+        otra = b'deploy/postgresql/otro.sql ' + hashlib.sha256(sql).hexdigest().encode()
+        with mock.patch.object(ensayar, 'contenido_versionado', return_value=otra):
+            with self.assertRaisesRegex(ValueError, 'no identifica D15'):
+                ensayar.base_hz37_versionada()
+        with mock.patch.object(ensayar, 'contenido_versionado',
+                               side_effect=[fila, b'distinto']):
+            with self.assertRaisesRegex(ValueError, 'huella de D15'):
+                ensayar.base_hz37_versionada()
+
+    def test_pruebas_siguen_instalacion_y_fallo_sql_sale_con_estado_uno(self):
+        from deploy.principal import copia_local, copia_local_roles
+
+        with tempfile.TemporaryDirectory(dir='/dev/shm') as temporal:
+            eventos = []
+
+            def esquema(destino):
+                ruta = destino / 'esquema.sql'
+                ruta.write_bytes(b'ESQUEMA')
+                return ruta
+
+            def ejecutar_sql(_nombre, contenido, etapa):
+                eventos.append((contenido, etapa))
+                if contenido == b'PRUEBA2':
+                    raise ValueError('Falló la prueba funcional')
+                return mock.Mock(stdout=b'')
+
+            with (mock.patch.object(ensayar, 'comprobar_destino', return_value=Path(temporal)),
+                  mock.patch.object(ensayar, 'preparar_esquema', side_effect=esquema),
+                  mock.patch.object(ensayar, 'preparacion_versionada', return_value=b'PREPARACION'),
+                  mock.patch.object(ensayar, 'base_hz37_versionada',
+                                    return_value=(ensayar.D15_SQL, b'D15')),
+                  mock.patch.object(ensayar, 'pruebas_versionadas', return_value=[
+                      ('primera.sql', b'PRUEBA1'), ('segunda.sql', b'PRUEBA2')]),
+                  mock.patch.object(copia_local, 'migraciones', return_value=[
+                      (ensayar.RAIZ / 'migracion.sql', 'huella', b'MIGRACION')]),
+                  mock.patch.object(copia_local_roles, 'extract', return_value=[]),
+                  mock.patch.object(ensayar, 'comandos_docker'),
+                  mock.patch.object(ensayar, 'contenedor_propio', return_value=True),
+                  mock.patch.object(ensayar.subprocess, 'run',
+                                    return_value=mock.Mock(returncode=0)),
+                  mock.patch.object(ensayar, 'sql', side_effect=ejecutar_sql),
+                  mock.patch.object(ensayar, 'verificar_tablas_vacias'),
+                  mock.patch('sys.argv', ['ensayar.py', '--pruebas'])):
+                self.assertEqual(ensayar.main(), 1)
+            self.assertEqual([etapa for _, etapa in eventos], [
+                'la creación de roles sin LOGIN', 'la restauración del esquema HZ37',
+                'la preparación versionada de la fase 1',
+                f'la reconciliación HZ37 {ensayar.D15_SQL}',
+                'la migración migracion.sql',
+                'la prueba primera.sql', 'la prueba segunda.sql'])
+            self.assertEqual([contenido for contenido, _ in eventos][1:], [
+                b'ESQUEMA', b'PREPARACION', b'D15', b'MIGRACION',
+                b'PRUEBA1', b'PRUEBA2'])
+            self.assertIn('la prueba segunda.sql', eventos[-1][1])
+            self.assertEqual(list(Path(temporal).iterdir()), [])
+
+    def test_reinicio_conserva_datos_y_no_reinstala_migraciones(self):
+        from deploy.principal import copia_local, copia_local_roles
+        from deploy.postgresql.fase1 import concurrencia_contexto
+
+        with tempfile.TemporaryDirectory(dir='/dev/shm') as temporal:
+            eventos = []
+            ruta = Path(temporal) / 'esquema.sql'
+            ruta.write_bytes(b'ESQUEMA')
+
+            def ejecutar_sql(_nombre, contenido, etapa):
+                eventos.append((contenido, etapa))
+                return mock.Mock(stdout=b'')
+
+            def docker(*argumentos, **_opciones):
+                if argumentos[0] == 'restart':
+                    eventos.append((b'REINICIO', 'reinicio'))
+                return mock.Mock(stdout=b'')
+
+            def concurrencia(_nombre, _etiqueta, contenido):
+                self.assertEqual(contenido, b'PRUEBA')
+                eventos.append((b'CARRERA', 'concurrencia'))
+
+            with (mock.patch.object(ensayar, 'comprobar_destino', return_value=Path(temporal)),
+                  mock.patch.object(ensayar, 'preparar_esquema', return_value=ruta),
+                  mock.patch.object(ensayar, 'preparacion_versionada', return_value=b'PREPARACION'),
+                  mock.patch.object(ensayar, 'base_hz37_versionada',
+                                    return_value=(ensayar.D15_SQL, b'D15')),
+                  mock.patch.object(ensayar, 'pruebas_versionadas',
+                                    return_value=[(ensayar.PRUEBAS_SQL[-1], b'PRUEBA')]),
+                  mock.patch.object(copia_local, 'migraciones', return_value=[
+                      (ensayar.RAIZ / 'migracion.sql', 'huella', b'MIGRACION')]),
+                  mock.patch.object(copia_local_roles, 'extract', return_value=[]),
+                  mock.patch.object(ensayar, 'comandos_docker', side_effect=docker),
+                  mock.patch.object(ensayar, 'contenedor_propio', return_value=True),
+                  mock.patch.object(ensayar, 'esperar_postgresql') as esperar,
+                  mock.patch.object(ensayar, 'sql', side_effect=ejecutar_sql),
+                  mock.patch.object(ensayar, 'verificar_tablas_vacias'),
+                  mock.patch.object(concurrencia_contexto, 'ensayar', side_effect=concurrencia) as carrera,
+                  mock.patch.object(ensayar, 'limpiar_copia')):
+                ensayar.ejecutar(pruebas=True)
+            self.assertEqual(esperar.call_count, 2)
+            self.assertEqual([contenido for contenido, _ in eventos][1:], [
+                b'ESQUEMA', b'PREPARACION', b'D15', b'MIGRACION',
+                b'PRUEBA', b'REINICIO', b'PRUEBA', b'CARRERA'])
+            self.assertEqual(eventos[-2][1], 'la prueba tras reiniciar ' + ensayar.PRUEBAS_SQL[-1])
+            self.assertEqual(carrera.call_count, 1)
+
+    def test_pruebas_y_solo_base_son_incompatibles(self):
+        with mock.patch.object(ensayar, 'comprobar_destino', return_value=Path('/dev/shm')):
+            with self.assertRaisesRegex(ValueError, '--solo-base'):
+                ensayar.ejecutar(solo_base=True, pruebas=True)
+
+    def test_concurrencia_libera_ambas_sesiones_si_no_observa_bloqueo(self):
+        from deploy.postgresql.fase1 import concurrencia_contexto as carrera
+
+        a, b = mock.Mock(), mock.Mock()
+        a.esperar.side_effect = [
+            carrera.PREIMAGEN.search(b'PREIMAGEN 101 1 ' + b'a' * 64 + b'\n'),
+            re.search(rb'A_PUBLICADO\n', b'A_PUBLICADO\n'),
+        ]
+        b.esperar.return_value = carrera.PREIMAGEN.search(
+            b'PREIMAGEN 102 1 ' + b'a' * 64 + b'\n')
+        with (mock.patch.object(carrera, 'comprobar_contenedor'),
+              mock.patch.object(carrera, 'psql', return_value=mock.Mock(stdout=b'CTX15-PRUEBA-OK')),
+              mock.patch.object(carrera, 'Sesion', side_effect=[a, b]),
+              mock.patch.object(carrera, 'esperar_bloqueo', side_effect=ValueError('sin bloqueo'))):
+            with self.assertRaisesRegex(ValueError, 'sin bloqueo'):
+                carrera.ensayar('vec-fase1-012345abcdef', '/dev/shm/propio', b'CTX15-PRUEBA-OK')
+        a.terminar.assert_called_once_with()
+        b.terminar.assert_called_once_with()
+
+    def test_concurrencia_libera_primera_sesion_si_segunda_no_arranca(self):
+        from deploy.postgresql.fase1 import concurrencia_contexto as carrera
+
+        a = mock.Mock()
+        with (mock.patch.object(carrera, 'comprobar_contenedor'),
+              mock.patch.object(carrera, 'psql', return_value=mock.Mock(stdout=b'CTX15-PRUEBA-OK')),
+              mock.patch.object(carrera, 'Sesion', side_effect=[a, OSError('sin descriptor')])):
+            with self.assertRaisesRegex(OSError, 'sin descriptor'):
+                carrera.ensayar('vec-fase1-012345abcdef', '/dev/shm/propio', b'CTX15-PRUEBA-OK')
+        a.terminar.assert_called_once_with()
+
+    def test_concurrencia_rechaza_sesion_sin_bloqueo_real(self):
+        from deploy.postgresql.fase1 import concurrencia_contexto as carrera
+
+        sesion = mock.Mock()
+        sesion.proceso.poll.return_value = None
+        with (mock.patch.object(carrera, 'bloqueado_por', return_value=False),
+              mock.patch.object(carrera.time, 'monotonic', side_effect=[0, 0, 0.6]),
+              mock.patch.object(carrera.time, 'sleep')):
+            with self.assertRaisesRegex(ValueError, 'bloqueo real'):
+                carrera.esperar_bloqueo('vec-fase1-012345abcdef', 101, 102, sesion, plazo=0.5)
+
+    def test_concurrencia_lee_hito_de_stderr_sin_esperar_cierre(self):
+        from deploy.postgresql.fase1 import concurrencia_contexto as carrera
+
+        salida_r, salida_w = os.pipe()
+        error_r, error_w = os.pipe()
+        try:
+            os.write(error_w, b'PREIMAGEN 101 1 ' + b'a' * 64 + b'\n')
+            sesion = carrera.Sesion.__new__(carrera.Sesion)
+            sesion.salida, sesion.errores = bytearray(), bytearray()
+            sesion.proceso = mock.Mock(stdout=os.fdopen(salida_r, 'rb', buffering=0),
+                                      stderr=os.fdopen(error_r, 'rb', buffering=0))
+            sesion.proceso.poll.return_value = None
+            hito = sesion.esperar(carrera.PREIMAGEN, plazo=0.5)
+            self.assertEqual(hito.group(1), b'101')
+        finally:
+            os.close(salida_w)
+            os.close(error_w)
+            for tubo in (sesion.proceso.stdout, sesion.proceso.stderr):
+                tubo.close()
 
 
 if __name__ == '__main__':

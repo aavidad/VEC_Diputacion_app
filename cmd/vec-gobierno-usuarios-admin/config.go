@@ -193,7 +193,7 @@ func mismoUsuario(a, b string) bool {
 type operaciones struct {
 	preparar  func(context.Context, string, time.Duration, bootstrap.MaterialOrigenGobiernoUsuariosAdmin, *os.Root) (bootstrap.PreparacionGobiernoUsuariosAdmin, error)
 	aplicar   func(context.Context, string, time.Duration, *os.Root, string) (bootstrap.ConfirmacionGobiernoUsuariosAdmin, error)
-	verificar func(context.Context, string, time.Duration, *os.Root, string) (auditoria.InformeVerificacion, error)
+	verificar func(context.Context, string, time.Duration, *os.Root, string, string) (auditoria.InformeVerificacion, error)
 	// versionBolsa escribe el overlay B1 del día; no conecta con la base.
 	versionBolsa        func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error
 	versionBolsaExterna func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error
@@ -225,12 +225,15 @@ func operacionesPG() operaciones {
 			defer pool.Close()
 			return bootstrap.AplicarGobiernoUsuariosAdminPreparado(ctx, pool, r, acuse, relojSistema{})
 		},
-		verificar: func(ctx context.Context, dsn string, limite time.Duration, r *os.Root, nombre string) (auditoria.InformeVerificacion, error) {
+		verificar: func(ctx context.Context, dsn string, limite time.Duration, r *os.Root, nombre, acuse string) (auditoria.InformeVerificacion, error) {
 			pool, err := abrirPool(ctx, dsn, limite)
 			if err != nil {
 				return auditoria.InformeVerificacion{}, err
 			}
 			defer pool.Close()
+			if acuse != "" {
+				return bootstrap.VerificarCadenaGobiernoUsuariosAdmin(ctx, pool, r, nombre, acuse)
+			}
 			return bootstrap.VerificarCadenaGobiernoUsuariosAdmin(ctx, pool, r, nombre)
 		},
 		versionBolsa: func(r *os.Root, d bootstrap.DestinoOverlayVersionBolsaAdmin, acuse string) error {
