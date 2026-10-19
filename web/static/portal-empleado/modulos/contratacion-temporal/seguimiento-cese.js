@@ -48,6 +48,8 @@ export function montarPanelSeguimientoCese({
   let datos = null;
   let ocupado = false;
   let ayudaAbierta = false;
+  // En la revisión, tras registrar la decisión el texto final la explica.
+  let decisionRegistrada = false;
   // Al volver a montar el panel tras un registro, el recibo sigue a la vista.
   let aviso = avisoInicial?.tono === "exito" && typeof avisoInicial.texto === "string"
     ? { tono: "exito", texto: avisoInicial.texto } : null;
@@ -166,7 +168,7 @@ export function montarPanelSeguimientoCese({
     }
     if (datos.error) {
       contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese">${aviso ? `<p class="ct-exp-mensaje ct-tono-${aviso.tono}" role="status">${escapar(aviso.texto)}</p>` : ""}
-        <p role="alert">${escapar(t(soloNoIncorporacion && aviso?.tono === "exito" ? "revision_lectura_no_disponible" : "no_disponible"))}</p>
+        <p role="alert">${escapar(t(soloNoIncorporacion && decisionRegistrada ? "revision_lectura_no_disponible" : "no_disponible"))}</p>
         <button type="button" class="boton-secundario" data-ct-seg-reintentar>${escapar(t("reintentar"))}</button></section>`;
       return;
     }
@@ -187,7 +189,7 @@ export function montarPanelSeguimientoCese({
     if (soloNoIncorporacion && formularios.length === 0) {
       const final = estado.rechazada ? "revision_rechazada" : estado.no_incorporacion ? "revision_confirmada" : "";
       formularios.push(final
-        ? `<p>${escapar(t(final))}</p><p><a href="${escapar(enlacePeticiones())}">${escapar(t("revision_ir_peticiones"))}</a></p>`
+        ? `<p role="status" tabindex="-1" data-ct-seg-final>${escapar(t(final))}</p><p><a href="${escapar(enlacePeticiones())}">${escapar(t("revision_ir_peticiones"))}</a></p>`
         : `<p role="status">${escapar(t("revision_sin_propuesta"))}</p>`);
     }
     contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" data-ct-seg-cese ${soloNoIncorporacion ? `aria-label="${escapar(t("revision_titulo"))}"` : 'aria-labelledby="ct-seg-cese-titulo"'} ${ocupado ? 'aria-busy="true"' : ""}>
@@ -286,18 +288,26 @@ export function montarPanelSeguimientoCese({
       if (!soloNoIncorporacion && recibo.coste_centimos) {
         texto += ` ${t("recibo_coste", { coste: new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(recibo.coste_centimos / 100) })}`;
       }
-      aviso = { tono: "exito", texto };
       anunciar(texto, "exito");
       ocupado = false;
+      if (soloNoIncorporacion) {
+        // La revisión no repite el aviso: el texto final dice qué ha pasado
+        // y qué sigue. Tras rechazar ya no hay nada que esta persona pueda
+        // consultar; tras confirmar se relee su resultado.
+        aviso = null;
+        decisionRegistrada = true;
+        alConfirmar(recibo, { tono: "exito", texto });
+        if (tipo === "no_incorporacion_rechazar") {
+          datos = { ...datos, estado: { ...datos.estado, no_incorporacion_propuesta: null, rechazada: true } };
+          pintar();
+        } else await cargar();
+        contenedor.querySelector("[data-ct-seg-final], [role=alert]")?.focus?.();
+        return;
+      }
+      aviso = { tono: "exito", texto };
       pintar();
       contenedor.querySelector("[data-ct-seg-aviso]")?.focus?.();
       alConfirmar(recibo, aviso);
-      // Tras rechazar ya no hay nada que esta persona pueda consultar: se
-      // queda el aviso y el camino de vuelta. Tras confirmar, se relee.
-      if (soloNoIncorporacion && tipo === "no_incorporacion_rechazar") {
-        datos = { ...datos, estado: { ...datos.estado, no_incorporacion_propuesta: null, rechazada: true } };
-        pintar();
-      } else if (soloNoIncorporacion) cargar();
     } catch (error) {
       ocupado = false;
       if (controlador.signal.aborted) return;

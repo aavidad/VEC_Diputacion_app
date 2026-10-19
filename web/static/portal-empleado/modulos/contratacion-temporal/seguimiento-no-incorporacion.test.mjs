@@ -135,7 +135,7 @@ test("la revisión acotada usa versión de la respuesta, solo permite resolver y
   let pendiente = true, consultas = 0, envios = 0;
   const recibo = { recibo_ref: "recibo:ni:confirmado", version_resultante: 10 };
   const cliente = { consultarSeguimientoCese: async () => { consultas++; return validarConsultaSeguimientoCese(
-    consulta({ ...metadata, ...(pendiente ? { no_incorporacion_propuesta: propuesta } : {}) }), EXP); },
+    consulta({ ...metadata, ...(pendiente ? { no_incorporacion_propuesta: propuesta } : { no_incorporacion: noInc }) }), EXP); },
     registrarNoIncorporacion: async (s) => { envios++; assert.equal(s.version_esperada, 9); assert.equal(s.propuesta_ref, propuesta.propuesta_ref);
       pendiente = false; return recibo; } };
   const previo = globalThis.FormData;
@@ -153,9 +153,9 @@ test("la revisión acotada usa versión de la respuesta, solo permite resolver y
     await esperar();
     assert.equal(envios, 1);
     assert.equal(consultas, 2, "tras el recibo se recupera el estado sin otro POST");
-    assert.match(c.innerHTML, /No incorporación confirmada\./u);
-    assert.doesNotMatch(c.innerHTML, /recibo:ni:confirmado|Versión 10/u, "la revisión no enseña identificadores técnicos");
-    assert.match(c.innerHTML, /No hay una propuesta pendiente/u);
+    assert.match(c.innerHTML, /<p role="status" tabindex="-1" data-ct-seg-final>La no incorporación está confirmada\./u);
+    assert.doesNotMatch(c.innerHTML, /data-ct-seg-aviso/u, "sin aviso repetido encima del texto final");
+    assert.doesNotMatch(c.innerHTML, /recibo:ni:confirmado|recibo:ni:1|Versión 10/u, "la revisión no enseña identificadores técnicos");
     assert.doesNotMatch(c.innerHTML, /data-ct-seg-form="no_incorporacion_confirmar"/u);
     quitar();
   } finally { globalThis.FormData = previo; }
@@ -181,7 +181,6 @@ test("tras rechazar la revisión dice qué ha pasado sin volver a leer", async (
     c.eventos.get("submit")({ target: { closest: () => ({ dataset: { ctSegForm: "no_incorporacion_rechazar" }, campos: { observaciones: "" } }) }, preventDefault() {} });
     await esperar();
     assert.equal(consultas, 1, "tras rechazar ya no hay nada que esta persona pueda leer");
-    assert.match(c.innerHTML, /Propuesta rechazada\./u);
     assert.match(c.innerHTML, /Ha rechazado la propuesta\. El expediente sigue en nombramiento, sin cambios\./u);
     assert.match(c.innerHTML, /href="\/portal-empleado\/\?lang=[a-z]{2}#contratacion-temporal"/u);
     assert.doesNotMatch(c.innerHTML, /recibo:ni:rechazo|data-ct-seg-form=/u);

@@ -110,3 +110,7 @@
   width: 100%;
   box-sizing: border-box;
 }
+
+.ct-seg-cese-copiado:empty {
+  display: none;
+}

@@ -80,8 +80,8 @@ function bloqueEnlaceRevision(enlace, t, escapar) {
   return `<div class="ct-seg-cese-enlace"><p id="ct-seg-enlace-ayuda">${escapar(t("revision_enlace_ayuda"))}</p>
       <label class="ct-campo ct-seg-cese-ancho"><span>${escapar(t("revision_enlace"))}</span>
       <input type="text" readonly value="${escapar(enlace)}" data-ct-seg-enlace aria-describedby="ct-seg-enlace-ayuda"></label>
-      <div class="ct-acciones"><button type="button" class="boton-secundario" data-ct-seg-copiar-enlace>${escapar(t("revision_copiar"))}</button>
-      <span role="status" data-ct-seg-copiado></span></div></div>`;
+      <div class="ct-acciones"><button type="button" class="boton-secundario" data-ct-seg-copiar-enlace>${escapar(t("revision_copiar"))}</button></div>
+      <p class="ct-seg-cese-copiado" role="status" data-ct-seg-copiado></p></div>`;
 }
 
 /**
