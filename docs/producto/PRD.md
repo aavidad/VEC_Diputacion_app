@@ -1133,7 +1133,8 @@ catálogo de órganos, delegaciones, suplencias y firmas.
 
 Son las cuatro condiciones de la fase 1 de `docs/producto/PLAN_IMPLEMENTACION.md`
 (apartado 5). Se comprueban en
-cidonia con datos sintéticos, no en un clon ni en una prueba aislada:
+la copia local con datos sintéticos, no en una prueba aislada (cidonia está
+congelada desde el 16/10):
 
 1. **Recorrido completo de RRHH en el navegador, con reinicio.** Con Chrome y
    certificados de personas distintas: petición del centro, ratificación, alta,
@@ -1151,7 +1152,7 @@ cidonia con datos sintéticos, no en un clon ni en una prueba aislada:
    recorrido.
 4. **Lecturas rápidas.** Cuadro de CT, lista y ficha de expedientes, bolsas,
    candidatos y ficha del candidato por debajo de 300 ms en el percentil 95,
-   medido por HTTP en cidonia; la base común por debajo de 100 ms.
+   medido por HTTP en la copia local; la base común por debajo de 100 ms.
 
 A 13/10 ninguna de las cuatro está acreditada del todo. El último acta completa
 (`docs/estudio_requisitos/acta_recorrido_ct_bolsa_20261005.md`) se paró en la
@@ -1163,7 +1164,7 @@ Antes de programar una regla funcional, la puerta institucional del apartado 6.
 Para darla por terminada:
 
 - se puede recorrer: navegador, API, autorización, aplicación, PostgreSQL y
-  recibo, con recuperación tras reinicio, instalada en cidonia y probada allí;
+  recibo, con recuperación tras reinicio, recorrida en la copia local;
 - los permisos están probados, también las denegaciones y la separación de zonas;
 - reglas, fuentes y versiones aparecen en el resultado y en la auditoría;
 - concurrencia, reintento y fallo parcial están probados;
@@ -1201,11 +1202,11 @@ recorrido. El detalle de pantallas y llamadas está en `docs/producto/FLUJO_APP.
 | 14 | Técnico de RRHH | Cese | Contratación temporal |
 | 15 | Aspirante | Vuelve a estar disponible en su bolsa | «Mi Bolsa» |
 
-Este recorrido incluye, desde el 13/10, la inscripción del aspirante y la
-constitución de la bolsa (pasos 1 y 2), que el plan ya cuenta dentro de la
-condición 1 de la fase 1. Si cidonia no está a
-tiempo, el plan alternativo es grabar el mismo recorrido en una copia local de la
-base de cidonia, con cada paso funcionando de verdad y sin datos puestos a mano.
+El recorrido principal empieza en el paso 3, la petición del centro. Los pasos 1
+y 2 (inscripción del aspirante y constitución de la bolsa) se enseñan aparte y
+no forman parte de la condición 1 de la fase 1: el 14/10 Alberto aclaró que el
+recorrido puede empezar donde convenga. Se recorre en la copia local, con cada
+paso funcionando de verdad y sin datos puestos a mano.
 
 Qué falta en cidonia para cada paso: ver `docs/producto/PLAN_IMPLEMENTACION.md`.
 
