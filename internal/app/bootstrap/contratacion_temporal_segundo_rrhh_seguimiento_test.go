@@ -221,3 +221,24 @@ func TestInstantaneaSegundoRRHHAceptaSemillaYAsignacionCenida(t *testing.T) {
 		t.Fatalf("la base conserva el ámbito de una operación anterior: %+v", base.AsignacionPerfil.Ambitos)
 	}
 }
+
+func TestSegundoRRHHSoloEntraEnFronterasDeConsultaYNoIncorporacion(t *testing.T) {
+	const original, segundo = "perfil:ct:original", "perfil:ct:segundo"
+	declaraciones := []descriptorFronteraComunDesarrollo{
+		{Ruta: httpinterno.RutaSeguimientoCese, Metodo: http.MethodPost, PerfilesActivosRef: []string{original}},
+		{Ruta: httpinterno.RutaNoIncorporaciones, Metodo: http.MethodPost, PerfilesActivosRef: []string{original}},
+		{Ruta: httpinterno.RutaCesesNombramiento, Metodo: http.MethodPost, PerfilesActivosRef: []string{original}},
+		{Ruta: httpinterno.RutaSeguimientoCese, Metodo: http.MethodGet, PerfilesActivosRef: []string{original}},
+	}
+	admitirSegundoRRHHEnFronteras(declaraciones, segundo)
+	for i, esperados := range [][]string{{original, segundo}, {original, segundo}, {original}, {original}} {
+		if len(declaraciones[i].PerfilesActivosRef) != len(esperados) {
+			t.Fatalf("frontera %d: %v", i, declaraciones[i].PerfilesActivosRef)
+		}
+		for j, perfil := range esperados {
+			if declaraciones[i].PerfilesActivosRef[j] != perfil {
+				t.Fatalf("frontera %d: %v", i, declaraciones[i].PerfilesActivosRef)
+			}
+		}
+	}
+}

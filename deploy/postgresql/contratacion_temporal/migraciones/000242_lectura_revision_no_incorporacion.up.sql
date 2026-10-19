@@ -17,7 +17,8 @@ BEGIN
     OR current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
     OR f IS NULL
     OR to_regclass('vec_contratacion_temporal.expediente_integral_actual') IS NULL
-    OR to_regclass('vec_contratacion_temporal.expediente_version_integral') IS NULL THEN
+    OR to_regclass('vec_contratacion_temporal.expediente_version_integral') IS NULL
+    OR to_regprocedure('vec_contratacion_temporal.numero_visible_vigente_v1(text,text)') IS NULL THEN
   RAISE EXCEPTION 'CT242: preimagen ausente' USING ERRCODE='55000'; END IF;
  SELECT proowner,prosecdef,provolatile,proacl::text AS acl,proconfig,
         encode(sha256(convert_to(pg_get_functiondef(oid),'UTF8')),'hex') AS huella
@@ -59,9 +60,10 @@ BEGIN
     END IF;
     PERFORM set_config('vec.ct115.organizacion_ref',p_organizacion,true);
     PERFORM set_config('vec.ct115.expediente_ref',p_expediente,true);
-    SELECT a.version AS version_expediente, v.agregado_json->>'fase_actual' AS fase_clave,
-           v.agregado_json->>'estado_actual' AS estado_clave,
-           v.agregado_json->>'numero_visible' AS numero_expediente
+    -- Fase y estado salen de las columnas de la versión vigente; el número es
+    -- el mismo que muestra el cuadro de RRHH (numeración anual de CT142).
+    SELECT a.version AS version_expediente, v.fase_clave, v.estado AS estado_clave,
+           vec_contratacion_temporal.numero_visible_vigente_v1(p_expediente, v.agregado_json->>'numero_visible') AS numero_expediente
       INTO e FROM vec_contratacion_temporal.expediente_integral_actual a
       JOIN vec_contratacion_temporal.expediente_version_integral v
         ON v.expediente_ref=a.expediente_ref AND v.version=a.version

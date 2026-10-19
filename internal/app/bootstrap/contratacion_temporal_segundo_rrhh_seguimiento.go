@@ -55,6 +55,17 @@ func rutaSegundoRRHHNoIncorporacion(ruta, metodo string) bool {
 		(ruta == httpinterno.RutaSeguimientoCese || ruta == httpinterno.RutaNoIncorporaciones)
 }
 
+// admitirSegundoRRHHEnFronteras añade el perfil de la segunda persona solo a
+// la consulta exacta previa y a la confirmación de no incorporación. Sin la
+// primera, el enlace de revisión no puede leer la propuesta que debe revisar.
+func admitirSegundoRRHHEnFronteras(declaraciones []descriptorFronteraComunDesarrollo, perfil string) {
+	for i := range declaraciones {
+		if rutaSegundoRRHHNoIncorporacion(declaraciones[i].Ruta, declaraciones[i].Metodo) {
+			declaraciones[i].PerfilesActivosRef = append(declaraciones[i].PerfilesActivosRef, perfil)
+		}
+	}
+}
+
 func (s seleccionSoporteSeguimientoRRHH) ResolverContextoAutorizacionAltaV3(ctx context.Context, solicitud ports.SolicitudResolverContextoAutorizacionAltaV3) (ports.ContextoAutorizacionAltaV3, error) {
 	soporte, ok := s.elegir(ctx)
 	if !ok {
