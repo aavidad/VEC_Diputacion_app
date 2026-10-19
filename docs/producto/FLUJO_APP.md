@@ -268,7 +268,10 @@ distintas, y ningún firmante firma dos pasos del mismo documento.
 
 **Puesto y bolsa.** Categoría Administrativo de la RPT publicada, con su centro
 y su puesto publicados: **centro 520, categoría Administrativo de la RPT (9),
-puesto 9/01, plaza 2026/0033**. Los datos se cargan con un guion de datos
+puesto 9, plaza 2026/0033**. En el paso 1 el centro busca el puesto por su
+código en la RPT publicada, `9`; si escribe `9/01`, el buscador responde que
+ese puesto no aparece. `9/01` es el puesto con que Personal registra la
+ocupación en el paso 18. Los datos se cargan con un guion de datos
 repetible (no con código), sin tocar los demás puestos. La bolsa es
 `bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk` v1, ya constituida y con su orden. El alta,
 la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. Antonio ya
@@ -311,7 +314,7 @@ conveniente».
 | e3 | Carmen (RRHH) | `/portal-empleado/#solicitudes`, Bolsas → Solicitudes y admisión | Elige la convocatoria, revisa la solicitud de Antonio y la admite | Solicitud `admitida_a_convocatoria`; Antonio ve «Admitida. Pendiente de incorporación a la bolsa» |
 | e4 | Carmen | La misma pantalla | Incorpora a Antonio a la bolsa `bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk`, ya constituida, con el número del acta | Solicitud `incorporada`; Antonio aparece en Mi Bolsa como **Disponible** con su posición |
 | e5 | Antonio, después Carmen | `/area-personal/?vista=alegaciones`; RRHH en `/portal-empleado/#alegaciones`, Bolsas → Alegaciones | Antonio presenta una alegación sobre su participación; Carmen la consulta | Justificante de presentación en VEC; la alegación aparece en la bandeja de RRHH de esa bolsa |
-| 1 | Lucía (centro) | `/portal-empleado/peticiones-centro/` | Presenta la petición: elige categoría Administrativo y el puesto de la RPT publicada, motivo, fechas, crédito y una persona | Recibo de presentación; petición `pendiente_ratificacion`, versión 1 |
+| 1 | Lucía (centro) | `/portal-empleado/peticiones-centro/` | Presenta la petición: elige categoría Administrativo y el puesto `9` de la RPT publicada, motivo, fechas, crédito y una persona | Recibo de presentación; petición `pendiente_ratificacion`, versión 1 |
 | 2 | Manuel (ratificador) | La misma pantalla, bandeja del centro | Revisa y ratifica con motivo | Recibo de ratificación; petición `ratificada`, versión 2 |
 | 3 | Carmen (RRHH) | `peticiones-centro/?vista=rrhh` | Teclea el número de expediente de MOAD y crea el expediente | Recibo de alta; expediente `solicitud/en_curso`, v1, con la necesidad de la RPT conservada |
 | 4 | Carmen | Ficha del expediente, Análisis | Registra el análisis con el crédito | Recibo; `solicitud/en_curso`, v2 |
@@ -458,9 +461,36 @@ ni publicación de bases.
 
 La ficha conjunta no ofrece formulario ni envío individual. El servidor también
 cierra esa presentación con `409 inscripcion_conjunta_pendiente` antes de insertar
-la solicitud. El soporte conjunto corresponde a F1-41. F1-40 sigue abierta:
-`ConfirmarPublicacion` aún no tiene adaptador productivo. La convocatoria de
+la solicitud. El soporte conjunto corresponde a F1-41. La convocatoria de
 ensayo es un dato de la copia, no un caso de aceptación alternativo al apartado 4.0.
+
+#### Publicación oficial de las bases
+
+Corte F1-61. Las bases se publican en el boletín o tablón que ellas fijan
+(BOP de Granada, tablón de edictos electrónico, BOE o BOJA) y el plazo se
+cuenta desde ahí (LPAC art. 45; TREBEP arts. 55 y 61). VEC no publica en esos
+medios: guarda la declaración del hecho por versión de la convocatoria, con
+medio, número de boletín, referencia del anuncio, fecha, enlace opcional,
+recibo y evento, en una tabla de solo adición. Una corrección es una fila
+nueva que sustituye a la vigente.
+
+La lista, la ficha y la presentación de la aspirante exigen una declaración
+vigente de la versión exacta cuya fecha sea de uno a cinco días naturales
+anterior al primer día del plazo (hora de Madrid): el plazo empieza el día
+siguiente a la publicación (LPAC art. 30) y el margen cubre un fin de semana y
+dos festivos. Sin ella, o fuera del margen, la convocatoria no aparece y la
+presentación responde como plazo cerrado. Las fechas del plazo siguen siendo
+las selladas en la versión; si no encajan con la publicación, RRHH publica una
+versión nueva. Calcularlas desde la publicación queda para un catálogo
+posterior.
+
+Hoy solo declara el propietario de la base (despliegue o dato de copia,
+`deploy/principal/f1_61_publicacion_oficial_bases/`). El acto de RRHH desde
+la web, con su permiso, espera a su consumidor en el núcleo de autorización;
+hasta entonces ninguna cuenta de aplicación declara. `ConfirmarPublicacion`,
+el puerto de la publicación gobernada borrador→publicada, no se usa en este
+corte. F1-40 sigue abierta hasta que RRHH pueda anotar la publicación desde la
+web y se recorra la inscripción de punta a punta.
 
 #### Constitución de la bolsa
 
@@ -573,6 +603,11 @@ En «Orden de mis bolsas» la aspirante ordena sus bolsas
 se retira una, debe marcar «He revisado el orden» antes de guardar.
 
 #### Modalidades de ofertas publicadas
+
+Estado: el servidor ya guarda y lee la elección con versión y justificante
+(`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades`). Falta
+publicar el permiso de la aspirante, aplicar la elección a la vista y a los
+avisos (F1-13, parte 4) y la pantalla (F1-14).
 
 La elección voluntaria de modalidades, cuando se habilite, solo filtra las
 ofertas publicadas que la persona ve y los avisos que solicita. No cambia la

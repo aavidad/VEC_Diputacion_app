@@ -517,6 +517,14 @@ function railFasesDesdeHitos(detalle, traducir) {
       fases[posicion].estado_clave = ESTADO_FASE_PENDIENTE;
     }
     fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
+    // El análisis confirmado es una actuación terminada aunque Solicitud siga
+    // abierta. Un retorno o una versión antigua no conserva esa marca.
+    const ultimo = detalle.hitos.at(-1);
+    const analisis = indice("analisis_rrhh");
+    if (detalle.resumen.fase_clave === "solicitud" && detalle.resumen.estado_clave === "en_curso"
+      && ultimo?.version_expediente === detalle.resumen.version
+      && ACCIONES_FASES_VISUALES_COMPLETADAS[ultimo.accion_clave]?.includes("analisis_rrhh")
+      && analisis >= 0) fases[analisis].estado_clave = ESTADO_FASE_COMPLETADO;
   }
   return { fases, actual: actual >= 0 ? presentacion.fases[actual].clave : "" };
 }

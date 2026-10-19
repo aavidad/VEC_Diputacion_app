@@ -493,6 +493,24 @@ comprobador responde 55000 y el proyector deja fuera solo esa versión, de modo
 que la lista y el resto de convocatorias siguen disponibles. Se conservan OID, propietario, ACL, volatilidad, paralelismo y configuración de
 cada función. SQL y activación en `deploy/principal/f1_40_modalidad_inscripcion.md`.
 
+BC14 (F1-61) añade `publicacion_oficial_bases` y su evento
+`publicacion_oficial_bases_evento`, de solo adición, con RLS forzada del
+propietario y sin concesiones. Cada fila declara la publicación oficial de una
+versión exacta (id, secuencia y huella): medio cerrado (`bop_granada`,
+`tablon_edictos_electronico`, `boe`, `boja`), número de boletín salvo en el
+tablón, referencia del anuncio, fecha civil nunca futura, enlace https
+opcional, declarante, motivo, clave de idempotencia, recibo y huella encadenada
+con la fila anterior. La vigente es el extremo único de la cadena de
+sustituciones. `declarar_publicacion_oficial_bases_v1(jsonb)` es solo del
+propietario: la misma clave y solicitud devuelven el recibo; otra solicitud con
+esa clave, una segunda declaración inicial o corregir una sustituida dan 23505.
+BC14 reconstruye también, desde la postimagen BC12, el comprobador y el
+proyector: sin declaración vigente de uno a cinco días naturales anterior al
+primer día del plazo (hora de Madrid), el comprobador responde B9602 y el
+proyector deja fuera la versión. Sin declaración, el comprobador responde antes
+de mirar modalidad, categoría o plazo. Conserva OID, ACL y configuración. Guía en
+`deploy/principal/f1_61_publicacion_oficial_bases/README.md`.
+
 Las preferencias entre bolsas guardan versiones y recibos en
 `preferencia_bolsas_version` y publican su evento en
 `preferencia_bolsas_outbox`. La ruta propia
@@ -506,6 +524,15 @@ intentos denegados. Bolsa separa las claves de idempotencia internas de las
 externas y conserva actor y perfil en las nuevas versiones internas.
 El orden y las precondiciones de instalación están en
 `deploy/principal/candidata_hz39/aspirante/preferencias_internas.md`.
+
+La misma ruta con la consulta exacta `?tipo=modalidades` lee y guarda la
+elección de modalidades de ofertas publicadas (F1-13). Usa las mismas acciones
+propias de consultar y ordenar preferencias; el tipo va en el contrato de datos,
+no en un permiso propio. La escritura es la 000138 de Bolsa y la auditoría de la
+lectura la 000300 de Autorización atestada. El arranque solo monta esta lectura
+si comprueba las dos y el catálogo de modalidades; si falta algo, la consulta
+responde 503 y el orden de bolsas sigue disponible. Detalle en
+`deploy/principal/candidata_hz39/aspirante/modalidades.md`.
 
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
 

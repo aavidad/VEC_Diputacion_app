@@ -34,8 +34,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 	).(capacidadConsultaContratacionTemporalDesarrollo)
 	principalValido := principalContratacionTemporalDesarrolloValido(capacidad.principal)
 	if s.lectorConsultasRRHH {
-		principalValido = (rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
-			s.tecnicoConsultaRRHH && (rutaDocumentosBolsaRRHHDesarrollo(capacidad.ruta) || rutaJustificanteBolsaRRHHDesarrollo(capacidad.ruta))) &&
+		principalValido = rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) &&
 			principalSinteticoContratacionTemporalDesarrolloValido(capacidad.principal)
 	}
 	if s.peticionesCentro {
