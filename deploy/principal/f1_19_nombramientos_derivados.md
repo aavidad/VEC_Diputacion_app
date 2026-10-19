@@ -46,4 +46,3 @@ certificado de RRHH, la ruta responde 503 con un cuerpo válido, 400 con un
 cuerpo vacío, 422 con `{}` y 405 a GET; sin certificado no se abre la conexión. Tras
 reiniciar PostgreSQL y aplicación (3,6 s), las consultas de Bolsa y
 Contratación temporal responden igual y no hay ningún hijo creado.
-
