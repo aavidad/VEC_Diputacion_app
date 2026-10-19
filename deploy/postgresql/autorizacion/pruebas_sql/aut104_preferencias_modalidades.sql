@@ -34,7 +34,7 @@ END $test$;
 
 DO $estados$
 DECLARE base text[]:=ARRAY[
- 'bolsa.historial_propio.consultar','bolsa.participaciones_propias.consultar',
+ 'bolsa.participaciones_propias.consultar','bolsa.historial_propio.consultar',
  'bolsa.participaciones_propias.solicitar_pausa','bolsa.participaciones_propias.solicitar_reactivacion',
  'bolsa.participaciones_propias.responder_llamamiento','bolsa.participaciones_propias.manifestar_disposicion',
  'bolsa.participaciones_propias.confirmar_contacto'];
@@ -78,8 +78,17 @@ BEGIN
   IF vec_autorizacion.delta_modalidades_candidato_aut104(estados->par[1],estados->par[2]) IS NOT TRUE THEN
    RAISE EXCEPTION 'AUT104: cambio tras inscripción o alegación rechazado %',par[1]; END IF;
  END LOOP;
- desordenado:=jsonb_set(jsonb_set(ampliado,'{concesiones,0}',ampliado#>'{concesiones,1}',false),
-  '{concesiones,1}',ampliado#>'{concesiones,0}',false);
+ -- Dentro de las siete de la v1 el orden no cuenta; mezclar la base con lo
+ -- añadido después sí invalida el rol.
+ IF vec_autorizacion.estado_rol_candidato_preferencias_aut104(
+  jsonb_set(jsonb_set(ampliado,'{concesiones,0}',ampliado#>'{concesiones,1}',false),
+   '{concesiones,1}',ampliado#>'{concesiones,0}',false)) IS DISTINCT FROM 'p10'
+ THEN RAISE EXCEPTION 'AUT104: orden interno de la v1 rechazado'; END IF;
+ IF vec_autorizacion.estado_rol_candidato_preferencias_aut104(
+  jsonb_set(ampliado,'{concesiones,6}',ampliado#>'{concesiones,0}',false)) IS NOT NULL
+ THEN RAISE EXCEPTION 'AUT104: concesión base repetida admitida'; END IF;
+ desordenado:=jsonb_set(jsonb_set(ampliado,'{concesiones,6}',ampliado#>'{concesiones,7}',false),
+  '{concesiones,7}',ampliado#>'{concesiones,6}',false);
  IF vec_autorizacion.delta_modalidades_candidato_aut104(
   jsonb_set(legado,'{rol_id}','"rol_ajeno"'::jsonb),ampliado) IS NOT FALSE
  OR vec_autorizacion.delta_modalidades_candidato_aut104(legado,
@@ -91,4 +100,16 @@ BEGIN
   jsonb_set(ampliado,'{version}','4'::jsonb)) IS NOT NULL
  THEN RAISE EXCEPTION 'AUT104: grant ajeno, acción o versión mutados admitidos'; END IF;
 END $estados$;
+
+-- La v1 publicada debe reconocerse como base, con su orden real.
+DO $instalada$
+BEGIN
+ IF EXISTS(SELECT 1 FROM vec_autorizacion.version_rol
+  WHERE rol_id='candidato_bolsa_portal_historial_propio_desarrollo' AND version=1)
+ AND (SELECT vec_autorizacion.estado_rol_candidato_preferencias_aut104(
+   vec_autorizacion.normalizar_rol_catalogo_acciones_admin_v1(documento))
+  FROM vec_autorizacion.version_rol
+  WHERE rol_id='candidato_bolsa_portal_historial_propio_desarrollo' AND version=1) IS DISTINCT FROM 'base'
+ THEN RAISE EXCEPTION 'AUT104: la v1 instalada no se reconoce como base'; END IF;
+END $instalada$;
 ROLLBACK;

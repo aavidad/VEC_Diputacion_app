@@ -50,7 +50,7 @@ REVOKE ALL ON FUNCTION vec_autorizacion.cotejar_campos_preferencias_modalidades_
 
 CREATE FUNCTION vec_autorizacion.estado_rol_candidato_preferencias_aut104(p_rol jsonb)
 RETURNS text LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $f$
-DECLARE v integer;acciones text[];campos jsonb;ref text;
+DECLARE v integer;acciones text[];resto text[];campos jsonb;ref text;
  base constant text[]:=ARRAY['bolsa.historial_propio.consultar','bolsa.participaciones_propias.consultar','bolsa.participaciones_propias.solicitar_pausa','bolsa.participaciones_propias.solicitar_reactivacion','bolsa.participaciones_propias.responder_llamamiento','bolsa.participaciones_propias.manifestar_disposicion','bolsa.participaciones_propias.confirmar_contacto'];
  pref constant text[]:=ARRAY['bolsa.preferencias_bolsas.consultar_propias','bolsa.preferencias_bolsas.ordenar_propias'];
  inscr constant text[]:=ARRAY['bolsa.inscripcion.convocatorias.listar','bolsa.inscripcion.convocatoria.consultar','bolsa.inscripcion.propias.listar','bolsa.inscripcion.propia.consultar','bolsa.inscripcion.presentar'];
@@ -64,20 +64,26 @@ BEGIN
  v:=(p_rol->>'version')::integer;
  SELECT array_agg(e->>'accion' ORDER BY n) INTO acciones
  FROM jsonb_array_elements(p_rol->'concesiones') WITH ORDINALITY x(e,n);
- IF acciones=base AND v=1 THEN RETURN 'base'; END IF;
- IF acciones=base||inscr AND v=2 THEN RETURN 'i'; END IF;
- IF NOT (acciones=base||pref OR acciones=base||pref||inscr
-  OR acciones=base||inscr||pref OR acciones=base||pref||inscr||aleg
-  OR acciones=base||inscr||pref||aleg) THEN RETURN NULL; END IF;
+ -- Las siete concesiones de la v1 se comparan como conjunto exacto: la v1
+ -- publicada empieza por participaciones_propias.consultar. Lo añadido después
+ -- conserva el orden de las altas gobernadas.
+ IF coalesce(cardinality(acciones),0)<7
+ OR (SELECT array_agg(x ORDER BY x) FROM unnest(acciones[1:7]) x)
+  IS DISTINCT FROM (SELECT array_agg(x ORDER BY x) FROM unnest(base) x) THEN RETURN NULL; END IF;
+ resto:=acciones[8:];
+ IF resto=ARRAY[]::text[] AND v=1 THEN RETURN 'base'; END IF;
+ IF resto=inscr AND v=2 THEN RETURN 'i'; END IF;
+ IF NOT (resto=pref OR resto=pref||inscr OR resto=inscr||pref
+  OR resto=pref||inscr||aleg OR resto=inscr||pref||aleg) THEN RETURN NULL; END IF;
  SELECT e->'campos_permitidos' INTO campos FROM jsonb_array_elements(p_rol->'concesiones') e
  WHERE e->>'accion'='bolsa.preferencias_bolsas.consultar_propias';
  IF campos IS DISTINCT FROM '["version","orden_guardado","bolsas_actuales","bolsas_nuevas","bolsas_retiradas","revision_requerida","recibo_ref","registrado_en"]'::jsonb AND campos IS DISTINCT FROM '["version","orden_guardado","bolsas_actuales","bolsas_nuevas","bolsas_retiradas","revision_requerida","modalidades_guardadas","modalidades_disponibles","recibo_ref","registrado_en"]'::jsonb THEN RETURN NULL; END IF;
  ref:=CASE WHEN campos='["version","orden_guardado","bolsas_actuales","bolsas_nuevas","bolsas_retiradas","revision_requerida","recibo_ref","registrado_en"]'::jsonb THEN '8' ELSE '10' END;
- IF acciones=base||pref AND ((v=2) OR (v=3 AND ref='10')) THEN RETURN 'p'||ref; END IF;
- IF acciones=base||pref||inscr AND ((v=3) OR (v=4 AND ref='10')) THEN RETURN 'pi'||ref; END IF;
- IF acciones=base||inscr||pref AND ((v=3) OR (v=4 AND ref='10')) THEN RETURN 'ip'||ref; END IF;
- IF acciones=base||pref||inscr||aleg AND ((v=4) OR (v=5 AND ref='10')) THEN RETURN 'pia'||ref; END IF;
- IF acciones=base||inscr||pref||aleg AND ((v=4) OR (v=5 AND ref='10')) THEN RETURN 'ipa'||ref; END IF;
+ IF resto=pref AND ((v=2) OR (v=3 AND ref='10')) THEN RETURN 'p'||ref; END IF;
+ IF resto=pref||inscr AND ((v=3) OR (v=4 AND ref='10')) THEN RETURN 'pi'||ref; END IF;
+ IF resto=inscr||pref AND ((v=3) OR (v=4 AND ref='10')) THEN RETURN 'ip'||ref; END IF;
+ IF resto=pref||inscr||aleg AND ((v=4) OR (v=5 AND ref='10')) THEN RETURN 'pia'||ref; END IF;
+ IF resto=inscr||pref||aleg AND ((v=4) OR (v=5 AND ref='10')) THEN RETURN 'ipa'||ref; END IF;
  RETURN NULL;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion.estado_rol_candidato_preferencias_aut104(jsonb) FROM PUBLIC;
