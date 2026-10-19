@@ -662,8 +662,9 @@ puede cambiar libremente: la pantalla lleva al circuito de nueva versión o rect
    `portal-componentes.css` o `portal-patrones.css`. Después, lo propio de la pantalla,
    sin repetir CSS estructural.
 3. **Textos** en los catálogos `es` y `en` a la vez.
-4. **Versiones.** Al tocar un CSS o JS se renueva su `?v=` en el HTML y en los manifiestos
-   que lo citan.
+4. **Versiones.** Las referencias usan `?v=VEC_WEB_VERSION`: el servidor calcula
+   y publica la versión común. Al tocar un CSS o JS no se editan fechas ni cadenas
+   de versión en sus importadores o en las pruebas.
 5. **Después.** Capturar otra vez (`--local web/static`) y comparar con la maqueta y con el
    «antes». Recorrer con teclado, zoom 200 %, alto contraste, en castellano e inglés, con
    Playwright y el Chrome del sistema. Para cada tarea clave, anotar pasos, clics, dudas y
@@ -740,7 +741,7 @@ Es la que aplica el revisor de usabilidad. Cada fallo se marca «bloquea», «mo
       400 o superior.
 - [ ] Sin cookies ni almacenamiento del navegador como sesión o autoridad.
 - [ ] Pantalla útil en menos de un segundo con volumen real; listas paginadas.
-- [ ] `?v=` renovado en cada CSS o JS tocado.
+- [ ] HTML, importadores y caché usan la misma versión calculada de CSS y JS.
 - [ ] Capturas de antes y después en la PR.
 
 ## 17. Huecos y diferencias entre reglas y código

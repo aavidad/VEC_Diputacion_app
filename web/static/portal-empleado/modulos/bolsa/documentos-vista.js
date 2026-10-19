@@ -1,5 +1,5 @@
 import { cargarTextos } from "../../../comun/textos.js";
-import { crearClienteDocumentosBolsa, validarCorrespondenciaReciboDocumento } from "./documentos-api.js?v=20261013-documentos-bolsa-v2";
+import { crearClienteDocumentosBolsa, validarCorrespondenciaReciboDocumento } from "./documentos-api.js?v=VEC_WEB_VERSION";
 
 const PARAMETROS = Object.freeze({ bolsa: "bolsa-doc-bolsa", tipo: "bolsa-doc-tipo", texto: "bolsa-doc-texto" });
 

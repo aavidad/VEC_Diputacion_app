@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   crearControladorRegistroContacto, leerComandoContacto, registrarContacto, renderizarRegistroContacto, rutaRegistroContacto, validarComandoContacto,
-} from "./portal-bolsas-contacto-registro.js?v=20261018-f175-contacto-propio-v1";
+} from "./portal-bolsas-contacto-registro.js?v=VEC_WEB_VERSION";
 
 const valido = { correo: "persona@ejemplo.es", telefono_1: "600000001", telefono_2: "", motivo: "Corrección tras llamada", origen: "convoca" };
 

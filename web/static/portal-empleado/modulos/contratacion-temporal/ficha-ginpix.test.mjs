@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validarConsultaB2ParaFichaGINPIX, validarFichaGINPIX } from "./contrato-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
-import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
-import { CLAVES_I18N_FICHA_GINPIX, montarFichaGINPIX } from "./ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { validarConsultaB2ParaFichaGINPIX, validarFichaGINPIX } from "./contrato-ficha-ginpix.js?v=VEC_WEB_VERSION";
+import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=VEC_WEB_VERSION";
+import { CLAVES_I18N_FICHA_GINPIX, montarFichaGINPIX } from "./ficha-ginpix.js?v=VEC_WEB_VERSION";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js?v=VEC_WEB_VERSION";
 
 const SHA = "a".repeat(64);
 const expedienteRef = "expediente:ct:001";

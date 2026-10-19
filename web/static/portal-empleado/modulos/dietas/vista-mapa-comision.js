@@ -13,7 +13,7 @@ import {
   validarCatalogoRutasDietas,
   validarSolicitudRutaDietas,
 } from "./contrato.js";
-import { MENSAJES_DIETAS, crearTraductorDietas } from "./i18n.js?v=20260929-i18n-dietas-v1";
+import { MENSAJES_DIETAS, crearTraductorDietas } from "./i18n.js?v=VEC_WEB_VERSION";
 
 const MAXIMO_LOCALIDADES = 12;
 

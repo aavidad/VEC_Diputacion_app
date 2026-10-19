@@ -7,7 +7,7 @@
  * independientes y de mínimo privilegio. También lee la sesión del núcleo
  * (`/api/vec/session`) que la cabecera muestra.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 import { LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 import { cargarTextos } from "../comun/textos.js";
 

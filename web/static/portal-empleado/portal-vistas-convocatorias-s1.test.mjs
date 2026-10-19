@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { crearSuperficieConvocatoriasS1 } from "./portal-vistas-convocatorias.js?v=20261001-ct-a-i18n-v1";
+import { crearSuperficieConvocatoriasS1 } from "./portal-vistas-convocatorias.js?v=VEC_WEB_VERSION";
 import { crearTraductorConvocatoriasS1, MENSAJES_CONVOCATORIAS_S1 } from "./portal-i18n-convocatorias.js";
 
 test("la vista resuelve el catálogo S1 con la versión de caché F2", async () => {
   const codigo = readFileSync(new URL("./portal-vistas-convocatorias.js", import.meta.url), "utf8");
-  assert.match(codigo, /from "\.\/portal-i18n-convocatorias\.js\?v=20260930-portales-i18n-integracion-v1"/);
-  const catalogo = await import("./portal-i18n-convocatorias.js?v=20260930-portales-i18n-integracion-v1");
+  assert.match(codigo, /from "\.\/portal-i18n-convocatorias\.js\?v=VEC_WEB_VERSION"/);
+  const catalogo = await import("./portal-i18n-convocatorias.js?v=VEC_WEB_VERSION");
   assert.equal(catalogo.traducirConvocatoriasS1("titulo"), "Convocatorias, bases y calendario");
 });
 

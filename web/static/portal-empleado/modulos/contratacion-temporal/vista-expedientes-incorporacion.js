@@ -1,18 +1,18 @@
 /** Montaje y refresco de resolución de formalización e incorporación al ejercicio. */
 
-import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=20261016-ct-ofertas-ct231-v1";
-import { escaparHTML } from "./componentes-expedientes.js?v=20261018-f136c-informe-v4";
-import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20261019-f182-intervencion-v1";
-import { validarConsultaB2ParaFichaGINPIX } from "./contrato-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261019-f182-intervencion-v1";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261019-f182-intervencion-v1";
-import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20261019-f182-intervencion-v1";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261019-f182-intervencion-v1";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261019-f182-intervencion-v1";
-import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20261019-f182-intervencion-v1";
-import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=20261018-f136c-informe-v4";
-import { cargarTextosVinculoCategoriaRPT, montarVinculoCategoriaRPT } from "./vinculo-categoria-rpt.js?v=20261018-f136c-informe-v4";
+import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js?v=VEC_WEB_VERSION";
+import { escaparHTML } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { montarFichaGINPIX } from "./ficha-ginpix.js?v=VEC_WEB_VERSION";
+import { validarConsultaB2ParaFichaGINPIX } from "./contrato-ficha-ginpix.js?v=VEC_WEB_VERSION";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=VEC_WEB_VERSION";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=VEC_WEB_VERSION";
+import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=VEC_WEB_VERSION";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=VEC_WEB_VERSION";
+import { cargarTextosIncorporacionPersonalB2, montarIncorporacionPersonalB2 } from "./incorporacion-personal-b2.js?v=VEC_WEB_VERSION";
+import { cargarTextosVinculoCategoriaRPT, montarVinculoCategoriaRPT } from "./vinculo-categoria-rpt.js?v=VEC_WEB_VERSION";
 import { cargarTextos } from "../../../comun/textos.js";
 
 export function crearResolverEtiquetasIncorporacionB2(textos, personal) {

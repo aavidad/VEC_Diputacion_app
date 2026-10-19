@@ -71,8 +71,8 @@ function textos(nodo) {
 }
 
 test("la página monta exclusivamente V2 antes del controlador renovado", () => {
-  const version = "20260930-codexe-publico-v2-v1";
-  assert.ok(html.indexOf(`/bolsa/contrato-v2.js?v=${version}`) < html.indexOf("/bolsa/bolsa.js?v=20261001-convoca-preparacion-v1"));
+  const version = "VEC_WEB_VERSION";
+  assert.ok(html.indexOf(`/bolsa/contrato-v2.js?v=${version}`) < html.indexOf("/bolsa/bolsa.js?v=VEC_WEB_VERSION"));
   assert.doesNotMatch(html, /contrato-v1\.js/);
 });
 

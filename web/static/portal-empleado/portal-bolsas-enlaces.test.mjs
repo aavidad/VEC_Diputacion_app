@@ -1,20 +1,20 @@
 import test from "node:test";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=VEC_WEB_VERSION";
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
-import * as rutasGlobales from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
+import * as rutasGlobales from "./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
 
-import { consultarBolsas, consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarGlobalBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261015-firma-ofertas-justificante-integracion-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261015-firma-ofertas-justificante-integracion-v2";
-import { renderizarGlobalBolsa, prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261015-firma-ofertas-justificante-integracion-v2";
+import { consultarBolsas, consultarCandidatosBolsa, consultarEstadisticasBolsa, consultarGlobalBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=VEC_WEB_VERSION";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=VEC_WEB_VERSION";
+import { renderizarGlobalBolsa, prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=VEC_WEB_VERSION";
 import {
   leerCandidatosBolsaCompartible, leerGlobalBolsaCompartible, rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible,
   rutaResumenBolsasCompartible,
-} from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
+} from "./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
 import { SITUACIONES_PARTICIPACION_BOLSA } from "./portal-bolsas-contrato.js";
 
 await prepararTextosGlobalBolsa();

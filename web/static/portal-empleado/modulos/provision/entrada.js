@@ -1,8 +1,8 @@
-import { crearClienteEnsayosLocal } from './ensayos-cliente.js?v=20261001-provision-ciclo-v5';
+import { crearClienteEnsayosLocal } from './ensayos-cliente.js?v=VEC_WEB_VERSION';
 import { cargarTextos } from '../../../comun/textos.js';
 import { INDICE_IDIOMAS } from '../../../comun/idioma.js';
-import { crearClienteProvisionLocal } from './cliente-local.js?v=20261001-provision-ciclo-v5';
-import { montarModuloProvision } from './montaje.js?v=20261001-provision-ciclo-v5';
+import { crearClienteProvisionLocal } from './cliente-local.js?v=VEC_WEB_VERSION';
+import { montarModuloProvision } from './montaje.js?v=VEC_WEB_VERSION';
 const textos = await cargarTextos('provision'); const t = textos.traducir;
 document.documentElement.lang = textos.idioma; document.title = t('titulo');
 document.querySelectorAll('[data-texto]').forEach(n => { n.textContent = t(n.dataset.texto); });

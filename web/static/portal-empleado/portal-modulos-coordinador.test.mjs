@@ -5,7 +5,7 @@ import {
   cargarCatalogoModulosInterno,
   crearCatalogoModulosDesdeManifiestos,
   extraerModulosEnvelopeCanonico,
-} from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-catalogo-modulos.js?v=VEC_WEB_VERSION";
 import {
   CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,
@@ -13,14 +13,14 @@ import {
   moduloDeVistaPortal,
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
-} from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
-import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
+} from "./portal-modulos-coordinador.js?v=VEC_WEB_VERSION";
+import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=VEC_WEB_VERSION";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
-import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
-import { cargarMensajesExpedientesContratacionEnIdioma } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=VEC_WEB_VERSION";
+import { cargarMensajesExpedientesContratacionEnIdioma } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=VEC_WEB_VERSION";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");

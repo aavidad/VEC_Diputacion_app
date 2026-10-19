@@ -1,6 +1,6 @@
 import { cargarTextos } from "../../comun/textos.js";
 import { montarSelectorIdioma } from "../../comun/idioma.js";
-import { montarModulos } from "./vista.js?v=20261002-admin-modulos-v1";
+import { montarModulos } from "./vista.js?v=VEC_WEB_VERSION";
 
 const textos = await cargarTextos("administracion-modulos");
 const t = textos.traducir;

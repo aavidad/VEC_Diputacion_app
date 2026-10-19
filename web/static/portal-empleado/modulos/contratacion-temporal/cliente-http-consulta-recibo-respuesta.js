@@ -1,4 +1,4 @@
-import { referenciaLlamamientoValida } from "./contrato-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { referenciaLlamamientoValida } from "./contrato-llamamiento.js?v=VEC_WEB_VERSION";
 
 export const RUTA_CONSULTA_RECIBO_RESPUESTA = "/api/vec/contratacion-temporal/llamamientos/respuestas/recibo";
 const CAMPOS = Object.freeze(["esquema", "organizacion_ref", "expediente_ref", "comunicacion_ref", "respuesta",

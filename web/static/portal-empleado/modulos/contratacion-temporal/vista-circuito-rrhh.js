@@ -1,4 +1,4 @@
-import { crearClienteCircuitoRRHH } from "./cliente-http-circuito-rrhh.js?v=20261002-rrhh-circuito-v2";
+import { crearClienteCircuitoRRHH } from "./cliente-http-circuito-rrhh.js?v=VEC_WEB_VERSION";
 import { cargarTextos } from "../../../comun/textos.js";
 
 const mensajes = await cargarTextos("contratacion-temporal-circuito-rrhh");

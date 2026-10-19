@@ -11,7 +11,7 @@ import {
   renderizarContratosParticipacion,
   rutaContratosParticipacion,
   traducirContratos,
-} from "./portal-bolsas-contratos.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-bolsas-contratos.js?v=VEC_WEB_VERSION";
 await prepararMensajesContratos();
 
 const escaparHTML = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
