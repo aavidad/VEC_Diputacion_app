@@ -136,7 +136,8 @@ CREATE FUNCTION vec_bolsa_llamamientos.listar_contratos_participacion_v2(
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(evento_ref text, tipo text, inicio timestamptz, fin_previsto timestamptz, modalidad_clave text,
  categoria_ref text, causa_clave text, expediente_ref text, llamamiento_ref text, ocurrido_en timestamptz, huella_sha256 text)
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp
+SET lock_timeout='2s' SET statement_timeout='15s' AS $f$
 DECLARE v_consumo record; v_decision jsonb;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario' OR p_participacion_ref IS NULL OR p_actor IS NULL THEN
@@ -190,6 +191,12 @@ BEGIN
  OR encode(sha256(convert_to(pg_get_functiondef(
    'vec_bolsa_llamamientos.listar_contratos_participacion_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex')
    IS DISTINCT FROM '69beb556f7daf04edfe7fb53799bd3ea106a42039e5afbda69e4e4ba856da08f'
+ OR encode(sha256(convert_to(pg_get_functiondef(
+   'vec_bolsa_llamamientos.calcular_comprobacion_ofrecimiento_v1(jsonb,jsonb,timestamptz)'::regprocedure),'UTF8')),'hex')
+   IS DISTINCT FROM '2f2ac96f3088314ad11971f801f165b637786d52ccfb11d1ef189b6018db890b'
+ OR encode(sha256(convert_to(pg_get_functiondef(
+   'vec_bolsa_llamamientos.listar_contratos_participacion_v2(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'UTF8')),'hex')
+   IS DISTINCT FROM 'f79f26d71abcc3f87e06c46b5bc4b1e10a4cfa03d7d67c53e8123b07b27f579f'
  OR vec_bolsa_llamamientos.calcular_comprobacion_ofrecimiento_v1(
    jsonb_build_object('es_vacante',jsonb_build_object('valor',true,'documento_ref','registro/2026/0042','huella',repeat('a',64))),
    '{}'::jsonb,'2026-10-19T00:00:00Z')->>'resultado' IS DISTINCT FROM 'pendiente'
