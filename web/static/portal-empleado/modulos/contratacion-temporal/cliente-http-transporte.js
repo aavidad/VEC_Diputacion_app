@@ -421,10 +421,11 @@ export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
 
 // El 409 de una persona pendiente de comprobación trae, desde F1-09, las
 // referencias del corte (contexto) y el último acto registrado (estado).
-// Solo referencias y versiones: ningún hecho ni dato de la persona.
+// Solo referencias y versiones: ningún hecho ni dato de la persona. Las
+// reglas son las de ValidoPara en ports/criterios_ofrecimiento_pendientes.go.
 const CAMPOS_CONTEXTO_COMPROBACION = Object.freeze({
-  ambito_ref: "ref", bolsa_ref: "ref", categoria_ref: "ref", causa_ofrecida: "clave",
-  expediente_ref: "ref", huella_politica_ofertas_sha256: "huella", modalidad_ofrecida: "clave",
+  ambito_ref: "ref", bolsa_ref: "ref", categoria_ref: "ref", causa_ofrecida: "texto",
+  expediente_ref: "ref", huella_politica_ofertas_sha256: "huella", modalidad_ofrecida: "texto_obligatorio",
   necesidad_ref: "ref", orden_acta: "entero", organizacion_ref: "ref", participacion_ref: "ref",
   unidad_ref: "ref", version_bolsa: "entero", version_expediente: "entero",
   version_instantanea: "entero", version_politica_ofertas: "entero",
@@ -433,40 +434,53 @@ const CAMPOS_ESTADO_COMPROBACION = Object.freeze([
   "version_esperada", "comprobacion_ref", "recibo_ref", "registrada_en",
   "version_politica_ofertas", "resultado", "motivo_clave", "vigente",
 ]);
-const PATRON_REF_COMPROBACION = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,159}$/u;
-const PATRON_CLAVE_COMPROBACION = /^[a-z][a-z0-9_]{0,63}$/u;
+const RESULTADOS_COMPROBACION = Object.freeze({
+  no_aplicable: Object.freeze(["sin_supuesto_articulo_9"]),
+  pendiente: Object.freeze(["antecedentes_incompletos", "criterios_invalidos",
+    "guarda_contratacion_pendiente", "descuento_pendiente_criterio_rrhh"]),
+});
+const PATRON_REF_COMPROBACION = /^[A-Za-z0-9][A-Za-z0-9:._/-]{1,255}$/u;
 const PATRON_HUELLA_COMPROBACION = /^[0-9a-f]{64}$/u;
+const PATRON_ACTO_COMPROBACION = /^comprobacion:[0-9a-f]{64}$/u;
+const PATRON_FECHA_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$/u;
 
 function objetoPlano(valor) {
   return valor !== null && typeof valor === "object" && !Array.isArray(valor);
 }
 
-function contextoComprobacionValido(contexto, exigirCamposExactos) {
+function contextoComprobacionValido(contexto, comprobacion, exigirCamposExactos) {
   if (!objetoPlano(contexto)
     || !exigirCamposExactos(contexto, Object.keys(CAMPOS_CONTEXTO_COMPROBACION))) return false;
-  return Object.entries(CAMPOS_CONTEXTO_COMPROBACION).every(([campo, tipo]) => {
+  const camposValidos = Object.entries(CAMPOS_CONTEXTO_COMPROBACION).every(([campo, tipo]) => {
     const valor = contexto[campo];
     if (tipo === "entero") return Number.isSafeInteger(valor) && valor > 0;
     if (typeof valor !== "string") return false;
     if (tipo === "huella") return PATRON_HUELLA_COMPROBACION.test(valor);
-    if (tipo === "clave") return PATRON_CLAVE_COMPROBACION.test(valor);
+    if (tipo === "texto") return valor.length <= 256;
+    if (tipo === "texto_obligatorio") return valor.length <= 256 && valor.trim() !== "";
     return PATRON_REF_COMPROBACION.test(valor);
   });
+  return camposValidos && contexto.bolsa_ref === comprobacion.bolsa_ref
+    && contexto.orden_acta === comprobacion.orden_acta
+    && contexto.version_politica_ofertas === comprobacion.version_politica_ofertas;
 }
 
-// version_esperada 0 significa que todavía no hay acto: las referencias
-// llegan vacías y la fecha es la cero del servidor.
-function estadoComprobacionValido(estado, exigirCamposExactos) {
-  if (!objetoPlano(estado) || !exigirCamposExactos(estado, CAMPOS_ESTADO_COMPROBACION)) return false;
-  const sinActo = estado.version_esperada === 0;
-  return Number.isSafeInteger(estado.version_esperada) && estado.version_esperada >= 0
-    && Number.isSafeInteger(estado.version_politica_ofertas) && estado.version_politica_ofertas >= 0
-    && ["comprobacion_ref", "recibo_ref", "registrada_en", "resultado", "motivo_clave"]
-      .every((campo) => typeof estado[campo] === "string" && estado[campo].length <= 160)
-    && (sinActo || (PATRON_REF_COMPROBACION.test(estado.comprobacion_ref)
-      && PATRON_REF_COMPROBACION.test(estado.recibo_ref)
-      && !Number.isNaN(Date.parse(estado.registrada_en))))
-    && (estado.vigente === null || typeof estado.vigente === "boolean");
+// Sin acto todavía, el servidor publica exactamente {version_esperada: 0}.
+function estadoComprobacionValido(estado, contexto, exigirCamposExactos) {
+  if (!objetoPlano(estado)) return false;
+  if (estado.version_esperada === 0) return exigirCamposExactos(estado, ["version_esperada"]);
+  return exigirCamposExactos(estado, CAMPOS_ESTADO_COMPROBACION)
+    && Number.isSafeInteger(estado.version_esperada) && estado.version_esperada > 0
+    && estado.version_esperada <= 999999999
+    && typeof estado.comprobacion_ref === "string" && PATRON_ACTO_COMPROBACION.test(estado.comprobacion_ref)
+    && estado.recibo_ref === `recibo:${estado.comprobacion_ref}`
+    && typeof estado.registrada_en === "string" && PATRON_FECHA_UTC.test(estado.registrada_en)
+    && !Number.isNaN(Date.parse(estado.registrada_en))
+    && Number.isSafeInteger(estado.version_politica_ofertas) && estado.version_politica_ofertas > 0
+    && typeof estado.vigente === "boolean"
+    && (!estado.vigente || !contexto || estado.version_politica_ofertas === contexto.version_politica_ofertas)
+    && Object.hasOwn(RESULTADOS_COMPROBACION, estado.resultado)
+    && RESULTADOS_COMPROBACION[estado.resultado].includes(estado.motivo_clave);
 }
 
 export async function construirErrorRespuesta(respuesta, signal, ruta, errorCliente, ErrorClienteClass, exigirCamposExactos, rutas) {
@@ -499,8 +513,8 @@ export async function construirErrorRespuesta(respuesta, signal, ruta, errorClie
   const comprobacionValida = !comprobacionPendiente || (exigirCamposExactos(comprobacion,
     ["bolsa_ref", "orden_acta", ...(conVersion ? ["version_politica_ofertas"] : []), "motivo_clave",
       ...(conContexto ? ["contexto"] : []), ...(conEstado ? ["estado"] : [])])
-    && (!conContexto || contextoComprobacionValido(comprobacion.contexto, exigirCamposExactos))
-    && (!conEstado || estadoComprobacionValido(comprobacion.estado, exigirCamposExactos))
+    && (!conContexto || contextoComprobacionValido(comprobacion.contexto, comprobacion, exigirCamposExactos))
+    && (!conEstado || estadoComprobacionValido(comprobacion.estado, conContexto ? comprobacion.contexto : null, exigirCamposExactos))
     && typeof comprobacion.bolsa_ref === "string"
     && /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(comprobacion.bolsa_ref)
     && Number.isSafeInteger(comprobacion.orden_acta) && comprobacion.orden_acta > 0
