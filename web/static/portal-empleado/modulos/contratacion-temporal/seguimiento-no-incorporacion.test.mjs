@@ -101,7 +101,9 @@ test("la segunda persona ve la propuesta pendiente y la confirma o rechaza con s
   assert.match(c.innerHTML, /data-ct-seg-form="no_incorporacion_rechazar"/u);
   assert.match(c.innerHTML, /Propuesta pendiente de otra persona: No se presenta/u);
   assert.doesNotMatch(c.innerHTML, /data-ct-seg-form="no_incorporacion"[ >]/u);
-  assert.doesNotMatch(c.innerHTML, /recibo:ni:propuesta|resolucion:rrhh/u, "sin referencias internas en pantalla");
+  assert.doesNotMatch(c.innerHTML, /recibo:ni:propuesta/u, "la referencia interna de la propuesta no se expone");
+  assert.match(c.innerHTML, /resolucion:rrhh:2026\/0142/u, "la resolución se muestra para revisarla");
+  assert.match(c.innerHTML, /revision-no-incorporacion\.html\?expediente_ref=/u);
   quitar();
   const [metodo, s] = solicitudResolucionPropuestaNoIncorporacion({ expediente_ref: EXP, version_esperada: 8, clave_idempotencia: "123e4567-e89b-42d3-a456-426614174001" },
     propuesta, "confirmar", { observaciones: "Revisada" });
@@ -112,6 +114,77 @@ test("la segunda persona ve la propuesta pendiente y la confirma o rechaza con s
   const [, registro] = solicitudNoIncorporacion({ expediente_ref: EXP }, { motivo_clave: "no_presentado", resuelta_por: "per_declarada" }, { segunda_persona: false });
   assert.equal(registro.paso, "registrar");
   assert.equal(registro.resuelta_por, "per_declarada");
+});
+
+test("la revisión acotada usa versión de la respuesta, solo permite resolver y conserva el recibo tras releer", async () => {
+  const c = contenedorFalso();
+  const metadata = { version_expediente: 9, fase_clave: "nombramiento", estado_clave: "en_curso", numero_expediente: "CT-2026-9" };
+  let pendiente = true, consultas = 0, envios = 0;
+  const recibo = { recibo_ref: "recibo:ni:confirmado", version_resultante: 10 };
+  const cliente = { consultarSeguimientoCese: async () => { consultas++; return validarConsultaSeguimientoCese(
+    consulta({ ...metadata, ...(pendiente ? { no_incorporacion_propuesta: propuesta } : {}) }), EXP); },
+    registrarNoIncorporacion: async (s) => { envios++; assert.equal(s.version_esperada, 9); assert.equal(s.propuesta_ref, propuesta.propuesta_ref);
+      pendiente = false; return recibo; } };
+  const previo = globalThis.FormData;
+  globalThis.FormData = class { constructor(f) { this.f = f; } entries() { return Object.entries(this.f.campos); } };
+  try {
+    const quitar = montarPanelSeguimientoCese({ contenedor: c, cliente, contexto: { expediente_ref: EXP, version: 99 }, soloNoIncorporacion: true,
+      generarClave: () => solicitud.clave_idempotencia, confirmarOperacion: () => true });
+    await esperar();
+    assert.match(c.innerHTML, /data-ct-seg-form="no_incorporacion_confirmar"/u);
+    assert.doesNotMatch(c.innerHTML, /data-ct-seg-form="(?:cese|cierre|modificacion|ginpix|no_incorporacion)"/u);
+    c.eventos.get("submit")({ target: { closest: () => ({ dataset: { ctSegForm: "cese" }, campos: {} }) }, preventDefault() {} });
+    await esperar();
+    assert.equal(envios, 0, "un formulario ajeno inyectado no envía nada");
+    c.eventos.get("submit")({ target: { closest: () => ({ dataset: { ctSegForm: "no_incorporacion_confirmar" }, campos: { observaciones: "" } }) }, preventDefault() {} });
+    await esperar();
+    assert.equal(envios, 1);
+    assert.equal(consultas, 2, "tras el recibo se recupera el estado sin otro POST");
+    assert.match(c.innerHTML, /recibo:ni:confirmado/u);
+    assert.match(c.innerHTML, /No hay una propuesta pendiente/u);
+    assert.doesNotMatch(c.innerHTML, /data-ct-seg-form="no_incorporacion_confirmar"/u);
+    quitar();
+  } finally { globalThis.FormData = previo; }
+});
+
+test("un rechazo registrado conserva su recibo aunque la lectura posterior se deniegue", async () => {
+  const c = contenedorFalso();
+  const metadata = { version_expediente: 9, fase_clave: "nombramiento", estado_clave: "en_curso", numero_expediente: "CT-2026-9" };
+  let consultas = 0;
+  const cliente = { consultarSeguimientoCese: async () => {
+    if (++consultas > 1) throw Object.assign(new Error("acceso denegado"), { estado: 403, envelopeValido: true });
+    return validarConsultaSeguimientoCese(consulta({ ...metadata, no_incorporacion_propuesta: propuesta }), EXP);
+  }, registrarNoIncorporacion: async (s) => {
+    assert.equal(s.paso, "rechazar");
+    return { recibo_ref: "recibo:ni:rechazo", version_resultante: 10 };
+  } };
+  const previo = globalThis.FormData;
+  globalThis.FormData = class { constructor(f) { this.f = f; } entries() { return Object.entries(this.f.campos); } };
+  try {
+    const quitar = montarPanelSeguimientoCese({ contenedor: c, cliente, contexto: { expediente_ref: EXP }, soloNoIncorporacion: true,
+      generarClave: () => solicitud.clave_idempotencia, confirmarOperacion: () => true });
+    await esperar();
+    c.eventos.get("submit")({ target: { closest: () => ({ dataset: { ctSegForm: "no_incorporacion_rechazar" }, campos: { observaciones: "" } }) }, preventDefault() {} });
+    await esperar();
+    assert.equal(consultas, 2);
+    assert.match(c.innerHTML, /recibo:ni:rechazo/u);
+    assert.match(c.innerHTML, /La decisión se registró/u);
+    assert.doesNotMatch(c.innerHTML, /data-ct-seg-form=/u);
+    quitar();
+  } finally { globalThis.FormData = previo; }
+});
+
+test("al reabrir la revisión se ve el recibo de la no incorporación ya confirmada", async () => {
+  const c = contenedorFalso();
+  const quitar = montarPanelSeguimientoCese({ contenedor: c, contexto: { expediente_ref: EXP }, soloNoIncorporacion: true,
+    cliente: { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta({
+      version_expediente: 10, fase_clave: "fiscalizacion", estado_clave: "en_curso", numero_expediente: "CT-2026-9", no_incorporacion: noInc,
+    }), EXP) } });
+  await esperar();
+  assert.match(c.innerHTML, /La no incorporación está confirmada/u);
+  assert.match(c.innerHTML, /recibo:ni:1/u);
+  assert.doesNotMatch(c.innerHTML, /data-ct-seg-form=/u);
+  quitar();
 });
 
 test("el aviso de archivo de la no incorporación usa el idioma del panel y enfoca el campo", async () => {

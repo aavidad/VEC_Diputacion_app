@@ -493,6 +493,15 @@ El orden y las precondiciones de instalación están en
 
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
 
+F1-47 amplía la consulta existente de seguimiento con la versión, fase,
+estado y número visible actuales del expediente (CT242). La segunda persona
+de RRHH usa su sesión nominal ligada al certificado y su permiso vigente;
+la lectura queda registrada antes de devolver la propuesta. No recibe acceso
+al cuadro general ni a las operaciones de cese, GINPIX o modificación. La
+propuesta y la confirmación conservan el contrato y los recibos existentes.
+El ensayo y la revisión de esta candidata siguen pendientes; activación en
+`deploy/principal/no_incorporacion_f1_47_20261018.md`.
+
 F1-73 prepara el contrato de alta directa `vec.ct.alta_necesidad.v2`: el
 servidor obtiene el número de personas de la necesidad sellada. CT239 admite
 esa cantidad sin exigir un puesto o una jornada superiores, siempre que la

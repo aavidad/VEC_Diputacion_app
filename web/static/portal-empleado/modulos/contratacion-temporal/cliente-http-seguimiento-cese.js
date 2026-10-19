@@ -134,7 +134,15 @@ function opcionValida(o, campos) {
 export function validarConsultaSeguimientoCese(valor, expedienteRef) {
   const d = registro(valor, ["esquema", "opciones", "estado"]);
   const o = registro(d.opciones, ["causas_cese", "condiciones_cierre", "fase_retorno_modificacion", "motivos_modificacion"], ["confirmacion_ginpix", "no_incorporacion"]);
-  const e = registro(d.estado, ["expediente_ref", "incorporacion", "cese", "cierre"], ["ginpix", "confirmacion_centro", "no_incorporacion", "no_incorporacion_propuesta", "propuestas"]);
+  const e = registro(d.estado, ["expediente_ref", "incorporacion", "cese", "cierre"], ["ginpix", "confirmacion_centro", "no_incorporacion", "no_incorporacion_propuesta", "propuestas",
+    "version_expediente", "fase_clave", "estado_clave", "numero_expediente"]);
+  const metadatos = ["version_expediente", "fase_clave", "estado_clave", "numero_expediente"];
+  if (metadatos.some((campo) => Object.hasOwn(e, campo))
+    && (!metadatos.every((campo) => Object.hasOwn(e, campo)) || !Number.isSafeInteger(e.version_expediente)
+      || e.version_expediente < 1 || !CLAVE.test(e.fase_clave) || !CLAVE.test(e.estado_clave)
+      || !textoValido(e.numero_expediente, false) || e.numero_expediente.length > 160)) {
+    throw new TypeError("metadatos de seguimiento no válidos");
+  }
   // Propuestas de nombramiento (vigente e historia), solo con la incorporación acreditada.
   if (e.propuestas !== undefined && (validarPropuestasSeguimiento(e.propuestas) === null || !Object.hasOwn(e, "ginpix"))) {
     throw new TypeError("propuestas no válidas");

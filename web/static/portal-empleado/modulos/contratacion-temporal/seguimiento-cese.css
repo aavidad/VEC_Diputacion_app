@@ -15,6 +15,34 @@
   font-weight: 600;
 }
 
+.ct-seg-cese .ct-seg-cese-paso {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--portal-borde);
+}
+
+.ct-seg-cese .ct-seg-cese-paso + .ct-seg-cese-paso {
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.ct-seg-cese .ct-seg-cese-revision {
+  margin-top: 16px;
+}
+
+.ct-seg-cese .ct-seg-cese-paso h3,
+.ct-seg-cese .ct-seg-cese-paso h5 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ct-seg-cese [data-ct-seg-propuesta] h2 {
+  margin: 0 0 12px;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
 .ct-seg-cese-rejilla {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -63,4 +91,27 @@
 
 .ct-seg-cese .ct-acciones {
   margin-top: 12px;
+}
+
+.ct-seg-cese .ct-exp-fase-datos dd {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 621px) {
+  .ct-revision-pagina {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .ct-revision-pagina .ct-consulta-contenido {
+    width: 100%;
+    box-sizing: border-box;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    align-content: start;
+  }
 }

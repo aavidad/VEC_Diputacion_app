@@ -299,6 +299,10 @@ type RepositorioOperacionSeguimiento interface {
 // detalle. Los justificantes solo aparecen por referencia y huella.
 type EstadoSeguimientoExpediente struct {
 	ExpedienteRef       string
+	VersionExpediente   uint64
+	FaseClave           domain.ClaveFase
+	EstadoClave         domain.EstadoOperativo
+	NumeroExpediente    string
 	IncorporacionRef    string
 	InicioIncorporacion string
 	Cese                *EstadoCeseExpediente

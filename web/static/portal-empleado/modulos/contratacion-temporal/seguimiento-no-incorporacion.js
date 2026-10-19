@@ -64,15 +64,20 @@ export function formularioNoIncorporacion({ opciones, t, escapar, deshabilitado 
 }
 
 /** Propuesta pendiente: sus datos y los dos formularios de la segunda persona. */
-export function formularioPropuestaNoIncorporacion({ estado, opciones, t, escapar, deshabilitado, fecha }) {
+export function formularioPropuestaNoIncorporacion({ estado, opciones, t, escapar, deshabilitado, fecha, enlaceRevision = "", revision = false }) {
   const p = estado.no_incorporacion_propuesta;
-  const paso = (tipo, titulo, boton, clase) => `<form class="ct-seg-cese-form" data-ct-seg-form="${tipo}" aria-labelledby="ct-seg-${tipo}-titulo" novalidate>
-      <h5 id="ct-seg-${tipo}-titulo">${escapar(t(titulo))}</h5>
+  const titulo = revision ? "h2" : "h4";
+  const subtitulo = revision ? "h3" : "h5";
+  const paso = (tipo, titulo, boton, clase) => `<form class="ct-seg-cese-paso" data-ct-seg-form="${tipo}" aria-labelledby="ct-seg-${tipo}-titulo" novalidate>
+      <${subtitulo} id="ct-seg-${tipo}-titulo">${escapar(t(titulo))}</${subtitulo}>
       <label class="ct-campo ct-seg-cese-ancho"><span>${escapar(t("no_incorporacion_observaciones"))}</span><textarea name="observaciones" rows="2" maxlength="2000" ${deshabilitado}></textarea></label>
       <div class="ct-acciones"><button type="submit" class="${clase}" ${deshabilitado}>${escapar(t(boton))}</button></div></form>`;
-  return `<section class="ct-seg-cese-form" aria-labelledby="ct-seg-no-inc-prop-titulo" data-ct-seg-propuesta>
-      <h4 id="ct-seg-no-inc-prop-titulo">${escapar(t("no_incorporacion_propuesta_titulo"))}</h4>
-      <p>${escapar(t("no_incorporacion_registrada", { motivo: etiquetaMotivo(opciones, p.motivo_clave), fecha: fecha(p.fecha_notificacion) }))}</p>
+  return `<section class="${revision ? "ct-seg-cese-revision" : "ct-seg-cese-form"}" aria-labelledby="ct-seg-no-inc-prop-titulo" data-ct-seg-propuesta>
+      <${titulo} id="ct-seg-no-inc-prop-titulo">${escapar(t("no_incorporacion_propuesta_titulo"))}</${titulo}>
+      <dl class="ct-exp-fase-datos"><div><dt>${escapar(t("no_incorporacion_motivo"))}</dt><dd>${escapar(etiquetaMotivo(opciones, p.motivo_clave))}</dd></div>
+      <div><dt>${escapar(t("no_incorporacion_fecha"))}</dt><dd>${escapar(fecha(p.fecha_notificacion))}</dd></div>
+      <div><dt>${escapar(t("no_incorporacion_resolucion"))}</dt><dd>${escapar(p.resolucion_ref)}</dd></div></dl>
+      ${enlaceRevision ? `<a class="boton-secundario" href="${escapar(enlaceRevision)}">${escapar(t("revision_enlace"))}</a>` : ""}
       ${paso("no_incorporacion_confirmar", "no_incorporacion_confirmar_titulo", "no_incorporacion_confirmar", "boton-primario")}
       ${paso("no_incorporacion_rechazar", "no_incorporacion_rechazar_titulo", "no_incorporacion_rechazar", "boton-secundario")}</section>`;
 }

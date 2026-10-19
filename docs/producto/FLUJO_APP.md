@@ -1058,6 +1058,16 @@ Cuándo cuenta como hecha la incorporación (con el alta en Personal o con la
 toma de posesión) y la fecha de efectos del cese siguen pendientes de RRHH
 (duda 140).
 
+#### No incorporación y segunda revisión (F1-47)
+
+En la candidata, RRHH propone la no incorporación desde el seguimiento de la
+ficha, con motivo, fecha de notificación y resolución. Si se exige otra
+persona, la propuesta ofrece un enlace a su revisión. Con su propio
+certificado, la segunda persona consulta la propuesta y la versión vigente y
+confirma o rechaza; el acceso no abre el cuadro general de expedientes. La
+confirmación devuelve un recibo y la consulta permite recuperar el resultado.
+El recorrido conectado con reinicio sigue pendiente de comprobar.
+
 #### 4.3.8 Cese y vuelta a la bolsa
 
 1. RRHH registra el cese con su causa y justificante por referencia y huella

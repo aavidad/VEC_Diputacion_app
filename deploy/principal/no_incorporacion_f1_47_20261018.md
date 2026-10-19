@@ -1,68 +1,76 @@
-# F1-47: no incorporación desde la ficha
+# F1-47: no incorporación y revisión por otra persona
 
-Comprobación del 18 de octubre de 2026 sobre la principal `2e3fc5e8f`.
-El formulario, el cliente y la operación ya existían. Este corte corrige los
-avisos del archivo, que aparecían en castellano también al elegir inglés.
-Reutiliza el control común de archivo, sus comprobaciones y sus traducciones
-inyectables; no modifica el cálculo del código ni el envío de datos.
+La candidata conserva el formulario y la operación de no incorporación.
+Corrige el idioma del control de archivo y permite que otra persona de RRHH
+abra la propuesta desde un enlace, sin acceder al cuadro general de expedientes.
 
 ## Activación
 
-CONFIG NUEVA: ninguna. SQL nueva: ninguna.
+CONFIG NUEVA: ninguna. Usa los selectores, catálogos y conexiones existentes.
+SQL nueva: CT242, al final de `lista_sql_main_tras_hz37.txt`.
 
-El portal debe tener preparado el circuito existente de Contratación temporal:
-conexiones nominales, gobierno, catálogos y permisos de RRHH. El inventario de
-sus dependencias está en `config/selectores_dependencias_bolsa_ct_v1.json`.
-Sobre esa preparación, hacen falta:
+1. Instalar CT242 una sola vez, en el orden de la lista. Amplía la función
+   `consultar_cese_cierre_expediente_v1` con versión, fase, estado y número
+   visible actuales. Conserva propietario y permisos; coteja la preimagen
+   instalada. No reaplicar ni hacer una reversión de SQL.
+2. Publicar juntos el binario y los estáticos de esta candidata, reiniciar y
+   recargar el portal. La versión web se calcula con el mecanismo de F0-31.
+3. Conservar el circuito de Contratación: conexiones nominales, gobierno,
+   catálogos y permisos de RRHH. Deben estar activos
+   `VEC_CT_SEGUIMIENTO_CESE_ENABLED` y
+   `VEC_CT_INCORPORACION_ACREDITADA_ENABLED`, los tres catálogos del seguimiento
+   y `VEC_BOLSA_REGLAS_SOURCE_PATH` con sus consecuencias de no incorporación.
+   También se necesita la conexión exclusiva del relevo de no incorporación.
+4. La regla vigente `c22.no_incorporacion` determina los motivos y la segunda
+   revisión. Los permisos los concede el circuito existente; el enlace no
+   concede ninguno ni contiene credenciales.
 
-- `VEC_CT_SEGUIMIENTO_CESE_ENABLED=true`;
-- `VEC_CT_INCORPORACION_ACREDITADA_ENABLED=true`;
-- regla vigente `c22.no_incorporacion`, con sus motivos y segunda revisión;
-- las conexiones de Bolsa y del relevo de no incorporación que exige el selector.
+Para la copia local, crear una instancia propia con `copia_local.py crear
+--modulos --segundo-rrhh --rrhh-original <material-propio>` y la lista SQL
+principal. Usar productores privados de roles y datos propios, puertos libres
+propios y el catálogo de reglas de Bolsa antes del primer arranque. La segunda
+persona ficticia se prepara mediante la semilla existente de F0-28; eso no
+acredita un acto de Administración. Véase `LEEME_copia_local.md`.
 
-Receta existente: `scripts/operacion/hito7_b2/LEEME.md`. No copie conexiones ni
-recibos de otra instancia. Detenga la aplicación antes de cambiar su material
-privado y reiníciela vigilando los registros.
+## Recorrido
 
-## Recorrido pendiente de acreditar
+1. Con un expediente en nombramiento, aceptación vigente y sin incorporación,
+   la primera persona abre «Seguimiento del nombramiento» en su ficha. Indica
+   motivo, fecha de notificación, referencia y archivo de la resolución. El
+   archivo permanece en su equipo; solo se registra su código de comprobación.
+2. Pulsa «Proponer que no se incorpora» y conserva el recibo. La propuesta
+   ofrece «Abrir revisión para otra persona de RRHH».
+3. La segunda persona abre ese enlace con su propio certificado. La página
+   usa `POST /api/vec/contratacion-temporal/seguimiento-cese` para consultar la
+   propuesta y la versión actual. No consulta el cuadro ni el detalle general.
+4. Comprueba motivo, fecha y resolución y confirma o rechaza. El cliente usa
+   `POST /api/vec/contratacion-temporal/no-incorporaciones`. El servidor exige
+   personas distintas y coteja de nuevo propuesta y versión antes del efecto.
+5. Una confirmación muestra su recibo. El expediente vuelve a fiscalización y
+   Bolsa recibe la consecuencia prevista por su regla. Reiniciar aplicación y
+   PostgreSQL; reabrir el enlace con la segunda persona y cotejar el mismo
+   recibo, fecha y estado, sin repetir el registro.
 
-En un expediente en nombramiento, con aceptación y sin incorporación ni cese,
-RRHH abre el seguimiento de la ficha. Elige motivo, fecha de notificación,
-referencia y archivo de la resolución. Solo se registra el código del archivo;
-la persona conserva el original. Con segunda revisión, otra persona de RRHH
-confirma o rechaza desde su sesión. El cliente usa la operación existente
-`POST /api/vec/contratacion-temporal/no-incorporaciones`.
+El segundo acceso queda limitado a la propuesta pendiente o al resultado que
+esa persona confirmó, sin incorporación, cese ni otros antecedentes. Comprueba
+sesión, certificado, permiso y expediente exactos y registra la decisión de
+lectura antes de entregar los datos. No habilita cese, modificación ni GINPIX.
 
-La aceptación de F1-47 exige observar su recibo real, recuperar el estado y
-comprobar la consecuencia en Bolsa después de reiniciar. Esa parte sigue
-pendiente: el arranque básico del guion de copia no prepara las conexiones
-nominales del circuito; la consulta de Contratación temporal responde 503.
-No se ha registrado una no incorporación real en este ensayo.
+## Recuperación y límites
 
-## Evidencia obtenida
+La página conserva el recibo si la decisión se registró y falla la consulta
+posterior. Ofrece reintentar la lectura, sin repetir automáticamente el acto.
+El recibo de una confirmación se recupera al reabrir; el contrato existente no
+ofrece esa recuperación del rechazo tras cerrar la página. El rechazo conserva
+su recibo mientras permanece abierta. No se amplía ese contrato en este corte.
 
-- Copia propia restaurada con el guion de F0-28; compilación con la herramienta
-  declarada en `go.mod`. Faltaban dependencias en la caché estándar al primer
-  intento. Tras prepararlas, `/livez` y el portal responden 200, también después
-  de reiniciar aplicación y PostgreSQL. Sin configuración opcional.
-- Chrome del sistema con el componente y los estilos reales, catálogos es/en
-  y datos preparados: formulario y propuesta a 1440 y 390 px sin desborde.
-  Esta comprobación aislada no acredita un recibo del servidor.
-- Sin archivo, se bloquea el envío, se enfoca el campo y el aviso usa el idioma
-  del panel. Con archivo, el control calcula su código de comprobación.
-- El ensayo con escalado CSS al 200 % en 390 px desborda por el ancho mínimo de
-  la página; no equivale al zoom del navegador y no se presenta como prueba
-  superada. No se modifica la disposición con ese resultado.
+El arranque, las dos personas, el recibo real, la consecuencia en Bolsa y el
+reinicio de esta candidata siguen pendientes de comprobar. Las capturas
+anteriores de `docs/operacion/capturas/f1-47/` muestran el formulario con datos
+preparados y no acreditan ese recorrido.
 
-Capturas del formulario y del aviso, con datos preparados:
-[castellano, escritorio](../../docs/operacion/capturas/f1-47/es-1440.png),
-[castellano, móvil](../../docs/operacion/capturas/f1-47/es-390.png),
-[inglés, escritorio](../../docs/operacion/capturas/f1-47/en-1440.png),
-[inglés, móvil](../../docs/operacion/capturas/f1-47/en-390.png).
-
-Pruebas focales: `seguimiento-no-incorporacion.test.mjs`,
-`seguimiento-cese.test.mjs`, `portal-cache-ct-a.test.mjs`,
-`portal-carga-rapida.test.mjs` y `portal-i18n.test.mjs`.
-La nueva regresión comprueba el aviso en inglés y el bloqueo con foco en el
-campo de archivo. Las pruebas anteriores conservan la validación de la
-solicitud, la separación de personas y el recibo.
+Pruebas focales de interfaz: `seguimiento-no-incorporacion.test.mjs`,
+`seguimiento-cese.test.mjs` y `revision-no-incorporacion.test.mjs`.
+Go: selección de la hoja, registro de la lectura y proyección de seguimiento.
+SQL: `pruebas_sql/ct242_lectura_revision_no_incorporacion.sql`, con un LOGIN
+miembro del ejecutor y un expediente ficticio, en una copia desechable.

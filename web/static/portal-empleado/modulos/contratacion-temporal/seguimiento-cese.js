@@ -6,6 +6,7 @@ import { filasNoIncorporacion, formularioNoIncorporacion, formularioPropuestaNoI
   solicitudNoIncorporacion, solicitudResolucionPropuestaNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=VEC_WEB_VERSION";
 import { filasPropuestas } from "./seguimiento-propuestas.js?v=VEC_WEB_VERSION";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
+import { IDIOMA_ACTUAL } from "../../../comun/idioma.js?v=VEC_WEB_VERSION";
 
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -37,7 +38,7 @@ export function rutaSeguimientoCeseNoMontada(error) {
 export function montarPanelSeguimientoCese({
   contenedor, cliente, contexto, mensajes = {}, locale = "es-ES", anunciar = () => {},
   confirmarOperacion = () => false, alConfirmar = () => {}, alConsultar = () => {},
-  generarClave = () => globalThis.crypto?.randomUUID?.(), avisoInicial = null,
+  generarClave = () => globalThis.crypto?.randomUUID?.(), avisoInicial = null, soloNoIncorporacion = false,
 } = {}) {
   if (!contenedor || typeof cliente?.consultarSeguimientoCese !== "function" || !contexto) throw new TypeError("panel de seguimiento no disponible");
   const t = crearTraductorSeguimientoCese(mensajes);
@@ -58,6 +59,9 @@ export function montarPanelSeguimientoCese({
   };
 
   function cabecera(estado) {
+    if (soloNoIncorporacion) return `<header class="ct-exp-fase-panel-cabecera">
+      <button type="button" class="boton-secundario ct-seg-cese-ayuda" data-ct-seg-ayuda aria-expanded="${ayudaAbierta}" aria-controls="ct-seg-cese-ayuda" aria-label="${escapar(t("ayuda_boton"))}">?</button></header>
+      <p id="ct-seg-cese-ayuda" class="ct-seg-cese-texto-ayuda" ${ayudaAbierta ? "" : "hidden"}>${escapar(t("revision_ayuda"))}</p>`;
     const chip = estado.cierre ? ["estado_cerrado", "ct-fase-completado"] : estado.cese ? ["estado_cesado", "ct-fase-espera"] : ["estado_vigente", "ct-fase-en_curso"];
     return `<header class="ct-exp-fase-panel-cabecera"><div><h3 id="ct-seg-cese-titulo">${escapar(t("titulo"))}</h3><p>${escapar(t("subtitulo"))}</p></div>
       <div class="ct-exp-fase-panel-acciones"><span class="ct-exp-chip ${chip[1]}">${escapar(t(chip[0]))}</span>
@@ -66,6 +70,11 @@ export function montarPanelSeguimientoCese({
   }
 
   function resumen(estado, opciones) {
+    if (soloNoIncorporacion) return `<dl class="ct-exp-fase-datos">${[
+      ...filasNoIncorporacion(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
+      ...(estado.no_incorporacion?.recibo_ref ? [[t("revision_recibo"), estado.no_incorporacion.recibo_ref]] : []),
+    ]
+      .map(([a, b]) => `<div><dt>${escapar(a)}</dt><dd>${escapar(b)}</dd></div>`).join("")}</dl>`;
     const causa = estado.cese ? opciones.causas_cese.find((c) => c.clave === estado.cese.causa_clave) : null;
     const filas = [
       [t("incorporacion"), estado.incorporacion ? t("incorporacion_inicio", { fecha: fechaVisible(estado.incorporacion.inicio, locale) }) : t("sin_incorporacion")],
@@ -142,24 +151,31 @@ export function montarPanelSeguimientoCese({
       return;
     }
     if (!datos) {
-      contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" aria-busy="true"><p role="status">${escapar(t("cargando"))}</p></section>`;
+      contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" aria-busy="true">${aviso?.tono === "exito" ? `<p class="ct-exp-mensaje ct-tono-exito" role="status">${escapar(aviso.texto)}</p>` : ""}<p role="status">${escapar(t("cargando"))}</p></section>`;
       return;
     }
     if (datos.error) {
-      contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" role="alert"><p>${escapar(t("no_disponible"))}</p><button type="button" class="boton-secundario" data-ct-seg-reintentar>${escapar(t("reintentar"))}</button></section>`;
+      contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese">${aviso ? `<p class="ct-exp-mensaje ct-tono-${aviso.tono}" role="status">${escapar(aviso.texto)}</p>` : ""}
+        <p role="alert">${escapar(t(soloNoIncorporacion && aviso?.tono === "exito" ? "revision_lectura_no_disponible" : "no_disponible"))}</p>
+        <button type="button" class="boton-secundario" data-ct-seg-reintentar>${escapar(t("reintentar"))}</button></section>`;
       return;
     }
     const { opciones, estado } = datos;
-    const vigente = contexto.estado_clave === "en_curso";
+    const vigente = soloNoIncorporacion
+      ? estado.fase_clave === "nombramiento" && estado.estado_clave === "en_curso"
+        && Number.isSafeInteger(estado.version_expediente) && estado.version_expediente > 0
+      : contexto.estado_clave === "en_curso";
     const formularios = [];
-    if (vigente && !estado.cese) formularios.push(formularioCese(opciones, estado), formularioModificacion(opciones));
-    if (vigente && ofrecerConfirmacionGINPIX(estado, opciones)) formularios.push(formularioConfirmacionGINPIX({ t, escapar, deshabilitado: deshabilitado() }));
-    if (vigente && ofrecerNoIncorporacion(estado, opciones)) formularios.push(formularioNoIncorporacion({ opciones, t, escapar, deshabilitado: deshabilitado() }));
+    if (!soloNoIncorporacion && vigente && !estado.cese) formularios.push(formularioCese(opciones, estado), formularioModificacion(opciones));
+    if (!soloNoIncorporacion && vigente && ofrecerConfirmacionGINPIX(estado, opciones)) formularios.push(formularioConfirmacionGINPIX({ t, escapar, deshabilitado: deshabilitado() }));
+    if (!soloNoIncorporacion && vigente && ofrecerNoIncorporacion(estado, opciones)) formularios.push(formularioNoIncorporacion({ opciones, t, escapar, deshabilitado: deshabilitado() }));
     if (vigente && ofrecerPropuestaNoIncorporacion(estado, opciones)) {
-      formularios.push(formularioPropuestaNoIncorporacion({ estado, opciones, t, escapar, deshabilitado: deshabilitado(), fecha: (valor) => fechaVisible(valor, locale) }));
+      formularios.push(formularioPropuestaNoIncorporacion({ estado, opciones, t, escapar, deshabilitado: deshabilitado(), fecha: (valor) => fechaVisible(valor, locale),
+        revision: soloNoIncorporacion, enlaceRevision: soloNoIncorporacion ? "" : `/portal-empleado/modulos/contratacion-temporal/revision-no-incorporacion.html?expediente_ref=${encodeURIComponent(contexto.expediente_ref)}&lang=${encodeURIComponent(IDIOMA_ACTUAL)}` }));
     }
-    if (vigente && estado.cese && !estado.cierre) formularios.push(formularioCierre(opciones, estado));
-    contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" data-ct-seg-cese aria-labelledby="ct-seg-cese-titulo" ${ocupado ? 'aria-busy="true"' : ""}>
+    if (!soloNoIncorporacion && vigente && estado.cese && !estado.cierre) formularios.push(formularioCierre(opciones, estado));
+    if (soloNoIncorporacion && formularios.length === 0) formularios.push(`<p role="status">${escapar(t(estado.no_incorporacion ? "revision_confirmada" : "revision_sin_propuesta"))}</p>`);
+    contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" data-ct-seg-cese ${soloNoIncorporacion ? `aria-label="${escapar(t("no_incorporacion_propuesta_titulo"))}"` : 'aria-labelledby="ct-seg-cese-titulo"'} ${ocupado ? 'aria-busy="true"' : ""}>
       ${cabecera(estado)}${resumen(estado, opciones)}
       ${aviso ? `<p class="ct-exp-mensaje ct-tono-${aviso.tono}" role="${aviso.tono === "peligro" ? "alert" : "status"}" data-ct-seg-aviso tabindex="-1">${escapar(aviso.texto)}</p>` : ""}
       ${formularios.join("")}</section>`;
@@ -183,9 +199,10 @@ export function montarPanelSeguimientoCese({
     pintar();
     try {
       datos = await cliente.consultarSeguimientoCese(contexto.expediente_ref, { signal: controlador.signal });
+      if (soloNoIncorporacion && (!Number.isSafeInteger(datos?.estado?.version_expediente) || !datos?.estado?.numero_expediente)) datos = { error: true };
     } catch (error) {
       if (controlador.signal.aborted) return;
-      datos = rutaSeguimientoCeseNoMontada(error) ? { ausente: true } : { error: true };
+      datos = !soloNoIncorporacion && rutaSeguimientoCeseNoMontada(error) ? { ausente: true } : { error: true };
     }
     if (!controlador.signal.aborted && !datos?.ausente && !datos?.error) alConsultar(datos);
     pintar();
@@ -198,7 +215,8 @@ export function montarPanelSeguimientoCese({
   }
 
   function solicitudPara(tipo, campos) {
-    const base = { expediente_ref: contexto.expediente_ref, version_esperada: contexto.version, clave_idempotencia: claveDe(`${tipo}:${contexto.version}`) };
+    const version = soloNoIncorporacion ? datos?.estado?.version_expediente : contexto.version;
+    const base = { expediente_ref: contexto.expediente_ref, version_esperada: version, clave_idempotencia: claveDe(`${tipo}:${version}`) };
     if (tipo === "cese") {
       return ["registrarCese", { ...base, causa_clave: campos.causa_clave ?? "", fecha_efecto: campos.fecha_efecto ?? "",
         justificante_ref: campos.justificante_ref ?? "", justificante_sha256: (campos.justificante_sha256 ?? "").toLowerCase(), observaciones: campos.observaciones ?? "" }];
@@ -222,6 +240,10 @@ export function montarPanelSeguimientoCese({
   async function enviar(formulario) {
     if (ocupado) return;
     const tipo = formulario.dataset.ctSegForm;
+    if (soloNoIncorporacion && (!["no_incorporacion_confirmar", "no_incorporacion_rechazar"].includes(tipo)
+      || datos?.estado?.fase_clave !== "nombramiento" || datos?.estado?.estado_clave !== "en_curso"
+      || !Number.isSafeInteger(datos?.estado?.version_expediente)
+      || !ofrecerPropuestaNoIncorporacion(datos?.estado, datos?.opciones))) return;
     const [metodo, solicitud] = solicitudPara(tipo, leerFormulario(formulario));
     let confirmada = false;
     const titulos = { cese: "cese_titulo", cierre: "cierre_titulo", modificacion: "modificacion_titulo", ginpix: "ginpix_titulo",
@@ -234,7 +256,8 @@ export function montarPanelSeguimientoCese({
     pintar();
     try {
       const recibo = await cliente[metodo](solicitud, { signal: controlador.signal });
-      claves.delete(`${tipo}:${contexto.version}`);
+      if (controlador.signal.aborted) return;
+      claves.delete(`${tipo}:${solicitud.version_esperada}`);
       let texto = t("recibo", { recibo: recibo.recibo_ref, version: recibo.version_resultante });
       if (recibo.coste_centimos) {
         texto += ` ${t("recibo_coste", { coste: new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(recibo.coste_centimos / 100) })}`;
@@ -245,12 +268,13 @@ export function montarPanelSeguimientoCese({
       pintar();
       contenedor.querySelector("[data-ct-seg-aviso]")?.focus?.();
       alConfirmar(recibo, aviso);
+      if (soloNoIncorporacion) cargar();
     } catch (error) {
       ocupado = false;
       if (controlador.signal.aborted) return;
       if (error?.resultadoIndeterminado) aviso = { tono: "aviso", texto: t("error_indeterminado") };
       else {
-        if (error?.envelopeValido) claves.delete(`${tipo}:${contexto.version}`);
+        if (error?.envelopeValido) claves.delete(`${tipo}:${solicitud.version_esperada}`);
         const conocido = typeof error?.codigo === "string" && t(`error_${error.codigo}`) !== `error_${error.codigo}`;
         aviso = { tono: "peligro", texto: conocido ? t(`error_${error.codigo}`) : (error instanceof TypeError ? t("error_contenido_no_valido") : t("error_general")) };
       }

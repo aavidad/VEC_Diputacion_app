@@ -38,6 +38,12 @@ type AutorizadorLecturaSeguimiento interface {
 	AutorizarLecturaSeguimiento(ctx context.Context, organizacionRef, expedienteRef string) error
 }
 
+// La segunda revisión puede limitar la entrega tras leer el estado en el
+// servidor: una referencia conocida no basta para recibir otro expediente.
+type limitadorEntregaSeguimiento interface {
+	ValidarEntregaSeguimiento(context.Context, ports.EstadoSeguimientoExpediente) (revisionNoIncorporacion bool, err error)
+}
+
 type EjecutorOperacionesSeguimiento interface {
 	RegistrarCese(context.Context, application.SolicitudRegistrarCese) (ports.ReciboOperacionSeguimiento, error)
 	CerrarExpediente(context.Context, application.SolicitudCerrarExpediente) (ports.ReciboOperacionSeguimiento, error)
@@ -277,8 +283,25 @@ func (h *manejadorSeguimiento) consultar(w http.ResponseWriter, r *http.Request,
 		responderErrorSeguimiento(w, r, codigo, clave, err)
 		return
 	}
+	revision := false
+	if limitador, ok := h.lectura.(limitadorEntregaSeguimiento); ok {
+		revision, err = limitador.ValidarEntregaSeguimiento(r.Context(), estado)
+		if err != nil {
+			responderErrorSeguimiento(w, r, http.StatusForbidden, "acceso_denegado", err)
+			return
+		}
+	}
+	proyeccion := estadoSeguimientoJSON(estado)
+	if revision {
+		// La historia de propuestas pertenece al detalle general de RRHH.
+		// La revisión solo necesita propuesta pendiente o recibo propio.
+		delete(proyeccion, "propuestas")
+		if estado.Acreditada.PropuestaNoIncorporacion != nil {
+			delete(proyeccion, "no_incorporacion")
+		}
+	}
 	responderJSONCobertura(w, r, http.StatusOK, map[string]any{"data": map[string]any{
-		"esquema": "vec.contratacion-temporal.seguimiento-cese.v1", "opciones": opcionesSeguimientoJSON(opciones), "estado": estadoSeguimientoJSON(estado)}})
+		"esquema": "vec.contratacion-temporal.seguimiento-cese.v1", "opciones": opcionesSeguimientoJSON(opciones), "estado": proyeccion}})
 }
 
 func estadoErrorSeguimiento(err error) (int, string) {
@@ -362,6 +385,10 @@ func opcionesSeguimientoJSON(o ports.OpcionesSeguimiento) map[string]any {
 
 func estadoSeguimientoJSON(e ports.EstadoSeguimientoExpediente) map[string]any {
 	salida := map[string]any{"expediente_ref": e.ExpedienteRef, "incorporacion": nil, "cese": nil, "cierre": nil}
+	if e.VersionExpediente != 0 {
+		salida["version_expediente"], salida["fase_clave"], salida["estado_clave"], salida["numero_expediente"] =
+			e.VersionExpediente, string(e.FaseClave), string(e.EstadoClave), e.NumeroExpediente
+	}
 	if e.IncorporacionRef != "" {
 		salida["incorporacion"] = map[string]string{"inicio": e.InicioIncorporacion}
 	}
