@@ -69,6 +69,8 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
 	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
 	fronteras = append(fronteras, descriptoresFronterasLlamamientoDesarrollo(perfilCT)...)
+	fronteras = append(fronteras, fronteraContratacionTemporalDesarrollo("ct-nombramiento-derivar",
+		string(ctdomain.AccionDerivarNombramiento), cthttp.RutaDerivacionNombramiento, []string{perfilCT}))
 	fronteras = append(fronteras, fronteraEntregaPeticionCentroRRHHDesarrollo(perfilCT), fronteraPeticionesCentroRRHHDesarrollo(perfilCT))
 	if len(firma) > 0 && firma[0] {
 		fronteras = append(fronteras,

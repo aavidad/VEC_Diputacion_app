@@ -519,6 +519,15 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
+F1-19 prepara un expediente hijo por cada plaza aceptada de una oferta del
+padre fiscalizado. Bolsa verifica la aceptación y CT conserva la relación con
+padre, plaza y recibo en una operación atómica. La ruta
+`POST /api/vec/contratacion-temporal/nombramientos/derivaciones` admite los ocho
+campos de la guía de activación; la composición actual responde 503 hasta
+conectar el productor de autorización. Faltan la instalación conjunta y el
+ensayo positivo. Véase
+[`f1_19_nombramientos_derivados.md`](../../deploy/principal/f1_19_nombramientos_derivados.md).
+
 La conexión de ofertas de varias plazas está **preparada en código y SQL, sin
 ensayo integrado ni instalación acreditados**. CT220 amplía la ejecución de
 selección para reservar una variante de oferta con su comando original; añade

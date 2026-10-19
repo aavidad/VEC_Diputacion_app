@@ -1429,6 +1429,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			cerrarBorrador()
 		}
 	}()
+	derivacionNombramiento, err := nuevaRutaDerivacionNombramientoDesarrollo(nil)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaDerivacionNombramiento, Manejador: derivacionNombramiento})
 	rutas = append(rutas, rutasBorrador...)
 	cerrarPreparacionBases := func() {}
 	if preparacionBasesActiva {
