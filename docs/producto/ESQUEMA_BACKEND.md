@@ -291,6 +291,13 @@ recuperado solo sirve para devolver un recibo ya existente. Las lecturas de
 datos personales (ficha, contactos, detalle de expediente, consulta propia de
 méritos) también consumen V3 y quedan registradas.
 
+AD292, preparada y pendiente de instalación, añade la fachada nominal para
+derivar un nombramiento desde una plaza adjudicada. Solo el propietario CT
+puede llamarla. La fachada conserva el booleano de consumo del núcleo y coteja
+decisión, efecto y huella. CT234 comprueba primero el recibo original de la
+misma intención; exige consumo nuevo si debe crear el hijo. AD292 depende del
+perfil y audiencia que AD291 añade al núcleo y reutiliza el pool CT existente.
+
 F1-36A prepara AD286 (`comprobar_consumo_recuperacion_firmas_ct_v2`) para
 revalidar el consumo V3 con la unidad histórica, CT228 para recuperar el acto
 original exacto y su corte, y AUT103 para publicar por el gobierno de cargos
