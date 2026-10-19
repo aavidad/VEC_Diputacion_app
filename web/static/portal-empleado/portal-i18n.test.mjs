@@ -1250,6 +1250,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "modulos/contratacion-temporal/vista-expedientes.js",
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, ruta === "portal.js" ? "20261018-f179-cabecera-v1" : "20261018-f173-alta-v5");
+  // F1-57: la ficha de Bolsa ofrece la comprobación del ofrecimiento; renueva sus importadores.
+  for (const ruta of ["modulos/contratacion-temporal/renderizado-llamamiento.js", "portal-bolsas-api.js",
+    "portal-bolsas-comprobacion.js", "portal-bolsas-comprobacion-ruta.js", "portal-bolsas-ruta-filtros.js",
+    "portal-panel-interno.js", "portal.js"]) versionesEspeciales.set(ruta, "20261019-f157-v1");
 
   const aristas = [];
   const codigo = new Map();

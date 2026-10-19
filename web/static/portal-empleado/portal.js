@@ -456,7 +456,7 @@ async function prepararBolsaFichaCT({ expedienteRef, signal }) {
     return;
   }
   try {
-    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261018-f171-integracion-v1");
+    const { consultarBolsas } = await import("./portal-bolsas-api.js?v=20261019-f157-v1");
     if (signal?.aborted) return;
     const resultado = await consultarBolsas({ signal });
     if (signal?.aborted || contextoBolsaCT?.expedienteRef !== expedienteRef) return;
@@ -1103,6 +1103,7 @@ function navegar(vista, opciones = {}) {
     estado.llamamientoDesdeCT = false;
     estado.origenLlamamientoB7 = null;
   }
+  if (vista !== "bolsa-candidatos") estado.comprobacionOfrecimiento = null;
   const hash = rutaDeVista(vista);
   if (vistaNecesitaBolsa(estado.vista) && !vistaNecesitaBolsa(vista)) {
     generacionCuadroBolsas += 1;
@@ -1214,7 +1215,7 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     const controlador = new AbortController(); controladorRankingBolsa = controlador;
     contenedor.innerHTML = `<div data-ranking-montaje><section class="panel" role="status" aria-busy="true"><div class="cuerpo-panel">${textoPortal("estado_modulo_comprobando")}</div></section></div>`;
     const raiz = contenedor.querySelector("[data-ranking-montaje]");
-    Promise.all([import("./portal-baremacion-ranking.js?v=20261018-f171-integracion-v1"), import("./portal-bolsas-api.js?v=20261018-f171-integracion-v1")]).then(async ([vista, cliente]) => {
+    Promise.all([import("./portal-baremacion-ranking.js?v=20261018-f171-integracion-v1"), import("./portal-bolsas-api.js?v=20261019-f157-v1")]).then(async ([vista, cliente]) => {
       if (controlador.signal.aborted || estado.vista !== "baremacion") return;
       const montaje = await vista.montarRankingBolsa({ raiz, bolsas: estado.datosBolsas.datos.bolsas, consultar: cliente.consultarCandidatosBolsa, signal: controlador.signal, escaparHTML });
       if (controlador.signal.aborted) { montaje?.desmontar(); return; }
@@ -1480,8 +1481,13 @@ function aplicarRutaCandidatosBolsa() {
     ...(filtro.seguimiento ? { seguimiento: { llamamiento_ref: filtro.seguimiento, bolsa_ref: filtro.bolsaRef } } : {}) };
   // El origen de una petición de personal vive fuera de los filtros: el asistente lo copia al iniciarse.
   estado.origenLlamamientoB7 = filtro.origen ? Object.freeze({ ...filtro.origen, bolsa_ref: filtro.bolsaRef }) : null;
+  // Comprobación pendiente propuesta desde la selección CT: la ficha la ofrece a esa persona.
+  estado.comprobacionOfrecimiento = filtro.comprobacion ?? null;
   estado.datosCandidatos = null;
   const carga = controladorBolsas.cargarCandidatosBolsa(filtro.bolsaRef, { enfocarDestino: true });
+  if (filtro.comprobacion) {
+    void carga.then(() => controladorBolsas.abrirComprobacionOfrecimiento()).then((aviso) => { if (aviso) anunciar(aviso); });
+  }
   if (filtro.origen && !filtro.seguimiento) {
     void carga.then(() => {
       if (estado.vista !== "bolsa-candidatos" || estado.bolsaSeleccionada !== filtro.bolsaRef
@@ -1976,7 +1982,7 @@ let selectorLlamamientos = null;
 let promesaRutasBolsa = null;
 function prepararRutasBolsa() {
   if (rutasBolsa) return Promise.resolve(rutasBolsa);
-  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7")
+  promesaRutasBolsa ??= import("./portal-bolsas-ruta-filtros.js?v=20261019-f157-v1")
     .then((rutas) => { rutasBolsa = rutas; return rutas; })
     .catch((error) => { promesaRutasBolsa = null; throw error; });
   return promesaRutasBolsa;
@@ -2007,9 +2013,9 @@ function prepararBolsaBase() {
   if (controladorBolsas && presentadorPanelInterno) return Promise.resolve();
   if (promesaBolsaBase) return promesaBolsaBase;
   promesaBolsaBase = Promise.all([
-    import("./portal-panel-interno.js?v=20261018-f136c-informe-v6"),
-    import("./portal-bolsas-api.js?v=20261018-f171-integracion-v1"),
-    import("./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7"),
+    import("./portal-panel-interno.js?v=20261019-f157-v1"),
+    import("./portal-bolsas-api.js?v=20261019-f157-v1"),
+    import("./portal-bolsas-ruta-filtros.js?v=20261019-f157-v1"),
     import("./modulos/contratacion-temporal/cliente-http.js?v=20261018-f173-alta-v5"),
   ]).then(([panel, bolsas, rutas, ct]) => {
     if (!vistaNecesitaBolsa()) {
@@ -2176,6 +2182,7 @@ function instalarEnlacesBolsa() {
       estado.filtrosBolsa = { estado: "", texto: "" };
       estado.datosCandidatos = null;
       estado.origenLlamamientoB7 = null;
+      estado.comprobacionOfrecimiento = null;
       rutaCandidatosAplicada = null;
       const ruta = `${destino.pathname}${destino.search}${destino.hash}`;
       if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)
@@ -2190,6 +2197,7 @@ function instalarEnlacesBolsa() {
         : esHistoricoCT ? { pestana: "historico" } : {}) };
     estado.datosCandidatos = null;
     estado.origenLlamamientoB7 = null;
+    estado.comprobacionOfrecimiento = null;
     rutaCandidatosAplicada = null;
     const ruta = `${destino.pathname}${destino.search}${destino.hash}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== ruta)

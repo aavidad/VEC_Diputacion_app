@@ -17,6 +17,7 @@ import { canalesAviso, enlaceSeguimiento, renderizarAccionJustificanteRenuncia, 
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
 import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20261008-r-fichas-idioma-nav-v1";
 import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20261018-f171-main-v4";
+import { renderizarComprobacionOfrecimiento } from "./portal-bolsas-comprobacion.js?v=20261019-f157-v1";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261018-f175-contacto-propio-v1";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=20260930-portales-i18n-integracion-v1";
@@ -34,7 +35,7 @@ const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_dispo
 import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20261007-pantallas-textos-final-v1";
 import { RUTA_PANTALLA_CARGA_CONVOCA } from "./portal-menu-bolsa.js?v=20261018-f104-main-v1";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
+import { rutaCandidatosBolsaCompartible, rutaGlobalBolsaCompartible, rutaResumenBolsasCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261019-f157-v1";
 import { renderizarGlobalBolsa } from "./portal-bolsas-global.js?v=20261016-r1-o-integracion-v7";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const RUTA_PETICIONES_PERSONAL_TEMPORAL = "/portal-empleado/#contratacion-temporal"; // la aceptación o renuncia se registra en su expediente, no en Bolsa
@@ -806,6 +807,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               ${renderizarRegistroContacto({ estado: modal.registroContacto || {}, escaparHTML })}
               ${reciboSituacion}
               ${reciboContacto}
+              ${renderizarComprobacionOfrecimiento({ modal, escaparHTML })}
               ${renderizarOperacionesSituacion({ candidato, estado: modal.operacionesB8 || {}, escaparHTML })}
               ${renderizarIntentosContacto({ candidato, estado: modal.intentosContacto || {}, escaparHTML, llamamientoRef: modal.llamamientoSeguimiento || "" })}
               ${renderizarContratosParticipacion({ estado: modal.contratosB13 || {}, escaparHTML, categoria: bolsa.categoria })}

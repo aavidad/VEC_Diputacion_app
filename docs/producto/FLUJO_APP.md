@@ -287,6 +287,12 @@ motivos del seguimiento. Los cambios son datos de la copia; los actos y la
 fiscalización de la variante se registran de nuevo con sus propios recibos.
 La fiscalización de una modalidad anterior conserva su contexto original.
 Esta variante sigue pendiente de completar el recorrido y el reinicio.
+Desde ese aviso, «Comprobar en su ficha» abre la bolsa con la ficha de esa
+persona y el bloque «Comprobar los datos para ofrecer el puesto» (F1-57): los
+datos del contrato registrado vienen rellenos, la posición sale del acta y RRHH
+indica para cada dato el documento que lo acredita (el contrato o un documento
+que custodia, con su número de registro y la huella que calcula el navegador).
+Revisa, registra y ve el recibo; después repite la selección en el expediente.
 
 **Pasos.** El recorrido principal empieza en la petición del centro (paso 1) y
 llega hasta el cese y la vuelta a la bolsa; es el que decide si la candidata

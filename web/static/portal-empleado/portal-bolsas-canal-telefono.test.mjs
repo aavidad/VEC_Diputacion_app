@@ -10,7 +10,7 @@ import { crearControladorIntentosContacto, llamamientoDeFicha, prepararTextosTel
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261016-r1-o-integracion-v7";
 import { canalesAviso, enlaceSeguimiento, filasSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261016-r1-o-integracion-v7";
 import { leerCandidatosBolsaCompartible, leerLlamamientoBolsaCompartible,
-  rutaCandidatosBolsaCompartible, rutaLlamamientoBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
+  rutaCandidatosBolsaCompartible, rutaLlamamientoBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261019-f157-v1";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
 import { renderizarExpediente } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261018-f136c-informe-v4";
 import { crearTraductorExpedientesContratacion } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";

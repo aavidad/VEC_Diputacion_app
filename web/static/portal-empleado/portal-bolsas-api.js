@@ -19,13 +19,14 @@ import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261018-f171-main-v4";
 import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
 import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261018-f171-main-v4";
+import { crearControladorComprobacion, prepararTextosComprobacion } from "./portal-bolsas-comprobacion.js?v=20261019-f157-v1";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261016-r1-o-integracion-v7";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261016-r1-o-integracion-v7";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
 import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261018-f175-contacto-propio-v1";
 import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261016-r1-o-integracion-v7";
-import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
+import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261019-f157-v1";
 import { canalesAviso, descargarJustificanteRenuncia } from "./portal-bolsas-seguimiento.js?v=20261016-r1-o-integracion-v7";
 import { cargarTextos } from "../comun/textos.js";
 
@@ -611,6 +612,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     estado.datosCandidatos = { carga: "denegado", datos: null, error: mensaje };
   }
   const controladorIntentosContacto = crearControladorIntentosContacto({ estado, renderizar });
+  const controladorComprobacion = crearControladorComprobacion({ estado, renderizar });
   const controladorCorreoB7 = crearControladorCorreoLlamamiento({ estado, renderizar });
   const controladorOrigenContacto = crearControladorOrigenContacto({ estado, renderizar });
   // Tras registrar o corregir el contacto se vuelve a leer su origen.
@@ -900,9 +902,23 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     void controladorOperacionesB8.cargar(estado.modalFicha);
     void controladorIntentosContacto.cargar(estado.modalFicha);
     void controladorOrigenContacto.cargar(estado.modalFicha);
+    void controladorComprobacion.cargar(estado.modalFicha);
     documento.querySelector("[data-bolsa-ficha-inline='true']")?.focus?.();
     // Desde el seguimiento, «Llamar» lleva directamente al registro de la llamada.
     if (seguimiento) documento.querySelector("[data-intentos-raiz='true']")?.scrollIntoView?.({ block: "start" });
+  }
+
+  // Desde el aviso de la selección CT: abre la ficha de la persona pendiente si está en
+  // la página cargada; si no, devuelve el aviso para que la persona la busque.
+  async function abrirComprobacionOfrecimiento() {
+    const c = estado.comprobacionOfrecimiento?.contexto;
+    if (!c || estado.bolsaSeleccionada !== c.bolsa_ref || estado.datosCandidatos?.carga !== "listo" || estado.modalFicha) return "";
+    if (estado.datosCandidatos.datos?.candidatos?.some((item) => item.participacion_ref === c.participacion_ref)) {
+      abrirFicha(c.participacion_ref);
+      return "";
+    }
+    const textos = await prepararTextosComprobacion().catch(() => null);
+    return textos ? textos.traducir("ficha.no_en_pagina", { posicion: c.orden_acta }) : "";
   }
 
   // Tras anotar llamadas, la vista de seguimiento se vuelve a leer al dejar la ficha.
@@ -972,6 +988,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     controladorOperacionesB8.instalar(documento);
     controladorIntentosContacto.instalar(documento);
     controladorSancionesB24.instalar(documento);
+    controladorComprobacion.instalar(documento);
     controladorRegistroContacto.instalar(documento);
     controladorCorreoB7.instalar(documento);
     documento.addEventListener("change", (evento) => {
@@ -1579,6 +1596,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     cargarGlobalBolsa,
     cargarEstadisticas,
     abrirFicha,
+    abrirComprobacionOfrecimiento,
     cerrarFicha,
     olvidarEmisionConfirmada,
 	    abrirContactos, cerrarContactos,
