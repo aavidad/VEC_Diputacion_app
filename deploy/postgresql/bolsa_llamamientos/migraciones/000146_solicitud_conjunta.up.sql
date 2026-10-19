@@ -41,7 +41,7 @@ BEGIN
    'vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_conjunta_v1(text,jsonb)','EXECUTE')
  OR encode(sha256(convert_to(pg_get_functiondef(to_regprocedure(
     'vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_conjunta_v1(text,jsonb)')),'UTF8')),'hex')
-    <>'ff13dd5c02e89af6827c812285cd2dd497f33f734b3a59195eeea2346a8e4fa7'
+    <>'ec7bd7bcd6fbca1b320001088cee5ce6f320b861185c60623ddf2c4668efced4'
  THEN RAISE EXCEPTION 'B146: falta BC13 o la preimagen causal es incompatible' USING ERRCODE='55000'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_constraint c
    WHERE c.conrelid='vec_bolsa_llamamientos.solicitud_inscripcion'::regclass

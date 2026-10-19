@@ -33,7 +33,10 @@ func TestFuentePreferenciasModalidadesCanonYAlcance(t *testing.T) {
 	}
 	for i, entrada := range nueva.Entradas {
 		if entrada.FuenteVersion != 2 || entrada.Version != 2 || entrada.FuenteHuellaSHA256 != huella ||
-			entrada.VigenteHasta.Sub(entrada.VigenteDesde) != 90*24*time.Hour {
+			// La v2 termina con la v1: la versión del rol toma la fecha más temprana
+			// de sus entradas y en desarrollo las vigencias son de 60 días o más.
+			!entrada.VigenteHasta.Equal(previa.Entradas[i].VigenteHasta) ||
+			entrada.VigenteHasta.Sub(entrada.VigenteDesde) < 60*24*time.Hour {
 			t.Fatal("versión o vigencia incorrecta")
 		}
 		if i == 1 && !reflect.DeepEqual(entrada.Concesion, previa.Entradas[i].Concesion) {

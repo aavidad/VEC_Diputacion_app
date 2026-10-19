@@ -247,7 +247,7 @@ BEGIN
  OR p.prosecdef IS DISTINCT FROM true OR p.provolatile::text<>'v' OR p.proparallel::text<>'u'
  OR p.proacl::text IS DISTINCT FROM '{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario,vec_bolsa_llamamientos_propietario=X/vec_bolsa_convocatorias_propietario}'
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=10s']::text[]
- OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'ff13dd5c02e89af6827c812285cd2dd497f33f734b3a59195eeea2346a8e4fa7'
+ OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'ec7bd7bcd6fbca1b320001088cee5ce6f320b861185c60623ddf2c4668efced4'
  THEN RAISE EXCEPTION 'BC13: definicion o metadatos divergentes' USING ERRCODE='55000'; END IF;
  IF has_function_privilege('public',f,'EXECUTE')
  THEN RAISE EXCEPTION 'BC13: ejecucion publica' USING ERRCODE='55000'; END IF;

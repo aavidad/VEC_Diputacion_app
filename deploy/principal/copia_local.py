@@ -312,6 +312,10 @@ class Copia:
         verificar_fuente(estado['revision'])
         self.validar_binario(estado)
         self.pg()
+        # BC14: en cada arranque, ya con la lista y el kit de datos aplicados,
+        # declara los plazos de inscripción que se hayan abierto. Idempotente.
+        from copia_local_publicacion_bases import declarar as declarar_publicacion_bases
+        declarar_publicacion_bases(self)
         if self.proceso(estado):
             raise ValueError('La aplicación propia ya está activa')
         puerto_libre(estado['puerto_app'])
@@ -327,6 +331,9 @@ class Copia:
         entorno.update(self.entorno_modulos())
         from copia_local_correo import arrancar as arrancar_correo
         entorno.update(arrancar_correo(self))
+        from copia_local_firma import arrancar_verificador
+        arrancar_verificador(self, guardar, puerto_libre)
+        estado = self.leer()
         with (self.raiz / 'app.log').open('ab') as log:
             proceso = subprocess.Popen([self.raiz / 'vec-server'], cwd=REPO, env=entorno,
                         stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -395,6 +402,25 @@ class Copia:
             self.docker('stop', '--time', '20', self.nombre, salida=subprocess.DEVNULL)
         from copia_local_correo import parar as parar_correo
         parar_correo(self)
+        from copia_local_firma import parar_verificador
+        parar_verificador(self)
+
+    def firma(self, manifiesto):
+        """Compone la firma de una copia con módulos y la reinicia con el verificador."""
+        from copia_local_firma import preparar
+        estado = self.leer()
+        if not estado.get('entorno_modulos_sha256'):
+            raise ValueError('La firma necesita una copia creada con --modulos')
+        verificar_fuente(estado['revision'])
+        # Las etapas privadas pueden necesitar la aplicación; la v4 solo PostgreSQL.
+        self.pg()
+        memoria()
+        go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
+        entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+        preparar(self, manifiesto, repo=REPO, go=go, entorno_go=entorno_go, guardar=guardar)
+        self.parar()
+        self.arrancar()
 
     def comprobar(self):
         estado = self.leer()
@@ -505,7 +531,7 @@ def migraciones(listas):
 def main():
     os.umask(0o077)
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('orden', choices=['crear', 'arrancar', 'parar', 'reiniciar', 'comprobar', 'borrar', 'exportar-clon'])
+    p.add_argument('orden', choices=['crear', 'arrancar', 'parar', 'reiniciar', 'comprobar', 'borrar', 'exportar-clon', 'firma'])
     p.add_argument('--equipo', required=True)
     p.add_argument('--instancia', required=True)
     p.add_argument('--puerto-pg', type=int, default=55481)
@@ -518,6 +544,7 @@ def main():
     p.add_argument('--segundo-rrhh', action='store_true', help='Preparar una segunda persona técnica de RRHH')
     p.add_argument('--sin-inscripcion', action='store_true', help='Preparar el portal sin activar inscripción')
     p.add_argument('--archivo-clon')
+    p.add_argument('--manifiesto-firma', type=Path, help='Manifiesto privado de la orden firma (etapas y verificador)')
     args = p.parse_args()
     if args.portal_externo and not args.modulos:
         p.error('--portal-externo requiere --modulos')
@@ -554,6 +581,10 @@ def main():
                          '-v', f'{copia.raiz}/pgdata:/copia', '--entrypoint', 'sh', IMAGEN,
                          '-c', 'find /copia -mindepth 1 -delete', salida=subprocess.DEVNULL)
             shutil.rmtree(copia.raiz)
+        elif args.orden == 'firma':
+            if not args.manifiesto_firma or not args.manifiesto_firma.is_absolute():
+                p.error('firma requiere --manifiesto-firma con ruta absoluta')
+            copia.firma(args.manifiesto_firma)
         elif args.orden == 'exportar-clon':
             if not args.archivo_clon:
                 p.error('exportar-clon requiere --archivo-clon absoluto y nuevo')
