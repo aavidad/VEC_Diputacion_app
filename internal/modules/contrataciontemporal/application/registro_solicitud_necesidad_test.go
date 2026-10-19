@@ -3,6 +3,7 @@ package application
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -258,5 +259,129 @@ func TestMarcaPrivadaNecesidadExigeMaterialExacto(t *testing.T) {
 	if NecesidadAltaValidadaPara(ctx, escenario.solicitud.OrganizacionRef, &alterada) ||
 		NecesidadAltaValidadaPara(ctx, "organizacion:ajena", &sellada) {
 		t.Fatal("la marca privada se reutilizó con otros datos")
+	}
+}
+
+func TestAltaNecesidadV2PropagaCantidadSelladaAntesDeHuella(t *testing.T) {
+	escenario, fuente := escenarioNecesidadRegistroPrueba(t)
+	escenario.solicitud.EsquemaAlta = EsquemaAltaNecesidadV2
+	servicio, dobles := construirServicioRegistro(t, escenario)
+	if err := servicio.ConfigurarFuenteNecesidadesAlta(fuente); err != nil {
+		t.Fatal(err)
+	}
+	if err := servicio.ConfigurarVerificadorPuestoRPTAlta(&verificadorPuestoRPTPrueba{existe: true}); err != nil {
+		t.Fatal(err)
+	}
+	var primera []byte
+	dobles.huellas.antes = func(m *ports.MaterialHuellaAlta) {
+		if m.Solicitud.NumeroPersonas != 2 || m.Solicitud.JornadaMinutos != 0 ||
+			m.Solicitud.PuestoSolicitado != "" || m.Solicitud.Validar() != nil || m.Solicitud.Necesidad == nil {
+			t.Fatal("la cantidad plural no salió de la necesidad sellada")
+		}
+		primera, _ = json.Marshal(m.Solicitud)
+	}
+	recibo, err := servicio.Registrar(context.Background(), escenario.solicitud)
+	if err != nil || recibo != escenario.recibo || len(primera) == 0 || dobles.transaccion.llamadas != 1 ||
+		dobles.huellasEfecto.expediente.Solicitud.NumeroPersonas != 2 {
+		t.Fatalf("alta plural v2: recibo=%+v err=%v", recibo, err)
+	}
+	fuente.resultado = ports.ResultadoInstantaneaNecesidadAlta{
+		Estado:      ports.InstantaneaNecesidadConfirmadaV3,
+		Instantanea: append([]byte(nil), fuente.catalogo.ContenidoCanonico...)}
+	fuente.catalogo = domain.CatalogoNecesidadesAlta{}
+	dobles.huellas.antes = func(m *ports.MaterialHuellaAlta) {
+		actual, e := json.Marshal(m.Solicitud)
+		if e != nil || !bytes.Equal(actual, primera) {
+			t.Fatal("replay v2 cambió la solicitud original")
+		}
+	}
+	recibo2, err := servicio.Registrar(context.Background(), escenario.solicitud)
+	if err != nil || recibo2 != recibo || fuente.resoluciones != 1 {
+		t.Fatalf("replay plural cambió catálogo o recibo: %+v %v", recibo2, err)
+	}
+}
+
+func TestAltaNecesidadV1PluralHistoricaConservaBytesYRecibo(t *testing.T) {
+	escenario, fuente := escenarioNecesidadRegistroPrueba(t)
+	servicio, dobles := construirServicioRegistro(t, escenario)
+	if err := servicio.ConfigurarFuenteNecesidadesAlta(fuente); err != nil {
+		t.Fatal(err)
+	}
+	if err := servicio.ConfigurarVerificadorPuestoRPTAlta(&verificadorPuestoRPTPrueba{existe: true}); err != nil {
+		t.Fatal(err)
+	}
+	var primera []byte
+	dobles.huellas.antes = func(m *ports.MaterialHuellaAlta) {
+		if m.Solicitud.NumeroPersonas != 0 || m.Solicitud.JornadaMinutos != 0 || m.Solicitud.PuestoSolicitado != "" {
+			t.Fatal("v1 cambió la forma histórica de la solicitud")
+		}
+		primera, _ = json.Marshal(m.Solicitud)
+	}
+	recibo, err := servicio.Registrar(context.Background(), escenario.solicitud)
+	if err != nil || recibo != escenario.recibo || len(primera) == 0 {
+		t.Fatalf("v1 original: %v", err)
+	}
+	fuente.resultado = ports.ResultadoInstantaneaNecesidadAlta{Estado: ports.InstantaneaNecesidadConfirmadaV3,
+		Instantanea: append([]byte(nil), fuente.catalogo.ContenidoCanonico...)}
+	fuente.catalogo = domain.CatalogoNecesidadesAlta{}
+	dobles.huellas.antes = func(m *ports.MaterialHuellaAlta) {
+		actual, e := json.Marshal(m.Solicitud)
+		if e != nil || !bytes.Equal(actual, primera) {
+			t.Fatal("replay v1 cambió HMAC original")
+		}
+	}
+	recibo2, err := servicio.Registrar(context.Background(), escenario.solicitud)
+	if err != nil || recibo2 != recibo || fuente.resoluciones != 1 {
+		t.Fatalf("replay v1 alterado: %v", err)
+	}
+}
+
+func TestCantidadV2DivergenteSeRechaza(t *testing.T) {
+	escenario, fuente := escenarioNecesidadRegistroPrueba(t)
+	escenario.solicitud.EsquemaAlta = EsquemaAltaNecesidadV2
+	escenario.solicitud.Solicitud.JornadaMinutos = 2250
+	escenario.solicitud.Solicitud.NumeroPersonas = 3
+	escenario.solicitud.Solicitud.PuestoSolicitado = "Puesto publicado"
+	servicio, dobles := construirServicioRegistro(t, escenario)
+	if err := servicio.ConfigurarFuenteNecesidadesAlta(fuente); err != nil {
+		t.Fatal(err)
+	}
+	if err := servicio.ConfigurarVerificadorPuestoRPTAlta(&verificadorPuestoRPTPrueba{existe: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := servicio.Registrar(context.Background(), escenario.solicitud); !errors.Is(err, ErrSolicitudRegistroInvalida) || dobles.transaccion.llamadas != 0 {
+		t.Fatalf("N del centro distinta a la sellada llegó al efecto: %v", err)
+	}
+	escenario.solicitud.Solicitud.NumeroPersonas = 2
+	escenario.solicitud.Solicitud.JornadaMinutos = 1800
+	if _, err := servicio.Registrar(context.Background(), escenario.solicitud); !errors.Is(err, ErrSolicitudRegistroInvalida) || dobles.transaccion.llamadas != 0 {
+		t.Fatalf("jornada distinta a la sellada llegó al efecto: %v", err)
+	}
+}
+
+func TestSolicitudCentroCantidadSolaExigeNecesidadSellada(t *testing.T) {
+	escenario, fuente := escenarioNecesidadRegistroPrueba(t)
+	sellada, err := fuente.catalogo.SellarDatos(*escenario.solicitud.NecesidadEntrada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud := escenario.solicitud.Solicitud
+	solicitud.Periodo, solicitud.Necesidad = sellada.Periodo, &sellada
+	solicitud.NumeroPersonas = 2
+	if err := solicitud.Validar(); err != nil {
+		t.Fatalf("N sola sellada inválida: %v", err)
+	}
+	solicitud.NumeroPersonas = 3
+	if solicitud.Validar() == nil {
+		t.Fatal("N ajena a la necesidad sellada admitida")
+	}
+	solicitud.NumeroPersonas = 0
+	if err := solicitud.Validar(); err != nil {
+		t.Fatalf("ausencia V3 histórica invalidada: %v", err)
+	}
+	solicitud.Necesidad = nil
+	solicitud.NumeroPersonas = 2
+	if solicitud.Validar() == nil {
+		t.Fatal("N sola sin necesidad sellada admitida")
 	}
 }

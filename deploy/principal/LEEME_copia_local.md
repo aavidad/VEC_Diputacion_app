@@ -88,7 +88,15 @@ administración y con vigencia de 90 días. AD278 comprueba esos datos; no se
 debilita su guarda. Las demás conexiones se crean con nombres y contraseñas
 nuevos. El registro privado conserva sus valores y la huella del entorno.
 
-Tras el productor de datos, el guion coteja los 22 LOGIN internos: opciones
+La copia prepara también `VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL`
+con un LOGIN distinto, TLS verificado y pertenencia exclusiva al grupo del
+relevo: `INHERIT TRUE, SET TRUE, ADMIN FALSE`, según el apartado de relevo de
+`03_entorno.md`. La conexión no activa el seguimiento ni la incorporación:
+esos selectores y los catálogos se preparan para el recorrido que los use.
+El segundo RRHH que exige la regla c22 necesita su identidad y perfil
+publicados por el circuito de Administración; esta conexión no los concede.
+
+Tras el productor de datos, el guion coteja los 23 LOGIN internos: opciones
 sin privilegios de administración y membresías directas exactas. La conexión
 de importación CONVOCA conserva los grupos `vec_bolsa_importacion_convoca_ejecutor`
 y `vec_bolsa_importacion_convoca_recuperador`, ambos con `INHERIT TRUE`,

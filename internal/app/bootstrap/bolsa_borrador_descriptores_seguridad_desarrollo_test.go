@@ -64,8 +64,8 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 26 {
-		t.Fatalf("fronteras = %d, se esperan 26 con CONVOCA y la lectura GET/HEAD de política de cese", len(fronteras))
+	if len(fronteras) != 27 {
+		t.Fatalf("fronteras = %d, se esperan 27 con CONVOCA, política de cese y confirmación directa B128", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
@@ -95,6 +95,15 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	}
 	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/situacion"); !ok {
 		t.Fatal("POST B2 no quedó declarado")
+	}
+	rutaConfirmacionDirecta := bolsahttp.RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/respuestas/llamamiento:01/confirmacion"
+	if descriptor, ok := catalogo.resolver(http.MethodPost, rutaConfirmacionDirecta); !ok ||
+		descriptor.Clave != claveFronteraConfirmacionDirectaBolsa ||
+		descriptor.ClaveCapacidad != claveCapacidadConfirmacionDirectaBolsa {
+		t.Fatalf("POST confirmación directa B128 sin frontera o capacidad nominal: %+v", descriptor)
+	}
+	if _, ok := catalogo.resolver(http.MethodGet, rutaConfirmacionDirecta); ok {
+		t.Fatal("GET confirmación directa B128 adquirió capacidad de escritura")
 	}
 	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/operaciones"); !ok {
 		t.Fatal("POST B8 no quedó declarado")

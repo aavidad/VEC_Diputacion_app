@@ -4,10 +4,27 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strconv"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
+
+// La entrada v2 fija solo la cantidad declarada en la necesidad sellada.
+// Jornada y denominación no se deducen del código RPT ni se inventan.
+func completarCantidadAltaNecesidadV2(solicitud *domain.SolicitudCentro, necesidad *domain.DatosNecesidadAlta) error {
+	if solicitud == nil || necesidad == nil || necesidad.ValidarInstantanea() != nil {
+		return ErrSolicitudRegistroInvalida
+	}
+	texto := necesidad.Campos["numero_personas"]
+	cantidad, err := strconv.ParseUint(texto, 10, 32)
+	if err != nil || cantidad == 0 || strconv.FormatUint(cantidad, 10) != texto ||
+		solicitud.NumeroPersonas != 0 || solicitud.JornadaMinutos != 0 || solicitud.PuestoSolicitado != "" {
+		return ErrSolicitudRegistroInvalida
+	}
+	solicitud.NumeroPersonas = uint32(cantidad)
+	return nil
+}
 
 type claveNecesidadAltaValidada struct{}
 

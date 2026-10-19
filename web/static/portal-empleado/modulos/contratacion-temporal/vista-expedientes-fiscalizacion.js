@@ -1,8 +1,8 @@
 /** Montaje aislado de la superficie de fiscalización de contratación temporal. */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261016-ct-ofertas-ct231-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=20261018-f136c-informe-v4";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261011-ct-bolsa-vinculo-v1";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261018-f136c-informe-v4";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 
@@ -14,6 +14,8 @@ export function montarModuloFiscalizacionContratacionTemporal({
   confirmarOperacion = () => false,
   locale = "es-ES",
   zonaHoraria = "Europe/Madrid",
+  expedienteRef = "",
+  expedienteVersion = null,
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.querySelector !== "function"
@@ -22,6 +24,12 @@ export function montarModuloFiscalizacionContratacionTemporal({
     throw new TypeError("dependencias de fiscalización no válidas");
   }
   const t = crearTraductorContratacionTemporal(mensajes);
+  // Un enlace de expediente y versión rellena el acceso; si no es íntegro, se
+  // deja vacío para que Intervención lo escriba.
+  const precarga = typeof expedienteRef === "string" && PATRON_REFERENCIA.test(expedienteRef)
+    && Number.isSafeInteger(expedienteVersion) && expedienteVersion >= 1
+    ? { referencia: ` value="${escaparHTML(expedienteRef)}"`, version: ` value="${expedienteVersion}"` }
+    : { referencia: "", version: "" };
   let montado = true;
   let desmontarFormulario = null;
   let desmontarLlamamiento = null;
@@ -37,12 +45,12 @@ export function montarModuloFiscalizacionContratacionTemporal({
       <div class="ct-campo">
         <label for="ct-fiscalizacion-expediente">${escaparHTML(t("fiscalizacion_contexto_expediente"))}</label>
         <input id="ct-fiscalizacion-expediente" name="expediente_ref"
-          type="text" maxlength="160" autocomplete="off" required>
+          type="text" maxlength="160" autocomplete="off" required${precarga.referencia}>
       </div>
       <div class="ct-campo">
         <label for="ct-fiscalizacion-version">${escaparHTML(t("fiscalizacion_version_remitida"))}</label>
         <input id="ct-fiscalizacion-version" name="version_esperada"
-          type="number" min="1" step="1" required>
+          type="number" min="1" step="1" required${precarga.version}>
       </div>
       <div class="ct-acciones">
         <button class="boton-primario" type="submit">${escaparHTML(t("fiscalizacion_acceso_abrir"))}</button>

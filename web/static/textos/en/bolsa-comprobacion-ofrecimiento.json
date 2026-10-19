@@ -1,0 +1,10 @@
+{
+  "errores": {
+    "resultado_no_confirmado": "The result could not be confirmed. Retry the same check to retrieve its receipt.",
+    "comprobacion_ofrecimiento_no_habilitada": "This check is not enabled yet. Contact the administrator.",
+    "comprobacion_en_conflicto": "The details have changed. Refresh the record before registering the check.",
+    "solicitud_invalida": "Review the details of the check.",
+    "acceso_denegado": "You do not have permission to register this check. Contact the administrator.",
+    "servicio_no_disponible": "The check could not be registered. Please try again."
+  }
+}

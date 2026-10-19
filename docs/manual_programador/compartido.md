@@ -496,8 +496,6 @@ func (c *Catalog) DefaultLocale() string
 
 func (c *Catalog) Locales() []string
 
-func (c *Catalog) Lookup(locale, key string) (string, bool)
-
 func (c *Catalog) Message(locale, key string) (string, bool)
 
 func (c *Catalog) T(locale, key string) string

@@ -25,5 +25,10 @@ pantalla debe esperar esa ampliación y no asumir que nunca hubo una comprobaci�
 Focales de composición y HTTP, incluidas incoherencias y minimización, verdes.
 El recorrido con configuración conjunta en Chrome sigue pendiente.
 
+La candidata conjunta `601686060` instaló 98 SQL en dos copias nuevas. Su
+Go conserva este corte sin cambios frente a `1ed8b0e42`; ambas aplicaciones
+arrancaron y reiniciaron con la comprobación del guion. La selección CT que
+devuelve 409 con el contexto no se ha recorrido aún con el caso completo.
+
 Vuelta atrás: recuperar el binario anterior y su configuración conservada.
 La ampliación no guarda datos ni altera situaciones o posiciones.
