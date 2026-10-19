@@ -107,8 +107,11 @@ func expedienteAdmitidoSegundoRRHH(i vecdomain.InstantaneaAutorizacion, expedien
 func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *DependenciasCT,
 	alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo,
 ) (*soporteAltaContratacionTemporalDesarrollo, autorizadorLigadoContratacionTemporalDesarrollo) {
-	if dependencias == nil || dependencias.resolvedor == nil || dependencias.resolvedor.segundoTecnicoRRHH == nil ||
-		alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil {
+	if dependencias == nil || dependencias.resolvedor == nil || dependencias.resolvedor.segundoTecnicoRRHH == nil {
+		return nil, nil
+	}
+	if alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil {
+		avisoSegundoTecnicoRRHH("dependencias_alta")
 		return nil, nil
 	}
 	base, ok := alta.soporte.sesionOperativa.(*proveedorSesionConsultaRRHHDesarrollo)
@@ -119,10 +122,12 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 	principal := dependencias.resolvedor.segundoTecnicoRRHH.principal
 	contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(principal, reloj.Ahora())
 	if err != nil || contexto.Resultado.Validar() != nil {
+		avisoSegundoTecnicoRRHH("contexto_sintetico")
 		return nil, nil
 	}
 	vinculo, err := contexto.Vinculo.Datos()
 	if err != nil || vinculo.PrincipalID != contexto.Resultado.Contexto.PersonaRef {
+		avisoSegundoTecnicoRRHH("vinculo_contexto")
 		return nil, nil
 	}
 	perfil := vinculo.PerfilActivoRef
@@ -146,6 +151,7 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 	}
 	derivador := dependencias.derivador
 	if derivador == nil || !derivador.valido() {
+		avisoSegundoTecnicoRRHH("derivador")
 		return nil, nil
 	}
 	seudonimos, err := (&seudonimizadorSesionDesarrollo{derivador: derivador}).SeudonimizarAlta(ctx,
@@ -158,12 +164,14 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 	}
 	esperado, err := contextoEsperadoRegistradoDesarrollo(ctx, base.resolutor, soporte)
 	if err != nil {
+		avisoSegundoTecnicoRRHH("contexto_registrado")
 		return nil, nil
 	}
 	soporte.contextoEsperadoRegistrado = esperado
 	sesion, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(soporte, base.registro,
 		base.revalidador, reloj, base.resolutor, base.fronteras)
 	if err != nil {
+		avisoSegundoTecnicoRRHH("sesion_nominal")
 		return nil, nil
 	}
 	soporte.sesionOperativa = sesion
@@ -171,7 +179,14 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 		reloj, seguridadvec.GeneradorReferenciasCriptograficas{},
 		aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
 	if err != nil {
+		avisoSegundoTecnicoRRHH("autorizador")
 		return nil, nil
 	}
 	return soporte, autorizador
+}
+
+// avisoSegundoTecnicoRRHH deja en el registro técnico la etapa que impide
+// activar la segunda hoja, sin datos personales ni detalles internos.
+func avisoSegundoTecnicoRRHH(etapa string) {
+	slog.Warn("segundo técnico de RRHH no activado; se conserva el técnico original", "etapa", etapa)
 }
