@@ -405,9 +405,24 @@ type autoridadSeguimientoCeseDesarrollo struct {
 	alta                   *dependenciasAltaContratacionTemporalDesarrollo
 	proveedores            map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	lecturaReincorporacion *aplicacionvec.ServicioAutorizacionSolicitudLigadaV3
+	adicional              *autoridadSeguimientoCeseDesarrollo
+}
+
+func (a *autoridadSeguimientoCeseDesarrollo) paraPeticion(ctx context.Context) *autoridadSeguimientoCeseDesarrollo {
+	if a == nil || a.adicional == nil || a.adicional.alta == nil || a.adicional.alta.soporte == nil {
+		return a
+	}
+	capacidad, valida := a.adicional.alta.soporte.capacidadValida(ctx)
+	if valida && capacidad.ruta == httpinterno.RutaNoIncorporaciones && capacidad.metodo == http.MethodPost {
+		return a.adicional
+	}
+	return a
 }
 
 func (a *autoridadSeguimientoCeseDesarrollo) ResolverContextoCanalSeguimiento(ctx context.Context) (application.ContextoCanalSeguimiento, error) {
+	if elegida := a.paraPeticion(ctx); elegida != a {
+		return elegida.ResolverContextoCanalSeguimiento(ctx)
+	}
 	if a == nil || a.alta == nil || a.alta.soporte == nil {
 		return application.ContextoCanalSeguimiento{}, ports.ErrAutorizacionDenegada
 	}
@@ -428,6 +443,13 @@ func (a *autoridadSeguimientoCeseDesarrollo) ResolverContextoCanalSeguimiento(ct
 }
 
 func (a *autoridadSeguimientoCeseDesarrollo) exigir(ctx context.Context, accion, finalidad string, recurso vecdomain.RecursoAutorizable) (vecdomain.SolicitudAutorizacionLigadaV3, vecdomain.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecdomain.ResultadoContextoActorRegistradoV2, error) {
+	if elegida := a.paraPeticion(ctx); elegida != a {
+		if !expedienteAdmitidoSegundoRRHH(elegida.alta.soporte.seguimientoCese.instantanea, recurso.Referencia) {
+			return vecdomain.SolicitudAutorizacionLigadaV3{}, vecdomain.DecisionAutorizacionLigadaV3{},
+				puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, vecdomain.ResultadoContextoActorRegistradoV2{}, ports.ErrAutorizacionDenegada
+		}
+		return elegida.exigir(ctx, accion, finalidad, recurso)
+	}
 	var (
 		s vecdomain.SolicitudAutorizacionLigadaV3
 		d vecdomain.DecisionAutorizacionLigadaV3
@@ -465,6 +487,12 @@ func (a *autoridadSeguimientoCeseDesarrollo) exigir(ctx context.Context, accion,
 }
 
 func (a *autoridadSeguimientoCeseDesarrollo) AutorizarOperacionSeguimiento(ctx context.Context, sol ports.SolicitudAutorizarOperacionSeguimiento) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	if elegida := a.paraPeticion(ctx); elegida != a {
+		if !expedienteAdmitidoSegundoRRHH(elegida.alta.soporte.seguimientoCese.instantanea, sol.Recurso.Referencia) {
+			return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrAutorizacionDenegada
+		}
+		return elegida.AutorizarOperacionSeguimiento(ctx, sol)
+	}
 	vacio := puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
 	proveedor := a.proveedores[sol.Audiencia]
 	if proveedor == nil || sol.Motivo.Validar() != nil {
@@ -860,6 +888,15 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	defer material.borrarCopiasEfimeras()
 	material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
 	autoridad := &autoridadSeguimientoCeseDesarrollo{alta: alta, proveedores: map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo{}}
+	var segundo *soporteAltaContratacionTemporalDesarrollo
+	if acreditada {
+		var autorizadorSegundo autorizadorLigadoContratacionTemporalDesarrollo
+		segundo, autorizadorSegundo = componerSegundoSoporteNoIncorporacion(ctx, dependencias, alta, reloj)
+		if segundo != nil {
+			local := &dependenciasAltaContratacionTemporalDesarrollo{soporte: segundo, autorizador: autorizadorSegundo, postgresql: alta.postgresql}
+			autoridad.adicional = &autoridadSeguimientoCeseDesarrollo{alta: local, proveedores: map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo{}}
+		}
+	}
 	if reincorporacion {
 		autoridad.lecturaReincorporacion, err = aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
 			alta.soporte, alta.soporte, alta.soporte, alta.soporte, reloj,
@@ -884,6 +921,19 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 			return fallar("proveedor_material", err)
 		}
 		autoridad.proveedores[d.Audiencia] = p
+		if autoridad.adicional != nil && d.Audiencia == ports.AudienciaConsumoNoIncorporacionV1 {
+			pSegundo, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material,
+				segundo, reloj, alta.postgresql.catalogoMaterial, d.Audiencia)
+			if err != nil {
+				slog.Warn("segundo técnico de RRHH sin material c22; no se activa no incorporación")
+				autoridad.adicional = nil
+			} else {
+				autoridad.adicional.proveedores[d.Audiencia] = pSegundo
+			}
+		}
+	}
+	if autoridad.adicional == nil {
+		segundo = nil
 	}
 	var llaveros []seguridadct.ConfiguracionLlaverosSeguimiento
 	for _, operacion := range []string{ports.OperacionRegistrarCese, ports.OperacionCerrarExpediente, ports.OperacionModificarTrasNombramiento, ports.OperacionConfirmarGINPIX,
@@ -909,7 +959,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	}
 	fuente := fuenteReglasSeguimientoDesarrollo{reglas: resolutor, causas: causas, motivos: motivos}
 	dependenciasServicio := application.DependenciasOperacionesSeguimiento{
-		Contextos: alta.soporte, Sellos: sellos, Repositorio: repositorio, Reglas: fuente,
+		Contextos: seleccionSoporteSeguimientoRRHH{original: alta.soporte, adicional: segundo}, Sellos: sellos, Repositorio: repositorio, Reglas: fuente,
 		Autorizador: autoridad, Referencias: seguridadct.NuevoGeneradorReferenciasAltaCriptografico(),
 		Coste: calculadorCosteModificacionDesarrollo{retribuciones: dependencias.retribucionesCT}, Lector: repositorio, Reloj: reloj}
 	if acreditada {
