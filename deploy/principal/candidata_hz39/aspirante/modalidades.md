@@ -21,7 +21,7 @@ Las modalidades disponibles deben salir del catálogo gobernado que corresponde 
 
 ## Estado y comprobaciones pendientes (19/10/2026)
 
-Ensayo en copia local con la lista única completa (101 SQL; AUT104 y B138 al final, después de AD296 y AD291). Las dos se instalaron y sus pruebas focales pasaron. La versión 1 del rol candidato instalada se reconoce como base, así que se pueden seguir publicando versiones nuevas del rol. Con B138 instalada la aplicación arranca y Mi Bolsa responde con el usuario candidato, también después de reiniciar aplicación y PostgreSQL. El orden de bolsas sigue denegado a ese candidato porque su rol no tiene la concesión de preferencias, igual que en main.
+Ensayo en copia local con la lista única completa (101 SQL; AUT104 y B138 al final, después de AD296 y AD291). Las dos se instalaron y sus pruebas focales pasaron. La versión 1 del rol candidato instalada se reconoce como base, así que se pueden seguir publicando versiones nuevas del rol. Con B138 instalada la aplicación arranca (copia con `--sin-inscripcion`) y Mi Bolsa responde con el usuario candidato, también después de reiniciar aplicación y PostgreSQL. El orden de bolsas sigue denegado a ese candidato porque su rol no tiene la concesión de preferencias, igual que en main.
 
 El ensayo sacó dos fallos, ya corregidos en esta PR:
 
