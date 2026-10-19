@@ -1,0 +1,22 @@
+--- a/web/interno.manifest
++++ b/web/interno.manifest
+@@ -503,6 +503,8 @@
+ static/textos/en/dietas-informes.json
+ static/textos/es/formacion.json
+ static/textos/en/formacion.json
++static/textos/es/formacion-error.json
++static/textos/en/formacion-error.json
+ static/textos/es/carrera.json
+ static/textos/en/carrera.json
+ static/textos/es/seleccion.json
+--- a/web/produccion.manifest
++++ b/web/produccion.manifest
+@@ -583,6 +583,8 @@
+ static/textos/en/dietas-informes.json
+ static/textos/es/formacion.json
+ static/textos/en/formacion.json
++static/textos/es/formacion-error.json
++static/textos/en/formacion-error.json
+ static/textos/es/carrera.json
+ static/textos/en/carrera.json
+ static/textos/es/seleccion.json
