@@ -5,6 +5,7 @@ import {
   validarConsultaSeguimientoCese, validarSolicitudNoIncorporacion,
 } from "./cliente-http-seguimiento-cese.js";
 import { montarPanelSeguimientoCese } from "./seguimiento-cese.js";
+import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
 import { ofrecerNoIncorporacion, ofrecerPropuestaNoIncorporacion, solicitudNoIncorporacion, solicitudResolucionPropuestaNoIncorporacion } from "./seguimiento-no-incorporacion.js";
 
 const EXP = "expediente:ni:001";
@@ -225,4 +226,12 @@ test("la revisión inglesa traduce el motivo recibido en castellano", async () =
   assert.match(c.innerHTML, /Does not attend at the specified time and place/u);
   assert.doesNotMatch(c.innerHTML, /No se presenta/u);
   quitar();
+});
+
+test("el historial nombra propuesta, confirmación y rechazo de la no incorporación", () => {
+  const accion = (accion_clave) => presentarEtiquetasHitoRRHH({ accion_clave, fase_origen: "nombramiento", fase_destino: "nombramiento",
+    estado_origen: "en_curso", estado_destino: "en_curso" }).accion;
+  assert.equal(accion("contratacion_temporal.incorporacion.no_incorporacion_propuesta"), "Propuesta de no incorporación registrada");
+  assert.equal(accion("contratacion_temporal.incorporacion.no_incorporacion"), "No incorporación confirmada");
+  assert.equal(accion("contratacion_temporal.incorporacion.no_incorporacion_rechazo"), "Propuesta de no incorporación rechazada");
 });

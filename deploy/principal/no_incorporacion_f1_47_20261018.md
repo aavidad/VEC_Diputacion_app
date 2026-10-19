@@ -20,7 +20,10 @@ SQL nueva: CT242, al final de `lista_sql_main_tras_hz37.txt`.
    `VEC_CT_SEGUIMIENTO_CESE_ENABLED` y
    `VEC_CT_INCORPORACION_ACREDITADA_ENABLED`, los tres catálogos del seguimiento
    y `VEC_BOLSA_REGLAS_SOURCE_PATH` con sus consecuencias de no incorporación.
-   También se necesita la conexión exclusiva del relevo de no incorporación.
+   También se necesitan la conexión exclusiva del relevo de no incorporación y
+   `VEC_CALENDARIOS_DATABASE_URL` (LOGIN propio, solo del grupo
+   `vec_calendarios_lector`). Sin calendarios el relevo no calcula los plazos
+   de Bolsa y reintenta cada 30 segundos sin entregar nada.
 4. La regla vigente `c22.no_incorporacion` determina los motivos y la segunda
    revisión. Los permisos los concede el circuito existente; el enlace no
    concede ninguno ni contiene credenciales.
@@ -64,10 +67,34 @@ El recibo de una confirmación se recupera al reabrir; el contrato existente no
 ofrece esa recuperación del rechazo tras cerrar la página. El rechazo conserva
 su recibo mientras permanece abierta. No se amplía ese contrato en este corte.
 
-El arranque, las dos personas, el recibo real, la consecuencia en Bolsa y el
-reinicio de esta candidata siguen pendientes de comprobar. Las capturas
-anteriores de `docs/operacion/capturas/f1-47/` muestran el formulario con datos
-preparados y no acreditan ese recorrido.
+## Recorrido comprobado el 20/10/2026
+
+Copia propia creada con la lista SQL completa (CT242 al final), `--modulos
+--segundo-rrhh` y el material original de RRHH, más la conexión de calendarios
+añadida a mano. Chrome del sistema, a 1440 y 390 px, sin desbordamiento.
+
+- Expediente 2026/CT-000127 en nombramiento, versión 9. La técnica original
+  propone «No se presenta»: 201, versión 10, recibo de propuesta.
+- La misma técnica pulsa «Confirmar»: 409 `misma_persona` y el aviso «Quien
+  propuso la no incorporación no puede confirmarla ni rechazarla». No cambia
+  ninguna tabla.
+- La segunda técnica abre el enlace con su certificado: ve «Expediente
+  2026/CT-000127», la propuesta y los botones. Con su sesión, otro expediente
+  responde 403.
+- Confirma: 201, versión 11, fase de vuelta a fiscalización y un recibo. La
+  versión 9 del agregado conserva la misma huella. Repetir la misma petición
+  devuelve el mismo recibo y la misma fecha, sin filas nuevas.
+- Bolsa recibe el evento (una fila en su bandeja y una evaluación). En la base
+  sintética la participación no está constituida, así que no se aplica sanción
+  ni se abre el siguiente llamamiento; queda pendiente de reevaluar.
+- Tras reiniciar aplicación y PostgreSQL, el enlace muestra el mismo recibo y
+  «La no incorporación está confirmada»; las tablas no cambian.
+
+En este recorrido se corrigieron tres fallos: la página de revisión no estaba
+en los manifiestos web (404), la frontera común no admitía a la segunda persona
+en la consulta (403) y el historial mostraba las claves internas de la
+propuesta y la confirmación. Las capturas de `docs/operacion/capturas/f1-47/`
+son anteriores y solo muestran el formulario.
 
 Pruebas focales de interfaz: `seguimiento-no-incorporacion.test.mjs`,
 `seguimiento-cese.test.mjs` y `revision-no-incorporacion.test.mjs`.

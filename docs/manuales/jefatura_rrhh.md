@@ -167,7 +167,7 @@ El centro acredita en VEC que la persona se ha incorporado, con la fecha y el do
 
 Si la persona no llega a incorporarse, RRHH abre «Seguimiento del nombramiento» en la ficha, elige el motivo e indica la fecha de notificación y la referencia de la resolución. Selecciona también el archivo original: VEC calcula un código de comprobación, pero no guarda su contenido. Hay que conservar el documento.
 
-Si la regla exige una segunda revisión, se pulsa «Proponer que no se incorpora». La propuesta ofrece «Abrir revisión para otra persona de RRHH»: esa persona abre el enlace con su propio certificado, comprueba el motivo, la resolución y la fecha y confirma o rechaza. La revisión muestra solo los datos de esa actuación. Solo la confirmación produce efectos; el recibo acredita la decisión. La comprobación completa de este paso en la copia local sigue pendiente.
+Si la regla exige una segunda revisión, se pulsa «Proponer que no se incorpora». La propuesta ofrece «Abrir revisión para otra persona de RRHH»: esa persona abre el enlace con su propio certificado, comprueba el motivo, la resolución y la fecha y confirma o rechaza. La revisión muestra solo los datos de esa actuación. Solo la confirmación produce efectos; el recibo acredita la decisión. Quien hizo la propuesta no puede confirmarla ni rechazarla: VEC se lo dice y no registra nada. Tras confirmar, el expediente vuelve a Fiscalización y el historial muestra «Propuesta de no incorporación registrada» y «No incorporación confirmada».
 
 ### Paso 11. Cese, vuelta a la bolsa y cierre
 

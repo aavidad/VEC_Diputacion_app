@@ -1066,7 +1066,9 @@ persona, la propuesta ofrece un enlace a su revisión. Con su propio
 certificado, la segunda persona consulta la propuesta y la versión vigente y
 confirma o rechaza; el acceso no abre el cuadro general de expedientes. La
 confirmación devuelve un recibo y la consulta permite recuperar el resultado.
-El recorrido conectado con reinicio sigue pendiente de comprobar.
+Quien propuso no puede confirmar ni rechazar. La confirmación devuelve el
+expediente a fiscalización y Bolsa recibe el aviso de no incorporación.
+El historial nombra la propuesta, la confirmación y el rechazo.
 
 #### 4.3.8 Cese y vuelta a la bolsa
 
