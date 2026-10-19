@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -269,16 +270,18 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
 	}
-	identidad, err := nuevoResolvedorIdentidadDesarrollo(
-		identidadRRHH,
-		identidadIntervencion,
-	)
-	if err != nil {
-		return materialSeguridadDesarrollo{}, err
-	}
 	adscripciones, err := cargarAdscripcionesCentrosDesarrollo(cfg.DevelopmentMaterialDir, ca, identidadRRHH, identidadIntervencion)
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
+	}
+	segundoRRHH, errorSegundoRRHH := cargarSegundoTecnicoRRHHDesarrollo(cfg.DevelopmentMaterialDir, ca, identidadRRHH)
+	if errorSegundoRRHH != nil {
+		slog.Warn("segundo técnico de RRHH no disponible; se conserva el técnico original", "error", errorSegundoRRHH)
+	}
+	if segundoRRHH != nil && !segundoTecnicoRRHHDistintoDeIdentidades(*segundoRRHH,
+		append([]identidadCertificadoDesarrollo{identidadRRHH, identidadIntervencion}, adscripciones.Identidades...)) {
+		slog.Warn("segundo técnico de RRHH duplicado; se conserva el técnico original", "error", ErrMaterialDesarrolloInvalido)
+		segundoRRHH = nil
 	}
 	lectoresRRHH, manifiestoLectoresActivo, err := cargarIdentidadesConsultasRRHHDesarrollo(
 		cfg.DevelopmentMaterialDir, ca, identidadRRHH,
@@ -300,9 +303,25 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 		}
 		identidades = append(identidades, lector.identidad)
 	}
-	identidad, err = nuevoResolvedorIdentidadDesarrollo(identidades...)
+	if segundoRRHH != nil {
+		if !segundoTecnicoRRHHDistintoDeIdentidades(*segundoRRHH, identidades) {
+			slog.Warn("segundo técnico de RRHH duplicado; se conserva el técnico original", "error", ErrMaterialDesarrolloInvalido)
+			segundoRRHH = nil
+		} else {
+			identidades = append(identidades, *segundoRRHH)
+		}
+	}
+	identidad, err := nuevoResolvedorIdentidadDesarrollo(identidades...)
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
+	}
+	if err := identidad.registrarTecnicoRRHHOriginal(identidadRRHH); err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
+	if segundoRRHH != nil {
+		if err := identidad.registrarSegundoTecnicoRRHH(*segundoRRHH); err != nil {
+			return materialSeguridadDesarrollo{}, err
+		}
 	}
 	for subject, adscripcion := range adscripciones.Adscripciones {
 		identidad.porSujeto[subject] = adscripcion

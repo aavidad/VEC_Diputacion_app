@@ -22,6 +22,41 @@ type resolvedorIdentidadDesarrollo struct {
 	porSujeto      map[string]adscripcionCentroDesarrollo
 	lectoresRRHH   map[[sha256.Size]byte]identidadConsultaRRHHDesarrollo
 	candidatoBolsa *identidadCandidatoBolsaDesarrollo
+	// La composición fija el técnico original desde el certificado obligatorio.
+	// La hoja adicional opcional nunca cambia el actor de los soportes históricos.
+	tecnicoRRHHOriginal [sha256.Size]byte
+	segundoTecnicoRRHH  *identidadCertificadoDesarrollo
+}
+
+func (r *resolvedorIdentidadDesarrollo) registrarSegundoTecnicoRRHH(segundo identidadCertificadoDesarrollo) error {
+	if r == nil || r.segundoTecnicoRRHH != nil || r.tecnicoRRHHOriginal == ([sha256.Size]byte{}) ||
+		segundo.huella == r.tecnicoRRHHOriginal || len(segundo.principal.Roles) != 1 ||
+		segundo.principal.Roles[0] != "tecnico_rrhh" {
+		return ErrMaterialDesarrolloInvalido
+	}
+	actual, existe := r.porHuella[segundo.huella]
+	if !existe || actual.ID != segundo.principal.ID ||
+		actual.Attributes["certificate_sha256"] != segundo.principal.Attributes["certificate_sha256"] {
+		return ErrMaterialDesarrolloInvalido
+	}
+	copia := segundo
+	copia.principal = clonarPrincipalDesarrollo(segundo.principal)
+	r.segundoTecnicoRRHH = &copia
+	return nil
+}
+
+func (r *resolvedorIdentidadDesarrollo) registrarTecnicoRRHHOriginal(original identidadCertificadoDesarrollo) error {
+	if r == nil || r.tecnicoRRHHOriginal != ([sha256.Size]byte{}) ||
+		len(original.principal.Roles) != 1 || original.principal.Roles[0] != "tecnico_rrhh" {
+		return ErrMaterialDesarrolloInvalido
+	}
+	actual, existe := r.porHuella[original.huella]
+	if !existe || actual.ID != original.principal.ID ||
+		actual.Attributes["certificate_sha256"] != original.principal.Attributes["certificate_sha256"] {
+		return ErrMaterialDesarrolloInvalido
+	}
+	r.tecnicoRRHHOriginal = original.huella
+	return nil
 }
 
 func (r *resolvedorIdentidadDesarrollo) registrarCandidatoBolsa(c identidadCandidatoBolsaDesarrollo) error {
@@ -149,6 +184,13 @@ func (r *resolvedorIdentidadDesarrollo) principalConRolUnico(
 ) (vecdomain.Principal, bool) {
 	if r == nil || len(r.porHuella) == 0 || rol == "" {
 		return vecdomain.Principal{}, false
+	}
+	if rol == "tecnico_rrhh" && r.tecnicoRRHHOriginal != ([sha256.Size]byte{}) {
+		principal, existe := r.porHuella[r.tecnicoRRHHOriginal]
+		if !existe || len(principal.Roles) != 1 || principal.Roles[0] != rol {
+			return vecdomain.Principal{}, false
+		}
+		return clonarPrincipalDesarrollo(principal), true
 	}
 	var encontrado vecdomain.Principal
 	coincidencias := 0

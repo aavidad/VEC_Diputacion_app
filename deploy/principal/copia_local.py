@@ -223,6 +223,12 @@ class Copia:
                 ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
             from copia_local_verificacion import comprobar as comprobar_conexiones
             comprobar_conexiones(self)
+        if args.segundo_rrhh or args.administracion:
+            from copia_local_rrhh_adicional import preparar_copia
+            huella_semilla = preparar_copia(self)
+            estado = self.leer()
+            estado['rrhh_adicional_semilla_sha256'] = huella_semilla
+            guardar(self.estado, estado)
         memoria()
         verificar_fuente(self.leer()['revision'])
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
@@ -528,6 +534,7 @@ def main():
     p.add_argument('--rrhh-original', type=Path, help='Conservar el conjunto privado original de RRHH en una copia nueva')
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
     p.add_argument('--administracion', action='store_true', help='Preparar también Administración con su ejecutor privado')
+    p.add_argument('--segundo-rrhh', action='store_true', help='Preparar una segunda persona técnica de RRHH')
     p.add_argument('--puerto-admin', type=int, default=19481)
     p.add_argument('--sin-inscripcion', action='store_true', help='Preparar el portal sin activar inscripción')
     p.add_argument('--archivo-clon')
@@ -536,6 +543,8 @@ def main():
         p.error('--portal-externo requiere --modulos')
     if args.administracion and (args.orden != 'crear' or not args.modulos):
         p.error('--administracion solo se admite en crear --modulos')
+    if args.segundo_rrhh and (args.orden != 'crear' or not args.modulos):
+        p.error('--segundo-rrhh solo se admite en crear --modulos')
     if args.administracion and (not 1024 <= args.puerto_admin <= 65535
             or args.puerto_admin in (args.puerto_pg, args.puerto_app, args.puerto_smtp)):
         p.error('El puerto de Administración debe ser distinto y estar entre 1024 y 65535')
