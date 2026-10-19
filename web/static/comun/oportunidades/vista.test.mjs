@@ -9,7 +9,7 @@ test("la vista carga el catálogo i18n por su URL versionada", async () => {
   assert.ok(ruta);
   const url = new URL(ruta, new URL("./vista.js", import.meta.url));
   assert.equal(url.pathname, new URL("./i18n.js", import.meta.url).pathname);
-  assert.equal(url.search, "?v=20260924-f2-web2");
+  assert.equal(url.search, "?v=VEC_WEB_VERSION");
   const { crearTraductorOportunidades } = await import(url.href);
   assert.equal(crearTraductorOportunidades()("titulo"), "Oportunidades para ti");
 });

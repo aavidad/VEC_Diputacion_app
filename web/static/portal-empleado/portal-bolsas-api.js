@@ -13,20 +13,20 @@ import {
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
-} from "./portal-bolsas-contrato.js?v=20261016-r1-o-integracion-v7";
-import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20261011-ct-bolsa-vinculo-v1";
-import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261018-f171-main-v4";
-import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261018-f171-main-v4";
-import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261016-r1-o-integracion-v7";
-export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261016-r1-o-integracion-v7";
-import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
-import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261018-f175-contacto-propio-v1";
-import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261016-r1-o-integracion-v7";
-import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261016-r1-o-integracion-v7";
-import { canalesAviso, descargarJustificanteRenuncia } from "./portal-bolsas-seguimiento.js?v=20261016-r1-o-integracion-v7";
+} from "./portal-bolsas-contrato.js?v=VEC_WEB_VERSION";
+import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=VEC_WEB_VERSION";
+import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=VEC_WEB_VERSION";
+import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=VEC_WEB_VERSION";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=VEC_WEB_VERSION";
+import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=VEC_WEB_VERSION";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=VEC_WEB_VERSION";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=VEC_WEB_VERSION";
+import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=VEC_WEB_VERSION";
+import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=VEC_WEB_VERSION";
+import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=VEC_WEB_VERSION";
+import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
+import { canalesAviso, descargarJustificanteRenuncia } from "./portal-bolsas-seguimiento.js?v=VEC_WEB_VERSION";
 import { cargarTextos } from "../comun/textos.js";
 
 const TEXTOS_VINCULO_CT = (await cargarTextos("portal-bolsa")).seccion("vinculo_ct");

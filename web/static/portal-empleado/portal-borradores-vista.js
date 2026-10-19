@@ -1,7 +1,7 @@
 import { referenciaCopiableTraducida } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { FASE_NO_DISPONIBLE } from "./portal-borradores-ui-soporte.js?v=20261008-borradores-error-legible-v1";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=VEC_WEB_VERSION";
+import { FASE_NO_DISPONIBLE } from "./portal-borradores-ui-soporte.js?v=VEC_WEB_VERSION";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 
 const FASE_INICIAL = "inicial";
 const FASE_CARGANDO = "cargando";

@@ -5,7 +5,6 @@ import (
 	"mime"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,12 +13,12 @@ import (
 )
 
 func TestCatalogoVerificarSeSirveSoloEnLaSuperficiePublica(t *testing.T) {
-	contenido, err := os.ReadFile("../../../web/static/verificar/i18n.js")
+	contenido, err := leerFuenteWebVersionada("../../../web/static/verificar/i18n.js")
 	if err != nil {
 		t.Fatal(err)
 	}
 	const ruta = "/verificar/i18n.js"
-	versionada := ruta + "?v=20260924-cotejo-espera-i18n-v1"
+	versionada := ruta + "?v=" + versionWeb().version
 	publico := NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler())
 
 	for _, superficie := range []struct {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-alta-rpt-circular-v6";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=VEC_WEB_VERSION";
 
 const HUELLA = "b".repeat(64);
 

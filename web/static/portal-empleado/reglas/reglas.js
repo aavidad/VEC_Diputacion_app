@@ -1,5 +1,5 @@
-import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=20261012-reglas-configuracion-v1";
-import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=VEC_WEB_VERSION";
+import { icono } from "../../comun/iconos-vec.js?v=VEC_WEB_VERSION";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";
 export const ESQUEMA = "vec.reglas.vigentes.v1";
@@ -209,7 +209,7 @@ export async function iniciar(doc, cliente) {
   if (contenedorAjustes?.querySelector) {
     const contenedor = contenedorAjustes;
     const montarAjustes = () => {
-      void import("./ajustes.js?v=20261012-reglas-configuracion-v1")
+      void import("./ajustes.js?v=VEC_WEB_VERSION")
         .then(({ iniciarAjustes }) => iniciarAjustes(doc))
         .catch(async () => {
           let mensaje = "";

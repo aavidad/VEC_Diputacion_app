@@ -26,7 +26,7 @@ export function validarEscenario(dto) {
 }
 export function crearClienteCarrera({ fetchImpl = globalThis.fetch } = {}) {
   return Object.freeze({ async listar({ signal } = {}) {
-    const respuesta = await fetchImpl(new URL('./escenario.json?v=20261001-carrera-preparacion-v1', import.meta.url), {
+    const respuesta = await fetchImpl(new URL('./escenario.json?v=VEC_WEB_VERSION', import.meta.url), {
       method: 'GET', credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer', signal,
       headers: { Accept: 'application/json' },
     });
@@ -41,7 +41,7 @@ export function crearBorrador(dto) {
   return JSON.stringify(dto, null, 2);
 }
 export async function leerErrorCatalogo({ fetchImpl = globalThis.fetch } = {}) {
-  const r = await fetchImpl(new URL('./error-catalogo.json?v=20261001-carrera-preparacion-v1', import.meta.url), {
+  const r = await fetchImpl(new URL('./error-catalogo.json?v=VEC_WEB_VERSION', import.meta.url), {
     credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer',
   });
   if (!r.ok) throw new Error('carrera.catalogo');

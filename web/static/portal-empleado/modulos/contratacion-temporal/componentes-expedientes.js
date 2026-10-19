@@ -1,19 +1,19 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
 import "./atajos-incidencia.js";
-import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=20261011-bolsa-b103-privacidad-v1";
-import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=20261018-f136c-informe-v4";
-import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=20261018-f136c-informe-v4";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarResultadoBolsa, continuidadBolsaDisponible, requiereRevisionBolsa } from "./resultado-bolsa.js?v=VEC_WEB_VERSION";
+import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js?v=VEC_WEB_VERSION";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { traducirPortal } from "../../portal-i18n.js?v=VEC_WEB_VERSION";
 import { origenLlamamientoValido } from "../../portal-llamamiento-origen.js";
-import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js?v=20261008-ct-inicio-v1";
+import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=VEC_WEB_VERSION";
+import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js?v=VEC_WEB_VERSION";
 import {
   renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
   renderizarLineaFases, renderizarSiguientePasoFicha,
-} from "./vista-expedientes-ficha.js?v=20261018-f136c-informe-v4";
+} from "./vista-expedientes-ficha.js?v=VEC_WEB_VERSION";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 

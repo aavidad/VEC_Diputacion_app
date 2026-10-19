@@ -1,6 +1,6 @@
-import { leerArchivo } from './modelo.js?v=20261003-s4-visor-v3';
-import { crearCargaLocal } from './controlador.js?v=20261003-s4-visor-v3';
-import { pintarSalida } from './vista.js?v=20261003-s4-visor-v3';
+import { leerArchivo } from './modelo.js?v=VEC_WEB_VERSION';
+import { crearCargaLocal } from './controlador.js?v=VEC_WEB_VERSION';
+import { pintarSalida } from './vista.js?v=VEC_WEB_VERSION';
 import { cargarTextos, urlCatalogo, crearTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 

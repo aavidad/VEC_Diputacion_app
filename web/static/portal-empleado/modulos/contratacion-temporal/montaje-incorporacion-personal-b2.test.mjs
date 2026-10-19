@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { cargarTextos } from "../../../comun/textos.js";
-import { crearGestorIncorporacion, crearResolverEtiquetasIncorporacionB2 } from "./vista-expedientes-incorporacion.js?v=20261008-alta-rpt-circular-v6";
+import { crearGestorIncorporacion, crearResolverEtiquetasIncorporacionB2 } from "./vista-expedientes-incorporacion.js?v=VEC_WEB_VERSION";
 import { ESQUEMA_CONSULTA_B2, ESQUEMA_RECIBO_B2 } from "./contrato-incorporacion-personal-b2.js";
 import { consultaB2GINPIX } from "./ficha-ginpix-fixture.mjs";
 

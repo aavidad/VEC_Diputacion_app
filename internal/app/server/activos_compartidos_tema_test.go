@@ -5,7 +5,6 @@ import (
 	"mime"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -25,7 +24,7 @@ func TestActivosCompartidosTemaSoloSirveRutasExplicitasEnLectura(t *testing.T) {
 		{ruta: "/comun/tema-vec.js", tipo: "javascript"},
 		{ruta: "/comun/iconos-vec.js", tipo: "javascript"},
 	} {
-		esperado, err := os.ReadFile("../../../web/static" + recurso.ruta)
+		esperado, err := leerFuenteWebVersionada("../../../web/static" + recurso.ruta)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -68,7 +67,7 @@ func TestActivosCompartidosTemaSoloSirveRutasExplicitasEnLectura(t *testing.T) {
 }
 
 func TestHandlerPublicoSirveTemaComunCSSExacto(t *testing.T) {
-	esperado, err := os.ReadFile("../../../web/static/comun/tema-vec.css")
+	esperado, err := leerFuenteWebVersionada("../../../web/static/comun/tema-vec.css")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,8 +77,8 @@ func TestHandlerPublicoSirveTemaComunCSSExacto(t *testing.T) {
 	}{
 		{http.MethodGet, "/comun/tema-vec.css", "no-cache"},
 		{http.MethodHead, "/comun/tema-vec.css", "no-cache"},
-		{http.MethodGet, "/comun/tema-vec.css?v=f2-publico", "public, max-age=31536000, immutable"},
-		{http.MethodHead, "/comun/tema-vec.css?v=f2-publico", "public, max-age=31536000, immutable"},
+		{http.MethodGet, "/comun/tema-vec.css?v=" + versionWeb().version, "public, max-age=31536000, immutable"},
+		{http.MethodHead, "/comun/tema-vec.css?v=" + versionWeb().version, "public, max-age=31536000, immutable"},
 	} {
 		t.Run(caso.metodo+" "+caso.ruta, func(t *testing.T) {
 			rec := httptest.NewRecorder()

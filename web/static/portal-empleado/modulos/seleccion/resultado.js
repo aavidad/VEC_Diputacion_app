@@ -1,4 +1,4 @@
-import { nodo, tabla } from './dom.js?v=20261004-codexa-s6-notas-v1';
+import { nodo, tabla } from './dom.js?v=VEC_WEB_VERSION';
 
 /** Renderiza exclusivamente la explicación recibida; no calcula admisión ni orden. */
 export function mostrarResultado(raiz, resultado, configuracion, textos) {

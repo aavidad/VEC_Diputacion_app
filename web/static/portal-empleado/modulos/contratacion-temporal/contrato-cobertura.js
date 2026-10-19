@@ -1,5 +1,5 @@
 /** Contrato neutral y cerrado de propuesta, decisión y rectificación. */
-import { validarAvisosViaCobertura } from "./contrato-avisos-via-cobertura.js?v=20261012-reglas-configuracion-v1";
+import { validarAvisosViaCobertura } from "./contrato-avisos-via-cobertura.js?v=VEC_WEB_VERSION";
 
 const MAXIMO_ENTERO_SEGURO = Number.MAX_SAFE_INTEGER;
 const MAXIMA_PRIORIDAD = 65_535;

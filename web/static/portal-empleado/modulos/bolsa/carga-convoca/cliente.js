@@ -1,5 +1,5 @@
-import { consultarJSON, ErrorConsultaJSON } from "../../../../comun/http.js?v=20261012-sonda-frontera-v1";
-import { FILTROS_SERVIDOR, TAMANO_PAGINA } from "./modelo.js?v=20261008-u-b1-paginacion-v1";
+import { consultarJSON, ErrorConsultaJSON } from "../../../../comun/http.js?v=VEC_WEB_VERSION";
+import { FILTROS_SERVIDOR, TAMANO_PAGINA } from "./modelo.js?v=VEC_WEB_VERSION";
 
 /**
  * Contrato de la carga de bolsas desde CONVOCA sobre el transporte mTLS común

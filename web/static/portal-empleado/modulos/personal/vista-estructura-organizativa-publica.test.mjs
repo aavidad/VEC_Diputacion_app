@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
+import { prepararTextosPersonal } from "./i18n.js?v=VEC_WEB_VERSION";
 
 test.before(async () => { await prepararTextosPersonal(); });
-import { exigirVersiones, posterior } from "../../versiones-cache.test-helper.mjs";
-import { montarModuloEstructuraOrganizativaPublica } from "./vista-estructura-organizativa-publica.js?v=20261008-alta-rpt-circular-v4";
+import { versionDe } from "../../versiones-cache.test-helper.mjs";
+import { montarModuloEstructuraOrganizativaPublica } from "./vista-estructura-organizativa-publica.js?v=VEC_WEB_VERSION";
 
 test("estructura carga el i18n actualizado del corte F2", () => {
   const codigo = readFileSync(new URL("./vista-estructura-organizativa-publica.js", import.meta.url), "utf8");
   // i18n de Personal renovado (organización histórica): nunca la URL immutable previa.
-  exigirVersiones(codigo, "./i18n.js", posterior("20260924-f2-web2"));
+  versionDe(codigo, "./i18n.js");
 });
 
 function raiz() {

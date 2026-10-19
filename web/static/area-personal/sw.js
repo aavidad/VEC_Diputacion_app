@@ -1,2 +1,2 @@
-importScripts('/pwa/sw-public-assets.js?v=20261003-pwa-ci-v5');
+importScripts('/pwa/sw-public-assets.js?v=VEC_WEB_VERSION');
 self.iniciarVECPublicWorker('personal');

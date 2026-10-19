@@ -1,7 +1,7 @@
-import { intervaloHistoriaServiciosValido, validarRespuestaHistoriaServicios } from "./cliente-http-historia-servicios-propia.js?v=20261004-personal-historia-v1";
-import { traducirHistoriaServicios as t, formatearFechaHistoriaServicios as fecha, formatearInstanteHistoriaServicios as instante, formatearNumeroHistoriaServicios as numero } from "./i18n-historia-servicios-propia.js?v=20261004-personal-historia-v1";
-import { montarPreparacionRectificacionPropia } from "./vista-preparacion-rectificacion-propia.js?v=20261004-b-revision-valor-v1";
-import { traducirPreparacionRectificacion as tRevision } from "./i18n-preparacion-rectificacion-propia.js?v=20261004-personal-rectificacion-v2";
+import { intervaloHistoriaServiciosValido, validarRespuestaHistoriaServicios } from "./cliente-http-historia-servicios-propia.js?v=VEC_WEB_VERSION";
+import { traducirHistoriaServicios as t, formatearFechaHistoriaServicios as fecha, formatearInstanteHistoriaServicios as instante, formatearNumeroHistoriaServicios as numero } from "./i18n-historia-servicios-propia.js?v=VEC_WEB_VERSION";
+import { montarPreparacionRectificacionPropia } from "./vista-preparacion-rectificacion-propia.js?v=VEC_WEB_VERSION";
+import { traducirPreparacionRectificacion as tRevision } from "./i18n-preparacion-rectificacion-propia.js?v=VEC_WEB_VERSION";
 
 function nodo(d, tipo, texto, clase) {
   const elemento = d.createElement(tipo);

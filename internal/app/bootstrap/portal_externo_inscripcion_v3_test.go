@@ -22,22 +22,26 @@ type consultadorACLMiBolsaInscripcionPrueba struct {
 	lecturaB104Exacta    bool
 	funcionesIntentoB104 int
 	intentoB104Exacta    bool
+	funcionesB138        int
+	b138Exacta           bool
 	consulta             string
 	firma                any
 	firmaB104            any
 	firmaLecturaB104     any
 	firmaIntentoB104     any
 	firmaB114            any
+	firmaB138            any
 }
 
 func (q *consultadorACLMiBolsaInscripcionPrueba) QueryRow(_ context.Context, consulta string, args ...any) pgx.Row {
 	q.consulta = consulta
-	if len(args) == 6 {
+	if len(args) == 7 {
 		q.firma = args[0]
 		q.firmaB104 = args[2]
 		q.firmaLecturaB104 = args[3]
 		q.firmaIntentoB104 = args[4]
 		q.firmaB114 = args[5]
+		q.firmaB138 = args[6]
 	}
 	return filaACLMiBolsaInscripcionPrueba{q}
 }
@@ -47,7 +51,7 @@ type filaACLMiBolsaInscripcionPrueba struct {
 }
 
 func (f filaACLMiBolsaInscripcionPrueba) Scan(dest ...any) error {
-	if len(dest) != 12 {
+	if len(dest) != 14 {
 		return ErrMaterialV3PortalExternoInvalido
 	}
 	*dest[0].(*[]string) = slices.Clone(f.q.funciones)
@@ -62,6 +66,8 @@ func (f filaACLMiBolsaInscripcionPrueba) Scan(dest ...any) error {
 	*dest[9].(*bool) = f.q.intentoB104Exacta
 	*dest[10].(*int) = 0
 	*dest[11].(*bool) = false
+	*dest[12].(*int) = f.q.funcionesB138
+	*dest[13].(*bool) = f.q.b138Exacta
 	return nil
 }
 
@@ -187,10 +193,44 @@ func TestACLPortalExternoDualExactaAntesYDespuesB96(t *testing.T) {
 				q.firmaLecturaB104 != firmaConsultarPreferenciasBolsasPortalExterno ||
 				q.firmaIntentoB104 != firmaIntentoPreferenciasBolsasPortalExterno ||
 				q.firmaB114 != firmaPresentarAlegacionPortalExterno ||
+				q.firmaB138 != firmaGuardarModalidadesPortalExterno ||
 				!strings.Contains(q.consulta, "array_agg(proname::text") ||
 				!strings.Contains(q.consulta, "aclexplode(p.proacl)") ||
 				!strings.Contains(q.consulta, "has_table_privilege") {
 				t.Fatal("faltó firma exacta o guarda ACL en la consulta")
+			}
+		})
+	}
+	// B138 (F1-13) concede la escritura de modalidades al mismo grupo; el
+	// arranque la admite solo exacta y junto a las preferencias B104.
+	conModalidades := append(slices.Clone(conPreferencias), "guardar_preferencias_modalidades_v1")
+	modalidadesSinPreferencias := append(slices.Clone(despues), "guardar_preferencias_modalidades_v1")
+	for _, caso := range []struct {
+		nombre             string
+		funciones          []string
+		preferencias       bool
+		nB138              int
+		exactaB138, espera bool
+	}{
+		{"B138 exacta con preferencias", conModalidades, true, 1, true, true},
+		{"B138 sin firma exacta", conModalidades, true, 1, false, false},
+		{"B138 sobrecargada", conModalidades, true, 2, true, false},
+		{"B138 sin preferencias B104", modalidadesSinPreferencias, false, 1, true, false},
+		{"B138 ausente en la lista", conPreferencias, true, 1, true, false},
+		{"lista con B138 sin cotejo", conModalidades, true, 0, false, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			n := 0
+			if caso.preferencias {
+				n = 1
+			}
+			q := &consultadorACLMiBolsaInscripcionPrueba{funciones: caso.funciones, permitido: true,
+				funcionesB96: 1, b96Exacta: true, funcionesB104: n, b104Exacta: caso.preferencias,
+				funcionesLecturaB104: n, lecturaB104Exacta: caso.preferencias,
+				funcionesIntentoB104: n, intentoB104Exacta: caso.preferencias,
+				funcionesB138: caso.nB138, b138Exacta: caso.exactaB138}
+			if got := comprobarACLMiBolsaPortalExterno(context.Background(), q, false); got != caso.espera {
+				t.Fatalf("preflight B138 = %v, esperado %v", got, caso.espera)
 			}
 		})
 	}

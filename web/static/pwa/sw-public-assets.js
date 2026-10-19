@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '20261003-pwa-ci-v5';
+  const VERSION = 'VEC_WEB_VERSION';
   const IDIOMAS = `/textos/idiomas.json?v=${VERSION}`;
   const TIPOS = Object.freeze({
     css: /^text\/css(?:;|$)/i,

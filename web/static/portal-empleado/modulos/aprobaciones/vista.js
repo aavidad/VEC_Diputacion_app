@@ -1,5 +1,5 @@
 import { renderizarEstadoEntrega } from "../../estado-entrega.js";
-import { crearTraductorAprobaciones } from "./i18n.js?v=20260924-f2-web2";
+import { crearTraductorAprobaciones } from "./i18n.js?v=VEC_WEB_VERSION";
 
 const ESTADOS_CONSULTA = new Set(["disponible", "vacio", "denegado", "error"]);
 const ESTADOS_PENDIENTE = new Set(["pendiente", "vencida", "bloqueada", "subsanacion", "reasignada"]);

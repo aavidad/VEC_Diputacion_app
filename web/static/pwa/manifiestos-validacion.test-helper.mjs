@@ -40,7 +40,7 @@ export function validarManifiestoPWA(manifiesto, modulo, idioma) {
     const icono = manifiesto.icons[indice];
     assert.ok(icono && typeof icono === "object" && !Array.isArray(icono));
     assert.deepEqual(Object.keys(icono).sort(), ["purpose", "sizes", "src", "type"]);
-    assert.equal(icono.src, `/pwa/icons/${nombre}.png?v=20261002-pwa-v1`);
+    assert.equal(icono.src, `/pwa/icons/${nombre}.png?v=VEC_WEB_VERSION`);
     assert.equal(icono.sizes, tamano);
     assert.equal(icono.type, "image/png");
     assert.equal(icono.purpose, finalidad);

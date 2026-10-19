@@ -1,8 +1,8 @@
 // Cambio de perfiles de una persona: elegir (asignar o retirar), rellenar,
 // revisar y confirmar. Cada cambio es un lote de un solo cambio. Los textos
 // vienen del catálogo «admin-usuarios» (claves lote.*).
-import { escapar } from "./render.js?v=20261005-admin-lote-pantalla-v1";
-import { validarPreparacion, fechasAlta, hastaPropuesto, construirLote, validarReciboLote, diaMadrid } from "./cambio-contratos.js?v=20261005-admin-lote-pantalla-v1";
+import { escapar } from "./render.js?v=VEC_WEB_VERSION";
+import { validarPreparacion, fechasAlta, hastaPropuesto, construirLote, validarReciboLote, diaMadrid } from "./cambio-contratos.js?v=VEC_WEB_VERSION";
 
 export function montarCambioPerfiles(cont, { textos, cliente, cripto = globalThis.crypto, persona, nombre, unidadRef, retirarPerfilRef = "", preparacionInicial, ahora = () => Date.now(), alVolver, alEstadoPendiente = () => {} } = {}) {
   if (!cont || typeof textos?.traducir !== "function" || typeof cliente?.preparar !== "function" || typeof cliente?.aplicarLote !== "function"

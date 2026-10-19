@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261008-alta-rpt-circular-v6";
+import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=VEC_WEB_VERSION";
 
 function diferida() {
   let resolver;

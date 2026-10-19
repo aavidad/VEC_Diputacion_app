@@ -1,5 +1,5 @@
 /** Textos del rechazo por falta de firma antes de la remisión a Intervención. */
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=VEC_WEB_VERSION";
 
 const catalogos = await cargarCatalogosContratacion("contratacion-temporal-firma-remision");
 export const MENSAJES_FIRMA_REMISION_ACTUAL = catalogos.actual;

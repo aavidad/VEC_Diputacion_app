@@ -1,9 +1,9 @@
-import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=20261005-admin-lote-pantalla-v1";
-import { crearRender } from "./render.js?v=20261005-admin-lote-pantalla-v1";
-import { montarPropuestas } from "./propuestas.js?v=20261005-admin-lote-pantalla-v1";
-import { montarCambioPerfiles } from "./cambio-perfiles.js?v=20261005-admin-lote-pantalla-v1";
-import { validarPreparacion } from "./cambio-contratos.js?v=20261005-admin-lote-pantalla-v1";
-import { etiquetaNombreMetadatos } from "./metadatos.js?v=20261005-admin-lote-pantalla-v1";
+import { validarCapacidades, validarRoles, validarUnidades, validarPersonas, validarFicha, seleccionarActos, prepararDecision, puedeConfirmar, validarResultado, incompatible } from "./contratos.js?v=VEC_WEB_VERSION";
+import { crearRender } from "./render.js?v=VEC_WEB_VERSION";
+import { montarPropuestas } from "./propuestas.js?v=VEC_WEB_VERSION";
+import { montarCambioPerfiles } from "./cambio-perfiles.js?v=VEC_WEB_VERSION";
+import { validarPreparacion } from "./cambio-contratos.js?v=VEC_WEB_VERSION";
+import { etiquetaNombreMetadatos } from "./metadatos.js?v=VEC_WEB_VERSION";
 let montaje = 0;
 const filtrosVacios = () => ({ busqueda: "", perfil_ref: "", unidad_ref: "", estado: "", cursor: "" });
 export function montarUsuarios(root, { textos, cliente = {}, cripto = globalThis.crypto, alEstadoLote = () => {} } = {}) {

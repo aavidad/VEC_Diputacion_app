@@ -1,5 +1,5 @@
-import { consultarJSON, ErrorConsultaJSON } from "../comun/http.js?v=20261012-sonda-frontera-v1";
-import { iniciarRegistroErrores } from "../comun/registro-errores.js?v=20261007-p7-http-v1";
+import { consultarJSON, ErrorConsultaJSON } from "../comun/http.js?v=VEC_WEB_VERSION";
+import { iniciarRegistroErrores } from "../comun/registro-errores.js?v=VEC_WEB_VERSION";
 
 const RUTA = "/api/vec/usuarios/mis-preferencias";
 const MAX_BYTES = 65536;
