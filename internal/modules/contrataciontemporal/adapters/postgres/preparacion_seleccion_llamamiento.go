@@ -61,7 +61,10 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaSelec
 		expediente.OrganizacionRef != organizacion || expediente.Version != version ||
 		expediente.FaseActual != domain.FaseFiscalizacion ||
 		expediente.EstadoActual != domain.EstadoEnCurso || expediente.Fiscalizacion == nil ||
-		expediente.Fiscalizacion.Resultado == domain.FiscalizacionDesfavorable {
+		expediente.Fiscalizacion.Resultado == domain.FiscalizacionDesfavorable ||
+		expediente.InstruccionCompartida != nil {
+		// Un nombramiento derivado (F1-19) lleva dentro el agregado del padre
+		// y no tiene selección propia: no se entrega a ningún caso de uso.
 		return vacio, ports.ErrEstadoExpedienteNoSeleccionable
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -110,7 +113,9 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaAviso
 	if expediente.Referencia != referencia || expediente.OrganizacionRef != organizacion ||
 		expediente.Version < 6 || expediente.Version > uint64(actual) ||
 		expediente.FaseActual != domain.FaseFiscalizacion || expediente.EstadoActual != domain.EstadoEnCurso ||
-		expediente.Fiscalizacion == nil || expediente.Fiscalizacion.Resultado == domain.FiscalizacionDesfavorable {
+		expediente.Fiscalizacion == nil || expediente.Fiscalizacion.Resultado == domain.FiscalizacionDesfavorable ||
+		expediente.InstruccionCompartida != nil {
+		// Mismo cierre que LeerExpedienteParaSeleccion para el hijo derivado.
 		return vacio, errorLecturaSeleccion(ctx)
 	}
 	if err := tx.Commit(ctx); err != nil {

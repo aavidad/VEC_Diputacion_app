@@ -5,7 +5,9 @@
 --  1. no entra en otra selección de Bolsa ni se vincula a otro llamamiento
 --     (23505): reserva singular O6, reserva de oferta (postimagen CT240) y
 --     vínculo de emisión (CT201), las dos últimas antes de consumir la
---     autorización;
+--     autorización; y las dos funciones de CT con las que Bolsa coteja el
+--     origen de un llamamiento u oferta (CT221 y CT233, de B110, B117, B137 y
+--     B140);
 --  2. ninguna lectura ni efecto se autoriza con esos campos copiados (42501):
 --     consulta del estado de la oferta (CT225 y su contexto CT227), consulta
 --     del circuito, nuevas versiones del expediente salvo la v6 de su creación,
@@ -34,21 +36,26 @@ BEGIN
     OR NOT EXISTS(SELECT 1 FROM pg_attribute a
        WHERE a.attrelid='vec_contratacion_temporal.expediente_alta'::regclass
          AND a.attname='derivacion_ref' AND NOT a.attisdropped)
-    OR EXISTS(SELECT 1 FROM pg_trigger t WHERE t.tgname='expediente_derivado_ct241') THEN
+    OR EXISTS(SELECT 1 FROM pg_trigger t WHERE t.tgname='expediente_derivado_ct241')
+    -- Un hijo creado antes de esta guarda tendría su v6 publicada con la
+    -- unidad del padre: se revisa a mano antes de instalar.
+    OR EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_alta x WHERE x.derivacion_ref IS NOT NULL) THEN
   RAISE EXCEPTION 'CT241: dependencias incompatibles o ya instalada' USING ERRCODE='55000'; END IF;
  FOR f IN SELECT * FROM (VALUES
- ('vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid,text,text)','5edef187208e21d903410b156c124c7b70eca8164dec39c813aa901e455043e3',ARRAY['search_path=pg_catalog','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s','idle_in_transaction_session_timeout=20s']),
- ('vec_contratacion_temporal.reservar_seleccion_oferta_ct220(jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','45f84d4328a28c909966560149e08fd51ad13c73e737657a889e07dc3d3dd735',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
- ('vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','6911e480b80031a664a4c89368b64e763cfaf2d5062fa5ce5c69ca6e7d4eae4b',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']),
- ('vec_contratacion_temporal.consultar_estado_oferta_expediente_ct225(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','1ee860093ab0ce7e71d4b304a0f0ed6f2eae31f84a4e8952260a088aea50a35f',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
- ('vec_contratacion_temporal.preparar_contexto_estado_oferta_ct227(text,text)','c8cf051570ba05571510092b70ecc052caa715f357ce1a5d83633f3ead2f45e7',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
- ('vec_contratacion_temporal.consultar_circuito_rrhh_v1(text,text,bigint,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','70b90eca1790d935c58ea1ff9b7aeb23c9d646a509cbc96056f08c863e4be49e',ARRAY['search_path=pg_catalog','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=5s'])
- ) AS x(firma,huella,config) LOOP
+ ('vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid,text,text)','5edef187208e21d903410b156c124c7b70eca8164dec39c813aa901e455043e3',ARRAY['search_path=pg_catalog','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s','idle_in_transaction_session_timeout=20s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.reservar_seleccion_oferta_ct220(jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','45f84d4328a28c909966560149e08fd51ad13c73e737657a889e07dc3d3dd735',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','6911e480b80031a664a4c89368b64e763cfaf2d5062fa5ce5c69ca6e7d4eae4b',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.consultar_estado_oferta_expediente_ct225(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','1ee860093ab0ce7e71d4b304a0f0ed6f2eae31f84a4e8952260a088aea50a35f',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.preparar_contexto_estado_oferta_ct227(text,text)','c8cf051570ba05571510092b70ecc052caa715f357ce1a5d83633f3ead2f45e7',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.consultar_circuito_rrhh_v1(text,text,bigint,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','70b90eca1790d935c58ea1ff9b7aeb23c9d646a509cbc96056f08c863e4be49e',ARRAY['search_path=pg_catalog','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=5s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint)','777f09f2514dad4ac9a552de4a992d15ab2b6f1a8dad94cfd8401e1d5498fe23',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=5s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_autorizacion_atestada_v3_propietario=X/vec_contratacion_temporal_propietario,vec_bolsa_llamamientos_propietario=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(jsonb,boolean)','fd7f4251e849feffe45c0ad3638c2e71c1524c9a6523f17858d70c16beb5cdad',ARRAY['search_path=pg_catalog, pg_temp','TimeZone=UTC','row_security=on','lock_timeout=2s','statement_timeout=5s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_bolsa_llamamientos_propietario=X/vec_contratacion_temporal_propietario}')
+ ) AS x(firma,huella,config,acl) LOOP
   SELECT pg_get_userbyid(q.proowner) AS dueno,q.prosecdef,q.proacl::text AS acl,q.proconfig,
    encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex') AS huella
   INTO p FROM pg_proc q WHERE q.oid=to_regprocedure(f.firma);
   IF NOT FOUND OR p.dueno<>'vec_contratacion_temporal_propietario' OR p.prosecdef IS NOT TRUE
-     OR p.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
+     OR p.acl IS DISTINCT FROM f.acl
      OR p.proconfig IS DISTINCT FROM f.config OR p.huella IS DISTINCT FROM f.huella THEN
    RAISE EXCEPTION 'CT241: preimagen incompatible: %',f.firma USING ERRCODE='55000'; END IF;
  END LOOP;
@@ -620,6 +627,98 @@ BEGIN
 END
 $function$;
 
+-- leer_modalidad_origen_bolsa_ct_v1.
+CREATE OR REPLACE FUNCTION vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(p_expediente text, p_categoria text, p_organizacion text, p_version bigint)
+ RETURNS TABLE(modalidad_clave text, causa_clave text, version_expediente bigint)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET row_security TO 'on'
+ SET "TimeZone" TO 'UTC'
+ SET lock_timeout TO '2s'
+ SET statement_timeout TO '5s'
+AS $function$
+DECLARE v_organizacion text;v_categoria text;v_modalidad text;v_causa text;
+        v_version bigint;
+BEGIN
+ IF p_expediente IS NULL OR p_expediente !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+ OR p_categoria IS NULL OR octet_length(p_categoria) NOT BETWEEN 3 AND 512
+ OR p_categoria<>btrim(p_categoria)
+ OR (p_organizacion IS NOT NULL AND
+     (p_organizacion !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'))
+ OR (p_version IS NOT NULL AND (p_version<1 OR p_version>9007199254740991))
+ THEN RAISE EXCEPTION 'CT221: origen no disponible' USING ERRCODE='42501'; END IF;
+ -- CT241 / F1-19: Bolsa no publica oferta ni llamamiento con origen en un
+ -- nombramiento derivado (B110 y B117 pasan por aquí).
+ IF EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_alta alta
+   WHERE alta.expediente_ref=p_expediente AND alta.derivacion_ref IS NOT NULL) THEN
+  RAISE EXCEPTION 'CT241: expediente derivado sin selección nueva' USING ERRCODE='23505'; END IF;
+ SELECT e.organizacion_ref,a.version::bigint,
+        v.agregado_json#>>'{analisis,categoria_ref}',
+        v.agregado_json#>>'{analisis,modalidad_clave}',
+        coalesce(v.agregado_json#>>'{analisis,causa_clave}','')
+ INTO v_organizacion,v_version,v_categoria,v_modalidad,v_causa
+ FROM vec_contratacion_temporal.expediente_alta e
+ JOIN vec_contratacion_temporal.expediente_integral_actual a
+   ON a.expediente_ref=e.expediente_ref
+ JOIN vec_contratacion_temporal.expediente_version_integral v
+   ON v.expediente_ref=a.expediente_ref AND v.version=a.version
+ WHERE e.expediente_ref=p_expediente;
+ IF NOT FOUND OR v_organizacion IS NULL
+ OR (p_organizacion IS NOT NULL AND v_organizacion IS DISTINCT FROM p_organizacion)
+ OR (p_version IS NOT NULL AND v_version IS DISTINCT FROM p_version)
+ OR v_categoria IS DISTINCT FROM p_categoria
+ OR v_modalidad IS NULL OR v_modalidad !~ '^[a-z][a-z0-9._-]{1,79}$'
+ OR (v_causa<>'' AND v_causa !~ '^[a-z][a-z0-9._-]{1,79}$')
+ THEN RAISE EXCEPTION 'CT221: origen no disponible' USING ERRCODE='42501'; END IF;
+ RETURN QUERY SELECT v_modalidad,v_causa,v_version;
+END $function$;
+
+-- cotejar_comprobacion_bolsa_v1.
+CREATE OR REPLACE FUNCTION vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(p jsonb, p_nueva boolean)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET "TimeZone" TO 'UTC'
+ SET row_security TO 'on'
+ SET lock_timeout TO '2s'
+ SET statement_timeout TO '5s'
+AS $function$
+DECLARE a jsonb;version_actual bigint;organizacion text;necesidad text;
+BEGIN
+ IF current_setting('transaction_isolation')<>'serializable'
+ OR current_setting('transaction_read_only')<>'off' OR p_nueva IS NULL
+ THEN RETURN false; END IF;
+ -- CT241 / F1-19: la comprobación de Bolsa (B110, B137, B140) no se coteja
+ -- con la unidad ni la fiscalización copiadas del padre.
+ IF EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_alta alta
+   WHERE alta.expediente_ref=p->>'expediente_ref' AND alta.derivacion_ref IS NOT NULL) THEN
+  RAISE EXCEPTION 'CT241: expediente derivado sin selección nueva' USING ERRCODE='23505'; END IF;
+ SELECT v.agregado_json,i.version,e.organizacion_ref INTO a,version_actual,organizacion
+ FROM vec_contratacion_temporal.expediente_alta e
+ JOIN vec_contratacion_temporal.expediente_integral_actual i USING(expediente_ref)
+ JOIN vec_contratacion_temporal.expediente_version_integral v
+   ON v.expediente_ref=i.expediente_ref AND v.version=i.version
+ WHERE e.expediente_ref=p->>'expediente_ref' FOR SHARE OF e,i;
+ IF NOT FOUND OR organizacion IS DISTINCT FROM p->>'organizacion_ref'
+ OR a#>>'{asignacion,unidad_ref}' IS DISTINCT FROM p->>'unidad_ref'
+ OR p->>'unidad_ref' IS NULL THEN RETURN false; END IF;
+ -- Una recuperación revalida el ámbito actual sin reinterpretar el acto antiguo.
+ IF NOT p_nueva THEN RETURN true; END IF;
+ -- Misma derivación canónica que prepararReferenciasLlamamientoDesarrollo.
+ necesidad:='necesidad:'||translate(encode(sha256(convert_to(
+  replace(jsonb_build_array('vec.ct.bolsa.desarrollo.v1','necesidad',organizacion,
+   p->>'expediente_ref','6')::text,', ',','),'UTF8')),'hex'),'0123456789','ghijklmnop');
+ RETURN version_actual IS NOT DISTINCT FROM (p->>'version_expediente')::bigint
+  AND a->>'fase_actual'='fiscalizacion' AND a->>'estado_actual'='en_curso'
+  AND a#>>'{fiscalizacion,resultado}' IN ('favorable','favorable_con_observaciones')
+  AND a#>>'{analisis,categoria_ref}' IS NOT DISTINCT FROM p->>'categoria_ref'
+  AND a#>>'{analisis,modalidad_clave}' IS NOT DISTINCT FROM p->>'modalidad_ofrecida'
+  AND coalesce(a#>>'{analisis,causa_clave}','') IS NOT DISTINCT FROM p->>'causa_ofrecida'
+  AND necesidad IS NOT DISTINCT FROM p->>'necesidad_ref';
+END $function$;
+
 -- Guarda central de escritura: toda nueva versión del hijo, su publicación
 -- RRHH y sus firmas CT118 pasan por aquí. Solo admite la v6 de CT234.
 CREATE FUNCTION vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()
@@ -651,20 +750,22 @@ DO $post$
 DECLARE f record; p record;
 BEGIN
  FOR f IN SELECT * FROM (VALUES
- ('vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid,text,text)','52a4058e93be16793cdd9cadc0778b452d48385848dbe167c58a2f84855b3730',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s','idle_in_transaction_session_timeout=20s']),
- ('vec_contratacion_temporal.reservar_seleccion_oferta_ct220(jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','6a8e5f1feff9051e960a8db3866669569c5c551eca009d7f6889c87f88e383e8',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
- ('vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','fd7421e9d5dba11dda82368873a8ea41a30fc5002f921e0f226b649ba13ac344',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']),
- ('vec_contratacion_temporal.consultar_estado_oferta_expediente_ct225(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','82941407107240e6c27850e86c85b6d8706fe9fea8486f3e23ae207ebb4947f9',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
- ('vec_contratacion_temporal.preparar_contexto_estado_oferta_ct227(text,text)','e596c2e5a65f4a29ce306021de21cfe416767c71f58006247d1ee76534284a92',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s']),
- ('vec_contratacion_temporal.consultar_circuito_rrhh_v1(text,text,bigint,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','0081675ff4ab7e4961dc1ee1f01b96922ccf78291f3d3eb9af4ce95e45fae732',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=5s']),
- ('vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()','75d464994382f006ec6956673661ba894c4cc8fa65536e5beb6fc9c0947d9ae9',ARRAY['search_path=pg_catalog, pg_temp','row_security=on'])
- ) AS x(firma,huella,config) LOOP
+ ('vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid,text,text)','52a4058e93be16793cdd9cadc0778b452d48385848dbe167c58a2f84855b3730',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s','idle_in_transaction_session_timeout=20s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.reservar_seleccion_oferta_ct220(jsonb,jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','6a8e5f1feff9051e960a8db3866669569c5c551eca009d7f6889c87f88e383e8',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','fd7421e9d5dba11dda82368873a8ea41a30fc5002f921e0f226b649ba13ac344',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.consultar_estado_oferta_expediente_ct225(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','82941407107240e6c27850e86c85b6d8706fe9fea8486f3e23ae207ebb4947f9',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.preparar_contexto_estado_oferta_ct227(text,text)','e596c2e5a65f4a29ce306021de21cfe416767c71f58006247d1ee76534284a92',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=15s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.consultar_circuito_rrhh_v1(text,text,bigint,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','0081675ff4ab7e4961dc1ee1f01b96922ccf78291f3d3eb9af4ce95e45fae732',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=5s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint)','0f2879ac5905b513bd313efb28711d517e2db84b21ae2845bba40ee883b4d09b',ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=5s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_autorizacion_atestada_v3_propietario=X/vec_contratacion_temporal_propietario,vec_bolsa_llamamientos_propietario=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(jsonb,boolean)','59fff3ea60ad4cfdb021766e491dbd2ad1f86ff352be74a54d13eca8deb105ab',ARRAY['search_path=pg_catalog, pg_temp','TimeZone=UTC','row_security=on','lock_timeout=2s','statement_timeout=5s'],'{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_bolsa_llamamientos_propietario=X/vec_contratacion_temporal_propietario}'),
+ ('vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()','75d464994382f006ec6956673661ba894c4cc8fa65536e5beb6fc9c0947d9ae9',ARRAY['search_path=pg_catalog, pg_temp','row_security=on'],
+  '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}')
+ ) AS x(firma,huella,config,acl) LOOP
   SELECT pg_get_userbyid(q.proowner) AS dueno,q.prosecdef,q.proacl::text AS acl,q.proconfig,
    encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex') AS huella
   INTO STRICT p FROM pg_proc q WHERE q.oid=f.firma::regprocedure;
   IF p.dueno<>'vec_contratacion_temporal_propietario' OR p.prosecdef IS NOT TRUE
-     OR (f.firma<>'vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()' AND p.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}')
-     OR (f.firma='vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()' AND p.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}')
+     OR p.acl IS DISTINCT FROM f.acl
      OR p.proconfig IS DISTINCT FROM f.config OR p.huella IS DISTINCT FROM f.huella THEN
    RAISE EXCEPTION 'CT241: postimagen incompatible: %',f.firma USING ERRCODE='55000'; END IF;
  END LOOP;

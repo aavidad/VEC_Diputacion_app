@@ -35,17 +35,26 @@ BEGIN
     'RETURN QUERY'),
    ('vec_contratacion_temporal.consultar_circuito_rrhh_v1(text,text,bigint,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
     '0081675ff4ab7e4961dc1ee1f01b96922ccf78291f3d3eb9af4ce95e45fae732',
-    'registrar_y_consumir_consulta_circuito_ct_v3_atestada(')
+    'registrar_y_consumir_consulta_circuito_ct_v3_atestada('),
+   ('vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(text,text,text,bigint)',
+    '0f2879ac5905b513bd313efb28711d517e2db84b21ae2845bba40ee883b4d09b',
+    'JOIN vec_contratacion_temporal.expediente_integral_actual a'),
+   ('vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(jsonb,boolean)',
+    '59fff3ea60ad4cfdb021766e491dbd2ad1f86ff352be74a54d13eca8deb105ab',
+    'JOIN vec_contratacion_temporal.expediente_integral_actual i')
   ) AS f(firma,huella,consumo)
   JOIN pg_proc p ON p.oid=f.firma::regprocedure LOOP
   c:=x.def;
   IF x.prosecdef IS NOT TRUE
      OR encode(sha256(convert_to(c,'UTF8')),'hex') IS DISTINCT FROM x.huella
-     OR x.acl IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
+     OR x.acl IS DISTINCT FROM CASE
+        WHEN x.firma LIKE '%leer_modalidad_origen_bolsa_ct_v1%' THEN '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_autorizacion_atestada_v3_propietario=X/vec_contratacion_temporal_propietario,vec_bolsa_llamamientos_propietario=X/vec_contratacion_temporal_propietario}'
+        WHEN x.firma LIKE '%cotejar_comprobacion_bolsa_v1%' THEN '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_bolsa_llamamientos_propietario=X/vec_contratacion_temporal_propietario}'
+        ELSE '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}' END
      OR NOT ('search_path=pg_catalog, pg_temp'=ANY(x.proconfig))
   THEN RAISE EXCEPTION 'CT241: cuerpo, ACL o configuración divergente: %',x.firma; END IF;
-  -- La guarda va antes del efecto (O6) o antes de leer ámbitos y consumir la
-  -- autorización (oferta y vínculo).
+  -- La guarda va antes del efecto (O6), antes de leer ámbitos y consumir la
+  -- autorización (oferta y vínculo) o antes de leer el agregado (CT221, CT233).
   IF NOT (position('CT241: ' IN c)>0 AND position('CT241: ' IN c)<position(x.consumo IN c))
   THEN RAISE EXCEPTION 'CT241: guarda ausente o tardía: %',x.firma; END IF;
  END LOOP;
@@ -64,10 +73,15 @@ END $estructura$;
 -- Expediente ordinario con una selección O6 y su hijo de prueba.
 CREATE TEMP TABLE ct241_caso ON COMMIT DROP AS
  SELECT e.solicitud_json AS s0, e.solicitud_json->>'expediente_ref' AS padre,
-  'expediente:ct:'||encode(sha256(convert_to('ct241-prueba-hijo','UTF8')),'hex') AS hijo
+  'expediente:ct:'||encode(sha256(convert_to('ct241-prueba-hijo','UTF8')),'hex') AS hijo,
+  a.organizacion_ref AS organizacion, v.agregado_json#>>'{analisis,categoria_ref}' AS categoria,
+  v.agregado_json#>>'{asignacion,unidad_ref}' AS unidad
  FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
  JOIN vec_contratacion_temporal.expediente_alta a
    ON a.expediente_ref=e.solicitud_json->>'expediente_ref' AND a.derivacion_ref IS NULL
+ JOIN vec_contratacion_temporal.expediente_integral_actual i ON i.expediente_ref=a.expediente_ref
+ JOIN vec_contratacion_temporal.expediente_version_integral v
+   ON v.expediente_ref=i.expediente_ref AND v.version=i.version
  WHERE e.tipo_seleccion='llamamiento'
  ORDER BY e.creada_en LIMIT 1;
 DO $caso$ BEGIN
@@ -140,7 +154,8 @@ END $material$;
 -- propietario. El rol existe solo dentro de esta transacción.
 CREATE ROLE ct241_prueba_ejecutor NOLOGIN IN ROLE vec_contratacion_temporal_ejecutor;
 GRANT SELECT ON pg_temp.ct241_material TO ct241_prueba_ejecutor;
-GRANT SELECT ON pg_temp.ct241_caso TO vec_contratacion_temporal_propietario;
+GRANT SELECT ON pg_temp.ct241_caso TO vec_contratacion_temporal_propietario,
+ vec_bolsa_llamamientos_propietario;
 SET SESSION AUTHORIZATION ct241_prueba_ejecutor;
 
 DO $vias$
@@ -217,6 +232,37 @@ END $vias$;
 
 RESET SESSION AUTHORIZATION;
 
+-- 4b. Cotejos con los que Bolsa crea llamamientos y ofertas de origen CT
+-- (B110, B117, B137, B140), con el rol de Bolsa que los llama.
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+DO $bolsa$
+DECLARE k record; c record; estado text; mensaje text; r record; ok boolean;
+BEGIN
+ SELECT * INTO STRICT k FROM pg_temp.ct241_caso;
+ FOR c IN SELECT * FROM (VALUES ('padre',k.padre),('hijo',k.hijo)) AS v(quien,ref) LOOP
+  FOR r IN SELECT * FROM (VALUES ('modalidad'),('cotejo_nuevo'),('cotejo_recuperacion')) AS v(via) LOOP
+   BEGIN
+    IF r.via='modalidad' THEN
+     PERFORM * FROM vec_contratacion_temporal.leer_modalidad_origen_bolsa_ct_v1(
+      c.ref,k.categoria,k.organizacion,NULL);
+    ELSE
+     ok:=vec_contratacion_temporal.cotejar_comprobacion_bolsa_v1(jsonb_build_object(
+      'expediente_ref',c.ref,'organizacion_ref',k.organizacion,'unidad_ref',k.unidad,
+      'version_expediente',6),r.via='cotejo_nuevo');
+    END IF;
+    estado:='00000'; mensaje:='';
+   EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS estado=RETURNED_SQLSTATE,mensaje=MESSAGE_TEXT;
+   END;
+   IF c.quien='hijo' AND (estado<>'23505' OR mensaje<>'CT241: expediente derivado sin selección nueva')
+   THEN RAISE EXCEPTION 'CT241: % admitió al hijo (% %)',r.via,estado,mensaje; END IF;
+   IF c.quien='padre' AND (estado<>'00000' OR (r.via='cotejo_recuperacion' AND ok IS NOT TRUE))
+   THEN RAISE EXCEPTION 'CT241: % del ordinario alterado (% %)',r.via,estado,mensaje; END IF;
+  END LOOP;
+ END LOOP;
+END $bolsa$;
+RESET ROLE;
+
 -- 5. Escrituras del hijo: el disparador central va antes que el resto de
 -- comprobaciones; al ordinario lo para después otra restricción.
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
@@ -226,6 +272,7 @@ BEGIN
  SELECT * INTO STRICT k FROM pg_temp.ct241_caso;
  FOR c IN SELECT * FROM (VALUES
    ('hijo','version7',k.hijo),('hijo','version6_ct234',k.hijo),('padre','version7',k.padre),
+   ('hijo','version7_ct234',k.hijo),('hijo','version6_otro',k.hijo),
    ('hijo','publicacion',k.hijo),('padre','publicacion',k.padre),
    ('hijo','firma',k.hijo),('padre','firma',k.padre)) AS v(quien,via,ref) LOOP
   BEGIN
@@ -235,6 +282,12 @@ BEGIN
    ELSIF c.via='version6_ct234' THEN
     INSERT INTO vec_contratacion_temporal.expediente_version_integral(expediente_ref,version,origen_version)
     VALUES(c.ref,6,'derivacion_nombramiento_ct234');
+   ELSIF c.via='version7_ct234' THEN
+    INSERT INTO vec_contratacion_temporal.expediente_version_integral(expediente_ref,version,origen_version)
+    VALUES(c.ref,7,'derivacion_nombramiento_ct234');
+   ELSIF c.via='version6_otro' THEN
+    INSERT INTO vec_contratacion_temporal.expediente_version_integral(expediente_ref,version,origen_version)
+    VALUES(c.ref,6,'ct241_prueba');
    ELSIF c.via='publicacion' THEN
     INSERT INTO vec_contratacion_temporal.publicacion_version_rrhh(expediente_ref,version) VALUES(c.ref,6);
    ELSE

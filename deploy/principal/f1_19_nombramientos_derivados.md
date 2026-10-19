@@ -54,9 +54,17 @@ con una persona. Antes de abrir la ruta se cierran dos cosas.
 
 Selección. El hijo ya tiene su plaza adjudicada y no entra en otra selección
 de Bolsa. Go lo rechaza en `SeleccionarSegunNumeroPersonasCT` (409, estado no
-seleccionable). En SQL lo rechazan con 23505 la reserva singular O6, la reserva
-de oferta (sobre la postimagen de CT240) y el vínculo de emisión de CT201;
-las dos últimas antes de consumir la autorización.
+seleccionable). Los dos lectores Go del expediente para selección y para
+aviso tampoco lo entregan, porque su agregado lleva dentro el del padre. En
+SQL lo rechazan con 23505 cinco funciones de CT:
+
+- la reserva singular O6, la reserva de oferta (sobre la postimagen de CT240)
+  y el vínculo de emisión de CT201; las dos últimas, antes de consumir la
+  autorización;
+- la lectura de modalidad y causa del origen (CT221) y el cotejo de la
+  comprobación (CT233). Por ellas pasan las entradas de Bolsa que crean
+  llamamientos y ofertas con origen CT (B110 y B117) y las comprobaciones de
+  ofrecimiento (B137 y B140). Así Bolsa no necesita leer tablas de CT.
 
 Autorización por campos copiados. Con 42501 se rechazan:
 
@@ -86,8 +94,9 @@ disparador común.
 ### Activación
 
 1. Copia con main completo, incluidos CT234 y CT240. Instalar CT241 una vez,
-   al final de `lista_sql_main_tras_hz37.txt`. Coteja la preimagen de seis
-   funciones y fija su posimagen, propietario, permisos y configuración. La
+   al final de `lista_sql_main_tras_hz37.txt`. Coteja la preimagen de ocho
+   funciones y fija su posimagen, propietario, permisos y configuración. Se
+   detiene si ya hay algún hijo dado de alta: habría que revisarlo a mano. La
    reserva O6 y la consulta del circuito pasan a `search_path` con
    `pg_temp` al final, como exige la puerta de calidad.
 2. Ejecutar `pruebas_sql/ct241_guardas_nombramiento_derivado.sql` en la copia

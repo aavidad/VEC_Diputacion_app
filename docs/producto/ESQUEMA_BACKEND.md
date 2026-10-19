@@ -526,7 +526,8 @@ padre, plaza y recibo en una operación atómica. La ruta
 campos de la guía de activación; la composición actual responde 503 hasta
 conectar el productor de autorización. Faltan la instalación conjunta y el
 ensayo positivo. CT241 cierra después al hijo: no entra en otra selección de
-Bolsa (O6, oferta y vínculo CT201) y nada suyo se autoriza con la unidad, la
+Bolsa (O6, oferta, vínculo CT201 y los cotejos CT221 y CT233 por los que
+pasan los llamamientos y ofertas de Bolsa con origen CT) y nada suyo se autoriza con la unidad, la
 fiscalización o el circuito copiados del padre. Un disparador común rechaza
 sus versiones nuevas, su publicación RRHH y sus firmas CT118, así que CT234
 no completa una derivación hasta que el hijo tenga ámbito propio. Véase
