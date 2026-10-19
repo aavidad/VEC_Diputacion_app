@@ -47,7 +47,16 @@ func TestVersionarRolBolsaExternaModalidadesFuentePublicada(t *testing.T) {
 	refrescarBaseExterna(t, &base, &i)
 	c.Entradas = v2.Entradas
 	c.VigenteDesde = time.Date(2026, 10, 18, 0, 0, 0, 0, time.UTC)
-	c.VigenteHasta = time.Date(2027, 1, 16, 0, 0, 0, 0, time.UTC)
+	// El catálogo cubre exactamente la vigencia publicada de las entradas v2.
+	c.VigenteHasta = v2.Entradas[0].VigenteHasta
+	for _, e := range v2.Entradas {
+		if e.VigenteHasta.IsZero() || e.VigenteHasta.Sub(c.VigenteDesde) < 60*24*time.Hour {
+			t.Fatal("vigencia de la fuente v2 ausente o menor de 60 días")
+		}
+		if e.VigenteHasta.After(c.VigenteHasta) {
+			c.VigenteHasta = e.VigenteHasta
+		}
+	}
 	for j := range i.Selecciones {
 		i.Selecciones[j].EntradaRef = c.Entradas[j].Referencia
 		i.Selecciones[j].EntradaVersion = c.Entradas[j].Version
