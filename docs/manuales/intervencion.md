@@ -40,7 +40,7 @@ El recibo también se muestra en una pantalla estrecha:
 
 ![Recibo de fiscalización en móvil. Encuadre del recibo.](img/intervencion-recibo-movil.png)
 
-En la comprobación, los expedientes pasaron de la versión 5 a la 6. La versión de su expediente puede ser otra. Abrir el formulario o aceptar la confirmación todavía no acredita el registro: espere al recibo.
+En la comprobación, los recibos mostraron la versión resultante 6. La versión de su expediente puede ser otra. Abrir el formulario o aceptar la confirmación todavía no acredita el registro: espere al recibo.
 
 ## 4. Qué ocurre después
 
@@ -60,7 +60,7 @@ Intervención abre el formulario desde el menú o un enlace, elige el resultado,
 
 ### Falta
 
-Completar en un mismo expediente la remisión con las firmas verificadas del informe, el reparo, la subsanación, el nuevo informe firmado y una nueva fiscalización. También queda pendiente consultar los antecedentes y recuperar el recibo anterior desde el acceso propio de Intervención. Hoy este acceso pide la referencia y la versión; no muestra una bandeja de expedientes remitidos.
+Completar en un mismo expediente la remisión con las firmas verificadas del informe, el reparo, la subsanación, el nuevo informe firmado y una nueva fiscalización. También queda pendiente consultar los antecedentes y recuperar el recibo anterior desde el acceso propio de Intervención. Hoy este acceso pide la referencia y la versión; no muestra una bandeja de expedientes remitidos. Además, el recibo muestra la fase con su nombre interno («fiscalizacion») y, debajo del recibo, aparece el formulario de llamamientos, que no corresponde a Intervención: ambos defectos están por corregir en la aplicación.
 
 ### Al final
 
