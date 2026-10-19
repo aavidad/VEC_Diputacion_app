@@ -395,6 +395,17 @@ campos expresamente. El enlace contractual de B13 admite también
 Una fecha o causa ausente mantiene la comprobación pendiente cuando afecta al
 ofrecimiento; no acredita disponibilidad ni una excepción.
 
+F1-11 añade `modalidad_clave` y `causa_clave` al objeto `datos` de la oferta.
+CT las toma de su análisis; `origen_ct` conserva la referencia y la versión del
+expediente. CT235 coteja ambas claves al reservar y B136 vuelve a cotejarlas al
+publicar mediante la lectura CT221 existente. El canon nuevo liga las dos claves
+al hash anterior; las ofertas históricas conservan sus datos y su canon. No se
+añaden tablas, permisos ni lecturas de tablas ajenas. Las proyecciones existentes
+de RRHH y Mi Bolsa conservan el objeto `datos` completo. Las dos migraciones
+y sus tres pruebas focales se ensayaron al final de la lista común completa.
+Sigue pendiente el recorrido de publicación desde la ficha, que necesita los
+tres perfiles de ofertas de CT (F1-16) y el lote con unidad y ámbito (F0-04).
+
 El seguimiento `GET /api/vec/bolsa/bolsas/{bolsa}/candidatos` puede pedir
 `llamamiento` y `exclusiones_desde`. El bloque `exclusiones_origen` usa una acción
 nominal propia, acotada a bolsa y llamamiento y auditada en la misma transacción.

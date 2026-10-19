@@ -157,5 +157,9 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000291_comprobacion_deriv
 # F1-13 parte 1 — AUT104 y B138, juntas y en este orden tras AD296 (ver guía de proyecciones).
 deploy/postgresql/autorizacion/migraciones/000104_preferencias_modalidades.up.sql fa079c48fa884076994d96a2ae7b8a10ae51461fa5f4f4a25af4debc2f2d5109
 deploy/postgresql/bolsa_llamamientos/migraciones/000138_preferencias_modalidades.up.sql 13f81af99e58ed00940bac36dfc41ecefd2b8a38ffa7e88e44e4f616362e4218
+
+# F1-11 — Modalidad y causa de la oferta.
+deploy/postgresql/contratacion_temporal/migraciones/000235_modalidad_causa_oferta.up.sql 68ee3f28234e7c8179154ed9c57da26561c995483143670934ce7e5484f745f7
+deploy/postgresql/bolsa_llamamientos/migraciones/000136_modalidad_causa_oferta.up.sql e761b8607939a58ebcbca9bbbe56a8bcdefe02712dd46c9667a1b70278f1a1b7
 # F1-19 — AD292; depende de AD291 y precede a CT234.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000292_fachada_derivacion_nombramiento_ct.up.sql 7af2593ce88262eb12f5286ed58d06b5858b70130a661e6a7705304dc78d94cc
