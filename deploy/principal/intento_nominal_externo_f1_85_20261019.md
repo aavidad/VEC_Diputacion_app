@@ -50,7 +50,8 @@ por IS22: hacen falta los dos cotejos del portal externo.
    trae) y crea sus propios registradores de intentos, que se revierten.
    Por esa necesidad de datos no está en la puerta SQL de la CI
    (`ensayar.py`), que solo restaura el esquema; hay que pasarla a mano en
-   una copia.
+   una copia. Si falla al principio con 40001 en el latido del sellado
+   (la aplicación está sellando a la vez), basta con repetirla.
 4. No hace falta cambiar la configuración: la copia ya tiene un registrador
    de intentos con canal `externa_personal` para el portal externo.
 
