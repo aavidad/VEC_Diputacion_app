@@ -60,7 +60,9 @@ def memoria():
 
 
 def puerto_libre(puerto):
+    # Un puerto en TIME-WAIT tras parar la aplicación está libre; solo falla si alguien escucha.
     with socket.socket() as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(('127.0.0.1', puerto))
 
 
