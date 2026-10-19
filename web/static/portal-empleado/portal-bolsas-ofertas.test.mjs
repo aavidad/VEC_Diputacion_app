@@ -43,8 +43,8 @@ test("la entrada y la caché cargan la versión de ofertas con avisos", async ()
   const [portal, html, cache] = await Promise.all(["portal.js", "index.html", "cache-publica-v1.json"]
     .map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
   assert.match(portal, /portal-bolsas-ofertas\.js\?v=20261018-f171-integracion-v1/);
-  assert.match(html, /portal\.js\?v=20261018-f179-cabecera-v1/);
-  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261018-f179-cabecera-v1"));
+  assert.match(html, /portal\.js\?v=20261019-f182-intervencion-v1/);
+  assert.ok(JSON.parse(cache).propios.includes("/portal-empleado/portal.js?v=20261019-f182-intervencion-v1"));
 });
 
 test("la ficha abre el historial autorizado de la oferta elegida y lo desmonta al cerrar", async () => {
