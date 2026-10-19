@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -62,7 +63,16 @@ func (s SolicitudCentro) Validar() error {
 		return ErrDatoInvalido
 	}
 	conDatosPuesto := s.JornadaMinutos != 0 || s.NumeroPersonas != 0 || s.PuestoSolicitado != ""
-	if conDatosPuesto && (s.JornadaMinutos == 0 || s.JornadaMinutos > 7*24*60 ||
+	soloCantidadSellada := s.Necesidad != nil && s.NumeroPersonas != 0 &&
+		s.JornadaMinutos == 0 && s.PuestoSolicitado == ""
+	if soloCantidadSellada {
+		cantidad, err := strconv.ParseUint(s.Necesidad.Campos["numero_personas"], 10, 32)
+		if err != nil || cantidad == 0 || uint32(cantidad) != s.NumeroPersonas ||
+			strconv.FormatUint(cantidad, 10) != s.Necesidad.Campos["numero_personas"] ||
+			s.Necesidad.ValidarInstantanea() != nil {
+			return ErrDatoInvalido
+		}
+	} else if conDatosPuesto && (s.JornadaMinutos == 0 || s.JornadaMinutos > 7*24*60 ||
 		s.NumeroPersonas == 0 || !textoValido(s.PuestoSolicitado, 160, false) ||
 		strings.IndexFunc(s.PuestoSolicitado, unicode.IsControl) >= 0) {
 		return ErrDatoInvalido

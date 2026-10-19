@@ -13,6 +13,7 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const RutaBolsasGestion = "/api/vec/bolsa/bolsas"
@@ -108,9 +109,11 @@ func ReferenciasRutaSituacionParticipacion(r *http.Request) (string, string, boo
 
 func responderErrorSituacion(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, dominiovec.ErrAutorizacionDenegada), errors.Is(err, dominiovec.ErrPermissionDenied):
+	case errors.Is(err, dominiovec.ErrAutorizacionDenegada), errors.Is(err, dominiovec.ErrPermissionDenied),
+		errors.Is(err, puertosvec.ErrInstantaneaAutorizacionObsoleta):
 		responderSituacion(w, http.StatusForbidden, map[string]any{"error": map[string]string{"codigo": "acceso_denegado"}})
-	case errors.Is(err, dominiobolsa.ErrCambioSituacionParticipacionInvalido):
+	case errors.Is(err, dominiobolsa.ErrCambioSituacionParticipacionInvalido),
+		errors.Is(err, puertosbolsa.ErrConfirmacionAceptacionDirectaConflicto):
 		responderSituacion(w, http.StatusConflict, map[string]any{"error": map[string]string{"codigo": "cambio_en_conflicto"}})
 	case errors.Is(err, puertosbolsa.ErrSituacionParticipacionNoEncontrada):
 		responderSituacion(w, http.StatusNotFound, map[string]any{"error": map[string]string{"codigo": "recurso_no_encontrado"}})

@@ -111,6 +111,35 @@ test("el cargador CT real difiere la UI, consulta Inicio una vez y la lista una 
   coordinador.desmontarVistaActual();
 });
 
+test("Intervención abre el enlace de expediente y versión con el acceso relleno y sin lecturas de RRHH", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  const rutas = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    consultarSesion: async () => ({ roles: ["intervencion"] }),
+    entorno: { Headers, fetch: async (ruta) => {
+      rutas.push(String(ruta));
+      return new Response("{}", { status: 404 });
+    } },
+  });
+  await coordinador.cargarInterno();
+  const raiz = raizFalsa();
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz,
+    { expedienteRef: "expediente:fiscalizacion-0009", expedienteVersion: 6 }), true);
+  assert.match(raiz.innerHTML, /name="expediente_ref"[^>]*value="expediente:fiscalizacion-0009"/u);
+  assert.match(raiz.innerHTML, /name="version_esperada"[^>]*value="6"/u);
+  const lecturasRRHH = rutas.filter((ruta) => /catalogos-alta|cuadro\/consultas|configuracion-analisis/u.test(ruta));
+  assert.deepEqual(lecturasRRHH, []);
+  coordinador.desmontarVistaActual();
+  const sinEnlace = raizFalsa();
+  assert.equal(await coordinador.montarVista("contratacion-temporal", sinEnlace,
+    { expedienteRef: "ref inválida", expedienteVersion: 6 }), true);
+  assert.doesNotMatch(sinEnlace.innerHTML, /value="/u);
+  coordinador.desmontarVistaActual();
+});
+
 test("la lista ligera nombra centros sin consultas por fila y reintenta la fuente fallida", async () => {
   const catalogo = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);

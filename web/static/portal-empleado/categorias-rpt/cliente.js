@@ -1,4 +1,4 @@
-import { crearClienteHTTPContratacionTemporal } from "../modulos/contratacion-temporal/cliente-http.js?v=20261016-ct-ofertas-ct231-v1";
+import { crearClienteHTTPContratacionTemporal } from "../modulos/contratacion-temporal/cliente-http.js?v=20261018-f173-alta-v5";
 import { crearPuertoCategorias } from "./puerto.js?v=20261001-rpt-categorias-v1";
 
 export const PLAZO_CONSULTA_MS = 10000;

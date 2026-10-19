@@ -202,6 +202,10 @@ entradas de menú, pero el menú real de Bolsa es el fijo del HTML y el de CT lo
 compone su propia vista. Los manifiestos sirven hoy para saber qué módulos
 existen y qué permisos declaran.
 
+Al entrar directamente en Fiscalización, la cabecera termina de contar las
+áreas sin esperar una lectura de Bolsa que esa entrada no ha iniciado (F1-79).
+Bolsa se comprueba al abrir Inicio o una de sus pantallas.
+
 ### 3.3 Área personal de la aspirante (`/area-personal/`)
 
 El catálogo `web/static/area-personal/vistas.json` decide qué pestañas se
@@ -309,7 +313,7 @@ conveniente».
 | 6 | Carmen | Ficha, Asignación | Asigna la unidad gestora | Recibo; `asignacion_unidad/en_curso`, v4 |
 | 7 | Carmen | Ficha, Informe jurídico | Prepara el informe | Recibo; `informe_juridico/en_curso`, v5 |
 | 7b | Carmen y después Jefatura (firmantes) | Ficha, Firma | Firman con sus certificados el informe de remisión a Intervención, en ese orden; la fiscalización exige ambas firmas verificadas | Un recibo por firma y el PDF con las dos firmas verificadas |
-| 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6 |
+| 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6. Con el resultado favorable explícito, la ficha orienta al llamamiento sin cambiar esa fase ni pedir otra fiscalización |
 | 9 | Carmen | Ficha, Llamamiento y comunicación | Abre el llamamiento desde la bolsa Administrativo y registra la comunicación | Recibo del llamamiento con Antonio como llamado; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas) |
 | 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo de dos días | Recibo de su respuesta |
 | 10a (si renuncia con causa justificada) | Antonio; después Carmen u otra técnica de RRHH con permiso vigente | Mi Bolsa; ficha del candidato en Bolsas | Antonio adjunta un PDF del justificante, confirma la renuncia y conserva el recibo. RRHH consulta y descarga el documento desde la ficha; también queda en el seguimiento | Documento custodiado tras antivirus; recibo de VEC y lectura de RRHH auditada. No cambia la rama de aceptación del paso 10 |
@@ -518,6 +522,21 @@ stateDiagram-v2
 RRHH puede además pasar una participación a **En revisión** cuando espera un
 justificante para regularizarla; la aspirante ve «RRHH confirmará tu
 situación».
+
+La candidata F1-71 permite, tras activar su permiso, confirmar una aceptación de
+llamamiento directo desde la ficha del aspirante: «Confirmar aceptación del
+llamamiento», motivo, revisión y confirmación. En la copia local se registraron
+desde el navegador la aceptación y su confirmación; tras perder la respuesta y
+reiniciar aplicación y PostgreSQL se recuperó el mismo recibo, fecha y motivo.
+Quedó una confirmación y se retiró la marca pendiente. Cambiar el motivo con la
+misma clave devolvió conflicto sin añadir efectos. El componente del recibo
+permite copiar su referencia en español e inglés, en móvil y con teclado.
+Faltan las comprobaciones finales de activación. El ensayo y sus
+límites están en la [guía de F1-71](../../deploy/principal/aceptacion_desde_ficha_f1_71_20261018.md).
+La integración sigue pendiente. La admisión y el rechazo de justificantes siguen
+pendientes. El [contrato](../plan_modulos/bolsa_respuestas_en_revision_contrato.md)
+conserva separadas la respuesta pendiente y la situación vigente; Regularizar y
+Excluir mantienen sus operaciones actuales.
 
 «Baja» no es un estado: corresponde a renuncia o exclusión. No existe la
 suspensión temporal (decisión de RRHH del 02/10). Desde `excluido` no se sale.
