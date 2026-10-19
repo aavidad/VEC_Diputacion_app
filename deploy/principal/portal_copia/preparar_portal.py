@@ -115,6 +115,29 @@ def write_or_match(p, value):
         write(p, data)
 
 
+ORGANIZACION_RRHH = 'organizacion:desarrollo:dipgra'
+
+
+def referencia_alta(prefijo, sujeto, certificado, discriminador):
+    # Misma derivación que referenciaAltaContratacionTemporalDesarrollo.
+    texto = 'vec.ct.alta.desarrollo.v1\0' + sujeto + '\0' + certificado + '\0' + discriminador
+    return prefijo + hashlib.sha256(texto.encode()).hexdigest()[:32]
+
+
+def perfil_lector_tecnico(sujeto, certificado):
+    # discriminadorPerfilFijoCTDesarrollo(clavePerfilFijoAltaCTDesarrollo).perfil
+    return referencia_alta('prf_', sujeto, certificado, 'perfil-fijo-alta-perfil')
+
+
+def manifiesto_lector_tecnico(sujeto, perfil):
+    # Formato de identidad/consultas-rrhh.json: la técnica de RRHH de la
+    # copia, de ámbito de organización, con el perfil fijo de Alta.
+    return {'version': 1, 'autoridad': 'no_autoritativo', 'entradas': [{
+        'certificate': 'mtls/cliente.crt', 'identity': 'identidad/identidad.json', 'subject': sujeto,
+        'perfil_ref': perfil, 'organizacion_ref': ORGANIZACION_RRHH,
+        'clase_ambito': 'organizacion', 'ambito_ref': ORGANIZACION_RRHH}]}
+
+
 def invoke(args, log, *, env=None, input_bytes=None, cwd=None):
     with log.open('ab') as output:
         result = subprocess.run([str(a) for a in args], input=input_bytes, stdout=output,
@@ -281,12 +304,15 @@ def main_locked(a, r):
                 or not re.fullmatch('[0-9a-f]{64}', certificado)
                 or bolsa.get('sujeto') != sujeto or bolsa.get('certificado_sha256') != certificado):
             fail('identidad_rrhh_primaria_invalida')
+        cert = subprocess.run(['openssl', 'x509', '-outform', 'DER'], input=private_file(material / 'mtls/cliente.crt'),
+                              capture_output=True, check=False, timeout=10)
+        if cert.returncode != 0 or hashlib.sha256(cert.stdout).hexdigest() != certificado:
+            fail('identidad_rrhh_primaria_invalida')
         # Contrato existente: referenciaAltaContratacionTemporalDesarrollo,
         # contratacion_temporal_alta_sellado_desarrollo.go. No crea una cuenta.
-        base = sujeto + '\0' + certificado
-        def referencia(prefix, discriminator):
-            return prefix + hashlib.sha256(('vec.ct.alta.desarrollo.v1\0' + base + '\0' + discriminator).encode()).hexdigest()[:32]
-        cuenta, perfil = referencia('cta_', 'cuenta'), referencia('prf_', 'perfil')
+        # La técnica figura como lectora con el perfil fijo de Alta
+        # (identidad_consultas_rrhh_desarrollo.go, lector_tecnico_rrhh.md).
+        cuenta, perfil = referencia_alta('cta_', sujeto, certificado, 'cuenta'), perfil_lector_tecnico(sujeto, certificado)
         keys = {
             'dsn_registro_identidad': 'VEC_CT_REGISTRO_IDENTIDAD_DATABASE_URL',
             'dsn_revalidacion_identidad': 'VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL',
@@ -340,6 +366,9 @@ def main_locked(a, r):
         write_or_match(sources / 'conexiones.json', conexiones)
         write_or_match(sources / 'motivos.json', motivos)
         write_or_match(material / 'motivos_autorizacion_v1.json', motivos)
+        # Sin este manifiesto el arranque con inscripción se detiene en
+        # inscripcion_rrhh_cuentas_lectores: la cuenta debe ser una lectora.
+        write_or_match(material / 'identidad/consultas-rrhh.json', manifiesto_lector_tecnico(sujeto, perfil))
         invoke([sys.executable, repo / 'scripts/operacion/inscripcion_bolsa/preparar_accesos_rrhh.py',
                 '--material-dir', material, '--identidad', sources / 'cuentas.json',
                 '--conexiones', sources / 'conexiones.json', '--motivos', sources / 'motivos.json'], log)
