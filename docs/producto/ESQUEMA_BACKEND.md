@@ -391,6 +391,20 @@ erDiagram
     INSCRIPCION_INCORPORACION }o--|| VINCULO_CANDIDATO : "crea participacion"
 ```
 
+**Ámbito de la bolsa (F1-60, B144).** Cada bolsa guarda en `ambito_bolsa` su
+ámbito organizativo (`ambito_ref`) y su unidad gestora (`unidad_ref`), en una
+fila inmutable por `bolsa_ref`. Al confirmar una carga de CONVOCA (B95) se
+escribe, en la misma transacción que la constitución, el par que autorizó la
+decisión V3. Una confirmación o una recuperación desde otro ámbito se deniega
+con 42501 antes de consumir la decisión. Las bolsas constituidas antes de B144
+solo reciben ámbito con `declarar_ambito_bolsa_v1`, que únicamente puede
+ejecutar el propietario. En la copia local se hace con la semilla del
+manifiesto `identidad/bolsa-bback.json`
+(`deploy/principal/copia_local_ambito_bolsas.py`), y una bolsa sin declarar se
+queda sin ámbito. Por ahora los actos de Bolsa siguen usando el ámbito fijo de
+la composición; cotejarlo con esta tabla es el segundo corte. Activación en
+`deploy/principal/ambito_bolsa_f1_60.md`.
+
 Candidata F1-04/05: `GET/POST /api/vec/bolsa/politica-transiciones` conecta la política global B32 con el portal de RRHH. CAT14 ofrece una lectura nominal por versión y huella del catálogo `bolsa.transiciones_situacion`; AD283 registra el consumidor propio; B122 añade el acto de gobierno y su salida pendiente, con versión esperada, motivo, recibo y auditoría. El POST exige decisión V3 fresca y conserva el recibo original en un reintento. El publicador ordinario antiguo pierde EXECUTE para el ejecutor. La instalación única está comprobada en la copia propia con las ACL completas; el recorrido conserva versión y recibo después de reiniciar aplicación y PostgreSQL. B126 sustituye los cuantificadores no admitidos por predicados equivalentes de longitud y conjunto de caracteres, sin cambiar permisos ni cánones. B127 expone `publicada_en` desde la fila guardada; un reintento conserva el instante original. La activación de la candidata y la preimagen de AD283 tras la cadena central siguen pendientes. Su lista causal está en `deploy/principal/lista_sql_codexs_reglas_situacion_20261015.txt`.
 
 Políticas versionadas que RRHH puede cambiar sin tocar código:

@@ -171,3 +171,5 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000292_fachada_derivacion
 # F1-19: requiere AD292 y AD291 de R instaladas antes de CT234; activación pendiente.
 deploy/postgresql/bolsa_llamamientos/migraciones/000135_verificar_plaza_adjudicada_ct.up.sql 8cc5609c395d8665ee68146c72aa4b37bf55b7618015ed26ab060d6d4a4632d4
 deploy/postgresql/contratacion_temporal/migraciones/000234_derivacion_nombramiento.up.sql 5743a1b363481f1af942a84c502b0a0d2166cf75096cbab70b22e278173fb1e0
+# F1-60 primer corte — B144, ámbito gobernado de la bolsa; solo depende de B7/B79/B95 (en el volcado).
+deploy/postgresql/bolsa_llamamientos/migraciones/000144_ambito_gobernado_bolsa.up.sql ccf846968c911f5d310500bf24f9d029a4f012fb6016e05501886ad3da4d01f4

@@ -35,22 +35,25 @@ Aunque D15 ya estaba en Git antes del corte HZ37, el esquema de esa copia
 conserva la función de D14. Esta instalación reconcilia solo la copia nueva de
 CI; no cambia la lista general de migraciones ni reaplica D15 en otras bases.
 `--pruebas` incluye esa preparación y ejecuta estas
-siete pruebas SQL existentes, en este orden:
+ocho pruebas SQL existentes, en este orden:
 
 1. `bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql`: valida criterios
    de ofrecimiento y el permiso del validador sin crear un llamamiento.
-2. `documentos/pruebas_sql/000014_referencia_expediente_tipado.sql`: comprueba
+2. `bolsa_llamamientos/pruebas_sql/b144_ambito_gobernado_bolsa.sql`: declara el
+   ámbito de una bolsa como propietario, rechaza otra unidad, la modificación y
+   al ejecutor, y deniega una confirmación de carga desde otro ámbito.
+3. `documentos/pruebas_sql/000014_referencia_expediente_tipado.sql`: comprueba
    formatos, catálogo y rechazo de una referencia de otro módulo.
-3. `documentos/pruebas_sql/000015_rechazo_expediente_ct_cero.sql`: rechaza la
+4. `documentos/pruebas_sql/000015_rechazo_expediente_ct_cero.sql`: rechaza la
    referencia de expediente CT con identificador cero.
-4. `autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql`: comprueba
+5. `autorizacion_atestada_v3/pruebas_sql/ad180_rechazo_sin_consumo.sql`: comprueba
    el rechazo temprano 42501 ante una entrada nula.
-5. `identidad_sesiones_v1/pruebas_sql/000021_seleccion_perfil_bolsa_rrhh.sql`:
+6. `identidad_sesiones_v1/pruebas_sql/000021_seleccion_perfil_bolsa_rrhh.sql`:
    comprueba propietario y permisos; rechaza la consulta de perfiles propios
    con una sesión inexistente.
-6. `contexto_actor_v1/pruebas_sql/000046_perfiles_propios_bolsa_rrhh.sql`:
+7. `contexto_actor_v1/pruebas_sql/000046_perfiles_propios_bolsa_rrhh.sql`:
    comprueba propietario y permisos; rechaza una cuenta sin acreditación.
-7. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
+8. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
    contexto externo por la función vigente, comprueba su huella y versión,
    acredita el candidato propio, rechaza el ajeno y los cruces de persona o
    perfil, y comprueba los permisos de ejecución; comprueba resolución,
@@ -101,7 +104,7 @@ preparación debe estar confirmado y coincidir con HEAD:
 python3 deploy/postgresql/fase1/ensayar.py --preparacion
 ```
 
-Con `--pruebas`, las siete comprobaciones se repiten después de reiniciar el
+Con `--pruebas`, las ocho comprobaciones se repiten después de reiniciar el
 mismo contenedor PostgreSQL, esperando su disponibilidad TCP. No se restaura
 el esquema, no se reinstalan migraciones ni se vuelve a preparar la semilla.
 Un fallo de reinicio o de cualquiera de las comprobaciones detiene la puerta.
@@ -132,7 +135,7 @@ enumerados sin cambiar la función que exige los privilegios mínimos.
 
 Después del reinicio se ensaya una carrera real de publicación de contexto
 externo. Solo en ese punto el fixture admite conservar sus datos mediante
-`-v ctx15_persistir_para_concurrencia=1`; las siete ejecuciones ordinarias
+`-v ctx15_persistir_para_concurrencia=1`; las ocho ejecuciones ordinarias
 siguen terminando en `ROLLBACK`. Los datos permanecen únicamente en el
 contenedor desechable, que se retira al terminar.
 

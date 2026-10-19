@@ -208,6 +208,8 @@ class Copia:
             with (self.raiz / 'material.log').open('wb') as log:
                 ejecutar([REPO / 'scripts/generar_credenciales_desarrollo.sh', self.material],
                           salida=log, entorno={**os.environ, 'VEC_DESARROLLO_VIGENCIA_DIAS': '90'})
+        from copia_local_ambito_bolsas import declarar as declarar_ambito_bolsas
+        declarar_ambito_bolsas(self)
         self.tls_pg()
         if args.modulos:
             from copia_local_conexiones import preparar
