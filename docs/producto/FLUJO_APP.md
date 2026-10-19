@@ -334,7 +334,7 @@ La vía del aspirante es Mi Bolsa interna (HZ37); la entrada externa propia solo
 si el ensayo la valida (corte 17:00 del 13/10).
 
 **Documentos.** Los que genera hoy el código desde la ficha, con el expediente en
-v7 o posterior (4.3.4), y el orden de firma del catálogo
+v7 o posterior (4.3.4; el informe definitivo, en v5 con el catálogo v4), y el orden de firma del catálogo
 `circuito_firma.v2.json` (4.3.6):
 
 | Documento | Firman |
@@ -963,6 +963,14 @@ contrato laboral, nombramiento, cese y modificación. **En cidonia** desde HZ16,
 con el logotipo. Descargar no firma ni envía. Las plantillas Word definitivas
 las tiene que dar RRHH (duda 124); hasta entonces se usan las del catálogo,
 cambiables sin tocar código.
+
+Con el catálogo v4 publicado (`plantillas_documentos.v4.json`, paso 2 de
+`scripts/operacion/firma_ct_tres_pasos/LEEME.md`), el informe definitivo es el
+informe previo a la fiscalización: se prepara y descarga en la versión 5, en
+cuanto el informe jurídico es la última actuación, y es el que se firma en el
+paso 7b. Cuando el expediente pasa a fiscalización la ficha lo sigue listando
+como «Todavía no disponible» y ya no se descarga. Con el catálogo v3 sigue
+saliendo en la versión 7.
 
 #### 4.3.5 Fiscalización con reparo
 
