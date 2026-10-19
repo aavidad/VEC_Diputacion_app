@@ -15,6 +15,9 @@ BEGIN
  IF l IS NULL OR c IS NULL
  OR NOT pg_catalog.has_function_privilege('vec_bolsa_llamamientos_ejecutor',l,'EXECUTE')
  OR pg_catalog.has_function_privilege('vec_bolsa_llamamientos_constituidor',c,'EXECUTE')
+ OR pg_catalog.has_function_privilege('vec_bolsa_llamamientos_constituidor',
+   'vec_bolsa_llamamientos.registrar_vinculos_candidato_v1(text,jsonb,timestamptz)','EXECUTE')
+ OR pg_catalog.has_schema_privilege('vec_bolsa_llamamientos_constituidor','vec_bolsa_llamamientos','USAGE')
  OR pg_catalog.has_function_privilege('vec_bolsa_llamamientos_ejecutor',c,'EXECUTE')
  OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL
      pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a

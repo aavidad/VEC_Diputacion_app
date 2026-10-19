@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -102,8 +103,16 @@ func nuevoConstructorOrdenOrigenCT(
 		vacia := ports.CapturaOrigenCT{}
 		if ctx == nil || ctx.Err() != nil || alta == nil || alta.soporte == nil || puente == nil ||
 			preparador == nil || preparador.soporte == nil || preparador.fuenteRespuestas == nil ||
-			bolsaRef == "" || d.unidad == "" || d.unidad != preparador.soporte.unidadRef ||
-			preparador.soporte.ambitoRef == "" {
+			bolsaRef == "" || d.unidad == "" {
+			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
+		}
+		// La unidad y el ámbito son los declarados para la bolsa (F1-60), no
+		// los de la composición.
+		resuelto, err := preparador.ambitoDeclaradoBolsa(ctx, bolsaRef)
+		if errors.Is(err, domain.ErrAutorizacionDenegada) {
+			return vacia, err
+		}
+		if err != nil || d.unidad != resuelto.UnidadRef {
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
 		}
 		captura, err := puente.capturaOperacionNativaDesdeHijo(ctx, d)
@@ -120,12 +129,12 @@ func nuevoConstructorOrdenOrigenCT(
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
 		}
 		permiso, err := capturarLecturaBolsa(ctx, preparador.fuenteRespuestas,
-			captura.bolsa.Vinculo, captura.bolsa.Resultado, preparador.soporte.unidadRef,
-			preparador.soporte.ambitoRef, bolsaRef, bolsaRef, contrato)
+			captura.bolsa.Vinculo, captura.bolsa.Resultado, resuelto.UnidadRef,
+			resuelto.AmbitoRef, bolsaRef, bolsaRef, contrato)
 		if err != nil {
 			return vacia, err
 		}
-		ordenConContexto, err := ordenOrigenCTConContextoComprobacion(permiso.Orden, d, preparador.soporte.ambitoRef)
+		ordenConContexto, err := ordenOrigenCTConContextoComprobacion(permiso.Orden, d, resuelto.AmbitoRef)
 		if err != nil {
 			return vacia, err
 		}

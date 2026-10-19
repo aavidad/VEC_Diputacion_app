@@ -186,12 +186,16 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaRespuestasPort
 		p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" || bolsaRef == "" || llamamientoRef == "" {
 		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
 	}
+	resuelto, err := p.ambitoDeclaradoBolsa(ctx, bolsaRef)
+	if err != nil {
+		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
+	}
 	contexto, err := p.contextoRevalidado(ctx)
 	if err != nil {
 		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles
 	}
 	captura, err := CapturarLecturaRespuestasLlamamiento(ctx, p.fuenteRespuestas,
-		contexto.Vinculo, contexto.Resultado, p.soporte.unidadRef, p.soporte.ambitoRef,
+		contexto.Vinculo, contexto.Resultado, resuelto.UnidadRef, resuelto.AmbitoRef,
 		bolsaRef, llamamientoRef)
 	if err != nil {
 		return puertosbolsa.ConsultaRespuestasPortalRRHH{}, puertosbolsa.ErrRespuestasPortalRRHHNoDisponibles

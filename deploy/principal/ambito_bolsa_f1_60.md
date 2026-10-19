@@ -70,9 +70,12 @@ al final de la lista y después de B144. Cambia cuatro cosas:
 
 - `leer_ambito_bolsa_v1(bolsa)`: devuelve el ámbito y la unidad de la bolsa, o
   ninguna fila si no tiene. Es la única lectura de `ambito_bolsa` concedida al
-  ejecutor web. El resolutor de contexto de Bolsa la usa en todos los actos
-  sobre una bolsa: cambio de situación, ficha y contactos, emisión del
-  llamamiento, ofertas y confirmación de la aceptación. Pone ese par en el
+  ejecutor web. El resolutor de contexto de Bolsa la usa en los actos sobre
+  una bolsa (cambio de situación, ficha y contactos, emisión del llamamiento,
+  ofertas y confirmación de la aceptación) y en las lecturas de un llamamiento
+  ya emitido (respuestas del portal, motivos de exclusión y el orden que lee
+  Contratación temporal). Las lecturas no exigen que la bolsa siga vigente,
+  porque consultan llamamientos anteriores, pero sí su ámbito. Pone ese par en el
   recurso que autoriza la decisión V3, y la decisión lo compara con la
   asignación real del actor. Una bolsa de otra unidad gestora se deniega aunque
   el actor tenga permiso en la suya. Una bolsa sin ámbito se deniega siempre,
@@ -83,8 +86,10 @@ al final de la lista y después de B144. Cambia cuatro cosas:
 - `confirmar_carga_convoca_v2` deniega con 42501 cualquier confirmación o
   recuperación de una bolsa que ya existe sin ámbito. Antes la recuperación de
   una carga anterior a B144 devolvía el recibo original.
-- `constituir_bolsa_v1` deja de estar concedida al rol constituidor de B80.
-  Se retira también la orden `vec-server constituir-bolsa` y su conexión
+- El rol constituidor de B80 pierde `constituir_bolsa_v1`,
+  `registrar_vinculos_candidato_v1` y el uso del esquema; queda sin miembros.
+  Su permiso de conexión a la base solo lo puede quitar el administrador y no
+  da acceso a nada. Se retira también la orden `vec-server constituir-bolsa` y su conexión
   `VEC_BOLSA_CONSTITUCION_DATABASE_URL`. Una bolsa nueva solo se constituye
   con la carga gobernada de CONVOCA, que guarda su ámbito.
 
@@ -109,17 +114,21 @@ el ámbito y después se repite la confirmación.
 
 Era una segunda vía para el mismo acto, sin decisión V3, sin la custodia del
 acta y sin ámbito. Exigirle ámbito obligaba a repetir en esa orden la
-autorización que ya hace la carga gobernada. Nada la usaba ya. El rol
-constituidor conserva `registrar_vinculos_candidato_v1`, que necesita
-`rellenar-vinculos-bolsa`.
+autorización que ya hace la carga gobernada. Nada la usaba ya.
+`rellenar-vinculos-bolsa` no necesita al rol constituidor: entra con la
+conexión de administración y llama a `rellenar_vinculos_candidato_v1` como
+propietario.
 
 ### Comprobación del segundo corte
 
 - `deploy/postgresql/bolsa_llamamientos/pruebas_sql/b145_ambito_actos_bolsa.sql`
   (con ROLLBACK), también en `ensayar.py --pruebas`.
-- Prueba Go de aceptación:
+- Pruebas Go de aceptación:
   `TestFichaOperacionesBolsaDeOtraUnidadGestoraSeDeniega`
-  (`internal/app/bootstrap/bolsa_capacidades_ficha_operaciones_test.go`).
+  (`internal/app/bootstrap/bolsa_capacidades_ficha_operaciones_test.go`,
+  otra unidad y otro ámbito), y `TestLecturasDeLlamamientoUsanElAmbitoDeLaBolsa`
+  y `TestOrigenCTUsaElAmbitoDeLaBolsa`
+  (`internal/app/bootstrap/bolsa_lecturas_ambito_f160_test.go`).
 - En la copia: una carga nueva de CONVOCA deja la fila con origen
   `constitucion`, y un acto sobre una bolsa declarada en otra unidad se
   deniega aunque el actor tenga permiso en la suya.

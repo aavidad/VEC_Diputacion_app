@@ -4,13 +4,19 @@ Las bolsas constituidas antes de B144 no guardan su ámbito. En la copia, el
 manifiesto privado `identidad/bolsa-bback.json` declara qué bolsas gestiona el
 perfil de RRHH de Bolsa y con qué ámbito y unidad gestora las opera. Esta
 semilla copia esa declaración a `ambito_bolsa` con la función del propietario,
-solo para las bolsas que existan en la base. Una bolsa que no figure en el
-manifiesto queda sin ámbito.
+solo para las bolsas que existan en la base.
 
-La copia usa datos inventados y un solo perfil de RRHH de Bolsa: el generador
-del material pone en `bolsas_ref` todas las bolsas vigentes, así que todas
-reciben el mismo ámbito. Con varias unidades gestoras, cada declaración sale de
-Administración, no de este manifiesto.
+También declara las bolsas que constituyó la carga gobernada de CONVOCA antes
+de B144 (las que tienen recibo en `recibo_carga_convoca`). En la composición de
+desarrollo esa carga se autorizó con el ámbito y la unidad del mismo perfil del
+manifiesto, y el manifiesto del material puede ser anterior a esas cargas. Sin
+esta parte, las bolsas vigentes cargadas así quedarían sin ámbito y desde B145
+todos sus actos se denegarían. Cualquier otra bolsa queda sin ámbito.
+
+La copia usa datos inventados y un solo perfil de RRHH de Bolsa, así que todas
+las bolsas declaradas reciben el mismo ámbito. Con varias unidades gestoras,
+cada declaración sale de Administración, no de este manifiesto. No llevar esta
+semilla a un servidor real.
 """
 import json
 import re
@@ -36,7 +42,8 @@ BEGIN;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SELECT pg_catalog.count(*) AS bolsas_declaradas FROM (
  SELECT vec_bolsa_llamamientos.declarar_ambito_bolsa_v1(r.bolsa_ref,'{ambito}','{unidad}','{DECLARACION}')
- FROM pg_catalog.unnest(ARRAY[{lista}]::text[]) AS r(bolsa_ref)
+ FROM (SELECT m.bolsa_ref FROM pg_catalog.unnest(ARRAY[{lista}]::text[]) AS m(bolsa_ref)
+       UNION SELECT c.bolsa_ref FROM vec_bolsa_llamamientos.recibo_carga_convoca c) AS r(bolsa_ref)
  WHERE EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.bolsa_constituida b WHERE b.bolsa_ref=r.bolsa_ref)
 ) AS declaradas;
 COMMIT;

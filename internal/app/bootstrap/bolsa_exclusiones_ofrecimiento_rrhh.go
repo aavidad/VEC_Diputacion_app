@@ -56,12 +56,16 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaExclusionesOfr
 		llamamientoRef == "" || desdeOrdenActa < 0 {
 		return vacia, puertosbolsa.ErrExclusionesOfrecimientoRRHHNoDisponibles
 	}
+	resuelto, err := p.ambitoDeclaradoBolsa(ctx, bolsaRef)
+	if err != nil {
+		return vacia, err
+	}
 	contexto, err := p.contextoRevalidado(ctx)
 	if err != nil {
 		return vacia, err
 	}
 	captura, err := CapturarLecturaExclusionesOfrecimientoRRHH(ctx, p.fuenteRespuestas,
-		contexto.Vinculo, contexto.Resultado, p.soporte.unidadRef, p.soporte.ambitoRef,
+		contexto.Vinculo, contexto.Resultado, resuelto.UnidadRef, resuelto.AmbitoRef,
 		bolsaRef, llamamientoRef)
 	if err != nil {
 		return vacia, err

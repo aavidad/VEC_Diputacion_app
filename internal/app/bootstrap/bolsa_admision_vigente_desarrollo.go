@@ -37,17 +37,24 @@ func (p *preparadorBorradorLlamamientoDesarrollo) admitirBolsa(ctx context.Conte
 }
 
 // contextoBolsaAdmitida resuelve la unidad gestora y el ámbito de una bolsa
-// admitida (F1-60). Salen de la tabla gobernada de Bolsa (B144), no del
-// manifiesto ni de la composición: la decisión V3 los contrasta después con la
-// asignación real del actor, de modo que una bolsa de otra unidad se deniega
-// aunque el actor tenga permiso en la suya. Una bolsa sin ámbito declarado se
-// deniega siempre, también si figura en el manifiesto.
+// admitida (F1-60) para los actos que la modifican o la ponen en marcha.
 func (p *preparadorBorradorLlamamientoDesarrollo) contextoBolsaAdmitida(ctx context.Context, bolsaRef string) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
-	var vacio puertosbolsa.ContextoSituacionParticipacionResuelto
 	if err := p.admitirBolsa(ctx, bolsaRef); err != nil {
-		return vacio, err
+		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, err
 	}
-	if p.vigentes == nil || ctx == nil {
+	return p.ambitoDeclaradoBolsa(ctx, bolsaRef)
+}
+
+// ambitoDeclaradoBolsa lee la unidad gestora y el ámbito de la bolsa en la
+// tabla gobernada de Bolsa (B144), no en el manifiesto ni en la composición.
+// La decisión V3 los contrasta después con la asignación real del actor, de
+// modo que una bolsa de otra unidad se deniega aunque el actor tenga permiso
+// en la suya. Una bolsa sin ámbito declarado se deniega siempre, también si
+// figura en el manifiesto. Las lecturas lo usan sin exigir que la bolsa siga
+// vigente, porque consultan llamamientos y órdenes ya emitidos.
+func (p *preparadorBorradorLlamamientoDesarrollo) ambitoDeclaradoBolsa(ctx context.Context, bolsaRef string) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
+	var vacio puertosbolsa.ContextoSituacionParticipacionResuelto
+	if p == nil || p.vigentes == nil || ctx == nil || bolsaRef == "" {
 		return vacio, dominiovec.ErrAutorizacionDenegada
 	}
 	ambito, err := p.vigentes.AmbitoBolsa(ctx, bolsaRef)

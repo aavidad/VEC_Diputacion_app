@@ -9,10 +9,12 @@
 --   recurso autorizado con el de la bolsa y deniega con 42501 antes de consumir.
 -- * confirmar_carga_convoca_v2 (B144) deniega también la recuperación de una
 --   carga cuya bolsa existe sin ámbito declarado (antes devolvía el recibo).
--- * constituir_bolsa_v1 deja de estar concedida al rol constituidor (B80): la
---   constitución por línea de órdenes, que no pasaba por la decisión V3 ni
---   guardaba ámbito, se retira. La carga gobernada (B95/B144) la sigue usando
---   como propietario.
+-- * El rol constituidor (B80) pierde constituir_bolsa_v1,
+--   registrar_vinculos_candidato_v1 y el uso del esquema: la constitución por
+--   línea de órdenes, que no pasaba por la decisión V3 ni guardaba ámbito, se
+--   retira y nada más los usaba. La carga gobernada (B95/B144) sigue
+--   constituyendo como propietario. El rol queda sin miembros ni permisos en el
+--   esquema; su CONNECT a la base solo lo puede retirar el administrador.
 -- Definiciones finales explícitas, con huellas fijas de lo instalado y de lo
 -- nuevo; firma, propietario, configuración y permisos se conservan.
 BEGIN;
@@ -27,6 +29,7 @@ DO $pre$
 DECLARE f128 oid:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.confirmar_aceptacion_directa_v1(text,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
         f95 oid:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.confirmar_carga_convoca_v2(jsonb,jsonb,jsonb,text,text,text,text,bigint,bytea,timestamptz,text,bigint,bytea,timestamptz,timestamptz,jsonb,timestamptz,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
         f7 oid:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.constituir_bolsa_v1(text,text,text,text,bigint,bytea,timestamptz,text,bigint,bytea,timestamptz,timestamptz,jsonb,timestamptz)');
+        fv oid:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.registrar_vinculos_candidato_v1(text,jsonb,timestamptz)');
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'
  OR pg_catalog.current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
@@ -55,6 +58,13 @@ BEGIN
       ORDER BY a.grantee::pg_catalog.regrole::text||':'||a.privilege_type)
      FROM pg_catalog.pg_proc p CROSS JOIN LATERAL
      pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a WHERE p.oid=f7) IS DISTINCT FROM ARRAY['vec_bolsa_llamamientos_constituidor:EXECUTE','vec_bolsa_llamamientos_propietario:EXECUTE']
+ OR fv IS NULL
+ OR (SELECT pg_catalog.array_agg(a.grantee::pg_catalog.regrole::text||':'||a.privilege_type
+      ORDER BY a.grantee::pg_catalog.regrole::text||':'||a.privilege_type)
+     FROM pg_catalog.pg_proc p CROSS JOIN LATERAL
+     pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a WHERE p.oid=fv) IS DISTINCT FROM ARRAY['vec_bolsa_llamamientos_constituidor:EXECUTE','vec_bolsa_llamamientos_propietario:EXECUTE']
+ OR NOT pg_catalog.has_schema_privilege('vec_bolsa_llamamientos_constituidor','vec_bolsa_llamamientos','USAGE')
+ OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.roleid='vec_bolsa_llamamientos_constituidor'::pg_catalog.regrole)
  THEN RAISE EXCEPTION 'B145: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -442,11 +452,14 @@ END $function$;
 
 -- Se retira la constitución por línea de órdenes (B80).
 REVOKE EXECUTE ON FUNCTION vec_bolsa_llamamientos.constituir_bolsa_v1(text,text,text,text,bigint,bytea,timestamptz,text,bigint,bytea,timestamptz,timestamptz,jsonb,timestamptz) FROM vec_bolsa_llamamientos_constituidor;
+REVOKE EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_vinculos_candidato_v1(text,jsonb,timestamptz) FROM vec_bolsa_llamamientos_constituidor;
+REVOKE USAGE ON SCHEMA vec_bolsa_llamamientos FROM vec_bolsa_llamamientos_constituidor;
 
 DO $post$
 DECLARE f128 oid:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.confirmar_aceptacion_directa_v1(text,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
         f95 oid:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.confirmar_carga_convoca_v2(jsonb,jsonb,jsonb,text,text,text,text,bigint,bytea,timestamptz,text,bigint,bytea,timestamptz,timestamptz,jsonb,timestamptz,jsonb,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
         f7 oid:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.constituir_bolsa_v1(text,text,text,text,bigint,bytea,timestamptz,text,bigint,bytea,timestamptz,timestamptz,jsonb,timestamptz)');
+        fv oid:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.registrar_vinculos_candidato_v1(text,jsonb,timestamptz)');
         fl oid:=pg_catalog.to_regprocedure('vec_bolsa_llamamientos.leer_ambito_bolsa_v1(text)');
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=f128
@@ -478,6 +491,12 @@ BEGIN
       ORDER BY a.grantee::pg_catalog.regrole::text||':'||a.privilege_type)
      FROM pg_catalog.pg_proc p CROSS JOIN LATERAL
      pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a WHERE p.oid=fl) IS DISTINCT FROM ARRAY['vec_bolsa_llamamientos_ejecutor:EXECUTE','vec_bolsa_llamamientos_propietario:EXECUTE']
+ OR (SELECT pg_catalog.array_agg(a.grantee::pg_catalog.regrole::text||':'||a.privilege_type
+      ORDER BY a.grantee::pg_catalog.regrole::text||':'||a.privilege_type)
+     FROM pg_catalog.pg_proc p CROSS JOIN LATERAL
+     pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a WHERE p.oid=fv) IS DISTINCT FROM ARRAY['vec_bolsa_llamamientos_propietario:EXECUTE']
+ OR pg_catalog.has_schema_privilege('vec_bolsa_llamamientos_constituidor','vec_bolsa_llamamientos','USAGE')
+ OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.roleid='vec_bolsa_llamamientos_constituidor'::pg_catalog.regrole)
  THEN RAISE EXCEPTION 'B145: posimagen divergente' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;

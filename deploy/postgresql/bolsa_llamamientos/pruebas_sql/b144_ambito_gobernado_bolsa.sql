@@ -130,7 +130,7 @@ DECLARE actor text:='per_f160'; caso record; h text; acta text; a jsonb; b bytea
 BEGIN
  FOR caso IN SELECT * FROM (VALUES
    ('bolsa:f160','categoria:f160','unidad:desarrollo:otra','B144: bolsa de otro ámbito%'),
-   ('bolsa:f160:sin','categoria:f160b','unidad:desarrollo:rrhh','B14_: bolsa %ámbito%'),
+   ('bolsa:f160:sin','categoria:f160b','unidad:desarrollo:rrhh','B145: bolsa sin ámbito declarado%'),
    ('bolsa:f160:nueva','categoria:f160c','unidad:desarrollo:rrhh','B144: bolsa de otro ámbito%'),
    ('bolsa:f160:d-nueva','categoria:f160d','unidad:desarrollo:rrhh','B144: bolsa de otro ámbito%'),
    ('bolsa:f160:e-nueva','categoria:f160e','unidad:desarrollo:rrhh','AD218:%'),

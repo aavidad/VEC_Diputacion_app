@@ -214,6 +214,8 @@ func TestFichaOperacionesBolsaDeOtraUnidadGestoraSeDeniega(t *testing.T) {
 	bolsas := &bolsasVigentesFalsas{vigentes: map[string]bool{}}
 	bolsas.declarar(propia, bolsapuertos.AmbitoBolsa{AmbitoRef: soporte.ambitoRef, UnidadRef: soporte.unidadRef})
 	bolsas.constituirEn(ajena, bolsapuertos.AmbitoBolsa{AmbitoRef: soporte.ambitoRef, UnidadRef: "unidad:desarrollo:otra-gestora"})
+	const otroAmbito = "bolsa:otro-ambito:desarrollo"
+	bolsas.constituirEn(otroAmbito, bolsapuertos.AmbitoBolsa{AmbitoRef: "ambito:desarrollo:otro", UnidadRef: soporte.unidadRef})
 	preparador := &preparadorBorradorLlamamientoDesarrollo{soporte: soporte, vigentes: bolsas}
 	datos, err := soporte.soporteCanal.contexto.Vinculo.Datos()
 	if err != nil {
@@ -243,9 +245,11 @@ func TestFichaOperacionesBolsaDeOtraUnidadGestoraSeDeniega(t *testing.T) {
 	if err != nil || resultado.SolicitudesDocumentales.Estado != "disponible" {
 		t.Fatalf("bolsa de la propia unidad: %+v err=%v", resultado, err)
 	}
-	q.BolsaRef = ajena
-	resultado, err = p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q)
-	if err != nil || resultado.SolicitudesDocumentales.Estado != "no_autorizado" {
-		t.Fatalf("bolsa de otra unidad gestora no denegada: %+v err=%v", resultado, err)
+	for _, bolsa := range []string{ajena, otroAmbito} {
+		q.BolsaRef = bolsa
+		resultado, err = p.ProyectarDisponibilidadFichaOperaciones(context.Background(), q)
+		if err != nil || resultado.SolicitudesDocumentales.Estado != "no_autorizado" {
+			t.Fatalf("bolsa %s de otra unidad o ámbito no denegada: %+v err=%v", bolsa, resultado, err)
+		}
 	}
 }
