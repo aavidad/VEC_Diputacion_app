@@ -12,7 +12,7 @@ export function montarRevisionNoIncorporacion({ documento, localizacion, ventana
   if (!panel || !estado || !numero || typeof cliente?.consultarSeguimientoCese !== "function") throw new TypeError("revisión no disponible");
   const t = crearTraductorSeguimientoCese(mensajes);
   for (const nodo of documento.querySelectorAll("[data-revision-texto]")) nodo.textContent = t(nodo.dataset.revisionTexto);
-  for (const nodo of documento.querySelectorAll("[data-revision-alt]")) nodo.alt = t(nodo.dataset.revisionAlt);
+  for (const nodo of documento.querySelectorAll("[data-revision-texto-alternativo]")) nodo.alt = t(nodo.dataset.revisionTextoAlternativo);
   if (documento.documentElement) documento.documentElement.lang = IDIOMA_ACTUAL;
   documento.title = t("revision_titulo");
   let expedienteRef;

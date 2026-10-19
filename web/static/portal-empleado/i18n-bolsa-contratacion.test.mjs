@@ -28,7 +28,7 @@ async function ficherosAuditados() {
   return lista.filter((ruta) => !EXCLUIDOS.test(ruta)).sort();
 }
 
-const PAGINAS = ["index.html", "peticiones-centro/index.html", "reglas/index.html", "modulos/contratacion-temporal/consulta-seguimiento.html"];
+const PAGINAS = ["index.html", "peticiones-centro/index.html", "reglas/index.html", "modulos/contratacion-temporal/consulta-seguimiento.html", "modulos/contratacion-temporal/revision-no-incorporacion.html"];
 
 test("Contratación temporal conserva claves y marcadores en inglés", async () => {
   const es = await cargarMensajesContratacionTemporalEnIdioma("es");
