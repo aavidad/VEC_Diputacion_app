@@ -155,4 +155,4 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000296_proyecciones_prefe
 # F0-18 — AD291; depende de AD288, AD294, AD293, AD295 y AD296.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000291_comprobacion_derivacion_rrhh.up.sql 10d9778c7b3154d84679d1483413ae686b1279682932b172357f9ba0264d439c
 # F1-57 — B141: referencia legible del documento en custodia y lectura de contratos con huella; tras B133 y B137, independiente de B140.
-deploy/postgresql/bolsa_llamamientos/migraciones/000141_documento_custodia_comprobacion.up.sql 4c5a009f6e010737076e369d637416e3b45a656f417f2e4aa8c90fea6a515c8f
+deploy/postgresql/bolsa_llamamientos/migraciones/000141_documento_custodia_comprobacion.up.sql f33e954d42eaecb1f1c732c8426bd655ee40937c4f4c046887df3240631a00a5

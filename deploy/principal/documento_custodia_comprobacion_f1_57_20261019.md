@@ -25,11 +25,19 @@ operaciones de situación, el cese y la no incorporación.
    No depende de B140 ni la toca: solo reemplaza
    `calcular_comprobacion_ofrecimiento_v1`, con cotejo de su cuerpo instalado
    (`27b65b67…8ab2c9`) y de su ACL, y crea la lectura v2.
-   Postimagen del cálculo: `2f2ac96f3088314ad11971f801f165b637786d52ccfb11d1ef189b6018db890b`.
+   Postimágenes fijadas en la propia migración: cálculo `2f2ac96f…db890b`,
+   lectura v2 `f79f26d7…27f579f`.
 2. Instalar el binario. Sin B141, la lectura de contratos de la ficha responde
    503 y la comprobación sigue rechazando referencias legibles.
 3. Prueba focal: `deploy/postgresql/bolsa_llamamientos/pruebas_sql/b141_documento_custodia.sql`
    (solo ROLLBACK) y `b133_calculo_y_denegacion.sql`.
+
+Límites conocidos (revisión SQL): la guarda de B77 no detecta un DNI sin
+letra, un teléfono ni un nombre; la pantalla pide un número de registro o de
+expediente, nunca datos de la persona. El evento de contrato citado se valida
+por su forma; comprobar que pertenece a la misma participación corresponde a
+la escritura (`registrar_comprobacion_ofrecimiento_v1`, hoy en B140). La
+lectura v1 de contratos sigue concedida; su retirada queda para otro corte.
 
 Los actos ya registrados con `ref:<sha256>` no cambian. La huella no acredita
 custodia ni firma del documento: solo permite comprobar después que es el mismo.
