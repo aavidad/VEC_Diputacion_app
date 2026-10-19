@@ -331,7 +331,7 @@ func TestJustificanteRRHHResuelveDosTecnicasYDeniegaSinPermiso(t *testing.T) {
 	}
 	lector := &soporteAltaContratacionTemporalDesarrollo{sello: base.sello,
 		principalID: principalLector.ID, certificadoSHA256: principalLector.Attributes["certificate_sha256"],
-		lectorConsultasRRHH: true, tecnicoConsultaRRHH: true, contexto: contextoLector,
+		lectorConsultasRRHH: true, contexto: contextoLector,
 		contextoEsperadoRegistrado: contextoLector.Resultado, reloj: relojContratacionTemporalDesarrollo{},
 		sesionOperativa: proveedorSesionOperativaCTPrueba{contexto: contextoLector}}
 	perfiles := []string{base.contexto.Resultado.Contexto.PerfilActivoRef,

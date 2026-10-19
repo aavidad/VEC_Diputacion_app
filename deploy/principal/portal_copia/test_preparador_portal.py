@@ -171,5 +171,26 @@ class PortalFabricaTest(unittest.TestCase):
         self.assertIn("'perfil_ref': perfil", etapa)
 
 
+    def test_certificado_rrhh_coincide_o_falla_cerrado(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            def certificado(nombre):
+                clave, pem = Path(temporal) / (nombre + '.key'), Path(temporal) / (nombre + '.crt')
+                subprocess.run(['openssl', 'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256',
+                                '-nodes', '-keyout', str(clave), '-out', str(pem), '-days', '1',
+                                '-subj', '/CN=' + nombre], check=True, capture_output=True, timeout=30)
+                der = subprocess.run(['openssl', 'x509', '-in', str(pem), '-outform', 'DER'],
+                                     check=True, capture_output=True, timeout=10).stdout
+                return pem.read_bytes(), hashlib.sha256(der).hexdigest()
+            propio, huella = certificado('tecnica')
+            ajeno, huella_ajena = certificado('ajena')
+            self.assertNotEqual(huella, huella_ajena)
+            portal.comprobar_certificado_rrhh(propio, huella)
+            for pem, declarada in ((ajeno, huella), (propio, huella_ajena), (b'no es un certificado', huella), (b'', huella)):
+                with self.assertRaisesRegex(RuntimeError, '^identidad_rrhh_primaria_invalida$'):
+                    portal.comprobar_certificado_rrhh(pem, declarada)
+        fuente = FUENTE.read_text()
+        etapa = fuente[fuente.index('    def rrhh_stage():'):fuente.index('    if a.solo_accesos_rrhh:')]
+        self.assertIn("comprobar_certificado_rrhh(private_file(material / 'mtls/cliente.crt'), certificado)", etapa)
+
 if __name__ == '__main__':
     unittest.main()
