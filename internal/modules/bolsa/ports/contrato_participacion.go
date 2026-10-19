@@ -29,6 +29,9 @@ type ContratoParticipacion struct {
 	ExpedienteRef  string
 	LlamamientoRef string
 	OcurridoEn     time.Time
+	// HuellaSHA256 es la del evento conservado por Bolsa: permite citarlo
+	// como evidencia de una comprobación sin volver a leer Contratación.
+	HuellaSHA256 string
 }
 
 // CursorContratosParticipacion es el último origen CT recibido por el inbox,

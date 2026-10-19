@@ -35,7 +35,7 @@ Aunque D15 ya estaba en Git antes del corte HZ37, el esquema de esa copia
 conserva la función de D14. Esta instalación reconcilia solo la copia nueva de
 CI; no cambia la lista general de migraciones ni reaplica D15 en otras bases.
 `--pruebas` incluye esa preparación y ejecuta estas
-ocho pruebas SQL existentes, en este orden:
+diez pruebas SQL existentes, en este orden:
 
 1. `bolsa_llamamientos/pruebas_sql/b118_criterios_sin_salto.sql`: valida criterios
    de ofrecimiento y el permiso del validador sin crear un llamamiento.
@@ -53,7 +53,11 @@ ocho pruebas SQL existentes, en este orden:
    con una sesión inexistente.
 7. `contexto_actor_v1/pruebas_sql/000046_perfiles_propios_bolsa_rrhh.sql`:
    comprueba propietario y permisos; rechaza una cuenta sin acreditación.
-8. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
+8. `bolsa_convocatorias/pruebas_sql/bc12_rechazo_inscripcion_conjunta_v1.sql`:
+   B96 rechaza una inscripción conjunta antes de guardar una individual.
+9. `bolsa_llamamientos/pruebas_sql/b142_modalidad_inscripcion_aspirante.sql`: la
+   lista y la ficha del aspirante copian la modalidad sellada.
+10. `contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql`: publica
    contexto externo por la función vigente, comprueba su huella y versión,
    acredita el candidato propio, rechaza el ajeno y los cruces de persona o
    perfil, y comprueba los permisos de ejecución; comprueba resolución,
@@ -104,7 +108,7 @@ preparación debe estar confirmado y coincidir con HEAD:
 python3 deploy/postgresql/fase1/ensayar.py --preparacion
 ```
 
-Con `--pruebas`, las ocho comprobaciones se repiten después de reiniciar el
+Con `--pruebas`, las diez comprobaciones se repiten después de reiniciar el
 mismo contenedor PostgreSQL, esperando su disponibilidad TCP. No se restaura
 el esquema, no se reinstalan migraciones ni se vuelve a preparar la semilla.
 Un fallo de reinicio o de cualquiera de las comprobaciones detiene la puerta.
@@ -135,7 +139,7 @@ enumerados sin cambiar la función que exige los privilegios mínimos.
 
 Después del reinicio se ensaya una carrera real de publicación de contexto
 externo. Solo en ese punto el fixture admite conservar sus datos mediante
-`-v ctx15_persistir_para_concurrencia=1`; las ocho ejecuciones ordinarias
+`-v ctx15_persistir_para_concurrencia=1`; las diez ejecuciones ordinarias
 siguen terminando en `ROLLBACK`. Los datos permanecen únicamente en el
 contenedor desechable, que se retira al terminar.
 

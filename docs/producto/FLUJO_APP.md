@@ -287,6 +287,12 @@ motivos del seguimiento. Los cambios son datos de la copia; los actos y la
 fiscalización de la variante se registran de nuevo con sus propios recibos.
 La fiscalización de una modalidad anterior conserva su contexto original.
 Esta variante sigue pendiente de completar el recorrido y el reinicio.
+Desde ese aviso, «Comprobar en su ficha» abre la bolsa con la ficha de esa
+persona y el bloque «Comprobar los datos para ofrecer el puesto» (F1-57): los
+datos del contrato registrado vienen rellenos, la posición sale del acta y RRHH
+indica para cada dato el documento que lo acredita (el contrato o un documento
+que custodia, con su número de registro y la huella que calcula el navegador).
+Revisa, registra y ve el recibo; después repite la selección en el expediente.
 
 **Pasos.** El recorrido principal empieza en la petición del centro (paso 1) y
 llega hasta el cese y la vuelta a la bolsa; es el que decide si la candidata
@@ -439,6 +445,22 @@ acta.
 | `rechazada` | Rechazada | RRHH, con motivo |
 
 Fuente: `internal/modules/bolsa/application/inscripcion/contrato.go`.
+
+#### Modalidad de inscripción por convocatoria
+
+Corte F1-40: la modalidad entra en la versión certificada de la convocatoria
+cargada como dato de la copia desde su fuente JSON. La lista y la ficha de la
+aspirante muestran la modalidad sellada. Las versiones anteriores sin ese campo
+se interpretan como separadas sin reescribir sus bytes ni huellas. La elección
+y el guardado desde Preparación de bases quedan aplazados hasta adaptar esa
+función al núcleo vigente, después de AD288; este corte no acredita aprobación
+ni publicación de bases.
+
+La ficha conjunta no ofrece formulario ni envío individual. El servidor también
+cierra esa presentación con `409 inscripcion_conjunta_pendiente` antes de insertar
+la solicitud. El soporte conjunto corresponde a F1-41. F1-40 sigue abierta:
+`ConfirmarPublicacion` aún no tiene adaptador productivo. La convocatoria de
+ensayo es un dato de la copia, no un caso de aceptación alternativo al apartado 4.0.
 
 #### Constitución de la bolsa
 
@@ -688,7 +710,7 @@ Datos mínimos de cada momento:
 
 | Momento | Datos |
 | --- | --- |
-| Solicitud | Número visible (el de MOAD) y referencia opaca; centro y contacto por referencia; categoría y grupo; motivo y detalle; fechas previstas; retención de crédito declarada, con número, fecha, importe y documento si se aportan; puesto de la RPT; documentos y observaciones |
+| Solicitud | Número visible (el de MOAD) y referencia opaca; centro y contacto por referencia; categoría y grupo; motivo y detalle; fechas previstas; retención de crédito declarada por el centro con su número de operación en SICAL, su fecha y su importe, que RRHH o Intervención comprueban en SICAL (regla provisional de la duda 125: el centro no aporta el documento RC y el dato no cuenta como crédito acreditado); puesto de la RPT; documentos y observaciones |
 | Análisis | Modalidad; categoría y grupo validados; causa; fechas y jornada; validación de la retención con fuente y recibo; coste previsto cuando hay tabla de retribuciones; actor, unidad, instante y recibo |
 | Vía de cobertura | Comprobaciones con resultado, fuente e instante; bolsa vigente, agotamiento, candidaturas disponibles, SAE y nueva convocatoria; vía elegida y motivo |
 | Asignación | Unidad gestora, responsable, fecha de entrada en bandeja, recibo y aviso |

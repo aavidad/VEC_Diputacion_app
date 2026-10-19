@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -195,5 +196,23 @@ func TestVectorContextoComprobacionV3(t *testing.T) {
 	r.Ambitos["unidad_ref"] = "unidad:otra"
 	if otra, _ := r.HuellaContextoAutorizacionSHA256(); otra == esperado {
 		t.Fatal("cambio de contexto conserva la huella")
+	}
+}
+
+// B141: la evidencia admite la referencia legible del documento en custodia
+// o el evento de contrato de Bolsa; rechaza datos de identidad.
+func TestComprobacionDocumentoRefLegible(t *testing.T) {
+	huella := strings.Repeat("a", 64)
+	evento := "evento:ct:contrato-bolsa:12345678a" + strings.Repeat("b", 55)
+	for ref, valida := range map[string]bool{
+		"registro/2026/0042": true, "ref:" + strings.Repeat("c", 64): true, evento: true,
+		"dni:prueba": false, "documento:12345678Z": false, "ab": false, "con espacio": false,
+		"otro:contrato-bolsa:12345678a" + strings.Repeat("b", 55): false,
+	} {
+		q := solicitudComprobacionPrueba(t)
+		q.Hechos = map[string]ports.HechoComprobacion{"es_vacante": {Valor: []byte("true"), DocumentoRef: ref, Huella: huella}}
+		if err := validarSolicitudComprobacion(q); (err == nil) != valida {
+			t.Errorf("%q: valida=%v, error=%v", ref, valida, err)
+		}
 	}
 }

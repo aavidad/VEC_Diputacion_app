@@ -455,6 +455,11 @@ existente. Un COMMIT sin respuesta se reconcilia con la misma intención;
 si no se puede confirmar, el resultado se comunica como indeterminado.
 La proyección mínima en las listas existentes y la pantalla F1-57 siguen
 pendientes. Guion: `deploy/principal/comprobacion_ofrecimiento_api_f1_09_20261018.md`.
+B141 (F1-57) admite como `documento_ref` la referencia legible del documento
+que RRHH custodia, con la guarda de B77, o el evento de contrato de Bolsa; la
+huella la calcula el navegador sin enviar el archivo. Añade
+`listar_contratos_participacion_v2`, igual que la v1 con `huella_sha256`, para
+que la ficha cite el contrato. Guion: `deploy/principal/documento_custodia_comprobacion_f1_57_20261019.md`.
 
 Ojo: las tablas de propuesta de las migraciones Bolsa `000001` y `000002`
 (`necesidad_autoritativa`, `propuesta`…) **no están instaladas en la principal**; comprobar su existencia
@@ -466,6 +471,27 @@ La candidata B129 añade cabecera de aviso de oferta, instantánea de destinatar
 
 Puertos Go: `internal/modules/bolsa/ports/` (unos 86 ficheros);
 adaptadores en `internal/modules/bolsa/adapters/postgres*`.
+
+La modalidad de inscripción vive como `modalidad_inscripcion,omitempty` dentro
+de `ContenidoPublicableConvocatoria`; queda cubierta por `huella_version_sha256`
+y por la huella del material de preparación. No hay columna de almacenamiento
+independiente. Con campo explícito usa contenido v5/estado v4; las versiones
+anteriores conservan contenido v4/estado v3 y sus bytes. Ausente significa
+separada; un valor desconocido se rechaza.
+
+En este corte la modalidad de ensayo entra por la carga de la versión
+certificada desde su fuente JSON, como dato de la copia. La elección y el
+guardado desde Preparación de bases no están activados sobre el núcleo vigente;
+su adaptación queda después de AD288. La carga no constituye un acto de
+aprobación o publicación de bases.
+
+BC12 reconstruye el comprobador usado por B96, el proyector y la lista existentes,
+desde sus definiciones instaladas. Lista y detalle incorporan la misma propiedad
+JSON. La modalidad conjunta devuelve B9608, traducido a 409 antes de insertar.
+Una modalidad que no sea `separada` ni `conjunta` es material incoherente: el
+comprobador responde 55000 y el proyector deja fuera solo esa versión, de modo
+que la lista y el resto de convocatorias siguen disponibles. Se conservan OID, propietario, ACL, volatilidad, paralelismo y configuración de
+cada función. SQL y activación en `deploy/principal/f1_40_modalidad_inscripcion.md`.
 
 Las preferencias entre bolsas guardan versiones y recibos en
 `preferencia_bolsas_version` y publican su evento en

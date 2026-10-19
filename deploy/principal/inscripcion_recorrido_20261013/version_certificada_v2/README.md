@@ -10,6 +10,13 @@ Para reproducir los artefactos desde esta carpeta:
 python3 generar.py --salida preparado
 ```
 
+Para preparar la versión 2 desde otro JSON de datos, añade `--fuente RUTA_JSON`
+y dirige `--salida` a un directorio nuevo. La fuente puede incluir
+`convocatoria.modalidad_inscripcion` con el valor exacto `separada` o
+`conjunta`. El generador sigue leyendo las tres preimágenes certificadas de
+esta carpeta; una ruta distinta en el JSON se rechaza. Sin ese campo, el SQL
+y el manifiesto coinciden byte a byte con los archivos de `preparado/`.
+
 El SQL añade una publicación CC1 versión 2 y una versión de convocatoria BC1 número 2 en una transacción serializable. Reutiliza `categorias_rpt` versión 1 y conserva las entradas anteriores de la política. Añade el ámbito de gestión v2 y cambia el alcance de asociación manual al identificador público v2. Comprueba los bytes de v1 y las preimágenes de control antes de escribir; una diferencia aborta toda la transacción. No inserta solicitudes, personas ni actas, ni actualiza o revierte versiones anteriores.
 
 Las referencias de revisión y los metadatos identifican una preparación operativa. La carga no acredita aprobación de bases, firma legal ni valoración de méritos. Dirección ejecuta el archivo solo en la base PG18 autorizada y coteja `preparado/manifiesto.json` con las lecturas BC9/CC11 y las solicitudes v1 conservadas.

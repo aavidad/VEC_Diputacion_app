@@ -245,6 +245,8 @@ func errorInscripcionPostgreSQL(ctx context.Context, err error, etapa string) er
 		case "B9607":
 			// La publicación supera el contrato de la pantalla de inscripción.
 			nominal = inscripcion.ErrNoDisponible
+		case "B9608":
+			nominal = inscripcion.ErrModalidadConjuntaPendiente
 		case "B9701":
 			nominal = inscripcion.ErrVinculoIdentidadPendiente
 		case "B9702":

@@ -1,6 +1,7 @@
 /** Presentación pura del alta CT, compartida con la petición previa del centro. */
 import { jornadaVisibleDesdeMinutos, LIMITES_ALTA_CONTRATACION, minutosDesdeJornadaVisible } from "./contrato.js?v=VEC_WEB_VERSION";
 import { ESQUEMA_CATALOGOS_NECESIDADES } from "./contrato.js?v=VEC_WEB_VERSION";
+import { MAXIMO_OPERACION_RC } from "./rc-declarada.js?v=VEC_WEB_VERSION";
 
 const CAMPOS_RPT_PUBLICACION = new Set(["rpt_catalogo_ref", "rpt_catalogo_huella_sha256"]);
 const CAMPOS_RPT_INTERNOS = new Set(["puesto_codigo", ...CAMPOS_RPT_PUBLICACION]);
@@ -366,9 +367,15 @@ function camposDetalle(estado, t, deshabilitado) {
   </fieldset>`;
 }
 
-function camposRC(estado, t, deshabilitado) {
+function camposRC(estado, t, deshabilitado, tCentro) {
   const activa = estado.borrador.rc_existe;
   const controlesDeshabilitados = deshabilitado || !activa;
+  // El centro declara el número de operación de SICAL (rc-declarada.js).
+  const declarada = Object.hasOwn(estado.borrador, "puesto_solicitado");
+  const etiquetaRC = `<label for="ct-rc_numero">${escaparHTML(t("rc_numero"))} <b aria-hidden="true">*</b></label>`;
+  const ayudaRC = declarada ? `<details class="ct-ayuda-campo"><summary aria-label="${escaparHTML(tCentro("rc_numero_ayuda_abrir"))}"`
+    + ` title="${escaparHTML(tCentro("rc_numero_ayuda_abrir"))}">?</summary>`
+    + `<p id="ct-rc_numero-ayuda">${escaparHTML(tCentro("rc_numero_ayuda"))}</p></details>` : "";
   return `<fieldset class="ct-bloque">
     <legend>${escaparHTML(t("rc_leyenda"))}</legend>
     <fieldset class="ct-radios" id="ct-rc_existe" tabindex="-1"
@@ -382,10 +389,10 @@ function camposRC(estado, t, deshabilitado) {
     </fieldset>
     <div class="ct-campos" data-ct-datos-rc${activa ? "" : " hidden"}>
       <div class="ct-campo">
-        <label for="ct-rc_numero">${escaparHTML(t("rc_numero"))} <b aria-hidden="true">*</b></label>
-        <input id="ct-rc_numero" name="rc_numero" type="text" maxlength="160"
-          value="${escaparHTML(estado.borrador.rc_numero)}" required
-          ${atributosAccesibles(estado, "rc_numero")}`
+        ${declarada ? `<div class="ct-etiqueta-ayuda">${etiquetaRC}${ayudaRC}</div>` : etiquetaRC}
+        <input id="ct-rc_numero" name="rc_numero" type="text" maxlength="${declarada ? MAXIMO_OPERACION_RC : 160}"
+          value="${escaparHTML(estado.borrador.rc_numero)}" required${declarada ? ' autocomplete="off" spellcheck="false"' : ""}
+          ${atributosAccesibles(estado, "rc_numero", declarada ? ["ct-rc_numero-ayuda"] : [])}`
     + `${controlesDeshabilitados ? " disabled" : ""}>
         ${errorCampo(estado, "rc_numero", t)}
       </div>
@@ -406,7 +413,7 @@ function camposRC(estado, t, deshabilitado) {
     + `${controlesDeshabilitados ? " disabled" : ""}>
         ${errorCampo(estado, "rc_importe", t)}
       </div>
-      ${campoSeleccion({
+      ${declarada ? "" : campoSeleccion({
     estado,
     t,
     campo: "rc_documento_ref",
@@ -453,7 +460,7 @@ export function formulario(estado, t, tCentro) {
     ${camposPeticionCentro(estado, tCentro, deshabilitado)}
     ${camposDetalle(estado, t, deshabilitado)}
     ${camposNecesidad(estado, t, deshabilitado)}
-    ${camposRC(estado, t, deshabilitado)}
+    ${camposRC(estado, t, deshabilitado, tCentro)}
     ${camposDocumentos(estado, t, deshabilitado)}
     <div class="ct-acciones">
       <button class="boton-primario" type="submit"${deshabilitado ? " disabled" : ""}>
@@ -502,7 +509,7 @@ export function revision(estado, t, locale, tCentro) {
     ? `${t("resumen_rc_si")} · ${borrador.rc_numero}`
       + ` · ${formatearFechaCivil(borrador.rc_fecha, locale)}`
       + ` · ${formatearImporteEUR(borrador.rc_importe, locale)}`
-      + ` · ${borrador.rc_documento_ref}`
+      + (borrador.rc_documento_ref ? ` · ${borrador.rc_documento_ref}` : "")
     : t("resumen_rc_no");
   const documentos = borrador.documentos_adjuntos.length === 0
     ? `<p>${escaparHTML(t("resumen_sin_documentos"))}</p>`
