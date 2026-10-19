@@ -1,0 +1,87 @@
+# Publicación oficial de las bases (F1-61)
+
+La publicación de las bases es un acto externo a VEC: la hace el Boletín
+Oficial de la Provincia, el tablón de edictos electrónico o el boletín que
+indiquen las propias bases (LPAC art. 45; TREBEP arts. 55 y 61; RD 364/1995,
+arts. 15 y 16; el Reglamento de bolsas, BOP n.º 9 de 16/01/2026, remite a las
+bases). VEC no puede comprobarla por sí mismo y no la da por hecha. Lo que hace
+es guardar una declaración: quién anota la publicación, en qué medio, con qué
+número de boletín y anuncio, en qué fecha y, si existe, el enlace. La
+inscripción de esa versión solo se abre cuando hay una declaración vigente.
+
+`ConfirmarPublicacion` del puerto de gobierno de convocatorias no se toca ni se
+compone. Si F1-67 no lo consume, se retira allí.
+
+## SQL
+
+`deploy/postgresql/bolsa_convocatorias/migraciones/000014_publicacion_oficial_bases.up.sql`
+(BC14) va después de BC12. Su línea está al final de
+`deploy/principal/lista_sql_main_tras_hz37.txt`. No se reaplica ni tiene DOWN.
+
+- Tablas `publicacion_oficial_bases` y `publicacion_oficial_bases_evento`, de
+  solo adición. Tienen disparadores que rechazan UPDATE, DELETE y TRUNCATE, RLS
+  forzada para el propietario y ninguna concesión.
+- `declarar_publicacion_oficial_bases_v1(jsonb)`: solo la ejecuta el
+  propietario del esquema. Valida cada campo (medio cerrado, boletín salvo en
+  el tablón, fecha real y no futura en hora de Madrid, enlace https). Exige que
+  la versión esté publicada, que la huella coincida y que sea la última. Con la
+  misma clave y el mismo contenido devuelve el recibo guardado; con otro
+  contenido responde 23505. Una corrección sustituye a la declaración vigente
+  de esa misma versión y queda encadenada por huella.
+- `publicacion_oficial_vigente_v1`: devuelve la fecha de la declaración vigente
+  de una versión exacta.
+- Reconstruye `comprobar_publicacion_inscripcion_v1` y
+  `proyectar_abierta_inscripcion_v1`. La preimagen exigida es la poshuella de
+  BC12; las poshuellas son `80df8013…` y `b15e0b0b…`. Conservan OID, ACL,
+  volatilidad y configuración. Sin declaración vigente con fecha anterior al
+  primer día del plazo, el comprobador responde B9601 y la lista y la ficha
+  dejan fuera la versión.
+
+El plazo sigue saliendo de la versión sellada. En este corte no se recalcula a
+partir de la fecha de publicación.
+
+Prueba focal: `pruebas_sql/bc14_publicacion_oficial_bases.sql`, incluida en
+`deploy/postgresql/fase1/ensayar.py --pruebas`. La de BC12 declara ahora la
+publicación de sus versiones antes de comprobarlas.
+
+## Activación en una copia
+
+Después de BC14 ninguna convocatoria aparece abierta hasta que se declare su
+publicación. En la copia se aplica, como propietario de
+`vec_bolsa_convocatorias`, `declarar_ensayo_copia.sql`. Declara una
+publicación ficticia de la versión 2 de la bolsa de ensayo de auxiliar. Las
+listas de la copia solo admiten migraciones, así que este fichero lo aplica el
+kit privado de datos de la copia o se aplica a mano. El kit de Dirección para
+copias y presentaciones tiene que incluirlo.
+
+Comprobado en una copia propia: sin declaración la lista de abiertas estaba
+vacía. Después de declarar salió la versión 2 con su recibo. Tras reiniciar
+PostgreSQL y la aplicación seguía en la lista, y repetir la declaración devolvió
+el mismo recibo, con una sola fila y un solo evento.
+
+El recorrido de la aspirante por HTTP necesita la inscripción encendida, que
+depende de F1-90.
+
+## Lo que falta: el acto de RRHH desde la web
+
+Hoy solo Informática, o los datos de la copia, pueden anotar la publicación.
+Para que lo haga RRHH desde su pantalla hace falta:
+
+1. Un consumidor de autorización, `consumir_publicacion_oficial_bases_v1`, con
+   su perfil en el núcleo V3 y la acción
+   `bolsa.convocatoria.publicacion_oficial.declarar` sobre el recurso
+   `version_convocatoria`. Los ámbitos salen de la política. Exige reconstruir
+   el núcleo central, que solo hace el equipo R y como mucho una vez por
+   semana.
+2. Una fachada `SECURITY DEFINER` del propietario de convocatorias que consuma
+   esa autorización y llame a `declarar_publicacion_oficial_bases_v1` en la
+   misma transacción.
+3. La ruta Go y la pantalla de RRHH, siguiendo el patrón de la comprobación de
+   ofrecimiento de F1-09 (puerto, caso de uso, adaptador PostgreSQL y
+   composición con denegación por defecto).
+
+## Aviso para F1-41
+
+La comprobación de la solicitud conjunta de BC13 tiene que exigir también la
+declaración vigente, con la misma regla que BC14 aplica al comprobador
+individual.
