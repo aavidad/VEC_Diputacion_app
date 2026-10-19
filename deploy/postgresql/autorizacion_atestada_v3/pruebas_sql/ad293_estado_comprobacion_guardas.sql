@@ -1,4 +1,7 @@
 \set ON_ERROR_STOP on
+-- SUSTITUIDA por F1-10: AD297 redefine la lectura auditada y cambia la huella
+-- que esta prueba fija. Tras AD297 usar ad297_estado_solo_pendiente.sql; esta
+-- solo vale en una copia con AD293 y sin AD297.
 -- Tras AD293 en copia desechable. Fuente y permisos; no finge V3 ni toca datos.
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 SET LOCAL timezone='UTC';
