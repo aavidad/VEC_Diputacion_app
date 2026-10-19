@@ -1,12 +1,12 @@
 # Intervención
 
-Comprobado el 19 de octubre de 2026 en una copia local, con datos inventados y Chrome a 1440 y 390 píxeles. Se registraron los tres resultados que ofrece la pantalla. Esta copia no tenía disponible el circuito de firma: estos pasos acreditan el registro de la fiscalización, pero queda pendiente comprobar aquí la remisión con el informe firmado y la nueva fiscalización tras subsanar.
+Comprobado el 19 de octubre de 2026 en una copia local, con datos inventados, en pantalla de ordenador y de móvil. Se registraron los tres resultados que ofrece la pantalla. Esta copia no tenía disponible el circuito de firma: estos pasos acreditan el registro de la fiscalización, pero queda pendiente comprobar aquí la remisión con el informe firmado y la nueva fiscalización tras subsanar.
 
 ## 1. Abrir la fiscalización
 
 Entre en el Portal del Empleado con su certificado y compruebe que junto a su nombre aparece «Intervención». Abra «Peticiones de personal temporal». Verá «Fiscalización de peticiones de personal temporal».
 
-Recursos Humanos debe facilitarle el enlace del expediente y su versión remitida. Al abrir un enlace completo, los campos «Referencia del expediente» y «Versión remitida» aparecen rellenos. Si entra desde el menú, pida a RRHH esos dos datos antes de completarlos. La referencia que pide esta pantalla es la de VEC; el número de expediente de MOAD por sí solo no la sustituye.
+Recursos Humanos debe facilitarle el enlace del expediente y su versión remitida. Al abrir un enlace completo, los campos «Referencia del expediente» y «Versión remitida» aparecen rellenos. Si entra desde el menú, pida a RRHH esos dos datos antes de completarlos. La referencia que pide esta pantalla es la que da VEC al expediente; no sirve el número de expediente de MOAD, la plataforma de expedientes electrónicos de la Diputación.
 
 Pulse «Abrir fiscalización».
 
@@ -52,7 +52,7 @@ Tras reiniciar la aplicación y la base de datos, RRHH volvió a abrir desde su 
 
 Si RRHH le comunica que el expediente ha cambiado, pida los datos actualizados. No cambie por su cuenta la versión remitida para intentar que se admita una operación.
 
-## 5. Hoy, Falta, Al final
+## 5. Lo que hay, lo que falta y cómo será al final
 
 ### Hoy
 
