@@ -3,9 +3,11 @@
 -- coteja el contexto (CA47) y la sesión (IS22) en los almacenes del portal
 -- externo. Antes iba siempre a CA26/CA27 e IS20 y fallaba con P0002 (503).
 -- Un intento externo con sesión vigente al resolver el contexto deja asiento;
--- inexistente, ajeno, alterado, caducado, en los dos almacenes o de cuenta
--- externa en el almacén interno se deniega sin asiento y con su código exacto,
+-- sesión o contexto inexistente, ajeno, alterado, caducado, en los dos almacenes
+-- o de cuenta externa en el almacén interno se deniega sin asiento y con su código exacto,
 -- nunca P0002. El canal interno (RRHH) sigue igual, también su repetición.
+-- Límite conocido de CA47, fuera de esta prueba: un recibo externo que existe
+-- pero con huella o procedencia distintas da todavía P0002 (tarea aparte).
 -- Ejecutar SOLO en copia aislada PG18 desechable, con -v AD299_DISPOSABLE_CLONE=1.
 -- Todo ocurre en una transacción que termina en ROLLBACK.
 -- Con -v AD299_REPRODUCIR=1 (antes de AD299) solo muestra el fallo previo.
@@ -223,7 +225,8 @@ BEGIN
    ('caducada','caducada',NULL),
    ('ambos_sesion','ambos_ses',NULL),
    ('ambos_aut','ambos_aut',NULL),
-   ('inactiva','inactiva',NULL)) x(caso,sesion,cambio)
+   -- Sesión de otra cuenta (inactiva) con su propia cuenta: no casa con el contexto.
+   ('cuenta_distinta','inactiva',NULL)) x(caso,sesion,cambio)
  LOOP
   SELECT v||s.parte||coalesce(caso.cambio,'{}'::jsonb) INTO STRICT vin FROM pg_temp.ad299_sesion s WHERE s.nombre=caso.sesion;
   INSERT INTO pg_temp.ad299_material VALUES(caso.caso,r.representacion_canonica,convert_to(vin::text,'UTF8'),
@@ -387,6 +390,19 @@ BEGIN
  VALUES('ses_'||repeat('8',36),a->>'autenticacion_ref',repeat('8',64),'ase_'||repeat('8',36),cta,cta,false,'externa_personal',
   base_ses.metodo_observado,base_ses.garantia_observada,base_ses.politica_garantia_ref,base_ses.politica_garantia_huella_sha256,t,t,t);
 END $mezcla$;
+-- Material para CA47: un recibo de contexto inexistente y, más abajo, el
+-- propio presente también en el almacén interno.
+DO $contexto$
+DECLARE v jsonb; m record;
+BEGIN
+ SELECT * INTO STRICT m FROM pg_temp.ad299_material WHERE caso='externo';
+ v:=convert_from(m.vinculo,'UTF8')::jsonb||jsonb_build_object('registro_contexto_ref','rca_ad299_inexistente_0000000001');
+ INSERT INTO pg_temp.ad299_material VALUES('contexto_inexistente',m.contexto,convert_to(v::text,'UTF8'),
+  pg_temp.ad299_orden('contexto_inexistente',m.contexto,v,'externa_personal'));
+ INSERT INTO pg_temp.ad299_material SELECT 'contexto_ambos',m.contexto,m.vinculo,
+  pg_temp.ad299_orden('contexto_ambos',m.contexto,convert_from(m.vinculo,'UTF8')::jsonb,'externa_personal');
+END $contexto$;
+
 -- 3. Denegaciones por el registrador externo: código exacto, nunca P0002.
 SET LOCAL SESSION AUTHORIZATION prueba_ad299_reg_ext;
 DO $denegaciones$
@@ -401,7 +417,8 @@ BEGIN
    ('ambos_aut','42501'),          -- IS22: autenticación en los dos almacenes
    ('cuenta_externa_en_interno','42501'), -- IS22: cuenta externa en el almacén interno
    ('caducada','22023'),           -- AD169: la ventana no contiene el contexto
-   ('inactiva','22023'),           -- AD169: cuenta del vínculo distinta del contexto
+   ('cuenta_distinta','22023'),    -- AD169: cuenta del vínculo distinta del contexto
+   ('contexto_inexistente','42501'), -- CA47: recibo de contexto en ningún almacén
    ('interno_por_externo','22023') -- AD169: superficie interna en canal externo
   ) x(caso,esperado) LOOP
   estado:=NULL;
@@ -426,6 +443,31 @@ BEGIN
  IF estado IS DISTINCT FROM '42501' THEN
   RAISE EXCEPTION 'AD299: registrador externo en canal interno obtuvo %',coalesce(estado,'éxito'); END IF;
 END $denegaciones$;
+RESET SESSION AUTHORIZATION;
+
+-- 3b. CA47: el recibo de contexto propio también en el almacén interno
+--     (inyección revertida, después del resto para no alterar sus códigos).
+DO $ambos$
+BEGIN
+ INSERT INTO vec_contexto_actor_v1.registros_contexto
+ SELECT (jsonb_populate_record(NULL::vec_contexto_actor_v1.registros_contexto,
+   to_jsonb(x)||jsonb_build_object('registro_contexto_ref','rca_ad299_registro_0000000000001',
+    'operacion_ref','oca_ad299_ambos_almacenes_00000001'))).*
+ FROM vec_contexto_actor_v1.registros_contexto x ORDER BY x.resuelto_en DESC LIMIT 1;
+END $ambos$;
+SET LOCAL SESSION AUTHORIZATION prueba_ad299_reg_ext;
+DO $ctx_ambos$
+DECLARE estado text;
+BEGIN
+ BEGIN
+  PERFORM * FROM pg_temp.ad299_material m CROSS JOIN LATERAL
+   vec_autorizacion_atestada_v3.registrar_intento_nominal_v1(m.contexto,m.vinculo,m.orden)
+  WHERE m.caso='contexto_ambos';
+ EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS estado=RETURNED_SQLSTATE;
+ END;
+ IF estado IS DISTINCT FROM '42501' THEN
+  RAISE EXCEPTION 'AD299: contexto en los dos almacenes obtuvo %',coalesce(estado,'éxito'); END IF;
+END $ctx_ambos$;
 RESET SESSION AUTHORIZATION;
 
 -- 4. Asientos: tres intentos aceptados (uno por caso) y ninguno de los denegados.

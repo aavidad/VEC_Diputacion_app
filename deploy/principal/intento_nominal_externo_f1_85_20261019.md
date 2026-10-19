@@ -48,8 +48,20 @@ por IS22: hacen falta los dos cotejos del portal externo.
    aplicar AD299, muestra el P0002 original. La prueba necesita una copia con
    historia de sesiones externas del proceso integrado (la copia local la
    trae) y crea sus propios registradores de intentos, que se revierten.
+   Por esa necesidad de datos no está en la puerta SQL de la CI
+   (`ensayar.py`), que solo restaura el esquema; hay que pasarla a mano en
+   una copia.
 4. No hace falta cambiar la configuración: la copia ya tiene un registrador
    de intentos con canal `externa_personal` para el portal externo.
+
+## Límite conocido
+
+CA47 todavía responde P0002 cuando el recibo de contexto existe en el almacén
+externo pero la huella o la procedencia presentadas no coinciden (busca con
+`SELECT … INTO STRICT` por las tres cosas a la vez). No se asienta nada, pero
+el servidor devuelve 503 en vez de 403. Lo mismo pasa en la lectura de
+inscripción (AD298). Se corrige en una tarea aparte de Contexto: buscar solo
+por referencia y denegar con 42501 si no casa.
 
 No hay retirada automática. Si hiciera falta volver atrás, dirección decide
 una migración nueva; no se aplica ningún DOWN sobre historia.
