@@ -74,6 +74,15 @@ BEGIN
   RAISE EXCEPTION 'B144: ámbito borrable' USING ERRCODE='55000';
  EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
  END;
+ -- Una bolsa sin ámbito (categoría f160b) y otra de otra unidad (f160c).
+ PERFORM vec_bolsa_llamamientos.constituir_bolsa_v1('acta:f160:sin','actor:f160','categoria:f160b',
+  'bolsa:f160:sin',1,'\x7b7d',now(),'instantanea:f160:sin',1,'\x7b7d',now(),now(),
+  '[{"orden":1,"participacion_ref":"participacion:f160:sin","fila_numero":1}]',now());
+ PERFORM vec_bolsa_llamamientos.constituir_bolsa_v1('acta:f160:otra','actor:f160','categoria:f160c',
+  'bolsa:f160:otra',1,'\x7b7d',now(),'instantanea:f160:otra',1,'\x7b7d',now(),now(),
+  '[{"orden":1,"participacion_ref":"participacion:f160:otra","fila_numero":1}]',now());
+ PERFORM vec_bolsa_llamamientos.declarar_ambito_bolsa_v1('bolsa:f160:otra',
+  'ambito:desarrollo:bolsa','unidad:desarrollo:otra','semilla:prueba:b144');
  IF (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.ambito_bolsa
      WHERE bolsa_ref='bolsa:f160' AND unidad_ref='unidad:desarrollo:rrhh'
        AND fuente_ref='semilla:prueba:b144')<>1 THEN
@@ -91,36 +100,44 @@ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN NULL;
 END $ajeno$;
 
--- Confirmación de una carga sobre esa bolsa desde otra unidad: 42501 de B144
--- antes de AD218. Desde la misma unidad, el material ficticio cae en AD218.
+-- Confirmaciones con material V3 ficticio. Se deniegan con 42501 de B144 antes
+-- de AD218: otra unidad sobre una bolsa con ámbito, una bolsa existente sin
+-- ámbito y una carga que sustituiría la bolsa vigente de otra unidad. El caso
+-- correcto llega hasta AD218 y cae allí.
 DO $confirmacion$
-DECLARE h text:=pg_catalog.repeat('c',64); cat text:='categoria:f160'; actor text:='per_f160';
- acta text:='acta:importacion-convoca:'||pg_catalog.encode(pg_catalog.sha256(
-  pg_catalog.convert_to(pg_catalog.repeat('c',64)||pg_catalog.chr(31)||'categoria:f160','UTF8')),'hex');
- a jsonb; b bytea; filas jsonb:='[{"numero":1}]'; entradas jsonb:='[{"participacion_ref":"p","fila_numero":1}]';
- contexto bytea; c bytea; d bytea; huella text; unidad text;
+DECLARE actor text:='per_f160'; caso record; h text; acta text; a jsonb; b bytea;
+ filas jsonb:='[{"numero":1}]'; entradas jsonb:='[{"participacion_ref":"p","fila_numero":1}]';
+ contexto bytea; c bytea; d bytea; huella text;
 BEGIN
- a:=pg_catalog.jsonb_build_object('acta_ref',acta,'categoria_ref',cat,'bolsa_ref','bolsa:f160',
-  'huella_fichero_sha256',h,'actor_ref','actor:rrhh:'||pg_catalog.substr(pg_catalog.encode(
-   pg_catalog.sha256(pg_catalog.convert_to('vec.bolsa.carga_convoca.actor'||pg_catalog.chr(31)||actor,'UTF8')),'hex'),1,32));
- b:=pg_catalog.convert_to(pg_catalog.jsonb_build_object('bolsa_ref','bolsa:f160',
-  'categoria_ref',cat,'huella_listado_sha256',h)::text,'UTF8');
- FOREACH unidad IN ARRAY ARRAY['unidad:desarrollo:otra','unidad:desarrollo:rrhh'] LOOP
+ FOR caso IN SELECT * FROM (VALUES
+   ('bolsa:f160','categoria:f160','unidad:desarrollo:otra','B144: bolsa de otro ámbito%'),
+   ('bolsa:f160:sin','categoria:f160b','unidad:desarrollo:rrhh','B144: bolsa de otro ámbito%'),
+   ('bolsa:f160:nueva','categoria:f160c','unidad:desarrollo:rrhh','B144: bolsa de otro ámbito%'),
+   ('bolsa:f160','categoria:f160','unidad:desarrollo:rrhh','AD218:%')) AS v(bolsa,cat,unidad,esperado)
+ LOOP
+  h:=pg_catalog.repeat('c',64);
+  acta:='acta:importacion-convoca:'||pg_catalog.encode(pg_catalog.sha256(
+   pg_catalog.convert_to(h||pg_catalog.chr(31)||caso.cat,'UTF8')),'hex');
+  a:=pg_catalog.jsonb_build_object('acta_ref',acta,'categoria_ref',caso.cat,'bolsa_ref',caso.bolsa,
+   'huella_fichero_sha256',h,'actor_ref','actor:rrhh:'||pg_catalog.substr(pg_catalog.encode(
+    pg_catalog.sha256(pg_catalog.convert_to('vec.bolsa.carga_convoca.actor'||pg_catalog.chr(31)||actor,'UTF8')),'hex'),1,32));
+  b:=pg_catalog.convert_to(pg_catalog.jsonb_build_object('bolsa_ref',caso.bolsa,
+   'categoria_ref',caso.cat,'huella_listado_sha256',h)::text,'UTF8');
   contexto:=pg_catalog.convert_to('{"ambitos":{"ambito_ref":"ambito:desarrollo:bolsa","unidad_ref":"'
-   ||unidad||'"},"atributos":{}}','UTF8');
+   ||caso.unidad||'"},"atributos":{}}','UTF8');
   huella:=pg_catalog.encode(pg_catalog.sha256(contexto),'hex');
   c:=pg_catalog.convert_to(pg_catalog.jsonb_build_object('efecto_ref',acta,
    'huella_efecto_sha256',huella,'audiencia_consumo','vec_bolsa_llamamientos.carga_convoca.confirmar.v1')::text,'UTF8');
   d:=pg_catalog.convert_to(pg_catalog.jsonb_build_object('decision_ref','decision:ficticia',
    'principal_id',actor,'recurso_ref',acta,'contexto_recurso_huella_sha256',huella)::text,'UTF8');
   BEGIN
-   PERFORM vec_bolsa_llamamientos.confirmar_carga_convoca_v2(a,filas,'{}',acta,actor,cat,'bolsa:f160',
+   PERFORM vec_bolsa_llamamientos.confirmar_carga_convoca_v2(a,filas,'{}',acta,actor,caso.cat,caso.bolsa,
     2,b,now(),'ins',1,'\x7b7d',now(),now(),entradas,now(),'[]',contexto,
     c,d,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
-   RAISE EXCEPTION 'B144: confirmación ficticia aceptada' USING ERRCODE='55000';
+   RAISE EXCEPTION 'B144: confirmación ficticia aceptada (%)', caso.bolsa USING ERRCODE='55000';
   EXCEPTION WHEN insufficient_privilege THEN
-   IF unidad='unidad:desarrollo:otra' AND SQLERRM NOT LIKE 'B144: bolsa de otro ámbito%' THEN RAISE; END IF;
-   IF unidad='unidad:desarrollo:rrhh' AND SQLERRM NOT LIKE 'AD218:%' THEN RAISE; END IF;
+   IF SQLERRM NOT LIKE caso.esperado THEN
+    RAISE EXCEPTION 'B144: % dio «%»', caso.bolsa, SQLERRM USING ERRCODE='55000'; END IF;
   END;
  END LOOP;
 END $confirmacion$;

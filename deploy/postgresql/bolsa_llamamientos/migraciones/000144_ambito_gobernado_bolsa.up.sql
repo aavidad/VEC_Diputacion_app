@@ -8,8 +8,11 @@
 -- * confirmar_carga_convoca_v2 (B95) escribe ese par, el mismo que autorizó la
 --   decisión V3 consumida, en la misma transacción que la constitución. Si la
 --   bolsa ya tiene ámbito, una confirmación o recuperación desde otro ámbito se
---   deniega con 42501 antes de consumir. Firma, propietario, configuración y
---   ACL se conservan; el cuerpo se sustituye solo si coincide la preimagen.
+--   deniega con 42501 antes de consumir. Una constitución nueva también se
+--   deniega si la bolsa ya existía sin ámbito o si sustituiría (B14) una bolsa
+--   vigente de su categoría con otro ámbito o sin él. Firma, propietario,
+--   configuración y ACL se conservan; el cuerpo se sustituye solo si coincide
+--   la preimagen.
 -- * declarar_ambito_bolsa_v1: vía solo del propietario (sin concesiones) para
 --   las bolsas constituidas antes de B144. Se usa con una semilla declarada; la
 --   migración no rellena ninguna fila ni deduce el ámbito.
@@ -32,6 +35,7 @@ BEGIN
  OR f IS NULL
  OR pg_catalog.to_regclass('vec_bolsa_llamamientos.bolsa_constituida') IS NULL
  OR pg_catalog.to_regclass('vec_bolsa_llamamientos.recibo_carga_convoca') IS NULL
+ OR pg_catalog.to_regclass('vec_bolsa_llamamientos.sustitucion_bolsa') IS NULL
  OR pg_catalog.to_regclass('vec_bolsa_llamamientos.ambito_bolsa') IS NOT NULL
  OR pg_catalog.to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL
  OR pg_catalog.to_regprocedure('vec_bolsa_llamamientos.declarar_ambito_bolsa_v1(text,text,text,text)') IS NOT NULL
@@ -224,10 +228,26 @@ BEGIN
  THEN RAISE EXCEPTION 'B79: filas y vínculos incompatibles' USING ERRCODE='22023'; END IF;
  huella_entradas:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_entradas::text,'UTF8')),'hex');
  huella_vinculos:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_vinculos::text,'UTF8')),'hex');
- -- B144: una bolsa con ámbito gobernado solo se confirma o recupera desde ese
- -- mismo ámbito; se comprueba antes de consumir la decisión y de escribir.
+ -- B144: el ámbito de la bolsa se coteja antes de consumir la decisión y de
+ -- escribir, con el mismo cerrojo que declarar_ambito_bolsa_v1.
+ PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+  'vec_bolsa_llamamientos:ambito_bolsa:'||p_bolsa_ref,0));
+ -- Una bolsa con ámbito solo se confirma o recupera desde ese mismo ámbito.
  IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.ambito_bolsa a WHERE a.bolsa_ref=p_bolsa_ref
    AND (a.ambito_ref IS DISTINCT FROM ambito OR a.unidad_ref IS DISTINCT FROM unidad))
+ -- Una constitución nueva no da ámbito a una bolsa que ya existía sin él, ni
+ -- sustituye (B14, por categoría) una bolsa vigente de otro ámbito o sin él.
+ OR (NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.recibo_carga_convoca r WHERE r.acta_ref=p_acta_ref)
+  AND (
+   (EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.bolsa_constituida b WHERE b.bolsa_ref=p_bolsa_ref)
+    AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.ambito_bolsa a WHERE a.bolsa_ref=p_bolsa_ref))
+   OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.constitucion c
+     WHERE c.categoria_ref=p_categoria_ref AND c.bolsa_ref<>p_bolsa_ref
+       AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.sustitucion_bolsa s
+         WHERE s.bolsa_ref_sustituida=c.bolsa_ref AND s.version_sustituida=c.version_bolsa
+           AND s.huella_sustituida_sha256=c.huella_bolsa_sha256)
+       AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.ambito_bolsa a
+         WHERE a.bolsa_ref=c.bolsa_ref AND a.ambito_ref=ambito AND a.unidad_ref=unidad))))
  THEN RAISE EXCEPTION 'B144: bolsa de otro ámbito' USING ERRCODE='42501'; END IF;
  -- La fachada AD218 exige consumo_nuevo=true; aquí no existe acceso por mera
  -- posesión de una referencia histórica. El reintento recibe otra decisión.
@@ -336,7 +356,7 @@ BEGIN
     'statement_timeout=15s','idle_in_transaction_session_timeout=20s'];
  IF definicion IS NULL
  OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(definicion,'UTF8')),'hex')
-    IS DISTINCT FROM 'eb5db324d09f40c61ac723e58dc0add5173fd31bb1bc10f53d8b06362cc66265'
+    IS DISTINCT FROM '03cf6fa9b2e2b46f6e50fb05be177ae2b7d5748fbae8b08bdd7e068733fb9fc0'
  OR (SELECT pg_catalog.array_agg(a.grantee::pg_catalog.regrole::text||':'||a.privilege_type
       ORDER BY a.grantee::pg_catalog.regrole::text||':'||a.privilege_type)
      FROM pg_catalog.pg_proc p CROSS JOIN LATERAL
@@ -353,6 +373,9 @@ BEGIN
      WHERE c.oid='vec_bolsa_llamamientos.ambito_bolsa'::pg_catalog.regclass
        AND c.relowner='vec_bolsa_llamamientos_propietario'::pg_catalog.regrole
        AND c.relrowsecurity AND c.relforcerowsecurity)
+ OR EXISTS (SELECT 1 FROM pg_catalog.pg_type t CROSS JOIN LATERAL
+     pg_catalog.aclexplode(coalesce(t.typacl,pg_catalog.acldefault('T',t.typowner))) a
+     WHERE t.oid='vec_bolsa_llamamientos.ambito_bolsa'::pg_catalog.regtype AND a.grantee<>t.typowner)
  OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.ambito_bolsa)
  THEN RAISE EXCEPTION 'B144: posimagen divergente' USING ERRCODE='55000'; END IF;
 END $post$;

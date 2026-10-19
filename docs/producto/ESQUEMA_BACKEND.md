@@ -395,8 +395,10 @@ erDiagram
 ámbito organizativo (`ambito_ref`) y su unidad gestora (`unidad_ref`), en una
 fila inmutable por `bolsa_ref`. Al confirmar una carga de CONVOCA (B95) se
 escribe, en la misma transacción que la constitución, el par que autorizó la
-decisión V3. Una confirmación o una recuperación desde otro ámbito se deniega
-con 42501 antes de consumir la decisión. Las bolsas constituidas antes de B144
+decisión V3. Antes de consumir la decisión se deniegan con 42501 la
+confirmación o la recuperación desde otro ámbito, la constitución nueva de una
+bolsa que ya existía sin ámbito y la carga que sustituiría una bolsa vigente
+de su categoría con otro ámbito o sin él. Las bolsas constituidas antes de B144
 solo reciben ámbito con `declarar_ambito_bolsa_v1`, que únicamente puede
 ejecutar el propietario. En la copia local se hace con la semilla del
 manifiesto `identidad/bolsa-bback.json`

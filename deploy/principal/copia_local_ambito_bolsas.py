@@ -1,11 +1,16 @@
 """Semilla declarada del ámbito de las bolsas de una copia local (F1-60, B144).
 
 Las bolsas constituidas antes de B144 no guardan su ámbito. En la copia, el
-manifiesto privado `identidad/bolsa-bback.json` ya declara qué bolsas gestiona
-el perfil de RRHH de Bolsa y con qué ámbito y unidad gestora las opera. Esta
-semilla traslada exactamente esa declaración a `ambito_bolsa` mediante la
-función del propietario. No deduce nada: una bolsa ausente del manifiesto, o
-del volcado, queda sin ámbito.
+manifiesto privado `identidad/bolsa-bback.json` declara qué bolsas gestiona el
+perfil de RRHH de Bolsa y con qué ámbito y unidad gestora las opera. Esta
+semilla copia esa declaración a `ambito_bolsa` con la función del propietario,
+solo para las bolsas que existan en la base. Una bolsa que no figure en el
+manifiesto queda sin ámbito.
+
+La copia usa datos inventados y un solo perfil de RRHH de Bolsa: el generador
+del material pone en `bolsas_ref` todas las bolsas vigentes, así que todas
+reciben el mismo ámbito. Con varias unidades gestoras, cada declaración sale de
+Administración, no de este manifiesto.
 """
 import json
 import re
