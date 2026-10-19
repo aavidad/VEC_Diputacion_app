@@ -1251,6 +1251,21 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     "portal-modulos-coordinador.js", "portal.js",
   ]) versionesEspeciales.set(ruta, ruta === "portal.js" ? "20261018-f179-cabecera-v1" : "20261018-f173-alta-v5");
 
+  // F1-82: la pantalla de Intervención, el recibo de fiscalización y sus textos
+  // renuevan su cadena de importadores hasta la entrada.
+  for (const ruta of [
+    "adaptador-http-expedientes.js", "cliente-http-estadisticas.js", "consulta-seguimiento.js",
+    "contrato-estadisticas.js", "ficha-ginpix.js", "formulario-analisis.js", "formulario-anotacion-administrativa.js",
+    "formulario-asignacion.js", "formulario-cierre-administrativo.js", "formulario-cobertura.js",
+    "formulario-fiscalizacion.js", "formulario-incorporacion-ejercicio.js", "formulario-informe-juridico.js",
+    "formulario-llamamiento-pruebas.js", "formulario-llamamiento.js", "formulario-resolucion-formalizacion.js",
+    "i18n.js", "informe-tras-subsanacion.js", "presentador-expedientes.js", "rrhh-plantillas-cliente.js",
+    "rrhh-plantillas-vista.js", "seguimiento-incorporacion.js", "vista-borradores-publicados.js",
+    "vista-estadisticas.js", "vista-expedientes-fiscalizacion.js", "vista-expedientes-incorporacion.js",
+    "vista-expedientes-render.js", "vista-expedientes-tramitacion.js", "vista-expedientes.js", "vista.js",
+  ].map((nombre) => `modulos/contratacion-temporal/${nombre}`).concat("portal-modulos-coordinador.js", "portal.js"))
+    versionesEspeciales.set(ruta, "20261019-f182-intervencion-v1");
+
   const aristas = [];
   const codigo = new Map();
   const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;

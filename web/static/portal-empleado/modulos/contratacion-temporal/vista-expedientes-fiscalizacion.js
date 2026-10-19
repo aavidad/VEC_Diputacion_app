@@ -1,9 +1,8 @@
 /** Montaje aislado de la superficie de fiscalización de contratación temporal. */
 
 import { escaparHTML } from "./componentes-expedientes.js?v=20261018-f136c-informe-v4";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261011-ct-bolsa-vinculo-v1";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261018-f136c-informe-v4";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261019-f182-intervencion-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261019-f182-intervencion-v1";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
 
 export function montarModuloFiscalizacionContratacionTemporal({
@@ -32,8 +31,6 @@ export function montarModuloFiscalizacionContratacionTemporal({
     : { referencia: "", version: "" };
   let montado = true;
   let desmontarFormulario = null;
-  let desmontarLlamamiento = null;
-  let consultaLlamamiento = null;
   raiz.innerHTML = `<section class="ct-expedientes" data-modulo="contratacion-temporal"
     aria-labelledby="ct-fiscalizacion-acceso-titulo">
     <header class="ct-exp-cabecera">
@@ -79,9 +76,10 @@ export function montarModuloFiscalizacionContratacionTemporal({
       formulario.reportValidity?.();
       return;
     }
+    // Intervención solo registra su resultado y ve el recibo; el llamamiento
+    // es de RRHH y se abre desde la ficha del expediente.
     raiz.innerHTML = `<section class="ct-expedientes" data-modulo="contratacion-temporal">
       <div data-ct-exp-fiscalizacion></div>
-      <div data-ct-exp-llamamiento></div>
     </section>`;
     const contenedor = raiz.querySelector("[data-ct-exp-fiscalizacion]");
     desmontarFormulario = montarFormularioFiscalizacion({
@@ -98,43 +96,6 @@ export function montarModuloFiscalizacionContratacionTemporal({
       locale,
       zonaHoraria,
       anunciar,
-      alConfirmar: async (recibo) => {
-        // Solo la fiscalización que deja el expediente en fiscalización abre
-        // el llamamiento; la de una modificación vuelve al nombramiento.
-        if (recibo.resultado === "desfavorable" || recibo.fase_resultante !== "fiscalizacion"
-          || recibo.version_resultante < 6
-          || desmontarLlamamiento !== null || consultaLlamamiento !== null || ![
-            "seleccionarLlamamiento",
-            "registrarComunicacionLlamamiento",
-            "registrarRespuestaRecibida",
-            "resolverLlamamiento",
-            "continuarLlamamiento",
-          ].every((metodo) => typeof cliente[metodo] === "function")) return;
-        const controlador = new AbortController();
-        consultaLlamamiento = controlador;
-        let numeroPersonas = null;
-        try {
-          if (typeof cliente.consultarDetalleRRHH === "function") {
-            const detalle = await cliente.consultarDetalleRRHH({ expediente_ref: recibo.expediente_ref,
-              version_observada: recibo.version_resultante }, { signal: controlador.signal });
-            if (detalle?.resumen?.expediente_ref === recibo.expediente_ref
-              && detalle.resumen.version === recibo.version_resultante
-              && Number.isSafeInteger(detalle.solicitud?.numero_personas)
-              && detalle.solicitud.numero_personas >= 1 && detalle.solicitud.numero_personas <= 100) {
-              numeroPersonas = detalle.solicitud.numero_personas;
-            }
-          }
-        } catch { /* Sin cantidad acreditada, el formulario bloquea un envío nuevo. */ }
-        if (!montado || controlador.signal.aborted) return;
-        consultaLlamamiento = null;
-        desmontarLlamamiento = montarFormularioLlamamiento({
-          raiz: raiz.querySelector("[data-ct-exp-llamamiento]"), cliente,
-          contexto: { expediente_ref: recibo.expediente_ref,
-            version_esperada: recibo.version_resultante,
-            ...(numeroPersonas !== null ? { numero_personas: numeroPersonas } : {}) },
-          confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
-        });
-      },
     });
   }
 
@@ -150,9 +111,7 @@ export function montarModuloFiscalizacionContratacionTemporal({
     desmontar() {
       if (!montado) return;
       montado = false;
-      consultaLlamamiento?.abort();
       if (typeof desmontarFormulario === "function") desmontarFormulario();
-      desmontarLlamamiento?.();
       raiz.removeEventListener("input", manejarEdicion);
       raiz.removeEventListener("submit", manejarEnvio);
     },
