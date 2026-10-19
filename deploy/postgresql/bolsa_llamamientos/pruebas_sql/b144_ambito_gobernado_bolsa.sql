@@ -83,6 +83,24 @@ BEGIN
   '[{"orden":1,"participacion_ref":"participacion:f160:otra","fila_numero":1}]',now());
  PERFORM vec_bolsa_llamamientos.declarar_ambito_bolsa_v1('bolsa:f160:otra',
   'ambito:desarrollo:bolsa','unidad:desarrollo:otra','semilla:prueba:b144');
+ -- f160d: la bolsa vigente de la categoría no tiene ámbito.
+ PERFORM vec_bolsa_llamamientos.constituir_bolsa_v1('acta:f160:d','actor:f160','categoria:f160d',
+  'bolsa:f160:d',1,'\x7b7d',now(),'instantanea:f160:d',1,'\x7b7d',now(),now(),
+  '[{"orden":1,"participacion_ref":"participacion:f160:d","fila_numero":1}]',now());
+ -- f160e: la bolsa de otra unidad ya está sustituida por una de la misma unidad.
+ PERFORM vec_bolsa_llamamientos.constituir_bolsa_v1('acta:f160:e-vieja','actor:f160','categoria:f160e',
+  'bolsa:f160:e-vieja',1,'\x7b7d',now(),'instantanea:f160:e-vieja',1,'\x7b7d',now(),now(),
+  '[{"orden":1,"participacion_ref":"participacion:f160:e-vieja","fila_numero":1}]',now());
+ PERFORM vec_bolsa_llamamientos.declarar_ambito_bolsa_v1('bolsa:f160:e-vieja',
+  'ambito:desarrollo:bolsa','unidad:desarrollo:otra','semilla:prueba:b144');
+ PERFORM vec_bolsa_llamamientos.constituir_bolsa_v1('acta:f160:e-actual','actor:f160','categoria:f160e',
+  'bolsa:f160:e-actual',1,'\x7b7d',now(),'instantanea:f160:e-actual',1,'\x7b7d',now(),now(),
+  '[{"orden":1,"participacion_ref":"participacion:f160:e-actual","fila_numero":1}]',now());
+ PERFORM vec_bolsa_llamamientos.declarar_ambito_bolsa_v1('bolsa:f160:e-actual',
+  'ambito:desarrollo:bolsa','unidad:desarrollo:rrhh','semilla:prueba:b144');
+ IF NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.sustitucion_bolsa
+     WHERE bolsa_ref_sustituida='bolsa:f160:e-vieja' AND bolsa_ref_nueva='bolsa:f160:e-actual') THEN
+  RAISE EXCEPTION 'B144: preparación de la sustitución divergente' USING ERRCODE='55000'; END IF;
  IF (SELECT pg_catalog.count(*) FROM vec_bolsa_llamamientos.ambito_bolsa
      WHERE bolsa_ref='bolsa:f160' AND unidad_ref='unidad:desarrollo:rrhh'
        AND fuente_ref='semilla:prueba:b144')<>1 THEN
@@ -102,8 +120,9 @@ END $ajeno$;
 
 -- Confirmaciones con material V3 ficticio. Se deniegan con 42501 de B144 antes
 -- de AD218: otra unidad sobre una bolsa con ámbito, una bolsa existente sin
--- ámbito y una carga que sustituiría la bolsa vigente de otra unidad. El caso
--- correcto llega hasta AD218 y cae allí.
+-- ámbito y una carga que sustituiría una bolsa vigente de otra unidad o sin
+-- ámbito. Los casos correctos (incluida una bolsa de otra unidad ya sustituida)
+-- llegan hasta AD218 y caen allí.
 DO $confirmacion$
 DECLARE actor text:='per_f160'; caso record; h text; acta text; a jsonb; b bytea;
  filas jsonb:='[{"numero":1}]'; entradas jsonb:='[{"participacion_ref":"p","fila_numero":1}]';
@@ -113,6 +132,8 @@ BEGIN
    ('bolsa:f160','categoria:f160','unidad:desarrollo:otra','B144: bolsa de otro ámbito%'),
    ('bolsa:f160:sin','categoria:f160b','unidad:desarrollo:rrhh','B144: bolsa de otro ámbito%'),
    ('bolsa:f160:nueva','categoria:f160c','unidad:desarrollo:rrhh','B144: bolsa de otro ámbito%'),
+   ('bolsa:f160:d-nueva','categoria:f160d','unidad:desarrollo:rrhh','B144: bolsa de otro ámbito%'),
+   ('bolsa:f160:e-nueva','categoria:f160e','unidad:desarrollo:rrhh','AD218:%'),
    ('bolsa:f160','categoria:f160','unidad:desarrollo:rrhh','AD218:%')) AS v(bolsa,cat,unidad,esperado)
  LOOP
   h:=pg_catalog.repeat('c',64);
