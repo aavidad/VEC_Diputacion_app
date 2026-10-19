@@ -176,6 +176,10 @@ Cada cambio queda guardado como una versión nueva, con su motivo y quién lo hi
 
 **Hoy.** Intervención puede abrir Fiscalización desde un enlace y ver en la
 cabecera el total de sus áreas disponibles al terminar la carga.
+El [manual de Intervención](intervencion.md) recoge el registro de conformidad,
+conformidad con observaciones y reparo comprobado el 19 de octubre en una copia
+local. En esa copia faltaba el circuito de firma; sigue pendiente completar
+la remisión firmada, la subsanación y la nueva fiscalización juntas.
 
 Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, qué falta y cómo queremos que funcione VEC cuando esté terminada.
 
