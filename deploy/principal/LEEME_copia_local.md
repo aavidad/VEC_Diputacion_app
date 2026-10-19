@@ -259,7 +259,10 @@ pantalla, Antonio Ruiz Lozano necesita antes abrir el seguimiento y la ficha
 del expediente con la propuesta y su versión, y esa lectura acotada a su
 persona llega con la tarea F1-47. Hasta entonces el recorrido web completo del
 segundo técnico queda pendiente. No se envía el POST a mano para suplir la
-pantalla en ningún recorrido ni en ninguna demostración.
+pantalla en ningún recorrido ni en ninguna demostración. Con su certificado, todas las
+demás rutas (lecturas de Contratación, de Bolsa y de reglas, y el resto de
+operaciones) responden 403. F1-47 ampliará a propósito lo que puede leer
+(seguimiento y ficha del expediente) cuando llegue.
 
 En el ensayo técnico de esta opción basta comprobar tres cosas: que `crear`
 termina con la semilla registrada y su huella en `estado.json`, que el

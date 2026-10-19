@@ -155,7 +155,8 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 	}
 	perfil := vinculo.PerfilActivoRef
 	publicada, existe, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, alta.postgresql.gobierno, perfil)
-	if err != nil || !existe || !instantaneaSegundoRRHHNoIncorporacionValida(publicada.instantanea, vinculo.PrincipalID, perfil, reloj.Ahora()) {
+	if err != nil || !existe || publicada.actoAsignacion != actoAsignacionCTDesarrollo ||
+		!instantaneaSegundoRRHHNoIncorporacionValida(publicada.instantanea, vinculo.PrincipalID, perfil, reloj.Ahora()) {
 		slog.Warn("segundo técnico de RRHH sin asignación c22 consumible; no se activa no incorporación")
 		return nil, nil
 	}
