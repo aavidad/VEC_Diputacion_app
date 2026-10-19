@@ -439,6 +439,11 @@ existente. Un COMMIT sin respuesta se reconcilia con la misma intención;
 si no se puede confirmar, el resultado se comunica como indeterminado.
 La proyección mínima en las listas existentes y la pantalla F1-57 siguen
 pendientes. Guion: `deploy/principal/comprobacion_ofrecimiento_api_f1_09_20261018.md`.
+B141 (F1-57) admite como `documento_ref` la referencia legible del documento
+que RRHH custodia, con la guarda de B77, o el evento de contrato de Bolsa; la
+huella la calcula el navegador sin enviar el archivo. Añade
+`listar_contratos_participacion_v2`, igual que la v1 con `huella_sha256`, para
+que la ficha cite el contrato. Guion: `deploy/principal/documento_custodia_comprobacion_f1_57_20261019.md`.
 
 Ojo: las tablas de propuesta de las migraciones Bolsa `000001` y `000002`
 (`necesidad_autoritativa`, `propuesta`…) **no están instaladas en la principal**; comprobar su existencia

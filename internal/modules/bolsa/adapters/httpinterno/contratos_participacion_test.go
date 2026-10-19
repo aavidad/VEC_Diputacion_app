@@ -40,7 +40,7 @@ func TestContratosParticipacionContratoHTTP(t *testing.T) {
 	fin := time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC)
 	var q ports.SolicitudCambiarSituacionParticipacion
 	h, err := NuevoHandlerContratosParticipacion(preparadorSituacionHTTPPrueba{}, lectorContratosHTTPPrueba{q: &q, items: []ports.ContratoParticipacion{
-		{EventoRef: "evento:1", Tipo: "incorporacion", Inicio: &inicio, FinPrevisto: &fin, ModalidadClave: "sustitucion", CategoriaRef: "categoria:c2", CausaClave: "necesidad_temporal", ExpedienteRef: "expediente:ct:1", LlamamientoRef: "llamamiento:1", OcurridoEn: inicio},
+		{EventoRef: "evento:1", Tipo: "incorporacion", Inicio: &inicio, FinPrevisto: &fin, ModalidadClave: "sustitucion", CategoriaRef: "categoria:c2", CausaClave: "necesidad_temporal", ExpedienteRef: "expediente:ct:1", LlamamientoRef: "llamamiento:1", OcurridoEn: inicio, HuellaSHA256: strings.Repeat("d", 64)},
 		{EventoRef: "evento:2", Tipo: "incorporacion", OcurridoEn: inicio},
 	}})
 	if err != nil {
@@ -61,7 +61,8 @@ func TestContratosParticipacionContratoHTTP(t *testing.T) {
 		t.Fatalf("cuerpo=%s err=%v", w.Body.String(), err)
 	}
 	primero, segundo := cuerpo.Data.Items[0], cuerpo.Data.Items[1]
-	if primero["inicio"] != "2027-01-04T00:00:00Z" || primero["fin_previsto"] != "2027-03-31T00:00:00Z" || primero["causa_clave"] != "necesidad_temporal" {
+	if primero["inicio"] != "2027-01-04T00:00:00Z" || primero["fin_previsto"] != "2027-03-31T00:00:00Z" || primero["causa_clave"] != "necesidad_temporal" ||
+		primero["huella_sha256"] != strings.Repeat("d", 64) {
 		t.Fatalf("primero=%v", primero)
 	}
 	if segundo["inicio"] != nil || segundo["fin_previsto"] != nil {
