@@ -655,6 +655,8 @@ type dependenciasMiBolsaPortalExterno struct {
 	proveedores           map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	fuentePreferencias    puertosvec.FuenteAutorizacion
 	proveedorPreferencias *proveedorMaterialAltaContratacionTemporalDesarrollo
+	catalogoModalidades   bolsapuertos.CatalogoPreferenciasModalidades
+	modalidadesSQL        bool
 	campos                bolsapuertos.CamposPortalMiBolsa
 	reglas                bolsapuertos.ReglasPortalCandidato
 	reloj                 relojContratacionTemporalDesarrollo
@@ -744,6 +746,10 @@ func nuevasRutasMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno) ([]vech
 		if e != nil {
 			return nil, errMiBolsaNoDisponible
 		}
+	}
+	preferenciasHTTP, err = bolsahttp.NuevoSelectorPreferenciasModalidades(preferenciasHTTP, handlerPreferenciasModalidadesPortalExterno(d))
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
 	}
 	rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsahttp.RutaPreferenciasBolsas, Manejador: preferenciasHTTP})
 	historial, err := mibolsa.NuevoHistorial(consulta, propio, proveedorHistorialMiBolsaDesarrollo{delegado: d.proveedores[bolsapuertos.AudienciaHistorialMiBolsa]}, d.reloj)

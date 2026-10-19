@@ -227,6 +227,17 @@ func nuevaMiBolsaPortalExterno(ctx context.Context, cfg config.Config,
 			d.proveedores[audiencia] = proveedor
 		}
 	}
+	if d.proveedorPreferencias != nil {
+		if errorFuncion := comprobarSQLPreferenciasModalidades(ctx, bolsa); errorFuncion != nil {
+			slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "funcion_sql",
+				"causa", causaFalloPostgreSQLCTDesarrollo(errorFuncion))
+		} else if catalogo, e := catalogoPreferenciasModalidadesDesarrollo(ctx, cfg); e != nil {
+			slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "catalogo")
+		} else {
+			d.modalidadesSQL = true
+			d.catalogoModalidades = catalogo
+		}
+	}
 	justificantes, cerrarJustificantes := montarJustificantesBolsaExternos(ctx, cfg, preflight, topologia, fuente, decisiones, pools[5])
 	d.justificantes = justificantes
 	cerrarAnterior := cerrar

@@ -86,19 +86,7 @@ func (h *HandlerPreferenciasBolsas) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responder(w, http.StatusMethodNotAllowed, errorRespuesta{"metodo_no_permitido"})
 		return
 	}
-	medio, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil || medio != "application/json" || r.URL.RawQuery != "" || r.URL.ForceQuery ||
-		r.ContentLength < 2 || r.ContentLength > maximoCuerpoPreferenciasBolsas ||
-		len(r.TransferEncoding) != 0 || r.Body == nil || cabeceraProhibida(r.Header) {
-		responder(w, http.StatusBadRequest, errorRespuesta{"peticion_no_permitida"})
-		return
-	}
-	contenido, err := io.ReadAll(io.LimitReader(r.Body, maximoCuerpoPreferenciasBolsas+1))
-	if err != nil || int64(len(contenido)) != r.ContentLength {
-		responder(w, http.StatusBadRequest, errorRespuesta{"peticion_no_permitida"})
-		return
-	}
-	orden, version, clave, err := decodificarOrdenPreferenciasBolsas(contenido)
+	orden, version, clave, err := leerSolicitudPreferencias(r, "", "orden")
 	if err != nil {
 		responder(w, http.StatusBadRequest, errorRespuesta{"peticion_no_permitida"})
 		return
@@ -173,6 +161,24 @@ func reciboRefOpcional(ref string) any {
 // Exige tres claves exactas y rechaza duplicados antes de interpretar el
 // cuerpo, evitando que una clave ocultada cambie el recibo de un reintento.
 func decodificarOrdenPreferenciasBolsas(contenido []byte) ([]string, uint64, string, error) {
+	return decodificarSolicitudPreferencias(contenido, "orden")
+}
+
+func leerSolicitudPreferencias(r *http.Request, consulta, campo string) ([]string, uint64, string, error) {
+	medio, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || medio != "application/json" || r.URL.RawQuery != consulta || r.URL.ForceQuery ||
+		r.ContentLength < 2 || r.ContentLength > maximoCuerpoPreferenciasBolsas ||
+		len(r.TransferEncoding) != 0 || r.Body == nil || cabeceraProhibida(r.Header) {
+		return nil, 0, "", bolsa.ErrOrdenPreferenciasInvalido
+	}
+	contenido, err := io.ReadAll(io.LimitReader(r.Body, maximoCuerpoPreferenciasBolsas+1))
+	if err != nil || int64(len(contenido)) != r.ContentLength {
+		return nil, 0, "", bolsa.ErrOrdenPreferenciasInvalido
+	}
+	return decodificarSolicitudPreferencias(contenido, campo)
+}
+
+func decodificarSolicitudPreferencias(contenido []byte, campo string) ([]string, uint64, string, error) {
 	d := json.NewDecoder(bytes.NewReader(contenido))
 	primer, err := d.Token()
 	if err != nil || primer != json.Delim('{') {
@@ -186,7 +192,7 @@ func decodificarOrdenPreferenciasBolsas(contenido []byte) ([]string, uint64, str
 		}
 		clave, ok := token.(string)
 		if !ok || campos[clave] != nil ||
-			clave != "orden" && clave != "version_esperada" && clave != "clave_idempotencia" {
+			clave != campo && clave != "version_esperada" && clave != "clave_idempotencia" {
 			return nil, 0, "", bolsa.ErrOrdenPreferenciasInvalido
 		}
 		var valor json.RawMessage
@@ -203,14 +209,14 @@ func decodificarOrdenPreferenciasBolsas(contenido []byte) ([]string, uint64, str
 		return nil, 0, "", bolsa.ErrOrdenPreferenciasInvalido
 	}
 	var orden []string
-	var version uint64
-	var clave string
-	if json.Unmarshal(campos["orden"], &orden) != nil ||
+	var version *uint64
+	var clave *string
+	if json.Unmarshal(campos[campo], &orden) != nil ||
 		json.Unmarshal(campos["version_esperada"], &version) != nil ||
-		json.Unmarshal(campos["clave_idempotencia"], &clave) != nil {
+		json.Unmarshal(campos["clave_idempotencia"], &clave) != nil || version == nil || clave == nil {
 		return nil, 0, "", bolsa.ErrOrdenPreferenciasInvalido
 	}
-	return orden, version, clave, nil
+	return orden, *version, *clave, nil
 }
 
 func responderErrorPreferenciasBolsas(w http.ResponseWriter, err error) {

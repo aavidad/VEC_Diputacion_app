@@ -507,6 +507,15 @@ externas y conserva actor y perfil en las nuevas versiones internas.
 El orden y las precondiciones de instalación están en
 `deploy/principal/candidata_hz39/aspirante/preferencias_internas.md`.
 
+La misma ruta con la consulta exacta `?tipo=modalidades` lee y guarda la
+elección de modalidades de ofertas publicadas (F1-13). Usa las mismas acciones
+propias de consultar y ordenar preferencias; el tipo va en el contrato de datos,
+no en un permiso propio. La escritura es la 000138 de Bolsa y la auditoría de la
+lectura la 000300 de Autorización atestada. El arranque solo monta esta lectura
+si comprueba las dos y el catálogo de modalidades; si falta algo, la consulta
+responde 503 y el orden de bolsas sigue disponible. Detalle en
+`deploy/principal/candidata_hz39/aspirante/modalidades.md`.
+
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
 
 F1-73 prepara el contrato de alta directa `vec.ct.alta_necesidad.v2`: el

@@ -574,6 +574,11 @@ se retira una, debe marcar «He revisado el orden» antes de guardar.
 
 #### Modalidades de ofertas publicadas
 
+Estado: el servidor ya guarda y lee la elección con versión y justificante
+(`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades`). Falta
+publicar el permiso de la aspirante, aplicar la elección a la vista y a los
+avisos (F1-13, parte 4) y la pantalla (F1-14).
+
 La elección voluntaria de modalidades, cuando se habilite, solo filtra las
 ofertas publicadas que la persona ve y los avisos que solicita. No cambia la
 prelación ni la selección; tampoco equivale a renunciar. En el llamamiento

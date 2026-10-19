@@ -13,7 +13,7 @@ PR1 puede entrar en main sola: instalada, no cambia lo que ve la aspirante mient
 
 ## Fuente y gobierno de la concesión
 
-La fuente v2 conserva las dos acciones propias de preferencias y amplía los campos concedidos a la lectura. AUT104 admite que el GET anterior pida sus ocho campos y que el nuevo pida exactamente los cinco de modalidades; ninguno obtiene la proyección de la otra consulta por añadir campos en la petición. La fuente declara 90 días de vigencia: desde el **18 de octubre de 2026 a las 00:00 UTC** hasta antes del **16 de enero de 2027 a las 00:00 UTC**. Su huella de contenido canónico es `8241bbef088f2b88ddbb966a2ebfb4b435e116b3e81597ab8a0c299d1302a36f`; la huella SHA-256 del archivo es `a4daccf0f62ac5de9eb508b3e5ff818159353d5d9e0351b6dabfb13709dea991`.
+La fuente v2 conserva las dos acciones propias de preferencias y amplía los campos concedidos a la lectura. AUT104 admite que el GET anterior pida sus ocho campos y que el nuevo pida exactamente los cinco de modalidades; ninguno obtiene la proyección de la otra consulta por añadir campos en la petición. La fuente es vigente desde el **18 de octubre de 2026 a las 00:00 UTC** hasta antes del **1 de octubre de 2027 a las 00:00 UTC**, la misma fecha final que la v1 (ver la parte 3). Su huella de contenido canónico es `98c6206192248dd23a4bf58aa2753808fc6ecb6f302cbf02d70da4abde3410f4`; la huella SHA-256 del archivo es `8924fab53d1f9b0a835bbe0ae4cfac1cb43086be40f667fdc3daae8fdc78c5b0`.
 
 El archivo en Git es una propuesta, no una concesión publicada. Para activarla, dirección debe comprobar la versión y el catálogo vigentes, admitir la fuente por el acto de gobierno del catálogo y publicar la nueva versión del rol por la propuesta y el cierre de dos administradores que ya usa el producto. La guía anterior de [preferencias entre bolsas](../../habilitacion_preferencias_bolsas_20261013.md) describe esas vías para la fuente v1; sus datos, versiones y acuses no se reutilizan como si acreditaran la v2. Antes de ejecutar un acto nuevo hay que comprobar que esas vías aceptan la nueva versión y sus dos campos adicionales. Si falta esa comprobación, la publicación del rol queda pendiente. La activación no se hace escribiendo filas privadas por SQL.
 
@@ -37,6 +37,33 @@ El servidor ya tiene el servicio de guardado y el de lectura de modalidades, con
 - B143 cierra el primer punto pendiente de la parte 1: el guardado del orden de bolsas (B104 y B116) vuelve a calcular la huella de su contexto fijo. Una decisión emitida para modalidades ya no sirve para cambiar el orden de bolsas.
 - AD300 cierra el segundo: la fila de auditoría de una lectura lleva `lectura_preferencias_modalidades_correcta` cuando se leen los cinco campos y `lectura_preferencias_bolsas_correcta` cuando se leen los ocho. La fachada rechaza cualquier otro par. Las dos migraciones van al final de la lista única, después de B138.
 
-Queda por confirmar la vigencia. La versión del rol toma como fin de vigencia el más temprano de sus entradas, así que, si se publica con la fuente v2, todas las acciones de Mi Bolsa vencen el 16 de enero de 2027. La fuente v2 fija 90 días a propósito y su prueba lo comprueba. Antes de esa fecha hay que publicar una fuente nueva; si dirección prefiere otra fecha, se cambia la fuente antes de admitirla, porque todavía no está admitida.
+La vigencia se resolvió en la parte 3: la fuente v2 termina el 1 de octubre de 2027, igual que la v1.
+
+## Parte 3: API y composición (19/10/2026)
+
+La ruta `/api/vec/bolsa/mi-bolsa/preferencias` atiende las modalidades solo con la consulta exacta `?tipo=modalidades`. Sin consulta sigue sirviendo el orden de bolsas. Cualquier otra consulta recibe 400 y otro método, 405.
+
+- **GET** devuelve `version`, `modalidades_guardadas` (`null` si nunca se guardó, o la lista), `modalidades_disponibles` (clave y fuente del catálogo), `recibo_ref` y `registrado_en`.
+- **PUT** recibe `version`, `clave_idempotencia` y `modalidades` (`null` para todas, `[]` para ninguna). Responde 201 con recibo y versión nueva, o 200 con `reutilizado` si repite la clave con la misma elección.
+- Los errores salen como códigos fijos: 403 `acceso_denegado`, 409 `preferencias_desactualizadas`, 422 `orden_invalido`, 503 `servicio_no_disponible` y 500 `error_interno`. El texto interno del error nunca llega a la respuesta; una prueba lo comprueba con errores unidos.
+- El arranque comprueba que B138 existe con su firma exacta, que el usuario de conexión puede ejecutarla, que no tiene acceso público y que la restricción de auditoría ampliada por AD300 está validada y su definición coincide exactamente (por huella SHA-256) con la que instala AD300. Si una migración futura cambia esa restricción, hay que actualizar la huella en el arranque. Comprueba también el catálogo de modalidades. Si algo falla, registra solo la etapa y la consulta de modalidades responde 503. El orden de bolsas no se ve afectado.
+- La huella de la selección acepta el formato de candidato que usa B138 (`can_` y de 22 a 128 caracteres). Antes solo admitía la referencia de constitución, más corta, y rechazaba a los candidatos externos.
+- Vigencia: la fuente v2 vence ahora el 1 de octubre de 2027, como la v1. Alargarla no toca ninguna autoridad ajena: la v2 aún no está admitida en ningún catálogo. Las pruebas exigen que la v2 dure al menos 60 días. Que no supere el catálogo que la admita lo garantiza la validación del dominio al admitirla.
+
+### Evidencia en copia local
+
+Copia propia con la lista única (`--sin-inscripcion` bastó). El ensayo SQL con pruebas restauró HZ37, instaló 118 migraciones y pasó 9 pruebas antes y 9 después del reinicio. En la copia, con la aplicación arrancada:
+
+- Sin la concesión publicada, la consulta de modalidades responde 403 y no 503, así que está montada. Una consulta inválida da 400 y un método no admitido, 405.
+- Con la restricción de AD300 vigente, la comprobación del arranque da verdadero; con la restricción anterior, falso (probado dentro de una transacción revertida).
+- Con un rol de semilla de copia, que no es un acto gobernado: PUT `[]` da 201 con recibo y versión 1. Repetirlo da 200 y `reutilizado`. Otra elección con la misma clave da 422, una versión antigua 409 y una clave desconocida 422. PUT `null` da 201 con otro recibo y versión 2. Tras reiniciar aplicación y PostgreSQL, las mismas repeticiones devuelven los mismos recibos y fechas. Hay dos filas (`{}` y `NULL`) y ningún duplicado.
+
+### Lo que falta para activarla
+
+- **GET con el rol de semilla.** La lectura rechaza los roles de la semilla de copia por la guarda contra emisores de desarrollo, y esa guarda no se rebaja. El GET solo se podrá acreditar con la versión del rol publicada por actos gobernados.
+- **Admitir la fuente v2 y publicar la versión del rol.** La copia no tiene todavía la cadena de administración necesaria (F0-28). Cuando la tenga, los pasos son: admitir la fuente v2 en un catálogo nuevo con `vec-catalogo-acciones-admitir` (AUT58 y AUT61), cuya vigencia cubra la de la v2; proponer la versión del rol candidato con los diez campos; y cerrarla con un segundo administrador. Después, repetir en la copia el GET y el PUT con recibo y reinicio usando el certificado de la aspirante.
+- **Asimetría heredada.** La escritura de preferencias (B104 y B138) acepta una decisión emitida para un rol de semilla y la lectura no. Ya ocurría antes de esta parte; se deja anotada para la revisión de seguridad.
+- **Orden de las claves en B138.** Sus `ORDER BY` usan la colación de la base y Go ordena por bytes. Con las ocho claves actuales coinciden; con otras, el guardado fallaría cerrado. Una migración futura debe usar `COLLATE "C"`.
+- **Parte 4 (B139).** Aplicar la elección a la vista de ofertas publicadas y a los avisos, sin tocar el orden de llamamiento ni la inscripción.
 
 Sigue sin acreditar: la fuente v2 admitida, la versión del rol publicada, el GET/PUT de modalidades con recibo y reinicio, y el recorrido en Chrome. Cuando lleguen, el ensayo debe comprobar con datos ficticios que `null` muestra todas las modalidades, que `[]` oculta las ofertas abiertas sin respuesta y con modalidad identificada, que una clave desconocida se rechaza y que una repetición conserva versión, recibo y fecha tras reiniciar. Después hay que contrastar la vista y los avisos con las ofertas publicadas, sin alterar la inscripción, la posición en bolsa ni el llamamiento directo. Un fallo de configuración debe cerrar solo esta función y dejar disponible el resto de Mi Bolsa.
