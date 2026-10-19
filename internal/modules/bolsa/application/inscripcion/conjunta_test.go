@@ -29,7 +29,7 @@ func TestMaterialPresentacionConjuntaCanonico(t *testing.T) {
 	if _, ok := PresentacionConjuntaDesdeMaterial([]byte(strings.Replace(string(ma), `"cat_alpha","cat_beta"`, `"cat_beta","cat_alpha"`, 1))); ok {
 		t.Fatal("material no canónico aceptado")
 	}
-	for _, mal := range [][]string{nil, {"cat_alpha", "cat_alpha"}, {"cat_alpha", ""}} {
+	for _, mal := range [][]string{nil, {"cat_alpha", "cat_alpha"}, {"cat_alpha", ""}, {"Cat_alpha"}, {"ca"}} {
 		c := a
 		c.CategoriasRefs = mal
 		if c.Validar() == nil {

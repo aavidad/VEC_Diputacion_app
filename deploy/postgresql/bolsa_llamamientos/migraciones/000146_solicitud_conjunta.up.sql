@@ -41,7 +41,7 @@ BEGIN
    'vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_conjunta_v1(text,jsonb)','EXECUTE')
  OR encode(sha256(convert_to(pg_get_functiondef(to_regprocedure(
     'vec_bolsa_convocatorias.comprobar_publicacion_inscripcion_conjunta_v1(text,jsonb)')),'UTF8')),'hex')
-    <>'c293822620dd95dda2957dacaa5bf4644cfad6f08a4adb02b72a42c4ec065626'
+    <>'ff13dd5c02e89af6827c812285cd2dd497f33f734b3a59195eeea2346a8e4fa7'
  THEN RAISE EXCEPTION 'B146: falta BC13 o la preimagen causal es incompatible' USING ERRCODE='55000'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_constraint c
    WHERE c.conrelid='vec_bolsa_llamamientos.solicitud_inscripcion'::regclass
@@ -1055,8 +1055,24 @@ BEGIN
  IF EXISTS(SELECT 1 FROM pg_catalog.pg_constraint c
    WHERE c.conrelid='vec_bolsa_llamamientos.solicitud_inscripcion'::regclass
     AND c.conname='solicitud_inscripcion_persona_ref_convocatoria_ref_key')
- OR has_table_privilege('vec_bolsa_llamamientos_portal_externo','vec_bolsa_llamamientos.solicitud_inscripcion_conjunta','SELECT')
- OR has_table_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.solicitud_inscripcion_conjunta_categoria','SELECT')
- THEN RAISE EXCEPTION 'B146: claves o permisos divergentes' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'B146: claves divergentes' USING ERRCODE='55000'; END IF;
+ -- Tablas nuevas: propietario, RLS habilitada y forzada, una sola política y
+ -- ningún privilegio fuera del propietario.
+ IF (SELECT count(*) FROM pg_catalog.pg_class c
+     WHERE c.oid IN('vec_bolsa_llamamientos.solicitud_inscripcion_conjunta'::regclass,
+       'vec_bolsa_llamamientos.solicitud_inscripcion_conjunta_categoria'::regclass)
+      AND pg_get_userbyid(c.relowner)='vec_bolsa_llamamientos_propietario'
+      AND c.relrowsecurity AND c.relforcerowsecurity
+      AND (c.relacl IS NULL OR NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(c.relacl) a
+        WHERE a.grantee<>c.relowner))
+      AND (SELECT count(*) FROM pg_catalog.pg_policy pol WHERE pol.polrelid=c.oid)=1
+      AND EXISTS(SELECT 1 FROM pg_catalog.pg_policy pol WHERE pol.polrelid=c.oid
+        AND pol.polname='propietario_inscripcion' AND pol.polcmd='*' AND pol.polpermissive
+        AND pol.polroles=ARRAY[to_regrole('vec_bolsa_llamamientos_propietario')::oid]))<>2
+ OR EXISTS(SELECT 1 FROM (VALUES('public'),('vec_bolsa_llamamientos_portal_externo'),('vec_bolsa_llamamientos_ejecutor')) roles(rol),
+   (VALUES('vec_bolsa_llamamientos.solicitud_inscripcion_conjunta'),
+    ('vec_bolsa_llamamientos.solicitud_inscripcion_conjunta_categoria')) t(tabla)
+   WHERE has_table_privilege(roles.rol,t.tabla,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
+ THEN RAISE EXCEPTION 'B146: permisos de las tablas nuevas divergentes' USING ERRCODE='55000'; END IF;
 END $post$;
 COMMIT;

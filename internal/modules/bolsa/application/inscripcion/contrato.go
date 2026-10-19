@@ -31,7 +31,10 @@ var (
 	ErrDeclaracionInvalida        = errors.New("bolsa inscripcion: declaracion invalida")
 	ErrSolicitudExistente         = errors.New("bolsa inscripcion: solicitud existente")
 	ErrModalidadConjuntaPendiente = errors.New("bolsa inscripcion: modalidad conjunta pendiente")
-	ErrClaveConflicto             = errors.New("bolsa inscripcion: clave en conflicto")
+	// ErrModalidadSeparada: se pidió una solicitud conjunta en una convocatoria
+	// cuya modalidad sellada es una solicitud por categoría (BC13, B9609).
+	ErrModalidadSeparada = errors.New("bolsa inscripcion: modalidad por categoria")
+	ErrClaveConflicto    = errors.New("bolsa inscripcion: clave en conflicto")
 )
 
 const (

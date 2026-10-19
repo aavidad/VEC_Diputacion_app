@@ -1,8 +1,9 @@
 \set ON_ERROR_STOP on
 -- BC13 (F1-41): comprobación de publicación para la solicitud conjunta.
 -- Función nueva, copia de la comprobación instalada por BC12 con tres cambios:
--- exige la modalidad conjunta sellada (ausente o separada: B9608), recibe la
--- lista ordenada de categorías elegidas y la devuelve como seleccionadas.
+-- exige la modalidad conjunta sellada (ausente o separada: B9609, distinto
+-- del B9608 de BC12), recibe la lista ordenada de categorías elegidas y la
+-- devuelve como seleccionadas.
 -- BC9/BC12 quedan intactas. Sin tablas, datos ni DOWN; no se reaplica.
 BEGIN;
 SET LOCAL ROLE vec_bolsa_convocatorias_propietario;
@@ -110,13 +111,13 @@ BEGIN
  THEN RAISE EXCEPTION 'BC13: material publicado incompleto' USING ERRCODE='55000'; END IF;
  -- BC13 (F1-41): solo la modalidad conjunta sellada admite una solicitud para
  -- varias categorías. Ausente (histórica) o separada: la solicitud es por
- -- categoría y se responde B9608 antes de consumir nada más.
+ -- categoría y se responde B9609 antes de consumir nada más.
  IF c#>'{contenido,modalidad_inscripcion}' IS NOT NULL
   AND (jsonb_typeof(c#>'{contenido,modalidad_inscripcion}') IS DISTINCT FROM 'string'
    OR c#>>'{contenido,modalidad_inscripcion}' NOT IN('separada','conjunta'))
  THEN RAISE EXCEPTION 'BC13: modalidad de inscripcion invalida' USING ERRCODE='55000'; END IF;
  IF c#>>'{contenido,modalidad_inscripcion}' IS DISTINCT FROM 'conjunta'
- THEN RAISE EXCEPTION 'BC13: la convocatoria no admite solicitud conjunta' USING ERRCODE='B9608'; END IF;
+ THEN RAISE EXCEPTION 'BC13: la convocatoria no admite solicitud conjunta' USING ERRCODE='B9609'; END IF;
  IF jsonb_array_length(c#>'{contenido,categorias}') NOT BETWEEN 1 AND 128
  OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(c#>'{contenido,categorias}') AS x(valor)
    WHERE x.valor !~ '^[a-z][a-z0-9_.:-]{2,127}$')
@@ -230,7 +231,7 @@ BEGIN
  OR p.prosecdef IS DISTINCT FROM true OR p.provolatile::text<>'v' OR p.proparallel::text<>'u'
  OR p.proacl::text IS DISTINCT FROM '{vec_bolsa_convocatorias_propietario=X/vec_bolsa_convocatorias_propietario,vec_bolsa_llamamientos_propietario=X/vec_bolsa_convocatorias_propietario}'
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s','statement_timeout=10s']::text[]
- OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'c293822620dd95dda2957dacaa5bf4644cfad6f08a4adb02b72a42c4ec065626'
+ OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'ff13dd5c02e89af6827c812285cd2dd497f33f734b3a59195eeea2346a8e4fa7'
  THEN RAISE EXCEPTION 'BC13: definicion o metadatos divergentes' USING ERRCODE='55000'; END IF;
  IF has_function_privilege('public',f,'EXECUTE')
  THEN RAISE EXCEPTION 'BC13: ejecucion publica' USING ERRCODE='55000'; END IF;

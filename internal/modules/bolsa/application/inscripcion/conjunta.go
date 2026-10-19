@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"regexp"
 	"sort"
 	"time"
 
@@ -20,6 +21,10 @@ import (
 const EsquemaMaterialPresentacionConjunta = "vec.bolsa.inscripcion.presentar_conjunta.v1"
 
 const maximoCategoriasConjunta = 128
+
+// categoriaConjunta es la misma forma que exige la SQL (B146/BC13): se rechaza
+// aquí, antes de pedir una concesión por categoría.
+var categoriaConjunta = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{2,127}$`)
 
 type PresentacionConjunta struct {
 	ConvocatoriaRef   string
@@ -40,7 +45,7 @@ func (p PresentacionConjunta) Validar() error {
 			return ErrSolicitudInvalida
 		}
 		vistas[categoria] = struct{}{}
-		if p.PorCategoria(categoria).Validar() != nil {
+		if !categoriaConjunta.MatchString(categoria) || p.PorCategoria(categoria).Validar() != nil {
 			return ErrSolicitudInvalida
 		}
 	}

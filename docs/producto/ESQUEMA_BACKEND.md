@@ -504,7 +504,11 @@ la misma transacción y escribe una fila de solicitud por categoría, con su
 versión, historia, outbox y recibo, para que RRHH revise e incorpore igual que
 antes. El reintento con la misma clave y el mismo material devuelve el mismo
 recibo y anota el acceso como repetido; otra clave da B9604 y otro material con
-la misma clave, B9603. B146 también incluye el contenido de B105, que no se
+la misma clave, B9603. Pedirla en una convocatoria por categoría da B9609
+(`409 inscripcion_por_categoria`), distinto del B9608 de BC12. El arranque del
+portal externo admite la función nueva solo si está concedida exactamente junto
+a B96, y la ficha declara sus tres campos nuevos en la concesión de lectura.
+B146 también incluye el contenido de B105, que no se
 instaló: retira la unicidad persona y convocatoria, de modo que la modalidad
 separada admite una solicitud por categoría. El proyector del aspirante agrupa
 las solicitudes propias por categoría y la ficha las devuelve en

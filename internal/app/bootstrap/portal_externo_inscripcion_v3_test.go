@@ -24,6 +24,8 @@ type consultadorACLMiBolsaInscripcionPrueba struct {
 	intentoB104Exacta    bool
 	funcionesB138        int
 	b138Exacta           bool
+	funcionesB146        int
+	b146Exacta           bool
 	consulta             string
 	firma                any
 	firmaB104            any
@@ -31,17 +33,19 @@ type consultadorACLMiBolsaInscripcionPrueba struct {
 	firmaIntentoB104     any
 	firmaB114            any
 	firmaB138            any
+	firmaB146            any
 }
 
 func (q *consultadorACLMiBolsaInscripcionPrueba) QueryRow(_ context.Context, consulta string, args ...any) pgx.Row {
 	q.consulta = consulta
-	if len(args) == 7 {
+	if len(args) == 8 {
 		q.firma = args[0]
 		q.firmaB104 = args[2]
 		q.firmaLecturaB104 = args[3]
 		q.firmaIntentoB104 = args[4]
 		q.firmaB114 = args[5]
 		q.firmaB138 = args[6]
+		q.firmaB146 = args[7]
 	}
 	return filaACLMiBolsaInscripcionPrueba{q}
 }
@@ -51,7 +55,7 @@ type filaACLMiBolsaInscripcionPrueba struct {
 }
 
 func (f filaACLMiBolsaInscripcionPrueba) Scan(dest ...any) error {
-	if len(dest) != 14 {
+	if len(dest) != 16 {
 		return ErrMaterialV3PortalExternoInvalido
 	}
 	*dest[0].(*[]string) = slices.Clone(f.q.funciones)
@@ -68,6 +72,8 @@ func (f filaACLMiBolsaInscripcionPrueba) Scan(dest ...any) error {
 	*dest[11].(*bool) = false
 	*dest[12].(*int) = f.q.funcionesB138
 	*dest[13].(*bool) = f.q.b138Exacta
+	*dest[14].(*int) = f.q.funcionesB146
+	*dest[15].(*bool) = f.q.b146Exacta
 	return nil
 }
 
@@ -194,6 +200,7 @@ func TestACLPortalExternoDualExactaAntesYDespuesB96(t *testing.T) {
 				q.firmaIntentoB104 != firmaIntentoPreferenciasBolsasPortalExterno ||
 				q.firmaB114 != firmaPresentarAlegacionPortalExterno ||
 				q.firmaB138 != firmaGuardarModalidadesPortalExterno ||
+				q.firmaB146 != firmaSolicitarInscripcionConjuntaPortalExterno ||
 				!strings.Contains(q.consulta, "array_agg(proname::text") ||
 				!strings.Contains(q.consulta, "aclexplode(p.proacl)") ||
 				!strings.Contains(q.consulta, "has_table_privilege") {
@@ -253,4 +260,49 @@ func TestACLPortalExternoDualExactaAntesYDespuesB96(t *testing.T) {
 		})
 	}
 
+}
+
+// B146: la solicitud conjunta solo se admite exacta y junto a B96.
+func TestSolicitudConjuntaPortalExternoSoloJuntoAB96(t *testing.T) {
+	con := append(funcionesMiBolsaPortalExternoConInscripcion(), "solicitar_inscripcion_conjunta_v1")
+	if quedan, ok := sinSolicitudConjuntaPortalExterno(con, 1, true, 1, true); !ok ||
+		!funcionesMiBolsaPortalExternoExactas(quedan, 1, true) {
+		t.Fatal("B96 con B146 exacta rechazada")
+	}
+	if quedan, ok := sinSolicitudConjuntaPortalExterno(funcionesMiBolsaPortalExternoConInscripcion(), 1, true, 0, false); !ok ||
+		!funcionesMiBolsaPortalExternoExactas(quedan, 1, true) {
+		t.Fatal("B96 sin B146 rechazada")
+	}
+	for nombre, caso := range map[string]struct {
+		funciones []string
+		b96, b146 int
+		e96, e146 bool
+	}{
+		"B146 sin B96":       {append(funcionesMiBolsaPortalExternoSinInscripcion(), "solicitar_inscripcion_conjunta_v1"), 0, 1, false, true},
+		"B146 inexacta":      {con, 1, 1, true, false},
+		"concedida sin cote": {con, 1, 0, true, false},
+		"duplicada":          {con, 1, 2, true, true},
+	} {
+		if _, ok := sinSolicitudConjuntaPortalExterno(caso.funciones, caso.b96, caso.e96, caso.b146, caso.e146); ok {
+			t.Fatalf("%s aceptada", nombre)
+		}
+	}
+}
+
+// El preflight completo admite B146 exacta con B96 y rechaza la lista que la
+// incluye sin su cotejo.
+func TestACLPortalExternoAdmiteB146Exacta(t *testing.T) {
+	con := append(funcionesMiBolsaPortalExternoConInscripcion(), "solicitar_inscripcion_conjunta_v1")
+	for _, caso := range []struct {
+		nombre string
+		n      int
+		exacta bool
+		espera bool
+	}{{"exacta", 1, true, true}, {"sin cotejo", 0, false, false}, {"inexacta", 1, false, false}} {
+		q := &consultadorACLMiBolsaInscripcionPrueba{funciones: con, permitido: true,
+			funcionesB96: 1, b96Exacta: true, funcionesB146: caso.n, b146Exacta: caso.exacta}
+		if got := comprobarACLMiBolsaPortalExterno(context.Background(), q, true); got != caso.espera {
+			t.Fatalf("%s: preflight %v", caso.nombre, got)
+		}
+	}
 }

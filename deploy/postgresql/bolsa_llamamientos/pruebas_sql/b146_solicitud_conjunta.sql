@@ -184,7 +184,7 @@ BEGIN
    ('B9604',persona,conj,ARRAY['cat.alpha','cat.beta'],'ClavePruebaB146002',NULL,NULL),
    ('B9605','per_'||repeat('b',22),conj,ARRAY['cat.beta','cat.alpha'],'ClavePruebaB146003',NULL,NULL),
    ('B9605','per_'||repeat('b',22),conj,ARRAY['cat.alpha','cat.delta'],'ClavePruebaB146004',NULL,NULL),
-   ('B9608','per_'||repeat('b',22),sep,ARRAY['cat.alpha','cat.beta'],'ClavePruebaB146005',NULL,NULL),
+   ('B9609','per_'||repeat('b',22),sep,ARRAY['cat.alpha','cat.beta'],'ClavePruebaB146005',NULL,NULL),
    ('42501','per_'||repeat('b',22),conj,ARRAY['cat.alpha','cat.beta'],'ClavePruebaB146006',NULL,1),
    ('42501','per_'||repeat('b',22),conj,ARRAY['cat.beta','cat.alpha'],'ClavePruebaB146007',
      ARRAY['cat.alpha','cat.beta'],NULL)
