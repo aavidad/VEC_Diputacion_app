@@ -39,6 +39,12 @@ func TestSeleccionLlamamiento409PublicaSoloContextoCoherente(t *testing.T) {
 		strings.Contains(r.Body.String(), "candidato_ref") || strings.Contains(r.Body.String(), "correo") {
 		t.Fatalf("409 sin contexto mínimo: %d %s", r.Code, r.Body.String())
 	}
+	// Una huella propia del sistema puede contener por azar ocho cifras y una
+	// letra; no es un documento y el 409 conserva el contexto.
+	c.ExpedienteRef = "expediente:ct:e975732762ec" + strings.Repeat("0", 52)
+	if r = grabar(); r.Code != http.StatusConflict || !strings.Contains(r.Body.String(), c.ExpedienteRef) {
+		t.Fatalf("huella del sistema rechazada como documento: %d %s", r.Code, r.Body.String())
+	}
 	c.UnidadRef = "12345678Z"
 	r = grabar()
 	var invalido map[string]json.RawMessage

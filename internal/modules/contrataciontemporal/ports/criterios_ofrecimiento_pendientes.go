@@ -42,6 +42,12 @@ type ContextoComprobacionPendiente struct {
 var referenciaContextoComprobacion = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9:._/-]+$`)
 var huellaContextoComprobacion = regexp.MustCompile(`^[a-f0-9]{64}$`)
 var documentoPersonalContextoComprobacion = regexp.MustCompile(`(?i)(([0-9][._:/#-]?){8}|[XYZ][._:/#-]?([0-9][._:/#-]?){7})[A-Z]`)
+
+// Las referencias que emite el sistema (espacio de nombres y huella SHA-256)
+// no pueden llevar un documento escrito por una persona, pero sus cifras
+// hexadecimales casan por azar con el patrón de DNI; quedan fuera de ese
+// filtro, igual que en Bolsa.
+var referenciaPropiaSistemaContextoComprobacion = regexp.MustCompile(`^[a-z_]+(:[a-z_]+)*:[0-9a-f]{64}$`)
 var etiquetaPersonalContextoComprobacion = regexp.MustCompile(`(?i)(^|[._:/#-])(dni|nie|nif|pasaporte|passport)([._:/#-]|$)`)
 
 const maximoEnteroContextoComprobacion = 9007199254740991
@@ -51,7 +57,8 @@ func (c ContextoComprobacionPendiente) ValidoPara(p ComprobacionOfrecimientoPend
 	for _, ref := range []string{c.AmbitoRef, c.BolsaRef, c.CategoriaRef, c.ExpedienteRef,
 		c.NecesidadRef, c.OrganizacionRef, c.ParticipacionRef, c.UnidadRef} {
 		if len(ref) > 256 || !referenciaContextoComprobacion.MatchString(ref) ||
-			documentoPersonalContextoComprobacion.MatchString(ref) || etiquetaPersonalContextoComprobacion.MatchString(ref) {
+			(!referenciaPropiaSistemaContextoComprobacion.MatchString(ref) && documentoPersonalContextoComprobacion.MatchString(ref)) ||
+			etiquetaPersonalContextoComprobacion.MatchString(ref) {
 			return false
 		}
 	}
