@@ -688,7 +688,7 @@ Datos mínimos de cada momento:
 
 | Momento | Datos |
 | --- | --- |
-| Solicitud | Número visible (el de MOAD) y referencia opaca; centro y contacto por referencia; categoría y grupo; motivo y detalle; fechas previstas; retención de crédito declarada, con número, fecha, importe y documento si se aportan; puesto de la RPT; documentos y observaciones |
+| Solicitud | Número visible (el de MOAD) y referencia opaca; centro y contacto por referencia; categoría y grupo; motivo y detalle; fechas previstas; retención de crédito declarada por el centro con su número de operación en SICAL, su fecha y su importe, que RRHH o Intervención comprueban en SICAL (regla provisional de la duda 125: el centro no aporta el documento RC y el dato no cuenta como crédito acreditado); puesto de la RPT; documentos y observaciones |
 | Análisis | Modalidad; categoría y grupo validados; causa; fechas y jornada; validación de la retención con fuente y recibo; coste previsto cuando hay tabla de retribuciones; actor, unidad, instante y recibo |
 | Vía de cobertura | Comprobaciones con resultado, fuente e instante; bolsa vigente, agotamiento, candidaturas disponibles, SAE y nueva convocatoria; vía elegida y motivo |
 | Asignación | Unidad gestora, responsable, fecha de entrada en bandeja, recibo y aviso |

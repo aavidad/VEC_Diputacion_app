@@ -65,3 +65,11 @@
    bandeja de incorporaciones (centro). */
 .pc-enlace-expediente { display:inline-block; margin-inline-start:8px; font-weight:650; }
 .pc-tabla tr[tabindex="-1"]:focus { outline:3px solid var(--portal-foco); outline-offset:-3px; }
+.ct-etiqueta-ayuda { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.ct-ayuda-campo { position:relative; }
+.ct-ayuda-campo summary { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border:1px solid var(--portal-borde); border-radius:50%; background:var(--portal-superficie); color:var(--portal-tinta); font-weight:800; cursor:pointer; list-style:none; }
+.ct-ayuda-campo summary::-webkit-details-marker { display:none; }
+.ct-ayuda-campo summary:focus-visible { outline:3px solid var(--portal-foco); outline-offset:2px; }
+.ct-ayuda-campo p { position:absolute; z-index:2; top:calc(100% + 6px); left:0; width:min(420px, calc(100vw - 48px)); margin:0; padding:12px 14px; border:1px solid var(--portal-borde); border-radius:var(--portal-radio); background:var(--portal-superficie); color:var(--portal-tinta); box-shadow:var(--portal-sombra); line-height:1.5; }
+@media (max-width:520px) { .ct-ayuda-campo { position:static; } .ct-etiqueta-ayuda { position:relative; } .ct-ayuda-campo p { left:0; right:0; width:auto; } }
+@media (forced-colors:active) { .ct-ayuda-campo summary { border:1px solid ButtonText; } }

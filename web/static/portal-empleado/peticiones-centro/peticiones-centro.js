@@ -9,6 +9,7 @@ import {
 } from "../modulos/contratacion-temporal/contrato.js?v=VEC_WEB_VERSION";
 import { extraerBorrador, formulario as renderizarFormularioPuro,
   revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=VEC_WEB_VERSION";
+import { esRCDeclarada } from "../modulos/contratacion-temporal/rc-declarada.js?v=VEC_WEB_VERSION";
 import { cargarCatalogosContratacionEnIdioma } from "../modulos/contratacion-temporal/i18n-catalogos.js?v=VEC_WEB_VERSION";
 import { crearClienteHTTPRPTPublica } from "../modulos/personal/cliente-http-rpt-publica.js?v=VEC_WEB_VERSION";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
@@ -297,8 +298,9 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
   const camposNecesidad = necesidad?.campos && typeof necesidad.campos === "object"
     ? Object.entries(necesidad.campos).filter(([campo, valor]) => valor && campo !== "numero_personas"
       && !REFERENCIAS_NECESIDAD.has(campo)) : [];
+  // Una RC declarada por el centro es un dato pendiente de comprobar por RRHH.
   const rc = s.rc?.existe
-    ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)}`
+    ? `${esRCDeclarada(s.rc) ? `${traducirCentro("resumen_rc_si")} · ` : ""}${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)}`
     : traducirCentro("ct_txt_sin_retencion_de_credito_aportada");
   const filas = [[TEXTO.estado, estadoPeticion(peticion.estado)],
     [traducirCentro("ct_txt_centro"), contexto ? nombreCentro(s.centro_ref, contexto) : nombre("centros", null, s.centro_ref)],
@@ -333,7 +335,7 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
   }
   const tecnicos = [
     ...(contexto ? [] : [[TEXTO.peticionRef, peticion.referencia], [TEXTO.version, peticion.version]]),
-    ...(s.rc?.documento_ref ? [[textoCT("pc_documento_referencia"), s.rc.documento_ref]] : []),
+    ...(s.rc?.documento_ref && !esRCDeclarada(s.rc) ? [[textoCT("pc_documento_referencia"), s.rc.documento_ref]] : []),
   ];
   return camposDetalle(filas) + (tecnicos.length ? detalleTecnico(tecnicos) : "");
 }

@@ -74,7 +74,7 @@ func (s *ServicioPeticionCentro) Ejecutar(ctx context.Context, entrada ports.Com
 		var peticion domain.PeticionCentro
 		if comando.Operacion == ports.OperacionPresentarPeticionCentro {
 			if comando.Solicitud.JornadaMinutos == 0 || comando.Solicitud.NumeroPersonas == 0 ||
-				comando.Solicitud.PuestoSolicitado == "" {
+				comando.Solicitud.PuestoSolicitado == "" || comando.Solicitud.RC.ValidarDeclaradaPorCentro() != nil {
 				return vacio, domain.ErrPeticionCentroInvalida
 			}
 			solicitudPeticion, err := comando.Solicitud.Clonar()
