@@ -11,25 +11,27 @@ import (
 	"strings"
 	"time"
 
+	bolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 var (
-	ErrSolicitudInvalida         = errors.New("bolsa inscripcion: solicitud invalida")
-	ErrNoDisponible              = errors.New("bolsa inscripcion: servicio no disponible")
-	ErrNoEncontrada              = errors.New("bolsa inscripcion: solicitud no encontrada")
-	ErrConflicto                 = errors.New("bolsa inscripcion: conflicto")
-	ErrPlazoCerrado              = errors.New("bolsa inscripcion: plazo cerrado")
-	ErrAccesoDenegado            = errors.New("bolsa inscripcion: acceso denegado")
-	ErrSesionAusente             = errors.New("bolsa inscripcion: sesion ausente")
-	ErrActaNoDisponible          = errors.New("bolsa inscripcion: acta no disponible")
-	ErrVinculoIdentidadPendiente = errors.New("bolsa inscripcion: vinculo de identidad pendiente")
-	ErrCatalogoCambiado          = errors.New("bolsa inscripcion: catalogo cambiado")
-	ErrRequisitoInvalido         = errors.New("bolsa inscripcion: requisito invalido")
-	ErrDeclaracionInvalida       = errors.New("bolsa inscripcion: declaracion invalida")
-	ErrSolicitudExistente        = errors.New("bolsa inscripcion: solicitud existente")
-	ErrClaveConflicto            = errors.New("bolsa inscripcion: clave en conflicto")
+	ErrSolicitudInvalida          = errors.New("bolsa inscripcion: solicitud invalida")
+	ErrNoDisponible               = errors.New("bolsa inscripcion: servicio no disponible")
+	ErrNoEncontrada               = errors.New("bolsa inscripcion: solicitud no encontrada")
+	ErrConflicto                  = errors.New("bolsa inscripcion: conflicto")
+	ErrPlazoCerrado               = errors.New("bolsa inscripcion: plazo cerrado")
+	ErrAccesoDenegado             = errors.New("bolsa inscripcion: acceso denegado")
+	ErrSesionAusente              = errors.New("bolsa inscripcion: sesion ausente")
+	ErrActaNoDisponible           = errors.New("bolsa inscripcion: acta no disponible")
+	ErrVinculoIdentidadPendiente  = errors.New("bolsa inscripcion: vinculo de identidad pendiente")
+	ErrCatalogoCambiado           = errors.New("bolsa inscripcion: catalogo cambiado")
+	ErrRequisitoInvalido          = errors.New("bolsa inscripcion: requisito invalido")
+	ErrDeclaracionInvalida        = errors.New("bolsa inscripcion: declaracion invalida")
+	ErrSolicitudExistente         = errors.New("bolsa inscripcion: solicitud existente")
+	ErrModalidadConjuntaPendiente = errors.New("bolsa inscripcion: modalidad conjunta pendiente")
+	ErrClaveConflicto             = errors.New("bolsa inscripcion: clave en conflicto")
 )
 
 const (
@@ -383,19 +385,20 @@ type Categoria struct {
 }
 
 type BolsaAbierta struct {
-	ConvocatoriaRef     string      `json:"convocatoria_ref"`
-	Titulo              string      `json:"titulo"`
-	NumeroCategorias    uint64      `json:"numero_categorias"`
-	Categorias          []Categoria `json:"categorias,omitempty"`
-	PlazoInicio         time.Time   `json:"plazo_inicio"`
-	PlazoFin            time.Time   `json:"plazo_fin"`
-	CatalogoVersion     uint64      `json:"catalogo_version"`
-	RequisitosResumen   string      `json:"requisitos_resumen"`
-	Requisitos          []Requisito `json:"requisitos,omitempty"`
-	PuedeIniciar        bool        `json:"puede_iniciar"`
-	ImpedimentoEtiqueta string      `json:"impedimento_etiqueta,omitempty"`
-	EstadoPropio        *string     `json:"estado_solicitud_propia"`
-	SolicitudRef        *string     `json:"solicitud_ref"`
+	ConvocatoriaRef      string                                 `json:"convocatoria_ref"`
+	Titulo               string                                 `json:"titulo"`
+	ModalidadInscripcion bolsa.ModalidadInscripcionConvocatoria `json:"modalidad_inscripcion"`
+	NumeroCategorias     uint64                                 `json:"numero_categorias"`
+	Categorias           []Categoria                            `json:"categorias,omitempty"`
+	PlazoInicio          time.Time                              `json:"plazo_inicio"`
+	PlazoFin             time.Time                              `json:"plazo_fin"`
+	CatalogoVersion      uint64                                 `json:"catalogo_version"`
+	RequisitosResumen    string                                 `json:"requisitos_resumen"`
+	Requisitos           []Requisito                            `json:"requisitos,omitempty"`
+	PuedeIniciar         bool                                   `json:"puede_iniciar"`
+	ImpedimentoEtiqueta  string                                 `json:"impedimento_etiqueta,omitempty"`
+	EstadoPropio         *string                                `json:"estado_solicitud_propia"`
+	SolicitudRef         *string                                `json:"solicitud_ref"`
 }
 
 type PaginaAbiertas struct {

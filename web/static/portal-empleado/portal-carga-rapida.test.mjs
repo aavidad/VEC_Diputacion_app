@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=20261018-f136c-informe-v4";
-import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSERVICIO_EMPLEADO } from "./portal-modulos-coordinador.js?v=VEC_WEB_VERSION";
+import { traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261016-r1-o-integracion-v7";
-import { etiquetaCatalogo } from "./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=20261018-f136c-informe-v4";
-import { numeroExpedienteVisible } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261018-f136c-informe-v4";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=VEC_WEB_VERSION";
+import { etiquetaCatalogo } from "./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { numeroExpedienteVisible } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=VEC_WEB_VERSION";
 
 test("la tarjeta de un módulo que aún carga dice «Comprobando» y queda ocupada", () => {
   const renderizar = crearVistaInicioPortal({
@@ -618,8 +618,8 @@ test("ningún módulo del portal se pide con dos URL distintas (una sola descarg
   const versionIncorporacion = versionDe(codigoCoordinador,
     "./modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js");
   for (const url of [
-    "/portal-empleado/portal-bolsas-api.js?v=20261019-f157-v1",
-    "/portal-empleado/portal-bolsas-contrato.js?v=20261016-r1-o-integracion-v7",
+    "/portal-empleado/portal-bolsas-api.js?v=VEC_WEB_VERSION",
+    "/portal-empleado/portal-bolsas-contrato.js?v=VEC_WEB_VERSION",
     `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
     `/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=${versionIncorporacion}`,
   ]) assert.ok(urls.has(url), `${url}: el portal debe alcanzar ambas ramas integradas`);
@@ -652,15 +652,15 @@ test("la precarga de CT no solicita los catálogos y estilos exclusivos de otras
   const html = await readFile(new URL("index.html", import.meta.url), "utf8");
   const estatico = await recorrerGrafo("portal-empleado/portal.js", { dinamicos: false });
   for (const modulo of [
-    "/portal-empleado/modulos/auditoria/i18n.js?v=20260928-usab-auditoria-v3",
-    "/portal-empleado/modulos/documentos/i18n.js?v=20260928-ppt-v2",
-    "/portal-empleado/portal-bolsas-ofertas.js?v=20261018-f171-integracion-v1",
-    "/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=20261007-pantallas-textos-final-v1",
-    "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1",
-    "/portal-empleado/portal-accesos-empleado.js?v=20261001-g364-reconciliar-v2",
-    "/portal-empleado/portal-bolsas-api.js?v=20261018-f136c-informe-v6",
-    "/portal-empleado/portal-panel-interno.js?v=20261019-f157-v1",
-    "/portal-empleado/portal-i18n-contratos.js?v=20260930-portales-i18n-integracion-v1",
+    "/portal-empleado/modulos/auditoria/i18n.js?v=VEC_WEB_VERSION",
+    "/portal-empleado/modulos/documentos/i18n.js?v=VEC_WEB_VERSION",
+    "/portal-empleado/portal-bolsas-ofertas.js?v=VEC_WEB_VERSION",
+    "/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js?v=VEC_WEB_VERSION",
+    "/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js?v=VEC_WEB_VERSION",
+    "/portal-empleado/portal-accesos-empleado.js?v=VEC_WEB_VERSION",
+    "/portal-empleado/portal-bolsas-api.js?v=VEC_WEB_VERSION",
+    "/portal-empleado/portal-panel-interno.js?v=VEC_WEB_VERSION",
+    "/portal-empleado/portal-i18n-contratos.js?v=VEC_WEB_VERSION",
   ]) assert.ok(!estatico.has(modulo), `${modulo} se abre solo con su pantalla`);
   const grupos = [...html.matchAll(/<template data-estilos-vista="([^"]+)">([\s\S]*?)<\/template>/g)];
   assert.deepEqual(grupos.map(([, grupo]) => grupo), ["cronos", "dietas", "personal"]);

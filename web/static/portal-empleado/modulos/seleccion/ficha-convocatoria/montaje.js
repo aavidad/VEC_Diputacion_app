@@ -1,6 +1,6 @@
-import { cargarTextosFicha } from "./i18n.js?v=20261001-s1-ficha-v1";
-import { crearLectorFichaHTTP } from "./cliente-http.js?v=20261001-s1-ficha-v1";
-import { montarFichaConvocatoria } from "./vista.js?v=20261001-s1-ficha-v1";
+import { cargarTextosFicha } from "./i18n.js?v=VEC_WEB_VERSION";
+import { crearLectorFichaHTTP } from "./cliente-http.js?v=VEC_WEB_VERSION";
+import { montarFichaConvocatoria } from "./vista.js?v=VEC_WEB_VERSION";
 
 /** Handle inmediato: el shell puede desmontar mientras se carga el catálogo. */
 export function montarFichaConvocatoriaHTTP(contenedor, {

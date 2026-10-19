@@ -4,7 +4,7 @@
  * tras cancelar, vuelve a cargar el expediente conservando el justificante.
  */
 
-import { contextoCancelacionDesdeEstado, montarPanelCancelacion } from "./cancelacion-expediente.js?v=20261007-pantallas-textos-final-v1";
+import { contextoCancelacionDesdeEstado, montarPanelCancelacion } from "./cancelacion-expediente.js?v=VEC_WEB_VERSION";
 
 export function montarCancelacionSiProcede({ raiz, cliente, mensajes, locale, anunciar, confirmarOperacion, recargar } = {}) {
   const disponible = typeof cliente?.consultarCancelacion === "function" && typeof cliente?.cancelarExpediente === "function";

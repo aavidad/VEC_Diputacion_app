@@ -2,19 +2,19 @@ import { escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 import { idiomaActivoAreaPersonal, iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
-  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261007-p7-imagen-v1";
-import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
-import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=20261011-mibolsa-respuesta-anterior-v1";
-import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=20261011-mibolsa-respuesta-anterior-v1";
+  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=VEC_WEB_VERSION";
+import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=VEC_WEB_VERSION";
+import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=VEC_WEB_VERSION";
+import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=VEC_WEB_VERSION";
 import {
   renderizarLlamamientos, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js?v=20261015-o-justificante-bolsa-v4";
-import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=20261011-mibolsa-respuesta-anterior-v1";
-import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=20261015-o-justificante-bolsa-v4";
-import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260930-portales-i18n-integracion-v1";
-import { actualizarCamposRenunciaJustificada, enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=20261015-o-justificante-bolsa-v4";
-import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v4";
-import { crearControladorPreferenciasBolsas } from "./mi-bolsa-preferencias-bolsas.js?v=20261012-preferencias-bolsas-v1";
+} from "./vistas/seguimiento-tramites.js?v=VEC_WEB_VERSION";
+import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=VEC_WEB_VERSION";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=VEC_WEB_VERSION";
+import { montarFichaAspirante } from "./ficha-aspirante.js?v=VEC_WEB_VERSION";
+import { actualizarCamposRenunciaJustificada, enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=VEC_WEB_VERSION";
+import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=VEC_WEB_VERSION";
+import { crearControladorPreferenciasBolsas } from "./mi-bolsa-preferencias-bolsas.js?v=VEC_WEB_VERSION";
 
 
 const RUTAS = Object.freeze({
@@ -348,7 +348,7 @@ function montarVistaAlegaciones(estado, generacion) {
   contenedor.innerHTML = `<p role="status">${escaparHTML(traducir("areaPersonal.html.cargandoInformacion"))}</p>`;
   estado.cargarVistaAlegaciones().then(async ({ montarAlegaciones }) => {
     if (!vigente() || controlador.signal.aborted) return;
-    const { crearClienteAlegaciones } = await import("../comun/alegaciones-cliente.js?v=20261013-alegaciones-v1");
+    const { crearClienteAlegaciones } = await import("../comun/alegaciones-cliente.js?v=VEC_WEB_VERSION");
     if (!vigente() || controlador.signal.aborted) return;
     const montaje = await montarAlegaciones({ contenedor, modo: "propias", escaparHTML,
       cliente: crearClienteAlegaciones({ fetchImpl: estado.fetchImpl }), signal: controlador.signal,
@@ -779,9 +779,9 @@ async function cargar(estado) {
 export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImpl = globalThis.fetch,
   fetchUsuarios = fetchImpl, clientePreferencias = null, preferencias = null,
   errorPreferencias = null, controladorVisual = null, preferenciasAplazadas = false,
-  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=20261011-mibolsa-respuesta-anterior-v1"),
-  cargarVistaMeritos = () => import("./meritos-reales-montaje.js?v=20261013-meritos-recorrido-v1"),
-  cargarVistaAlegaciones = () => import("../comun/alegaciones-vista.js?v=20261013-alegaciones-v1") } = {}) {
+  cargarVistaInscripcion = () => import("./inscripcion-bolsa-vista.js?v=VEC_WEB_VERSION"),
+  cargarVistaMeritos = () => import("./meritos-reales-montaje.js?v=VEC_WEB_VERSION"),
+  cargarVistaAlegaciones = () => import("../comun/alegaciones-vista.js?v=VEC_WEB_VERSION") } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || !(vistasDisponibles instanceof Set)) {
     throw new TypeError(t("clienteNoValido"));
   }

@@ -1,4 +1,4 @@
-import { aDecimal, errorRestosRegla } from "./baremo-editor.js?v=20261002-a-restos-recuperacion-v1";
+import { aDecimal, errorRestosRegla } from "./baremo-editor.js?v=VEC_WEB_VERSION";
 export function escapar(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }

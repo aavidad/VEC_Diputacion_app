@@ -1,5 +1,5 @@
 import { validarPermisosPropiosCronos } from "../cronos/cliente-solicitudes-http.js";
-import { sinBordes } from "../dietas/texto-dietas.js?v=20260925-d5d6-v1";
+import { sinBordes } from "../dietas/texto-dietas.js?v=VEC_WEB_VERSION";
 
 const ESTADOS_DIETAS = new Set(["borrador", "eliminado", "enviado_pendiente_revision", "pendiente_autorizacion", "pendiente_liquidacion", "pendiente_fiscalizacion", "fiscalizada", "devuelta"]);
 const ETAPAS_DEVOLUCION = new Set(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);

@@ -2,111 +2,36 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { PLANTILLA_TESELAS_OSM_INTERNA } from "./modulos/dietas/contrato.js";
-import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
+import { exigirMismaVersion, versionDe } from "./versiones-cache.test-helper.mjs";
 
 const raiz = new URL("./", import.meta.url);
-// Recursos sin cambios desde C conservan su versión exacta; los renovados
-// después solo tienen que pedir una URL posterior a la publicada entonces.
-const vistasC = "20260924-web-c-v1";
-// Ficha y estructura se renovaron después por el i18n de organización histórica.
-const vistasPersonalC = posterior(vistasC);
-const recuperacion = "20260924-dietas-recuperacion-v3";
-const entrada = posterior("20260924-web-paradas-periodos-v1");
-const entradaAyuda = posterior("20260924-rescate-web-v4");
-const cronos = posterior("20260924-cronos-integrado-v1");
-const cronosVista = posterior("20260924-web-paradas-periodos-v1");
-const dietas = posterior("20260924-dietas-ayuda-icono-v1");
-const sinGuia = posterior("20260924-web-paradas-periodos-v1");
-const versiones = (codigo, recurso) => [...codigo.matchAll(new RegExp(`${recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=([^"']+)`, "gu"))].map((m) => m[1]);
+const leer = (ruta) => readFile(new URL(ruta, raiz), "utf8");
 
-test("capa C no reutiliza los consumidores previos de B con caché immutable", async () => {
-  const html = await readFile(new URL("index.html", raiz), "utf8");
-  const portal = await readFile(new URL("portal.js", raiz), "utf8");
-  const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
-  const aristas = [
-    [html, "/portal-empleado/portal.js", "20260924-web-integrada-v2", entradaAyuda, 1],
-    [portal, "./portal-modulos-coordinador.js", "20260924-web-integrada-v2", entrada, 1],
-    [coordinador, "./modulos/cronos/vista-saldo-conectado.js", "20260925-tanda-v1", posterior("20260925-tanda-v1"), 1],
-    [coordinador, "./modulos/cronos/i18n.js", "20260924-f2-web2", cronosVista, 1],
-    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-f2-consulta-v2", sinGuia, 1],
-    [coordinador, "./modulos/personal/vista-ficha-integral.js", "20260924-f2-shell-v1", vistasPersonalC, 1],
-    [html, "/portal-empleado/modulos/cronos/permisos.css", "20260924-cronos-ayuda-v1", cronos, 1],
-    [html, "/portal-empleado/modulos/dietas/dietas.css", "20260924-f2-shell-v1", dietas, 1],
-  ];
-  const cache = new Map(aristas.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "bytes anteriores"]));
-  for (const [codigo, ruta, previa, nueva, cantidad] of aristas) {
-    const vigente = exigirVersiones(codigo, ruta, nueva, cantidad);
-    assert.ok(!codigo.includes(`${ruta}?v=${previa}`), `${ruta}: no conserva URL anterior`);
-    assert.ok(!cache.has(`${ruta}?v=${vigente}`), `${ruta}: necesita bytes nuevos`);
-  }
+test("las entradas y las vistas comparten la versión calculada", async () => {
+  const [html, cache, portal, coordinador, dietas] = await Promise.all([
+    "index.html", "cache-publica-v1.json", "portal.js", "portal-modulos-coordinador.js",
+    "modulos/dietas/vista-recorridos.js",
+  ].map(leer));
+  exigirMismaVersion([html, cache], "portal.js");
+  exigirMismaVersion([html, portal], "portal-modulos-coordinador.js");
+  versionDe(coordinador, "./modulos/dietas/mapa-ruta.js");
+  versionDe(dietas, "./vista-borradores-propios.js");
+  for (const nombre of ["vista-calendario", "vista-correcciones", "vista-catalogo-permisos", "vista-notificaciones"])
+    versionDe(html, `/portal-empleado/modulos/cronos/${nombre}.css`);
 });
 
-test("la ayuda de Dietas no reutiliza C v3 ni las vistas y CSS anteriores", async () => {
-  const [html, portal, coordinador] = await Promise.all([
-    readFile(new URL("index.html", raiz), "utf8"),
-    readFile(new URL("portal.js", raiz), "utf8"),
-    readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
-  ]);
-  const aristas = [
-    [html, "/portal-empleado/portal.js", "20260924-web-c-v3", entradaAyuda, 1],
-    [portal, "./portal-modulos-coordinador.js", "20260924-web-c-v3", entrada, 1],
-    [coordinador, "./modulos/dietas/vista-recorridos.js", recuperacion, sinGuia, 1],
-    [html, "/portal-empleado/modulos/dietas/dietas.css", "20260924-dietas-d1d2d4", dietas, 1],
-  ];
-  const cache = new Map(aristas.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "respuesta C antigua"]));
-  for (const [codigo, ruta, previa, nueva, cantidad] of aristas) {
-    const vigente = exigirVersiones(codigo, ruta, nueva, cantidad);
-    assert.ok(!codigo.includes(`${ruta}?v=${previa}`), `${ruta}: no usa URL C anterior`);
-    assert.ok(!cache.has(`${ruta}?v=${vigente}`), `${ruta}: debe descargar bytes nuevos`);
-  }
-});
-
-test("capa C empaqueta las hojas nuevas y conserva los recursos del mapa OSM", async () => {
-  const activosCronos = ["i18n-c4.js", "i18n-c5.js", "i18n-c6.js", "i18n-c9.js", ...["vista-calendario", "vista-correcciones", "vista-catalogo-permisos", "vista-notificaciones"].flatMap((nombre) => [nombre + ".js", nombre + ".css"])];
-  // D1 y D4 eran piezas de la vista de presentación retirada; el mapa sigue.
-  const activosDietas = ["mapa-ruta.js", "vista-mapa-comision.js"];
-  const retiradosDietas = ["i18n-d1.js", "i18n-d4.js", "vista-acceso-papeles.js", "vista-itinerario.js"];
+test("los manifiestos conservan vistas de Cronos y mapa de Dietas", async () => {
+  const cronos = ["i18n-c4.js", "i18n-c5.js", "i18n-c6.js", "i18n-c9.js",
+    ...["vista-calendario", "vista-correcciones", "vista-catalogo-permisos", "vista-notificaciones"]
+      .flatMap((nombre) => [`${nombre}.js`, `${nombre}.css`])];
   for (const nombre of ["interno.manifest", "produccion.manifest"]) {
-    const contenido = await readFile(new URL(`../../${nombre}`, raiz), "utf8");
-    const entradas = contenido.split(/\r?\n/u);
-    for (const [modulo, activos] of [["cronos", activosCronos], ["dietas", activosDietas]]) {
-      for (const activo of activos) assert.ok(entradas.includes(`static/portal-empleado/modulos/${modulo}/${activo}`), `${nombre}: ${activo}`);
-    }
-    for (const retirado of retiradosDietas)
-      assert.ok(!entradas.includes(`static/portal-empleado/modulos/dietas/${retirado}`), `${nombre}: ${retirado} retirado`);
+    const entradas = (await leer(`../../${nombre}`)).split(/\r?\n/u);
+    for (const recurso of cronos) assert.ok(entradas.includes(`static/portal-empleado/modulos/cronos/${recurso}`), recurso);
+    for (const recurso of ["mapa-ruta.js", "vista-mapa-comision.js"])
+      assert.ok(entradas.includes(`static/portal-empleado/modulos/dietas/${recurso}`), recurso);
+    for (const recurso of ["i18n-d1.js", "i18n-d4.js", "vista-acceso-papeles.js", "vista-itinerario.js"])
+      assert.ok(!entradas.includes(`static/portal-empleado/modulos/dietas/${recurso}`), recurso);
   }
-  const html = await readFile(new URL("index.html", raiz), "utf8");
-  for (const nombre of ["vista-calendario", "vista-correcciones", "vista-catalogo-permisos", "vista-notificaciones"]) {
-    exigirVersiones(html, `/portal-empleado/modulos/cronos/${nombre}.css`, cronos);
-  }
-  const mapa = await readFile(new URL("modulos/dietas/mapa-ruta.js", raiz), "utf8");
-  assert.match(mapa, /OpenStreetMap/u);
+  assert.match(await leer("modulos/dietas/mapa-ruta.js"), /OpenStreetMap/u);
   assert.equal(PLANTILLA_TESELAS_OSM_INTERNA, "/tiles/osm/{z}/{x}/{y}.png");
-});
-
-test("el corrector Dietas descarga de nuevo la cadena que tenía C inicial", async () => {
-  const [html, portal, coordinador, recorridos] = await Promise.all([
-    readFile(new URL("index.html", raiz), "utf8"),
-    readFile(new URL("portal.js", raiz), "utf8"),
-    readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
-    readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8"),
-  ]);
-  const aristas = [
-    [html, "/portal-empleado/portal.js", "20260924-web-c-v1", entradaAyuda, 1],
-    [portal, "./portal-modulos-coordinador.js", "20260924-web-c-v1", entrada, 1],
-    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-dietas-d1d2d4", sinGuia, 1],
-    [recorridos, "./vista-borradores-propios.js", "20260924-dietas-d1d2d4", sinGuia, 1],
-  ];
-  for (const [codigo, ruta, anterior] of [
-    [html, "/portal-empleado/portal.js", "20260924-web-c-v2"],
-    [portal, "./portal-modulos-coordinador.js", "20260924-web-c-v2"],
-    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-dietas-recuperacion-v2"],
-    [recorridos, "./vista-borradores-propios.js", "20260924-dietas-recuperacion-v2"],
-  ]) assert.ok(!codigo.includes(`${ruta}?v=${anterior}`), "no conserva el corrector intermedio");
-  const cache = new Map(aristas.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "versión anterior"]));
-  for (const [codigo, ruta, previa, nueva, cantidad] of aristas) {
-    const vigente = exigirVersiones(codigo, ruta, nueva, cantidad);
-    assert.ok(!codigo.includes(`${ruta}?v=${previa}`));
-    assert.ok(!cache.has(`${ruta}?v=${vigente}`));
-  }
 });

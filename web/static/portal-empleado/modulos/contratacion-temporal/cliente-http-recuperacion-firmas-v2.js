@@ -1,6 +1,6 @@
 import {
   validarSolicitudRecuperacionFirmasV2, validarRespuestaRecuperacionFirmasV2, validarRespuestaConsultaFirmasV2,
-} from "./contrato-recuperacion-firmas-v2.js?v=20261016-firma-historica-v5";
+} from "./contrato-recuperacion-firmas-v2.js?v=VEC_WEB_VERSION";
 
 export const RUTA_RECUPERACION_FIRMAS_V2 =
   "/api/vec/contratacion-temporal/firmas-documento/recuperaciones-v2";

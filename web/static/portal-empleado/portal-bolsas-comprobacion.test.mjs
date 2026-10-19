@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   codificarPropuestaComprobacion, decodificarPropuestaComprobacion, propuestaComprobacionValida, propuestaDesdeComprobacionPendiente,
-} from "./portal-bolsas-comprobacion-ruta.js?v=20261019-f157-v1";
+} from "./portal-bolsas-comprobacion-ruta.js?v=VEC_WEB_VERSION";
 import { leerCandidatosBolsaCompartible, rutaCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js";
 import { enlaceComprobacionPendiente } from "./modulos/contratacion-temporal/renderizado-llamamiento.js";
 import {

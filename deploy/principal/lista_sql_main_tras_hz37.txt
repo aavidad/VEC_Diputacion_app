@@ -154,5 +154,31 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000295_cadena_gobierno_po
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000296_proyecciones_preferencias_fijas.up.sql 6b9c544dd5f3a5727b44419111b52260ac38f3cf1f11be8a5c87518a3603a10b
 # F0-18 — AD291; depende de AD288, AD294, AD293, AD295 y AD296.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000291_comprobacion_derivacion_rrhh.up.sql 10d9778c7b3154d84679d1483413ae686b1279682932b172357f9ba0264d439c
+# F1-13 parte 1 — AUT104 y B138, juntas y en este orden tras AD296 (ver guía de proyecciones).
+deploy/postgresql/autorizacion/migraciones/000104_preferencias_modalidades.up.sql fa079c48fa884076994d96a2ae7b8a10ae51461fa5f4f4a25af4debc2f2d5109
+deploy/postgresql/bolsa_llamamientos/migraciones/000138_preferencias_modalidades.up.sql 13f81af99e58ed00940bac36dfc41ecefd2b8a38ffa7e88e44e4f616362e4218
+
+# F1-11 — Modalidad y causa de la oferta.
+deploy/postgresql/contratacion_temporal/migraciones/000235_modalidad_causa_oferta.up.sql 68ee3f28234e7c8179154ed9c57da26561c995483143670934ce7e5484f745f7
+deploy/postgresql/bolsa_llamamientos/migraciones/000136_modalidad_causa_oferta.up.sql e761b8607939a58ebcbca9bbbe56a8bcdefe02712dd46c9667a1b70278f1a1b7
+
+# F1-10: recotejo de comprobación al reservar; conserva la detención.
+deploy/postgresql/bolsa_llamamientos/migraciones/000140_recotejo_comprobacion_reserva.up.sql e5a28b37301f4e2a77c996d528e006e405fac8a79f58dc42f5a9f70730c51ad7
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000297_estado_solo_comprobacion_pendiente.up.sql 77abd583130707a2ef26d0c099b521d70dc953fb1b30badd094d7167530cbbf1
+deploy/postgresql/contratacion_temporal/migraciones/000240_recotejo_comprobacion_reserva.up.sql d1426fc5c3d05bb3d6c8f1aefa534b48e7e0808d43a3b39c8514b9258f5bdb98
+# F1-19 — AD292; depende de AD291 y precede a CT234.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000292_fachada_derivacion_nombramiento_ct.up.sql 7af2593ce88262eb12f5286ed58d06b5858b70130a661e6a7705304dc78d94cc
+# F1-19: requiere AD292 y AD291 de R instaladas antes de CT234; activación pendiente.
+deploy/postgresql/bolsa_llamamientos/migraciones/000135_verificar_plaza_adjudicada_ct.up.sql 8cc5609c395d8665ee68146c72aa4b37bf55b7618015ed26ab060d6d4a4632d4
+deploy/postgresql/contratacion_temporal/migraciones/000234_derivacion_nombramiento.up.sql 5743a1b363481f1af942a84c502b0a0d2166cf75096cbab70b22e278173fb1e0
+# F1-40 — BC12, tras BC9 y B96 del esquema base; no reaplicar.
+deploy/postgresql/bolsa_convocatorias/migraciones/000012_rechazo_inscripcion_conjunta_v1.up.sql ca21824cc9236adb014d3cd3e1ef132d56287124b97b29bc963cf9670ded1931
+# F1-40 — B142, tras BC12; la lista y la ficha del aspirante llevan la modalidad.
+deploy/postgresql/bolsa_llamamientos/migraciones/000142_modalidad_inscripcion_aspirante.up.sql 8888bfa509bbcd87cb33372cd545798067948c06afb1d3c03e1d0582eda635a2
+# F1-84 — IS22 y después AD298; orden de deploy/principal/lista_sql_claude_autenticacion_lectura_externa_20261019.txt
+deploy/postgresql/identidad_sesiones_v1/migraciones/000022_cotejo_historico_autenticacion_portal_externo.up.sql 452bbeeac1f8b3d5882eecc30c6d78c9f832e159c7ffe1a7234e22264696d002
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000298_autenticacion_lectura_inscripcion_externa.up.sql aed26d7556cd256af0a172d37ab9ff437c4af4e1a58797a1769c4ec426dc36b8
+# F1-85 — AD299 detrás de AD298; orden de deploy/principal/lista_sql_claude_intento_externo_20261019.txt
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000299_intento_nominal_portal_externo.up.sql d2f04438e02287cfd80e2ea01a5c789a54225789a9a79ed643fe09d3ea3fa125
 # F1-57 — B141: referencia legible del documento en custodia y lectura de contratos con huella; tras B133 y B137, independiente de B140.
 deploy/postgresql/bolsa_llamamientos/migraciones/000141_documento_custodia_comprobacion.up.sql f33e954d42eaecb1f1c732c8426bd655ee40937c4f4c046887df3240631a00a5

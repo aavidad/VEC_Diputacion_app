@@ -5,7 +5,7 @@ import {
   ESQUEMA_ALTA_NECESIDAD,
   ESQUEMA_ALTA_NECESIDAD_V2,
   validarReciboAlta,
-} from "./contrato.js?v=20261018-f173-alta-v2";
+} from "./contrato.js?v=VEC_WEB_VERSION";
 
 const MAXIMO_SOLICITUD_ALTA_BYTES = 256 * 1024;
 const MAXIMO_RESPUESTA_ALTA_BYTES = 16 * 1024;

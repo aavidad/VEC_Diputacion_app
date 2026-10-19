@@ -3,11 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raizWeb = new URL("../../", import.meta.url);
-const versionI18n = "20260930-codexe-publico-v2-v1";
-const versionI18nIndice = "20260930-codexe-publico-v2-v1";
-const versionControlador = "20261001-convoca-preparacion-v1";
-const versionLista = "20260930-codexe-publico-v2-v1";
-const versionAnterior = "20260924-bolsa-publica-final";
+const versionI18n = "VEC_WEB_VERSION";
+const versionI18nIndice = "VEC_WEB_VERSION";
+const versionControlador = "VEC_WEB_VERSION";
+const versionLista = "VEC_WEB_VERSION";
+const versionAnterior = "anterior";
 const versionListaAnterior = "20260924-bolsa-ayuda-v3";
 
 function scriptsDelHTML(html) {

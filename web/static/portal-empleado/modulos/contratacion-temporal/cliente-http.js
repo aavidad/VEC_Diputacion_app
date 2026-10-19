@@ -1,5 +1,5 @@
-import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=20261018-f173-alta-v2";
-import { crearVinculoBolsaClienteHTTP } from "./cliente-http-vinculo-bolsa.js?v=20261016-ct-ofertas-ct231-v1";
+import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js?v=VEC_WEB_VERSION";
+import { crearVinculoBolsaClienteHTTP } from "./cliente-http-vinculo-bolsa.js?v=VEC_WEB_VERSION";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -8,31 +8,31 @@ import {
   validarSolicitudDecisionCobertura,
   validarSolicitudPropuestaCobertura,
   validarSolicitudRectificacionCobertura,
-} from "./contrato-cobertura.js?v=20261002-ct-fin-modalidad-v1";
+} from "./contrato-cobertura.js?v=VEC_WEB_VERSION";
 import {
   validarConfiguracionAnalisis,
   validarReciboAnalisis,
   validarSolicitudRectificacionAnalisis,
   validarSolicitudRegistroAnalisis,
-} from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
+} from "./contrato-analisis.js?v=VEC_WEB_VERSION";
 import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
-import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=20261018-f136c-informe-v4";
+import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js?v=VEC_WEB_VERSION";
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
-import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
-import { crearConsultaReciboRespuestaClienteHTTP, RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js?v=20261016-ct-ofertas-ct231-v1";
-import { crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=20261016-ct-ofertas-ct231-v1";
+import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=VEC_WEB_VERSION";
+import { crearConsultaReciboRespuestaClienteHTTP, RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js?v=VEC_WEB_VERSION";
+import { crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=VEC_WEB_VERSION";
 import { crearResolucionFormalizacionClienteHTTP, RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { crearIncorporacionEjercicioClienteHTTP, RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
-import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
+import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=VEC_WEB_VERSION";
 import { crearClienteSeguimientoIncorporacion, RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { crearClienteAnotacionAdministrativaHTTP, RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
 import { crearClienteCierreAdministrativoHTTP, RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
 import { crearClienteSubsanacionReparosHTTP, RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
 import { crearClienteSeguimientoCeseHTTP } from "./cliente-http-seguimiento-cese.js";
-import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20261016-ct-ofertas-ct231-v1";
-import { crearClienteReincorporacionRRHHHTTP, RUTA_CAPACIDAD_REINCORPORACION_RRHH, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js?v=20260928-rrhh-reincorporacion-v1";
-import { crearClienteRecuperacionFirmasV2, RUTA_CONSULTA_FIRMAS_V2 } from "./cliente-http-recuperacion-firmas-v2.js?v=20261016-firma-historica-v5";
+import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=VEC_WEB_VERSION";
+import { crearClienteReincorporacionRRHHHTTP, RUTA_CAPACIDAD_REINCORPORACION_RRHH, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js?v=VEC_WEB_VERSION";
+import { crearClienteRecuperacionFirmasV2, RUTA_CONSULTA_FIRMAS_V2 } from "./cliente-http-recuperacion-firmas-v2.js?v=VEC_WEB_VERSION";
 import {
   MAXIMO_ERROR_BYTES,
   MAXIMO_FRAGMENTOS,
@@ -48,7 +48,7 @@ import {
   extraerDatos,
   construirErrorRespuesta,
   construirCabeceras,
-} from "./cliente-http-transporte.js?v=20261016-ct-ofertas-ct231-v1";
+} from "./cliente-http-transporte.js?v=VEC_WEB_VERSION";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,

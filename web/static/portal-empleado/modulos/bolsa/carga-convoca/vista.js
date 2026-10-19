@@ -1,9 +1,9 @@
-import { bytesABase64, comprobarFichero, ErrorCargaConvoca } from "./cliente.js?v=20261010-b1-carga-v1";
-import { rutaCandidatosBolsaCompartible } from "../../../portal-bolsas-ruta-filtros.js?v=20261019-f157-v1";
+import { bytesABase64, comprobarFichero, ErrorCargaConvoca } from "./cliente.js?v=VEC_WEB_VERSION";
+import { rutaCandidatosBolsaCompartible } from "../../../portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
 import {
   claveCategoria, escribirEstadoRuta, filtroControl, filtroServidor, leerEstadoRuta, nombrePersona,
   paginaServidor, TAMANO_PAGINA, textoAviso, textoBloqueo, textoError, textoIncidencia,
-} from "./modelo.js?v=20261008-u-b1-paginacion-v1";
+} from "./modelo.js?v=VEC_WEB_VERSION";
 
 const ZONA = "Europe/Madrid";
 const CODIGOS_FICHERO = new Set(["fichero_no_valido", "fichero_demasiado_grande", "demasiadas_filas", "peticion_no_valida"]);

@@ -1,7 +1,7 @@
 /** Enlaces compartibles de la lista autorizada de candidaturas de una bolsa. */
-import { SITUACIONES_PARTICIPACION_BOLSA } from "./portal-bolsas-contrato.js?v=20261016-r1-o-integracion-v7";
+import { SITUACIONES_PARTICIPACION_BOLSA } from "./portal-bolsas-contrato.js?v=VEC_WEB_VERSION";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
-import { codificarPropuestaComprobacion, decodificarPropuestaComprobacion } from "./portal-bolsas-comprobacion-ruta.js?v=20261019-f157-v1";
+import { codificarPropuestaComprobacion, decodificarPropuestaComprobacion } from "./portal-bolsas-comprobacion-ruta.js?v=VEC_WEB_VERSION";
 
 const CLAVE_BOLSA = "bolsa_ref";
 const CLAVE_ESTADO = "estado";

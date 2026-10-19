@@ -10,10 +10,10 @@
  * El resultado lo calcula el servidor; la pantalla solo muestra su recibo.
  */
 import { cargarTextos } from "../comun/textos.js";
-import { LOCALIZACION_PORTAL, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { LOCALIZACION_PORTAL, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 import { calcularHuellaArchivo, LIMITE_HUELLA_ARCHIVO_BYTES } from "./portal-huella-archivo.js";
 import { justificanteTraducido } from "./portal-justificante.js";
-import { propuestaComprobacionValida } from "./portal-bolsas-comprobacion-ruta.js?v=20261019-f157-v1";
+import { propuestaComprobacionValida } from "./portal-bolsas-comprobacion-ruta.js?v=VEC_WEB_VERSION";
 
 const BASE = "/api/vec/bolsa/bolsas";
 const HUELLA = /^[0-9a-f]{64}$/u;

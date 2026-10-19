@@ -1,5 +1,5 @@
-import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js?v=20261010-http-carga-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js?v=VEC_WEB_VERSION";
+import { traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 
 const CAMPOS_SELECT = Object.freeze({ idioma: "idiomas", tamano_texto: "tamanos_texto", tema: "temas", inicio: "inicios", filas: "filas" });
 const AYUDAS = Object.freeze({ idioma: "idioma", tamano_texto: "tamano", alto_contraste: "contraste", tema: "tema", inicio: "inicio", filas: "filas", aviso_correo_tareas: "correo_tareas", aviso_correo_plazos: "correo_plazos" });
