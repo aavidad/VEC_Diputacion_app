@@ -469,11 +469,14 @@ func postimagenOriginalSeguimiento(prep ports.PreparacionOperacionSeguimiento, s
 	version, e1 := json.Marshal(siguiente.Version)
 	actualizado, e2 := json.Marshal(instante)
 	actuacion, e3 := json.Marshal(siguiente.Actuaciones[len(siguiente.Actuaciones)-1])
-	if e1 != nil || e2 != nil || e3 != nil {
+	fase, e4 := json.Marshal(siguiente.FaseActual)
+	estado, e5 := json.Marshal(siguiente.EstadoActual)
+	if e1 != nil || e2 != nil || e3 != nil || e4 != nil || e5 != nil {
 		return nil, ports.ErrOperacionSeguimientoInvalida
 	}
 	actuaciones = append(actuaciones, actuacion)
 	raiz["version"], raiz["actualizado_en"] = version, actualizado
+	raiz["fase_actual"], raiz["estado_actual"] = fase, estado
 	raiz["actuaciones"], e1 = json.Marshal(actuaciones)
 	if e1 != nil {
 		return nil, ports.ErrOperacionSeguimientoInvalida
@@ -486,7 +489,7 @@ func postimagenOriginalSeguimiento(prep ports.PreparacionOperacionSeguimiento, s
 }
 
 func proyeccionesConfirmacionSeguimiento(o ports.OrdenConfirmarOperacionSeguimiento, org, exp string) (any, any, error) {
-	if o.Operacion != ports.OperacionRegistrarCese {
+	if o.Operacion != ports.OperacionRegistrarCese && o.Operacion != ports.OperacionRegistrarNoIncorporacion {
 		return o.Preparacion.Expediente, o.Siguiente, nil
 	}
 	anterior, err := preimagenOriginalSeguimiento(o.Preparacion, org, exp)
