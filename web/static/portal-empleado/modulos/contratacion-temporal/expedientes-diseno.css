@@ -92,6 +92,6 @@
 }
 @media (min-width: 761px) {
   [data-ct-informe-historial] th:nth-child(1),
-  [data-ct-informe-historial] th:nth-child(2) { width: 5%; }
+  [data-ct-informe-historial] th:nth-child(2) { width: 7rem; }
   [data-ct-informe-historial] th:nth-child(6) { width: 20%; }
 }

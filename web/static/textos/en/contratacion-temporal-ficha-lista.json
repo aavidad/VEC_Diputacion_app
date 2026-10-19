@@ -7,7 +7,7 @@
     "ficha_volver_lista": "Back to the list",
     "ficha_expediente_numero": "Case {numero}",
     "ficha_siguiente_paso_informe_titulo": "Next step: review the report signatures",
-    "ficha_siguiente_paso_informe_que": "Review the report signatures in the “Signature” section. Once both signatures are verified, Financial Control can record the audit result.",
+    "ficha_siguiente_paso_informe_que": "Review the report signatures in the “Signing workflow” section. Once both signatures are verified, Financial Control can record the audit result.",
     "ficha_siguiente_paso_informe_quien": "Human Resources officer and Head of Service; then Financial Control.",
     "ficha_siguiente_paso_intervencion_quien": "Financial Control",
     "ficha_siguiente_paso_fase": "Next step: {fase}",

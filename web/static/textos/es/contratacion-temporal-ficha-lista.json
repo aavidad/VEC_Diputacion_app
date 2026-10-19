@@ -7,7 +7,7 @@
     "ficha_volver_lista": "Volver a la lista",
     "ficha_expediente_numero": "Expediente {numero}",
     "ficha_siguiente_paso_informe_titulo": "Siguiente paso: revisar las firmas del informe",
-    "ficha_siguiente_paso_informe_que": "Revise las firmas del informe en el apartado «Firma». Con ambas firmas verificadas, Intervención puede registrar la fiscalización.",
+    "ficha_siguiente_paso_informe_que": "Revise las firmas del informe en el apartado «Circuito de firma». Con ambas firmas verificadas, Intervención puede registrar la fiscalización.",
     "ficha_siguiente_paso_informe_quien": "Técnica de Recursos Humanos y Jefatura; después, Intervención.",
     "ficha_siguiente_paso_intervencion_quien": "Intervención",
     "ficha_siguiente_paso_fase": "Siguiente paso: {fase}",
