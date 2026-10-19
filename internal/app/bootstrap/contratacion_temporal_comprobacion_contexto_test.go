@@ -57,6 +57,22 @@ func TestContextoComprobacionProcedeDeEntradaPendienteYOrdenAuditada(t *testing.
 		t.Fatalf("filtró datos privados: %s, %v", publicado, err)
 	}
 
+	// Las referencias reales de expediente son huellas SHA-256: algunas casan
+	// por azar con el patrón de DNI y no deben perder la pausa ni el contexto.
+	huella := "expediente:ct:e975732762ec" + strings.Repeat("0", 52)
+	d.expediente.Fiscalizado.Referencia = huella
+	pendiente.Comprobacion.Contexto = nil
+	if err := enriquecerErrorCriteriosPendientesCT(pendiente, origen, d); !errors.Is(err, ports.ErrCriteriosOfrecimientoPendientesRRHH) ||
+		pendiente.Comprobacion.Contexto == nil || pendiente.Comprobacion.Contexto.ExpedienteRef != huella {
+		t.Fatalf("expediente con huella del sistema perdió el contexto: %v", err)
+	}
+	d.expediente.Fiscalizado.Referencia = "expediente:12345678Z"
+	pendiente.Comprobacion.Contexto = nil
+	if err := enriquecerErrorCriteriosPendientesCT(pendiente, origen, d); !errors.Is(err, ports.ErrRespuestaBolsaNoConfiable) {
+		t.Fatalf("aceptó un documento en una referencia que no es huella: %v", err)
+	}
+	d.expediente.Fiscalizado.Referencia = "expediente:uno"
+
 	for _, ordenInvalida := range []string{
 		`{"ambito_ref":"ambito:ajeno","unidad_ref":"unidad:dos"}`,
 		`{"ambito_ref":"dni:12345678Z","unidad_ref":"unidad:uno"}`,
