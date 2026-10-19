@@ -15,7 +15,7 @@ test("la pantalla de cotejo usa POST, omite cookies y no revela documentos", () 
   assert.doesNotMatch(javascript, /localStorage|sessionStorage|document\.cookie/);
   assert.match(html, /El QR facilita el acceso al servicio, pero no acredita por sí mismo/);
   assert.match(html, /requieren autenticación adicional/);
-  assert.match(html, /\/verificar\/verificar\.js\?v=20260925-cotejo-publico-v1/);
+  assert.match(html, /\/verificar\/verificar\.js\?v=VEC_WEB_VERSION/);
 });
 
 test("el cotejo no ofrece una rama de presentación ni un resultado local", () => {

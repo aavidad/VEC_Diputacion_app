@@ -1,4 +1,4 @@
-import { CAMPOS_REFERENCIA } from './modelo.js?v=20261003-s2-consulta-v1';
+import { CAMPOS_REFERENCIA } from './modelo.js?v=VEC_WEB_VERSION';
 
 function nodo(d, etiqueta, texto, clase) {
   const n = d.createElement(etiqueta); if (texto !== undefined) n.textContent = texto; if (clase) n.className = clase; return n;

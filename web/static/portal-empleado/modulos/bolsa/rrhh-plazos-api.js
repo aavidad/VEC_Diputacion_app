@@ -31,7 +31,7 @@ export function crearLectorReglasCompartido(obtenerCliente) {
 }
 // Carga diferida: el cliente de reglas no entra en la precarga del portal.
 const leerReglasCompartidas = crearLectorReglasCompartido(async () =>
-  (await import("../../reglas/reglas.js?v=20261012-reglas-configuracion-v1")).crearCliente());
+  (await import("../../reglas/reglas.js?v=VEC_WEB_VERSION")).crearCliente());
 
 /** Reglas vigentes: con `cliente` (pruebas) se lee de él; si no, la lectura compartida. */
 export function leerReglasVigentes({ cliente } = {}) {

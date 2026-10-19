@@ -1,9 +1,9 @@
-import { renderizarResumenCronos } from "./modulos/cronos/resumen.js?v=20260716-cronos-modular";
+import { renderizarResumenCronos } from "./modulos/cronos/resumen.js?v=VEC_WEB_VERSION";
 import {
   crearHerramientasCatalogoCategorias,
   normalizarPaginaCategoriasProfesionales,
   ofertaPerteneceAlCatalogoActual,
-} from "./catalogo-categorias.js?v=20260716-catalogo-gobernado";
+} from "./catalogo-categorias.js?v=VEC_WEB_VERSION";
 
 const VEC_SHELL_API = "/api/vec";
 const VEC_WORKSPACE_API = "/api/vec/workspace";

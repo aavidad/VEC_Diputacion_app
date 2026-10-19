@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { crearBorradorAlta, crearComandoPeticionCentro, validarBorradorAlta, validarCatalogosAlta, validarComandoAlta,
-  validarComandoPeticionCentroNecesidad } from "../modulos/contratacion-temporal/contrato.js?v=20261008-alta-circular-v3";
-import { extraerBorrador } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261009-centro-campos-v1";
+  validarComandoPeticionCentroNecesidad } from "../modulos/contratacion-temporal/contrato.js?v=VEC_WEB_VERSION";
+import { extraerBorrador } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=VEC_WEB_VERSION";
 import {
   pedir,
   renderizarPeticionCentro,
@@ -14,7 +14,7 @@ import {
   prepararNecesidadesPeticionesCentro,
   puestoPerteneceAlContexto,
   iniciarPeticionCentro,
-} from "./peticiones-centro.js?v=20261008-alta-rpt-circular-v6";
+} from "./peticiones-centro.js?v=VEC_WEB_VERSION";
 
 const catalogos = {
   esquema: "vec.contratacion_temporal.catalogos_alta.v1",
@@ -414,7 +414,7 @@ test("alta RRHH envía el contrato exacto y conserva reintento ante resultado in
 
 test("la ayuda «?» explica que el certificado no firma y es accesible", async () => {
   const { readFile } = await import("node:fs/promises");
-  const { instalarAyudaPeticionCentro, MENSAJES_AYUDA_PETICIONES_CENTRO_ES: m } = await import("./peticiones-centro.js?v=20261008-alta-rpt-circular-v6");
+  const { instalarAyudaPeticionCentro, MENSAJES_AYUDA_PETICIONES_CENTRO_ES: m } = await import("./peticiones-centro.js?v=VEC_WEB_VERSION");
   const html = await readFile(new URL("./index.html", import.meta.url), "utf8");
   assert.match(html, /<button type="button" class="pc-boton-ayuda" id="pc-ayuda-abrir" aria-haspopup="dialog" aria-controls="pc-ayuda"[^>]*><span aria-hidden="true">\?<\/span><\/button>/u);
   assert.match(html, /<dialog id="pc-ayuda"[^>]*aria-labelledby="pc-ayuda-titulo"/u);

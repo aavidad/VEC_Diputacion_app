@@ -1,4 +1,4 @@
-import { TEXTOS_COPIAS, traducirCopias as t, traducirCodigo as tc } from "./i18n.js?v=20261001-cs09-copias-ux-v2";
+import { TEXTOS_COPIAS, traducirCopias as t, traducirCodigo as tc } from "./i18n.js?v=VEC_WEB_VERSION";
 
 export function soporte(documento) {
   const crear = (tag, texto = "", clase = "") => {

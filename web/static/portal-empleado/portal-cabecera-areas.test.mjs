@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { accesoBolsaEfectivo, resumenAccesosModulos } from "./portal-menu-bolsa.js?v=20261018-f104-main-v1";
+import { accesoBolsaEfectivo, resumenAccesosModulos } from "./portal-menu-bolsa.js?v=VEC_WEB_VERSION";
 
 const fuente = await readFile(new URL("portal.js", import.meta.url), "utf8");
 const inicio = fuente.indexOf("function disponibilidadBolsa()");

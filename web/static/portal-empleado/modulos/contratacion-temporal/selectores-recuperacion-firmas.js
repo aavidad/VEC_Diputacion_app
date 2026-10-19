@@ -1,4 +1,4 @@
-import { validarSolicitudRecuperacionFirmasV2 } from "./contrato-recuperacion-firmas-v2.js?v=20261016-firma-historica-v5";
+import { validarSolicitudRecuperacionFirmasV2 } from "./contrato-recuperacion-firmas-v2.js?v=VEC_WEB_VERSION";
 
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const SHA256 = /^[0-9a-f]{64}$/u;

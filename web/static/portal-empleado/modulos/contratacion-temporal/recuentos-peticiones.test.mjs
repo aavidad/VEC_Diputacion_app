@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { diaConsulta, filtrarPeticiones, filtroListaValido, resumirPeticiones } from "./recuentos-peticiones.js?v=20261001-ct-a-i18n-v1";
+import { diaConsulta, filtrarPeticiones, filtroListaValido, resumirPeticiones } from "./recuentos-peticiones.js?v=VEC_WEB_VERSION";
 
 const e = (numero, fase_clave, estado_clave, extra = {}) => ({
   expediente_ref: `expediente:ct:${numero}`, numero_visible: `2026/CT-${numero}`, centro: "Servicio de Deportes",
