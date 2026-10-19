@@ -1,4 +1,4 @@
-import { ErrorFichaConvocatoria, validarSelectorFicha, validarLecturaFicha } from "./contrato.js?v=20261001-s1-ficha-v1";
+import { ErrorFichaConvocatoria, validarSelectorFicha, validarLecturaFicha } from "./contrato.js?v=VEC_WEB_VERSION";
 
 export const RUTA_FICHA_CONVOCATORIA = "/api/vec/seleccion/convocatorias/ficha";
 const MAXIMO_BYTES = 4 * 1024 * 1024;

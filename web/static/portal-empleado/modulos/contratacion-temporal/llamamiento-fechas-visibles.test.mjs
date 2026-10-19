@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderizarLlamamiento } from "./renderizado-llamamiento.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { renderizarLlamamiento } from "./renderizado-llamamiento.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
 import {
   recibo as seleccion, comunicacionRegistrada, justificante, declaracion,
   reciboResolucion, continuacionConfirmada, avisoSiguienteRegistrado,
   justificanteSiguiente, declaracionSiguiente, reciboResolucionSucesor,
-} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
+} from "./formulario-llamamiento-pruebas.js?v=VEC_WEB_VERSION";
 
 const fecha = new Intl.DateTimeFormat("es-ES", {
   dateStyle: "medium", timeStyle: "medium", timeZone: "Europe/Madrid",

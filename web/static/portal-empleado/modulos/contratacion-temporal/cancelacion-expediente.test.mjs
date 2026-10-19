@@ -4,9 +4,9 @@ import {
   CONFLICTOS_CANCELACION_EXPEDIENTE, RUTA_CANCELACIONES_EXPEDIENTE, RUTA_CANCELACION_EXPEDIENTE, crearClienteCancelacionHTTP,
   validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion,
 } from "./cliente-http-cancelacion.js";
-import { contextoCancelacionDesdeEstado, montarPanelCancelacion, rutaCancelacionNoMontada } from "./cancelacion-expediente.js?v=20261001-ct-a-i18n-v1";
+import { contextoCancelacionDesdeEstado, montarPanelCancelacion, rutaCancelacionNoMontada } from "./cancelacion-expediente.js?v=VEC_WEB_VERSION";
 import { codigoValidoParaRuta, claveI18nValida } from "./cliente-http-transporte.js";
-import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=20261018-f136c-informe-v4";
+import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
 
 const EXP = "expediente:ct:cancelacion:001";
 const UUID = "123e4567-e89b-42d3-a456-426614174000";
@@ -213,8 +213,8 @@ test("si el servidor no compone la cancelación (404 de ruta) el panel no se mon
 });
 
 test("la bandeja y el cuadro muestran el expediente cancelado con su estado legible", async () => {
-  const { crearAdaptadorHTTPExpedientesContratacionTemporal } = await import("./adaptador-http-expedientes.js?v=20261018-f136c-informe-v4");
-  const { renderizarModuloContratacionTemporal } = await import("./vista-expedientes.js?v=20261018-f136c-informe-v4");
+  const { crearAdaptadorHTTPExpedientesContratacionTemporal } = await import("./adaptador-http-expedientes.js?v=VEC_WEB_VERSION");
+  const { renderizarModuloContratacionTemporal } = await import("./vista-expedientes.js?v=VEC_WEB_VERSION");
   const fila = { expediente_ref: EXP, numero_visible: "2026/CT-0042", version: 4, flujo_ref: "flujo:ct:desarrollo", flujo_version: 1,
     flujo_huella_sha256: "a".repeat(64), fase_clave: "asignacion_unidad", estado_clave: "cancelado", centro_ref: "centro:desarrollo:001",
     categoria_ref: "categoria:desarrollo:c2", modalidad_clave: "sustitucion", unidad_ref: "unidad:desarrollo:rrhh",

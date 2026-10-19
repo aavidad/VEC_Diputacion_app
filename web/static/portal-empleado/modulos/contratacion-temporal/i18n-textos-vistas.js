@@ -1,5 +1,5 @@
 /** Textos visibles de vistas de Contratación temporal antes escritos en el código. */
-import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { cargarCatalogosContratacion } from "./i18n-catalogos.js?v=VEC_WEB_VERSION";
 const catalogos = await cargarCatalogosContratacion("contratacion-temporal-textos-vistas");
 
 export const MENSAJES_TEXTOS_VISTAS_ES = catalogos.exportaciones.ES;

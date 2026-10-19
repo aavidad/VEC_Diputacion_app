@@ -1,5 +1,5 @@
 import { cargarTextos, reintentarTextos } from "../comun/textos.js";
-import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=20261011-mibolsa-respuesta-anterior-v1";
+import { crearClienteInscripcionBolsa } from "./inscripcion-bolsa-api.js?v=VEC_WEB_VERSION";
 
 const CLAVES_PENDIENTES = new Map(); // Sólo memoria de esta pestaña, para repetir el mismo acto incierto.
 const ENVIOS_ACTIVOS = new Set();
@@ -28,6 +28,7 @@ function descripcionError(error, textos, envio = false) {
   if (error?.status === 403) return textos.traducir("vista.denegada");
   if (error?.status === 404) return textos.traducir("vista.noEncontrada");
   if (error?.status === 400) return textos.traducir("vista.datosNoAceptados");
+  if (error?.status === 409 && error?.codigo === "inscripcion_conjunta_pendiente") return textos.traducir("vista.inscripcionConjuntaPendiente");
   if (error?.status === 409) return textos.traducir("vista.conflicto");
   if (error?.status === 422 && error?.codigo === "plazo_cerrado") return textos.traducir("vista.plazoCerrado");
   if (error?.status === 422) return textos.traducir("vista.requisitosCambiados");
@@ -77,6 +78,7 @@ function tarjetaAbierta(bolsa, textos) {
     ${propia ? chipEstado(propia, t) : ""}</header>
     <div class="panel-contenido"><dl class="dato-lista"><dt>${t("plazo")}</dt><dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd>
     <dt>${t("categoria")}</dt><dd>${esc(textos.plural("vista.categorias", bolsa.numero_categorias))}</dd>
+    <dt>${t("modalidadInscripcion")}</dt><dd>${t(bolsa.modalidad_inscripcion === "conjunta" ? "modalidadConjunta" : "modalidadSeparada")}</dd>
     <dt>${t("requisitos")}</dt><dd>${esc(bolsa.requisitos_resumen)}</dd></dl>
     <div class="fila-acciones">${enlace}</div></div></article>`;
 }
@@ -131,7 +133,9 @@ function vistaBolsa(estado, textos) {
       <button type="button" class="boton-secundario" data-inscripcion-accion="propias">${t("misSolicitudes")}</button>`) : "";
   const inicio = `<div class="panel-contenido"><button type="button" class="boton-secundario" data-inscripcion-accion="volver">${t("volver")}</button>
     <h3 tabindex="-1">${esc(bolsa.titulo)}</h3><dl class="dato-lista"><dt>${t("plazo")}</dt>
-      <dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd></dl>`;
+      <dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd>
+      <dt>${t("modalidadInscripcion")}</dt><dd>${t(bolsa.modalidad_inscripcion === "conjunta" ? "modalidadConjunta" : "modalidadSeparada")}</dd></dl>`;
+  if (bolsa.modalidad_inscripcion === "conjunta") return `${inicio}<p class="nota aviso" role="status">${t("modalidadConjuntaNoDisponible")}</p>${error}</div>`;
   // En la revisión sólo queda el resumen: lo elegido se cambia con «Volver a la ficha».
   if (estado.revision) return `${inicio}${revisionFicha(estado, bolsa, categoria, pendiente, enviando, textos, t)}${error}</div>`;
   const filtroCategoria = textoBuscable(estado.filtroCategoria.trim());
@@ -362,7 +366,7 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
   async function confirmar() {
     const bolsa = estado.bolsa;
     const categoria = bolsa?.categorias.find((c) => c.categoria_ref === estado.categoriaRef);
-    if (!bolsa || !categoria || !bolsa.puede_iniciar || !estado.revision || estado.enviando || ENVIOS_ACTIVOS.has(bolsa.convocatoria_ref)
+    if (!bolsa || bolsa.modalidad_inscripcion === "conjunta" || !categoria || !bolsa.puede_iniciar || !estado.revision || estado.enviando || ENVIOS_ACTIVOS.has(bolsa.convocatoria_ref)
       || estado.comprobarEnvio || estado.bloqueoActo) return;
     const version = secuencia;
     let peticion = CLAVES_PENDIENTES.get(bolsa.convocatoria_ref);
@@ -433,10 +437,10 @@ export function montarInscripcionBolsa({ contenedor, fetchImpl = globalThis.fetc
     else if (accion === "actualizar-ficha" && estado.bolsa?.convocatoria_ref) void cargarBolsa(estado.bolsa.convocatoria_ref);
     else if (accion === "mas" && estado.cursor) void abiertas({ mas: true });
     else if (accion === "mas-propias" && estado.cursorPropias) void propias({ mas: true });
-    else if (accion === "revisar" && estado.bolsa?.puede_iniciar && !estado.categoriaRef) {
+    else if (accion === "revisar" && estado.bolsa?.puede_iniciar && estado.bolsa.modalidad_inscripcion !== "conjunta" && !estado.categoriaRef) {
       estado.faltaCategoria = true; pintar(); enfocar("[data-inscripcion-categoria]");
     }
-    else if (accion === "revisar" && estado.bolsa?.puede_iniciar && estado.categoriaRef) {
+    else if (accion === "revisar" && estado.bolsa?.puede_iniciar && estado.bolsa.modalidad_inscripcion !== "conjunta" && estado.categoriaRef) {
       estado.revision = true; pintar();
       contenedor.querySelector?.("[data-inscripcion-revision]")?.focus?.({ preventScroll: true });
     }

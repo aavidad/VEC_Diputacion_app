@@ -5,7 +5,7 @@ import {
 } from "./cliente-http-cambios-expediente.js";
 import {
   crearTraductorCambiosExpediente, etiquetaRutaCambio, renderizarCambiosExpediente, renderizarTablaCambios, valorVisibleCambio,
-} from "./vista-expedientes-cambios.js?v=20261001-ct-a-i18n-v1";
+} from "./vista-expedientes-cambios.js?v=VEC_WEB_VERSION";
 
 const protegido = "*protegido";
 const cuerpo = (cambios, recortado = false) => ({ data: { esquema: ESQUEMA_CAMBIOS_EXPEDIENTE, expediente_ref: "expediente:ct:1", version_expediente: 3, cambios, recortado } });

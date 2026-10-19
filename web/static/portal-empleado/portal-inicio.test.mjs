@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=20261008-bolsa-global-v2";
-import { leerCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
-import { crearControladorPortal } from "./portal-eventos.js?v=20261001-ct-a-i18n-v1";
-import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js?v=VEC_WEB_VERSION";
+import { leerCandidatosBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
+import { crearControladorPortal } from "./portal-eventos.js?v=VEC_WEB_VERSION";
+import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 
 const moduloBolsa = Object.freeze({
   clave: "bolsa",

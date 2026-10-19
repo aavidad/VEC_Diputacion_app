@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { calcularIndicadoresAprobaciones, normalizarConsultaAprobaciones } from "./vista.js";
-import { MENSAJES_APROBACIONES_ES, crearTraductorAprobaciones } from "./i18n.js?v=20260924-f2-web2";
+import { MENSAJES_APROBACIONES_ES, crearTraductorAprobaciones } from "./i18n.js?v=VEC_WEB_VERSION";
 
 const pendiente = {
   referencia: " APR-1 ", modulo: "Dietas", tipo: "Liquidación", solicitante: "Persona de prueba",
@@ -31,7 +31,7 @@ for (const estado of ["no_configurado", "denegado", "error", "cargando"]) {
 }
 
 const vista = await readFile(new URL("./vista.js", import.meta.url), "utf8");
-assert.match(vista, /from "\.\/i18n\.js\?v=20260924-f2-web2"/u);
+assert.match(vista, /from "\.\/i18n\.js\?v=VEC_WEB_VERSION"/u);
 const css = await readFile(new URL("./aprobaciones.css", import.meta.url), "utf8");
 const t = crearTraductorAprobaciones();
 assert.match(t("descripcion"), /aprobación.*firma electrónica.*distinta/u);

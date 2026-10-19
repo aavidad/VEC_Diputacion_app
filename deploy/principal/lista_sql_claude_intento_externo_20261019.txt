@@ -1,0 +1,5 @@
+# F1-85 — el intento nominal del aspirante en el portal externo coteja su
+# contexto (CA47) y su sesión (IS22) en los almacenes del portal externo.
+# Requiere instaladas CA47, IS22, AD259 y AD298 (F1-84). Comprueba su
+# preimagen y se niega a reaplicarse; sin DOWN.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000299_intento_nominal_portal_externo.up.sql

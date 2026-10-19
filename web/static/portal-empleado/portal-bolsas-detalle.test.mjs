@@ -22,7 +22,7 @@ import {
   validarPayloadCrearLlamamiento,
   validarPayloadResultadoLlamamiento,
   construirEnvelopeAccionBolsa,
-} from "./portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-bolsas-contrato.js?v=VEC_WEB_VERSION";
 
 import {
   consultarBolsas,
@@ -32,9 +32,9 @@ import {
   registrarResultadoLlamamiento,
   rutaCandidatosBolsa,
   crearControladorBolsas,
-} from "./portal-bolsas-api.js?v=20261015-firma-ofertas-justificante-integracion-v2";
+} from "./portal-bolsas-api.js?v=VEC_WEB_VERSION";
 
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261015-firma-ofertas-justificante-integracion-v2";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=VEC_WEB_VERSION";
 
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));

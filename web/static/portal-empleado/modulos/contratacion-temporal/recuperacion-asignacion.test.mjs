@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=VEC_WEB_VERSION";
 
 function estado(version = 7) {
   return {

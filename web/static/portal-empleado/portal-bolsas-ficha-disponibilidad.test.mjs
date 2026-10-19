@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { renderizarReincorporacionesTitular, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js";
 import { consultarOperacionesSituacion, crearControladorOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js";
 import { crearControladorBolsas } from "./portal-bolsas-api.js";
-import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=VEC_WEB_VERSION";
 import { prepararTextosPortal } from "./portal-i18n.js";
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();

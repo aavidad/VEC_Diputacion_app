@@ -33,8 +33,8 @@ test("RRHH y área personal muestran acciones sólo instalados y registran su pr
     const caso = preparar(portal, true);
     await iniciarPWA({ ...caso, idioma });
     assert.equal(caso.navegacion.hidden, false);
-    assert.match(caso.manifiesto.href, new RegExp(`^/textos/${idioma}/pwa-[a-z-]+\\.json\\?v=20261002-pwa-v1$`));
-    assert.deepEqual(caso.registros, [[`${portal}sw.js?v=20261003-pwa-ci-v5`, { scope: portal, updateViaCache: "none" }]]);
+    assert.match(caso.manifiesto.href, new RegExp(`^/textos/${idioma}/pwa-[a-z-]+\\.json\\?v=VEC_WEB_VERSION$`));
+    assert.deepEqual(caso.registros, [[`${portal}sw.js?v=VEC_WEB_VERSION`, { scope: portal, updateViaCache: "none" }]]);
     assert.ok(caso.botones.every((boton) => boton.textContent && boton["aria-label"] === boton.textContent));
     caso.botones[0].click();
     caso.botones[1].click();
@@ -65,8 +65,8 @@ test("cada portal enlaza manifiesto, navegación y su versión del instalador", 
     const html = await readFile(new URL(`../${portal}/index.html`, import.meta.url), "utf8");
     assert.match(html, new RegExp(`data-pwa-manifest="pwa-${portal}"`));
     assert.match(html, new RegExp(`/pwa/instalar\\.js\\?v=${portal === "portal-empleado"
-      ? "20261008-pwa-idioma-v1" : "20261003-pwa-ci-v5"}`));
-    assert.match(html, /\/pwa\/navegacion\.css\?v=20261002-pwa-v2/u);
+      ? "VEC_WEB_VERSION" : "VEC_WEB_VERSION"}`));
+    assert.match(html, /\/pwa\/navegacion\.css\?v=VEC_WEB_VERSION/u);
     assert.match(html, new RegExp(`data-pwa-scope="/${portal}/"`));
   }
   const rrhh = await readFile(new URL("../portal-empleado/index.html", import.meta.url), "utf8");

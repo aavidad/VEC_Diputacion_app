@@ -1,5 +1,5 @@
 import { cargarTextos, reintentarTextos } from "./textos.js";
-import { crearClienteAlegaciones, objetoAlegacion } from "./alegaciones-cliente.js?v=20261013-alegaciones-v1";
+import { crearClienteAlegaciones, objetoAlegacion } from "./alegaciones-cliente.js?v=VEC_WEB_VERSION";
 
 const REF = /^[A-Za-z0-9][A-Za-z0-9:._-]{2,255}$/u;
 
@@ -23,7 +23,7 @@ export async function montarAlegaciones({ contenedor, modo = "propias", escaparH
   let errorFormulario = intencion ? "respuesta_incierta" : "";
   const doc = contenedor.ownerDocument;
   const estilo = doc.createElement("link"); estilo.rel = "stylesheet";
-  estilo.href = "/comun/alegaciones.css?v=20261013-alegaciones-v1"; doc.head.append(estilo);
+  estilo.href = "/comun/alegaciones.css?v=VEC_WEB_VERSION"; doc.head.append(estilo);
   const esc = escaparHTML;
   const t = (clave, vars = {}) => catalogo.traducir(`alegaciones.${clave}`, vars);
   const et = (clave, vars) => esc(t(clave, vars));

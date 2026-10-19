@@ -1,4 +1,4 @@
-import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=VEC_WEB_VERSION";
 import { cargarTextos } from "../../../comun/textos.js";
 
 export const MENSAJES_CRONOS_C4 = (await cargarTextos("cronos")).seccion("c4");

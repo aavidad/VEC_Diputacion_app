@@ -9,7 +9,7 @@ test('el transporte solo lee el escenario fijo sin credenciales ni redirección'
   const cliente = crearClienteCarrera({ fetchImpl: async (url, opts) => { peticion = { url, opts }; return { ok: true, text: async () => JSON.stringify(fixture()) }; } });
   assert.deepEqual(await cliente.listar({ signal: ac.signal }), fixture());
   assert.equal(peticion.url.pathname.endsWith('/carrera/escenario.json'), true);
-  assert.equal(peticion.url.search, '?v=20261001-carrera-preparacion-v1');
+  assert.equal(peticion.url.search, '?v=VEC_WEB_VERSION');
   assert.equal(peticion.opts.credentials, 'omit'); assert.equal(peticion.opts.redirect, 'error');
   assert.equal(peticion.opts.cache, 'no-store'); assert.equal(peticion.opts.referrerPolicy, 'no-referrer');
   assert.equal(peticion.opts.method, 'GET'); assert.equal(peticion.opts.signal, ac.signal);

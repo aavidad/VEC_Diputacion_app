@@ -1,4 +1,4 @@
-import { ErrorCopias, objeto, entero, fecha, codigo, lista, referencia } from "./cliente-http.js?v=20261001-cs09-copias-ux-v2";
+import { ErrorCopias, objeto, entero, fecha, codigo, lista, referencia } from "./cliente-http.js?v=VEC_WEB_VERSION";
 
 const HUELLA = /^[a-f0-9]{64}$/u;
 export function huella(valor) { if (typeof valor !== "string" || !HUELLA.test(valor)) throw new ErrorCopias(); return valor; }

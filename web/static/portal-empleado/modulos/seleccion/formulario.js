@@ -1,5 +1,5 @@
-import { nodo, panel, boton } from './dom.js?v=20261004-codexa-s6-notas-v1';
-import { decimalPuntos } from './configuracion.js?v=20261004-codexa-s6-notas-v1';
+import { nodo, panel, boton } from './dom.js?v=VEC_WEB_VERSION';
+import { decimalPuntos } from './configuracion.js?v=VEC_WEB_VERSION';
 
 function campo(documento, id, texto, valor, tipo = 'text') {
   const etiqueta = nodo(documento, 'label', undefined, 'campo');

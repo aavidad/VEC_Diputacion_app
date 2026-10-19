@@ -1,5 +1,5 @@
-import { comprobarClaves, forma } from '../preparacion-bases/modelo.js?v=20261003-s2-consulta-v1';
-import { validarConfiguracion, validarResultado } from '../configuracion.js?v=20261004-codexa-s6-notas-v1';
+import { comprobarClaves, forma } from '../preparacion-bases/modelo.js?v=VEC_WEB_VERSION';
+import { validarConfiguracion, validarResultado } from '../configuracion.js?v=VEC_WEB_VERSION';
 
 export const MAXIMO_BYTES = 1024 * 1024;
 const pendientes = ['revision_competente', 'acto', 'firma', 'publicacion'];

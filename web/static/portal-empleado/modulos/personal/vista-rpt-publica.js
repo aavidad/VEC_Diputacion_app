@@ -1,4 +1,4 @@
-import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos, formatearResumenRPTPuestos } from "./i18n-rpt-puestos.js?v=20260929-i18n-personal-v1";
+import { crearTraductorRPTPuestos, formatearCentimosRPT, formatearRecuentoRPTPuestos, formatearResumenRPTPuestos } from "./i18n-rpt-puestos.js?v=VEC_WEB_VERSION";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 function nodo(documento, etiqueta, texto = "") { const salida = documento.createElement(etiqueta); if (texto !== "") salida.textContent = texto; return salida; }
 function sigueMontada(raiz, contenedor) { return raiz.querySelector?.("[data-personal-rpt-publica]") === contenedor; }

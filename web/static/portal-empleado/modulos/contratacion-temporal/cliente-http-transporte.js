@@ -2,19 +2,19 @@
 
 import { RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
 import { RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
-import { conflictoLlamamientoValido, prefijoErrorLlamamiento, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=20261016-ct-ofertas-ct231-v1";
+import { conflictoLlamamientoValido, prefijoErrorLlamamiento, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js?v=VEC_WEB_VERSION";
 import { RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
-import { RUTA_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
+import { RUTA_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=VEC_WEB_VERSION";
 import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
 import { RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
 import { RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
 import { RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { CONFLICTOS_SEGUIMIENTO_CESE, RUTAS_SEGUIMIENTO_CESE } from "./cliente-http-seguimiento-cese.js";
-import { CONFLICTOS_CANCELACION_EXPEDIENTE, RUTAS_CANCELACION_EXPEDIENTE } from "./cliente-http-cancelacion.js?v=20261016-ct-ofertas-ct231-v1";
+import { CONFLICTOS_CANCELACION_EXPEDIENTE, RUTAS_CANCELACION_EXPEDIENTE } from "./cliente-http-cancelacion.js?v=VEC_WEB_VERSION";
 
-import { RUTA_VINCULO_BOLSA } from "./cliente-http-vinculo-bolsa.js?v=20261016-ct-ofertas-ct231-v1";
+import { RUTA_VINCULO_BOLSA } from "./cliente-http-vinculo-bolsa.js?v=VEC_WEB_VERSION";
 
 export const MAXIMO_ERROR_BYTES = 16 * 1024;
 export const MAXIMO_FRAGMENTOS = 4096;
@@ -419,6 +419,70 @@ export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
   return codigo === "conflicto";
 }
 
+// El 409 de una persona pendiente de comprobación trae, desde F1-09, las
+// referencias del corte (contexto) y el último acto registrado (estado).
+// Solo referencias y versiones: ningún hecho ni dato de la persona. Las
+// reglas son las de ValidoPara en ports/criterios_ofrecimiento_pendientes.go.
+const CAMPOS_CONTEXTO_COMPROBACION = Object.freeze({
+  ambito_ref: "ref", bolsa_ref: "ref", categoria_ref: "ref", causa_ofrecida: "texto",
+  expediente_ref: "ref", huella_politica_ofertas_sha256: "huella", modalidad_ofrecida: "texto_obligatorio",
+  necesidad_ref: "ref", orden_acta: "entero", organizacion_ref: "ref", participacion_ref: "ref",
+  unidad_ref: "ref", version_bolsa: "entero", version_expediente: "entero",
+  version_instantanea: "entero", version_politica_ofertas: "entero",
+});
+const CAMPOS_ESTADO_COMPROBACION = Object.freeze([
+  "version_esperada", "comprobacion_ref", "recibo_ref", "registrada_en",
+  "version_politica_ofertas", "resultado", "motivo_clave", "vigente",
+]);
+const RESULTADOS_COMPROBACION = Object.freeze({
+  no_aplicable: Object.freeze(["sin_supuesto_articulo_9"]),
+  pendiente: Object.freeze(["antecedentes_incompletos", "criterios_invalidos",
+    "guarda_contratacion_pendiente", "descuento_pendiente_criterio_rrhh"]),
+});
+const PATRON_REF_COMPROBACION = /^[A-Za-z0-9][A-Za-z0-9:._/-]{1,255}$/u;
+const PATRON_HUELLA_COMPROBACION = /^[0-9a-f]{64}$/u;
+const PATRON_ACTO_COMPROBACION = /^comprobacion:[0-9a-f]{64}$/u;
+const PATRON_FECHA_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$/u;
+
+function objetoPlano(valor) {
+  return valor !== null && typeof valor === "object" && !Array.isArray(valor);
+}
+
+function contextoComprobacionValido(contexto, comprobacion, exigirCamposExactos) {
+  if (!objetoPlano(contexto)
+    || !exigirCamposExactos(contexto, Object.keys(CAMPOS_CONTEXTO_COMPROBACION))) return false;
+  const camposValidos = Object.entries(CAMPOS_CONTEXTO_COMPROBACION).every(([campo, tipo]) => {
+    const valor = contexto[campo];
+    if (tipo === "entero") return Number.isSafeInteger(valor) && valor > 0;
+    if (typeof valor !== "string") return false;
+    if (tipo === "huella") return PATRON_HUELLA_COMPROBACION.test(valor);
+    if (tipo === "texto") return valor.length <= 256;
+    if (tipo === "texto_obligatorio") return valor.length <= 256 && valor.trim() !== "";
+    return PATRON_REF_COMPROBACION.test(valor);
+  });
+  return camposValidos && contexto.bolsa_ref === comprobacion.bolsa_ref
+    && contexto.orden_acta === comprobacion.orden_acta
+    && contexto.version_politica_ofertas === comprobacion.version_politica_ofertas;
+}
+
+// Sin acto todavía, el servidor publica exactamente {version_esperada: 0}.
+function estadoComprobacionValido(estado, contexto, exigirCamposExactos) {
+  if (!objetoPlano(estado)) return false;
+  if (estado.version_esperada === 0) return exigirCamposExactos(estado, ["version_esperada"]);
+  return exigirCamposExactos(estado, CAMPOS_ESTADO_COMPROBACION)
+    && Number.isSafeInteger(estado.version_esperada) && estado.version_esperada > 0
+    && estado.version_esperada <= 999999999
+    && typeof estado.comprobacion_ref === "string" && PATRON_ACTO_COMPROBACION.test(estado.comprobacion_ref)
+    && estado.recibo_ref === `recibo:${estado.comprobacion_ref}`
+    && typeof estado.registrada_en === "string" && PATRON_FECHA_UTC.test(estado.registrada_en)
+    && !Number.isNaN(Date.parse(estado.registrada_en))
+    && Number.isSafeInteger(estado.version_politica_ofertas) && estado.version_politica_ofertas > 0
+    && typeof estado.vigente === "boolean"
+    && (!estado.vigente || !contexto || estado.version_politica_ofertas === contexto.version_politica_ofertas)
+    && Object.hasOwn(RESULTADOS_COMPROBACION, estado.resultado)
+    && RESULTADOS_COMPROBACION[estado.resultado].includes(estado.motivo_clave);
+}
+
 export async function construirErrorRespuesta(respuesta, signal, ruta, errorCliente, ErrorClienteClass, exigirCamposExactos, rutas) {
   let envoltorio;
   try {
@@ -444,8 +508,13 @@ export async function construirErrorRespuesta(respuesta, signal, ruta, errorClie
     && detalle?.codigo === "comprobacion_ofrecimiento_pendiente";
   const comprobacion = envoltorio?.comprobacion_ofrecimiento;
   const conVersion = comprobacion && Object.hasOwn(comprobacion, "version_politica_ofertas");
+  const conContexto = comprobacion && Object.hasOwn(comprobacion, "contexto");
+  const conEstado = comprobacion && Object.hasOwn(comprobacion, "estado");
   const comprobacionValida = !comprobacionPendiente || (exigirCamposExactos(comprobacion,
-    ["bolsa_ref", "orden_acta", ...(conVersion ? ["version_politica_ofertas"] : []), "motivo_clave"])
+    ["bolsa_ref", "orden_acta", ...(conVersion ? ["version_politica_ofertas"] : []), "motivo_clave",
+      ...(conContexto ? ["contexto"] : []), ...(conEstado ? ["estado"] : [])])
+    && (!conContexto || contextoComprobacionValido(comprobacion.contexto, comprobacion, exigirCamposExactos))
+    && (!conEstado || estadoComprobacionValido(comprobacion.estado, conContexto ? comprobacion.contexto : null, exigirCamposExactos))
     && typeof comprobacion.bolsa_ref === "string"
     && /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(comprobacion.bolsa_ref)
     && Number.isSafeInteger(comprobacion.orden_acta) && comprobacion.orden_acta > 0
@@ -474,7 +543,9 @@ export async function construirErrorRespuesta(respuesta, signal, ruta, errorClie
     correlacionRef: detalle.correlacion_ref,
     campo: campoAlta ? detalle.campo : "",
     envelopeValido: true,
-    comprobacionOfrecimiento: comprobacionPendiente ? Object.freeze({ ...comprobacion }) : null,
+    comprobacionOfrecimiento: comprobacionPendiente ? Object.freeze({ ...comprobacion,
+      ...(conContexto ? { contexto: Object.freeze({ ...comprobacion.contexto }) } : {}),
+      ...(conEstado ? { estado: Object.freeze({ ...comprobacion.estado }) } : {}) }) : null,
   });
 }
 

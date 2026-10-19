@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js?v=20261001-ct-firma-verificador-v2";
-import { MENSAJES_FIRMA_REMISION_ES, MENSAJES_FIRMA_REMISION_EN } from "./i18n-firma-remision.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js?v=VEC_WEB_VERSION";
+import { MENSAJES_FIRMA_REMISION_ES, MENSAJES_FIRMA_REMISION_EN } from "./i18n-firma-remision.js?v=VEC_WEB_VERSION";
 import { MENSAJES_SEGUIMIENTO_CESE, MENSAJES_SEGUIMIENTO_CESE_EN } from "./i18n-seguimiento-cese.js";
-import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261001-ct-a-i18n-v1";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES, MENSAJES_CONTRATACION_TEMPORAL_EN } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=VEC_WEB_VERSION";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES, MENSAJES_CONTRATACION_TEMPORAL_EN } from "./i18n.js?v=VEC_WEB_VERSION";
 import { MENSAJES_EXPEDIENTES_CONTRATACION_ES, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js";
 import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
 

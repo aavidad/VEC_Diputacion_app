@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import * as rutasBolsa from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
+import * as rutasBolsa from "./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 
 const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
@@ -160,12 +160,11 @@ test("la cohorte de CSS, entrada y helper coincide con las URL servidas", async 
   assert.notEqual(versionRaiz, "20261008-analisis-confirmado-v2");
   assert.notEqual(versionRaiz, "20261008-bolsa-global-v2");
   assert.notEqual(versionRaiz, "20261008-alta-analisis-bolsa-v4");
-  assert.notEqual(versionRaiz, "20261008-r-traza-idioma-v1");
   assert.notEqual(versionRaiz, "20261008-r-personas-fichas-v3");
   assert.equal(versionDe(cache, "/portal-empleado/portal.js"), versionRaiz);
-  assert.equal(versionDe(html, "/portal-empleado/portal-capacidades.css"), "20261015-t-tabla-situaciones-v1");
-  assert.equal(versionDe(html, "/portal-empleado/portal-componentes.css"), "20261015-s-cambio-situacion-v1");
-  assert.equal(versionDe(cache, "/portal-empleado/portal-componentes.css"), "20261015-s-cambio-situacion-v1");
+  assert.equal(versionDe(html, "/portal-empleado/portal-capacidades.css"), "VEC_WEB_VERSION");
+  assert.equal(versionDe(html, "/portal-empleado/portal-componentes.css"), "VEC_WEB_VERSION");
+  assert.equal(versionDe(cache, "/portal-empleado/portal-componentes.css"), "VEC_WEB_VERSION");
   for (const manifiesto of [interno, produccion]) {
     assert.equal(manifiesto.split("static/portal-empleado/portal-bolsas-ruta-filtros.js").length - 1, 1);
   }

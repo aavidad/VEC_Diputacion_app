@@ -1,6 +1,6 @@
 import test from "node:test";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=VEC_WEB_VERSION";
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
 import assert from "node:assert/strict";
@@ -14,7 +14,7 @@ import {
   renderizarCamposReposicion,
   textoProcedenciaReposicion,
 } from "./portal-bolsas-reglas-situacion.js";
-import { crearControladorOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261007-pantallas-textos-final-v1";
+import { crearControladorOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=VEC_WEB_VERSION";
 
 const procedencia = (articulo) => ({ clave: "b24.sancion.x", referencia: "vec.bolsa.reglas:1:x", articulo, norma: "Reglamento", ejemplo: false });
 

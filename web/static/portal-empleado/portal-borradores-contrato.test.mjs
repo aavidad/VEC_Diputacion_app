@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   generarClaveIdempotencia,
   validarClaveIdempotencia,
-} from "./portal-borradores-api.js?v=20261008-borradores-error-legible-v1";
+} from "./portal-borradores-api.js?v=VEC_WEB_VERSION";
 import {
   ESQUEMAS_BORRADORES,
   derivarETagBorrador,

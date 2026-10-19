@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { moduloDeVistaPortal } from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
-import { traducirPortal } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
+import { moduloDeVistaPortal } from "./portal-modulos-coordinador.js?v=VEC_WEB_VERSION";
+import { traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 
 // Recorrido en cidonia del 06/10/2026 con tecnico_rrhh: Personal · Registro,
 // Cronos, Mis trámites y Dietas se quedaban para siempre en «Comprobando

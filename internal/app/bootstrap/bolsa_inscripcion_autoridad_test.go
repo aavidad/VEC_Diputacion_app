@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +19,54 @@ type decisorLecturaInscripcionPrueba struct {
 	decision DecisionLecturaActualInscripcionBolsa
 	err      error
 	llamadas int
+}
+
+type sesionInscripcionConAvancePrueba struct {
+	sesionInscripcionPrueba
+	verificacionFutura, caducidadPasada bool
+}
+
+func (s sesionInscripcionConAvancePrueba) ResolverInscripcion(*http.Request) (contextoSeguridadComunDesarrollo, AcreditacionSesionInscripcionBolsa, error) {
+	time.Sleep(2 * time.Millisecond)
+	a := s.acreditacion
+	a.VerificadaEn = time.Now().UTC().Truncate(time.Microsecond)
+	if s.verificacionFutura {
+		a.VerificadaEn = a.VerificadaEn.Add(time.Minute)
+	}
+	if s.caducidadPasada {
+		a.ValidaHasta = a.VerificadaEn.Add(-time.Second)
+	}
+	return s.ctx, a, nil
+}
+
+func TestPreparadorInscripcionValidaSesionResueltaConRelojAvanzado(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	ctx := contextoInscripcionCanalPrueba(t, ahora, true)
+	base := sesionInscripcionPrueba{ctx: ctx, acreditacion: acreditacionSesionInscripcionPrueba(t, ctx, "externa_personal", ahora)}
+	for _, caso := range []struct {
+		nombre           string
+		futura, caducada bool
+		aceptada         bool
+	}{
+		{"sesión recién verificada", false, false, true},
+		{"verificación futura", true, false, false},
+		{"sesión caducada", false, true, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			sesion := sesionInscripcionConAvancePrueba{base, caso.futura, caso.caducada}
+			p, err := NuevoPreparadorInscripcionBolsaExterno(ConfiguracionPreparadorInscripcionBolsa{
+				SesionAspirante: sesion, Autoridad: autoridadInscripcionPrueba{canal: "externa_personal"}, Reloj: relojContratacionTemporalDesarrollo{},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := httptest.NewRequest(http.MethodGet, "/api/vec/bolsa/inscripciones/convocatorias-abiertas", nil)
+			_, err = p.PrepararLecturaAspirante(r, inscripcion.AccionListarAbiertas, "", inscripcion.Filtro{Limite: 20}, "es")
+			if caso.aceptada && err != nil || !caso.aceptada && !errors.Is(err, inscripcion.ErrSesionAusente) {
+				t.Fatalf("sesión aceptada=%t: %v", caso.aceptada, err)
+			}
+		})
+	}
 }
 
 func (d *decisorLecturaInscripcionPrueba) DecidirLecturaActual(_ context.Context, _ contextoSeguridadComunDesarrollo, _ AcreditacionSesionInscripcionBolsa, _, _ string, _ inscripcion.Filtro) (DecisionLecturaActualInscripcionBolsa, error) {

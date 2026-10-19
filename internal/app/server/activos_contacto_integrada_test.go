@@ -50,13 +50,13 @@ func TestActivosContactoPropioSoloEnSuperficieIntegrada(t *testing.T) {
 	publica := NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler())
 	interna := NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler())
 	for _, rutaFuente := range rutas {
-		esperado, err := os.ReadFile("../../../web/" + rutaFuente)
+		esperado, err := leerFuenteWebVersionada("../../../web/" + rutaFuente)
 		if err != nil {
 			t.Fatal(err)
 		}
 		ruta := "/" + strings.TrimPrefix(rutaFuente, "static/")
 		for _, metodo := range []string{http.MethodGet, http.MethodHead} {
-			for _, version := range []string{"", "?v=contacto-f2"} {
+			for _, version := range []string{"", "?v=" + versionWeb().version} {
 				t.Run(metodo+" "+ruta+version, func(t *testing.T) {
 					respuesta := httptest.NewRecorder()
 					integrada.ServeHTTP(respuesta, peticionServidorPrueba(metodo, ruta+version, nil))

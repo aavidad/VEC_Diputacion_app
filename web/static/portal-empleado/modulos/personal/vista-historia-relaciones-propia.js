@@ -1,5 +1,5 @@
-import { intervaloHistoriaRelacionesValido, validarRespuestaHistoriaRelaciones } from "./cliente-http-historia-relaciones-propia.js?v=20261004-personal-relaciones-v1";
-import { traducirHistoriaRelaciones as t, formatearFechaHistoriaRelaciones as fecha, formatearInstanteHistoriaRelaciones as instante, formatearNumeroHistoriaRelaciones as numero } from "./i18n-historia-relaciones-propia.js?v=20261004-personal-relaciones-v1";
+import { intervaloHistoriaRelacionesValido, validarRespuestaHistoriaRelaciones } from "./cliente-http-historia-relaciones-propia.js?v=VEC_WEB_VERSION";
+import { traducirHistoriaRelaciones as t, formatearFechaHistoriaRelaciones as fecha, formatearInstanteHistoriaRelaciones as instante, formatearNumeroHistoriaRelaciones as numero } from "./i18n-historia-relaciones-propia.js?v=VEC_WEB_VERSION";
 
 function nodo(d, tipo, texto, clase) {
   const elemento = d.createElement(tipo);

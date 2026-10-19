@@ -5,88 +5,30 @@ import { renderizarErrorCargaAreaPersonal } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 import { tabla } from "./vistas/comunes.js";
-import { exigirRenovado, versionDe, versionesDe } from "../portal-empleado/versiones-cache.test-helper.mjs";
+import { exigirMismaVersion, versionDe, versionesDe } from "../portal-empleado/versiones-cache.test-helper.mjs";
 import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
-test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", async () => {
-  const [html, arranque, aplicacion, vista] = await Promise.all([
-    readFile(new URL("./index.html", import.meta.url), "utf8"),
-    readFile(new URL("./arranque.js", import.meta.url), "utf8"),
-    readFile(new URL("./aplicacion.js", import.meta.url), "utf8"),
-    readFile(new URL("../comun/oportunidades/vista.js", import.meta.url), "utf8"),
-  ]);
-  // Versiones publicadas antes del último cambio de la hoja y del montaje: la
-  // caché immutable las conserva, así que el HTML debe pedir otra URL.
-  const versionCSSAreaAnterior = "20260930-b11-aviso-movil-v1";
-  const versionPadreAnterior = "20260925-aspecto-v1";
-  const versionHistorialAnterior = "20260926-integracion-bolsa-ct-v1";
-  const versionCSSArea = html.match(/\/area-personal\/area-personal\.css\?v=([\w.-]+)"/)?.[1];
-  const versionCSSOportunidades = "20260924-f2-b15-area-v1";
-  const versionPadre = html.match(/\/area-personal\/arranque\.js\?v=([\w.-]+)"/)?.[1];
-  assert.ok(versionCSSArea && versionCSSArea !== versionCSSAreaAnterior, "area-personal.css renueva su URL");
-  assert.ok(versionPadre && versionPadre !== versionPadreAnterior, "el montaje renueva su URL");
-  assert.notEqual(versionPadre, versionHistorialAnterior, "el histórico renueva la aplicación cargada por el navegador");
-  assert.ok(html.includes(`/area-personal/area-personal.css?v=${versionCSSArea}`));
-  assert.ok(html.includes(`/comun/oportunidades/oportunidades.css?v=${versionCSSOportunidades}`));
-  assert.ok(!html.includes(`/area-personal/area-personal.css?v=${versionCSSOportunidades}`), "no reutilizar CSS anterior con caché inmutable");
-  assert.ok(html.includes(`/area-personal/arranque.js?v=${versionPadre}`));
-  assert.equal(versionDe(arranque, "./aplicacion.js"), versionPadre,
-    "la aplicación usa la misma versión que la entrada vigente");
-  assert.ok(aplicacion.includes(`from "./mi-bolsa-historial.js?v=20261015-o-justificante-bolsa-v4"`), "el histórico conserva la cohorte de la aplicación");
+test("Área personal comparte la versión calculada entre entrada, módulos y caché", async () => {
+  const leer = (ruta) => readFile(new URL(ruta, import.meta.url), "utf8");
+  const [html, cache, arranque, aplicacion, contrato, cliente, contacto, seguimiento, manifiesto] = await Promise.all([
+    "index.html", "cache-publica-v1.json", "arranque.js", "aplicacion.js", "contrato.js",
+    "cliente-http.js", "contacto-propio.js", "vistas/seguimiento-tramites.js",
+    "../../produccion.manifest",
+  ].map(leer));
+  exigirMismaVersion([html, cache], "arranque.js");
+  exigirMismaVersion([arranque, contacto], "cliente-http.js");
+  exigirMismaVersion([contrato, aplicacion, seguimiento], "mi-bolsa-portal.js");
+  exigirMismaVersion([aplicacion, seguimiento], "mi-bolsa-historial.js");
+  versionDe(arranque, "./aplicacion.js");
+  versionDe(cliente, "./contrato.js");
+  versionDe(html, "/area-personal/area-personal.css");
+  assert.equal(versionesDe(arranque, "./cliente-http.js").length, 2);
   assert.ok(arranque.includes('from "./i18n.js"'));
   assert.ok(aplicacion.includes('from "./i18n.js"'));
-  assert.doesNotMatch(`${arranque}\n${aplicacion}`, /\.\/i18n\.js\?v=/);
-  assert.ok(aplicacion.includes(`../comun/oportunidades/vista.js?v=${versionCSSOportunidades}`));
-  assert.match(vista, /\.\/i18n\.js\?v=20260924-f2-web2/);
-  exigirRenovado(arranque, "./cliente-http.js", ["20260924-f2-b11-v1", "20260924-f2-b11-v2"]);
-});
-
-test("Mi Bolsa conserva su cohorte y la entrada de inscripción usa la URL nueva", async () => {
-  const [contrato, cliente, contacto, seguimiento, aplicacion, arranque, html, cache, manifiesto] = await Promise.all([
-    "contrato.js", "cliente-http.js", "contacto-propio.js", "vistas/seguimiento-tramites.js",
-    "aplicacion.js", "arranque.js", "index.html", "cache-publica-v1.json", "../../produccion.manifest",
-  ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
-  const cohorte = "20261015-o-justificante-bolsa-v4";
-  for (const [fuente, ruta] of [[contrato, "./mi-bolsa-portal.js"],
-    [seguimiento, "../mi-bolsa-portal.js"], [aplicacion, "./mi-bolsa-portal.js"],
-    [cliente, "./contrato.js"], [contacto, "./cliente-http.js"],
-    [aplicacion, "./contacto-propio.js"],
-    [aplicacion, "./mi-bolsa-historial.js"], [seguimiento, "../mi-bolsa-historial.js"],
-    [arranque, "./cliente-http.js"]]) {
-    assert.equal(versionDe(fuente, ruta), cohorte, ruta);
-  }
-  assert.equal(versionDe(aplicacion, "./vistas/seguimiento-tramites.js"), "20261015-o-justificante-bolsa-v4");
-  const entrada = versionDe(html, "/area-personal/arranque.js");
-  assert.ok(entrada, "falta la entrada versionada vigente");
-  assert.equal(versionDe(arranque, "./aplicacion.js"), entrada);
-  for (const [fuente, ruta] of [[html, "/area-personal/arranque.js"], [cache, "/area-personal/arranque.js"]]) {
-    assert.equal(versionDe(fuente, ruta), entrada, ruta);
-  }
-  assert.equal(versionesDe(arranque, "./cliente-http.js").length, 2,
-    "la carga inicial y la diferida usan el mismo cliente HTTP");
-  assert.equal(JSON.parse(cache).version, "20261003-pwa-ci-v5");
-  for (const ruta of ["mi-bolsa-portal.js", "mi-bolsa-historial.js", "contrato.js", "cliente-http.js", "contacto-propio.js",
-    "vistas/seguimiento-tramites.js", "aplicacion.js", "arranque.js"]) {
+  assert.equal(JSON.parse(cache).version, "VEC_WEB_VERSION");
+  for (const ruta of ["mi-bolsa-portal.js", "mi-bolsa-historial.js", "contrato.js", "cliente-http.js",
+    "contacto-propio.js", "vistas/seguimiento-tramites.js", "aplicacion.js", "arranque.js"])
     assert.equal(manifiesto.split(`static/area-personal/${ruta}`).length - 1, 1, ruta);
-  }
-});
-
-test("una caché antigua no puede sustituir los padres del montaje vigente", async () => {
-  const [html, arranque, contacto] = await Promise.all([
-    readFile(new URL("./index.html", import.meta.url), "utf8"),
-    readFile(new URL("./arranque.js", import.meta.url), "utf8"),
-    readFile(new URL("./contacto-propio.js", import.meta.url), "utf8"),
-  ]);
-  const nuevo = html.match(/src="\/area-personal\/arranque\.js\?v=([\w.-]+)"/)?.[1];
-  const padre = new URL(html.match(/src="(\/area-personal\/arranque\.js\?v=[^"]+)"/)?.[1] ?? "", "https://vec.example");
-  const hijo = new URL(arranque.match(/from "(\.\/aplicacion\.js\?v=[^"]+)"/)?.[1] ?? "", padre);
-  assert.equal(padre.searchParams.get("v"), nuevo);
-  assert.equal(hijo.searchParams.get("v"), nuevo);
-  for (const antiguo of ["20260924-f2-b15-area-v1", "20260924-f2-b15-area-v2", "20260924-f2-b15-area-v3", "20260924-f2-b15-area-v4", "20260924-rescate-area-v5", "20260924-rescate-area-v6", "20260924-rescate-area-v7", "20260925-aspecto-v1"]) {
-    assert.notEqual(padre.href, `https://vec.example/area-personal/arranque.js?v=${antiguo}`);
-    assert.notEqual(hijo.href, `https://vec.example/area-personal/aplicacion.js?v=${antiguo}`);
-  }
-  exigirRenovado([arranque, contacto], "./cliente-http.js", ["20260924-f2-b11-v1", "20260924-f2-b11-v2"]);
 });
 
 test("un fallo de arranque usa i18n genérico y no expone su causa", async () => {
