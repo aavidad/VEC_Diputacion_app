@@ -9,6 +9,7 @@ import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.j
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { rotuloFaseCabecera } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=VEC_WEB_VERSION";
 import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=VEC_WEB_VERSION";
@@ -264,6 +265,20 @@ export function crearGestorTramitacion({
     }
   }
 
+  // El recibo del informe confirma que el expediente pasa al paso «Informe
+  // jurídico». La ficha no se repinta para no perder recibo e historial, así
+  // que la cabecera se pone al día aquí y no contradice lo que hay debajo.
+  function actualizarCabeceraTrasInforme(recibo) {
+    if (!esMontada() || recibo?.expediente_ref !== presentador.obtenerEstado().expediente?.expediente_ref) return;
+    const fase = raiz.querySelector("[data-ct-exp-fase-cabecera]");
+    if (fase) fase.textContent = rotuloFaseCabecera("informe_juridico", mensajes);
+  }
+
+  function alConfirmarInforme(recibo) {
+    try { actualizarCabeceraTrasInforme(recibo); } catch { /* la cabecera se actualiza al volver a la ficha */ }
+    return montarFiscalizacionDesdeInforme(recibo);
+  }
+
   function montarFiscalizacionDesdeInforme(recibo) {
     return montarFiscalizacion(Object.freeze({
       expediente_ref: recibo.expediente_ref,
@@ -474,7 +489,7 @@ export function crearGestorTramitacion({
           version_esperada: recibo.version_resultante,
         }),
         confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
-        alConfirmar: montarFiscalizacionDesdeInforme,
+        alConfirmar: alConfirmarInforme,
       });
       return true;
     } catch {

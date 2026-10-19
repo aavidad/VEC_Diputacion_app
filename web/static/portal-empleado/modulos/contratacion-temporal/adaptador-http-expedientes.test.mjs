@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo, rotuloFaseCabecera } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
 import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
 import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=VEC_WEB_VERSION";
@@ -1101,4 +1101,11 @@ test("la cabecera nombra el paso dentro de la fase y el alta se traduce en el hi
       assert.equal(detalle.historial[0].accion, alta);
     }
   }
+});
+
+test("tras el recibo del informe la cabecera nombra el paso «Informe jurídico» en el idioma activo", async () => {
+  assert.equal(rotuloFaseCabecera("informe_juridico"), "Fase 3 de 8: Gestión de bolsa · Informe jurídico");
+  assert.equal(rotuloFaseCabecera("informe_juridico", await cargarMensajesExpedientesContratacionEnIdioma("en")),
+    "Stage 3 of 8: Recruitment pool · Legal report");
+  assert.equal(rotuloFaseCabecera("fiscalizacion"), "Fase 4 de 8: Fiscalización");
 });

@@ -410,6 +410,7 @@
   .tabla-datos.tabla-apilable td small { display: inline; margin-left: 6px; }
   .tabla-datos.tabla-apilable td .ct-exp-chip { vertical-align: middle; }
   .tabla-datos.tabla-apilable th[scope="row"] { padding-bottom: 6px; font-size: 1rem; }
+  .tabla-datos.tabla-apilable tbody th[scope="row"] { background: transparent; color: var(--portal-tinta); }
 }
 
 @media (max-width: 520px) {

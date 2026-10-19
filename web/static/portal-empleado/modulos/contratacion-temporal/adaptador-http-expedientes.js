@@ -221,6 +221,11 @@ function faseConSubfase(faseRail, faseServidor, t) {
   return t("ficha_fase_con_subfase", { fase, subfase: etiqueta(faseServidor, t) });
 }
 
+/** Rótulo de la cabecera para una fase del servidor confirmada por un recibo. */
+export function rotuloFaseCabecera(faseServidor, mensajes = {}) {
+  return faseConSubfase("", faseServidor, crearTraductorExpedientesContratacion(mensajes));
+}
+
 function resumenVisual(entrada, catalogos, t, locale) {
   const estadoClave = estadoVisual(entrada.estado_clave);
   return {
