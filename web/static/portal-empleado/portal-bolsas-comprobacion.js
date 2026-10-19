@@ -277,7 +277,10 @@ export function renderizarComprobacionOfrecimiento({ modal, escaparHTML: e }) {
   let revision = "";
   if (bloqueado && st.paso !== "recibo") {
     const filas = HECHOS_COMPROBACION.map((h) => {
-      if (!st.hechos?.[h.clave]) return `<div class="fila-resumen"><dt>${e(textoHecho(h.clave))}</dt><dd>${e(t("ficha.sin_indicar"))}</dd></div>`;
+      if (!st.hechos?.[h.clave]) {
+        const sinDato = h.tipo === "fijo" ? `${new Intl.NumberFormat(LOCALIZACION_PORTAL).format(c.orden_acta)} · ${t("ficha.sin_documento")}` : t("ficha.sin_indicar");
+        return `<div class="fila-resumen"><dt>${e(textoHecho(h.clave))}</dt><dd>${e(sinDato)}</dd></div>`;
+      }
       const d = doc(h.clave);
       const n = st.documentos.findIndex((x) => x.id === d) + 1;
       const fuente = d === "contrato" ? textoContrato(contrato) : `${t("ficha.documento_n", { numero: n })} · ${st.documentos[n - 1]?.referencia ?? ""}`;
@@ -314,7 +317,23 @@ export function crearControladorComprobacion({ estado, renderizar, fetchImpl, ca
     const raiz = globalThis.document?.querySelector?.("#b57-comprobacion");
     raiz?.scrollIntoView?.({ block: "start" });
     raiz?.focus?.({ preventScroll: true });
+    mantenerFocoInicial(modal);
     return true;
+  }
+
+  // Las demás lecturas de la ficha repintan después y el foco cae al documento. Durante unos
+  // segundos se devuelve al bloque, salvo que la persona ya lo haya llevado a otro sitio.
+  function mantenerFocoInicial(modal, restantes = 20) {
+    const documento = globalThis.document;
+    if (!documento || restantes <= 0) return;
+    globalThis.setTimeout(() => {
+      if (estado.modalFicha !== modal || modal.comprobacionB57?.paso !== "edicion") return;
+      const activo = documento.activeElement;
+      if (activo && activo !== documento.body) {
+        if (!activo.closest?.("#b57-comprobacion") || activo.id !== "b57-comprobacion") return;
+      } else documento.querySelector("#b57-comprobacion")?.focus?.({ preventScroll: true });
+      mantenerFocoInicial(modal, restantes - 1);
+    }, 150);
   }
 
   async function enviar(modal, st, documento) {

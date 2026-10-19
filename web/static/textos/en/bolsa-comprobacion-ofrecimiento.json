@@ -79,7 +79,7 @@
     "error_documento_calculando": "Wait until the file for document {numero} has been checked.",
     "error_hecho_sin_documento": "Say which document proves “{hecho}”.",
     "error_hecho_sin_valor": "Enter the value of “{hecho}” or remove its document.",
-    "error_hecho_clave": "“{hecho}” only accepts lower-case letters without accents, digits and the signs . _ -.",
+    "error_hecho_clave": "Enter the reason as one word in lower case, without accents, for example baja.",
     "error_hecho_fecha": "Enter a valid date in “{hecho}”.",
     "incierto": "We could not confirm whether the check was registered. Select Retry: the same check is recovered, without duplicating it.",
     "no_encontrada": "The person in position {posicion} was not found in this pool. They may no longer be in it, or your profile may not allow you to see them. Go back to the case file and repeat the selection.",

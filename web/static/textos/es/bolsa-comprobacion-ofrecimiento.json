@@ -79,7 +79,7 @@
     "error_documento_calculando": "Espere a que termine la comprobación del archivo del documento {numero}.",
     "error_hecho_sin_documento": "Indique qué documento acredita «{hecho}».",
     "error_hecho_sin_valor": "Indique el valor de «{hecho}» o quite su documento.",
-    "error_hecho_clave": "«{hecho}» solo admite letras minúsculas sin tilde, cifras y los signos . _ -.",
+    "error_hecho_clave": "Escriba la causa en una palabra, en minúsculas y sin tildes, por ejemplo baja.",
     "error_hecho_fecha": "Escriba una fecha válida en «{hecho}».",
     "incierto": "No se ha podido confirmar si la comprobación quedó registrada. Pulse Reintentar: se recupera la misma, sin duplicarla.",
     "no_encontrada": "No se ha encontrado en esta bolsa a la persona de la posición {posicion}. Puede que ya no figure en ella o que su perfil no permita verla. Vuelva al expediente y repita la selección.",

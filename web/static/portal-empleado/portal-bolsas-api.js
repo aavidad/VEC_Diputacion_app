@@ -940,9 +940,10 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     if (candidato) { abrirFicha(c.participacion_ref, candidato); return ""; }
     const textos = await prepararTextosComprobacion().catch(() => null);
     if (!textos || estado.datosCandidatos !== carga) return "";
-    carga.avisoComprobacion = textos.traducir("ficha.no_encontrada", { posicion: c.orden_acta });
+    carga.avisoComprobacion = Object.freeze({ texto: textos.traducir("ficha.no_encontrada", { posicion: c.orden_acta }),
+      boton: textos.traducir("ficha.ir_peticiones") });
     renderizar();
-    return carga.avisoComprobacion;
+    return carga.avisoComprobacion.texto;
   }
 
   // Tras anotar llamadas, la vista de seguimiento se vuelve a leer al dejar la ficha.
