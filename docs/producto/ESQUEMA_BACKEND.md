@@ -193,6 +193,14 @@ CT233 coteja el contexto del expediente como operación privada entre propietari
 AD290 exige la acción propia. Su habilitación central y su conexión a la pantalla
 siguen pendientes. Guion: `deploy/principal/comprobacion_ofrecimiento_f1_09_20261016.md`.
 
+El primer corte de F1-10 añade en Bolsa `version_comprobacion_reserva_v1`,
+un control de concurrencia por organización, expediente, necesidad y
+participación. El registro de hechos y las reservas comparten esa fila para
+rechazar una rectificación concurrente, también con una instantánea anterior.
+La historia de comprobaciones sigue siendo de solo adición. CT accede mediante
+la función privada `cotejar_comprobacion_reserva_ct_v1`, sin lectura directa de
+la tabla. Guion: `deploy/principal/contexto_reserva_f1_10_20261019.md`.
+
 ## 5. Contrato de transacción
 
 Toda llamada a una función de escritura, y la mayoría de lecturas auditadas, va así:
