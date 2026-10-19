@@ -12,6 +12,11 @@ import (
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
+// Huella SHA-256 de pg_get_constraintdef de la restricción tal como la deja
+// AD300. Se compara entera: buscar solo el literal del motivo aceptaría una
+// definición distinta que lo nombre (por ejemplo, con «<>»).
+const huellaRestriccionAuditoriaModalidades = "9364e6e24509ac95340610b822310a82d1d556f5ad39f372907bc269b6de260e"
+
 const firmaGuardarPreferenciasModalidades = "vec_bolsa_llamamientos.guardar_preferencias_modalidades_v1(text,text[],jsonb,bigint,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"
 
 // Las modalidades solo se montan si B138 (escritura) y AD300 (motivo de
@@ -31,7 +36,8 @@ const consultaSQLPreferenciasModalidades = `SELECT EXISTS(SELECT 1 FROM pg_catal
   WHERE n.nspname='vec_autorizacion_atestada_v3' AND t.relname='auditoria_consumo_v3'
    AND c.conname='auditoria_lectura_preferencias_bolsas_formato_v2'
    AND c.contype='c' AND c.convalidated
-   AND strpos(pg_catalog.pg_get_constraintdef(c.oid,false),'''lectura_preferencias_modalidades_correcta''')>0)`
+   AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+    pg_catalog.pg_get_constraintdef(c.oid,false),'UTF8')),'hex')=$2)`
 
 // Usa la fuente CT ya declarada para el catálogo común. Su ausencia solo
 // desactiva esta proyección opcional de preferencias.
@@ -60,7 +66,7 @@ func comprobarSQLPreferenciasModalidades(ctx context.Context, pool *pgxpool.Pool
 	}
 	var valida bool
 	if err := pool.QueryRow(ctx, consultaSQLPreferenciasModalidades,
-		firmaGuardarPreferenciasModalidades).Scan(&valida); err != nil {
+		firmaGuardarPreferenciasModalidades, huellaRestriccionAuditoriaModalidades).Scan(&valida); err != nil {
 		return err
 	}
 	if !valida {

@@ -36,7 +36,7 @@ func TestModalidadesSinPreflightNoAbrenRuta(t *testing.T) {
 	}
 	// La consulta exige a la vez B138 y la restricción ampliada por AD300.
 	for _, fragmento := range []string{"to_regprocedure($1)", "auditoria_lectura_preferencias_bolsas_formato_v2",
-		"'''lectura_preferencias_modalidades_correcta'''", "c.convalidated", "a.grantee=0"} {
+		"pg_catalog.sha256(", "'hex')=$2", "c.convalidated", "a.grantee=0"} {
 		if !strings.Contains(consultaSQLPreferenciasModalidades, fragmento) {
 			t.Fatalf("la comprobación SQL no exige %s", fragmento)
 		}
