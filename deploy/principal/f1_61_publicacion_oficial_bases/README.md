@@ -68,11 +68,14 @@ publicación de sus versiones antes de comprobarlas.
 ## Activación en una copia
 
 Después de BC14 ninguna convocatoria aparece abierta hasta que se declare su
-publicación. `copia_local.py crear` aplica `declarar_ensayo_copia.sql` después
-de la lista SQL y del kit de datos, que es quien carga las versiones
-(`copia_local_publicacion_bases.py`, registro en `publicacion-bases.log`). Las
-copias de presentación salen del mismo `crear`, así que también la reciben. El
-kit privado no cambia.
+publicación. `copia_local.py` aplica `declarar_ensayo_copia.sql` en cada
+arranque (`crear` y `reiniciar` pasan por `arrancar`), ya con la lista SQL y
+el kit de datos aplicados (`copia_local_publicacion_bases.py`, registro en
+`publicacion-bases.log`). Así recoge también los plazos que se abran después
+de crear la copia. Las copias de presentación salen del mismo `crear`, así que
+también la reciben. El kit privado no cambia. Una versión publicada con
+material ilegible hace fallar el arranque de forma visible, igual que fallarían
+la lista y la ficha de la aspirante.
 
 La semilla declara, como propietario de `vec_bolsa_convocatorias`, una
 publicación ficticia para cada convocatoria cuya versión vigente tenga hoy un

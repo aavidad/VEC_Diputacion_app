@@ -7,10 +7,11 @@
 -- Medio: tablón de edictos electrónico, sin boletín; anuncio y clave derivados
 -- de la versión, con prefijo COPIA. Es un dato ficticio, no una publicación
 -- real ni un acto de RRHH.
--- Solo la aplica `copia_local.py crear`, después de la lista SQL y del kit de
--- datos de la copia. No aplicarla en cidonia, en el servidor nuevo ni en
--- producción. Repetirla no escribe nada: las versiones ya declaradas se saltan
--- y la clave de idempotencia devuelve el mismo recibo. Sin BC14 no hace nada.
+-- Solo la aplica `copia_local.py` en cada arranque de la copia, ya con la
+-- lista SQL y el kit de datos aplicados. No aplicarla en cidonia, en el
+-- servidor nuevo ni en producción. Repetirla no escribe nada: las versiones ya
+-- declaradas se saltan y la clave de idempotencia devuelve el mismo recibo.
+-- Sin BC14 no hace nada.
 SELECT pg_catalog.to_regprocedure(
  'vec_bolsa_convocatorias.declarar_publicacion_oficial_bases_v1(jsonb)') IS NOT NULL AS bc14 \gset
 \if :bc14
