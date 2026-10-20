@@ -20,9 +20,9 @@ fi
 
 # Validar antes de crear incluso el directorio padre del destino.
 VIGENCIA_DIAS=${VEC_DESARROLLO_VIGENCIA_DIAS:-90}
-if [[ ! "$VIGENCIA_DIAS" =~ ^[1-9][0-9]?$ ]] ||
-  (( VIGENCIA_DIAS < 60 || VIGENCIA_DIAS > 90 )); then
-  fallar "VEC_DESARROLLO_VIGENCIA_DIAS debe ser un entero entre 60 y 90"
+if [[ ! "$VIGENCIA_DIAS" =~ ^[1-9][0-9]{1,2}$ ]] ||
+  (( (VIGENCIA_DIAS < 60 || VIGENCIA_DIAS > 90) && VIGENCIA_DIAS != 397 && VIGENCIA_DIAS != 400 )); then
+  fallar "VEC_DESARROLLO_VIGENCIA_DIAS: entre 60 y 90, o 397/400 para certificados del kit local"
 fi
 
 DIRECTORIO_SCRIPT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)

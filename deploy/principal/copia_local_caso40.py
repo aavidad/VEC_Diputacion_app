@@ -123,7 +123,8 @@ def registrar_contacto(copia, repo):
     try:
         conexion.request('POST', ruta, body=cuerpo, headers={
             'Origin': f"https://localhost:{estado['puerto_app']}", 'Content-Type': 'application/json',
-            'Accept': 'application/json', 'Idempotency-Key': CLAVE_CONTACTO})
+            'Accept': 'application/json', 'Idempotency-Key': CLAVE_CONTACTO,
+            'Sec-Fetch-Site': 'same-origin', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty'})
         respuesta = conexion.getresponse()
         respuesta.read()
     finally:

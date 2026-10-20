@@ -7,6 +7,9 @@ Tarea F0-28 del tablero. Sin selectores arranca con las funciones opcionales
 apagadas. `--modulos` prepara conexiones nuevas de Contratación y Bolsa y un
 buzón local; `--portal-externo` añade la preparación del aspirante desde el
 material privado de copia. El gobierno de administradores sigue pendiente.
+[La orden completa de F1-131](recorrido_copia/LEEME.md) añade productores
+versionados de Administración, firma y actores del recorrido. Sigue pendiente
+de aceptación integrada; la preparación anterior mantiene sus opciones.
 Un portal que responde 200 acredita el arranque; el recorrido requiere además
 las consultas y actuaciones de cada módulo.
 
