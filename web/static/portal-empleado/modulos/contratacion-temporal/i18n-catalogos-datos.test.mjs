@@ -151,7 +151,7 @@ const CLAVES_ADICIONALES = Object.freeze({
     "confirmar_referencia", "motivo_necesidad_desaparecida", "motivo_desistimiento_centro",
     "motivo_cobertura_otra_via", "motivo_error_solicitud", "motivo_solicitud_duplicada", "motivo_falta_credito",
     // F1-111: el desplegable de motivos empieza pidiendo que se elija uno.
-    "motivo_elegir"],
+    "motivo_elegir", "motivo_obligatorio"],
   // F1-96: nombres de los documentos generados en el idioma elegido.
   "i18n-borradores-publicados.js": ["bp_documento_informe_definitivo", "bp_documento_resolucion",
     "bp_documento_diligencia", "bp_documento_toma_posesion", "bp_documento_notificacion",

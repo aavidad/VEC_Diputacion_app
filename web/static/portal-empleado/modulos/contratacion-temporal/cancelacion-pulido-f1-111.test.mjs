@@ -58,7 +58,8 @@ test("un expediente en curso conserva la línea de siempre", async () => {
   assert.doesNotMatch(html, /cancelado|sin-hacer/u);
 });
 
-for (const [idioma, elegir] of [["es", "Seleccione un motivo"], ["en", "Select a reason"]]) {
+for (const [idioma, elegir, etiqueta] of [["es", "Seleccione un motivo", "Motivo de la cancelación (obligatorio)"],
+  ["en", "Select a reason", "Reason for cancellation (required)"]]) {
   test(`${idioma}: el desplegable empieza pidiendo un motivo y solo queda un botón de cancelar`, async () => {
     const c = contenedorFalso();
     const desmontar = montarPanelCancelacion({ contenedor: c, contexto, mensajes: await mensajesCancelacion(idioma), locale: idioma,
@@ -70,6 +71,19 @@ for (const [idioma, elegir] of [["es", "Seleccione un motivo"], ["en", "Select a
     assert.doesNotMatch(c.innerHTML, /<option value=""><\/option>/u);
     assert.doesNotMatch(c.innerHTML, /data-ct-cancelacion-abrir/u);
     assert.match(c.innerHTML, /data-ct-cancelacion-cerrar/u);
+    assert.ok(c.innerHTML.includes(`<span>${etiqueta}</span>`));
+    assert.doesNotMatch(c.innerHTML, /aria-invalid/u);
+    // Sin motivo, el desplegable queda marcado y remite al aviso.
+    const FormDataOriginal = globalThis.FormData;
+    globalThis.FormData = class { constructor(f) { this.f = f; } entries() { return Object.entries(this.f.campos); } };
+    try {
+      c.eventos.get("submit")({ target: { closest: () => ({ campos: { motivo_clave: "", observaciones: "" } }) }, preventDefault() {} });
+      await esperar();
+    } finally {
+      globalThis.FormData = FormDataOriginal;
+    }
+    assert.match(c.innerHTML, /aria-invalid="true" aria-describedby="ct-cancelacion-aviso"/u);
+    assert.match(c.innerHTML, /id="ct-cancelacion-aviso"/u);
     c.eventos.get("click")({ target: { closest: () => ({ matches: (s) => s === "[data-ct-cancelacion-cerrar]" }) } });
     assert.match(c.innerHTML, /data-ct-cancelacion-abrir/u);
     desmontar();
