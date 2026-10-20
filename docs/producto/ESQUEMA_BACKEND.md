@@ -834,6 +834,14 @@ vínculo exacto deniega igual: no hay perfil por defecto. La resolución
 recotejan los consumidores. Autorización y ContextoActor deben estar en la
 misma base. Detalle: `deploy/postgresql/contexto_actor_v1/README.md`.
 
+Las funciones que bloquean los punteros de un contexto lo hacen siempre en el
+mismo orden: cuenta, perfil, vínculo de contexto y persona. Es el orden de la
+acreditación que usa la decisión V3 y del resolutor CA36. Una función nueva
+que bloquee en otro orden provoca interbloqueos (`40P01`) cuando varias
+lecturas de la misma persona llegan a la vez. CA48 (tarea F1-105) corrigió
+así el cotejo de lectura de Bolsa, que tiraba con 503 los datos de contacto de
+la ficha del candidato.
+
 ## 9. Migraciones
 
 ### 9.1 Dónde y cómo se llaman
@@ -978,6 +986,9 @@ propietario, sus privilegios, su RLS, sus índices, sus restricciones y su prueb
   sin `search_path` fijo.
 - Falta de idempotencia, de `pg_advisory_xact_lock`, `lock_timeout` o
   `statement_timeout`.
+- Bloqueos de filas (`FOR SHARE`, `FOR UPDATE`) en un orden distinto del que
+  usa otra función que corre a la vez sobre las mismas filas; en
+  ContextoActor el orden es cuenta, perfil, vínculo de contexto y persona.
 
 ### 9.5 DOWN, reaplicar y evolución
 
