@@ -343,5 +343,66 @@ class DestinoCopiaTest(unittest.TestCase):
         self.assertEqual(ejecutar.call_args.kwargs['input'], cat.SQL_CABEZA)
 
 
+class ProductorSIDCopiaTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(dir=os.environ.get('VEC_TEST_SCRATCH'))
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name)
+        self.base.chmod(0o700)
+        with patch.object(cat.copia_local, 'BASE', self.base):
+            self.copia = cat.copia_local.Copia('l', 'sidfocal')
+        self.copia.raiz.mkdir(mode=0o700)
+        cat.copia_local.guardar(self.copia.estado, {
+            'nombre': self.copia.nombre, 'raiz': str(self.copia.raiz),
+            'fuente': str(cat.copia_local.REPO), 'preparada': False})
+
+    def docker_falso(self, salidas):
+        sid_por_consulta = iter(salidas)
+        llamadas = []
+
+        def ejecutar(argv, **kwargs):
+            llamadas.append((argv, kwargs))
+            self.assertEqual(kwargs['env'], {
+                'PATH': '/usr/bin:/bin', 'LANG': 'C',
+                'DOCKER_HOST': 'unix:///var/run/docker.sock'})
+            if argv[:3] == ['docker', 'container', 'inspect']:
+                self.assertEqual(argv[3], self.copia.nombre)
+                return Mock(returncode=0, stdout=json.dumps([
+                    {'Config': {'Labels': {'vec.copia': str(self.copia.raiz)}}}]).encode())
+            self.assertEqual(argv, [
+                'docker', 'exec', '-i', '-u', 'postgres', self.copia.nombre,
+                'psql', '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres',
+                '-d', 'postgres', '-c',
+                'SELECT system_identifier::text FROM pg_catalog.pg_control_system();'])
+            self.assertEqual(kwargs['timeout'], 30)
+            self.assertTrue(kwargs['check'])
+            return Mock(stdout=next(sid_por_consulta) + '\n')
+
+        return ejecutar, llamadas
+
+    def test_registra_sid_vivo_y_rechaza_otro_sin_alterar_estado(self):
+        sid = '7698683607595950131'
+        falso, llamadas = self.docker_falso((sid, sid, '7698683607595950132'))
+        with patch.dict(os.environ, {'DOCKER_HOST': 'tcp://ajeno.invalid:2375'}), \
+                patch.object(cat.copia_local.subprocess, 'run', side_effect=falso):
+            self.assertEqual(self.copia.registrar_sid(), sid)
+            self.assertEqual(self.copia.leer()['sid_copia'], sid)
+            estado_primero = self.copia.estado.read_bytes()
+            self.assertEqual(self.copia.registrar_sid(), sid)
+            self.assertEqual(self.copia.estado.read_bytes(), estado_primero)
+            with self.assertRaisesRegex(ValueError, 'distinto del registrado'):
+                self.copia.registrar_sid()
+            self.assertEqual(self.copia.estado.read_bytes(), estado_primero)
+        self.assertEqual(len(llamadas), 6)
+
+    def test_rechaza_sid_invalido_antes_de_escribir_estado(self):
+        inicial = self.copia.estado.read_bytes()
+        falso, _ = self.docker_falso(('0' * 19,))
+        with patch.object(cat.copia_local.subprocess, 'run', side_effect=falso):
+            with self.assertRaisesRegex(ValueError, 'SID PostgreSQL inválido'):
+                self.copia.registrar_sid()
+        self.assertEqual(self.copia.estado.read_bytes(), inicial)
+
+
 if __name__ == '__main__':
     unittest.main()
