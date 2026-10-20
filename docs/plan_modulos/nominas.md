@@ -17,7 +17,7 @@ cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
 
 ## Inventario histórico anterior al 20 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 La persona consultará sus recibos originales por entidad, relación y periodo, con
 lectura y descarga autorizadas por separado. Podrá pedir revisión de una discrepancia.
@@ -49,7 +49,7 @@ no acredita API, custodia, autorización o permiso para copiar recibos.
 ## Inventario en la base inspeccionada
 
 La búsqueda empezó en `codebase-memory-mcp`, proyecto
-`home-alberto-Trabajo-VEC_Diputacion_app-.worktrees-codexe-original-autorizacion-20261003`.
+una instantánea histórica.
 Sus resultados se cotejaron mediante `git ls-tree` y lectura de archivos de esta base;
 el índice corresponde a otra instantánea y no acredita el estado actual por sí solo.
 
