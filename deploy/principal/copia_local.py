@@ -164,30 +164,36 @@ class Copia:
         guardar(self.estado, estado)
         return sid
 
-    def preparar_verificador(self, origen, sha_esperada):
-        """Copia software declarado a la instancia y comprueba su modo de verificación."""
-        from recorrido_copia.verificador_fuente import LIMITE_BINARIO, validar
-
+    def _preparar_software(self, origen, sha_esperada, carpeta_nombre, binario_nombre, validar):
+        """Copia bytes declarados a un archivo propio antes de sondear el ejecutable."""
+        from recorrido_copia.verificador_fuente import LIMITE_BINARIO
         origen = Path(origen)
         if sha_esperada is not None and not re.fullmatch(r'[0-9a-f]{64}', sha_esperada):
-            raise ValueError('Huella declarada del verificador inválida')
+            raise ValueError('Huella declarada del software inválida')
         if not origen.is_absolute() or origen.is_symlink() or origen.resolve(strict=True) != origen:
-            raise ValueError('Fuente del verificador ausente o enlazada')
+            raise ValueError('Fuente del software ausente o enlazada')
         estado = origen.lstat()
         if (not stat.S_ISREG(estado.st_mode) or estado.st_uid not in (0, os.getuid())
                 or estado.st_mode & 0o002 or not os.access(origen, os.X_OK)
                 or estado.st_nlink != 1 or not 0 < estado.st_size <= LIMITE_BINARIO
                 or (estado.st_mode & 0o020 and sha_esperada is None)):
-            raise ValueError('Fuente del verificador insegura o sin huella declarada')
-        carpeta = self.raiz / 'software-verificador'
-        carpeta.mkdir(mode=0o700)
-        temporal, destino = carpeta / 'grxfirma.nuevo', carpeta / 'grxfirma'
+            raise ValueError('Fuente del software insegura o sin huella declarada')
+        carpeta = self.raiz / carpeta_nombre
+        carpeta.mkdir(mode=0o700, exist_ok=True)
+        directorio = carpeta.lstat()
+        if (not stat.S_ISDIR(directorio.st_mode) or carpeta.is_symlink()
+                or directorio.st_uid != os.getuid()
+                or stat.S_IMODE(directorio.st_mode) != 0o700):
+            raise ValueError('Carpeta privada del software insegura')
+        temporal, destino = carpeta / (binario_nombre + '.nuevo'), carpeta / binario_nombre
+        if destino.exists() or destino.is_symlink():
+            raise ValueError('Software propio ya preparado')
         fd_origen = os.open(origen, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
         try:
             with os.fdopen(fd_origen, 'rb') as entrada:
                 abierto = os.fstat(entrada.fileno())
                 if (abierto.st_dev, abierto.st_ino, abierto.st_size) != (estado.st_dev, estado.st_ino, estado.st_size):
-                    raise ValueError('Fuente del verificador cambió durante la apertura')
+                    raise ValueError('Fuente del software cambió durante la apertura')
                 fd_salida = os.open(temporal, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o700)
                 huella = hashlib.sha256()
                 total = 0
@@ -195,7 +201,7 @@ class Copia:
                     while bloque := entrada.read(1_048_576):
                         total += len(bloque)
                         if total > LIMITE_BINARIO:
-                            raise ValueError('Fuente del verificador excesiva')
+                            raise ValueError('Fuente del software excesiva')
                         huella.update(bloque)
                         salida.write(bloque)
                     salida.flush()
@@ -204,18 +210,28 @@ class Copia:
             if (total != estado.st_size or
                     (despues.st_dev, despues.st_ino, despues.st_size, despues.st_mtime_ns)
                     != (estado.st_dev, estado.st_ino, estado.st_size, estado.st_mtime_ns)):
-                raise ValueError('Fuente del verificador cambió durante la copia')
+                raise ValueError('Fuente del software cambió durante la copia')
             if sha_esperada is not None and huella.hexdigest() != sha_esperada:
-                raise ValueError('Huella declarada del verificador divergente')
+                raise ValueError('Huella declarada del software divergente')
             resultado = validar(temporal, sha_esperada)
             if resultado['binario_sha256'] != huella.hexdigest():
-                raise ValueError('Copia del verificador divergente')
+                raise ValueError('Copia del software divergente')
             temporal.rename(destino)
             return {'binario': str(destino), 'binario_sha256': huella.hexdigest(),
                     'version': resultado['version']}
         except Exception:
             temporal.unlink(missing_ok=True)
             raise
+
+    def preparar_verificador(self, origen, sha_esperada):
+        from recorrido_copia.verificador_fuente import validar
+        return self._preparar_software(origen, sha_esperada,
+                                      'software-verificador', 'grxfirma', validar)
+
+    def preparar_afirmauri(self, origen, sha_esperada):
+        from recorrido_copia.afirmauri_fuente import validar
+        return self._preparar_software(origen, sha_esperada,
+                                      'software-afirmauri', 'grxfirma-afirmauri', validar)
 
     def crear(self, args):
         verificar_fuente()
@@ -249,6 +265,9 @@ class Copia:
         self.raiz.mkdir(mode=0o700, parents=True, exist_ok=False)
         software = (self.preparar_verificador(args.binario_verificador, args.sha_verificador)
                     if completo else None)
+        afirmauri_origen = getattr(args, 'binario_afirmauri', None)
+        afirmauri = (self.preparar_afirmauri(afirmauri_origen, getattr(args, 'sha_afirmauri', None))
+                     if completo and afirmauri_origen is not None else None)
         estado_inicial = dict(nombre=self.nombre, raiz=str(self.raiz),
                 puerto_pg=args.puerto_pg, puerto_app=args.puerto_app,
                 puerto_smtp=args.puerto_smtp if args.modulos else None,
@@ -257,6 +276,8 @@ class Copia:
                 material_modo='rrhh_original' if args.rrhh_original else 'nuevo')
         if software is not None:
             estado_inicial['software_verificador'] = software
+        if completo:
+            estado_inicial['software_afirmauri'] = afirmauri
         guardar(self.estado, estado_inicial)
         guardar(self.raiz / 'fuentes.json', FUENTES)
         self.pg_password()
@@ -727,6 +748,9 @@ def main():
     p.add_argument('--binario-verificador', type=Path,
                    help='Ejecutable GrxFirma declarado para el recorrido completo')
     p.add_argument('--sha-verificador', help='SHA-256 del GrxFirma declarado')
+    p.add_argument('--binario-afirmauri', type=Path,
+                   help='Ejecutable público afirmauri declarado para el navegador')
+    p.add_argument('--sha-afirmauri', help='SHA-256 del afirmauri declarado')
     p.add_argument('--modulos', action='store_true', help='Preparar conexiones nuevas de Bolsa y Contratación')
     p.add_argument('--rrhh-original', type=Path, help='Conservar el conjunto privado original de RRHH en una copia nueva')
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
@@ -747,10 +771,18 @@ def main():
             p.error('El puerto del verificador debe ser distinto y estar entre 1024 y 65535')
         if args.binario_verificador is None or not args.binario_verificador.is_absolute():
             p.error('--recorrido-completo requiere --binario-verificador absoluto')
+        if (args.binario_afirmauri is None) != (args.sha_afirmauri is None):
+            p.error('--binario-afirmauri y --sha-afirmauri deben indicarse juntos')
+        if args.binario_afirmauri is not None:
+            if not args.binario_afirmauri.is_absolute():
+                p.error('--binario-afirmauri requiere una ruta absoluta')
+            if not re.fullmatch(r'[0-9a-f]{64}', args.sha_afirmauri):
+                p.error('--sha-afirmauri debe ser una huella SHA-256 válida')
         if not args.lista_sql:
             args.lista_sql = [str(REPO / 'deploy/principal/lista_sql_main_tras_hz37.txt')]
-    elif args.binario_verificador is not None or args.sha_verificador is not None:
-        p.error('--binario-verificador y --sha-verificador solo se admiten con --recorrido-completo')
+    elif any(value is not None for value in (args.binario_verificador, args.sha_verificador,
+                                            args.binario_afirmauri, args.sha_afirmauri)):
+        p.error('El software declarado solo se admite con crear --recorrido-completo')
     if args.portal_externo and not args.modulos:
         p.error('--portal-externo requiere --modulos')
     if args.administracion and (args.orden != 'crear' or not args.modulos):

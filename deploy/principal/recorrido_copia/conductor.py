@@ -93,11 +93,20 @@ def _verificador(c, puerto):
     return manifiesto
 
 
+def _organizacion(c):
+    from copia_local_organizacion_historica_activacion import activar
+    activar(c.copia, c.fuente)
+    return {'material_sha256': c.sha(c.raiz /
+            'organizacion-historica/material/organizacion_historica_v3.json'),
+            'semilla_sha256': c.copia.leer()['organizacion_historica_semilla_sha256']}
+
+
 def preparar(copia, args):
     """Ejecuta actos nativos y conserva cada recibo, sin recetas privadas."""
     from . import catalogo, roles_admin, certificados_base, firmantes, montajes_firma, actos, plan, admisiones, configuracion_firma
     c = Contexto(copia, _parametros(copia))
     etapas = [('catalogo', catalogo.preparar), ('roles_admin', roles_admin.preparar),
+              ('organizacion_historica', _organizacion),
               ('certificados_base', certificados_base.preparar), ('firmantes', firmantes.preparar),
               ('montajes_firma', montajes_firma.preparar), ('actos', actos.preparar_actos),
               ('plan', plan.preparar_plan), ('admisiones', admisiones.preparar),

@@ -66,6 +66,9 @@ class DocumentosBaseTest(unittest.TestCase):
         self.assertEqual(base['cuentas'][0]['sujeto'], 'desarrollo:operador-rrhh')
         self.assertNotEqual(base['cuentas'][0]['sujeto'],
                             self.c.leer(self.c.carpeta / 'firmantes/semilla-final/firmantes-datos.json')['referencias']['tecnico']['persona_ref'])
+        self.assertGreater(base['almacen']['tamano_maximo'], 0)
+        self.assertLessEqual(base['almacen']['tamano_maximo'], 64 * 1024 * 1024)
+        self.assertEqual(base['almacen']['retencion_minima_dias'], 0)
         self.assertEqual(set(base['custodia_firmado']['documentos']), {'informe_definitivo', 'resolucion'})
         self.assertEqual(documentos_base.preparar(self.c), destino)
 

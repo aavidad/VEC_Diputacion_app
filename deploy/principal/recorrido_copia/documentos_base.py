@@ -253,7 +253,9 @@ def preparar(c):
     custodia = _custodia(c)
     motivo = _motivo(c)
     base = {'version': 1, 'autoridad': 'no_autoritativo', 'cuentas': cuentas,
-            'motivos': {'listar': motivo}, 'almacen': {'tipo': 'ficheros'},
+            'motivos': {'listar': motivo},
+            'almacen': {'tipo': 'ficheros', 'tamano_maximo': 32 * 1024 * 1024,
+                        'retencion_minima_dias': 0},
             'custodia_firmado': custodia}
     destino = c.carpeta / 'documentos/base.json'
     c.guardar(destino, base)
