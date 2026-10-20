@@ -186,76 +186,9 @@ Propuestas pendientes de numerar en `dudas.md` al recibir el turno M:
 Contrastar primero las preguntas existentes de Personal B; no duplicar ni
 inventar números. Una decisión pendiente bloquea su efecto concreto.
 
-## Por dónde empezar mañana y trabajo en curso
+## Condiciones funcionales conservadas
 
-Primera minitarea: retomar `trabajo/codexm-org-busqueda-20261001@a6b9eae35`,
-comprobar si F ha liberado el turno y cerrar su cadena de caché. Si el turno
-sigue pendiente, hacer solo la comprobación de precondiciones de la tarea 2;
-no activar el histórico ni abrir otro desarrollo. Después se continúa por la tarea 2.
-
-| Fuente conservada | Estado y siguiente dependencia |
-| --- | --- |
-| `trabajo/codexm-org-busqueda-20261001@a6b9eae35` | WIP de hoja, GO independiente, Node 9/9 y Chrome focal; caché/importadores pendientes F→M, sin PR. |
-| `trabajo/codexm-rpt-informe-20261001@c02852f30` | [PR #305](https://github.com/aavidad/VEC_Diputacion_app/pull/305), borrador. Incluye núcleo `ae87d7cb8` y CLI/informe `cmd/vec-comparar-organizacion`; GO independiente, focales y Chrome verdes. Calidad global y CI en curso; no publicado en main. |
-| `origin/trabajo/codexm-rpt-escritura-retoma-20260930@a9001c097` | Gobierno de categorías pendiente B→A, dependencias nominales y ensayo final; preservar. |
-| [#249 IS10](https://github.com/aavidad/VEC_Diputacion_app/pull/249), [#256 CA21](https://github.com/aavidad/VEC_Diputacion_app/pull/256) | Abiertas; postimágenes de D, no capacidades instaladas. |
-| [#290](https://github.com/aavidad/VEC_Diputacion_app/pull/290) `d957f0ec9` | Borrador abierto, CI 5/5; preparación reproducible de clon H6 hasta SQL62. No manual ni instalación. |
-| `trabajo/codexm-clon-preimagenes-nominales-20261001@e2c5b0388` | NO-GO preservado deliberadamente como evidencia; no borrar, instalar ni usar como base aprobada. |
-
-D prepara la intervención del servidor mediante copia fría; ese trabajo no
-es el clon H6b. AD132 queda aparte. Este plan no acredita instalación nueva.
-Solo Dirección integra en main; se conservan las ramas pendientes/rechazadas.
-
-## Estimación
-
-Horquilla de trabajo con un equipo Codex y varios subagentes, cortes de PR de
-1–3 horas, revisión independiente y CI. Incluye recorridos y recuperación;
-las revisiones de SQL o permisos requieren dos lectores.
-
-| Minitarea | Horas de un equipo |
-| --- | ---: |
-| 1. Cerrar búsqueda, caché y PR | 1–3 |
-| 2. Precondiciones, autorización y consulta histórica montada | 16–28 |
-| 3. Gobierno de categorías conservado, convergencia y ensayo | 20–36 |
-| 4. Fuente/importación y recorrido de plantilla y puestos | 48–80 |
-| 5. Ocupación, reserva y las tres proyecciones; contrato de B | 40–64 |
-| 6. Tipos, jerarquías, delegaciones y suplencias | 20–36 |
-| **Total técnico estimado** | **145–247** |
-
-A ocho horas por jornada: **19–31 días de un equipo**. Con dos equipos y
-archivos disjuntos: **14–23 días**, porque fuentes, autorización y publicación
-siguen condicionando el orden. Esta horquilla es planificación; no acredita
-que las capacidades estén cerradas ni promete una fecha de entrega.
-
-Fuera del equipo M: D/Sistemas aporta instalación y perfiles; Personal B,
-persona y relación de servicio por puerto; RRHH, diccionario, fuentes y decisiones de
-cobertura. Si entregan esos contratos y datos al comenzar, prever **3–8 jornadas
-adicionales de coordinación y validación**. Pueden solaparse con tareas
-independientes; no se suman automáticamente al total. Sin fuentes o respuestas
-no puede fecharse la espera institucional. Una migración o un conector no
-previstos exige revisar esta estimación antes de ampliar el corte.
-
-## Consenso Astra
-
-Astra dio GO arquitectónico al reparto y orden del borrador `eb7f7739`.
-Se incorporaron sus precisiones: precondiciones antes del montaje; publicación
-mínima de fuente antes de consulta si falta; IS10 explícita; ruta correcta de
-aplicación y tareas independientes de categorías separadas del gobierno pendiente.
-La segunda ronda añadió la tarea 6 y su margen: las cinco tareas iniciales
-no cubrían los tipos, delegaciones de competencia y suplencias de ORG-001.
-La estimación queda condicionada a las fuentes, contratos y circuito acordados.
-
-Acuerdos: cerrar primero la búsqueda conservada; reutilizar historia e
-importación con concesión V3 propia; M conserva ocupaciones y reservas RPT;
-B aporta persona y relación de servicio por puerto. El comparador sintético no acredita vacantes
-ni historia corporativa. Las candidatas SQL y la evidencia NO-GO se preservan.
-No se abre la PR del plan hasta recibir el GO de Dirección sobre su SHA exacto.
-
-La ronda posterior aplica la decisión de Dirección de las 17:40: RPT-005/006
-pertenecen a M; B aporta relación/persona por puerto y conserva los archivos
-mixtos hasta acordar su transición. Se evita una segunda autoridad de ocupación.
-La tarea 5 se estima una sola vez en M. PLA-001/002 quedan para después.
-
+Las precondiciones y la publicación mínima de las fuentes preceden al montaje y la consulta. El gobierno de categorías y la consulta histórica mantienen contratos separados. Organización conserva ocupaciones, reservas y vacantes; Personal aporta persona y relación de servicio por puerto. El comparador ficticio no acredita vacantes ni historia corporativa. Tipos, delegaciones y suplencias conservan sus requisitos propios.
 
 ## Consulta de plazas: búsqueda en la página — 4 de octubre de 2026
 
@@ -303,7 +236,6 @@ consulta histórica siguen pendientes la fuente admitida, diccionario, actos,
 custodia, catálogos y concesiones nominales, con aprobación separada y consumo
 transaccional de autorización/auditoría. No cierra las tareas de plantilla,
 ocupación, reserva o vacantes; la ausencia de una fuente mantiene incertidumbre.
-
 
 Comprobación local: pruebas normales y de carrera, y `go vet`, verdes en
 `cmd/vec-revisar-organizacion` y `personal/application`. El ejemplo se exportó

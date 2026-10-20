@@ -10,7 +10,7 @@ en [docs/plan_modulos](../../plan_modulos/personal.md).
 
 # Personal: continuación acotada
 
-Propuesta para consenso de Dirección, Astra y Claude. El módulo se detiene tras acordar este plan; solo se rematan las piezas ya casi terminadas. Ninguna tarea de la cola autoriza código nuevo por sí sola. La prioridad de Contratación temporal y la cola H6 B205/B206/B204/B209 siguen separadas.
+El inventario conserva el alcance funcional de su fecha, sin abrir una cola de implementación.
 
 ## Punto de partida
 
@@ -20,9 +20,9 @@ Las piezas abiertas se verifican por su hash exacto antes de afirmar integració
 
 | Pieza | Estado comunicado y remate permitido |
 | --- | --- |
-| PR #298, `trabajo/codexb-personal-ficha-recuperacion-20261001` @ `4b7138324` | Implementada; dos revisiones sensibles del producto `ab3442f77` y 65 pruebas focales. El sucesor cambia solo dos fixtures de ausencia en el coordinador: 26/26 pruebas. Producto idéntico; calidad local por fases cerrada (2483 Node y controles restantes verdes), base de tamaño1254 justificada; CI pendiente. |
-| PR #299, `trabajo/codexb-personal-traza-rrhh-20261001` @ `94d7e3395` | Implementada; dos `GO` sensibles, `GO` de UX y 61 pruebas focales. Producto revisado en `437cbfb18`, CSS corregido en `0ab7fff8a` y los mismos dos fixtures incorporados en el sucesor: 26/26. Sin solapamientos a 1440/390 px y con reflujo CSS al 200 %. No se ha acreditado zoom nativo. La secuencia local HTTP con fixture dio 503 → 200 al reintentar → 200 al actualizar → 403 tras revocación simulada; no acredita mTLS, PostgreSQL ni navegador con backend real. Calidad local por fases cerrada (2484 Node y controles restantes verdes): la única intermitencia heredada de bootstrap pasó aislada en carrera. CI pendiente. |
-| PR #300, `trabajo/codexb-personal-expediente-borrador-20261001` @ `3baa47910` | Solo JSON, comentarios de SQL 29 y apéndice; `GO` de preparación. Sin ensayo SQL ni activación. Comprobar CI y fusión documental sin atribuirle persistencia operativa. |
+| PR #298, una rama histórica @ `4b7138324` | Implementada; dos revisiones sensibles del producto `ab3442f77` y 65 pruebas focales. El sucesor cambia solo dos fixtures de ausencia en el coordinador: 26/26 pruebas. Producto idéntico; calidad local por fases cerrada (2483 Node y controles restantes verdes), base de tamaño1254 justificada; CI pendiente. |
+| PR #299, una rama histórica @ `94d7e3395` | Implementada; dos `GO` sensibles, `GO` de UX y 61 pruebas focales. Producto revisado en `437cbfb18`, CSS corregido en `0ab7fff8a` y los mismos dos fixtures incorporados en el sucesor: 26/26. Sin solapamientos a 1440/390 px y con reflujo CSS al 200 %. No se ha acreditado zoom nativo. La secuencia local HTTP con fixture dio 503 → 200 al reintentar → 200 al actualizar → 403 tras revocación simulada; no acredita mTLS, PostgreSQL ni navegador con backend real. Calidad local por fases cerrada (2484 Node y controles restantes verdes): la única intermitencia heredada de bootstrap pasó aislada en carrera. CI pendiente. |
+| PR #300, una rama histórica @ `3baa47910` | Solo JSON, comentarios de SQL 29 y apéndice; `GO` de preparación. Sin ensayo SQL ni activación. Comprobar CI y fusión documental sin atribuirle persistencia operativa. |
 
 `Personal 000025` se reservó antes del borrador para la proyección histórica propia y el vínculo documental. Queda después de M3 y del contrato nominal acordado con D; no es una migración de competencia de Dietas. El borrador #300 conserva referencias de su primera propuesta a ocupaciones de Personal; debe alinearse con la propiedad ORG/RPT de M antes de producir SQL ejecutable. La reserva no aprueba la fuente, los permisos ni la migración. No editar el hito 6 ni activar SQL por este plan.
 
@@ -81,47 +81,9 @@ Una sesión actúa con un único perfil activo. Autorización conserva perfiles 
 
 ### Primera minitarea exacta de mañana
 
-Solo tras comprobar las CI/mezclas #298→#299→#300, una **asignación expresa de Dirección** y el **contrato nominal acordado con J y D**: abrir **`trabajo/codexb-personal-servicios-cer-contrato-20261002`** sobre el main publicado que las incluya. Mientras falte ese contrato o encargo, se permite únicamente contrastar el documento, sin abrir implementación. Primer corte autorizado, **2–3 horas**, dentro de las 8–16 h de CER-001: contrastar con J y D el DTO y la operación positiva del puerto de servicios, reutilizando B2; escribir solo `ports/servicios_para_certificados.go`, su caso de uso neutral y pruebas de titular ajeno, servicio declarado y fuente incompleta. La autoridad se inyecta; sin consumidor nominal real el servicio deniega y no se registra HTTP ni se publica una capacidad. No convertir un doble de prueba en fuente de oficio ni entregar datos por ser un llamante interno. El siguiente corte conecta un consumidor real de J antes de anunciar capacidad. Si necesita SQL, reservar número y preparar únicamente borrador con D; no modificar el núcleo por este plan.
+Solo tras comprobar las CI/mezclas #298→#299→#300, una **asignación expresa de Dirección** y el **contrato nominal acordado con J y D**: abrir **una rama histórica** sobre el main publicado que las incluya. Mientras falte ese contrato o encargo, se permite únicamente contrastar el documento, sin abrir implementación. Primer corte autorizado, **2–3 horas**, dentro de las 8–16 h de CER-001: contrastar con J y D el DTO y la operación positiva del puerto de servicios, reutilizando B2; escribir solo `ports/servicios_para_certificados.go`, su caso de uso neutral y pruebas de titular ajeno, servicio declarado y fuente incompleta. La autoridad se inyecta; sin consumidor nominal real el servicio deniega y no se registra HTTP ni se publica una capacidad. No convertir un doble de prueba en fuente de oficio ni entregar datos por ser un llamante interno. El siguiente corte conecta un consumidor real de J antes de anunciar capacidad. Si necesita SQL, reservar número y preparar únicamente borrador con D; no modificar el núcleo por este plan.
 
 Formación, Registro Único de Méritos, nómina, cotización, Cronos y Dietas conservan sus propios datos y planes. La carpeta personal podrá reunir consultas mínimas de esas autoridades cuando existan contratos y fuentes admitidos; no se abre aquí un banco paralelo de cursos, méritos o pagos. M conserva estructura, plazas, puestos, ocupación, reserva y vacantes RPT. B aporta relación y actos laborales por puerto; su ficha consume la proyección mínima autorizada de M. No confundir reserva con vacante disponible ni contar ese gobierno otra vez en B.
-
-## Estimación
-
-Horas de trabajo de un equipo Codex con varios subagentes, revisiones y CI, como trabajamos hoy. Cada bloque se divide en PR de 1–3 horas; no es una migración grande ni una espera continua de pruebas globales.
-
-| Minitarea | Horas de equipo |
-| --- | --- |
-| Cerrar #298–300, incorporar únicamente sus correcciones y comprobar CI | 1–3 |
-| Contrastar fuente, campos y vínculos existentes; acordar el contrato nominal con D | 2–4 |
-| Coordinar competencia de Personal y consumidor Dietas sobre los puertos existentes | 3–5 |
-| Datos internos autorizados de la persona y contacto, sin duplicar sus autoridades | 3–5 |
-| Relación laboral por puerto para RPT-005/006 (solo B; M estima RPT) | 3–5 |
-| Dominio y puerto de historia propia de relaciones/servicios, con cortes separados | 2–4 |
-| Proyección paginada y consumidor durable propios; SQL nuevo, ensayo y dos revisiones | 5–8 |
-| Cliente y vista de historia propia, sin selector de empleado | 3–5 |
-| Extender la lectura propia de puestos/situaciones con versiones RPT admitidas | 3–5 |
-| Vínculo hecho–terna documental y listado por el servicio común | 3–5 |
-| Descarga original autorizada desde la ficha, con versión y estado documentales | 2–4 |
-| Solicitud de rectificación y decisión RRHH por etapas, conservando ambas versiones | 5–8 |
-| Consulta de historia RRHH y competencia fija por ámbito; reutilizar los perfiles comunes | 3–5 |
-| PER-002: conciliación de incorporación laboral por el puente CT existente | 4–8 |
-| PER-003: antecedente laboral de contrato/nombramiento y cese | 4–8 |
-| PER-004: registro versionado de situaciones y efectos admitidos | 4–8 |
-| Fuente autorizada de servicios para CER-001; primer contrato de 2–3 h incluido | 8–16 |
-| Antecedentes propios para H05, consumiendo fuente RPT de M | 6–12 |
-| Recorrido interno completo con fuentes admitidas, reinicio y manual de uso final | 3–5 |
-
-Total del alcance de expediente aquí definido: **67–123 horas**, aproximadamente **9–16 días de un equipo** o **6–11 días con dos equipos**. Dos equipos pueden separar cliente/vistas de proyección/documentos; la cadena nominal y SQL sigue siendo secuencial. La cifra no incluye construir nómina, cotización, Formación o Carrera ni migrar todo el histórico corporativo.
-
-No dependen del equipo: decisiones RRHH de las dudas 27–29/34/39, contrato nominal y orden SQL de D, interfaces y diccionario de Sistemas/RPT, acceso al servidor y validación de fuentes documentales. Si se entregan al iniciar cada bloque, reservar **2–5 días laborables adicionales** para intercambio y aceptación. Si no hay fecha de respuesta o la fuente no tiene interfaz utilizable, la espera es indeterminada y esta horquilla no fija una fecha de finalización. El ensayo SQL y el recorrido exigen los accesos acordados; una aprobación del plan no los sustituye.
-
-## Consenso Astra
-
-Astra dio GO al planteamiento inicial tras distinguir historia propia, rectificación y consulta RRHH, actualizar evidencias y separar provisión por CAS de consumo transaccional. Dirección17:40 cambió y fijó las propiedades: M conserva ORG/RPT-005/006; B aporta relación y produce servicios CER-001, antecedentes H05 y actos/documentos propios; J conserva certificados y H el Registro Único de Méritos. Este documento incorpora el mapa PER-001…005, archivos y primera rama, y recalcula solo las horas B (67–123 h). El acuerdo previo no se presenta como GO de estos cambios; La ronda focal de Astra aceptó el reparto y la estimación y pidió explicitar la asignación nueva de Dirección/J/D antes de programar y alinear el borrador000025 con M antes de SQL. Ambos puntos quedaron incorporados y Astra dio GO al plan completo en la ronda final. La actualización posterior de hashes de #298/#299 recoge solo los remates de tests/tamaño y su evidencia local, sin cambiar alcance ni estimación. Se pide GO de Claude.
-
-Dirección deberá confirmar el orden y el primer encargo antes de reabrir código. El GO del plan no activa Personal000025 ni autoriza despliegue.
-
-Fuentes: `AGENTS.md`; `ESPECIFICACIONES_AGENTES.md` E02–E08; `docs/producto/PRD.md` (PER, RPT y EMP); `docs/estudio_requisitos/analisis_integral_rrhh.md` §§15–22; `docs/estudio_requisitos/modelo_historico_rpt_plazas_puestos_y_vacantes.md`. Los estados de PR proceden del encargo de Dirección y requieren comprobación en Git/CI.
 
 ## Contratos nominales preparados (1 de octubre de 2026)
 
@@ -218,7 +180,6 @@ El valor recibido aparece junto al valor propuesto, antes del motivo y la eviden
 La comparación se conserva al elegir fechas, días, estado o clase, con los formatos existentes.
 La prueba Node focal comprueba su ubicación y actualización; la revisión visual corresponde a Dirección.
 
-
 ## Ficha propia: reanclaje de autorización — 7 de octubre de 2026
 
 AD211 recupera el consumidor nominal de AD74 para la ficha propia ya
@@ -242,7 +203,6 @@ Tampoco se ha medido el rendimiento de esta lectura autorizada.
 La siguiente dependencia es reanclar AD175/Personal32 (#555) y después
 AD180/Personal34 (#577), conservando sus consumidores y recibos existentes.
 
-
 ## Exportación propia: retoma de #555 — 7 de octubre de 2026
 
 AD175 se reancla sobre AD211 con su permiso de exportación separado del de
@@ -262,7 +222,6 @@ exportación con identidad, permiso, origen y material firmados propios,
 recuperarla tras reinicio y medir su latencia. Orden: AD211/Personal22,
 después la lista de AD175/Personal32, y finalmente AD180/Personal34.
 No se instala nada en la principal por esta retoma.
-
 
 ## Historia propia: retoma de #577 — 7 de octubre de 2026
 
