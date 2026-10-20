@@ -53,7 +53,7 @@ func nuevaRutaEntregaPeticionDesarrollo(alta *dependenciasAltaContratacionTempor
 	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []vecdomain.ReferenciaEntradaCatalogo{motivoEntregaPeticionDesarrollo()}, desde); err != nil {
 		return vacia, err
 	}
-	repo, err := postgresct.NuevoRepositorioEntregasPeticionCentroPostgreSQL(alta.postgresql.ejecucion, p)
+	repo, err := postgresct.NuevoRepositorioEntregasPeticionCentroPostgreSQL(alta.postgresql.ejecucion, p, organizacionAltaContratacionTemporalDesarrollo)
 	if err != nil {
 		return vacia, err
 	}
@@ -250,7 +250,7 @@ func (p *proveedorEntregaPeticionDesarrollo) AutorizarEntregaPeticionCentro(ctx 
 	case perfilFijoConsumoFuenteNoDisponible:
 		return vacio, ports.ErrPeticionCentroNoDisponible
 	}
-	r, err := postgresct.RecursoEntregaPeticionCentro(m)
+	r, err := postgresct.RecursoEntregaPeticionCentro(m, organizacionAltaContratacionTemporalDesarrollo)
 	if err != nil {
 		return vacio, err
 	}
@@ -338,7 +338,7 @@ func solicitudAutorizacionEntregaPeticionValida(ctx context.Context, d vecdomain
 	if err != nil || m.ActorRef != v.PrincipalID || m.PerfilRef != v.PerfilActivoRef {
 		return false
 	}
-	r, err := postgresct.RecursoEntregaPeticionCentro(m)
+	r, err := postgresct.RecursoEntregaPeticionCentro(m, organizacionAltaContratacionTemporalDesarrollo)
 	return err == nil && r.Referencia == d.Recurso.Referencia && r.ModuloID == d.Recurso.ModuloID && r.Tipo == d.Recurso.Tipo && maps.Equal(r.Ambitos, d.Recurso.Ambitos) && maps.Equal(r.Atributos, d.Recurso.Atributos)
 }
 

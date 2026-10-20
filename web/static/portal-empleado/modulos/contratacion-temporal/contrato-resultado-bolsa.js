@@ -29,7 +29,9 @@ function opcional(valor, validar) { return valor === null ? null : validar(valor
 function participacion(valor) {
   objeto(valor, ["participacion_ref", "respuesta", "modo", "recibo_respuesta_ref", "respondida_en",
     "justificante_ref", "contacto_resultado", "recibo_contacto_ref", "contacto_en",
-    "situacion_actual", "recibo_situacion_ref", "situacion_desde"]);
+    "situacion_actual", "recibo_situacion_ref", "situacion_desde",
+    ...(Object.hasOwn(valor ?? {}, "origen_ct_confirmado") ? ["origen_ct_confirmado"] : []),
+    ...(Object.hasOwn(valor ?? {}, "resolucion_portal_disponible") ? ["resolucion_portal_disponible"] : [])]);
   referencia(valor.participacion_ref);
   if (valor.respuesta !== null && (!RESPUESTAS.has(valor.respuesta) || !MODOS.has(valor.modo)
     || valor.recibo_respuesta_ref === null || valor.respondida_en === null)) {
@@ -52,6 +54,17 @@ function participacion(valor) {
   opcional(valor.situacion_actual, (x) => referencia(x, /^[a-z][a-z0-9_]{1,63}$/u));
   opcional(valor.recibo_situacion_ref, referencia);
   opcional(valor.situacion_desde, fecha);
+  if (Object.hasOwn(valor, "origen_ct_confirmado")
+    && (typeof valor.origen_ct_confirmado !== "boolean"
+      || valor.origen_ct_confirmado && (valor.respuesta !== "acepta" || valor.modo !== "firme"))) {
+    throw new TypeError("origen CT no válido");
+  }
+  if (Object.hasOwn(valor, "resolucion_portal_disponible")
+    && (typeof valor.resolucion_portal_disponible !== "boolean"
+      || valor.resolucion_portal_disponible && (valor.origen_ct_confirmado !== true
+        || valor.respuesta !== "acepta" || valor.modo !== "firme"))) {
+    throw new TypeError("disponibilidad de resolución portal no válida");
+  }
   return Object.freeze({ ...valor });
 }
 
@@ -70,6 +83,18 @@ function vinculo(valor) {
   const participaciones = valor.participaciones.map(participacion);
   if (new Set(participaciones.map((p) => p.participacion_ref)).size !== participaciones.length) {
     throw new TypeError("participaciones Bolsa repetidas");
+  }
+  if (participaciones.length !== 1 && participaciones.some((p) => p.origen_ct_confirmado === true)) {
+    throw new TypeError("origen CT con varias participaciones");
+  }
+  if (participaciones.length !== 1 && participaciones.some((p) => p.resolucion_portal_disponible === true)) {
+    throw new TypeError("resolución portal con varias participaciones");
+  }
+  const orden = (instante) => instante.replace(/(?:\.(\d+))?Z$/u,
+    (_final, fraccion = "") => `.${fraccion.padEnd(9, "0")}Z`);
+  if (participaciones[0]?.origen_ct_confirmado === true
+    && orden(participaciones[0].respondida_en) < orden(valor.emitido_en)) {
+    throw new TypeError("respuesta CT anterior al llamamiento");
   }
   return Object.freeze({ ...valor, participaciones: Object.freeze(participaciones) });
 }

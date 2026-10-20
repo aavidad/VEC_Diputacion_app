@@ -20,6 +20,8 @@ import (
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
+const organizacionAjustesPrueba = "organizacion:desarrollo:dipgra"
+
 type filaHuellaAjustesCTPrueba struct{ huella string }
 
 func (f filaHuellaAjustesCTPrueba) Scan(dest ...any) error {
@@ -50,27 +52,11 @@ type proveedorAjustesCTPrueba struct {
 	accion    string
 }
 
-type lectorAjustesCTPrueba struct{ llamadas int }
-
-func (l *lectorAjustesCTPrueba) ConsultarAjustesReglasCT(_ context.Context, _ vecdomain.ContextoActor, limite int, antes *int64) (app.Lectura, error) {
-	l.llamadas++
-	if limite != 20 || antes != nil {
-		panic("paginación inesperada")
-	}
-	return app.Lectura{Historial: []app.CambioHistorico{}}, nil
-}
-
-type lectorHistoriaAjustesCTPrueba struct{ lectura app.Lectura }
-
-func (l lectorHistoriaAjustesCTPrueba) ConsultarAjustesReglasCT(context.Context, vecdomain.ContextoActor, int, *int64) (app.Lectura, error) {
-	return l.lectura, nil
-}
-
 func (p *proveedorAjustesCTPrueba) AutorizarAjustesReglasCT(_ context.Context, _ vecdomain.ContextoActor, accion string, recurso vecdomain.RecursoAutorizable) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	p.consultas++
 	p.accion = accion
 	if recurso.Referencia != recursoAjustesReglasCT || recurso.ModuloID != "contratacion_temporal" || recurso.Tipo != "catalogo_reglas" ||
-		recurso.Ambitos["organizacion_ref"] != organizacionAjustesReglasCT || recurso.Atributos["material_sha256"] != "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" {
+		recurso.Ambitos["organizacion_ref"] != organizacionAjustesPrueba || recurso.Atributos["material_sha256"] != "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" {
 		panic("recurso de autorización divergente")
 	}
 	return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, vecdomain.ErrAutorizacionDenegada
@@ -90,10 +76,24 @@ func actorAjustesCTPrueba(t *testing.T) vecdomain.ContextoActor {
 	return actor
 }
 
+func TestRepositorioAjustesCTConservaOrganizacionExplicita(t *testing.T) {
+	pool := &ejecutorAjustesCTPrueba{}
+	proveedor := &proveedorAjustesCTPrueba{}
+	for _, organizacion := range []string{organizacionAjustesPrueba, "org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"} {
+		r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacion)
+		if err != nil || r.organizacionRef != organizacion {
+			t.Fatalf("organización configurada perdida: %q, %v", organizacion, err)
+		}
+	}
+	if _, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, ""); !errors.Is(err, ErrOperacionAjustesReglasNoDisponible) {
+		t.Fatalf("organización vacía aceptada: %v", err)
+	}
+}
+
 func TestOperacionAjustesCTDeniegaAntesDeTransaccionYNoUsaAmbitoDelCliente(t *testing.T) {
 	pool := &ejecutorAjustesCTPrueba{}
 	proveedor := &proveedorAjustesCTPrueba{}
-	r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesReglasCT)
+	r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesPrueba)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,16 +168,16 @@ func TestOperacionAjustesCTHuellaYConsultaSinRepositorio(t *testing.T) {
 	}
 	pool := &ejecutorAjustesCTPrueba{}
 	proveedor := &proveedorAjustesCTPrueba{}
-	r, _ = nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesReglasCT)
+	r, _ = nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesPrueba)
 	if _, err := r.Consultar(t.Context(), actorAjustesCTPrueba(t), 51, nil); !errors.Is(err, app.ErrEntradaInvalida) || pool.consultas != 0 {
 		t.Fatalf("límite inválido llegó a SQL: %v", err)
 	}
 }
 
-func TestConsultaAjustesCTReutilizaCT148V3YAdmiteLectorDeSesion(t *testing.T) {
+func TestConsultaAjustesCTReutilizaCT148V3(t *testing.T) {
 	pool := &ejecutorAjustesCTPrueba{}
 	proveedor := &proveedorAjustesCTPrueba{}
-	r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesReglasCT)
+	r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesPrueba)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,13 +187,7 @@ func TestConsultaAjustesCTReutilizaCT148V3YAdmiteLectorDeSesion(t *testing.T) {
 		pool.consultas != 1 || pool.transacciones != 0 {
 		t.Fatalf("sin lector se debe exigir V3 CT148 antes de leer: %v", err)
 	}
-	proveedor.consultas, pool.consultas = 0, 0
-	lector := &lectorAjustesCTPrueba{}
-	r.lector = lector
-	lectura, err := r.Consultar(t.Context(), actor, 20, nil)
-	if err != nil || lectura.Historial == nil || lector.llamadas != 1 || proveedor.consultas != 0 || pool.consultas != 0 || pool.transacciones != 0 {
-		t.Fatalf("la consulta usó V3/SQL fuera del lector: %+v, %v, %+v, %+v", lectura, err, proveedor, pool)
-	}
+
 }
 
 func TestConsultaAjustesCTAdmiteSoloRebaseOperativoSinCambios(t *testing.T) {
@@ -209,20 +203,8 @@ func TestConsultaAjustesCTAdmiteSoloRebaseOperativoSinCambios(t *testing.T) {
 					ReciboRef: "recibo:original", Cambios: []app.Cambio{{ReglaClave: "c04.plazo_subsanacion", Campo: "cantidad", Anterior: "10", Nuevo: "8"}}},
 			}}
 	}
-	consultar := func(lectura app.Lectura) error {
-		pool := &ejecutorAjustesCTPrueba{}
-		proveedor := &proveedorAjustesCTPrueba{}
-		r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesReglasCT)
-		if err != nil {
-			return err
-		}
-		r.lector = lectorHistoriaAjustesCTPrueba{lectura: lectura}
-		_, err = r.Consultar(t.Context(), actorAjustesCTPrueba(t), 20, nil)
-		if pool.consultas != 0 || proveedor.consultas != 0 || pool.transacciones != 0 {
-			t.Fatal("el lector autorizado no debe abrir otra operación V3")
-		}
-		return err
-	}
+	consultar := validarHistorialAjustesCT
+
 	if err := consultar(preparar()); err != nil {
 		t.Fatalf("AJ1 real y AJ2 rebase: %v", err)
 	}

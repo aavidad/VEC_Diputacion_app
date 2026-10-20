@@ -51,7 +51,7 @@ func TestEntregaGETyPOSTConsumenAsignacionesSinPublicarPostgreSQL(t *testing.T) 
 			m.VersionEsperada, m.ClaveAltaCandidata = 2, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 			m.AmbitoAltaHMAC = "hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:" + strings.Repeat("a", 64)
 		}
-		recurso, err := postgresct.RecursoEntregaPeticionCentro(m)
+		recurso, err := postgresct.RecursoEntregaPeticionCentro(m, organizacionAltaContratacionTemporalDesarrollo)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -335,8 +335,8 @@ func TestLectorRRHHPasaAPerfilFijoConProvisionPostgreSQL(t *testing.T) {
 	s := soporteLectorRRHHPostgreSQLPrueba(t, ctx, gobierno)
 	perfil := s.instantanea.AsignacionPerfil.PerfilActivoRef
 	// Estado del binario anterior: el lector con el rol del expediente.
-	if err := prepararInstantaneasInicialesLectorRRHHDesarrollo(ctx, s); err != nil {
-		t.Fatal(err)
+	if estado, err := asegurarPerfilDinamicoCTDesarrollo(ctx, gobierno, s); err != nil || estado != perfilDinamicoPublicadoInicial {
+		t.Fatalf("perfil heredado no publicado: %s %v", estado, err)
 	}
 	if err := peticionRRHHPrueba(ctx, s, s.instantaneaDetalleRRHH); err != nil {
 		t.Fatal(err)
