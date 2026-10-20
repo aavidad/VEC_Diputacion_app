@@ -766,6 +766,9 @@ El manifiesto es privado (`0600`, fuera de Git) y solo admite estas claves:
    `VEC_CT_SUBSANACION_POLITICA_FILE` para registrar la subsanación de un
    reparo y `VEC_CT_PLANTILLAS_GOBIERNO_ENABLED` para abrir la ruta
    `#contratacion-temporal/plantillas-rrhh`.
+   El circuito RRHH v2 solo monta la consulta que usa la firma: los
+   expedientes nuevos siguen naciendo con el flujo de ocho fases y
+   pueden pasar el análisis (F1-98).
 5. Reinicia la copia. Desde entonces `arrancar` levanta el verificador antes
    que la aplicación (con la CRL vigente de `firma-recursos`) y `parar` (y
    `borrar`) lo para. Solo se para el proceso

@@ -848,9 +848,14 @@ Intervención, resolución, GINPIX, firma de la persona, incorporación,
 seguimiento). Pero la secuencia persistida hace el llamamiento **después** de
 la fiscalización favorable, y la propuesta exige el expediente en
 `fiscalizacion/en_curso`. Mientras no se cambie, el orden real es el de la
-tabla anterior. Quién decide: dirección, con RRHH. Si el circuito v2 no está
-configurado (`VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`), se pintan las ocho fases del
-flujo v1.
+tabla anterior. Quién decide: dirección, con RRHH. Los expedientes nuevos
+nacen siempre con el flujo v1 y se pintan sus ocho fases, aunque el circuito
+v2 esté configurado (`VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`, que pone la orden
+`firma` de la copia). Con circuito, el análisis necesita una fuente que
+acredite la petición firmada y la autorización de RRHH, y ningún adaptador la
+aporta todavía; la fiscalización tampoco admite expedientes con circuito. La
+variable solo monta la consulta del circuito que usa la firma y su
+presentación (F1-98).
 
 Si la persona aún no ha empezado a trabajar y hay devolución, rechazo o
 sustitución, se repiten los trámites salvo volver a Intervención cuando no cambia

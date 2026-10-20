@@ -75,7 +75,7 @@ func rehidratarObjetoExpedienteSQL(objeto map[string]json.RawMessage, ruta []str
 			cambiado = true
 		}
 	}
-	cambioRC, err := rehidratarRCAusenteExpedienteSQL(solicitud)
+	cambioRC, err := rehidratarRCExpedienteSQL(solicitud)
 	if err != nil {
 		return nil, false, err
 	}
@@ -89,11 +89,21 @@ func rehidratarObjetoExpedienteSQL(objeto map[string]json.RawMessage, ruta []str
 
 // El canon de alta escribe un RC ausente como fecha vacía e importe 0 EUR.
 // En el dominio, la ausencia es Fecha e Importe cero. Sólo se adapta esa
-// representación exacta; los datos de un RC existente permanecen intactos.
-func rehidratarRCAusenteExpedienteSQL(solicitud map[string]json.RawMessage) (bool, error) {
+// representación exacta. De un RC existente (declarado por el centro, F1-87)
+// el alta guarda la fecha civil «2006-01-02», igual que los periodos; sólo
+// esa fecha se lleva a medianoche UTC y el resto queda intacto.
+func rehidratarRCExpedienteSQL(solicitud map[string]json.RawMessage) (bool, error) {
 	var rc map[string]json.RawMessage
 	if json.Unmarshal(solicitud["rc"], &rc) != nil || rc == nil {
 		return false, errFechaCivilExpedienteSQL
+	}
+	if bytes.Equal(bytes.TrimSpace(rc["existe"]), []byte("true")) {
+		cambiado, err := rehidratarFechaCivilSQL(rc, "fecha")
+		if err != nil || !cambiado {
+			return false, err
+		}
+		solicitud["rc"], err = json.Marshal(rc)
+		return err == nil, err
 	}
 	if !bytes.Equal(bytes.TrimSpace(rc["existe"]), []byte("false")) {
 		return false, nil
@@ -129,26 +139,11 @@ func rehidratarPeriodoExpedienteSQL(objeto map[string]json.RawMessage) (bool, er
 	}
 	cambiado := false
 	for _, campo := range [...]string{"inicio", "fin"} {
-		crudo, existe := periodo[campo]
-		if !existe || string(crudo) == "null" {
-			continue
-		}
-		var fecha string
-		if json.Unmarshal(crudo, &fecha) != nil {
-			return false, errFechaCivilExpedienteSQL
-		}
-		if len(fecha) != len("2006-01-02") {
-			continue // RFC3339 histórico; el decodificador estricto lo valida.
-		}
-		civil, err := time.Parse("2006-01-02", fecha)
-		if err != nil || civil.Format("2006-01-02") != fecha {
-			return false, errFechaCivilExpedienteSQL
-		}
-		periodo[campo], err = json.Marshal(civil.UTC().Format(time.RFC3339))
+		cambio, err := rehidratarFechaCivilSQL(periodo, campo)
 		if err != nil {
 			return false, err
 		}
-		cambiado = true
+		cambiado = cambiado || cambio
 	}
 	if cambiado {
 		var err error
@@ -158,6 +153,32 @@ func rehidratarPeriodoExpedienteSQL(objeto map[string]json.RawMessage) (bool, er
 		}
 	}
 	return cambiado, nil
+}
+
+// rehidratarFechaCivilSQL lleva objeto[campo] de fecha civil «2006-01-02» a
+// RFC3339 en medianoche UTC. Ausente, nulo o RFC3339 histórico no se tocan: el
+// decodificador estricto los valida. Una fecha civil imposible es error.
+func rehidratarFechaCivilSQL(objeto map[string]json.RawMessage, campo string) (bool, error) {
+	crudo, existe := objeto[campo]
+	if !existe || string(crudo) == "null" {
+		return false, nil
+	}
+	var fecha string
+	if json.Unmarshal(crudo, &fecha) != nil {
+		return false, errFechaCivilExpedienteSQL
+	}
+	if len(fecha) != len("2006-01-02") {
+		return false, nil // RFC3339 histórico; el decodificador estricto lo valida.
+	}
+	civil, err := time.Parse("2006-01-02", fecha)
+	if err != nil || civil.Format("2006-01-02") != fecha {
+		return false, errFechaCivilExpedienteSQL
+	}
+	objeto[campo], err = json.Marshal(civil.UTC().Format(time.RFC3339))
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func decodificarExpedienteSQL(contenido []byte, destino *domain.Expediente) error {

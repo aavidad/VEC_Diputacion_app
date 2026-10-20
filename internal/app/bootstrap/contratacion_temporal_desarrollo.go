@@ -501,7 +501,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	var consultaCircuitoRRHH http.Handler
+	var definicionCircuitoRRHH domain.DefinicionCircuitoRRHH
 	if cfg.CTCircuitoRRHHSourcePath != "" {
+		// La definición se valida al arrancar aunque el alta no la adjunte.
+		definicionCircuitoRRHH, err = cargarDefinicionCircuitoRRHH(cfg.CTCircuitoRRHHSourcePath)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		if err := preflightCircuitoRRHHDesarrollo(alta.postgresql.ejecucion); err != nil {
 			return nil, nil, nil, err
 		}
@@ -1099,7 +1105,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		lectorVisualCircuito, err := LeerLectorFlujoVisualRRHH(
 			strings.NewReader(config.PresentacionCircuitoRRHH()),
 		)
-		if err != nil || lectorVisualCircuito.origen != alta.soporte.flujo.Flujo {
+		if err != nil || lectorVisualCircuito.origen != definicionCircuitoRRHH.Flujo {
 			return nil, nil, nil, ErrManifestFlujoVisualRRHHInvalido
 		}
 		lectoresVisuales = append(lectoresVisuales, lectorVisualCircuito)

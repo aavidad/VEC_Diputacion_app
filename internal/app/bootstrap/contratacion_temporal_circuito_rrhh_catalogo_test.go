@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
 
@@ -80,5 +81,39 @@ func TestCatalogoRRHHV2PublicaVistosBuenosAlternativos(t *testing.T) {
 		if !jefatura || !direccion {
 			t.Fatalf("faltan alternativas ordenadas en %s", base)
 		}
+	}
+}
+
+// F1-98: con el circuito v2 configurado (orden `firma` de la copia), los
+// expedientes nuevos nacían con circuito y el análisis respondía 503 porque
+// ninguna fuente acredita sus evidencias. El alta no lo adjunta; la
+// presentación conjunta pinta el flujo del alta y conserva la del circuito.
+func TestAltaNoAdjuntaCircuitoRRHHSinFuentesDeEvidencias(t *testing.T) {
+	d, err := cargarDefinicionCircuitoRRHH("../../../config/contratacion_temporal_circuito_rrhh_v2.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	flujo := flujoAltaContratacionTemporalDesarrollo()
+	if flujo.Validar() != nil || flujo.DefinicionCircuito != nil || flujo.Flujo == d.Flujo ||
+		flujo.FaseInicial != domain.ClaveFase("solicitud") {
+		t.Fatalf("el alta adjunta el circuito sin fuentes de evidencias: %#v", flujo)
+	}
+	legado, err := LeerLectorFlujoVisualRRHH(strings.NewReader(config.PresentacionFlujoRRHHDesarrollo()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	circuito, err := LeerLectorFlujoVisualRRHH(strings.NewReader(config.PresentacionCircuitoRRHH()))
+	if err != nil || circuito.origen != d.Flujo {
+		t.Fatalf("presentación del circuito: %v", err)
+	}
+	conjunto, err := NuevoLectorFlujosVisualesRRHH(legado, circuito)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, err := conjunto.Resolver(t.Context(), flujo.Flujo, flujo.FaseInicial); err != nil || len(p.Fases) != 8 {
+		t.Fatalf("el expediente nuevo no se pinta con las ocho fases: %d, %v", len(p.Fases), err)
+	}
+	if _, err := conjunto.Resolver(t.Context(), d.Flujo, d.EstadoInicial); err != nil {
+		t.Fatalf("se perdió la presentación del circuito: %v", err)
 	}
 }
