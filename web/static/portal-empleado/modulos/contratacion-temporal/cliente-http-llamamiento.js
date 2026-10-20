@@ -1,17 +1,18 @@
 import {
-  validarSolicitudSeleccionLlamamiento, validarSolicitudComunicacionLlamamiento,
-  validarReciboSeleccionLlamamiento, validarReciboComunicacionLlamamiento,
+  validarSolicitudSeleccionLlamamiento, validarSolicitudRecuperacionOferta, validarReciboRecuperacionOferta, validarEstadoSeleccionOferta, referenciaLlamamientoValida, validarSolicitudComunicacionLlamamiento,
+  validarReciboSeleccion, validarReciboComunicacionLlamamiento,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
   validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
   validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
   validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
   snapshotsFormalizacionDesarrollo, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
-} from "./contrato-llamamiento.js";
-import { RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js";
-import { RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js";
+} from "./contrato-llamamiento.js?v=VEC_WEB_VERSION";
+import { RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js?v=VEC_WEB_VERSION";
+import { RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js?v=VEC_WEB_VERSION";
 
 export const RUTAS_LLAMAMIENTO = Object.freeze({
   seleccionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/seleccion",
+  estadoSeleccionOferta: "/api/vec/contratacion-temporal/llamamientos/seleccion/estado",
   comunicacionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/comunicaciones",
   respuestaRecibida: "/api/vec/contratacion-temporal/llamamientos/respuestas/registro",
   eventoPlazoLlamamiento: "/api/vec/contratacion-temporal/llamamientos/plazos/eventos",
@@ -55,6 +56,8 @@ export async function cargarPublicacionesFormalizacionDesarrollo({
   }
 }
 export function prefijoErrorLlamamiento(ruta) {
+  if (ruta.split("?")[0] === RUTAS_LLAMAMIENTO.estadoSeleccionOferta)
+    return "api.contratacion_temporal.seleccion_llamamiento.error.";
   if (ruta.split("?")[0] === RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE)
     return "api.contratacion_temporal.comunicacion_llamamiento.error.";
   if (ruta.split("?")[0] === RUTA_CONSULTA_RECIBO_RESPUESTA)
@@ -85,7 +88,7 @@ export function conflictoLlamamientoValido(ruta, codigo) {
   if (ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento
     && codigo === "validacion_respuesta_pendiente") return true;
   return (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento
-    ? ["conflicto_no_reintentable", "seleccion_no_disponible"]
+    ? ["conflicto_no_reintentable", "seleccion_no_disponible", "seleccion_oferta_sin_reserva", "seleccion_oferta_descartada", "comprobacion_ofrecimiento_pendiente"]
     : ["version_en_conflicto", "clave_idempotencia_reutilizada"]).includes(codigo);
 }
 const RECHAZOS_PREVIOS = new Set([
@@ -99,6 +102,11 @@ export function esValidacionRespuestaPendiente(error) {
   return error?.envelopeValido === true && error.estado === 409
     && error.codigo === "validacion_respuesta_pendiente";
 }
+export function esComprobacionOfrecimientoPendiente(error) {
+  return error?.envelopeValido === true && error.estado === 409
+    && error.codigo === "comprobacion_ofrecimiento_pendiente"
+    && error.comprobacionOfrecimiento?.motivo_clave === "pendiente_comprobacion_rrhh";
+}
 export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) {
   if (typeof ejecutar !== "function" || typeof validarOpciones !== "function") {
     throw new TypeError("dependencias HTTP de llamamiento no disponibles");
@@ -110,15 +118,29 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
       maximoSolicitud: 4096, maximoRespuesta: 4096, validarRespuesta, efecto: true,
       rechazoDeterminado: (error) => error?.envelopeValido === true
         && (RECHAZOS_PREVIOS.has(`${error.estado}:${error.codigo}`)
+          || (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento && esComprobacionOfrecimientoPendiente(error))
           || (ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento
             && esValidacionRespuestaPendiente(error))),
     });
   }
   return Object.freeze({
+    consultarEstadoSeleccionOferta(expedienteRef, opciones) {
+      if (!referenciaLlamamientoValida(expedienteRef)) throw new TypeError("expediente no válido");
+      const { signal } = validarOpciones(opciones);
+      const query = new URLSearchParams({ expediente_ref: expedienteRef });
+      return ejecutar({ metodo: "GET", ruta: `${RUTAS_LLAMAMIENTO.estadoSeleccionOferta}?${query}`,
+        signal, estadoEsperado: 200, maximoRespuesta: 8192, efecto: false,
+        validarRespuesta: (respuesta) => validarEstadoSeleccionOferta(respuesta, expedienteRef) });
+    },
     seleccionarLlamamiento(solicitud, opciones) {
-      return enviar(RUTAS_LLAMAMIENTO.seleccionLlamamiento,
-        validarSolicitudSeleccionLlamamiento(solicitud), opciones,
-        validarReciboSeleccionLlamamiento);
+      const entrada = validarSolicitudSeleccionLlamamiento(solicitud);
+      return enviar(RUTAS_LLAMAMIENTO.seleccionLlamamiento, entrada, opciones,
+        (respuesta) => validarReciboSeleccion(respuesta, entrada));
+    },
+    recuperarOferta(solicitudOriginal, opciones) {
+      const entrada = validarSolicitudRecuperacionOferta(solicitudOriginal);
+      return enviar(RUTAS_LLAMAMIENTO.seleccionLlamamiento, entrada, opciones,
+        (respuesta) => validarReciboRecuperacionOferta(respuesta, solicitudOriginal));
     },
     registrarComunicacionLlamamiento(solicitud, opciones) {
       const entrada = validarSolicitudComunicacionLlamamiento(solicitud);

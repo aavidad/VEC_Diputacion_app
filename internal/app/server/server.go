@@ -646,6 +646,7 @@ func registrarRutasDisponibilidad(mux *http.ServeMux, comprobador ComprobadorDis
 func staticHandler() http.Handler {
 	rutasProduccion := cargarRutasWebProduccion()
 	comprimidos := &cacheEstaticosComprimidos{}
+	web := versionWeb()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
@@ -661,6 +662,13 @@ func staticHandler() http.Handler {
 			return
 		}
 		setNoStoreForStatic(w, r)
+		if web == nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		if web.servir(w, r) {
+			return
+		}
 		comprimidos.servir(w, r, directorioEstaticos(), staticFileServer())
 	})
 }

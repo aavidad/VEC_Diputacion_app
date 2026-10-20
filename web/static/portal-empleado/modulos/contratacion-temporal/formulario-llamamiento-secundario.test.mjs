@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { File } from "node:buffer";
 import test from "node:test";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=VEC_WEB_VERSION";
 import {
   CLAVE, EXPEDIENTE, PUBLICACIONES_PROPUESTA, seleccion, recibo,
   raizPrueba, montar, CORREO, HUELLA, archivoCorreo, comunicacionRegistrada,
@@ -13,7 +13,7 @@ import {
   declaracionSiguiente, justificanteSiguiente, abrirResolucion,
   abrirSiguiente, abrirRespuestaSiguiente, abrirResolucionSucesor,
   claveDePrueba,
-} from "./formulario-llamamiento-pruebas.js?v=20261008-alta-rpt-circular-v6";
+} from "./formulario-llamamiento-pruebas.js?v=VEC_WEB_VERSION";
 
 for (const sucesor of [false, true])
 for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "fecha_anterior", "conflicto", "tardia"]) test(`propuesta ${sucesor ? "sucesor" : "original"}/${caso}: aceptación y publicaciones reales, misma clave y ningún efecto implícito`, async () => {

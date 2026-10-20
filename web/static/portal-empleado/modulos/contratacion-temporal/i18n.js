@@ -1,4 +1,4 @@
-import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
+import { cargarCatalogosContratacion, cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=VEC_WEB_VERSION";
 const catalogosMOAD = await cargarCatalogosContratacion("contratacion-temporal-moad");
 const MENSAJES_MOAD_ES = catalogosMOAD.exportaciones.ES;
 const MENSAJES_MOAD_EN = catalogosMOAD.exportaciones.EN;
@@ -18,23 +18,23 @@ export async function cargarMensajesNecesidadesAlta(idioma) {
   return Object.freeze(aplanarMensajesNecesidades(catalogo.actual));
 }
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
-import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_DOCUMENTACION_FORMALIZACION_EN } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
-import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=VEC_WEB_VERSION";
+import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js?v=VEC_WEB_VERSION";
+import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js?v=VEC_WEB_VERSION";
+import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=VEC_WEB_VERSION";
+import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js?v=VEC_WEB_VERSION";
+import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=VEC_WEB_VERSION";
+import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=VEC_WEB_VERSION";
+import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=VEC_WEB_VERSION";
+import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js?v=VEC_WEB_VERSION";
+import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js?v=VEC_WEB_VERSION";
+import { MENSAJES_DOCUMENTACION_FORMALIZACION_EN } from "./i18n-documentacion-formalizacion.js?v=VEC_WEB_VERSION";
+import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js?v=VEC_WEB_VERSION";
+import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=VEC_WEB_VERSION";
+import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=VEC_WEB_VERSION";
+import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=VEC_WEB_VERSION";
 import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
-import { FASES_RRHH, rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
+import { FASES_RRHH, rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js?v=VEC_WEB_VERSION";
 
 const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   ...MENSAJES_MOAD_ES,
@@ -282,8 +282,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
     "La propuesta no permite continuar. Revise las ausencias y conflictos del análisis.",
   cobertura_recibo_sobrelinea: "Decisión confirmada",
   cobertura_recibo_titulo: "Vía de cobertura aplicada",
-  cobertura_recibo_descripcion:
-    "El recibo acredita la decisión, la nueva versión del expediente y su persistencia.",
   cobertura_recibo_expediente: "Referencia del expediente",
   cobertura_recibo_version: "Versión resultante",
   cobertura_recibo_referencia: "Justificante",
@@ -318,8 +316,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   asignacion_recuperar: "Recuperar asignación original",
   asignacion_recibo_sobrelinea: "Asignación confirmada",
   asignacion_recibo_titulo: "Expediente asignado",
-  asignacion_recibo_descripcion:
-    "El recibo acredita la asignación y la nueva versión persistida del expediente.",
   asignacion_recibo_expediente: "Referencia del expediente",
   asignacion_recibo_version: "Versión resultante",
   asignacion_recibo_referencia: "Justificante",
@@ -349,8 +345,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   informe_recuperar: "Recuperar informe original",
   informe_recibo_sobrelinea: "Informe registrado",
   informe_recibo_titulo: "Recibo del informe jurídico",
-  informe_recibo_descripcion:
-    "El recibo acredita el informe, el documento y la nueva versión persistida del expediente.",
   informe_recibo_expediente: "Referencia del expediente",
   informe_recibo_version: "Versión resultante",
   informe_recibo_informe: "Referencia del informe",
@@ -365,15 +359,11 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   informe_documento_version: "Versión del documento",
   informe_documento_formato: "Formato",
   informe_documento_contenido: "Contenido del documento",
-  informe_historial_titulo: "Historial real del expediente",
-  informe_historial_descripcion:
-    "Actuaciones persistidas recuperadas después de registrar el informe.",
   informe_historial_cargando: "Recuperando el historial actualizado.",
   informe_historial_no_disponible:
     "El historial no se pudo recuperar. El informe y su recibo permanecen confirmados y visibles.",
   informe_historial_reintentar: "Reintentar consulta del historial",
   informe_historial_vacio: "El expediente no contiene hitos visibles.",
-  informe_historial_tabla: "Historial persistido del expediente",
   informe_historial_secuencia: "Secuencia",
   informe_historial_version: "Versión",
   informe_historial_accion: "Actuación",
@@ -432,7 +422,7 @@ const MENSAJES_CONTRATACION_TEMPORAL_ES_BASE = Object.freeze({
   fiscalizacion_recibo_sobrelinea: "Fiscalización registrada",
   fiscalizacion_recibo_titulo: "Recibo del resultado de fiscalización",
   fiscalizacion_recibo_descripcion:
-    "El recibo acredita el resultado, el actor y el estado resultante del expediente.",
+    "El recibo deja constancia del resultado, de quién lo registró y de cómo queda el expediente.",
   fiscalizacion_recibo_expediente: "Referencia del expediente",
   fiscalizacion_recibo_resultado: "Resultado",
   fiscalizacion_recibo_fase: "Fase resultante",
@@ -710,7 +700,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   cobertura_sin_via_descripcion: "The proposal cannot proceed. Review missing information and conflicts in the assessment.",
   cobertura_recibo_sobrelinea: "Decision confirmed",
   cobertura_recibo_titulo: "Recruitment route applied",
-  cobertura_recibo_descripcion: "The receipt confirms the decision, the new case version and its persistence.",
   cobertura_recibo_expediente: "Case reference",
   cobertura_recibo_version: "Resulting version",
   cobertura_recibo_referencia: "Receipt",
@@ -739,7 +728,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   asignacion_recuperar: "Recover original assignment",
   asignacion_recibo_sobrelinea: "Assignment confirmed",
   asignacion_recibo_titulo: "Case assigned",
-  asignacion_recibo_descripcion: "The receipt confirms the assignment and the new stored case version.",
   asignacion_recibo_expediente: "Case reference",
   asignacion_recibo_version: "Resulting version",
   asignacion_recibo_referencia: "Receipt",
@@ -763,7 +751,6 @@ const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   informe_recuperar: "Recover original report",
   informe_recibo_sobrelinea: "Report recorded",
   informe_recibo_titulo: "Legal report receipt",
-  informe_recibo_descripcion: "The receipt confirms the report, document and new stored case version.",
   informe_recibo_expediente: "Case reference",
   informe_recibo_version: "Resulting version",
   informe_recibo_informe: "Report reference",
@@ -777,13 +764,10 @@ const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   informe_documento_version: "Document version",
   informe_documento_formato: "Format",
   informe_documento_contenido: "Document content",
-  informe_historial_titulo: "Recorded case history",
-  informe_historial_descripcion: "Stored actions retrieved after recording the report.",
   informe_historial_cargando: "Retrieving the updated history.",
   informe_historial_no_disponible: "The history could not be retrieved. The report and its receipt remain confirmed and visible.",
   informe_historial_reintentar: "Retry history enquiry",
   informe_historial_vacio: "The case has no visible milestones.",
-  informe_historial_tabla: "Stored case history",
   informe_historial_secuencia: "Sequence",
   informe_historial_version: "Version",
   informe_historial_accion: "Action",
@@ -832,7 +816,7 @@ const MENSAJES_CONTRATACION_TEMPORAL_EN_BASE = Object.freeze({
   fiscalizacion_recuperar: "Recover original outcome",
   fiscalizacion_recibo_sobrelinea: "Financial review recorded",
   fiscalizacion_recibo_titulo: "Financial review outcome receipt",
-  fiscalizacion_recibo_descripcion: "The receipt confirms the outcome, actor and resulting case status.",
+  fiscalizacion_recibo_descripcion: "The receipt records the outcome, who registered it and where the case stands now.",
   fiscalizacion_recibo_expediente: "Case reference",
   fiscalizacion_recibo_resultado: "Outcome",
   fiscalizacion_recibo_fase: "Resulting stage",

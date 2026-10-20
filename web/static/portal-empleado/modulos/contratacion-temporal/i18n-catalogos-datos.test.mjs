@@ -7,13 +7,13 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
-import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261001-ct-a-i18n-v1";
+import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=VEC_WEB_VERSION";
 import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_ACTUAL, IDIOMAS_DISPONIBLES } from "../../../comun/idioma.js";
-import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=20261001-ct-a-i18n-v1";
-import { cargarMensajesTramitePortalEnIdioma, mensajesTramite, rotuloTramite } from "./i18n-fases-rrhh.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorContratacionTemporal, cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
+import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=VEC_WEB_VERSION";
+import { cargarMensajesTramitePortalEnIdioma, mensajesTramite, rotuloTramite } from "./i18n-fases-rrhh.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal, cargarMensajesContratacionTemporalEnIdioma } from "./i18n.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 
 // Huellas de las exportaciones originales en 463f7c176, anteriores al traslado.
 // Incluyen nombres, orden de claves, textos completos y marcadores sin duplicar los textos.
@@ -46,14 +46,13 @@ const PREIMAGEN = {
     "rotulos_en": "4b385dd66a73578fc25568f6b49ab63b40a899577dd202c8b03d652270cca20b"
   },
   "i18n-ficha-lista.js": {
-    // Excepción a la preimagen (06/10/2026): filtros «Vencen hoy», «Con una
-    // incidencia abierta» y «Sin plazo calculado» a los que lleva la portada, y
-    // aviso de filtro parcial que ya no habla solo de la búsqueda.
-    "MENSAJES_FICHA_LISTA_EN": "f7eb988f54b9ac84f9b1844b889f16a9c5db4a819f575ae5839364e3b1eba719",
-    "MENSAJES_FICHA_LISTA_ES": "7ff24a5cdc854030c4b125889f8f3b59e4716ac73845674a842744335c4c59b0"
+    // F1-74 aporta los mensajes de fiscalización y C el error de firmas históricas.
+    "MENSAJES_FICHA_LISTA_EN": "b1b986b0393d8d4843d517b79b425536fb83c39bdcb147e29a502719bc047887",
+    "MENSAJES_FICHA_LISTA_ES": "ddf03fbe54a3b91147d7536fd213ec24867692da62b30e2503e9b2c5da0d4009"
   },
   "i18n-informe-tras-subsanacion.js": {
-    "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "f2cf9af7062644110924a3c5a72d29235c556281e30b46dc008781723678067d",
+    // Excepción a la preimagen: F1-26 nombra en inglés el apartado «Signing workflow».
+    "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "457ff6a48d44b1554c8275e776a9231f098a0d0f0baad802799eaf413f526330",
     "MENSAJES_INFORME_TRAS_SUBSANACION_ES": "d75febfd37a4cf2265d502bcf2ae5af4ccad05b724433807974fea104abef743"
   },
   "i18n-llamamiento.js": {
@@ -72,6 +71,10 @@ const PREIMAGEN = {
     "MENSAJES_TEXTOS_VISTAS_ES": "837edbba7b1bbd2e492d3841a1dc65313f37f92e819681785bc819ed137f3ae8"
   }
 };
+const PREIMAGEN_FICHA_LISTA_ANTERIOR = Object.freeze({
+  MENSAJES_FICHA_LISTA_EN: "9150a2587a75e61eaf689150c1ed5a7eb8b154f50da041431d44fb2eb446b06a",
+  MENSAJES_FICHA_LISTA_ES: "f104ba579849f09ba63661d23f925889abe7b2f4e8831b060a37527f01c59558",
+});
 // ANA002 añade cinco rótulos de contexto; la preimagen sigue comprobando todos los textos anteriores.
 const CLAVES_CONTEXTO_ANA002 = Object.freeze([
   "ct_txt_contexto_fechas_consulta",
@@ -140,10 +143,43 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
 ]);
 // Las claves añadidas se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_ADICIONALES = Object.freeze({
-  "i18n-llamamiento.js": ["llamamiento_orden_bolsa_provisional"],
-  "i18n-textos-vistas.js": ["motivo_sustitucion"],
+  "i18n-cancelacion.js": ["error_seleccion_oferta_pendiente"],
+  // R1 añade el aviso de comprobación pendiente; CT231, las del aviso pendiente
+  // tras la selección confirmada; F1-16, las de las ofertas de varias plazas.
+  "i18n-llamamiento.js": [
+    "llamamiento_estado_oferta_cargando", "llamamiento_estado_oferta_error",
+    "llamamiento_estado_oferta_denegado", "llamamiento_estado_oferta_reintentar",
+    "llamamiento_cantidad_no_disponible",
+    "llamamiento_orden_bolsa_provisional", "llamamiento_iniciar_seleccion",
+    "llamamiento_publicar_oferta", "llamamiento_confirmacion_seleccion_neutra",
+    "llamamiento_confirmacion_oferta", "llamamiento_oferta_recibo",
+    "llamamiento_oferta_plazas", "llamamiento_oferta_publicada_en",
+    "llamamiento_oferta_vence_antes_de", "llamamiento_oferta_justificante",
+    "llamamiento_oferta_vinculo", "llamamiento_oferta_sin_aviso",
+    "llamamiento_oferta_gestionar", "llamamiento_recuperar_oferta",
+    "llamamiento_oferta_resultado_incierto", "llamamiento_confirmacion_recuperar_oferta",
+    "llamamiento_recuperando_oferta", "llamamiento_recuperacion_oferta_incierta",
+    "llamamiento_oferta_sin_reserva", "llamamiento_oferta_descartada",
+    "llamamiento_oferta_descartada_en", "llamamiento_oferta_cierre_bolsa",
+    "llamamiento_oferta_recibo_descarte", "llamamiento_oferta_descartada_sin_publicar",
+    "llamamiento_preparar_nueva_oferta", "llamamiento_confirmacion_nueva_oferta",
+    "llamamiento_comprobacion_pendiente", "llamamiento_comprobacion_version",
+    "llamamiento_comprobacion_ver_bolsa", "llamamiento_comprobacion_comprobar",
+    "llamamiento_comunicaciones_respuesta_aviso_pendiente", "llamamiento_comunicaciones_respuesta_aviso_anotado",
+    "llamamiento_seleccion_pendiente_aviso",
+    "llamamiento_continuar_aviso",
+  ],
+  // F1-93: textos de recibos e historial de la ficha, trasladados desde el código en lenguaje llano.
+  "i18n-textos-vistas.js": ["motivo_sustitucion", "cobertura_recibo_descripcion",
+    "asignacion_recibo_descripcion", "informe_recibo_descripcion", "informe_historial_titulo",
+    "informe_historial_descripcion", "informe_historial_tabla"],
   "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
-    "necesidades_alta_no_disponibles_detalle"],
+    "necesidades_alta_no_disponibles_detalle",
+    // F1-89: orientación de la ficha tras preparar el informe jurídico.
+    "ficha_siguiente_paso_informe_titulo", "ficha_siguiente_paso_informe_que",
+    "ficha_siguiente_paso_informe_quien", "ficha_siguiente_paso_intervencion_quien",
+    // F1-93: la cabecera nombra el paso dentro de la fase.
+    "ficha_fase_con_subfase"],
 });
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");
@@ -213,6 +249,12 @@ for (const [archivo, exportaciones] of Object.entries(PREIMAGEN)) {
         }
         preimagen = Object.fromEntries(Object.entries(preimagen)
           .filter(([clave]) => !CLAVES_ADICIONALES[archivo].includes(clave)));
+      }
+      if (archivo === "i18n-ficha-lista.js") {
+        assert.ok(typeof valor.firmas_historicas_error === "string" && valor.firmas_historicas_error.trim(), nombre);
+        const anteriorSinFirmas = Object.fromEntries(Object.entries(preimagen)
+          .filter(([clave]) => clave !== "firmas_historicas_error"));
+        assert.equal(huella(anteriorSinFirmas), PREIMAGEN_FICHA_LISTA_ANTERIOR[nombre], nombre);
       }
       assert.equal(huella(preimagen), anterior, nombre);
       assert.ok(Object.isFrozen(valor), nombre);

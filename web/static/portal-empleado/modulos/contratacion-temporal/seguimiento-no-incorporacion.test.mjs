@@ -5,6 +5,7 @@ import {
   validarConsultaSeguimientoCese, validarSolicitudNoIncorporacion,
 } from "./cliente-http-seguimiento-cese.js";
 import { montarPanelSeguimientoCese } from "./seguimiento-cese.js";
+import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
 import { ofrecerNoIncorporacion, ofrecerPropuestaNoIncorporacion, solicitudNoIncorporacion, solicitudResolucionPropuestaNoIncorporacion } from "./seguimiento-no-incorporacion.js";
 
 const EXP = "expediente:ni:001";
@@ -99,10 +100,24 @@ test("la segunda persona ve la propuesta pendiente y la confirma o rechaza con s
   assert.match(c.innerHTML, /Propuesta de no incorporación pendiente/u);
   assert.match(c.innerHTML, /data-ct-seg-form="no_incorporacion_confirmar"/u);
   assert.match(c.innerHTML, /data-ct-seg-form="no_incorporacion_rechazar"/u);
-  assert.match(c.innerHTML, /Propuesta pendiente de otra persona: No se presenta/u);
+  assert.match(c.innerHTML, /Pendiente de revisión por otra persona de RRHH: No se presenta/u);
   assert.doesNotMatch(c.innerHTML, /data-ct-seg-form="no_incorporacion"[ >]/u);
-  assert.doesNotMatch(c.innerHTML, /recibo:ni:propuesta|resolucion:rrhh/u, "sin referencias internas en pantalla");
+  assert.doesNotMatch(c.innerHTML, /recibo:ni:propuesta/u, "la referencia interna de la propuesta no se expone");
+  assert.match(c.innerHTML, /resolucion:rrhh:2026\/0142/u, "la resolución se muestra para revisarla");
+  assert.doesNotMatch(c.innerHTML, /Copiar enlace de revisión|Envíe este enlace/u, "la segunda persona no necesita el enlace");
   quitar();
+  // Quien hizo la propuesta no ve Confirmar ni Rechazar: se le explica.
+  const propia = contenedorFalso();
+  const quitarPropia = montarPanelSeguimientoCese({ contenedor: propia, contexto,
+    cliente: { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta({ no_incorporacion_propuesta: { ...propuesta, propuesta_propia: true } }), EXP) } });
+  await esperar();
+  assert.doesNotMatch(propia.innerHTML, /data-ct-seg-form="no_incorporacion_(?:confirmar|rechazar)"/u);
+  assert.match(propia.innerHTML, /Esta propuesta la ha hecho usted\. Otra persona de RRHH tiene que confirmarla o rechazarla\./u);
+  assert.match(propia.innerHTML, /<input type="text" readonly value="[^"]*revision-no-incorporacion\.html\?expediente_ref=/u);
+  assert.match(propia.innerHTML, /Copiar enlace de revisión/u, "quien propone necesita el enlace para enviarlo");
+  assert.match(propia.innerHTML, /Envíe este enlace a otra persona de RRHH\. No recibe aviso automático\./u);
+  quitarPropia();
+  assert.throws(() => validarConsultaSeguimientoCese(consulta({ no_incorporacion_propuesta: { ...propuesta, propuesta_propia: "si" } }), EXP), TypeError);
   const [metodo, s] = solicitudResolucionPropuestaNoIncorporacion({ expediente_ref: EXP, version_esperada: 8, clave_idempotencia: "123e4567-e89b-42d3-a456-426614174001" },
     propuesta, "confirmar", { observaciones: "Revisada" });
   assert.equal(metodo, "registrarNoIncorporacion");
@@ -112,4 +127,126 @@ test("la segunda persona ve la propuesta pendiente y la confirma o rechaza con s
   const [, registro] = solicitudNoIncorporacion({ expediente_ref: EXP }, { motivo_clave: "no_presentado", resuelta_por: "per_declarada" }, { segunda_persona: false });
   assert.equal(registro.paso, "registrar");
   assert.equal(registro.resuelta_por, "per_declarada");
+});
+
+test("la revisión acotada usa versión de la respuesta, solo permite resolver y conserva el recibo tras releer", async () => {
+  const c = contenedorFalso();
+  const metadata = { version_expediente: 9, fase_clave: "nombramiento", estado_clave: "en_curso", numero_expediente: "CT-2026-9" };
+  let pendiente = true, consultas = 0, envios = 0;
+  const recibo = { recibo_ref: "recibo:ni:confirmado", version_resultante: 10 };
+  const cliente = { consultarSeguimientoCese: async () => { consultas++; return validarConsultaSeguimientoCese(
+    consulta({ ...metadata, ...(pendiente ? { no_incorporacion_propuesta: propuesta } : { no_incorporacion: noInc }) }), EXP); },
+    registrarNoIncorporacion: async (s) => { envios++; assert.equal(s.version_esperada, 9); assert.equal(s.propuesta_ref, propuesta.propuesta_ref);
+      pendiente = false; return recibo; } };
+  const previo = globalThis.FormData;
+  globalThis.FormData = class { constructor(f) { this.f = f; } entries() { return Object.entries(this.f.campos); } };
+  try {
+    const quitar = montarPanelSeguimientoCese({ contenedor: c, cliente, contexto: { expediente_ref: EXP, version: 99 }, soloNoIncorporacion: true,
+      generarClave: () => solicitud.clave_idempotencia, confirmarOperacion: () => true });
+    await esperar();
+    assert.match(c.innerHTML, /data-ct-seg-form="no_incorporacion_confirmar"/u);
+    assert.doesNotMatch(c.innerHTML, /data-ct-seg-form="(?:cese|cierre|modificacion|ginpix|no_incorporacion)"/u);
+    c.eventos.get("submit")({ target: { closest: () => ({ dataset: { ctSegForm: "cese" }, campos: {} }) }, preventDefault() {} });
+    await esperar();
+    assert.equal(envios, 0, "un formulario ajeno inyectado no envía nada");
+    c.eventos.get("submit")({ target: { closest: () => ({ dataset: { ctSegForm: "no_incorporacion_confirmar" }, campos: { observaciones: "" } }) }, preventDefault() {} });
+    await esperar();
+    assert.equal(envios, 1);
+    assert.equal(consultas, 2, "tras el recibo se recupera el estado sin otro POST");
+    assert.match(c.innerHTML, /<p role="status" tabindex="-1" data-ct-seg-final>La no incorporación está confirmada\./u);
+    assert.doesNotMatch(c.innerHTML, /data-ct-seg-aviso/u, "sin aviso repetido encima del texto final");
+    assert.doesNotMatch(c.innerHTML, /recibo:ni:confirmado|recibo:ni:1|Versión 10/u, "la revisión no enseña identificadores técnicos");
+    assert.doesNotMatch(c.innerHTML, /data-ct-seg-form="no_incorporacion_confirmar"/u);
+    quitar();
+  } finally { globalThis.FormData = previo; }
+});
+
+test("tras rechazar la revisión dice qué ha pasado sin volver a leer", async () => {
+  const c = contenedorFalso();
+  const metadata = { version_expediente: 9, fase_clave: "nombramiento", estado_clave: "en_curso", numero_expediente: "CT-2026-9" };
+  let consultas = 0;
+  const cliente = { consultarSeguimientoCese: async () => {
+    if (++consultas > 1) throw Object.assign(new Error("acceso denegado"), { estado: 403, envelopeValido: true });
+    return validarConsultaSeguimientoCese(consulta({ ...metadata, no_incorporacion_propuesta: propuesta }), EXP);
+  }, registrarNoIncorporacion: async (s) => {
+    assert.equal(s.paso, "rechazar");
+    return { recibo_ref: "recibo:ni:rechazo", version_resultante: 10 };
+  } };
+  const previo = globalThis.FormData;
+  globalThis.FormData = class { constructor(f) { this.f = f; } entries() { return Object.entries(this.f.campos); } };
+  try {
+    const quitar = montarPanelSeguimientoCese({ contenedor: c, cliente, contexto: { expediente_ref: EXP }, soloNoIncorporacion: true,
+      generarClave: () => solicitud.clave_idempotencia, confirmarOperacion: () => true });
+    await esperar();
+    c.eventos.get("submit")({ target: { closest: () => ({ dataset: { ctSegForm: "no_incorporacion_rechazar" }, campos: { observaciones: "" } }) }, preventDefault() {} });
+    await esperar();
+    assert.equal(consultas, 1, "tras rechazar ya no hay nada que esta persona pueda leer");
+    assert.match(c.innerHTML, /Ha rechazado la propuesta\. El expediente sigue en nombramiento, sin cambios\./u);
+    assert.match(c.innerHTML, /href="\/portal-empleado\/\?lang=[a-z]{2}#contratacion-temporal"/u);
+    assert.doesNotMatch(c.innerHTML, /recibo:ni:rechazo|data-ct-seg-form=/u);
+    quitar();
+  } finally { globalThis.FormData = previo; }
+});
+
+test("al reabrir la revisión se ve la no incorporación ya confirmada y qué sigue", async () => {
+  const c = contenedorFalso();
+  const quitar = montarPanelSeguimientoCese({ contenedor: c, contexto: { expediente_ref: EXP }, soloNoIncorporacion: true,
+    cliente: { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta({
+      version_expediente: 10, fase_clave: "fiscalizacion", estado_clave: "en_curso", numero_expediente: "CT-2026-9", no_incorporacion: noInc,
+    }), EXP) } });
+  await esperar();
+  assert.match(c.innerHTML, /La no incorporación está confirmada\. El expediente vuelve a fiscalización/u);
+  assert.match(c.innerHTML, /Ir a Peticiones de personal temporal/u);
+  assert.match(c.innerHTML, /No se incorpora: No se presenta/u);
+  assert.doesNotMatch(c.innerHTML, /recibo:ni:1/u, "sin recibo técnico en pantalla");
+  assert.doesNotMatch(c.innerHTML, /data-ct-seg-form=/u);
+  quitar();
+});
+
+test("el aviso de archivo de la no incorporación usa el idioma del panel y enfoca el campo", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { general } = JSON.parse(await readFile(new URL("../../../textos/en/contratacion-temporal-seguimiento-cese.json", import.meta.url), "utf8"));
+  const mensajes = Object.fromEntries(Object.entries(general).map(([clave, valor]) => [`seguimiento_cese.${clave}`, valor]));
+  const c = contenedorFalso();
+  c.addEventListener = (nombre, escucha, captura) => c.eventos.set(`${nombre}${captura ? ":captura" : ""}`, escucha);
+  const quitar = montarPanelSeguimientoCese({ contenedor: c, contexto, mensajes,
+    cliente: { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta(), EXP) } });
+  await esperar();
+  let enfocado = false;
+  let bloqueado = false;
+  const estado = { textContent: "" };
+  const campo = { querySelector: (selector) => selector === "[data-huella-valor]" ? { value: "" } : estado };
+  const control = { dataset: {}, hasAttribute: () => true, setAttribute() {}, closest: () => campo, focus() { enfocado = true; } };
+  try {
+    c.eventos.get("submit:captura")({ target: { querySelectorAll: () => [control] },
+      preventDefault() { bloqueado = true; }, stopImmediatePropagation() {} });
+    assert.equal(estado.textContent, "Choose the supporting document file to continue.");
+    assert.equal(enfocado, true);
+    assert.equal(bloqueado, true);
+    assert.match(c.innerHTML, /Propose failure to take up post/u);
+  } finally { quitar(); }
+});
+
+
+test("la revisión inglesa traduce el motivo recibido en castellano", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { general } = JSON.parse(await readFile(new URL("../../../textos/en/contratacion-temporal-seguimiento-cese.json", import.meta.url), "utf8"));
+  const mensajes = Object.fromEntries(Object.entries(general).map(([clave, valor]) => [`seguimiento_cese.${clave}`, valor]));
+  const c = contenedorFalso();
+  const quitar = montarPanelSeguimientoCese({ contenedor: c, contexto: { expediente_ref: EXP }, mensajes, soloNoIncorporacion: true,
+    cliente: { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta({
+      version_expediente: 9, fase_clave: "nombramiento", estado_clave: "en_curso", numero_expediente: "CT-2026-9", no_incorporacion_propuesta: propuesta,
+    }), EXP) } });
+  await esperar();
+  assert.match(c.innerHTML, /Does not attend at the specified time and place/u);
+  assert.doesNotMatch(c.innerHTML, /No se presenta/u);
+  quitar();
+});
+
+test("el historial nombra propuesta, confirmación y rechazo de la no incorporación", () => {
+  const accion = (accion_clave) => presentarEtiquetasHitoRRHH({ accion_clave, fase_origen: "nombramiento", fase_destino: "nombramiento",
+    estado_origen: "en_curso", estado_destino: "en_curso" }).accion;
+  assert.equal(accion("contratacion_temporal.incorporacion.no_incorporacion_propuesta"), "Propuesta de no incorporación registrada");
+  assert.equal(accion("contratacion_temporal.incorporacion.no_incorporacion"), "No incorporación confirmada");
+  assert.equal(accion("contratacion_temporal.incorporacion.no_incorporacion_rechazo"), "Propuesta de no incorporación rechazada");
 });

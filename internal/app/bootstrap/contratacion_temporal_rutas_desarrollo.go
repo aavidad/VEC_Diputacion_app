@@ -75,6 +75,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		// Llamamiento: su autoridad decide en el PDP común (frontera por ruta
 		// y método en contratacion_temporal_llamamiento_pdp_comun_desarrollo.go).
 		httpinterno.RutaSeleccionLlamamiento:              {pdpCT(http.MethodPost)},
+		httpinterno.RutaConsultaEstadoSeleccionOferta:     {pdpCT(http.MethodGet)},
 		httpinterno.RutaRegistroComunicacionLlamamiento:   {pdpCT(http.MethodPost)},
 		httpinterno.RutaConsultaComunicacionesExpediente:  {pdpCT(http.MethodGet)},
 		httpinterno.RutaRegistroRespuestaRecibida:         {pdpCT(http.MethodPost)},
@@ -83,6 +84,7 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		httpinterno.RutaContinuacionLlamamiento:           {pdpCT(http.MethodPost)},
 		httpinterno.RutaEventoPlazoLlamamiento:            {pdpCT(http.MethodPost)},
 		httpinterno.RutaPropuestaFormalizacion:            {pdpCT(http.MethodPost)},
+		httpinterno.RutaDerivacionNombramiento:            {pdpCT(http.MethodPost)},
 
 		// Autoridades nominales existentes. Una lectura sin acción V3 propia
 		// conserva su guarda de identidad/ruta; no se inventa una acción V3.
@@ -208,14 +210,16 @@ func validarMetodoRutaCTDesarrollo(ruta string, metodo metodoRutaCTDesarrollo, f
 		return nil
 	}
 	if resuelta {
-		// La consulta R5 legada tiene autoridad nominal propia. En el montaje
-		// VEC se conserva esa autoridad y se declara además su frontera exacta.
-		if ruta == httpinterno.RutaConsultaFirmasR5V2 && metodo.metodo == http.MethodPost &&
+		// Consulta y recuperación R5 legadas tienen autoridad nominal propia.
+		// Con firma VEC activa, cada ruta recibe su frontera nominal exacta.
+		consultaNominal := ruta == httpinterno.RutaConsultaFirmasR5V2 &&
+			frontera.Clave == "ct-firma-vec-consultar" && frontera.ClaveCapacidad == ports.AccionConsultarFirmasR5V2
+		recuperacionNominal := ruta == httpinterno.RutaRecuperacionFirmasR5V2 &&
+			frontera.Clave == "ct-firma-vec-recuperar" && frontera.ClaveCapacidad == ports.AccionRecuperarFirmasR5V2
+		if (consultaNominal || recuperacionNominal) && metodo.metodo == http.MethodPost &&
 			metodo.guardia == "contratacion_temporal_firmas_r5_v2_desarrollo.go:fuenteNominalFirmasR5V2CTDesarrollo" &&
 			frontera.Metodo == http.MethodPost && frontera.Ruta == ruta &&
-			frontera.Superficie == superficieInternaSeguridadComunDesarrollo &&
-			frontera.Clave == "ct-firma-vec-consultar" &&
-			frontera.ClaveCapacidad == ports.AccionConsultarFirmasR5V2 {
+			frontera.Superficie == superficieInternaSeguridadComunDesarrollo {
 			return nil
 		}
 		return fmt.Errorf("%w: frontera PDP no inventariada %s %q", ErrCoberturaRutasCTDesarrollo, metodo.metodo, ruta)
@@ -235,12 +239,13 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if _, lecturaPersonal := accionConsultaRegistroPersonalB2(r.URL.Path, r.Method); lecturaPersonal {
 		return true
 	}
-	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaPlanB2 || r.URL.Path == httpinterno.RutaConfirmacionB2 || r.URL.Path == httpinterno.RutaVinculoCategoriaRPTB2 || r.URL.Path == httpinterno.RutaCategoriasRPTB2 || r.URL.Path == rutaCatalogosRegistroEmpleadoB2 || r.URL.Path == vechttp.RutaCatalogosRegistroEmpleadoB2 || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
+	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaDerivacionNombramiento || r.URL.Path == httpinterno.RutaPlanB2 || r.URL.Path == httpinterno.RutaConfirmacionB2 || r.URL.Path == httpinterno.RutaVinculoCategoriaRPTB2 || r.URL.Path == httpinterno.RutaCategoriasRPTB2 || r.URL.Path == rutaCatalogosRegistroEmpleadoB2 || r.URL.Path == vechttp.RutaCatalogosRegistroEmpleadoB2 || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
 		rutaPlantillasCatalogoCTDesarrollo(r.URL.Path) ||
 		r.URL.Path == ajusteshttp.Ruta ||
 		rutaPlantillasDocumentalCTDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
+		r.URL.Path == httpinterno.RutaConsultaEstadoSeleccionOferta ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||
 		r.URL.Path == httpinterno.RutaConsultaReciboRespuesta ||
 		r.URL.Path == httpinterno.RutaConsultaComunicacionesExpediente ||

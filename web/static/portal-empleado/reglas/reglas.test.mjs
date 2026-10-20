@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { exigirRenovado, versionDe } from "../versiones-cache.test-helper.mjs";
+import { versionDe, exigirMismaVersion } from "../versiones-cache.test-helper.mjs";
 import {
   API_REGLAS, ESQUEMA, ErrorReglas, crearCliente, detalleRegla, filtrar, idRegla, iniciar, mensajeError, origenRegla, renderizarCatalogo,
   renderizarResumen, validarReglas, valorRegla,
@@ -43,19 +43,19 @@ test("el catálogo i18n está completo y toda clave de la página existe", () =>
 test("el catálogo renovado usa una URL única en la pantalla y en sus consumidores de Bolsa y CT", () => {
   const html = leer("./index.html");
   const reglas = leer("./reglas.js");
-  const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v3");
-  assert.equal(version, "20261012-reglas-configuracion-v1");
+  const version = exigirMismaVersion([html, reglas], "i18n.js");
+  assert.equal(version, "VEC_WEB_VERSION");
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
-  assert.equal(versionDe(html, "reglas.js"), "20261012-reglas-configuracion-v1");
-  assert.equal(exigirRenovado([bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v3"), version);
+  assert.equal(versionDe(html, "reglas.js"), "VEC_WEB_VERSION");
+  assert.equal(exigirMismaVersion([bolsa, etiquetas], "reglas.js"), version);
   // La pantalla de plazos lee las reglas a través de rrhh-plazos-api.js (una sola lectura compartida).
   assert.doesNotMatch(leer("../modulos/bolsa/rrhh-plazos-ui.js"), /reglas\/reglas\.js/u);
   const formulario = leer("../modulos/contratacion-temporal/formulario-cobertura.js");
-  assert.equal(exigirRenovado(formulario, "etiquetas-vias-cobertura.js", "20260930-reglas-detalle-v3"), version);
+  assert.equal(versionDe(formulario, "etiquetas-vias-cobertura.js"), version);
   // El enlace renueva su URL con el catálogo común del portal.
   const render = leer("../modulos/contratacion-temporal/vista-expedientes-render.js");
-  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), "20261007-pantallas-textos-final-v1");
+  assert.equal(versionDe(render, "enlace.js"), "VEC_WEB_VERSION");
 });
 
 test("las versiones en caché se renuevan juntas y la pantalla está en el manifiesto interno", () => {
@@ -63,7 +63,7 @@ test("las versiones en caché se renuevan juntas y la pantalla está en el manif
   const js = leer("./reglas.js");
   assert.equal(versionDe(html, "reglas.js"), versionDe(html, "reglas.css"));
   assert.equal(versionDe(js, "i18n.js"), versionDe(html, "i18n.js"));
-  assert.equal(versionDe(html, "reglas.js"), "20261012-reglas-configuracion-v1");
+  assert.equal(versionDe(html, "reglas.js"), "VEC_WEB_VERSION");
   assert.equal(versionDe(js, "ajustes.js"), versionDe(html, "reglas.js"));
   for (const nombre of ["interno.manifest", "produccion.manifest"]) {
     const manifiesto = readFileSync(new URL(`../../../${nombre}`, import.meta.url), "utf8");

@@ -48,7 +48,7 @@ func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
 	handler := staticHandler()
 	for _, ruta := range rutas {
 		t.Run(ruta, func(t *testing.T) {
-			esperado, err := os.ReadFile("../../../web/static" + ruta)
+			esperado, err := leerFuenteWebVersionada("../../../web/static" + ruta)
 			if err != nil {
 				t.Fatal(err)
 			}

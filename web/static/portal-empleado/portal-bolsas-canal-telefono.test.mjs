@@ -1,19 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { prepararMensajesContratos } from "./portal-bolsas-contratos.js?v=VEC_WEB_VERSION";
 await prepararTextosPortal("bolsa");
 await prepararMensajesContratos();
-import { crearControladorBolsas, rutaCandidatosBolsa } from "./portal-bolsas-api.js?v=20261015-firma-ofertas-justificante-integracion-v2";
-import { validarCanalesLlamamiento } from "./portal-bolsas-contrato.js?v=20261008-canal-telefono-v2";
-import { crearControladorIntentosContacto, llamamientoDeFicha, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261015-firma-ofertas-justificante-integracion-v2";
-import { canalesAviso, enlaceSeguimiento, filasSeguimiento } from "./portal-bolsas-seguimiento.js?v=20261015-firma-ofertas-justificante-integracion-v2";
+import { crearControladorBolsas, rutaCandidatosBolsa } from "./portal-bolsas-api.js?v=VEC_WEB_VERSION";
+import { validarCanalesLlamamiento } from "./portal-bolsas-contrato.js?v=VEC_WEB_VERSION";
+import { crearControladorIntentosContacto, llamamientoDeFicha, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=VEC_WEB_VERSION";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=VEC_WEB_VERSION";
+import { canalesAviso, enlaceSeguimiento, filasSeguimiento } from "./portal-bolsas-seguimiento.js?v=VEC_WEB_VERSION";
 import { leerCandidatosBolsaCompartible, leerLlamamientoBolsaCompartible,
-  rutaCandidatosBolsaCompartible, rutaLlamamientoBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261008-bolsa-global-v2";
+  rutaCandidatosBolsaCompartible, rutaLlamamientoBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
 import { origenLlamamientoValido } from "./portal-llamamiento-origen.js";
-import { renderizarExpediente } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=20261008-canal-telefono-v2";
-import { crearTraductorExpedientesContratacion } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
+import { renderizarExpediente } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=VEC_WEB_VERSION";
 
 await prepararTextosTelefono();
 
@@ -176,7 +176,7 @@ test("en la ficha, el llamamiento del seguimiento prevalece sobre el último de 
 
 test("la consulta del seguimiento pide solo las personas de ese llamamiento", async () => {
   assert.equal(rutaCandidatosBolsa("bolsa:1", { llamamiento: LLAMAMIENTO, estado: "disponible", texto: "x", cursor: "c" }),
-    "/api/vec/bolsa/bolsas/bolsa:1/candidatos?llamamiento=llamamiento%3Asintetico%3A7&limite=100");
+    "/api/vec/bolsa/bolsas/bolsa:1/candidatos?llamamiento=llamamiento%3Asintetico%3A7&limite=100&exclusiones_desde=0");
   const escuchas = {};
   const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector() { return null; } };
   const estado = { filtrosBolsa: { estado: "", texto: "" }, datosCandidatos: null };
@@ -192,7 +192,7 @@ test("la consulta del seguimiento pide solo las personas de ese llamamiento", as
     globalThis.fetch = fetchOriginal;
   }
   assert.deepEqual(estado.filtrosBolsa.seguimiento, { llamamiento_ref: LLAMAMIENTO, bolsa_ref: BOLSA.bolsa_ref });
-  assert.ok(rutas.some((ruta) => ruta.endsWith("/candidatos?llamamiento=llamamiento%3Asintetico%3A7&limite=100")), rutas.join(" "));
+  assert.ok(rutas.some((ruta) => ruta.endsWith("/candidatos?llamamiento=llamamiento%3Asintetico%3A7&limite=100&exclusiones_desde=0")), rutas.join(" "));
   assert.equal(estado.datosCandidatos.carga, "error");
 });
 
@@ -407,4 +407,17 @@ test("«Nuevo llamamiento al siguiente» abre el asistente y pone el foco en su 
   assert.equal(estado.filtrosBolsa.seguimiento, undefined, "deja el seguimiento");
   assert.equal(estado.filtrosBolsa.nuevo_llamamiento.paso, 1);
   assert.equal(enfocado, "paso");
+});
+
+test("F1-57 la ficha abierta desde una comprobación pendiente se pinta aunque la persona esté en otra página", () => {
+  const fuera = persona(9, "Rosa Navarro Gil");
+  const modal = { abierto: true, candidato: fuera, bolsa: BOLSA, comprobacionB57: { paso: "edicion" } };
+  const vista = presentador({ datos: listo(), filtros: { estado: "", texto: "" }, modal }).renderizarVista("bolsa-candidatos");
+  assert.match(vista, /id="ficha-participacion-participacion:sintetica:9"|ficha-participacion-participacion:sintetica:9/u);
+  const sinComprobacion = presentador({ datos: listo(), filtros: { estado: "", texto: "" }, modal: { ...modal, comprobacionB57: undefined } })
+    .renderizarVista("bolsa-candidatos");
+  assert.doesNotMatch(sinComprobacion, /ficha-participacion-participacion:sintetica:9/u);
+  const conAviso = presentador({ datos: { ...listo(), avisoComprobacion: { texto: "No encontrada", boton: "Ir" } }, filtros: { estado: "", texto: "" } })
+    .renderizarVista("bolsa-candidatos");
+  assert.match(conAviso, /<p>No encontrada<\/p><button type="button" class="boton-secundario" data-vista="contratacion-temporal">Ir<\/button>/u);
 });

@@ -92,6 +92,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	confirmador                       *pgxpool.Pool
 	lectorResultado                   *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
 	vinculoEmisionBolsa               bool
+	seleccionOferta                   bool
 	registradorAuditoriaFrontera      *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
 	auditoriaFrontera                 *pgxpool.Pool
 	candidaturas                      ports.ResolutorCandidaturaAlta
@@ -106,6 +107,8 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialBorradorCrear                   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorConsulta                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialSituacion                       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialComprobacion                    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConfirmacionDirecta             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaSolicitudesDocumentales *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaReincorporacionTitular  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialContacto                        *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -140,6 +143,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
+	materialPreferenciasBolsasInternas               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPreparacionBases                         [2]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
 	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
@@ -427,6 +431,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	dependencias.vinculoEmisionBolsa = seleccion.vinculoEmisionBolsa
+	// CT220, B120 y AD278 son una capacidad opcional: su ausencia cierra solo
+	// la oferta múltiple y nunca impide el arranque de Contratación temporal.
+	seleccion.seleccionOferta = detectarSeleccionOfertaCTDesarrollo(ctx, ejecucion)
+	dependencias.seleccionOferta = seleccion.seleccionOferta
 	// CT137/AD3-100 deben existir y conservar sus ACL antes de publicar la
 	// audiencia documental. Se reutiliza el pool ejecutor ya acreditado.
 	if seleccion.plantillasDocumental {
@@ -491,6 +499,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		descriptoresMaterial = append(descriptoresMaterial, descriptores[:]...)
 	}
 	descriptoresMaterial = materialCargaConvocaDesarrollo(descriptoresMaterial, seleccion.borradoresBolsa) // B1: ver bolsa_carga_convoca_gobernada.go
+	preferenciasBolsasInternas := preferenciasBolsasInternasSolicitadas()
+	if preferenciasBolsasInternas {
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialOrdenarPreferenciasBolsasInternaV3())
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -529,6 +541,16 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if etapa = "material_aspirantes"; aspirantesActivo {
 		if dependencias.materialAspirantes, err = publicarMaterialAspirantesEnLote(ctx, gobierno, material, reloj, catalogoMaterial); err != nil {
 			return vacias, err
+		}
+	}
+	if preferenciasBolsasInternas {
+		// Opcional: sin clave publicada la ruta interna queda en 503 y el
+		// resto del arranque sigue.
+		dependencias.materialPreferenciasBolsasInternas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaOrdenarPreferenciasBolsasInterna)
+		if err != nil {
+			slog.Warn("preferencias de Mi Bolsa interna sin clave publicada")
+			dependencias.materialPreferenciasBolsasInternas, err = nil, nil
 		}
 	}
 	if seleccion.plantillasCatalogo {
@@ -719,6 +741,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		if cfg.BolsaBorradoresEnabled {
+			dependencias.proveedorMaterialComprobacion = proveedorComprobacionOfrecimiento(ctx, gobierno, material, reloj)
 			dependencias.proveedorMaterialCargaConvoca = proveedorCargaConvocaOpcionalDesarrollo(nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConfirmarCargaConvoca))
 			if seleccion.reincorporacionTitular {
 				etapa = "material_consulta_reincorporacion_titular_bolsa"
@@ -860,6 +883,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		if err != nil {
 			return vacias, err
 		}
+	}
+	if seleccion.borradoresBolsa {
+		dependencias.proveedorMaterialConfirmacionDirecta = proveedorConfirmacionDirectaOpcional(
+			ctx, gobierno, material, reloj, catalogoMaterial)
 	}
 	// Organización histórica es opcional e independiente de B2. La selección
 	// y la publicación usan el gobierno central, pero su fallo sólo deja esta

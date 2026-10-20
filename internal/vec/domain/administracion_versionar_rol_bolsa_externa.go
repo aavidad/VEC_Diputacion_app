@@ -27,82 +27,95 @@ var accionesAlegacionesBolsaExterna = [...]string{
 }
 
 func accionesDeltaBolsaExterna(rol VersionRol, selecciones int) []string {
-	if (selecciones != len(accionesVersionarRolBolsaExterna) && selecciones != len(accionesInscripcionBolsaExterna)) ||
-		rol.RolID != RolIDVersionarBolsaExterna ||
-		rol.Version < 1 || rol.Version > 3 {
-		return nil
-	}
-	base := rol
-	if len(base.Concesiones) < len(accionesBaseVersionarRolBolsaExterna) {
-		return nil
-	}
-	base.Version = 1
-	base.Concesiones = rol.Concesiones[:len(accionesBaseVersionarRolBolsaExterna)]
-	if !baseVersionarRolBolsaExterna(base) {
-		return nil
-	}
-	if rol.Version == 3 {
-		if selecciones != len(accionesAlegacionesBolsaExterna) ||
-			len(rol.Concesiones) != len(accionesBaseVersionarRolBolsaExterna)+
-				len(accionesVersionarRolBolsaExterna)+len(accionesInscripcionBolsaExterna) {
-			return nil
-		}
-		ordenes := [][2][]string{
-			{accionesVersionarRolBolsaExterna[:], accionesInscripcionBolsaExterna[:]},
-			{accionesInscripcionBolsaExterna[:], accionesVersionarRolBolsaExterna[:]},
-		}
-		for _, orden := range ordenes {
-			indice, valido := len(accionesBaseVersionarRolBolsaExterna), true
-			for _, tramo := range orden {
-				for _, accion := range tramo {
-					if !concesionDeltaBolsaExterna(rol.Concesiones[indice], accion) {
-						valido = false
-						break
-					}
-					indice++
-				}
-			}
-			if valido {
-				return accionesAlegacionesBolsaExterna[:]
-			}
-		}
-		return nil
-	}
-	if selecciones == len(accionesVersionarRolBolsaExterna) {
-		if rol.Version == 1 && len(rol.Concesiones) == len(accionesBaseVersionarRolBolsaExterna) {
+	switch estadoRolBolsaExterna(rol) {
+	case "base":
+		if selecciones == 2 {
 			return accionesVersionarRolBolsaExterna[:]
 		}
-		if rol.Version != 2 || len(rol.Concesiones) !=
-			len(accionesBaseVersionarRolBolsaExterna)+len(accionesInscripcionBolsaExterna) {
-			return nil
+		if selecciones == 5 {
+			return accionesInscripcionBolsaExterna[:]
 		}
-		for j, accion := range accionesInscripcionBolsaExterna {
-			if !concesionDeltaBolsaExterna(rol.Concesiones[len(accionesBaseVersionarRolBolsaExterna)+j], accion) {
-				return nil
+	case "i":
+		if selecciones == 2 {
+			return accionesVersionarRolBolsaExterna[:]
+		}
+	case "p8", "p10":
+		if selecciones == 5 {
+			return accionesInscripcionBolsaExterna[:]
+		}
+	case "pi8", "pi10", "ip8", "ip10":
+		if selecciones == 2 {
+			return accionesAlegacionesBolsaExterna[:]
+		}
+	}
+	return nil
+}
+
+// El mismo conjunto finito de cabezas que AUT104; ningún tamaño por sí solo acredita una historia.
+func estadoRolBolsaExterna(rol VersionRol) string {
+	const baseLen = 7
+	if rol.RolID != RolIDVersionarBolsaExterna || len(rol.Concesiones) < baseLen {
+		return ""
+	}
+	base := rol
+	base.Version, base.Concesiones = 1, rol.Concesiones[:baseLen]
+	// Como AUT104, las siete concesiones de la v1 forman un conjunto exacto:
+	// la v1 publicada empieza por participaciones_propias.consultar. Lo
+	// añadido después sí conserva el orden de las altas gobernadas.
+	if !baseVersionarRolBolsaExterna(base) {
+		return ""
+	}
+	resto := rol.Concesiones[baseLen:]
+	if len(resto) == 0 && rol.Version == 1 {
+		return "base"
+	}
+	if tramosRolBolsaExterna(resto, accionesInscripcionBolsaExterna[:]) && rol.Version == 2 {
+		return "i"
+	}
+	for _, orden := range []struct {
+		nombre  string
+		tramos  [][]string
+		version int
+	}{
+		{"p", [][]string{accionesVersionarRolBolsaExterna[:]}, 2},
+		{"pi", [][]string{accionesVersionarRolBolsaExterna[:], accionesInscripcionBolsaExterna[:]}, 3},
+		{"ip", [][]string{accionesInscripcionBolsaExterna[:], accionesVersionarRolBolsaExterna[:]}, 3},
+		{"pia", [][]string{accionesVersionarRolBolsaExterna[:], accionesInscripcionBolsaExterna[:], accionesAlegacionesBolsaExterna[:]}, 4},
+		{"ipa", [][]string{accionesInscripcionBolsaExterna[:], accionesVersionarRolBolsaExterna[:], accionesAlegacionesBolsaExterna[:]}, 4},
+	} {
+		if !tramosRolBolsaExterna(resto, orden.tramos...) {
+			continue
+		}
+		indice := 0
+		for _, c := range rol.Concesiones {
+			if c.Accion == accionesVersionarRolBolsaExterna[0] {
+				break
 			}
+			indice++
 		}
-		return accionesVersionarRolBolsaExterna[:]
+		campos := rol.Concesiones[indice].CamposPermitidos
+		if slices.Equal(campos, camposPreferenciasBolsaExterna(accionesVersionarRolBolsaExterna[0])) && rol.Version == orden.version {
+			return orden.nombre + "8"
+		}
+		if slices.Equal(campos, camposPreferenciasModalidadesBolsaExterna()) &&
+			(rol.Version == orden.version || rol.Version == orden.version+1) {
+			return orden.nombre + "10"
+		}
 	}
-	if rol.Version == 1 {
-		if len(rol.Concesiones) != len(accionesBaseVersionarRolBolsaExterna) {
-			return nil
-		}
-	} else {
-		if len(rol.Concesiones) != len(accionesBaseVersionarRolBolsaExterna)+len(accionesVersionarRolBolsaExterna) {
-			return nil
-		}
-		for j, accion := range accionesVersionarRolBolsaExterna {
-			if !concesionVersionarRolBolsaExterna(rol.Concesiones[len(accionesBaseVersionarRolBolsaExterna)+j], accion) {
-				return nil
+	return ""
+}
+
+func tramosRolBolsaExterna(concesiones []ConcesionRol, tramos ...[]string) bool {
+	indice := 0
+	for _, tramo := range tramos {
+		for _, accion := range tramo {
+			if indice >= len(concesiones) || !concesionDeltaBolsaExterna(concesiones[indice], accion) {
+				return false
 			}
+			indice++
 		}
 	}
-	for _, c := range rol.Concesiones {
-		if slices.Contains(accionesInscripcionBolsaExterna[:], c.Accion) {
-			return nil
-		}
-	}
-	return accionesInscripcionBolsaExterna[:]
+	return indice == len(concesiones)
 }
 
 var accionesBaseVersionarRolBolsaExterna = [...]string{
@@ -182,32 +195,41 @@ type PlanVersionarRolBolsaExterna struct {
 
 func (p PlanVersionarRolBolsaExterna) HuellaSHA256() (string, error) {
 	acciones := accionesDeltaBolsaExterna(p.Base.Rol, len(p.Selecciones))
+	estado := estadoRolBolsaExterna(p.Base.Rol)
+	reemplazo := slices.Contains([]string{"p8", "pi8", "ip8", "pia8", "ipa8"}, estado) &&
+		seleccionModalidadesBolsaExterna(p.Selecciones) &&
+		sustitucionModalidadesBolsaExterna(p.Base.Rol.Concesiones, p.DefinicionNueva.Concesiones)
 	if p.Operacion != OperacionVersionarPerfilGobernado ||
 		!textoAutorizacionSinComodinSeguro(p.CatalogoRef, 512, false) || p.CatalogoVersion < 1 ||
 		!huellaSHA256AutorizacionV3NoNula(p.CatalogoHuellaSHA256) ||
 		p.Base.Validar() != nil || p.Base.TipoPerfil != TipoPerfilAdministracionAdministrableV1 ||
-		len(acciones) == 0 || p.Base.Rol.Estado != EstadoVersionRolPublicada ||
+		(len(acciones) == 0 && !reemplazo) || p.Base.Rol.Estado != EstadoVersionRolPublicada ||
 		p.Base.ControlVigencia.Estado != EstadoControlVigenciaVersionRolHabilitada ||
 		p.DefinicionNueva.RolID != p.Base.Rol.RolID || p.DefinicionNueva.Version != p.Base.Rol.Version+1 ||
 		p.DefinicionNueva.Nombre != p.Base.Rol.Nombre || p.VersionRolObjetivoRef != p.DefinicionNueva.Referencia() ||
-		len(p.DefinicionNueva.Concesiones) != len(p.Base.Rol.Concesiones)+len(acciones) ||
+		(!reemplazo && len(p.DefinicionNueva.Concesiones) != len(p.Base.Rol.Concesiones)+len(acciones)) ||
 		len(p.DefinicionNueva.Concesiones) > maximoElementosAutorizacion ||
-		len(p.Selecciones) != len(acciones) ||
+		(!reemplazo && len(p.Selecciones) != len(acciones)) ||
 		len(p.Asignaciones) < 1 || len(p.Asignaciones) > 16 ||
 		!ReferenciaMotivoAutorizacionV2Valida(p.Motivo) || !ReferenciaActoAdministracionValida(p.ReferenciaActo) {
 		return "", ErrVersionarRolBolsaExternaInvalido
 	}
-	for i, anterior := range p.Base.Rol.Concesiones {
-		if !reflect.DeepEqual(anterior, p.DefinicionNueva.Concesiones[i]) ||
-			slices.Contains(acciones, anterior.Accion) {
-			return "", ErrVersionarRolBolsaExternaInvalido
+	if !reemplazo {
+		for i, anterior := range p.Base.Rol.Concesiones {
+			if !reflect.DeepEqual(anterior, p.DefinicionNueva.Concesiones[i]) ||
+				slices.Contains(acciones, anterior.Accion) {
+				return "", ErrVersionarRolBolsaExternaInvalido
+			}
 		}
+	}
+	if reemplazo {
+		acciones = accionesVersionarRolBolsaExterna[:]
 	}
 	for i, accion := range acciones {
 		s := p.Selecciones[i]
 		if !textoAutorizacionSinComodinSeguro(s.EntradaRef, 512, false) || s.EntradaVersion < 1 ||
 			!huellaSHA256AutorizacionV3NoNula(s.EntradaHuellaSHA256) ||
-			!concesionDeltaBolsaExterna(p.DefinicionNueva.Concesiones[len(p.Base.Rol.Concesiones)+i], accion) {
+			(!reemplazo && !concesionDeltaBolsaExterna(p.DefinicionNueva.Concesiones[len(p.Base.Rol.Concesiones)+i], accion)) {
 			return "", ErrVersionarRolBolsaExternaInvalido
 		}
 	}
@@ -239,11 +261,56 @@ func camposPreferenciasBolsaExterna(accion string) []string {
 	return nil
 }
 
+func camposPreferenciasModalidadesBolsaExterna() []string {
+	return []string{"version", "orden_guardado", "bolsas_actuales", "bolsas_nuevas",
+		"bolsas_retiradas", "revision_requerida", "modalidades_guardadas",
+		"modalidades_disponibles", "recibo_ref", "registrado_en"}
+}
+
+func indiceConsultaPreferenciasBolsaExterna(concesiones []ConcesionRol) int {
+	for j, c := range concesiones {
+		if c.Accion == accionesVersionarRolBolsaExterna[0] {
+			return j
+		}
+	}
+	return -1
+}
+
+func sustitucionModalidadesBolsaExterna(base, nueva []ConcesionRol) bool {
+	if len(base) != len(nueva) {
+		return false
+	}
+	indice := indiceConsultaPreferenciasBolsaExterna(base)
+	if indice < 0 || !slices.Equal(base[indice].CamposPermitidos, camposPreferenciasBolsaExterna(accionesVersionarRolBolsaExterna[0])) {
+		return false
+	}
+	for j := range base {
+		if j == indice {
+			esperada := base[j]
+			esperada.CamposPermitidos = camposPreferenciasModalidadesBolsaExterna()
+			if !reflect.DeepEqual(esperada, nueva[j]) {
+				return false
+			}
+		} else if !reflect.DeepEqual(base[j], nueva[j]) {
+			return false
+		}
+	}
+	return true
+}
+
+func seleccionModalidadesBolsaExterna(selecciones []SeleccionAccionAdministracionV1) bool {
+	return len(selecciones) == 2 &&
+		selecciones[0].EntradaRef == "accion:"+accionesVersionarRolBolsaExterna[0] &&
+		selecciones[1].EntradaRef == "accion:"+accionesVersionarRolBolsaExterna[1] &&
+		selecciones[0].EntradaVersion == 2 && selecciones[1].EntradaVersion == 2
+}
+
 func concesionVersionarRolBolsaExterna(c ConcesionRol, accion string) bool {
 	if c.Validar() != nil || c.ModuloID != "bolsa" || c.Accion != accion ||
 		c.TipoRecurso != "participaciones_candidato" || c.GarantiaMinima != AuthAssuranceHigh ||
 		!slices.Equal(c.Finalidades, []string{"gestion_preferencias_bolsas_propias"}) ||
-		!slices.Equal(c.CamposPermitidos, camposPreferenciasBolsaExterna(accion)) {
+		!(slices.Equal(c.CamposPermitidos, camposPreferenciasBolsaExterna(accion)) ||
+			(accion == accionesVersionarRolBolsaExterna[0] && slices.Equal(c.CamposPermitidos, camposPreferenciasModalidadesBolsaExterna()))) {
 		return false
 	}
 	switch accion {
@@ -359,6 +426,13 @@ func prepararPlanVersionarRolBolsaExterna(c CatalogoAccionesAdministracionV1,
 	base PerfilPublicadoAdministracionV1, i IntencionVersionarRolBolsaExterna, ahora time.Time,
 	exigirVigencia bool) (PlanVersionarRolBolsaExterna, error) {
 	var vacio PlanVersionarRolBolsaExterna
+	estado := estadoRolBolsaExterna(base.Rol)
+	reemplazo := slices.Contains([]string{"p8", "pi8", "ip8", "pia8", "ipa8"}, estado) &&
+		seleccionModalidadesBolsaExterna(i.Selecciones)
+	acciones := accionesDeltaBolsaExterna(base.Rol, len(i.Selecciones))
+	if reemplazo {
+		acciones = accionesVersionarRolBolsaExterna[:]
+	}
 	hc, err := c.HuellaSHA256()
 	if err != nil || !instanteAutorizacionCanonico(ahora) ||
 		(exigirVigencia && !vigenteAccionesAdministracionEn(c.VigenteDesde, c.VigenteHasta, ahora)) ||
@@ -371,20 +445,21 @@ func prepararPlanVersionarRolBolsaExterna(c CatalogoAccionesAdministracionV1,
 	if base.Validar() != nil || base.TipoPerfil != TipoPerfilAdministracionAdministrableV1 ||
 		base.Rol.Estado != EstadoVersionRolPublicada || base.ControlVigencia.Estado != EstadoControlVigenciaVersionRolHabilitada ||
 		base.ControlVigencia.ActualizadoEn.After(ahora) ||
-		len(accionesDeltaBolsaExterna(base.Rol, len(i.Selecciones))) == 0 {
+		len(acciones) == 0 {
 		return vacio, ErrVersionarRolBolsaExternaInvalido
 	}
 	hr, er := base.Rol.HuellaSHA256()
 	hcontrol, ec := base.ControlVigencia.HuellaSHA256()
 	if er != nil || ec != nil || i.BaseRef != base.Rol.Referencia() || i.BaseHuellaSHA256 != hr ||
 		i.ControlRevision != base.ControlVigencia.Revision || i.ControlHuellaSHA256 != hcontrol ||
-		len(base.Rol.Concesiones)+len(i.Selecciones) > maximoElementosAutorizacion {
+		len(base.Rol.Concesiones)+len(i.Selecciones) > maximoElementosAutorizacion && !reemplazo {
 		return vacio, ErrVersionarRolBolsaExternaInvalido
 	}
-	acciones := accionesDeltaBolsaExterna(base.Rol, len(i.Selecciones))
-	for _, anterior := range base.Rol.Concesiones {
-		if slices.Contains(acciones, anterior.Accion) {
-			return vacio, ErrVersionarRolBolsaExternaInvalido
+	if !reemplazo {
+		for _, anterior := range base.Rol.Concesiones {
+			if slices.Contains(acciones, anterior.Accion) {
+				return vacio, ErrVersionarRolBolsaExternaInvalido
+			}
 		}
 	}
 	concesiones := copiarConcesionesVersionarBolsa(base.Rol.Concesiones)
@@ -405,7 +480,25 @@ func prepararPlanVersionarRolBolsaExterna(c CatalogoAccionesAdministracionV1,
 			!concesionDeltaBolsaExterna(entrada.Concesion, accion) {
 			return vacio, ErrVersionarRolBolsaExternaInvalido
 		}
-		concesiones = append(concesiones, copiarConcesionesVersionarBolsa([]ConcesionRol{entrada.Concesion})[0])
+		if reemplazo {
+			indice := slices.IndexFunc(concesiones, func(con ConcesionRol) bool { return con.Accion == accion })
+			if indice < 0 || entrada.Version != 2 || entrada.FuenteVersion != 2 ||
+				entrada.FuenteRef != "fuente:bolsa:preferencias_bolsas_propias" {
+				return vacio, ErrVersionarRolBolsaExternaInvalido
+			}
+			esperada := concesiones[indice]
+			if j == 0 {
+				esperada.CamposPermitidos = camposPreferenciasModalidadesBolsaExterna()
+			}
+			if !reflect.DeepEqual(esperada, entrada.Concesion) {
+				return vacio, ErrVersionarRolBolsaExternaInvalido
+			}
+			if j == 0 {
+				concesiones[indice].CamposPermitidos = camposPreferenciasModalidadesBolsaExterna()
+			}
+		} else {
+			concesiones = append(concesiones, copiarConcesionesVersionarBolsa([]ConcesionRol{entrada.Concesion})[0])
+		}
 	}
 	asignaciones := make([]SeleccionAsignacionVersionarRolBolsa, len(i.Asignaciones))
 	for j, a := range i.Asignaciones {

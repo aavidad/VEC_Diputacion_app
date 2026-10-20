@@ -97,7 +97,7 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	seudonimos, err := seudonimizador.SeudonimizarAlta(ctx, postgresidentidad.IdentificadoresAlta{
 		EspacioIdentidad: espacioIdentidadSesionDesarrollo,
 		AsercionID:       "preparacion-cuenta", SesionID: "preparacion-alias",
-		CuentaID: "desarrollo:" + vinculo.CuentaRef, SujetoID: alta.soporte.principalID,
+		CuentaID: "desarrollo:" + vinculo.CuentaRef, SujetoID: soporte.principalID,
 	})
 	if err != nil {
 		return nil, nil, fallo

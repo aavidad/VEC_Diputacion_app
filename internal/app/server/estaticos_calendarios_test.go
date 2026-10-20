@@ -5,7 +5,6 @@ import (
 	"mime"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 )
 
@@ -17,7 +16,7 @@ func TestStaticHandlerSirvePantallaCalendarios(t *testing.T) {
 	handler := staticHandler()
 	for asset, esperado := range tipos {
 		t.Run(asset, func(t *testing.T) {
-			contenido, err := os.ReadFile("../../../web/static" + prefijo + asset)
+			contenido, err := leerFuenteWebVersionada("../../../web/static" + prefijo + asset)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -1,4 +1,4 @@
-import { RUTA_CATEGORIAS_PROFESIONALES, validarConsultaCategorias, validarPaginaCategorias } from "./contrato.js?v=20260920-personal-catalogo-v1";
+import { RUTA_CATEGORIAS_PROFESIONALES, validarConsultaCategorias, validarPaginaCategorias } from "./contrato.js?v=VEC_WEB_VERSION";
 
 const MAXIMO_RESPUESTA_BYTES = 256 * 1024;
 const MAXIMO_FRAGMENTOS = 256;

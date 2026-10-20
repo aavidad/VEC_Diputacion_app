@@ -4,8 +4,8 @@ import {
   validarReciboInformeJuridico,
   validarSolicitudInformeJuridico,
 } from "./contrato-informe-juridico.js";
-import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=20261015-firma-cierre-cache-v3";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { cargarTextos } from "../../../comun/textos.js";
 import { IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
@@ -186,7 +186,7 @@ function renderizarHistorial(estado, t, formateador, mensajes) {
     contenido = `<p>${escaparHTML(t("informe_historial_vacio"))}</p>`;
   } else {
     contenido = `<div class="tabla-contenedor" tabindex="0">
-      <table class="tabla-datos ct-exp-tabla-panel">
+      <table class="tabla-datos ct-exp-tabla-panel tabla-apilable">
         <caption>${escaparHTML(t("informe_historial_tabla"))}</caption>
         <thead><tr>
           <th scope="col">${escaparHTML(t("informe_historial_secuencia"))}</th>
@@ -199,11 +199,11 @@ function renderizarHistorial(estado, t, formateador, mensajes) {
         <tbody>${estado.historial.map((hito) => {
           const etiquetas = presentarEtiquetasHitoRRHH(hito, mensajes);
           return `<tr>
-          <th scope="row">${hito.secuencia}</th><td>${hito.version_expediente}</td>
-          <td>${escaparHTML(etiquetas.accion)}</td>
-          <td>${escaparHTML(etiquetas.faseOrigen)} → ${escaparHTML(etiquetas.faseDestino)}</td>
-          <td>${escaparHTML(etiquetas.estadoOrigen)} → ${escaparHTML(etiquetas.estadoDestino)}</td>
-          <td>${escaparHTML(formateador.format(new Date(hito.realizada_en)))}</td>
+          <th scope="row" data-etiqueta="${escaparHTML(t("informe_historial_secuencia"))}">${hito.secuencia}</th><td data-etiqueta="${escaparHTML(t("informe_historial_version"))}">${hito.version_expediente}</td>
+          <td data-etiqueta="${escaparHTML(t("informe_historial_accion"))}">${escaparHTML(etiquetas.accion)}</td>
+          <td data-etiqueta="${escaparHTML(t("informe_historial_fase"))}">${escaparHTML(etiquetas.faseOrigen)} → ${escaparHTML(etiquetas.faseDestino)}</td>
+          <td data-etiqueta="${escaparHTML(t("informe_historial_estado"))}">${escaparHTML(etiquetas.estadoOrigen)} → ${escaparHTML(etiquetas.estadoDestino)}</td>
+          <td data-etiqueta="${escaparHTML(t("informe_historial_fecha"))}"><time datetime="${escaparHTML(hito.realizada_en)}">${escaparHTML(formateador.format(new Date(hito.realizada_en)))}</time></td>
         </tr>`; }).join("")}</tbody>
       </table>
     </div>`;

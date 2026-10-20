@@ -13,20 +13,21 @@ import {
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
-} from "./portal-bolsas-contrato.js?v=20261013-bolsa-ranking-n4";
-import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20261011-ct-bolsa-vinculo-v1";
-import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20261008-r-traza-idioma-v1";
-import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=20261011-ct-bolsa-vinculo-v1";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20261008-r-traza-idioma-v1";
-import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261013-bolsa-ranking-n4";
-export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20261013-bolsa-ranking-n4";
-import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20261012-c3-contacto-v1";
-import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20261007-pantallas-textos-final-v1";
-import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=20261016-justificante-integracion-v3";
-import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=20261013-bolsa-ranking-n4";
-import { canalesAviso, descargarJustificanteRenuncia } from "./portal-bolsas-seguimiento.js?v=20261016-justificante-integracion-v3";
+} from "./portal-bolsas-contrato.js?v=VEC_WEB_VERSION";
+import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=VEC_WEB_VERSION";
+import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=VEC_WEB_VERSION";
+import { crearControladorIntentosContacto, prepararTextosTelefono } from "./portal-bolsas-intentos.js?v=VEC_WEB_VERSION";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=VEC_WEB_VERSION";
+import { crearControladorComprobacion, prepararTextosComprobacion } from "./portal-bolsas-comprobacion.js?v=VEC_WEB_VERSION";
+import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=VEC_WEB_VERSION";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=VEC_WEB_VERSION";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=VEC_WEB_VERSION";
+import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=VEC_WEB_VERSION";
+import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=VEC_WEB_VERSION";
+import { prepararTextosGlobalBolsa } from "./portal-bolsas-global.js?v=VEC_WEB_VERSION";
+import { leerGlobalBolsaCompartible, rutaGlobalBolsaCompartible } from "./portal-bolsas-ruta-filtros.js?v=VEC_WEB_VERSION";
+import { canalesAviso, descargarJustificanteRenuncia } from "./portal-bolsas-seguimiento.js?v=VEC_WEB_VERSION";
 import { cargarTextos } from "../comun/textos.js";
 
 const TEXTOS_VINCULO_CT = (await cargarTextos("portal-bolsa")).seccion("vinculo_ct");
@@ -89,12 +90,16 @@ function segmentoRuta(referencia) {
   return encodeURIComponent(String(referencia ?? "").trim()).replace(/%3A/gi, ":");
 }
 
-export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor = "", limite = 50, llamamiento = "", orden = "" } = {}) {
+export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor = "", limite = 50, llamamiento = "", orden = "", exclusionesDesde = 0 } = {}) {
   const parametros = new URLSearchParams();
+  if (!Number.isSafeInteger(exclusionesDesde) || exclusionesDesde < 0 || (!llamamiento && exclusionesDesde > 0)) {
+    throw new TypeError("página de exclusiones no válida");
+  }
   // Las personas de un llamamiento no se combinan con estado, texto ni cursor.
   if (llamamiento && llamamiento.trim() !== "") {
     parametros.set("llamamiento", llamamiento.trim());
     parametros.set("limite", "100");
+    parametros.set("exclusiones_desde", String(exclusionesDesde));
     return `${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos?${parametros}`;
   }
   if (estado && estado.trim() !== "") parametros.set("estado", estado.trim());
@@ -290,7 +295,8 @@ export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchI
     }
 
     const envelope = await respuesta.json();
-    const datos = validarRespuestaCandidatosBolsa(envelope);
+    const datos = validarRespuestaCandidatosBolsa(envelope, { bolsaRef, llamamientoRef: opciones.llamamiento || "",
+      exclusionesDesde: opciones.exclusionesDesde || 0 });
     return { ok: true, datos };
   } catch (error) {
     return {
@@ -583,6 +589,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     documento.querySelector(resultado.ok ? '[data-bolsa-accion="b7-seleccionar-todas"]' : '[data-b7-seleccion-error]')?.focus?.();
   }
   function retirarCandidatosDenegados(mensaje) {
+    const directa = estado.modalFicha?.operacionesB8?.directa;
+    if (directa?.pendiente && ["revision", "enviando", "incierto"].includes(directa.paso)) {
+      const { bolsa, participacion } = directa.pendiente;
+      const clave = claveParticipacion(bolsa, participacion);
+      cambiosSituacionPendientes.set(clave, { directa: { pendiente: directa.pendiente } });
+    }
     invalidarSeleccionMasiva();
     // Una lectura anterior no puede restaurar datos tras perder autorización.
     for (const clave of ["candidatos", "contactos"]) {
@@ -600,6 +612,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     estado.datosCandidatos = { carga: "denegado", datos: null, error: mensaje };
   }
   const controladorIntentosContacto = crearControladorIntentosContacto({ estado, renderizar });
+  const controladorComprobacion = crearControladorComprobacion({ estado, renderizar });
   const controladorCorreoB7 = crearControladorCorreoLlamamiento({ estado, renderizar });
   const controladorOrigenContacto = crearControladorOrigenContacto({ estado, renderizar });
   // Tras registrar o corregir el contacto se vuelve a leer su origen.
@@ -607,6 +620,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
     renderizar,
+    alDenegarConfirmacion: retirarCandidatosDenegados,
     recargar: async (participacionRef) => {
       const bolsaRef = estado.bolsaSeleccionada;
       const modal = estado.modalFicha;
@@ -748,16 +762,18 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     renderizar();
   }
 
-  async function cargarCandidatosBolsa(bolsaRef, { cursor = "", enfocarDestino = false } = {}) {
-    if (!bolsaRef) return;
+  async function cargarCandidatosBolsa(bolsaRef, { cursor = "", enfocarDestino = false, exclusionesDesde = 0 } = {}) {
+    if (!bolsaRef || fichaProtegida()) return;
+    const datosPrevios = estado.datosCandidatos;
+    const bolsaPrevia = estado.bolsaSeleccionada;
     if (estado.bolsaSeleccionada !== bolsaRef) invalidarSeleccionMasiva();
     const controlador = iniciarLectura("candidatos");
     estado.bolsaSeleccionada = bolsaRef;
-    estado.datosCandidatos = { carga: "cargando", datos: null, error: "" };
+    estado.datosCandidatos = { carga: "cargando", datos: null, error: "", exclusionesDesde };
     renderizar();
     const fuente = fuenteLectura();
     const seguimiento = estado.filtrosBolsa?.seguimiento?.llamamiento_ref || "";
-    const opciones = seguimiento ? { llamamiento: seguimiento, limite: 100 } : {
+    const opciones = seguimiento ? { llamamiento: seguimiento, limite: 100, exclusionesDesde } : {
       estado: estado.filtrosBolsa?.estado || "",
       texto: estado.filtrosBolsa?.texto || "",
       cursor,
@@ -772,13 +788,25 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     });
     if (res === null || !lecturaVigente("candidatos", controlador)) return;
     terminarLectura("candidatos", controlador);
+    if (fichaProtegida()) {
+      estado.bolsaSeleccionada = estado.modalFicha?.bolsa?.bolsa_ref || bolsaPrevia;
+      if (!res.ok && [401, 403].includes(res.status)) {
+        retirarCandidatosDenegados(res.mensaje);
+        renderizar();
+        return;
+      }
+      estado.datosCandidatos = datosPrevios;
+      if (!res.ok && estado.modalFicha?.operacionesB8?.directa) estado.modalFicha.operacionesB8.directa.error = res.mensaje;
+      renderizar();
+      return;
+    }
     if (res.ok) {
-      estado.datosCandidatos = { carga: "listo", datos: res.datos, error: "" };
+      estado.datosCandidatos = { carga: "listo", datos: res.datos, error: "", exclusionesDesde };
       if (estado.filtrosBolsa?.nuevo_llamamiento) estado.filtrosBolsa.nuevo_llamamiento.acceso_denegado = false;
     } else if ([401, 403].includes(res.status)) {
       retirarCandidatosDenegados(res.mensaje);
     } else {
-      estado.datosCandidatos = { carga: "error", datos: null, error: res.mensaje };
+      estado.datosCandidatos = { carga: "error", datos: null, error: res.mensaje, exclusionesDesde };
     }
     renderizar();
     if (enfocarDestino) {
@@ -787,6 +815,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   async function cargarGlobalBolsa(filtro, { corte = "", bolsa = "", cursor = "" } = {}) {
+    if (fichaProtegida()) return;
     const controlador = iniciarLectura("candidatos");
     const rutaAlPedir = globalThis.location ? `${globalThis.location.search}${globalThis.location.hash}` : null;
     estado.bolsaSeleccionada = null;
@@ -838,19 +867,36 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     renderizar();
   }
 
-  function abrirFicha(participacionRef) {
+  function fichaProtegida() {
+    return Boolean(estado.modalFicha?.enviandoCambioSituacion || estado.modalFicha?.resultadoInciertoCambioSituacion);
+  }
+
+  // `fuera` admite a la persona leída fuera de la página visible (comprobación del ofrecimiento).
+  function abrirFicha(participacionRef, fuera = null) {
+    if (fichaProtegida()) { documento.querySelector?.("[data-directa-paso]")?.focus?.(); return; }
     const datos = estado.datosCandidatos?.datos;
-    const candidato = datos?.candidatos?.find((item) => item.participacion_ref === participacionRef);
+    const candidato = datos?.candidatos?.find((item) => item.participacion_ref === participacionRef)
+      ?? (fuera?.participacion_ref === participacionRef ? fuera : null);
     if (!candidato || !datos?.bolsa) return;
     estado.modalFicha?.controladorOperaciones?.abort();
     estado.modalFicha?.controladorReincorporaciones?.abort();
     estado.modalFicha?.controladorSanciones?.abort();
     const seguimiento = estado.filtrosBolsa?.seguimiento?.llamamiento_ref || "";
     const pendiente = cambiosSituacionPendientes.get(claveParticipacion(estado.bolsaSeleccionada, participacionRef));
+    const directaPendiente = pendiente?.directa;
+    if (directaPendiente) {
+      const clave = claveParticipacion(estado.bolsaSeleccionada, participacionRef);
+      const resto = { ...pendiente }; delete resto.directa;
+      if (Object.keys(resto).length) cambiosSituacionPendientes.set(clave, resto);
+      else cambiosSituacionPendientes.delete(clave);
+    }
     estado.modalFicha = { abierto: true, candidato, bolsa: datos.bolsa,
+      rutaApertura: globalThis.location ? `${globalThis.location.pathname}${globalThis.location.search}${globalThis.location.hash}` : "",
+      ...(directaPendiente ? { operacionesB8: { directa: { paso: "incierto", pendiente: directaPendiente.pendiente, error: "" } },
+        resultadoInciertoCambioSituacion: true } : {}),
       ...(seguimiento ? { llamamientoSeguimiento: seguimiento } : {}),
       ...(pendiente?.recibo ? { reciboSituacion: pendiente.recibo } : {}),
-      ...(pendiente && !pendiente.recibo ? { cambioSituacion: true, revisionCambioSituacion: pendiente.revision,
+      ...(pendiente?.clave && !pendiente.recibo ? { cambioSituacion: true, revisionCambioSituacion: pendiente.revision,
         borradorCambioSituacion: pendiente.borrador, claveCambioSituacion: pendiente.clave,
         huellaCambioSituacion: pendiente.huella, enviandoCambioSituacion: pendiente.enviando,
         resultadoInciertoCambioSituacion: !pendiente.enviando } : {}) };
@@ -858,9 +904,46 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     void controladorOperacionesB8.cargar(estado.modalFicha);
     void controladorIntentosContacto.cargar(estado.modalFicha);
     void controladorOrigenContacto.cargar(estado.modalFicha);
+    void controladorComprobacion.cargar(estado.modalFicha);
     documento.querySelector("[data-bolsa-ficha-inline='true']")?.focus?.();
     // Desde el seguimiento, «Llamar» lleva directamente al registro de la llamada.
     if (seguimiento) documento.querySelector("[data-intentos-raiz='true']")?.scrollIntoView?.({ block: "start" });
+  }
+
+  // Busca a la persona por orden de acta cuando no está en la página visible.
+  async function buscarPorActa(bolsaRef, participacionRef) {
+    const fuente = fuenteLectura();
+    const consultar = (ref, opciones) => (fuente?.consultarCandidatosBolsa
+      ? fuente.consultarCandidatosBolsa(ref, opciones, {}) : consultarCandidatosBolsa(ref, opciones));
+    let cursor = "";
+    for (let pagina = 0; pagina < 40; pagina += 1) {
+      const r = await consultar(bolsaRef, { orden: "acta", cursor, limite: 50 });
+      if (!r?.ok) return null;
+      const hallada = r.datos?.candidatos?.find((item) => item.participacion_ref === participacionRef);
+      if (hallada) return hallada;
+      if (!r.datos?.hay_mas || !r.datos.cursor_siguiente || r.datos.cursor_siguiente === cursor) return null;
+      cursor = r.datos.cursor_siguiente;
+    }
+    return null;
+  }
+
+  // Desde el aviso de la selección CT: abre la ficha de la persona pendiente, esté o no en la
+  // página visible. Si no se encuentra, deja un aviso visible sobre la lista y lo devuelve.
+  async function abrirComprobacionOfrecimiento() {
+    const propuesta = estado.comprobacionOfrecimiento;
+    const c = propuesta?.contexto;
+    const carga = estado.datosCandidatos;
+    if (!c || estado.bolsaSeleccionada !== c.bolsa_ref || carga?.carga !== "listo" || estado.modalFicha) return "";
+    const candidato = carga.datos?.candidatos?.find((item) => item.participacion_ref === c.participacion_ref)
+      ?? await buscarPorActa(c.bolsa_ref, c.participacion_ref).catch(() => null);
+    if (estado.comprobacionOfrecimiento !== propuesta || estado.datosCandidatos !== carga || estado.modalFicha) return "";
+    if (candidato) { abrirFicha(c.participacion_ref, candidato); return ""; }
+    const textos = await prepararTextosComprobacion().catch(() => null);
+    if (!textos || estado.datosCandidatos !== carga) return "";
+    carga.avisoComprobacion = Object.freeze({ texto: textos.traducir("ficha.no_encontrada", { posicion: c.orden_acta }),
+      boton: textos.traducir("ficha.ir_peticiones") });
+    renderizar();
+    return carga.avisoComprobacion.texto;
   }
 
   // Tras anotar llamadas, la vista de seguimiento se vuelve a leer al dejar la ficha.
@@ -876,7 +959,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   function cerrarFicha() {
-    if (estado.modalFicha?.enviandoCambioSituacion || estado.modalFicha?.resultadoInciertoCambioSituacion) return;
+    if (fichaProtegida()) return;
     const participacionRef = estado.modalFicha?.candidato?.participacion_ref;
     const recargar = llamadaAnotada(estado.modalFicha);
     estado.modalFicha?.controladorOperaciones?.abort();
@@ -930,6 +1013,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     controladorOperacionesB8.instalar(documento);
     controladorIntentosContacto.instalar(documento);
     controladorSancionesB24.instalar(documento);
+    controladorComprobacion.instalar(documento);
     controladorRegistroContacto.instalar(documento);
     controladorCorreoB7.instalar(documento);
     documento.addEventListener("change", (evento) => {
@@ -959,6 +1043,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     });
     documento.addEventListener("click", (evento) => {
       const enlaceGlobal = evento.target?.closest?.('a[href*="bolsa_global="]');
+      if (enlaceGlobal && fichaProtegida()) { evento.preventDefault(); documento.querySelector?.("[data-directa-paso]")?.focus?.(); return; }
       if (enlaceGlobal && enlaceGlobal.closest?.("#espacio-trabajo") && !(evento.button > 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.altKey)) {
         const destino = new URL(enlaceGlobal.getAttribute("href"), globalThis.location.href);
         if (destino.origin === globalThis.location.origin && destino.pathname === globalThis.location.pathname && destino.hash === "#bolsa/bolsa-candidatos") {
@@ -973,6 +1058,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         }
       }
       const botonVer = evento.target?.closest?.('[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]');
+      if (botonVer && fichaProtegida()) { evento.preventDefault(); documento.querySelector?.("[data-directa-paso]")?.focus?.(); return; }
       if (botonVer) {
         evento.preventDefault();
         if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
@@ -992,6 +1078,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       }
       const botonAccion = evento.target?.closest?.("[data-bolsa-accion]");
       if (!botonAccion) return;
+      if (fichaProtegida() && estado.modalFicha?.operacionesB8?.directa) {
+        evento.preventDefault(); documento.querySelector?.("[data-directa-paso]")?.focus?.(); return;
+      }
       const accion = botonAccion.dataset.bolsaAccion;
       if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando && accion !== "cancelar-b7") {
         evento.preventDefault();
@@ -1005,7 +1094,16 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         void cargarBolsas();
       } else if (accion === "reintentar-candidatos") {
         evento.preventDefault();
-        void cargarCandidatosBolsa(estado.bolsaSeleccionada, { cursor: estado.filtrosBolsa?.nuevo_llamamiento?.cursoresPagina?.at(-1) || "" });
+        void cargarCandidatosBolsa(estado.bolsaSeleccionada, { cursor: estado.filtrosBolsa?.nuevo_llamamiento?.cursoresPagina?.at(-1) || "",
+          exclusionesDesde: estado.datosCandidatos?.exclusionesDesde || 0 });
+      } else if (accion === "pagina-exclusiones" || accion === "primera-pagina-exclusiones") {
+        evento.preventDefault();
+        const actual = estado.datosCandidatos;
+        const origen = actual?.datos?.exclusiones_origen;
+        if (!estado.filtrosBolsa?.seguimiento || actual?.carga !== "listo" || origen?.estado !== "disponible") return;
+        const desde = accion === "primera-pagina-exclusiones" ? 0 : origen.pagina?.hay_mas ? origen.pagina.siguiente_orden_acta : null;
+        if (desde === null || !Number.isSafeInteger(desde) || desde < 0 || desde === actual.exclusionesDesde) return;
+        void cargarCandidatosBolsa(estado.bolsaSeleccionada, { exclusionesDesde: desde });
       } else if (accion === "reintentar-global" || accion === "pagina-global" || accion === "actualizar-global") {
         evento.preventDefault();
         const global = estado.datosCandidatos;
@@ -1053,6 +1151,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         void abrirContactos(ref, nom);
       } else if (accion === "abrir-ficha") {
         evento.preventDefault();
+        if (fichaProtegida()) { documento.querySelector?.("[data-directa-paso]")?.focus?.(); return; }
         const participacionRef = botonAccion.dataset.participacionRef;
         if (llamadaAnotada(estado.modalFicha)) {
           estado.modalFicha = null;
@@ -1063,6 +1162,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "abrir-ficha-historico") {
         // Desde el histórico: vuelve a la relación de candidatos con su ficha abierta.
         evento.preventDefault();
+        if (fichaProtegida()) { documento.querySelector?.("[data-directa-paso]")?.focus?.(); return; }
         estado.filtrosBolsa = { ...estado.filtrosBolsa, pestana: "candidatos" };
         abrirFicha(botonAccion.dataset.participacionRef);
         renderizar();
@@ -1196,6 +1296,10 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     });
 
     documento.addEventListener("submit", (evento) => {
+      if (fichaProtegida() && estado.modalFicha?.operacionesB8?.directa
+        && evento.target?.closest?.("[data-bolsa-form]")) {
+        evento.preventDefault(); documento.querySelector?.("[data-directa-paso]")?.focus?.(); return;
+      }
       const paso1 = evento.target?.closest?.('[data-bolsa-form="b7-paso1"]');
       if (paso1) { evento.preventDefault(); estado.filtrosBolsa.nuevo_llamamiento.paso = 2; void cargarCandidatosBolsa(estado.bolsaSeleccionada); return; }
       const paso2 = evento.target?.closest?.('[data-bolsa-form="b7-paso2"]');
@@ -1354,6 +1458,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       const formFiltros = evento.target?.closest?.('[data-bolsa-form="filtros"]');
       if (formFiltros) {
         evento.preventDefault();
+        if (fichaProtegida()) { documento.querySelector?.("[data-directa-paso]")?.focus?.(); return; }
         invalidarSeleccionMasiva();
         const datos = new FormData(formFiltros);
         estado.filtrosBolsa = {
@@ -1458,7 +1563,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         if(!canal||!resultado||!anotacion){if(estado.modalFicha){estado.modalFicha.errorContacto=traducirBolsaInterna("contacto_formulario_incompleto");renderizar()}return}
 		const huella=JSON.stringify([canal,resultado,anotacion,String(datos.get("llamamiento_ref")||"")]); let clave=estado.modalFicha?.claveContacto; let instante=estado.modalFicha?.instanteContacto;
 		if(!clave||estado.modalFicha?.huellaContacto!==huella){clave=globalThis.crypto?.randomUUID?.()||`contacto-${Date.now()}-${Math.random().toString(16).slice(2)}`;instante=new Date().toISOString();if(estado.modalFicha){estado.modalFicha.claveContacto=clave;estado.modalFicha.huellaContacto=huella;estado.modalFicha.instanteContacto=instante}}
-        void registrarContactoCandidato(estado.bolsaSeleccionada,formContacto.dataset.participacionRef,{canal,resultado,anotacion,instante,llamamiento_ref:String(datos.get("llamamiento_ref")||""),clave_idempotencia:clave}).then(async(res)=>{if(res.ok){const ref=formContacto.dataset.participacionRef;estado.modalFicha=null;await cargarCandidatosBolsa(estado.bolsaSeleccionada);abrirFicha(ref);if(estado.modalFicha){estado.modalFicha.reciboContacto=res.datos.recibo_ref;renderizar()}}else if(estado.modalFicha){estado.modalFicha.errorContacto=res.mensaje;renderizar()}}); return;
+        void registrarContactoCandidato(estado.bolsaSeleccionada,formContacto.dataset.participacionRef,{canal,resultado,anotacion,instante,llamamiento_ref:String(datos.get("llamamiento_ref")||""),clave_idempotencia:clave}).then(async(res)=>{if(res.ok){const ref=formContacto.dataset.participacionRef;if(fichaProtegida()){estado.modalFicha.reciboContacto=res.datos.recibo_ref;renderizar();return}estado.modalFicha=null;await cargarCandidatosBolsa(estado.bolsaSeleccionada);abrirFicha(ref);if(estado.modalFicha){estado.modalFicha.reciboContacto=res.datos.recibo_ref;renderizar()}}else if(estado.modalFicha){estado.modalFicha.errorContacto=res.mensaje;renderizar()}}); return;
       }
 
       const formResultado = evento.target?.closest?.('[data-bolsa-form="resultado"]');
@@ -1516,6 +1621,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     cargarGlobalBolsa,
     cargarEstadisticas,
     abrirFicha,
+    abrirComprobacionOfrecimiento,
     cerrarFicha,
     olvidarEmisionConfirmada,
 	    abrirContactos, cerrarContactos,

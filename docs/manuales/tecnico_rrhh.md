@@ -55,7 +55,7 @@ En Inicio, pulse «Ver todas las peticiones» **(5)** en la cabecera de «Lo pen
 ## Recibir una petición ratificada del centro
 
 1. Abra [Peticiones de los centros](https://vec.cidonia.cloud/portal-empleado/peticiones-centro/?lang=es&vista=rrhh) con el acceso de RRHH. Las peticiones ratificadas que aún no tienen expediente aparecen con el estado de entrega **Pendiente de preparación**. Localice la suya por la fecha y hora de la columna **Ratificación** y pulse **Revisar**. Las que ya tienen expediente muestran **Expediente creado** y su número.
-2. Compruebe centro, categoría, grupo, motivo, período, número de personas y jornada. Compruebe también si el centro aportó una retención de crédito o documentos. En el ejemplo, el centro pidió una persona de la categoría Administrativo, a jornada completa, y no aportó retención.
+2. Compruebe centro, categoría, grupo, motivo, período, número de personas y jornada. Compruebe también si el centro aportó una retención de crédito o documentos. Una retención que el centro marcó con **Sí** aparece como **Declarada; la comprueba RRHH**, con el número de operación de SICAL, la fecha y el importe; compruébela en SICAL o pídasela a Intervención. En el ejemplo, el centro pidió una persona de la categoría Administrativo, a jornada completa, y no aportó retención.
 3. Pulse **Crear expediente en RRHH**. En la revisión escriba el número que RRHH haya dado a este expediente en su registro habitual, marque la confirmación expresa y pulse **Crear expediente en RRHH** una sola vez. Si no dispone de ese número, deténgase.
 4. La pantalla muestra el recibo del alta. Anote dos datos: el **Número visible**, que es el número del expediente, y la **Referencia del recibo**, que sirve para comprobar el alta si algo falla. Use **Abrir el expediente** para seguir con el mismo caso. En el ejemplo se creó `2026/93001`.
 
@@ -75,6 +75,8 @@ En el recorrido, RRHH seleccionó **Acumulación de tareas**, **Administrativo**
 
 1. En **Decidir la vía de cobertura**, lea las comprobaciones de la bolsa. Si la pantalla propone **Bolsa vigente** como vía viable para la categoría, selecciónela y pulse **Confirmar vía de cobertura**. Revise el aviso de confirmación antes de aceptarlo. La pantalla muestra **Decisión confirmada**.
 2. Vuelva a la ficha del mismo expediente. En el ejemplo apareció **Asignar expediente a la unidad responsable**, con **Recursos Humanos** y **Responsable de peticiones de personal temporal**. Compruebe ambos datos, marque la casilla de revisión y pulse **Confirmar asignación** una sola vez. Para comprobar el resultado, vuelva a abrir el mismo expediente y consulte la actuación de asignación en **Historial**.
+
+La cabecera de la ficha indica también el paso de la fase en el que está el expediente. Tras la asignación muestra «Fase 3 de 8: Gestión de bolsa · Asignación de unidad» y, cuando se prepara el informe jurídico, «Fase 3 de 8: Gestión de bolsa · Informe jurídico».
 
 ![Propuesta de Bolsa vigente y comprobaciones que la acompañan.](img/rrhh-20261009-cobertura.webp)
 

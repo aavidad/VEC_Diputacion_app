@@ -78,3 +78,20 @@
 .ct-llamamiento .opcion-grande input[type="radio"] { width: 20px; height: 20px; margin-top: 2px; }
 .ct-llamamiento .opcion-grande strong { display: block; color: var(--portal-tinta); font-size: 1rem; }
 .ct-llamamiento .opcion-grande span span { color: var(--portal-muted); font-size: 0.875rem; }
+
+/* El historial completo ajusta las seis columnas; la fecha no queda fuera
+   del panel. En móvil reutiliza las fichas apiladas del patrón común. */
+[data-ct-informe-historial] .ct-exp-tabla-panel {
+  min-width: 0;
+  table-layout: fixed;
+}
+[data-ct-informe-historial] .tabla-datos th,
+[data-ct-informe-historial] .tabla-datos td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 761px) {
+  [data-ct-informe-historial] th:nth-child(1),
+  [data-ct-informe-historial] th:nth-child(2) { width: 7rem; }
+  [data-ct-informe-historial] th:nth-child(6) { width: 20%; }
+}

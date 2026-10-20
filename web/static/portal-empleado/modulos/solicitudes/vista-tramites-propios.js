@@ -1,5 +1,5 @@
 import { cargarTextos } from "../../../comun/textos.js";
-import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=VEC_WEB_VERSION";
 
 const TEXTOS = await cargarTextos("tramites-empleado");
 const TAMANO = 20;

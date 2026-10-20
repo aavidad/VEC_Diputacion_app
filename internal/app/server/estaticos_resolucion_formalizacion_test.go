@@ -5,7 +5,6 @@ import (
 	"mime"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"vec-diputacion-granada/config"
@@ -29,7 +28,7 @@ func TestModulosResolucionFormalizacionServidos(t *testing.T) {
 	} {
 		for _, modulo := range modulos {
 			t.Run(nombre+"/"+modulo, func(t *testing.T) {
-				original, err := os.ReadFile("../../../web/static" + prefijo + modulo)
+				original, err := leerFuenteWebVersionada("../../../web/static" + prefijo + modulo)
 				if err != nil {
 					t.Fatal(err)
 				}

@@ -1,6 +1,6 @@
-import { crearClienteCategorias } from "./cliente.js?v=20261015-firma-cierre-cache-v3";
-import { TEXTOS_CATEGORIAS, t } from "./i18n.js?v=20261001-rpt-categorias-v1";
-import { montarVistaCategorias } from "./vista.js?v=20261008-hz8-idioma-v1";
+import { crearClienteCategorias } from "./cliente.js?v=VEC_WEB_VERSION";
+import { TEXTOS_CATEGORIAS, t } from "./i18n.js?v=VEC_WEB_VERSION";
+import { montarVistaCategorias } from "./vista.js?v=VEC_WEB_VERSION";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 
 /** Monta la consulta de categorías dentro de la raíz del portal. */

@@ -1,5 +1,5 @@
 import { cargarTextos } from "../comun/textos.js";
-import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { icono } from "../comun/iconos-vec.js?v=VEC_WEB_VERSION";
 
 const TEXTOS = await cargarTextos("accesos-empleado");
 

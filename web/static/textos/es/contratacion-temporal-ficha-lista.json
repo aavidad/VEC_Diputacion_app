@@ -6,8 +6,14 @@
     "ficha_titulo_modulo": "Expediente {numero}",
     "ficha_volver_lista": "Volver a la lista",
     "ficha_expediente_numero": "Expediente {numero}",
+    "ficha_siguiente_paso_informe_titulo": "Siguiente paso: revisar las firmas del informe",
+    "ficha_siguiente_paso_informe_que": "Revise las firmas del informe en el apartado «Circuito de firma». Con ambas firmas verificadas, Intervención puede registrar la fiscalización.",
+    "ficha_siguiente_paso_informe_quien": "Personal técnico de Recursos Humanos y Jefatura de Servicio; después, Intervención.",
+    "ficha_siguiente_paso_intervencion_quien": "Intervención",
     "ficha_siguiente_paso_fase": "Siguiente paso: {fase}",
     "ficha_siguiente_paso_fiscalizacion_intervencion": "Intervención tiene que registrar el resultado de la fiscalización. Cuando lo haga, verá aquí el siguiente paso.",
+    "ficha_siguiente_paso_fiscalizacion_favorable_titulo": "Siguiente paso: llamamiento",
+    "ficha_siguiente_paso_fiscalizacion_favorable_que": "La fiscalización favorable está registrada. Continúe en el apartado «Llamamiento» de esta ficha.",
     "ficha_siguiente_paso_espera": "Esperando a otra unidad",
     "ficha_siguiente_paso_terminado": "Expediente terminado",
     "ficha_siguiente_paso_cobertura_titulo": "Siguiente paso: decidir la vía de cobertura",
@@ -171,6 +177,8 @@
     "resultado_bolsa_contacto_numero_erroneo": "Número incorrecto",
     "resultado_bolsa_contacto_no_entregado": "Correo no entregado",
     "resultado_bolsa_contacto_entrega_declarada": "Entrega registrada por RRHH",
-    "resultado_bolsa_revisar": "Revisar el llamamiento en Bolsa"
+    "resultado_bolsa_revisar": "Revisar el llamamiento en Bolsa",
+    "firmas_historicas_error": "No se pueden mostrar las firmas anteriores. Vuelva a abrir el expediente.",
+    "ficha_fase_con_subfase": "{fase} · {subfase}"
   }
 }

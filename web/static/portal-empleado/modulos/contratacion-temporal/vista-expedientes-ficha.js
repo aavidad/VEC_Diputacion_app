@@ -7,7 +7,8 @@
  * HTML puro a partir del detalle ya autorizado: no ejecuta actuaciones ni
  * deduce responsables o plazos que el servidor no haya dado.
  */
-import { faseRRHH } from "./fases-rrhh-datos.js?v=20261007-pantallas-textos-final-v1";
+import { faseRRHH } from "./fases-rrhh-datos.js?v=VEC_WEB_VERSION";
+import { informeNuevoVigenteEnExpediente } from "./ronda-informe-nuevo.js?v=VEC_WEB_VERSION";
 
 function escapar(valor) {
   return String(valor ?? "")
@@ -43,7 +44,7 @@ export function renderizarCabeceraFicha(expediente, estado, t) {
   return `<header class="cabeza-pagina ct-exp-ficha-cabecera">
     <div>
       <h3 class="ct-exp-ficha-titulo">${escapar(titulo || t("expediente_etiqueta"))}</h3>
-      <p class="estado-linea">${fase ? `<span>${escapar(fase)}</span>` : ""}${estadoTexto
+      <p class="estado-linea">${fase ? `<span data-ct-exp-fase-cabecera>${escapar(fase)}</span>` : ""}${estadoTexto
     ? `<span class="ct-exp-chip${resumen ? ` ct-fase-${escapar(resumen.estado_clave)}` : ""}">${escapar(estadoTexto)}</span>` : ""}</p>
     </div>
     <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escapar(t("ficha_volver_lista"))}</button>
@@ -85,36 +86,61 @@ export function renderizarSiguientePasoFicha(expediente, estado, t, coberturaPen
   const espera = resumen?.estado_clave === "espera";
   const incidencia = resumen?.estado_clave === "incidencia";
   const guiaCobertura = coberturaPendiente === true && !bloqueado && !terminado && !espera;
+  const resultadoFiscalizacion = expediente.fiscalizacion?.resultado_clave;
+  const fiscalizacionFavorable = ["favorable", "favorable_con_observaciones"].includes(resultadoFiscalizacion)
+    && typeof expediente.fiscalizacion?.registrada_en === "string"
+    && expediente.fiscalizacion.registrada_en.trim() !== ""
+    && resumen?.fase_clave === "fiscalizacion" && resumen.estado_clave === "en_curso"
+    && resumen.version === expediente.version && estado.expediente_ref === expediente.expediente_ref
+    && !bloqueado && !terminado && !espera && !incidencia;
   // En fiscalización el acto es de Intervención: a quien no lo es se le dice
   // quién tiene que actuar, sin ofrecerle un trámite que no puede hacer.
-  const esperaIntervencion = fiscalizacionAjena === true && !bloqueado && !terminado && !incidencia
+  const esperaIntervencion = fiscalizacionAjena === true && !fiscalizacionFavorable
+    && resultadoFiscalizacion !== "desfavorable" && !bloqueado && !terminado && !incidencia
     && (resumen?.fase_clave === "fiscalizacion" || expediente.fases?.some(({ fase_ref: ref, estado_clave: e }) => (
       typeof ref === "string" && ref.endsWith(":fiscalizacion") && e !== "pendiente" && e !== "completado")));
-  const titulo = guiaCobertura ? t("ficha_siguiente_paso_cobertura_titulo")
+  const ultimoHito = expediente.historial?.at(-1);
+  const guiaInforme = !bloqueado && !terminado && !espera && !incidencia
+    && resumen?.fase_clave === "informe_juridico" && resumen.estado_clave === "en_curso"
+    && resumen.version === expediente.version && estado.expediente_ref === expediente.expediente_ref
+    && ultimoHito?.accion_clave === "contratacion_temporal.informe_juridico.generar"
+    && ultimoHito.version_expediente === expediente.version
+    // Tras subsanar un reparo, el informe nuevo también se firma antes de volver a Intervención.
+    || !bloqueado && !terminado && estado.expediente_ref === expediente.expediente_ref
+    && informeNuevoVigenteEnExpediente(expediente, resumen);
+  const quien = guiaInforme ? t("ficha_siguiente_paso_informe_quien")
+    : guiaCobertura || fiscalizacionFavorable ? t("unidad_recursos_humanos")
+    : esperaIntervencion ? t("ficha_siguiente_paso_intervencion_quien")
+    : tarea ? actor || t("siguiente_paso_quien_desconocido") : "";
+  const titulo = guiaInforme ? t("ficha_siguiente_paso_informe_titulo")
+    : guiaCobertura ? t("ficha_siguiente_paso_cobertura_titulo")
+    : fiscalizacionFavorable ? t("ficha_siguiente_paso_fiscalizacion_favorable_titulo")
     : esperaIntervencion ? t("ficha_siguiente_paso_espera")
     : terminado ? t("ficha_siguiente_paso_terminado")
     : (espera ? t("ficha_siguiente_paso_espera")
       : (nombreFase ? t("ficha_siguiente_paso_fase", { fase: nombreFase }) : t("siguiente_paso_titulo")));
-  const que = guiaCobertura ? t("ficha_siguiente_paso_cobertura_que")
+  const que = guiaInforme ? t("ficha_siguiente_paso_informe_que")
+    : guiaCobertura ? t("ficha_siguiente_paso_cobertura_que")
+    : fiscalizacionFavorable ? t("ficha_siguiente_paso_fiscalizacion_favorable_que")
     : esperaIntervencion ? t("ficha_siguiente_paso_fiscalizacion_intervencion")
     : accion?.etiqueta ?? (tarea ? t("siguiente_paso_espera", { tarea: tarea.etiqueta }) : t("siguiente_paso_sin_tarea"));
   const conPlazo = resumen?.plazo_estado && resumen.plazo_estado !== "no_calculado";
   const plazo = guiaCobertura ? t("siguiente_paso_plazo_desconocido") : conPlazo ? t("ficha_plazo_fase_estado", {
     fecha: resumen.plazo, estado: t(`plazo_fase_${resumen.plazo_estado}`),
   }) : t("siguiente_paso_plazo_desconocido");
-  const clase = terminado || espera ? " en-espera" : (incidencia ? " con-incidencia" : "");
+  const clase = terminado || espera ? " en-espera" : (incidencia && !guiaInforme ? " con-incidencia" : "");
   return `<section class="siguiente-paso ct-exp-siguiente-paso${clase}" aria-labelledby="ct-exp-siguiente-paso-titulo">
     <div>
       <h3 id="ct-exp-siguiente-paso-titulo">${escapar(titulo)}</h3>
       <dl>
-        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera || guiaCobertura || esperaIntervencion ? escapar(que)
+        <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${tarea || accion || terminado || espera || guiaInforme || guiaCobertura || fiscalizacionFavorable || esperaIntervencion ? escapar(que)
     : `<span class="ct-exp-que-con-tramite">${escapar(t("siguiente_paso_tramite_abajo"))}</span><span class="ct-exp-que-sin-tramite">${escapar(que)}</span>`}</dd></div>
-        ${tarea && !guiaCobertura ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(actor || t("siguiente_paso_quien_desconocido"))}</dd></div>` : ""}
+        ${quien ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(quien)}</dd></div>` : ""}
         <div><dt>${escapar(t("siguiente_paso_hasta"))}</dt><dd>${escapar(plazo)}</dd></div>
       </dl>
       <p id="ct-exp-siguiente-paso-estado" role="status" aria-live="polite" aria-atomic="true">${bloqueado ? escapar(t(mensajeBloqueo)) : ""}</p>
     </div>
-    ${terminado || espera || guiaCobertura || esperaIntervencion ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite"${bloqueado ? ' disabled aria-disabled="true" aria-describedby="ct-exp-siguiente-paso-estado"' : ""}>${escapar(t("ficha_ir_tramite"))}</button>`}
+    ${terminado || espera || guiaInforme || guiaCobertura || fiscalizacionFavorable || esperaIntervencion ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite"${bloqueado ? ' disabled aria-disabled="true" aria-describedby="ct-exp-siguiente-paso-estado"' : ""}>${escapar(t("ficha_ir_tramite"))}</button>`}
   </section>`;
 }
 

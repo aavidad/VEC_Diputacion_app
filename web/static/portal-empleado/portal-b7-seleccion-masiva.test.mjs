@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { consultarSeleccionMasivaBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=20261015-firma-ofertas-justificante-integracion-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261015-firma-ofertas-justificante-integracion-v2";
+import { consultarSeleccionMasivaBolsa, crearControladorBolsas } from "./portal-bolsas-api.js?v=VEC_WEB_VERSION";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=VEC_WEB_VERSION";
 
 function candidata(orden, estado_clave = "disponible") {
   return { participacion_ref: `participacion:${String(orden).padStart(3, "0")}`, estado_clave, orden };

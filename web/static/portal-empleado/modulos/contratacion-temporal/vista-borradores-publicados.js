@@ -1,6 +1,6 @@
 /** Panel de tipos publicados: el catálogo y cada documento se autorizan en servidor. */
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { crearClienteBorradoresPublicados } from "./cliente-http-borradores-publicados.js?v=20261009-borradores-fase-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { crearClienteBorradoresPublicados } from "./cliente-http-borradores-publicados.js?v=VEC_WEB_VERSION";
 
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");

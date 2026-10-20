@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261008-alta-rpt-circular-v6";
+import { montarFormularioFiscalizacion, rotuloTramiteSeguro } from "./formulario-fiscalizacion.js?v=VEC_WEB_VERSION";
 import { renderizarModuloContratacionTemporal,
   montarModuloContratacionTemporal,
-  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { contextoFiscalizacionDesdeEstado } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
+  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js?v=VEC_WEB_VERSION";
+import { contextoFiscalizacionDesdeEstado } from "./vista-expedientes-render.js?v=VEC_WEB_VERSION";
 
 const EXPEDIENTE = "expediente:ct:fiscalizacion:formulario-001";
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
@@ -202,55 +202,87 @@ test("un GET fallido conserva el recibo del formulario y no repite fiscalizació
   panel.desmontar();
 });
 
-test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo", async () => {
+// El llamamiento es de RRHH: la pantalla de Intervención termina en su recibo
+// y no pide datos de llamamiento que el servidor le denegaría.
+function montarIntervencion(cliente, versionRemitida = "5") {
   const raiz = raizFalsa();
   const fiscalizacion = raizFalsa();
-  const llamamiento = raizFalsa();
-  raiz.querySelector = (selector) => selector === "[data-ct-exp-fiscalizacion]"
-    ? fiscalizacion : selector === "[data-ct-exp-llamamiento]" ? llamamiento : null;
+  const selectores = [];
+  raiz.querySelector = (selector) => {
+    selectores.push(selector);
+    return selector === "[data-ct-exp-fiscalizacion]" ? fiscalizacion : null;
+  };
   const modulo = montarModuloFiscalizacionContratacionTemporal({
-    raiz, cliente: {
-      registrarResultadoFiscalizacion: async () => recibo("favorable"),
-      seleccionarLlamamiento: async () => {}, registrarComunicacionLlamamiento: async () => {},
-      registrarRespuestaRecibida: async () => {}, resolverLlamamiento: async () => {},
-      continuarLlamamiento: async () => { assert.fail("el montaje no solicita otro llamamiento"); },
-    },
-    confirmarOperacion: () => true,
+    raiz, cliente, confirmarOperacion: () => true,
   });
   const formulario = {
-    elements: { namedItem: (nombre) => ({ value: nombre === "expediente_ref" ? EXPEDIENTE : "5" }) },
+    elements: { namedItem: (nombre) => ({ value: nombre === "expediente_ref" ? EXPEDIENTE : versionRemitida }) },
     closest() { return this; }, checkValidity() { return true; },
   };
   raiz.eventos.get("submit")({ target: formulario, preventDefault() {} });
+  return { raiz, fiscalizacion, selectores, modulo };
+}
+
+const CLIENTE_LLAMAMIENTO_PROHIBIDO = Object.freeze({
+  consultarDetalleRRHH: async () => { assert.fail("Intervención no consulta el detalle de RRHH"); },
+  seleccionarLlamamiento: async () => { assert.fail("Intervención no selecciona"); },
+  registrarComunicacionLlamamiento: async () => { assert.fail("Intervención no comunica"); },
+  registrarRespuestaRecibida: async () => { assert.fail("Intervención no declara respuesta"); },
+  resolverLlamamiento: async () => { assert.fail("Intervención no resuelve"); },
+  continuarLlamamiento: async () => { assert.fail("Intervención no continúa"); },
+});
+
+test("Intervención ve solo su recibo favorable, sin montar el llamamiento de RRHH", async () => {
+  const { raiz, fiscalizacion, selectores, modulo } = montarIntervencion({
+    ...CLIENTE_LLAMAMIENTO_PROHIBIDO,
+    registrarResultadoFiscalizacion: async () => recibo("favorable"),
+  });
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-exp-llamamiento/u);
   await fiscalizacion.enviar("favorable", "");
-  assert.match(llamamiento.innerHTML, /data-ct-llamamiento/u);
-  assert.match(llamamiento.innerHTML, /Llamamiento de este expediente/u);
-  assert.match(llamamiento.innerHTML, /value="6"/u);
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.match(fiscalizacion.innerHTML, /data-ct-fiscalizacion-recibo/u);
+  assert.doesNotMatch(fiscalizacion.innerHTML, /data-ct-llamamiento/u);
+  assert.ok(!selectores.includes("[data-ct-exp-llamamiento]"));
   modulo.desmontar();
-  assert.equal(llamamiento.eventos.size, 0);
 });
 
 test("Intervención conserva el recibo favorable sin montar un llamamiento con APIs incompletas", async () => {
-  const raiz = raizFalsa();
-  const fiscalizacion = raizFalsa();
-  const llamamiento = raizFalsa();
-  raiz.querySelector = (selector) => selector === "[data-ct-exp-fiscalizacion]"
-    ? fiscalizacion : selector === "[data-ct-exp-llamamiento]" ? llamamiento : null;
-  const modulo = montarModuloFiscalizacionContratacionTemporal({
-    raiz, cliente: {
-      registrarResultadoFiscalizacion: async () => recibo("favorable"),
-      seleccionarLlamamiento: async () => {}, registrarComunicacionLlamamiento: async () => {},
-    },
-    confirmarOperacion: () => true,
+  const { fiscalizacion, selectores, modulo } = montarIntervencion({
+    registrarResultadoFiscalizacion: async () => recibo("favorable"),
+    seleccionarLlamamiento: async () => {}, registrarComunicacionLlamamiento: async () => {},
   });
-  const formulario = {
-    elements: { namedItem: (nombre) => ({ value: nombre === "expediente_ref" ? EXPEDIENTE : "5" }) },
-    closest() { return this; }, checkValidity() { return true; },
-  };
-  raiz.eventos.get("submit")({ target: formulario, preventDefault() {} });
   await fiscalizacion.enviar("favorable", "");
   assert.match(fiscalizacion.innerHTML, /data-ct-fiscalizacion-recibo/u);
-  assert.equal(llamamiento.innerHTML, "");
+  assert.ok(!selectores.includes("[data-ct-exp-llamamiento]"));
+  modulo.desmontar();
+});
+
+test("el recibo de Intervención nombra la fase y el estado con los rótulos del catálogo", async () => {
+  const { fiscalizacion, modulo } = montarIntervencion({
+    registrarResultadoFiscalizacion: async () => recibo("favorable"),
+  });
+  await fiscalizacion.enviar("favorable", "");
+  assert.match(fiscalizacion.innerHTML, /<dd>Fiscalización<\/dd>/u);
+  assert.match(fiscalizacion.innerHTML, /<dd>En trámite<\/dd>/u);
+  assert.match(fiscalizacion.innerHTML, /deja constancia del resultado, de quién lo registró/u);
+  assert.doesNotMatch(fiscalizacion.innerHTML, /<dd>(fiscalizacion|en curso)<\/dd>/u);
+  modulo.desmontar();
+});
+
+test("una fase o un estado fuera del catálogo no rompen el recibo", () => {
+  assert.equal(rotuloTramiteSeguro(() => "", "estado_desconocido"), "estado desconocido");
+  assert.equal(rotuloTramiteSeguro(() => { throw new Error("falta el rótulo"); }, "fase_rara"), "fase rara");
+  assert.equal(rotuloTramiteSeguro(() => "Fiscalización", "fiscalizacion"), "Fiscalización");
+});
+
+test("el recibo desfavorable muestra la fase de RRHH y el estado de incidencia legibles", async () => {
+  const { fiscalizacion, modulo } = montarIntervencion({
+    registrarResultadoFiscalizacion: async () => recibo("desfavorable"),
+  });
+  await fiscalizacion.enviar("desfavorable", "Reparo sintético para la unidad.");
+  assert.match(fiscalizacion.innerHTML, /data-ct-fiscalizacion-recibo/u);
+  assert.match(fiscalizacion.innerHTML, /<dd>Fiscalización<\/dd>/u);
+  assert.doesNotMatch(fiscalizacion.innerHTML, /subsanacion unidad|<dd>incidencia<\/dd>/u);
   modulo.desmontar();
 });
 
@@ -264,34 +296,16 @@ test("la fiscalización rechaza contexto de demostración", () => {
   }
 });
 
-test("un resultado favorable v8 prepara la selección con su versión sin ejecutar efectos", async () => {
-  const raiz = raizFalsa();
-  const fiscalizacion = raizFalsa();
-  const llamamiento = raizFalsa();
-  raiz.querySelector = (selector) => selector === "[data-ct-exp-fiscalizacion]"
-    ? fiscalizacion : selector === "[data-ct-exp-llamamiento]" ? llamamiento : null;
-  const modulo = montarModuloFiscalizacionContratacionTemporal({
-    raiz,
-    cliente: {
-      registrarResultadoFiscalizacion: async () => ({ ...recibo("favorable"), version_resultante: 8 }),
-      seleccionarLlamamiento: async () => { assert.fail("montar no selecciona"); },
-      registrarComunicacionLlamamiento: async () => { assert.fail("montar no comunica"); },
-      registrarRespuestaRecibida: async () => { assert.fail("montar no declara respuesta"); },
-      resolverLlamamiento: async () => { assert.fail("montar no resuelve"); },
-      continuarLlamamiento: async () => { assert.fail("montar no continúa"); },
-    },
-    confirmarOperacion: () => true,
-  });
-  const formulario = {
-    elements: { namedItem: (nombre) => ({ value: nombre === "expediente_ref" ? EXPEDIENTE : "7" }) },
-    closest() { return this; }, checkValidity() { return true; },
-  };
-  raiz.eventos.get("submit")({ target: formulario, preventDefault() {} });
+test("un resultado favorable v8 deja el recibo sin preparar la selección ni ejecutar efectos", async () => {
+  const { fiscalizacion, selectores, modulo } = montarIntervencion({
+    ...CLIENTE_LLAMAMIENTO_PROHIBIDO,
+    registrarResultadoFiscalizacion: async () => ({ ...recibo("favorable"), version_resultante: 8 }),
+  }, "7");
   await fiscalizacion.enviar("favorable", "");
-
-  assert.match(llamamiento.innerHTML, /data-ct-llamamiento/u);
-  assert.match(llamamiento.innerHTML, /value="8"/u);
+  await new Promise((resolver) => setImmediate(resolver));
   assert.match(fiscalizacion.innerHTML, /data-ct-fiscalizacion-recibo/u);
+  assert.match(fiscalizacion.innerHTML, /<dd>8<\/dd>/u);
+  assert.ok(!selectores.includes("[data-ct-exp-llamamiento]"));
   modulo.desmontar();
 });
 

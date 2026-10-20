@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
-import { MENSAJES_PORTAL } from "./portal-i18n.js?v=20261001-ct-a-i18n-v1";
-import { cargarMensajesContratacionTemporalEnIdioma, crearTraductorContratacionTemporal } from "./modulos/contratacion-temporal/i18n.js?v=20261008-alta-rpt-circular-v6";
+import { MENSAJES_PORTAL } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { cargarMensajesContratacionTemporalEnIdioma, crearTraductorContratacionTemporal } from "./modulos/contratacion-temporal/i18n.js?v=VEC_WEB_VERSION";
 const MENSAJES_CONTRATACION_TEMPORAL_ES = await cargarMensajesContratacionTemporalEnIdioma("es");
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n, mensajeValidacionPortal } from "./portal-idioma.js?v=20261001-ct-a-i18n-v1";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n, mensajeValidacionPortal } from "./portal-idioma.js?v=VEC_WEB_VERSION";
 import { cadenasHumanas, hallazgosHTML, hallazgosTextosLiterales } from "./textos-literales.test-helper.mjs";
 
 // Todo texto visible de Bolsa y Contratación temporal sale de un catálogo i18n:
@@ -28,7 +28,7 @@ async function ficherosAuditados() {
   return lista.filter((ruta) => !EXCLUIDOS.test(ruta)).sort();
 }
 
-const PAGINAS = ["index.html", "peticiones-centro/index.html", "reglas/index.html", "modulos/contratacion-temporal/consulta-seguimiento.html"];
+const PAGINAS = ["index.html", "peticiones-centro/index.html", "reglas/index.html", "modulos/contratacion-temporal/consulta-seguimiento.html", "modulos/contratacion-temporal/revision-no-incorporacion.html"];
 
 test("Contratación temporal conserva claves y marcadores en inglés", async () => {
   const es = await cargarMensajesContratacionTemporalEnIdioma("es");

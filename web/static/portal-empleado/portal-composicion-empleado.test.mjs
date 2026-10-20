@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import * as i18nCronos from "./modulos/cronos/i18n.js";
-import * as composicionEmpleado from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
+import * as composicionEmpleado from "./portal-composicion-empleado.js?v=VEC_WEB_VERSION";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
-} from "./portal-composicion-empleado.js?v=20261008-alta-rpt-circular-v4";
+} from "./portal-composicion-empleado.js?v=VEC_WEB_VERSION";
 
 test("la composición no exporta montajes huérfanos de presentación", () => {
   assert.equal(Object.hasOwn(composicionEmpleado, "componerCronosVisible"), false);

@@ -73,7 +73,6 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
 	cuentasInternasJustificanteRRHH                  map[string]cuentaNominalJustificanteRRHH
-	soportesLectoresDocumentosBolsa                  map[string]*soporteAltaContratacionTemporalDesarrollo
 	soporteDocumentosBolsa                           *soporteAltaContratacionTemporalDesarrollo
 	poolDocumentosBolsa                              *pgxpool.Pool
 	prepararOriginal                                 func(*autoridadDocumentosDesarrollo, *seudonimizadorAlmacenDesarrollo) ([]vechttp.RutaExacta, error)
@@ -104,6 +103,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialAspirantes                               proveedoresMaterialAspirantes
+	materialPreferenciasBolsasInternas               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialOrganizacionHistorica                    CapacidadPublicadaOrganizacionHistoricaV3
 	proveedorMaterialOrganizacionHistorica           *proveedorMaterialAltaContratacionTemporalDesarrollo
 	sesionOrganizacionHistorica                      *proveedorSesionConsultaRRHHDesarrollo
@@ -152,6 +152,11 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) instalarDelegadoComu
 	a.delegado = delegado
 	a.instalado = true
 	return nil
+}
+
+func sustituyeRutaFirmasR5PorNominalCT(firmaVecActiva bool, ruta string) bool {
+	return firmaVecActiva && (ruta == httpinterno.RutaConsultaFirmasR5V2 ||
+		ruta == httpinterno.RutaRecuperacionFirmasR5V2)
 }
 
 func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigadaV3(
@@ -737,11 +742,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil || (auditoriaActiva && (!cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas())) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
 	}
-	lectoresDeclarados := resolvedorDesarrollo.lectoresConsultaRRHH()
-	lectoresConsulta := make([]string, 0, len(lectoresDeclarados))
-	for _, lector := range lectoresDeclarados {
-		lectoresConsulta = append(lectoresConsulta, lector.perfilRef)
-	}
+	lectoresConsulta := perfilesLectoresConsultaRRHHDesarrollo(resolvedorDesarrollo.lectoresConsultaRRHH())
 	perfilesConsulta := perfilesConsultaContratacionTemporalDesarrollo(perfilCTCatalogo, lectoresConsulta)
 	if firmaVecActiva {
 		for _, firmante := range configuracionFirmaVec.Firmantes {
@@ -769,6 +770,14 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		perfilCTCatalogo, perfilesConsulta, firmaDocumento != nil, plantillasActivas, perfilPlantillas)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if resolvedorDesarrollo.segundoTecnicoRRHH != nil {
+		contextoSegundo, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(
+			resolvedorDesarrollo.segundoTecnicoRRHH.principal, reloj.Ahora())
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		admitirSegundoRRHHEnFronteras(declaracionesFrontera, contextoSegundo.Resultado.Contexto.PerfilActivoRef)
 	}
 	declaracionesFrontera = append(declaracionesFrontera, fronteraJustificanteBolsaRRHHDesarrollo(perfilesConsulta))
 	if alta.postgresql.vinculoEmisionBolsa {
@@ -911,6 +920,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		declaracionesFrontera = append(declaracionesFrontera, bolsaFronteras...)
+		declaracionesFrontera = append(declaracionesFrontera, fronterasGobiernoTransicionesBolsaDesarrollo(perfilBolsa)...)
 	}
 	var soportesAuditoria soportesAuditoriaConsultaDesarrollo
 	if auditoriaActiva {
@@ -1104,6 +1114,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		autoridadSubsanacion = subsanacionReal.autoridad
 		ejecutorSubsanacion = subsanacionReal.servicio
 	}
+	var consultorEstadoSeleccionOferta httpinterno.ConsultorEstadoSeleccionOferta
+	if consulta, ok := seleccionReal.(httpinterno.ConsultorEstadoSeleccionOferta); ok {
+		consultorEstadoSeleccionOferta = consulta
+	}
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			PresentacionFlujoRRHH:           presentacionFlujoRRHH,
@@ -1125,6 +1139,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			BorradorRRHH:                    borradorRRHH,
 			BorradorRRHHDOCX:                borradorRRHHDOCX,
 			EjecutorSeleccion:               seleccionReal,
+			ConsultorEstadoSeleccionOferta:  consultorEstadoSeleccionOferta,
 			AutoridadPropuestaFormalizacion: autoridadPropuestaReal,
 			EjecutorPropuestaFormalizacion:  propuestaReal,
 			AutoridadAsignacion:             alta.soporte,
@@ -1164,8 +1179,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	if firmasR5V2 != nil {
 		for _, rutaFirmaR5 := range firmasR5V2.rutas {
-			if firmaVecActiva && rutaFirmaR5.Ruta == httpinterno.RutaConsultaFirmasR5V2 {
-				continue // La consulta nominal ocupa la única ruta exacta R5.
+			if sustituyeRutaFirmasR5PorNominalCT(firmaVecActiva, rutaFirmaR5.Ruta) {
+				continue // El montaje nominal ocupa ambas rutas exactas R5.
 			}
 			rutas = append(rutas, rutaFirmaR5)
 		}
@@ -1347,6 +1362,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 				return nil, nil, nil, err
 			}
 			cerrarClienteM10CT = configurarDatosEmisionConstituidaOpcionalCT(cfg, seleccion.puente, reglasLlamamiento, reloj.Ahora)
+			cerrarOfertas := configurarSeleccionOfertaOpcionalCT(cfg, &alta, seleccion,
+				bolsa.preparador, catalogoFronteras, derivador, reloj)
+			cerrarDatos := cerrarClienteM10CT
+			cerrarClienteM10CT = func() { cerrarOfertas(); cerrarDatos() }
 		}
 		if len(incorporacion) == 1 && incorporacion[0].nominales != nil &&
 			incorporacion[0].nominales.montajeB2 != nil {
@@ -1399,6 +1418,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			cerrarBorrador()
 		}
 	}()
+	derivacionNombramiento, err := nuevaRutaDerivacionNombramientoDesarrollo(nil)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaDerivacionNombramiento, Manejador: derivacionNombramiento})
 	rutas = append(rutas, rutasBorrador...)
 	cerrarPreparacionBases := func() {}
 	if preparacionBasesActiva {
@@ -1553,12 +1577,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			}
 		}
 	}
-	var soportesDocumentos map[string]*soporteAltaContratacionTemporalDesarrollo
-	if lectores, ok := consultasRRHH.cuadroHTTP.(*multiplexoresLectoresRRHHDesarrollo); ok {
-		soportesDocumentos = lectores.soportes
-	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
-		soportesLectoresDocumentosBolsa:                  soportesDocumentos,
 		soporteDocumentosBolsa:                           alta.soporte,
 		poolDocumentosBolsa:                              alta.postgresql.bolsa,
 		sello:                                            sello,
@@ -1590,6 +1609,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialUsuariosCorreos:                          alta.postgresql.materialUsuariosCorreos,
 		materialUsuariosImagen:                           alta.postgresql.materialUsuariosImagen,
 		materialAspirantes:                               alta.postgresql.materialAspirantes,
+		materialPreferenciasBolsasInternas:               alta.postgresql.materialPreferenciasBolsasInternas,
 		materialOrganizacionHistorica:                    alta.postgresql.materialOrganizacionHistorica,
 		proveedorMaterialOrganizacionHistorica:           alta.postgresql.proveedorMaterialOrganizacionHistorica,
 		sesionOrganizacionHistorica:                      consultasRRHH.identidad,

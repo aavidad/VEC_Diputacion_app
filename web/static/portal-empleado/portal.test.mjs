@@ -6,12 +6,12 @@ import {
   extraerDatosEnvelopeCanonico,
   validarPanelBolsa,
 } from "./portal-contrato.js";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20261015-firma-ofertas-justificante-integracion-v2";
-import { MENSAJES_PORTAL, traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=VEC_WEB_VERSION";
+import { MENSAJES_PORTAL, traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 await prepararTextosPortal("ayuda");
-const { AYUDA_PORTAL_BOLSA } = await import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1");
-import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js?v=20261007-pantallas-textos-final-v1";
-import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
+const { AYUDA_PORTAL_BOLSA } = await import("./ayuda-contenido.js?v=VEC_WEB_VERSION");
+import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js?v=VEC_WEB_VERSION";
+import { versionDe } from "./versiones-cache.test-helper.mjs";
 
 const directorio = new URL("./", import.meta.url);
 const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, panelInterno, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
@@ -130,6 +130,7 @@ test("Bolsa se ofrece mientras se lee su cuadro o tras un fallo y deja de ofrece
   const estadoBolsa = { vista: "portal", datosBolsas: null };
   const disponibilidad = runInNewContext(`${javascript.slice(inicio, fin)}; disponibilidadBolsa`, {
     estado: estadoBolsa,
+    vistaNecesitaBolsa: () => true,
     accesoBolsaEfectivo,
     traducirPortal: (clave) => clave,
     coordinadorModulos: { obtenerCatalogo: () => [{ clave: "bolsa" }] },
@@ -317,7 +318,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   assert.throws(() => presentador.renderizarVista("resumen"), /requiere un panel interno válido/);
 
   assert.match(javascript, /crearPresentadorPanelInterno/);
-  exigirRenovado(javascript, "./portal-panel-interno.js", "20260924-rescate-web-v4");
+  versionDe(javascript, "./portal-panel-interno.js");
   for (const indicador of [
     "bolsas_activas", "llamamientos_pendientes", "llamamientos_en_curso",
     "documentos_pendientes_firma", "incidencias_abiertas",
@@ -333,32 +334,14 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   }
   // Entrada y coordinador cambiaron después de estas versiones publicadas:
   // piden una URL nueva, única en cada importador.
-  exigirRenovado(html, "/portal-empleado/portal.js", "20260924-rescate-web-v4");
-  exigirRenovado(javascript, "./portal-modulos-coordinador.js", "20260924-web-paradas-periodos-v1");
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/);
-  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v5/);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v4/);
-  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v4/);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-v3/);
-  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-web-c-v3/);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-dietas-consulta-v2/);
-  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-dietas-consulta-v2/);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cronos-permisos-v2/);
-  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-cronos-permisos-v2/);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cronos-permisos-v1/);
-  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-cronos-permisos-v1/);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-personal-estados-v4/);
-  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-personal-estados-v4/);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-p1-personal-interno-v2/);
-  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-p1-personal-interno-v2/);
-  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cache-v3/);
-  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-cache-v3/);
-  exigirRenovado(javascript, "./portal-inicio.js", "20260924-f2-cronos-permisos-v2");
-  exigirRenovado(javascript, "./portal-i18n.js", "20260924-rescate-web-v4");
+  versionDe(html, "/portal-empleado/portal.js");
+  versionDe(javascript, "./portal-modulos-coordinador.js");
+  versionDe(javascript, "./portal-inicio.js");
+  versionDe(javascript, "./portal-i18n.js");
   assert.match(javascript, /traducirPortal\("error_catalogo_modulos"\)/);
-  exigirRenovado(javascript, "./portal-bolsas-api.js", "20260924-rescate-web-v4");
-  exigirRenovado(javascript, "./portal-borradores-ui.js", "20260924-f2-cronos-permisos-v2");
-  exigirRenovado(javascript, "./portal-eventos.js", "20260924-rescate-web-v4");
+  versionDe(javascript, "./portal-bolsas-api.js");
+  versionDe(javascript, "./portal-borradores-ui.js");
+  versionDe(javascript, "./portal-eventos.js");
   assert.doesNotMatch(javascript, /import\("\.\/portal-resumen-presentacion\.js/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
   assert.doesNotMatch(manifiestoProduccion, /portal-resumen-presentacion\.js/);

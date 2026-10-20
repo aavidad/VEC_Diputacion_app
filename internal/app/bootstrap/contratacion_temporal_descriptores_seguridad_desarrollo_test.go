@@ -75,6 +75,7 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		{"ct-expediente-cancelar", string(ctdomain.AccionCancelarExpediente), cthttp.RutaCancelacionesExpediente},
 		{"ct-cancelacion-consultar", accionConsultarCancelacionCTDesarrollo, cthttp.RutaCancelacionExpediente},
 		{"ct-llamamiento-seleccionar", accionConsultarLlamamientoDesarrollo, cthttp.RutaSeleccionLlamamiento},
+		{"ct-oferta-estado-consultar", accionConsultarLlamamientoDesarrollo, cthttp.RutaConsultaEstadoSeleccionOferta},
 		{"ct-llamamiento-comunicacion-registrar", ctpostgres.AccionRegistroComunicacionLlamamiento, cthttp.RutaRegistroComunicacionLlamamiento},
 		{"ct-llamamiento-comunicaciones-consultar", ctpostgres.AccionConsultaComunicacionesExpediente, cthttp.RutaConsultaComunicacionesExpediente},
 		{"ct-llamamiento-respuesta-registrar", ctpostgres.AccionRegistroRespuestaRecibida, cthttp.RutaRegistroRespuestaRecibida},
@@ -84,6 +85,7 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		{"ct-llamamiento-plazo-evento", ctpostgres.AccionResolucionManualLlamamiento, cthttp.RutaEventoPlazoLlamamiento},
 		{"ct-formalizacion-proponer", ctpostgres.AccionPropuestaFormalizacion, cthttp.RutaPropuestaFormalizacion},
 		{"ct-formalizacion-resolver", ctpostgres.AccionResolucionFormalizacion, cthttp.RutaResolucionFormalizacion},
+		{"ct-nombramiento-derivar", string(ctdomain.AccionDerivarNombramiento), cthttp.RutaDerivacionNombramiento},
 		{"ct-peticiones-centro-rrhh-entregar", ctports.AccionEntregarPeticionRRHH, rutaEntregaPeticionCentro},
 		{"ct-peticiones-centro-rrhh-consultar", ctports.AccionConsultarPeticionesRRHH, rutaEntregaPeticionCentro},
 	}
@@ -101,7 +103,7 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		}
 		metodo := http.MethodPost
 		if par.clave == "ct-peticiones-centro-rrhh-consultar" || par.clave == "ct-llamamiento-comunicaciones-consultar" ||
-			par.clave == "ct-llamamiento-recibo-respuesta-consultar" {
+			par.clave == "ct-llamamiento-recibo-respuesta-consultar" || par.clave == "ct-oferta-estado-consultar" {
 			metodo = http.MethodGet
 		}
 		if frontera.Clave != par.clave || frontera.Metodo != metodo || frontera.Ruta != par.ruta || frontera.ClaveCapacidad != par.accion || !reflect.DeepEqual(frontera.PerfilesActivosRef, perfilesEsperados) {

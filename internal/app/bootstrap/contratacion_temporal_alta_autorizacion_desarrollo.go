@@ -34,8 +34,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 	).(capacidadConsultaContratacionTemporalDesarrollo)
 	principalValido := principalContratacionTemporalDesarrolloValido(capacidad.principal)
 	if s.lectorConsultasRRHH {
-		principalValido = (rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
-			s.tecnicoConsultaRRHH && (rutaDocumentosBolsaRRHHDesarrollo(capacidad.ruta) || rutaJustificanteBolsaRRHHDesarrollo(capacidad.ruta))) &&
+		principalValido = rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) &&
 			principalSinteticoContratacionTemporalDesarrolloValido(capacidad.principal)
 	}
 	if s.peticionesCentro {
@@ -85,6 +84,7 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		ruta == httpinterno.RutaSubsanacionReparos ||
 		rutaFirmaDocumentoCTDesarrollo(ruta) ||
 		rutaSeguimientoCeseDesarrollo(ruta) || rutaCancelacionCTDesarrollo(ruta) ||
+		ruta == httpinterno.RutaConsultaEstadoSeleccionOferta ||
 		rutaLlamamientoContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaConsultaCircuitoRRHH ||
 		rutaFirmasR5V2CTDesarrollo(ruta) || rutaOriginalFirmableCTDesarrollo(ruta) ||
@@ -264,7 +264,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAltaAdmitido(
 	ctx context.Context, organizacionRef string, clave domain.ClaveCatalogo,
 	esquema string, necesidad *domain.DatosNecesidadAlta,
 ) (bool, error) {
-	if esquema == ports.EsquemaAltaNecesidadV1 {
+	if esquema == ports.EsquemaAltaNecesidadV1 || esquema == ports.EsquemaAltaNecesidadV2 {
 		return necesidad != nil && necesidad.CausaClave == clave &&
 			application.NecesidadAltaValidadaPara(ctx, organizacionRef, necesidad), nil
 	}

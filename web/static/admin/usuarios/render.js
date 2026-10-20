@@ -1,4 +1,4 @@
-import { etiquetaNombreMetadatos } from "./metadatos.js?v=20261005-admin-lote-pantalla-v1";
+import { etiquetaNombreMetadatos } from "./metadatos.js?v=VEC_WEB_VERSION";
 export const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
   .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 export function crearRender({ root, id, textos, metadatos = false }) {

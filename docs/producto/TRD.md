@@ -360,6 +360,18 @@ el motivo mediante conexiones nominales separadas antes de emitir los dos
 archivos privados. Procedimiento y alcance del ensayo en
 `cmd/vec-preparar-material-interno/LEEME-OH.md`.
 
+Las preferencias entre bolsas de Mi Bolsa interna usan el selector opcional
+`VEC_BOLSA_PREFERENCIAS_INTERNA_ENABLED`. Requieren la sesión corporativa de
+Usuarios (`VEC_USUARIOS_PREFERENCIAS_ENABLED`) y un fichero privado propio,
+`identidad/bolsa-preferencias-interna.json`, con el DSN del LOGIN Bolsa nominal
+y la cuenta y perfil de candidato internos. El montaje reutiliza la
+infraestructura de sesión de Usuarios y lee la autoridad publicada. Al
+arrancar solo publica la clave de su audiencia con el gobierno de desarrollo de
+vec-server, como las demás audiencias internas; no crea permisos, LOGIN ni
+filas de origen. Si se solicita sin sus dependencias, la ruta
+de preferencias devuelve 503 y el servidor continúa. El contrato de
+activación está en `deploy/principal/candidata_hz39/aspirante/preferencias_internas.md`.
+
 ### Regla: ninguna configuración nueva tumba el arranque
 
 Si falta o está mal la configuración de una función, falla solo esa función. La
@@ -483,6 +495,18 @@ permiso.
 - El caso de uso revalida la autorización justo antes del efecto, también al
   repetir una operación. Una concesión histórica o una referencia opaca no dan
   acceso por sí solas.
+- F1-36A prepara la recuperación exacta de una firma original con la clave y
+  el corte del acto, y comprueba la unidad histórica frente a la asignación
+  vigente de quien consulta. La asignación solo restringe: no concede acceso
+  a la ficha, no exige ser el firmante original ni consulta el plan actual.
+  Los pasos anteriores salen solo si están enlazados por `FirmaAnteriorRef`
+  desde la firma exacta. Se verifican internamente sus cánones, pero el texto
+  `CanonNominal` solo se devuelve para la firma exacta; de las anteriores se
+  entregan la referencia y la huella.
+  Una clave ausente no se sustituye por una búsqueda aproximada. El campo
+  `selectores_recuperacion_firmas` exige una concesión exacta; `[]` no es
+  comodín. La recuperación de Portafirmas sin unidad histórica sigue denegada.
+  La fuente autorizada de la ficha y el panel quedan para B y C.
 - Se conserva la separación de funciones: preparar, revisar, publicar, firmar y
   auditar requieren las personas y competencias de cada circuito. Una misma
   persona no cubre un doble control cambiando de perfil.
@@ -576,6 +600,24 @@ Una recuperación reutiliza la operación original; no se crea otra para aparent
 recibos y fechas y nada duplicado. Una repetición o un reinicio nunca duplican
 efectos, recibos ni comunicaciones.
 
+F1-36B prepara una lectura ampliada de la ficha de Contratación temporal. La
+decisión vigente debe conceder exactamente `selectores_recuperacion_firmas`;
+una asignación propia y vigente de cargo de firma restringe el resultado a la
+organización y unidad históricas. SQL forma el selector y un anexo privado,
+inmutable y unido al recibo de esa consulta de ficha. Comprueba vigencia antes del
+cierre y en el momento de confirmar la transacción; el apunte de auditoría
+queda en la misma transacción. El recibo anterior de ficha no prueba por sí
+solo qué selectores se ofrecieron. El ensayo SQL y la prueba de caducidad de B están comprobados; C añade la respuesta HTTP y el panel.
+
+F1-36C prepara la presentación de la historia de firmas originales en la
+ficha de Contratación temporal. Cada pulsación sobre una firma consulta de
+nuevo el acto con autorización vigente y deja un acceso nuevo; el recibo que
+se muestra pertenece al registro original. La respuesta ampliada de la ficha
+exige juntos los selectores y su recibo, aun si la lista es `[]`; ausencia de
+uno falla cerrada. El cliente limita a 128 entradas, no muestra canones de
+identidad ni huellas y cancela la consulta al cambiar de expediente. La
+publicación y el recorrido real siguen pendientes.
+
 ## 8. Protección de datos
 
 - **Solo datos sintéticos**, con nombres verosímiles, hasta cerrar la EIPD
@@ -662,7 +704,7 @@ inventan plazos, nombramientos eficaces ni incorporaciones.
 
 | Objetivo | Medida |
 | --- | --- |
-| Lecturas de pantallas (listas, fichas, cuadros) | Menos de 300 ms en el percentil 95 (p95: el 95 % de las peticiones tarda menos), medido por HTTP en cidonia con volumen real |
+| Lecturas de pantallas (listas, fichas, cuadros) | Menos de 300 ms en el percentil 95 (p95: el 95 % de las peticiones tarda menos), medido por HTTP en la copia local con el volumen de la principal |
 | Base común (sesión, módulos, preferencias) | Menos de 100 ms |
 | Consultas por petición | Sin N+1: nunca una consulta por cada fila de una lista. Se lee en bloque y se pagina |
 | Volumen | Miles de registros, con carga progresiva |
@@ -695,8 +737,9 @@ Telemetría por petición (`internal/shared/telemetria/`):
   Pruebas de carga: `scripts/carga/`.
 
 **Lo que falta.** El cuadro de Contratación temporal medía entre 363 y 372 ms de
-p95 el 08/10, por encima del objetivo. Faltaba medir todas las lecturas en
-cidonia (`docs/producto/PLAN_IMPLEMENTACION.md`, fase 1, condición 4).
+p95 el 08/10, por encima del objetivo. Falta medir todas las lecturas en la
+copia local (tablero, F1-34; `docs/producto/PLAN_IMPLEMENTACION.md`, fase 1,
+condición 4).
 
 ## 11. Seguridad
 
@@ -766,6 +809,14 @@ Los nombres del código van en castellano coherente, salvo términos técnicos
 universales y convenciones de Go. No se mezcla castellano e inglés en el mismo
 vocabulario.
 
+Los estáticos públicos usan una versión común calculada al construir el servidor:
+SHA-256 de los nombres y bytes del manifiesto web, en orden. En las fuentes,
+`?v=VEC_WEB_VERSION` es un marcador que se sustituye antes de servir HTML,
+módulos y políticas de caché. No se renuevan cadenas por módulo. Solo la huella
+vigente permite caché `immutable`; otra versión obliga a revalidar. Para activar
+un cambio se publican juntos binario, manifiesto y estáticos y se reinicia la app.
+No necesita configuración ni SQL. La vuelta atrás restaura ese mismo conjunto.
+
 ## 13. Calidad del código
 
 - Comentarios de documentación donde la intención o el contrato no sean obvios.
@@ -789,7 +840,7 @@ vocabulario.
 
 ## 14. Pruebas e integración continua
 
-### Las cinco puertas de la CI
+### Las seis puertas de la CI
 
 La CI (integración continua) es la batería automática que GitHub ejecuta en cada
 PR y en cada envío a `main` (`.github/workflows/ci.yml`):
@@ -801,6 +852,7 @@ PR y en cada envío a `main` (`.github/workflows/ci.yml`):
 | `puerta-artefactos-productivos` | Construye las imágenes pública e interna y comprueba su contenido y su fallo cerrado | 2 a 5 min |
 | `puerta-postgresql-contexto-actor-v3` | Identidad y autorización V3 en un PostgreSQL 18 real | 2 min |
 | `puerta-postgresql-bolsa-publica` | Proyección pública de Bolsa en PostgreSQL 18 con TLS | 2 min |
+| `puerta-postgresql-recorrido-fase1` | Restaura el esquema sin datos, prepara los catálogos mínimos, instala la migración documental ausente y la lista posterior, y ejecuta siete pruebas SQL funcionales antes y después de reiniciar PostgreSQL, y una carrera real de publicación de contexto | Instalación: 29 s; cuatro pruebas: 36 s; seis pruebas: 40 s; con reinicio, por medir |
 
 `scripts/verificar_calidad.sh` ejecuta: comprobación de `search_path`, `gofmt`,
 `go mod verify`, `go test ./...`, `go test -race ./...`, `go vet ./...`,
@@ -850,8 +902,11 @@ Cada subida a cidonia se llama «HZ» seguida de un número correlativo (HZ36 el
 5. Comprueba que la web responde (`/portal-empleado/` en 200).
 6. Si falla el SQL o el arranque, **vuelve atrás sola** a la versión anterior.
 
-Desde el 15/10 cidonia está fuera hasta nueva orden y todo se ensaya y se
-recorre en una copia local; lo que sigue vale para cuando vuelva.
+Desde el 15/10 cidonia está fuera y todo se ensaya y se recorre en una copia
+local. La única excepción fue la subida de la presentación del 18/10, con vuelta
+atrás al paquete anterior; después volvió a quedar congelada. La siguiente
+instalación irá a un servidor nuevo con CPU dedicada (tablero, F7-22); lo que
+sigue vale para entonces.
 cidonia nunca puede quedar apagada por un fallo de arranque. Si la versión nueva
 exige configuración o actos previos, se preparan y se ensayan antes en una copia.
 El registro de cada HZ (revisión, copia y vuelta atrás) se guarda fuera de Git.

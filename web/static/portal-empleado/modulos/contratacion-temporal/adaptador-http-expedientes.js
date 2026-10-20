@@ -2,12 +2,12 @@ import {
   CAPACIDADES_CONTRATACION_TEMPORAL,
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
-} from "./contrato-expedientes.js?v=20261011-bolsa-b103-privacidad-v1";
-import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=20261002-ct-fin-modalidad-v1";
-import { validarCatalogosAlta } from "./contrato.js?v=20261013-ct-firma-tres-v3";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
-import { faseRRHH } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
+} from "./contrato-expedientes.js?v=VEC_WEB_VERSION";
+import { minutosJornadaCompletaValidos, validarDatosPeticionAnalisis } from "./contrato-analisis.js?v=VEC_WEB_VERSION";
+import { validarCatalogosAlta } from "./contrato.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { faseRRHH } from "./i18n-fases-rrhh.js?v=VEC_WEB_VERSION";
 
 const ESTADOS_SERVIDOR_A_VISUAL = new Map([
   ["pendiente", "pendiente"],
@@ -209,6 +209,23 @@ function faseConOrden(clave, t) {
   }) : etiqueta(clave, t);
 }
 
+// Fases del servidor que son un paso dentro de una fase de RRHH. La cabecera
+// las nombra junto a ella («Fase 3 de 8: Gestión de bolsa · Informe jurídico»)
+// para que la ficha diga en qué punto está el expediente.
+const SUBFASES_VISIBLES = new Set(["asignacion_unidad", "informe_juridico", "subsanacion_unidad"]);
+
+function faseConSubfase(faseRail, faseServidor, t) {
+  const fase = faseConOrden(faseRail || faseServidor, t);
+  const rrhh = faseRRHH(faseRail || faseServidor);
+  if (!SUBFASES_VISIBLES.has(faseServidor) || !rrhh || faseRRHH(faseServidor)?.clave !== rrhh.clave) return fase;
+  return t("ficha_fase_con_subfase", { fase, subfase: etiqueta(faseServidor, t) });
+}
+
+/** Rótulo de la cabecera para una fase del servidor confirmada por un recibo. */
+export function rotuloFaseCabecera(faseServidor, mensajes = {}) {
+  return faseConSubfase("", faseServidor, crearTraductorExpedientesContratacion(mensajes));
+}
+
 function resumenVisual(entrada, catalogos, t, locale) {
   const estadoClave = estadoVisual(entrada.estado_clave);
   return {
@@ -285,6 +302,7 @@ function periodoVisible(inicio, fin, causa, locale, t) {
 }
 
 const MENSAJES_ACCIONES_HISTORIAL = new Map([
+  ["alta", "hito_solicitud"],
   ["contratacion_temporal.solicitud.crear", "hito_solicitud"],
   ["contratacion_temporal.analisis.registrar", "hito_analisis"],
   ["contratacion_temporal.analisis.rectificar", "hito_rectificacion_analisis"],
@@ -302,6 +320,9 @@ const MENSAJES_ACCIONES_HISTORIAL = new Map([
   ["contratacion_temporal.expediente.cerrar", "hito_cierre_expediente"],
   ["contratacion_temporal.expediente.cancelar", "hito_cancelacion_expediente"],
   ["contratacion_temporal.expediente.modificar_tras_nombramiento", "hito_modificacion_nombramiento"],
+  ["contratacion_temporal.incorporacion.no_incorporacion_propuesta", "hito_no_incorporacion_propuesta"],
+  ["contratacion_temporal.incorporacion.no_incorporacion", "hito_no_incorporacion"],
+  ["contratacion_temporal.incorporacion.no_incorporacion_rechazo", "hito_no_incorporacion_rechazo"],
   ["registrar_solicitud", "hito_solicitud"],
   ["registrar_analisis", "hito_analisis"],
   ["registrar_cobertura", "hito_cobertura"],
@@ -361,7 +382,7 @@ function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta, faseAct
     campo("centro", t("cabecera_centro"), referenciaVisible(catalogos, "centros", resumen.centro_ref)),
     campo("categoria", t("cabecera_categoria"), referenciaVisible(catalogos, "categorias", resumen.categoria_ref)),
     campo("modalidad", t("cabecera_modalidad"), etiquetaModalidad(resumen.modalidad_clave, catalogos, t)),
-    campo("fase", t("cabecera_fase_actual"), faseConOrden(faseActual || resumen.fase_clave, t)),
+    campo("fase", t("cabecera_fase_actual"), faseConSubfase(faseActual, resumen.fase_clave, t)),
     campo("estado", t("cabecera_estado"), etiqueta(resumen.estado_clave, t)),
     campo("grupo_subgrupo", t("cabecera_grupo_subgrupo"), solicitud.grupo_subgrupo),
     campo("motivo", t("cabecera_motivo"), etiqueta(solicitud.motivo_clave, t)),
@@ -514,6 +535,14 @@ function railFasesDesdeHitos(detalle, traducir) {
       fases[posicion].estado_clave = ESTADO_FASE_PENDIENTE;
     }
     fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
+    // El análisis confirmado es una actuación terminada aunque Solicitud siga
+    // abierta. Un retorno o una versión antigua no conserva esa marca.
+    const ultimo = detalle.hitos.at(-1);
+    const analisis = indice("analisis_rrhh");
+    if (detalle.resumen.fase_clave === "solicitud" && detalle.resumen.estado_clave === "en_curso"
+      && ultimo?.version_expediente === detalle.resumen.version
+      && ACCIONES_FASES_VISUALES_COMPLETADAS[ultimo.accion_clave]?.includes("analisis_rrhh")
+      && analisis >= 0) fases[analisis].estado_clave = ESTADO_FASE_COMPLETADO;
   }
   return { fases, actual: actual >= 0 ? presentacion.fases[actual].clave : "" };
 }
@@ -547,6 +576,7 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
     expediente_ref: detalle.resumen.expediente_ref,
     numero_visible: detalle.resumen.numero_visible,
     version: detalle.resumen.version,
+    ...(detalle.solicitud.numero_personas ? { numero_personas: detalle.solicitud.numero_personas } : {}),
     flujo_ref: detalle.resumen.flujo_ref,
     flujo_version: detalle.resumen.flujo_version,
     flujo_huella: detalle.resumen.flujo_huella_sha256,
@@ -579,6 +609,9 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
     // Sólo selección documental histórica; cada descarga exige autorización vigente.
     ...(versionPropuesta !== null ? { version_propuesta_documental: versionPropuesta } : {}),
     ...(detalle.resultado_bolsa ? { resultado_bolsa: detalle.resultado_bolsa } : {}),
+    ...(Object.hasOwn(detalle, "selectores_recuperacion_firmas")
+      ? { selectores_recuperacion_firmas: detalle.selectores_recuperacion_firmas,
+        recibo_selectores_recuperacion_firmas: detalle.recibo_selectores_recuperacion_firmas } : {}),
   });
 }
 

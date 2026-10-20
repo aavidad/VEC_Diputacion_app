@@ -1,37 +1,38 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
-import { validarReciboAlta } from "./contrato.js?v=20261013-ct-firma-tres-v3";
-import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=20261002-ct-r5-grafo-v2";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261014-ginpix-personal-b2-v1";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20261013-ct-firma-tres-v3";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20261013-ct-firma-tres-v3";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20261013-ct-firma-tres-v3";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261013-ct-firma-tres-v3";
-import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20261008-alta-rpt-circular-v6";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
-import { filtroListaValido } from "./recuentos-peticiones.js?v=20261007-pantallas-textos-final-v1";
-import { renderizarAbrirLlamamiento, renderizarResultadosCuadro } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { cerrarFase, instalarPantallasFase, mostrarFase } from "./fases-expediente.js?v=20261007-pantallas-textos-final-v1";
-import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
+import { validarReciboAlta } from "./contrato.js?v=VEC_WEB_VERSION";
+import { marcarRailDesconocido, renderizarConsultaCircuitoRRHH } from "./vista-circuito-rrhh.js?v=VEC_WEB_VERSION";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=VEC_WEB_VERSION";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=VEC_WEB_VERSION";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=VEC_WEB_VERSION";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=VEC_WEB_VERSION";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=VEC_WEB_VERSION";
+import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { filtroListaValido } from "./recuentos-peticiones.js?v=VEC_WEB_VERSION";
+import { renderizarAbrirLlamamiento, renderizarResultadosCuadro } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { cerrarFase, instalarPantallasFase, mostrarFase } from "./fases-expediente.js?v=VEC_WEB_VERSION";
+import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js?v=VEC_WEB_VERSION";
 import {
   contextoLlamamientoDesdeEstado,
   mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes-render.js?v=20261013-ct-firma-tres-v3";
-import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261013-ct-firma-tres-v3";
-import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=20261015-firma-cierre-cache-v3";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20261016-firma-limite-2mib-v1";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20261014-ginpix-personal-b2-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261015-firma-cierre-cache-v3";
-import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=20261011-ct-bolsa-vinculo-v1";
+} from "./vista-expedientes-render.js?v=VEC_WEB_VERSION";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=VEC_WEB_VERSION";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js?v=VEC_WEB_VERSION";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=VEC_WEB_VERSION";
+import { crearGestorRecuperacionFirmasHistoricas } from "./gestor-recuperacion-firmas-historicas.js?v=VEC_WEB_VERSION";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=VEC_WEB_VERSION";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=VEC_WEB_VERSION";
+import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js?v=VEC_WEB_VERSION";
 
-import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20261013-ct-firma-tres-v3";
-import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20261007-pantallas-textos-final-v1";
-import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20261007-pantallas-textos-final-v1";
-import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20261007-pantallas-textos-final-v1";
-import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20261009-borradores-fase-v3";
-import { traducirPortal } from "../../portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=VEC_WEB_VERSION";
+import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=VEC_WEB_VERSION";
+import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=VEC_WEB_VERSION";
+import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=VEC_WEB_VERSION";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=VEC_WEB_VERSION";
+import { traducirPortal } from "../../portal-i18n.js?v=VEC_WEB_VERSION";
 
 export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   if (!expediente?.fases?.some(({ fase_ref: referencia }) =>
@@ -44,9 +45,9 @@ export function insertarConsultaCircuitoRRHH(raiz, expediente) {
   return true;
 }
 
-export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261013-ct-firma-tres-v3";
-export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20261013-ct-firma-tres-v3";
-export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
+export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=VEC_WEB_VERSION";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=VEC_WEB_VERSION";
+export { numeroExpedienteVisible } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
 
 export function insertarAvisoEnlaceLegado(raiz, texto) {
   if (!texto || !raiz?.ownerDocument?.createElement || typeof raiz.prepend !== "function") return;
@@ -161,6 +162,8 @@ export async function montarModuloContratacionTemporal({
   clienteBorradoresPublicados,
   clienteCircuitoFirma,
   clienteFirmasV2,
+  mensajesRecuperacionFirmas = null,
+  errorRecuperacionFirmas = null,
   clienteOriginalFirma,
   dependenciasFirma = {},
   entornoDescarga = globalThis,
@@ -551,6 +554,12 @@ export async function montarModuloContratacionTemporal({
     mensajes, esMontada,
     locale,
   });
+  const gestorRecuperacionFirmas = raiz.ownerDocument?.createElement ? crearGestorRecuperacionFirmasHistoricas({
+    raiz, cliente: clienteFirmasV2, mensajes: mensajesRecuperacionFirmas,
+    errorRecuperacionFirmas,
+    mensajeError: () => traducirExpedientes("firmas_historicas_error"),
+    locale, zonaHoraria,
+  }) : null;
   const gestorBorrador = crearGestorDescargaBorradorRRHH({
     raiz,
     presentador,
@@ -704,6 +713,7 @@ export async function montarModuloContratacionTemporal({
   function repintar(selectorFoco = "") {
     if (!montada || gestorTramitacion.analisisEstableActivo()) return;
     gestorBorrador.cancelarDescargaInforme();
+    gestorRecuperacionFirmas?.retirar();
     retirarEstadisticas();
     desmontarLlamamiento?.();
     desmontarLlamamiento = null;
@@ -776,6 +786,7 @@ export async function montarModuloContratacionTemporal({
     }
     if (estado.vista === "cuadro") insertarAvisoEnlaceLegado(raiz, avisoEnlaceLegadoPendiente);
     insertarConsultaCircuitoRRHH(raiz, estado.expediente);
+    gestorRecuperacionFirmas?.montarSiProcede(estado);
     montarAuditoriaComunSiProcede(estado);
     montarDocumentosComunSiProcede(estado);
     montarBorradoresPublicadosSiProcede(estado);
@@ -1126,6 +1137,7 @@ export async function montarModuloContratacionTemporal({
       montada = false;
       gestorResultadoBolsa.desmontar();
       gestorCircuitoFirma.retirar();
+      gestorRecuperacionFirmas?.retirar();
       gestorBorrador.cancelarDescargaInforme();
       retirarEstadisticas();
       desmontarLlamamiento?.();

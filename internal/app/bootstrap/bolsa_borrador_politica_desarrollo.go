@@ -130,7 +130,23 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) publicarInicial(ctx context
 		// Una nueva versión gobernada del mismo rol puede añadir B1 sin que el
 		// arranque publique ni reconstruya la asignación. Se consume la copia
 		// central y se mantiene íntegra su identidad y su historia.
-		if encontrada && instantaneaBolsaCargaConvocaCompatible(publicada.instantanea, datos,
+		if encontrada && !contieneAccionConfirmacionDirecta(publicada.instantanea.VersionRol.Concesiones) &&
+			instantaneaBolsaCargaConvocaCompatible(publicada.instantanea, datos,
+				p.soporte, ahora, versionRol) && procedenciaCargaConvocaGobernada(publicada, p.autoridad) {
+			p.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
+			p.publicada = true
+			return nil
+		}
+		if encontrada && instantaneaBolsaConfirmacionCompatible(publicada.instantanea, datos,
+			p.soporte, ahora, versionRol) && procedenciaCargaConvocaGobernada(publicada, p.autoridad) {
+			p.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
+			p.publicada = true
+			return nil
+		}
+		// S6 adopta solo una versión ya gobernada que conserva cada concesión
+		// base y añade únicamente sus acciones exactas. No toca la semilla ni
+		// prepara una publicación durante el arranque.
+		if encontrada && instantaneaBolsaS6Compatible(publicada.instantanea, datos,
 			p.soporte, ahora, versionRol) && procedenciaCargaConvocaGobernada(publicada, p.autoridad) {
 			p.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(publicada.instantanea)
 			p.publicada = true
@@ -412,7 +428,11 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAuto
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
 	if referencia == motivoPublicarPoliticaOfertasBolsaDesarrollo() || referencia == motivoConsultarPoliticaOfertasBolsaDesarrollo() {
-		if !versionRolBolsaConPoliticaOfertas(instantanea.VersionRol.Version) {
+		accion := puertosbolsa.AccionPublicarPoliticaOfertas
+		if referencia == motivoConsultarPoliticaOfertasBolsaDesarrollo() {
+			accion = puertosbolsa.AccionConsultarPoliticaOfertas
+		}
+		if !concesionPoliticaOfertasPublicadaExacta(instantanea.VersionRol.Concesiones, accion) {
 			return dominiovec.ErrSolicitudAutorizacionInvalida
 		}
 		return nil
@@ -431,10 +451,40 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAuto
 	if referencia == motivoConfirmarCargaConvocaBolsaDesarrollo() {
 		return nil // La concesión positiva se evalúa en el PDP sobre la versión vigente.
 	}
+	if referencia == motivoComprobacionOfrecimiento() {
+		return nil // Registrar hechos exige su concesión exacta, nunca la de situación.
+	}
 	if referencia != motivoCrearBorradorLlamamientoBolsaDesarrollo() && referencia != motivoConsultarBorradorLlamamientoBolsaDesarrollo() && referencia != motivoCambiarSituacionParticipacionBolsaDesarrollo() && referencia != motivoRegistrarContactoParticipacionBolsaDesarrollo() && referencia != motivoConsultarContactoParticipacionBolsaDesarrollo() && referencia != motivoRegistrarDatosContactoParticipacionBolsaDesarrollo() && referencia != motivoEmitirLlamamientoBolsaDesarrollo() {
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
 	return nil
+}
+
+// La versión numérica describe una rama de provisión sintética, no las
+// concesiones de una versión posterior publicada por Administración.
+func concesionPoliticaOfertasPublicadaExacta(concesiones []dominiovec.ConcesionRol, accion string) bool {
+	finalidad := puertosbolsa.FinalidadPoliticaOfertas
+	consulta := accion == puertosbolsa.AccionConsultarPoliticaOfertas
+	if consulta {
+		finalidad = puertosbolsa.FinalidadConsultarPoliticaOfertas
+	} else if accion != puertosbolsa.AccionPublicarPoliticaOfertas {
+		return false
+	}
+	coincidencias := 0
+	for _, c := range concesiones {
+		if c.Accion != accion {
+			continue
+		}
+		if c.ModuloID != "bolsa" || c.TipoRecurso != "bolsa_constituida" ||
+			len(c.Finalidades) != 1 || c.Finalidades[0] != finalidad ||
+			c.GarantiaMinima != dominiovec.AuthAssuranceHigh || len(c.Obligaciones) != 0 ||
+			(consulta && (len(c.CamposPermitidos) != 1 || c.CamposPermitidos[0] != puertosbolsa.CampoConsultarPoliticaOfertas)) ||
+			(!consulta && len(c.CamposPermitidos) != 0) {
+			return false
+		}
+		coincidencias++
+	}
+	return coincidencias == 1
 }
 
 func (p *politicaBorradorLlamamientoBolsaDesarrollo) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(
@@ -493,8 +543,10 @@ func motivoBorradorLlamamientoCorresponde(accion string, motivo dominiovec.Refer
 		return motivo == motivoCrearBorradorLlamamientoBolsaDesarrollo()
 	case puertosbolsa.AccionConsultarBorradorLlamamientoInterno:
 		return motivo == motivoConsultarBorradorLlamamientoBolsaDesarrollo()
-	case puertosbolsa.AccionCambiarSituacionParticipacion:
+	case puertosbolsa.AccionCambiarSituacionParticipacion, puertosbolsa.AccionConfirmarAceptacionDirecta:
 		return motivo == motivoCambiarSituacionParticipacionBolsaDesarrollo()
+	case puertosbolsa.AccionComprobacionOfrecimiento:
+		return motivo == motivoComprobacionOfrecimiento()
 	case puertosbolsa.AccionConsultarSolicitudesDocumentalesRRHH:
 		return motivo == motivoCambiarSituacionParticipacionBolsaDesarrollo()
 	case puertosbolsa.AccionRegistrarContactoParticipacion:

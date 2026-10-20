@@ -1,4 +1,4 @@
-import { ESQUEMA_DEFINITIVA } from './modelo.js?v=20261005-s4-lista-v2';
+import { ESQUEMA_DEFINITIVA } from './modelo.js?v=VEC_WEB_VERSION';
 function nodo(d, etiqueta, texto, clase) {
   const n = d.createElement(etiqueta); if (texto !== undefined) n.textContent = texto; if (clase) n.className = clase; return n;
 }

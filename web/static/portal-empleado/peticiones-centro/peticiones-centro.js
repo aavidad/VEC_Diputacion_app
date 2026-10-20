@@ -6,15 +6,16 @@ import {
   numeroExpedienteMOADValido,
   jornadaVisibleDesdeMinutos,
   ESQUEMA_CATALOGOS_NECESIDADES,
-} from "../modulos/contratacion-temporal/contrato.js?v=20261013-ct-firma-tres-v3";
+} from "../modulos/contratacion-temporal/contrato.js?v=VEC_WEB_VERSION";
 import { extraerBorrador, formulario as renderizarFormularioPuro,
-  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=20261013-ct-firma-tres-v3";
-import { cargarCatalogosContratacionEnIdioma } from "../modulos/contratacion-temporal/i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
-import { crearClienteHTTPRPTPublica } from "../modulos/personal/cliente-http-rpt-publica.js?v=20261008-alta-rpt-circular-v4";
+  revision as renderizarRevisionPura } from "../modulos/contratacion-temporal/alta-renderer-puro.js?v=VEC_WEB_VERSION";
+import { esRCDeclarada } from "../modulos/contratacion-temporal/rc-declarada.js?v=VEC_WEB_VERSION";
+import { cargarCatalogosContratacionEnIdioma } from "../modulos/contratacion-temporal/i18n-catalogos.js?v=VEC_WEB_VERSION";
+import { crearClienteHTTPRPTPublica } from "../modulos/personal/cliente-http-rpt-publica.js?v=VEC_WEB_VERSION";
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO, LOCALIZACION_PETICIONES_CENTRO, MENSAJES_AYUDA_PETICIONES_CENTRO,
   TEXTOS_LOCALES_PETICIONES_CENTRO, prepararAnalisisPeticionesCentro,
-  traducirPeticionesCentro } from "./i18n-peticiones-centro.js?v=20261007-pc-recuperacion-v1";
+  traducirPeticionesCentro } from "./i18n-peticiones-centro.js?v=VEC_WEB_VERSION";
 
 const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",
@@ -297,8 +298,9 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
   const camposNecesidad = necesidad?.campos && typeof necesidad.campos === "object"
     ? Object.entries(necesidad.campos).filter(([campo, valor]) => valor && campo !== "numero_personas"
       && !REFERENCIAS_NECESIDAD.has(campo)) : [];
+  // Una RC declarada por el centro es un dato pendiente de comprobar por RRHH.
   const rc = s.rc?.existe
-    ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)}`
+    ? `${esRCDeclarada(s.rc) ? `${traducirCentro("resumen_rc_si")} · ` : ""}${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat(LOCALIZACION, { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)}`
     : traducirCentro("ct_txt_sin_retencion_de_credito_aportada");
   const filas = [[TEXTO.estado, estadoPeticion(peticion.estado)],
     [traducirCentro("ct_txt_centro"), contexto ? nombreCentro(s.centro_ref, contexto) : nombre("centros", null, s.centro_ref)],
@@ -333,7 +335,7 @@ function detallePeticion(peticion, contexto, etiquetas = null) {
   }
   const tecnicos = [
     ...(contexto ? [] : [[TEXTO.peticionRef, peticion.referencia], [TEXTO.version, peticion.version]]),
-    ...(s.rc?.documento_ref ? [[textoCT("pc_documento_referencia"), s.rc.documento_ref]] : []),
+    ...(s.rc?.documento_ref && !esRCDeclarada(s.rc) ? [[textoCT("pc_documento_referencia"), s.rc.documento_ref]] : []),
   ];
   return camposDetalle(filas) + (tecnicos.length ? detalleTecnico(tecnicos) : "");
 }

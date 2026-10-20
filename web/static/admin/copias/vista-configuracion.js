@@ -1,4 +1,4 @@
-import { traducirCopias as t } from "./i18n.js?v=20261001-cs09-copias-ux-v2";
+import { traducirCopias as t } from "./i18n.js?v=VEC_WEB_VERSION";
 
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 export function pintarConfiguracion({ cuerpo, estado, cliente, s, operar, recibido, pintar, cargarConfiguracion }) {

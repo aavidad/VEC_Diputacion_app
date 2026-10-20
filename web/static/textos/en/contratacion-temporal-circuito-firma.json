@@ -42,6 +42,7 @@
     "circuito_firma_preparando": "Preparing the draft for signing…",
     "circuito_firma_abriendo_autofirma": "Opening your signing program (GrxFirma or AutoFirma): sign the document in that window.",
     "circuito_firma_registrando": "Verifying and recording…",
+    "circuito_firma_otra_en_curso": "Another signature in this file is being recorded. When it finishes, press \"Check signing options\" again.",
     "circuito_firma_registrada": "Signature recorded under receipt {recibo}. Next step: Portafirmas.",
     "circuito_firma_devuelta": "Return recorded under receipt {recibo}.",
     "circuito_firma_error_verificacion": "The signature could not be checked and was not recorded. Contact IT before trying again.",

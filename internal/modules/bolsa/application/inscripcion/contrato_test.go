@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	bolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 )
 
 func TestPresentacionRechazaCategoriaAjenaYDeclaracionesDuplicadas(t *testing.T) {
@@ -55,7 +57,7 @@ func TestSolicitudConEtiquetaPublicadaLargaPermaneceVisible(t *testing.T) {
 
 func TestConvocatoriaConTodasLasCategoriasPublicadasNoDesaparece(t *testing.T) {
 	b := BolsaAbierta{ConvocatoriaRef: "cv1_" + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + "_v1",
-		Titulo: "Convocatoria de prueba", NumeroCategorias: 128, CatalogoVersion: 1,
+		Titulo: "Convocatoria de prueba", ModalidadInscripcion: "separada", NumeroCategorias: 128, CatalogoVersion: 1,
 		PlazoInicio: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), PlazoFin: time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC),
 		RequisitosResumen: "Consulte los requisitos", PuedeIniciar: true}
 	for i := 1; i <= 128; i++ {
@@ -71,5 +73,15 @@ func TestConvocatoriaConTodasLasCategoriasPublicadasNoDesaparece(t *testing.T) {
 	b.Categorias = nil
 	if !bolsaAbiertaValida(b, false) {
 		t.Fatal("resumen sin array debia ser valido")
+	}
+	b.ModalidadInscripcion = "conjunta"
+	if !bolsaAbiertaValida(b, false) {
+		t.Fatal("modalidad conjunta publicada rechazada")
+	}
+	for _, valor := range []string{"", "otra"} {
+		b.ModalidadInscripcion = bolsa.ModalidadInscripcionConvocatoria(valor)
+		if bolsaAbiertaValida(b, false) {
+			t.Fatal("modalidad ausente o desconocida publicada")
+		}
 	}
 }

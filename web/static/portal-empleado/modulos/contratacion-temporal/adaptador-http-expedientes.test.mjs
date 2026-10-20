@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo, rotuloFaseCabecera } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=VEC_WEB_VERSION";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=VEC_WEB_VERSION";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",
@@ -43,6 +43,7 @@ function clienteFalso(llamadas) {
         solicitud: {
           grupo_subgrupo: "A2",
           motivo_clave: "sustitucion",
+          numero_personas: 2,
           periodo_inicio: "2026-09-04T00:00:00Z",
           periodo_fin: "2026-12-31T00:00:00Z",
         },
@@ -99,6 +100,7 @@ test("F5 consulta un único detalle autorizado por referencia y versión, sin re
   await presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
   assert.equal(presentador.obtenerEstado().expediente_ref, resumen.expediente_ref);
   assert.equal(presentador.obtenerEstado().carga, "listo");
+  assert.equal(presentador.obtenerEstado().expediente.numero_personas, 2);
   assert.deepEqual(llamadas.map((llamada) => llamada.operacion), ["detalle"]);
   assert.deepEqual(llamadas[0].solicitud,
     { expediente_ref: resumen.expediente_ref, version_observada: resumen.version });
@@ -532,7 +534,7 @@ test("con el análisis hecho y el servidor aún en solicitud, lista y ficha cons
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
   await adaptador.listar();
   const expediente = await adaptador.obtener(resumen.expediente_ref);
-  assert.deepEqual(expediente.fases.map(({ estado_clave }) => estado_clave), ["en_curso", "pendiente", "pendiente"]);
+  assert.deepEqual(expediente.fases.map(({ estado_clave }) => estado_clave), ["en_curso", "completado", "pendiente"]);
   // La cabecera nombra la misma fase que el raíl.
   assert.match(expediente.cabecera.find(({ clave }) => clave === "fase").valor, /Solicitud/u);
 });
@@ -812,7 +814,7 @@ test("raíl deriva los cinco estados y reabre fases tras un retorno real", async
     {accion_clave:"contratacion_temporal.cobertura.decidir",fase_origen:"solicitud",fase_destino:"asignacion_unidad",estado_destino:"en_curso"},
   ];
   assert.deepEqual((await proyectar("asignacion_unidad","en_curso",analisisEnSolicitud)).slice(0,4),["completado","completado","en_curso","pendiente"]);
-  assert.deepEqual((await proyectar("solicitud","en_curso",analisisEnSolicitud.slice(0,2))).slice(0,3),["en_curso","pendiente","pendiente"]);
+  assert.deepEqual((await proyectar("solicitud","en_curso",analisisEnSolicitud.slice(0,2))).slice(0,3),["en_curso","completado","pendiente"]);
 });
 
 test("adaptador obtiene catálogo por cliente.catalogosAlta si obtenerCatalogos devuelve null, una sola vez por montaje", async () => {
@@ -1043,4 +1045,67 @@ test("las comprobaciones de cobertura llevan su resultado en el tono (sí, no, n
   assert.equal(tono("existe_bolsa_vigente"), "exito");
   assert.equal(tono("hay_candidaturas_disponibles"), "aviso");
   assert.equal(tono("sae_consultado"), "neutro");
+});
+
+test("el detalle autorizado conserva los selectores históricos al atravesar adaptador y presentador", async () => {
+  for (const selectores of [undefined, [], [{ firma_ref: "firma:ct:original", selector: {
+    expediente_ref: resumen.expediente_ref, version_expediente: 1, documento: "informe_definitivo",
+    paso_orden: 1, clave_idempotencia: "operacion-original-1234", catalogo_huella: "a".repeat(64), via: "certificado_vec",
+  } }]]) {
+    const llamadas = [];
+    const cliente = clienteFalso(llamadas);
+    const consultar = cliente.consultarDetalleRRHH;
+    cliente.consultarDetalleRRHH = async (...args) => {
+      const detalle = await consultar(...args);
+      return { ...detalle, ...(selectores === undefined ? {} : { selectores_recuperacion_firmas: selectores, recibo_selectores_recuperacion_firmas: {
+        acceso_ref: "acceso:ct:original", sello_detalle_sha256: "a".repeat(64), sello_selectores_sha256: "b".repeat(64),
+      } }) };
+    };
+    const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+    const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente,
+      capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"] });
+    await presentador.seleccionarExpedienteDesdeEnlace(resumen.expediente_ref, resumen.version);
+    const expediente = presentador.obtenerEstado().expediente;
+    assert.equal(presentador.obtenerEstado().carga, "listo");
+    assert.deepEqual(expediente.selectores_recuperacion_firmas, selectores);
+    assert.equal(Object.hasOwn(expediente, "selectores_recuperacion_firmas"), selectores !== undefined);
+    assert.equal(Object.hasOwn(expediente, "recibo_selectores_recuperacion_firmas"), selectores !== undefined);
+    if (selectores !== undefined) assert.deepEqual(expediente.recibo_selectores_recuperacion_firmas, {
+      acceso_ref: "acceso:ct:original", sello_detalle_sha256: "a".repeat(64), sello_selectores_sha256: "b".repeat(64),
+    });
+    assert.deepEqual(llamadas.map(({ operacion }) => operacion), ["detalle"]);
+  }
+});
+
+test("la cabecera nombra el paso dentro de la fase y el alta se traduce en el historial", async () => {
+  const mensajesEN = await cargarMensajesExpedientesContratacionEnIdioma("en");
+  for (const [locale, mensajes, faseInforme, faseLlamamiento, alta] of [
+    ["es-ES", {}, "Fase 3 de 8: Gestión de bolsa · Informe jurídico", "Fase 5 de 8: Obtención del candidato", "Solicitud registrada"],
+    ["en-GB", mensajesEN, "Stage 3 of 8: Recruitment pool · Legal report", "Stage 5 of 8: Candidate selection", "Request recorded"],
+  ]) {
+    for (const [faseClave, esperado] of [["informe_juridico", faseInforme], ["llamamiento", faseLlamamiento]]) {
+      const cliente = clienteFalso([]);
+      const consultarCuadro = cliente.consultarCuadroRRHH;
+      const consultarDetalle = cliente.consultarDetalleRRHH;
+      const resumenFase = { ...resumen, fase_clave: faseClave, estado_clave: "en_curso" };
+      cliente.consultarCuadroRRHH = async (...args) => ({ ...await consultarCuadro(...args), expedientes: [resumenFase] });
+      cliente.consultarDetalleRRHH = async (...args) => {
+        const detalle = await consultarDetalle(...args);
+        return { ...detalle, resumen: resumenFase,
+          hitos: detalle.hitos.map((hito, indice) => (indice === 0 ? { ...hito, accion_clave: "alta" } : hito)) };
+      };
+      const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente, locale, mensajes });
+      await adaptador.listar();
+      const detalle = await adaptador.obtener(resumen.expediente_ref);
+      assert.equal(detalle.cabecera.find(({ clave }) => clave === "fase").valor, esperado);
+      assert.equal(detalle.historial[0].accion, alta);
+    }
+  }
+});
+
+test("tras el recibo del informe la cabecera nombra el paso «Informe jurídico» en el idioma activo", async () => {
+  assert.equal(rotuloFaseCabecera("informe_juridico"), "Fase 3 de 8: Gestión de bolsa · Informe jurídico");
+  assert.equal(rotuloFaseCabecera("informe_juridico", await cargarMensajesExpedientesContratacionEnIdioma("en")),
+    "Stage 3 of 8: Recruitment pool · Legal report");
+  assert.equal(rotuloFaseCabecera("fiscalizacion"), "Fase 4 de 8: Fiscalización");
 });

@@ -214,6 +214,8 @@ static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.html
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.js
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.css
+static/portal-empleado/modulos/contratacion-temporal/revision-no-incorporacion.html
+static/portal-empleado/modulos/contratacion-temporal/revision-no-incorporacion.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-resultado-bolsa.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-analisis.js
@@ -284,6 +286,7 @@ static/portal-empleado/modulos/contratacion-temporal/i18n-ficha-lista.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-ficha.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-lista.js
 static/portal-empleado/modulos/contratacion-temporal/recuentos-peticiones.js
+static/portal-empleado/modulos/contratacion-temporal/ronda-informe-nuevo.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-subsanacion-reparos.js
@@ -309,6 +312,7 @@ static/portal-empleado/modulos/contratacion-temporal/documentacion-formalizacion
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-documentacion-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-documentacion-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/presentador.js
+static/portal-empleado/modulos/contratacion-temporal/rc-declarada.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/gestor-resultado-bolsa.js
 static/portal-empleado/modulos/contratacion-temporal/vista-circuito-rrhh.js
@@ -341,8 +345,12 @@ static/portal-empleado/portal-bolsas-avisos.js
 static/portal-empleado/portal-bolsas-marcas.js
 static/textos/es/bolsa-ofertas.json
 static/textos/en/bolsa-ofertas.json
+static/textos/es/bolsa-comprobacion-ofrecimiento.json
+static/textos/en/bolsa-comprobacion-ofrecimiento.json
 static/portal-empleado/portal-bolsas-ofertas.js
 static/portal-empleado/portal-bolsas-contratos.js
+static/portal-empleado/portal-bolsas-comprobacion.js
+static/portal-empleado/portal-bolsas-comprobacion-ruta.js
 static/portal-empleado/portal-bolsas-correo.js
 static/portal-empleado/portal-bolsas-contacto-origen.js
 static/portal-empleado/portal-bolsas-contacto-registro.js
@@ -417,10 +425,16 @@ static/textos/en/bolsa.json
 static/portal-empleado/modulos/bolsa/rrhh-plazos-api.js
 static/portal-empleado/modulos/bolsa/rrhh-plazos-i18n.js
 static/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js
+static/portal-empleado/modulos/bolsa/rrhh-criterios-ofrecimiento.js
+static/portal-empleado/modulos/bolsa/criterios-ofrecimiento/v1.json
 static/portal-empleado/modulos/bolsa/rrhh-plazos.css
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-vista.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese.css
+static/portal-empleado/modulos/bolsa/reglas-situacion-api.js
+static/portal-empleado/modulos/bolsa/reglas-situacion-ui.js
+static/textos/es/bolsa-reglas-transiciones.json
+static/textos/en/bolsa-reglas-transiciones.json
 static/textos/es/auditoria.json
 static/textos/en/auditoria.json
 static/portal-empleado/modulos/auditoria/auditoria-rrhh.css
@@ -684,4 +698,9 @@ static/portal-empleado/modulos/bolsa/documentos-api.js
 static/portal-empleado/modulos/bolsa/documentos-vista.js
 static/textos/es/bolsa-documentos.json
 static/textos/en/bolsa-documentos.json
+static/portal-empleado/modulos/contratacion-temporal/selectores-recuperacion-firmas.js
+static/portal-empleado/modulos/contratacion-temporal/gestor-recuperacion-firmas-historicas.js
+static/portal-empleado/modulos/contratacion-temporal/recuperacion-firmas-v2.css
+static/portal-empleado/modulos/contratacion-temporal/vista-recuperacion-firmas-v2.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-recuperacion-firmas-v2.js
 static/portal-empleado/portal-bolsas-justificante-cliente.js

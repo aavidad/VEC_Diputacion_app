@@ -71,8 +71,8 @@ func cargarClienteM10LlamamientoCT() (*personalhttp.ClienteOrganizacionHistorica
 // la misma transacción. El acuse lo produce exclusivamente el registrador SQL.
 var camposLecturaOrigenCT = []string{
 	"acta_ref", "bolsa_canonica", "bolsa_ref",
-	"categoria_ref", "corte", "entradas[].candidato_ref",
-	"entradas[].elegible", "entradas[].orden_acta", "entradas[].orden_vigente",
+	"categoria_ref", "corte", "criterios_ofrecimiento", "entradas[].candidato_ref",
+	"entradas[].elegible", "entradas[].eventos_relacion", "entradas[].orden_acta", "entradas[].orden_vigente",
 	"entradas[].participacion_ref", "entradas[].razon", "entradas[].situacion",
 	"huella_bolsa_sha256", "huella_instantanea_sha256", "huella_politica_sha256",
 	"instantanea_canonica", "instantanea_ref", "politica_provisional",
@@ -125,6 +125,11 @@ func nuevoConstructorOrdenOrigenCT(
 		if err != nil {
 			return vacia, err
 		}
+		ordenConContexto, err := ordenOrigenCTConContextoComprobacion(permiso.Orden, d, preparador.soporte.ambitoRef)
+		if err != nil {
+			return vacia, err
+		}
+		permiso.Orden = ordenConContexto
 		intento, err := vecports.NuevaReferenciaIntentoAuditoria()
 		if err != nil {
 			return vacia, ports.ErrOrigenLlamamientoCTNoDisponible
@@ -156,7 +161,9 @@ func nuevoConstructorOrdenOrigenCT(
 // Un expediente anterior sin ese vínculo no permite emitir en el circuito nativo.
 type resolutorPuestoRPTConstituidoCT func(context.Context, string, string) (string, error)
 
-var patronPuestoRPTConstituidoCT = regexp.MustCompile(`^puesto:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+// Personal conserva identificadores de importación con este formato hexadecimal.
+// Su contrato no asigna bits de versión o variante a esos identificadores.
+var patronPuestoRPTConstituidoCT = regexp.MustCompile(`^puesto:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var patronCentroFuentePuestoRPTConstituidoCT = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 
 func nuevoProveedorDatosEmisionConstituidaCT(

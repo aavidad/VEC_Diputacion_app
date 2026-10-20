@@ -1,12 +1,12 @@
 /**
  * Controladores de interacción del Portal del Empleado.
  *
- * Recibe sus dependencias desde `portal.js?v=20261016-justificante-integracion-v3`: no conoce repositorios ni decide
+ * Recibe sus dependencias desde `portal.js?v=VEC_WEB_VERSION`: no conoce repositorios ni decide
  * negocio. Las acciones sin comando de servidor compuesto permanecen
  * informativas y nunca producen efectos administrativos en el navegador.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
-import { validarAvisosPortal } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
+import { traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
+import { validarAvisosPortal } from "./portal-contrato.js?v=VEC_WEB_VERSION";
 
 const NOMBRES_FILTRO = Object.freeze({
   convocatorias: new Set(["texto", "estado", "unidad"]),

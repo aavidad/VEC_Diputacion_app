@@ -36,13 +36,14 @@ type ServicioOfertasPublicadas struct {
 	repositorio   puertosbolsa.RepositorioOfertasPublicadas
 	plazos        puertosbolsa.CalculadoraPlazoOferta
 	reloj         func() time.Time
+	avisos        *DespachadorAvisosOferta
 }
 
 func NuevoServicioOfertasPublicadas(cb puertosbolsa.ResolutorContextoContactoParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioOfertasPublicadas, p puertosbolsa.CalculadoraPlazoOferta, reloj func() time.Time) (*ServicioOfertasPublicadas, error) {
 	if cb == nil || a == nil || r == nil || p == nil || reloj == nil {
 		return nil, puertosbolsa.ErrOfertaNoDisponible
 	}
-	return &ServicioOfertasPublicadas{cb, a, r, p, reloj}, nil
+	return &ServicioOfertasPublicadas{contextoBolsa: cb, autorizador: a, repositorio: r, plazos: p, reloj: reloj}, nil
 }
 
 // PublicarOferta calcula el plazo con la regla vigente y reserva la oferta
@@ -50,6 +51,7 @@ func NuevoServicioOfertasPublicadas(cb puertosbolsa.ResolutorContextoContactoPar
 func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puertosbolsa.SolicitudPublicarOferta) (puertosbolsa.OfertaPublicada, error) {
 	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.Vinculo.ValidarPara(q.ResultadoContexto) != nil ||
 		!referenciaOfertaValida(q.BolsaRef) || !claveOfertaValida(q.ClaveIdempotencia) || q.Datos.Validar() != nil ||
+		(q.Datos.ModalidadClave != "" && q.OrigenCT == nil) ||
 		!dominiobolsa.NumeroPlazasValido(q.NumeroPlazas) || q.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(q.MotivoAutorizacion) {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaInvalida
 	}
@@ -86,8 +88,13 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 			if !ofertaRecuperadaCorresponde(recuperada, q) {
 				return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaConflicto
 			}
-			return recuperada, nil
+			return s.despacharAvisos(ctx, recuperada), nil
 		}
+	}
+	// Las operaciones CT históricas sin claves se recuperan con su intención
+	// original; una publicación CT nueva exige modalidad y causa gobernadas.
+	if q.OrigenCT != nil && q.Datos.ModalidadClave == "" {
+		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaInvalida
 	}
 	inicio, err := s.inicioPlazoDisposicion(ctx, q.BolsaRef)
 	if err != nil {
@@ -139,7 +146,7 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 	}
 	materialHash := huellaMaterialPlazoOfertaConPlazas(q.BolsaRef, ahora, vence, plazo, q.NumeroPlazas)
 	if inicio == dominiobolsa.InicioPlazoOfertaPublicacion {
-		materialHash = huellaMaterialPublicarOfertaV5(q.BolsaRef, q.ClaveIdempotencia,
+		materialHash = huellaMaterialPublicarOferta(q.BolsaRef, q.ClaveIdempotencia,
 			q.ResultadoContexto.Contexto.PersonaRef, q.NumeroPlazas, q.Datos, q.OrigenCT,
 			ahora, vence, plazo)
 	}
@@ -165,7 +172,7 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 			(oferta.Plazo.Notificacion == nil || *oferta.Plazo.Notificacion != q.Notificacion)) {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaConflicto
 	}
-	return oferta, nil
+	return s.despacharAvisos(ctx, oferta), nil
 }
 
 // ResolverOferta registra un acto sobre una plaza. El almacén recalcula en ese
@@ -202,7 +209,14 @@ func (s *ServicioOfertasPublicadas) ConsultarOfertas(ctx context.Context, q puer
 	if err != nil || resuelto.Validar() != nil {
 		return nil, errorDependenciaOferta(err)
 	}
-	return s.repositorio.Listar(ctx, q.BolsaRef, s.reloj().UTC().Truncate(time.Microsecond), q.Limite)
+	ofertas, err := s.repositorio.Listar(ctx, q.BolsaRef, s.reloj().UTC().Truncate(time.Microsecond), q.Limite)
+	if err == nil && s.avisos == nil {
+		for i := range ofertas {
+			ofertas[i].AvisoConfiguracionPendiente = ofertas[i].Aviso != nil &&
+				(ofertas[i].Aviso.Pendientes > 0 || ofertas[i].Aviso.SinConfirmacion > 0)
+		}
+	}
+	return ofertas, err
 }
 
 // InicioPlazoOferta devuelve el inicio que RRHH debe usar al preparar el
@@ -327,6 +341,16 @@ func huellaCamposOfertaV5(campos []string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// El formato v6 liga las claves gobernadas al canon v5 sin cambiar las
+// preimágenes de ofertas anteriores. Usa el mismo framing de bytes UTF-8.
+func huellaCamposOferta(datos dominiobolsa.DatosOferta, campos []string) string {
+	v5 := huellaCamposOfertaV5(campos)
+	if datos.ModalidadClave == "" {
+		return v5
+	}
+	return huellaCamposOfertaV5([]string{"vec.bolsa.oferta.canon.v6", v5, datos.ModalidadClave, datos.CausaClave})
+}
+
 func calendariosOfertaV5Validos(ids []string) bool {
 	if len(ids) < 1 || len(ids) > 16 {
 		return false
@@ -350,10 +374,10 @@ func camposNotificacionOfertaV5(campos []string, n dominiobolsa.NotificacionOfer
 
 func huellaMaterialRecuperarOfertaV1(bolsa, clave, actor string, numero int, datos dominiobolsa.DatosOferta, origen *puertosbolsa.OrigenOfertaCT, notificacion dominiobolsa.NotificacionOferta) string {
 	campos := camposIntencionOfertaV5("vec.bolsa.oferta.recuperar.v1", bolsa, clave, actor, numero, datos, origen)
-	return huellaCamposOfertaV5(camposNotificacionOfertaV5(campos, notificacion))
+	return huellaCamposOferta(datos, camposNotificacionOfertaV5(campos, notificacion))
 }
 
-func huellaMaterialPublicarOfertaV5(bolsa, clave, actor string, numero int, datos dominiobolsa.DatosOferta, origen *puertosbolsa.OrigenOfertaCT, publicada, vence time.Time, plazo puertosbolsa.PlazoOferta) string {
+func huellaMaterialPublicarOferta(bolsa, clave, actor string, numero int, datos dominiobolsa.DatosOferta, origen *puertosbolsa.OrigenOfertaCT, publicada, vence time.Time, plazo puertosbolsa.PlazoOferta) string {
 	campos := camposIntencionOfertaV5("vec.bolsa.oferta.publicar.v1", bolsa, clave, actor, numero, datos, origen)
 	campos = camposNotificacionOfertaV5(campos, dominiobolsa.NotificacionOferta{})
 	campos = append(campos, publicada.UTC().Format(formatoInstanteMaterialOferta),
@@ -362,7 +386,7 @@ func huellaMaterialPublicarOfertaV5(bolsa, clave, actor string, numero int, dato
 		plazo.Computo, plazo.MunicipioSede, plazo.UltimoDia,
 		fmt.Sprint(plazo.PoliticaVersion), strings.Join(plazo.Calendarios, "\x1e"),
 		plazo.AperturaEn, plazo.VenceEn)
-	return huellaCamposOfertaV5(campos)
+	return huellaCamposOferta(datos, campos)
 }
 
 func ofertaRecuperadaCorresponde(o puertosbolsa.OfertaPublicada, q puertosbolsa.SolicitudPublicarOferta) bool {

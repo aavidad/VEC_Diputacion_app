@@ -1,5 +1,5 @@
-import { crearClienteHTTPContratacionTemporal } from "../modulos/contratacion-temporal/cliente-http.js?v=20261015-firma-cierre-cache-v3";
-import { crearPuertoCategorias } from "./puerto.js?v=20261001-rpt-categorias-v1";
+import { crearClienteHTTPContratacionTemporal } from "../modulos/contratacion-temporal/cliente-http.js?v=VEC_WEB_VERSION";
+import { crearPuertoCategorias } from "./puerto.js?v=VEC_WEB_VERSION";
 
 export const PLAZO_CONSULTA_MS = 10000;
 

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"compress/gzip"
 	"crypto/rand"
 	"io"
@@ -21,7 +22,7 @@ func leerEstatico(t *testing.T, ruta string) []byte {
 	if err != nil {
 		t.Fatalf("leer %s: %v", ruta, err)
 	}
-	return contenido
+	return bytes.ReplaceAll(contenido, []byte(marcaVersionWeb), []byte(versionWeb().version))
 }
 
 func pedirPublico(t *testing.T, handler http.Handler, ruta string, cabeceras map[string]string) *httptest.ResponseRecorder {
@@ -51,7 +52,7 @@ func descomprimir(t *testing.T, cuerpo []byte) []byte {
 func TestEstaticosSeSirvenComprimidosSiElNavegadorLoAcepta(t *testing.T) {
 	handler := NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler())
 	original := leerEstatico(t, "bolsa/bolsa.js")
-	ruta := "/bolsa/bolsa.js?v=prueba"
+	ruta := "/bolsa/bolsa.js?v=" + versionWeb().version
 
 	comprimida := pedirPublico(t, handler, ruta, map[string]string{"Accept-Encoding": "br, gzip;q=0.8"})
 	if comprimida.Code != http.StatusOK || comprimida.Header().Get("Content-Encoding") != "gzip" ||

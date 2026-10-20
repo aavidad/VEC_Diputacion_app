@@ -1,7 +1,7 @@
-import { crearLectorBasesHTTP } from './cliente-http.js?v=20261003-s2-consulta-v2';
-import { validarReferencia, validarRevision, validarHuella } from './contrato-http.js?v=20261003-s2-consulta-v2';
-import { leerArchivo } from './modelo.js?v=20261003-s2-consulta-v1';
-import { pintarSalida } from './vista.js?v=20261003-s2-consulta-v1';
+import { crearLectorBasesHTTP } from './cliente-http.js?v=VEC_WEB_VERSION';
+import { validarReferencia, validarRevision, validarHuella } from './contrato-http.js?v=VEC_WEB_VERSION';
+import { leerArchivo } from './modelo.js?v=VEC_WEB_VERSION';
+import { pintarSalida } from './vista.js?v=VEC_WEB_VERSION';
 import { cargarTextos } from '../../../../comun/textos.js';
 import { INDICE_IDIOMAS, leerRecursoJSON } from '../../../../comun/idioma.js';
 

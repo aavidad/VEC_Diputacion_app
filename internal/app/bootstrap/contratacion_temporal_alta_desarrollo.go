@@ -96,7 +96,6 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	principalID                       string
 	certificadoSHA256                 string
 	lectorConsultasRRHH               bool
-	tecnicoConsultaRRHH               bool
 	organizacionConsultaRRHH          string
 	claseAmbitoConsultaRRHH           ports.ClaseAmbitoConsultaRRHH
 	ambitoConsultaRRHH                string

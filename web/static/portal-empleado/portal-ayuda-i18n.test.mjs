@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { MENSAJES_PORTAL, crearTraductorPortal, traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_PORTAL, crearTraductorPortal, traducirPortal, prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 await prepararTextosPortal("ayuda");
 const { AYUDA_PORTAL_BOLSA, AYUDA_CONTRATACION_TEMPORAL, TRAMITES_AYUDANTE_PORTAL } =
-  await import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1");
+  await import("./ayuda-contenido.js?v=VEC_WEB_VERSION");
 const { MENSAJES_AYUDANTE_TRAMITES_ES, crearAyudanteTramites } =
-  await import("./ayudante-tramites.js?v=20261007-pantallas-textos-final-v1");
-import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
+  await import("./ayudante-tramites.js?v=VEC_WEB_VERSION");
+import { versionDe, exigirMismaVersion } from "./versiones-cache.test-helper.mjs";
 
 const MENSAJES_AYUDA_PORTAL = JSON.parse(await readFile(new URL("../textos/es/portal-ayuda.json", import.meta.url), "utf8")).ayuda;
 
@@ -56,12 +56,12 @@ test("la cadena de módulos renueva caché hasta el HTML", async () => {
   // Versión publicada de la cadena antes de su último cambio: cada eslabón
   // cambiado pide una URL nueva, única entre todos sus importadores.
   const anterior = "20260924-rescate-web-v4";
-  exigirRenovado(html, "/portal-empleado/portal.js", anterior);
+  versionDe(html, "/portal-empleado/portal.js");
   assert.match(portal, /import\("\.\/ayudante-tramites\.js\?v=/u);
   assert.match(portal, /import\("\.\/ayuda-contenido\.js\?v=/u);
-  exigirRenovado(ayudante, "./ayuda-contenido.js", anterior);
-  exigirRenovado([portal, ayuda, ayudante], "./portal-i18n.js", anterior);
+  versionDe(ayudante, "./ayuda-contenido.js");
+  exigirMismaVersion([portal, ayuda, ayudante], "./portal-i18n.js");
   // Los textos de la ayuda son datos (`textos/<idioma>/portal-ayuda.json`,
   // servidos sin caché); el aviso del panel sigue siendo un módulo versionado.
-  exigirRenovado(panel, "./portal-panel-interno-i18n.js", "20260924-ayuda-panel-i18n-v4");
+  versionDe(panel, "./portal-panel-interno-i18n.js");
 });

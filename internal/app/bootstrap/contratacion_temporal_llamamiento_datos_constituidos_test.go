@@ -55,8 +55,9 @@ func (f consultaPuestoM10Prueba) Consultar(ctx context.Context, s personaldomain
 	return f(ctx, s)
 }
 
-func TestResolverPuestoRPTConstituidoExigePaginacionCompletaYUnicoUUID(t *testing.T) {
-	const puesto = "puesto:10000000-0000-4000-8000-000000000001"
+func TestResolverPuestoRPTConstituidoExigePaginacionCompletaEIdentificadorPublicado(t *testing.T) {
+	// El formato de la importación de Personal conserva todos estos dígitos.
+	const puesto = "puesto:10000000-0000-f000-4000-000000000001"
 	const unidadGestora = "unidad:desarrollo:rrhh"
 	unidadPuesto, ok := unidadPuestoPublicadoCT(personaldomain.PuestoRPTPublico{CentroCodigo: "520"})
 	if !ok || unidadPuesto != "unidad:centro:520" || unidadPuesto == unidadGestora {
@@ -103,6 +104,14 @@ func TestResolverPuestoRPTConstituidoDeniegaPuestoAjenoYAmbiguo(t *testing.T) {
 		{"ajeno", []personaldomain.PuestoIndividualOrganizacionHistorica{{
 			Traza: personaldomain.TrazaOrganizacionHistorica{ID: puesto}, CodigoFuente: "520-001/01",
 			UnidadID: "unidad:centro:999", EstadoEstructural: "vigente",
+		}}},
+		{"identificador_sin_formato", []personaldomain.PuestoIndividualOrganizacionHistorica{{
+			Traza: personaldomain.TrazaOrganizacionHistorica{ID: "puesto:inventado"}, CodigoFuente: "520-001/01",
+			UnidadID: "unidad:centro:520", EstadoEstructural: "vigente",
+		}}},
+		{"identificador_otra_clase", []personaldomain.PuestoIndividualOrganizacionHistorica{{
+			Traza: personaldomain.TrazaOrganizacionHistorica{ID: "plaza:10000000-0000-f000-4000-000000000001"}, CodigoFuente: "520-001/01",
+			UnidadID: "unidad:centro:520", EstadoEstructural: "vigente",
 		}}},
 		{"ambiguo", []personaldomain.PuestoIndividualOrganizacionHistorica{
 			{Traza: personaldomain.TrazaOrganizacionHistorica{ID: puesto}, CodigoFuente: "520-001/01", UnidadID: "unidad:centro:520", EstadoEstructural: "vigente"},

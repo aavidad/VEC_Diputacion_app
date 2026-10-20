@@ -24,36 +24,39 @@ var (
 // EntradaOrigenLlamamientoCT expresa el orden decidido por Bolsa en un corte.
 // Un orden vigente ausente significa que Bolsa no permite llamar a la persona.
 type EntradaOrigenLlamamientoCT struct {
-	OrdenActa        uint64  `json:"orden_acta"`
-	OrdenVigente     *uint64 `json:"orden_vigente"`
-	ParticipacionRef string  `json:"participacion_ref"`
-	CandidatoRef     string  `json:"candidato_ref"`
-	Situacion        string  `json:"situacion"`
-	Razon            string  `json:"razon"`
-	Elegible         bool    `json:"elegible"`
+	EventosRelacion          *[]string                       `json:"eventos_relacion,omitempty"`
+	ComprobacionOfrecimiento *EstadoComprobacionOfrecimiento `json:"comprobacion_ofrecimiento,omitempty"`
+	OrdenActa                uint64                          `json:"orden_acta"`
+	OrdenVigente             *uint64                         `json:"orden_vigente"`
+	ParticipacionRef         string                          `json:"participacion_ref"`
+	CandidatoRef             string                          `json:"candidato_ref"`
+	Situacion                string                          `json:"situacion"`
+	Razon                    string                          `json:"razon"`
+	Elegible                 bool                            `json:"elegible"`
 }
 
 // OrigenLlamamientoCT conserva los bytes canónicos originales y la decisión
 // de orden de Bolsa. Contratación no interpreta situaciones ni reglas.
 type OrigenLlamamientoCT struct {
-	ActaRef                 string                       `json:"acta_ref"`
-	CategoriaRef            string                       `json:"categoria_ref"`
-	BolsaRef                string                       `json:"bolsa_ref"`
-	VersionBolsa            uint64                       `json:"version_bolsa"`
-	HuellaBolsaSHA256       string                       `json:"huella_bolsa_sha256"`
-	BolsaCanonica           []byte                       `json:"bolsa_canonica"`
-	InstantaneaRef          string                       `json:"instantanea_ref"`
-	VersionInstantanea      uint64                       `json:"version_instantanea"`
-	HuellaInstantaneaSHA256 string                       `json:"huella_instantanea_sha256"`
-	InstantaneaCanonica     []byte                       `json:"instantanea_canonica"`
-	PoliticaRef             string                       `json:"politica_ref"`
-	VersionPolitica         uint64                       `json:"version_politica"`
-	HuellaPoliticaSHA256    string                       `json:"huella_politica_sha256"`
-	PoliticaProvisional     bool                         `json:"politica_provisional"`
-	Corte                   time.Time                    `json:"corte"`
-	BolsaVigenteHasta       *time.Time                   `json:"bolsa_vigente_hasta"`
-	PoliticaVigenteHasta    *time.Time                   `json:"politica_vigente_hasta"`
-	Entradas                []EntradaOrigenLlamamientoCT `json:"entradas"`
+	CriteriosOfrecimiento   *CriteriosOfrecimientoAplicados `json:"criterios_ofrecimiento,omitempty"`
+	ActaRef                 string                          `json:"acta_ref"`
+	CategoriaRef            string                          `json:"categoria_ref"`
+	BolsaRef                string                          `json:"bolsa_ref"`
+	VersionBolsa            uint64                          `json:"version_bolsa"`
+	HuellaBolsaSHA256       string                          `json:"huella_bolsa_sha256"`
+	BolsaCanonica           []byte                          `json:"bolsa_canonica"`
+	InstantaneaRef          string                          `json:"instantanea_ref"`
+	VersionInstantanea      uint64                          `json:"version_instantanea"`
+	HuellaInstantaneaSHA256 string                          `json:"huella_instantanea_sha256"`
+	InstantaneaCanonica     []byte                          `json:"instantanea_canonica"`
+	PoliticaRef             string                          `json:"politica_ref"`
+	VersionPolitica         uint64                          `json:"version_politica"`
+	HuellaPoliticaSHA256    string                          `json:"huella_politica_sha256"`
+	PoliticaProvisional     bool                            `json:"politica_provisional"`
+	Corte                   time.Time                       `json:"corte"`
+	BolsaVigenteHasta       *time.Time                      `json:"bolsa_vigente_hasta"`
+	PoliticaVigenteHasta    *time.Time                      `json:"politica_vigente_hasta"`
+	Entradas                []EntradaOrigenLlamamientoCT    `json:"entradas"`
 }
 
 // FuenteOrigenLlamamientoCT devuelve exactamente una constitución vigente
@@ -62,31 +65,34 @@ type FuenteOrigenLlamamientoCT interface {
 	ConsultarOrigenLlamamientoCT(context.Context, string) (OrigenLlamamientoCT, error)
 }
 
-// OrigenEmisionCT fija la causa CT a una reserva B7 nativa. El repositorio
-// coteja estos campos con su constitución y emisión en la misma transacción.
+// OrigenEmisionCT fija la causa CT a una reserva B7 nativa. OrdenSeleccionado
+// es la posición original del acta; la entrada debe tener orden vigente 1.
+// El repositorio coteja estos campos con la constitución y la emisión en la
+// misma transacción.
 type OrigenEmisionCT struct {
-	OrganizacionRef         string              `json:"organizacion_ref"`
-	UnidadRef               string              `json:"unidad_ref"`
-	ExpedienteRef           string              `json:"expediente_ref"`
-	VersionExpediente       uint64              `json:"version_expediente"`
-	ClaveCT                 string              `json:"clave_ct"`
-	NecesidadRef            string              `json:"necesidad_ref"`
-	ActaRef                 string              `json:"acta_ref"`
-	CategoriaRef            string              `json:"categoria_ref"`
-	BolsaRef                string              `json:"bolsa_ref"`
-	VersionBolsa            uint64              `json:"version_bolsa"`
-	HuellaBolsaSHA256       string              `json:"huella_bolsa_sha256"`
-	InstantaneaRef          string              `json:"instantanea_ref"`
-	VersionInstantanea      uint64              `json:"version_instantanea"`
-	HuellaInstantaneaSHA256 string              `json:"huella_instantanea_sha256"`
-	PoliticaRef             string              `json:"politica_ref"`
-	VersionPolitica         uint64              `json:"version_politica"`
-	HuellaPoliticaSHA256    string              `json:"huella_politica_sha256"`
-	ParticipacionRef        string              `json:"participacion_ref"`
-	CandidatoRef            string              `json:"candidato_ref"`
-	OrdenSeleccionado       uint64              `json:"orden_seleccionado"`
-	Lectura                 OrigenLlamamientoCT `json:"lectura"`
-	VersionToken            string              `json:"version_token"`
+	CriteriosOfrecimiento   *CriteriosOfrecimientoAplicados `json:"criterios_ofrecimiento,omitempty"`
+	OrganizacionRef         string                          `json:"organizacion_ref"`
+	UnidadRef               string                          `json:"unidad_ref"`
+	ExpedienteRef           string                          `json:"expediente_ref"`
+	VersionExpediente       uint64                          `json:"version_expediente"`
+	ClaveCT                 string                          `json:"clave_ct"`
+	NecesidadRef            string                          `json:"necesidad_ref"`
+	ActaRef                 string                          `json:"acta_ref"`
+	CategoriaRef            string                          `json:"categoria_ref"`
+	BolsaRef                string                          `json:"bolsa_ref"`
+	VersionBolsa            uint64                          `json:"version_bolsa"`
+	HuellaBolsaSHA256       string                          `json:"huella_bolsa_sha256"`
+	InstantaneaRef          string                          `json:"instantanea_ref"`
+	VersionInstantanea      uint64                          `json:"version_instantanea"`
+	HuellaInstantaneaSHA256 string                          `json:"huella_instantanea_sha256"`
+	PoliticaRef             string                          `json:"politica_ref"`
+	VersionPolitica         uint64                          `json:"version_politica"`
+	HuellaPoliticaSHA256    string                          `json:"huella_politica_sha256"`
+	ParticipacionRef        string                          `json:"participacion_ref"`
+	CandidatoRef            string                          `json:"candidato_ref"`
+	OrdenSeleccionado       uint64                          `json:"orden_seleccionado"`
+	Lectura                 OrigenLlamamientoCT             `json:"lectura"`
+	VersionToken            string                          `json:"version_token"`
 }
 
 // DatosDerivacionTokenFinalizacionCT liga la finalización B7 a una reserva CT.

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { prepararTextosPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { prepararTextosPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 await prepararTextosPortal("ayuda");
-const { TRAMITES_AYUDANTE_PORTAL } = await import("./ayuda-contenido.js?v=20261007-pantallas-textos-final-v1");
+const { TRAMITES_AYUDANTE_PORTAL } = await import("./ayuda-contenido.js?v=VEC_WEB_VERSION");
 const { crearAyudanteTramites, MENSAJES_AYUDANTE_TRAMITES_ES } =
-  await import("./ayudante-tramites.js?v=20261007-pantallas-textos-final-v1");
+  await import("./ayudante-tramites.js?v=VEC_WEB_VERSION");
 
 test("el ayudante cubre trámites comunes de Dietas, Cronos y Personal", () => {
   const ids = new Set(TRAMITES_AYUDANTE_PORTAL.map((tramite) => tramite.id));

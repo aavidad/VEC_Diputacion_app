@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarModuloContratacionTemporal, renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js?v=20261008-alta-circular-v3";
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { montarModuloContratacionTemporal, renderizarModuloContratacionTemporal } from "./vista-expedientes.js?v=VEC_WEB_VERSION";
+import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js?v=VEC_WEB_VERSION";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=VEC_WEB_VERSION";
 import { validarExpedienteContratacionTemporal } from "./contrato-expedientes.js";
-import { crearClienteHTTPBorradorRRHH, tipoBorradorDeAccion } from "./cliente-http-informe-definitivo.js?v=20261008-alta-circular-v3";
+import { crearClienteHTTPBorradorRRHH, tipoBorradorDeAccion } from "./cliente-http-informe-definitivo.js?v=VEC_WEB_VERSION";
 
 function estadoReal() {
   const expediente = {
@@ -85,6 +85,29 @@ async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
   return { estado, raiz, boton, botones, botonesDocx, cancelaciones, reintentos, mensaje, montaje, click,
     descargas, creados, revocados };
 }
+
+test("el informe v5 permite comprobar la firma antes de fiscalizar, con el expediente actual", () => {
+  const previo = estadoReal();
+  previo.expediente.version = 5;
+  Object.assign(previo.cuadro.expedientes[0], { version: 5, fase_clave: "informe_juridico" });
+  assert.deepEqual(solicitudInformeDefinitivoDesdeEstado(previo, "informe_definitivo"), {
+    expediente_ref: previo.expediente_ref, version_observada: 5,
+  });
+  assert.equal(solicitudInformeDefinitivoDesdeEstado(previo), null);
+  assert.equal(solicitudInformeDefinitivoDesdeEstado(previo, "resolucion"), null);
+  for (const cambiar of [
+    (e) => { e.cuadro.expedientes[0].fase_clave = "asignacion_unidad"; },
+    (e) => { e.cuadro.expedientes[0].fase_clave = "gestion_bolsa"; },
+    (e) => { e.cuadro.expedientes[0].estado_clave = "completado"; },
+    (e) => { e.cuadro.expedientes[0].version = 4; },
+    (e) => { e.expediente.version = 4; },
+    (e) => { e.expediente_ref = "expediente:otro"; },
+  ]) {
+    const alterado = structuredClone(previo);
+    cambiar(alterado);
+    assert.equal(solicitudInformeDefinitivoDesdeEstado(alterado, "informe_definitivo"), null);
+  }
+});
 
 test("los diez borradores v7 reales sólo aparecen dentro de Documentos", () => {
   const estado = estadoReal();

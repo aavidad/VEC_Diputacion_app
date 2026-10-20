@@ -1,9 +1,9 @@
 import { cargarTextos } from "../../../comun/textos.js";
-import { MENSAJES_BORRADORES } from "./i18n-borradores.js?v=20260929-i18n-dietas-v1";
-import { MENSAJES_REVISION_DIETAS } from "./i18n-revision.js?v=20260929-i18n-dietas-v1";
-import { MENSAJES_CIRCUITO_DIETAS } from "./i18n-circuito.js?v=20260929-i18n-dietas-v1";
-import { MENSAJES_RECTIFICACION_DIETAS } from "./i18n-rectificacion-dietas.js?v=20260929-i18n-dietas-v1";
-import { MENSAJES_RECTIFICACION_ADMIN } from "./i18n-rectificacion-admin.js?v=20260929-i18n-dietas-v1";
+import { MENSAJES_BORRADORES } from "./i18n-borradores.js?v=VEC_WEB_VERSION";
+import { MENSAJES_REVISION_DIETAS } from "./i18n-revision.js?v=VEC_WEB_VERSION";
+import { MENSAJES_CIRCUITO_DIETAS } from "./i18n-circuito.js?v=VEC_WEB_VERSION";
+import { MENSAJES_RECTIFICACION_DIETAS } from "./i18n-rectificacion-dietas.js?v=VEC_WEB_VERSION";
+import { MENSAJES_RECTIFICACION_ADMIN } from "./i18n-rectificacion-admin.js?v=VEC_WEB_VERSION";
 
 const TEXTOS_DIETAS = await cargarTextos("dietas");
 

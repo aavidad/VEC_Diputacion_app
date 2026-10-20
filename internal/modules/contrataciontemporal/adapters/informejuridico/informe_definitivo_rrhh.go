@@ -69,6 +69,31 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 	return contenido, ctx.Err()
 }
 
+// accionCatalogoInformeJuridico es la clave con la que el catálogo de
+// plantillas (v4) liga el informe definitivo al informe jurídico vigente. El
+// expediente registra esa actuación como domain.AccionEmitirInformeJuridico.
+const accionCatalogoInformeJuridico = "generar_informe_juridico"
+
+// AccionRequeridaCumplida dice si el expediente ya tiene la actuación que la
+// plantilla exige para ofrecerse. Es la única traducción entre la clave del
+// catálogo y la de la actuación registrada: la lista y la descarga la usan
+// antes de comprobar con BorradorPreparable si el documento se puede preparar.
+func AccionRequeridaCumplida(plantilla PlantillaBorrador, detalle ports.DetalleExpedienteRRHH) bool {
+	if plantilla.RequiereAccion == "" {
+		return true
+	}
+	accion := domain.ClaveCatalogo(plantilla.RequiereAccion)
+	if plantilla.RequiereAccion == accionCatalogoInformeJuridico {
+		accion = domain.AccionEmitirInformeJuridico
+	}
+	for _, hito := range detalle.Hitos {
+		if hito.AccionClave == accion {
+			return true
+		}
+	}
+	return false
+}
+
 // BorradorPreparable aplica a un tipo las mismas condiciones que su
 // generación (fase, propuesta, datos y plantilla) sin renderizar nada. Sirve
 // para que la lista de documentos diga cuáles se pueden preparar ya.
@@ -109,7 +134,7 @@ func contenidoBorradorDesarrollo(
 		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
 	}
 	fuente := fuenteCampos{detalle: detalle, etiquetar: etiquetar, plantillas: plantillas, plantilla: plantilla, omitirReferencias: omitirReferencias}
-	if tipo == ports.BorradorInformeDefinitivo && plantilla.RequiereAccion == "generar_informe_juridico" {
+	if tipo == ports.BorradorInformeDefinitivo && plantilla.RequiereAccion == accionCatalogoInformeJuridico {
 		hito, vigente := ctapplication.HitoInformeVigenteParaOriginalRRHH(detalle)
 		if !vigente {
 			return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible

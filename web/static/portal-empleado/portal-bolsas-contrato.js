@@ -16,7 +16,7 @@
  * - Contratos estrictos y cerrados: cualquier propiedad no declarada invalida la respuesta.
  */
 
-import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261011-ct-bolsa-vinculo-v1";
+import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=VEC_WEB_VERSION";
 
 export const ESQUEMA_BOLSAS = "vec.bolsa.rrhh.bolsas.v1";
 export const ESQUEMA_CANDIDATOS = "vec.bolsa.rrhh.candidatos.v1";
@@ -334,15 +334,96 @@ export function validarCandidato(candidato) {
   });
 }
 
-export function validarRespuestaCandidatosBolsa(envelope) {
+const MOTIVO_EXCLUSION = /^[a-z][a-z0-9_]{0,63}$/u;
+
+export function validarExclusionesOrigen(valor, { bolsaRef = "", llamamientoRef = "", exclusionesDesde = 0 } = {}) {
+  if (!esObjeto(valor)) throw new Error("exclusiones de origen no válidas");
+  if (valor.estado === "sin_permiso") {
+    exigirCamposExactos(valor, ["estado"], "exclusiones sin permiso");
+    return Object.freeze({ estado: valor.estado });
+  }
+  if (valor.estado === "no_disponible") {
+    exigirCamposExactos(valor, ["estado", "error_estado"], "exclusiones no disponibles");
+    if (valor.error_estado !== "lectura_no_disponible") throw new Error("error de exclusiones no válido");
+    return Object.freeze({ estado: valor.estado, error_estado: valor.error_estado });
+  }
+  exigirCamposExactos(valor, ["estado", "pagina"], "exclusiones de origen");
+  const pagina = valor.pagina;
+  const conCriterios = esObjeto(pagina) && Object.hasOwn(pagina, "criterios_ofrecimiento");
+  exigirCamposExactos(pagina, ["bolsa_ref", "llamamiento_ref", "exclusiones", "total_exclusiones",
+    "hay_mas", "siguiente_orden_acta", "auditoria_ref", "correlacion_ref", "consultada_en",
+    ...(conCriterios ? ["criterios_ofrecimiento"] : [])], "página de exclusiones");
+  if (valor.estado !== "disponible" || !bolsaRef || !llamamientoRef || pagina.bolsa_ref !== bolsaRef
+    || pagina.llamamiento_ref !== llamamientoRef || !Array.isArray(pagina.exclusiones)
+    || pagina.exclusiones.length > 1000 || typeof pagina.hay_mas !== "boolean") throw new Error("ámbito de exclusiones no válido");
+  const total = exigirEnteroNoNegativo(pagina.total_exclusiones, "total_exclusiones");
+  const desde = exigirEnteroNoNegativo(exclusionesDesde, "exclusiones_desde");
+  const vistas = new Set(); let ultimo = desde;
+  const exclusiones = pagina.exclusiones.map((fila) => {
+    const conNombre = esObjeto(fila) && Object.hasOwn(fila, "nombre_visible");
+    exigirCamposExactos(fila, ["participacion_ref", "orden_acta", "situacion_en_origen", "motivo_clave", "eventos_relacion", "hechos_relacion",
+      ...(conNombre ? ["nombre_visible"] : [])], "exclusión de origen");
+    const ref = exigirCadenaSegura(fila.participacion_ref, "participacion_ref");
+    const orden = exigirEnteroNoNegativo(fila.orden_acta, "orden_acta");
+    if (orden <= ultimo || vistas.has(ref) || !SITUACIONES_PARTICIPACION_BOLSA.includes(fila.situacion_en_origen)
+      || typeof fila.motivo_clave !== "string" || !MOTIVO_EXCLUSION.test(fila.motivo_clave)
+      || !Array.isArray(fila.eventos_relacion) || fila.eventos_relacion.length > 100
+      || fila.eventos_relacion.some((evento) => typeof evento !== "string" || !evento || evento.length > 256)
+      || !Array.isArray(fila.hechos_relacion) || fila.hechos_relacion.length > 100) {
+      throw new Error("fila de exclusión incoherente");
+    }
+    const referencias = new Set(fila.eventos_relacion);
+    const hechos = fila.hechos_relacion.map((hecho) => {
+      exigirCamposExactos(hecho, ["evento_ref", "tipo", "ocurrido_en"], "hecho de relación");
+      const eventoRef = exigirCadenaSegura(hecho.evento_ref, "evento_ref");
+      if (!referencias.has(eventoRef) || !["incorporacion", "cese"].includes(hecho.tipo))
+        throw new Error("hecho de relación incoherente");
+      referencias.delete(eventoRef);
+      return Object.freeze({ evento_ref: eventoRef, tipo: hecho.tipo,
+        ocurrido_en: exigirInstanteUTC(hecho.ocurrido_en, "ocurrido_en") });
+    });
+    vistas.add(ref); ultimo = orden;
+    return Object.freeze({ participacion_ref: ref, orden_acta: orden, situacion_en_origen: fila.situacion_en_origen,
+      motivo_clave: fila.motivo_clave, eventos_relacion: Object.freeze([...fila.eventos_relacion]),
+      hechos_relacion: Object.freeze(hechos),
+      ...(conNombre ? { nombre_visible: exigirCadenaSegura(fila.nombre_visible, "nombre_visible") } : {}) });
+  });
+  if (total < exclusiones.length || pagina.hay_mas && (!exclusiones.length || pagina.siguiente_orden_acta !== ultimo)
+    || !pagina.hay_mas && pagina.siguiente_orden_acta !== null) throw new Error("paginación de exclusiones incoherente");
+  return Object.freeze({ estado: valor.estado, pagina: Object.freeze({ bolsa_ref: bolsaRef, llamamiento_ref: llamamientoRef,
+    exclusiones: Object.freeze(exclusiones), total_exclusiones: total, hay_mas: pagina.hay_mas,
+    siguiente_orden_acta: pagina.siguiente_orden_acta,
+    auditoria_ref: exigirCadenaSegura(pagina.auditoria_ref, "auditoria_ref"),
+    correlacion_ref: exigirCadenaSegura(pagina.correlacion_ref, "correlacion_ref"),
+    consultada_en: exigirInstanteUTC(pagina.consultada_en, "consultada_en"),
+    ...(conCriterios ? { criterios_ofrecimiento: pagina.criterios_ofrecimiento === null
+      ? null : validarCriteriosExclusion(pagina.criterios_ofrecimiento) } : {}) }) });
+}
+
+function validarCriteriosExclusion(valor) {
+  const conCausa = esObjeto(valor) && Object.hasOwn(valor, "causa_ofrecida");
+  exigirCamposExactos(valor, ["version_politica_ofertas", "huella_politica_ofertas_sha256", "modalidad_ofrecida",
+    ...(conCausa ? ["causa_ofrecida"] : []), "configuracion"], "regla de ofrecimiento");
+  if (!Number.isSafeInteger(valor.version_politica_ofertas) || valor.version_politica_ofertas < 1
+    || !/^[a-f0-9]{64}$/u.test(valor.huella_politica_ofertas_sha256)
+    || !MOTIVO_EXCLUSION.test(valor.modalidad_ofrecida) || !esObjeto(valor.configuracion)
+    || (conCausa && !MOTIVO_EXCLUSION.test(valor.causa_ofrecida))
+    || (valor.configuracion.mejora && !conCausa)) {
+    throw new Error("regla de ofrecimiento no válida");
+  }
+  return Object.freeze({ ...valor, configuracion: structuredClone(valor.configuracion) });
+}
+
+export function validarRespuestaCandidatosBolsa(envelope, ambitoExclusiones = {}) {
   const datos = extraerDatosEnvelopeCanonico(envelope);
   const conTurno = datos?.esquema === ESQUEMA_CANDIDATOS_TURNO;
   // «canales_llamamiento» solo viaja cuando el servidor publica los canales activos.
   const conCanales = esObjeto(datos) && Object.hasOwn(datos, "canales_llamamiento");
   const conRespuestasPortal = esObjeto(datos) && Object.hasOwn(datos, "respuestas_portal");
+  const conExclusiones = esObjeto(datos) && Object.hasOwn(datos, "exclusiones_origen");
   exigirCamposExactos(datos, ["esquema", "generado_en", "bolsa", "candidatos", "contactos", "hay_mas", "cursor_siguiente",
     ...(conTurno ? ["turno"] : []), ...(conCanales ? ["canales_llamamiento"] : []),
-    ...(conRespuestasPortal ? ["respuestas_portal"] : [])], "respuesta de candidatos");
+    ...(conRespuestasPortal ? ["respuestas_portal"] : []), ...(conExclusiones ? ["exclusiones_origen"] : [])], "respuesta de candidatos");
 
   if (datos.esquema !== ESQUEMA_CANDIDATOS && !conTurno) {
     throw new Error(`esquema no compatible: ${datos.esquema}`);
@@ -390,6 +471,18 @@ export function validarRespuestaCandidatosBolsa(envelope) {
     throw new Error("cursor_siguiente debe ser null cuando hay_mas es false");
   }
 
+  // Los motivos son una lectura auxiliar: su contrato defectuoso no invalida
+  // los candidatos, contactos y respuestas ya comprobados.
+  let exclusionesOrigen;
+  if (conExclusiones) {
+    try {
+      exclusionesOrigen = validarExclusionesOrigen(datos.exclusiones_origen,
+        { ...ambitoExclusiones, bolsaRef: bolsa.bolsa_ref });
+    } catch (error) {
+      globalThis.console?.error?.("bolsa.exclusiones_contrato_invalido", { tipo: error?.name });
+      exclusionesOrigen = Object.freeze({ estado: "no_disponible", error_estado: "lectura_no_disponible" });
+    }
+  }
   return Object.freeze({
     esquema: datos.esquema,
     generado_en: generadoEn,
@@ -398,6 +491,7 @@ export function validarRespuestaCandidatosBolsa(envelope) {
     turno,
     contactos,
     ...(conRespuestasPortal ? { respuestas_portal: respuestasPortal } : {}),
+    ...(conExclusiones ? { exclusiones_origen: exclusionesOrigen } : {}),
     hay_mas: datos.hay_mas,
     cursor_siguiente: cursorSiguiente,
     ...(conCanales ? { canales_llamamiento: validarCanalesLlamamiento(datos.canales_llamamiento) } : {}),

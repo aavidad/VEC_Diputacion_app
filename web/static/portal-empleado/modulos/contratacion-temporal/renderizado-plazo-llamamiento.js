@@ -4,9 +4,9 @@
  * expiración proceden del recibo del servidor. La situación «en plazo» o
  * «vencido» es solo lectura: el servidor decide con su propio reloj.
  */
-import { escaparHTML as e } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
+import { escaparHTML as e } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { CAMPOS_REVISION_RESOLUCION, respuestaFueraDePlazo, situacionPlazoRespuesta } from "./contrato-llamamiento.js";
+import { CAMPOS_REVISION_RESOLUCION, respuestaFueraDePlazo, situacionPlazoRespuesta } from "./contrato-llamamiento.js?v=VEC_WEB_VERSION";
 
 /** Estado derivado del plazo, compartido por el formulario y la vista. */
 export function lecturaPlazoLlamamiento(estado, ahora) {

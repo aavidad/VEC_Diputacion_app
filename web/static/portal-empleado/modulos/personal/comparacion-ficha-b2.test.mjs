@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { prepararTextosPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
+import { prepararTextosPersonal } from "./i18n.js?v=VEC_WEB_VERSION";
 
 test.before(async () => { await prepararTextosPersonal(); });
 import { compararFichasB2, montarComparacionFichaB2, instanteDesdeMadrid, fechaHoraMadrid } from "./comparacion-ficha-b2.js";
-import { montarRegistroB2 } from "./registro-b2.js?v=20261008-alta-rpt-circular-v4";
+import { montarRegistroB2 } from "./registro-b2.js?v=VEC_WEB_VERSION";
 
 const empleadoRef = "emp_aaaaaaaaaaaaaaaaaaaaaa";
 const personaRef = "per_bbbbbbbbbbbbbbbbbbbbbb";
