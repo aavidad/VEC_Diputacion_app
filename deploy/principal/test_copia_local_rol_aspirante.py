@@ -55,23 +55,43 @@ class TestRolAspirante(unittest.TestCase):
         # Ninguna tabla de roles, concesiones ni asignaciones.
         for tabla in ('version_rol', 'asignacion_perfil', 'control_vigencia'):
             self.assertNotIn(tabla, sql)
-        acceso = json.loads((self.carpeta / 'catalogo-acceso.json').read_text())
-        self.assertTrue(acceso['creado'])
+        # La contraseña nunca llega al registro de PostgreSQL y el LOGIN caduca con el plan.
+        self.assertLess(sql.index("log_min_error_statement='panic'"), sql.index('PASSWORD'))
+        self.assertIn("VALID UNTIL '2026-10-21T08:00:00Z'", sql)
         self.assertEqual((self.carpeta / 'catalogo-config.json').stat().st_mode & 0o777, 0o600)
         self.assertIn('sslmode=verify-full', (self.carpeta / 'catalogo-config.json').read_text())
-        # Repetir solo reescribe la aprobación: no recrea el LOGIN.
+        # Repetir tras un corte no falla por un LOGIN ya creado: se crea o se actualiza.
+        self.assertIn('IF EXISTS(SELECT 1 FROM pg_catalog.pg_roles', sql)
         rol.dba_catalogo(self.copia, self.carpeta, plan_falso(), aprobacion)
-        self.assertNotIn('CREATE ROLE', self.copia.sql[1])
-        self.assertIn('DELETE FROM vec_autorizacion.config_catalogo_acciones_admin_v1', self.copia.sql[1])
+        self.assertEqual(sql, self.copia.sql[1])
+        rol.revocar_aprobacion(self.copia, self.carpeta)
+        self.assertIn("SET estado='revocada'", self.copia.sql[2])
+        self.assertIn('NOLOGIN', self.copia.sql[2])
+
+    def test_material_releido_con_otra_forma_no_entra_en_el_sql(self):
+        (self.carpeta / 'catalogo-acceso.json').write_text(json.dumps(dict(login="x'; DROP", clave='a' * 32)))
+        with self.assertRaises(ValueError):
+            rol.dba_catalogo(self.copia, self.carpeta, plan_falso(), dict(ref='r', sha256='c' * 64))
+        self.assertEqual(self.copia.sql, [])
 
     def test_acto_ya_publicado_no_envia_nada(self):
-        cabeza = dict(ref='rol:x:v3', rol={'concesiones': [{'accion': 'bolsa.inscripcion.presentar'}]})
+        cabeza = dict(ref='rol:x:v3', rol={'concesiones': [{'accion': 'otra'}] * 13 + [
+            {'accion': 'bolsa.inscripcion.presentar'}]})
         admin = SimpleNamespace(perfil_aplicacion=lambda: self.fail('no debe seleccionar perfil'),
                                 pedir=lambda *a: self.fail('no debe enviar'))
         with patch.object(rol, 'cabeza_rol', return_value=cabeza):
             hecho = rol.acto(self.copia, self.carpeta, None, 'inscripcion', 'bolsa.inscripcion.presentar',
                              12, admin, admin, {})
         self.assertEqual(hecho['ya_publicado'], 'rol:x:v3')
+
+    def test_preferencias_sin_modalidades_no_se_dan_por_hechas(self):
+        concesiones = [{'accion': 'otra'}] * 12 + [
+            {'accion': 'bolsa.preferencias_bolsas.consultar_propias', 'campos_permitidos': ['version']},
+            {'accion': 'bolsa.preferencias_bolsas.ordenar_propias'}]
+        with patch.object(rol, 'cabeza_rol', return_value=dict(ref='rol:x:v3', rol={'concesiones': concesiones})):
+            with self.assertRaises(ValueError):
+                rol.acto(self.copia, self.carpeta, None, 'preferencias',
+                         'bolsa.preferencias_bolsas.ordenar_propias', 14, None, None, {})
 
     def test_acto_reanuda_con_los_mismos_bytes_y_exige_replay(self):
         cuerpo = {'operacion_ref': 'propuesta_admin:' + '1' * 32}

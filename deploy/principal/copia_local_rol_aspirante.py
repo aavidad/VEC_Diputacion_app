@@ -41,9 +41,13 @@ AUDIENCIA = 'vec_autorizacion.versionar_rol_bolsa_externa.{}.v1'
 RUTA_ACTOS = '/api/admin/perfiles/v1/gobierno-version-bolsa-externa/'
 RUTA_SELECTOR = '/api/admin/seleccion-perfil/v1/'
 # Cada acto deja el rol con estas concesiones; la acción marca que ya se hizo.
+CAMPOS_MODALIDADES = ('modalidades_guardadas', 'modalidades_disponibles')
 ACTOS = (('inscripcion', 'bolsa.inscripcion.presentar', 12),
          ('preferencias', 'bolsa.preferencias_bolsas.ordenar_propias', 14))
 REFERENCIA = re.compile(r'[A-Za-z0-9][A-Za-z0-9._:-]{0,255}')
+LOGIN = re.compile(r'vec_adm_cat_rolasp_[0-9a-f]{10}')
+CLAVE = re.compile(r'[A-Za-z0-9_-]{32}')
+INSTANTE = re.compile(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ')
 
 
 def exigir(condicion, motivo):
@@ -162,20 +166,29 @@ def dba_catalogo(copia, carpeta, plan, aprobacion):
     datos = leer(acceso)
     if datos is None:
         sufijo = hashlib.sha256(copia.nombre.encode()).hexdigest()[:10]
-        datos = dict(login=f'vec_adm_cat_rolasp_{sufijo}', clave=secrets.token_urlsafe(24), creado=False)
+        datos = dict(login=f'vec_adm_cat_rolasp_{sufijo}', clave=secrets.token_urlsafe(24))
         escribir(acceso, datos)
+    p = json.loads(plan['plan'])
+    # Se releen de ficheros privados al reanudar: no entran en el SQL sin su forma exacta.
+    exigir(LOGIN.fullmatch(datos['login']) and CLAVE.fullmatch(datos['clave'])
+           and INSTANTE.fullmatch(p['preparado_en']) and INSTANTE.fullmatch(p['caduca_en']),
+           'Material privado del catálogo con forma inesperada')
     estado = copia.leer()
     escribir(carpeta / 'catalogo-config.json', dict(tiempo_segundos=40, dsn=(
         f"host=127.0.0.1 port={estado['puerto_pg']} dbname=postgres user={datos['login']} "
         f"password={datos['clave']} sslmode=verify-full sslrootcert={copia.material / 'ca/ca.crt'}")))
     login = datos['login']
-    lineas = ['BEGIN;']
-    if not datos['creado']:
-        lineas += [f"CREATE ROLE {login} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE "
-                   f"NOREPLICATION NOBYPASSRLS PASSWORD '{datos['clave']}';",
-                   f'GRANT {GRUPO_CATALOGO} TO {login} WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;']
-    p = json.loads(plan['plan'])
-    lineas += ['SET LOCAL ROLE vec_autorizacion_propietario;',
+    opciones = (f"LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS "
+                f"PASSWORD '{datos['clave']}' VALID UNTIL '{p['caduca_en']}'")
+    # La contraseña no llega al registro de PostgreSQL ni aunque la sentencia
+    # falle; el LOGIN se crea o se actualiza, así que un corte no lo atasca.
+    lineas = ['BEGIN;', "SET LOCAL log_statement='none';", "SET LOCAL log_min_error_statement='panic';",
+              'SET LOCAL log_min_duration_statement=-1;',
+              f"DO $$BEGIN IF EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='{login}') "
+              f"THEN ALTER ROLE {login} {opciones}; ELSE CREATE ROLE {login} {opciones}; "
+              "END IF; END$$;",
+              f'GRANT {GRUPO_CATALOGO} TO {login} WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;',
+              'SET LOCAL ROLE vec_autorizacion_propietario;',
                f"DELETE FROM vec_autorizacion.config_catalogo_acciones_admin_v1 WHERE login_nombre='{login}';",
                'INSERT INTO vec_autorizacion.config_catalogo_acciones_admin_v1(login_nombre,plan_sha256,'
                'aprobacion_ref,aprobacion_sha256,aprobador_ref,paquete_ref,paquete_version,paquete_sha256,'
@@ -187,9 +200,15 @@ def dba_catalogo(copia, carpeta, plan, aprobacion):
                            f"timestamptz '{p['preparado_en']}'", f"timestamptz '{p['caduca_en']}'"]) + ');',
                'COMMIT;']
     copia.sql_bytes(('\n'.join(lineas) + '\n').encode(), 'rol-aspirante-dba.log')
-    if not datos['creado']:
-        datos['creado'] = True
-        escribir(acceso, datos)
+
+
+def revocar_aprobacion(copia, carpeta):
+    """Tras confirmar el recibo, la aprobación de un día deja de servir."""
+    login = json.loads((carpeta / 'catalogo-acceso.json').read_text())['login']
+    exigir(LOGIN.fullmatch(login), 'Material privado del catálogo con forma inesperada')
+    copia.sql_bytes((f"BEGIN;\nALTER ROLE {login} NOLOGIN;\nSET LOCAL ROLE vec_autorizacion_propietario;\n"
+                     "UPDATE vec_autorizacion.config_catalogo_acciones_admin_v1 SET estado='revocada' "
+                     f"WHERE login_nombre='{login}';\nCOMMIT;\n").encode(), 'rol-aspirante-dba.log')
 
 
 def admitir(binario, carpeta, plan):
@@ -214,6 +233,7 @@ def catalogo(copia, carpeta, repo, rac, binario_admitir):
     cabeza = cabeza_catalogo(copia)
     if hecho.get('recibo') and cabeza['huella'] == hecho['catalogo_sha256']:
         return hecho
+    exigir(not hecho.get('recibo'), 'La cabeza del catálogo cambió después de admitirlo; revise la copia')
     plan = hecho.get('plan')
     vigente = plan and json.loads(plan['plan'])['caduca_en'] > time.strftime(
         '%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() + 600))
@@ -232,7 +252,6 @@ def catalogo(copia, carpeta, repo, rac, binario_admitir):
         # igual (por si se interrumpió antes) y se presenta el mismo plan.
         dba_catalogo(copia, carpeta, plan, hecho['aprobacion'])
     else:
-        exigir(not hecho.get('recibo'), 'La cabeza del catálogo cambió después de admitirlo')
         fuentes = [json.loads((repo / f).read_text()) for f in FUENTES]
         aprobacion_doc = dict(tipo='aprobacion_tecnica_copia_local', copia=copia.nombre,
                               catalogo_ref=CATALOGO, esperado_version=cabeza['version'],
@@ -257,6 +276,7 @@ def catalogo(copia, carpeta, repo, rac, binario_admitir):
     exigir(cabeza_catalogo(copia)['huella'] == plan['catalogo_sha256'], 'La cabeza no quedó en el catálogo nuevo')
     hecho.update(recibo=primero['recibo'], repeticion_igual=True)
     escribir(registro, hecho)
+    revocar_aprobacion(copia, carpeta)
     return hecho
 
 
@@ -304,6 +324,14 @@ class Administrador:
             exigir(estado == 200, f'Selección de perfil ADMIN respondió {estado}')
 
 
+def publicado_completo(concesiones, modo, esperado):
+    if modo == 'inscripcion':
+        return len(concesiones) >= esperado
+    consulta = [c for c in concesiones if c['accion'] == 'bolsa.preferencias_bolsas.consultar_propias']
+    return (len(concesiones) == esperado and len(consulta) == 1
+            and set(CAMPOS_MODALIDADES) <= set(consulta[0].get('campos_permitidos') or []))
+
+
 def acto(copia, carpeta, rac, modo, accion_marca, concesiones, admin1, admin2, motivos):
     registro = carpeta / f'acto-{modo}.json'
     hecho = leer(registro) or {}
@@ -313,6 +341,9 @@ def acto(copia, carpeta, rac, modo, accion_marca, concesiones, admin1, admin2, m
         rol = cabeza_rol(copia)
         acciones = [c['accion'] for c in rol['rol']['concesiones']]
         if accion_marca in acciones:
+            # Solo se da por hecho el estado exacto que deja este acto, no uno parecido.
+            exigir(publicado_completo(rol['rol']['concesiones'], modo, concesiones),
+                   f'El rol tiene {modo} en un estado distinto del que publica esta orden; revise la copia')
             hecho = dict(ya_publicado=rol['ref'], concesiones=len(acciones))
             escribir(registro, hecho)
             return hecho
@@ -332,7 +363,8 @@ def acto(copia, carpeta, rac, modo, accion_marca, concesiones, admin1, admin2, m
     if not hecho.get('propuesta'):
         admin1.perfil_aplicacion()
         estado, propuesta = admin1.pedir('POST', RUTA_ACTOS + 'propuestas', hecho['cuerpo'])
-        exigir(estado in (200, 201), f'Propuesta {modo} respondió {estado}')
+        exigir(estado in (200, 201), f'Propuesta {modo} respondió {estado}; si la cabeza del rol cambió '
+               f'o la propuesta caducó, retire admin/rol-aspirante/{registro.name} y repita')
         estado2, repetida = admin1.pedir('POST', RUTA_ACTOS + 'propuestas', hecho['cuerpo'])
         exigir(estado2 == 200 and repetida.get('propuesta_ref') == propuesta['propuesta_ref']
                and repetida.get('replay') is True, 'La repetición de la propuesta no devolvió la misma')
@@ -343,7 +375,8 @@ def acto(copia, carpeta, rac, modo, accion_marca, concesiones, admin1, admin2, m
                   propuesta_huella_sha256=hecho['propuesta']['huella_sha256'], motivo=motivos['cierre'])
     admin2.perfil_aplicacion()
     estado, cierre = admin2.pedir('POST', RUTA_ACTOS + 'cierres', cuerpo)
-    exigir(estado == 200 and cierre.get('recibo_ref'), f'Cierre {modo} respondió {estado}')
+    exigir(estado == 200 and cierre.get('recibo_ref'), f'Cierre {modo} respondió {estado}; si la propuesta '
+           f'caducó, retire admin/rol-aspirante/{registro.name} y repita')
     estado2, repetido = admin2.pedir('POST', RUTA_ACTOS + 'cierres', cuerpo)
     exigir(estado2 == 200 and repetido.get('recibo_ref') == cierre['recibo_ref']
            and repetido.get('confirmado_en') == cierre['confirmado_en'],

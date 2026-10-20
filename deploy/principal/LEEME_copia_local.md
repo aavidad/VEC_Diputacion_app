@@ -558,9 +558,15 @@ por los actos. Plan, aprobación, contraseña, cuerpos y recibos quedan en
 `admin/rol-aspirante` dentro de la instancia, con permisos 0600, y `borrar` los
 retira.
 
+El LOGIN caduca con el plan y, cuando el recibo de la admisión queda
+confirmado, el LOGIN se desactiva y la aprobación pasa a revocada.
+
 Si se corta, se vuelve a lanzar la misma orden: reanuda con las mismas
-referencias y los mismos bytes, y no repite lo que ya se confirmó. Si la cabeza
-del rol ya tiene las acciones de un acto, ese acto se da por hecho.
+referencias y los mismos bytes, y no repite lo que ya se confirmó. Un acto solo
+se da por hecho si el rol está exactamente en el estado que deja ese acto; si
+está en otro, la orden se detiene. Si la propuesta guardada caducó o la cabeza
+del rol cambió entre medias, la orden lo dice y nombra el fichero
+`admin/rol-aspirante/acto-<modo>.json` que hay que retirar antes de repetir.
 
 Requisitos:
 
