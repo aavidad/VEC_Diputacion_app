@@ -232,6 +232,7 @@ def catalogo(copia, carpeta, repo, rac, binario_admitir):
     hecho = leer(registro) or {}
     cabeza = cabeza_catalogo(copia)
     if hecho.get('recibo') and cabeza['huella'] == hecho['catalogo_sha256']:
+        revocar_aprobacion(copia, carpeta)
         return hecho
     exigir(not hecho.get('recibo'), 'La cabeza del catálogo cambió después de admitirlo; revise la copia')
     plan = hecho.get('plan')
@@ -244,6 +245,7 @@ def catalogo(copia, carpeta, repo, rac, binario_admitir):
  WHERE catalogo_ref={literal(CATALOGO)} AND huella_sha256={literal(plan['catalogo_sha256'])}""")
         hecho.update(recibo=json.loads(recibo))
         escribir(registro, hecho)
+        revocar_aprobacion(copia, carpeta)
         return hecho
     if plan and cabeza['huella'] == plan['catalogo_sha256']:
         pass  # Admitido sin recibo guardado: se recupera con el mismo plan.

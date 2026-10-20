@@ -74,6 +74,63 @@ class TestRolAspirante(unittest.TestCase):
             rol.dba_catalogo(self.copia, self.carpeta, plan_falso(), dict(ref='r', sha256='c' * 64))
         self.assertEqual(self.copia.sql, [])
 
+    def guardar_catalogo(self, hecho):
+        rol.escribir(self.carpeta / 'catalogo-acceso.json',
+                     dict(login='vec_adm_cat_rolasp_' + 'a' * 10, clave='b' * 32))
+        rol.escribir(self.carpeta / 'catalogo.json', hecho)
+
+    def test_catalogo_confirmado_reanuda_retirada_idempotente_sin_admitir(self):
+        hecho = dict(recibo={'referencia': 'recibo:catalogo:01'}, catalogo_sha256='d' * 64)
+        self.guardar_catalogo(hecho)
+        with patch.object(rol, 'cabeza_catalogo', return_value={'huella': 'd' * 64}), \
+                patch.object(rol, 'admitir') as admitir, patch.object(rol, 'dba_catalogo') as aprobar:
+            for _ in range(2):
+                self.assertEqual(rol.catalogo(self.copia, self.carpeta, None, None, None), hecho)
+        admitir.assert_not_called()
+        aprobar.assert_not_called()
+        self.assertEqual(len(self.copia.sql), 2)
+        self.assertEqual(self.copia.sql[0], self.copia.sql[1])
+        self.assertIn('ALTER ROLE vec_adm_cat_rolasp_aaaaaaaaaa NOLOGIN;', self.copia.sql[0])
+        self.assertIn("SET estado='revocada'", self.copia.sql[0])
+        self.assertNotIn('GRANT ', self.copia.sql[0])
+
+    def test_catalogo_caducado_recupera_recibo_y_retira_acceso_sin_admitir(self):
+        plan = plan_falso()
+        contenido = json.loads(plan['plan'])
+        contenido.update(preparado_en='2026-10-19T10:00:00Z', caduca_en='2026-10-20T08:00:00Z')
+        plan.update(plan=json.dumps(contenido), catalogo_sha256='d' * 64)
+        recibo = {'referencia': 'recibo:catalogo:02'}
+        self.guardar_catalogo(dict(plan=plan, catalogo_sha256='d' * 64))
+        with patch.object(rol.time, 'time', return_value=1792490400), \
+                patch.object(rol, 'cabeza_catalogo', return_value={'huella': 'd' * 64}), \
+                patch.object(rol, 'consulta', return_value=json.dumps(recibo)) as consultar, \
+                patch.object(rol, 'admitir') as admitir:
+            for _ in range(2):
+                self.assertEqual(rol.catalogo(self.copia, self.carpeta, None, None, None)['recibo'], recibo)
+        consultar.assert_called_once()
+        admitir.assert_not_called()
+        self.assertEqual(len(self.copia.sql), 2)
+        self.assertEqual(self.copia.sql[0], self.copia.sql[1])
+        self.assertIn('NOLOGIN;', self.copia.sql[0])
+        self.assertIn("SET estado='revocada'", self.copia.sql[0])
+
+    def test_catalogo_interrumpido_tras_guardar_recibo_no_omite_retirada_al_reanudar(self):
+        plan = dict(plan_falso(), catalogo_sha256='d' * 64)
+        recibo = {'referencia': 'recibo:catalogo:03'}
+        self.guardar_catalogo(dict(plan=plan, catalogo_sha256='d' * 64))
+        with patch.object(rol.time, 'time', return_value=1792490400), \
+                patch.object(rol, 'cabeza_catalogo', return_value={'huella': 'd' * 64}), \
+                patch.object(rol, 'admitir', return_value={'recibo': recibo}) as admitir, \
+                patch.object(rol, 'revocar_aprobacion', side_effect=[
+                    RuntimeError('Retirada no confirmada'), RuntimeError('Retirada no confirmada'), None]) as retirar:
+            for _ in range(2):
+                with self.assertRaisesRegex(RuntimeError, 'Retirada no confirmada'):
+                    rol.catalogo(self.copia, self.carpeta, None, None, None)
+                self.assertEqual(rol.leer(self.carpeta / 'catalogo.json')['recibo'], recibo)
+            self.assertEqual(rol.catalogo(self.copia, self.carpeta, None, None, None)['recibo'], recibo)
+        self.assertEqual(admitir.call_count, 2)
+        self.assertEqual(retirar.call_count, 3)
+
     def test_acto_ya_publicado_no_envia_nada(self):
         cabeza = dict(ref='rol:x:v3', rol={'concesiones': [{'accion': 'otra'}] * 13 + [
             {'accion': 'bolsa.inscripcion.presentar'}]})
