@@ -314,6 +314,23 @@ func (p *puenteBolsaLlamamientoDesarrollo) fuenteResolucionSucesorLigada(ctx con
 
 func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
 	if datos.Accion == postgresct.AccionResolucionManualLlamamiento {
+		if portal, existe := ctx.Value(claveResolucionPortalDesarrollo{}).(resolucionPortalLigadaDesarrollo); existe {
+			s := portal.solicitud
+			m := postgresct.MaterialResolucionPortal{Solicitud: s, Politica: portal.politica}
+			esperado, err := postgresct.RecursoResolucionPortal(m)
+			r := datos.Recurso
+			return err == nil && s.Validar() == nil && s.CriterioValidacionRef == criterioRevisionManualDesarrollo &&
+				portal.politica == politicaManualDesarrollo() &&
+				s.OrganizacionRef == p.expediente.Fiscalizado.OrganizacionRef &&
+				s.ExpedienteRef == p.expediente.Fiscalizado.Referencia &&
+				portal.respuesta.ParticipacionRef == s.ParticipacionRef &&
+				portal.respuesta.ReciboRespuestaRef == s.ReciboRespuestaRef &&
+				portal.respuesta.Respuesta == puertosbolsa.RespuestaPortalAcepta &&
+				portal.respuesta.Modo == puertosbolsa.ModoRespuestaPortalFirme &&
+				datos.ReferenciaMotivo == motivoResolucionManualDesarrollo(false) &&
+				r.Referencia == esperado.Referencia && r.ModuloID == esperado.ModuloID && r.Tipo == esperado.Tipo &&
+				maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
+		}
 		l, ok := ctx.Value(claveResolucionManualDesarrollo{}).(aceptacionRevisadaDesarrollo)
 		if !ok || !l.solicitud.RevisionManualConfirmada() || !resolucionLigadaAlExpedienteDesarrollo(p.expediente, l) ||
 			datos.ReferenciaMotivo != motivoResolucionManualDesarrollo(false) {

@@ -1,0 +1,2 @@
+# F1-125 B; aplicar una vez después de CT250.
+deploy/postgresql/contratacion_temporal/migraciones/000249_resolucion_respuesta_portal_rrhh.up.sql 90c47a48b1c112919a8a64961062f56347a2119ce2f317dbdb7989cea0ff687c
