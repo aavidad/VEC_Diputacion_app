@@ -41,6 +41,7 @@ const (
 	EnvCTNecesidadesAltaSourcePath                 = "VEC_CT_NECESIDADES_ALTA_SOURCE_PATH"
 	EnvPersonalCatalogPath                         = "VEC_PERSONAL_CATALOG_PATH"
 	EnvIncorporacionV2File                         = "VEC_CT_INCORPORACION_V2_FILE"
+	EnvCTReferenciaOrganizativaFile                = "VEC_CT_REFERENCIA_ORGANIZATIVA_FILE"
 	EnvContratacionTemporalSubsanacionPoliticaFile = "VEC_CT_SUBSANACION_POLITICA_FILE"
 	EnvPersonalOrganizacionSourcePath              = "VEC_PERSONAL_ORGANIZACION_SOURCE_PATH"
 	EnvRPTCatalogoPath                             = "VEC_RPT_CATALOGO_PATH"
@@ -143,6 +144,7 @@ type Config struct {
 	ExternoIdentidadRevalidacionPostgreSQL      ConfiguracionPostgreSQLExterna
 	ExternoContextoPostgreSQL                   ConfiguracionPostgreSQLExterna
 	IncorporacionV2File                         string
+	CTReferenciaOrganizativaFile                string
 	ContratacionTemporalSubsanacionPoliticaFile string
 	CTAnalisisMotivosSourcePath                 string
 	ReglasEjemplo                               ConfiguracionReglasEjemplo
@@ -256,6 +258,7 @@ func Load() Config {
 		PortalProceso:          os.Getenv(EnvPortalProceso),
 		IncorporacionV2File:    envFirst(EnvIncorporacionV2File),
 		ContratacionTemporalSubsanacionPoliticaFile: envFirst(EnvContratacionTemporalSubsanacionPoliticaFile),
+		CTReferenciaOrganizativaFile:                envFirst(EnvCTReferenciaOrganizativaFile),
 		CTAnalisisMotivosSourcePath:                 envFirst(EnvCTAnalisisMotivosSourcePath),
 		ExternoPreflightV3DatabaseURL:               os.Getenv(EnvExternoPreflightV3DatabaseURL),
 		ExternoBolsaPublicaPostgreSQL: ConfiguracionPostgreSQLPublica{
@@ -426,6 +429,7 @@ func (c Config) Normalize() Config {
 	c.DevelopmentGuard = strings.TrimSpace(c.DevelopmentGuard)
 	c.DevelopmentMaterialDir = strings.TrimSpace(c.DevelopmentMaterialDir)
 	c.IncorporacionV2File = strings.TrimSpace(c.IncorporacionV2File)
+	c.CTReferenciaOrganizativaFile = strings.TrimSpace(c.CTReferenciaOrganizativaFile)
 	c.CTAnalisisMotivosSourcePath = strings.TrimSpace(c.CTAnalisisMotivosSourcePath)
 	c.ReglasEjemplo = c.ReglasEjemplo.normalizar()
 	if c.ExecutionProfile == ExecutionProfileDevelopment && c.AuthMode == AuthModeDevelopment &&

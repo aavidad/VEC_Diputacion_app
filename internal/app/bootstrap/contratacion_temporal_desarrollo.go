@@ -338,9 +338,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	dependencias, err := nuevasDependenciasCT(cfg, resolvedor, derivador, kms, registro, referenciaCT{
-		organizacionRef: "organizacion:desarrollo:dipgra", unidadRef: "unidad:desarrollo:rrhh",
-	})
+	referencia, err := leerReferenciaOrganizativaCT(cfg.Normalize().CTReferenciaOrganizativaFile)
+	if err != nil {
+		registrarFalloReferenciaOrganizativaCT(err)
+		return nil, nil, nil, err
+	}
+	dependencias, err := nuevasDependenciasCT(cfg, resolvedor, derivador, kms, registro, referencia)
 	if err != nil {
 		return nil, nil, nil, err
 	}

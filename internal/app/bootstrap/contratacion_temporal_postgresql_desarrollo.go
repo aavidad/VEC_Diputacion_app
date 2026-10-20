@@ -214,6 +214,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), plazoarranque.Ampliar(15*time.Second))
 	defer cancelar()
+	etapa = "cotejar_referencia_organizativa"
+	if err := cotejarReferenciaOrganizativaCT(ctx, dsnEjecucion, soporte.referenciaCT); err != nil {
+		registrarFalloReferenciaOrganizativaCT(err)
+		return vacias, err
+	}
 	etapa = "derivar_material_atestacion"
 	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(
 		derivador, reloj.Ahora(),
