@@ -13,9 +13,9 @@ BEGIN
  THEN RAISE EXCEPTION 'CT253: falta CT249'; END IF;
  FOR x IN SELECT * FROM (VALUES
   ('vec_contratacion_temporal.leer_antecedente_propuesta_formalizacion_ct211_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   '9457ff0dc6a89d4d7052d53aa6b8497252cc261c52bb807c364eb05381d70ae4'),
+   '2bff61645b0ee54acc1ef1608fdb985885321e0d48c06765b1c2419a71e1ad1f'),
   ('vec_contratacion_temporal.registrar_propuesta_formalizacion_nativa_ct211_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   '64fb7ac837a443be5732bf350a372d96eab17c4376c6a1cc5f81617cbdf653a9')
+   'c4206d11448acd2e3ba2837545d03cbf711a713fec2e41a65980ce35c686e979')
  ) v(firma,huella) LOOP
   f:=to_regprocedure(x.firma);
   IF f IS NULL THEN RAISE EXCEPTION 'CT253: falta función %',x.firma; END IF;

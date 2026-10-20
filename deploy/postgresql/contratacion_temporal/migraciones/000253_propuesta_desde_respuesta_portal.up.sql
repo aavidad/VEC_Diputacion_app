@@ -64,6 +64,9 @@ BEGIN
  OR NOT EXISTS(SELECT 1 FROM pg_attribute a
    WHERE a.attrelid='vec_contratacion_temporal.resolucion_manual_respuesta_rrhh'::regclass
    AND a.attname='fuente_respuesta' AND NOT a.attisdropped)
+ OR NOT EXISTS(SELECT 1 FROM pg_attribute a
+   WHERE a.attrelid='vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6'::regclass
+   AND a.attname='tipo_seleccion' AND NOT a.attisdropped)
  OR to_regprocedure('vec_contratacion_temporal.registrar_resolucion_respuesta_portal_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR has_function_privilege('vec_contratacion_temporal_propietario',
    'vec_bolsa_llamamientos.verificar_aceptacion_nativa_ct_para_ct_v1(jsonb)','EXECUTE') IS NOT TRUE
@@ -91,6 +94,8 @@ DECLARE
     v_bolsa_nativa jsonb;
     v_ahora timestamptz(6); v_fecha_bolsa timestamptz(6);
     v_es_portal boolean; v_historico jsonb; v_selector jsonb; v_anclaje jsonb;
+    v_solicitud_o6 jsonb; v_huella_o6 text; v_artefacto_texto_o6 text;
+    v_artefacto jsonb; v_retencion jsonb;
     v_propuesta text; v_recibo text; v_evento text; v_unidad text;
     v_actuacion jsonb; v_agregado jsonb; v_agregado_hash text; v_prueba bytea;
     v_secuencia numeric(20,0); v_anterior text; v_payload bytea; v_outbox_hash text;
@@ -262,12 +267,14 @@ BEGIN
     END IF;
     IF v_es_portal THEN
         -- La selección O6 pertenece a CT; el original de Bolsa se relee por B113.
-        SELECT e.recibo_json,h.agregado_json INTO v_seleccion,v_historico
+        SELECT e.solicitud_json,e.huella_semantica,e.artefacto_canonico,e.recibo_json,h.agregado_json
+          INTO v_solicitud_o6,v_huella_o6,v_artefacto_texto_o6,v_seleccion,v_historico
           FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
           JOIN vec_contratacion_temporal.expediente_version_integral h
             ON h.expediente_ref=s->>'ExpedienteRef' AND h.version=v_n
+           AND h.fase_clave='fiscalizacion' AND h.estado='en_curso'
          WHERE e.clave_idempotencia=v_resolucion.seleccion_clave
-           AND e.situacion='confirmada'
+           AND e.situacion='confirmada' AND e.tipo_seleccion='llamamiento'
            AND e.solicitud_json->>'organizacion_ref'=s->>'OrganizacionRef'
            AND e.solicitud_json->>'expediente_ref'=s->>'ExpedienteRef'
            AND e.solicitud_json->'version_expediente'=to_jsonb(v_n)
@@ -279,7 +286,13 @@ BEGIN
            AND e.recibo_json#>>'{bolsa,referencia}'=v_resolucion.solicitud_json->>'BolsaRef'
            AND h.agregado_json_huella_sha256=encode(sha256(convert_to(h.agregado_json::text,'UTF8')),'hex')
          FOR SHARE OF e,h;
-        IF NOT FOUND OR v_seleccion#>>'{procedencia,sin_retencion_declarada}' IS DISTINCT FROM 'true'
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'antecedentes de aceptación incompatibles' USING ERRCODE='P0615'; END IF;
+        IF v_huella_o6 IS DISTINCT FROM
+             vec_contratacion_temporal.huella_solicitud_seleccion_llamamiento_o6_v1(v_solicitud_o6)
+           OR v_solicitud_o6->>'huella_semantica' IS DISTINCT FROM v_huella_o6
+           OR v_historico->'version' IS DISTINCT FROM to_jsonb(v_n)
+           OR v_historico->>'fase_actual' IS DISTINCT FROM 'fiscalizacion'
            OR v_historico#>>'{via_cobertura,via_clave}' IS DISTINCT FROM 'bolsa_vigente'
            OR v_historico#>>'{via_cobertura,decision_gobernada,via_elegida}' IS DISTINCT FROM 'bolsa_vigente'
            OR v_historico#>>'{asignacion,unidad_ref}' IS NULL
@@ -288,6 +301,60 @@ BEGIN
            OR v_seleccion->>'confirmada_en' !~
                 '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$'
         THEN RAISE EXCEPTION 'antecedentes de aceptación incompatibles' USING ERRCODE='P0615'; END IF;
+        -- Validación histórica CT230: recibo y artefacto originales, sin reloj actual.
+        BEGIN v_artefacto:=v_artefacto_texto_o6::jsonb;
+        EXCEPTION WHEN data_exception THEN
+            RAISE EXCEPTION 'artefacto O6 inválido' USING ERRCODE='P0615'; END;
+        IF vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(
+             v_artefacto,v_artefacto_texto_o6,v_seleccion,
+             vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(v_seleccion)) IS NOT TRUE
+           OR v_artefacto#>'{comando,contexto,datos,organizacion_ref}' IS DISTINCT FROM v_solicitud_o6->'organizacion_ref'
+           OR v_artefacto#>'{comando,contexto,datos,expediente_ref}' IS DISTINCT FROM v_solicitud_o6->'expediente_ref'
+           OR v_artefacto#>'{comando,contexto,datos,version_expediente}' IS DISTINCT FROM v_solicitud_o6->'version_expediente'
+           OR v_artefacto#>'{comando,contexto,datos,correlacion_ref}' IS DISTINCT FROM v_solicitud_o6->'correlacion_ref'
+           OR v_artefacto#>'{comando,contexto,datos,finalidad}' IS DISTINCT FROM v_solicitud_o6->'finalidad'
+           OR v_artefacto#>'{comando,necesidad}' IS DISTINCT FROM v_solicitud_o6->'necesidad'
+           OR v_artefacto#>'{comando,bolsa}' IS DISTINCT FROM v_solicitud_o6->'bolsa'
+           OR v_artefacto#>'{comando,politica}' IS DISTINCT FROM v_solicitud_o6->'politica'
+           OR v_artefacto#>'{comando,contexto,datos,version_expediente}' IS DISTINCT FROM to_jsonb(v_n)
+           OR v_artefacto->'recibo' IS DISTINCT FROM v_seleccion
+        THEN RAISE EXCEPTION 'material O6 divergente' USING ERRCODE='P0615'; END IF;
+        v_retencion:=v_seleccion->'retencion_seleccion';
+        IF v_seleccion->'procedencia' ? 'sin_retencion_declarada' THEN
+            IF v_seleccion#>'{procedencia,sin_retencion_declarada}' IS DISTINCT FROM 'true'::jsonb
+               OR v_artefacto#>'{evidencia,sin_retencion_declarada}' IS DISTINCT FROM 'true'::jsonb
+               OR v_retencion IS DISTINCT FROM '{"referencia":"","version":0,"huella_sha256":""}'::jsonb
+               OR v_seleccion#>>'{procedencia,evidencia,retener_hasta}' IS DISTINCT FROM '0001-01-01T00:00:00Z'
+               OR v_artefacto#>>'{evidencia,retener_hasta}' IS DISTINCT FROM '0001-01-01T00:00:00Z'
+            THEN RAISE EXCEPTION 'retención neutra O6 divergente' USING ERRCODE='P0615'; END IF;
+        ELSE
+            IF v_artefacto->'evidencia' ? 'sin_retencion_declarada'
+               OR v_seleccion->'procedencia' ? 'politica_provisional'
+               OR jsonb_typeof(v_retencion) IS DISTINCT FROM 'object'
+               OR (v_retencion ?& ARRAY['referencia','version','huella_sha256']) IS NOT TRUE
+               OR v_retencion-ARRAY['referencia','version','huella_sha256'] IS DISTINCT FROM '{}'::jsonb
+               OR jsonb_typeof(v_retencion->'referencia') IS DISTINCT FROM 'string'
+               OR jsonb_typeof(v_retencion->'huella_sha256') IS DISTINCT FROM 'string'
+               OR v_retencion->>'referencia' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+               OR NOT (CASE WHEN jsonb_typeof(v_retencion->'version')='number'
+                    THEN (v_retencion->>'version')::numeric BETWEEN 1 AND 9007199254740991
+                     AND v_retencion->>'version' ~ '^[1-9][0-9]*$' ELSE false END)
+               OR v_retencion->>'huella_sha256' !~ '^[0-9a-f]{64}$'
+               OR v_retencion->>'huella_sha256'=repeat('0',64)
+               OR v_artefacto#>'{evidencia,retener_hasta}' IS DISTINCT FROM
+                    v_seleccion#>'{procedencia,evidencia,retener_hasta}'
+               OR v_artefacto#>'{evidencia,valida_hasta}' IS DISTINCT FROM
+                    v_seleccion#>'{procedencia,evidencia,valida_hasta}'
+            THEN RAISE EXCEPTION 'retención original O6 divergente' USING ERRCODE='P0615'; END IF;
+            IF vec_contratacion_temporal.instante_utc_json_canonico_v2(
+                 v_seleccion#>'{procedencia,evidencia,retener_hasta}',false) IS NOT TRUE
+               OR vec_contratacion_temporal.instante_utc_json_canonico_v2(
+                 v_seleccion#>'{procedencia,evidencia,valida_hasta}',false) IS NOT TRUE
+            THEN RAISE EXCEPTION 'fechas de retención O6 inválidas' USING ERRCODE='P0615'; END IF;
+            IF (v_seleccion#>>'{procedencia,evidencia,retener_hasta}')::timestamptz <=
+               (v_seleccion#>>'{procedencia,evidencia,valida_hasta}')::timestamptz THEN
+                RAISE EXCEPTION 'intervalo de retención O6 inválido' USING ERRCODE='P0615'; END IF;
+        END IF;
         BEGIN
             v_fecha_bolsa:=(v_resolucion.recibo_json#>>'{RespuestaPortal,RespondidaEn}')::timestamptz;
         EXCEPTION WHEN data_exception THEN
@@ -440,6 +507,8 @@ DECLARE
     v_respuesta jsonb; v_seleccion jsonb; v_resultado jsonb; v_continuacion jsonb; v_bolsa_nativa jsonb;
     v_ahora timestamptz(6); v_fecha_bolsa timestamptz(6);
     v_es_portal boolean; v_historico jsonb; v_selector jsonb; v_anclaje jsonb;
+    v_solicitud_o6 jsonb; v_huella_o6 text; v_artefacto_texto_o6 text;
+    v_artefacto jsonb; v_retencion jsonb;
     v_propuesta text; v_recibo text; v_evento text; v_unidad text;
     v_actuacion jsonb; v_agregado jsonb; v_agregado_hash text; v_prueba bytea;
     v_secuencia numeric(20,0); v_anterior text; v_payload bytea; v_outbox_hash text;
@@ -640,12 +709,14 @@ BEGIN
     END IF;
     IF v_es_portal THEN
         -- La selección O6 pertenece a CT; el original de Bolsa se relee por B113.
-        SELECT e.recibo_json,h.agregado_json INTO v_seleccion,v_historico
+        SELECT e.solicitud_json,e.huella_semantica,e.artefacto_canonico,e.recibo_json,h.agregado_json
+          INTO v_solicitud_o6,v_huella_o6,v_artefacto_texto_o6,v_seleccion,v_historico
           FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
           JOIN vec_contratacion_temporal.expediente_version_integral h
             ON h.expediente_ref=s->>'ExpedienteRef' AND h.version=v_n
+           AND h.fase_clave='fiscalizacion' AND h.estado='en_curso'
          WHERE e.clave_idempotencia=v_resolucion.seleccion_clave
-           AND e.situacion='confirmada'
+           AND e.situacion='confirmada' AND e.tipo_seleccion='llamamiento'
            AND e.solicitud_json->>'organizacion_ref'=s->>'OrganizacionRef'
            AND e.solicitud_json->>'expediente_ref'=s->>'ExpedienteRef'
            AND e.solicitud_json->'version_expediente'=to_jsonb(v_n)
@@ -657,7 +728,13 @@ BEGIN
            AND e.recibo_json#>>'{bolsa,referencia}'=v_resolucion.solicitud_json->>'BolsaRef'
            AND h.agregado_json_huella_sha256=encode(sha256(convert_to(h.agregado_json::text,'UTF8')),'hex')
          FOR SHARE OF e,h;
-        IF NOT FOUND OR v_seleccion#>>'{procedencia,sin_retencion_declarada}' IS DISTINCT FROM 'true'
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'antecedentes de aceptación incompatibles' USING ERRCODE='P0615'; END IF;
+        IF v_huella_o6 IS DISTINCT FROM
+             vec_contratacion_temporal.huella_solicitud_seleccion_llamamiento_o6_v1(v_solicitud_o6)
+           OR v_solicitud_o6->>'huella_semantica' IS DISTINCT FROM v_huella_o6
+           OR v_historico->'version' IS DISTINCT FROM to_jsonb(v_n)
+           OR v_historico->>'fase_actual' IS DISTINCT FROM 'fiscalizacion'
            OR v_historico#>>'{via_cobertura,via_clave}' IS DISTINCT FROM 'bolsa_vigente'
            OR v_historico#>>'{via_cobertura,decision_gobernada,via_elegida}' IS DISTINCT FROM 'bolsa_vigente'
            OR v_historico#>>'{asignacion,unidad_ref}' IS NULL
@@ -666,6 +743,60 @@ BEGIN
            OR v_seleccion->>'confirmada_en' !~
                 '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$'
         THEN RAISE EXCEPTION 'antecedentes de aceptación incompatibles' USING ERRCODE='P0615'; END IF;
+        -- Validación histórica CT230: recibo y artefacto originales, sin reloj actual.
+        BEGIN v_artefacto:=v_artefacto_texto_o6::jsonb;
+        EXCEPTION WHEN data_exception THEN
+            RAISE EXCEPTION 'artefacto O6 inválido' USING ERRCODE='P0615'; END;
+        IF vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(
+             v_artefacto,v_artefacto_texto_o6,v_seleccion,
+             vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(v_seleccion)) IS NOT TRUE
+           OR v_artefacto#>'{comando,contexto,datos,organizacion_ref}' IS DISTINCT FROM v_solicitud_o6->'organizacion_ref'
+           OR v_artefacto#>'{comando,contexto,datos,expediente_ref}' IS DISTINCT FROM v_solicitud_o6->'expediente_ref'
+           OR v_artefacto#>'{comando,contexto,datos,version_expediente}' IS DISTINCT FROM v_solicitud_o6->'version_expediente'
+           OR v_artefacto#>'{comando,contexto,datos,correlacion_ref}' IS DISTINCT FROM v_solicitud_o6->'correlacion_ref'
+           OR v_artefacto#>'{comando,contexto,datos,finalidad}' IS DISTINCT FROM v_solicitud_o6->'finalidad'
+           OR v_artefacto#>'{comando,necesidad}' IS DISTINCT FROM v_solicitud_o6->'necesidad'
+           OR v_artefacto#>'{comando,bolsa}' IS DISTINCT FROM v_solicitud_o6->'bolsa'
+           OR v_artefacto#>'{comando,politica}' IS DISTINCT FROM v_solicitud_o6->'politica'
+           OR v_artefacto#>'{comando,contexto,datos,version_expediente}' IS DISTINCT FROM to_jsonb(v_n)
+           OR v_artefacto->'recibo' IS DISTINCT FROM v_seleccion
+        THEN RAISE EXCEPTION 'material O6 divergente' USING ERRCODE='P0615'; END IF;
+        v_retencion:=v_seleccion->'retencion_seleccion';
+        IF v_seleccion->'procedencia' ? 'sin_retencion_declarada' THEN
+            IF v_seleccion#>'{procedencia,sin_retencion_declarada}' IS DISTINCT FROM 'true'::jsonb
+               OR v_artefacto#>'{evidencia,sin_retencion_declarada}' IS DISTINCT FROM 'true'::jsonb
+               OR v_retencion IS DISTINCT FROM '{"referencia":"","version":0,"huella_sha256":""}'::jsonb
+               OR v_seleccion#>>'{procedencia,evidencia,retener_hasta}' IS DISTINCT FROM '0001-01-01T00:00:00Z'
+               OR v_artefacto#>>'{evidencia,retener_hasta}' IS DISTINCT FROM '0001-01-01T00:00:00Z'
+            THEN RAISE EXCEPTION 'retención neutra O6 divergente' USING ERRCODE='P0615'; END IF;
+        ELSE
+            IF v_artefacto->'evidencia' ? 'sin_retencion_declarada'
+               OR v_seleccion->'procedencia' ? 'politica_provisional'
+               OR jsonb_typeof(v_retencion) IS DISTINCT FROM 'object'
+               OR (v_retencion ?& ARRAY['referencia','version','huella_sha256']) IS NOT TRUE
+               OR v_retencion-ARRAY['referencia','version','huella_sha256'] IS DISTINCT FROM '{}'::jsonb
+               OR jsonb_typeof(v_retencion->'referencia') IS DISTINCT FROM 'string'
+               OR jsonb_typeof(v_retencion->'huella_sha256') IS DISTINCT FROM 'string'
+               OR v_retencion->>'referencia' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+               OR NOT (CASE WHEN jsonb_typeof(v_retencion->'version')='number'
+                    THEN (v_retencion->>'version')::numeric BETWEEN 1 AND 9007199254740991
+                     AND v_retencion->>'version' ~ '^[1-9][0-9]*$' ELSE false END)
+               OR v_retencion->>'huella_sha256' !~ '^[0-9a-f]{64}$'
+               OR v_retencion->>'huella_sha256'=repeat('0',64)
+               OR v_artefacto#>'{evidencia,retener_hasta}' IS DISTINCT FROM
+                    v_seleccion#>'{procedencia,evidencia,retener_hasta}'
+               OR v_artefacto#>'{evidencia,valida_hasta}' IS DISTINCT FROM
+                    v_seleccion#>'{procedencia,evidencia,valida_hasta}'
+            THEN RAISE EXCEPTION 'retención original O6 divergente' USING ERRCODE='P0615'; END IF;
+            IF vec_contratacion_temporal.instante_utc_json_canonico_v2(
+                 v_seleccion#>'{procedencia,evidencia,retener_hasta}',false) IS NOT TRUE
+               OR vec_contratacion_temporal.instante_utc_json_canonico_v2(
+                 v_seleccion#>'{procedencia,evidencia,valida_hasta}',false) IS NOT TRUE
+            THEN RAISE EXCEPTION 'fechas de retención O6 inválidas' USING ERRCODE='P0615'; END IF;
+            IF (v_seleccion#>>'{procedencia,evidencia,retener_hasta}')::timestamptz <=
+               (v_seleccion#>>'{procedencia,evidencia,valida_hasta}')::timestamptz THEN
+                RAISE EXCEPTION 'intervalo de retención O6 inválido' USING ERRCODE='P0615'; END IF;
+        END IF;
         BEGIN
             v_fecha_bolsa:=(v_resolucion.recibo_json#>>'{RespuestaPortal,RespondidaEn}')::timestamptz;
         EXCEPTION WHEN data_exception THEN
@@ -754,7 +885,7 @@ BEGIN
     -- Los hechos CT anteriores siguen siendo propios y se cotejan con la
     -- selección nativa firmada; Bolsa acredita su respuesta en su propietario.
     IF v_continuacion IS NOT NULL
-       OR v_seleccion#>>'{procedencia,sin_retencion_declarada}' IS DISTINCT FROM 'true'
+       OR (NOT v_es_portal AND v_seleccion#>>'{procedencia,sin_retencion_declarada}' IS DISTINCT FROM 'true')
        OR v_seleccion->>'llamamiento_ref' IS DISTINCT FROM s->>'LlamamientoRef'
        OR v_seleccion->>'recibo_ref' IS DISTINCT FROM b#>>'{Selector,recibo_emision_ref}'
        OR v_seleccion#>>'{bolsa,referencia}' IS DISTINCT FROM b#>>'{Selector,bolsa_ref}'
@@ -933,7 +1064,7 @@ BEGIN
  OR p.proparallel IS DISTINCT FROM 'u'
  OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']::text[]
- OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'9457ff0dc6a89d4d7052d53aa6b8497252cc261c52bb807c364eb05381d70ae4'
+ OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'2bff61645b0ee54acc1ef1608fdb985885321e0d48c06765b1c2419a71e1ad1f'
  THEN RAISE EXCEPTION 'CT253: post divergente para leer_antecedente_propuesta_formalizacion_ct211_v1' USING ERRCODE='55000'; END IF;
 END $post_leer_antecedente_propuesta_formalizacion_ct211_v1$;
 
@@ -955,7 +1086,7 @@ BEGIN
  OR p.proparallel IS DISTINCT FROM 'u'
  OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']::text[]
- OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'64fb7ac837a443be5732bf350a372d96eab17c4376c6a1cc5f81617cbdf653a9'
+ OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'c4206d11448acd2e3ba2837545d03cbf711a713fec2e41a65980ce35c686e979'
  THEN RAISE EXCEPTION 'CT253: post divergente para registrar_propuesta_formalizacion_nativa_ct211_v1' USING ERRCODE='55000'; END IF;
 END $post_registrar_propuesta_formalizacion_nativa_ct211_v1$;
 

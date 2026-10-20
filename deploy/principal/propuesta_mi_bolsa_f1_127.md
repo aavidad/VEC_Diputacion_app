@@ -28,6 +28,10 @@ Comprobar con un perfil autorizado para otro ámbito que la petición se deniega
 con 403 y no produce efectos. Reiniciar aplicación y PostgreSQL y recuperar
 la propuesta con el mismo recibo. Conservar también un caso de correo anterior.
 
+Comprobar las dos representaciones originales de conservación de la selección
+que admite O6, con su recibo, artefacto y fechas. La referencia de conservación
+no acredita una reserva de crédito ni añade una caducidad al acto.
+
 ## Configuración y límites
 
 No se incorpora una variable de configuración ni un permiso nuevo. Sin las
