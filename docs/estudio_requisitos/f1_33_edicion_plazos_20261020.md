@@ -72,3 +72,15 @@ registra actos. El código Go del lector, manejador y composición coincide
 con el de la copia `016fd30ef`; la actualización de la principal no lo cambió.
 La preparación de otra copia completa se interrumpió por memoria insuficiente
 antes de compilar o arrancar la app, y se retiró. No se presenta como ensayo.
+
+
+La comprobación final sobre `58d7399ad`, ya con la cabecera alineada y la
+principal actualizada, se completó después de recuperar margen de memoria.
+Copia nueva creada en 99,46 segundos, mediante el mismo guion estándar.
+Chrome repitió 1440/1024/390 en castellano y 390 en inglés, teclado,
+zoom al 200 % y alto contraste. Tras reiniciar aplicación y PostgreSQL, las
+cuatro vistas conservaron exactamente los mensajes y estados: solo GET de
+reglas 200, sin consultas de ajustes, errores JavaScript, cookies ni desbordes.
+Las imágenes `plazos-despues-*` corresponden a esta copia final. No se
+registraron actos ni cambios de plazos; la copia se retiró tras guardar la
+evidencia. Los cambios posteriores de esta entrega son solo documentales.
