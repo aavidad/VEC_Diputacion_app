@@ -65,9 +65,9 @@ Se cotejaron resultados con `git ls-tree` y lectura de archivos en esta base. El
 
 | Pieza | Rutas actuales | Reutilización y límite |
 | --- | --- | --- |
-| Personal / Organización | `internal/modules/personal/ports/{ficha_propia,historia_relaciones_propia,organizacion_historica,relacion_para_rpt}.go`; `internal/vec/ports/catalogos_rpt_lectura.go` | Contratos autorizados y versiones/cobertura del vínculo/organización. B y Organización entregarán población mínima por régimen/entidad/periodo; no se obtiene ficha integral para construir indicadores. |
+| Personal / Organización | `internal/modules/personal/ports/{ficha_propia,historia_relaciones_propia,organizacion_historica,relacion_para_rpt}.go`; `internal/vec/ports/catalogos_rpt_lectura.go` | Contratos autorizados y versiones/cobertura del vínculo/organización. Personal y Organización entregarán población mínima por régimen/entidad/periodo; no se obtiene ficha integral para construir indicadores. |
 | Usuarios y contexto de identidad | `internal/modules/usuarios/application/correos.go`; `internal/vec/ports/contexto_actor.go`; `internal/vec/adapters/contextoactor/postgres/`; `internal/vec/adapters/administracionperfiles/postgres/` | Identidad/contacto y perfiles comunes, separados de representación laboral o mandato de comisión. Falta consumidor de Igualdad y concesiones fijas; no crear login ni permisos por solicitud. |
-| Auditoría L | `internal/vec/ports/auditoria_intento_nominal.go`; `auditoria_frontera_ruta_exacta.go`; `internal/vec/adapters/postgres/auditoria_intento_nominal.go` | Denegado/error nominal tras cerrar el intento original, con acuse, y frontera técnica común. Faltan acciones/rutas, proceso/canal del módulo por su custodio. Un informe de seguimiento no sustituye auditoría de accesos. |
+| Auditoría los servicios comunes | `internal/vec/ports/auditoria_intento_nominal.go`; `auditoria_frontera_ruta_exacta.go`; `internal/vec/adapters/postgres/auditoria_intento_nominal.go` | Denegado/error nominal tras cerrar el intento original, con acuse, y frontera técnica común. Faltan acciones/rutas, proceso/canal del módulo por su custodio. Un informe de seguimiento no sustituye auditoría de accesos. |
 | Documentos y firma | `internal/vec/documentos/application/servicio.go`; `ports/{firma,custodia_firmado}.go`; `internal/vec/ports/documentos.go` | Registro/custodia/descarga y verificación comunes. Tipos/políticas y consumidor de plan/evaluación están pendientes; las piezas específicas CT no aprueban un plan ni acreditan remisión al registro público. |
 | Datos estadísticos | `web/static/textos/{es,en}/datos-personales.json`; `internal/modules/personal/ports/ficha_propia.go` | Hay textos de finalidad estadística; no prueban un motor de indicadores, fundamento ni disponibilidad de categorías. No inferir sexo, identidad, discapacidad u otras categorías desde nombre o permisos. |
 | Selección / Bolsa / Provisión | `internal/modules/seleccion/ports/`; `internal/modules/bolsa/`; [plan de Provisión](provision.md) | Mantienen bases y decisiones propias. Falta proyección agregada aprobada para Igualdad y receptor de recomendaciones. `internal/modules/bolsa/domain/calculoexperiencia/puntuacion_igualdad.go` trata igualdad de cálculo; no es módulo de política de igualdad. |
@@ -86,11 +86,11 @@ estadísticas conectadas o recorrido de Igualdad. No se reservan ni reaplican su
 | IG1–IG3/IG11 | Acto/versiones, medidas/evidencias y evaluación anual con correcciones enlazadas. | Igualdad conserva Igualdad; unidad/RRHH/comisión/órgano acreditan competencia y acto; Documentos y servicios comunes conserva originales. |
 | IG4/IG12 | Indicadores reproducibles por población/periodo, ausencia/no comparable/validado. | Cada propietario emite contrato mínimo; Igualdad conserva metodología, revisión y resultado. |
 | IG5 | Revisión e informe aprobado a Selección/Provisión/Formación. | Igualdad informa; sus dueños aplican cambios por su procedimiento, sin alteración automática. |
-| IG6 | Registro retributivo de población laboral y acceso legalmente aplicable. | Nóminas prepara agregados; B delimita régimen/población; representación exige mandato vigente en autoridad común. |
+| IG6 | Registro retributivo de población laboral y acceso legalmente aplicable. | Nóminas prepara agregados; Personal delimita régimen/población; representación exige mandato vigente en autoridad común. |
 | IG7 | Resumen publicable controlado y evidencia de remisión. | Unidad/órgano aprueban; publicación/registro externo mantienen sus acuses; DPD controla reidentificación. |
 | IG8–IG10 | Información/derivación reservadas y permisos de consulta/edición/descarga independientes. | El circuito competente de acoso conserva expediente; Igualdad consume los servicios comunes de identidad y autorización sin trasladar víctimas/pruebas al panel. |
 
-K provisiona perfiles fijos por huella/CAS, un perfil activo y concesión positiva
+Identidad y Autorización provisiona perfiles fijos por huella/CAS, un perfil activo y concesión positiva
 exacta por acción, recurso, entidad/plan/medida/población/periodo, finalidad, campos y
 vigencia. Unidad, responsable, comisión, órgano, gestor de Nóminas, representación,
 empleado y auditoría tienen capacidades separadas. El cargo, menú, cuenta o perfil
@@ -110,7 +110,7 @@ salarios nominales, familia, salud y documentos completos no van a traza/logs.
 ## Minitareas y salidas por PR
 
 Dirección fija SHA vigente, propietario y archivos exclusivos por corte. Las rutas
-nuevas son previsión. Montaje/manifiestos y contratos los servicios comunes de identidad y autorización/B de otros propietarios
+nuevas son previsión. Montaje/manifiestos y contratos los servicios comunes de identidad y autorización/Personal de otros propietarios
 requieren su turno. Cada puerto tendrá consumidor útil sin inventar fuente.
 
 | Corte y base | Salida usable por PR | Archivos propios previstos | Dependencias | Horas |
@@ -118,7 +118,7 @@ requieren su turno. Cada puerto tendrá consumidor útil sin inventar fuente.
 | I00 · inventario | Revalidar piezas, deuda y estado de acto/plan. | Este plan durante su turno. | SHA/FIN vigentes. | 1–2 |
 | I01 · fuente | Versión/estado, ámbito, competencia, medidas y evaluación admitidos. | Contrato documentado del módulo. | Duda 132; acto auténtico posterior o lectura histórica de 2022; fuentes oficiales. | 3–5 |
 | I02 · B1 | Consumidor nominal y auditoría común por plan/medida/acción exactos. | Nuevos `igualdad/ports/{autorizacion,auditoria}.go`; consumidor. | I01; ABI los servicios comunes de identidad y autorización y perfiles fijos por huella/CAS; proceso/canal. | 6–10 |
-| I03 · B2/B3 | Población/entidad/régimen/periodo y responsables por puertos mínimos. | Puertos/consumidores de población del módulo. | B/Organización y K acreditan datos/mandatos; I02 antes de lectura. DTO puede acordarse antes. | 3–5 |
+| I03 · B2/B3 | Población/entidad/régimen/periodo y responsables por puertos mínimos. | Puertos/consumidores de población del módulo. | Personal/Organización y Identidad y Autorización acreditan datos/mandatos; I02 antes de lectura. DTO puede acordarse antes. | 3–5 |
 | I04 · IG1 | Puerto/fuente/consumidor del plan y versiones con vigencia/estado explícitos. | Dominio/aplicación/adaptador propios. | I01–I03; 2022 se conserva histórico si falta acto posterior. | 4–6 |
 | I05 · IG1/IG9 | Vista del plan/medidas y documentos autorizados con ES/EN. | Entrada/cliente/vista propios; catálogos ES/EN. | I04; montaje por custodio y revisión de usabilidad. | 4–6 |
 | I06 · IG2 | Responsable aporta avance/evidencia; ejecución y evaluación separadas. | Casos de uso/formulario propios. | I02/I05; acto/medidas/responsables vigentes, sin activar decisiones sobre antecedente. | 5–8 |
@@ -127,11 +127,11 @@ requieren su turno. Cada puerto tendrá consumidor útil sin inventar fuente.
 | I09 · IG3/IG11 | Evaluación anual, revisión competente y corrección enlazada con original. | Aplicación/formularios y consumidor documental propios. | I06/I08; metodología/órgano y documento admitidos. | 5–8 |
 | I10 · B5/IG9 | Consulta y descarga independiente de originales autorizados del plan/evaluación. | Consumidor documental y cliente propios. | I02/I09; Documentos/firma según acto, sin deducir firma de login. | 4–6 |
 | I11 · recorrido inicial | Responsable/comisión→medida/evidencia/evaluación; negativos/reinicio/manual. | Pruebas focales/manual propios. | I05–I10 montados, acto acreditado y revisiones pertinentes. | 4–6 |
-| I12 · IG4/IG5 | Indicadores de una fuente/población aprobadas y reporte a su dueño. | Puerto/consumidor e informe propios. | Ampliación encargada; B/Selección/Provisión/Formación/Cronos entregan hechos mínimos por su turno. | 6–10 |
+| I12 · IG4/IG5 | Indicadores de una fuente/población aprobadas y reporte a su dueño. | Puerto/consumidor e informe propios. | Ampliación encargada; Personal/Selección/Provisión/Formación/Cronos entregan hechos mínimos por su turno. | 6–10 |
 | I13 · IG12 | Calidad/metodología reproducibles; ausente/no comparable/validado y revisión humana. | Casos de uso/datos metodológicos propios. | I12; fuente/versiones/denominador y control DPD aprobados. | 4–7 |
-| I14 · IG6 | Consultar agregado retributivo laboral con acceso según modalidad/mandato. | Puerto/consumidor y vista propios. | Nóminas emite agregado, B delimita población; K acredita representación; no usar sumador preliminar. | 6–10 |
+| I14 · IG6 | Consultar agregado retributivo laboral con acceso según modalidad/mandato. | Puerto/consumidor y vista propios. | Nóminas emite agregado, Personal delimita población; Identidad y Autorización acredita representación; no usar sumador preliminar. | 6–10 |
 | I15 · IG7 | Proyección publicable aprobada con control de celdas/diferencias/reidentificación. | Informe/proyección y consumidor de publicación propios. | I13/I14; política aprobada, sin umbral universal inventado. | 4–6 |
-| I16 · IG1/IG7 | Preparación/remisión al registro de planes de Administraciones y conciliación de acuse. | Puerto/adaptador/consumidor y estado propios. | Órgano/destino/formato/operador admitidos; L/Registro/firma cuando procedan. | 5–8 |
+| I16 · IG1/IG7 | Preparación/remisión al registro de planes de Administraciones y conciliación de acuse. | Puerto/adaptador/consumidor y estado propios. | Órgano/destino/formato/operador admitidos; los servicios comunes de Registro y Firma cuando procedan. | 5–8 |
 | I17 · IG8 | Información y derivación al circuito competente reservado, sin denuncias en panel. | Cliente/textos/contrato mínimo de derivación propios. | Protocolo/estado vigente y receptor de acoso/Canal/Disciplina según competencia; no acceso por defecto. | 3–5 |
 | I18 · entrega ampliada | Recorridos de agregados/accesos/remisión/publicación y manual de límites. | Pruebas focales/manual propios. | I12–I17; acuses y revisión de calidad/reidentificación acreditados. | 4–6 |
 
@@ -157,7 +157,7 @@ conserva la cadena I04→I05→I06→I07→I08; no se presupone solape de todas 
 reúnen esas bases; I11 espera montaje/instalación. Después se separan fuentes/
 metodología (I12/I13) y retribución/remisión (I14/I16), por contratos y población
 aprobados. I15 espera control DPD y revisión humana; I17 puede documentarse antes.
-Un escritor por vista, idioma o contrato; los servicios comunes de identidad y autorización/B/Nóminas mantienen colas y esfuerzo
+Un escritor por vista, idioma o contrato; los servicios comunes de identidad y autorización/Personal/Nóminas mantienen colas y esfuerzo
 propios. La espera del acto posterior no detiene estos acuerdos independientes.
 
 ## Configuración y estimación
