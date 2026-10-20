@@ -77,10 +77,11 @@ def _verificador(c, puerto):
 
 def preparar(copia, args):
     """Ejecuta actos nativos y conserva cada recibo, sin recetas privadas."""
-    from . import catalogo, roles_admin, firmantes, actos, plan, admisiones, configuracion_firma
+    from . import catalogo, roles_admin, certificados_base, firmantes, montajes_firma, actos, plan, admisiones, configuracion_firma
     c = Contexto(copia, _parametros(copia))
     etapas = [('catalogo', catalogo.preparar), ('roles_admin', roles_admin.preparar),
-              ('firmantes', firmantes.preparar), ('actos', actos.preparar_actos),
+              ('certificados_base', certificados_base.preparar), ('firmantes', firmantes.preparar),
+              ('montajes_firma', montajes_firma.preparar), ('actos', actos.preparar_actos),
               ('plan', plan.preparar_plan), ('admisiones', admisiones.preparar),
               ('configuracion_firma', configuracion_firma.preparar)]
     resultados = {}

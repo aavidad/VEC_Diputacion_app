@@ -342,11 +342,11 @@ class Copia:
             guardar(self.estado, estado)
             self.parar()
             self.arrancar()
-        if args.modulos and not args.portal_externo:
-            caso40.registrar_contacto(self, REPO)
         if completo:
             from recorrido_copia.conductor import preparar as preparar_recorrido
             preparar_recorrido(self, args)
+        if args.modulos and not args.portal_externo:
+            caso40.registrar_contacto(self, REPO)
         if args.modulos:
             estado = self.leer()
             estado['comprobar_modulos'] = True

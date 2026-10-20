@@ -127,3 +127,18 @@ class RolesAdminTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DestinoBolsa(unittest.TestCase):
+    def test_no_declara_exito_si_la_cuenta_nueva_conserva_la_version_anterior(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        from recorrido_copia import roles_admin as modulo
+        perfil = 'prf_' + 'a' * 32
+        c = SimpleNamespace(material=Path('/tmp/propio'), consultar=Mock(return_value='0'))
+        with patch.object(modulo, '_documento', return_value={'perfil_ref': perfil}):
+            with self.assertRaisesRegex(ValueError, 'no recibió la versión gobernada'):
+                modulo.cotejar_destino_bolsa(c, 'rol:tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo:v11')
+            c.consultar.return_value = '1'
+            resultado = modulo.cotejar_destino_bolsa(c, 'rol:tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo:v11')
+        self.assertEqual(resultado['perfil_ref'], perfil)

@@ -128,7 +128,10 @@ def _asignaciones(c, version_ref):
         "FROM vec_autorizacion.asignacion_perfil_actual x "
         "JOIN vec_autorizacion.asignacion_perfil a ON "
         "(a.perfil_activo_ref,a.asignacion_ref)=(x.perfil_activo_ref,x.asignacion_ref) "
-        f"WHERE a.version_rol_ref={literal(version_ref)} AND a.documento->>'estado'='activa' "
+        "JOIN vec_autorizacion.version_rol r ON r.version_rol_ref=a.version_rol_ref "
+        f"JOIN vec_autorizacion.version_rol base ON base.version_rol_ref={literal(version_ref)} "
+        "AND r.rol_id=base.rol_id AND r.version<=base.version "
+        "WHERE a.documento->>'estado'='activa' "
         "AND (a.documento->>'vigente_desde')::timestamptz<=clock_timestamp() "
         "AND (a.documento->>'vigente_hasta')::timestamptz>clock_timestamp();")
     datos = json.loads(c.consultar(consulta))
@@ -294,6 +297,23 @@ def _proponer_y_cerrar(c, carpeta, tipo, propuesta):
     return c.leer(final)
 
 
+def cotejar_destino_bolsa(c, version_ref):
+    """No anuncia el avance si la cuenta nueva sigue ligada a una versión antigua."""
+    bback = _documento(c, c.material / 'identidad/bolsa-bback.json')
+    perfil = bback.get('perfil_ref')
+    exigir(isinstance(perfil, str) and re.fullmatch(r'prf_[0-9a-f]{32}', perfil),
+           'Perfil propio de Bolsa ausente')
+    consulta = ("SELECT count(*) FROM vec_autorizacion.asignacion_perfil_actual x "
+        "JOIN vec_autorizacion.asignacion_perfil a ON a.asignacion_ref=x.asignacion_ref "
+        f"WHERE x.perfil_activo_ref={literal(perfil)} AND a.version_rol_ref={literal(version_ref)} "
+        "AND a.documento->>'estado'='activa' "
+        "AND (a.documento->>'vigente_desde')::timestamptz<=clock_timestamp() "
+        "AND (a.documento->>'vigente_hasta')::timestamptz>clock_timestamp();")
+    exigir(c.consultar(consulta).strip() == '1',
+           'El perfil nuevo de Bolsa no recibió la versión gobernada')
+    return {'perfil_ref': perfil, 'version_rol_ref': version_ref}
+
+
 def preparar(c):
     """Publica origen CT en el rol de Bolsa y un rol simple de Organización."""
     ultimo = _admisiones(c)
@@ -359,7 +379,9 @@ def preparar(c):
                and existente['control_estado'] == 'habilitada'
                and {x['accion'] for x in existente['documento']['concesiones']} == {accion},
                'Rol simple de Organización no publicado con la concesión exacta')
+    destino_bolsa = cotejar_destino_bolsa(c, _rol(c, ROL_BOLSA)['ref'])
     resultado = {'version': 1, 'copia_ref': c.copia.nombre, 'sid_copia': sid,
+                 'destino_bolsa': destino_bolsa,
                  'catalogo_version': catalogo['version'],
                  'catalogo_sha256': ultimo['catalogo_sha256'],
                  'overlay_b103_sha256': c.sha(b103), 'overlay_roles_sha256': c.sha(roles),
