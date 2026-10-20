@@ -658,6 +658,14 @@ descarga y sin permiso humano nuevo. El cotejo del núcleo, la activación y
 los límites del ensayo se describen en
 [`firma_por_cargos_f1_58_20261020.md`](../../deploy/principal/firma_por_cargos_f1_58_20261020.md).
 
+F1-126 añade a la lista nominal de auditoría únicamente la pareja de ruta de
+descarga R5 v2 y acción de consulta que ya utiliza el manejador. Una descarga
+sin paso del cargo sigue cerrada antes de consultar el registro o leer el PDF:
+devuelve 404 solo después de un apunte válido; un fallo de orden, registro o
+acuse conserva el 503. No cambia el selector ni añade una concesión humana.
+La activación y el cotejo tras reiniciar se describen en
+[`descarga_denegada_f1_126_20261020.md`](../../deploy/principal/descarga_denegada_f1_126_20261020.md).
+
 ## 8. Protección de datos
 
 - **Solo datos sintéticos**, con nombres verosímiles, hasta cerrar la EIPD
