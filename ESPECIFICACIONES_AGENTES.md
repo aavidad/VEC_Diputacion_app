@@ -1,7 +1,6 @@
 # Especificaciones para agentes de VEC
 
-Este documento, pedido por Alberto el 12 de septiembre de 2026, reunía trece
-reglas (E01 a E13) para todo agente que trabaje en VEC. Esas reglas viven ahora
+Este índice reúne las trece reglas técnicas originales (E01 a E13) de VEC. Esas reglas viven ahora
 en los seis documentos de producto de [docs/producto/](docs/producto/). La
 tabla dice dónde está cada una. La última columna dice si quedó algo fuera.
 
