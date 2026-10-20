@@ -1,3 +1,5 @@
+> Histórico: 28 de septiembre de 2026. Conservado como antecedente; no describe el acceso ni el estado actuales. Consulte los [manuales por perfil](../manuales/README.md).
+
 # Manual de usuario · Portal VEC y Bolsas de trabajo
 
 ## Bolsa en la presentación a RRHH — 28 de septiembre de 2026
