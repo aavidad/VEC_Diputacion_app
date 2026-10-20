@@ -17,7 +17,7 @@ cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
 
 ## Inventario histórico anterior al 20 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 La unidad competente seguirá medidas de un plan de empleo acreditado, responsables,
 evidencias y evaluación anual. Los indicadores se consumirán desde sus propietarios
@@ -59,7 +59,7 @@ laboral ya publicados. Una obligación de remitir no acredita API o acuse recibi
 ## Inventario en la base inspeccionada
 
 La búsqueda empezó en `codebase-memory-mcp`, proyecto
-`home-alberto-Trabajo-VEC_Diputacion_app-.worktrees-codexe-original-autorizacion-20261003`.
+una instantánea histórica.
 Se cotejaron resultados con `git ls-tree` y lectura de archivos en esta base. El
 índice anterior no acredita por sí solo rutas actuales o capacidad nominal.
 

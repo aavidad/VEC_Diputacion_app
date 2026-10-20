@@ -17,7 +17,7 @@ cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
 
 ## Inventario histórico anterior al 20 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 VEC permitirá seguir evaluaciones preventivas y medidas de un centro: responsable,
 plazo, evidencia de ejecución y revisión por el técnico competente. La persona
@@ -56,7 +56,7 @@ inventa proveedor, excepción sanitaria, plazo clínico ni comunicación oficial
 ## Inventario en la base inspeccionada
 
 La búsqueda empezó en `codebase-memory-mcp`, proyecto
-`home-alberto-Trabajo-VEC_Diputacion_app-.worktrees-codexe-original-autorizacion-20261003`.
+una instantánea histórica.
 Se cotejaron resultados con `git ls-tree` y lectura de archivos de esta base.
 El índice tiene otra instantánea; una coincidencia de palabra no prueba un módulo.
 
