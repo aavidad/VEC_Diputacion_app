@@ -442,6 +442,10 @@ def cmd_configurar(o):
     sid_actual = exigir_sid(una_fila(psql(SQL_SID)))
     if sid_actual != meta['sid_copia']:
         paro('sid-de-copia-cambiado')
+    copia = copia_destino()
+    estado_copia = copia.leer()
+    if estado_copia.get('sid_copia') != sid_actual:
+        paro('sid-de-copia-cambiado')
     if not 30 <= o.ttl <= 1380 or not 1 <= o.pg_puerto <= 65535:
         paro('ventana-o-puerto-invalido')
     if not os.path.isabs(o.pg_ca) or not os.path.isfile(o.pg_ca) or os.path.islink(o.pg_ca):
@@ -450,6 +454,14 @@ def cmd_configurar(o):
         paro('ca-ruta-invalida')
     if not re.fullmatch(r'[a-zA-Z0-9.-]+', o.pg_host) or not re.fullmatch(r'[a-z][a-z0-9_]{0,62}', o.pg_base):
         paro('destino-pg-invalido')
+    if (o.pg_host != 'localhost' or o.pg_puerto != estado_copia.get('puerto_pg')
+            or o.pg_base != 'postgres' or Path(o.pg_ca) != copia.material / 'ca/ca.crt'):
+        paro('destino-pg-ajeno-a-la-copia')
+    ca = Path(o.pg_ca)
+    dato_ca = ca.lstat()
+    if (ca.resolve(strict=True) != ca or not stat.S_ISREG(dato_ca.st_mode)
+            or dato_ca.st_uid != os.getuid() or dato_ca.st_mode & 0o022):
+        paro('ca-de-copia-insegura')
     t0 = ahora()
     cad = t0 + timedelta(minutes=o.ttl)
     paquete = leer_privado(os.path.join(o.dir, 'paquete.json')).decode()
@@ -475,7 +487,12 @@ def cmd_configurar(o):
     guardar(os.path.join(o.dir, 'conexion.json'), go_json(od(('dsn', dsn), ('tiempo_segundos', 30))))
     del clave, dsn
     v = f"{q(instante(desde))}::timestamptz,{q(instante(hasta))}::timestamptz"
-    sql = ("\\set ON_ERROR_STOP on\nBEGIN;\nSET LOCAL log_statement='none';\nSET LOCAL log_min_duration_statement=-1;\n"
+    sql = ("\\set ON_ERROR_STOP on\nBEGIN;\n"
+           "DO $sid$ BEGIN IF current_database() IS DISTINCT FROM 'postgres' "
+           f"OR (SELECT system_identifier::text FROM pg_catalog.pg_control_system()) "
+           f"IS DISTINCT FROM {q(sid_actual)} THEN "
+           "RAISE EXCEPTION 'AUT58: SID o base de copia distintos'; END IF; END $sid$;\n"
+           "SET LOCAL log_statement='none';\nSET LOCAL log_min_duration_statement=-1;\n"
            "SET LOCAL password_encryption='scram-sha-256';\n"
            f"DO $g$ BEGIN IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname={q(login)}) "
            f"OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname={q(GRUPO_ACTO)}) "

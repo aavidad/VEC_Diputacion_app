@@ -221,6 +221,69 @@ class CatalogoAccionesTest(unittest.TestCase):
         for nombre in ('plan.json', 'conexion.json', 'configurar.sql', 'configurado.json'):
             self.assertFalse((self.base / nombre).exists(), nombre)
 
+    def test_configurar_ata_destino_y_sql_al_sid_de_la_copia(self):
+        sid = '123456789012345'
+        meta = {'catalogo_sha256': 'a' * 64, 'paquete_sha256': 'b' * 64,
+                'backup_ref': 'copia:ficticia:uno', 'backup_sha256': 'c' * 64,
+                'encargo_ref': cat.ENCARGO_REF, 'sid_copia': sid,
+                'prev_version': 1, 'prev_huella': 'd' * 64,
+                'censo_preparado_sha256': 'e' * 64,
+                'paquete_ref': 'paquete:ficticio', 'paquete_version': 2,
+                'login': 'vec_caa_ficticio'}
+        aprobacion = {'esquema': 'vec.admin.catalogo-acciones.aprobacion-tecnica-copia.v1',
+                      'catalogo_sha256': meta['catalogo_sha256'],
+                      'paquete_sha256': meta['paquete_sha256'],
+                      'backup_ref': meta['backup_ref'], 'backup_sha256': meta['backup_sha256'],
+                      'encargo_ref': cat.ENCARGO_REF, 'sid_copia': sid,
+                      'esperado_version': 1, 'esperado_sha256': meta['prev_huella'],
+                      'censo_preparado_sha256': meta['censo_preparado_sha256'],
+                      'aprobacion_ref': 'aprobacion:ficticia',
+                      'aprobador_ref': cat.APROBADOR_REF}
+        for nombre, valor in (('preparado.json', meta), ('aprobacion.json', aprobacion),
+                              ('paquete.json', {'prueba': True}),
+                              ('catalogo.json', {'prueba': True})):
+            ruta = self.base / nombre
+            ruta.write_text(json.dumps(valor))
+            ruta.chmod(0o600)
+        material = self.base / 'material'
+        (material / 'ca').mkdir(parents=True)
+        ca = material / 'ca/ca.crt'
+        ca.write_text('CA ficticia')
+        ca.chmod(0o600)
+        ajena = self.base / 'ca-ajena.crt'
+        ajena.write_text('CA ajena ficticia')
+        copia = Mock(material=material)
+        copia.leer.return_value = {'sid_copia': sid, 'puerto_pg': 55441}
+        base = dict(dir=str(self.base), fuentes=str(self.base),
+                    aprobacion=str(self.base / 'aprobacion.json'), ttl=120,
+                    pg_host='localhost', pg_puerto=55441,
+                    pg_base='postgres', pg_ca=str(ca))
+        salidas = ('plan.json', 'conexion.json', 'configurar.sql', 'configurado.json')
+
+        with patch.object(cat, 'revisar'), patch.object(cat, 'psql', return_value=sid + '\n'), \
+                patch.object(cat, 'copia_destino', return_value=copia):
+            for cambio in ({'pg_host': 'copia-ajena.invalid'}, {'pg_puerto': 55442},
+                           {'pg_base': 'base_ajena'}, {'pg_ca': str(ajena)}):
+                argumentos = type('O', (), dict(base, **cambio))()
+                with self.assertRaises(SystemExit):
+                    cat.cmd_configurar(argumentos)
+                self.assertTrue(all(not (self.base / nombre).exists() for nombre in salidas))
+            copia.leer.return_value['sid_copia'] = '123456789012346'
+            with self.assertRaises(SystemExit):
+                cat.cmd_configurar(type('O', (), base)())
+            self.assertTrue(all(not (self.base / nombre).exists() for nombre in salidas))
+            copia.leer.return_value['sid_copia'] = sid
+            cat.cmd_configurar(type('O', (), base)())
+
+        conexion = json.loads((self.base / 'conexion.json').read_text())['dsn']
+        self.assertIn('host=localhost port=55441 dbname=postgres', conexion)
+        self.assertIn('sslrootcert=' + str(ca), conexion)
+        sql = (self.base / 'configurar.sql').read_text()
+        self.assertIn('pg_catalog.pg_control_system()', sql)
+        self.assertIn(sid, sql)
+        self.assertIn("current_database() IS DISTINCT FROM 'postgres'", sql)
+        self.assertLess(sql.index('DO $sid$'), sql.index('CREATE ROLE'))
+
 
 class DestinoCopiaTest(unittest.TestCase):
     def setUp(self):
