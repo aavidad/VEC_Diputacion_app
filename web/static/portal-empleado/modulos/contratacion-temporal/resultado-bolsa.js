@@ -1,5 +1,6 @@
 /** Proyección de resultados conservados por Bolsa; no ejecuta ni deduce una respuesta. */
 import { justificanteTraducido } from "../../portal-justificante.js";
+import { textoPersonasLlamamiento } from "./personas-llamamiento-bolsa.js?v=VEC_WEB_VERSION";
 
 const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -61,12 +62,14 @@ export function renderizarResultadoBolsa(expediente, t, locale, zonaHoraria, est
   const vinculos = estado.vinculos ?? resultado.vinculos ?? [];
   const candidatas = resultado.emisiones_vinculables ?? [];
   const ocupado = estado.ocupado === true;
+  // Nombres de las personas llamadas, si la lectura de Bolsa ya respondió.
+  const personas = (llamamientoRef) => textoPersonasLlamamiento(estado.personas?.get?.(llamamientoRef), t);
   const contenido = vinculos.map((vinculo) => `<article class="panel-separado">
-    <div class="cabecera-panel"><h4>${escapar(t("resultado_bolsa_llamamiento"))} · ${fecha(vinculo.emitido_en, locale, zonaHoraria)}</h4>${enlaceSeguimiento(vinculo, t)}</div>
+    <div class="cabecera-panel"><h4>${escapar(t("resultado_bolsa_llamamiento"))}${personas(vinculo.llamamiento_ref) ? ` · ${escapar(personas(vinculo.llamamiento_ref))}` : ""} · ${fecha(vinculo.emitido_en, locale, zonaHoraria)}</h4>${enlaceSeguimiento(vinculo, t)}</div>
     <div class="cuerpo-panel">${(vinculo.participaciones ?? []).map(
       (persona) => resultadoPersona(persona, t, locale, zonaHoraria),
     ).join("")}</div></article>`).join("");
-  const opciones = candidatas.map((emision, indice) => `<option value="${indice}">${escapar(emision.referencia_visible)} · ${escapar(new Intl.DateTimeFormat(locale, {
+  const opciones = candidatas.map((emision, indice) => `<option value="${indice}">${escapar(emision.referencia_visible)}${personas(emision.llamamiento_ref) ? ` · ${escapar(personas(emision.llamamiento_ref))}` : ""} · ${escapar(new Intl.DateTimeFormat(locale, {
     dateStyle: "medium", timeStyle: "short", timeZone: zonaHoraria,
   }).format(new Date(emision.emitido_en)))}</option>`).join("");
   const seleccion = candidatas.length ? `<form data-ct-bolsa-vincular>

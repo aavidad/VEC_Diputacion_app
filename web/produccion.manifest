@@ -277,6 +277,7 @@ static/textos/es/contratacion-temporal-vinculo-categoria-rpt.json
 static/textos/en/contratacion-temporal-vinculo-categoria-rpt.json
 static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/resultado-bolsa.js
+static/portal-empleado/modulos/contratacion-temporal/personas-llamamiento-bolsa.js
 static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.html
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.js

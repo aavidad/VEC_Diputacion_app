@@ -151,6 +151,8 @@
     "resultado_bolsa_mas": "View more calls",
     "resultado_bolsa_sin_llamamientos": "No calls are linked to this case file.",
     "resultado_bolsa_confirmar": "Link the call for {referencia}, issued on {fecha}, to this case file?",
+    "resultado_bolsa_confirmar_persona": "Link the call to {persona}, for {referencia}, issued on {fecha}, to this case file?",
+    "resultado_bolsa_personas_varias": "{nombre} and {resto} more",
     "resultado_bolsa_guardando": "Linking the call…",
     "resultado_bolsa_guardado": "Call linked to the case file.",
     "resultado_bolsa_error": "The link could not be confirmed. Try again to check it.",

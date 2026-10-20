@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { crearGestorResultadoBolsa } from "./gestor-resultado-bolsa.js";
 
-function escenario(cliente, confirmarOperacion = async () => true) {
+function escenario(cliente, confirmarOperacion = async () => true, consultarPersonas = async () => new Map()) {
   const eventos = new Map();
   const resultado = { vinculos: [], emisiones_vinculables: [{ bolsa_ref: "bolsa:prueba",
     llamamiento_ref: "llamamiento:prueba", recibo_emision_ref: "recibo:emision:prueba",
@@ -19,7 +19,7 @@ function escenario(cliente, confirmarOperacion = async () => true) {
   const presentador = { obtenerEstado: () => estado, seleccionarExpediente: async () => {} };
   const gestor = crearGestorResultadoBolsa({ raiz, presentador, cliente, t: (clave) => clave,
     locale: "es-ES", zonaHoraria: "Europe/Madrid", confirmarOperacion,
-    repintar() {}, generarClave: () => "clave-original-vinculo" });
+    repintar() {}, generarClave: () => "clave-original-vinculo", consultarPersonas });
   gestor.actualizar();
   const formulario = { querySelector: () => ({ value: "0" }) };
   const enviar = () => eventos.get("submit")[0]({ target: { closest: () => formulario }, preventDefault() {} });
@@ -81,5 +81,33 @@ test("confirma mediante el descriptor que consume el portal y cancela sin escrib
   assert.equal(descriptor.advertencia, "resultado_bolsa_confirmar");
   assert.equal(descriptor.referencia, "2026/001");
   assert.equal(escrituras, 0);
+  e.gestor.desmontar();
+});
+
+test("el selector y la confirmación dicen a quién se llamó cuando Bolsa lo devuelve", async () => {
+  const advertencias = [];
+  let pedidas = 0;
+  const consultar = async (llamamientos) => {
+    pedidas += 1;
+    assert.deepEqual(llamamientos.map((l) => l.llamamiento_ref), ["llamamiento:prueba"]);
+    return new Map([["llamamiento:prueba", ["Antonio Reyes Álvarez"]]]);
+  };
+  const e = escenario({ vincularLlamamientoBolsa: async () => ({}) }, async (opciones) => {
+    advertencias.push(opciones.advertencia); return false;
+  }, consultar);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.match(e.zona.innerHTML, /2026\/001 · Antonio Reyes Álvarez · /u);
+  e.gestor.actualizar();
+  assert.equal(pedidas, 1);
+  await e.enviar();
+  assert.deepEqual(advertencias, ["resultado_bolsa_confirmar_persona"]);
+  e.gestor.desmontar();
+});
+
+test("si Bolsa no responde, el selector sigue con referencia y fecha", async () => {
+  const e = escenario({ vincularLlamamientoBolsa() {} }, async () => false, async () => { throw new Error("403"); });
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.match(e.zona.innerHTML, /2026\/001 · /u);
+  assert.doesNotMatch(e.zona.innerHTML, /Antonio/u);
   e.gestor.desmontar();
 });

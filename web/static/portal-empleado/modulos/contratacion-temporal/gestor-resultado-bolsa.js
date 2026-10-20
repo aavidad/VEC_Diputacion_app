@@ -1,14 +1,18 @@
 import { renderizarResultadoBolsa } from "./resultado-bolsa.js?v=VEC_WEB_VERSION";
 import { renderizarLineaFases } from "./vista-expedientes-ficha.js?v=VEC_WEB_VERSION";
+import { consultarPersonasLlamamientos, textoPersonasLlamamiento } from "./personas-llamamiento-bolsa.js?v=VEC_WEB_VERSION";
 
 /** Conserva el comando de un vínculo incierto en memoria; una navegación no lo sustituye. */
 export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, locale, zonaHoraria,
-  confirmarOperacion, repintar, generarClave = () => globalThis.crypto?.randomUUID?.() } = {}) {
+  confirmarOperacion, repintar, generarClave = () => globalThis.crypto?.randomUUID?.(),
+  consultarPersonas = consultarPersonasLlamamientos } = {}) {
   const pendientes = new Map();
   let montado = true;
   let ocupado = false;
   let paginas = null;
   let lectura = null;
+  // Nombres de las personas llamadas: una lectura por conjunto de llamamientos.
+  let personas = { clave: "", mapa: null, control: null };
   function expedienteActual() {
     const estado = presentador.obtenerEstado();
     return estado.vista === "expediente" && estado.carga === "listo" && !estado.ocupado
@@ -26,8 +30,9 @@ export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, local
     if (!paginas) paginas = { expediente_ref: expediente.expediente_ref, base: expediente.resultado_bolsa,
       resultado: expediente.resultado_bolsa, cursor: null, anteriores: [] };
     const pendiente = pendientes.get(expediente.expediente_ref);
+    cargarPersonas(paginas.resultado);
     zona.innerHTML = renderizarResultadoBolsa(expediente, t, locale, zonaHoraria,
-      { ocupado: ocupado || Boolean(lectura) || typeof cliente?.vincularLlamamientoBolsa !== "function" || Boolean(pendiente?.incierto),
+      { personas: personas.mapa, ocupado: ocupado || Boolean(lectura) || typeof cliente?.vincularLlamamientoBolsa !== "function" || Boolean(pendiente?.incierto),
         mensaje: pendiente?.mensaje ?? paginas.mensaje,
         vinculos: paginas.resultado.vinculos, siguiente_cursor: paginas.resultado.siguiente_cursor,
         anterior: paginas.anteriores.length > 0 });
@@ -38,6 +43,23 @@ export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, local
       boton.textContent = t("resultado_bolsa_reintentar");
       zona.querySelector("[data-ct-bolsa-estado]")?.after(boton);
     }
+  }
+  function cargarPersonas(resultado) {
+    if (typeof consultarPersonas !== "function") return;
+    const llamamientos = [...(resultado.emisiones_vinculables ?? []), ...(resultado.vinculos ?? [])];
+    const clave = llamamientos.map((l) => `${l.bolsa_ref}|${l.llamamiento_ref}`).sort().join(",");
+    if (!clave || clave === personas.clave) return;
+    personas.control?.abort();
+    const control = new AbortController();
+    personas = { clave, mapa: null, control };
+    consultarPersonas(llamamientos, { signal: control.signal }).then((mapa) => {
+      if (!montado || personas.control !== control || control.signal.aborted) return;
+      personas = { clave, mapa, control: null };
+      actualizar();
+    }, () => {
+      // Sin la lectura de Bolsa el selector sigue con referencia y fecha.
+      if (personas.control === control) personas = { clave, mapa: null, control: null };
+    });
   }
   async function enviar(expediente, pendiente) {
     if (ocupado || !montado || typeof cliente?.vincularLlamamientoBolsa !== "function") return;
@@ -74,8 +96,10 @@ export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, local
     const emision = expediente.resultado_bolsa?.emisiones_vinculables?.[Number(valor)];
     if (!emision) return;
     const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: zonaHoraria }).format(new Date(emision.emitido_en));
+    const persona = textoPersonasLlamamiento(personas.mapa?.get(emision.llamamiento_ref), t);
     if (!await confirmarOperacion({ titulo: t("resultado_bolsa_vincular"),
-      advertencia: t("resultado_bolsa_confirmar", { referencia: emision.referencia_visible, fecha }),
+      advertencia: persona ? t("resultado_bolsa_confirmar_persona", { referencia: emision.referencia_visible, fecha, persona })
+        : t("resultado_bolsa_confirmar", { referencia: emision.referencia_visible, fecha }),
       referencia: emision.referencia_visible })) return;
     // La confirmación puede ser asíncrona: no enviar sobre otra ficha o versión.
     const actual = expedienteActual();
@@ -132,6 +156,7 @@ export function crearGestorResultadoBolsa({ raiz, presentador, cliente, t, local
   return Object.freeze({ actualizar, desmontar() {
     montado = false;
     lectura?.abort(); lectura = null;
+    personas.control?.abort();
     raiz.removeEventListener("submit", enviarFormulario);
     raiz.removeEventListener("click", reintentar);
     raiz.removeEventListener("click", paginar);
