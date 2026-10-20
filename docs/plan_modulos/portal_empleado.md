@@ -1,5 +1,22 @@
 # Portal del empleado: inventario y continuación
 
+## Vigencia al 20 de octubre de 2026
+
+Este módulo conserva su alcance y sigue después de Bolsa y Contratación
+según el [plan general](../producto/PLAN_IMPLEMENTACION.md). El estado de cada
+tarea lo fija el [tablero](../producto/TABLERO_TAREAS.md). Se trabaja en
+copias locales con datos ficticios; cidonia está congelada.
+
+El inventario de abajo conserva sus fechas, contratos y requisitos. Sus
+ramas, responsables, órdenes de reanudación, horas y cifras pertenecen a esos
+cortes: no son un encargo actual ni acreditan una instalación o un recorrido.
+Antes de reanudar, dirección debe contrastar qué se ha integrado en `main`
+y fijar una tarea con consumidor visible y comprobación propia. Lo pendiente
+de RRHH sigue en [dudas.md](../../dudas.md), con valor provisional configurable
+cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
+
+## Inventario histórico anterior al 20 de octubre de 2026
+
 ## Continuación del 4 de octubre de 2026
 
 Este apartado actualiza el inventario del 1 de octubre conservado debajo.
