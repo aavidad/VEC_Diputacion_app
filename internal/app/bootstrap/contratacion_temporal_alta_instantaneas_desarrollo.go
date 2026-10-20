@@ -54,7 +54,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
 	if rutaPeticionCentroDesarrollo(ruta) {
-		if !s.peticionesCentro || !solicitudAutorizacionPeticionCentroDesarrolloValida(ctx, datos) {
+		if !s.peticionesCentro || !solicitudAutorizacionPeticionCentroDesarrolloValida(s.referenciaCT, ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 		// El perfil general del centro nunca se prepara ni se publica por
@@ -103,11 +103,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		// La subsanación solo se autoriza con su perfil fijo (arriba).
 		return dominiovec.InstantaneaAutorizacion{}, false
 	} else if ruta == httpinterno.RutaFirmaDocumento {
-		if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) {
+		if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(s.referenciaCT, ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 	} else if rutaLlamamientoContratacionTemporalDesarrollo(ruta) {
-		if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, datos) {
+		if !solicitudAutorizacionLlamamientoDesarrolloValida(s.referenciaCT, ctx, ruta, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 		if ruta == httpinterno.RutaRegistroComunicacionLlamamiento && accionCorreoLlamamientoDesarrollo(datos.Accion) {
@@ -162,11 +162,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		}
 	} else if ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura {
-		if !solicitudAutorizacionDecisionCoberturaDesarrolloValida(ruta, datos) {
+		if !solicitudAutorizacionDecisionCoberturaDesarrolloValida(s.referenciaCT, ruta, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 	} else if ruta == httpinterno.RutaPropuestaCobertura {
-		if !solicitudAutorizacionPropuestaCoberturaDesarrolloValida(datos) {
+		if !solicitudAutorizacionPropuestaCoberturaDesarrolloValida(s.referenciaCT, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 	} else if !s.solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(ruta, datos) {
@@ -268,7 +268,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionAltaCon
 		datos.Recurso.Tipo == ports.TipoRecursoExpediente &&
 		datos.Finalidad == ports.FinalidadCrearSolicitud &&
 		len(datos.Recurso.Ambitos) == 3 &&
-		datos.Recurso.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		datos.Recurso.Ambitos["organizacion_ref"] == s.organizacionRef &&
 		s.centroDeCatalogo(datos.Recurso.Ambitos["centro_ref"]) &&
 		s.categoriaDeCatalogo(datos.Recurso.Ambitos["categoria_ref"])
 }
@@ -276,7 +276,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionAltaCon
 // solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida: el
 // recurso lleva el expediente en su referencia y en los ámbitos solo la
 // organización y la fase y el estado previos, que el catálogo debe admitir.
-func solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(
+func solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(referencia referenciaCT,
 	ruta string,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
 	fase faseOperacionCT,
@@ -288,13 +288,13 @@ func solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(
 		datos.Finalidad == finalidadAnalisisContratacionTemporalDesarrollo &&
 		datos.Recurso.Referencia != "" &&
 		len(datos.Recurso.Ambitos) == 3 &&
-		datos.Recurso.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		datos.Recurso.Ambitos["organizacion_ref"] == referencia.organizacionRef &&
 		fase.admite(domain.ClaveFase(datos.Recurso.Ambitos["fase_previa"]),
 			domain.EstadoOperativo(datos.Recurso.Ambitos["estado_previo"])) &&
-		datos.Recurso.Atributos[ports.AtributoUnidadPoliticaRef] == unidadCoberturaContratacionTemporalDesarrollo
+		datos.Recurso.Atributos[ports.AtributoUnidadPoliticaRef] == referencia.unidadRef
 }
 
-func solicitudAutorizacionPropuestaCoberturaDesarrolloValida(
+func solicitudAutorizacionPropuestaCoberturaDesarrolloValida(referencia referenciaCT,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
 ) bool {
 	versionTexto := datos.Recurso.Atributos["version_esperada"]
@@ -304,13 +304,13 @@ func solicitudAutorizacionPropuestaCoberturaDesarrolloValida(
 		datos.Recurso.ModuloID == ports.ModuloContratacion &&
 		datos.Recurso.Tipo == ports.TipoRecursoExpediente &&
 		len(datos.Recurso.Ambitos) == 2 &&
-		datos.Recurso.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
-		datos.Recurso.Ambitos["unidad_ejecutora_ref"] == unidadCoberturaContratacionTemporalDesarrollo &&
+		datos.Recurso.Ambitos["organizacion_ref"] == referencia.organizacionRef &&
+		datos.Recurso.Ambitos["unidad_ejecutora_ref"] == referencia.unidadRef &&
 		len(datos.Recurso.Atributos) == 1 && err == nil && version != 0 &&
 		strconv.FormatUint(version, 10) == versionTexto
 }
 
-func solicitudAutorizacionDecisionCoberturaDesarrolloValida(
+func solicitudAutorizacionDecisionCoberturaDesarrolloValida(referencia referenciaCT,
 	ruta string,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
 ) bool {
@@ -326,12 +326,12 @@ func solicitudAutorizacionDecisionCoberturaDesarrolloValida(
 		datos.Finalidad == finalidadDecisionCoberturaDesarrollo &&
 		len(datos.Recurso.Ambitos) == 2 &&
 		datos.Recurso.Ambitos["organizacion_ref"] ==
-			organizacionAltaContratacionTemporalDesarrollo &&
+			referencia.organizacionRef &&
 		datos.Recurso.Ambitos["unidad_ejecutora_ref"] ==
-			unidadCoberturaContratacionTemporalDesarrollo
+			referencia.unidadRef
 }
 
-func nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+func nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(referencia referenciaCT,
 	principalID string,
 	perfilRef string,
 	ahora time.Time,
@@ -362,14 +362,14 @@ func nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}},
 		[]dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+			{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}},
 			{Clave: "centro_ref", Valores: centros},
 			{Clave: "categoria_ref", Valores: categorias},
 		},
 	)
 }
 
-func nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
+func nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(referencia referenciaCT,
 	principalID string,
 	perfilRef string,
 	ahora time.Time,
@@ -407,8 +407,8 @@ func nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
 			),
 		},
 		[]dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-			{Clave: "unidad_ejecutora_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}},
+			{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}},
+			{Clave: "unidad_ejecutora_ref", Valores: []string{referencia.unidadRef}},
 		},
 	)
 	if err != nil {
@@ -427,7 +427,7 @@ func nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
 // nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo es la
 // plantilla del perfil fijo del análisis: la organización y las fases y el
 // estado previos del catálogo (c23), sin expediente.
-func nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
+func nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(referencia referenciaCT,
 	principalID string,
 	perfilRef string,
 	ahora time.Time,
@@ -455,7 +455,7 @@ func nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
 			concesion(ports.AccionRegistrarAnalisis),
 			concesion(ports.AccionRectificarAnalisis),
 		},
-		fase.ambitosPerfil(organizacionAltaContratacionTemporalDesarrollo),
+		fase.ambitosPerfil(referencia.organizacionRef),
 	)
 	if err != nil {
 		return dominiovec.InstantaneaAutorizacion{}, err

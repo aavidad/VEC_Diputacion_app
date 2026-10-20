@@ -174,24 +174,24 @@ func TestOpcionesAnalisisSeCambianEnElCatalogo(t *testing.T) {
 	}
 	solicitud := solicitudPrepararArtefactoAnalisisDesarrolloPrueba("interinidad_programa", "expediente:ct:desarrollo:opciones")
 	solicitud.DatosFuncionales.CausaClave = "refuerzo_verano"
-	if !solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, catalogo) {
+	if !solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(referenciaOrganizativaCTMontajePrueba, solicitud, catalogo) {
 		t.Fatal("la modalidad y la causa nuevas del catálogo deben admitirse")
 	}
-	if solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, nil) {
+	if solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(referenciaOrganizativaCTMontajePrueba, solicitud, nil) {
 		t.Fatal("sin el catálogo la modalidad nueva no existe")
 	}
 	larga := solicitudPrepararArtefactoAnalisisDesarrolloPrueba("acumulacion_tareas", "expediente:ct:desarrollo:opciones")
 	larga.DatosFuncionales.Periodo = periodoAnalisisPrueba(t, "2026-01-01", "2026-10-01")
-	if solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(larga, catalogo) {
+	if solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(referenciaOrganizativaCTMontajePrueba, larga, catalogo) {
 		t.Fatal("un periodo que supera un máximo que bloquea debe rechazarse")
 	}
 	larga.DatosFuncionales.Periodo = periodoAnalisisPrueba(t, "2026-01-01", "2026-09-30")
-	if !solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(larga, catalogo) {
+	if !solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(referenciaOrganizativaCTMontajePrueba, larga, catalogo) {
 		t.Fatal("nueve meses exactos no superan el máximo")
 	}
 	aviso := solicitudPrepararArtefactoAnalisisDesarrolloPrueba("vacante", "expediente:ct:desarrollo:opciones")
 	aviso.DatosFuncionales.Periodo = periodoAnalisisPrueba(t, "2026-01-01", "2030-01-01")
-	if !solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(aviso, catalogo) {
+	if !solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(referenciaOrganizativaCTMontajePrueba, aviso, catalogo) {
 		t.Fatal("un máximo que solo avisa no impide registrar")
 	}
 }
@@ -263,7 +263,7 @@ func periodoAnalisisPrueba(t *testing.T, inicio, fin string) domain.PeriodoPrevi
 func TestUrgenciaAnalisisSoloConLaReglaDelCatalogo(t *testing.T) {
 	solicitud := solicitudPrepararArtefactoAnalisisDesarrolloPrueba("vacante", "expediente:ct:desarrollo:urgencia")
 	solicitud.DatosFuncionales.MotivoUrgencia = "Cierre del centro de día si no se cubre la plaza antes del lunes."
-	if solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, nil) {
+	if solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(referenciaOrganizativaCTMontajePrueba, solicitud, nil) {
 		t.Fatal("sin la regla c15 no se admite declarar la urgencia")
 	}
 	opciones, err := nuevasOpcionesAnalisisCT(t.Context(), resolutorReglasCTPrueba(t, rutaReglasCTEjemploPrueba))
@@ -275,7 +275,7 @@ func TestUrgenciaAnalisisSoloConLaReglaDelCatalogo(t *testing.T) {
 		t.Fatal(err)
 	}
 	catalogo.componerOpcionesAnalisis(opciones)
-	if !solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, catalogo) {
+	if !solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(referenciaOrganizativaCTMontajePrueba, solicitud, catalogo) {
 		t.Fatal("con la regla c15 la urgencia se admite")
 	}
 }

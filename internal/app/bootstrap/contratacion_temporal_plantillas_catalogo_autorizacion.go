@@ -142,7 +142,7 @@ func (p *proveedorCatalogoPlantillasCT) AutorizarCatalogoPlantillas(
 	ctx context.Context, actor vecdomain.ContextoActor, accion string, recurso vecdomain.RecursoAutorizable,
 ) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	vacio := vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
-	if p == nil || p.materialCatalogo == nil || !recursoCatalogoPlantillasCTValido(accion, recurso, false) {
+	if p == nil || p.materialCatalogo == nil || !recursoCatalogoPlantillasCTValido(p.soporte.referenciaCT, accion, recurso, false) {
 		return vacio, vecdomain.ErrAutorizacionDenegada
 	}
 	solicitud, operativo, err := p.solicitud(ctx, actor, accion, recurso, false)
@@ -174,7 +174,7 @@ func (p *proveedorCatalogoPlantillasCT) AutorizarCatalogoPlantillas(
 func (p *proveedorCatalogoPlantillasCT) ComprobarCapacidadCatalogoPlantillas(
 	ctx context.Context, actor vecdomain.ContextoActor, accion string, recurso vecdomain.RecursoAutorizable,
 ) (bool, error) {
-	if p == nil || !recursoCatalogoPlantillasCTValido(accion, recurso, true) {
+	if p == nil || !recursoCatalogoPlantillasCTValido(p.soporte.referenciaCT, accion, recurso, true) {
 		return false, vecdomain.ErrAutorizacionDenegada
 	}
 	solicitud, operativo, err := p.solicitud(ctx, actor, accion, recurso, true)
@@ -225,16 +225,16 @@ func (p *proveedorCatalogoPlantillasCT) solicitud(
 		return vecdomain.SolicitudAutorizacionLigadaV3{}, vacio, vecdomain.ErrAutorizacionDenegada
 	}
 	datos, err := solicitud.Datos()
-	if err != nil || !solicitudAutorizacionPlantillasCTDesarrolloValida(rutaAccionPlantillasCatalogoCT(accion), datos) {
+	if err != nil || !solicitudAutorizacionPlantillasCTDesarrolloValida(p.soporte.referenciaCT, rutaAccionPlantillasCatalogoCT(accion), datos) {
 		return vecdomain.SolicitudAutorizacionLigadaV3{}, vacio, vecdomain.ErrAutorizacionDenegada
 	}
 	return solicitud, operativo, nil
 }
 
-func recursoCatalogoPlantillasCTValido(accion string, r vecdomain.RecursoAutorizable, indicador bool) bool {
+func recursoCatalogoPlantillasCTValido(referencia referenciaCT, accion string, r vecdomain.RecursoAutorizable, indicador bool) bool {
 	if r.Validar() != nil || r.Referencia != plantillasapp.CatalogoID || r.ModuloID != plantillasapp.ModuloID ||
 		r.Tipo != tipoCatalogoPlantillasCT || len(r.Ambitos) != 1 ||
-		r.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo {
+		r.Ambitos["organizacion_ref"] != referencia.organizacionRef {
 		return false
 	}
 	switch accion {
@@ -373,7 +373,7 @@ func (p *proveedorDocumentalPlantillasCT) AutorizarCatalogoDocumental(
 	vacio := vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
 	if p == nil || p.material == nil || p.material.soporte != p.soporte ||
 		p.material.motivo != p.motivo || p.motivo != motivoDocumentalPlantillasCTDesarrollo() ||
-		!recursoPlantillasDocumentalCTValido(accion, recurso) || actor.Validar() != nil {
+		!recursoPlantillasDocumentalCTValido(p.soporte.referenciaCT, accion, recurso) || actor.Validar() != nil {
 		return vacio, vecdomain.ErrAutorizacionDenegada
 	}
 	operativo, err := p.contextoVigente(ctx, accion)
@@ -401,7 +401,7 @@ func (p *proveedorDocumentalPlantillasCT) AutorizarCatalogoDocumental(
 	datos, err := solicitud.Datos()
 	if err != nil || datos.ReferenciaMotivo != motivoDocumentalPlantillasCTDesarrollo() ||
 		datos.Finalidad != finalidadDocumentalPlantillasCT ||
-		!recursoPlantillasDocumentalCTValido(datos.Accion, datos.Recurso) ||
+		!recursoPlantillasDocumentalCTValido(p.soporte.referenciaCT, datos.Accion, datos.Recurso) ||
 		rutaAccionPlantillasDocumentalCT(datos.Accion) != rutaAccionPlantillasDocumentalCT(accion) {
 		return vacio, vecdomain.ErrAutorizacionDenegada
 	}
@@ -426,14 +426,14 @@ func (p *proveedorDocumentalPlantillasCT) AutorizarCatalogoDocumental(
 	return exportacion, nil
 }
 
-func recursoPlantillasDocumentalCTValido(accion string, r vecdomain.RecursoAutorizable) bool {
+func recursoPlantillasDocumentalCTValido(referencia referenciaCT, accion string, r vecdomain.RecursoAutorizable) bool {
 	return rutaAccionPlantillasDocumentalCT(accion) != "" && r.Validar() == nil &&
 		ctdomain.ReferenciaOpacaValida(r.Referencia) && strings.HasPrefix(r.Referencia, "expediente:") &&
 		r.ModuloID == plantillasapp.ModuloID &&
 		r.Tipo == tipoDocumentalPlantillasCT && len(r.Ambitos) == 3 &&
-		r.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		r.Ambitos["organizacion_ref"] == referencia.organizacionRef &&
 		r.Ambitos["clase_ambito"] == string(ctports.AmbitoOrganizacionRRHH) &&
-		r.Ambitos["ambito_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		r.Ambitos["ambito_ref"] == referencia.organizacionRef &&
 		len(r.Atributos) == 1 && huellaMaterialPlantillasCTValida(r.Atributos["material_sha256"])
 }
 

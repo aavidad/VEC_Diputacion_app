@@ -75,7 +75,7 @@ func ambitosLlamamientoDesarrollo(recurso dominiovec.RecursoAutorizable) []domin
 	return ambitos
 }
 
-func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta string, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionLlamamientoDesarrolloValida(referencia referenciaCT, ctx context.Context, ruta string, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	if ctx == nil || datos.Finalidad != "gestionar_contratacion_temporal" {
 		return false
 	}
@@ -83,7 +83,7 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 		s, existe := ctx.Value(claveConsultaReciboRespuestaDesarrollo{}).(ports.SolicitudConsultaReciboRespuesta)
 		esperado, err := postgresct.RecursoConsultaReciboRespuesta(s)
 		r := datos.Recurso
-		return existe && err == nil && s.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		return existe && err == nil && s.OrganizacionRef == referencia.organizacionRef &&
 			datos.Accion == postgresct.AccionConsultaReciboRespuesta &&
 			datos.ReferenciaMotivo == motivoConsultaReciboRespuestaDesarrollo() &&
 			r.Referencia == esperado.Referencia && r.ModuloID == esperado.ModuloID &&
@@ -93,18 +93,18 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 		ligada, existe := ctx.Value(claveConsultaComunicacionesExpedienteDesarrollo{}).(solicitudLigadaComunicacionesExpedienteDesarrollo)
 		esperado, err := postgresct.RecursoConsultaComunicacionesExpediente(ligada.consulta, ligada.organizacionRef)
 		r := datos.Recurso
-		return existe && err == nil && ligada.organizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		return existe && err == nil && ligada.organizacionRef == referencia.organizacionRef &&
 			datos.Accion == postgresct.AccionConsultaComunicacionesExpediente &&
 			datos.ReferenciaMotivo == motivoConsultaComunicacionesExpedienteDesarrollo() &&
 			r.Referencia == esperado.Referencia && r.ModuloID == esperado.ModuloID &&
 			r.Tipo == esperado.Tipo && maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
 	}
 	if ruta == httpinterno.RutaResolucionFormalizacion {
-		return solicitudAutorizacionResolucionFormalizacionValida(ctx, datos)
+		return solicitudAutorizacionResolucionFormalizacionValida(referencia, ctx, datos)
 	}
 	p, ok := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
 	if !ok || p.expediente.Fiscalizado.Validar() != nil ||
-		p.expediente.Fiscalizado.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		p.expediente.Fiscalizado.OrganizacionRef != referencia.organizacionRef ||
 		p.expediente.Fiscalizado.Fiscalizacion == nil ||
 		p.expediente.Fiscalizado.Fiscalizacion.Resultado == domain.FiscalizacionDesfavorable {
 		return false
@@ -132,20 +132,20 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 		return false
 	}
 	if ruta == httpinterno.RutaPropuestaFormalizacion {
-		return solicitudAutorizacionPropuestaDesarrolloValida(ctx, datos, p)
+		return solicitudAutorizacionPropuestaDesarrolloValida(referencia, ctx, datos, p)
 	}
 	if ruta == httpinterno.RutaContinuacionLlamamiento {
-		return solicitudAutorizacionContinuacionDesarrolloValida(ctx, datos, p)
+		return solicitudAutorizacionContinuacionDesarrolloValida(referencia, ctx, datos, p)
 	}
 	if ruta == httpinterno.RutaEventoPlazoLlamamiento {
-		return solicitudAutorizacionEventoPlazoDesarrolloValida(ctx, datos, p)
+		return solicitudAutorizacionEventoPlazoDesarrolloValida(referencia, ctx, datos, p)
 	}
 	if ruta == httpinterno.RutaResolucionComunicacionLlamamiento {
 		if datos.Accion != postgresct.AccionConsultaJustificanteRespuestaRecibida {
-			return solicitudAutorizacionResolucionManualDesarrolloValida(ctx, datos, p)
+			return solicitudAutorizacionResolucionManualDesarrolloValida(referencia, ctx, datos, p)
 		}
 		s, existe := ctx.Value(claveConsultaJustificanteRespuestaDesarrollo{}).(ports.SolicitudResolverLlamamiento)
-		if !existe || !consultaJustificanteLigadaAlExpedienteDesarrollo(p.expediente, s) ||
+		if !existe || !consultaJustificanteLigadaAlExpedienteDesarrollo(referencia, p.expediente, s) ||
 			datos.ReferenciaMotivo != motivoConsultaJustificanteRespuestaDesarrollo() || datos.Accion != postgresct.AccionConsultaJustificanteRespuestaRecibida {
 			return false
 		}
@@ -155,7 +155,7 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 	}
 	if ruta == httpinterno.RutaRegistroRespuestaRecibida {
 		s, existe := ctx.Value(claveSolicitudRespuestaRecibidaDesarrollo{}).(ports.SolicitudRegistrarRespuestaRecibida)
-		if !existe || !expedienteRespuestaRecibidaDesarrolloValido(p.expediente, s) ||
+		if !existe || !expedienteRespuestaRecibidaDesarrolloValido(referencia, p.expediente, s) ||
 			datos.ReferenciaMotivo != motivoRespuestaRecibidaDesarrollo() || datos.Accion != postgresct.AccionRegistroRespuestaRecibida {
 			return false
 		}
@@ -168,7 +168,7 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 			datos.Accion == ports.AccionReanudacionSolicitudLlamamiento {
 			reserva, existe := ctx.Value(claveReanudacionSeleccionDesarrollo{}).(ports.SolicitudReservaEjecucionSeleccionLlamamiento)
 			if !existe || datos.ReferenciaMotivo != motivoLlamamientoDesarrollo(false) ||
-				!reservaReanudacionLigadaAPreparacionDesarrollo(p, reserva) {
+				!reservaReanudacionLigadaAPreparacionDesarrollo(referencia, p, reserva) {
 				return false
 			}
 			esperado, err := ports.NuevoRecursoReanudacionSeleccionLlamamiento(reserva)
@@ -268,7 +268,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 			concesion(puertosbolsa.AccionAbrirLlamamientoDesarrollo, "bolsa", "integracion_llamamientos_bolsa"),
 		}, []dominiovec.AmbitoPerfil{
 			{Clave: "categoria_ref", Valores: []string{"categoria:desarrollo:c2"}},
-			{Clave: "unidad_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}},
+			{Clave: "unidad_ref", Valores: []string{alta.soporte.unidadRef}},
 		})
 	if err != nil {
 		return err
@@ -277,7 +277,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
 		"comunicacion_llamamiento_desarrollo", "Comunicación de desarrollo", "comunicacion-llamamiento-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(postgresct.AccionRegistroComunicacionLlamamiento, "contratacion_temporal", postgresct.TipoRecursoRegistroComunicacionLlamamiento)},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}
@@ -287,7 +287,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
 		"reanudacion_llamamiento_desarrollo", "Reanudación de orden de desarrollo", "reanudacion-llamamiento-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(ports.AccionReanudacionSeleccionLlamamiento, "contratacion_temporal", ports.TipoRecursoReanudacionSeleccionLlamamiento)},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
 		"reanudacion_solicitud_llamamiento_desarrollo", "Reanudación de solicitud de llamamiento", "reanudacion-solicitud-llamamiento-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(ports.AccionReanudacionSolicitudLlamamiento, "contratacion_temporal", ports.TipoRecursoReanudacionSeleccionLlamamiento)},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}
@@ -313,7 +313,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
 		"respuesta_recibida_desarrollo", "Registro RRHH de respuesta recibida", "respuesta-recibida-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(postgresct.AccionRegistroRespuestaRecibida, "contratacion_temporal", postgresct.TipoRecursoRegistroRespuestaRecibida)},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}
@@ -327,7 +327,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
 		"consulta_justificante_rrhh_desarrollo", "Consulta de justificante RRHH", "consulta-justificante-rrhh-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(postgresct.AccionConsultaJustificanteRespuestaRecibida, "contratacion_temporal", postgresct.TipoRecursoConsultaJustificanteRespuestaRecibida)},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}
@@ -339,7 +339,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
 		"consulta_recibo_respuesta_rrhh_desarrollo", "Consulta de recibo de respuesta RRHH", "consulta-recibo-respuesta-rrhh-desarrollo",
 		[]dominiovec.ConcesionRol{concesionConsultaReciboRespuestaDesarrollo()},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}
@@ -351,7 +351,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
 		"consulta_comunicaciones_expediente_rrhh_desarrollo", "Consulta de comunicaciones por expediente RRHH", "consulta-comunicaciones-expediente-rrhh-desarrollo",
 		[]dominiovec.ConcesionRol{concesionConsultaComunicacionesExpedienteDesarrollo()},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}
@@ -482,8 +482,8 @@ func (a *autorizadorLlamamientoDesarrollo) modoCorreoExclusivo() bool {
 	return activos == 1
 }
 
-func reservaReanudacionLigadaAPreparacionDesarrollo(p preparacionLlamamientoDesarrollo, s ports.SolicitudReservaEjecucionSeleccionLlamamiento) bool {
-	canonica, err := prepararReferenciasLlamamientoDesarrollo(p.expediente, p.clave)
+func reservaReanudacionLigadaAPreparacionDesarrollo(referencia referenciaCT, p preparacionLlamamientoDesarrollo, s ports.SolicitudReservaEjecucionSeleccionLlamamiento) bool {
+	canonica, err := prepararReferenciasLlamamientoDesarrollo(referencia, p.expediente, p.clave)
 	return err == nil && p.expediente.VersionActual == s.VersionExpediente && s.Validar() == nil &&
 		s.ClaveIdempotencia == p.clave && s.VersionExpediente == p.expediente.Fiscalizado.Version &&
 		s.OrganizacionRef == p.expediente.Fiscalizado.OrganizacionRef &&
@@ -587,7 +587,7 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: a.motivo(),
 		Accion: accion, Recurso: recurso, Finalidad: "gestionar_contratacion_temporal", Correlacion: correlacion,
 	}
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, capacidad.ruta, datos) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(a.alta.soporte.referenciaCT, ctx, capacidad.ruta, datos) {
 		return fallo(ports.ErrAutorizacionDenegada)
 	}
 	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(datos)

@@ -36,7 +36,7 @@ func TestConsultaJustificanteDesarrolloExigeAccionPropiaYMaterialLigado(t *testi
 	}
 	d := dominiovec.DatosSolicitudAutorizacionLigadaV3{Finalidad: "gestionar_contratacion_temporal",
 		ReferenciaMotivo: motivoConsultaJustificanteRespuestaDesarrollo(), Accion: postgresct.AccionConsultaJustificanteRespuestaRecibida, Recurso: r}
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
 		t.Fatal("consulta ligada rechazada")
 	}
 	for _, cambiar := range []func(*dominiovec.DatosSolicitudAutorizacionLigadaV3){
@@ -53,11 +53,11 @@ func TestConsultaJustificanteDesarrolloExigeAccionPropiaYMaterialLigado(t *testi
 	} {
 		otro := d
 		cambiar(&otro)
-		if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, otro) {
+		if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaResolucionComunicacionLlamamiento, otro) {
 			t.Fatal("permiso de otro material o efecto admitido")
 		}
 	}
-	if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaRegistroRespuestaRecibida, d) {
+	if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaRegistroRespuestaRecibida, d) {
 		t.Fatal("consulta concedida por la ruta de declaración")
 	}
 }

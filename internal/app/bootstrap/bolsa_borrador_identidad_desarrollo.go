@@ -97,7 +97,7 @@ func nuevoSoporteSesionBorradorBolsaDesarrollo(
 		return nil, errMaterialBorradorBolsaInvalidoEn()
 	}
 	canal := &soporteAltaContratacionTemporalDesarrollo{
-		sello: sello, principalID: principalID, certificadoSHA256: certificado,
+		referenciaCT: soporteCT.referenciaCT, sello: sello, principalID: principalID, certificadoSHA256: certificado,
 		contexto: contextoBolsa, reloj: reloj,
 	}
 	bolsas := make(map[string]struct{}, len(manifiesto.BolsasRef))

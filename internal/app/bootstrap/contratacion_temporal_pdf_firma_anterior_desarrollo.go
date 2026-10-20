@@ -57,7 +57,7 @@ func (f *fuentePDFFirmaAnteriorCTDesarrollo) ObtenerPDFFirmaAnterior(ctx context
 	if err := ctx.Err(); err != nil {
 		return vacio, err
 	}
-	if q.Validar() != nil || q.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+	if q.Validar() != nil || q.OrganizacionRef != f.original.organizacionRef {
 		return vacio, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
 	expediente := ports.ExpedienteDocumentalRef(q.OrganizacionRef, q.ExpedienteRef)

@@ -33,13 +33,13 @@ func TestProveedorDocumentalPlantillasCTRutaYRecursoExactos(t *testing.T) {
 	for _, caso := range casos {
 		if rutaAccionPlantillasDocumentalCT(caso.accion) != caso.ruta ||
 			accionRutaPlantillasDocumentalCT(caso.ruta) != caso.accion ||
-			!recursoPlantillasDocumentalCTValido(caso.accion, base) {
+			!recursoPlantillasDocumentalCTValido(referenciaOrganizativaCTMontajePrueba, caso.accion, base) {
 			t.Fatalf("CT133 válido rechazado: %s", caso.accion)
 		}
 	}
 	if rutaAccionPlantillasDocumentalCT("contratacion_temporal.plantillas_documentos.consultar") != "" ||
 		accionRutaPlantillasDocumentalCT(plantillashttp.RutaCatalogo) != "" ||
-		recursoPlantillasDocumentalCTValido("contratacion_temporal.plantillas_documentos.editar", base) {
+		recursoPlantillasDocumentalCTValido(referenciaOrganizativaCTMontajePrueba, "contratacion_temporal.plantillas_documentos.editar", base) {
 		t.Fatal("accion de gobierno aceptada por proveedor documental")
 	}
 	for nombre, mutar := range map[string]func(*vecdomain.RecursoAutorizable){
@@ -63,8 +63,8 @@ func TestProveedorDocumentalPlantillasCTRutaYRecursoExactos(t *testing.T) {
 			}
 			r.Atributos = map[string]string{"material_sha256": strings.Repeat("a", 64)}
 			mutar(&r)
-			if recursoPlantillasDocumentalCTValido(casos[0].accion, r) ||
-				recursoPlantillasDocumentalCTValido(casos[1].accion, r) {
+			if recursoPlantillasDocumentalCTValido(referenciaOrganizativaCTMontajePrueba, casos[0].accion, r) ||
+				recursoPlantillasDocumentalCTValido(referenciaOrganizativaCTMontajePrueba, casos[1].accion, r) {
 				t.Fatal("recurso documental ampliado aceptado")
 			}
 		})

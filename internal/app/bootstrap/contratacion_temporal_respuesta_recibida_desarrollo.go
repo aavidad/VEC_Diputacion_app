@@ -63,14 +63,14 @@ func (e *ejecutorRespuestaRecibidaDesarrollo) Registrar(ctx context.Context, s p
 		return vacio, application.ErrSolicitudRespuestaRecibidaInvalida
 	}
 	c, valida := e.soporte.capacidadValida(ctx)
-	if !valida || c.ruta != httpinterno.RutaRegistroRespuestaRecibida || s.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+	if !valida || c.ruta != httpinterno.RutaRegistroRespuestaRecibida || s.OrganizacionRef != e.soporte.organizacionRef {
 		return vacio, application.ErrRespuestaRecibidaDenegada
 	}
 	expediente, err := e.lector.LeerExpedienteParaAvisoConfirmado(ctx, s.OrganizacionRef, s.ExpedienteRef, s.LlamamientoRef)
 	if ctx.Err() != nil {
 		return vacio, ctx.Err()
 	}
-	if err != nil || !expedienteRespuestaRecibidaDesarrolloValido(expediente, s) {
+	if err != nil || !expedienteRespuestaRecibidaDesarrolloValido(e.soporte.referenciaCT, expediente, s) {
 		return vacio, application.ErrRespuestaRecibidaNoDisponible
 	}
 	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, preparacionLlamamientoDesarrollo{expediente: expediente})
@@ -78,11 +78,11 @@ func (e *ejecutorRespuestaRecibidaDesarrollo) Registrar(ctx context.Context, s p
 	return e.servicio.Registrar(ctx, s)
 }
 
-func expedienteRespuestaRecibidaDesarrolloValido(e ports.ExpedienteParaSeleccion, s ports.SolicitudRegistrarRespuestaRecibida) bool {
+func expedienteRespuestaRecibidaDesarrolloValido(referencia referenciaCT, e ports.ExpedienteParaSeleccion, s ports.SolicitudRegistrarRespuestaRecibida) bool {
 	// Reutiliza la precondición de expediente fiscalizado. La relación exacta
 	// con la comunicación y su versión se comprueba dentro de CT56 tras AD3.
 	return s.Validar() == nil && e.Fiscalizado.Validar() == nil &&
-		expedienteComunicacionLlamamientoDesarrolloValido(e, ports.SolicitudRegistrarComunicacionLlamamiento{
+		expedienteComunicacionLlamamientoDesarrolloValido(referencia, e, ports.SolicitudRegistrarComunicacionLlamamiento{
 			OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
 		})
 }
@@ -100,7 +100,7 @@ func (p *proveedorRespuestaRecibidaDesarrollo) AutorizarRegistroRespuestaRecibid
 	ligada, existe := ctx.Value(claveSolicitudRespuestaRecibidaDesarrollo{}).(ports.SolicitudRegistrarRespuestaRecibida)
 	preparacion, preparada := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
 	if !valida || c.ruta != httpinterno.RutaRegistroRespuestaRecibida || !existe || ligada != s ||
-		!preparada || !expedienteRespuestaRecibidaDesarrolloValido(preparacion.expediente, s) {
+		!preparada || !expedienteRespuestaRecibidaDesarrolloValido(p.soporte.referenciaCT, preparacion.expediente, s) {
 		return vacio, ports.ErrOperacionRespuestaRecibidaDenegada
 	}
 	if _, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(p.reloj.Ahora()); !vigente {

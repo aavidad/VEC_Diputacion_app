@@ -33,10 +33,10 @@ const (
 // Las referencias de intención NO son identificadores de decisiones VEC.
 // La raíz autoriza cada petición antes de instalar la preparación privada;
 // cada escritura Bolsa solicita y consume además su autorización mutante V3.
-func prepararReferenciasLlamamientoDesarrollo(expediente ports.ExpedienteParaSeleccion, clave string) (preparacionLlamamientoDesarrollo, error) {
+func prepararReferenciasLlamamientoDesarrollo(referencia referenciaCT, expediente ports.ExpedienteParaSeleccion, clave string) (preparacionLlamamientoDesarrollo, error) {
 	e := expediente.Fiscalizado
 	if !ports.ClaveIdempotenciaValida(clave) || e.Validar() != nil ||
-		e.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		e.OrganizacionRef != referencia.organizacionRef ||
 		e.Version < 6 || expediente.VersionActual < e.Version ||
 		expediente.VersionActual > ports.MaximoEnteroSeguroIntegracionBolsa ||
 		e.FaseActual != domain.FaseFiscalizacion || e.EstadoActual != domain.EstadoEnCurso ||
@@ -213,7 +213,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) preparacion(ctx context.Context, clav
 	if !valida || capacidad.ruta != httpinterno.RutaSeleccionLlamamiento || !ok || (clave != "" && recibida.clave != clave) {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
-	canonica, err := prepararReferenciasLlamamientoDesarrollo(recibida.expediente, recibida.clave)
+	canonica, err := prepararReferenciasLlamamientoDesarrollo(p.alta.soporte.referenciaCT, recibida.expediente, recibida.clave)
 	if err != nil || canonica.necesidad != recibida.necesidad || canonica.categoria != recibida.categoria ||
 		canonica.unidad != recibida.unidad || canonica.operacionOrden != recibida.operacionOrden ||
 		canonica.operacionPropuesta != recibida.operacionPropuesta {
@@ -733,7 +733,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) resolverRespuestaRRHH(ctx context.Con
 	}
 	capacidad, valida := p.alta.soporte.capacidadValida(ctx)
 	if !valida || capacidad.ruta != httpinterno.RutaResolucionComunicacionLlamamiento ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+		solicitud.OrganizacionRef != p.alta.soporte.organizacionRef {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	operacionApertura, llamamiento := seleccion.OperacionRef, seleccion.LlamamientoRef

@@ -29,16 +29,46 @@ composición todavía conserva su referencia anterior: no acredita la
 activación de Contratación con una organización publicada ni desbloquea
 la derivación de nombramientos.
 
+## Referencia de cada montaje
+
+La composición entrega una referencia explícita de organización y unidad al
+construir las dependencias. Los contextos, perfiles, operaciones y sellos de
+idempotencia de Contratación reciben ese mismo valor. Cada soporte conserva
+su copia; no hay una variable global que cambie al montar otra instancia.
+
+Este corte conserva los valores que ya usaba la composición. No añade un
+fichero de configuración ni activa una organización distinta. La lectura y
+el cotejo de la fuente maestra pertenecen al corte de activación, que retirará
+esos valores del punto de entrada. La tarea sigue pendiente hasta entonces.
+
+El manifiesto común de identidades valida la forma de la organización. El
+montaje de Contratación coteja después su coincidencia exacta con su propia
+referencia. Así, una configuración de CT no condiciona la lectura del material
+común de otros módulos.
+
 ## Continuación pendiente
 
 El montaje debe leer una organización canónica publicada y una unidad de
 Personal de una configuración explícita, comprobar su fuente y transmitirlas
 a todos los consumidores: contexto de autorización, padre e hijo,
-idempotencia y adaptadores. Las funciones SQL de petición, entrega, reglas,
-plantillas y Documentos deben conservar esa misma referencia. No se amplía
-la validación de organizaciones maestras ni se crean correspondencias
-implícitas.
+idempotencia y adaptadores. El siguiente cambio SQL acota por organización
+la petición, su entrega y el alta. Ajustes, plantillas y las demás capacidades
+quedan cerradas para la organización nueva hasta su publicación con un ámbito
+propio. No se amplía la validación de organizaciones maestras ni se crean
+correspondencias implícitas.
 
 El ensayo final requiere publicar las fuentes por su vía nativa, recorrer
 las pantallas con las referencias nuevas y comprobar recibos y denegaciones
 después de reiniciar la aplicación y PostgreSQL.
+
+## Comprobaciones del contrato
+
+Las pruebas focales comprueban el montaje y el rechazo de una identidad de
+otra organización. Las pruebas del adaptador conservan la diferencia entre
+la huella del ámbito autorizado y la huella del documento.
+
+Semgrep local no señala incidencias en las 81 fuentes Go modificadas. GoSec
+analiza el paquete de composición completo: conserva 82 avisos anteriores,
+ninguno en las líneas cambiadas. El control de tamaño de ficheros pasa.
+El arranque en copia de esta composición y las dos revisiones independientes
+siguen pendientes; el ensayo del primer corte de adaptadores no los sustituye.

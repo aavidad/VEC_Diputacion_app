@@ -213,7 +213,7 @@ func nuevasDependenciasFuentesCoberturaPrueba(
 ) dependenciasFuentesCoberturaDesarrollo {
 	t.Helper()
 	derivador := nuevoDerivadorIdempotenciaPrueba(t, 2, 1)
-	dependencias, err := nuevasDependenciasFuentesCoberturaDesarrollo(
+	dependencias, err := nuevasDependenciasFuentesCoberturaDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		derivador,
 		relojContratacionTemporalDesarrollo{},
 		resolutorGobiernoCoberturaDesarrolloNoUsado{},

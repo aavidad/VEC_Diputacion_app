@@ -110,7 +110,7 @@ func TestCT130PreimagenCentralPostgreSQL(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			soporte.instantanea, err = nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, ahora)
+			soporte.instantanea, err = nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba, vinculo.PrincipalID, vinculo.PerfilActivoRef, ahora)
 			if err != nil {
 				t.Fatal(err)
 			}

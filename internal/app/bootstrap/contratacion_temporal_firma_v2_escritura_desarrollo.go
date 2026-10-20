@@ -41,7 +41,7 @@ const rolFirmaExternaRegistroCTDesarrollo = "firma_externa_registro_ct_desarroll
 // (interior y exterior del plan usan la misma acción, sin campos ni
 // obligaciones, como exigen AD170 y AD177) y consultar las firmas R5 V2 con
 // los campos exactos de AD162.
-func nuevaInstantaneaFirmaExternaV2CTDesarrollo(principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
+func nuevaInstantaneaFirmaExternaV2CTDesarrollo(referencia referenciaCT, principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
 		rolFirmaExternaRegistroCTDesarrollo, "Registro de firmas externas V2 de desarrollo",
 		"firma-externa-v2-registrador-ct-desarrollo-no-autoritativa",
@@ -52,5 +52,5 @@ func nuevaInstantaneaFirmaExternaV2CTDesarrollo(principalID, perfilRef string, a
 				Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
 				CamposPermitidos: ports.CamposConsultaFirmasR5V2()},
 		},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}}})
 }

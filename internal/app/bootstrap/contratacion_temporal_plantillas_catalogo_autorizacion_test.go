@@ -19,7 +19,7 @@ func TestProveedorCatalogoPlantillasCTExigeRecursosExactos(t *testing.T) {
 		Tipo: tipoCatalogoPlantillasCT, Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo},
 		Atributos: map[string]string{"material_sha256": huella},
 	}
-	if !recursoCatalogoPlantillasCTValido("contratacion_temporal.plantillas_documentos.consultar", base, false) {
+	if !recursoCatalogoPlantillasCTValido(referenciaOrganizativaCTMontajePrueba, "contratacion_temporal.plantillas_documentos.consultar", base, false) {
 		t.Fatal("lectura CT131 legítima rechazada")
 	}
 	for nombre, mutar := range map[string]func(*vecdomain.RecursoAutorizable){
@@ -35,22 +35,22 @@ func TestProveedorCatalogoPlantillasCTExigeRecursosExactos(t *testing.T) {
 			r.Ambitos = map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo}
 			r.Atributos = map[string]string{"material_sha256": huella}
 			mutar(&r)
-			if recursoCatalogoPlantillasCTValido("contratacion_temporal.plantillas_documentos.consultar", r, false) {
+			if recursoCatalogoPlantillasCTValido(referenciaOrganizativaCTMontajePrueba, "contratacion_temporal.plantillas_documentos.consultar", r, false) {
 				t.Fatal("recurso ampliado aceptado")
 			}
 		})
 	}
 	indicador := base
 	indicador.Atributos = map[string]string{"operacion": "editar", "estado": "publicado", "version": "1", "revision": "0"}
-	if !recursoCatalogoPlantillasCTValido("contratacion_temporal.plantillas_documentos.editar", indicador, true) ||
-		recursoCatalogoPlantillasCTValido("contratacion_temporal.plantillas_documentos.editar", indicador, false) {
+	if !recursoCatalogoPlantillasCTValido(referenciaOrganizativaCTMontajePrueba, "contratacion_temporal.plantillas_documentos.editar", indicador, true) ||
+		recursoCatalogoPlantillasCTValido(referenciaOrganizativaCTMontajePrueba, "contratacion_temporal.plantillas_documentos.editar", indicador, false) {
 		t.Fatal("indicador confundido con decisión de efecto")
 	}
-	if recursoCatalogoPlantillasCTValido("contratacion_temporal.plantillas_documentos.publicar", indicador, true) {
+	if recursoCatalogoPlantillasCTValido(referenciaOrganizativaCTMontajePrueba, "contratacion_temporal.plantillas_documentos.publicar", indicador, true) {
 		t.Fatal("indicador de edición usado para publicación")
 	}
 	indicador.Atributos["version"] = "01"
-	if recursoCatalogoPlantillasCTValido("contratacion_temporal.plantillas_documentos.editar", indicador, true) {
+	if recursoCatalogoPlantillasCTValido(referenciaOrganizativaCTMontajePrueba, "contratacion_temporal.plantillas_documentos.editar", indicador, true) {
 		t.Fatal("versión no canónica admitida")
 	}
 }

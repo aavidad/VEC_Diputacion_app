@@ -50,7 +50,7 @@ func TestConsultaComunicacionesMontajePermisoV3YMaterialExactos(t *testing.T) {
 	d := dominiovec.DatosSolicitudAutorizacionLigadaV3{Finalidad: "gestionar_contratacion_temporal",
 		ReferenciaMotivo: motivoConsultaComunicacionesExpedienteDesarrollo(),
 		Accion:           postgresct.AccionConsultaComunicacionesExpediente, Recurso: recurso}
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) ||
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, ruta, d) ||
 		!esRutaContratacionTemporalDesarrollo(httptest.NewRequest(http.MethodGet, ruta, nil)) {
 		t.Fatal("lista CT140 sin ligadura o mTLS")
 	}
@@ -59,11 +59,11 @@ func TestConsultaComunicacionesMontajePermisoV3YMaterialExactos(t *testing.T) {
 		{Finalidad: d.Finalidad, ReferenciaMotivo: motivoConsultaReciboRespuestaDesarrollo(), Accion: d.Accion, Recurso: recurso},
 		{Finalidad: d.Finalidad, ReferenciaMotivo: d.ReferenciaMotivo, Accion: d.Accion, Recurso: dominiovec.RecursoAutorizable{Referencia: "expediente:ajeno", ModuloID: recurso.ModuloID, Tipo: recurso.Tipo, Ambitos: recurso.Ambitos, Atributos: recurso.Atributos}},
 	} {
-		if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, otro) {
+		if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, ruta, otro) {
 			t.Fatal("permiso ajeno admitido")
 		}
 	}
-	if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaConsultaReciboRespuesta, d) {
+	if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaConsultaReciboRespuesta, d) {
 		t.Fatal("la lista CT140 reutilizó el GET CT139")
 	}
 	concesion := concesionConsultaComunicacionesExpedienteDesarrollo()

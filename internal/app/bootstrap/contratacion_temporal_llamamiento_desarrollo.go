@@ -75,7 +75,10 @@ func nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg config.Conf
 		return nil, nil, err
 	}
 	seleccion := &ejecutorSeleccionLlamamientoDesarrollo{
-		soporte: alta.soporte, puente: puente, lector: lector, preparar: prepararReferenciasLlamamientoDesarrollo, servicio: servicio,
+		soporte: alta.soporte, puente: puente, lector: lector,
+		preparar: func(expediente ports.ExpedienteParaSeleccion, clave string) (preparacionLlamamientoDesarrollo, error) {
+			return prepararReferenciasLlamamientoDesarrollo(alta.soporte.referenciaCT, expediente, clave)
+		}, servicio: servicio,
 		autorizador: &autorizadorLlamamientoDesarrollo{alta: alta, material: alta.postgresql.proveedorMaterialBolsa},
 	}
 	comunicacion, err := nuevoEjecutorComunicacionLlamamientoDesarrollo(cfg, alta.postgresql.ejecucion, alta,
@@ -121,12 +124,12 @@ func (e *ejecutorSeleccionLlamamientoDesarrollo) SeleccionarYLlamarParaAdaptador
 	// Solo se lee el agregado de la organización sintética ligada a la identidad.
 	// La petición no puede elegir organización, perfil, orden ni autorización.
 	expediente, err := e.lector.LeerExpedienteParaSeleccion(ctx,
-		organizacionAltaContratacionTemporalDesarrollo, solicitud.ExpedienteRef, solicitud.VersionEsperada)
+		e.soporte.organizacionRef, solicitud.ExpedienteRef, solicitud.VersionEsperada)
 	if err != nil {
 		return vacio, err
 	}
 	if expediente.Fiscalizado.Validar() != nil || expediente.Fiscalizado.Referencia != solicitud.ExpedienteRef ||
-		expediente.Fiscalizado.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		expediente.Fiscalizado.OrganizacionRef != e.soporte.organizacionRef ||
 		expediente.Fiscalizado.Version != solicitud.VersionEsperada {
 		return vacio, ports.ErrIntegracionBolsaNoDisponible
 	}

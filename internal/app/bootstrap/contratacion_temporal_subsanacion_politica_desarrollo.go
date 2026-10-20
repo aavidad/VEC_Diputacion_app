@@ -49,7 +49,7 @@ func (f fuentePoliticaSubsanacionReparosDesarrollo) ResolverContextoCanalSubsana
 	if err != nil {
 		return httpinterno.ContextoCanalSubsanacionReparos{}, ports.ErrAutorizacionDenegada
 	}
-	return httpinterno.ContextoCanalSubsanacionReparos{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef, PerfilRef: v.PerfilActivoRef, OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo}, nil
+	return httpinterno.ContextoCanalSubsanacionReparos{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef, PerfilRef: v.PerfilActivoRef, OrganizacionRef: f.soporte.organizacionRef}, nil
 }
 
 // configurar publica el motivo de la política y compone el perfil fijo de la
@@ -74,7 +74,7 @@ func (f fuentePoliticaSubsanacionReparosDesarrollo) configurar(alta *dependencia
 			[]vecdomain.ConcesionRol{{Accion: string(domain.AccionRegistrarSubsanacionReparo), ModuloID: ports.ModuloContratacion,
 				TipoRecurso: ports.TipoRecursoSubsanacionReparo, Finalidades: []string{ports.FinalidadRegistrarSubsanacionReparo},
 				GarantiaMinima: vecdomain.AuthAssuranceHigh}},
-			fase.ambitosPerfil(organizacionAltaContratacionTemporalDesarrollo))
+			fase.ambitosPerfil(f.soporte.organizacionRef))
 	}
 	i, err := plantilla(v.PrincipalID, v.PerfilActivoRef)
 	if err != nil || !ok {
@@ -176,6 +176,6 @@ func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionSubsana
 	return ok && datos.Accion == string(domain.AccionRegistrarSubsanacionReparo) && datos.ReferenciaMotivo == motivo &&
 		datos.Recurso.ModuloID == ports.ModuloContratacion && datos.Recurso.Tipo == ports.TipoRecursoSubsanacionReparo &&
 		datos.Finalidad == ports.FinalidadRegistrarSubsanacionReparo && datos.Recurso.Referencia != "" &&
-		len(datos.Recurso.Ambitos) == 3 && datos.Recurso.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		len(datos.Recurso.Ambitos) == 3 && datos.Recurso.Ambitos["organizacion_ref"] == s.organizacionRef &&
 		fase.admite(domain.ClaveFase(datos.Recurso.Ambitos["fase_previa"]), domain.EstadoOperativo(datos.Recurso.Ambitos["estado_previo"]))
 }

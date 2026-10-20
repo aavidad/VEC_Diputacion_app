@@ -104,7 +104,7 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) ResolverContextoPropuestaForm
 	if !valida || c.ruta != httpinterno.RutaPropuestaFormalizacion {
 		return vacio, application.ErrPropuestaFormalizacionDenegada
 	}
-	return httpinterno.ContextoServidorPropuestaFormalizacion{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo}, nil
+	return httpinterno.ContextoServidorPropuestaFormalizacion{OrganizacionRef: e.soporte.organizacionRef}, nil
 }
 
 func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx context.Context, s ports.SolicitudPropuestaFormalizacion) (ports.ResultadoPropuestaFormalizacion, error) {
@@ -129,7 +129,7 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 	}
 	// La recuperación conserva la misma preimagen N aunque la propuesta ya haya
 	// avanzado el expediente. PostgreSQL decide OCC o recuperación.
-	if err != nil || !expedienteFiscalizadoParaPropuestaDesarrollo(expediente, s) {
+	if err != nil || !expedienteFiscalizadoParaPropuestaDesarrollo(e.soporte.referenciaCT, expediente, s) {
 		return vacio, application.ErrPropuestaFormalizacionNoDisponible
 	}
 	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, preparacionLlamamientoDesarrollo{expediente: expediente})
@@ -142,10 +142,10 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 		return vacio, errorPreparacionPropuestaDesarrollo(err)
 	}
 	if a.ValidarPara(s) != nil || a.Resolucion.Politica != politicaManualDesarrollo() ||
-		!consultaJustificanteLigadaAlExpedienteDesarrollo(expediente, a.Resolucion.Solicitud) {
+		!consultaJustificanteLigadaAlExpedienteDesarrollo(e.soporte.referenciaCT, expediente, a.Resolucion.Solicitud) {
 		return vacio, application.ErrResolucionFormalizacionNoAceptada
 	}
-	p, err := prepararReferenciasLlamamientoDesarrollo(expediente, a.SeleccionClave)
+	p, err := prepararReferenciasLlamamientoDesarrollo(e.soporte.referenciaCT, expediente, a.SeleccionClave)
 	if err != nil || p.operacionPropuesta != a.Justificante.Seleccion.OperacionRef {
 		return vacio, application.ErrResolucionFormalizacionNoAceptada
 	}
@@ -174,14 +174,14 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 	return e.servicio.PrepararYConfirmar(ctx, s)
 }
 
-func expedienteFiscalizadoParaPropuestaDesarrollo(
+func expedienteFiscalizadoParaPropuestaDesarrollo(referencia referenciaCT,
 	expediente ports.ExpedienteParaSeleccion,
 	s ports.SolicitudPropuestaFormalizacion,
 ) bool {
 	e := expediente.Fiscalizado
 	return e.Validar() == nil && e.Referencia == s.ExpedienteRef &&
 		e.OrganizacionRef == s.OrganizacionRef &&
-		e.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		e.OrganizacionRef == referencia.organizacionRef &&
 		e.Version == s.VersionEsperada && expediente.VersionActual >= s.VersionEsperada &&
 		expediente.VersionActual <= ports.MaximoEnteroSeguroIntegracionBolsa &&
 		e.FaseActual == domain.FaseFiscalizacion && e.EstadoActual == domain.EstadoEnCurso &&

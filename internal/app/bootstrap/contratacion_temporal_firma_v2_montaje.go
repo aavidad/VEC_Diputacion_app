@@ -148,7 +148,7 @@ func prepararMontajeFirmaVecR5CT(ctx context.Context, cfg config.Config, c confi
 	if err != nil {
 		return nil, err
 	}
-	m.nominal, err = nuevaFuenteNominalSesionFirmaCT(autoridad, m.fuenteAutorizacion, c.Firmantes, m.reloj)
+	m.nominal, err = nuevaFuenteNominalSesionFirmaCT(autoridad, m.fuenteAutorizacion, c.Firmantes, m.reloj, m.alta.soporte.referenciaCT)
 	if err != nil {
 		return nil, err
 	}

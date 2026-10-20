@@ -252,15 +252,15 @@ func TestExpedienteComunicacionLlamamientoDesarrolloConservaVersionNominal(t *te
 		FaseActual: domain.FaseFiscalizacion, EstadoActual: domain.EstadoEnCurso,
 		Fiscalizacion: &domain.FiscalizacionRegistrada{Resultado: domain.FiscalizacionFavorable},
 	}, VersionActual: 8}
-	if !expedienteComunicacionLlamamientoDesarrolloValido(e, s) {
+	if !expedienteComunicacionLlamamientoDesarrolloValido(referenciaOrganizativaCTMontajePrueba, e, s) {
 		t.Fatal("la recuperación tras avance CT perdió la fiscalización nominal")
 	}
 	e.VersionActual = 6
-	if expedienteComunicacionLlamamientoDesarrolloValido(e, s) {
+	if expedienteComunicacionLlamamientoDesarrolloValido(referenciaOrganizativaCTMontajePrueba, e, s) {
 		t.Fatal("la cabeza anterior a la fiscalización nominal fue admitida")
 	}
 	e.Fiscalizado.Version, e.VersionActual = 5, 8
-	if expedienteComunicacionLlamamientoDesarrolloValido(e, s) {
+	if expedienteComunicacionLlamamientoDesarrolloValido(referenciaOrganizativaCTMontajePrueba, e, s) {
 		t.Fatal("fiscalización previa a selección admitida")
 	}
 }

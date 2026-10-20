@@ -95,11 +95,11 @@ func concesionesOriginalFirmableCTDesarrollo() []dominiovec.ConcesionRol {
 	}
 }
 
-func instantaneaOriginalFirmableCTDesarrollo(principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
+func instantaneaOriginalFirmableCTDesarrollo(referencia referenciaCT, principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
 		"original_firmable_ct_desarrollo", "Lectura y custodia del original firmable CT de desarrollo",
 		"original-firmable-ct-desarrollo-no-autoritativa", concesionesOriginalFirmableCTDesarrollo(),
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}}})
 }
 
 // claveOriginalFirmableCTDesarrollo lleva en el contexto el original que CT
@@ -336,6 +336,7 @@ func (p pdpCTOriginalFirmableDesarrollo) materialOriginalV3(ctx context.Context,
 // custodia común del original y los dos emisores de Documentos (operación y
 // concesión del almacén), todos con el mismo PDP de CT.
 type originalFirmableCTDesarrollo struct {
+	referenciaCT
 	pdp            pdpOriginalFirmableCTDesarrollo
 	seudonimizador *seudonimizadorAlmacenDesarrollo
 	politicas      *conservacion.Catalogo
@@ -356,12 +357,13 @@ var (
 
 func nuevoOriginalFirmableCTDesarrollo(pdp pdpOriginalFirmableCTDesarrollo, seudonimizador *seudonimizadorAlmacenDesarrollo,
 	politicas *conservacion.Catalogo, reloj puertosvec.Reloj,
+	referencia referenciaCT,
 ) (*originalFirmableCTDesarrollo, error) {
 	if dependenciaEsNulaContratacionTemporalDesarrollo(pdp) || !seudonimizador.valido() || politicas == nil ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(reloj) {
 		return nil, puertosvec.ErrOriginalFirmableCTNoDisponible
 	}
-	o := &originalFirmableCTDesarrollo{pdp: pdp, seudonimizador: seudonimizador, politicas: politicas,
+	o := &originalFirmableCTDesarrollo{referenciaCT: referencia, pdp: pdp, seudonimizador: seudonimizador, politicas: politicas,
 		mapear: almacen.FuncionMapeoExpedienteOriginalCT(ctapplication.ReferenciaExpedienteDocumentalFormalizacion)}
 	autoridad, err := docautorizacion.NuevaAutoridadOriginalFirmableV3(o, o, reloj)
 	if err != nil {
@@ -377,7 +379,7 @@ func (o *originalFirmableCTDesarrollo) identidadYExpedienteOriginalCT(s puertosv
 	identidad := almacencanonico.IdentidadOriginalCT{OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
 		Documento: s.Documento, Version: s.OriginalVersion}
 	if !identidad.Valida() || ref != identidad.Referencia() || (s.OriginalRef != "" && s.OriginalRef != ref) ||
-		s.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo || o.mapear == nil {
+		s.OrganizacionRef != o.organizacionRef || o.mapear == nil {
 		return identidad, "", puertosvec.ErrOriginalFirmableCTInvalido
 	}
 	expediente, err := o.mapear.ReferenciaDocumentalCT(s.ExpedienteRef)

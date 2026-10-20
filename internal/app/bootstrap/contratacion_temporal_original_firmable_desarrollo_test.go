@@ -52,7 +52,7 @@ func sha256HexPrueba(b []byte) string {
 // El rol del perfil fijo solo cubre las cuatro operaciones de Documentos sobre
 // el original, con los campos exactos de cada consumidor y sin obligaciones.
 func TestInstantaneaOriginalFirmableConcedeSoloOperacionesDelOriginal(t *testing.T) {
-	i, err := instantaneaOriginalFirmableCTDesarrollo("per_0123456789abcdefghijkl", "perfil:ct:original", time.Now().UTC())
+	i, err := instantaneaOriginalFirmableCTDesarrollo(referenciaOrganizativaCTMontajePrueba, "per_0123456789abcdefghijkl", "perfil:ct:original", time.Now().UTC())
 	if err != nil || i.Validar() != nil {
 		t.Fatalf("instantánea inválida: %v", err)
 	}
@@ -222,7 +222,7 @@ func nuevoOriginalPrueba(t *testing.T, pdp *pdpOriginalPrueba) *originalFirmable
 	if err != nil {
 		t.Fatal(err)
 	}
-	o, err := nuevoOriginalFirmableCTDesarrollo(pdp, nuevoSeudonimizadorAlmacenDesarrollo([32]byte{7}), catalogo, relojRutasDietas{})
+	o, err := nuevoOriginalFirmableCTDesarrollo(pdp, nuevoSeudonimizadorAlmacenDesarrollo([32]byte{7}), catalogo, relojRutasDietas{}, referenciaOrganizativaCTMontajePrueba)
 	if err != nil {
 		t.Fatal(err)
 	}

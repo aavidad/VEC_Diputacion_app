@@ -398,7 +398,7 @@ func TestIntervencionPasaAPerfilFijoConProvisionPostgreSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 	fase := fasesOperacionPredeterminadasCT()[operacionFaseFiscalizacionCT]
-	plantilla, err := nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef,
+	plantilla, err := nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba, v.PrincipalID, v.PerfilActivoRef,
 		time.Now().UTC().Truncate(time.Microsecond), fase)
 	if err != nil {
 		t.Fatal(err)

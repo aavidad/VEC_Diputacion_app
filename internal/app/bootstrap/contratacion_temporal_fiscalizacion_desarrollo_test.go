@@ -44,13 +44,13 @@ func TestSolicitudAutorizacionFiscalizacionExigeVinculoDeSubsanacion(t *testing.
 			"subsanacion_recibo_ref": "recibo:subsanacion:001",
 		},
 	)
-	if !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(refiscalizacion, faseFiscalizacionPrueba) {
+	if !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, refiscalizacion, faseFiscalizacionPrueba) {
 		t.Fatal("la refiscalizacion ligada debe conservar la autorizacion nominal")
 	}
 
 	sinRecibo := refiscalizacion
 	sinRecibo.Recurso.Atributos = map[string]string{"retorno_previo_ref": "retorno:fiscalizacion:001"}
-	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(sinRecibo, faseFiscalizacionPrueba) {
+	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, sinRecibo, faseFiscalizacionPrueba) {
 		t.Fatal("la refiscalizacion sin recibo de subsanacion no debe autorizarse")
 	}
 
@@ -58,7 +58,7 @@ func TestSolicitudAutorizacionFiscalizacionExigeVinculoDeSubsanacion(t *testing.
 		domain.FaseInformeJuridico, domain.EstadoEnCurso,
 		map[string]string{"retorno_previo_ref": "retorno:fiscalizacion:001"},
 	)
-	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(inicialConRetorno, faseFiscalizacionPrueba) {
+	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, inicialConRetorno, faseFiscalizacionPrueba) {
 		t.Fatal("la fiscalizacion inicial no admite un retorno previo")
 	}
 
@@ -66,34 +66,34 @@ func TestSolicitudAutorizacionFiscalizacionExigeVinculoDeSubsanacion(t *testing.
 		domain.FaseFiscalizacion, domain.EstadoEnCurso,
 		map[string]string{"modificacion_recibo_ref": "recibo:modificacion:001"},
 	)
-	if !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(modificacion, faseFiscalizacionPrueba) {
+	if !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, modificacion, faseFiscalizacionPrueba) {
 		t.Fatal("la fiscalizacion de una modificacion ligada a su recibo debe autorizarse")
 	}
 	sinModificacion := datosAutorizacionFiscalizacionDesarrollo(domain.FaseFiscalizacion, domain.EstadoEnCurso, map[string]string{})
-	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(sinModificacion, faseFiscalizacionPrueba) {
+	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, sinModificacion, faseFiscalizacionPrueba) {
 		t.Fatal("la fiscalizacion en fase de fiscalizacion exige el recibo de la modificacion")
 	}
 	mezclada := datosAutorizacionFiscalizacionDesarrollo(
 		domain.FaseSubsanacionUnidad, domain.EstadoIncidencia,
 		map[string]string{"retorno_previo_ref": "retorno:fiscalizacion:001", "subsanacion_recibo_ref": "recibo:subsanacion:001", "modificacion_recibo_ref": "recibo:modificacion:001"},
 	)
-	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(mezclada, faseFiscalizacionPrueba) {
+	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, mezclada, faseFiscalizacionPrueba) {
 		t.Fatal("una refiscalizacion no puede citar una modificacion")
 	}
 	// Con el expediente en los ámbitos, o con un catálogo que no admite la
 	// fase, se deniega.
 	conExpediente := datosAutorizacionFiscalizacionDesarrollo(domain.FaseInformeJuridico, domain.EstadoEnCurso, map[string]string{})
 	conExpediente.Recurso.Ambitos["expediente_ref"] = expedienteContratacionTemporalDesarrolloRef
-	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(conExpediente, faseFiscalizacionPrueba) {
+	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, conExpediente, faseFiscalizacionPrueba) {
 		t.Fatal("aceptada con el expediente en los ámbitos")
 	}
 	soloInicial := faseOperacionDePares(faseEstadoOperacionCT{domain.FaseInformeJuridico, domain.EstadoEnCurso})
-	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(modificacion, soloInicial) ||
+	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, modificacion, soloInicial) ||
 		origenFiscalizacionContratacionTemporalDesarrolloValido(soloInicial, 8, domain.FaseFiscalizacion, domain.EstadoEnCurso) {
 		t.Fatal("se admitió una fase que el catálogo no declara")
 	}
 	inicial := datosAutorizacionFiscalizacionDesarrollo(domain.FaseInformeJuridico, domain.EstadoEnCurso, map[string]string{})
-	if !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(inicial, soloInicial) {
+	if !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, inicial, soloInicial) {
 		t.Fatal("la fiscalización inicial debe admitirse con su fase en el catálogo")
 	}
 }

@@ -99,7 +99,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalCobertu
 		AutenticacionRef: vinculo.AutenticacionRef,
 		SesionRef:        vinculo.SesionRef,
 		PerfilRef:        vinculo.PerfilActivoRef,
-		OrganizacionRef:  organizacionAltaContratacionTemporalDesarrollo,
+		OrganizacionRef:  s.organizacionRef,
 	}, nil
 }
 
@@ -128,7 +128,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoRecuperacion
 	return ports.NuevoContextoRecuperacionResultadoCobertura(
 		solicitud,
 		operativo,
-		organizacionAltaContratacionTemporalDesarrollo,
+		s.organizacionRef,
 		s.reloj.Ahora(),
 	)
 }
@@ -154,7 +154,7 @@ func (a *autorizadorConsultasCoberturaDesarrollo) AutorizarPresentacionPropuesta
 		return application.ErrPresentacionPropuestaCoberturaDenegada
 	}
 	organizacionRef, expedienteRef, versionEsperada, err := analisis.Coordenadas()
-	if err != nil || organizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+	if err != nil || organizacionRef != a.soporte.organizacionRef {
 		return application.ErrPresentacionPropuestaCoberturaDenegada
 	}
 	solicitud, err := a.nuevaSolicitud(
@@ -204,7 +204,7 @@ func (a *autorizadorConsultasCoberturaDesarrollo) AutorizarLecturaResultadoCober
 		return ports.AutorizacionLecturaResultadoCoberturaDenegada, nil
 	}
 	datos, err := solicitud.Datos()
-	if err != nil || datos.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+	if err != nil || datos.OrganizacionRef != a.soporte.organizacionRef {
 		return ports.AutorizacionLecturaResultadoCoberturaDenegada, nil
 	}
 	peticion, err := a.nuevaSolicitud(
@@ -263,7 +263,7 @@ func (a *autorizadorConsultasCoberturaDesarrollo) nuevaSolicitud(
 				Tipo:       ports.TipoRecursoExpediente,
 				Ambitos: map[string]string{
 					"organizacion_ref":     organizacionRef,
-					"unidad_ejecutora_ref": unidadCoberturaContratacionTemporalDesarrollo,
+					"unidad_ejecutora_ref": a.soporte.unidadRef,
 				},
 				Atributos: atributos,
 			},

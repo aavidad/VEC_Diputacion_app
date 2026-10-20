@@ -31,6 +31,7 @@ var errInformeJuridicoContratacionTemporalDesarrolloNoDisponible = errors.New(
 // el informe en las fases y estados del catálogo (c23), los mismos que cubre
 // su perfil fijo.
 type resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo struct {
+	referenciaCT
 	fase faseOperacionCT
 }
 
@@ -39,9 +40,9 @@ func (r resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo) Res
 	solicitud ports.SolicitudResolverConfiguracionInformeJuridico,
 ) (ports.ConfiguracionInformeJuridico, error) {
 	if contextoInterfazNulo(ctx) || solicitud.Validar() != nil ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		solicitud.OrganizacionRef != r.organizacionRef ||
 		!puntoEmisionInformeJuridicoDesarrollo(r.fase, solicitud.VersionExpediente, string(solicitud.FaseActual), string(solicitud.EstadoActual)) ||
-		solicitud.UnidadAsignadaRef != unidadCoberturaContratacionTemporalDesarrollo {
+		solicitud.UnidadAsignadaRef != r.unidadRef {
 		return ports.ConfiguracionInformeJuridico{},
 			errInformeJuridicoContratacionTemporalDesarrolloNoDisponible
 	}
@@ -71,7 +72,7 @@ func (r resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo) Res
 		DefinicionHuella:   huellaAltaContratacionTemporalDesarrollo("configuracion-informe-juridico"),
 		Accion:             domain.AccionEmitirInformeJuridico,
 		Finalidad:          domain.ClaveCatalogo(finalidadInformeJuridicoContratacionTemporalDesarrollo),
-		UnidadEjecutoraRef: unidadCoberturaContratacionTemporalDesarrollo,
+		UnidadEjecutoraRef: r.unidadRef,
 		MotivoAutorizacion: referenciaMotivoAutorizacionInformeJuridicoDesarrollo(),
 		EvaluadaEn:         solicitud.Instante,
 		ValidaHasta:        solicitud.Instante.Add(5 * time.Minute),
@@ -141,7 +142,7 @@ func nuevasDependenciasInformeJuridicoContratacionTemporalDesarrollo(
 		sellos,
 		sellos,
 		preparaciones,
-		resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo{fase: faseInforme},
+		resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo{referenciaCT: alta.soporte.referenciaCT, fase: faseInforme},
 		seguridadvec.GeneradorReferenciasCriptograficas{},
 		alta.autorizador,
 		informejuridico.GeneradorDesarrollo{},
@@ -157,7 +158,7 @@ func nuevasDependenciasInformeJuridicoContratacionTemporalDesarrollo(
 // nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo
 // es la plantilla del perfil fijo del informe jurídico: la organización y las
 // fases y estados del catálogo (c23), sin expediente.
-func nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(
+func nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(referencia referenciaCT,
 	principalID string,
 	perfilRef string,
 	ahora time.Time,
@@ -180,7 +181,7 @@ func nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(
 			Finalidades:    []string{finalidadInformeJuridicoContratacionTemporalDesarrollo},
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}},
-		fase.ambitosPerfil(organizacionAltaContratacionTemporalDesarrollo),
+		fase.ambitosPerfil(referencia.organizacionRef),
 	)
 }
 
@@ -199,7 +200,7 @@ func referenciaMotivoAutorizacionInformeJuridicoDesarrollo() dominiovec.Referenc
 // solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida:
 // el expediente va en la referencia del recurso; los ámbitos son la
 // organización y el par fase/estado previo que admite el catálogo.
-func solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(
+func solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(referencia referenciaCT,
 	ruta string,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
 	fase faseOperacionCT,
@@ -214,7 +215,7 @@ func solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(
 		datos.Recurso.Referencia != "" &&
 		datos.Finalidad == finalidadInformeJuridicoContratacionTemporalDesarrollo &&
 		len(ambitos) == 3 && len(atributos) == 10 &&
-		ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		ambitos["organizacion_ref"] == referencia.organizacionRef &&
 		versionInformeJuridicoDesarrolloValida(fase, atributos["version_expediente"], ambitos["fase_previa"], ambitos["estado_previo"]) &&
 		atributos["configuracion_ref"] == definicionInformeJuridicoDesarrollo &&
 		atributos["configuracion_version"] == strconv.FormatUint(1, 10) &&

@@ -129,18 +129,19 @@ func (i *incorporacionCentroDesarrollo) rutas(p *proveedorPeticionCentroDesarrol
 // recursoIncorporacionCentroDesarrollo liga la solicitud de autorización al
 // recurso exacto que se va a consumir en SQL.
 type recursoIncorporacionCentroDesarrollo struct {
+	referenciaCT
 	accion  string
 	recurso vecdomain.RecursoAutorizable
 	actor   domain.ActorPeticionCentro
 }
 
 func (r *recursoIncorporacionCentroDesarrollo) validaPara(principal, perfil string, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
-	return r != nil && (r.accion == ports.AccionConsultarIncorporacionesCentro || r.accion == ports.AccionConfirmarIncorporacionCentro) &&
+	return r != nil && r.organizacionRef != "" && (r.accion == ports.AccionConsultarIncorporacionesCentro || r.accion == ports.AccionConfirmarIncorporacionCentro) &&
 		d.Accion == r.accion && r.actor.ActorRef == principal && r.actor.PerfilRef == perfil &&
 		d.Recurso.Referencia == r.recurso.Referencia && d.Recurso.ModuloID == r.recurso.ModuloID && d.Recurso.Tipo == r.recurso.Tipo &&
 		d.Recurso.Tipo == ports.TipoRecursoIncorporacionCentro && maps.Equal(d.Recurso.Ambitos, r.recurso.Ambitos) &&
 		maps.Equal(d.Recurso.Atributos, r.recurso.Atributos) && d.Recurso.Ambitos["centro_ref"] == r.actor.CentroRef &&
-		d.Recurso.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo
+		d.Recurso.Ambitos["organizacion_ref"] == r.organizacionRef
 }
 
 var _ postgresct.ProveedorAutorizacionIncorporacionCentro = (*proveedorPeticionCentroDesarrollo)(nil)
@@ -152,7 +153,7 @@ func (p *proveedorPeticionCentroDesarrollo) AutorizarIncorporacionCentro(ctx con
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrIncorporacionCentroDenegada
 	}
-	m := materialAutorizacionPeticionCentroDesarrollo{incorporacion: &recursoIncorporacionCentroDesarrollo{accion: accion, recurso: recurso, actor: a.actor}}
+	m := materialAutorizacionPeticionCentroDesarrollo{incorporacion: &recursoIncorporacionCentroDesarrollo{referenciaCT: p.alta.soporte.referenciaCT, accion: accion, recurso: recurso, actor: a.actor}}
 	return p.autorizar(ctx, a.actor, accion, recurso, m)
 }
 
@@ -230,7 +231,7 @@ func (m *manejadorIncorporacionCentroDesarrollo) ServeHTTP(w http.ResponseWriter
 			fallo(http.StatusBadRequest, "solicitud_invalida")
 			return
 		}
-		filas, err := m.servicio.Bandeja(r.Context(), organizacionAltaContratacionTemporalDesarrollo, a.actor)
+		filas, err := m.servicio.Bandeja(r.Context(), m.proveedor.alta.soporte.organizacionRef, a.actor)
 		if err != nil {
 			fallo(estadoErrorIncorporacionCentro(err))
 			return
@@ -270,7 +271,7 @@ func (m *manejadorIncorporacionCentroDesarrollo) ServeHTTP(w http.ResponseWriter
 		fallo(http.StatusBadRequest, "solicitud_invalida")
 		return
 	}
-	recibo, err := m.servicio.Confirmar(r.Context(), application.SolicitudConfirmarIncorporacionCentro{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+	recibo, err := m.servicio.Confirmar(r.Context(), application.SolicitudConfirmarIncorporacionCentro{OrganizacionRef: m.proveedor.alta.soporte.organizacionRef,
 		Actor: a.actor, ClaveIdempotencia: in.ClaveIdempotencia, PeticionRef: in.PeticionRef, ExpedienteRef: in.ExpedienteRef,
 		FechaIncorporacion: in.FechaIncorporacion, DocumentoRef: in.DocumentoRef, DocumentoSHA256: in.DocumentoSHA256})
 	if err != nil {

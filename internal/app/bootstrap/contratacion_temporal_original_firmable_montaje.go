@@ -82,12 +82,12 @@ func nuevoPerfilNominalOriginalCT(s *soporteAltaContratacionTemporalDesarrollo, 
 			clave, clave, clave, []core.ConcesionRol{{Accion: ports.AccionConsultarDetalleRRHH, ModuloID: ports.ModuloContratacion,
 				TipoRecurso: ports.TipoRecursoExpediente, Finalidades: []string{ports.FinalidadConsultarDetalleRRHH},
 				GarantiaMinima: core.AuthAssuranceHigh}}, []core.AmbitoPerfil{
-				{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+				{Clave: "organizacion_ref", Valores: []string{s.organizacionRef}},
 				{Clave: "clase_ambito", Valores: []string{string(ports.AmbitoOrganizacionRRHH)}},
-				{Clave: "ambito_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+				{Clave: "ambito_ref", Valores: []string{s.organizacionRef}},
 			})
 	case clavePerfilFijoOriginalFirmableCTDesarrollo:
-		plantilla, err = instantaneaOriginalFirmableCTDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora)
+		plantilla, err = instantaneaOriginalFirmableCTDesarrollo(s.referenciaCT, v.PrincipalID, v.PerfilActivoRef, ahora)
 	default:
 		return nil, errMontajeOriginalFirmableCTNoDisponible
 	}
@@ -132,7 +132,7 @@ func (a autoridadCanalOriginalCTDesarrollo) ResolverOrganizacionFirmaVec(ctx con
 		c.consultaRRHH == nil || c.contextoOperacion == nil || c.original == nil || c.vinculoCanalTLS == ([32]byte{}) {
 		return "", errOriginalFirmableCTDenegado
 	}
-	return organizacionAltaContratacionTemporalDesarrollo, nil
+	return a.soporte.organizacionRef, nil
 }
 
 // nuevaRutaOriginalFirmableCTDesarrollo reutiliza Servicio Documentos y sus
@@ -183,7 +183,7 @@ func componerRutaOriginalFirmableCTDesarrollo(alta *dependenciasAltaContratacion
 	if err != nil {
 		return nil, errMontajeOriginalFirmableCTNoDisponible
 	}
-	autoridad, err := nuevoOriginalFirmableCTDesarrollo(pdpCTOriginalFirmableDesarrollo{alta: alta}, seudonimos, politicas, reloj)
+	autoridad, err := nuevoOriginalFirmableCTDesarrollo(pdpCTOriginalFirmableDesarrollo{alta: alta}, seudonimos, politicas, reloj, alta.soporte.referenciaCT)
 	if err != nil {
 		return nil, errMontajeOriginalFirmableCTNoDisponible
 	}

@@ -134,12 +134,20 @@ func TestCargarIdentidadesConsultasRRHHDesarrolloRegistraTecnicoExistente(t *tes
 	if err != nil || !activo || len(lectores) != 1 || lectores[0].identidad.huella != tecnico.huella || lectores[0].identidad.principal.ID != tecnico.principal.ID {
 		t.Fatalf("técnico válido: %+v activo=%v err=%v", lectores, activo, err)
 	}
+	// El parser compartido valida la forma; CT coteja el ámbito al montar.
+	ajena := entrada
+	ajena.OrganizacionRef = "organizacion:ajena"
+	escribir(t, archivoManifiestoConsultasRRHHDesarrollo{Version: 1, Autoridad: AutoridadNoAutoritativa, Entradas: []archivoEntradaConsultaRRHHDesarrollo{ajena}})
+	lectores, _, err = cargarIdentidadesConsultasRRHHDesarrollo(raiz, ca, tecnico)
+	if err != nil || len(lectores) != 1 || lectores[0].organizacionRef != ajena.OrganizacionRef {
+		t.Fatalf("referencia de forma válida perdida: %v", err)
+	}
 	for nombre, cambiar := range map[string]func(*archivoEntradaConsultaRRHHDesarrollo){
 		"perfil genérico del técnico": func(e *archivoEntradaConsultaRRHHDesarrollo) {
 			e.PerfilRef = referenciaAltaContratacionTemporalDesarrollo("prf_", sujeto+"\x00"+hex.EncodeToString(huella[:])+"\x00perfil")
 		},
 		"subject técnico distinto": func(e *archivoEntradaConsultaRRHHDesarrollo) { e.Subject = "tecnico:ajeno" },
-		"organización ajena":       func(e *archivoEntradaConsultaRRHHDesarrollo) { e.OrganizacionRef = "organizacion:ajena" },
+		"organización ausente":     func(e *archivoEntradaConsultaRRHHDesarrollo) { e.OrganizacionRef = "" },
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			e := entrada

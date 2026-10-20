@@ -482,7 +482,7 @@ func nuevosSoportesAuditoriaConsultaDesdeBaseDesarrollo(
 	}
 	nuevoCanal := func(contexto ctports.ContextoAutorizacionAltaV3) *soporteAltaContratacionTemporalDesarrollo {
 		return &soporteAltaContratacionTemporalDesarrollo{
-			sello: sello, principalID: principalID, certificadoSHA256: certificado,
+			referenciaCT: base.referenciaCT, sello: sello, principalID: principalID, certificadoSHA256: certificado,
 			contexto: contexto, reloj: reloj,
 		}
 	}

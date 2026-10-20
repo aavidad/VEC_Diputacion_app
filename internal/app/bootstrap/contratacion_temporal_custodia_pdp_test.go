@@ -37,7 +37,7 @@ func nuevoEscenarioCustodiaPDP(t *testing.T, conCustodia bool,
 	p, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
 		[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
 		func(actor, ref string) (core.InstantaneaAutorizacion, error) {
-			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, ref, ahora, conCustodia)
+			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, ref, ahora, conCustodia)
 		})
 	if err != nil || s.registrarPerfilFijoCTDesarrollo(p) != nil {
 		t.Fatal(err)

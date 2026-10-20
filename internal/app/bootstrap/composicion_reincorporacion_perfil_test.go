@@ -15,7 +15,7 @@ func TestReincorporacionPerfilFijoSoloAdmitePreimagenOperativaPropia(t *testing.
 	p := &perfilFijoCTDesarrollo{plantilla: i}
 	base := instantaneaPublicadaDesarrollo{instantanea: i, actoAsignacion: actoAsignacionReincorporacionTitularDesarrollo,
 		actualizadaPor: i.AsignacionPerfil.EmitidaPor, actoControl: actoControlRolReincorporacionTitularDesarrollo}
-	admitida := preimagenPropiaReincorporacionTitular(p)
+	admitida := preimagenPropiaReincorporacionTitular(referenciaOrganizativaCTMontajePrueba, p)
 	for _, caso := range []struct {
 		nombre string
 		cambio func(*instantaneaPublicadaDesarrollo)
