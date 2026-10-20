@@ -189,3 +189,24 @@ asignaciones; los certificados heredados duran 397 o 400 días.
 - [Resolución registrada en la semilla histórica distinta](recorrido_f1_27_formalizacion_20261020/13_semilla_distinta.png).
 - [Petición nueva presentada por el centro](recorrido_f1_27_formalizacion_20261020/01_peticion_nueva.png).
 - [La misma petición, ratificada](recorrido_f1_27_formalizacion_20261020/02_ratificacion_nueva.png).
+
+## Nueva copia con selección desde la ficha
+
+La candidata `57d8ee378e055506d331f675708d249728c1ca66` se creó en
+96,22 segundos. Se completaron Administración, catálogo, firmantes y actos;
+el plan de firma se publicó con dos administradores. Se utilizó el constructor
+independiente `8c638d596d7c2675cc2abf1cf5ba147be425a675`, conservando la
+revisión de la aplicación y registrando la procedencia de su binario. También
+se activó Personal y se aprovisionaron los dos perfiles fijos de RRHH.
+
+Chrome del sistema abrió el portal con la autoridad de certificación de esta
+copia y la clave pública de su certificado, sin desactivar la verificación
+HTTPS. La petición de vacante para el puesto 9, del 19 de octubre al 31 de
+diciembre, se presentó con 200 a las 12:53:49 y se ratificó con 200 a las
+12:54:41. Son actos nuevos; no reutilizan los recibos de la copia anterior.
+El expediente todavía no está registrado.
+
+Los pasos posteriores necesitan las correcciones que permiten usar la
+aceptación firme de Mi Bolsa: F1-125 para resolver la respuesta y F1-127
+para preparar la propuesta. No se ha creado un correo ficticio como
+antecedente ni se han acreditado los pasos 12 a 21.
