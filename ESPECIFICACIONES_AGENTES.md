@@ -7,6 +7,12 @@ tabla dice dónde está cada una. La última columna dice si quedó algo fuera.
 
 La versión completa anterior está en la historia de Git de este fichero.
 
+Índice comprobado el 20/10/2026. Las reglas de trabajo local, revisión y
+entrega se consultan en [AGENTS.md](AGENTS.md); la arquitectura real, en
+[TRD](docs/producto/TRD.md) y el [manual del programador](docs/manual_programador/README.md).
+Este índice conserva los trece identificadores como referencias técnicas;
+no constituye otro plan ni un canal de coordinación.
+
 | Regla | Dónde vive ahora | Lo que solo queda aquí |
 | --- | --- | --- |
 | E01. Fuentes y precedencia | [PRD §1](docs/producto/PRD.md#1-los-seis-documentos-de-producto) y [PRD §6, «De dónde salen las reglas»](docs/producto/PRD.md#de-dónde-salen-las-reglas); órdenes de trabajo en [AGENTS.md](AGENTS.md) | Nada. Que no se edita el Word original de RRHH está en [PLAN_IMPLEMENTACION §8](docs/producto/PLAN_IMPLEMENTACION.md#8-reglas-que-siguen-vigentes-de-los-relevos-anteriores) |

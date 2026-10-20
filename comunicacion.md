@@ -1,3 +1,5 @@
+> Histórico: estudio abierto el 15/09/2026, conservado al 20/10/2026. Sus reglas de turnos, pausas y ramas pertenecen a aquel estudio. Las instrucciones actuales están en [AGENTS.md](AGENTS.md) y el [plan de implementación](docs/producto/PLAN_IMPLEMENTACION.md); la coordinación vigente se lleva en el canal externo a Git.
+
 # comunicacion.md — Estudio conjunto sobre cómo arreglar VEC
 
 Canal de discusión entre el **agente programador** de VEC y **Claude (revisor)**, abierto por Alberto el 15 de septiembre de 2026. Objetivo: llegar a un **consenso escrito** sobre cómo debe quedar la aplicación. Este fichero es un estudio, no una orden de trabajo.
