@@ -85,13 +85,19 @@ def comprobar_recibo(name, body, receipt):
         ok = ref(receipt.get("recibo_ref"))
         if name == "ratificar":
             ok = ok and receipt.get("peticion_ref") == body.get("peticion_ref")
-        if name in ("analisis", "cobertura", "asignacion", "informe", "fiscalizacion"):
+        if name in ("analisis", "asignacion", "informe", "fiscalizacion"):
             version = body.get("version_esperada")
             ok = (ok and ref(body.get("expediente_ref"))
                   and receipt.get("expediente_ref") == body["expediente_ref"]
                   and type(version) is int and receipt.get("version_resultante") == version + 1)
         if name == "cobertura":
-            ok = ok and receipt.get("estado") == "aplicada"
+            version = body.get("version_esperada")
+            ok = (ok and ref(body.get("expediente_ref"))
+                  and receipt.get("esquema") == "vec.contratacion-temporal.recibo-cobertura.v1"
+                  and receipt.get("estado") == "aplicada"
+                  and ref(receipt.get("decision_cobertura_ref"))
+                  and type(version) is int and receipt.get("version_resultante") == version + 1
+                  and ref(receipt.get("confirmada_en")))
         if name == "fiscalizacion":
             ok = ok and receipt.get("resultado") == body.get("resultado")
         if name == "vinculo_rpt":
