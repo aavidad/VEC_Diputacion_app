@@ -54,3 +54,36 @@ volvió a mostrar «Acepto» y «Respuesta firme». El cotejo independiente de e
 resultados consta en la [entrega parcial de F1-27](https://github.com/aavidad/VEC_Diputacion_app/pull/1308).
 La prueba del formulario corregido y su recuperación deben constar aparte,
 sobre su revisión exacta.
+
+## Ensayo del formulario corregido, 20/10
+
+Código ensayado: `5812c4d2e`, con main `3c643ce34` integrado. La copia se creó
+en 101,17 segundos con la lista SQL completa y los módulos internos de la receta
+común. No se añadió configuración propia de esta entrega.
+
+| Actuación desde Chrome | Resultado |
+| --- | --- |
+| Emitir el llamamiento para la primera persona disponible | 201, una emisión |
+| Registrar «Contactado» desde el formulario genérico | El servidor devuelve 201; el navegador recibe un 503 simulado después del registro real |
+| Pulsar «Reintentar el mismo registro» | 200 con el mismo cuerpo, clave, justificante y fecha; una sola llamada registrada |
+| Aceptar desde Mi Bolsa con el certificado de la persona | 201 con `estado=firme`; una sola respuesta |
+| Reiniciar aplicación y PostgreSQL y consultar | Salud, Mi Bolsa, contactos y catálogo de Contratación 200; mismos justificantes y fechas |
+
+El contacto se guardó a las `09:55:40.348819Z` y la aceptación a las
+`09:56:32.849405Z`. El recuento tras reiniciar conservó una emisión, un contacto
+telefónico y una respuesta; existía además el contacto del correo automático.
+El formulario no envió una fecha del navegador. Tras la respuesta incierta
+conservó los cuatro campos bloqueados y permitió recuperar el mismo registro.
+
+La consulta conserva `modo=firme` y `en_revision=true`. Son dos datos distintos:
+la respuesta es firme; el indicador de revisión comprueba que todavía no hay una
+actuación posterior que cambie la situación de la participación. No se ha
+fabricado ese cambio ni un vínculo con Contratación en esta copia. La resolución
+de la aceptación desde la ficha queda en F1-125; no se acredita con este ensayo.
+
+Chrome mostró el formulario y su botón completos a 1440 y 390 píxeles, sin
+desborde de la página. El montaje DOM con los recursos reales pasó 14 casos:
+errores diferenciados, recuperación del mismo envío y bloqueo cuando falta la
+consulta telefónica. Pasaron 38 pruebas focales de la interfaz y una comprobación
+focal adicional del estilo común. La copia y sus procesos se retiraron después
+de conservar los resultados, sin repetir actuaciones para recuperar recibos.
