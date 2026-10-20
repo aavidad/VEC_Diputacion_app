@@ -27,6 +27,13 @@ Todos los errores usan `{"error":{"codigo":"…"}}`: 400 petición mal formada, 
 
 ## Activación
 
+Comportamiento contrastado el 20/10/2026 en `origin/main@3ef7dee0b`, en
+`internal/app/bootstrap/bolsa_inscripcion_composicion.go` y sus llamadas desde
+`portal_externo.go` y `composicion_desarrollo.go`. La regla vigente exige
+aislar el fallo de una función opcional; la composición de Inscripciones aún
+puede impedir arrancar el proceso si se activa sin sus dependencias. Esa
+adaptación está pendiente y no se da por resuelta con este contrato.
+
 `VEC_BOLSA_INSCRIPCIONES_ENABLED` está apagado por defecto. Apagado, ningún proceso abre conexiones de inscripción ni registra estas rutas. Encendido, cualquier pieza que falte detiene el arranque; no hay modo parcial.
 
 - Portal externo: sólo las rutas de la persona aspirante. Necesita Preferencias del Área personal encendidas (de ahí sale la sesión), el lector `VEC_EXTERNO_BOLSA_INSCRIPCIONES_LECTOR_DATABASE_URL`, las tres conexiones externas de autorización que ya usa Mi Bolsa y el material V3 del consumidor `inscripcion_bolsa`.

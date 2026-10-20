@@ -4,6 +4,9 @@ info:
   title: API interna de alta de contratación temporal
   version: 1.0.0
   description: |
+    Corte documental del 20/10/2026: variante legada aún aceptada por el
+    manejador de alta. No cubre los sobres posteriores de necesidad catalogada;
+    véase docs/api/README.md para su alcance y fuentes.
     Contrato neutral al cliente para registrar la solicitud funcional de un
     centro. La plataforma interna aporta fuera de HTTP el contexto autenticado,
     la sesión, el perfil y la organización. El cliente aporta en el sobre JSON

@@ -4,8 +4,10 @@ info:
   title: Alta CT con necesidad del centro
   version: 3.0.0
   description: |
-    La misma operación de alta admite este sobre cuando el cliente declara el
-    esquema v3. La causa describe la necesidad que pide el centro. RRHH decide
+    La versión 3 de esta especificación describe el sobre de cuerpo
+    vec.ct.alta_necesidad.v1. El manejador también acepta el sobre
+    vec.ct.alta_necesidad.v2, aún no recogido aquí (corte del 20/10/2026).
+    La misma operación de alta admite este sobre al declarar su esquema. La causa describe la necesidad que pide el centro. RRHH decide
     después la modalidad jurídica durante el análisis del expediente.
     El servidor obtiene la identidad, verifica la publicación del puesto RPT
     cuando corresponde y añade la instantánea del catálogo antes de sellar la
