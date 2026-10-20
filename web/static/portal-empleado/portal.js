@@ -2183,7 +2183,10 @@ function instalarEnlacesBolsa() {
     const esHistoricoCT = estado.vista === "contratacion-temporal" && !esLlamamientoCT
       && control.dataset?.pestana === "historico" && control.classList?.contains("enlace-tabla")
       && Boolean(control.closest?.(".ct-expedientes"));
-    const esFichaCT = esLlamamientoCT || esHistoricoCT;
+    const esSeguimientoCT = estado.vista === "contratacion-temporal" && !esLlamamientoCT
+      && Boolean(control.dataset?.seguimiento)
+      && Boolean(control.closest?.("[data-ct-resultado-bolsa]"));
+    const esFichaCT = esLlamamientoCT || esHistoricoCT || esSeguimientoCT;
     const fichaCT = esFichaCT ? contextoBolsaCT : null;
     const bolsas = esFichaCT
       ? fichaCT?.carga === "listo" ? fichaCT.datos?.bolsas : null
