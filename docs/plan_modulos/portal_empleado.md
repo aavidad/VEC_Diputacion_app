@@ -50,11 +50,11 @@ Chrome del sistema en ES/EN, 1440/390 y ampliación al 200 %, con teclado y foco
 El navegador monta coordinador y Personal reales con respuestas HTTP sintéticas;
 no acredita mTLS, PostgreSQL nominal ni instalación en la principal.
 
-Estado a 1 de octubre de 2026. Equipo I. Base comprobada:
+Estado histórico del 1 de octubre de 2026. Base comprobada:
 `origin/main@0a62a3ea68e58fbf890885a2f59cc80343107e18`.
-La orden de dirección de las 16:50 y 16:55 es conservar el trabajo, entregar
-este plan y parar el módulo. No se han modificado padres, manifiestos, permisos,
-SQL ni servicios. Ninguna de las tres capacidades EMP está cerrada. EMP-004 (trabajo colaborativo) y EMP-005 (agenda compartida) quedan fuera de este encargo y de la estimación.
+El inventario no acredita cierre de las capacidades del portal. El trabajo
+colaborativo y la agenda compartida mantienen su alcance futuro; no se
+activan por la presencia de estas hojas o preparadores.
 
 Fuentes: [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md),
 [análisis integral, apartados 17–21](../estudio_requisitos/analisis_integral_rrhh.md),
