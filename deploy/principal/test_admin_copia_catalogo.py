@@ -124,15 +124,21 @@ class CatalogoAccionesTest(unittest.TestCase):
     def test_configurar_rechaza_aprobacion_de_otra_copia(self):
         meta = {'catalogo_sha256': 'a' * 64, 'paquete_sha256': 'b' * 64,
                 'backup_ref': 'copia:ficticia:uno', 'backup_sha256': 'c' * 64,
-                'encargo_ref': 'encargo:ficticio'}
+                'encargo_ref': 'F1-131', 'sid_copia': '123456789012345',
+                'prev_version': 1, 'prev_huella': 'd' * 64,
+                'censo_preparado_sha256': 'e' * 64}
         aprobacion = {'esquema': 'vec.admin.catalogo-acciones.aprobacion-tecnica-copia.v1',
                       'catalogo_sha256': meta['catalogo_sha256'],
                       'paquete_sha256': meta['paquete_sha256'],
                       'backup_ref': 'copia:ficticia:otra',
                       'backup_sha256': meta['backup_sha256'],
                       'encargo_ref': meta['encargo_ref'],
+                      'sid_copia': meta['sid_copia'],
+                      'esperado_version': meta['prev_version'],
+                      'esperado_sha256': meta['prev_huella'],
+                      'censo_preparado_sha256': meta['censo_preparado_sha256'],
                       'aprobacion_ref': 'aprobacion:ficticia',
-                      'aprobador_ref': 'responsable:ficticio'}
+                      'aprobador_ref': cat.APROBADOR_REF}
         for nombre, doc in (('preparado.json', meta), ('aprobacion.json', aprobacion)):
             ruta = self.base / nombre
             ruta.write_text(json.dumps(doc))
@@ -143,6 +149,45 @@ class CatalogoAccionesTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 cat.cmd_configurar(o)
 
+    def test_sid_ajeno_rechaza_antes_de_crear_artefactos(self):
+        meta = {'catalogo_sha256': 'a' * 64, 'paquete_sha256': 'b' * 64,
+                'backup_ref': 'copia:ficticia:uno', 'backup_sha256': 'c' * 64,
+                'encargo_ref': 'F1-131', 'sid_copia': '123456789012345',
+                'prev_version': 1, 'prev_huella': 'd' * 64,
+                'censo_preparado_sha256': 'e' * 64}
+        aprobacion = {'esquema': 'vec.admin.catalogo-acciones.aprobacion-tecnica-copia.v1',
+                      'catalogo_sha256': meta['catalogo_sha256'],
+                      'paquete_sha256': meta['paquete_sha256'],
+                      'backup_ref': meta['backup_ref'],
+                      'backup_sha256': meta['backup_sha256'],
+                      'encargo_ref': meta['encargo_ref'],
+                      'sid_copia': meta['sid_copia'],
+                      'esperado_version': meta['prev_version'],
+                      'esperado_sha256': meta['prev_huella'],
+                      'censo_preparado_sha256': meta['censo_preparado_sha256'],
+                      'aprobacion_ref': 'aprobacion:ficticia',
+                      'aprobador_ref': cat.APROBADOR_REF}
+        for nombre, doc in (('preparado.json', meta), ('aprobacion.json', aprobacion)):
+            ruta = self.base / nombre
+            ruta.write_text(json.dumps(doc))
+            os.chmod(ruta, 0o600)
+        o = type('O', (), {'dir': str(self.base), 'fuentes': str(self.base),
+                            'aprobacion': str(self.base / 'aprobacion.json')})()
+        ajena = dict(aprobacion, aprobador_ref='alberto:direccion')
+        (self.base / 'aprobacion.json').write_text(json.dumps(ajena))
+        with patch.object(cat, 'revisar'), patch.object(cat, 'psql') as consulta:
+            with self.assertRaises(SystemExit):
+                cat.cmd_configurar(o)
+            consulta.assert_not_called()
+        (self.base / 'aprobacion.json').write_text(json.dumps(aprobacion))
+        with patch.object(cat, 'revisar'), \
+                patch.object(cat, 'psql', return_value='123456789012346\n') as consulta:
+            with self.assertRaises(SystemExit):
+                cat.cmd_configurar(o)
+        consulta.assert_called_once_with(cat.SQL_SID)
+        for nombre in ('plan.json', 'conexion.json', 'configurar.sql', 'configurado.json'):
+            self.assertFalse((self.base / nombre).exists(), nombre)
+
 
 class DestinoCopiaTest(unittest.TestCase):
     def setUp(self):
@@ -151,6 +196,25 @@ class DestinoCopiaTest(unittest.TestCase):
         self.base = Path(self.tmp.name) / 'copias'
         self.base.mkdir()
         self.raiz = self.base / 'l-focal'
+
+    def test_comprueba_etiqueta_con_docker_local_sin_cambiar_entorno(self):
+        self.raiz.mkdir(mode=0o700)
+        (self.raiz / 'estado.json').write_text(json.dumps({
+            'nombre': 'vec-copia-l-focal', 'raiz': str(self.raiz),
+            'fuente': str(cat.copia_local.REPO)}))
+        inspeccion = Mock(returncode=0, stdout=json.dumps([
+            {'Config': {'Labels': {'vec.copia': str(self.raiz)}}}]))
+        with patch.object(cat.copia_local, 'BASE', self.base), \
+                patch.dict(os.environ, {'VEC_COPIA_RAIZ': str(self.raiz),
+                                        'DOCKER_HOST': 'tcp://destino-ajeno.invalid:2375'}), \
+                patch.object(cat.copia_local.subprocess, 'run', return_value=inspeccion) as ejecutar:
+            self.assertEqual(cat.copia_destino().nombre, 'vec-copia-l-focal')
+            self.assertEqual(os.environ['DOCKER_HOST'], 'tcp://destino-ajeno.invalid:2375')
+        self.assertEqual(ejecutar.call_args.kwargs['env'], {
+            'PATH': '/usr/bin:/bin', 'LANG': 'C',
+            'DOCKER_HOST': 'unix:///var/run/docker.sock'})
+        self.assertEqual(ejecutar.call_args.args[0], [
+            'docker', 'container', 'inspect', 'vec-copia-l-focal'])
 
     def test_rechaza_raiz_ajena_y_enlazada_sin_procesos(self):
         with patch.object(cat.copia_local, 'BASE', self.base), \

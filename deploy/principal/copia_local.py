@@ -85,12 +85,12 @@ class Copia:
     def docker(self, *args, **kwargs):
         return ejecutar(['docker', *args], **kwargs)
 
-    def existe(self):
+    def existe(self, entorno=None):
         r = subprocess.run(['docker', 'container', 'inspect', self.nombre],
-                           capture_output=True, check=False)
+                           capture_output=True, check=False, env=entorno)
         if r.returncode:
             # Diferenciar ausencia de contenedor de un motor inaccesible.
-            self.docker('info', salida=subprocess.DEVNULL)
+            self.docker('info', salida=subprocess.DEVNULL, entorno=entorno)
             return False
         etiqueta = (json.loads(r.stdout)[0]['Config']['Labels'] or {}).get('vec.copia')
         if etiqueta != str(self.raiz):

@@ -27,6 +27,8 @@ CATALOGO_REF = 'catalogo:bolsa:carga_convoca:b1'
 GRUPO_ACTO = 'vec_admin_catalogo_acciones_ejecutor'
 CFG_ACTO = 'config_catalogo_acciones_admin_v1'
 TOPE_VENTANA_MIN = 1440
+ENCARGO_REF = 'F1-131'
+APROBADOR_REF = 'fabrica:copias:desarrollo'
 
 def paro(motivo):
     print('PARO ' + motivo)
@@ -45,24 +47,17 @@ def copia_destino():
         if copia.raiz != raiz:
             paro('copia-raiz-invalida')
         copia.leer()
-        # Copia.existe usa la CLI docker por nombre: fijar su socket y PATH local.
-        entorno_anterior = dict(os.environ)
-        try:
-            os.environ.clear()
-            os.environ.update({'PATH': '/usr/bin:/bin', 'LANG': 'C', 'HOME': '/nonexistent',
-                               'DOCKER_HOST': 'unix:///var/run/docker.sock'})
-            if not copia.existe():
-                paro('copia-contenedor-ausente')
-        finally:
-            os.environ.clear()
-            os.environ.update(entorno_anterior)
+        # El socket y el ejecutable no proceden del entorno del proceso.
+        if not copia.existe(entorno={'PATH': '/usr/bin:/bin', 'LANG': 'C',
+                                    'DOCKER_HOST': 'unix:///var/run/docker.sock'}):
+            paro('copia-contenedor-ausente')
     except (OSError, ValueError, KeyError, json.JSONDecodeError):
         paro('copia-no-pertenece-al-destino')
     return copia
 
 
 def psql(sql):
-    if sql not in (SQL_CABEZA, SQL_CENSO):
+    if sql not in (SQL_CABEZA, SQL_CENSO, SQL_SID):
         paro('consulta-no-autorizada')
     copia = copia_destino()
     orden = ['/usr/bin/docker', 'exec', '-i', '-u', 'postgres', copia.nombre,
@@ -238,10 +233,18 @@ JOIN vec_autorizacion.registro_catalogo_acciones_admin_v1 r USING(catalogo_ref,v
 WHERE h.catalogo_ref='catalogo:bolsa:carga_convoca:b1';
 ROLLBACK;"""
 
+SQL_SID = "SELECT system_identifier::text FROM pg_catalog.pg_control_system();"
+
 
 def exigir_sha(valor, motivo):
     if not isinstance(valor, str) or not re.fullmatch(r'[0-9a-f]{64}', valor) or valor == '0' * 64:
         paro(motivo)
+    return valor
+
+
+def exigir_sid(valor):
+    if not isinstance(valor, str) or not re.fullmatch(r'[0-9]{15,20}', valor) or int(valor) == 0:
+        paro('sid-copia-invalido')
     return valor
 
 
@@ -342,7 +345,8 @@ def preparar_catalogo(dir_fuentes, modo, especificaciones):
                   ('entradas', entradas), ('perfiles', perfiles))
     resumen = dict(prev_version=cab['version'], prev_huella=cab['huella'], paquete_ref=cab['paquete_ref'],
                    paquete_version=pv, entradas_antes=len(plano), entradas=len(entradas), perfiles=len(perfiles),
-                   fijos=sum(p['tipo_perfil'] == 'fijo_sistema' for p in perfiles))
+                   fijos=sum(p['tipo_perfil'] == 'fijo_sistema' for p in perfiles),
+                   censo_preparado_sha256=sha(go_json(perfiles).encode()))
     return paquete_canon, go_json(catalogo), resumen
 
 
@@ -362,6 +366,9 @@ def cmd_preparar(o):
     carpeta(o.dir)
     if any((Path(o.dir) / n).exists() for n in ('preparado.json', 'paquete.json', 'catalogo.json')):
         paro('acto-ya-preparado')
+    sid = exigir_sid(o.sid_copia)
+    if o.encargo_ref != ENCARGO_REF:
+        paro('encargo-ref-invalido')
     specs = especificaciones(o)
     paquete, catalogo, r = preparar_catalogo(o.fuentes, o.modo, specs)
     for val, key in ((o.backup_ref, 'backup-ref'), (o.encargo_ref, 'encargo-ref')):
@@ -369,7 +376,7 @@ def cmd_preparar(o):
             paro(key + '-invalido')
     exigir_sha(o.backup_sha, 'backup-sha-invalido')
     login = 'vec_caa_' + secrets.token_hex(8)
-    meta = dict(acto=o.acto, modo=o.modo, sueltas=specs, backup_ref=o.backup_ref,
+    meta = dict(acto=o.acto, modo=o.modo, sueltas=specs, sid_copia=sid, backup_ref=o.backup_ref,
                 backup_sha256=o.backup_sha, encargo_ref=o.encargo_ref, login=login, grupo=GRUPO_ACTO,
                 preparado=instante(ahora()), paquete_sha256=sha(paquete.encode()),
                 catalogo_sha256=sha(catalogo.encode()), **r)
@@ -415,7 +422,10 @@ def cmd_configurar(o):
     esperado = {'esquema': 'vec.admin.catalogo-acciones.aprobacion-tecnica-copia.v1',
                 'catalogo_sha256': meta['catalogo_sha256'], 'paquete_sha256': meta['paquete_sha256'],
                 'backup_ref': meta['backup_ref'], 'backup_sha256': meta['backup_sha256'],
-                'encargo_ref': meta['encargo_ref']}
+                'encargo_ref': ENCARGO_REF, 'sid_copia': exigir_sid(meta['sid_copia']),
+                'esperado_version': meta['prev_version'], 'esperado_sha256': meta['prev_huella'],
+                'censo_preparado_sha256': meta['censo_preparado_sha256'],
+                'aprobador_ref': APROBADOR_REF}
     if any(aprobacion.get(k) != v for k, v in esperado.items()):
         paro('aprobacion-no-ligada-a-la-copia-y-material')
     for k in ('aprobacion_ref', 'aprobador_ref'):
@@ -423,6 +433,11 @@ def cmd_configurar(o):
             paro('aprobacion-ref-invalida')
     if aprobacion['aprobacion_ref'].upper().startswith('ENSAYO'):
         paro('aprobacion-ref-invalida')
+    if meta['encargo_ref'] != ENCARGO_REF:
+        paro('encargo-ref-invalido')
+    sid_actual = exigir_sid(una_fila(psql(SQL_SID)))
+    if sid_actual != meta['sid_copia']:
+        paro('sid-de-copia-cambiado')
     if not 30 <= o.ttl <= 1380 or not 1 <= o.pg_puerto <= 65535:
         paro('ventana-o-puerto-invalido')
     if not os.path.isabs(o.pg_ca) or not os.path.isfile(o.pg_ca) or os.path.islink(o.pg_ca):
@@ -484,7 +499,12 @@ def cmd_configurar(o):
     guardar(os.path.join(o.dir, 'configurado.json'), json.dumps({
         'plan_sha256': plan_sha, 'operacion_ref': plan['operacion_ref'], 'caduca_en': plan['caduca_en'],
         'aprobacion_ref': aprobacion['aprobacion_ref'], 'aprobacion_sha256': sha(raw_aprobacion),
-        'login': login, 'catalogo_sha256': meta['catalogo_sha256'], 'paquete_sha256': meta['paquete_sha256']
+        'aprobador_ref': aprobacion['aprobador_ref'], 'login': login, 'sid_copia': sid_actual,
+        'encargo_ref': ENCARGO_REF,
+        'preimagen': {'catalogo_ref': CATALOGO_REF, 'version': meta['prev_version'],
+                      'huella_sha256': meta['prev_huella'],
+                      'censo_preparado_sha256': meta['censo_preparado_sha256']},
+        'catalogo_sha256': meta['catalogo_sha256'], 'paquete_sha256': meta['paquete_sha256']
     }, ensure_ascii=False, indent=1))
     print('CONFIGURACION-LISTA login=%s plan_sha256=%s catalogo_sha256=%s' % (
         login, plan_sha, meta['catalogo_sha256']))
@@ -512,6 +532,7 @@ def main():
     x.add_argument('--modo', choices=['fuentes', 'sustituir'], required=True)
     x.add_argument('--suelta', action='append', default=[], required=True, metavar='NOMBRE:SHA256_ARCHIVO')
     x.add_argument('--acto', required=True); x.add_argument('--encargo-ref', required=True)
+    x.add_argument('--sid-copia', required=True)
     x.add_argument('--backup-ref', required=True); x.add_argument('--backup-sha', required=True)
     x = s.add_parser('revisar')
     x.add_argument('--dir', required=True); x.add_argument('--huella', required=True); x.add_argument('--fuentes', required=True)
