@@ -84,3 +84,24 @@ test("el transporte reconoce que la regla de cierre no contempla el cierre sin c
   assert.equal(codigoValidoParaRuta("/api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese", 409, CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO, rutas), true);
   assert.equal(codigoValidoParaRuta("/api/vec/contratacion-temporal/ceses", 409, CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO, rutas), false);
 });
+
+test("cada «pendiente» del seguimiento dice qué falta y quién lo hace", async () => {
+  const pintar = async (estado) => {
+    const c = contenedorFalso();
+    const desmontar = montarPanelSeguimientoCese({ contenedor: c, cliente: { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta(estado), EXP) }, contexto });
+    await esperar();
+    desmontar();
+    return c.innerHTML;
+  };
+  const sinIncorporacion = await pintar({ incorporacion: null });
+  assert.match(sinIncorporacion, /Sin incorporación acreditada: el centro la confirma desde sus peticiones y RRHH la registra en Personal\./u);
+  assert.match(sinIncorporacion, /Pendiente: la confirma el centro desde sus peticiones\./u);
+  assert.equal((sinIncorporacion.match(/Pendiente: antes debe constar la incorporación\./gu) ?? []).length, 2, "cese y GINPIX");
+  assert.match(sinIncorporacion, /Pendiente: RRHH cierra el expediente después de registrar el cese\./u);
+  const conIncorporacion = await pintar({});
+  assert.match(conIncorporacion, /Pendiente: RRHH lo registra cuando termine la relación\./u);
+  assert.match(conIncorporacion, /Pendiente: RRHH graba el alta en GINPIX y anota aquí el número\./u);
+  assert.match(await pintar({ cese }), /Pendiente: falta confirmar la ficha de GINPIX\./u);
+  assert.match(await pintar({ cese, ginpix }), /Pendiente: RRHH ya puede cerrar el expediente\./u);
+  for (const html of [sinIncorporacion, conIncorporacion]) assert.doesNotMatch(html, /<dd>Pendiente<\/dd>/u, "ningún pendiente sin motivo");
+});

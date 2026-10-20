@@ -89,7 +89,20 @@ test("sin permiso de confirmar solo se ve el estado pendiente", async () => {
   montarIncorporacionesCentro({ contenedor: c, cliente: { bandeja: async () => validarBandejaIncorporaciones(bandeja({ puede_confirmar: false })) } });
   await esperar();
   assert.doesNotMatch(c.innerHTML, /data-ic-abrir/u);
-  assert.match(c.innerHTML, /Pendiente de confirmar/u);
+  assert.match(c.innerHTML, /Pendiente de confirmar<\/span><span class="pc-motivo">La confirma la persona del centro que tiene permiso para ello\.<\/span>/u);
+});
+
+test("cada «no procede» explica el motivo y quién tiene que actuar", async () => {
+  const c = contenedorFalso();
+  montarIncorporacionesCentro({ contenedor: c, cliente: { bandeja: async () => validarBandejaIncorporaciones(bandeja({ expedientes: [
+    fila({ expediente_ref: "expediente:ct:1", fase: "fiscalizacion", documento_exigido: "" }),
+    fila({ expediente_ref: "expediente:ct:2", documento_exigido: "" }),
+    fila({ expediente_ref: "expediente:ct:3", fase: "nombramiento", estado: "completado", documento_exigido: "" })] })) } });
+  await esperar();
+  assert.match(c.innerHTML, /Aún no procede<\/span><span class="pc-motivo">RRHH todavía no ha nombrado ni contratado a la persona\./u);
+  assert.match(c.innerHTML, /Aún no procede<\/span><span class="pc-motivo">Falta indicar qué documento acredita la incorporación\. Avise a RRHH/u);
+  assert.match(c.innerHTML, /<td>Expediente cerrado<\/td><td><span class="pc-estado">No procede<\/span><\/td>/u);
+  assert.equal((c.innerHTML.match(/Aún no procede/gu) ?? []).length, 2);
 });
 
 test("el periodo se lee tal como lo envía el servidor (instante a medianoche UTC) y nunca parece un solo día", () => {

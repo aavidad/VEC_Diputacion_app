@@ -71,6 +71,13 @@ export function montarPanelSeguimientoCese({
       <p id="ct-seg-cese-ayuda" class="ct-seg-cese-texto-ayuda" ${ayudaAbierta ? "" : "hidden"}>${escapar(t("ayuda"))} ${escapar(ayudaHuellaArchivo(tArchivo))}</p>`;
   }
 
+  // Lo que falta para cerrar, en el orden en que se registra: cese y GINPIX.
+  function motivoCierrePendiente(estado, opciones) {
+    if (!estado.cese) return "cierre_pendiente_cese";
+    return opciones.condiciones_cierre.includes("ginpix_confirmado") && opciones.confirmacion_ginpix === true && !estado.ginpix
+      ? "cierre_pendiente_ginpix" : "cierre_pendiente";
+  }
+
   function resumen(estado, opciones) {
     // En la revisión, la propuesta pendiente ya se cuenta en su bloque; el
     // resumen solo aparece cuando la no incorporación está confirmada.
@@ -81,8 +88,9 @@ export function montarPanelSeguimientoCese({
     const causa = estado.cese ? opciones.causas_cese.find((c) => c.clave === estado.cese.causa_clave) : null;
     const filas = [
       [t("incorporacion"), estado.incorporacion ? t("incorporacion_inicio", { fecha: fechaVisible(estado.incorporacion.inicio, locale) }) : t("sin_incorporacion")],
-      [t("cese"), estado.cese ? t("cese_registrado", { causa: causa ? etiquetaOpcion(causa) : estado.cese.causa_clave, fecha: fechaVisible(estado.cese.fecha_efecto, locale) }) : t("pendiente")],
-      [t("cierre"), estado.cierre ? t("cierre_registrado", { ginpix: estado.cierre.ginpix_numero || t("cierre_sin_ginpix") }) : t("pendiente")],
+      [t("cese"), estado.cese ? t("cese_registrado", { causa: causa ? etiquetaOpcion(causa) : estado.cese.causa_clave, fecha: fechaVisible(estado.cese.fecha_efecto, locale) })
+        : t(estado.incorporacion ? "cese_pendiente" : "cese_pendiente_sin_incorporacion")],
+      [t("cierre"), estado.cierre ? t("cierre_registrado", { ginpix: estado.cierre.ginpix_numero || t("cierre_sin_ginpix") }) : t(motivoCierrePendiente(estado, opciones))],
       ...filasIncorporacionAcreditada(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
       ...filasNoIncorporacion(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
       ...filasPropuestas(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
