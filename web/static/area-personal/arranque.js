@@ -1,4 +1,4 @@
-import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=VEC_WEB_VERSION";
+import { aplicarPreferenciasInicialesAplazadas, exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20261020-f1113-v1";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=VEC_WEB_VERSION";
 import { cargarVistasDisponibles } from "./vistas-disponibles.js?v=VEC_WEB_VERSION";

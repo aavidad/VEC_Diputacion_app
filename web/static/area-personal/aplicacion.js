@@ -2,7 +2,7 @@ import { escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 import { idiomaActivoAreaPersonal, iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
-  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=VEC_WEB_VERSION";
+  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20261020-f1113-v1";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=VEC_WEB_VERSION";
 import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=VEC_WEB_VERSION";
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=VEC_WEB_VERSION";
@@ -220,12 +220,12 @@ function mostrarError(estado, error) {
 }
 
 // Bolsa guarda el nombre cifrado y solo lo envía a su titular, en su propia
-// consulta. Sin nombre no se muestra ninguno, ni un rótulo que lo sustituya.
+// consulta. Sin nombre: «Mi cuenta» y el icono de persona, sin iniciales ni raya.
 export function datosMinimosMiBolsa(consulta) {
   const nombre = consulta.nombre_visible || "";
   return Object.freeze({
     meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en, busqueda_convocatorias_disponible: false },
-    sesion: { nombre_visible: nombre, iniciales: (nombre && consulta.iniciales) || "—", metodo: "", persona_ref: null },
+    sesion: { nombre_visible: nombre, iniciales: (nombre && consulta.iniciales) || "", metodo: "", persona_ref: null },
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
     perfil: { referencia: null, nombre_visible: nombre, identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
     plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
@@ -266,7 +266,7 @@ function actualizarShell(estado) {
   porId("titulo-vista").textContent = titulo;
   porId("migas-pan").textContent = vista === "inicio" ? t("migas") : t("migasVista", { titulo });
   pintarInicialesSesion(estado, porId("avatar-sesion"), datos.sesion.iniciales);
-  const nombre = datos.sesion.nombre_visible; const nombreSesion = porId("nombre-sesion"); nombreSesion.textContent = nombre;
+  const nombre = datos.sesion.nombre_visible; const nombreSesion = porId("nombre-sesion"); nombreSesion.textContent = nombre || traducir("areaPersonal.preferencias.miCuenta");
   // La etiqueta del botón tapa su contenido: el nombre va también en ella y en el title del botón.
   const botonSesion = nombreSesion.closest?.(".sesion-usuario");
   if (botonSesion) { botonSesion.title = nombre; botonSesion.setAttribute("aria-label", nombre ? traducir("areaPersonal.preferencias.menuIdentidadNombre", { nombre }) : traducir("areaPersonal.preferencias.menuIdentidad")); }

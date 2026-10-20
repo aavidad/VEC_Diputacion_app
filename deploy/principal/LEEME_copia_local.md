@@ -134,6 +134,38 @@ del caso 4.0 para los pasos 9 y 10 (`copia_local_caso40.py`):
 Los nombres de las participaciones no se tocan: el nombre que muestra la lista
 de la bolsa es el del acta. Lo revisa F1-100.
 
+Desde F1-113, con `--modulos` y `--rrhh-original`, la copia enciende también
+«Mis preferencias» y «Mi imagen» (`copia_local_usuarios.py`). Antes respondían
+404 en todas las vistas porque la copia no ponía sus dos selectores y la
+configuración de Usuarios del material original apuntaba a conexiones de la
+principal, que la copia no traslada. Ahora:
+
+- se crean 16 LOGIN propios de la copia, uno por conexión de cada superficie
+  (interna y externa) y con una sola membresía; el ejecutor de cada superficie
+  lleva el nombre de su fila de origen de consumos ya restaurada (sin él la
+  base rechaza la consulta y respondía 503). Ni esa fila ni los permisos se
+  tocan: el rol de preferencias ya está publicado en el volcado para la técnica
+  de RRHH;
+- se escriben las dos configuraciones con las cuentas y motivos del material
+  original y las conexiones nuevas. La cuenta externa de la principal no existe
+  en la copia y el arranque rechazaría el proceso entero; se usa la persona
+  aspirante de la copia (Antonio, o la del área personal con
+  `--portal-externo`). Esa persona no tiene el rol de preferencias de Usuarios
+  publicado, así que en su área personal «Mis preferencias» y «Mi imagen»
+  siguen sin atenderse hasta que Administración se lo asigne;
+- se ponen `VEC_USUARIOS_PREFERENCIAS_ENABLED` y `VEC_USUARIOS_IMAGEN_ENABLED`
+  (un `false` del kit se respeta).
+
+Con material nuevo (sin `--rrhh-original`) no hay cuentas con ese permiso y la
+copia sigue sin las dos rutas.
+
+«Orden de mis bolsas» (`/api/vec/bolsa/mi-bolsa/preferencias`) no se enciende:
+el volcado no tiene publicada ninguna versión del rol del aspirante con
+`bolsa.preferencias_bolsas.consultar_propias` y `ordenar_propias`. Esa versión
+la crea un acto de Administración firmado por dos administradores
+(`versionar_rol_bolsa_externa`); sin ella el área personal muestra «No tiene
+permiso para consultar o guardar este orden».
+
 Tras el productor de datos, el guion coteja los 24 LOGIN internos: opciones
 sin privilegios de administración y membresías directas exactas. La conexión
 de importación CONVOCA conserva los grupos `vec_bolsa_importacion_convoca_ejecutor`
