@@ -49,6 +49,7 @@ def preparar_bolsa(copia) -> None:
             salida.write("\n")
     ruta = copia.raiz / "entorno_modulos.json"
     entorno = json.loads(ruta.read_text())
+    from copia_local_caso40 import REGLAS_BOLSA
     # Los cinco pools de Bolsa ya salen de copia_local_conexiones.preparar;
     # reutilizarlos evita crear LOGIN paralelos para el mismo grupo.
     for clave in ("VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL",
@@ -59,6 +60,7 @@ def preparar_bolsa(copia) -> None:
         if clave not in entorno:
             raise ValueError("Falta una conexión nominal de Bolsa")
     entorno.update(VEC_BOLSA_BORRADORES_ENABLED="true",
+                   VEC_BOLSA_REGLAS_SOURCE_PATH=str(repo / REGLAS_BOLSA),
                    VEC_PERSONAL_ORGANIZACION_SOURCE_PATH=str(
                        repo / "data/catalogos/estructura-organizativa/v1.rpt-publica.json"),
                    VEC_RPT_CATALOGO_PATH=str(repo / "data/catalogos/rpt/v1.rpt-2026.json"))
