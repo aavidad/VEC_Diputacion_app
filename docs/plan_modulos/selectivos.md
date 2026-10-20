@@ -69,7 +69,7 @@ históricas a H describen el reparto anterior.
 | S7 · aprobados y traspaso | Pendiente. | Resultado aprobado y recibo idempotente de Bolsa/Personal, con rectificaciones. |
 | S8 · OEP y plazas | Pendiente. | Referencias y actos de RPT/Personal; cuadro de ejecución. |
 
-Para retomar, leer el FIN de cierre y comprobar los hashes/estados remotos;
+Antes de reanudar, se comprueban los hashes y estados remotos;
 no reconstruir S0–S3. Primero resolver el siguiente corte independiente de
 S2 o S3 con sus propietarios. S4 espera los hechos autorizados de RUM y los
 perfiles/actos que correspondan. Ninguna de estas fusiones acredita producción,

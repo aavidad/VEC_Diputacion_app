@@ -190,37 +190,16 @@ asistencia, superación y certificado firmado siguen siendo hechos distintos.
 
 ## Decisiones y dependencias
 
-En el turno H, numerar en `dudas.md` las preguntas ya enviadas al canal: funciones
-que conserva Formación corporativa, convenio vigente para laborales y vías de
-reconocimiento del grado. Añadir responsables, fuente/versiones y fecha de aprobación
-a los catálogos; ninguna cifra de ensayo se convierte en norma oficial.
+Las preguntas sobre Formación corporativa, convenio laboral y reconocimiento
+del grado deben contrastarse con `dudas.md`. Los catálogos conservan fuente,
+versión y aprobación; una cifra de ensayo no se convierte en norma oficial.
 
-Personal conserva Personal, sus actos y provisión; Carrera y Formación conserva procesos selectivos; el baremador conserva su autoridad y responsable
-confirmado, sin reasignarlo por inferencia;
-Organización conserva Organización/RPT. Documentos conserva custodia y firma. Dirección17:40 asignó el Registro Único de
-Méritos a H; A y el baremador lo consumen por puerto. El modelo del candidato actual
-no lo sustituye. H05 es consumidor: Personal produce y estima el lector de antecedentes
-en su plan; aquí solo se cuenta el acuerdo/consumo de Carrera y Méritos, sin duplicar su trabajo.
-Las operaciones entre módulos usan referencias opacas, eventos y recibos reconciliables.
-
-Manifiestos, padres, importadores y dudas siguen la cola B → A → E → G → F → M → H → I → J,
-con LIBERO y SHA. No iniciar una migración sin reserva y orden causal, ni usar un
-borrador SQL como capacidad instalada. No escribir en cidonia ni en datos reales.
-
-## Pruebas y primera acción de la próxima sesión
-
-Primero comprobar `gh pr list`, los FIN de Carrera y Méritos y los hashes publicados de las dos candidatas.
-Después ejecutar **H05**: acordar con B el DTO/puerto de antecedentes y preparar
-solo el consumidor de Carrera y Méritos en la rama prevista una rama histórica
-(todavía sin crear). Personal conserva el lector y su autorización. H02 se resuelve con RRHH
-en paralelo; si B no entrega todavía, RUM01 puede avanzar con datos sintéticos.
-No crear un catálogo corporativo paralelo ni otro motor de selección.
-
-Pruebas focales de fechas, fuentes, solapes, versiones y pendientes; Node sobre la
-interfaz afectada; Chrome del sistema a 1440/390 y zoom 200 %, ES/EN y teclado.
-Gosec solo en paquetes cambiados y Semgrep local sin métricas. Revisión independiente;
-dos en SQL, permisos, identidad, firma o datos personales. Calidad global una vez
-por PR cuando corresponda; no repetir puertas verdes. Registrar impedimentos de entorno sin omitir controles obligatorios.
+Personal conserva hechos y actos laborales; Organización mantiene la RPT;
+Méritos conserva su registro reutilizable y Selectivos sus procedimientos.
+Carrera consume antecedentes por puerto y aplica su política sin duplicar
+el registro de méritos ni el baremador común. Las operaciones entre módulos
+usan referencias opacas, eventos y recibos conciliables. Una migración en
+borrador no acredita una capacidad instalada.
 
 ## Condiciones funcionales conservadas
 
