@@ -141,6 +141,24 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 	if err != nil {
 		return vacio, errorPreparacionPropuestaDesarrollo(err)
 	}
+	if a.Portal != nil {
+		if a.ValidarPara(s) != nil {
+			return vacio, application.ErrResolucionFormalizacionNoAceptada
+		}
+		p, err := prepararReferenciasLlamamientoDesarrollo(expediente, a.Portal.Seleccion.ClaveCT)
+		if err != nil || p.necesidad != a.Portal.Seleccion.NecesidadRef ||
+			p.unidad != a.Portal.Seleccion.UnidadRef || p.categoria != a.Portal.Seleccion.CategoriaRef {
+			return vacio, application.ErrResolucionFormalizacionNoAceptada
+		}
+		ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, p)
+		m, err := e.materialPropuestaNativaCT(ctx, s, a, p)
+		if err != nil {
+			return vacio, err
+		}
+		ctx = context.WithValue(ctx, clavePropuestaFormalizacionDesarrollo{}, propuestaFormalizacionLigadaDesarrollo{antecedente: a, material: m})
+		ctx = context.WithValue(ctx, claveMaterialPropuestaFormalizacionDesarrollo{}, m)
+		return e.servicio.PrepararYConfirmar(ctx, s)
+	}
 	if a.ValidarPara(s) != nil || a.Resolucion.Politica != politicaManualDesarrollo() ||
 		!consultaJustificanteLigadaAlExpedienteDesarrollo(expediente, a.Resolucion.Solicitud) {
 		return vacio, application.ErrResolucionFormalizacionNoAceptada
@@ -263,7 +281,7 @@ func acreditarCadenaSucesoraPropuestaDesarrollo(ctx context.Context, repo puerto
 		j.Resultado != referenciaVersionadaPuenteLlamamientoDesarrollo(j.ReciboRef, 1, huellaPuenteLlamamientoDesarrollo(canones[0])) ||
 		j.Propuesta != referenciaVersionadaPuenteLlamamientoDesarrollo(raiz.Propuesta.PropuestaRef, 1, raiz.Propuesta.HuellaContenidoSHA256) ||
 		j.Orden != referenciaVersionadaPuenteLlamamientoDesarrollo(raiz.Instantanea.InstantaneaRef, raiz.Instantanea.Version, raiz.Instantanea.HuellaContenidoSHA256) ||
-		uint32(raiz.Propuesta.OrdenSeleccionado) != j.OrdenSeleccionado ||
+		raiz.Propuesta.OrdenSeleccionado != uint64(j.OrdenSeleccionado) ||
 		apertura.Tipo != "propuesta" || apertura.Propuesta == nil || apertura.Propuesta.Continuacion == nil || apertura.Llamamiento == nil ||
 		apertura.Llamamiento.LlamamientoRef != c.ReciboBolsa.LlamamientoRef || apertura.Propuesta.PropuestaRef != c.ReciboBolsa.PropuestaRef ||
 		huellaPuenteLlamamientoDesarrollo(canones[1]) != c.ReciboBolsa.RegistroSHA256 ||

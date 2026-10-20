@@ -98,7 +98,7 @@
 1146 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 958 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 931 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
-1250 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
+1367 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
 1287 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 744 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
 848 web/static/bolsa/bolsa.css
@@ -218,3 +218,4 @@
 825 internal/modules/bolsa/adapters/httpinscripcion/handler.go
 823 deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_procedencia_seleccion.up.sql
 864 deploy/principal/copia_local.py
+1004 deploy/postgresql/contratacion_temporal/migraciones/000253_propuesta_desde_respuesta_portal.up.sql
