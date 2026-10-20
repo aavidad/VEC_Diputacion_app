@@ -42,9 +42,9 @@ no equivale a capacidad instalada.
 | Órdenes autorizadas | #593 recupera CS08 `c32984285`: CLI, contratos y adaptadores, sin SQL. La separación de claves #407 ya está en main. | Materializador y consumo V3, COMMIT con auditoría común y relectura del mismo compromiso; anclaje vigente fuera del conjunto restaurado. |
 | Ejecutar y recuperar | CS11 recuperado por archivos propios en `2e029b166`. | Conciliación de diario/testigo, consumidores multibase y autoridades comunes. Sigue en preparación, sin PR ni GO operativo. |
 
-El WIP SQL de K se conserva: AD143, AdministraciónCopias1 y sus dependencias de
+El WIP SQL de Identidad y Usuarios se conserva: AD143, AdministraciónCopias1 y sus dependencias de
 identidad/perfil. Antes de prepararlo como instalable hay que inventariar las
-reservas y la instalación post-H9, acordar la cadena con K/L y medir las huellas
+reservas y la instalación post-H9, acordar la cadena con los servicios comunes de identidad y autorización y medir las huellas
 sobre esa fuente. No se reaplica SQL instalada ni se incorpora una preimagen antigua
 por conservar su número. Los borradores originales y los archivos sin versionar de
 `controlrestauracionpg` permanecen en su copia de origen.
@@ -57,8 +57,8 @@ su frontera propia; no se fabrica identidad. El registro de un error no acredita
 rollback ni repite el efecto. Las operaciones permitidas mantienen su auditoría
 junto al efecto en la transacción del consumidor propietario.
 
-Para cerrar el recorrido completo siguen pendientes la fuente nominal de K, los
-catálogos/registrador de L, la autoridad durante mantenimiento, la configuración de
+Para cerrar el recorrido completo siguen pendientes la fuente nominal de Identidad y Usuarios, los
+catálogos/registrador de los servicios comunes, la autoridad durante mantenimiento, la configuración de
 Sistemas y el montaje. Después corresponderá el ensayo post-H9 con dos personas,
 copia previa verificada, sustitución, fallos intermedios y recuperación tras reinicio.
 No se ha escrito en cidonia ni instalado SQL durante esta retoma.
@@ -84,7 +84,7 @@ validador había cambiado impedía recuperar el volcado histórico; CT159 corrig
 frontera. El ensayo comunicado por D restauró un nuevo volcado sin quitar restricciones.
 Más tarde, Dirección recuperó manualmente el estado anterior con una copia física fría
 tras fallar el arranque del conjunto H6. Son hechos comunicados por sus responsables,
-no ensayos realizados por K. Confirman la necesidad de verificar datos y arranque del
+no ensayos realizados por Identidad. Confirman la necesidad de verificar datos y arranque del
 conjunto completo, además del código de salida de `pg_dump`.
 
 En las referencias siguientes, `H6/` designa el kit local autorizado de hito 6. No se
@@ -121,7 +121,7 @@ Administración tiene esta cola propia, que conserva F/Dirección:
 | `internal/modules/administracion` y `web/static/portal-empleado/modulos/administracion/vista.js` en main | Manifiesto y presentación con acciones pendientes; no son la superficie privilegiada ADMIN. |
 | `internal/vec/ports/incidencias_tecnicas.go` | Emisor de incidencias no bloqueante; no sustituye el registro obligatorio durable de copia/restauración. |
 
-La dependencia vigente de ADMIN es paso 3 de M → AD137 → AUT24 → sesión, lecturas y
+La dependencia vigente de ADMIN es paso 3 de Organización → AD137 → AUT24 → sesión, lecturas y
 adaptadores → API/UI. Su rol `rol:administracion_perfiles:v2` está limitado a gestionar
 perfiles y no autoriza copias. La matriz asigna copia/recuperación al operador de
 plataforma: acordar sus concesiones fijas específicas con F/Dirección, sin ampliar el
@@ -329,7 +329,7 @@ incompatibilidad y formularios de calendario/retención/restauración. Escribir�
 en `web/static/textos/{es,en}/copias-seguridad.json` y usará los componentes ADMIN.
 Se aplicarán las skills de interfaz, usabilidad, aspecto, sistema visual e Impeccable;
 revisión de usabilidad independiente en escritorio, móvil, teclado y zoom antes de fusionar.
-Los cambios de importadores/manifiestos/versiones se harán en el turno compartido K.
+Los cambios de importadores/manifiestos/versiones se harán en el turno compartido Identidad.
 
 Calendario, zona horaria, destino, límites y retención son configuración versionada y
 auditada; no se inventan días ni frecuencias. Cada ejecución programada revalida la
