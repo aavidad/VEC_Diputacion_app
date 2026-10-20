@@ -28,8 +28,8 @@ responsabilidad. Este encargo entrega documentación, sin código, SQL o instala
 
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos: [ficha de Régimen disciplinario integrada](../estudio_requisitos/ficha_regimen_disciplinario_2026-10-04.md),
-DIS1–DIS10. Se conserva la prioridad vigente; Personal B, identidad/autorización K,
-núcleo/auditoría L y los demás módulos mantienen sus archivos y autoridades.
+DIS1–DIS10. Se conserva la prioridad vigente; Personal, identidad y autorización,
+núcleo y auditoría y los demás módulos mantienen sus archivos y autoridades.
 
 ## Fuentes y decisiones aplicables
 
@@ -87,12 +87,12 @@ instalado, publicación, proveedor operativo o recorrido de este módulo.
 
 | Requisitos | Resultado pendiente | Propietario y dependencia |
 | --- | --- | --- |
-| DIS1–DIS3 | Régimen/vínculo a fecha, decisión de iniciación y designaciones; abstención/recusación y sustitución. | B conserva hechos laborales; Jurídico valida régimen; Disciplina conserva procedimiento y permisos por designación. |
+| DIS1–DIS3 | Régimen/vínculo a fecha, decisión de iniciación y designaciones; abstención/recusación y sustitución. | Personal conserva hechos laborales; Jurídico valida régimen; Disciplina conserva procedimiento y permisos por designación. |
 | DIS4/DIS5 | Prueba, cargos, defensa y medidas provisionales motivadas, con acceso por actuación. | Instructor/secretaría actúan según designación; Documentos custodia; órgano competente adopta medidas. |
 | DIS6/DIS7 | Propuesta/decisión, firma, notificación, recurso/eficacia y cómputos distintos. | Órganos habilitados y servicios oficiales; ninguna inferencia desde incidencia o alerta. |
 | DIS8 | Entregar inscripción o efecto mínimo, obtener aceptación del consumidor y conciliar. | Personal y Nómina mantienen sus efectos; receptor por puerto, sin cargos o prueba completos. |
 | DIS9 | Cancelación, archivo y eliminación conforme a serie/acto. | Personal conserva la inscripción legal; Archivo/DPD y Documentos conservan/eliminan lo autorizado. |
-| DIS10 | Operación, consulta y descarga nominal con todos sus resultados auditados. | Consumidor propio de auditoría K/L; el acceso general de RRHH no abre el expediente. |
+| DIS10 | Operación, consulta y descarga nominal con todos sus resultados auditados. | Consumidor propio de auditoría los servicios comunes de identidad y autorización; el acceso general de RRHH no abre el expediente. |
 
 Perfiles fijos provisionados por huella/CAS, un perfil activo, denegación por defecto
 y autorización positiva por entidad, expediente, actuación, acción, finalidad,
@@ -139,13 +139,13 @@ un dato penal. Cancelar un antecedente impide reutilizarlo como vigente.
 Dirección confirma SHA base actual y archivos exclusivos por corte. Rutas nuevas
 son previsiones. B1: identidad/autorización/auditoría; B2: vínculo; B3: organización/
 catálogo; B4: expediente; B5: Documentos/firma; B6: intercambio. Los cambios comunes
-pertenecen a B/K/L y demás custodios, en PR separadas, fuera de estas horas.
+pertenecen a B/los servicios comunes de identidad y autorización y demás custodios, en PR separadas, fuera de estas horas.
 
 | Corte y base | Salida usable por PR | Archivos propios previstos | Dependencias | Horas |
 | --- | --- | --- | --- | ---: |
 | D00 · inventario | Revalidar capacidades, fuentes y deuda en SHA vigente. | Este plan, durante su turno. | Ficha y 134; no rehacer Personal/auditoría. | 1–2 |
 | D01 · B3 | Catálogo por régimen y actuación con criterio validado; CLI informa regla ausente/conflicto. | Nuevos `data/catalogos/regimen-disciplinario/`, lector propio. | Jurídico/134; sin escala predeterminada ni máximos elegibles por usuario. | 4–6 |
-| D02 · B1 | Consumidor nominal focal permite/deniega expediente asignado y audita los tres resultados. | Nuevos `regimendisciplinario/ports/{autorizacion,auditoria}.go`, consumidor propio. | K/L, perfiles/designaciones gobernados; montaje por custodio. | 6–10 |
+| D02 · B1 | Consumidor nominal focal permite/deniega expediente asignado y audita los tres resultados. | Nuevos `regimendisciplinario/ports/{autorizacion,auditoria}.go`, consumidor propio. | los servicios comunes de identidad y autorización, perfiles/designaciones gobernados; montaje por custodio. | 6–10 |
 | D03 · B2/B3 | Lectura de vínculo/situación a fecha por finalidad disciplinaria, con cobertura y falta de fuente explicadas. | `ports/personal.go`, consumidor/pruebas propios. | D02; B admite puerto mínimo; entidad y organización gobernadas. | 4–6 |
 | D04 · B4, SQL borrador | Candidata de expediente/designaciones/actuaciones y adaptador con ensayo preparado. | SQL nuevo reservado y `adapters/postgres/` propios. | D01–D03; reserva fuera de Git, compartimento y preimagen; sin activar. | 5–8 |
 | D05 · B4, ensayo | Clon principal con ACL/aislamiento/replay y kit revisado para dirección. | Pruebas de adaptador/kit propios. | D04, dos revisiones exactas; MCP local solo lectura; sin DOWN sobre historia. | 4–7 |
@@ -173,7 +173,7 @@ Dirección instala y conserva historia; A no ejecuta SQL ni servicios en cidonia
 
 Las 18 filas suman **76–123 horas técnicas**, con revisión y comprobaciones focales:
 **10–16 jornadas de un equipo** de ocho horas, redondeadas al día completo. Incluyen
-SQL propio y consumidores del módulo; excluyen producción común de B/K/L y servicios
+SQL propio y consumidores del módulo; excluyen producción común de Personal/los servicios comunes de identidad y autorización y servicios
 externos. Las horas se reestiman al fijar 134 y los contratos de ejecución.
 
 Con dos equipos se estiman **9–13 jornadas**, con órganos/fuentes disponibles.
@@ -191,7 +191,7 @@ se utiliza la horquilla de un equipo.
 | Jurídico/RRHH/órganos competentes | 8–16 h efectivas | Criterio de 134 por vínculo, designaciones, plantillas, cómputos y circuito; espera sin plazo comprometido. |
 | DPD/Archivo | 5–9 h efectivas | RAT, accesos de defensa/terceros, serie, conservación, cancelación y copias. |
 | Sistemas/firma/Registro/notificación | 6–12 h efectivas | Entorno sintético y servicios oficiales con contratos/evidencias. |
-| Personal B, K/L, Cronos, Documentos y Nómina | Estimación por sus propietarios | Puertos mínimos, consumidor económico y composición; no están incluidos en D02/D03/D15. |
+| Personal, los servicios comunes de identidad y autorización, Cronos, Documentos y Nómina | Estimación por sus propietarios | Puertos mínimos, consumidor económico y composición; no están incluidos en D02/D03/D15. |
 
 La duración de estas decisiones externas no es una promesa de publicación.
 Contratos y pruebas independientes avanzan mientras se completa su habilitación.
