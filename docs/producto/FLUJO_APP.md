@@ -1220,6 +1220,14 @@ Tras una respuesta incierta, «Comprobar la misma publicación» conserva el cue
 
 ### 4.4 Administración
 
+F1-106 incorpora el conjunto 7 de capacidades para publicar roles nuevos con
+el gobierno existente: una persona administradora propone un rol desde una
+entrada admitida del catálogo y otra aprueba esa propuesta. Se conserva el
+recibo del cierre al recuperar la misma operación y tras reiniciar. La
+activación requiere publicar las dos claves y montar la configuración de
+roles; la asignación a personas es un acto posterior. Guía:
+`deploy/principal/admin7_roles_nuevos_f1_106_20261020.md`.
+
 | Tarea | Cómo se hace hoy | Estado |
 | --- | --- | --- |
 | Ver personas y su ficha | `/admin/usuarios/`, lista y ficha | En cidonia |
@@ -1395,6 +1403,21 @@ efecto.
 - Una concesión de Bolsa no sirve en Cronos.
 - Cada decisión permite reconstruir persona, perfil, acción, recurso,
   finalidad, versiones e instante sin copiar datos personales de más.
+
+### 6.7 Consulta de Organización histórica en la copia local
+
+Antes de activar la consulta, una persona administradora propone el rol
+`consulta_organizacion_historica_rrhh:v1` y otra persona administradora distinta
+lo aprueba mediante AUT60 y el conjunto 7. La publicación conserva su acto y
+recibo. Después, `copia_local.sh organizacion-historica --equipo o --instancia f106`
+prepara solo identidades y asignaciones ficticias con ámbitos `organismo_ref` y
+`unidad_clave`, y monta la consulta. Cada técnica consulta con su propia cuenta, persona y perfil; las cuentas de RRHH
+no sustituyen a las dos personas administradoras.
+La asignación gobernada por Administración queda para una entrega posterior.
+Sin publicación ni activación, la aplicación arranca y esta consulta no se puede
+consumir. La copia acredita el acto de dos administradores y la consulta de dos
+técnicas: 200 en su centro y 403 fuera, antes y después de reiniciar. Guía:
+`deploy/principal/organizacion_historica_f1_106_20261020.md`.
 
 ## 7. Resumen de estado por tramo
 

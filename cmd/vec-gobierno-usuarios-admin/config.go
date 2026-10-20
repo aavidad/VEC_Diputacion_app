@@ -41,12 +41,13 @@ type configuracionPrivada struct {
 	// conjunto 3 de AD204 (además, la publicación de cargos competenciales); 4,
 	// el conjunto 4 de AD205 (además, los certificados nominales de firmante);
 	// 5, el conjunto 5 de AD234 (además, la propuesta y el cierre de la versión
-	// de rol de Bolsa, B1).
+	// de rol de Bolsa, B1); 6 añade Bolsa externa y 7, roles nuevos.
 	ConjuntoCapacidades uint64 `json:"conjunto_capacidades,omitempty"`
 	// VersionBolsa sólo lo usa la fase version-bolsa: los ficheros DSN de los
 	// dos LOGIN B1 de vec-admin y los motivos de sus dos audiencias.
 	VersionBolsa        *configuracionVersionBolsa `json:"version_bolsa,omitempty"`
 	VersionBolsaExterna *configuracionVersionBolsa `json:"version_bolsa_externa,omitempty"`
+	GobiernoRoles       *configuracionVersionBolsa `json:"gobierno_roles,omitempty"`
 }
 
 type configuracionVersionBolsa struct {
@@ -90,10 +91,22 @@ func (c configuracionPrivada) validar(fase string) error {
 			return errConfiguracion
 		}
 	case "version-bolsa-externa":
-		if c.ConjuntoCapacidades != 6 || c.VersionBolsaExterna == nil ||
+		if (c.ConjuntoCapacidades != 6 && c.ConjuntoCapacidades != 7) || c.VersionBolsaExterna == nil ||
 			!rutaAbsoluta(c.VersionBolsaExterna.PoolGobierno) || !rutaAbsoluta(c.VersionBolsaExterna.PoolCatalogo) ||
 			len(c.VersionBolsaExterna.Motivos) != 2 ||
 			!motivosVersionBolsaExternaValidos(c.VersionBolsaExterna.Motivos) {
+			return errConfiguracion
+		}
+	case "gobierno-roles":
+		if c.ConjuntoCapacidades != 7 || c.GobiernoRoles == nil ||
+			!rutaAbsoluta(c.GobiernoRoles.PoolGobierno) || !rutaAbsoluta(c.GobiernoRoles.PoolCatalogo) ||
+			len(c.GobiernoRoles.Motivos) != 2 {
+			return errConfiguracion
+		}
+		if _, ok := c.GobiernoRoles.Motivos[gobiernoperfiles.AudienciaGobiernoRolProponer]; !ok {
+			return errConfiguracion
+		}
+		if _, ok := c.GobiernoRoles.Motivos[gobiernoperfiles.AudienciaGobiernoRolAprobar]; !ok {
 			return errConfiguracion
 		}
 	default:
@@ -197,10 +210,11 @@ type operaciones struct {
 	// versionBolsa escribe el overlay B1 del día; no conecta con la base.
 	versionBolsa        func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error
 	versionBolsaExterna func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error
+	gobiernoRoles       func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error
 }
 
 func (o operaciones) incompletas() bool {
-	return o.preparar == nil || o.aplicar == nil || o.verificar == nil || o.versionBolsa == nil || o.versionBolsaExterna == nil
+	return o.preparar == nil || o.aplicar == nil || o.verificar == nil || o.versionBolsa == nil || o.versionBolsaExterna == nil || o.gobiernoRoles == nil
 }
 
 type relojSistema struct{}
@@ -241,6 +255,9 @@ func operacionesPG() operaciones {
 		},
 		versionBolsaExterna: func(r *os.Root, d bootstrap.DestinoOverlayVersionBolsaAdmin, acuse string) error {
 			return bootstrap.EscribirOverlayVersionBolsaExternaAdmin(r, d, acuse, relojSistema{})
+		},
+		gobiernoRoles: func(r *os.Root, d bootstrap.DestinoOverlayVersionBolsaAdmin, acuse string) error {
+			return bootstrap.EscribirOverlayGobiernoRolesAdmin(r, d, acuse, relojSistema{})
 		},
 	}
 }
