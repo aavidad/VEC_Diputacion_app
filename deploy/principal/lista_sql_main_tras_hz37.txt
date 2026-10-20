@@ -210,3 +210,6 @@ deploy/postgresql/bolsa_convocatorias/migraciones/000015_declaracion_publicacion
 deploy/postgresql/contexto_actor_v1/migraciones/000048_cotejo_lectura_bolsa_orden_bloqueo.up.sql 9708680221f72a1774d25009f0f73eb09c9ac05df5f0b423f586431c50e41e45
 # F1-110 — B147: la emisión general de llamamientos de Bolsa exige orden estricto entre los disponibles (regla b01); salto solo con motivo b01.salto.* del catálogo de reglas. Reconstruye reservar_llamamiento_v1 (preimagen B25) como delegación en v2.
 deploy/postgresql/bolsa_llamamientos/migraciones/000147_orden_estricto_llamamiento.up.sql bb2f422d890048b76653ef3645ff777fbc7985e732478976a57430c43b6ec24d
+
+# Tarea F1-107: referencias de la consulta de Personal en el recibo del llamamiento
+deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_procedencia_seleccion.up.sql dc869cab75f1bb13db7d39223f63c7d84eadd4b99840aaa72b79bdc20e181d6a
