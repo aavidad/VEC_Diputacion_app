@@ -622,12 +622,9 @@ func (s *ServicioSeleccionLlamamiento) marcarIndeterminada(
 
 func errorSeleccionIndeterminada(ctx context.Context, causa error) error {
 	if ctx != nil && ctx.Err() != nil {
-		return errors.Join(ErrEjecucionSeleccionLlamamientoIndeterminada, ctx.Err())
+		causa = errors.Join(causa, ctx.Err())
 	}
-	if errors.Is(causa, context.Canceled) || errors.Is(causa, context.DeadlineExceeded) {
-		return errors.Join(ErrEjecucionSeleccionLlamamientoIndeterminada, causa)
-	}
-	return ErrEjecucionSeleccionLlamamientoIndeterminada
+	return falloSeleccionIndeterminada{causa: causa}
 }
 
 func disponibilidadYOrdenLigados(
