@@ -213,14 +213,15 @@ func (h HitoExpedienteRRHH) validar() error {
 // DetalleExpedienteRRHH es una proyección explícita de datos operativos. No
 // expone el agregado ni campos libres o identificadores de personas.
 type DetalleExpedienteRRHH struct {
-	Resumen       ResumenExpedienteRRHH       `json:"resumen"`
-	Solicitud     SolicitudOperativaRRHH      `json:"solicitud"`
-	Analisis      *AnalisisOperativoRRHH      `json:"analisis,omitempty"`
-	Cobertura     *CoberturaOperativaRRHH     `json:"cobertura,omitempty"`
-	Asignacion    *AsignacionOperativaRRHH    `json:"asignacion,omitempty"`
-	Fiscalizacion *FiscalizacionOperativaRRHH `json:"fiscalizacion,omitempty"`
-	Hitos         []HitoExpedienteRRHH        `json:"hitos"`
-	Lectura       ReciboLecturaRRHH           `json:"-"`
+	Resumen               ResumenExpedienteRRHH       `json:"resumen"`
+	Solicitud             SolicitudOperativaRRHH      `json:"solicitud"`
+	Analisis              *AnalisisOperativoRRHH      `json:"analisis,omitempty"`
+	Cobertura             *CoberturaOperativaRRHH     `json:"cobertura,omitempty"`
+	Asignacion            *AsignacionOperativaRRHH    `json:"asignacion,omitempty"`
+	Fiscalizacion         *FiscalizacionOperativaRRHH `json:"fiscalizacion,omitempty"`
+	Hitos                 []HitoExpedienteRRHH        `json:"hitos"`
+	InstruccionCompartida *InstruccionCompartidaRRHH  `json:"instruccion_compartida,omitempty"`
+	Lectura               ReciboLecturaRRHH           `json:"-"`
 	// Complemento consultado en la misma transacción nominal del detalle.
 	ResultadoBolsa *ResultadoBolsaRRHH `json:"-"`
 	// Estado informativo añadido tras la lectura autorizada; no es una concesión.
