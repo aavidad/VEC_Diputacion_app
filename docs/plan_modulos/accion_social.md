@@ -105,8 +105,8 @@ quedan fuera de auditoría/logs y del receptor económico.
 ## Minitareas y salidas por PR
 
 Dirección confirma SHA base, propietario y archivos antes de cada corte. Rutas
-nuevas son previsión; montaje/manifiestos y contratos los servicios comunes de identidad y autorización/B esperan turno de sus
-custodios. Cada puerto se entrega con consumidor útil, sin otra maqueta sintética.
+nuevas son previsión; el montaje, los manifiestos y los contratos de Identidad, Autorización
+y Personal se modifican en sus módulos propietarios. Cada puerto se entrega con consumidor útil, sin otra maqueta sintética.
 
 | Corte y base | Salida usable por PR | Archivos propios previstos | Dependencias | Horas |
 | --- | --- | --- | --- | ---: |
@@ -150,8 +150,8 @@ en paralelo, pero A03 no lee sin permiso. Dos equipos reparten catálogo/cliente
 A10 y A11 pueden separarse cuando sus contratos estén cerrados; A12 integra.
 Después, presupuesto/propuesta y acuerdo documental se preparan con un dueño por
 contrato; el pago y reintegro esperan resolución y receptor económico. Una vista,
-catálogo o archivo común tiene un solo escritor. los servicios comunes de identidad y autorización/B y Sistemas conservan sus
-colas propias, fuera de este esfuerzo.
+catálogo o archivo común tiene un solo escritor. Identidad, Autorización, Personal y Sistemas conservan sus
+responsabilidades y dependencias propias.
 
 ## Configuración y estimación
 

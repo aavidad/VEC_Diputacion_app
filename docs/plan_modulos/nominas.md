@@ -97,8 +97,9 @@ No se registran importes, banco, retenciones, familia, salud ni documentos compl
 ## Minitareas y salidas por PR
 
 Cada corte parte del SHA vigente que dirección confirme y recibe archivos exclusivos.
-Las rutas nuevas son previsión. Composición, manifiestos, K, L y B solo los modifica
-su custodio en un corte dependiente; no se crean autoridades paralelas.
+Las rutas nuevas son previsión. La composición, los manifiestos y los contratos de Identidad,
+Autorización y Personal se modifican en sus módulos propietarios; no se
+crean autoridades paralelas.
 
 | Corte y base | Salida usable por PR | Archivos propios previstos | Dependencias | Horas |
 | --- | --- | --- | --- | ---: |
