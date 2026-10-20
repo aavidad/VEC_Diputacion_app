@@ -99,7 +99,7 @@ export function montarPanelCancelacion({
     const opciones = motivos.map((m) => `<option value="${escapar(m.clave)}">${escapar(etiquetaMotivo(m.clave_i18n, m.etiqueta))}</option>`).join("");
     return `<form class="ct-seg-cese-form" data-ct-cancelacion-form aria-labelledby="ct-cancelacion-titulo" novalidate>
       <div class="ct-seg-cese-rejilla">
-      <label class="ct-campo"><span>${escapar(t("motivo"))}</span><select name="motivo_clave" required ${deshabilitado}><option value=""></option>${opciones}</select></label>
+      <label class="ct-campo"><span>${escapar(t("motivo"))}</span><select name="motivo_clave" required ${deshabilitado}><option value="">${escapar(t("motivo_elegir"))}</option>${opciones}</select></label>
       <label class="ct-campo ct-seg-cese-ancho"><span>${escapar(t("observaciones"))}</span><textarea name="observaciones" rows="2" maxlength="2000" ${deshabilitado}></textarea></label>
       </div>
       <div class="ct-acciones"><button type="submit" class="boton-peligro" ${deshabilitado}>${escapar(t("enviar"))}</button>
@@ -127,6 +127,8 @@ export function montarPanelCancelacion({
       return;
     }
     // Solo se ofrece en curso y en una fase que admita la regla vigente.
+    // Con el formulario abierto solo queda «Volver sin cancelar»: así no hay
+    // dos botones de cancelar casi iguales a la vista.
     const admitida = contexto.estado_clave === "en_curso" && datos.fases_admitidas.includes(contexto.fase_clave);
     if (!admitida && !aviso) {
       contenedor.innerHTML = "";
@@ -135,7 +137,7 @@ export function montarPanelCancelacion({
     }
     contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" data-ct-cancelacion aria-labelledby="ct-cancelacion-titulo" ${ocupado ? 'aria-busy="true"' : ""}>
       <header class="ct-exp-fase-panel-cabecera"><div><h3 id="ct-cancelacion-titulo">${escapar(t("titulo"))}</h3></div>
-      <div class="ct-exp-fase-panel-acciones">${admitida ? `<button type="button" class="boton-secundario" data-ct-cancelacion-abrir aria-expanded="${abierto}" ${ocupado ? "disabled" : ""}>${escapar(t("abrir"))}</button>` : ""}${botonAyuda()}</div></header>${textoAyuda()}
+      <div class="ct-exp-fase-panel-acciones">${admitida && !abierto ? `<button type="button" class="boton-secundario" data-ct-cancelacion-abrir aria-expanded="${abierto}" ${ocupado ? "disabled" : ""}>${escapar(t("abrir"))}</button>` : ""}${botonAyuda()}</div></header>${textoAyuda()}
       ${htmlAviso()}${admitida && abierto ? formulario(datos.motivos) : ""}</section>`;
   }
 

@@ -187,6 +187,10 @@
     "ficha_siguiente_paso_cancelado": "Case cancelled",
     "ficha_siguiente_paso_cancelado_que": "The case is cancelled and no further action is possible.",
     "hito_propuesta_formalizacion": "Appointment or contract proposal recorded",
-    "hito_resolucion_formalizacion": "Appointment or contract decision recorded"
+    "hito_resolucion_formalizacion": "Appointment or contract decision recorded",
+    "hito_cancelacion_expediente": "Case cancelled",
+    "linea_fase_cancelado": "Cancelled at this stage",
+    "linea_fase_sin_hacer": "Will not take place",
+    "ficha_fases_resumen_cancelado": "{hechas} done · cancelled at “{fase}”"
   }
 }
