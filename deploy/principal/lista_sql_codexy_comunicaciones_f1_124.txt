@@ -1,0 +1,2 @@
+# SHA256 69db0ef6a606738382c3656a5e9aa931454da35fdaa926086bea23b577eb2fc7 deploy/postgresql/contratacion_temporal/migraciones/000248_comunicaciones_carrera_serializable.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000248_comunicaciones_carrera_serializable.up.sql

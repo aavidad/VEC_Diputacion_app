@@ -486,6 +486,15 @@ transacción. No se crean fachadas de permisos nuevas para cada lectura. Su esta
 
 ## 6. Autorización
 
+En desarrollo, el cuadro, el detalle y la descarga de Contratación temporal
+usan un perfil estable de lectura de la técnica (F1-114, compuesto en
+F1-124). Reúne sus tres concesiones existentes, con los mismos ámbitos,
+persona y cuenta. Cada petición comprueba la asignación publicada; no cambia
+el rol por consultar ni recupera una asignación revocada. Su preparación en
+la copia usa la vía no autoritativa de perfiles fijos y no sustituye la
+provisión gobernada del uso real. Activación en
+`deploy/principal/comunicaciones_f1_124.md`.
+
 Se deniega por defecto. Solo autoriza una concesión central positiva, exacta y
 vigente para actor, perfil, acción, recurso, ámbito, finalidad, campos y
 obligaciones. Ausencia, lista vacía, ambigüedad, valor desconocido, caducidad,
