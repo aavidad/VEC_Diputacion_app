@@ -23,6 +23,15 @@ permisos ni las asignaciones de las personas.
 
 CONFIG NUEVA: ninguna. No hay selectores ni ficheros de arranque nuevos.
 
+La puesta al día con las fusiones del 20/10 sigue el orden de dirección:
+F1-95 B (AD301/BC17), F1-105 (AD303) y después F1-118 (AUT106).
+No se da por actualizada esta entrega hasta que estén integradas las dos
+anteriores. Al unir main, se conservan sus entradas y pruebas; AUT106 queda
+al final de la lista y se ajusta el recuento al número real de pruebas SQL.
+Las pruebas del ensayador y de la copia local se ejecutan desde la raíz.
+El ensayo descrito más abajo corresponde a la base anterior y conserva su
+alcance; no acredita por sí solo la candidata que resulte de esa integración.
+
 1. Crear una copia propia con la orden completa de
    `LEEME_copia_local.md`, incluidos `--modulos`, `--rrhh-original` y los
    preparadores privados propios. Instalar la lista única de main en su orden.
