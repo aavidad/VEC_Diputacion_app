@@ -61,11 +61,25 @@ def activo(copia, estado):
         return False
 
 
+def mismo_proceso(estado):
+    pid = estado.get('pid_admin')
+    if type(pid) is not int or pid <= 0:
+        return False
+    try:
+        return (Path('/proc') / str(pid) / 'stat').read_text().split()[21] == estado.get('inicio_proceso_admin')
+    except FileNotFoundError:
+        return False
+
+
 def parar(copia):
     # La parada no ejecuta fuente privada que pudiera haber cambiado desde el
     # arranque. PID, ejecutable y comienzo del proceso deben seguir coincidiendo.
     estado = copia.leer()
     if not activo(copia, estado):
+        if mismo_proceso(estado):
+            # Mismo PID y comienzo con otro ejecutable: se recompiló o borró
+            # vec-admin mientras corría. No se señala ni se sigue borrando.
+            raise ValueError('ADMIN sigue activo con su binario cambiado; se conserva la copia')
         return
     os.kill(estado['pid_admin'], signal.SIGTERM)
     for _ in range(100):

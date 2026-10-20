@@ -320,6 +320,32 @@ func TestVersionarRolBolsaExternaInscripcionCincoExactas(t *testing.T) {
 	if err != nil || len(planV1.DefinicionNueva.Concesiones) != 12 {
 		t.Fatalf("delta desde v1 inválido: %v", err)
 	}
+	// La v1 publicada empieza por participaciones_propias.consultar: el plan de
+	// las cinco de inscripción se prepara igual y conserva ese orden real.
+	reordenada, iReordenada := baseV1, iV1
+	reordenada.Rol.Concesiones = copiarConcesionesVersionarBolsa(baseV1.Rol.Concesiones)
+	reordenada.Rol.Concesiones[0], reordenada.Rol.Concesiones[1] = reordenada.Rol.Concesiones[1], reordenada.Rol.Concesiones[0]
+	iReordenada.Asignaciones = append([]SeleccionAsignacionVersionarRolBolsa(nil), iV1.Asignaciones...)
+	refrescarBaseExterna(t, &reordenada, &iReordenada)
+	planReordenado, err := PrepararPlanVersionarRolBolsaExterna(c, reordenada, iReordenada, ahora)
+	if err != nil || len(planReordenado.DefinicionNueva.Concesiones) != 12 ||
+		planReordenado.DefinicionNueva.Concesiones[0].Accion != "bolsa.participaciones_propias.consultar" {
+		t.Fatalf("plan de inscripción desde la v1 publicada inválido: %v", err)
+	}
+	// Una acción ajena dentro de las siete primeras no es base, aunque la
+	// séptima acción base aparezca después.
+	ajena := reordenada
+	ajena.Rol.Concesiones = append(copiarConcesionesVersionarBolsa(reordenada.Rol.Concesiones[:6]),
+		c.Entradas[0].Concesion, reordenada.Rol.Concesiones[6])
+	iAjena := iReordenada
+	iAjena.Asignaciones = append([]SeleccionAsignacionVersionarRolBolsa(nil), iReordenada.Asignaciones...)
+	refrescarBaseExterna(t, &ajena, &iAjena)
+	if estadoRolBolsaExterna(ajena.Rol) != "" {
+		t.Fatal("una acción ajena entre las siete primeras pasa por base")
+	}
+	if _, err := PrepararPlanVersionarRolBolsaExterna(c, ajena, iAjena, ahora); err == nil {
+		t.Fatal("el plan acepta una base con una acción ajena")
+	}
 	cPreferencias, basePreferencias, iPreferencias, _ := escenarioVersionarRolBolsaExterna(t)
 	basePreferencias.Rol.Version = planV1.DefinicionNueva.Version
 	basePreferencias.Rol.Concesiones = copiarConcesionesVersionarBolsa(planV1.DefinicionNueva.Concesiones)

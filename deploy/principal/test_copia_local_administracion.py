@@ -72,6 +72,14 @@ with (r.parent/'.vec-copia-l-admin.lock').open('a') as otro:
     def test_parada_no_envia_senal_a_pid_con_otro_ejecutable(self):
         self.estado.update(pid_admin=os.getpid(), inicio_proceso_admin=
                            Path(f'/proc/{os.getpid()}/stat').read_text().split()[21])
+        # Mismo comienzo con otro ejecutable: no se señala y se avisa, para
+        # que borrar no siga con el proceso vivo.
+        with patch.object(admin.os, 'kill') as kill, self.assertRaises(ValueError):
+            admin.parar(self.copia)
+        kill.assert_not_called()
+
+    def test_pid_ajeno_con_otro_comienzo_no_se_toca(self):
+        self.estado.update(pid_admin=os.getpid(), inicio_proceso_admin='otro')
         with patch.object(admin.os, 'kill') as kill:
             admin.parar(self.copia)
         kill.assert_not_called()

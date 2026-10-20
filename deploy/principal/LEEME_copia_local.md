@@ -565,17 +565,20 @@ La composición de Administración añade `--administracion` a `crear --modulos`
 El puerto se elige con `--puerto-admin` y debe estar libre y ser distinto de
 los puertos de PostgreSQL, la aplicación y el correo.
 Requiere `VEC_COPIA_ADMIN_SCRIPT`, un ejecutor privado preparado para la misma
-candidata. Recibe `--raiz`, `--fase preparar|arrancar|comprobar` y
-`--candado-fd`: debe heredar ese descriptor al llamar al kit y conservar sus
+candidata. Recibe `--raiz`, `--fase preparar|arrancar|comprobar`,
+`--candado-fd` y `--puerto-admin`: debe heredar ese descriptor al llamar al kit y conservar sus
 comprobaciones de revisión, huellas, etiqueta y sistema PostgreSQL.
 La preparación se invoca una sola vez; un resultado incierto se concilia con
 el mismo plan y recibo. El reinicio solo arranca y comprueba lo ya preparado.
 La parada exige que PID, ejecutable propio e inicio del proceso coincidan.
+Si el proceso sigue vivo pero su binario cambió, se detiene con error y
+conserva la copia: hay que pararlo a mano antes de `borrar`.
 
 Si se interrumpe la preparación, conserva la instancia y su carpeta `admin`.
 No repitas `crear` ni la fase `preparar`. Mantén PostgreSQL y la aplicación
 con su sellador activos; Administración debe estar parada. La continuación
-nativa del mismo paquete se documenta en `LEEME.continuacion-ad295.md`:
+nativa del mismo paquete se documenta en `LEEME.continuacion-ad295.md`, del
+kit privado (no está en el repositorio):
 `continuar_admin_runtime_ad295.py --repo … --kit … --equipo … --instancia …
 --sid … --config-gobierno … --acuse-gobierno … --salida-verificacion …
 --comprobar` coteja por lectura el mismo gobierno. Después, el comando sin
@@ -587,8 +590,8 @@ la continuación y conserva los archivos para diagnóstico.
 Probado el 20/10 (F0-28) con un ejecutor privado que reutiliza el kit H6
 (conjunto 6) fijado a la revisión de la copia. En `preparar` compila el kit
 desde la revisión limpia, prepara Administración y genera el montaje externo
-(`preparar_overlay_externo.py` y la fase `version-bolsa-externa` de
-`vec-gobierno-usuarios-admin`). En `arrancar` lanza `vec-admin` con
+(`preparar_overlay_externo.py`, también del kit privado, y la fase
+`version-bolsa-externa` de `vec-gobierno-usuarios-admin`). En `arrancar` lanza `vec-admin` con
 `VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE` y guarda PID e inicio del
 proceso. El ejecutor y el kit viven en `~/.local/state`, nunca en Git.
 La fuente de inscripción no se admite otra vez: el catálogo
