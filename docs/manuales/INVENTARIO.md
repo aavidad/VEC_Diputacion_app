@@ -34,11 +34,11 @@ contadores de pantallas de septiembre. El contraste funcional se hace con
 [el recorrido vigente](../producto/FLUJO_APP.md#40-caso-de-aceptación-de-la-presentación)
 y los catálogos de `web/static/textos/es/`.
 
-## Estructura que se mantiene
+## Propuesta de estructura pendiente de integrar
 
-Se conservan los nombres de las guías existentes para no romper enlaces.
-`README.md` reúne los perfiles; `aspirante.md` distingue acceso interno y
-externo; `administracion.md` recoge el uso funcional y `sistemas.md` remite a
+La propuesta conserva los nombres de las guías existentes para no romper enlaces.
+Tras integrar las actualizaciones, `README.md` reunirá los perfiles; `aspirante.md` distingue acceso interno y
+externo; la nueva guía `administracion.md`, aún pendiente, recogerá el uso funcional y `sistemas.md` remitirá a
 la operación técnica. `PENDIENTES.md` resume lo que falta para completar el
 recorrido, sin trasladar códigos del tablero a los usuarios.
 
