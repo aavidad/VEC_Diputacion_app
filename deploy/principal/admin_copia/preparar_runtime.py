@@ -8,8 +8,8 @@ import os
 import re
 from pathlib import Path
 
-RUNTIME_TEXTOS = ("preparar_gobierno.py", "preparar_lote_plan.py", "preparar_relevo_logins.py",
-                  "preparar_runtime.py", "preparar_vec_admin.py", "preparar_overlay_externo.py",
+RUNTIME_TEXTOS = ("preparar_gobierno.py", "preparar_runtime.py", "preparar_vec_admin.py",
+                  "preparar_overlay_externo.py",
                   "plantilla-runtime.json")
 
 

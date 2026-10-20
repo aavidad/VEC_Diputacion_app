@@ -20,6 +20,7 @@ class Contexto:
         from copia_local import REPO, verificar_fuente
         estado = copia.leer()
         verificar_fuente(estado['revision'])
+        self.revision = estado['revision']
         self.copia, self.fuente = copia, REPO
         self.raiz, self.material = copia.raiz, copia.material
         descriptor = copia.candado
@@ -69,8 +70,14 @@ class Contexto:
         with Path(ruta).open('rb') as entrada:
             return hashlib.file_digest(entrada, 'sha256').hexdigest()
 
+    def comprobar_fuente(self):
+        from copia_local import verificar_fuente
+        verificar_fuente(self.revision)
+
     def sql(self, datos, nombre_log):
+        self.comprobar_fuente()
         self.copia.sql_bytes(datos, nombre_log)
+        self.comprobar_fuente()
 
     def consultar(self, consulta):
         resultado = self.ejecutar([
@@ -82,6 +89,7 @@ class Contexto:
     def ejecutar(self, argv, nombre_log, cwd=None, env=None):
         if not re.fullmatch(r'[a-zA-Z0-9_.-]{1,100}', nombre_log):
             raise ValueError('recorrido_registro_invalido')
+        self.comprobar_fuente()
         entorno = {'PATH': '/usr/bin:/bin', 'HOME': os.environ['HOME'], 'LANG': 'C.UTF-8',
                    'DOCKER_HOST': 'unix:///var/run/docker.sock'}
         entorno.update(env or {})
@@ -94,6 +102,7 @@ class Contexto:
         with os.fdopen(descriptor, 'ab') as salida:
             salida.write(resultado.stdout)
             salida.write(resultado.stderr)
+        self.comprobar_fuente()
         if resultado.returncode:
             raise ValueError('recorrido_operacion_fallida_consulte_registro')
         return resultado
@@ -101,6 +110,7 @@ class Contexto:
     def cli(self, nombre):
         if not re.fullmatch(r'vec-[a-z0-9-]{1,70}', nombre) or not (self.fuente / 'cmd' / nombre).is_dir():
             raise ValueError('recorrido_cli_invalida')
+        self.comprobar_fuente()
         destino, marca = self.bin / nombre, self.bin / (nombre + '.sha256')
         if destino.exists():
             if privado(marca).decode().strip() != self.sha(destino):
@@ -124,6 +134,7 @@ class Contexto:
                 or any(p == '..' for p in ruta.split('/'))
                 or type(self.puerto_admin) is not int):
             raise ValueError('recorrido_peticion_admin_invalida')
+        self.comprobar_fuente()
         base = self.raiz / 'admin/h10'
         contexto = ssl.create_default_context(cafile=str(base / 'vec-admin/tls/srv-ca.pem'))
         contexto.load_cert_chain(str(base / f'fuentes/cliente-{numero}.pem'),
@@ -150,6 +161,8 @@ class Contexto:
             raw = respuesta.read(2_097_153)
             if len(raw) > 2_097_152:
                 raise ValueError('recorrido_respuesta_excesiva')
-            return respuesta.status, json.loads(raw or b'{}', object_pairs_hook=objeto_sin_duplicados)
+            datos = json.loads(raw or b'{}', object_pairs_hook=objeto_sin_duplicados)
+            self.comprobar_fuente()
+            return respuesta.status, datos
         finally:
             conexion.close()

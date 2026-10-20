@@ -49,20 +49,12 @@ posterior. `activos` coteja cada archivo con el manifiesto de fuentes del kit.
 
 ```sh
 python3 KIT/preparar_vec_admin.py --entrada RUN/entrada-vec-admin.json --fase FASE --dia DIA
-python3 KIT/preparar_lote_plan.py --run RUN --dia DIA --sid-copia SID
 python3 KIT/preparar_overlay_externo.py --run RUN --dia DIA --motivos-publicados MOTIVOS_JSON
-python3 KIT/preparar_relevo_logins.py --run RUN --sid-copia SID --anteriores LOGIN_PREIMAGEN_JSON
 ```
 
-`preparar_lote_plan.py` deja pools, `RUN/dba/lote-plan-DIA.sql` y configuración
-escalonada. `preparar_overlay_externo.py` crea
-`RUN/config-gobierno-externo-DIA.json`; el CLI Go autentica el plan, el acuse y
-el material al publicarlo. `preparar_relevo_logins.py` recibe los cinco nombres
-anteriores de la preimagen en un JSON privado, con las claves `cuentas_admin`,
-`contexto`, `selector`, `frontera_tecnica` y `lector`; deja
-`RUN/dba/relevo-logins-admin.sql`. Se revisa y aplica después de respaldar los
-roles y verificar sus membresías. Ningún preparador deduce esos nombres de una
-ejecución anterior.
+`preparar_overlay_externo.py` crea `RUN/config-gobierno-externo-DIA.json`;
+el CLI Go autentica el plan, el acuse y el material al publicarlo.
+Los LOGIN de los pools tienen una vigencia máxima de 90 días.
 
 Los archivos bajo `RUN` contienen secretos e identificadores ficticios. Se
 mantienen fuera de Git con permisos privados. El conductor coteja el SID real,

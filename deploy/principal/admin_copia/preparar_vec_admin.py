@@ -53,7 +53,7 @@ POOLS_EXTERNOS = [  # clave, nombre de archivo, único grupo
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--entrada', required=True); ap.add_argument('--fase', required=True); ap.add_argument('--dia')
     a = ap.parse_args(); os.umask(0o077)
-    e = json.load(open(a.entrada))
+    e = json.loads(Path(a.entrada).read_text())
     R = Path(e['runner']); K = Path(e['kit_dir'])
     V = Path(e['directorio_vec_admin'])
     try:
@@ -76,7 +76,7 @@ def main():
             or e['gobierno_dir'] != str(R / 'gobierno')
             or e['identificadores'] != str(V / 'identificadores/identificadores.json')
             or e['emisor_identidad'] != e['espacio_identidad']
-            or e['escucha'] != f"127.0.0.1:{json.load(open(K / 'contrato-copia-local-admin-v1.json'))['puerto_admin']}"):
+            or e['escucha'] != f"127.0.0.1:{json.loads(Path(K / 'contrato-copia-local-admin-v1.json').read_text())['puerto_admin']}"):
         sys.exit('entrada de runtime inválida')
     if a.fase in ('claves', 'base', 'overlay', 'entorno') and a.dia != e.get('dia_gobierno'):
         sys.exit('día de gobierno ajeno a la entrada')
@@ -106,10 +106,10 @@ def main():
                  'administracion-perfiles/selector-perfil.css', 'favicon.svg', 'comun/idioma.js', 'comun/textos.js', 'comun/tema-vec.css',
                  'portal-empleado/portal.css', 'portal-empleado/portal-componentes.css', 'portal-empleado/portal-flujos.css',
                  'portal-empleado/portal-patrones.css', 'textos/idiomas.json']
-        idiomas = json.load(open(W / 'textos/idiomas.json'))['idiomas']
+        idiomas = json.loads(Path(W / 'textos/idiomas.json').read_text())['idiomas']
         for i in idiomas:
             for c in ('admin-usuarios', 'admin-selector'): rutas.append(f"textos/{i['codigo']}/{c}.json")
-        manifiesto = json.load(open(K / 'source-manifest.json'))['files']
+        manifiesto = json.loads(Path(K / 'source-manifest.json').read_text())['files']
         for r in rutas:
             if manifiesto.get('web/static/' + r) != sha((W / r).read_bytes()):
                 sys.exit('activo ajeno al manifiesto')
@@ -118,7 +118,7 @@ def main():
     elif a.fase == 'pools':
         P = dir700(V / 'pools'); sufijo = e['sufijo_login']
         sid = str(e.get('sid_copia', ''))
-        contrato = json.load(open(K / 'contrato-copia-local-admin-v1.json'))
+        contrato = json.loads(Path(K / 'contrato-copia-local-admin-v1.json').read_text())
         if (not re.fullmatch(r'[0-9]{15,20}', sid) or sid != contrato.get('sid_copia')
                 or contrato.get('conjunto_capacidades') != 7 or contrato.get('version') != 2
                 or type(e.get('pg_port')) is not int or not 1024 <= e['pg_port'] <= 65535):
@@ -150,7 +150,7 @@ def main():
             logins[clave] = login
             dsn = f"host={e['pg_host']} port={e['pg_port']} dbname={e['pg_base']} user={login} password={pw} sslmode=verify-full sslrootcert={e['pg_ca']}"
             crear(P / f'{clave}.json', json.dumps({'dsn': dsn}))
-            sqls.append(f"CREATE ROLE {login} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{pw}';")
+            sqls.append(f"CREATE ROLE {login} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{pw}' VALID UNTIL '{hasta_login}';")
             sqls.append(f"GRANT {grupo} TO {login} WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;")
         for clave, archivo, grupo in POOLS_EXTERNOS:
             login = nombres[clave]
@@ -199,6 +199,10 @@ def main():
             "AND operacion='administracion.perfiles.version_bolsa.aprobar')))=2 "
             f"AND NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.configuracion_origen_consumos_v1 WHERE login_nombre='{externos[1]}') "
             "THEN NULL; ELSE RAISE EXCEPTION 'atributos, membresías u orígenes externos divergentes'; END IF; END $post$;",
+            "DO $caducidad$ BEGIN IF (SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname IN (" +
+            ','.join("'" + nombre + "'" for nombre in nombres.values()) +
+            f") AND rolvaliduntil='{hasta_login}'::timestamptz)<>{len(nombres)} " +
+            "THEN RAISE EXCEPTION 'Vigencia de pools ADMIN divergente'; END IF; END $caducidad$;",
             'COMMIT;']
         crear(V / 'dba-logins.sql', '\n'.join(sqls) + '\n')
         print('pools: SQL del DBA en dba-logins.sql (contiene contraseñas: 0600, no copiar)')
@@ -248,8 +252,8 @@ def main():
                     'revision_gobierno': c['revision_gobierno'], 'material_archivo': str(K / (c['audiencia'] + '.bin')), 'estado': 'emision',
                     'valida_desde': c['valida_desde'], 'valida_hasta': c['valida_hasta'], 'revocada_en': '0001-01-01T00:00:00Z'} for c in m['claves'] if c['audiencia'] in audiencias_usuarios]
             if len(ent) != 2: sys.exit('gobierno de usuarios incompleto')
-            org = json.load(open(F / 'fuente.json'))['organizacion']['organizacion_ref']
-            uni = json.load(open(U / 'fuente.json'))['unidad']['unidad_ref']
+            org = json.loads(Path(F / 'fuente.json').read_text())['organizacion']['organizacion_ref']
+            uni = json.loads(Path(U / 'fuente.json').read_text())['unidad']['unidad_ref']
             conj = 'conjunto_admin:' + sha(b'vec.admin.conjunto-usuarios.v1\n' + json.dumps({'organizacion_ref': org, 'unidad_ref': uni}, separators=(',', ':')).encode())[:32]
             dest = {k: {'accion': 'administracion.perfiles.frontera.' + k, 'recurso_ref': 'administracion:perfiles:' + k, 'finalidad_ref': 'gestion_perfiles', 'tipo_recurso': 'fijo'}
                     for k in ('consultar', 'buscar_personas', 'consultar_persona', 'consultar_recibo', 'escribir', 'aplicar_ordinario', 'proponer', 'cerrar_propuesta', 'aplicar_lote_ordinario')}

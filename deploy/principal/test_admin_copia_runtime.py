@@ -1,5 +1,7 @@
 """Pruebas focales de la preparación privada de runtime ADMIN."""
 import hashlib
+import re
+from datetime import datetime, timezone, timedelta
 import json
 import sys
 import tempfile
@@ -112,6 +114,25 @@ class RuntimeAdminTest(unittest.TestCase):
         self.assertEqual({x["cuenta_ref"] for x in ident["entradas"]}, {"cuenta1", "cuenta2"})
         self.assertEqual(entry["sid_copia"], self.sid)
         self.assertEqual(entry["kit_dir"], str(self.kit))
+
+    def test_todos_los_pools_caducan_en_90_dias(self):
+        import preparar_vec_admin
+        self.ejecutar()
+        inicio = datetime.now(timezone.utc)
+        with patch.object(sys, "argv", ["preparar_vec_admin", "--entrada",
+                str(self.run / "entrada-vec-admin.json"), "--fase", "pools"]):
+            preparar_vec_admin.main()
+        sql = (self.run / "vec-admin/dba-logins.sql").read_text()
+        logins = [linea for linea in sql.splitlines() if linea.startswith("CREATE ROLE ")]
+        self.assertEqual(len(logins), 13)
+        for linea in logins:
+            valor = re.search(r"VALID UNTIL '([^']+)'", linea)
+            self.assertIsNotNone(valor)
+            hasta = datetime.fromisoformat(valor[1])
+            self.assertGreaterEqual(hasta, inicio + timedelta(days=89))
+            self.assertLessEqual(hasta, datetime.now(timezone.utc) + timedelta(days=90))
+        self.assertIn("rolvaliduntil=", sql)
+        self.assertIn("Vigencia de pools ADMIN divergente", sql)
 
     def test_sid_ajeno_cierra_sin_salida(self):
         with self.assertRaises(SystemExit):

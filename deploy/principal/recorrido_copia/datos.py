@@ -5,7 +5,6 @@ import json
 import os
 from pathlib import Path
 import re
-import subprocess
 from urllib.parse import quote, urlencode, urlsplit
 
 from .bolsa import preparar_bolsa
@@ -13,20 +12,6 @@ from .intentos import preparar_intentos
 
 
 HUELLA_HZ37 = "7ae0613fa174aebc8aa36c079a6c4b268b771df41c9310129ee9dfae9650cc45"
-HUELLA_AJUSTE_HZ37 = "6c58c0cdb66533901dd600a390bed752f20bc5e5d8efba81283d55ff7aa09f29"
-
-
-def _cotejar_sid(copia, estado) -> None:
-    sid = estado.get("sid_copia")
-    if not isinstance(sid, str) or not re.fullmatch(r"[0-9]{15,20}", sid):
-        raise ValueError("Falta el SID del conductor de esta copia")
-    resultado = subprocess.run(
-        ["docker", "exec", "-i", "-u", "postgres", copia.nombre, "psql", "-X", "-At",
-         "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
-        input=b"SELECT system_identifier::text FROM pg_catalog.pg_control_system();\n",
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=30)
-    if resultado.stdout.decode().strip() != sid:
-        raise ValueError("El SID de PostgreSQL difiere del conductor")
 
 
 def _privado(ruta: Path, valor) -> None:
@@ -53,13 +38,16 @@ def _dsn(login: str, password: str, copia, estado) -> str:
 def preparar_datos(copia) -> None:
     """Ajusta datos HZ37 y publica conexiones propias; falla sobre una copia nueva."""
     estado = copia.leer()
+    if estado.get("material_modo") != "nuevo":
+        raise ValueError("La fábrica requiere material nuevo de esta copia")
+    sid = estado.get("sid_copia")
+    if not isinstance(sid, str) or not re.fullmatch(r"[0-9]{15,20}", sid):
+        raise ValueError("Falta el SID del conductor de esta copia")
     if estado.get("preparada") or not copia.existe():
         raise ValueError("La copia ya está preparada o no está activa")
     if json.loads((copia.raiz / "fuentes.json").read_text()).get(
             "principal-hz37-20261014.dump") != HUELLA_HZ37:
         raise ValueError("La copia no procede del volcado HZ37 fijado")
-    if estado.get("material_modo") == "rrhh_original":
-        _cotejar_sid(copia, estado)
     repo = Path(estado["fuente"])
     if repo != Path(__file__).resolve().parents[3]:
         raise ValueError("Fuentes de Git ajenas a esta copia")
@@ -79,7 +67,11 @@ def preparar_datos(copia) -> None:
     logins = {clave: urlsplit(url).username for clave, url in conexiones.items()}
     if any(not valor or not re.fullmatch("[a-z0-9_]+", valor) for valor in logins.values()):
         raise ValueError("LOGIN inválido en conexiones")
-    sql = ["BEGIN;", "SET LOCAL lock_timeout='5s';", "SET LOCAL statement_timeout='30s';", *retirar]
+    sql = ["BEGIN;", "SET LOCAL search_path=pg_catalog,pg_temp;",
+           "SET LOCAL lock_timeout='5s';", "SET LOCAL statement_timeout='30s';",
+           "DO $pre$ BEGIN IF current_user<>'postgres' OR current_database()<>'postgres' "
+           "OR (SELECT system_identifier::text FROM pg_catalog.pg_control_system())<> '" + sid +
+           "' THEN RAISE EXCEPTION 'Copia de datos ajena al conductor'; END IF; END $pre$;", *retirar]
     sql.append("DO $roles$ DECLARE r record; BEGIN FOR r IN SELECT rolname FROM pg_catalog.pg_roles "
                "WHERE NOT rolcanlogin AND rolname NOT LIKE 'pg_%' AND rolname NOT IN "
                "('vec_autorizacion_fuente','vec_autorizacion_motivos_evaluador') LOOP "
@@ -105,38 +97,29 @@ def preparar_datos(copia) -> None:
                    "; END IF; END $r$;")
     sql.append("COMMENT ON ROLE vec_autorizacion_motivos_rrhh_resolutor IS "
                "'vec_autorizacion:rol-motivos-rrhh-resolutor:v1';")
-    sql.append("UPDATE pg_catalog.pg_authid SET rolvaliduntil=NULL WHERE rolname='" +
-               logins["VEC_CT_MOTIVOS_RRHH_DATABASE_URL"] + "';")
     gov = logins["VEC_CT_GOBIERNO_DATABASE_URL"]
     sql.append("GRANT vec_contratacion_temporal_gobernador TO " + gov +
                " WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;")
     for grupo in ("vec_identidad_sesiones_v1_propietario", "vec_contexto_actor_v1_propietario",
                   "vec_autorizacion_propietario", "vec_autorizacion_motivos_proyector"):
         sql.append("GRANT " + grupo + " TO " + gov + " WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;")
-    if estado.get("material_modo") != "rrhh_original":
-        for tabla in ("puntero_clave_emision", "puntero_configuracion_actual"):
-            sql.append("ALTER TABLE vec_autorizacion_atestada_v3." + tabla + " DISABLE TRIGGER ALL;")
-        sql.append("TRUNCATE vec_autorizacion_atestada_v3.puntero_clave_emision,"
-                   "vec_autorizacion_atestada_v3.puntero_configuracion_actual;")
-        for tabla in ("puntero_clave_emision", "puntero_configuracion_actual"):
-            sql.append("ALTER TABLE vec_autorizacion_atestada_v3." + tabla + " ENABLE TRIGGER ALL;")
+    for tabla in ("puntero_clave_emision", "puntero_configuracion_actual"):
+        sql.append("ALTER TABLE vec_autorizacion_atestada_v3." + tabla + " DISABLE TRIGGER ALL;")
+    sql.append("TRUNCATE vec_autorizacion_atestada_v3.puntero_clave_emision,"
+               "vec_autorizacion_atestada_v3.puntero_configuracion_actual;")
+    for tabla in ("puntero_clave_emision", "puntero_configuracion_actual"):
+        sql.append("ALTER TABLE vec_autorizacion_atestada_v3." + tabla + " ENABLE TRIGGER ALL;")
     sql.append("COMMIT;")
-    if estado.get("material_modo") == "rrhh_original":
-        ruta_ajuste = Path(__file__).parent / "datos/gobierno_hz37.sql"
-        if _huella(ruta_ajuste) != HUELLA_AJUSTE_HZ37:
-            raise ValueError("Dato HZ37 sin guarda de origen")
-        sql.append(ruta_ajuste.read_text())
     copia.sql_bytes(("\n".join(sql) + "\n").encode(), "datos-copia-sql.log")
     _privado(copia.raiz / "conexiones.json", conexiones)
     _privado(copia.raiz / "entorno_modulos.json", conexiones)
     estado["entorno_modulos_sha256"] = _huella(copia.raiz / "entorno_modulos.json")
     _privado(copia.estado, estado)
-    if estado.get("material_modo") != "rrhh_original":
-        for archivo, nombre in (("identidad.json", "Carmen Molina Ortega"),
-                                ("intervencion.json", "Luis Serrano Vega")):
-            ruta = copia.material / "identidad" / archivo
-            identidad = json.loads(ruta.read_text())
-            identidad["display_name"] = nombre
-            _privado(ruta, identidad)
+    for archivo, nombre in (("identidad.json", "Carmen Molina Ortega"),
+                            ("intervencion.json", "Luis Serrano Vega")):
+        ruta = copia.material / "identidad" / archivo
+        identidad = json.loads(ruta.read_text())
+        identidad["display_name"] = nombre
+        _privado(ruta, identidad)
     preparar_intentos(copia)
     preparar_bolsa(copia)
