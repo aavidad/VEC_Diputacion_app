@@ -120,7 +120,7 @@ Ninguna sentencia de estas tres pantallas hace un recorrido secuencial caro.
 El mayor nodo de datos es un `Append` de 22 ms dentro de la acreditación,
 sobre tablas de catálogo. No hace falta ningún índice.
 
-## Fallos por concurrencia (para una tarea aparte)
+## Fallos por concurrencia (tarea F1-105)
 
 Las lecturas escriben en tablas de la persona (decisión, consumo, uso del
 contexto), y dos lecturas simultáneas de la misma persona chocan. Con más
@@ -150,7 +150,8 @@ máquina seguiría fallando.
      access due to read/write dependencies among transactions`, «conflict out
      to pivot, during read»), en la comparación de la prueba con la
      revalidación de `revalidar_evidencia_consumo_consulta_rrhh_v3_interna`
-     (autorización atestada 000006). No es una espera por bloqueo de fila.
+     (autorización atestada 000006, reescrita en 000207, que añade lecturas de
+     la cadena de auditoría). No es una espera por bloqueo de fila.
    - Tanda conjunta de las once lecturas: 543 errores `could not serialize
      access due to concurrent update`, 395 de ellos en
      `vec_autorizacion.revalidar_decision_contexto_actor_v3_viva` (migración
@@ -161,17 +162,25 @@ máquina seguiría fallando.
      El registro de la aplicación conserva 489 respuestas con
      `sqlstate=40001`, 2 con `40P01` y 850 con `etapa=autoridad_contexto`.
 
-   La aplicación devuelve todo esto como 503. Cuando reintenta y acaba bien,
-   como en la lista, la mediana sube a 1,9 s.
+   La lista y la ficha de CT ya reintentan los 40001: el adaptador
+   (`consulta_rrhh_postgresql.go:527-553`) repite la transacción hasta 30
+   veces con espera aleatoria creciente
+   (`internal/shared/postgresql/reintento_serializable.go:27`). Por eso la
+   lista no da errores, pero su mediana sube a 1,9 s. El cuadro con
+   `resumen: true` usa otra consulta (`consultaCuadroResumenRRHHPostgreSQL`)
+   que no está en la lista de consultas reintentables; agotado el primer
+   intento devuelve 503, y de ahí los 374 de 500.
 
-Recomendación, sin implementarla y con revisión SQL y de seguridad. Para CT,
-la medida principal es un reintento acotado de 40001 y 40P01 en el adaptador
-de lectura con la misma clave, y revisar si la revalidación de la evidencia
-de consumo necesita leer en serializable estricto lo que escriben otras
-lecturas de la misma persona. Para la ficha del candidato, el mismo orden de
-bloqueo en las funciones de contexto y de decisión (o no bloquear la fila de
-la cuenta en lecturas), y pedir las secciones en una sola petición con una
-sola decisión. Los índices y la paginación no lo arreglan.
+Recomendación, sin implementarla. La tarea F1-105 ya se ocupa de la
+concurrencia y es la que hará estas recomendaciones, con revisión SQL y de
+seguridad. Para CT: incluir el cuadro con resumen en el reintento que ya
+tienen la lista y la ficha, y revisar si la revalidación de la evidencia de
+consumo necesita leer en serializable estricto lo que escriben otras lecturas
+de la misma persona, porque el reintento evita el 503 pero no los 1,9 s. Para
+la ficha del candidato: el mismo orden de bloqueo en las funciones de
+contexto y de decisión (o no bloquear la fila de la cuenta en lecturas), y
+pedir las secciones en una sola petición con una sola decisión. Los índices y
+la paginación no lo arreglan.
 
 ## N+1 de los avisos de Bolsa
 
@@ -202,9 +211,11 @@ CT.
 
 Recomendaciones, de mayor a menor efecto, sin implementarlas:
 
-1. Concurrencia de la cadena de autorización (apartado anterior). Es la que
-   produce errores visibles: reintento acotado de 40001 en CT y orden de los
-   bloqueos en la ficha del candidato.
+1. Concurrencia de la cadena de autorización (apartado anterior, tarea
+   F1-105). Es la que produce errores visibles: llevar el cuadro con resumen
+   al reintento que ya usan la lista y la ficha de CT, reducir los conflictos
+   de la revalidación de la evidencia de consumo y ordenar los bloqueos de la
+   ficha del candidato.
 2. Acreditación del pool de motivos: comprobar el catálogo una vez por
    conexión, o cuando cambie una versión de catálogo, en lugar de en cada
    petición. Quitaría unos 63 ms de cada lectura de CT, un tercio del cuadro.
