@@ -124,9 +124,13 @@ func (e EstadoNoIncorporacion) Valido() bool {
 }
 
 // EstadoPropuestaNoIncorporacion es la propuesta pendiente de la segunda
-// persona, para el detalle: sus datos, sin quién la propuso.
+// persona, para el detalle. PropuestaActorRef (quién la propuso) solo sirve
+// al servidor para no ofrecerla a esa misma persona; nunca se entrega. Sin
+// CT242 llega vacío y la vista ofrece los pasos como antes: quien decide es
+// siempre el SQL, que rechaza a la misma persona.
 type EstadoPropuestaNoIncorporacion struct {
 	PropuestaRef      string
+	PropuestaActorRef string
 	MotivoClave       string
 	ConsecuenciaClave string
 	ResolucionRef     string
@@ -136,7 +140,9 @@ type EstadoPropuestaNoIncorporacion struct {
 }
 
 func (e EstadoPropuestaNoIncorporacion) Valido() bool {
-	return domain.ReferenciaOpacaValida(e.PropuestaRef) && domain.MotivoNoIncorporacionValido(e.MotivoClave) &&
+	return domain.ReferenciaOpacaValida(e.PropuestaRef) &&
+		(e.PropuestaActorRef == "" || domain.ReferenciaOpacaValida(e.PropuestaActorRef)) &&
+		domain.MotivoNoIncorporacionValido(e.MotivoClave) &&
 		domain.ConsecuenciaNoIncorporacionValida(e.ConsecuenciaClave) && domain.ReferenciaOpacaValida(e.ResolucionRef) &&
 		huellaSHA256OperacionAnalisisValida(e.ResolucionSHA256) && fechaCivilTextoValida(e.FechaNotificacion) &&
 		domain.InstanteUTCCanonico(e.RegistradaEn)

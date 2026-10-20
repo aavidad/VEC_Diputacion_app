@@ -50,6 +50,14 @@ test("la consulta exige el esquema, el expediente pedido y un cierre solo tras e
   assert.throws(() => validarConsultaSeguimientoCese(consulta({ cierre: { condiciones: [], ginpix_numero: "", ginpix_confirmada_en: "", observaciones: "", recibo_ref: "recibo:c:1", registrada_en: "" } }), EXP), TypeError);
 });
 
+test("la consulta acepta metadatos autoritativos completos y rechaza valores parciales", () => {
+  const metadata = { version_expediente: 8, fase_clave: "nombramiento", estado_clave: "en_curso", numero_expediente: "CT-2026-18" };
+  assert.equal(validarConsultaSeguimientoCese(consulta(metadata), EXP).estado.version_expediente, 8);
+  assert.throws(() => validarConsultaSeguimientoCese(consulta({ version_expediente: 8 }), EXP), TypeError);
+  assert.throws(() => validarConsultaSeguimientoCese(consulta({ ...metadata, version_expediente: 0 }), EXP), TypeError);
+  assert.throws(() => validarConsultaSeguimientoCese(consulta({ ...metadata, numero_expediente: "" }), EXP), TypeError);
+});
+
 test("el cliente usa la ruta propia, espera 201 y trata como rechazo cierto solo los conflictos conocidos", async () => {
   const llamadas = [];
   const cliente = crearClienteSeguimientoCeseHTTP({ ejecutar: async (p) => { llamadas.push(p); return p.validarRespuesta(p.efecto ? { ...recibo } : consulta()); },

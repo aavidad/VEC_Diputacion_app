@@ -7,6 +7,7 @@ import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js?v=VE
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { traducirPortal } from "../../portal-i18n.js?v=VEC_WEB_VERSION";
+import { informeNuevoVigenteEnSubsanacion } from "./ronda-informe-nuevo.js?v=VEC_WEB_VERSION";
 import { origenLlamamientoValido } from "../../portal-llamamiento-origen.js";
 import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js?v=VEC_WEB_VERSION";
 import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js?v=VEC_WEB_VERSION";
@@ -192,8 +193,12 @@ export function solicitudInformeDefinitivoDesdeEstado(estado, documento = null) 
     || estado.expediente_ref !== expediente.expediente_ref
     || estado.cuadro?.demostracion !== false) return null;
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref }) => expediente_ref === expediente.expediente_ref);
-  if (resumen?.version !== expediente.version || (resumen.fase_clave !== "nombramiento" && !(previoFiscalizacion && ["informe_juridico", "fiscalizacion"].includes(resumen.fase_clave)))
-    || resumen.estado_clave !== "en_curso") return null;
+  // Tras subsanar un reparo, el informe nuevo se firma de nuevo antes de
+  // volver a Intervención (el servidor admite su original en esa fase).
+  const informeNuevo = previoFiscalizacion && informeNuevoVigenteEnSubsanacion(estado);
+  if (resumen?.version !== expediente.version || (!informeNuevo && ((resumen.fase_clave !== "nombramiento"
+    && !(previoFiscalizacion && ["informe_juridico", "fiscalizacion"].includes(resumen.fase_clave)))
+    || resumen.estado_clave !== "en_curso"))) return null;
   return Object.freeze({ expediente_ref: expediente.expediente_ref, version_observada: expediente.version });
 }
 

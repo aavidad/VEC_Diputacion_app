@@ -196,3 +196,5 @@ deploy/postgresql/bolsa_convocatorias/migraciones/000013_comprobacion_inscripcio
 deploy/postgresql/bolsa_llamamientos/migraciones/000146_solicitud_conjunta.up.sql cbc0b4b671098154bc89b1f98e6a87ecbabc2736541fc85597cc9737ab763afe
 # F1-13 parte 4 — B139: los avisos de ofertas respetan la elección de modalidades al congelar destinatarios; tras B138 y B136.
 deploy/postgresql/bolsa_llamamientos/migraciones/000139_avisos_modalidades.up.sql ef4c0b36253f63017fbb0591e7c29d9091d0a5ee48b0b16e18ebf3433bc31879
+# F1-47 — CT242: metadatos actuales de la lectura exacta para segunda revisión de no incorporación; tras CT241.
+deploy/postgresql/contratacion_temporal/migraciones/000242_lectura_revision_no_incorporacion.up.sql 30bae173a84fcd4955e221fe8357b6e00301347928c896d7060f8b36e81208d9

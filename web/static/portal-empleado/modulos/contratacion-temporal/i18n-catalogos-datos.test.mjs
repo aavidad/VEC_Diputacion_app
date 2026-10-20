@@ -51,7 +51,8 @@ const PREIMAGEN = {
     "MENSAJES_FICHA_LISTA_ES": "ddf03fbe54a3b91147d7536fd213ec24867692da62b30e2503e9b2c5da0d4009"
   },
   "i18n-informe-tras-subsanacion.js": {
-    "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "f2cf9af7062644110924a3c5a72d29235c556281e30b46dc008781723678067d",
+    // Excepción a la preimagen: F1-26 nombra en inglés el apartado «Signing workflow».
+    "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "457ff6a48d44b1554c8275e776a9231f098a0d0f0baad802799eaf413f526330",
     "MENSAJES_INFORME_TRAS_SUBSANACION_ES": "d75febfd37a4cf2265d502bcf2ae5af4ccad05b724433807974fea104abef743"
   },
   "i18n-llamamiento.js": {

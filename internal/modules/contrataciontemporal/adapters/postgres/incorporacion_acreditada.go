@@ -62,6 +62,7 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConsultarIncorporacionAcredi
 			ResolucionSHA256  string    `json:"resolucion_sha256"`
 			FechaNotificacion string    `json:"fecha_notificacion"`
 			RegistradaEn      time.Time `json:"registrada_en"`
+			ActorRef          string    `json:"propuesta_actor_ref"`
 		} `json:"no_incorporacion_propuesta"`
 	}
 	var propuestas struct {
@@ -116,7 +117,7 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConsultarIncorporacionAcredi
 			FechaNotificacion: n.FechaNotificacion, ReciboRef: n.Recibo.ReciboRef, RegistradaEn: n.Recibo.RegistradaEn.UTC()}
 	}
 	if p := salida.Propuesta; p != nil {
-		estado.PropuestaNoIncorporacion = &ports.EstadoPropuestaNoIncorporacion{PropuestaRef: p.PropuestaRef, MotivoClave: p.MotivoClave,
+		estado.PropuestaNoIncorporacion = &ports.EstadoPropuestaNoIncorporacion{PropuestaRef: p.PropuestaRef, PropuestaActorRef: p.ActorRef, MotivoClave: p.MotivoClave,
 			ConsecuenciaClave: p.ConsecuenciaClave, ResolucionRef: p.ResolucionRef, ResolucionSHA256: p.ResolucionSHA256,
 			FechaNotificacion: p.FechaNotificacion, RegistradaEn: p.RegistradaEn.UTC()}
 	}

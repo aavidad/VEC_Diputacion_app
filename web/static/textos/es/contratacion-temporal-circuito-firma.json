@@ -42,6 +42,7 @@
     "circuito_firma_preparando": "Preparando el borrador para firmar…",
     "circuito_firma_abriendo_autofirma": "Abriendo su programa de firma (GrxFirma o AutoFirma): firme el documento en esa ventana.",
     "circuito_firma_registrando": "Verificando y registrando…",
+    "circuito_firma_otra_en_curso": "Se está registrando otra firma de este expediente. Cuando termine, pulse otra vez «Comprobar opciones de firma».",
     "circuito_firma_registrada": "Firma registrada con el recibo {recibo}. Siguiente paso: Portafirmas.",
     "circuito_firma_devuelta": "Devolución registrada con el recibo {recibo}.",
     "circuito_firma_error_verificacion": "No se ha podido comprobar la firma y no se ha registrado. Avise a Informática antes de intentarlo de nuevo.",
