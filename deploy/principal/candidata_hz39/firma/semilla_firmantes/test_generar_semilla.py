@@ -44,8 +44,8 @@ class SemillaFirmantesTest(unittest.TestCase):
         path.chmod(0o600)
         return path
 
-    def run_generator(self, output="salida", *extra):
-        return subprocess.run([sys.executable, str(GENERATOR),
+    def run_generator(self, output="salida", *extra, generator=GENERATOR):
+        return subprocess.run([sys.executable, str(generator),
             "--config", str(self.root / "config.json"),
             "--salida", str(self.root / output), *extra],
             capture_output=True, text=True, timeout=10)
@@ -90,10 +90,26 @@ module.main()
                 "--roles-fuente-publicada", str(source))
 
     def test_plantillas_publicas_generan_datos_privados_sin_asignaciones(self):
-        for name in ("identidad.template.sql", "asignaciones.template.sql",
-                     "firmantes.template.json", "cargos-roles.template.json"):
-            self.assertEqual(GENERATOR.with_name(name).stat().st_mode & 0o777, 0o644)
-        result = self.run_generator()
+        checkout = self.root / "checkout_publico"
+        checkout.mkdir(mode=0o700)
+        names = ("generar_semilla_p.py", "identidad.template.sql",
+                 "asignaciones.template.sql", "firmantes.template.json",
+                 "cargos-roles.template.json")
+        for name in names:
+            target = checkout / name
+            target.write_bytes(GENERATOR.with_name(name).read_bytes())
+            target.chmod(0o644)
+        generator = checkout / "generar_semilla_p.py"
+        writable = checkout / "identidad.template.sql"
+        writable.chmod(0o664)
+        rejected = self.run_generator("salida_abierta", generator=generator)
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn("plantilla pública inválida", rejected.stderr)
+        self.assertFalse((self.root / "salida_abierta").exists())
+        writable.chmod(0o644)
+        for name in ("config.json", "acuse.json", "clave.bin"):
+            self.assertEqual((self.root / name).stat().st_mode & 0o777, 0o600)
+        result = self.run_generator(generator=generator)
         self.assertEqual(result.returncode, 0, result.stderr)
         output = self.root / "salida"
         self.assertEqual({p.name for p in output.iterdir()}, {
