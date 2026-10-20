@@ -172,6 +172,11 @@ se pide a Intervención que la repita. Si falta el resultado, se mantiene la esp
 
 Con la fiscalización favorable, el técnico abre el llamamiento. VEC recorre la bolsa por orden, salta a quien no está disponible y envía a la persona a la que le toca un correo con la categoría, el centro, la modalidad, la fecha de inicio y el plazo. RRHH puede cambiar el texto de ese correo.
 
+Está preparada la recuperación de un llamamiento pendiente al volver a abrir
+la ficha: «Reanudar llamamiento» permite revisar y continuar la misma operación.
+No hay que escribir una clave. Abrir la ficha no realiza otro llamamiento.
+Queda pendiente comprobar esta recuperación en la copia local completa.
+
 VEC no emite un llamamiento que se salte a una persona disponible que aún no ha sido llamada para esa necesidad. Si la selección empieza más abajo, la pantalla indica quién va antes y su número de orden, y no guarda nada. Quien no contestó a un llamamiento para otra necesidad conserva su turno en los siguientes. Saltar el orden solo será posible con un motivo de un catálogo aprobado por RRHH, que quedará guardado en el llamamiento y en la auditoría. Ese catálogo está vacío hasta que RRHH conteste la duda 168.
 
 El correo avisa del llamamiento. Tras hablar con la persona, RRHH abre su ficha en Bolsa y registra el resultado con «Registrar intento telefónico». El resultado «Contactado» abre la respuesta en Mi Bolsa y el plazo que muestran las reglas vigentes; el envío del correo por sí solo no lo abre. La fecha de la llamada la guarda VEC.
