@@ -193,3 +193,5 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000144_ambito_gobernado_bolsa.u
 deploy/postgresql/bolsa_convocatorias/migraciones/000014_publicacion_oficial_bases.up.sql 7c2d7be976806d37c7afed3edfb3b66d4e27247d6e28e6b5e327967bfac748ba
 # F1-95 — BC15: fachada web de la declaración de publicación oficial (RRHH), tras BC14; deniega (55000) hasta que el núcleo tenga consumir_publicacion_oficial_bases_v1.
 deploy/postgresql/bolsa_convocatorias/migraciones/000015_declaracion_publicacion_oficial_rrhh.up.sql 3418e4c1aebc1c0e5568c67846d460c75e8a5adc15eaf2865b1c684e6b2fb7a8
+# F1-95 — AD301: perfil publicacion_oficial_bases_rrhh en el núcleo V3, consumidor consumir_publicacion_oficial_bases_v1, audiencia y origen del pool de Bolsa. Tras BC15 (borrador para el equipo de permisos).
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion_oficial_bases.up.sql a6d954810333f0d44b01675f86626910ce9cebb2e3163d8d7565d24a3fb9085a

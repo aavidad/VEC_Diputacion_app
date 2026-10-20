@@ -101,3 +101,47 @@ montada y responde 503; el resto de Bolsa sigue igual.
   una decisión; si su clave se reutiliza desde la web, se responde 409.
 - No se comprueba contra el boletín que el anuncio exista: lo afirma quien
   declara, y queda su nombre en la anotación.
+
+## Entrega B: AD301 en el núcleo (borrador)
+
+`deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion_oficial_bases.up.sql`
+va después de BC15. Solo UP; no se reaplica ni se revierte. Sigue el patrón de
+AD291: bloqueo `vec_autorizacion_atestada_v3:nucleo`, preimagen y postimagen
+por huella y definición final explícita de la función central, sin
+`replace()` ni `EXECUTE`.
+
+| Objeto | Preimagen | Postimagen |
+| --- | --- | --- |
+| `consumir_decision_mutacion_v3_interna` | `6e07b8c0…` (AD291) | `5ae824c2ef6e1b22f2fa4058e32b29b4bdebd85a4e6ecfeb0136fc35ea5224ef` |
+| `clave_capacidad_version_audiencia_consumo_check` | `411555a7…` (AD291) | `b8a3f4abaebb452c245e2e33e191f776cea16a3e393ca11ae6ddf8c1901f10c8` |
+
+La diferencia con la preimagen está entera en `ad301_central.diff` (35 líneas):
+
+1. Rama de sesión del perfil `publicacion_oficial_bases_rrhh`: copia literal
+   de la de `comprobacion_ofrecimiento_bolsa`. La sesión tiene que ser el
+   LOGIN `vec_bolsa_llamamientos_desarrollo`, sin `SET ROLE`, miembro solo del
+   ejecutor de Bolsa y sin ajustes por rol.
+2. El perfil sale del caso genérico (una condición más en la lista de
+   exclusiones).
+3. Predicado del perfil: operación y acción
+   `bolsa.convocatoria.publicacion_oficial.declarar`, audiencia
+   `vec.bolsa.publicacion_oficial_bases.v1`, módulo `bolsa`, recurso
+   `version_convocatoria` con referencia `cv1_<sha256>_v<n>` igual al efecto,
+   huella del contexto igual a la del efecto, finalidad
+   `declarar_publicacion_oficial_bases`, garantía alta, certificado,
+   superficie interna, ámbitos exactamente `ambito_ref` y `unidad_ref`, sin
+   campos y con la obligación `auditar`.
+
+Además crea `consumir_publicacion_oficial_bases_v1` (patrón AD290), que solo
+puede ejecutar `vec_bolsa_convocatorias_propietario`. Ese propietario recibe
+`USAGE` del esquema del núcleo; la preimagen exige que ninguna función del
+esquema esté abierta a `PUBLIC` y la postimagen, que con ese `USAGE` solo
+alcance el consumidor y ninguna tabla. La audiencia entra en la restricción
+de claves de capacidad y el origen se copia de la fila
+`situacion_participacion` del mismo pool, con la misma comprobación de
+membresía que AD291.
+
+Prueba focal: `pruebas_sql/ad301_publicacion_oficial_bases.sql` (revierte
+todo). Comprueba huellas, las tres ramas, el ACL del consumidor, el alcance
+del propietario de convocatorias, la restricción y el origen, y que un
+material ajeno se deniega con `42501` antes de llegar al núcleo.
