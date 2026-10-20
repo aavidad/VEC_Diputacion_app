@@ -27,7 +27,8 @@ la revisión, las huellas y la ruta fuente: cambiar de revisión y arrancar la
 misma instancia no es una actualización admitida; se crea otra instancia.
 Reserve puertos propios y un nombre que no use otro equipo.
 
-Compruebe `free -g` y `df -h /dev/shm`. Con menos de 40 GB disponibles,
+Compruebe `free -g`, `df -h /dev/shm` y `df -h /home`. No trabaje
+con menos de 10 GB libres en disco, según la orden del 20/10. Con menos de 40 GB disponibles,
 retire copias y temporales propios sin uso y avise a dirección; el sistema
 conserva 32 GB. La guarda del creador rechaza menos de 34 GiB: ese umbral del
 código no sustituye la orden de avisar por debajo de 40 GB.

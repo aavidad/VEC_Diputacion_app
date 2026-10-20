@@ -78,5 +78,6 @@ ni concede permisos por ella. Cada consumidor debe usar su catálogo gobernado.
 Las revisiones exactas se anotan en la PR y el canal de coordinación.
 Este puerto permite a los consumidores ampliar su cobertura; no significa que
 todos los módulos ya lo llamen. El sello TSA y la exportación judicial pertenecen
-a los cortes siguientes de auditoría. El verificador anterior de consumos debe
-ampliarse para este nuevo tipo de registro antes de verificar un rango mixto.
+a los cortes siguientes de auditoría. El [verificador de auditoría](verificar_auditoria.md) ya admite el formato v2
+para rangos mixtos de consumos e intentos. Use ese formato y sus comprobaciones
+de cadena; el formato v1 solo describe consumos.
