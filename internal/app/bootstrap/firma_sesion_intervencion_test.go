@@ -26,7 +26,7 @@ func sesionConsultaFirmasIntervencionPrueba(t *testing.T) (*entornoSesionConsult
 	lector, err := nuevoPerfilFijoCTDesarrollo(e.principal, e.soporte.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
 		[]string{httpinterno.RutaResultadosFiscalizacion},
 		func(actor, perfil string) (dominiovec.InstantaneaAutorizacion, error) {
-			plantilla, err := instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, perfil, ahora)
+			plantilla, err := instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, perfil, ahora)
 			if err != nil {
 				return dominiovec.InstantaneaAutorizacion{}, err
 			}
@@ -45,7 +45,7 @@ func sesionConsultaFirmasIntervencionPrueba(t *testing.T) (*entornoSesionConsult
 		sello: e.soporte.sello, principalID: e.soporte.principalID,
 		certificadoSHA256: e.soporte.certificadoSHA256, contexto: e.soporte.contexto,
 	}
-	p, err := nuevaSesionConsultaFirmasIntervencionCTDesarrollo(context.Background(), e.p, canal, e.soporte, lector)
+	p, err := nuevaSesionConsultaFirmasIntervencionCTDesarrollo(referenciaOrganizativaCTMontajePrueba, context.Background(), e.p, canal, e.soporte, lector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestSesionConsultaFirmasIntervencionConstructorExigePuenteYConcesionExactos
 		t.Run(caso.nombre, func(t *testing.T) {
 			e, canal, lector, _ := sesionConsultaFirmasIntervencionPrueba(t)
 			caso.alterar(e, canal, lector)
-			if _, err := nuevaSesionConsultaFirmasIntervencionCTDesarrollo(context.Background(), e.p, canal, e.soporte, lector); !errors.Is(err, ports.ErrAutorizacionDenegada) {
+			if _, err := nuevaSesionConsultaFirmasIntervencionCTDesarrollo(referenciaOrganizativaCTMontajePrueba, context.Background(), e.p, canal, e.soporte, lector); !errors.Is(err, ports.ErrAutorizacionDenegada) {
 				t.Fatalf("se aceptó una autoridad ajena o una concesión ampliada: %v", err)
 			}
 		})
@@ -216,7 +216,7 @@ func TestSesionConsultaFirmasIntervencionDeniegaCanalYContextosCruzados(t *testi
 	t.Run("perfil_origen", func(t *testing.T) {
 		e, canal, lector, _ := sesionConsultaFirmasIntervencionPrueba(t)
 		lector.contexto = canal.contexto
-		if _, err := nuevaSesionConsultaFirmasIntervencionCTDesarrollo(context.Background(), e.p, canal, e.soporte, lector); !errors.Is(err, ports.ErrAutorizacionDenegada) {
+		if _, err := nuevaSesionConsultaFirmasIntervencionCTDesarrollo(referenciaOrganizativaCTMontajePrueba, context.Background(), e.p, canal, e.soporte, lector); !errors.Is(err, ports.ErrAutorizacionDenegada) {
 			t.Fatalf("se aceptó el perfil de origen como lector: %v", err)
 		}
 	})

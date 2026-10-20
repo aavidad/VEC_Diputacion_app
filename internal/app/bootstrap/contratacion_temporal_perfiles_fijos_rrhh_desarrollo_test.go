@@ -37,7 +37,7 @@ func TestEntregaSinCatalogoNoComponePermisoFijo(t *testing.T) {
 		s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodGet) != nil {
 		t.Fatal("sin fuente de catálogo se perfilaron permisos de entrega")
 	}
-	if _, err := nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(
+	if _, err := nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		s.principalID, s.contexto.Resultado.Contexto.PerfilActivoRef,
 		time.Now().UTC().Truncate(time.Microsecond), nil); err == nil {
 		t.Fatal("la plantilla de entrega aceptó el fallback sintético")
@@ -51,7 +51,7 @@ func origenEntregaPerfilFijoPrueba(t *testing.T) *origenConsultasContratacionTem
 	if err != nil {
 		t.Fatal(err)
 	}
-	return nuevoOrigenConsultasConCatalogoDesarrollo(catalogo)
+	return nuevoOrigenConsultasConCatalogoDesarrollo(referenciaOrganizativaCTMontajePrueba, catalogo)
 }
 
 func TestPerfilFijoEntregaSoloSeleccionadoPorMetodoDeCapacidad(t *testing.T) {

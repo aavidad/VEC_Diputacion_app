@@ -44,7 +44,7 @@ func TestRecursoCancelacionCentroLigaElCentroDelActor(t *testing.T) {
 		Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo, "expediente_ref": "expediente:1",
 			"fase_previa": "solicitud", "estado_previo": string(domain.EstadoEnCurso), "centro_ref": "centro-520"},
 		Atributos: map[string]string{"canal": string(domain.CanalCancelacionCentro)}}
-	r := &recursoCancelacionCentroDesarrollo{accion: string(domain.AccionCancelarExpediente), finalidad: ports.FinalidadCancelarExpediente, recurso: recurso, actor: actor}
+	r := &recursoCancelacionCentroDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba, accion: string(domain.AccionCancelarExpediente), finalidad: ports.FinalidadCancelarExpediente, recurso: recurso, actor: actor}
 	d := vecdomain.DatosSolicitudAutorizacionLigadaV3{Accion: r.accion, Finalidad: r.finalidad, Recurso: recurso}
 	if !r.validaPara("actor:centro", "perfil:centro", d) {
 		t.Fatal("recurso exacto del centro rechazado")

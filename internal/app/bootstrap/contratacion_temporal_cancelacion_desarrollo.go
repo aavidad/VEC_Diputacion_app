@@ -133,7 +133,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ambitosCancelacionCT(ruta st
 	o, ok := operacionCancelacionCTPorRuta(ruta)
 	r := d.Recurso
 	if s == nil || !ok || d.Accion != o.accion || d.Finalidad != o.finalidad || d.ReferenciaMotivo != motivoCancelacionCTDesarrollo(ruta) ||
-		r.ModuloID != ports.ModuloContratacion || r.Tipo != o.tipo || r.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
+		r.ModuloID != ports.ModuloContratacion || r.Tipo != o.tipo || r.Ambitos["organizacion_ref"] != s.organizacionRef ||
 		r.Ambitos["expediente_ref"] != r.Referencia || !domain.ReferenciaOpacaValida(r.Referencia) {
 		return nil, false
 	}
@@ -169,7 +169,7 @@ func configurarSoporteCancelacionCTDesarrollo(ctx context.Context, alta *depende
 	}
 	instantanea, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, reloj.Ahora(),
 		"cancelacion_ct_desarrollo", "Cancelación de expedientes de desarrollo", "cancelacion-ct-desarrollo", concesiones,
-		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func (a *autoridadCancelacionCTDesarrollo) ResolverContextoCanalSeguimiento(ctx 
 		return application.ContextoCanalSeguimiento{}, ports.ErrAutorizacionDenegada
 	}
 	return application.ContextoCanalSeguimiento{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef, PerfilRef: v.PerfilActivoRef,
-		OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo}, nil
+		OrganizacionRef: a.alta.soporte.organizacionRef}, nil
 }
 
 func (a *autoridadCancelacionCTDesarrollo) exigir(ctx context.Context, accion, finalidad string, recurso vecdomain.RecursoAutorizable) (vecdomain.SolicitudAutorizacionLigadaV3, vecdomain.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecdomain.ResultadoContextoActorRegistradoV2, error) {
@@ -270,7 +270,7 @@ func (a *autoridadCancelacionCTDesarrollo) AutorizarOperacionSeguimiento(ctx con
 // AutorizarLecturaSeguimiento exige una decisión de lectura del expediente
 // exacto; no emite capacidad de consumo ni escribe ningún efecto.
 func (a *autoridadCancelacionCTDesarrollo) AutorizarLecturaSeguimiento(ctx context.Context, organizacionRef, expedienteRef string) error {
-	if organizacionRef != organizacionAltaContratacionTemporalDesarrollo || !domain.ReferenciaOpacaValida(expedienteRef) {
+	if organizacionRef != a.alta.soporte.organizacionRef || !domain.ReferenciaOpacaValida(expedienteRef) {
 		return ports.ErrAutorizacionDenegada
 	}
 	_, _, _, _, err := a.exigir(ctx, accionConsultarCancelacionCTDesarrollo, finalidadConsultarCancelacionCTDesarrollo, vecdomain.RecursoAutorizable{

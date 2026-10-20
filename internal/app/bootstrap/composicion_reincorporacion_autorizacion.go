@@ -12,12 +12,12 @@ import (
 
 // El perfil autoriza la organización; el recurso y su huella siguen ligados
 // al expediente, la versión, la relación y la evidencia exactos de CT130/134.
-func solicitudAutorizacionReincorporacionTitularValida(ruta string, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionReincorporacionTitularValida(referencia referenciaCT, ruta string, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
 	r := d.Recurso
 	if !rutaReincorporacionTitularDesarrollo(ruta) ||
 		d.ReferenciaMotivo != motivoSeguimientoCeseDesarrollo(httpinterno.RutaReincorporacionesTitular) ||
 		r.ModuloID != ports.ModuloContratacion || !domain.ReferenciaOpacaValida(r.Referencia) ||
-		len(r.Ambitos) != 1 || r.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo {
+		len(r.Ambitos) != 1 || r.Ambitos["organizacion_ref"] != referencia.organizacionRef {
 		return false
 	}
 	if d.Accion == accionConsultarSeguimientoCeseDesarrollo {

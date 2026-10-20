@@ -12,6 +12,7 @@ import (
 // mismo lector, organización y ámbito con los que consulta el cuadro. Nada
 // procede de la URL ni de cabeceras.
 type resolutorAlcanceEstadisticasRRHHDesarrollo struct {
+	referenciaCT
 	sello      *selloConsultasContratacionTemporalDesarrollo
 	resolvedor *resolvedorIdentidadDesarrollo
 }
@@ -26,7 +27,7 @@ func (r *resolutorAlcanceEstadisticasRRHHDesarrollo) AlcanceEstadisticasRRHH(ctx
 	}
 	// Con lectores RRHH configurados, el ámbito es el del lector acreditado;
 	// sin ellos, el de la organización de desarrollo, como hace el cuadro.
-	alcance := ports.AlcanceEstadisticasRRHH{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ClaseAmbito: ports.AmbitoOrganizacionRRHH, AmbitoRef: organizacionAltaContratacionTemporalDesarrollo}
+	alcance := ports.AlcanceEstadisticasRRHH{OrganizacionRef: r.organizacionRef, ClaseAmbito: ports.AmbitoOrganizacionRRHH, AmbitoRef: r.organizacionRef}
 	if len(r.resolvedor.lectoresRRHH) != 0 {
 		lector, ok := r.resolvedor.lectorConsultaRRHH(capacidad.principal)
 		if !ok {

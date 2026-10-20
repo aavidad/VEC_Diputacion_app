@@ -169,7 +169,7 @@ func configurarAutoridadOrganizacionDesarrollo(ctx context.Context, alta *depend
 		"organizacion_preparacion", "Preparación de organización", "organizacion-preparacion-desarrollo",
 		[]vecdomain.ConcesionRol{{Accion: personalports.AccionCambioOrganizacion, ModuloID: "personal", TipoRecurso: personalports.TipoCambioOrganizacion,
 			Finalidades: []string{finalidadOrganizacionDesarrollo}, GarantiaMinima: vecdomain.AuthAssuranceHigh}},
-		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}

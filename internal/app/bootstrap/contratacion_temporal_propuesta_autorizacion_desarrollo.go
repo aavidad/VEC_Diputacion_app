@@ -75,11 +75,11 @@ func motivoPropuestaFormalizacionDesarrollo() dominiovec.ReferenciaEntradaCatalo
 		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "propuesta-formalizacion-ct")}
 }
 
-func solicitudAutorizacionPropuestaDesarrolloValida(ctx context.Context, d dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
+func solicitudAutorizacionPropuestaDesarrolloValida(referencia referenciaCT, ctx context.Context, d dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
 	m, ok := ctx.Value(claveMaterialPropuestaFormalizacionDesarrollo{}).(ports.MaterialPropuestaFormalizacion)
-	if !ok || m.Validar() != nil || m.Solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+	if !ok || m.Validar() != nil || m.Solicitud.OrganizacionRef != referencia.organizacionRef ||
 		m.Solicitud.ExpedienteRef != p.expediente.Fiscalizado.Referencia ||
-		!expedienteFiscalizadoParaPropuestaDesarrollo(p.expediente, m.Solicitud) ||
+		!expedienteFiscalizadoParaPropuestaDesarrollo(referencia, p.expediente, m.Solicitud) ||
 		d.Accion != postgresct.AccionPropuestaFormalizacion || d.ReferenciaMotivo != motivoPropuestaFormalizacionDesarrollo() {
 		return false
 	}
@@ -107,7 +107,7 @@ func configurarAutoridadPropuestaFormalizacionDesarrollo(ctx context.Context, al
 		"propuesta_formalizacion_ct_desarrollo", "Propuesta de nombramiento de desarrollo", "propuesta-formalizacion-ct-desarrollo",
 		[]dominiovec.ConcesionRol{{Accion: postgresct.AccionPropuestaFormalizacion, ModuloID: "contratacion_temporal",
 			TipoRecurso: postgresct.TipoRecursoPropuestaFormalizacion, Finalidades: []string{"gestionar_contratacion_temporal"}, GarantiaMinima: dominiovec.AuthAssuranceHigh}},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}

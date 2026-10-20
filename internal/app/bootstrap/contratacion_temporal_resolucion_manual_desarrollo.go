@@ -86,7 +86,7 @@ func (p *proveedorComunicacionLlamamientoDesarrollo) PrepararResolucionManual(ct
 	ligada, existe := ctx.Value(claveResolucionManualDesarrollo{}).(aceptacionRevisadaDesarrollo)
 	if !valida || c.ruta != httpinterno.RutaResolucionComunicacionLlamamiento ||
 		!preparada || !existe || ligada.solicitud != s || ligada.politica != politica ||
-		!resolucionLigadaAlExpedienteDesarrollo(preparacion.expediente, ligada) {
+		!resolucionLigadaAlExpedienteDesarrollo(p.soporte.referenciaCT, preparacion.expediente, ligada) {
 		return vacio, ports.ErrOperacionComunicacionLlamamientoDenegada
 	}
 	if _, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(p.reloj.Ahora()); !vigente {
@@ -98,15 +98,15 @@ func (p *proveedorComunicacionLlamamientoDesarrollo) PrepararResolucionManual(ct
 // resolucionLigadaAlExpedienteDesarrollo: una respuesta exige su justificante
 // consultado; la expiración gobernada no tiene respuesta personal y solo liga
 // el expediente fiscalizado. CT111 comprueba el aviso, el contacto y el plazo.
-func resolucionLigadaAlExpedienteDesarrollo(e ports.ExpedienteParaSeleccion, l aceptacionRevisadaDesarrollo) bool {
+func resolucionLigadaAlExpedienteDesarrollo(referencia referenciaCT, e ports.ExpedienteParaSeleccion, l aceptacionRevisadaDesarrollo) bool {
 	if l.solicitud.Respuesta == ports.RespuestaLlamamientoExpirada {
 		return l.solicitud.Validar() == nil && l.solicitud.VersionEsperada == 2 && l.justificante == (ports.JustificanteRespuestaRecibida{}) &&
 			e.Fiscalizado.Validar() == nil &&
-			expedienteComunicacionLlamamientoDesarrolloValido(e, ports.SolicitudRegistrarComunicacionLlamamiento{
+			expedienteComunicacionLlamamientoDesarrolloValido(referencia, e, ports.SolicitudRegistrarComunicacionLlamamiento{
 				OrganizacionRef: l.solicitud.OrganizacionRef, ExpedienteRef: l.solicitud.ExpedienteRef,
 			})
 	}
-	return l.justificante.ValidarPara(l.solicitud) == nil && consultaJustificanteLigadaAlExpedienteDesarrollo(e, l.solicitud)
+	return l.justificante.ValidarPara(l.solicitud) == nil && consultaJustificanteLigadaAlExpedienteDesarrollo(referencia, e, l.solicitud)
 }
 
 func (p *proveedorComunicacionLlamamientoDesarrollo) AutorizarResolucionManual(ctx context.Context, m postgresct.MaterialResolucionManualLlamamiento) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -312,10 +312,10 @@ func (p *puenteBolsaLlamamientoDesarrollo) fuenteResolucionSucesorLigada(ctx con
 	return fuente, nil
 }
 
-func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
+func solicitudAutorizacionResolucionManualDesarrolloValida(referencia referenciaCT, ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
 	if datos.Accion == postgresct.AccionResolucionManualLlamamiento {
 		l, ok := ctx.Value(claveResolucionManualDesarrollo{}).(aceptacionRevisadaDesarrollo)
-		if !ok || !l.solicitud.RevisionManualConfirmada() || !resolucionLigadaAlExpedienteDesarrollo(p.expediente, l) ||
+		if !ok || !l.solicitud.RevisionManualConfirmada() || !resolucionLigadaAlExpedienteDesarrollo(referencia, p.expediente, l) ||
 			datos.ReferenciaMotivo != motivoResolucionManualDesarrollo(false) {
 			return false
 		}
@@ -330,7 +330,7 @@ func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, 
 	}
 	l, ok := ctx.Value(claveAceptacionRevisadaDesarrollo{}).(aceptacionRevisadaDesarrollo)
 	if !ok || !l.solicitud.RevisionManualConfirmada() || l.justificante.ValidarPara(l.solicitud) != nil ||
-		!consultaJustificanteLigadaAlExpedienteDesarrollo(p.expediente, l.solicitud) ||
+		!consultaJustificanteLigadaAlExpedienteDesarrollo(referencia, p.expediente, l.solicitud) ||
 		l.local.ValidarPara(l.solicitud) != nil ||
 		!politicaResolucionAdmitidaDesarrollo(l.local.Politica.Referencia, l.local.Politica.Version, l.local.Politica.HuellaSHA256) {
 		return false
@@ -376,7 +376,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaContex
 	if ruta == httpinterno.RutaRegistroComunicacionLlamamiento && ctx != nil {
 		d, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
 		if ok && accionCorreoLlamamientoDesarrollo(d.Accion) {
-			if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) {
+			if !solicitudAutorizacionLlamamientoDesarrolloValida(s.referenciaCT, ctx, ruta, d) {
 				return dominiovec.ReferenciaEntradaCatalogo{}, false
 			}
 			switch d.Accion {
@@ -392,7 +392,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaContex
 	if (ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento ||
 		ruta == httpinterno.RutaEventoPlazoLlamamiento) && ctx != nil {
 		d, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
-		if !ok || !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) {
+		if !ok || !solicitudAutorizacionLlamamientoDesarrolloValida(s.referenciaCT, ctx, ruta, d) {
 			return dominiovec.ReferenciaEntradaCatalogo{}, false
 		}
 		return d.ReferenciaMotivo, true
@@ -412,7 +412,7 @@ func configurarAutoridadResolucionManualDesarrollo(ctx context.Context, alta *de
 	local, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
 		"resolucion_manual_rrhh_desarrollo", "Revisión manual RRHH sintética", "resolucion-manual-rrhh-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(postgresct.AccionResolucionManualLlamamiento, "contratacion_temporal", postgresct.TipoRecursoResolucionManualLlamamiento)},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}
@@ -420,7 +420,7 @@ func configurarAutoridadResolucionManualDesarrollo(ctx context.Context, alta *de
 		"aceptacion_bolsa_rrhh_desarrollo", "Aceptación RRHH en Bolsa sintética", "aceptacion-bolsa-rrhh-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo, "bolsa", "integracion_llamamientos_bolsa")},
 		[]dominiovec.AmbitoPerfil{{Clave: "categoria_ref", Valores: []string{"categoria:desarrollo:c2"}},
-			{Clave: "unidad_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}}})
+			{Clave: "unidad_ref", Valores: []string{alta.soporte.unidadRef}}})
 	if err != nil {
 		return err
 	}
@@ -428,7 +428,7 @@ func configurarAutoridadResolucionManualDesarrollo(ctx context.Context, alta *de
 		"renuncia_bolsa_rrhh_desarrollo", "Renuncia RRHH en Bolsa sintética", "renuncia-bolsa-rrhh-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo, "bolsa", "integracion_llamamientos_bolsa")},
 		[]dominiovec.AmbitoPerfil{{Clave: "categoria_ref", Valores: []string{"categoria:desarrollo:c2"}},
-			{Clave: "unidad_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}}})
+			{Clave: "unidad_ref", Valores: []string{alta.soporte.unidadRef}}})
 	if err != nil {
 		return err
 	}

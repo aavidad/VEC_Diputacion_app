@@ -14,7 +14,7 @@ import (
 // externa (sin campos ni obligaciones, como AD170/AD177) y consultar las
 // firmas R5 V2 con los campos de AD162, en la organización y sin unidad.
 func TestFirmaExternaV2InstantaneaConcedeLoQueExigeElNucleo(t *testing.T) {
-	i, err := nuevaInstantaneaFirmaExternaV2CTDesarrollo("per_firma_externa_prueba", "prf_firma_externa_prueba", time.Now().UTC().Truncate(time.Microsecond))
+	i, err := nuevaInstantaneaFirmaExternaV2CTDesarrollo(referenciaOrganizativaCTMontajePrueba, "per_firma_externa_prueba", "prf_firma_externa_prueba", time.Now().UTC().Truncate(time.Microsecond))
 	if err != nil || i.Validar() != nil {
 		t.Fatal(err)
 	}

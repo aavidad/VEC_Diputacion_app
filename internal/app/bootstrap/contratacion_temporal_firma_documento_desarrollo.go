@@ -68,7 +68,7 @@ func motivoConsultaFirmasDocumentoCTDesarrollo() dominiovec.ReferenciaEntradaCat
 
 // custodia solo se fija desde la configuración documental validada ANTES de
 // publicar la plantilla inicial. Una ampliación posterior exige huella y CAS.
-func instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef string, ahora time.Time, custodia ...bool) (dominiovec.InstantaneaAutorizacion, error) {
+func instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referencia referenciaCT, principalID, perfilRef string, ahora time.Time, custodia ...bool) (dominiovec.InstantaneaAutorizacion, error) {
 	concesiones := []dominiovec.ConcesionRol{
 		{Accion: ports.AccionFirmarDocumento, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoFirmaDocumento,
 			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh},
@@ -84,19 +84,19 @@ func instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef stri
 	}
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
 		"firma_documento_ct_desarrollo", "Firma de prueba de borradores CT de desarrollo", "asignacion-firma-documento-ct-desarrollo-no-autoritativa",
-		concesiones, []dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		concesiones, []dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}}})
 }
 
 type claveConsultaFirmasDocumentoCTDesarrollo struct{}
 
-func solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(referencia referenciaCT, ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	if ctx == nil {
 		return false
 	}
 	m, ok := ctx.Value(claveConsultaFirmasDocumentoCTDesarrollo{}).(ports.MaterialConsultaFirmasDocumento)
 	esperado, err := consultafirmas.RecursoConsultaFirmasDocumento(m)
 	r := datos.Recurso
-	return ok && err == nil && m.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+	return ok && err == nil && m.OrganizacionRef == referencia.organizacionRef &&
 		datos.Accion == ports.AccionConsultarFirmasDocumento && datos.Finalidad == ports.FinalidadFirmaDocumento &&
 		datos.ReferenciaMotivo == motivoConsultaFirmasDocumentoCTDesarrollo() && r.Referencia == esperado.Referencia &&
 		r.ModuloID == esperado.ModuloID && r.Tipo == esperado.Tipo && maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
@@ -116,12 +116,12 @@ type claveMaterialFirmaDocumentoCTDesarrollo struct{}
 
 // solicitudAutorizacionFirmaDocumentoCTDesarrolloValida exige que la
 // solicitud V3 describa exactamente el material que se va a registrar.
-func solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(referencia referenciaCT, ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	if ctx == nil {
 		return false
 	}
 	m, ok := ctx.Value(claveMaterialFirmaDocumentoCTDesarrollo{}).(ports.MaterialFirmaDocumento)
-	if !ok || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+	if !ok || m.OrganizacionRef != referencia.organizacionRef {
 		return false
 	}
 	esperado, err := ctapplication.RecursoFirmaDocumento(m)
@@ -345,7 +345,7 @@ func (f *firmaDocumentoCTDesarrollo) ResolverOrganizacionFirmaDocumento(ctx cont
 		capacidad.ruta == httpinterno.RutaConsultaFirmaDocumento && dependenciaEsNulaContratacionTemporalDesarrollo(f.lector) {
 		return "", ports.ErrAutorizacionDenegada
 	}
-	return organizacionAltaContratacionTemporalDesarrollo, nil
+	return f.alta.soporte.organizacionRef, nil
 }
 
 // AutorizarFirmaDocumento obtiene del PDP común la concesión ligada al
@@ -361,7 +361,7 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 	perfil := s.perfilFijoParaContexto(ctx, capacidad.ruta)
 	_, certificadoVigente := f.certificadoVigenteFirmaDocumentoCTDesarrollo(capacidad)
 	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || perfil == nil ||
-		f.circuito == nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		f.circuito == nil || m.OrganizacionRef != f.alta.soporte.organizacionRef ||
 		!certificadoVigente {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
@@ -413,7 +413,7 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 		Recurso: recurso, Finalidad: ports.FinalidadFirmaDocumento, Correlacion: correlacion,
 	}
 	ctx = context.WithValue(ctx, claveMaterialFirmaDocumentoCTDesarrollo{}, m)
-	if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) {
+	if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(f.alta.soporte.referenciaCT, ctx, datos) {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(datos)
@@ -451,7 +451,7 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 func (f *firmaDocumentoCTDesarrollo) AutorizarConsultaFirmasDocumento(ctx context.Context, m ports.MaterialConsultaFirmasDocumento) (ports.CapacidadConsultaFirmasDocumento, error) {
 	vacia := ports.CapacidadConsultaFirmasDocumento{}
 	if ctx == nil || f == nil || f.alta == nil || f.alta.soporte == nil || f.alta.autorizador == nil ||
-		f.reloj == nil || f.alta.postgresql.proveedorMaterialConsultaFirmasDocumento == nil || m.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+		f.reloj == nil || f.alta.postgresql.proveedorMaterialConsultaFirmasDocumento == nil || m.OrganizacionRef != f.alta.soporte.organizacionRef {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	s := f.alta.soporte
@@ -488,7 +488,7 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarConsultaFirmasDocumento(ctx contex
 		Recurso: recurso, Finalidad: ports.FinalidadFirmaDocumento, Correlacion: correlacion,
 	}
 	ctx = context.WithValue(ctx, claveConsultaFirmasDocumentoCTDesarrollo{}, m)
-	if !solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx, datos) {
+	if !solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(f.alta.soporte.referenciaCT, ctx, datos) {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(datos)
@@ -570,7 +570,7 @@ func (f *firmaDocumentoCTDesarrollo) configurarLecturaIntervencion(ctx context.C
 	if f == nil || f.lectorInterno != nil {
 		return ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
-	lector, err := nuevoLectorFirmasIntervencionCTDesarrollo(ctx, f, canal, base, aprobacion)
+	lector, err := nuevoLectorFirmasIntervencionCTDesarrollo(f.alta.soporte.referenciaCT, ctx, f, canal, base, aprobacion)
 	if err != nil {
 		return err
 	}

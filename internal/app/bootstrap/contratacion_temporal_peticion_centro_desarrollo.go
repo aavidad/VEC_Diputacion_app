@@ -70,7 +70,7 @@ func perfilGeneralCentroDesarrollo(id *identidadPeticionCentroDesarrollo) perfil
 // nuevaIdentidadPeticionCentroDesarrollo compone los perfiles V3 de una
 // persona del centro. El general solo consume la asignación publicada; el de
 // cancelación, si la regla se la da, es propio y dinámico con guarda.
-func nuevaIdentidadPeticionCentroDesarrollo(
+func nuevaIdentidadPeticionCentroDesarrollo(referencia referenciaCT,
 	sello *selloConsultasContratacionTemporalDesarrollo, registro registroDecisionesAnalisisContratacionTemporalDesarrollo,
 	pool *pgxpool.Pool, principal vecdomain.Principal, adscripcion adscripcionCentroDesarrollo,
 	concesiones, concesionCancelar []vecdomain.ConcesionRol, reloj relojContratacionTemporalDesarrollo,
@@ -87,13 +87,13 @@ func nuevaIdentidadPeticionCentroDesarrollo(
 	if actor.Validar() != nil {
 		return nil, domain.ErrPeticionCentroInvalida
 	}
-	s := &soporteAltaContratacionTemporalDesarrollo{sello: sello, principalID: principal.ID, certificadoSHA256: principal.Attributes["certificate_sha256"], contexto: contexto, reloj: reloj,
+	s := &soporteAltaContratacionTemporalDesarrollo{referenciaCT: referencia, sello: sello, principalID: principal.ID, certificadoSHA256: principal.Attributes["certificate_sha256"], contexto: contexto, reloj: reloj,
 		peticionesCentro: true, soloConsumePublicada: true, motivo: motivoPeticionCentroDesarrollo(), registroDecisionesAnalisis: registro,
 		instantaneasPorSolicitud: make(map[string]vecdomain.InstantaneaAutorizacion), concesiones: make(map[string]struct{})}
 	// Comparte el pool, no la identidad de RRHH a la que se liga cada slot.
 	s.autoridadAsignaciones = &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: pool, soporte: s}
 	s.instantanea, err = nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(actor.ActorRef, actor.PerfilRef, reloj.Ahora(), principal.Roles[0], "Petición de centro de desarrollo", "peticion-centro-desarrollo-"+principal.ID, concesiones,
-		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}, {Clave: "centro_ref", Valores: []string{actor.CentroRef}}})
+		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}}, {Clave: "centro_ref", Valores: []string{actor.CentroRef}}})
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 		// recurso de cancelación, que exige además expediente, fase y estado;
 		// la cancelación se ejecuta con el perfil propio.
 		concesiones = append(concesiones, cancelacion.concesiones(principal.Roles[0])...)
-		id, err := nuevaIdentidadPeticionCentroDesarrollo(alta.soporte.sello, alta.soporte.registroDecisionesAnalisis, alta.postgresql.gobierno,
+		id, err := nuevaIdentidadPeticionCentroDesarrollo(alta.soporte.referenciaCT, alta.soporte.sello, alta.soporte.registroDecisionesAnalisis, alta.postgresql.gobierno,
 			principal, adscripcion, concesiones, cancelacion.concesionCancelar(principal.Roles[0]), reloj)
 		if err != nil {
 			return nil, err
@@ -238,7 +238,7 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 		etiquetador.catalogo = catalogosAlta[0]
 	}
 	alta.etiquetasPeticionesRRHH = etiquetador
-	repo, err := postgresct.NuevoRepositorioPeticionesCentroPostgreSQL(alta.postgresql.ejecucion, p, organizacionAltaContratacionTemporalDesarrollo)
+	repo, err := postgresct.NuevoRepositorioPeticionesCentroPostgreSQL(alta.postgresql.ejecucion, p, alta.soporte.organizacionRef)
 	if err != nil {
 		return nil, err
 	}
@@ -386,14 +386,14 @@ func motivoPeticionCentroDesarrollo() vecdomain.ReferenciaEntradaCatalogo {
 }
 
 func (p *proveedorPeticionCentroDesarrollo) AutorizarLecturaPeticionCentro(ctx context.Context, c ports.ConsultaPeticionCentro) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
-	r, err := postgresct.RecursoConsultaPeticionCentro(c, organizacionAltaContratacionTemporalDesarrollo)
+	r, err := postgresct.RecursoConsultaPeticionCentro(c, p.alta.soporte.organizacionRef)
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
 	return p.autorizar(ctx, c.Actor, ports.AccionConsultarPeticionCentro, r, materialAutorizacionPeticionCentroDesarrollo{consulta: &c})
 }
 func (p *proveedorPeticionCentroDesarrollo) AutorizarEscrituraPeticionCentro(ctx context.Context, m ports.MaterialPeticionCentro) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
-	r, err := postgresct.RecursoEscrituraPeticionCentro(m, organizacionAltaContratacionTemporalDesarrollo)
+	r, err := postgresct.RecursoEscrituraPeticionCentro(m, p.alta.soporte.organizacionRef)
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
@@ -412,7 +412,7 @@ func (p *proveedorPeticionCentroDesarrollo) autorizar(ctx context.Context, actor
 	}
 	d := vecdomain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: a.soporte.contexto.Vinculo, ReferenciaMotivo: motivoPeticionCentroDesarrollo(), Accion: accion, Recurso: r, Finalidad: finalidadPeticionCentro, Correlacion: correlacion}
 	ctx = context.WithValue(ctx, claveMaterialPeticionCentroDesarrollo{}, m)
-	if !solicitudAutorizacionPeticionCentroDesarrolloValida(ctx, d) {
+	if !solicitudAutorizacionPeticionCentroDesarrolloValida(p.alta.soporte.referenciaCT, ctx, d) {
 		return vacio, domain.ErrRatificacionCentroDenegada
 	}
 	s, err := vecdomain.NuevaSolicitudAutorizacionLigadaV3(d)
@@ -427,7 +427,7 @@ func (p *proveedorPeticionCentroDesarrollo) autorizar(ctx context.Context, actor
 	return p.alta.postgresql.proveedorMaterial.proveerMaterialConfirmacion(ctx, s, decision, confirmacion, motivoPeticionCentroDesarrollo(), a.soporte.contexto.Resultado)
 }
 
-func solicitudAutorizacionPeticionCentroDesarrolloValida(ctx context.Context, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionPeticionCentroDesarrolloValida(referencia referenciaCT, ctx context.Context, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
 	if ctx == nil || d.ReferenciaMotivo != motivoPeticionCentroDesarrollo() {
 		return false
 	}
@@ -453,10 +453,10 @@ func solicitudAutorizacionPeticionCentroDesarrolloValida(ctx context.Context, d 
 	}
 	if m.consulta != nil && m.escritura == nil && d.Accion == ports.AccionConsultarPeticionCentro {
 		actor = m.consulta.Actor
-		r, err = postgresct.RecursoConsultaPeticionCentro(*m.consulta, organizacionAltaContratacionTemporalDesarrollo)
+		r, err = postgresct.RecursoConsultaPeticionCentro(*m.consulta, referencia.organizacionRef)
 	} else if m.escritura != nil && m.consulta == nil && d.Accion == postgresct.AccionEscrituraPeticionCentro(*m.escritura) {
 		actor = m.escritura.Actor
-		r, err = postgresct.RecursoEscrituraPeticionCentro(*m.escritura, organizacionAltaContratacionTemporalDesarrollo)
+		r, err = postgresct.RecursoEscrituraPeticionCentro(*m.escritura, referencia.organizacionRef)
 	} else {
 		return false
 	}

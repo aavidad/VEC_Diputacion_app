@@ -29,6 +29,23 @@ composición todavía conserva su referencia anterior: no acredita la
 activación de Contratación con una organización publicada ni desbloquea
 la derivación de nombramientos.
 
+## Referencia de cada montaje
+
+La composición entrega una referencia explícita de organización y unidad al
+construir las dependencias. Los contextos, perfiles, operaciones y sellos de
+idempotencia de Contratación reciben ese mismo valor. Cada soporte conserva
+su copia; no hay una variable global que cambie al montar otra instancia.
+
+Este corte conserva los valores que ya usaba la composición. No añade un
+fichero de configuración ni activa una organización distinta. La lectura y
+el cotejo de la fuente maestra pertenecen al corte de activación, que retirará
+esos valores del punto de entrada. La tarea sigue pendiente hasta entonces.
+
+El manifiesto común de identidades valida la forma de la organización. El
+montaje de Contratación coteja después su coincidencia exacta con su propia
+referencia. Así, una configuración de CT no condiciona la lectura del material
+común de otros módulos.
+
 ## Continuación pendiente
 
 El montaje debe leer una organización canónica publicada y una unidad de

@@ -131,7 +131,7 @@ func puenteBolsaPrueba(t *testing.T) (*puenteBolsaLlamamientoDesarrollo, context
 	if err := p.configurarFirmas(bytes.Repeat([]byte{0x5a}, 32)); err != nil {
 		t.Fatal(err)
 	}
-	d, err := prepararReferenciasLlamamientoDesarrollo(expedientePuenteBolsaPrueba(t), "11111111-1111-4111-8111-111111111111")
+	d, err := prepararReferenciasLlamamientoDesarrollo(referenciaOrganizativaCTMontajePrueba, expedientePuenteBolsaPrueba(t), "11111111-1111-4111-8111-111111111111")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func TestPuenteBolsaLlamamientoDesarrolloReferenciasYFuenteEstables(t *testing.T
 		len(doc2.Datos.Entradas) != 3 {
 		t.Fatal("fuente desligada del expediente")
 	}
-	otraClave, err := prepararReferenciasLlamamientoDesarrollo(d.expediente, "22222222-2222-4222-8222-222222222222")
+	otraClave, err := prepararReferenciasLlamamientoDesarrollo(referenciaOrganizativaCTMontajePrueba, d.expediente, "22222222-2222-4222-8222-222222222222")
 	if err != nil || otraClave.necesidad != d.necesidad || otraClave.operacionOrden == d.operacionOrden ||
 		otraClave.operacionPropuesta == d.operacionPropuesta {
 		t.Fatal("derivaciones paralelas o colisión")
@@ -176,7 +176,7 @@ func TestPuenteBolsaLlamamientoDesarrolloReferenciasYFuenteEstables(t *testing.T
 	if otraClave.expediente.Fiscalizado.Analisis.CategoriaRef == "categoria:adulterada" {
 		t.Fatal("no se clonó expediente")
 	}
-	if _, err := prepararReferenciasLlamamientoDesarrollo(d.expediente, "clave-invalida"); err == nil {
+	if _, err := prepararReferenciasLlamamientoDesarrollo(referenciaOrganizativaCTMontajePrueba, d.expediente, "clave-invalida"); err == nil {
 		t.Fatal("clave inválida admitida")
 	}
 	reloj.instante = time.Date(2036, 1, 1, 0, 0, 0, 0, time.UTC)

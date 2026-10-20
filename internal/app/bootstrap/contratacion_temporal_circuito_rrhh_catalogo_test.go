@@ -93,7 +93,7 @@ func TestAltaNoAdjuntaCircuitoRRHHSinFuentesDeEvidencias(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	flujo := flujoAltaContratacionTemporalDesarrollo()
+	flujo := flujoAltaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba.unidadRef)
 	if flujo.Validar() != nil || flujo.DefinicionCircuito != nil || flujo.Flujo == d.Flujo ||
 		flujo.FaseInicial != domain.ClaveFase("solicitud") {
 		t.Fatalf("el alta adjunta el circuito sin fuentes de evidencias: %#v", flujo)

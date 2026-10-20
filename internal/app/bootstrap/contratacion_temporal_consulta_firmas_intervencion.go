@@ -19,7 +19,7 @@ import (
 
 const clavePerfilFijoLectorFirmasIntervencionCT = "lector_firmas_intervencion"
 
-func nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(
+func nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(referencia referenciaCT,
 	principalID, perfilRef string, ahora time.Time,
 ) (dominiovec.InstantaneaAutorizacion, error) {
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef,
@@ -31,7 +31,7 @@ func nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(
 			TipoRecurso: ports.TipoRecursoConsultaFirmasDocumento,
 			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
 			CamposPermitidos: consultafirmas.CamposConsultaFirmasDocumento(),
-		}}, []dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		}}, []dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}}})
 }
 
 // Este lector sólo acompaña el POST interno de fiscalización. Su perfil de
@@ -50,7 +50,7 @@ type lectorFirmasIntervencionCTDesarrollo struct {
 // nuevoLectorFirmasIntervencionCTDesarrollo publica una plantilla nueva sólo
 // si no existe asignación. Una asignación alterada se conserva y deniega hasta
 // provisión con preimagen aprobada y CAS por la autoridad existente.
-func nuevoLectorFirmasIntervencionCTDesarrollo(
+func nuevoLectorFirmasIntervencionCTDesarrollo(referencia referenciaCT,
 	ctx context.Context, firma *firmaDocumentoCTDesarrollo,
 	canal *soporteFiscalizacionContratacionTemporalDesarrollo,
 	base *proveedorSesionConsultaRRHHDesarrollo,
@@ -64,14 +64,14 @@ func nuevoLectorFirmasIntervencionCTDesarrollo(
 		dependenciaEsNulaContratacionTemporalDesarrollo(canal.reloj) {
 		return nil, fallo
 	}
-	perfil, err := prepararPerfilLectorFirmasIntervencionCTDesarrollo(canal)
+	perfil, err := prepararPerfilLectorFirmasIntervencionCTDesarrollo(referencia, canal)
 	if err != nil {
 		return nil, err
 	}
 	perfil.metodo = http.MethodPost
 	perfil.propioDelSoporte = true
 	puente := &soporteAltaContratacionTemporalDesarrollo{
-		sello: canal.sello, principalID: canal.principalID, certificadoSHA256: canal.certificadoSHA256,
+		referenciaCT: canal.referenciaCT, sello: canal.sello, principalID: canal.principalID, certificadoSHA256: canal.certificadoSHA256,
 		contexto: perfil.contexto, reloj: canal.reloj,
 	}
 	puente.autoridadAsignaciones = &autoridadPostgreSQLContratacionTemporalDesarrollo{
@@ -86,7 +86,7 @@ func nuevoLectorFirmasIntervencionCTDesarrollo(
 		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=provision_perfil")
 		return nil, fallo
 	}
-	sesion, err := nuevaSesionConsultaFirmasIntervencionCTDesarrollo(ctx, base, canal, puente, perfil)
+	sesion, err := nuevaSesionConsultaFirmasIntervencionCTDesarrollo(referencia, ctx, base, canal, puente, perfil)
 	if err != nil {
 		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=sesion_lectora")
 		return nil, fallo
@@ -106,7 +106,7 @@ func nuevoLectorFirmasIntervencionCTDesarrollo(
 
 // La semilla del lector procede del canal ya validado. El contexto V3
 // permanece canónico y no recibe roles ni atributos del principal original.
-func prepararPerfilLectorFirmasIntervencionCTDesarrollo(canal *soporteFiscalizacionContratacionTemporalDesarrollo) (*perfilFijoCTDesarrollo, error) {
+func prepararPerfilLectorFirmasIntervencionCTDesarrollo(referencia referenciaCT, canal *soporteFiscalizacionContratacionTemporalDesarrollo) (*perfilFijoCTDesarrollo, error) {
 	fallo := ports.ErrRegistroFirmaDocumentoNoDisponible
 	if canal == nil || canal.fijo == nil || dependenciaEsNulaContratacionTemporalDesarrollo(canal.reloj) {
 		return nil, fallo
@@ -129,7 +129,7 @@ func prepararPerfilLectorFirmasIntervencionCTDesarrollo(canal *soporteFiscalizac
 	perfil, err := nuevoPerfilFijoCTDesarrollo(principal, canal.contexto, canal.reloj.Ahora(),
 		clavePerfilFijoLectorFirmasIntervencionCT, []string{httpinterno.RutaResultadosFiscalizacion},
 		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(principalID, perfilRef, canal.reloj.Ahora())
+			return nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(referencia, principalID, perfilRef, canal.reloj.Ahora())
 		})
 	if err != nil || perfil == nil || perfil.perfilRef() == canal.fijo.perfilRef() {
 		log.Print("contratacion temporal: consulta de firmas de Intervencion no disponible; causa=perfil_lector_invalido")
@@ -188,7 +188,7 @@ func (l *lectorFirmasIntervencionCTDesarrollo) ConsultarFirmas(
 	}
 	m := ports.MaterialConsultaFirmasDocumento{OrganizacionRef: organizacion, ExpedienteRef: expediente}
 	recurso, err := consultafirmas.RecursoConsultaFirmasDocumento(m)
-	if err != nil || organizacion != organizacionAltaContratacionTemporalDesarrollo {
+	if err != nil || organizacion != l.puente.organizacionRef {
 		return nil, ports.ErrAutorizacionDenegada
 	}
 	operativo, err := l.contextoOperativo(ctx)
@@ -206,7 +206,7 @@ func (l *lectorFirmasIntervencionCTDesarrollo) ConsultarFirmas(
 		Finalidad: ports.FinalidadFirmaDocumento, Correlacion: correlacion,
 	}
 	ctx = context.WithValue(ctx, claveConsultaFirmasDocumentoCTDesarrollo{}, m)
-	if !solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx, datos) {
+	if !solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(l.puente.referenciaCT, ctx, datos) {
 		return nil, ports.ErrAutorizacionDenegada
 	}
 	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(datos)
@@ -280,7 +280,7 @@ func (l *lectorFirmasIntervencionCTDesarrollo) solicitudValida(ctx context.Conte
 		return false
 	}
 	d, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
-	return ok && solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx, d)
+	return ok && solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(l.puente.referenciaCT, ctx, d)
 }
 
 func (l *lectorFirmasIntervencionCTDesarrollo) ValidarReferenciaMotivoAutorizacionV2(

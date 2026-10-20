@@ -79,11 +79,11 @@ func TestPeticionCentroDesarrolloSeparaRolesYMaterial(t *testing.T) {
 	}
 	d := vecdomain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: ca.Vinculo, ReferenciaMotivo: motivoPeticionCentroDesarrollo(), Accion: ports.AccionConsultarPeticionCentro, Recurso: r, Finalidad: finalidadPeticionCentro}
 	ctx := context.WithValue(context.Background(), claveMaterialPeticionCentroDesarrollo{}, materialAutorizacionPeticionCentroDesarrollo{consulta: &q})
-	if !solicitudAutorizacionPeticionCentroDesarrolloValida(ctx, d) {
+	if !solicitudAutorizacionPeticionCentroDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, d) {
 		t.Fatal("material propio rechazado")
 	}
 	q.Actor.PuestoRef = "puesto:otro"
-	if solicitudAutorizacionPeticionCentroDesarrolloValida(ctx, d) {
+	if solicitudAutorizacionPeticionCentroDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, d) {
 		t.Fatal("autorización usada para otro puesto")
 	}
 }

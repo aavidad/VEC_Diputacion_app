@@ -338,7 +338,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	dependencias, err := nuevasDependenciasCT(cfg, resolvedor, derivador, kms, registro)
+	dependencias, err := nuevasDependenciasCT(cfg, resolvedor, derivador, kms, registro, referenciaCT{
+		organizacionRef: "organizacion:desarrollo:dipgra", unidadRef: "unidad:desarrollo:rrhh",
+	})
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -433,7 +435,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	catalogoDesarrollo.NumeroExpedienteMOAD = &politicaNumero
-	origen := nuevoOrigenConsultasConCatalogoDesarrollo(catalogoDesarrollo)
+	origen := nuevoOrigenConsultasConCatalogoDesarrollo(dependencias.referenciaCT, catalogoDesarrollo)
 	sello := dependencias.sello
 	reloj := dependencias.reloj
 	// Las reglas del análisis se resuelven antes del alta: al abrir
@@ -1263,7 +1265,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	if consultasRRHH.estadisticas != nil {
 		h, err := httpinterno.NuevoManejadorEstadisticasRRHH(consultasRRHH.estadisticas,
-			&resolutorAlcanceEstadisticasRRHHDesarrollo{sello: sello, resolvedor: resolvedorDesarrollo}, reloj.Ahora)
+			&resolutorAlcanceEstadisticasRRHHDesarrollo{referenciaCT: alta.soporte.referenciaCT, sello: sello, resolvedor: resolvedorDesarrollo}, reloj.Ahora)
 		if err != nil {
 			return nil, nil, nil, err
 		}

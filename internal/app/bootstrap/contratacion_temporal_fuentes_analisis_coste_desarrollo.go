@@ -10,6 +10,7 @@ import (
 )
 
 type calculadorCosteAnalisisDesarrollo struct {
+	referenciaCT
 	*presentadorAutoridadAnalisisDesarrollo
 	derivador    *derivadorIdentidadOperacionDesarrollo
 	autoridadRef string
@@ -37,7 +38,7 @@ func (c *calculadorCosteAnalisisDesarrollo) CalcularCoste(
 	}
 	datos, err := solicitud.Datos()
 	if err != nil ||
-		!datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(datos, c.catalogo) {
+		!datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(c.referenciaCT, datos, c.catalogo) {
 		return ports.ResultadoCalculoCoste{},
 			ports.ErrPeticionFuenteAnalisisInvalida
 	}
@@ -109,7 +110,7 @@ func (c *calculadorCosteAnalisisDesarrollo) CalcularCoste(
 	)
 }
 
-func datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(
+func datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(referencia referenciaCT,
 	datos ports.DatosSolicitudCalcularCoste,
 	catalogo *catalogosAltaContratacionTemporalDesarrollo,
 ) bool {
@@ -136,5 +137,5 @@ func datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(
 		SolicitadaEn: datos.SolicitadaEn,
 	}
 	return solicitud.Validar() == nil &&
-		solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, catalogo)
+		solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(referencia, solicitud, catalogo)
 }

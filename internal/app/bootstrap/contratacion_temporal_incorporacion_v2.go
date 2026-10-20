@@ -13,6 +13,7 @@ import (
 	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	domct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	seguridad "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
@@ -46,6 +47,11 @@ type ReferenciasCTIncorporacionDesarrollo struct {
 	OrganizacionRef, UnidadRef, ActorRef string
 }
 
+func referenciaOrganizacionPersonalValida(referencia string) bool {
+	_, err := personal.NuevaReferenciaOrganizacion(referencia)
+	return err == nil
+}
+
 func (r ReferenciasCTIncorporacionDesarrollo) valida() bool {
 	if r.PrincipalV3Ref == "" || r.PerfilV3Ref == "" {
 		return false
@@ -57,6 +63,8 @@ func (r ReferenciasCTIncorporacionDesarrollo) valida() bool {
 	// CT82 conserva la organización original: nunca normalizarla a un hash.
 	if strings.HasPrefix(r.OrganizacionRef, "organizacion:") && len(r.OrganizacionRef) > len("organizacion:") && domct.ReferenciaOpacaValida(r.OrganizacionRef) {
 		// La consulta y el PDP cotejan el ámbito exacto del expediente.
+	} else if strings.HasPrefix(r.OrganizacionRef, "org_") && referenciaOrganizacionPersonalValida(r.OrganizacionRef) {
+		// Personal acredita este identificador; CT conserva sus bytes exactos.
 	} else {
 		refs = append(refs, r.OrganizacionRef)
 	}

@@ -307,7 +307,7 @@ func lectorTecnicoEsTitularAltaDesarrollo(alta *dependenciasAltaContratacionTemp
 	return principal.ID != "" && principal.ID == alta.soporte.principalID &&
 		principal.Attributes["certificate_sha256"] != "" &&
 		principal.Attributes["certificate_sha256"] == alta.soporte.certificadoSHA256 &&
-		lector.organizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		lector.organizacionRef == alta.soporte.organizacionRef &&
 		lector.clase == ports.AmbitoOrganizacionRRHH && lector.ambitoRef == lector.organizacionRef
 }
 
@@ -334,7 +334,7 @@ func nuevoSoporteLectorRRHHDesarrollo(
 	alta.soporte.mu.Lock()
 	registro := alta.soporte.registroDecisionesAnalisis
 	alta.soporte.mu.Unlock()
-	soporte := &soporteAltaContratacionTemporalDesarrollo{sello: alta.soporte.sello, principalID: lector.identidad.principal.ID, certificadoSHA256: lector.identidad.principal.Attributes["certificate_sha256"], lectorConsultasRRHH: true, organizacionConsultaRRHH: lector.organizacionRef, claseAmbitoConsultaRRHH: lector.clase, ambitoConsultaRRHH: lector.ambitoRef, contexto: contexto, reloj: reloj, concesiones: make(map[string]struct{}), instantaneasPorSolicitud: make(map[string]dominiovec.InstantaneaAutorizacion), registroDecisionesAnalisis: registro}
+	soporte := &soporteAltaContratacionTemporalDesarrollo{referenciaCT: alta.soporte.referenciaCT, sello: alta.soporte.sello, principalID: lector.identidad.principal.ID, certificadoSHA256: lector.identidad.principal.Attributes["certificate_sha256"], lectorConsultasRRHH: true, organizacionConsultaRRHH: lector.organizacionRef, claseAmbitoConsultaRRHH: lector.clase, ambitoConsultaRRHH: lector.ambitoRef, contexto: contexto, reloj: reloj, concesiones: make(map[string]struct{}), instantaneasPorSolicitud: make(map[string]dominiovec.InstantaneaAutorizacion), registroDecisionesAnalisis: registro}
 	soporte.autoridadAsignaciones = &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: alta.postgresql.gobierno, soporte: soporte}
 	base, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(soporte, soporte, soporte, soporte, reloj, seguridadvec.GeneradorReferenciasCriptograficas{}, aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
 	if err != nil {
@@ -367,6 +367,11 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	consultaDSN, motivosDSN, err := c.DSNConsultasRRHHSeparados()
 	if err != nil || alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil || resolvedor == nil {
 		return vacio, ports.ErrConsultaRRHHNoDisponible
+	}
+	for _, lector := range resolvedor.lectoresConsultaRRHH() {
+		if lector.organizacionRef != alta.soporte.organizacionRef {
+			return vacio, ports.ErrConsultaRRHHNoDisponible
+		}
 	}
 	consultaConfig, errConsulta := pgxpool.ParseConfig(consultaDSN)
 	motivosConfig, errMotivos := pgxpool.ParseConfig(motivosDSN)

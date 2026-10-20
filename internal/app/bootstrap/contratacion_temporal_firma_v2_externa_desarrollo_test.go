@@ -55,7 +55,7 @@ func nuevoEscenarioFirmaExternaV2Prueba(t *testing.T) escenarioFirmasR5V2Prueba 
 	p, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaExternaV2CTDesarrollo,
 		[]string{httpinterno.RutaRegistroFirmaExterna},
 		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaFirmaExternaV2CTDesarrollo(actor, ref, ahora)
+			return nuevaInstantaneaFirmaExternaV2CTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, ref, ahora)
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func TestFirmaExternaV2SolicitudesAdmitidasPorElPDP(t *testing.T) {
 		"exterior": datos(ports.AccionRegistrarFirmaExterna, exterior),
 		"consulta": datos(ports.AccionConsultarFirmasR5V2, consulta),
 	} {
-		if !solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(d) {
+		if !solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, d) {
 			t.Fatalf("%s denegada", caso)
 		}
 	}
@@ -130,7 +130,7 @@ func TestFirmaExternaV2SolicitudesAdmitidasPorElPDP(t *testing.T) {
 		"consulta_ref_mala": datos(ports.AccionConsultarFirmasR5V2, dominiovec.RecursoAutorizable{Referencia: "e", ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoConsultaFirmasR5, Ambitos: consulta.Ambitos, Atributos: consulta.Atributos}),
 		"consulta_con_mas":  datos(ports.AccionConsultarFirmasR5V2, dominiovec.RecursoAutorizable{Referencia: "exp:prueba", ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoConsultaFirmasR5, Ambitos: consulta.Ambitos, Atributos: map[string]string{"material_sha256": h, "otra": h}}),
 	} {
-		if solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(d) {
+		if solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, d) {
 			t.Fatalf("%s admitida", caso)
 		}
 	}

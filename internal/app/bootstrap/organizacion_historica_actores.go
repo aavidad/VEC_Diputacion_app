@@ -64,7 +64,7 @@ func sesionesActoresOrganizacionHistorica(ctx context.Context, a *autoridadConsu
 		if actor.Principal.ID != esperado.Principal.ID || actor.PersonaRef != esperado.PersonaRef || actor.Instantanea.CuentaRef != esperado.Instantanea.CuentaRef || actor.Instantanea.CuentaRef != cuenta || actor.PerfilActivoRef != ambito.PerfilActivoRef || actor.Instantanea.PerfilVersion != ambito.PerfilVersion {
 			return nil, cerrar, ct.ErrAutorizacionDenegada
 		}
-		soporte := &soporteAltaContratacionTemporalDesarrollo{sello: sesion.soporte.sello, principalID: principal.ID,
+		soporte := &soporteAltaContratacionTemporalDesarrollo{referenciaCT: sesion.soporte.referenciaCT, sello: sesion.soporte.sello, principalID: principal.ID,
 			certificadoSHA256: principal.Attributes["certificate_sha256"], contextoEsperadoRegistrado: registrado, reloj: sesion.soporte.reloj}
 		base, e := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(soporte, sesion.registro, sesion.revalidador, sesion.reloj, sesion.resolutor, sesion.fronteras)
 		if e != nil {

@@ -133,12 +133,12 @@ func TestContinuacionLlamamientoDesarrolloPermisoSinRespuestaLigado(t *testing.T
 			Atributos: map[string]string{"necesidad_ref": l.seleccion.Necesidad.Referencia, "contenido_sha256": strings.Repeat("c", 64)}}
 		d := dominiovec.DatosSolicitudAutorizacionLigadaV3{Accion: puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo,
 			Finalidad: "gestionar_contratacion_temporal", ReferenciaMotivo: motivoRenunciaBolsaDesarrollo(), Recurso: recurso}
-		if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaContinuacionLlamamiento, d) != expiracion {
+		if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaContinuacionLlamamiento, d) != expiracion {
 			t.Fatal("permiso de no aceptación mal ligado", expiracion)
 		}
 		if expiracion {
 			d.Recurso.Referencia = operacionSiguienteDesarrollo(l.solicitud)
-			if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaContinuacionLlamamiento, d) {
+			if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaContinuacionLlamamiento, d) {
 				t.Fatal("permiso de no aceptación sobre otra operación")
 			}
 		}

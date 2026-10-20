@@ -35,11 +35,11 @@ func (r *registroPropuestaCoordinadorPrueba) validar(ctx context.Context, m port
 	}
 	d := dominiovec.DatosSolicitudAutorizacionLigadaV3{Accion: postgresct.AccionPropuestaFormalizacion,
 		Finalidad: "gestionar_contratacion_temporal", ReferenciaMotivo: motivoPropuestaFormalizacionDesarrollo(), Recurso: recurso}
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaPropuestaFormalizacion, d) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaPropuestaFormalizacion, d) {
 		r.t.Fatal("material de propuesta no ligado", m.Etapa)
 	}
 	d.ReferenciaMotivo = motivoContinuacionDesarrollo(false)
-	if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaPropuestaFormalizacion, d) {
+	if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaPropuestaFormalizacion, d) {
 		r.t.Fatal("permiso de continuación aceptado para propuesta")
 	}
 	h, err := recurso.HuellaContextoAutorizacionSHA256()

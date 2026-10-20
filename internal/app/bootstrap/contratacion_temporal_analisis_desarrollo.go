@@ -43,7 +43,7 @@ var errAnalisisContratacionTemporalDesarrolloNoDisponible = errors.New(
 // siempre); un periodo que supera el máximo de su modalidad solo se rechaza si
 // la regla de duración lo pide («al_superar»: «bloquear»). La urgencia solo se
 // admite si el catálogo publica su regla (c15).
-func solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(
+func solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(referencia referenciaCT,
 	solicitud ports.SolicitudPrepararArtefactoAnalisis,
 	catalogo *catalogosAltaContratacionTemporalDesarrollo,
 ) bool {
@@ -52,7 +52,7 @@ func solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(
 	modalidad, conModalidad := opciones.modalidad(datos.ModalidadClave)
 	_, conEntradaRC := opciones.entradaRC(datos.EntradaRC)
 	return solicitud.ArtefactoRef == artefactoAnalisisContratacionTemporalDesarrollo &&
-		solicitud.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		solicitud.OrganizacionRef == referencia.organizacionRef &&
 		categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo, datos.CategoriaRef, datos.GrupoSubgrupo) &&
 		conModalidad && modalidad.periodoValido(datos.Periodo) &&
 		opciones.causaValida(datos.CausaClave) && conEntradaRC &&
@@ -313,7 +313,7 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		derivador == nil || !derivador.valido() {
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
 	}
-	artefactos, err := nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
+	artefactos, err := nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(alta.soporte.referenciaCT,
 		derivador,
 		reloj,
 		retribuciones,
@@ -355,7 +355,7 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		artefactos,
 		sellador,
 		preparaciones,
-		resolutorPoliticaOperacionAnalisisDesarrollo{motivos: motivos, fase: faseAnalisis},
+		resolutorPoliticaOperacionAnalisisDesarrollo{referenciaCT: alta.soporte.referenciaCT, motivos: motivos, fase: faseAnalisis},
 		seguridadvec.GeneradorReferenciasCriptograficas{},
 		alta.autorizador,
 		reloj,
@@ -372,6 +372,7 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 }
 
 type resolutorPoliticaOperacionAnalisisDesarrollo struct {
+	referenciaCT
 	motivos fuenteMotivosRectificacionAnalisisDesarrollo
 	// fase son las fases y el estado previos en que se admite el análisis
 	// (catálogo c23); son también los que cubre su perfil fijo.
@@ -383,7 +384,7 @@ func (r resolutorPoliticaOperacionAnalisisDesarrollo) ResolverPoliticaOperacionA
 	solicitud ports.SolicitudResolverPoliticaOperacionAnalisis,
 ) (ports.PoliticaOperacionAnalisis, error) {
 	if contextoInterfazNulo(ctx) || solicitud.Validar() != nil ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		solicitud.OrganizacionRef != r.organizacionRef ||
 		solicitud.ArtefactoRef != artefactoAnalisisContratacionTemporalDesarrollo ||
 		solicitud.Flujo.DefinicionRef != "flujo:ct:desarrollo" ||
 		solicitud.Flujo.Version != 1 ||
@@ -416,7 +417,7 @@ func (r resolutorPoliticaOperacionAnalisisDesarrollo) ResolverPoliticaOperacionA
 		HuellaSHA256:          huellaAltaContratacionTemporalDesarrollo("politica-analisis"),
 		Accion:                domain.ClaveCatalogo(ports.AccionRegistrarAnalisis),
 		Finalidad:             finalidadAnalisisContratacionTemporalDesarrollo,
-		UnidadRef:             unidadCoberturaContratacionTemporalDesarrollo,
+		UnidadRef:             r.unidadRef,
 		MotivoAutorizacion:    referenciaMotivoAutorizacionAnalisisDesarrollo("registro"),
 		EvaluadaEn:            solicitud.Instante,
 	}
@@ -425,7 +426,7 @@ func (r resolutorPoliticaOperacionAnalisisDesarrollo) ResolverPoliticaOperacionA
 		if err != nil {
 			return ports.PoliticaOperacionAnalisis{}, ports.ErrPoliticaOperacionAnalisisNoDisponible
 		}
-		huella, err := huellaPoliticaRectificacionAnalisisDesarrollo(motivo)
+		huella, err := huellaPoliticaRectificacionAnalisisDesarrollo(r.referenciaCT, motivo)
 		if err != nil {
 			return ports.PoliticaOperacionAnalisis{}, ports.ErrPoliticaOperacionAnalisisNoDisponible
 		}
@@ -470,7 +471,7 @@ type canonPoliticaRectificacionAnalisisDesarrolloV1 struct {
 	VigenteHasta                 string `json:"vigente_hasta,omitempty"`
 }
 
-func huellaPoliticaRectificacionAnalisisDesarrollo(
+func huellaPoliticaRectificacionAnalisisDesarrollo(referencia referenciaCT,
 	motivo ports.MotivoRectificacionGobernado,
 ) (string, error) {
 	if motivo.ValidarPara(domain.ClaveCatalogo(motivo.ReferenciaCatalogo.EntradaClave)) != nil {
@@ -486,7 +487,7 @@ func huellaPoliticaRectificacionAnalisisDesarrollo(
 		Operacion:                    string(ports.OperacionRectificarAnalisis),
 		Accion:                       string(ports.AccionRectificarAnalisis),
 		Finalidad:                    string(finalidadAnalisisContratacionTemporalDesarrollo),
-		UnidadRef:                    unidadCoberturaContratacionTemporalDesarrollo,
+		UnidadRef:                    referencia.unidadRef,
 		ExigeActorDistinto:           true,
 		MotivoAutorizacionCatalogoID: motivoAutorizacion.CatalogoID,
 		MotivoAutorizacionVersion:    motivoAutorizacion.CatalogoVersion,

@@ -32,7 +32,7 @@ func TestCatalogosAltaSinFuenteConservaV1YOcultaCapacidadV2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manejador := &manejadorCatalogosAltaContratacionTemporalDesarrollo{origen: nuevoOrigenConsultasConCatalogoDesarrollo(catalogos)}
+	manejador := &manejadorCatalogosAltaContratacionTemporalDesarrollo{origen: nuevoOrigenConsultasConCatalogoDesarrollo(referenciaOrganizativaCTMontajePrueba, catalogos)}
 	consultar := func(metodo, query string) (int, map[string]any, http.Header, int) {
 		peticion := httptest.NewRequest(metodo, rutaCatalogosAltaContratacionTemporalDesarrollo+query, nil)
 		respuesta := httptest.NewRecorder()
@@ -80,7 +80,7 @@ func TestCatalogosAltaConFuenteExponeV2DistinguiendoNecesidad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manejador := &manejadorCatalogosAltaContratacionTemporalDesarrollo{origen: nuevoOrigenConsultasConCatalogoDesarrollo(catalogos)}
+	manejador := &manejadorCatalogosAltaContratacionTemporalDesarrollo{origen: nuevoOrigenConsultasConCatalogoDesarrollo(referenciaOrganizativaCTMontajePrueba, catalogos)}
 	respuesta := httptest.NewRecorder()
 	manejador.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, rutaCatalogosAltaContratacionTemporalDesarrollo+"?version=2", nil))
 	if respuesta.Code != http.StatusOK {
@@ -119,7 +119,7 @@ func TestCatalogosAltaV2ConFuenteQueFallaNoFingeAusenciaDeConfiguracion(t *testi
 	if err := os.Remove(ruta); err != nil {
 		t.Fatal(err)
 	}
-	manejador := &manejadorCatalogosAltaContratacionTemporalDesarrollo{origen: nuevoOrigenConsultasConCatalogoDesarrollo(catalogos)}
+	manejador := &manejadorCatalogosAltaContratacionTemporalDesarrollo{origen: nuevoOrigenConsultasConCatalogoDesarrollo(referenciaOrganizativaCTMontajePrueba, catalogos)}
 	respuesta := httptest.NewRecorder()
 	manejador.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, rutaCatalogosAltaContratacionTemporalDesarrollo+"?version=2", nil))
 	if respuesta.Code != http.StatusServiceUnavailable {

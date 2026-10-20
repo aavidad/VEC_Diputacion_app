@@ -118,7 +118,7 @@ func descriptorMaterialConsultaCircuitoRRHHDesarrollo() descriptorMaterialConsum
 	}
 }
 
-func nuevaInstantaneaConsultaCircuitoRRHHDesarrollo(principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
+func nuevaInstantaneaConsultaCircuitoRRHHDesarrollo(referencia referenciaCT, principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
 		principalID, perfilRef, ahora,
 		"consulta_circuito_rrhh_desarrollo", "consulta_circuito_rrhh_desarrollo",
@@ -130,11 +130,11 @@ func nuevaInstantaneaConsultaCircuitoRRHHDesarrollo(principalID, perfilRef strin
 			CamposPermitidos: []string{"circuito"}, Obligaciones: []string{"auditar"},
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}},
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}}},
 	)
 }
 
-func solicitudAutorizacionConsultaCircuitoRRHHValida(ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionConsultaCircuitoRRHHValida(referencia referenciaCT, ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	if ctx == nil {
 		return false
 	}
@@ -142,7 +142,7 @@ func solicitudAutorizacionConsultaCircuitoRRHHValida(ctx context.Context, datos 
 	esperado, err := postgresct.RecursoConsultaCircuitoRRHH(s)
 	r := datos.Recurso
 	return existe && s.Validar() == nil && err == nil && r.Validar() == nil &&
-		s.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		s.OrganizacionRef == referencia.organizacionRef &&
 		datos.Accion == postgresct.AccionConsultaCircuitoRRHH &&
 		datos.Finalidad == "gestionar_contratacion_temporal" &&
 		datos.ReferenciaMotivo == motivoConsultaCircuitoRRHHDesarrollo() &&
@@ -181,7 +181,7 @@ func (p *preparadorConsultaCircuitoRRHHDesarrollo) ResolverContextoCanalCircuito
 	}
 	return httpinterno.ContextoCanalCircuitoRRHH{
 		AutenticacionRef: vinculo.AutenticacionRef, SesionRef: vinculo.SesionRef,
-		PerfilRef: vinculo.PerfilActivoRef, OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+		PerfilRef: vinculo.PerfilActivoRef, OrganizacionRef: p.alta.soporte.organizacionRef,
 	}, nil
 }
 
@@ -219,7 +219,7 @@ func (p *preparadorConsultaCircuitoRRHHDesarrollo) PrepararConsultaCircuitoRRHH(
 		Finalidad: "gestionar_contratacion_temporal", Correlacion: correlacion,
 	}
 	ctx = context.WithValue(ctx, claveConsultaCircuitoRRHHDesarrollo{}, s)
-	if !solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos) {
+	if !solicitudAutorizacionConsultaCircuitoRRHHValida(p.alta.soporte.referenciaCT, ctx, datos) {
 		return vacio, ports.ErrConsultaCircuitoRRHHDenegada
 	}
 	solicitudV3, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(datos)
@@ -273,7 +273,7 @@ func nuevoManejadorConsultaCircuitoRRHHDesarrollo(
 		clavePerfilFijoConsultaCircuitoRRHHDesarrollo,
 		[]string{httpinterno.RutaConsultaCircuitoRRHH},
 		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaConsultaCircuitoRRHHDesarrollo(principalID, perfilRef, ahora)
+			return nuevaInstantaneaConsultaCircuitoRRHHDesarrollo(alta.soporte.referenciaCT, principalID, perfilRef, ahora)
 		})
 	// El vínculo acredita la persona canónica de F1; principalID es el sujeto del canal.
 	if err != nil || vinculo.PrincipalID != s.contexto.Resultado.Contexto.PersonaRef {

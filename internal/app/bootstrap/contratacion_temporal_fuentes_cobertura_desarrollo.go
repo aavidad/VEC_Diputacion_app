@@ -82,6 +82,7 @@ type registroCoberturaSinteticaDesarrollo struct {
 }
 
 type fuenteComprobacionCoberturaDesarrollo struct {
+	referenciaCT
 	*presentadorAutoridadFuenteAnalisisDesarrollo
 	autoridadRef   string
 	backendRef     string
@@ -103,7 +104,7 @@ func (f *fuenteComprobacionCoberturaDesarrollo) ConsultarCobertura(
 	if f == nil || dependenciaEsNulaContratacionTemporalDesarrollo(f.reloj) ||
 		f.generacion == 0 || contextoInterfazNulo(ctx) ||
 		solicitud.Validar() != nil ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		solicitud.OrganizacionRef != f.organizacionRef ||
 		!comprobacionFuenteCoberturaDesarrolloValida(
 			f.catalogo.opcionesAnalisis().viasCoberturaVigentes(),
 			solicitud.ViaClave, solicitud.Comprobacion, f.backendRef,
@@ -457,7 +458,7 @@ func (m *materialFuentesCoberturaDesarrollo) borrar() {
 	m.generacion = 0
 }
 
-func nuevasDependenciasFuentesCoberturaDesarrollo(
+func nuevasDependenciasFuentesCoberturaDesarrollo(referencia referenciaCT,
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
 	gobierno cobertura.ResolutorGobiernoOperacionCobertura,
@@ -510,7 +511,7 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 			RaizClaveID:        raizFuentesCoberturaDesarrolloRef,
 			AutoridadRef:       autoridadRef,
 			BackendRef:         backendRef,
-			OrganizacionRef:    organizacionAltaContratacionTemporalDesarrollo,
+			OrganizacionRef:    referencia.organizacionRef,
 			Audiencia:          audienciaFuentesCoberturaDesarrollo,
 			Rol:                rol,
 			Serie:              serie,
@@ -568,7 +569,7 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 		return vacias, err
 	}
 	confianza, err := ports.NuevaConfianzaAutoridadesFuenteAnalisis(
-		organizacionAltaContratacionTemporalDesarrollo,
+		referencia.organizacionRef,
 		audienciaFuentesCoberturaDesarrollo,
 		[]ports.RaizConfianzaAutoridadFuenteAnalisis{{
 			ClaveID:                raizFuentesCoberturaDesarrolloRef,
@@ -593,6 +594,7 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 	respuestaVerificador := material.respuesta
 	dependencias := dependenciasFuentesCoberturaDesarrollo{
 		fuente: &fuenteComprobacionCoberturaDesarrollo{
+			referenciaCT: referencia,
 			presentadorAutoridadFuenteAnalisisDesarrollo: presentadorFuente,
 			autoridadRef:   autoridadFuenteCoberturaDesarrollo,
 			backendRef:     backendFuenteCoberturaDesarrolloRef,

@@ -116,7 +116,7 @@ func nuevaRutaAjustesReglasCT(ctx context.Context, cfg config.Config,
 	proveedor := &proveedorAjustesReglasCT{soporte: soporte, pdp: pdp, material: material,
 		motivo: motivo, reloj: reloj, poolPerfiles: alta.postgresql.gobierno, plantilla: fijo.plantilla}
 	repo, err := ajustespg.NuevoRepositorioAjustesReglasCT(alta.postgresql.ejecucion, proveedor,
-		organizacionAltaContratacionTemporalDesarrollo)
+		alta.soporte.organizacionRef)
 	if err != nil {
 		return vacia, err
 	}

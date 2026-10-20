@@ -19,7 +19,7 @@ func TestLectorB98RechazaAntesDeDetalleSinSesionYPreparacionCT(t *testing.T) {
 
 func TestAnclajeB113EnPropuestaExigeRutaRealYCoordenadasCT(t *testing.T) {
 	f := nuevaPropuestaCoordinadorPrueba(t)
-	p, err := prepararReferenciasLlamamientoDesarrollo(f.lector.expediente, f.registro.antecedente.SeleccionClave)
+	p, err := prepararReferenciasLlamamientoDesarrollo(referenciaOrganizativaCTMontajePrueba, f.lector.expediente, f.registro.antecedente.SeleccionClave)
 	if err != nil {
 		t.Fatal(err)
 	}
