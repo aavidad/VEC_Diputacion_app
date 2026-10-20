@@ -1,0 +1,34 @@
+// Código fuente del helper de ensayo h-root-seed.test.
+// Se compiló dentro de internal/app/bootstrap del snapshot incluido en kit/source.
+package bootstrap
+
+import (
+    "os"
+    "path/filepath"
+    "testing"
+)
+
+func TestDerivarSemillaRaizHPrivada(t *testing.T) {
+    dir := os.Getenv("VEC_H_MATERIAL_DIR")
+    config := os.Getenv("VEC_H_HMAC_CONFIG")
+    out := os.Getenv("VEC_H_ROOT_OUT")
+    if dir == "" || config == "" || out == "" || !filepath.IsAbs(dir) || !filepath.IsAbs(config) || !filepath.IsAbs(out) {
+        t.Fatal("entrada privada ausente")
+    }
+    mat, err := cargarMaterialIdempotenciaDesarrollo(dir, config)
+    if err != nil { t.Fatal("material H no disponible") }
+    defer mat.borrar()
+    derivador, err := nuevoDerivadorIdentidadOperacionDesarrollo(&mat)
+    if err != nil { t.Fatal("derivador H no disponible") }
+    defer derivador.borrar()
+    dev, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, relojGobiernoUsuariosEnsayo{}.Ahora())
+    if err != nil { t.Fatal("raíz H no disponible") }
+    defer borrarBytes(dev.privada)
+    defer borrarBytes(dev.claveHMAC)
+    f, err := os.OpenFile(out, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+    if err != nil { t.Fatal("salida H ocupada") }
+    if _, err = f.Write(dev.privada.Seed()); err != nil { f.Close(); t.Fatal("semilla H no escrita") }
+    if err = f.Sync(); err != nil { f.Close(); t.Fatal("semilla H no durable") }
+    if err = f.Close(); err != nil { t.Fatal("semilla H no cerrada") }
+    t.Logf("spki_h=%s", dev.spkiHuella)
+}

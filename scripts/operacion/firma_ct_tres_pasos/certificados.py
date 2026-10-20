@@ -97,9 +97,16 @@ def preparar(args):
     if not 1 <= args.cert_dias <= 3650 or not 1 <= args.crl_dias <= 3650:
         rechazar('vigencia_parametros')
     carpeta = Path(__file__).resolve().parent
-    catalogo = json.loads((carpeta / 'firmantes.json').read_text())
-    if catalogo.get('version') != 1 or len(catalogo.get('personas', [])) != 3:
-        rechazar('catalogo_tres_firmantes')
+    incluir_tecnico = getattr(args, 'incluir_tecnico', False)
+    archivo_catalogo = carpeta / ('firmantes_completos.json' if incluir_tecnico else 'firmantes.json')
+    catalogo = json.loads(archivo_catalogo.read_text())
+    usuarios = {'rrhh_jefatura', 'rrhh_diputacion', 'rrhh_secretaria'}
+    if incluir_tecnico:
+        usuarios.add('rrhh_tecnico')
+    numero_personas = len(usuarios)
+    if (catalogo.get('version') != 1 or len(catalogo.get('personas', [])) != numero_personas
+            or {p.get('usuario_web') for p in catalogo['personas']} != usuarios):
+        rechazar('catalogo_firmantes')
     material = ruta_privada(args.material, True)
     ca = material / 'ca' / 'ca.crt'
     clave = ruta_privada(str(material / 'ca' / 'ca.key'))
@@ -132,18 +139,18 @@ def preparar(args):
         rechazar('indice_revocaciones')
     revocados_esperados = revocados_origen | revocados_indice
     if args.comprobar:
-        print(json.dumps({'estado': 'comprobado', 'personas': 3, 'perfiles_asignados': False}))
+        print(json.dumps({'estado': 'comprobado', 'personas': numero_personas, 'perfiles_asignados': False}))
         return
     if args.aplicar != 'PREPARA-CERTIFICADOS-CT':
         rechazar('confirmacion')
     manifiesto_path = destino / 'certificados.json'
     if manifiesto_path.exists():
         manifiesto = json.loads(ruta_privada(str(manifiesto_path)).read_text())
-        if manifiesto.get('catalogo_sha256') != hashlib.sha256((carpeta / 'firmantes.json').read_bytes()).hexdigest():
+        if manifiesto.get('catalogo_sha256') != hashlib.sha256(archivo_catalogo.read_bytes()).hexdigest():
             rechazar('replay_catalogo')
         anteriores = manifiesto.get('personas', [])
-        if len(anteriores) != 3 or manifiesto.get('version') != 1:
-            rechazar('replay_tres_firmantes')
+        if len(anteriores) != numero_personas or manifiesto.get('version') != 1:
+            rechazar('replay_firmantes')
         if manifiesto.get('cert_dias') != args.cert_dias or manifiesto.get('crl_dias') != args.crl_dias:
             rechazar('replay_vigencias')
         for persona, prevista in zip(anteriores, catalogo['personas']):
@@ -183,14 +190,14 @@ def preparar(args):
         if (stat.S_IMODE(fragmento_replay.stat().st_mode) != 0o600 or
                 manifiesto.get('fragmento_sha256') != hashlib.sha256(fragmento_replay.read_bytes()).hexdigest()):
             rechazar('replay_fragmento')
-        print(json.dumps({'estado': 'replay', 'personas': 3, 'perfiles_asignados': False}))
+        print(json.dumps({'estado': 'replay', 'personas': numero_personas, 'perfiles_asignados': False}))
         return
     if list(destino.iterdir()):
         rechazar('destino_vacio')
     personas = []
     for persona in catalogo['personas']:
         usuario = persona['usuario_web']
-        if usuario not in ('rrhh_jefatura', 'rrhh_diputacion', 'rrhh_secretaria'):
+        if usuario not in usuarios:
             rechazar('usuario_catalogo')
         directorio = destino / usuario
         directorio.mkdir(mode=0o700)
@@ -267,14 +274,14 @@ def preparar(args):
         f.write('\n'.join(caddy))
     fragmento.chmod(0o600)
     manifiesto = {'version': 1, 'cert_dias': args.cert_dias, 'crl_dias': args.crl_dias,
-                  'catalogo_sha256': hashlib.sha256((carpeta / 'firmantes.json').read_bytes()).hexdigest(),
+                  'catalogo_sha256': hashlib.sha256(archivo_catalogo.read_bytes()).hexdigest(),
                   'fragmento_sha256': hashlib.sha256(fragmento.read_bytes()).hexdigest(),
                   'personas': personas, 'perfiles_asignados': False}
     with manifiesto_path.open('x') as f:
         json.dump(manifiesto, f, ensure_ascii=False, indent=2)
         f.write('\n')
     manifiesto_path.chmod(0o600)
-    print(json.dumps({'estado': 'preparado', 'personas': 3, 'perfiles_asignados': False}))
+    print(json.dumps({'estado': 'preparado', 'personas': numero_personas, 'perfiles_asignados': False}))
 
 
 if __name__ == '__main__':
@@ -287,6 +294,7 @@ if __name__ == '__main__':
     parser.add_argument('--salida', required=True)
     parser.add_argument('--cert-dias', type=int, default=400)
     parser.add_argument('--crl-dias', type=int, default=90)
+    parser.add_argument('--incluir-tecnico', action='store_true')
     argumentos = parser.parse_args()
     try:
         preparar(argumentos)
