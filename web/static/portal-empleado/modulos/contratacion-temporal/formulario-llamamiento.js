@@ -20,6 +20,7 @@ import {
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
   CAMPOS_RESOLUCION, validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
+  validarSolicitudResolucionPortal, validarReciboResolucionPortal,
   CAMPOS_REVISION_RESOLUCION, CRITERIO_VALIDACION_RESOLUCION_DESARROLLO,
   RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
@@ -159,7 +160,7 @@ export function montarFormularioLlamamiento({
       controlador: null, generacion: 0, mensaje: "llamamiento_consulta_sin_contexto", tono: "informacion" },
     comunicaciones: { estado: "sin_contexto", filas: [], seleccionada: null, intentoNoConfirmado: null, controlador: null,
       generacion: 0, mensaje: "llamamiento_comunicaciones_sin_contexto", tono: "informacion" },
-    origenPortal: [] };
+    origenPortal: [], portalPasos: new Map() };
   function ahora() {
     try { const valor = reloj(); return Number.isFinite(valor) ? valor : Date.now(); } catch { return Date.now(); }
   }
@@ -408,7 +409,7 @@ export function montarFormularioLlamamiento({
       && (estado.comunicaciones.estado !== "lista" || !estado.comunicaciones.seleccionada);
     raiz.innerHTML = (sinFlujoCT && estado.comunicaciones.estado === "sin_contexto" ? ""
       : renderizarLlamamiento(estado, t, fecha, ahora(), { soloConsulta: sinFlujoCT }))
-      + renderizarAceptacionPortal(estado.origenPortal, t, fecha);
+      + renderizarAceptacionPortal(estado.origenPortal, t, fecha, estado.portalPasos);
     documentacion?.pintar(raiz.querySelector("[data-ct-documentacion-formalizacion]"), {
       aceptadaEn: estado.propuesta.aceptacion?.respuesta === "aceptacion" ? estado.propuesta.aceptacion.resuelta_en : "",
       expedienteRef: estado.propuesta.valores.expediente_ref,
@@ -736,6 +737,7 @@ export function montarFormularioLlamamiento({
     }
   }
   async function alEnviar(evento) {
+    if (evento.target?.dataset?.ctPortalResolucion !== undefined) return alEnviarPortal(evento);
     const formulario = evento.target?.closest?.("[data-ct-llamamiento-form]");
     if (!formulario || !raiz.contains(formulario)) return;
     evento.preventDefault();
@@ -1040,6 +1042,88 @@ export function montarFormularioLlamamiento({
       repintar(operacion);
     }
   }
+  async function alEnviarPortal(evento) {
+    const formulario = evento.target;
+    if (!formulario || !raiz.contains(formulario)) return;
+    evento.preventDefault();
+    const indice = Number(formulario.dataset.ctPortalResolucion);
+    const fila = Number.isSafeInteger(indice) ? estado.origenPortal[indice] : null;
+    if (!montado || !estado.enlazado || !fila || fila.persona.resolucion_portal_disponible !== true
+      || fila.vinculo.participaciones.length !== 1) return;
+    const clave = `${fila.vinculo.llamamiento_ref}/${fila.persona.participacion_ref}`;
+    let paso = estado.portalPasos.get(clave);
+    if (!paso) {
+      paso = { solicitud: null, recibo: null, ocupado: false, bloqueado: false,
+        mensaje: "", tono: "informacion", controlador: null, revisiones: {} };
+      estado.portalPasos.set(clave, paso);
+    }
+    if (paso.ocupado || paso.recibo || paso.bloqueado) return;
+    if (!paso.solicitud) paso.revisiones = Object.fromEntries(
+      ["revision_respuesta_rrhh", "revision_plazo_rrhh"].map(
+        (nombre) => [nombre, formulario.elements?.namedItem(nombre)?.checked === true]));
+    if (!paso.solicitud && Object.values(paso.revisiones).some((valor) => valor !== true)) {
+      paso.mensaje = "llamamiento_portal_revision_incompleta";
+      paso.tono = "error";
+      repintar();
+      raiz.querySelector(`[data-ct-portal-estado="${indice}"]`)?.focus?.();
+      return;
+    }
+    let solicitud;
+    try {
+      solicitud = paso.solicitud ?? validarSolicitudResolucionPortal({
+        fuente_respuesta: "portal", clave_idempotencia: generarClaveIdempotencia("resolucion_portal"),
+        expediente_ref: estado.seleccion.valores.expediente_ref,
+        bolsa_ref: fila.vinculo.bolsa_ref, llamamiento_ref: fila.vinculo.llamamiento_ref,
+        recibo_emision_ref: fila.vinculo.recibo_emision_ref,
+        participacion_ref: fila.persona.participacion_ref,
+        recibo_respuesta_ref: fila.persona.recibo_respuesta_ref,
+        respuesta: "aceptacion", revision_respuesta_rrhh: true, revision_plazo_rrhh: true,
+        criterio_validacion_ref: CRITERIO_VALIDACION_RESOLUCION_DESARROLLO,
+      });
+    } catch {
+      paso.mensaje = "llamamiento_preparacion_error";
+      paso.tono = "error";
+      repintar();
+      return;
+    }
+    let confirmado = false;
+    try {
+      confirmado = confirmarOperacion({ titulo: t("llamamiento_portal_confirmar"),
+        advertencia: t("llamamiento_portal_confirmacion"),
+        referencia: solicitud.expediente_ref, datos: Object.freeze({ ...solicitud }) }) === true;
+    } catch { /* La revisión se mantiene sin enviar. */ }
+    if (!confirmado || !montado) return;
+    paso.solicitud = solicitud;
+    paso.ocupado = true;
+    paso.mensaje = "llamamiento_solicitando_resolucion";
+    paso.tono = "informacion";
+    paso.controlador = new AbortController();
+    repintar();
+    try {
+      const respuesta = await cliente.resolverLlamamiento(solicitud, { signal: paso.controlador.signal });
+      const recibo = validarReciboResolucionPortal(respuesta, solicitud);
+      if (!montado) return;
+      paso.recibo = recibo;
+      paso.mensaje = "llamamiento_portal_confirmada";
+      paso.tono = "exito";
+    } catch (error) {
+      if (!montado) return;
+      const denegado = error?.envelopeValido === true && [401, 403].includes(error.estado);
+      const conflicto = error?.envelopeValido === true && error.estado === 409
+        && error.resultadoIndeterminado === false;
+      paso.bloqueado = denegado || conflicto;
+      paso.mensaje = denegado ? "llamamiento_portal_denegado"
+        : conflicto ? "llamamiento_portal_conflicto" : "llamamiento_portal_resultado_incierto";
+      paso.tono = denegado || conflicto ? "error" : "aviso";
+    } finally {
+      paso.ocupado = false;
+      paso.controlador = null;
+      if (!montado) return;
+      repintar();
+      raiz.querySelector(`[data-ct-portal-estado="${indice}"]`)?.focus?.();
+      try { anunciar(t(paso.mensaje), paso.tono); } catch { /* La región viva permanece. */ }
+    }
+  }
   async function recuperarOferta() {
     const original = estado.seleccion.solicitud;
     const recuperacion = estado.recuperacionOferta;
@@ -1229,6 +1313,7 @@ export function montarFormularioLlamamiento({
       estado[operacion].lecturaCorreo += 1;
       estado[operacion].controlador?.abort();
     }
+    for (const paso of estado.portalPasos.values()) paso.controlador?.abort();
     estado.recuperacionOferta.controlador?.abort();
     estado.estadoOferta.generacion += 1;
     estado.estadoOferta.controlador?.abort();
