@@ -1,5 +1,7 @@
 package ports
 
+import "encoding/json"
+
 // ReferenciaHitoAnalisisRRHH identifica, de forma nominal, la actuación
 // durable que materializó la proyección vigente del análisis. Su valor no es
 // serializable ni intercambiable con los vínculos de otros bloques.
@@ -84,6 +86,7 @@ type EntradaDetalleExpedienteRRHHMinimizada struct {
 	referenciaFiscalizacion ReferenciaHitoFiscalizacionRRHH
 	referenciaSubsanacion   ReferenciaHitoSubsanacionFiscalizacionRRHH
 	hitos                   []HitoExpedienteRRHH
+	instruccionCompartida   *InstruccionCompartidaRRHH
 	// canonV3 marca que la entrada procede del canon V3 (migración 000106):
 	// el bloque de fiscalización se codifica siempre, presente o no.
 	canonV3 bool
@@ -150,10 +153,22 @@ func validarComponentesEntradaDetalleRRHHMinimizada(
 	asignacion *AsignacionOperativaRRHH,
 	referenciaAsignacion ReferenciaHitoAsignacionRRHH,
 	hitos []HitoExpedienteRRHH,
+	instruccion ...*InstruccionCompartidaRRHH,
 ) error {
+	primeraSecuencia := uint64(1)
+	limiteVinculos := uint64(len(hitos))
+	var compartida *InstruccionCompartidaRRHH
+	if len(instruccion) == 1 && instruccion[0] != nil {
+		compartida = instruccion[0]
+		primeraSecuencia = 6
+		limiteVinculos = uint64(len(compartida.HitosPadre))
+		if resumen.Version != 6 || len(hitos) != 1 {
+			return ErrResultadoConsultaRRHHNoConfiable
+		}
+	}
 	if resumen.Validar() != nil || solicitud.validar() != nil ||
 		len(hitos) == 0 ||
-		uint64(len(hitos)) != resumen.Version ||
+		uint64(len(hitos))+primeraSecuencia-1 != resumen.Version ||
 		!referenciaHitoDetalleRRHHCoherente(
 			analisis != nil, referenciaAnalisis.secuencia,
 		) ||
@@ -175,7 +190,7 @@ func validarComponentesEntradaDetalleRRHHMinimizada(
 		referenciaCobertura.secuencia,
 		referenciaAsignacion.secuencia,
 	} {
-		if secuencia > uint64(len(hitos)) {
+		if secuencia > limiteVinculos {
 			return ErrResultadoConsultaRRHHNoConfiable
 		}
 	}
@@ -183,27 +198,41 @@ func validarComponentesEntradaDetalleRRHHMinimizada(
 }
 
 func (e EntradaDetalleExpedienteRRHHMinimizada) validarReferencias() error {
+	limiteVinculos := uint64(len(e.hitos))
+	if e.instruccionCompartida != nil {
+		limiteVinculos = uint64(len(e.instruccionCompartida.HitosPadre))
+	}
 	if e.fiscalizacion != nil && (!referenciaHitoDetalleRRHHCoherente(true, e.referenciaFiscalizacion.secuencia) ||
 		e.fiscalizacion.validarDatos() != nil ||
 		(e.fiscalizacion.Subsanacion != nil) != (e.referenciaSubsanacion.secuencia != 0) ||
-		e.referenciaFiscalizacion.secuencia > uint64(len(e.hitos)) ||
-		e.referenciaSubsanacion.secuencia > uint64(len(e.hitos))) {
+		e.referenciaFiscalizacion.secuencia > limiteVinculos ||
+		e.referenciaSubsanacion.secuencia > limiteVinculos) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	if e.fiscalizacion == nil && (e.referenciaFiscalizacion.secuencia != 0 || e.referenciaSubsanacion.secuencia != 0) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
-	if _, cabe := presupuestoEntradaDetalleRRHHMinimizadaV3(
+	base, cabe := presupuestoEntradaDetalleRRHHMinimizadaV3(
 		e.resumen, e.solicitud, e.analisis, e.referenciaAnalisis,
 		e.cobertura, e.referenciaCobertura,
 		e.asignacion, e.referenciaAsignacion, e.fiscalizacion, e.hitos,
-	); !cabe {
+	)
+	if !cabe {
 		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	if e.instruccionCompartida != nil {
+		material, err := json.Marshal(e.instruccionCompartida)
+		if err != nil || uint64(len(material))+base+64 > limiteBytesEntradaDetalleRRHHMinimizada ||
+			e.instruccionCompartida.validarPara(DetalleExpedienteRRHH{
+				Resumen: e.resumen, Hitos: e.hitos,
+			}) != nil {
+			return ErrResultadoConsultaRRHHNoConfiable
+		}
 	}
 	return validarComponentesEntradaDetalleRRHHMinimizada(
 		e.resumen, e.solicitud, e.analisis, e.referenciaAnalisis,
 		e.cobertura, e.referenciaCobertura,
-		e.asignacion, e.referenciaAsignacion, e.hitos,
+		e.asignacion, e.referenciaAsignacion, e.hitos, e.instruccionCompartida,
 	)
 }
 
@@ -244,38 +273,40 @@ func reconstruirDetalleExpedienteRRHHMinimizado(
 	}
 	detalle := DetalleExpedienteRRHH{
 		Resumen: entrada.resumen, Solicitud: entrada.solicitud,
-		Analisis:      clonarAnalisisOperativoMinimizadoRRHH(entrada.analisis),
-		Cobertura:     clonarCoberturaOperativaMinimizadaRRHH(entrada.cobertura),
-		Asignacion:    clonarAsignacionOperativaMinimizadaRRHH(entrada.asignacion),
-		Fiscalizacion: clonarFiscalizacionOperativaMinimizadaRRHH(entrada.fiscalizacion),
-		Hitos:         clonarHitosRRHH(entrada.hitos),
-		canonV3:       entrada.canonV3,
+		Analisis:              clonarAnalisisOperativoMinimizadoRRHH(entrada.analisis),
+		Cobertura:             clonarCoberturaOperativaMinimizadaRRHH(entrada.cobertura),
+		Asignacion:            clonarAsignacionOperativaMinimizadaRRHH(entrada.asignacion),
+		Fiscalizacion:         clonarFiscalizacionOperativaMinimizadaRRHH(entrada.fiscalizacion),
+		Hitos:                 clonarHitosRRHH(entrada.hitos),
+		InstruccionCompartida: clonarInstruccionCompartidaRRHH(entrada.instruccionCompartida),
+		canonV3:               entrada.canonV3,
 	}
+	hitosInstruccion := detalle.hitosDeInstruccion()
 	if detalle.Analisis != nil {
 		detalle.Analisis.vinculo = vinculoDesdeHitoMinimizadoRRHH(
-			detalle.Hitos, entrada.referenciaAnalisis.secuencia,
+			hitosInstruccion, entrada.referenciaAnalisis.secuencia,
 		)
 		detalle.bloques |= bloqueAnalisisRRHH
 	}
 	if detalle.Cobertura != nil {
 		detalle.Cobertura.vinculo = vinculoDesdeHitoMinimizadoRRHH(
-			detalle.Hitos, entrada.referenciaCobertura.secuencia,
+			hitosInstruccion, entrada.referenciaCobertura.secuencia,
 		)
 		detalle.bloques |= bloqueCoberturaRRHH
 	}
 	if detalle.Asignacion != nil {
 		detalle.Asignacion.vinculo = vinculoDesdeHitoMinimizadoRRHH(
-			detalle.Hitos, entrada.referenciaAsignacion.secuencia,
+			hitosInstruccion, entrada.referenciaAsignacion.secuencia,
 		)
 		detalle.bloques |= bloqueAsignacionRRHH
 	}
 	if detalle.Fiscalizacion != nil {
 		detalle.Fiscalizacion.vinculo = vinculoDesdeHitoMinimizadoRRHH(
-			detalle.Hitos, entrada.referenciaFiscalizacion.secuencia,
+			hitosInstruccion, entrada.referenciaFiscalizacion.secuencia,
 		)
 		if detalle.Fiscalizacion.Subsanacion != nil {
 			detalle.Fiscalizacion.Subsanacion.vinculo = vinculoDesdeHitoMinimizadoRRHH(
-				detalle.Hitos, entrada.referenciaSubsanacion.secuencia,
+				hitosInstruccion, entrada.referenciaSubsanacion.secuencia,
 			)
 		}
 		detalle.bloques |= bloqueFiscalizacionRRHH
@@ -420,6 +451,34 @@ func NuevaEntradaDetalleExpedienteRRHHMinimizadaV3(
 	entrada.referenciaSubsanacion = referenciaSubsanacion
 	entrada.canonV3 = true
 	if entrada.validarReferencias() != nil {
+		return EntradaDetalleExpedienteRRHHMinimizada{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	return entrada, nil
+}
+
+// NuevaEntradaDetalleExpedienteRRHHMinimizadaDerivadaV1 conserva los hitos
+// propios y la instrucción original en dos cronologías comprobadas.
+func NuevaEntradaDetalleExpedienteRRHHMinimizadaDerivadaV1(
+	resumen ResumenExpedienteRRHH, solicitud SolicitudOperativaRRHH,
+	analisis *AnalisisOperativoRRHH, referenciaAnalisis ReferenciaHitoAnalisisRRHH,
+	cobertura *CoberturaOperativaRRHH, referenciaCobertura ReferenciaHitoCoberturaRRHH,
+	asignacion *AsignacionOperativaRRHH, referenciaAsignacion ReferenciaHitoAsignacionRRHH,
+	fiscalizacion *FiscalizacionOperativaRRHH, referenciaFiscalizacion ReferenciaHitoFiscalizacionRRHH,
+	referenciaSubsanacion ReferenciaHitoSubsanacionFiscalizacionRRHH,
+	hitos []HitoExpedienteRRHH, instruccion InstruccionCompartidaRRHH,
+) (EntradaDetalleExpedienteRRHHMinimizada, error) {
+	entrada := EntradaDetalleExpedienteRRHHMinimizada{
+		resumen: resumen, solicitud: solicitud,
+		analisis: clonarAnalisisOperativoMinimizadoRRHH(analisis), referenciaAnalisis: referenciaAnalisis,
+		cobertura: clonarCoberturaOperativaMinimizadaRRHH(cobertura), referenciaCobertura: referenciaCobertura,
+		asignacion: clonarAsignacionOperativaMinimizadaRRHH(asignacion), referenciaAsignacion: referenciaAsignacion,
+		fiscalizacion:           clonarFiscalizacionOperativaMinimizadaRRHH(fiscalizacion),
+		referenciaFiscalizacion: referenciaFiscalizacion, referenciaSubsanacion: referenciaSubsanacion,
+		hitos: clonarHitosRRHH(hitos), instruccionCompartida: clonarInstruccionCompartidaRRHH(&instruccion),
+		canonV3: true,
+	}
+	if analisis == nil || cobertura == nil || asignacion == nil || fiscalizacion == nil ||
+		entrada.validarReferencias() != nil {
 		return EntradaDetalleExpedienteRRHHMinimizada{}, ErrResultadoConsultaRRHHNoConfiable
 	}
 	return entrada, nil

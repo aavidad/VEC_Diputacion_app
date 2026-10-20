@@ -1426,10 +1426,21 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			cerrarBorrador()
 		}
 	}()
-	derivacionNombramiento, err := nuevaRutaDerivacionNombramientoDesarrollo(nil)
+	var baseDerivacion *preparadorBorradorLlamamientoDesarrollo
+	if bolsa, ok := manejadorSituacion.(*manejadorParticipacionBolsaDesarrollo); ok && bolsa != nil {
+		baseDerivacion = bolsa.preparador
+	}
+	derivacionNombramiento, cerrarDerivacionNombramiento, err := nuevaRutaDerivacionNombramientoOpcionalDesarrollo(
+		cfg, &alta, baseDerivacion, consultasRRHH.detalle, catalogoFronteras, derivador, reloj)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	cerrarDerivacionPendiente := true
+	defer func() {
+		if cerrarDerivacionPendiente {
+			cerrarDerivacionNombramiento()
+		}
+	}()
 	rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaDerivacionNombramiento, Manejador: derivacionNombramiento})
 	rutas = append(rutas, rutasBorrador...)
 	cerrarPreparacionBases := func() {}
@@ -1650,6 +1661,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cerrarAuditoria()
 		cerrarBorrador()
 		cerrarOfertasCT()
+		cerrarDerivacionNombramiento()
 		cerrarIncorporacion()
 		consultasRRHH.cerrar()
 		coberturaReal.cerrar()
@@ -1659,6 +1671,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	cerrarAlta = false
 	cerrarBorradorPendiente = false
 	cerrarOfertasCTPendiente = false
+	cerrarDerivacionPendiente = false
 	cerrarAuditoriaPendiente = false
 	cerrarFronteraAuditoriaPendiente = false
 	cerrarAutoridadesPlantillasPendiente = false

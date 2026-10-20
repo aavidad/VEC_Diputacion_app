@@ -122,7 +122,7 @@
 782 internal/app/server/server_test.go
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql
-1925 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+1931 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 1073 internal/app/bootstrap/contratacion_temporal_seguimiento_cese_desarrollo.go
 1075 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 806 internal/app/bootstrap/contratacion_temporal_postgresql_gobierno_desarrollo.go
@@ -217,3 +217,4 @@
 831 internal/app/bootstrap/bolsa_inscripcion_autoridad.go
 825 internal/modules/bolsa/adapters/httpinscripcion/handler.go
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000305_contrato_derivacion_nombramiento.up.sql 3500
+2804 deploy/postgresql/contratacion_temporal/migraciones/000247_ambito_nombramiento_derivado.up.sql

@@ -45,32 +45,33 @@ func (d DetalleExpedienteRRHH) validarIntegridadContenidoEstructura() error {
 	debeTenerCobertura := d.bloques&bloqueCoberturaRRHH != 0
 	debeTenerAsignacion := d.bloques&bloqueAsignacionRRHH != 0
 	debeTenerFiscalizacion := d.bloques&bloqueFiscalizacionRRHH != 0
+	hitosInstruccion := d.hitosDeInstruccion()
 	if (d.Analisis != nil) != debeTenerAnalisis ||
 		(d.Cobertura != nil) != debeTenerCobertura ||
 		(d.Asignacion != nil) != debeTenerAsignacion ||
 		(d.Fiscalizacion != nil) != debeTenerFiscalizacion {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
-	if d.Analisis != nil && !d.Analisis.vinculo.coincide(d.Hitos) {
+	if d.Analisis != nil && !d.Analisis.vinculo.coincide(hitosInstruccion) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	if d.Cobertura != nil {
-		if !d.Cobertura.vinculo.coincide(d.Hitos) ||
+		if !d.Cobertura.vinculo.coincide(hitosInstruccion) ||
 			d.Cobertura.vinculo.secuencia <= d.Analisis.vinculo.secuencia {
 			return ErrResultadoConsultaRRHHNoConfiable
 		}
 	}
 	if d.Asignacion != nil &&
-		(!d.Asignacion.vinculo.coincide(d.Hitos) ||
+		(!d.Asignacion.vinculo.coincide(hitosInstruccion) ||
 			!d.Asignacion.AsignadaEn.Equal(d.Asignacion.vinculo.realizadaEn) ||
 			d.Asignacion.vinculo.secuencia <= d.Cobertura.vinculo.secuencia) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	if d.Fiscalizacion != nil &&
-		(!d.Fiscalizacion.vinculo.coincide(d.Hitos) ||
+		(!d.Fiscalizacion.vinculo.coincide(hitosInstruccion) ||
 			d.Fiscalizacion.vinculo.secuencia <= d.Asignacion.vinculo.secuencia ||
 			(d.Fiscalizacion.Subsanacion != nil &&
-				(!d.Fiscalizacion.Subsanacion.vinculo.coincide(d.Hitos) ||
+				(!d.Fiscalizacion.Subsanacion.vinculo.coincide(hitosInstruccion) ||
 					d.Fiscalizacion.Subsanacion.vinculo.secuencia <= d.Fiscalizacion.vinculo.secuencia))) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
@@ -78,10 +79,20 @@ func (d DetalleExpedienteRRHH) validarIntegridadContenidoEstructura() error {
 }
 
 func (d DetalleExpedienteRRHH) validarContenidoPublicable() error {
+	primeraSecuencia := uint64(1)
+	if d.InstruccionCompartida != nil {
+		primeraSecuencia = 6
+		if d.Resumen.Version != 6 || len(d.Hitos) != 1 {
+			return ErrResultadoConsultaRRHHNoConfiable
+		}
+	}
 	if d.Resumen.Validar() != nil ||
 		d.Solicitud.validar() != nil ||
 		len(d.Hitos) < 1 ||
-		uint64(len(d.Hitos)) != d.Resumen.Version {
+		uint64(len(d.Hitos))+primeraSecuencia-1 != d.Resumen.Version {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	if d.InstruccionCompartida != nil && d.InstruccionCompartida.validarPara(d) != nil {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	if d.Analisis == nil {
@@ -103,7 +114,8 @@ func (d DetalleExpedienteRRHH) validarContenidoPublicable() error {
 		}
 	} else if d.Cobertura == nil || d.Asignacion.validar() != nil ||
 		d.Resumen.UnidadRef != d.Asignacion.UnidadRef ||
-		d.Asignacion.AsignadaEn.Before(d.Resumen.CreadoEn) ||
+		(d.InstruccionCompartida == nil && d.Asignacion.AsignadaEn.Before(d.Resumen.CreadoEn)) ||
+		(d.InstruccionCompartida != nil && d.Asignacion.AsignadaEn.Before(d.InstruccionCompartida.CreadoEnPadre)) ||
 		d.Asignacion.AsignadaEn.After(d.Resumen.ActualizadoEn) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
@@ -130,15 +142,19 @@ func (d DetalleExpedienteRRHH) ValidarContenidoPublicablePara(
 }
 
 func (d DetalleExpedienteRRHH) validarHitos() error {
+	primeraSecuencia := uint64(1)
+	if d.InstruccionCompartida != nil {
+		primeraSecuencia = 6
+	}
 	for i, hito := range d.Hitos {
 		if hito.validar() != nil ||
-			hito.Secuencia != uint64(i+1) ||
+			hito.Secuencia != uint64(i)+primeraSecuencia ||
 			hito.RealizadaEn.After(d.Resumen.ActualizadoEn) {
 			return ErrResultadoConsultaRRHHNoConfiable
 		}
 		if i == 0 {
-			if hito.FaseOrigen != "" ||
-				hito.EstadoOrigen != domain.EstadoPendiente {
+			if d.InstruccionCompartida == nil &&
+				(hito.FaseOrigen != "" || hito.EstadoOrigen != domain.EstadoPendiente) {
 				return ErrResultadoConsultaRRHHNoConfiable
 			}
 			continue
@@ -185,6 +201,11 @@ func (d DetalleExpedienteRRHH) ValidarPara(
 
 func (d DetalleExpedienteRRHH) Clonar() DetalleExpedienteRRHH {
 	d.Hitos = append([]HitoExpedienteRRHH(nil), d.Hitos...)
+	if d.InstruccionCompartida != nil {
+		instruccion := *d.InstruccionCompartida
+		instruccion.HitosPadre = clonarHitosRRHH(instruccion.HitosPadre)
+		d.InstruccionCompartida = &instruccion
+	}
 	if d.Analisis != nil {
 		analisis := *d.Analisis
 		if analisis.CostePrevisto != nil {
