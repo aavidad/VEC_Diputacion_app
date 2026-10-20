@@ -7,6 +7,12 @@ la parte de pantallas de `docs/diseno/aspirantes_modulo_2026-09-29.md`, la
 sección de i18n y presentación de `AGENTS.md` y E08 de
 `ESPECIFICACIONES_AGENTES.md`.
 
+Revisión documental del 20/10/2026 sobre `origin/main@3ef7dee0b`. Las reglas
+de diseño siguen vigentes. Los inventarios de implantación de los apartados
+10 y 17 conservan su corte del 13/10 y se identifican como históricos; no
+son una nueva auditoría visual ni una lista actual de tareas. El estado de
+cada tarea está en el [tablero](TABLERO_TAREAS.md).
+
 Este documento reúne en un solo sitio las reglas de cómo se ven y se usan las pantallas,
 los textos visibles, los PDF y los correos de VEC. Lo leen las personas de RRHH que
 quieran saber cómo se decide el aspecto de la aplicación y los agentes (Claude y Codex)
@@ -396,6 +402,12 @@ Regla de Alberto (29/09/2026): ningún texto ni idioma dentro del código.
 
 ## 10. Privacidad visible
 
+La columna de estado siguiente es una fotografía histórica del 13/10.
+Las reglas de minimización, acceso y ayuda siguen siendo requisitos; para
+saber qué está integrado y qué falta, consulte el [tablero](TABLERO_TAREAS.md)
+y las evidencias de la tarea. Este corte documental no vuelve a comprobar
+el contacto completo ni los demás estados de cada pantalla.
+
 | Dónde | Qué se ve | Estado (13/10/2026) |
 | --- | --- | --- |
 | Listados (bolsas, candidatos, inscripciones) | Contacto y documento de identidad enmascarados | Existe. La API de Bolsa devuelve siempre la forma enmascarada |
@@ -746,8 +758,11 @@ Es la que aplica el revisor de usabilidad. Cada fallo se marca «bloquea», «mo
 
 ## 17. Huecos y diferencias entre reglas y código
 
-Comprobado el 13/10/2026. Cada punto se arregla en su propio corte; no justifica rehacer
-pantallas que funcionan.
+Inventario histórico comprobado el 13/10/2026. Se conserva como diagnóstico
+de aquella fecha; sus filas no afirman que cada hueco siga abierto al 20/10.
+La cola vigente está en el [tablero](TABLERO_TAREAS.md). Cada corrección exige
+su comprobación propia; este inventario no justifica rehacer pantallas que
+funcionan.
 
 | Hueco | Dónde | Regla |
 | --- | --- | --- |
