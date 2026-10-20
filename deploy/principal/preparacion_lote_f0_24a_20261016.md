@@ -23,9 +23,18 @@ comprueban las respuestas excepcionales del catálogo y rechazan la unidad
 incorrecta antes de abrir la transacción. Una respuesta inválida se rechaza
 entera, sin recortar duraciones ni ofrecer perfiles parcialmente.
 
-Este corte no acredita un recorrido nuevo en Chrome. La activación de
-Administración en la copia H está bloqueada por una confianza vencida; el
-recorrido conjunto se completará con F0-23 y los formularios de F0-04/F0-05.
+El 20/10 se recorrió en Chrome sobre una copia nueva con Administración
+(F0-28) y el lote activado con la unidad del arranque. Desde la ficha de
+una persona, «Cambiar perfiles» pide la preparación con esa unidad y recibe
+200. Con una unidad que no existe y con otra que el lote no tiene
+configurada, la respuesta es 503 `servicio_no_disponible`. Esas peticiones
+no dejan decisión, consumo ni registro de preparación; solo los dos
+intentos auditados como error. Se repitió igual tras reiniciar la
+aplicación, `vec-admin` y PostgreSQL, sin errores de JavaScript, cookies
+ni almacenamiento web y sin desbordamiento a 1440 y 390 píxeles. El kit de
+la copia prepara el lote aparte (`preparar_lote_plan.py`); el ejecutor de
+F0-28 no lo activa todavía.
+
 Sin configuración, se conserva el cierre de Administración existente.
 
 Para retirar el cambio, volver al binario anterior con la misma configuración.
@@ -40,10 +49,11 @@ no modifica esos contratos.
 
 ## Evidencia del corte
 
-Dos revisiones independientes de código y una documental favorables. Pasan
+Dos revisiones independientes de código y una documental favorables, y una
+revisión de seguridad independiente favorable sobre la rama actualizada. Pasan
 las pruebas focales de dominio, adaptador y aplicación. Semgrep local analiza
 los tres Go cambiados sin hallazgos ni errores; GoSec carga los 36 archivos
 del paquete adaptador sin errores ni avisos, con la corrección local de carga
 por directorio. El binario de Administración compila; sin configuración
-rechaza el arranque en la etapa de usuarios, como antes. No se ha probado
-el arranque con configuración vigente ni se da por completada la aceptación.
+rechaza el arranque en la etapa de usuarios, como antes. El recorrido en Chrome
+está descrito en «Comprobación». No se da por completada la aceptación.

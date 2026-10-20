@@ -332,8 +332,9 @@ entrar una vez en la pantalla de plantillas.
 
 Está preparada una comprobación para que, al preparar cambios de perfiles,
 se rechace desde el principio una unidad que no figure en la configuración
-aprobada. Falta comprobarla en pantalla junto con la asignación y retirada
-de perfiles; la copia local necesita renovar antes su configuración de acceso.
+aprobada. Se ha comprobado en la copia local: con la unidad configurada la
+pantalla de cambio de perfiles se abre, y con otra unidad se rechaza sin
+dejar cambios. Falta probarla junto con la asignación y retirada de perfiles.
 
 **Falta.** Instalar el cierre que impide abrir la administración sin su configuración de usuarios aprobada. Si esa configuración falta o es incorrecta, la administración debe permanecer cerrada. La lista y la ficha conservan sus controles de acceso.
 

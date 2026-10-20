@@ -192,6 +192,32 @@ func TestPreparacionLoteUnidadAusenteEnFuenteNoEmiteDecisionYAudita(t *testing.T
 	}
 }
 
+// fuenteLoteOtraUnidadPrueba responde sin error, pero con los ámbitos de otra
+// unidad: la preparación no debe aceptar una respuesta que no coteja.
+type fuenteLoteOtraUnidadPrueba struct{}
+
+func (fuenteLoteOtraUnidadPrueba) ResolverUnidadLote(ctx context.Context, org, _ string) (AmbitosFuenteLote, error) {
+	return fuenteLoteValidaPrueba{}.ResolverUnidadLote(ctx, org, "unidad:otra")
+}
+
+func TestPreparacionLoteFuenteIncoherenteOAusenteNoEmiteDecision(t *testing.T) {
+	for nombre, proveedor := range map[string]ProveedorAmbitosLote{
+		"ambitos_de_otra_unidad": fuenteLoteOtraUnidadPrueba{},
+		"sin_proveedor":          nil,
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			a, pool, emisor, reg, s := autoridadPreparacionPrueba(t, nil)
+			a.proveedor = proveedor
+			_, err := a.PrepararLoteOrdinario(context.Background(), s)
+			if !errors.Is(err, ports.ErrAutoridadAdministracionPerfilesNoDisponible) ||
+				pool.comienzos != 0 || emisor.efecto.Referencia != "" || reg.llamadas != 1 ||
+				reg.ordenes[0].Datos.Resultado != domain.ResultadoIntentoAuditoriaError {
+				t.Fatal("fuente de unidad no cotejada o fallo sin auditoría")
+			}
+		})
+	}
+}
+
 func TestPreparacionLoteOtraOrganizacionNoLlegaAlEmisor(t *testing.T) {
 	a, pool, emisor, reg, s := autoridadPreparacionPrueba(t, nil)
 	s.OrganizacionRef = "org_otra"
