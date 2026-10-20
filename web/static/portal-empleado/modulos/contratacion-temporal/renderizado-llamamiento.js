@@ -335,10 +335,12 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         </fieldset>
         <div class="ct-acciones">
         ${!paso.recibo && !paso.bloqueado
-          && !(operacion === "seleccion" && estado.estadoOferta?.estado === "pendiente")
+          && !(operacion === "seleccion" && estado.estadoOferta?.estado === "pendiente"
+            && estado.estadoOferta?.tipoSeleccion !== "llamamiento")
           && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-primario" type="submit"
           ${paso.ocupado || paso.calculando ? "disabled" : ""}>${e(t(paso.solicitud !== null
-            ? esRespuesta(operacion) ? "llamamiento_respuesta_reintentar_misma"
+            ? operacion === "seleccion" && estado.estadoOferta?.tipoSeleccion === "llamamiento"
+              ? "llamamiento_reanudar" : esRespuesta(operacion) ? "llamamiento_respuesta_reintentar_misma"
               : esResolucion(operacion) ? "llamamiento_reintentar_resolucion" : "llamamiento_recuperar"
             : operacion === "seleccion" ? estado.numeroPersonasSolicitadas > 1 ? "llamamiento_publicar_oferta"
               : estado.numeroPersonasSolicitadas === 1 ? "llamamiento_seleccionar" : "llamamiento_iniciar_seleccion"

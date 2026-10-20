@@ -159,7 +159,7 @@ export function validarSolicitudRecuperacionOferta(entradaOriginal) {
 export function validarEstadoSeleccionOferta(entrada, expedienteRef) {
   exigir(referenciaLlamamientoValida(expedienteRef));
   const base = ["esquema", "estado", "expediente_ref"];
-  const posibles = ["version_esperada", "clave_idempotencia", "ventana_abierta", "oferta", "descarte"];
+  const posibles = ["tipo_seleccion", "version_esperada", "clave_idempotencia", "efecto", "ventana_abierta", "oferta", "descarte"];
   exigir(entrada !== null && typeof entrada === "object" && !Array.isArray(entrada)
     && Object.getPrototypeOf(entrada) === Object.prototype
     && Object.getOwnPropertySymbols(entrada).length === 0
@@ -175,6 +175,14 @@ export function validarEstadoSeleccionOferta(entrada, expedienteRef) {
   }
   const original = validarSolicitudSeleccionLlamamiento({ expediente_ref: expedienteRef,
     version_esperada: entrada.version_esperada, clave_idempotencia: entrada.clave_idempotencia });
+  if (entrada.tipo_seleccion !== undefined) {
+    exigir(entrada.tipo_seleccion === "llamamiento" && entrada.estado === "pendiente"
+      && !entrada.oferta && !entrada.descarte
+      && (entrada.efecto === undefined
+        ? entrada.ventana_abierta === undefined
+        : ["preparar_orden", "solicitar_llamamiento"].includes(entrada.efecto)
+          && entrada.ventana_abierta === true));
+  } else exigir(entrada.efecto === undefined);
   exigir(entrada.ventana_abierta === undefined || entrada.ventana_abierta === true);
   if (entrada.estado === "pendiente") exigir(!entrada.oferta && !entrada.descarte);
   if (entrada.estado === "confirmada") {

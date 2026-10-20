@@ -609,13 +609,12 @@ export function montarFormularioLlamamiento({
     estado.numeroPersonasSolicitadas = Number.isSafeInteger(nuevo.numero_personas) && nuevo.numero_personas > 0
       ? nuevo.numero_personas : null;
     if (estado.numeroPersonasSolicitadas === null) estado.estadoOferta.estado = "sin_cantidad";
-    else if (estado.numeroPersonasSolicitadas > 1
-      && typeof cliente.consultarEstadoSeleccionOferta !== "function") estado.estadoOferta.estado = "sin_cliente";
+    else if (typeof cliente.consultarEstadoSeleccionOferta !== "function") estado.estadoOferta.estado = "sin_cliente";
     if (estado.comunicacion.solicitud === null) {
       estado.comunicacion.valores.expediente_ref = nuevo.expediente_ref;
     }
     estado.enlazado = true;
-    if (estado.numeroPersonasSolicitadas > 1
+    if (estado.numeroPersonasSolicitadas !== null
       && typeof cliente.consultarEstadoSeleccionOferta === "function") {
       consultarEstadoOferta(nuevo.expediente_ref);
     }
@@ -639,14 +638,23 @@ export function montarFormularioLlamamiento({
       // El cliente comprueba la representación y el expediente; se repite aquí
       // porque las pruebas y otros adaptadores pueden inyectar un cliente propio.
       const lectura = validarEstadoSeleccionOferta(respuesta, expedienteRef);
+      if (lectura.estado === "ausente" && estado.seleccion.solicitud) throw new TypeError("intención desaparecida");
+      if (lectura.tipo_seleccion === "llamamiento" && estado.numeroPersonasSolicitadas !== 1
+        || lectura.tipo_seleccion !== "llamamiento" && lectura.estado !== "ausente"
+          && estado.numeroPersonasSolicitadas === 1) throw new TypeError("selección incompatible con el expediente");
       if (lectura.estado !== "ausente") {
         const original = validarSolicitudSeleccionLlamamiento({ expediente_ref: expedienteRef,
           version_esperada: lectura.version_esperada, clave_idempotencia: lectura.clave_idempotencia });
+        if (estado.seleccion.solicitud && (estado.seleccion.solicitud.clave_idempotencia !== original.clave_idempotencia
+          || estado.seleccion.solicitud.version_esperada !== original.version_esperada)) throw new TypeError("intención distinta");
         estado.seleccion.solicitud = original;
         estado.seleccion.valores = { ...original };
         if (lectura.estado === "pendiente") {
-          estado.recuperacionOferta.identificada = true;
-          estado.seleccion.mensaje = "llamamiento_oferta_resultado_incierto";
+          if (lectura.tipo_seleccion === "llamamiento") estado.seleccion.mensaje = "llamamiento_reanudar_pendiente";
+          else {
+            estado.recuperacionOferta.identificada = true;
+            estado.seleccion.mensaje = "llamamiento_oferta_resultado_incierto";
+          }
           estado.seleccion.tono = "aviso";
         } else if (lectura.estado === "confirmada") {
           estado.seleccion.recibo = lectura.oferta;
@@ -659,6 +667,7 @@ export function montarFormularioLlamamiento({
           estado.recuperacionOferta.tono = "exito";
         }
       }
+      paso.tipoSeleccion = lectura.tipo_seleccion ?? null;
       paso.estado = lectura.estado;
       repintar();
     }).catch((error) => {
@@ -730,7 +739,8 @@ export function montarFormularioLlamamiento({
     // Sin expediente abierto no hay llamamiento: no se teclean referencias ni versiones.
     if (!estado.enlazado) return;
     if (operacion === "seleccion" && ["sin_cantidad", "sin_cliente", "cargando", "error", "denegado"].includes(estado.estadoOferta.estado)) return;
-    if (operacion === "seleccion" && estado.estadoOferta.estado === "pendiente") return;
+    if (operacion === "seleccion" && estado.estadoOferta.estado === "pendiente"
+      && estado.estadoOferta.tipoSeleccion !== "llamamiento") return;
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
     if (["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
     if (estado.comunicaciones.estado === "lista"
@@ -830,7 +840,8 @@ export function montarFormularioLlamamiento({
     let confirmado = nuevaConfirmada;
     try {
       if (!nuevaConfirmada) confirmado = confirmarOperacion({
-        titulo: t(operacion === "seleccion" ? estado.numeroPersonasSolicitadas > 1 ? "llamamiento_publicar_oferta"
+        titulo: t(operacion === "seleccion" && reintento && estado.estadoOferta.tipoSeleccion === "llamamiento"
+          ? "llamamiento_reanudar" : operacion === "seleccion" ? estado.numeroPersonasSolicitadas > 1 ? "llamamiento_publicar_oferta"
           : estado.numeroPersonasSolicitadas === 1 ? "llamamiento_seleccionar" : "llamamiento_iniciar_seleccion" : "llamamiento_" + operacion),
         advertencia: t(operacion === "seleccion" ? estado.numeroPersonasSolicitadas > 1 ? "llamamiento_confirmacion_oferta"
           : estado.numeroPersonasSolicitadas === 1 ? "llamamiento_confirmacion_seleccion" : "llamamiento_confirmacion_seleccion_neutra"

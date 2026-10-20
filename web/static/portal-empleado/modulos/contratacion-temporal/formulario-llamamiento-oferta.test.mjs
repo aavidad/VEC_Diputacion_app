@@ -39,6 +39,97 @@ const estadoOferta = (estado, extras = {}) => ({ esquema: "vec.contratacion-temp
   estado, expediente_ref: EXPEDIENTE,
   ...(estado === "ausente" ? {} : { version_esperada: 6, clave_idempotencia: seleccion().clave_idempotencia }),
   ...extras });
+const intencionSingular = (extras = {}) => estadoOferta("pendiente", {
+  tipo_seleccion: "llamamiento", ...extras,
+});
+
+test("la intención singular se reanuda tras remontar sin crear clave ni POST automático", async () => {
+  const escritas = [], originales = [];
+  const cliente = {
+    consultarEstadoSeleccionOferta: async () => intencionSingular({ efecto: "preparar_orden", ventana_abierta: true }),
+    seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+    recuperarOferta: async () => { throw new Error("la recuperación de oferta no corresponde"); },
+  };
+  for (const versionContexto of [6, 9]) {
+    const raiz = raizPrueba();
+    const cerrar = montar(raiz, cliente, { contexto: { expediente_ref: EXPEDIENTE,
+      version_esperada: versionContexto, numero_personas: 1 },
+    generarClaveIdempotencia: () => { throw new Error("no se debe generar otra clave"); } });
+    await asentarse();
+    assert.equal(escritas.length, originales.length);
+    assert.match(raiz.innerHTML, /Reanudar llamamiento/u);
+    assert.doesNotMatch(raiz.innerHTML, /123e4567-e89b-42d3-a456-426614174000|Recuperar operación/u);
+    await raiz.enviar("seleccion", { ...seleccion(), clave_idempotencia: "clave:falsa", version_esperada: "99" });
+    originales.push(escritas.at(-1));
+    assert.deepEqual(escritas.at(-1), { expediente_ref: EXPEDIENTE, version_esperada: 6,
+      clave_idempotencia: seleccion().clave_idempotencia });
+    assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="seleccion"/u);
+    cerrar();
+  }
+});
+
+test("la reserva singular sin efecto ni ventana también reanuda el POST original", async () => {
+  const raiz = raizPrueba(), escritas = [];
+  const lectura = intencionSingular();
+  assert.deepEqual(validarEstadoSeleccionOferta(lectura, EXPEDIENTE), lectura);
+  const cerrar = montar(raiz, {
+    consultarEstadoSeleccionOferta: async () => lectura,
+    seleccionarLlamamiento: async (solicitud) => { escritas.push(solicitud); return reciboSingular; },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 9, numero_personas: 1 },
+    generarClaveIdempotencia: () => { throw new Error("no debe generarse otra clave"); } });
+  await asentarse();
+  assert.equal(escritas.length, 0);
+  assert.match(raiz.innerHTML, /Reanudar llamamiento/u);
+  await raiz.enviar("seleccion", seleccion());
+  assert.deepEqual(escritas, [{ expediente_ref: EXPEDIENTE, version_esperada: 6,
+    clave_idempotencia: seleccion().clave_idempotencia }]);
+  cerrar();
+});
+
+test("la intención singular congelada conserva clave tras error y doble pulsación", async () => {
+  const raiz = raizPrueba(), escritas = []; let liberar;
+  const cerrar = montar(raiz, {
+    consultarEstadoSeleccionOferta: async () => intencionSingular(),
+    seleccionarLlamamiento: (solicitud) => {
+      escritas.push(solicitud);
+      if (escritas.length === 1) return Promise.reject(new Error("sin respuesta"));
+      return new Promise((resolve) => { liberar = resolve; });
+    },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 8, numero_personas: 1 },
+    generarClaveIdempotencia: () => { throw new Error("no se debe generar otra clave"); } });
+  await asentarse();
+  await raiz.enviar("seleccion", seleccion());
+  assert.match(raiz.innerHTML, /Volver a intentar/u);
+  const vuelo = raiz.enviar("seleccion", { ...seleccion(), version_esperada: "99" });
+  await asentarse();
+  await raiz.enviar("seleccion", seleccion());
+  assert.equal(escritas.length, 2);
+  assert.deepEqual(escritas[0], escritas[1]);
+  liberar(reciboSingular);
+  await vuelo;
+  cerrar();
+});
+
+test("el estado singular rechaza formas ambiguas y no habilita otro POST", async () => {
+  const invalidas = [
+    intencionSingular({ efecto: "preparar_orden" }),
+    intencionSingular({ ventana_abierta: true }),
+    intencionSingular({ efecto: "otro", ventana_abierta: true }),
+    intencionSingular({ tipo_seleccion: "otro" }),
+    estadoOferta("confirmada", { tipo_seleccion: "llamamiento", oferta: reciboOferta }),
+    intencionSingular({ version_esperada: 0 }),
+  ];
+  for (const lectura of invalidas) {
+    assert.throws(() => validarEstadoSeleccionOferta(lectura, EXPEDIENTE));
+    const raiz = raizPrueba(); let post = 0;
+    const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: async () => lectura,
+      seleccionarLlamamiento: async () => { post++; return reciboSingular; } },
+    { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 } });
+    await raiz.enviar("seleccion", seleccion());
+    assert.equal(post, 0);
+    cerrar();
+  }
+});
 
 test("GET de estado usa consulta codificada y valida la identidad de la respuesta", async () => {
   const comandos = [];
@@ -93,16 +184,16 @@ test("GET fallido bloquea la selección; reintento ausente la vuelve a permitir"
   cerrar();
 });
 
-test("N singular sin configuración S2 no consulta GET y conserva el envío", async () => {
+test("N singular con GET fallido bloquea el envío", async () => {
   const raiz = raizPrueba();
   let consultas = 0, post = 0;
   const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: async () => { consultas++; throw new Error("S2 sin configurar"); },
     seleccionarLlamamiento: async () => { post++; return reciboSingular; } },
   { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: 1 } });
   await asentarse();
-  assert.equal(consultas, 0);
+  assert.equal(consultas, 1);
   await raiz.enviar("seleccion", seleccion());
-  assert.equal(post, 1);
+  assert.equal(post, 0);
   cerrar();
 });
 
@@ -119,15 +210,15 @@ test("N plural con S2 sin configurar bloquea POST hasta consulta válida", async
   cerrar();
 });
 
-test("N plural sin método GET bloquea selección; N singular conserva el POST", async () => {
+test("sin método GET bloquea selección singular y plural", async () => {
   for (const numeroPersonas of [1, 2]) {
     const raiz = raizPrueba(); let post = 0;
     const cerrar = montar(raiz, { consultarEstadoSeleccionOferta: null,
       seleccionarLlamamiento: async () => { post++; return numeroPersonas === 1 ? reciboSingular : reciboOferta; } },
       { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6, numero_personas: numeroPersonas } });
     await raiz.enviar("seleccion", seleccion());
-    assert.equal(post, numeroPersonas === 1 ? 1 : 0);
-    if (numeroPersonas === 2) assert.match(raiz.innerHTML, /No se ha podido preparar el envío/);
+    assert.equal(post, 0);
+    assert.match(raiz.innerHTML, /No se ha podido preparar el envío/);
     cerrar();
   }
 });
