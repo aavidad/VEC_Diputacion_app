@@ -177,7 +177,8 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 	// confirmación de no incorporación; el resto de rutas queda sin sellar.
 	if m.autoridad.resolvedor.esSegundoTecnicoRRHH(principal) {
 		validoRuta = r.Method == http.MethodPost &&
-			(r.URL.Path == httpinterno.RutaSeguimientoCese || r.URL.Path == httpinterno.RutaNoIncorporaciones)
+			(r.URL.Path == httpinterno.RutaSeguimientoCese || r.URL.Path == httpinterno.RutaNoIncorporaciones) ||
+			r.Method == http.MethodGet && r.URL.Path == vechttp.RutaOrganizacionHistoricaPersonal
 	}
 	if err == nil && validoRuta {
 		capacidad := capacidadConsultaContratacionTemporalDesarrollo{

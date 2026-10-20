@@ -408,22 +408,16 @@ def comprobar_fuente_bolsa_ct(args):
              "AND s.huella_sustituida_sha256=c.huella_bolsa_sha256))")
     if lectura_db(args, query) != ["1|1|1"]:
         raise Corte("FALTA: B110/AD261 o Bolsa Administrativo constituida vigente única")
-    m10 = args.config.parent.parent / "cliente_m10_ct.json"
-    try:
-        cfg = json.loads(m10.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise Corte(f"FALTA: configuración privada M10 en {m10}") from exc
-    organismo = config_privada(args)
-    if not isinstance(cfg, dict) or (cfg.get("version") != 1 or cfg.get("origen") != args.origen or
-            cfg.get("organismo_ref") != (organismo or {}).get("organismo_ref") or
-            not all(cfg.get(k) for k in ("directorio", "autoridad_ca", "certificado_cliente", "clave_cliente"))):
-        raise Corte("FALTA: M10 no coincide con origen, organismo y material privado B2")
     try:
         launcher = args.launcher.read_text(encoding="utf-8")
     except OSError as exc:
-        raise Corte("FALTA: lanzador privado para verificar M10") from exc
-    if not re.search(r"(?m)^\s*(?:export\s+)?VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH\s*=\s*\S+", launcher):
-        raise Corte("FALTA: VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH en lanzador privado")
+        raise Corte("FALTA: lanzador privado para verificar la consulta histórica de Personal") from exc
+    selectores = re.findall(r"(?m)^[ \t]*(?:export[ \t]+)?VEC_ORGANIZACION_HISTORICA_CONSULTA_ENABLED[ \t]*=[ \t]*['\"]?([^'\"\s#]+)", launcher)
+    if selectores != ["true"]:
+        raise Corte("FALTA: consulta histórica de Personal activada en el lanzador privado")
+    materiales = re.findall(r"(?m)^[ \t]*(?:export[ \t]+)?VEC_ORGANIZACION_HISTORICA_MATERIAL_DIR[ \t]*=[ \t]*['\"]?([^'\"\s#]+)", launcher)
+    if len(materiales) != 1:
+        raise Corte("FALTA: material privado de consulta histórica de Personal en el lanzador privado")
 
 
 def comprobar_ct215(args):
@@ -512,7 +506,7 @@ def comprobar(args):
         faltas.append("FALTA CA privada: --material <directorio-con-ca-y-mtls>")
     try:
         comprobar_fuente_bolsa_ct(args)
-        print("EXISTE fuente B110/AD261, Bolsa Administrativo única y M10 configurado")
+        print("EXISTE fuente B110/AD261, Bolsa Administrativo única y consulta histórica de Personal activada")
     except Corte as exc:
         faltas.append(str(exc))
     try:

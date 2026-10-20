@@ -56,14 +56,14 @@ sus funciones, permisos y guardas.
    vec-server preparar-portal-externo \
      --material-externo "$MATERIAL_EXTERNO" \
      --publicador-confianza-dsn "$DSN_PUBLICADOR_PRIVADO" \
-     --consumidores mi_bolsa,portal_candidato,preferencias_bolsas,inscripcion_bolsa,meritos_cartera
+     --consumidores mi_bolsa,portal_candidato,preferencias_bolsas,inscripcion_bolsa,meritos_cartera,bolsa_justificantes
    ```
 
    Los valores son rutas absolutas elegidas por dirección. El directorio externo
    tiene la marca de proceso externo y está separado del interno. Si el kit añade
    `--seudonimos` y `--cuentas`, conservarlos: se cotejan con la provisión existente.
    No se da de alta otra cuenta desde esta herramienta.
-6. Se publican juntas las 23 audiencias externas actuales. El inventario sólo
+6. Se publican juntas las 28 audiencias externas actuales. El inventario sólo
    entrega las claves de los consumidores pedidos. Repetir el comando con el
    mismo material conserva raíz, configuración, claves y coordenadas; cada
    ejecución deja un asiento nominal. Si caduca la configuración o se renueva
@@ -84,9 +84,14 @@ la publicación sigue siendo el LOGIN nominal asignado al operador. Cada quince
 minutos y al arrancar se ejecuta el mismo preparador, en un proceso administrativo
 separado de la web. Si quedan más de treinta minutos, recupera la publicación;
 cuando se acerca el vencimiento publica una configuración vigente durante las
-siguientes 24 horas, conservando las claves y sus coordenadas. No espera al corte
+siguientes 24 horas por defecto, conservando las claves y sus coordenadas. No espera al corte
 de medianoche. Un fallo se registra, conserva lo anterior y se reintenta en el
 siguiente disparo; nunca se presenta como renovación.
+
+En desarrollo, la [configuración de vigencias de F1-64](vigencias_publicaciones_f1_64_20261016.md)
+permite publicaciones nuevas de hasta 90 días con las tres llaves de desarrollo.
+La renovación debe recibir el mismo valor de `VEC_GOBIERNO_ADMIN_VALIDEZ_HORAS`;
+una publicación vigente conserva sus fechas hasta que corresponda renovarla.
 
 Ficheros: `confianza_externa_hz38/renovar.sh`, `vec-confianza-externa.service` y
 `vec-confianza-externa.timer`. Como `openclaw`, con las rutas del paquete de HZ38:
@@ -112,7 +117,7 @@ Contenido de `renovacion.env` en cidonia (sin contraseñas):
 VEC_RENOVACION_BINARIO=/home/openclaw/.local/libexec/vec/vec-server
 VEC_RENOVACION_MATERIAL_EXTERNO=/home/openclaw/.local/state/vec-desarrollo-20260906/config/portal-externo
 VEC_RENOVACION_PUBLICADOR_DSN=/home/openclaw/.config/vec/confianza-externa/publicador.dsn
-VEC_RENOVACION_CONSUMIDORES=mi_bolsa,portal_candidato,preferencias_bolsas,inscripcion_bolsa,meritos_cartera
+VEC_RENOVACION_CONSUMIDORES=mi_bolsa,portal_candidato,preferencias_bolsas,inscripcion_bolsa,meritos_cartera,bolsa_justificantes
 VEC_PORTAL_PROCESO=interno
 VEC_AUTH_MODE=desarrollo
 VEC_EXECUTION_PROFILE=desarrollo
@@ -153,3 +158,22 @@ privados. No instala SQL ni crea LOGIN desde la prueba.
 La preparación no mide una pantalla ni sustituye el recorrido de aspirante de
 dirección. «Mi Bolsa», sus preferencias y la inscripción existentes son los
 consumidores web de esta publicación.
+
+## Motivo documental y alcance de F1-46
+
+El consumidor `bolsa_justificantes` entrega las tres claves propias de subida,
+descarga y preparación del justificante de renuncia. Publicar confianza no
+publica el permiso del aspirante ni el motivo documental. La configuración
+privada exige `motivos_autorizacion_justificante_renuncia_bolsa`, con su versión,
+huella y entrada exactas. AUT99 admite ese catálogo en la autoridad externa
+únicamente para los actos propios del justificante; AD284 conserva la
+confianza y la auditoría externas al consumirlos. Una entrada ausente,
+retirada o divergente no autoriza la operación.
+
+La [guía del justificante](justificante_renuncia_activacion.md) recoge los
+permisos, el almacén y el antivirus que necesita la subida. Sus precondiciones
+de gobierno no se sustituyen por esta publicación de confianza. Las admisiones
+y asignaciones ficticias de la copia tampoco acreditan actos de Administración.
+
+El [ensayo de F1-46](../../docs/estudio_requisitos/cuenta_externa_f1_46_20261020.md)
+recoge el acceso externo a Mi Bolsa y su recuperación tras reiniciar.

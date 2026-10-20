@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"net/http"
 	"sync/atomic"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
-	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -427,7 +425,7 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) perfilActivoSeleccionado(ctx con
 	if !p.fronteras.mismaInstancia(frontera.catalogo) {
 		return "", false
 	}
-	if frontera.ruta == httpapi.RutaOrganizacionHistoricaPersonal {
+	if fronteraConsultaPersonal(frontera) {
 		seleccion, oh := p.seleccionOrganizacionHistorica(ctx)
 		return seleccion.perfil, oh && seleccion.version != 0 && perfilActivoSeguridadComunValido(seleccion.perfil) && frontera.descriptor.admitePerfil(seleccion.perfil)
 	}
@@ -444,8 +442,7 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) seleccionOrganizacionHistorica(c
 		return seleccionPerfilOrganizacionHistorica{}, false
 	}
 	f, ok := fronteraSeguridadComunDesdeContexto(ctx)
-	if !ok || !p.fronteras.mismaInstancia(f.catalogo) || f.ruta != httpapi.RutaOrganizacionHistoricaPersonal ||
-		f.metodo != http.MethodGet || f.superficie != superficieInternaSeguridadComunDesarrollo {
+	if !ok || !p.fronteras.mismaInstancia(f.catalogo) || !fronteraConsultaPersonal(f) || f.superficie != superficieInternaSeguridadComunDesarrollo {
 		return seleccionPerfilOrganizacionHistorica{}, false
 	}
 	s, existe := p.organizacionHistoricaPorCuenta[p.base.Contexto.Instantanea.CuentaRef]
