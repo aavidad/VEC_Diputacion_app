@@ -37,7 +37,9 @@ function normalizarContexto(contexto) {
   if (contexto === null || typeof contexto !== "object" || Array.isArray(contexto)
     || Object.getPrototypeOf(contexto) !== Object.prototype
     || Object.getOwnPropertySymbols(contexto).length !== 0
-    || Object.keys(contexto).length !== 2
+    || Object.keys(contexto).length !== (Object.hasOwn(contexto, "numero_visible") ? 3 : 2)
+    || (Object.hasOwn(contexto, "numero_visible") && (typeof contexto.numero_visible !== "string"
+      || contexto.numero_visible.trim() === "" || contexto.numero_visible.length > 80))
     || !Object.hasOwn(contexto, "expediente_ref")
     || !Object.hasOwn(contexto, "version_esperada")
     || !PATRON_REFERENCIA.test(contexto.expediente_ref)
@@ -49,7 +51,15 @@ function normalizarContexto(contexto) {
   return Object.freeze({
     expediente_ref: contexto.expediente_ref,
     version_esperada: contexto.version_esperada,
+    ...(Object.hasOwn(contexto, "numero_visible") ? { numero_visible: contexto.numero_visible.trim() } : {}),
   });
+}
+
+// La referencia interna nunca se usa en el resumen visible.
+function resumenExpediente(contexto, t) {
+  return contexto.numero_visible
+    ? t("informe_resumen_numero", { numero: contexto.numero_visible })
+    : t("informe_resumen");
 }
 
 function resultadoIndeterminado(error) {
@@ -79,10 +89,7 @@ function renderizarFormulario(estado, contexto, t) {
   }
   return `<form data-ct-informe-form>
     <fieldset><legend>${escaparHTML(t("informe_confirmacion_leyenda"))}</legend>
-      <p>${escaparHTML(t("informe_resumen", {
-    expediente: contexto.expediente_ref,
-    version: contexto.version_esperada,
-  }))}</p>
+      <p>${escaparHTML(resumenExpediente(contexto, t))}</p>
       <div class="ct-campo"><label><input name="confirmacion" type="checkbox" required>
         ${escaparHTML(t("informe_confirmacion"))}</label></div>
     </fieldset>
@@ -162,7 +169,6 @@ function renderizarDocumento(recibo, t, textosDocumento) {
     <p><strong>${escaparHTML(t("informe_documento_advertencia"))}</strong></p>
     <dl class="ct-resumen">
       <div><dt>${escaparHTML(t("informe_documento_version"))}</dt><dd>${escaparHTML(t("informe_documento_version_valor", { version: recibo.version_documento }))}</dd></div>
-      <div><dt>${escaparHTML(t("informe_documento_formato"))}</dt><dd>${escaparHTML(recibo.formato)}</dd></div>
     </dl>
     ${textosDocumento ? renderizarContenidoInforme(recibo.contenido_desarrollo,
     (clave, variables) => textosDocumento.traducir(`general.${clave}`, variables))
@@ -250,7 +256,8 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
   let t = crearTraductorContratacionTemporal(mensajes);
   let mensajesHistorial = { ...mensajes };
   let formateador = new Intl.DateTimeFormat(locale, {
-    dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
+    // Mismo formato que las fechas de la ficha («17 sept 2026, 2:03:32»).
+    dateStyle: "medium", timeStyle: "medium", timeZone: zonaHoraria,
   });
   let textosDocumento = null;
   let cargaTextosDocumento = null;
@@ -489,7 +496,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
       confirmada = confirmarActual({
         titulo: t("informe_confirmar"),
         advertencia: t("informe_confirmacion_advertencia"),
-        referencia: contexto.expediente_ref,
+        referencia: contexto.numero_visible ?? t("informe_resumen"),
       }) === true;
     } catch { confirmada = false; }
     return confirmada ? enviar(false) : Promise.resolve(null);

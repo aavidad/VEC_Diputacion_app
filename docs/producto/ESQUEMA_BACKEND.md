@@ -403,8 +403,17 @@ solo reciben ámbito con `declarar_ambito_bolsa_v1`, que únicamente puede
 ejecutar el propietario. En la copia local se hace con la semilla del
 manifiesto `identidad/bolsa-bback.json`
 (`deploy/principal/copia_local_ambito_bolsas.py`), y una bolsa sin declarar se
-queda sin ámbito. Por ahora los actos de Bolsa siguen usando el ámbito fijo de
-la composición; cotejarlo con esta tabla es el segundo corte. Activación en
+queda sin ámbito.
+
+Desde el segundo corte (B145) los actos sobre una bolsa toman de esta tabla la
+unidad y el ámbito del recurso que autoriza la decisión V3, con
+`leer_ambito_bolsa_v1`, la única lectura concedida al ejecutor. Así la
+decisión los compara con la asignación real del actor: una bolsa de otra
+unidad gestora se deniega aunque el actor tenga permiso en la suya, y una
+bolsa sin ámbito se deniega siempre. La confirmación de una aceptación (B128)
+lo coteja además en SQL antes de consumir la decisión. La recuperación de una
+carga cuya bolsa no tiene ámbito también se deniega, y el rol de línea de
+órdenes ya no puede constituir bolsas. Activación en
 `deploy/principal/ambito_bolsa_f1_60.md`.
 
 Candidata F1-04/05: `GET/POST /api/vec/bolsa/politica-transiciones` conecta la política global B32 con el portal de RRHH. CAT14 ofrece una lectura nominal por versión y huella del catálogo `bolsa.transiciones_situacion`; AD283 registra el consumidor propio; B122 añade el acto de gobierno y su salida pendiente, con versión esperada, motivo, recibo y auditoría. El POST exige decisión V3 fresca y conserva el recibo original en un reintento. El publicador ordinario antiguo pierde EXECUTE para el ejecutor. La instalación única está comprobada en la copia propia con las ACL completas; el recorrido conserva versión y recibo después de reiniciar aplicación y PostgreSQL. B126 sustituye los cuantificadores no admitidos por predicados equivalentes de longitud y conjunto de caracteres, sin cambiar permisos ni cánones. B127 expone `publicada_en` desde la fila guardada; un reintento conserva el instante original. La activación de la candidata y la preimagen de AD283 tras la cadena central siguen pendientes. Su lista causal está en `deploy/principal/lista_sql_codexs_reglas_situacion_20261015.txt`.
@@ -535,6 +544,13 @@ las solicitudes propias por categoría y la ficha las devuelve en
 acepta `categorias_refs` en lugar de `categoria_ref` y responde con el esquema
 `vec.bolsa.inscripcion.recibo_conjunto.v1` (201 la primera vez, 200 en el
 reintento). Activación en `deploy/principal/f1_41_solicitud_conjunta.md`.
+
+Los campos nuevos de la lista y la ficha (`modalidad_inscripcion` y
+`solicitudes_propias[]`) se conceden con la versión 2 de la fuente de
+inscripción (F1-101). AUT105 deja que el plan de la versión del rol del
+aspirante tome sus cinco acciones de la fuente v1 o de la v2, sin mezclarlas;
+la publicación sigue siendo de dos administradores. Guía en
+`deploy/principal/candidata_hz39/aspirante/inscripcion_fuente_v2.md`.
 
 Las preferencias entre bolsas guardan versiones y recibos en
 `preferencia_bolsas_version` y publican su evento en
@@ -827,6 +843,14 @@ vínculo exacto deniega igual: no hay perfil por defecto. La resolución
 recotejan los consumidores. Autorización y ContextoActor deben estar en la
 misma base. Detalle: `deploy/postgresql/contexto_actor_v1/README.md`.
 
+Las funciones que bloquean los punteros de un contexto lo hacen siempre en el
+mismo orden: cuenta, perfil, vínculo de contexto y persona. Es el orden de la
+acreditación que usa la decisión V3 y del resolutor CA36. Una función nueva
+que bloquee en otro orden provoca interbloqueos (`40P01`) cuando varias
+lecturas de la misma persona llegan a la vez. CA48 (tarea F1-105) corrigió
+así el cotejo de lectura de Bolsa, que tiraba con 503 los datos de contacto de
+la ficha del candidato.
+
 ## 9. Migraciones
 
 ### 9.1 Dónde y cómo se llaman
@@ -971,6 +995,9 @@ propietario, sus privilegios, su RLS, sus índices, sus restricciones y su prueb
   sin `search_path` fijo.
 - Falta de idempotencia, de `pg_advisory_xact_lock`, `lock_timeout` o
   `statement_timeout`.
+- Bloqueos de filas (`FOR SHARE`, `FOR UPDATE`) en un orden distinto del que
+  usa otra función que corre a la vez sobre las mismas filas; en
+  ContextoActor el orden es cuenta, perfil, vínculo de contexto y persona.
 
 ### 9.5 DOWN, reaplicar y evolución
 

@@ -60,7 +60,8 @@ for (const [idioma, mensajes] of [["es", {}], ["en", MENSAJES_EXPEDIENTES_CONTRA
         cuadro: { expedientes: [{ ...listo.cuadro.expedientes[0], estado_clave: estadoClave }] } };
       const html = renderizarSiguientePasoFicha(expediente, estado, t);
       assert.equal(boton(html), undefined);
-      const titulo = t(estadoClave === "espera" ? "ficha_siguiente_paso_espera" : "ficha_siguiente_paso_terminado");
+      const titulo = t(estadoClave === "espera" ? "ficha_siguiente_paso_espera"
+        : estadoClave === "cancelado" ? "ficha_siguiente_paso_cancelado" : "ficha_siguiente_paso_terminado");
       assert.ok(html.includes(titulo));
       assert.ok(html.includes(t("estado_resultado_indeterminado")));
     });

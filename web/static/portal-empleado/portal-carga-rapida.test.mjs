@@ -7,7 +7,6 @@ import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal, VISTAS_AUTOSE
 import { traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 import { versionDe } from "./versiones-cache.test-helper.mjs";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=VEC_WEB_VERSION";
-import { etiquetaCatalogo } from "./modulos/contratacion-temporal/adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
 import { numeroExpedienteVisible } from "./modulos/contratacion-temporal/componentes-expedientes.js?v=VEC_WEB_VERSION";
 
 test("la tarjeta de un módulo que aún carga dice «Comprobando» y queda ocupada", () => {
@@ -243,7 +242,6 @@ test("contratación temporal consulta su cuadro sin cargar su vista hasta que se
         adaptador: {
           crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [],
             resumenInicio: async () => { pasos.push("cuadro"); return resumenInicio; } }),
-          etiquetaCatalogo: (_catalogo, valor) => valor,
         },
         contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
         presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
@@ -418,7 +416,7 @@ test("los catálogos del alta no retrasan Inicio y abrir Contratación los esper
           obtenerCatalogosAlta: consulta("alta"), obtenerConfiguracionAnalisis: consulta("analisis"),
           registrarSolicitud: async () => ({}), registrarAnalisis: async () => ({}),
         }) },
-        adaptador: { etiquetaCatalogo, crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], resumenInicio: consulta("cuadro") }) },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], resumenInicio: consulta("cuadro") }) },
         contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
         presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
         vista: { numeroExpedienteVisible, montarModuloContratacionTemporal: async ({ alta }) => { altaMontada = alta; return { desmontar() {} }; } },

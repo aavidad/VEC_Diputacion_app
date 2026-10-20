@@ -198,7 +198,20 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000146_solicitud_conjunta.up.sq
 deploy/postgresql/bolsa_llamamientos/migraciones/000139_avisos_modalidades.up.sql ef4c0b36253f63017fbb0591e7c29d9091d0a5ee48b0b16e18ebf3433bc31879
 # F1-47 — CT242: metadatos actuales de la lectura exacta para segunda revisión de no incorporación; tras CT241.
 deploy/postgresql/contratacion_temporal/migraciones/000242_lectura_revision_no_incorporacion.up.sql 30bae173a84fcd4955e221fe8357b6e00301347928c896d7060f8b36e81208d9
+# F1-101 — AUT105: las cinco altas de inscripción del aspirante aceptan la fuente v2 (modalidad_inscripcion y solicitudes_propias[]); tras AUT104.
+deploy/postgresql/autorizacion/migraciones/000105_fuente_inscripcion_v2.up.sql 193fbd9ec4a8c3484009bf440c2f2f8148dd3e1a94cb918a78197e762d525486
+# F1-97 — CT243: el detalle RRHH publica fuera del recibo el grupo y la entrada de retención del análisis, para precargar la rectificación. Tras CT225; solo reconstruye sus cuatro lecturas.
+deploy/postgresql/contratacion_temporal/migraciones/000243_grupo_retencion_detalle_rrhh.up.sql d6d9624fa1157378b49c76e70bbcf65acd1ead47000bd7be8c8b669a0973dd20
+# F1-98 — CT244: el análisis compara también la fecha civil de la RC declarada por el centro; tras CT242.
+deploy/postgresql/contratacion_temporal/migraciones/000244_fecha_rc_declarada_analisis.up.sql 943e5009eefb8b329d6b871dabdced664c6a175ff5f0b0486ffa6b49b4e3d13f
 # F1-95 — BC15: fachada web de la declaración de publicación oficial (RRHH), tras BC14; deniega (55000) hasta que el núcleo tenga consumir_publicacion_oficial_bases_v1.
 deploy/postgresql/bolsa_convocatorias/migraciones/000015_declaracion_publicacion_oficial_rrhh.up.sql 3418e4c1aebc1c0e5568c67846d460c75e8a5adc15eaf2865b1c684e6b2fb7a8
-# F1-95 — AD301: perfil publicacion_oficial_bases_rrhh en el núcleo V3, consumidor consumir_publicacion_oficial_bases_v1, audiencia y origen del pool de Bolsa. Tras BC15 (borrador para el equipo de permisos).
+# F1-105 — CA48: el cotejo de lectura de Bolsa bloquea cuenta, perfil, vínculo y persona en el orden de la acreditación V3 (sin interbloqueo en la ficha del candidato); tras CA47.
+deploy/postgresql/contexto_actor_v1/migraciones/000048_cotejo_lectura_bolsa_orden_bloqueo.up.sql 9708680221f72a1774d25009f0f73eb09c9ac05df5f0b423f586431c50e41e45
+# F1-110 — B147: la emisión general de llamamientos de Bolsa exige orden estricto entre los disponibles (regla b01); salto solo con motivo b01.salto.* del catálogo de reglas. Reconstruye reservar_llamamiento_v1 (preimagen B25) como delegación en v2.
+deploy/postgresql/bolsa_llamamientos/migraciones/000147_orden_estricto_llamamiento.up.sql bb2f422d890048b76653ef3645ff777fbc7985e732478976a57430c43b6ec24d
+# F1-60 segundo corte — B145, los actos de Bolsa cotejan el ámbito de la bolsa (B128 en SQL), recuperación sin ámbito denegada y constitución por línea de órdenes retirada; tras B144.
+deploy/postgresql/bolsa_llamamientos/migraciones/000145_ambito_actos_bolsa.up.sql c5092a053a3917b5d9e19ec1a391890e661de0e72c3cf7c2eb2130185893389e
+
+# F1-95 parte B — AD301: perfil de publicación oficial de las bases; tras BC15 y núcleo vigente.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion_oficial_bases.up.sql a6d954810333f0d44b01675f86626910ce9cebb2e3163d8d7565d24a3fb9085a

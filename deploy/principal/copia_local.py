@@ -225,8 +225,23 @@ class Copia:
             guardar(self.estado, estado)
             with (self.raiz / 'datos-preparacion.log').open('ab') as log:
                 ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
+            from copia_local_cancelacion import encender as encender_cancelacion
+            encender_cancelacion(self, guardar, sha256)
             from copia_local_verificacion import comprobar as comprobar_conexiones
             comprobar_conexiones(self)
+            if not args.portal_externo:
+                # F1-99: datos del caso 4.0 e identidad de Mi Bolsa de Antonio.
+                import copia_local_caso40 as caso40
+                caso40.aplicar_guiones(self, REPO)
+                entorno_modulos = json.loads((self.raiz / 'entorno_modulos.json').read_text())
+                entorno_modulos = caso40.entorno_portal(entorno_modulos, caso40.preparar_antonio(self, REPO))
+                guardar(self.raiz / 'entorno_modulos.json', entorno_modulos)
+                estado = self.leer()
+                estado['entorno_modulos_sha256'] = sha256(self.raiz / 'entorno_modulos.json')
+                guardar(self.estado, estado)
+                # F1-113: Mis preferencias y Mi imagen, ya con Antonio como aspirante.
+                from copia_local_usuarios import preparar as preparar_usuarios
+                preparar_usuarios(self, args.rrhh_original, guardar, sha256)
         if args.segundo_rrhh:
             from copia_local_rrhh_adicional import preparar_copia
             huella_semilla = preparar_copia(self)
@@ -276,11 +291,16 @@ class Copia:
                          descriptores=(self.candado,), entorno={**os.environ,
                          'VEC_COPIA_PORTAL_ESTADO': str(privado_portal)})
             comprobar_conexiones(self)
+            # F1-113: Mis preferencias y Mi imagen, ya con el aspirante del portal.
+            from copia_local_usuarios import preparar as preparar_usuarios
+            preparar_usuarios(self, args.rrhh_original, guardar, sha256)
             estado = self.leer()
             estado['portal_externo_preparado'] = True
             guardar(self.estado, estado)
             self.parar()
             self.arrancar()
+        if args.modulos and not args.portal_externo:
+            caso40.registrar_contacto(self, REPO)
         if args.modulos:
             estado = self.leer()
             estado['comprobar_modulos'] = True

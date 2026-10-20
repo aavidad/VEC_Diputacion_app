@@ -169,16 +169,9 @@ function equivalenteCatalogo(referencia) {
   return centro ? `centro:rpt:${centro[1].toUpperCase()}` : undefined;
 }
 
-function referenciaVisible(catalogos, tipo, referencia) {
+function referenciaVisible(catalogos, tipo, referencia, t) {
   const mapa = catalogos?.[tipo];
-  return mapa?.get(referencia) ?? mapa?.get(equivalenteCatalogo(referencia)) ?? referencia;
-}
-
-/** Etiqueta de una opción de catálogo de alta; sin ella, la referencia tal cual. */
-export function etiquetaCatalogo(lista, referencia) {
-  const opciones = Array.isArray(lista) ? lista : [];
-  const buscar = (valor) => opciones.find((opcion) => opcion.referencia === valor)?.etiqueta;
-  return buscar(referencia) ?? buscar(equivalenteCatalogo(referencia)) ?? referencia;
+  return mapa?.get(referencia) ?? mapa?.get(equivalenteCatalogo(referencia)) ?? t("etiqueta_no_consta");
 }
 
 // Sin plazo_fase (sin catálogo de reglas o fase sin plazo) la columna queda
@@ -221,6 +214,16 @@ function faseConSubfase(faseRail, faseServidor, t) {
   return t("ficha_fase_con_subfase", { fase, subfase: etiqueta(faseServidor, t) });
 }
 
+// Fase de un hito en los historiales: la fase de RRHH y, si el hito cae en un
+// paso de ella, también el paso, como en la cabecera sin «Fase N de 8»
+// («Gestión de bolsa · Informe jurídico»).
+function faseHitoVisible(faseServidor, t) {
+  const fase = faseVisible(faseServidor, t);
+  const rrhh = faseRRHH(faseServidor);
+  if (!SUBFASES_VISIBLES.has(faseServidor) || !rrhh) return fase;
+  return t("ficha_fase_con_subfase", { fase, subfase: etiqueta(faseServidor, t) });
+}
+
 /** Rótulo de la cabecera para una fase del servidor confirmada por un recibo. */
 export function rotuloFaseCabecera(faseServidor, mensajes = {}) {
   return faseConSubfase("", faseServidor, crearTraductorExpedientesContratacion(mensajes));
@@ -231,8 +234,8 @@ function resumenVisual(entrada, catalogos, t, locale) {
   return {
     expediente_ref: entrada.expediente_ref,
     numero_visible: entrada.numero_visible,
-    centro: referenciaVisible(catalogos, "centros", entrada.centro_ref),
-    categoria: referenciaVisible(catalogos, "categorias", entrada.categoria_ref),
+    centro: referenciaVisible(catalogos, "centros", entrada.centro_ref, t),
+    categoria: referenciaVisible(catalogos, "categorias", entrada.categoria_ref, t),
     modalidad: etiquetaModalidad(entrada.modalidad_clave, catalogos, t, "—"),
     estado_clave: estadoClave,
     estado: etiqueta(entrada.estado_clave, t),
@@ -329,6 +332,8 @@ const MENSAJES_ACCIONES_HISTORIAL = new Map([
   ["registrar_asignacion", "hito_asignacion"],
   ["registrar_informe_juridico", "hito_informe_juridico"],
   ["registrar_fiscalizacion", "hito_fiscalizacion"],
+  ["registrar_propuesta_formalizacion", "hito_propuesta_formalizacion"],
+  ["registrar_resolucion_formalizacion", "hito_resolucion_formalizacion"],
 ]);
 
 function etiquetaAccionHito(clave, t) {
@@ -341,8 +346,8 @@ export function presentarEtiquetasHitoRRHH(hito, mensajes = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   return {
     accion: etiquetaAccionHito(hito.accion_clave, t),
-    faseOrigen: etiqueta(hito.fase_origen, t, "—"),
-    faseDestino: etiqueta(hito.fase_destino, t),
+    faseOrigen: hito.fase_origen ? faseHitoVisible(hito.fase_origen, t) : etiqueta(hito.fase_origen, t, "—"),
+    faseDestino: faseHitoVisible(hito.fase_destino, t),
     estadoOrigen: etiqueta(hito.estado_origen, t),
     estadoDestino: etiqueta(hito.estado_destino, t),
   };
@@ -357,7 +362,7 @@ function historialDesdeHitos(hitos, locale, t) {
   return hitos.map((hito) => ({
     secuencia: hito.secuencia,
     fecha: fechaCivil(hito.realizada_en, locale, true),
-    fase: faseVisible(hito.fase_destino, t),
+    fase: faseHitoVisible(hito.fase_destino, t),
     accion: etiquetaAccionHito(hito.accion_clave, t),
     estado_clave: estadoVisual(hito.estado_destino),
     estado: etiqueta(hito.estado_destino, t),
@@ -379,8 +384,8 @@ function costeEstimadoVisible(analisis, locale, t) {
 function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta, faseActual = "") {
   const { resumen, solicitud } = detalle;
   const campos = [
-    campo("centro", t("cabecera_centro"), referenciaVisible(catalogos, "centros", resumen.centro_ref)),
-    campo("categoria", t("cabecera_categoria"), referenciaVisible(catalogos, "categorias", resumen.categoria_ref)),
+    campo("centro", t("cabecera_centro"), referenciaVisible(catalogos, "centros", resumen.centro_ref, t)),
+    campo("categoria", t("cabecera_categoria"), referenciaVisible(catalogos, "categorias", resumen.categoria_ref, t)),
     campo("modalidad", t("cabecera_modalidad"), etiquetaModalidad(resumen.modalidad_clave, catalogos, t)),
     campo("fase", t("cabecera_fase_actual"), faseConSubfase(faseActual, resumen.fase_clave, t)),
     campo("estado", t("cabecera_estado"), etiqueta(resumen.estado_clave, t)),
@@ -536,11 +541,12 @@ function railFasesDesdeHitos(detalle, traducir) {
     }
     fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
     // El análisis confirmado es una actuación terminada aunque Solicitud siga
-    // abierta. Un retorno o una versión antigua no conserva esa marca.
-    const ultimo = detalle.hitos.at(-1);
+    // abierta (o se cancele después). Un retorno o una versión antigua no conserva esa marca.
+    const cancelado = detalle.resumen.estado_clave === "cancelado";
+    const ultimo = detalle.hitos.at(cancelado ? -2 : -1);
     const analisis = indice("analisis_rrhh");
-    if (detalle.resumen.fase_clave === "solicitud" && detalle.resumen.estado_clave === "en_curso"
-      && ultimo?.version_expediente === detalle.resumen.version
+    if (detalle.resumen.fase_clave === "solicitud" && (cancelado || detalle.resumen.estado_clave === "en_curso")
+      && ultimo?.version_expediente === detalle.resumen.version - (cancelado ? 1 : 0)
       && ACCIONES_FASES_VISUALES_COMPLETADAS[ultimo.accion_clave]?.includes("analisis_rrhh")
       && analisis >= 0) fases[analisis].estado_clave = ESTADO_FASE_COMPLETADO;
   }
@@ -590,6 +596,9 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
           : { causa_fin: detalle.analisis.periodo_causa_fin }) },
       porcentaje_jornada: detalle.analisis.porcentaje_jornada,
       ...(detalle.analisis.observaciones ? { observaciones: detalle.analisis.observaciones } : {}),
+      // Grupo y entrada de retención elegidos: la rectificación los conserva.
+      ...(detalle.analisis.grupo_subgrupo ? { grupo_subgrupo: detalle.analisis.grupo_subgrupo } : {}),
+      ...(detalle.analisis.entrada_rc_ref ? { entrada_rc_referencia: detalle.analisis.entrada_rc_ref } : {}),
     } } : {}),
     // Sin análisis todavía, los datos de la petición prerrellenan el formulario.
     ...datosPeticionParaAnalisis(detalle),

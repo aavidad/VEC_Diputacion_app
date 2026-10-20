@@ -28,7 +28,6 @@ var subcomandosSoloInterno = map[string]struct{}{
 	"rellenar-vinculos-bolsa":       {},
 	"comprobar-dietas":              {},
 	"publicar-proyeccion-publica":   {},
-	"constituir-bolsa":              {},
 	"importar-convoca":              {},
 	subcomandoPrepararPortalExterno: {},
 }

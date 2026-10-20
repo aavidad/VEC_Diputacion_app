@@ -84,12 +84,16 @@ test("envía una sola asignación cerrada y muestra el recibo mínimo", async ()
   const raiz = raizFalsa();
   const llamadas = [];
   let confirmaciones = 0;
+  const referenciasConfirmacion = [];
   const desmontar = montar(raiz, {
     asignarUnidad(solicitud, opciones) {
       llamadas.push({ solicitud, opciones });
       return Promise.resolve(recibo());
     },
-  }, { confirmarOperacion() { confirmaciones += 1; return true; } });
+  }, {
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 3, numero_visible: " 2026/95101 " },
+    confirmarOperacion({ referencia }) { confirmaciones += 1; referenciasConfirmacion.push(referencia); return true; },
+  });
 
   // La unidad y la persona responsable se nombran; su referencia solo va en el valor enviado.
   assert.match(raiz.innerHTML, /<output>Recursos Humanos<\/output>/u);
@@ -100,6 +104,7 @@ test("envía una sola asignación cerrada y muestra el recibo mínimo", async ()
   assert.equal(llamadas.length, 0);
   await Promise.all([raiz.enviar(), raiz.enviar()]);
   assert.equal(confirmaciones, 1);
+  assert.deepEqual(referenciasConfirmacion, ["2026/95101"]);
   assert.equal(llamadas.length, 1);
   assert.deepEqual(llamadas[0].solicitud, {
     expediente_ref: EXPEDIENTE,
@@ -149,6 +154,7 @@ test("recupera tras interrupción con el mismo cuerpo y la misma clave", async (
   const cuerpos = [];
   let claves = 0;
   let intento = 0;
+  const referenciasConfirmacion = [];
   const cliente = crearClienteHTTPContratacionTemporal({
     fetchImpl(ruta, opciones) {
       assert.equal(ruta, "/api/vec/contratacion-temporal/asignaciones");
@@ -163,9 +169,13 @@ test("recupera tras interrupción con el mismo cuerpo y la misma clave", async (
         : respuestaJSON({ data: recibo() }));
     },
   });
-  montar(raiz, cliente, { generarClaveIdempotencia() { claves += 1; return CLAVE; } });
+  montar(raiz, cliente, {
+    generarClaveIdempotencia() { claves += 1; return CLAVE; },
+    confirmarOperacion({ referencia }) { referenciasConfirmacion.push(referencia); return true; },
+  });
 
   await raiz.enviar();
+  assert.deepEqual(referenciasConfirmacion, ["Expediente seleccionado."]);
   assert.match(raiz.innerHTML, /data-ct-asignacion-accion="recuperar"/u);
   await raiz.recuperar();
   assert.equal(claves, 1);

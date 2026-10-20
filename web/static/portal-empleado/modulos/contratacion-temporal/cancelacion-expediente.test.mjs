@@ -104,7 +104,7 @@ test("el historial nombra la actuación de cancelación", () => {
 test("el contexto sale del detalle vigente y de su fila, en cualquier fase", () => {
   const estado = (fase, version = 3, estadoClave = "en_curso") => ({ vista: "expediente", carga: "listo", expediente: { demostracion: false, expediente_ref: EXP, version: 3 },
     cuadro: { expedientes: [{ expediente_ref: EXP, version, fase_clave: fase, estado_clave: estadoClave }] } });
-  assert.deepEqual({ ...contextoCancelacionDesdeEstado(estado("asignacion_unidad")) }, { expediente_ref: EXP, version: 3, fase_clave: "asignacion_unidad", estado_clave: "en_curso" });
+  assert.deepEqual({ ...contextoCancelacionDesdeEstado(estado("asignacion_unidad")) }, { expediente_ref: EXP, version: 3, fase_clave: "asignacion_unidad", estado_clave: "en_curso", numero_visible: "" });
   assert.equal(contextoCancelacionDesdeEstado(estado("asignacion_unidad", 2)), null, "fila desfasada");
   assert.equal(contextoCancelacionDesdeEstado({ ...estado("solicitud"), vista: "cuadro" }), null);
 });
@@ -129,7 +129,7 @@ test("solo se ofrece en curso y en una fase admitida; el formulario se abre con 
   assert.match(c.innerHTML, /id="ct-cancelacion-ayuda"[^>]*hidden/u);
   pulsar(c, "[data-ct-cancelacion-abrir]");
   assert.match(c.innerHTML, /data-ct-cancelacion-form/u);
-  assert.match(c.innerHTML, /<select name="motivo_clave" required\s*><option value=""><\/option><option value="necesidad_desaparecida">Ha desaparecido la necesidad/u);
+  assert.match(c.innerHTML, /<select name="motivo_clave" required\s*><option value="">Seleccione un motivo<\/option><option value="necesidad_desaparecida">Ha desaparecido la necesidad/u);
   assert.match(c.innerHTML, /<textarea name="observaciones"[^>]*><\/textarea>/u);
   desmontar();
   assert.equal(c.eventos.size, 0);
@@ -194,7 +194,9 @@ test("tras cancelar pinta el justificante copiable y lo conserva al volver a mon
       contexto: contextoPanel("asignacion_unidad", "cancelado"), avisoInicial: recibido.aviso });
     await esperar();
     assert.match(otro.innerHTML, /Expediente cancelado por Recursos Humanos/u);
-    assert.match(otro.innerHTML, /data-copiar-justificante="recibo:ct-seguimiento:1"/u);
+    // F1-102: el justificante sale una sola vez, en su recuadro; el mensaje solo dice «Expediente cancelado.».
+    assert.equal(otro.innerHTML.match(/data-copiar-justificante=/gu)?.length, 1);
+    assert.match(otro.innerHTML, /data-ct-cancelacion-aviso[^>]*>Expediente cancelado\.<\/p>/u);
     otroDesmontar();
   } finally {
     globalThis.FormData = FormDataOriginal;

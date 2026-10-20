@@ -44,6 +44,7 @@ static/area-personal/mi-bolsa-historial.js
 static/area-personal/mi-bolsa-ofertas.js
 static/area-personal/mi-bolsa-portal.js
 static/area-personal/mi-bolsa-preferencias-bolsas.js
+static/area-personal/mi-bolsa-preferencias-modalidades.js
 static/area-personal/meritos-reales-cliente.js
 static/area-personal/meritos-reales-montaje.js
 static/area-personal/meritos-reales-vista.js
@@ -277,6 +278,7 @@ static/textos/es/contratacion-temporal-vinculo-categoria-rpt.json
 static/textos/en/contratacion-temporal-vinculo-categoria-rpt.json
 static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/resultado-bolsa.js
+static/portal-empleado/modulos/contratacion-temporal/personas-llamamiento-bolsa.js
 static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.html
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.js

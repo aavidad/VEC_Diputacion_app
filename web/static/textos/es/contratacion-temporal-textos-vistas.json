@@ -101,6 +101,12 @@
     "informe_recibo_descripcion": "El recibo confirma el informe, su documento y la nueva versión del expediente.",
     "informe_historial_titulo": "Historial del expediente",
     "informe_historial_descripcion": "Actuaciones registradas en el expediente, de la más antigua a la más reciente.",
-    "informe_historial_tabla": "Actuaciones del expediente"
+    "informe_historial_tabla": "Actuaciones del expediente",
+    "cobertura_motivo_alternativa": "Motivo para elegir otra vía",
+    "cobertura_estado_motivo_obligatorio": "Seleccione un motivo para la vía elegida.",
+    "asignacion_confirmacion": "He comprobado el expediente, la unidad y la persona responsable.",
+    "asignacion_confirmacion_advertencia": "Esta acción asignará el expediente a la unidad y a la persona responsable elegidas.",
+    "informe_resumen": "Expediente seleccionado.",
+    "informe_resumen_numero": "Expediente {numero}."
   }
 }

@@ -258,6 +258,14 @@ test("el detalle admite observaciones del análisis y rechaza las vacías o desm
   for (const invalidas of ["", "x".repeat(4001), 7]) {
     await assert.rejects(consultar({ ...base.analisis, observaciones: invalidas }));
   }
+  // Grupo y entrada de retención elegidos (CT243): opcionales y acotados.
+  const conEleccion = await consultar({
+    ...base.analisis, grupo_subgrupo: "A1", entrada_rc_ref: "rc:desarrollo:001",
+  });
+  assert.equal(conEleccion.analisis.grupo_subgrupo, "A1");
+  assert.equal(conEleccion.analisis.entrada_rc_ref, "rc:desarrollo:001");
+  await assert.rejects(consultar({ ...base.analisis, grupo_subgrupo: "" }));
+  await assert.rejects(consultar({ ...base.analisis, entrada_rc_ref: "con espacios" }));
 });
 
 test("acepta los totales del conjunto filtrado y rechaza totales incoherentes", async () => {

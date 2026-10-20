@@ -63,7 +63,7 @@ importantes son:
 
 | Ejecutable | Para qué sirve |
 | --- | --- |
-| `cmd/vec-server` | Servidor principal: portal de RRHH, portal del empleado, Área personal del aspirante y consulta pública. Lleva subórdenes de operación (`importar-convoca`, `constituir-bolsa`, `publicar-proyeccion-publica`, `comprobar-dietas`, `rellenar-vinculos-bolsa`) |
+| `cmd/vec-server` | Servidor principal: portal de RRHH, portal del empleado, Área personal del aspirante y consulta pública. Lleva subórdenes de operación (`importar-convoca`, `publicar-proyeccion-publica`, `comprobar-dietas`, `rellenar-vinculos-bolsa`) |
 | `cmd/vec-admin` | Administración en su propio proceso y subdominio, con certificado de cliente obligatorio |
 | `cmd/vec-publico`, `cmd/vec-interno` | Composición separada de las superficies pública e interna |
 | `cmd/vec-analizador` | Análisis de ficheros subidos (ClamAV y política de PDF) |

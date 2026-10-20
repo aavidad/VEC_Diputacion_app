@@ -140,6 +140,9 @@ func handlerPreferenciasModalidadesPortalExterno(d dependenciasMiBolsaPortalExte
 	return manejador
 }
 
+// «Ver todas» (F1-14) necesita la consulta sin filtro de la vista filtrada.
+var _ bolsahttp.ConsultorTodasOfertas = (*mibolsa.ConsultaOfertasModalidades)(nil)
+
 // consultaHTTPMiBolsaPortalExterno compone la consulta propia de Mi Bolsa. Con
 // la lectura de modalidades compuesta, la elección (F1-13) filtra solo la
 // vista de ofertas; sin ella, la consulta queda como antes.

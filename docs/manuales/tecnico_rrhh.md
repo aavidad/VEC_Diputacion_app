@@ -71,12 +71,16 @@ En el recorrido, RRHH seleccionó **Acumulación de tareas**, **Administrativo**
 
 ![Jornada y retención de crédito en el análisis del ejemplo.](img/rrhh-20261009-analisis-rc.webp)
 
+Para corregir el análisis antes de decidir la cobertura, use **Rectificar análisis de RRHH** en la misma ficha. El formulario se abre con los datos del último análisis, también el grupo y la retención de crédito. Si alguna opción ya no está en las listas vigentes, aparece sin elegir y hay que seleccionarla de nuevo. Cambie lo que haga falta, elija el motivo de la rectificación y pulse **Rectificar análisis**.
+
 ## Decidir la cobertura y asignar la unidad
 
 1. En **Decidir la vía de cobertura**, lea las comprobaciones de la bolsa. Si la pantalla propone **Bolsa vigente** como vía viable para la categoría, selecciónela y pulse **Confirmar vía de cobertura**. Revise el aviso de confirmación antes de aceptarlo. La pantalla muestra **Decisión confirmada**.
 2. Vuelva a la ficha del mismo expediente. En el ejemplo apareció **Asignar expediente a la unidad responsable**, con **Recursos Humanos** y **Responsable de peticiones de personal temporal**. Compruebe ambos datos, marque la casilla de revisión y pulse **Confirmar asignación** una sola vez. Para comprobar el resultado, vuelva a abrir el mismo expediente y consulte la actuación de asignación en **Historial**.
 
 La cabecera de la ficha indica también el paso de la fase en el que está el expediente. Tras la asignación muestra «Fase 3 de 8: Gestión de bolsa · Asignación de unidad» y, cuando se prepara el informe jurídico, «Fase 3 de 8: Gestión de bolsa · Informe jurídico».
+
+Con la unidad asignada, **Siguiente paso** dice «preparar el informe jurídico». **Ir al trámite de esta fase** lleva al apartado **Preparar informe jurídico**, que nombra el expediente por su número (por ejemplo, «Expediente 2026/94010, versión 4.»). Al confirmar el informe, la cabecera y **Siguiente paso** cambian en el momento a «revisar las firmas del informe». No hace falta volver a abrir la ficha: el recibo sigue en pantalla y el **Historial** de la ficha ya incluye el informe. En los dos historiales la fase se escribe igual que en la cabecera, por ejemplo «Gestión de bolsa · Informe jurídico».
 
 ![Propuesta de Bolsa vigente y comprobaciones que la acompañan.](img/rrhh-20261009-cobertura.webp)
 
@@ -86,7 +90,7 @@ La cabecera de la ficha indica también el paso de la fase en el que está el ex
 
 Desde la ficha asignada, pulse **Abrir llamamiento en Bolsa**. El asistente conserva la petición de origen; compruebe que muestra la bolsa de la categoría correspondiente. En el ejemplo fue **ADMINISTRATIVO**, con 41 personas.
 
-1. Pulse **Seleccionar esta bolsa**. En **Seleccionar candidatos**, marque solo a la persona que corresponda tras revisar el orden y las condiciones del llamamiento. En el ejemplo se marcó únicamente a **Yago Lozano Hidalgo**, puesto 1. Estar en la primera fila no sustituye esas comprobaciones.
+1. Pulse **Seleccionar esta bolsa**. En **Seleccionar candidatos**, marque solo a la persona que corresponda tras revisar el orden y las condiciones del llamamiento. En el ejemplo se marcó únicamente a **Yago Lozano Hidalgo**, puesto 1. Estar en la primera fila no sustituye esas comprobaciones. Si marca a alguien y antes queda una persona disponible que aún no ha sido llamada para esa necesidad, VEC no emite el llamamiento: el paso **Revisar y enviar** indica quién va antes y su número de orden. Pulse **Actualizar selección** y empiece por esa persona.
 2. En **Configurar llamamiento**, compruebe la referencia, el centro y la fecha que ya trae la pantalla. Elija la modalidad y describa la necesidad con los datos de la petición. Mantenga el contacto ya registrado; no escriba un correo o teléfono nuevo para completar la pantalla.
 3. Indique el plazo de respuesta que RRHH haya fijado para esa oferta. En el ejemplo se usó **«Un día hábil desde el contacto efectivo»**. Era la regla disponible para ese ejercicio; este manual no la presenta como plazo legal aprobado para otros casos.
 4. En **Revisar y enviar**, compruebe que queda **una persona**, que el aviso nombra a la persona correcta y que los canales son los previstos. En el recorrido aparecieron correo al emitir y seguimiento por teléfono. Abra **Ver vista previa**, marque la confirmación para una persona y pulse **Emitir llamamiento** una sola vez.
@@ -107,6 +111,12 @@ Compruebe la franja que muestra la ficha. En el recorrido era de **09:00 a 14:00
 ![Resultado Contactado y hora del intento registrada por la aplicación.](img/rrhh-20261009-contacto.webp)
 
 **Contactado** no significa que la persona haya aceptado o renunciado. Su respuesta se consulta por el cauce que le corresponde.
+
+## Cancelar un expediente antes de la fiscalización
+
+Mientras el expediente no se haya fiscalizado, la ficha muestra el apartado **Cancelación del expediente**. Pulse **Cancelar expediente**, elija el motivo en la lista («Seleccione un motivo») y, si quiere, escriba una observación. Mientras el formulario está abierto solo queda **Volver sin cancelar** para salir sin hacer nada. Después pulse **Cancelar el expediente**. La ventana de confirmación nombra el expediente por su número, por ejemplo «Expediente 2026/CT-000022, versión 3.».
+
+Al confirmar, el apartado dice «Expediente cancelado.» y muestra la fecha, la fase en la que se canceló y el justificante, que se puede copiar. **Siguiente paso** pasa a «Expediente cancelado», y el **Historial** añade «Expediente cancelado». En **Fases del expediente**, las fases ya hechas siguen marcadas como hechas, la fase en la que se canceló dice «Cancelado en esta fase» y las siguientes, «No se hará». Con la pantalla en inglés, los motivos también salen en inglés y el historial dice «Case cancelled».
 
 ## Si algo sale mal
 

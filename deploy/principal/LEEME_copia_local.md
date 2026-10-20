@@ -97,10 +97,81 @@ con un LOGIN distinto, TLS verificado y pertenencia exclusiva al grupo del
 relevo: `INHERIT TRUE, SET TRUE, ADMIN FALSE`, según el apartado de relevo de
 `03_entorno.md`. La conexión no activa el seguimiento ni la incorporación:
 esos selectores y los catálogos se preparan para el recorrido que los use.
+
+Con `--modulos` la copia enciende además la cancelación del expediente
+(`VEC_CT_CANCELACION_ENABLED`, tarea F1-96). Usa el catálogo de reglas de CT
+`reglas.v3.json` (regla c20) y el de motivos de cancelación de `data/demo/reglas`;
+si el kit de datos ya fijó alguno de los dos, se conserva el suyo. Sus
+migraciones (CT 000122 y AD3-87) ya están en el volcado de referencia. Sin
+ellas la ficha recibía 404 al consultar la cancelación y no mostraba el apartado.
+
 El segundo RRHH que exige la regla c22 necesita su identidad y perfil
 publicados por el circuito de Administración; esta conexión no los concede.
 
-Tras el productor de datos, el guion coteja los 23 LOGIN internos: opciones
+`VEC_CALENDARIOS_DATABASE_URL` usa otro LOGIN, solo con el grupo
+`vec_calendarios_lector`. Bolsa consulta el calendario oficial para saber si
+una llamada cae en día hábil y para calcular el plazo de las ofertas. Sin esa
+conexión, registrar una llamada y ver la lista de contactos respondían 503.
+
+Desde F1-99, `crear --modulos` sin `--portal-externo` prepara además los datos
+del caso 4.0 para los pasos 9 y 10 (`copia_local_caso40.py`):
+
+- aplica los tres guiones de `candidata_hz39/datos` (puesto 9/01 del centro
+  520, Antonio disponible en la bolsa vigente y cargo de Manuel);
+- crea con `preparar_candidato_desarrollo.sh --candidato-ref` una identidad
+  nueva de Antonio ligada a su candidatura vigente. La persona del material
+  original tiene el permiso de Mi Bolsa ligado a la candidatura de la bolsa
+  sustituida y recibía 403. El permiso nuevo lo publica la aplicación al
+  arrancar. El certificado queda en `material/mtls/candidato.crt` y se activa
+  `VEC_BOLSA_PORTAL_CANDIDATO_ENABLED` junto con `VEC_BOLSA_REGLAS_SOURCE_PATH`
+  (`data/catalogos/bolsa/reglas.v7.json`), el catálogo que el servidor exige con
+  ese selector. Si el kit ya fijó alguna de las dos, se respeta su valor;
+- registra por la API de Bolsa, como la técnica de RRHH, el correo
+  `antonio.reyes@example.test` y un teléfono ficticio. El buzón de la copia
+  solo acepta ese dominio, así que el aviso del llamamiento llega a él y no
+  sale fuera.
+
+Los nombres de las participaciones no se tocan: el nombre que muestra la lista
+de la bolsa es el del acta. Lo revisa F1-100.
+
+Desde F1-113, con `--modulos` y `--rrhh-original`, la copia enciende también
+«Mis preferencias» y «Mi imagen» (`copia_local_usuarios.py`). Antes respondían
+404 en todas las vistas porque la copia no ponía sus dos selectores y la
+configuración de Usuarios del material original apuntaba a conexiones de la
+principal, que la copia no traslada. Ahora:
+
+- se crean 16 LOGIN propios de la copia, uno por conexión de cada superficie
+  (interna y externa) y con una sola membresía; el ejecutor de cada superficie
+  lleva el nombre de su fila de origen de consumos ya restaurada (sin él la
+  base rechaza la consulta y respondía 503). Ni esa fila ni los permisos se
+  tocan: el rol de preferencias ya está publicado en el volcado para la técnica
+  de RRHH;
+- se escriben las dos configuraciones con las cuentas y motivos del material
+  original y las conexiones nuevas. La cuenta externa de la principal no existe
+  en la copia y el arranque rechazaría el proceso entero; se usa la persona
+  aspirante de la copia (Antonio, o la del área personal con
+  `--portal-externo`). Esa persona no tiene el rol de preferencias de Usuarios
+  publicado, así que en su área personal «Mis preferencias» y «Mi imagen»
+  siguen sin atenderse hasta que Administración se lo asigne;
+- se ponen `VEC_USUARIOS_PREFERENCIAS_ENABLED` y `VEC_USUARIOS_IMAGEN_ENABLED`
+  (un `false` del kit se respeta; si se apagan las preferencias, la imagen
+  tampoco se enciende, porque sin ellas el arranque apaga Contratación temporal).
+
+Los LOGIN se confirman antes de escribir las configuraciones. Si esa escritura
+falla, el paso no se puede repetir sobre la misma copia: hay que borrarla y
+crearla de nuevo.
+
+Con material nuevo (sin `--rrhh-original`) no hay cuentas con ese permiso y la
+copia sigue sin las dos rutas.
+
+«Orden de mis bolsas» (`/api/vec/bolsa/mi-bolsa/preferencias`) no se enciende:
+el volcado no tiene publicada ninguna versión del rol del aspirante con
+`bolsa.preferencias_bolsas.consultar_propias` y `ordenar_propias`. Esa versión
+la crea un acto de Administración firmado por dos administradores
+(`versionar_rol_bolsa_externa`). Sin ella la ruta no se monta y el panel del
+área personal muestra «No se pudo consultar el orden de sus bolsas».
+
+Tras el productor de datos, el guion coteja los 24 LOGIN internos: opciones
 sin privilegios de administración y membresías directas exactas. La conexión
 de importación CONVOCA conserva los grupos `vec_bolsa_importacion_convoca_ejecutor`
 y `vec_bolsa_importacion_convoca_recuperador`, ambos con `INHERIT TRUE`,
@@ -508,6 +579,13 @@ consulta, y la selección fallaba.
   guardada y está en acumulación de tareas, que no admite puesto ni huella. En
   tu copia puedes usar la variante vacante del caso 4.0 con dos personas
   solicitadas, como dato de copia y sin atribuirla a la fiscalización anterior.
+- «Llamar a la siguiente persona» desde la ficha del expediente sigue dando
+  409 en una copia nueva (F1-99, 20/10). Ningún perfil de RRHH de la copia
+  tiene la concesión `personal.organizacion_historica.consultar` y en
+  desarrollo nadie la publica: hace falta un acto de Administración. Además,
+  los expedientes de la semilla (2026/93001 y 2026/94011) no guardan
+  necesidad de la RPT. Hasta resolverlo, el llamamiento del paso 9 se emite
+  desde el asistente de Bolsa.
 
 ## 7. Arrancar `vec-server`
 
@@ -594,8 +672,10 @@ desde la revisión limpia, prepara Administración y genera el montaje externo
 `version-bolsa-externa` de `vec-gobierno-usuarios-admin`). En `arrancar` lanza `vec-admin` con
 `VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE` y guarda PID e inicio del
 proceso. El ejecutor y el kit viven en `~/.local/state`, nunca en Git.
-La fuente de inscripción no se admite otra vez: el catálogo
-`catalogo:bolsa:carga_convoca:b1` v6 de la línea base ya trae sus entradas.
+El catálogo `catalogo:bolsa:carga_convoca:b1` v6 de la línea base trae la
+fuente de inscripción v1. Desde F1-101 se admite antes la v2 en un catálogo v7
+(guía en `candidata_hz39/aspirante/inscripcion_fuente_v2.md`) y el plan del
+aspirante toma de ahí sus cinco acciones.
 
 Orden del acto del aspirante, con el Chrome del sistema y un perfil por
 certificado (`admin/h10/fuentes/cliente-1` y `cliente-2`):
@@ -617,11 +697,11 @@ CA de la copia (`NODE_EXTRA_CA_CERTS`) y Chrome con la huella SPKI de su
 certificado; no se desactiva la verificación.
 
 Después del cierre, el aspirante lee `/api/vec/bolsa/inscripciones/propias`
-con 200. La lista de convocatorias abiertas y su ficha siguen en 403: las
-entradas del catálogo v6 no traen los campos que la aplicación pide desde
-F1-40 y F1-41 (`modalidad_inscripcion` y `solicitudes_propias[]`), y la
-autorización exige que coincidan. Hace falta otra versión de la fuente y del
-rol; además `vistas.json` mantiene apagada la pestaña de inscripción (F1-29).
+con 200. Con las entradas de la v1 (catálogo v6), la lista de convocatorias
+abiertas y su ficha responden 403: no traen los campos que la aplicación pide
+desde F1-40 y F1-41 (`modalidad_inscripcion` y `solicitudes_propias[]`), y la
+autorización exige que coincidan. Con la fuente v2 admitida (F1-101) las dos
+responden 200.
 
 El suplemento del segundo RRHH queda aparcado por dirección: el ámbito
 antiguo de Contratación necesita una tarea propia para usar organización y
@@ -656,6 +736,10 @@ mismo volcado y las listas necesarias.
 | La selección desde la bolsa constituida da 404, 409 o 503 | Organización histórica sin montar en el combinado o sin material | #1150 y su material (apartado 6) |
 | La selección rechaza el puesto 9/01 | Unidad gestora frente a unidad del puesto | Esperar a F1-21 (#1153); no tocar el dato |
 | La selección exige una necesidad de la RPT | La solicitud de la copia no la guardó | Variante vacante del caso 4.0 como dato de copia |
+| `crear --modulos` sin `--portal-externo` se detiene en `selectores_bolsa_ct` | El selector del portal del candidato iba sin el catálogo de reglas de Bolsa | Arreglado en F1-109: la copia aporta `VEC_BOLSA_REGLAS_SOURCE_PATH` (apartado 2) |
+| Mi Bolsa responde 403 a Antonio | Su permiso estaba ligado a la candidatura de la bolsa sustituida | Arreglado en F1-99: la copia crea su identidad ligada a la candidatura vigente (apartado 2) |
+| Registrar una llamada o ver los contactos de una participación da 503 | Faltaba la conexión del calendario oficial | Arreglado en F1-99: `VEC_CALENDARIOS_DATABASE_URL` (apartado 2) |
+| El aviso del llamamiento no llega al buzón | La participación no tenía datos de contacto | Arreglado en F1-99: la copia registra un correo `@example.test` (apartado 2) |
 | El cliente de Personal (M10) llama a un puerto ajeno | `cliente_m10_ct.json` copiado sin cambiar | Apuntarlo a tu servicio |
 | La consulta de firmas da 503 con «autenticación histórica inválida» | Falta IS20 | Aplicar la lista 1b |
 | El contenedor de la app no arranca al montar `/app` en solo lectura y `/app/var` en escritura | Falta la carpeta `var/` en tu carpeta de trabajo | Crea `var/` en tu carpeta de trabajo antes de montar (lo vio T el 16/10) |
@@ -665,7 +749,7 @@ mismo volcado y las listas necesarias.
 | Con la inscripción encendida, el arranque que sigue a `--portal-externo` se detiene en `inscripcion_rrhh_cuentas_lectores` | La copia no declaraba a la técnica de RRHH en `identidad/consultas-rrhh.json` | Arreglado en F1-90: el preparador escribe el manifiesto. Una copia anterior se crea de nuevo |
 | `--portal-externo` se detiene en `fuente_privada_divergente` | El material de origen ya traía un `identidad/consultas-rrhh.json` distinto (otros lectores u otro formato) | Crear la copia con un material sin ese fichero; el preparador no mezcla manifiestos |
 | El aspirante abre la inscripción y recibe 403 | Su rol aún no tiene las acciones `bolsa.inscripcion.*` | Actos de Administración de `inscripcion_recorrido_20261013/gobierno_inscripcion.md` (F0-28, F1-29) |
-| Tras el acto, las convocatorias abiertas siguen en 403 y las propias dan 200 | La entrada del catálogo v6 no trae `modalidad_inscripcion` ni `solicitudes_propias[]`, y la autorización exige los mismos campos | Nueva versión de la fuente de inscripción y del rol (apartado 9); no tocar la concesión por SQL |
+| Tras el acto, las convocatorias abiertas siguen en 403 y las propias dan 200 | El rol se publicó con la fuente v1 (catálogo v6), sin `modalidad_inscripcion` ni `solicitudes_propias[]`, y la autorización exige los mismos campos | Admitir antes la fuente v2 y publicar el rol desde ella (F1-101, apartado 9); en una copia que ya publicó la v1, crear otra copia. No tocar la concesión por SQL |
 | La segunda firma del informe da 422 `firma_no_verificada` | GrxFirma 0.0.105 duplica `/Version` al cofirmar y su primera firma bloquea los campos | Firmar las dos veces con GrxFirma 0.0.106 o posterior, en un expediente sin firmas de la 0.0.105 (apartado 11) |
 | GrxFirma rechaza el origen de la copia con 403 | Su configuración no tiene permisos 600 o la confianza por decisión está apagada | `chmod 600` a sus ficheros y activar la confianza por decisión con el origen admitido |
 | Chrome anota `net::ERR_NETWORK_CHANGED` y la aplicación, un 503 de una petición que el navegador ya cortó | Otro contenedor Docker del equipo arranca o se borra y Chrome corta lo que tiene en curso | Nada que arreglar en la copia. El registro de una firma se repite solo con la misma clave (F1-94); una lectura se repite con «Comprobar» |
@@ -722,6 +806,9 @@ El manifiesto es privado (`0600`, fuera de Git) y solo admite estas claves:
    `VEC_CT_SUBSANACION_POLITICA_FILE` para registrar la subsanación de un
    reparo y `VEC_CT_PLANTILLAS_GOBIERNO_ENABLED` para abrir la ruta
    `#contratacion-temporal/plantillas-rrhh`.
+   El circuito RRHH v2 solo monta la consulta que usa la firma: los
+   expedientes nuevos siguen naciendo con el flujo de ocho fases y
+   pueden pasar el análisis (F1-98).
 5. Reinicia la copia. Desde entonces `arrancar` levanta el verificador antes
    que la aplicación (con la CRL vigente de `firma-recursos`) y `parar` (y
    `borrar`) lo para. Solo se para el proceso

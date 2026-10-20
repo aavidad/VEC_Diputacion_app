@@ -22,9 +22,12 @@ test("sin catálogo del alta, el centro se nombra con Organización", async () =
   assert.equal((await adaptador.listar()).expedientes[0].centro, "DEPORTES");
 });
 
-test("si Organización falla, la lista sigue con la referencia", async () => {
+// F1-88: sin nombre de catálogo se muestra «No consta», nunca la referencia interna.
+test("si Organización falla, la lista sigue y el centro figura como «No consta»", async () => {
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
     cliente, obtenerCentrosOrganizacion: async () => { throw new Error("caída"); },
   });
-  assert.equal((await adaptador.listar()).expedientes[0].centro, "centro:rpt:600");
+  const [expediente] = (await adaptador.listar()).expedientes;
+  assert.equal(expediente.centro, "No consta");
+  assert.doesNotMatch(JSON.stringify([expediente.centro, expediente.categoria]), /centro:rpt|categoria:/u);
 });

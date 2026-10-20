@@ -3,7 +3,7 @@
 -- AD278 (orígenes), contexto_actor_v1/roles_up.sql (migrador de CTX45)
 -- y documentos/migraciones/000009_custodia_documento_firmado.up.sql
 -- (tipo documental reservado que D19 espera en la copia).
--- CTX15 aporta la fila inicial del contador técnico de contexto externo.
+-- CTX15 y CTX2 aportan las filas iniciales de sus dos controles técnicos.
 -- Sólo prepara procedencia y catálogo técnicos: no publica permisos de negocio, actos,
 -- personas, firmas, recibos ni material criptográfico.
 -- Ejecutar una vez como superusuario local tras restaurar esquema_hz37.sql.gz
@@ -129,6 +129,21 @@ BEGIN
     USING ERRCODE = '55000';
   END IF;
 END $control_ctx15_post$;
+-- CTX2 inicializa el cerrojo MVCC de los punteros actuales; el volcado de solo
+-- esquema también omite su fila. Sin ella no se puede mover ningún puntero de
+-- cuenta, persona, perfil o vínculo (prueba CA48 de la tarea F1-105).
+INSERT INTO vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
+  (control_id, generacion, actualizada_en) VALUES (true, 0, clock_timestamp());
+DO $control_ctx2_post$
+BEGIN
+  IF (SELECT count(*) FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2) <> 1
+     OR NOT EXISTS (
+       SELECT 1 FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
+       WHERE control_id AND generacion = 0)
+  THEN RAISE EXCEPTION 'F0-29: fila técnica CTX2 divergente'
+    USING ERRCODE = '55000';
+  END IF;
+END $control_ctx2_post$;
 -- Cierre de tipos de CTX1: pg_dump no conserva la ACL de los tipos fila.
 DO $cerrar_tipos_contexto$
 DECLARE t record;
