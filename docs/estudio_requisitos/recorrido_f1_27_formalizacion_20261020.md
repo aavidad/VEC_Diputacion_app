@@ -77,11 +77,44 @@ manual de resolución devolvió 201 y dejó la versión 8. Es un expediente
 de Auxiliar Administrativo distinto del caso de Antonio: ese resultado no
 acredita el paso 13 del caso 4.0.
 
+Desde esa ficha se descargaron la resolución, diligencia, toma de posesión,
+notificación y comunicación al centro en PDF y Word: diez ficheros. La
+resolución conserva el logotipo y el número 2026/CT-000132; los cinco Word
+contienen su XML y una imagen. Es una comprobación separada de descargas,
+sin firmas de resolución y sin aceptación del caso de Antonio.
+
 En esa ficha, las consultas de plan de alta en Personal y vínculo de
 categoría RPT responden 404. La fábrica no prepara por sí sola
 `VEC_CT_INCORPORACION_V2_FILE` ni la configuración de Personal y relevo de
 cese. Su activación se está preparando por la receta existente; no se
 han fabricado capacidades, firmas ni recibos para suplirla.
+
+## Reinicio parcial
+
+Se reiniciaron la aplicación y PostgreSQL con la revisión de código
+ensayada. Antes y después son idénticos la versión 6, los dos recibos de
+firma, sus fechas y las huellas de los PDF firmados. También coinciden
+estos ocho recuentos:
+
+| Registro | Antes y después |
+| --- | --- |
+| Firmas | 2 |
+| Auditorías de firma | 2 |
+| Custodias de firma | 2 |
+| Salidas de firma | 2 |
+| Revisiones de PDF | 2 |
+| Reservas de fiscalización | 10 |
+| Terminales de fiscalización | 10 |
+| Vínculos de emisión de Bolsa | 1 |
+
+La ficha conserva Antonio, la emisión de las 9:55 y «Correo enviado».
+La lectura de comunicaciones respondió 503 en una carga posterior al
+reinicio; no se considera resuelta ni se presenta el arranque como libre
+de errores. El bloque vinculado sigue mostrando «Sin respuesta registrada».
+En 1440 y 390 píxeles el ancho del documento coincide con el de la ventana;
+no hay cookies ni contenido en los almacenes local y de sesión.
+
+Este reinicio parcial no sustituye la comprobación final después del cierre.
 
 ## Pendiente
 
@@ -95,4 +128,5 @@ cotejo de los mismos recibos, fechas y recuentos.
 
 - [Llamamiento vinculado y correo enviado](recorrido_f1_27_formalizacion_20261020/09_vinculo.png).
 - [Mi Bolsa sin acción de aceptación](recorrido_f1_27_formalizacion_20261020/10_mi_bolsa.png).
+- [Llamamiento tras reiniciar, a 390 píxeles](recorrido_f1_27_formalizacion_20261020/reinicio_390.png).
 - [Resolución registrada en la semilla histórica distinta](recorrido_f1_27_formalizacion_20261020/13_semilla_distinta.png).
