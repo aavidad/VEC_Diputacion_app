@@ -1090,7 +1090,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	completa = true
 	// F1-95: lectura y declaración de la publicación oficial de las bases.
 	rutaPublicacionOficial := nuevaRutaPublicacionOficialBases(alta.postgresql.bolsa, preparador, emisor,
-		politicaBolsa, registradorDocumentales, procesoDocumentales)
+		politicaBolsa, registradorDocumentales, procesoDocumentales, dependenciasCT.reloj.Ahora)
 	rutas := []vechttp.RutaExacta{rutaPoliticaCese, rutaPublicacionOficial, rutaGobiernoTransiciones, {Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaContactosOferta, Manejador: handlerContacto}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
 	if cargaConvocaActiva {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsahttp.RutaVistaPreviaCargaConvoca, Manejador: handlerCargaConvoca},

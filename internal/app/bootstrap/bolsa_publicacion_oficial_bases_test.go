@@ -107,7 +107,7 @@ func TestPublicacionOficialSinEmisorDeniegaCerrado(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	ruta := nuevaRutaPublicacionOficialBases(pool, &preparadorBorradorLlamamientoDesarrollo{}, &emisorBorradorLlamamientoDesarrollo{}, nil, nil, "vec-rrhh")
+	ruta := nuevaRutaPublicacionOficialBases(pool, &preparadorBorradorLlamamientoDesarrollo{}, &emisorBorradorLlamamientoDesarrollo{}, nil, nil, "vec-rrhh", time.Now)
 	if ruta.Ruta != bolsahttp.RutaPublicacionesOficialesBases || ruta.Manejador == nil {
 		t.Fatal("ruta no montada")
 	}
