@@ -245,7 +245,11 @@ restaura el volcado y sus permisos sin credenciales globales, genera material
 de 90 días y permite reiniciar o borrar una instancia propia. Este primer
 corte arranca el portal con funciones opcionales apagadas; las conexiones y
 actos de los módulos aún siguen la guía `deploy/principal/LEEME_copia_local.md`.
-El arranque HTTP no acredita el recorrido funcional.
+F1-119 añade la orden `personal` a la fábrica: genera las conexiones propias,
+publica por el gobierno existente y prepara incorporación B2, categoría RPT,
+GINPIX manual y cese desde una configuración aprobada, sin copiar capacidades
+antiguas. La activación y la semilla no autoritativa de Plantilla están en el
+apartado 12 de esa guía. El arranque HTTP no acredita el recorrido funcional.
 
 ### Arranque de Administración
 
@@ -549,6 +553,14 @@ restauración de copias sigue el mismo patrón (`docs/plan_modulos/copias_seguri
 
 ### Lecturas y actos
 
+F1-104 conecta la selección de Contratación con Organización histórica de
+Personal mediante un puerto en proceso. Revalida el certificado y la cuenta
+de la petición y selecciona el perfil de consulta propio de esa cuenta, sin
+sumarlo al perfil de Contratación. Conserva la ruta original, la autorización
+y la auditoría de Personal. El cliente M10 con certificado fijo deja de usarse
+en este recorrido. Si falta el montaje de Personal, falla solo la selección.
+
+
 - **Actos con efecto.** Decisión V3 consumida en la misma transacción que escribe
   el estado (apartado 7).
 - **Lecturas.** Hoy también pasan por fachadas V3 nominales y eso las encarece.
@@ -616,7 +628,16 @@ se muestra pertenece al registro original. La respuesta ampliada de la ficha
 exige juntos los selectores y su recibo, aun si la lista es `[]`; ausencia de
 uno falla cerrada. El cliente limita a 128 entradas, no muestra canones de
 identidad ni huellas y cancela la consulta al cambiar de expediente. La
-publicación y el recorrido real siguen pendientes.
+consulta y recuperación tras reiniciar se comprobaron en la copia de F1-58;
+el caso completo 4.0 sigue pendiente.
+
+F1-58 utiliza AUT103 y el plan de publicación de cargos v2 para suceder los
+cuatro roles de consulta: conserva cuadro y descarga y sustituye solo la
+operación de detalle por la que concede los selectores. La recuperación R5
+necesita además su propia fila técnica de origen AD172, distinta de la
+descarga y sin permiso humano nuevo. El cotejo del núcleo, la activación y
+los límites del ensayo se describen en
+[`firma_por_cargos_f1_58_20261020.md`](../../deploy/principal/firma_por_cargos_f1_58_20261020.md).
 
 ## 8. Protección de datos
 

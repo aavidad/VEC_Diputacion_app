@@ -342,8 +342,12 @@ conveniente».
 | 20 | (automático) Bolsa | Mi Bolsa de Antonio y Bolsas de RRHH | Bolsa recibe el cese | Antonio vuelve a la bolsa Administrativo como **Disponible** o **Disponible desde** la fecha que marque la política |
 | 21 | Carmen | Ficha, Cierre | Cierra el expediente | `nombramiento/completado` |
 
-La vía del aspirante es Mi Bolsa interna (HZ37); la entrada externa propia solo
-si el ensayo la valida (corte 17:00 del 13/10).
+La entrada externa propia a Mi Bolsa está comprobada en la copia local del
+20/10, con respuesta 200 antes y después de reiniciar aplicación y PostgreSQL.
+La cuenta nueva no tenía participaciones; no se recorrieron aquí los actos de
+los pasos e1–e5 ni 10–10a. Las admisiones y asignaciones ficticias de esa copia
+no acreditan su gobierno por Administración.
+[Ensayo y límites de F1-46](../estudio_requisitos/cuenta_externa_f1_46_20261020.md).
 
 **Documentos.** Los que genera hoy el código desde la ficha, con el expediente en
 v7 o posterior (4.3.4; el informe definitivo, en v5 con el catálogo v4), y el orden de firma del catálogo
@@ -513,8 +517,12 @@ BC15 del propietario de convocatorias que consume la decisión V3 y llama a la
 declaración en la misma transacción, ruta
 `/api/vec/bolsa/convocatorias/publicaciones-oficiales` y pantalla. Declarante
 y motivo salen de la decisión; los ámbitos, de la política de la versión. La
-ruta deniega (503) hasta que el núcleo tenga el consumidor (AD301, entrega
-aparte para el equipo de permisos) y el rol de RRHH la concesión.
+entrega B añade el consumidor AD301 y BC17 coteja el recurso completo mediante
+su huella firmada, incluidos los ámbitos de la versión. La activación requiere
+publicar el permiso del rol de RRHH con dos administradores y reiniciar la
+aplicación. Sin ese permiso, la declaración queda denegada. Al repetir la
+misma petición y clave desde el mismo perfil se recupera el recibo original;
+un perfil distinto da conflicto.
 `ConfirmarPublicacion`,
 el puerto de la publicación gobernada borrador→publicada, no se usa en este
 corte. F1-40 sigue abierta hasta que RRHH pueda anotar la publicación desde la
@@ -909,8 +917,10 @@ pantalla son las actuales.
 
 Con #1088 (**en main, sin subir**) la selección usa la bolsa constituida, su
 orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
-(`VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`; sin ella responde 503 y el resto
-arranca). Exige que la solicitud conserve la necesidad de la RPT publicada.
+y la consulta de puestos de Personal en proceso. F1-104 liga esa consulta al
+perfil de Personal de la misma cuenta que tramita la selección, con sus
+ámbitos y su recibo de auditoría. Sin la consulta configurada responde 503
+y el resto arranca. Exige que la solicitud conserve la necesidad de la RPT publicada.
 Lo que hay en cidonia todavía usa el puente anterior.
 
 El primer corte de la conexión añade a Bolsa el inicio de plazo por publicación

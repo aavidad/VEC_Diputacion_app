@@ -22,7 +22,7 @@ type contextoOrganizacionHistoricaCombinada struct {
 // fuenteOrganizacionHistoricaCombinada conserva una sola resolución registrada
 // por petición. Los ámbitos privados restringen el perfil; no son permisos.
 type fuenteOrganizacionHistoricaCombinada struct {
-	sesion      *seguridadComunDesarrollo
+	sesion      resolutorContextoSeguridadComunDesarrollo
 	corporativo vecports.RevalidadorVinculoCorporativoRRHHV1
 	reloj       ct.Reloj
 	contextos   map[string]internagobierno.AmbitoOrganizacionHistorica
@@ -37,7 +37,7 @@ func (f *fuenteOrganizacionHistoricaCombinada) vincular(ctx context.Context) (co
 		return nil, ct.ErrConsultaRRHHNoDisponible
 	}
 	frontera, ok := fronteraSeguridadComunDesdeContexto(ctx)
-	if !ok || frontera.ruta != httpapi.RutaOrganizacionHistoricaPersonal || frontera.metodo != "GET" || frontera.superficie != superficieInternaSeguridadComunDesarrollo || !f.fronteras.mismaInstancia(frontera.catalogo) {
+	if !ok || !fronteraConsultaPersonal(frontera) || frontera.superficie != superficieInternaSeguridadComunDesarrollo || !f.fronteras.mismaInstancia(frontera.catalogo) {
 		return nil, httpapi.ErrAccesoRutaExactaDenegado
 	}
 	c, err := f.sesion.ResolverContexto(ctx)

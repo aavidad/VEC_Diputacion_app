@@ -212,3 +212,10 @@ deploy/postgresql/contexto_actor_v1/migraciones/000048_cotejo_lectura_bolsa_orde
 deploy/postgresql/bolsa_llamamientos/migraciones/000147_orden_estricto_llamamiento.up.sql bb2f422d890048b76653ef3645ff777fbc7985e732478976a57430c43b6ec24d
 # F1-60 segundo corte — B145, los actos de Bolsa cotejan el ámbito de la bolsa (B128 en SQL), recuperación sin ámbito denegada y constitución por línea de órdenes retirada; tras B144.
 deploy/postgresql/bolsa_llamamientos/migraciones/000145_ambito_actos_bolsa.up.sql c5092a053a3917b5d9e19ec1a391890e661de0e72c3cf7c2eb2130185893389e
+# F1-103 — AD302: la lectura auditada del origen CT pone entre paréntesis e#>>... al cotejar el recibo de la comprobación de ofrecimiento; sin ellos daba 22P02 y la selección del llamamiento respondía 409
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000302_recibo_comprobacion_precedencia.up.sql 82e7c55732823d6ca35fd431599fdfafc17ae17527ea8bfcb8d7d7130c2ab71e
+
+# F1-95 parte B — AD301: perfil de publicación oficial de las bases; tras BC15 y núcleo vigente.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion_oficial_bases.up.sql c1ab7024d2b243cc5de9212f2c46f5eccf63adf8c4b4fadb935e2be7b7d593cb
+# F1-95 parte B — BC17: cotejo de huella firmada y recuperación con el perfil original; tras BC15 y AD301.
+deploy/postgresql/bolsa_convocatorias/migraciones/000017_recuperacion_publicacion_mismo_perfil.up.sql c00e543f89fa22ca498feb797b79d437c7fb6148401b1a01463c5c293b5049d1
