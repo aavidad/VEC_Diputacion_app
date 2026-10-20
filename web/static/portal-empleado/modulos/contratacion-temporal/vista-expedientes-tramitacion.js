@@ -10,6 +10,7 @@ import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-rep
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 import { rotuloFaseCabecera } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { renderizarSiguientePasoFicha } from "./vista-expedientes-ficha.js?v=VEC_WEB_VERSION";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=VEC_WEB_VERSION";
 import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=VEC_WEB_VERSION";
@@ -267,11 +268,18 @@ export function crearGestorTramitacion({
 
   // El recibo del informe confirma que el expediente pasa al paso «Informe
   // jurídico». La ficha no se repinta para no perder recibo e historial, así
-  // que la cabecera se pone al día aquí y no contradice lo que hay debajo.
+  // que la cabecera y el «Siguiente paso» se ponen al día aquí y no
+  // contradicen lo que hay debajo.
   function actualizarCabeceraTrasInforme(recibo) {
-    if (!esMontada() || recibo?.expediente_ref !== presentador.obtenerEstado().expediente?.expediente_ref) return;
+    const estado = presentador.obtenerEstado();
+    if (!esMontada() || !estado.expediente || recibo?.expediente_ref !== estado.expediente.expediente_ref) return;
     const fase = raiz.querySelector("[data-ct-exp-fase-cabecera]");
     if (fase) fase.textContent = rotuloFaseCabecera("informe_juridico", mensajes);
+    const paso = raiz.querySelector(".ct-exp-siguiente-paso");
+    if (paso) {
+      paso.outerHTML = renderizarSiguientePasoFicha(estado.expediente, estado, tExpedientes, false,
+        { informeConfirmado: true });
+    }
   }
 
   function alConfirmarInforme(recibo) {
@@ -475,6 +483,13 @@ export function crearGestorTramitacion({
     }
   }
 
+  // El número que RRHH reconoce («2026/94010») en lugar de la referencia interna.
+  function numeroVisibleDe(expedienteRef) {
+    const expediente = presentador.obtenerEstado().expediente;
+    const numero = expediente?.expediente_ref === expedienteRef ? expediente.numero_visible : "";
+    return typeof numero === "string" && numero.trim() !== "" ? { numero_visible: numero.trim() } : {};
+  }
+
   function montarInformeDesdeAsignacion(recibo) {
     if (!esMontada() || !informeJuridicoDisponible || desmontarInformeJuridico !== null) {
       return desmontarInformeJuridico !== null;
@@ -487,6 +502,7 @@ export function crearGestorTramitacion({
         contexto: Object.freeze({
           expediente_ref: recibo.expediente_ref,
           version_esperada: recibo.version_resultante,
+          ...numeroVisibleDe(recibo.expediente_ref),
         }),
         confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
         alConfirmar: alConfirmarInforme,

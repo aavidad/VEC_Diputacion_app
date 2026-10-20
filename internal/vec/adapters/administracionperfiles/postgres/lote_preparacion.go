@@ -118,7 +118,7 @@ func (a *AutoridadLoteOrdinario) PrepararLoteOrdinario(ctx context.Context, s do
 
 func (a *AutoridadLoteOrdinario) prepararLoteOrdinario(ctx context.Context, s domain.SolicitudPreparacionLoteAdministracionPerfiles) (domain.PreparacionLoteAdministracionPerfiles, error) {
 	var vacia domain.PreparacionLoteAdministracionPerfiles
-	if ctx.Err() != nil || ausente(a.pool) || ausente(a.emisor) || ausente(a.reloj) {
+	if ctx.Err() != nil || ausente(a.pool) || ausente(a.emisor) || ausente(a.proveedor) || ausente(a.reloj) {
 		return vacia, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	ahora := a.reloj.Ahora()
@@ -129,6 +129,10 @@ func (a *AutoridadLoteOrdinario) prepararLoteOrdinario(ctx context.Context, s do
 		s.InstantaneaAutorizacion.ControlVigenciaVersionRol.Estado != domain.EstadoControlVigenciaVersionRolHabilitada ||
 		!s.InstantaneaAutorizacion.AsignacionPerfil.VigenteEn(ahora) {
 		return vacia, domain.ErrActoAdministracionPerfilesInvalido
+	}
+	ambitos, err := a.proveedor.ResolverUnidadLote(ctx, s.OrganizacionRef, s.UnidadRef)
+	if err != nil || !ambitosFuenteLoteValidos(ambitos, s.OrganizacionRef, s.UnidadRef) {
+		return vacia, ports.ErrAutoridadAdministracionPerfilesNoDisponible
 	}
 	canonico, huella, err := s.CanonicoYHuella()
 	if err != nil {

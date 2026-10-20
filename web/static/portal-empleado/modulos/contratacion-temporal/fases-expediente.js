@@ -20,7 +20,7 @@ const FASE_DE_ACCION = Object.freeze({
   "contratacion_temporal.subsanacion_reparos.registrar": "fiscalizacion",
 });
 
-function hitoPerteneceAFase(fila, clave, etiqueta) {
+function hitoPerteneceAFase(fila, clave, etiqueta, prefijoPaso = "") {
   const accion = fila.dataset.ctExpHitoAccion ?? "";
   const porAccion = FASE_DE_ACCION[accion];
   if (porAccion) return porAccion === clave;
@@ -28,11 +28,17 @@ function hitoPerteneceAFase(fila, clave, etiqueta) {
   if (accion.includes("nombramiento") || accion.includes("resolucion") || accion.includes("formalizacion")) return clave === "nombramiento";
   if (accion.includes("incorporacion")) return clave === "incorporacion";
   if (accion.includes("seguimiento") || accion.includes("cierre")) return clave === "seguimiento";
-  return fila.dataset.ctExpHitoFase === etiqueta;
+  // El hito de un paso se nombra «Fase · Paso»: pertenece a esa fase.
+  const fase = fila.dataset.ctExpHitoFase ?? "";
+  return fase === etiqueta || (prefijoPaso !== "" && fase.startsWith(prefijoPaso));
 }
 
 function escapar(valor) {
   return String(valor ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
+}
+
+function prefijoPasoDeFase(t, etiqueta) {
+  try { return t("ficha_fase_con_subfase", { fase: etiqueta, subfase: "" }); } catch { return ""; }
 }
 
 export function construirPanelFase(
@@ -49,7 +55,7 @@ export function construirPanelFase(
   const orden = item?.dataset?.ctExpOrden ?? item?.querySelector(".ct-exp-numero-fase")?.textContent?.trim() ?? "";
   const campos = [...contenido.querySelectorAll(`[data-ct-exp-campo-fase="${clave}"]`)];
   const hitos = [...contenido.querySelectorAll("[data-ct-exp-hito-fase]")]
-    .filter((fila) => hitoPerteneceAFase(fila, clave, etiqueta));
+    .filter((fila) => hitoPerteneceAFase(fila, clave, etiqueta, prefijoPasoDeFase(t, etiqueta)));
   const panel = document.createElement("section");
   panel.className = `ct-exp-fase-panel ${item?.className ?? ""}`.trim();
   panel.setAttribute("aria-live", "polite");
