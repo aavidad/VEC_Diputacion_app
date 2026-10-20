@@ -57,7 +57,7 @@ provisión o informes de vacantes. No modificar originales de RRHH.
 | RPT-002 | Plantilla por ejercicio, dotación presupuestaria, actos de creación/amortización/reserva y vínculo OEP, con historia. |
 | RPT-003 | Inventario individual reconciliado y condiciones completas del puesto: requisitos, funciones, provisión, nivel, complementos y vigencia. |
 | RPT-004 | Montaje de consulta/importación existentes, fuentes y aprobaciones reales; comparación conectada a lecturas autorizadas. |
-| RPT-005 | Circuito completo persona–relación–plaza–puesto, titularidad, fechas, actos y reserva. Propietario de RPT-005: M; B aporta la relación de la persona por puerto. |
+| RPT-005 | Circuito completo persona–relación–plaza–puesto, titularidad, fechas, actos y reserva. Propietario de RPT-005: M; Personal aporta la relación de la persona por puerto. |
 | RPT-006 | Proyecciones distintas de dotación vacante, puesto sin ocupante y necesidad cubrible, con cobertura e incertidumbre. Propietario de RPT-006: M; coordinar el contrato de relación con B. |
 
 El informe sintético de diferencias descrito abajo permite revisar dos cortes.
@@ -120,15 +120,15 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
 
 ### 5. Completar ocupación, reserva y vacantes de RPT
 
-- Propietario: M, RPT-005 y RPT-006. B aporta persona y relación de servicio por
+- Propietario: M, RPT-005 y RPT-006. Personal aporta persona y relación de servicio por
   puerto: referencia, versión, vigencia y procedencia mínima. Sin tablas cruzadas.
-- Archivos previstos de M: `rpt_ocupaciones`, `rpt_reservas` y `rpt_vacantes` en
+- Archivos previstos de Organización: `rpt_ocupaciones`, `rpt_reservas` y `rpt_vacantes` en
   dominio, puertos, aplicación y adaptadores de Personal; consumidor RPT propio.
   Reutilizar o extraer las operaciones B2 actuales antes de activar el reemplazo:
   una sola autoridad de ocupación, con historia y recibos anteriores consultables.
-- Dependencias: contrato de B, vínculos plaza–puesto, actos de ocupación/reserva,
+- Dependencias: contrato de Personal, vínculos plaza–puesto, actos de ocupación/reserva,
   presupuesto y cobertura. No inferir la relación desde nómina o certificado.
-- SQL/servidor: M produce su candidata; D valida composición e instalación.
+- SQL/servidor: Organización produce su candidata; los servicios comunes de autorización valida composición e instalación.
   Reservar números y ordenar en `ORDEN_SQL_NUCLEO.md` si hacen falta cambios.
   Ensayo y dos revisiones exactas para SQL/permisos/datos personales.
 - Cierre: ocupación y reserva con recibo recuperable; tres proyecciones separadas
@@ -158,8 +158,8 @@ capacidad fijada por Dirección no autoriza dos escritores del mismo archivo.
 | M | `domain/organizacion*.go`, `domain/importacion_organizacion_historica.go`, `domain/estructura_organizativa_publica.go`, `domain/rpt_publica.go`, `domain/comparacion_organizacion_historica.go` y sus pruebas; puertos/aplicación/adaptadores específicos de esos recorridos; `adapters/organizacionpublica`, `adapters/rptpublica`; vistas de organización/RPT y CLI del comparador. |
 | M, nuevos | `rpt_ocupaciones`, `rpt_reservas`, `rpt_vacantes` por capas y consumidor propio: RPT-005/006. Antes de crear, localizar y reutilizar el comportamiento B2 existente. |
 | B | Persona, relación de servicio, ficha, servicios y actos personales; `relacion_empleado*`, `ficha_propia*`, registro e incorporación del empleado. Publica su contrato mínimo para M. |
-| Mixtos, escritor acordado | `registro_empleado_b2*`, `interna/personal_b2_montaje.go`, `registro-b2*` y manifiesto Personal. B conserva la edición actual; M acuerda con B la extracción/transición de ocupaciones y vacantes antes de tocar estos archivos. |
-| D/común | Identidad, contexto y autorización; consume la fuente histórica de responsables, delegaciones y suplencias de M. El Portal del empleado I solo consume esa capacidad. |
+| Mixtos, escritor acordado | `registro_empleado_b2*`, `interna/personal_b2_montaje.go`, `registro-b2*` y manifiesto Personal. Personal conserva la edición actual; M acuerda con B la extracción/transición de ocupaciones y vacantes antes de tocar estos archivos. |
+| D/común | Identidad, contexto y autorización; consume la fuente histórica de responsables, delegaciones y suplencias de Organización. El Portal del empleado I solo consume esa capacidad. |
 | En turno M | Padres, manifiestos web, importadores y `dudas.md`, tras LIBERO F→M y con un solo escritor. Dirección revisa e integra. |
 
 Propuesta posterior: estudiar un módulo enchufable `organizacion` al estabilizar
@@ -183,7 +183,7 @@ Propuestas pendientes de numerar en `dudas.md` al recibir el turno M:
 - Reserva, cobertura temporal/definitiva y criterio para declarar una necesidad cubrible.
 - Fuentes suficientes para cada proyección histórica y tratamiento de datos en conflicto.
 
-Contrastar primero las preguntas existentes de Personal B; no duplicar ni
+Contrastar primero las preguntas existentes de Personal; no duplicar ni
 inventar números. Una decisión pendiente bloquea su efecto concreto.
 
 ## Condiciones funcionales conservadas
