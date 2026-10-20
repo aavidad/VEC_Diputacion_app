@@ -37,20 +37,21 @@ type lectorAmbitosEntregaPeticionCentro interface {
 }
 
 type RepositorioEntregasPeticionCentroPostgreSQL struct {
-	pool      iniciadorTransacciones
-	lector    lectorAmbitosEntregaPeticionCentro
-	proveedor ProveedorEntregaPeticionCentro
+	pool            iniciadorTransacciones
+	lector          lectorAmbitosEntregaPeticionCentro
+	proveedor       ProveedorEntregaPeticionCentro
+	organizacionRef string
 }
 
-func NuevoRepositorioEntregasPeticionCentroPostgreSQL(pool *pgxpool.Pool, p ProveedorEntregaPeticionCentro) (*RepositorioEntregasPeticionCentroPostgreSQL, error) {
-	if pool == nil || dependenciaNula(p) {
+func NuevoRepositorioEntregasPeticionCentroPostgreSQL(pool *pgxpool.Pool, p ProveedorEntregaPeticionCentro, organizacionRef string) (*RepositorioEntregasPeticionCentroPostgreSQL, error) {
+	if pool == nil || dependenciaNula(p) || !domain.ReferenciaOpacaValida(organizacionRef) {
 		return nil, ports.ErrPeticionCentroNoDisponible
 	}
-	return &RepositorioEntregasPeticionCentroPostgreSQL{pool: pool, lector: pool, proveedor: p}, nil
+	return &RepositorioEntregasPeticionCentroPostgreSQL{pool: pool, lector: pool, proveedor: p, organizacionRef: organizacionRef}, nil
 }
 
 func (r *RepositorioEntregasPeticionCentroPostgreSQL) material(ctx context.Context, modo string, c ports.ComandoEntregarPeticionCentro) (ports.MaterialEntregaPeticionCentro, error) {
-	if ctx == nil || r == nil || r.pool == nil || r.lector == nil || dependenciaNula(r.proveedor) {
+	if ctx == nil || r == nil || r.pool == nil || r.lector == nil || dependenciaNula(r.proveedor) || !domain.ReferenciaOpacaValida(r.organizacionRef) {
 		return ports.MaterialEntregaPeticionCentro{}, ports.ErrPeticionCentroNoDisponible
 	}
 	a, p, err := r.proveedor.ActorEntregaPeticionCentro(ctx)
@@ -222,9 +223,12 @@ func AccionEntregaPeticionCentro(m ports.MaterialEntregaPeticionCentro) string {
 	return ports.AccionEntregarPeticionRRHH
 }
 
-func RecursoEntregaPeticionCentro(m ports.MaterialEntregaPeticionCentro) (vecdomain.RecursoAutorizable, error) {
+func RecursoEntregaPeticionCentro(m ports.MaterialEntregaPeticionCentro, organizacionRef string) (vecdomain.RecursoAutorizable, error) {
 	if err := m.Validar(); err != nil {
 		return vecdomain.RecursoAutorizable{}, err
+	}
+	if !domain.ReferenciaOpacaValida(organizacionRef) {
+		return vecdomain.RecursoAutorizable{}, ports.ErrPeticionCentroNoDisponible
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
@@ -235,7 +239,7 @@ func RecursoEntregaPeticionCentro(m ports.MaterialEntregaPeticionCentro) (vecdom
 	if m.Modo == "bandeja" {
 		ref = "peticiones:centro:rrhh"
 	}
-	ambitos := map[string]string{"organizacion_ref": "organizacion:desarrollo:dipgra"}
+	ambitos := map[string]string{"organizacion_ref": organizacionRef}
 	if m.Modo != "bandeja" {
 		ambitos["centro_ref"], ambitos["categoria_ref"] = m.CentroRef, m.CategoriaRef
 	}
@@ -251,7 +255,7 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) ejecutarConOriginal(
 	ctx context.Context, m ports.MaterialEntregaPeticionCentro, conOriginal bool,
 	validar func([]byte, []byte) error,
 ) error {
-	recurso, err := RecursoEntregaPeticionCentro(m)
+	recurso, err := RecursoEntregaPeticionCentro(m, r.organizacionRef)
 	if err != nil {
 		return err
 	}

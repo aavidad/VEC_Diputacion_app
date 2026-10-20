@@ -183,7 +183,7 @@ func subconsultaDetalleContratacionTemporalDesarrollo(ctx context.Context, sopor
 		return nil, ct.ErrDenegadaIncorporacionAplicacion
 	}
 	d, ok := fronteras.resolver(http.MethodPost, httpinterno.RutaConsultaDetalleRRHH)
-	if !ok || !esDescriptorDetalleContratacionTemporalDesarrollo(d, soporte.contexto.Resultado.Contexto.PerfilActivoRef) {
+	if !ok || !esDescriptorDetalleContratacionTemporalDesarrollo(d, soporte) {
 		return nil, ct.ErrDenegadaIncorporacionAplicacion
 	}
 	c.ruta = httpinterno.RutaConsultaDetalleRRHH
@@ -196,14 +196,26 @@ func subconsultaDetalleContratacionTemporalDesarrollo(ctx context.Context, sopor
 // esDescriptorDetalleContratacionTemporalDesarrollo fija la frontera que una
 // subconsulta interna puede heredar. Resolver una ruta igual no basta: la
 // acción, política y capacidad tienen que ser las nominales de detalle CT.
-func esDescriptorDetalleContratacionTemporalDesarrollo(d descriptorFronteraComunDesarrollo, perfilBase string) bool {
-	return d.Clave == "ct-expediente-consultar" &&
-		d.ClavePolitica == clavePoliticaContratacionTemporalDesarrollo &&
-		d.ClaveCapacidad == ct.AccionConsultarDetalleRRHH &&
-		d.Metodo == http.MethodPost &&
-		d.Ruta == httpinterno.RutaConsultaDetalleRRHH &&
-		d.Superficie == superficieInternaSeguridadComunDesarrollo &&
-		!d.DetalleColeccion && d.admitePerfil(perfilBase)
+func esDescriptorDetalleContratacionTemporalDesarrollo(d descriptorFronteraComunDesarrollo, soporte *soporteAltaContratacionTemporalDesarrollo) bool {
+	if soporte == nil || d.Clave != "ct-expediente-consultar" ||
+		d.ClavePolitica != clavePoliticaContratacionTemporalDesarrollo ||
+		d.ClaveCapacidad != ct.AccionConsultarDetalleRRHH ||
+		d.Metodo != http.MethodPost || d.Ruta != httpinterno.RutaConsultaDetalleRRHH ||
+		d.Superficie != superficieInternaSeguridadComunDesarrollo || d.DetalleColeccion {
+		return false
+	}
+	perfilBase := soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	if !perfilActivoSeguridadComunValido(perfilBase) {
+		return false
+	}
+	if fijo := soporte.perfilFijoParaRutaYMetodo(d.Ruta, d.Metodo); fijo != nil {
+		perfil := fijo.perfilRef()
+		return fijo.clave == clavePerfilFijoConsultasTecnicoCTDesarrollo &&
+			perfilActivoSeguridadComunValido(perfil) && perfil != perfilBase &&
+			len(d.PerfilesActivosRef) > 0 && d.PerfilesActivosRef[0] == perfil &&
+			!d.admitePerfil(perfilBase)
+	}
+	return d.admitePerfil(perfilBase)
 }
 
 func contextoDetalleIncorporacionV2Desarrollo(ctx context.Context, soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) (context.Context, error) {
