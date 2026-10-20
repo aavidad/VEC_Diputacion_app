@@ -53,6 +53,10 @@ añade una puerta nueva sobre sus recibos: esa ampliación queda en F1-135.
 ## Estado del corte
 
 La función se ha preparado desde su definición instalada en una copia propia
-de la principal. Faltan la prueba SQL con las dependencias definitivas, el
+de la principal. Sin el productor de resolución portal, la migración se ha
+rechazado con la función original intacta. El preparador de roles acepta el SQL.
+La focal preparada comprueba el contrato privado y la denegación del acceso
+directo del ejecutor; todavía no se ha ejecutado tras instalar el cambio.
+Faltan la prueba SQL con las dependencias definitivas, el
 recorrido HTTP y en Chrome, el reinicio y las dos revisiones independientes.
 No hay todavía una prueba positiva de alta o cese sobre el nombramiento nativo.
