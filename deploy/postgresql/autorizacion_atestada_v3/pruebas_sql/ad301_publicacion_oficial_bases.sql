@@ -12,7 +12,7 @@ SELECT pg_temp.exigir('núcleo y ACL', EXISTS(
   AND p.prosecdef AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
   AND p.proacl::text='{vec_autorizacion_atestada_v3_propietario=X/vec_autorizacion_atestada_v3_propietario}'
   AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')=
-   '5ae824c2ef6e1b22f2fa4058e32b29b4bdebd85a4e6ecfeb0136fc35ea5224ef'));
+   '49d6559e7aa6e5575c630531cf5c2142a67677e5cf7d3d38da3f04cab7253035'));
 SELECT pg_temp.exigir('perfil en las tres ramas', (SELECT count(*)=3 FROM regexp_matches(
  pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),
  'publicacion_oficial_bases_rrhh','g')));

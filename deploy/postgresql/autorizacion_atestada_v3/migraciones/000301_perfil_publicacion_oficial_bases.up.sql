@@ -8,7 +8,7 @@
 --  2. el perfil sale del caso genérico;
 --  3. el predicado exige acción, audiencia, recurso version_convocatoria
 --     cv1_<sha256>_v<n>, finalidad propia, garantía alta, certificado,
---     superficie interna, ámbitos unidad_ref/ambito_ref, sin campos y auditada.
+--     superficie interna, huella firmada del recurso, sin campos y auditada.
 -- Además: consumidor fino (patrón AD290) solo para el propietario de
 -- convocatorias, que recibe USAGE del esquema para alcanzarlo; la audiencia
 -- entra en la restricción de claves y el origen se copia del pool de Bolsa.
@@ -1222,8 +1222,6 @@ BEGIN
  AND d#>>'{vinculo_autenticacion_actor,metodo_observado}' IS NOT DISTINCT FROM 'certificado'
  AND d#>>'{vinculo_autenticacion_actor,garantia_observada}' IS NOT DISTINCT FROM 'alto'
 
- AND jsonb_typeof(d->'ambitos') IS NOT DISTINCT FROM 'object'
- AND (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(d->'ambitos') k) IS NOT DISTINCT FROM ARRAY['ambito_ref','unidad_ref']
  AND d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
  AND d->'obligaciones' IS NOT DISTINCT FROM '["auditar"]'::jsonb)
            OR (
@@ -3466,9 +3464,6 @@ BEGIN
  OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
  OR d->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb
  OR d->'obligaciones' IS DISTINCT FROM '["auditar"]'::jsonb
- OR jsonb_typeof(d->'ambitos') IS DISTINCT FROM 'object'
- OR (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(d->'ambitos') k)
-    IS DISTINCT FROM ARRAY['ambito_ref','unidad_ref']
  THEN RAISE EXCEPTION 'AD301: declaración denegada' USING ERRCODE='42501'; END IF;
  RETURN QUERY SELECT x.* FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
   'publicacion_oficial_bases_rrhh',p_capacidad,p_decision,p_motivo,p_contexto,
@@ -3505,7 +3500,7 @@ DO $post$ DECLARE f regprocedure; g regprocedure;
 BEGIN
  f:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  g:='vec_autorizacion_atestada_v3.consumir_publicacion_oficial_bases_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM '5ae824c2ef6e1b22f2fa4058e32b29b4bdebd85a4e6ecfeb0136fc35ea5224ef'
+ IF encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM '49d6559e7aa6e5575c630531cf5c2142a67677e5cf7d3d38da3f04cab7253035'
  OR NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=f AND prosecdef AND provolatile='v'
    AND proowner='vec_autorizacion_atestada_v3_propietario'::regrole
    AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']

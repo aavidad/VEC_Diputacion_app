@@ -214,4 +214,6 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000147_orden_estricto_llamamien
 deploy/postgresql/bolsa_llamamientos/migraciones/000145_ambito_actos_bolsa.up.sql c5092a053a3917b5d9e19ec1a391890e661de0e72c3cf7c2eb2130185893389e
 
 # F1-95 parte B — AD301: perfil de publicación oficial de las bases; tras BC15 y núcleo vigente.
-deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion_oficial_bases.up.sql f5e5cbc08364463ba69908722573daa0e614e174d5bf2766ce5dedf1556e63c0
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion_oficial_bases.up.sql c1ab7024d2b243cc5de9212f2c46f5eccf63adf8c4b4fadb935e2be7b7d593cb
+# F1-95 parte B — BC17: cotejo de huella firmada y recuperación con el perfil original; tras BC15 y AD301.
+deploy/postgresql/bolsa_convocatorias/migraciones/000017_recuperacion_publicacion_mismo_perfil.up.sql c00e543f89fa22ca498feb797b79d437c7fb6148401b1a01463c5c293b5049d1
