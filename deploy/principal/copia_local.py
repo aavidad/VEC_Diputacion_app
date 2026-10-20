@@ -149,12 +149,17 @@ class Copia:
         puerto_libre(args.puerto_app)
         if args.modulos:
             puerto_libre(args.puerto_smtp)
-        datos = validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT') if args.modulos else None
-        roles = validar_ejecutor_privado('VEC_COPIA_ROLES_SCRIPT') if args.modulos else None
+        if getattr(args, 'recorrido_completo', False):
+            puerto_libre(args.puerto_verificador)
+            if not Path('/usr/bin/grxfirma').is_file():
+                raise ValueError('Falta GrxFirma instalado para la copia del recorrido')
+        completo = getattr(args, 'recorrido_completo', False)
+        datos = validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT') if args.modulos and not completo else None
+        roles = validar_ejecutor_privado('VEC_COPIA_ROLES_SCRIPT') if args.modulos and not completo else None
         portal = REPO / 'deploy/principal/portal_copia' / (
             'preparar_clasificacion_externa.py' if args.sin_inscripcion else 'preparar_portal.py')
-        admin = validar_ejecutor_privado('VEC_COPIA_ADMIN_SCRIPT') if args.administracion else None
-        if admin:
+        admin = validar_ejecutor_privado('VEC_COPIA_ADMIN_SCRIPT') if args.administracion and not completo else None
+        if admin or completo:
             puerto_libre(args.puerto_admin)
         origen = Path(os.environ['VEC_COPIA_ORIGEN']).resolve(strict=True)
         dump = origen / 'principal-hz37-20261014.dump'
@@ -197,7 +202,19 @@ class Copia:
         for ruta in acl:
             self.sql(ruta, 'restauracion.log')
         self.comprobar_acl(acl, permitir_nuevas=False)
-        if args.modulos:
+        sid = subprocess.check_output(['docker', 'exec', '-u', 'postgres', self.nombre,
+            'psql', '-XAtq', '-U', 'postgres', '-d', 'postgres',
+            '-c', 'SELECT system_identifier::text FROM pg_catalog.pg_control_system()'], text=True).strip()
+        if not re.fullmatch(r'[1-9][0-9]{14,19}', sid):
+            raise ValueError('Identificador de sistema PostgreSQL inválido')
+        estado = self.leer()
+        estado['sid_copia'] = sid
+        estado['recorrido_completo'] = completo
+        guardar(self.estado, estado)
+        if completo:
+            from recorrido_copia import preparar_roles as roles_versionados
+            roles_versionados(self)
+        elif args.modulos:
             with (self.raiz / 'roles-preparacion.log').open('ab') as log:
                 ejecutar([sys.executable, roles, '--raiz', self.raiz], salida=log)
         diario = []
@@ -212,7 +229,7 @@ class Copia:
         else:
             with (self.raiz / 'material.log').open('wb') as log:
                 ejecutar([REPO / 'scripts/generar_credenciales_desarrollo.sh', self.material],
-                          salida=log, entorno={**os.environ, 'VEC_DESARROLLO_VIGENCIA_DIAS': '90'})
+                          salida=log, entorno={**os.environ, 'VEC_DESARROLLO_VIGENCIA_DIAS': '400' if completo else '90'})
         from copia_local_ambito_bolsas import declarar as declarar_ambito_bolsas
         declarar_ambito_bolsas(self)
         self.tls_pg()
@@ -223,8 +240,12 @@ class Copia:
             estado = self.leer()
             estado['entorno_modulos_sha256'] = sha256(self.raiz / 'entorno_modulos.json')
             guardar(self.estado, estado)
-            with (self.raiz / 'datos-preparacion.log').open('ab') as log:
-                ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
+            if completo:
+                from recorrido_copia import preparar_datos
+                preparar_datos(self)
+            else:
+                with (self.raiz / 'datos-preparacion.log').open('ab') as log:
+                    ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
             from copia_local_cancelacion import encender as encender_cancelacion
             encender_cancelacion(self, guardar, sha256)
             from copia_local_verificacion import comprobar as comprobar_conexiones
@@ -266,11 +287,12 @@ class Copia:
         estado['preparada'] = True
         guardar(self.estado, estado)
         self.arrancar()
-        if admin:
+        if admin or completo:
             from copia_local_administracion import ejecutar as ejecutar_admin, huella_ejecutor
             estado = self.leer()
-            estado['administracion'] = dict(ejecutor=str(admin), sha256=huella_ejecutor(admin),
-                                           puerto=args.puerto_admin)
+            estado['administracion'] = (dict(versionado=True, puerto=args.puerto_admin,
+                catalogo_entrada_unidad='administracion_f131_' + hashlib.sha256(self.nombre.encode()).hexdigest()[:16])
+                if completo else dict(ejecutor=str(admin), sha256=huella_ejecutor(admin), puerto=args.puerto_admin))
             guardar(self.estado, estado)
             ejecutar_admin(self, 'preparar')
             # Solo una preparación confirmada habilita el arranque en cada reinicio.
@@ -301,6 +323,9 @@ class Copia:
             self.arrancar()
         if args.modulos and not args.portal_externo:
             caso40.registrar_contacto(self, REPO)
+        if completo:
+            from recorrido_copia.conductor import preparar as preparar_recorrido
+            preparar_recorrido(self, args)
         if args.modulos:
             estado = self.leer()
             estado['comprobar_modulos'] = True
@@ -594,6 +619,8 @@ def main():
     p.add_argument('--puerto-app', type=int, default=18481)
     p.add_argument('--puerto-smtp', type=int, default=11081)
     p.add_argument('--lista-sql', action='append', default=[])
+    p.add_argument('--recorrido-completo', action='store_true', help='Crear el recorrido completo con productores versionados')
+    p.add_argument('--puerto-verificador', type=int, default=19881)
     p.add_argument('--modulos', action='store_true', help='Preparar conexiones nuevas de Bolsa y Contratación')
     p.add_argument('--rrhh-original', type=Path, help='Conservar el conjunto privado original de RRHH en una copia nueva')
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
@@ -605,6 +632,15 @@ def main():
     p.add_argument('--manifiesto-firma', type=Path, help='Manifiesto privado de la orden firma (etapas y verificador)')
     p.add_argument('--config-personal', type=Path, help='Configuración B2 aprobada de referencia; solo se conservan referencias y motivos')
     args = p.parse_args()
+    if args.recorrido_completo:
+        if args.orden != 'crear' or args.rrhh_original:
+            p.error('--recorrido-completo requiere crear con material nuevo')
+        args.modulos = args.administracion = args.segundo_rrhh = True
+        if not 1024 <= args.puerto_verificador <= 65535 or args.puerto_verificador in (
+                args.puerto_pg, args.puerto_app, args.puerto_smtp, args.puerto_admin):
+            p.error('El puerto del verificador debe ser distinto y estar entre 1024 y 65535')
+        if not args.lista_sql:
+            args.lista_sql = [str(REPO / 'deploy/principal/lista_sql_main_tras_hz37.txt')]
     if args.portal_externo and not args.modulos:
         p.error('--portal-externo requiere --modulos')
     if args.administracion and (args.orden != 'crear' or not args.modulos):
