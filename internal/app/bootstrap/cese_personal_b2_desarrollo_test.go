@@ -110,6 +110,10 @@ func (canalCeseB2Prueba) ResolverContextoCanalSeguimiento(context.Context) (appc
 	return appct.ContextoCanalSeguimiento{AutenticacionRef: "aut_" + strings.Repeat("a", 32), SesionRef: "ses_" + strings.Repeat("b", 32),
 		PerfilRef: "prf_0123456789abcdefghijkl", OrganizacionRef: "organizacion:prueba"}, nil
 }
+func (canalCeseB2Prueba) ValidarEntregaSeguimiento(context.Context, ct.EstadoSeguimientoExpediente) (httpct.EntregaSeguimiento, error) {
+	return httpct.EntregaSeguimiento{}, nil
+}
+
 func (canalCeseB2Prueba) AutorizarLecturaSeguimiento(context.Context, string, string) error {
 	return nil
 }

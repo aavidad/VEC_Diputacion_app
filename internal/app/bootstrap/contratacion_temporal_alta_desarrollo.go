@@ -198,6 +198,26 @@ func (d *dependenciasAltaContratacionTemporalDesarrollo) cerrar() {
 	}
 }
 
+// flujoAltaContratacionTemporalDesarrollo fija el flujo con que nacen los
+// expedientes nuevos. No adjunta el circuito RRHH v2 aunque su definición esté
+// configurada: con circuito, el análisis exige una fuente de evidencias
+// (ports.FuenteEvidenciasCircuitoRRHH) que ningún adaptador aporta, y la
+// fiscalización lo rechaza; el expediente quedaría parado en el paso 4. La
+// definición configurada solo monta la consulta y la presentación del
+// circuito. Adjuntarlo exige componer antes todas sus fuentes acreditadas.
+func flujoAltaContratacionTemporalDesarrollo() ports.ConfiguracionAltaFlujo {
+	return ports.ConfiguracionAltaFlujo{
+		Flujo: domain.ReferenciaFlujo{
+			DefinicionRef: "flujo:ct:desarrollo",
+			Version:       1,
+			HuellaSHA256:  huellaAltaContratacionTemporalDesarrollo("flujo"),
+		},
+		FaseInicial:      domain.ClaveFase("solicitud"),
+		UnidadInicialRef: "unidad:desarrollo:rrhh",
+		AccionInicial:    domain.ClaveCatalogo("alta"),
+	}
+}
+
 func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	dependenciasCT *DependenciasCT,
 	origenOpcional ...*origenConsultasContratacionTemporalDesarrollo,
@@ -243,25 +263,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
-	flujo := ports.ConfiguracionAltaFlujo{
-		Flujo: domain.ReferenciaFlujo{
-			DefinicionRef: "flujo:ct:desarrollo",
-			Version:       1,
-			HuellaSHA256:  huellaAltaContratacionTemporalDesarrollo("flujo"),
-		},
-		FaseInicial:      domain.ClaveFase("solicitud"),
-		UnidadInicialRef: "unidad:desarrollo:rrhh",
-		AccionInicial:    domain.ClaveCatalogo("alta"),
-	}
-	if cfg.CTCircuitoRRHHSourcePath != "" {
-		definicion, err := cargarDefinicionCircuitoRRHH(cfg.CTCircuitoRRHHSourcePath)
-		if err != nil {
-			return vacias, err
-		}
-		flujo.Flujo = definicion.Flujo
-		flujo.FaseInicial = definicion.EstadoInicial
-		flujo.DefinicionCircuito = &definicion
-	}
+	flujo := flujoAltaContratacionTemporalDesarrollo()
 	motivo := dominiovec.ReferenciaEntradaCatalogo{
 		CatalogoID:           "motivos_autorizacion",
 		CatalogoVersion:      1,

@@ -331,6 +331,7 @@ type emisorBorradorLlamamientoDesarrollo struct {
 	consultaReincorporacion                                                                                                 *emisorMaterialRenovableCTDesarrollo
 	consultaSolicitudesDocumentales                                                                                         *emisorMaterialRenovableCTDesarrollo
 	confirmacionDirecta                                                                                                     *emisorMaterialRenovableCTDesarrollo
+	publicacionOficial                                                                                                      *emisorMaterialRenovableCTDesarrollo
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
@@ -434,6 +435,10 @@ func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestada
 	case puertosbolsa.AccionComprobacionOfrecimiento:
 		if e != nil && e.comprobacion != nil {
 			return e.comprobacion.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
+	case puertosbolsa.AccionDeclararPublicacionOficialBases:
+		if e != nil && e.publicacionOficial != nil {
+			return e.publicacionOficial.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
 		}
 	case puertosbolsa.AccionCrearBorradorLlamamientoInterno:
 		if e != nil && e.crear != nil {
@@ -783,6 +788,18 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 			slog.Warn("comprobacion_ofrecimiento_no_habilitada", "etapa", "emisor")
 		}
 	}
+	if alta.postgresql.proveedorMaterialPublicacionOficial != nil {
+		emisor.publicacionOficial, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialPublicacionOficial)
+		if err != nil {
+			slog.Warn("publicacion_oficial_bases_no_habilitada", "etapa", "emisor")
+		} else if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+			[]dominiovec.ReferenciaEntradaCatalogo{motivoPublicacionOficialBases()}, desde) != nil {
+			// Sin su catálogo de motivos publicado, el registro de la decisión
+			// no la admitiría: la ruta queda montada y responde 503.
+			emisor.publicacionOficial = nil
+			slog.Warn("publicacion_oficial_bases_no_habilitada", "etapa", "motivos")
+		}
+	}
 	if emisor.consultaDatosContacto, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialConsultaDatosContacto); err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -1077,7 +1094,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		}
 	}
 	completa = true
-	rutas := []vechttp.RutaExacta{rutaPoliticaCese, rutaGobiernoTransiciones, {Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaContactosOferta, Manejador: handlerContacto}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
+	// F1-95: lectura y declaración de la publicación oficial de las bases.
+	rutaPublicacionOficial := nuevaRutaPublicacionOficialBases(alta.postgresql.bolsa, preparador, emisor,
+		politicaBolsa, registradorDocumentales, procesoDocumentales, dependenciasCT.reloj.Ahora)
+	rutas := []vechttp.RutaExacta{rutaPoliticaCese, rutaPublicacionOficial, rutaGobiernoTransiciones, {Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaContactosOferta, Manejador: handlerContacto}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}
 	if cargaConvocaActiva {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsahttp.RutaVistaPreviaCargaConvoca, Manejador: handlerCargaConvoca},
 			vechttp.RutaExacta{Ruta: bolsahttp.RutaConfirmarCargaConvoca, Manejador: handlerCargaConvoca})

@@ -190,8 +190,9 @@ test("los archivos se mantienen acotados y la UI cubre 390, 1024 y 1440", async 
     // 5.08a añade preferencias y devuelve el foco tras consultas y guardados;
     // su formulario permanece en un módulo aparte. 5.08b monta «Mis correos»
     // (componente común) con una línea. Aspirantes monta la ficha propia con
-    // tres (importar, desmontar y montar).
-    const tope = relative(RAIZ, ruta) === "aplicacion.js" ? 964 : 800;
+    // tres (importar, desmontar y montar). F1-14 añade el refresco de ofertas
+    // de Mi bolsa («Ver todas», tras guardar y con «ninguno» guardado).
+    const tope = relative(RAIZ, ruta) === "aplicacion.js" ? 975 : 800;
     assert.ok(lineas < tope, `${relative(RAIZ, ruta)} tiene ${lineas} líneas`);
   }
   const css = await readFile(join(RAIZ, "area-personal.css"), "utf8");

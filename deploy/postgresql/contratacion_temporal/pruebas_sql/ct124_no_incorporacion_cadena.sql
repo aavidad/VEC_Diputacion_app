@@ -188,7 +188,10 @@ SELECT pg_temp.exigir((:'r_p1'::jsonb)->>'resultado'='confirmada' AND (:'r_p1'::
   AND (:'r_p1'::jsonb)#>>'{recibo,fase_resultante}'='nombramiento','propuesta: versión 8, sigue en nombramiento '||:'r_p1');
 SELECT pg_temp.exigir(:'pub_propuesta'='0' AND (:'consulta_p'::jsonb)#>>'{no_incorporacion_propuesta,propuesta_ref}'='recibo:ct124:np1'
   AND (:'consulta_p'::jsonb)->'no_incorporacion'='null'::jsonb
-  AND NOT ((:'consulta_p'::jsonb)->'no_incorporacion_propuesta' ? 'actor_ref'),
+  -- Claves cerradas: quién propuso solo viaja como propuesta_actor_ref (CT242),
+  -- que el servidor compara y nunca entrega al navegador.
+  AND ((:'consulta_p'::jsonb)->'no_incorporacion_propuesta') - ARRAY['propuesta_ref','motivo_clave','consecuencia_clave',
+    'resolucion_ref','resolucion_sha256','fecha_notificacion','registrada_en','propuesta_actor_ref']='{}'::jsonb,
   'la propuesta no se publica a Bolsa y el detalle la muestra pendiente');
 
 -- Con la propuesta pendiente: ni otra propuesta, ni la confirma quien la

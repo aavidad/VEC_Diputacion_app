@@ -48,6 +48,18 @@ test("la persona consulta páginas y presenta sin datos de identidad del navegad
     && opciones.redirect === "error" && opciones.referrerPolicy === "no-referrer"));
 });
 
+// F1-29: el servidor (B96 y B146) envía motivo_codigo vacío en un requisito
+// ya acreditado; solo «cumple» lo admite vacío.
+test("la ficha admite un requisito acreditado sin código de motivo", async () => {
+  const ficha = (estado) => ({ data: { esquema: "vec.bolsa.inscripcion.convocatoria.v1", convocatoria: { ...bolsa,
+    requisitos: [{ codigo: "identidad_certificada", descripcion: "Identificación con certificado", obligatorio: true,
+      estado, hito_cumplimiento: null, hito_etiqueta: null, motivo_codigo: "", motivo_etiqueta: "Acreditado" }] } } });
+  const cliente = (estado) => crearClienteInscripcionBolsa({ fetchImpl: async () => respuesta(ficha(estado)) });
+  assert.equal((await cliente("cumple").convocatoria(bolsa.convocatoria_ref)).convocatoria.requisitos[0].estado, "cumple");
+  await assert.rejects(cliente("pendiente").convocatoria(bolsa.convocatoria_ref), /inválida/u);
+  await assert.rejects(cliente("no_cumple").convocatoria(bolsa.convocatoria_ref), /inválida/u);
+});
+
 test("rechaza respuesta de otra persona o bolsa y conserva el código de error", async () => {
   const solicitud = { solicitud_ref: "solicitud:ajena", recibo_ref: "recibo:1", convocatoria_ref: bolsa.convocatoria_ref,
     convocatoria_titulo: bolsa.titulo, categoria: bolsa.categorias[0].categoria,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo, rotuloFaseCabecera } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
 import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
 import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=VEC_WEB_VERSION";
@@ -718,6 +718,21 @@ test("conserva acceso a propuesta v9 desde resolución v10 y anotación v11", as
 });
 
 
+test("el análisis previo conserva el grupo y la entrada de retención que publica el servidor", async () => {
+  const cliente = clienteFalso([]);
+  const consultar = cliente.consultarDetalleRRHH;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const datos = await consultar(...args);
+    datos.analisis = { ...datos.analisis, grupo_subgrupo: "A1", entrada_rc_ref: "rc:desarrollo:001" };
+    return datos;
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar({ filtros: { texto: "", estado: "", fase: "" } });
+  const detalle = await adaptador.obtener(resumen.expediente_ref);
+  assert.equal(detalle.analisis_previo.grupo_subgrupo, "A1");
+  assert.equal(detalle.analisis_previo.entrada_rc_referencia, "rc:desarrollo:001");
+});
+
 test("distingue el período solicitado del revisado por RRHH sin sustituir el antecedente", async () => {
   const cliente = clienteFalso([]);
   const consultar = cliente.consultarDetalleRRHH;
@@ -741,6 +756,7 @@ test("distingue el período solicitado del revisado por RRHH sin sustituir el an
   assert.equal(detalle.analisis_previo.periodo.inicio, "2026-09-04T00:00:00Z");
   assert.equal(detalle.analisis_previo.porcentaje_jornada, 10000);
   assert.equal(Object.hasOwn(detalle.analisis_previo, "entrada_rc"), false);
+  assert.equal(Object.hasOwn(detalle.analisis_previo, "grupo_subgrupo"), false);
   conAnalisis = false;
   const sinAnalisis = await adaptador.obtener(resumen.expediente_ref);
   assert.deepEqual(sinAnalisis.cabecera.find(c => c.clave === "periodo"), solicitado);
@@ -1075,4 +1091,37 @@ test("el detalle autorizado conserva los selectores históricos al atravesar ada
     });
     assert.deepEqual(llamadas.map(({ operacion }) => operacion), ["detalle"]);
   }
+});
+
+test("la cabecera nombra el paso dentro de la fase y el alta se traduce en el historial", async () => {
+  const mensajesEN = await cargarMensajesExpedientesContratacionEnIdioma("en");
+  for (const [locale, mensajes, faseInforme, faseLlamamiento, alta] of [
+    ["es-ES", {}, "Fase 3 de 8: Gestión de bolsa · Informe jurídico", "Fase 5 de 8: Obtención del candidato", "Solicitud registrada"],
+    ["en-GB", mensajesEN, "Stage 3 of 8: Recruitment pool · Legal report", "Stage 5 of 8: Candidate selection", "Request recorded"],
+  ]) {
+    for (const [faseClave, esperado] of [["informe_juridico", faseInforme], ["llamamiento", faseLlamamiento]]) {
+      const cliente = clienteFalso([]);
+      const consultarCuadro = cliente.consultarCuadroRRHH;
+      const consultarDetalle = cliente.consultarDetalleRRHH;
+      const resumenFase = { ...resumen, fase_clave: faseClave, estado_clave: "en_curso" };
+      cliente.consultarCuadroRRHH = async (...args) => ({ ...await consultarCuadro(...args), expedientes: [resumenFase] });
+      cliente.consultarDetalleRRHH = async (...args) => {
+        const detalle = await consultarDetalle(...args);
+        return { ...detalle, resumen: resumenFase,
+          hitos: detalle.hitos.map((hito, indice) => (indice === 0 ? { ...hito, accion_clave: "alta" } : hito)) };
+      };
+      const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente, locale, mensajes });
+      await adaptador.listar();
+      const detalle = await adaptador.obtener(resumen.expediente_ref);
+      assert.equal(detalle.cabecera.find(({ clave }) => clave === "fase").valor, esperado);
+      assert.equal(detalle.historial[0].accion, alta);
+    }
+  }
+});
+
+test("tras el recibo del informe la cabecera nombra el paso «Informe jurídico» en el idioma activo", async () => {
+  assert.equal(rotuloFaseCabecera("informe_juridico"), "Fase 3 de 8: Gestión de bolsa · Informe jurídico");
+  assert.equal(rotuloFaseCabecera("informe_juridico", await cargarMensajesExpedientesContratacionEnIdioma("en")),
+    "Stage 3 of 8: Recruitment pool · Legal report");
+  assert.equal(rotuloFaseCabecera("fiscalizacion"), "Fase 4 de 8: Fiscalización");
 });

@@ -139,7 +139,7 @@ No admite sesiones reanudadas ni identidad por cabeceras. Solo arranca en
 
 | Perfil | Rol técnico | Entra por | Ve y hace | Estado |
 | --- | --- | --- | --- | --- |
-| Aspirante | `candidato_bolsa` | `/area-personal/` | Mi Bolsa, perfil y contacto, méritos, alegaciones, inscripción (oculta), preferencias | En cidonia (Mi Bolsa); el resto, ver 4.1 |
+| Aspirante | `candidato_bolsa` | `/area-personal/` | Mi Bolsa, perfil y contacto, méritos, alegaciones, inscripción, preferencias | En cidonia (Mi Bolsa); el resto, ver 4.1 |
 | Centro solicitante | `solicitante_centro` | `/portal-empleado/peticiones-centro/` | Presenta peticiones, acredita la incorporación, cancela | En cidonia |
 | Ratificador del centro | `ratificador_centro` | `/portal-empleado/peticiones-centro/` | Ratifica las peticiones de su centro con motivo | En cidonia |
 | Técnico de RRHH | `tecnico_rrhh` | `/portal-empleado/` | Inicio con cuadro de mando, Bolsas, Contratación temporal, plantillas, reglas | En cidonia |
@@ -167,7 +167,10 @@ El lateral se arma así (`web/static/portal-empleado/index.html`,
    menú (`CLAVES_SIN_ENTRADA_PORTAL`) y se llega a ellos por dirección directa o
    por los accesos de Inicio. `VEC_PORTAL_MODULOS_VISIBLES` limita además qué
    módulos se cargan en cada despliegue; no es un permiso.
-3. **Plantillas de documentos**, solo si RRHH tiene permiso.
+3. **Plantillas de documentos**, solo si RRHH tiene permiso y
+   `VEC_CT_PLANTILLAS_GOBIERNO_ENABLED` está activa. El portal no consulta
+   ese permiso al cargar: el enlace del menú aparece después de abrir una vez
+   `#contratacion-temporal/plantillas-rrhh`.
 
 Al abrir **Bolsas** aparece el menú «Gestión de Bolsas», fijo en el HTML y
 filtrado por las capacidades que devuelve el servidor (`portal-menu-bolsa.js`).
@@ -398,7 +401,7 @@ flowchart TD
   R2 --> R3["RRHH: análisis, crédito, vía de cobertura, unidad<br/>(en cidonia)"]
   R3 --> R4["RRHH: informe jurídico<br/>(en cidonia)"]
   R4 --> I1{"Intervención fiscaliza<br/>(en cidonia)"}
-  I1 -- reparo --> R5["RRHH: subsana e informe nuevo<br/>(por verificar)"]
+  I1 -- reparo --> R5["RRHH: subsana e informe nuevo firmado<br/>(en copia local)"]
   R5 --> I1
   I1 -- favorable --> L1["RRHH: llamamiento desde la bolsa<br/>(bolsa real: main, sin subir)"]
   B --> L1
@@ -421,10 +424,22 @@ El orden del código y el orden que pidió RRHH no coinciden en un punto: ver
 
 #### Inscripción en una bolsa
 
-Estado: **en main, apagado**. El código, la API y la bandeja de RRHH existen;
-en cidonia hay tres convocatorias cargadas, pero falta encender la inscripción
-de RRHH (`VEC_BOLSA_INSCRIPCIONES_ENABLED` y `identidad/consultas-rrhh.json` con
-el perfil de técnico de RRHH) y poner `"inscripcion": true` en `vistas.json`.
+Estado: **encendido en la pantalla de la aspirante (F1-29)**. `vistas.json`
+lleva `"inscripcion": true` y el menú muestra **Inscribirme en una bolsa**. La
+lista y la ficha necesitan la fuente v2 de las acciones de inscripción y la
+versión del rol de la aspirante publicada desde ella (F1-101,
+`deploy/principal/candidata_hz39/aspirante/inscripcion_fuente_v2.md`); sin
+esos dos actos de Administración responden 403. La bandeja de RRHH sigue
+dependiendo de `VEC_BOLSA_INSCRIPCIONES_ENABLED` y del perfil de técnico de
+RRHH en `identidad/consultas-rrhh.json`.
+
+Recorrido comprobado en Chrome el 20/10 en una copia local (paso e1 del
+apartado 4.0): lista 200, ficha 200, presentación 201 con recibo, repetición
+con la misma clave 200 con el mismo recibo, otra clave para la misma categoría
+409 `solicitud_existente`, y Mis solicitudes y su detalle 200. Después de
+reiniciar aplicación, Administración y PostgreSQL se repitió todo con el mismo
+recibo y la misma fecha, sin otra solicitud, recibo ni historia; también a 390
+píxeles, sin cookies, almacenamiento web ni desbordamiento.
 
 1. La aspirante abre **Inscribirme** y ve las convocatorias con plazo abierto
    (`GET /api/vec/bolsa/inscripciones/convocatorias-abiertas`).
@@ -492,9 +507,15 @@ versión nueva. Calcularlas desde la publicación queda para un catálogo
 posterior.
 
 Hoy solo declara el propietario de la base (despliegue o dato de copia,
-`deploy/principal/f1_61_publicacion_oficial_bases/`). El acto de RRHH desde
-la web, con su permiso, espera a su consumidor en el núcleo de autorización;
-hasta entonces ninguna cuenta de aplicación declara. `ConfirmarPublicacion`,
+`deploy/principal/f1_61_publicacion_oficial_bases/`). F1-95 añade el acto de
+RRHH desde la web (`deploy/principal/f1_95_publicacion_bases_web/`): fachada
+BC15 del propietario de convocatorias que consume la decisión V3 y llama a la
+declaración en la misma transacción, ruta
+`/api/vec/bolsa/convocatorias/publicaciones-oficiales` y pantalla. Declarante
+y motivo salen de la decisión; los ámbitos, de la política de la versión. La
+ruta deniega (503) hasta que el núcleo tenga el consumidor (AD301, entrega
+aparte para el equipo de permisos) y el rol de RRHH la concesión.
+`ConfirmarPublicacion`,
 el puerto de la publicación gobernada borrador→publicada, no se usa en este
 corte. F1-40 sigue abierta hasta que RRHH pueda anotar la publicación desde la
 web y se recorra la inscripción de punta a punta.
@@ -611,10 +632,26 @@ se retira una, debe marcar «He revisado el orden» antes de guardar.
 
 #### Modalidades de ofertas publicadas
 
-Estado: el servidor ya guarda y lee la elección con versión y justificante
-(`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades`). Falta
-publicar el permiso de la aspirante, aplicar la elección a la vista y a los
-avisos (F1-13, parte 4) y la pantalla (F1-14).
+Estado: el servidor guarda y lee la elección con versión y justificante
+(`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades`) y la aplica
+a la vista de ofertas de Mi Bolsa y a los avisos por correo (F1-13, parte 4).
+La pantalla para elegir está en Mi Bolsa (F1-14): panel «Ofertas que me
+interesan» con tres opciones (todos los tipos, solo los marcados o ninguno).
+Al elegir «ninguno» avisa, antes de guardar, de que no verá ofertas nuevas ni
+recibirá avisos, y de que sigue en sus bolsas. Guarda con versión, clave de
+repetición y recibo; si otra ventana guardó antes (409) recarga la elección
+vigente y lo explica. Cuando la lista de ofertas ya aplica la elección, «Ver
+todas las ofertas» la consulta una vez sin filtro
+(`GET /api/vec/bolsa/mi-bolsa?ofertas=todas`) sin cambiar lo guardado.
+Si la persona no tiene el permiso (403) o la consulta no existe (404), el
+panel no aparece. Falta publicar el permiso de la aspirante (F0-28).
+
+En Mi Bolsa se ocultan las ofertas abiertas, todavía sin respuesta, cuya
+modalidad la aspirante no eligió. Las ofertas sin modalidad y las que ya
+respondió se ven siempre. Si su elección no se puede leer, ve todas las ofertas.
+El aviso por correo usa la elección vigente al publicarse la oferta: quien no
+eligió esa modalidad no recibe el correo. Si cambia de elección después, los
+avisos de esa oferta no cambian; cuenta para las ofertas siguientes.
 
 La elección voluntaria de modalidades, cuando se habilite, solo filtra las
 ofertas publicadas que la persona ve y los avisos que solicita. No cambia la
@@ -775,7 +812,7 @@ migraciones de `deploy/postgresql/contratacion_temporal/`):
 | Asignación a unidad | Técnico de RRHH | `asignaciones` | `asignacion_unidad/en_curso`, v4 | En cidonia |
 | Informe jurídico | Técnico de RRHH | `informes-juridicos/preparaciones` | `informe_juridico/en_curso`, v5 | En cidonia |
 | Fiscalización | Intervención | `fiscalizaciones/resultados` | favorable: `fiscalizacion/en_curso`; reparo: `subsanacion_unidad/incidencia`; v6 | En cidonia |
-| Subsanación del reparo e informe nuevo | Técnico de RRHH | `subsanacion-reparos`, después `informes-juridicos/preparaciones` | `subsanacion_unidad/incidencia`, v7 y v8; nueva fiscalización v9 | Por verificar; exige `VEC_CT_SUBSANACION_POLITICA_FILE` |
+| Subsanación del reparo e informe nuevo | Técnico de RRHH | `subsanacion-reparos`, después `informes-juridicos/preparaciones` | `subsanacion_unidad/incidencia`, v7 y v8; nueva fiscalización v9 | En copia local el 20/10 (F1-26); exige `VEC_CT_SUBSANACION_POLITICA_FILE`, que la orden `firma` de la copia monta |
 | Llamamiento y respuesta | Técnico de RRHH y aspirante | `llamamientos/*` (ver 4.3.3) | No cambia de fase | En cidonia (bolsa real: sin subir) |
 | Propuesta de nombramiento o contrato | Técnico de RRHH | `formalizacion/propuestas` | `nombramiento/en_curso`, v7 | En cidonia |
 | Resolución | Técnico de RRHH | `resoluciones-formalizacion` | `nombramiento/en_curso`, v8 | En cidonia |
@@ -817,9 +854,14 @@ Intervención, resolución, GINPIX, firma de la persona, incorporación,
 seguimiento). Pero la secuencia persistida hace el llamamiento **después** de
 la fiscalización favorable, y la propuesta exige el expediente en
 `fiscalizacion/en_curso`. Mientras no se cambie, el orden real es el de la
-tabla anterior. Quién decide: dirección, con RRHH. Si el circuito v2 no está
-configurado (`VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`), se pintan las ocho fases del
-flujo v1.
+tabla anterior. Quién decide: dirección, con RRHH. Los expedientes nuevos
+nacen siempre con el flujo v1 y se pintan sus ocho fases, aunque el circuito
+v2 esté configurado (`VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`, que pone la orden
+`firma` de la copia). Con circuito, el análisis necesita una fuente que
+acredite la petición firmada y la autorización de RRHH, y ningún adaptador la
+aporta todavía; la fiscalización tampoco admite expedientes con circuito. La
+variable solo monta la consulta del circuito que usa la firma y su
+presentación (F1-98).
 
 Si la persona aún no ha empezado a trabajar y hay devolución, rechazo o
 sustitución, se repiten los trámites salvo volver a Intervención cuando no cambia
@@ -1051,6 +1093,21 @@ aceptación por separado. Las instantáneas anteriores conservan su versión.
 La fiscalización limitada previa también tiene cinco días, pero VEC aún no
 identifica ese régimen de forma independiente.
 
+Recorrido del 20/10 en una copia local (F1-26), sobre el expediente
+2026/92006, en Chrome con GrxFirma: el técnico y la Jefatura firman el
+informe (v5); Intervención formula reparo (v6); RRHH registra la subsanación
+(v7) y emite el informe nuevo (v8); el técnico y la Jefatura lo vuelven a
+firmar; Intervención registra la fiscalización favorable sobre la v8 con su
+recibo (v9). Tras reiniciar aplicación y base, la ficha y los recuentos
+(actuaciones, versiones, avisos, fiscalizaciones, subsanación y cuatro
+firmas) son los mismos.
+
+El informe nuevo abre una ronda de firma: solo cuentan las firmas desde la
+versión de su emisión. El servidor ya lo aplicaba
+(`CalcularEstadoCircuitoFirmaEnRonda`); la ficha
+(`ronda-informe-nuevo.js`) ahora también. Antes mostraba el informe nuevo
+como firmado con las firmas del anterior y no ofrecía firmarlo.
+
 #### 4.3.6 Firma de tres cargos
 
 Estado: **falta** (#1099, equipo H). Ningún documento sale hoy firmado. La
@@ -1099,6 +1156,21 @@ B2 y su recuperación después del reinicio sigue pendiente del ensayo de P.
 Cuándo cuenta como hecha la incorporación (con el alta en Personal o con la
 toma de posesión) y la fecha de efectos del cese siguen pendientes de RRHH
 (duda 140).
+
+#### No incorporación y segunda revisión (F1-47)
+
+En la candidata, RRHH propone la no incorporación desde el seguimiento de la
+ficha, con motivo, fecha de notificación y resolución. Si se exige otra
+persona, la propuesta muestra el enlace de revisión con un botón para
+copiarlo; no hay aviso automático. Con su propio certificado, la segunda
+persona consulta la propuesta y la versión vigente y confirma o rechaza; el
+acceso no abre el cuadro general de expedientes. La revisión no enseña
+identificadores técnicos: dice qué ha pasado y ofrece volver a Peticiones de
+personal temporal. Quien propuso no ve confirmar ni rechazar (la consulta
+le indica solo que la propuesta es suya, sin decir quién la hizo) y el
+servidor se lo rechaza igualmente. La confirmación devuelve el expediente a
+fiscalización y Bolsa recibe el aviso de no incorporación.
+El historial nombra la propuesta, la confirmación y el rechazo.
 
 #### 4.3.8 Cese y vuelta a la bolsa
 
@@ -1316,7 +1388,7 @@ efecto.
 | Preferencias entre bolsas | *(por verificar en copia local)* | Sí | Autoridad externa en cidonia |
 | Petición y ratificación del centro | Circuito anterior *(por verificar en copia local)* | #1114: conserva la necesidad RPT hasta el alta | Verificar la instalación de #1114 en cidonia |
 | Alta, análisis, cobertura, asignación, informe | Sí *(por verificar en copia local)* | | |
-| Fiscalización con reparo y subsanación | Fiscalización sí; reparo *(por verificar)*; todo *(por verificar en copia local)* | | |
+| Fiscalización con reparo y subsanación | En copia local el 20/10: reparo, subsanación, informe nuevo firmado y favorable | | Ver los textos pendientes en `docs/manuales/PENDIENTES.md` |
 | Llamamiento desde la bolsa constituida | Puente anterior *(por verificar en copia local)* | #1088 | Recorrido con la bolsa real |
 | Oferta con varias plazas desde CT | | | Conexión CT con ofertas de Bolsa |
 | Propuesta, resolución y documentos | Sí *(por verificar en copia local)* | | Plantillas Word de RRHH (duda 124) |

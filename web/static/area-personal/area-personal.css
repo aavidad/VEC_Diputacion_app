@@ -473,3 +473,8 @@ body.area-personal-app :is(input:not([type="checkbox"]):not([type="radio"]):not(
 .lista-requisitos-inscripcion p { margin: 6px 0 0; color: var(--ap-muted); font-size: .875rem; }
 .lista-requisitos-inscripcion .opcion-check { margin-top: 10px; }
 .inscripcion-bolsa .campo select option { overflow-wrap: anywhere; }
+/* Elección de modalidades en Mi bolsa (F1-14): reutiliza panel, opcion-check, nota y fila-acciones. */
+.preferencias-modalidades__grupo { margin-bottom: 14px; }
+.preferencias-modalidades .nota { margin: 0 0 14px; }
+.preferencias-modalidades__recibo { margin: 12px 0 0; color: var(--ap-muted); font-size: .875rem; }
+.ofertas-mi-bolsa__filtro { margin-bottom: 14px; }

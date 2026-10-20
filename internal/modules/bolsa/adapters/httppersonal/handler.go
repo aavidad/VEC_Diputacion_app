@@ -29,6 +29,18 @@ type Preparador interface {
 type Consultor interface {
 	Consultar(context.Context, mibolsa.Orden) (puertosbolsa.InstantaneaMiBolsa, error)
 }
+
+// consultaTodasOfertas es la única consulta admitida en la ruta: «Ver todas»
+// muestra una vez las ofertas sin aplicar la elección de modalidades, sin
+// cambiarla. El resto de la instantánea es el mismo.
+const consultaTodasOfertas = "ofertas=todas"
+
+// ConsultorTodasOfertas lo implementa la consulta que filtra ofertas por la
+// elección de modalidades. Si el consultor no filtra, «Ver todas» usa
+// Consultar, que ya devuelve todas las ofertas.
+type ConsultorTodasOfertas interface {
+	ConsultarTodasOfertas(context.Context, mibolsa.Orden) (puertosbolsa.InstantaneaMiBolsa, error)
+}
 type Handler struct {
 	preparador Preparador
 	consultor  Consultor
@@ -56,7 +68,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responder(w, 405, errorRespuesta{"metodo_no_permitido"})
 		return
 	}
-	if r.URL.RawQuery != "" || r.URL.ForceQuery || r.ContentLength != 0 || len(r.TransferEncoding) != 0 || !cuerpoAusente(r) || cabeceraProhibida(r.Header) {
+	todas := r.URL.RawQuery == consultaTodasOfertas
+	if (r.URL.RawQuery != "" && !todas) || r.URL.ForceQuery || r.ContentLength != 0 || len(r.TransferEncoding) != 0 || !cuerpoAusente(r) || cabeceraProhibida(r.Header) {
 		responder(w, 400, errorRespuesta{"peticion_no_permitida"})
 		return
 	}
@@ -70,7 +83,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderError(w, err)
 		return
 	}
-	resultado, err := h.consultor.Consultar(r.Context(), orden)
+	consultar := h.consultor.Consultar
+	if sinFiltro, ok := h.consultor.(ConsultorTodasOfertas); ok && todas {
+		consultar = sinFiltro.ConsultarTodasOfertas
+	}
+	resultado, err := consultar(r.Context(), orden)
 	if err != nil {
 		publicarAcuseLecturaFallida(w, err)
 		registrarFalloTecnicoMiBolsa(err)
@@ -192,6 +209,9 @@ type respuesta struct {
 		AccionesPortal *accionesPortal `json:"acciones_portal,omitempty"`
 		// Ofertas solo aparece si está compuesta la disposición a ofertas.
 		Ofertas []ofertaPortal `json:"ofertas,omitempty"`
+		// OfertasSegunModalidades solo aparece si la lista de ofertas ya
+		// aplica la elección de modalidades de la persona.
+		OfertasSegunModalidades bool `json:"ofertas_segun_modalidades,omitempty"`
 		// Contactos solo aparece si está compuesta la confirmación del contacto.
 		Contactos []contactoPortal `json:"contactos,omitempty"`
 		// El nombre de la titular solo aparece en su propia consulta.
@@ -235,6 +255,7 @@ func nuevaRespuesta(i puertosbolsa.InstantaneaMiBolsa) respuesta {
 	}
 	r.Data.Portal, r.Data.AccionesPortal = respuestaPortal(i)
 	r.Data.Ofertas = respuestaOfertas(i)
+	r.Data.OfertasSegunModalidades = i.OfertasSegunModalidades
 	r.Data.Contactos = respuestaContactos(i)
 	if i.NombrePropio != nil {
 		r.Data.NombreVisible, r.Data.Iniciales = i.NombrePropio.Visible, i.NombrePropio.Iniciales

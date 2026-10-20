@@ -13,10 +13,12 @@ import (
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 // seleccionSoporteSeguimientoRRHH elige desde la capacidad sellada por la
-// frontera mTLS. El segundo técnico sólo alcanza la no incorporación.
+// frontera mTLS. El segundo técnico sólo alcanza la consulta previa del
+// expediente exacto y la no incorporación.
 // Cada soporte conserva su comprobación nominal de sujeto, hoja y ruta.
 type seleccionSoporteSeguimientoRRHH struct {
 	original  *soporteAltaContratacionTemporalDesarrollo
@@ -38,7 +40,7 @@ func (s seleccionSoporteSeguimientoRRHH) elegir(ctx context.Context) (*soporteAl
 		}
 		return nil, false
 	}
-	if s.adicional != nil && capacidad.ruta == httpinterno.RutaNoIncorporaciones && capacidad.metodo == http.MethodPost &&
+	if s.adicional != nil && rutaSegundoRRHHNoIncorporacion(capacidad.ruta, capacidad.metodo) &&
 		capacidad.principal.ID == s.adicional.principalID &&
 		capacidad.principal.Attributes["certificate_sha256"] == s.adicional.certificadoSHA256 {
 		if _, valido := s.adicional.capacidadValida(ctx); valido {
@@ -46,6 +48,22 @@ func (s seleccionSoporteSeguimientoRRHH) elegir(ctx context.Context) (*soporteAl
 		}
 	}
 	return nil, false
+}
+
+func rutaSegundoRRHHNoIncorporacion(ruta, metodo string) bool {
+	return metodo == http.MethodPost &&
+		(ruta == httpinterno.RutaSeguimientoCese || ruta == httpinterno.RutaNoIncorporaciones)
+}
+
+// admitirSegundoRRHHEnFronteras añade el perfil de la segunda persona solo a
+// la consulta exacta previa y a la confirmación de no incorporación. Sin la
+// primera, el enlace de revisión no puede leer la propuesta que debe revisar.
+func admitirSegundoRRHHEnFronteras(declaraciones []descriptorFronteraComunDesarrollo, perfil string) {
+	for i := range declaraciones {
+		if rutaSegundoRRHHNoIncorporacion(declaraciones[i].Ruta, declaraciones[i].Metodo) {
+			declaraciones[i].PerfilesActivosRef = append(declaraciones[i].PerfilesActivosRef, perfil)
+		}
+	}
 }
 
 func (s seleccionSoporteSeguimientoRRHH) ResolverContextoAutorizacionAltaV3(ctx context.Context, solicitud ports.SolicitudResolverContextoAutorizacionAltaV3) (ports.ContextoAutorizacionAltaV3, error) {
@@ -101,18 +119,28 @@ func instantaneaSegundoRRHHNoIncorporacionValida(i vecdomain.InstantaneaAutoriza
 	if ambitos["organizacion_ref"] == "" {
 		return false
 	}
+	lectura, noIncorporacion := false, false
 	for _, concesion := range i.VersionRol.Concesiones {
 		if concesion.Accion == string(domain.AccionRegistrarNoIncorporacion) &&
 			concesion.ModuloID == ports.ModuloContratacion &&
 			concesion.TipoRecurso == ports.TipoRecursoNoIncorporacion {
 			for _, finalidad := range concesion.Finalidades {
 				if finalidad == ports.FinalidadRegistrarNoIncorporacion {
-					return true
+					noIncorporacion = true
+				}
+			}
+		}
+		if concesion.Accion == accionConsultarSeguimientoCeseDesarrollo &&
+			concesion.ModuloID == ports.ModuloContratacion &&
+			concesion.TipoRecurso == "seguimiento_contratacion_temporal" {
+			for _, finalidad := range concesion.Finalidades {
+				if finalidad == "gestionar_contratacion_temporal" {
+					lectura = true
 				}
 			}
 		}
 	}
-	return false
+	return lectura && noIncorporacion
 }
 
 // baseSegundoRRHH devuelve la instantánea con el ámbito de organización: cada
@@ -122,6 +150,69 @@ func baseSegundoRRHH(i vecdomain.InstantaneaAutorizacion) vecdomain.InstantaneaA
 	base.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref",
 		Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}}
 	return base
+}
+
+// La consulta no tiene consumidor que registre la decisión junto con un
+// efecto. Publica primero la asignación ceñida al expediente y exige el
+// registro V3 durable antes de permitir que el manejador entregue el estado.
+// La confirmación c22 conserva su consumidor transaccional ya existente.
+type registroLecturaSegundoRRHH struct {
+	soporte *soporteAltaContratacionTemporalDesarrollo
+	durable registroDecisionesAnalisisContratacionTemporalDesarrollo
+}
+
+func (r registroLecturaSegundoRRHH) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(
+	ctx context.Context, orden puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
+) (time.Time, error) {
+	if r.soporte == nil || r.durable == nil {
+		return time.Time{}, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible
+	}
+	capacidad, valida := r.soporte.capacidadValida(ctx)
+	if !valida || !rutaSegundoRRHHNoIncorporacion(capacidad.ruta, capacidad.metodo) {
+		return time.Time{}, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible
+	}
+	if capacidad.ruta == httpinterno.RutaNoIncorporaciones {
+		return r.soporte.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx, orden)
+	}
+	datos, err := orden.Datos()
+	solicitud, errSolicitud := datos.Solicitud.Datos()
+	if err != nil || errSolicitud != nil || solicitud.Accion != accionConsultarSeguimientoCeseDesarrollo ||
+		solicitud.Finalidad != "gestionar_contratacion_temporal" ||
+		solicitud.ReferenciaMotivo != motivoSeguimientoCeseDesarrollo(httpinterno.RutaSeguimientoCese) {
+		return time.Time{}, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible
+	}
+	if _, ok := r.soporte.ambitosSeguimientoCese(capacidad.ruta, solicitud); !ok {
+		return time.Time{}, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible
+	}
+	instantanea, ok := r.soporte.instantaneaParaContexto(ctx, capacidad.ruta)
+	if !ok || instantanea.Validar() != nil || r.soporte.autoridadAsignaciones == nil ||
+		publicarInstantaneaAsignacionCTSegunRuta(ctx, capacidad.ruta, r.soporte.autoridadAsignaciones, instantanea) != nil {
+		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
+	}
+	return r.durable.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx, orden)
+}
+
+func (r registroLecturaSegundoRRHH) RegistrarDenegacionAutorizacionLigadaV3(
+	ctx context.Context, orden puertosvec.OrdenRegistroDenegacionAutorizacionLigadaV3,
+) error {
+	if r.soporte == nil || r.durable == nil {
+		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
+	}
+	capacidad, valida := r.soporte.capacidadValida(ctx)
+	if !valida || !rutaSegundoRRHHNoIncorporacion(capacidad.ruta, capacidad.metodo) {
+		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
+	}
+	if capacidad.ruta == httpinterno.RutaNoIncorporaciones {
+		return r.soporte.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden)
+	}
+	datos, err := orden.Datos()
+	solicitud, errSolicitud := datos.Solicitud.Datos()
+	if err != nil || errSolicitud != nil || solicitud.Accion != accionConsultarSeguimientoCeseDesarrollo ||
+		solicitud.Finalidad != "gestionar_contratacion_temporal" ||
+		solicitud.ReferenciaMotivo != motivoSeguimientoCeseDesarrollo(httpinterno.RutaSeguimientoCese) {
+		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
+	}
+	return r.durable.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden)
 }
 
 // Preparación local: publica solo ContextoActor sintético mediante el productor
@@ -157,7 +248,7 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 	publicada, existe, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, alta.postgresql.gobierno, perfil)
 	if err != nil || !existe || publicada.actoAsignacion != actoAsignacionCTDesarrollo ||
 		!instantaneaSegundoRRHHNoIncorporacionValida(publicada.instantanea, vinculo.PrincipalID, perfil, reloj.Ahora()) {
-		slog.Warn("segundo técnico de RRHH sin asignación c22 consumible; no se activa no incorporación")
+		slog.Warn("segundo técnico de RRHH sin asignación de lectura y no incorporación consumible")
 		return nil, nil
 	}
 	alta.soporte.mu.Lock()
@@ -210,7 +301,8 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 		return nil, nil
 	}
 	soporte.sesionOperativa = sesion
-	autorizador, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(soporte, soporte, soporte, soporte,
+	registroLectura := registroLecturaSegundoRRHH{soporte: soporte, durable: registro}
+	autorizador, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(soporte, registroLectura, registroLectura, soporte,
 		reloj, seguridadvec.GeneradorReferenciasCriptograficas{},
 		aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
 	if err != nil {

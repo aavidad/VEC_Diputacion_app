@@ -54,18 +54,17 @@ func accionesDeltaBolsaExterna(rol VersionRol, selecciones int) []string {
 // El mismo conjunto finito de cabezas que AUT104; ningún tamaño por sí solo acredita una historia.
 func estadoRolBolsaExterna(rol VersionRol) string {
 	const baseLen = 7
-	if rol.RolID != RolIDVersionarBolsaExterna || len(rol.Concesiones) < baseLen {
+	if rol.RolID != RolIDVersionarBolsaExterna || len(rol.Concesiones) < baseLen ||
+		!proyeccionInscripcionUnicaBolsaExterna(rol.Concesiones) {
 		return ""
 	}
 	base := rol
 	base.Version, base.Concesiones = 1, rol.Concesiones[:baseLen]
+	// Como AUT104, las siete concesiones de la v1 forman un conjunto exacto:
+	// la v1 publicada empieza por participaciones_propias.consultar. Lo
+	// añadido después sí conserva el orden de las altas gobernadas.
 	if !baseVersionarRolBolsaExterna(base) {
 		return ""
-	}
-	for j, accion := range accionesBaseVersionarRolBolsaExterna {
-		if rol.Concesiones[j].Accion != accion {
-			return ""
-		}
 	}
 	resto := rol.Concesiones[baseLen:]
 	if len(resto) == 0 && rol.Version == 1 {
@@ -213,7 +212,8 @@ func (p PlanVersionarRolBolsaExterna) HuellaSHA256() (string, error) {
 		len(p.DefinicionNueva.Concesiones) > maximoElementosAutorizacion ||
 		(!reemplazo && len(p.Selecciones) != len(acciones)) ||
 		len(p.Asignaciones) < 1 || len(p.Asignaciones) > 16 ||
-		!ReferenciaMotivoAutorizacionV2Valida(p.Motivo) || !ReferenciaActoAdministracionValida(p.ReferenciaActo) {
+		!ReferenciaMotivoAutorizacionV2Valida(p.Motivo) || !ReferenciaActoAdministracionValida(p.ReferenciaActo) ||
+		!proyeccionInscripcionUnicaBolsaExterna(p.DefinicionNueva.Concesiones) {
 		return "", ErrVersionarRolBolsaExternaInvalido
 	}
 	if !reemplazo {
@@ -366,6 +366,43 @@ func camposInscripcionBolsaExterna(accion string) []string {
 	return campos
 }
 
+// camposInscripcionBolsaExternaV2 es la proyección de la fuente v2 de
+// inscripción: la lista y la ficha de convocatorias añaden la modalidad
+// (F1-40) y las solicitudes propias por categoría (F1-41). Las demás
+// acciones conservan los campos de la v1. AUT105 fija las mismas hojas.
+func camposInscripcionBolsaExternaV2(accion string) []string {
+	campos := camposInscripcionBolsaExterna(accion)
+	var prefijo string
+	switch accion {
+	case accionesInscripcionBolsaExterna[0]:
+		prefijo = "convocatorias[]."
+	case accionesInscripcionBolsaExterna[1]:
+	default:
+		return campos
+	}
+	for _, hoja := range []string{"modalidad_inscripcion", "solicitudes_propias[].categoria_ref",
+		"solicitudes_propias[].estado", "solicitudes_propias[].solicitud_ref"} {
+		campos = append(campos, prefijo+hoja)
+	}
+	slices.Sort(campos)
+	return campos
+}
+
+// proyeccionInscripcionUnicaBolsaExterna exige que la lista y la ficha de
+// convocatorias salgan de la misma versión de la fuente de inscripción: las
+// dos con los campos de la v1 o las dos con los de la v2. Las otras tres
+// acciones de inscripción tienen los mismos campos en ambas versiones. AUT105
+// aplica la misma regla al publicar.
+func proyeccionInscripcionUnicaBolsaExterna(concesiones []ConcesionRol) bool {
+	v2 := map[bool]bool{}
+	for _, c := range concesiones {
+		if c.Accion == accionesInscripcionBolsaExterna[0] || c.Accion == accionesInscripcionBolsaExterna[1] {
+			v2[slices.Equal(c.CamposPermitidos, camposInscripcionBolsaExternaV2(c.Accion))] = true
+		}
+	}
+	return len(v2) < 2
+}
+
 func camposAlegacionesBolsaExterna() []string {
 	campos := []string{"total", "cursor_siguiente", "objetos[].tipo", "objetos[].solicitud_ref",
 		"objetos[].participacion_ref", "objetos[].acto_ref", "objetos[].version_acto", "objetos[].titulo",
@@ -397,7 +434,8 @@ func concesionDeltaBolsaExterna(c ConcesionRol, accion string) bool {
 	}
 	if c.Validar() != nil || c.ModuloID != "bolsa" || c.Accion != accion ||
 		c.GarantiaMinima != AuthAssuranceHigh || len(c.Obligaciones) != 0 ||
-		!slices.Equal(c.CamposPermitidos, camposInscripcionBolsaExterna(accion)) {
+		!(slices.Equal(c.CamposPermitidos, camposInscripcionBolsaExterna(accion)) ||
+			slices.Equal(c.CamposPermitidos, camposInscripcionBolsaExternaV2(accion))) {
 		return false
 	}
 	switch accion {

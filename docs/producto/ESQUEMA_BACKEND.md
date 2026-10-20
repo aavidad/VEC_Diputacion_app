@@ -545,6 +545,13 @@ acepta `categorias_refs` en lugar de `categoria_ref` y responde con el esquema
 `vec.bolsa.inscripcion.recibo_conjunto.v1` (201 la primera vez, 200 en el
 reintento). Activación en `deploy/principal/f1_41_solicitud_conjunta.md`.
 
+Los campos nuevos de la lista y la ficha (`modalidad_inscripcion` y
+`solicitudes_propias[]`) se conceden con la versión 2 de la fuente de
+inscripción (F1-101). AUT105 deja que el plan de la versión del rol del
+aspirante tome sus cinco acciones de la fuente v1 o de la v2, sin mezclarlas;
+la publicación sigue siendo de dos administradores. Guía en
+`deploy/principal/candidata_hz39/aspirante/inscripcion_fuente_v2.md`.
+
 Las preferencias entre bolsas guardan versiones y recibos en
 `preferencia_bolsas_version` y publican su evento en
 `preferencia_bolsas_outbox`. La ruta propia
@@ -568,7 +575,34 @@ si comprueba las dos y el catálogo de modalidades; si falta algo, la consulta
 responde 503 y el orden de bolsas sigue disponible. Detalle en
 `deploy/principal/candidata_hz39/aspirante/modalidades.md`.
 
+Con esa lectura montada, `GET /api/vec/bolsa/mi-bolsa` aplica la elección a
+las ofertas (`mibolsa.ConsultaOfertasModalidades`): quita las abiertas sin
+respuesta cuya modalidad no está elegida y marca `ofertas_segun_modalidades`.
+La lectura solo se hace si hay alguna oferta que se pueda quitar, y si falla se
+devuelven todas sin la marca. La 000139 de Bolsa (B139) rehace
+`crear_aviso_oferta_b129()` para que, al congelar los destinatarios del aviso,
+excluya a quien tiene una elección guardada que no incluye la modalidad de la
+oferta. Lee la última versión de `preferencia_modalidades_version` a través de
+`vinculo_candidato`. La cola, la reclamación y el reintento siguen usando esa
+lista congelada y no vuelven a leer la elección. Situaciones, orden e
+inscripción no cambian.
+
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
+
+F1-47 amplía la consulta existente de seguimiento con la versión, fase,
+estado y número visible actuales del expediente (CT242). Fase y estado salen
+de las columnas de la versión vigente y el número es el de la numeración
+anual (CT142) cuando existe. CT242 añade también a la consulta de
+incorporación acreditada (CT124) quién hizo la propuesta pendiente; el
+servidor lo compara con quien consulta y al navegador solo llega el booleano
+`propuesta_propia`. La segunda persona
+de RRHH usa su sesión nominal ligada al certificado y su permiso vigente;
+la lectura queda registrada antes de devolver la propuesta. No recibe acceso
+al cuadro general ni a las operaciones de cese, GINPIX o modificación. La
+propuesta y la confirmación conservan el contrato y los recibos existentes.
+La frontera común admite a esa persona solo en la consulta de seguimiento y
+en la confirmación. Activación en
+`deploy/principal/no_incorporacion_f1_47_20261018.md`.
 
 F1-73 prepara el contrato de alta directa `vec.ct.alta_necesidad.v2`: el
 servidor obtiene el número de personas de la necesidad sellada. CT239 admite

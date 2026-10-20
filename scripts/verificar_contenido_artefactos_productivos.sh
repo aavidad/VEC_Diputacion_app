@@ -306,6 +306,9 @@ transportes_mtls_revisados=(
 	# fijas, same-origin, no-store, redirect error y no-referrer.
 	static/portal-empleado/modulos/bolsa/rrhh-plazos-api.js
 	static/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js
+	# Publicación oficial de bases (F1-95): GET y POST a una ruta interna fija,
+	# mismo origen, no-store, redirect error, no-referrer e Idempotency-Key.
+	static/portal-empleado/modulos/bolsa/rrhh-publicacion-bases-api.js
 	# Documentos Bolsa: dos GET internos acotados y revisados; sin actor del navegador.
 	# mTLS del mismo origen, no-store, redirect error, no-referrer y JSON limitado a 1 MiB.
 	static/portal-empleado/modulos/bolsa/documentos-api.js
@@ -326,6 +329,10 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.js
 	static/portal-empleado/modulos/dietas/cliente-rectificacion-admin-http.js
 	static/portal-empleado/organizacion/historico.js
+	# F1-100: nombres de las personas llamadas para vincular un llamamiento; GET
+	# a la ruta interna fija de candidatos de Bolsa, same-origin, no-store,
+	# redirect error y no-referrer; nada se guarda fuera de memoria.
+	static/portal-empleado/modulos/contratacion-temporal/personas-llamamiento-bolsa.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \

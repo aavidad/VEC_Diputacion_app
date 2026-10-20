@@ -110,13 +110,15 @@ function requisitoFicha(requisito, indice, estado, pendiente, t) {
 }
 
 function revisionFicha(estado, bolsa, categoria, pendiente, enviando, textos, t) {
-  const declarados = bolsa.requisitos.filter((requisito) => estado.declaraciones.has(requisito.codigo));
+  const declarados = bolsa.requisitos.filter((requisito) => requisito.estado === "cumple" || estado.declaraciones.has(requisito.codigo));
+  const sinMarcar = bolsa.requisitos.some((requisito) => !["cumple", "no_cumple"].includes(requisito.estado) && !estado.declaraciones.has(requisito.codigo));
   return `<section class="panel"><header><h4 tabindex="-1" data-inscripcion-revision>${t("revisarTitulo")}</h4></header><div class="panel-contenido">
       <dl class="dato-lista"><dt>${t("convocatoria")}</dt><dd>${esc(bolsa.titulo)}</dd>
       <dt>${t("categoria")}</dt><dd>${esc(categoria?.categoria)}</dd>
       <dt>${t("plazo")}</dt><dd>${fechaHora(textos, bolsa.plazo_inicio)} – ${fechaHora(textos, bolsa.plazo_fin)}</dd></dl>
-      <p>${t(pendiente ? "revisarPendiente" : "revisarActo")}</p><p>${t("declaracionesRevisar")}</p>
-      ${declarados.length ? `<ul>${declarados.map((requisito) => `<li>${esc(requisito.descripcion)} · ${t(`requisito_${requisito.estado}`)}</li>`).join("")}</ul>` : `<p>${t("sinDeclaraciones")}</p>`}
+      <p>${t(pendiente ? "revisarPendiente" : "revisarActo")}</p>
+      ${declarados.length ? `<p>${t("declaracionesRevisar")}</p><ul>${declarados.map((requisito) => `<li>${esc(requisito.descripcion)} · ${t(requisito.estado === "cumple" ? "requisito_cumple" : "declaraCumplir")}</li>`).join("")}</ul>` : ""}
+      ${sinMarcar ? `<p>${t("sinDeclaraciones")}</p>` : ""}
       <div class="fila-acciones"><button type="button" class="boton-secundario" data-inscripcion-accion="corregir" ${enviando ? "disabled" : ""}>${t("corregir")}</button>
       <button type="button" class="boton-primario" data-inscripcion-accion="confirmar" ${enviando || estado.bloqueoActo || !categoria ? "disabled" : ""}>${t(enviando ? "enviando" : "confirmar")}</button></div></div></section>`;
 }

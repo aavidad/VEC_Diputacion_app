@@ -194,5 +194,17 @@ deploy/postgresql/bolsa_convocatorias/migraciones/000014_publicacion_oficial_bas
 # F1-41 — BC13 (comprobación de publicación para solicitud conjunta) y B146 (solicitud conjunta con recibo único y separada por categoría, contenido de B105); BC13 exige BC14 y B146 exige BC13; tras B142 y BC14.
 deploy/postgresql/bolsa_convocatorias/migraciones/000013_comprobacion_inscripcion_conjunta_v1.up.sql 39391385215c8252e1849b8c9cadd4eee3cd19c893bafb9ef654b29572955ec3
 deploy/postgresql/bolsa_llamamientos/migraciones/000146_solicitud_conjunta.up.sql cbc0b4b671098154bc89b1f98e6a87ecbabc2736541fc85597cc9737ab763afe
+# F1-13 parte 4 — B139: los avisos de ofertas respetan la elección de modalidades al congelar destinatarios; tras B138 y B136.
+deploy/postgresql/bolsa_llamamientos/migraciones/000139_avisos_modalidades.up.sql ef4c0b36253f63017fbb0591e7c29d9091d0a5ee48b0b16e18ebf3433bc31879
+# F1-47 — CT242: metadatos actuales de la lectura exacta para segunda revisión de no incorporación; tras CT241.
+deploy/postgresql/contratacion_temporal/migraciones/000242_lectura_revision_no_incorporacion.up.sql 30bae173a84fcd4955e221fe8357b6e00301347928c896d7060f8b36e81208d9
+# F1-101 — AUT105: las cinco altas de inscripción del aspirante aceptan la fuente v2 (modalidad_inscripcion y solicitudes_propias[]); tras AUT104.
+deploy/postgresql/autorizacion/migraciones/000105_fuente_inscripcion_v2.up.sql 193fbd9ec4a8c3484009bf440c2f2f8148dd3e1a94cb918a78197e762d525486
+# F1-97 — CT243: el detalle RRHH publica fuera del recibo el grupo y la entrada de retención del análisis, para precargar la rectificación. Tras CT225; solo reconstruye sus cuatro lecturas.
+deploy/postgresql/contratacion_temporal/migraciones/000243_grupo_retencion_detalle_rrhh.up.sql d6d9624fa1157378b49c76e70bbcf65acd1ead47000bd7be8c8b669a0973dd20
+# F1-98 — CT244: el análisis compara también la fecha civil de la RC declarada por el centro; tras CT242.
+deploy/postgresql/contratacion_temporal/migraciones/000244_fecha_rc_declarada_analisis.up.sql 943e5009eefb8b329d6b871dabdced664c6a175ff5f0b0486ffa6b49b4e3d13f
+# F1-95 — BC15: fachada web de la declaración de publicación oficial (RRHH), tras BC14; deniega (55000) hasta que el núcleo tenga consumir_publicacion_oficial_bases_v1.
+deploy/postgresql/bolsa_convocatorias/migraciones/000015_declaracion_publicacion_oficial_rrhh.up.sql 3418e4c1aebc1c0e5568c67846d460c75e8a5adc15eaf2865b1c684e6b2fb7a8
 # F1-60 segundo corte — B145, los actos de Bolsa cotejan el ámbito de la bolsa (B128 en SQL), recuperación sin ámbito denegada y constitución por línea de órdenes retirada; tras B144.
 deploy/postgresql/bolsa_llamamientos/migraciones/000145_ambito_actos_bolsa.up.sql c5092a053a3917b5d9e19ec1a391890e661de0e72c3cf7c2eb2130185893389e

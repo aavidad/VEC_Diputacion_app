@@ -51,7 +51,8 @@ const PREIMAGEN = {
     "MENSAJES_FICHA_LISTA_ES": "ddf03fbe54a3b91147d7536fd213ec24867692da62b30e2503e9b2c5da0d4009"
   },
   "i18n-informe-tras-subsanacion.js": {
-    "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "f2cf9af7062644110924a3c5a72d29235c556281e30b46dc008781723678067d",
+    // Excepción a la preimagen: F1-26 nombra en inglés el apartado «Signing workflow».
+    "MENSAJES_INFORME_TRAS_SUBSANACION_EN": "457ff6a48d44b1554c8275e776a9231f098a0d0f0baad802799eaf413f526330",
     "MENSAJES_INFORME_TRAS_SUBSANACION_ES": "d75febfd37a4cf2265d502bcf2ae5af4ccad05b724433807974fea104abef743"
   },
   "i18n-llamamiento.js": {
@@ -138,11 +139,21 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
   "resultado_bolsa_error", "resultado_bolsa_denegado", "resultado_bolsa_conflicto",
   "resultado_bolsa_reintentar", "resultado_bolsa_actualizacion", "resultado_bolsa_continuar",
   "resultado_bolsa_anterior", "resultado_bolsa_error_lectura", "resultado_bolsa_revisar",
+  // F1-100: el selector y la confirmación dicen a quién se llamó.
+  "resultado_bolsa_confirmar_persona", "resultado_bolsa_personas_varias",
   "resultado_bolsa_contacto", "resultado_bolsa_fecha_contacto", "resultado_bolsa_justificante_contacto", "resultado_bolsa_contacto_contactado", "resultado_bolsa_contacto_comunica", "resultado_bolsa_contacto_no_contesta", "resultado_bolsa_contacto_buzon", "resultado_bolsa_contacto_acepta", "resultado_bolsa_contacto_rechaza", "resultado_bolsa_contacto_aplazado", "resultado_bolsa_contacto_otro", "resultado_bolsa_contacto_enviado", "resultado_bolsa_contacto_no_enviado", "resultado_bolsa_contacto_numero_erroneo", "resultado_bolsa_contacto_no_entregado", "resultado_bolsa_contacto_entrega_declarada",
 ]);
 // Las claves añadidas se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_ADICIONALES = Object.freeze({
-  "i18n-cancelacion.js": ["error_seleccion_oferta_pendiente"],
+  "i18n-cancelacion.js": ["error_seleccion_oferta_pendiente",
+    // F1-102: motivos en el idioma elegido y el expediente por su número en el diálogo.
+    "confirmar_referencia", "motivo_necesidad_desaparecida", "motivo_desistimiento_centro",
+    "motivo_cobertura_otra_via", "motivo_error_solicitud", "motivo_solicitud_duplicada", "motivo_falta_credito"],
+  // F1-96: nombres de los documentos generados en el idioma elegido.
+  "i18n-borradores-publicados.js": ["bp_documento_informe_definitivo", "bp_documento_resolucion",
+    "bp_documento_diligencia", "bp_documento_toma_posesion", "bp_documento_notificacion",
+    "bp_documento_comunicacion_centro", "bp_documento_contrato_laboral", "bp_documento_nombramiento",
+    "bp_documento_cese", "bp_documento_modificacion_nombramiento"],
   // R1 añade el aviso de comprobación pendiente; CT231, las del aviso pendiente
   // tras la selección confirmada; F1-16, las de las ofertas de varias plazas.
   "i18n-llamamiento.js": [
@@ -168,12 +179,24 @@ const CLAVES_ADICIONALES = Object.freeze({
     "llamamiento_seleccion_pendiente_aviso",
     "llamamiento_continuar_aviso",
   ],
-  "i18n-textos-vistas.js": ["motivo_sustitucion"],
+  // F1-93: textos de recibos e historial de la ficha, trasladados desde el código en lenguaje llano.
+  "i18n-textos-vistas.js": ["motivo_sustitucion", "cobertura_recibo_descripcion",
+    "asignacion_recibo_descripcion", "informe_recibo_descripcion", "informe_historial_titulo",
+    "informe_historial_descripcion", "informe_historial_tabla",
+    // F1-96: la confirmación del informe nombra el expediente por su número.
+    "informe_resumen_numero"],
   "i18n-ficha-lista.js": ["alta_solo_sustituciones", "necesidades_alta_no_disponibles_titulo",
     "necesidades_alta_no_disponibles_detalle",
     // F1-89: orientación de la ficha tras preparar el informe jurídico.
     "ficha_siguiente_paso_informe_titulo", "ficha_siguiente_paso_informe_que",
-    "ficha_siguiente_paso_informe_quien", "ficha_siguiente_paso_intervencion_quien"],
+    "ficha_siguiente_paso_informe_quien", "ficha_siguiente_paso_intervencion_quien",
+    // F1-93: la cabecera nombra el paso dentro de la fase.
+    "ficha_fase_con_subfase",
+    // F1-96: el paso propio de la ficha tras asignar la unidad.
+    "ficha_siguiente_paso_preparar_informe_titulo", "ficha_siguiente_paso_preparar_informe_que",
+    // F1-102: la ficha cancelada lo dice y el historial nombra la propuesta y la resolución.
+    "ficha_siguiente_paso_cancelado", "ficha_siguiente_paso_cancelado_que",
+    "hito_propuesta_formalizacion", "hito_resolucion_formalizacion"],
 });
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");

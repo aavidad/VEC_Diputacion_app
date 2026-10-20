@@ -125,7 +125,9 @@ SELECT contenido_canonico,
        version_expediente::bigint,
        total,
        recibo_sello_sha256,
-       numero_personas
+       numero_personas,
+       analisis_grupo_subgrupo,
+       analisis_entrada_rc_ref
   FROM vec_contratacion_temporal.consultar_detalle_rrhh_con_numero_ct225(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
@@ -165,7 +167,9 @@ SELECT contenido_canonico,
        total,
        recibo_sello_sha256,
        resultado_bolsa,
-       numero_personas
+       numero_personas,
+       analisis_grupo_subgrupo,
+       analisis_entrada_rc_ref
   FROM vec_contratacion_temporal.consultar_detalle_rrhh_bolsa_con_numero_ct225(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
@@ -264,6 +268,8 @@ SELECT contenido_canonico,
        total,
        recibo_sello_sha256,
        numero_personas,
+       analisis_grupo_subgrupo,
+       analisis_entrada_rc_ref,
        selectores_canon,
        selectores_huella_sha256,
        sello_selectores_sha256,
@@ -308,6 +314,8 @@ SELECT contenido_canonico,
        recibo_sello_sha256,
        resultado_bolsa,
        numero_personas,
+       analisis_grupo_subgrupo,
+       analisis_entrada_rc_ref,
        selectores_canon,
        selectores_huella_sha256,
        sello_selectores_sha256,

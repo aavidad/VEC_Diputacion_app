@@ -48,3 +48,26 @@ func TestConsultaRRHHDetalleContratoProyectaObservaciones(t *testing.T) {
 		t.Fatalf("se esperaba omisión de observaciones vacías: %s", string(bytesVacio))
 	}
 }
+
+// CT243: el detalle publica el grupo y la entrada de retención elegidos para
+// precargar la rectificación; si faltan (versión antigua), no aparecen.
+func TestConsultaRRHHDetalleContratoProyectaGrupoYEntradaRC(t *testing.T) {
+	t.Parallel()
+	con, err := json.Marshal(proyectarAnalisisRRHH(ports.AnalisisOperativoRRHH{
+		ModalidadClave: "sustitucion", GrupoSubgrupo: "C1", EntradaRCRef: "rc:desarrollo:001",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(con), `"grupo_subgrupo":"C1"`) ||
+		!strings.Contains(string(con), `"entrada_rc_ref":"rc:desarrollo:001"`) {
+		t.Fatalf("faltan grupo o entrada: %s", con)
+	}
+	sin, err := json.Marshal(proyectarAnalisisRRHH(ports.AnalisisOperativoRRHH{ModalidadClave: "sustitucion"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(sin), "grupo_subgrupo") || strings.Contains(string(sin), "entrada_rc_ref") {
+		t.Fatalf("se esperaba omisión: %s", sin)
+	}
+}

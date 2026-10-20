@@ -97,10 +97,44 @@ con un LOGIN distinto, TLS verificado y pertenencia exclusiva al grupo del
 relevo: `INHERIT TRUE, SET TRUE, ADMIN FALSE`, según el apartado de relevo de
 `03_entorno.md`. La conexión no activa el seguimiento ni la incorporación:
 esos selectores y los catálogos se preparan para el recorrido que los use.
+
+Con `--modulos` la copia enciende además la cancelación del expediente
+(`VEC_CT_CANCELACION_ENABLED`, tarea F1-96). Usa el catálogo de reglas de CT
+`reglas.v3.json` (regla c20) y el de motivos de cancelación de `data/demo/reglas`;
+si el kit de datos ya fijó alguno de los dos, se conserva el suyo. Sus
+migraciones (CT 000122 y AD3-87) ya están en el volcado de referencia. Sin
+ellas la ficha recibía 404 al consultar la cancelación y no mostraba el apartado.
+
 El segundo RRHH que exige la regla c22 necesita su identidad y perfil
 publicados por el circuito de Administración; esta conexión no los concede.
 
-Tras el productor de datos, el guion coteja los 23 LOGIN internos: opciones
+`VEC_CALENDARIOS_DATABASE_URL` usa otro LOGIN, solo con el grupo
+`vec_calendarios_lector`. Bolsa consulta el calendario oficial para saber si
+una llamada cae en día hábil y para calcular el plazo de las ofertas. Sin esa
+conexión, registrar una llamada y ver la lista de contactos respondían 503.
+
+Desde F1-99, `crear --modulos` sin `--portal-externo` prepara además los datos
+del caso 4.0 para los pasos 9 y 10 (`copia_local_caso40.py`):
+
+- aplica los tres guiones de `candidata_hz39/datos` (puesto 9/01 del centro
+  520, Antonio disponible en la bolsa vigente y cargo de Manuel);
+- crea con `preparar_candidato_desarrollo.sh --candidato-ref` una identidad
+  nueva de Antonio ligada a su candidatura vigente. La persona del material
+  original tiene el permiso de Mi Bolsa ligado a la candidatura de la bolsa
+  sustituida y recibía 403. El permiso nuevo lo publica la aplicación al
+  arrancar. El certificado queda en `material/mtls/candidato.crt` y se activa
+  `VEC_BOLSA_PORTAL_CANDIDATO_ENABLED` junto con `VEC_BOLSA_REGLAS_SOURCE_PATH`
+  (`data/catalogos/bolsa/reglas.v7.json`), el catálogo que el servidor exige con
+  ese selector. Si el kit ya fijó alguna de las dos, se respeta su valor;
+- registra por la API de Bolsa, como la técnica de RRHH, el correo
+  `antonio.reyes@example.test` y un teléfono ficticio. El buzón de la copia
+  solo acepta ese dominio, así que el aviso del llamamiento llega a él y no
+  sale fuera.
+
+Los nombres de las participaciones no se tocan: el nombre que muestra la lista
+de la bolsa es el del acta. Lo revisa F1-100.
+
+Tras el productor de datos, el guion coteja los 24 LOGIN internos: opciones
 sin privilegios de administración y membresías directas exactas. La conexión
 de importación CONVOCA conserva los grupos `vec_bolsa_importacion_convoca_ejecutor`
 y `vec_bolsa_importacion_convoca_recuperador`, ambos con `INHERIT TRUE`,
@@ -508,6 +542,13 @@ consulta, y la selección fallaba.
   guardada y está en acumulación de tareas, que no admite puesto ni huella. En
   tu copia puedes usar la variante vacante del caso 4.0 con dos personas
   solicitadas, como dato de copia y sin atribuirla a la fiscalización anterior.
+- «Llamar a la siguiente persona» desde la ficha del expediente sigue dando
+  409 en una copia nueva (F1-99, 20/10). Ningún perfil de RRHH de la copia
+  tiene la concesión `personal.organizacion_historica.consultar` y en
+  desarrollo nadie la publica: hace falta un acto de Administración. Además,
+  los expedientes de la semilla (2026/93001 y 2026/94011) no guardan
+  necesidad de la RPT. Hasta resolverlo, el llamamiento del paso 9 se emite
+  desde el asistente de Bolsa.
 
 ## 7. Arrancar `vec-server`
 
@@ -561,6 +602,80 @@ arranque, anótalo como fallo del producto.
 
 ## 9. Reinicio y recuperación
 
+La composición de Administración añade `--administracion` a `crear --modulos`.
+El puerto se elige con `--puerto-admin` y debe estar libre y ser distinto de
+los puertos de PostgreSQL, la aplicación y el correo.
+Requiere `VEC_COPIA_ADMIN_SCRIPT`, un ejecutor privado preparado para la misma
+candidata. Recibe `--raiz`, `--fase preparar|arrancar|comprobar`,
+`--candado-fd` y `--puerto-admin`: debe heredar ese descriptor al llamar al kit y conservar sus
+comprobaciones de revisión, huellas, etiqueta y sistema PostgreSQL.
+La preparación se invoca una sola vez; un resultado incierto se concilia con
+el mismo plan y recibo. El reinicio solo arranca y comprueba lo ya preparado.
+La parada exige que PID, ejecutable propio e inicio del proceso coincidan.
+Si el proceso sigue vivo pero su binario cambió, se detiene con error y
+conserva la copia: hay que pararlo a mano antes de `borrar`.
+
+Si se interrumpe la preparación, conserva la instancia y su carpeta `admin`.
+No repitas `crear` ni la fase `preparar`. Mantén PostgreSQL y la aplicación
+con su sellador activos; Administración debe estar parada. La continuación
+nativa del mismo paquete se documenta en `LEEME.continuacion-ad295.md`, del
+kit privado (no está en el repositorio):
+`continuar_admin_runtime_ad295.py --repo … --kit … --equipo … --instancia …
+--sid … --config-gobierno … --acuse-gobierno … --salida-verificacion …
+--comprobar` coteja por lectura el mismo gobierno. Después, el comando sin
+`--comprobar`, con otra salida nueva, continúa únicamente el runtime que falta.
+Usa la revisión, el identificador PostgreSQL y las rutas de esa copia; los
+informes nuevos quedan junto al acuse original. Un fallo de cotejo detiene
+la continuación y conserva los archivos para diagnóstico.
+
+Probado el 20/10 (F0-28) con un ejecutor privado que reutiliza el kit H6
+(conjunto 6) fijado a la revisión de la copia. En `preparar` compila el kit
+desde la revisión limpia, prepara Administración y genera el montaje externo
+(`preparar_overlay_externo.py`, también del kit privado, y la fase
+`version-bolsa-externa` de `vec-gobierno-usuarios-admin`). En `arrancar` lanza `vec-admin` con
+`VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE` y guarda PID e inicio del
+proceso. El ejecutor y el kit viven en `~/.local/state`, nunca en Git.
+El catálogo `catalogo:bolsa:carga_convoca:b1` v6 de la línea base trae la
+fuente de inscripción v1. Desde F1-101 se admite antes la v2 en un catálogo v7
+(guía en `candidata_hz39/aspirante/inscripcion_fuente_v2.md`) y el plan del
+aspirante toma de ahí sus cinco acciones.
+
+Orden del acto del aspirante, con el Chrome del sistema y un perfil por
+certificado (`admin/h10/fuentes/cliente-1` y `cliente-2`):
+
+1. Cada administrador abre `https://admin.localhost:PUERTO/administracion-perfiles/`
+   y elige «Administración de la aplicación». La elección sobrevive al reinicio.
+2. Leer catálogo, cabeza del rol `candidato_bolsa_portal_historial_propio_desarrollo`,
+   su control y la asignación activa, y preparar con el dominio el plan de
+   las cinco acciones de inscripción (`huella_plan_esperada`).
+3. El administrador 1 envía la propuesta a
+   `/api/admin/perfiles/v1/gobierno-version-bolsa-externa/propuestas` (201;
+   la repetición da 200 con la misma referencia).
+4. El administrador 2 la cierra en `…/cierres` (200, rol en v2 con doce
+   concesiones y la asignación movida a v2; la repetición da el mismo recibo).
+
+No hay pantalla para este acto: las dos peticiones salen del propio Chrome
+del administrador con su certificado. Playwright verifica el servidor con la
+CA de la copia (`NODE_EXTRA_CA_CERTS`) y Chrome con la huella SPKI de su
+certificado; no se desactiva la verificación.
+
+Después del cierre, el aspirante lee `/api/vec/bolsa/inscripciones/propias`
+con 200. Con las entradas de la v1 (catálogo v6), la lista de convocatorias
+abiertas y su ficha responden 403: no traen los campos que la aplicación pide
+desde F1-40 y F1-41 (`modalidad_inscripcion` y `solicitudes_propias[]`), y la
+autorización exige que coincidan. Con la fuente v2 admitida (F1-101) las dos
+responden 200.
+
+El suplemento del segundo RRHH queda aparcado por dirección: el ámbito
+antiguo de Contratación necesita una tarea propia para usar organización y
+unidad gobernadas.
+
+El preparador del portal externo recibe también `--candado-fd` de la fábrica
+y debe conservarlo hasta acabar. La invocación independiente del preparador
+adquiere el candado de esa misma instancia antes de comprobar su contenedor.
+Se necesita la receta actualizada; una receta antigua que solo acepte
+`--raiz` no satisface este contrato.
+
 Usa `reiniciar` del apartado 2 para la copia creada por el guion. La orden
 conserva PostgreSQL y su material, y repite las comprobaciones HTTPS.
 Después de preparar los módulos, el ensayo del recorrido debe recuperar
@@ -584,6 +699,10 @@ mismo volcado y las listas necesarias.
 | La selección desde la bolsa constituida da 404, 409 o 503 | Organización histórica sin montar en el combinado o sin material | #1150 y su material (apartado 6) |
 | La selección rechaza el puesto 9/01 | Unidad gestora frente a unidad del puesto | Esperar a F1-21 (#1153); no tocar el dato |
 | La selección exige una necesidad de la RPT | La solicitud de la copia no la guardó | Variante vacante del caso 4.0 como dato de copia |
+| `crear --modulos` sin `--portal-externo` se detiene en `selectores_bolsa_ct` | El selector del portal del candidato iba sin el catálogo de reglas de Bolsa | Arreglado en F1-109: la copia aporta `VEC_BOLSA_REGLAS_SOURCE_PATH` (apartado 2) |
+| Mi Bolsa responde 403 a Antonio | Su permiso estaba ligado a la candidatura de la bolsa sustituida | Arreglado en F1-99: la copia crea su identidad ligada a la candidatura vigente (apartado 2) |
+| Registrar una llamada o ver los contactos de una participación da 503 | Faltaba la conexión del calendario oficial | Arreglado en F1-99: `VEC_CALENDARIOS_DATABASE_URL` (apartado 2) |
+| El aviso del llamamiento no llega al buzón | La participación no tenía datos de contacto | Arreglado en F1-99: la copia registra un correo `@example.test` (apartado 2) |
 | El cliente de Personal (M10) llama a un puerto ajeno | `cliente_m10_ct.json` copiado sin cambiar | Apuntarlo a tu servicio |
 | La consulta de firmas da 503 con «autenticación histórica inválida» | Falta IS20 | Aplicar la lista 1b |
 | El contenedor de la app no arranca al montar `/app` en solo lectura y `/app/var` en escritura | Falta la carpeta `var/` en tu carpeta de trabajo | Crea `var/` en tu carpeta de trabajo antes de montar (lo vio T el 16/10) |
@@ -593,8 +712,11 @@ mismo volcado y las listas necesarias.
 | Con la inscripción encendida, el arranque que sigue a `--portal-externo` se detiene en `inscripcion_rrhh_cuentas_lectores` | La copia no declaraba a la técnica de RRHH en `identidad/consultas-rrhh.json` | Arreglado en F1-90: el preparador escribe el manifiesto. Una copia anterior se crea de nuevo |
 | `--portal-externo` se detiene en `fuente_privada_divergente` | El material de origen ya traía un `identidad/consultas-rrhh.json` distinto (otros lectores u otro formato) | Crear la copia con un material sin ese fichero; el preparador no mezcla manifiestos |
 | El aspirante abre la inscripción y recibe 403 | Su rol aún no tiene las acciones `bolsa.inscripcion.*` | Actos de Administración de `inscripcion_recorrido_20261013/gobierno_inscripcion.md` (F0-28, F1-29) |
+| Tras el acto, las convocatorias abiertas siguen en 403 y las propias dan 200 | El rol se publicó con la fuente v1 (catálogo v6), sin `modalidad_inscripcion` ni `solicitudes_propias[]`, y la autorización exige los mismos campos | Admitir antes la fuente v2 y publicar el rol desde ella (F1-101, apartado 9); en una copia que ya publicó la v1, crear otra copia. No tocar la concesión por SQL |
 | La segunda firma del informe da 422 `firma_no_verificada` | GrxFirma 0.0.105 duplica `/Version` al cofirmar y su primera firma bloquea los campos | Firmar las dos veces con GrxFirma 0.0.106 o posterior, en un expediente sin firmas de la 0.0.105 (apartado 11) |
 | GrxFirma rechaza el origen de la copia con 403 | Su configuración no tiene permisos 600 o la confianza por decisión está apagada | `chmod 600` a sus ficheros y activar la confianza por decisión con el origen admitido |
+| Chrome anota `net::ERR_NETWORK_CHANGED` y la aplicación, un 503 de una petición que el navegador ya cortó | Otro contenedor Docker del equipo arranca o se borra y Chrome corta lo que tiene en curso | Nada que arreglar en la copia. El registro de una firma se repite solo con la misma clave (F1-94); una lectura se repite con «Comprobar» |
+| `exportar_admisiones` no devuelve firmantes | La asignación del firmante acaba después de que se retire su certificado | Hacer que la asignación termine en la retirada del certificado (apartado 11) |
 | `free -g` por debajo de 34 GB | Copias o cachés acumuladas | No restaurar ni compilar; borrar lo propio y avisar |
 | `git worktree move` falla hacia `/dev/shm` | Cambio de dispositivo | Copiar la carpeta y `git worktree repair` |
 
@@ -634,15 +756,22 @@ El manifiesto es privado (`0600`, fuera de Git) y solo admite estas claves:
    orden no cambie, y si una falla las siguientes no se ejecutan.
 2. Publica la v4 de plantillas (F1-86) con `publicar_informe.sh` sobre TLS
    verificado. Si ya estaba publicada, el recibo dice `replay`.
-3. Copia el circuito RRHH v2 y el catálogo v4 de esta revisión a
+3. Copia el circuito RRHH v2, el catálogo v4 y la política sintética de
+   subsanación de reparos de esta revisión a
    `material/identidad/firma-recursos/` y comprueba que `firma-vec.json`
    apunta al plan y a la CRL de esa carpeta y que no está retirado.
 4. Instala el verificador en `<copia>/verificador` (binario con su huella, CA
    y TLS de la copia, CRL de clientes y su credencial, que se crea la primera
    vez y se conserva después) y añade al
-   entorno de módulos las ocho variables de firma:
-   `VEC_CT_FIRMA_VEC_R5_ENABLED`, `VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`,
-   `VEC_CT_PLANTILLAS_SOURCE_PATH` y las cinco `VEC_FIRMA_VERIFICACION_*`.
+   entorno de módulos diez variables: las de firma
+   (`VEC_CT_FIRMA_VEC_R5_ENABLED`, `VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`,
+   `VEC_CT_PLANTILLAS_SOURCE_PATH` y las cinco `VEC_FIRMA_VERIFICACION_*`),
+   `VEC_CT_SUBSANACION_POLITICA_FILE` para registrar la subsanación de un
+   reparo y `VEC_CT_PLANTILLAS_GOBIERNO_ENABLED` para abrir la ruta
+   `#contratacion-temporal/plantillas-rrhh`.
+   El circuito RRHH v2 solo monta la consulta que usa la firma: los
+   expedientes nuevos siguen naciendo con el flujo de ocho fases y
+   pueden pasar el análisis (F1-98).
 5. Reinicia la copia. Desde entonces `arrancar` levanta el verificador antes
    que la aplicación (con la CRL vigente de `firma-recursos`) y `parar` (y
    `borrar`) lo para. Solo se para el proceso
@@ -652,8 +781,18 @@ Después, aprueba la provisión de los perfiles fijos de RRHH
 (`firma_documento`, `lector_entrega_peticion`) como en la presentación y
 comprueba que el preflight ofrece `certificado_vec` a la persona del paso.
 
-Para firmar en Chrome hace falta GrxFirma 0.0.106 o posterior como lanzador
-de `afirma://`. Con la 0.0.105 la segunda firma del informe sale 422. Cada
+En copias nuevas (F1-94) el camino entero funciona con `firma` sin pasos a
+mano, si las etapas privadas cumplen estas condiciones: las asignaciones de
+los firmantes terminan cuando se retira su certificado; la correspondencia
+CA45 se publica antes del plan; la verificación del gobierno de
+Administración se reintenta hasta que esté disponible; y el kit de
+Administración usa la revisión de la copia nueva. Detalle en
+[`firma_jefatura_f1_94_20261020.md`](../../docs/estudio_requisitos/firma_jefatura_f1_94_20261020.md).
+
+**Aviso: GrxFirma debe ser la 0.0.106 o posterior.** Es el lanzador de
+`afirma://` para firmar en Chrome. Con la 0.0.105 (la instalada en
+`/usr/bin`) la segunda firma del informe sale 422, y un informe que el
+técnico firmó con ella ya no admite la firma de Jefatura. Cada
 persona usa su propia carpeta personal, con `afirma://` permitido en Chrome
 para el origen de la copia y la configuración de GrxFirma en `0600`, la
 confianza por decisión activada y el origen admitido.

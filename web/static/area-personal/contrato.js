@@ -113,6 +113,9 @@ export function validarRespuestaMiBolsa(entrada) {
     throw new TypeError("El esquema de mi bolsa no es compatible.");
   }
   exigirInstante(datos.consultada_en, "mi-bolsa.consultada_en");
+  if (datos.ofertas_segun_modalidades !== undefined && datos.ofertas_segun_modalidades !== true) {
+    throw new TypeError("El indicador de ofertas por modalidad no es válido.");
+  }
   datos.campos_visibles = validarCamposMiBolsa(datos.campos_visibles);
   const visible = (campo) => campoVisibleMiBolsa(datos.campos_visibles, campo);
   exigirLista(datos.participaciones, "mi-bolsa.participaciones").forEach((participacion, indice) => {
