@@ -34,7 +34,7 @@ asset separado junto con el ZIP y `procedencia.json`.
 ## Preparación y publicación
 
 Los cuatro assets preparados se custodian fuera de Git en
-`/home/alberto/.local/state/vec-direccion-20260921/osm-release/`:
+`/ruta/privada/osm-release`:
 ZIP, índice, `procedencia.json` y `ATTRIBUTION.txt`. El tag fijo es
 `osm-granada-base-20260719-z8-z12-v1`, dirigido al commit de `origin/main`
 `3796cf010dd93de07c1a83a443ff15a76b889ee1`; no modifica esa rama.
@@ -46,14 +46,14 @@ Comandos exactos, desde este checkout:
 gh api --method PUT repos/aavidad/VEC_Diputacion_app/immutable-releases
 gh api repos/aavidad/VEC_Diputacion_app/immutable-releases --jq '.enabled'
 gh release create osm-granada-base-20260719-z8-z12-v1 \
-  /home/alberto/.local/state/vec-direccion-20260921/osm-release/granada-base-20260719-z8-z12.zip \
-  /home/alberto/.local/state/vec-direccion-20260921/osm-release/granada-base-20260719-z8-z12.json \
-  /home/alberto/.local/state/vec-direccion-20260921/osm-release/procedencia.json \
-  /home/alberto/.local/state/vec-direccion-20260921/osm-release/ATTRIBUTION.txt \
+  /ruta/privada/granada-base-20260719-z8-z12.zip \
+  /ruta/privada/granada-base-20260719-z8-z12.json \
+  /ruta/privada/procedencia.json \
+  /ruta/privada/ATTRIBUTION.txt \
   --repo aavidad/VEC_Diputacion_app \
   --target 3796cf010dd93de07c1a83a443ff15a76b889ee1 \
   --title 'Cartografía histórica Granada z8–z12 v1' \
-  --notes-file /home/alberto/.local/state/vec-direccion-20260921/osm-release/RELEASE_NOTES.md \
+  --notes-file /ruta/privada/RELEASE_NOTES.md \
   --latest=false
 ```
 
