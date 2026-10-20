@@ -14,6 +14,39 @@ from recorrido_copia import conductor
 
 
 class ConductorTest(unittest.TestCase):
+    def test_documentos_y_borradores_se_activan_antes_del_arranque_de_firma(self):
+        from recorrido_copia import (catalogo, roles_admin, corporativo, certificados_base,
+            firmantes, montajes_firma, actos, plan, admisiones, configuracion_firma,
+            documentos_base, documentos, personal)
+        from contextlib import ExitStack
+        with tempfile.TemporaryDirectory() as temporal, ExitStack() as pila:
+            raiz = Path(temporal)
+            copia = Mock(raiz=raiz, estado=raiz / 'estado.json')
+            copia.entorno_modulos.return_value = {'VARIABLE_PREVIA': 'conservada'}
+            copia.leer.return_value = {'revision': 'candidata', 'sid_copia': '12345678901234567'}
+            contexto = Mock(carpeta=raiz)
+            contexto.leer.return_value = {'version': 1}
+            pila.enter_context(patch.object(conductor, 'Contexto', return_value=contexto))
+            for funcion in ('_parametros', '_organizacion', '_verificador', 'provisionar_perfiles'):
+                pila.enter_context(patch.object(conductor, funcion))
+            for modulo, funcion in [(m, 'preparar') for m in (catalogo, roles_admin,
+                    corporativo, certificados_base, firmantes, montajes_firma, admisiones,
+                    configuracion_firma, documentos_base, personal)] + [
+                    (actos, 'preparar_actos'), (plan, 'preparar_plan'),
+                    (documentos, 'preparar_documentos')]:
+                pila.enter_context(patch.object(modulo, funcion, return_value={}))
+            def comprobar(manifiesto):
+                entorno = json.loads((raiz / 'entorno_modulos.json').read_bytes())
+                self.assertEqual(entorno, {'VARIABLE_PREVIA': 'conservada',
+                    'VEC_DOCUMENTOS_ENABLED': 'true',
+                    'VEC_CT_PLANTILLAS_DOCUMENTAL_ENABLED': 'true'})
+                estado = json.loads(copia.estado.read_bytes())
+                from copia_local import sha256
+                self.assertEqual(estado['entorno_modulos_sha256'], sha256(raiz / 'entorno_modulos.json'))
+            copia.firma.side_effect = comprobar
+            conductor.preparar(copia, argparse.Namespace(puerto_verificador=19881))
+            copia.firma.assert_called_once()
+
     def test_fallo_en_acto_detiene_plan_firma_y_provision(self):
         eventos = []
         etapas = {'catalogo': 'preparar', 'roles_admin': 'preparar', 'corporativo': 'preparar', 'certificados_base': 'preparar',
