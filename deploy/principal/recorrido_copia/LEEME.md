@@ -11,7 +11,9 @@ python3 deploy/principal/copia_local.py crear \
   --puerto-pg 55531 --puerto-app 18531 --puerto-admin 19531 \
   --puerto-smtp 11531 --puerto-verificador 19831 \
   --binario-verificador /ruta/al/software/grxfirma \
-  --sha-verificador HUELLA_SHA256_DEL_BINARIO
+  --sha-verificador HUELLA_SHA256_DEL_BINARIO \
+  --binario-afirmauri /ruta/al/software/grxfirma-afirmauri \
+  --sha-afirmauri HUELLA_SHA256_DEL_MANEJADOR
 ```
 
 El software se declara expresamente. La fábrica comprueba su huella y lo
@@ -19,6 +21,15 @@ copia con permisos privados antes de restaurar PostgreSQL. Rechaza GrxFirma
 anterior a 0.0.106 y comprueba que acepta el modo de solo verificación.
 Una compilación que declara «dev» requiere su huella expresa; se registra
 esa versión real. No descarga ni modifica el software instalado.
+
+Las dos opciones de `afirmauri` se proporcionan juntas. Este manejador abre
+las solicitudes de firma de Chrome; es un ejecutable distinto del verificador.
+La fábrica coteja su huella, comprueba que se identifica como
+`grxfirma-afirmauri` y conserva una copia privada con su versión real.
+La sonda no inicia una firma ni un servicio. El manejador es opcional para
+crear la base y arrancar la aplicación; su ausencia queda reflejada en el
+estado y no acredita la firma desde Chrome. La receta no modifica el
+manejador de protocolos, las claves ni la confianza del usuario del sistema.
 
 Se necesitan Docker local con PostgreSQL 18.4 y Mailpit, Go y sus dependencias
 ya disponibles, y al menos 34 GiB de memoria disponible. Los cinco puertos
