@@ -167,7 +167,10 @@ El lateral se arma así (`web/static/portal-empleado/index.html`,
    menú (`CLAVES_SIN_ENTRADA_PORTAL`) y se llega a ellos por dirección directa o
    por los accesos de Inicio. `VEC_PORTAL_MODULOS_VISIBLES` limita además qué
    módulos se cargan en cada despliegue; no es un permiso.
-3. **Plantillas de documentos**, solo si RRHH tiene permiso.
+3. **Plantillas de documentos**, solo si RRHH tiene permiso y
+   `VEC_CT_PLANTILLAS_GOBIERNO_ENABLED` está activa. El portal no consulta
+   ese permiso al cargar: el enlace del menú aparece después de abrir una vez
+   `#contratacion-temporal/plantillas-rrhh`.
 
 Al abrir **Bolsas** aparece el menú «Gestión de Bolsas», fijo en el HTML y
 filtrado por las capacidades que devuelve el servidor (`portal-menu-bolsa.js`).
@@ -201,6 +204,10 @@ Los manifiestos Go de cada módulo (`internal/modules/*/manifest.go`) declaran
 entradas de menú, pero el menú real de Bolsa es el fijo del HTML y el de CT lo
 compone su propia vista. Los manifiestos sirven hoy para saber qué módulos
 existen y qué permisos declaran.
+
+Al entrar directamente en Fiscalización, la cabecera termina de contar las
+áreas sin esperar una lectura de Bolsa que esa entrada no ha iniciado (F1-79).
+Bolsa se comprueba al abrir Inicio o una de sus pantallas.
 
 ### 3.3 Área personal de la aspirante (`/area-personal/`)
 
@@ -264,7 +271,10 @@ distintas, y ningún firmante firma dos pasos del mismo documento.
 
 **Puesto y bolsa.** Categoría Administrativo de la RPT publicada, con su centro
 y su puesto publicados: **centro 520, categoría Administrativo de la RPT (9),
-puesto 9/01, plaza 2026/0033**. Los datos se cargan con un guion de datos
+puesto 9, plaza 2026/0033**. En el paso 1 el centro busca el puesto por su
+código en la RPT publicada, `9`; si escribe `9/01`, el buscador responde que
+ese puesto no aparece. `9/01` es el puesto con que Personal registra la
+ocupación en el paso 18. Los datos se cargan con un guion de datos
 repetible (no con código), sin tocar los demás puestos. La bolsa es
 `bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk` v1, ya constituida y con su orden. El alta,
 la ocupación y el cese no se precargan: se hacen en pantalla en el recorrido. Antonio ya
@@ -283,6 +293,12 @@ motivos del seguimiento. Los cambios son datos de la copia; los actos y la
 fiscalización de la variante se registran de nuevo con sus propios recibos.
 La fiscalización de una modalidad anterior conserva su contexto original.
 Esta variante sigue pendiente de completar el recorrido y el reinicio.
+Desde ese aviso, «Comprobar en su ficha» abre la bolsa con la ficha de esa
+persona y el bloque «Comprobar los datos para ofrecer el puesto» (F1-57): los
+datos del contrato registrado vienen rellenos, la posición sale del acta y RRHH
+indica para cada dato el documento que lo acredita (el contrato o un documento
+que custodia, con su número de registro y la huella que calcula el navegador).
+Revisa, registra y ve el recibo; después repite la selección en el expediente.
 
 **Pasos.** El recorrido principal empieza en la petición del centro (paso 1) y
 llega hasta el cese y la vuelta a la bolsa; es el que decide si la candidata
@@ -301,7 +317,7 @@ conveniente».
 | e3 | Carmen (RRHH) | `/portal-empleado/#solicitudes`, Bolsas → Solicitudes y admisión | Elige la convocatoria, revisa la solicitud de Antonio y la admite | Solicitud `admitida_a_convocatoria`; Antonio ve «Admitida. Pendiente de incorporación a la bolsa» |
 | e4 | Carmen | La misma pantalla | Incorpora a Antonio a la bolsa `bolsa:administrativo:algicjlleggibhgagmjmoipmakdijibk`, ya constituida, con el número del acta | Solicitud `incorporada`; Antonio aparece en Mi Bolsa como **Disponible** con su posición |
 | e5 | Antonio, después Carmen | `/area-personal/?vista=alegaciones`; RRHH en `/portal-empleado/#alegaciones`, Bolsas → Alegaciones | Antonio presenta una alegación sobre su participación; Carmen la consulta | Justificante de presentación en VEC; la alegación aparece en la bandeja de RRHH de esa bolsa |
-| 1 | Lucía (centro) | `/portal-empleado/peticiones-centro/` | Presenta la petición: elige categoría Administrativo y el puesto de la RPT publicada, motivo, fechas, crédito y una persona | Recibo de presentación; petición `pendiente_ratificacion`, versión 1 |
+| 1 | Lucía (centro) | `/portal-empleado/peticiones-centro/` | Presenta la petición: elige categoría Administrativo y el puesto `9` de la RPT publicada, motivo, fechas, crédito y una persona | Recibo de presentación; petición `pendiente_ratificacion`, versión 1 |
 | 2 | Manuel (ratificador) | La misma pantalla, bandeja del centro | Revisa y ratifica con motivo | Recibo de ratificación; petición `ratificada`, versión 2 |
 | 3 | Carmen (RRHH) | `peticiones-centro/?vista=rrhh` | Teclea el número de expediente de MOAD y crea el expediente | Recibo de alta; expediente `solicitud/en_curso`, v1, con la necesidad de la RPT conservada |
 | 4 | Carmen | Ficha del expediente, Análisis | Registra el análisis con el crédito | Recibo; `solicitud/en_curso`, v2 |
@@ -309,7 +325,7 @@ conveniente».
 | 6 | Carmen | Ficha, Asignación | Asigna la unidad gestora | Recibo; `asignacion_unidad/en_curso`, v4 |
 | 7 | Carmen | Ficha, Informe jurídico | Prepara el informe | Recibo; `informe_juridico/en_curso`, v5 |
 | 7b | Carmen y después Jefatura (firmantes) | Ficha, Firma | Firman con sus certificados el informe de remisión a Intervención, en ese orden; la fiscalización exige ambas firmas verificadas | Un recibo por firma y el PDF con las dos firmas verificadas |
-| 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6 |
+| 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6. Con el resultado favorable explícito, la ficha orienta al llamamiento sin cambiar esa fase ni pedir otra fiscalización |
 | 9 | Carmen | Ficha, Llamamiento y comunicación | Abre el llamamiento desde la bolsa Administrativo y registra la comunicación | Recibo del llamamiento con Antonio como llamado; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas) |
 | 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo de dos días | Recibo de su respuesta |
 | 10a (si renuncia con causa justificada) | Antonio; después Carmen u otra técnica de RRHH con permiso vigente | Mi Bolsa; ficha del candidato en Bolsas | Antonio adjunta un PDF del justificante, confirma la renuncia y conserva el recibo. RRHH consulta y descarga el documento desde la ficha; también queda en el seguimiento | Documento custodiado tras antivirus; recibo de VEC y lectura de RRHH auditada. No cambia la rama de aceptación del paso 10 |
@@ -330,7 +346,7 @@ La vía del aspirante es Mi Bolsa interna (HZ37); la entrada externa propia solo
 si el ensayo la valida (corte 17:00 del 13/10).
 
 **Documentos.** Los que genera hoy el código desde la ficha, con el expediente en
-v7 o posterior (4.3.4), y el orden de firma del catálogo
+v7 o posterior (4.3.4; el informe definitivo, en v5 con el catálogo v4), y el orden de firma del catálogo
 `circuito_firma.v2.json` (4.3.6):
 
 | Documento | Firman |
@@ -348,13 +364,27 @@ esta tabla.
 | Punto | Lo que hay escrito | Para la presentación |
 | --- | --- | --- |
 | Orden del ofrecimiento y la fiscalización | RRHH (02/10) y el circuito v2 ponen oferta y adjudicación antes del informe de Jefatura y de Intervención; el código hace el llamamiento después de la fiscalización favorable | Se sigue el orden del código. La pantalla puede pintar las doce fases del circuito v2, pero los pasos se hacen como en la tabla anterior |
-| Momento de la propuesta | Circuito v2: tras la adjudicación; código: exige `fiscalizacion/en_curso` | El del código: propuesta tras fiscalizar y aceptar |
+| Momento de la propuesta | Circuito v2: tras la adjudicación; código: exige `fiscalizacion/en_curso` y un llamamiento aceptado | En el recorrido singular se registra después de fiscalizar y resolver la aceptación. Queda pendiente la continuación desde una oferta adjudicada |
 | Dos o tres firmantes | RRHH habló de resolución firmada por la Diputada con visto bueno de Dirección o Jefatura (dos); el catálogo v2 pide tres pasos | Tres: Jefatura, Diputado/a y Secretaría General, como dice el catálogo |
 | Petición firmada por técnico y Diputado/a | RRHH la pide firmada; el código la presenta y la ratifica otra persona del centro, sin firma | Presentación y ratificación sin firma, como hace el código |
 | Autorización de la Dirección de RRHH | Paso 2 del orden de RRHH; el código no tiene un paso propio | No se representa; la vía de cobertura y el informe la sustituyen en la presentación |
 | Unidad de Lucía | `docs/manuales/centro.md` la sitúa en TRANSFORMACIÓN DIGITAL | Se usa la que fija este caso; el manual se corrige cuando K confirme centro y puesto |
-| Una o varias plazas | Bolsa admite ofertas con varias plazas; el expediente no las usa | Una plaza y una persona |
 | Cuándo cuenta la incorporación | Duda 140: con el alta en Personal o con la toma de posesión | Se muestran las dos: acreditación del centro y alta en Personal |
+
+**Variante de varias plazas, separada del caso de aceptación.** Dirección autorizó
+el 15/10 ensayar una petición del mismo puesto Administrativo para dos personas:
+Antonio y otra persona ficticia ya disponible en la bolsa. El ensayo previsto llega hasta la
+publicación, respuesta y adjudicación de las dos plazas en Bolsa, conservando
+los recibos de la oferta y de su vínculo con CT. La publicación desde CT N2
+sigue preparada en código, sin ensayo conjunto de SQL, configuración, Chrome
+y reinicio. **Pendiente:** continuar con la propuesta desde una oferta adjudicada;
+el recibo de la oferta no acredita propuesta, nombramiento, incorporación ni
+envío de correo. También siguen pendientes la consulta de Organización histórica, la correspondencia
+entre la unidad que tramita y la del puesto y la asignación de los permisos
+necesarios para la activación. Este ejercicio no cambia
+los pasos 1 a 21 del caso singular.
+
+**Ensayo F1-55 (18/10).** La copia local registra dos aceptaciones previas desde Mi Bolsa y adjudica por orden, aunque la segunda posición aceptó antes que la primera. Al perder la respuesta de la primera adjudicación, la misma intención recuperó con 200 el recibo y la fecha tras reiniciar aplicación y PostgreSQL, sin duplicar el acto. Las dos plazas quedaron cubiertas; la tercera persona siguió disponible sin responder. Cada adjudicación permite abrir y copiar su recibo y consultar su fecha; comprobado desde Chrome tras reiniciar, sin otra escritura. No responder no produce un acto ni una baja. La cancelación queda en F1-17; la continuación hasta formalización en CT sigue pendiente. La preparación de las dos identidades reutiliza el guion existente; la autoridad de RRHH procede del arranque de desarrollo documentado, sin asignación manual ni cambio de huellas. Evidencia y límites en `deploy/principal/aceptacion_dos_plazas_f1_55_20261018.md`.
 
 ### 4.0.1 Vista general
 
@@ -371,7 +401,7 @@ flowchart TD
   R2 --> R3["RRHH: análisis, crédito, vía de cobertura, unidad<br/>(en cidonia)"]
   R3 --> R4["RRHH: informe jurídico<br/>(en cidonia)"]
   R4 --> I1{"Intervención fiscaliza<br/>(en cidonia)"}
-  I1 -- reparo --> R5["RRHH: subsana e informe nuevo<br/>(por verificar)"]
+  I1 -- reparo --> R5["RRHH: subsana e informe nuevo firmado<br/>(en copia local)"]
   R5 --> I1
   I1 -- favorable --> L1["RRHH: llamamiento desde la bolsa<br/>(bolsa real: main, sin subir)"]
   B --> L1
@@ -421,6 +451,56 @@ acta.
 | `rechazada` | Rechazada | RRHH, con motivo |
 
 Fuente: `internal/modules/bolsa/application/inscripcion/contrato.go`.
+
+#### Modalidad de inscripción por convocatoria
+
+Corte F1-40: la modalidad entra en la versión certificada de la convocatoria
+cargada como dato de la copia desde su fuente JSON. La lista y la ficha de la
+aspirante muestran la modalidad sellada. Las versiones anteriores sin ese campo
+se interpretan como separadas sin reescribir sus bytes ni huellas. La elección
+y el guardado desde Preparación de bases quedan aplazados hasta adaptar esa
+función al núcleo vigente, después de AD288; este corte no acredita aprobación
+ni publicación de bases.
+
+La ficha conjunta no ofrece formulario ni envío individual. El servidor también
+cierra esa presentación con `409 inscripcion_conjunta_pendiente` antes de insertar
+la solicitud. El soporte conjunto corresponde a F1-41. La convocatoria de
+ensayo es un dato de la copia, no un caso de aceptación alternativo al apartado 4.0.
+
+Corte F1-41 (servidor): en una convocatoria conjunta, la aspirante presenta una
+sola solicitud para las categorías que elige y recibe un único recibo. Si repite
+el envío con la misma clave, obtiene el mismo recibo y no se duplica nada. RRHH
+sigue viendo una solicitud por categoría. En una convocatoria separada, la
+aspirante puede presentar una solicitud por cada categoría. La pantalla de la
+aspirante todavía no ofrece la elección de varias categorías: es el corte
+siguiente, y hasta entonces la ficha conjunta sigue sin formulario.
+#### Publicación oficial de las bases
+
+Corte F1-61. Las bases se publican en el boletín o tablón que ellas fijan
+(BOP de Granada, tablón de edictos electrónico, BOE o BOJA) y el plazo se
+cuenta desde ahí (LPAC art. 45; TREBEP arts. 55 y 61). VEC no publica en esos
+medios: guarda la declaración del hecho por versión de la convocatoria, con
+medio, número de boletín, referencia del anuncio, fecha, enlace opcional,
+recibo y evento, en una tabla de solo adición. Una corrección es una fila
+nueva que sustituye a la vigente.
+
+La lista, la ficha y la presentación de la aspirante exigen una declaración
+vigente de la versión exacta cuya fecha sea de uno a cinco días naturales
+anterior al primer día del plazo (hora de Madrid): el plazo empieza el día
+siguiente a la publicación (LPAC art. 30) y el margen cubre un fin de semana y
+dos festivos. Sin ella, o fuera del margen, la convocatoria no aparece y la
+presentación responde como plazo cerrado. Las fechas del plazo siguen siendo
+las selladas en la versión; si no encajan con la publicación, RRHH publica una
+versión nueva. Calcularlas desde la publicación queda para un catálogo
+posterior.
+
+Hoy solo declara el propietario de la base (despliegue o dato de copia,
+`deploy/principal/f1_61_publicacion_oficial_bases/`). El acto de RRHH desde
+la web, con su permiso, espera a su consumidor en el núcleo de autorización;
+hasta entonces ninguna cuenta de aplicación declara. `ConfirmarPublicacion`,
+el puerto de la publicación gobernada borrador→publicada, no se usa en este
+corte. F1-40 sigue abierta hasta que RRHH pueda anotar la publicación desde la
+web y se recorra la inscripción de punta a punta.
 
 #### Constitución de la bolsa
 
@@ -505,6 +585,21 @@ RRHH puede además pasar una participación a **En revisión** cuando espera un
 justificante para regularizarla; la aspirante ve «RRHH confirmará tu
 situación».
 
+La candidata F1-71 permite, tras activar su permiso, confirmar una aceptación de
+llamamiento directo desde la ficha del aspirante: «Confirmar aceptación del
+llamamiento», motivo, revisión y confirmación. En la copia local se registraron
+desde el navegador la aceptación y su confirmación; tras perder la respuesta y
+reiniciar aplicación y PostgreSQL se recuperó el mismo recibo, fecha y motivo.
+Quedó una confirmación y se retiró la marca pendiente. Cambiar el motivo con la
+misma clave devolvió conflicto sin añadir efectos. El componente del recibo
+permite copiar su referencia en español e inglés, en móvil y con teclado.
+Faltan las comprobaciones finales de activación. El ensayo y sus
+límites están en la [guía de F1-71](../../deploy/principal/aceptacion_desde_ficha_f1_71_20261018.md).
+La integración sigue pendiente. La admisión y el rechazo de justificantes siguen
+pendientes. El [contrato](../plan_modulos/bolsa_respuestas_en_revision_contrato.md)
+conserva separadas la respuesta pendiente y la situación vigente; Regularizar y
+Excluir mantienen sus operaciones actuales.
+
 «Baja» no es un estado: corresponde a renuncia o exclusión. No existe la
 suspensión temporal (decisión de RRHH del 02/10). Desde `excluido` no se sale.
 
@@ -518,6 +613,18 @@ En «Orden de mis bolsas» la aspirante ordena sus bolsas
 se retira una, debe marcar «He revisado el orden» antes de guardar.
 
 #### Modalidades de ofertas publicadas
+
+Estado: el servidor guarda y lee la elección con versión y justificante
+(`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades`) y la aplica
+a la vista de ofertas de Mi Bolsa y a los avisos por correo (F1-13, parte 4).
+Falta publicar el permiso de la aspirante y la pantalla para elegir (F1-14).
+
+En Mi Bolsa se ocultan las ofertas abiertas, todavía sin respuesta, cuya
+modalidad la aspirante no eligió. Las ofertas sin modalidad y las que ya
+respondió se ven siempre. Si su elección no se puede leer, ve todas las ofertas.
+El aviso por correo usa la elección vigente al publicarse la oferta: quien no
+eligió esa modalidad no recibe el correo. Si cambia de elección después, los
+avisos de esa oferta no cambian; cuenta para las ofertas siguientes.
 
 La elección voluntaria de modalidades, cuando se habilite, solo filtra las
 ofertas publicadas que la persona ve y los avisos que solicita. No cambia la
@@ -655,7 +762,7 @@ Datos mínimos de cada momento:
 
 | Momento | Datos |
 | --- | --- |
-| Solicitud | Número visible (el de MOAD) y referencia opaca; centro y contacto por referencia; categoría y grupo; motivo y detalle; fechas previstas; retención de crédito declarada, con número, fecha, importe y documento si se aportan; puesto de la RPT; documentos y observaciones |
+| Solicitud | Número visible (el de MOAD) y referencia opaca; centro y contacto por referencia; categoría y grupo; motivo y detalle; fechas previstas; retención de crédito declarada por el centro con su número de operación en SICAL, su fecha y su importe, que RRHH o Intervención comprueban en SICAL (regla provisional de la duda 125: el centro no aporta el documento RC y el dato no cuenta como crédito acreditado); puesto de la RPT; documentos y observaciones |
 | Análisis | Modalidad; categoría y grupo validados; causa; fechas y jornada; validación de la retención con fuente y recibo; coste previsto cuando hay tabla de retribuciones; actor, unidad, instante y recibo |
 | Vía de cobertura | Comprobaciones con resultado, fuente e instante; bolsa vigente, agotamiento, candidaturas disponibles, SAE y nueva convocatoria; vía elegida y motivo |
 | Asignación | Unidad gestora, responsable, fecha de entrada en bandeja, recibo y aviso |
@@ -678,7 +785,7 @@ migraciones de `deploy/postgresql/contratacion_temporal/`):
 | Asignación a unidad | Técnico de RRHH | `asignaciones` | `asignacion_unidad/en_curso`, v4 | En cidonia |
 | Informe jurídico | Técnico de RRHH | `informes-juridicos/preparaciones` | `informe_juridico/en_curso`, v5 | En cidonia |
 | Fiscalización | Intervención | `fiscalizaciones/resultados` | favorable: `fiscalizacion/en_curso`; reparo: `subsanacion_unidad/incidencia`; v6 | En cidonia |
-| Subsanación del reparo e informe nuevo | Técnico de RRHH | `subsanacion-reparos`, después `informes-juridicos/preparaciones` | `subsanacion_unidad/incidencia`, v7 y v8; nueva fiscalización v9 | Por verificar; exige `VEC_CT_SUBSANACION_POLITICA_FILE` |
+| Subsanación del reparo e informe nuevo | Técnico de RRHH | `subsanacion-reparos`, después `informes-juridicos/preparaciones` | `subsanacion_unidad/incidencia`, v7 y v8; nueva fiscalización v9 | En copia local el 20/10 (F1-26); exige `VEC_CT_SUBSANACION_POLITICA_FILE`, que la orden `firma` de la copia monta |
 | Llamamiento y respuesta | Técnico de RRHH y aspirante | `llamamientos/*` (ver 4.3.3) | No cambia de fase | En cidonia (bolsa real: sin subir) |
 | Propuesta de nombramiento o contrato | Técnico de RRHH | `formalizacion/propuestas` | `nombramiento/en_curso`, v7 | En cidonia |
 | Resolución | Técnico de RRHH | `resoluciones-formalizacion` | `nombramiento/en_curso`, v8 | En cidonia |
@@ -761,6 +868,13 @@ por la comunicación real con su recibo. Está pendiente de integración; el ens
 no completa el apartado 4.0. Activación y límites en
 [`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
 
+F1-69 prepara un control en la base para que un expediente conserve una sola
+selección confirmada, también cuando la oferta cubre varias plazas. Al volver
+a la ficha se recupera la selección original para continuar el aviso; las
+referencias de los pasos posteriores no crean otra selección. Sigue pendiente
+ensayar el control y el recorrido completo antes de integrarlo. La ruta y la
+pantalla son las actuales.
+
 Con #1088 (**en main, sin subir**) la selección usa la bolsa constituida, su
 orden y la fuente `deploy/principal/fuentes/bolsa_origen_ct_rrhh_v1.json`
 (`VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`; sin ella responde 503 y el resto
@@ -775,6 +889,8 @@ Mi Bolsa y la recuperación de los recibos después de reiniciar. El recibo de
 un reintento conserva fechas, política y oferta originales. Este corte no acredita
 todavía la publicación desde la ficha de CT.
 
+**Candidatas de aviso por correo (F1-18, ensayadas en copia local).** Publicar fija las participaciones disponibles de la bolsa constituida y guarda cada aviso con el correo del alta como fuente. «Gestionar ofertas» muestra pendientes, enviados, sin confirmación y fallidos. El 18/10 se repitió el ensayo en una copia nueva con la receta interna: publicación de dos plazas desde pantalla, pendientes conservados con enlace ausente e inválido y recuperación tras reiniciar aplicación y PostgreSQL. «Actualizar estado» permite continuar al corregir la configuración. Un contacto ausente deja un aviso fallido. El segundo corte (#1184) añade «Reintentar envíos sin confirmación»: revisar la oferta y la advertencia de posible duplicado, confirmar y obtener un recibo propio. Se comprobaron cancelar sin envío, confirmación, respuesta perdida y recuperación con la misma clave y recibo tras reiniciar; otra clave durante el envío recibe conflicto. Los dos mensajes del reintento conservan identificador y contenido. Chrome comprobó castellano e inglés a 1440 y 390 píxeles, sin desbordamiento horizontal. La ficha de candidatos importados sigue fuera del alcance; se accede por Llamamientos → Gestionar ofertas. Enviado acredita aceptación por el servicio de correo; no cambia el plazo ni acredita entrega o notificación. La integración de ambos cortes sigue pendiente y F1-18 permanece abierta.
+
 **Candidata R1a comprobada en copia local, pendiente de integrar.** La selección explica por
 persona los hechos comprobados y el motivo aplicado, con el vínculo al contrato
 de origen del llamamiento de CT. Si falta un contrato anterior o un dato para
@@ -783,8 +899,32 @@ detiene en esa persona. RRHH no pasa a la siguiente ni causa una exclusión
 definitiva por la falta de datos. La excepción corresponde al art. 9, apartado
 cuarto (numerado 3 en el BOP n.º 9 de 16/01/2026): solo vacantes para los
 vínculos tasados y con reducción del máximo de tres años por el tiempo previo
-en acumulación o sustitución. R1b deberá añadir el acto propio con el que RRHH
-registre los hechos, la evidencia y el recibo. Hoy ese acto no existe.
+en acumulación o sustitución. F1-09 prepara el registro de los hechos y su recibo:
+el canal de servidor recibe la comprobación desde la ficha de la participación,
+con el contexto del expediente y las versiones esperadas. La persona que tramita
+no indica el resultado: lo calcula Bolsa. Mientras falte su habilitación, solo
+este registro queda cerrado. La pantalla F1-57 y la proyección del contexto en
+las listas existentes siguen pendientes; F1-10 comprobará el acto al reservar.
+
+**Contexto de la comprobación preparado (F1-09).** Cuando la selección se
+detiene, su respuesta incluye las referencias y versiones del expediente,
+la necesidad, la bolsa y la participación que ya se han consultado con permiso.
+La futura pantalla las enviará al registrar la comprobación; RRHH no tendrá
+que escribirlas. Este corte conserva la detención y el orden de la bolsa.
+La ampliación de la misma consulta auditada prepara también el estado del acto:
+si existe, conserva su versión y recibo, aunque el contexto haya cambiado;
+si no existe, acredita esa ausencia. Una consulta antigua sin ese dato no
+permite deducir que nunca hubo comprobación. La consulta completa y la pantalla
+de registro siguen pendientes de integrar y recorrer juntas.
+
+**Comprobación al reservar (primer corte de F1-10).** Antes de guardar una
+selección, el servidor contrasta otra vez el contexto y la última versión del
+acto de comprobación. Si han cambiado desde la consulta, detiene la operación
+y exige actualizar los datos. El estado del acto se proyecta solo para la
+persona pendiente de comprobación; cambiar de bolsa no oculta un acto anterior.
+Este control conserva el orden y los recibos anteriores. El descuento del
+tiempo trabajado, el ofrecimiento condicionado y la continuación hasta el cese
+efectivo siguen pendientes; este corte no los habilita.
 
 La política `criterios_ofrecimiento` es opcional para el arranque. La candidata
 requiere además la fuente `origen_ct_rrhh` v2 para consultar snapshot y eventos
@@ -809,12 +949,45 @@ sin completar. El montaje se ensaya en la copia local; todavía no acredita el
 ofrecimiento ni corrige por sí solo la separación entre unidad gestora y unidad
 del puesto.
 
+El segundo corte, **preparado en código y todavía sin ensayo integrado**, añade
+una respuesta distinta al mismo `POST /api/vec/contratacion-temporal/llamamientos/seleccion`.
+Para una persona conserva el llamamiento anterior. Para varias, CT obtiene del
+expediente la cantidad solicitada, la necesidad y la bolsa constituida; exige
+entre 2 y 100 plazas y que no superen las personas elegibles. La ficha no envía
+cantidad, bolsa ni candidatos. CT toma una vez la captura vigente del orden de
+Bolsa, reserva el comando original y pide a Bolsa una oferta de esa cantidad.
+Bolsa publica y devuelve su recibo; CT confirma el vínculo con recibo propio.
+La ficha muestra ambos, las plazas y el plazo, y lleva a «Gestionar ofertas»
+en Bolsa. La publicación no demuestra un aviso por correo. El vínculo, su consulta y el
+descarte comprueban la organización y la unidad gestora del expediente. El
+centro y la categoría se cotejan con su necesidad; no definen esos permisos.
+El cierre en Bolsa conserva el ámbito y la unidad de la bolsa.
 
-La oferta con varias plazas, la adjudicación por posición y el llamamiento
-directo existen en Bolsa (`internal/modules/bolsa/domain/oferta_publicada.go`,
-`politica_ofertas.go`, `/api/vec/bolsa/ofertas`), pero el expediente de CT no
-los usa: el número de personas de la solicitud no se traduce en varias plazas.
-Falta.
+La variante de dos personas del apartado 4.0 llega hasta la adjudicación en
+Bolsa. **Pendiente:** continuación de la propuesta desde la oferta adjudicada.
+La propuesta del recorrido singular exige un llamamiento aceptado; la oferta
+adjudicada todavía no acredita que ese requisito esté cubierto.
+
+Ante una respuesta incierta, RRHH conserva la solicitud original. Al recargar
+la ficha, una consulta autorizada por expediente recupera el intento guardado
+y sus recibos; no se publica otra oferta automáticamente. Si falla esa consulta,
+se impide preparar otra oferta hasta poder comprobar el resultado. Si el servidor identifica una oferta indeterminada, RRHH
+puede pulsar «Recuperar operación»: la petición añade `accion: recuperar_oferta`
+sin cambiar los tres campos originales. Puede devolver la oferta ya publicada
+con el mismo recibo. Si han pasado más de cinco minutos y Bolsa acredita que
+no hubo publicación, B121 cierra la intención y CT registra un descarte con
+dos recibos. Solo tras ver ese cierre RRHH puede confirmar «Preparar nueva
+oferta»; la nueva solicitud obtiene otra clave al confirmar. Los justificantes
+del cierre siguen visibles mientras se prepara y se recupera la siguiente.
+Una falta de reserva no se presenta como cierre: se reintenta la solicitud
+original. Los recibos y la recuperación aún necesitan instalación, arranque
+y recorrido en Chrome de la candidata conjunta.
+
+La guarda del tercer corte toma el bloqueo de cabecera compartido con la
+reserva. Terminar una intención de oferta no permite cancelar un expediente
+ya fiscalizado si la política vigente lo prohíbe. Siguen pendientes la retirada
+de una oferta publicada y una intención durable de aviso por correo.
+
 
 Reglas del llamamiento y sus canales (decisiones de Alberto del 02/10 al
 08/10):
@@ -865,6 +1038,14 @@ con el logotipo. Descargar no firma ni envía. Las plantillas Word definitivas
 las tiene que dar RRHH (duda 124); hasta entonces se usan las del catálogo,
 cambiables sin tocar código.
 
+Con el catálogo v4 publicado (`plantillas_documentos.v4.json`, paso 2 de
+`scripts/operacion/firma_ct_tres_pasos/LEEME.md`), el informe definitivo es el
+informe previo a la fiscalización: se prepara y descarga en la versión 5, en
+cuanto el informe jurídico es la última actuación, y es el que se firma en el
+paso 7b. Cuando el expediente pasa a fiscalización la ficha lo sigue listando
+como «Todavía no disponible» y ya no se descarga. Con el catálogo v3 sigue
+saliendo en la versión 7.
+
 #### 4.3.5 Fiscalización con reparo
 
 Intervención abre la ficha y registra favorable, favorable con observaciones o
@@ -879,6 +1060,21 @@ la subsanación desde que el servicio recibe el reparo; no registra su
 aceptación por separado. Las instantáneas anteriores conservan su versión.
 La fiscalización limitada previa también tiene cinco días, pero VEC aún no
 identifica ese régimen de forma independiente.
+
+Recorrido del 20/10 en una copia local (F1-26), sobre el expediente
+2026/92006, en Chrome con GrxFirma: el técnico y la Jefatura firman el
+informe (v5); Intervención formula reparo (v6); RRHH registra la subsanación
+(v7) y emite el informe nuevo (v8); el técnico y la Jefatura lo vuelven a
+firmar; Intervención registra la fiscalización favorable sobre la v8 con su
+recibo (v9). Tras reiniciar aplicación y base, la ficha y los recuentos
+(actuaciones, versiones, avisos, fiscalizaciones, subsanación y cuatro
+firmas) son los mismos.
+
+El informe nuevo abre una ronda de firma: solo cuentan las firmas desde la
+versión de su emisión. El servidor ya lo aplicaba
+(`CalcularEstadoCircuitoFirmaEnRonda`); la ficha
+(`ronda-informe-nuevo.js`) ahora también. Antes mostraba el informe nuevo
+como firmado con las firmas del anterior y no ofrecía firmarlo.
 
 #### 4.3.6 Firma de tres cargos
 
@@ -929,6 +1125,21 @@ Cuándo cuenta como hecha la incorporación (con el alta en Personal o con la
 toma de posesión) y la fecha de efectos del cese siguen pendientes de RRHH
 (duda 140).
 
+#### No incorporación y segunda revisión (F1-47)
+
+En la candidata, RRHH propone la no incorporación desde el seguimiento de la
+ficha, con motivo, fecha de notificación y resolución. Si se exige otra
+persona, la propuesta muestra el enlace de revisión con un botón para
+copiarlo; no hay aviso automático. Con su propio certificado, la segunda
+persona consulta la propuesta y la versión vigente y confirma o rechaza; el
+acceso no abre el cuadro general de expedientes. La revisión no enseña
+identificadores técnicos: dice qué ha pasado y ofrece volver a Peticiones de
+personal temporal. Quien propuso no ve confirmar ni rechazar (la consulta
+le indica solo que la propuesta es suya, sin decir quién la hizo) y el
+servidor se lo rechaza igualmente. La confirmación devuelve el expediente a
+fiscalización y Bolsa recibe el aviso de no incorporación.
+El historial nombra la propuesta, la confirmación y el rechazo.
+
 #### 4.3.8 Cese y vuelta a la bolsa
 
 1. RRHH registra el cese con su causa y justificante por referencia y huella
@@ -943,6 +1154,14 @@ toma de posesión) y la fecha de efectos del cese siguen pendientes de RRHH
 Con la bolsa constituida real el recorrido completo, también tras reiniciar,
 falta acreditarlo (CT213 y B115, equipo K). El justificante del cese aún no se
 guarda en Documentos.
+
+#### Reglas globales de situación de Bolsa — candidata F1-04/05
+
+En «Bolsas → Reglas y baremación → Cambios de situación», RRHH consulta la versión actual y los cambios efectivos para todas las bolsas. Elige una situación de partida y marca los destinos permitidos por la versión normativa publicada. Los cambios obligatorios permanecen seleccionados. Escribe el motivo, revisa el conjunto, confirma y recibe una versión nueva con su recibo y la fecha y hora del acto. La revisión muestra todos los destinos que quedarán publicados, incluidos los obligatorios.
+
+La consulta exige un permiso propio y deja un apunte de acceso. Publicar requiere otra autorización vigente, validada en la misma transacción que la política y su historia. La selección técnica no concede permisos ni cambia las reglas al arrancar. Si falta la selección o es inválida, solo esta función queda indisponible. El permiso de cese conserva su finalidad.
+
+Tras una respuesta incierta, «Comprobar la misma publicación» conserva el cuerpo y la clave originales, también si otro reintento es denegado. El recibo recuperado corresponde al acto original; una consulta posterior muestra las reglas vigentes. En la copia causal con los permisos completos se publicaron desde Chrome las versiones 7 y 8. Después de reiniciar aplicación y PostgreSQL, la consulta conserva la versión 8 y el reintento devuelve el recibo y la fecha originales de la 7. Otro contenido con la misma clave devuelve conflicto; otro certificado sin permiso recibe denegación. Sin selección o con una inválida el portal sigue disponible y solo esta función queda indisponible. La carga de catálogo y concesiones de la copia no acredita su publicación administrativa; no cambia el caso único del apartado 4.0.
 
 ### 4.4 Administración
 
@@ -1137,7 +1356,7 @@ efecto.
 | Preferencias entre bolsas | *(por verificar en copia local)* | Sí | Autoridad externa en cidonia |
 | Petición y ratificación del centro | Circuito anterior *(por verificar en copia local)* | #1114: conserva la necesidad RPT hasta el alta | Verificar la instalación de #1114 en cidonia |
 | Alta, análisis, cobertura, asignación, informe | Sí *(por verificar en copia local)* | | |
-| Fiscalización con reparo y subsanación | Fiscalización sí; reparo *(por verificar)*; todo *(por verificar en copia local)* | | |
+| Fiscalización con reparo y subsanación | En copia local el 20/10: reparo, subsanación, informe nuevo firmado y favorable | | Ver los textos pendientes en `docs/manuales/PENDIENTES.md` |
 | Llamamiento desde la bolsa constituida | Puente anterior *(por verificar en copia local)* | #1088 | Recorrido con la bolsa real |
 | Oferta con varias plazas desde CT | | | Conexión CT con ofertas de Bolsa |
 | Propuesta, resolución y documentos | Sí *(por verificar en copia local)* | | Plantillas Word de RRHH (duda 124) |

@@ -1,4 +1,4 @@
-import { sinBordes } from "./texto-dietas.js?v=20260925-d5d6-v1";
+import { sinBordes } from "./texto-dietas.js?v=VEC_WEB_VERSION";
 const RUTA_CIRCUITO = "/api/vec/dietas/comisiones/circuito";
 const MAXIMO_CUERPO_BYTES = 4 * 1024;
 const MAXIMO_RESPUESTA_BYTES = 64 * 1024;

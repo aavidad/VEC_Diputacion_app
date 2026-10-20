@@ -1,8 +1,8 @@
 import { cargarTextos, urlCatalogo } from "../comun/textos.js";
 import { prepararIdiomas, resolverIdiomaNavegacion } from "../comun/idioma.js";
 
-const VERSION = "20261003-pwa-ci-v5";
-const VERSION_MANIFIESTO = "20261002-pwa-v1";
+const VERSION = "VEC_WEB_VERSION";
+const VERSION_MANIFIESTO = "VEC_WEB_VERSION";
 
 export async function iniciarPWA({ documento = globalThis.document, ventana = globalThis.window, navegador = globalThis.navigator, idioma } = {}) {
   const navegacion = documento?.querySelector?.("[data-pwa-navegacion]");

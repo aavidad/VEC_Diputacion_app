@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261008-alta-circular-v3";
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
-import { contextoLlamamientoDesdeEstado } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=VEC_WEB_VERSION";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=VEC_WEB_VERSION";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js?v=VEC_WEB_VERSION";
+import { contextoLlamamientoDesdeEstado } from "./vista-expedientes-render.js?v=VEC_WEB_VERSION";
 
 // Dobles de transporte y DOM; adapter, contratos, presentador y vista son los reales.
 const A = "expediente:ct:001", B = "expediente:ct:002";
@@ -247,6 +247,10 @@ test("la selección de llamamiento exige la fase de llamamiento", () => {
   estado.cuadro.expedientes[0].fase_clave = "llamamiento";
   assert.deepEqual(contextoLlamamientoDesdeEstado(estado), {
     expediente_ref: A, version_esperada: 7,
+  });
+  estado.expediente.numero_personas = 2;
+  assert.deepEqual(contextoLlamamientoDesdeEstado(estado), {
+    expediente_ref: A, version_esperada: 7, numero_personas: 2,
   });
 });
 

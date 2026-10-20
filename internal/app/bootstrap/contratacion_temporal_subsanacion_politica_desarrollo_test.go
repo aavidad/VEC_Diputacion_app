@@ -227,3 +227,16 @@ func TestPoliticaSubsanacionExigeMotivoCompatibleConPublicacion(t *testing.T) {
 		})
 	}
 }
+
+// F1-26: la política versionada que la copia local monta con la orden firma
+// pasa la misma validación que el arranque y conserva el motivo publicado.
+func TestPoliticaSubsanacionVersionadaParaCopiaLocal(t *testing.T) {
+	ruta := filepath.Join("..", "..", "..", "config", "contratacion_temporal_subsanacion_politica_desarrollo.json")
+	politica, err := cargarConfiguracionPoliticaSubsanacionReparosDesarrollo(config.Config{ContratacionTemporalSubsanacionPoliticaFile: ruta})
+	if err != nil {
+		t.Fatalf("política versionada rechazada: %v", err)
+	}
+	if politica.MotivoAutorizacion.CatalogoID != "motivos_autorizacion_subsanacion_desarrollo" || politica.DefinicionVersion != 1 {
+		t.Fatalf("política inesperada: %+v", politica)
+	}
+}

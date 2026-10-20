@@ -171,6 +171,8 @@ func estadoErrorCancelacion(err error) (int, string) {
 	switch {
 	case errors.Is(err, ports.ErrCancelacionTrasFiscalizacion):
 		return http.StatusConflict, "tras_fiscalizacion"
+	case errors.Is(err, ports.ErrCancelacionConOfertaPendiente):
+		return http.StatusConflict, "seleccion_oferta_pendiente"
 	case errors.Is(err, ports.ErrCancelacionNoAdmitida):
 		return http.StatusConflict, "fase_no_admitida"
 	case errors.Is(err, ports.ErrCancelacionYaRegistrada):

@@ -609,7 +609,13 @@ func (a *autoridadNominalInscripcionBolsa) AutorizarEscritura(ctx context.Contex
 	if err != nil || !acreditacionInscripcionBolsaActual(s, acreditacion, a.c.Reloj.Ahora().UTC().Truncate(time.Microsecond)) {
 		return vacia, inscripcion.ErrAccesoDenegado
 	}
-	canon, err := recursoCanonicoDesdeMaterialInscripcion(accion, material, atributos["material_sha256"], contextoRecurso)
+	var canon []byte
+	if conjunta, esConjunta := presentacionConjuntaInscripcion(accion, material); esConjunta {
+		canon, err = recursoPresentacionConjuntaInscripcion(conjunta, s.Resultado.Contexto.PersonaRef, recurso,
+			atributos["material_sha256"], contextoRecurso)
+	} else {
+		canon, err = recursoCanonicoDesdeMaterialInscripcion(accion, material, atributos["material_sha256"], contextoRecurso)
+	}
 	if accion == inscripcion.AccionDecidir || accion == inscripcion.AccionIncorporar {
 		if contextoRecurso.ConjuntoGestion == nil || contextoRecurso.AmbitoSolicitud == nil {
 			return vacia, inscripcion.ErrAccesoDenegado
@@ -704,6 +710,17 @@ func atributosMaterialEscrituraInscripcion(accion, persona, recurso string, mate
 	var huella, ref string
 	var atributos map[string]string
 	var err error
+	if conjunta, esConjunta := presentacionConjuntaInscripcion(accion, material); esConjunta {
+		// Cada categoría de la conjunta se autoriza como su propia solicitud,
+		// ligada al material conjunto completo.
+		p, ok := conjunta.SolicitudDeCategoria(persona, recurso)
+		if !ok {
+			return nil, false
+		}
+		h := sha256.Sum256(material)
+		return map[string]string{"convocatoria_ref": p.ConvocatoriaRef, "categoria_ref": p.CategoriaRef,
+			"catalogo_version": strconv.FormatUint(p.CatalogoVersion, 10), "material_sha256": hex.EncodeToString(h[:])}, true
+	}
 	switch accion {
 	case inscripcion.AccionPresentar:
 		var v struct {
@@ -791,4 +808,24 @@ func atributosMaterialEscrituraInscripcion(accion, persona, recurso string, mate
 	}
 	atributos["material_sha256"] = huella
 	return atributos, true
+}
+
+// presentacionConjuntaInscripcion reconoce el material exacto de una solicitud
+// conjunta; cualquier otro material sigue el camino por categoría.
+func presentacionConjuntaInscripcion(accion string, material []byte) (inscripcion.PresentacionConjunta, bool) {
+	if accion != inscripcion.AccionPresentar {
+		return inscripcion.PresentacionConjunta{}, false
+	}
+	return inscripcion.PresentacionConjuntaDesdeMaterial(material)
+}
+
+func recursoPresentacionConjuntaInscripcion(conjunta inscripcion.PresentacionConjunta, persona, recurso, huella string, contexto contextoRecursoEscrituraInscripcionBolsa) ([]byte, error) {
+	if contexto.ConjuntoGestion != nil || contexto.AmbitoSolicitud != nil {
+		return nil, inscripcion.ErrAccesoDenegado
+	}
+	p, ok := conjunta.SolicitudDeCategoria(persona, recurso)
+	if !ok {
+		return nil, inscripcion.ErrSolicitudInvalida
+	}
+	return inscripcion.RecursoPresentacion(p, huella, contexto.Ambitos)
 }

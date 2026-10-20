@@ -1,17 +1,17 @@
-import { crearClienteRecuperacionFirmasV2 } from "../cliente-http-recuperacion-firmas-v2.js?v=20261016-r1-o-integracion-v7";
-import { montarVistaRecuperacionFirmasV2 } from "../vista-recuperacion-firmas-v2.js?v=20261004-r5-recuperacion-v1";
-import { crearTraductorRecuperacionFirmasV2 } from "../i18n-recuperacion-firmas-v2.js?v=20261004-r5-recuperacion-v1";
+import { crearClienteRecuperacionFirmasV2 } from "../cliente-http-recuperacion-firmas-v2.js?v=VEC_WEB_VERSION";
+import { montarVistaRecuperacionFirmasV2 } from "../vista-recuperacion-firmas-v2.js?v=VEC_WEB_VERSION";
+import { crearTraductorRecuperacionFirmasV2 } from "../i18n-recuperacion-firmas-v2.js?v=VEC_WEB_VERSION";
 import { cargarTextos } from "../../../../comun/textos.js";
 import { ZONA_HORARIA_PORTAL } from "../../../portal-i18n.js";
 
 const solicitud = Object.freeze(await (await fetch(
-  "./recuperacion-firmas-v2-selector-go.json?v=20261004-r5-recuperacion-v1", {
+  "./recuperacion-firmas-v2-selector-go.json?v=VEC_WEB_VERSION", {
     cache: "no-store", credentials: "omit", redirect: "error",
   },
 )).json());
 
 let modo = "normal";
-const dato = (await (await fetch("./recuperacion-firmas-v2-go.json?v=20261004-r5-recuperacion-v1", {
+const dato = (await (await fetch("./recuperacion-firmas-v2-go.json?v=VEC_WEB_VERSION", {
   cache: "no-store", credentials: "omit", redirect: "error",
 })).json()).data;
 const cliente = crearClienteRecuperacionFirmasV2({

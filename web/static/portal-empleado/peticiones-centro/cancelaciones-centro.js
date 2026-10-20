@@ -7,13 +7,13 @@
  * un motivo del catálogo. Fases y motivos los decide el servidor; la vista
  * solo evita ofrecer la cancelación cuando no procede.
  */
-import { bandejaCompartidaPagina, periodoVisible, prepararCausasFin } from "./incorporaciones-centro.js?v=20261009-retoques-textos-v1";
-import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
+import { bandejaCompartidaPagina, periodoVisible, prepararCausasFin } from "./incorporaciones-centro.js?v=VEC_WEB_VERSION";
+import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=VEC_WEB_VERSION";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
 
 import { IDIOMA_POR_DEFECTO } from "../../comun/idioma.js";
 import { IDIOMA_EFECTIVO_PETICIONES_CENTRO,
-  MENSAJES_CANCELACIONES_CENTRO } from "./i18n-peticiones-centro.js?v=20261007-pc-recuperacion-v1";
+  MENSAJES_CANCELACIONES_CENTRO } from "./i18n-peticiones-centro.js?v=VEC_WEB_VERSION";
 
 export const RUTAS_CANCELACIONES_CENTRO = Object.freeze({
   consulta: "/api/vec/contratacion-temporal/peticiones-centro/cancelacion",

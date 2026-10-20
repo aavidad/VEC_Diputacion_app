@@ -1,4 +1,4 @@
-import { crearTraductorMeritos } from "./i18n.js?v=20260924-f2-web2";
+import { crearTraductorMeritos } from "./i18n.js?v=VEC_WEB_VERSION";
 
 const PESTANAS = Object.freeze(["inventario", "requisitos", "valoraciones"]);
 const ESTADOS = new Set(["no_configurado", "cargando", "disponible", "vacio", "denegado", "error"]);

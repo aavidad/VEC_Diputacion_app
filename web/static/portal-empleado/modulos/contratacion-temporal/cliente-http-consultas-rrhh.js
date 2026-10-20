@@ -1,3 +1,4 @@
+import { validarMetadatosRecuperacionFirmas } from "./selectores-recuperacion-firmas.js?v=VEC_WEB_VERSION";
 import { validarResultadoBolsaCT } from "./contrato-resultado-bolsa.js";
 
 const RUTA_CUADRO = "/api/vec/contratacion-temporal/cuadro/consultas";
@@ -201,8 +202,10 @@ function validarSolicitudProyectada(entrada) {
   if (!camposCerrados(
     entrada,
     ["grupo_subgrupo", "motivo_clave", "periodo_inicio"],
-    ["periodo_fin", "periodo_causa_fin"],
+    ["periodo_fin", "periodo_causa_fin", "numero_personas"],
   ) || !cadena(entrada.grupo_subgrupo, { maximo: 80 })
+    || (Object.hasOwn(entrada, "numero_personas")
+      && (!entero(entrada.numero_personas, 1) || entrada.numero_personas > 100))
     || !clave(entrada.motivo_clave) || !instante(entrada.periodo_inicio)
     || (entrada.periodo_fin ? !instante(entrada.periodo_fin)
       || Object.hasOwn(entrada, "periodo_causa_fin")
@@ -290,7 +293,7 @@ function validarDetalle(entrada) {
   if (!camposCerrados(
     entrada,
     ["esquema", "resumen", "solicitud", "hitos"],
-    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion", "capacidades_ficha", "resultado_bolsa"],
+    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion", "capacidades_ficha", "resultado_bolsa", "selectores_recuperacion_firmas", "recibo_selectores_recuperacion_firmas"],
   ) || entrada.esquema !== ESQUEMA_DETALLE || !Array.isArray(entrada.hitos)
     || entrada.hitos.length > MAXIMO_HITOS) {
     throw new TypeError("detalle RRHH no válido");
@@ -307,6 +310,9 @@ function validarDetalle(entrada) {
   if (Object.hasOwn(entrada, "presentacion_flujo")) salida.presentacion_flujo = validarPresentacionFlujo(entrada.presentacion_flujo);
   if (Object.hasOwn(entrada, "fiscalizacion")) salida.fiscalizacion = validarFiscalizacionDetalle(entrada.fiscalizacion);
   if (Object.hasOwn(entrada, "resultado_bolsa")) salida.resultado_bolsa = validarResultadoBolsaCT(entrada.resultado_bolsa);
+  Object.assign(salida, validarMetadatosRecuperacionFirmas(
+    entrada, salida.resumen.expediente_ref, salida.resumen.version,
+  ));
   return Object.freeze(salida);
 }
 

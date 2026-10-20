@@ -149,7 +149,7 @@ func TestInscripcionLecturaRechazaHojaPersonalFueraDeConcesion(t *testing.T) {
 
 func TestInscripcionProyeccionAbiertaListaYDetalle(t *testing.T) {
 	base := inscripcion.BolsaAbierta{
-		ConvocatoriaRef: "cv1_abc_v1", Titulo: "Convocatoria de prueba",
+		ConvocatoriaRef: "cv1_abc_v1", Titulo: "Convocatoria de prueba", ModalidadInscripcion: "separada",
 		NumeroCategorias: 2, CatalogoVersion: 1,
 		PlazoInicio:       time.Date(2026, 10, 9, 8, 0, 0, 0, time.UTC),
 		PlazoFin:          time.Date(2026, 10, 19, 8, 0, 0, 0, time.UTC),
@@ -158,6 +158,15 @@ func TestInscripcionProyeccionAbiertaListaYDetalle(t *testing.T) {
 	if err := validarBolsaAbiertaInscripcion(base, false); err != nil {
 		t.Fatalf("la lista mínima válida fue rechazada: %v", err)
 	}
+	base.ModalidadInscripcion = "conjunta"
+	if err := validarBolsaAbiertaInscripcion(base, false); err != nil {
+		t.Fatalf("la modalidad conjunta fue rechazada: %v", err)
+	}
+	base.ModalidadInscripcion = ""
+	if err := validarBolsaAbiertaInscripcion(base, false); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("la modalidad ausente cruzó el proyector: %v", err)
+	}
+	base.ModalidadInscripcion = "separada"
 	base.Categorias = []inscripcion.Categoria{
 		{CategoriaRef: "categoria:a", Categoria: "Categoría A"},
 		{CategoriaRef: "categoria:b", Categoria: "Categoría B"},
@@ -168,6 +177,22 @@ func TestInscripcionProyeccionAbiertaListaYDetalle(t *testing.T) {
 	if err := validarBolsaAbiertaInscripcion(base, true); err != nil {
 		t.Fatalf("el detalle completo fue rechazado: %v", err)
 	}
+	base.SolicitudesPropias = []inscripcion.SolicitudPropiaCategoria{
+		{CategoriaRef: "categoria:a", SolicitudRef: "solicitud_inscripcion_a", Estado: "pendiente"},
+		{CategoriaRef: "categoria:b", SolicitudRef: "solicitud_inscripcion_b", Estado: "pendiente"},
+	}
+	if err := validarBolsaAbiertaInscripcion(base, true); err != nil {
+		t.Fatalf("las solicitudes propias por categoría fueron rechazadas: %v", err)
+	}
+	base.SolicitudesPropias[1].CategoriaRef = "categoria:c"
+	if err := validarBolsaAbiertaInscripcion(base, true); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("solicitud propia de categoría no publicada aceptada: %v", err)
+	}
+	base.SolicitudesPropias[1].CategoriaRef = "categoria:a"
+	if err := validarBolsaAbiertaInscripcion(base, true); !errors.Is(err, inscripcion.ErrNoDisponible) {
+		t.Fatalf("solicitud propia repetida aceptada: %v", err)
+	}
+	base.SolicitudesPropias = nil
 	base.Categorias[1] = base.Categorias[0]
 	if err := validarBolsaAbiertaInscripcion(base, true); !errors.Is(err, inscripcion.ErrNoDisponible) {
 		t.Fatalf("el detalle duplicó una categoría: %v", err)
@@ -239,6 +264,8 @@ func TestInscripcionErrorPostgreSQLConservaCausaNominalSinTextoSQL(t *testing.T)
 		{"B9605", inscripcion.ErrDeclaracionInvalida},
 		{"B9606", inscripcion.ErrRequisitoInvalido},
 		{"B9607", inscripcion.ErrNoDisponible},
+		{"B9608", inscripcion.ErrModalidadConjuntaPendiente},
+		{"B9609", inscripcion.ErrModalidadSeparada},
 		{"B9701", inscripcion.ErrVinculoIdentidadPendiente},
 		{"B9702", inscripcion.ErrActaNoDisponible},
 		{"B9703", inscripcion.ErrConflicto},

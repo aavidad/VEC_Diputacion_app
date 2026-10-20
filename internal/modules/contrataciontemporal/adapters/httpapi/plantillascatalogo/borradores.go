@@ -219,7 +219,7 @@ func (h *ManejadorBorradores) listar(w http.ResponseWriter, p *informejuridico.P
 	tipos := make([]tipoDisponible, 0, len(p.Tipos()))
 	for _, tipo := range p.Tipos() {
 		plantilla, ok := p.Plantilla(tipo)
-		if !ok || !plantilla.AdmiteModalidad(d.Resumen.ModalidadClave) || !accionPlantillaCumplida(plantilla, d) {
+		if !ok || !plantilla.AdmiteModalidad(d.Resumen.ModalidadClave) || !informejuridico.AccionRequeridaCumplida(plantilla, d) {
 			continue
 		}
 		tipos = append(tipos, tipoDisponible{Clave: string(tipo), Etiqueta: plantilla.Nombre, Formatos: []string{"pdf", "docx"},
@@ -231,7 +231,7 @@ func (h *ManejadorBorradores) listar(w http.ResponseWriter, p *informejuridico.P
 func (h *ManejadorBorradores) descargar(w http.ResponseWriter, r *http.Request, p *informejuridico.PlantillasBorrador, procedencia string, d ports.DetalleExpedienteRRHH, pedido peticionBorrador) {
 	tipo := ports.TipoBorradorRRHH(pedido.Tipo)
 	plantilla, ok := p.Plantilla(tipo)
-	if !ok || !plantilla.AdmiteModalidad(d.Resumen.ModalidadClave) || !accionPlantillaCumplida(plantilla, d) {
+	if !ok || !plantilla.AdmiteModalidad(d.Resumen.ModalidadClave) || !informejuridico.AccionRequeridaCumplida(plantilla, d) {
 		fallo(w, 409, "documento_no_disponible")
 		return
 	}
@@ -274,17 +274,6 @@ func (h *ManejadorBorradores) descargar(w http.ResponseWriter, r *http.Request, 
 	_, _ = w.Write(contenido)
 }
 
-func accionPlantillaCumplida(p informejuridico.PlantillaBorrador, d ports.DetalleExpedienteRRHH) bool {
-	if p.RequiereAccion == "" {
-		return true
-	}
-	for _, h := range d.Hitos {
-		if string(h.AccionClave) == p.RequiereAccion {
-			return true
-		}
-	}
-	return false
-}
 func falloConsultaBorrador(w http.ResponseWriter, err error) {
 	if errors.Is(err, ctapp.ErrConsultaRRHHNoObservable) {
 		fallo(w, 404, "no_encontrado")

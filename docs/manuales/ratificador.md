@@ -13,7 +13,7 @@ Este recorrido se comprobó el 9 de octubre de 2026 con el perfil de ratificador
 
 En **Datos de la petición**, compruebe el centro, la persona solicitante y su cargo, la categoría y el grupo, el motivo, la necesidad descrita y el periodo. Revise las observaciones, la retención de crédito y los documentos aportados. La persona que ratifica debe ser distinta de quien solicitó. Si algún dato no corresponde a la petición que debe tramitar, pulse **Cerrar** y consulte la diferencia antes de ratificar.
 
-En el recorrido mostrado, la pantalla decía **Sin retención de crédito aportada** y **Ninguno** en documentos. Esos mensajes describen lo que constaba en la petición; no acreditan una retención ni un documento.
+En el recorrido mostrado, la pantalla decía **Sin retención de crédito aportada** y **Ninguno** en documentos. Esos mensajes describen lo que constaba en la petición; no acreditan una retención ni un documento. Si el centro marcó **Sí**, verá **Declarada; la comprueba RRHH** seguido del número de operación de SICAL, la fecha y el importe: es lo que escribió el centro, todavía sin comprobar.
 
 ![Panel de datos de la petición antes de ratificar](img/ratificador-02-detalle.webp)
 

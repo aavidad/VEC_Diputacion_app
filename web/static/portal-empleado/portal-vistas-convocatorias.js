@@ -1,5 +1,5 @@
-import { traducirConvocatoriasS1 } from "./portal-i18n-convocatorias.js?v=20260930-portales-i18n-integracion-v1";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { traducirConvocatoriasS1 } from "./portal-i18n-convocatorias.js?v=VEC_WEB_VERSION";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 
 /**
  * Consulta S1 de solo lectura. El montaje aporta funciones autorizadas; esta

@@ -1,5 +1,5 @@
 /** El vínculo usa el transporte CT existente y su recuperación de actos inciertos. */
-import { referenciaLlamamientoValida } from "./contrato-llamamiento.js";
+import { referenciaLlamamientoValida } from "./contrato-llamamiento.js?v=VEC_WEB_VERSION";
 
 export const RUTA_VINCULO_BOLSA = "/api/vec/contratacion-temporal/expedientes/vinculos-bolsa";
 const REFERENCIAS = ["expediente_ref", "bolsa_ref", "llamamiento_ref", "recibo_emision_ref"];

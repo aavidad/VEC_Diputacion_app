@@ -1,4 +1,4 @@
-import { filtrarEdiciones, enlaceOficial } from './modelo.js?v=20261001-formacion-preparacion-v1';
+import { filtrarEdiciones, enlaceOficial } from './modelo.js?v=VEC_WEB_VERSION';
 
 function nodo(d, tag, texto, clase) { const n = d.createElement(tag); if (texto !== undefined) n.textContent = texto; if (clase) n.className = clase; return n; }
 function panel(d, titulo) { const n = nodo(d, 'section', undefined, 'panel'); const head = nodo(d, 'header', undefined, 'cabecera-panel'); head.append(nodo(d, 'h2', titulo)); const cuerpo = nodo(d, 'div', undefined, 'cuerpo-panel pila'); n.append(head, cuerpo); return { n, cuerpo }; }

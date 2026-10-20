@@ -1,4 +1,4 @@
-import { nodo, panel, tabla } from '../dom.js?v=20261004-codexa-s6-notas-v1';
+import { nodo, panel, tabla } from '../dom.js?v=VEC_WEB_VERSION';
 
 export function textosRevision(textos) {
   return Object.freeze({ ...textos, traducir: (clave, valores) => textos.traducir(`revision_notas.${clave}`, valores) });

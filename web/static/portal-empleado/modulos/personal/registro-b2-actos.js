@@ -1,6 +1,6 @@
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { crearTraductorPersonal } from "./i18n.js?v=20261008-alta-rpt-circular-v4";
-import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20261012-ct-personal-ficha-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=VEC_WEB_VERSION";
 
 const EMPLEADO = /^emp_[A-Za-z0-9_-]{22,128}$/u;
 const PERSONA = /^per_[A-Za-z0-9_-]{22,128}$/u;

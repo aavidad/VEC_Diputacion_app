@@ -116,10 +116,10 @@ func nuevoControlLecturaDocumentosBolsa(resolver func(context.Context) (*soporte
 	}, Auditar: auditar}
 }
 
-// Los soportes proceden de la composición RRHH ya publicada. Solo se elige
-// por la capacidad mTLS sellada; el identificador de la URL no selecciona actor.
+// El soporte procede de la composición RRHH ya publicada: el del alta, que
+// es también el que usa la técnica. Solo se elige por la capacidad mTLS
+// sellada; el identificador de la URL no selecciona actor.
 func resolverSoporteDocumentosBolsa(base *soporteAltaContratacionTemporalDesarrollo,
-	lectores map[string]*soporteAltaContratacionTemporalDesarrollo,
 ) func(context.Context) (*soporteAltaContratacionTemporalDesarrollo, error) {
 	return func(ctx context.Context) (*soporteAltaContratacionTemporalDesarrollo, error) {
 		if ctx == nil || ctx.Err() != nil {
@@ -133,11 +133,6 @@ func resolverSoporteDocumentosBolsa(base *soporteAltaContratacionTemporalDesarro
 		}
 		if soporteDocumentoCoincideConCapacidad(base, c) {
 			return base, nil
-		}
-		lector := lectores[c.principal.ID]
-		if lector != nil && lector.lectorConsultasRRHH && lector.tecnicoConsultaRRHH &&
-			soporteDocumentoCoincideConCapacidad(lector, c) {
-			return lector, nil
 		}
 		return nil, vecdomain.ErrAutorizacionDenegada
 	}

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=20261008-alta-circular-v3";
-import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js?v=20261001-ct-a-i18n-v1";
+import { crearAccionesFirma, renderizarAccionesPaso } from "./circuito-firma-acciones.js?v=VEC_WEB_VERSION";
+import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js?v=VEC_WEB_VERSION";
 
 const pdf = new TextEncoder().encode("%PDF-1.7\noriginal con primera firma\n%%EOF");
 const firmadoVec = new TextEncoder().encode("%PDF-1.7\noriginal con primera firma\nsegunda firma\n%%EOF");
@@ -35,7 +35,7 @@ function escenario(vias = ["certificado_vec", "portafirmas_registro_rrhh"], paso
     entrada_documento_ref: pasoOrden > 1 ? "revision:firmada-p1" : "original:raiz",
     entrada_documento_version: pasoOrden > 1 ? 1 : 2, entrada_documento_sha256: createHash("sha256").update(pdf).digest("hex"), version_expediente: 7, documento: "resolucion", catalogo_ref: "catalogo:prueba", catalogo_huella: "a".repeat(64),
     paso_pendiente: pasoOrden, original_ref: "original:raiz", original_version: 2, vias_disponibles: vias };
-  const contador = { originales: 0, firmas: 0, registros: 0, confirmaciones: 0 };
+  const contador = { originales: 0, firmas: 0, registros: 0, confirmaciones: 0, pausas: [] };
   const recibo = reciboPrueba({ expedienteRef: "expediente:prueba", version: 7, documento: "resolucion",
     pasoOrden, originalHuella: sha(pdf), revisionEntradaHuella: sha(pdf), firmado: firmadoVec });
   const deps = { obtenerEstado: () => estado, obtenerCircuito: () => circuito, t: crearTraductorCircuitoFirma(),
@@ -45,7 +45,8 @@ function escenario(vias = ["certificado_vec", "portafirmas_registro_rrhh"], paso
     autofirma: { firmarPDF: async (original) => { assert.equal(original, pdf); contador.firmas++; return new TextEncoder().encode("%PDF-1.7\noriginal con primera firma\nsegunda firma\n%%EOF"); } },
     registrarVec: async () => { contador.registros++; return recibo; },
     registrarExterna: async (s) => { contador.registros++; return reciboPrueba(s, true); },
-    alCambiar: async () => { contador.confirmaciones++; }, crearClave: () => "clave-prueba-123456789" };
+    alCambiar: async () => { contador.confirmaciones++; }, crearClave: () => "clave-prueba-123456789",
+    esperar: async (ms) => { contador.pausas.push(ms); } };
   const evento = (accion) => { const b = { dataset: { ctFirmaAccion: accion }, closest: (s) => s === "[data-ct-firma-controles]" ? bloque : b };
     return { target: { closest: () => b } }; };
   return { estado, circuito, bloque, aviso, campos, preflight, contador, recibo, deps, evento };
@@ -82,12 +83,13 @@ test("el paso 2 firma los bytes de la custodia previa y confirma sólo recibo vi
 });
 test("fallo de confirmación reintenta los mismos bytes y clave sin otra firma", async () => {
   const e = escenario(); const peticiones = [];
-  e.deps.registrarVec = async (s) => { peticiones.push(s); if (peticiones.length === 1) throw { codigo: "servicio_no_disponible" }; return e.recibo; };
+  e.deps.registrarVec = async (s) => { peticiones.push(s); if (peticiones.length <= 3) throw { codigo: "servicio_no_disponible" }; return e.recibo; };
   const acciones = crearAccionesFirma(e.deps);
   await acciones.manejarClic(e.evento("comprobar")); await acciones.manejarClic(e.evento("certificado_vec"));
   assert.equal(e.contador.confirmaciones, 0); assert.match(e.aviso.textContent, /Reintente con el mismo PDF/u);
   await acciones.manejarClic(e.evento("certificado_vec"));
-  assert.equal(e.contador.firmas, 1); assert.deepEqual(peticiones[0], peticiones[1]); assert.equal(e.contador.confirmaciones, 1);
+  assert.equal(e.contador.firmas, 1); assert.deepEqual(peticiones[0], peticiones[3]); assert.equal(e.contador.confirmaciones, 1);
+  assert.equal(peticiones.length, 4); assert.deepEqual(e.contador.pausas, [1000, 3000]);
 });
 test("consulta rota, ejemplo, huella ajena o recibo ajeno cierran efectos y confirmación", async () => {
   for (const alterar of [(e) => { e.estado.expediente.demostracion = true; },
@@ -115,14 +117,14 @@ test("registro externo usa PDF intacto y conserva clave al reintentar", async ()
   const fichero = { size: pdf.length, arrayBuffer: async () => pdf.buffer };
   e.campos.set("[data-ct-firma-pdf]", { files: [fichero] }); e.campos.set("[data-ct-firma-referencia]", { value: "portafirmas:prueba" });
   e.campos.set("[data-ct-firma-fecha]", { value: "2026-10-03T12:00" });
-  e.deps.registrarExterna = async (s) => { peticiones.push(s); if (peticiones.length === 1) throw { codigo: "servicio_no_disponible" }; return reciboPrueba(s, true); };
+  e.deps.registrarExterna = async (s) => { peticiones.push(s); if (peticiones.length <= 3) throw { codigo: "servicio_no_disponible" }; return reciboPrueba(s, true); };
   const a = crearAccionesFirma(e.deps); await a.manejarClic(e.evento("comprobar"));
   await a.manejarClic(e.evento("portafirmas_registro_rrhh")); await a.manejarClic(e.evento("portafirmas_registro_rrhh"));
   assert.deepEqual(peticiones[0].firmado, pdf); assert.deepEqual(peticiones[0], peticiones[1]); assert.equal(e.contador.firmas, 0);
 });
 test("cancelar tras una confirmación incierta conserva la clave y no afirma ausencia de efecto", async () => {
   const e = escenario(); const peticiones = [];
-  e.deps.registrarVec = async (s) => { peticiones.push(s); if (peticiones.length === 1) throw { codigo: "servicio_no_disponible" }; return e.recibo; };
+  e.deps.registrarVec = async (s) => { peticiones.push(s); if (peticiones.length <= 3) throw { codigo: "servicio_no_disponible" }; return e.recibo; };
   const a = crearAccionesFirma(e.deps);
   await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
   await a.manejarClic(e.evento("cancelar"));
@@ -164,7 +166,7 @@ test("una operación externa incierta avisa y conserva su vía antes de otra fir
   e.campos.set("[data-ct-firma-referencia]", { value: "portafirmas:prueba" });
   e.campos.set("[data-ct-firma-fecha]", { value: "2026-10-03T12:00" });
   const recibidas = [];
-  e.deps.registrarExterna = async (s) => { recibidas.push(s); if (recibidas.length === 1) throw { codigo: "servicio_no_disponible" }; return reciboPrueba(s, true); };
+  e.deps.registrarExterna = async (s) => { recibidas.push(s); if (recibidas.length <= 3) throw { codigo: "servicio_no_disponible" }; return reciboPrueba(s, true); };
   const acciones = crearAccionesFirma(e.deps);
   await acciones.manejarClic(e.evento("comprobar")); await acciones.manejarClic(e.evento("portafirmas_registro_rrhh"));
   e.aviso.textContent = "";
@@ -224,7 +226,7 @@ test("tras 503 externo conserva material, metadatos y clave pese a cambios por J
     e.campos.set("[data-ct-firma-pdf]", campoPDF); e.campos.set("[data-ct-firma-referencia]", referencia); e.campos.set("[data-ct-firma-fecha]", fecha);
     e.bloque.querySelectorAll = (selector) => selector === "button,input" ? [campoPDF, referencia, fecha] : [];
     e.deps.crearClave = () => { claves++; return "clave-prueba-123456789"; };
-    e.deps.registrarExterna = async (s) => { peticiones.push(s); if (peticiones.length === 1) throw { codigo: "servicio_no_disponible" }; return reciboPrueba(s, true); };
+    e.deps.registrarExterna = async (s) => { peticiones.push(s); if (peticiones.length <= 3) throw { codigo: "servicio_no_disponible" }; return reciboPrueba(s, true); };
     const a = crearAccionesFirma(e.deps);
     await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("portafirmas_registro_rrhh"));
     assert.ok([campoPDF, referencia, fecha].every(c => c.disabled));
@@ -234,11 +236,11 @@ test("tras 503 externo conserva material, metadatos y clave pese a cambios por J
     // Un caller puede saltarse disabled; el controlador sigue rechazando el material distinto.
     for (const c of [campoPDF, referencia, fecha]) c.disabled = false;
     await a.manejarClic(e.evento("portafirmas_registro_rrhh"));
-    assert.equal(peticiones.length, 1, cambio); assert.equal(claves, 1, cambio); assert.equal(e.contador.confirmaciones, 0);
+    assert.equal(peticiones.length, 3, cambio); assert.equal(claves, 1, cambio); assert.equal(e.contador.confirmaciones, 0);
     assert.match(e.aviso.textContent, /Reintente con el mismo PDF/u);
     bytes = pdf.slice(); referencia.value = "portafirmas:prueba"; fecha.value = "2026-10-03T12:00";
     await a.manejarClic(e.evento("portafirmas_registro_rrhh"));
-    assert.deepEqual(peticiones[0], peticiones[1]); assert.equal(claves, 1); assert.equal(e.contador.confirmaciones, 1);
+    assert.deepEqual(peticiones[0], peticiones[3]); assert.equal(claves, 1); assert.equal(e.contador.confirmaciones, 1);
   }
 });
 
@@ -257,10 +259,130 @@ test("un puerto que modifica su copia no cambia el material privado del reintent
   const e = escenario(["certificado_vec"]); const enviadas = [];
   e.deps.registrarVec = async s => {
     enviadas.push(s.firmado.slice());
-    if (enviadas.length === 1) { s.firmado[10] ^= 1; throw { codigo: "servicio_no_disponible" }; }
+    if (enviadas.length <= 3) { s.firmado[10] ^= 1; throw { codigo: "servicio_no_disponible" }; }
     return reciboPrueba(s);
   };
   const a = crearAccionesFirma(e.deps); await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
   await a.manejarClic(e.evento("certificado_vec"));
-  assert.deepEqual(enviadas[0], enviadas[1]); assert.equal(e.contador.firmas, 1); assert.equal(e.contador.confirmaciones, 1);
+  assert.equal(enviadas.length, 4); assert.ok(enviadas.every(b => b.every((x, i) => x === enviadas[0][i])));
+  assert.equal(e.contador.firmas, 1); assert.equal(e.contador.confirmaciones, 1);
+});
+
+// F1-94: un POST de registro ya enviado no depende de la interfaz que lo lanzó.
+function registroPendiente(e) {
+  const r = { opciones: null, peticiones: [], despues: null };
+  e.deps.registrarVec = (s, opciones) => { r.opciones = opciones; r.peticiones.push(s);
+    if (r.despues) return r.despues(s);
+    return new Promise((ok, ko) => { r.ok = ok; r.ko = ko; }); };
+  return r;
+}
+async function enVuelo(r) {
+  for (let i = 0; i < 200 && r.peticiones.length === 0; i += 1) await new Promise((ok) => setTimeout(ok, 1));
+}
+
+test("un repintado que cambia el contexto no aborta el registro enviado y su fallo conserva la clave", async () => {
+  const e = escenario(["certificado_vec"]); const r = registroPendiente(e);
+  const a = crearAccionesFirma(e.deps);
+  await a.manejarClic(e.evento("comprobar"));
+  const firma = a.manejarClic(e.evento("certificado_vec")); await enVuelo(r);
+  assert.equal(r.peticiones.length, 1);
+  e.estado.carga = "cargando"; a.actualizar();
+  assert.notEqual(r.opciones?.signal?.aborted, true);
+  r.despues = async () => { throw { codigo: "servicio_no_disponible" }; };
+  r.ko({ codigo: "servicio_no_disponible" }); await firma;
+  assert.equal(e.contador.confirmaciones, 0);
+  e.estado.carga = "listo"; r.despues = async () => e.recibo;
+  await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
+  assert.deepEqual(r.peticiones[0], r.peticiones[1]); assert.equal(e.contador.firmas, 1);
+  assert.equal(e.contador.confirmaciones, 1);
+});
+
+test("comprobar otro documento mientras se registra no cancela el envío", async () => {
+  const e = escenario(["certificado_vec"]); const r = registroPendiente(e);
+  e.circuito.documentos.push({ documento: "informe_definitivo", paso_pendiente: 2 });
+  const aviso2 = { textContent: "", focus() {} };
+  const bloque2 = { innerHTML: "", dataset: { ctFirmaDocumento: "informe_definitivo", ctFirmaPaso: "2" },
+    setAttribute() {}, querySelectorAll: () => [], querySelector: (s) => s === "[data-ct-firma-resultado]" ? aviso2 : null };
+  const evento2 = (accion) => { const b = { dataset: { ctFirmaAccion: accion }, closest: (s) => s === "[data-ct-firma-controles]" ? bloque2 : b };
+    return { target: { closest: () => b } }; };
+  let consultas = 0; const consultar = e.deps.clientePreflight.consultar;
+  e.deps.clientePreflight.consultar = async (...x) => { consultas++; return consultar(...x); };
+  const a = crearAccionesFirma(e.deps);
+  await a.manejarClic(e.evento("comprobar"));
+  const firma = a.manejarClic(e.evento("certificado_vec")); await enVuelo(r);
+  await a.manejarClic(evento2("comprobar"));
+  assert.notEqual(r.opciones?.signal?.aborted, true); assert.equal(consultas, 1);
+  assert.match(aviso2.textContent, /Se está registrando otra firma/u);
+  r.ok(e.recibo); await firma;
+  assert.equal(e.contador.confirmaciones, 1); assert.match(e.aviso.textContent, /Firma verificada y registrada/u);
+  await a.manejarClic(evento2("comprobar")); assert.equal(consultas, 2);
+});
+
+test("salir de la ficha no aborta el registro enviado ni pinta su resultado", async () => {
+  const e = escenario(["certificado_vec"]); const r = registroPendiente(e);
+  const a = crearAccionesFirma(e.deps);
+  await a.manejarClic(e.evento("comprobar"));
+  const firma = a.manejarClic(e.evento("certificado_vec")); await enVuelo(r);
+  a.retirar();
+  assert.notEqual(r.opciones?.signal?.aborted, true);
+  const antes = e.aviso.textContent;
+  r.ok(e.recibo); await firma;
+  assert.equal(e.contador.confirmaciones, 0); assert.equal(e.aviso.textContent, antes);
+});
+
+test("un registro cortado por la red se repite solo, con la misma clave y una sola firma", async () => {
+  const e = escenario(["certificado_vec"]); const peticiones = [];
+  e.deps.registrarVec = async (s, opciones) => { peticiones.push({ s, opciones });
+    if (peticiones.length === 1) throw { codigo: "servicio_no_disponible" }; return e.recibo; };
+  const a = crearAccionesFirma(e.deps);
+  await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
+  assert.equal(peticiones.length, 2); assert.deepEqual(peticiones[0].s, peticiones[1].s);
+  assert.equal(peticiones[1].s.clave, "clave-prueba-123456789"); assert.notEqual(peticiones[1].opciones?.signal?.aborted, true);
+  assert.deepEqual(e.contador.pausas, [1000]); assert.equal(e.contador.firmas, 1);
+  assert.equal(e.contador.confirmaciones, 1); assert.match(e.aviso.textContent, /Firma verificada y registrada/u);
+});
+
+test("un rechazo del servidor no se repite solo", async () => {
+  for (const codigo of ["conflicto", "firma_no_verificada", "verificacion_no_disponible", "acceso_denegado", "resultado_no_confiable"]) {
+    const e = escenario(["certificado_vec"]); let llamadas = 0;
+    e.deps.registrarVec = async () => { llamadas++; throw { codigo }; };
+    const a = crearAccionesFirma(e.deps);
+    await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
+    assert.equal(llamadas, 1, codigo); assert.deepEqual(e.contador.pausas, [], codigo);
+    assert.equal(e.contador.confirmaciones, 0, codigo);
+  }
+});
+
+test("un intento que agota su plazo se trata como envío sin respuesta y se repite con la misma clave", async () => {
+  const e = escenario(["certificado_vec"]); const peticiones = [];
+  const plazos = []; e.deps.plazoIntento = (ms) => { const c = new AbortController(); plazos.push({ ms, c }); return c.signal; };
+  e.deps.registrarVec = (s, opciones) => { peticiones.push(s);
+    if (peticiones.length === 1) return new Promise((_, ko) => opciones.signal.addEventListener("abort", () => ko({ codigo: "operacion_abortada" })));
+    return Promise.resolve(e.recibo); };
+  const a = crearAccionesFirma(e.deps);
+  await a.manejarClic(e.evento("comprobar"));
+  const firma = a.manejarClic(e.evento("certificado_vec"));
+  for (let i = 0; i < 200 && plazos.length === 0; i += 1) await new Promise((ok) => setTimeout(ok, 1));
+  assert.equal(plazos[0].ms, 90000); plazos[0].c.abort();
+  await firma;
+  assert.equal(peticiones.length, 2); assert.deepEqual(peticiones[0], peticiones[1]);
+  assert.deepEqual(e.contador.pausas, [1000]); assert.equal(e.contador.confirmaciones, 1);
+});
+
+test("una cancelación que no es el plazo propio no se repite", async () => {
+  const e = escenario(["certificado_vec"]); let llamadas = 0;
+  e.deps.plazoIntento = () => new AbortController().signal;
+  e.deps.registrarVec = async () => { llamadas++; throw { codigo: "operacion_abortada" }; };
+  const a = crearAccionesFirma(e.deps);
+  await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
+  assert.equal(llamadas, 1); assert.deepEqual(e.contador.pausas, []);
+});
+
+test("si el plazo vence al leer la respuesta también se repite el envío", async () => {
+  const e = escenario(["certificado_vec"]); let llamadas = 0;
+  e.deps.plazoIntento = () => { const c = new AbortController(); c.abort(); return c.signal; };
+  e.deps.registrarVec = async () => { llamadas++; if (llamadas === 1) throw new DOMException("plazo", "TimeoutError"); return e.recibo; };
+  const a = crearAccionesFirma(e.deps);
+  await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
+  assert.equal(llamadas, 2); assert.equal(e.contador.confirmaciones, 1);
 });

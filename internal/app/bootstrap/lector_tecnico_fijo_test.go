@@ -1,9 +1,8 @@
 package bootstrap
 
 import (
-	"reflect"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -39,57 +38,27 @@ func escenarioLectorTecnicoFijoPrueba(t *testing.T) (*dependenciasAltaContrataci
 	return alta, altaFija, lector
 }
 
-func TestLectorTecnicoConsumeContextoFijoAltaRegistrado(t *testing.T) {
-	alta, fijo, lector := escenarioLectorTecnicoFijoPrueba(t)
-	soporte, autorizador, err := nuevoSoporteLectorRRHHDesarrollo(alta, lector, relojContratacionTemporalDesarrollo{})
-	if err != nil || soporte == nil || autorizador == nil {
-		t.Fatalf("lector técnico fijo: %v", err)
+// La técnica consulta con el circuito del alta. El constructor de soportes
+// de lectores no le abre otro, ni siquiera a la titular exacta del alta.
+func TestSoporteLectorDeniegaALaTecnica(t *testing.T) {
+	alta, _, lector := escenarioLectorTecnicoFijoPrueba(t)
+	if !lectorTecnicoEsTitularAltaDesarrollo(alta, lector) {
+		t.Fatal("el escenario no es la titular exacta del alta")
 	}
-	if !reflect.DeepEqual(soporte.contexto, fijo.contexto) ||
-		soporte.contexto.Resultado.Contexto.PerfilActivoRef != fijo.perfilRef() ||
-		soporte.contexto.Resultado.Contexto.PerfilActivoRef == alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef ||
-		!soporte.tecnicoConsultaRRHH || !soporte.lectorConsultasRRHH ||
-		fijo.plantilla.VersionRol.RolID == "" || len(fijo.plantilla.VersionRol.Concesiones) == 0 {
-		t.Fatal("se sustituyó el contexto Alta o se perdió el perfil y su alcance")
+	// Con el perfil fijo de Alta y con el que le daría el circuito de los
+	// lectores ordinarios: en ningún caso se le abre un soporte propio.
+	sintetico, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(lector.identidad.principal, time.Now().UTC().Truncate(time.Microsecond))
+	if err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestLectorTecnicoDeniegaPerfilFijoNoCoincidente(t *testing.T) {
-	for nombre, alterar := range map[string]func(*dependenciasAltaContratacionTemporalDesarrollo, *perfilFijoCTDesarrollo, *identidadConsultaRRHHDesarrollo){
-		"alta ausente": func(a *dependenciasAltaContratacionTemporalDesarrollo, _ *perfilFijoCTDesarrollo, _ *identidadConsultaRRHHDesarrollo) {
-			filtrados := a.soporte.perfilesFijos[:0]
-			for _, p := range a.soporte.perfilesFijos {
-				if p.clave != clavePerfilFijoAltaCTDesarrollo {
-					filtrados = append(filtrados, p)
-				}
-			}
-			a.soporte.perfilesFijos = filtrados
-		},
-		"perfil genérico": func(a *dependenciasAltaContratacionTemporalDesarrollo, _ *perfilFijoCTDesarrollo, l *identidadConsultaRRHHDesarrollo) {
-			l.perfilRef = a.soporte.contexto.Resultado.Contexto.PerfilActivoRef
-		},
-		"perfil ajeno": func(_ *dependenciasAltaContratacionTemporalDesarrollo, _ *perfilFijoCTDesarrollo, l *identidadConsultaRRHHDesarrollo) {
-			l.perfilRef = "prf_" + strings.Repeat("f", 32)
-		},
-		"alta duplicada": func(a *dependenciasAltaContratacionTemporalDesarrollo, p *perfilFijoCTDesarrollo, _ *identidadConsultaRRHHDesarrollo) {
-			a.soporte.perfilesFijos = append(a.soporte.perfilesFijos, p)
-		},
-		"certificado ajeno": func(_ *dependenciasAltaContratacionTemporalDesarrollo, _ *perfilFijoCTDesarrollo, l *identidadConsultaRRHHDesarrollo) {
-			l.identidad.principal.Attributes["certificate_sha256"] = strings.Repeat("e", 64)
-		},
-		"persona ajena": func(_ *dependenciasAltaContratacionTemporalDesarrollo, _ *perfilFijoCTDesarrollo, l *identidadConsultaRRHHDesarrollo) {
-			l.identidad.principal.ID = "tecnico_ajeno"
-		},
-		"rol vacío": func(_ *dependenciasAltaContratacionTemporalDesarrollo, _ *perfilFijoCTDesarrollo, l *identidadConsultaRRHHDesarrollo) {
-			l.identidad.principal.Roles = nil
-		},
-	} {
-		t.Run(nombre, func(t *testing.T) {
-			alta, fijo, lector := escenarioLectorTecnicoFijoPrueba(t)
-			alterar(alta, fijo, &lector)
-			if soporte, autorizador, err := nuevoSoporteLectorRRHHDesarrollo(alta, lector, relojContratacionTemporalDesarrollo{}); err == nil || soporte != nil || autorizador != nil {
-				t.Fatalf("aceptó lector técnico sin origen fijo exacto: %v", err)
-			}
-		})
+	datos, err := sintetico.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, perfil := range []string{lector.perfilRef, datos.PerfilActivoRef} {
+		lector.perfilRef = perfil
+		if soporte, autorizador, err := nuevoSoporteLectorRRHHDesarrollo(alta, lector, relojContratacionTemporalDesarrollo{}); err == nil || soporte != nil || autorizador != nil {
+			t.Fatalf("abrió un soporte de lectora para la técnica con %s: %v", perfil, err)
+		}
 	}
 }

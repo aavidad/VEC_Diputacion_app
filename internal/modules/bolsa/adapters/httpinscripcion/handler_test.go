@@ -34,6 +34,21 @@ func TestFalloTecnicoNoRegistraDatosPersonales(t *testing.T) {
 	}
 }
 
+func TestInscripcionConjuntaPendienteTieneCodigoPropio(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, RutaPropias, nil)
+	responderFallo(w, r, inscripcion.ErrModalidadConjuntaPendiente)
+	var cuerpo struct {
+		Error struct {
+			Codigo string `json:"codigo"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &cuerpo); err != nil ||
+		w.Code != http.StatusConflict || cuerpo.Error.Codigo != "inscripcion_conjunta_pendiente" {
+		t.Fatalf("error de modalidad: estado=%d cuerpo=%q error=%v", w.Code, w.Body.String(), err)
+	}
+}
+
 func TestDetalleConvocatoriaConEtiquetasLargasSeEntregaCompletoComoJSON(t *testing.T) {
 	for _, etiqueta := range []string{strings.Repeat("<", 2048), strings.Repeat("\"", 2048), strings.Repeat("á", 1024)} {
 		categorias := make([]map[string]string, 128)
@@ -81,6 +96,9 @@ func (p *preparadorPrueba) PrepararLecturaRRHH(_ *http.Request, _, _ string, _ i
 func (p *preparadorPrueba) PrepararPresentacion(r *http.Request, _ inscripcion.Presentacion) (inscripcion.Actor, error) {
 	return p.PrepararLecturaAspirante(r, "", "", inscripcion.Filtro{}, "es")
 }
+func (p *preparadorPrueba) PrepararPresentacionConjunta(r *http.Request, _ inscripcion.PresentacionConjunta) (inscripcion.Actor, error) {
+	return p.PrepararLecturaAspirante(r, "", "", inscripcion.Filtro{}, "es")
+}
 func (p *preparadorPrueba) PrepararDecision(r *http.Request, _ inscripcion.Decision) (inscripcion.Actor, error) {
 	return p.PrepararLecturaRRHH(r, "", "", inscripcion.Filtro{}, "es")
 }
@@ -90,6 +108,7 @@ func (p *preparadorPrueba) PrepararIncorporacion(r *http.Request, _ inscripcion.
 
 type servicioPrueba struct {
 	presentaciones int
+	conjuntas      []inscripcion.PresentacionConjunta
 	ultimoFiltro   inscripcion.Filtro
 }
 
@@ -138,6 +157,12 @@ func (s *servicioPrueba) Presentar(_ context.Context, _ inscripcion.Actor, p ins
 		SolicitudRef: "sol_0000000000000001", ReciboRef: "rec_0000000000000001", ConvocatoriaRef: p.ConvocatoriaRef,
 		Categoria: "Auxiliar administrativo", Estado: inscripcion.EstadoPendiente, Version: 1, RegistradaEn: time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC),
 	}}, nil
+}
+func (s *servicioPrueba) PresentarConjunta(_ context.Context, _ inscripcion.Actor, p inscripcion.PresentacionConjunta) (inscripcion.ReciboConjunto, error) {
+	s.conjuntas = append(s.conjuntas, p)
+	return inscripcion.ReciboConjunto{PresentacionRef: "pre_0000000000000001", ReciboRef: "rec_0000000000000001",
+		ConvocatoriaRef: p.ConvocatoriaRef, Estado: inscripcion.EstadoPendiente, Version: 1,
+		Repetida: len(s.conjuntas) > 1}, nil
 }
 func (*servicioPrueba) Propias(context.Context, inscripcion.Actor, inscripcion.Filtro) (inscripcion.Pagina, error) {
 	return inscripcion.Pagina{}, nil
@@ -290,5 +315,42 @@ func TestInscripcionDistingueSesionAusenteDeServicioCaidoYRegistraDenegacion(t *
 	if !strings.Contains(texto, "motivo=autenticacion_requerida") || !strings.Contains(texto, "motivo=acceso_denegado") ||
 		!strings.Contains(texto, "ruta_clase=convocatorias_abiertas") || strings.Contains(texto, "per_") {
 		t.Fatalf("denegación sin registrar o con datos personales: %s", texto)
+	}
+}
+
+// Una lista de categorías es la solicitud conjunta: 201 la primera vez, 200 en
+// el reintento; mezclarla con categoria_ref no llega a abrir sesión.
+func TestPresentacionConjuntaSeparaCuerpoYRespondeReintento(t *testing.T) {
+	p := &preparadorPrueba{}
+	s := &servicioPrueba{}
+	h, err := NuevoExterno(p, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conjunta := `{"convocatoria_ref":"cv1_cHJ1ZWJh_v1","categorias_refs":["cat.beta","cat.alpha"],"catalogo_version":1,"clave_idempotencia":"clave-aspirante-0001","declaraciones":[]}`
+	for _, caso := range []struct {
+		cuerpo string
+		estado int
+	}{
+		{conjunta, http.StatusCreated},
+		{conjunta, http.StatusOK},
+		{`{"convocatoria_ref":"cv1_cHJ1ZWJh_v1","categoria_ref":"cat.alpha","categorias_refs":["cat.beta"],"catalogo_version":1,"clave_idempotencia":"clave-aspirante-0001","declaraciones":[]}`, http.StatusBadRequest},
+		{`{"convocatoria_ref":"cv1_cHJ1ZWJh_v1","categorias_refs":["cat.alpha","cat.alpha"],"catalogo_version":1,"clave_idempotencia":"clave-aspirante-0001","declaraciones":[]}`, http.StatusBadRequest},
+		{`{"convocatoria_ref":"cv1_cHJ1ZWJh_v1","categorias_refs":[],"catalogo_version":1,"clave_idempotencia":"clave-aspirante-0001","declaraciones":[]}`, http.StatusBadRequest},
+	} {
+		r := httptest.NewRequest(http.MethodPost, RutaPropias, strings.NewReader(caso.cuerpo))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != caso.estado {
+			t.Fatalf("%s: estado %d", caso.cuerpo, w.Code)
+		}
+		if caso.estado < 300 && !strings.Contains(w.Body.String(), "vec.bolsa.inscripcion.recibo_conjunto.v1") {
+			t.Fatalf("esquema de recibo conjunto ausente: %s", w.Body.String())
+		}
+	}
+	if len(s.conjuntas) != 2 || s.presentaciones != 0 || p.propias != 2 ||
+		strings.Join(s.conjuntas[0].Categorias(), ",") != "cat.alpha,cat.beta" {
+		t.Fatalf("conjuntas=%+v presentaciones=%d preparaciones=%d", s.conjuntas, s.presentaciones, p.propias)
 	}
 }

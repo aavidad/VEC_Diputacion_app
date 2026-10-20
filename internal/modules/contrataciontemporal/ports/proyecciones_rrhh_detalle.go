@@ -13,8 +13,11 @@ import (
 var patronGrupoDetalleRRHH = regexp.MustCompile(`^[A-Z][A-Z0-9/+.-]{0,19}$`)
 
 type SolicitudOperativaRRHH struct {
-	GrupoSubgrupo   string               `json:"grupo_subgrupo"`
-	MotivoClave     domain.ClaveCatalogo `json:"motivo_clave"`
+	GrupoSubgrupo string               `json:"grupo_subgrupo"`
+	MotivoClave   domain.ClaveCatalogo `json:"motivo_clave"`
+	// Pista de presentación de la petición conservada: la selección vuelve a
+	// leer el agregado y deriva allí la cantidad autoritativa.
+	NumeroPersonas  uint32               `json:"-"`
 	PeriodoInicio   time.Time            `json:"periodo_inicio"`
 	PeriodoFin      time.Time            `json:"periodo_fin,omitzero"`
 	PeriodoCausaFin domain.ClaveCatalogo `json:"periodo_causa_fin,omitempty"`
@@ -343,13 +346,20 @@ func NuevoDetalleExpedienteRRHH(
 	if expediente.Validar() != nil {
 		return DetalleExpedienteRRHH{}, ErrResultadoConsultaRRHHNoConfiable
 	}
+	personasPresentacion := expediente.Solicitud.NumeroPersonas
+	if personasPresentacion == 0 {
+		// El dato ausente de expedientes anteriores sigue la selección
+		// singular vigente. Es una pista de interfaz, no altera el agregado.
+		personasPresentacion = 1
+	}
 	detalle := DetalleExpedienteRRHH{
 		Resumen: resumenDesdeExpedienteRRHH(expediente),
 		Solicitud: SolicitudOperativaRRHH{
-			GrupoSubgrupo: expediente.Solicitud.GrupoSubgrupo,
-			MotivoClave:   expediente.Solicitud.MotivoClave,
-			PeriodoInicio: expediente.Solicitud.Periodo.Inicio,
-			PeriodoFin:    expediente.Solicitud.Periodo.Fin,
+			GrupoSubgrupo:  expediente.Solicitud.GrupoSubgrupo,
+			MotivoClave:    expediente.Solicitud.MotivoClave,
+			NumeroPersonas: personasPresentacion,
+			PeriodoInicio:  expediente.Solicitud.Periodo.Inicio,
+			PeriodoFin:     expediente.Solicitud.Periodo.Fin,
 		},
 		Hitos:   hitosDesdeExpedienteRRHH(expediente),
 		Lectura: lectura,

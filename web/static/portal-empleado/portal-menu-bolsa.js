@@ -4,7 +4,7 @@
  * Las categorías solo ordenan enlaces del router existente. No deciden
  * permisos, no cargan datos y no conservan estado en el navegador.
  */
-import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 export const RUTA_PANTALLA_CARGA_CONVOCA = `/portal-empleado/modulos/bolsa/carga-convoca/?lang=${encodeURIComponent(IDIOMA_ACTUAL)}`;
 
@@ -14,7 +14,7 @@ const VISTAS_POR_CATEGORIA = Object.freeze({
   ]),
   llamamientos: Object.freeze(["llamamientos"]),
   contratos: Object.freeze(["contratos"]),
-  reglas: Object.freeze(["reglas", "baremacion"]),
+  reglas: Object.freeze(["reglas", "reglas-situacion", "baremacion"]),
   consulta: Object.freeze(["consulta"]),
   resumen: Object.freeze(["resumen"]),
   estadisticas: Object.freeze(["estadisticas"]),
@@ -101,6 +101,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
     case "comunicaciones":
     case "baremacion":
     case "configuracion":
+    case "reglas-situacion":
     case VISTA_CANDIDATOS_BOLSA:
       return capacidades?.bolsasConsultables === true;
     case "elaboracion":
@@ -122,7 +123,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
  * el menú. Elaboración comprueba su API al abrirse por enlace.
  */
 export function vistaBolsaNavegable(vista, capacidades = {}) {
-  if (["solicitudes", "meritos", "convocatorias", "alegaciones", "importacion", "baremacion", "configuracion"].includes(vista)) return true;
+  if (["solicitudes", "meritos", "convocatorias", "alegaciones", "importacion", "baremacion", "configuracion", "reglas-situacion"].includes(vista)) return true;
   if (vista === "elaboracion") return capacidades?.borradores !== false;
   if (["documentos", "resumen", "estadisticas", "llamamientos", "comunicaciones", VISTA_CANDIDATOS_BOLSA].includes(vista)) return true;
   return vistaBolsaOfrecida(vista, capacidades);

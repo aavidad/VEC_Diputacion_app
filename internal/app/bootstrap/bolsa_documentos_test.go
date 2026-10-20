@@ -170,37 +170,34 @@ func TestDocumentosBolsaRRHHFallaCerradoAntesDeEntregar(t *testing.T) {
 	}
 }
 
-func TestDocumentosBolsaRRHHSeleccionaSoporteLectorNominal(t *testing.T) {
+// Los documentos de Bolsa solo se sirven con el soporte del alta, que es el
+// que usa la técnica. Un lector de consultas no lo alcanza aunque presente
+// su propia capacidad sellada.
+func TestDocumentosBolsaRRHHSoloSeleccionaElSoporteDelAlta(t *testing.T) {
 	sello := &selloConsultasContratacionTemporalDesarrollo{}
 	base := &soporteAltaContratacionTemporalDesarrollo{sello: sello, principalID: "rrhh_base", certificadoSHA256: strings.Repeat("a", 64)}
-	lector := &soporteAltaContratacionTemporalDesarrollo{sello: sello, principalID: "rrhh_lector", certificadoSHA256: strings.Repeat("b", 64), lectorConsultasRRHH: true, tecnicoConsultaRRHH: true}
-	lectorSinBolsa := &soporteAltaContratacionTemporalDesarrollo{sello: sello, principalID: "rrhh_consulta", certificadoSHA256: strings.Repeat("d", 64), lectorConsultasRRHH: true}
-	resolver := resolverSoporteDocumentosBolsa(base, map[string]*soporteAltaContratacionTemporalDesarrollo{lector.principalID: lector, lectorSinBolsa.principalID: lectorSinBolsa})
+	lector := &soporteAltaContratacionTemporalDesarrollo{sello: sello, principalID: "rrhh_consulta", certificadoSHA256: strings.Repeat("d", 64), lectorConsultasRRHH: true}
+	resolver := resolverSoporteDocumentosBolsa(base)
 	contexto := func(principal vecdomain.Principal, metodo, ruta string) context.Context {
 		return context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidadConsultaContratacionTemporalDesarrollo{
 			sello: sello, ruta: ruta, metodo: metodo, principal: principal,
 		})
 	}
 	ruta := rutaBolsasRRHHDesarrollo + "/bolsa:01/documentos"
-	for _, caso := range []struct {
-		soporte *soporteAltaContratacionTemporalDesarrollo
-	}{{base}, {lector}} {
-		seleccionado, err := resolver(contexto(principalDeSoportePrueba(caso.soporte), http.MethodGet, ruta))
-		if err != nil || seleccionado != caso.soporte {
-			t.Fatalf("técnico nominal %s: soporte=%p error=%v", caso.soporte.principalID, seleccionado, err)
-		}
+	if seleccionado, err := resolver(contexto(principalDeSoportePrueba(base), http.MethodGet, ruta)); err != nil || seleccionado != base {
+		t.Fatalf("técnica del alta: soporte=%p error=%v", seleccionado, err)
 	}
-	principal := principalDeSoportePrueba(lector)
+	principal := principalDeSoportePrueba(base)
 	principal.Attributes["certificate_sha256"] = strings.Repeat("c", 64)
 	if seleccionado, err := resolver(contexto(principal, http.MethodGet, ruta)); err == nil || seleccionado != nil {
 		t.Fatalf("certificado ajeno seleccionó soporte: soporte=%p error=%v", seleccionado, err)
 	}
-	principal = principalDeSoportePrueba(lectorSinBolsa)
+	principal = principalDeSoportePrueba(lector)
 	principal.Roles = []string{"lector_rrhh"}
 	if seleccionado, err := resolver(contexto(principal, http.MethodGet, ruta)); err == nil || seleccionado != nil {
 		t.Fatalf("lector sin acceso Bolsa seleccionó soporte: soporte=%p error=%v", seleccionado, err)
 	}
-	principal = principalDeSoportePrueba(lector)
+	principal = principalDeSoportePrueba(base)
 	for _, invalido := range []struct{ metodo, ruta string }{
 		{http.MethodPost, ruta}, {http.MethodGet, rutaBolsasRRHHDesarrollo + "/bolsa:01/candidatos"},
 	} {

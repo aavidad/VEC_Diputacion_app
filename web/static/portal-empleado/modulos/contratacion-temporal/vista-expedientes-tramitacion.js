@@ -1,24 +1,25 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
-import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20261008-alta-rpt-circular-v6";
-import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20261016-ct231-integracion-v1";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261011-ct-bolsa-vinculo-v1";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20261016-r1-o-integracion-v7";
+import { escaparHTML } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=VEC_WEB_VERSION";
+import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=VEC_WEB_VERSION";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=VEC_WEB_VERSION";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=VEC_WEB_VERSION";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=VEC_WEB_VERSION";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261007-pantallas-textos-final-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261013-ct-firma-tres-v3";
-import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=20261013-ct-firma-tres-v3";
-import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { rotuloFaseCabecera } from "./adaptador-http-expedientes.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=VEC_WEB_VERSION";
+import { ESQUEMA_CATALOGOS_NECESIDADES, validarCatalogosAlta } from "./contrato.js?v=VEC_WEB_VERSION";
+import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=VEC_WEB_VERSION";
 import {
   asignacionConfirmadaEnDetalle, contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js?v=20261013-ct-firma-tres-v3";
-import { montarAltaContratacionTemporal } from "./vista.js?v=20261013-ct-firma-tres-v3";
+} from "./vista-expedientes-render.js?v=VEC_WEB_VERSION";
+import { montarAltaContratacionTemporal } from "./vista.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 function enfocarElemento(raiz, selector) {
@@ -264,6 +265,20 @@ export function crearGestorTramitacion({
     }
   }
 
+  // El recibo del informe confirma que el expediente pasa al paso «Informe
+  // jurídico». La ficha no se repinta para no perder recibo e historial, así
+  // que la cabecera se pone al día aquí y no contradice lo que hay debajo.
+  function actualizarCabeceraTrasInforme(recibo) {
+    if (!esMontada() || recibo?.expediente_ref !== presentador.obtenerEstado().expediente?.expediente_ref) return;
+    const fase = raiz.querySelector("[data-ct-exp-fase-cabecera]");
+    if (fase) fase.textContent = rotuloFaseCabecera("informe_juridico", mensajes);
+  }
+
+  function alConfirmarInforme(recibo) {
+    try { actualizarCabeceraTrasInforme(recibo); } catch { /* la cabecera se actualiza al volver a la ficha */ }
+    return montarFiscalizacionDesdeInforme(recibo);
+  }
+
   function montarFiscalizacionDesdeInforme(recibo) {
     return montarFiscalizacion(Object.freeze({
       expediente_ref: recibo.expediente_ref,
@@ -474,7 +489,7 @@ export function crearGestorTramitacion({
           version_esperada: recibo.version_resultante,
         }),
         confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
-        alConfirmar: montarFiscalizacionDesdeInforme,
+        alConfirmar: alConfirmarInforme,
       });
       return true;
     } catch {

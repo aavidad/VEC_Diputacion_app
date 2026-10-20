@@ -1,4 +1,4 @@
-import { referenciaLlamamientoValida } from "./contrato-llamamiento.js";
+import { referenciaLlamamientoValida } from "./contrato-llamamiento.js?v=VEC_WEB_VERSION";
 
 export const RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE = "/api/vec/contratacion-temporal/expedientes/comunicaciones";
 export const LIMITE_PAGINA_COMUNICACIONES = 10;

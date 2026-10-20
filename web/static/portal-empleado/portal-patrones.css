@@ -30,6 +30,24 @@
 .cifra { font-variant-numeric: tabular-nums; }
 .rejilla-kpi.cuatro { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
+/* Formularios de opciones: casillas nativas, scroll propio y acción a la vista. */
+.cuerpo-formulario-compacto { display: grid; gap: 16px; max-height: min(68vh, 680px); overflow-y: auto; }
+.lista-opciones-compacta {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px;
+  min-width: 0; max-height: min(36vh, 300px); margin: 0; padding: 14px;
+  overflow-y: auto; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-md);
+}
+.lista-opciones-compacta legend { padding-inline: 6px; color: var(--portal-tinta); font-weight: 600; }
+.campo.opcion-casilla { display: flex; flex-direction: row; align-items: center; gap: 10px; min-height: 38px; font-size: 0.875rem; font-weight: 400; }
+.campo.opcion-casilla input[type="checkbox"] { flex: none; width: 20px; min-height: 20px; height: 20px; margin: 0; padding: 0; accent-color: var(--portal-azul-700); }
+.campo.opcion-casilla span { font-size: inherit; font-weight: inherit; }
+.barra-acciones-formulario { position: sticky; bottom: -18px; display: flex; justify-content: flex-end; padding: 12px 0 18px; background: var(--portal-superficie); }
+@media (max-width: 600px) {
+  .lista-opciones-compacta { grid-template-columns: minmax(0, 1fr); }
+  .cuerpo-formulario-compacto { max-height: none; }
+  .barra-acciones-formulario { position: static; padding: 0; }
+}
+
 /* Tareas pendientes: verbo + expediente + plazo, con su botón. */
 .tareas-pendientes { margin: 0; padding: 0; list-style: none; }
 .tareas-pendientes > li {
@@ -388,9 +406,11 @@
   .tabla-datos.tabla-apilable th,
   .tabla-datos.tabla-apilable td { min-width: 0; min-height: 0; padding: 3px 0; border: 0; white-space: normal; text-align: left; }
   .tabla-datos.tabla-apilable td[data-etiqueta]::before { content: attr(data-etiqueta) ": "; color: var(--portal-muted); font-size: 0.8125rem; }
+  .tabla-datos.tabla-apilable th[data-etiqueta]::before { content: attr(data-etiqueta) ": "; color: var(--portal-muted); font-size: 0.8125rem; font-weight: 400; }
   .tabla-datos.tabla-apilable td small { display: inline; margin-left: 6px; }
   .tabla-datos.tabla-apilable td .ct-exp-chip { vertical-align: middle; }
   .tabla-datos.tabla-apilable th[scope="row"] { padding-bottom: 6px; font-size: 1rem; }
+  .tabla-datos.tabla-apilable tbody th[scope="row"] { background: transparent; color: var(--portal-tinta); }
 }
 
 @media (max-width: 520px) {

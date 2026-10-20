@@ -29,7 +29,9 @@ var (
 	ErrCancelacionNoAdmitida = errors.New("contratacion temporal: cancelacion no admitida en el estado del expediente")
 	// ErrCancelacionTrasFiscalizacion: el expediente ya pasó por fiscalización.
 	ErrCancelacionTrasFiscalizacion = errors.New("contratacion temporal: cancelacion tras la fiscalizacion")
-	ErrCancelacionYaRegistrada      = errors.New("contratacion temporal: cancelacion ya registrada")
+	// ErrCancelacionConOfertaPendiente: hay una publicación CT reservada sin vínculo terminal.
+	ErrCancelacionConOfertaPendiente = errors.New("contratacion temporal: seleccion de oferta pendiente")
+	ErrCancelacionYaRegistrada       = errors.New("contratacion temporal: cancelacion ya registrada")
 )
 
 // MotivoCancelacion es una entrada vigente del catálogo de motivos, con los

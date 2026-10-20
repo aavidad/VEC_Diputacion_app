@@ -4,12 +4,13 @@ import { readFile } from "node:fs/promises";
 import {
   crearBorradorAlta, crearComandoAlta, jornadaVisibleDesdeMinutos,
   minutosDesdeJornadaVisible, validarBorradorAlta, validarCatalogosAlta,
-} from "./contrato.js?v=20261008-alta-circular-v3";
-import { crearAltaClienteHTTP } from "./cliente-http-alta.js?v=20261008-alta-circular-v3";
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=20261008-alta-circular-v3";
+  validarComandoAltaNecesidad,
+} from "./contrato.js?v=VEC_WEB_VERSION";
+import { crearAltaClienteHTTP } from "./cliente-http-alta.js?v=VEC_WEB_VERSION";
+import { crearPresentadorAltaContratacionTemporal } from "./presentador.js?v=VEC_WEB_VERSION";
 import { montarAltaContratacionTemporal, renderizarAltaContratacionTemporal,
-  seleccionarPuestoPublicadoRPT } from "./vista.js?v=20261008-alta-rpt-circular-v6";
-import { cargarMensajesNecesidadesAlta } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
+  seleccionarPuestoPublicadoRPT } from "./vista.js?v=VEC_WEB_VERSION";
+import { cargarMensajesNecesidadesAlta } from "./i18n.js?v=VEC_WEB_VERSION";
 
 const CLAVE = "12345678-1234-4abc-8def-1234567890ab";
 const HUELLA = "a".repeat(64);
@@ -393,18 +394,32 @@ test("si fallan los textos del alta se ofrece reintento sin mostrar claves cruda
   desmontar();
 });
 
-test("el alta v3 envía necesidad estructurada y conserva la clave de reintento", () => {
+test("el alta directa v2 envía necesidad estructurada y conserva la clave de reintento", async () => {
   const actual = borrador({ puesto_codigo: "217", rpt_catalogo_ref: "rpt-dipgra-2026",
     rpt_catalogo_huella_sha256: HUELLA });
   const comando = crearComandoAlta(actual, catalogos(), CLAVE);
-  assert.equal(comando.esquema, "vec.ct.alta_necesidad.v1");
+  assert.equal(comando.esquema, "vec.ct.alta_necesidad.v2");
   assert.equal(comando.clave_idempotencia, CLAVE);
   assert.equal(comando.necesidad.jornada_minutos, 2100);
   assert.equal(comando.necesidad.campos.puesto_codigo, "217");
+  assert.equal(comando.necesidad.campos.numero_personas, "1");
+  assert.equal(Object.hasOwn(comando.solicitud, "numero_personas"), false);
   assert.equal(comando.necesidad.campos.rpt_catalogo_ref, "rpt-dipgra-2026");
   assert.equal(Object.hasOwn(comando.necesidad.campos, "rpt_catalogo_version"), false);
   assert.equal(comando.solicitud.motivo_clave, "vacante");
   assert.equal(Object.hasOwn(comando.solicitud, "necesidad"), false);
+  const enviados = [];
+  const cliente = crearAltaClienteHTTP({ ejecutar: async ({ entrada }) => { enviados.push(entrada); },
+    validarOpciones: () => ({ signal: undefined }) });
+  await cliente.registrarSolicitud(comando);
+  const historico = { ...comando, esquema: "vec.ct.alta_necesidad.v1" };
+  await cliente.registrarSolicitud(historico);
+  assert.deepEqual(enviados.map(({ esquema }) => esquema),
+    ["vec.ct.alta_necesidad.v2", "vec.ct.alta_necesidad.v1"]);
+  assert.deepEqual(validarComandoAltaNecesidad(historico), historico);
+  assert.throws(() => validarComandoAltaNecesidad({ ...comando,
+    necesidad: { ...comando.necesidad, campos: { ...comando.necesidad.campos,
+      numero_personas: undefined } } }));
 });
 
 test("la consulta v2 solo usa la ruta declarada y no degrada un fallo", async () => {

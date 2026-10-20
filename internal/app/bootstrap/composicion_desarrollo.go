@@ -361,7 +361,7 @@ func nuevoServidorDesarrollo(
 		} else {
 			anterior := cerrarContratacion
 			cerrarContratacion = func() { detener(); anterior() }
-			resolver := resolverSoporteDocumentosBolsa(autoridadContratacion.soporteDocumentosBolsa, autoridadContratacion.soportesLectoresDocumentosBolsa)
+			resolver := resolverSoporteDocumentosBolsa(autoridadContratacion.soporteDocumentosBolsa)
 			fuenteConstituida.controlDocumentos = nuevoControlLecturaDocumentosBolsa(
 				resolver, nuevoAuditorDocumentosBolsa(resolver, registrador, proceso, autoridadContratacion.registradorAuditoriaFronteraRutasExactas))
 		}
@@ -528,6 +528,16 @@ func nuevoServidorDesarrollo(
 			cerrarJustificanteRRHH()
 		}
 	}()
+	preferenciasBolsasInternas, cerrarPreferenciasBolsasInternas := nuevaRutaPreferenciasBolsasInternas(cfg,
+		identidadPersonal, usuariosPreferencias, autoridadContratacion.materialPreferenciasBolsasInternas)
+	defer func() {
+		if !completa {
+			cerrarPreferenciasBolsasInternas()
+		}
+	}()
+	if preferenciasBolsasInternas != nil {
+		rutasContratacion = append(rutasContratacion, *preferenciasBolsasInternas)
+	}
 	bolsaPersonal, inscripcionExterna, cerrarInscripcionExterna, err := nuevasRutasBolsaPersonalCombinado(cfg, identidadPersonal, emisor)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("inscripcion_bolsa_externa", err)
@@ -650,6 +660,7 @@ func nuevoServidorDesarrollo(
 	}
 	servidor.RegisterOnShutdown(cerrarInscripcionExterna)
 	servidor.RegisterOnShutdown(cerrarJustificanteRRHH)
+	servidor.RegisterOnShutdown(cerrarPreferenciasBolsasInternas)
 	if personalEmpleado != nil {
 		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
 	}

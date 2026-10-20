@@ -5,7 +5,7 @@ import {
   ErrorClienteHTTPContratacionTemporal,
   RUTAS_HTTP_CONTRATACION_TEMPORAL,
   crearClienteHTTPContratacionTemporal,
-} from "./cliente-http.js?v=20261008-alta-circular-v3";
+} from "./cliente-http.js?v=VEC_WEB_VERSION";
 import {
   liberaBloqueoResultadoCobertura,
   validarPropuestaCobertura,
@@ -488,6 +488,7 @@ test("el inventario expone las rutas compuestas y los cinco flujos previos sigue
     "/api/vec/contratacion-temporal/expedientes/consultas",
     "/api/vec/contratacion-temporal/catalogos-alta",
     "/api/vec/contratacion-temporal/llamamientos/seleccion",
+    "/api/vec/contratacion-temporal/llamamientos/seleccion/estado",
     "/api/vec/contratacion-temporal/llamamientos/comunicaciones",
     "/api/vec/contratacion-temporal/llamamientos/respuestas/registro",
     "/api/vec/contratacion-temporal/llamamientos/plazos/eventos",

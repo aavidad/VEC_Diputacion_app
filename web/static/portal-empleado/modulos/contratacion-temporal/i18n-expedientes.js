@@ -1,11 +1,11 @@
 /** Textos castellanos de la superficie de expedientes de contratación temporal. */
-import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=20261007-pantallas-textos-final-v1";
-import { mensajesTramite } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js?v=20261007-pantallas-textos-final-v1";
-import { MENSAJES_ANALISIS_CATALOGO_ES, MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20261007-pantallas-textos-final-v1";
+import { MENSAJES_FIRMA_INCORPORACION } from "./i18n-firma-incorporacion-datos.js?v=VEC_WEB_VERSION";
+import { mensajesTramite } from "./i18n-fases-rrhh.js?v=VEC_WEB_VERSION";
+import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js?v=VEC_WEB_VERSION";
+import { MENSAJES_ANALISIS_CATALOGO_ES, MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=VEC_WEB_VERSION";
 import { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
-import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=20261007-pantallas-textos-final-v1";
-import { cargarMensajesTramiteEnIdioma } from "./i18n-fases-rrhh.js?v=20261007-pantallas-textos-final-v1";
+import { cargarCatalogosContratacionEnIdioma } from "./i18n-catalogos.js?v=VEC_WEB_VERSION";
+import { cargarMensajesTramiteEnIdioma } from "./i18n-fases-rrhh.js?v=VEC_WEB_VERSION";
 
 const MENSAJES_EXPEDIENTES_CONTRATACION_ES_BASE = Object.freeze({
   ...mensajesTramite(),
@@ -181,6 +181,9 @@ const MENSAJES_EXPEDIENTES_CONTRATACION_ES_BASE = Object.freeze({
   hito_cierre_expediente: "Expediente cerrado tras el cese",
   hito_cancelacion_expediente: "Expediente cancelado",
   hito_modificacion_nombramiento: "Fechas o jornada modificadas tras el nombramiento",
+  hito_no_incorporacion_propuesta: "Propuesta de no incorporación registrada",
+  hito_no_incorporacion: "No incorporación confirmada",
+  hito_no_incorporacion_rechazo: "Propuesta de no incorporación rechazada",
   subsanacion_registrada_pendiente_fiscalizacion: "Subsanación registrada. Pendiente de nueva fiscalización; no es necesario volver a enviarla.",
   hito_subsanacion_reparo: "Subsanación del reparo registrada",
   historial_hitos_titulo: "Historial de actuaciones",
@@ -518,6 +521,9 @@ const MENSAJES_EXPEDIENTES_CONTRATACION_EN_BASE = Object.freeze({
   hito_cierre_expediente: "Case file closed after the end of employment",
   hito_cancelacion_expediente: "Case file cancelled",
   hito_modificacion_nombramiento: "Dates or working hours changed after appointment",
+  hito_no_incorporacion_propuesta: "Failure to take up post proposed",
+  hito_no_incorporacion: "Failure to take up post confirmed",
+  hito_no_incorporacion_rechazo: "Failure to take up post proposal rejected",
   subsanacion_registrada_pendiente_fiscalizacion: "Correction recorded. Awaiting a new financial review; it does not need to be submitted again.",
   hito_subsanacion_reparo: "Correction of the objection recorded",
   historial_hitos_titulo: "Action history",

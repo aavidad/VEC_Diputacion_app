@@ -1,10 +1,9 @@
 /** Montaje aislado de la superficie de fiscalización de contratación temporal. */
 
-import { escaparHTML } from "./componentes-expedientes.js?v=20261013-ct-firma-tres-v3";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20261011-ct-bolsa-vinculo-v1";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20261016-ct231-integracion-v1";
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20261008-alta-rpt-circular-v6";
-import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=20261002-ct-fin-modalidad-v1";
+import { escaparHTML } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=VEC_WEB_VERSION";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
+import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js?v=VEC_WEB_VERSION";
 
 export function montarModuloFiscalizacionContratacionTemporal({
   raiz,
@@ -14,6 +13,8 @@ export function montarModuloFiscalizacionContratacionTemporal({
   confirmarOperacion = () => false,
   locale = "es-ES",
   zonaHoraria = "Europe/Madrid",
+  expedienteRef = "",
+  expedienteVersion = null,
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.querySelector !== "function"
@@ -22,9 +23,14 @@ export function montarModuloFiscalizacionContratacionTemporal({
     throw new TypeError("dependencias de fiscalización no válidas");
   }
   const t = crearTraductorContratacionTemporal(mensajes);
+  // Un enlace de expediente y versión rellena el acceso; si no es íntegro, se
+  // deja vacío para que Intervención lo escriba.
+  const precarga = typeof expedienteRef === "string" && PATRON_REFERENCIA.test(expedienteRef)
+    && Number.isSafeInteger(expedienteVersion) && expedienteVersion >= 1
+    ? { referencia: ` value="${escaparHTML(expedienteRef)}"`, version: ` value="${expedienteVersion}"` }
+    : { referencia: "", version: "" };
   let montado = true;
   let desmontarFormulario = null;
-  let desmontarLlamamiento = null;
   raiz.innerHTML = `<section class="ct-expedientes" data-modulo="contratacion-temporal"
     aria-labelledby="ct-fiscalizacion-acceso-titulo">
     <header class="ct-exp-cabecera">
@@ -36,12 +42,12 @@ export function montarModuloFiscalizacionContratacionTemporal({
       <div class="ct-campo">
         <label for="ct-fiscalizacion-expediente">${escaparHTML(t("fiscalizacion_contexto_expediente"))}</label>
         <input id="ct-fiscalizacion-expediente" name="expediente_ref"
-          type="text" maxlength="160" autocomplete="off" required>
+          type="text" maxlength="160" autocomplete="off" required${precarga.referencia}>
       </div>
       <div class="ct-campo">
         <label for="ct-fiscalizacion-version">${escaparHTML(t("fiscalizacion_version_remitida"))}</label>
         <input id="ct-fiscalizacion-version" name="version_esperada"
-          type="number" min="1" step="1" required>
+          type="number" min="1" step="1" required${precarga.version}>
       </div>
       <div class="ct-acciones">
         <button class="boton-primario" type="submit">${escaparHTML(t("fiscalizacion_acceso_abrir"))}</button>
@@ -70,9 +76,10 @@ export function montarModuloFiscalizacionContratacionTemporal({
       formulario.reportValidity?.();
       return;
     }
+    // Intervención solo registra su resultado y ve el recibo; el llamamiento
+    // es de RRHH y se abre desde la ficha del expediente.
     raiz.innerHTML = `<section class="ct-expedientes" data-modulo="contratacion-temporal">
       <div data-ct-exp-fiscalizacion></div>
-      <div data-ct-exp-llamamiento></div>
     </section>`;
     const contenedor = raiz.querySelector("[data-ct-exp-fiscalizacion]");
     desmontarFormulario = montarFormularioFiscalizacion({
@@ -89,25 +96,6 @@ export function montarModuloFiscalizacionContratacionTemporal({
       locale,
       zonaHoraria,
       anunciar,
-      alConfirmar: (recibo) => {
-        // Solo la fiscalización que deja el expediente en fiscalización abre
-        // el llamamiento; la de una modificación vuelve al nombramiento.
-        if (recibo.resultado === "desfavorable" || recibo.fase_resultante !== "fiscalizacion"
-          || recibo.version_resultante < 6
-          || desmontarLlamamiento !== null || ![
-            "seleccionarLlamamiento",
-            "registrarComunicacionLlamamiento",
-            "registrarRespuestaRecibida",
-            "resolverLlamamiento",
-            "continuarLlamamiento",
-          ].every((metodo) => typeof cliente[metodo] === "function")) return;
-        desmontarLlamamiento = montarFormularioLlamamiento({
-          raiz: raiz.querySelector("[data-ct-exp-llamamiento]"), cliente,
-          contexto: { expediente_ref: recibo.expediente_ref,
-            version_esperada: recibo.version_resultante },
-          confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
-        });
-      },
     });
   }
 
@@ -124,7 +112,6 @@ export function montarModuloFiscalizacionContratacionTemporal({
       if (!montado) return;
       montado = false;
       if (typeof desmontarFormulario === "function") desmontarFormulario();
-      desmontarLlamamiento?.();
       raiz.removeEventListener("input", manejarEdicion);
       raiz.removeEventListener("submit", manejarEnvio);
     },

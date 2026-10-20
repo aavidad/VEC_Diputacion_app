@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa, validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20261001-ct-a-i18n-v1";
-import { validarCandidato } from "./portal-bolsas-contrato.js?v=20261001-ct-a-i18n-v1";
-import { consultarSeleccionMasivaBolsa, seleccionarParticipacionesPorEstado } from "./portal-bolsas-api.js?v=20261015-firma-ofertas-justificante-integracion-v2";
+import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa, validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=VEC_WEB_VERSION";
+import { validarCandidato } from "./portal-bolsas-contrato.js?v=VEC_WEB_VERSION";
+import { consultarSeleccionMasivaBolsa, seleccionarParticipacionesPorEstado } from "./portal-bolsas-api.js?v=VEC_WEB_VERSION";
 
 const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 const marcasCompletas = { presta_servicios: "excluir", en_revision: "renuncia_pendiente", encadenamiento: { dias_acumulados: 578, umbral_meses: 18, ventana_meses: 24 } };
@@ -52,7 +52,7 @@ test("una respuesta de Mi bolsa sin reflejar se rotula y deja a la persona sin t
     assert.equal(validarMarcasCandidato({ presta_servicios: null, en_revision: motivo, encadenamiento: null }).en_revision, motivo);
   }
   const ficha = renderizarMarcasFicha({ marcas: { presta_servicios: null, en_revision: "aceptacion_pendiente", encadenamiento: null } }, escapar);
-  assert.match(ficha, /Revisión pendiente[\s\S]*Ha aceptado en «Mi bolsa»\. Confírmelo con «Cambiar situación»/);
+  assert.match(ficha, /Revisión pendiente[\s\S]*Ha aceptado en «Mi bolsa»\. Pulse «Confirmar aceptación del llamamiento»/);
   const chips = renderizarChipsMarcas({ marcas: { presta_servicios: null, en_revision: "renuncia_pendiente", encadenamiento: null } }, escapar);
   assert.match(chips, /En revisión/);
   assert.match(chips, /Ha renunciado en «Mi bolsa»/);

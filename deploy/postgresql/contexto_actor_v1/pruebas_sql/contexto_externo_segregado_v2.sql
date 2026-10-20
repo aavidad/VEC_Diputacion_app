@@ -44,6 +44,38 @@ BEGIN
  IF NOT vec_contexto_actor_v1.acreditar_perfil_usuarios_externo_v1('cta_ctx15_sintetico_00000000002','per_ctx15_sintetico_00000000001','prf_ctx15_sintetico_00000000002') THEN RAISE EXCEPTION 'AUT17 no acredita propia'; END IF;
 END $prueba$;
 RESET ROLE;
+SET LOCAL ROLE vec_autorizacion_propietario;
+DO $acreditacion_consumidor$
+BEGIN
+ IF vec_contexto_actor_v1.acreditar_candidato_externo_v1(
+   'per_ctx15_sintetico_00000000001','prf_ctx15_sintetico_00000000001',
+   'can_ctx15_sintetico_000000000001') IS NOT TRUE THEN
+  RAISE EXCEPTION 'AUT16 no acredita propia como consumidor';
+ END IF;
+ -- Conserva las negativas de identidad cruzada de la provisión retirada.
+ IF vec_contexto_actor_v1.acreditar_candidato_externo_v1(
+   'per_ctx15_sintetico_00000000001','prf_ctx15_sintetico_00000000002',
+   'can_ctx15_sintetico_000000000001') THEN
+  RAISE EXCEPTION 'AUT16 acredita perfil cruzado';
+ END IF;
+ IF vec_contexto_actor_v1.acreditar_candidato_externo_v1(
+   'per_ctx15_ajena_00000000000001','prf_ctx15_sintetico_00000000001',
+   'can_ctx15_sintetico_000000000001') THEN
+  RAISE EXCEPTION 'AUT16 acredita persona cruzada';
+ END IF;
+ IF pg_catalog.has_function_privilege('vec_contexto_actor_v1_candidato_externo',
+     'vec_contexto_actor_v1.acreditar_candidato_externo_v1(text,text,text)','EXECUTE')
+ OR pg_catalog.has_function_privilege('vec_contexto_actor_v1_runtime',
+     'vec_contexto_actor_v1.acreditar_candidato_externo_v1(text,text,text)','EXECUTE')
+ OR EXISTS (
+   SELECT 1 FROM pg_catalog.pg_proc p
+   CROSS JOIN LATERAL pg_catalog.aclexplode(
+     coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+   WHERE p.oid='vec_contexto_actor_v1.acreditar_candidato_externo_v1(text,text,text)'::regprocedure
+     AND a.grantee=0)
+ THEN RAISE EXCEPTION 'AUT16: ACL de acreditación externa abierta'; END IF;
+END $acreditacion_consumidor$;
+RESET ROLE;
 SET LOCAL SESSION AUTHORIZATION prueba_ctx15_candidato;
 SELECT * FROM vec_contexto_actor_v1.acreditar_runtime_candidato_externo_v1();
 SELECT clock_timestamp() AS solicitado \gset
@@ -96,5 +128,15 @@ BEGIN
  IF (SELECT count(*) FROM vec_contexto_actor_v1.contexto_externo_versiones WHERE provision_ref=s.provision_ref)<>2 THEN RAISE EXCEPTION 'perdió historia externa'; END IF;
 END $recibo_y_revocacion$;
 RESET ROLE;
-ROLLBACK;
+-- Solo el ensayo concurrente, dentro de su contenedor desechable, conserva
+-- caso2/v1. Toda ejecución ordinaria mantiene el ROLLBACK histórico.
+\if :{?ctx15_persistir_para_concurrencia}
+ \if :ctx15_persistir_para_concurrencia
+  COMMIT;
+ \else
+  ROLLBACK;
+ \endif
+\else
+ ROLLBACK;
+\endif
 \echo CTX15-PRUEBA-OK

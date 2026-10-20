@@ -1,6 +1,7 @@
-import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js?v=20261004-r5-recuperacion-v1";
+import { crearTraductorRecuperacionFirmasV2 } from "./i18n-recuperacion-firmas-v2.js?v=VEC_WEB_VERSION";
 
 let siguientePanel = 0;
+const REFERENCIA_RECIBO = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 
 function localizacionValida(valor) {
   if (typeof valor !== "string") return false;
@@ -14,24 +15,15 @@ function elemento(doc, etiqueta, clase = "", texto = "") {
   return nodo;
 }
 
-function par(doc, lista, etiqueta, valor) {
-  if (!valor) return;
-  const fila = elemento(doc, "div");
-  fila.append(elemento(doc, "dt", "", etiqueta));
-  const dato = elemento(doc, "dd");
-  dato.append(elemento(doc, "code", "", String(valor)));
-  fila.append(dato);
-  lista.append(fila);
-}
-
 // El selector procede de un consumidor CT confiable. Esta hoja no contiene
 // formulario ni reconstruye claves desde el expediente o la identidad.
 export function montarVistaRecuperacionFirmasV2({
-  raiz, cliente, obtenerSolicitud, locale, zonaHoraria,
+  raiz, cliente, obtenerSolicitud, firmaRef = null, integrada = false, locale, zonaHoraria,
   mensajes,
 } = {}) {
   if (!raiz || typeof raiz.replaceChildren !== "function"
     || typeof cliente?.recuperar !== "function" || typeof obtenerSolicitud !== "function"
+    || (firmaRef !== null && (typeof firmaRef !== "string" || firmaRef.length === 0))
     || !localizacionValida(locale)
     || typeof zonaHoraria !== "string" || zonaHoraria.length === 0) {
     throw new TypeError("vista_recuperacion_firmas_no_disponible");
@@ -47,20 +39,21 @@ export function montarVistaRecuperacionFirmasV2({
   let generacion = 0;
   const identificador = "ct-recuperacion-firmas-" + (++siguientePanel);
 
-  const panel = elemento(doc, "section", "panel");
+  const panel = elemento(doc, integrada ? "div" : "section", integrada ? "" : "panel");
   panel.classList.add("ct-recuperacion-firmas");
   panel.dataset.ctRecuperacionFirmasV2 = "";
-  panel.setAttribute("aria-labelledby", identificador);
-  const cabecera = elemento(doc, "div", "cabecera-panel");
+  if (!integrada) panel.setAttribute("aria-labelledby", identificador);
+  const cabecera = elemento(doc, "div", integrada ? "" : "cabecera-panel");
   const textosCabecera = elemento(doc, "div");
-  const titulo = elemento(doc, "h3", "", t("titulo"));
+  const titulo = elemento(doc, integrada ? "h5" : "h3", "", t("titulo"));
   titulo.id = identificador;
-  textosCabecera.append(titulo, elemento(doc, "p", "", t("descripcion")));
+  textosCabecera.append(titulo);
   cabecera.append(textosCabecera);
-  const cuerpo = elemento(doc, "div", "cuerpo-panel");
+  const cuerpo = elemento(doc, "div", integrada ? "" : "cuerpo-panel");
   const consultar = elemento(doc, "button", "boton-secundario", t("consultar"));
   consultar.type = "button";
   consultar.dataset.ctRecuperacionAccion = "consultar";
+  consultar.hidden = integrada;
   const cancelar = elemento(doc, "button", "boton-secundario", t("cancelar"));
   cancelar.type = "button";
   cancelar.dataset.ctRecuperacionAccion = "cancelar";
@@ -70,8 +63,9 @@ export function montarVistaRecuperacionFirmasV2({
   estado.setAttribute("aria-live", "polite");
   const lista = elemento(doc, "div");
   lista.dataset.ctRecuperacionResultado = "";
-  cuerpo.append(consultar, cancelar, estado, lista, elemento(doc, "p", "", t("limite")));
-  panel.append(cabecera, cuerpo);
+  cuerpo.append(consultar, cancelar, estado, lista);
+  if (!integrada) panel.append(cabecera);
+  panel.append(cuerpo);
   raiz.replaceChildren(panel);
 
   function limpiar() {
@@ -80,16 +74,17 @@ export function montarVistaRecuperacionFirmasV2({
 
   function mostrar(resultado) {
     limpiar();
-    if (resultado.firmas.length === 0) {
+    const firmas = firmaRef === null ? resultado.firmas : resultado.firmas.filter((firma) => firma.firma_ref === firmaRef);
+    if (firmas.length === 0) {
       estado.textContent = t("vacio");
       return;
     }
     estado.textContent = "";
     const filas = elemento(doc, "div");
-    for (const [indice, firma] of resultado.firmas.entries()) {
-      const fila = elemento(doc, "article", "ct-exp-documento");
-      fila.append(elemento(doc, "h4", "", t("firma", { numero: indice + 1 })));
-      const resumen = elemento(doc, "dl", "ct-resumen");
+    for (const firma of firmas) {
+      const fila = elemento(doc, integrada ? "div" : "article", integrada ? "" : "ct-exp-documento");
+      if (!integrada) fila.append(elemento(doc, "h4", "", t("firma", { numero: firma.paso_orden })));
+      const resumen = elemento(doc, "dl", integrada ? "datos-clave" : "ct-resumen");
       const registrada = elemento(doc, "div");
       registrada.append(elemento(doc, "dt", "", t("fecha")));
       const dd = elemento(doc, "dd");
@@ -99,18 +94,9 @@ export function montarVistaRecuperacionFirmasV2({
       registrada.append(dd);
       resumen.append(registrada);
       fila.append(resumen, elemento(doc, "p", "", t(firma.resultado === "firmado" ? "firmado" : "devuelto")));
-      const tecnicos = elemento(doc, "details");
-      tecnicos.append(elemento(doc, "summary", "", t("detalle_tecnico")));
-      const referencias = elemento(doc, "dl", "ct-resumen");
-      par(doc, referencias, t("recibo"), firma.recibo_ref);
-      par(doc, referencias, t("paso"), firma.paso_orden);
-      par(doc, referencias, t("firma_ref"), firma.firma_ref);
-      par(doc, referencias, t("revision_sha256"), firma.revision_sha256);
-      par(doc, referencias, t("material_root_sha256"), firma.material_root_sha256);
-      par(doc, referencias, t("canon_nominal_sha256"), firma.canon_nominal_sha256);
-      par(doc, referencias, t("canon_nominal_ref"), firma.canon_nominal_ref);
-      tecnicos.append(referencias);
-      fila.append(tecnicos);
+      if (typeof firma.recibo_ref === "string" && REFERENCIA_RECIBO.test(firma.recibo_ref)) {
+        fila.append(elemento(doc, "p", "", t("recibo_con_valor")));
+      }
       filas.append(fila);
     }
     lista.append(filas);
@@ -140,6 +126,9 @@ export function montarVistaRecuperacionFirmasV2({
       if (!montada || generacion !== turno || activo.signal.aborted) return null;
       const resultado = await cliente.recuperar(solicitud, { signal: activo.signal });
       if (!montada || generacion !== turno || activo.signal.aborted) return null;
+      if (firmaRef !== null && !resultado.firmas.some((firma) => firma.firma_ref === firmaRef)) {
+        throw new TypeError("firma_recuperada_ajena");
+      }
       mostrar(resultado);
       return resultado;
     } catch (error) {

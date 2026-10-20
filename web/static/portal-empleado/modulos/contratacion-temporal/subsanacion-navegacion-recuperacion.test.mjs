@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20261008-alta-rpt-circular-v6";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=VEC_WEB_VERSION";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=VEC_WEB_VERSION";
 
 const A = "expediente:subsanacion:A01";
 const B = "expediente:subsanacion:B02";

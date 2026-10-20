@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=20261014-ginpix-personal-b2-v1";
-import { RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=20261014-ginpix-personal-b2-v1";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js?v=VEC_WEB_VERSION";
+import { RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js?v=VEC_WEB_VERSION";
 import { consultaB2GINPIX, ficheroB2GINPIX } from "./ficha-ginpix-fixture.mjs";
 
 const consulta = consultaB2GINPIX();

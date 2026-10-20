@@ -1,0 +1,11 @@
+{
+  "definicion_ref": "politica:ct:subsanacion-desarrollo:20260912",
+  "definicion_version": 1,
+  "definicion_huella_sha256": "7894f26af32a4ae674fcce2322fb996c00d756507699ea8fe36942f02ec218fc",
+  "motivo_autorizacion": {
+    "catalogo_id": "motivos_autorizacion_subsanacion_desarrollo",
+    "catalogo_version": 1,
+    "catalogo_huella_sha256": "1fb4a852a539d580a166c7e28f3e23064928892009aca44bc3c689e65958ae66",
+    "entrada_clave": "motivo_ed839d5336239d1ca3eb79b5ee3370a3"
+  }
+}

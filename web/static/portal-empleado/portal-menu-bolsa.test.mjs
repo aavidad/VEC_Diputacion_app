@@ -13,7 +13,7 @@ import {
   sincronizarMenuBolsa,
   vistaBolsaPendienteNoCompuesta,
   vistaBolsaOfrecida,
-} from "./portal-menu-bolsa.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-menu-bolsa.js?v=VEC_WEB_VERSION";
 
 test("Auditoría RRHH se abre sin partir de una ficha", () => {
   assert.equal(vistaBolsaOfrecida("auditoria", { panelInterno: true }), false);
@@ -24,6 +24,14 @@ test("Auditoría RRHH se abre sin partir de una ficha", () => {
 test("Reglas de cese solo se ofrecen tras su consulta V3 positiva", () => {
   assert.equal(vistaBolsaOfrecida("reglas", { panelInterno: true }), false);
   assert.equal(vistaBolsaOfrecida("reglas", { politicaCese: true }), true);
+});
+
+test("reglas de situación se ofrecen con Bolsa consultable y conservan la vista de cese", () => {
+  assert.equal(vistaBolsaOfrecida("reglas-situacion", { bolsasConsultables: false }), false);
+  assert.equal(vistaBolsaOfrecida("reglas-situacion", { bolsasConsultables: true }), true);
+  assert.ok(VISTAS_INTERNAS_BOLSA.includes("reglas"));
+  assert.ok(VISTAS_INTERNAS_BOLSA.includes("reglas-situacion"));
+  assert.equal(categoriaDeVistaBolsa("reglas-situacion"), "reglas");
 });
 
 test("P-WEB-14 no anuncia un total mientras Bolsa sigue comprobando", () => {
@@ -138,15 +146,15 @@ test("el menú agrupa solo las rutas de gestión con superficie conservada", () 
   const vistas = [
     "resumen", "elaboracion", "convocatorias", "solicitudes", "meritos", "baremacion",
     "alegaciones", "importacion", "llamamientos", "contratos", "documentos",
-    "comunicaciones", "estadisticas", "auditoria", "configuracion", "reglas", "consulta",
+    "comunicaciones", "estadisticas", "auditoria", "configuracion", "reglas", "reglas-situacion", "consulta",
   ];
   const vistasMapeadas = Object.values(CATEGORIAS_MENU_BOLSA).flat();
   const fragmentoMenu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
   const vistasEnPlantilla = [...fragmentoMenu.matchAll(/data-vista="([a-z-]+)"/g)].map((item) => item[1]);
-  assert.equal(vistasMapeadas.length, 17);
-  assert.equal(new Set(vistasMapeadas).size, 17, "cada vista debe pertenecer a una sola categoría");
+  assert.equal(vistasMapeadas.length, 18);
+  assert.equal(new Set(vistasMapeadas).size, 18, "cada vista debe pertenecer a una sola categoría");
   assert.deepEqual([...vistasMapeadas].sort(), [...vistas].sort());
-  assert.equal(vistasEnPlantilla.length, 17);
+  assert.equal(vistasEnPlantilla.length, 18);
   assert.deepEqual([...vistasEnPlantilla].filter((vista) => vistas.includes(vista)).sort(), [
     ...vistas,
   ].sort());
@@ -164,10 +172,10 @@ test("el menú agrupa solo las rutas de gestión con superficie conservada", () 
   }
 });
 
-test("B5 completa las dieciocho vistas internas sin duplicar su enlace", () => {
+test("B5 completa las diecinueve vistas internas sin duplicar su enlace", () => {
   const vistasMenu = Object.values(CATEGORIAS_MENU_BOLSA).flat();
-  assert.equal(vistasMenu.length, 17);
-  assert.equal(VISTAS_INTERNAS_BOLSA.length, 18);
+  assert.equal(vistasMenu.length, 18);
+  assert.equal(VISTAS_INTERNAS_BOLSA.length, 19);
   assert.equal(VISTAS_INTERNAS_BOLSA.filter((vista) => vista === VISTA_CANDIDATOS_BOLSA).length, 1);
   assert.equal(categoriaDeVistaBolsa(VISTA_CANDIDATOS_BOLSA), "bolsas-candidatos");
   assert.doesNotMatch(html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "", /data-vista="bolsa-candidatos"/);
@@ -456,7 +464,7 @@ test("el llamamiento conserva B7 y monta gestión de ofertas solo tras elegir bo
 });
 
 test("Atrás durante un envío incierto vuelve a gestión sin sustituir la entrada del llamamiento", () => {
-  const inicio = codigoPortal.indexOf("function compensarHistorialGestionOfertas() {");
+  const inicio = codigoPortal.indexOf("function compensarHistorialGestionOfertas(");
   const fin = codigoPortal.indexOf("\nfunction actualizarSalidaGestionOfertasBolsa()", inicio);
   assert.ok(inicio > 0 && fin > inicio);
   const compensador = codigoPortal.slice(inicio, fin);
@@ -497,7 +505,7 @@ test("Atrás durante un envío incierto vuelve a gestión sin sustituir la entra
 test("enlace directo crea A/B y Forward incierto vuelve a B sin destruir C", () => {
   const inicioAsegurar = codigoPortal.indexOf("function asegurarHistorialGestionOfertas() {");
   const finAsegurar = codigoPortal.indexOf("\nfunction cerrarGestionOfertasBolsa()", inicioAsegurar);
-  const inicioCompensar = codigoPortal.indexOf("function compensarHistorialGestionOfertas() {");
+  const inicioCompensar = codigoPortal.indexOf("function compensarHistorialGestionOfertas(");
   const finCompensar = codigoPortal.indexOf("\nfunction actualizarSalidaGestionOfertasBolsa()", inicioCompensar);
   assert.ok(inicioAsegurar > 0 && finAsegurar > inicioAsegurar && inicioCompensar > 0 && finCompensar > inicioCompensar);
   const origen = "/portal-empleado/#bolsa/llamamientos";

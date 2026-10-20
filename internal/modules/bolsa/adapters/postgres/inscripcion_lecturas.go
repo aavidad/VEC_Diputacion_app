@@ -270,6 +270,7 @@ func (r *RepositorioInscripcionesPostgreSQL) DetalleAbierta(ctx context.Context,
 
 func validarBolsaAbiertaInscripcion(b inscripcion.BolsaAbierta, detalle bool) error {
 	if b.ConvocatoriaRef == "" || b.Titulo == "" || b.NumeroCategorias < 1 || b.NumeroCategorias > 128 ||
+		!b.ModalidadInscripcion.ValidaParaPublicar() ||
 		b.CatalogoVersion == 0 || b.PlazoInicio.IsZero() || !b.PlazoFin.After(b.PlazoInicio) ||
 		b.RequisitosResumen == "" || (b.EstadoPropio == nil) != (b.SolicitudRef == nil) ||
 		!b.PuedeIniciar && b.ImpedimentoEtiqueta == "" {
@@ -290,7 +291,21 @@ func validarBolsaAbiertaInscripcion(b inscripcion.BolsaAbierta, detalle bool) er
 			}
 			vistas[categoria.CategoriaRef] = struct{}{}
 		}
-	} else if len(b.Categorias) != 0 {
+		// Cada solicitud propia pertenece a una categoría publicada distinta.
+		if len(b.SolicitudesPropias) > len(b.Categorias) {
+			return inscripcion.ErrNoDisponible
+		}
+		propias := make(map[string]struct{}, len(b.SolicitudesPropias))
+		for _, propia := range b.SolicitudesPropias {
+			_, publicada := vistas[propia.CategoriaRef]
+			_, repetida := propias[propia.CategoriaRef]
+			if !publicada || repetida || propia.SolicitudRef == "" || len(propia.SolicitudRef) > 200 ||
+				propia.Estado == "" || len(propia.Estado) > 64 {
+				return inscripcion.ErrNoDisponible
+			}
+			propias[propia.CategoriaRef] = struct{}{}
+		}
+	} else if len(b.Categorias) != 0 || len(b.SolicitudesPropias) != 0 {
 		return inscripcion.ErrNoDisponible
 	}
 	return nil

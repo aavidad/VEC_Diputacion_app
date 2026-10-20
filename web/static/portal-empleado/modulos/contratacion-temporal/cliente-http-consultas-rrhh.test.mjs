@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   crearClienteHTTPContratacionTemporal,
   RUTAS_HTTP_CONTRATACION_TEMPORAL,
-} from "./cliente-http.js?v=20261008-alta-circular-v3";
+} from "./cliente-http.js?v=VEC_WEB_VERSION";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",
@@ -46,6 +46,7 @@ test("consulta cuadro y detalle por las rutas reales sin credenciales del navega
       solicitud: {
         grupo_subgrupo: "A2",
         motivo_clave: "sustitucion",
+        numero_personas: 2,
         periodo_inicio: "2026-09-04T00:00:00Z",
         periodo_fin: "2026-12-31T00:00:00Z",
       },
@@ -81,6 +82,7 @@ test("consulta cuadro y detalle por las rutas reales sin credenciales del navega
 
   assert.equal(pagina.expedientes[0].expediente_ref, resumen.expediente_ref);
   assert.equal(detalle.resumen.version, 1);
+  assert.equal(detalle.solicitud.numero_personas, 2);
   assert.deepEqual(llamadas.map(({ ruta }) => ruta), [
     "/api/vec/contratacion-temporal/cuadro/consultas",
     "/api/vec/contratacion-temporal/expedientes/consultas",
@@ -312,4 +314,33 @@ test("el resumen de la portada se pide con un indicador cerrado y se valida", as
   ]) {
     await assert.rejects(async () => cliente(malo).consultarCuadroRRHH(solicitud), undefined, JSON.stringify(malo));
   }
+});
+
+test("la ficha HTTP distingue contrato antiguo y selectores cerrados de la lectura ampliada", async () => {
+  const selector = { firma_ref: "firma:ct:original", selector: {
+    expediente_ref: resumen.expediente_ref, version_expediente: 1, documento: "resolucion",
+    paso_orden: 3, clave_idempotencia: "operacion-original-1234", catalogo_huella: "a".repeat(64), via: "certificado_vec",
+  } };
+  for (const selectores of [undefined, [], [selector]]) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data: {
+      esquema: "vec.contratacion-temporal.detalle-rrhh.v1", resumen,
+      solicitud: { grupo_subgrupo: "A2", motivo_clave: "sustitucion",
+        periodo_inicio: "2026-09-04T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z" }, hitos: [],
+      ...(selectores === undefined ? {} : { selectores_recuperacion_firmas: selectores, recibo_selectores_recuperacion_firmas: {
+        acceso_ref: "acceso:ct:original", sello_detalle_sha256: "a".repeat(64), sello_selectores_sha256: "b".repeat(64),
+      } }),
+    } }) });
+    const detalle = await cliente.consultarDetalleRRHH({ expediente_ref: resumen.expediente_ref, version_observada: 0 });
+    assert.equal(Object.hasOwn(detalle, "selectores_recuperacion_firmas"), selectores !== undefined);
+    assert.deepEqual(detalle.selectores_recuperacion_firmas, selectores);
+  }
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data: {
+    esquema: "vec.contratacion-temporal.detalle-rrhh.v1", resumen,
+    solicitud: { grupo_subgrupo: "A2", motivo_clave: "sustitucion",
+      periodo_inicio: "2026-09-04T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z" }, hitos: [],
+    selectores_recuperacion_firmas: [{ ...selector, canon_nominal: "no debe salir" }],
+    recibo_selectores_recuperacion_firmas: { acceso_ref: "acceso:ct:original",
+      sello_detalle_sha256: "a".repeat(64), sello_selectores_sha256: "b".repeat(64) },
+  } }) });
+  await assert.rejects(() => cliente.consultarDetalleRRHH({ expediente_ref: resumen.expediente_ref, version_observada: 0 }));
 });

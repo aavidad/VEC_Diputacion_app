@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, traducirBolsaInterna } from "./portal-i18n.js?v=20261007-pantallas-textos-final-v1";
+import { LOCALIZACION_PORTAL, traducirBolsaInterna } from "./portal-i18n.js?v=VEC_WEB_VERSION";
 /**
  * Marcas de una participación en el cuadro, la ficha y la selección de un
  * llamamiento (Bolsa 000041): ya presta servicios (b16), en revisión (duda 18)

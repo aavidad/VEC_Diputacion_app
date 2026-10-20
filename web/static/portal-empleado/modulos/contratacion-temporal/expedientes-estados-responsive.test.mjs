@@ -6,17 +6,17 @@ import {
   renderizarCuadro,
   renderizarEstadoCarga,
   renderizarExpediente,
-} from "./componentes-expedientes.js?v=20261001-ct-a-i18n-v1";
+} from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./datos-presentacion.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=20261001-ct-a-i18n-v1";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js?v=VEC_WEB_VERSION";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js?v=VEC_WEB_VERSION";
 import {
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js?v=20261008-alta-rpt-circular-v6";
+} from "./vista-expedientes.js?v=VEC_WEB_VERSION";
 
 const t = crearTraductorExpedientesContratacion();
 

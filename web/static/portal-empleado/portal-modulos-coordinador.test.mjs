@@ -5,7 +5,7 @@ import {
   cargarCatalogoModulosInterno,
   crearCatalogoModulosDesdeManifiestos,
   extraerModulosEnvelopeCanonico,
-} from "./portal-catalogo-modulos.js?v=20261001-ct-a-i18n-v1";
+} from "./portal-catalogo-modulos.js?v=VEC_WEB_VERSION";
 import {
   CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,
@@ -13,14 +13,14 @@ import {
   moduloDeVistaPortal,
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
-} from "./portal-modulos-coordinador.js?v=20261008-alta-rpt-circular-v6";
-import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=20261008-alta-rpt-circular-v6";
+} from "./portal-modulos-coordinador.js?v=VEC_WEB_VERSION";
+import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js?v=VEC_WEB_VERSION";
 import {
   crearCuadroContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./modulos/contratacion-temporal/datos-presentacion.js";
-import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=20261008-alta-rpt-circular-v6";
-import { cargarMensajesExpedientesContratacionEnIdioma } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=20261002-ct-fin-modalidad-v1";
+import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js?v=VEC_WEB_VERSION";
+import { cargarMensajesExpedientesContratacionEnIdioma } from "./modulos/contratacion-temporal/i18n-expedientes.js?v=VEC_WEB_VERSION";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");
@@ -108,6 +108,35 @@ test("el cargador CT real difiere la UI, consulta Inicio una vez y la lista una 
   assert.equal(consultas[2].filtros.estado_clave, "incidencia");
   assert.equal(consultas.filter((solicitud) => solicitud.resumen === true).length, 3,
     "Inicio y cada página usan el resumen global de su propia consulta");
+  coordinador.desmontarVistaActual();
+});
+
+test("Intervención abre el enlace de expediente y versión con el acceso relleno y sin lecturas de RRHH", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  const rutas = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    consultarSesion: async () => ({ roles: ["intervencion"] }),
+    entorno: { Headers, fetch: async (ruta) => {
+      rutas.push(String(ruta));
+      return new Response("{}", { status: 404 });
+    } },
+  });
+  await coordinador.cargarInterno();
+  const raiz = raizFalsa();
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raiz,
+    { expedienteRef: "expediente:fiscalizacion-0009", expedienteVersion: 6 }), true);
+  assert.match(raiz.innerHTML, /name="expediente_ref"[^>]*value="expediente:fiscalizacion-0009"/u);
+  assert.match(raiz.innerHTML, /name="version_esperada"[^>]*value="6"/u);
+  const lecturasRRHH = rutas.filter((ruta) => /catalogos-alta|cuadro\/consultas|configuracion-analisis/u.test(ruta));
+  assert.deepEqual(lecturasRRHH, []);
+  coordinador.desmontarVistaActual();
+  const sinEnlace = raizFalsa();
+  assert.equal(await coordinador.montarVista("contratacion-temporal", sinEnlace,
+    { expedienteRef: "ref inválida", expedienteVersion: 6 }), true);
+  assert.doesNotMatch(sinEnlace.innerHTML, /value="/u);
   coordinador.desmontarVistaActual();
 });
 

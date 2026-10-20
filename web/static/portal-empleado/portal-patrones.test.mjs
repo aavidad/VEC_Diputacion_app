@@ -33,4 +33,6 @@ test("las fases y los documentos dicen su estado con símbolo o palabra, no solo
 test("en móvil las tablas apilables pasan a fichas sin ensanchar la página", () => {
   assert.match(patrones, /@media \(max-width: 760px\)[\s\S]*\.tabla-apilable thead \{ position: absolute/u);
   assert.match(patrones, /\.tabla-apilable td\[data-etiqueta\]::before \{ content: attr\(data-etiqueta\)/u);
+  // La cabecera de fila (p. ej., la secuencia del historial) también lleva su etiqueta.
+  assert.match(patrones, /\.tabla-apilable th\[data-etiqueta\]::before \{ content: attr\(data-etiqueta\)/u);
 });

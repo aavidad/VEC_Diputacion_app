@@ -3,7 +3,7 @@ import {
   crearTraductorPersonal,
   formatearFechaEstructuraOrganizativa,
   formatearRecuentoEstructura,
-} from "./i18n.js?v=20261008-alta-rpt-circular-v4";
+} from "./i18n.js?v=VEC_WEB_VERSION";
 
 function nodo(documento, etiqueta, texto = "") {
   const salida = documento.createElement(etiqueta);

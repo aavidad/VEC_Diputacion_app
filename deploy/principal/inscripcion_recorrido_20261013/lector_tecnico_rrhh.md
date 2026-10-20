@@ -4,9 +4,21 @@ Carmen utiliza el perfil fijo de Alta, `tecnico_rrhh_desarrollo`, ya provisto
 por el circuito existente. El cargador selecciona su discriminador
 `perfil-fijo-alta-perfil` únicamente cuando reconoce el mismo certificado y
 sujeto técnicos. Los lectores ordinarios conservan el discriminador genérico.
-El montaje reutiliza el contexto del perfil Alta registrado, con la misma
-identidad; no prepara otro perfil ni suma concesiones. El PDP continúa
+No se prepara otro perfil ni se suman concesiones. El PDP continúa
 comprobando los permisos vigentes.
+
+Desde F1-90, en Contratación temporal Carmen consulta el cuadro, el detalle y
+las descargas con el circuito dinámico del alta, como si no hubiera
+manifiesto. Su entrada en el manifiesto la identifica como lectora para la
+inscripción de Bolsa. El contexto fijo de Alta solo concede crear solicitudes,
+y abrir sobre él un soporte de consulta dejaba Contratación sin montar. La
+reutilización exige que la entrada sea la misma persona y el mismo
+certificado del alta, con ámbito de organización; si no, el arranque deniega
+las consultas.
+
+En una copia creada con `copia_local.py crear --modulos --portal-externo`, el
+preparador del portal escribe los dos ficheros. Lo que sigue es para un
+entorno ya desplegado.
 
 SQL NO. CONFIG NUEVA: preparar `identidad/consultas-rrhh.json` y usar el mismo
 perfil técnico en la cuenta de `identidad/inscripcion-bolsa-rrhh.json`.
@@ -65,7 +77,7 @@ LECTOR
 ```
 
 El cargador mantiene CA, certificado, sujeto, referencia exacta, ámbito y
-unicidad. Si el perfil fijo no aparece una sola vez en el soporte de Alta,
-el montaje se deniega. Identificar al lector no concede las operaciones de
+unicidad, y fija para Carmen el perfil fijo de Alta. Contratación temporal no
+vuelve a comprobarlo: solo exige que sea la titular del alta. Identificar al lector no concede las operaciones de
 inscripción: dirección debe comprobar su asignación técnica y sus permisos
 vigentes antes de atribuir un recorrido terminado.
