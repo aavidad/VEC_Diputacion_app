@@ -1,0 +1,394 @@
+# Histórico de las instrucciones de desatasco de septiembre y octubre de 2026
+
+Documento archivado el 20/10/2026 desde `origin/main@3ef7dee0b`.
+El contenido siguiente conserva decisiones y diagnósticos de su fecha.
+Sus prioridades, ramas, comandos e instalaciones no son instrucciones vigentes.
+Las reglas actuales están en [AGENTS.md](../../AGENTS.md) y el
+[plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+Se han retirado dos rutas privadas de operación.
+
+---
+
+# Instrucciones de desatasco — 3 de septiembre de 2026
+
+Emitidas por dirección (Alberto) tras revisión externa completa del proyecto.
+Este fichero PREVALECE sobre cualquier regla anterior de AGENTS.md, tableros o
+documentos de decisión que lo contradiga. Léelo entero antes de tocar nada.
+
+## Diagnóstico que motiva estas instrucciones
+
+El código existente es sano (compila, `go vet` limpio, diseño fiel al Word de
+RRHH), pero no hay producto: `NuevasRutas` en
+`internal/app/composicion/interna/contrataciontemporal/rutas.go` construye las
+5 rutas HTTP del módulo y ningún servidor la llama. Las métricas llevan más de
+un mes congeladas (Bolsa 1/14, Contratación 24/46) mientras agosto se gastó en
+un runner de pruebas (O3a) con cinco implementaciones rechazadas y 148 commits
+`docs` frente a 21 `feat`. El problema no es calidad: es que nunca se ensambla.
+
+## Prioridad única hasta nuevo aviso
+
+Montar el esqueleto andante de Contratación temporal. En orden:
+
+1. Cerrar O2-07: composición interna real. Registrar las 5 rutas ya
+   construidas y probadas (alta de solicitud, propuesta/decisión/rectificación
+   de cobertura, resultado) en el servidor interno, con identidad de
+   desarrollo. No inventar infraestructura nueva: ensamblar la que existe.
+2. Conectar el formulario web real de alta (O2-09, ya con GO) a esa API,
+   sustituyendo el adaptador DEMO solo en ese recorrido.
+3. Demostrar el recorrido navegador → API → autorización → PostgreSQL →
+   recibo para: crear solicitud → análisis RRHH → decisión de cobertura →
+   asignación a unidad. Datos sintéticos. Reinicio incluido.
+4. Entregar a Alberto una guía de 1 página para recorrerlo a mano.
+
+Nada más entra en curso hasta que el punto 3 funcione. Si una pieza falta de
+verdad, se construye la versión mínima que permita el recorrido, no la
+versión definitiva.
+
+## Moratorias (efectivas ya)
+
+- PROHIBIDO seguir con O3a, el runner endurecido, pidfd, leases y su contrato.
+  Para CI basta `go test ./...` con el arnés H0 existente. Se retomará, si
+  acaso, cuando el esqueleto ande.
+- PROHIBIDO crear nuevos documentos de decisión, enmienda, relevo o contrato
+  en `docs/portal_vec/` salvo un único fichero de seguimiento del esqueleto.
+- PROHIBIDO añadir subtareas nuevas a O4-05/F0/C2.x. El árbol de tareas se
+  congela; solo se cierran tareas existentes que el esqueleto necesite.
+- PROHIBIDO reescribir desde cero material con NO-GO por hallazgos P2. Un P2
+  se corrige con un parche acotado, no con otra "proyección".
+
+## Listón de revisión por zonas (sustituye al doble GO universal)
+
+- Doble revisión independiente SOLO para: criptografía, identidad/autorización,
+  migraciones y funciones SQL, y fronteras de datos personales.
+- Todo lo demás (pantallas, proyecciones, composición, adaptadores en
+  memoria, docs): una revisión simple o autorrevisión con pruebas verdes.
+- Pruebas de mutación y auditoría adversarial: solo en las zonas del primer
+  punto, y solo si el cambio las toca.
+
+## Métrica que se reporta a partir de ahora
+
+"Pasos del flujo de RRHH recorribles de extremo a extremo por un humano":
+hoy 0 de 8 (solicitud, análisis, bolsa, fiscalización, candidato,
+nombramiento, incorporación, seguimiento). Abandonar el 24/46 como titular;
+puede mantenerse como anexo. Cada parte de estado dice qué paso nuevo es
+recorrible y qué falta para el siguiente.
+
+## Correcciones funcionales pendientes (baratas, hacerlas al pasar)
+
+1. Añadir la «Diligencia» al catálogo de documentos de formalización
+   (RRHH pide 6 documentos; hoy hay 5; "Diligencia" no existe en el código).
+2. Ofrecer las 5 modalidades en el formulario de análisis
+   («Acumulación de tareas» y «Relevo» están en el catálogo de
+   `datos-presentacion.js` pero no en las opciones del formulario).
+3. Registrar en una nota breve la decisión sobre la ambigüedad del Word
+   (8 fases con Incorporación/Seguimiento frente a "PASO 7 Integración
+   Ginpix") para validarla con RRHH. No cambiar el flujo sin esa validación.
+
+## Defectos conocidos que no deben perderse
+
+- CT-LITE-O7-05C (escritura GINPIX, remoto): P1 carrera replay/cancelación
+  tras `Link`; P2 carrera Lstat/OpenRoot con symlink. Corregir solo esos dos.
+- O2-06 (confirmación): replay tras reinicio genera candidatura duplicada.
+- CT-LITE-O6-02 (selección/llamamiento, remoto): tres archivos sin commit
+  preservados en su worktree. NO borrarlos, NO reconstruirlos a ciegas.
+
+## Reglas que siguen vigentes
+
+Castellano coherente, i18n, arquitectura hexagonal, denegación por defecto,
+cero cookies y cero almacenamiento web, puertos intercambiables, trazabilidad,
+sin datos reales hasta autorización expresa, y sin atribución de IA en los
+commits (autoría de aavidad únicamente). No tocar el Word de RRHH. No borrar
+worktrees ajenos. Higiene: eliminar `.ssl-key.log` local (está en .gitignore,
+no se sube, pero no debe existir).
+
+## Criterio general
+
+Ante la duda entre "más evidencia" y "más producto ensamblado", elige
+producto. La evidencia se le añade a lo que funciona; lo que no se puede
+recorrer no existe para RRHH.
+
+
+## Recordatorio de especificaciones — instrucción del operador, 12 de septiembre de 2026
+
+Las especificaciones originales siguen siendo obligatorias durante toda la
+implementación. Hexagonalidad, i18n, roles y permisos, auditoría, seguridad,
+protección de datos y restricciones de almacenamiento no son ampliaciones
+opcionales ni requisitos que puedan omitirse para cerrar Contratación.
+
+El director local y el remoto deben recordarlas en cada asignación de tarea,
+cambio de alcance y revisión previa a integrar. En sesiones prolongadas,
+repasar las instrucciones de los agentes activos al menos cada 30 minutos.
+Cada encargo debe indicar: responsabilidad y archivos, fuentes concretas de
+los requisitos aplicables, restricciones que el cambio debe conservar y
+comprobación necesaria para aceptarlo. Los subagentes deben transmitir esas
+mismas condiciones si delegan. No basta enumerar principios sin explicar
+cómo afectan a la tarea concreta.
+
+Antes de confirmar una entrega, comprobar tanto su funcionamiento como su
+conformidad con las especificaciones. Una prueba verde no sustituye esa
+comprobación. Registrar discrepancias y corregirlas en el corte; no declarar
+terminada una funcionalidad que las incumpla. El sistema completo de roles y
+la gestión completa de auditoría permanecen pendientes de producto, sin
+rebajar los controles necesarios en cada operación ya implementada.
+
+
+## Consenso y orden de correcciones — 15 de septiembre de 2026
+
+Resultado del estudio transversal entre el agente programador y Claude (revisor),
+cerrado bilateralmente en `comunicacion.md` (consenso final y tabla de 18 puntos)
+con el informe de evidencias en https://claude.ai/artifact/Dcua14w8CjJ4RhmMEAvq9T.
+Alberto ordena documentarlo para que los agentes sigan trabajando conforme a él.
+Prevalece sobre las secciones anteriores de este fichero donde las precise; no
+sustituye ESPECIFICACIONES_AGENTES.md.
+
+### Diagnóstico aceptado por ambas partes
+
+El mecanismo ha crecido más que el producto: 312.000 líneas de Go de producción,
+493 funciones SQL, 167 políticas RLS y 71 roles para 52 expedientes sintéticos;
+ninguna composición de producción; el cuadro de RRHH responde 502 cuando hay más
+resultados que el límite de página y no deja log; y lo visible se desvía del Word
+(raíl de fases, coste, comprobaciones de bolsa, observaciones, número visible,
+plantillas, correo, adjudicación). La calidad de base es buena; el problema es de
+proporción y de ensamblaje.
+
+### Reglas vigentes desde hoy
+
+1. Un caso de uso coordinador por operación: autorización vigente, carga, mutación
+   de dominio, persistencia y fila de auditoría en una transacción, recibo. `ctx`
+   solo a E/S y trabajo largo cancelable; nada de comprobaciones entre constructores.
+2. Ningún adaptador nuevo sin consumidor real (servidor, CLI o trabajador) y un
+   recorrido que lo use en el mismo corte. Los pendientes se preservan en rama,
+   identificados, fuera del árbol activo.
+3. Todo 5xx deja una línea de log en frontera con `correlacion_ref`, ruta,
+   operación y código de causa. Nunca payloads ni credenciales. La respuesta al
+   cliente sigue siendo mínima.
+4. `ports/` solo interfaces y DTO. Validación en dominio; proyecciones como modelos
+   de lectura en `application`; serialización en adaptadores.
+5. Sin autohuellas en configuración. Huellas solo para versiones de reglas o
+   documentos que participan en evidencia, calculadas por el sistema. Clones solo
+   en fronteras mutables compartidas.
+6. Pruebas por comportamiento y riesgo (positivo, denegación, entrada inválida y,
+   si aplica, idempotencia y paginación). Adversariales y de mutación solo en
+   cripto, identidad, SQL y datos personales. Tests por encima de producción
+   disparan revisión, no prohibición.
+7. Los topes de líneas son objetivos, no condiciones; mover código de paquete no
+   cuenta. Toda retirada comprueba antes consumidores e invariantes. Ninguna
+   eliminación por número de líneas, nombres o antigüedad.
+8. Producto primero: no se abre mecanismo nuevo mientras haya un punto del orden
+   de abajo sin cerrar.
+
+### Orden de correcciones y criterio de cierre
+
+1. **Cuadro de RRHH.** Localizar la causa con log en frontera (hipótesis fuerte:
+   representación SHA del cursor en `adapters/postgres/consulta_rrhh_postgresql_salida.go:83-108`
+   o `ports/proyecciones_rrhh_resultados.go:244`; contraste prioritario con CT89,
+   `3e189e10`) y aplicar la corrección pertinente; el puente de 64 continuidades se
+   evalúa aparte. *Cierre:* con más de 100 expedientes la bandeja abre y pagina;
+   toda página con `hay_mas = true` devuelve 200 con su siguiente.
+2. **Log de 5xx** (regla 3). *Cierre:* ningún 5xx sin línea correlacionable.
+3. **Lo que RRHH ve.** Raíl de 8 fases con los 5 estados del Word derivados de hitos
+   reales (tabla de mapeo, no motor de reglas); número visible estable; `observaciones`
+   de extremo a extremo; nombres de catálogo en cuadro, detalle y documentos; coste
+   desde fuente o ausencia explícita, nunca 40.000 € fijos. *Cierre:* recorrido en
+   navegador sobre un expediente del servidor.
+4. **Composición común** y retirada de la tercera vía `*_desarrollo.go`, empezando
+   por un ensamblaje CT compartido; en el mismo movimiento `ports/` a interfaces y
+   errores con causa. *Cierre:* `VEC_EXECUTION_PROFILE=produccion` arranca con
+   adaptadores reales inyectados y falla solo por dependencias ausentes.
+5. **Matriz identidad técnica → privilegios → consumidor vivo** para los 71 roles y
+   las 11 conexiones (10 `VEC_CT_*`, 1 Bolsa; «gobierno» pasa a instalación). Pools
+   por (módulo desplegable × exterior/interior) con excepciones justificadas en la
+   matriz. Huellas y clones según regla 5. *Cierre:* ninguna fila sin consumidor.
+6. **Cliente web y documentación.** Transporte común con límites de bytes y tiempo y
+   un esquema por contrato; fuera el contador de fragmentos. Raíz con README, ESTADO,
+   especificaciones, estas instrucciones, dudas y una guía de recorrido de una página;
+   histórico a `docs/historico/` sin duplicar; inventario de worktrees con dueño y
+   estado; el Word de RRHH en `.gitignore`.
+7. **Adaptadores.** SMTP compuesto contra buzón de prueba rotulado como tal; ficha
+   GINPIX compuesta; `ginpixapi` y `seguimientoejercicio` compuestos o preservados
+   fuera del árbol.
+8. **Bloques B1–B6** (Bolsa, público y candidato, Personal/GINPIX, administración,
+   roles y auditoría, despliegue) según los criterios de cierre de `comunicacion.md`.
+   B4 recupera, corrige y revisa `dddf2699` antes de integrarlo (tiene `innerHTML`
+   sin escapar). B6 exige artefacto inmutable con binario y web dentro de la imagen.
+
+### Lo que no se programa hasta tener respuesta
+
+- De RRHH (`dudas.md`, preguntas 13–14): parámetros de las reglas temporales
+  (+5, +9 meses, tres años) y regla de adjudicación automática con sus plazos.
+- De Alberto: resuelto el 16 de septiembre; ver «Decisiones de alcance» abajo.
+
+### Parte de estado
+
+Cada corte dice qué punto del orden cierra, con su criterio de cierre comprobado,
+y qué punto sigue. La métrica «pasos del flujo de RRHH recorribles» se mantiene.
+
+### Decisiones de alcance de Alberto — 16 de septiembre de 2026
+
+Tomadas sobre el estudio de Bolsa, Cronos y Dietas
+(https://claude.ai/artifact/5xmJ7snNSiQFpV9L18e5Ng; anexo en `comunicacion.md`).
+
+1. **Bolsa sustituye a Convoca.** El proceso selectivo construido (convocatorias,
+   solicitudes, autobaremación, baremación, cálculo de experiencia, reglas de
+   baremo) está en alcance. Condición: un **método de importación desde Convoca**,
+   al menos para la carga inicial de las bolsas existentes. Fuente de requisitos
+   para la sustitución: los pliegos SE15/2020 (prescripciones técnicas y cláusulas
+   administrativas) y los manuales de Convoca en `docs/convoca_dipgra/`, más
+   `Peticion.pdf` para la gestión de bolsas. Requisitos numerados (B1–B14 gestión
+   de bolsas, S1–S7 proceso selectivo), estado en VEC y cambio necesario:
+   `docs/estudio_requisitos/ficha_adaptacion_bolsa_convoca_2026-09-16.md`.
+   Cuando Bolsa se retome, el orden es el de esa ficha, empezando por B1. Orden que se deriva: importador
+   invocable (CLI o servidor) → participaciones y situaciones con fecha de
+   disponibilidad → llamamientos desde el orden real de la bolsa → cuadro de
+   control → portal del candidato → correo por estado; el proceso selectivo se
+   conecta después, cuando haya una convocatoria nueva que tramitar. No se
+   programa nada de Bolsa hasta cerrar el orden de correcciones de Contratación.
+2. **Cronos se reescribe.** Sustituye a la aplicación actual de control horario,
+   en PHP 5 y obsoleta. La aplicación actual es la fuente de requisitos: antes de
+   programar hay que inventariar sus pantallas, reglas, datos y fuentes de fichaje,
+   y citar la normativa de jornada aplicable. El dominio existente se traduce al
+   castellano o se rehace; no se amplía la pantalla de demostración.
+3. **Dietas se crea de nuevo**, por la misma razón que Cronos, con tres puntos de
+   vista obligatorios: el empleado que solicita y justifica, el jefe que autoriza
+   y valida, y RRHH que liquida y controla. La aplicación actual y la normativa de
+   indemnizaciones (RD 462/2002 y cuantías provinciales vigentes) son la fuente de
+   requisitos. La cartografía interna (OSRM y teselas propias) se conserva.
+
+4. **Identificación del candidato en el portal: DNIe o certificado digital.**
+   Nunca DNI y clave. Cierra la duda que el equipo había resuelto por su cuenta en
+   `docs/estudio_requisitos/peticion_rrhh_transcripcion_y_lectura.md:59` y no se
+   pregunta a RRHH.
+
+**Aparcados (Alberto, 16 de septiembre):** Bolsa, Cronos y Dietas quedan fuera
+del trabajo en curso hasta cerrar el orden de correcciones de Contratación. El
+estudio se conserva (anexo de `comunicacion.md` y
+https://claude.ai/artifact/5xmJ7snNSiQFpV9L18e5Ng) y las decisiones anteriores
+siguen vigentes para cuando se retomen. Cronos y Dietas necesitarán además su
+ficha de requisitos aprobada. Ninguno de los tres se reporta como avance.
+
+## Una rama de producto, un checkout por máquina — 16 de septiembre de 2026
+
+Alberto ordena unificar ramas y repositorios. Desde hoy:
+
+- **`main` es la única rama de producto.** Nace del producto vigente (`3310bca8`) y
+  es la rama por defecto en GitHub. `vec-orquesta-20260619` queda como etiqueta
+  `historico/vec-orquesta-20260619`.
+- **Ramas de tarea de vida corta**, `trabajo/ct-<tarea>-<fecha>`, creadas desde
+  `main`, integradas en `main` por avance rápido (`--ff-only`) y **borradas al
+  integrar**, en local y en origin. Ninguna rama sobrevive a su tarea.
+- **Worktrees solo en `.worktrees/<tarea>` y solo mientras la tarea está abierta.**
+  Nada en `~/.local/state`. Al integrar, `git worktree remove`. Trabajo no
+  integrado que deba conservarse: etiqueta `archivo/<rama>`, no un worktree.
+- **El servidor no programa.** Su clon sigue `main` con `git pull --ff-only`; no
+  se crean ramas ni worktrees allí. Despliega el artefacto que sale de `main`.
+- **La raíz `~/Trabajo/VEC_Diputacion_app` está en `main`** y es el único
+  checkout principal; `comunicacion.md`, `dudas.md` e `INSTRUCCIONES_DESATASCO.md`
+  viven versionados ahí.
+
+Limpieza del 16/09: 233 worktrees retirados (ramas integradas o etiquetadas;
+diffs sin commit respaldados en `~/.local/state/vec-respaldo-unificacion-20260916`);
+158 ramas no integradas etiquetadas `archivo/`. Se conservan con worktree los
+siete trabajos con cambios sin commit (`vec-apoyo-correo-20260912`,
+`vec-ct-contacto-20260912`, `vec-ct-web-presentacion-20260912`,
+`vec-web-rectificacion-20260912`, `vec-web-subsanacion-20260912`,
+`vec-qwen-jornada-20260915`, `.worktrees/ct-o4-02-rework2`) hasta que su dueño
+los integre o los archive, y los de las tareas en curso.
+
+## Parte de estado y reglas de despliegue — 17 de septiembre de 2026
+
+**Puntos 1, 2 y 3 del orden de correcciones: cerrados** con criterio comprobado en la
+principal (`main` = `6900a3cf`):
+
+1. La bandeja de RRHH pagina (p1, p2, p3 → 200 en la misma conexión). Deuda P2-b
+   (cursor ligado al canal TLS) documentada, con doble revisión pendiente.
+2. Todo 5xx deja línea de log en frontera con etapa y `correlacion_ref` (30 rutas).
+3. Lo que RRHH ve: raíl de ocho fases con cinco estados derivados de hitos
+   (`c0ed0dc5`, `094ddf1f`); observaciones del análisis de extremo a extremo
+   (`db8322dd`, `98b18cfc`; migraciones 000101 y 000102); 41 centros de la RPT
+   pública y seis categorías A1/A2/B/C1/C2/AP (`06c88b13`); coste estimado con
+   fuente o «sin calcular» (`f06cb176`); número `AAAA/CT-000001` con contador anual
+   (`400f69f0`; migración 000103); comprobaciones de bolsa con etiqueta
+   (`6900a3cf`; migración 000104). Documentos con nombre de catálogo (`ba53b6d1`).
+
+Sigue el **punto 4** (composición común) y, en paralelo, el bloque de demostración:
+datos que recorran las ocho fases (C6), correo de llamamiento con Mailpit, guion de
+una página. La presentación aislada (`cmd/vec-presentacion`) vuelve a montar
+contratación temporal (`32fc22eb`).
+
+**Reglas aprendidas hoy, de obligado cumplimiento:**
+
+- **Ninguna base de datos nueva en el clúster de la principal.** El arranque acredita
+  que cada rol solo puede conectar a una base; una base nueva da `CONNECT` a `PUBLIC`
+  y la principal deja de arrancar («lectura histórica de cobertura no disponible»).
+  Los ensayos SQL se hacen en una transacción con `ROLLBACK` sobre la principal
+  (migración sin su `COMMIT` final + prueba + `ROLLBACK`) o en un contenedor aparte.
+- **Migraciones mínimas y con `down`**, cabecera y cierre como `000100`; se aplican a
+  mano con `psql` **con el contenedor de la aplicación parado** cuando cambian el
+  formato que Go lee (canon del detalle), y siempre antes del binario nuevo.
+- **El despliegue sincroniza `web/`**: el contenedor monta `artefacto/web` sobre
+  `/app/web`; un despliegue de solo binario deja la web vieja. Usar el script
+  completo (`/tmp/desplegar2.sh` en el servidor: pull, build, parar, binario,
+  `rsync web/`, arrancar) y comprobar en el navegador.
+- **Copias al contenedor con `podman cp <dir>/. contenedor:/destino/`**; copiar el
+  directorio entero sobre uno existente lo anida y se ensaya un fichero viejo.
+- **Los agentes no hacen commit ni tocan el servidor.** Entregan en su worktree o
+  clon aislado con una entrada firmada en `comunicacion.md`; Claude revisa, integra
+  en `main` por avance rápido, ensaya la migración, despliega y comprueba en la
+  principal. Una entrega «para revisión» sin los tests del encargo no se integra.
+
+## Decisión de Alberto — 17 de septiembre de 2026: después de Contratación, Bolsa, Cronos y Dietas
+
+Contratación se lleva hasta donde se pueda **sin depender de RRHH** (puntos 4–6 del
+orden: composición común, cursor y canal, identidades y pools, cliente web y
+documentación; demo, ayuda contextual y buzón de correo visibles). Lo que exige
+respuestas de RRHH o accesos de Informática (`dudas.md`: portafirmas, bolsa real de
+Convoca, correo corporativo, GINPIX, tabla de costes, plazos) queda simulado con
+claridad y se retoma cuando lleguen.
+
+A continuación, en este orden y con el mismo método (estudio → consenso → orden de
+correcciones → cortes pequeños revisados):
+
+1. **Bolsa**, porque sustituye a Convoca y alimenta el llamamiento de Contratación:
+   importador de los XLS de Convoca invocable (B1), estados y pantalla (B2, B5),
+   orden calculado (B6), contactos, llamamiento real y pausas (B3, B7, B8), público y
+   portal del candidato con DNIe o certificado (B10, B11). Ficha:
+   `docs/estudio_requisitos/ficha_adaptacion_bolsa_convoca_2026-09-16.md`.
+2. **Cronos**, reescrito (la app actual es PHP 5).
+3. **Dietas**, nuevo, con las tres perspectivas: quien la solicita, quien la autoriza
+   y RRHH. **Se conserva el mapa de rutas** (cálculo de kilómetros con OSRM sobre
+   la cartografía de Granada, `deploy/osrm-granada`, `modulos/dietas/mapa-ruta.js`):
+   Alberto lo quiere en el producto; no es sobreprogramación que se retire.
+   **Con estadísticas**: resúmenes anuales y mensuales, y datos por semana, mes y
+   año (dietas solicitadas, autorizadas, importes, kilómetros; por persona, centro
+   y periodo), exportables. El mismo criterio de estadísticas periódicas se aplica
+   a Cronos (fichajes, ausencias) y, cuando toque, al cuadro de RRHH de
+   Contratación (expedientes por fase, tiempos por paso).
+
+Sigue vigente: datos sintéticos, deny by default, una operación por caso de uso,
+ningún adaptador sin consumidor.
+
+## Parte de estado — noche del 17 al 18 de septiembre de 2026
+
+1. **Regla de Alberto (17/09)**: todo lo que se hace es código de producción; solo los datos son sintéticos. Sin la palabra «demostración» en rutas, recibos ni textos («perfil de desarrollo» + «datos sintéticos»); el estado que cambia el usuario se persiste; ninguna infraestructura nueva sin módulo que la consuma; no se escriben manuales de lo que no existe.
+2. **CI de GitHub**: llevaba 40 ejecuciones en rojo por causas ajenas al producto, todas corregidas: `gofmt` en dos tests, `rg` y `mv --update=none-fail` inexistentes en el ejecutor (puertas de artefactos pasan a `grep` y a `mv` portable), toolchain `go1.26.6` por `govulncheck`, línea base de tamaño de ficheros regenerada (97 congelados), regla de secretos `vep-clave-castellana-asignada` anclada al identificador `clave` (las claves de catálogo `*_clave` ya no saltan). Los commits solo de `.md`/`docs/` no disparan el flujo y un push nuevo cancela el anterior.
+3. **Principal** (`cidonia.cloud`): en `000105` (totales del cuadro RRHH en SQL: contador privado + fachada `consultar_cuadro_rrhh_atestado_v2`; v1 y su recibo intactos). Verificado por mTLS: página 1, continuación y filtros dan los mismos totales sobre el conjunto filtrado. La continuación por el proxy de navegador falla (`canal_continuidad`, cursor ligado al canal TLS): pendiente P2-b.
+4. **Bolsa — corrección de rumbo**: `internal/modules/bolsa` (60 k líneas Go, 26 k SQL en nueve esquemas, portal web completo) es el producto; en la principal solo está `vec_bolsa_llamamientos`. Orden de la ficha del 16/09: B1 importador Convoca → B2/B5 → B6 → B3/B7/B8 → B10/B11 → B12/B13. Datos sintéticos en formato Convoca (`data/demo/bolsa/convoca/<categoria>/{resumen,detalle}.{csv,xls}`, `scripts/generar_bolsa_demo.py --xls`), decodificados por el lector real.
+5. **Integrado hoy**: C16 (área personal desde el dataset, candidatura fija 0009), C17 (totales), G10 (inicio RRHH), G9-bis, G12 (cuadro de bolsas B12 y candidatos B5 sobre el portal existente), G13 (consulta pública B10), G14 (área personal con estados del módulo y pausa/reactivación B11/B8), protector de staging de desarrollo y configuración del pool de importación (C19 parcial).
+6. **Colas** (`comunicacion.md` 01:15): Codex C19 (importador, en curso) → C20 (constituir bolsa + lecturas RRHH) → C21 (área personal desde el módulo) → C22 (lecturas públicas) → C23 (llamamientos/contactos) → C15/C18 → C24 (poda). Gemini G15–G18 **en pausa** (sin cuota desde las 02:2x del 18/09).
+7. **Al llegar «C19 listo»**: `roles_up.sql` + `000001…000004` de `bolsa_importacion_convoca` (ensayo en `ROLLBACK`), LOGIN `vec_bolsa_importacion_convoca_desarrollo` ∈ `…_ejecutor`, duodécima conexión `VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL` en `material/arrancar-local.sh` y contador a 12 en `arrancar_app.sh`, que además pasa `"$@"` a `vec-server` para ejecutar `importar-convoca` con `podman exec`.
+
+## Parte de estado — 18 de septiembre de 2026, tarde-noche
+
+1. **Principal**: pod recreado con volumen de custodia escribible (`/vec-importaciones`) y la interfaz de Mailpit publicada en `127.0.0.1:8025` (autorizado por Alberto). Contratación en `000106` (detalle RRHH V3 con fiscalización: resultado, reparos literales y subsanación); `bolsa_importacion_convoca` 000001–000004; `bolsa_llamamientos` 000003–000007 (000001/000002 no instaladas: 000007 es autocontenida).
+2. **B1→B2 completo (C19 + C20-b)**: doce actas Convoca importadas al staging protegido y doce bolsas constituidas con `vec-server constituir-bolsa --fichero X.xls --categoria <clave>` (idempotente por acta; orden por Total descendente). Las lecturas RRHH de bolsas y candidatos se sirven desde las bolsas constituidas (nombres recuperados del staging al leer, caché 30 s); el cuadro B12 y la lista de candidatos del portal muestran los datos reales. C25 cerrado (aviso de incidencia con los reparos de Intervención).
+3. **Reglas aprendidas, obligatorias en toda migración**: `REVOKE ALL ON TYPE/FUNCTION … FROM PUBLIC` tras cada `CREATE`; toda `CREATE POLICY` con `TO <rol>` explícito (una política para PUBLIC deja el runtime en bucle de arranque). El enrutador HTTP solo admite rutas canónicas: las referencias con `:` viajan sin escapar (`segmentoRuta` en los clientes JS).
+4. **Decisión sobre C21** (respuesta a Codex, canal 19:10): sin identidad «demo» ni variable que elija participación; Bolsa emite en la constitución el vínculo durable `can_* → participacion_ref` (índice HMAC del documento con clave derivada del KMS, migración 000008), el área personal resuelve `can_*` del contexto de actor (deny by default, 403 sin candidatura de respaldo) y la disponibilidad (pausa/reactivación) se persiste como situaciones append-only con causa de catálogo gobernado. Cola de Codex: C21 → C22 → C23 → C24, sin parar entre tareas.
+5. **Pendiente de Gemini** (sin cuota al cierre): G19 público, G15 (llamamientos/contactos en la vista de candidatos; la tabla de candidatos desborda la columna «Acciones» a 1280 px), G16 (estadísticas), G18 (manual de Bolsa cuando C21/C22 estén desplegados).
+
+## Parte de estado — noche del 18 al 19 de septiembre de 2026
+
+1. **En la principal desde esta noche**: C18 (estadísticas de contratación por periodo, migración `000107`, `GET /api/vec/contratacion-temporal/estadisticas`), C22 (consulta pública B10: `GET /api/publico/bolsa/bolsas` y `…/{bolsa_ref}/lista` sobre las doce bolsas constituidas, solo orden, documento enmascarado y situación), G16 (pestaña «Estadísticas» del módulo de contratación con datos reales), G19 público (diseño de `/bolsa/`) y la lista de candidatos ajustada a 1280 px. Contratación en `000107`.
+2. **Regla del enrutador**: solo acepta rutas canónicas (sin `%`); los clientes JS envían las referencias con `:` sin escapar (`segmentoRuta`). El cliente de borradores conserva su propio contrato con `%3A`.
+3. **Hallazgo abierto**: la página pública de convocatorias (`/bolsa/`) no carga en la principal porque el cliente exige el contrato v2 (`diccionario_categorias`) y el runtime sirve la v1 de `publicatransitoria`; la v2 solo existe sobre el esquema `bolsa_publica` (no instalado). Se resolverá con B13 (convocatorias públicas desde Bolsa); no se parchea el cliente.
+4. **P2-b (cursor ligado al canal TLS)**: el vínculo usa el material exportado de la conexión TLS (RFC 5705). Los proxies de captura y de acceso por túnel (el proxy de acceso de aquella instalación, 8082 RRHH y 8083 Intervención) abrían una conexión por petición y rompían la continuación; desde esta noche mantienen una única conexión TLS persistente y serializada (copia anterior en la copia anterior del proxy), con lo que la página 2 del cuadro funciona por el túnel. En navegador directo por mTLS con HTTP/2 ya funcionaba. Cambiar el vínculo a certificado + sesión de servidor sigue exigiendo la doble revisión prevista.
+5. **Colas**: Codex C21 (vínculo `can_*` en la constitución + área personal desde el módulo + disponibilidad durable; decisión del 18/09 19:10) → C23 → C24. Gemini G21 (inicio RRHH con Bolsa real) → G18-a (manual de lo desplegado) → G15 cuando exista C23. Codex no había empezado C21 al cerrar la noche (sin cambios en el clon ni en el canal desde las 19:10).
