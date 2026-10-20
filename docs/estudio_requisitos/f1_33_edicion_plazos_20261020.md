@@ -35,7 +35,9 @@ CONFIG NUEVA: ninguna. SQL a instalar: ninguna.
   con la ruta de ajustes montada. Se conserva la protección por certificado.
 - JavaScript: contrato, traducciones y panel en Chrome; sin montaje no se
   consulta ajustes, con montaje se conservan lectura, edición e historial.
-- Un fallo en el catálogo común conserva el panel de ajustes independiente.
+- Un fallo de los textos de la tabla conserva el panel de ajustes independiente.
+- Si falla la lectura del montaje, «Reintentar» vuelve a consultarla antes de
+  decidir si abrir ajustes. Un fallo de textos conserva también ese estado.
 
 El barrido completo por perfiles continúa en F1-33. Este corte corrige
 únicamente el aviso de edición de plazos.

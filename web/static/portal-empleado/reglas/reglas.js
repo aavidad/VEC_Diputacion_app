@@ -205,16 +205,19 @@ function traducirDocumento(doc) {
 
 export async function iniciar(doc, cliente) {
   let lecturaInicial;
-  const consultarInicial = () => lecturaInicial ??= cliente.reglas();
+  const consultarInicial = () => lecturaInicial ??= cliente.reglas().catch((error) => {
+    lecturaInicial = undefined;
+    throw error;
+  });
   // Compartir el montaje evita consultar una ruta de edición desactivada.
-  // Si falla la lectura común, CT conserva su consulta e historial propios.
+  // Si falla esa lectura, se permite recuperarla sin suponer la edición activa.
   const contenedorAjustes = doc.getElementById("rg-ajustes");
   if (contenedorAjustes?.querySelector) {
     const contenedor = contenedorAjustes;
     const montarAjustes = () => {
-      void Promise.all([import("./ajustes.js?v=VEC_WEB_VERSION"), consultarInicial().catch(() => null)])
+      void Promise.all([import("./ajustes.js?v=VEC_WEB_VERSION"), consultarInicial()])
         .then(([{ iniciarAjustes }, datos]) => iniciarAjustes(doc, undefined,
-          datos === null || datos.catalogos.some((catalogo) => catalogo.modulo === "contratacion_temporal"
+          datos.catalogos.some((catalogo) => catalogo.modulo === "contratacion_temporal"
             && catalogo.edicion_disponible === true)))
         .catch(async () => {
           let mensaje = "";

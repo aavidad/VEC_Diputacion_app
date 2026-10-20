@@ -240,8 +240,8 @@ export async function iniciarAjustes(doc, cliente = crearClienteAjustes(), dispo
     contenedor.innerHTML = `<section class="rg-panel rg-ajustes"><p class="rg-aviso rg-aviso--error" role="alert">${esc(mensaje)}</p><button type="button" class="rg-secundario" data-ajustes-catalogo-reintentar>${esc(reintentar)}</button></section>`;
     let desmontado = false;
     contenedor.querySelector("[data-ajustes-catalogo-reintentar]")?.addEventListener("click", () => {
-      void reintentarTextosAjustes().then(() => { if (!desmontado) void iniciarAjustes(doc, cliente); })
-        .catch(() => { if (!desmontado) void iniciarAjustes(doc, cliente); });
+      void reintentarTextosAjustes().then(() => { if (!desmontado) void iniciarAjustes(doc, cliente, disponible); })
+        .catch(() => { if (!desmontado) void iniciarAjustes(doc, cliente, disponible); });
     }, { once: true });
     return () => { desmontado = true; };
   }
