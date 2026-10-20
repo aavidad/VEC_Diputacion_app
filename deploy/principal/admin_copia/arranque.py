@@ -56,6 +56,17 @@ def canon(x):
 def ref(pref): return pref+secrets.token_hex(16)
 def fmt(t): return t.strftime('%Y-%m-%dT%H:%M:%SZ')
 def parse(t): return dt.datetime.strptime(t,'%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=dt.timezone.utc)
+def instante_fuente(t):
+    if not isinstance(t,str):parar('vigencia_fuente_invalida')
+    try:instante=dt.datetime.fromisoformat(t)
+    except ValueError:parar('vigencia_fuente_invalida')
+    if instante.tzinfo is None:parar('vigencia_fuente_invalida')
+    return instante.astimezone(dt.timezone.utc)
+def fecha_unidad_utc(t):
+    if not isinstance(t,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',t):parar('vigencia_unidad_invalida')
+    try:fecha=dt.date.fromisoformat(t)
+    except ValueError:parar('vigencia_unidad_invalida')
+    return dt.datetime.combine(fecha,dt.time.min,tzinfo=dt.timezone.utc)
 def q(s): return "'"+str(s).replace("'","''")+"'"
 def now(): return dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
 
@@ -480,21 +491,36 @@ def metadata_bootstrap(c):
  'unidad',(SELECT recibo FROM vec_personal.unidad_inicial_admin_v1));"""
     return fila_json(sql(c,query),'metadata_bootstrap_invalida')
 
+def vencimiento_bootstrap(t,b,fuente_plan,unidad_recibo,politica):
+    # CA33 publica persona, proyecciones de cuenta y titularidad con la fecha
+    # exacta del plan de fuentes; el recibo confirmado está ligado a su huella.
+    limites=[t+dt.timedelta(seconds=b['ttl_perfiles_segundos']),
+             instante_fuente(fuente_plan['organizacion']['vigente_hasta']),
+             instante_fuente(fuente_plan['politica_admin']['vigente_hasta']),
+             instante_fuente(politica['vigente_hasta']),
+             fecha_unidad_utc(unidad_recibo['unidad']['vigente_hasta'])]
+    limites.extend(instante_fuente(p['vigente_hasta']) for p in fuente_plan['personas'])
+    hasta=min(limites)
+    if hasta<=t+dt.timedelta(seconds=b['ttl_plan_segundos']) or hasta<t+dt.timedelta(days=60):
+        parar('bootstrap_autoridad_agotada')
+    return hasta
+
 def preparar_bootstrap(c):
     F=carpeta(c,'bootstrap');fuentes=carpeta(c,'fuentes');unidad=carpeta(c,'unidad')
     source=json_privado(fuentes/'fuente.json');fr=confirmacion_vigente(fuentes,'fuentes')[1];ur=confirmacion_vigente(unidad,'unidad')[1]
     if fr.get('estado')!='permitido' or ur.get('estado')!='permitido':parar('antecedentes_no_confirmados')
+    fuente_plan,fuente_huella=plan_sin_caducidad(fuentes,'fuentes')
     m=metadata_bootstrap(c)
-    if m['control']['bootstrap_estado']!='pendiente' or m['control']['revision']!=1 or m['control']['bootstrap_acto_ref'] is not None or m['fuente']['recibo_ref']!=fr['recibo']['recibo_ref'] or m['unidad']['recibo_ref']!=ur['recibo']['recibo_ref']:parar('bootstrap_preimagen_divergente')
+    if m['control']['bootstrap_estado']!='pendiente' or m['control']['revision']!=1 or m['control']['bootstrap_acto_ref'] is not None or m['fuente']['recibo_ref']!=fr['recibo']['recibo_ref'] or m['unidad']['recibo_ref']!=ur['recibo']['recibo_ref'] or fuente_huella!=fr['recibo']['plan_sha256'] or fuente_huella!=m['fuente']['plan_sha256'] or m['unidad']['unidad']!=ur['recibo']['unidad']:parar('bootstrap_preimagen_divergente')
     roles=[x for x in m['roles'] if x['categoria'] and x['estado']=='publicada' and x['control'] and x['control']['estado']=='habilitada']
     app=[x for x in roles if x['categoria']['categoria_administrativa']=='aplicacion' and x['version_ref']==c['bootstrap']['app_role_ref']];sysrole=[x for x in roles if x['categoria']['categoria_administrativa']=='sistemas' and x['version_ref']==c['bootstrap']['sys_role_ref']]
     if len(app)!=1 or len(sysrole)!=1:parar('roles_administrativos_ambiguos')
     app,sysrole=app[0],sysrole[0]
     role=lambda x:{'version_ref':x['version_ref'],'huella_sha256':x['huella'],'control_revision':x['control']['revision'],'control_huella_sha256':x['control']['huella_sha256']}
     people=fr['recibo']['ca']['datos']['personas'];org=fr['recibo']['ca']['datos']['organizacion_ref'];unit=m['unidad']['unidad']['unidad_ref']
-    if len(people)!=2 or [x['persona_ref'] for x in people]!=sorted(x['persona_ref'] for x in people) or m['politica']['politica_ref']!=source['politica_admin']['politica_ref']:parar('fuentes_bootstrap_divergentes')
-    t=now();b=c['bootstrap'];expiry=t+dt.timedelta(seconds=b['ttl_plan_segundos']);until=t+dt.timedelta(seconds=b['ttl_perfiles_segundos'])
-    if expiry>=until:parar('bootstrap_ventana_invalida')
+    if len(people)!=2 or [x['persona_ref'] for x in people]!=sorted(x['persona_ref'] for x in people) or [x['persona_ref'] for x in people]!=[x['persona_ref'] for x in fuente_plan['personas']] or fuente_plan['organizacion']['organizacion_ref']!=org or m['politica']['politica_ref']!=source['politica_admin']['politica_ref'] or m['politica']['politica_ref']!=fuente_plan['politica_admin']['politica_ref']:parar('fuentes_bootstrap_divergentes')
+    t=now();b=c['bootstrap'];expiry=t+dt.timedelta(seconds=b['ttl_plan_segundos'])
+    until=vencimiento_bootstrap(t,b,fuente_plan,m['unidad'],m['politica'])
     org_ev=source['procedencia'];unit_ev={'referencia':m['unidad']['fuente_ref'],'version':1,'huella_sha256':m['unidad']['fuente_sha256']}
     amb_org={'dimension':'organizacion_ref','valores':[org],'fuente':org_ev};amb_unit={'dimension':'unidad_ref','valores':[unit],'fuente':unit_ev}
     ca_sha=sha(privado(fuentes/'ca.der'));certs=json_privado(fuentes/'certificados.json')['certificados']
