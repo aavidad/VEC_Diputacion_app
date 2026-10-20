@@ -81,8 +81,9 @@ class Caso40Test(unittest.TestCase):
             (self.material / 'identidad/bolsa-candidato.json').write_text(
                 json.dumps({'candidato_ref': caso40.seleccion(self.repo)['candidato']}))
 
-        with patch.object(caso40.subprocess, 'run', side_effect=preparar), self.assertRaises(ValueError):
+        with patch.object(caso40.subprocess, 'run', side_effect=preparar) as run, self.assertRaises(ValueError):
             caso40.preparar_antonio(self.copia, self.repo)
+        run.assert_not_called()
 
     def test_el_catalogo_de_reglas_de_bolsa_existe_en_el_repositorio(self):
         self.assertTrue((REPO / caso40.REGLAS_BOLSA).is_file())
@@ -92,6 +93,11 @@ class Caso40Test(unittest.TestCase):
         entorno = caso40.entorno_portal({'VEC_BOLSA_REGLAS_SOURCE_PATH': '/privado/r.json', 'OTRA': '1'}, propuesto)
         self.assertEqual(entorno, {'VEC_BOLSA_REGLAS_SOURCE_PATH': '/privado/r.json', 'OTRA': '1',
                                    'VEC_BOLSA_PORTAL_CANDIDATO_ENABLED': 'true'})
+        # Un vacío del kit cuenta como ausente; un «false» expreso se respeta.
+        entorno = caso40.entorno_portal({'VEC_BOLSA_REGLAS_SOURCE_PATH': '',
+                                         'VEC_BOLSA_PORTAL_CANDIDATO_ENABLED': 'false'}, propuesto)
+        self.assertEqual(entorno, {'VEC_BOLSA_REGLAS_SOURCE_PATH': '/repo/r.json',
+                                   'VEC_BOLSA_PORTAL_CANDIDATO_ENABLED': 'false'})
 
     def test_falla_si_la_identidad_sigue_en_la_candidatura_antigua(self):
         def preparar(orden, **kwargs):
