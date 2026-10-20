@@ -59,3 +59,16 @@ El cierre por referencia normaliza a UTC la fecha recibida de PostgreSQL antes
 de validar y confirmar la respuesta. Conserva el rechazo de fechas futuras y
 el cotejo de los tiempos del rol y su control; una respuesta incompatible
 revierte toda la transacción. La regresión usa el formato `+00:00` de jsonb.
+
+## Resultado del ensayo
+
+Código `bd82972f0`, PostgreSQL 18.4 propio, 132 migraciones instaladas en
+su orden. Administración arrancó sin el archivo de roles (salud 204, acto
+404) y con él, exportado desde el acuse confirmado del conjunto 7.
+
+Desde Chrome y con dos certificados distintos: propuesta 201, repetición
+200, cierre por el proponente 403 y aprobación por la segunda persona 200.
+La repetición y la recuperación después de reiniciar devolvieron el mismo
+recibo, fecha y auditoría original. Quedaron una propuesta, un cierre y un
+rol publicado, sin asignarlo a nadie. Se usaron las rutas administrativas
+existentes; esta entrega no añade el formulario de propuesta y aprobación.
