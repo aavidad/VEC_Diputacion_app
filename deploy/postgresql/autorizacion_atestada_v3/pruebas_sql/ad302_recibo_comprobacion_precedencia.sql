@@ -45,13 +45,14 @@ BEGIN
   RAISE EXCEPTION 'AD302: la forma sin paréntesis ya no falla; revisar la prueba';
  EXCEPTION WHEN invalid_text_representation THEN NULL; END;
 END $precedencia$;
+-- Una captura inválida sigue fallando cerrada (42501) en la primera guarda.
 SET LOCAL ROLE vec_autorizacion_atestada_v3_registrador_intentos;
 DO $denegada$ BEGIN
  BEGIN
   PERFORM vec_autorizacion_atestada_v3.leer_origen_bolsa_ct_auditado_v1(
    '{}'::bytea,'{}'::bytea,'{"accion":"bolsa.origen_ct.consultar","comprobacion_contexto":{}}'::jsonb,
    '{}'::jsonb,'expediente:fixture','clave:fixture','categoria:fixture');
-  RAISE EXCEPTION 'AD302: lectura sin autoridad admitida';
+  RAISE EXCEPTION 'AD302: captura inválida admitida';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $denegada$;
 SELECT 'ad302_recibo_comprobacion_precedencia: 0 fallos' AS resultado;
