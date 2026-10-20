@@ -57,11 +57,13 @@ def escribir(path, content, mode=0o600):
         os.fsync(stream.fileno())
 
 
-def desktop_quote(path):
+def desktop_exec(path):
     text = str(path)
-    if "\n" in text or "\r" in text:
-        raise Corte("FALTA: ruta incompatible con entrada de escritorio")
-    return '"' + ''.join('%%' if c == '%' else '\\' + c if c in '\\"$`' else c for c in text) + '"'
+    # xdg-mime consulta Exec con un lector que no interpreta comillas.
+    # Una ruta que necesite escape puede acabar seleccionando otro manejador.
+    if not re.fullmatch(r"/[A-Za-z0-9_./-]+", text):
+        raise Corte("FALTA: --salida requiere una ruta sin espacios, comillas ni caracteres especiales")
+    return text
 
 
 LAUNCHER = '''#!/usr/bin/env python3
@@ -118,6 +120,7 @@ def preparar_salida(root, fw):
         raise Corte("FALTA: --salida privada absoluta y separada de las fuentes")
     ruta_privada(fw, "--salida")
     fw = fw.resolve(strict=False)
+    desktop_exec(fw / "lanzar-grxfirma.py")
     if root == fw or root in fw.parents:
         raise Corte("FALTA: --salida dentro de las fuentes")
     if os.path.lexists(fw):
@@ -202,7 +205,7 @@ def preparar(root, origin, binary, sha, salida=None):
                 escribir(cfg / marker, value)
             escribir(base / "xdg-data/applications/grxfirma-copia.desktop",
                 "[Desktop Entry]\nType=Application\nName=GrxFirma copia\nExec="
-                + desktop_quote(fw / "lanzar-grxfirma.py") + " " + role
+                + desktop_exec(fw / "lanzar-grxfirma.py") + " " + role
                 + " %u\nMimeType=x-scheme-handler/afirma;\nNoDisplay=true\nTerminal=false\n")
             for directory in ("xdg-data", "xdg-config"):
                 escribir(base / directory / "mimeapps.list",
