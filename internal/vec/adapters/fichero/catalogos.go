@@ -32,13 +32,18 @@ var (
 	patronRevisionPaquete = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,79}$`)
 	patronSHA256Paquete   = regexp.MustCompile(`^[a-f0-9]{64}$`)
 	patronRefOpacaPaquete = regexp.MustCompile(`^(?:(?:car|per|enc|cta|prf|org)_[a-f0-9]{32}|ref:[a-f0-9]{64})$`)
-	patronDNIPaquete      = regexp.MustCompile(`(?i)(?:^|[^0-9])[0-9]{8}[A-Z](?:$|[^A-Z0-9])`)
-	patronNIEPaquete      = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9])[XYZ][0-9]{7}[A-Z](?:$|[^A-Z0-9])`)
-	patronNIFPaquete      = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9])[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J](?:$|[^A-Z0-9])`)
-	patronCorreoPaquete   = regexp.MustCompile(`(?i)[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}`)
-	patronTelefonoPaquete = regexp.MustCompile(`(?:^|[^0-9])(?:\+34[ .-]?)?[6789][0-9 .-]{7,12}[0-9](?:$|[^0-9])`)
-	patronIBANPaquete     = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9])ES[0-9]{22}(?:$|[^A-Z0-9])`)
-	patronClavePaquete    = regexp.MustCompile(`(?i)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----`)
+	// Identificador opaco completo al final de una referencia *_ref:
+	// UUID canónico en minúsculas o huella hexadecimal de 64. El prefijo
+	// opcional son segmentos cortos separados por «:» que se siguen
+	// inspeccionando como texto (F1-108).
+	patronRefIdentificadorPaquete = regexp.MustCompile(`^((?:[a-z][a-z0-9-]{0,39}:){0,4})(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{64})$`)
+	patronDNIPaquete              = regexp.MustCompile(`(?i)(?:^|[^0-9])[0-9]{8}[A-Z](?:$|[^A-Z0-9])`)
+	patronNIEPaquete              = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9])[XYZ][0-9]{7}[A-Z](?:$|[^A-Z0-9])`)
+	patronNIFPaquete              = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9])[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J](?:$|[^A-Z0-9])`)
+	patronCorreoPaquete           = regexp.MustCompile(`(?i)[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}`)
+	patronTelefonoPaquete         = regexp.MustCompile(`(?:^|[^0-9])(?:\+34[ .-]?)?[6789][0-9 .-]{7,12}[0-9](?:$|[^0-9])`)
+	patronIBANPaquete             = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9])ES[0-9]{22}(?:$|[^A-Z0-9])`)
+	patronClavePaquete            = regexp.MustCompile(`(?i)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----`)
 )
 
 type metadatosPaqueteCatalogo struct {
@@ -190,14 +195,26 @@ func contieneDatoPrivadoCatalogo(valor any, ruta string) bool {
 
 // Decisión de dirección del 15/10/2026: las huellas SHA-256 tipadas de
 // 64 hex y los campos *_ref con formato opaco cerrado no son texto libre.
-// Las referencias admitidas son (car|per|enc|cta|prf|org)_<32 hex> o
-// ref:<64 hex>. Ninguna otra referencia, número o texto evita el detector.
+// Las referencias admitidas son (car|per|enc|cta|prf|org)_<32 hex>,
+// ref:<64 hex> y, desde F1-108, [prefijo:]…<UUID canónico | 64 hex> con
+// un prefijo que no contenga ningún dato personal. Ninguna otra
+// referencia, número o texto evita el detector.
 func valorOpacoCatalogoValido(ruta, clave, valor string) bool {
 	if (ruta == "fuente" && clave == "origen_sha256") ||
 		(ruta == "catalogo.entradas[].atributos" && strings.HasSuffix(clave, "_sha256")) {
 		return patronSHA256Paquete.MatchString(valor)
 	}
-	return strings.HasSuffix(clave, "_ref") && patronRefOpacaPaquete.MatchString(valor)
+	if !strings.HasSuffix(clave, "_ref") {
+		return false
+	}
+	if patronRefOpacaPaquete.MatchString(valor) {
+		return true
+	}
+	// F1-108: las cifras de un UUID o de una huella no son un teléfono,
+	// pero el prefijo legible sí se revisa para que nadie esconda en él
+	// un dato personal.
+	partes := patronRefIdentificadorPaquete.FindStringSubmatch(valor)
+	return partes != nil && !contienePatronPrivadoCatalogo(partes[1])
 }
 
 func contienePatronPrivadoCatalogo(valor string) bool {
