@@ -10,7 +10,7 @@ import unittest
 
 
 class TransporteHTTPTest(unittest.TestCase):
-    def test_https_mutuo_omite_connection_y_reconoce_cierre(self):
+    def test_https_mutuo_omite_connection_y_no_confunde_503_con_confirmacion(self):
         with tempfile.TemporaryDirectory() as temporal:
             raiz = Path(temporal)
             def openssl(*args):
@@ -61,10 +61,11 @@ class TransporteHTTPTest(unittest.TestCase):
                     '--origen', f'https://localhost:{servidor.server_port}',
                     '--ca', str(raiz / 'ca.pem'), '--certificado', str(raiz / 'cliente.pem'),
                     '--clave', str(raiz / 'cliente.key'), '--entrada', str(raiz / 'entrada.json'),
-                    '--salida', str(raiz / 'resultado'), '--esperar-cerrada'],
+                    '--salida', str(raiz / 'resultado')],
                     capture_output=True, text=True, timeout=10)
-                self.assertEqual(salida.returncode, 0, salida.stderr)
-                self.assertEqual(json.loads(salida.stdout)['http'], 503)
+                self.assertNotEqual(salida.returncode, 0)
+                self.assertIn('respuesta_inesperada_crear_503', salida.stderr)
+                self.assertEqual((raiz / 'resultado' / 'crear-http.txt').read_text(), '503')
                 self.assertEqual(len(observadas), 1)
                 self.assertEqual(observadas[0][0], '/api/vec/contratacion-temporal/nombramientos/derivaciones')
                 self.assertNotIn('Connection', observadas[0][1])

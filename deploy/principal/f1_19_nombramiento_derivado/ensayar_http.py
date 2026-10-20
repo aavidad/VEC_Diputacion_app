@@ -15,11 +15,8 @@ def main():
     for campo in ('origen', 'ca', 'certificado', 'clave', 'entrada', 'salida'):
         p.add_argument('--' + campo, required=True)
     p.add_argument('--recuperar-desde')
-    p.add_argument('--esperar-cerrada', action='store_true')
     a = p.parse_args()
     os.umask(0o077)
-    if a.esperar_cerrada and a.recuperar_desde:
-        raise ValueError('modos_incompatibles')
     u = urllib.parse.urlsplit(a.origen)
     if (u.scheme != 'https' or u.hostname not in ('localhost', '127.0.0.1')
             or not u.port or u.username is not None or u.password is not None
@@ -37,7 +34,6 @@ def main():
     salida.mkdir(mode=0o700, parents=False, exist_ok=False)
     contexto = ssl.create_default_context(cafile=a.ca)
     contexto.load_cert_chain(a.certificado, a.clave)
-
 
     def guardar(nombre, contenido):
         with (salida / nombre).open('xb') as f:
@@ -57,16 +53,9 @@ def main():
         guardar(nombre + '-http.txt', str(codigo).encode())
         if codigo != esperado or len(contenido) > 2097152:
             raise ValueError('respuesta_inesperada_' + nombre + '_' + str(codigo))
-        documento = json.loads(contenido)
-        return documento if esperado == 503 else documento['data']
+        return json.loads(contenido)['data']
 
     ruta = '/api/vec/contratacion-temporal/nombramientos/derivaciones'
-    if a.esperar_cerrada:
-        cerrado = post('cerrada', ruta, entrada, 503)
-        if cerrado.get('error', {}).get('codigo') != 'servicio_no_disponible':
-            raise ValueError('cierre_no_acreditado')
-        print(json.dumps({'estado': 'derivacion_cerrada', 'http': 503}))
-        return
     if a.recuperar_desde:
         base = Path(a.recuperar_desde)
         snapshot = base / 'origen.json'

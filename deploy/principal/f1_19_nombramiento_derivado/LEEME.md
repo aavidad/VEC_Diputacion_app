@@ -91,7 +91,8 @@ python3 deploy/principal/f1_19_nombramiento_derivado/ensayar_http.py \
   --entrada "$ENTRADA_DERIVACION" --salida "$RESULTADO_NUEVO"
 ```
 
-Exige 201, una recuperación 200 con el mismo recibo y una lectura nominal 200
+La orden envía una derivación real con el antecedente indicado. Exige 201,
+una recuperación 200 con el mismo recibo y una lectura nominal 200
 que mantenga separadas las dos historias. Conserva la primera respuesta antes
 de intentar la recuperación o la lectura; una salida incompleta no acredita
 que toda la comprobación haya pasado. Los archivos quedan privados y no se
@@ -101,6 +102,5 @@ Después de reiniciar la copia con su fábrica, repetir la orden con otra salida
 y `--recuperar-desde "$RESULTADO_ANTERIOR"`. Esto coteja la recuperación y la
 lectura contra la respuesta conservada; el reinicio lo hace la fábrica, no el
 guion HTTP. Comprobar además el 403 ajeno con un perfil publicado de otro ámbito
-y el arranque sin el archivo de activación. Para este último caso,
-`--esperar-cerrada` exige un 503 catalogado y no intenta crear ni recuperar. No se cambia la revisión, el árbol
+y el arranque sin el archivo de activación. No se cambia la revisión, el árbol
 ni el estado registrado de una instancia para sustituir su binario.
