@@ -80,11 +80,20 @@ todavía pendientes de integración, confirmó catorce actos administrativos,
 el plan y cuatro admisiones en una instancia nueva. La preparación terminó
 con 503 en `incorporacion-personal-b2/categorias-rpt/v1`. Se conservaron el
 material y PostgreSQL en archivos fríos propios; la instancia fue retirada.
-El diagnóstico por lectura identifica una incompatibilidad entre el perfil
-fijo de lectura y el perfil que exige la composición de incorporación.
-La corrección de ese contrato es un requisito para continuar el recorrido;
-no se deben repetir los actos ni modificar datos para sortear el rechazo.
+Ese rechazo se corrigió en F1-137, integrada en main. La comprobación posterior
+del preparador obtuvo las consultas de Personal con respuesta 200 antes y
+después del reinicio; fue un diagnóstico sobre su copia existente, no una
+creación completa desde la receta corregida.
 
-Faltan el recorrido HTTP y en Chrome, el reinicio con sus datos, las dos
-revisiones independientes y la integración de las dependencias.
+Las revisiones independientes del cuerpo de CT255 y sus permisos son
+favorables sobre `77b8da9c0`. La ampliación de la prueba funcional sigue
+pendiente: el borrador manual no es una prueba autónoma y varios de sus estados
+negativos están prohibidos por las restricciones del esquema. La focal
+versionada acredita solo el contrato privado y la denegación indicados arriba.
+
+La candidata conjunta D conserva CT255 después de CT253 y CT256. Su responsable
+prepara el mismo caso nativo hasta el nombramiento; no se crea otro expediente
+en paralelo para estos pasos. Faltan ese recorrido HTTP y en Chrome, el
+reinicio con sus datos, la prueba funcional pendiente, la CI de la cabeza final
+y la integración de las dependencias.
 No hay todavía una prueba positiva de alta o cese sobre el nombramiento nativo.
