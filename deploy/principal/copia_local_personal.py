@@ -6,7 +6,7 @@ import http.client
 import ssl
 import secrets
 import subprocess
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit, parse_qs
 
 from copia_local_conexiones import _publicar, _rol
 from copia_local_firma import privado, _sha256
@@ -69,11 +69,22 @@ def guardar_entorno(copia, entorno, guardar):
 def conexiones(copia, carpeta, guardar):
     """Nueve LOGIN propios; reutiliza el aprovisionador nominal de la copia."""
     marca = carpeta / 'conexiones.json'
-    if marca.exists():
-        return json.loads(privado(marca).read_text())
     grupos = [*BASE.values(), *B2.values(), CESE]
     campos = [*('base-' + k for k in BASE), *('b2-' + k for k in B2), 'cese']
     nombres = [LOGINS_ORIGEN.get(campo, _rol(copia.nombre, i + 90)) for i, campo in enumerate(campos)]
+    if marca.exists():
+        urls = json.loads(privado(marca).read_text())
+        if set(urls) != set(campos):
+            raise ValueError('Las conexiones de Personal no corresponden al contrato')
+        for campo, login in zip(campos, nombres):
+            url = urlsplit(urls[campo])
+            if (url.scheme != 'postgresql' or url.hostname != 'localhost'
+                    or url.port != copia.leer()['puerto_pg'] or url.path != '/postgres'
+                    or url.username != login or not url.password or url.fragment
+                    or parse_qs(url.query) != {'sslmode': ['verify-full'],
+                        'sslrootcert': [str(copia.material / 'ca/ca.crt')]}):
+                raise ValueError('Conexión de Personal ajena a esta copia o sin TLS verificado')
+        return urls
     claves = [secrets.token_hex(32) for _ in grupos]
     vence = (datetime.now(timezone.utc) + timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ')
     copia.sql_bytes(sql_logins(nombres, claves, grupos, vence), 'personal-conexiones.log')
@@ -132,6 +143,7 @@ def preparar(copia, origen, *, repo, go, entorno_go, guardar):
     privado(carpeta, directorio=True)
     entrada = carpeta / 'entrada'
     entrada.mkdir(mode=0o700, exist_ok=True)
+    privado(entrada, directorio=True)
     salida = carpeta / 'material'
     firma = _sha256(origen)
     marca = carpeta / 'preparada.json'
@@ -193,6 +205,8 @@ def preparar(copia, origen, *, repo, go, entorno_go, guardar):
             finally:
                 gobierno.unlink(missing_ok=True)
                 retirar_preparador_gobierno(copia)
+        privado(salida, directorio=True)
+        privado(salida / 'servidor.json')
         copia.parar()
         guardar_entorno(copia, entorno_personal(copia, salida, urls, repo), guardar)
         copia.arrancar()

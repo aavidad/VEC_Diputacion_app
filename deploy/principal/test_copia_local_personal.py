@@ -170,6 +170,35 @@ class PersonalLocal(unittest.TestCase):
         self.assertEqual(len(logins), 6)
         self.assertEqual(set(personal.LOGINS_ORIGEN.values()), logins)
 
+    def test_conexiones_guardadas_de_otra_copia_o_sin_tls_se_rechazan_sin_sql(self):
+        carpeta = self.raiz / 'personal'
+        carpeta.mkdir(mode=0o700)
+        urls = personal.conexiones(self.copia, carpeta, guardar)
+        self.copia.sql_llamadas.clear()
+        marca = carpeta / 'conexiones.json'
+        for alterada in (urls['cese'].replace(':55481/', ':55482/'),
+                         urls['cese'].replace('sslmode=verify-full', 'sslmode=disable')):
+            with self.subTest(url=alterada):
+                guardar(marca, {**urls, 'cese': alterada})
+                with self.assertRaisesRegex(ValueError, 'ajena|TLS'):
+                    personal.conexiones(self.copia, carpeta, guardar)
+                self.assertEqual(self.copia.sql_llamadas, [])
+
+    def test_entrada_enlazada_se_rechaza_antes_de_parar(self):
+        carpeta = self.raiz / 'personal'
+        carpeta.mkdir(mode=0o700)
+        destino = self.raiz / 'ajena'
+        destino.mkdir(mode=0o700)
+        (carpeta / 'entrada').symlink_to(destino, target_is_directory=True)
+        with patch.object(personal.subprocess, 'run',
+                          side_effect=AssertionError('no debe compilar')):
+            with self.assertRaises(ValueError):
+                personal.preparar(self.copia, self.origen, repo=self.raiz,
+                                 go='go-falso', entorno_go={}, guardar=guardar)
+        self.assertEqual(self.copia.eventos, [])
+        self.assertEqual(self.copia.sql_llamadas, [])
+        self.assertFalse((carpeta / 'preparacion.json').exists())
+
     def ejecutar(self, *, fallar_productor=False, fallar_comprobacion=False):
         llamadas = []
         gobierno = []
