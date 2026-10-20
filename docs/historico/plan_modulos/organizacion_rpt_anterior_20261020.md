@@ -87,17 +87,17 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
   mínima de la tarea 4 antes del montaje. Los perfiles de categorías no
   conceden por sí solos lectura histórica. Mantener la pantalla desactivada hasta entonces.
 - SQL/servidor: comprobar postimagen de Personal 000010 y AD3 000051 existentes;
-  D acredita instalación compatible. No reaplicar migraciones ni crear tablas sustitutas.
+  La instalación debe acreditar su compatibilidad. No reaplicar migraciones ni crear tablas sustitutas.
 - Cierre: navegador → contexto/perfil fijo → V3 → consulta PostgreSQL → evidencia;
   cortes y cobertura idénticos tras reinicio, denegación y revocación. Revisión sensible independiente.
 
 ### 3. Retomar el gobierno de categorías conservado
 
-- Propietarios: M, rama de gobierno; D, convergencia B→A y dependencias nominales.
+- El gobierno de categorías y las dependencias nominales conservan su autoridad propia.
 - Archivos: candidata Cat4/AD134, README y pruebas de la rama `a9001c097`.
   No reconstruir lo aportado por #222/#244 ni dar por integradas #249/#256.
 - SQL/servidor: fijar postimagen B→A, CA21/AUT25/IS10 y orden exacto; ensayo final
-  PostgreSQL 18 y dos revisiones del mismo hash antes de instalación por D.
+  PostgreSQL 18 y dos revisiones del mismo hash antes de instalar.
 - Cierre: separación editor/revisor, confirmación V3, CAS, auditoría, recibo
   recuperable y deshabilitación con historia. Los ensayos antiguos no cierran el circuito final.
   La numeración expresa prioridad; este gobierno no bloquea tareas independientes
@@ -299,8 +299,9 @@ contexto y tamaños antes de copiar el mapa o calcular la huella documental.
 Pruebas focales normales y de carrera, gopls y diff correctos; dos revisiones
 independientes favorables del código `0772604ff`.
 
-V conserva identidad, sesión, perfil fijo, instantánea y emisor comunes.
-T conserva el adaptador RPT, handler y composición. La separación efectiva
+Identidad, sesión, perfil fijo, instantánea y emisor pertenecen a los
+servicios comunes. El adaptador RPT y su composición conservan el contrato
+del módulo propietario. La separación efectiva
 editor–aprobador, CAS, recibo durable y auditoría transaccional necesitan
 la conciliación SQL posterior; estos tipos no los acreditan por sí solos.
 AUT25, CA21 e IS10 se preservan hasta su decisión, sin duplicar fuentes ni
