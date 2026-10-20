@@ -251,6 +251,16 @@ GINPIX manual y cese desde una configuración aprobada, sin copiar capacidades
 antiguas. La activación y la semilla no autoritativa de Plantilla están en el
 apartado 12 de esa guía. El arranque HTTP no acredita el recorrido funcional.
 
+F1-131 añade `crear --recorrido-completo` con productores versionados. Prepara
+Administración con dos personas, los roles simples, el plan, las admisiones,
+Documentos y Personal; los roles compuestos conservan su condición de semilla
+técnica. Genera material propio y exige declarar las huellas del software de
+verificación y del manejador de firma cuando se aporta. Los LOGIN nuevos
+caducan a los 90 días; los certificados de desarrollo pueden cubrir 400.
+La orden y sus parámetros están en `deploy/principal/recorrido_copia/LEEME.md`.
+La aceptación de la creación integrada sigue pendiente; no acredita la firma
+ni el recorrido completo del expediente.
+
 ### Arranque de Administración
 
 `vec-admin` requiere `VEC_ADMIN_USUARIOS_CONFIG_FILE`, el fichero privado de
