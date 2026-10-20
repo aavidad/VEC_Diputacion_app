@@ -319,6 +319,25 @@ def preparar(c):
         'VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE': str(overlay_runtime)})
 
 
+def agregar_entorno_firma(c, datos, run, variables):
+    ruta = c.raiz / 'admin_firma_env.json'
+    if not ruta.exists():
+        exigir('admin_firma_env_sha256' not in datos, 'Falta el entorno de firma confirmado')
+        return
+    from recorrido_copia.montajes_firma import ENTORNO
+    exigir(datos.get('admin_firma_env_sha256') == c.sha(privado(ruta)),
+           'Entorno de firma distinto del confirmado')
+    extra = documento(ruta)
+    hashes = datos.get('admin_firma_archivos_sha256', {})
+    exigir(set(extra) == set(ENTORNO) and set(hashes) == set(ENTORNO),
+           'Claves de entorno de firma inesperadas')
+    for clave, nombre in ENTORNO.items():
+        esperado = run / 'vec-admin/config' / nombre
+        exigir(extra[clave] == str(esperado) and c.sha(privado(esperado)) == hashes[clave],
+               'Configuración de firma de otra copia o modificada')
+        variables[clave] = str(esperado)
+
+
 def entorno(c, estado):
     datos = documento(c.raiz / 'admin_preparacion.json')
     run = c.raiz / 'admin/h10'
@@ -361,6 +380,7 @@ def entorno(c, estado):
                    'Overlay ADMIN adicional de otra copia')
             privado(ruta_extra)
             variables[clave] = str(ruta_extra)
+    agregar_entorno_firma(c, datos, run, variables)
     variables.update(DESARROLLO)
     variables.update(PATH='/usr/bin:/bin', LANG='C.UTF-8', HOME=str(c.raiz))
     return variables

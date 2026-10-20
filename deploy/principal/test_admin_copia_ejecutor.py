@@ -142,3 +142,29 @@ class CadenaGobierno(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ejecutor.verificar_gobierno(SimpleNamespace(carpeta=carpeta), fase)
             self.assertEqual(fase.call_count, 1)
+
+
+class EntornoFirma(unittest.TestCase):
+    def test_montaje_consumido_y_rechazo_de_configuracion_modificada(self):
+        from types import SimpleNamespace
+        from recorrido_copia.montajes_firma import ENTORNO
+        with tempfile.TemporaryDirectory() as tmp:
+            raiz = Path(tmp); raiz.chmod(0o700)
+            run = raiz / 'admin/h10'
+            conf = run / 'vec-admin/config'; conf.mkdir(mode=0o700, parents=True)
+            archivos = {}
+            hashes = {}
+            for clave, nombre in ENTORNO.items():
+                ruta = conf / nombre; ruta.write_text('{}'); ruta.chmod(0o600)
+                archivos[clave] = str(ruta); hashes[clave] = ContextoFalso.sha(ruta)
+            env = raiz / 'admin_firma_env.json'
+            env.write_text(json.dumps(archivos)); env.chmod(0o600)
+            datos = {'admin_firma_env_sha256': ContextoFalso.sha(env),
+                     'admin_firma_archivos_sha256': hashes}
+            c = SimpleNamespace(raiz=raiz, sha=ContextoFalso.sha)
+            variables = {}
+            ejecutor.agregar_entorno_firma(c, datos, run, variables)
+            self.assertEqual(variables, archivos)
+            (conf / ENTORNO['VEC_ADMIN_CARGOS_CONFIG_FILE']).write_text('{"ajeno":true}')
+            with self.assertRaisesRegex(ValueError, 'modificada'):
+                ejecutor.agregar_entorno_firma(c, datos, run, {})
