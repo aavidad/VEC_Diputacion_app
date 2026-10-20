@@ -94,3 +94,17 @@ test("las firmas del informe sustituido no se presentan como firmas del informe 
   assert.match(nueva, /data-ct-fase-firma-estado="firmado"/u);
   assert.doesNotMatch(nueva, /aria-current="step"/u);
 });
+
+test("el siguiente paso pide firmar el informe nuevo, sin el tono de incidencia ni el botón de trámite", async () => {
+  const { renderizarSiguientePasoFicha } = await import("./vista-expedientes-ficha.js?v=VEC_WEB_VERSION");
+  const { crearTraductorExpedientesContratacion } = await import("./i18n-expedientes.js?v=VEC_WEB_VERSION");
+  const t = crearTraductorExpedientesContratacion();
+  const estado = estadoTrasInformeNuevo();
+  const expediente = { ...estado.expediente, tareas: [], fases: [{ etiqueta: "Fiscalización", estado_clave: "incidencia" }] };
+  const html = renderizarSiguientePasoFicha(expediente, estado, t);
+  assert.match(html, /Siguiente paso: revisar las firmas del informe/u);
+  assert.doesNotMatch(html, /con-incidencia|data-ct-exp-accion="ir-tramite"/u);
+  const sinInforme = estadoTrasInformeNuevo({ ultimo: null });
+  const otro = renderizarSiguientePasoFicha({ ...sinInforme.expediente, tareas: [], fases: [] }, sinInforme, t);
+  assert.doesNotMatch(otro, /revisar las firmas del informe/u);
+});

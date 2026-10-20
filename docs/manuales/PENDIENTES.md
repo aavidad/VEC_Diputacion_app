@@ -11,7 +11,9 @@ Quedan textos y avisos por corregir en esas pantallas:
 - El recuadro de subsanación muestra la versión anterior y dice que no consta un plazo autorizado, en lugar de los 15 días.
 - La confirmación del informe nuevo enseña la referencia interna del expediente.
 - Durante el reparo sigue a la vista el bloque «Respuesta del llamamiento».
-- El enlace «Plantillas de documentos» no aparece en el menú hasta abrir su dirección una vez.
+- El enlace «Plantillas de documentos» no aparece en el menú hasta entrar una vez en esa pantalla.
+- La ayuda dice que los plazos para subsanar están sin definir; el catálogo ya fija 15 días hábiles.
+- El aviso de firma enseña la referencia interna del recibo, y «Quién debe firmar» dice «Nadie: firmas de VEC completas».
 
 ## Comprobación de Intervención del 19 de octubre de 2026
 

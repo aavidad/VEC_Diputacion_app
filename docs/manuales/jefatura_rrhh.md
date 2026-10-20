@@ -314,7 +314,7 @@ disponibles después de reiniciar. El 20 de octubre se abrió en otra copia
 la pantalla «Plantillas de documentos» desde su dirección, a 1440 y 390
 píxeles, y se abrió la plantilla del informe definitivo para editarla. No se
 guardó ninguna versión nueva. El enlace del menú solo aparece después de
-abrir esa dirección una vez.
+entrar una vez en la pantalla de plantillas.
 
 **Al final.** Un único sitio para los documentos de todos los módulos, con plantillas oficiales de RRHH, conservación según el Archivo y descarga controlada.
 

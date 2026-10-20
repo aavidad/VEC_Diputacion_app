@@ -10,11 +10,17 @@ const ACCION_INFORME = "contratacion_temporal.informe_juridico.generar";
  * servidor: la fase del resumen es el destino de ese último hito). */
 export function informeNuevoVigenteEnSubsanacion(estado) {
   const expediente = estado?.expediente;
+  if (!expediente || !Array.isArray(estado?.cuadro?.expedientes)) return false;
+  return informeNuevoVigenteEnExpediente(expediente,
+    estado.cuadro.expedientes.find(({ expediente_ref: ref }) => ref === expediente.expediente_ref));
+}
+
+/** Lo mismo con el expediente y su fila del cuadro ya localizados. */
+export function informeNuevoVigenteEnExpediente(expediente, resumen) {
   const hito = expediente?.historial?.at?.(-1);
-  if (!hito || hito.accion_clave !== ACCION_INFORME || hito.version_expediente !== expediente.version
-    || hito.secuencia !== expediente.version || !Array.isArray(estado?.cuadro?.expedientes)) return false;
-  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: ref }) => ref === expediente.expediente_ref);
-  return resumen?.version === expediente.version && resumen.fase_clave === "subsanacion_unidad"
+  return Boolean(hito) && hito.accion_clave === ACCION_INFORME && hito.version_expediente === expediente.version
+    && hito.secuencia === expediente.version
+    && resumen?.version === expediente.version && resumen.fase_clave === "subsanacion_unidad"
     && resumen.estado_clave === "incidencia";
 }
 
