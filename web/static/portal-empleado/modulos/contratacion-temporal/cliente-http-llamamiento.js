@@ -3,6 +3,7 @@ import {
   validarReciboSeleccion, validarReciboComunicacionLlamamiento,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
   validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
+  validarSolicitudResolucionPortal, validarReciboResolucionPortal,
   validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
   validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
   snapshotsFormalizacionDesarrollo, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
@@ -164,9 +165,18 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
         (respuesta) => validarReciboEventoPlazo(respuesta, entrada));
     },
     resolverLlamamiento(solicitud, opciones) {
-      const entrada = validarSolicitudResolucionLlamamiento(solicitud);
+      const portal = solicitud?.fuente_respuesta === "portal";
+      const entrada = portal ? validarSolicitudResolucionPortal(solicitud)
+        : validarSolicitudResolucionLlamamiento(solicitud);
       return enviar(RUTAS_LLAMAMIENTO.resolucionLlamamiento, entrada, opciones,
-        (respuesta) => validarReciboResolucionLlamamiento(respuesta, entrada));
+        (respuesta, status) => {
+          const recibo = portal ? validarReciboResolucionPortal(respuesta, entrada)
+            : validarReciboResolucionLlamamiento(respuesta, entrada);
+          if (portal && recibo.estado_local !== (status === 201 ? "confirmado" : "replay_confirmado")) {
+            throw new TypeError("estado de resolución portal incompatible con HTTP");
+          }
+          return recibo;
+        });
     },
     continuarLlamamiento(solicitud, opciones) {
       const entrada = validarSolicitudContinuacionLlamamiento(solicitud);

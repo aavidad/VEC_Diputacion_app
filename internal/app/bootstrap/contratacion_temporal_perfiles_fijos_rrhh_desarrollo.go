@@ -523,7 +523,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseInformeJuridicoCT)
 			valida = ok && solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(ruta, datos, fase)
 		case rutaConsultaRRHHContratacionTemporalDesarrollo(ruta):
-			valida = s.lectorConsultasRRHH && s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos)
+			valida = (s.lectorConsultasRRHH || p.clave == clavePerfilFijoConsultasTecnicoCTDesarrollo) &&
+				s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos)
 		case ruta == httpinterno.RutaConsultaCircuitoRRHH:
 			valida = solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos)
 		case ruta == httpinterno.RutaVinculosEmisionBolsa:
@@ -731,6 +732,22 @@ func asignarPerfilesFijosEnFronterasCTDesarrollo(
 		d := &resultado[i]
 		fijo := s.perfilFijoParaRutaYMetodo(d.Ruta, d.Metodo)
 		if fijo == nil {
+			continue
+		}
+		if fijo.clave == clavePerfilFijoConsultasTecnicoCTDesarrollo && rutaConsultaRRHHContratacionTemporalDesarrollo(d.Ruta) {
+			// La frontera contiene además los lectores nominales. Se sustituye
+			// solo el perfil dinámico de la técnica; sus otras rutas lo conservan.
+			if len(d.PerfilesActivosRef) == 0 || d.PerfilesActivosRef[0] != perfilDinamico ||
+				!perfilActivoSeguridadComunValido(fijo.perfilRef()) {
+				return nil, ErrActivacionDesarrolloInvalida
+			}
+			for _, otro := range d.PerfilesActivosRef[1:] {
+				if otro == perfilDinamico || otro == fijo.perfilRef() || !perfilActivoSeguridadComunValido(otro) {
+					return nil, ErrActivacionDesarrolloInvalida
+				}
+			}
+			d.PerfilesActivosRef = append([]string(nil), d.PerfilesActivosRef...)
+			d.PerfilesActivosRef[0] = fijo.perfilRef()
 			continue
 		}
 		if len(d.PerfilesActivosRef) != 1 || d.PerfilesActivosRef[0] != perfilDinamico ||

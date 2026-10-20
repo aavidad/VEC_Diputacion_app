@@ -129,6 +129,41 @@ func (s *ServicioComunicacionLlamamiento) Resolver(
 		ErrResultadoComunicacionLlamamientoNoConfiable
 }
 
+func (s *ServicioComunicacionLlamamiento) ResolverPortal(
+	ctx context.Context, solicitud ports.SolicitudResolucionPortal,
+) (ports.ResultadoResolucionPortal, error) {
+	vacio := ports.ResultadoResolucionPortal{}
+	if s == nil || ctx == nil || dependenciaNula(s.transaccion) {
+		return vacio, ErrServicioComunicacionLlamamientoInvalido
+	}
+	if solicitud.Validar() != nil {
+		return vacio, ErrSolicitudComunicacionLlamamientoInvalida
+	}
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
+	transaccion, ok := s.transaccion.(interface {
+		ResolverPortal(context.Context, ports.SolicitudResolucionPortal) (ports.ResultadoResolucionPortal, error)
+	})
+	if !ok {
+		return vacio, ErrComunicacionLlamamientoNoDisponible
+	}
+	r, err := transaccion.ResolverPortal(ctx, solicitud)
+	if ctx.Err() != nil {
+		return vacio, ctx.Err()
+	}
+	if err != nil {
+		if r != vacio {
+			return vacio, ErrResultadoComunicacionLlamamientoNoConfiable
+		}
+		return vacio, clasificarErrorComunicacionLlamamiento(ctx, err)
+	}
+	if r.ValidarPara(solicitud) != nil {
+		return vacio, ErrResultadoComunicacionLlamamientoNoConfiable
+	}
+	return r, nil
+}
+
 func clasificarErrorComunicacionLlamamiento(ctx context.Context, err error) error {
 	if ctx != nil {
 		if errContexto := ctx.Err(); errContexto != nil {
