@@ -27,7 +27,7 @@ cidonia ni un recorrido real.
 
 | Pieza | Dónde | Uso en este corte |
 | --- | --- | --- |
-| Lista y ficha de usuarios (sólo lectura) | `cmd/vec-admin`, AUT43/AD185, `web/static/admin/usuarios/` | Punto de partida de la pantalla. Otro ayudante está cambiando la lectura para aceptar la versión vigente del rol de Aplicación (AUT48); no se tocan esos ficheros hasta que entre su PR. |
+| Lista y ficha de usuarios (sólo lectura) | `cmd/vec-admin`, AUT43/AD185, `web/static/admin/usuarios/` | Punto de partida de la pantalla. La lectura exige la versión vigente del rol de Aplicación (AUT48). |
 | Contrato de «lote ordinario» de cambios de perfil | `internal/vec/domain/administracion_perfiles_lote.go`, `application/administracion_perfiles_lote.go`, `ports/administracion_perfiles_lote.go` | Una asignación o una retirada es un lote de un solo cambio. No se crea otra vía singular. |
 | Ruta `POST …/lotes-ordinarios` | `internal/vec/adapters/httpapi/administracionperfiles/handler_lotes.go` | Ya valida y deniega con auditoría; falta la autoridad real detrás. |
 | Permiso del administrador para el lote | AUT45: rol de Aplicación v6 con `administracion.perfiles.aplicar_lote_ordinario` | Se publica con la CLI existente `vec-mantener-admin-fijo` (paso 4 del runbook, plan v2). Requiere AUT48 para que la lista de usuarios siga funcionando con v6. |
@@ -159,21 +159,13 @@ incluida la validación de la postimagen. La puerta completa local pasó con
 3.539 pruebas web; Semgrep no encontró incidencias en el delta SQL y gosec no
 encontró hallazgos en las líneas Go modificadas, sin errores de carga.
 
-El cierre positivo sigue pendiente. El ensayo aislado confirmó mediante las
-CLI reales los mantenimientos ADMIN v5→v6→v7→v8 y la admisión del catálogo v2.
-Las dos personas ADMIN conservan sus vínculos de certificado, pero tienen cero
-sesiones privilegiadas vigentes y los kits disponibles no corresponden a sus
-certificados. La base conserva cero propuestas y cierres de gobierno de roles.
-No se ha sustituido el consumo V3 ni la auditoría para completar el ensayo.
-
-Continuación: recuperar el kit de las dos identidades del arranque 2+1, abrir
-sesiones por la autoridad existente, emitir material V3 fresco y ejecutar
-`deploy/postgresql/autorizacion/pruebas_sql/aut61_cierre_real_v3.sql`. La prueba
-exige LOGIN mínimo, dos ADMIN distintos, acción firmada y efecto exacto,
-recibo, control, auditoría y outbox. La función interna de alta de vínculo sólo
-forma parte del bootstrap; añadir una renovación de certificados sería otra
-tarea de identidad. La PR permanece en borrador hasta completar el ensayo y
-la CI; La integración requiere revisión previa.
+El ensayo aislado de AUT61 no acreditaba el cierre positivo de gobierno.
+La confirmación requiere sesión privilegiada vigente, dos personas
+administradoras distintas, acción firmada, LOGIN mínimo y efecto exacto.
+Recibo, control, auditoría y aviso de salida se confirman juntos. La prueba
+`deploy/postgresql/autorizacion/pruebas_sql/aut61_cierre_real_v3.sql`
+conserva esas condiciones. El alta interna de vínculo pertenece a la
+preparación inicial; no sustituye una renovación de identidad.
 
 ## Preferencias sin espera inicial con idioma elegido — 8 de octubre de 2026
 
