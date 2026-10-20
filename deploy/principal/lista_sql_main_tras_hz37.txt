@@ -225,3 +225,6 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000304_conjunto_admin_gob
 
 # F1-19 — AD305: contrato firmado de derivación, tras AD301; conserva huella/recurso y ACL.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000305_contrato_derivacion_nombramiento.up.sql c6b7473535727e11ed0acce312bc3bd5bfaa05966743cf3a70ce4cdc0bda912a
+
+# F1-19 — CT247: consumidor y ámbito propio del hijo, fuente L3b075; ensayo conjunto R.
+deploy/postgresql/contratacion_temporal/migraciones/000247_ambito_nombramiento_derivado.up.sql e4476ce243e204ff4142ab53d24fb8767c1476aa0366c87c0d95528910d4a08a
