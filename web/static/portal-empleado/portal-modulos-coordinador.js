@@ -1552,7 +1552,7 @@ export function crearCoordinadorModulosPortal({
           fiscalizacionAjena: temporal.fiscalizacionEnFicha === false,
           continuidad: temporal.continuidad,
           soloFirmante,
-          incorporacionPersonalB2: temporal.clienteIncorporacionB2,
+          incorporacionPersonalB2: soloFirmante ? null : temporal.clienteIncorporacionB2,
           subsanacion: temporal.subsanacion,
           auditoriaComun: temporal.auditoriaComun,
           // Lista común de documentos en la ficha, solo si el portal publica
