@@ -68,7 +68,7 @@ BEGIN
    WHERE a.attrelid='vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6'::regclass
    AND a.attname='tipo_seleccion' AND NOT a.attisdropped)
  OR to_regprocedure('vec_contratacion_temporal.registrar_resolucion_respuesta_portal_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
- OR to_regprocedure('vec_contratacion_temporal.origen_financiero_o6_ct249_v1(jsonb,jsonb,text)') IS NULL
+ OR to_regprocedure('vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(jsonb,jsonb,text)') IS NULL
  OR has_function_privilege('vec_contratacion_temporal_propietario',
    'vec_bolsa_llamamientos.verificar_aceptacion_nativa_ct_para_ct_v1(jsonb)','EXECUTE') IS NOT TRUE
  THEN RAISE EXCEPTION 'CT253: CT249 o B113 ausente' USING ERRCODE='55000'; END IF;
@@ -306,7 +306,7 @@ BEGIN
         BEGIN v_artefacto:=v_artefacto_texto_o6::jsonb;
         EXCEPTION WHEN data_exception THEN
             RAISE EXCEPTION 'artefacto O6 inválido' USING ERRCODE='P0615'; END;
-        IF vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+        IF vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(
              v_solicitud_o6,v_seleccion,v_artefacto_texto_o6) IS NOT TRUE
            OR v_artefacto#>'{comando,contexto,datos,correlacion_ref}' IS DISTINCT FROM v_solicitud_o6->'correlacion_ref'
            OR v_artefacto#>'{comando,contexto,datos,finalidad}' IS DISTINCT FROM v_solicitud_o6->'finalidad'
@@ -703,7 +703,7 @@ BEGIN
         BEGIN v_artefacto:=v_artefacto_texto_o6::jsonb;
         EXCEPTION WHEN data_exception THEN
             RAISE EXCEPTION 'artefacto O6 inválido' USING ERRCODE='P0615'; END;
-        IF vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+        IF vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(
              v_solicitud_o6,v_seleccion,v_artefacto_texto_o6) IS NOT TRUE
            OR v_artefacto#>'{comando,contexto,datos,correlacion_ref}' IS DISTINCT FROM v_solicitud_o6->'correlacion_ref'
            OR v_artefacto#>'{comando,contexto,datos,finalidad}' IS DISTINCT FROM v_solicitud_o6->'finalidad'
@@ -975,7 +975,7 @@ BEGIN
  OR p.proparallel IS DISTINCT FROM 'u'
  OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']::text[]
- OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'ebfd9584069ae2f52d224849715849e07c0cbe18bc0ab31f0cc74d4e8a49c552'
+ OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'2fd0e24f689e986fa09f3ee55c93d85a901a2c6f756343a38f964d3a0629c3d9'
  THEN RAISE EXCEPTION 'CT253: post divergente para leer_antecedente_propuesta_formalizacion_ct211_v1' USING ERRCODE='55000'; END IF;
 END $post_leer_antecedente_propuesta_formalizacion_ct211_v1$;
 
@@ -997,7 +997,7 @@ BEGIN
  OR p.proparallel IS DISTINCT FROM 'u'
  OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']::text[]
- OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'7740e3ec1afed7e99cc17b7134cb07f9566a5ab200278fd6bb2a3190160a1ccd'
+ OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex')<>'f29879a9e90b3d0daef565b657919d5b5c26b2d5b366091d3cb04b761177737a'
  THEN RAISE EXCEPTION 'CT253: post divergente para registrar_propuesta_formalizacion_nativa_ct211_v1' USING ERRCODE='55000'; END IF;
 END $post_registrar_propuesta_formalizacion_nativa_ct211_v1$;
 

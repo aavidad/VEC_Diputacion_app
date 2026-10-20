@@ -10,13 +10,13 @@ DECLARE x record; f regprocedure; p record;
 BEGIN
  IF to_regclass('vec_contratacion_temporal.resolucion_manual_respuesta_rrhh') IS NULL
  OR to_regprocedure('vec_contratacion_temporal.registrar_resolucion_respuesta_portal_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
- OR to_regprocedure('vec_contratacion_temporal.origen_financiero_o6_ct249_v1(jsonb,jsonb,text)') IS NULL
+ OR to_regprocedure('vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(jsonb,jsonb,text)') IS NULL
  THEN RAISE EXCEPTION 'CT253: falta CT249'; END IF;
  FOR x IN SELECT * FROM (VALUES
   ('vec_contratacion_temporal.leer_antecedente_propuesta_formalizacion_ct211_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   'ebfd9584069ae2f52d224849715849e07c0cbe18bc0ab31f0cc74d4e8a49c552'),
+   '2fd0e24f689e986fa09f3ee55c93d85a901a2c6f756343a38f964d3a0629c3d9'),
   ('vec_contratacion_temporal.registrar_propuesta_formalizacion_nativa_ct211_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   '7740e3ec1afed7e99cc17b7134cb07f9566a5ab200278fd6bb2a3190160a1ccd')
+   'f29879a9e90b3d0daef565b657919d5b5c26b2d5b366091d3cb04b761177737a')
  ) v(firma,huella) LOOP
   f:=to_regprocedure(x.firma);
   IF f IS NULL THEN RAISE EXCEPTION 'CT253: falta función %',x.firma; END IF;
@@ -37,7 +37,7 @@ BEGIN
   THEN RAISE EXCEPTION 'CT253: definición o ACL divergente %',x.firma; END IF;
  END LOOP;
  IF has_function_privilege('vec_contratacion_temporal_ejecutor',
-  'vec_contratacion_temporal.origen_financiero_o6_ct249_v1(jsonb,jsonb,text)','EXECUTE')
+  'vec_contratacion_temporal.origen_seleccion_o6_ct249_v1(jsonb,jsonb,text)','EXECUTE')
  OR has_table_privilege('vec_contratacion_temporal_ejecutor',
   'vec_contratacion_temporal.resolucion_manual_respuesta_rrhh','SELECT')
  OR has_table_privilege('vec_contratacion_temporal_ejecutor',
