@@ -33,6 +33,7 @@ PRUEBAS_SQL = (
     'deploy/postgresql/bolsa_convocatorias/pruebas_sql/bc15_declaracion_publicacion_oficial_rrhh.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b142_modalidad_inscripcion_aspirante.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b146_solicitud_conjunta.sql',
+    'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad302_recibo_comprobacion_precedencia.sql',
     CA48_PRUEBA,
     # El último caso es el fixture de la concurrencia de contexto externo.
     'deploy/postgresql/contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql',

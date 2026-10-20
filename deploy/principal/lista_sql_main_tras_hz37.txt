@@ -208,3 +208,5 @@ deploy/postgresql/contratacion_temporal/migraciones/000244_fecha_rc_declarada_an
 deploy/postgresql/bolsa_convocatorias/migraciones/000015_declaracion_publicacion_oficial_rrhh.up.sql 3418e4c1aebc1c0e5568c67846d460c75e8a5adc15eaf2865b1c684e6b2fb7a8
 # F1-105 — CA48: el cotejo de lectura de Bolsa bloquea cuenta, perfil, vínculo y persona en el orden de la acreditación V3 (sin interbloqueo en la ficha del candidato); tras CA47.
 deploy/postgresql/contexto_actor_v1/migraciones/000048_cotejo_lectura_bolsa_orden_bloqueo.up.sql 9708680221f72a1774d25009f0f73eb09c9ac05df5f0b423f586431c50e41e45
+# F1-103 — AD302: la lectura auditada del origen CT pone entre paréntesis e#>>... al cotejar el recibo de la comprobación de ofrecimiento; sin ellos daba 22P02 y la selección del llamamiento respondía 409
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000302_recibo_comprobacion_precedencia.up.sql 82e7c55732823d6ca35fd431599fdfafc17ae17527ea8bfcb8d7d7130c2ab71e

@@ -543,11 +543,17 @@ consulta, y la selección fallaba.
   tu copia puedes usar la variante vacante del caso 4.0 con dos personas
   solicitadas, como dato de copia y sin atribuirla a la fiscalización anterior.
 - «Llamar a la siguiente persona» desde la ficha del expediente funciona en
-  una copia nueva creada con `--modulos` y con la firma compuesta (F1-103,
-  20/10). Antes daba 409 porque faltaban dos permisos de la técnica de RRHH:
-  la consulta de Organización histórica y la lectura de la bolsa constituida
-  desde Contratación (`bolsa.origen_ct.consultar`).
-- `crear` siembra y monta la consulta de Organización histórica:
+  una copia nueva creada con `--modulos` (sin `--portal-externo`) y con la
+  firma compuesta (F1-103, 20/10). La selección responde 200 con su recibo y
+  llama a la primera persona disponible por el orden vigente; repetirla
+  devuelve el mismo llamamiento. Antes daba 409 por tres cosas: faltaban dos
+  permisos de la técnica de RRHH (la consulta de Organización histórica y la
+  lectura de la bolsa constituida desde Contratación,
+  `bolsa.origen_ct.consultar`) y la lectura auditada del origen fallaba en
+  cuanto alguien de la bolsa tenía una comprobación de ofrecimiento
+  registrada. Esto último lo corrige AD302, que viene en la lista única.
+- `crear --modulos` siembra y monta la consulta de Organización histórica.
+  Con `--portal-externo` no lo hace, igual que los datos del caso 4.0:
   1. Siembra el rol `consulta_organizacion_historica_rrhh` v1 con la concesión
      de `fuentes/personal_organizacion_historica_rrhh_v1.json` (sustancial,
      seis campos, sin obligaciones). Lo asigna a un perfil nuevo de la técnica
@@ -588,7 +594,7 @@ consulta, y la selección fallaba.
   una vez publicados, el censo de la admisión no cuadra y la autoridad la
   rechaza. Es un fallo aparte, anotado en F1-103 del tablero.
 - La consulta guarda el perfil y su versión por cuenta. Si cambia la versión
-  del perfil, hay que volver a preparar el material.
+  del perfil, recrea la copia: el material preparado ya no sirve.
 - Los expedientes 2026/93001 y 2026/94011 no guardan necesidad de la RPT y su
   historia no se puede corregir: las versiones son inmutables. Para llamar
   desde la ficha, recorre el caso 4.0 con la variante vacante (puesto 9,
