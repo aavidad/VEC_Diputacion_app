@@ -225,7 +225,7 @@ function renderizarFormulario(regla, motivos, borrador, fase) {
 }
 
 /** Panel autocontenido. El cliente se inyecta y ninguna respuesta tardía repinta una vista nueva. */
-export async function iniciarAjustes(doc, cliente = crearClienteAjustes()) {
+export async function iniciarAjustes(doc, cliente = crearClienteAjustes(), disponible = true) {
   const contenedor = doc.getElementById("rg-ajustes");
   if (!contenedor) return () => {};
   try { await cargarTextosAjustes(); }
@@ -240,10 +240,14 @@ export async function iniciarAjustes(doc, cliente = crearClienteAjustes()) {
     contenedor.innerHTML = `<section class="rg-panel rg-ajustes"><p class="rg-aviso rg-aviso--error" role="alert">${esc(mensaje)}</p><button type="button" class="rg-secundario" data-ajustes-catalogo-reintentar>${esc(reintentar)}</button></section>`;
     let desmontado = false;
     contenedor.querySelector("[data-ajustes-catalogo-reintentar]")?.addEventListener("click", () => {
-      void reintentarTextosAjustes().then(() => { if (!desmontado) void iniciarAjustes(doc, cliente); })
-        .catch(() => { if (!desmontado) void iniciarAjustes(doc, cliente); });
+      void reintentarTextosAjustes().then(() => { if (!desmontado) void iniciarAjustes(doc, cliente, disponible); })
+        .catch(() => { if (!desmontado) void iniciarAjustes(doc, cliente, disponible); });
     }, { once: true });
     return () => { desmontado = true; };
+  }
+  if (disponible !== true) {
+    contenedor.innerHTML = `<section class="rg-panel rg-ajustes" aria-labelledby="rg-ajustes-titulo"><div class="rg-panel-cabecera"><h2 id="rg-ajustes-titulo">${esc(t("ajustesTitulo"))}</h2></div><p class="rg-aviso" role="status">${esc(t("ajustesEdicionInactiva"))}</p></section>`;
+    return () => {};
   }
   let modelo = null;
   let reglaActiva = "";
