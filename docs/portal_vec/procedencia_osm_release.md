@@ -46,14 +46,14 @@ Comandos exactos, desde este checkout:
 gh api --method PUT repos/aavidad/VEC_Diputacion_app/immutable-releases
 gh api repos/aavidad/VEC_Diputacion_app/immutable-releases --jq '.enabled'
 gh release create osm-granada-base-20260719-z8-z12-v1 \
-  /ruta/privada/granada-base-20260719-z8-z12.zip \
-  /ruta/privada/granada-base-20260719-z8-z12.json \
-  /ruta/privada/procedencia.json \
-  /ruta/privada/ATTRIBUTION.txt \
+  /ruta/privada/osm-release/granada-base-20260719-z8-z12.zip \
+  /ruta/privada/osm-release/granada-base-20260719-z8-z12.json \
+  /ruta/privada/osm-release/procedencia.json \
+  /ruta/privada/osm-release/ATTRIBUTION.txt \
   --repo aavidad/VEC_Diputacion_app \
   --target 3796cf010dd93de07c1a83a443ff15a76b889ee1 \
   --title 'Cartografía histórica Granada z8–z12 v1' \
-  --notes-file /ruta/privada/RELEASE_NOTES.md \
+  --notes-file /ruta/privada/osm-release/RELEASE_NOTES.md \
   --latest=false
 ```
 
