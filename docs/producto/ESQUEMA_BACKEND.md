@@ -715,6 +715,14 @@ La selección se obtiene de Contratación, sin consultar tablas de Bolsa. No añ
 consumidor de autorización ni permisos por defecto. Activación y límites en
 [`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
 
+F1-124 conserva en esa consulta los códigos de serialización e interbloqueo
+(`40001`, `40P01`, CT248). El lector repite la operación completa con la
+política común y una autorización nueva después de revertir el intento
+anterior. Los permisos, el consumo y la auditoría siguen siendo obligatorios;
+los bloqueos y las inconsistencias conservan su error. Activación conjunta de
+SQL y binario en
+[`comunicaciones_f1_124.md`](../../deploy/principal/comunicaciones_f1_124.md).
+
 F1-69 prepara CT238: un índice único parcial en O6 impide más de una
 selección `confirmada` por organización y expediente. Antes de crearlo,
 bloquea las escrituras y rechaza duplicados o referencias ausentes, sin
