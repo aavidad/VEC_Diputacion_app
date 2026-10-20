@@ -141,6 +141,24 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 	if err != nil {
 		return vacio, errorPreparacionPropuestaDesarrollo(err)
 	}
+	if a.Portal != nil {
+		if a.ValidarPara(s) != nil {
+			return vacio, application.ErrResolucionFormalizacionNoAceptada
+		}
+		p, err := prepararReferenciasLlamamientoDesarrollo(expediente, a.Portal.Seleccion.ClaveCT)
+		if err != nil || p.necesidad != a.Portal.Seleccion.NecesidadRef ||
+			p.unidad != a.Portal.Seleccion.UnidadRef || p.categoria != a.Portal.Seleccion.CategoriaRef {
+			return vacio, application.ErrResolucionFormalizacionNoAceptada
+		}
+		ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, p)
+		m, err := e.materialPropuestaNativaCT(ctx, s, a, p)
+		if err != nil {
+			return vacio, err
+		}
+		ctx = context.WithValue(ctx, clavePropuestaFormalizacionDesarrollo{}, propuestaFormalizacionLigadaDesarrollo{antecedente: a, material: m})
+		ctx = context.WithValue(ctx, claveMaterialPropuestaFormalizacionDesarrollo{}, m)
+		return e.servicio.PrepararYConfirmar(ctx, s)
+	}
 	if a.ValidarPara(s) != nil || a.Resolucion.Politica != politicaManualDesarrollo() ||
 		!consultaJustificanteLigadaAlExpedienteDesarrollo(expediente, a.Resolucion.Solicitud) {
 		return vacio, application.ErrResolucionFormalizacionNoAceptada

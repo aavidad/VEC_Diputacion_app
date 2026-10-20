@@ -23,23 +23,41 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) materialPropuestaNativaCT(
 	if e == nil || e.soporte == nil || ctx == nil || ctx.Err() != nil ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(e.resultadoEmisionNativo) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(e.aceptacionNativa) ||
-		e.actorAceptacionNativa == nil || a.Justificante.Continuacion != nil ||
-		!a.Justificante.Seleccion.Procedencia.SinRetencionDeclarada ||
-		a.SeleccionClave != p.clave ||
-		a.Resolucion.Solicitud.Respuesta != ct.RespuestaLlamamientoAceptada {
+		e.actorAceptacionNativa == nil || a.ValidarPara(s) != nil {
 		return vacio, application.ErrResolucionFormalizacionNoAceptada
 	}
-	j := a.Justificante.Seleccion
+	var bolsa, reciboEmision, necesidad, unidad, categoria, clave, participacion string
+	var confirmada, resuelta time.Time
+	var version uint64
+	if a.Portal != nil {
+		seleccion := a.Portal.Seleccion
+		bolsa, reciboEmision, necesidad = seleccion.BolsaRef, seleccion.ReciboEmisionRef, seleccion.NecesidadRef
+		unidad, categoria, clave = seleccion.UnidadRef, seleccion.CategoriaRef, seleccion.ClaveCT
+		participacion = a.Portal.ParticipacionRef
+		confirmada, resuelta, version = seleccion.ConfirmadaEn, a.Portal.ResueltaEn, seleccion.VersionExpediente
+	} else {
+		if a.Justificante.Continuacion != nil || !a.Justificante.Seleccion.Procedencia.SinRetencionDeclarada ||
+			a.Resolucion.Solicitud.Respuesta != ct.RespuestaLlamamientoAceptada {
+			return vacio, application.ErrResolucionFormalizacionNoAceptada
+		}
+		j := a.Justificante.Seleccion
+		bolsa, reciboEmision, necesidad = j.Bolsa.Referencia, j.ReciboRef, j.Necesidad.Referencia
+		unidad, categoria, clave = p.unidad, p.categoria, a.SeleccionClave
+		confirmada, resuelta, version = j.ConfirmadaEn, a.Resolucion.ResueltaEn, j.VersionExpediente
+	}
+	if clave != p.clave || necesidad != p.necesidad || unidad != p.unidad || categoria != p.categoria {
+		return vacio, application.ErrResolucionFormalizacionNoAceptada
+	}
 	r, err := e.resultadoEmisionNativo.LeerResultadoEmisionCT(ctx,
-		j.Bolsa.Referencia, s.LlamamientoRef, j.ReciboRef)
+		bolsa, s.LlamamientoRef, reciboEmision)
 	if err != nil || ctx.Err() != nil {
 		if ctx.Err() != nil {
 			return vacio, ctx.Err()
 		}
 		return vacio, application.ErrPropuestaFormalizacionNoDisponible
 	}
-	if r.BolsaRef != j.Bolsa.Referencia || r.LlamamientoRef != s.LlamamientoRef ||
-		r.ReciboEmisionRef != j.ReciboRef || !r.EmitidoEn.Equal(j.ConfirmadaEn) ||
+	if r.BolsaRef != bolsa || r.LlamamientoRef != s.LlamamientoRef ||
+		r.ReciboEmisionRef != reciboEmision || !r.EmitidoEn.Equal(confirmada) ||
 		len(r.Participaciones) != 1 {
 		return vacio, application.ErrResolucionFormalizacionNoAceptada
 	}
@@ -49,14 +67,19 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) materialPropuestaNativaCT(
 		!dom.ReferenciaOpacaValida(respuesta.ReciboRespuestaRef) ||
 		respuesta.RespondidaEn == nil || !dom.InstanteUTCCanonico(*respuesta.RespondidaEn) ||
 		respuesta.RespondidaEn.Before(r.EmitidoEn) ||
-		respuesta.RespondidaEn.After(a.Resolucion.ResueltaEn) {
+		respuesta.RespondidaEn.After(resuelta) {
+		return vacio, application.ErrResolucionFormalizacionNoAceptada
+	}
+	if a.Portal != nil && (respuesta.ParticipacionRef != participacion ||
+		respuesta.ReciboRespuestaRef != a.Portal.ReciboRespuestaPortalRef ||
+		!respuesta.RespondidaEn.Equal(a.Portal.RespondidaEn)) {
 		return vacio, application.ErrResolucionFormalizacionNoAceptada
 	}
 	selector := bp.SelectorAceptacionNativaCT{
 		OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
-		ClaveCT: a.SeleccionClave, UnidadRef: p.unidad, CategoriaRef: p.categoria,
-		NecesidadRef: j.Necesidad.Referencia, BolsaRef: j.Bolsa.Referencia,
-		LlamamientoRef: s.LlamamientoRef, ReciboEmisionRef: j.ReciboRef,
+		ClaveCT: clave, UnidadRef: p.unidad, CategoriaRef: p.categoria,
+		NecesidadRef: necesidad, BolsaRef: bolsa,
+		LlamamientoRef: s.LlamamientoRef, ReciboEmisionRef: reciboEmision,
 		ReciboRespuestaRef: respuesta.ReciboRespuestaRef,
 	}
 	// El contexto conserva la ruta real de propuesta y la misma identidad.
@@ -85,11 +108,15 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) materialPropuestaNativaCT(
 		!dom.ReferenciaOpacaValida(anclaje.Anclaje.RespuestaRef) ||
 		!dom.InstanteUTCCanonico(anclaje.Anclaje.RespondidaEn) ||
 		!anclaje.Anclaje.RespondidaEn.Equal(*respuesta.RespondidaEn) ||
-		anclaje.Anclaje.VersionExpediente != j.VersionExpediente ||
+		anclaje.Anclaje.VersionExpediente != version ||
 		!dom.ReferenciaOpacaValida(anclaje.Evidencia.DecisionRef) ||
 		!dom.ReferenciaOpacaValida(anclaje.Evidencia.AuditoriaRef) ||
 		!dom.HuellaPlanPersonalB2Valida(anclaje.Evidencia.ConsumoHuellaSHA256) ||
 		!dom.InstanteUTCCanonico(anclaje.Evidencia.ConsultadaEn) {
+		return vacio, application.ErrResolucionFormalizacionNoAceptada
+	}
+	if a.Portal != nil && (anclaje.Anclaje.ParticipacionRef != participacion ||
+		anclaje.Anclaje.RespuestaRef != a.Portal.RespuestaPortalRef) {
 		return vacio, application.ErrResolucionFormalizacionNoAceptada
 	}
 	material := ct.MaterialPropuestaFormalizacion{
