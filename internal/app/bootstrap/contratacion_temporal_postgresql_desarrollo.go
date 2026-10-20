@@ -458,36 +458,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	firmaDocumento, personalB2 := seleccion.firmaDocumento, seleccion.personalB2
 	descriptoresMaterial := descriptoresMaterialSeleccionadosCTDesarrollo(seleccion)
-	usuariosPreferenciasActivas, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
+	etapa = "preflight_material_usuarios"
+	seleccionUsuarios, err := seleccionarMaterialUsuariosDesarrollo(cfg, derivador, gobierno)
 	if err != nil {
+		etapa = seleccionUsuarios.etapa
 		return vacias, err
 	}
-	if usuariosPreferenciasActivas {
-		etapa = "preflight_sql_usuarios_preferencias"
-		descriptoresUsuarios, falloPreflight := descriptoresMaterialPreferenciasTrasPreflight(func() error { return preflightSQLPreferenciasUsuariosDesarrollo(cfg, derivador, gobierno) })
-		if falloPreflight != nil {
-			return vacias, falloPreflight
-		}
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresUsuarios...)
-	}
-	etapa = "preflight_sql_usuarios_correos"
-	usuariosCorreosActivos, descriptoresCorreos, err := seleccionCorreosUsuariosDesarrollo(cfg, usuariosPreferenciasActivas)
-	if err != nil {
-		return vacias, err
-	}
-	descriptoresMaterial = append(descriptoresMaterial, descriptoresCorreos...)
-	etapa = "preflight_sql_usuarios_imagen"
-	usuariosImagenActiva, descriptoresImagen, err := seleccionImagenUsuariosDesarrollo(cfg, usuariosPreferenciasActivas)
-	if err != nil {
-		return vacias, err
-	}
-	descriptoresMaterial = append(descriptoresMaterial, descriptoresImagen...)
-	etapa = "preflight_sql_aspirantes"
-	aspirantesActivo, descriptoresAspirantes, err := seleccionAspirantesDesarrollo(cfg, usuariosPreferenciasActivas)
-	if err != nil {
-		return vacias, err
-	}
-	descriptoresMaterial = append(descriptoresMaterial, descriptoresAspirantes...)
 	_, preparacionBasesActiva, err := leerConfiguracionPreparacionBasesV3(cfg)
 	if err != nil {
 		return vacias, err
@@ -504,6 +480,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if preferenciasBolsasInternas {
 		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialOrdenarPreferenciasBolsasInternaV3())
 	}
+	// Conservar la comprobación de colisiones entre los dos catálogos sin
+	// entregar audiencias de Usuarios a los consumidores de CT.
+	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(
+		append(append([]descriptorMaterialConsumidorV3Desarrollo(nil), descriptoresMaterial...), seleccionUsuarios.descriptores...)); err != nil {
+		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -518,32 +500,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 	}
-	if usuariosPreferenciasActivas {
-		etapa = "material_usuarios_preferencias"
-		lote, fallo := publicarMaterialPreferenciasUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial)
-		if fallo != nil {
-			return vacias, fallo
-		}
-		dependencias.materialUsuariosPreferenciasConsultaInterna = lote[0]
-		dependencias.materialUsuariosPreferenciasActualizacionInterna = lote[1]
-		dependencias.materialUsuariosPreferenciasConsultaExterna = lote[2]
-		dependencias.materialUsuariosPreferenciasActualizacionExterna = lote[3]
+	etapa = "material_usuarios"
+	usuarios, err := publicarMaterialUsuariosDesarrollo(ctx, gobierno, material, reloj, seleccionUsuarios)
+	if err != nil {
+		etapa = usuarios.etapa
+		return vacias, err
 	}
-	if etapa = "material_usuarios_correos"; usuariosCorreosActivos {
-		if dependencias.materialUsuariosCorreos, err = publicarMaterialCorreosUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial); err != nil {
-			return vacias, err
-		}
-	}
-	if etapa = "material_usuarios_imagen"; usuariosImagenActiva {
-		if dependencias.materialUsuariosImagen, err = publicarMaterialImagenUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial); err != nil {
-			return vacias, err
-		}
-	}
-	if etapa = "material_aspirantes"; aspirantesActivo {
-		if dependencias.materialAspirantes, err = publicarMaterialAspirantesEnLote(ctx, gobierno, material, reloj, catalogoMaterial); err != nil {
-			return vacias, err
-		}
-	}
+	dependencias.materialUsuariosPreferenciasConsultaInterna = usuarios.preferencias[0]
+	dependencias.materialUsuariosPreferenciasActualizacionInterna = usuarios.preferencias[1]
+	dependencias.materialUsuariosPreferenciasConsultaExterna = usuarios.preferencias[2]
+	dependencias.materialUsuariosPreferenciasActualizacionExterna = usuarios.preferencias[3]
+	dependencias.materialUsuariosCorreos = usuarios.correos
+	dependencias.materialUsuariosImagen = usuarios.imagen
+	dependencias.materialAspirantes = usuarios.aspirantes
 	if preferenciasBolsasInternas {
 		// Opcional: sin clave publicada la ruta interna queda en 503 y el
 		// resto del arranque sigue.
