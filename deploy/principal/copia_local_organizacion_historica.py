@@ -70,8 +70,9 @@ def _escribir(ruta, contenido):
 
 
 def _literal(valor):
+    # Los literales van dentro de bloques DO $...$: un dólar podría cerrar el bloque.
     texto = str(valor)
-    if '\x00' in texto or '\\' in texto:
+    if '\x00' in texto or '\\' in texto or '$' in texto:
         raise ValueError('Valor SQL no admitido')
     return "'" + texto.replace("'", "''") + "'"
 

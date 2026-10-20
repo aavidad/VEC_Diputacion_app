@@ -104,9 +104,9 @@ class TestSemilla(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "organismo"):
             oh.sql_semilla(REPO, CONTEXTO, ajeno, REFS, ORGANISMO)
 
-    def test_literal_rechaza_barra_y_nulo(self):
+    def test_literal_rechaza_barra_nulo_y_dolar(self):
         self.assertEqual(oh._literal("o'x"), "'o''x'")
-        for valor in ("a\\b", "a\x00b"):
+        for valor in ("a\\b", "a\x00b", "a$contexto$b"):
             with self.assertRaises(ValueError):
                 oh._literal(valor)
 
