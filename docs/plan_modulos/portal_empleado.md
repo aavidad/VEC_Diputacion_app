@@ -35,9 +35,9 @@ Base comprobada: `origin/main@77a4e7470`.
   no dispone de plazos administrativos en las lecturas actuales; las fechas de
   permiso o comisión no permiten deducirlos. I-06 conserva el recibo de Dietas,
   sin convertirlo en registro oficial o notificación legal.
-- La parte de catálogos ES/EN de el portal del empleado-09 ya usa el lector común y `solicitudes.json`.
+- La parte de catálogos ES/EN de I-09 ya usa el lector común y `solicitudes.json`.
   El componente genérico de Solicitudes carece de consumidor productivo; esta
-  comprobación no da por cerrado el trámite gobernado de el portal del empleado-08.
+  comprobación no da por cerrado el trámite gobernado de I-08.
 
 La continuación añade tres mejoras en «Mis trámites»: al caducar la sesión,
 retira los datos de ambos paneles; el justificante de Dietas muestra la versión
@@ -98,12 +98,12 @@ implementación pendiente que deba reconstruirse.
 | I-05 | Mostrar tarea y plazo administrativo de cada solicitud cuando su módulo los publique. Previsión: fuente/vista de trámites y puertos propietarios. | E/G/F y reglas aprobadas por RRHH. No deducir vencimiento de fechas de permiso o comisión. Cierre: cada fecha tiene hecho inicial, calendario, regla/versiones y siguiente actuación definidos; un dato ausente se muestra como no disponible. |
 | I-06 | Recuperar justificantes conservados y separar avisos de notificaciones. Previsión: lectura propia de recibos/documentos en el módulo dueño y enlaces desde trámites. | Cronos/Dietas, Documentos, Registro y Notificaciones comunes. Cierre: consulta posterior devuelve bytes o referencia acreditada, sin repetir una escritura; no llamar registro, firma, notificación o entrega a lo que no lo acredita. |
 | I-07 | Consumir la fuente de Organización y la autorización de los servicios comunes de autorización en el espacio de responsable. Previsión propia: vista/adaptador de lectura del portal; los puertos y adaptadores propietarios permanecen en M/D y en el módulo de cada tarea. | Organización produce responsables, delegaciones y suplencias históricas (ORG-001); D autoriza; E/G producen sus tareas y B la relación personal cuando proceda. I no fabrica la fuente ni concede permisos. Sin esta fuente no se ofrece gestión por etiqueta de puesto ni existencia de una función. Cierre: unidad, procedimiento, acciones, acto, vigencia y revocación acreditados; delegación expirada o retirada denegada, auditoría y campos mínimos; dos revisiones sensibles. |
-| I-08 | Montar el primer trámite gobernado distinto de Cronos/Dietas en la superficie de solicitudes existente. Previsión: `modulos/solicitudes/vista.js`, i18n común, esquema/catálogo recibido y cliente del procedimiento propietario. | I-09 adapta antes los textos existentes. RRHH identifica el trámite; NUC-008/NUC-014 y módulo dueño aportan esquema, validación, borrador, firma/registro y permisos. El portal no inventa otro motor ni duplica formularios. Cierre: completar, corregir, conservar/recuperar borrador y presentar con justificante real; vuelta a bandeja con estados, plazos y decisión de el portal del empleado-05/I-06. La primera entrega lleva un consumidor aprobado, no un formulario genérico sin procedimiento. |
-| I-09 | Pasar `modulos/solicitudes/i18n.js` a catálogos por idioma y fechas comunes. Previsión: esa hoja, `vista.js`/pruebas de Solicitudes y `textos/{es,en}/solicitudes-empleado.json`. | Lector/idioma comunes e integración en turno I. Se ejecuta antes de el portal del empleado-08 y conserva los textos de la superficie existente. Cierre: sin diccionarios ni idioma compilado, claves ES/EN completas, fechas localizadas y consumidor existente de solicitudes con carga/errores verificados. |
+| I-08 | Montar el primer trámite gobernado distinto de Cronos/Dietas en la superficie de solicitudes existente. Previsión: `modulos/solicitudes/vista.js`, i18n común, esquema/catálogo recibido y cliente del procedimiento propietario. | I-09 adapta antes los textos existentes. RRHH identifica el trámite; NUC-008/NUC-014 y módulo dueño aportan esquema, validación, borrador, firma/registro y permisos. El portal no inventa otro motor ni duplica formularios. Cierre: completar, corregir, conservar/recuperar borrador y presentar con justificante real; vuelta a bandeja con estados, plazos y decisión de I-05/I-06. La primera entrega lleva un consumidor aprobado, no un formulario genérico sin procedimiento. |
+| I-09 | Pasar `modulos/solicitudes/i18n.js` a catálogos por idioma y fechas comunes. Previsión: esa hoja, `vista.js`/pruebas de Solicitudes y `textos/{es,en}/solicitudes-empleado.json`. | Lector/idioma comunes e integración en turno I. Se ejecuta antes de I-08 y conserva los textos de la superficie existente. Cierre: sin diccionarios ni idioma compilado, claves ES/EN completas, fechas localizadas y consumidor existente de solicitudes con carga/errores verificados. |
 
-Los cambios previstos en varios padres de el portal del empleado-01/I-03 son la cadena de montaje y
+Los cambios previstos en varios padres de I-01/I-03 son la cadena de montaje y
 caché de una misma función visible; no abren módulos paralelos. No hay SQL nuevo
-de el portal del empleado. Si B/D requieren SQL para proyecciones o competencia, su dueño reserva el
+del portal del empleado. Si B/D requieren SQL para proyecciones o competencia, su dueño reserva el
 número y fija su dependencia en `ORDEN_SQL_NUCLEO.md`. Solo borrador; ensayo en
 clon y revisiones antes de instalar. El portal no consulta tablas ajenas.
 
