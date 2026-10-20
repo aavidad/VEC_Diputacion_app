@@ -71,6 +71,34 @@ def _carpeta(ruta):
 def _ejecutar(c, argv, log, *, cwd=None):
     resultado = c.ejecutar(list(map(str, argv)), log, cwd=cwd)
     _exigir(resultado.returncode == 0, f"falló {log}; conservar salida privada")
+    return resultado
+
+
+def _certificados_separados(c, certificados):
+    """Ningún firmante puede ocupar el certificado reservado a tramitación."""
+    manifiesto = _json(certificados / "certificados.json")
+    personas = manifiesto.get("personas", [])
+    _exigir(manifiesto.get("cert_dias") == 397 and manifiesto.get("crl_dias") == 90
+            and len(personas) == 4
+            and {p.get("usuario_web") for p in personas} == {"rrhh_" + r for r in ROLES},
+            "certificados propios incompatibles")
+
+    def huella(ruta, nombre):
+        der = _ejecutar(c, ("/usr/bin/openssl", "x509", "-in", _privado(ruta),
+                            "-outform", "DER"), nombre + "-huella.log").stdout
+        return hashlib.sha256(der).hexdigest()
+
+    tramitacion = huella(c.material / "mtls/cliente.crt", "tramitacion")
+    rutas, usadas = {}, {tramitacion}
+    for persona in personas:
+        usuario = persona["usuario_web"]
+        ruta = certificados / usuario / "cliente.crt"
+        actual = huella(ruta, usuario)
+        _exigir(actual == persona.get("certificado_sha256") and actual not in usadas,
+                "Un certificado comparte tramitación y firma o dos perfiles de firma")
+        usadas.add(actual)
+        rutas[usuario.removeprefix("rrhh_")] = str(ruta)
+    return rutas
 
 
 def _instante(valor):
@@ -302,9 +330,11 @@ def preparar(c):
                 and meta.get("firmantes_datos") == str(w / "semilla-final/firmantes-datos.json")
                 and meta.get("roles_acuse") == str(w / "roles-acuse.json")
                 and meta.get("consulta_v2_acuse") == str(w / "consulta-v2-acuse.json")
+                and meta.get("certificados") == str(w / "certificados")
                 and meta.get("entrada_admin") == str(c.raiz / "admin/h10/entrada-vec-admin.json"),
                 "firmantes previos de otra copia")
         _privado(meta["firmantes_datos"])
+        _certificados_separados(c, Path(meta["certificados"]))
         _exigir(timedelta(days=60) <= _instante(meta["autoridad_hasta"]) - _ahora(c) <= timedelta(days=90),
                 "autoridad previa de firmantes ya no cubre el recorrido")
         _exigir(meta["roles_acuse_sha256"] == hashlib.sha256(_privado(meta["roles_acuse"]).read_bytes()).hexdigest()
@@ -344,11 +374,10 @@ def preparar(c):
     if not (certificados / "certificados.json").exists():
         _ejecutar(c, (sys.executable, c.fuente / "scripts/operacion/firma_ct_tres_pasos/certificados.py",
                      "--aplicar", "PREPARA-CERTIFICADOS-CT", "--material", c.material,
-                     "--salida", certificados, "--cert-dias", "397", "--crl-dias", "90"),
+                     "--salida", certificados, "--cert-dias", "397", "--crl-dias", "90",
+                     "--incluir-tecnico"),
                  "firmantes-certificados.log")
-    manifiesto = _json(certificados / "certificados.json")
-    _exigir(manifiesto.get("cert_dias") == 397 and manifiesto.get("crl_dias") == 90
-            and len(manifiesto.get("personas", [])) == 3, "certificados propios incompatibles")
+    certificados_firma = _certificados_separados(c, certificados)
     h10 = c.raiz / "admin/h10"
     plan_h10 = _json(h10 / "fuentes/plan.json")
     unidad_recibo = _json(h10 / "unidad/acuse-primero.json")
@@ -370,9 +399,7 @@ def preparar(c):
               "organizacion_operativa_ref": operativa, "unidad_ref": unidad["unidad_ref"],
               "nodo_ref": unidad["nodo_ref"],
               "hmac_g2_clave_archivo": str(c.material / "idempotencia/g2-huella-solicitud.bin"),
-              "certificados": {"tecnico": str(c.material / "mtls/cliente.crt"),
-                               **{role: str(certificados / ("rrhh_" + role) / "cliente.crt")
-                                  for role in ROLES[1:]}},
+              "certificados": certificados_firma,
               "acuse_unidad_h10": str(h10 / "unidad/acuse-primero.json")}
     _poner(w / "config-semilla.json", config)
     inicial = w / "semilla-inicial"

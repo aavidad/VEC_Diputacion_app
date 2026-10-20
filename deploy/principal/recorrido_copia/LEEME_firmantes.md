@@ -5,15 +5,27 @@ Contratación temporal. Recibe el contexto de la fábrica de la copia. Usa la
 organización operativa de `c.parametros` y el recibo de la unidad H10 de esa
 misma copia. No acepta certificados, claves, aprobaciones ni recibos de P o H.
 
-La etapa emite tres certificados nominales nuevos con el productor público
-`certificados.py`, de 397 días. El certificado del técnico procede del material
-recién creado para la copia. Los 397 días describen los certificados X.509;
+La etapa emite cuatro certificados nominales nuevos con el productor público
+`certificados.py --incluir-tecnico`, de 397 días. El técnico firmante usa
+`certificados/rrhh_tecnico/cliente.crt` y la persona ficticia nominal de la
+plantilla. El certificado original de la copia conserva la tramitación RRHH;
+no recibe el perfil nominal de firma. El generador actual prepara una persona
+nominal distinta; no ofrece un parámetro para reutilizar la persona operativa.
+Antes de publicar identidad o asignaciones, y al recuperar la etapa, se cotejan
+las huellas reales: los cuatro firmantes deben ser distintos entre sí y del
+certificado de tramitación. Una coincidencia detiene la receta.
+Los 397 días describen los certificados X.509;
 las identidades, los cargos y las asignaciones de esta semilla terminan antes,
 entre 60 y 90 días desde la preparación. Personal usa fechas de medianoche que
 caben en ese intervalo. La etapa conserva copias privadas de los cinco archivos
 del generador público, con sus huellas iguales al origen. Solo cambia el dato
 `retirada_en` en una segunda copia de `firmantes.template.json`; registra ambas
 huellas y la fecha elegida en `fuentes-manifiesto.json`.
+
+El productor conserva su catálogo y comportamiento de tres certificados para
+las recetas anteriores; la fábrica completa selecciona el catálogo nuevo de
+cuatro. Esta composición requiere una copia nueva. No modifica certificados,
+perfiles ni actuaciones de una copia que ya esté en uso.
 
 El orden es identidad, publicación de dieciséis cargos V1 por AUT53,
 asignaciones V1, publicación de cuatro cargos de consulta V2, sucesión de sus

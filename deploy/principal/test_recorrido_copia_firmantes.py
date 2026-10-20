@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from recorrido_copia import firmantes
 
@@ -25,6 +26,47 @@ class FirmantesTest(unittest.TestCase):
         p.write_text(json.dumps(dato, separators=(",", ":")))
         p.chmod(0o600)
         return p
+
+    def certificados(self):
+        material = self.raiz / 'material'
+        (material / 'mtls').mkdir(parents=True)
+        original = material / 'mtls/cliente.crt'
+        original.write_bytes(b'tramitacion')
+        original.chmod(0o600)
+        certificados = self.raiz / 'certificados'
+        certificados.mkdir()
+        personas = []
+        for rol in firmantes.ROLES:
+            carpeta = certificados / ('rrhh_' + rol)
+            carpeta.mkdir()
+            cert = carpeta / 'cliente.crt'
+            cert.write_bytes(rol.encode())
+            cert.chmod(0o600)
+            personas.append({'usuario_web': 'rrhh_' + rol,
+                             'certificado_sha256': hashlib.sha256(cert.read_bytes()).hexdigest()})
+        self.poner('certificados/certificados.json', {'cert_dias': 397, 'crl_dias': 90,
+                                                    'personas': personas})
+        def ejecutar(argv, log, cwd=None):
+            return SimpleNamespace(returncode=0, stdout=Path(argv[3]).read_bytes())
+        return SimpleNamespace(material=material, ejecutar=ejecutar), certificados
+
+    def test_cuatro_firmantes_separados_de_tramitacion(self):
+        c, certificados = self.certificados()
+        rutas = firmantes._certificados_separados(c, certificados)
+        self.assertEqual(set(rutas), set(firmantes.ROLES))
+        self.assertEqual(rutas['tecnico'], str(certificados / 'rrhh_tecnico/cliente.crt'))
+        self.assertNotIn(str(c.material / 'mtls/cliente.crt'), rutas.values())
+
+    def test_no_admite_firmante_con_certificado_de_tramitacion(self):
+        c, certificados = self.certificados()
+        ruta = certificados / 'rrhh_tecnico/cliente.crt'
+        ruta.write_bytes((c.material / 'mtls/cliente.crt').read_bytes())
+        manifiesto = certificados / 'certificados.json'
+        datos = json.loads(manifiesto.read_bytes())
+        datos['personas'][0]['certificado_sha256'] = hashlib.sha256(ruta.read_bytes()).hexdigest()
+        manifiesto.write_text(json.dumps(datos))
+        with self.assertRaisesRegex(ValueError, 'comparte tramitación'):
+            firmantes._certificados_separados(c, certificados)
 
     def test_recibo_rechaza_huella_de_plan_y_rol_distintos(self):
         fila = {"version_rol_ref": "rol:ct_cargo_tecnico_consulta_dev:v2",

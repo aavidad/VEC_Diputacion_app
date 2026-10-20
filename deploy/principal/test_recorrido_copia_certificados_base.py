@@ -109,6 +109,29 @@ class CertificadosBaseTest(unittest.TestCase):
         self.assertEqual(json.loads(resultado.stdout)["estado"], "comprobado")
         self.assertEqual(list(salida.iterdir()), [])
 
+    def test_productor_emite_cuarto_tecnico_y_conserva_material_en_replay(self):
+        repo = Path(__file__).resolve().parents[2]
+        productor = repo / "scripts/operacion/firma_ct_tres_pasos/certificados.py"
+        certificados_base.preparar(self.c)
+        salida = self.c.raiz / "cuatro-certificados"
+        salida.mkdir(mode=0o700)
+        orden = ("/usr/bin/python3", str(productor), "--aplicar", "PREPARA-CERTIFICADOS-CT",
+                 "--material", str(self.c.material), "--salida", str(salida),
+                 "--cert-dias", "397", "--crl-dias", "90", "--incluir-tecnico")
+        resultado = subprocess.run(orden, capture_output=True, text=True, check=False)
+        self.assertEqual(resultado.returncode, 0, resultado.stderr)
+        self.assertEqual(json.loads(resultado.stdout)["personas"], 4)
+        manifiesto = json.loads((salida / "certificados.json").read_text())
+        self.assertEqual(len({p["certificado_sha256"] for p in manifiesto["personas"]}), 4)
+        self.assertEqual({p["usuario_web"] for p in manifiesto["personas"]},
+                         {"rrhh_tecnico", "rrhh_jefatura", "rrhh_diputacion", "rrhh_secretaria"})
+        anteriores = {str(p.relative_to(salida)): p.read_bytes() for p in salida.rglob("*") if p.is_file()}
+        resultado = subprocess.run(orden, capture_output=True, text=True, check=False)
+        self.assertEqual(resultado.returncode, 0, resultado.stderr)
+        self.assertEqual(json.loads(resultado.stdout)["estado"], "replay")
+        self.assertEqual(anteriores,
+                         {str(p.relative_to(salida)): p.read_bytes() for p in salida.rglob("*") if p.is_file()})
+
     def test_estado_parcial_y_sid_ajeno_rechazados(self):
         self.c.consultar = lambda sql: "9999999999999999999"
         with self.assertRaisesRegex(ValueError, "SID propio"):
