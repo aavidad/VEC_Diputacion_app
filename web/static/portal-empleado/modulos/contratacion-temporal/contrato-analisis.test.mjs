@@ -134,6 +134,7 @@ test("contrato-analisis: datos previos conservan observaciones opcionales válid
   assert.equal(conEleccion.grupo_subgrupo, "A1");
   assert.equal(conEleccion.entrada_rc_referencia, "entrada-rc:opaca:001");
   assert.throws(() => validarDatosPreviosAnalisis({ ...base, grupo_subgrupo: "" }), TypeError);
+  assert.throws(() => validarDatosPreviosAnalisis({ ...base, grupo_subgrupo: "a1<b>" }), TypeError);
   assert.throws(() => validarDatosPreviosAnalisis({ ...base, entrada_rc_referencia: "con espacios" }), TypeError);
 });
 

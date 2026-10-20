@@ -413,7 +413,7 @@ export function validarDatosPreviosAnalisis(entrada) {
     || entrada.porcentaje_jornada < 1 || entrada.porcentaje_jornada > 10_000
     || (tieneObservaciones && !textoValido(entrada.observaciones, 4000, false))
     || (tieneGrupo && (typeof entrada.grupo_subgrupo !== "string"
-      || entrada.grupo_subgrupo === "" || entrada.grupo_subgrupo.length > 80))
+      || !PATRON_GRUPO.test(entrada.grupo_subgrupo)))
     || (tieneEntradaRC && !referenciaValida(entrada.entrada_rc_referencia))) {
     throw new TypeError("datos previos del análisis no válidos");
   }
