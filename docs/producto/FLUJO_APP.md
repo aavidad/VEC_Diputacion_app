@@ -513,8 +513,12 @@ BC15 del propietario de convocatorias que consume la decisión V3 y llama a la
 declaración en la misma transacción, ruta
 `/api/vec/bolsa/convocatorias/publicaciones-oficiales` y pantalla. Declarante
 y motivo salen de la decisión; los ámbitos, de la política de la versión. La
-ruta deniega (503) hasta que el núcleo tenga el consumidor (AD301, entrega
-aparte para el equipo de permisos) y el rol de RRHH la concesión.
+entrega B añade el consumidor AD301 y BC17 coteja el recurso completo mediante
+su huella firmada, incluidos los ámbitos de la versión. La activación requiere
+publicar el permiso del rol de RRHH con dos administradores y reiniciar la
+aplicación. Sin ese permiso, la declaración queda denegada. Al repetir la
+misma petición y clave desde el mismo perfil se recupera el recibo original;
+un perfil distinto da conflicto.
 `ConfirmarPublicacion`,
 el puerto de la publicación gobernada borrador→publicada, no se usa en este
 corte. F1-40 sigue abierta hasta que RRHH pueda anotar la publicación desde la
