@@ -350,6 +350,15 @@ función central ni se alteran los conjuntos anteriores.
 
 ### 7.2 Auditoría encadenada y sellada
 
+AD303 (F1-105) limita a la revalidación de las lecturas de CT la preferencia
+por índices (`enable_seqscan=off`). La comprobación de una secuencia de
+`pendiente_sellado_auditoria_v5` usa su clave primaria existente: un recorrido
+completo de esa cola puede provocar conflictos de serialización con otras
+consultas. Conserva el cuerpo, las verificaciones, los permisos y la auditoría;
+comprueba la huella de la función y que el índice sigue siendo válido. La
+preferencia termina al salir de la función, incluso si la llamada falla.
+Guía: `deploy/principal/revalidacion_indice_sellado_f1_105_20261020.md`.
+
 - **Cadena común** en `vec_autorizacion_atestada_v3` (AD207, sellado diferido):
   cada asiento calcula su huella sin bloqueo común y entra en
   `pendiente_sellado_auditoria_v5`. El sellador (`vec_auditoria_encadenador`)
