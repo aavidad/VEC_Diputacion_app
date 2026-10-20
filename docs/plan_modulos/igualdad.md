@@ -28,8 +28,8 @@ Este encargo entrega documentación, sin código, SQL ni instalación.
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos principales: [ficha de Igualdad](../estudio_requisitos/ficha_igualdad_2026-10-04.md),
 IG1–IG12 y IGU-001–IGU-002 del [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md).
-Personal conserva población/relaciones/servicios, cada módulo sus hechos, K
-identidad/perfiles y L auditoría/documentos/firma comunes. El plan no reasigna sus
+Personal conserva población/relaciones/servicios, cada módulo sus hechos y los servicios comunes la identidad, los perfiles,
+la auditoría, los documentos y la firma. El plan no reasigna sus
 archivos ni sustituye el seguimiento general.
 
 ## Fuentes y decisiones aplicables

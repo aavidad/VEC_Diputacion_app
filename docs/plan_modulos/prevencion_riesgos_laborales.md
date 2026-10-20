@@ -29,7 +29,8 @@ Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos principales: [ficha de PRL](../estudio_requisitos/ficha_prevencion_riesgos_laborales_2026-10-04.md),
 PR1–PR12 y PRL-001–PRL-003 del [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md).
 Personal conserva vínculo/servicios y su consumidor; Organización/RPT conserva
-centros/puestos; Identidad y perfiles; L auditoría/documentos/firma comunes.
+centros y puestos; los servicios comunes aportan identidad, perfiles,
+auditoría, documentos y firma.
 El plan no reasigna sus archivos ni abre una base clínica de RRHH.
 
 ## Fuentes y decisiones aplicables
@@ -88,7 +89,7 @@ conectado o recorrido. Ninguna migración existente se reserva o reaplica por es
 | PR12 | Agregados con metodología y control de identificación indirecta. | Prevención/DPD aprueban población/agregación; no buscador de diagnósticos. |
 
 Técnico preventivo, responsable de centro, persona, delegación/comité, receptor
-administrativo y sanitario tienen competencias distintas. K provisiona perfiles
+administrativo y sanitario tienen competencias distintas. La autoridad de Identidad provisiona perfiles
 fijos por huella/CAS, un perfil activo y concesión positiva por acción, recurso,
 entidad/centro/puesto/expediente, finalidad, campos y vigencia. Soporte/jefatura/
 administración/candidato no son universales. El sanitario conserva su canal y
