@@ -27,6 +27,16 @@
     "bp_no_disponible": "This document can be prepared once the appointment or contract proposal for this case has been recorded.",
     "bp_catalogo": "Published catalogue",
     "bp_publicacion": "Publication verified:",
-    "bp_publicacion_recibo": "Publication receipt: {recibo}"
+    "bp_publicacion_recibo": "Publication receipt: {recibo}",
+    "bp_documento_informe_definitivo": "Final report",
+    "bp_documento_resolucion": "Decision",
+    "bp_documento_diligencia": "Certification note",
+    "bp_documento_toma_posesion": "Assumption of office",
+    "bp_documento_notificacion": "Notification",
+    "bp_documento_comunicacion_centro": "Notice to the requesting centre",
+    "bp_documento_contrato_laboral": "Fixed-term employment contract",
+    "bp_documento_nombramiento": "Appointment of interim civil servant",
+    "bp_documento_cese": "End of temporary employment",
+    "bp_documento_modificacion_nombramiento": "Change to appointment"
   }
 }

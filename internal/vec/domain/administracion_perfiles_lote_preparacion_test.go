@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"encoding/json"
+	"bytes"
 	"strings"
 	"testing"
 	"time"
@@ -12,20 +12,32 @@ func solicitudPreparacionDominioPrueba() SolicitudPreparacionLoteAdministracionP
 		OrganizacionRef: "org_prueba", UnidadRef: "unidad:prueba", PersonaRef: "per_" + strings.Repeat("b", 32)}
 }
 
-// El canon tiene exactamente las ocho claves de texto que valida AUT50.
-func TestCanonPreparacionOchoClavesDeTexto(t *testing.T) {
+// Vector independiente del serializador: AUT50 compromete estos bytes y SHA.
+func TestCanonPreparacionVectorFijo(t *testing.T) {
 	s := solicitudPreparacionDominioPrueba()
 	// Sin actor ni instantánea válidos no hay canon.
 	if _, _, err := s.CanonicoYHuella(); err == nil {
 		t.Fatal("canon sin actor")
 	}
-	canon := struct {
-		Esquema, OperacionRef, ActorPersonaRef, PerfilActivoRef, AsignacionRef, OrganizacionRef, UnidadRef, PersonaRef string
-	}{"administracion_perfiles_lote_preparacion:v1", s.OperacionRef, "per_x", "prf_x", "asignacion:a:v1", s.OrganizacionRef, s.UnidadRef, s.PersonaRef}
-	b, _ := json.Marshal(canon)
-	var m map[string]any
-	if json.Unmarshal(b, &m) != nil || len(m) != 8 {
-		t.Fatal("el canon esperado no tiene ocho claves")
+	actor := solicitudActoAdministracionPerfilesPrueba(t)
+	actor.InstantaneaAutorizacion.AsignacionPerfil.AsignacionID = "admin_lote"
+	s.Actor, s.InstantaneaAutorizacion, s.CorrelacionRef = actor.Actor, actor.InstantaneaAutorizacion, actor.CorrelacionRef
+	esperado := []byte(`{"Esquema":"administracion_perfiles_lote_preparacion:v1",` +
+		`"OperacionRef":"prep_admin:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",` +
+		`"ActorPersonaRef":"per_rrrrrrrrrrrrrrrrrrrrrr",` +
+		`"PerfilActivoRef":"prf_pppppppppppppppppppppp",` +
+		`"AsignacionRef":"asignacion:admin_lote:v1",` +
+		`"OrganizacionRef":"org_prueba","UnidadRef":"unidad:prueba",` +
+		`"PersonaRef":"per_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}`)
+	canon, huella, err := s.CanonicoYHuella()
+	if err != nil || !bytes.Equal(canon, esperado) ||
+		huella != "6947266cd7641172f912e01b16c7999b0498f3dda1738a6db726acec64752aab" {
+		t.Fatalf("vector de preparación divergente: %v", err)
+	}
+	s.UnidadRef = "unidad:otra"
+	_, otraHuella, err := s.CanonicoYHuella()
+	if err != nil || otraHuella == huella {
+		t.Fatal("la unidad no cambió la huella de preparación")
 	}
 }
 
