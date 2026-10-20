@@ -127,7 +127,9 @@ persistencia de un expediente ni sustituye el recorrido funcional completo.
 
 La semilla repone la fila técnica `(true, 0)` del contador externo que creó
 CTX15. Se verifica su propietario y seguridad por filas después de comprobar
-las 662 tablas vacías. La prueba de contexto usa datos ficticios y termina en
+las 662 tablas vacías. Repone también la fila inicial del cerrojo de punteros
+actuales de CTX2, sin la cual ninguna prueba puede mover la cuenta, la persona,
+el perfil o el vínculo de un contexto. La prueba de contexto usa datos ficticios y termina en
 `ROLLBACK`, incluidas sus dos cuentas técnicas de ejecución. Su positivo
 comprueba el contexto externo; no acredita una autenticación con certificado
 ni una decisión completa de autorización. El SQL existente conserva fechas
