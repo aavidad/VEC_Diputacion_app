@@ -31,7 +31,7 @@ SELECT jsonb_build_object('proc',to_jsonb(p)-'prosrc',
  'shared',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY s.dbid,s.classid,s.objid,s.objsubid,s.refclassid,s.refobjid,s.deptype),'[]'::jsonb)
   FROM pg_shdepend s WHERE s.classid='pg_proc'::regclass AND s.objid=p.oid
    AND s.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())))
- INTO meta FROM pg_proc p WHERE p.oid=f;
+ INTO meta;
  PERFORM set_config('vec.ct256.meta',meta::text,true);
 END $pre$;
 
@@ -327,7 +327,7 @@ SELECT jsonb_build_object('proc',to_jsonb(p)-'prosrc',
  'shared',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY s.dbid,s.classid,s.objid,s.objsubid,s.refclassid,s.refobjid,s.deptype),'[]'::jsonb)
   FROM pg_shdepend s WHERE s.classid='pg_proc'::regclass AND s.objid=p.oid
    AND s.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())))
- INTO meta FROM pg_proc p WHERE p.oid=f;
+ INTO meta;
  IF NOT FOUND OR meta IS DISTINCT FROM current_setting('vec.ct256.meta')::jsonb
  OR encode(sha256(convert_to(pg_get_functiondef(f),'UTF8')),'hex') IS DISTINCT FROM '7748e4d63deb1766850aeb8596c5eca996705176e2de0cb90312acbd2a14cf0d'
  THEN RAISE EXCEPTION 'CT256: postimagen, metadatos o ACL divergentes' USING ERRCODE='55000'; END IF;
