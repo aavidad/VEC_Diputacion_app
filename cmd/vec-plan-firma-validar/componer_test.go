@@ -32,6 +32,7 @@ func composicionPrueba(t *testing.T) composicionCopia {
 	c.PublicadoEn = time.Time{}
 	c.CreadoEn = time.Date(2026, 10, 20, 8, 0, 0, 0, time.UTC)
 	c.Entradas[0].Clave = "informe_definitivo.p1"
+	c.Entradas[0].Atributos["perfil_esperado_ref"] = "perfil:ct:tecnico_rrhh"
 	for _, k := range []string{"circuito_ref", "circuito_version", "circuito_sha256", "paso_ref"} {
 		delete(c.Entradas[0].Atributos, k)
 	}
@@ -86,6 +87,9 @@ func TestComponerProduceMaterialesQueAceptaElValidadorExistente(t *testing.T) {
 
 func TestComponerRechazaActorUnicoCircuitoAjenoYEntradasIncompletas(t *testing.T) {
 	for nombre, mutar := range map[string]func(*composicionCopia){
+		"perfil_ajeno": func(c *composicionCopia) {
+			c.Catalogo.Entradas[0].Atributos["perfil_esperado_ref"] = "perfil:ct:secretaria_general"
+		},
 		"mismo_actor":      func(c *composicionCopia) { c.Publicador = c.Catalogo.CreadoPor },
 		"misma_clave":      func(c *composicionCopia) { c.ClavePublicar = c.ClaveCrear },
 		"sin_atributos":    func(c *composicionCopia) { c.Catalogo.Entradas[0].Atributos = nil },
@@ -99,5 +103,38 @@ func TestComponerRechazaActorUnicoCircuitoAjenoYEntradasIncompletas(t *testing.T
 				t.Fatal("entrada inválida admitida")
 			}
 		})
+	}
+}
+
+func TestComponerAceptaSoloAlternativaDeclaradaEnElPaso(t *testing.T) {
+	cfg := composicionPrueba(t)
+	b, err := os.ReadFile(cfg.CircuitoArchivo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fuente struct {
+		Fuente   map[string]any          `json:"fuente"`
+		Catalogo vd.CatalogoConfigurable `json:"catalogo"`
+	}
+	if err := json.Unmarshal(b, &fuente); err != nil {
+		t.Fatal(err)
+	}
+	fuente.Catalogo.Entradas[0].Atributos["perfiles_ref_alternativos"] = "perfil:ct:direccion_rrhh,perfil:ct:jefatura_servicio_rrhh"
+	b, err = json.Marshal(fuente)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.CircuitoArchivo = filepath.Join(t.TempDir(), "circuito.json")
+	if err := os.WriteFile(cfg.CircuitoArchivo, b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.CircuitoArchivoSHA256 = huella(b)
+	cfg.Catalogo.Entradas[0].Atributos["perfil_esperado_ref"] = "perfil:ct:jefatura_servicio_rrhh"
+	if _, _, err := componerCopia(cfg); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Catalogo.Entradas[0].Atributos["perfil_esperado_ref"] = "perfil:ct:secretaria_general"
+	if _, _, err := componerCopia(cfg); err == nil {
+		t.Fatal("perfil ajeno aceptado junto a alternativas")
 	}
 }

@@ -17,12 +17,23 @@ func configuracionCopiaPrueba(t *testing.T) (string, string) {
 	t.Helper()
 	c := composicionPrueba(t)
 	claves := []string{"informe_definitivo.p1", "informe_definitivo.p2", "resolucion.p1", "resolucion.p2", "resolucion.p3"}
+	var circuito struct {
+		Catalogo vd.CatalogoConfigurable `json:"catalogo"`
+	}
+	bCircuito, err := os.ReadFile(c.CircuitoArchivo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(bCircuito, &circuito); err != nil {
+		t.Fatal(err)
+	}
 	var entradas []vd.EntradaCatalogoConfigurable
 	for i, clave := range claves {
 		e := c.Catalogo.Entradas[0]
 		e.Clave, e.Orden, e.Atributos = clave, i+1, maps.Clone(e.Atributos)
 		documento, paso, _ := strings.Cut(clave, ".p")
 		e.Atributos["documento"], e.Atributos["paso_orden"] = documento, paso
+		e.Atributos["perfil_esperado_ref"] = circuito.Catalogo.Entradas[i].Atributos["perfil_ref"]
 		e.Atributos["cargo_ref"] = "cargo:copia:" + strconv.Itoa(i+1)
 		entradas = append(entradas, e)
 	}

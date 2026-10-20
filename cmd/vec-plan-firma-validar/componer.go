@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	vd "vec-diputacion-granada/internal/vec/domain"
@@ -82,7 +84,9 @@ func componerCopia(cfg composicionCopia) (materialCompuesto, materialCompuesto, 
 			}
 		}
 		if atributos == nil || original == nil || atributos["documento"] != original.Atributos["documento"] ||
-			atributos["paso_orden"] != original.Atributos["paso"] {
+			atributos["paso_orden"] != original.Atributos["paso"] ||
+			(atributos["perfil_esperado_ref"] != original.Atributos["perfil_ref"] &&
+				(atributos["perfil_esperado_ref"] == "" || !slices.Contains(strings.Split(original.Atributos["perfiles_ref_alternativos"], ","), atributos["perfil_esperado_ref"]))) {
 			return cero, cero, errMaterial
 		}
 		ref := vd.ReferenciaEntradaCatalogo{CatalogoID: fuente.Catalogo.ID, CatalogoVersion: fuente.Catalogo.Version,
