@@ -17,7 +17,7 @@ cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
 
 ## Inventario histórico anterior al 20 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 VEC tramitará declaraciones y solicitudes de compatibilidad, informes, decisión,
 condiciones y revisiones. La persona declara los hechos y el órgano competente
@@ -57,9 +57,7 @@ Este plan no la modifica ni vuelve a preguntar por normas ya publicadas.
 
 ## Inventario en la base inspeccionada
 
-Primero se consultó `codebase-memory-mcp`, proyecto
-`home-alberto-Trabajo-VEC_Diputacion_app-.worktrees-codexe-original-autorizacion-20261003`.
-Es una instantánea anterior; las rutas y capacidades siguientes se cotejaron con
+El inventario parte de una instantánea histórica; las rutas y capacidades siguientes se cotejaron con
 `git ls-tree` y lectura en el SHA indicado. El índice no acredita actualidad.
 
 | Pieza | Rutas actuales | Capacidad y límite |
