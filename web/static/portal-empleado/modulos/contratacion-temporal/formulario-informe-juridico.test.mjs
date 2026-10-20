@@ -94,6 +94,7 @@ test("conserva documento y recibo si el historial no corresponde", async () => {
   const raiz = raizFalsa();
   const solicitudes = [];
   const confirmados = [];
+  const referenciasConfirmacion = [];
   montarFormularioInformeJuridico({
     raiz,
     cliente: {
@@ -115,11 +116,14 @@ test("conserva documento y recibo si el historial no corresponde", async () => {
     },
     contexto: { expediente_ref: EXPEDIENTE, version_esperada: 4 },
     generarClaveIdempotencia: () => CLAVE,
-    confirmarOperacion: () => true,
+    confirmarOperacion({ referencia }) { referenciasConfirmacion.push(referencia); return true; },
     alConfirmar: (resultado) => confirmados.push(resultado),
   });
 
+  assert.match(raiz.innerHTML, /Expediente seleccionado/u);
+  assert.doesNotMatch(raiz.innerHTML, /expediente:ct:|versión asignada|\{expediente\}|\{version\}/u);
   await raiz.enviar();
+  assert.deepEqual(referenciasConfirmacion, ["Expediente seleccionado."]);
   assert.deepEqual(solicitudes, [{
     expediente_ref: EXPEDIENTE,
     version_esperada: 4,
@@ -129,6 +133,27 @@ test("conserva documento y recibo si el historial no corresponde", async () => {
   assert.match(raiz.innerHTML, /data-ct-informe-documento/u);
   assert.match(raiz.innerHTML, /data-ct-informe-historial-error/u);
   assert.deepEqual(confirmados, [recibo()]);
+});
+
+test("el informe nombra el expediente visible sin versión ni referencia interna", async () => {
+  const raiz = raizFalsa();
+  const referenciasConfirmacion = [];
+  const solicitudes = [];
+  montarFormularioInformeJuridico({
+    raiz,
+    cliente: {
+      async prepararInformeJuridico(solicitud) { solicitudes.push(solicitud); return recibo(); },
+      async consultarDetalleRRHH() { return { resumen: { expediente_ref: EXPEDIENTE, version: 5 }, hitos: [] }; },
+    },
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 4, numero_visible: " 2026/95101 " },
+    generarClaveIdempotencia: () => CLAVE,
+    confirmarOperacion({ referencia }) { referenciasConfirmacion.push(referencia); return true; },
+  });
+  assert.match(raiz.innerHTML, /Expediente 2026\/95101/u);
+  assert.doesNotMatch(raiz.innerHTML, /expediente:ct:|versión 4/u);
+  await raiz.enviar();
+  assert.deepEqual(referenciasConfirmacion, ["2026/95101"]);
+  assert.deepEqual(solicitudes, [{ expediente_ref: EXPEDIENTE, version_esperada: 4, clave_idempotencia: CLAVE }]);
 });
 
 test("un catálogo incompleto usa el idioma de respaldo y no impide recuperar el historial", async () => {

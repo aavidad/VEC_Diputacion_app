@@ -53,7 +53,9 @@ function normalizarContexto(contexto) {
   if (contexto === null || typeof contexto !== "object" || Array.isArray(contexto)
     || Object.getPrototypeOf(contexto) !== Object.prototype
     || Object.getOwnPropertySymbols(contexto).length !== 0
-    || Object.keys(contexto).length !== 2
+    || Object.keys(contexto).length !== (Object.hasOwn(contexto, "numero_visible") ? 3 : 2)
+    || (Object.hasOwn(contexto, "numero_visible") && (typeof contexto.numero_visible !== "string"
+      || contexto.numero_visible.trim() === "" || contexto.numero_visible.length > 80))
     || !Object.hasOwn(contexto, "expediente_ref")
     || !Object.hasOwn(contexto, "version_esperada")
     || !PATRON_REFERENCIA.test(contexto.expediente_ref)
@@ -65,6 +67,7 @@ function normalizarContexto(contexto) {
   return Object.freeze({
     expediente_ref: contexto.expediente_ref,
     version_esperada: contexto.version_esperada,
+    ...(Object.hasOwn(contexto, "numero_visible") ? { numero_visible: contexto.numero_visible.trim() } : {}),
   });
 }
 
@@ -330,7 +333,10 @@ export function montarFormularioCobertura(configuracion = {}) {
   function cargarPropuesta(enfocarResultado = false) {
     if (vuelo !== null || !montado) return vuelo ?? Promise.resolve(null);
     controlador = new AbortController();
-    const solicitud = validarSolicitudPropuestaCobertura(contexto);
+    const solicitud = validarSolicitudPropuestaCobertura({
+      expediente_ref: contexto.expediente_ref,
+      version_esperada: contexto.version_esperada,
+    });
     const tarea = (async () => {
       try {
         const propuesta = validarPropuestaCobertura(await clienteActual.proponerCobertura(
@@ -409,7 +415,7 @@ export function montarFormularioCobertura(configuracion = {}) {
       confirmada = confirmarActual({
         titulo: t("cobertura_confirmar"),
         advertencia: t("cobertura_confirmacion_advertencia"),
-        referencia: contexto.expediente_ref,
+        referencia: contexto.numero_visible ?? t("informe_resumen"),
       }) === true;
     } catch {
       confirmada = false;

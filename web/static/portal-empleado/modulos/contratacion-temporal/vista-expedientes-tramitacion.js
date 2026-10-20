@@ -614,6 +614,7 @@ export function crearGestorTramitacion({
         contexto: Object.freeze({
           expediente_ref: expedienteRef,
           version_esperada: recibo.version_resultante,
+          ...numeroVisibleDe(expedienteRef),
         }),
         confirmarOperacion,
         mensajes,
@@ -662,6 +663,7 @@ export function crearGestorTramitacion({
         contexto: Object.freeze({
           expediente_ref: recibo.expediente_ref,
           version_esperada: recibo.version_resultante,
+          ...numeroVisibleDe(recibo.expediente_ref),
         }),
         confirmarOperacion,
         mensajes,

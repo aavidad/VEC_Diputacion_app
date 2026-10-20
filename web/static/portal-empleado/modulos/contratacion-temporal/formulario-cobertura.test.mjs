@@ -103,6 +103,7 @@ test("propuesta y decisión usan el recibo de Análisis y una sola clave", async
   const decisiones = [];
   const continuaciones = [];
   let confirmaciones = 0;
+  const referenciasConfirmacion = [];
   const cliente = {
     async proponerCobertura(solicitud) {
       propuestas.push(solicitud);
@@ -119,9 +120,9 @@ test("propuesta y decisión usan el recibo de Análisis y una sola clave", async
   const desmontar = montarFormularioCobertura({
     raiz,
     cliente,
-    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 2 },
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 2, numero_visible: " 2026/95101 " },
     generarClaveIdempotencia: () => CLAVE,
-    confirmarOperacion() { confirmaciones += 1; return true; },
+    confirmarOperacion({ referencia }) { confirmaciones += 1; referenciasConfirmacion.push(referencia); return true; },
     alConfirmar(confirmado) { continuaciones.push(confirmado); return true; },
   });
   await estabilizar();
@@ -130,6 +131,7 @@ test("propuesta y decisión usan el recibo de Análisis y una sola clave", async
 
   await Promise.all([raiz.enviar(), raiz.enviar()]);
   assert.equal(confirmaciones, 1);
+  assert.deepEqual(referenciasConfirmacion, ["2026/95101"]);
   assert.equal(decisiones.length, 1);
   assert.deepEqual(decisiones[0], {
     expediente_ref: EXPEDIENTE,
@@ -168,6 +170,7 @@ test("cancelar no decide y el resultado indeterminado solo se consulta", async (
   let decisiones = 0;
   const consultas = [];
   const continuaciones = [];
+  const referenciasConfirmacion = [];
   const error = new Error("resultado privado indeterminado");
   error.resultadoIndeterminado = true;
   montarFormularioCobertura({
@@ -186,11 +189,12 @@ test("cancelar no decide y el resultado indeterminado solo se consulta", async (
     },
     contexto: { expediente_ref: EXPEDIENTE, version_esperada: 2 },
     generarClaveIdempotencia: () => CLAVE,
-    confirmarOperacion: () => true,
+    confirmarOperacion({ referencia }) { referenciasConfirmacion.push(referencia); return true; },
     alConfirmar(confirmado) { continuaciones.push(confirmado); return true; },
   });
   await estabilizar();
   await raiz.enviar();
+  assert.deepEqual(referenciasConfirmacion, ["Expediente seleccionado."]);
   assert.equal(decisiones, 1);
   assert.match(raiz.innerHTML, /data-ct-cobertura-accion="consultar-resultado"/);
   await raiz.recuperar();

@@ -112,7 +112,9 @@ test("el panel solo ofrece tipos recibidos y ayuda tras ?", () => {
   assert.match(html, /data-bp-descargar="acta_ampliada" data-bp-formato="docx"/u);
   assert.match(html, /id="ct-bp-ayuda"[^>]*hidden/u);
   assert.doesNotMatch(html, /Tipos disponibles para este expediente y su versión actual|<small>acta_ampliada<\/small>|catalogo:ct:publicado:1/u);
-  assert.match(html, /Recibo de publicación: recibo:12345678/u);
+  assert.match(html, /Justificante de publicación/u);
+  assert.match(html, /data-copiar-justificante="recibo:12345678/u);
+  assert.doesNotMatch(html, />[^<]*recibo:12345678/u);
   assert.doesNotMatch(renderizarBorradoresPublicados({ estado: "denegado" }), /data-bp-descargar/u);
 });
 
@@ -167,7 +169,7 @@ test("404 ambiguo, 403, 503 y 409 mantienen el estado del publicador sin ofrecer
   publicado.desmontar();
 });
 
-test("el panel descarga solo la opción del catálogo y muestra huella sin recibo inventado", async () => {
+test("el panel descarga el documento y conserva su huella en detalle sin anunciar códigos internos", async () => {
   const eventos = new Map(), clics = [], revocadas = [], solicitudes = [];
   const raiz = { innerHTML: "", hidden: false, contains: () => true,
     addEventListener: (tipo, fn) => eventos.set(tipo, fn), removeEventListener: (tipo) => eventos.delete(tipo),
@@ -180,7 +182,8 @@ test("el panel descarga solo la opción del catálogo y muestra huella sin recib
         procedencia_ref: catalogo.procedencia_ref }; } };
   const entornoDescarga = { URL: { createObjectURL: () => "blob:prueba", revokeObjectURL: (url) => revocadas.push(url) },
     document: { body: { append() {} }, createElement: () => ({ hidden: false, click() { clics.push(this.download); }, remove() {} }) } };
-  const panel = montarBorradoresPublicados({ raiz, contexto, cliente, entornoDescarga });
+  const anuncios = [];
+  const panel = montarBorradoresPublicados({ raiz, contexto, cliente, entornoDescarga, anunciar: (mensaje) => anuncios.push(mensaje) });
   await new Promise((resolver) => setImmediate(resolver));
   assert.match(raiz.innerHTML, /Acta ampliada/u);
   const boton = { dataset: { bpDescargar: "acta_ampliada", bpFormato: "pdf" },
@@ -190,7 +193,9 @@ test("el panel descarga solo la opción del catálogo y muestra huella sin recib
   assert.deepEqual(solicitudes, [["acta_ampliada", "pdf"]]);
   assert.deepEqual(clics, ["acta_ampliada-borrador.pdf"]);
   assert.match(raiz.innerHTML, new RegExp(huellaPDF));
-  assert.match(raiz.innerHTML, /Recibo de publicación: recibo:12345678/u);
+  assert.match(raiz.innerHTML, /<details><summary>Ver detalle técnico<\/summary>/u);
+  assert.match(raiz.innerHTML, /data-copiar-justificante="recibo:12345678/u);
+  assert.deepEqual(anuncios, ["Borrador descargado y comprobado: Acta ampliada"]);
   panel.desmontar();
   assert.equal(eventos.size, 0);
   assert.deepEqual(revocadas, ["blob:prueba"]);

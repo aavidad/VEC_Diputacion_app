@@ -162,12 +162,13 @@ class EnsayoFase1Test(unittest.TestCase):
                 ensayar.verificar_tablas_vacias('contenedor')
 
     def test_pruebas_usan_bytes_versionados_y_lista_cerrada(self):
-        self.assertEqual(len(ensayar.PRUEBAS_SQL), 13)
+        self.assertEqual(len(ensayar.PRUEBAS_SQL), 14)
+        self.assertIn(ensayar.CA48_PRUEBA, ensayar.PRUEBAS_SQL)
         with mock.patch.object(ensayar.subprocess, 'check_output', return_value=b'SQL') as git:
             with mock.patch.object(Path, 'read_bytes', return_value=b'SQL'):
                 casos = ensayar.pruebas_versionadas()
         self.assertEqual([ruta for ruta, _ in casos], list(ensayar.PRUEBAS_SQL))
-        self.assertEqual([contenido for _, contenido in casos], [b'SQL'] * 13)
+        self.assertEqual([contenido for _, contenido in casos], [b'SQL'] * 14)
         self.assertEqual([llamada.args[0][-1] for llamada in git.call_args_list],
                          [f'HEAD:{ruta}' for ruta in ensayar.PRUEBAS_SQL])
         with mock.patch.object(ensayar.subprocess, 'check_output', return_value=b'alterado'):
@@ -240,7 +241,7 @@ class EnsayoFase1Test(unittest.TestCase):
 
     def test_reinicio_conserva_datos_y_no_reinstala_migraciones(self):
         from deploy.principal import copia_local, copia_local_roles
-        from deploy.postgresql.fase1 import concurrencia_contexto
+        from deploy.postgresql.fase1 import concurrencia_contexto, concurrencia_lectura_bolsa
 
         with tempfile.TemporaryDirectory(dir='/dev/shm') as temporal:
             eventos = []
@@ -260,13 +261,18 @@ class EnsayoFase1Test(unittest.TestCase):
                 self.assertEqual(contenido, b'PRUEBA')
                 eventos.append((b'CARRERA', 'concurrencia'))
 
+            def cruce(_nombre, _etiqueta, contenido):
+                self.assertEqual(contenido, b'CA48')
+                eventos.append((b'CRUCE', 'concurrencia de lectura de Bolsa'))
+
             with (mock.patch.object(ensayar, 'comprobar_destino', return_value=Path(temporal)),
                   mock.patch.object(ensayar, 'preparar_esquema', return_value=ruta),
                   mock.patch.object(ensayar, 'preparacion_versionada', return_value=b'PREPARACION'),
                   mock.patch.object(ensayar, 'base_hz37_versionada',
                                     return_value=(ensayar.D15_SQL, b'D15')),
                   mock.patch.object(ensayar, 'pruebas_versionadas',
-                                    return_value=[(ensayar.PRUEBAS_SQL[-1], b'PRUEBA')]),
+                                    return_value=[(ensayar.CA48_PRUEBA, b'CA48'),
+                                                  (ensayar.PRUEBAS_SQL[-1], b'PRUEBA')]),
                   mock.patch.object(copia_local, 'migraciones', return_value=[
                       (ensayar.RAIZ / 'migracion.sql', 'huella', b'MIGRACION')]),
                   mock.patch.object(copia_local_roles, 'extract', return_value=[]),
@@ -276,14 +282,16 @@ class EnsayoFase1Test(unittest.TestCase):
                   mock.patch.object(ensayar, 'sql', side_effect=ejecutar_sql),
                   mock.patch.object(ensayar, 'verificar_tablas_vacias'),
                   mock.patch.object(concurrencia_contexto, 'ensayar', side_effect=concurrencia) as carrera,
+                  mock.patch.object(concurrencia_lectura_bolsa, 'ensayar', side_effect=cruce) as cruzada,
                   mock.patch.object(ensayar, 'limpiar_copia')):
                 ensayar.ejecutar(pruebas=True)
             self.assertEqual(esperar.call_count, 2)
             self.assertEqual([contenido for contenido, _ in eventos][1:], [
                 b'ESQUEMA', b'PREPARACION', b'D15', b'MIGRACION',
-                b'PRUEBA', b'REINICIO', b'PRUEBA', b'CARRERA'])
-            self.assertEqual(eventos[-2][1], 'la prueba tras reiniciar ' + ensayar.PRUEBAS_SQL[-1])
+                b'CA48', b'PRUEBA', b'REINICIO', b'CA48', b'PRUEBA', b'CARRERA', b'CRUCE'])
+            self.assertEqual(eventos[-3][1], 'la prueba tras reiniciar ' + ensayar.PRUEBAS_SQL[-1])
             self.assertEqual(carrera.call_count, 1)
+            self.assertEqual(cruzada.call_count, 1)
 
     def test_pruebas_y_solo_base_son_incompatibles(self):
         with mock.patch.object(ensayar, 'comprobar_destino', return_value=Path('/dev/shm')):
