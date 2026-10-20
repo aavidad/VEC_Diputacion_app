@@ -342,6 +342,14 @@
   max-width: 100cqi;
 }
 .fila-ficha-participacion .tabla-contenedor { max-width: 100%; }
+.fila-ficha-participacion [data-bolsa-form="contacto"] {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 20px;
+}
+.fila-ficha-participacion [data-bolsa-form="contacto"] :is(input, select, textarea) { max-width: 100%; }
 /* La edición conserva el ancho visible de la ficha, también dentro de la tabla. */
 .fila-ficha-participacion [data-bolsa-form="cambio-situacion"] {
   padding: 16px;

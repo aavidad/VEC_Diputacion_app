@@ -665,9 +665,10 @@ Estado: **en cidonia** con el llamamiento actual; con la bolsa constituida
 real, falta acreditar el recorrido.
 
 1. RRHH abre el llamamiento (4.3). Le llega un correo; hoy sale por un buzón de
-   pruebas, no por el correo de la Diputación.
-2. En Mi Bolsa aparece el formulario con su fecha límite. El plazo es de dos
-   días desde la notificación (decisión de RRHH del 02/10).
+   pruebas, no por el correo de la Diputación. RRHH registra después el contacto
+   efectivo desde la ficha de Bolsa. El correo enviado no lo acredita.
+2. En Mi Bolsa aparece el formulario con su fecha límite, calculada desde el
+   contacto efectivo según las reglas vigentes de esa bolsa.
 3. La aspirante elige (`POST /api/vec/bolsa/mi-bolsa/respuestas`):
    - **Aceptar**: sin pantalla de revisión.
    - **Renunciar**: pasa por «Revise su renuncia» y «Confirmar renuncia».
@@ -1044,8 +1045,13 @@ Reglas del llamamiento y sus canales (decisiones de Alberto del 02/10 al
   historial los junta por fecha. Un contacto añadido no reinicia el plazo, salvo
   que lo diga la regla configurable.
 - Anotar «contactado» tras una llamada abre la respuesta en «Mi Bolsa» y pone en
-  marcha el plazo, igual que el correo (regla b29). Los demás resultados de una
-  llamada no reinician el plazo.
+  marcha el plazo (regla b29). El correo con resultado «enviado» no es contacto
+  efectivo y no abre ese plazo. RRHH registra la llamada desde la ficha con
+  «Registrar intento telefónico»; VEC guarda la fecha del servidor. Registrar
+  contacto y responder al llamamiento son actuaciones distintas. Los demás
+  resultados de una llamada no reinician el plazo.
+  Activación y comprobaciones de la respuesta interna en
+  [`contacto_respuesta_interna_f1_123.md`](../../deploy/principal/contacto_respuesta_interna_f1_123.md).
 
 El corte F1-21 separa la unidad que gestiona el expediente de la unidad a la que
 pertenece el puesto. La comprobación de Personal usa la unidad del puesto en la

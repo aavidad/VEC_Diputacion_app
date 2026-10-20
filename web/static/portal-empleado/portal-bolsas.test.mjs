@@ -231,6 +231,54 @@ test("B3 registra y consulta contactos con ruta, idempotencia y recibo", async (
   const lectura=await consultarContactosCandidato("bolsa:01","participacion:01",{fetchImpl:async()=>({ok:true,status:200,json:async()=>({data:{esquema:ESQUEMA_CONTACTOS,contactos:[{contacto_ref:"contacto:01",participacion_ref:"participacion:01",llamamiento_ref:null,canal:"telefono",instante:"2026-09-22T00:10:00Z",actor_ref:"per_0123456789abcdefghijkl",resultado:"contactado",anotacion:"Se explicó la oferta"}],cursor_siguiente:null,hay_mas:false}})})});
   assert.equal(lectura.ok,true); assert.equal(lectura.datos.contactos[0].resultado,"contactado");
 });
+
+test("teléfono anunciado omite fecha local; conflictos conservan el código y un recibo ajeno se rechaza", async () => {
+  const base={canal:"telefono",resultado:"contactado",anotacion:"Se explicó la oferta",llamamiento_ref:"llamamiento:01",clave_idempotencia:"contacto-0002",registro_telefono:true};
+  let opciones;
+  const fetchImpl=async(_ruta,config)=>{opciones=config;return{ok:true,status:201,json:async()=>({data:{recibo_ref:"recibo:contacto:02",participacion_ref:"participacion:01",llamamiento_ref:"llamamiento:01",canal:"telefono",resultado:"contactado",anotacion:base.anotacion,instante:"2026-10-20T09:00:00Z"}})}};
+  const alta=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl});
+  assert.equal(alta.ok,true); assert.equal(Object.hasOwn(JSON.parse(opciones.body),"instante"),false);
+  assert.equal(opciones.referrerPolicy,"no-referrer");
+  const legado=await registrarContactoCandidato("bolsa:01","participacion:01",{...base,registro_telefono:false,instante:"2026-10-20T09:00:00Z"},{fetchImpl});
+  assert.equal(legado.ok,true); assert.equal(JSON.parse(opciones.body).instante,"2026-10-20T09:00:00Z");
+  const ajeno=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl:async()=>({ok:true,status:201,json:async()=>({data:{recibo_ref:"recibo:ajeno",participacion_ref:"participacion:02"}})})});
+  assert.equal(ajeno.ok,false); assert.equal(ajeno.codigo,"respuesta_invalida");
+  for(const [codigo,fragmento] of [["contacto_en_conflicto","historial"],["contacto_no_valido","resultado"],["intento_fuera_de_franja","horario"]]){
+    const fallo=await registrarContactoCandidato("bolsa:01","participacion:01",base,{fetchImpl:async()=>({ok:false,status:409,json:async()=>({error:{codigo}})})});
+    assert.equal(fallo.codigo,codigo); assert.match(fallo.mensaje,new RegExp(fragmento,"iu"));
+  }
+});
+
+test("el formulario usa hora del servidor solo para el llamamiento anunciado y fija el modo del reintento", async () => {
+  const originalFormData=globalThis.FormData, originalFetch=globalThis.fetch;
+  const peticiones=[];
+  const registro={esquema:"vec.bolsa.registro_telefono.v1",instante_servidor:true,anotacion_opcional:true,resultados:["contactado"]};
+  const modal={abierto:true,candidato:{participacion_ref:"participacion:01"},bolsa:{},intentosLlamamiento:"llamamiento:01",intentosContacto:{carga:"listo",datos:{registro_telefono:registro}}};
+  const estado={bolsaSeleccionada:"bolsa:01",modalFicha:modal,filtrosBolsa:{}};
+  const escuchas={}; const documento={addEventListener(tipo,fn){(escuchas[tipo]??=[]).push(fn)},querySelector:()=>null,querySelectorAll:()=>[]};
+  const formulario={dataset:{participacionRef:"participacion:01"},campos:new Map(),querySelector:()=>({disabled:false})};
+  const evento={preventDefault(){},target:{closest(selector){return selector==='[data-bolsa-form="contacto"]'?formulario:null}}};
+  globalThis.FormData=class{constructor(form){this.campos=form.campos}get(clave){return this.campos.get(clave)}};
+  let estadoRespuesta=503;
+  globalThis.fetch=async(_ruta,opciones)=>{peticiones.push(opciones);return{ok:false,status:estadoRespuesta,json:async()=>({error:{codigo:estadoRespuesta===409?"contacto_no_valido":"servicio_no_disponible"}})}};
+  try{
+    crearControladorBolsas({estado,renderizar:()=>{},navegar:()=>{},documento}).instalar();
+    const enviar=async(llamamiento,resultado="contactado")=>{formulario.campos=new Map([["canal","telefono"],["resultado",resultado],["anotacion","Se explicó la oferta"],["llamamiento_ref",llamamiento]]);for(const fn of escuchas.submit||[])fn(evento);await new Promise(r=>setImmediate(r));return peticiones.at(-1)};
+    const actual=await enviar("llamamiento:01"); assert.equal(Object.hasOwn(JSON.parse(actual.body),"instante"),false);
+    modal.intentosContacto={carga:"error"};
+    const repeticion=await enviar("llamamiento:01"); assert.equal(repeticion.body,actual.body); assert.equal(repeticion.headers["Idempotency-Key"],actual.headers["Idempotency-Key"]);
+    const ajeno=await enviar("llamamiento:02"); assert.equal(typeof JSON.parse(ajeno.body).instante,"string");
+    modal.intentosContacto={carga:"listo",datos:{registro_telefono:registro}};
+    const sinAnuncio=await enviar("llamamiento:03"); assert.equal(typeof JSON.parse(sinAnuncio.body).instante,"string");
+    registro.resultados.push("no_contesta");
+    const otroResultado=await enviar("llamamiento:01","no_contesta"); assert.equal(Object.hasOwn(JSON.parse(otroResultado.body),"instante"),false);
+    estadoRespuesta=409;
+    await enviar("llamamiento:03"); assert.equal(modal.claveContacto,"");
+    modal.intentosLlamamiento="llamamiento:03";
+    estadoRespuesta=503;
+    const corregido=await enviar("llamamiento:03"); assert.equal(Object.hasOwn(JSON.parse(corregido.body),"instante"),false);
+  }finally{globalThis.FormData=originalFormData;globalThis.fetch=originalFetch}
+});
 test("validarRespuestaCandidatosBolsa acepta fixtures derivadas del dataset sintético", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const validado = validarRespuestaCandidatosBolsa(envelopeCandidatos);

@@ -87,6 +87,7 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
   modalFicha = { abierto: true, candidato, bolsa, registroContacto: {}, intentosContacto: { carga: "cargando" }, reciboContacto: "recibo:contacto:01" };
   const ficha = presentador.renderizarVista("bolsa-candidatos");
   assert.match(ficha, /data-bolsa-form="contacto"[^>]*aria-describedby="bolsa-contacto-no-respuesta"/);
+  assert.match(ficha, /data-bolsa-form="contacto"[\s\S]*?<\/form>\s*<\/div>\s*<div class="acciones-vista">/);
   assert.match(ficha, /Este formulario anota contactos/);
   assert.match(ficha, /<option value="sms">|<option value="presencial">|<option value="buzon">|<option value="aplazado">/);
   assert.doesNotMatch(ficha, /<option value="acepta"|<option value="rechaza"/);

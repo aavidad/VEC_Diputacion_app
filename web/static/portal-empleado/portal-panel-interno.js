@@ -752,7 +752,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     const fechaPropuesta = fechaDisponiblePropuesta(modal.reglasSituacion, modal.reposicion);
     const borrador = modal.borradorCambioSituacion || {};
     const revision = modal.revisionCambioSituacion;
-    const cierreBloqueado = modal.enviandoCambioSituacion || modal.resultadoInciertoCambioSituacion;
+    const cierreBloqueado = modal.enviandoCambioSituacion || modal.resultadoInciertoCambioSituacion || modal.enviandoContacto;
     const cambio = modal.cambioSituacion ? `
       <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}"${revision ? " novalidate" : ""}>
         <div data-bolsa-cambio-edicion${revision ? " hidden" : ""}><label>${textoPortal("txt_destino")} <select name="situacion" required><option value="">${textoPortal("txt_elija_nueva_situacion")}</option>${destinos.map((d) => `<option value="${d}"${borrador.situacion === d ? " selected" : ""}>${escaparHTML(etiquetaEstadoBolsa(d))}</option>`).join("")}</select></label>
@@ -817,6 +817,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               ${renderizarContratosParticipacion({ estado: modal.contratosB13 || {}, escaparHTML, categoria: bolsa.categoria })}
               ${renderizarReincorporacionesTitular({ estado: modal.reincorporacionesTitular || {}, escaparHTML })}
               ${renderizarSanciones({ estado: modal.sancionesB24 || {}, escaparHTML })}
+              ${formularioContacto}
             </div>
             <div class="acciones-vista">
               <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion"${modal.operacionesB8?.directa ? " disabled" : ""}>${textoPortal("txt_cambiar_situacion")}</button>
@@ -825,7 +826,6 @@ export function crearPresentadorPanelInterno(dependencias) {
             </div>
           </section>
           ${cambio}
-          ${formularioContacto}
         </td>
       </tr>`;
   }
