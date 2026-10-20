@@ -643,6 +643,9 @@ El manifiesto es privado (`0600`, fuera de Git) y solo admite estas claves:
    entorno de módulos las ocho variables de firma:
    `VEC_CT_FIRMA_VEC_R5_ENABLED`, `VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`,
    `VEC_CT_PLANTILLAS_SOURCE_PATH` y las cinco `VEC_FIRMA_VERIFICACION_*`.
+   El circuito RRHH v2 solo monta la consulta que usa la firma: los
+   expedientes nuevos siguen naciendo con el flujo de ocho fases y su
+   análisis funciona (F1-98).
 5. Reinicia la copia. Desde entonces `arrancar` levanta el verificador antes
    que la aplicación (con la CRL vigente de `firma-recursos`) y `parar` (y
    `borrar`) lo para. Solo se para el proceso
