@@ -13,9 +13,9 @@ comparten esa comprobación; no reciben una concesión nueva.
 
 Compilar la composición de ensayo que reúne este corte y la receta de copia
 completa F1-131. No hay migraciones ni variables nuevas. La receta mantiene la
-configuración propia y los actos ya confirmados. Para el ensayo autorizado en
-la copia E, se conserva el origen de cada commit, el binario anterior y sus
-huellas; no se cambian perfiles ni datos para eludir un rechazo.
+configuración propia de cada copia. El ensayo autorizado crea una copia nueva
+con la receta completa y este corte; conserva la fuente exacta y las huellas
+del binario. No se cambian perfiles ni datos para eludir un rechazo.
 
 ## Comprobación
 
