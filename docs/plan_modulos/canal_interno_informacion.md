@@ -117,7 +117,7 @@ del canal. Un enlace operativo tampoco acredita recepción o protección del pro
 | Requisitos | Resultado pendiente | Propietario y dependencia |
 | --- | --- | --- |
 | CAN1–CAN3 | Entrada pública, explicación del ámbito y vías, normas/enlace versionados sin captar datos. | VEC mantiene configuración pública; el Sistema institucional mantiene el trámite y su admisibilidad. |
-| CAN4/CAN6 | Designaciones y necesidad de conocer por ente/canal/expediente/actuación. | Responsable y equipo receptor independiente; K provisiona perfiles fijos nominales, sin RRHH genérico. |
+| CAN4/CAN6 | Designaciones y necesidad de conocer por ente/canal/expediente/actuación. | Responsable y equipo receptor independiente; Identidad y Autorización provisiona perfiles fijos nominales, sin RRHH genérico. |
 | CAN5 | Comunicación/acuse/seguimiento, también anónimos, en el canal institucional. | Sistema institucional; VEC solo consume el estado/acuse mínimo autorizado si existe contrato. |
 | CAN7 | Acceso, descarga/exportación minimizada con permiso propio en compartimento reservado. | Custodio y Responsable; Documentos solo por contrato segregado admitido, sin búsqueda general. |
 | CAN8/CAN9 | Separar retención, suprimir/anonimizar y tratar copias/restauraciones. | DPD/Responsable/archivo del Sistema, según tratamiento y finalidad; VEC elimina sus mínimos cuando proceda. |
