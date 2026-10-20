@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -349,5 +350,51 @@ func TestFormaExternaInscripcionSolaOConAlegacionesExactas(t *testing.T) {
 	escrituras, lecturas, ok = operacionesEsperadasInscripcionBolsa(c)
 	if !ok || len(escrituras) != 2 || len(lecturas) != 5 {
 		t.Fatal("forma completa de Alegaciones rechazada")
+	}
+}
+
+// Cada categoría de una conjunta se autoriza como su propia solicitud, con el
+// material conjunto completo; otra categoría u otra persona no encajan.
+func TestAutoridadInscripcionAceptaCategoriaDeConjunta(t *testing.T) {
+	c := inscripcion.PresentacionConjunta{ConvocatoriaRef: "cv1_prueba_v1", CategoriasRefs: []string{"cat_beta", "cat_alpha"},
+		CatalogoVersion: 1, ClaveIdempotencia: "clave_inscripcion_prueba_01"}
+	material, huella, err := inscripcion.MaterialPresentacionConjunta(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ambitos := contextoRecursoEscrituraInscripcionBolsa{Ambitos: map[string]string{"candidato_ref": "can_persona_prueba"}}
+	for _, categoria := range []string{"cat_alpha", "cat_beta"} {
+		ref, err := inscripcion.ReferenciaSolicitud("persona_prueba", c.PorCategoria(categoria))
+		if err != nil {
+			t.Fatal(err)
+		}
+		atributos, ok := atributosMaterialEscrituraInscripcion(inscripcion.AccionPresentar, "persona_prueba", ref, material)
+		if !ok || atributos["material_sha256"] != huella || atributos["categoria_ref"] != categoria {
+			t.Fatalf("categoría %s rechazada: %v", categoria, atributos)
+		}
+		conjunta, esConjunta := presentacionConjuntaInscripcion(inscripcion.AccionPresentar, material)
+		if !esConjunta {
+			t.Fatal("material conjunto no reconocido")
+		}
+		canon, err := recursoPresentacionConjuntaInscripcion(conjunta, "persona_prueba", ref, huella, ambitos)
+		var v struct {
+			Atributos map[string]string `json:"atributos"`
+		}
+		if err != nil || json.Unmarshal(canon, &v) != nil || !maps.Equal(v.Atributos, atributos) {
+			t.Fatalf("recurso de categoría no canónico: %+v %v", v, err)
+		}
+		if _, ok := atributosMaterialEscrituraInscripcion(inscripcion.AccionPresentar, "persona_ajena", ref, material); ok {
+			t.Fatal("persona ajena aceptada")
+		}
+		if _, err := recursoPresentacionConjuntaInscripcion(conjunta, "persona_ajena", ref, huella, ambitos); err == nil {
+			t.Fatal("recurso de persona ajena construido")
+		}
+	}
+	otra, _ := inscripcion.ReferenciaSolicitud("persona_prueba", c.PorCategoria("cat_gamma"))
+	if _, ok := atributosMaterialEscrituraInscripcion(inscripcion.AccionPresentar, "persona_prueba", otra, material); ok {
+		t.Fatal("categoría ajena a la conjunta aceptada")
+	}
+	if _, esConjunta := presentacionConjuntaInscripcion(inscripcion.AccionDecidir, material); esConjunta {
+		t.Fatal("material conjunto aceptado fuera de presentar")
 	}
 }

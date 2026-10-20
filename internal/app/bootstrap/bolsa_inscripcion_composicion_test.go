@@ -117,6 +117,10 @@ func (p *preparadorConteoPrueba) PrepararPresentacion(*http.Request, inscripcion
 	p.llamadas++
 	return inscripcion.Actor{}, inscripcion.ErrAccesoDenegado
 }
+func (p *preparadorConteoPrueba) PrepararPresentacionConjunta(*http.Request, inscripcion.PresentacionConjunta) (inscripcion.Actor, error) {
+	p.llamadas++
+	return inscripcion.Actor{}, inscripcion.ErrAccesoDenegado
+}
 func (p *preparadorConteoPrueba) PrepararDecision(*http.Request, inscripcion.Decision) (inscripcion.Actor, error) {
 	p.llamadas++
 	return inscripcion.Actor{}, inscripcion.ErrAccesoDenegado
