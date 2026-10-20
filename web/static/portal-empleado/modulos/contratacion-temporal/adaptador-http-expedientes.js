@@ -332,6 +332,8 @@ const MENSAJES_ACCIONES_HISTORIAL = new Map([
   ["registrar_asignacion", "hito_asignacion"],
   ["registrar_informe_juridico", "hito_informe_juridico"],
   ["registrar_fiscalizacion", "hito_fiscalizacion"],
+  ["registrar_propuesta_formalizacion", "hito_propuesta_formalizacion"],
+  ["registrar_resolucion_formalizacion", "hito_resolucion_formalizacion"],
 ]);
 
 function etiquetaAccionHito(clave, t) {

@@ -123,7 +123,9 @@ del caso 4.0 para los pasos 9 y 10 (`copia_local_caso40.py`):
   original tiene el permiso de Mi Bolsa ligado a la candidatura de la bolsa
   sustituida y recibía 403. El permiso nuevo lo publica la aplicación al
   arrancar. El certificado queda en `material/mtls/candidato.crt` y se activa
-  `VEC_BOLSA_PORTAL_CANDIDATO_ENABLED`;
+  `VEC_BOLSA_PORTAL_CANDIDATO_ENABLED` junto con `VEC_BOLSA_REGLAS_SOURCE_PATH`
+  (`data/catalogos/bolsa/reglas.v7.json`), el catálogo que el servidor exige con
+  ese selector. Si el kit ya fijó alguna de las dos, se respeta su valor;
 - registra por la API de Bolsa, como la técnica de RRHH, el correo
   `antonio.reyes@example.test` y un teléfono ficticio. El buzón de la copia
   solo acepta ese dominio, así que el aviso del llamamiento llega a él y no
@@ -697,6 +699,7 @@ mismo volcado y las listas necesarias.
 | La selección desde la bolsa constituida da 404, 409 o 503 | Organización histórica sin montar en el combinado o sin material | #1150 y su material (apartado 6) |
 | La selección rechaza el puesto 9/01 | Unidad gestora frente a unidad del puesto | Esperar a F1-21 (#1153); no tocar el dato |
 | La selección exige una necesidad de la RPT | La solicitud de la copia no la guardó | Variante vacante del caso 4.0 como dato de copia |
+| `crear --modulos` sin `--portal-externo` se detiene en `selectores_bolsa_ct` | El selector del portal del candidato iba sin el catálogo de reglas de Bolsa | Arreglado en F1-109: la copia aporta `VEC_BOLSA_REGLAS_SOURCE_PATH` (apartado 2) |
 | Mi Bolsa responde 403 a Antonio | Su permiso estaba ligado a la candidatura de la bolsa sustituida | Arreglado en F1-99: la copia crea su identidad ligada a la candidatura vigente (apartado 2) |
 | Registrar una llamada o ver los contactos de una participación da 503 | Faltaba la conexión del calendario oficial | Arreglado en F1-99: `VEC_CALENDARIOS_DATABASE_URL` (apartado 2) |
 | El aviso del llamamiento no llega al buzón | La participación no tenía datos de contacto | Arreglado en F1-99: la copia registra un correo `@example.test` (apartado 2) |

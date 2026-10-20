@@ -33,10 +33,10 @@ func contieneAccionConfirmacionDirecta(concesiones []dominiovec.ConcesionRol) bo
 }
 
 func concesionesConfirmacionDirectaExactas(restantes []dominiovec.ConcesionRol) bool {
-	if len(restantes) < 1 || len(restantes) > 13 {
+	if len(restantes) < 1 || len(restantes) > 14 {
 		return false
 	}
-	confirmaciones, cargas, comprobaciones := 0, 0, 0
+	confirmaciones, cargas, comprobaciones, publicaciones := 0, 0, 0, 0
 	var s6 []dominiovec.ConcesionRol
 	vistas := make(map[string]bool, len(restantes))
 	for _, c := range restantes {
@@ -63,6 +63,11 @@ func concesionesConfirmacionDirectaExactas(restantes []dominiovec.ConcesionRol) 
 				return false
 			}
 			comprobaciones++
+		case puertosbolsa.AccionDeclararPublicacionOficialBases:
+			if !concesionPublicacionOficialBasesExacta(c) {
+				return false
+			}
+			publicaciones++
 		case puertosbolsa.AccionConsultarTransicionesSituacion,
 			puertosbolsa.AccionPublicarTransicionesSituacion:
 			s6 = append(s6, c)
@@ -72,7 +77,7 @@ func concesionesConfirmacionDirectaExactas(restantes []dominiovec.ConcesionRol) 
 			}
 		}
 	}
-	return confirmaciones == 1 && cargas <= 1 && comprobaciones <= 1 &&
+	return confirmaciones == 1 && cargas <= 1 && comprobaciones <= 1 && publicaciones <= 1 &&
 		(len(s6) == 0 || concesionesAdicionalesS6Exactas(s6))
 }
 
