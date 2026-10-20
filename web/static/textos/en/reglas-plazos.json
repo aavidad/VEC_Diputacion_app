@@ -1,5 +1,6 @@
 {
   "general": {
+    "ajustesEdicionInactiva": "Deadline editing is not enabled. Ask Administration to enable it before making changes.",
     "computo_administrativo": "Administrative count",
     "computo_civil": "Civil count",
     "unidad_dias_habiles": "Working days",

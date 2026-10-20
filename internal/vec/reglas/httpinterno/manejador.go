@@ -45,9 +45,10 @@ type ConsultaReglas interface {
 // Fuente es un catálogo de reglas de un módulo. Consulta puede ser nula: el
 // catálogo aparece entonces como «sin catálogo», nunca con reglas supuestas.
 type Fuente struct {
-	Modulo     string
-	CatalogoID string
-	Consulta   ConsultaReglas
+	Modulo            string
+	CatalogoID        string
+	Consulta          ConsultaReglas
+	EdicionDisponible bool
 }
 
 // Manejador responde con las reglas vigentes de cada fuente, en el orden de
@@ -87,13 +88,14 @@ type Datos struct {
 }
 
 type Catalogo struct {
-	Modulo         string       `json:"modulo"`
-	CatalogoID     string       `json:"catalogo_id"`
-	Estado         string       `json:"estado"`
-	Version        int          `json:"version,omitempty"`
-	HuellaSHA256   string       `json:"huella_sha256,omitempty"`
-	PaqueteEjemplo bool         `json:"paquete_ejemplo"`
-	Reglas         []ReglaVista `json:"reglas"`
+	Modulo            string       `json:"modulo"`
+	CatalogoID        string       `json:"catalogo_id"`
+	Estado            string       `json:"estado"`
+	Version           int          `json:"version,omitempty"`
+	HuellaSHA256      string       `json:"huella_sha256,omitempty"`
+	PaqueteEjemplo    bool         `json:"paquete_ejemplo"`
+	Reglas            []ReglaVista `json:"reglas"`
+	EdicionDisponible bool         `json:"edicion_disponible"`
 }
 
 // ReglaVista es la vista de lectura de una regla. Cantidad es cero cuando la
@@ -147,6 +149,8 @@ func (m *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	datos := Datos{Esquema: Esquema, Catalogos: make([]Catalogo, 0, len(m.fuentes))}
 	for _, f := range m.fuentes {
 		catalogo := consultar(ctx, f)
+		// Describe el montaje, nunca concede permiso para editar.
+		catalogo.EdicionDisponible = f.EdicionDisponible
 		if ctx.Err() != nil {
 			responderError(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 			return

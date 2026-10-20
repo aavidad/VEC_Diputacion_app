@@ -392,7 +392,7 @@ func nuevoServidorDesarrollo(
 	}
 	rutasContratacion = append(rutasContratacion, nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(reglasEjemplo.circuitoFirmaCT, portafirmasapagado.Conector{}))
 	rutasContratacion = append(rutasContratacion, rutaFormalizacion)
-	rutaReglas, err := nuevaRutaReglasVigentesDesarrollo(reglasEjemplo)
+	rutaReglas, err := nuevaRutaReglasVigentesDesarrollo(reglasEjemplo, rutasContratacion...)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("reglas_vigentes", err)
 	}

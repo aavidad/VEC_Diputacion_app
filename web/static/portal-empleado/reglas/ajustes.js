@@ -225,7 +225,7 @@ function renderizarFormulario(regla, motivos, borrador, fase) {
 }
 
 /** Panel autocontenido. El cliente se inyecta y ninguna respuesta tardía repinta una vista nueva. */
-export async function iniciarAjustes(doc, cliente = crearClienteAjustes()) {
+export async function iniciarAjustes(doc, cliente = crearClienteAjustes(), disponible = true) {
   const contenedor = doc.getElementById("rg-ajustes");
   if (!contenedor) return () => {};
   try { await cargarTextosAjustes(); }
@@ -244,6 +244,10 @@ export async function iniciarAjustes(doc, cliente = crearClienteAjustes()) {
         .catch(() => { if (!desmontado) void iniciarAjustes(doc, cliente); });
     }, { once: true });
     return () => { desmontado = true; };
+  }
+  if (disponible !== true) {
+    contenedor.innerHTML = `<section class="rg-panel rg-ajustes"><h2>${esc(t("ajustesTitulo"))}</h2><p class="rg-aviso" role="status">${esc(t("ajustesEdicionInactiva"))}</p></section>`;
+    return () => {};
   }
   let modelo = null;
   let reglaActiva = "";
