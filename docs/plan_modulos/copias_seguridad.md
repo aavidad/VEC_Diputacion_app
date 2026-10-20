@@ -17,9 +17,9 @@ cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
 
 ## Inventario histórico anterior al 20 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
-Plan para Dirección, 1 de octubre de 2026. Encargo de Alberto de las 17:30.
+Plan de copias, 1 de octubre de 2026.
 Base de inventario: `main@f49e01089fb51f58441141decd449df82cb6a420`.
 Estado: plan incorporado a `main` mediante la PR #327. La ejecución desde
 Administración sigue pendiente. Este documento no instala copias, no abre permisos
@@ -40,7 +40,7 @@ no equivale a capacidad instalada.
 | API, calendario y doble revisión | API #406, política #399 y control #396 están en main. | Proveedores nominales y montaje en el listener ADMIN. `NuevoHandlerCopias` es una factoría, no una ruta publicada. |
 | Pantalla | #404 actualizada a `417a374c3`, con los mismos archivos y revisión de usabilidad anterior. | Integración con la API nominal y recorrido real de dos personas. |
 | Órdenes autorizadas | #593 recupera CS08 `c32984285`: CLI, contratos y adaptadores, sin SQL. La separación de claves #407 ya está en main. | Materializador y consumo V3, COMMIT con auditoría común y relectura del mismo compromiso; anclaje vigente fuera del conjunto restaurado. |
-| Ejecutar y recuperar | CS11 recuperado por archivos propios en `trabajo/codexa-cs11-recuperacion-20261004@2e029b166`. | Conciliación de diario/testigo, consumidores multibase y autoridades comunes. Sigue en preparación, sin PR ni GO operativo. |
+| Ejecutar y recuperar | CS11 recuperado por archivos propios en `2e029b166`. | Conciliación de diario/testigo, consumidores multibase y autoridades comunes. Sigue en preparación, sin PR ni GO operativo. |
 
 El WIP SQL de K se conserva: AD143, AdministraciónCopias1 y sus dependencias de
 identidad/perfil. Antes de prepararlo como instalable hay que inventariar las
@@ -98,7 +98,7 @@ de copia/recuperación; no es un procedimiento vigente que deba ejecutarse.
 | Fuente inspeccionada | Qué aporta | Qué falta para este encargo |
 | --- | --- | --- |
 | `H6/h6_1b_verificar.py`, `Engine.start_snapshot`, `apply`, `restore_and_verify`, `acl_restore` | Snapshot común para dump lógico, esquema, DATACL y recuentos; globals privados, restore en clon aislado y recibo durable. | Está ligado a PG18/una base/sin tablespaces. Recuentos no prueban igualdad de filas; roles/globales no pertenecen al snapshot de base. No cifrado, periodicidad ni copia física general. |
-| `H6/H6_DIRECTO_PRINCIPAL_R2_20261001.md`, §§2 y 6 | Copia fría de PGDATA/configuración PG/HBA, artefactos, configuración APP, material, importaciones y arranque; conserva postimagen para recuperar. | Procedimiento concreto de despliegue. La validación de archivos simulados del runbook no acredita recuperación general ni todos los metadatos/ACL. El incidente real comunicado por Dirección se distingue de esa prueba. |
+| `H6/H6_DIRECTO_PRINCIPAL_R2_20261001.md`, §§2 y 6 | Copia fría de PGDATA/configuración PG/HBA, artefactos, configuración APP, material, importaciones y arranque; conserva postimagen para recuperar. | Procedimiento concreto de despliegue. La validación de archivos simulados del runbook no acredita recuperación general ni todos los metadatos/ACL. El incidente real documentado se distingue de esa prueba. |
 | `H6/h6_p_principal_o.sh`, `copia_exacta`, `conciliar_postimagen`, `vuelta_atras`; `h6_comun.sh`, `restaurar_pgdata_frio` | Copia física y retorno históricos, contenido/metadatos y conciliación si la aplicación pudo recibir tráfico. | No ejecutarlos como procedimiento vigente. No cubren por sí solos todos los consumidores/almacenes ni efectos externos. |
 | `deploy/principal/piden_rrhh_corte2_20260928/README.md`, §copias | Dumps/globales, restauración aislada con propietarios y error cerrado. | Runbook, no servicio de copias; `ensayar_clon.sh` recibe un clon ya preparado. |
 | `deploy/principal/composicion_interna/precondicion_f1_identidad/README.md` y `precondicion.py` | Inventario de ACL explícitas, también de tipos de fila, y acta de restauración ligada a preimagen. | El Python valida el acta, no realiza la recuperación. No reutilizar excepciones históricas que omitían filas. |
@@ -115,9 +115,9 @@ Administración tiene esta cola propia, que conserva F/Dirección:
 | Referencia exacta | Capacidad y límite |
 | --- | --- |
 | #232, `d49e6adfcac7a1a68752c239efc6c68a4679191d`; `internal/app/administracion/servidor.go`, `cmd/vec-admin` | Listener ADMIN separado, CA/CRL y verificación mTLS. Solo `GET /livez` (204); no cuenta PG ni API de copias. |
-| `origin/trabajo/codexf-admin-http-20260930@bfca798085d984a7a259f4d2924463c2fbb3cae6` | Handler de perfiles con `ResolvedorSesion.ResolverSesionADMIN` y `AuditorFrontera.RegistrarDenegacionADMIN`, sin montaje. Reutilizar autoridad acordada con F, no copiar el árbol completo de su rama. |
-| `origin/trabajo/codexf-admin-ui-20260930@700956101e539cb80fdabdfa4ef7cf2d9e6ce46c` | Cliente/vista `administracion-perfiles` y catálogos existentes, sin montaje; no hacer otro portal. |
-| `origin/trabajo/codexf-admin-domain-20260930@93ec229f8eb934cb12947d288f3c64526ccc70de` y `codexf-admin-bootstrap-plan-20260930@f5125bc9dc213edf4da616996e23a03f9be01c04` | Contratos/plan de perfiles ya preparados. No son permisos de copia. |
+| `bfca798085d984a7a259f4d2924463c2fbb3cae6` | Handler de perfiles con `ResolvedorSesion.ResolverSesionADMIN` y `AuditorFrontera.RegistrarDenegacionADMIN`, sin montaje. Reutilizar autoridad acordada con F, no copiar el árbol completo de su rama. |
+| `700956101e539cb80fdabdfa4ef7cf2d9e6ce46c` | Cliente/vista `administracion-perfiles` y catálogos existentes, sin montaje; no hacer otro portal. |
+| `93ec229f8eb934cb12947d288f3c64526ccc70de` y `codexf-admin-bootstrap-plan-20260930@f5125bc9dc213edf4da616996e23a03f9be01c04` | Contratos/plan de perfiles ya preparados. No son permisos de copia. |
 | `internal/modules/administracion` y `web/static/portal-empleado/modulos/administracion/vista.js` en main | Manifiesto y presentación con acciones pendientes; no son la superficie privilegiada ADMIN. |
 | `internal/vec/ports/incidencias_tecnicas.go` | Emisor de incidencias no bloqueante; no sustituye el registro obligatorio durable de copia/restauración. |
 
@@ -388,11 +388,9 @@ dump/restore dará la duración de mantenimiento y verificará si esta V1 sirve 
 
 ## Pruebas y límites de hoy
 
-Hoy se valida solo el plan: fuentes/rutas contrastadas, consenso Astra por rondas,
-repaso Humanizer y `git diff --check`. No hay código, SQL, permisos ni criptografía
+Este corte valida solo el plan por contraste de fuentes y rutas y revisión documental. No hay código, SQL, permisos ni criptografía
 nueva; no corresponde recompilar VEC ni repetir campañas de tests para Markdown.
-La PR del plan y CS01 se abrirán/iniciarán únicamente con el GO de Claude pedido en
-el canal. Al implementar piezas sensibles se requieren ensayo aislado y revisiones
+La implementación necesita su encargo y revisión propios. Al implementar piezas sensibles se requieren ensayo aislado y revisiones
 independientes de la versión exacta; gosec/Semgrep local sobre lo cambiado, puertas
 focales y global proporcional una sola vez por PR. Ningún ensayo tocará cidonia.
 
@@ -406,17 +404,6 @@ Copias incrementales/PITR, captura sin parada y adaptador pgBackRest quedan para
 tras medir la V1. Su anotación en `pendientes_v2.md` se pedirá durante el turno compartido;
 no se edita ese archivo fuera de turno ni se presenta V2 como requisito cerrado hoy.
 
-## Consenso Astra
+## Condiciones funcionales conservadas
 
-Ronda 1: acuerdo de diseño para parada total, físico frío y doble ensayo. Se exige
-drenaje DB/ficheros, control/auditoría fuera de lo restaurado, identidad actual,
-cifrado autenticado, dos personas y copia previa completa ensayada bajo exclusión.
-La compatibilidad se compara con el conjunto que quedará instalado, permitiendo
-recuperar también su binario; nunca mezclar release nueva con esquema antiguo.
-Ronda 2: se corrigió la única objeción material, exigir contraste de contenido lógico
-en todas las tablas y objetos persistentes, además de recuentos. Incluye secuencias y
-objetos grandes; igual recuento con contenido distinto deja la copia NO VÁLIDA.
-La horquilla fue consensuada como estimación condicionada, sin prometer una fecha.
-Ronda 3: Astra dio GO documental al contenido corregido. Sin objeciones de arquitectura
-pendientes; dictamen estático, sin ejecución. La candidata y su huella final se comunican
-en CANAL_CLAUDE_CODEX.md. CS01 y la PR del plan siguen pendientes del GO de Claude.
+La restauración exige drenaje de base y ficheros, control y auditoría fuera de lo restaurado, identidad vigente, cifrado autenticado, dos personas y una copia previa completa ensayada bajo exclusión. La compatibilidad se compara con el conjunto de binario y esquema que quedará instalado. Se contrastan contenido lógico, secuencias y objetos grandes, además de recuentos; igual recuento con contenido distinto no valida una copia.
