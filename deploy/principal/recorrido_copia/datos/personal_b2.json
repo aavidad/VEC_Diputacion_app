@@ -1,0 +1,229 @@
+{
+  "esquema": "vec.contratacion-temporal.incorporacion-servidor.v2",
+  "fuente_ref": "configuracion_personal_b2_aprobada_20261014",
+  "operaciones": {
+    "bolsa_anclaje": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "bolsa_persona": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "ct_detalle": {
+      "motivo": {
+        "catalogo_huella_sha256": "2ef60b429752d603a90d15010f45e4323f44d5fd7514cb94810ababc9bba756f",
+        "catalogo_id": "motivos_ct_consultas_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_7b05a280dd7076272ab41d0d4f1b14ad"
+      }
+    },
+    "ct_origen_confirmar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "ct_plan_consultar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "ct_plan_preparar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "ct_vinculo_consultar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "ct_vinculo_registrar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_alta": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_catalogo_publicar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_catalogo_retirar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_catalogos": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_clases": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_empleados": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_ficha": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_hecho": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_plan_confirmar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_plan_consultar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_plan_ejecutar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_plan_preparar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_plan_seleccionar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "personal_vacantes": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "rpt_confirmar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "rpt_listar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "rpt_publicacion": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "rpt_reservar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    },
+    "rpt_uso_consultar": {
+      "motivo": {
+        "catalogo_huella_sha256": "3ef292ad81d4ae4b854f252229a9c7ac8beaf1be2300395a3633025b1fc66ae3",
+        "catalogo_id": "motivos_ct_incorporacion_rrhh_desarrollo",
+        "catalogo_version": 1,
+        "entrada_clave": "motivo_45d0f022e3bd75645be12ced0b27a0d7"
+      }
+    }
+  },
+  "personal_b2": {
+    "catalogo_rpt_id": "categorias_rpt",
+    "cese_fecha_efecto": "primer_dia_sin_relacion",
+    "modulo_rpt_id": "personal",
+    "protocolo": "personal_b2_v1"
+  },
+  "version": 1
+}

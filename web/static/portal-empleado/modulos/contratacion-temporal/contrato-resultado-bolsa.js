@@ -104,7 +104,7 @@ function emision(valor) {
   referencia(valor.bolsa_ref);
   referencia(valor.llamamiento_ref, LLAMAMIENTO);
   referencia(valor.recibo_emision_ref, RECIBO_EMISION);
-  if (typeof valor.referencia_visible !== "string" || valor.referencia_visible.length > 80) {
+  if (typeof valor.referencia_visible !== "string" || valor.referencia_visible.length > 160) {
     throw new TypeError("referencia visible Bolsa no válida");
   }
   fecha(valor.emitido_en);

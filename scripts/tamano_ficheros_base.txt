@@ -217,3 +217,4 @@
 831 internal/app/bootstrap/bolsa_inscripcion_autoridad.go
 825 internal/modules/bolsa/adapters/httpinscripcion/handler.go
 823 deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_procedencia_seleccion.up.sql
+864 deploy/principal/copia_local.py

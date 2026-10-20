@@ -27,14 +27,6 @@ export function contextoSeguimientoCeseDesdeEstado(estado) {
     fase_clave: resumen.fase_clave, estado_clave: resumen.estado_clave });
 }
 
-// Un 404 sin sobre de error del módulo («vec route not found») significa que
-// el servidor no compone el seguimiento de cese: no se monta el panel, igual
-// que la firma cuando su registro no está compuesto. Un 404 con sobre válido
-// es un expediente inexistente y sigue siendo un fallo.
-export function rutaSeguimientoCeseNoMontada(error) {
-  return error?.estado === 404 && error?.envelopeValido !== true;
-}
-
 export function montarPanelSeguimientoCese({
   contenedor, cliente, contexto, mensajes = {}, locale = "es-ES", anunciar = () => {},
   confirmarOperacion = () => false, alConfirmar = () => {}, alConsultar = () => {},
@@ -71,6 +63,13 @@ export function montarPanelSeguimientoCese({
       <p id="ct-seg-cese-ayuda" class="ct-seg-cese-texto-ayuda" ${ayudaAbierta ? "" : "hidden"}>${escapar(t("ayuda"))} ${escapar(ayudaHuellaArchivo(tArchivo))}</p>`;
   }
 
+  // Lo que falta para cerrar, en el orden en que se registra: cese y GINPIX.
+  function motivoCierrePendiente(estado, opciones) {
+    if (!estado.cese) return "cierre_pendiente_cese";
+    return opciones.condiciones_cierre.includes("ginpix_confirmado") && opciones.confirmacion_ginpix === true && !estado.ginpix
+      ? "cierre_pendiente_ginpix" : "cierre_pendiente";
+  }
+
   function resumen(estado, opciones) {
     // En la revisión, la propuesta pendiente ya se cuenta en su bloque; el
     // resumen solo aparece cuando la no incorporación está confirmada.
@@ -81,8 +80,9 @@ export function montarPanelSeguimientoCese({
     const causa = estado.cese ? opciones.causas_cese.find((c) => c.clave === estado.cese.causa_clave) : null;
     const filas = [
       [t("incorporacion"), estado.incorporacion ? t("incorporacion_inicio", { fecha: fechaVisible(estado.incorporacion.inicio, locale) }) : t("sin_incorporacion")],
-      [t("cese"), estado.cese ? t("cese_registrado", { causa: causa ? etiquetaOpcion(causa) : estado.cese.causa_clave, fecha: fechaVisible(estado.cese.fecha_efecto, locale) }) : t("pendiente")],
-      [t("cierre"), estado.cierre ? t("cierre_registrado", { ginpix: estado.cierre.ginpix_numero || t("cierre_sin_ginpix") }) : t("pendiente")],
+      [t("cese"), estado.cese ? t("cese_registrado", { causa: causa ? etiquetaOpcion(causa) : estado.cese.causa_clave, fecha: fechaVisible(estado.cese.fecha_efecto, locale) })
+        : t(estado.incorporacion ? "cese_pendiente" : "cese_pendiente_sin_incorporacion")],
+      [t("cierre"), estado.cierre ? t("cierre_registrado", { ginpix: estado.cierre.ginpix_numero || t("cierre_sin_ginpix") }) : t(motivoCierrePendiente(estado, opciones))],
       ...filasIncorporacionAcreditada(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
       ...filasNoIncorporacion(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
       ...filasPropuestas(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
@@ -157,11 +157,7 @@ export function montarPanelSeguimientoCese({
 
   function pintar() {
     if (controlador.signal.aborted) return;
-    if (datos?.ausente) {
-      contenedor.innerHTML = "";
-      contenedor.hidden = true;
-      return;
-    }
+    contenedor.hidden = false;
     if (!datos) {
       contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" aria-busy="true">${aviso?.tono === "exito" ? `<p class="ct-exp-mensaje ct-tono-exito" role="status">${escapar(aviso.texto)}</p>` : ""}<p role="status">${escapar(t("cargando"))}</p></section>`;
       return;
@@ -219,9 +215,9 @@ export function montarPanelSeguimientoCese({
       if (soloNoIncorporacion && (!Number.isSafeInteger(datos?.estado?.version_expediente) || !datos?.estado?.numero_expediente)) datos = { error: true };
     } catch (error) {
       if (controlador.signal.aborted) return;
-      datos = !soloNoIncorporacion && rutaSeguimientoCeseNoMontada(error) ? { ausente: true } : { error: true };
+      datos = { error: true };
     }
-    if (!controlador.signal.aborted && !datos?.ausente && !datos?.error) alConsultar(datos);
+    if (!controlador.signal.aborted && !datos?.error) alConsultar(datos);
     pintar();
   }
 

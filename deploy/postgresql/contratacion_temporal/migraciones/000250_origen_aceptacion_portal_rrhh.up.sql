@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
--- CT250 / F1-125A. El origen del único participante procede de una O6
--- confirmada y de la emisión B98 enlazada; no concede una mutación.
+-- CT250 / F1-125A. Vincular comprueba la referencia opaca de una O6 propia;
+-- la lectura ofrece su emisión B98 y conserva el origen del participante.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -14,6 +14,7 @@ BEGIN
  IF current_setting('server_version_num')::integer NOT BETWEEN 180000 AND 189999
     OR current_user<>'vec_contratacion_temporal_propietario'
     OR to_regclass('vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6') IS NULL
+    OR to_regclass('vec_contratacion_temporal.seleccion_confirmada_unica_expediente_ct238') IS NULL
     OR to_regclass('vec_contratacion_temporal.expediente_version_integral') IS NULL THEN
   RAISE EXCEPTION 'CT250: dependencias incompatibles' USING ERRCODE='55000'; END IF;
  SELECT * INTO p FROM pg_proc WHERE oid=to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text)');
@@ -24,8 +25,192 @@ BEGIN
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
       IS DISTINCT FROM '44c8d0e2c3597533300cdd066279a7c4a17526dd2c9eb1f158722a0c36249fcd' THEN
   RAISE EXCEPTION 'CT250: lector instalado divergente o ya sustituido' USING ERRCODE='55000'; END IF;
+ SELECT * INTO p FROM pg_proc WHERE oid=to_regprocedure(
+  'vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ IF NOT FOUND OR p.proowner IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
+    OR p.prosecdef IS DISTINCT FROM true OR p.provolatile IS DISTINCT FROM 'v'
+    OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
+    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
+    OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
+      IS DISTINCT FROM 'fd7421e9d5dba11dda82368873a8ea41a30fc5002f921e0f226b649ba13ac344' THEN
+  RAISE EXCEPTION 'CT250: vínculo instalado divergente' USING ERRCODE='55000'; END IF;
+ -- SHA-256 públicos de pg_get_functiondef instalado; no son credenciales.
+ IF EXISTS (SELECT 1 FROM (VALUES
+  ('vec_bolsa_llamamientos.verificar_emision_ct_v1(text,text,text,text,text)',
+   '918300ef8986c910f11e718fc25dc6534cd9b87cee3560b4d77c88345c83de22','statement_timeout=3s'),
+  ('vec_bolsa_llamamientos.listar_emisiones_ct_v1(text,text,timestamp with time zone,text,integer,text[])',
+   '3d406f5c21847b35e80611345323197776c8e86d8cdd3731a9afc686e3e85ae5','statement_timeout=3s')) esperado(firma,huella,plazo)
+  LEFT JOIN pg_proc q ON q.oid=to_regprocedure(esperado.firma)
+  WHERE q.oid IS NULL OR q.proowner IS DISTINCT FROM 'vec_bolsa_llamamientos_propietario'::regrole
+    OR q.prosecdef IS DISTINCT FROM true OR q.provolatile IS DISTINCT FROM 's'
+    OR q.proacl::text IS DISTINCT FROM '{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_contratacion_temporal_propietario=X/vec_bolsa_llamamientos_propietario}'
+    OR q.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on',esperado.plazo]
+    OR encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex') IS DISTINCT FROM esperado.huella) THEN
+  RAISE EXCEPTION 'CT250: lectura o verificación B98 divergente' USING ERRCODE='55000'; END IF;
 END $pre_ct250$;
 
+CREATE OR REPLACE FUNCTION vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(p_material text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'pg_temp'
+ SET row_security TO 'on'
+ SET "TimeZone" TO 'UTC'
+ SET lock_timeout TO '2s'
+AS $function$
+DECLARE s jsonb; d jsonb; c record; actual_ct record; amb record; anterior record;
+ clave uuid; version_esperada numeric; material_h text; contexto_h text;
+ numero text; recibo text; evento text; instante timestamptz(6); salida jsonb;
+BEGIN
+ IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
+    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER') IS NOT TRUE
+    OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+    OR current_setting('transaction_isolation')<>'serializable'
+    OR current_setting('transaction_read_only')<>'off' THEN
+  RAISE EXCEPTION 'CT201: sesión de vínculo denegada' USING ERRCODE='42501';
+ END IF;
+ IF p_material IS NULL OR octet_length(p_material) NOT BETWEEN 128 AND 4096 THEN
+  RAISE EXCEPTION 'CT201: material inválido' USING ERRCODE='22023';
+ END IF;
+ BEGIN
+  s:=p_material::jsonb;
+  d:=convert_from(p_decision,'UTF8')::jsonb;
+  clave:=(s->>'clave_idempotencia')::uuid;
+  version_esperada:=(s->>'version_esperada')::numeric;
+ EXCEPTION WHEN others THEN
+  RAISE EXCEPTION 'CT201: material ilegible' USING ERRCODE='22023';
+ END;
+ IF jsonb_typeof(s)<>'object' OR (SELECT count(*) FROM json_each(p_material::json))<>8
+    OR (SELECT count(*) FROM jsonb_object_keys(s))<>8
+    OR (SELECT array_agg(key ORDER BY ord) FROM json_each(p_material::json) WITH ORDINALITY AS j(key,val,ord))
+      IS DISTINCT FROM ARRAY['esquema','organizacion_ref','expediente_ref','version_esperada',
+        'bolsa_ref','llamamiento_ref','recibo_emision_ref','clave_idempotencia']
+    OR s->>'esquema'<>'vec.ct.vinculo-emision-bolsa.v1'
+    OR version_esperada NOT BETWEEN 1 AND 9007199254740991::numeric
+    OR version_esperada<>trunc(version_esperada)
+    OR s->>'organizacion_ref' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+    OR s->>'expediente_ref' !~ '^expediente:[A-Za-z0-9._:/#-]{2,149}$'
+    OR s->>'bolsa_ref' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+    OR s->>'llamamiento_ref' !~ '^llamamiento:[0-9a-f]{64}$'
+    OR s->>'recibo_emision_ref' !~ '^recibo:llamamiento:[0-9a-f]{64}$'
+    OR s->>'clave_idempotencia' IS DISTINCT FROM clave::text THEN
+  RAISE EXCEPTION 'CT201: contrato de vínculo inválido' USING ERRCODE='22023';
+ END IF;
+ -- CT241 / F1-19: un nombramiento derivado no se vincula a otro llamamiento.
+ IF EXISTS(SELECT 1 FROM vec_contratacion_temporal.expediente_alta alta
+   WHERE alta.expediente_ref=s->>'expediente_ref' AND alta.derivacion_ref IS NOT NULL) THEN
+  RAISE EXCEPTION 'CT241: expediente derivado sin selección nueva' USING ERRCODE='23505';
+ END IF;
+	material_h:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
+	SELECT * INTO amb FROM vec_contratacion_temporal.leer_ambitos_vinculo_emision_bolsa_ct_v1(
+	 s->>'organizacion_ref',s->>'expediente_ref',version_esperada,s->>'bolsa_ref',
+	 s->>'llamamiento_ref',s->>'recibo_emision_ref',s->>'clave_idempotencia');
+	IF NOT FOUND THEN
+	 RAISE EXCEPTION 'CT201: ámbitos del expediente divergentes' USING ERRCODE='23505';
+	END IF;
+	contexto_h:=encode(sha256(convert_to(
+	   '{"ambitos":{"categoria_ref":'||to_json(amb.categoria_ref)::text||
+	   ',"centro_ref":'||to_json(amb.centro_ref)::text||
+	   ',"organizacion_ref":'||(s->'organizacion_ref')::text||
+   '},"atributos":{"material_sha256":"'||material_h||'"}}','UTF8')),'hex');
+ IF d->>'accion' IS DISTINCT FROM 'contratacion_temporal.bolsa.vincular'
+    OR d->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
+    OR d->>'tipo_recurso' IS DISTINCT FROM 'vinculo_bolsa_expediente'
+    OR d->>'finalidad' IS DISTINCT FROM 'tramitacion_expediente_contratacion_temporal'
+    OR d->>'recurso_ref' IS DISTINCT FROM s->>'expediente_ref'
+    OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM contexto_h
+    OR d->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb
+    OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb THEN
+  RAISE EXCEPTION 'CT201: decisión no ligada al material' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO STRICT c FROM vec_autorizacion_atestada_v3.registrar_y_consumir_vinculo_emision_bolsa_ct_v3_atestada(
+  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ IF c.efecto_ref IS DISTINCT FROM s->>'expediente_ref' OR c.huella_efecto_sha256 IS DISTINCT FROM contexto_h
+    OR c.consumo_nuevo IS NOT TRUE THEN
+  RAISE EXCEPTION 'CT201: consumo de efecto divergente' USING ERRCODE='42501';
+ END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:vinculo_bolsa:'||(s->>'expediente_ref'),0));
+ SELECT * INTO anterior FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
+  WHERE x.organizacion_ref=s->>'organizacion_ref' AND x.clave_idempotencia=clave;
+ IF FOUND THEN
+  IF anterior.material_sha256 IS DISTINCT FROM material_h
+     OR anterior.actor_ref IS DISTINCT FROM d->>'principal_id'
+     OR anterior.perfil_ref IS DISTINCT FROM d->>'perfil_activo_ref' THEN
+   RAISE EXCEPTION 'CT201: clave usada con otro contenido' USING ERRCODE='23505';
+  END IF;
+  RETURN anterior.recibo_json||jsonb_build_object('reutilizado',true);
+ END IF;
+ SELECT e.organizacion_ref,e.numero_visible,actual.version,v.agregado_json
+  INTO actual_ct FROM vec_contratacion_temporal.expediente_alta e
+  JOIN vec_contratacion_temporal.expediente_integral_actual actual ON actual.expediente_ref=e.expediente_ref
+  JOIN vec_contratacion_temporal.expediente_version_integral v
+    ON v.expediente_ref=actual.expediente_ref AND v.version=actual.version
+  WHERE e.expediente_ref=s->>'expediente_ref' AND e.organizacion_ref=s->>'organizacion_ref'
+  FOR SHARE OF actual;
+ IF NOT FOUND OR actual_ct.version IS DISTINCT FROM version_esperada
+    OR actual_ct.agregado_json#>>'{via_cobertura,via_clave}' IS DISTINCT FROM 'bolsa_vigente'
+    OR actual_ct.agregado_json#>>'{via_cobertura,decision_gobernada,via_elegida}' IS DISTINCT FROM 'bolsa_vigente'
+    OR actual_ct.agregado_json#>'{via_cobertura,bolsa_ref}' IS NOT NULL
+    OR actual_ct.agregado_json#>>'{solicitud,centro_ref}' IS DISTINCT FROM amb.centro_ref
+    OR actual_ct.agregado_json#>>'{analisis,categoria_ref}' IS DISTINCT FROM amb.categoria_ref THEN
+  RAISE EXCEPTION 'CT201: versión o bolsa de cobertura divergente' USING ERRCODE='23505';
+ END IF;
+ -- Conservar la verificación histórica por número visible. Solo una O6 propia
+ -- confirmada permite comprobar además su referencia opaca original.
+ numero:=vec_contratacion_temporal.numero_visible_vigente_v1(s->>'expediente_ref',actual_ct.numero_visible);
+ IF vec_bolsa_llamamientos.verificar_emision_ct_v1(
+    s->>'bolsa_ref',s->>'llamamiento_ref',s->>'recibo_emision_ref',numero,
+    actual_ct.agregado_json#>>'{analisis,categoria_ref}') IS NOT TRUE THEN
+  IF NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
+   JOIN vec_contratacion_temporal.expediente_version_integral h
+     ON h.expediente_ref=s->>'expediente_ref' AND h.version=CASE
+      WHEN e.recibo_json->>'version_expediente' ~ '^[1-9][0-9]{0,15}$'
+      THEN (e.recibo_json->>'version_expediente')::numeric END
+   WHERE e.tipo_seleccion='llamamiento' AND e.situacion='confirmada'
+     AND e.artefacto_canonico IS NOT NULL
+     AND jsonb_typeof(e.recibo_json->'version_expediente')='number'
+     AND e.solicitud_json->>'organizacion_ref'=s->>'organizacion_ref'
+     AND e.solicitud_json->>'expediente_ref'=s->>'expediente_ref'
+     AND e.recibo_json->>'organizacion_ref'=s->>'organizacion_ref'
+     AND e.recibo_json->>'expediente_ref'=s->>'expediente_ref'
+     AND e.recibo_json#>>'{bolsa,referencia}'=s->>'bolsa_ref'
+     AND e.recibo_json->>'llamamiento_ref'=s->>'llamamiento_ref'
+     AND e.recibo_json->>'recibo_ref'=s->>'recibo_emision_ref'
+     AND e.recibo_json->'version_expediente'=e.solicitud_json->'version_expediente'
+     AND e.recibo_json->'propuesta_generada'='true'::jsonb
+     AND h.agregado_json#>>'{via_cobertura,via_clave}'='bolsa_vigente'
+     AND h.agregado_json#>>'{via_cobertura,decision_gobernada,via_elegida}'='bolsa_vigente'
+     AND h.agregado_json#>>'{analisis,categoria_ref}' IS NOT NULL
+     AND h.agregado_json#>>'{asignacion,unidad_ref}' IS NOT NULL) THEN
+   RAISE EXCEPTION 'CT201: emisión real ajena al expediente' USING ERRCODE='42501';
+  END IF;
+  IF vec_bolsa_llamamientos.verificar_emision_ct_v1(
+     s->>'bolsa_ref',s->>'llamamiento_ref',s->>'recibo_emision_ref',s->>'expediente_ref',
+     actual_ct.agregado_json#>>'{analisis,categoria_ref}') IS NOT TRUE THEN
+   RAISE EXCEPTION 'CT201: emisión real ajena al expediente' USING ERRCODE='42501';
+  END IF;
+ END IF;
+ instante:=date_trunc('microseconds',clock_timestamp());
+ recibo:='recibo:ct:bolsa:'||gen_random_uuid()::text;
+ evento:='evento:ct:bolsa:'||gen_random_uuid()::text;
+ salida:=jsonb_build_object('expediente_ref',s->>'expediente_ref',
+  'bolsa_ref',s->>'bolsa_ref','llamamiento_ref',s->>'llamamiento_ref',
+  'recibo_emision_ref',s->>'recibo_emision_ref','recibo_vinculo_ref',recibo,
+  'vinculado_en',instante,'auditoria_ref',c.auditoria_ref,'evento_ref',evento,'reutilizado',false);
+ INSERT INTO vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1(
+  organizacion_ref,expediente_ref,bolsa_ref,llamamiento_ref,recibo_emision_ref,
+  version_expediente_esperada,clave_idempotencia,material_sha256,actor_ref,perfil_ref,
+  decision_ref,auditoria_ref,consumo_sha256,recibo_ref,vinculado_en,recibo_json)
+ VALUES(s->>'organizacion_ref',s->>'expediente_ref',s->>'bolsa_ref',s->>'llamamiento_ref',
+  s->>'recibo_emision_ref',version_esperada,clave,material_h,d->>'principal_id',d->>'perfil_activo_ref',
+  c.decision_ref,c.auditoria_ref,c.consumo_huella_sha256,recibo,instante,salida);
+ INSERT INTO vec_contratacion_temporal.outbox_vinculo_emision_bolsa_ct_v1(
+  evento_ref,expediente_ref,llamamiento_ref,recibo_ref,tipo,payload,payload_sha256,registrada_en)
+ VALUES(evento,s->>'expediente_ref',s->>'llamamiento_ref',recibo,
+  'contratacion_temporal.bolsa.emision_vinculada.v1',salida,
+  encode(sha256(convert_to(salida::text,'UTF8')),'hex'),instante);
+ RETURN salida;
+END $function$;
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1, p_consulta vec_contratacion_temporal.consulta_detalle_rrhh_v1, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea, p_cursor text)
  RETURNS TABLE(contenido_canonico bytea, esquema text, acceso_ref text, secuencia numeric, anterior_sha256 text, huella_sha256 text, vinculo_identidad_huella_sha256 text, alcance_huella_sha256 text, registrada_en timestamp with time zone, auditoria_vec_ref text, auditoria_vec_huella_sha256 text, consumo_vec_huella_sha256 text, contenido_huella_sha256 text, resultado_huella_sha256 text, cursor_huella_sha256 text, generada_en timestamp with time zone, expediente_ref text, version_expediente numeric, total smallint, recibo_sello_sha256 text, resultado_bolsa jsonb)
  LANGUAGE plpgsql
@@ -37,7 +222,7 @@ CREATE OR REPLACE FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_
  SET statement_timeout TO '4s'
  SET idle_in_transaction_session_timeout TO '6s'
 AS $function$
-DECLARE d record; actual record; vinculos jsonb; sugeridas jsonb; origenes jsonb; n integer;
+DECLARE d record; actual record; vinculos jsonb; sugeridas jsonb; origenes jsonb; opacas jsonb; nativa record; n integer;
  entradas jsonb; todos jsonb; lote jsonb; pagina_n integer; antes_en timestamptz; antes_ref text;
  ultimo_en timestamptz; ultimo_ref text; mas boolean:=false; siguiente text; bolsa_vigente text;
  personas_text text; personas numeric; aceptaciones integer;
@@ -196,6 +381,50 @@ BEGIN
     NULL,NULL,20,ARRAY(SELECT x.llamamiento_ref
      FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
      WHERE x.expediente_ref=d.expediente_ref)) b;
+  -- CT238 permite una O6 confirmada por expediente; B98 devuelve su
+  -- referencia de configuración real, aunque sea la opaca del expediente.
+  SELECT e.recibo_json->>'llamamiento_ref' AS llamamiento_ref,
+   e.recibo_json->>'recibo_ref' AS recibo_emision_ref INTO nativa
+  FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
+  JOIN vec_contratacion_temporal.expediente_version_integral h
+   ON h.expediente_ref=d.expediente_ref AND h.version=CASE
+    WHEN e.recibo_json->>'version_expediente' ~ '^[1-9][0-9]{0,15}$'
+    THEN (e.recibo_json->>'version_expediente')::numeric END
+  WHERE e.tipo_seleccion='llamamiento' AND e.situacion='confirmada'
+    AND e.artefacto_canonico IS NOT NULL
+    AND jsonb_typeof(e.recibo_json->'version_expediente')='number'
+    AND e.solicitud_json->>'organizacion_ref'=p_alcance.organizacion_ref
+    AND e.solicitud_json->>'expediente_ref'=d.expediente_ref
+    AND e.recibo_json->>'organizacion_ref'=p_alcance.organizacion_ref
+    AND e.recibo_json->>'expediente_ref'=d.expediente_ref
+    AND e.recibo_json#>>'{bolsa,referencia}'=bolsa_vigente
+    AND e.recibo_json->'version_expediente'=e.solicitud_json->'version_expediente'
+    AND e.recibo_json->'propuesta_generada'='true'::jsonb
+    AND e.recibo_json->>'llamamiento_ref' ~ '^llamamiento:[0-9a-f]{64}$'
+    AND e.recibo_json->>'recibo_ref'='recibo:'||(e.recibo_json->>'llamamiento_ref')
+    AND h.agregado_json#>>'{via_cobertura,via_clave}'='bolsa_vigente'
+    AND h.agregado_json#>>'{via_cobertura,decision_gobernada,via_elegida}'='bolsa_vigente'
+    AND h.agregado_json#>>'{analisis,categoria_ref}'=actual.agregado_json#>>'{analisis,categoria_ref}'
+    AND h.agregado_json#>>'{asignacion,unidad_ref}' IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
+      WHERE x.llamamiento_ref=e.recibo_json->>'llamamiento_ref');
+  IF FOUND THEN
+   SELECT coalesce(jsonb_agg(to_jsonb(b)),'[]'::jsonb) INTO opacas
+   FROM vec_bolsa_llamamientos.listar_emisiones_ct_v1(
+    bolsa_vigente,d.expediente_ref,NULL,NULL,20,
+    ARRAY(SELECT x.llamamiento_ref FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
+      WHERE x.expediente_ref=d.expediente_ref)) b
+   WHERE b.llamamiento_ref=nativa.llamamiento_ref
+     AND b.recibo_emision_ref=nativa.recibo_emision_ref;
+   IF jsonb_array_length(opacas)=1 THEN
+    SELECT coalesce(jsonb_agg(z.valor ORDER BY z.orden),'[]'::jsonb) INTO sugeridas
+    FROM (SELECT opacas->0 AS valor,0::bigint AS orden
+      UNION ALL
+      SELECT m.valor,m.pos FROM jsonb_array_elements(sugeridas) WITH ORDINALITY m(valor,pos)
+      WHERE m.valor->>'llamamiento_ref' IS DISTINCT FROM nativa.llamamiento_ref
+      ORDER BY orden LIMIT 20) z;
+   END IF;
+  END IF;
  END IF;
  RETURN QUERY SELECT d.contenido_canonico,d.esquema,d.acceso_ref,d.secuencia,
   d.anterior_sha256,d.huella_sha256,d.vinculo_identidad_huella_sha256,
@@ -216,12 +445,21 @@ BEGIN
     OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-      IS DISTINCT FROM 'd5c812acbb329273947de7a4b7f2ed400a82ba7c94f9c3e749772247fbad1c1d' THEN
+      IS DISTINCT FROM '82a116f0069fb7220fa81e6411b01ea6fde4a474f66e3f5863f8bb2d944485b1' THEN
   RAISE EXCEPTION 'CT250: lector final divergente' USING ERRCODE='55000'; END IF;
  IF (SELECT encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex')
      FROM pg_proc q WHERE q.oid=to_regprocedure(
       'vec_contratacion_temporal.consultar_detalle_rrhh_con_bolsa_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'))
     IS DISTINCT FROM '7b8874a22af362380a46f85f62ad25ab9ab2ac6cc453ff666bf34a25f982287d' THEN
   RAISE EXCEPTION 'CT250: sobrecarga de lectura divergente' USING ERRCODE='55000'; END IF;
+ SELECT * INTO p FROM pg_proc WHERE oid=to_regprocedure(
+  'vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ IF NOT FOUND OR p.proowner IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
+    OR p.prosecdef IS DISTINCT FROM true OR p.provolatile IS DISTINCT FROM 'v'
+    OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
+    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
+    OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
+      IS DISTINCT FROM 'a2fb96e9e5fd06a8ac9bca781a935db85a50bf175ed0d78b0d90ce9585adf8c6' THEN
+  RAISE EXCEPTION 'CT250: vínculo final divergente' USING ERRCODE='55000'; END IF;
 END $post_ct250$;
 COMMIT;

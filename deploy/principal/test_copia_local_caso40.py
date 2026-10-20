@@ -128,6 +128,8 @@ class Caso40Test(unittest.TestCase):
                 else:
                     self.assertEqual(caso40.registrar_contacto(self.copia, self.repo), estado)
                 cabeceras = conexion.request.call_args.kwargs['headers']
+                self.assertEqual({k: cabeceras[k] for k in ('Sec-Fetch-Site', 'Sec-Fetch-Mode', 'Sec-Fetch-Dest')},
+                                 {'Sec-Fetch-Site': 'same-origin', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty'})
                 self.assertEqual(cabeceras['Idempotency-Key'], caso40.CLAVE_CONTACTO)
                 conexion.close.assert_called_once()
 

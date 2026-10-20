@@ -37,10 +37,11 @@ class AmbitoBolsasTest(unittest.TestCase):
     def test_sin_bolsas_declaradas_no_hay_semilla(self):
         self.assertIsNone(ambito.sentencias({**MANIFIESTO, 'bolsas_ref': []}))
 
-    def test_sin_manifiesto_no_ejecuta_nada(self):
+    def test_sin_manifiesto_falla_sin_sql_y_con_manifiesto_declara(self):
         with tempfile.TemporaryDirectory() as raiz:
             copia = SimpleNamespace(material=Path(raiz), sql_bytes=Mock())
-            ambito.declarar(copia)
+            with self.assertRaisesRegex(ValueError, "Falta el manifiesto"):
+                ambito.declarar(copia)
             copia.sql_bytes.assert_not_called()
             (Path(raiz) / 'identidad').mkdir()
             (Path(raiz) / 'identidad' / 'bolsa-bback.json').write_text(json.dumps(MANIFIESTO))

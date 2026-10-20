@@ -5,7 +5,7 @@ Primer corte de F1-125, separado por dirección el 20/10 a las 12:56.
 La ficha muestra la aceptación firme, la fecha de emisión, la fecha de respuesta
 y el justificante original de Mi Bolsa cuando acredita su origen en una
 selección confirmada de Contratación. Este corte es de consulta; la resolución
-y su recuperación corresponden al segundo corte de F1-125.
+se incorpora en el segundo corte de F1-125; su recuperación corresponde a F1-127.
 
 ## Activación
 
@@ -18,8 +18,10 @@ como falsa y la consulta anterior sigue disponible.
 Para el caso 4.0 se reutiliza la firma gobernada de los apartados 6 y 11 de
 esa guía, con recibos propios. El expediente debe conservar su necesidad RPT.
 RRHH llama desde la ficha a la siguiente persona de la bolsa constituida;
-Antonio acepta desde Mi Bolsa y conserva el justificante. La emisión debe
-estar vinculada al expediente por la vía existente.
+Antonio acepta desde Mi Bolsa y conserva el justificante. Si aún no está vinculado, elija «Llamamiento de este expediente» y pulse
+«Vincular». Se conserva el recibo propio de ese vínculo. La emisión nativa
+se coteja por el identificador original del expediente; las emisiones manuales
+conservan la referencia visible. No se cambia la configuración de Bolsa.
 
 ## Comprobación
 
