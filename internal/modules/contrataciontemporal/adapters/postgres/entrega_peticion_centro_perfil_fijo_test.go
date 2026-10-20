@@ -70,9 +70,14 @@ func (filaAmbitosNoEncontradosPrueba) Scan(...any) error {
 	return &pgconn.PgError{Code: "P0681"}
 }
 
-type lectorAmbitosNoEncontradosPrueba struct{}
+type lectorAmbitosNoEncontradosPrueba struct {
+	consulta   string
+	argumentos []any
+}
 
-func (lectorAmbitosNoEncontradosPrueba) QueryRow(context.Context, string, ...any) pgx.Row {
+func (l *lectorAmbitosNoEncontradosPrueba) QueryRow(_ context.Context, consulta string, argumentos ...any) pgx.Row {
+	l.consulta = consulta
+	l.argumentos = append([]any(nil), argumentos...)
 	return filaAmbitosNoEncontradosPrueba{}
 }
 
@@ -97,14 +102,19 @@ func TestPerfilEntregaRevocadoNoProyectaExistenciaDeReferencias(t *testing.T) {
 
 func TestReferenciaNoRatificadaNoDistingueDeDenegacionPreV3(t *testing.T) {
 	proveedor := &proveedorPerfilEntregaRevocadoPrueba{permitir: true}
+	lector := &lectorAmbitosNoEncontradosPrueba{}
 	repositorio := &RepositorioEntregasPeticionCentroPostgreSQL{
-		pool: &pgxpool.Pool{}, lector: lectorAmbitosNoEncontradosPrueba{}, proveedor: proveedor, organizacionRef: "organizacion:desarrollo:dipgra",
+		pool: &pgxpool.Pool{}, lector: lector, proveedor: proveedor, organizacionRef: "organizacion:desarrollo:dipgra",
 	}
 	_, err := repositorio.material(context.Background(), "preparar",
 		ports.ComandoEntregarPeticionCentro{PeticionRef: "peticion:centro:inexistente", VersionEsperada: 2})
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) || proveedor.auditorias != 1 {
 		t.Fatalf("la proyección reveló la existencia o quedó sin auditoría: %v, registros=%d",
 			err, proveedor.auditorias)
+	}
+	if lector.consulta != "SELECT centro_ref,categoria_ref FROM vec_contratacion_temporal.ambitos_entrega_peticion_centro_v1($1,$2)" ||
+		len(lector.argumentos) != 2 || lector.argumentos[0] != "peticion:centro:inexistente" || lector.argumentos[1] != repositorio.organizacionRef {
+		t.Fatalf("proyección sin ámbito confiable: consulta=%q argumentos=%d", lector.consulta, len(lector.argumentos))
 	}
 }
 

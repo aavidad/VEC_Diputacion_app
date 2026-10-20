@@ -76,8 +76,8 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) material(ctx context.Conte
 		// ratificada. La transacción del efecto los vuelve a cotejar antes del
 		// consumo V3: esta lectura nunca concede por sí sola el permiso.
 		if err := r.lector.QueryRow(ctx,
-			"SELECT centro_ref,categoria_ref FROM vec_contratacion_temporal.ambitos_entrega_peticion_centro_v1($1)",
-			c.PeticionRef).Scan(&m.CentroRef, &m.CategoriaRef); err != nil {
+			"SELECT centro_ref,categoria_ref FROM vec_contratacion_temporal.ambitos_entrega_peticion_centro_v1($1,$2)",
+			c.PeticionRef, r.organizacionRef).Scan(&m.CentroRef, &m.CategoriaRef); err != nil {
 			var pg *pgconn.PgError
 			if errors.As(err, &pg) && pg.Code == "P0681" {
 				if r.proveedor.RegistrarDenegacionEntregaPreV3(ctx) != nil {
@@ -292,9 +292,9 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) ejecutarConOriginal(
 	var salida []byte
 	var original []byte
 	if conOriginal {
-		err = tx.QueryRow(ctx, "SELECT entrega::text,original_alta::text FROM "+funcionPrepararEntregaConOriginal+"($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)", string(b), secretos[0], secretos[1], secretos[2], secretos[3], personaVersion, perfilVersion, secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida, &original)
+		err = tx.QueryRow(ctx, "SELECT entrega::text,original_alta::text FROM "+funcionPrepararEntregaConOriginal+"($1::text,$2::text,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)", string(b), r.organizacionRef, secretos[0], secretos[1], secretos[2], secretos[3], personaVersion, perfilVersion, secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida, &original)
 	} else {
-		err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.gestionar_entrega_peticion_centro_v1($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(b), secretos[0], secretos[1], secretos[2], secretos[3], personaVersion, perfilVersion, secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
+		err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.gestionar_entrega_peticion_centro_v1($1::text,$2::text,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)::text", string(b), r.organizacionRef, secretos[0], secretos[1], secretos[2], secretos[3], personaVersion, perfilVersion, secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
 	}
 	if err != nil {
 		return errorEntregaPeticionSQL(ctx, err)
