@@ -364,6 +364,28 @@ func camposInscripcionBolsaExterna(accion string) []string {
 	return campos
 }
 
+// camposInscripcionBolsaExternaV2 es la proyección de la fuente v2 de
+// inscripción: la lista y la ficha de convocatorias añaden la modalidad
+// (F1-40) y las solicitudes propias por categoría (F1-41). Las demás
+// acciones conservan los campos de la v1. AUT105 fija las mismas hojas.
+func camposInscripcionBolsaExternaV2(accion string) []string {
+	campos := camposInscripcionBolsaExterna(accion)
+	var prefijo string
+	switch accion {
+	case accionesInscripcionBolsaExterna[0]:
+		prefijo = "convocatorias[]."
+	case accionesInscripcionBolsaExterna[1]:
+	default:
+		return campos
+	}
+	for _, hoja := range []string{"modalidad_inscripcion", "solicitudes_propias[].categoria_ref",
+		"solicitudes_propias[].estado", "solicitudes_propias[].solicitud_ref"} {
+		campos = append(campos, prefijo+hoja)
+	}
+	slices.Sort(campos)
+	return campos
+}
+
 func camposAlegacionesBolsaExterna() []string {
 	campos := []string{"total", "cursor_siguiente", "objetos[].tipo", "objetos[].solicitud_ref",
 		"objetos[].participacion_ref", "objetos[].acto_ref", "objetos[].version_acto", "objetos[].titulo",
@@ -395,7 +417,8 @@ func concesionDeltaBolsaExterna(c ConcesionRol, accion string) bool {
 	}
 	if c.Validar() != nil || c.ModuloID != "bolsa" || c.Accion != accion ||
 		c.GarantiaMinima != AuthAssuranceHigh || len(c.Obligaciones) != 0 ||
-		!slices.Equal(c.CamposPermitidos, camposInscripcionBolsaExterna(accion)) {
+		!(slices.Equal(c.CamposPermitidos, camposInscripcionBolsaExterna(accion)) ||
+			slices.Equal(c.CamposPermitidos, camposInscripcionBolsaExternaV2(accion))) {
 		return false
 	}
 	switch accion {
