@@ -143,41 +143,17 @@ del centro, alta en Personal, GINPIX manual, cese, vuelta a Bolsa y cierre.
 Falta el reinicio final de aplicación y PostgreSQL y el cotejo de los mismos
 recibos, fechas y recuentos.
 
-## Preparación posterior con selección desde la ficha
+## Dependencias de activación
 
-Dirección autorizó componer F1-103 y F1-119 y abrir un caso nuevo por la
-selección nativa de CT. La copia de código `236f3221b` arrancó en 104,69
-segundos. Completó Administración, admisión de las dos fuentes de selección,
-los dieciséis roles iniciales de firmantes y los catorce actos nominales.
-La orden de Personal terminó correctamente. No se registraron firmas,
-incorporaciones, altas ni ceses en esa copia.
+La selección desde la ficha requiere F1-103 y la lectura de Personal de
+F1-119. El constructor del plan y las plantillas de firmantes se publican
+en F1-121 para preparar una copia sin depender de fuentes auxiliares ausentes.
+Se conserva cada revisión de aplicación junto con su configuración; ninguna
+copia se hace pasar por otra revisión cambiando su estado o su binario.
 
-Desde Chrome, Lucía presentó una petición de vacante de Administrativo,
-puesto 9 y plaza 2026/0033, del 19/10 al 31/12/2026: respuesta 200 a las
-11:36:38. Manuel ratificó la misma petición desde su bandeja: respuesta 200,
-versión 2, a las 11:38:30. Los dos recibos permanecen en el material privado.
-Estos pasos previos no acreditan los pasos 12 a 15; todavía no se abrió un
-expediente CT para esa petición.
-
-La preparación del plan se detuvo por depender de un ejecutable auxiliar
-cuya fuente no estaba en Git. Dirección encargó publicarla en F1-121. La
-copia completa quedó parada y guardada en disco con comprobaciones de
-integridad antes de retirarla de memoria. No se cambiaron su revisión ni
-sus guardas para hacerla pasar por otra candidata.
-
-La rama incorpora ahora `main@3c643ce34`, que añade la lectura de Personal
-con el perfil de cada cuenta. La siguiente candidata partirá del código
-actualizado y del preparador publicado. La copia anterior se conserva como
-evidencia de su propia revisión.
-
-Dirección fijó además el antecedente del paso 11: cuando la aceptación llega
-de Mi Bolsa, RRHH debe resolver con su recibo web, sin pedir un correo
-inexistente. F1-125 prepara esa continuación; requiere persistencia nativa
-además del formulario. No se ha fabricado un archivo de correo para suplirla.
-
-Los certificados del kit se conservan por la decisión del 20/10, a las
-11:32 y 11:41. El límite de unos 90 días se aplica a autoridad, admisiones y
-asignaciones; los certificados heredados duran 397 o 400 días.
+Los certificados X509 heredados del kit duran 397 o 400 días. La autoridad,
+las admisiones y las asignaciones nuevas duran de 60 a 90 días; conservar el
+certificado no prolonga esas autorizaciones.
 
 ## Capturas
 
@@ -186,8 +162,6 @@ asignaciones; los certificados heredados duran 397 o 400 días.
 - [Aceptación firme de Antonio y su recibo](recorrido_f1_27_formalizacion_20261020/10_aceptacion_firme.png).
 - [Llamamiento tras reiniciar, a 390 píxeles](recorrido_f1_27_formalizacion_20261020/reinicio_390.png).
 - [Resolución registrada en la semilla histórica distinta](recorrido_f1_27_formalizacion_20261020/13_semilla_distinta.png).
-- [Petición nueva presentada por el centro](recorrido_f1_27_formalizacion_20261020/01_peticion_nueva.png).
-- [La misma petición, ratificada](recorrido_f1_27_formalizacion_20261020/02_ratificacion_nueva.png).
 
 ## Nueva copia con selección desde la ficha
 
@@ -220,5 +194,25 @@ registró resultado favorable con 201 a las 13:07:02, versión 6.
 «Llamar a la siguiente persona» devolvió 200 con recibo de selección a
 las 13:07:42; «Anotar el aviso» devolvió 201 a las 13:08:06 y creó una
 intención de envío local. Mi Bolsa de Antonio muestra ese correo como
-enviado. Esto no acredita entrega externa. La respuesta de Antonio sigue
-pendiente del contacto efectivo.
+enviado. Esto no acredita entrega externa. El contacto telefónico del ejercicio se
+registró en Bolsa con 201 a las 13:11:41, declarado expresamente ficticio.
+Antonio aceptó en Mi Bolsa con 201 a las 13:12:06: respuesta firme y recibo
+propio. La situación de Bolsa queda pendiente de revisión de RRHH; eso no
+vuelve provisional la respuesta.
+
+Al volver a CT, el recibo de resolución del llamamiento devuelve 404 y el
+formulario sigue exigiendo un archivo de correo. Hay cero vínculos CT201
+para este expediente; la emisión y la aceptación nativas comparten el mismo
+llamamiento. Este es el caso que debe admitir F1-125. No se ha enviado una
+resolución con un correo inexistente.
+
+Se reiniciaron aplicación y PostgreSQL. Las instantáneas anteriores y
+posteriores coinciden byte a byte: dos firmas, expediente en versión 6 y
+una aceptación firme con el mismo recibo. Chrome vuelve a mostrarla y
+descarga el PDF del informe con sus dos firmas: 41.153 bytes y SHA-256
+`86ec5728149b9daa6244017c10ae0eb95446bd38a0a310a1938b3e24af58eef6`.
+La copia completa se conserva detenida en disco, con integridad comprobada.
+Este resultado sigue sin acreditar los pasos 12 a 21.
+
+- [Informe firmado, recuperado tras el reinicio](recorrido_f1_27_formalizacion_20261020/copia_nueva_firmas.png).
+- [Aceptación firme y recibo, recuperados tras el reinicio](recorrido_f1_27_formalizacion_20261020/copia_nueva_aceptacion.png).
