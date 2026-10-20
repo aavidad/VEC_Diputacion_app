@@ -242,6 +242,12 @@ class Copia:
                 # F1-113: Mis preferencias y Mi imagen, ya con Antonio como aspirante.
                 from copia_local_usuarios import preparar as preparar_usuarios
                 preparar_usuarios(self, args.rrhh_original, guardar, sha256)
+                # F1-103: permiso y montaje de la Organización histórica para llamar desde la ficha.
+                import copia_local_organizacion_historica as organizacion_historica
+                huella_oh = organizacion_historica.sembrar(self, REPO)
+                estado = self.leer()
+                estado['organizacion_historica_semilla_sha256'] = huella_oh
+                guardar(self.estado, estado)
         if args.segundo_rrhh:
             from copia_local_rrhh_adicional import preparar_copia
             huella_semilla = preparar_copia(self)
@@ -260,6 +266,9 @@ class Copia:
         with (self.raiz / 'compilacion.log').open('wb') as log:
             ejecutar([go, 'build', '-p', '6', '-o', self.raiz / 'vec-server', './cmd/vec-server'],
                       cwd=REPO, salida=log, entorno=entorno_go)
+            if self.leer().get('organizacion_historica_semilla_sha256'):
+                ejecutar([go, 'build', '-p', '6', '-o', self.raiz / 'vec-preparar-material-interno',
+                          './cmd/vec-preparar-material-interno'], cwd=REPO, salida=log, entorno=entorno_go)
         estado = self.leer()
         verificar_fuente(estado['revision'])
         estado['binario_sha256'] = sha256(self.raiz / 'vec-server')
@@ -279,6 +288,13 @@ class Copia:
             guardar(self.estado, estado)
             ejecutar_admin(self, 'arrancar')
             ejecutar_admin(self, 'comprobar')
+        if self.leer().get('organizacion_historica_semilla_sha256'):
+            # La clave OH se deriva cuando la aplicación ya la ha publicado; el
+            # reinicio carga la consulta con su material.
+            import copia_local_organizacion_historica as organizacion_historica
+            organizacion_historica.preparar_material(self, self.raiz / 'vec-preparar-material-interno')
+            self.parar()
+            self.arrancar()
         if args.portal_externo:
             # La app mantiene el sellado real mientras el productor provisiona
             # identidad, contexto y confianza. El reinicio carga su entorno.
