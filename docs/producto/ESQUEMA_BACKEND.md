@@ -330,6 +330,13 @@ la rama documental RRHH exige certificado y garantía alta, conservando el
 consumo externo del justificante. F1-13 usa AD296 aparte; los consumidores de
 Cronos, Dietas y denominaciones administrativas esperan contratos posteriores.
 
+AD304 (F1-106) añade solo la fila 7 a
+`conjunto_audiencias_capacidad_admin_v1`: conserva el conjunto 6 y suma las
+dos audiencias ya admitidas de propuesta y cierre de roles nuevos. Las claves
+se publican mediante el gobierno técnico existente y AUT60 conserva el acto
+de dos personas, sus decisiones, auditoría y recibo. No se reconstruye la
+función central ni se alteran los conjuntos anteriores.
+
 ### 7.2 Auditoría encadenada y sellada
 
 - **Cadena común** en `vec_autorizacion_atestada_v3` (AD207, sellado diferido):

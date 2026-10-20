@@ -38,6 +38,8 @@ func (a *AutoridadGobiernoRolNuevo) CerrarGobiernoRolPorReferencia(ctx context.C
 			if err != nil {
 				return ports.ErrAutoridadAdministracionPerfilesNoDisponible
 			}
+			// jsonb devuelve timestamptz con +00:00; el dominio exige UTC canónico.
+			r.ConfirmadoEn = r.ConfirmadoEn.UTC()
 			r.Cierre = domain.CierreGobiernoPerfil{OperacionRef: r.OperacionRef, Material: m,
 				PropuestaHuellaSHA256: r.PropuestaHuellaSHA256, Decision: r.Decision,
 				ConfirmadoEn: r.ConfirmadoEn, AuditoriaAccesoRef: r.AuditoriaAccesoRef,
