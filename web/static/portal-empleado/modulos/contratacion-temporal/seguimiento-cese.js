@@ -27,14 +27,6 @@ export function contextoSeguimientoCeseDesdeEstado(estado) {
     fase_clave: resumen.fase_clave, estado_clave: resumen.estado_clave });
 }
 
-// Un 404 sin sobre de error del módulo («vec route not found») significa que
-// el servidor no compone el seguimiento de cese: no se monta el panel, igual
-// que la firma cuando su registro no está compuesto. Un 404 con sobre válido
-// es un expediente inexistente y sigue siendo un fallo.
-export function rutaSeguimientoCeseNoMontada(error) {
-  return error?.estado === 404 && error?.envelopeValido !== true;
-}
-
 export function montarPanelSeguimientoCese({
   contenedor, cliente, contexto, mensajes = {}, locale = "es-ES", anunciar = () => {},
   confirmarOperacion = () => false, alConfirmar = () => {}, alConsultar = () => {},
@@ -165,11 +157,7 @@ export function montarPanelSeguimientoCese({
 
   function pintar() {
     if (controlador.signal.aborted) return;
-    if (datos?.ausente) {
-      contenedor.innerHTML = "";
-      contenedor.hidden = true;
-      return;
-    }
+    contenedor.hidden = false;
     if (!datos) {
       contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" aria-busy="true">${aviso?.tono === "exito" ? `<p class="ct-exp-mensaje ct-tono-exito" role="status">${escapar(aviso.texto)}</p>` : ""}<p role="status">${escapar(t("cargando"))}</p></section>`;
       return;
@@ -227,9 +215,9 @@ export function montarPanelSeguimientoCese({
       if (soloNoIncorporacion && (!Number.isSafeInteger(datos?.estado?.version_expediente) || !datos?.estado?.numero_expediente)) datos = { error: true };
     } catch (error) {
       if (controlador.signal.aborted) return;
-      datos = !soloNoIncorporacion && rutaSeguimientoCeseNoMontada(error) ? { ausente: true } : { error: true };
+      datos = { error: true };
     }
-    if (!controlador.signal.aborted && !datos?.ausente && !datos?.error) alConsultar(datos);
+    if (!controlador.signal.aborted && !datos?.error) alConsultar(datos);
     pintar();
   }
 
