@@ -1,5 +1,20 @@
 # Recorridos pendientes
 
+## Reparo y subsanación del 20 de octubre de 2026
+
+En una copia local con firma se recorrió en el expediente 2026/92006 el reparo, la subsanación, el informe nuevo firmado por el técnico y la Jefatura y la fiscalización favorable con su recibo. Tras reiniciar se conservó todo sin duplicados. También se abrió «Plantillas de documentos» desde su dirección.
+
+Quedan textos y avisos por corregir en esas pantallas:
+
+- El recibo del reparo dice «Fase resultante: Fiscalización», pero el expediente pasa a subsanación por la unidad.
+- Antes del informe nuevo, el expediente ya dice «Pendiente de nueva fiscalización por Intervención».
+- El recuadro de subsanación muestra la versión anterior y dice que no consta un plazo autorizado, en lugar de los 15 días.
+- La confirmación del informe nuevo enseña la referencia interna del expediente.
+- Durante el reparo sigue a la vista el bloque «Respuesta del llamamiento».
+- El enlace «Plantillas de documentos» no aparece en el menú hasta entrar una vez en esa pantalla.
+- La ayuda dice que los plazos para subsanar están sin definir; el catálogo ya fija 15 días hábiles.
+- El aviso de firma enseña la referencia interna del recibo, y «Quién debe firmar» dice «Nadie: firmas de VEC completas».
+
 ## Comprobación de Intervención del 19 de octubre de 2026
 
 En una copia local se registraron una fiscalización favorable, otra favorable con observaciones y otra desfavorable, en tres expedientes distintos. Los tres devolvieron recibo. Se comprobaron los campos y la validación de observaciones en Chrome a 1440 y 390 píxeles. Tras reiniciar la aplicación y la base de datos, RRHH consultó la conformidad y el reparo: conservaban su versión, fecha e historial.
