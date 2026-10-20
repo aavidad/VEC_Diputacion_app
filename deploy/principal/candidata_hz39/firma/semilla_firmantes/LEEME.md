@@ -20,8 +20,15 @@ Usa una copia propia y material privado fuera de Git. Necesitas:
 
 La configuración y las entradas privadas deben pertenecer a la persona que
 ejecuta el generador y tener permisos `0600`. Las plantillas versionadas se
-leen desde su carpeta; no es necesario cambiar los permisos del checkout.
-La salida debe ser una carpeta absoluta nueva, fuera de Git.
+leen desde su carpeta y no pueden permitir escritura de grupo u otros. Si
+el checkout las crea con `0664`, restringe esos cuatro archivos:
+
+```sh
+chmod go-w deploy/principal/candidata_hz39/firma/semilla_firmantes/*.template.*
+```
+
+Esto conserva su contenido y la guarda del generador. La salida debe ser una
+carpeta absoluta nueva, fuera de Git.
 
 ## Dos fases
 
