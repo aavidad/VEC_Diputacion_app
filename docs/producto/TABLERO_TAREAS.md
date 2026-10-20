@@ -97,9 +97,8 @@ se copia de su salida.
 | 7 Uso real y producción | 18 | 14 | 0 | 0 | 0 | 0 | 1 | 0 | 33 |
 | **Total** | **72** | **39** | **17** | **1** | **62** | **5** | **26** | **5** | **227** |
 
-F0-24A y F1-65A llevan letra y el recuento no las cuenta. F1-100 y F1-101
-tienen tres cifras y `scripts/recuento_tablero.awk` todavía no las lee: van
-sumadas a mano en la fila de la fase 1 (dos pendientes).
+F0-24A y F1-65A llevan letra y el recuento no las cuenta. Los números de
+tres cifras (F1-100, F1-101) sí se cuentan.
 
 Empezables ya: 17 en las fases 0 y 1 (pendientes con todas sus
 dependencias hechas o fusionadas). De ellas, 11 tienen equipo:
