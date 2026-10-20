@@ -409,7 +409,9 @@ export function montarFormularioLlamamiento({
       && (estado.comunicaciones.estado !== "lista" || !estado.comunicaciones.seleccionada);
     raiz.innerHTML = (sinFlujoCT && estado.comunicaciones.estado === "sin_contexto" ? ""
       : renderizarLlamamiento(estado, t, fecha, ahora(), { soloConsulta: sinFlujoCT }))
-      + renderizarAceptacionPortal(estado.origenPortal, t, fecha, estado.portalPasos);
+      + renderizarAceptacionPortal(estado.origenPortal, t, fecha, estado.portalPasos)
+      + (sinFlujoCT && estado.propuesta.portal
+        ? renderizarLlamamiento(estado, t, fecha, ahora(), { soloPropuesta: true }) : "");
     documentacion?.pintar(raiz.querySelector("[data-ct-documentacion-formalizacion]"), {
       aceptadaEn: estado.propuesta.aceptacion?.respuesta === "aceptacion" ? estado.propuesta.aceptacion.resuelta_en : "",
       expedienteRef: estado.propuesta.valores.expediente_ref,
@@ -615,6 +617,13 @@ export function montarFormularioLlamamiento({
     try { resultado = nuevo.resultado_bolsa === undefined ? null : validarResultadoBolsaCT(nuevo.resultado_bolsa); }
     catch { return false; }
     guardarBorradores();
+    if (estado.propuesta.portal && estado.propuesta.solicitud === null
+      && nuevo.version_esperada !== 6) {
+      estado.propuesta.controlador?.abort();
+      estado.propuesta.aceptacion = null;
+      estado.propuesta.disponible = false;
+      estado.propuesta.valores = {};
+    }
     estado.seleccion.valores.expediente_ref = nuevo.expediente_ref;
     estado.seleccion.valores.version_esperada = nuevo.version_esperada;
     estado.numeroPersonasSolicitadas = Number.isSafeInteger(nuevo.numero_personas) && nuevo.numero_personas > 0
@@ -631,6 +640,13 @@ export function montarFormularioLlamamiento({
       estado.comunicacion.valores.expediente_ref = nuevo.expediente_ref;
     }
     estado.enlazado = true;
+    if (nuevo.version_esperada === 6 && estado.origenPortal.length === 1) {
+      const { vinculo, persona } = estado.origenPortal[0];
+      if (persona.resolucion_ct) {
+        prepararAceptacionPortal(vinculo.llamamiento_ref, persona.resolucion_ct,
+          persona.resolucion_ct.recibo_ref);
+      }
+    }
     if (estado.numeroPersonasSolicitadas > 1
       && typeof cliente.consultarEstadoSeleccionOferta === "function") {
       consultarEstadoOferta(nuevo.expediente_ref);
@@ -700,6 +716,19 @@ export function montarFormularioLlamamiento({
     return estado.propuesta.aceptacion?.respuesta === "aceptacion"
       && versionFiscalizadaPermitePropuesta();
   }
+  function prepararAceptacionPortal(llamamientoRef, resolucion, reciboRef) {
+    if (!montado || estado.seleccion.valores.version_esperada !== 6
+      || estado.propuesta.solicitud !== null || estado.propuesta.aceptacion) return;
+    // Modelo de presentación del antecedente real, sin inventar una comunicación.
+    estado.propuesta.portal = true;
+    estado.propuesta.aceptacion = Object.freeze({ respuesta: resolucion.respuesta,
+      resolucion_ref: resolucion.resolucion_ref, recibo_local_ref: reciboRef,
+      resuelta_en: resolucion.resuelta_en });
+    estado.propuesta.valores = { expediente_ref: estado.seleccion.valores.expediente_ref,
+      llamamiento_ref: llamamientoRef, resolucion_llamamiento_aceptada_ref: resolucion.resolucion_ref,
+      recibo_resolucion_aceptada_ref: reciboRef, version_esperada: 6, anexos: Object.freeze([]) };
+    return prepararPropuesta();
+  }
   async function prepararPropuesta(origen) {
     const paso = estado.propuesta;
     if (paso.solicitud !== null || paso.recibo || paso.calculando) return;
@@ -717,23 +746,25 @@ export function montarFormularioLlamamiento({
     if (typeof cliente.prepararPropuestaFormalizacion !== "function") return;
     paso.calculando = true;
     paso.mensaje = "llamamiento_propuesta_cargando";
-    paso.controlador = new AbortController();
+    const controlador = new AbortController();
+    paso.controlador = controlador;
     repintar();
     try {
       const publicaciones = await cargarPublicacionesFormalizacionDesarrollo({
-        fetchImpl: fetchPublicaciones, criptografia, signal: paso.controlador.signal,
+        fetchImpl: fetchPublicaciones, criptografia, signal: controlador.signal,
       });
-      if (!montado) return;
+      if (!montado || controlador.signal.aborted) return;
       paso.valores = { ...paso.valores, ...publicaciones };
       paso.disponible = true;
       paso.mensaje = "llamamiento_propuesta_pendiente";
     } catch {
+      if (!montado || controlador.signal.aborted) return;
       paso.mensaje = "llamamiento_propuesta_no_disponible";
       paso.tono = "aviso";
     } finally {
       paso.calculando = false;
       paso.controlador = null;
-      repintar();
+      if (montado) repintar();
     }
   }
   async function alEnviar(evento) {
@@ -1106,6 +1137,7 @@ export function montarFormularioLlamamiento({
       paso.recibo = recibo;
       paso.mensaje = "llamamiento_portal_confirmada";
       paso.tono = "exito";
+      await prepararAceptacionPortal(solicitud.llamamiento_ref, recibo, recibo.recibo_local_ref);
     } catch (error) {
       if (!montado) return;
       const denegado = error?.envelopeValido === true && [401, 403].includes(error.estado);

@@ -26,12 +26,26 @@ function fecha(valor) {
 
 function opcional(valor, validar) { return valor === null ? null : validar(valor); }
 
+function resolucionCT(valor, persona) {
+  objeto(valor, ["resolucion_ref", "recibo_ref", "resuelta_en", "respuesta"]);
+  referencia(valor.resolucion_ref);
+  referencia(valor.recibo_ref);
+  fecha(valor.resuelta_en);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u.test(valor.resuelta_en)
+    || valor.respuesta !== "aceptacion" || persona.origen_ct_confirmado !== true
+    || persona.respuesta !== "acepta" || persona.modo !== "firme") {
+    throw new TypeError("resolución CT de Bolsa no válida");
+  }
+  return Object.freeze({ ...valor });
+}
+
 function participacion(valor) {
   objeto(valor, ["participacion_ref", "respuesta", "modo", "recibo_respuesta_ref", "respondida_en",
     "justificante_ref", "contacto_resultado", "recibo_contacto_ref", "contacto_en",
     "situacion_actual", "recibo_situacion_ref", "situacion_desde",
     ...(Object.hasOwn(valor ?? {}, "origen_ct_confirmado") ? ["origen_ct_confirmado"] : []),
-    ...(Object.hasOwn(valor ?? {}, "resolucion_portal_disponible") ? ["resolucion_portal_disponible"] : [])]);
+    ...(Object.hasOwn(valor ?? {}, "resolucion_portal_disponible") ? ["resolucion_portal_disponible"] : []),
+    ...(Object.hasOwn(valor ?? {}, "resolucion_ct") ? ["resolucion_ct"] : [])]);
   referencia(valor.participacion_ref);
   if (valor.respuesta !== null && (!RESPUESTAS.has(valor.respuesta) || !MODOS.has(valor.modo)
     || valor.recibo_respuesta_ref === null || valor.respondida_en === null)) {
@@ -62,10 +76,12 @@ function participacion(valor) {
   if (Object.hasOwn(valor, "resolucion_portal_disponible")
     && (typeof valor.resolucion_portal_disponible !== "boolean"
       || valor.resolucion_portal_disponible && (valor.origen_ct_confirmado !== true
-        || valor.respuesta !== "acepta" || valor.modo !== "firme"))) {
+        || valor.respuesta !== "acepta" || valor.modo !== "firme"
+        || Object.hasOwn(valor, "resolucion_ct")))) {
     throw new TypeError("disponibilidad de resolución portal no válida");
   }
-  return Object.freeze({ ...valor });
+  return Object.freeze({ ...valor,
+    ...(Object.hasOwn(valor, "resolucion_ct") ? { resolucion_ct: resolucionCT(valor.resolucion_ct, valor) } : {}) });
 }
 
 function vinculo(valor) {
