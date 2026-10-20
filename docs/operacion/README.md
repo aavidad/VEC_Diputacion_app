@@ -182,4 +182,4 @@ Este documento no declara listo el servidor ni describe pasos para cidonia.
 - [Verificar auditoría](verificar_auditoria.md).
 - [Auditar intentos nominales](auditoria_intentos_nominales.md).
 - [Validar paquetes de colores](temas_paquetes.md).
-- [Selectores de CT: informe histórico del 13/10](codexh_selectores_ct_20261013.md).
+- [Selectores de CT: informe histórico del 13/10](../historico/selectores_ct_20261013.md).
