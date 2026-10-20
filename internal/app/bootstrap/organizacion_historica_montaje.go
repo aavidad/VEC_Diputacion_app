@@ -19,6 +19,7 @@ import (
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/composicion/internactproveedores"
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
@@ -47,6 +48,7 @@ type configuracionOrganizacionHistoricaCombinada struct {
 
 type montajeOrganizacionHistoricaCombinada struct {
 	manejador http.Handler
+	consulta  consultaPersonalConActor
 	fronteras catalogoFronterasComunDesarrollo
 	fuente    *fuenteOrganizacionHistoricaCombinada
 	barrera   *barreraPeticionesOrganizacionHistorica
@@ -127,18 +129,24 @@ func (b *barreraPeticionesOrganizacionHistorica) proteger(siguiente http.Handler
 			siguiente.ServeHTTP(w, r)
 			return
 		}
-		b.mu.Lock()
-		if b.cerrando {
-			b.mu.Unlock()
+		if !b.entrar() {
 			w.Header().Set("Cache-Control", "no-store")
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
-		b.activas.Add(1)
-		b.mu.Unlock()
 		defer b.activas.Done()
 		siguiente.ServeHTTP(w, r)
 	})
+}
+
+func (b *barreraPeticionesOrganizacionHistorica) entrar() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.cerrando {
+		return false
+	}
+	b.activas.Add(1)
+	return true
 }
 
 func (b *barreraPeticionesOrganizacionHistorica) detener() {
@@ -235,7 +243,14 @@ func (m *montajeOrganizacionHistoricaCombinada) proteger(a *autoridadConsultasCo
 	if m == nil || a == nil || m.fuente == nil || m.barrera == nil || siguiente == nil {
 		return protegerOrganizacionHistoricaNoDisponible(siguiente)
 	}
-	return m.barrera.proteger(a.protegerConCatalogoSeguridadComun(siguiente, m.fronteras))
+	protegido := m.barrera.proteger(a.protegerConCatalogoSeguridadComun(siguiente, m.fronteras))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r != nil && r.URL != nil && r.URL.Path == httpapi.RutaOrganizacionHistoricaPersonal {
+			protegido.ServeHTTP(w, r)
+			return
+		}
+		siguiente.ServeHTTP(w, r)
+	})
 }
 
 func capturarOrganizacionHistoricaCombinada(f *fuenteOrganizacionHistoricaCombinada, h http.Handler) http.Handler {
@@ -355,7 +370,9 @@ func nuevoMontajeOrganizacionHistoricaCombinada(ctx context.Context, cfg config.
 	}
 	sort.Strings(perfiles)
 	fronteras, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{{Clave: "organizacion-historica-consulta", Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: httpapi.RutaOrganizacionHistoricaPersonal,
-		PerfilesActivosRef: perfiles, ClavePolitica: "organizacion-historica-consulta", ClaveCapacidad: a.materialOrganizacionHistorica.ClaveID}})
+		PerfilesActivosRef: perfiles, ClavePolitica: "organizacion-historica-consulta", ClaveCapacidad: a.materialOrganizacionHistorica.ClaveID},
+		{Clave: fronteraPersonalDesdeCT, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: httpinterno.RutaSeleccionLlamamiento,
+			PerfilesActivosRef: perfiles, ClavePolitica: "organizacion-historica-consulta", ClaveCapacidad: a.materialOrganizacionHistorica.ClaveID}})
 	if err != nil {
 		return nil, errMontajeOrganizacionHistoricaCombinada
 	}
@@ -369,7 +386,18 @@ func nuevoMontajeOrganizacionHistoricaCombinada(ctx context.Context, cfg config.
 	if err != nil {
 		return nil, errMontajeOrganizacionHistoricaCombinada
 	}
-	f := &fuenteOrganizacionHistoricaCombinada{sesion: seguridad, corporativo: sesion.vinculoCorporativo, reloj: sesion.reloj, contextos: m.Contextos, fronteras: fronteras}
+	porHoja, cerrarSesiones, err := sesionesActoresOrganizacionHistorica(ctx, a, sesion, m.Contextos)
+	if err != nil {
+		cerrarSesiones()
+		return nil, err
+	}
+	sesionesEntregadas := false
+	defer func() {
+		if !sesionesEntregadas {
+			cerrarSesiones()
+		}
+	}()
+	f := &fuenteOrganizacionHistoricaCombinada{sesionesPorHoja: porHoja, sesion: seguridad, corporativo: sesion.vinculoCorporativo, reloj: sesion.reloj, contextos: m.Contextos, fronteras: fronteras}
 	fuenteAutorizacion, err := vecpg.NuevoAlmacenAutorizacion(pools[1])
 	if err != nil {
 		return nil, errMontajeOrganizacionHistoricaCombinada
@@ -419,8 +447,10 @@ func nuevoMontajeOrganizacionHistoricaCombinada(ctx context.Context, cfg config.
 	cerrarPool, cerrarRegistro = false, false
 	barrera := &barreraPeticionesOrganizacionHistorica{}
 	propiedadSesion.entregada = true
-	return &montajeOrganizacionHistoricaCombinada{manejador: capturarOrganizacionHistoricaCombinada(f, h), fronteras: fronteras, fuente: f, barrera: barrera,
+	sesionesEntregadas = true
+	return &montajeOrganizacionHistoricaCombinada{consulta: consulta, manejador: capturarOrganizacionHistoricaCombinada(f, h), fronteras: fronteras, fuente: f, barrera: barrera,
 		cerrar: cierreOrganizacionHistoricaCombinada(barrera, func() {
+			cerrarSesiones()
 			propiedadSesion.borrar()
 			proveedor.Cerrar()
 			cerrarIntentos()
