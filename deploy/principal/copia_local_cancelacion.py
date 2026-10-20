@@ -4,8 +4,8 @@ La cancelación (CT 000122 y AD3-87, ya presentes en el volcado de referencia)
 solo se compone con su selector y dos catálogos versionados: el de reglas de
 CT (regla c20, fases en las que se admite) y el de motivos de cancelación. Sin
 ellos la ficha recibe 404 al consultarla y no muestra el apartado. Se añade
-tras el kit de datos de la copia; un valor que el kit ya haya fijado se
-conserva, para no pisar una configuración privada comprobada.
+tras el kit de datos de la copia; un valor que el kit ya haya fijado (también
+el selector) se conserva, para no pisar una configuración privada comprobada.
 """
 from pathlib import Path
 
@@ -26,7 +26,8 @@ def entorno_cancelacion(entorno, fuente):
         if not ruta.is_file():
             raise ValueError('Falta el catálogo versionado de la cancelación')
         nuevo[variable] = str(ruta)
-    nuevo[SELECTOR] = 'true'
+    # Un «false» puesto a propósito por el kit también se respeta.
+    nuevo.setdefault(SELECTOR, 'true')
     return nuevo
 
 

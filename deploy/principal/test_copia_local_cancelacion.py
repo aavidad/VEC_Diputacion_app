@@ -27,6 +27,8 @@ class CancelacionCopiaTest(unittest.TestCase):
     def test_conserva_un_catalogo_que_el_kit_ya_fijo(self):
         entorno = cancelacion.entorno_cancelacion({'VEC_CT_REGLAS_SOURCE_PATH': '/privado/reglas.json'}, REPO)
         self.assertEqual(entorno['VEC_CT_REGLAS_SOURCE_PATH'], '/privado/reglas.json')
+        apagada = cancelacion.entorno_cancelacion({'VEC_CT_CANCELACION_ENABLED': 'false'}, REPO)
+        self.assertEqual(apagada['VEC_CT_CANCELACION_ENABLED'], 'false')
 
     def test_sin_catalogo_no_enciende(self):
         with tempfile.TemporaryDirectory() as vacia, self.assertRaises(ValueError):
