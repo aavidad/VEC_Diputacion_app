@@ -605,8 +605,8 @@ consulta, y la selección fallaba.
      (`organizacion_historica_semilla_sha256`).
   2. Crea cuatro LOGIN propios (Personal, fuente y registro de autorización y
      motivos), la fila de origen del consumo de Personal (AD172), el catálogo
-     de cuatro motivos, el cliente `cliente_m10_ct.json` con el puerto de la
-     copia y `VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH`.
+     de cuatro motivos y los selectores de Organización histórica. La consulta
+     de Contratación usa el perfil de Personal de la misma cuenta en proceso.
   3. Con la aplicación ya arrancada, deriva la clave con
      `vec-preparar-material-interno` (con un LOGIN de gobierno que solo vive
      mientras dura ese paso), escribe `organizacion_historica_combinado.json`,
