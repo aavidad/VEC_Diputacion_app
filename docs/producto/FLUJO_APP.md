@@ -436,7 +436,10 @@ RRHH en `identidad/consultas-rrhh.json`.
 Recorrido comprobado en Chrome el 20/10 en una copia local (paso e1 del
 apartado 4.0): lista 200, ficha 200, presentación 201 con recibo, repetición
 con la misma clave 200 con el mismo recibo, otra clave para la misma categoría
-409 `solicitud_existente`, y Mis solicitudes y su detalle 200.
+409 `solicitud_existente`, y Mis solicitudes y su detalle 200. Después de
+reiniciar aplicación, Administración y PostgreSQL se repitió todo con el mismo
+recibo y la misma fecha, sin otra solicitud, recibo ni historia; también a 390
+píxeles, sin cookies, almacenamiento web ni desbordamiento.
 
 1. La aspirante abre **Inscribirme** y ve las convocatorias con plazo abierto
    (`GET /api/vec/bolsa/inscripciones/convocatorias-abiertas`).
