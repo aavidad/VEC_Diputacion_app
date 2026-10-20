@@ -17,7 +17,7 @@ cuando corresponda; ninguna prueba con datos ficticios autoriza datos reales.
 
 ## Inventario histórico anterior al 20 de octubre de 2026
 
-**Aparcado hasta cerrar Bolsa y CT (orden de Alberto, 07/10/2026).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
+**Aparcado hasta cerrar Bolsa y CT (según la prioridad del plan).** Los objetivos vigentes están en [plan de implementación](../producto/PLAN_IMPLEMENTACION.md).
 
 ## Cotejo local del tribunal al preparar un acta — 7 de octubre de 2026
 
@@ -149,75 +149,6 @@ conflictos de interés, acceso y publicación protegida. Una configuración de
 órganos no concede permisos: los perfiles serán fijos y su provisión seguirá
 huella y CAS.
 
-## Por dónde empezar mañana y trabajo conservado
+## Condiciones funcionales conservadas
 
-Primera tarea: **S0**, reconciliar las tres ramas WIP sobre el `main` vigente y
-cerrar el ensayo antes de abrir PR de producto. Hoy no hay PR de Selección
-abierta ni instalación SQL realizada por A.
-
-| Rama remota | SHA y contenido | Estado al parar |
-| --- | --- | --- |
-| `trabajo/codexa-selectivos-motor-20261001` | `9f781d286`: dominio, aplicación, puerto, adaptador al baremador y tres ejemplos sintéticos | Pruebas Go focales verdes; falta composición con HTTP/web y revisión final. |
-| `trabajo/codexa-selectivos-web-20261001` | `fcdfc852d`: formulario, cliente y vista local | Incompleta: falta catálogo EN, corregir claves duplicadas ES, tests y navegador. No servir todavía. |
-| `trabajo/codexa-selectivos-inventario-20261001` | `e6f640cb1`: montaje HTTP/README/test WIP, apilado sobre Personal B; preguntas 109–111 en `749f3567e` | Falta reunir motor/web y comprobar el recorrido. No tiene PR. |
-
-Los tres SHA están publicados para que el siguiente agente recupere el trabajo
-sin reconstruirlo. La PR de este fichero documenta el plan; no integra esos
-WIP ni declara Selectivos completo.
-
-## Estimación
-
-Horquillas provisionales de trabajo de A, incluidos implementación, pruebas
-focales y preparación de cada PR. Presuponen que los contratos comunes de
-identidad, firma, registro, representación y cobro que se necesiten ya son
-utilizables. No incluyen el trabajo de H en Méritos, B en Personal, D en sus
-autoridades comunes, otros propietarios ni las decisiones y esperas externas.
-S2, S3 y S5 se dividirán en PR pequeñas según se confirme cada contrato.
-
-| Minitarea | Horas de A | Principal incertidumbre |
-| --- | ---: | --- |
-| S0 · ensayo recuperado | 10–16 | Reconciliar las tres ramas WIP y comprobar Chrome. |
-| S1 · consulta exacta y V3 | 20–32 | Contrato de Bolsa, referencias RPT y ensayo SQL. |
-| S2 · bases, aprobación y publicación | 24–40 | Actos competentes, firma y fuente oficial. |
-| S3 · solicitud y presentación | 32–52 | Representación, registro y tasa según las bases. |
-| S4 · admisión y subsanación | 28–44 | Evidencias de H y decisión motivada. |
-| S5 · tribunal y actas | 24–40 | Autoridad por proceso y firma de actas. |
-| S6 · fases y calificaciones | 28–48 | Reglas de bases y reclamaciones. |
-| S7 · aprobados y traspaso | 24–40 | Recibo del receptor y rectificaciones. |
-| S8 · cuadro OEP y plazas | 16–28 | Referencias y actos de cobertura de RPT/Personal. |
-| **Total de esfuerzo de A** | **206–340** | No es la duración total de Selectivos. |
-
-Con jornadas de ocho horas, un equipo necesita **26–43 días de esfuerzo** si
-las dependencias están disponibles. Dos equipos no reducen esa cifra a la mitad:
-S0–S7 tienen un camino casi secuencial. Con S8 en paralelo, la planificación
-orientativa es **24–39 días**. La preparación de S5 desde S2 podría acortar ese
-camino, pero hay que separar sus horas de las actas posteriores a S4 antes de
-calcular otra horquilla. La cifra de dos equipos no es una fecha de entrega.
-
-RRHH debe facilitar o validar las bases por modalidad, reglas de tasa y
-exención, órganos competentes, composición del tribunal, actos y datos del
-traspaso (preguntas 109–111). Sistemas debe confirmar los contratos y entornos
-de identidad, representación, firma, registro, publicación oficial, cobro y
-conciliación que correspondan. Sus esfuerzos y plazos quedan **por estimar por
-sus responsables**; una espera por estas respuestas aumenta el calendario sin
-consumir las horas de A de la tabla. H y B estimarán por separado sus puertos y
-datos propios.
-
-## Consenso Astra
-
-En la primera ronda, Astra revisó la propiedad de los datos y el orden de los
-cortes. Se acordó que H mantiene el Registro Único de Méritos, B produce los
-hechos de Personal y A consume ambos por puertos autorizados según su finalidad.
-El baremador existente es común; A conserva las bases y decisiones de cada
-convocatoria. Acreditar un hecho, cumplir un requisito y puntuarlo siguen
-siendo decisiones distintas. Un mérito reutilizable se consulta a H; los hechos
-de Personal que se necesiten como requisitos independientes proceden de B.
-
-En la segunda ronda se mantuvo S8 como cuadro final, pero las referencias
-mínimas de plaza, OEP y versión se exigirán antes de aprobar las bases. S4
-incluye impugnaciones de admisión; S6, reclamaciones de calificaciones; S7,
-rectificaciones del resultado y de la entrega. S5 separa preparación del
-tribunal y actas. Astra dio GO a este reparto y pidió tratar la horquilla de
-dos equipos como escenario condicionado. La entrega a Bolsa o Personal tendrá
-un recibo recuperable; Personal decidirá los actos de relación y ocupación
-que le correspondan.
+Méritos conserva el registro reutilizable; Personal aporta hechos laborales y Selectivos aplica requisitos y puntuaciones por sus puertos autorizados. La acreditación del hecho, el cumplimiento del requisito y su puntuación son decisiones distintas. Las referencias de plaza, oferta de empleo y versión se exigen antes de aprobar las bases. Admisión, calificaciones, resultado y entrega conservan reclamaciones o rectificaciones propias. La entrega a Bolsa o Personal deja un recibo recuperable.
