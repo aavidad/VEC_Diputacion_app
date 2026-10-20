@@ -16,6 +16,12 @@ la misma transacción comprueba el identificador PostgreSQL, la base y el
 usuario antes de sustituir conexiones o vaciar punteros de gobierno heredados.
 El arranque publica después el gobierno propio de la copia.
 
+El resolutor de motivos de RRHH conserva una excepción heredada: su contrato
+instalado exige un LOGIN sin fecha de caducidad. El ajuste afecta solo a la
+conexión propia de ese resolutor, dentro de la transacción ligada a la copia.
+Dirección retirará la excepción cuando el contrato admita una caducidad.
+Los nuevos pools de Administración mantienen su límite de 90 días.
+
 El recorrido prepara las cuentas, motivos y conexiones de Documentos en la
 misma copia. No lee capacidades ni material de otra instancia.
 
