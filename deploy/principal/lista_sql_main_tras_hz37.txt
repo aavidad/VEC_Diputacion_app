@@ -219,3 +219,6 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000302_recibo_comprobacio
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion_oficial_bases.up.sql c1ab7024d2b243cc5de9212f2c46f5eccf63adf8c4b4fadb935e2be7b7d593cb
 # F1-95 parte B — BC17: cotejo de huella firmada y recuperación con el perfil original; tras BC15 y AD301.
 deploy/postgresql/bolsa_convocatorias/migraciones/000017_recuperacion_publicacion_mismo_perfil.up.sql c00e543f89fa22ca498feb797b79d437c7fb6148401b1a01463c5c293b5049d1
+
+# F1-19 A — CT247: ámbito propio del hijo y lectura nominal; el POST sigue cerrado hasta el montaje B.
+deploy/postgresql/contratacion_temporal/migraciones/000247_ambito_nombramiento_derivado.up.sql e4476ce243e204ff4142ab53d24fb8767c1476aa0366c87c0d95528910d4a08a

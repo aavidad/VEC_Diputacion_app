@@ -291,7 +291,7 @@ recuperado solo sirve para devolver un recibo ya existente. Las lecturas de
 datos personales (ficha, contactos, detalle de expediente, consulta propia de
 méritos) también consumen V3 y quedan registradas.
 
-AD292, preparada y pendiente de instalación, añade la fachada nominal para
+AD292 añade la fachada nominal para
 derivar un nombramiento desde una plaza adjudicada. Solo el propietario CT
 puede llamarla. La fachada conserva el booleano de consumo del núcleo y coteja
 decisión, efecto y huella. CT234 comprueba primero el recibo original de la
@@ -672,9 +672,14 @@ conectar el productor de autorización. Faltan la instalación conjunta y el
 ensayo positivo. CT241 cierra después al hijo: no entra en otra selección de
 Bolsa (O6, oferta, vínculo CT201 y los cotejos CT221 y CT233 por los que
 pasan los llamamientos y ofertas de Bolsa con origen CT) y nada suyo se autoriza con la unidad, la
-fiscalización o el circuito copiados del padre. Un disparador común rechaza
-sus versiones nuevas, su publicación RRHH y sus firmas CT118, así que CT234
-no completa una derivación hasta que el hijo tenga ámbito propio. Véase
+fiscalización o el circuito copiados del padre. CT247 permite únicamente la publicación inicial v6 acreditada por el material
+inmutable de la derivación, con organización y unidad propias. Las versiones
+nuevas y las firmas CT118 siguen cerradas. Los siete lectores RRHH exigen ese
+ámbito propio; el centro copiado no autoriza acceso. El detalle usa canon V5
+y separa la instrucción conservada del único acto del hijo; los cánones
+ordinarios se conservan. La ruta continúa en 503 hasta el montaje B y la
+activación gobernada del perfil, con AD305. Véase también la
+[guía de este corte](../../deploy/principal/f1_19_nombramiento_derivado/LEEME.md) y
 [`f1_19_nombramientos_derivados.md`](../../deploy/principal/f1_19_nombramientos_derivados.md).
 
 La conexión de ofertas de varias plazas está **preparada en código y SQL, sin
