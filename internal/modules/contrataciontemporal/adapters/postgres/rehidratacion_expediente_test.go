@@ -248,9 +248,23 @@ func TestRehidratarExpedienteSQLConRCDeclaradaCivil(t *testing.T) {
 		t.Fatal("el contenido histórico se modificó al rehidratar")
 	}
 	rfc := expedienteConRCSQLPrueba(t, civil, "2026-10-15T00:00:00Z")
-	if adaptado, err := rehidratarFechasExpedienteSQL(rfc); err != nil ||
-		bytes.Contains(adaptado, []byte(`"fecha":"2026-10-15"`)) {
-		t.Fatalf("RC en RFC3339 alterada: %v", err)
+	var historico domain.Expediente
+	if err := decodificarExpedienteSQL(rfc, &historico); err != nil || historico.Validar() != nil ||
+		!historico.Solicitud.RC.Fecha.Equal(esperada) {
+		t.Fatalf("RC en RFC3339 no se conserva: %v", err)
+	}
+	// Una fecha que no es texto, o «existe» como texto, se rechazan.
+	sinTexto := bytes.Replace(expedienteConRCSQLPrueba(t, civil, "2026-10-15"),
+		[]byte(`"fecha":"2026-10-15"`), []byte(`"fecha":20261015`), 1)
+	existeTexto := bytes.Replace(expedienteConRCSQLPrueba(t, civil, "2026-10-15"),
+		[]byte(`"existe":true`), []byte(`"existe":"true"`), 1)
+	for nombre, adulterado := range map[string][]byte{"fecha_numero": sinTexto, "existe_texto": existeTexto} {
+		if bytes.Equal(adulterado, conRC) {
+			t.Fatalf("%s: la muestra no cambió", nombre)
+		}
+		if err := decodificarExpedienteSQL(adulterado, &domain.Expediente{}); err == nil {
+			t.Fatalf("%s: RC mal formada aceptada", nombre)
+		}
 	}
 	for _, valor := range []string{"2026-02-30", "2026-9-15", "2026-13-01", "2026-10-1x"} {
 		t.Run(valor, func(t *testing.T) {
