@@ -12,7 +12,7 @@ test("las vistas sin servicio en el servidor no se ofrecen", () => {
   for (const vista of ["subsanaciones", "mensajes", "certificados"]) {
     assert.equal(VISTAS_DISPONIBLES.has(vista), false, vista);
   }
-  for (const vista of ["inicio", "llamamientos", "perfil", "meritos", "alegaciones", "preferencias", "ayuda"]) {
+  for (const vista of ["inicio", "llamamientos", "perfil", "meritos", "alegaciones", "preferencias", "ayuda", "inscripcion"]) {
     assert.equal(VISTAS_DISPONIBLES.has(vista), true, vista);
   }
 });

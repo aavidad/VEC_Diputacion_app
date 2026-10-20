@@ -2,6 +2,21 @@
 
 **Comprobado el 9 de octubre de 2026.** Las imágenes muestran un ejemplo. Su bolsa, número de orden y fechas pueden ser distintos.
 
+## Inscribirse en una bolsa
+
+**Comprobado el 20 de octubre de 2026** en una copia de desarrollo.
+
+1. En el menú, dentro de **Tramitación**, pulse **Inscribirme en una bolsa**. Verá las bolsas con plazo abierto, con su plazo de inscripción, el número de categorías, cómo se presenta la solicitud y los requisitos.
+2. Pulse **Consultar bolsa** en la que le interese. La ficha muestra la categoría y cada requisito. Si un requisito figura como **Cumple (comprobado)**, no tiene que hacer nada con él.
+3. Pulse **Solicitar inscripción**. En **Revise su solicitud** compruebe la bolsa, la categoría y el plazo.
+4. Pulse **Presentar solicitud** una sola vez. Aparece «Solicitud presentada. Guarde su número de recibo», con el estado **Pendiente de revisión** y el número de recibo.
+
+Para ver después lo que ha presentado, vuelva a **Inscribirme en una bolsa** y pulse **Mis solicitudes**. Cada solicitud muestra la bolsa, la categoría, la fecha y su estado; **Ver solicitud** abre el detalle con el mismo recibo. La tarjeta de la bolsa también indica el estado y cambia **Consultar bolsa** por **Ver solicitud**.
+
+Recursos Humanos revisa la solicitud. Cuando la resuelva, el estado cambiará a **Admitida. Pendiente de incorporación a la bolsa**, **Incorporada a la bolsa** o **Rechazada**.
+
+Si la conexión se corta al presentar, abra **Mis solicitudes** antes de repetir. Si la solicitud aparece, ya está presentada: VEC no crea una segunda solicitud para la misma bolsa y categoría.
+
 ## Ver su situación
 
 Entre en [Mi área personal](https://vec.cidonia.cloud/area-personal/?lang=es) con su acceso y pulse **Mi bolsa** en el menú. La pantalla se titula «Disponibilidad y llamamientos». En **Mi participación** verá la bolsa, su número de orden inicial y la última situación registrada. **Disponible** significa que consta como disponible en esa bolsa. Recibir un llamamiento depende del orden y de las reglas que se apliquen.
