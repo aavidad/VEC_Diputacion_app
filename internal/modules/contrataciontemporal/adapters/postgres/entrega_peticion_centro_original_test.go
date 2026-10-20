@@ -3,7 +3,9 @@ package postgres
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -18,6 +20,20 @@ import (
 )
 
 type filaEntregaOriginalPrueba struct{ entrega, original []byte }
+
+type filaEntregaSinOriginalPrueba struct{}
+
+func (filaEntregaSinOriginalPrueba) Scan(destinos ...any) error {
+	if len(destinos) != 1 {
+		return errors.New("columnas de entrega distintas")
+	}
+	b, ok := destinos[0].(*[]byte)
+	if !ok {
+		return errors.New("tipo de entrega distinto")
+	}
+	*b = []byte(`{}`)
+	return nil
+}
 
 func (f filaEntregaOriginalPrueba) Scan(destinos ...any) error {
 	if len(destinos) != 2 {
@@ -104,8 +120,9 @@ func TestFachadaOriginalRevierteAntesDelCommitSiFallaHMAC(t *testing.T) {
 		AmbitoAltaHMAC:     "hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:" + strings.Repeat("a", 64),
 	}
 	tx := &transaccionAltaCandidataPrueba{fila: filaEntregaOriginalPrueba{}}
+	pool := &iniciadorAltaCandidataPrueba{transacciones: []pgx.Tx{tx}}
 	r := &RepositorioEntregasPeticionCentroPostgreSQL{
-		pool:            &iniciadorAltaCandidataPrueba{transacciones: []pgx.Tx{tx}},
+		pool:            pool,
 		proveedor:       &proveedorEntregaOriginalPrueba{t: t},
 		organizacionRef: "organizacion:desarrollo:dipgra",
 	}
@@ -116,6 +133,45 @@ func TestFachadaOriginalRevierteAntesDelCommitSiFallaHMAC(t *testing.T) {
 		!strings.Contains(tx.consulta, funcionPrepararEntregaConOriginal) {
 		t.Fatalf("contraste original no revirtió autoenlace: error=%v commits=%d rollbacks=%d consulta=%q",
 			err, tx.commits, tx.rollbacks, tx.consulta)
+	}
+	b, err := json.Marshal(material)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recurso, err := RecursoEntregaPeticionCentro(material, r.organizacionRef)
+	if err != nil {
+		t.Fatal(err)
+	}
+	suma := sha256.Sum256(b)
+	if len(tx.argumentos) != 12 || tx.argumentos[0] != string(b) || tx.argumentos[1] != recurso.Ambitos["organizacion_ref"] ||
+		recurso.Atributos["material_sha256"] != hex.EncodeToString(suma[:]) ||
+		!strings.Contains(tx.consulta, "($1::text,$2::text,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)") {
+		t.Fatalf("fachada con original no recibió organización y material exactos: argumentos=%d consulta=%q", len(tx.argumentos), tx.consulta)
+	}
+	rOtra := &RepositorioEntregasPeticionCentroPostgreSQL{pool: pool, proveedor: r.proveedor, organizacionRef: "org_" + strings.Repeat("b", 32)}
+	err = rOtra.ejecutarConOriginal(context.Background(), material, true, func(_, _ []byte) error { return nil })
+	if !errors.Is(err, ports.ErrAutorizacionDenegada) || pool.inicios != 1 {
+		t.Fatalf("organización distinta alcanzó SQL: %v, inicios=%d", err, pool.inicios)
+	}
+}
+
+func TestEntregaSinOriginalPasaOrganizacionComoSegundoArgumento(t *testing.T) {
+	material := ports.MaterialEntregaPeticionCentro{Modo: "bandeja", ActorRef: "actor:rrhh:sintetico", PerfilRef: "perfil:rrhh:sintetico"}
+	tx := &transaccionAltaCandidataPrueba{fila: filaEntregaSinOriginalPrueba{}}
+	r := &RepositorioEntregasPeticionCentroPostgreSQL{
+		pool: &iniciadorAltaCandidataPrueba{transacciones: []pgx.Tx{tx}}, proveedor: &proveedorEntregaOriginalPrueba{t: t},
+		organizacionRef: "organizacion:desarrollo:dipgra",
+	}
+	falloValidacion := errors.New("respuesta no validada")
+	err := r.ejecutar(context.Background(), material, func([]byte) error { return falloValidacion })
+	b, errMaterial := json.Marshal(material)
+	if errMaterial != nil {
+		t.Fatal(errMaterial)
+	}
+	if !errors.Is(err, falloValidacion) || tx.commits != 0 || tx.rollbacks != 1 || len(tx.argumentos) != 12 ||
+		tx.argumentos[0] != string(b) || tx.argumentos[1] != r.organizacionRef ||
+		!strings.Contains(tx.consulta, "($1::text,$2::text,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)") {
+		t.Fatalf("entrega sin original no conservó contrato SQL: %v, argumentos=%d consulta=%q", err, len(tx.argumentos), tx.consulta)
 	}
 }
 
