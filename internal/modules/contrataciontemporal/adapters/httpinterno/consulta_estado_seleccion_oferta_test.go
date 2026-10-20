@@ -55,6 +55,28 @@ func TestConsultaEstadoSeleccionOfertaGETDurableSinUUIDCliente(t *testing.T) {
 	}
 }
 
+func TestConsultaEstadoSeleccionOfertaSingularPendiente(t *testing.T) {
+	const ref = "expediente:ct:prueba"
+	c := &consultorEstadoSeleccionOfertaHTTPPrueba{resultado: application.DatosEstadoSeleccionOfertaParaAdaptador{
+		Estado: "pendiente", TipoSeleccion: "llamamiento", ExpedienteRef: ref,
+		VersionEsperada: 6, ClaveIdempotencia: "018f47a2-6b31-4c80-8a95-4d2e707c5a11",
+		Efecto: "solicitar_llamamiento", VentanaAbierta: true,
+	}}
+	h, err := NuevoManejadorConsultaEstadoSeleccionOferta(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet,
+		RutaConsultaEstadoSeleccionOferta+"?expediente_ref="+url.QueryEscape(ref), nil))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"tipo_seleccion":"llamamiento"`) ||
+		!strings.Contains(w.Body.String(), `"efecto":"solicitar_llamamiento"`) ||
+		!strings.Contains(w.Body.String(), `"clave_idempotencia":"018f47a2-6b31-4c80-8a95-4d2e707c5a11"`) ||
+		strings.Contains(w.Body.String(), `"oferta"`) || strings.Contains(w.Body.String(), `"descarte"`) {
+		t.Fatalf("singular pendiente no recuperado: %d %s", w.Code, w.Body)
+	}
+}
+
 func TestConsultaEstadoSeleccionOfertaNoConvierteConflictoEnAusencia(t *testing.T) {
 	const ref = "expediente:ct:prueba"
 	c := &consultorEstadoSeleccionOfertaHTTPPrueba{err: errors.Join(

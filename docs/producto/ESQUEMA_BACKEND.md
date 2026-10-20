@@ -1143,6 +1143,14 @@ Falta completar el ensayo de lectura y reinicio de esta candidata.
 
 ### 11.2 Reglas de frontera
 
+F1-141 amplía `GET /api/vec/contratacion-temporal/llamamientos/seleccion/estado`
+para recuperar también la intención de un llamamiento singular pendiente.
+Conserva la autorización, la sesión y la auditoría de la consulta existente.
+La respuesta singular añade `tipo_seleccion: llamamiento`, la clave y la versión
+originales, el efecto pendiente y si queda una ventana abierta. La consulta no
+reanuda el acto; el formulario debe enviar expresamente la solicitud original
+por la ruta de selección existente. El contrato de las ofertas plurales se conserva.
+
 - Rutas exactas registradas en una autoridad (`internal/vec/adapters/httpapi/rutas_exactas.go`
   y las composiciones de `internal/app/bootstrap/`); una ruta no registrada da 404.
 - Se rechazan `Cookie`, `Authorization` no atestada, cabeceras de identidad

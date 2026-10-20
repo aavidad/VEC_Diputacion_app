@@ -82,9 +82,11 @@ func (h *manejadorConsultaEstadoSeleccionOferta) ServeHTTP(w http.ResponseWriter
 type estadoSeleccionOfertaJSON struct {
 	Esquema           string                     `json:"esquema"`
 	Estado            string                     `json:"estado"`
+	TipoSeleccion     string                     `json:"tipo_seleccion,omitempty"`
 	ExpedienteRef     string                     `json:"expediente_ref"`
 	VersionEsperada   uint64                     `json:"version_esperada,omitempty"`
 	ClaveIdempotencia string                     `json:"clave_idempotencia,omitempty"`
+	Efecto            string                     `json:"efecto,omitempty"`
 	VentanaAbierta    bool                       `json:"ventana_abierta,omitempty"`
 	Oferta            *reciboSeleccionOfertaJSON `json:"oferta,omitempty"`
 	Descarte          *reciboDescarteOfertaJSON  `json:"descarte,omitempty"`
@@ -96,13 +98,21 @@ func proyectarEstadoSeleccionOferta(d application.DatosEstadoSeleccionOfertaPara
 	}
 	switch d.Estado {
 	case "ausente":
-		if d.VersionEsperada != 0 || d.ClaveIdempotencia != "" || d.VentanaAbierta ||
+		if d.TipoSeleccion != "" || d.Efecto != "" || d.VersionEsperada != 0 ||
+			d.ClaveIdempotencia != "" || d.VentanaAbierta ||
 			d.Oferta != nil || d.Descarte != nil {
 			return estadoSeleccionOfertaJSON{}, false
 		}
 	case "pendiente", "confirmada", "descartada":
 		if d.VersionEsperada == 0 || d.VersionEsperada > 1<<53-1 ||
 			!ports.ClaveIdempotenciaValida(d.ClaveIdempotencia) ||
+			(d.TipoSeleccion != "" && d.TipoSeleccion != "llamamiento") ||
+			(d.TipoSeleccion == "llamamiento" &&
+				(d.Estado != "pendiente" || d.Oferta != nil || d.Descarte != nil ||
+					(d.Efecto != "" && d.Efecto != string(ports.EfectoPrepararOrdenSeleccionLlamamiento) &&
+						d.Efecto != string(ports.EfectoSolicitarSeleccionLlamamiento)) ||
+					(d.VentanaAbierta != (d.Efecto != "")))) ||
+			(d.TipoSeleccion == "" && d.Efecto != "") ||
 			(d.Estado == "pendiente" && (d.Oferta != nil || d.Descarte != nil)) ||
 			(d.Estado == "confirmada" && (d.Oferta == nil || d.Descarte != nil || d.VentanaAbierta)) ||
 			(d.Estado == "descartada" && (d.Descarte == nil || d.Oferta != nil || d.VentanaAbierta)) {
@@ -112,8 +122,9 @@ func proyectarEstadoSeleccionOferta(d application.DatosEstadoSeleccionOfertaPara
 		return estadoSeleccionOfertaJSON{}, false
 	}
 	r := estadoSeleccionOfertaJSON{Esquema: "vec.contratacion-temporal.estado-seleccion-oferta.v1",
-		Estado: d.Estado, ExpedienteRef: ref, VersionEsperada: d.VersionEsperada,
+		Estado: d.Estado, TipoSeleccion: d.TipoSeleccion, ExpedienteRef: ref, VersionEsperada: d.VersionEsperada,
 		ClaveIdempotencia: d.ClaveIdempotencia, VentanaAbierta: d.VentanaAbierta}
+	r.Efecto = d.Efecto
 	if d.Oferta != nil {
 		o, ok := proyectarReciboSeleccionOferta(application.DatosReciboSeleccionLlamamientoParaAdaptador{Oferta: d.Oferta}, ref)
 		if !ok {
