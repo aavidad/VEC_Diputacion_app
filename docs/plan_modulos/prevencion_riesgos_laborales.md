@@ -28,8 +28,8 @@ mínimo. Este encargo entrega documentación, sin código, SQL ni instalación.
 Base inspeccionada: `origin/main@009472bd760e76cb2951433236711262f10648be`.
 Requisitos principales: [ficha de PRL](../estudio_requisitos/ficha_prevencion_riesgos_laborales_2026-10-04.md),
 PR1–PR12 y PRL-001–PRL-003 del [catálogo de capacidades (PRD, apartado 9)](../producto/PRD.md).
-Personal B conserva vínculo/servicios y su consumidor; Organización/RPT conserva
-centros/puestos; K identidad/perfiles; L auditoría/documentos/firma comunes.
+Personal conserva vínculo/servicios y su consumidor; Organización/RPT conserva
+centros/puestos; Identidad y perfiles; L auditoría/documentos/firma comunes.
 El plan no reasigna sus archivos ni abre una base clínica de RRHH.
 
 ## Fuentes y decisiones aplicables
@@ -62,9 +62,9 @@ El índice tiene otra instantánea; una coincidencia de palabra no prueba un mó
 
 | Pieza | Rutas actuales | Reutilización y límite |
 | --- | --- | --- |
-| Relación de Personal B | `internal/modules/personal/ports/{relacion_empleado,relacion_para_rpt,ficha_propia}.go`; `adapters/composicion/LECTOR_RELACION_RPT.md` | Contratos de vínculo y lectura nominal. El lector RPT usa autorización/auditoría comunes y no decide ocupación. PRL debe acordar su contrato mínimo con B; no copiar ficha ni usar la audiencia RPT como permiso preventivo. |
+| Relación de Personal | `internal/modules/personal/ports/{relacion_empleado,relacion_para_rpt,ficha_propia}.go`; `adapters/composicion/LECTOR_RELACION_RPT.md` | Contratos de vínculo y lectura nominal. El lector RPT usa autorización/auditoría comunes y no decide ocupación. PRL debe acordar su contrato mínimo con B; no copiar ficha ni usar la audiencia RPT como permiso preventivo. |
 | Organización y RPT | `internal/modules/personal/ports/{estructura_organizativa,organizacion_historica,rpt_publica}.go`; `internal/vec/ports/catalogos_rpt_lectura.go`; `internal/vec/adapters/postgres/catalogos_rpt_lectura.go` | Fuentes/contratos de unidades, puestos y versiones, con cobertura y procedencia. Su dueño entrega centros/puestos pertinentes; no fabricar otro maestro ni inferir que vacío significa ausencia de riesgos. |
-| Usuarios / contexto K | `internal/modules/usuarios/application/correos.go`; `internal/vec/ports/contexto_actor.go`; `internal/vec/adapters/contextoactor/postgres/`; `internal/vec/adapters/administracionperfiles/postgres/` | Acceso VEC y contexto común, separado de empleo y competencia sanitaria. K conserva perfil/emisor; falta consumidor PRL y acreditación de facultades exactas. |
+| Usuarios y contexto de identidad | `internal/modules/usuarios/application/correos.go`; `internal/vec/ports/contexto_actor.go`; `internal/vec/adapters/contextoactor/postgres/`; `internal/vec/adapters/administracionperfiles/postgres/` | Acceso VEC y contexto común, separado de empleo y competencia sanitaria. Identidad y Usuarios conserva perfil/emisor; falta consumidor PRL y acreditación de facultades exactas. |
 | Auditoría L | `internal/vec/ports/auditoria_intento_nominal.go`; `auditoria_frontera_ruta_exacta.go`; `internal/vec/adapters/postgres/auditoria_intento_nominal.go` | Intentos nominales denegados/error con acuse y frontera técnica separada. Faltan acciones/rutas y configuración proceso/canal de PRL por su custodio; no registrar salud en claro. |
 | Documentos y firma | `internal/vec/documentos/application/servicio.go`; `ports/{firma,custodia_firmado}.go`; `internal/vec/ports/documentos.go` | Registro/custodia/descarga y verificación comunes. Faltan tipos/políticas preventivos y consumidor; las piezas específicas CT no son emisor sanitario. Custodia general no habilita a importar clínica. |
 | Formación | `internal/modules/formacion/application/preparar.go`; `adapters/jsonio/preparacion.go`; `web/static/portal-empleado/modulos/formacion/`; [plan](formacion.md) | Preparador y visor sintéticos integrados; `Preparar` no inscribe ni certifica. Reutilizar autoridad de Formación para formación preventiva; asistencia y certificado esperan fuente/contrato nominal admitidos. |
@@ -80,11 +80,11 @@ conectado o recorrido. Ninguna migración existente se reserva o reaplica por es
 
 | Capacidad | Resultado pendiente | Dueño y dependencia |
 | --- | --- | --- |
-| PR1–PR2/PR10 | Evaluación por centro/puesto y seguimiento versionado de medidas. | A conserva PRL; Prevención gobierna fuente/metodología; Organización/RPT y B aportan contexto por puerto. |
+| PR1–PR2/PR10 | Evaluación por centro/puesto y seguimiento versionado de medidas. | Prevención conserva PRL; Prevención gobierna fuente/metodología; Organización/RPT y B aportan contexto por puerto. |
 | PR3 | Instrucciones propias y formación/resultado acreditados. | PRL mantiene instrucción; Formación mantiene acción/asistencia/certificación. |
 | PR4–PR5 | CAE e investigación de accidente con bloques y destinatarios separados. | PRL mantiene hechos preventivos; contratistas/mutua/autoridad conservan recepción oficial. |
 | PR6–PR8 | Derivación sanitaria y conclusión mínima para actuación administrativa o movilidad. | Servicio sanitario conserva clínica y dictamen; PRL solo contrato mínimo reservado; Personal/Provisión decide su acto. |
-| PR9–PR11 | Lectura/descarga exactas, auditoría y exportación controlada. | A consume K/L y Documentos; permisos sanitarios no se heredan de prevención. |
+| PR9–PR11 | Lectura/descarga exactas, auditoría y exportación controlada. | Prevención consume los servicios comunes de identidad y autorización y Documentos; permisos sanitarios no se heredan de prevención. |
 | PR12 | Agregados con metodología y control de identificación indirecta. | Prevención/DPD aprueban población/agregación; no buscador de diagnósticos. |
 
 Técnico preventivo, responsable de centro, persona, delegación/comité, receptor
@@ -108,14 +108,14 @@ común mínima; el proveedor mantiene su auditoría clínica externa, sin replic
 ## Minitareas y salidas por PR
 
 Dirección confirma base actual y archivos exclusivos por corte. Ubicaciones nuevas
-son previsión. Montaje, manifiestos y contratos K/L/B/Organización esperan turno de
+son previsión. Montaje, manifiestos y contratos los servicios comunes de identidad y autorización/B/Organización esperan turno de
 sus dueños; un puerto se entrega con consumidor útil, sin maqueta sustitutiva.
 
 | Corte y base | Salida usable por PR | Archivos propios previstos | Dependencias | Horas |
 | --- | --- | --- | --- | ---: |
 | P00 · inventario | Revalidar deuda y contratos, sin repetir Personal/Formación. | Este plan durante su turno. | SHA/FIN vigentes. | 1–2 |
 | P01 · fuente | Evaluación/centro inicial, estados, responsables, evidencia y metodología admitidos. | Contrato documentado preventivo. | Duda131; Prevención/Sistemas; minimización y RAT. | 3–5 |
-| P02 · B1 | Consumidor nominal con auditoría que permite/deniega centro/acción exactos. | Nuevos `prevencion_riesgos_laborales/ports/{autorizacion,auditoria}.go`; consumidor. | P01; ABI K/L, perfiles fijos por huella/CAS y proceso/canal. | 6–10 |
+| P02 · B1 | Consumidor nominal con auditoría que permite/deniega centro/acción exactos. | Nuevos `prevencion_riesgos_laborales/ports/{autorizacion,auditoria}.go`; consumidor. | P01; ABI los servicios comunes de identidad y autorización, perfiles fijos por huella/CAS y proceso/canal. | 6–10 |
 | P03 · B2/B3 | Correspondencia centro/puesto/relación/periodo con cobertura y conflicto explicados. | Puertos/consumidores mínimos del módulo. | B y Organización/RPT producen sus datos; P02 antes de lectura personal. DTO puede acordarse antes. | 3–5 |
 | P04 · PR1 | Puerto, fuente autorizada y consumidor focal de evaluación/versiones. | Dominio/aplicación/adaptador propios. | P01–P03; no elaborar dictamen desde cuestionario libre. | 4–6 |
 | P05 · PR1/PR9 | Vista por centro/puesto con estados claros y documentos accesibles según permiso. | Entrada/cliente/vista propios y catálogos ES/EN. | P04; montaje por custodio; revisión de usabilidad. | 4–6 |
@@ -155,7 +155,7 @@ ese reparto no acredita un solape de todas sus horas.
 P09 reúne esas bases; instrucciones/documentos P10 pueden avanzar por archivos propios.
 P11 espera montaje/instalación. P12, P13/P14 y P15/P16 son carriles separables con
 fuentes admitidas; cada contrato/vista tiene un escritor. La organización sanitaria,
-K/L/B y Formación conservan sus responsables y no son esfuerzo incluido aquí.
+los servicios comunes de identidad y autorización/B y Formación conservan sus responsables y no son esfuerzo incluido aquí.
 
 ## Configuración y estimación
 
@@ -179,7 +179,7 @@ son duración técnica ni fecha prometida.
 | --- | ---: | --- |
 | Servicio de Prevención / responsable de centro | 6–10 h | Resolver la 131, evaluación/método/evidencia, competencias y recorrido inicial. |
 | Sistemas / fuente preventiva | 6–12 h | Interfaz, identificadores, entorno y canales; sin presunción de proveedor. |
-| K/L, Documentos, Personal B / Organización | Estimación de sus dueños | Contexto/perfiles, auditoría/documentos y fuente laboral/puesto; aquí consumidores propios. |
+| los servicios comunes de identidad y autorización, Documentos, Personal / Organización | Estimación de sus dueños | Contexto/perfiles, auditoría/documentos y fuente laboral/puesto; aquí consumidores propios. |
 | DPD / Archivo / sanitario | 6–12 h | Tratamiento, fronteras, custodia/conservación y contrato mínimo de aptitud; aprobación sin plazo comprometido. |
 | Formación / Provisión / contratista / mutua / autoridades | Estimación por corte | Asistencia, movilidad y comunicaciones conservan sus responsables; clínica fuera del total. |
 
