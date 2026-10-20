@@ -52,6 +52,7 @@ var clavesTextos = []string{
 	"gobierno_confirmado", "gobierno_rechazado", "gobierno_no_disponible",
 	"cadena_verificada", "cadena_rechazada", "verificacion_no_disponible",
 	"version_bolsa_escrita", "version_bolsa_fallida",
+	"gobierno_roles_escrito", "gobierno_roles_fallido",
 }
 
 func main() {
@@ -83,9 +84,9 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 	fallo := func(codigo string) int { return emitir(errores, diagnostico{Codigo: codigo}, 1) }
 
 	duracion, err := time.ParseDuration(timeout)
-	faseValida := fase == "preparar" || fase == "aplicar" || fase == "verificar" || fase == "version-bolsa" || fase == "version-bolsa-externa"
+	faseValida := fase == "preparar" || fase == "aplicar" || fase == "verificar" || fase == "version-bolsa" || fase == "version-bolsa-externa" || fase == "gobierno-roles"
 	// verificar puede ligar la cadena al acuse; las otras fases conservan su contrato.
-	acuseCoherente := fase == "verificar" || ((fase == "aplicar" || fase == "version-bolsa" || fase == "version-bolsa-externa") == (acuse != ""))
+	acuseCoherente := fase == "verificar" || ((fase == "aplicar" || fase == "version-bolsa" || fase == "version-bolsa-externa" || fase == "gobierno-roles") == (acuse != ""))
 	if parseErr != nil || err != nil || duracion <= 0 || duracion > limiteTimeout || f.NArg() != 0 || !faseValida || !acuseCoherente || rutaConfig == "" || ops.incompletas() || ahora == nil {
 		return fallo("uso_invalido")
 	}
@@ -141,6 +142,12 @@ func ejecutar(args []string, salida, errores io.Writer, ops operaciones, ahora f
 			return fallo("version_bolsa_fallida")
 		}
 		return emitir(salida, diagnostico{Codigo: "version_bolsa_escrita"}, 0)
+	case "gobierno-roles":
+		d := bootstrap.DestinoOverlayVersionBolsaAdmin{DirectorioSalida: cfg.Salida, PoolGobierno: cfg.GobiernoRoles.PoolGobierno, PoolCatalogo: cfg.GobiernoRoles.PoolCatalogo, Motivos: cfg.GobiernoRoles.Motivos}
+		if ops.gobiernoRoles(raiz, d, acuse) != nil {
+			return fallo("gobierno_roles_fallido")
+		}
+		return emitir(salida, diagnostico{Codigo: "gobierno_roles_escrito"}, 0)
 	case "aplicar":
 		a, err := ops.aplicar(ctx, cfg.DSNOperador, duracion, raiz, acuse)
 		switch {

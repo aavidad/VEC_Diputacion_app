@@ -65,6 +65,10 @@ func nuevoEscenario(t *testing.T) *escenario {
 			e.llamadas++
 			return nil
 		},
+		gobiernoRoles: func(*os.Root, bootstrap.DestinoOverlayVersionBolsaAdmin, string) error {
+			e.llamadas++
+			return nil
+		},
 	}
 	return e
 }

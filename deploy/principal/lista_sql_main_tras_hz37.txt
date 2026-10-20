@@ -220,5 +220,8 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion
 # F1-95 parte B — BC17: cotejo de huella firmada y recuperación con el perfil original; tras BC15 y AD301.
 deploy/postgresql/bolsa_convocatorias/migraciones/000017_recuperacion_publicacion_mismo_perfil.up.sql c00e543f89fa22ca498feb797b79d437c7fb6148401b1a01463c5c293b5049d1
 
+# F1-106 — AD304: conjunto ADMIN 7 de solo adición para publicar roles nuevos con AUT60; tras AD248 y AD291.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000304_conjunto_admin_gobierno_roles.up.sql fb8defc9c4ed01b02a2b267df5176418815eaf9283cf993b3a77dc0b92d09a45
+
 # F1-105 — AD303: revalidación puntual de CT sobre la PK existente de la cola de sellado; tras AD207.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000303_revalidacion_lectura_indice_sellado.up.sql 84206e14c44717f41ec9d72d61828e9df90d1c0fe174362187f2c1b229d08907
