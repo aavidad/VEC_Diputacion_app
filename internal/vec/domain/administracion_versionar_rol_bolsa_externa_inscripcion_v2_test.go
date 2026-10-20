@@ -102,6 +102,21 @@ func TestVersionarRolBolsaExternaInscripcionDesdeFuenteV2(t *testing.T) {
 		t.Fatal("la versión nueva no lleva los campos v2")
 	}
 
+	// La lista de la v2 con la ficha de la v1 no forma un rol válido ni un plan.
+	v1 := leerFuenteInscripcionPrueba(t, "inscripcion_recorrido_20261013", "inscripcion_bolsa_actos_v1.json")
+	mezcla := plan
+	mezcla.DefinicionNueva.Concesiones = slices.Clone(plan.DefinicionNueva.Concesiones)
+	mezcla.DefinicionNueva.Concesiones[8] = v1.Entradas[1].Concesion
+	if !concesionDeltaBolsaExterna(mezcla.DefinicionNueva.Concesiones[8], accionesInscripcionBolsaExterna[1]) {
+		t.Fatal("la ficha de la v1 debe ser válida por sí sola")
+	}
+	if estadoRolBolsaExterna(VersionRol{RolID: base.Rol.RolID, Version: 2, Concesiones: mezcla.DefinicionNueva.Concesiones}) != "" {
+		t.Fatal("rol con proyecciones v1 y v2 mezcladas aceptado")
+	}
+	if _, err := mezcla.HuellaSHA256(); err == nil {
+		t.Fatal("plan con proyecciones v1 y v2 mezcladas aceptado")
+	}
+
 	// Una concesión con solo parte de las hojas nuevas no es ninguna de las dos proyecciones.
 	parcial := v2.Entradas[0].Concesion
 	parcial.CamposPermitidos = append(camposInscripcionBolsaExterna(parcial.Accion), "convocatorias[].modalidad_inscripcion")

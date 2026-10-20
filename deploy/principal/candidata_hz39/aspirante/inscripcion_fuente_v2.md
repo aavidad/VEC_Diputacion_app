@@ -23,7 +23,8 @@ respondían 403 aunque el aspirante ya tuviera las acciones de inscripción.
   La v1 no se toca.
 - **Dominio**: el plan de la versión del rol acepta para cada acción de
   inscripción los campos de la v1 o los de la v2 completos; una proyección a
-  medias se rechaza.
+  medias se rechaza, y la lista y la ficha de convocatorias tienen que salir
+  de la misma versión.
 - **AUT105** (`autorizacion/000105_fuente_inscripcion_v2.up.sql`): la misma
   regla en `validar_plan_version_rol_bolsa_externa_v1`. Las cinco altas del
   aspirante salen de la fuente v1 (huella `07bf…`) o de la v2 (huella
@@ -36,6 +37,11 @@ respondían 403 aunque el aspirante ya tuviera las acciones de inscripción.
 
 Nada se escribe por SQL directo ni se rebaja la coincidencia exacta de campos.
 
+0. **Solo en una instalación desde cero: el rol de RRHH primero.** Publicar
+   la versión del rol de RRHH con motivos, decidir e incorporar desde el
+   catálogo v6, que trae la fuente v1, antes de admitir el v7.
+   `validar_plan_version_rol_bolsa_v2` (AUT84) sigue exigiendo la huella de la
+   v1 y con el v7 ya no podría. Las copias locales ya traen ese rol en v10.
 1. **Admitir la fuente v2.** Se publica una versión nueva del catálogo
    `catalogo:bolsa:carga_convoca:b1` con todo lo vigente y la fuente v2 en el
    sitio de la v1 (un catálogo no admite dos entradas con la misma acción). La
@@ -79,8 +85,8 @@ El recorrido completo del aspirante en pantalla, con reinicio, es F1-29.
   nuevas y la instalación de producción, que empiezan en la versión base, no
   lo necesitan.
 - **Rol de RRHH.** `validar_plan_version_rol_bolsa_v2` (AUT84) sigue exigiendo
-  la fuente v1 para añadir motivos, decidir e incorporar. En las copias el rol
-  de RRHH ya las tiene (v10), así que no bloquea; añadirlas desde un catálogo
-  con la v2 necesitaría el mismo cambio en esa función.
+  la fuente v1 para añadir motivos, decidir e incorporar; por eso el paso 0 va
+  antes de admitir el v7. Añadirlas después desde un catálogo con la v2
+  necesitaría el mismo cambio en esa función.
 - Las herramientas que preparan el plan del catálogo y el de la versión del rol
   son privadas y no están en el repositorio.
