@@ -15,6 +15,34 @@
   font-weight: 600;
 }
 
+.ct-seg-cese .ct-seg-cese-paso {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--portal-borde);
+}
+
+.ct-seg-cese .ct-seg-cese-paso + .ct-seg-cese-paso {
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.ct-seg-cese .ct-seg-cese-revision {
+  margin-top: 16px;
+}
+
+.ct-seg-cese .ct-seg-cese-paso h3,
+.ct-seg-cese .ct-seg-cese-paso h5 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ct-seg-cese [data-ct-seg-propuesta] h2 {
+  margin: 0 0 12px;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
 .ct-seg-cese-rejilla {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -63,4 +91,35 @@
 
 .ct-seg-cese .ct-acciones {
   margin-top: 12px;
+}
+
+.ct-seg-cese .ct-exp-fase-datos dd {
+  overflow-wrap: anywhere;
+}
+
+/* Página de revisión: corta, se desplaza como cualquier página. */
+.ct-revision-pagina [data-revision-estado]:empty {
+  display: none;
+}
+
+.ct-revision-pagina .ct-seg-cese {
+  margin-top: 0;
+}
+
+.ct-seg-cese-enlace input[readonly] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ct-seg-cese-copiado:empty {
+  display: none;
+}
+
+.ct-seg-cese-copiar {
+  margin-top: 8px;
+}
+
+.ct-seg-cese-volver {
+  color: var(--portal-azul-700);
+  font-weight: 600;
 }

@@ -90,10 +90,10 @@ func TestJustificanteRRHHNoLlamaResolvedorDemoYConservaCT(t *testing.T) {
 	}
 }
 
-// La hoja del segundo técnico solo se sella para el POST de no incorporación;
-// las lecturas de RRHH, también las comunes de Bolsa y reglas, y el cese
-// quedan sin capacidad sellada aunque su rol sea tecnico_rrhh.
-func TestSegundoTecnicoRRHHSoloSellaNoIncorporacion(t *testing.T) {
+// La segunda hoja solo se sella para leer el expediente exacto antes de
+// confirmar y para confirmar la no incorporación. Las demás rutas de RRHH
+// y las operaciones de cese conservan su denegación.
+func TestSegundoTecnicoRRHHSoloSellaLecturaYNoIncorporacion(t *testing.T) {
 	ahora := time.Now().UTC()
 	hoja := &x509.Certificate{Raw: []byte("certificado-segundo-tecnico-prueba"),
 		NotBefore: ahora.Add(-time.Hour), NotAfter: ahora.Add(time.Hour)}
@@ -144,6 +144,8 @@ func TestSegundoTecnicoRRHHSoloSellaNoIncorporacion(t *testing.T) {
 		{http.MethodGet, rutaConfiguracionAnalisisContratacionTemporalDesarrollo},
 		{http.MethodGet, "/api/vec/reglas/vigentes"},
 		{http.MethodPost, cthttp.RutaCesesNombramiento},
+		{http.MethodPost, cthttp.RutaConfirmacionesGINPIX},
+		{http.MethodGet, cthttp.RutaSeguimientoCese},
 		{http.MethodGet, cthttp.RutaNoIncorporaciones},
 	} {
 		if got := estado(caso.metodo, caso.ruta); got != http.StatusForbidden {
@@ -152,6 +154,9 @@ func TestSegundoTecnicoRRHHSoloSellaNoIncorporacion(t *testing.T) {
 	}
 	if got := estado(http.MethodPost, cthttp.RutaNoIncorporaciones); got != http.StatusOK {
 		t.Fatalf("POST de no incorporación sin capacidad sellada: %d", got)
+	}
+	if got := estado(http.MethodPost, cthttp.RutaSeguimientoCese); got != http.StatusOK {
+		t.Fatalf("POST de consulta exacta sin capacidad sellada: %d", got)
 	}
 	// Mismo sujeto con otra hoja: no es el segundo técnico y no hereda su límite.
 	actual.Attributes = map[string]string{"autoridad": AutoridadNoAutoritativa,

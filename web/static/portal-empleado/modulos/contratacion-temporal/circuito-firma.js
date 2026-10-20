@@ -14,6 +14,7 @@ import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-
 import { crearClienteOriginalFirmable } from "./original-firmable-api.js?v=VEC_WEB_VERSION";
 import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=VEC_WEB_VERSION";
 import { crearClienteDescargaFirmaV2 } from "./cliente-http-descarga-firma-v2.js?v=VEC_WEB_VERSION";
+import { inicioRondaInformeNuevo } from "./ronda-informe-nuevo.js?v=VEC_WEB_VERSION";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
 const ESQUEMA_V1 = "vec.contratacion_temporal.circuito_firma.v1";
@@ -260,7 +261,9 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
   </section>`;
 }
 
-function fusionarConsultasV2(circuito, consultas, cobertura) {
+// `inicios` fija, por documento, la versión desde la que cuentan sus firmas:
+// las de una ronda anterior (informe sustituido tras un reparo) no acreditan.
+function fusionarConsultasV2(circuito, consultas, cobertura, inicios = {}) {
   if (!Array.isArray(consultas) || !Array.isArray(cobertura)) return null;
   const cubiertos = new Set(cobertura);
   const documentos = [];
@@ -276,7 +279,9 @@ function fusionarConsultasV2(circuito, consultas, cobertura) {
       continue;
     }
     const ultimas = new Map();
+    const inicio = inicios[documento.documento] ?? 0;
     for (const firma of lectura.firmas) {
+      if (inicio > 0 && !(firma.version_expediente >= inicio)) continue;
       if ((ultimas.get(firma.paso_orden)?.secuencia ?? 0) < firma.secuencia) ultimas.set(firma.paso_orden, firma);
     }
     const firmada = (firma) => firma?.resultado === "firmado"
@@ -457,7 +462,8 @@ export function crearGestorCircuitoFirma({
     }
     // Sólo el historial validado acredita pasos. Ningún estado del catálogo
     // se presenta como firma ejecutada y el preflight decide las acciones.
-    const fusionado = fusionarConsultasV2(circuito, respuesta.datos, cobertura.documentos);
+    const fusionado = fusionarConsultasV2(circuito, respuesta.datos, cobertura.documentos,
+      { informe_definitivo: inicioRondaInformeNuevo(estado) });
     const permitirAcciones = estado.vista === "expediente" && Boolean(solicitud);
     const real = Object.freeze({ ...fusionado,
       acciones: permitirAcciones, preflight_compuesto: consultaFirmaCompuesta && permitirAcciones,
