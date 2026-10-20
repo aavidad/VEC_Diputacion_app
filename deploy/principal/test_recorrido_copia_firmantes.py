@@ -68,6 +68,20 @@ class FirmantesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'comparte tramitación'):
             firmantes._certificados_separados(c, certificados)
 
+    def test_recuperacion_rechaza_fuente_nominal_que_reutiliza_tramitacion(self):
+        c, certificados = self.certificados()
+        datos = {'referencias': {}}
+        for rol in firmantes.ROLES:
+            ruta = certificados / ('rrhh_' + rol) / 'cliente.crt'
+            datos['referencias'][rol] = {'certificado': str(ruta),
+                'certificado_sha256': hashlib.sha256(ruta.read_bytes()).hexdigest()}
+        self.assertEqual(set(firmantes._certificados_separados(c, certificados, datos)), set(firmantes.ROLES))
+        original = c.material / 'mtls/cliente.crt'
+        datos['referencias']['tecnico'] = {'certificado': str(original),
+            'certificado_sha256': hashlib.sha256(original.read_bytes()).hexdigest()}
+        with self.assertRaisesRegex(ValueError, 'fuente nominal'):
+            firmantes._certificados_separados(c, certificados, datos)
+
     def test_recibo_rechaza_huella_de_plan_y_rol_distintos(self):
         fila = {"version_rol_ref": "rol:ct_cargo_tecnico_consulta_dev:v2",
                 "version_rol_sha256": "a" * 64, "control_sha256": "b" * 64}

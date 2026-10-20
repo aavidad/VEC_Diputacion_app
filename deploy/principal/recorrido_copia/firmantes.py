@@ -74,7 +74,7 @@ def _ejecutar(c, argv, log, *, cwd=None):
     return resultado
 
 
-def _certificados_separados(c, certificados):
+def _certificados_separados(c, certificados, datos=None):
     """Ningún firmante puede ocupar el certificado reservado a tramitación."""
     manifiesto = _json(certificados / "certificados.json")
     personas = manifiesto.get("personas", [])
@@ -96,8 +96,14 @@ def _certificados_separados(c, certificados):
         actual = huella(ruta, usuario)
         _exigir(actual == persona.get("certificado_sha256") and actual not in usadas,
                 "Un certificado comparte tramitación y firma o dos perfiles de firma")
+        rol = usuario.removeprefix("rrhh_")
+        if datos is not None:
+            referencia = datos.get("referencias", {}).get(rol, {})
+            _exigir(referencia.get("certificado_sha256") == actual
+                    and referencia.get("certificado") == str(ruta),
+                    "La fuente nominal no conserva el certificado propio del firmante")
         usadas.add(actual)
-        rutas[usuario.removeprefix("rrhh_")] = str(ruta)
+        rutas[rol] = str(ruta)
     return rutas
 
 
@@ -334,7 +340,7 @@ def preparar(c):
                 and meta.get("entrada_admin") == str(c.raiz / "admin/h10/entrada-vec-admin.json"),
                 "firmantes previos de otra copia")
         _privado(meta["firmantes_datos"])
-        _certificados_separados(c, Path(meta["certificados"]))
+        _certificados_separados(c, Path(meta["certificados"]), _json(meta["firmantes_datos"]))
         _exigir(timedelta(days=60) <= _instante(meta["autoridad_hasta"]) - _ahora(c) <= timedelta(days=90),
                 "autoridad previa de firmantes ya no cubre el recorrido")
         _exigir(meta["roles_acuse_sha256"] == hashlib.sha256(_privado(meta["roles_acuse"]).read_bytes()).hexdigest()
@@ -436,6 +442,7 @@ def preparar(c):
                      inicial / "cargos-firma-fuente.json"), "firmantes-semilla-final.log")
     prep = _json(final / "preparacion.json")
     datos = _json(final / "firmantes-datos.json")
+    _certificados_separados(c, certificados, datos)
     _exigir(prep.get("roles_aut53_cotejados") is True and prep.get("certificados_cotejados") is True
             and datos["retirada_en"] == retirada and len(datos["firmantes"]) == 4,
             "semilla final sin cotejo de roles y certificados")
