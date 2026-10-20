@@ -183,6 +183,10 @@ const CLAVES_ADICIONALES = Object.freeze({
     "llamamiento_comunicaciones_respuesta_aviso_pendiente", "llamamiento_comunicaciones_respuesta_aviso_anotado",
     "llamamiento_seleccion_pendiente_aviso",
     "llamamiento_continuar_aviso",
+    // F1-125A: origen O6 acreditado y respuesta firme de Mi Bolsa en lectura.
+    "llamamiento_portal_titulo", "llamamiento_portal_origen", "llamamiento_portal_origen_ct",
+    "llamamiento_portal_emitido_en", "llamamiento_portal_respondida_en",
+    "llamamiento_portal_recibo_respuesta",
   ],
   // F1-93: textos de recibos e historial de la ficha, trasladados desde el código en lenguaje llano.
   "i18n-textos-vistas.js": ["motivo_sustitucion", "cobertura_recibo_descripcion",

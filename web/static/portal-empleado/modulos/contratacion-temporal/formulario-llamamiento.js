@@ -5,7 +5,8 @@
  * congelada (y su clave) para no duplicar el efecto.
  */
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
-import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=VEC_WEB_VERSION";
+import { renderizarLlamamiento, renderizarAceptacionPortal,
+  reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=VEC_WEB_VERSION";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=VEC_WEB_VERSION";
 import { esValidacionRespuestaPendiente, esComprobacionOfrecimientoPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js?v=VEC_WEB_VERSION";
 import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=VEC_WEB_VERSION";
@@ -30,6 +31,7 @@ import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=VE
 import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js?v=VEC_WEB_VERSION";
 import { ESTADO_SELECCION_PENDIENTE_AVISO, LIMITE_TOTAL_COMUNICACIONES, claveFilaComunicacion,
   instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js?v=VEC_WEB_VERSION";
+import { validarResultadoBolsaCT } from "./contrato-resultado-bolsa.js?v=VEC_WEB_VERSION";
 
 const OPERACION_COMUNICACION = Object.freeze({
   campos: CAMPOS_COMUNICACION, validar: validarSolicitudComunicacionLlamamiento,
@@ -156,7 +158,8 @@ export function montarFormularioLlamamiento({
     consultaRespuesta: { estado: "sin_contexto", referencias: null, recibo: null,
       controlador: null, generacion: 0, mensaje: "llamamiento_consulta_sin_contexto", tono: "informacion" },
     comunicaciones: { estado: "sin_contexto", filas: [], seleccionada: null, intentoNoConfirmado: null, controlador: null,
-      generacion: 0, mensaje: "llamamiento_comunicaciones_sin_contexto", tono: "informacion" } };
+      generacion: 0, mensaje: "llamamiento_comunicaciones_sin_contexto", tono: "informacion" },
+    origenPortal: [] };
   function ahora() {
     try { const valor = reloj(); return Number.isFinite(valor) ? valor : Date.now(); } catch { return Date.now(); }
   }
@@ -401,7 +404,10 @@ export function montarFormularioLlamamiento({
   function repintar(operacion = "") {
     if (!montado) return;
     limpiarValidacion();
-    raiz.innerHTML = renderizarLlamamiento(estado, t, fecha, ahora());
+    const soloPortal = estado.origenPortal.length > 0
+      && ["sin_contexto", "vacia"].includes(estado.comunicaciones.estado);
+    raiz.innerHTML = (soloPortal ? "" : renderizarLlamamiento(estado, t, fecha, ahora()))
+      + renderizarAceptacionPortal(estado.origenPortal, t, fecha);
     documentacion?.pintar(raiz.querySelector("[data-ct-documentacion-formalizacion]"), {
       aceptadaEn: estado.propuesta.aceptacion?.respuesta === "aceptacion" ? estado.propuesta.aceptacion.resuelta_en : "",
       expedienteRef: estado.propuesta.valores.expediente_ref,
@@ -603,11 +609,19 @@ export function montarFormularioLlamamiento({
     if (!montado || estado.seleccion.solicitud !== null
       || !referenciaLlamamientoValida(nuevo?.expediente_ref)
       || !Number.isSafeInteger(nuevo?.version_esperada) || nuevo.version_esperada < 1) return false;
+    let resultado;
+    try { resultado = nuevo.resultado_bolsa === undefined ? null : validarResultadoBolsaCT(nuevo.resultado_bolsa); }
+    catch { return false; }
     guardarBorradores();
     estado.seleccion.valores.expediente_ref = nuevo.expediente_ref;
     estado.seleccion.valores.version_esperada = nuevo.version_esperada;
     estado.numeroPersonasSolicitadas = Number.isSafeInteger(nuevo.numero_personas) && nuevo.numero_personas > 0
       ? nuevo.numero_personas : null;
+    estado.origenPortal = (resultado?.vinculos ?? []).flatMap((vinculo) => {
+      if (vinculo.participaciones.length !== 1) return [];
+      const persona = vinculo.participaciones[0];
+      return persona.origen_ct_confirmado === true ? [{ vinculo, persona }] : [];
+    });
     if (estado.numeroPersonasSolicitadas === null) estado.estadoOferta.estado = "sin_cantidad";
     else if (estado.numeroPersonasSolicitadas > 1
       && typeof cliente.consultarEstadoSeleccionOferta !== "function") estado.estadoOferta.estado = "sin_cliente";

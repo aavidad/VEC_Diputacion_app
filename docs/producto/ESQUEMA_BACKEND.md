@@ -663,6 +663,13 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
+La consulta del detalle añade `origen_ct_confirmado` a cada participación de
+Bolsa. Solo acredita una aceptación firme singular cuyo recibo y emisión
+corresponden a la selección confirmada de CT y a su versión fiscalizada
+histórica. La autorización y auditoría siguen en la lectura nominal existente;
+la marca no concede una escritura. El panel conserva el justificante original
+de Mi Bolsa; la resolución pertenece al segundo corte de F1-125.
+
 F1-19 prepara un expediente hijo por cada plaza aceptada de una oferta del
 padre fiscalizado. Bolsa verifica la aceptación y CT conserva la relación con
 padre, plaza y recibo en una operación atómica. La ruta
