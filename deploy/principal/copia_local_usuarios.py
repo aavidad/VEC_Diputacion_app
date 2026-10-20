@@ -36,6 +36,11 @@ le asigne ese rol.
 Solo se aplica cuando el material original trae los dos ficheros
 (`--rrhh-original`) y la copia ya tiene su aspirante. Con material nuevo no hay
 cuentas con esos permisos y la copia sigue sin ellos.
+
+F1-130 aporta la fuente de preferencias e imagen propias y el enlace de cada
+identidad interna posterior. La orden que publica su cuenta y perfil llama a
+vincular_cuenta_interna antes del reinicio. El enlace conserva las conexiones
+y las cuentas existentes; no sustituye la publicación ni la asignación.
 """
 from __future__ import annotations
 
