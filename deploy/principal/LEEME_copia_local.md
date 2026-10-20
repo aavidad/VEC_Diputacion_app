@@ -613,10 +613,11 @@ La orden `firma` del [apartado 11](#11-firma-compuesta-orden-firma) recibe
 un manifiesto privado de esa instancia mediante `--manifiesto-firma`.
 El manifiesto debe apuntar a sus etapas, su verificador y un puerto libre.
 Las fuentes comunes anteriores no incluyen todavía un manifiesto de siete
-etapas confirmado por P o H dentro de esas carpetas. El 20/10 P confirmó
-que usa uno propio fuera del material común. Queda pendiente que dirección
-publique la ruta común y H confirme la suya; no se presenta otra ruta como
-ensayada ni se reutilizan sus claves o recibos.
+etapas confirmado por P o H dentro de esas carpetas. El 20/10 ambos
+confirmaron que usan manifiestos propios fuera del material común; H confirmó
+que partió del kit ADMIN común indicado arriba. Queda pendiente que dirección
+publique el manifiesto común; no se presenta otra ruta como ensayada ni se
+reutilizan claves o recibos de sus copias.
 
 `copia_local_firma_generacion.py` es un borrador para generar ese manifiesto
 desde fuentes versionadas. No está conectado a `copia_local.py` y faltan las
