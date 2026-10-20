@@ -53,7 +53,7 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 ) (dependenciasConsultasRRHHDesarrollo, error) {
 	vacio := dependenciasConsultasRRHHDesarrollo{}
 	if len(lectores) == 0 || poolConsultas == nil || motivos == nil || base.cerrar == nil {
-		return vacio, ports.ErrConsultaRRHHNoDisponible
+		return vacio, registrarFalloMontajeCTDesarrollo("lectores_rrhh_dependencias", ports.ErrConsultaRRHHNoDisponible)
 	}
 	mux := nuevoMultiplexoresLectoresRRHHDesarrollo(alta.soporte.sello)
 	cierres := []func(){base.cerrar}
@@ -70,9 +70,14 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		// compuesto en base. El manifiesto liga su certificado al perfil de
 		// Alta, pero la ruta selecciona la sesión del perfil de lecturas.
 		if lectorTecnicoRRHHDesarrollo(lector) {
-			if !lectorTecnicoEsTitularAltaDesarrollo(alta, lector) || perfilFijoConsultasTecnicoCTDesarrollo(alta.soporte) == nil ||
-				!mux.registrar(lector.identidad.principal.ID, alta.soporte, base.cuadroHTTP, base.detalleHTTP, base.originalPropuestaHTTP) {
-				return vacio, ports.ErrConsultaRRHHNoDisponible
+			if !lectorTecnicoEsTitularAltaDesarrollo(alta, lector) {
+				return vacio, registrarFalloMontajeCTDesarrollo("lector_tecnico_titular_alta", ports.ErrConsultaRRHHNoDisponible)
+			}
+			if perfilFijoConsultasTecnicoCTDesarrollo(alta.soporte) == nil {
+				return vacio, registrarFalloMontajeCTDesarrollo("lector_tecnico_perfil_consultas", ports.ErrConsultaRRHHNoDisponible)
+			}
+			if !mux.registrar(lector.identidad.principal.ID, alta.soporte, base.cuadroHTTP, base.detalleHTTP, base.originalPropuestaHTTP) {
+				return vacio, registrarFalloMontajeCTDesarrollo("lector_tecnico_registrar_mux", ports.ErrConsultaRRHHNoDisponible)
 			}
 			mux.descargas[lector.identidad.principal.ID] = base.descargas
 			continue
@@ -167,9 +172,12 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 			return vacio, err
 		}
 		originalPropuesta, err := application.NuevoServicioConsultaDetalleRRHH(autoridad, emisor, sesionOriginal, reloj)
-		if err != nil || !mux.registrar(lector.identidad.principal.ID, soporte, cuadroHTTP,
+		if err != nil {
+			return vacio, registrarFalloMontajeCTDesarrollo("lector_rrhh_original_propuesta", ports.ErrConsultaRRHHNoDisponible)
+		}
+		if !mux.registrar(lector.identidad.principal.ID, soporte, cuadroHTTP,
 			consultorDetalleConDisponibilidadRRHH{lector: detalle, documentalMontado: documentalMontado}, originalPropuesta) {
-			return vacio, ports.ErrConsultaRRHHNoDisponible
+			return vacio, registrarFalloMontajeCTDesarrollo("lector_rrhh_registrar_mux", ports.ErrConsultaRRHHNoDisponible)
 		}
 		mux.descargas[lector.identidad.principal.ID] = descarga
 	}
