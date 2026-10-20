@@ -281,6 +281,20 @@ class PersonalLocal(unittest.TestCase):
         self.assertEqual(self.copia.entorno_modulos(), anterior)
         self.assertFalse((carpeta / 'preparada.json').exists())
 
+    def test_dos_fallos_restauran_configuracion_posterior_al_primero(self):
+        carpeta = self.raiz / 'personal'
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.ejecutar(fallar_productor=True)
+        self.assertFalse((carpeta / 'preparacion.json').exists())
+        posterior = {**self.copia.entorno_modulos(),
+                     'VEC_OTRO_MODULO': 'configuracion_posterior'}
+        guardar(self.raiz / 'entorno_modulos.json', posterior)
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.ejecutar(fallar_productor=True)
+        self.assertEqual(self.copia.entorno_modulos(), posterior)
+        self.assertFalse((carpeta / 'preparada.json').exists())
+        self.assertFalse((carpeta / 'preparacion.json').exists())
+
     def test_http_503_de_personal_recupera_entorno_y_no_marca_exito(self):
         anterior = self.copia.entorno_modulos()
         with self.assertRaisesRegex(ValueError, 'HTTP 503'):

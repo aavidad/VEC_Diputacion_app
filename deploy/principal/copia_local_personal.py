@@ -212,10 +212,14 @@ def preparar(copia, origen, *, repo, go, entorno_go, guardar):
         copia.arrancar()
         comprobar_personal(copia)
         guardar(marca, {'origen_sha256': firma, 'servidor_sha256': _sha256(salida / 'servidor.json')})
+        recuperacion.unlink(missing_ok=True)
     except Exception:
         # El fallo conserva los recibos/material para conciliar; recupera el
         # arranque anterior. Nunca convierte un fallo de preparación en éxito.
         copia.parar()
         guardar_entorno(copia, anterior, guardar)
         copia.arrancar()
+        # Una vuelta atrás terminada deja de ser una preparación interrumpida.
+        # El próximo intento debe capturar la configuración sana que haya entonces.
+        recuperacion.unlink(missing_ok=True)
         raise
