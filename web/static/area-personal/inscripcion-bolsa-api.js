@@ -108,7 +108,8 @@ function validar(tipo, entrada) {
         || datos.convocatoria.requisitos.length > 32 || datos.convocatoria.requisitos.some((r) =>
           !objeto(r) || !cadena(r.codigo, 100) || !cadena(r.descripcion, 2000)
           || typeof r.obligatorio !== "boolean" || !ESTADOS_REQUISITO.has(r.estado)
-          || !cadena(r.motivo_codigo, 100) || !cadena(r.motivo_etiqueta, 500)
+          || !(cadena(r.motivo_codigo, 100) || (r.estado === "cumple" && r.motivo_codigo === ""))
+          || !cadena(r.motivo_etiqueta, 500)
           || (r.procedencia_ref !== undefined && r.procedencia_ref !== null && !referencia(r.procedencia_ref))
           || (r.hito_cumplimiento !== undefined && r.hito_cumplimiento !== null && !cadena(r.hito_cumplimiento, 100))
           || (r.hito_etiqueta !== undefined && r.hito_etiqueta !== null && !cadena(r.hito_etiqueta, 200))

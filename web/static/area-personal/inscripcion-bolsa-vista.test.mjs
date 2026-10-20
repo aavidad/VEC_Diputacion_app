@@ -55,6 +55,7 @@ test("lista vacía, plazo, revisión, reintento con la misma clave y recibo recu
   assert.match(contenedor.innerHTML, /Auxiliar administrativo/u);
   assert.match(contenedor.innerHTML, /Título exigido/u);
   pulsar("revisar"); assert.match(contenedor.innerHTML, /Revise su solicitud/u);
+  assert.match(contenedor.innerHTML, /ningún requisito pendiente/u);
   assert.doesNotMatch(contenedor.innerHTML, /data-inscripcion-requisito=/u, "la revisión sólo muestra el resumen");
   contenedor.handlers.change({ target: { matches: () => false, closest: () => ({
     dataset: { inscripcionRequisito: "titulo" }, checked: true,
@@ -404,4 +405,24 @@ test("la modalidad conjunta se explica antes del formulario y nunca envía una s
     assert.equal(envios, 0);
     montaje.destruir();
   }
+});
+
+test("la revisión lista el requisito ya comprobado y no avisa de requisitos sin marcar", async () => {
+  const { contenedor, ventana, pulsar } = entorno();
+  const cliente = {
+    abiertas: async () => ({ convocatorias: [resumen], total: 1, cursor_siguiente: null }),
+    convocatoria: async () => ({ convocatoria: { ...bolsa, requisitos: [{ codigo: "identidad", descripcion: "Identidad acreditada",
+      obligatorio: true, estado: "cumple", motivo_codigo: "", motivo_etiqueta: "Acreditado" }] } }),
+    propias: async () => ({ solicitudes: [], cursor_siguiente: null }),
+    detallePropio: async () => { throw new Error("no debe abrir detalle"); },
+    inscribir: async () => { throw new Error("no debe presentar"); },
+  };
+  const montaje = montarInscripcionBolsa({ contenedor, ventana, cliente, idioma: "es", textoBase: () => "Cargando" });
+  await pausa();
+  pulsar("bolsa", bolsa.convocatoria_ref); await pausa();
+  pulsar("revisar");
+  assert.match(contenedor.innerHTML, /Requisitos:/u);
+  assert.match(contenedor.innerHTML, /Identidad acreditada · Cumple \(comprobado\)/u);
+  assert.doesNotMatch(contenedor.innerHTML, /ningún requisito/u);
+  montaje.destruir();
 });
