@@ -25,6 +25,36 @@ def activar(copia, repo):
     with (copia.raiz / 'compilacion-oh.log').open('ab') as log:
         ejecutar([go, 'build', '-p', '6', '-o', copia.raiz / 'vec-preparar-material-interno',
                   './cmd/vec-preparar-material-interno'], cwd=repo, salida=log, entorno=entorno)
+    archivo = copia.raiz / 'entorno_modulos.json'
+    anterior = oh._json_privado(archivo)
+    if sha256(archivo) != estado['entorno_modulos_sha256']:
+        raise ValueError('El entorno de módulos cambió antes de activar OH')
+    oh._escribir(copia.raiz / 'organizacion-historica-entorno-anterior.json',
+                 json.dumps(anterior) + '\n')
+    try:
+        _montar(copia, repo, guardar)
+        copia.comprobar()
+    except Exception:
+        # Los actos y datos confirmados se conservan para conciliarlos; solo
+        # se restaura el entorno, nunca se borra historia ni se repite el acto.
+        try:
+            copia.parar()
+            guardar(archivo, anterior)
+            estado_actual = copia.leer()
+            estado_actual['entorno_modulos_sha256'] = sha256(archivo)
+            estado_actual['organizacion_historica_activacion'] = 'interrumpida'
+            guardar(copia.estado, estado_actual)
+            copia.arrancar()
+            copia.comprobar()
+        except Exception as recuperacion:
+            raise RuntimeError('No se pudo restaurar el arranque anterior; concilie la copia y su registro') from recuperacion
+        raise
+    print(json.dumps({'consulta_activada': True, 'rol_publicado_por_administracion': oh.ROL_REF,
+                      'asignacion': 'dato_ficticio_de_copia',
+                      'material_sha256': sha256(copia.raiz / oh.DIRECTORIO / 'material/organizacion_historica_v3.json')}))
+
+
+def _montar(copia, repo, guardar):
     # sembrar coteja el acto de los dos administradores antes de cualquier
     # dato de identidad o asignación; nunca publica un rol ni su control.
     huella = oh.sembrar(copia, repo)
@@ -42,7 +72,3 @@ def activar(copia, repo):
     oh.preparar_material(copia, copia.raiz / 'vec-preparar-material-interno')
     copia.parar()
     copia.arrancar()
-    copia.comprobar()
-    print(json.dumps({'consulta_activada': True, 'rol_publicado_por_administracion': oh.ROL_REF,
-                      'asignacion': 'dato_ficticio_de_copia',
-                      'material_sha256': sha256(copia.raiz / oh.DIRECTORIO / 'material/organizacion_historica_v3.json')}))
