@@ -131,9 +131,12 @@ func TestCatalogoBolsaV7SeCargaYValidaSinMarcaDeEjemplo(t *testing.T) {
 	}
 }
 
-// v7 cuenta el plazo de la oferta desde su publicación (art. 8.1.b): la
-// calculadora de ofertas pide a Calendarios el plazo con la fecha de
-// publicación como inicio y con la cantidad, unidad y artículo del catálogo.
+// v7 declara que el plazo de la oferta se cuenta desde su publicación
+// (art. 8.1.b). Esta prueba cubre la calculadora que usa b10 cuando la
+// política de ofertas por bolsa está apagada: el inicio que recibe llega
+// tal cual a Calendarios con la cantidad, unidad y artículo del catálogo.
+// Con la política encendida (copia local) decide la política de cada bolsa,
+// que la web propone desde b10 (TestReglasVigentesV7ProponenElInicioPorPublicacion).
 func TestOfertasV7CuentanElPlazoDesdeLaPublicacion(t *testing.T) {
 	b10 := leerCatalogoBolsaV7(t).atributos(t, reglas.BolsaPlazoPublicacion)
 	if b10["inicio"] != "publicacion" {
@@ -237,6 +240,10 @@ func TestAvisosEIntentosV7SonLosDelCatalogo(t *testing.T) {
 	b02 := catalogo.atributos(t, reglas.BolsaIntentosContacto)
 	separacion := catalogo.atributos(t, reglas.BolsaSeparacionIntentos)
 	b03 := catalogo.atributos(t, reglas.BolsaProcesosSinContacto)
+	b04 := catalogo.atributos(t, reglas.BolsaFranjaLlamadas)
+	if intentos.Franja.Texto != b04["valor"] || intentos.Franja.HastaMinuto <= intentos.Franja.DesdeMinuto {
+		t.Fatalf("franja de llamadas: %+v", intentos.Franja)
+	}
 	if separacion["unidad"] != "horas" {
 		t.Fatalf("b02 separación cambió de unidad: %q", separacion["unidad"])
 	}
