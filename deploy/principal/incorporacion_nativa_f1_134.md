@@ -39,8 +39,10 @@ no sustituyen el expediente nuevo firmado y fiscalizado del caso 4.0.
 
 CT255 requiere CT249 y CT253. La composición de ensayo `9bd4428a1` conserva
 primero la lista de main `24a96efad`, seguida de CT250, CT249, CT253 y CT255;
-no incluye CT256. La rama pequeña debe incorporar la fila de la lista única
-cuando se integren sus dependencias.
+no incluye CT256. La fila de CT255 se mantiene al final de la lista única:
+este corte se integra después de CT249/CT253; la candidata D la conserva
+también después de CT256. La focal se añade al registro existente sin
+sustituir las de esas dependencias.
 No reaplicar migraciones ni presentar como activación los datos preparados
 directamente en una copia. No crear por SQL la incorporación, relación,
 ocupación, cese o cierre que deben registrar las pantallas.

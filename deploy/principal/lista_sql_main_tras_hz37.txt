@@ -231,3 +231,6 @@ deploy/postgresql/contratacion_temporal/migraciones/000248_comunicaciones_carrer
 
 # Tarea F1-107: referencias de la consulta de Personal en el recibo del llamamiento
 deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_procedencia_seleccion.up.sql 8c59362e3cb797b73401d420fab7136f8f91a7774301553f68e4a3ca987b2727
+
+# F1-134 — CT255: integrar después de CT249/CT253; D la aplica también después de CT256.
+deploy/postgresql/contratacion_temporal/migraciones/000255_antecedente_b2_respuesta_portal.up.sql f13aea2d7c914de14981ba47e0bb72da020ae677cb9bac78e27e5848f5922b0e
