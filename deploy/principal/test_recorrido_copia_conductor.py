@@ -37,12 +37,13 @@ class ConductorTest(unittest.TestCase):
         with patch.dict(sys.modules, modulos), patch.multiple(paquete, create=True, **atributos), \
              patch.object(conductor, 'Contexto') as contexto, \
              patch.object(conductor, '_parametros', return_value={}), \
+             patch.object(conductor, '_organizacion', side_effect=lambda c: eventos.append('organizacion_historica')), \
              patch.object(conductor, 'provisionar_perfiles') as provisionar:
             copia = Mock(nombre='vec-copia-l-contrato')
             contexto.return_value.carpeta = Path('/tmp/recorrido')
             with self.assertRaisesRegex(ValueError, 'incierta'):
                 conductor.preparar(copia, argparse.Namespace(puerto_verificador=19881, config_personal=None))
-            self.assertEqual(eventos, ['catalogo', 'roles_admin', 'certificados_base', 'firmantes', 'montajes_firma', 'actos'])
+            self.assertEqual(eventos, ['catalogo', 'roles_admin', 'organizacion_historica', 'certificados_base', 'firmantes', 'montajes_firma', 'actos'])
             copia.firma.assert_not_called()
             provisionar.assert_not_called()
 
