@@ -154,3 +154,20 @@ fiscalización.
 La consulta de comunicaciones devolvió 503 en la primera recuperación tras
 este reinicio; permanece anotada para el registro de errores de F1-33.
 No se declara superado el paso 9 ni el recorrido completo.
+
+## Calidad y conservación
+
+`scripts/verificar_calidad.sh` terminó con código 0, incluidas las pruebas
+Go normales y con `-race`, las pruebas web y las demás comprobaciones. Se
+limitó la ejecución local a dos procesos Go. Entre `92840c170` y `880300c3b`
+solo cambió esta hoja; el código comprobado no varió.
+
+E quedó parada con el gestor público, con sus datos y recibos conservados.
+También se cerraron Chrome y la pantalla virtual de firma. La carpeta fuente
+limpia y subida se retiró para liberar memoria; el estado privado conserva
+la orden de restituirla en la misma ruta antes de recuperar la instancia.
+
+Por decisión posterior de dirección, la siguiente copia usará a Yago Lozano
+Hidalgo, primera persona del XLS ficticio versionado, con referencias nativas
+y certificado propio. Esta hoja conserva los hechos de E y su persona
+original. El nuevo caso requiere su propio recorrido y sus recibos.
