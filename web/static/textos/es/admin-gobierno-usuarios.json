@@ -1,10 +1,10 @@
 {
   "idioma": "es",
   "mensajes": {
-    "limite": "Este comando prepara, aplica y verifica las claves de Administración: las dos de gestión de usuarios; con el conjunto 1 o superior, también la del cambio de perfiles por lote; con el 2 o superior, además, la del gobierno del plan de firma; con el 3 o superior, la de publicación de cargos de Personal; con el 4 o el 5, la de certificados de firmante, y con el 5, las dos de nuevas versiones del rol de Bolsa. El LOGIN técnico y la configuración aprobada los crea el DBA. El recibo solo vale después de COMMIT.",
-    "uso_invalido": "Indique la fase (preparar, aplicar, verificar o version-bolsa), la configuración privada, el catálogo de textos y un tiempo máximo positivo. El acuse solo se indica al aplicar y en version-bolsa, donde es el acuse ya guardado al aplicar.",
+    "limite": "Prepara, aplica y verifica las claves del conjunto de Administración indicado. El conjunto 7 añade la propuesta y el cierre de roles nuevos; los anteriores conservan sus funciones. El operador técnico necesita una configuración aprobada. El recibo solo acredita la publicación cuando la base confirma la operación.",
+    "uso_invalido": "Indique la fase (preparar, aplicar, verificar, version-bolsa, version-bolsa-externa o gobierno-roles), la configuración privada, el catálogo de textos y el tiempo máximo. Para exportar una configuración, indique el acuse guardado al aplicar.",
     "configuracion_insegura": "No se puede leer la configuración privada. Debe ser un archivo propio con permisos 0600, en una carpeta propia 0700 fuera del repositorio.",
-    "configuracion_invalida": "La configuración privada no cumple el formato o le faltan datos para esta fase. Revise los campos, las rutas absolutas, las conexiones y las horas de validez (de 1 a 24).",
+    "configuracion_invalida": "La configuración privada no cumple el formato o le faltan datos para esta fase. Revise los campos, las rutas absolutas, las conexiones y la vigencia admitida en este entorno.",
     "salida_insegura": "La carpeta de salida no es segura. Use una carpeta propia con permisos 0700 fuera del repositorio.",
     "acuse_inseguro": "El acuse debe ser un nombre de archivo nuevo, sin carpetas, dentro de la carpeta de salida.",
     "preparacion_lista": "Preparación terminada. Entregue al DBA las huellas de aprobacion-candidata.json para que cree la configuración aprobada antes de aplicar.",
@@ -19,6 +19,8 @@
     "cadena_rechazada": "La cadena de auditoría no coincide al recalcularla. Consulte el informe en la carpeta de salida.",
     "verificacion_no_disponible": "No se ha podido leer la cadena de auditoría o guardar el informe.",
     "version_bolsa_escrita": "Se ha escrito version-bolsa.json en la carpeta de salida, con sus dos claves en ficheros propios. Reinicie vec-admin con ese fichero para usar las claves del día.",
-    "version_bolsa_fallida": "No se ha podido escribir version-bolsa.json. Compruebe que el conjunto es el 5, que el acuse indicado es el de aplicar con estado permitido y que la carpeta no tiene ya esos ficheros. Si quedaron ficheros de clave sin version-bolsa.json, no use esa carpeta para vec-admin."
+    "version_bolsa_fallida": "No se ha podido escribir version-bolsa.json. Compruebe que el conjunto es el 5, que el acuse indicado es el de aplicar con estado permitido y que la carpeta no tiene ya esos ficheros. Si quedaron ficheros de clave sin version-bolsa.json, no use esa carpeta para vec-admin.",
+    "gobierno_roles_escrito": "Se ha guardado la configuración de publicación de roles con sus dos claves en archivos privados propios. Reinicie Administración con esa configuración.",
+    "gobierno_roles_fallido": "No se pudo preparar la configuración de publicación de roles. Compruebe que usa el conjunto 7, el acuse confirmado de la misma operación y una carpeta sin archivos de esta exportación."
   }
 }

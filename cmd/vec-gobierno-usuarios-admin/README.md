@@ -205,3 +205,36 @@ rutas, errores SQL ni secretos. Sin catálogo válido solo emite
 
 Ante un 2, mire `confirmado` y `acuse_guardado` y repita aplicar con otro
 acuse.
+
+
+## Publicación de roles nuevos (conjunto 7, F1-106)
+
+El conjunto 7 conserva las diez capacidades del conjunto 6 y añade
+`vec_autorizacion.gobierno_rol_nuevo.propuesta.v1` y
+`vec_autorizacion.gobierno_rol_nuevo.cierre.v1`. Requiere AD304. Las fases
+preparar, aplicar y verificar mantienen sus planes, aprobaciones y recibos;
+la configuración privada usa `conjunto_capacidades: 7`.
+
+Tras confirmar la publicación de las claves, la fase `gobierno-roles`
+exporta `gobierno-roles.json` con sus dos materiales privados propios.
+El bloque `gobierno_roles` de la configuración lleva `pool_gobierno`,
+`pool_catalogo` y los motivos de esas dos audiencias, con el mismo formato
+que `version_bolsa`. Los pools corresponden a los grupos existentes
+`vec_admin_gobierno_roles_ejecutor` y `vec_admin_catalogo_acciones_lector`;
+son distintos de los usados por otros montajes.
+
+```sh
+vec-gobierno-usuarios-admin -fase gobierno-roles -config /ruta/privada/config.json \
+  -textos /ruta/catalogo/admin-gobierno-usuarios.json -timeout 30s \
+  -acuse acuse-aplicar.json
+```
+
+La exportación coteja el recibo con el mismo plan y material confirmados;
+no publica claves ni sobrescribe archivos anteriores. Con Administración
+parada, configurar `VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE` con ese archivo y
+reiniciar, conservando el entorno anterior para volver atrás.
+
+Un administrador propone el rol nuevo desde una entrada publicada del
+catálogo AUT58 y otro administrador aprueba su referencia y huella por
+AUT60. La asignación del perfil a personas requiere su propio acto.
+Activación y comprobación: `deploy/principal/admin7_roles_nuevos_f1_106_20261020.md`.

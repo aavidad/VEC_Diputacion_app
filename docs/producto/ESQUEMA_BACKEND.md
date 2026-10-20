@@ -344,6 +344,13 @@ petición y los ámbitos de la política vigente; no presupone campos ajenos al
 canon de decisión. La recuperación exige el mismo perfil que el enlace del
 acto original. Activación: `deploy/principal/f1_95_publicacion_bases_web/`.
 
+AD304 (F1-106) añade solo la fila 7 a
+`conjunto_audiencias_capacidad_admin_v1`: conserva el conjunto 6 y suma las
+dos audiencias ya admitidas de propuesta y cierre de roles nuevos. Las claves
+se publican mediante el gobierno técnico existente y AUT60 conserva el acto
+de dos personas, sus decisiones, auditoría y recibo. No se reconstruye la
+función central ni se alteran los conjuntos anteriores.
+
 ### 7.2 Auditoría encadenada y sellada
 
 - **Cadena común** en `vec_autorizacion_atestada_v3` (AD207, sellado diferido):

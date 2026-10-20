@@ -1226,6 +1226,14 @@ Tras una respuesta incierta, «Comprobar la misma publicación» conserva el cue
 
 ### 4.4 Administración
 
+F1-106 incorpora el conjunto 7 de capacidades para publicar roles nuevos con
+el gobierno existente: una persona administradora propone un rol desde una
+entrada admitida del catálogo y otra aprueba esa propuesta. Se conserva el
+recibo del cierre al recuperar la misma operación y tras reiniciar. La
+activación requiere publicar las dos claves y montar la configuración de
+roles; la asignación a personas es un acto posterior. Guía:
+`deploy/principal/admin7_roles_nuevos_f1_106_20261020.md`.
+
 | Tarea | Cómo se hace hoy | Estado |
 | --- | --- | --- |
 | Ver personas y su ficha | `/admin/usuarios/`, lista y ficha | En cidonia |
