@@ -32,7 +32,7 @@ Para preparar un nombramiento desde el principio, crear una copia con
 `--modulos --rrhh-original --administracion`. Seguir el
 [procedimiento de Organización histórica](organizacion_historica_f1_106_20261020.md)
 y el orden de fuentes y firma del
-[apartado 6 de la fábrica](LEEME_copia_local.md#6-montar-bolsa-y-contratación-temporal).
+[apartado 6 de la fábrica](LEEME_copia_local.md#6-organización-histórica-y-lectura-de-personal-en-el-servidor-combinado).
 La copia con solo `--modulos` arranca, pero no compone esa consulta ni permite
 emitir el llamamiento nativo. Los expedientes históricos sin necesidad RPT
 no sustituyen el expediente nuevo firmado y fiscalizado del caso 4.0.
