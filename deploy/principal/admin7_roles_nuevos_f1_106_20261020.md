@@ -54,3 +54,8 @@ El exportador rechaza un conjunto anterior sin esas dos audiencias, un acuse
 no confirmado o ajeno al material y un destino ya ocupado. La prueba focal
 comprueba esos límites del material y la conservación del conjunto 6. No se
 usa una semilla de rol para acreditar el acto de dos administradores.
+
+El cierre por referencia normaliza a UTC la fecha recibida de PostgreSQL antes
+de validar y confirmar la respuesta. Conserva el rechazo de fechas futuras y
+el cotejo de los tiempos del rol y su control; una respuesta incompatible
+revierte toda la transacción. La regresión usa el formato `+00:00` de jsonb.
