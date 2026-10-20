@@ -1,5 +1,11 @@
 # Publicar los permisos de inscripción
 
+> Desde F1-101 el aspirante se publica con la fuente v2
+> (`deploy/principal/fuentes/inscripcion_bolsa_actos_v2.json`), que añade la
+> modalidad y las solicitudes propias a la lista y la ficha de convocatorias.
+> Guía: `deploy/principal/candidata_hz39/aspirante/inscripcion_fuente_v2.md`.
+> El orden de las cinco selecciones no cambia.
+
 La inscripción amplía dos roles existentes con las ocho entradas de
 `inscripcion_bolsa_actos_v1.json`. Cada propuesta conserva las concesiones y
 asignaciones anteriores, y liga las preimágenes actuales. Dos personas ADMIN
