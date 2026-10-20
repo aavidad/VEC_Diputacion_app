@@ -4,6 +4,7 @@ import io
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -12,6 +13,19 @@ import tramitar as cliente
 
 
 class TramitarTest(unittest.TestCase):
+    def test_certificados_del_centro_generados_por_fabrica(self):
+        with tempfile.TemporaryDirectory() as directory:
+            material = Path(directory)
+            (material / "mtls").mkdir()
+            for actor, name in (("centro-solicitante", "solicitante"),
+                                ("centro-ratificador", "ratificador")):
+                cert = material / "mtls" / (name + ".crt")
+                key = material / "mtls" / (name + ".key")
+                cert.write_bytes(b"certificado-ficticio")
+                key.write_bytes(b"clave-ficticia")
+                self.assertEqual(cliente.mTLS(SimpleNamespace(material=material), actor),
+                                 (cert, key))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
