@@ -1,7 +1,7 @@
 # Fichas de la base B1–B5 — 25 de septiembre de 2026
 
 Denominador de los cinco frentes de base de la hoja de ruta aprobada el 24/09/2026
-(`/home/alberto/.codex-vec-modulos/CONSENSO_HOJA_RUTA_MODULOS_20260924.md`, «Plan
+(`/ruta/privada/CONSENSO_HOJA_RUTA_MODULOS_20260924.md`, «Plan
 consensuado», punto 1): B1 identidad/persona/composición, B2 empleado y relaciones,
 B3 organización, B4 calendarios y B5 documentos (con firma, registro, notificación y
 archivo como capacidades comunes, sin nueva autoridad universal: ronda 2, punto 9).

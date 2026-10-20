@@ -78,7 +78,7 @@ Ejecutado en la rama de preparación sobre la base `460e120c2`:
 go test -p 32 ./internal/modules/dietas/application/simulaciondevengo ./cmd/vec-dietas
 go test -race -p 32 ./internal/modules/dietas/application/simulaciondevengo ./cmd/vec-dietas
 go vet ./internal/modules/dietas/application/simulaciondevengo ./cmd/vec-dietas
-/home/alberto/go/bin/gosec -quiet ./internal/modules/dietas/application/simulaciondevengo ./cmd/vec-dietas
+/ruta/privada/gosec -quiet ./internal/modules/dietas/application/simulaciondevengo ./cmd/vec-dietas
 ```
 
 Las cuatro comprobaciones terminaron con código 0. También se ejecutó el comando
