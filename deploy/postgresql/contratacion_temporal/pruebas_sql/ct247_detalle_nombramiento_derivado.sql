@@ -110,7 +110,7 @@ BEGIN
 END $planes$;
 
 -- Tras crear el hijo mediante el POST real, repetir esta focal con
--- -v ct247_hijo_ref=<referencia del recibo>. Sin ese dato, la parte anterior
+-- -v ct247_hijo_ref=<referencia del hijo>. Sin ese dato, la parte anterior
 -- comprueba el canon y los planes; no atribuye autoridad a una fila ficticia.
 \if :{?ct247_hijo_ref}
 SELECT pg_catalog.set_config('vec.ct247_hijo_ref', :'ct247_hijo_ref', true);
@@ -194,5 +194,7 @@ BEGIN
   END IF;
  END LOOP;
 END $ambitos_reales$;
+\else
+\echo CT247: canon y planes comprobados; ámbitos positivos pendientes de un hijo creado por el POST real.
 \endif
 ROLLBACK;
