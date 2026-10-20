@@ -204,5 +204,7 @@ deploy/postgresql/autorizacion/migraciones/000105_fuente_inscripcion_v2.up.sql 1
 deploy/postgresql/contratacion_temporal/migraciones/000243_grupo_retencion_detalle_rrhh.up.sql d6d9624fa1157378b49c76e70bbcf65acd1ead47000bd7be8c8b669a0973dd20
 # F1-98 — CT244: el análisis compara también la fecha civil de la RC declarada por el centro; tras CT242.
 deploy/postgresql/contratacion_temporal/migraciones/000244_fecha_rc_declarada_analisis.up.sql 943e5009eefb8b329d6b871dabdced664c6a175ff5f0b0486ffa6b49b4e3d13f
+# F1-95 — BC15: fachada web de la declaración de publicación oficial (RRHH), tras BC14; deniega (55000) hasta que el núcleo tenga consumir_publicacion_oficial_bases_v1.
+deploy/postgresql/bolsa_convocatorias/migraciones/000015_declaracion_publicacion_oficial_rrhh.up.sql 3418e4c1aebc1c0e5568c67846d460c75e8a5adc15eaf2865b1c684e6b2fb7a8
 # F1-110 — B147: la emisión general de llamamientos de Bolsa exige orden estricto entre los disponibles (regla b01); salto solo con motivo b01.salto.* del catálogo de reglas. Reconstruye reservar_llamamiento_v1 (preimagen B25) como delegación en v2.
 deploy/postgresql/bolsa_llamamientos/migraciones/000147_orden_estricto_llamamiento.up.sql 2f53a9aee0aa4b4e0a5b0dd9c5ab2b3877355e266565b1b688146e7cd7485e95

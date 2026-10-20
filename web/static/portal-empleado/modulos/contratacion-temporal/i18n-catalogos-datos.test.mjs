@@ -145,7 +145,10 @@ const CLAVES_RESULTADO_BOLSA_FICHA = Object.freeze([
 ]);
 // Las claves añadidas se comprueban aparte sin reescribir la preimagen anterior.
 const CLAVES_ADICIONALES = Object.freeze({
-  "i18n-cancelacion.js": ["error_seleccion_oferta_pendiente"],
+  "i18n-cancelacion.js": ["error_seleccion_oferta_pendiente",
+    // F1-102: motivos en el idioma elegido y el expediente por su número en el diálogo.
+    "confirmar_referencia", "motivo_necesidad_desaparecida", "motivo_desistimiento_centro",
+    "motivo_cobertura_otra_via", "motivo_error_solicitud", "motivo_solicitud_duplicada", "motivo_falta_credito"],
   // F1-96: nombres de los documentos generados en el idioma elegido.
   "i18n-borradores-publicados.js": ["bp_documento_informe_definitivo", "bp_documento_resolucion",
     "bp_documento_diligencia", "bp_documento_toma_posesion", "bp_documento_notificacion",
@@ -190,7 +193,10 @@ const CLAVES_ADICIONALES = Object.freeze({
     // F1-93: la cabecera nombra el paso dentro de la fase.
     "ficha_fase_con_subfase",
     // F1-96: el paso propio de la ficha tras asignar la unidad.
-    "ficha_siguiente_paso_preparar_informe_titulo", "ficha_siguiente_paso_preparar_informe_que"],
+    "ficha_siguiente_paso_preparar_informe_titulo", "ficha_siguiente_paso_preparar_informe_que",
+    // F1-102: la ficha cancelada lo dice y el historial nombra la propuesta y la resolución.
+    "ficha_siguiente_paso_cancelado", "ficha_siguiente_paso_cancelado_que",
+    "hito_propuesta_formalizacion", "hito_resolucion_formalizacion"],
 });
 const huella = (valor) => createHash("sha256").update(JSON.stringify(valor)).digest("hex");
 const codigos = (await cargarTextos("contratacion-temporal-compatibilidad")).seccion("idiomas_exportados");
