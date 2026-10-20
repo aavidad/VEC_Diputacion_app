@@ -301,7 +301,7 @@ func TestIncorporacionB2PuraDetalleYTresFronterasNominales(t *testing.T) {
 		t.Fatal(err)
 	}
 	d, ok := catalogo.resolver(http.MethodPost, httpct.RutaConsultaDetalleRRHH)
-	if !ok || !esDescriptorDetalleContratacionTemporalDesarrollo(d, vinculo.PerfilActivoRef) || len(d.PerfilesActivosRef) != 2+len(gruposPerfilesIncorporacionB2()) {
+	if !ok || !esDescriptorDetalleContratacionTemporalDesarrollo(d, soporte) || len(d.PerfilesActivosRef) != 2+len(gruposPerfilesIncorporacionB2()) {
 		t.Fatal("detalle B2 puro carece de frontera nominal exacta")
 	}
 	for _, perfil := range nominales.todos() {

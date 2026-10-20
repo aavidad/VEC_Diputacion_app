@@ -358,7 +358,7 @@ func cargarIncorporacionB2Pura(cfg config.Config, c archivoIncorporacionV2, raiz
 		return vacia, nil, e
 	}
 	descriptor, ok := fronteras.resolver(http.MethodPost, httpct.RutaConsultaDetalleRRHH)
-	if !ok || !esDescriptorDetalleContratacionTemporalDesarrollo(descriptor, alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef) {
+	if !ok || !esDescriptorDetalleContratacionTemporalDesarrollo(descriptor, alta.soporte) {
 		return vacia, nil, ct.ErrComposicionIncorporacionAplicacion
 	}
 	for _, p := range nominales.todos() {
