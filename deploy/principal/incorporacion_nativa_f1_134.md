@@ -72,6 +72,17 @@ Su ensayo aplicó 142 migraciones al esquema real vacío y pasó 26 pruebas SQL
 antes y después de reiniciar PostgreSQL, más dos pruebas de concurrencia.
 La focal de CT255 comprobó el contrato privado y la denegación del acceso
 directo del ejecutor. Este ensayo no acredita los actos del recorrido.
+
+La composición de fábrica `398499113`, con las etapas F1-131 de `80eb0c03`
+todavía pendientes de integración, confirmó catorce actos administrativos,
+el plan y cuatro admisiones en una instancia nueva. La preparación terminó
+con 503 en `incorporacion-personal-b2/categorias-rpt/v1`. Se conservaron el
+material y PostgreSQL en archivos fríos propios; la instancia fue retirada.
+El diagnóstico por lectura identifica una incompatibilidad entre el perfil
+fijo de lectura y el perfil que exige la composición de incorporación.
+La corrección de ese contrato es un requisito para continuar el recorrido;
+no se deben repetir los actos ni modificar datos para sortear el rechazo.
+
 Faltan el recorrido HTTP y en Chrome, el reinicio con sus datos, las dos
 revisiones independientes y la integración de las dependencias.
 No hay todavía una prueba positiva de alta o cese sobre el nombramiento nativo.
