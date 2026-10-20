@@ -73,6 +73,8 @@ class CentrosTest(unittest.TestCase):
         self.assertEqual(resultado["perfiles_estado"], "pendientes_del_siguiente_arranque")
         self.assertNotEqual(resultado["perfiles"][0]["subject"], "desarrollo:rrhh:distinto")
         self.assertEqual(resultado["entorno"]["VEC_PERSONAL_ORGANIZACION_VERSION"], "8")
+        self.assertEqual(resultado["entorno"]["VEC_CT_NECESIDADES_ALTA_SOURCE_PATH"],
+                         str(self.repo / 'internal/modules/contrataciontemporal/adapters/catalogoalta/necesidades_v1.ejemplo.json'))
 
     def test_sin_dos_puestos_del_centro_no_crea_certificados(self):
         self.catalogo["positions"].pop()
