@@ -1,8 +1,8 @@
 # F1-126: descarga denegada con constancia del intento
 
-Estado: corrección implementada y regresiones focales verdes. El ensayo
-en una copia nueva y las dos revisiones finales siguen pendientes.
-Encargo de dirección del 20 de octubre, a las 12:13.
+La corrección mantiene denegada la descarga cuando el cargo no tiene paso
+para el documento y registra el intento antes de responder. Adjuntar a la
+entrega las evidencias del ensayo y la revisión del binario utilizado.
 
 ## Fallo reproducido
 
@@ -57,3 +57,54 @@ oficial excluye los archivos de pruebas. Los informes completos son privados.
 CONFIG NUEVA: ninguna. SQL NUEVA: ninguna. La copia de aceptación debe usar
 su propia revisión, materiales y firmas reales; no se alterará la revisión
 registrada de la copia anterior para arrancar otro binario.
+
+## Activación y comprobación en la copia propia
+
+Se reutilizan el [guion de copia local](LEEME_copia_local.md), la
+[activación de cargos de firma](firma_por_cargos_f1_58_20261020.md), la
+[semilla de firmantes](candidata_hz39/firma/semilla_firmantes/LEEME.md) y el
+[preparador del plan](../../cmd/vec-plan-firma-validar/README.md). Cada copia
+genera sus conexiones, certificados, cargos, publicaciones y recibos. Los
+archivos de otra copia no sirven como prueba de esta corrección.
+
+1. Crear la copia con la lista SQL completa de su revisión y conservar el
+   arranque sin configuración de firma. Comprobar que se abren el portal y
+   la ficha de Contratación temporal.
+2. Activar los dos administradores y publicar los cargos con los medios
+   existentes. La fuente inicial tiene dieciséis roles; los cuatro de firma
+   incluyen consulta, firma y recuperación. La semilla procede del generador
+   versionado, sin modificarlo; las operaciones de esos cuatro cargos se
+   ajustan como datos de la fuente antes de publicarla.
+3. Publicar las cuatro versiones de consulta que conservan cuadro y descarga
+   y conceden los selectores de firmas. Suceder solo esas cuatro asignaciones,
+   conservando personas y ámbitos. Las asignaciones ficticias se declaran como
+   tales; no representan actos de asignación de un administrador.
+4. Publicar cinco cargos, cinco enlaces y cuatro admisiones de certificado,
+   la correspondencia organizativa y el plan de cinco pasos mediante sus
+   operaciones existentes. Conservar los recibos originales de cada acto.
+   Limitar la autoridad de desarrollo a entre 60 y 90 días; cada asignación
+   debe quedar cubierta por el cargo, certificado y admisión correspondientes.
+5. Instalar la configuración de firma y reiniciar con vigilancia. Técnico
+   prepara el original de una resolución desde su ficha; Jefatura firma
+   el primer paso con GrxFirma 0.0.106 o posterior. Registrar el PDF por la
+   vía nominal y exigir verificación válida, custodia y recibo. Basta una
+   firma nueva para esta comprobación; no se reutilizan firmas anteriores.
+6. En la ficha del Técnico, usar la referencia visible de esa firma para
+   intentar descargarla. Debe responder 404 sin PDF. Con la correlación de
+   la respuesta, cotejar el apunte nominal denegado del mismo expediente.
+   Con Jefatura, descargar el PDF y comparar sus bytes con el registrado.
+7. Reiniciar aplicación, PostgreSQL y verificador. Releer el apunte original
+   y comprobar que conserva referencia, secuencia, fecha y huella. Repetir
+   las dos lecturas desde Chrome: una nueva denegación deja otro apunte;
+   la descarga autorizada conserva el mismo PDF y la firma original.
+
+La configuración técnica de origen para recuperar firmas es la existente
+de AD172: una fila para el proceso, canal y operación exactos del lector.
+Se coteja contra el núcleo instalado y se ensaya con reversión antes de
+aplicarla. No añade un permiso humano de descarga. Los LOGIN de activación
+pertenecen solo a la copia propia y deben tener retirada definida.
+
+La comprobación local puede usar GrxFirma por línea de comandos y registrar
+su PDF mediante la API nominal; las consultas y descargas se comprueban en
+Chrome. Esto no acredita el selector gráfico del firmador, el recorrido
+completo en un solo expediente ni una confirmación externa de Firmadoc.
