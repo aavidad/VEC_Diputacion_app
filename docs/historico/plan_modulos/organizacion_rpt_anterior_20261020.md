@@ -96,7 +96,7 @@ No cubre por sí solo importación, autorización, ocupación ni vacantes reales
 - El gobierno de categorías y las dependencias nominales conservan su autoridad propia.
 - Archivos: candidata Cat4/AD134, README y pruebas de la rama `a9001c097`.
   No reconstruir lo aportado por #222/#244 ni dar por integradas #249/#256.
-- SQL/servidor: fijar postimagen Personal→A, CA21/AUT25/IS10 y orden exacto; ensayo final
+- SQL/servidor: fijar postimagen compatible con la base vigente, CA21/AUT25/IS10 y orden exacto; ensayo final
   PostgreSQL 18 y dos revisiones del mismo hash antes de instalar.
 - Cierre: separación editor/revisor, confirmación V3, CAS, auditoría, recibo
   recuperable y deshabilitación con historia. Los ensayos antiguos no cierran el circuito final.
