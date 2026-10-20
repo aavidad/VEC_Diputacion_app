@@ -34,7 +34,30 @@ la bolsa constituida; Antonio acepta desde Mi Bolsa; RRHH consulta su respuesta
 y resuelve desde Chrome con 201. Tras reiniciar aplicación y PostgreSQL,
 conservar la misma respuesta, resolución, fechas y recibos, sin duplicados.
 
-La resolución comprobará sesión, permiso, expediente, comunicación, persona y
+La resolución comprobará sesión, permiso, expediente, selección, participación y
 respuesta firme del portal. La comprobación y el efecto deberán confirmarse
 en la misma transacción. La historia de las respuestas de correo se conserva.
 La entrega incluirá el guion de activación y las revisiones independientes.
+
+## Preparación del recorrido
+
+Se reutilizan la fábrica de copias, la preparación de Antonio y la etapa de
+firma descritas en `LEEME_copia_local.md`, apartados 2, 6, 8 y 11. No se activa
+`--portal-externo` para este recorrido de Mi Bolsa. El expediente debe ser nuevo,
+de vacante, con la necesidad de RPT guardada; los expedientes antiguos de la
+semilla no acreditan esa relación.
+
+Después de completar los pasos anteriores del caso 4.0, RRHH usa «Llamar a la
+siguiente persona» desde la ficha. Antonio acepta desde Mi Bolsa. La respuesta
+se consulta desde la participación de esa emisión vinculada al expediente;
+no se elige por nombre ni por su posición entre las respuestas.
+
+La verificación existente de Bolsa comprueba la emisión, la selección de la
+bolsa constituida, la participación y el recibo de aceptación firme. RRHH debe
+revisar expresamente la respuesta y el plazo. Esta vía no acredita un cálculo
+automático del plazo: el registro distinguirá esa revisión de una comprobación
+automática de vigencia.
+
+El contrato y el guion de instalación se completarán con la cabeza ensayada.
+La propuesta de formalización posterior aún exige el antecedente de correo;
+ese límite se ha comunicado a dirección para fijar su continuidad.
