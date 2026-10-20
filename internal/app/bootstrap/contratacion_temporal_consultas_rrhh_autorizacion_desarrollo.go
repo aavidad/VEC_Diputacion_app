@@ -24,6 +24,9 @@ type autoridadConsultasRRHHDesarrollo struct {
 	ambitoRef string
 	mu        sync.Mutex
 	proveedor proveedorContextoConsultaRRHHDesarrollo
+	// Para la técnica, ambas lecturas consumen el mismo perfil fijo. Las
+	// demás autoridades conservan el contexto de su soporte nominal.
+	perfilLectura *perfilFijoCTDesarrollo
 	// El detalle documental se autoriza dentro de las dos rutas POST CT133.
 	// Conserva el mismo perfil y contexto de petición que la descarga.
 	documentalCT133         bool
@@ -174,29 +177,7 @@ func configurarAutoridadConsultasRRHHDesarrolloConAmbito(
 	if _, err := ports.NuevoContextoConsultaRRHHConAmbito(s.contexto, organizacionAltaContratacionTemporalDesarrollo, clase, ambitoRef, instante); err != nil {
 		return nil, ports.ErrConsultaRRHHNoDisponible
 	}
-	nueva := func(rol, nombre, accion, finalidad, tipo string, adicionales ...dominiovec.ConcesionRol) (dominiovec.InstantaneaAutorizacion, error) {
-		return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
-			vinculo.PrincipalID, vinculo.PerfilActivoRef, instante, rol, nombre, rol,
-			append([]dominiovec.ConcesionRol{{Accion: accion, ModuloID: ports.ModuloContratacion,
-				TipoRecurso: tipo, Finalidades: []string{finalidad}, GarantiaMinima: dominiovec.AuthAssuranceHigh}}, adicionales...),
-			[]dominiovec.AmbitoPerfil{
-				{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-				{Clave: "clase_ambito", Valores: []string{string(clase)}},
-				{Clave: "ambito_ref", Valores: []string{ambitoRef}},
-			})
-	}
-	cuadro, err := nueva("consulta_cuadro_rrhh_desarrollo", "Consulta de bandeja de desarrollo",
-		ports.AccionConsultarCuadroRRHH, ports.FinalidadConsultarCuadroRRHH, ports.TipoRecursoCuadroRRHH)
-	if err != nil {
-		return nil, err
-	}
-	// La descarga de borradores es una acción propia de la misma ruta: el rol
-	// del expediente la concede junto a la consulta.
-	detalle, err := nueva("consulta_detalle_rrhh_desarrollo", "Consulta de expediente de desarrollo",
-		ports.AccionConsultarDetalleRRHH, ports.FinalidadConsultarDetalleRRHH, ports.TipoRecursoExpediente,
-		dominiovec.ConcesionRol{Accion: ports.AccionDescargarBorradorRRHH, ModuloID: ports.ModuloContratacion,
-			TipoRecurso: ports.TipoRecursoExpediente, Finalidades: []string{ports.FinalidadDescargarBorradorRRHH},
-			GarantiaMinima: dominiovec.AuthAssuranceHigh})
+	cuadro, detalle, err := nuevasInstantaneasConsultasRRHHDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, instante, clase, ambitoRef)
 	if err != nil {
 		return nil, err
 	}
@@ -286,6 +267,10 @@ func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHConservaActor(con
 	base := a.soporte.contexto
 	a.soporte.mu.Lock()
 	esperado := a.soporte.contextoEsperadoRegistrado
+	if a.perfilLectura != nil {
+		base = a.perfilLectura.contexto
+		esperado = a.perfilLectura.contextoEsperadoRegistrado
+	}
 	a.soporte.mu.Unlock()
 	if len(peticion) > 0 {
 		capacidad, valida := a.soporte.capacidadValida(peticion[0])

@@ -1737,10 +1737,10 @@ func configurarDatosEmisionConstituidaOpcionalCT(cfg config.Config, puente *puen
 		advertirSeleccionConstituidaCT("personal_consulta", puertosbolsa.ErrEmisionLlamamientoNoDisponible)
 		return
 	}
-	proveedor := func(ctx context.Context, d preparacionLlamamientoDesarrollo) (puertosbolsa.ConfiguracionLlamamiento, string, vecdomain.ReferenciaEntradaCatalogo, error) {
+	proveedor := func(ctx context.Context, d preparacionLlamamientoDesarrollo) (puertosbolsa.ConfiguracionLlamamiento, puestoRPTConstituidoCT, vecdomain.ReferenciaEntradaCatalogo, error) {
 		consulta, organismo, err := montaje.consultaParaCT(ctx, puente, d)
 		if err != nil {
-			return puertosbolsa.ConfiguracionLlamamiento{}, "", vecdomain.ReferenciaEntradaCatalogo{}, err
+			return puertosbolsa.ConfiguracionLlamamiento{}, puestoRPTConstituidoCT{}, vecdomain.ReferenciaEntradaCatalogo{}, err
 		}
 		resolver := nuevoResolutorPuestoRPTConstituidoCT(consulta, organismo, ahora)
 		return nuevoProveedorDatosEmisionConstituidaCT(perfilRPT, resolutor, ahora, resolver)(ctx, d)
