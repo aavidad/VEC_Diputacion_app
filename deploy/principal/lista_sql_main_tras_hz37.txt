@@ -231,3 +231,15 @@ deploy/postgresql/contratacion_temporal/migraciones/000248_comunicaciones_carrer
 
 # Tarea F1-107: referencias de la consulta de Personal en el recibo del llamamiento
 deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_procedencia_seleccion.up.sql 8c59362e3cb797b73401d420fab7136f8f91a7774301553f68e4a3ca987b2727
+
+# F1-125, primer corte — CT250: origen O6 acreditado de la aceptación firme en la ficha; tras CT201 vigente.
+deploy/postgresql/contratacion_temporal/migraciones/000250_origen_aceptacion_portal_rrhh.up.sql ca303d6c59824044ef2635f3d4236b6db44c52c6159deea4459dfd20924b34e1
+
+# F1-125 B2 — CT249: activación de resolución de aceptación de Mi Bolsa; tras CT250.
+deploy/postgresql/contratacion_temporal/migraciones/000249_resolucion_respuesta_portal_rrhh.up.sql 5844af837bc7a9abef2874d2b6a0b6253cee892639b6761a74502c310e37c0b4
+
+# F1-127: CT253; tras CT249.
+deploy/postgresql/contratacion_temporal/migraciones/000253_propuesta_desde_respuesta_portal.up.sql 69d443ba22d27a8f7f621686ad387fa5af596964ec930287b82f45651ac3f20a
+
+# F1-127: CT256; tras CT249.
+deploy/postgresql/contratacion_temporal/migraciones/000256_resolucion_portal_detalle_rrhh.up.sql 8a600c2f711104790d28cc48a9934974be6775bb41253166f3921b60f814944c

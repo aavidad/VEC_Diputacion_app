@@ -5,7 +5,8 @@
  * congelada (y su clave) para no duplicar el efecto.
  */
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
-import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=VEC_WEB_VERSION";
+import { renderizarLlamamiento, renderizarAceptacionPortal,
+  reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js?v=VEC_WEB_VERSION";
 import { mensajeValidacionPortal } from "../../portal-idioma.js?v=VEC_WEB_VERSION";
 import { esValidacionRespuestaPendiente, esComprobacionOfrecimientoPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js?v=VEC_WEB_VERSION";
 import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=VEC_WEB_VERSION";
@@ -19,6 +20,7 @@ import {
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
   CAMPOS_RESOLUCION, validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
+  validarSolicitudResolucionPortal, validarReciboResolucionPortal,
   CAMPOS_REVISION_RESOLUCION, CRITERIO_VALIDACION_RESOLUCION_DESARROLLO,
   RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
@@ -30,6 +32,7 @@ import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js?v=VE
 import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js?v=VEC_WEB_VERSION";
 import { ESTADO_SELECCION_PENDIENTE_AVISO, LIMITE_TOTAL_COMUNICACIONES, claveFilaComunicacion,
   instanteOrdenComunicacion, validarPaginaComunicacionesExpediente } from "./cliente-http-consulta-comunicaciones-expediente.js?v=VEC_WEB_VERSION";
+import { validarResultadoBolsaCT } from "./contrato-resultado-bolsa.js";
 
 const OPERACION_COMUNICACION = Object.freeze({
   campos: CAMPOS_COMUNICACION, validar: validarSolicitudComunicacionLlamamiento,
@@ -156,7 +159,8 @@ export function montarFormularioLlamamiento({
     consultaRespuesta: { estado: "sin_contexto", referencias: null, recibo: null,
       controlador: null, generacion: 0, mensaje: "llamamiento_consulta_sin_contexto", tono: "informacion" },
     comunicaciones: { estado: "sin_contexto", filas: [], seleccionada: null, intentoNoConfirmado: null, controlador: null,
-      generacion: 0, mensaje: "llamamiento_comunicaciones_sin_contexto", tono: "informacion" } };
+      generacion: 0, mensaje: "llamamiento_comunicaciones_sin_contexto", tono: "informacion" },
+    origenPortal: [], portalPasos: new Map() };
   function ahora() {
     try { const valor = reloj(); return Number.isFinite(valor) ? valor : Date.now(); } catch { return Date.now(); }
   }
@@ -401,7 +405,13 @@ export function montarFormularioLlamamiento({
   function repintar(operacion = "") {
     if (!montado) return;
     limpiarValidacion();
-    raiz.innerHTML = renderizarLlamamiento(estado, t, fecha, ahora());
+    const sinFlujoCT = estado.origenPortal.length > 0
+      && (estado.comunicaciones.estado !== "lista" || !estado.comunicaciones.seleccionada);
+    raiz.innerHTML = (sinFlujoCT && estado.comunicaciones.estado === "sin_contexto" ? ""
+      : renderizarLlamamiento(estado, t, fecha, ahora(), { soloConsulta: sinFlujoCT }))
+      + renderizarAceptacionPortal(estado.origenPortal, t, fecha, estado.portalPasos)
+      + (sinFlujoCT && estado.propuesta.portal
+        ? renderizarLlamamiento(estado, t, fecha, ahora(), { soloPropuesta: true }) : "");
     documentacion?.pintar(raiz.querySelector("[data-ct-documentacion-formalizacion]"), {
       aceptadaEn: estado.propuesta.aceptacion?.respuesta === "aceptacion" ? estado.propuesta.aceptacion.resuelta_en : "",
       expedienteRef: estado.propuesta.valores.expediente_ref,
@@ -603,11 +613,26 @@ export function montarFormularioLlamamiento({
     if (!montado || estado.seleccion.solicitud !== null
       || !referenciaLlamamientoValida(nuevo?.expediente_ref)
       || !Number.isSafeInteger(nuevo?.version_esperada) || nuevo.version_esperada < 1) return false;
+    let resultado;
+    try { resultado = nuevo.resultado_bolsa === undefined ? null : validarResultadoBolsaCT(nuevo.resultado_bolsa); }
+    catch { return false; }
     guardarBorradores();
+    if (estado.propuesta.portal && estado.propuesta.solicitud === null
+      && nuevo.version_esperada !== 6) {
+      estado.propuesta.controlador?.abort();
+      estado.propuesta.aceptacion = null;
+      estado.propuesta.disponible = false;
+      estado.propuesta.valores = {};
+    }
     estado.seleccion.valores.expediente_ref = nuevo.expediente_ref;
     estado.seleccion.valores.version_esperada = nuevo.version_esperada;
     estado.numeroPersonasSolicitadas = Number.isSafeInteger(nuevo.numero_personas) && nuevo.numero_personas > 0
       ? nuevo.numero_personas : null;
+    estado.origenPortal = (resultado?.vinculos ?? []).flatMap((vinculo) => {
+      if (vinculo.participaciones.length !== 1) return [];
+      const persona = vinculo.participaciones[0];
+      return persona.origen_ct_confirmado === true ? [{ vinculo, persona }] : [];
+    });
     if (estado.numeroPersonasSolicitadas === null) estado.estadoOferta.estado = "sin_cantidad";
     else if (estado.numeroPersonasSolicitadas > 1
       && typeof cliente.consultarEstadoSeleccionOferta !== "function") estado.estadoOferta.estado = "sin_cliente";
@@ -615,6 +640,13 @@ export function montarFormularioLlamamiento({
       estado.comunicacion.valores.expediente_ref = nuevo.expediente_ref;
     }
     estado.enlazado = true;
+    if (nuevo.version_esperada === 6 && estado.origenPortal.length === 1) {
+      const { vinculo, persona } = estado.origenPortal[0];
+      if (persona.resolucion_ct) {
+        prepararAceptacionPortal(vinculo.llamamiento_ref, persona.resolucion_ct,
+          persona.resolucion_ct.recibo_ref);
+      }
+    }
     if (estado.numeroPersonasSolicitadas > 1
       && typeof cliente.consultarEstadoSeleccionOferta === "function") {
       consultarEstadoOferta(nuevo.expediente_ref);
@@ -684,6 +716,19 @@ export function montarFormularioLlamamiento({
     return estado.propuesta.aceptacion?.respuesta === "aceptacion"
       && versionFiscalizadaPermitePropuesta();
   }
+  function prepararAceptacionPortal(llamamientoRef, resolucion, reciboRef) {
+    if (!montado || estado.seleccion.valores.version_esperada !== 6
+      || estado.propuesta.solicitud !== null || estado.propuesta.aceptacion) return;
+    // Modelo de presentación del antecedente real, sin inventar una comunicación.
+    estado.propuesta.portal = true;
+    estado.propuesta.aceptacion = Object.freeze({ respuesta: resolucion.respuesta,
+      resolucion_ref: resolucion.resolucion_ref, recibo_local_ref: reciboRef,
+      resuelta_en: resolucion.resuelta_en });
+    estado.propuesta.valores = { expediente_ref: estado.seleccion.valores.expediente_ref,
+      llamamiento_ref: llamamientoRef, resolucion_llamamiento_aceptada_ref: resolucion.resolucion_ref,
+      recibo_resolucion_aceptada_ref: reciboRef, version_esperada: 6, anexos: Object.freeze([]) };
+    return prepararPropuesta();
+  }
   async function prepararPropuesta(origen) {
     const paso = estado.propuesta;
     if (paso.solicitud !== null || paso.recibo || paso.calculando) return;
@@ -701,26 +746,29 @@ export function montarFormularioLlamamiento({
     if (typeof cliente.prepararPropuestaFormalizacion !== "function") return;
     paso.calculando = true;
     paso.mensaje = "llamamiento_propuesta_cargando";
-    paso.controlador = new AbortController();
+    const controlador = new AbortController();
+    paso.controlador = controlador;
     repintar();
     try {
       const publicaciones = await cargarPublicacionesFormalizacionDesarrollo({
-        fetchImpl: fetchPublicaciones, criptografia, signal: paso.controlador.signal,
+        fetchImpl: fetchPublicaciones, criptografia, signal: controlador.signal,
       });
-      if (!montado) return;
+      if (!montado || controlador.signal.aborted) return;
       paso.valores = { ...paso.valores, ...publicaciones };
       paso.disponible = true;
       paso.mensaje = "llamamiento_propuesta_pendiente";
     } catch {
+      if (!montado || controlador.signal.aborted) return;
       paso.mensaje = "llamamiento_propuesta_no_disponible";
       paso.tono = "aviso";
     } finally {
       paso.calculando = false;
       paso.controlador = null;
-      repintar();
+      if (montado) repintar();
     }
   }
   async function alEnviar(evento) {
+    if (evento.target?.dataset?.ctPortalResolucion !== undefined) return alEnviarPortal(evento);
     const formulario = evento.target?.closest?.("[data-ct-llamamiento-form]");
     if (!formulario || !raiz.contains(formulario)) return;
     evento.preventDefault();
@@ -1025,6 +1073,89 @@ export function montarFormularioLlamamiento({
       repintar(operacion);
     }
   }
+  async function alEnviarPortal(evento) {
+    const formulario = evento.target;
+    if (!formulario || !raiz.contains(formulario)) return;
+    evento.preventDefault();
+    const indice = Number(formulario.dataset.ctPortalResolucion);
+    const fila = Number.isSafeInteger(indice) ? estado.origenPortal[indice] : null;
+    if (!montado || !estado.enlazado || !fila || fila.persona.resolucion_portal_disponible !== true
+      || fila.vinculo.participaciones.length !== 1) return;
+    const clave = `${fila.vinculo.llamamiento_ref}/${fila.persona.participacion_ref}`;
+    let paso = estado.portalPasos.get(clave);
+    if (!paso) {
+      paso = { solicitud: null, recibo: null, ocupado: false, bloqueado: false,
+        mensaje: "", tono: "informacion", controlador: null, revisiones: {} };
+      estado.portalPasos.set(clave, paso);
+    }
+    if (paso.ocupado || paso.recibo || paso.bloqueado) return;
+    if (!paso.solicitud) paso.revisiones = Object.fromEntries(
+      ["revision_respuesta_rrhh", "revision_plazo_rrhh"].map(
+        (nombre) => [nombre, formulario.elements?.namedItem(nombre)?.checked === true]));
+    if (!paso.solicitud && Object.values(paso.revisiones).some((valor) => valor !== true)) {
+      paso.mensaje = "llamamiento_portal_revision_incompleta";
+      paso.tono = "error";
+      repintar();
+      raiz.querySelector(`[data-ct-portal-estado="${indice}"]`)?.focus?.();
+      return;
+    }
+    let solicitud;
+    try {
+      solicitud = paso.solicitud ?? validarSolicitudResolucionPortal({
+        fuente_respuesta: "portal", clave_idempotencia: generarClaveIdempotencia("resolucion_portal"),
+        expediente_ref: estado.seleccion.valores.expediente_ref,
+        bolsa_ref: fila.vinculo.bolsa_ref, llamamiento_ref: fila.vinculo.llamamiento_ref,
+        recibo_emision_ref: fila.vinculo.recibo_emision_ref,
+        participacion_ref: fila.persona.participacion_ref,
+        recibo_respuesta_ref: fila.persona.recibo_respuesta_ref,
+        respuesta: "aceptacion", revision_respuesta_rrhh: true, revision_plazo_rrhh: true,
+        criterio_validacion_ref: CRITERIO_VALIDACION_RESOLUCION_DESARROLLO,
+      });
+    } catch {
+      paso.mensaje = "llamamiento_preparacion_error";
+      paso.tono = "error";
+      repintar();
+      return;
+    }
+    let confirmado = false;
+    try {
+      confirmado = confirmarOperacion({ titulo: t("llamamiento_portal_confirmar"),
+        advertencia: t("llamamiento_portal_confirmacion"),
+        referencia: solicitud.expediente_ref, datos: Object.freeze({ ...solicitud }) }) === true;
+    } catch { /* La revisión se mantiene sin enviar. */ }
+    if (!confirmado || !montado) return;
+    paso.solicitud = solicitud;
+    paso.ocupado = true;
+    paso.mensaje = "llamamiento_solicitando_resolucion";
+    paso.tono = "informacion";
+    paso.controlador = new AbortController();
+    repintar();
+    try {
+      const respuesta = await cliente.resolverLlamamiento(solicitud, { signal: paso.controlador.signal });
+      const recibo = validarReciboResolucionPortal(respuesta, solicitud);
+      if (!montado) return;
+      paso.recibo = recibo;
+      paso.mensaje = "llamamiento_portal_confirmada";
+      paso.tono = "exito";
+      await prepararAceptacionPortal(solicitud.llamamiento_ref, recibo, recibo.recibo_local_ref);
+    } catch (error) {
+      if (!montado) return;
+      const denegado = error?.envelopeValido === true && [401, 403].includes(error.estado);
+      const conflicto = error?.envelopeValido === true && error.estado === 409
+        && error.resultadoIndeterminado === false;
+      paso.bloqueado = denegado || conflicto;
+      paso.mensaje = denegado ? "llamamiento_portal_denegado"
+        : conflicto ? "llamamiento_portal_conflicto" : "llamamiento_portal_resultado_incierto";
+      paso.tono = denegado || conflicto ? "error" : "aviso";
+    } finally {
+      paso.ocupado = false;
+      paso.controlador = null;
+      if (!montado) return;
+      repintar();
+      raiz.querySelector(`[data-ct-portal-estado="${indice}"]`)?.focus?.();
+      try { anunciar(t(paso.mensaje), paso.tono); } catch { /* La región viva permanece. */ }
+    }
+  }
   async function recuperarOferta() {
     const original = estado.seleccion.solicitud;
     const recuperacion = estado.recuperacionOferta;
@@ -1214,6 +1345,7 @@ export function montarFormularioLlamamiento({
       estado[operacion].lecturaCorreo += 1;
       estado[operacion].controlador?.abort();
     }
+    for (const paso of estado.portalPasos.values()) paso.controlador?.abort();
     estado.recuperacionOferta.controlador?.abort();
     estado.estadoOferta.generacion += 1;
     estado.estadoOferta.controlador?.abort();

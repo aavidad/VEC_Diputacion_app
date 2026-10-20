@@ -38,7 +38,50 @@ export function reciboAntecedenteSiguiente(estado) {
   return estado.expiracion?.recibo?.respuesta === RESPUESTA_EXPIRACION ? estado.expiracion.recibo : null;
 }
 
-export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
+/** Hechos de Bolsa vinculados nominalmente al origen O6 de este expediente. */
+export function renderizarAceptacionPortal(filas, t, fecha, pasos = new Map()) {
+  if (!filas.length) return "";
+  const instante = (valor) => `<time datetime="${e(valor)}">${e(fecha.format(new Date(valor)))}</time>`;
+  return `<section class="ct-alta ct-llamamiento" data-ct-portal-origen
+    aria-labelledby="ct-portal-origen-titulo">
+    <header class="ct-cabecera"><div><h2 id="ct-portal-origen-titulo">${e(t("llamamiento_portal_titulo"))}</h2></div></header>
+    ${filas.map(({ vinculo, persona }, indice) => {
+      const paso = pasos.get(`${vinculo.llamamiento_ref}/${persona.participacion_ref}`);
+      const resolucion = paso?.recibo ? {
+        recibo_ref: paso.recibo.recibo_local_ref, resuelta_en: paso.recibo.resuelta_en,
+      } : null;
+      const disponible = persona.resolucion_portal_disponible === true && !resolucion;
+      return `<article class="ct-llamamiento-paso" aria-labelledby="ct-portal-origen-${indice}-titulo">
+      <h3 id="ct-portal-origen-${indice}-titulo">${e(t("llamamiento_portal_aceptacion"))}</h3>
+      <dl class="ct-exp-datos">
+        <div><dt>${e(t("llamamiento_portal_origen"))}</dt><dd>${e(t("llamamiento_portal_origen_ct"))}</dd></div>
+        <div><dt>${e(t("llamamiento_portal_emitido_en"))}</dt><dd>${instante(vinculo.emitido_en)}</dd></div>
+        <div><dt>${e(t("llamamiento_portal_respondida_en"))}</dt><dd>${instante(persona.respondida_en)}</dd></div>
+        <div><dt>${e(t("llamamiento_portal_recibo_respuesta"))}</dt><dd>${justificanteTraducido(persona.recibo_respuesta_ref, e, t)}</dd></div>
+      </dl>
+      ${resolucion ? `<div class="ct-recibo" role="status"><h4>${e(t("llamamiento_portal_confirmada"))}</h4>
+        <dl><div><dt>${e(t("llamamiento_portal_resuelta_en"))}</dt><dd>${instante(resolucion.resuelta_en)}</dd></div>
+        <div><dt>${e(t("llamamiento_portal_recibo_ct"))}</dt><dd>${justificanteTraducido(resolucion.recibo_ref, e, t)}</dd></div></dl></div>` : ""}
+      ${disponible ? `<form data-ct-portal-resolucion="${indice}" novalidate>
+        <div class="ct-campos">
+          <div class="ct-campo"><label><input type="checkbox" name="revision_respuesta_rrhh"
+            ${paso?.revisiones?.revision_respuesta_rrhh ? "checked" : ""}${paso?.solicitud ? " disabled" : ""}> ${e(t("llamamiento_portal_revision_respuesta"))}</label></div>
+          <div class="ct-campo"><label><input type="checkbox" name="revision_plazo_rrhh"
+            ${paso?.revisiones?.revision_plazo_rrhh ? "checked" : ""}${paso?.solicitud ? " disabled" : ""}> ${e(t("llamamiento_portal_revision_plazo"))}</label></div>
+        </div>
+        ${paso?.bloqueado ? "" : `<div class="ct-acciones"><button class="boton-primario" type="submit"
+          ${paso?.ocupado ? "disabled" : ""}>${e(t(paso?.solicitud
+            ? "llamamiento_reintentar_resolucion" : "llamamiento_portal_confirmar"))}</button></div>`}
+      </form>` : ""}
+      ${paso?.mensaje ? `<div class="ct-estado ct-estado-${paso.tono}" data-ct-portal-estado="${indice}"
+        role="${paso.tono === "error" ? "alert" : "status"}" aria-live="polite" tabindex="-1">
+        ${e(t(paso.mensaje))}</div>` : `<div data-ct-portal-estado="${indice}" tabindex="-1"></div>`}
+    </article>`;
+    }).join("")}
+  </section>`;
+}
+
+export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { soloConsulta = false, soloPropuesta = false } = {}) {
   const esRespuesta = (operacion) => ["respuesta", "respuesta_siguiente"].includes(operacion);
   const esResolucion = (operacion) => ["resolucion", "resolucion_siguiente"].includes(operacion);
   function tiempoVisible(valor) {
@@ -122,6 +165,18 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         data-ct-comunicaciones-reintentar>${e(t("llamamiento_comunicaciones_reintentar"))}</button>` : ""}
     </section>`;
   }
+  function propuesta() {
+    return estado.propuesta.aceptacion?.respuesta === "aceptacion" && Number.isSafeInteger(estado.seleccion.solicitud?.version_esperada
+      ?? estado.seleccion.valores.version_esperada)
+      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) >= 6
+      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) < Number.MAX_SAFE_INTEGER
+      ? `${renderizarResumenPropuestaFormalizacion(estado.propuesta.aceptacion, t)}<div data-ct-documentacion-formalizacion></div>${formulario("propuesta", CAMPOS_PROPUESTA)}` : "";
+  }
+  if (soloPropuesta) return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento>${propuesta()}</section>`;
+  if (soloConsulta) return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
+    aria-labelledby="ct-llamamiento-titulo"><header class="ct-cabecera"><div>
+      <h2 id="ct-llamamiento-titulo">${e(t("llamamiento_titulo"))}</h2>
+    </div></header>${listaComunicaciones()}${consultaRespuesta()}</section>`;
   function resumenResultado() {
     const esSucesor = Boolean(estado.siguiente?.recibo
       || estado.comunicaciones?.seleccionada?.antecedente_tipo === "continuacion_confirmada");
@@ -452,10 +507,6 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ? formulario("respuesta_siguiente", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta_siguiente?.recibo?.respuesta)
       ? formulario("resolucion_siguiente", CAMPOS_RESOLUCION) : ""}
-    ${estado.propuesta.aceptacion?.respuesta === "aceptacion" && Number.isSafeInteger(estado.seleccion.solicitud?.version_esperada
-      ?? estado.seleccion.valores.version_esperada)
-      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) >= 6
-      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) < Number.MAX_SAFE_INTEGER
-      ? `${renderizarResumenPropuestaFormalizacion(estado.propuesta.aceptacion, t)}<div data-ct-documentacion-formalizacion></div>${formulario("propuesta", CAMPOS_PROPUESTA)}` : ""}
+    ${propuesta()}
   </section>`}`}`;
 }

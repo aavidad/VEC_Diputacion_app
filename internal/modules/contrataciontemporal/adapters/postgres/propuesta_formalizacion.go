@@ -75,6 +75,12 @@ func (r *RegistroPropuestaFormalizacionPostgreSQL) LeerAntecedente(ctx context.C
 	m := ports.MaterialPropuestaFormalizacion{Etapa: "consulta", Solicitud: s.Clonar()}
 	err := r.ejecutar(ctx, m, &resultado, func() error {
 		// Solo ubicación UTC; no se truncan instantes ni se reescriben recibos.
+		if p := resultado.Portal; p != nil {
+			p.ResueltaEn = p.ResueltaEn.UTC()
+			p.RespondidaEn = p.RespondidaEn.UTC()
+			p.Seleccion.ConfirmadaEn = p.Seleccion.ConfirmadaEn.UTC()
+			return resultado.ValidarPara(s)
+		}
 		resultado.Resolucion.ResueltaEn = resultado.Resolucion.ResueltaEn.UTC()
 		j := &resultado.Justificante
 		j.Respuesta.Solicitud.RecibidaEn = j.Respuesta.Solicitud.RecibidaEn.UTC()

@@ -4,6 +4,7 @@ import { requiereRevisionBolsa, continuidadBolsaDisponible, renderizarResultadoB
 import { crearTraductorExpedientesContratacion, cargarMensajesExpedientesContratacionEnIdioma } from "./i18n-expedientes.js";
 import { renderizarLineaFases } from "./vista-expedientes-ficha.js";
 import { validarReciboVinculoBolsa, validarSolicitudVinculoBolsa } from "./cliente-http-vinculo-bolsa.js";
+import { validarResultadoBolsaCT } from "./contrato-resultado-bolsa.js";
 
 const t = crearTraductorExpedientesContratacion();
 function expediente(resultado = {}) {
@@ -95,4 +96,33 @@ test("una retirada posterior conserva la aceptación y ofrece revisión sin pres
   assert.equal(requiereRevisionBolsa(ficha), true);
   v.participaciones[0].situacion_desde = "2026-10-09T11:59:00Z";
   assert.equal(requiereRevisionBolsa(ficha), false);
+});
+
+test("emisión nativa con referencia opaca de 160 caracteres se ve sin identificador ni nombre inferido", () => {
+  const expedienteRef = "expediente:".padEnd(160, "x");
+  const llamamientoRef = `llamamiento:${"a".repeat(64)}`;
+  const emision = { bolsa_ref: "bolsa:prueba", llamamiento_ref: llamamientoRef,
+    recibo_emision_ref: `recibo:${llamamientoRef}`, referencia_visible: expedienteRef,
+    emitido_en: "2026-10-20T09:00:00Z" };
+  const ficha = expediente({ emisiones_vinculables: [emision] });
+  ficha.expediente_ref = expedienteRef;
+  validarResultadoBolsaCT(ficha.resultado_bolsa);
+  const html = renderizarResultadoBolsa(ficha, t, "es-ES", "Europe/Madrid",
+    { personas: new Map([[llamamientoRef, ["Nombre de prueba"]]]) });
+  assert.match(html, /Llamamiento de este expediente · 20 oct 2026/u);
+  assert.doesNotMatch(html, /expediente:xxxx|Nombre de prueba/u);
+  assert.throws(() => validarResultadoBolsaCT(expediente({ emisiones_vinculables: [
+    { ...emision, referencia_visible: `${expedienteRef}x` }] }).resultado_bolsa));
+});
+
+test("emisión manual y referencia desviada conservan la etiqueta recibida", () => {
+  const llamamientoRef = `llamamiento:${"b".repeat(64)}`;
+  const base = { bolsa_ref: "bolsa:prueba", llamamiento_ref: llamamientoRef,
+    recibo_emision_ref: `recibo:${llamamientoRef}`, emitido_en: "2026-10-20T09:00:00Z" };
+  const manual = renderizarResultadoBolsa(expediente({ emisiones_vinculables: [
+    { ...base, referencia_visible: "2026/93001" }] }), t, "es-ES", "Europe/Madrid");
+  assert.match(manual, /2026\/93001/u);
+  const desviada = renderizarResultadoBolsa(expediente({ emisiones_vinculables: [
+    { ...base, referencia_visible: "expediente:otro" }] }), t, "es-ES", "Europe/Madrid");
+  assert.doesNotMatch(desviada, /Llamamiento de este expediente/u);
 });
