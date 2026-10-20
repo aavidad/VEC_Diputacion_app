@@ -6,8 +6,9 @@ aceptación sigue siendo [FLUJO_APP, apartado 4.0](../producto/FLUJO_APP.md#40-c
 
 El recorrido sigue abierto: el expediente 2026/93001 ha llegado a
 Fiscalización, versión 6, con las dos firmas del informe y un llamamiento
-de Antonio emitido y vinculado. Falta registrar y resolver su aceptación
-antes de comprobar los pasos 12 a 15 en ese mismo expediente.
+de Antonio emitido y vinculado. Antonio ha aceptado desde Mi Bolsa, con
+respuesta firme y recibo conservados tras reiniciar. Falta resolver esa
+aceptación antes de comprobar los pasos 12 a 15 en el mismo expediente.
 
 ## Preparación reproducida
 
@@ -33,8 +34,10 @@ migraciones, permisos ni código de producto.
 | 8 | Intervención, resultado favorable | `POST /fiscalizaciones/resultados` 201 | Fiscalización, versión 6, a las 9:48:44 |
 | 9 | Abrir llamamiento en Bolsa; seleccionar Antonio y emitir | `POST /api/vec/bolsa/llamamientos/emisiones` 201 | Emisión registrada; la ficha muestra «Correo enviado» |
 | 9, vínculo | Volver a la ficha y vincular el llamamiento | `POST /expedientes/vinculos-bolsa` 201 | Antonio y la fecha de emisión aparecen en la ficha |
-| 10 por otro canal | Buscar el registro manual indicado por dirección | No hay formulario en la ficha | No se envió una aceptación |
-| 11–15 | Continuación desde la aceptación | No ejecutados | Pendientes de resolver el bloqueo anterior |
+| 9, contacto | Ficha de Antonio, Registrar intento telefónico | 201 | Contacto telefónico ficticio declarado, con recibo, a las 11:00; abre el plazo de respuesta |
+| 10 | Mi Bolsa de Antonio, Acepto y Enviar respuesta | `POST /api/vec/bolsa/mi-bolsa/respuestas` 201 | Respuesta firme a las 11:01:19, con recibo |
+| 11 | Volver al expediente tras la aceptación | Lecturas 200 | Muestra Aceptación confirmada, pero no ofrece resolver ni preparar propuesta |
+| 12–15 | Propuesta, resolución, documentos y firmas | No ejecutados en este expediente | Pendientes del paso 11 |
 
 Las rutas abreviadas cuelgan de `/api/vec/contratacion-temporal`.
 Las firmas tienen garantía sustancial y `firma_eficaz=false`, como
@@ -47,27 +50,37 @@ ha reproducido en este expediente el rechazo 403 investigado en F1-117.
 
 ## Bloqueo antes de la propuesta
 
-Dirección indicó el 20/10 a las 9:51 registrar desde RRHH la respuesta
-recibida por teléfono o correo. Tras vincular la emisión de Bolsa, la ficha
-muestra «Sin respuesta registrada» y ofrece «Ver seguimiento en Bolsa»,
-pero no ofrece registrar ni resolver una respuesta manual. El bloque
-«Llamamientos de este expediente» dice que todavía no tiene llamamientos.
+El correo enviado no basta para abrir la respuesta en Mi Bolsa. La consulta
+inicial de Antonio mostraba el envío de las 9:55, sin botón de aceptación.
+Tras registrar el contacto telefónico ficticio declarado mediante «Registrar
+intento telefónico», la pantalla ofreció aceptar o renunciar. Antonio
+aceptó desde su área personal: respuesta firme, sin repetir el acto.
+Este contacto declarado no acredita una llamada a una persona externa.
 
-Antes del vínculo, la consulta de comunicaciones respondió 403. Después,
-el bloque de selección ofrece «Llamar a la siguiente persona», cuyo montaje
-de Organización histórica depende de F1-103. Pulsar «Ver seguimiento en
-Bolsa» conserva la misma dirección y la misma ficha, sin abrir otra pestaña.
+La operación genérica «Registrar contacto» había respondido 409,
+`contacto_no_valido`, con el error de PostgreSQL «control de intentos
+inválido». El mensaje visible «La clave corresponde a otro contacto» no
+explicaba esa causa. Su botón queda tapado por el resumen lateral a 1440
+píxeles; se envió mediante Tab y Enter. No se guardó ese contacto.
+Dirección asignó su corrección a F1-123; la operación específica de teléfono
+sí devolvió 201 y permitió continuar sin cambiar permisos ni reglas.
 
-La consulta de Mi Bolsa de Antonio responde 200 y muestra el envío del
-correo de las 9:55, pero no presenta una acción para aceptar ese llamamiento.
-Esta lectura no acredita su aceptación. También aparecen fallos de
-preferencias e imagen del área personal; no se consideran permisos nuevos
-ni se han alterado para continuar.
+La ficha del expediente muestra ahora «Aceptación confirmada», el contacto
+de las 11:00 y el recibo de respuesta de las 11:01. Sin embargo, sigue en
+Fiscalización, versión 6, y no ofrece resolver la respuesta ni preparar
+propuesta. «Llamamientos de este expediente» permanece vacío. La consulta
+de comunicaciones tuvo un 503 transitorio y terminó con 200 y lista vacía.
 
-La resolución manual de CT exige dos comprobaciones expresas de la técnica
-de RRHH. No exige una segunda persona: esa condición pertenece al circuito
-distinto de no incorporación. No se ha rehecho la copia ni añadido otro
-perfil para suplir el formulario ausente.
+El vínculo de la emisión externa no crea los antecedentes de selección,
+comunicación y respuesta que exige la resolución de CT. Dirección indicó
+continuar por «Llamar a la siguiente persona», cuyo montaje depende de
+F1-103. Se ha pedido componer la siguiente candidata con esa entrega y la
+activación de Personal de F1-119. No se han fabricado antecedentes ni recibos.
+
+La resolución manual exige dos comprobaciones expresas de la técnica de
+RRHH; no exige una segunda persona. La aceptación de Mi Bolsa se logró con
+el perfil interno ya disponible, sin la activación externa de F1-115.
+Los fallos de preferencias e imagen del área personal siguen separados.
 
 ## Comprobación histórica separada
 
@@ -107,18 +120,23 @@ estos ocho recuentos:
 | Terminales de fiscalización | 10 |
 | Vínculos de emisión de Bolsa | 1 |
 
-La ficha conserva Antonio, la emisión de las 9:55 y «Correo enviado».
-La lectura de comunicaciones respondió 503 en una carga posterior al
-reinicio; no se considera resuelta ni se presenta el arranque como libre
-de errores. El bloque vinculado sigue mostrando «Sin respuesta registrada».
-En 1440 y 390 píxeles el ancho del documento coincide con el de la ventana;
-no hay cookies ni contenido en los almacenes local y de sesión.
+Después de registrar la aceptación se hizo un segundo reinicio de la
+aplicación y PostgreSQL. Las instantáneas completas de firmas y expediente
+siguen idénticas. La tabla de respuestas conserva una única respuesta de
+Antonio, con el mismo recibo, llamamiento, modo firme y fechas. Chrome
+vuelve a mostrar «Acepto», «Respuesta firme» y el recibo de las 11:01.
+No se repitió el envío de la respuesta.
+
+En la comprobación anterior a 1440 y 390 píxeles el ancho del documento
+coincidía con el de la ventana; no había cookies ni contenido en los
+almacenes local y de sesión. El botón del contacto genérico presenta el
+solapamiento descrito y asignado a F1-123.
 
 Este reinicio parcial no sustituye la comprobación final después del cierre.
 
 ## Pendiente
 
-Registrar y resolver la aceptación de Antonio; propuesta, resolución,
+Resolver la aceptación de Antonio; propuesta, resolución,
 descargas PDF/Word y tres firmas de la resolución en 2026/93001. Después,
 incorporación del centro, alta en Personal, GINPIX manual, cese, vuelta a
 Bolsa y cierre. Falta el reinicio final de aplicación y PostgreSQL y el
@@ -127,6 +145,7 @@ cotejo de los mismos recibos, fechas y recuentos.
 ## Capturas
 
 - [Llamamiento vinculado y correo enviado](recorrido_f1_27_formalizacion_20261020/09_vinculo.png).
-- [Mi Bolsa sin acción de aceptación](recorrido_f1_27_formalizacion_20261020/10_mi_bolsa.png).
+- [Mi Bolsa antes de registrar el contacto efectivo](recorrido_f1_27_formalizacion_20261020/10_mi_bolsa.png).
+- [Aceptación firme de Antonio y su recibo](recorrido_f1_27_formalizacion_20261020/10_aceptacion_firme.png).
 - [Llamamiento tras reiniciar, a 390 píxeles](recorrido_f1_27_formalizacion_20261020/reinicio_390.png).
 - [Resolución registrada en la semilla histórica distinta](recorrido_f1_27_formalizacion_20261020/13_semilla_distinta.png).
