@@ -180,7 +180,7 @@ Dirección confirma SHA actual y archivos exclusivos. Rutas nuevas son prevision
 los cambios comunes y de entrada pública los producen sus custodios. B1 es
 autorización/auditoría nominal; B3 configuración; B5 documentos; B6 intercambio.
 La base B2 de vínculo laboral no es requisito del informante. Las horas comunes
-de Identidad y Usuarios/L y del Sistema institucional se separan del consumo propio de VEC.
+de Identidad, Usuarios, los servicios comunes y el Sistema institucional se separan del consumo propio de VEC.
 
 | Corte y base | Salida usable por PR | Archivos propios previstos | Dependencias | Horas |
 | --- | --- | --- | --- | ---: |
@@ -211,7 +211,7 @@ admitida. Se reserva número fuera de Git antes de escribir, con preimagen/orden
 causal; permanece en borrador hasta ensayo en clon principal y dos revisiones
 exactas. MCP `postgres-clon-local` solo para lectura/EXPLAIN; dirección instala.
 No copiar el libro-registro, reaplicar migraciones, ejecutar DOWN sobre historia
-o SQL en cidonia desde A. La disponibilidad del conector no acredita garantías
+ni SQL en el servidor compartido desde este módulo. La disponibilidad del conector no acredita garantías
 jurídicas ni operativas del proveedor.
 
 ## Dependencias, paralelismo y estimación

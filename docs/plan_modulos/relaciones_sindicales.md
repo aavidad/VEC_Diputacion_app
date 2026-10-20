@@ -167,7 +167,7 @@ se abren solo si se autoriza gestión del descuento, conservando como pendiente 
 requisito si no se admite. Ninguna PR crea una ruta vacía o un segundo libro en
 Cronos. SQL nuevo se reserva antes de escribir, permanece en borrador hasta ensayo
 en clon principal y dos revisiones, y lo instala dirección; no se reaplica historia
-ni se ejecuta DOWN o SQL en cidonia por A.
+ni se ejecuta DOWN o SQL sobre el servidor compartido desde este módulo.
 
 ## Dependencias, paralelismo y estimación
 
