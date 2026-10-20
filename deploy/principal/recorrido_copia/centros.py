@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 
+from copia_local_necesidades import entorno_necesidades
+
 
 def _productor(repo: Path):
     """Carga el productor Git de material sin ejecutar su CLI."""
@@ -99,5 +101,6 @@ def preparar(copia) -> dict:
     return {"centro_ref": centro, "puestos_ref": [puesto_solicitante, puesto_ratificador],
             "catalogo_version": catalogo["version"], "catalogo_revision": catalogo["revision"],
             "perfiles": perfiles, "perfiles_estado": "pendientes_del_siguiente_arranque",
-            "entorno": {"VEC_PERSONAL_ORGANIZACION_POSTGRESQL": "true",
+            "entorno": {**entorno_necesidades(repo),
+                        "VEC_PERSONAL_ORGANIZACION_POSTGRESQL": "true",
                         "VEC_PERSONAL_ORGANIZACION_VERSION": str(catalogo["version"])}}
