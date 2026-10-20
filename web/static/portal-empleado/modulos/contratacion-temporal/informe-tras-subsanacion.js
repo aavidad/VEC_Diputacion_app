@@ -9,9 +9,9 @@ import { escaparHTML } from "./componentes-expedientes.js?v=VEC_WEB_VERSION";
 import { crearTraductorContratacionTemporal } from "./i18n.js?v=VEC_WEB_VERSION";
 import { MENSAJES_INFORME_TRAS_SUBSANACION_ACTUAL } from "./i18n-informe-tras-subsanacion.js?v=VEC_WEB_VERSION";
 import { justificanteTraducido } from "../../portal-justificante.js";
+import { informeNuevoVigenteEnSubsanacion } from "./ronda-informe-nuevo.js?v=VEC_WEB_VERSION";
 
 const ACCION_SUBSANACION = "contratacion_temporal.subsanacion_reparos.registrar";
-const ACCION_INFORME = "contratacion_temporal.informe_juridico.generar";
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 
 function ultimoHitoVigente(estado) {
@@ -22,8 +22,7 @@ function ultimoHitoVigente(estado) {
 
 /** El último hito es el informe nuevo emitido en la subsanación. */
 export function informeNuevoEmitidoEnSubsanacion(estado) {
-  const hito = ultimoHitoVigente(estado);
-  return hito?.accion_clave === ACCION_INFORME && hito.fase_destino === "subsanacion_unidad";
+  return informeNuevoVigenteEnSubsanacion(estado);
 }
 
 /** Contexto del botón: subsanación en incidencia con la subsanación como último hito. */
