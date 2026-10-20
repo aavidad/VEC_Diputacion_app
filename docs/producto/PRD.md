@@ -7,7 +7,9 @@ Fuentes absorbidas el 13/10/2026:
 de `ESPECIFICACIONES_AGENTES.md` y las decisiones de alcance, datos de personas
 y administración de la memoria de dirección.
 
-Fecha de corte: 13 de octubre de 2026, sobre `origin/main@6c9ae43dc`.
+Fecha de corte del estado: 20 de octubre de 2026, sobre `origin/main@3ef7dee0b`.
+Los requisitos absorbidos el 13/10 se conservan; este corte actualiza estado,
+entorno de trabajo y aceptación sin ampliar el alcance del producto.
 
 Este documento dice qué es VEC, para quién se hace, qué tiene que hacer cada
 módulo, en qué orden se construye y cómo se sabe que una parte está terminada.
@@ -383,22 +385,28 @@ no se presupone que las interfaces de otros sistemas existan.
 
 Cada módulo tiene un plan en `docs/plan_modulos/` con su estado real y lo que
 falta; el orden de trabajo detallado está en `docs/producto/PLAN_IMPLEMENTACION.md`.
-«Código en main» no significa instalado en el servidor de ensayo (cidonia) ni
-recorrido en el navegador. Los planes separan las tres cosas.
+«Código en main» no significa activado en una copia ni recorrido en el
+navegador. Se trabaja en local con datos ficticios; cidonia está congelada
+y la próxima instalación irá a un servidor nuevo. La receta vigente es
+[`LEEME_copia_local.md`](../../deploy/principal/LEEME_copia_local.md).
 
 ### Prioridad 1: Bolsa y Contratación temporal, con sus bases
 
-| Módulo | Qué cubre | Estado a 13/10 | Plan |
+| Módulo | Qué cubre | Estado al 20/10 | Plan |
 | --- | --- | --- | --- |
-| Contratación temporal | Expediente desde la petición del centro hasta el cese | Funciona en cidonia de la petición a la resolución. El llamamiento desde la bolsa constituida real entró en main el 13/10 (#1088). Falta el recorrido completo con reinicio hasta el cese | `docs/plan_modulos/contratacion_temporal.md` |
-| Bolsa de trabajo | Bolsas, candidatos, orden, disponibilidad, ofertas y llamamientos, «Mi Bolsa», carga desde CONVOCA, correo del llamamiento, reglas | En cidonia: candidatos, carga CONVOCA, correo, baremación, documentos, convocatorias y configuración. Falta la vuelta a la bolsa tras el cese de punta a punta y el correo de la Diputación | `docs/plan_modulos/bolsa.md` |
-| Inscripción, méritos y baremación (CONVOCA integrado) | Convocatoria publicada, solicitud con títulos y méritos, revisión de RRHH, baremación, alegaciones, lista que constituye la bolsa | Gran parte entró en main entre el 12 y el 13/10 (cartera de méritos, inscripción, alegaciones, cuenta externa del aspirante). Falta encender en cidonia la revisión de RRHH y la autoridad externa del aspirante | `docs/plan_modulos/bolsa.md`, `docs/plan_modulos/selectivos.md` |
-| Firmas | Firma de dos o más personas con GrxFirma y verificación | Código en main; la firma de punta a punta con los cargos reales aún no se ha recorrido en cidonia | `docs/plan_modulos/firmas.md` |
-| Identidad, perfiles y administración | Acceso por certificado, perfiles fijos, reparto de perfiles, interruptor de módulos | Perfiles y roles publicados en cidonia; el reparto completo desde Administración sigue en curso | `docs/plan_modulos/administracion.md` |
-| Auditoría común | Registro de todo, también lecturas, con cadena de huellas | Cadena común en main. La auditoría de RRHH está instalada en cidonia pero apagada; la exportación judicial, aparcada | `docs/plan_modulos/auditoria.md` |
-| Personal | Relaciones, ocupaciones, situaciones e incorporación | Lo que necesita CT (incorporación, cese, ocupación) entró en main el 12/10. El resto está acotado | `docs/plan_modulos/personal.md` |
-| Organización y RPT | Unidades, centros, puestos y categorías de la RPT | Consulta publicada y categorías editables. La petición del centro aún guarda el puesto como texto libre | `docs/plan_modulos/organizacion_rpt.md` |
-| Documentos | Custodia, plantillas Word y PDF, descargas | Encendido en cidonia; las plantillas reales esperan a RRHH (duda 124) | `docs/plan_modulos/contratacion_temporal.md` |
+| Contratación temporal | Expediente desde petición hasta cese | Integrados el llamamiento desde bolsa constituida, preparación de firma, incorporación y cese. Falta acreditar el caso único completo y sus variantes con reinicio | `docs/plan_modulos/contratacion_temporal.md` |
+| Bolsa de trabajo | Bolsas, candidaturas, disponibilidad, ofertas, llamamientos, Mi Bolsa e importación de CONVOCA | Dos plazas aceptadas y adjudicadas por orden con recuperación tras reinicio en ensayo parcial. La continuación en CT y la vuelta a Bolsa del caso único siguen pendientes | `docs/plan_modulos/bolsa.md` |
+| Inscripción, méritos y baremación | Solicitud, cartera personal, revisión, alegaciones e incorporación a bolsa | Código integrado y activación por copia. La entrada externa ensayada el 20/10 era de una cuenta sin participaciones; no acredita todos sus actos. La puntuación del baremador común queda fuera de este corte | `docs/plan_modulos/bolsa.md`, `docs/plan_modulos/selectivos.md` |
+| Firmas | GrxFirma, verificación y recuperación de originales | Informe firmado y paso a fiscalización ensayados en copia local; consulta histórica integrada. Pendiente el expediente completo, incluida su resolución en el mismo recorrido | `docs/plan_modulos/firmas.md` |
+| Identidad, perfiles y administración | Acceso por certificado y gobierno de perfiles | La copia compone Administración; cada capacidad exige su gobierno y configuración. El material ficticio de partida no acredita por sí solo actos administrativos | `docs/plan_modulos/administracion.md` |
+| Auditoría común | Registro de lecturas y actos con cadena de huellas | Integrada en las operaciones conectadas. Activación y consulta de RRHH deben comprobarse en la copia del recorrido; exportación judicial aparcada | `docs/plan_modulos/auditoria.md` |
+| Personal | Relaciones, ocupaciones, situaciones e incorporación | La copia prepara incorporación, alta, GINPIX manual y cese. Los ensayos parciales no cierran el tramo del caso único | `docs/plan_modulos/personal.md` |
+| Organización y RPT | Unidades, centros, puestos y categorías | El caso de aceptación usa necesidad y puesto publicados. Consulta histórica preparada en la copia; el gobierno completo y los datos sembrados conservan sus límites declarados | `docs/plan_modulos/organizacion_rpt.md` |
+| Documentos | Custodia, PDF, Word y originales firmados | Descargas desde la ficha comprobadas en ensayos parciales; cuatro documentos del caso siguen sin firma. Las plantillas oficiales esperan a RRHH | `docs/plan_modulos/contratacion_temporal.md` |
+
+Evidencia y límites en [`ESTADO_PROYECTO.md`](../../ESTADO_PROYECTO.md). El
+[`TABLERO_TAREAS.md`](TABLERO_TAREAS.md) conserva el estado de cada tarea;
+las PR abiertas no se cuentan como integradas en este corte.
 
 ### Prioridad 2 y 3: Cronos, después Dietas
 
@@ -1138,9 +1146,12 @@ congelada desde el 16/10):
 
 1. **Recorrido completo de RRHH en el navegador, con reinicio.** Con Chrome y
    certificados de personas distintas: petición del centro, ratificación, alta,
-   análisis con crédito, oferta desde la bolsa con varias plazas, aceptación,
-   informe, fiscalización con un reparo y su subsanación, resolución firmada por
-   dos personas, GINPIX, paso a Personal, cese y vuelta a la bolsa. Después se
+   análisis con crédito, informe firmado por técnica y Jefatura, fiscalización
+   con un reparo y su subsanación, llamamiento desde la bolsa constituida,
+   aceptación y resolución de la aceptación, propuesta, resolución firmada por
+   Jefatura, Diputación y Secretaría General, incorporación, alta en Personal,
+   confirmación manual de GINPIX, cese, vuelta a la bolsa y cierre. Se sigue
+   el caso único de `FLUJO_APP.md` §4.0 y sus variantes. Después se
    reinician la aplicación y PostgreSQL y se repiten las consultas: mismos
    recibos, mismas fechas y ningún duplicado. Queda un acta con la respuesta HTTP
    y una captura de cada paso.
@@ -1154,9 +1165,16 @@ congelada desde el 16/10):
    candidatos y ficha del candidato por debajo de 300 ms en el percentil 95,
    medido por HTTP en la copia local; la base común por debajo de 100 ms.
 
-A 13/10 ninguna de las cuatro está acreditada del todo. El último acta completa
-(`docs/estudio_requisitos/acta_recorrido_ct_bolsa_20261005.md`) se paró en la
-resolución de la aceptación; sus fallos están arreglados en main.
+Al 20/10 la fase sigue abierta. Hay ensayos parciales de firma, varias plazas,
+cuenta externa y cese; no sustituyen el acta conjunta del caso 4.0. El
+[acta de rendimiento](acta_rendimiento_lecturas_f1_34_20261016.md) conserva
+fallos y tiempos por encima del objetivo con peticiones simultáneas.
+
+Dirección confirma el 20/10 a las 12:27 el hito: recorrido completo de un
+expediente del caso 4.0 con reinicio antes del 6 de noviembre. Si no se llega,
+se recalcula el fin de fase 1, estimado para la segunda quincena de noviembre.
+Las decisiones pendientes de RRHH siguen con valores provisionales
+configurables; no se presentan como aprobadas ni se usan datos reales.
 
 ### Para cualquier capacidad
 
@@ -1180,7 +1198,7 @@ distintos y se dicen por separado.
 
 Alberto presentará VEC a RRHH haciendo el proceso entero y cambiando de perfil en
 cada paso. Ningún paso puede estar roto ni mostrar un «no disponible». Usa los
-usuarios sintéticos de cidonia (aspirante, centro, ratificador, RRHH e
+personas ficticias de una copia local (aspirante, centro, ratificador, RRHH e
 Intervención), cada uno con su certificado. Todo encargo se prioriza por este
 recorrido. El detalle de pantallas y llamadas está en `docs/producto/FLUJO_APP.md`.
 
@@ -1191,11 +1209,11 @@ recorrido. El detalle de pantallas y llamadas está en `docs/producto/FLUJO_APP.
 | 3 | Centro | Pide una persona eligiendo la necesidad de la RPT | «Peticiones del centro» (`web/static/portal-empleado/peticiones-centro/`) |
 | 4 | Ratificador | Ratifica la petición | «Peticiones del centro» |
 | 5 | Técnico de RRHH | Da de alta el expediente y analiza el crédito | Contratación temporal |
-| 6 | Técnico de RRHH | Prepara el informe para Intervención | Ficha del expediente |
+| 6 | Técnica de RRHH y Jefatura | Preparan y firman el informe para Intervención | Ficha del expediente |
 | 7 | Intervención | Fiscaliza; pone un reparo; RRHH subsana y vuelve a fiscalizar | Ficha del expediente |
 | 8 | Técnico de RRHH | Lanza el llamamiento desde la bolsa real | Contratación temporal y Bolsa |
 | 9 | Aspirante | Ve la oferta y acepta | «Mi Bolsa» |
-| 10 | RRHH y firmantes | Propuesta y resolución firmada por dos personas, verificada | Ficha del expediente, GrxFirma |
+| 10 | RRHH y firmantes | Propuesta y resolución con las tres firmas del catálogo, verificadas | Ficha del expediente, GrxFirma |
 | 11 | Centro | Confirma la incorporación | «Peticiones del centro» |
 | 12 | Técnico de RRHH | Alta en Personal con su relación y ocupación | Personal |
 | 13 | Técnico de RRHH | Descarga la ficha desde el alta confirmada y registra la grabación manual en GINPIX | Ficha del expediente |
@@ -1206,16 +1224,19 @@ El recorrido principal empieza en el paso 3, la petición del centro. Los pasos 
 y 2 (inscripción del aspirante y constitución de la bolsa) se enseñan aparte y
 no forman parte de la condición 1 de la fase 1: el 14/10 Alberto aclaró que el
 recorrido puede empezar donde convenga. Se recorre en la copia local, con cada
-paso funcionando de verdad y sin datos puestos a mano.
+paso obtenido desde su pantalla. Los datos ficticios de partida pueden
+prepararse en la copia; el alta, la ocupación y el cese no se precargan.
 
-Qué falta en cidonia para cada paso: ver `docs/producto/PLAN_IMPLEMENTACION.md`.
+Qué falta para cada paso en la copia local: ver `TABLERO_TAREAS.md`. El
+orden exacto y los resultados de aceptación los fija `FLUJO_APP.md` §4.0;
+esta tabla es un resumen.
 
 ## 18. Palabras que conviene conocer
 
 | Palabra | Significado |
 | --- | --- |
-| cidonia | Servidor de ensayo con datos sintéticos donde se instala y se prueba VEC |
-| Principal | La base de datos de cidonia |
+| cidonia | Servidor de ensayo anterior, congelado; el avance actual se comprueba en copias locales |
+| Principal | Base de referencia de la que se obtiene el respaldo para crear una copia local propia |
 | CT | Contratación temporal |
 | RPT | Relación de puestos de trabajo |
 | GINPIX | Aplicación externa de gestión de personal y nómina |
