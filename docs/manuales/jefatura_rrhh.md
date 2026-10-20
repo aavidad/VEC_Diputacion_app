@@ -154,7 +154,7 @@ El técnico prepara el informe. Lo firman el técnico y la Jefatura del Servicio
 
 ### Paso 6. Intervención fiscaliza
 
-Intervención abre el expediente que le remite RRHH y registra el resultado. Si hay reparo, el expediente vuelve a RRHH, que lo subsana, hace un informe nuevo firmado por la Jefatura y lo devuelve a Intervención. Con el catálogo de plazos v3, Intervención tiene 10 días hábiles (5 si es urgente) y RRHH 15 para subsanar. Son plazos del Real Decreto 424/2017, arts. 10.2, 10.3 y 12.4; no se editan desde la pantalla. VEC cuenta la subsanación desde que el servicio recibe el reparo; no registra por separado su aceptación. Los expedientes anteriores conservan la versión con que se tramitaron.
+Intervención abre el expediente que le remite RRHH y registra el resultado. Si hay reparo, el expediente vuelve a RRHH, que registra la subsanación y emite un informe nuevo. El técnico y la Jefatura lo firman otra vez y vuelve a Intervención. Las firmas del informe anterior no cuentan para el nuevo. Con el catálogo de plazos v3, Intervención tiene 10 días hábiles (5 si es urgente) y RRHH 15 para subsanar. Son plazos del Real Decreto 424/2017, arts. 10.2, 10.3 y 12.4; no se editan desde la pantalla. VEC cuenta la subsanación desde que el servicio recibe el reparo; no registra por separado su aceptación. Los expedientes anteriores conservan la versión con que se tramitaron.
 
 ### Paso 7. Ofrecimiento a la bolsa
 
@@ -217,8 +217,9 @@ Cada cambio queda guardado como una versión nueva, con su motivo y quién lo hi
 cabecera el total de sus áreas disponibles al terminar la carga.
 El [manual de Intervención](intervencion.md) recoge el registro de conformidad,
 conformidad con observaciones y reparo comprobado el 19 de octubre en una copia
-local. En esa copia faltaba el circuito de firma; sigue pendiente completar
-la remisión firmada, la subsanación y la nueva fiscalización juntas.
+local. El 20 de octubre se completó en otra copia, con firma, el camino del
+reparo: subsanación, informe nuevo firmado por el técnico y la Jefatura y
+fiscalización favorable con su recibo.
 
 Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, qué falta y cómo queremos que funcione VEC cuando esté terminada.
 
@@ -309,9 +310,11 @@ certificados personales.
 
 En la copia local se ha comprobado que el portal sigue usando el catálogo
 publicado para la organización y que el PDF firmado y sus recibos permanecen
-disponibles después de reiniciar. La gestión administrativa de plantillas no
-estaba activada; esa pantalla y la generación de un borrador nuevo no forman
-parte de esta comprobación.
+disponibles después de reiniciar. El 20 de octubre se abrió en otra copia
+la pantalla «Plantillas de documentos» desde su dirección, a 1440 y 390
+píxeles, y se abrió la plantilla del informe definitivo para editarla. No se
+guardó ninguna versión nueva. El enlace del menú solo aparece después de
+abrir esa dirección una vez.
 
 **Al final.** Un único sitio para los documentos de todos los módulos, con plantillas oficiales de RRHH, conservación según el Archivo y descarga controlada.
 

@@ -46,7 +46,9 @@ En la comprobación, los recibos mostraron la versión resultante 6. La versión
 
 Con un resultado favorable, RRHH continúa la tramitación y se encarga del llamamiento. Su pantalla termina en el recibo.
 
-Con un resultado desfavorable, RRHH debe subsanar y remitir de nuevo el expediente. Pida el nuevo enlace y la versión actualizada antes de volver a fiscalizar. La subsanación y esa nueva fiscalización no se completaron en este recorrido.
+Con un resultado desfavorable, RRHH subsana, emite un informe nuevo, lo firman de nuevo el técnico y la Jefatura del Servicio y se lo remiten otra vez. Pida la versión actualizada antes de volver a fiscalizar.
+
+El 20 de octubre se recorrió todo en un mismo expediente de una copia local: reparo sobre la versión 5, subsanación, informe nuevo firmado en la versión 8 y fiscalización favorable sobre esa versión, con su recibo. Después de reiniciar, el expediente conservaba los dos resultados y las firmas.
 
 Tras reiniciar la aplicación y la base de datos, RRHH volvió a abrir desde su lista los expedientes con conformidad y reparo. Ambos conservaban la versión 6, la fecha de fiscalización y una sola anotación nueva en su historial. No se comprobó una consulta del recibo anterior desde el acceso propio de Intervención; conserve su referencia al recibirlo.
 
@@ -56,11 +58,11 @@ Si RRHH le comunica que el expediente ha cambiado, pida los datos actualizados. 
 
 ### Hoy
 
-Intervención abre el formulario desde el menú o un enlace, elige el resultado, aporta observaciones cuando corresponden y recibe un justificante. Se comprobaron una conformidad, una conformidad con observaciones y un reparo en tres expedientes distintos. La conformidad y el reparo se conservaron en el historial después de reiniciar.
+Intervención abre el formulario desde el menú o un enlace, elige el resultado, aporta observaciones cuando corresponden y recibe un justificante. Se comprobaron una conformidad, una conformidad con observaciones y un reparo en tres expedientes distintos. También se comprobó en un mismo expediente el reparo, la subsanación, el informe nuevo firmado y la conformidad final. Todo se conservó después de reiniciar.
 
 ### Falta
 
-Completar en un mismo expediente la remisión con las firmas verificadas del informe, el reparo, la subsanación, el nuevo informe firmado y una nueva fiscalización. También queda pendiente consultar los antecedentes y recuperar el recibo anterior desde el acceso propio de Intervención. Hoy este acceso pide la referencia y la versión; no muestra una bandeja de expedientes remitidos.
+Queda pendiente consultar los antecedentes y recuperar el recibo anterior desde el acceso propio de Intervención. Hoy este acceso pide la referencia y la versión; no muestra una bandeja de expedientes remitidos.
 
 ### Al final
 

@@ -634,15 +634,19 @@ El manifiesto es privado (`0600`, fuera de Git) y solo admite estas claves:
    orden no cambie, y si una falla las siguientes no se ejecutan.
 2. Publica la v4 de plantillas (F1-86) con `publicar_informe.sh` sobre TLS
    verificado. Si ya estaba publicada, el recibo dice `replay`.
-3. Copia el circuito RRHH v2 y el catálogo v4 de esta revisión a
+3. Copia el circuito RRHH v2, el catálogo v4 y la política sintética de
+   subsanación de reparos de esta revisión a
    `material/identidad/firma-recursos/` y comprueba que `firma-vec.json`
    apunta al plan y a la CRL de esa carpeta y que no está retirado.
 4. Instala el verificador en `<copia>/verificador` (binario con su huella, CA
    y TLS de la copia, CRL de clientes y su credencial, que se crea la primera
    vez y se conserva después) y añade al
-   entorno de módulos las ocho variables de firma:
-   `VEC_CT_FIRMA_VEC_R5_ENABLED`, `VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`,
-   `VEC_CT_PLANTILLAS_SOURCE_PATH` y las cinco `VEC_FIRMA_VERIFICACION_*`.
+   entorno de módulos diez variables: las de firma
+   (`VEC_CT_FIRMA_VEC_R5_ENABLED`, `VEC_CT_CIRCUITO_RRHH_SOURCE_PATH`,
+   `VEC_CT_PLANTILLAS_SOURCE_PATH` y las cinco `VEC_FIRMA_VERIFICACION_*`),
+   `VEC_CT_SUBSANACION_POLITICA_FILE` para registrar la subsanación de un
+   reparo y `VEC_CT_PLANTILLAS_GOBIERNO_ENABLED` para abrir la ruta
+   `#contratacion-temporal/plantillas-rrhh`.
 5. Reinicia la copia. Desde entonces `arrancar` levanta el verificador antes
    que la aplicación (con la CRL vigente de `firma-recursos`) y `parar` (y
    `borrar`) lo para. Solo se para el proceso
