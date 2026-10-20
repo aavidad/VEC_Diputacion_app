@@ -1,0 +1,39 @@
+--- preimagen_6e07b8c0
++++ ad301_49d6559e
+@@ -113,0 +114,14 @@
++           OR (p_perfil_mutacion IS NOT DISTINCT FROM 'publicacion_oficial_bases_rrhh'
++            AND session_user='vec_bolsa_llamamientos_desarrollo'
++            AND current_setting('role')='none'
++            AND EXISTS(SELECT 1 FROM pg_roles l JOIN pg_auth_members m ON m.member=l.oid
++              JOIN pg_roles g ON g.oid=m.roleid
++              WHERE l.rolname=session_user AND l.rolcanlogin AND l.rolinherit
++                AND l.rolconfig IS NULL
++                AND NOT(l.rolsuper OR l.rolcreatedb OR l.rolcreaterole OR l.rolreplication OR l.rolbypassrls)
++                AND g.rolname='vec_bolsa_llamamientos_ejecutor' AND NOT g.rolcanlogin AND g.rolconfig IS NULL
++                AND NOT(g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
++                AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
++                AND (SELECT count(*) FROM pg_auth_members x WHERE x.member=l.oid)=1
++                AND NOT EXISTS(SELECT 1 FROM pg_auth_members x WHERE x.member=g.oid)
++                AND NOT EXISTS(SELECT 1 FROM pg_db_role_setting x WHERE x.setrole IN(l.oid,g.oid))))
+@@ -298 +312 @@
+-               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_hecho_propio_interno' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_hecho_propio_externo' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_hecho_rechazar' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_consulta_propia_interna' AND p_perfil_mutacion IS DISTINCT FROM 'consulta_rrhh_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'carga_convoca_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'historia_servicios_propia' AND p_perfil_mutacion IS DISTINCT FROM 'exportacion_servicios_propios' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_certificado_nominal' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_cargo_competencial' AND p_perfil_mutacion IS DISTINCT FROM 'capacidades_admin' AND p_perfil_mutacion IS DISTINCT FROM 'persona_denominacion_publicar' AND p_perfil_mutacion IS DISTINCT FROM 'persona_denominacion_leer' AND p_perfil_mutacion IS DISTINCT FROM 'usuarios_admin_listar' AND p_perfil_mutacion IS DISTINCT FROM 'usuarios_admin_consultar' AND p_perfil_mutacion IS DISTINCT FROM 'servicios_certificados_propios' AND p_perfil_mutacion IS DISTINCT FROM 'lote_perfiles_admin' AND p_perfil_mutacion IS DISTINCT FROM 'actos_admin_perfiles' AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_plan_nominal_firma_ct' AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_rol_nuevo' AND p_perfil_mutacion IS DISTINCT FROM 'revision_inscripcion' AND p_perfil_mutacion IS DISTINCT FROM 'incorporacion_inscripcion' AND p_perfil_mutacion IS DISTINCT FROM 'version_rol_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'version_rol_bolsa_externa' AND p_perfil_mutacion IS DISTINCT FROM 'comprobacion_ofrecimiento_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'ct_nombramiento_derivado'
++               p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_hecho_propio_interno' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_hecho_propio_externo' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_hecho_rechazar' AND p_perfil_mutacion IS DISTINCT FROM 'meritos_consulta_propia_interna' AND p_perfil_mutacion IS DISTINCT FROM 'consulta_rrhh_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'carga_convoca_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'historia_servicios_propia' AND p_perfil_mutacion IS DISTINCT FROM 'exportacion_servicios_propios' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_certificado_nominal' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_cargo_competencial' AND p_perfil_mutacion IS DISTINCT FROM 'capacidades_admin' AND p_perfil_mutacion IS DISTINCT FROM 'persona_denominacion_publicar' AND p_perfil_mutacion IS DISTINCT FROM 'persona_denominacion_leer' AND p_perfil_mutacion IS DISTINCT FROM 'usuarios_admin_listar' AND p_perfil_mutacion IS DISTINCT FROM 'usuarios_admin_consultar' AND p_perfil_mutacion IS DISTINCT FROM 'servicios_certificados_propios' AND p_perfil_mutacion IS DISTINCT FROM 'lote_perfiles_admin' AND p_perfil_mutacion IS DISTINCT FROM 'actos_admin_perfiles' AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_plan_nominal_firma_ct' AND p_perfil_mutacion IS DISTINCT FROM 'gobierno_rol_nuevo' AND p_perfil_mutacion IS DISTINCT FROM 'revision_inscripcion' AND p_perfil_mutacion IS DISTINCT FROM 'incorporacion_inscripcion' AND p_perfil_mutacion IS DISTINCT FROM 'version_rol_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'version_rol_bolsa_externa' AND p_perfil_mutacion IS DISTINCT FROM 'comprobacion_ofrecimiento_bolsa' AND p_perfil_mutacion IS DISTINCT FROM 'ct_nombramiento_derivado' AND p_perfil_mutacion IS DISTINCT FROM 'publicacion_oficial_bases_rrhh'
+@@ -1132,0 +1147,18 @@
++ AND d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
++ AND d->'obligaciones' IS NOT DISTINCT FROM '["auditar"]'::jsonb)
++           OR (
++ p_perfil_mutacion IS NOT DISTINCT FROM 'publicacion_oficial_bases_rrhh'
++ AND c->>'operacion' IS NOT DISTINCT FROM 'bolsa.convocatoria.publicacion_oficial.declarar'
++ AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec.bolsa.publicacion_oficial_bases.v1'
++ AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
++ AND d->>'modulo_id' IS NOT DISTINCT FROM 'bolsa'
++ AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'version_convocatoria'
++ AND d->>'finalidad' IS NOT DISTINCT FROM 'declarar_publicacion_oficial_bases'
++ AND d->>'garantia_minima' IS NOT DISTINCT FROM 'alto'
++ AND d->>'recurso_ref' ~ '^cv1_[0-9a-f]{64}_v[1-9][0-9]{0,15}$'
++ AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
++ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
++ AND d#>>'{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
++ AND d#>>'{vinculo_autenticacion_actor,metodo_observado}' IS NOT DISTINCT FROM 'certificado'
++ AND d#>>'{vinculo_autenticacion_actor,garantia_observada}' IS NOT DISTINCT FROM 'alto'
++
