@@ -2,7 +2,7 @@
 
 Tarea: TABLERO-CRONOS-DIETAS. Base examinada: `origin/main@cda070a31`.
 Comprobaciones ejecutadas el 20 de octubre para la actualización del 21.
-No se cambia código, SQL ni configuración.
+No se cambia código, SQL ni configuración versionada.
 
 Cronos tiene composición, rutas, pantallas y pruebas integradas para jornada,
 saldo, solicitudes de permisos, resolución y comunicaciones. Pasan los 15
