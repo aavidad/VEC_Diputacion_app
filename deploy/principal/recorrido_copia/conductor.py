@@ -125,6 +125,7 @@ def preparar(copia, args):
     from copia_local import guardar, sha256
     entorno = copia.entorno_modulos()
     entorno['VEC_DOCUMENTOS_ENABLED'] = 'true'
+    entorno['VEC_CT_PLANTILLAS_DOCUMENTAL_ENABLED'] = 'true'
     archivo = copia.raiz / 'entorno_modulos.json'
     guardar(archivo, entorno)
     estado = copia.leer()
