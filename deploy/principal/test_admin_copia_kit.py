@@ -30,7 +30,7 @@ class FakeProcess:
 
 class KitTest(unittest.TestCase):
     def setUp(self):
-        self.scratch = tempfile.TemporaryDirectory(dir=os.environ['VEC_TEST_SCRATCH'])
+        self.scratch = tempfile.TemporaryDirectory(dir=os.environ.get('VEC_TEST_SCRATCH'))
         self.addCleanup(self.scratch.cleanup)
         self.base = Path(self.scratch.name)
         os.chmod(self.base, 0o700)
@@ -143,10 +143,9 @@ class KitTest(unittest.TestCase):
 
         with mock.patch.object(kit, 'ejecutar', side_effect=fake_git):
             texts = kit.leer_textos_git(self.base, revision)
-        self.assertEqual(len(texts), 14)
-        self.assertEqual(len(set(texts)), 14)
-        runtime = ('preparar_gobierno.py', 'preparar_lote_plan.py',
-                   'preparar_relevo_logins.py', 'preparar_runtime.py',
+        self.assertEqual(len(texts), 12)
+        self.assertEqual(len(set(texts)), 12)
+        runtime = ('preparar_gobierno.py', 'preparar_runtime.py',
                    'preparar_vec_admin.py', 'preparar_overlay_externo.py')
         for name in runtime:
             self.assertEqual(texts[name], (root / name).read_bytes())
@@ -189,8 +188,7 @@ class KitTest(unittest.TestCase):
             'conjunto_capacidades': 7,
             'scripts_sha256': {name: kit.digest(root / name) for name in
                 ('arranque.py', 'guardar_preimagen.py', 'preparar_fixture.py',
-                 'preparar_gobierno.py', 'preparar_lote_plan.py',
-                 'preparar_relevo_logins.py', 'preparar_runtime.py',
+                 'preparar_gobierno.py', 'preparar_runtime.py',
                  'preparar_vec_admin.py', 'preparar_overlay_externo.py')},
             'bin_sha256': {name: bin_hashes[name] for name in
                 ('bin/h-root-seed.test', 'bin/vec-gobierno-usuarios-admin', 'bin/vec-admin')}}
@@ -217,7 +215,7 @@ class KitTest(unittest.TestCase):
             salida=output, dias_organizacion=90, dias_personas=89,
             dias_unidad=89, dias_perfiles=88, dias_ca=400)
         configuracion.preparar(args)
-        self.assertEqual(len(contract['scripts_sha256']), 9)
+        self.assertEqual(len(contract['scripts_sha256']), 7)
         loaded = arranque.cargar_config(output / 'config.json')
         self.assertEqual(loaded['fuentes']['ttl_organizacion_segundos'], 90 * 86400)
         self.assertEqual(loaded['bootstrap']['ttl_perfiles_segundos'], 88 * 86400)
@@ -231,7 +229,7 @@ class PreimagenTest(unittest.TestCase):
     SID = '1234567890123456789'
 
     def setUp(self):
-        self.scratch = tempfile.TemporaryDirectory(dir=os.environ['VEC_TEST_SCRATCH'])
+        self.scratch = tempfile.TemporaryDirectory(dir=os.environ.get('VEC_TEST_SCRATCH'))
         self.addCleanup(self.scratch.cleanup)
         self.output = Path(self.scratch.name) / 'preimagen.dump'
         os.chmod(self.output.parent, 0o700)

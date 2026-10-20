@@ -22,7 +22,7 @@ class CopiaFalsa:
         self.material.mkdir()
         (self.material / "identidad").mkdir()
         self._estado = {"nombre": self.nombre, "raiz": str(raiz), "fuente": str(fuente),
-                        "preparada": False, "material_modo": "nuevo", "puerto_pg": 15432}
+                        "sid_copia": "1234567890123456789", "preparada": False, "material_modo": "nuevo", "puerto_pg": 15432}
         self.estado.write_text(json.dumps(self._estado))
         self.sentencias = []
 
@@ -77,13 +77,13 @@ class DatosCopiaTest(unittest.TestCase):
             preparar_datos(self.copia)
         self.assertEqual(self.copia.sentencias, [])
 
-    def test_original_exige_sid_del_conductor_antes_de_sql(self):
+    def test_rechaza_material_original_antes_de_sql(self):
         estado = self.copia.leer()
         estado["material_modo"] = "rrhh_original"
         self.copia.estado.write_text(json.dumps(estado))
         (self.raiz / "fuentes.json").write_text(json.dumps({
             "principal-hz37-20261014.dump": datos.HUELLA_HZ37}))
-        with self.assertRaisesRegex(ValueError, "SID"):
+        with self.assertRaisesRegex(ValueError, "nuevo"):
             preparar_datos(self.copia)
         self.assertEqual(self.copia.sentencias, [])
 
@@ -114,6 +114,9 @@ class DatosCopiaTest(unittest.TestCase):
         sql, log = self.copia.sentencias[0]
         self.assertEqual(log, "datos-copia-sql.log")
         self.assertIn("DROP ROLE vcl_temporal_0", sql)
+        self.assertIn("system_identifier::text", sql)
+        self.assertIn(self.copia.leer()["sid_copia"], sql)
+        self.assertNotIn("rolvaliduntil=NULL", sql)
         self.assertIn("DISABLE TRIGGER ALL", sql)
         self.assertIn("ENABLE TRIGGER ALL", sql)
         self.assertNotIn("clave:capacidad:ct:desarrollo:v2", sql)

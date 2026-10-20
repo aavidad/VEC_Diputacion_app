@@ -19,8 +19,6 @@ TEXTOS = {
     'guardar_preimagen.py': 'guardar_preimagen.py',
     'preparar_fixture.py': 'preparar_fixture.py',
     'preparar_gobierno.py': 'preparar_gobierno.py',
-    'preparar_lote_plan.py': 'preparar_lote_plan.py',
-    'preparar_relevo_logins.py': 'preparar_relevo_logins.py',
     'preparar_runtime.py': 'preparar_runtime.py',
     'preparar_vec_admin.py': 'preparar_vec_admin.py',
     'preparar_overlay_externo.py': 'preparar_overlay_externo.py',
@@ -231,8 +229,7 @@ def crear_kit(args):
             'puerto_admin': args.puerto_admin, 'encargo_ref': args.encargo_ref,
             'scripts_sha256': {name: digest(output / name) for name in
                 ('arranque.py', 'guardar_preimagen.py', 'preparar_fixture.py',
-                 'preparar_gobierno.py', 'preparar_lote_plan.py',
-                 'preparar_relevo_logins.py', 'preparar_runtime.py',
+                 'preparar_gobierno.py', 'preparar_runtime.py',
                  'preparar_vec_admin.py', 'preparar_overlay_externo.py')},
             'bin_sha256': {'bin/' + name: digest(bin_dir / name) for name in CONTRATO_BIN}}
         guardar(output / 'contrato-copia-local-admin-v1.json', contract)
