@@ -55,9 +55,11 @@ acredita una transmisión a GINPIX ni una entrega del correo corporativo.
 
 ## Hito y criterio de cierre
 
-El encargo de actualización del 20/10 fija el **6 de noviembre de 2026 como
-hito de seguimiento**. Esta fecha no acredita el cierre ni autoriza datos
-reales. Dirección debe valorar el avance contra estas condiciones del
+Dirección fija el hito del **recorrido completo de un expediente del caso
+4.0 con reinicio, antes del 6 de noviembre de 2026**. Si no se llega, se
+recalcula la fecha de fin de la fase 1, estimada para la segunda quincena de
+noviembre. Así lo confirma dirección el 20/10 a las 12:27. El hito no
+autoriza datos reales ni sustituye estas condiciones del
 [plan](docs/producto/PLAN_IMPLEMENTACION.md#5-fases-y-criterios-de-cierre):
 
 1. Caso completo del apartado 4.0 en Chrome, con sus variantes, perfiles
