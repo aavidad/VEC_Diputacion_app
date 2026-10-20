@@ -78,4 +78,3 @@ No quitar guardas que separan recursos reales y de presentación.
 Conservar el shell y el tema compartidos: contexto del expediente, etiquetas,
 confirmación explícita, estados de espera/error y recibo. No duplicar helpers,
 CSS estructural ni reglas funcionales en la vista.
-
