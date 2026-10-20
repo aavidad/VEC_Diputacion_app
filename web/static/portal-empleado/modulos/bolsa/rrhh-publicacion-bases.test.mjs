@@ -136,7 +136,11 @@ test("vista: lista, formulario con etiquetas, errores por campo y resguardo tras
     anunciar: (m) => anuncios.push(m), ahora: () => Date.parse("2026-10-20T10:00:00Z"), nuevaClave: () => "publicacion-bases:clave-1" });
   await esperar();
   assert.match(raiz.innerHTML, /Bolsa de auxiliares administrativos/u);
-  assert.match(raiz.innerHTML, /Sin declarar/u);
+  assert.match(raiz.innerHTML, /Sin registrar/u);
+  // WCAG 2.5.3: el nombre accesible empieza por el texto visible del botón.
+  assert.match(raiz.innerHTML, /aria-label="Registrar publicación: Bolsa de auxiliares administrativos">Registrar publicación<\/button>/u);
+  assert.match(raiz.innerHTML, /class="tabla-datos tabla-apilable"/u);
+  assert.match(raiz.innerHTML, /<td class="envuelve" data-etiqueta="Publicación">/u);
   assert.match(raiz.innerHTML, /id="pb-ayuda"[^>]*hidden/u, "ayuda solo tras «?»");
   pulsar("data-pb-abrir", REF);
   assert.match(raiz.innerHTML, /<label for="pb-medio">Dónde se publicó/u);
@@ -159,8 +163,12 @@ test("vista: lista, formulario con etiquetas, errores por campo y resguardo tras
   assert.equal(envios[0].claveIdempotencia, "publicacion-bases:clave-1");
   assert.equal(envios[0].cuerpo.boletin_numero, 187);
   assert.match(raiz.innerHTML, /Publicación registrada/u);
-  assert.match(raiz.innerHTML, /recibo:publicacion:1/u);
-  assert.match(raiz.innerHTML, /Declarada/u, "la fila se refresca");
+  assert.match(raiz.innerHTML, /Se ha registrado la publicación de las bases de Bolsa de auxiliares administrativos\./u);
+  assert.match(raiz.innerHTML, /figura ahora como Registrada/u, "el resguardo dice qué pasa ahora");
+  // La referencia técnica solo aparece dentro del detalle plegado.
+  assert.match(raiz.innerHTML, /<details class="detalle-tecnico-plegado"><summary>Ver detalle técnico<\/summary>[\s\S]*recibo:publicacion:1[\s\S]*<\/details>/u);
+  assert.equal(raiz.innerHTML.replace(/<details[\s\S]*<\/details>/u, "").includes("recibo:publicacion:1"), false);
+  assert.match(raiz.innerHTML, /estado-chip exito">Registrada/u, "la fila se refresca");
   assert.doesNotMatch(raiz.innerHTML, /data-pb-formulario/u);
   assert.match(anuncios.at(-1), /Publicación registrada/u);
   vista.desmontar();
@@ -226,5 +234,28 @@ test("409 de versión recarga la lista; 503 sin habilitar no ofrece formulario; 
     cliente: { listar: async () => { throw Object.assign(new Error("x"), { estado: 403, codigo: "acceso_denegado" }); }, declarar: async () => {} } });
   await esperar();
   assert.match(tercera.raiz.innerHTML, /role="alert">Your current access/u);
+  assert.match(tercera.raiz.innerHTML, /data-vista="portal">Back to Home/u, "sin permiso hay salida");
+  assert.doesNotMatch(tercera.raiz.innerHTML, /data-pb-ayuda/u, "sin permiso no se ofrece la ayuda de la tarea");
   assert.deepEqual(avisos, ["oculta"]);
+});
+
+test("cancelar con datos escritos pide confirmación; sin cambios cierra directamente", async () => {
+  const { raiz, pulsar, escribir } = crearRaiz();
+  const preguntas = [];
+  let respuesta = false;
+  await montarPublicacionBasesRRHH({ raiz, cargarCatalogo: async () => es, confirmar: (m) => { preguntas.push(m); return respuesta; },
+    cliente: { listar: async () => validarListaPublicaciones(sobreLista()), declarar: async () => {} } });
+  await esperar();
+  pulsar("data-pb-abrir", REF);
+  pulsar("data-pb-cancelar");
+  assert.deepEqual(preguntas, []);
+  assert.doesNotMatch(raiz.innerHTML, /data-pb-formulario/u);
+  pulsar("data-pb-abrir", REF);
+  escribir("anuncio_ref", "2026/1");
+  pulsar("data-pb-cancelar");
+  assert.match(preguntas[0], /Hay datos sin guardar/u);
+  assert.match(raiz.innerHTML, /data-pb-formulario/u, "si no confirma, el formulario sigue abierto");
+  respuesta = true;
+  pulsar("data-pb-cancelar");
+  assert.doesNotMatch(raiz.innerHTML, /data-pb-formulario/u);
 });
