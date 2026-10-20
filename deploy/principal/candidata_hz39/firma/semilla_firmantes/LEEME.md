@@ -57,6 +57,10 @@ coteja el plan, su fuente y el recibo; no los fabrica. Tampoco ejecuta los
 archivos producidos. Revisa su destino antes de aplicar datos en la copia.
 No los apliques en producción ni sobre identidades ya instaladas.
 
+La recuperación exige fechas UTC canónicas y un intervalo de entre 60 y
+90 días. Ambas fases rechazan una retirada de firmantes ya vencida, incluso
+si todavía no se han aportado los certificados.
+
 ## Alcance de la entrega
 
 Esto permite repetir la preparación de quienes firman desde la ficha de

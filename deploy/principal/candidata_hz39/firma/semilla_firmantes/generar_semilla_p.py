@@ -13,6 +13,7 @@ from pathlib import Path
 ROLES = ("tecnico", "jefatura", "diputacion", "secretaria")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:._-]{2,127}$")
+UTC_INSTANT = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
 ESPACIO = "https://localhost/vec/desarrollo/identidad"
 DOMINIO = "vec.identidad.desarrollo.hmac.v1"
 
@@ -88,6 +89,13 @@ def main():
         exigir(cargos.get("esquema") == "vec.admin.cargos-firma.cargos.v2" and len(source_rows) == 16 and all(x.get("organizacion_ref") == config["organizacion_operativa_ref"] and x.get("duracion_propuesta_segundos") == 90 * 86400 for x in source_rows), "fuente AUT53 P no corresponde al ámbito operativo de 90 días")
         exigir(len({x["vigente_desde"] for x in source_rows}) == 1 and len({x["vigente_hasta"] for x in source_rows}) == 1, "vigencia AUT53 ambigua")
         start_role, end_role = source_rows[0]["vigente_desde"], source_rows[0]["vigente_hasta"]
+        exigir(all(isinstance(value, str) and UTC_INSTANT.fullmatch(value) for value in (start_role, end_role)), "vigencia AUT53 no es UTC canónica")
+        try:
+            start_at = dt.datetime.strptime(start_role, "%Y-%m-%dT%H:%M:%SZ")
+            end_at = dt.datetime.strptime(end_role, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError as error:
+            raise ValueError("vigencia AUT53 inválida") from error
+        exigir(dt.timedelta(days=60) <= end_at - start_at <= dt.timedelta(days=90), "vigencia AUT53 fuera de 60 a 90 días")
     assigns = assigns.replace("2026-10-14T17:16:34Z", start_role).replace("2027-11-18T16:06:24Z", end_role)
     replacements = {"__ORG_CANONICA__": config["organizacion_canonica_ref"], "__ORG_PROCEDENCIA__": config["organizacion_procedencia_ref"],
                     "__ORG_PROCEDENCIA_SHA__": config["organizacion_procedencia_sha256"], "__ORG_OPERATIVA__": config["organizacion_operativa_ref"],
@@ -106,10 +114,11 @@ def main():
     exigir("__" not in identity and "__" not in assigns, "plantilla incompleta")
     certs = config["certificados"]
     exigir(isinstance(certs, dict) and set(certs) == set(ROLES), "cuatro rutas de certificado requeridas")
+    retirada = dt.datetime.fromisoformat(datos["retirada_en"].replace("Z", "+00:00"))
+    exigir(retirada > dt.datetime.now(dt.timezone.utc), "vigencia retirada vencida")
     complete_certs = all(isinstance(certs[role], str) and certs[role] for role in ROLES)
     if complete_certs:
-        retirada = dt.datetime.fromisoformat(datos["retirada_en"].replace("Z", "+00:00"))
-        seconds = max(1, int((retirada - dt.datetime.now(dt.timezone.utc)).total_seconds()))
+        seconds = int((retirada - dt.datetime.now(dt.timezone.utc)).total_seconds())
         exigir(seconds > 0, "vigencia retirada")
         for role in ROLES:
             path = fuente(certs[role])

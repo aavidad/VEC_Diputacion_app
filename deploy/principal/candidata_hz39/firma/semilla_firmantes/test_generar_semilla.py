@@ -50,6 +50,45 @@ class SemillaFirmantesTest(unittest.TestCase):
             "--salida", str(self.root / output), *extra],
             capture_output=True, text=True, timeout=10)
 
+    def run_with_future_clock(self, output):
+        bootstrap = """import datetime as dt, importlib.util, sys
+base = dt.datetime
+class Future(base):
+    @classmethod
+    def now(cls, tz=None):
+        return base(2027, 1, 15, tzinfo=tz)
+spec = importlib.util.spec_from_file_location('semilla', sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+module.dt.datetime = Future
+sys.argv = sys.argv[1:]
+module.main()
+"""
+        return subprocess.run([sys.executable, "-c", bootstrap, str(GENERATOR),
+            "--config", str(self.root / "config.json"),
+            "--salida", str(self.root / output)],
+            capture_output=True, text=True, timeout=10)
+
+    def coherent_roles(self, end):
+        self.assertEqual(self.run_generator("base").returncode, 0)
+        cargos = json.loads((self.root / "base" / "cargos-firma-fuente.json").read_text())
+        for row in cargos["cargos"]:
+            row["vigente_hasta"] = end
+        source = self.private("fuente.json", cargos)
+        plan = {"cargos": [dict(row, version_rol_sha256=f"{index:064x}")
+                           for index, row in enumerate(cargos["cargos"], 1)]}
+        plan_path = self.private("plan.json", plan)
+        receipt = {"estado": "permitido", "recibo": {
+            "auditoria_ref": "auditoria:ficticia",
+            "plan_sha256": hashlib.sha256(plan_path.read_bytes()).hexdigest(),
+            "cargos": [{"version_rol_ref": "rol:" + row["rol_id"] + ":v1",
+                        "version_rol_sha256": f"{index:064x}",
+                        "control_sha256": "d" * 64}
+                       for index, row in enumerate(cargos["cargos"], 1)]}}
+        receipt_path = self.private("recibo.json", receipt)
+        return ("--roles-recibo", str(receipt_path), "--roles-plan", str(plan_path),
+                "--roles-fuente-publicada", str(source))
+
     def test_plantillas_publicas_generan_datos_privados_sin_asignaciones(self):
         for name in ("identidad.template.sql", "asignaciones.template.sql",
                      "firmantes.template.json", "cargos-roles.template.json"):
@@ -111,6 +150,48 @@ class SemillaFirmantesTest(unittest.TestCase):
         self.private("recibo.json", receipt)
         self.assertNotEqual(self.run_generator("salida_plan", *args).returncode, 0)
         self.assertFalse((self.root / "salida_plan").exists())
+
+    def test_fuente_aut53_coherente_limitada_a_90_dias(self):
+        now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+        start = now - dt.timedelta(hours=1)
+        args = self.coherent_roles((start + dt.timedelta(days=90)).isoformat().replace("+00:00", "Z"))
+        valid = self.run_generator("valida", *args)
+        self.assertEqual(valid.returncode, 0, valid.stderr)
+        self.assertTrue((self.root / "valida" / "semilla-asignaciones-firma.sql").exists())
+        invalid_end = (start + dt.timedelta(days=90, hours=1)).isoformat().replace("+00:00", "Z")
+        source_path = self.root / "fuente.json"
+        source = json.loads(source_path.read_text())
+        for row in source["cargos"]:
+            row["vigente_hasta"] = invalid_end
+        self.private("fuente.json", source)
+        plan_path = self.root / "plan.json"
+        plan = json.loads(plan_path.read_text())
+        for row in plan["cargos"]:
+            row["vigente_hasta"] = invalid_end
+        self.private("plan.json", plan)
+        receipt_path = self.root / "recibo.json"
+        receipt = json.loads(receipt_path.read_text())
+        receipt["recibo"]["plan_sha256"] = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+        self.private("recibo.json", receipt)
+        invalid = self.run_generator("excesiva", *args)
+        self.assertNotEqual(invalid.returncode, 0)
+        self.assertFalse((self.root / "excesiva").exists())
+        for rows in (source["cargos"], plan["cargos"]):
+            for row in rows:
+                row["vigente_desde"] = row["vigente_desde"].replace("Z", "+00:00")
+                row["vigente_hasta"] = row["vigente_hasta"].replace("Z", "+00:00")
+        self.private("fuente.json", source)
+        self.private("plan.json", plan)
+        receipt["recibo"]["plan_sha256"] = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+        self.private("recibo.json", receipt)
+        noncanonical = self.run_generator("no_utc_canonica", *args)
+        self.assertNotEqual(noncanonical.returncode, 0)
+        self.assertFalse((self.root / "no_utc_canonica").exists())
+
+    def test_retirada_vencida_rechaza_certificados_incompletos(self):
+        result = self.run_with_future_clock("retirada_vencida")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.root / "retirada_vencida").exists())
 
 
 if __name__ == "__main__":
