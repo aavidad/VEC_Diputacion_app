@@ -33,13 +33,14 @@ DECLARE a record; p record; v record; r record; e record; rf record; apertura_sh
 BEGIN
  SELECT * INTO a FROM vec_contratacion_temporal.anclaje_vinculo_categoria_rpt_ct154(org,exp);
  IF NOT FOUND THEN RETURN NULL; END IF;
- SELECT pf.* INTO p FROM vec_contratacion_temporal.aceptacion_vigente_ct124(org,exp) av
- JOIN vec_contratacion_temporal.propuesta_formalizacion pf ON pf.propuesta_ref=av.propuesta_ref;
- -- La propuesta portal conserva su pareja real de resolución/recibo.
- -- No se le atribuye un justificante de correo. El consumidor CT212 coteja
- -- después el selector, la persona y la respuesta con la fuente de Bolsa.
- IF NOT FOUND THEN
-  SELECT pf.* INTO p
+ -- Ambas fuentes usan el mismo orden vigente de confirmación y referencia.
+ -- La pareja portal conserva su recibo real, sin justificante de correo.
+ -- CT212 coteja después el selector, la persona y la respuesta de Bolsa.
+ SELECT candidata.* INTO p FROM (
+  SELECT pf.* FROM vec_contratacion_temporal.aceptacion_vigente_ct124(org,exp) av
+   JOIN vec_contratacion_temporal.propuesta_formalizacion pf ON pf.propuesta_ref=av.propuesta_ref
+  UNION ALL
+  SELECT pf.*
    FROM vec_contratacion_temporal.propuesta_formalizacion pf
    JOIN vec_contratacion_temporal.resolucion_manual_respuesta_rrhh rr
      ON rr.resolucion_ref=pf.resolucion_ref
@@ -59,8 +60,8 @@ BEGIN
      AND pf.material_json#>>'{Solicitud,ReciboResolucionAceptadaRef}'=rr.recibo_ref
      AND pf.material_json#>>'{AceptacionBolsaNativa,RespuestaRef}'=rr.respuesta_portal_ref
      AND pf.material_json#>>'{AceptacionBolsaNativa,Selector,recibo_respuesta_ref}'=rr.recibo_respuesta_portal_ref
-   ORDER BY pf.confirmada_en DESC,pf.propuesta_ref COLLATE "C" DESC LIMIT 1;
- END IF;
+ ) candidata
+ ORDER BY candidata.confirmada_en DESC,candidata.propuesta_ref COLLATE "C" DESC LIMIT 1;
  IF NOT FOUND OR EXISTS(SELECT 1 FROM vec_contratacion_temporal.no_incorporacion_v1 n WHERE n.organizacion_ref=org AND n.expediente_ref=exp AND n.aceptacion_resolucion_ref=p.resolucion_ref) THEN RETURN NULL; END IF;
  SELECT * INTO STRICT r FROM vec_contratacion_temporal.resolucion_manual_respuesta_rrhh WHERE resolucion_ref=p.resolucion_ref;
  SELECT * INTO STRICT e FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 WHERE clave_idempotencia=r.seleccion_clave;
