@@ -341,7 +341,7 @@ Un fallo de almacenamiento/aviso no pasa silenciosamente a éxito.
 
 ## Minitareas, dependencias y cierre
 
-Rutas propuestas, sujetas al GO de Dirección y a contrastar con el inventario final.
+Rutas propuestas, sujetas a revisión y contraste con el inventario final.
 Una persona escribe cada archivo. No se empezará SQL sin reservar número; será borrador
 hasta ensayo/revisión y no se reaplicarán migraciones instaladas.
 
