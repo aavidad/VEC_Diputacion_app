@@ -154,7 +154,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Registrar(ctx context.Contex
 	}
 	capacidad, valida := e.soporte.capacidadValida(ctx)
 	if !valida || capacidad.ruta != httpinterno.RutaRegistroComunicacionLlamamiento ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+		solicitud.OrganizacionRef != e.soporte.organizacionRef {
 		return vacio, application.ErrComunicacionLlamamientoDenegada
 	}
 	// Preparación interna: identidad/ámbito antes de leer, V3 antes de cualquier
@@ -170,7 +170,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Registrar(ctx context.Contex
 		return vacio, application.ErrComunicacionLlamamientoNoDisponible
 	}
 	if expediente.Fiscalizado.Validar() != nil ||
-		!expedienteComunicacionLlamamientoDesarrolloValido(expediente, solicitud) {
+		!expedienteComunicacionLlamamientoDesarrolloValido(e.soporte.referenciaCT, expediente, solicitud) {
 		return vacio, application.ErrComunicacionLlamamientoNoDisponible
 	}
 	// No asignar la clave HTTP de comunicación como si fuera la selección.
@@ -199,7 +199,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context
 	}
 	capacidad, valida := e.soporte.capacidadValida(ctx)
 	if !valida || capacidad.ruta != httpinterno.RutaResolucionComunicacionLlamamiento ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo || !solicitud.Respuesta.Valida() {
+		solicitud.OrganizacionRef != e.soporte.organizacionRef || !solicitud.Respuesta.Valida() {
 		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoDenegada
 	}
 	if solicitud.VersionEsperada != 2 {
@@ -215,7 +215,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context
 	if err == nil && solicitud.Respuesta == ports.RespuestaLlamamientoExpirada {
 		return e.confirmarExpiracion(ctx, solicitud, expediente)
 	}
-	if err != nil || !consultaJustificanteLigadaAlExpedienteDesarrollo(expediente, solicitud) {
+	if err != nil || !consultaJustificanteLigadaAlExpedienteDesarrollo(e.soporte.referenciaCT, expediente, solicitud) {
 		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoNoDisponible
 	}
 	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, preparacionLlamamientoDesarrollo{expediente: expediente})
@@ -236,10 +236,10 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context
 	return e.resolverConRevisionManual(ctx, solicitud, justificante)
 }
 
-func expedienteComunicacionLlamamientoDesarrolloValido(expediente ports.ExpedienteParaSeleccion, s ports.SolicitudRegistrarComunicacionLlamamiento) bool {
+func expedienteComunicacionLlamamientoDesarrolloValido(referencia referenciaCT, expediente ports.ExpedienteParaSeleccion, s ports.SolicitudRegistrarComunicacionLlamamiento) bool {
 	e := expediente.Fiscalizado
 	return e.Referencia == s.ExpedienteRef && e.OrganizacionRef == s.OrganizacionRef &&
-		e.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo && e.Version >= 6 &&
+		e.OrganizacionRef == referencia.organizacionRef && e.Version >= 6 &&
 		expediente.VersionActual >= e.Version && expediente.VersionActual <= ports.MaximoEnteroSeguroIntegracionBolsa &&
 		e.FaseActual == domain.FaseFiscalizacion && e.EstadoActual == domain.EstadoEnCurso &&
 		e.Fiscalizacion != nil && (e.Fiscalizacion.Resultado == domain.FiscalizacionFavorable ||
@@ -261,7 +261,7 @@ func (p *proveedorComunicacionLlamamientoDesarrollo) PrepararRegistroComunicacio
 	ligada, ligadaValida := ctx.Value(claveSolicitudComunicacionLlamamientoDesarrollo{}).(ports.SolicitudRegistrarComunicacionLlamamiento)
 	if !valida || capacidad.ruta != httpinterno.RutaRegistroComunicacionLlamamiento ||
 		!preparada || !ligadaValida || ligada != solicitud ||
-		!expedienteComunicacionLlamamientoDesarrolloValido(preparacion.expediente, solicitud) {
+		!expedienteComunicacionLlamamientoDesarrolloValido(p.soporte.referenciaCT, preparacion.expediente, solicitud) {
 		return vacio, ports.ErrOperacionComunicacionLlamamientoDenegada
 	}
 	if _, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(p.reloj.Ahora()); !vigente {

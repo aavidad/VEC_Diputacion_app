@@ -140,7 +140,7 @@ func configurarAutoridadConsultasRRHHDesarrollo(
 ) (*autoridadConsultasRRHHDesarrollo, error) {
 	return configurarAutoridadConsultasRRHHDesarrolloConAmbito(
 		alta, reloj, motivoCuadro, motivoDetalle,
-		ports.AmbitoOrganizacionRRHH, organizacionAltaContratacionTemporalDesarrollo,
+		ports.AmbitoOrganizacionRRHH, alta.soporte.organizacionRef,
 	)
 }
 
@@ -171,7 +171,7 @@ func configurarAutoridadConsultasRRHHDesarrolloConAmbito(
 		dependenciaEsNulaContratacionTemporalDesarrollo(s.registroDecisionesAnalisis) {
 		return nil, ports.ErrConsultaRRHHNoDisponible
 	}
-	if _, err := ports.NuevoContextoConsultaRRHHConAmbito(s.contexto, organizacionAltaContratacionTemporalDesarrollo, clase, ambitoRef, instante); err != nil {
+	if _, err := ports.NuevoContextoConsultaRRHHConAmbito(s.contexto, alta.soporte.organizacionRef, clase, ambitoRef, instante); err != nil {
 		return nil, ports.ErrConsultaRRHHNoDisponible
 	}
 	nueva := func(rol, nombre, accion, finalidad, tipo string, adicionales ...dominiovec.ConcesionRol) (dominiovec.InstantaneaAutorizacion, error) {
@@ -180,7 +180,7 @@ func configurarAutoridadConsultasRRHHDesarrolloConAmbito(
 			append([]dominiovec.ConcesionRol{{Accion: accion, ModuloID: ports.ModuloContratacion,
 				TipoRecurso: tipo, Finalidades: []string{finalidad}, GarantiaMinima: dominiovec.AuthAssuranceHigh}}, adicionales...),
 			[]dominiovec.AmbitoPerfil{
-				{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+				{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}},
 				{Clave: "clase_ambito", Valores: []string{string(clase)}},
 				{Clave: "ambito_ref", Valores: []string{ambitoRef}},
 			})
@@ -220,7 +220,7 @@ func (a *autoridadConsultasRRHHDesarrollo) ResolverContextoConsultaRRHH(ctx cont
 	if err != nil {
 		return ports.ContextoConsultaRRHH{}, err
 	}
-	return ports.NuevoContextoConsultaRRHHConAmbito(contexto, organizacionAltaContratacionTemporalDesarrollo, a.clase, a.ambitoRef, a.reloj.Ahora())
+	return ports.NuevoContextoConsultaRRHHConAmbito(contexto, a.soporte.organizacionRef, a.clase, a.ambitoRef, a.reloj.Ahora())
 }
 
 func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx context.Context) (ports.ContextoAutorizacionAltaV3, error) {
@@ -273,7 +273,7 @@ func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx co
 	}
 	// Cada consumidor vuelve a comprobar la vigencia; la caché de petición no
 	// prolonga una sesión vencida ni permite registrar otra para el mismo flujo.
-	if _, err := ports.NuevoContextoConsultaRRHHConAmbito(peticion.contexto, organizacionAltaContratacionTemporalDesarrollo, a.clase, a.ambitoRef, a.reloj.Ahora()); err != nil {
+	if _, err := ports.NuevoContextoConsultaRRHHConAmbito(peticion.contexto, a.soporte.organizacionRef, a.clase, a.ambitoRef, a.reloj.Ahora()); err != nil {
 		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaAutoridadContexto, err)
 	}
 	contexto := peticion.contexto
@@ -351,7 +351,7 @@ func (a *autoridadConsultasRRHHDesarrollo) solicitudAutorizacionConsultaRRHHDesa
 	r := datos.Recurso
 	if !valido || datos.ReferenciaMotivo != motivo || r.Validar() != nil ||
 		r.ModuloID != ports.ModuloContratacion || len(r.Ambitos) != 3 ||
-		r.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
+		r.Ambitos["organizacion_ref"] != a.soporte.organizacionRef ||
 		r.Ambitos["clase_ambito"] != string(a.clase) || r.Ambitos["ambito_ref"] != a.ambitoRef ||
 		len(r.Atributos) != 2 || !huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["consulta_huella_sha256"]) {
 		return false
@@ -387,7 +387,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionConsult
 		valido = dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo)
 	}
 	r := datos.Recurso
-	organizacion, clase, ambito := organizacionAltaContratacionTemporalDesarrollo, ports.AmbitoOrganizacionRRHH, organizacionAltaContratacionTemporalDesarrollo
+	organizacion, clase, ambito := s.organizacionRef, ports.AmbitoOrganizacionRRHH, s.organizacionRef
 	if s.lectorConsultasRRHH {
 		organizacion, clase, ambito = s.organizacionConsultaRRHH, s.claseAmbitoConsultaRRHH, s.ambitoConsultaRRHH
 	}

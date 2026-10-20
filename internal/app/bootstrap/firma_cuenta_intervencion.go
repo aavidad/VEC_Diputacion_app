@@ -36,7 +36,7 @@ func prepararCuentaNominalFirmasIntervencionConTransaccion(ctx context.Context, 
 	}
 	// El validador de cuentas exige el contexto original, con discriminador
 	// default. El perfil lector propio no se usa para provisionar la cuenta.
-	soporte := &soporteAltaContratacionTemporalDesarrollo{sello: canal.sello, principalID: principal.ID,
+	soporte := &soporteAltaContratacionTemporalDesarrollo{referenciaCT: canal.referenciaCT, sello: canal.sello, principalID: principal.ID,
 		certificadoSHA256: canal.certificadoSHA256, contexto: canal.contexto}
 	seudonimos, err := seudonimizador.SeudonimizarAlta(ctx, postgresidentidad.IdentificadoresAlta{
 		EspacioIdentidad: espacioIdentidadSesionDesarrollo, AsercionID: "preparacion-cuenta", SesionID: "preparacion-alias",

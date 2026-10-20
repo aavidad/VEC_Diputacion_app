@@ -90,7 +90,6 @@ func cargarIdentidadesConsultasRRHHDesarrollo(
 		if !okCert || !okIdentidad || !okClase || entrada.Subject == "" ||
 			!domain.ReferenciaOpacaValida(entrada.PerfilRef) || !domain.ReferenciaOpacaValida(entrada.OrganizacionRef) ||
 			!domain.ReferenciaOpacaValida(entrada.AmbitoRef) ||
-			entrada.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 			(clase == ports.AmbitoOrganizacionRRHH && entrada.AmbitoRef != entrada.OrganizacionRef) {
 			return nil, false, ErrMaterialDesarrolloInvalido
 		}

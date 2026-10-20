@@ -26,6 +26,7 @@ type contextoConsultaEstadoOfertaCT interface {
 }
 
 type preparadorConsultaEstadoSeleccionOfertaCTDesarrollo struct {
+	soporte   *soporteAltaContratacionTemporalDesarrollo
 	autoridad contextoConsultaEstadoOfertaCT
 	lector    ct.LectorContextoExpedienteSeleccionOfertaCT
 }
@@ -47,7 +48,7 @@ func (p preparadorConsultaEstadoSeleccionOfertaCTDesarrollo) PrepararConsultaEst
 	// La consulta preparatoria procede de la cabecera CT actual. O6 solo se
 	// consulta después de autorizar y consumir la decisión V3 nueva.
 	actual, err := p.lector.LeerContextoExpedienteSeleccionOfertaCT(ctx,
-		organizacionAltaContratacionTemporalDesarrollo, expediente)
+		p.soporte.organizacionRef, expediente)
 	if err != nil {
 		return vacia, err
 	}
@@ -56,7 +57,7 @@ func (p preparadorConsultaEstadoSeleccionOfertaCTDesarrollo) PrepararConsultaEst
 		return vacia, err
 	}
 	q := ct.SolicitudAutorizacionConsultaEstadoSeleccionOfertaCT{
-		OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+		OrganizacionRef: p.soporte.organizacionRef,
 		ExpedienteRef:   expediente, CategoriaRef: actual.CategoriaRef,
 		CentroRef: actual.CentroRef, VersionObservada: actual.VersionActual,
 		UnidadGestoraRef: actual.UnidadGestoraRef,

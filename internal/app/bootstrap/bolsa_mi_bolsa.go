@@ -543,7 +543,7 @@ func nuevaRutaMiBolsaDesarrollo(
 		return nil, errMiBolsaNoDisponible
 	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
-		sello: sello, principalID: identidad.identidad.principal.ID,
+		referenciaCT: alta.soporte.referenciaCT, sello: sello, principalID: identidad.identidad.principal.ID,
 		certificadoSHA256: identidad.identidad.principal.Attributes["certificate_sha256"],
 		candidatoBolsa:    true, contexto: ctports.ContextoAutorizacionAltaV3{Vinculo: vinculo, Resultado: resultado},
 		contextoEsperadoRegistrado: resultado, reloj: reloj,
@@ -557,7 +557,7 @@ func nuevaRutaMiBolsaDesarrollo(
 		return nil, errMiBolsaNoDisponible
 	}
 	soporteCuenta := &soporteAltaContratacionTemporalDesarrollo{
-		sello: sello, principalID: identidad.identidad.principal.ID,
+		referenciaCT: alta.soporte.referenciaCT, sello: sello, principalID: identidad.identidad.principal.ID,
 		certificadoSHA256: identidad.identidad.principal.Attributes["certificate_sha256"],
 		contexto:          semillaCuenta, reloj: reloj,
 	}

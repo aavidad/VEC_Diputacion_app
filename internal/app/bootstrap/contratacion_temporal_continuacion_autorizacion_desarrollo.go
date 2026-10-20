@@ -50,10 +50,10 @@ func motivoContinuacionDesarrollo(bolsa bool) dominiovec.ReferenciaEntradaCatalo
 		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", tipo)}
 }
 
-func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
+func solicitudAutorizacionContinuacionDesarrolloValida(referencia referenciaCT, ctx context.Context, d dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
 	m, existe := ctx.Value(claveMaterialContinuacionDesarrollo{}).(ports.MaterialContinuacionLlamamiento)
 	if !existe || m.Validar() != nil ||
-		!expedienteComunicacionLlamamientoDesarrolloValido(p.expediente, ports.SolicitudRegistrarComunicacionLlamamiento{
+		!expedienteComunicacionLlamamientoDesarrolloValido(referencia, p.expediente, ports.SolicitudRegistrarComunicacionLlamamiento{
 			OrganizacionRef: m.Solicitud.OrganizacionRef, ExpedienteRef: m.Solicitud.ExpedienteRef}) {
 		return false
 	}
@@ -81,7 +81,7 @@ func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d do
 	l, ok := ctx.Value(claveContinuacionLlamamientoDesarrollo{}).(continuacionLigadaDesarrollo)
 	if !ok || l.solicitud != m.Solicitud || l.soloRecuperacion != soloRecuperacionContinuacionDesarrollo(l.antecedente, p.expediente.VersionActual) ||
 		!antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) ||
-		!antecedenteLigadoAlExpedienteDesarrollo(p.expediente, l.antecedente.Resolucion.Solicitud) {
+		!antecedenteLigadoAlExpedienteDesarrollo(referencia, p.expediente, l.antecedente.Resolucion.Solicitud) {
 		return false
 	}
 	if d.Accion == postgresct.AccionConsultaJustificanteRespuestaRecibida {
@@ -109,14 +109,14 @@ func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d do
 // antecedenteLigadoAlExpedienteDesarrollo: la renuncia exige el justificante
 // consultable; la expiración confirmada no tiene respuesta personal y solo liga
 // el expediente fiscalizado del aviso (CT111 comprobó contacto y plazo).
-func antecedenteLigadoAlExpedienteDesarrollo(e ports.ExpedienteParaSeleccion, s ports.SolicitudResolverLlamamiento) bool {
+func antecedenteLigadoAlExpedienteDesarrollo(referencia referenciaCT, e ports.ExpedienteParaSeleccion, s ports.SolicitudResolverLlamamiento) bool {
 	if s.Respuesta == ports.RespuestaLlamamientoExpirada {
 		return s.Validar() == nil && s.VersionEsperada == 2 && e.Fiscalizado.Validar() == nil &&
-			expedienteComunicacionLlamamientoDesarrolloValido(e, ports.SolicitudRegistrarComunicacionLlamamiento{
+			expedienteComunicacionLlamamientoDesarrolloValido(referencia, e, ports.SolicitudRegistrarComunicacionLlamamiento{
 				OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
 			})
 	}
-	return consultaJustificanteLigadaAlExpedienteDesarrollo(e, s)
+	return consultaJustificanteLigadaAlExpedienteDesarrollo(referencia, e, s)
 }
 
 func configurarAutoridadContinuacionDesarrollo(ctx context.Context, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo, desde time.Time) error {
@@ -131,7 +131,7 @@ func configurarAutoridadContinuacionDesarrollo(ctx context.Context, alta *depend
 	local, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, reloj.Ahora(),
 		"continuacion_llamamiento_ct_desarrollo", "Continuación de llamamiento sintética", "continuacion-llamamiento-ct-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(postgresct.AccionContinuacionLlamamiento, "contratacion_temporal", postgresct.TipoRecursoContinuacionLlamamiento)},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{alta.soporte.organizacionRef}}})
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func configurarAutoridadContinuacionDesarrollo(ctx context.Context, alta *depend
 		"siguiente_llamamiento_bolsa_desarrollo", "Siguiente llamamiento en Bolsa sintética", "siguiente-llamamiento-bolsa-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(puertosbolsa.AccionAbrirSiguienteLlamamientoDesarrollo, "bolsa", "integracion_llamamientos_bolsa")},
 		[]dominiovec.AmbitoPerfil{{Clave: "categoria_ref", Valores: []string{"categoria:desarrollo:c2"}},
-			{Clave: "unidad_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}}})
+			{Clave: "unidad_ref", Valores: []string{alta.soporte.unidadRef}}})
 	if err != nil {
 		return err
 	}

@@ -53,7 +53,7 @@ func nuevaRutaEntregaPeticionDesarrollo(alta *dependenciasAltaContratacionTempor
 	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []vecdomain.ReferenciaEntradaCatalogo{motivoEntregaPeticionDesarrollo()}, desde); err != nil {
 		return vacia, err
 	}
-	repo, err := postgresct.NuevoRepositorioEntregasPeticionCentroPostgreSQL(alta.postgresql.ejecucion, p, organizacionAltaContratacionTemporalDesarrollo)
+	repo, err := postgresct.NuevoRepositorioEntregasPeticionCentroPostgreSQL(alta.postgresql.ejecucion, p, alta.soporte.organizacionRef)
 	if err != nil {
 		return vacia, err
 	}
@@ -64,7 +64,7 @@ func nuevaRutaEntregaPeticionDesarrollo(alta *dependenciasAltaContratacionTempor
 	return vechttp.RutaExacta{Ruta: rutaEntregaPeticionCentro, Manejador: &manejadorEntregaPeticionDesarrollo{p, repo, s, alta.etiquetasPeticionesRRHH}}, nil
 }
 
-func nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(
+func nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(referencia referenciaCT,
 	principalID, perfilRef string, ahora time.Time,
 ) (vecdomain.InstantaneaAutorizacion, error) {
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
@@ -73,12 +73,12 @@ func nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(
 		[]vecdomain.ConcesionRol{{Accion: ports.AccionConsultarPeticionesRRHH, ModuloID: ports.ModuloContratacion,
 			TipoRecurso: ports.TipoRecursoEntregaPeticionCentro,
 			Finalidades: []string{ports.FinalidadEntregaPeticionCentro}, GarantiaMinima: vecdomain.AuthAssuranceHigh}},
-		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}}})
 }
 
 // El POST y su alta anidada usan el mismo perfil y las mismas tres
 // dimensiones, obtenidas del catálogo de centros/categorías y organización.
-func nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(
+func nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(referencia referenciaCT,
 	principalID, perfilRef string, ahora time.Time, origen *origenConsultasContratacionTemporalDesarrollo,
 ) (vecdomain.InstantaneaAutorizacion, error) {
 	if origen == nil {
@@ -101,7 +101,7 @@ func nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(
 			{Accion: ports.AccionCrearSolicitud, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoExpediente, Finalidades: []string{ports.FinalidadCrearSolicitud}, GarantiaMinima: vecdomain.AuthAssuranceHigh},
 		},
 		[]vecdomain.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+			{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}},
 			{Clave: "centro_ref", Valores: centros},
 			{Clave: "categoria_ref", Valores: categorias},
 		},
@@ -250,7 +250,7 @@ func (p *proveedorEntregaPeticionDesarrollo) AutorizarEntregaPeticionCentro(ctx 
 	case perfilFijoConsumoFuenteNoDisponible:
 		return vacio, ports.ErrPeticionCentroNoDisponible
 	}
-	r, err := postgresct.RecursoEntregaPeticionCentro(m, organizacionAltaContratacionTemporalDesarrollo)
+	r, err := postgresct.RecursoEntregaPeticionCentro(m, p.alta.soporte.organizacionRef)
 	if err != nil {
 		return vacio, err
 	}
@@ -264,7 +264,7 @@ func (p *proveedorEntregaPeticionDesarrollo) AutorizarEntregaPeticionCentro(ctx 
 	}
 	d := vecdomain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: motivoEntregaPeticionDesarrollo(), Accion: postgresct.AccionEntregaPeticionCentro(m), Recurso: r, Finalidad: ports.FinalidadEntregaPeticionCentro, Correlacion: c}
 	ctx = context.WithValue(ctx, claveMaterialEntregaPeticionDesarrollo{}, m)
-	if !solicitudAutorizacionEntregaPeticionValida(ctx, d) {
+	if !solicitudAutorizacionEntregaPeticionValida(p.alta.soporte.referenciaCT, ctx, d) {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	s, err := vecdomain.NuevaSolicitudAutorizacionLigadaV3(d)
@@ -323,10 +323,10 @@ func (p *proveedorEntregaPeticionDesarrollo) ambitoDeClaveAlta(ctx context.Conte
 }
 
 func (p *proveedorEntregaPeticionDesarrollo) sellosDeClaveAlta(ctx context.Context, clave, actor, perfil string) (ports.ColeccionSellosHMAC, error) {
-	return p.alta.soporte.ambitos.SellarAmbitoIdempotencia(ctx, ports.SolicitudSellarAmbitoIdempotencia{ClaveIdempotencia: clave, OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ActorRef: actor, PerfilRef: perfil})
+	return p.alta.soporte.ambitos.SellarAmbitoIdempotencia(ctx, ports.SolicitudSellarAmbitoIdempotencia{ClaveIdempotencia: clave, OrganizacionRef: p.alta.soporte.organizacionRef, ActorRef: actor, PerfilRef: perfil})
 }
 
-func solicitudAutorizacionEntregaPeticionValida(ctx context.Context, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionEntregaPeticionValida(referencia referenciaCT, ctx context.Context, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
 	if ctx == nil || d.Finalidad != ports.FinalidadEntregaPeticionCentro || d.ReferenciaMotivo != motivoEntregaPeticionDesarrollo() {
 		return false
 	}
@@ -338,7 +338,7 @@ func solicitudAutorizacionEntregaPeticionValida(ctx context.Context, d vecdomain
 	if err != nil || m.ActorRef != v.PrincipalID || m.PerfilRef != v.PerfilActivoRef {
 		return false
 	}
-	r, err := postgresct.RecursoEntregaPeticionCentro(m, organizacionAltaContratacionTemporalDesarrollo)
+	r, err := postgresct.RecursoEntregaPeticionCentro(m, referencia.organizacionRef)
 	return err == nil && r.Referencia == d.Recurso.Referencia && r.ModuloID == d.Recurso.ModuloID && r.Tipo == d.Recurso.Tipo && maps.Equal(r.Ambitos, d.Recurso.Ambitos) && maps.Equal(r.Atributos, d.Recurso.Atributos)
 }
 
@@ -352,7 +352,7 @@ func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx con
 		return vacia, ports.ErrAutorizacionDenegada
 	}
 	if e.Peticion.Solicitud.Necesidad != nil {
-		ctx, err = application.ConNecesidadRatificadaPeticionCentro(ctx, organizacionAltaContratacionTemporalDesarrollo, e)
+		ctx, err = application.ConNecesidadRatificadaPeticionCentro(ctx, p.alta.soporte.organizacionRef, e)
 		if err != nil {
 			return vacia, err
 		}
@@ -415,7 +415,7 @@ func (p *proveedorEntregaPeticionDesarrollo) VerificarOriginalAltaEntrega(
 	if err != nil {
 		return err
 	}
-	if actorActual != e.ActorRef || original.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+	if actorActual != e.ActorRef || original.OrganizacionRef != p.alta.soporte.organizacionRef ||
 		original.ActorRef != e.ActorRef || original.PerfilRef != e.PerfilRef ||
 		original.AmbitoHMAC != e.AmbitoAltaHMAC ||
 		e.EstadoEntrega == "confirmada" && !reflect.DeepEqual(e.ReciboAlta, &original.ReciboAlta) {
@@ -461,11 +461,11 @@ func altaDePeticionConfiable(ctx context.Context) (ports.EntregaPeticionCentro, 
 	return e, ok && e.ValidarReserva() == nil && e.EstadoEntrega == "preparada"
 }
 
-func solicitudAutorizacionAltaDePeticionValida(ctx context.Context, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionAltaDePeticionValida(referencia referenciaCT, ctx context.Context, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
 	e, ok := altaDePeticionConfiable(ctx)
 	v, err := d.VinculoAutenticacionActor.Datos()
 	return ok && err == nil && v.PrincipalID == e.ActorRef && v.PerfilActivoRef == e.PerfilRef &&
 		d.Accion == ports.AccionCrearSolicitud && d.Recurso.ModuloID == ports.ModuloContratacion && d.Recurso.Tipo == ports.TipoRecursoExpediente && d.Finalidad == ports.FinalidadCrearSolicitud &&
-		len(d.Recurso.Ambitos) == 3 && d.Recurso.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		len(d.Recurso.Ambitos) == 3 && d.Recurso.Ambitos["organizacion_ref"] == referencia.organizacionRef &&
 		d.Recurso.Ambitos["centro_ref"] == e.Peticion.Solicitud.CentroRef && d.Recurso.Ambitos["categoria_ref"] == e.Peticion.Solicitud.CategoriaRef
 }

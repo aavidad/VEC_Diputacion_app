@@ -44,11 +44,11 @@ func motivoFirmaV2CTDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 // clave con la huella del material y la del descriptor (interior) o la del
 // plan (exterior), o bien la consulta R5 V2 previa de un expediente. AD170,
 // AD177 y CT172 recalculan la huella exacta en el consumo.
-func solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionFirmaExternaV2CTDesarrolloValida(referencia referenciaCT, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	r := datos.Recurso
 	if datos.Finalidad != ports.FinalidadFirmaDocumento || datos.ReferenciaMotivo != motivoFirmaV2CTDesarrollo() ||
 		r.Validar() != nil || r.ModuloID != ports.ModuloContratacion || len(r.Ambitos) != 1 ||
-		r.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
+		r.Ambitos["organizacion_ref"] != referencia.organizacionRef ||
 		!ctdomain.HuellaSHA256FirmaValida(r.Atributos["material_sha256"]) {
 		return false
 	}

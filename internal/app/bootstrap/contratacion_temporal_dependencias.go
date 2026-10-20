@@ -13,7 +13,8 @@ import (
 // pools ni lee configuración: los constructores de módulos reciben esta misma
 // instancia en vez de reconstruir credenciales o material de desarrollo.
 type DependenciasCT struct {
-	cfg        config.Config
+	cfg config.Config
+	referenciaCT
 	resolvedor *resolvedorIdentidadDesarrollo
 	derivador  *derivadorIdentidadOperacionDesarrollo
 	kms        *emisorKMSDesarrollo
@@ -44,7 +45,11 @@ func nuevasDependenciasCT(cfg config.Config, resolvedor vechttp.DemoIdentityReso
 	if !cfg.DevelopmentEnabledByDoubleKey() || validarRedLocalDesarrollo(cfg) != nil || !ok || identidad == nil || derivador == nil || !derivador.valido() {
 		return nil, ErrActivacionDesarrolloInvalida
 	}
-	return &DependenciasCT{cfg: cfg, resolvedor: identidad, derivador: derivador, kms: kms, registro: registro, reloj: relojContratacionTemporalDesarrollo{}, sello: &selloConsultasContratacionTemporalDesarrollo{}, plazosOfertasBolsa: &calculadoraPlazoOfertaDesarrollo{}, cerrar: func() {}}, nil
+	referencia, err := leerReferenciaOrganizativaCT(cfg.CTReferenciaOrganizativaFile)
+	if err != nil {
+		return nil, err
+	}
+	return &DependenciasCT{cfg: cfg, referenciaCT: referencia, resolvedor: identidad, derivador: derivador, kms: kms, registro: registro, reloj: relojContratacionTemporalDesarrollo{}, sello: &selloConsultasContratacionTemporalDesarrollo{}, plazosOfertasBolsa: &calculadoraPlazoOfertaDesarrollo{}, cerrar: func() {}}, nil
 }
 
 func (d *DependenciasCT) Cerrar() {

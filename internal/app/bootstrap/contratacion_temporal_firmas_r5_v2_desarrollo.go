@@ -70,7 +70,7 @@ func descriptoresMaterialFirmasR5V2CTDesarrollo() (consulta, recuperacion descri
 
 // Las dos concesiones son de lectura y llevan exactamente los campos que
 // exigen AD162 (consulta) y AD178 (recuperación), sin obligaciones.
-func nuevaInstantaneaFirmasR5V2CTDesarrollo(principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
+func nuevaInstantaneaFirmasR5V2CTDesarrollo(referencia referenciaCT, principalID, perfilRef string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
 	concesion := func(accion string, campos []string) dominiovec.ConcesionRol {
 		return dominiovec.ConcesionRol{Accion: accion, ModuloID: ports.ModuloContratacion,
 			TipoRecurso: ports.TipoRecursoConsultaFirmasR5, Finalidades: []string{ports.FinalidadFirmaDocumento},
@@ -83,21 +83,21 @@ func nuevaInstantaneaFirmasR5V2CTDesarrollo(principalID, perfilRef string, ahora
 			concesion(ports.AccionConsultarFirmasR5V2, ports.CamposConsultaFirmasR5V2()),
 			concesion(ports.AccionRecuperarFirmasR5V2, ports.CamposRecuperacionFirmasV2()),
 		},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}}})
 }
 
 // El PDP sólo admite la acción de la ruta sellada, el motivo propio y un
 // recurso de expediente con la organización del perfil y la huella del
 // material. El emisor V2 ya liga ese recurso al material exacto, y CT172 o
 // CT175 recalculan la huella en la transacción del consumo.
-func solicitudAutorizacionFirmasR5V2CTDesarrolloValida(ruta string, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionFirmasR5V2CTDesarrolloValida(referencia referenciaCT, ruta string, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	accion, ok := accionFirmasR5V2CTDesarrollo(ruta)
 	r := datos.Recurso
 	return ok && datos.Accion == accion && datos.Finalidad == ports.FinalidadFirmaDocumento &&
 		datos.ReferenciaMotivo == motivoFirmasR5V2CTDesarrollo() && r.Validar() == nil &&
 		ctdomain.ReferenciaOpacaValida(r.Referencia) && r.ModuloID == ports.ModuloContratacion &&
 		r.Tipo == ports.TipoRecursoConsultaFirmasR5 && len(r.Ambitos) == 1 &&
-		r.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		r.Ambitos["organizacion_ref"] == referencia.organizacionRef &&
 		len(r.Atributos) == 1 && ctdomain.HuellaSHA256FirmaValida(r.Atributos["material_sha256"])
 }
 
@@ -230,7 +230,7 @@ func (f *fuenteNominalFirmasR5V2CTDesarrollo) ResolverContextoConsultaFirmasR5V2
 	if err != nil {
 		return consultafirmasv2.Contexto{}, err
 	}
-	return consultafirmasv2.Contexto{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+	return consultafirmasv2.Contexto{OrganizacionRef: f.soporte.organizacionRef,
 		FirmantePrincipalCandidatoRef: operativo.Resultado.Contexto.PersonaRef}, nil
 }
 
@@ -253,7 +253,7 @@ func (f *fuenteNominalFirmasR5V2CTDesarrollo) CrearOrdenIntentoFirma(ctx context
 		return cero, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
 	if recurso == "" {
-		recurso = organizacionAltaContratacionTemporalDesarrollo
+		recurso = f.soporte.organizacionRef
 	}
 	referencia, err := puertosvec.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {
@@ -353,7 +353,7 @@ func nuevasRutasFirmasR5V2CTDesarrollo(cfg config.Config, alta *dependenciasAlta
 	fijo, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmasR5V2CTDesarrollo,
 		[]string{httpinterno.RutaConsultaFirmasR5V2, httpinterno.RutaRecuperacionFirmasR5V2},
 		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaFirmasR5V2CTDesarrollo(principalID, perfilRef, ahora)
+			return nuevaInstantaneaFirmasR5V2CTDesarrollo(alta.soporte.referenciaCT, principalID, perfilRef, ahora)
 		})
 	if err != nil {
 		return fallar("constructor", "dependencias_firmas_r5_v2", err)

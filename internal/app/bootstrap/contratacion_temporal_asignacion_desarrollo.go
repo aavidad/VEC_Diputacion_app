@@ -31,15 +31,15 @@ var errAsignacionContratacionTemporalDesarrolloNoDisponible = errors.New(
 	"contratacion temporal: asignacion de desarrollo no disponible",
 )
 
-type resolutorDestinoAsignacionContratacionTemporalDesarrollo struct{}
+type resolutorDestinoAsignacionContratacionTemporalDesarrollo struct{ referenciaCT }
 
-func (resolutorDestinoAsignacionContratacionTemporalDesarrollo) ResolverDestinoAsignacion(
+func (r resolutorDestinoAsignacionContratacionTemporalDesarrollo) ResolverDestinoAsignacion(
 	ctx context.Context,
 	solicitud ports.SolicitudResolverDestinoAsignacion,
 ) (ports.DestinoAsignacionResuelto, error) {
 	if contextoInterfazNulo(ctx) || solicitud.Validar() != nil ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		solicitud.UnidadRef != unidadCoberturaContratacionTemporalDesarrollo ||
+		solicitud.OrganizacionRef != r.organizacionRef ||
+		solicitud.UnidadRef != r.unidadRef ||
 		solicitud.ResponsableRef != responsableAsignacionContratacionTemporalDesarrollo ||
 		solicitud.ActorRef == solicitud.ResponsableRef {
 		return ports.DestinoAsignacionResuelto{}, ports.ErrDestinoAsignacionNoDisponible
@@ -75,6 +75,7 @@ func (resolutorDestinoAsignacionContratacionTemporalDesarrollo) ResolverDestinoA
 // asignación en las fases y estados del catálogo (c23), los mismos que cubre
 // su perfil fijo.
 type resolutorPoliticaAsignacionContratacionTemporalDesarrollo struct {
+	referenciaCT
 	fase faseOperacionCT
 }
 
@@ -84,7 +85,7 @@ func (r resolutorPoliticaAsignacionContratacionTemporalDesarrollo) ResolverPolit
 ) (ports.PoliticaAsignacion, error) {
 	if contextoInterfazNulo(ctx) || solicitud.Validar() != nil ||
 		solicitud.Operacion != ports.OperacionRegistrarAsignacion ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		solicitud.OrganizacionRef != r.organizacionRef ||
 		solicitud.Flujo.DefinicionRef != "flujo:ct:desarrollo" ||
 		solicitud.Flujo.Version != 1 ||
 		!hmac.Equal(
@@ -95,7 +96,7 @@ func (r resolutorPoliticaAsignacionContratacionTemporalDesarrollo) ResolverPolit
 		solicitud.UnidadAnteriorRef != "" ||
 		solicitud.ResponsableAnteriorRef != "" ||
 		solicitud.MotivoReasignacionClave != "" ||
-		solicitud.Destino.UnidadRef != unidadCoberturaContratacionTemporalDesarrollo ||
+		solicitud.Destino.UnidadRef != r.unidadRef ||
 		solicitud.Destino.ResponsableRef != responsableAsignacionContratacionTemporalDesarrollo ||
 		solicitud.ActorRef == solicitud.Destino.ResponsableRef {
 		return ports.PoliticaAsignacion{}, ports.ErrPoliticaAsignacionNoDisponible
@@ -120,7 +121,7 @@ func (r resolutorPoliticaAsignacionContratacionTemporalDesarrollo) ResolverPolit
 		DefinicionHuellaSHA256:        huellaAltaContratacionTemporalDesarrollo("politica-asignacion"),
 		Accion:                        domain.ClaveCatalogo(ports.AccionRegistrarAsignacion),
 		Finalidad:                     domain.ClaveCatalogo(finalidadAsignacionContratacionTemporalDesarrollo),
-		UnidadEjecutoraRef:            unidadCoberturaContratacionTemporalDesarrollo,
+		UnidadEjecutoraRef:            r.unidadRef,
 		MotivoAutorizacion:            referenciaMotivoAutorizacionAsignacionDesarrollo(),
 		ExigeActorDistintoResponsable: true,
 		EvaluadaEn:                    solicitud.Instante,
@@ -204,8 +205,8 @@ func nuevasDependenciasAsignacionContratacionTemporalDesarrollo(
 		sellos,
 		consultas,
 		preparaciones,
-		resolutorDestinoAsignacionContratacionTemporalDesarrollo{},
-		resolutorPoliticaAsignacionContratacionTemporalDesarrollo{fase: faseAsignacion},
+		resolutorDestinoAsignacionContratacionTemporalDesarrollo{referenciaCT: alta.soporte.referenciaCT},
+		resolutorPoliticaAsignacionContratacionTemporalDesarrollo{referenciaCT: alta.soporte.referenciaCT, fase: faseAsignacion},
 		seguridadvec.GeneradorReferenciasCriptograficas{},
 		alta.autorizador,
 		reloj,
@@ -220,7 +221,7 @@ func nuevasDependenciasAsignacionContratacionTemporalDesarrollo(
 // nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo es la
 // plantilla del perfil fijo de la asignación: la organización, las fases y
 // estados del catálogo (c23) y la unidad de destino, sin expediente.
-func nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(
+func nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(referencia referenciaCT,
 	principalID string,
 	perfilRef string,
 	ahora time.Time,
@@ -243,8 +244,8 @@ func nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(
 			Finalidades:    []string{finalidadAsignacionContratacionTemporalDesarrollo},
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}},
-		fase.ambitosPerfil(organizacionAltaContratacionTemporalDesarrollo,
-			dominiovec.AmbitoPerfil{Clave: "unidad_destino_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}}),
+		fase.ambitosPerfil(referencia.organizacionRef,
+			dominiovec.AmbitoPerfil{Clave: "unidad_destino_ref", Valores: []string{referencia.unidadRef}}),
 	)
 }
 
@@ -263,7 +264,7 @@ func referenciaMotivoAutorizacionAsignacionDesarrollo() dominiovec.ReferenciaEnt
 // solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida: el
 // expediente va en la referencia del recurso; los ámbitos son la
 // organización, el par fase/estado previo que admite el catálogo y la unidad.
-func solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(
+func solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(referencia referenciaCT,
 	ruta string,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
 	fase faseOperacionCT,
@@ -278,9 +279,9 @@ func solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(
 		datos.Finalidad == finalidadAsignacionContratacionTemporalDesarrollo &&
 		datos.Recurso.Referencia != "" &&
 		len(ambitos) == 4 && len(atributos) == 12 &&
-		ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		ambitos["organizacion_ref"] == referencia.organizacionRef &&
 		fase.admite(domain.ClaveFase(ambitos["fase_previa"]), domain.EstadoOperativo(ambitos["estado_previo"])) &&
-		ambitos["unidad_destino_ref"] == unidadCoberturaContratacionTemporalDesarrollo &&
+		ambitos["unidad_destino_ref"] == referencia.unidadRef &&
 		atributos[ports.AtributoOperacionAsignacion] == string(ports.OperacionRegistrarAsignacion) &&
 		atributos[ports.AtributoVersionAsignacion] == "3" &&
 		atributos[ports.AtributoPoliticaAsignacionRef] == definicionPoliticaAsignacionDesarrollo &&
@@ -294,7 +295,7 @@ func solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(
 			[]byte(atributos[ports.AtributoEvidenciaDestinoHuella]),
 			[]byte(huellaAltaContratacionTemporalDesarrollo("evidencia-destino-asignacion")),
 		) &&
-		atributos[ports.AtributoUnidadDestino] == unidadCoberturaContratacionTemporalDesarrollo &&
+		atributos[ports.AtributoUnidadDestino] == referencia.unidadRef &&
 		atributos[ports.AtributoResponsableDestino] == responsableAsignacionContratacionTemporalDesarrollo &&
 		selloHMACAsignacionContratacionTemporalDesarrolloValido(
 			atributos[ports.AtributoAmbitoIdempotenciaActivo],

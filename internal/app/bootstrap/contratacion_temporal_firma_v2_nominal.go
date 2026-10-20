@@ -46,6 +46,7 @@ type peticionNominalFirmaCT struct {
 }
 
 type fuenteNominalSesionFirmaCT struct {
+	referenciaCT
 	autoridad      *autoridadSesionFirmanteV2
 	fuente         *fuenteSinteticaSesionFirmanteV2
 	asignaciones   vp.FuenteAutorizacion
@@ -56,7 +57,7 @@ type fuenteNominalSesionFirmaCT struct {
 }
 
 func nuevaFuenteNominalSesionFirmaCT(a *autoridadSesionFirmanteV2, asignaciones vp.FuenteAutorizacion,
-	selectores []seleccionNominalFirmaCT, reloj ports.Reloj) (*fuenteNominalSesionFirmaCT, error) {
+	selectores []seleccionNominalFirmaCT, reloj ports.Reloj, referencia referenciaCT) (*fuenteNominalSesionFirmaCT, error) {
 	if a == nil || dependenciaEsNulaContratacionTemporalDesarrollo(asignaciones) || reloj == nil || len(selectores) == 0 || len(selectores) > 64 {
 		return nil, errSesionFirmanteV2NoDisponible
 	}
@@ -89,7 +90,7 @@ func nuevaFuenteNominalSesionFirmaCT(a *autoridadSesionFirmanteV2, asignaciones 
 		f.cuentasID[h] = s.CuentaID
 		f.selecciones[h] = s
 	}
-	return &fuenteNominalSesionFirmaCT{autoridad: a, fuente: f, asignaciones: asignaciones, porCertificado: porCert, reloj: reloj}, nil
+	return &fuenteNominalSesionFirmaCT{referenciaCT: referencia, autoridad: a, fuente: f, asignaciones: asignaciones, porCertificado: porCert, reloj: reloj}, nil
 }
 
 // Envolver no publica sesiones ni asignaciones al arrancar. Registra la
@@ -348,7 +349,7 @@ func (f *fuenteNominalSesionFirmaCT) CrearOrdenIntentoFirma(ctx context.Context,
 		return vacia, err
 	}
 	if recurso == "" {
-		recurso = organizacionAltaContratacionTemporalDesarrollo
+		recurso = f.organizacionRef
 	}
 	ref, err := vp.ReferenciaCorrelacionAutorizacionV2DePeticion(ctx)
 	if err != nil {

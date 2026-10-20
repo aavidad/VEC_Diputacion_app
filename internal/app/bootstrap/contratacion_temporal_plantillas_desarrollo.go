@@ -195,7 +195,7 @@ func nuevoSoportePlantillasCTDesdeBaseDesarrollo(base *soporteAltaContratacionTe
 		return nil, "", plantillasapp.ErrNoDisponible
 	}
 	return &soporteAltaContratacionTemporalDesarrollo{
-		sello: sello, principalID: principalID, certificadoSHA256: certificado,
+		referenciaCT: base.referenciaCT, sello: sello, principalID: principalID, certificadoSHA256: certificado,
 		contexto: contexto, reloj: reloj,
 	}, perfil, nil
 }
@@ -273,7 +273,7 @@ func motivoDocumentalPlantillasCTDesarrollo() vecdomain.ReferenciaEntradaCatalog
 	}
 }
 
-func instantaneaInicialPlantillasDocumentalCTDesarrollo(principal, perfil string, ahora time.Time) (vecdomain.InstantaneaAutorizacion, error) {
+func instantaneaInicialPlantillasDocumentalCTDesarrollo(referencia referenciaCT, principal, perfil string, ahora time.Time) (vecdomain.InstantaneaAutorizacion, error) {
 	campos := []string{"catalogo", "catalogo_huella_sha256", "contenido_json_sha256", "procedencia_ref", "revision", "version"}
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principal, perfil, ahora,
 		"ct_plantillas_documental_desarrollo", "Lectura documental de plantillas CT de desarrollo", "ct-plantillas-documental-desarrollo",
@@ -287,9 +287,9 @@ func instantaneaInicialPlantillasDocumentalCTDesarrollo(principal, perfil string
 				TipoRecurso: tipoDocumentalPlantillasCT, Finalidades: []string{finalidadDocumentalPlantillasCT},
 				CamposPermitidos: append([]string(nil), campos...), GarantiaMinima: vecdomain.AuthAssuranceHigh},
 		}, []vecdomain.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+			{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}},
 			{Clave: "clase_ambito", Valores: []string{string(ctports.AmbitoOrganizacionRRHH)}},
-			{Clave: "ambito_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+			{Clave: "ambito_ref", Valores: []string{referencia.organizacionRef}},
 		})
 }
 
@@ -378,7 +378,7 @@ func comprobarPreflightAutoridadesPlantillasCT(ctx context.Context, fuente, moti
 
 // solicitudAutorizacionPlantillasCTDesarrolloValida se usa también en la
 // fuente V3: el proveedor de material no basta para publicar una instantánea.
-func solicitudAutorizacionPlantillasCTDesarrolloValida(ruta string, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
+func solicitudAutorizacionPlantillasCTDesarrolloValida(referencia referenciaCT, ruta string, d vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
 	if !rutaPlantillasCatalogoCTDesarrollo(ruta) || d.ReferenciaMotivo != motivoCatalogoPlantillasCTDesarrollo() ||
 		d.Finalidad != finalidadCatalogoPlantillasCT {
 		return false
@@ -393,14 +393,14 @@ func solicitudAutorizacionPlantillasCTDesarrolloValida(ruta string, d vecdomain.
 	if d.Accion != accion {
 		return false
 	}
-	return recursoCatalogoPlantillasCTValido(accion, d.Recurso, false) ||
-		(accion != "contratacion_temporal.plantillas_documentos.consultar" && recursoCatalogoPlantillasCTValido(accion, d.Recurso, true))
+	return recursoCatalogoPlantillasCTValido(referencia, accion, d.Recurso, false) ||
+		(accion != "contratacion_temporal.plantillas_documentos.consultar" && recursoCatalogoPlantillasCTValido(referencia, accion, d.Recurso, true))
 }
 
 // La semilla positiva sólo se publica al crear el perfil dedicado. Una
 // asignación posterior (también revocada o restringida) gobierna el arranque
 // y se lee en vivo por el PDP; nunca se reconstituye desde esta semilla.
-func instantaneaInicialPlantillasCatalogoCTDesarrollo(principal, perfil string, ahora time.Time) (vecdomain.InstantaneaAutorizacion, error) {
+func instantaneaInicialPlantillasCatalogoCTDesarrollo(referencia referenciaCT, principal, perfil string, ahora time.Time) (vecdomain.InstantaneaAutorizacion, error) {
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principal, perfil, ahora,
 		"ct_plantillas_catalogo_desarrollo", "Gobierno de plantillas CT de desarrollo", "ct-plantillas-catalogo-desarrollo",
 		[]vecdomain.ConcesionRol{
@@ -413,7 +413,7 @@ func instantaneaInicialPlantillasCatalogoCTDesarrollo(principal, perfil string, 
 			{Accion: "contratacion_temporal.plantillas_documentos.publicar", ModuloID: plantillasapp.ModuloID,
 				TipoRecurso: tipoCatalogoPlantillasCT, Finalidades: []string{finalidadCatalogoPlantillasCT},
 				CamposPermitidos: []string{"catalogo", "recibo"}, GarantiaMinima: vecdomain.AuthAssuranceHigh},
-		}, []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		}, []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}}})
 }
 
 type publicadorInicialPlantillasCT interface {
@@ -504,7 +504,7 @@ func nuevasRutasPlantillasCTDesarrollo(ctx context.Context, cfg config.Config,
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible
 	}
-	if err := comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, organizacionAltaContratacionTemporalDesarrollo, catalogo); err != nil {
+	if err := comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, alta.soporte.organizacionRef, catalogo); err != nil {
 		return nil, err
 	}
 	if soporte.contexto.Resultado.Contexto.PerfilActivoRef == alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef ||
@@ -542,7 +542,7 @@ func nuevasRutasPlantillasCTDesarrollo(ctx context.Context, cfg config.Config,
 	soporte.mu.Lock()
 	soporte.contextoEsperadoRegistrado = esperado
 	soporte.mu.Unlock()
-	semilla, err := instantaneaInicialPlantillasCatalogoCTDesarrollo(
+	semilla, err := instantaneaInicialPlantillasCatalogoCTDesarrollo(alta.soporte.referenciaCT,
 		soporte.contexto.Resultado.Contexto.Principal.ID,
 		soporte.contexto.Resultado.Contexto.PerfilActivoRef, reloj.Ahora())
 	if err != nil {
@@ -575,7 +575,7 @@ func nuevasRutasPlantillasCTDesarrollo(ctx context.Context, cfg config.Config,
 	if err != nil {
 		return nil, err
 	}
-	repo, err := plantillaspg.NuevoRepositorio(alta.postgresql.ejecucion, proveedor, organizacionAltaContratacionTemporalDesarrollo)
+	repo, err := plantillaspg.NuevoRepositorio(alta.postgresql.ejecucion, proveedor, alta.soporte.organizacionRef)
 	if err != nil {
 		return nil, err
 	}
@@ -621,7 +621,7 @@ func nuevasRutasPlantillasDocumentalCTDesarrollo(
 		return nil, plantillasapp.ErrNoDisponible
 	}
 	catalogo, err := CargarCatalogoPlantillasCT(cfg.Normalize().ReglasEjemplo.CTPlantillasSourcePath)
-	if err != nil || comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, organizacionAltaContratacionTemporalDesarrollo, catalogo) != nil {
+	if err != nil || comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, alta.soporte.organizacionRef, catalogo) != nil {
 		return nil, plantillasapp.ErrNoDisponible
 	}
 	fuente, err := postgresvec.NuevoAlmacenAutorizacion(fuentePool)
@@ -661,7 +661,7 @@ func nuevasRutasPlantillasDocumentalCTDesarrollo(
 	soporte.mu.Lock()
 	soporte.contextoEsperadoRegistrado = esperado
 	soporte.mu.Unlock()
-	semilla, err := instantaneaInicialPlantillasDocumentalCTDesarrollo(
+	semilla, err := instantaneaInicialPlantillasDocumentalCTDesarrollo(alta.soporte.referenciaCT,
 		soporte.contexto.Resultado.Contexto.Principal.ID, perfil, reloj.Ahora())
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible
@@ -696,7 +696,7 @@ func nuevasRutasPlantillasDocumentalCTDesarrollo(
 	}
 	autoridadDetalle := &autoridadConsultasRRHHDesarrollo{
 		soporte: soporte, delegado: pdpDetalle, reloj: reloj, clase: ctports.AmbitoOrganizacionRRHH,
-		ambitoRef:       organizacionAltaContratacionTemporalDesarrollo,
+		ambitoRef:       alta.soporte.organizacionRef,
 		documentalCT133: true, motivoDetalleDocumental: motivoDetalle,
 	}
 	err = autoridadDetalle.configurarProveedorContextoConsultaRRHHDesarrollo(
@@ -728,7 +728,7 @@ func nuevasRutasPlantillasDocumentalCTDesarrollo(
 		return nil, plantillasapp.ErrNoDisponible
 	}
 	proveedorDocumental, err := plantillaspg.NuevoProveedorDocumental(alta.postgresql.ejecucion,
-		proveedorAutorizacion, proveedorAutorizacion, &catalogo, organizacionAltaContratacionTemporalDesarrollo)
+		proveedorAutorizacion, proveedorAutorizacion, &catalogo, alta.soporte.organizacionRef)
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible
 	}

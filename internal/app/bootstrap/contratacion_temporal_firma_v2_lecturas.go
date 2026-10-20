@@ -523,7 +523,7 @@ func (p *preparadorCircuitoFirmaV2) PrepararConsultaCircuitoRRHH(ctx context.Con
 		ReferenciaMotivo: motivoConsultaCircuitoRRHHDesarrollo(), Accion: postgresct.AccionConsultaCircuitoRRHH,
 		Recurso: recurso, Finalidad: "gestionar_contratacion_temporal", Correlacion: correlacion}
 	ctx = context.WithValue(ctx, claveConsultaCircuitoRRHHDesarrollo{}, s)
-	if !solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos) {
+	if !solicitudAutorizacionConsultaCircuitoRRHHValida(p.alta.soporte.referenciaCT, ctx, datos) {
 		return vacio, ports.ErrConsultaCircuitoRRHHDenegada
 	}
 	solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(datos)

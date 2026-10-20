@@ -110,6 +110,7 @@ func (s *selladorPeticionFuenteAnalisisDesarrollo) SellarPeticionFuenteAnalisis(
 }
 
 type preparadorSolicitudesFuentesAnalisisDesarrollo struct {
+	referenciaCT
 	generador ports.GeneradorPeticionFuenteAnalisis
 	sellador  ports.SelladorPeticionFuenteAnalisis
 	reloj     relojContratacionTemporalDesarrollo
@@ -128,7 +129,7 @@ func (p *preparadorSolicitudesFuentesAnalisisDesarrollo) PrepararSolicitudesFuen
 	if p == nil || dependenciaEsNulaContratacionTemporalDesarrollo(p.generador) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(p.sellador) ||
 		contextoInterfazNulo(ctx) || solicitud.Validar() != nil ||
-		!solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, p.catalogo) {
+		!solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(p.referenciaCT, solicitud, p.catalogo) {
 		return vacias, ports.ErrPeticionFuenteAnalisisInvalida
 	}
 	if err := ctx.Err(); err != nil {
@@ -254,6 +255,7 @@ func (p *presentadorAutoridadAnalisisDesarrollo) PresentarAutoridadFuenteAnalisi
 }
 
 type fuenteRCAnalisisDesarrollo struct {
+	referenciaCT
 	*presentadorAutoridadAnalisisDesarrollo
 	catalogo     *catalogosAltaContratacionTemporalDesarrollo
 	derivador    *derivadorIdentidadOperacionDesarrollo
@@ -276,7 +278,7 @@ func (f *fuenteRCAnalisisDesarrollo) ValidarRC(
 	// catálogo (o la de siempre) y con su declaración exacta.
 	entrada, conEntrada := f.catalogo.opcionesAnalisis().entradaRC(datos.Entrada)
 	declaracion := entrada.Declaracion
-	if err != nil || datos.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+	if err != nil || datos.OrganizacionRef != f.organizacionRef ||
 		!conEntrada || datos.Declaracion != declaracion {
 		return ports.ResultadoValidacionRC{},
 			ports.ErrPeticionFuenteAnalisisInvalida
@@ -422,7 +424,7 @@ func (*publicadorMotivoFuenteAnalisisDesarrollo) VerificarPublicacionMotivoFuent
 		ports.ErrVerificacionFuenteAnalisisNoDisponible
 }
 
-func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
+func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(referencia referenciaCT,
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
 	retribuciones *fuenteRetribucionesDesarrollo,
@@ -470,7 +472,7 @@ func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 			RaizClaveID:        raizFuentesAnalisisDesarrolloRef,
 			AutoridadRef:       autoridadRef,
 			BackendRef:         backendRef,
-			OrganizacionRef:    organizacionAltaContratacionTemporalDesarrollo,
+			OrganizacionRef:    referencia.organizacionRef,
 			Audiencia:          audienciaFuentesAnalisisDesarrollo,
 			Rol:                rol,
 			Serie:              serie,
@@ -538,7 +540,7 @@ func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 		return nil, err
 	}
 	confianza, err := ports.NuevaConfianzaAutoridadesFuenteAnalisis(
-		organizacionAltaContratacionTemporalDesarrollo,
+		referencia.organizacionRef,
 		audienciaFuentesAnalisisDesarrollo,
 		[]ports.RaizConfianzaAutoridadFuenteAnalisis{{
 			ClaveID:             raizFuentesAnalisisDesarrolloRef,
@@ -556,6 +558,7 @@ func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
 	}
 	preparador := &preparadorSolicitudesFuentesAnalisisDesarrollo{
+		referenciaCT:  referencia,
 		generador:     generadorPeticionFuenteAnalisisDesarrollo{},
 		sellador:      &selladorPeticionFuenteAnalisisDesarrollo{derivador: derivador},
 		reloj:         reloj,
@@ -566,11 +569,13 @@ func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 		application.NuevaCapacidadPrepararArtefactoAnalisisO3ParaComposicionInterna(
 			preparador,
 			&fuenteRCAnalisisDesarrollo{
+				referenciaCT:                           referencia,
 				presentadorAutoridadAnalisisDesarrollo: presentadorRC,
 				derivador:                              derivador, autoridadRef: autoridadFuenteRCAnalisisDesarrollo,
 				generacion: generacion, reloj: reloj, catalogo: catalogo,
 			},
 			&calculadorCosteAnalisisDesarrollo{
+				referenciaCT:                           referencia,
 				presentadorAutoridadAnalisisDesarrollo: presentadorCoste,
 				derivador:                              derivador, autoridadRef: autoridadCosteAnalisisDesarrollo,
 				generacion: generacion, reloj: reloj, retribuciones: retribuciones,

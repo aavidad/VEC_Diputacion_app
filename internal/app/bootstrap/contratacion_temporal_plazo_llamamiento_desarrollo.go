@@ -215,14 +215,14 @@ func (e *ejecutorEventoPlazoDesarrollo) Registrar(ctx context.Context, s ports.S
 		return vacio, application.ErrSolicitudEventoPlazoInvalida
 	}
 	c, valida := e.soporte.capacidadValida(ctx)
-	if !valida || c.ruta != httpinterno.RutaEventoPlazoLlamamiento || s.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+	if !valida || c.ruta != httpinterno.RutaEventoPlazoLlamamiento || s.OrganizacionRef != e.soporte.organizacionRef {
 		return vacio, application.ErrEventoPlazoDenegado
 	}
 	expediente, err := e.lector.LeerExpedienteParaAvisoConfirmado(ctx, s.OrganizacionRef, s.ExpedienteRef, s.LlamamientoRef)
 	if ctx.Err() != nil {
 		return vacio, ctx.Err()
 	}
-	if err != nil || !expedienteEventoPlazoDesarrolloValido(expediente, s) {
+	if err != nil || !expedienteEventoPlazoDesarrolloValido(e.soporte.referenciaCT, expediente, s) {
 		return vacio, application.ErrEventoPlazoNoDisponible
 	}
 	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, preparacionLlamamientoDesarrollo{expediente: expediente})
@@ -230,9 +230,9 @@ func (e *ejecutorEventoPlazoDesarrollo) Registrar(ctx context.Context, s ports.S
 	return e.servicio.Registrar(ctx, s)
 }
 
-func expedienteEventoPlazoDesarrolloValido(e ports.ExpedienteParaSeleccion, s ports.SolicitudRegistrarEventoPlazoLlamamiento) bool {
+func expedienteEventoPlazoDesarrolloValido(referencia referenciaCT, e ports.ExpedienteParaSeleccion, s ports.SolicitudRegistrarEventoPlazoLlamamiento) bool {
 	return s.Validar() == nil && e.Fiscalizado.Validar() == nil &&
-		expedienteComunicacionLlamamientoDesarrolloValido(e, ports.SolicitudRegistrarComunicacionLlamamiento{
+		expedienteComunicacionLlamamientoDesarrolloValido(referencia, e, ports.SolicitudRegistrarComunicacionLlamamiento{
 			OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
 		})
 }
@@ -252,7 +252,7 @@ func (p *proveedorEventoPlazoDesarrollo) AutorizarEventoPlazo(ctx context.Contex
 	ligada, existe := ctx.Value(claveEventoPlazoDesarrollo{}).(ports.SolicitudRegistrarEventoPlazoLlamamiento)
 	preparacion, preparada := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
 	if !valida || c.ruta != httpinterno.RutaEventoPlazoLlamamiento || !existe || ligada != m.Solicitud ||
-		!preparada || !expedienteEventoPlazoDesarrolloValido(preparacion.expediente, m.Solicitud) || m.Validar() != nil {
+		!preparada || !expedienteEventoPlazoDesarrolloValido(p.soporte.referenciaCT, preparacion.expediente, m.Solicitud) || m.Validar() != nil {
 		return vacio, ports.ErrOperacionEventoPlazoDenegada
 	}
 	if _, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(p.reloj.Ahora()); !vigente {
@@ -282,9 +282,9 @@ type claveMaterialEventoPlazoDesarrollo struct{}
 
 // solicitudAutorizacionEventoPlazoDesarrolloValida liga la decisión al
 // material exacto que se va a consumir: mismo permiso que la resolución.
-func solicitudAutorizacionEventoPlazoDesarrolloValida(ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
+func solicitudAutorizacionEventoPlazoDesarrolloValida(referencia referenciaCT, ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
 	m, ok := ctx.Value(claveMaterialEventoPlazoDesarrollo{}).(postgresct.MaterialEventoPlazoLlamamiento)
-	if !ok || m.Validar() != nil || !expedienteEventoPlazoDesarrolloValido(p.expediente, m.Solicitud) ||
+	if !ok || m.Validar() != nil || !expedienteEventoPlazoDesarrolloValido(referencia, p.expediente, m.Solicitud) ||
 		datos.Accion != postgresct.AccionResolucionManualLlamamiento ||
 		datos.ReferenciaMotivo != motivoResolucionManualDesarrollo(false) {
 		return false
@@ -315,7 +315,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) confirmarExpiracion(
 		return vacio, application.ErrComunicacionLlamamientoDenegada
 	}
 	ligada := aceptacionRevisadaDesarrollo{solicitud: s, politica: politica}
-	if !resolucionLigadaAlExpedienteDesarrollo(expediente, ligada) {
+	if !resolucionLigadaAlExpedienteDesarrollo(e.soporte.referenciaCT, expediente, ligada) {
 		return vacio, application.ErrComunicacionLlamamientoNoDisponible
 	}
 	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, preparacionLlamamientoDesarrollo{expediente: expediente})

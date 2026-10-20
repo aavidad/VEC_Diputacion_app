@@ -246,7 +246,7 @@ func (a *autoridadIncorporacionPersonalB2) anclajeNativoPropuestaPermitido(ctx c
 		selector.ExpedienteRef == expediente.Referencia &&
 		selector.ClaveCT == preparacion.clave && selector.UnidadRef == preparacion.unidad &&
 		selector.CategoriaRef == preparacion.categoria && selector.NecesidadRef == preparacion.necesidad &&
-		selector.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo
+		selector.OrganizacionRef == a.perfiles.soporte.organizacionRef
 }
 func (a *autoridadIncorporacionPersonalB2) actor(ctx context.Context, accion string) (core.ContextoActor, error) {
 	c, e := a.contexto(ctx, accion)

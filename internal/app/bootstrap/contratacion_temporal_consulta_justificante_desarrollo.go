@@ -29,11 +29,11 @@ func motivoConsultaJustificanteRespuestaDesarrollo() dominiovec.ReferenciaEntrad
 	}
 }
 
-func consultaJustificanteLigadaAlExpedienteDesarrollo(e ports.ExpedienteParaSeleccion, s ports.SolicitudResolverLlamamiento) bool {
+func consultaJustificanteLigadaAlExpedienteDesarrollo(referencia referenciaCT, e ports.ExpedienteParaSeleccion, s ports.SolicitudResolverLlamamiento) bool {
 	return s.Validar() == nil && s.VersionEsperada == 2 &&
 		(s.Respuesta == ports.RespuestaLlamamientoAceptada || s.Respuesta == ports.RespuestaLlamamientoRenunciada) &&
 		e.Fiscalizado.Validar() == nil &&
-		expedienteComunicacionLlamamientoDesarrolloValido(e, ports.SolicitudRegistrarComunicacionLlamamiento{
+		expedienteComunicacionLlamamientoDesarrolloValido(referencia, e, ports.SolicitudRegistrarComunicacionLlamamiento{
 			OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
 		})
 }
@@ -53,7 +53,7 @@ func (p *proveedorConsultaJustificanteRespuestaDesarrollo) AutorizarConsultaJust
 	rutaValida := c.ruta == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		(c.ruta == httpinterno.RutaContinuacionLlamamiento && antecedenteContinuacionDesarrolloValido(ctx, s))
 	if !valida || !rutaValida || !existe || ligada != s ||
-		!preparada || !consultaJustificanteLigadaAlExpedienteDesarrollo(preparacion.expediente, s) {
+		!preparada || !consultaJustificanteLigadaAlExpedienteDesarrollo(p.soporte.referenciaCT, preparacion.expediente, s) {
 		return vacio, ports.ErrOperacionRespuestaRecibidaDenegada
 	}
 	if _, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(p.reloj.Ahora()); !vigente {

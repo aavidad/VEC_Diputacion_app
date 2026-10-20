@@ -78,7 +78,7 @@ func (s seleccionSoporteSeguimientoRRHH) ResolverContextoAutorizacionAltaV3(ctx 
 // asignación ya publicada al perfil sintético y al actor exactos: la semilla
 // (solo organización) o la misma asignación ya ceñida por una operación
 // anterior a un expediente en nombramiento, como hace la técnica original.
-func instantaneaSegundoRRHHNoIncorporacionValida(i vecdomain.InstantaneaAutorizacion, principal, perfil string, ahora time.Time) bool {
+func instantaneaSegundoRRHHNoIncorporacionValida(referencia referenciaCT, i vecdomain.InstantaneaAutorizacion, principal, perfil string, ahora time.Time) bool {
 	if i.Validar() != nil || i.AsignacionPerfil.PrincipalID != principal ||
 		i.AsignacionPerfil.PerfilActivoRef != perfil ||
 		i.AsignacionPerfil.Estado != vecdomain.EstadoAsignacionPerfilActiva ||
@@ -97,7 +97,7 @@ func instantaneaSegundoRRHHNoIncorporacionValida(i vecdomain.InstantaneaAutoriza
 	for clave, valor := range ambitos {
 		switch clave {
 		case "organizacion_ref":
-			if valor != organizacionAltaContratacionTemporalDesarrollo {
+			if valor != referencia.organizacionRef {
 				return false
 			}
 		case "expediente_ref":
@@ -145,10 +145,10 @@ func instantaneaSegundoRRHHNoIncorporacionValida(i vecdomain.InstantaneaAutoriza
 
 // baseSegundoRRHH devuelve la instantánea con el ámbito de organización: cada
 // operación la vuelve a ceñir al expediente exacto antes de decidir.
-func baseSegundoRRHH(i vecdomain.InstantaneaAutorizacion) vecdomain.InstantaneaAutorizacion {
+func baseSegundoRRHH(referencia referenciaCT, i vecdomain.InstantaneaAutorizacion) vecdomain.InstantaneaAutorizacion {
 	base := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(i)
 	base.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref",
-		Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}}
+		Valores: []string{referencia.organizacionRef}}}
 	return base
 }
 
@@ -247,7 +247,7 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 	perfil := vinculo.PerfilActivoRef
 	publicada, existe, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, alta.postgresql.gobierno, perfil)
 	if err != nil || !existe || publicada.actoAsignacion != actoAsignacionCTDesarrollo ||
-		!instantaneaSegundoRRHHNoIncorporacionValida(publicada.instantanea, vinculo.PrincipalID, perfil, reloj.Ahora()) {
+		!instantaneaSegundoRRHHNoIncorporacionValida(alta.soporte.referenciaCT, publicada.instantanea, vinculo.PrincipalID, perfil, reloj.Ahora()) {
 		slog.Warn("segundo técnico de RRHH sin asignación de lectura y no incorporación consumible")
 		return nil, nil
 	}
@@ -259,10 +259,10 @@ func componerSegundoSoporteNoIncorporacion(ctx context.Context, dependencias *De
 		return nil, nil
 	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
-		sello: alta.soporte.sello, principalID: principal.ID,
+		referenciaCT: alta.soporte.referenciaCT, sello: alta.soporte.sello, principalID: principal.ID,
 		certificadoSHA256: principal.Attributes["certificate_sha256"],
 		contexto:          contexto, reloj: reloj,
-		seguimientoCese:            &soporteSeguimientoCeseDesarrollo{instantanea: baseSegundoRRHH(publicada.instantanea)},
+		seguimientoCese:            &soporteSeguimientoCeseDesarrollo{instantanea: baseSegundoRRHH(alta.soporte.referenciaCT, publicada.instantanea)},
 		concesiones:                make(map[string]struct{}),
 		instantaneasPorSolicitud:   make(map[string]vecdomain.InstantaneaAutorizacion),
 		registroDecisionesAnalisis: registro,

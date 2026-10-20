@@ -142,7 +142,7 @@ func (p *proveedorAjustesReglasCT) AutorizarAjustesReglasCT(ctx context.Context,
 	if p == nil || (accion != accionConsultarAjustesCT && accion != accionPublicarAjustesCT) ||
 		recurso.Validar() != nil || recurso.Referencia != "vec.contratacion_temporal.reglas" ||
 		recurso.ModuloID != "contratacion_temporal" || recurso.Tipo != "catalogo_reglas" ||
-		len(recurso.Ambitos) != 1 || recurso.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
+		len(recurso.Ambitos) != 1 || recurso.Ambitos["organizacion_ref"] != p.soporte.organizacionRef ||
 		len(recurso.Atributos) != 1 || !huellaMaterialPlantillasCTValida(recurso.Atributos["material_sha256"]) ||
 		actor.Validar() != nil {
 		return vacio, vecdomain.ErrAutorizacionDenegada

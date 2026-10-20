@@ -5,8 +5,6 @@ import (
 	"errors"
 	"sync"
 	"time"
-	"vec-diputacion-granada/config"
-	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/numeracion"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -14,7 +12,6 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
-	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -22,10 +19,8 @@ import (
 )
 
 const (
-	organizacionAltaContratacionTemporalDesarrollo  = "organizacion:desarrollo:dipgra"
 	centroAltaContratacionTemporalDesarrollo        = "centro:desarrollo:001"
 	categoriaAltaContratacionTemporalDesarrollo     = "categoria:desarrollo:c2"
-	unidadCoberturaContratacionTemporalDesarrollo   = "unidad:desarrollo:rrhh"
 	motivoAltaContratacionTemporalDesarrollo        = domain.ClaveCatalogo("sustitucion")
 	accionPropuestaCoberturaDesarrollo              = "contratacion_temporal.cobertura.propuesta.consultar"
 	tipoRecursoDecisionCoberturaDesarrollo          = "decision_cobertura_gobernada"
@@ -73,6 +68,7 @@ type registroDecisionesAnalisisContratacionTemporalDesarrollo interface {
 // solo para ejercitar los casos de uso reales. Todo su estado es efimero,
 // no_autoritativo y queda aislado por la composicion de doble llave.
 type soporteAltaContratacionTemporalDesarrollo struct {
+	referenciaCT
 	origen *origenConsultasContratacionTemporalDesarrollo
 	// opcionesCatalogo son las opciones del catálogo de reglas que se
 	// publican al abrir PostgreSQL (vías de cobertura y numeración); nulo
@@ -205,7 +201,7 @@ func (d *dependenciasAltaContratacionTemporalDesarrollo) cerrar() {
 // fiscalización lo rechaza; el expediente quedaría parado en el paso 4. La
 // definición configurada solo monta la consulta y la presentación del
 // circuito. Adjuntarlo exige componer antes todas sus fuentes acreditadas.
-func flujoAltaContratacionTemporalDesarrollo() ports.ConfiguracionAltaFlujo {
+func flujoAltaContratacionTemporalDesarrollo(unidadRef string) ports.ConfiguracionAltaFlujo {
 	return ports.ConfiguracionAltaFlujo{
 		Flujo: domain.ReferenciaFlujo{
 			DefinicionRef: "flujo:ct:desarrollo",
@@ -213,7 +209,7 @@ func flujoAltaContratacionTemporalDesarrollo() ports.ConfiguracionAltaFlujo {
 			HuellaSHA256:  huellaAltaContratacionTemporalDesarrollo("flujo"),
 		},
 		FaseInicial:      domain.ClaveFase("solicitud"),
-		UnidadInicialRef: "unidad:desarrollo:rrhh",
+		UnidadInicialRef: unidadRef,
 		AccionInicial:    domain.ClaveCatalogo("alta"),
 	}
 }
@@ -227,6 +223,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		return vacias, ErrActivacionDesarrolloInvalida
 	}
 	cfg := dependenciasCT.cfg
+	referencia := dependenciasCT.referenciaCT
 	identidad := dependenciasCT.resolvedor
 	derivador := dependenciasCT.derivador
 	sello := dependenciasCT.sello
@@ -235,7 +232,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	if len(origenOpcional) > 0 && origenOpcional[0] != nil {
 		origen = origenOpcional[0]
 	} else if cfg.PersonalOrganizacionSourcePath != "" {
-		origen = nuevoOrigenConsultasContratacionTemporalDesarrollo(cfg.PersonalOrganizacionSourcePath)
+		origen = nuevoOrigenConsultasContratacionTemporalDesarrollo(referencia, cfg.PersonalOrganizacionSourcePath)
 	}
 	if identidad == nil || derivador == nil || !derivador.valido() || sello == nil {
 		return vacias, ErrActivacionDesarrolloInvalida
@@ -263,7 +260,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
-	flujo := flujoAltaContratacionTemporalDesarrollo()
+	flujo := flujoAltaContratacionTemporalDesarrollo(referencia.unidadRef)
 	motivo := dominiovec.ReferenciaEntradaCatalogo{
 		CatalogoID:           "motivos_autorizacion",
 		CatalogoVersion:      1,
@@ -272,31 +269,31 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 			"motivo_", "crear-solicitud",
 		),
 	}
-	instantanea, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+	instantanea, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(referencia,
 		datosVinculo.PrincipalID, datosVinculo.PerfilActivoRef, ahora, origen,
 	)
 	instantaneaCobertura, errCobertura :=
-		nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
+		nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(referencia,
 			datosVinculo.PrincipalID,
 			datosVinculo.PerfilActivoRef,
 			ahora,
 		)
 	instantaneaAnalisis, errAnalisis :=
-		nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
+		nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(referencia,
 			datosVinculo.PrincipalID,
 			datosVinculo.PerfilActivoRef,
 			ahora,
 			faseDeOperacionCTDesarrollo(dependenciasCT.opcionesCatalogoCT, operacionFaseAnalisisCT),
 		)
 	instantaneaAsignacion, errAsignacion :=
-		nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(
+		nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(referencia,
 			datosVinculo.PrincipalID,
 			datosVinculo.PerfilActivoRef,
 			ahora,
 			faseDeOperacionCTDesarrollo(dependenciasCT.opcionesCatalogoCT, operacionFaseAsignacionCT),
 		)
 	instantaneaInformeJuridico, errInformeJuridico :=
-		nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(
+		nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(referencia,
 			datosVinculo.PrincipalID,
 			datosVinculo.PerfilActivoRef,
 			ahora,
@@ -330,7 +327,8 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		}
 	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
-		origen: origen, opcionesCatalogo: dependenciasCT.opcionesCatalogoCT,
+		referenciaCT: referencia,
+		origen:       origen, opcionesCatalogo: dependenciasCT.opcionesCatalogoCT,
 		sello: sello, principalID: principal.ID,
 		certificadoSHA256: principal.Attributes["certificate_sha256"],
 		contexto:          contexto, flujo: flujo, motivo: motivo, instantanea: instantanea,
@@ -369,7 +367,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		perfilFirma, err := nuevoPerfilFijoCTDesarrollo(principal, soporte.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
 			[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
 			func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-				return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(principalID, perfilRef, ahora, len(soporte.custodiaFirmaDocumentos) != 0)
+				return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referencia, principalID, perfilRef, ahora, len(soporte.custodiaFirmaDocumentos) != 0)
 			})
 		if err != nil || soporte.registrarPerfilFijoCTDesarrollo(perfilFirma) != nil {
 			return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
@@ -446,32 +444,4 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		autorizador: autorizador,
 		postgresql:  postgresql,
 	}, nil
-}
-
-func nuevaRutaAltaContratacionTemporalDesarrollo(
-	cfg config.Config,
-	identidad *resolvedorIdentidadDesarrollo,
-	derivador *derivadorIdentidadOperacionDesarrollo,
-	sello *selloConsultasContratacionTemporalDesarrollo,
-	reloj relojContratacionTemporalDesarrollo,
-) (vechttp.RutaExacta, func(), error) {
-	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo(cfg.PersonalOrganizacionSourcePath)
-	dependenciasCT, err := nuevasDependenciasCT(cfg, identidad, derivador, nil, nil)
-	if err != nil {
-		return vechttp.RutaExacta{}, nil, err
-	}
-	dependencias, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(dependenciasCT, origen)
-	if err != nil {
-		return vechttp.RutaExacta{}, nil, err
-	}
-	ruta, err := contratacioncomposicion.NuevaRutaAlta(
-		dependencias.soporte,
-		dependencias.servicio,
-		reloj,
-	)
-	if err != nil {
-		dependencias.cerrar()
-		return vechttp.RutaExacta{}, nil, err
-	}
-	return ruta, dependencias.cerrar, nil
 }

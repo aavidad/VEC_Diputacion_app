@@ -142,7 +142,7 @@ func accionCorreoLlamamientoDesarrollo(accion string) bool {
 
 // Un rol nominal nuevo contiene dos concesiones exactas. Su versión es común
 // al despacho y al resultado; no se amplía el rol histórico de comunicación.
-func nuevaInstantaneaCorreoLlamamientoDesarrollo(principal, perfil string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
+func nuevaInstantaneaCorreoLlamamientoDesarrollo(referencia referenciaCT, principal, perfil string, ahora time.Time) (dominiovec.InstantaneaAutorizacion, error) {
 	concesion := func(accion, tipo string) dominiovec.ConcesionRol {
 		return dominiovec.ConcesionRol{Accion: accion, ModuloID: ports.ModuloContratacion, TipoRecurso: tipo,
 			Finalidades: []string{"gestionar_contratacion_temporal"}, GarantiaMinima: dominiovec.AuthAssuranceHigh}
@@ -152,5 +152,5 @@ func nuevaInstantaneaCorreoLlamamientoDesarrollo(principal, perfil string, ahora
 		[]dominiovec.ConcesionRol{
 			concesion(ctapplication.AccionDespacharCorreoLlamamiento, ctapplication.TipoRecursoDespachoCorreoLlamamiento),
 			concesion(ctapplication.AccionRegistrarResultadoCorreoLlamamiento, ctapplication.TipoRecursoResultadoCorreoLlamamiento),
-		}, []dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		}, []dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{referencia.organizacionRef}}})
 }
