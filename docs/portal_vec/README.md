@@ -54,3 +54,7 @@ Para desarrollar use el [manual del programador](../manual_programador/README.md
 Los prototipos y capturas se localizan desde [Diseño](../diseno/README.md).
 Los contratos HTTP acotados viven en `docs/api/`; la composición efectiva y
 sus selectores determinan qué rutas están disponibles.
+
+El [estudio técnico de septiembre](../historico/comunicacion_202609.md)
+conserva el contexto de decisiones anteriores. Sus turnos, ramas y encargos
+son históricos y no rigen la operación actual.
