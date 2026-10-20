@@ -138,24 +138,40 @@ máquina seguiría fallando.
    `acreditar_uso_registro_contexto_actor_v2` y
    `acreditar_uso_registro_contexto_interno_v2`. En 50 aperturas PostgreSQL
    registró 24 `deadlock detected` (esperas de `ShareLock` de transacción y de
-   `RowShareLock` sobre la tupla de la cuenta) y 3 fallos de serialización.
-   Una de cada tres o cuatro aperturas enseña una sección en error.
+   `RowShareLock` sobre la tupla de la cuenta) y 3 fallos de serialización;
+   3 de los interbloqueos pasan además por
+   `vec_identidad_sesiones_v1.registrar_sesion_v1` (`INSERT` en
+   `consumo_asercion`). Una de cada tres o cuatro aperturas enseña una sección
+   en error.
 2. Cuadro, lista y ficha de CT con varias peticiones a la vez de la misma
-   persona. `vec_autorizacion.revalidar_decision_contexto_actor_v3_viva`
-   (migración 000007 de autorización) toma `FOR UPDATE OF actual` sobre
-   `vec_autorizacion.asignacion_perfil_actual` y la transacción serializable
-   falla con 40001 (`could not serialize access due to concurrent update`).
-   En la tanda conjunta hubo 543 de estos errores y 126 interbloqueos; la
-   aplicación los devuelve como 503 (`etapa=autoridad_contexto` o
-   `etapa=sql sqlstate=40001`). Cuando reintenta y acaba bien, como en la
-   lista, la mediana sube a 1,9 s.
+   persona. Hay dos causas, según la tanda:
+   - Cada pantalla sola con 10 clientes: 3.410 errores 40001 por conflicto de
+     lectura y escritura de la serialización estricta (`could not serialize
+     access due to read/write dependencies among transactions`, «conflict out
+     to pivot, during read»), en la comparación de la prueba con la
+     revalidación de `revalidar_evidencia_consumo_consulta_rrhh_v3_interna`
+     (autorización atestada 000006). No es una espera por bloqueo de fila.
+   - Tanda conjunta de las once lecturas: 543 errores `could not serialize
+     access due to concurrent update`, 395 de ellos en
+     `vec_autorizacion.revalidar_decision_contexto_actor_v3_viva` (migración
+     000007 de autorización), que toma `FOR UPDATE OF actual` sobre
+     `vec_autorizacion.asignacion_perfil_actual`; además 137 conflictos de
+     lectura y escritura y 126 interbloqueos. El registro de PostgreSQL de esa
+     tanda se perdió al reiniciar el contenedor; las cifras se contaron antes.
+     El registro de la aplicación conserva 489 respuestas con
+     `sqlstate=40001`, 2 con `40P01` y 850 con `etapa=autoridad_contexto`.
 
-Recomendación, sin implementarla y con revisión SQL y de seguridad: el mismo
-orden de bloqueo en las funciones de contexto y de decisión (o no bloquear la
-fila de la cuenta en lecturas), un reintento acotado de 40001 y 40P01 en el
-adaptador de lectura con la misma clave, y que la ficha del candidato pida
-sus secciones en una sola petición con una sola decisión. Los índices y la
-paginación no lo arreglan.
+   La aplicación devuelve todo esto como 503. Cuando reintenta y acaba bien,
+   como en la lista, la mediana sube a 1,9 s.
+
+Recomendación, sin implementarla y con revisión SQL y de seguridad. Para CT,
+la medida principal es un reintento acotado de 40001 y 40P01 en el adaptador
+de lectura con la misma clave, y revisar si la revalidación de la evidencia
+de consumo necesita leer en serializable estricto lo que escriben otras
+lecturas de la misma persona. Para la ficha del candidato, el mismo orden de
+bloqueo en las funciones de contexto y de decisión (o no bloquear la fila de
+la cuenta en lecturas), y pedir las secciones en una sola petición con una
+sola decisión. Los índices y la paginación no lo arreglan.
 
 ## N+1 de los avisos de Bolsa
 
@@ -187,8 +203,8 @@ CT.
 Recomendaciones, de mayor a menor efecto, sin implementarlas:
 
 1. Concurrencia de la cadena de autorización (apartado anterior). Es la que
-   produce errores visibles; se arregla en las consultas y en el orden de los
-   bloqueos.
+   produce errores visibles: reintento acotado de 40001 en CT y orden de los
+   bloqueos en la ficha del candidato.
 2. Acreditación del pool de motivos: comprobar el catálogo una vez por
    conexión, o cuando cambie una versión de catálogo, en lugar de en cada
    petición. Quitaría unos 63 ms de cada lectura de CT, un tercio del cuadro.
