@@ -85,12 +85,12 @@ class Copia:
     def docker(self, *args, **kwargs):
         return ejecutar(['docker', *args], **kwargs)
 
-    def existe(self):
+    def existe(self, entorno=None):
         r = subprocess.run(['docker', 'container', 'inspect', self.nombre],
-                           capture_output=True, check=False)
+                           capture_output=True, check=False, env=entorno)
         if r.returncode:
             # Diferenciar ausencia de contenedor de un motor inaccesible.
-            self.docker('info', salida=subprocess.DEVNULL)
+            self.docker('info', salida=subprocess.DEVNULL, entorno=entorno)
             return False
         etiqueta = (json.loads(r.stdout)[0]['Config']['Labels'] or {}).get('vec.copia')
         if etiqueta != str(self.raiz):
@@ -139,6 +139,100 @@ class Copia:
                             '-d', 'postgres'], input=contenido, stdout=destino,
                            stderr=subprocess.STDOUT, check=True, timeout=300)
 
+    def registrar_sid(self):
+        """Conserva el identificador PostgreSQL comprobado de esta copia propia."""
+        entorno = {'PATH': '/usr/bin:/bin', 'LANG': 'C',
+                   'DOCKER_HOST': 'unix:///var/run/docker.sock'}
+        if not self.existe(entorno=entorno):
+            raise ValueError('El contenedor propio no está disponible para cotejar el SID')
+        resultado = subprocess.run(
+            ['docker', 'exec', '-i', '-u', 'postgres', self.nombre,
+             'psql', '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres',
+             '-d', 'postgres', '-c',
+             'SELECT system_identifier::text FROM pg_catalog.pg_control_system();'],
+            capture_output=True, text=True, check=True, timeout=30, env=entorno)
+        sid = resultado.stdout.strip()
+        if not re.fullmatch(r'[0-9]{15,20}', sid) or int(sid) == 0:
+            raise ValueError('SID PostgreSQL inválido en la copia propia')
+        estado = self.leer()
+        anterior = estado.get('sid_copia')
+        if anterior is not None:
+            if anterior != sid:
+                raise ValueError('SID PostgreSQL distinto del registrado para la copia')
+            return sid
+        estado['sid_copia'] = sid
+        guardar(self.estado, estado)
+        return sid
+
+    def _preparar_software(self, origen, sha_esperada, carpeta_nombre, binario_nombre, validar):
+        """Copia bytes declarados a un archivo propio antes de sondear el ejecutable."""
+        from recorrido_copia.verificador_fuente import LIMITE_BINARIO
+        origen = Path(origen)
+        if sha_esperada is not None and not re.fullmatch(r'[0-9a-f]{64}', sha_esperada):
+            raise ValueError('Huella declarada del software inválida')
+        if not origen.is_absolute() or origen.is_symlink() or origen.resolve(strict=True) != origen:
+            raise ValueError('Fuente del software ausente o enlazada')
+        estado = origen.lstat()
+        if (not stat.S_ISREG(estado.st_mode) or estado.st_uid not in (0, os.getuid())
+                or estado.st_mode & 0o002 or not os.access(origen, os.X_OK)
+                or estado.st_nlink != 1 or not 0 < estado.st_size <= LIMITE_BINARIO
+                or (estado.st_mode & 0o020 and sha_esperada is None)):
+            raise ValueError('Fuente del software insegura o sin huella declarada')
+        carpeta = self.raiz / carpeta_nombre
+        carpeta.mkdir(mode=0o700, exist_ok=True)
+        directorio = carpeta.lstat()
+        if (not stat.S_ISDIR(directorio.st_mode) or carpeta.is_symlink()
+                or directorio.st_uid != os.getuid()
+                or stat.S_IMODE(directorio.st_mode) != 0o700):
+            raise ValueError('Carpeta privada del software insegura')
+        temporal, destino = carpeta / (binario_nombre + '.nuevo'), carpeta / binario_nombre
+        if destino.exists() or destino.is_symlink():
+            raise ValueError('Software propio ya preparado')
+        fd_origen = os.open(origen, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            with os.fdopen(fd_origen, 'rb') as entrada:
+                abierto = os.fstat(entrada.fileno())
+                if (abierto.st_dev, abierto.st_ino, abierto.st_size) != (estado.st_dev, estado.st_ino, estado.st_size):
+                    raise ValueError('Fuente del software cambió durante la apertura')
+                fd_salida = os.open(temporal, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o700)
+                huella = hashlib.sha256()
+                total = 0
+                with os.fdopen(fd_salida, 'wb') as salida:
+                    while bloque := entrada.read(1_048_576):
+                        total += len(bloque)
+                        if total > LIMITE_BINARIO:
+                            raise ValueError('Fuente del software excesiva')
+                        huella.update(bloque)
+                        salida.write(bloque)
+                    salida.flush()
+                    os.fsync(salida.fileno())
+            despues = origen.lstat()
+            if (total != estado.st_size or
+                    (despues.st_dev, despues.st_ino, despues.st_size, despues.st_mtime_ns)
+                    != (estado.st_dev, estado.st_ino, estado.st_size, estado.st_mtime_ns)):
+                raise ValueError('Fuente del software cambió durante la copia')
+            if sha_esperada is not None and huella.hexdigest() != sha_esperada:
+                raise ValueError('Huella declarada del software divergente')
+            resultado = validar(temporal, sha_esperada)
+            if resultado['binario_sha256'] != huella.hexdigest():
+                raise ValueError('Copia del software divergente')
+            temporal.rename(destino)
+            return {'binario': str(destino), 'binario_sha256': huella.hexdigest(),
+                    'version': resultado['version']}
+        except Exception:
+            temporal.unlink(missing_ok=True)
+            raise
+
+    def preparar_verificador(self, origen, sha_esperada):
+        from recorrido_copia.verificador_fuente import validar
+        return self._preparar_software(origen, sha_esperada,
+                                      'software-verificador', 'grxfirma', validar)
+
+    def preparar_afirmauri(self, origen, sha_esperada):
+        from recorrido_copia.afirmauri_fuente import validar
+        return self._preparar_software(origen, sha_esperada,
+                                      'software-afirmauri', 'grxfirma-afirmauri', validar)
+
     def crear(self, args):
         verificar_fuente()
         if args.rrhh_original:
@@ -149,12 +243,15 @@ class Copia:
         puerto_libre(args.puerto_app)
         if args.modulos:
             puerto_libre(args.puerto_smtp)
-        datos = validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT') if args.modulos else None
-        roles = validar_ejecutor_privado('VEC_COPIA_ROLES_SCRIPT') if args.modulos else None
+        if getattr(args, 'recorrido_completo', False):
+            puerto_libre(args.puerto_verificador)
+        completo = getattr(args, 'recorrido_completo', False)
+        datos = validar_ejecutor_privado('VEC_COPIA_DATOS_SCRIPT') if args.modulos and not completo else None
+        roles = validar_ejecutor_privado('VEC_COPIA_ROLES_SCRIPT') if args.modulos and not completo else None
         portal = REPO / 'deploy/principal/portal_copia' / (
             'preparar_clasificacion_externa.py' if args.sin_inscripcion else 'preparar_portal.py')
-        admin = validar_ejecutor_privado('VEC_COPIA_ADMIN_SCRIPT') if args.administracion else None
-        if admin:
+        admin = validar_ejecutor_privado('VEC_COPIA_ADMIN_SCRIPT') if args.administracion and not completo else None
+        if admin or completo:
             puerto_libre(args.puerto_admin)
         origen = Path(os.environ['VEC_COPIA_ORIGEN']).resolve(strict=True)
         dump = origen / 'principal-hz37-20261014.dump'
@@ -166,12 +263,22 @@ class Copia:
                 raise ValueError('El volcado y los anexos deben corresponder a la misma referencia HZ37')
         listas = migraciones(args.lista_sql)
         self.raiz.mkdir(mode=0o700, parents=True, exist_ok=False)
-        guardar(self.estado, dict(nombre=self.nombre, raiz=str(self.raiz),
+        software = (self.preparar_verificador(args.binario_verificador, args.sha_verificador)
+                    if completo else None)
+        afirmauri_origen = getattr(args, 'binario_afirmauri', None)
+        afirmauri = (self.preparar_afirmauri(afirmauri_origen, getattr(args, 'sha_afirmauri', None))
+                     if completo and afirmauri_origen is not None else None)
+        estado_inicial = dict(nombre=self.nombre, raiz=str(self.raiz),
                 puerto_pg=args.puerto_pg, puerto_app=args.puerto_app,
                 puerto_smtp=args.puerto_smtp if args.modulos else None,
                 fuente=str(REPO), origen=str(origen),
                 preparada=False, revision=revision(), creada_en=time.time(),
-                material_modo='rrhh_original' if args.rrhh_original else 'nuevo'))
+                material_modo='rrhh_original' if args.rrhh_original else 'nuevo')
+        if software is not None:
+            estado_inicial['software_verificador'] = software
+        if completo:
+            estado_inicial['software_afirmauri'] = afirmauri
+        guardar(self.estado, estado_inicial)
         guardar(self.raiz / 'fuentes.json', FUENTES)
         self.pg_password()
         self.pg()
@@ -197,7 +304,14 @@ class Copia:
         for ruta in acl:
             self.sql(ruta, 'restauracion.log')
         self.comprobar_acl(acl, permitir_nuevas=False)
-        if args.modulos:
+        self.registrar_sid()
+        estado = self.leer()
+        estado['recorrido_completo'] = completo
+        guardar(self.estado, estado)
+        if completo:
+            from recorrido_copia import preparar_roles as roles_versionados
+            roles_versionados(self)
+        elif args.modulos:
             with (self.raiz / 'roles-preparacion.log').open('ab') as log:
                 ejecutar([sys.executable, roles, '--raiz', self.raiz], salida=log)
         diario = []
@@ -212,9 +326,7 @@ class Copia:
         else:
             with (self.raiz / 'material.log').open('wb') as log:
                 ejecutar([REPO / 'scripts/generar_credenciales_desarrollo.sh', self.material],
-                          salida=log, entorno={**os.environ, 'VEC_DESARROLLO_VIGENCIA_DIAS': '90'})
-        from copia_local_ambito_bolsas import declarar as declarar_ambito_bolsas
-        declarar_ambito_bolsas(self)
+                          salida=log, entorno={**os.environ, 'VEC_DESARROLLO_VIGENCIA_DIAS': '400' if completo else '90'})
         self.tls_pg()
         if args.modulos:
             from copia_local_conexiones import preparar
@@ -223,8 +335,12 @@ class Copia:
             estado = self.leer()
             estado['entorno_modulos_sha256'] = sha256(self.raiz / 'entorno_modulos.json')
             guardar(self.estado, estado)
-            with (self.raiz / 'datos-preparacion.log').open('ab') as log:
-                ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
+            if completo:
+                from recorrido_copia import preparar_datos
+                preparar_datos(self)
+            else:
+                with (self.raiz / 'datos-preparacion.log').open('ab') as log:
+                    ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
             from copia_local_cancelacion import encender as encender_cancelacion
             encender_cancelacion(self, guardar, sha256)
             from copia_local_verificacion import comprobar as comprobar_conexiones
@@ -233,6 +349,9 @@ class Copia:
                 # F1-99: datos del caso 4.0 e identidad de Mi Bolsa de Antonio.
                 import copia_local_caso40 as caso40
                 caso40.aplicar_guiones(self, REPO)
+            from copia_local_ambito_bolsas import declarar as declarar_ambito_bolsas
+            declarar_ambito_bolsas(self)
+            if not args.portal_externo:
                 entorno_modulos = json.loads((self.raiz / 'entorno_modulos.json').read_text())
                 entorno_modulos = caso40.entorno_portal(entorno_modulos, caso40.preparar_antonio(self, REPO))
                 guardar(self.raiz / 'entorno_modulos.json', entorno_modulos)
@@ -248,17 +367,28 @@ class Copia:
             estado = self.leer()
             estado['rrhh_adicional_semilla_sha256'] = huella_semilla
             guardar(self.estado, estado)
+        if completo:
+            from recorrido_copia.centros import preparar as preparar_centros
+            centros = preparar_centros(self)
+            archivo = self.raiz / 'entorno_modulos.json'
+            entorno = json.loads(archivo.read_bytes())
+            entorno.update(centros['entorno'])
+            guardar(archivo, entorno)
+            estado = self.leer()
+            estado['entorno_modulos_sha256'] = sha256(archivo)
+            guardar(self.estado, estado)
         memoria()
         verificar_fuente(self.leer()['revision'])
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
-                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build',
+                      'GOMAXPROCS': '2', 'GOMEMLIMIT': '512MiB'}
         modcache = subprocess.check_output([go, 'env', 'GOMODCACHE'],
                                           env=entorno_go, text=True).strip()
         guardar(self.raiz / 'compilacion.json', dict(go=go, gomodcache=modcache,
                 gocache=entorno_go['GOCACHE'], revision=revision()))
         with (self.raiz / 'compilacion.log').open('wb') as log:
-            ejecutar([go, 'build', '-p', '6', '-o', self.raiz / 'vec-server', './cmd/vec-server'],
+            ejecutar([go, 'build', '-p', '2', '-o', self.raiz / 'vec-server', './cmd/vec-server'],
                       cwd=REPO, salida=log, entorno=entorno_go)
         estado = self.leer()
         verificar_fuente(estado['revision'])
@@ -266,11 +396,17 @@ class Copia:
         estado['preparada'] = True
         guardar(self.estado, estado)
         self.arrancar()
-        if admin:
+        if completo:
+            from recorrido_copia.conductor import provisionar_perfiles
+            provisionar_perfiles(self)
+        if args.modulos and not args.portal_externo:
+            caso40.registrar_contacto(self, REPO)
+        if admin or completo:
             from copia_local_administracion import ejecutar as ejecutar_admin, huella_ejecutor
             estado = self.leer()
-            estado['administracion'] = dict(ejecutor=str(admin), sha256=huella_ejecutor(admin),
-                                           puerto=args.puerto_admin)
+            estado['administracion'] = (dict(versionado=True, puerto=args.puerto_admin,
+                catalogo_entrada_unidad='administracion_f131_' + hashlib.sha256(self.nombre.encode()).hexdigest()[:16])
+                if completo else dict(ejecutor=str(admin), sha256=huella_ejecutor(admin), puerto=args.puerto_admin))
             guardar(self.estado, estado)
             ejecutar_admin(self, 'preparar')
             # Solo una preparación confirmada habilita el arranque en cada reinicio.
@@ -299,8 +435,9 @@ class Copia:
             guardar(self.estado, estado)
             self.parar()
             self.arrancar()
-        if args.modulos and not args.portal_externo:
-            caso40.registrar_contacto(self, REPO)
+        if completo:
+            from recorrido_copia.conductor import preparar as preparar_recorrido
+            preparar_recorrido(self, args)
         if args.modulos:
             estado = self.leer()
             estado['comprobar_modulos'] = True
@@ -455,7 +592,8 @@ class Copia:
         memoria()
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
-                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build',
+                      'GOMAXPROCS': '2', 'GOMEMLIMIT': '512MiB'}
         preparar(self, configuracion, repo=REPO, go=go, entorno_go=entorno_go, guardar=guardar)
 
     def firma(self, manifiesto):
@@ -470,7 +608,8 @@ class Copia:
         memoria()
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
-                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build',
+                      'GOMAXPROCS': '2', 'GOMEMLIMIT': '512MiB'}
         preparar(self, manifiesto, repo=REPO, go=go, entorno_go=entorno_go, guardar=guardar)
         self.parar()
         self.arrancar()
@@ -483,7 +622,8 @@ class Copia:
         memoria()
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
-                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build',
+                      'GOMAXPROCS': '2', 'GOMEMLIMIT': '512MiB'}
         publicar(self, repo=REPO, go=go, entorno_go=entorno_go)
 
     def comprobar(self, comprobar_admin=True, comprobar_modulos=True):
@@ -504,7 +644,8 @@ class Copia:
             try:
                 conexion.request('POST' if datos is not None else 'GET', ruta, body=datos,
                                  headers={'Origin': origen, 'Content-Type': 'application/json',
-                                          'Accept': 'application/json'})
+                                          'Accept': 'application/json', 'Sec-Fetch-Site': 'same-origin',
+                                          'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty'})
                 r = conexion.getresponse()
                 r.read()
                 if r.status != 200:
@@ -606,6 +747,14 @@ def main():
     p.add_argument('--puerto-app', type=int, default=18481)
     p.add_argument('--puerto-smtp', type=int, default=11081)
     p.add_argument('--lista-sql', action='append', default=[])
+    p.add_argument('--recorrido-completo', action='store_true', help='Crear el recorrido completo con productores versionados')
+    p.add_argument('--puerto-verificador', type=int, default=19881)
+    p.add_argument('--binario-verificador', type=Path,
+                   help='Ejecutable GrxFirma declarado para el recorrido completo')
+    p.add_argument('--sha-verificador', help='SHA-256 del GrxFirma declarado')
+    p.add_argument('--binario-afirmauri', type=Path,
+                   help='Ejecutable público afirmauri declarado para el navegador')
+    p.add_argument('--sha-afirmauri', help='SHA-256 del afirmauri declarado')
     p.add_argument('--modulos', action='store_true', help='Preparar conexiones nuevas de Bolsa y Contratación')
     p.add_argument('--rrhh-original', type=Path, help='Conservar el conjunto privado original de RRHH en una copia nueva')
     p.add_argument('--portal-externo', action='store_true', help='Preparar también el área del aspirante')
@@ -617,6 +766,27 @@ def main():
     p.add_argument('--manifiesto-firma', type=Path, help='Manifiesto privado de la orden firma (etapas y verificador)')
     p.add_argument('--config-personal', type=Path, help='Configuración B2 aprobada de referencia; solo se conservan referencias y motivos')
     args = p.parse_args()
+    if args.recorrido_completo:
+        if args.orden != 'crear' or args.rrhh_original:
+            p.error('--recorrido-completo requiere crear con material nuevo')
+        args.modulos = args.administracion = args.segundo_rrhh = True
+        if not 1024 <= args.puerto_verificador <= 65535 or args.puerto_verificador in (
+                args.puerto_pg, args.puerto_app, args.puerto_smtp, args.puerto_admin):
+            p.error('El puerto del verificador debe ser distinto y estar entre 1024 y 65535')
+        if args.binario_verificador is None or not args.binario_verificador.is_absolute():
+            p.error('--recorrido-completo requiere --binario-verificador absoluto')
+        if (args.binario_afirmauri is None) != (args.sha_afirmauri is None):
+            p.error('--binario-afirmauri y --sha-afirmauri deben indicarse juntos')
+        if args.binario_afirmauri is not None:
+            if not args.binario_afirmauri.is_absolute():
+                p.error('--binario-afirmauri requiere una ruta absoluta')
+            if not re.fullmatch(r'[0-9a-f]{64}', args.sha_afirmauri):
+                p.error('--sha-afirmauri debe ser una huella SHA-256 válida')
+        if not args.lista_sql:
+            args.lista_sql = [str(REPO / 'deploy/principal/lista_sql_main_tras_hz37.txt')]
+    elif any(value is not None for value in (args.binario_verificador, args.sha_verificador,
+                                            args.binario_afirmauri, args.sha_afirmauri)):
+        p.error('El software declarado solo se admite con crear --recorrido-completo')
     if args.portal_externo and not args.modulos:
         p.error('--portal-externo requiere --modulos')
     if args.administracion and (args.orden != 'crear' or not args.modulos):
@@ -640,7 +810,13 @@ def main():
                         or args.puerto_smtp in (args.puerto_pg, args.puerto_app)):
         p.error('El puerto SMTP debe ser distinto y estar entre 1024 y 65535')
     copia = Copia(args.equipo, args.instancia)
-    BASE.mkdir(parents=True, exist_ok=True)
+    for directorio in (BASE.parent, BASE):
+        if not directorio.exists() and not directorio.is_symlink():
+            directorio.mkdir(mode=0o700)
+        datos = directorio.lstat()
+        if (not stat.S_ISDIR(datos.st_mode) or datos.st_uid != os.getuid()
+                or stat.S_IMODE(datos.st_mode) not in (0o700, 0o755)):
+            raise ValueError('Directorio de copias local inseguro')
     # Candado por instancia fuera de PGDATA; borrar no permite otro escritor concurrente.
     with (BASE / f'.{copia.nombre}.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "personas": [
+    {
+      "usuario_web": "rrhh_jefatura",
+      "nombre": "Javier Ortega Ruiz",
+      "perfil_circuito": "perfil:ct:jefatura_servicio_rrhh",
+      "cargo": "Jefatura del Servicio de RRHH"
+    },
+    {
+      "usuario_web": "rrhh_diputacion",
+      "nombre": "Beatriz Navarro Salcedo",
+      "perfil_circuito": "perfil:ct:diputacion_delegada_rrhh",
+      "cargo": "Diputación delegada de Recursos Humanos"
+    },
+    {
+      "usuario_web": "rrhh_secretaria",
+      "nombre": "Elena Torres Romero",
+      "perfil_circuito": "perfil:ct:secretaria_general",
+      "cargo": "Secretaría General"
+    },
+    {
+      "usuario_web": "rrhh_tecnico",
+      "nombre": "Pablo Martín Vega",
+      "perfil_circuito": "perfil:ct:tecnico_rrhh",
+      "cargo": "Técnico de Recursos Humanos"
+    }
+  ]
+}

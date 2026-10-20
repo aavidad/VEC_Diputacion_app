@@ -147,7 +147,10 @@ class EntornoTest(Base):
     def test_compone_las_variables_de_firma_subsanacion_y_plantillas(self):
         recursos = self.raiz / 'material/identidad/firma-recursos'
         variables = firma.entorno_firma(self.copia, recursos, 63181)
-        self.assertEqual(len(variables), 10)
+        for selector in ('VEC_CT_FIRMA_REGISTRO_ENABLED',
+                         'VEC_CT_ORIGINAL_FIRMABLE_ENABLED', 'VEC_CT_FIRMAS_R5_V2_ENABLED'):
+            self.assertEqual(variables[selector], 'true')
+        self.assertTrue(Path(variables['VEC_CT_CIRCUITO_FIRMA_SOURCE_PATH']).is_file())
         self.assertEqual(variables['VEC_CT_SUBSANACION_POLITICA_FILE'], str(recursos / 'ct_subsanacion_politica.json'))
         self.assertEqual(variables['VEC_CT_PLANTILLAS_GOBIERNO_ENABLED'], 'true')
         self.assertEqual(variables['VEC_FIRMA_VERIFICACION_URL'], 'https://127.0.0.1:63181')

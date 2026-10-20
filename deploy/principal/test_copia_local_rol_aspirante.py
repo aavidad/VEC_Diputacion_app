@@ -185,7 +185,7 @@ class TestRolAspirante(unittest.TestCase):
         anterior = copia_local.os.umask(0o077)
         self.addCleanup(copia_local.os.umask, anterior)
         configuracion = self.carpeta / 'personal.json'
-        with patch.object(copia_local, 'BASE', self.carpeta), \
+        with patch.object(copia_local, 'BASE', self.carpeta / 'copias'), \
                 patch.object(copia_local, 'Copia') as constructor, \
                 patch('copia_local_organizacion_historica_activacion.activar') as activar_organizacion:
             constructor.return_value.nombre = 'vec-copia-b-f115'

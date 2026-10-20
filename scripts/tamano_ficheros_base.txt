@@ -107,13 +107,13 @@
 1002 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 835 web/static/portal-empleado/modulos/dietas/dietas.css
 2017 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1806 web/static/portal-empleado/portal-modulos-coordinador.js
-1894 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
+1815 web/static/portal-empleado/portal-modulos-coordinador.js
+1942 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 1139 web/static/portal-empleado/portal-componentes.css
 2372 web/static/portal-empleado/portal.js
 1684 web/static/portal-empleado/portal-bolsas-api.js
 1109 web/static/portal-empleado/portal-bolsas.test.mjs
-1160 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
+1174 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 1448 web/static/portal-empleado/portal-i18n.test.mjs
 735 web/static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 963 web/static/portal-empleado/portal-panel-interno.js
@@ -217,4 +217,5 @@
 831 internal/app/bootstrap/bolsa_inscripcion_autoridad.go
 825 internal/modules/bolsa/adapters/httpinscripcion/handler.go
 823 deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_procedencia_seleccion.up.sql
+864 deploy/principal/copia_local.py
 1004 deploy/postgresql/contratacion_temporal/migraciones/000253_propuesta_desde_respuesta_portal.up.sql
