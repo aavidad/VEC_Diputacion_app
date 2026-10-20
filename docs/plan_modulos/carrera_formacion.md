@@ -89,9 +89,10 @@ La integración y la instalación requieren revisión previa. Este plan no autor
 
 No hay módulos propios `carrera` ni `formacion` en esa base publicada.
 Granada sí dispone de [plataforma y plan institucional de Formación](https://www.dipgra.es/servicios/empleo-y-formacion/formacion-para-el-empleo-publico/plan-agrupado-de-formacion/).
-Orden de dirección 16:15: **VEC consulta y deriva** mientras se aclara qué funciones conserva esa plataforma.
+VEC consulta y deriva a la plataforma institucional mientras se aclara qué
+funciones conserva; no se crea otra inscripción o selección por defecto.
 
-## Candidatas de esta sesión
+## Preparadores históricos de Formación y Carrera
 
 | Rama propia | Fuente congelada | Resultado |
 | --- | --- | --- |
@@ -131,8 +132,8 @@ Antes de retomar, comprobar las PR y su integración; nunca volver a producir es
 
 ## Orden de minitareas
 
-Ahora solo se terminan las dos candidatas casi hechas y este plan. Las filas siguientes
-requieren reanudación expresa de dirección; no se empieza más producto en esta sesión.
+Las filas siguientes conservan el alcance previsto. Su reanudación depende
+del plan general y de las fuentes institucionales que requiera cada capacidad.
 
 Cada fila se entrega con un consumidor o una comprobación concreta. Si no cabe,
 dividir por el contrato indicado; avisar a dirección tras 30 minutos sin avance.
@@ -155,7 +156,7 @@ dividir por el contrato indicado; avisar a dirección tras 30 minutos sin avance
 | H14 | H: expediente CAR-002 sobre contratos H05/H08/H09 | Mismo patrón de integridad, historia y recibo; política propia, sin reutilizar requisitos funcionariales. Resolución e inscripción separadas. | `carrera/domain/progresion.go`; caso de uso/vista propios; SQL borrador si nuevo dato | H05, H08; H09 instalado y H13 aprobado antes de efecto real |
 | H15 | H: consulta propia/derivación FOR-002 con la autoridad confirmada | Recuperar estado y justificante original; distinguir solicitud, autorización, selección y notificación. No confirmar éxito ante resultado incierto. | `formacion/ports/solicitudes.go`; adaptador corporativo y vista propia | H02–H04; autoridad nominal/contexto empleado B; permisos/privacidad revisados |
 | H16 | H: hechos FOR-003 desde Formación y Documentos | Asistencia, superación y certificado son estados diferentes; validar procedencia y firma/custodia según contrato, sin emitir certificados ficticios. | `formacion/ports/ejecucion.go`, `certificados.go`; adaptadores fuente/documentos | H02; lectura nominal propia y de documentos; competencia/aprobación confirmadas |
-| H17 | H: Formación entrega al RUM propio y reconcilia | Curso, horas, resultado, evidencia y vigencia se incorporan una vez cuando proceda. Conservar recibo y reintento; no copiar puntos de una convocatoria. | `formacion/ports/meritos.go`; entrega/reconciliación; Carrera y Méritos conserva el consumidor RUM | H16; RUM01–06 de Carrera y Méritos completos; permisos; SQL/eventos durables autorizados |
+| H17 | Formación entrega al RUM propio y reconcilia | Curso, horas, resultado, evidencia y vigencia se incorporan una vez cuando proceda. Conservar recibo y reintento; no copiar puntos de una convocatoria. | `formacion/ports/meritos.go`; entrega/reconciliación; Carrera y Méritos conserva el consumidor RUM | H16; RUM01–06 de Carrera y Méritos completos; permisos; SQL/eventos durables autorizados |
 
 H03/H04 se entregan juntos con consumidor. Una URL pública permite derivar,
 pero no demuestra que exista una API. H05 acuerda el contrato; H07 usa únicamente
