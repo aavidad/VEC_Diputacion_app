@@ -85,7 +85,7 @@ implementación pendiente que deba reconstruirse.
 | --- | --- |
 | EMP-001 · Carpeta personal | Hacer localizable la ficha propia desde Inicio. Actos, documentos y solicitudes necesitan proyecciones propias de sus módulos, con procedencia y permisos; no reutilizar la lectura RRHH. Tiempo, formación y economía sin fuente no se ofrecen como datos disponibles. |
 | EMP-002 · Bandeja y solicitudes | Una consulta propia localizable que reutilice Cronos/Dietas. La bandeja común no tiene todavía formularios gobernados, plazos administrativos, tareas, subsanaciones, decisiones ni notificaciones generales. El recibo interno de operación no sustituye un asiento de registro oficial. |
-| EMP-003 · Responsable de unidad | Fuente acreditada de competencia por unidad y procedimiento, titular y suplente temporal; después tareas y cobertura mínimas. Su implementación permanece detenida: Organización produce la fuente de responsables/delegaciones/suplencias (ORG-001), D aplica la autorización común e El portal solo consume. Nunca expediente completo, diagnóstico, nómina ni méritos de Bolsa. |
+| EMP-003 · Responsable de unidad | Fuente acreditada de competencia por unidad y procedimiento, titular y suplente temporal; después tareas y cobertura mínimas. Su implementación permanece detenida: Organización produce la fuente de responsables/delegaciones/suplencias (ORG-001), D aplica la autorización común y el portal solo consume. Nunca expediente completo, diagnóstico, nómina ni méritos de Bolsa. |
 
 ## Minitareas, por orden de valor
 
