@@ -48,3 +48,31 @@ concesiones ni controles nuevos de negocio. La prueba de plan protege la
 lectura puntual; la de configuración comprueba que el ajuste no se extiende
 al resto de la sesión. No arregla el cambio de perfil entre el cuadro y el
 detalle, que corresponde a F1-114.
+
+## Ensayo del 20 de octubre
+
+Código ensayado: `c996e93f70f6fa6f55ed20b6d55ab77830d3faa8`.
+La copia propia PostgreSQL 18.4 instaló las 133 migraciones de la lista,
+incluida AD303 una sola vez, y pasó su prueba focal. Dos revisiones
+independientes comprobaron SQL y permisos sobre esa versión.
+
+Con diagnóstico apagado, diez clientes hicieron cincuenta consultas cada
+uno, tras tres calentamientos: 500 respuestas 200 y ningún `40001` ni otro
+error HTTP. La mediana fue 1015,660 ms y el percentil 95, 1080,463 ms.
+El cliente devolvió 1 por superar el presupuesto de 300 ms: **el objetivo de
+latencia de F1-34 sigue pendiente**. Este corte acredita que desaparece el
+conflicto medido de la cola, no que todas las lecturas cumplan ese objetivo.
+
+En otra pasada, con `auto_explain` solo como diagnóstico de la copia,
+se observaron cinco planes internos de la expresión de revalidación, con
+cinco ejecuciones reales: todos usaron `Index Only Scan` sobre
+`pendiente_sellado_auditoria_v5_pkey`. Esta observación corresponde a la
+función real, además del EXPLAIN equivalente de la prueba SQL. La preferencia
+de plan también alcanza las llamadas anidadas de esa función.
+
+Se retiró el diagnóstico y se reiniciaron PostgreSQL y la aplicación.
+La función conservó la posthuella indicada. Chrome del sistema abrió el
+cuadro de Contratación y recibió 200 para su consulta con límite 100 y
+`resumen: true`, sin errores JavaScript. Se conservaron capturas a 1440 y
+390 píxeles. La copia y sus procesos se borraron; los resultados y los planes
+objetivo quedan en el material privado de la tarea, fuera de Git.
