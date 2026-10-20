@@ -156,3 +156,17 @@ func TestConsultaOfertasModalidadesPropagaErroresYCancelacion(t *testing.T) {
 		t.Fatal("aceptó un lector nulo con tipo")
 	}
 }
+
+func TestConsultaOfertasModalidadesVerTodasNoLeeLaEleccion(t *testing.T) {
+	consulta := &consultorOfertasModalidadesPrueba{instantanea: instantaneaOfertasPrueba()}
+	lector := &lectorOfertasModalidadesPrueba{estado: bolsa.EstadoPreferenciasModalidades{Version: 1, ModalidadesGuardadas: []string{}}}
+	s, _ := NuevaConsultaOfertasModalidades(consulta, lector)
+	got, err := s.ConsultarTodasOfertas(context.Background(), Orden{})
+	if err != nil || lector.llamadas != 0 || consulta.llamadas != 1 || got.OfertasSegunModalidades || len(got.Ofertas) != 5 {
+		t.Fatalf("err=%v lector=%d consulta=%d indicador=%v ofertas=%d", err, lector.llamadas, consulta.llamadas, got.OfertasSegunModalidades, len(got.Ofertas))
+	}
+	var nulo *ConsultaOfertasModalidades
+	if _, err := nulo.ConsultarTodasOfertas(context.Background(), Orden{}); !errors.Is(err, ErrServicioMiBolsaInvalido) {
+		t.Fatalf("nulo: %v", err)
+	}
+}

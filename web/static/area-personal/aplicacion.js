@@ -7,7 +7,7 @@ import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=VEC_
 import { renderizarInicio } from "./vistas/inicio-convocatorias.js?v=VEC_WEB_VERSION";
 import { renderizarPerfil } from "./vistas/perfil-meritos-solicitud.js?v=VEC_WEB_VERSION";
 import {
-  renderizarLlamamientos, renderizarSubsanaciones,
+  renderizarLlamamientos, renderizarSeccionOfertasMiBolsa, renderizarSubsanaciones,
 } from "./vistas/seguimiento-tramites.js?v=VEC_WEB_VERSION";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js?v=VEC_WEB_VERSION";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js?v=VEC_WEB_VERSION";
@@ -15,6 +15,7 @@ import { montarFichaAspirante } from "./ficha-aspirante.js?v=VEC_WEB_VERSION";
 import { actualizarCamposRenunciaJustificada, enviarPortalMiBolsa, revisarRespuestaPortalMiBolsa, textoPortal, volverRespuestaPortalMiBolsa } from "./mi-bolsa-portal.js?v=VEC_WEB_VERSION";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js?v=VEC_WEB_VERSION";
 import { crearControladorPreferenciasBolsas } from "./mi-bolsa-preferencias-bolsas.js?v=VEC_WEB_VERSION";
+import { crearControladorPreferenciasModalidades } from "./mi-bolsa-preferencias-modalidades.js?v=VEC_WEB_VERSION";
 
 
 const RUTAS = Object.freeze({
@@ -158,6 +159,40 @@ function aplicarCapacidadesVisibles(estado) {
   });
 }
 
+function pintarOfertasMiBolsa(estado, carga = "") {
+  const region = porId("ofertas-mi-bolsa");
+  if (!region) return false;
+  region.innerHTML = renderizarSeccionOfertasMiBolsa(estado.ofertasMiBolsa, {
+    segunModalidades: estado.ofertasSegunModalidades === true, todas: estado.ofertasTodas === true, carga,
+    ninguna: Array.isArray(estado.eleccionModalidades) && !estado.eleccionModalidades.length,
+  });
+  return true;
+}
+
+// refrescarOfertasMiBolsa vuelve a pedir Mi bolsa y repinta solo las ofertas:
+// con `todas`, sin aplicar la elección de modalidades («Ver todas»); sin él,
+// según la elección guardada. Solo toma las ofertas y su indicador.
+export async function refrescarOfertasMiBolsa(estado, { todas = false, enfocar = true } = {}) {
+  if (estado.vista !== "llamamientos" || typeof estado.cliente?.cargar !== "function") return;
+  const peticion = ++estado.ofertasPeticion;
+  const pintar = (carga = "") => {
+    if (pintarOfertasMiBolsa(estado, carga) && enfocar && carga !== "cargando") porId("ofertas-mi-bolsa")?.querySelector("[data-accion]")?.focus();
+  };
+  pintar("cargando");
+  try {
+    const respuesta = await estado.cliente.cargar({ todas });
+    if (peticion !== estado.ofertasPeticion || estado.vista !== "llamamientos") return;
+    estado.ofertasMiBolsa = respuesta?.consulta?.ofertas ?? null;
+    estado.ofertasTodas = todas;
+    // «Ver todas» no trae el indicador; se conserva para poder volver.
+    estado.ofertasSegunModalidades = todas || respuesta?.consulta?.ofertas_segun_modalidades === true;
+    pintar();
+    if (estado.ofertasSegunModalidades) anunciar(traducir(`areaPersonal.ofertas.${todas ? "mostrandoTodas" : "mostrandoElegidas"}`));
+  } catch {
+    if (peticion === estado.ofertasPeticion) pintar("error");
+  }
+}
+
 function anunciar(mensaje) {
   const region = porId("anuncios");
   if (!region) return;
@@ -268,10 +303,16 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   estado.destruirInscripcionBolsa = null;
   estado.destruirHistorialMiBolsa?.();
   estado.destruirHistorialMiBolsa = null;
-  if (estado.vista === "llamamientos") estado.controladorPreferenciasBolsas?.desmontar();
-  else {
+  estado.ofertasPeticion += 1;
+  // En la misma vista se conservan borradores y guardados en curso.
+  if (estado.vista === "llamamientos") {
+    estado.controladorPreferenciasBolsas?.desmontar();
+    estado.controladorPreferenciasModalidades?.desmontar();
+  } else {
     estado.controladorPreferenciasBolsas?.destruir();
     estado.controladorPreferenciasBolsas = null;
+    estado.controladorPreferenciasModalidades?.destruir();
+    estado.controladorPreferenciasModalidades = null;
   }
   estado.desmontarOportunidades?.();
   estado.desmontarOportunidades = null;
@@ -297,6 +338,16 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
     estado.controladorPreferenciasBolsas ??= crearControladorPreferenciasBolsas({ fetchImpl: estado.fetchImpl });
     estado.controladorPreferenciasBolsas.montar({ contenedor: porId("preferencias-bolsas"),
       participaciones: estado.participaciones });
+    estado.controladorPreferenciasModalidades ??= crearControladorPreferenciasModalidades({
+      api: estado.fetchImpl, anunciar,
+      alConocerEleccion: (eleccion) => {
+        const antes = Array.isArray(estado.eleccionModalidades) && !estado.eleccionModalidades.length;
+        estado.eleccionModalidades = eleccion;
+        if (antes !== (Array.isArray(eleccion) && !eleccion.length) && estado.vista === "llamamientos") pintarOfertasMiBolsa(estado);
+      },
+      alGuardar: () => void refrescarOfertasMiBolsa(estado, { enfocar: false }),
+    });
+    estado.controladorPreferenciasModalidades.montar(porId("preferencias-modalidades"));
     estado.destruirHistorialMiBolsa = montarHistorialMiBolsa({
       contenedor: porId("historial-mi-bolsa"), fetchImpl: estado.fetchImpl,
     })?.destruir ?? null;
@@ -613,6 +664,9 @@ function atenderAccion(estado, boton) {
     return;
   }
   if (accion === "reintentar") return cargar(estado);
+  if (accion === "ver-todas-ofertas" || accion === "ver-ofertas-elegidas") {
+    return void refrescarOfertasMiBolsa(estado, { todas: accion === "ver-todas-ofertas" });
+  }
   if (accion === "pagina-participaciones") {
     estado.paginaParticipaciones = Math.max(1, Number(boton.dataset.pagina || 1));
     return renderizar(estado, { enfocar: true });
@@ -753,6 +807,8 @@ async function cargar(estado) {
     const datos = datosDeRespuesta(respuesta);
     estado.controladorPreferenciasBolsas?.destruir();
     estado.controladorPreferenciasBolsas = null;
+    estado.controladorPreferenciasModalidades?.destruir();
+    estado.controladorPreferenciasModalidades = null;
     estado.datos = exigirDatosOperativos(datos);
     estado.soloPreferencias = false;
     estado.participaciones = respuesta?.consulta?.participaciones || [];
@@ -760,6 +816,8 @@ async function cargar(estado) {
     estado.portalMiBolsa = respuesta?.consulta?.portal || null;
     estado.accionesPortal = respuesta?.consulta?.acciones_portal || null;
     estado.ofertasMiBolsa = respuesta?.consulta?.ofertas || null;
+    estado.ofertasSegunModalidades = respuesta?.consulta?.ofertas_segun_modalidades === true;
+    estado.ofertasTodas = false;
     estado.contactosMiBolsa = respuesta?.consulta?.contactos || null;
     estado.fuenteBolsa = respuesta?.fuente || "real";
     estado.causaBolsa = respuesta?.causa || "";
@@ -828,6 +886,11 @@ export async function iniciarAreaPersonal({ cliente, vistasDisponibles, fetchImp
     destruirContactoPropio: null,
     destruirHistorialMiBolsa: null,
     controladorPreferenciasBolsas: null,
+    controladorPreferenciasModalidades: null,
+    ofertasSegunModalidades: false,
+    ofertasTodas: false,
+    ofertasPeticion: 0,
+    eleccionModalidades: null,
     desmontarOportunidades: null,
     fetchImpl,
     participaciones: [],
