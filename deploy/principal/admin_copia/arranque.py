@@ -98,8 +98,15 @@ def exigir_vigencia_autoridad(valor,en_dias=False):
     if type(valor) is not int or not 60*unidad<=valor<=90*unidad:
         parar('vigencia_autoridad_fuera_de_60_90_dias')
 
+def objeto_sin_duplicados(pares):
+    doc={}
+    for clave,valor in pares:
+        if clave in doc:parar('json_clave_duplicada')
+        doc[clave]=valor
+    return doc
+
 def json_privado(p):
-    try:return json.loads(privado(p))
+    try:return json.loads(privado(p),object_pairs_hook=objeto_sin_duplicados)
     except (ValueError,UnicodeDecodeError):parar('json_privado_invalido')
 
 def verifica_codigo(c):
@@ -231,7 +238,7 @@ def cli(c,name,args,acuse=None):
 
 def aprobacion(c,phase,plan_hash):
     d=c['dba'][phase];raw=privado(d['aprobacion_externa'])
-    try:a=json.loads(raw)
+    try:a=json.loads(raw,object_pairs_hook=objeto_sin_duplicados)
     except ValueError:parar('aprobacion_json_invalida')
     if set(a)!={'huella_plan_sha256','aprobacion_ref','backup_ref'} or a['huella_plan_sha256']!=plan_hash or a['aprobacion_ref']!=d['aprobacion_ref'] or a['backup_ref']!=c['backup']['ref']:parar('aprobacion_externa_divergente')
     return sha(raw)
