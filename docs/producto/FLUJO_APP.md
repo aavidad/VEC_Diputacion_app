@@ -158,8 +158,7 @@ Los perfiles de cargo firmante abren el cuadro y la ficha de Contratación
 temporal con su panel de firma. Esa vista no monta el análisis, la cancelación,
 la generación de borradores, la lista común de Documentos ni el contexto de
 Bolsa propios de la tramitación de RRHH. Conserva el resumen de Inicio y las
-descargas del panel de firma. Las preferencias personales requieren su propio
-aprovisionamiento en Usuarios; este ajuste no lo modifica.
+descargas del panel de firma.
 
 ### 3.2 Portal interno de RRHH (`/portal-empleado/`)
 
@@ -333,8 +332,8 @@ conveniente».
 | 7 | Carmen | Ficha, Informe jurídico | Prepara el informe | Recibo; `informe_juridico/en_curso`, v5 |
 | 7b | Carmen y después Jefatura (firmantes) | Ficha, Firma | Firman con sus certificados el informe de remisión a Intervención, en ese orden; la fiscalización exige ambas firmas verificadas | Un recibo por firma y el PDF con las dos firmas verificadas |
 | 8 | Francisco Javier (Intervención) | Ficha del expediente | Fiscaliza favorable | Recibo; `fiscalizacion/en_curso`, v6. Con el resultado favorable explícito, la ficha orienta al llamamiento sin cambiar esa fase ni pedir otra fiscalización |
-| 9 | Carmen | Ficha, Llamamiento y comunicación | Abre el llamamiento desde la bolsa Administrativo y registra la comunicación | Recibo del llamamiento con Antonio como llamado; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas) |
-| 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo de dos días | Recibo de su respuesta |
+| 9 | Carmen | Ficha, Llamamiento y comunicación; ficha de Antonio en Bolsa | Abre el llamamiento desde la bolsa Administrativo; tras la llamada, registra el contacto efectivo con Antonio | Recibo del llamamiento y del contacto; la fase no cambia; Antonio recibe el aviso por correo (hoy, buzón de pruebas). El contacto efectivo abre la respuesta y su plazo según las reglas vigentes |
+| 10 | Antonio (aspirante) | `/area-personal/`, Mi Bolsa | Acepta dentro del plazo que muestra el llamamiento abierto | Recibo de su respuesta |
 | 10a (si renuncia con causa justificada) | Antonio; después Carmen u otra técnica de RRHH con permiso vigente | Mi Bolsa; ficha del candidato en Bolsas | Antonio adjunta un PDF del justificante, confirma la renuncia y conserva el recibo. RRHH consulta y descarga el documento desde la ficha; también queda en el seguimiento | Documento custodiado tras antivirus; recibo de VEC y lectura de RRHH auditada. No cambia la rama de aceptación del paso 10 |
 | 11 | Carmen | Ficha, Llamamiento | Resuelve la aceptación | Recibo de resolución del llamamiento |
 | 12 | Carmen | Ficha, Formalización | Registra la propuesta de nombramiento | Recibo; `nombramiento/en_curso`, v7 |
@@ -680,9 +679,10 @@ Estado: **en cidonia** con el llamamiento actual; con la bolsa constituida
 real, falta acreditar el recorrido.
 
 1. RRHH abre el llamamiento (4.3). Le llega un correo; hoy sale por un buzón de
-   pruebas, no por el correo de la Diputación.
-2. En Mi Bolsa aparece el formulario con su fecha límite. El plazo es de dos
-   días desde la notificación (decisión de RRHH del 02/10).
+   pruebas, no por el correo de la Diputación. RRHH registra después el contacto
+   efectivo desde la ficha de Bolsa. El correo enviado no lo acredita.
+2. En Mi Bolsa aparece el formulario con su fecha límite, calculada desde el
+   contacto efectivo según las reglas vigentes de esa bolsa.
 3. La aspirante elige (`POST /api/vec/bolsa/mi-bolsa/respuestas`):
    - **Aceptar**: sin pantalla de revisión.
    - **Renunciar**: pasa por «Revise su renuncia» y «Confirmar renuncia».
@@ -1061,8 +1061,13 @@ Reglas del llamamiento y sus canales (decisiones de Alberto del 02/10 al
   historial los junta por fecha. Un contacto añadido no reinicia el plazo, salvo
   que lo diga la regla configurable.
 - Anotar «contactado» tras una llamada abre la respuesta en «Mi Bolsa» y pone en
-  marcha el plazo, igual que el correo (regla b29). Los demás resultados de una
-  llamada no reinician el plazo.
+  marcha el plazo (regla b29). El correo con resultado «enviado» no es contacto
+  efectivo y no abre ese plazo. RRHH registra la llamada desde la ficha con
+  «Registrar intento telefónico»; VEC guarda la fecha del servidor. Registrar
+  contacto y responder al llamamiento son actuaciones distintas. Los demás
+  resultados de una llamada no reinician el plazo.
+  Activación y comprobaciones de la respuesta interna en
+  [`contacto_respuesta_interna_f1_123.md`](../../deploy/principal/contacto_respuesta_interna_f1_123.md).
 
 El corte F1-21 separa la unidad que gestiona el expediente de la unidad a la que
 pertenece el puesto. La comprobación de Personal usa la unidad del puesto en la

@@ -174,7 +174,11 @@ Con la fiscalización favorable, el técnico abre el llamamiento. VEC recorre la
 
 VEC no emite un llamamiento que se salte a una persona disponible que aún no ha sido llamada para esa necesidad. Si la selección empieza más abajo, la pantalla indica quién va antes y su número de orden, y no guarda nada. Quien no contestó a un llamamiento para otra necesidad conserva su turno en los siguientes. Saltar el orden solo será posible con un motivo de un catálogo aprobado por RRHH, que quedará guardado en el llamamiento y en la auditoría. Ese catálogo está vacío hasta que RRHH conteste la duda 168.
 
-La persona tiene dos días desde el aviso para contestar. Responde desde Mi Bolsa: acepta, renuncia o presenta una renuncia justificada. Si contesta por teléfono, el técnico anota la respuesta. Si no contesta en plazo, se entiende que no acepta, sin consecuencias en la bolsa, y el técnico abre el llamamiento a la siguiente persona.
+El correo avisa del llamamiento. Tras hablar con la persona, RRHH abre su ficha en Bolsa y registra el resultado con «Registrar intento telefónico». El resultado «Contactado» abre la respuesta en Mi Bolsa y el plazo que muestran las reglas vigentes; el envío del correo por sí solo no lo abre. La fecha de la llamada la guarda VEC.
+
+En el formulario «Registrar contacto», si VEC no puede confirmar que se ha guardado, conserva los datos bloqueados. Pulse «Reintentar el mismo registro» para recuperar su justificante sin anotar otra llamada.
+
+La persona responde desde Mi Bolsa: acepta, renuncia o presenta una renuncia justificada, y recibe un justificante. Registrar el contacto no equivale a aceptar. Si no contesta en plazo, se entiende que no acepta, sin consecuencias en la bolsa, y el técnico abre el llamamiento a la siguiente persona.
 
 Las llamadas de teléfono también se anotan, con su resultado. Si la persona contesta al teléfono, el plazo empieza a contar igual que con el correo.
 
@@ -257,6 +261,7 @@ todavía está por hacer.
 | Parte | Hoy | Falta | Al final |
 | --- | --- | --- | --- |
 | Entrada en la aplicación | Cada persona entra con un certificado de pruebas. | Conectar con el directorio de usuarios de la Diputación. Depende de Informática. | El personal entra con su usuario de la Diputación y su certificado. Los aspirantes, con DNI electrónico o certificado digital. |
+| Consultas simultáneas de Contratación | En una copia local, quinientas consultas del cuadro con su resumen, con hasta diez a la vez, terminaron sin errores. Los permisos y el registro de accesos se conservan. | Integrar el ajuste en la candidata y reducir el tiempo de respuesta con varias personas consultando a la vez. | El cuadro sigue disponible mientras otras personas consultan los expedientes. |
 | Cuenta propia del aspirante | En la copia local se ha comprobado que el aspirante entra en Mi Bolsa con su certificado y conserva el acceso tras reiniciar. La cuenta comprobada aún no tenía participaciones. | Completar la administración de sus permisos y comprobar los trámites que los necesitan. | Cada aspirante consulta y tramita lo suyo desde su área personal. |
 | Administración de perfiles | La lista de personas y su ficha funcionan con la configuración aprobada. En una copia local se ha ensayado el procedimiento administrativo para que una persona proponga un perfil nuevo y otra lo apruebe, con recibo. La asignación del perfil a las personas se registra aparte. | Instalar y comprobar este cierre en el entorno compartido; añadir el formulario de propuesta y aprobación y terminar la asignación de perfiles desde pantalla. | Los administradores gestionan los perfiles con los controles y aprobaciones que correspondan. |
 | Vigencia de Administración | Está preparada la renovación de su configuración hasta 90 días en desarrollo. Los permisos de las personas conservan sus propios plazos. | Instalar y comprobar la renovación en el entorno compartido. | La renovación mantiene el acceso administrativo y conserva el registro de lo publicado. |
