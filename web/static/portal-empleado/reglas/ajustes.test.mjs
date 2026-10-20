@@ -7,6 +7,7 @@ import { createServer } from "node:http";
 import { resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { abrirNavegador, cargarPantalla } from "../../../../scripts/tests/chrome_cdp.mjs";
+import { API_REGLAS } from "./reglas.js";
 import { API_AJUSTES, ErrorAjustes, crearClienteAjustes, renderizarAjustes, validarLecturaAjustes, validarReciboAjustes } from "./ajustes.js";
 import { cargarTextosAjustes } from "./ajustes-i18n.js";
 
@@ -185,6 +186,8 @@ test("un fallo del catálogo común no oculta los plazos CT cuya API responde", 
   const raiz = resolve(fileURLToPath(new URL("../../", import.meta.url)));
   let lecturasCT = 0;
   let fallosCatalogo = 0;
+  let fallosTextosCT = 0;
+  let fallosReglas = 0;
   let escenario = "comun";
   const rutasPedidas = [];
   const servidor = createServer(async (peticion, respuestaHTTP) => {
@@ -200,8 +203,20 @@ test("un fallo del catálogo común no oculta los plazos CT cuya API responde", 
       responder(503, "application/json", "{}");
       return;
     }
-    if (ruta === "/textos/es/reglas-plazos.json" && escenario === "textos_ct") {
+    if (ruta === "/textos/es/reglas-plazos.json" && (escenario === "textos_ct"
+        || (escenario === "textos_inactivos_reintento" && fallosTextosCT++ < 2))) {
       responder(503, "application/json", "{}");
+      return;
+    }
+    if (ruta === API_REGLAS) {
+      if (escenario === "reglas_reintento" && fallosReglas++ === 0) {
+        responder(503, "application/json", "{}");
+        return;
+      }
+      responder(200, "application/json", JSON.stringify({ data: { esquema: "vec.reglas.vigentes.v1", catalogos: [{
+        modulo: "contratacion_temporal", catalogo_id: "vec.contratacion_temporal.reglas",
+        estado: "sin_catalogo", paquete_ejemplo: false, reglas: [], edicion_disponible: !["sin_edicion", "textos_inactivos_reintento", "reglas_reintento"].includes(escenario),
+      }] } }));
       return;
     }
     if (ruta === API_AJUSTES) {
@@ -213,6 +228,15 @@ test("un fallo del catálogo común no oculta los plazos CT cuya API responde", 
     if (!destino.startsWith(raiz + sep)) { responder(404, "text/plain", ""); return; }
     try {
       let contenido = await readFile(destino);
+      if (destino.endsWith("index.html") && ["textos_inactivos_reintento", "reglas_reintento"].includes(escenario)) {
+        contenido = Buffer.from(contenido.toString().replace("</body>", `<script>
+          const observer = new MutationObserver(() => {
+            const retry = document.querySelector('#rg-ajustes button');
+            if (retry) { observer.disconnect(); document.documentElement.dataset.reintentado = 'true'; retry.click(); }
+          });
+          observer.observe(document.documentElement, {childList: true, subtree: true});
+        </script></body>`));
+      }
       if (destino.endsWith("index.html") && url.searchParams.has("zoom")) {
         contenido = Buffer.from(contenido.toString().replace("</body>", `<script>setTimeout(() => {
           document.body.style.zoom = '2';
@@ -255,6 +279,20 @@ test("un fallo del catálogo común no oculta los plazos CT cuya API responde", 
     assert.equal(lecturasCT, 1, "la API CT falló una vez");
     assert.match(sinAPICT, /data-ajustes-reintentar/u);
     assert.match(sinAPICT, /id="rg-ajustes"[\s\S]*No se han podido consultar/u);
+    escenario = "sin_edicion";
+    const sinEdicion = await cargarPagina(puerto, /La edición de plazos no está activada/u);
+    assert.equal(lecturasCT, 0, "sin edición montada no se consulta la ruta ausente");
+    assert.match(sinEdicion, /aria-labelledby="rg-ajustes-titulo"/u);
+    assert.doesNotMatch(sinEdicion, /data-ajustes-editar|data-ajustes-reintentar/u);
+    for (const caso of ["textos_inactivos_reintento", "reglas_reintento"]) {
+      escenario = caso;
+      const recuperada = await cargarPagina(puerto, /La edición de plazos no está activada/u);
+      assert.match(recuperada, /data-reintentado="true"/u, "el botón de reintento se usó realmente");
+      assert.equal(lecturasCT, 0, `${caso}: recuperar no consulta edición ausente`);
+      assert.doesNotMatch(recuperada, /data-ajustes-editar/u);
+    }
+    assert.equal(fallosTextosCT, 3, "el catálogo se recuperó tras el fallo inicial");
+    assert.equal(fallosReglas, 2, "el montaje se volvió a consultar tras el fallo inicial");
     escenario = "normal";
     const conZoom = await cargarPagina(puerto, /data-anchos/u, true);
     const [, ancho, visible] = /data-anchos="(\d+)\/(\d+)"/u.exec(conZoom) ?? [];
