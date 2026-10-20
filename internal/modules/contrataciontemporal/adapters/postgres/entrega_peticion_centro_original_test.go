@@ -67,7 +67,7 @@ func (*proveedorEntregaOriginalPrueba) NuevaClaveAltaDePeticion(context.Context)
 func (p *proveedorEntregaOriginalPrueba) AutorizarEntregaPeticionCentro(
 	_ context.Context, material ports.MaterialEntregaPeticionCentro,
 ) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
-	recurso, err := RecursoEntregaPeticionCentro(material)
+	recurso, err := RecursoEntregaPeticionCentro(material, "organizacion:desarrollo:dipgra")
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -105,8 +105,9 @@ func TestFachadaOriginalRevierteAntesDelCommitSiFallaHMAC(t *testing.T) {
 	}
 	tx := &transaccionAltaCandidataPrueba{fila: filaEntregaOriginalPrueba{}}
 	r := &RepositorioEntregasPeticionCentroPostgreSQL{
-		pool:      &iniciadorAltaCandidataPrueba{transacciones: []pgx.Tx{tx}},
-		proveedor: &proveedorEntregaOriginalPrueba{t: t},
+		pool:            &iniciadorAltaCandidataPrueba{transacciones: []pgx.Tx{tx}},
+		proveedor:       &proveedorEntregaOriginalPrueba{t: t},
+		organizacionRef: "organizacion:desarrollo:dipgra",
 	}
 	err := r.ejecutarConOriginal(context.Background(), material, true, func(_, _ []byte) error {
 		return ports.ErrClaveIdempotenciaUsada
@@ -168,7 +169,7 @@ func TestFachadaRevierteAutoenlaceHistoricoHastaContrastarHuella(t *testing.T) {
 	fallo := &transaccionAltaCandidataPrueba{fila: filaEntregaOriginalPrueba{entrega: salida, original: contenidoOriginal}}
 	exito := &transaccionAltaCandidataPrueba{fila: filaEntregaOriginalPrueba{entrega: salida, original: contenidoOriginal}}
 	proveedor := &proveedorEntregaOriginalPrueba{t: t, falloVerificacion: ports.ErrClaveIdempotenciaUsada}
-	r := &RepositorioEntregasPeticionCentroPostgreSQL{pool: &iniciadorAltaCandidataPrueba{transacciones: []pgx.Tx{fallo, exito}}, proveedor: proveedor}
+	r := &RepositorioEntregasPeticionCentroPostgreSQL{pool: &iniciadorAltaCandidataPrueba{transacciones: []pgx.Tx{fallo, exito}}, proveedor: proveedor, organizacionRef: "organizacion:desarrollo:dipgra"}
 	if _, err := r.entrega(context.Background(), material, true); !errors.Is(err, ports.ErrClaveIdempotenciaUsada) ||
 		fallo.commits != 0 || fallo.rollbacks != 1 || proveedor.verificaciones != 1 {
 		t.Fatalf("autoenlace inválido comprometido: error=%v commits=%d rollbacks=%d verificaciones=%d", err, fallo.commits, fallo.rollbacks, proveedor.verificaciones)
