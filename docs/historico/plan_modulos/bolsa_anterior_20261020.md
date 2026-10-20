@@ -108,7 +108,7 @@ la pantalla ofrece actualizarlo. Se cuentan participaciones, no personas distint
 
 Ensayo B94: PostgreSQL 18.4 propio, postHX + 14 HZ + B85 + B86 + CT193 + B87.
 Sin reconstruir SQL instalada ni cambiar permisos o configuración. La lectura usa
-la vía de Bolsa de main admitida por Dirección el 08/10 a las 19:12; no cierra C4
+la vía de Bolsa de main admitida para aquel corte; no cierra C4
 ni acredita auditoría nominal común en cada lectura. Revisión, CI e instalación
 pendientes de Dirección; no se declara terminado el punto 7 de este plan.
 
