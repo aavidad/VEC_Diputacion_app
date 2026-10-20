@@ -152,6 +152,9 @@ func TestCerrarGobiernoRolPorReferenciaAceptaFechaPostgreSQLUTC(t *testing.T) {
 	b = []byte(strings.Replace(string(b),
 		`"confirmado_en":"`+confirmado.Format(time.RFC3339)+`"`,
 		`"confirmado_en":"`+confirmado.Format("2006-01-02T15:04:05")+`+00:00"`, 1))
+	if !strings.Contains(string(b), `"confirmado_en":"`+confirmado.Format("2006-01-02T15:04:05")+`+00:00"`) {
+		t.Fatal("la respuesta no contiene el formato horario de PostgreSQL")
+	}
 	reloj := ahora.Add(2 * time.Second)
 	tx := &txGobiernoReferenciaPrueba{fila: filaFalsa{dato: b}}
 	autoridad := &AutoridadGobiernoRolNuevo{
