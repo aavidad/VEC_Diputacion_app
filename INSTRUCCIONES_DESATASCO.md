@@ -22,7 +22,7 @@ Ante un atasco:
 4. Conserve el trabajo en su rama. Haga commit y comunique el estado al menos
    cada treinta minutos. Si la cabeza está congelada esperando revisión o
    integración continua y no hay trabajo sin guardar, basta con comunicar el
-   estado; dirección lo aclaró el 20/10 a las 12:22.
+   estado para mantener el seguimiento sin invalidar una cabeza estable.
 5. Entregue el cambio para revisión de dirección con sus comprobaciones y
    límites. Dirección integra; un ensayo parcial no cierra la fase.
 
