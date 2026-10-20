@@ -419,3 +419,6 @@
   .rejilla-kpi.cuatro .icono-kpi { width: 36px; height: 36px; border-radius: 10px; }
   .rejilla-kpi.cuatro .icono-kpi svg { width: 20px; height: 20px; }
 }
+/* F1-110: rechazo de la emisión B7 (fuera de orden y otros), con señal además del color. */
+[data-b7-emision-error].mensaje-error { margin: 12px 0; padding: 10px 14px; border: 1px solid var(--portal-peligro); border-inline-start: 4px solid var(--portal-peligro); border-radius: var(--portal-radio-lg); background: var(--portal-peligro-suave); color: var(--portal-tinta); }
+[data-b7-emision-error].mensaje-error:focus { outline: 2px solid var(--portal-azul-700); outline-offset: 2px; }

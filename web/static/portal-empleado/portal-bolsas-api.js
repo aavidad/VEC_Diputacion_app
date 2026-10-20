@@ -1280,12 +1280,18 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
         if (!flujo || flujo.enviando || emisionB7?.flujo === flujo) return;
         invalidarSeleccionMasiva();
+        // Tras un rechazo por orden, deja marcada a quien va antes y le da el foco.
+        const antes = flujo.antes_fuera_de_orden?.participacion_ref;
+        flujo.antes_fuera_de_orden = null;
+        if (antes) flujo.participaciones = [antes];
         flujo.paso = 2;
         flujo.error = "";
         flujo.cursoresPagina = [""];
         flujo.pagina = 0;
-        void cargarCandidatosBolsa(estado.bolsaSeleccionada)
-          .then(() => documento.querySelector('[data-bolsa-form="b7-paso2"] input[name="participacion"]')?.focus?.());
+        void cargarCandidatosBolsa(estado.bolsaSeleccionada).then(() => {
+          const casillas = [...(documento.querySelectorAll?.('[data-bolsa-form="b7-paso2"] input[name="participacion"]') ?? [])];
+          (casillas.find((casilla) => antes && casilla.value === antes) ?? casillas[0])?.focus?.();
+        });
       } else if (accion === "b7-seleccionar-todas") {
         evento.preventDefault();
         const flujo = estado.filtrosBolsa.nuevo_llamamiento;
@@ -1438,6 +1444,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
               : res.status === 400 ? traducirPortal("panel_b7_solicitud_rechazada")
               : res.codigo === "llamamiento_fuera_de_orden" ? mensajeFueraDeOrden(res.antes, estado.datosCandidatos?.datos?.candidatos)
               : res.mensaje;
+            flujo.antes_fuera_de_orden = res.codigo === "llamamiento_fuera_de_orden" ? res.antes : null;
           } else if (!res.ok && [401, 403].includes(res.status)) {
             registro.estado = "incierto";
             flujo.acceso_denegado = true;

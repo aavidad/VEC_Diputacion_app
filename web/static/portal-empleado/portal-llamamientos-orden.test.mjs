@@ -12,7 +12,7 @@ test("F1-110 el 409 por orden dice quién va antes sin confundirlo con la clave 
   assert.deepEqual(salida.antes, { participacion_ref: "participacion:02", orden_vigente: 2 });
   assert.match(salida.mensaje, /número de orden 2\b/);
   const conNombre = mensajeFueraDeOrden(salida.antes, [{ participacion_ref: "participacion:02", nombre_visible: "Lucía Ortega Ruiz" }]);
-  assert.match(conNombre, /Antes va Lucía Ortega Ruiz, con el número de orden 2,/);
+  assert.match(conNombre, /Antes va Lucía Ortega Ruiz, número de orden 2:/);
   const sinDatos = await emitirLlamamiento(payload, responder({ codigo: "llamamiento_fuera_de_orden", motivos_salto: [] }));
   assert.equal(sinDatos.antes, null);
   assert.doesNotMatch(sinDatos.mensaje, /\{|undefined|null/);
