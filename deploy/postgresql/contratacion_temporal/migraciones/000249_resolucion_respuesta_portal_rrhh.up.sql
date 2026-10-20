@@ -386,7 +386,7 @@ BEGIN
    OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-       IS DISTINCT FROM 'd5c812acbb329273947de7a4b7f2ed400a82ba7c94f9c3e749772247fbad1c1d' THEN
+       IS DISTINCT FROM '82a116f0069fb7220fa81e6411b01ea6fde4a474f66e3f5863f8bb2d944485b1' THEN
   RAISE EXCEPTION 'CT249: lector instalado divergente' USING ERRCODE='55000'; END IF;
 END $pre_lector_ct249$;
 
@@ -401,7 +401,7 @@ CREATE OR REPLACE FUNCTION vec_contratacion_temporal.consultar_detalle_rrhh_con_
  SET statement_timeout TO '4s'
  SET idle_in_transaction_session_timeout TO '6s'
 AS $function$
-DECLARE d record; actual record; vinculos jsonb; sugeridas jsonb; origenes jsonb; n integer;
+DECLARE d record; actual record; vinculos jsonb; sugeridas jsonb; origenes jsonb; opacas jsonb; nativa record; n integer;
  entradas jsonb; todos jsonb; lote jsonb; pagina_n integer; antes_en timestamptz; antes_ref text;
  ultimo_en timestamptz; ultimo_ref text; mas boolean:=false; siguiente text; bolsa_vigente text;
  personas_text text; personas numeric; aceptaciones integer;
@@ -574,6 +574,50 @@ BEGIN
     NULL,NULL,20,ARRAY(SELECT x.llamamiento_ref
      FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
      WHERE x.expediente_ref=d.expediente_ref)) b;
+  -- CT238 permite una O6 confirmada por expediente; B98 devuelve su
+  -- referencia de configuración real, aunque sea la opaca del expediente.
+  SELECT e.recibo_json->>'llamamiento_ref' AS llamamiento_ref,
+   e.recibo_json->>'recibo_ref' AS recibo_emision_ref INTO nativa
+  FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
+  JOIN vec_contratacion_temporal.expediente_version_integral h
+   ON h.expediente_ref=d.expediente_ref AND h.version=CASE
+    WHEN e.recibo_json->>'version_expediente' ~ '^[1-9][0-9]{0,15}$'
+    THEN (e.recibo_json->>'version_expediente')::numeric END
+  WHERE e.tipo_seleccion='llamamiento' AND e.situacion='confirmada'
+    AND e.artefacto_canonico IS NOT NULL
+    AND jsonb_typeof(e.recibo_json->'version_expediente')='number'
+    AND e.solicitud_json->>'organizacion_ref'=p_alcance.organizacion_ref
+    AND e.solicitud_json->>'expediente_ref'=d.expediente_ref
+    AND e.recibo_json->>'organizacion_ref'=p_alcance.organizacion_ref
+    AND e.recibo_json->>'expediente_ref'=d.expediente_ref
+    AND e.recibo_json#>>'{bolsa,referencia}'=bolsa_vigente
+    AND e.recibo_json->'version_expediente'=e.solicitud_json->'version_expediente'
+    AND e.recibo_json->'propuesta_generada'='true'::jsonb
+    AND e.recibo_json->>'llamamiento_ref' ~ '^llamamiento:[0-9a-f]{64}$'
+    AND e.recibo_json->>'recibo_ref'='recibo:'||(e.recibo_json->>'llamamiento_ref')
+    AND h.agregado_json#>>'{via_cobertura,via_clave}'='bolsa_vigente'
+    AND h.agregado_json#>>'{via_cobertura,decision_gobernada,via_elegida}'='bolsa_vigente'
+    AND h.agregado_json#>>'{analisis,categoria_ref}'=actual.agregado_json#>>'{analisis,categoria_ref}'
+    AND h.agregado_json#>>'{asignacion,unidad_ref}' IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
+      WHERE x.llamamiento_ref=e.recibo_json->>'llamamiento_ref');
+  IF FOUND THEN
+   SELECT coalesce(jsonb_agg(to_jsonb(b)),'[]'::jsonb) INTO opacas
+   FROM vec_bolsa_llamamientos.listar_emisiones_ct_v1(
+    bolsa_vigente,d.expediente_ref,NULL,NULL,20,
+    ARRAY(SELECT x.llamamiento_ref FROM vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
+      WHERE x.expediente_ref=d.expediente_ref)) b
+   WHERE b.llamamiento_ref=nativa.llamamiento_ref
+     AND b.recibo_emision_ref=nativa.recibo_emision_ref;
+   IF jsonb_array_length(opacas)=1 THEN
+    SELECT coalesce(jsonb_agg(z.valor ORDER BY z.orden),'[]'::jsonb) INTO sugeridas
+    FROM (SELECT opacas->0 AS valor,0::bigint AS orden
+      UNION ALL
+      SELECT m.valor,m.pos FROM jsonb_array_elements(sugeridas) WITH ORDINALITY m(valor,pos)
+      WHERE m.valor->>'llamamiento_ref' IS DISTINCT FROM nativa.llamamiento_ref
+      ORDER BY orden LIMIT 20) z;
+   END IF;
+  END IF;
  END IF;
  RETURN QUERY SELECT d.contenido_canonico,d.esquema,d.acceso_ref,d.secuencia,
   d.anterior_sha256,d.huella_sha256,d.vinculo_identidad_huella_sha256,
@@ -594,7 +638,7 @@ BEGIN
    OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-       IS DISTINCT FROM 'a27e9e849cae6debafb3f1ea060a33d9f670aecca031bbb6d1da6bfebc69d799' THEN
+       IS DISTINCT FROM '6c62a090c72f10ad4e898ef5594f3f8445fb2b2f37582a24823ca57c7e1946de' THEN
   RAISE EXCEPTION 'CT249: lector final divergente' USING ERRCODE='55000'; END IF;
  IF (SELECT encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex')
      FROM pg_proc q WHERE q.oid=to_regprocedure(
