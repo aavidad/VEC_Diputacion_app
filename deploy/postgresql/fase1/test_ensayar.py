@@ -167,7 +167,7 @@ class EnsayoFase1Test(unittest.TestCase):
             with mock.patch.object(Path, 'read_bytes', return_value=b'SQL'):
                 casos = ensayar.pruebas_versionadas()
         self.assertEqual([ruta for ruta, _ in casos], list(ensayar.PRUEBAS_SQL))
-        self.assertEqual([contenido for _, contenido in casos], [b'SQL'] * 13)
+        self.assertEqual([contenido for _, contenido in casos], [b'SQL'] * 14)
         self.assertEqual([llamada.args[0][-1] for llamada in git.call_args_list],
                          [f'HEAD:{ruta}' for ruta in ensayar.PRUEBAS_SQL])
         with mock.patch.object(ensayar.subprocess, 'check_output', return_value=b'alterado'):

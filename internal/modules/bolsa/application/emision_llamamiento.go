@@ -92,10 +92,6 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 	if err != nil || resuelto.Validar() != nil {
 		return puertosbolsa.EmisionLlamamiento{}, errorDependenciaSituacion(err)
 	}
-	salto, err := s.resolverMotivoSalto(ctx, q.MotivoSalto)
-	if err != nil {
-		return puertosbolsa.EmisionLlamamiento{}, err
-	}
 	recurso := dominiovec.RecursoAutorizable{Referencia: q.BolsaRef, ModuloID: puertosbolsa.ModuloBorradorLlamamiento, Tipo: puertosbolsa.TipoRecursoEmision, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
 	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: q.Vinculo, ReferenciaMotivo: q.MotivoAutorizacion, Accion: puertosbolsa.AccionEmitirLlamamiento, Recurso: recurso, Finalidad: puertosbolsa.FinalidadEmitirLlamamiento, Correlacion: q.Correlacion})
 	if err != nil {
@@ -108,6 +104,12 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 	material, err := exportador.ExportarMaterialParaConsumidor()
 	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(auth, decision, confirmacion, q.ResultadoContexto, q.MotivoAutorizacion, material, puertosbolsa.AudienciaEmitirLlamamiento) {
 		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
+	// El motivo de salto se resuelve ya autorizado: sin permiso no se revela
+	// si una clave está en el catálogo.
+	salto, err := s.resolverMotivoSalto(ctx, q.MotivoSalto)
+	if err != nil {
+		return puertosbolsa.EmisionLlamamiento{}, err
 	}
 	h := sha256.Sum256([]byte(q.BolsaRef + "\x1f" + q.ClaveIdempotencia))
 	sufijo := hex.EncodeToString(h[:])

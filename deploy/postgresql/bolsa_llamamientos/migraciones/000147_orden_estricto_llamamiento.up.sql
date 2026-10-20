@@ -3,9 +3,11 @@
 -- entre las personas disponibles (regla b01, art. 8.2.a del Reglamento).
 -- * saltos_orden_llamamiento_v1 calcula, con el mismo orden vigente B6 que
 --   ve el asistente, quién va antes de la última persona elegida y no está en
---   el llamamiento. No cuentan quienes ya tienen un llamamiento emitido en la
---   bolsa sin situación registrada después ni quienes la política de avisos
---   excluye por prestar servicios (B41).
+--   el llamamiento. No cuentan quienes ya han sido llamados en la bolsa para
+--   la misma necesidad (referencia de la configuración) sin situación
+--   registrada después ni quienes la política de avisos excluye por prestar
+--   servicios (B41). Un llamamiento sin respuesta para otra necesidad no
+--   aparta a nadie: no contestar no tiene consecuencias en la bolsa.
 -- * reservar_llamamiento_v2 es la reserva B7 instalada (B17+B18+B25) con esa
 --   comprobación antes de consumir la autorización: sin motivo, un salto se
 --   rechaza con SQLSTATE VBL02 (llamamiento_fuera_de_orden) y la primera
@@ -32,7 +34,7 @@ BEGIN
  OR to_regclass('vec_bolsa_llamamientos.llamamiento_emitido') IS NULL
  OR to_regclass('vec_bolsa_llamamientos.situacion_participacion') IS NULL
  OR to_regclass('vec_bolsa_llamamientos.salto_orden_llamamiento') IS NOT NULL
- OR to_regprocedure('vec_bolsa_llamamientos.saltos_orden_llamamiento_v1(text,jsonb,timestamptz)') IS NOT NULL
+ OR to_regprocedure('vec_bolsa_llamamientos.saltos_orden_llamamiento_v1(text,jsonb,timestamptz,text)') IS NOT NULL
  OR to_regprocedure('vec_bolsa_llamamientos.reservar_llamamiento_v2(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)') IS NOT NULL
  OR to_regprocedure('vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(text,timestamptz)') IS NULL
  OR to_regprocedure('vec_bolsa_llamamientos.presta_servicios_en_v1(timestamptz)') IS NULL
@@ -77,7 +79,7 @@ CREATE TRIGGER salto_orden_llamamiento_inmutable BEFORE UPDATE OR DELETE
 
 -- Personas en turno antes de la última elegida que no están en el llamamiento,
 -- por orden vigente. Invocadora y sin concesiones: solo la llama la reserva.
-CREATE FUNCTION vec_bolsa_llamamientos.saltos_orden_llamamiento_v1(p_bolsa text,p_participaciones jsonb,p_emitido timestamptz)
+CREATE FUNCTION vec_bolsa_llamamientos.saltos_orden_llamamiento_v1(p_bolsa text,p_participaciones jsonb,p_emitido timestamptz,p_referencia text)
 RETURNS jsonb LANGUAGE sql STABLE
 SET search_path=pg_catalog,pg_temp SET timezone='UTC' AS $f$
  WITH orden AS MATERIALIZED (
@@ -95,17 +97,18 @@ SET search_path=pg_catalog,pg_temp SET timezone='UTC' AS $f$
     -- La política de avisos (B41) en «excluir» impide llamarla: no bloquea.
     AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.presta_servicios_en_v1(p_emitido) x
                     WHERE x.modo='excluir' AND x.participacion_ref=o.participacion_ref)
-    -- Ya llamada en esta bolsa y sin situación registrada después: su turno
-    -- está en curso y no se le vuelve a exigir.
+    -- Ya llamada en esta bolsa para la misma necesidad y sin situación
+    -- registrada después: su turno está en curso y no se le vuelve a exigir.
     AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.llamamiento_emitido l
                     WHERE l.bolsa_ref=p_bolsa AND l.emitido_en<=p_emitido
+                      AND l.configuracion->>'referencia'=p_referencia
                       AND l.participaciones ? o.participacion_ref
                       AND NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.situacion_participacion s
                                       WHERE s.participacion_ref=o.participacion_ref
                                         AND s.registrada_en>l.emitido_en AND s.registrada_en<=p_emitido
                                         AND s.desde<=p_emitido))
 $f$;
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.saltos_orden_llamamiento_v1(text,jsonb,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.saltos_orden_llamamiento_v1(text,jsonb,timestamptz,text) FROM PUBLIC;
 
 CREATE FUNCTION vec_bolsa_llamamientos.reservar_llamamiento_v2(p_llamamiento text,p_recibo text,p_bolsa text,p_actor text,p_clave text,p_participaciones jsonb,p_configuracion jsonb,p_emitido timestamptz,p_huella_finalizacion bytea,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea,p_salto jsonb)
 RETURNS TABLE(emision jsonb,reutilizada boolean) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $f$
@@ -131,7 +134,7 @@ DECLARE previo record; consumo record; d jsonb; v_huella text; v_total int; v_va
   RETURN QUERY SELECT jsonb_build_object('llamamiento_ref',previo.llamamiento_ref,'recibo_ref',previo.recibo_ref,'bolsa_ref',previo.bolsa_ref,'estado',CASE WHEN jsonb_array_length(v_contactos)=jsonb_array_length(previo.participaciones) THEN 'emitido_pendiente_respuesta' ELSE 'emision_reservada_resultado_pendiente' END,'participaciones',previo.participaciones,'configuracion',previo.configuracion,'emitido_en',previo.emitido_en,'contactos',v_contactos),true; RETURN;
  END IF;
  -- Regla b01: orden estricto entre los disponibles, antes de consumir nada.
- v_saltadas:=vec_bolsa_llamamientos.saltos_orden_llamamiento_v1(p_bolsa,p_participaciones,p_emitido);
+ v_saltadas:=vec_bolsa_llamamientos.saltos_orden_llamamiento_v1(p_bolsa,p_participaciones,p_emitido,p_configuracion->>'referencia');
  IF jsonb_array_length(v_saltadas)>0 AND p_salto IS NULL THEN
   RAISE EXCEPTION 'llamamiento fuera de orden' USING ERRCODE='VBL02',DETAIL=(v_saltadas->0)::text;
  END IF;
@@ -167,8 +170,8 @@ DECLARE r record; f regprocedure; p record;
 BEGIN
  FOR r IN SELECT * FROM (VALUES
   ('vec_bolsa_llamamientos.reservar_llamamiento_v1(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',true,'{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}','833e278079c944f61aad240d3da936804c0746c59ed4df1f85f1d8f20be40645'),
-  ('vec_bolsa_llamamientos.reservar_llamamiento_v2(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)',true,'{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}','9961668a8bb3406dd600f6cfbaaf02a4a12a23f37a453bc1e30a1157236756fa'),
-  ('vec_bolsa_llamamientos.saltos_orden_llamamiento_v1(text,jsonb,timestamptz)',false,'{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario}','83b6db86d21e321f5f2ea0af205d4856b93d95b75457d3978203c8ac05bdd686')
+  ('vec_bolsa_llamamientos.reservar_llamamiento_v2(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)',true,'{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}','a34cd4c863e998b4df5081ffef0e8fc9395814871701876598bdce2c7fd25150'),
+  ('vec_bolsa_llamamientos.saltos_orden_llamamiento_v1(text,jsonb,timestamptz,text)',false,'{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario}','918b13749c555b92fe82c3d56df5212dfd38e5684d1acb163f0f393a8c8bb2b4')
  ) AS esperado(firma,definidora,acl,huella) LOOP
   f:=to_regprocedure(r.firma);
   SELECT pg_get_userbyid(x.proowner) AS dueno,x.prosecdef,x.proacl::text AS acl,

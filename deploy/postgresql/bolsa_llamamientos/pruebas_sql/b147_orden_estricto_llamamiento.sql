@@ -18,11 +18,11 @@ $f$;
 
 -- Reserva como el ejecutor de la aplicación. Devuelve el SQLSTATE y DETAIL
 -- del rechazo, o «ok»/«replay» si reserva.
-CREATE FUNCTION pg_temp.reservar(p_n int,p_participaciones jsonb,p_salto jsonb) RETURNS text LANGUAGE plpgsql AS $f$
+CREATE FUNCTION pg_temp.reservar(p_n int,p_participaciones jsonb,p_salto jsonb,p_necesidad text DEFAULT 'RF') RETURNS text LANGUAGE plpgsql AS $f$
 DECLARE v_ref text:=encode(sha256(convert_to('b147:'||p_n,'UTF8')),'hex'); r record; estado text; detalle text;
 BEGIN
  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.reservar_llamamiento_v2('llamamiento:'||v_ref,'recibo:llamamiento:'||v_ref,'bolsa:b147','per_b147PruebaSinteticaAAAAA','clave-b147-'||p_n,
-  p_participaciones,'{"referencia":"RF","descripcion":"DS","categoria":"CT","centro":"CE","modalidad":"MO","fecha_inicio":"2026-10-01","plazo":"24 horas","plantilla_version":"bolsa-llamamiento-v1","asunto":"AS","cuerpo":"CU"}',
+  p_participaciones,jsonb_build_object('referencia',p_necesidad)||'{"descripcion":"DS","categoria":"CT","centro":"CE","modalidad":"MO","fecha_inicio":"2026-10-01","plazo":"24 horas","plantilla_version":"bolsa-llamamiento-v1","asunto":"AS","cuerpo":"CU"}'::jsonb,
   clock_timestamp(),'\x0101010101010101010101010101010101010101010101010101010101010101','\x00',
   convert_to(jsonb_build_object('principal_id','per_b147PruebaSinteticaAAAAA','accion','llamamiento.emitir.v1','tipo_recurso','bolsa_constituida','referencia_recurso','bolsa:b147','n',p_n)::text,'UTF8'),
   '\x00','\x00',1,1,'\x00','\x00','\x00','\x00',p_salto);
@@ -99,6 +99,9 @@ BEGIN
  IF r<>'ok' THEN RAISE EXCEPTION 'B147: orden 2 rechazado: %',r; END IF;
  r:=pg_temp.reservar(6,'["participacion:b147:2"]',NULL);
  IF r<>'replay' THEN RAISE EXCEPTION 'B147: repetición no reutilizada: %',r; END IF;
+ -- Para otra necesidad, el llamamiento anterior sin respuesta no aparta al 1.
+ r:=pg_temp.reservar(10,'["participacion:b147:3"]',NULL,'OTRA');
+ IF r<>'VBL02 {"orden_vigente": 1, "participacion_ref": "participacion:b147:1"}' THEN RAISE EXCEPTION 'B147: otra necesidad salta al ya llamado: %',r; END IF;
 END $prueba$;
 
 -- RRHH registra una situación del 1 después de su llamamiento: vuelve a
@@ -122,7 +125,7 @@ BEGIN
  -- El ejecutor no lee la tabla ni la función interna.
  BEGIN PERFORM 1 FROM vec_bolsa_llamamientos.salto_orden_llamamiento; RAISE EXCEPTION 'B147: tabla de saltos visible';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
- BEGIN PERFORM vec_bolsa_llamamientos.saltos_orden_llamamiento_v1('bolsa:b147','[]',clock_timestamp()); RAISE EXCEPTION 'B147: función interna ejecutable';
+ BEGIN PERFORM vec_bolsa_llamamientos.saltos_orden_llamamiento_v1('bolsa:b147','[]',clock_timestamp(),'RF'); RAISE EXCEPTION 'B147: función interna ejecutable';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $prueba$;
 
