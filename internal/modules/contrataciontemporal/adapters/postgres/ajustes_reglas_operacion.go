@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	app "vec-diputacion-granada/internal/modules/contrataciontemporal/application/ajustesreglas"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
@@ -25,7 +26,6 @@ const (
 	huellaMaterialAjustesCTSQL       = `SELECT encode(sha256(convert_to($1::jsonb::text,'UTF8')),'hex')`
 	audienciaAjustesReglasCT         = "vec_contratacion_temporal.ajustes_reglas.v1"
 	recursoAjustesReglasCT           = "vec.contratacion_temporal.reglas"
-	organizacionAjustesReglasCT      = "organizacion:desarrollo:dipgra"
 	maximoMaterialOperacionAjustesCT = 65536
 	// La consulta puede devolver 50 versiones; cada una procede de un
 	// material de hasta 64 KiB en CT-148.
@@ -51,13 +51,6 @@ type ProveedorAutorizacionAjustesReglasCT interface {
 	AutorizarAjustesReglasCT(context.Context, vecdomain.ContextoActor, string, vecdomain.RecursoAutorizable) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
-// LectorAjustesReglasCT permite sustituir la consulta V3 de CT148 por una
-// lectura de sesión cuando exista una autoridad que conserve permiso y
-// auditoría atómicos. Mientras tanto CT148 ya aporta esa garantía al leer.
-type LectorAjustesReglasCT interface {
-	ConsultarAjustesReglasCT(context.Context, vecdomain.ContextoActor, int, *int64) (app.Lectura, error)
-}
-
 type ejecutorOperacionAjustesCT interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
@@ -69,7 +62,6 @@ type ejecutorOperacionAjustesCT interface {
 type RepositorioAjustesReglasCT struct {
 	pool            ejecutorOperacionAjustesCT
 	proveedor       ProveedorAutorizacionAjustesReglasCT
-	lector          LectorAjustesReglasCT
 	organizacionRef string
 }
 
@@ -77,19 +69,8 @@ func NuevoRepositorioAjustesReglasCT(pool *pgxpool.Pool, proveedor ProveedorAuto
 	return nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionRef)
 }
 
-// ConLector activa la lectura solo cuando composición entrega una frontera
-// que acredita autorización y auditoría de éxito atómicas.
-func NuevoRepositorioAjustesReglasCTConLector(pool *pgxpool.Pool, proveedor ProveedorAutorizacionAjustesReglasCT, lector LectorAjustesReglasCT, organizacionRef string) (*RepositorioAjustesReglasCT, error) {
-	r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionRef)
-	if err != nil || dependenciaNula(lector) {
-		return nil, ErrOperacionAjustesReglasNoDisponible
-	}
-	r.lector = lector
-	return r, nil
-}
-
 func nuevoRepositorioAjustesReglasCT(pool ejecutorOperacionAjustesCT, proveedor ProveedorAutorizacionAjustesReglasCT, organizacionRef string) (*RepositorioAjustesReglasCT, error) {
-	if dependenciaNula(pool) || dependenciaNula(proveedor) || organizacionRef != organizacionAjustesReglasCT {
+	if dependenciaNula(pool) || dependenciaNula(proveedor) || !domain.ReferenciaOpacaValida(organizacionRef) {
 		return nil, ErrOperacionAjustesReglasNoDisponible
 	}
 	return &RepositorioAjustesReglasCT{pool: pool, proveedor: proveedor, organizacionRef: organizacionRef}, nil
@@ -107,32 +88,31 @@ func (r *RepositorioAjustesReglasCT) Consultar(ctx context.Context, actor vecdom
 	if err := ctx.Err(); err != nil {
 		return app.Lectura{}, err
 	}
-	var lectura app.Lectura
-	var err error
-	if !dependenciaNula(r.lector) {
-		lectura, err = r.lector.ConsultarAjustesReglasCT(ctx, actor, limite, antes)
-	} else {
-		lectura, err = r.consultarV3(ctx, actor, limite, antes)
-	}
+	lectura, err := r.consultarV3(ctx, actor, limite, antes)
 	if err != nil {
 		return app.Lectura{}, errorAjustesCTAplicacion(err)
 	}
-	if dependenciaNula(r.lector) {
-		lectura.Activacion, err = r.LeerActivacion(ctx)
-		if err != nil {
-			return app.Lectura{}, errorAjustesCTAplicacion(err)
-		}
+	lectura.Activacion, err = r.LeerActivacion(ctx)
+	if err != nil {
+		return app.Lectura{}, errorAjustesCTAplicacion(err)
 	}
+	if err := validarHistorialAjustesCT(lectura); err != nil {
+		return app.Lectura{}, err
+	}
+	return lectura, nil
+}
+
+func validarHistorialAjustesCT(lectura app.Lectura) error {
 	if lectura.Historial == nil {
-		return app.Lectura{}, app.ErrNoDisponible
+		return app.ErrNoDisponible
 	}
 	for _, h := range lectura.Historial {
 		if h.Version < 1 || h.Version > maximoVersionAjustesCT || h.VigenteDesde.IsZero() || h.ReciboRef == "" ||
 			len(h.Cambios) == 0 && !rebaseAjustesCTSinCambio(h, lectura) {
-			return app.Lectura{}, app.ErrNoDisponible
+			return app.ErrNoDisponible
 		}
 	}
-	return lectura, nil
+	return nil
 }
 
 func rebaseAjustesCTSinCambio(h app.CambioHistorico, lectura app.Lectura) bool {

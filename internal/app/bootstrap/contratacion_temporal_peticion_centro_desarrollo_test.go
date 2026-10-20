@@ -73,7 +73,7 @@ func TestPeticionCentroDesarrolloSeparaRolesYMaterial(t *testing.T) {
 		t.Fatal(err)
 	}
 	q := ports.ConsultaPeticionCentro{Modo: "bandeja", Referencia: "centro-520", Actor: domain.ActorPeticionCentro{ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef, CentroRef: "centro-520", PuestoRef: "rpt-520-735"}}
-	r, err := postgresct.RecursoConsultaPeticionCentro(q)
+	r, err := postgresct.RecursoConsultaPeticionCentro(q, organizacionAltaContratacionTemporalDesarrollo)
 	if err != nil {
 		t.Fatal(err)
 	}
