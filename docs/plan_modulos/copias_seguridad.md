@@ -91,7 +91,7 @@ Administración gobierna petición, política, manifiesto, estados y recibos. Lo
 de plataforma copian almacenes; no convierten Administración en lector funcional de
 tablas de Contratación, Personal u otros módulos. Los inventarios de migraciones se
 obtienen mediante contratos de infraestructura o proveedores del módulo propietario.
-Esta ubicación propuesta debe acordarse con F antes de CS01; la composición y los
+Esta ubicación propuesta debe acordarse con el responsable de la composición antes de CS01; la composición y los
 archivos ADMIN existentes siguen siendo suyos. Configuración nueva en `config/copias.go`,
 sin variables leídas directamente desde dominio o adaptadores.
 
