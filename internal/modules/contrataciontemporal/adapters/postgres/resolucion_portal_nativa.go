@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -136,9 +137,10 @@ func (t *TransaccionComunicacionLlamamientoPostgreSQL) resolverPortalIntento(
 	}()
 	var salida string
 	err = tx.QueryRow(ctx, `SELECT vec_contratacion_temporal.registrar_resolucion_respuesta_portal_rrhh_v1(
-		$1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text`,
+		$1::text,$2,$3,$4,$5,$6::text::numeric,$7::text::numeric,$8,$9,$10,$11)::text`,
 		string(contenido), secretos[0], secretos[1], secretos[2], secretos[3],
-		int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
+		strconv.FormatUint(a.PersonaVersion(), 10), strconv.FormatUint(a.PerfilVersion(), 10),
+		secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
 	if err != nil {
 		return vacio, err
 	}
