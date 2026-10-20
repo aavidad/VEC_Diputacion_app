@@ -245,7 +245,11 @@ restaura el volcado y sus permisos sin credenciales globales, genera material
 de 90 días y permite reiniciar o borrar una instancia propia. Este primer
 corte arranca el portal con funciones opcionales apagadas; las conexiones y
 actos de los módulos aún siguen la guía `deploy/principal/LEEME_copia_local.md`.
-El arranque HTTP no acredita el recorrido funcional.
+F1-119 añade la orden `personal` a la fábrica: genera las conexiones propias,
+publica por el gobierno existente y prepara incorporación B2, categoría RPT,
+GINPIX manual y cese desde una configuración aprobada, sin copiar capacidades
+antiguas. La activación y la semilla no autoritativa de Plantilla están en el
+apartado 12 de esa guía. El arranque HTTP no acredita el recorrido funcional.
 
 ### Arranque de Administración
 

@@ -2,7 +2,6 @@
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import json
-from pathlib import Path
 import secrets
 import subprocess
 from urllib.parse import quote, urlencode
@@ -29,7 +28,9 @@ OBLIGATORIAS = {'ct_vinculo_registrar', 'rpt_listar', 'personal_hecho',
 def configuracion(origen):
     """Conserva referencias/motivos; descarta el circuito de ejercicio y sus secretos."""
     datos = json.loads(privado(origen).read_text())
-    b2 = deepcopy(datos['personal_b2'])
+    b2 = deepcopy({k: datos['personal_b2'][k] for k in (
+        'protocolo', 'organismo_ref', 'catalogo_rpt_id', 'modulo_rpt_id',
+        'dsn_files', 'operaciones', 'cese_fecha_efecto') if k in datos['personal_b2']})
     if (b2.get('protocolo') != 'personal_b2_v1'
             or set(b2.get('dsn_files', {})) != set(B2)
             or not OBLIGATORIAS <= set(b2.get('operaciones', {}))
@@ -106,6 +107,8 @@ def preparar(copia, origen, *, repo, go, entorno_go, guardar):
     if marca.exists():
         if json.loads(privado(marca).read_text())['origen_sha256'] != firma:
             raise ValueError('Personal ya está preparado con otra configuración; conserve la copia')
+        if _sha256(privado(salida / 'servidor.json')) != json.loads(privado(marca).read_text())['servidor_sha256']:
+            raise ValueError('El material de Personal cambió desde la preparación')
         copia.comprobar()
         return
     # Comprobación del material antes de parar una aplicación sana.
@@ -122,8 +125,7 @@ def preparar(copia, origen, *, repo, go, entorno_go, guardar):
             ruta = entrada / (nombre + '.dsn')
             if not ruta.exists():
                 _publicar(ruta, url + '\n')
-        for nombre, variable in {'gobierno': 'VEC_CT_GOBIERNO_DATABASE_URL',
-                                 'motivos-rrhh': 'VEC_CT_MOTIVOS_RRHH_DATABASE_URL'}.items():
+        for nombre, variable in {'motivos-rrhh': 'VEC_CT_MOTIVOS_RRHH_DATABASE_URL'}.items():
             guardar_dsn = entrada / (nombre + '.dsn')
             if not guardar_dsn.exists():
                 _publicar(guardar_dsn, anterior[variable] + '\n')
@@ -135,13 +137,20 @@ def preparar(copia, origen, *, repo, go, entorno_go, guardar):
         # no hay .cap hasta que el productor las coteje con el gobierno publicado.
         copia.arrancar(comprobar_modulos=False)
         if not salida.exists():
-            with (carpeta / 'material.log').open('ab') as log:
-                subprocess.run([str(binario), '-material-idempotencia', str(copia.material / 'idempotencia'),
-                    '-incorporacion-config', str(entrada / 'servidor.json'),
-                    '-incorporacion-motivos-rrhh-dsn', str(entrada / 'motivos-rrhh.dsn'),
-                    '-dsn-archivo', str(entrada / 'gobierno.dsn'), '-salida', str(salida)],
-                    cwd=repo, env={'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8'},
-                    stdout=log, stderr=subprocess.STDOUT, check=True, timeout=180)
+            from copia_local_conexiones import crear_preparador_gobierno, retirar_preparador_gobierno
+            gobierno = entrada / 'gobierno.dsn'
+            try:
+                _publicar(gobierno, crear_preparador_gobierno(copia) + '\n')
+                with (carpeta / 'material.log').open('ab') as log:
+                    subprocess.run([str(binario), '-material-idempotencia', str(copia.material / 'idempotencia'),
+                        '-incorporacion-config', str(entrada / 'servidor.json'),
+                        '-incorporacion-motivos-rrhh-dsn', str(entrada / 'motivos-rrhh.dsn'),
+                        '-dsn-archivo', str(gobierno), '-salida', str(salida)],
+                        cwd=repo, env={'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8'},
+                        stdout=log, stderr=subprocess.STDOUT, check=True, timeout=180)
+            finally:
+                gobierno.unlink(missing_ok=True)
+                retirar_preparador_gobierno(copia)
         copia.parar()
         guardar_entorno(copia, entorno_personal(copia, salida, urls, repo), guardar)
         copia.arrancar()
