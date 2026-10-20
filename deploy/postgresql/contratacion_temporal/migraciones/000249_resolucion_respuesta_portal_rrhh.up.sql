@@ -420,31 +420,6 @@ BEGIN
  ) SELECT coalesce(jsonb_object_agg(llamamiento_ref,jsonb_build_object(
     'confirmado',cantidad=1,'nativo',cantidad=1 AND cantidad_nativa=1)),'{}'::jsonb)
  INTO origenes FROM exactas;
-  -- Una resolución portal guardada exige conservar su respuesta B98 original.
-  IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.resolucion_manual_respuesta_rrhh r
-    JOIN vec_contratacion_temporal.vinculo_emision_bolsa_ct_v1 x
-      ON x.organizacion_ref=r.organizacion_ref AND x.expediente_ref=r.expediente_ref
-     AND x.llamamiento_ref=r.llamamiento_ref
-    JOIN LATERAL jsonb_array_elements(entradas) item(valor)
-      ON item.valor->>'llamamiento_ref'=x.llamamiento_ref
-    WHERE r.fuente_respuesta='portal' AND r.expediente_ref=d.expediente_ref
-      AND (r.recibo_json->>'ResolucionRef' IS DISTINCT FROM r.resolucion_ref
-       OR r.recibo_json->>'ReciboLocalRef' IS DISTINCT FROM r.recibo_ref
-       OR r.recibo_json->>'ResueltaEn' IS DISTINCT FROM
-          to_char(r.resuelta_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
-       OR r.recibo_json#>>'{RespuestaPortal,RespuestaRef}' IS DISTINCT FROM r.respuesta_portal_ref
-       OR r.recibo_json#>>'{RespuestaPortal,ReciboRespuestaRef}' IS DISTINCT FROM r.recibo_respuesta_portal_ref
-       OR r.recibo_json#>>'{RespuestaPortal,ParticipacionRef}' IS DISTINCT FROM r.participacion_ref
-       OR NOT EXISTS (SELECT 1 FROM jsonb_array_elements(lote) emision(valor)
-        CROSS JOIN LATERAL jsonb_array_elements(emision.valor->'participaciones') part(valor)
-        WHERE emision.valor->>'bolsa_ref'=x.bolsa_ref
-          AND emision.valor->>'llamamiento_ref'=x.llamamiento_ref
-          AND emision.valor->>'recibo_emision_ref'=x.recibo_emision_ref
-          AND part.valor->>'participacion_ref'=r.participacion_ref
-          AND part.valor->>'recibo_respuesta_ref'=r.recibo_respuesta_portal_ref
-          AND part.valor->>'respuesta'='acepta' AND part.valor->>'modo'='firme')))
-   THEN
-   RAISE EXCEPTION 'CT249: respuesta Bolsa divergente' USING ERRCODE='55000'; END IF;
  -- CT201 fija la emisión original; B98 entrega sus participantes. La O6
  -- exacta y única acredita al participante solo cuando B98 devuelve uno.
  SELECT coalesce(jsonb_agg(jsonb_build_object(
@@ -466,16 +441,7 @@ BEGIN
        AND part.valor->>'recibo_respuesta_ref' IS NOT NULL
        AND part.valor->>'respondida_en' IS NOT NULL
        AND origenes#>>ARRAY[x.llamamiento_ref,'nativo']='true'
-       AND r.resolucion_ref IS NULL,false)) ||
-     CASE WHEN r.fuente_respuesta='portal'
-       AND r.participacion_ref=part.valor->>'participacion_ref'
-       AND r.recibo_respuesta_portal_ref=part.valor->>'recibo_respuesta_ref'
-       AND r.recibo_json->>'ResolucionRef'=r.resolucion_ref
-       AND r.recibo_json->>'ReciboLocalRef'=r.recibo_ref
-      THEN jsonb_build_object('resolucion_ct',jsonb_build_object(
-       'resolucion_ref',r.resolucion_ref,'recibo_ref',r.recibo_ref,
-       'resuelta_en',r.recibo_json->>'ResueltaEn','respuesta','aceptacion'))
-      ELSE '{}'::jsonb END ORDER BY part.ordinal),'[]'::jsonb)
+       AND r.resolucion_ref IS NULL,false)) ORDER BY part.ordinal),'[]'::jsonb)
     FROM jsonb_array_elements(b.valor->'participaciones') WITH ORDINALITY AS part(valor,ordinal)
     LEFT JOIN vec_contratacion_temporal.resolucion_manual_respuesta_rrhh r
       ON r.organizacion_ref=x.organizacion_ref AND r.expediente_ref=x.expediente_ref
@@ -549,7 +515,7 @@ BEGIN
    OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-       IS DISTINCT FROM 'd394bb3e4b7f435393ff43c5187fcd3bf9002fd91b97d4adbeaa8363647ec562' THEN
+       IS DISTINCT FROM 'be9cddb948958b0f7634355d0d73456334ccd4e8bc04beb8c884acb0d3f49fc8' THEN
   RAISE EXCEPTION 'CT249: lector final divergente' USING ERRCODE='55000'; END IF;
  IF (SELECT encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex')
      FROM pg_proc q WHERE q.oid=to_regprocedure(

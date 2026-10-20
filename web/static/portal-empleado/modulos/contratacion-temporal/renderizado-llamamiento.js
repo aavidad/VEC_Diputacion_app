@@ -47,9 +47,9 @@ export function renderizarAceptacionPortal(filas, t, fecha, pasos = new Map()) {
     <header class="ct-cabecera"><div><h2 id="ct-portal-origen-titulo">${e(t("llamamiento_portal_titulo"))}</h2></div></header>
     ${filas.map(({ vinculo, persona }, indice) => {
       const paso = pasos.get(`${vinculo.llamamiento_ref}/${persona.participacion_ref}`);
-      const resolucion = persona.resolucion_ct ?? (paso?.recibo ? {
+      const resolucion = paso?.recibo ? {
         recibo_ref: paso.recibo.recibo_local_ref, resuelta_en: paso.recibo.resuelta_en,
-      } : null);
+      } : null;
       const disponible = persona.resolucion_portal_disponible === true && !resolucion;
       return `<article class="ct-llamamiento-paso" aria-labelledby="ct-portal-origen-${indice}-titulo">
       <h3 id="ct-portal-origen-${indice}-titulo">${e(t("llamamiento_portal_aceptacion"))}</h3>

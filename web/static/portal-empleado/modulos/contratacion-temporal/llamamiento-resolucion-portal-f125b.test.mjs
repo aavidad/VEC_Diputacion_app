@@ -87,23 +87,15 @@ test("HTTP mantiene cuerpo canónico y separa 201 de replay 200", async () => {
   assert.throws(() => validarSolicitudResolucionPortal({ ...solicitud(), comunicacion_ref: "comunicacion:falsa" }));
 });
 
-test("la ficha recupera resolución CT sin sustituir el recibo de Bolsa", () => {
-  const resuelta = resultado([{ ...persona(false), resolucion_ct: {
-    resolucion_ref: "resolucion:portal:001", recibo_ref: "recibo:ct:portal:001",
-    resuelta_en: "2026-10-20T10:00:00.000000Z", respuesta: "aceptacion" } }]);
+test("tras recargar queda la aceptación de Bolsa sin ofrecer otra resolución", () => {
+  const resuelta = resultado([persona(false)]);
   validarResultadoBolsaCT(resuelta);
-  assert.equal(validarResultadoBolsaCT(resultado([{ ...persona(false), resolucion_ct: {
-    ...resuelta.vinculos[0].participaciones[0].resolucion_ct,
-    resuelta_en: "2026-10-20T10:00:00Z" } }])).vinculos[0].participaciones[0].resolucion_ct.respuesta,
-  "aceptacion");
   const raiz = raizPrueba();
   const cerrar = montar(raiz, {}, { contexto: contexto(resuelta) });
   assert.match(raiz.innerHTML, /recibo:respuesta:portal:001/u);
-  assert.match(raiz.innerHTML, /recibo:ct:portal:001/u);
+  assert.doesNotMatch(raiz.innerHTML, /recibo:ct:portal:001|No se ha podido comprobar si se guardó/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-portal-resolucion=/u);
   cerrar();
-  assert.throws(() => validarResultadoBolsaCT(resultado([{ ...persona(false),
-    origen_ct_confirmado: false, resolucion_ct: resuelta.vinculos[0].participaciones[0].resolucion_ct }])));
 });
 
 test("una denegación bloquea otro envío y no muestra recibo CT", async () => {

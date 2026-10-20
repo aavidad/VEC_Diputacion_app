@@ -21,9 +21,6 @@ func ResultadoBolsaRRHHDesdeSQL(raw []byte) (*ports.ResultadoBolsaRRHH, error) {
 		v.VinculadoEn, v.EmitidoEn = v.VinculadoEn.UTC(), v.EmitidoEn.UTC()
 		for j := range v.Participaciones {
 			p := &v.Participaciones[j]
-			if p.ResolucionCT != nil {
-				p.ResolucionCT.ResueltaEn = p.ResolucionCT.ResueltaEn.UTC()
-			}
 			for _, instante := range []*time.Time{p.RespondidaEn, p.ContactoEn, p.SituacionDesde} {
 				if instante != nil {
 					*instante = instante.UTC()

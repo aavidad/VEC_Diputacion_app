@@ -1,38 +1,11 @@
 package ports
 
 import (
-	"encoding/json"
 	"errors"
 	"time"
 )
 
 var ErrResultadoBolsaRRHHNoConfiable = errors.New("contratacion temporal: resultado Bolsa no confiable")
-
-type ResolucionParticipacionCT struct {
-	ResolucionRef string    `json:"resolucion_ref"`
-	ReciboRef     string    `json:"recibo_ref"`
-	ResueltaEn    time.Time `json:"resuelta_en"`
-	Respuesta     string    `json:"respuesta"`
-}
-
-func (r *ResolucionParticipacionCT) UnmarshalJSON(datos []byte) error {
-	var campos map[string]json.RawMessage
-	if json.Unmarshal(datos, &campos) != nil || len(campos) != 4 {
-		return ErrResultadoBolsaRRHHNoConfiable
-	}
-	for _, clave := range []string{"resolucion_ref", "recibo_ref", "resuelta_en", "respuesta"} {
-		if _, existe := campos[clave]; !existe {
-			return ErrResultadoBolsaRRHHNoConfiable
-		}
-	}
-	type sinMetodo ResolucionParticipacionCT
-	var valor sinMetodo
-	if json.Unmarshal(datos, &valor) != nil {
-		return ErrResultadoBolsaRRHHNoConfiable
-	}
-	*r = ResolucionParticipacionCT(valor)
-	return nil
-}
 
 // Respuesta y contacto están ligados al llamamiento y a la participación.
 // SituacionActual es global de Bolsa y nunca equivale a una respuesta firme.
@@ -50,9 +23,8 @@ type ParticipacionResultadoBolsaRRHH struct {
 	ReciboSituacionRef *string    `json:"recibo_situacion_ref"`
 	SituacionDesde     *time.Time `json:"situacion_desde"`
 	// Hecho de origen acreditado por CT; no concede una operación posterior.
-	OrigenCTConfirmado         bool                       `json:"origen_ct_confirmado"`
-	ResolucionPortalDisponible bool                       `json:"resolucion_portal_disponible"`
-	ResolucionCT               *ResolucionParticipacionCT `json:"resolucion_ct,omitempty"`
+	OrigenCTConfirmado         bool `json:"origen_ct_confirmado"`
+	ResolucionPortalDisponible bool `json:"resolucion_portal_disponible"`
 }
 
 type VinculoResultadoBolsaRRHH struct {

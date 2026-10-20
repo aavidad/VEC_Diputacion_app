@@ -1049,7 +1049,7 @@ export function montarFormularioLlamamiento({
     const indice = Number(formulario.dataset.ctPortalResolucion);
     const fila = Number.isSafeInteger(indice) ? estado.origenPortal[indice] : null;
     if (!montado || !estado.enlazado || !fila || fila.persona.resolucion_portal_disponible !== true
-      || fila.persona.resolucion_ct || fila.vinculo.participaciones.length !== 1) return;
+      || fila.vinculo.participaciones.length !== 1) return;
     const clave = `${fila.vinculo.llamamiento_ref}/${fila.persona.participacion_ref}`;
     let paso = estado.portalPasos.get(clave);
     if (!paso) {
