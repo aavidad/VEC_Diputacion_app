@@ -195,6 +195,6 @@ BEGIN
  END LOOP;
 END $ambitos_reales$;
 \else
-\echo CT247: canon y planes comprobados; ámbitos positivos pendientes de un hijo creado por el POST real.
+\echo 'CT247: canon y planes comprobados; ámbitos positivos pendientes de un hijo creado por el POST real.'
 \endif
 ROLLBACK;
