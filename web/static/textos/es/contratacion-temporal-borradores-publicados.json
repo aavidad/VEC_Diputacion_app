@@ -27,6 +27,16 @@
     "bp_no_disponible": "Este documento se podrá preparar cuando el expediente tenga registrada la propuesta de nombramiento o de contrato.",
     "bp_catalogo": "Catálogo publicado",
     "bp_publicacion": "Publicación comprobada:",
-    "bp_publicacion_recibo": "Recibo de publicación: {recibo}"
+    "bp_publicacion_recibo": "Recibo de publicación: {recibo}",
+    "bp_documento_informe_definitivo": "Informe definitivo",
+    "bp_documento_resolucion": "Resolución",
+    "bp_documento_diligencia": "Diligencia",
+    "bp_documento_toma_posesion": "Toma de posesión",
+    "bp_documento_notificacion": "Notificación",
+    "bp_documento_comunicacion_centro": "Comunicación al centro",
+    "bp_documento_contrato_laboral": "Contrato laboral de duración determinada",
+    "bp_documento_nombramiento": "Nombramiento de personal funcionario interino",
+    "bp_documento_cese": "Cese de personal temporal",
+    "bp_documento_modificacion_nombramiento": "Modificación de nombramiento"
   }
 }

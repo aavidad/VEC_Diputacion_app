@@ -198,5 +198,7 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000146_solicitud_conjunta.up.sq
 deploy/postgresql/bolsa_llamamientos/migraciones/000139_avisos_modalidades.up.sql ef4c0b36253f63017fbb0591e7c29d9091d0a5ee48b0b16e18ebf3433bc31879
 # F1-47 — CT242: metadatos actuales de la lectura exacta para segunda revisión de no incorporación; tras CT241.
 deploy/postgresql/contratacion_temporal/migraciones/000242_lectura_revision_no_incorporacion.up.sql 30bae173a84fcd4955e221fe8357b6e00301347928c896d7060f8b36e81208d9
+# F1-101 — AUT105: las cinco altas de inscripción del aspirante aceptan la fuente v2 (modalidad_inscripcion y solicitudes_propias[]); tras AUT104.
+deploy/postgresql/autorizacion/migraciones/000105_fuente_inscripcion_v2.up.sql 193fbd9ec4a8c3484009bf440c2f2f8148dd3e1a94cb918a78197e762d525486
 # F1-95 — BC15: fachada web de la declaración de publicación oficial (RRHH), tras BC14; deniega (55000) hasta que el núcleo tenga consumir_publicacion_oficial_bases_v1.
 deploy/postgresql/bolsa_convocatorias/migraciones/000015_declaracion_publicacion_oficial_rrhh.up.sql 3418e4c1aebc1c0e5568c67846d460c75e8a5adc15eaf2865b1c684e6b2fb7a8

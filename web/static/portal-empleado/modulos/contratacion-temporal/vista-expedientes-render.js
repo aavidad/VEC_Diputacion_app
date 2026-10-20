@@ -386,6 +386,9 @@ export function renderizarModuloContratacionTemporal(estado, {
     const contextoCobertura = coberturaDisponible
       ? contextoCoberturaDesdeEstado(estado)
       : null;
+    const contextoInforme = informeJuridicoDisponible
+      ? contextoInformeJuridicoDesdeEstado(estado)
+      : null;
     const detalle = renderizarExpediente(
       estado,
       t,
@@ -394,11 +397,8 @@ export function renderizarModuloContratacionTemporal(estado, {
       analisisDisponible,
       resolverBolsa,
       contextoCobertura !== null,
-      { fiscalizacionAjena },
+      { fiscalizacionAjena, informePendiente: contextoInforme !== null },
     );
-    const contextoInforme = informeJuridicoDisponible
-      ? contextoInformeJuridicoDesdeEstado(estado)
-      : null;
     const reciboAsignacionPendiente = Boolean(reciboAsignacionConfirmado && estado.expediente)
       && reciboAsignacionConfirmado.expediente_ref
       === estado.expediente?.expediente_ref

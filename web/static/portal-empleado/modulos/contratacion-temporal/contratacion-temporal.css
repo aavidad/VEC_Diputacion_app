@@ -461,6 +461,12 @@
   border-bottom: 1px solid var(--portal-borde);
 }
 
+/* Un solo dato ocupa toda la fila: sin media caja vacía a su lado. */
+.ct-resumen > div:only-child {
+  grid-column: 1 / -1;
+  border-right: 0;
+}
+
 .ct-resumen dt,
 .ct-recibo dt {
   color: var(--portal-muted);

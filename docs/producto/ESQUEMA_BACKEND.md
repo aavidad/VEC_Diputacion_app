@@ -536,6 +536,13 @@ acepta `categorias_refs` en lugar de `categoria_ref` y responde con el esquema
 `vec.bolsa.inscripcion.recibo_conjunto.v1` (201 la primera vez, 200 en el
 reintento). Activación en `deploy/principal/f1_41_solicitud_conjunta.md`.
 
+Los campos nuevos de la lista y la ficha (`modalidad_inscripcion` y
+`solicitudes_propias[]`) se conceden con la versión 2 de la fuente de
+inscripción (F1-101). AUT105 deja que el plan de la versión del rol del
+aspirante tome sus cinco acciones de la fuente v1 o de la v2, sin mezclarlas;
+la publicación sigue siendo de dos administradores. Guía en
+`deploy/principal/candidata_hz39/aspirante/inscripcion_fuente_v2.md`.
+
 Las preferencias entre bolsas guardan versiones y recibos en
 `preferencia_bolsas_version` y publican su evento en
 `preferencia_bolsas_outbox`. La ruta propia

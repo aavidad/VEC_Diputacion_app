@@ -5,6 +5,12 @@ import { crearClienteBorradoresPublicados } from "./cliente-http-borradores-publ
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
+// Nombre del documento en el idioma elegido; un tipo nuevo del catálogo
+// publicado, sin traducción todavía, conserva el nombre que da el servidor.
+function nombreDocumento(traducir, tipo) {
+  try { return traducir(`bp_documento_${tipo.clave}`); } catch { return tipo.etiqueta; }
+}
+
 export function renderizarBorradoresPublicados({ estado = "cargando", catalogo = null,
   ayudaAbierta = false, mensaje = "", mensajeError = false, tipoAvisado = "", ocupado = false } = {}) {
   const traducir = crearTraductorContratacionTemporal();
@@ -21,7 +27,7 @@ export function renderizarBorradoresPublicados({ estado = "cargando", catalogo =
     const aviso = mensaje && !mensajeError && tipoAvisado === tipo.clave
       ? `<p class="ct-bp-mensaje ct-bp-mensaje--aviso" role="status">${esc(mensaje)}</p>` : "";
     return `<li class="ct-exp-documento${listo ? "" : " ct-bp-pendiente"}">
-    <div class="ct-exp-documento-principal"><strong id="${idTitulo}">${esc(tipo.etiqueta)}</strong>
+    <div class="ct-exp-documento-principal"><strong id="${idTitulo}">${esc(nombreDocumento(traducir, tipo))}</strong>
       <span class="ct-exp-chip" id="${idEstado}">${t(listo ? "estado_borrador" : "estado_pendiente")}</span></div>
     <div class="ct-exp-borradores-acciones">${tipo.formatos.map((formato) => `<button type="button" class="boton-secundario" data-bp-descargar="${esc(tipo.clave)}" data-bp-formato="${formato}"${listo ? "" : ' aria-disabled="true"'} aria-describedby="${descrito}" ${ocupado ? "disabled" : ""}>${t(formato === "docx" ? "ficha_docx" : formato)}</button>`).join("")}</div>${aviso}
   </li>`;

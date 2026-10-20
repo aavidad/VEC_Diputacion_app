@@ -12,6 +12,6 @@
     "mensajes": false,
     "certificados": false,
     "ayuda": true,
-    "inscripcion": false
+    "inscripcion": true
   }
 }

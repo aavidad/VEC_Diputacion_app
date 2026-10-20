@@ -48,6 +48,9 @@ GRUPOS = {
     "VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL": "vec_bolsa_importacion_convoca_ejecutor",
     "VEC_BOLSA_B103_FUENTE_AUTORIZACION_DATABASE_URL": "vec_autorizacion_fuente",
     "VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL": "vec_bolsa_llamamientos_relevo_no_incorporacion",
+    # Calendario oficial: sin él, el registro de llamadas de Bolsa (días
+    # hábiles de la franja) y el plazo de las ofertas responden 503.
+    "VEC_CALENDARIOS_DATABASE_URL": "vec_calendarios_lector",
 }
 
 RESULTADO = "conexiones.json"
