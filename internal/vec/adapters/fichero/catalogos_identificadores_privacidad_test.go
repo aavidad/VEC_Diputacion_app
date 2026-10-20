@@ -64,6 +64,24 @@ func TestPaqueteCatalogoSigueDetectandoTelefonosJuntoAIdentificadores(t *testing
 		{"correo en el prefijo de la ref", func(p *paqueteCatalogo) {
 			p.Catalogo.Entradas[0].Atributos["mapeo_fuente_ref"] = "persona@example.org:" + uuidConCifrasDeTelefono
 		}},
+		{"dni en el prefijo de la ref", func(p *paqueteCatalogo) {
+			p.Catalogo.Entradas[0].Atributos["mapeo_fuente_ref"] = "dni-12345678z:" + uuidConCifrasDeTelefono
+		}},
+		{"nie en el prefijo de la ref", func(p *paqueteCatalogo) {
+			p.Catalogo.Entradas[0].Atributos["mapeo_fuente_ref"] = "x1234567l:" + uuidConCifrasDeTelefono
+		}},
+		{"nif en el prefijo de la ref", func(p *paqueteCatalogo) {
+			p.Catalogo.Entradas[0].Atributos["mapeo_fuente_ref"] = "b1234567j:" + uuidConCifrasDeTelefono
+		}},
+		{"iban en el prefijo de la ref", func(p *paqueteCatalogo) {
+			p.Catalogo.Entradas[0].Atributos["mapeo_fuente_ref"] = "es9121000418450200051332:" + uuidConCifrasDeTelefono
+		}},
+		{"salto de linea tras el uuid", func(p *paqueteCatalogo) {
+			p.Catalogo.Entradas[0].Atributos["mapeo_fuente_ref"] = uuidConCifrasDeTelefono + "\n"
+		}},
+		{"uuid sin version valida", func(p *paqueteCatalogo) {
+			p.Catalogo.Entradas[0].Atributos["mapeo_fuente_ref"] = "org:71a77621-ca82-09e8-b11f-612345678abc"
+		}},
 		{"secreto en ref", func(p *paqueteCatalogo) {
 			p.Catalogo.Entradas[0].Atributos["mapeo_fuente_ref"] = "-----BEGIN PRIVATE KEY-----"
 		}},

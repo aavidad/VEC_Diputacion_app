@@ -35,8 +35,10 @@ var (
 	// Identificador opaco completo al final de una referencia *_ref:
 	// UUID canónico en minúsculas o huella hexadecimal de 64. El prefijo
 	// opcional son segmentos cortos separados por «:» que se siguen
-	// inspeccionando como texto (F1-108).
-	patronRefIdentificadorPaquete = regexp.MustCompile(`^((?:[a-z][a-z0-9-]{0,39}:){0,4})(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{64})$`)
+	// inspeccionando como texto (F1-108). Riesgo residual aceptado, igual
+	// que en ref:<64 hex>: el cuerpo hexadecimal no se inspecciona, así
+	// que dentro de él podrían caber cifras de un dato real.
+	patronRefIdentificadorPaquete = regexp.MustCompile(`^((?:[a-z][a-z0-9-]{0,39}:){0,3})(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[0-9a-f]{64})$`)
 	patronDNIPaquete              = regexp.MustCompile(`(?i)(?:^|[^0-9])[0-9]{8}[A-Z](?:$|[^A-Z0-9])`)
 	patronNIEPaquete              = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9])[XYZ][0-9]{7}[A-Z](?:$|[^A-Z0-9])`)
 	patronNIFPaquete              = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9])[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J](?:$|[^A-Z0-9])`)
