@@ -1,11 +1,14 @@
 package bootstrap
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	ajusteshttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/ajustesreglas"
+	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 
 	reglashttp "vec-diputacion-granada/internal/vec/reglas/httpinterno"
 )
@@ -73,5 +76,34 @@ func TestReglasVigentesExigenIdentidadEnServidorReal(t *testing.T) {
 	respuesta.Body.Close()
 	if respuesta.StatusCode == http.StatusOK || respuesta.Header.Get("Set-Cookie") != "" {
 		t.Fatalf("una cookie no puede acompañar la consulta: %d", respuesta.StatusCode)
+	}
+}
+
+func TestReglasVigentesDescribenEdicionSoloConRutaMontada(t *testing.T) {
+	for _, caso := range []struct {
+		nombre     string
+		rutas      []vechttp.RutaExacta
+		disponible bool
+	}{
+		{nombre: "sin montaje"},
+		{nombre: "sin manejador", rutas: []vechttp.RutaExacta{{Ruta: ajusteshttp.Ruta}}},
+		{nombre: "otra ruta", rutas: []vechttp.RutaExacta{{Ruta: "/otra", Manejador: http.NotFoundHandler()}}},
+		{nombre: "montada", rutas: []vechttp.RutaExacta{{Ruta: ajusteshttp.Ruta, Manejador: http.NotFoundHandler()}}, disponible: true},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			ruta, err := nuevaRutaReglasVigentesDesarrollo(reglasEjemploDesarrollo{}, caso.rutas...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			ruta.Manejador.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta.Ruta, nil))
+			var respuesta reglashttp.Respuesta
+			if err := json.Unmarshal(w.Body.Bytes(), &respuesta); err != nil {
+				t.Fatal(err)
+			}
+			if w.Code != http.StatusOK || len(respuesta.Data.Catalogos) != 2 || respuesta.Data.Catalogos[0].EdicionDisponible || respuesta.Data.Catalogos[1].EdicionDisponible != caso.disponible {
+				t.Fatalf("montaje incorrecto: %d %s", w.Code, w.Body.String())
+			}
+		})
 	}
 }

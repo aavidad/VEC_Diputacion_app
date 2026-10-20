@@ -206,15 +206,15 @@ function traducirDocumento(doc) {
 export async function iniciar(doc, cliente) {
   let lecturaInicial;
   const consultarInicial = () => lecturaInicial ??= cliente.reglas();
-  // El panel CT se carga por separado para que una incidencia en la tabla común
-  // no oculte la lectura ni el historial de los plazos.
+  // Compartir el montaje evita consultar una ruta de edición desactivada.
+  // Si falla la lectura común, CT conserva su consulta e historial propios.
   const contenedorAjustes = doc.getElementById("rg-ajustes");
   if (contenedorAjustes?.querySelector) {
     const contenedor = contenedorAjustes;
     const montarAjustes = () => {
-      void Promise.all([import("./ajustes.js?v=VEC_WEB_VERSION"), consultarInicial()])
+      void Promise.all([import("./ajustes.js?v=VEC_WEB_VERSION"), consultarInicial().catch(() => null)])
         .then(([{ iniciarAjustes }, datos]) => iniciarAjustes(doc, undefined,
-          datos.catalogos.some((catalogo) => catalogo.modulo === "contratacion_temporal"
+          datos === null || datos.catalogos.some((catalogo) => catalogo.modulo === "contratacion_temporal"
             && catalogo.edicion_disponible === true)))
         .catch(async () => {
           let mensaje = "";

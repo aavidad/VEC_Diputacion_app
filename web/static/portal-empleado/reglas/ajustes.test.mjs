@@ -7,6 +7,7 @@ import { createServer } from "node:http";
 import { resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { abrirNavegador, cargarPantalla } from "../../../../scripts/tests/chrome_cdp.mjs";
+import { API_REGLAS } from "./reglas.js";
 import { API_AJUSTES, ErrorAjustes, crearClienteAjustes, renderizarAjustes, validarLecturaAjustes, validarReciboAjustes } from "./ajustes.js";
 import { cargarTextosAjustes } from "./ajustes-i18n.js";
 
@@ -204,6 +205,13 @@ test("un fallo del catálogo común no oculta los plazos CT cuya API responde", 
       responder(503, "application/json", "{}");
       return;
     }
+    if (ruta === API_REGLAS) {
+      responder(200, "application/json", JSON.stringify({ data: { esquema: "vec.reglas.vigentes.v1", catalogos: [{
+        modulo: "contratacion_temporal", catalogo_id: "vec.contratacion_temporal.reglas",
+        estado: "sin_catalogo", paquete_ejemplo: false, reglas: [], edicion_disponible: escenario !== "sin_edicion",
+      }] } }));
+      return;
+    }
     if (ruta === API_AJUSTES) {
       lecturasCT++;
       responder(escenario === "api_ct" ? 503 : 200, "application/json", JSON.stringify(lectura()));
@@ -255,6 +263,10 @@ test("un fallo del catálogo común no oculta los plazos CT cuya API responde", 
     assert.equal(lecturasCT, 1, "la API CT falló una vez");
     assert.match(sinAPICT, /data-ajustes-reintentar/u);
     assert.match(sinAPICT, /id="rg-ajustes"[\s\S]*No se han podido consultar/u);
+    escenario = "sin_edicion";
+    const sinEdicion = await cargarPagina(puerto, /La edición de plazos no está activada/u);
+    assert.equal(lecturasCT, 0, "sin edición montada no se consulta la ruta ausente");
+    assert.doesNotMatch(sinEdicion, /data-ajustes-editar|data-ajustes-reintentar/u);
     escenario = "normal";
     const conZoom = await cargarPagina(puerto, /data-anchos/u, true);
     const [, ancho, visible] = /data-anchos="(\d+)\/(\d+)"/u.exec(conZoom) ?? [];
