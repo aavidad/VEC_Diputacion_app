@@ -62,6 +62,9 @@ BEGIN
  WHERE v.perfil_ref=perfil AND p.persona_ref=v.persona_ref
    AND v.estado='activo' AND c.estado='activo' AND p.estado='activo'
    AND x.estado='activo' AND o.estado='activo'
+   AND c.procedencia_autoridad='autoridad_maestra_acreditada'
+   AND p.procedencia_autoridad='autoridad_maestra_acreditada'
+   AND x.procedencia_autoridad='autoridad_maestra_acreditada'
    AND v.procedencia_autoridad='autoridad_maestra_acreditada'
    AND o.procedencia_autoridad='autoridad_maestra_acreditada'
    AND ahora >= v.vigente_desde AND ahora < v.vigente_hasta
