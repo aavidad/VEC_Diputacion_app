@@ -1,3 +1,5 @@
+> Histórico: informe del 13/10/2026. Conserva evidencia de aquel corte; sus pasos de publicación en cidonia no son instrucciones vigentes. Desde el 15/10 se ensaya en copias locales; consulte la [operación actual](README.md).
+
 # Arranque de los selectores de firmas y reincorporación CT
 
 El parche identifica el selector, la etapa y el requisito que detienen la composición. Conserva la causa original para `errors.Is/As` y evita imprimir su mensaje libre. La línea estructurada `contratacion temporal: selector no compuesto` precede al fatal; este conserva un componente preciso y el mensaje catalogado `bootstrap: fuente configurada no disponible`.
