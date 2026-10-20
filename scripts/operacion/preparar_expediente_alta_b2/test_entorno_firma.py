@@ -3,6 +3,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -33,7 +35,7 @@ class EntornoFirmaTest(unittest.TestCase):
         self.root = Path(self.temp.name) / "instancia con %"
         self.root.mkdir(mode=0o755)
         self.root.chmod(0o755)
-        self.output_parent = Path(self.temp.name) / "salida privada con %"
+        self.output_parent = Path(self.temp.name) / "salida-privada"
         self.output_parent.mkdir(mode=0o700)
         self.fw = self.output_parent / "firma-web"
         self.binary = self.root / "binario-ficticio"
@@ -129,8 +131,8 @@ class EntornoFirmaTest(unittest.TestCase):
             self.assertFalse(json.loads((cfg / "config.json").read_text())["rest_habilitado"])
             self.assertTrue(json.loads((cfg / "settings.json").read_text())["confirmToSign"])
             desktop = (base / "xdg-data/applications/grxfirma-copia.desktop").read_text()
-            self.assertIn('Exec="', desktop)
-            self.assertIn("salida privada con %%", desktop)
+            self.assertIn(f"Exec={fw}/lanzar-grxfirma.py {role} %u\n", desktop)
+            self.assertNotIn('Exec="', desktop)
             self.assertIn(" %u", desktop)
         self.assertEqual(len(set(p12s)), 4)
         self.assertEqual((fw / "tecnico/p12/firmante.p12").read_bytes(), b"p12-tecnico")
@@ -141,6 +143,34 @@ class EntornoFirmaTest(unittest.TestCase):
         self.assertIn("'XAUTHORITY':str(base / 'Xauthority')", launcher)
         self.assertIn("'XDG_CONFIG_HOME':str(home / 'home/.config')", launcher)
         self.assertNotIn("clave-tecnico", launcher)
+
+    def test_salida_incompatible_rechazada_antes_de_sonda(self):
+        for nombre in ("con espacio", 'con"comilla', "con'comilla", "con\ttabulador",
+                       "con%porcentaje", "con$dolar", "con`acento", "con\\barra"):
+            with self.subTest(nombre=nombre):
+                args = self.argv()
+                args[3] = str(self.output_parent / nombre)
+                with patch.object(firma.subprocess, "run") as probe, patch.object(firma.subprocess, "Popen") as xvfb:
+                    with self.assertRaisesRegex(firma.Corte, "sin espacios, comillas"):
+                        firma.main(args)
+                    probe.assert_not_called()
+                    xvfb.assert_not_called()
+                self.assertFalse(Path(args[3]).exists())
+
+    @unittest.skipUnless(shutil.which("xdg-mime"), "xdg-mime no está instalado")
+    def test_xdg_mime_resuelve_el_manejador_propio(self):
+        with patch.object(firma.subprocess, "run", side_effect=self.version), patch.object(firma.subprocess, "Popen", side_effect=self.xvfb):
+            firma.main(self.argv())
+        vacio = self.output_parent / "sin-configuracion-global"
+        vacio.mkdir()
+        for role in firma.ROLES:
+            base = self.fw / role
+            resultado = subprocess.run([shutil.which("xdg-mime"), "query", "default", "x-scheme-handler/afirma"],
+                capture_output=True, text=True, timeout=5, check=True,
+                env={"PATH": "/usr/bin:/bin", "HOME": str(base / "home"),
+                     "XDG_CONFIG_HOME": str(base / "xdg-config"), "XDG_DATA_HOME": str(base / "xdg-data"),
+                     "XDG_CONFIG_DIRS": str(vacio), "XDG_DATA_DIRS": str(vacio)})
+            self.assertEqual(resultado.stdout.strip(), "grxfirma-copia.desktop")
 
     def test_nominal_tecnico_ausente_no_usa_certificado_de_tramitacion(self):
         self.inputs["tecnico"][0].unlink()
