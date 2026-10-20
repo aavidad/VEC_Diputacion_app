@@ -464,7 +464,12 @@ function obtenerSesion() {
 // La ficha de CT consulta Bolsa solo tras acreditar su detalle. Este contexto
 // no alimenta el cuadro, los indicadores ni el controlador general de Bolsa.
 let contextoBolsaCT = null;
-async function prepararBolsaFichaCT({ expedienteRef, signal }) {
+let promesaBolsaFichaCT = null;
+function prepararBolsaFichaCT(opciones) {
+  promesaBolsaFichaCT = cargarBolsaFichaCT(opciones);
+  return promesaBolsaFichaCT;
+}
+async function cargarBolsaFichaCT({ expedienteRef, signal }) {
   if (typeof expedienteRef !== "string" || !expedienteRef || signal?.aborted) return;
   contextoBolsaCT = { expedienteRef, carga: "cargando", datos: null };
   if (estado.datosBolsas?.carga === "listo" && Array.isArray(estado.datosBolsas.datos?.bolsas)) {
@@ -2186,6 +2191,15 @@ function instalarEnlacesBolsa() {
     const esSeguimientoCT = estado.vista === "contratacion-temporal" && !esLlamamientoCT
       && Boolean(control.dataset?.seguimiento)
       && Boolean(control.closest?.("[data-ct-resultado-bolsa]"));
+    const controlVigente = () => porId("espacio-trabajo")?.contains(control) || esSeguimientoCT
+      && [...(porId("espacio-trabajo")?.querySelectorAll?.('[data-ct-resultado-bolsa] [data-accion="ver-bolsa"][data-seguimiento]') ?? [])]
+        .some((actual) => actual.dataset.bolsaRef === control.dataset.bolsaRef
+          && actual.dataset.seguimiento === control.dataset.seguimiento);
+    if (esSeguimientoCT && contextoBolsaCT?.carga === "cargando") {
+      const pendiente = promesaBolsaFichaCT;
+      await pendiente;
+      if (!controlVigente() || estado.vista !== vistaAlClic || promesaBolsaFichaCT !== pendiente) return;
+    }
     const esFichaCT = esLlamamientoCT || esHistoricoCT || esSeguimientoCT;
     const fichaCT = esFichaCT ? contextoBolsaCT : null;
     const bolsas = esFichaCT
@@ -2206,7 +2220,7 @@ function instalarEnlacesBolsa() {
       }
       // La ficha puede cambiar mientras se carga el helper de rutas. Su bolsa
       // y su origen solo valen para la selección que atendió este clic.
-      if (!porId("espacio-trabajo")?.contains(control) || estado.vista !== vistaAlClic
+      if (!controlVigente() || estado.vista !== vistaAlClic
         || (!esFichaCT && estado.datosBolsas !== cuadroBolsaAlClic)
         || esFichaCT && (estado.vista !== "contratacion-temporal" || contextoBolsaCT !== fichaCT)
         || fichaProtegida()) return;
