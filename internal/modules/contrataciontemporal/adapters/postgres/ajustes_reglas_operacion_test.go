@@ -20,6 +20,8 @@ import (
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
+const organizacionAjustesPrueba = "organizacion:desarrollo:dipgra"
+
 type filaHuellaAjustesCTPrueba struct{ huella string }
 
 func (f filaHuellaAjustesCTPrueba) Scan(dest ...any) error {
@@ -70,7 +72,7 @@ func (p *proveedorAjustesCTPrueba) AutorizarAjustesReglasCT(_ context.Context, _
 	p.consultas++
 	p.accion = accion
 	if recurso.Referencia != recursoAjustesReglasCT || recurso.ModuloID != "contratacion_temporal" || recurso.Tipo != "catalogo_reglas" ||
-		recurso.Ambitos["organizacion_ref"] != organizacionAjustesReglasCT || recurso.Atributos["material_sha256"] != "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" {
+		recurso.Ambitos["organizacion_ref"] != organizacionAjustesPrueba || recurso.Atributos["material_sha256"] != "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" {
 		panic("recurso de autorización divergente")
 	}
 	return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, vecdomain.ErrAutorizacionDenegada
@@ -90,10 +92,24 @@ func actorAjustesCTPrueba(t *testing.T) vecdomain.ContextoActor {
 	return actor
 }
 
+func TestRepositorioAjustesCTConservaOrganizacionExplicita(t *testing.T) {
+	pool := &ejecutorAjustesCTPrueba{}
+	proveedor := &proveedorAjustesCTPrueba{}
+	for _, organizacion := range []string{organizacionAjustesPrueba, "org_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"} {
+		r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacion)
+		if err != nil || r.organizacionRef != organizacion {
+			t.Fatalf("organización configurada perdida: %q, %v", organizacion, err)
+		}
+	}
+	if _, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, ""); !errors.Is(err, ErrOperacionAjustesReglasNoDisponible) {
+		t.Fatalf("organización vacía aceptada: %v", err)
+	}
+}
+
 func TestOperacionAjustesCTDeniegaAntesDeTransaccionYNoUsaAmbitoDelCliente(t *testing.T) {
 	pool := &ejecutorAjustesCTPrueba{}
 	proveedor := &proveedorAjustesCTPrueba{}
-	r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesReglasCT)
+	r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesPrueba)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +184,7 @@ func TestOperacionAjustesCTHuellaYConsultaSinRepositorio(t *testing.T) {
 	}
 	pool := &ejecutorAjustesCTPrueba{}
 	proveedor := &proveedorAjustesCTPrueba{}
-	r, _ = nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesReglasCT)
+	r, _ = nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesPrueba)
 	if _, err := r.Consultar(t.Context(), actorAjustesCTPrueba(t), 51, nil); !errors.Is(err, app.ErrEntradaInvalida) || pool.consultas != 0 {
 		t.Fatalf("límite inválido llegó a SQL: %v", err)
 	}
@@ -177,7 +193,7 @@ func TestOperacionAjustesCTHuellaYConsultaSinRepositorio(t *testing.T) {
 func TestConsultaAjustesCTReutilizaCT148V3YAdmiteLectorDeSesion(t *testing.T) {
 	pool := &ejecutorAjustesCTPrueba{}
 	proveedor := &proveedorAjustesCTPrueba{}
-	r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesReglasCT)
+	r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesPrueba)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +228,7 @@ func TestConsultaAjustesCTAdmiteSoloRebaseOperativoSinCambios(t *testing.T) {
 	consultar := func(lectura app.Lectura) error {
 		pool := &ejecutorAjustesCTPrueba{}
 		proveedor := &proveedorAjustesCTPrueba{}
-		r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesReglasCT)
+		r, err := nuevoRepositorioAjustesReglasCT(pool, proveedor, organizacionAjustesPrueba)
 		if err != nil {
 			return err
 		}

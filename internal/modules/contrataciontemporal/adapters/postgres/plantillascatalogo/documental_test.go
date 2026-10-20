@@ -15,9 +15,11 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
+const organizacionCatalogoPrueba = "organizacion:desarrollo:dipgra"
+
 func TestContextoDocumentalTresAmbitosCoincideConCanonSQL(t *testing.T) {
 	materialHuella := strings.Repeat("a", 64)
-	org := organizacionCatalogoCT
+	org := organizacionCatalogoPrueba
 	recurso := vecdomain.RecursoAutorizable{
 		Referencia: "expediente:ct:0001", ModuloID: app.ModuloID, Tipo: "catalogo_plantillas_documental_ct",
 		Ambitos:   map[string]string{"organizacion_ref": org, "clase_ambito": "organizacion", "ambito_ref": org},
@@ -51,7 +53,7 @@ func (a *autorizadorDocumentalNoInvocable) AutorizarCatalogoDocumental(context.C
 func TestProveedorDocumentalRechazaOrganizacionAjenaAntesDeIdentidad(t *testing.T) {
 	resolver := &resolverDocumentalNoInvocable{}
 	autorizador := &autorizadorDocumentalNoInvocable{}
-	p := &ProveedorDocumental{pool: &pgxpool.Pool{}, resolver: resolver, proveedor: autorizador, organizacionRef: organizacionCatalogoCT}
+	p := &ProveedorDocumental{pool: &pgxpool.Pool{}, resolver: resolver, proveedor: autorizador, organizacionRef: organizacionCatalogoPrueba}
 	s := app.SolicitudDocumental{
 		Operacion: "listar", OrganizacionRef: "organizacion:ajena:001", ClaseAmbito: "organizacion", AmbitoRef: "organizacion:ajena:001", ExpedienteRef: "expediente:ct:0001",
 		VersionObservada: 7, ConsultaHuellaSHA256: strings.Repeat("a", 64),

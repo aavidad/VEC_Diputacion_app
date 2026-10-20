@@ -203,7 +203,7 @@ func TestEntregaYAltaAnidadaUsanCentroOrganizacionYReservaExacta(t *testing.T) {
 		PerfilRef: v.PerfilActivoRef, PeticionRef: e.Peticion.Referencia, VersionEsperada: 2,
 		CentroRef: e.Peticion.Solicitud.CentroRef, CategoriaRef: e.Peticion.Solicitud.CategoriaRef,
 		ClaveAltaCandidata: e.ClaveAlta, AmbitoAltaHMAC: e.AmbitoAltaHMAC}
-	rEntrega, err := postgresct.RecursoEntregaPeticionCentro(m)
+	rEntrega, err := postgresct.RecursoEntregaPeticionCentro(m, organizacionAltaContratacionTemporalDesarrollo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +337,7 @@ func TestEntregaPeticionDesarrolloLigaIdentidadMaterialYAltaOriginal(t *testing.
 		t.Fatal(err)
 	}
 	m := ports.MaterialEntregaPeticionCentro{Modo: "bandeja", ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef}
-	r, err := postgresct.RecursoEntregaPeticionCentro(m)
+	r, err := postgresct.RecursoEntregaPeticionCentro(m, organizacionAltaContratacionTemporalDesarrollo)
 	if err != nil {
 		t.Fatal(err)
 	}

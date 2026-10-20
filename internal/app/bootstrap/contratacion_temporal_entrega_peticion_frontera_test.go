@@ -34,7 +34,7 @@ func solicitudBandejaEntregaPeticionPrueba(t *testing.T) vecdomain.SolicitudAuto
 		t.Fatal(err)
 	}
 	m := ports.MaterialEntregaPeticionCentro{Modo: "bandeja", ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef}
-	r, err := postgresct.RecursoEntregaPeticionCentro(m)
+	r, err := postgresct.RecursoEntregaPeticionCentro(m, organizacionAltaContratacionTemporalDesarrollo)
 	if err != nil {
 		t.Fatal(err)
 	}
