@@ -783,13 +783,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		for i := range declaracionesFrontera {
-			if declaracionesFrontera[i].Ruta == httpinterno.RutaNoIncorporaciones &&
-				declaracionesFrontera[i].Metodo == http.MethodPost {
-				declaracionesFrontera[i].PerfilesActivosRef = append(declaracionesFrontera[i].PerfilesActivosRef,
-					contextoSegundo.Resultado.Contexto.PerfilActivoRef)
-			}
-		}
+		admitirSegundoRRHHEnFronteras(declaracionesFrontera, contextoSegundo.Resultado.Contexto.PerfilActivoRef)
 	}
 	declaracionesFrontera = append(declaracionesFrontera, fronteraJustificanteBolsaRRHHDesarrollo(perfilesConsulta))
 	if alta.postgresql.vinculoEmisionBolsa {

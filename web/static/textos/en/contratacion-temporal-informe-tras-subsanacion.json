@@ -6,7 +6,7 @@
     "informe_nuevo_recuperar": "Check the outcome",
     "informe_nuevo_estado_listo": "Correction recorded: a new legal report is required.",
     "informe_nuevo_estado_enviando": "Issuing the new legal report…",
-    "informe_nuevo_estado_confirmado": "New legal report issued. Sign it under ‘Signing process’ before requesting a further audit review.",
+    "informe_nuevo_estado_confirmado": "New legal report issued. Sign it under “Signing workflow” before requesting a further audit review.",
     "informe_nuevo_estado_indeterminado": "It is not known whether the new report was issued. Check the outcome before trying again.",
     "informe_nuevo_estado_no_previsto": "The current catalogue does not require a new report after correction: the same report is submitted for a further audit review.",
     "informe_nuevo_estado_rechazado": "The new legal report could not be issued.",
