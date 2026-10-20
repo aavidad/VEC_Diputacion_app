@@ -39,6 +39,12 @@ BEGIN
 END $control$;
 DO $tipo$
 BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_type t
+     WHERE t.oid='vec_contratacion_temporal.entrada_detalle_expediente_rrhh_v1'::regtype
+       AND t.typowner='vec_contratacion_temporal_propietario'::regrole
+       AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(t.typacl,acldefault('T',t.typowner))) a
+         WHERE a.grantee<>t.typowner OR a.privilege_type<>'USAGE' OR a.is_grantable))
+ THEN RAISE EXCEPTION 'CT247: propietario o permisos del tipo divergentes' USING ERRCODE='55000'; END IF;
  IF (SELECT array_agg(a.attname::text ORDER BY a.attnum) FROM pg_attribute a
       WHERE a.attrelid=(SELECT typrelid FROM pg_type WHERE oid=
         'vec_contratacion_temporal.entrada_detalle_expediente_rrhh_v1'::regtype)
@@ -2508,7 +2514,7 @@ REVOKE ALL ON FUNCTION vec_contratacion_temporal.contar_totales_cuadro_rrhh_v1(v
 -- CT247-GENERADO: contar_resumen_cuadro_rrhh_v1
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.contar_resumen_cuadro_rrhh_v1(p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1, p_consulta vec_contratacion_temporal.consulta_cuadro_rrhh_v1, p_cursor text) RETURNS TABLE(clase text, estado_clave text, fase_clave text, fase_desde timestamp with time zone, urgente boolean, numero numeric, captura jsonb)
     LANGUAGE plpgsql STABLE SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'pg_temp', 'pg_temp'
+    SET search_path TO 'pg_catalog', 'pg_temp'
     SET row_security TO 'on'
     SET "TimeZone" TO 'UTC'
     SET lock_timeout TO '1s'

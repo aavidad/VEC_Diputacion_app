@@ -14,9 +14,9 @@ import (
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 )
 
-// nuevaRutaDerivacionNombramientoOpcionalDesarrollo compone la capacidad sin
-// activarla en el router principal. Una dependencia ausente devuelve un manejador
-// que responde 503 y permite que el resto del portal arranque.
+// nuevaRutaDerivacionNombramientoOpcionalDesarrollo compone la capacidad para
+// el router principal. Una dependencia ausente devuelve un manejador 503 y
+// permite que el resto del portal arranque.
 func nuevaRutaDerivacionNombramientoOpcionalDesarrollo(cfg config.Config,
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
 	base *preparadorBorradorLlamamientoDesarrollo,

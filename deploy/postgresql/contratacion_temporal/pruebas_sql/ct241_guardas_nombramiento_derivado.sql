@@ -68,7 +68,8 @@ BEGIN
          AND (o.tgtype & 6)=6 AND o.tgname<t.tgname))<>3
     OR encode(sha256(convert_to(pg_get_functiondef(
        'vec_contratacion_temporal.rechazar_nombramiento_derivado_ct241()'::regprocedure),'UTF8')),'hex')
-       IS DISTINCT FROM '75d464994382f006ec6956673661ba894c4cc8fa65536e5beb6fc9c0947d9ae9'
+       NOT IN ('75d464994382f006ec6956673661ba894c4cc8fa65536e5beb6fc9c0947d9ae9',
+         'd63f8bd950bf323db05bac1740a9b59ccdc8d8f5b1bcf1aae3c9b107d7d2ec18')
  THEN RAISE EXCEPTION 'CT241: disparador central ausente o no primero'; END IF;
 END $estructura$;
 
