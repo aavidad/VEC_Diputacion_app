@@ -21,7 +21,7 @@ BEGIN
  OR (SELECT count(*) FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1)<>7
  THEN RAISE EXCEPTION 'AD304 prueba: fila 7 o prefijo 6 divergente' USING ERRCODE='55000'; END IF;
  SELECT * INTO tabla FROM pg_class WHERE oid='vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1'::regclass;
- SELECT pg_get_constraintdef(c.oid,false) INTO def FROM pg_constraint c
+ SELECT pg_get_constraintdef(c.oid,true) INTO def FROM pg_constraint c
  WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  IF tabla.relowner IS DISTINCT FROM to_regrole('vec_autorizacion_atestada_v3_propietario')
@@ -31,8 +31,10 @@ BEGIN
  OR (SELECT count(*) FROM pg_trigger t WHERE t.tgrelid=tabla.oid AND NOT t.tgisinternal)<>2
  OR (SELECT count(*) FROM pg_trigger t WHERE t.tgrelid=tabla.oid AND t.tgenabled='O'
      AND t.tgname IN('inmutable','no_truncar'))<>2
- OR def IS NULL OR strpos(def,'vec_autorizacion.gobierno_rol_nuevo.propuesta.v1')=0
- OR strpos(def,'vec_autorizacion.gobierno_rol_nuevo.cierre.v1')=0
+ -- Dos preimágenes exactas: main y la candidata AD301 revisada.
+ OR def IS NULL OR encode(sha256(convert_to(def,'UTF8')),'hex') NOT IN (
+  '411555a7d3a6e423d1c3538236a7c3da20b0b8b7280a1b07151eaf6cffb2efa4',
+  'b8a3f4abaebb452c245e2e33e191f776cea16a3e393ca11ae6ddf8c1901f10c8')
  THEN RAISE EXCEPTION 'AD304 prueba: clases o permisos ampliados' USING ERRCODE='42501'; END IF;
  FOR v IN 6..7 LOOP
   rechazado:=false;

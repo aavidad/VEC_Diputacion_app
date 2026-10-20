@@ -72,3 +72,8 @@ La repetición y la recuperación después de reiniciar devolvieron el mismo
 recibo, fecha y auditoría original. Quedaron una propuesta, un cierre y un
 rol publicado, sin asignarlo a nadie. Se usaron las rutas administrativas
 existentes; esta entrega no añade el formulario de propuesta y aprobación.
+
+La guarda de audiencias admite dos definiciones exactas: la de main anterior
+a AD301 y la que añade esa migración ya revisada. Compara su huella completa
+y conserva la misma restricción al terminar; una definición alterada se
+rechaza aunque mantenga los nombres de las dos audiencias de roles.
