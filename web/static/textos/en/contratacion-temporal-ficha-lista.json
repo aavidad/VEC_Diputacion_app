@@ -179,6 +179,8 @@
     "resultado_bolsa_contacto_entrega_declarada": "Delivery recorded by HR",
     "resultado_bolsa_revisar": "Review the call-up in Job pools",
     "firmas_historicas_error": "Earlier signatures cannot be shown. Reopen the case.",
-    "ficha_fase_con_subfase": "{fase} · {subfase}"
+    "ficha_fase_con_subfase": "{fase} · {subfase}",
+    "ficha_siguiente_paso_preparar_informe_titulo": "Next step: prepare the legal report",
+    "ficha_siguiente_paso_preparar_informe_que": "Prepare the legal report in the “Prepare legal report” section further down this case file."
   }
 }

@@ -221,6 +221,16 @@ function faseConSubfase(faseRail, faseServidor, t) {
   return t("ficha_fase_con_subfase", { fase, subfase: etiqueta(faseServidor, t) });
 }
 
+// Fase de un hito en los historiales: la fase de RRHH y, si el hito cae en un
+// paso de ella, también el paso, como en la cabecera sin «Fase N de 8»
+// («Gestión de bolsa · Informe jurídico»).
+function faseHitoVisible(faseServidor, t) {
+  const fase = faseVisible(faseServidor, t);
+  const rrhh = faseRRHH(faseServidor);
+  if (!SUBFASES_VISIBLES.has(faseServidor) || !rrhh) return fase;
+  return t("ficha_fase_con_subfase", { fase, subfase: etiqueta(faseServidor, t) });
+}
+
 /** Rótulo de la cabecera para una fase del servidor confirmada por un recibo. */
 export function rotuloFaseCabecera(faseServidor, mensajes = {}) {
   return faseConSubfase("", faseServidor, crearTraductorExpedientesContratacion(mensajes));
@@ -338,8 +348,8 @@ export function presentarEtiquetasHitoRRHH(hito, mensajes = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   return {
     accion: etiquetaAccionHito(hito.accion_clave, t),
-    faseOrigen: etiqueta(hito.fase_origen, t, "—"),
-    faseDestino: etiqueta(hito.fase_destino, t),
+    faseOrigen: hito.fase_origen ? faseHitoVisible(hito.fase_origen, t) : etiqueta(hito.fase_origen, t, "—"),
+    faseDestino: faseHitoVisible(hito.fase_destino, t),
     estadoOrigen: etiqueta(hito.estado_origen, t),
     estadoDestino: etiqueta(hito.estado_destino, t),
   };
@@ -354,7 +364,7 @@ function historialDesdeHitos(hitos, locale, t) {
   return hitos.map((hito) => ({
     secuencia: hito.secuencia,
     fecha: fechaCivil(hito.realizada_en, locale, true),
-    fase: faseVisible(hito.fase_destino, t),
+    fase: faseHitoVisible(hito.fase_destino, t),
     accion: etiquetaAccionHito(hito.accion_clave, t),
     estado_clave: estadoVisual(hito.estado_destino),
     estado: etiqueta(hito.estado_destino, t),

@@ -101,6 +101,7 @@
     "informe_recibo_descripcion": "The receipt confirms the report, its document and the new case version.",
     "informe_historial_titulo": "Case history",
     "informe_historial_descripcion": "Actions recorded in the case file, oldest first.",
-    "informe_historial_tabla": "Case file actions"
+    "informe_historial_tabla": "Case file actions",
+    "informe_resumen_numero": "Case {numero}, version {version}."
   }
 }
