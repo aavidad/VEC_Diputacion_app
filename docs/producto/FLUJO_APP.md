@@ -1000,6 +1000,13 @@ sin completar. El montaje se ensaya en la copia local; todavía no acredita el
 ofrecimiento ni corrige por sí solo la separación entre unidad gestora y unidad
 del puesto.
 
+La candidata F1-107 conserva en el recibo verificable del llamamiento las
+referencias del recibo y de la auditoría de cada página consultada a Personal.
+Solo guarda esas referencias, sin copiar el contenido del puesto. Los recibos
+anteriores mantienen su formato; la repetición de una selección confirmada
+recupera su prueba original. Activación y comprobaciones en
+[`evidencia_personal_llamamiento_f1_107.md`](../../deploy/principal/evidencia_personal_llamamiento_f1_107.md).
+
 El segundo corte, **preparado en código y todavía sin ensayo integrado**, añade
 una respuesta distinta al mismo `POST /api/vec/contratacion-temporal/llamamientos/seleccion`.
 Para una persona conserva el llamamiento anterior. Para varias, CT obtiene del

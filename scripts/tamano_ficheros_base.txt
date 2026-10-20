@@ -177,7 +177,7 @@
 1142 deploy/postgresql/contratacion_temporal/migraciones/000209_firma_pdf_tres_pasos.up.sql
 845 deploy/postgresql/autorizacion/migraciones/000093_correspondencia_organizacion_firma_ct.up.sql
 1215 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
-1014 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
+1020 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_constituida.go
 850 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_desarrollo.go
 678 deploy/postgresql/contratacion_temporal/migraciones/000215_necesidad_peticion_centro.down.sql
 780 deploy/postgresql/contratacion_temporal/migraciones/000215_necesidad_peticion_centro.up.sql
@@ -216,3 +216,4 @@
 1078 deploy/postgresql/bolsa_llamamientos/migraciones/000146_solicitud_conjunta.up.sql
 831 internal/app/bootstrap/bolsa_inscripcion_autoridad.go
 825 internal/modules/bolsa/adapters/httpinscripcion/handler.go
+823 deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_procedencia_seleccion.up.sql

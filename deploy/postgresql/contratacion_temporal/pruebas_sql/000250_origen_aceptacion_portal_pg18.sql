@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
--- Ejecutar tras CT250 en la copia local de la principal.
+-- Ejecutar tras CT249 y CT250 en la copia local de la principal.
+-- La huella del lector corresponde a su ampliación vigente tras CT249.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;
@@ -15,7 +16,7 @@ BEGIN
     OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-       <>'d5c812acbb329273947de7a4b7f2ed400a82ba7c94f9c3e749772247fbad1c1d' THEN
+       <>'6c62a090c72f10ad4e898ef5594f3f8445fb2b2f37582a24823ca57c7e1946de' THEN
   RAISE EXCEPTION 'CT250 prueba: definición, dueño o ACL divergentes'; END IF;
  original:=p.prosrc;
  IF position('consultar_detalle_rrhh_atestado_v1' in original)=0
@@ -26,7 +27,8 @@ BEGIN
     OR position('o6 AS MATERIALIZED' in original)=0
     OR position('h.version=CASE' in original)=0
     OR position('e.version_recibo=to_jsonb(x.version_expediente_esperada)' in original)<>0
-    OR position('jsonb_object_agg(llamamiento_ref,cantidad=1)' in original)=0
+    OR position('jsonb_object_agg(llamamiento_ref,jsonb_build_object(' in original)=0
+    OR position('''confirmado'',cantidad=1' in original)=0
     OR position('jsonb_array_length(b.valor->''participaciones'')=1' in original)=0
     OR position('part.valor->>''respuesta''=''acepta''' in original)=0
     OR position('part.valor->>''modo''=''firme''' in original)=0
@@ -57,5 +59,16 @@ BEGIN
  SELECT bool_and(CASE WHEN tipo='manual' THEN NOT confirmado ELSE confirmado END)
  INTO v_ok FROM resultados;
  IF v_ok IS NOT TRUE THEN RAISE EXCEPTION 'CT250 prueba: clasificación O6 ordinaria/manual divergente'; END IF;
+ SELECT * INTO p FROM pg_proc WHERE oid=to_regprocedure(
+  'vec_contratacion_temporal.registrar_vinculo_emision_bolsa_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ IF NOT FOUND OR p.proowner<>'vec_contratacion_temporal_propietario'::regrole
+    OR p.prosecdef IS NOT TRUE OR p.provolatile<>'v'
+    OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}'
+    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
+    OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
+      <>'a2fb96e9e5fd06a8ac9bca781a935db85a50bf175ed0d78b0d90ce9585adf8c6'
+    OR position('numero_visible_vigente_v1' in p.prosrc)=0
+    OR position('verificar_emision_ct_v1' in p.prosrc)=0 THEN
+  RAISE EXCEPTION 'CT250 prueba: vínculo opaco/manual o autoridad divergente'; END IF;
 END $ct250$;
 ROLLBACK;
