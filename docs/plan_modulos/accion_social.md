@@ -60,9 +60,9 @@ El índice anterior no es prueba suficiente de actualidad.
 
 | Pieza | Rutas actuales | Reutilización y límite |
 | --- | --- | --- |
-| Personal | `internal/modules/personal/ports/{ficha_propia,historia_relaciones_propia,relacion_empleado}.go`; `adapters/composicion/FICHA_PROPIA.md`; `adapters/postgres/ficha_propia.go` | Relación y consulta propia protegidas. B entregará entidad, colectivo y fechas/servicios exigidos por bases. No crear maestro paralelo de empleados/familiares ni leer su SQL. |
+| Personal | `internal/modules/personal/ports/{ficha_propia,historia_relaciones_propia,relacion_empleado}.go`; `adapters/composicion/FICHA_PROPIA.md`; `adapters/postgres/ficha_propia.go` | Relación y consulta propia protegidas. Personal entregará entidad, colectivo y fechas/servicios exigidos por bases. No crear maestro paralelo de empleados/familiares ni leer su SQL. |
 | Usuarios y contexto de identidad | `internal/modules/usuarios/application/correos.go`; `internal/vec/ports/contexto_actor.go`; `internal/vec/adapters/contextoactor/postgres/`; `internal/vec/adapters/administracionperfiles/postgres/` | Identidad/contacto y contexto comunes. No prueban requisitos de ayuda ni representación. Identidad y Usuarios conserva perfiles fijos y emisor; falta consumidor y concesiones exactas de Acción social. |
-| Auditoría L | `internal/vec/ports/auditoria_intento_nominal.go`; `auditoria_frontera_ruta_exacta.go`; `internal/vec/adapters/postgres/auditoria_intento_nominal.go` | Auditoría nominal de denegación/error con acuse y frontera técnica separada. Se reutiliza; faltan proceso/canal, motivos y rutas propias acordados con L. |
+| Auditoría los servicios comunes | `internal/vec/ports/auditoria_intento_nominal.go`; `auditoria_frontera_ruta_exacta.go`; `internal/vec/adapters/postgres/auditoria_intento_nominal.go` | Auditoría nominal de denegación/error con acuse y frontera técnica separada. Se reutiliza; faltan proceso/canal, motivos y rutas propias acordados con los servicios comunes. |
 | Documentos / firma | `internal/vec/documentos/application/servicio.go`; `ports/{firma,custodia_firmado}.go`; `adapters/postgres/custodia_firmado.go`; `internal/vec/ports/documentos.go` | Custodia, referencias externas, lectura y verificación comunes. Las piezas específicas de CT no emiten resoluciones de ayuda. Registro de documento o preparación de notificación no acreditan asiento, firma, entrega o plazo. |
 | Nóminas | `web/static/portal-empleado/modulos/nominas/vista.js`; `internal/modules/personal/domain/payroll.go`; [plan de Nóminas](https://github.com/aavidad/VEC_Diputacion_app/blob/5c2f146bd15761d225cda7297b4fc7b8f34034a2/docs/plan_modulos/nominas.md) | Vista inyectable sin conector y sumador preliminar de conceptos. Ninguna pieza recibe una ayuda aprobada ni acredita pago. No usar su ejemplo como pagador. |
 | Dietas | `internal/modules/dietas/ports/{circuito_comision,efecto_autorizacion}.go`; `application/preparacionliquidacion/` | Antecedentes de contratos/efectos económicos por su dueño. Acción social mantiene sus requisitos, comisión, presupuesto y decisión; no reutiliza una política de comisión de servicio como norma de ayudas. |
@@ -77,10 +77,10 @@ Este plan no reserva ni reaplica migraciones existentes.
 
 | Capacidad | Resultado pendiente | Dueño y dependencia |
 | --- | --- | --- |
-| AS1–AS2 | Catálogo aplicable por entidad/ejercicio y vínculo histórico acreditado. | Acción social conserva Acción social; RRHH aporta acto; B relación/servicios; Identidad. |
+| AS1–AS2 | Catálogo aplicable por entidad/ejercicio y vínculo histórico acreditado. | Acción social conserva Acción social; RRHH aporta acto; Personal relación/servicios; Identidad. |
 | AS3–AS5 | Solicitud mínima, registro/justificante, subsanación y reclamación. | Acción social mantiene expediente; Documentos y servicios comunes/Registro custodia y asiento; unidad competente tramita. |
 | AS6–AS7 | Propuesta, comisión, resolución y control presupuestario distintos. | Acción social conserva decisiones del módulo; comisión/órgano/contabilidad mantienen competencia y fuente. |
-| AS8–AS9 | Efecto autorizado y conciliado, rectificación/reintegro enlazados. | A emite hecho mínimo; Nóminas/Tesorería confirma aceptación/pago por su contrato. |
+| AS8–AS9 | Efecto autorizado y conciliado, rectificación/reintegro enlazados. | Acción social emite hecho mínimo; Nóminas/Tesorería confirma aceptación/pago por su contrato. |
 | AS10–AS11 | Consulta/descarga independientes y compartimento reservado auditado. | Acción social consume los servicios comunes de identidad y autorización; DPD/Archivo acuerdan datos y conservación. |
 | AS12 | Anticipo y pensiones con normas, destinatarios y saldos propios. | Acción social prepara ampliación; Nóminas/Tesorería/gestora mantienen descuento, pago y aportación. |
 
@@ -124,7 +124,7 @@ y Personal se modifican en sus módulos propietarios. Cada puerto se entrega con
 | A11 · AS10 | Consulta propia y descarga independiente de evidencia minimizada. | Casos de uso/consumidor documental propios. | A02/A09/A10; Documentos y política de anexos. | 4–6 |
 | A12 · recorrido inicial | Solicitante/unidad→justificante/subsanación, negativos, reinicio y manual. | Pruebas focales y manual del módulo. | A05–A11; fuente montada y revisiones pertinentes. | 4–6 |
 | A13 · AS6/AS7 | Propuesta e informe presupuestario, sin conceder por calcular importe. | Aplicación y vista propias; puerto de presupuesto con consumidor. | Ampliación encargada; fuente/topes/prelación/competencia aprobados. | 6–10 |
-| A14 · AS6 | Comisión/acuerdo y resolución distintos con original, firma/registro cuando procedan. | Casos de uso y consumidores documentales propios. | A13; mandato/recusación/suplencia y órgano; L/Registro/firma. | 6–10 |
+| A14 · AS6 | Comisión/acuerdo y resolución distintos con original, firma/registro cuando procedan. | Casos de uso y consumidores documentales propios. | A13; mandato/recusación/suplencia y órgano; los servicios comunes de Registro y Firma. | 6–10 |
 | A15 · AS8 | Entregar efecto económico mínimo y recuperar acuse; conciliar pago comunicado. | Puerto/consumidor económico y estado propio. | A14; Nóminas/Tesorería admite contrato; idempotencia y estado durable. | 6–10 |
 | A16 · AS9 | Rectificación/reintegro enlazados y entrega idempotente del efecto posterior. | Casos de uso/historia y consumidor propios. | A14/A15; acto competente, sin reescribir concesión. | 5–8 |
 | A17 · AS12 posterior | Inventario/contratos de anticipo y pensiones con consumidor preparatorio. | Contratos/plan de ampliación propios. | Reglamento/gestora/circuito y encargos específicos; no crear saldo ficticio. | 6–10 |
