@@ -14,7 +14,7 @@ Una emisión manual o la marca de origen por sí sola no habilitan el acto.
 El POST devuelve 201 con el recibo CT, distinto del justificante de Mi Bolsa.
 Una petición incierta se reintenta con la misma clave; el replay devuelve 200
 con las mismas referencias, también después de reiniciar app y PostgreSQL.
-La recuperación al reabrir la ficha corresponde al tercer corte de F1-125.
+La recuperación al reabrir la ficha corresponde a F1-127.
 
 El acto consume su autorización en la transacción del asiento y el recibo.
 Bolsa acredita emisión, participación y respuesta originales; una restricción
