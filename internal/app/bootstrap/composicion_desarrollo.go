@@ -286,7 +286,7 @@ func nuevoServidorDesarrollo(
 	servidorSinCT := func(componente string, causa error) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
 		fallo := marcarFalloComponenteArranque(componente, causa)
 		slog.Warn("contratacion_temporal_no_disponible", "componente", ComponenteFalloArranque(fallo), "causa", telemetria.ClaseErrorArranque(fallo))
-		return nuevoServidorSinContratacionTemporalDesarrollo(cfg, composicion, resolvedor, consultaCategorias, categoriasPersonal, consultasPersonal, emisor)
+		return nuevoServidorSinContratacionTemporalDesarrollo(cfg, composicion, resolvedor, consultaCategorias, categoriasPersonal, consultasPersonal, emisor, registro)
 	}
 	if falloPreferencias != nil {
 		return servidorSinCT("identidades_preferencias", falloPreferencias)

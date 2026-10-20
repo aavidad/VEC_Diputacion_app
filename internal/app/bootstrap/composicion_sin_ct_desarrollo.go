@@ -28,6 +28,7 @@ func nuevoServidorSinContratacionTemporalDesarrollo(
 	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
 	consultasPersonal consultasPublicasPersonal,
 	emisor vecports.EmisorIncidenciasTecnicas,
+	registro io.Writer,
 ) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
 	var usuarios *composicionPreferenciasUsuarios
 	materialUsuarios, err := abrirMaterialUsuariosAisladoDesarrollo(cfg, composicion.derivadorIdempotencia)
@@ -64,6 +65,30 @@ func nuevoServidorSinContratacionTemporalDesarrollo(
 			materialUsuarios = nil
 		}
 	}
+	var documentos *autoridadDocumentosDesarrollo
+	var gobiernoCompartido *gobiernoTecnicoAisladoDesarrollo
+	if materialUsuarios != nil {
+		gobiernoCompartido = materialUsuarios.gobiernoTecnicoAisladoDesarrollo
+	}
+	materialDocumentos, errMaterialDocumentos := abrirMaterialDocumentosAisladoDesarrollo(cfg, composicion.derivadorIdempotencia, gobiernoCompartido)
+	if gobiernoCompartido != nil {
+		gobiernoCompartido.base.borrarCopiasEfimeras()
+	}
+	if errMaterialDocumentos != nil {
+		slog.Warn("documentos_no_disponibles_sin_ct", "causa", telemetria.ClaseErrorArranque(errMaterialDocumentos))
+	}
+	if materialDocumentos != nil {
+		documentos, errMaterialDocumentos = nuevosDocumentosDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia,
+			materialDocumentos.material, registro, composicion.seudonimosAlmacen)
+		if errMaterialDocumentos != nil || documentos == nil {
+			if errMaterialDocumentos == nil {
+				errMaterialDocumentos = ErrComposicionDocumentosNoDisponible
+			}
+			slog.Warn("documentos_no_disponibles_sin_ct", "causa", telemetria.ClaseErrorArranque(errMaterialDocumentos))
+			materialDocumentos.cerrar()
+			materialDocumentos = nil
+		}
+	}
 	completa := false
 	defer func() {
 		if !completa {
@@ -73,15 +98,26 @@ func nuevoServidorSinContratacionTemporalDesarrollo(
 			if materialUsuarios != nil {
 				materialUsuarios.cerrar()
 			}
+			if documentos != nil && documentos.cerrar != nil {
+				documentos.cerrar()
+			}
+			if materialDocumentos != nil {
+				materialDocumentos.cerrar()
+			}
 		}
 	}()
-	var rutasUsuarios []vechttp.RutaExacta
+	var rutasExactas []vechttp.RutaExacta
 	var autoridad vechttp.AutoridadRutasExactas
 	var registrador vecports.RegistradorAuditoriaFronteraRutaExacta
+	if documentos != nil {
+		rutasExactas = append(rutasExactas, documentos.rutas...)
+		autoridad = autoridadExactasConDocumentos{documentos: documentos}
+		registrador = registradorFronterasConDocumentos{documentos: documentos}
+	}
 	if usuarios != nil {
-		rutasUsuarios = rutaUsuariosPreferencias(usuarios)
-		autoridad = autoridadExactasConUsuariosPreferencias{usuarios: usuarios}
-		frontera := registradorFronterasConUsuariosPreferencias{interna: usuarios.interna.registrador}
+		rutasExactas = append(rutasExactas, rutaUsuariosPreferencias(usuarios)...)
+		autoridad = autoridadExactasConUsuariosPreferencias{delegada: autoridad, usuarios: usuarios}
+		frontera := registradorFronterasConUsuariosPreferencias{delegado: registrador, interna: usuarios.interna.registrador}
 		if usuarios.externa != nil {
 			frontera.externa = usuarios.externa.registrador
 			if usuarios.externa.aspirantes != nil {
@@ -90,7 +126,7 @@ func nuevoServidorSinContratacionTemporalDesarrollo(
 		}
 		registrador = frontera
 	}
-	api, err := newVECShellAPICompuestaConIdentidadYRutas(cfg, emisor, resolvedor, categoriasPersonal, rutasUsuarios, autoridad, registrador, nil)
+	api, err := newVECShellAPICompuestaConIdentidadYRutas(cfg, emisor, resolvedor, categoriasPersonal, rutasExactas, autoridad, registrador, nil)
 	if err != nil {
 		return nil, nil, marcarFalloComponenteArranque("vec_shell", err)
 	}
@@ -104,11 +140,14 @@ func nuevoServidorSinContratacionTemporalDesarrollo(
 	if usuarios != nil {
 		raiz = usuarios.proteger(raiz)
 	}
+	if documentos != nil {
+		raiz = documentos.proteger(raiz)
+	}
 	siguiente := raiz
 	raiz = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
 		if r != nil && r.URL != nil && rutaDependienteContratacionTemporal(r.URL.Path) &&
-			!rutaMontadaAislada(rutasUsuarios, r.URL.Path) {
+			!rutaMontadaAislada(rutasExactas, r.URL.Path) {
 			responderContratacionTemporalNoDisponible(w, r)
 			return
 		}
@@ -131,6 +170,10 @@ func nuevoServidorSinContratacionTemporalDesarrollo(
 	if usuarios != nil {
 		servidor.RegisterOnShutdown(usuarios.cerrar)
 		servidor.RegisterOnShutdown(materialUsuarios.cerrar)
+	}
+	if documentos != nil {
+		servidor.RegisterOnShutdown(documentos.cerrar)
+		servidor.RegisterOnShutdown(materialDocumentos.cerrar)
 	}
 	completa = true
 	return servidor, composicion, nil
