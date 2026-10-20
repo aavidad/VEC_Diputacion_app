@@ -7,8 +7,10 @@ conserva los trabajos y responsables; este documento no abre otra cola.
 
 ## Qué se puede preparar
 
-La [receta local, apartado 9](../../deploy/principal/LEEME_copia_local.md#9-reinicio-y-recuperación)
+La [receta de Administración y recuperación](../../deploy/principal/LEEME_copia_local.md#9-reinicio-y-recuperación)
 compone Administración con un ejecutor propio y material privado autorizado.
+Los [administradores de la copia](../../deploy/principal/LEEME_copia_local.md#4-administradores-de-la-copia)
+se preparan según el apartado 4.
 Documenta el acceso de dos personas administradoras, la elección de perfil,
 la publicación del rol externo del aspirante y su recuperación. No todos
 los actos tienen un formulario: la receta distingue los que se envían desde
