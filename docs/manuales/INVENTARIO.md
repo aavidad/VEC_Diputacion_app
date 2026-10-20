@@ -22,8 +22,8 @@ se consultan en el [índice por perfil](README.md).
 | Carpeta | Contenido | Tratamiento |
 | --- | --- | --- |
 | `docs/manuales/` | Guías por perfil y pendientes; imágenes de octubre | Punto de entrada único. No acredita por sí solo un recorrido completo. |
-| `docs/manual_usuario/` | Bolsa en Markdown, HTML y PDF; contratación temporal; generadores e imágenes | Manuales de septiembre, con ramas candidatas y estados antiguos. Marcar históricos y remitir al índice, conservando los originales. |
-| `docs/manual_rrhh/` | Un README largo con resultados técnicos de septiembre y un correo ficticio | Marcar histórico: los recibos, contadores y versiones no describen el recorrido vigente. |
+| `docs/manual_usuario/` | Bolsa en Markdown, HTML y PDF; contratación temporal; generadores e imágenes | Manuales de septiembre, con ramas candidatas y estados antiguos. Trasladar el contenido funcional útil al histórico y remitir al índice; retirar relatos de sesiones. |
+| `docs/manual_rrhh/` | Un README largo con resultados técnicos de septiembre y un correo ficticio | Conservar el contenido funcional útil en el histórico; retirar relatos de sesiones, recibos y contadores que no describen el recorrido vigente. |
 | `docs/manual/` | Capturas de diseño «antes» y «después», sin manual por perfil | Conservar como comparación histórica; no usarlas como instrucciones actuales. |
 | `docs/capturas/` | Peticiones del 2/10 y recorrido del 5/10 | Conservar con fecha y advertencia de alcance. No demuestran el recorrido del 20/10. |
 
@@ -44,4 +44,4 @@ recorrido, sin trasladar códigos del tablero a los usuarios.
 
 Las capturas conservan su fecha y su contexto. No se crean copias locales
 ni se toman imágenes nuevas para esta actualización documental. La revisión
-de Jefatura espera a que se integren los cambios de los otros equipos.
+de Jefatura espera a que se integren los cambios pendientes sobre ese fichero.

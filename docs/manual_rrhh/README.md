@@ -1,5 +1,3 @@
-> Histórico: septiembre de 2026. Conservado como antecedente; no describe el acceso ni el estado actuales. Consulte los [manuales por perfil](../manuales/README.md).
-
 # Manual funcional del técnico de Recursos Humanos
 
 ### Continuidad real tras subsanar y fiscalizar de nuevo

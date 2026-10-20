@@ -1,5 +1,3 @@
-> Histórico: 28 de septiembre de 2026. Conservado como antecedente; no describe el acceso ni el estado actuales. Consulte los [manuales por perfil](../manuales/README.md).
-
 # Manual de usuario · Peticiones de personal temporal
 
 **Ventanilla Electrónica del Empleado Público (VEC) · Guía para RRHH**
