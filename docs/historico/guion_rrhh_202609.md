@@ -7,10 +7,10 @@ El guion antiguo no autoriza operar sobre cidonia ni acredita capacidades actual
 
 ## Contenido funcional de aquel corte
 
-La presentación abarcó el cuadro de bolsas, lista ordenada de candidaturas,
+El alcance preparado incluía el cuadro de bolsas, lista ordenada de candidaturas,
 ficha e historial, cambios de disponibilidad, contactos y preparación de
-llamamientos. Las cifras agregadas abrían el listado filtrado. Contratación
-aportó bandeja, fases, observaciones y documentos preparatorios en PDF y Word.
+llamamientos. Las cifras agregadas abrían el listado filtrado. La preparación de Contratación
+comprendía bandeja, fases, observaciones y documentos en PDF y Word.
 La consulta pública y el área personal requerían sus superficies y permisos;
 ninguna vista interna concedía por sí sola acceso al aspirante.
 
