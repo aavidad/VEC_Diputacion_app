@@ -74,6 +74,7 @@ BEGIN
       e.solicitud_json,e.recibo_json,e.artefacto_canonico) IS NOT TRUE) THEN
   RAISE EXCEPTION 'CT249 prueba: selección O6 confirmada sin prueba financiera original'; END IF;
 END $prueba_ct249$;
+RESET ROLE;
 DO $fuentes_ct249$
 DECLARE restricciones text;
 BEGIN
@@ -136,6 +137,7 @@ BEGIN
   RAISE EXCEPTION 'CT249 prueba: correo y portal duplicaron llamamiento';
  EXCEPTION WHEN unique_violation THEN NULL; END;
 END $unico_ct249$;
+SET LOCAL ROLE vec_contratacion_temporal_propietario;
 -- JSON sintético en memoria: no se inserta un acto ni se emite un recibo.
 DO $ct249_finanzas$
 DECLARE ref jsonb:=jsonb_build_object('referencia','ref:prueba','version',1,
