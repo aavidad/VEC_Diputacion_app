@@ -53,8 +53,8 @@ Personal adaptará después su carga para evitar esperas al importar el portal.
 
 Este apartado prevalece sobre los estados y órdenes de arranque del 1 de
 octubre conservados debajo. Las estimaciones siguen siendo las iniciales;
-no se han recalculado como trabajo restante. A conserva Selectivos, Carrera,
-Formación y RUM; B conserva Personal y G el baremador común. Las referencias
+no se han recalculado como trabajo restante. Selectivos conserva Selectivos, Carrera,
+Formación y RUM; Personal conserva Personal y G el baremador común. Las referencias
 históricas a H describen el reparto anterior.
 
 | Minitarea | Entrega comprobada | Qué queda |
@@ -97,7 +97,7 @@ Personal conservará la relación y ocupación que procedan. No se duplicarán s
 tablas ni se deducirá un alta de una puntuación.
 
 H es dueño del Registro Único de Méritos. A consulta sus hechos y evidencias por
-un puerto autorizado; B aporta los datos de Personal, entre ellos relaciones,
+un puerto autorizado; Personal aporta los datos de Personal, entre ellos relaciones,
 ocupaciones y servicios reconocidos. El baremador sigue siendo común. Selección
 conserva las bases y la decisión aplicada en cada convocatoria, sin convertir
 la puntuación en un dato permanente del mérito.
@@ -128,9 +128,9 @@ de padres, manifiestos, importadores y `dudas.md`.
 | S1 · A y propietario de Bolsa | Nuevo puerto `seleccion/ports/convocatoria.go`, caso de uso de consulta, adaptador a Bolsa y ficha RRHH propia. Adaptar `bolsa/application/convocatorias_consulta_interna.go` y `bolsa/adapters/postgres/convocatorias_consulta.go`; SQL AD3 y Bolsa **solo en borrador** tras reservar números en `RESERVAS_MIGRACIONES.md` y fijar orden con D en `ORDEN_SQL_NUCLEO.md`. Obtener de RPT/Personal las referencias mínimas de OEP, plaza y versión necesarias para las bases. | Versión exacta, bases, requisitos, fases y huella visibles con lectura V3 nominal y auditoría en la transacción; 403 sin concesión, 503 si cae la dependencia, recuperación tras reiniciar. Ensayo en clon y dos revisiones sensibles antes de integrar. |
 | S2 · A y Bolsa | Reutilizar `gobiernoconvocatorias` y contratos de Documentos/Firma; adaptadores y vista RRHH propios. Depende de S1 y actos/órganos de la pregunta 110. Separar preparación de la versión y aprobación/publicación en PR recorribles. | Preparar una versión, aprobar/publicar mediante autoridad competente y conservarla cuando se rectifique; recibos, firma y fuente oficial comprobados. Las referencias de plaza/OEP exigidas por las bases están resueltas antes de aprobarlas. |
 | S3 · A, Bolsa y Registro/Documentos | Consumir la preparación de solicitud de Bolsa por puerto; casos de uso y vistas propias del aspirante. Depende de S2, identidad común, representación, firma, registro y reglas de tasa SEL-005. Separar solicitud recuperable de presentación registrada. | Persona interna o externa presenta una solicitud, recupera el mismo recibo y puede corregirla dentro del plazo de sus bases sin duplicar la inscripción. |
-| S4 · A, H y RRHH | Casos de uso de requisitos/admisión, listas, subsanación e impugnación de la admisión; puerto autorizado al Registro Único de Méritos de H y, para requisitos independientes de méritos, a los hechos de Personal de B. Depende de S3 y perfiles fijos. | RRHH motiva cada admisión o exclusión, publica listas provisional/definitiva tras aprobación y conserva subsanaciones, impugnaciones e historia. |
+| S4 · A, H y RRHH | Casos de uso de requisitos/admisión, listas, subsanación e impugnación de la admisión; puerto autorizado al Registro Único de Méritos de Carrera y Méritos y, para requisitos independientes de méritos, a los hechos de Personal de Personal. Depende de S3 y perfiles fijos. | RRHH motiva cada admisión o exclusión, publica listas provisional/definitiva tras aprobación y conserva subsanaciones, impugnaciones e historia. |
 | S5 · A, autoridad común y tribunal | Gobierno de miembros/abstenciones por proceso y fase, sesiones, actas; vistas propias. Preparación del tribunal desde S2; habilitación de actuaciones tras S4 y respuesta 110. Separar composición y actas en PR recorribles. | Miembros habilitados ven solo su fase; recusación/sustitución deja historia; acta firmada antes de publicar calificaciones. |
-| S6 · A, H y baremador común | Casos de uso de ejercicios, notas por fase, méritos y reclamación/rectificación de calificaciones; consumir hechos de H y el motor común existente. Depende de S4/S5, bases exactas y evidencia admitida. | Mínimos, fases y empates se explican; ninguna nota pendiente se transforma en aprobado. Calificación, reclamación y publicación conservan versión, autor y acto. |
+| S6 · A, H y baremador común | Casos de uso de ejercicios, notas por fase, méritos y reclamación/rectificación de calificaciones; consumir hechos de Carrera y Méritos y el motor común existente. Depende de S4/S5, bases exactas y evidencia admitida. | Mínimos, fases y empates se explican; ninguna nota pendiente se transforma en aprobado. Calificación, reclamación y publicación conservan versión, autor y acto. |
 | S7 · A, Bolsa y Personal | Resultado aprobado, entrega idempotente por puertos a Bolsa o Personal y rectificación del resultado o entrega. Depende de S6, acto y datos de la pregunta 111. | Lista de aprobados y recibo recuperable del receptor con operación estable; el reintento no duplica efectos. La entrega a Personal no constituye nombramiento ni ocupación: B aplica el acto competente. Cada rectificación enlaza los actos y efectos previos. |
 | S8 · A, RPT/Personal | Cuadro OEP–plaza–convocatoria SEL-001, tras las referencias mínimas de S1. Depende del modelo histórico RPT y autoridad de vacantes. | RRHH ve grado de ejecución con cada plaza y acto de cobertura, sin tratar una propuesta como vacante cubierta. |
 
