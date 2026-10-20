@@ -60,6 +60,9 @@ func main() {
 }
 
 func ejecutar(args []string, salida io.Writer) int {
+	if len(args) > 0 && args[0] == "--config" {
+		return ejecutarComposicionCopia(args, salida)
+	}
 	if len(args) > 2 && args[0] == "preparar" {
 		return ejecutarPreparacion(args[1:], salida)
 	}

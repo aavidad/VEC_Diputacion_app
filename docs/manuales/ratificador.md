@@ -1,17 +1,17 @@
 # Ratificar una petición de personal del centro
 
-Este recorrido se comprobó el 9 de octubre de 2026 con el perfil de ratificador. Las imágenes son recortes de los paneles que se usaron ese día; conservan sus datos y controles. Identificarse en el portal no firma ningún documento.
+Actualizado el 20 de octubre de 2026. Entre con el acceso de ratificador de la copia local que le faciliten, con datos ficticios. El recorrido y las imágenes conservadas son históricos, del 9 de octubre; sus datos y rótulos pueden haber cambiado. Identificarse en el portal no firma ningún documento.
 
 ## Encontrar la petición
 
-1. Abra [Peticiones de personal de su centro](https://vec.cidonia.cloud/portal-empleado/peticiones-centro/?lang=es) con su acceso de ratificador. Compruebe el nombre y el centro que aparecen bajo el título.
+1. Abra **Peticiones de personal de su centro** con su acceso de ratificador. Compruebe el nombre y el centro que aparecen bajo el título.
 2. En **Peticiones para ratificar**, busque la fila por centro, periodo y estado **Pendiente de ratificar**. Pulse **Ver** en esa fila. Puede haber varias peticiones con la misma fecha; compruebe el detalle antes de continuar.
 
 ![Bandeja con la petición pendiente, su periodo y el botón Ver](img/ratificador-01-bandeja.webp)
 
 ## Revisar los datos
 
-En **Datos de la petición**, compruebe el centro, la persona solicitante y su cargo, la categoría y el grupo, el motivo, la necesidad descrita y el periodo. Revise las observaciones, la retención de crédito y los documentos aportados. La persona que ratifica debe ser distinta de quien solicitó. Si algún dato no corresponde a la petición que debe tramitar, pulse **Cerrar** y consulte la diferencia antes de ratificar.
+En **Datos de la petición**, compruebe el centro, la persona solicitante y su cargo, la categoría y el grupo, el motivo, la necesidad descrita y el periodo. Revise las observaciones, el puesto de la relación de puestos de trabajo, el número de personas, la jornada, la retención de crédito y los documentos aportados. La persona que ratifica debe ser distinta de quien solicitó. Si algún dato no corresponde a la petición que debe tramitar, pulse **Cerrar** y consulte la diferencia antes de ratificar.
 
 En el recorrido mostrado, la pantalla decía **Sin retención de crédito aportada** y **Ninguno** en documentos. Esos mensajes describen lo que constaba en la petición; no acreditan una retención ni un documento. Si el centro marcó **Sí**, verá **Declarada; la comprueba RRHH** seguido del número de operación de SICAL, la fecha y el importe: es lo que escribió el centro, todavía sin comprobar.
 

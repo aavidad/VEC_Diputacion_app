@@ -37,8 +37,10 @@ PRUEBAS_SQL = (
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b146_solicitud_conjunta.sql',
     'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad302_recibo_comprobacion_precedencia.sql',
     CA48_PRUEBA,
+    'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad304_conjunto_admin_gobierno_roles.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b147_orden_estricto_llamamiento.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b145_ambito_actos_bolsa.sql',
+    'deploy/postgresql/contratacion_temporal/pruebas_sql/000250_origen_aceptacion_portal_pg18.sql',
     # El último caso es el fixture de la concurrencia de contexto externo.
     'deploy/postgresql/contexto_actor_v1/pruebas_sql/contexto_externo_segregado_v2.sql',
 )

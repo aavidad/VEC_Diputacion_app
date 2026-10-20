@@ -174,7 +174,11 @@ Con la fiscalización favorable, el técnico abre el llamamiento. VEC recorre la
 
 VEC no emite un llamamiento que se salte a una persona disponible que aún no ha sido llamada para esa necesidad. Si la selección empieza más abajo, la pantalla indica quién va antes y su número de orden, y no guarda nada. Quien no contestó a un llamamiento para otra necesidad conserva su turno en los siguientes. Saltar el orden solo será posible con un motivo de un catálogo aprobado por RRHH, que quedará guardado en el llamamiento y en la auditoría. Ese catálogo está vacío hasta que RRHH conteste la duda 168.
 
-La persona tiene dos días desde el aviso para contestar. Responde desde Mi Bolsa: acepta, renuncia o presenta una renuncia justificada. Si contesta por teléfono, el técnico anota la respuesta. Si no contesta en plazo, se entiende que no acepta, sin consecuencias en la bolsa, y el técnico abre el llamamiento a la siguiente persona.
+El correo avisa del llamamiento. Tras hablar con la persona, RRHH abre su ficha en Bolsa y registra el resultado con «Registrar intento telefónico». El resultado «Contactado» abre la respuesta en Mi Bolsa y el plazo que muestran las reglas vigentes; el envío del correo por sí solo no lo abre. La fecha de la llamada la guarda VEC.
+
+En el formulario «Registrar contacto», si VEC no puede confirmar que se ha guardado, conserva los datos bloqueados. Pulse «Reintentar el mismo registro» para recuperar su justificante sin anotar otra llamada.
+
+La persona responde desde Mi Bolsa: acepta, renuncia o presenta una renuncia justificada, y recibe un justificante. Registrar el contacto no equivale a aceptar. Si no contesta en plazo, se entiende que no acepta, sin consecuencias en la bolsa, y el técnico abre el llamamiento a la siguiente persona.
 
 Las llamadas de teléfono también se anotan, con su resultado. Si la persona contesta al teléfono, el plazo empieza a contar igual que con el correo.
 
@@ -239,11 +243,21 @@ fiscalización favorable con su recibo.
 
 Esta tabla resume, parte por parte, qué funciona hoy en el entorno de pruebas, qué falta y cómo queremos que funcione VEC cuando esté terminada.
 
+Para consultar la historia de la organización en la copia local, primero dos
+personas administradoras distintas deben proponer y aprobar el perfil de
+consulta. Después se preparan las cuentas y asignaciones ficticias de RRHH y se
+activa la consulta. Crear la copia con los módulos no hace esos pasos. La
+aplicación arranca aunque aún falten; la consulta queda pendiente de activación
+hasta completar esos pasos. En la copia se ha comprobado la consulta de dos
+técnicas en su centro y la denegación fuera, también tras reiniciar. La asignación
+de este perfil desde Administración
+todavía está por hacer.
+
 | Parte | Hoy | Falta | Al final |
 | --- | --- | --- | --- |
 | Entrada en la aplicación | Cada persona entra con un certificado de pruebas. | Conectar con el directorio de usuarios de la Diputación. Depende de Informática. | El personal entra con su usuario de la Diputación y su certificado. Los aspirantes, con DNI electrónico o certificado digital. |
 | Cuenta propia del aspirante | En la copia local se ha comprobado que el aspirante entra en Mi Bolsa con su certificado y conserva el acceso tras reiniciar. La cuenta comprobada aún no tenía participaciones. | Completar la administración de sus permisos y comprobar los trámites que los necesitan. | Cada aspirante consulta y tramita lo suyo desde su área personal. |
-| Administración de perfiles | La lista de personas y su ficha funcionan con la configuración aprobada. Está preparado el cierre de la administración cuando falta esa configuración y el cotejo de unidad al preparar cambios. | Instalar y comprobar este cierre en el entorno compartido; terminar la asignación de perfiles desde pantalla. | Los administradores gestionan los perfiles con los controles y aprobaciones que correspondan. |
+| Administración de perfiles | La lista de personas y su ficha funcionan con la configuración aprobada. En una copia local se ha ensayado el procedimiento administrativo para que una persona proponga un perfil nuevo y otra lo apruebe, con recibo. La asignación del perfil a las personas se registra aparte. | Instalar y comprobar este cierre en el entorno compartido; añadir el formulario de propuesta y aprobación y terminar la asignación de perfiles desde pantalla. | Los administradores gestionan los perfiles con los controles y aprobaciones que correspondan. |
 | Vigencia de Administración | Está preparada la renovación de su configuración hasta 90 días en desarrollo. Los permisos de las personas conservan sus propios plazos. | Instalar y comprobar la renovación en el entorno compartido. | La renovación mantiene el acceso administrativo y conserva el registro de lo publicado. |
 | Bolsas que vienen de Convoca | Se cargan desde el Excel de Convoca. | Nada para cargar las bolsas actuales. | La carga sirve solo para pasar a VEC las bolsas que ya existen. Las nuevas se hacen enteras en VEC. |
 | Convocatorias, inscripción, méritos y alegaciones | Programado: el aspirante se inscribe, declara sus méritos con documentos y presenta alegaciones; RRHH admite o rechaza. La inscripción solo se abre si consta la publicación oficial de las bases (apartado 4.6). La pantalla del aspirante para inscribirse ya está encendida y probada en una copia: lista, ficha, presentación con recibo y Mis solicitudes. RRHH puede anotar o corregir la publicación oficial de las bases desde Bolsas → Publicación de las bases, con recibo y permiso publicado por Administración. Repetir el mismo envío conserva el recibo. Antes, Administración publica los permisos nuevos del aspirante. | Activar la revisión de RRHH en el entorno de pruebas. Instalar y activar la entrega del permiso de publicación de las bases; publicar el rol de RRHH con dos administradores. | VEC sustituye a Convoca. El aspirante hace todo desde su área personal y RRHH lo revisa en pantalla. |

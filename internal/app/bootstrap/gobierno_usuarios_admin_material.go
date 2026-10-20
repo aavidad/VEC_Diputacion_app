@@ -50,6 +50,9 @@ const (
 	SegmentoVersionBolsaExternaPropuesta = "perfiles:version-bolsa-externa:propuesta"
 	SegmentoVersionBolsaExternaCierre    = "perfiles:version-bolsa-externa:cierre"
 	EmisorVersionBolsaExternaAdmin       = "emisor:admin:perfiles:version-bolsa-externa:desarrollo:v1"
+	SegmentoGobiernoRolPropuesta         = "perfiles:gobierno-rol-nuevo:propuesta"
+	SegmentoGobiernoRolCierre            = "perfiles:gobierno-rol-nuevo:cierre"
+	EmisorGobiernoRolesAdmin             = "emisor:admin:perfiles:gobierno-rol-nuevo:desarrollo:v1"
 )
 
 // AudienciasConjuntoCapacidadesAdmin devuelve las audiencias, en orden, de un
@@ -58,7 +61,8 @@ const (
 // añade el gobierno del plan nominal de firma y el 3 (AD204), la publicación
 // de cargos competenciales de Personal, el 4 (AD205), la de certificados
 // nominales de firmante, y el 5 (AD234), la propuesta y el cierre de la
-// versión de rol de Bolsa (B1). Debe coincidir
+// versión de rol de Bolsa (B1). El 6 añade su versión externa y el 7,
+// la propuesta y el cierre de roles nuevos. Debe coincidir
 // con conjunto_audiencias_capacidad_admin_v1: AD198 lo vuelve a comprobar.
 func AudienciasConjuntoCapacidadesAdmin(version uint64) ([]AudienciaCapacidadAdmin, bool) {
 	usuarios := []AudienciaCapacidadAdmin{
@@ -89,6 +93,11 @@ func AudienciasConjuntoCapacidadesAdmin(version uint64) ([]AudienciaCapacidadAdm
 			AudienciaCapacidadAdmin{gobiernoperfiles.AudienciaVersionarRolBolsaAprobar, SegmentoVersionBolsaCierre, EmisorVersionBolsaAdmin},
 			AudienciaCapacidadAdmin{gobiernoperfiles.AudienciaVersionarRolBolsaExternaProponer, SegmentoVersionBolsaExternaPropuesta, EmisorVersionBolsaExternaAdmin},
 			AudienciaCapacidadAdmin{gobiernoperfiles.AudienciaVersionarRolBolsaExternaAprobar, SegmentoVersionBolsaExternaCierre, EmisorVersionBolsaExternaAdmin}), true
+	case 7:
+		anteriores, _ := AudienciasConjuntoCapacidadesAdmin(6)
+		return append(anteriores,
+			AudienciaCapacidadAdmin{gobiernoperfiles.AudienciaGobiernoRolProponer, SegmentoGobiernoRolPropuesta, EmisorGobiernoRolesAdmin},
+			AudienciaCapacidadAdmin{gobiernoperfiles.AudienciaGobiernoRolAprobar, SegmentoGobiernoRolCierre, EmisorGobiernoRolesAdmin}), true
 	}
 	return nil, false
 }
