@@ -177,3 +177,8 @@ la primera bloquea perfil y vínculo y confirma. Se exige que las dos terminen
 sin error y que el cotejo dé `true`. Con el cotejo anterior a CA48, que
 bloqueaba el vínculo antes que la cuenta, PostgreSQL aborta una de ellas con
 `40P01`.
+
+La preparación conserva también los seis conjuntos técnicos de audiencias de
+Administración definidos antes del corte del volcado. Son listas cerradas de
+nombres, sin claves, asignaciones ni actos. AD304 verifica el conjunto 6 antes
+de añadir el 7; la semilla no evita esa comprobación ni publica capacidades.

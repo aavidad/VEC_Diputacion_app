@@ -647,7 +647,8 @@ consulta, y la selección fallaba.
   solicitadas, como dato de copia y sin atribuirla a la fiscalización anterior.
 - «Llamar a la siguiente persona» desde la ficha del expediente funciona en
   una copia nueva creada con `--modulos` (sin `--portal-externo`) y con la
-  firma compuesta (F1-103, 20/10). La selección responde 200 con su recibo y
+  firma compuesta, después de publicar el rol OH por dos administradores y
+  activar su consulta (F1-106). La selección responde 200 con su recibo y
   llama a la primera persona disponible por el orden vigente; repetirla
   devuelve el mismo llamamiento. Antes daba 409 por tres cosas: faltaban dos
   permisos de la técnica de RRHH (la consulta de Organización histórica y la
@@ -655,26 +656,23 @@ consulta, y la selección fallaba.
   `bolsa.origen_ct.consultar`) y la lectura auditada del origen fallaba en
   cuanto alguien de la bolsa tenía una comprobación de ofrecimiento
   registrada. Esto último lo corrige AD302, que viene en la lista única.
-- `crear --modulos` siembra y monta la consulta de Organización histórica.
-  Con `--portal-externo` no lo hace, igual que los datos del caso 4.0:
-  1. Siembra el rol `consulta_organizacion_historica_rrhh` v1 con la concesión
-     de `fuentes/personal_organizacion_historica_rrhh_v1.json` (sustancial,
-     seis campos, sin obligaciones). Lo asigna a un perfil nuevo de la técnica
-     del certificado `mtls/cliente.crt`, con su vínculo de contexto y su
-     vínculo corporativo `consulta_rrhh`, gemelos de los de su perfil de
-     Bolsa. Los ámbitos son exactos: el organismo del caso 4.0 y
-     `unidad:centro:520`; otra unidad responde 403. Es semilla de copia con
-     procedencia `identidad:desarrollo:no-autoritativa`, como la de F0-37, y
-     dura 89 días. Su huella queda en `estado.json`
-     (`organizacion_historica_semilla_sha256`).
-  2. Crea cuatro LOGIN propios (Personal, fuente y registro de autorización y
-     motivos), la fila de origen del consumo de Personal (AD172), el catálogo
-     de cuatro motivos y los selectores de Organización histórica. La consulta
-     de Contratación usa el perfil de Personal de la misma cuenta en proceso.
-  3. Con la aplicación ya arrancada, deriva la clave con
-     `vec-preparar-material-interno` (con un LOGIN de gobierno que solo vive
-     mientras dura ese paso), escribe `organizacion_historica_combinado.json`,
-     enciende la consulta y reinicia.
+- `crear --modulos` arranca sin publicar ni asignar el rol de Organización
+  histórica. Primero se admite la fuente
+  `fuentes/personal_organizacion_historica_rrhh_v1.json` en AUT58. Después,
+  con el conjunto ADMIN 7 publicado, una persona administradora propone el
+  rol `consulta_organizacion_historica_rrhh` v1 y otra lo aprueba por AUT60.
+  El mismo administrador no puede aprobar su propuesta.
+- Tras ese acto, `copia_local.sh organizacion-historica --equipo <equipo>
+  --instancia <instancia>` comprueba el rol, su control y el cierre confirmado
+  antes de preparar la identidad y la asignación de la copia. La orden no
+  publica roles ni controles; crea los perfiles de consulta de las cuentas
+  RRHH, con organismo y `unidad:centro:520`, durante 89 días, y deriva el
+  material de consulta. Si la copia tiene `--segundo-rrhh`, prepara ambas
+  cuentas. Reinicia la aplicación para cargar cada contexto y el material.
+  La asignación y sus vínculos siguen siendo datos ficticios, sin acto de
+  Administración: la asignación gobernada con `organismo_ref` y `unidad_clave`
+  queda pendiente (decisión de dirección del 20/10, 11:26).
+  Procedimiento: [Organización histórica](organizacion_historica_f1_106_20261020.md).
 - Los dos permisos se completan con dos etapas privadas del manifiesto de
   `firma` (§11), con la herramienta de actos de la copia:
   1. Entre la etapa de Administración y la de firmantes, AUT58 admite en el
@@ -690,7 +688,7 @@ consulta, y la selección fallaba.
      B103, `vec-admin` se reinicia con `VEC_ADMIN_VERSION_BOLSA_B103_CONFIG_FILE`,
      el primer administrador propone y el segundo cierra. El servidor copia
      la concesión del catálogo; el cliente solo elige la entrada.
-  Sin la primera etapa la consulta de Organización histórica responde 403;
+  La primera etapa admite las acciones; publicar el rol OH requiere además AUT60;
   sin la segunda, la selección da 409.
 - El orden importa. La admisión AUT58 tiene que ir antes de que la firma
   publique los roles de cargo: esos roles se guardan sin `retirada_en` y,
@@ -703,9 +701,8 @@ consulta, y la selección fallaba.
   desde la ficha, recorre el caso 4.0 con la variante vacante (puesto 9,
   plaza 2026/0033) hasta la fiscalización, después de componer la firma: un
   expediente preparado antes se queda en el paso 7b.
-- Quedan aparte el acto de Administración que publique la consulta de
-  Organización histórica en producción (AUT60, conjunto 7) y la salida
-  definitiva de F0-37.
+- Quedan pendientes la asignación gobernada de Organización histórica,
+  su activación fuera de la copia local y la salida definitiva de F0-37.
 
 Para la firma por cargos, seguir también
 [`firma_por_cargos_f1_58_20261020.md`](firma_por_cargos_f1_58_20261020.md).

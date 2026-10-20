@@ -180,20 +180,23 @@ class TestRolAspirante(unittest.TestCase):
         with self.assertRaises(ValueError):
             rol.publicar(copia, repo=Path('/no'), go='go', entorno_go={})
 
-    def test_cli_conserva_rol_aspirante_y_personal_al_integrar_main(self):
+    def test_cli_conserva_ordenes_al_integrar_main(self):
         import copia_local
         anterior = copia_local.os.umask(0o077)
         self.addCleanup(copia_local.os.umask, anterior)
         configuracion = self.carpeta / 'personal.json'
         with patch.object(copia_local, 'BASE', self.carpeta), \
-                patch.object(copia_local, 'Copia') as constructor:
+                patch.object(copia_local, 'Copia') as constructor, \
+                patch('copia_local_organizacion_historica_activacion.activar') as activar_organizacion:
             constructor.return_value.nombre = 'vec-copia-b-f115'
-            for orden, extra in [('rol-aspirante', []), ('personal', ['--config-personal', str(configuracion)])]:
+            for orden, extra in [('rol-aspirante', []), ('personal', ['--config-personal', str(configuracion)]),
+                                 ('organizacion-historica', [])]:
                 with patch.object(copia_local.sys, 'argv', ['copia_local', orden, '--equipo', 'b',
                                                           '--instancia', 'f115'] + extra):
                     copia_local.main()
             constructor.return_value.rol_aspirante.assert_called_once_with()
             constructor.return_value.personal.assert_called_once_with(configuracion)
+            activar_organizacion.assert_called_once_with(constructor.return_value, copia_local.REPO)
 
     def test_peticion_lleva_origen_y_cabeceras_de_navegador(self):
         capturado = {}

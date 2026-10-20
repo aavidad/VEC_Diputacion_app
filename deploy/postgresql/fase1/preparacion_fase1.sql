@@ -298,4 +298,32 @@ RESET ROLE;
 INSERT INTO vec_documentos.tipo_reservado_firmado VALUES
  ('ref:f0074a505ef2a693dfd5bf2195228c47a7ce2a1435d4acf6a6b9f50e89e5663c',
   'contratacion_temporal.resolucion_firmada.v1','contratacion_temporal');
+
+-- AD198/202/204/205/234/248: el volcado sin datos omite los conjuntos
+-- cerrados 1–6. Son nombres técnicos de capacidades, sin claves ni permisos
+-- de negocio; AD304 exige conservarlos antes de añadir el conjunto 7.
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+INSERT INTO vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1
+ (version,audiencias,segmentos) VALUES
+ (1,ARRAY['vec.admin.usuarios.listar.v1','vec.admin.usuarios.consultar.v1','vec_autorizacion.administracion_perfiles.lote_ordinario.v1']::text[],
+  ARRAY['usuarios:listar','usuarios:consultar','perfiles:lote']::text[]),
+ (2,ARRAY['vec.admin.usuarios.listar.v1','vec.admin.usuarios.consultar.v1','vec_autorizacion.administracion_perfiles.lote_ordinario.v1','vec_catalogos_configurables.plan_nominal_firma.gobierno.v1']::text[],
+  ARRAY['usuarios:listar','usuarios:consultar','perfiles:lote','catalogos:plan-firma']::text[]),
+ (3,ARRAY['vec.admin.usuarios.listar.v1','vec.admin.usuarios.consultar.v1','vec_autorizacion.administracion_perfiles.lote_ordinario.v1','vec_catalogos_configurables.plan_nominal_firma.gobierno.v1','vec_personal.cargo_competencial.publicar.v1']::text[],
+  ARRAY['usuarios:listar','usuarios:consultar','perfiles:lote','catalogos:plan-firma','personal:cargo-competencial']::text[]),
+ (4,ARRAY['vec.admin.usuarios.listar.v1','vec.admin.usuarios.consultar.v1','vec_autorizacion.administracion_perfiles.lote_ordinario.v1','vec_catalogos_configurables.plan_nominal_firma.gobierno.v1','vec_personal.cargo_competencial.publicar.v1','vec_contexto_actor.certificado_nominal.publicar.v1']::text[],
+  ARRAY['usuarios:listar','usuarios:consultar','perfiles:lote','catalogos:plan-firma','personal:cargo-competencial','certificados:nominal']::text[]),
+ (5,ARRAY['vec.admin.usuarios.listar.v1','vec.admin.usuarios.consultar.v1','vec_autorizacion.administracion_perfiles.lote_ordinario.v1','vec_catalogos_configurables.plan_nominal_firma.gobierno.v1','vec_personal.cargo_competencial.publicar.v1','vec_contexto_actor.certificado_nominal.publicar.v1','vec_autorizacion.versionar_rol_bolsa.propuesta.v1','vec_autorizacion.versionar_rol_bolsa.cierre.v1']::text[],
+  ARRAY['usuarios:listar','usuarios:consultar','perfiles:lote','catalogos:plan-firma','personal:cargo-competencial','certificados:nominal','perfiles:version-bolsa:propuesta','perfiles:version-bolsa:cierre']::text[]),
+ (6,ARRAY['vec.admin.usuarios.listar.v1','vec.admin.usuarios.consultar.v1','vec_autorizacion.administracion_perfiles.lote_ordinario.v1','vec_catalogos_configurables.plan_nominal_firma.gobierno.v1','vec_personal.cargo_competencial.publicar.v1','vec_contexto_actor.certificado_nominal.publicar.v1','vec_autorizacion.versionar_rol_bolsa.propuesta.v1','vec_autorizacion.versionar_rol_bolsa.cierre.v1','vec_autorizacion.versionar_rol_bolsa_externa.propuesta.v1','vec_autorizacion.versionar_rol_bolsa_externa.cierre.v1']::text[],
+  ARRAY['usuarios:listar','usuarios:consultar','perfiles:lote','catalogos:plan-firma','personal:cargo-competencial','certificados:nominal','perfiles:version-bolsa:propuesta','perfiles:version-bolsa:cierre','perfiles:version-bolsa-externa:propuesta','perfiles:version-bolsa-externa:cierre']::text[]);
+DO $conjuntos_admin_post$ BEGIN
+ IF (SELECT array_agg(version ORDER BY version)
+     FROM vec_autorizacion_atestada_v3.conjunto_audiencias_capacidad_admin_v1)
+      IS DISTINCT FROM ARRAY[1,2,3,4,5,6]
+ OR EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.clave_capacidad_version)
+ THEN RAISE EXCEPTION 'F0-29: conjuntos técnicos incompatibles o claves publicadas'
+   USING ERRCODE='55000'; END IF;
+END $conjuntos_admin_post$;
+RESET ROLE;
 COMMIT;
