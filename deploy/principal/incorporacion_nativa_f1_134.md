@@ -28,8 +28,19 @@ CONFIG NUEVA: ninguna. Preparar Personal con la orden existente del
 usando la configuración aprobada y las conexiones propias. Conservar su regla
 `cese_fecha_efecto`: no tiene valor por omisión ni se decide en el navegador.
 
-CT255 requiere CT249 y CT253, en el orden definitivo de la candidata. Su fila
-en la lista única y su ensayo quedan pendientes hasta fijar esas dependencias.
+Para preparar un nombramiento desde el principio, crear una copia con
+`--modulos --rrhh-original --administracion`. Seguir el
+[procedimiento de Organización histórica](organizacion_historica_f1_106_20261020.md)
+y el orden de fuentes y firma del
+[apartado 6 de la fábrica](LEEME_copia_local.md#6-montar-bolsa-y-contratación-temporal).
+La copia con solo `--modulos` arranca, pero no compone esa consulta ni permite
+emitir el llamamiento nativo. Los expedientes históricos sin necesidad RPT
+no sustituyen el expediente nuevo firmado y fiscalizado del caso 4.0.
+
+CT255 requiere CT249 y CT253. La composición de ensayo `9bd4428a1` conserva
+primero la lista de main `24a96efad`, seguida de CT250, CT249, CT253 y CT255;
+no incluye CT256. La rama pequeña debe incorporar la fila de la lista única
+cuando se integren sus dependencias.
 No reaplicar migraciones ni presentar como activación los datos preparados
 directamente en una copia. No crear por SQL la incorporación, relación,
 ocupación, cese o cierre que deben registrar las pantallas.
@@ -56,8 +67,11 @@ añade una puerta nueva sobre sus recibos: esa ampliación queda en F1-135.
 La función se ha preparado desde su definición instalada en una copia propia
 de la principal. Sin el productor de resolución portal, la migración se ha
 rechazado con la función original intacta. El preparador de roles acepta el SQL.
-La focal preparada comprueba el contrato privado y la denegación del acceso
-directo del ejecutor; todavía no se ha ejecutado tras instalar el cambio.
-Faltan la prueba SQL con las dependencias definitivas, el
-recorrido HTTP y en Chrome, el reinicio y las dos revisiones independientes.
+La composición `9bd4428a1` contiene el mismo SQL de CT255 que este corte.
+Su ensayo aplicó 142 migraciones al esquema real vacío y pasó 26 pruebas SQL
+antes y después de reiniciar PostgreSQL, más dos pruebas de concurrencia.
+La focal de CT255 comprobó el contrato privado y la denegación del acceso
+directo del ejecutor. Este ensayo no acredita los actos del recorrido.
+Faltan el recorrido HTTP y en Chrome, el reinicio con sus datos, las dos
+revisiones independientes y la integración de las dependencias.
 No hay todavía una prueba positiva de alta o cese sobre el nombramiento nativo.
