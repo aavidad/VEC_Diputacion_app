@@ -231,3 +231,5 @@ deploy/postgresql/contratacion_temporal/migraciones/000248_comunicaciones_carrer
 
 # F1-125, primer corte — CT250: origen O6 acreditado de la aceptación firme en la ficha; tras CT201 vigente.
 deploy/postgresql/contratacion_temporal/migraciones/000250_origen_aceptacion_portal_rrhh.up.sql 4ba743fba6f9b6db7fb71102658bf672e5c3af552470cd401732c3f13716d4ea
+# Tarea F1-107: referencias de la consulta de Personal en el recibo del llamamiento
+deploy/postgresql/contratacion_temporal/migraciones/000245_consultas_personal_procedencia_seleccion.up.sql 8c59362e3cb797b73401d420fab7136f8f91a7774301553f68e4a3ca987b2727
