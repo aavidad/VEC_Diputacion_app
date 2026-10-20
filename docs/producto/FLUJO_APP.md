@@ -1411,7 +1411,9 @@ prepara solo identidades y asignaciones ficticias con ámbitos `organismo_ref` y
 no sustituyen a las dos personas administradoras.
 La asignación gobernada por Administración queda para una entrega posterior.
 Sin publicación ni activación, la aplicación arranca y esta consulta no se puede
-consumir. Guía: `deploy/principal/organizacion_historica_f1_106_20261020.md`.
+consumir. La copia acredita el acto de dos administradores y la consulta de dos
+técnicas: 200 en su centro y 403 fuera, antes y después de reiniciar. Guía:
+`deploy/principal/organizacion_historica_f1_106_20261020.md`.
 
 ## 7. Resumen de estado por tramo
 

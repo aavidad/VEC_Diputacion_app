@@ -52,9 +52,33 @@ roles y los selectores OH existentes; se cambia su material con el proceso
 parado y se conserva el entorno anterior para volver atrás. Sin publicación
 y preparación OH, las demás funciones siguen arrancando.
 
-## Comprobación pendiente
+## Resultado del ensayo
 
-En una copia nueva: ausencia inicial del rol, propuesta y cierre por dos
-personas, rechazo del cierre por el proponente, recuperación del mismo
-recibo, dos técnicas con 200 en el centro 520 y 403 fuera. Reiniciar la
-aplicación, Administración y PostgreSQL y cotejar los mismos actos y datos.
+Código `2fe888c25`, PostgreSQL 18.4 propio y 133 migraciones instaladas en su
+orden. La copia nueva arrancó en 131,33 segundos, con cero roles,
+propuestas, cierres y asignaciones OH. Administración sin montaje de roles
+respondió 204 en salud y 404 en el acto.
+
+La admisión AUT58 añadió solo la fuente OH al catálogo v7, conservando las
+22 entradas y los 67 roles anteriores. Dirección autorizó sus huellas en
+el canal el 20/10 a las 11:51, solo para esta copia local. Se recuperó el
+acuse y se retiró el LOGIN técnico temporal antes de proponer el rol.
+
+Desde Chrome, con dos certificados nominales: propuesta 201, repetición 200,
+cierre por la misma persona 403, aprobación por la segunda persona 200 y
+repetición 200 con el mismo recibo. Después de activar OH, ambas técnicas
+consultaron tres puestos del centro 520 con 200 y recibo; el centro 999 dio
+403. En Chrome, ambas cuentas abrieron el portal y sus consultas con esos
+resultados, sin errores de JavaScript ni cookies.
+
+Tras reiniciar aplicación, Administración y PostgreSQL se conservaron
+exactamente una propuesta, un cierre, un rol y dos asignaciones. El cierre
+conservó recibo, fecha y auditoría, y las dos técnicas volvieron a obtener
+200 y 403 en los mismos ámbitos.
+
+La integración posterior de `main@3c643ce34` no cambia las migraciones, la
+lista SQL, el código Go de producto ni los tres preparadores OH ensayados.
+Conserva las dos órdenes independientes de la fábrica, Personal y
+Organización histórica. Las pruebas focales del ensayador y de la fábrica
+pasan sobre la composición; la integración y el cierre de la tarea
+corresponden a dirección.

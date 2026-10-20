@@ -566,7 +566,8 @@ la copia. `crear --modulos` no publica ese rol ni activa la consulta. El rol
 administradores distintos por AUT60 y el conjunto 7. Después se ejecuta
 `copia_local.sh organizacion-historica --equipo o --instancia f106` para sembrar
 identidades y asignaciones ficticias y montar la consulta. La aplicación arranca
-antes y después; falta acreditar el ensayo conjunto. Véase
+antes y después. La copia acredita publicación por dos administradores y consulta
+de dos técnicas con 200 en su centro y 403 fuera, también tras reiniciar. Véase
 `deploy/principal/organizacion_historica_f1_106_20261020.md`.
 
 

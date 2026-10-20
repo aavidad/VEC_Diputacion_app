@@ -244,7 +244,9 @@ personas administradoras distintas deben proponer y aprobar el perfil de
 consulta. Después se preparan las cuentas y asignaciones ficticias de RRHH y se
 activa la consulta. Crear la copia con los módulos no hace esos pasos. La
 aplicación arranca aunque aún falten; la consulta queda pendiente de activación
-y de comprobación conjunta. La asignación de este perfil desde Administración
+hasta completar esos pasos. En la copia se ha comprobado la consulta de dos
+técnicas en su centro y la denegación fuera, también tras reiniciar. La asignación
+de este perfil desde Administración
 todavía está por hacer.
 
 | Parte | Hoy | Falta | Al final |
