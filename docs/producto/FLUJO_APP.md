@@ -145,7 +145,7 @@ No admite sesiones reanudadas ni identidad por cabeceras. Solo arranca en
 | Técnico de RRHH | `tecnico_rrhh` | `/portal-empleado/` | Inicio con cuadro de mando, Bolsas, Contratación temporal, plantillas, reglas | En cidonia |
 | Jefatura de RRHH, administrativo | `jefatura_rrhh`, `administrativo` | `/portal-empleado/` | Sin menú propio: lo que ven lo decide cada API | Falta definir |
 | Intervención | `intervencion` | `/portal-empleado/` | Entra en CT y fiscaliza desde la ficha; no tiene bandeja propia | En cidonia |
-| Firmantes (Jefatura de Servicio, Diputado/a, Secretaría General, Dirección de RRHH, persona nombrada) | perfiles lógicos `perfil:ct:*` | Ficha del expediente, panel de firma | Firmar o devolver con motivo | Falta (#1099) |
+| Firmantes (Jefatura de Servicio, Diputado/a, Secretaría General, Dirección de RRHH, persona nombrada) | perfiles lógicos `perfil:ct:*` | Ficha del expediente, panel de firma | Firmar o devolver con motivo | En copia local: informe del paso 7b firmado en Chrome (F1-32, F1-94); resolución pendiente (F1-27, F1-117) |
 | Empleado | `personal_interno` | `/portal-empleado/` | Mis trámites, Personal, Cronos y Dietas por accesos de Inicio | Oculto: módulos aparcados |
 | Administrador de aplicación | rol `administracion_perfiles` | `admin.*` | Usuarios, asignar y retirar perfiles | En cidonia, parcial |
 | Administrador de sistemas | perfil de sistemas | `admin.*` | Instalación, versiones, copias | Copias por línea de órdenes |
@@ -409,7 +409,7 @@ flowchart TD
   A2 -- renuncia o sin respuesta --> L2["RRHH: siguiente de la bolsa<br/>(en cidonia)"]
   L2 --> A2
   A2 -- acepta --> R6["RRHH: propuesta y resolución, documentos PDF y Word<br/>(en cidonia)"]
-  R6 --> F1["Firma de tres cargos<br/>(falta)"]
+  R6 --> F1["Firma de tres cargos<br/>(por recorrer: F1-27, F1-117)"]
   F1 --> C3["Centro: acredita la incorporación<br/>(en cidonia)"]
   C3 --> P1["RRHH: paso a Personal<br/>(pendiente de recorrido)"]
   P1 --> G1["RRHH: ficha GINPIX desde el alta confirmada y grabación manual<br/>(pendiente de recorrido)"]
@@ -1116,12 +1116,23 @@ como firmado con las firmas del anterior y no ofrecía firmarlo.
 
 #### 4.3.6 Firma de tres cargos
 
-Estado: **falta** (#1099, equipo H). Ningún documento sale hoy firmado. La
-firma se hace con GrxFirma desde el navegador (`afirma://`, panel en
-`circuito-firma.js` y `firma-autofirma.js`) y se verifica con su validador como
-servicio aparte (`VEC_FIRMA_VERIFICACION_*`). El 13/10 la autorización ya pasa,
-pero el validador rechaza la firma; el arreglo está en la versión nueva de
-GrxFirma.
+Estado: **funciona en la copia local** para el informe y **falta recorrer**
+la resolución del caso 4.0. La firma se hace con GrxFirma desde el navegador
+(`afirma://`, panel en `circuito-firma.js` y `firma-autofirma.js`) y se
+verifica con su validador como servicio aparte (`VEC_FIRMA_VERIFICACION_*`).
+
+- Hecho (F1-35, #1137): cinco firmas reales verificadas y el PDF descargado
+  desde la ficha tras reiniciar, en la copia del equipo H.
+- En `main` y visto en copia local: la copia compone la firma con la orden
+  `copia_local.py firma` (F1-32, #1262). El técnico y la Jefatura firman el
+  informe del paso 7b en Chrome, también tras reiniciar, y la firma de Jefatura
+  se registra siempre desde la ficha (F1-94, #1276).
+- Falta: las tres firmas de la resolución en el mismo expediente del caso 4.0
+  (F1-27). Las frenan dos fallos abiertos: la firma de Jefatura da 403 desde
+  Chrome y 201 por curl con el mismo cuerpo y certificado (F1-117), y los roles
+  de cargo que publica `vec-publicar-cargos-firma` se guardan sin
+  `retirada_en`, con lo que ninguna admisión AUT58 cuadra después (F1-118). La
+  firma por cargo con plan v2 es F1-58.
 
 Orden de firma del catálogo vigente
 (`data/catalogos/contratacion-temporal/circuito_firma.v2.json`):
@@ -1386,6 +1397,28 @@ efecto.
 - Cada decisión permite reconstruir persona, perfil, acción, recurso,
   finalidad, versiones e instante sin copiar datos personales de más.
 
+### 6.7 Lo que la copia siembra y no es autoritativo
+
+La copia local pone por semilla algunos permisos y asignaciones que en
+producción tienen que salir de un acto de Administración, del directorio o de
+Personal. Funcionan en la copia, pero no prueban que la vía gobernada exista.
+Cada uno tiene la tarea que lo retira:
+
+| Qué siembra la copia | Dónde | Lo retira |
+| --- | --- | --- |
+| Rol `consulta_organizacion_historica_rrhh` v1 y un perfil gemelo de la técnica de RRHH para leer los puestos de Personal, marcados `identidad:desarrollo:no-autoritativa` (F1-103, #1296, en revisión) | `crear --modulos` | F1-104 (cada técnico lee con su propio perfil y se retira el certificado fijo M10) y F1-106 (el rol lo publican dos administradores) |
+| Lectura de Personal para Contratación con un certificado fijo (M10): todos los técnicos leen con la identidad de una sola persona | Material de la copia, `cliente_m10_ct.json` | F1-104 |
+| Primera entrada de una persona en un conjunto de organización y unidad: semilla gemela de la del primer técnico de RRHH, también para la segunda persona técnica de `--segundo-rrhh` | `crear --modulos` y `--segundo-rrhh` | F0-37 |
+| Ámbito legado `organizacion:desarrollo:dipgra` de Contratación temporal | Composición de la copia | F0-36 |
+| Asignaciones ficticias de perfiles de Contratación temporal y sus ámbitos, por SQL | Datos de semilla | F0-04 y F0-05 (lote de Administración con unidad y ámbito) |
+| Organización legada de las firmas (CA45, AUT37, Personal31) | Orden `firma` | F2-12 y F2-14 (F1-63) |
+| Rol externo del aspirante con las acciones del justificante (F1-07) y los campos de modalidad (F1-40). F1-115 publica por la vía gobernada la versión con la inscripción v2, las modalidades y el orden de mis bolsas | `crear --portal-externo` | F2-12 |
+| Admisiones técnicas del aspirante externo que faltan en el respaldo | `crear --portal-externo` | F0-21 |
+| Declaración de la publicación oficial de las bases, aplicada en cada arranque (F1-61) | `crear` y arranque | F1-95 (RRHH la declara desde la web) |
+
+Una semilla nueva entra en esta tabla en la misma PR que la crea, con la tarea
+que la retirará.
+
 ## 7. Resumen de estado por tramo
 
 | Tramo | Funciona en la copia local | En main, sin subir | Falta |
@@ -1405,7 +1438,7 @@ efecto.
 | Llamamiento desde la bolsa constituida | Puente anterior *(por verificar en copia local)* | #1088 | Recorrido con la bolsa real |
 | Oferta con varias plazas desde CT | | | Conexión CT con ofertas de Bolsa |
 | Propuesta, resolución y documentos | Sí *(por verificar en copia local)* | | Plantillas Word de RRHH (duda 124) |
-| Firma de tres cargos | | | #1099 y GrxFirma |
+| Firma de tres cargos | Informe del paso 7b, con reinicio (F1-32 y F1-94); cinco firmas y PDF tras reiniciar en la copia de H (F1-35) | | Tres firmas de la resolución en el expediente del 4.0 (F1-27), frenadas por F1-117 y F1-118 |
 | GINPIX | Ficha y confirmación manual *(por verificar en copia local)* | | Transmisión automática (duda 127) |
 | Incorporación acreditada por el centro | Sí *(por verificar en copia local)* | | |
 | Paso a Personal | Encendido *(por verificar en copia local)* | | Expediente con categoría RPT (#1070) |
