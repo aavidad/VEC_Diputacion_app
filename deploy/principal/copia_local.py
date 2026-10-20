@@ -553,7 +553,8 @@ class Copia:
             try:
                 conexion.request('POST' if datos is not None else 'GET', ruta, body=datos,
                                  headers={'Origin': origen, 'Content-Type': 'application/json',
-                                          'Accept': 'application/json'})
+                                          'Accept': 'application/json', 'Sec-Fetch-Site': 'same-origin',
+                                          'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty'})
                 r = conexion.getresponse()
                 r.read()
                 if r.status != 200:
