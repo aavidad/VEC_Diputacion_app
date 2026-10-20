@@ -616,6 +616,14 @@ inscripción no cambian.
 
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
 
+Los adaptadores de petición del centro y entrega a RRHH reciben su organización
+como argumento explícito de composición y la conservan en el repositorio. Esa
+referencia forma parte de la huella del recurso de autorización; el material
+JSON conserva su contrato SQL. Los adaptadores de reglas y plantillas admiten
+la referencia explícita y mantienen su cotejo exacto. El montaje con fuentes
+maestras publicadas sigue pendiente. Contrato y activación del primer corte de
+F1-128 en [`referencia_organizativa_ct_f1_128.md`](../../deploy/principal/referencia_organizativa_ct_f1_128.md).
+
 F1-47 amplía la consulta existente de seguimiento con la versión, fase,
 estado y número visible actuales del expediente (CT242). Fase y estado salen
 de las columnas de la versión vigente y el número es el de la numeración
@@ -683,6 +691,13 @@ configurables), `vinculo_categoria_rpt_ct_v1`, `numeracion_*`,
 Personal: pide el llamamiento a Bolsa y la incorporación a Personal por sus
 funciones nominales (`programar-backend-vec`).
 
+La consulta del detalle añade `origen_ct_confirmado` a cada participación de
+Bolsa. Solo acredita una aceptación firme singular cuyo recibo y emisión
+corresponden a la selección confirmada de CT y a su versión fiscalizada
+histórica. La autorización y auditoría siguen en la lectura nominal existente;
+la marca no concede una escritura. El panel conserva el justificante original
+de Mi Bolsa; la resolución pertenece al segundo corte de F1-125.
+
 F1-19 prepara un expediente hijo por cada plaza aceptada de una oferta del
 padre fiscalizado. Bolsa verifica la aceptación y CT conserva la relación con
 padre, plaza y recibo en una operación atómica. La ruta
@@ -741,6 +756,14 @@ versión y recibo reales. Los campos exclusivos de comunicación quedan ausentes
 La selección se obtiene de Contratación, sin consultar tablas de Bolsa. No añade
 consumidor de autorización ni permisos por defecto. Activación y límites en
 [`seleccion_pendiente_aviso_20261016.md`](../../deploy/principal/seleccion_pendiente_aviso_20261016.md).
+
+F1-124 conserva en esa consulta los códigos de serialización e interbloqueo
+(`40001`, `40P01`, CT248). El lector repite la operación completa con la
+política común y una autorización nueva después de revertir el intento
+anterior. Los permisos, el consumo y la auditoría siguen siendo obligatorios;
+los bloqueos y las inconsistencias conservan su error. Activación conjunta de
+SQL y binario en
+[`comunicaciones_f1_124.md`](../../deploy/principal/comunicaciones_f1_124.md).
 
 F1-69 prepara CT238: un índice único parcial en O6 impide más de una
 selección `confirmada` por organización y expediente. Antes de crearlo,

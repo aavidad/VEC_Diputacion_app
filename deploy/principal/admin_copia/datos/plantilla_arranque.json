@@ -1,0 +1,79 @@
+{
+ "version": 1,
+ "entorno": "desarrollo",
+ "alcance_fuente": "sintetico_declarado",
+ "destino": "principal_desarrollo",
+ "backup": {
+  "ref": "",
+  "sha256": ""
+ },
+ "privado": "",
+ "kit": {},
+ "psql_comando": [],
+ "psql_env": {},
+ "proveedor": {
+  "directorio_material": "",
+  "ruta_configuracion_hmac": "",
+  "espacio_identidad": "https://localhost/vec/desarrollo/identidad",
+  "dominio_ref": "idh_5873cbfca4e8e9e14faa97208a43888c",
+  "espacio_clave": "vec.identidad.admin.fuentes.sinteticas",
+  "dominio_hmac": "vec.identidad.desarrollo.hmac.v1",
+  "incluir_cuenta_ordinaria": false
+ },
+ "fuentes": {
+  "nombres": [
+   "Irene Robles Vega",
+   "Daniel Ortega Soria"
+  ],
+  "host_admin": "admin.localhost",
+  "ca_dias": 400,
+  "maxima_edad_revocacion_segundos": 300,
+  "ttl_plan_segundos": 7200,
+  "ttl_personas_segundos": 7689600,
+  "ttl_organizacion_segundos": 7776000,
+  "politica_aprobacion": ""
+ },
+ "unidad": {
+  "denominacion": "Servicio de Recursos Humanos",
+  "clase": "centro",
+  "catalogo_ref": "estructura-organizativa-dipgra",
+  "catalogo_version": 1,
+  "catalogo_revision": 1,
+  "catalogo_entrada_clave": "",
+  "ttl_plan_segundos": 7200,
+  "vigencia_dias": 89,
+  "unidad_ref": "unidad:desarrollo:rrhh"
+ },
+ "bootstrap": {
+  "ttl_plan_segundos": 7200,
+  "ttl_perfiles_segundos": 7603200,
+  "audiencia_selector": "admin:selector:h10:v1",
+  "audiencia_administrativa": "admin:h10:v1",
+  "app_role_ref": "rol:administracion_perfiles:v9",
+  "sys_role_ref": "rol:operador_plataforma:v1",
+  "duracion_propuesta_segundos": 3600
+ },
+ "dba": {
+  "fuentes": {
+   "login": "",
+   "proceso": "",
+   "motivo_ref": "motivo:fuentes_admin:sinteticas_h10",
+   "aprobacion_ref": "",
+   "conexion": "",
+   "aprobacion_externa": ""
+  },
+  "unidad": {
+   "login": "",
+   "aprobacion_ref": "",
+   "conexion": "",
+   "aprobacion_externa": ""
+  },
+  "bootstrap": {
+   "login": "",
+   "proceso": "",
+   "aprobacion_ref": "",
+   "conexion": "",
+   "aprobacion_externa": ""
+  }
+ }
+}

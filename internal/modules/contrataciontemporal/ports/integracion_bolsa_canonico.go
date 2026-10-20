@@ -94,6 +94,9 @@ func (c *constructorCanonicoBolsa) procedencia(valor ProcedenciaIntegracionBolsa
 		c.booleano("sin_retencion_declarada", true)
 		c.booleano("politica_provisional", valor.PoliticaProvisional)
 	}
+	if valor.ConsultasPersonal != "" {
+		c.campo("consultas_personal", string(valor.ConsultasPersonal))
+	}
 }
 
 func (c *constructorCanonicoBolsa) bytes() []byte {

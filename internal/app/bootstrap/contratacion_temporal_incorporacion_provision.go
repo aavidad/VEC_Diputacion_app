@@ -121,7 +121,7 @@ func asignarPerfilesNominalesIncorporacionEnFronteras(s *soporteAltaContratacion
 	encontrada := false
 	for i := range resultado {
 		if resultado[i].Metodo == "POST" && resultado[i].Ruta == httpinterno.RutaConsultaDetalleRRHH {
-			if !esDescriptorDetalleContratacionTemporalDesarrollo(resultado[i], s.contexto.Resultado.Contexto.PerfilActivoRef) {
+			if !esDescriptorDetalleContratacionTemporalDesarrollo(resultado[i], s) {
 				return nil, ct.ErrComposicionIncorporacionAplicacion
 			}
 			for _, perfil := range perfiles {

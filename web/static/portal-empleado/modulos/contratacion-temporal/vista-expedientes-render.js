@@ -144,6 +144,7 @@ export function contextoLlamamientoDesdeEstado(estado, reciboFiscalizacion = nul
     version_esperada: expediente.version,
     ...(Number.isSafeInteger(expediente.numero_personas) && expediente.numero_personas > 0
       ? { numero_personas: expediente.numero_personas } : {}),
+    ...(expediente.resultado_bolsa ? { resultado_bolsa: expediente.resultado_bolsa } : {}),
   });
 }
 

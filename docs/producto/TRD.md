@@ -251,6 +251,22 @@ GINPIX manual y cese desde una configuración aprobada, sin copiar capacidades
 antiguas. La activación y la semilla no autoritativa de Plantilla están en el
 apartado 12 de esa guía. El arranque HTTP no acredita el recorrido funcional.
 
+F1-131 añade `crear --recorrido-completo` con productores versionados. Prepara
+Administración con dos personas, los roles simples, el plan, las admisiones,
+Documentos y Personal; los roles compuestos conservan su condición de semilla
+técnica. Genera material propio y coteja el software de verificación declarado.
+Puede incluir el manejador de firma y conserva las huellas de ambos. Los LOGIN nuevos
+caducan a los 90 días; los certificados de desarrollo pueden cubrir 400.
+La orden y sus parámetros están en `deploy/principal/recorrido_copia/LEEME.md`.
+El certificado original conserva la tramitación de RRHH y usa un perfil
+documental propio, distinto del perfil dinámico CT y de los cuatro nominales.
+El técnico firmante recibe un cuarto certificado propio; ningún certificado
+comparte tramitación y firma. Los cuatro firmantes conservan sus perfiles de
+custodia y admisiones, separados del perfil documental de la técnica original.
+La creación y recuperación iniciales se comprobaron en otra copia; la nueva
+composición exige otra creación y revisión antes de acreditarse. Estas pruebas
+no acreditan la firma ni el recorrido completo del expediente.
+
 ### Arranque de Administración
 
 `vec-admin` requiere `VEC_ADMIN_USUARIOS_CONFIG_FILE`, el fichero privado de
@@ -486,6 +502,23 @@ transacción. No se crean fachadas de permisos nuevas para cada lectura. Su esta
 
 ## 6. Autorización
 
+En desarrollo, el cuadro, el detalle y la descarga de Contratación temporal
+usan un perfil estable de lectura de la técnica (F1-114, compuesto en
+F1-124). Reúne sus tres concesiones existentes, con los mismos ámbitos,
+persona y cuenta. Cada petición comprueba la asignación publicada; no cambia
+el rol por consultar ni recupera una asignación revocada. Su preparación en
+la copia usa la vía no autoritativa de perfiles fijos y no sustituye la
+provisión gobernada del uso real. Activación en
+`deploy/principal/comunicaciones_f1_124.md`.
+
+La incorporación nominal a Personal reutiliza la frontera exacta de consulta
+del detalle de CT. Si la composición ha ligado el perfil fijo técnico, compara
+esa referencia concreta y rechaza el perfil dinámico retirado, otro fijo o un
+perfil vacío. Conserva método, ruta, política, capacidad y superficie; no suma
+los permisos de los perfiles. Sin un fijo ligado, valida el perfil base de la
+configuración anterior. Activación y comprobaciones en
+`deploy/principal/perfil_consulta_incorporacion_f1_137.md`.
+
 Se deniega por defecto. Solo autoriza una concesión central positiva, exacta y
 vigente para actor, perfil, acción, recurso, ámbito, finalidad, campos y
 obligaciones. Ausencia, lista vacía, ambigüedad, valor desconocido, caducidad,
@@ -659,6 +692,12 @@ los límites del ensayo se describen en
 - **Minimización.** Listados, auditoría y eventos usan referencias opacas y los
   datos justos. Los datos especialmente protegidos (por ejemplo, discapacidad)
   solo si la convocatoria lo exige y con medidas reforzadas.
+- **Actores de los catálogos (F1-126).** En `catalogo.creado_por` y
+  `catalogo.publicado_por`, el lector reconoce únicamente la referencia
+  canónica `per_` seguida de 32 caracteres hexadecimales en minúsculas.
+  Sus cifras no se interpretan como un teléfono. La excepción no se aplica
+  al texto libre, a otras rutas ni a referencias de otro tipo o malformadas;
+  siguen vigentes los detectores de datos personales y secretos.
 - **Contacto de candidatos**: enmascarado en listados y completo en la ficha, con
   constancia de quién lo consultó.
 - **Internos y externos separados.** Datos de trabajadores y de aspirantes no se

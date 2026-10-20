@@ -286,8 +286,7 @@ func nuevoServidorDesarrollo(
 	}
 	consultasPersonal := nuevasConsultasPublicasPersonal(cfg, categoriasPersonal, registro)
 	servidorSinCT := func(componente string, causa error) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
-		fallo := marcarFalloComponenteArranque(componente, causa)
-		slog.Warn("contratacion_temporal_no_disponible", "componente", ComponenteFalloArranque(fallo), "causa", telemetria.ClaseErrorArranque(fallo))
+		registrarAvisoFalloMontajeCTDesarrollo(marcarFalloComponenteArranque(componente, causa))
 		return nuevoServidorSinContratacionTemporalDesarrollo(cfg, composicion, resolvedor, consultaCategorias, categoriasPersonal, consultasPersonal, emisor)
 	}
 	if falloPreferencias != nil {

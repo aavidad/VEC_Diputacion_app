@@ -7,6 +7,9 @@ Tarea F0-28 del tablero. Sin selectores arranca con las funciones opcionales
 apagadas. `--modulos` prepara conexiones nuevas de Contratación y Bolsa y un
 buzón local; `--portal-externo` añade la preparación del aspirante desde el
 material privado de copia. El gobierno de administradores sigue pendiente.
+[La orden completa de F1-131](recorrido_copia/LEEME.md) añade productores
+versionados de Administración, firma y actores del recorrido. Sigue pendiente
+de aceptación integrada; la preparación anterior mantiene sus opciones.
 Un portal que responde 200 acredita el arranque; el recorrido requiere además
 las consultas y actuaciones de cada módulo.
 
@@ -1028,6 +1031,26 @@ lecturas con las mismas referencias. El recorrido de aceptación y sus actos
 los registra el equipo responsable del caso 4.0.
 
 ### Lo que la copia siembra y no es autoritativo
+
+El recorrido completo declara la fuente versionada de necesidades de alta junto
+con la RPT, antes del primer arranque. Conserva la referencia y versión del
+catálogo que emplea el formulario de peticiones del centro.
+
+Para una copia completa anterior que carezca de esa variable, ejecuta desde
+la revisión que incorpora el activador:
+
+```sh
+python3 deploy/principal/copia_local_necesidades.py \
+  --fuente-copia "$FUENTE_CONGELADA_DE_LA_COPIA" --equipo "$EQUIPO" --instancia "$INSTANCIA"
+```
+
+El activador usa el gestor y el catálogo de la fuente congelada de esa copia.
+Coteja su revisión limpia y binario, toma su candado, conserva las demás
+variables y reinicia PostgreSQL y la aplicación con sus comprobaciones. Si
+falla, restaura el entorno anterior y comprueba el arranque recuperado. No
+cambia la revisión ni la huella del binario y no presenta ninguna petición.
+La operación pendiente mantiene su clave; su continuación corresponde al
+equipo que realiza el recorrido.
 
 - F1-119 reutiliza la semilla de Plantilla de HZ39: fecha 07/05/2026,
   plaza 2026/0033 y cobertura enlazada a la revisión de Plantilla. No acredita
