@@ -1,6 +1,7 @@
 """Contratos del arranque ADMIN, con datos ficticios y sin servicios externos."""
 
 import datetime as dt
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -73,6 +74,150 @@ class ArranqueAdminTest(unittest.TestCase):
                     with self.assertRaisesRegex(
                             arranque.Paro, 'vigencia_autoridad_fuera_de_60_90_dias'):
                         arranque.cargar_config(path)
+
+    def escenario_bootstrap(self, dias):
+        inicio = dt.datetime(2026, 10, 20, tzinfo=dt.timezone.utc)
+        for nombre in ('fuentes', 'unidad'):
+            (self.root / nombre).mkdir(mode=0o700)
+        refs = ('per_1', 'per_2')
+        vencimiento = arranque.fmt(inicio + dt.timedelta(days=dias))
+        fuente_plan = {
+            'organizacion': {'organizacion_ref': 'org_ficticia',
+                             'vigente_hasta': vencimiento},
+            'personas': [{'persona_ref': ref, 'vigente_hasta': vencimiento}
+                         for ref in refs],
+            'politica_admin': {'politica_ref': 'pga_ficticia',
+                               'vigente_hasta': vencimiento}}
+        huella = arranque.sha(arranque.canon(fuente_plan))
+        self.privado('fuentes/plan.json', arranque.canon({
+            'plan': fuente_plan, 'huella_plan_sha256': huella}))
+        ca = b'ca ficticia'
+        self.privado('fuentes/ca.der', ca)
+        self.privado('fuentes/fuente.json', arranque.canon({
+            'procedencia': {'referencia': 'prc_ficticia', 'version': 1,
+                            'huella_sha256': 'a' * 64},
+            'politica_admin': {'politica_ref': 'pga_ficticia',
+                               'ca_sha256': arranque.sha(ca)}}))
+        certificados = []
+        personas = []
+        for i, ref in enumerate(refs, 1):
+            der = ('certificado ficticio ' + ref).encode()
+            self.privado(f'fuentes/cliente-{i}.der', der)
+            certificados.append({'persona_ref': ref,
+                                 'cert_der_sha256': arranque.sha(der),
+                                 'ca_der_sha256': arranque.sha(ca)})
+            personas.append({'persona_ref': ref,
+                             'cuenta_privilegiada_ref': f'cta_{i}',
+                             'proyeccion_cuenta_version': 1,
+                             'persona_version': 1})
+        self.privado('fuentes/certificados.json', arranque.canon({
+            'certificados': certificados}))
+        # La unidad se prepara un día después de las fuentes con el mismo plazo.
+        fecha_unidad = (inicio + dt.timedelta(days=dias + 1)).date().isoformat()
+        unidad = {'unidad_ref': 'unidad:ficticia', 'fuente_ref': 'prc_unidad',
+                  'fuente_sha256': 'b' * 64, 'vigente_hasta': fecha_unidad}
+        fuente_recibo = {'recibo_ref': 'rec_fuentes', 'plan_sha256': huella,
+                         'ca': {'datos': {'organizacion_ref': 'org_ficticia',
+                                          'personas': personas}}}
+        unidad_recibo = {'recibo_ref': 'rec_unidad', 'plan_sha256': 'c' * 64,
+                         'fuente_ref': unidad['fuente_ref'],
+                         'fuente_sha256': unidad['fuente_sha256'], 'unidad': unidad}
+        categoria = lambda tipo: {'categoria_administrativa': tipo,
+                                   'fuente_ref': 'prc_rol', 'fuente_version': 1,
+                                   'fuente_huella_sha256': 'd' * 64}
+        rol = lambda tipo, version: {'version_ref': version, 'rol_id': tipo,
+                                     'huella': 'e' * 64, 'estado': 'publicada',
+                                     'control': {'estado': 'habilitada', 'revision': 1,
+                                                 'huella_sha256': 'f' * 64},
+                                     'categoria': categoria(tipo),
+                                     'dimensiones': ['organizacion_ref']}
+        metadata = {
+            'control': {'bootstrap_estado': 'pendiente', 'revision': 1,
+                        'bootstrap_acto_ref': None},
+            'fuente': fuente_recibo, 'unidad': unidad_recibo,
+            'politica': {'politica_ref': 'pga_ficticia',
+                         'huella_aprobacion_sha256': 'a' * 64,
+                         'vigente_hasta': vencimiento},
+            'roles': [rol('aplicacion', 'rol:aplicacion'),
+                      rol('sistemas', 'rol:sistemas')]}
+        config = {'privado': str(self.root), 'bootstrap': {
+            'ttl_plan_segundos': 7200, 'ttl_perfiles_segundos': dias * 86400,
+            'duracion_propuesta_segundos': 3600,
+            'app_role_ref': 'rol:aplicacion', 'sys_role_ref': 'rol:sistemas',
+            'audiencia_selector': 'admin:ficticio',
+            'audiencia_administrativa': 'admin:ficticio'},
+            'kit': {'catalogos': {'bootstrap_preparar': '/ficticio/catalogo'}}}
+        acuses = {'fuentes': (None, {'estado': 'permitido', 'recibo': fuente_recibo}),
+                  'unidad': (None, {'estado': 'permitido', 'recibo': unidad_recibo})}
+        return inicio, fuente_plan, config, metadata, acuses
+
+    def test_bootstrap_acota_perfiles_a_autoridades_confirmadas(self):
+        inicio, fuente, config, metadata, acuses = self.escenario_bootstrap(90)
+        posterior = inicio + dt.timedelta(days=1)
+
+        def cli_ficticia(_c, _nombre, _args):
+            plan = json.loads(arranque.privado(self.root / 'bootstrap/material-v3.json'))
+            self.privado('bootstrap/plan-v3.json', arranque.canon({
+                'plan': plan, 'huella_plan_sha256': arranque.sha(arranque.canon(plan))}))
+
+        with patch.object(arranque, 'now', return_value=posterior), \
+             patch.object(arranque, 'confirmacion_vigente',
+                          side_effect=lambda path, _fase: acuses[path.name]), \
+             patch.object(arranque, 'metadata_bootstrap', return_value=metadata), \
+             patch.object(arranque, 'getter_hash', return_value='a' * 64), \
+             patch.object(arranque, 'cli', side_effect=cli_ficticia), \
+             patch.object(arranque, 'estado'):
+            arranque.preparar_bootstrap(config)
+        plan = json.loads(arranque.privado(self.root / 'bootstrap/material-v3.json'))
+        limite = arranque.parse(fuente['personas'][0]['vigente_hasta'])
+        self.assertLess(limite, posterior + dt.timedelta(days=90))
+        self.assertGreaterEqual(limite, posterior + dt.timedelta(days=60))
+        self.assertLessEqual(limite, arranque.fecha_unidad_utc(
+            metadata['unidad']['unidad']['vigente_hasta']))
+        for persona in plan['personas']:
+            hasta = arranque.parse(persona['vigente_hasta'])
+            self.assertEqual(hasta, limite)
+            # CA33 publica cada proyección de cuenta con la misma fecha de su persona.
+            self.assertLessEqual(hasta, arranque.parse(fuente['organizacion']['vigente_hasta']))
+            self.assertLessEqual(hasta, arranque.parse(next(
+                p['vigente_hasta'] for p in fuente['personas']
+                if p['persona_ref'] == persona['persona_ref'])))
+            for sistema in persona['sistemas']:
+                self.assertEqual(arranque.parse(sistema['vigente_hasta']), limite)
+        self.assertTrue(all(arranque.parse(r['vigente_hasta']) == limite
+                            for r in plan['gobierno']['roles']))
+
+    def test_bootstrap_respeta_politica_vigente_y_fin_civil_de_unidad(self):
+        inicio, fuente, config, metadata, _acuses = self.escenario_bootstrap(90)
+        posterior = inicio + dt.timedelta(days=1)
+        politica = {**metadata['politica'], 'vigente_hasta': arranque.fmt(
+            posterior + dt.timedelta(days=61))}
+        self.assertEqual(arranque.vencimiento_bootstrap(
+            posterior, config['bootstrap'], fuente, metadata['unidad'], politica),
+            posterior + dt.timedelta(days=61))
+        unidad = {**metadata['unidad'], 'unidad': {
+            **metadata['unidad']['unidad'],
+            'vigente_hasta': (posterior + dt.timedelta(days=60)).date().isoformat()}}
+        self.assertEqual(arranque.vencimiento_bootstrap(
+            posterior, config['bootstrap'], fuente, unidad, metadata['politica']),
+            posterior + dt.timedelta(days=60))
+
+    def test_bootstrap_rechaza_autoridad_sin_60_dias_antes_del_plan(self):
+        inicio, _fuente, config, metadata, acuses = self.escenario_bootstrap(60)
+        posterior = inicio + dt.timedelta(seconds=1)
+        with patch.object(arranque, 'now', return_value=posterior), \
+             patch.object(arranque, 'confirmacion_vigente',
+                          side_effect=lambda path, _fase: acuses[path.name]), \
+             patch.object(arranque, 'metadata_bootstrap', return_value=metadata), \
+             patch.object(arranque, 'getter_hash') as getter, \
+             patch.object(arranque, 'cli') as cli:
+            with self.assertRaisesRegex(arranque.Paro, 'bootstrap_autoridad_agotada'):
+                arranque.preparar_bootstrap(config)
+        getter.assert_not_called()
+        cli.assert_not_called()
+        self.assertFalse((self.root / 'bootstrap/material-v3.json').exists())
+        self.assertFalse((self.root / 'bootstrap/plan-v3.json').exists())
+        self.assertFalse((self.root / 'bootstrap/reparto-propuesto.json').exists())
 
     def test_aprobacion_externa_exige_plan_y_backup_exactos(self):
         plan = 'a' * 64

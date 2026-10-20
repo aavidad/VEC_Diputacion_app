@@ -25,6 +25,16 @@ admitido para la copia. `ca_dias` corresponde al certificado X.509 y puede
 tener otra duración; las ventanas breves de preparación, aprobación y
 revocación mantienen sus valores propios.
 
+Al preparar el gobierno inicial, los perfiles y los roles se acotan a la
+primera fecha de vencimiento entre el plazo pedido, las personas y cuentas del
+plan de fuentes confirmado, la organización, la política de certificados
+vigente y la unidad publicada. La fecha civil de la unidad vence a medianoche
+UTC. Deben quedar al menos 60 días desde este paso: una configuración de 60
+días válida al preparar fuentes puede no servir después, aunque solo hayan
+pasado unos segundos. En ese caso la etapa se detiene antes de crear el plan
+de bootstrap; se prepara una copia nueva con autoridad suficiente, sin
+prolongar la ya publicada.
+
 El conductor de la copia debe comprobar antes la revisión candidata limpia,
 el SID de PostgreSQL y el candado del destino cuando proceda. Este guion
 comprueba el destino declarado, el estado SQL de arranque, las copias de
