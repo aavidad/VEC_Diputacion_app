@@ -42,8 +42,8 @@ las pruebas de contrato y de denegación del núcleo por sí solas no lo sustitu
 
 Las preimágenes se extrajeron de PostgreSQL 18.4 propio, con la fuente base
 `a8e4f8994` (main y la candidata AD301/BC17) y 133 migraciones instaladas.
-La migración recompone las dos funciones desde sus definiciones instaladas:
-marca única, cinco líneas retiradas y comparación de cuerpos, configuración,
+La migración incluye las dos definiciones estáticas completas, generadas
+desde las instaladas: cinco líneas retiradas y comparación de cuerpos, configuración,
 propietarios, permisos y dependencias. La lista de audiencias se conserva.
 
 | Función | Antes | Después |
@@ -56,3 +56,7 @@ AD292. La primera conserva su contrato de publicación con la nueva huella
 global; la segunda coteja la fachada, la denegación de material ajeno y la
 ausencia de consumo en el rechazo. Las dos quedan en la puerta de fase 1.
 Estos casos no emiten decisiones falsas ni acreditan un acto permitido.
+
+El archivo SQL generado tiene 3500 líneas; `ad305_cuerpos.diff` muestra el
+cambio de veinte líneas de contexto. La línea base de tamaño registra ese
+cuerpo completo exigido por la guarda estructural, sin ampliar el alcance.
