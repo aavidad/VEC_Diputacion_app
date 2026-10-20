@@ -91,11 +91,11 @@ se copia de su salida.
 | 1 Bolsa y CT | 19 | 5 | 10 | 1 | 63 | 5 | 6 | 3 | 112 |
 | 2 Personal y Organización | 10 | 3 | 1 | 0 | 0 | 0 | 0 | 1 | 15 |
 | 3 Cronos | 8 | 4 | 0 | 0 | 0 | 0 | 1 | 0 | 13 |
-| 4 Dietas | 5 | 4 | 0 | 0 | 0 | 0 | 1 | 0 | 10 |
+| 4 Dietas | 5 | 4 | 0 | 0 | 4 | 0 | 1 | 0 | 14 |
 | 5 Sustituir Convoca | 8 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 13 |
 | 6 Resto de módulos | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 0 | 13 |
 | 7 Uso real y producción | 18 | 14 | 0 | 0 | 0 | 0 | 1 | 0 | 33 |
-| **Total** | **82** | **39** | **14** | **2** | **74** | **5** | **25** | **5** | **246** |
+| **Total** | **82** | **39** | **14** | **2** | **78** | **5** | **25** | **5** | **250** |
 
 F0-24A y F1-65A llevan letra y el recuento no las cuenta. Los números de
 tres cifras (F1-100 a F1-114) sí se cuentan.
@@ -112,7 +112,7 @@ dependencias hechas o fusionadas). De ellas, 15 tienen equipo:
 Sin equipo todavía: F0-11, F0-16, F0-17, F1-53, F1-56 (opcional) y F1-62.
 F0-37 la lleva L con la semilla de la copia.
 Fuera de las fases 0 y 1 salen catorce más (F2-01, F2-02, F3-02, F3-03,
-F3-06, F3-11 a F3-13, F4-08 a F4-10, F7-13, F7-23 y F7-30), pero la prioridad vigente no deja encargarlas antes de
+F3-06, F3-11 a F3-13, F4-12 a F4-14, F7-13, F7-23 y F7-30), pero la prioridad vigente no deja encargarlas antes de
 cerrar la fase 1.
 
 Fase 1 sin aparcadas ni canceladas: 103 tareas. 68 están en `main`
@@ -125,12 +125,16 @@ Fase 1 sin aparcadas ni canceladas: 103 tareas. 68 están en `main`
   y [estudio de Dietas](../estudio_requisitos/estado_dietas_20261021.md).
   Pasan sus pruebas Go (15 y 16 paquetes con pruebas, respectivamente).
 - Se reconocen las piezas montadas y las construidas sin montar en las filas
-  existentes; se añaden F3-11 a F3-13 y F4-08 a F4-10 para capacidades sin
-  fila propia. Las subdivisiones que ya cubrían otras tareas quedan en sus
-  notas para evitar contar dos veces el mismo resultado.
+  existentes; se añaden F3-11 a F3-13 y F4-08 a F4-14. Las cuatro primeras
+  filas nuevas de Dietas están Fusionada, sin recorrer en la web; las tres
+  restantes siguen Pendiente. Las tareas anteriores conservan el alcance
+  completo que sus componentes aún no cubren.
 - Ninguna tarea nueva pasa a Hecha: falta comprobar la web y el reinicio.
-  La copia no pudo prepararse por falta de los productores privados de datos
-  y roles. «Pendiente» no implica que haya que volver a construir el código.
+  Dirección ordenó no crear copia esta noche. «Fusionada» exige montaje,
+  ruta, lista SQL, pantalla y pruebas; «sin recorrer en la web» queda en
+  la evidencia. Cronos no tiene lista principal completa para 000001 a
+  000010; esa carencia se conserva, sin deducir instalación del volcado.
+  «Pendiente» no implica que haya que volver a construir el código.
 - El recuento corrige también F1-103: dos barras de una expresión SQL
   desplazaban sus columnas. Se describe la expresión con palabras; su estado
   sigue En revisión. No cambia ninguna tarea de otras fases.
@@ -580,7 +584,9 @@ informes con política provisional (decisión del 15/10 a las 00:05).
 El [estudio del 21/10](../estudio_requisitos/estado_cronos_20261021.md)
 identifica ocho rutas básicas y ocho opcionales, con pantallas y 15 paquetes
 Go probados. No hay recorrido nuevo en Chrome ni inventario de una base
-instalada: se conserva esa comprobación pendiente para cada capacidad.
+instalada. La lista principal solo enumera la optimización 000015; falta
+la cadena 000001 a 000010 para acreditar las capacidades montadas como
+Fusionada según dirección del 20/10 a las 22:06.
 
 | ID | Tarea | Zona de código | Depende de | Bloqueo | Tam. | Equipo | Rama/PR | Estado | Desde | Cómo se comprueba | Fuente |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -594,9 +600,9 @@ instalada: se conserva esa comprobación pendiente para cada capacidad.
 | F3-08 | C10 y C11: incidencias, presencia y equipo. Movimientos propios montados; agregados y presencia construidos sin montar sobre equipo nominal (estudio Cronos, C10/C11). | `internal/modules/cronos` | F3-02 | - | M | Sin asignar | - | Pendiente | 15/10 | Jefatura ve solo lo mínimo de su equipo | Plan del módulo |
 | F3-09 | C12: cierre mensual e informes con permiso de exportación propio. Informes locales CSV/PDF construidos y probados, sin rutas de exportación nominal ni cierre mensual (estudio Cronos, C12). | `internal/modules/cronos` | F3-07 | Duda 118 (provisional en catálogo) | L | Sin asignar | - | Pendiente | 15/10 | Mes cerrado reproducible tras reiniciar | Plan del módulo |
 | F3-10 | Fichaje web solo para teletrabajo autorizado. Fichaje remoto y recuperación montados; autorización de teletrabajo comprobada con dobles. Falta recorrido web (estudio Cronos, C2). | `internal/modules/cronos` | F3-02 | Duda 42 (RRHH) | M | Sin asignar | - | Bloqueada | 15/10 | Fichaje con la hora del servidor | Plan del módulo |
-| F3-11 | Identidad común de Cronos: frontera por certificado y vínculo vigente construida y montada; sin comprobar en la web | `internal/app/bootstrap/cronos_empleado.go` | - | - | S | Sin asignar | #36, #46, #861 | Pendiente | 21/10 | Sesión nominal y ámbito de organización; pruebas de composición positivas | Estudio Cronos del 21/10, C1; `cronos_empleado.go:170` |
-| F3-12 | Catálogo versionado de permisos: consulta montada y probada; cuantías provisionales. Se separa del circuito F3-05 | `internal/modules/cronos`; `web/static` | - | - | S | Sin asignar | #40 | Pendiente | 21/10 | Catálogo y fuente por régimen desde pantalla, con reinicio | Estudio Cronos del 21/10, C6; `cronos_empleado.go:657` |
-| F3-13 | Notificaciones a RRHH y archivo de avisos: construidos y montados; sin comprobar en la web. La concesión se conserva en F3-05 | `internal/modules/cronos`; `web/static` | F0-18 | - | S | Sin asignar | #51 | Pendiente | 21/10 | Envío, atención y archivo con recibo recuperado; referencia no equivale a adjunto custodiado | Estudio Cronos del 21/10, C9; `cronos_empleado.go:663` |
+| F3-11 | Identidad común de Cronos: frontera por certificado y vínculo vigente construida y montada; sin comprobar en la web | `internal/app/bootstrap/cronos_empleado.go` | - | - | S | Sin asignar | #36, #46, #861 | Pendiente | 21/10 | Sesión nominal y ámbito de organización; pruebas de composición positivas. Falta lista SQL principal completa; sin recorrer en la web | Estudio Cronos del 21/10, C1; `cronos_empleado.go:170` |
+| F3-12 | Catálogo versionado de permisos: consulta montada y probada; cuantías provisionales. Se separa del circuito F3-05 | `internal/modules/cronos`; `web/static` | - | - | S | Sin asignar | #40 | Pendiente | 21/10 | Catálogo y fuente por régimen desde pantalla, con reinicio. Falta lista SQL principal completa; sin recorrer en la web | Estudio Cronos del 21/10, C6; `cronos_empleado.go:657` |
+| F3-13 | Notificaciones a RRHH y archivo de avisos: construidos y montados; sin comprobar en la web. La concesión se conserva en F3-05 | `internal/modules/cronos`; `web/static` | F0-18 | - | S | Sin asignar | #51 | Pendiente | 21/10 | Envío, atención y archivo con recibo recuperado; referencia no equivale a adjunto custodiado. Falta lista SQL principal completa; sin recorrer en la web | Estudio Cronos del 21/10, C9; `cronos_empleado.go:663` |
 
 ## 9. Fase 4. Dietas (por capacidad)
 
@@ -616,9 +622,13 @@ propuestas e informes locales no acreditan actos económicos.
 | F4-05 | DIE-05: fiscalización e informes con exportación separada. Etapa de fiscalización montada; informes CSV/PDF locales construidos sin montar sobre expedientes nominales (estudio Dietas, DIE-05). | `internal/modules/dietas` | F4-04 | Dudas 108 y 118 (RRHH) | M | Sin asignar | - | Bloqueada | 15/10 | Informe paginado y exportación auditada | Plan del módulo |
 | F4-06 | DIE-06: salida al sistema económico con acuse, sin doble pago. No se ha localizado en main el envío económico con acuse y conciliación (estudio Dietas, DIE-06). | `internal/modules/dietas` | F4-04 | Duda 26 (Informática) | L | Sin asignar | - | Bloqueada | 15/10 | Reintento con la misma clave sin duplicar | Plan del módulo |
 | F4-07 | DIE-07: recorrido completo con reinicio y revisiones. Pasan los 16 paquetes Go; navegador, PostgreSQL nominal y reinicio pendientes (estudio Dietas, DIE-07). | Recorrido | F4-05 | - | M | Sin asignar | - | Pendiente | 15/10 | Acta del recorrido | Plan del módulo |
-| F4-08 | DIE-01: comprobación de fuentes antes del cálculo, integrada, montada y probada; sin comprobar en la web | `internal/modules/dietas`; `internal/app/bootstrap/dietas_comisiones.go` | - | - | S | Sin asignar | #838 | Pendiente | 21/10 | Cálculo nominal desde pantalla; fuente ausente o incongruente rechazada | Estudio Dietas del 21/10, DIE-01; `dietas_comisiones.go:711` |
-| F4-09 | Comisión propia: alta, consulta, edición, borrado lógico y recibos montados y probados; custodia/envío completos quedan en F4-02 | `internal/modules/dietas`; `internal/app/bootstrap/dietas_borradores.go` | - | - | S | Sin asignar | #36, #258 | Pendiente | 21/10 | Comisión y recibo recuperados desde pantalla tras reinicio | Estudio Dietas del 21/10, capacidades; `dietas_borradores.go:98` |
-| F4-10 | Itinerario, mapa y cálculo orientativo versionado construidos y montados; sin comprobar en la web. No es liquidación económica | `internal/modules/dietas`; `web/static` | - | - | S | Sin asignar | #40, #838 | Pendiente | 21/10 | Ruta con motor/cartografía propios y cálculo con versión desde pantalla | Estudio Dietas del 21/10, capacidades; `bootstrap.go:311` |
+| F4-08 | DIE-01: comprobación de fuentes antes del cálculo, integrada, montada y probada; sin comprobar en la web | `internal/modules/dietas`; `internal/app/bootstrap/dietas_comisiones.go` | - | - | S | Sin asignar | #838 | Fusionada | 21/10 | Cálculo nominal desde pantalla; fuente ausente o incongruente rechazada. Sin recorrer en la web; SQL de base en 04_dietas_migraciones.sh:54 | Estudio Dietas del 21/10, DIE-01; `dietas_comisiones.go:711` |
+| F4-09 | Comisión propia: alta, consulta, edición, borrado lógico y recibos montados y probados; custodia/envío completos quedan en F4-02 | `internal/modules/dietas`; `internal/app/bootstrap/dietas_borradores.go` | - | - | S | Sin asignar | #36, #258 | Fusionada | 21/10 | Comisión y recibo recuperados desde pantalla tras reinicio. Sin recorrer en la web; SQL de base en 04_dietas_migraciones.sh:54 | Estudio Dietas del 21/10, capacidades; `dietas_borradores.go:98` |
+| F4-10 | Itinerario, mapa y cálculo orientativo versionado construidos y montados; sin comprobar en la web. No es liquidación económica | `internal/modules/dietas`; `web/static` | - | - | S | Sin asignar | #40, #838 | Fusionada | 21/10 | Ruta con motor/cartografía propios y cálculo con versión desde pantalla. Sin recorrer en la web; SQL de base en 04_dietas_migraciones.sh:54 | Estudio Dietas del 21/10, capacidades; `bootstrap.go:311` |
+| F4-11 | Bandejas, devolución y reenvío: componente montado de DIE-03; la competencia completa conserva sus límites en F4-03 | `internal/modules/dietas`; `internal/app/bootstrap/dietas_borradores.go` | - | - | S | Sin asignar | #40, #49, #259 | Fusionada | 21/10 | Pruebas HTTP positivas; sin recorrer en la web; SQL incremental en 04_dietas_migraciones.sh:83 y :94 | Estudio Dietas del 21/10, DIE-03; `dietas_borradores.go:119`; `portal-composicion-empleado.js:162` |
+| F4-12 | Consulta y solicitud de rectificación propia: montaje condicionado a su auditoría; resolución administrativa sin inyectar | `internal/modules/dietas`; `web/static` | - | - | S | Sin asignar | #427 | Pendiente | 21/10 | Activar la capacidad propia y recuperar solicitud con recibo; sin recorrer en la web | Estudio Dietas del 21/10, capacidades; `dietas_borradores.go:161`; `portal-composicion-empleado.js:164` |
+| F4-13 | Preparación, comparación y recuperación local de liquidación, construida sin montar en el portal; el acto económico sigue en F4-04 | `cmd/vec-dietas`; `internal/modules/dietas` | - | - | S | Sin asignar | - | Pendiente | 21/10 | Consumidor nominal y propuesta recuperable en pantalla; pruebas locales positivas | Estudio Dietas del 21/10, DIE-04; `cmd/vec-dietas/main.go:27` |
+| F4-14 | Informes locales por persona, unidad, periodo y situación, con CSV/PDF; construidos sin montar sobre expedientes nominales. La fiscalización sigue en F4-05 | `cmd/vec-dietas`; `internal/modules/dietas` | - | - | S | Sin asignar | #683, #693 | Pendiente | 21/10 | Consulta nominal y descarga autorizada desde pantalla; pruebas locales positivas | Estudio Dietas del 21/10, DIE-05; `cmd/vec-dietas/main.go:21` |
 
 ## 10. Fase 5. Sustituir Convoca (por capacidad)
 

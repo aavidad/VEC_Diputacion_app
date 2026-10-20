@@ -14,8 +14,11 @@ acreditada aquí como «Funciona» con recorrido web, instalación y reinicio.
 
 «Funciona» exige montaje en la aplicación, ruta, SQL aplicable, pantalla y
 pruebas positivas; cuando el resultado depende de actuar desde la pantalla,
-también se exige observarlo en Chrome. El tablero reserva «Hecha» para lo
-fusionado y recorrido con reinicio. «Construida sin montar» identifica piezas
+también se exige observarlo en Chrome. Por decisión de dirección del 20/10 a las 22:06, el tablero reserva
+«Fusionada» para código en main con montaje, ruta, lista SQL, pantalla y
+pruebas; añade «sin recorrer en la web» a su evidencia. «Hecha» exige además
+el recorrido web. La ausencia de ese recorrido no basta para dejar Pendiente
+un componente que cumpla las demás condiciones. «Construida sin montar» identifica piezas
 con código y pruebas que la aplicación no ofrece. «A medias» indica que falta
 parte del resultado o su comprobación. «No existe» se limita al efecto que no
 se ha localizado en main. «Sin comprobar en la web» no significa «sin montar».
@@ -81,12 +84,21 @@ migraciones. No se ha instalado ni modificado ninguna.
 
 La opción `--modulos` de `deploy/principal/copia_local.py:609` prepara
 conexiones de Bolsa y Contratación. Por sí sola no activa Cronos. Dirección
-concedió primero el turno de memoria a D y ordenó a C esperar a su parada.
-D comunicó que la receta se detiene antes de crear la copia porque faltan
-los productores privados `VEC_COPIA_DATOS_SCRIPT` y `VEC_COPIA_ROLES_SCRIPT`.
-C solicitó las rutas autorizadas y la lista compatible por el canal. No hay
-copia C creada ni comprobación nueva en Chrome; todas las capacidades quedan
-sin comprobar en la web en este estudio. No se usan servicios ajenos.
+ordenó el 20/10 a las 22:06 no crear copia esta noche y no ceder los productores
+privados. Se conserva el estudio sin recorrer la web; no hay capturas, copia C
+ni cambios en servicios ajenos. La decisión sustituye la petición previa de
+productores y turno.
+
+Con el criterio de esa misma decisión, no basta con que el código esté
+montado: las migraciones deben figurar en una lista de main. No se encontró
+esa lista para Cronos 000001 a 000010; 000015 solo cubre la optimización.
+Las dependencias de resolución no están en HZ37 según
+`deploy/principal/candidata_cronos/arranque/LEEME.md`, apartado
+«Comprobaciones de activación». Por ello los cortes que requieren esa cadena
+permanecen Pendiente, con la falta de lista identificada; no se marca como
+Fusionada una instalación deducida del volcado. Los guiones SQL con fachadas
+de prueba no sustituyen la lista principal. Esta carencia se comunicó a
+dirección por el canal.
 
 ## Qué está fusionado y qué permanece en otras ramas
 
@@ -128,8 +140,9 @@ esta sesión; se leyeron los ficheros y consumidores existentes.
 F3-02 a F3-10 conservan su alcance y sus dependencias. Sus notas deben
 reconocer las piezas ya construidas y precisar la comprobación que falta.
 Se añaden al tablero las capacidades de catálogo y comunicaciones que no
-tenían fila propia; permanecen Pendiente de comprobar en la web. No se
-propone ninguna «Hecha» nueva sin esa evidencia.
+tenían fila propia; permanecen Pendiente por la cadena SQL sin lista
+completa y sin recorrer en la web. Las piezas sin montaje conservan esa
+clasificación. No se propone ninguna «Hecha» nueva.
 
 Configuración nueva: ninguna. SQL a instalar: ninguno. Activación: ninguna;
 solo cambia documentación. Dirección conserva la revisión, integración y
