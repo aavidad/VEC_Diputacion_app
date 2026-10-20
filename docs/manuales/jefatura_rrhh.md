@@ -188,6 +188,10 @@ Cada documento se firma con certificado, en el orden que fija la configuración:
 
 Una misma persona no puede firmar dos pasos del mismo documento.
 
+Para firmar desde VEC, el equipo necesita GrxFirma 0.0.106 o posterior. Con la 0.0.105, la segunda firma de un documento se rechaza. Informática instala la versión correcta.
+
+Si la red del equipo cambia justo al registrar la firma, por ejemplo al cambiar de wifi o al conectar o desconectar la conexión remota de la Diputación, el navegador corta el envío. VEC lo repite solo hasta dos veces con el mismo PDF, y nunca guarda dos firmas. Si aun así no puede confirmarlo, la pantalla dice «No se ha podido confirmar el registro». Pulse otra vez **Firma con certificado en VEC**: VEC envía el mismo PDF sin firmarlo de nuevo y comprueba si ya estaba registrado.
+
 ### Paso 10. Incorporación
 
 El centro acredita en VEC que la persona se ha incorporado, con la fecha y el documento. El técnico revisa el alta en Personal (categoría, puesto y plaza) y la confirma. Después descarga la ficha para grabar el contrato en GINPIX y, una vez grabado a mano, anota el número y la fecha de la grabación.
