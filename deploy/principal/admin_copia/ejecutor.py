@@ -205,6 +205,12 @@ def runtime(c, kit, run, estado, sid, semilla, dia, sufijo):
            '--redes', '127.0.0.0/8', '--motivo-publicado', run / 'motivo-publicado.json')
 
 
+
+def overlay_externo(run, dia):
+    exigir(re.fullmatch(r'[0-9]{8}[a-z0-9]{1,12}', dia), 'Día de overlay inválido')
+    return privado(run / 'gobierno' / dia / 'version-bolsa-externa.json')
+
+
 def preparar(c):
     estado = c.copia.leer()
     sid = cotejar(c, estado)
@@ -278,6 +284,7 @@ def preparar(c):
                '-textos', kit / 'source/web/static/textos/es/admin-gobierno-usuarios.json',
                '-timeout', '30s', '-acuse', 'acuse-aplicar.json'],
               'admin-overlay-externo.log', env=DESARROLLO)
+    overlay_runtime = overlay_externo(run, dia)
     externo = run / 'vec-admin/config' / f'entorno-{dia}.env'
     privado(externo)
     fuente_bin = binario(c, kit, 'vec-admin')
@@ -289,7 +296,7 @@ def preparar(c):
     c.guardar(c.raiz / 'admin_preparacion.json', {
         'VEC_ADMIN_ENTORNO_FILE': str(externo), 'VEC_ADMIN_RUN': str(run),
         'VEC_ADMIN_ESTADO': 'preparado_con_acuses',
-        'VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE': str(overlay)})
+        'VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE': str(overlay_runtime)})
 
 
 def entorno(c, estado):
@@ -316,10 +323,8 @@ def entorno(c, estado):
            'Autoridad ADMIN inesperada')
     variables['VEC_ADMIN_HOST'] = f'{host}:{puerto}'
     externo = Path(datos['VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE'])
-    exigir(externo.parent == run and re.fullmatch(r'config-gobierno-externo-[0-9]{8}[a-z0-9]{1,12}\.json',
-                                              externo.name),
-           'Overlay ADMIN de otra copia')
-    privado(externo)
+    dia = documento(run / 'entrada-vec-admin.json')['dia_gobierno']
+    exigir(externo == overlay_externo(run, dia), 'Overlay ADMIN de otra copia')
     variables['VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE'] = str(externo)
     extra = c.raiz / 'admin_extra_env.json'
     if extra.exists():

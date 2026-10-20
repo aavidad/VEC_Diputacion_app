@@ -101,3 +101,22 @@ class AprobacionTecnica(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class OverlayExterno(unittest.TestCase):
+    def test_arranque_exige_overlay_exportado_y_no_receta_de_generacion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp)
+            run.chmod(0o700)
+            dia = '20261020abcdef'
+            receta = run / ('config-gobierno-externo-' + dia + '.json')
+            receta.write_text('{}')
+            receta.chmod(0o600)
+            with self.assertRaises(FileNotFoundError):
+                ejecutor.overlay_externo(run, dia)
+            destino = run / 'gobierno' / dia / 'version-bolsa-externa.json'
+            destino.parent.mkdir(parents=True, mode=0o700)
+            destino.write_text('{"version":1}')
+            destino.chmod(0o600)
+            self.assertEqual(ejecutor.overlay_externo(run, dia), destino)
+            self.assertNotEqual(ejecutor.overlay_externo(run, dia), receta)
