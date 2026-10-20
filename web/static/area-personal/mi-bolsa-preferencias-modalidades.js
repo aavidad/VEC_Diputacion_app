@@ -63,7 +63,9 @@ export function validarReciboPreferenciasModalidades(v, peticion) {
   return structuredClone(v);
 }
 
-const CODIGOS = Object.freeze({ 401: "autenticacion", 403: "denegado", 404: "noDisponible", 409: "conflicto", 422: "invalido", 503: "servicio" });
+// Un rechazo con código es definitivo (no se guardó); solo la falta de
+// respuesta o un 503 dejan el guardado pendiente de reintento.
+const CODIGOS = Object.freeze({ 400: "invalido", 401: "autenticacion", 403: "denegado", 404: "noDisponible", 409: "conflicto", 422: "invalido", 503: "servicio" });
 
 async function solicitar(api, metodo, cuerpo, signal) {
   let respuesta;
@@ -75,7 +77,7 @@ async function solicitar(api, metodo, cuerpo, signal) {
     });
   } catch { throw fallo(metodo === "PUT" ? "incierto" : "error"); }
   if (respuesta?.status !== 200 && !(metodo === "PUT" && respuesta?.status === 201)) {
-    throw fallo(CODIGOS[respuesta?.status] || (metodo === "PUT" ? "incierto" : "error"));
+    throw fallo(CODIGOS[respuesta?.status] || "error");
   }
   const incierto = metodo === "PUT" ? "incierto" : "respuesta";
   let texto;
@@ -107,11 +109,13 @@ function fecha(valor, idioma) {
   return new Intl.DateTimeFormat(idioma(), { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
 }
 
-const ERRORES = new Set(["autenticacion", "denegado", "conflicto", "invalido", "respuesta", "servicio", "incierto", "error"]);
+const ERRORES = new Set(["autenticacion", "denegado", "conflicto", "invalido", "respuesta", "servicio", "incierto", "noGuardado", "error"]);
 
 export function renderizarPreferenciasModalidades(datos = null, {
   estado = "cargando", borrador = null, modo = null, aviso = "", recibo = null, pendiente = false, textos = t, idioma = localizacionAreaPersonal,
 } = {}) {
+  // `aviso` también admite «sinCambios» y «marqueUna», que se muestran al
+  // pulsar Guardar sin nada que guardar.
   if (estado === "oculto") return "";
   const tr = (clave, vars) => escaparHTML(textos(clave, vars));
   const titulo = textos("titulo");
@@ -124,26 +128,25 @@ export function renderizarPreferenciasModalidades(datos = null, {
   const actual = modo ?? modoEleccion(borrador);
   const bloqueado = pendiente || estado === "guardando" || estado === "cargando";
   const deshabilitado = bloqueado ? "disabled" : "";
-  const radio = (valor) => `<label class="opcion-check"><input type="radio" name="preferencias-modalidades-modo" value="${valor}" data-modalidades-modo ${actual === valor ? "checked" : ""} ${deshabilitado}><span>${tr(`modo.${valor}`)}</span></label>`;
+  const radio = (valor) => `<label class="opcion-check"><input type="radio" name="preferencias-modalidades-modo" value="${valor}" data-modalidades-modo ${actual === valor ? "checked" : ""} ${deshabilitado}${valor === "ninguna" && actual === "ninguna" ? ' aria-describedby="preferencias-modalidades-ninguna"' : ""}><span>${tr(`modo.${valor}`)}</span></label>`;
   const casillas = actual === "algunas" ? `<fieldset class="preferencias-modalidades__grupo"><legend>${tr("modalidades")}</legend>${datos.modalidades_disponibles.map(({ clave }) =>
     `<label class="opcion-check"><input type="checkbox" data-modalidades-opcion="${escaparAtributo(clave)}" ${borrador?.includes(clave) ? "checked" : ""} ${deshabilitado}><span>${escaparHTML(nombreModalidad(clave, textos))}</span></label>`).join("")}</fieldset>` : "";
-  const eleccion = actual === "todas" ? null : actual === "ninguna" ? [] : borrador ?? [];
-  const sinMarcar = actual === "algunas" && !eleccion.length;
-  const cambios = !iguales(eleccion, datos.modalidades_guardadas);
-  // Aviso por elegir «ninguna»: se lee en cuanto se marca, antes de guardar.
+  // Aviso por elegir «ninguna»: se muestra y se anuncia en cuanto se marca,
+  // antes de guardar; el radio y el botón lo enlazan por aria-describedby.
   const avisoNinguna = actual === "ninguna" ? `<p class="nota aviso" id="preferencias-modalidades-ninguna">${tr("avisoNinguna")}</p>` : "";
-  const avisoMarcar = sinMarcar ? `<p class="nota aviso" id="preferencias-modalidades-marcar">${tr("marqueUna")}</p>` : "";
   let mensaje = "";
   if (estado === "guardando") mensaje = `<p role="status">${tr("guardando")}</p>`;
-  else if (ERRORES.has(estado) || aviso) mensaje = `<p class="nota ${aviso === "conflicto" ? "aviso" : "error"}" role="alert">${tr(aviso || estado)}</p>`;
+  else if (aviso === "sinCambios" || aviso === "marqueUna") mensaje = `<p class="nota aviso" id="preferencias-modalidades-mensaje">${tr(aviso)}</p>`;
+  else if (ERRORES.has(estado) || aviso) mensaje = `<p class="nota ${aviso === "conflicto" ? "aviso" : "error"}" id="preferencias-modalidades-mensaje">${tr(aviso || estado)}</p>`;
   const guardado = recibo || (datos.recibo_ref && datos.registrado_en ? { registrado_en: datos.registrado_en } : null);
-  const pie = guardado ? `<p class="preferencias-modalidades__recibo"${estado === "guardado" ? ' role="status"' : ""}>${tr(estado === "guardado" ? "guardado" : "ultimoGuardado", { fecha: fecha(guardado.registrado_en, idioma) })}</p>` : "";
+  const pie = guardado ? `<p class="preferencias-modalidades__recibo" tabindex="-1">${tr(estado === "guardado" ? "guardado" : "ultimoGuardado", { fecha: fecha(guardado.registrado_en, idioma) })}</p>`
+    : datos.version === 0 ? `<p class="preferencias-modalidades__recibo">${tr("sinGuardar")}</p>` : "";
   const reintentar = pendiente && (estado === "incierto" || estado === "servicio");
-  const describe = [avisoNinguna && "preferencias-modalidades-ninguna", avisoMarcar && "preferencias-modalidades-marcar"].filter(Boolean).join(" ");
-  const botonGuardar = `<button type="button" class="boton-primario" data-modalidades="${reintentar ? "reintentar" : "guardar"}" ${!reintentar && (bloqueado || !cambios || sinMarcar) ? "disabled" : ""}${describe ? ` aria-describedby="${describe}"` : ""}>${tr(reintentar ? "reintentarGuardado" : "guardar")}</button>`;
+  const describe = [avisoNinguna && "preferencias-modalidades-ninguna", mensaje.includes("preferencias-modalidades-mensaje") && "preferencias-modalidades-mensaje"].filter(Boolean).join(" ");
+  const botonGuardar = `<button type="button" class="boton-primario" data-modalidades="${reintentar ? "reintentar" : "guardar"}" ${!reintentar && bloqueado ? "disabled" : ""}${describe ? ` aria-describedby="${describe}"` : ""}>${tr(reintentar ? "reintentarGuardado" : "guardar")}</button>`;
   const recargar = estado === "incierto" || estado === "servicio" || estado === "respuesta" || estado === "error" ? `<button type="button" class="boton-secundario" data-modalidades="recargar">${tr("recargar")}</button>` : "";
   const contenido = `<fieldset class="preferencias-modalidades__grupo"><legend>${tr("pregunta")}</legend>${radio("todas")}${radio("algunas")}${radio("ninguna")}</fieldset>
-    ${casillas}${avisoNinguna}${avisoMarcar}<div aria-live="polite">${mensaje}</div>
+    ${casillas}${avisoNinguna}${mensaje}
     <div class="fila-acciones">${botonGuardar}${recargar}</div>${pie}`;
   return panel(titulo, "", contenido, { clase: "preferencias-modalidades" });
 }
@@ -151,13 +154,19 @@ export function renderizarPreferenciasModalidades(datos = null, {
 // crearControladorPreferenciasModalidades monta el panel en `host`. Si la
 // consulta está denegada o no existe para esta persona, el panel no se
 // muestra: la función no está activada para ella. `alGuardar` recibe la
-// elección guardada para refrescar las ofertas visibles.
-export function crearControladorPreferenciasModalidades({ host, api = globalThis.fetch, textos = t, idioma = localizacionAreaPersonal, alGuardar = () => {} } = {}) {
+// elección guardada para refrescar las ofertas visibles; `anunciar` lleva los
+// avisos y resultados a la región viva de la página, que no se repinta.
+// `desmontar` suelta el host sin perder el borrador ni cortar un guardado;
+// `destruir` lo cancela todo.
+export function crearControladorPreferenciasModalidades({ host: hostInicial = null, api = globalThis.fetch, textos = t, idioma = localizacionAreaPersonal, alGuardar = () => {}, anunciar = () => {} } = {}) {
+  let host = hostInicial;
   let datos = null, borrador = null, modo = null, recibo = null, estado = "cargando", aviso = "", pendiente = null;
   let lectura = null, escritura = null, secuencia = 0, destruido = false, montado = false;
   const pintar = () => {
     if (destruido || !host) return;
-    host.hidden = estado === "oculto";
+    // Mientras carga por primera vez no se muestra: si resulta denegada, la
+    // página no salta.
+    host.hidden = estado === "oculto" || !datos && estado === "cargando";
     host.innerHTML = renderizarPreferenciasModalidades(datos, { estado, borrador, modo, aviso, recibo, pendiente: Boolean(pendiente), textos, idioma });
   };
   async function cargar({ conservarAviso = false } = {}) {
@@ -174,7 +183,7 @@ export function crearControladorPreferenciasModalidades({ host, api = globalThis
         if (nuevo.version > pendiente.version_esperada && iguales(nuevo.modalidades_guardadas, pendiente.modalidades) && nuevo.registrado_en) {
           recibo = { registrado_en: nuevo.registrado_en }; pendiente = null; estado = "guardado"; alGuardar(copiar(nuevo.modalidades_guardadas));
         } else if (nuevo.version !== pendiente.version_esperada) { pendiente = null; aviso = "conflicto"; }
-        else estado = "incierto";
+        else { estado = "incierto"; borrador = copiar(pendiente.modalidades); }
       }
       pintar();
     } catch (error) {
@@ -182,6 +191,7 @@ export function crearControladorPreferenciasModalidades({ host, api = globalThis
       // Sin concesión o sin ruta, la función no está activada: no se muestra.
       estado = !datos && (error.codigo === "denegado" || error.codigo === "noDisponible") ? "oculto" : ERRORES.has(error.codigo) ? error.codigo : "error";
       pintar();
+      if (estado !== "oculto") anunciar(textos(estado));
     } finally { if (lectura === controller) lectura = null; }
   }
   function eleccionActual() {
@@ -192,7 +202,10 @@ export function crearControladorPreferenciasModalidades({ host, api = globalThis
     if (destruido || escritura || lectura || !datos) return;
     if (!pendiente) {
       const eleccion = eleccionActual();
-      if (iguales(eleccion, datos.modalidades_guardadas) || (modo ?? modoEleccion(borrador)) === "algunas" && !eleccion.length) return;
+      const sinMarcar = (modo ?? modoEleccion(borrador)) === "algunas" && !eleccion.length;
+      if (sinMarcar || iguales(eleccion, datos.modalidades_guardadas)) {
+        aviso = sinMarcar ? "marqueUna" : "sinCambios"; estado = "correcto"; pintar(); anunciar(textos(aviso)); return;
+      }
       if (eleccion?.some((c) => !datos.modalidades_disponibles.some((o) => o.clave === c))) return;
       if (typeof globalThis.crypto?.randomUUID !== "function") { estado = "error"; pintar(); return; }
       pendiente = { modalidades: copiar(eleccion), version_esperada: datos.version, clave_idempotencia: globalThis.crypto.randomUUID() };
@@ -204,17 +217,18 @@ export function crearControladorPreferenciasModalidades({ host, api = globalThis
       pendiente = null; recibo = { registrado_en: nuevo.registrado_en };
       datos = { ...datos, version: nuevo.version, modalidades_guardadas: copiar(nuevo.modalidades), recibo_ref: nuevo.recibo_ref, registrado_en: nuevo.registrado_en };
       borrador = copiar(nuevo.modalidades); modo = null; estado = "guardado"; pintar();
-      host?.querySelector?.('[data-modalidades="guardar"]')?.focus?.();
+      host?.querySelector?.(".preferencias-modalidades__recibo")?.focus?.();
+      anunciar(textos("guardado", { fecha: fecha(nuevo.registrado_en, idioma) }));
       alGuardar(copiar(nuevo.modalidades));
     } catch (error) {
       if (destruido || controller.signal.aborted) return;
       if (error.codigo === "conflicto") {
         // Otra ventana guardó antes: se recarga la elección vigente y se avisa.
-        pendiente = null; escritura = null; aviso = "conflicto"; void cargar({ conservarAviso: true }); return;
+        pendiente = null; escritura = null; aviso = "conflicto"; anunciar(textos("conflicto")); void cargar({ conservarAviso: true }); return;
       }
-      if (["invalido", "denegado", "autenticacion", "noDisponible"].includes(error.codigo)) pendiente = null;
-      estado = ERRORES.has(error.codigo) ? error.codigo : "error";
-      pintar();
+      if (error.codigo !== "incierto" && error.codigo !== "servicio") pendiente = null;
+      estado = ERRORES.has(error.codigo) && error.codigo !== "error" ? error.codigo : "noGuardado";
+      pintar(); anunciar(textos(estado));
     } finally { if (escritura === controller) escritura = null; }
   }
   function pulsar(evento) {
@@ -241,12 +255,19 @@ export function crearControladorPreferenciasModalidades({ host, api = globalThis
     estado = "correcto";
     aviso = ""; pintar();
     host?.querySelector?.(selector)?.focus?.();
+    if (modo === "ninguna" && selector.includes("ninguna")) anunciar(textos("avisoNinguna"));
   }
   return {
-    montar() {
-      if (!host || destruido) return null;
+    montar(nuevo = host) {
+      if (!nuevo || destruido) return null;
+      if (montado && nuevo !== host) this.desmontar();
+      host = nuevo;
       if (!montado) { host.addEventListener("click", pulsar); host.addEventListener("change", cambiar); montado = true; }
       pintar(); if (!datos && !lectura) void cargar(); return this;
+    },
+    desmontar() {
+      if (montado && host) { host.removeEventListener("click", pulsar); host.removeEventListener("change", cambiar); }
+      montado = false; host = null;
     },
     destruir() {
       if (montado && host) { host.removeEventListener("click", pulsar); host.removeEventListener("change", cambiar); }

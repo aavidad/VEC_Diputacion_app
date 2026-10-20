@@ -40,7 +40,7 @@ test("las opciones del catálogo vigente tienen nombre en los dos idiomas", asyn
     const catalogo = JSON.parse(await readFile(new URL(`../textos/${idioma}/area-personal.json`, import.meta.url), "utf8"));
     const textos = catalogo.miBolsa.preferenciasModalidades;
     for (const { clave } of opciones) assert.equal(typeof textos.opciones[clave], "string", `${idioma}: ${clave}`);
-    for (const clave of ["titulo", "pregunta", "avisoNinguna", "marqueUna", "guardar", "guardado", "ultimoGuardado", "conflicto", "incierto", "reintentarGuardado", "recargar"]) {
+    for (const clave of ["titulo", "pregunta", "avisoNinguna", "marqueUna", "guardar", "guardado", "ultimoGuardado", "conflicto", "incierto", "reintentarGuardado", "recargar", "sinCambios", "sinGuardar", "noGuardado"]) {
       assert.equal(typeof textos[clave], "string", `${idioma}: ${clave}`);
     }
     for (const clave of ["todas", "algunas", "ninguna"]) assert.equal(typeof textos.modo[clave], "string");
@@ -73,17 +73,18 @@ test("todas, algunas y ninguna se distinguen; «ninguna» avisa antes de guardar
   const todas = renderizarPreferenciasModalidades(estado(null), { estado: "correcto", borrador: null });
   assert.match(todas, /value="todas" data-modalidades-modo checked/u);
   assert.doesNotMatch(todas, /data-modalidades-opcion/u);
-  assert.match(todas, /data-modalidades="guardar" disabled/u);
+  assert.doesNotMatch(todas, /data-modalidades="guardar" disabled/u);
   assert.match(todas, /Última elección guardada el/u);
   const ninguna = renderizarPreferenciasModalidades(estado(null), { estado: "correcto", borrador: null, modo: "ninguna" });
   assert.match(ninguna, /No verá ofertas nuevas en Mi bolsa ni recibirá avisos de ofertas/u);
   assert.match(ninguna, /le pueden seguir llamando/u);
-  assert.match(ninguna, /aria-describedby="preferencias-modalidades-ninguna"/u);
-  assert.doesNotMatch(ninguna, /data-modalidades="guardar" disabled/u);
+  assert.match(ninguna, /No cuenta como renuncia/u);
+  assert.match(ninguna, /value="ninguna" data-modalidades-modo checked  aria-describedby="preferencias-modalidades-ninguna"/u);
+  assert.match(ninguna, /data-modalidades="guardar"  aria-describedby="preferencias-modalidades-ninguna"/u);
   const algunas = renderizarPreferenciasModalidades(estado(null), { estado: "correcto", borrador: [], modo: "algunas" });
   assert.match(algunas, /data-modalidades-opcion="vacante"/u);
-  assert.match(algunas, /Marque al menos un tipo/u);
-  assert.match(algunas, /data-modalidades="guardar" disabled/u);
+  assert.doesNotMatch(algunas, /Marque al menos un tipo/u);
+  assert.match(renderizarPreferenciasModalidades(inicial(), { estado: "correcto" }), /Ahora ve ofertas de todos los tipos/u);
   assert.doesNotMatch(algunas, /c12\.modalidad|catalogo_huella|recibo:/u);
 });
 
@@ -108,6 +109,7 @@ test("guardar envía versión, clave y elección, y muestra la fecha del recibo"
   assert.equal(cuerpo.version_esperada, 1);
   assert.match(cuerpo.clave_idempotencia, /^[0-9a-f-]{36}$/u);
   assert.match(vista.innerHTML, /Elección guardada el/u);
+  assert.equal(vista.enfocado, ".preferencias-modalidades__recibo");
   assert.deepEqual(guardados, [[]]);
   vista.modo("algunas"); vista.opcion("vacante", true);
   assert.match(vista.innerHTML, /data-modalidades-opcion="vacante" checked/u);
@@ -183,4 +185,52 @@ test("la sección de ofertas ofrece «Ver todas» solo si la lista ya aplica la 
   assert.match(todas, /también las de tipos que no eligió/u);
   assert.match(renderizarSeccionOfertasMiBolsa([], { segunModalidades: true, carga: "cargando" }), /data-accion="ver-todas-ofertas" disabled/u);
   assert.match(renderizarSeccionOfertasMiBolsa([], { segunModalidades: true, carga: "error" }), /role="alert"/u);
+});
+
+test("Guardar sin cambios o sin marcar lo explica y no envía nada", async () => {
+  const metodos = [];
+  const anuncios = [];
+  const vista = host();
+  crearControladorPreferenciasModalidades({ host: vista, api: async (r, c) => { metodos.push(c.method); return respuesta(estado(null)); }, anunciar: (m) => anuncios.push(m) }).montar();
+  assert.equal(vista.hidden, true);
+  await tick();
+  assert.equal(vista.hidden, false);
+  vista.pulsar("guardar");
+  assert.match(vista.innerHTML, /No ha cambiado su elección/u);
+  vista.modo("algunas"); vista.pulsar("guardar");
+  assert.match(vista.innerHTML, /Marque al menos un tipo/u);
+  vista.modo("ninguna");
+  assert.ok(anuncios.some((m) => /No verá ofertas nuevas/u.test(m)));
+  assert.deepEqual(metodos, ["GET"]);
+});
+
+test("un rechazo con código no deja guardado pendiente; el incierto recarga sin perder lo elegido", async () => {
+  const vista = host();
+  let estadoPut = 500;
+  crearControladorPreferenciasModalidades({ host: vista, api: async (r, c) => (c.method === "GET" ? respuesta(estado(null)) : { status: estadoPut }) }).montar();
+  await tick();
+  vista.modo("ninguna"); vista.pulsar("guardar"); await tick(); await tick();
+  assert.doesNotMatch(vista.innerHTML, /data-modalidades="reintentar"/u);
+  assert.match(vista.innerHTML, /No se pudo guardar su elección/u);
+  estadoPut = 503;
+  vista.modo("ninguna"); vista.pulsar("guardar"); await tick(); await tick();
+  assert.match(vista.innerHTML, /data-modalidades="reintentar"/u);
+  vista.pulsar("recargar"); await tick(); await tick();
+  assert.match(vista.innerHTML, /value="ninguna" data-modalidades-modo checked/u);
+  assert.match(vista.innerHTML, /data-modalidades="reintentar"/u);
+});
+
+test("desmontar conserva el borrador y no corta el guardado", async () => {
+  let completar;
+  const primero = host();
+  const c = crearControladorPreferenciasModalidades({ api: async (r, conf) => (conf.method === "GET" ? respuesta(estado(null)) : new Promise((ok) => { completar = ok; })) }).montar(primero);
+  await tick();
+  primero.modo("ninguna"); primero.pulsar("guardar"); await tick();
+  c.desmontar();
+  const segundo = host();
+  c.montar(segundo);
+  assert.match(segundo.innerHTML, /Guardando su elección/u);
+  completar(respuesta({ recibo_ref: "recibo:x", version: 2, modalidades: [], registrado_en: FECHA, reutilizado: false }, 201));
+  await tick(); await tick();
+  assert.match(segundo.innerHTML, /Elección guardada el/u);
 });

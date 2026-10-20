@@ -298,13 +298,16 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   estado.destruirInscripcionBolsa = null;
   estado.destruirHistorialMiBolsa?.();
   estado.destruirHistorialMiBolsa = null;
-  estado.controladorPreferenciasModalidades?.destruir();
-  estado.controladorPreferenciasModalidades = null;
   estado.ofertasPeticion += 1;
-  if (estado.vista === "llamamientos") estado.controladorPreferenciasBolsas?.desmontar();
-  else {
+  // En la misma vista se conservan borradores y guardados en curso.
+  if (estado.vista === "llamamientos") {
+    estado.controladorPreferenciasBolsas?.desmontar();
+    estado.controladorPreferenciasModalidades?.desmontar();
+  } else {
     estado.controladorPreferenciasBolsas?.destruir();
     estado.controladorPreferenciasBolsas = null;
+    estado.controladorPreferenciasModalidades?.destruir();
+    estado.controladorPreferenciasModalidades = null;
   }
   estado.desmontarOportunidades?.();
   estado.desmontarOportunidades = null;
@@ -330,10 +333,11 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
     estado.controladorPreferenciasBolsas ??= crearControladorPreferenciasBolsas({ fetchImpl: estado.fetchImpl });
     estado.controladorPreferenciasBolsas.montar({ contenedor: porId("preferencias-bolsas"),
       participaciones: estado.participaciones });
-    estado.controladorPreferenciasModalidades = crearControladorPreferenciasModalidades({
-      host: porId("preferencias-modalidades"), api: estado.fetchImpl,
+    estado.controladorPreferenciasModalidades ??= crearControladorPreferenciasModalidades({
+      api: estado.fetchImpl, anunciar,
       alGuardar: () => void refrescarOfertasMiBolsa(estado, { enfocar: false }),
-    }).montar();
+    });
+    estado.controladorPreferenciasModalidades.montar(porId("preferencias-modalidades"));
     estado.destruirHistorialMiBolsa = montarHistorialMiBolsa({
       contenedor: porId("historial-mi-bolsa"), fetchImpl: estado.fetchImpl,
     })?.destruir ?? null;
@@ -793,6 +797,8 @@ async function cargar(estado) {
     const datos = datosDeRespuesta(respuesta);
     estado.controladorPreferenciasBolsas?.destruir();
     estado.controladorPreferenciasBolsas = null;
+    estado.controladorPreferenciasModalidades?.destruir();
+    estado.controladorPreferenciasModalidades = null;
     estado.datos = exigirDatosOperativos(datos);
     estado.soloPreferencias = false;
     estado.participaciones = respuesta?.consulta?.participaciones || [];

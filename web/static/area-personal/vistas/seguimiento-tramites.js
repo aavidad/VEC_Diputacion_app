@@ -22,7 +22,7 @@ export function renderizarSeccionOfertasMiBolsa(ofertas, { segunModalidades = fa
   const estadoLista = carga === "cargando" ? `<p role="status">${h(textoOfertas("cargandoOfertas"))}</p>`
     : carga === "error" ? `<p class="nota error" role="alert">${h(textoOfertas("errorOfertas"))}</p>` : "";
   const cuerpo = lista.length ? renderizarOfertasMiBolsa(lista) : `<p class="estado-vacio">${h(textoOfertas(todas ? "sinOfertas" : "sinOfertasElegidas"))}</p>`;
-  const nota = todas ? `<p class="nota">${h(textoOfertas("mostrandoTodas"))}</p>` : "";
+  const nota = `<p class="nota">${h(textoOfertas(todas ? "mostrandoTodas" : "mostrandoElegidas"))}</p>`;
   return panel(textoOfertas("titulo"), textoOfertas("subtitulo"), `${nota}${estadoLista}<div class="fila-acciones ofertas-mi-bolsa__filtro"><button type="button" class="boton-secundario" data-accion="${accion}" ${carga === "cargando" ? "disabled" : ""}>${h(textoOfertas(todas ? "verElegidas" : "verTodas"))}</button></div>${cuerpo}`);
 }
 

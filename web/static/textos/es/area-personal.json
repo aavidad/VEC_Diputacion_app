@@ -37,8 +37,11 @@
         "ninguna": "De ninguno"
       },
       "modalidades": "Tipos de contrato",
-      "avisoNinguna": "No verá ofertas nuevas en Mi bolsa ni recibirá avisos de ofertas. Seguirá en sus bolsas, en el mismo puesto, y le pueden seguir llamando.",
+      "avisoNinguna": "No verá ofertas nuevas en Mi bolsa ni recibirá avisos de ofertas. Seguirá en sus bolsas, en el mismo puesto, y le pueden seguir llamando. No cuenta como renuncia.",
       "marqueUna": "Marque al menos un tipo de contrato o elija «De ninguno».",
+      "sinCambios": "No ha cambiado su elección.",
+      "sinGuardar": "Ahora ve ofertas de todos los tipos de contrato.",
+      "noGuardado": "No se pudo guardar su elección. Inténtelo de nuevo.",
       "guardar": "Guardar elección",
       "guardado": "Elección guardada el {fecha}.",
       "ultimoGuardado": "Última elección guardada el {fecha}.",
