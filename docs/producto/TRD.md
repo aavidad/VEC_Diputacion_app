@@ -495,6 +495,14 @@ la copia usa la vía no autoritativa de perfiles fijos y no sustituye la
 provisión gobernada del uso real. Activación en
 `deploy/principal/comunicaciones_f1_124.md`.
 
+La incorporación nominal a Personal reutiliza la frontera exacta de consulta
+del detalle de CT. Si la composición ha ligado el perfil fijo técnico, compara
+esa referencia concreta y rechaza el perfil dinámico retirado, otro fijo o un
+perfil vacío. Conserva método, ruta, política, capacidad y superficie; no suma
+los permisos de los perfiles. Sin un fijo ligado, valida el perfil base de la
+configuración anterior. Activación y comprobaciones en
+`deploy/principal/perfil_consulta_incorporacion_f1_137.md`.
+
 Se deniega por defecto. Solo autoriza una concesión central positiva, exacta y
 vigente para actor, perfil, acción, recurso, ámbito, finalidad, campos y
 obligaciones. Ausencia, lista vacía, ambigüedad, valor desconocido, caducidad,
