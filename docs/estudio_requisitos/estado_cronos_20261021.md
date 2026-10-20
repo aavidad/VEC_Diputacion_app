@@ -14,7 +14,7 @@ acreditada aquí como «Funciona» con recorrido web, instalación y reinicio.
 
 «Funciona» exige montaje en la aplicación, ruta, SQL aplicable, pantalla y
 pruebas positivas; cuando el resultado depende de actuar desde la pantalla,
-también se exige observarlo en Chrome. Por decisión de dirección del 20/10 a las 22:06, el tablero reserva
+también se exige observarlo en Chrome. Por decisión de dirección del 20/10 a las 22:10, el tablero reserva
 «Fusionada» para código en main con montaje, ruta, lista SQL, pantalla y
 pruebas; añade «sin recorrer en la web» a su evidencia. «Hecha» exige además
 el recorrido web. La ausencia de ese recorrido no basta para dejar Pendiente
@@ -73,7 +73,8 @@ Main contiene las migraciones Cronos 000001 a 000010 y 000015. Los números
 000015, que modifica el libro de saldo sobre la base anterior. La lista
 `deploy/principal/lista_sql_main_tras_hz37.txt` no contiene Cronos: enumera
 incrementos posteriores al volcado de referencia, y su ausencia no demuestra
-qué está instalado en ese volcado. No se ha consultado una copia instalada.
+qué está instalado en ese volcado. La copia local descrita abajo no acredita
+la instalación completa de la cadena Cronos.
 
 La guía `web/static/portal-empleado/modulos/cronos/INTEGRACION.md`, apartado
 «Orden de instalación», conserva la cadena histórica de resolución y
@@ -84,10 +85,9 @@ migraciones. No se ha instalado ni modificado ninguna.
 
 La opción `--modulos` de `deploy/principal/copia_local.py:609` prepara
 conexiones de Bolsa y Contratación. Por sí sola no activa Cronos. Dirección
-ordenó el 20/10 a las 22:06 no crear copia esta noche y no ceder los productores
-privados. Se conserva el estudio sin recorrer la web; no hay capturas, copia C
-ni cambios en servicios ajenos. La decisión sustituye la petición previa de
-productores y turno.
+corrigió a las 22:10 la decisión anterior y pidió una copia local sin esa
+opción, sin usar material privado ni programar. La comprobación siguiente
+acredita el arranque y la indisponibilidad de Cronos; no su recorrido funcional.
 
 Con el criterio de esa misma decisión, no basta con que el código esté
 montado: las migraciones deben figurar en una lista de main. No se encontró
@@ -99,6 +99,75 @@ permanecen Pendiente, con la falta de lista identificada; no se marca como
 Fusionada una instalación deducida del volcado. Los guiones SQL con fachadas
 de prueba no sustituyen la lista principal. Esta carencia se comunicó a
 dirección por el canal.
+
+## Comprobación en copia local, 20/10 a las 22:27
+
+Tras la liberación del turno de D a las 22:18, se creó una única copia propia
+con `deploy/principal/copia_local.py crear --equipo c --instancia
+estudio-cronos-local-20261021`. Se usaron el volcado HZ37 y sus anexos
+autorizados en solo lectura; la receta generó credenciales nuevas. No se usó
+`--modulos`, ningún productor privado ni material de otros equipos. La base
+de código fue `cb8aff928`, idéntica a `cda070a31` salvo documentación.
+
+La creación terminó con salida 0 en 76,11 segundos y arrancó la aplicación
+con Cronos apagado. No se aplicó lista SQL adicional: la lista general ya
+había fallado en el ensayo de D con «AD278: origen CT nominal incompatible»;
+no se repitió ese intento ni se atribuyen a la copia incrementos posteriores
+a HZ37. Tampoco se instaló 000015 sobre una cadena sin acreditar.
+
+El material recién generado no contiene `identidad/cronos-empleado.json`.
+Se reinició solo la aplicación propia conservando su entorno y activando
+`VEC_CRONOS_EMPLEADO_ENABLED`, `VEC_CRONOS_RESOLUCION_ENABLED` y
+`VEC_CRONOS_NOTIFICACIONES_ENABLED` con el valor `true`. El proceso emitió:
+`Cronos no disponible componente=cronos_material_privado causa=no_disponible`.
+La aplicación siguió activa: `/livez`, `/portal-empleado/` y
+`/api/vec/session` respondieron 200. La comprobación del gestor, lanzada
+inmediatamente tras reiniciar, falló antes de estar lista; una vez disponible,
+`copia_local.py comprobar` terminó con salida 0. No se presenta como Cronos
+activado correctamente.
+
+El primer requisito que falta es ese manifiesto. Su contrato exige ocho
+conexiones nominales separadas (identidad, revalidación, contexto, fuente y
+registro de autorización, motivos, ejecución y auditoría de Cronos), cuentas
+ligadas al certificado, motivos positivos y de rechazo y política de fichaje
+remoto (`internal/app/bootstrap/cronos_empleado.go:46` y
+`internal/app/bootstrap/cronos_arranque.go:182`). Esos requisitos no se
+comprobaron al faltar el fichero; tampoco se acreditaron cuentas, motivos ni
+la cadena SQL en esta copia. No se fabricó el manifiesto ni se copiaron
+credenciales históricas para superar el bloqueo.
+
+Chrome del sistema, manejado con Playwright, abrió
+`/portal-empleado/?lang=es#cronos` con el certificado propio de la copia,
+a 1440 × 1000. Se observaron los mismos fallos con los selectores apagados
+y solicitados:
+
+| Vista o acción | Resultado observado |
+| --- | --- |
+| Mi jornada: saldo, movimientos y calendario | Pantalla visible, con avisos de indisponibilidad; saldo y movimientos responden 503 |
+| Fichaje remoto | Disponibilidad responde 503; entrada, pausa y salida quedan deshabilitadas. No se registra marcaje ni recibo |
+| Permisos y vacaciones | La vista abre; permisos propios responde 503 y muestra error. No se crea ni resuelve solicitud |
+| Avisos de resolución y notificaciones a RRHH | Los botones no cambian la vista de Permisos en esta sesión; sus enlaces directos terminan en Inicio. No se acredita consulta ni acto |
+| Corrección, justificantes e informes | No se ejecutan: no hay movimientos ni solicitud operativos; el inventario de montaje conserva sus límites |
+
+Las peticiones observadas fueron
+`/api/interna/cronos/saldos/propio?periodo=hoy`,
+`/api/interna/cronos/movimientos/propio?periodo=anio`,
+`/api/interna/cronos/marcajes/remoto/disponibilidad` y
+`/api/interna/cronos/permisos/propio?anio=2026`, todas con 503.
+La consola también registra fallos de preferencias; no es un recorrido sin
+errores. La sesión 200 acredita acceso al portal, sin demostrar relación ni
+competencia nominal de Cronos.
+
+La captura `cronos-local-no-disponible.png`, las instantáneas de jornada y
+permisos, las peticiones y el diagnóstico se conservan en la evidencia local
+del equipo, fuera de Git. SHA-256 de la captura:
+`956744c19d3c54820834ed56eb050513b02eb4fbd57c533942f71bf960f40e6e`.
+La captura prueba la pantalla de indisponibilidad, sin acreditar fichaje,
+saldo, solicitud, resolución, recibo o recuperación tras reinicio de la base.
+
+Se cerró Chrome y se ejecutaron `copia_local.py parar` y `copia_local.py
+borrar` sobre la instancia propia. No se modificaron código ni SQL, ni se
+accedió a cidonia. Ninguna tarea pasa a «Hecha» por esta comprobación.
 
 ## Qué está fusionado y qué permanece en otras ramas
 
@@ -128,8 +197,10 @@ el alcance completo de C8, C10, C11 o C12.
 `cda070a31`: 15 paquetes con pruebas positivas y dos sin pruebas; sin
 resultados de caché. Incluye servicios, dominio, composición, manejadores,
 adaptadores PostgreSQL con dobles, informes y enlace con Documentos. No se
-repitió la batería sobre esa base. No se ejecutaron SQL ni pruebas Node; no
-se ha verificado instalación, sesión nominal o persistencia tras reinicio.
+repitió la batería sobre esa base. No se ejecutaron pruebas SQL ni Node adicionales; la copia local no
+acredita instalación completa, sesión nominal de Cronos o persistencia tras
+reiniciar la base. La puerta completa ejecutada por D terminó con salida 0
+sobre el mismo código de main, incluidas 4.169 pruebas Node; no se repite.
 
 Se consultaron el historial pedido (`git log` sobre main), las PR fusionadas
 con «cronos», títulos C1/C2/C3 y las ramas remotas de Cronos. Las búsquedas por

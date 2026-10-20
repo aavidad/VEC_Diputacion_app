@@ -129,10 +129,13 @@ Fase 1 sin aparcadas ni canceladas: 103 tareas. 68 están en `main`
   filas nuevas de Dietas están Fusionada, sin recorrer en la web; las tres
   restantes siguen Pendiente. Las tareas anteriores conservan el alcance
   completo que sus componentes aún no cubren.
-- Ninguna tarea nueva pasa a Hecha: falta comprobar la web y el reinicio.
-  Dirección ordenó no crear copia esta noche. «Fusionada» exige montaje,
+- Ninguna tarea nueva pasa a Hecha: las copias locales abren las pantallas,
+  pero sus consultas fallan con 503. Cronos carece del manifiesto propio;
+  Dietas, de manifiesto y conexiones. No se acredita el circuito ni el
+  reinicio funcional. Dirección corrigió a las 22:10 su orden anterior y
+  ambas copias se comprobaron, pararon y borraron. «Fusionada» exige montaje,
   ruta, lista SQL, pantalla y pruebas; «sin recorrer en la web» queda en
-  la evidencia. Cronos no tiene lista principal completa para 000001 a
+  la evidencia. Cronos no tiene manifiesto en la copia ni lista principal completa para 000001 a
   000010; esa carencia se conserva, sin deducir instalación del volcado.
   «Pendiente» no implica que haya que volver a construir el código.
 - El recuento corrige también F1-103: dos barras de una expresión SQL
@@ -625,7 +628,7 @@ propuestas e informes locales no acreditan actos económicos.
 | F4-08 | DIE-01: comprobación de fuentes antes del cálculo, integrada, montada y probada; sin comprobar en la web | `internal/modules/dietas`; `internal/app/bootstrap/dietas_comisiones.go` | - | - | S | Sin asignar | #838 | Fusionada | 21/10 | Cálculo nominal desde pantalla; fuente ausente o incongruente rechazada. Sin recorrer en la web; SQL de base en 04_dietas_migraciones.sh:54 | Estudio Dietas del 21/10, DIE-01; `dietas_comisiones.go:711` |
 | F4-09 | Comisión propia: alta, consulta, edición, borrado lógico y recibos montados y probados; custodia/envío completos quedan en F4-02 | `internal/modules/dietas`; `internal/app/bootstrap/dietas_borradores.go` | - | - | S | Sin asignar | #36, #258 | Fusionada | 21/10 | Comisión y recibo recuperados desde pantalla tras reinicio. Sin recorrer en la web; SQL de base en 04_dietas_migraciones.sh:54 e incremental 000006 en :83 y :88 | Estudio Dietas del 21/10, capacidades; `dietas_borradores.go:98` |
 | F4-10 | Itinerario, mapa y cálculo orientativo versionado construidos y montados; sin comprobar en la web. No es liquidación económica | `internal/modules/dietas`; `web/static` | - | - | S | Sin asignar | #40, #838 | Fusionada | 21/10 | Ruta con motor/cartografía propios y cálculo con versión desde pantalla. Sin recorrer en la web; SQL de base en 04_dietas_migraciones.sh:54 | Estudio Dietas del 21/10, capacidades; `bootstrap.go:311` |
-| F4-11 | Bandejas, devolución y reenvío: componente montado de DIE-03; la competencia completa conserva sus límites en F4-03 | `internal/modules/dietas`; `internal/app/bootstrap/dietas_borradores.go` | - | - | S | Sin asignar | #40, #49, #259 | Fusionada | 21/10 | Pruebas HTTP positivas; sin recorrer en la web; SQL incremental en 04_dietas_migraciones.sh:83 y :94 | Estudio Dietas del 21/10, DIE-03; `dietas_borradores.go:119`; `portal-composicion-empleado.js:162` |
+| F4-11 | Bandejas, devolución y reenvío: componente montado de DIE-03; la competencia completa conserva sus límites en F4-03 | `internal/modules/dietas`; `internal/app/bootstrap/dietas_borradores.go` | - | - | S | Sin asignar | #40, #49, #259 | Fusionada | 21/10 | Pruebas HTTP positivas; sin recorrido funcional en copia local (503); SQL incremental en 04_dietas_migraciones.sh:83 y :94 | Estudio Dietas del 21/10, DIE-03; `dietas_borradores.go:119`; `portal-composicion-empleado.js:162` |
 | F4-12 | Consulta y solicitud de rectificación propia: montaje condicionado a su auditoría; resolución administrativa sin inyectar | `internal/modules/dietas`; `web/static` | - | - | S | Sin asignar | #427 | Pendiente | 21/10 | Activar la capacidad propia y recuperar solicitud con recibo; sin recorrer en la web | Estudio Dietas del 21/10, capacidades; `dietas_borradores.go:161`; `portal-composicion-empleado.js:164` |
 | F4-13 | Preparación, comparación y recuperación local de liquidación, construida sin montar en el portal; el acto económico sigue en F4-04 | `cmd/vec-dietas`; `internal/modules/dietas` | - | - | S | Sin asignar | - | Pendiente | 21/10 | Consumidor nominal y propuesta recuperable en pantalla; pruebas locales positivas | Estudio Dietas del 21/10, DIE-04; `cmd/vec-dietas/main.go:27` |
 | F4-14 | Informes locales por persona, unidad, periodo y situación, con CSV/PDF; construidos sin montar sobre expedientes nominales. La fiscalización sigue en F4-05 | `cmd/vec-dietas`; `internal/modules/dietas` | - | - | S | Sin asignar | #683, #693 | Pendiente | 21/10 | Consulta nominal y descarga autorizada desde pantalla; pruebas locales positivas | Estudio Dietas del 21/10, DIE-05; `cmd/vec-dietas/main.go:21` |
