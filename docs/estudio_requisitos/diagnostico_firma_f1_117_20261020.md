@@ -13,7 +13,7 @@ desplazamiento `+02:00`:
 | Hora | Respuesta | Duración | Consultas | Observación |
 | --- | --- | --- | --- | --- |
 | 06:57:47 | 201 | 0,59 s | 161 | Registro de firma confirmado |
-| 07:00:11 | 503 | 0,33 s | 96 | Petición cancelada por el cliente; consta `context_canceled` |
+| 07:00:11 | 503 | 0,33 s | 96 | Contexto cancelado; la telemetría lo clasifica como cancelación del cliente |
 | 07:00:12 | 403 | 0,65 s | 182 | PostgreSQL devuelve `42501`; la ruta está ocultada |
 | 07:08:49 | 201 | 0,56 s | 161 | Registro de firma confirmado |
 | 07:11:12 | 403 | 0,64 s | 182 | PostgreSQL devuelve `42501`; la ruta está ocultada |
@@ -27,8 +27,8 @@ de PostgreSQL. Tampoco ligan los eventos con ruta ocultada a un expediente o
 a un cuerpo HTTP. Por tanto, no bastan para atribuir todos estos eventos al
 registro de firma ni para asegurar que los intentos comparados son iguales.
 
-Los dos rechazos 403 terminan en menos de un segundo: no agotaron el plazo
-de 90 segundos del envío web. Esto no determina qué comprobación falló.
+Los dos rechazos 403 terminan en menos de un segundo. El registro no
+identifica su ruta ni la comprobación que falló.
 
 ## Comprobaciones propias
 
@@ -45,9 +45,11 @@ otra copia.
   pasó. Comprueba que las revalidaciones conservan el contexto atestado de
   la petición, también con accesos concurrentes; no sustituye al ensayo SQL.
 
-En esta copia se ha activado el diagnóstico de errores de PostgreSQL sin
-registrar valores de parámetros. Permitirá localizar la función y la línea
-si se reproduce el rechazo. No modifica funciones ni permisos.
+En esta copia se ha activado `log_error_verbosity=verbose` y
+`log_parameter_max_length_on_error=0`. La consulta de `pg_settings` confirmó
+ambos valores. El registro conserva el contexto SQL de los errores y omite
+los valores de parámetros; ese contexto puede localizar la función y la
+línea si se reproduce el rechazo. No modifica funciones ni permisos.
 
 ## Qué falta para terminar
 
