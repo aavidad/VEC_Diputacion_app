@@ -8,7 +8,7 @@ congelada. La cola y los responsables siguen en el
 
 ## Integrado y preparación
 
-La [receta local, apartado 6](../../deploy/principal/LEEME_copia_local.md#6-organización-histórica)
+La [receta local, apartado 6](../../deploy/principal/LEEME_copia_local.md#6-organización-histórica-y-lectura-de-personal-en-el-servidor-combinado)
 reúne el montaje de la consulta histórica que utiliza RRHH. Ya no es correcto
 presentar toda esa consulta como código sin composición. Las cuentas de
 consulta conservan sus permisos y ámbitos; una lectura disponible no acredita
