@@ -29,6 +29,37 @@ permissions:
   contents: read
 
 jobs:
+  # Una PR que solo cambia documentación (docs/, salvo docs/demo, que leen las
+  # pruebas, y los .md de la raíz) no necesita compilar, probar PostgreSQL ni
+  # construir imágenes: solo pasa la puerta de secretos. Así no ocupa la cola
+  # de ejecutores que necesitan las PR de código.
+  cambios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      codigo: ${{ steps.c.outputs.codigo }}
+    steps:
+      - name: Descargar el commit de la PR y su base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Decidir si la PR toca algo más que documentación
+        id: c
+        env:
+          EVENTO: ${{ github.event_name }}
+        run: |
+          codigo=true
+          if [ "$EVENTO" = pull_request ] && git rev-parse -q --verify HEAD^2 >/dev/null; then
+            cambiados=$(git diff --name-only HEAD^1 HEAD)
+            if [ -n "$cambiados" ] && ! printf '%s\n' "$cambiados" | grep -qvE '^(docs/|[^/]+\.md$)' \
+               && ! printf '%s\n' "$cambiados" | grep -q '^docs/demo/'; then
+              codigo=false
+            fi
+          fi
+          echo "codigo=$codigo" >> "$GITHUB_OUTPUT"
+          echo "Cambia código: $codigo"
+
   puerta-secretos:
     if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/') }}
     runs-on: ubuntu-latest
@@ -48,7 +79,8 @@ jobs:
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
 
   puerta-calidad:
-    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/') }}
+    needs: cambios
+    if: ${{ needs.cambios.outputs.codigo == 'true' && (github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -81,7 +113,8 @@ jobs:
       # go test ./... con el arnes existente. El codigo sigue en tools/.
 
   puerta-artefactos-productivos:
-    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/') }}
+    needs: cambios
+    if: ${{ needs.cambios.outputs.codigo == 'true' && (github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -105,7 +138,8 @@ jobs:
             vec-ci-publico:revision vec-ci-interno:revision
 
   puerta-postgresql-contexto-actor-v3:
-    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/') }}
+    needs: cambios
+    if: ${{ needs.cambios.outputs.codigo == 'true' && (github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -119,7 +153,8 @@ jobs:
         run: bash deploy/postgresql/autorizacion/probar_integracion_contexto_actor_v3.sh
 
   puerta-postgresql-bolsa-publica:
-    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/') }}
+    needs: cambios
+    if: ${{ needs.cambios.outputs.codigo == 'true' && (github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -137,7 +172,8 @@ jobs:
         run: bash deploy/postgresql/bolsa_publica/probar_integracion.sh
 
   puerta-postgresql-recorrido-fase1:
-    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/') }}
+    needs: cambios
+    if: ${{ needs.cambios.outputs.codigo == 'true' && (github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
