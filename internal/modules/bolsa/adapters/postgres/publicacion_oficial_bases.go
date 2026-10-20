@@ -193,11 +193,8 @@ func (r *RepositorioPublicacionOficialPostgreSQL) declararUnaVez(ctx context.Con
 // El canon de PostgreSQL debe decir lo mismo que la declaración validada.
 func mismaDeclaracionPublicacionOficial(i ports.IntencionPublicacionOficial) bool {
 	b, err := json.Marshal(i.Solicitud.Declaracion)
-	if err != nil {
-		return false
-	}
 	var enviada, normalizada any
-	return json.Unmarshal(b, &enviada) == nil && json.Unmarshal([]byte(i.CanonPostgreSQL), &normalizada) == nil &&
+	return err == nil && json.Unmarshal(b, &enviada) == nil && json.Unmarshal([]byte(i.CanonPostgreSQL), &normalizada) == nil &&
 		reflect.DeepEqual(enviada, normalizada)
 }
 
