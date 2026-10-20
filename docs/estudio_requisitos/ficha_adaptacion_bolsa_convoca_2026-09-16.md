@@ -67,7 +67,7 @@ en `NO-GO`.
 
 ## Orden propuesto cuando Bolsa se retome
 
-1. B1 importador invocable con los XLS reales (es la condición de Alberto y lo que alimenta a Contratación).
+1. B1 importador invocable con el formato XLS de CONVOCA, usando datos ficticios para preparar las bolsas que consume Contratación.
 2. B2 + B5: estados y pantalla de bolsa. 3. B6 orden calculado con los parámetros de RRHH. 4. B3 + B7 + B8: contactos, llamamiento real, pausas. 5. B10 + B11: público y portal. 6. B15 sobre el portal y detalle público ya conectados. 7. B12 + B13. 8. Fase 2 (S1–S7) solo cuando haya una convocatoria nueva que tramitar.
 
 ## Lo que no se decide aquí
