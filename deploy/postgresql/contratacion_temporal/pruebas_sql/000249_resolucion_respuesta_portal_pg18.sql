@@ -136,4 +136,97 @@ BEGIN
   RAISE EXCEPTION 'CT249 prueba: correo y portal duplicaron llamamiento';
  EXCEPTION WHEN unique_violation THEN NULL; END;
 END $unico_ct249$;
+-- JSON sintético en memoria: no se inserta un acto ni se emite un recibo.
+DO $ct249_finanzas$
+DECLARE ref jsonb:=jsonb_build_object('referencia','ref:prueba','version',1,
+ 'huella_sha256',repeat('a',64)); neutra jsonb:='{"referencia":"","version":0,"huella_sha256":""}'::jsonb;
+ datos jsonb; comando jsonb; recibo jsonb; evidencia jsonb; solicitud jsonb;
+ artefacto jsonb; canon text; huellas text[]; valido_neutro jsonb; recibo_neutro jsonb;
+ valido_positivo jsonb; recibo_positivo jsonb; falso jsonb;
+BEGIN
+ datos:=jsonb_build_object('operacion_ref','operacion:prueba','organizacion_ref','organizacion:prueba',
+  'expediente_ref','expediente:prueba','version_expediente',6,'correlacion_ref','correlacion:prueba',
+  'contrato_version',1,'autoridad_solicitante','autoridad:prueba','autorizacion',ref,
+  'accion',ref,'recurso',ref,'finalidad',ref,'solicitada_en','2026-10-20T08:00:00Z',
+  'valida_hasta','2026-10-20T08:10:00Z');
+ comando:=jsonb_build_object('contexto',jsonb_build_object('datos',datos,
+  'clave_verificacion_ref','clave:prueba','sello_hmac','hmac:prueba'),
+  'necesidad',ref,'bolsa',ref,'orden',ref,'politica',ref,'total_posiciones_orden',1,
+  'maxima_posicion_evaluable',1,'huella_recibo_orden',repeat('b',64));
+ recibo:=jsonb_build_object('operacion_ref','operacion:prueba','organizacion_ref','organizacion:prueba',
+  'expediente_ref','expediente:prueba','version_expediente',6,'correlacion_ref','correlacion:prueba',
+  'necesidad',ref,'bolsa',ref,'orden',ref,'politica',ref,'resultado',ref,
+  'propuesta_generada',true,'propuesta',ref,
+  'accion_evento',jsonb_build_object('referencia','llamamiento.emitir.v1','version',1,
+    'huella_sha256','2472cb427ec518ae7f2fe8671284d890f184918cdd3d6d88d9eeb12c61e3a811'),
+  'llamamiento_ref','llamamiento:prueba','seleccion_ref','seleccion:prueba',
+  'retencion_seleccion',neutra,'orden_seleccionado',1,'recibo_ref','recibo:prueba',
+  'auditoria_ref','auditoria:prueba','evento_ref','evento:prueba','confirmada_en','2026-10-20T08:01:00Z',
+  'procedencia',jsonb_build_object('autoridad_ref','autoridad:bolsa:llamamiento:desarrollo',
+   'respuesta_ref','respuesta:prueba','contrato_version',1,'fuente',ref,
+   'evidencia',jsonb_build_object('evidencia_ref','evidencia:prueba',
+    'clave_verificacion_ref','clave:respuesta','sello_hmac','hmac:prueba',
+    'emitida_en','2026-10-20T08:02:00Z','valida_hasta','2026-10-20T08:08:00Z',
+    'retener_hasta','0001-01-01T00:00:00Z'),'sin_retencion_declarada',true));
+ evidencia:=jsonb_build_object('esquema','vec.contratacion-temporal.evidencia-bolsa.v1',
+  'tipo_material','recibo_llamamiento','autoridad_ref','autoridad:bolsa:llamamiento:desarrollo',
+  'clave_verificacion_ref','clave:respuesta','evidencia_ref','evidencia:prueba',
+  'peticion_ref','operacion:prueba','huella_peticion_sha256',repeat('0',64),
+  'respuesta_ref','respuesta:prueba','huella_respuesta_sha256',repeat('0',64),
+  'sello_hmac','hmac:prueba','emitida_en','2026-10-20T08:02:00Z',
+  'valida_hasta','2026-10-20T08:08:00Z','retener_hasta','0001-01-01T00:00:00Z',
+  'sin_retencion_declarada',true);
+ solicitud:=jsonb_build_object('organizacion_ref','organizacion:prueba',
+  'expediente_ref','expediente:prueba','version_expediente',6,
+  'necesidad',ref,'bolsa',ref,'politica',ref);
+ artefacto:=jsonb_build_object('esquema','vec.contratacion-temporal.artefacto-bolsa',
+  'version',1,'tipo','recibo_llamamiento','comando',comando,'recibo',recibo,
+  'evidencia',evidencia,'clave_verificacion_ref','clave:respuesta',
+  'sello_hmac','hmac:prueba','huella_artefacto_sha256','');
+ huellas:=vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(artefacto);
+ artefacto:=jsonb_set(jsonb_set(artefacto,'{evidencia,huella_peticion_sha256}',to_jsonb(huellas[1])),
+  '{evidencia,huella_respuesta_sha256}',to_jsonb(huellas[2]));
+ artefacto:=jsonb_set(artefacto,'{huella_artefacto_sha256}',to_jsonb(encode(sha256(convert_to(
+  vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(artefacto,true),'UTF8')),'hex')));
+ canon:=vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(artefacto,false);
+ IF canon IS NULL OR vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(
+   artefacto,canon,recibo,vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(recibo)) IS NOT TRUE
+   OR vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,recibo,canon) IS NOT TRUE THEN
+  RAISE EXCEPTION 'CT249 prueba: rama neutra canónica rechazada'; END IF;
+ valido_neutro:=artefacto; recibo_neutro:=recibo;
+ -- Rama ordinaria: retención positiva original, sin marca de no retención.
+ recibo:=jsonb_set(recibo,'{retencion_seleccion}',ref);
+ recibo:=jsonb_set(recibo,'{procedencia}',(recibo->'procedencia')-'sin_retencion_declarada');
+ recibo:=jsonb_set(recibo,'{procedencia,evidencia,retener_hasta}',
+  '"2026-10-21T08:08:00Z"'::jsonb);
+ artefacto:=jsonb_set(artefacto,'{recibo}',recibo);
+ artefacto:=jsonb_set(artefacto,'{evidencia}',(artefacto->'evidencia')-'sin_retencion_declarada');
+ artefacto:=jsonb_set(artefacto,'{evidencia,retener_hasta}',
+  '"2026-10-21T08:08:00Z"'::jsonb);
+ huellas:=vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(artefacto);
+ artefacto:=jsonb_set(jsonb_set(artefacto,'{evidencia,huella_peticion_sha256}',to_jsonb(huellas[1])),
+  '{evidencia,huella_respuesta_sha256}',to_jsonb(huellas[2]));
+ artefacto:=jsonb_set(artefacto,'{huella_artefacto_sha256}',to_jsonb(encode(sha256(convert_to(
+  vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(artefacto,true),'UTF8')),'hex')));
+ canon:=vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(artefacto,false);
+ IF canon IS NULL OR vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(
+   artefacto,canon,recibo,vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(recibo)) IS NOT TRUE
+   OR vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,recibo,canon) IS NOT TRUE THEN
+  RAISE EXCEPTION 'CT249 prueba: rama con retención canónica rechazada'; END IF;
+ valido_positivo:=artefacto; recibo_positivo:=recibo;
+ IF vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,
+    jsonb_set(recibo_neutro,'{retencion_seleccion}',ref),
+    vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(valido_neutro,false)) IS TRUE
+ OR vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,
+    jsonb_set(recibo_positivo,'{retencion_seleccion}',neutra),canon) IS TRUE
+ OR vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+    jsonb_set(solicitud,'{necesidad,referencia}','"necesidad:ajena"'::jsonb),recibo_positivo,canon) IS TRUE
+ THEN RAISE EXCEPTION 'CT249 prueba: retención o solicitud divergente admitida'; END IF;
+ falso:=jsonb_set(valido_positivo,'{huella_artefacto_sha256}',to_jsonb(repeat('f',64)));
+ IF vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,recibo_positivo,
+    vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(falso,false)) IS TRUE
+ OR vec_contratacion_temporal.origen_financiero_o6_ct249_v1(solicitud,
+    jsonb_set(recibo_positivo,'{llamamiento_ref}','"llamamiento:ajeno"'::jsonb),canon) IS TRUE
+ THEN RAISE EXCEPTION 'CT249 prueba: huella o vínculo de recibo divergente admitido'; END IF;
+END $ct249_finanzas$;
 ROLLBACK;
