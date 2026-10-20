@@ -19,8 +19,8 @@ requisitos, las especificaciones para agentes y los planes de módulo (ver el
 apartado 20). Si algo de aquí choca con una regla vigente más reciente o con
 el código, mandan la orden o el código, y se corrige este documento.
 
-Es lectura obligatoria antes de programar, revisar o encargar
-trabajo, y cualquier persona de RRHH que quiera saber qué se está construyendo.
+Es lectura obligatoria antes de programar, revisar o encargar trabajo.
+También permite a RRHH conocer el alcance del producto.
 
 ## 1. Los seis documentos de producto
 
@@ -1222,8 +1222,9 @@ recorrido. El detalle de pantallas y llamadas está en `docs/producto/FLUJO_APP.
 
 El recorrido principal empieza en el paso 3, la petición del centro. Los pasos 1
 y 2 (inscripción del aspirante y constitución de la bolsa) se enseñan aparte y
-no forman parte de la condición 1 de la fase 1: el tramo inicial puede elegirse sin alterar la aceptación del caso principal. Se recorre en la copia local, con cada
-paso obtenido desde su pantalla. Los datos ficticios de partida pueden
+no forman parte de la condición 1 de la fase 1. El tramo inicial puede
+elegirse sin alterar la aceptación del caso principal. Se recorre en la
+copia local, con cada paso obtenido desde su pantalla. Los datos ficticios de partida pueden
 prepararse en la copia; el alta, la ocupación y el cese no se precargan.
 
 Qué falta para cada paso en la copia local: ver `TABLERO_TAREAS.md`. El
