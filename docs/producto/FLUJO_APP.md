@@ -1069,6 +1069,12 @@ y permitió anotar el aviso. Está pendiente de integración; no acredita todo e
 apartado 4.0. Activación y límites en
 [`puente_unidades_llamamiento_20261015.md`](../../deploy/principal/puente_unidades_llamamiento_20261015.md).
 
+La continuación desde una plaza adjudicada prepara un expediente por persona.
+Su autorización debe corresponder a la organización y unidad que tramitan
+ese hijo. Está preparado el ajuste del contrato firmado; la activación y el
+recorrido con el ámbito propio siguen pendientes junto con la publicación
+inicial del hijo. Repetir la misma intención debe recuperar su recibo.
+
 #### 4.3.4 Documentos
 
 La candidata de F1-88 nombra el expediente por su número en las confirmaciones

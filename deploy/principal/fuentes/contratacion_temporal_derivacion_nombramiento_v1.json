@@ -1,0 +1,35 @@
+{
+  "modulo_id": "contratacion_temporal",
+  "referencia": "fuente:contratacion_temporal:derivacion_nombramiento",
+  "version": 1,
+  "huella_sha256": "972cc5460ac677f4055d75745aebcd79fb3d1c486552efc90a49a1275c77cb9c",
+  "entradas_canon": "[{\"referencia\":\"accion:contratacion_temporal.nombramiento.derivar\",\"version\":1,\"fuente_ref\":\"fuente:contratacion_temporal:derivacion_nombramiento\",\"fuente_version\":1,\"concesion\":{\"accion\":\"contratacion_temporal.nombramiento.derivar\",\"modulo_id\":\"contratacion_temporal\",\"tipo_recurso\":\"nombramiento_derivado_ct\",\"finalidades\":[\"gestionar_contratacion_temporal\"],\"garantia_minima\":\"alto\",\"obligaciones\":[\"auditar\"]},\"dimensiones_ambito\":[\"organizacion_ref\",\"unidad_ref\"],\"clase_control\":\"ordinario\",\"vigente_desde\":\"2026-10-20T00:00:00Z\",\"vigente_hasta\":\"2027-01-14T00:00:00Z\"}]",
+  "entradas": [
+    {
+      "referencia": "accion:contratacion_temporal.nombramiento.derivar",
+      "version": 1,
+      "fuente_ref": "fuente:contratacion_temporal:derivacion_nombramiento",
+      "fuente_version": 1,
+      "fuente_huella_sha256": "972cc5460ac677f4055d75745aebcd79fb3d1c486552efc90a49a1275c77cb9c",
+      "concesion": {
+        "accion": "contratacion_temporal.nombramiento.derivar",
+        "modulo_id": "contratacion_temporal",
+        "tipo_recurso": "nombramiento_derivado_ct",
+        "finalidades": [
+          "gestionar_contratacion_temporal"
+        ],
+        "garantia_minima": "alto",
+        "obligaciones": [
+          "auditar"
+        ]
+      },
+      "dimensiones_ambito": [
+        "organizacion_ref",
+        "unidad_ref"
+      ],
+      "clase_control": "ordinario",
+      "vigente_desde": "2026-10-20T00:00:00Z",
+      "vigente_hasta": "2027-01-14T00:00:00Z"
+    }
+  ]
+}

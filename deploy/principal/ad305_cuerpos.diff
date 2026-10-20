@@ -1,0 +1,12 @@
+--- central_pre
++++ central_post
+@@ -1183,2 +1182,0 @@
+- AND jsonb_typeof(d->'ambitos') IS NOT DISTINCT FROM 'object'
+- AND (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(d->'ambitos') k) IS NOT DISTINCT FROM ARRAY['organizacion_ref','unidad_ref']
+
+--- fachada_pre
++++ fachada_post
+@@ -34,3 +33,0 @@
+- OR jsonb_typeof(d->'ambitos') IS DISTINCT FROM 'object'
+- OR (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(d->'ambitos') k)
+-    IS DISTINCT FROM ARRAY['organizacion_ref','unidad_ref']
