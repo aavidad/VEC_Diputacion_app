@@ -377,3 +377,12 @@ test("una cancelación que no es el plazo propio no se repite", async () => {
   await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
   assert.equal(llamadas, 1); assert.deepEqual(e.contador.pausas, []);
 });
+
+test("si el plazo vence al leer la respuesta también se repite el envío", async () => {
+  const e = escenario(["certificado_vec"]); let llamadas = 0;
+  e.deps.plazoIntento = () => { const c = new AbortController(); c.abort(); return c.signal; };
+  e.deps.registrarVec = async () => { llamadas++; if (llamadas === 1) throw new DOMException("plazo", "TimeoutError"); return e.recibo; };
+  const a = crearAccionesFirma(e.deps);
+  await a.manejarClic(e.evento("comprobar")); await a.manejarClic(e.evento("certificado_vec"));
+  assert.equal(llamadas, 2); assert.equal(e.contador.confirmaciones, 1);
+});

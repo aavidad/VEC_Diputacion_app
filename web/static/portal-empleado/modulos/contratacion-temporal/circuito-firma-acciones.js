@@ -259,7 +259,7 @@ export function crearAccionesFirma({
       catch (error) {
         // Agotar el plazo propio no es una cancelación de la persona: el envío queda sin respuesta.
         const sinRespuesta = error?.codigo === "servicio_no_disponible"
-          || (error?.codigo === "operacion_abortada" && plazo?.aborted === true);
+          || (plazo?.aborted === true && (error?.codigo === "operacion_abortada" || error?.codigo === undefined));
         if (!sinRespuesta) throw error;
         if (i >= PAUSAS_REINTENTO_REGISTRO_MS.length) throw { codigo: "servicio_no_disponible" };
       }
