@@ -10,7 +10,7 @@ export const RUTA_PANTALLA_CARGA_CONVOCA = `/portal-empleado/modulos/bolsa/carga
 
 const VISTAS_POR_CATEGORIA = Object.freeze({
   "bolsas-candidatos": Object.freeze([
-    "elaboracion", "convocatorias", "solicitudes", "meritos", "alegaciones", "importacion",
+    "elaboracion", "convocatorias", "publicacion-bases", "solicitudes", "meritos", "alegaciones", "importacion",
   ]),
   llamamientos: Object.freeze(["llamamientos"]),
   contratos: Object.freeze(["contratos"]),
@@ -90,6 +90,10 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
       return capacidades?.inscripciones === true;
     case "importacion":
       return capacidades?.cargaConvoca === true;
+    case "publicacion-bases":
+      // Se ofrece si la API respondió (200) o si está montada sin habilitar
+      // (503, la pantalla lo dice); un 403 o 404 la retira del menú.
+      return capacidades?.publicacionBases === true;
     case "solicitudes":
       // Solo cuando la bandeja de inscripciones ha respondido: apagada, el
       // servidor no publica sus rutas y la entrada no se ofrece.
@@ -123,7 +127,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
  * el menú. Elaboración comprueba su API al abrirse por enlace.
  */
 export function vistaBolsaNavegable(vista, capacidades = {}) {
-  if (["solicitudes", "meritos", "convocatorias", "alegaciones", "importacion", "baremacion", "configuracion", "reglas-situacion"].includes(vista)) return true;
+  if (["solicitudes", "meritos", "convocatorias", "publicacion-bases", "alegaciones", "importacion", "baremacion", "configuracion", "reglas-situacion"].includes(vista)) return true;
   if (vista === "elaboracion") return capacidades?.borradores !== false;
   if (["documentos", "resumen", "estadisticas", "llamamientos", "comunicaciones", VISTA_CANDIDATOS_BOLSA].includes(vista)) return true;
   return vistaBolsaOfrecida(vista, capacidades);

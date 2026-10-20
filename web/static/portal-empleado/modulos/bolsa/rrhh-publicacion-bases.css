@@ -1,0 +1,23 @@
+/* Publicación oficial de las bases: solo disposición propia; campos, resumen de
+   errores, resguardo, detalle técnico y tabla apilable son componentes comunes. */
+.publicacion-bases { display: grid; gap: 20px; min-width: 0; }
+.publicacion-bases .cabecera-panel { flex-wrap: wrap; gap: 8px 16px; }
+.publicacion-bases-ayuda-boton { width: 2rem; height: 2rem; border-radius: 50%; }
+.publicacion-bases-ayuda { margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie-alterna); }
+.publicacion-bases-ayuda ol { margin: 0; padding-inline-start: 20px; }
+/* Las tablas comunes no parten líneas; aquí el título y la publicación sí, para
+   que la columna de acción quepa a 1440 px sin desplazar la tabla. */
+.publicacion-bases-tabla tbody th { min-width: 200px; background: transparent; color: var(--portal-tinta); font: inherit; letter-spacing: normal; text-transform: none; white-space: normal; }
+.publicacion-bases-tabla tbody th small { display: block; color: var(--portal-muted); overflow-wrap: anywhere; }
+.publicacion-bases-tabla td.envuelve small { display: block; margin: 0; color: var(--portal-muted); }
+.publicacion-bases-tabla th, .publicacion-bases-tabla td { vertical-align: top; }
+.publicacion-bases-tabla tr[aria-current="true"] > * { background: var(--portal-azul-100); }
+.publicacion-bases-estado { display: grid; gap: 4px; justify-items: start; }
+.publicacion-bases-resguardo { margin: 0 0 16px; }
+.publicacion-bases-resguardo .datos-clave { padding-inline: 0; }
+.publicacion-bases-resguardo code { overflow-wrap: anywhere; }
+.publicacion-bases-campos { margin-block: 12px 16px; }
+.publicacion-bases .campo > label { font-weight: 600; }
+.publicacion-bases .error-campo { color: var(--portal-peligro); font-weight: 600; }
+.publicacion-bases [aria-invalid="true"] { border-color: var(--portal-peligro); }
+.publicacion-bases-tabla tbody tr:last-child th { border-bottom: 0; }

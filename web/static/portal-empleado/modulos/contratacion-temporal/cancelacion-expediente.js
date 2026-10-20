@@ -3,12 +3,13 @@
 import { crearTraductorCancelacion } from "./i18n-cancelacion.js?v=VEC_WEB_VERSION";
 import { renderizarJustificante } from "../../portal-justificante.js";
 
+const PREFIJO_MOTIVO = "contratacion_temporal.cancelacion.motivo.";
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 function instanteVisible(valor, locale) {
   const fecha = new Date(valor);
   return Number.isFinite(fecha.getTime())
-    ? new Intl.DateTimeFormat(locale, { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Madrid" }).format(fecha) : valor;
+    ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(fecha) : valor;
 }
 
 // El contexto sale del detalle ya autorizado y de su fila en el cuadro:
@@ -20,8 +21,9 @@ export function contextoCancelacionDesdeEstado(estado) {
     || !Array.isArray(estado.cuadro?.expedientes)) return null;
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref: ref }) => ref === estado.expediente.expediente_ref);
   if (!resumen || resumen.version !== estado.expediente.version || typeof resumen.fase_clave !== "string") return null;
+  const numero = typeof estado.expediente.numero_visible === "string" ? estado.expediente.numero_visible.trim() : "";
   return Object.freeze({ expediente_ref: estado.expediente.expediente_ref, version: estado.expediente.version,
-    fase_clave: resumen.fase_clave, estado_clave: resumen.estado_clave });
+    fase_clave: resumen.fase_clave, estado_clave: resumen.estado_clave, numero_visible: numero });
 }
 
 // Un 404 sin sobre de error del módulo significa que el servidor no compone
@@ -46,17 +48,26 @@ export function montarPanelCancelacion({
   // Al volver a montar el panel tras cancelar, el justificante sigue a la vista.
   let aviso = avisoInicial?.tono === "exito" && typeof avisoInicial.texto === "string"
     ? { tono: "exito", texto: avisoInicial.texto, recibo: typeof avisoInicial.recibo === "string" ? avisoInicial.recibo : "" } : null;
+  let enfocarAvisoAlCargar = aviso !== null;
 
-  const etiquetaMotivo = (clave18n, etiqueta) => (clave18n && typeof mensajes[clave18n] === "string" ? mensajes[clave18n] : etiqueta);
+  // El catálogo de motivos trae su clave de textos; el nombre en el idioma
+  // elegido sale del catálogo de la cancelación y, si falta, del servidor.
+  const etiquetaMotivo = (clave18n, etiqueta) => {
+    if (typeof clave18n !== "string" || clave18n === "") return etiqueta;
+    if (typeof mensajes[clave18n] === "string") return mensajes[clave18n];
+    const propia = clave18n.startsWith(PREFIJO_MOTIVO) ? `motivo_${clave18n.slice(PREFIJO_MOTIVO.length)}` : "";
+    return propia && /^motivo_[a-z0-9_]+$/u.test(propia) && t(propia) !== propia ? t(propia) : etiqueta;
+  };
   const etiquetaFase = (fase) => (t(`fase_${fase}`) === `fase_${fase}` ? fase : t(`fase_${fase}`));
 
   function justificante(referencia) {
     return renderizarJustificante(referencia, { escapar, etiqueta: t("justificante_registrado"), copiar: t("justificante_copiar"), copiado: t("justificante_copiado") });
   }
 
-  function htmlAviso() {
+  // Con la cancelación registrada, el justificante ya está en su recuadro.
+  function htmlAviso({ conRecibo = true } = {}) {
     if (!aviso) return "";
-    const recibo = aviso.recibo ? ` ${justificante(aviso.recibo)}` : "";
+    const recibo = conRecibo && aviso.recibo ? ` ${justificante(aviso.recibo)}` : "";
     return `<p class="ct-exp-mensaje ct-tono-${aviso.tono}" role="${aviso.tono === "peligro" ? "alert" : "status"}" data-ct-cancelacion-aviso tabindex="-1">${escapar(aviso.texto)}${recibo}</p>`;
   }
 
@@ -80,7 +91,7 @@ export function montarPanelCancelacion({
       <div class="ct-exp-fase-panel-acciones"><span class="ct-exp-chip ct-fase-cancelado">${escapar(t("estado_cancelado"))}</span>${botonAyuda()}</div></header>${textoAyuda()}
       <dl class="ct-exp-fase-datos">${filas.map(([a, b]) => `<div><dt>${escapar(a)}</dt><dd>${escapar(b)}</dd></div>`).join("")}
       <div><dt>${escapar(t("justificante_registrado"))}</dt><dd>${renderizarJustificante(c.recibo_ref, { escapar, etiqueta: "", copiar: t("justificante_copiar"), copiado: t("justificante_copiado") })}</dd></div></dl>
-      ${htmlAviso()}</section>`;
+      ${htmlAviso({ conRecibo: false })}</section>`;
   }
 
   function formulario(motivos) {
@@ -138,6 +149,11 @@ export function montarPanelCancelacion({
       datos = rutaCancelacionNoMontada(error) ? { ausente: true } : { error: true };
     }
     pintar();
+    // Tras cancelar, la ficha se vuelve a pintar: el foco vuelve al mensaje.
+    if (enfocarAvisoAlCargar) {
+      enfocarAvisoAlCargar = false;
+      enfocar("[data-ct-cancelacion-aviso]");
+    }
   }
 
   function enfocar(selector) {
@@ -157,7 +173,8 @@ export function montarPanelCancelacion({
       return;
     }
     let confirmada = false;
-    try { confirmada = confirmarOperacion({ titulo: t("confirmar_titulo"), advertencia: t("confirmar"), referencia: contexto.expediente_ref }) === true; } catch {}
+    try { confirmada = confirmarOperacion({ titulo: t("confirmar_titulo"), advertencia: t("confirmar"), referencia: contexto.numero_visible
+      ? t("confirmar_referencia", { numero: contexto.numero_visible, version: contexto.version }) : contexto.expediente_ref }) === true; } catch {}
     if (!confirmada) return;
     ocupado = true;
     aviso = { tono: "info", texto: t("enviando") };

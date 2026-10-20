@@ -98,26 +98,12 @@ lista hasta que se anote su publicación. Es lo previsto.
 El recorrido de la aspirante por HTTP necesita la inscripción encendida, que
 depende de F1-90.
 
-## Lo que falta: el acto de RRHH desde la web
+## El acto de RRHH desde la web
 
-Hoy solo Informática, o los datos de la copia, pueden anotar la publicación.
-Para que lo haga RRHH desde su pantalla hace falta:
-
-1. Un consumidor de autorización, `consumir_publicacion_oficial_bases_v1`, con
-   su perfil en el núcleo V3 y la acción
-   `bolsa.convocatoria.publicacion_oficial.declarar` sobre el recurso
-   `version_convocatoria`. Los ámbitos salen de la política. Exige reconstruir
-   el núcleo central, que solo hace el equipo R y como mucho una vez por
-   semana.
-2. Una fachada `SECURITY DEFINER` del propietario de convocatorias que consuma
-   esa autorización y llame a `declarar_publicacion_oficial_bases_v1` en la
-   misma transacción. `declarada_por` y `motivo_ref` salen de la autorización
-   consumida, nunca del JSON de la petición.
-3. La ruta Go y la pantalla de RRHH. La pantalla pinta el enlace escapado y,
-   si se quiere limitar a dominios oficiales, la lista va en catálogo. La ruta
-   y la pantalla siguen siguiendo el patrón de la comprobación de
-   ofrecimiento de F1-09 (puerto, caso de uso, adaptador PostgreSQL y
-   composición con denegación por defecto).
+Lo prepara F1-95 (`deploy/principal/f1_95_publicacion_bases_web/`): la fachada
+BC15, la ruta y la pantalla de RRHH. El consumidor del núcleo (AD301) va en
+una entrega aparte para el equipo de permisos; hasta que se instale, la ruta
+deniega y la anotación sigue haciéndola Informática o la semilla de la copia.
 
 ## Aviso para F1-41
 
