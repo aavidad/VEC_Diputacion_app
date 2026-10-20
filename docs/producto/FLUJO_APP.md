@@ -617,10 +617,17 @@ se retira una, debe marcar «He revisado el orden» antes de guardar.
 
 #### Modalidades de ofertas publicadas
 
-Estado: el servidor ya guarda y lee la elección con versión y justificante
-(`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades`). Falta
-publicar el permiso de la aspirante, aplicar la elección a la vista y a los
-avisos (F1-13, parte 4) y la pantalla (F1-14).
+Estado: el servidor guarda y lee la elección con versión y justificante
+(`GET/PUT /api/vec/bolsa/mi-bolsa/preferencias?tipo=modalidades`) y la aplica
+a la vista de ofertas de Mi Bolsa y a los avisos por correo (F1-13, parte 4).
+Falta publicar el permiso de la aspirante y la pantalla para elegir (F1-14).
+
+En Mi Bolsa se ocultan las ofertas abiertas, todavía sin respuesta, cuya
+modalidad la aspirante no eligió. Las ofertas sin modalidad y las que ya
+respondió se ven siempre. Si su elección no se puede leer, ve todas las ofertas.
+El aviso por correo usa la elección vigente al publicarse la oferta: quien no
+eligió esa modalidad no recibe el correo. Si cambia de elección después, los
+avisos de esa oferta no cambian; cuenta para las ofertas siguientes.
 
 La elección voluntaria de modalidades, cuando se habilite, solo filtra las
 ofertas publicadas que la persona ve y los avisos que solicita. No cambia la

@@ -67,6 +67,9 @@ type InstantaneaMiBolsa struct {
 	ReglasPortal *ReglasPortalVisibles
 	// Ofertas solo existe si la consulta pidió las ofertas de sus bolsas.
 	Ofertas []OfertaPortalCandidato
+	// OfertasSegunModalidades indica que Ofertas ya refleja la elección de
+	// modalidades leída para esta consulta. No autoriza nada por sí misma.
+	OfertasSegunModalidades bool
 	// Contactos solo existe si la consulta pidió el estado de su contacto.
 	Contactos []ContactoPortalCandidato
 	// NombrePropio solo existe si la composición sabe resolverlo y la

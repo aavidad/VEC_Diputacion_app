@@ -561,6 +561,78 @@ arranque, anótalo como fallo del producto.
 
 ## 9. Reinicio y recuperación
 
+La composición de Administración añade `--administracion` a `crear --modulos`.
+El puerto se elige con `--puerto-admin` y debe estar libre y ser distinto de
+los puertos de PostgreSQL, la aplicación y el correo.
+Requiere `VEC_COPIA_ADMIN_SCRIPT`, un ejecutor privado preparado para la misma
+candidata. Recibe `--raiz`, `--fase preparar|arrancar|comprobar`,
+`--candado-fd` y `--puerto-admin`: debe heredar ese descriptor al llamar al kit y conservar sus
+comprobaciones de revisión, huellas, etiqueta y sistema PostgreSQL.
+La preparación se invoca una sola vez; un resultado incierto se concilia con
+el mismo plan y recibo. El reinicio solo arranca y comprueba lo ya preparado.
+La parada exige que PID, ejecutable propio e inicio del proceso coincidan.
+Si el proceso sigue vivo pero su binario cambió, se detiene con error y
+conserva la copia: hay que pararlo a mano antes de `borrar`.
+
+Si se interrumpe la preparación, conserva la instancia y su carpeta `admin`.
+No repitas `crear` ni la fase `preparar`. Mantén PostgreSQL y la aplicación
+con su sellador activos; Administración debe estar parada. La continuación
+nativa del mismo paquete se documenta en `LEEME.continuacion-ad295.md`, del
+kit privado (no está en el repositorio):
+`continuar_admin_runtime_ad295.py --repo … --kit … --equipo … --instancia …
+--sid … --config-gobierno … --acuse-gobierno … --salida-verificacion …
+--comprobar` coteja por lectura el mismo gobierno. Después, el comando sin
+`--comprobar`, con otra salida nueva, continúa únicamente el runtime que falta.
+Usa la revisión, el identificador PostgreSQL y las rutas de esa copia; los
+informes nuevos quedan junto al acuse original. Un fallo de cotejo detiene
+la continuación y conserva los archivos para diagnóstico.
+
+Probado el 20/10 (F0-28) con un ejecutor privado que reutiliza el kit H6
+(conjunto 6) fijado a la revisión de la copia. En `preparar` compila el kit
+desde la revisión limpia, prepara Administración y genera el montaje externo
+(`preparar_overlay_externo.py`, también del kit privado, y la fase
+`version-bolsa-externa` de `vec-gobierno-usuarios-admin`). En `arrancar` lanza `vec-admin` con
+`VEC_ADMIN_VERSION_BOLSA_EXTERNA_CONFIG_FILE` y guarda PID e inicio del
+proceso. El ejecutor y el kit viven en `~/.local/state`, nunca en Git.
+La fuente de inscripción no se admite otra vez: el catálogo
+`catalogo:bolsa:carga_convoca:b1` v6 de la línea base ya trae sus entradas.
+
+Orden del acto del aspirante, con el Chrome del sistema y un perfil por
+certificado (`admin/h10/fuentes/cliente-1` y `cliente-2`):
+
+1. Cada administrador abre `https://admin.localhost:PUERTO/administracion-perfiles/`
+   y elige «Administración de la aplicación». La elección sobrevive al reinicio.
+2. Leer catálogo, cabeza del rol `candidato_bolsa_portal_historial_propio_desarrollo`,
+   su control y la asignación activa, y preparar con el dominio el plan de
+   las cinco acciones de inscripción (`huella_plan_esperada`).
+3. El administrador 1 envía la propuesta a
+   `/api/admin/perfiles/v1/gobierno-version-bolsa-externa/propuestas` (201;
+   la repetición da 200 con la misma referencia).
+4. El administrador 2 la cierra en `…/cierres` (200, rol en v2 con doce
+   concesiones y la asignación movida a v2; la repetición da el mismo recibo).
+
+No hay pantalla para este acto: las dos peticiones salen del propio Chrome
+del administrador con su certificado. Playwright verifica el servidor con la
+CA de la copia (`NODE_EXTRA_CA_CERTS`) y Chrome con la huella SPKI de su
+certificado; no se desactiva la verificación.
+
+Después del cierre, el aspirante lee `/api/vec/bolsa/inscripciones/propias`
+con 200. La lista de convocatorias abiertas y su ficha siguen en 403: las
+entradas del catálogo v6 no traen los campos que la aplicación pide desde
+F1-40 y F1-41 (`modalidad_inscripcion` y `solicitudes_propias[]`), y la
+autorización exige que coincidan. Hace falta otra versión de la fuente y del
+rol; además `vistas.json` mantiene apagada la pestaña de inscripción (F1-29).
+
+El suplemento del segundo RRHH queda aparcado por dirección: el ámbito
+antiguo de Contratación necesita una tarea propia para usar organización y
+unidad gobernadas.
+
+El preparador del portal externo recibe también `--candado-fd` de la fábrica
+y debe conservarlo hasta acabar. La invocación independiente del preparador
+adquiere el candado de esa misma instancia antes de comprobar su contenedor.
+Se necesita la receta actualizada; una receta antigua que solo acepte
+`--raiz` no satisface este contrato.
+
 Usa `reiniciar` del apartado 2 para la copia creada por el guion. La orden
 conserva PostgreSQL y su material, y repite las comprobaciones HTTPS.
 Después de preparar los módulos, el ensayo del recorrido debe recuperar
@@ -593,6 +665,7 @@ mismo volcado y las listas necesarias.
 | Con la inscripción encendida, el arranque que sigue a `--portal-externo` se detiene en `inscripcion_rrhh_cuentas_lectores` | La copia no declaraba a la técnica de RRHH en `identidad/consultas-rrhh.json` | Arreglado en F1-90: el preparador escribe el manifiesto. Una copia anterior se crea de nuevo |
 | `--portal-externo` se detiene en `fuente_privada_divergente` | El material de origen ya traía un `identidad/consultas-rrhh.json` distinto (otros lectores u otro formato) | Crear la copia con un material sin ese fichero; el preparador no mezcla manifiestos |
 | El aspirante abre la inscripción y recibe 403 | Su rol aún no tiene las acciones `bolsa.inscripcion.*` | Actos de Administración de `inscripcion_recorrido_20261013/gobierno_inscripcion.md` (F0-28, F1-29) |
+| Tras el acto, las convocatorias abiertas siguen en 403 y las propias dan 200 | La entrada del catálogo v6 no trae `modalidad_inscripcion` ni `solicitudes_propias[]`, y la autorización exige los mismos campos | Nueva versión de la fuente de inscripción y del rol (apartado 9); no tocar la concesión por SQL |
 | La segunda firma del informe da 422 `firma_no_verificada` | GrxFirma 0.0.105 duplica `/Version` al cofirmar y su primera firma bloquea los campos | Firmar las dos veces con GrxFirma 0.0.106 o posterior, en un expediente sin firmas de la 0.0.105 (apartado 11) |
 | GrxFirma rechaza el origen de la copia con 403 | Su configuración no tiene permisos 600 o la confianza por decisión está apagada | `chmod 600` a sus ficheros y activar la confianza por decisión con el origen admitido |
 | `free -g` por debajo de 34 GB | Copias o cachés acumuladas | No restaurar ni compilar; borrar lo propio y avisar |

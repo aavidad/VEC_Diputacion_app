@@ -43,7 +43,7 @@ export function renderizarCabeceraFicha(expediente, estado, t) {
   return `<header class="cabeza-pagina ct-exp-ficha-cabecera">
     <div>
       <h3 class="ct-exp-ficha-titulo">${escapar(titulo || t("expediente_etiqueta"))}</h3>
-      <p class="estado-linea">${fase ? `<span>${escapar(fase)}</span>` : ""}${estadoTexto
+      <p class="estado-linea">${fase ? `<span data-ct-exp-fase-cabecera>${escapar(fase)}</span>` : ""}${estadoTexto
     ? `<span class="ct-exp-chip${resumen ? ` ct-fase-${escapar(resumen.estado_clave)}` : ""}">${escapar(estadoTexto)}</span>` : ""}</p>
     </div>
     <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escapar(t("ficha_volver_lista"))}</button>

@@ -559,6 +559,18 @@ si comprueba las dos y el catálogo de modalidades; si falta algo, la consulta
 responde 503 y el orden de bolsas sigue disponible. Detalle en
 `deploy/principal/candidata_hz39/aspirante/modalidades.md`.
 
+Con esa lectura montada, `GET /api/vec/bolsa/mi-bolsa` aplica la elección a
+las ofertas (`mibolsa.ConsultaOfertasModalidades`): quita las abiertas sin
+respuesta cuya modalidad no está elegida y marca `ofertas_segun_modalidades`.
+La lectura solo se hace si hay alguna oferta que se pueda quitar, y si falla se
+devuelven todas sin la marca. La 000139 de Bolsa (B139) rehace
+`crear_aviso_oferta_b129()` para que, al congelar los destinatarios del aviso,
+excluya a quien tiene una elección guardada que no incluye la modalidad de la
+oferta. Lee la última versión de `preferencia_modalidades_version` a través de
+`vinculo_candidato`. La cola, la reclamación y el reintento siguen usando esa
+lista congelada y no vuelven a leer la elección. Situaciones, orden e
+inscripción no cambian.
+
 ### 8.2 Contratación temporal (`vec_contratacion_temporal`)
 
 F1-73 prepara el contrato de alta directa `vec.ct.alta_necesidad.v2`: el

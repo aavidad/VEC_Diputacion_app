@@ -80,45 +80,82 @@ func comprobarSQLPreferenciasModalidades(ctx context.Context, pool *pgxpool.Pool
 	return nil
 }
 
-// handlerPreferenciasModalidadesPortalExterno compone GET/PUT de modalidades
-// con las mismas acciones propias de preferencias. Si falta B138, AD300, el
-// catálogo o la concesión, devuelve el manejador 503 y el orden de bolsas no
-// se ve afectado. El registro solo nombra la etapa, nunca el error.
-func handlerPreferenciasModalidadesPortalExterno(d dependenciasMiBolsaPortalExterno) http.Handler {
-	noDisponible := bolsahttp.NuevoHandlerPreferenciasBolsasNoDisponible()
+// lecturaModalidadesPortalExterno compone la lectura propia de modalidades.
+// Devuelve nil si falta B138, AD300, el catálogo o la fuente de concesiones;
+// entonces la consulta de modalidades responde 503 y la vista de ofertas se
+// sirve sin filtrar. El registro nombra la etapa y un código cerrado, nunca el texto del error.
+func lecturaModalidadesPortalExterno(d dependenciasMiBolsaPortalExterno) *mibolsa.LecturaPreferenciasModalidades {
 	if d.catalogoModalidades == nil || !d.modalidadesSQL || d.proveedorPreferencias == nil || d.fuentePreferencias == nil {
-		return noDisponible
-	}
-	fallo := func() http.Handler {
-		slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "composicion")
-		return noDisponible
+		return nil
 	}
 	lecturaPG, err := bolsapg.NuevaLecturaPreferenciasModalidadesPostgreSQL(d.bolsa)
 	if err != nil {
-		return fallo()
+		return falloComposicionModalidades(err)
 	}
 	auditoriaPG, err := bolsapg.NuevaAuditoriaIntentosPreferenciasBolsasPostgreSQL(d.bolsa)
 	if err != nil {
-		return fallo()
-	}
-	escrituraPG, err := bolsapg.NuevaEscrituraPreferenciasModalidadesPostgreSQL(d.bolsa)
-	if err != nil {
-		return fallo()
+		return falloComposicionModalidades(err)
 	}
 	lectura, err := mibolsa.NuevaLecturaPreferenciasModalidades(
 		lecturaPG, auditoriaPG, d.fuentePreferencias, d.catalogoModalidades, d.reloj)
 	if err != nil {
-		return fallo()
+		return falloComposicionModalidades(err)
+	}
+	return lectura
+}
+
+// El registro solo lleva la etapa y un código cerrado de la causa.
+func falloComposicionModalidades(err error) *mibolsa.LecturaPreferenciasModalidades {
+	slog.Warn("preferencias de modalidades externas no disponibles", "etapa", "composicion",
+		"causa", causaFalloPostgreSQLCTDesarrollo(err))
+	return nil
+}
+
+// handlerPreferenciasModalidadesPortalExterno compone GET/PUT de modalidades
+// con las mismas acciones propias de preferencias y la lectura ya compuesta.
+// Sin lectura, o si falla la escritura, devuelve el manejador 503 y el orden
+// de bolsas no se ve afectado.
+func handlerPreferenciasModalidadesPortalExterno(d dependenciasMiBolsaPortalExterno, lectura *mibolsa.LecturaPreferenciasModalidades) http.Handler {
+	noDisponible := bolsahttp.NuevoHandlerPreferenciasBolsasNoDisponible()
+	if lectura == nil {
+		return noDisponible
+	}
+	escrituraPG, err := bolsapg.NuevaEscrituraPreferenciasModalidadesPostgreSQL(d.bolsa)
+	if err != nil {
+		falloComposicionModalidades(err)
+		return noDisponible
 	}
 	escritura, err := mibolsa.NuevoServicioPreferenciasModalidades(
 		escrituraPG, d.catalogoModalidades, d.autorizador,
 		proveedorPreferenciasBolsasPortalExterno{delegado: d.proveedorPreferencias}, d.reloj)
 	if err != nil {
-		return fallo()
+		falloComposicionModalidades(err)
+		return noDisponible
 	}
 	manejador, err := bolsahttp.NuevoHandlerPreferenciasModalidades(d.preparador, escritura, lectura)
 	if err != nil {
-		return fallo()
+		falloComposicionModalidades(err)
+		return noDisponible
 	}
 	return manejador
+}
+
+// consultaHTTPMiBolsaPortalExterno compone la consulta propia de Mi Bolsa. Con
+// la lectura de modalidades compuesta, la elección (F1-13) filtra solo la
+// vista de ofertas; sin ella, la consulta queda como antes.
+func consultaHTTPMiBolsaPortalExterno(d dependenciasMiBolsaPortalExterno, servicio *mibolsa.Servicio,
+	lectura *mibolsa.LecturaPreferenciasModalidades,
+) (http.Handler, error) {
+	var consultor bolsahttp.Consultor = servicio
+	if lectura != nil {
+		filtrada, err := mibolsa.NuevaConsultaOfertasModalidades(servicio, lectura)
+		if err != nil {
+			return nil, err
+		}
+		consultor = filtrada
+	}
+	if d.campos == nil {
+		return bolsahttp.Nuevo(d.preparador, consultor)
+	}
+	return bolsahttp.NuevoConCampos(d.preparador, consultor, d.campos)
 }
