@@ -1,0 +1,318 @@
+{
+  "esquema": "vec.admin.cargos-firma.cargos.v2",
+  "cargos": [
+    {
+      "rol_id": "ct_cargo_tecnico_firma_dev",
+      "version": 1,
+      "nombre": "Técnico de RRHH · firma",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_r5",
+        "firmar_vec"
+      ],
+      "competencias": [
+        {
+          "accion": "contratacion_temporal.documento.informe_definitivo.firmar",
+          "tipo_recurso": "documento_informe_definitivo_contratacion_temporal",
+          "finalidad": "formalizar_documento_ct"
+        }
+      ],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_tecnico_consulta_dev",
+      "version": 1,
+      "nombre": "Técnico de RRHH · consulta",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_cuadro",
+        "consultar_detalle",
+        "descargar_borrador"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_tecnico_documentos_dev",
+      "version": 1,
+      "nombre": "Técnico de RRHH · documentos",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "confirmar_original",
+        "custodiar_firmado",
+        "descargar_original",
+        "escribir_original",
+        "reservar_original"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_tecnico_circuito_dev",
+      "version": 1,
+      "nombre": "Técnico de RRHH · circuito",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_circuito"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_jefatura_firma_dev",
+      "version": 1,
+      "nombre": "Jefatura del Servicio de RRHH · firma",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_r5",
+        "firmar_vec"
+      ],
+      "competencias": [
+        {
+          "accion": "contratacion_temporal.documento.informe_definitivo.firmar",
+          "tipo_recurso": "documento_informe_definitivo_contratacion_temporal",
+          "finalidad": "formalizar_documento_ct"
+        },
+        {
+          "accion": "contratacion_temporal.documento.resolucion.firmar",
+          "tipo_recurso": "documento_resolucion_contratacion_temporal",
+          "finalidad": "formalizar_documento_ct"
+        },
+        {
+          "accion": "contratacion_temporal.documento.toma_posesion.firmar",
+          "tipo_recurso": "documento_toma_posesion_contratacion_temporal",
+          "finalidad": "formalizar_documento_ct"
+        },
+        {
+          "accion": "contratacion_temporal.documento.notificacion.firmar",
+          "tipo_recurso": "documento_notificacion_contratacion_temporal",
+          "finalidad": "formalizar_documento_ct"
+        },
+        {
+          "accion": "contratacion_temporal.documento.comunicacion_centro.firmar",
+          "tipo_recurso": "documento_comunicacion_centro_contratacion_temporal",
+          "finalidad": "formalizar_documento_ct"
+        }
+      ],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_jefatura_consulta_dev",
+      "version": 1,
+      "nombre": "Jefatura del Servicio de RRHH · consulta",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_cuadro",
+        "consultar_detalle",
+        "descargar_borrador"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_jefatura_documentos_dev",
+      "version": 1,
+      "nombre": "Jefatura del Servicio de RRHH · documentos",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "custodiar_firmado",
+        "descargar_original"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_jefatura_circuito_dev",
+      "version": 1,
+      "nombre": "Jefatura del Servicio de RRHH · circuito",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_circuito"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_diputacion_firma_dev",
+      "version": 1,
+      "nombre": "Diputación delegada de RRHH · firma",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_r5",
+        "firmar_vec"
+      ],
+      "competencias": [
+        {
+          "accion": "contratacion_temporal.documento.resolucion.firmar",
+          "tipo_recurso": "documento_resolucion_contratacion_temporal",
+          "finalidad": "formalizar_documento_ct"
+        }
+      ],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_diputacion_consulta_dev",
+      "version": 1,
+      "nombre": "Diputación delegada de RRHH · consulta",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_cuadro",
+        "consultar_detalle",
+        "descargar_borrador"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_diputacion_documentos_dev",
+      "version": 1,
+      "nombre": "Diputación delegada de RRHH · documentos",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "custodiar_firmado",
+        "descargar_original"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_diputacion_circuito_dev",
+      "version": 1,
+      "nombre": "Diputación delegada de RRHH · circuito",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_circuito"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_secretaria_firma_dev",
+      "version": 1,
+      "nombre": "Secretaría General · firma",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_r5",
+        "firmar_vec"
+      ],
+      "competencias": [
+        {
+          "accion": "contratacion_temporal.documento.resolucion.firmar",
+          "tipo_recurso": "documento_resolucion_contratacion_temporal",
+          "finalidad": "formalizar_documento_ct"
+        },
+        {
+          "accion": "contratacion_temporal.documento.diligencia.firmar",
+          "tipo_recurso": "documento_diligencia_contratacion_temporal",
+          "finalidad": "formalizar_documento_ct"
+        },
+        {
+          "accion": "contratacion_temporal.documento.toma_posesion.firmar",
+          "tipo_recurso": "documento_toma_posesion_contratacion_temporal",
+          "finalidad": "formalizar_documento_ct"
+        }
+      ],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_secretaria_consulta_dev",
+      "version": 1,
+      "nombre": "Secretaría General · consulta",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_cuadro",
+        "consultar_detalle",
+        "descargar_borrador"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_secretaria_documentos_dev",
+      "version": 1,
+      "nombre": "Secretaría General · documentos",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "custodiar_firmado",
+        "descargar_original"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    },
+    {
+      "rol_id": "ct_cargo_secretaria_circuito_dev",
+      "version": 1,
+      "nombre": "Secretaría General · circuito",
+      "version_anterior_sha256": "",
+      "operaciones_v2": [
+        "consultar_circuito"
+      ],
+      "competencias": [],
+      "regla_asignacion": "lote_ordinario",
+      "organizacion_ref": null,
+      "vigente_desde": null,
+      "vigente_hasta": null,
+      "duracion_propuesta_segundos": 7776000
+    }
+  ]
+}
