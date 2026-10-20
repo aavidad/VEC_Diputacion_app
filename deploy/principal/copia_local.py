@@ -273,13 +273,14 @@ class Copia:
         verificar_fuente(self.leer()['revision'])
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
-                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build',
+                      'GOMAXPROCS': '2', 'GOMEMLIMIT': '512MiB'}
         modcache = subprocess.check_output([go, 'env', 'GOMODCACHE'],
                                           env=entorno_go, text=True).strip()
         guardar(self.raiz / 'compilacion.json', dict(go=go, gomodcache=modcache,
                 gocache=entorno_go['GOCACHE'], revision=revision()))
         with (self.raiz / 'compilacion.log').open('wb') as log:
-            ejecutar([go, 'build', '-p', '6', '-o', self.raiz / 'vec-server', './cmd/vec-server'],
+            ejecutar([go, 'build', '-p', '2', '-o', self.raiz / 'vec-server', './cmd/vec-server'],
                       cwd=REPO, salida=log, entorno=entorno_go)
         estado = self.leer()
         verificar_fuente(estado['revision'])
@@ -480,7 +481,8 @@ class Copia:
         memoria()
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
-                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build',
+                      'GOMAXPROCS': '2', 'GOMEMLIMIT': '512MiB'}
         preparar(self, configuracion, repo=REPO, go=go, entorno_go=entorno_go, guardar=guardar)
 
     def firma(self, manifiesto):
@@ -495,7 +497,8 @@ class Copia:
         memoria()
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
-                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build',
+                      'GOMAXPROCS': '2', 'GOMEMLIMIT': '512MiB'}
         preparar(self, manifiesto, repo=REPO, go=go, entorno_go=entorno_go, guardar=guardar)
         self.parar()
         self.arrancar()
@@ -508,7 +511,8 @@ class Copia:
         memoria()
         go = subprocess.check_output([REPO / 'scripts/seleccionar_toolchain_go_local.sh'], text=True).strip()
         entorno_go = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
-                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build'}
+                      'GOSUMDB': 'off', 'GOENV': 'off', 'GOCACHE': '/dev/shm/vec/go-build',
+                      'GOMAXPROCS': '2', 'GOMEMLIMIT': '512MiB'}
         publicar(self, repo=REPO, go=go, entorno_go=entorno_go)
 
     def comprobar(self, comprobar_admin=True, comprobar_modulos=True):

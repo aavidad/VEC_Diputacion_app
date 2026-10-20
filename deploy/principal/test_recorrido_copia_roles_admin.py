@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -98,6 +98,31 @@ class RolesAdminTest(unittest.TestCase):
         self.assertIn('123456789012345', sql)
         self.assertEqual(sql.count('CREATE ROLE'), 4)
         self.assertEqual(sql.count('configuracion_origen_consumos_v1'), 4)
+
+    def test_overlay_rechazado_restaura_admin_previo(self):
+        import copia_local_administracion as admin
+        preparacion = self.c.raiz / 'admin_preparacion.json'
+        self.c.guardar(preparacion, {'VEC_ADMIN_ESTADO': 'preparado_con_acuses'})
+        b103 = self.c.raiz / 'b103.json'
+        gobierno = self.c.raiz / 'gobierno.json'
+        for ruta in (b103, gobierno):
+            self.c.guardar(ruta, {})
+        pasos = []
+
+        def arrancar(_copia, fase):
+            pasos.append(fase)
+            if len(pasos) == 1:
+                raise ValueError('overlay rechazado')
+
+        with patch.object(admin, 'parar') as parar, \
+                patch.object(admin, 'ejecutar', side_effect=arrancar):
+            with self.assertRaisesRegex(ValueError, 'Administración recuperada'):
+                roles._activar(self.c, b103, gobierno)
+        self.assertEqual(parar.call_count, 2)
+        self.assertEqual(pasos, ['arrancar', 'arrancar', 'comprobar'])
+        self.assertNotIn('admin_extra_env_sha256', json.loads(preparacion.read_text()))
+        self.assertFalse((self.c.raiz / 'admin_extra_env.json').exists())
+        self.assertTrue((self.c.carpeta / 'admin-extra-fallido.json').exists())
 
 
 if __name__ == '__main__':

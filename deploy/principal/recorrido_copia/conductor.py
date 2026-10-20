@@ -93,16 +93,24 @@ def preparar(copia, args):
     from .documentos import preparar_documentos
     base_documental = documentos_base.preparar(c)
     preparar_documentos(copia, c.leer(base_documental), c)
+    from copia_local import guardar, sha256
+    entorno = copia.entorno_modulos()
+    entorno['VEC_DOCUMENTOS_ENABLED'] = 'true'
+    archivo = copia.raiz / 'entorno_modulos.json'
+    guardar(archivo, entorno)
+    estado = copia.leer()
+    estado['entorno_modulos_sha256'] = sha256(archivo)
+    guardar(copia.estado, estado)
     # La orden firma reutiliza la publicación de plantillas y el arranque vigilado.
     copia.firma(_verificador(c, args.puerto_verificador))
     provisionar_perfiles(copia)
-    if args.config_personal:
-        copia.personal(args.config_personal)
+    from . import personal
+    copia.personal(personal.preparar(c))
     c.guardar(c.carpeta / 'recibo-fabrica.json', {
         'version': 1, 'tarea_ref': 'F1-131', 'copia_ref': copia.nombre,
         'revision': copia.leer()['revision'], 'sid_copia': copia.leer()['sid_copia'],
         'roles_compuestos': 'semilla técnica de copia de desarrollo, no gobierno',
         'plan': 'publicado por dos administradores',
         'documentos': 'configuración propia compuesta',
-        'configuracion_personal': bool(args.config_personal),
+        'configuracion_personal': True,
         'etapas': list(resultados)})

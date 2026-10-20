@@ -241,11 +241,21 @@ def _activar(c, b103, roles):
                      'VEC_ADMIN_GOBIERNO_ROLES_CONFIG_FILE': str(roles)})
     preparacion = _documento(c, c.raiz / 'admin_preparacion.json')
     exigir('admin_extra_env_sha256' not in preparacion, 'Overlay ADMIN ya activado')
-    preparacion['admin_extra_env_sha256'] = c.sha(extra)
-    guardar(c.raiz / 'admin_preparacion.json', preparacion)
     parar_admin(c.copia)
-    ejecutar_admin(c.copia, 'arrancar')
-    ejecutar_admin(c.copia, 'comprobar')
+    nueva = {**preparacion, 'admin_extra_env_sha256': c.sha(extra)}
+    guardar(c.raiz / 'admin_preparacion.json', nueva)
+    try:
+        ejecutar_admin(c.copia, 'arrancar')
+        ejecutar_admin(c.copia, 'comprobar')
+    except Exception as error:
+        # Los recibos y el overlay fallido se conservan; se restaura el entorno
+        # anterior antes de volver a servir Administración.
+        parar_admin(c.copia)
+        extra.rename(c.carpeta / 'admin-extra-fallido.json')
+        guardar(c.raiz / 'admin_preparacion.json', preparacion)
+        ejecutar_admin(c.copia, 'arrancar')
+        ejecutar_admin(c.copia, 'comprobar')
+        raise ValueError('Overlay de roles rechazado; Administración recuperada') from error
 
 
 def _proponer_y_cerrar(c, carpeta, tipo, propuesta):
@@ -334,19 +344,21 @@ def preparar(c):
         accion = fuente_organizacion['entradas'][0]['concesion']['accion']
         seleccion = _entrada(catalogo, fuente_organizacion, accion)
         existente = _rol(c, ROL_ORGANIZACION)
-        exigir(existente is None, 'Rol Organización ya publicado; no crear otro')
-        cuerpo = {'operacion_ref': 'propuesta_admin:' + secrets.token_hex(16),
-                  'catalogo_ref': CATALOGO, 'catalogo_version': catalogo['version'],
-                  'catalogo_huella_sha256': ultimo['catalogo_sha256'],
-                  **seleccion, 'rol_id': ROL_ORGANIZACION,
-                  'nombre': 'Consulta de Organización histórica RRHH',
-                  'motivo': entrada['motivo'],
-                  'referencia_acto': 'acto:rrhh:organizacion:f1-131'}
-        respuesta = _proponer_y_cerrar(c, carpeta, 'roles', cuerpo)
-        referencias.append(respuesta.get('recibo_ref') or respuesta['recibo']['auditoria_ref'])
-        nuevo = _rol(c, ROL_ORGANIZACION)
-        exigir(nuevo and nuevo['version'] == 1 and nuevo['control_estado'] == 'habilitada',
-               'AUT60 no publicó el rol simple de Organización')
+        if existente is None:
+            cuerpo = {'operacion_ref': 'propuesta_admin:' + secrets.token_hex(16),
+                      'catalogo_ref': CATALOGO, 'catalogo_version': catalogo['version'],
+                      'catalogo_huella_sha256': ultimo['catalogo_sha256'],
+                      **seleccion, 'rol_id': ROL_ORGANIZACION,
+                      'nombre': 'Consulta de Organización histórica RRHH',
+                      'motivo': entrada['motivo'],
+                      'referencia_acto': 'acto:rrhh:organizacion:f1-131'}
+            respuesta = _proponer_y_cerrar(c, carpeta, 'roles', cuerpo)
+            referencias.append(respuesta.get('recibo_ref') or respuesta['recibo']['auditoria_ref'])
+            existente = _rol(c, ROL_ORGANIZACION)
+        exigir(existente and existente['version'] == 1
+               and existente['control_estado'] == 'habilitada'
+               and {x['accion'] for x in existente['documento']['concesiones']} == {accion},
+               'Rol simple de Organización no publicado con la concesión exacta')
     resultado = {'version': 1, 'copia_ref': c.copia.nombre, 'sid_copia': sid,
                  'catalogo_version': catalogo['version'],
                  'catalogo_sha256': ultimo['catalogo_sha256'],

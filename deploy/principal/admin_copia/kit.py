@@ -211,13 +211,14 @@ def crear_kit(args):
         env = {'PATH': '/usr/local/go/bin:/usr/bin:/bin', 'HOME': str(Path.home()),
                'TMPDIR': str(build_tmp), 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
                'GOSUMDB': 'off', 'GOENV': 'off', 'CGO_ENABLED': '0',
+               'GOMAXPROCS': '2', 'GOMEMLIMIT': '512MiB',
                'GOMODCACHE': str(mod), 'GOCACHE': str(cache)}
         try:
             for name in BINARIOS:
                 target = bin_dir / name
-                command = ([str(go), 'test', '-c', '-p', '6', '-o', str(target), './internal/app/bootstrap']
+                command = ([str(go), 'test', '-c', '-p', '2', '-o', str(target), './internal/app/bootstrap']
                     if name == 'h-root-seed.test' else
-                    [str(go), 'build', '-p', '6', '-o', str(target),
+                    [str(go), 'build', '-p', '2', '-o', str(target),
                      './cmd/' + ('vec-fixture-originales-k' if name == 'helper-hmac' else name)])
                 ejecutar(command, cwd=source, env=env)
                 target.chmod(0o700)
