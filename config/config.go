@@ -221,7 +221,6 @@ type Config struct {
 	OrganizacionHistoricaMaterialDir            string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
-	BolsaConstitucionPostgreSQL                 ConfiguracionPostgreSQLBolsaConstitucion
 	BolsaRelevoNoIncorporacionPostgreSQL        ConfiguracionPostgreSQLBolsaRelevoNoIncorporacion
 	BolsaRelevoCesePostgreSQL                   ConfiguracionPostgreSQLBolsaRelevoCese
 	AuditoriaSelladoPostgreSQL                  ConfiguracionPostgreSQLAuditoriaSellado
@@ -362,9 +361,6 @@ func Load() Config {
 		CalendariosPostgreSQL: NuevaConfiguracionCalendarios(envFirst(EnvCalendariosDatabaseURL)),
 		BolsaAuditoriaFronteraPostgreSQL: ConfiguracionPostgreSQLBolsaAuditoriaFrontera{
 			dsn: envFirst(EnvBolsaAuditoriaFronteraDatabaseURL),
-		},
-		BolsaConstitucionPostgreSQL: ConfiguracionPostgreSQLBolsaConstitucion{
-			dsn: envFirst(EnvBolsaConstitucionDatabaseURL),
 		},
 		BolsaRelevoNoIncorporacionPostgreSQL:     NuevaConfiguracionPostgreSQLBolsaRelevoNoIncorporacion(envFirst(EnvBolsaRelevoNoIncorporacionDatabaseURL)),
 		BolsaRelevoCesePostgreSQL:                NuevaConfiguracionPostgreSQLBolsaRelevoCese(envFirst(EnvBolsaRelevoCeseDatabaseURL)),
@@ -521,7 +517,6 @@ func (c Config) Normalize() Config {
 	c.OrganizacionHistoricaMaterialDir = strings.TrimSpace(c.OrganizacionHistoricaMaterialDir)
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
-	c.BolsaConstitucionPostgreSQL = c.BolsaConstitucionPostgreSQL.normalizar()
 	c.BolsaRelevoNoIncorporacionPostgreSQL = c.BolsaRelevoNoIncorporacionPostgreSQL.normalizar()
 	c.BolsaRelevoCesePostgreSQL = c.BolsaRelevoCesePostgreSQL.normalizar()
 	c.AuditoriaSelladoPostgreSQL = c.AuditoriaSelladoPostgreSQL.normalizar()
