@@ -224,6 +224,16 @@ class Copia:
                 ejecutar([sys.executable, datos, '--raiz', self.raiz], salida=log)
             from copia_local_verificacion import comprobar as comprobar_conexiones
             comprobar_conexiones(self)
+            if not args.portal_externo:
+                # F1-99: datos del caso 4.0 e identidad de Mi Bolsa de Antonio.
+                import copia_local_caso40 as caso40
+                caso40.aplicar_guiones(self, REPO)
+                entorno_modulos = json.loads((self.raiz / 'entorno_modulos.json').read_text())
+                entorno_modulos.update(caso40.preparar_antonio(self, REPO))
+                guardar(self.raiz / 'entorno_modulos.json', entorno_modulos)
+                estado = self.leer()
+                estado['entorno_modulos_sha256'] = sha256(self.raiz / 'entorno_modulos.json')
+                guardar(self.estado, estado)
         if args.segundo_rrhh:
             from copia_local_rrhh_adicional import preparar_copia
             huella_semilla = preparar_copia(self)
@@ -265,6 +275,8 @@ class Copia:
             guardar(self.estado, estado)
             self.parar()
             self.arrancar()
+        if args.modulos and not args.portal_externo:
+            caso40.registrar_contacto(self, REPO)
         if args.modulos:
             estado = self.leer()
             estado['comprobar_modulos'] = True

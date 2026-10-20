@@ -13,45 +13,10 @@ BEGIN
   RAISE EXCEPTION 'datos Antonio: PARO clave=rol actual=% esperado=superusuario',current_user USING ERRCODE='42501';
  END IF;
 END $permiso$;
--- Misma proyección de candidato que preparar_candidato_desarrollo.sh:
--- conserva persona, cuenta, perfil y certificado; añade una versión del vínculo.
-SET LOCAL ROLE vec_contexto_actor_v1_propietario;
-DO $vinculo$
-DECLARE
- persona constant text:='per_8014599251fc9a7aff11113c502e3317';
- candidato constant text:='can_Vxd6XlZE9ctNzw38AUSmgQbCcRyoFKhaojDaFsEKC1M';
- anterior constant text:='can_Xx9GdqcSDoRdUVUPyGMDJlcSBvLDUXc0Or-G86S2pxc';
- origen constant text:='prc_6a8643ae3c08e289f119203a86e2f03d';
- huella text:=encode(sha256(convert_to(persona||'|'||candidato||'|hz39','UTF8')),'hex');
- previo vec_contexto_actor_v1.vinculo_referencia_versiones%ROWTYPE;
-BEGIN
- IF EXISTS(SELECT 1 FROM vec_contexto_actor_v1.vinculo_referencia_actual a
-           JOIN vec_contexto_actor_v1.vinculo_referencia_versiones v USING(vinculo_ref,version)
-           WHERE v.tipo='candidato' AND v.referencia=candidato AND v.estado='activo'
-             AND v.persona_ref<>persona) THEN
-  RAISE EXCEPTION 'datos Antonio: PARO clave=candidato_persona actual=otra_persona esperado=%',persona USING ERRCODE='55000';
- END IF;
- SELECT v.* INTO STRICT previo
- FROM vec_contexto_actor_v1.vinculo_referencia_actual a
- JOIN vec_contexto_actor_v1.vinculo_referencia_versiones v USING(vinculo_ref,version)
- WHERE v.persona_ref=persona AND v.tipo='candidato' AND v.estado='activo'
-   AND v.vigente_desde<=statement_timestamp() AND statement_timestamp()<v.vigente_hasta
- FOR UPDATE OF a;
- IF previo.referencia=candidato THEN RETURN; END IF;
- IF previo.referencia<>anterior THEN
-  RAISE EXCEPTION 'datos Antonio: PARO clave=candidato_anterior actual=% esperado=%',previo.referencia,anterior USING ERRCODE='55000';
- END IF;
- INSERT INTO vec_contexto_actor_v1.procedencias
- VALUES(origen,1,huella,'autoridad_maestra_acreditada');
- INSERT INTO vec_contexto_actor_v1.vinculo_referencia_versiones
-  (vinculo_ref,version,persona_ref,tipo,referencia,procedencia_ref,procedencia_version,
-   procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta)
- VALUES(previo.vinculo_ref,previo.version+1,persona,'candidato',candidato,origen,1,
-        huella,'autoridad_maestra_acreditada','activo',statement_timestamp(),previo.vigente_hasta);
- UPDATE vec_contexto_actor_v1.vinculo_referencia_actual
- SET version=previo.version+1 WHERE vinculo_ref=previo.vinculo_ref AND version=previo.version;
- RAISE NOTICE 'datos Antonio: vínculo añadido a la participación de la bolsa vigente; versión anterior conservada';
-END $vinculo$;
+-- La identidad de Antonio (cuenta, persona, perfil y vínculo con esta
+-- candidatura) la prepara preparar_candidato_desarrollo.sh con
+-- --candidato-ref (F1-99). Este guion ya no mueve el vínculo de una persona
+-- anterior: su permiso de Mi Bolsa seguiría ligado a la candidatura antigua.
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 DO $datos$
 DECLARE
