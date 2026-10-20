@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+from unittest.mock import patch
 import unittest
 
 from recorrido_copia import admisiones, configuracion_firma, documentos_base
@@ -90,6 +91,34 @@ class DocumentosBaseTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'no publicado'):
             documentos_base.preparar(self.c)
         self.assertFalse((self.c.carpeta / 'documentos/base.json').exists())
+
+    def test_documentos_preparada_del_recorrido_admite_base_propia(self):
+        from recorrido_copia.documentos import REUTILIZA
+        base = self.c.leer(documentos_base.preparar(self.c))
+        puerto = 55441
+        dsn = ('postgresql://usuario:secreto@localhost:55441/postgres?'
+               'sslmode=verify-full&sslrootcert=' + str(self.c.material / 'ca/ca.crt'))
+        entorno = self.c.raiz / 'entorno_modulos.json'
+        self.c.guardar(entorno, {v: dsn for v in REUTILIZA.values()})
+        class CopiaCompleta:
+            nombre = self.c.copia.nombre
+            raiz = self.c.raiz
+            material = self.c.material
+            sql = None
+            def leer(self_inner):
+                return {'preparada': True, 'recorrido_completo': True,
+                        'sid_copia': '12345678901234567', 'puerto_pg': puerto,
+                        'entorno_modulos_sha256': self.c.sha(entorno)}
+            def existe(self_inner):
+                return True
+            def sql_bytes(self_inner, raw, nombre):
+                self_inner.sql = (raw, nombre)
+        copia = CopiaCompleta()
+        self.c.copia = copia
+        with patch('recorrido_copia.comun.Contexto', Contexto):
+            preparar_documentos(copia, base, self.c)
+        self.assertIsNotNone(copia.sql)
+        self.assertEqual(self.c.leer(self.c.material / 'identidad/documentos.json')['cuentas'], base['cuentas'])
 
     def test_documentos_preparada_ordinaria_se_deniega(self):
         class CopiaOrdinaria:
