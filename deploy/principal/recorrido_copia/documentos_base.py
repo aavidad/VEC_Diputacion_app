@@ -201,7 +201,17 @@ AND v.cuenta_ref=e.cuenta AND v.persona_ref=e.persona AND v.perfil_ref=e.perfil
 AND v.estado='activo' AND v.vigente_desde<=clock_timestamp();"""
     if c.consultar(sql).strip() != '4':
         raise ValueError('Asignaciones Documentos vigentes no acreditadas')
-    return cuentas
+    # Documentos usa el resolvedor base, distinto del resolvedor nominal R5.
+    # Su contrato sólo admite aquí la hoja RRHH original. Los otros tres
+    # firmantes conservan sus perfiles de custodia y sus admisiones R5.
+    identidad = _propio(c, c.material / 'identidad/identidad.json')
+    tecnico = cuentas[0]
+    if (identidad.get('version') != 1 or identidad.get('autoridad') != 'no_autoritativo'
+            or identidad.get('roles') != ['tecnico_rrhh']
+            or identidad.get('certificate_sha256') != tecnico['certificado_sha256']
+            or not isinstance(identidad.get('subject'), str) or not identidad['subject']):
+        raise ValueError('La cuenta Documentos no corresponde a la identidad RRHH original')
+    return [{**tecnico, 'sujeto': identidad['subject']}]
 
 
 def _custodia(c):

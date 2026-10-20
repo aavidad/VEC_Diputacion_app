@@ -31,6 +31,10 @@ class DocumentosBaseTest(unittest.TestCase):
         f = self.c.carpeta / 'firmantes'
         semilla_ruta = f / 'semilla-final/firmantes-datos.json'
         semilla = self.c.leer(semilla_ruta)
+        self.c.guardar(self.c.material / 'identidad/identidad.json', {
+            'version': 1, 'autoridad': 'no_autoritativo', 'roles': ['tecnico_rrhh'],
+            'subject': 'desarrollo:operador-rrhh',
+            'certificate_sha256': semilla['referencias']['tecnico']['certificado_sha256']})
         for rol in ROLES:
             firmante = next(x for x in semilla['firmantes']
                             if x['perfil_firma_ref'] == semilla['referencias'][rol]['perfil']['firma'])
@@ -55,12 +59,24 @@ class DocumentosBaseTest(unittest.TestCase):
         admisiones.preparar(self.c)
         configuracion_firma.preparar(self.c)
 
-    def test_base_propia_con_cuatro_cuentas_y_custodia(self):
+    def test_base_propia_con_identidad_rrhh_y_custodia_nominal(self):
         destino = documentos_base.preparar(self.c)
         base = self.c.leer(destino)
-        self.assertEqual(len(base['cuentas']), 4)
+        self.assertEqual(len(base['cuentas']), 1)
+        self.assertEqual(base['cuentas'][0]['sujeto'], 'desarrollo:operador-rrhh')
+        self.assertNotEqual(base['cuentas'][0]['sujeto'],
+                            self.c.leer(self.c.carpeta / 'firmantes/semilla-final/firmantes-datos.json')['referencias']['tecnico']['persona_ref'])
         self.assertEqual(set(base['custodia_firmado']['documentos']), {'informe_definitivo', 'resolucion'})
         self.assertEqual(documentos_base.preparar(self.c), destino)
+
+    def test_hoja_rrhh_distinta_cierra_antes_de_publicar_configuracion(self):
+        ruta = self.c.material / 'identidad/identidad.json'
+        identidad = self.c.leer(ruta)
+        identidad['certificate_sha256'] = 'f' * 64
+        ruta.write_text(json.dumps(identidad))
+        with self.assertRaisesRegex(ValueError, 'identidad RRHH original'):
+            documentos_base.preparar(self.c)
+        self.assertFalse((self.c.carpeta / 'documentos/base.json').exists())
 
     def test_publicacion_nativa_del_motivo_propio(self):
         del self.c.parametros['documentos_motivo_listar']
