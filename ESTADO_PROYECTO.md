@@ -30,7 +30,7 @@ llamamiento y consulta de comunicaciones deben comprobarse tras su fusión.
 
 ## Qué debe demostrar el recorrido completo
 
-La [guía para Alberto](GUIA_RECORRIDO_ALBERTO.md) explica cómo seguirlo en
+La [guía del recorrido](GUIA_RECORRIDO_ALBERTO.md) explica cómo seguirlo en
 pantalla. La tabla siguiente resume la aceptación pendiente; el orden exacto
 y los resultados están en el apartado 4.0 del flujo.
 
@@ -55,10 +55,10 @@ acredita una transmisión a GINPIX ni una entrega del correo corporativo.
 
 ## Hito y criterio de cierre
 
-Dirección fija el hito del **recorrido completo de un expediente del caso
+El hito es el **recorrido completo de un expediente del caso
 4.0 con reinicio, antes del 6 de noviembre de 2026**. Si no se llega, se
 recalcula la fecha de fin de la fase 1, estimada para la segunda quincena de
-noviembre. Así lo confirma dirección el 20/10 a las 12:27. El hito no
+noviembre. El hito no
 autoriza datos reales ni sustituye estas condiciones del
 [plan](docs/producto/PLAN_IMPLEMENTACION.md#5-fases-y-criterios-de-cierre):
 
@@ -93,5 +93,5 @@ siendo necesarias. El número de tareas fusionadas no sustituye estas pruebas.
 
 Los estados de septiembre y las instalaciones anteriores son antecedentes.
 Se conservan en la historia de Git de este fichero y en los documentos
-fechados de [histórico](docs/historico/). Las referencias antiguas a OpenClaw,
-a subidas o a ramas de integración no son instrucciones de trabajo actuales.
+fechados de [histórico](docs/historico/). Las referencias a subidas y ramas antiguas se conservan como antecedentes,
+sin convertirlas en instrucciones de trabajo actuales.
