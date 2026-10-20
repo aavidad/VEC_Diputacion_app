@@ -128,6 +128,13 @@ test("contrato-analisis: datos previos conservan observaciones opcionales válid
     "Texto conservado.",
   );
   assert.throws(() => validarDatosPreviosAnalisis({ ...base, observaciones: "" }), TypeError);
+  const conEleccion = validarDatosPreviosAnalisis({
+    ...base, grupo_subgrupo: "A1", entrada_rc_referencia: "entrada-rc:opaca:001",
+  });
+  assert.equal(conEleccion.grupo_subgrupo, "A1");
+  assert.equal(conEleccion.entrada_rc_referencia, "entrada-rc:opaca:001");
+  assert.throws(() => validarDatosPreviosAnalisis({ ...base, grupo_subgrupo: "" }), TypeError);
+  assert.throws(() => validarDatosPreviosAnalisis({ ...base, entrada_rc_referencia: "con espacios" }), TypeError);
 });
 
 function categorias(cantidad) {

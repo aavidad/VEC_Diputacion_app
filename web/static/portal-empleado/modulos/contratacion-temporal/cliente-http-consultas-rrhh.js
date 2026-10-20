@@ -220,9 +220,13 @@ function validarAnalisis(entrada) {
     "modalidad_clave", "categoria_ref", "causa_clave", "periodo_inicio",
     "porcentaje_jornada", "resultado_rc",
   ];
+  // grupo_subgrupo y entrada_rc_ref (CT243) solo precargan la rectificación;
+  // la entrada de retención elegida no acredita crédito.
   if (!camposCerrados(entrada, obligatorios, ["periodo_fin", "periodo_causa_fin",
-    "coste_previsto", "fuente_coste_ref", "observaciones"])
+    "coste_previsto", "fuente_coste_ref", "observaciones", "grupo_subgrupo", "entrada_rc_ref"])
     || !clave(entrada.modalidad_clave) || !referencia(entrada.categoria_ref)
+    || (Object.hasOwn(entrada, "grupo_subgrupo") && !cadena(entrada.grupo_subgrupo, { maximo: 80 }))
+    || (Object.hasOwn(entrada, "entrada_rc_ref") && !referencia(entrada.entrada_rc_ref))
     || (Object.hasOwn(entrada, "observaciones")
       && (typeof entrada.observaciones !== "string" || entrada.observaciones === ""
         || [...entrada.observaciones].length > 4000))

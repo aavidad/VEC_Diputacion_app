@@ -560,6 +560,47 @@ test("la rectificación prellena datos anteriores sin seleccionar RC, grupo ni m
   escenario.desmontar();
 });
 
+test("la rectificación conserva el grupo y la retención elegidos si siguen publicados", async () => {
+  const previos = {
+    modalidad_clave: "sustitucion", categoria_ref: "categoria:rrhh:001",
+    causa_clave: "sustitucion",
+    periodo: { inicio: "2027-01-01T00:00:00Z", fin: "2027-03-31T00:00:00Z" },
+    porcentaje_jornada: 7500,
+    grupo_subgrupo: "A1",
+    entrada_rc_referencia: "entrada-rc:opaca:001",
+  };
+  const solicitudes = [];
+  const escenario = montar({
+    operacion: "rectificar",
+    cliente: {
+      rectificarAnalisis(solicitud) {
+        solicitudes.push(solicitud);
+        return Promise.resolve(crearRecibo("rectificar"));
+      },
+    },
+    extras: { datosPrevios: previos },
+  });
+  assert.match(escenario.raiz.innerHTML, /value="A1" selected/u);
+  assert.match(escenario.raiz.innerHTML, /value="entrada-rc:opaca:001" selected/u);
+  assert.doesNotMatch(escenario.raiz.innerHTML, /value="correccion_datos" selected/u);
+  await escenario.enviar(crearValores({ motivo_rectificacion_clave: "correccion_datos" }));
+  assert.equal(solicitudes.length, 1);
+  assert.equal(solicitudes[0].analisis.grupo_subgrupo, "A1");
+  assert.equal(solicitudes[0].analisis.entrada_rc.referencia, "entrada-rc:opaca:001");
+  escenario.desmontar();
+
+  // Una entrada o un grupo retirados del catálogo vigente se vuelven a elegir.
+  const retirados = montar({
+    operacion: "rectificar",
+    cliente: { rectificarAnalisis() {} },
+    extras: { datosPrevios: {
+      ...previos, grupo_subgrupo: "C2", entrada_rc_referencia: "entrada-rc:opaca:retirada",
+    } },
+  });
+  assert.doesNotMatch(retirados.raiz.innerHTML, /value="(?:A1|entrada-rc:opaca:001)" selected/u);
+  retirados.desmontar();
+});
+
 test("renderiza el textarea de observaciones con id analisis_observaciones y maxlength 4000", () => {
   const escenario = montar({ cliente: { registrarAnalisis() {} } });
   assert.match(

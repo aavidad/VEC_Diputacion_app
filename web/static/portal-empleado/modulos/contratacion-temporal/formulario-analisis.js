@@ -671,12 +671,16 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
       causa_fin: previo.periodo.causa_fin ?? "",
       porcentaje_jornada: String(previo.porcentaje_jornada),
       observaciones: previo.observaciones ?? "",
+      grupo_subgrupo: previo.grupo_subgrupo ?? "",
+      entrada_rc_referencia: previo.entrada_rc_referencia ?? "",
     };
     // Una opción histórica retirada debe seleccionarse de nuevo en el catálogo vigente.
     const erroresPrevios = validarBorrador(borrador, catalogos, false);
-    for (const campo of ["modalidad_clave", "categoria_ref", "causa_clave"]) {
+    for (const campo of ["modalidad_clave", "categoria_ref", "grupo_subgrupo", "causa_clave",
+      "entrada_rc_referencia"]) {
       if (erroresPrevios[campo]) borrador[campo] = "";
     }
+    if (borrador.categoria_ref === "") borrador.grupo_subgrupo = "";
   }
   // Análisis nuevo: se parte de lo que pidió el centro, siempre editable.
   // Lo que no exista en los catálogos vigentes se deja para elegir.

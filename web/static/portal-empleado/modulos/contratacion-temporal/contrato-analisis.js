@@ -397,16 +397,24 @@ function instanteUTCValido(valor) {
 
 /** Datos previos de presentación: no contienen una prueba RC ni autorizan efectos. */
 export function validarDatosPreviosAnalisis(entrada) {
-  const tieneObservaciones = esRegistro(entrada) && Object.hasOwn(entrada, "observaciones");
+  const tiene = (campo) => esRegistro(entrada) && Object.hasOwn(entrada, campo);
+  const tieneObservaciones = tiene("observaciones");
+  const tieneGrupo = tiene("grupo_subgrupo");
+  const tieneEntradaRC = tiene("entrada_rc_referencia");
   exigirCamposExactos(entrada, [
     "modalidad_clave", "categoria_ref", "causa_clave", "periodo", "porcentaje_jornada",
     ...(tieneObservaciones ? ["observaciones"] : []),
+    ...(tieneGrupo ? ["grupo_subgrupo"] : []),
+    ...(tieneEntradaRC ? ["entrada_rc_referencia"] : []),
   ], "datos previos del análisis");
   if (!claveValida(entrada.modalidad_clave) || !referenciaValida(entrada.categoria_ref)
     || !claveValida(entrada.causa_clave) || !periodoValido(entrada.periodo)
     || !Number.isSafeInteger(entrada.porcentaje_jornada)
     || entrada.porcentaje_jornada < 1 || entrada.porcentaje_jornada > 10_000
-    || (tieneObservaciones && !textoValido(entrada.observaciones, 4000, false))) {
+    || (tieneObservaciones && !textoValido(entrada.observaciones, 4000, false))
+    || (tieneGrupo && (typeof entrada.grupo_subgrupo !== "string"
+      || entrada.grupo_subgrupo === "" || entrada.grupo_subgrupo.length > 80))
+    || (tieneEntradaRC && !referenciaValida(entrada.entrada_rc_referencia))) {
     throw new TypeError("datos previos del análisis no válidos");
   }
   const salida = {
@@ -419,6 +427,8 @@ export function validarDatosPreviosAnalisis(entrada) {
     porcentaje_jornada: entrada.porcentaje_jornada,
   };
   if (tieneObservaciones) salida.observaciones = entrada.observaciones;
+  if (tieneGrupo) salida.grupo_subgrupo = entrada.grupo_subgrupo;
+  if (tieneEntradaRC) salida.entrada_rc_referencia = entrada.entrada_rc_referencia;
   return Object.freeze(salida);
 }
 

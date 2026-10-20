@@ -56,7 +56,37 @@ type AnalisisOperativoRRHH struct {
 	CostePrevisto     *ImporteOperativoRRHH        `json:"coste_previsto,omitempty"`
 	FuenteCosteRef    string                       `json:"fuente_coste_ref,omitempty"`
 	Observaciones     string                       `json:"observaciones,omitempty"`
-	vinculo           vinculoHitoOperativoRRHH
+	// GrupoSubgrupo y EntradaRCRef viajan fuera del recibo y de su huella,
+	// como la cifra de personas (CT243). Solo sirven para precargar la
+	// rectificación del análisis. EntradaRCRef nombra la entrada de retención
+	// de crédito elegida al analizar; no acredita crédito.
+	GrupoSubgrupo string `json:"-"`
+	EntradaRCRef  string `json:"-"`
+	vinculo       vinculoHitoOperativoRRHH
+}
+
+// ConGrupoYEntradaRC devuelve una copia del análisis con el grupo/subgrupo y
+// la referencia de la entrada de retención que la lectura publica fuera del
+// recibo. Sin análisis no puede llegar ninguno; con análisis llegan los dos y
+// válidos. Cualquier otra combinación hace la lectura no confiable.
+func (a *AnalisisOperativoRRHH) ConGrupoYEntradaRC(
+	grupo, entradaRC *string,
+) (*AnalisisOperativoRRHH, error) {
+	if a == nil {
+		if grupo != nil || entradaRC != nil {
+			return nil, ErrResultadoConsultaRRHHNoConfiable
+		}
+		return nil, nil
+	}
+	if grupo == nil || entradaRC == nil ||
+		!domain.GrupoSubgrupoValido(*grupo) ||
+		!domain.ReferenciaOpacaValida(*entradaRC) {
+		return nil, ErrResultadoConsultaRRHHNoConfiable
+	}
+	copia := *a
+	copia.GrupoSubgrupo = *grupo
+	copia.EntradaRCRef = *entradaRC
+	return &copia, nil
 }
 
 func (a AnalisisOperativoRRHH) validar() error {
@@ -415,7 +445,8 @@ func analisisDesdeExpedienteRRHH(e domain.Expediente) *AnalisisOperativoRRHH {
 		PeriodoFin: a.Periodo.Fin, PorcentajeJornada: a.PorcentajeJornada,
 		ResultadoRC: a.ValidacionRC.Resultado, FuenteCosteRef: a.FuenteCosteRef,
 		Observaciones: a.Observaciones,
-		vinculo:       vinculoDesdeAnalisisRRHH(e),
+		GrupoSubgrupo: a.GrupoSubgrupo, EntradaRCRef: a.EntradaRCEsperada.Referencia,
+		vinculo: vinculoDesdeAnalisisRRHH(e),
 	}
 	if a.CostePrevisto != nil {
 		proyeccion.CostePrevisto = &ImporteOperativoRRHH{
