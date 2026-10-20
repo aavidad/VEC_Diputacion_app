@@ -23,6 +23,10 @@ selección queda cerrada.
 - 211 pruebas web y comprobaciones posteriores de reserva sin efecto y de
   consultas intercaladas. Se corrigió el botón activo cuando otra consulta
   impedía actuar.
+- La CI encontró una regresión en la recuperación plural con comunicaciones
+  caídas y dos claves nuevas sin registrar en el control de textos. Corregidas
+  ambas: 39 pruebas web focales y 15 del registro de ensayos pasan después de
+  incorporar main `0596d3825`. Las huellas anteriores de textos se conservan.
 - Instalación de CT257 y rechazo SQL sin decisión en PostgreSQL 18.
 - Dos revisiones independientes de código y SQL sobre `2c1a585dd`. Cada una
   ensayó 140 migraciones y 24 pruebas antes y después del reinicio, con las
