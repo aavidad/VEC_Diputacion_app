@@ -185,14 +185,14 @@ ensayo local de preparación, aplicación y reinicio antes de incorporarla a la
 candidata de dirección.
 Guion: `deploy/principal/vigencia_gobierno_admin_20261015.md`.
 
-**HZ37, O: Mi Bolsa interna en combinado mientras no se seleccione el modo
-externo.** Recupera el montaje de HZ36 si no hay DSN ni material externo y la
-inscripción está apagada. La selección externa exige configuración completa
-y confianza vigente; si falla, devuelve error y no monta la interna. Conserva
-las autoridades y la separación de identidades de HZ36. Es temporal hasta
-HZ38: P prepara la publicación nominal de la confianza externa (opción B).
-El criterio de configuración está en `TRD.md`, apartado 1. La integración y
-el arranque en cidonia corresponden a dirección.
+**Cuenta externa propia del aspirante (F1-46).** HZ38 y el motivo documental
+del justificante están integrados: cuenta y perfil externos distintos,
+publicación nominal de confianza y consumo externo de los actos propios.
+En la copia local del 20/10, Mi Bolsa respondió 200 antes y después de
+reiniciar aplicación y PostgreSQL. La cuenta nueva no tenía participaciones
+y el motivo documental no estaba publicado en esa copia: este ensayo no
+acredita una subida de PDF ni el gobierno de admisiones de F0-21.
+[Alcance y comprobaciones](../estudio_requisitos/cuenta_externa_f1_46_20261020.md).
 
 PR abiertas (el estado de borrador se comprueba en GitHub):
 

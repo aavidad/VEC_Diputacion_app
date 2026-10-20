@@ -2,32 +2,15 @@
 
 RRHH conserva el botón de selección de la ficha CT. La emisión usa la Bolsa constituida, su orden vigente y el servicio B7 existente. La solicitud debe conservar una necesidad RPT publicada; los expedientes anteriores sin ese vínculo requieren una solicitud nueva.
 
-## Configuración de cidonia
+## Configuración de la copia local
 
-CONFIG NUEVA: `VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH=/vec-incorporacion/cliente_m10_ct.json`.
-
-Dirección crea el archivo privado en el directorio de configuración que ya monta como `/vec-incorporacion`, con propietario del proceso y permisos 0600. No se guarda en Git. El organismo debe coincidir con `personal_b2.organismo_ref` del `servidor.json` activo:
-
-```json
-{
-  "version": 1,
-  "organismo_ref": "org_0e4b1d56ba2e24fb8e4808cbc7abb660",
-  "origen": "https://127.0.0.1:8443",
-  "directorio": "/vec-material",
-  "autoridad_ca": "ca/ca.crt",
-  "certificado_cliente": "mtls/cliente.crt",
-  "clave_cliente": "mtls/cliente.key",
-  "maximo_bytes_pagina": 1048576
-}
-```
+CONFIG NUEVA: ninguna. La selección consulta Organización histórica de Personal por un puerto en el mismo proceso. Activar los selectores existentes `VEC_ORGANIZACION_HISTORICA_CONSULTA_ENABLED=true` y `VEC_ORGANIZACION_HISTORICA_MATERIAL_DIR` según la [guía de Organización histórica](../organizacion_historica_combinado_20261015.md). Cada técnico de RRHH necesita una concesión nominal para consultar los puestos con su propio perfil, organismo y unidad. La cuenta y el perfil corresponden a la persona que inicia la petición.
 
 También debe estar configurada `VEC_RPT_CATALOGO_PATH`, con la ruta del catálogo RPT publicado que ya utiliza el alta. Se conserva su valor actual del lanzador privado; no se sustituye por otro catálogo.
 
 El archivo privado `auditoria-intentos.json` debe indicar `proceso: "vec-rrhh"` y `canal: "interna_corporativa"`. Su LOGIN de auditoría necesita una fila con esos mismos valores en `vec_autorizacion_atestada_v3.configuracion_runtime_intentos`, provisionada por su autoridad existente. Esta tabla conserva historia: si el LOGIN actual tiene otro proceso o canal, Dirección provisiona otro LOGIN y su archivo DSN; no modifica la fila anterior. El lector reutiliza el pool de auditoría de CT.
 
-El certificado debe pertenecer al actor RRHH y permitir consultar la organización histórica de Personal. El directorio y las rutas son los del contenedor de la aplicación; no se copian claves al repositorio. Dirección añade la variable al lanzador privado y reinicia cuando haya completado la instalación y la provisión.
-
-La ausencia o el rechazo de esta configuración mantiene cerrado este paso con 503 y permite arrancar el resto de la aplicación.
+La ausencia o el rechazo del montaje de Organización histórica mantiene cerrado este paso y permite arrancar el resto de la aplicación. Dirección reinicia la copia tras completar la provisión y el material privado.
 
 ## Instalación y permisos
 
