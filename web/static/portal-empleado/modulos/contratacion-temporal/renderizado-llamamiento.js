@@ -56,7 +56,7 @@ export function renderizarAceptacionPortal(filas, t, fecha) {
   </section>`;
 }
 
-export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
+export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now(), { soloConsulta = false } = {}) {
   const esRespuesta = (operacion) => ["respuesta", "respuesta_siguiente"].includes(operacion);
   const esResolucion = (operacion) => ["resolucion", "resolucion_siguiente"].includes(operacion);
   function tiempoVisible(valor) {
@@ -140,6 +140,10 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         data-ct-comunicaciones-reintentar>${e(t("llamamiento_comunicaciones_reintentar"))}</button>` : ""}
     </section>`;
   }
+  if (soloConsulta) return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
+    aria-labelledby="ct-llamamiento-titulo"><header class="ct-cabecera"><div>
+      <h2 id="ct-llamamiento-titulo">${e(t("llamamiento_titulo"))}</h2>
+    </div></header>${listaComunicaciones()}${consultaRespuesta()}</section>`;
   function resumenResultado() {
     const esSucesor = Boolean(estado.siguiente?.recibo
       || estado.comunicaciones?.seleccionada?.antecedente_tipo === "continuacion_confirmada");
