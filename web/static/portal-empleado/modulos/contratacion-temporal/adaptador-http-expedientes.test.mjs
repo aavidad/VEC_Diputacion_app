@@ -831,6 +831,10 @@ test("raíl deriva los cinco estados y reabre fases tras un retorno real", async
   ];
   assert.deepEqual((await proyectar("asignacion_unidad","en_curso",analisisEnSolicitud)).slice(0,4),["completado","completado","en_curso","pendiente"]);
   assert.deepEqual((await proyectar("solicitud","en_curso",analisisEnSolicitud.slice(0,2))).slice(0,3),["en_curso","completado","pendiente"]);
+  // F1-111: cancelado en Solicitud tras el análisis, el análisis sigue hecho.
+  const cancelacion = {accion_clave:"contratacion_temporal.expediente.cancelar",fase_origen:"solicitud",fase_destino:"solicitud",estado_destino:"cancelado"};
+  assert.deepEqual((await proyectar("solicitud","cancelado",[analisisEnSolicitud[1],cancelacion])).slice(0,3),["cancelado","completado","pendiente"]);
+  assert.deepEqual((await proyectar("solicitud","cancelado",[analisisEnSolicitud[0],cancelacion])).slice(0,3),["cancelado","pendiente","pendiente"]);
 });
 
 test("adaptador obtiene catálogo por cliente.catalogosAlta si obtenerCatalogos devuelve null, una sola vez por montaje", async () => {

@@ -114,9 +114,9 @@ Compruebe la franja que muestra la ficha. En el recorrido era de **09:00 a 14:00
 
 ## Cancelar un expediente antes de la fiscalización
 
-Mientras el expediente no se haya fiscalizado, la ficha muestra el apartado **Cancelación del expediente**. Pulse **Cancelar expediente**, elija el motivo y, si quiere, escriba una observación. Después pulse **Cancelar el expediente**. La ventana de confirmación nombra el expediente por su número, por ejemplo «Expediente 2026/CT-000022, versión 3.».
+Mientras el expediente no se haya fiscalizado, la ficha muestra el apartado **Cancelación del expediente**. Pulse **Cancelar expediente**, elija el motivo en la lista («Seleccione un motivo») y, si quiere, escriba una observación. Mientras el formulario está abierto solo queda **Volver sin cancelar** para salir sin hacer nada. Después pulse **Cancelar el expediente**. La ventana de confirmación nombra el expediente por su número, por ejemplo «Expediente 2026/CT-000022, versión 3.».
 
-Al confirmar, el apartado dice «Expediente cancelado.» y muestra la fecha, la fase en la que se canceló y el justificante, que se puede copiar. **Siguiente paso** pasa a «Expediente cancelado», y el **Historial** añade «Expediente cancelado». Con la pantalla en inglés, los motivos también salen en inglés.
+Al confirmar, el apartado dice «Expediente cancelado.» y muestra la fecha, la fase en la que se canceló y el justificante, que se puede copiar. **Siguiente paso** pasa a «Expediente cancelado», y el **Historial** añade «Expediente cancelado». En **Fases del expediente**, las fases ya hechas siguen marcadas como hechas, la fase en la que se canceló dice «Cancelado en esta fase» y las siguientes, «No se hará». Con la pantalla en inglés, los motivos también salen en inglés y el historial dice «Case cancelled».
 
 ## Si algo sale mal
 

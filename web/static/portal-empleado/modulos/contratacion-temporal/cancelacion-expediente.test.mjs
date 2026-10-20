@@ -129,7 +129,7 @@ test("solo se ofrece en curso y en una fase admitida; el formulario se abre con 
   assert.match(c.innerHTML, /id="ct-cancelacion-ayuda"[^>]*hidden/u);
   pulsar(c, "[data-ct-cancelacion-abrir]");
   assert.match(c.innerHTML, /data-ct-cancelacion-form/u);
-  assert.match(c.innerHTML, /<select name="motivo_clave" required\s*><option value=""><\/option><option value="necesidad_desaparecida">Ha desaparecido la necesidad/u);
+  assert.match(c.innerHTML, /<select name="motivo_clave" required\s*><option value="">Seleccione un motivo<\/option><option value="necesidad_desaparecida">Ha desaparecido la necesidad/u);
   assert.match(c.innerHTML, /<textarea name="observaciones"[^>]*><\/textarea>/u);
   desmontar();
   assert.equal(c.eventos.size, 0);

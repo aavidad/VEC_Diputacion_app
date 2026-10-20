@@ -160,6 +160,12 @@
 .linea-fases .ahora small { color: var(--portal-azul-700); font-weight: 600; }
 .linea-fases .con-incidencia .marca { border-color: var(--portal-peligro); background: var(--portal-peligro); color: var(--portal-texto-inverso); }
 .linea-fases .con-incidencia small { color: var(--portal-peligro); font-weight: 600; }
+/* Expediente cancelado: la fase en la que se canceló, con aspa y palabra; las siguientes no se harán. */
+.linea-fases .cancelado .marca { border-color: var(--portal-tinta); background: var(--portal-tinta); color: var(--portal-texto-inverso); }
+.linea-fases .cancelado small { color: var(--portal-tinta); font-weight: 600; }
+.linea-fases .sin-hacer .nombre { color: var(--portal-muted); }
+/* Lo hecho antes de cancelar no se une a la fase cancelada como si siguiera después. */
+.linea-fases .cancelado + .hecho::before { background: var(--portal-borde); }
 .linea-fases button {
   display: grid;
   justify-items: center;

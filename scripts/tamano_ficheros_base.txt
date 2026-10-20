@@ -95,7 +95,7 @@
 974 web/static/area-personal/aplicacion.js
 602 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 823 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.js
-1142 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
+1146 web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs
 958 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 931 web/static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.test.mjs
 1235 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
