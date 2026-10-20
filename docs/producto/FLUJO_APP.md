@@ -139,7 +139,7 @@ No admite sesiones reanudadas ni identidad por cabeceras. Solo arranca en
 
 | Perfil | Rol técnico | Entra por | Ve y hace | Estado |
 | --- | --- | --- | --- | --- |
-| Aspirante | `candidato_bolsa` | `/area-personal/` | Mi Bolsa, perfil y contacto, méritos, alegaciones, inscripción (oculta), preferencias | En cidonia (Mi Bolsa); el resto, ver 4.1 |
+| Aspirante | `candidato_bolsa` | `/area-personal/` | Mi Bolsa, perfil y contacto, méritos, alegaciones, inscripción, preferencias | En cidonia (Mi Bolsa); el resto, ver 4.1 |
 | Centro solicitante | `solicitante_centro` | `/portal-empleado/peticiones-centro/` | Presenta peticiones, acredita la incorporación, cancela | En cidonia |
 | Ratificador del centro | `ratificador_centro` | `/portal-empleado/peticiones-centro/` | Ratifica las peticiones de su centro con motivo | En cidonia |
 | Técnico de RRHH | `tecnico_rrhh` | `/portal-empleado/` | Inicio con cuadro de mando, Bolsas, Contratación temporal, plantillas, reglas | En cidonia |
@@ -424,10 +424,19 @@ El orden del código y el orden que pidió RRHH no coinciden en un punto: ver
 
 #### Inscripción en una bolsa
 
-Estado: **en main, apagado**. El código, la API y la bandeja de RRHH existen;
-en cidonia hay tres convocatorias cargadas, pero falta encender la inscripción
-de RRHH (`VEC_BOLSA_INSCRIPCIONES_ENABLED` y `identidad/consultas-rrhh.json` con
-el perfil de técnico de RRHH) y poner `"inscripcion": true` en `vistas.json`.
+Estado: **encendido en la pantalla de la aspirante (F1-29)**. `vistas.json`
+lleva `"inscripcion": true` y el menú muestra **Inscribirme en una bolsa**. La
+lista y la ficha necesitan la fuente v2 de las acciones de inscripción y la
+versión del rol de la aspirante publicada desde ella (F1-101,
+`deploy/principal/candidata_hz39/aspirante/inscripcion_fuente_v2.md`); sin
+esos dos actos de Administración responden 403. La bandeja de RRHH sigue
+dependiendo de `VEC_BOLSA_INSCRIPCIONES_ENABLED` y del perfil de técnico de
+RRHH en `identidad/consultas-rrhh.json`.
+
+Recorrido comprobado en Chrome el 20/10 en una copia local (paso e1 del
+apartado 4.0): lista 200, ficha 200, presentación 201 con recibo, repetición
+con la misma clave 200 con el mismo recibo, otra clave para la misma categoría
+409 `solicitud_existente`, y Mis solicitudes y su detalle 200.
 
 1. La aspirante abre **Inscribirme** y ve las convocatorias con plazo abierto
    (`GET /api/vec/bolsa/inscripciones/convocatorias-abiertas`).
