@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -16,12 +17,16 @@ type ejecutorPortalHTTPPrueba struct {
 	ejecutorComunicacionLlamamientoHTTPPrueba
 	solicitud ports.SolicitudResolucionPortal
 	resultado ports.ResultadoResolucionPortal
+	fallo     error
 	llamadas  int
 }
 
 func (e *ejecutorPortalHTTPPrueba) ResolverPortal(_ context.Context, s ports.SolicitudResolucionPortal) (ports.ResultadoResolucionPortal, error) {
 	e.solicitud = s
 	e.llamadas++
+	if e.fallo != nil {
+		return ports.ResultadoResolucionPortal{}, e.fallo
+	}
 	return e.resultado, nil
 }
 
@@ -88,9 +93,17 @@ func TestResolucionPortalHTTPConservaFuenteYSesion(t *testing.T) {
 			t.Fatal("respuesta portal o ámbito confiable alterado")
 		}
 	}
+	ejecutor.fallo = application.ErrComunicacionLlamamientoNoDisponible
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionComunicacionHTTPPrueba(RutaResolucionComunicacionLlamamiento, string(cuerpo)))
+	if w.Code != http.StatusServiceUnavailable ||
+		!strings.Contains(w.Body.String(), `"codigo":"servicio_no_disponible"`) ||
+		strings.Contains(w.Body.String(), `"data"`) {
+		t.Fatal("falta de función SQL presentada como resolución:", w.Code, w.Body.String())
+	}
 	// Sin dependencia portal, la rama antigua sigue montada y esta falla localmente.
 	legacy := nuevoManejadorComunicacionHTTPPrueba(t, &ejecutorComunicacionLlamamientoHTTPPrueba{})
-	w := httptest.NewRecorder()
+	w = httptest.NewRecorder()
 	legacy.ServeHTTP(w, peticionComunicacionHTTPPrueba(RutaResolucionComunicacionLlamamiento, string(cuerpo)))
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("portal opcional sin dependencia: %d", w.Code)

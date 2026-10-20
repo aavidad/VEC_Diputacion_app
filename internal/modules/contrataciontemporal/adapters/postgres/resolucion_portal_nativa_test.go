@@ -37,6 +37,7 @@ func TestResolucionPortalFirmaDoceCamposYConservaErroresNominales(t *testing.T) 
 		}
 	}
 	for codigo, esperado := range map[string]error{
+		"42883": ErrPersistenciaComunicacionLlamamientoNoDisponible,
 		"P2490": ports.ErrSolicitudComunicacionLlamamientoInvalida,
 		"P2491": ports.ErrClaveComunicacionLlamamientoUsada,
 		"P2492": ports.ErrVersionComunicacionLlamamientoEnConflicto,
