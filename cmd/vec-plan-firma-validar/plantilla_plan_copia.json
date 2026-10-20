@@ -1,0 +1,10 @@
+{
+  "catalogo": {
+    "id": "ct.plan.firma.hz39.operativa", "version": 1, "revision": 1,
+    "modulo_id": "contratacion_temporal", "estado": "borrador",
+    "nombre": "Plan de firma de contratación temporal",
+    "motivo_creacion": "Preparación del plan de firma de la copia local"
+  },
+  "motivo_publicacion": "Publicación del plan de firma de la copia local",
+  "pasos": ["informe_definitivo.p1", "informe_definitivo.p2", "resolucion.p1", "resolucion.p2", "resolucion.p3"]
+}

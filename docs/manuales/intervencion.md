@@ -1,6 +1,14 @@
 # Intervención
 
-Comprobado el 19 de octubre de 2026 en una copia local, con datos inventados, en pantalla de ordenador y de móvil. Se registraron los tres resultados que ofrece la pantalla. Esta copia no tenía disponible el circuito de firma: estos pasos acreditan el registro de la fiscalización, pero queda pendiente comprobar aquí la remisión con el informe firmado y la nueva fiscalización tras subsanar.
+Actualizado el 20 de octubre de 2026. Utilice el acceso de Intervención en
+la copia local que le faciliten, con datos ficticios. Las imágenes conservadas
+son históricas, del 19 de octubre; sus cifras y rótulos pueden haber cambiado.
+
+El 19 de octubre se comprobaron los tres resultados de fiscalización. El 20
+se recorrieron en un mismo expediente el reparo, la subsanación, el informe
+nuevo con las firmas de técnica y Jefatura y la nueva fiscalización favorable.
+Los resultados y las firmas se conservaron después de reiniciar. Esa
+comprobación parcial no acredita el recorrido completo hasta el cese.
 
 ## 1. Abrir la fiscalización
 
@@ -44,13 +52,13 @@ En la comprobación, los recibos mostraron la versión resultante 6. La versión
 
 ## 4. Qué ocurre después
 
-Con un resultado favorable, RRHH continúa la tramitación y se encarga del llamamiento. Su pantalla termina en el recibo.
+Con un resultado favorable, RRHH continúa la tramitación y se encarga del llamamiento. La ficha de RRHH conserva la fase de fiscalización: eso no exige registrar otra conformidad para poder continuar. Su pantalla termina en el recibo.
 
 Con un resultado desfavorable, RRHH subsana, emite un informe nuevo, lo firman de nuevo el técnico y la Jefatura del Servicio y se lo remiten otra vez. Pida la versión actualizada antes de volver a fiscalizar.
 
 El 20 de octubre se recorrió todo en un mismo expediente de una copia local: reparo sobre la versión 5, subsanación, informe nuevo firmado en la versión 8 y fiscalización favorable sobre esa versión, con su recibo. Después de reiniciar, el expediente conservaba los dos resultados y las firmas.
 
-Tras reiniciar la aplicación y la base de datos, RRHH volvió a abrir desde su lista los expedientes con conformidad y reparo. Ambos conservaban la versión 6, la fecha de fiscalización y una sola anotación nueva en su historial. No se comprobó una consulta del recibo anterior desde el acceso propio de Intervención; conserve su referencia al recibirlo.
+En la comprobación anterior, del 19 de octubre, tras reiniciar la aplicación y la base de datos, RRHH volvió a abrir desde su lista los expedientes con conformidad y reparo. Ambos conservaban la versión 6, la fecha de fiscalización y una sola anotación nueva en su historial. No se comprobó una consulta del recibo anterior desde el acceso propio de Intervención; conserve su referencia al recibirlo.
 
 Si RRHH le comunica que el expediente ha cambiado, pida los datos actualizados. No cambie por su cuenta la versión remitida para intentar que se admita una operación.
 

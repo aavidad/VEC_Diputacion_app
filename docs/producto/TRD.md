@@ -569,6 +569,16 @@ sumarlo al perfil de Contratación. Conserva la ruta original, la autorización
 y la auditoría de Personal. El cliente M10 con certificado fijo deja de usarse
 en este recorrido. Si falta el montaje de Personal, falla solo la selección.
 
+F1-106 retira la publicación del rol de Organización histórica del arranque de
+la copia. `crear --modulos` no publica ese rol ni activa la consulta. El rol
+`consulta_organizacion_historica_rrhh:v1` requiere propuesta y aprobación de dos
+administradores distintos por AUT60 y el conjunto 7. Después se ejecuta
+`copia_local.sh organizacion-historica --equipo o --instancia f106` para sembrar
+identidades y asignaciones ficticias y montar la consulta. La aplicación arranca
+antes y después. La copia acredita publicación por dos administradores y consulta
+de dos técnicas con 200 en su centro y 403 fuera, también tras reiniciar. Véase
+`deploy/principal/organizacion_historica_f1_106_20261020.md`.
+
 
 - **Actos con efecto.** Decisión V3 consumida en la misma transacción que escribe
   el estado (apartado 7).
@@ -637,7 +647,16 @@ se muestra pertenece al registro original. La respuesta ampliada de la ficha
 exige juntos los selectores y su recibo, aun si la lista es `[]`; ausencia de
 uno falla cerrada. El cliente limita a 128 entradas, no muestra canones de
 identidad ni huellas y cancela la consulta al cambiar de expediente. La
-publicación y el recorrido real siguen pendientes.
+consulta y recuperación tras reiniciar se comprobaron en la copia de F1-58;
+el caso completo 4.0 sigue pendiente.
+
+F1-58 utiliza AUT103 y el plan de publicación de cargos v2 para suceder los
+cuatro roles de consulta: conserva cuadro y descarga y sustituye solo la
+operación de detalle por la que concede los selectores. La recuperación R5
+necesita además su propia fila técnica de origen AD172, distinta de la
+descarga y sin permiso humano nuevo. El cotejo del núcleo, la activación y
+los límites del ensayo se describen en
+[`firma_por_cargos_f1_58_20261020.md`](../../deploy/principal/firma_por_cargos_f1_58_20261020.md).
 
 ## 8. Protección de datos
 
