@@ -55,6 +55,20 @@ func ValidarResultadoBolsaRRHH(r ports.ResultadoBolsaRRHH) error {
 			if p.JustificanteRef != nil && !domain.ReferenciaOpacaValida(*p.JustificanteRef) {
 				return ports.ErrResultadoBolsaRRHHNoConfiable
 			}
+			if x := p.ResolucionCT; x != nil {
+				if p.Respuesta == nil || *p.Respuesta != "acepta" || p.Modo == nil || *p.Modo != "firme" ||
+					p.RespondidaEn == nil || x.Respuesta != "aceptacion" ||
+					!domain.ReferenciaOpacaValida(x.ResolucionRef) || !domain.ReferenciaOpacaValida(x.ReciboRef) ||
+					!domain.InstanteUTCCanonico(x.ResueltaEn) || x.ResueltaEn.Before(*p.RespondidaEn) {
+					return ports.ErrResultadoBolsaRRHHNoConfiable
+				}
+			}
+			if p.ResolucionPortalDisponible &&
+				(len(v.Participaciones) != 1 || p.ResolucionCT != nil || p.Respuesta == nil ||
+					*p.Respuesta != "acepta" || p.Modo == nil || *p.Modo != "firme" ||
+					p.ReciboRespuestaRef == nil || p.RespondidaEn == nil) {
+				return ports.ErrResultadoBolsaRRHHNoConfiable
+			}
 			if p.ContactoResultado != nil {
 				if p.ReciboContactoRef == nil || !domain.ReferenciaOpacaValida(*p.ReciboContactoRef) ||
 					p.ContactoEn == nil || !domain.InstanteUTCCanonico(*p.ContactoEn) {

@@ -237,6 +237,7 @@ type envoltorioResolucionComunicacionLlamamiento struct {
 
 type resolucionComunicacionLlamamientoSalidaJSON struct {
 	Esquema            string                             `json:"esquema"`
+	FuenteRespuesta    string                             `json:"fuente_respuesta,omitempty"`
 	Respuesta          string                             `json:"respuesta"`
 	EstadoPlazo        string                             `json:"estado_plazo"`
 	EstadoLocal        string                             `json:"estado_local"`
