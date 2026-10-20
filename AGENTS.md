@@ -1,5 +1,31 @@
 # Instrucciones del repositorio para agentes
 
+## Estado vigente — 20 de octubre de 2026
+
+VEC es la aplicación de RRHH de la Diputación de Granada. La referencia de
+código es `origin/main` del repositorio `aavidad/VEC_Diputacion_app`. Cada
+encargo parte de esa referencia y se desarrolla en rama y carpeta propias.
+Se busca primero lo que ya existe en el índice de código, `origin/main`,
+ramas y PR abiertas; para Go se usa también `gopls`.
+
+Desde el 15/10 se trabaja en local con copias propias, mediante
+[`deploy/principal/copia_local.py`](deploy/principal/copia_local.py).
+La excepción de la presentación del 18/10 no reabre cidonia: queda congelada
+hasta nueva orden. La siguiente instalación se preparará para un servidor
+nuevo; los equipos no despliegan ni cambian servicios compartidos.
+
+El ciclo es PR pequeña, revisión independiente, CI y fusión por dirección.
+Claude revisa e integra; el autor no fusiona su PR ni da por cerrada su tarea.
+El cierre de la fase 1 exige el caso de [FLUJO_APP §4.0](docs/producto/FLUJO_APP.md),
+sus variantes y las condiciones del [plan](docs/producto/PLAN_IMPLEMENTACION.md),
+con reinicio de aplicación y PostgreSQL. Un arranque correcto o una actuación
+sembrada no acreditan ese recorrido. Lo pendiente de RRHH usa un valor
+provisional configurable, documentado como tal. Los datos son siempre ficticios.
+
+La [instantánea anterior](docs/historia/agentes_hasta_20261020.md) conserva
+las instrucciones tal como estaban antes de esta revisión. Las reglas que
+siguen vigentes se mantienen a continuación y en los documentos de producto.
+
 ## Lectura obligatoria de los documentos de producto — 13 de octubre de 2026
 
 Orden de Alberto: todo agente (Claude, subagente o Codex) lee, antes de
@@ -36,7 +62,7 @@ paralelo» (07/10). Orden exacto y bases en
   cada PR, fusiona, lo comprueba en Chrome y programa piezas propias en su
   carpeta de trabajo. Desde el 15/10 todo se trabaja en local y cidonia queda
   fuera hasta nueva orden: mientras tanto, el ensayo y el recorrido se hacen en
-  una copia local. Cuando vuelva cidonia, solo Claude despliega en ella.
+  una copia local. La siguiente instalación corresponde a dirección en el servidor nuevo.
 - Los equipos Codex (una letra cada uno) programan en local y en GitHub, cada
   uno en su rama. Claude los lanza y los vigila por lo que hacen de verdad, no
   solo por si siguen vivos.
@@ -171,6 +197,61 @@ Consenso con Fable y Astra; detalle en
   qué hace cada cosa («revisión independiente», no «E10»).
 - Ningún secreto, certificado, ruta privada ni dato personal en Git. Nunca se
   envía código ni datos a servicios externos para auditarlos.
+
+## Reglas técnicas y de operación que se conservan
+
+- Arquitectura hexagonal y módulos enchufables: dominio y aplicación dependen
+  de puertos; los adaptadores implementan esos contratos. La composición vive
+  en `internal/app/bootstrap`. Persona es común; cada módulo conserva sus
+  datos y no consulta tablas de otro. Se conservan auditoría, privacidad,
+  recibos, idempotencia e historia.
+- Las lecturas usan la sesión ligada al certificado y dejan constancia de
+  auditoría. Los actos consumen una decisión de autorización estricta en la
+  misma transacción que su efecto. Identificarse no firma documentos y un
+  recibo local no confirma una operación externa.
+- Toda función nueva o reconstruida `SECURITY DEFINER` lleva
+  `SET search_path = pg_catalog, pg_temp`. No se rebajan comprobaciones para
+  resolver un bloqueo. Se revisa la seguridad de lo cambiado con
+  `security-audit`, Semgrep local (`--metrics=off`) y GoSec cuando corresponda;
+  nunca se envía código ni datos a servicios externos para auditar.
+- Ningún texto ni idioma se incrusta en el código. Los textos visibles viven
+  en `web/static/textos/<idioma>/`; se conserva el sistema común de i18n y
+  diseño. Escritorio sin desplazamiento de página, con adaptación móvil,
+  teclado y foco accesibles. La ayuda se abre con «?».
+- SQL: se reserva el número antes de escribir en `RESERVAS_MIGRACIONES.md`,
+  fuera de Git. La lista común de instalación es
+  `deploy/principal/lista_sql_main_tras_hz37.txt`. El ensayo SQL del recorrido
+  usa `deploy/postgresql/fase1/ensayar.py`; la copia funcional usa
+  `deploy/principal/copia_local.py`. No se confunden ambos ensayos.
+  Se parte del cuerpo instalado en la principal al reconstruir una función.
+  Nunca se reaplica ni se modifica una migración instalada, ni se usa DOWN
+  sobre historia. El ensayo se hace una vez sobre la cabeza final en una
+  copia propia de PostgreSQL 18; revisión SQL independiente antes de integrar.
+- Autoridad, admisiones y asignaciones de desarrollo duran entre 60 y 90 días.
+  La aclaración de dirección del 20/10 conserva los certificados del kit:
+  el máximo de 90 días no se aplica a esos certificados. Una vigencia fija
+  incompatible se comunica a dirección.
+
+## Ritmo y material de trabajo — órdenes del 18 al 20 de octubre
+
+- Carpetas de trabajo y PGDATA desechables en `/dev/shm/vec`; guiones,
+  preparadores, fuentes y evidencias privadas en la carpeta de estado propia,
+  fuera de Git. El material común de candidata se lee sin modificarlo.
+- Antes de restaurar o compilar se miran `free -g` y `df -h /dev/shm`.
+  Con menos de 40 GB disponibles se retiran copias y temporales propios que
+  sobren y se avisa en el canal. Se conservan 32 GB libres para el sistema.
+  PostgreSQL propio: `--rm --restart=no --memory 2g`. No se borra material ajeno.
+- Commit y push al menos cada 30 minutos mientras haya trabajo nuevo;
+  ESTADO de una línea en el canal. Aclaración de dirección del 20/10 a las
+  12:22: si la cabeza está congelada esperando revisión o CI, basta el ESTADO;
+  no se añade un commit vacío que reinicie las comprobaciones.
+- Cada tarea tiene el nombre del tablero; títulos de PR: `Tarea: <ID> — …`.
+  Los encargos de documentación usan el identificador DOC de su área.
+  Se avisa TOCO antes de editar un fichero compartido y LIBERO al subirlo.
+  No se toca un documento ocupado por otra PR abierta.
+- Una PR documental pide `REVISAR #N` en el canal y recibe una revisión.
+  Activación y SQL se declaran «ninguna» si solo cambian documentos; no se
+  atribuyen a esa PR ensayos funcionales que no se han ejecutado.
 
 ## Dónde están las reglas que antes vivían aquí
 
