@@ -21,7 +21,7 @@ Quedan textos y avisos por corregir en esas pantallas:
 
 En una copia local se registraron una fiscalización favorable, otra favorable con observaciones y otra desfavorable, en tres expedientes distintos. Los tres devolvieron recibo. Se comprobaron los campos y la validación de observaciones en Chrome a 1440 y 390 píxeles. Tras reiniciar la aplicación y la base de datos, RRHH consultó la conformidad y el reparo: conservaban su versión, fecha e historial.
 
-La copia no tenía disponible el circuito de firma. Siguen pendientes la remisión con el informe firmado y el recorrido completo de reparo, subsanación, nuevo informe firmado y nueva fiscalización en un mismo expediente. También falta comprobar la consulta de antecedentes y la recuperación del recibo anterior desde el acceso propio de Intervención. Los pasos y las capturas están en [el manual de Intervención](intervencion.md).
+La copia no tenía disponible el circuito de firma. Siguen pendientes la remisión con el informe firmado y el recorrido completo de reparo, subsanación, nuevo informe firmado y nueva fiscalización en un mismo expediente. También falta comprobar la consulta de antecedentes y la recuperación del recibo anterior desde el acceso propio de Intervención. Los pasos y las capturas están en [el manual de Intervención](../manuales/intervencion.md).
 
 ## Comprobación del 9 de octubre de 2026
 
