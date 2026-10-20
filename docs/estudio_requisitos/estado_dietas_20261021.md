@@ -122,7 +122,7 @@ activación y liquidación; sus efectos pendientes se conservan en F4-01.
 | ID propuesto | Tarea acotada | Estado propuesto | Evidencia para la fila |
 | --- | --- | --- | --- |
 | F4-08 | DIE-01: fuentes normativas antes del cálculo | Fusionada; sin recorrer en la web | #838; `dietas_comisiones.go:711`; SQL de base en `04_dietas_migraciones.sh:54`; prueba de fuentes ausentes/incongruentes |
-| F4-09 | Solicitud propia y recuperación de recibos | Fusionada; sin recorrer en la web | `dietas_borradores.go:98`; `portal-composicion-empleado.js:184`; SQL de base en `04_dietas_migraciones.sh:54`; prueba de confirmación antes de exponer |
+| F4-09 | Solicitud propia y recuperación de recibos | Fusionada; sin recorrer en la web | `dietas_borradores.go:98`; `portal-composicion-empleado.js:184`; SQL de base e incremental en `04_dietas_migraciones.sh:54` y `:83` (documento en `:88`); prueba de confirmación antes de exponer |
 | F4-10 | Ruta y cálculo orientativo versionado | Fusionada; sin recorrer en la web | `bootstrap.go:311`; `dietas_comisiones.go:711`; SQL de base en `04_dietas_migraciones.sh:54`; paquetes OSRM/aplicación positivos |
 | F4-11 | Bandejas, devolución y reenvío | Fusionada como parte de DIE-03; sin recorrer en la web | `dietas_borradores.go:119`; cliente en `portal-composicion-empleado.js:162`; SQL incremental en `04_dietas_migraciones.sh:83`, `:94` y `:95`; prueba HTTP de devolución |
 | F4-12 | Consulta y solicitud de rectificación propia | Pendiente; montaje condicionado | `dietas_borradores.go:161`; `portal-composicion-empleado.js:164` |
@@ -142,16 +142,20 @@ con los límites de montaje y recorrido de este estudio.
 `go test -p 6 ./internal/modules/dietas/...` terminó con salida 0: los 16
 paquetes pasaron, sin resultados de caché. Incluye pruebas con dobles de SQL,
 HTTP, Documentos y motor de rutas; no equivale a un ensayo PostgreSQL ni a
-peticiones nominales de navegador. No se repitió esa batería sobre la misma
-base. No se ejecutaron pruebas SQL ni órdenes de la terminal de Dietas
-sobre expedientes; las comprobaciones Node no se lanzaron por separado. La
-puerta general de calidad se ejecuta aparte sobre el mismo código sin cambios.
+peticiones nominales de navegador. No se ejecutaron pruebas SQL ni órdenes de la terminal de Dietas sobre
+expedientes. La puerta general `GOFLAGS=-p=6 GOMAXPROCS=6
+scripts/verificar_calidad.sh` terminó después con salida 0 sobre el mismo
+código de main, sin cambios de comportamiento: incluye pruebas Go normales
+y con detección de carreras, análisis estático, 4.169 pruebas Node positivas
+y las demás guardas. No se repitió la puerta completa.
 
 El índice de código y `gopls` no estaban disponibles en esta sesión. Se
 reutilizaron el plan, el inventario de ficheros, la lectura de los consumidores,
 el historial y las PR existentes. Una revisión independiente dio GO
 documental sobre `e8455b659`; se ajustaron después referencias de línea y se
-completó la orden del intento de copia. Ese dictamen no acredita el recorrido web.
+completó la orden del intento de copia. La revisión confirmó también
+`22805490d`, con la clasificación fijada por dirección y el orden SQL de
+main. Esos dictámenes no acreditan el recorrido web.
 
 Configuración nueva: ninguna. SQL a instalar: ninguno. Activación: ninguna;
 solo cambia este documento. La integración en el tablero, su recuento y la
