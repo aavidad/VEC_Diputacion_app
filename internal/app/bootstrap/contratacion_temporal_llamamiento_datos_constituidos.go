@@ -1,72 +1,22 @@
 package bootstrap
 
 import (
-	"bytes"
 	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
-	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	"vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
-
-const rutaClienteM10LlamamientoCT = "VEC_CT_BOLSA_ORGANIZACION_SOURCE_PATH"
-
-type configuracionClienteM10LlamamientoCT struct {
-	Version            int    `json:"version"`
-	OrganismoRef       string `json:"organismo_ref"`
-	Origen             string `json:"origen"`
-	Directorio         string `json:"directorio"`
-	AutoridadCA        string `json:"autoridad_ca"`
-	CertificadoCliente string `json:"certificado_cliente"`
-	ClaveCliente       string `json:"clave_cliente"`
-	MaximoBytesPagina  int64  `json:"maximo_bytes_pagina"`
-}
-
-func cargarClienteM10LlamamientoCT() (*personalhttp.ClienteOrganizacionHistorica, string, error) {
-	ruta := os.Getenv(rutaClienteM10LlamamientoCT)
-	if ruta == "" || !filepath.IsAbs(ruta) || filepath.Clean(ruta) != ruta || dentroDeRepositorioGit(ruta) {
-		return nil, "", ports.ErrEmisionLlamamientoNoDisponible
-	}
-	contenido, err := leerFicheroMaterialSeguro(ruta, 16<<10)
-	if err != nil {
-		return nil, "", ports.ErrEmisionLlamamientoNoDisponible
-	}
-	defer borrarBytes(contenido)
-	if validarClavesJSONUnicas(contenido) != nil {
-		return nil, "", ports.ErrEmisionLlamamientoNoDisponible
-	}
-	decodificador := json.NewDecoder(bytes.NewReader(contenido))
-	decodificador.DisallowUnknownFields()
-	var c configuracionClienteM10LlamamientoCT
-	if decodificador.Decode(&c) != nil || decodificador.Decode(new(any)) != io.EOF ||
-		c.Version != 1 || c.OrganismoRef == "" || c.Origen == "" ||
-		c.MaximoBytesPagina < 1 || c.MaximoBytesPagina > 8<<20 {
-		return nil, "", ports.ErrEmisionLlamamientoNoDisponible
-	}
-	cliente, err := personalhttp.NuevoClienteOrganizacionHistorica(personalhttp.ConfiguracionOrganizacionHistorica{
-		Origen: c.Origen, Directorio: c.Directorio, AutoridadCA: c.AutoridadCA,
-		CertificadoCliente: c.CertificadoCliente, ClaveCliente: c.ClaveCliente,
-		MaximoBytesPagina: c.MaximoBytesPagina,
-	})
-	if err != nil {
-		return nil, "", ports.ErrEmisionLlamamientoNoDisponible
-	}
-	return cliente, c.OrganismoRef, nil
-}
 
 // La orden nace de la identidad mTLS revalidada y del recurso Bolsa leído en
 // la misma transacción. El acuse lo produce exclusivamente el registrador SQL.
@@ -247,8 +197,8 @@ func unidadPuestoPublicadoCT(puesto personaldomain.PuestoRPTPublico) (string, bo
 	return "unidad:centro:" + strings.ToLower(puesto.CentroCodigo), true
 }
 
-// El cliente HTTP existente de M10 entrega páginas con autorización V3 y
-// auditoría SQL de lectura. La raíz aporta su origen mTLS y ámbito privado.
+// El puerto de Personal entrega páginas con autorización V3 y auditoría SQL
+// de lectura bajo el perfil propio de la cuenta autenticada.
 type consultaOrganizacionHistoricaPuestoCT interface {
 	Consultar(context.Context, personaldomain.SelectorOrganizacionHistorica) (personalports.ResultadoConsultaOrganizacionHistorica, error)
 }

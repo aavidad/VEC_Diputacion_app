@@ -330,6 +330,13 @@ la rama documental RRHH exige certificado y garantía alta, conservando el
 consumo externo del justificante. F1-13 usa AD296 aparte; los consumidores de
 Cronos, Dietas y denominaciones administrativas esperan contratos posteriores.
 
+F1-95B añade el perfil `publicacion_oficial_bases_rrhh` y su consumidor
+nominal en AD301, exclusivo del propietario de Convocatorias. BC17 conserva
+los permisos de BC15 y compara la huella firmada del recurso con la de la
+petición y los ámbitos de la política vigente; no presupone campos ajenos al
+canon de decisión. La recuperación exige el mismo perfil que el enlace del
+acto original. Activación: `deploy/principal/f1_95_publicacion_bases_web/`.
+
 ### 7.2 Auditoría encadenada y sellada
 
 - **Cadena común** en `vec_autorizacion_atestada_v3` (AD207, sellado diferido):
@@ -785,6 +792,13 @@ incorporaciones; CT le entrega un plan (`plan_incorporacion_ct`) y Personal
 lo ejecuta. Las categorías de la RPT se gobiernan en `vec_catalogos_configurables`,
 no aquí. Plan del módulo: `docs/plan_modulos/personal.md` y
 `docs/plan_modulos/organizacion_rpt.md`.
+
+F1-104 reutiliza `consultar_organizacion_historica_v1` y su recibo desde el
+puerto en proceso de Contratación. La consulta lleva el perfil de Personal de
+la misma cuenta autenticada, con el organismo y las unidades de su asignación.
+No añade tablas, funciones ni roles PostgreSQL. La semilla de la copia local
+puede preparar un segundo perfil nominal con los vínculos de su propia cuenta;
+no acredita un acto de Administración en producción.
 
 ### 8.5 Autorización (`vec_autorizacion`)
 
