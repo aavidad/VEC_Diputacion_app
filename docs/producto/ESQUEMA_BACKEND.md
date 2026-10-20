@@ -624,6 +624,14 @@ la referencia explícita y mantienen su cotejo exacto. El montaje con fuentes
 maestras publicadas sigue pendiente. Contrato y activación del primer corte de
 F1-128 en [`referencia_organizativa_ct_f1_128.md`](../../deploy/principal/referencia_organizativa_ct_f1_128.md).
 
+F1-128 añade `organizacion_ref` a `peticion_centro_revision` (CT252). Las
+revisiones anteriores conservan su referencia original; documento y recibo no
+cambian. Consultas, repetición de operaciones, ratificación, entrega y enlace
+al alta cotejan esa organización con el ámbito autorizado. Las cinco funciones
+SQL del recorrido reciben la organización de la instancia. Requiere instalar
+migración y consumidor juntos; la fuente maestra sigue pendiente. Activación
+en [`ambito_peticion_ct_f1_128.md`](../../deploy/principal/ambito_peticion_ct_f1_128.md).
+
 F1-47 amplía la consulta existente de seguimiento con la versión, fase,
 estado y número visible actuales del expediente (CT242). Fase y estado salen
 de las columnas de la versión vigente y el número es el de la numeración
