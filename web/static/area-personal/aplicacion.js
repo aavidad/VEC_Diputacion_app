@@ -220,12 +220,12 @@ function mostrarError(estado, error) {
 }
 
 // Bolsa guarda el nombre cifrado y solo lo envía a su titular, en su propia
-// consulta. Sin nombre no se muestra ninguno, ni un rótulo que lo sustituya.
+// consulta. Sin nombre: «Mi cuenta» y el icono de persona, sin iniciales ni raya.
 export function datosMinimosMiBolsa(consulta) {
   const nombre = consulta.nombre_visible || "";
   return Object.freeze({
     meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en, busqueda_convocatorias_disponible: false },
-    sesion: { nombre_visible: nombre, iniciales: (nombre && consulta.iniciales) || "—", metodo: "", persona_ref: null },
+    sesion: { nombre_visible: nombre, iniciales: (nombre && consulta.iniciales) || "", metodo: "", persona_ref: null },
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
     perfil: { referencia: null, nombre_visible: nombre, identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
     plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
@@ -266,10 +266,10 @@ function actualizarShell(estado) {
   porId("titulo-vista").textContent = titulo;
   porId("migas-pan").textContent = vista === "inicio" ? t("migas") : t("migasVista", { titulo });
   pintarInicialesSesion(estado, porId("avatar-sesion"), datos.sesion.iniciales);
-  const nombre = datos.sesion.nombre_visible; const nombreSesion = porId("nombre-sesion"); nombreSesion.textContent = nombre;
+  const nombre = datos.sesion.nombre_visible; const nombreSesion = porId("nombre-sesion"); nombreSesion.textContent = nombre || traducir("areaPersonal.preferencias.miCuenta");
   // La etiqueta del botón tapa su contenido: el nombre va también en ella y en el title del botón.
   const botonSesion = nombreSesion.closest?.(".sesion-usuario");
-  if (botonSesion) { botonSesion.title = nombre; botonSesion.setAttribute("aria-label", nombre ? traducir("areaPersonal.preferencias.menuIdentidadNombre", { nombre }) : traducir("areaPersonal.preferencias.menuIdentidad")); }
+  if (botonSesion) { botonSesion.title = nombre || traducir("areaPersonal.preferencias.miCuenta"); botonSesion.setAttribute("aria-label", nombre ? traducir("areaPersonal.preferencias.menuIdentidadNombre", { nombre }) : traducir("areaPersonal.preferencias.menuIdentidad")); }
   const perfilSesion = porId("perfil-sesion");
   perfilSesion.textContent = datos.sesion.metodo;
   perfilSesion.hidden = !datos.sesion.metodo;
