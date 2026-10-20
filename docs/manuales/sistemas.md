@@ -9,7 +9,7 @@ permisos y de la preparación de cada copia; no se ha acreditado aquí un
 recorrido propio completo después de reiniciar.
 
 Sistemas prepara el acceso, los certificados y la copia local. La receta
-vigente de preparación está en [la documentación de la copia local](../../deploy/principal/LEEME.md).
+vigente de preparación está en [la documentación de la copia local](../../deploy/principal/LEEME_copia_local.md).
 El [manual técnico de sistemas](../manual_sistemas/README.md) pertenece a la
 documentación técnica y conserva antecedentes que deben leerse con su fecha.
 No utilice direcciones ni credenciales antiguas de una captura.
