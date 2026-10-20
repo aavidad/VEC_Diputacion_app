@@ -22,3 +22,8 @@ impide resolver dos veces entre correo y portal. El plazo refleja la revisión
 de RRHH, no un cálculo automático. No se fabrica correo. F1-127 consume la
 pareja de resolución y recibo. Esta guía no acredita el ensayo: deben guardarse
 los recibos y comprobar su identidad antes y después del reinicio.
+
+La resolución conserva las dos variantes del ofrecimiento: con retención
+y sin ella. Comprueba la confirmación, los cánones y las huellas originales
+y su vínculo con la versión fiscalizada. La caducidad posterior de una
+retención no invalida la aceptación histórica; no se repite su confirmación.

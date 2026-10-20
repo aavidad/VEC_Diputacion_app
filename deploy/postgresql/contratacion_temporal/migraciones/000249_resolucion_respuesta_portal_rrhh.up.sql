@@ -19,6 +19,7 @@ BEGIN
  IF NOT FOUND OR t.relowner IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
     OR t.relrowsecurity IS NOT TRUE OR t.relforcerowsecurity IS NOT TRUE
     OR to_regprocedure('vec_contratacion_temporal.registrar_resolucion_respuesta_portal_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+    OR to_regprocedure('vec_contratacion_temporal.origen_financiero_o6_ct249_v1(jsonb,jsonb,text)') IS NOT NULL
     OR NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=t.oid AND a.attname='comunicacion_ref' AND a.attnotnull)
     OR EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=t.oid AND a.attname='fuente_respuesta' AND NOT a.attisdropped) THEN
   RAISE EXCEPTION 'CT249: tabla o fuente incompatible' USING ERRCODE='55000'; END IF;
@@ -30,6 +31,20 @@ BEGIN
      AND c.contype='u' AND pg_get_constraintdef(c.oid)=
        'UNIQUE (organizacion_ref, expediente_ref, llamamiento_ref)') THEN
   RAISE EXCEPTION 'CT249: unicidad CT54 ausente' USING ERRCODE='55000'; END IF;
+ -- Huellas SHA-256 públicas de definiciones SQL instaladas, sin credenciales.
+ IF EXISTS (SELECT 1 FROM (VALUES
+   ('vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(jsonb)','b44fac672d69921fe48b57142895f7a4603c6f138808b41aae716412bea26a84'),
+   ('vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(jsonb,boolean)','f5c2c1a88e9700c6473ecf2f707eaa779774af0af6e952f614a0f7f92fdc4ee9'),
+   ('vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(jsonb)','144b8375e27e01a811dd3b3b34ff1d26ad172c2fbb9fd8a0fd0257a1e9662c79'),
+   ('vec_contratacion_temporal.materiales_ligados_seleccion_llamamiento_o6_v1(jsonb)','623513c9497f8acbaa47eb5d164dc9e9923d3931dab02537cad6067944e488df'),
+   ('vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(jsonb,text,jsonb,text)','e413e04d3723ccc97606dcf0e3547cf806224626fc7cdaba8a836866ac17e6a3'),
+   ('vec_contratacion_temporal.instante_utc_json_canonico_v2(jsonb,boolean)','93102ce52af7c1c14fdfc431d6c0e9f62428686cdab28da21d99a98d588309a5')) esperado(firma,huella)
+   LEFT JOIN pg_proc q ON q.oid=to_regprocedure(esperado.firma)
+   WHERE q.oid IS NULL OR q.proowner IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
+     OR q.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}'
+     OR q.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog']
+     OR encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex') IS DISTINCT FROM esperado.huella) THEN
+  RAISE EXCEPTION 'CT249: ayudas O6 instaladas divergentes' USING ERRCODE='55000'; END IF;
  IF EXISTS (SELECT 1 FROM (VALUES
    ('resolucion_manual_estado_plazo_check','3f3dd731ee89963572fd27edbfa154a08a7702b8564a3d967e38ecdf04a9c5c5'),
    ('resolucion_manual_plazo_coherente_check','1518eed558e60005d8f1474e2b28904a04ec79c400293db9ed289a9a6e6f2c50'),
@@ -108,6 +123,63 @@ ALTER TABLE vec_contratacion_temporal.resolucion_manual_respuesta_rrhh
  ADD CONSTRAINT resolucion_manual_respuesta_portal_unica UNIQUE (respuesta_portal_ref),
  ADD CONSTRAINT resolucion_manual_recibo_portal_unico UNIQUE (recibo_respuesta_portal_ref),
  ADD CONSTRAINT resolucion_manual_llamamiento_unico UNIQUE (organizacion_ref,expediente_ref,llamamiento_ref);
+
+-- Comprueba la cadena original de material/huellas O6 y su rama financiera.
+-- El consumidor aún debe unir la versión O6 al agregado histórico del expediente.
+CREATE FUNCTION vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+ p_solicitud jsonb,p_recibo jsonb,p_artefacto text)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE SECURITY INVOKER
+SET search_path=pg_catalog,pg_temp AS $f$
+DECLARE a jsonb; r jsonb;
+BEGIN
+ IF p_artefacto IS NULL OR octet_length(p_artefacto)>1048576 THEN RETURN false; END IF;
+ a:=p_artefacto::jsonb; r:=p_recibo->'retencion_seleccion';
+ IF vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(
+     a,p_artefacto,p_recibo,
+     vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(p_recibo)) IS NOT TRUE
+    OR a#>'{comando,contexto,datos,version_expediente}' IS DISTINCT FROM p_solicitud->'version_expediente'
+    OR a#>>'{comando,contexto,datos,organizacion_ref}' IS DISTINCT FROM p_solicitud->>'organizacion_ref'
+    OR a#>>'{comando,contexto,datos,expediente_ref}' IS DISTINCT FROM p_solicitud->>'expediente_ref'
+    OR a#>'{comando,necesidad}' IS DISTINCT FROM p_solicitud->'necesidad'
+    OR a#>'{comando,bolsa}' IS DISTINCT FROM p_solicitud->'bolsa'
+    OR a#>'{comando,politica}' IS DISTINCT FROM p_solicitud->'politica'
+    OR p_recibo->'propuesta_generada' IS DISTINCT FROM 'true'::jsonb THEN RETURN false; END IF;
+ IF p_recibo->'procedencia' ? 'sin_retencion_declarada' THEN
+  RETURN p_recibo#>'{procedencia,sin_retencion_declarada}' IS NOT DISTINCT FROM 'true'::jsonb
+     AND a#>'{evidencia,sin_retencion_declarada}' IS NOT DISTINCT FROM 'true'::jsonb
+     AND r IS NOT DISTINCT FROM '{"referencia":"","version":0,"huella_sha256":""}'::jsonb
+     AND p_recibo#>>'{procedencia,autoridad_ref}' IS NOT DISTINCT FROM 'autoridad:bolsa:llamamiento:desarrollo'
+     AND p_recibo->'accion_evento' IS NOT DISTINCT FROM jsonb_build_object(
+       'referencia','llamamiento.emitir.v1','version',1,
+       'huella_sha256','2472cb427ec518ae7f2fe8671284d890f184918cdd3d6d88d9eeb12c61e3a811')
+     AND p_recibo#>>'{procedencia,evidencia,retener_hasta}' IS NOT DISTINCT FROM '0001-01-01T00:00:00Z'
+     AND a#>>'{evidencia,retener_hasta}' IS NOT DISTINCT FROM '0001-01-01T00:00:00Z';
+ END IF;
+ IF a->'evidencia' ? 'sin_retencion_declarada'
+    OR p_recibo->'procedencia' ? 'politica_provisional'
+    OR jsonb_typeof(r) IS DISTINCT FROM 'object'
+    OR (r ?& ARRAY['referencia','version','huella_sha256']) IS NOT TRUE
+    OR r-ARRAY['referencia','version','huella_sha256'] IS DISTINCT FROM '{}'::jsonb
+    OR jsonb_typeof(r->'referencia') IS DISTINCT FROM 'string'
+    OR (r->>'referencia' ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$') IS NOT TRUE
+    OR NOT (CASE WHEN jsonb_typeof(r->'version')='number'
+       THEN (r->>'version')::numeric BETWEEN 1 AND 9007199254740991
+         AND r->>'version' ~ '^[1-9][0-9]*$' ELSE false END)
+    OR jsonb_typeof(r->'huella_sha256') IS DISTINCT FROM 'string'
+    OR (r->>'huella_sha256' ~ '^[0-9a-f]{64}$') IS NOT TRUE
+    OR r->>'huella_sha256'=repeat('0',64)
+    OR a#>>'{evidencia,retener_hasta}' IS DISTINCT FROM p_recibo#>>'{procedencia,evidencia,retener_hasta}'
+    OR a#>>'{evidencia,valida_hasta}' IS DISTINCT FROM p_recibo#>>'{procedencia,evidencia,valida_hasta}'
+    OR vec_contratacion_temporal.instante_utc_json_canonico_v2(
+      p_recibo#>'{procedencia,evidencia,retener_hasta}',false) IS NOT TRUE
+    OR vec_contratacion_temporal.instante_utc_json_canonico_v2(
+      p_recibo#>'{procedencia,evidencia,valida_hasta}',false) IS NOT TRUE THEN RETURN false; END IF;
+ RETURN (p_recibo#>>'{procedencia,evidencia,retener_hasta}')::timestamptz >
+        (p_recibo#>>'{procedencia,evidencia,valida_hasta}')::timestamptz;
+EXCEPTION WHEN data_exception THEN RETURN false;
+END $f$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.origen_financiero_o6_ct249_v1(jsonb,jsonb,text)
+ FROM PUBLIC;
 
 CREATE FUNCTION vec_contratacion_temporal.registrar_resolucion_respuesta_portal_rrhh_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -219,20 +291,21 @@ BEGIN
     AND v.recibo_emision_ref=s->>'ReciboEmisionRef';
  IF NOT FOUND THEN RAISE EXCEPTION 'CT249: vínculo no acreditado' USING ERRCODE='P2492'; END IF;
  SELECT count(*) INTO n FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 x
-  WHERE x.situacion='confirmada' AND x.solicitud_json->>'organizacion_ref'=s->>'OrganizacionRef'
+  WHERE x.situacion='confirmada' AND x.tipo_seleccion='llamamiento'
+    AND x.solicitud_json->>'organizacion_ref'=s->>'OrganizacionRef'
     AND x.solicitud_json->>'expediente_ref'=s->>'ExpedienteRef'
     AND x.recibo_json->>'llamamiento_ref'=s->>'LlamamientoRef'
     AND x.recibo_json->>'recibo_ref'=s->>'ReciboEmisionRef';
  IF n<>1 THEN RAISE EXCEPTION 'CT249: selección ambigua o ausente' USING ERRCODE='P2492'; END IF;
  SELECT * INTO STRICT e FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 x
-  WHERE x.situacion='confirmada' AND x.solicitud_json->>'organizacion_ref'=s->>'OrganizacionRef'
+  WHERE x.situacion='confirmada' AND x.tipo_seleccion='llamamiento'
+    AND x.solicitud_json->>'organizacion_ref'=s->>'OrganizacionRef'
     AND x.solicitud_json->>'expediente_ref'=s->>'ExpedienteRef'
     AND x.recibo_json->>'llamamiento_ref'=s->>'LlamamientoRef'
     AND x.recibo_json->>'recibo_ref'=s->>'ReciboEmisionRef';
  SELECT v.agregado_json INTO agregado FROM vec_contratacion_temporal.expediente_version_integral v
   WHERE v.expediente_ref=s->>'ExpedienteRef' AND v.version=(e.solicitud_json->>'version_expediente')::numeric;
  IF NOT FOUND OR e.recibo_json->'propuesta_generada' IS DISTINCT FROM 'true'::jsonb
-    OR e.recibo_json#>>'{procedencia,sin_retencion_declarada}' IS DISTINCT FROM 'true'
     OR e.recibo_json->'version_expediente' IS DISTINCT FROM e.solicitud_json->'version_expediente'
     OR e.recibo_json#>>'{bolsa,referencia}' IS DISTINCT FROM s->>'BolsaRef'
     OR agregado#>>'{via_cobertura,via_clave}' IS DISTINCT FROM 'bolsa_vigente'
@@ -241,6 +314,9 @@ BEGIN
     OR agregado#>>'{asignacion,unidad_ref}' IS NULL
     OR e.recibo_json#>>'{necesidad,referencia}' IS NULL THEN
   RAISE EXCEPTION 'CT249: selección nativa divergente' USING ERRCODE='P2492'; END IF;
+ IF vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+  e.solicitud_json,e.recibo_json,e.artefacto_canonico) IS NOT TRUE THEN
+  RAISE EXCEPTION 'CT249: procedencia financiera O6 divergente' USING ERRCODE='P2492'; END IF;
  selector:=jsonb_build_object('organizacion_ref',s->>'OrganizacionRef','expediente_ref',s->>'ExpedienteRef',
   'clave_ct',e.clave_idempotencia::text,'unidad_ref',agregado#>>'{asignacion,unidad_ref}',
   'categoria_ref',agregado#>>'{analisis,categoria_ref}',
@@ -392,14 +468,16 @@ BEGIN
    e.recibo_json->'version_expediente' AS version_recibo,
    e.recibo_json->>'organizacion_ref' AS organizacion_recibo,
    e.recibo_json->>'expediente_ref' AS expediente_recibo,
-   e.recibo_json#>>'{procedencia,sin_retencion_declarada}'='true' AS nativa
+   (e.tipo_seleccion='llamamiento' AND
+    vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+     e.solicitud_json,e.recibo_json,e.artefacto_canonico) IS TRUE) AS financiera
   FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
   WHERE e.situacion='confirmada'
    AND e.solicitud_json->>'expediente_ref'=d.expediente_ref
    AND e.recibo_json->'propuesta_generada'='true'::jsonb
  ), exactas AS (
   SELECT x.llamamiento_ref,count(*) AS cantidad,
-   count(*) FILTER (WHERE e.nativa) AS cantidad_nativa FROM pagina x
+   count(*) FILTER (WHERE e.financiera) AS cantidad_financiera FROM pagina x
   JOIN o6 e ON e.organizacion_ref=x.organizacion_ref
    AND e.expediente_ref=x.expediente_ref
    AND e.organizacion_recibo=x.organizacion_ref
@@ -418,7 +496,7 @@ BEGIN
    AND h.agregado_json#>>'{asignacion,unidad_ref}' IS NOT NULL
   GROUP BY x.llamamiento_ref
  ) SELECT coalesce(jsonb_object_agg(llamamiento_ref,jsonb_build_object(
-    'confirmado',cantidad=1,'nativo',cantidad=1 AND cantidad_nativa=1)),'{}'::jsonb)
+    'confirmado',cantidad=1,'admitido',cantidad=1 AND cantidad_financiera=1)),'{}'::jsonb)
  INTO origenes FROM exactas;
  -- CT201 fija la emisión original; B98 entrega sus participantes. La O6
  -- exacta y única acredita al participante solo cuando B98 devuelve uno.
@@ -440,7 +518,7 @@ BEGIN
        AND part.valor->>'respuesta'='acepta' AND part.valor->>'modo'='firme'
        AND part.valor->>'recibo_respuesta_ref' IS NOT NULL
        AND part.valor->>'respondida_en' IS NOT NULL
-       AND origenes#>>ARRAY[x.llamamiento_ref,'nativo']='true'
+       AND origenes#>>ARRAY[x.llamamiento_ref,'admitido']='true'
        AND r.resolucion_ref IS NULL,false)) ORDER BY part.ordinal),'[]'::jsonb)
     FROM jsonb_array_elements(b.valor->'participaciones') WITH ORDINALITY AS part(valor,ordinal)
     LEFT JOIN vec_contratacion_temporal.resolucion_manual_respuesta_rrhh r
@@ -515,7 +593,7 @@ BEGIN
    OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=1s','statement_timeout=4s','idle_in_transaction_session_timeout=6s']
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-       IS DISTINCT FROM 'be9cddb948958b0f7634355d0d73456334ccd4e8bc04beb8c884acb0d3f49fc8' THEN
+       IS DISTINCT FROM 'fa0fbc6a2069d79af474aa1bc0f6eb7aa3f1f4c6dfb16e9b2661d288126f7968' THEN
   RAISE EXCEPTION 'CT249: lector final divergente' USING ERRCODE='55000'; END IF;
  IF (SELECT encode(sha256(convert_to(pg_get_functiondef(q.oid),'UTF8')),'hex')
      FROM pg_proc q WHERE q.oid=to_regprocedure(
@@ -529,5 +607,12 @@ BEGIN
   AND q.proconfig=ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
   AND q.proacl::text='{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_ejecutor=X/vec_contratacion_temporal_propietario}') THEN
   RAISE EXCEPTION 'CT249: función portal sin propietario o ACL previstos' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM pg_proc q WHERE q.oid=to_regprocedure(
+  'vec_contratacion_temporal.origen_financiero_o6_ct249_v1(jsonb,jsonb,text)')
+  AND q.proowner='vec_contratacion_temporal_propietario'::regrole
+  AND q.prosecdef IS FALSE AND q.provolatile='i'
+  AND q.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+  AND q.proacl::text='{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}') THEN
+  RAISE EXCEPTION 'CT249: ayuda financiera sin propietario o ACL previstos' USING ERRCODE='55000'; END IF;
 END $post_ct249$;
 COMMIT;

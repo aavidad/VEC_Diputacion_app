@@ -39,6 +39,7 @@ BEGIN
     OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','row_security=on','TimeZone=UTC','lock_timeout=2s']
     OR position('registrar_y_consumir_resolucion_manual_ct_v3_atestada' in p.prosrc)=0
     OR position('verificar_aceptacion_nativa_ct_para_ct_v1' in p.prosrc)=0
+    OR position('origen_financiero_o6_ct249_v1' in p.prosrc)=0
     OR position('vec_bolsa_llamamientos.respuesta_portal_llamamiento' in p.prosrc)<>0 THEN
   RAISE EXCEPTION 'CT249 prueba: autorización o frontera Bolsa divergente'; END IF;
  IF has_function_privilege('vec_contratacion_temporal_consultor_rrhh',p.oid,'EXECUTE')
@@ -49,13 +50,29 @@ BEGIN
  IF NOT FOUND OR p.proowner<>'vec_contratacion_temporal_propietario'::regrole
     OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario,vec_contratacion_temporal_consultor_rrhh=X/vec_contratacion_temporal_propietario}'
     OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
-       <> 'be9cddb948958b0f7634355d0d73456334ccd4e8bc04beb8c884acb0d3f49fc8'
+       <> 'fa0fbc6a2069d79af474aa1bc0f6eb7aa3f1f4c6dfb16e9b2661d288126f7968'
     OR position('origen_ct_confirmado' in p.prosrc)=0
     OR position('resolucion_portal_disponible' in p.prosrc)=0
+    OR position('origen_financiero_o6_ct249_v1' in p.prosrc)=0
     OR position('r.resolucion_ref IS NULL' in p.prosrc)=0
     OR position('resolucion_ct' in p.prosrc)<>0
     OR position('registrar_y_consumir_resolucion_manual_ct_v3_atestada' in p.prosrc)<>0 THEN
   RAISE EXCEPTION 'CT249 prueba: proyección nominal divergente'; END IF;
+ SELECT * INTO p FROM pg_proc WHERE oid=to_regprocedure(
+  'vec_contratacion_temporal.origen_financiero_o6_ct249_v1(jsonb,jsonb,text)');
+ IF NOT FOUND OR p.proowner<>'vec_contratacion_temporal_propietario'::regrole
+    OR p.prosecdef IS NOT FALSE OR p.provolatile<>'i'
+    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp']
+    OR p.proacl::text IS DISTINCT FROM '{vec_contratacion_temporal_propietario=X/vec_contratacion_temporal_propietario}'
+    OR position('confirmacion_canonica_seleccion_llamamiento_o6_v1' in p.prosrc)=0
+    OR position('retencion_seleccion' in p.prosrc)=0
+    OR position('clock_timestamp' in p.prosrc)<>0 THEN
+  RAISE EXCEPTION 'CT249 prueba: ayuda O6 financiera divergente'; END IF;
+ IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
+   WHERE e.tipo_seleccion='llamamiento' AND e.situacion='confirmada'
+     AND vec_contratacion_temporal.origen_financiero_o6_ct249_v1(
+      e.solicitud_json,e.recibo_json,e.artefacto_canonico) IS NOT TRUE) THEN
+  RAISE EXCEPTION 'CT249 prueba: selección O6 confirmada sin prueba financiera original'; END IF;
 END $prueba_ct249$;
 DO $fuentes_ct249$
 DECLARE restricciones text;
