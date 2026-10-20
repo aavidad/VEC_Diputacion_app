@@ -1,190 +1,213 @@
-# Acta de rendimiento de lecturas (F1-34), 16 de octubre de 2026
+# Acta de rendimiento de lecturas (F1-34), 20 de octubre de 2026
 
 Tarea F1-34 del tablero: lecturas por debajo de 300 ms en el percentil 95
-(cuadro de Contratación temporal, lista, ficha, bolsas, candidatos y ficha del
-candidato) y base común por debajo de 100 ms, medidas en copia local con el
-volumen de la principal.
+(cuadro de Contratación temporal, lista, ficha, bolsas, candidatos y ficha
+del candidato), medidas por HTTP en copia local con el volumen de la
+principal. Esta acta sustituye a la del 16/10, que no pudo medir por HTTP
+candidatos ni la ficha del candidato.
 
-Resumen: en la base de datos todas las lecturas medibles quedan muy por debajo
-del objetivo (p95 entre 0,1 y 15 ms en serie). Lo que acerca el cuadro y la
-lista de CT a los 300 ms no son sus consultas de datos, sino la cadena de
-identidad y autorización que se repite en cada petición, y el trabajo en Go
-que la acompaña. Candidatos y ficha del candidato no tienen todavía medida
-HTTP; por su número de consultas por apertura son las de más riesgo.
+Resumen. Con una sola persona y las peticiones de una en una, cinco de las
+seis pantallas quedan por debajo de 300 ms en el p95; la lista de CT queda
+justo debajo (275 ms) y su p99 lo pasa (317 ms). La ficha del candidato falla
+por otra causa: el navegador lanza seis peticiones a la vez y entre una cuarta
+y una tercera parte de las aperturas recibe un 503 en alguna sección por
+interbloqueos en la cadena de autorización. Con diez clientes a la vez con
+la misma identidad, las tres pantallas de CT pasan de 700 ms y el cuadro
+devuelve 503 en tres de cada cuatro peticiones. Bolsas y candidatos aguantan
+la concurrencia. El tiempo se va en la acreditación del pool de motivos, en
+el recibo atestado de cada lectura y en los bloqueos de las filas de la
+persona; las consultas de datos cuestan poco.
 
 ## Copia y método
 
-Copia `y-claude-f134` creada con `deploy/principal/copia_local.sh crear`
-desde el volcado HZ37 (principal del 14/10), con las listas
-`candidata_hz39/lista_sql.txt`, `candidata_hz39/lista_sql_firma_vigencias.txt`,
-`candidata_hz39/personal/lista_sql.txt` y
-`lista_sql_codexs_varias_plazas_20261015.txt`, en ese orden, sobre
-`origin/main` en `cf5f348a4`. Después se aplicaron a mano, una vez y sin
-DOWN, las demás migraciones de `main` posteriores a `44218865a`: AD266,
-AD282, AD285, CT226, CT232 y el bloque del justificante de
-`lista_sql_codexo_justificante_limpio_20261015.txt` (sin AD263 ni AD265,
-que ya traía la lista 1). Entraron todas salvo B119, D23, B123, B124, D26,
-B125, D27 y B130, que exigen antes los LOGIN documentales que crea el DBA y
-fallaron en su comprobación previa. Ninguna de ellas define funciones que
-lean las seis pantallas medidas.
-
-Volumen de la principal en la copia: 86 expedientes de CT con 217
-publicaciones, 13 bolsas constituidas, 434 entradas de constitución,
-340 situaciones de participación, 10 llamamientos emitidos y ningún vínculo
-de emisión CT con Bolsa. Es poco volumen: estas cifras dicen cuánto cuesta
-hoy la principal, no cómo crecerá con miles de expedientes.
-
-PostgreSQL 18.4 en contenedor con 2 CPU y 2 GB, `shared_buffers` de 128 MB,
-JIT activado y `ANALYZE` hecho tras restaurar. El equipo tenía otras copias y
-compilaciones en marcha (carga media de 8). Cada lectura se repitió 50 veces
-en serie (`pgbench -c 1 -t 50`) y 50 veces por cliente con 10 clientes en
-paralelo (`-c 10 -t 50`, 500 transacciones). Mediana y p95 salen de la
-latencia de cada transacción. Con 10 clientes sobre 2 CPU, el límite de CPU
-del contenedor produce paradas de unos 80 ms; por eso las cifras en paralelo
-de lecturas de 1 ms saltan a 40 u 85 ms en el p95. Las cifras en serie son
-las que miden la consulta.
-
-Las fachadas de lectura de CT y de Bolsa con material VEC-AD-3 no se pueden
-llamar a mano: cada llamada consume una autorización de un solo uso, firmada
-y ligada a la sesión. Se midieron sus consultas internas de datos por
-separado, como propietario del módulo y dentro de una transacción que se
-revierte. Las lecturas de Bolsa sin VEC-AD-3 se llamaron con un LOGIN de
-medición creado solo en la copia (`medicion_bolsa`, miembro únicamente de
-`vec_bolsa_llamamientos_ejecutor`; `medicion_recuperador`, miembro
-únicamente de `vec_bolsa_importacion_convoca_recuperador`). Los planes se
-sacaron con `auto_explain` (`log_analyze`, `log_buffers`,
-`log_nested_statements`) para ver las sentencias dentro de cada función.
-
-Medición HTTP: no fue viable en el tiempo fijado. La copia del guion arranca
-sin conexiones nominales ni módulos (F0-28, primer corte) y no existe en el
-equipo una copia arrancada que sirva CT y Bolsa de RRHH: las de `codexb-f141`
-sirven el portal externo y su lectura modificaría su auditoría. Prepararla
-exige el kit de administradores, la confianza ADMIN y los LOGIN nominales
-(apartados 4 y 5 del LEEME). Para la lista de bolsas sí se midió el manejador
-Go real contra la copia, sin TLS ni autorización, que es como funciona esa
-ruta (autorización nominal en memoria). Las cifras HTTP de las demás
-pantallas son las de las actas del 8 y el 12 de octubre, sobre otras copias
-con 5.071 expedientes.
+- Código: rama de la PR #1189 con `origin/main` fusionado
+  (`0b936524be29e8836c3bfe82346a10143b72a323`); binario compilado por la copia
+  desde el commit de fusión `94c633604`.
+- Copia nueva `d-claude-f134`, creada con `deploy/principal/copia_local.py
+  crear --modulos --rrhh-original … --lista-sql
+  deploy/principal/lista_sql_main_tras_hz37.txt` (124 SQL de `main` posteriores
+  a HZ37) y los productores privados de roles y datos de la copia de
+  presentación. Sin Administración: ninguna de las seis lecturas la necesitó.
+- Volumen de la semilla, sin añadir datos: 86 expedientes de CT, 13 bolsas,
+  434 entradas de constitución, 652 situaciones, 19 contactos y 10
+  llamamientos emitidos en 6 bolsas. La bolsa más grande tiene 42
+  candidatos y es la que se midió (Auxiliar de servicios generales). Es el
+  volumen de la principal, no el de producción.
+- PostgreSQL 18.4 en contenedor con 2 CPU y 2 GB, `shared_buffers` de 128 MB
+  y JIT activado. La aplicación corre fuera del contenedor. En el equipo había
+  otras ocho copias vivas y la carga media osciló entre 5 y 10.
+- Peticiones con el cliente `scripts/carga/cliente` (mTLS, CA verificada,
+  conexión persistente por usuario): 3 calentamientos y 50 muestras en serie
+  (`-usuarios 1`), y 10 clientes con 50 muestras cada uno (`-usuarios 10`, 500
+  peticiones). Todos usan la identidad de RRHH de la copia, que no tiene otra
+  persona con los mismos permisos. Los percentiles son de rango más cercano y
+  solo cuentan respuestas 200.
+- Cuerpos y rutas copiados del navegador: el Chrome del sistema, con
+  Playwright, abrió la lista de candidatos y una ficha, y se registraron sus
+  peticiones. La ficha del candidato lanza a la vez seis GET: `sanciones`,
+  `contratos`, `operaciones`, `reglas-situacion`,
+  `contactos?llamamiento_ref=…` y `datos-contacto`. El cliente mide
+  peticiones sueltas, así que la apertura completa se midió con un guion
+  aparte que lanza las seis en paralelo y toma el tiempo hasta la última
+  respuesta.
+- Consultas y tiempo en base por petición: registro técnico de la aplicación
+  (`vec.bd.consultas`, `vec.bd.duracion`). Planes: `auto_explain` con
+  `log_analyze`, `log_buffers` y `log_nested_statements`, activado solo en una
+  pasada aparte de 3 peticiones por pantalla para no alterar los tiempos.
+  Tiempo en Go: perfil de CPU y traza de `pprof` en la escucha local de
+  diagnóstico (`VEC_DIAGNOSTICO_ESCUCHA`).
 
 ## Resultados
 
-| Pantalla | Consultas por petición | Datos en base: mediana / p95 en serie | p95 con 10 en paralelo | p95 HTTP conocido | ¿Cumple? | Causa principal |
-| --- | --- | ---: | ---: | --- | --- | --- |
-| Base común (sesión, módulos) | ninguna a base en la lectura | - | - | 0,23 y 0,32 ms (12/10) | Sí | En memoria |
-| Cuadro de CT (`resumen: true`) | 12 a 29, más 1 o 2 de calendarios por año | totales 0,28 / 0,40 ms; resumen 1,00 / 1,55 ms; página 0,39 / 0,67 ms | 0,56; 41; 1,2 ms | 278,8 ms (12/10, 5.071 exp.) | Al límite | Identidad, perfil y gobierno V3 en cada petición; en Go el resto |
-| Lista de CT (límite 100) | igual que el cuadro | página de 100: 0,46 / 0,71 ms | 5,1 ms | 298,2 ms (12/10) | Al límite | Igual; además la página agrega todo el corte en memoria |
-| Ficha de CT | igual, sin calendarios | detalle y agregado: 3,12 / 3,78 ms | 85 ms (CPU) | 140,5 ms (12/10) | Sí | Cadena de autorización |
-| Lista de bolsas | 4 (más 1 o 2 de avisos) | 13,2 / 14,5 ms; avisos 12,4 / 15,3 ms | 97 y 102 ms | manejador real: 16,8 / 18,9 ms en serie; 86 / 99 ms con 10 a la vez | Sí | Avisos: una lectura del orden por cada llamamiento (N+1 en SQL) |
-| Candidatos de una bolsa | unas 20 con una página de contactos; 9 más por cada 100 contactos | datos 5,5 / 10,2 ms; importación 1,0 / 1,7 ms; contactos 0,09 / 0,14 ms | 89; 32; 0,14 ms | sin medida (503 el 12/10) | Sin medir | Lee la bolsa entera y pagina en Go; un consumo V3 por cada 100 contactos |
-| Ficha del candidato | 5 a 8 peticiones, 10 a 12 consultas cada una (60 a 90 por apertura) | datos de las secciones: 0,74 / 1,09 ms | 5,3 ms | sin medida | Sin medir, riesgo alto | Cada sección repite sesión, gobierno V3 y consumo propio |
+Tiempos en milisegundos (p50 / p95 / p99). La columna de 10 a la vez es la
+pantalla medida sola con 10 clientes; la ficha del candidato se midió con el
+guion de aperturas.
 
-Las tres pantallas de CT y la lista de bolsas no tienen N+1 por fila en Go.
-En SQL sí hay uno en los avisos de Bolsa. Las funciones
-`motivo_relacion_oferta_v1` y `eventos_relacion_oferta_v1` no están en `main`:
-vienen en la PR #1144 (B118) y se llaman fila a fila dentro de
-`leer_orden_contextual_oferta_v1` (`000118_criterios_contextuales_ofrecimiento.up.sql:428`
-y `:447`), que lee el nuevo llamamiento, no ninguna de estas seis pantallas.
+| Pantalla | Peticiones y consultas | En serie | 10 a la vez | Errores con 10 a la vez | ¿p95 por debajo de 300 ms? |
+| --- | --- | ---: | ---: | --- | --- |
+| Cuadro de CT (`resumen: true`, límite 100) | 1 petición, 27 consultas | 197 / 249 / 275 | 672 / 708 / 732 | 374 de 500 con 503 | Solo en serie |
+| Lista de CT (límite 100) | 1 petición, 27 consultas | 193 / 275 / 317 | 1.866 / 2.235 / 3.181 | ninguno | Solo en serie, al límite |
+| Ficha de CT (versión 9) | 1 petición, 26 consultas | 134 / 180 / 255 | 741 / 1.777 / 2.752 | 1 de 500 con 404 | Solo en serie |
+| Lista de bolsas | 1 petición, 4 consultas | 15 / 21 / 26 | 82 / 90 / 93 | ninguno | Sí |
+| Candidatos de una bolsa (50 por página, 42 personas) | 1 petición, 17 consultas | 53 / 85 / 100 | 173 / 194 / 203 | ninguno | Sí |
+| Ficha del candidato (apertura completa) | 6 peticiones a la vez, 62 consultas | 104 / 306 / 1.211, con 12 de 50 aperturas con algún 503 | 6.606 / 9.484 / 10.428 | 432 de 500 aperturas con 503 o 403 | No |
 
-## Por qué tarda cada una
+Detalle de la ficha del candidato. Cada sección por separado, en serie, tarda
+entre 28 y 58 ms de mediana y entre 37 y 88 ms de p95 (`reglas-situacion`,
+0,5 ms). `datos-contacto` hace 8 consultas, `reglas-situacion` 1 y las otras
+cuatro 13 o 14. Medidas solas con 10 clientes, `sanciones` da 268 ms de p95 y
+`datos-contacto` 182 ms. El fallo aparece al combinarlas: en una segunda
+pasada de 50 aperturas de una sola persona fallaron 17 (p95 de las completas,
+1.088 ms), 18 veces en `datos-contacto` y una en `operaciones`.
 
-Cuadro, lista y ficha de CT. Con 5.071 expedientes, el acta del 8/10 midió
-194 ms en el servidor y 23 ms acumulados en base (27 consultas). Hoy, con el
-volumen de la principal, las consultas de datos suman menos de 2 ms (cuadro)
-y 4 ms (ficha). El resto es la cadena común: registrar la sesión,
-revalidarla, resolver el contexto del actor, acreditar el pool de motivos,
-resolver el motivo, leer la confianza V3 (4 o 5 consultas, en cada
-operación) y registrar la decisión antes de la lectura atestada. En la vía de
-perfil dinámico del kit sintético se añaden unas 18 consultas más, 8 de ellas
-`INSERT` que escriben de verdad en cada petición
-(`internal/app/bootstrap/autoridad_postgresql_desarrollo.go:134` y
-`:376-690`). El cálculo de firmas y plazos en Go no se ha perfilado.
+Avisos de Bolsa (`/api/vec/bolsa/avisos`, no es una de las seis pantallas):
+21 / 23 / 24 ms en serie y 104 / 153 / 158 ms con 10 clientes, sin errores.
 
-Con más volumen pesa además la página: `materializar_cuadro_rrhh_v1` reúne
-todas las filas filtradas en un arreglo y luego lo corta al límite
-(`deploy/postgresql/contratacion_temporal/migraciones/000044_componentes/040_materializacion_cuadro.sql:214`,
-cuerpo reescrito por CT187). Con 86 expedientes son 0,7 ms; con 5.170
-publicaciones el plan del módulo midió 204,5 ms de p95 para v5
-(`docs/plan_modulos/contratacion_temporal.md:68`).
+En la tanda conjunta de las once lecturas con 10 clientes a la vez, los 503
+alcanzaron a todas las rutas con autorización atestada, incluida la lista de
+bolsas (283 de 500), que sola no falla.
 
-Lista de bolsas. Una transacción de lectura con cuatro funciones. La más
-cara es `leer_resumen_situaciones_bolsas_v1` (5 ms en caliente). Los avisos
-cuestan más que la lista: `consultar_avisos_rrhh_v1` llama a
-`leer_orden_vigente_bolsa_v1` una vez por llamamiento emitido con
-`CROSS JOIN LATERAL`
-(`deploy/postgresql/bolsa_llamamientos/migraciones/000020_avisos_rrhh.up.sql:39`).
-El plan lo muestra: 10 llamadas de 1,45 ms, 14,5 de los 16,9 ms de esa
-sentencia. Crece en línea con los llamamientos emitidos.
+## Por qué tardan las pantallas que pasan de 100 ms
 
-Candidatos. `respuestaCandidatos`
-(`internal/app/bootstrap/bolsa_rrhh_desarrollo.go:576`) recibe la bolsa entera
-y filtra y pagina en memoria aunque la pantalla pida 50. Los contactos se leen
-en un bucle de páginas de 100 (`bolsa_rrhh_desarrollo.go:415-432`), y cada
-página repite admisión de la bolsa, lectura del gobierno V3, registro de la
-decisión y una transacción serializable con consumo de un solo uso. Además,
-`salidaCandidata` recorre todos los contactos por cada candidata
-(`bolsa_rrhh_desarrollo.go:718-731`): coste N por C en Go.
+Cuadro y lista de CT, unos 195 ms por petición. Según la traza de Go, unos
+150 ms son espera a PostgreSQL y entre 47 y 62 ms son CPU, sobre todo
+decodificar y validar JSON y expresiones regulares de referencias. La espera a
+la base se reparte así, según `auto_explain`:
 
-Ficha del candidato. `abrirFicha`
-(`web/static/portal-empleado/portal-bolsas-api.js:841-861`) lanza entre 5 y 8
-peticiones: sanciones, operaciones, reglas, contratos, datos de contacto,
-contactos, reincorporaciones y solicitudes documentales. Cada una repite la
-sesión (S1 a S3), la admisión de la bolsa, el gobierno V3, el registro de la
-decisión y un consumo propio; tres de ellas añaden además auditoría síncrona
-de intento. Las consultas de datos de todas las secciones suman 1 ms. En
-`ListarContactosParticipacion` se resuelve dos veces el mismo contexto
-(`internal/modules/bolsa/application/contacto_participacion.go:113` y `:116`).
+- Entre 61 y 66 ms en la acreditación del pool de motivos de RRHH
+  (`acreditarConexionResolucionMotivosRRHH`, en
+  `internal/modules/contrataciontemporal/adapters/postgres/acreditacion_pool_resolucion_motivos_rrhh.go:596`).
+  En cada petición repite una consulta sobre `pg_roles`, `pg_namespace`,
+  `pg_proc` y las ACL, con cuatro bloqueos consultivos, para comprobar que el
+  catálogo no ha cambiado. Es la sentencia más cara de la petición y no lee
+  ningún dato de expedientes.
+- Entre 82 y 86 ms en `consultar_cuadro_rrhh_atestado_v5`, que encadena v4,
+  v3, v2 y v1 (unos 10 ms entre envoltorios). Dentro, unos 20 ms son el
+  `INSERT` en `prueba_resultado_recibo_rrhh_v2` (el recibo de la lectura) y
+  unos 8 ms el consumo de la decisión (`consumir_consulta_rrhh_v3_interna`).
+  La lectura de los 86 expedientes es lo de menos.
+- Unos 8 ms en el registro del contexto del actor
+  (`resolver_y_registrar_contexto_actor_v2`), fuera de la consulta atestada.
 
-## Propuestas
+El registro técnico solo atribuye 21 ms a la base en estas peticiones; no
+parece contar el pool de motivos ni los de autorización.
 
-No se ha aplicado ningún cambio de SQL ni de código. Ninguna propuesta quita
-permisos ni auditoría ni guarda en caché datos sujetos a permisos.
+Ficha de CT, unos 135 ms. La misma acreditación (61 a 64 ms) más
+`consultar_detalle_rrhh_atestado_v1`, de 28 a 33 ms, casi todo en
+`consultar_detalle_rrhh_con_bolsa_v1` con `numero_personas_detalle_rrhh_ct225`.
 
-1. Avisos de Bolsa: sustituir la llamada por fila a
-   `leer_orden_vigente_bolsa_v1` en `000020_avisos_rrhh.up.sql:39` por una
-   lectura en bloque del orden de todas las bolsas con llamamientos emitidos
-   (una función que devuelva el orden de un conjunto de pares bolsa y corte).
-   Hoy son 14,5 ms con 10 llamamientos; en una migración nueva de Bolsa, con
-   su revisión SQL.
-2. Candidatos: llevar el filtro y la página a SQL y leer solo las
-   participaciones de la página (`bolsa_rrhh_desarrollo.go:576`); pedir los
-   contactos de esas participaciones en una sola llamada con una sola
-   decisión V3 en lugar de una por cada 100 (`:415-432`); y agrupar los
-   contactos por participación en un mapa antes de `salidaCandidata`
-   (`:718-731`).
-3. Ficha del candidato: una única decisión y un único consumo para abrir la
-   ficha, con una lectura agregada de las secciones de solo consulta
-   (sanciones, operaciones, contratos, reincorporaciones). Si se mantienen
-   peticiones separadas, reutilizar la sesión resuelta en lugar de repetir
-   S1 a S3 en cada una. Quitar la segunda resolución de contexto de
-   `contacto_participacion.go:116`.
-4. Gobierno V3: la publicación de confianza está versionada e inmutable por
-   punto de control. Se puede memorizar por punto de control y leer solo el
-   puntero en cada operación, en vez de 4 o 5 consultas
-   (`internal/app/bootstrap/contratacion_temporal_confianza_renovable_desarrollo.go:410-470`).
-   Es un catálogo versionado, no un dato con permisos. Toca autorización:
-   necesita revisión de seguridad.
-5. Cuadro y lista de CT: limitar la página en SQL con orden por
-   `actualizado_en` y `expediente_ref` y cursor por clave, en lugar de
-   agregar todo el corte en un arreglo
-   (`000044_componentes/040_materializacion_cuadro.sql:214`). No cambia nada
-   con el volumen de la principal; es lo que más pesa con 5.000 expedientes.
-6. Vía de perfil dinámico del kit: evitar los 8 `INSERT` por petición
-   (`autoridad_postgresql_desarrollo.go:376-690`) reutilizando la instantánea
-   publicada mientras siga vigente. Solo afecta a desarrollo, pero es la vía
-   con la que se han hecho las mediciones HTTP.
-7. Posible fuga de memoria: `instantaneasPorSolicitud`
-   (`internal/app/bootstrap/contratacion_temporal_alta_instantaneas_desarrollo.go:206-210`)
-   añade una entrada por petición con la correlación en la clave y no se
-   encontró dónde se borra. Conviene confirmarlo con un perfil de memoria.
+Ninguna sentencia de estas tres pantallas hace un recorrido secuencial caro.
+El mayor nodo de datos es un `Append` de 22 ms dentro de la acreditación,
+sobre tablas de catálogo. No hace falta ningún índice.
 
-Índices: con este volumen ninguna consulta medida hace un recorrido
-secuencial costoso; los mayores son de 434 filas en memoria. No se propone
-ningún índice nuevo.
+## Fallos por concurrencia (para una tarea aparte)
 
-## Qué falta para cerrar F1-34
+Las lecturas escriben en tablas de la persona (decisión, consumo, uso del
+contexto), y dos lecturas simultáneas de la misma persona chocan. Con más
+máquina seguiría fallando.
 
-La medición HTTP en una copia con CT y Bolsa de RRHH compuestas, con 50
-peticiones en serie y 10 en paralelo y el número de consultas de cada
-petición en el registro técnico, sobre todo para candidatos y ficha del
-candidato, que no tienen ninguna medida válida. También perfilar el tiempo en
-Go del cuadro de CT, que es la parte desconocida de sus 280 ms.
+1. Ficha del candidato, una sola persona. Interbloqueo en
+   `vec_contexto_actor_v1.proyeccion_cuenta_actual`, la fila de la cuenta.
+   `datos-contacto` llama a
+   `vec_bolsa_llamamientos.consultar_origen_datos_contacto_participacion_rrhh_v1`,
+   que pasa por `vec_autorizacion_atestada_v3.registrar_lectura_bolsa_interna_v1`
+   y `vec_contexto_actor_v1.cotejar_contexto_lectura_bolsa_actual_v1`
+   (`FOR SHARE OF va,ca,pa,xa,vc,oa`, migración 000040 de contexto_actor_v1,
+   rehecha en 000042 y 000043). A la vez, las otras secciones escriben en esas
+   filas con `vec_autorizacion.registrar_decision_contexto_actor_v3`,
+   `acreditar_uso_registro_contexto_actor_v2` y
+   `acreditar_uso_registro_contexto_interno_v2`. En 50 aperturas PostgreSQL
+   registró 24 `deadlock detected` (esperas de `ShareLock` de transacción y de
+   `RowShareLock` sobre la tupla de la cuenta) y 3 fallos de serialización.
+   Una de cada tres o cuatro aperturas enseña una sección en error.
+2. Cuadro, lista y ficha de CT con varias peticiones a la vez de la misma
+   persona. `vec_autorizacion.revalidar_decision_contexto_actor_v3_viva`
+   (migración 000007 de autorización) toma `FOR UPDATE OF actual` sobre
+   `vec_autorizacion.asignacion_perfil_actual` y la transacción serializable
+   falla con 40001 (`could not serialize access due to concurrent update`).
+   En la tanda conjunta hubo 543 de estos errores y 126 interbloqueos; la
+   aplicación los devuelve como 503 (`etapa=autoridad_contexto` o
+   `etapa=sql sqlstate=40001`). Cuando reintenta y acaba bien, como en la
+   lista, la mediana sube a 1,9 s.
+
+Recomendación, sin implementarla y con revisión SQL y de seguridad: el mismo
+orden de bloqueo en las funciones de contexto y de decisión (o no bloquear la
+fila de la cuenta en lecturas), un reintento acotado de 40001 y 40P01 en el
+adaptador de lectura con la misma clave, y que la ficha del candidato pida
+sus secciones en una sola petición con una sola decisión. Los índices y la
+paginación no lo arreglan.
+
+## N+1 de los avisos de Bolsa
+
+Sigue igual que el 16/10. La aplicación usa `consultar_avisos_rrhh_v3`
+(Bolsa 000042), que llama a `consultar_avisos_rrhh_v2` (000041), y esta toma
+de `consultar_avisos_rrhh_v1` (000020) los saltos de orden. En v1 sigue el
+`CROSS JOIN LATERAL vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(l.bolsa_ref,l.emitido_en)`
+por cada llamamiento emitido (`000020_avisos_rrhh.up.sql:39`). B139
+(`000139_avisos_modalidades.up.sql`) solo cambia el disparador
+`crear_aviso_oferta_b129` de las ofertas publicadas y no toca esta lectura.
+
+Plan con los 10 llamamientos de la copia: `Function Scan on
+leer_orden_vigente_bolsa_v1 … loops=10`, 2,6 ms por vuelta, 26 de los 38 ms de
+`consultar_avisos_rrhh_v3`. Además, v2 solo usa las filas `salto_orden` de v1,
+pero v1 calcula también sus avisos de tres años, que v2 descarta y calcula de
+nuevo con sus parámetros. El coste crece en línea con los llamamientos
+emitidos. Propuesta para una tarea aparte: leer en bloque el orden de todos
+los pares de bolsa y fecha de emisión, en una migración nueva de Bolsa con su
+revisión SQL.
+
+## Conclusión y qué se recomienda
+
+F1-34 no se puede cerrar todavía. En serie y con el volumen de la principal
+cumplen todas las pantallas salvo la apertura completa de la ficha del
+candidato, y la lista de CT queda al límite (p95 275 ms, p99 317 ms). Con
+concurrencia de la misma persona fallan la ficha del candidato y las tres de
+CT.
+
+Recomendaciones, de mayor a menor efecto, sin implementarlas:
+
+1. Concurrencia de la cadena de autorización (apartado anterior). Es la que
+   produce errores visibles; se arregla en las consultas y en el orden de los
+   bloqueos.
+2. Acreditación del pool de motivos: comprobar el catálogo una vez por
+   conexión, o cuando cambie una versión de catálogo, en lugar de en cada
+   petición. Quitaría unos 63 ms de cada lectura de CT, un tercio del cuadro.
+   Toca autorización y necesita revisión de seguridad.
+3. Recibo atestado de la lectura: averiguar por qué el `INSERT` en
+   `prueba_resultado_recibo_rrhh_v2` tarda 20 ms con 86 expedientes.
+4. Paginación del cuadro y la lista de CT por cursor en SQL, como proponía el
+   acta del 16/10. Con 86 expedientes no se nota; con miles, sí.
+5. N+1 de avisos, con la lectura en bloque descrita arriba.
+
+No se propone ningún índice. Una observación menor: las secciones de la ficha
+del candidato esperan unos 10 ms por conexión en cada petición
+(`vec.bd.espera_conexion`) aunque vayan de una en una.
+
+## Límites de esta medida
+
+Hay una sola identidad de RRHH, así que los 10 clientes son la misma persona:
+representa la ficha del candidato y el uso con varias pestañas, no diez
+personas distintas. El volumen es pequeño (86 expedientes y 42 candidatos por
+bolsa) y no se añadieron datos. El equipo estaba cargado por otras copias. Los
+planes salen de una pasada aparte y no de las mismas peticiones
+cronometradas.
