@@ -9,9 +9,11 @@ copia. Conserva todas las demás fuentes, entradas y versiones de rol.
 
 El conductor de la copia valida previamente la revisión, la copia de seguridad,
 el SID, el destino y su candado. Crea un directorio privado `0700` distinto para
-cada acto. Aporta `HZ_PSQL` como lista JSON de argumentos para `psql -X` con
-`ON_ERROR_STOP=1`, sin contraseñas ni órdenes SQL; el preparador solo hace
-lecturas. Los valores de `--backup-ref`, `--backup-sha` y `--encargo-ref` deben
+cada acto y exporta `VEC_COPIA_RAIZ`. El preparador usa `Copia` de
+`copia_local.py` para comprobar la marca de propiedad y la etiqueta del
+contenedor. Ejecuta únicamente dos consultas de lectura con una orden fija de
+Docker y `psql`; no acepta ejecutable, host, base ni argumentos por el entorno.
+Los valores de `--backup-ref`, `--backup-sha` y `--encargo-ref` deben
 identificar la copia y el encargo técnico vigentes. Los SHA de archivo que siguen
 corresponden a las fuentes versionadas de este corte; el conductor los coteja
 con su manifiesto antes de invocar el preparador.

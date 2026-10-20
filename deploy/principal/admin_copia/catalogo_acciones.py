@@ -19,6 +19,10 @@ from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+# Al invocarlo como CLI, Python solo añade admin_copia/ a sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import copia_local
+
 CATALOGO_REF = 'catalogo:bolsa:carga_convoca:b1'
 GRUPO_ACTO = 'vec_admin_catalogo_acciones_ejecutor'
 CFG_ACTO = 'config_catalogo_acciones_admin_v1'
@@ -29,14 +33,40 @@ def paro(motivo):
     sys.exit(1)
 
 
+def copia_destino():
+    raiz = Path(os.environ.get('VEC_COPIA_RAIZ', ''))
+    if not raiz.is_absolute() or raiz.parent != copia_local.BASE:
+        paro('copia-raiz-invalida')
+    partes = re.fullmatch(r'([a-z])-([a-z0-9][a-z0-9-]{0,40})', raiz.name)
+    if not partes:
+        paro('copia-nombre-invalido')
+    try:
+        copia = copia_local.Copia(*partes.groups())
+        if copia.raiz != raiz:
+            paro('copia-raiz-invalida')
+        copia.leer()
+        # Copia.existe usa la CLI docker por nombre: fijar su socket y PATH local.
+        entorno_anterior = dict(os.environ)
+        try:
+            os.environ.clear()
+            os.environ.update({'PATH': '/usr/bin:/bin', 'LANG': 'C', 'HOME': '/nonexistent',
+                               'DOCKER_HOST': 'unix:///var/run/docker.sock'})
+            if not copia.existe():
+                paro('copia-contenedor-ausente')
+        finally:
+            os.environ.clear()
+            os.environ.update(entorno_anterior)
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
+        paro('copia-no-pertenece-al-destino')
+    return copia
+
+
 def psql(sql):
-    orden = json.loads(os.environ['HZ_PSQL'])
-    if (not isinstance(orden, list) or not orden or not all(isinstance(x, str) and x for x in orden)
-            or not Path(orden[0]).is_absolute() or Path(orden[0]).name not in ('psql', 'docker')
-            or not any(Path(x).name == 'psql' for x in orden) or '-X' not in orden
-            or not any('ON_ERROR_STOP=1' in x for x in orden)
-            or any(x in ('-c', '--command') or x.startswith('--command=') or 'password=' in x.lower() for x in orden)):
-        paro('vector-psql-inseguro')
+    if sql not in (SQL_CABEZA, SQL_CENSO):
+        paro('consulta-no-autorizada')
+    copia = copia_destino()
+    orden = ['/usr/bin/docker', 'exec', '-i', '-u', 'postgres', copia.nombre,
+             'psql', '-X', '-At', '-q', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'postgres']
     r = subprocess.run(orden, input=sql, text=True, capture_output=True, timeout=30,
                        env={'PATH': '/usr/bin:/bin', 'LANG': 'C'})
     if r.returncode:

@@ -4,7 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from admin_copia import catalogo_acciones as cat
 
@@ -142,6 +142,45 @@ class CatalogoAccionesTest(unittest.TestCase):
         with patch.object(cat, 'revisar'):
             with self.assertRaises(SystemExit):
                 cat.cmd_configurar(o)
+
+
+class DestinoCopiaTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name) / 'copias'
+        self.base.mkdir()
+        self.raiz = self.base / 'l-focal'
+
+    def test_rechaza_raiz_ajena_y_enlazada_sin_procesos(self):
+        with patch.object(cat.copia_local, 'BASE', self.base), \
+                patch.object(cat.copia_local.Copia, 'existe') as existe:
+            with patch.dict(os.environ, {'VEC_COPIA_RAIZ': str(Path(self.tmp.name) / 'ajena')}):
+                with self.assertRaises(SystemExit):
+                    cat.copia_destino()
+            ajena = Path(self.tmp.name) / 'ajena'
+            ajena.mkdir()
+            self.raiz.symlink_to(ajena, target_is_directory=True)
+            with patch.dict(os.environ, {'VEC_COPIA_RAIZ': str(self.raiz)}):
+                with self.assertRaises(SystemExit):
+                    cat.copia_destino()
+            existe.assert_not_called()
+
+    def test_argv_fijo_para_copia_con_estado_propio(self):
+        self.raiz.mkdir()
+        (self.raiz / 'estado.json').write_text(json.dumps({
+            'nombre': 'vec-copia-l-focal', 'raiz': str(self.raiz),
+            'fuente': str(cat.copia_local.REPO)}))
+        resultado = Mock(returncode=0, stdout='lectura\n', stderr='')
+        with patch.object(cat.copia_local, 'BASE', self.base), \
+                patch.object(cat.copia_local.Copia, 'existe', return_value=True), \
+                patch.object(cat.subprocess, 'run', return_value=resultado) as ejecutar, \
+                patch.dict(os.environ, {'VEC_COPIA_RAIZ': str(self.raiz), 'HZ_PSQL': '["/bin/false"]'}):
+            self.assertEqual(cat.psql(cat.SQL_CABEZA), 'lectura\n')
+        self.assertEqual(ejecutar.call_args.args[0], [
+            '/usr/bin/docker', 'exec', '-i', '-u', 'postgres', 'vec-copia-l-focal',
+            'psql', '-X', '-At', '-q', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'postgres'])
+        self.assertEqual(ejecutar.call_args.kwargs['input'], cat.SQL_CABEZA)
 
 
 if __name__ == '__main__':
