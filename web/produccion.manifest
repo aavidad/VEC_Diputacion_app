@@ -352,6 +352,7 @@ static/portal-empleado/modulos/contratacion-temporal/i18n-ficha-lista.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-ficha.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-lista.js
 static/portal-empleado/modulos/contratacion-temporal/recuentos-peticiones.js
+static/portal-empleado/modulos/contratacion-temporal/ronda-informe-nuevo.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-subsanacion-reparos.js
