@@ -59,11 +59,7 @@ func ejecutarComposicionCopia(args []string, salida io.Writer) int {
 	if err != nil {
 		return rechazar(err, "validacion")
 	}
-	padre, err := os.Lstat(filepath.Dir(args[3]))
-	if err != nil || !padre.IsDir() || padre.Mode().Perm()&0077 != 0 {
-		return rechazar(errors.Join(errMaterial, err), "salida")
-	}
-	if err := os.Mkdir(args[3], 0700); err != nil {
+	if err := crearDirectorioPlan(args[3]); err != nil {
 		return rechazar(err, "salida")
 	}
 	for _, bloque := range []struct {
@@ -84,6 +80,19 @@ func ejecutarComposicionCopia(args []string, salida io.Writer) int {
 		return rechazar(err, "salida")
 	}
 	return 0
+}
+
+func crearDirectorioPlan(ruta string) (err error) {
+	padre, err := os.OpenRoot(filepath.Dir(ruta))
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, padre.Close()) }()
+	info, err := padre.Stat(".")
+	if err != nil || !info.IsDir() || info.Mode().Perm()&0077 != 0 {
+		return errors.Join(errMaterial, err)
+	}
+	return padre.Mkdir(filepath.Base(ruta), 0700)
 }
 
 func componerPlanCopia(cfg configuracionPlanCopia, ahora time.Time) (materialCompuesto, materialCompuesto, error) {

@@ -122,3 +122,23 @@ func TestPreparadorRechazaConfiguracionAmbiguaSinEscribir(t *testing.T) {
 		}
 	}
 }
+
+func TestPreparadorExigePadrePrivadoAntesDeCrearSalida(t *testing.T) {
+	config, dir := configuracionCopiaPrueba(t)
+	padre := filepath.Dir(dir)
+	if err := os.Chmod(padre, 0777); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chmod(padre, 0700); err != nil {
+			t.Error(err)
+		}
+	})
+	var salida bytes.Buffer
+	if ejecutar([]string{"--config", config, "--salida", dir}, &salida) == 0 || salida.Len() != 0 {
+		t.Fatal("padre compartido aceptado")
+	}
+	if _, err := os.Lstat(dir); !os.IsNotExist(err) {
+		t.Fatal("creó salida bajo padre compartido")
+	}
+}
