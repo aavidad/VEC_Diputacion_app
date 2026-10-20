@@ -1,4 +1,4 @@
-"""Consulta de Organización histórica para «Llamar a la siguiente persona» (F1-103).
+"""Datos ficticios de Organización histórica para «Llamar a la siguiente persona».
 
 La ficha del expediente llama a la siguiente persona de la bolsa constituida.
 Para emitir, Contratación consulta el puesto de la RPT en la Organización
@@ -9,13 +9,13 @@ en el proceso combinado y el cliente. Contratación respondía 409.
 Este módulo deja la copia como la describe
 `organizacion_historica_combinado_20261015.md`, solo con datos ficticios:
 
-- `sembrar` (antes de compilar): rol `consulta_organizacion_historica_rrhh` v1
-  con la concesión de la fuente versionada, perfil nuevo de la técnica con su
+- AUT60 publica previamente el rol `consulta_organizacion_historica_rrhh` v1
+  con dos administradores. `sembrar` exige el cierre y crea el perfil de la técnica con su
   vínculo de contexto y su vínculo corporativo (gemelos de los de su perfil de
   Bolsa), asignación con organismo y unidades exactos, catálogo de cuatro
   motivos, cuatro LOGIN propios y selector de gobierno OH. Es
-  semilla de copia con procedencia no autoritativa, como los demás roles
-  sembrados; no es un acto de Administración (F0-37).
+  semilla de copia con procedencia no autoritativa. La asignación provisional
+  no acredita un acto de Administración (F0-37).
 - `preparar_material` (con la aplicación ya publicada): deriva la clave OH con
   `vec-preparar-material-interno`, escribe el montaje combinado y enciende la
   consulta. El guion reinicia después la aplicación.
@@ -34,14 +34,11 @@ FUENTE = 'deploy/principal/fuentes/personal_organizacion_historica_rrhh_v1.json'
 SELECCION = 'deploy/principal/candidata_hz39/datos/seleccion.json'
 ROL_ID = 'consulta_organizacion_historica_rrhh'
 ROL_REF = 'rol:' + ROL_ID + ':v1'
-# Nombre del rol como dato de la semilla; la pantalla no lo muestra.
-ROL_NOMBRE = 'Consulta de la Organización histórica por RRHH'
 # Unidades de los puestos del recorrido (caso 4.0: centro 520). Otra unidad se deniega.
 UNIDADES = ('unidad:centro:520',)
 CATALOGO_MOTIVOS = 'motivos_organizacion_historica_copia'
 USOS_MOTIVO = ('consulta', 'denegado', 'entrada_invalida', 'no_disponible')
 EMISOR = 'identidad:desarrollo:no-autoritativa'
-PUBLICADOR = 'seguridad:desarrollo:no-autoritativa'
 DIAS_ASIGNACION = 89
 CERO_GO = '0001-01-01T00:00:00Z'
 DIRECTORIO = 'organizacion-historica'
@@ -136,18 +133,54 @@ def identidad(copia):
     return fila['contexto'], fila['corporativo']
 
 
-def _documentos(repo, persona, perfil, asignacion, organismo_ref):
-    """Documentos sin instantes: la transacción añade la hora de la base."""
-    rol = {'rol_id': ROL_ID, 'version': 1, 'nombre': ROL_NOMBRE, 'estado': 'publicada',
-           'concesiones': [concesion(repo)], 'publicada_por': PUBLICADOR, 'retirada_en': CERO_GO}
-    control = {'version_rol_ref': ROL_REF, 'revision': 1, 'estado': 'habilitada',
-               'actualizado_por': PUBLICADOR}
+def _documento_asignacion(persona, perfil, asignacion, organismo_ref):
+    """Asignación ficticia; la transacción añade la hora de la base."""
     asignacion_doc = {'asignacion_id': asignacion, 'version': 1, 'perfil_activo_ref': perfil,
                       'principal_id': persona, 'version_rol_ref': ROL_REF, 'estado': 'activa',
                       'ambitos': [{'clave': 'organismo_ref', 'valores': [organismo_ref]},
                                   {'clave': 'unidad_clave', 'valores': list(UNIDADES)}],
                       'emitida_por': EMISOR}
-    return rol, control, asignacion_doc
+    return asignacion_doc
+
+
+def condicion_rol_publicado(repo):
+    """Postimagen AUT60 exacta: concesión, control y cierre de dos ADMIN."""
+    esperado = _json_sql([concesion(repo)])
+    return f"""EXISTS(SELECT 1
+      FROM vec_autorizacion.version_rol r
+      JOIN vec_autorizacion.control_vigencia_version_rol_actual ca USING(version_rol_ref)
+      JOIN vec_autorizacion.control_vigencia_version_rol cv USING(version_rol_ref,revision)
+      JOIN vec_autorizacion.cierre_gobierno_rol_nuevo_v1 c USING(version_rol_ref)
+      JOIN vec_autorizacion.propuesta_gobierno_rol_nuevo_v1 p USING(propuesta_ref)
+      WHERE r.version_rol_ref={_literal(ROL_REF)} AND r.rol_id={_literal(ROL_ID)} AND r.version=1
+        AND p.version_rol_ref=r.version_rol_ref
+        AND r.documento->>'rol_id'={_literal(ROL_ID)} AND r.documento->>'version'='1'
+        AND r.documento->>'estado'='publicada' AND r.documento->'concesiones'={esperado}
+        AND r.documento->>'retirada_en'={_literal(CERO_GO)}
+        AND r.documento->>'publicada_por'=c.aprobador_persona_ref
+        AND r.huella_sha256=c.rol_sha256
+        AND r.documento IS NOT DISTINCT FROM c.resultado#>'{{recibo,version_rol}}'
+        AND cv.estado='habilitada' AND cv.revision=1 AND cv.huella_sha256=c.control_sha256
+        AND cv.documento IS NOT DISTINCT FROM c.resultado#>'{{recibo,control_posterior}}'
+        AND cv.documento->>'actualizado_por'=c.aprobador_persona_ref
+        AND ca.acto_ref=c.resultado#>>'{{recibo,acto_ref}}'
+        AND ca.actualizada_por=c.aprobador_persona_ref
+        AND ca.acto_ref='acto_admin:'||substr(c.operacion_ref,14,32)
+        AND c.resultado#>>'{{recibo,recibo_ref}}'='recibo_admin:'||substr(c.operacion_ref,14,32)
+        AND c.resultado->>'decision'='aprobada'
+        AND c.resultado->>'operacion_ref'=c.operacion_ref
+        AND c.resultado->>'propuesta_huella_sha256'=p.material_sha256
+        AND c.resultado#>>'{{recibo,actor_persona_ref}}'=c.aprobador_persona_ref
+        AND c.aprobador_persona_ref<>p.proponente_persona_ref
+        AND c.aprobador_perfil_ref<>p.proponente_perfil_ref)"""
+
+
+def comprobar_rol_publicado(copia, repo):
+    """Exige el cierre AUT60 antes de preparar datos o material OH."""
+    filas = _consulta(copia, 'SELECT CASE WHEN ' + condicion_rol_publicado(repo)
+                      + " THEN 'publicado' ELSE 'ausente' END;")
+    if filas != ['publicado']:
+        raise ValueError('Falta el rol OH publicado por dos administradores con cierre AUT60')
 
 
 def motivos():
@@ -163,9 +196,9 @@ def motivos():
 
 
 def sql_semilla(repo, contexto, corporativo, refs, organismo_ref):
-    """Una transacción: rol, perfil y vínculos gemelos, asignación y motivos."""
+    """Una transacción: perfil ficticio, asignación al rol AUT60 y motivos."""
     persona, perfil, asignacion = contexto['persona_ref'], refs['perfil'], refs['asignacion']
-    rol, control, asignacion_doc = _documentos(repo, persona, perfil, asignacion, organismo_ref)
+    asignacion_doc = _documento_asignacion(persona, perfil, asignacion, organismo_ref)
     huella_motivos, entradas, _ = motivos()
     vinculo, corp = refs['vinculo_contexto'], refs['vinculo_corporativo']
     columnas_contexto = ('procedencia_ref', 'procedencia_version', 'procedencia_huella_sha256',
@@ -214,30 +247,16 @@ END $contexto$;
 RESET ROLE;
 SET LOCAL ROLE vec_autorizacion_propietario;
 DO $rol$
-DECLARE ahora timestamptz := clock_timestamp(); rol jsonb; control jsonb; doc jsonb; t text; h text;
+DECLARE ahora timestamptz := clock_timestamp(); doc jsonb; t text; h text;
 BEGIN
  -- Instantes de Go sin fracción; la vigencia de la asignación es de 89 días.
  t := to_char(date_trunc('second',ahora) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"');
  h := to_char(date_trunc('second',ahora+interval '{DIAS_ASIGNACION} days') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"');
- IF EXISTS(SELECT 1 FROM vec_autorizacion.version_rol WHERE rol_id={_literal(ROL_ID)})
+ IF NOT {condicion_rol_publicado(repo)}
   OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil_actual WHERE perfil_activo_ref={_literal(perfil)}) THEN
-  RAISE EXCEPTION 'semilla OH: rol o asignación ya presentes' USING ERRCODE='55000'; END IF;
- rol := {_json_sql(rol)} || jsonb_build_object('publicada_en',t);
- control := {_json_sql(control)} || jsonb_build_object('actualizado_en',t);
+  RAISE EXCEPTION 'semilla OH: cierre AUT60 ausente o asignación existente' USING ERRCODE='55000'; END IF;
  doc := {_json_sql(asignacion_doc)}
   || jsonb_build_object('emitida_en',t,'vigente_desde',t,'vigente_hasta',h,'revocada_en',{_literal(CERO_GO)});
- INSERT INTO vec_autorizacion.version_rol(version_rol_ref,rol_id,version,huella_sha256,publicada_en,documento)
- VALUES({_literal(ROL_REF)},{_literal(ROL_ID)},1,
-  encode(sha256(convert_to(vec_autorizacion.canon_version_rol_admin_v1(rol),'UTF8')),'hex'),
-  date_trunc('second',ahora),rol);
- INSERT INTO vec_autorizacion.control_vigencia_version_rol
-  (version_rol_ref,revision,estado,huella_sha256,actualizado_en,documento)
- VALUES({_literal(ROL_REF)},1,'habilitada',
-  encode(sha256(convert_to(vec_autorizacion.canon_control_rol_admin_v1(control),'UTF8')),'hex'),
-  date_trunc('second',ahora),control);
- INSERT INTO vec_autorizacion.control_vigencia_version_rol_actual
-  (version_rol_ref,revision,actualizada_en,actualizada_por,acto_ref)
- VALUES({_literal(ROL_REF)},1,date_trunc('second',ahora),{_literal(PUBLICADOR)},'acto:ct:desarrollo:control-rol:v1');
  INSERT INTO vec_autorizacion.asignacion_perfil
   (asignacion_ref,asignacion_id,version,perfil_activo_ref,principal_id,version_rol_ref,huella_sha256,emitida_en,documento)
  VALUES('asignacion:'||{_literal(asignacion)}||':v1',{_literal(asignacion)},1,{_literal(perfil)},{_literal(persona)},
@@ -270,13 +289,16 @@ COMMIT;
 
 
 def sembrar(copia, repo):
-    """Semilla y configuración previa al primer arranque. Devuelve la huella de la semilla."""
+    """Datos ficticios tras AUT60 en una copia preparada; sin reintentos."""
     from copia_local import guardar, sha256
     from copia_local_conexiones import preparar_organizacion_historica
 
     estado = copia.leer()
-    if estado['preparada'] or not copia.existe():
-        raise ValueError('La Organización histórica se siembra en una copia nueva, antes del arranque')
+    if not estado['preparada'] or not copia.existe():
+        raise ValueError('La Organización histórica exige una copia preparada')
+    if (copia.raiz / SEMILLA).exists() or (copia.raiz / DIRECTORIO).exists():
+        raise ValueError('La semilla OH ya tiene marca; se requiere una copia nueva')
+    comprobar_rol_publicado(copia, repo)
     organismo_ref = organismo(repo)
     contexto, corporativo = identidad(copia)
     refs = {'perfil': 'prf_' + secrets.token_hex(16), 'vinculo_contexto': 'vca_' + secrets.token_hex(16),
@@ -284,6 +306,8 @@ def sembrar(copia, repo):
     privado = copia.raiz / DIRECTORIO
     privado.mkdir(mode=0o700)
     semilla = {'tipo': 'semilla_sintetica_de_copia', 'gobierno_real_acreditado': False,
+               'asignacion_gobernada': False, 'rol_gobernado': True,
+               'gobierno_rol': 'cierre_AUT60_dos_admin',
                'rol_ref': ROL_REF, 'persona_ref': contexto['persona_ref'], 'cuenta_ref': contexto['cuenta_ref'],
                'perfil_ref': refs['perfil'], 'asignacion_id': refs['asignacion'],
                'organismo_ref': organismo_ref, 'unidades': list(UNIDADES),

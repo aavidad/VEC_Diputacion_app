@@ -88,16 +88,41 @@ class TestSemilla(unittest.TestCase):
         self.assertIn('"clave":"organismo_ref","valores":["' + ORGANISMO + '"]', sql)
         self.assertIn('"clave":"unidad_clave","valores":["unidad:centro:520"]', sql)
         self.assertIn("vec_autorizacion.canon_asignacion_perfil_admin_v1(doc)", sql)
-        self.assertIn("vec_autorizacion.canon_version_rol_admin_v1(rol)", sql)
+        self.assertIn("vec_autorizacion.cierre_gobierno_rol_nuevo_v1", sql)
+        self.assertIn("vec_autorizacion.propuesta_gobierno_rol_nuevo_v1", sql)
+        self.assertIn("c.aprobador_persona_ref<>p.proponente_persona_ref", sql)
+        self.assertIn("r.documento->'concesiones'=", sql)
+        self.assertNotIn("INSERT INTO vec_autorizacion.version_rol", sql)
+        self.assertNotIn("INSERT INTO vec_autorizacion.control_vigencia_version_rol", sql)
         self.assertIn("interval '89 days'", sql)
         self.assertIn("'identidad:desarrollo:no-autoritativa'", sql)
         self.assertIn("semilla OH: el perfil ya existe", sql)
-        self.assertIn("semilla OH: rol o asignación ya presentes", sql)
+        self.assertIn("semilla OH: cierre AUT60 ausente o asignación existente", sql)
         self.assertIn("publicar_motivos_autorizacion_v2", sql)
         # El vínculo gemelo apunta al perfil nuevo, no al de Bolsa.
         self.assertIn("'" + REFS["vinculo_corporativo"] + "',1,'" + REFS["perfil"] + "',1,'"
                       + REFS["vinculo_contexto"] + "',1,'activo'", sql)
         self.assertNotIn("'obligaciones'", sql)
+
+    def test_un_rol_sembrado_sin_cierre_no_basta(self):
+        from unittest.mock import patch
+        with patch.object(oh, '_consulta', return_value=['ausente']):
+            with self.assertRaisesRegex(ValueError, 'cierre AUT60'):
+                oh.comprobar_rol_publicado(object(), REPO)
+
+    def test_copia_preparada_exige_cierre_antes_de_crear_marca(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temporal:
+            copia = CopiaFalsa(Path(temporal))
+            copia.leer = lambda: {'preparada': True}
+            copia.existe = lambda: True
+            with patch.object(oh, '_consulta', return_value=['ausente']):
+                with self.assertRaisesRegex(ValueError, 'cierre AUT60'):
+                    oh.sembrar(copia, REPO)
+            self.assertFalse((copia.raiz / oh.SEMILLA).exists())
+            (copia.raiz / oh.SEMILLA).write_text('marca previa')
+            with self.assertRaisesRegex(ValueError, 'ya tiene marca'):
+                oh.sembrar(copia, REPO)
 
     def test_vinculo_de_otro_organismo_se_rechaza(self):
         ajeno = {**CORPORATIVO, "organizacion_ref": "org_" + "9" * 32}
