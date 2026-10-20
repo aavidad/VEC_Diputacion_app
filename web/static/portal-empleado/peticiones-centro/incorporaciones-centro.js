@@ -234,14 +234,22 @@ export function montarIncorporacionesCentro({ contenedor, cliente = bandejaCompa
       <div class="pc-acciones"><button type="submit" class="boton-primario" ${ocupado ? "disabled" : ""}>${escapar(t("enviar"))}</button></div></form>`;
   }
 
+  // Cada «no procede» dice por qué y quién tiene que actuar; un expediente
+  // cerrado o cancelado ya lo explica la columna de situación.
+  function noProcede(e) {
+    if (e.estado === "cancelado" || e.estado === "completado") return `<span class="pc-estado">${escapar(t("no_procede_cancelado"))}</span>`;
+    const motivo = e.fase === "nombramiento" && e.estado === "en_curso" ? "motivo_sin_documento" : "motivo_fuera_nombramiento";
+    return `<span class="pc-estado">${escapar(t("no_procede"))}</span><span class="pc-motivo">${escapar(t(motivo))}</span>`;
+  }
+
   function fila(e) {
     const estadoIncorporacion = e.confirmacion
       ? `<span class="pc-estado pc-estado-confirmada">${escapar(t("confirmada", { fecha: fechaVisible(e.confirmacion.fecha_incorporacion), documento: documento(e.confirmacion.documento_tipo) }))}</span>`
       : e.documento_exigido && e.fase === "nombramiento" && e.estado === "en_curso"
         ? (datos.puede_confirmar
           ? `<button type="button" class="boton-secundario" data-ic-abrir="${escapar(e.expediente_ref)}" aria-expanded="${abierto === e.expediente_ref}">${escapar(t("confirmar"))}</button>`
-          : `<span class="pc-estado pc-estado-pendiente">${escapar(t("pendiente"))}</span>`)
-        : `<span class="pc-estado">${escapar(t(e.estado === "cancelado" ? "no_procede_cancelado" : "no_procede"))}</span>`;
+          : `<span class="pc-estado pc-estado-pendiente">${escapar(t("pendiente"))}</span><span class="pc-motivo">${escapar(t("motivo_sin_permiso"))}</span>`)
+        : noProcede(e);
     const periodo = periodoVisible(e.periodo, t);
     return `<tr id="${escapar(idFilaExpediente(e))}" tabindex="-1"><td>${escapar(e.numero_visible)}</td><td>${escapar(periodo)}</td><td>${escapar(situacion(e))}</td><td>${estadoIncorporacion}</td></tr>`;
   }
