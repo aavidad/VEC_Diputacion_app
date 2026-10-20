@@ -34,7 +34,8 @@ Compila la aplicación y Administración desde la misma revisión.
 Después confirma fuentes, unidad y dos cuentas de Administración con sus
 recibos nativos. Admite los catálogos de Organización histórica y origen de
 Bolsa por la herramienta existente. Dos administradores proponen y aprueban
-los roles simples y el plan. Los roles compuestos de los cuatro firmantes son
+los roles simples y el plan. Tras publicar el rol, la fábrica llama a la
+orden existente que activa la consulta de Organización histórica. Los roles compuestos de los cuatro firmantes son
 **semilla técnica de copia de desarrollo, no gobierno**. Su publicación
 gobernada corresponde a F1-133.
 
