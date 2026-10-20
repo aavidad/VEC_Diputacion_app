@@ -89,7 +89,8 @@
     "firma_y_custodia": "Firma y custodia",
     "acto_aprobacion": "Acto de aprobación",
     "publicacion_oficial": "Publicación oficial",
-    "comprobacion": "Comprobación pendiente"
+    "comprobacion": "Comprobación pendiente",
+    "modalidad_inscripcion": "Modalidad de inscripción"
   },
   "motivos": {
     "referencia_ausente": "Falta la referencia exacta con versión y huella.",
@@ -139,5 +140,27 @@
     "operacion_abortada": "Consulta cancelada. Puede consultar otra preparación."
   },
   "material_actual": "Material abierto",
-  "ver_detalle_consulta": "Ver revisión, recibos y respuesta completa"
+  "ver_detalle_consulta": "Ver revisión, recibos y respuesta completa",
+  "modalidades_inscripcion": {
+    "separada": "Por categoría",
+    "conjunta": "Varias categorías en una solicitud"
+  },
+  "edicion_titulo": "Crear o continuar preparación",
+  "edicion_nombre": "Título de las bases · Obligatorio",
+  "edicion_modalidad": "Cómo se presentarán las solicitudes · Obligatorio",
+  "edicion_elegir": "Elija una opción",
+  "edicion_validacion": "Indique un título y cómo se presentarán las solicitudes.",
+  "guardar": "Guardar preparación",
+  "reintentar": "Comprobar el mismo guardado",
+  "guardando": "Guardando la preparación…",
+  "guardado": "Preparación guardada. Referencia: {referencia}. Recibo: {recibo}.",
+  "edicion_cargada": "Preparación cargada. Puede cambiar el título o la modalidad y guardar otra revisión.",
+  "guardado_errores": {
+    "incierto": "No hemos podido confirmar el guardado. Compruebe el mismo guardado; no cambie los datos mientras se comprueba.",
+    "solicitud_invalida": "Revise el título y la modalidad antes de guardar.",
+    "respuesta_incompatible": "No se puede confirmar el guardado con la respuesta recibida. Compruebe el mismo guardado.",
+    "acceso_denegado": "Su sesión no permite guardar esta preparación. Consulte con el responsable del servicio.",
+    "version_en_conflicto": "La revisión ya no coincide con la conservada. Compruebe el mismo guardado antes de cargarla de nuevo.",
+    "servicio_no_disponible": "No se puede confirmar el guardado. Compruebe el mismo guardado."
+  }
 }

@@ -18,8 +18,8 @@ export function validarSelector(entrada) {
 }
 
 /** Sólo forma de transporte; la autoridad de material y pendientes permanece en Bolsa. */
-export function leerConsulta(bytes, entrada) {
-  const selector = validarSelector(entrada);
+export function leerConsulta(bytes, entrada, escritura = false) {
+  const selector = escritura ? entrada.esperada : validarSelector(entrada);
   if (!(bytes instanceof Uint8Array) || !bytes.byteLength || bytes.byteLength > MAXIMO_BYTES) fallo();
   let dto;
   try { const texto = new TextDecoder('utf-8', { fatal: true }).decode(bytes); comprobarClaves(texto); dto = JSON.parse(texto); } catch { fallo(); }
@@ -30,10 +30,10 @@ export function leerConsulta(bytes, entrada) {
     && (!Object.hasOwn(v, 'unidad_gestion_ref') || typeof v.unidad_gestion_ref === 'string' && /^uni_[a-z0-9]{16,80}$/u.test(v.unidad_gestion_ref));
   const recibo = v => forma(v, { recibo_ref: id, historia_ref: id, auditoria_ref: id, evento_ref: id, huella_intencion_sha256: huella, confirmada_en: instante });
   const acceso = v => forma(v, { decision_ref: id, consumo_huella_sha256: huella, auditoria_ref: id, recibo_ref: id, correlacion_ref: id, accedida_en: instante });
-  if (!forma(dto, { estado: v => v === 'obtenida', preparacion: v => forma(v, { ambito, estado, material }),
+  if (!forma(dto, { estado: v => escritura ? ['guardada', 'recuperada'].includes(v) : v === 'obtenida', preparacion: v => forma(v, { ambito, estado, material }),
     pendientes: v => Array.isArray(v) && v.length <= 64 && v.every(pendiente), recibo, acceso })) fallo();
   const e = dto.preparacion.estado, pendientes = dto.pendientes;
-  if (e.preparacion_ref !== selector.preparacion_ref || selector.modo === 'exacta' && (e.revision !== selector.revision || e.huella_material_sha256 !== selector.huella_material_sha256)
+  if (e.preparacion_ref !== selector.preparacion_ref || (escritura ? (e.revision !== selector.revision + 1 || dto.preparacion.material.contenido.titulo !== entrada.material.contenido.titulo || (dto.preparacion.material.contenido.modalidad_inscripcion || '') !== (entrada.material.contenido.modalidad_inscripcion || '')) : selector.modo === 'exacta' && (e.revision !== selector.revision || e.huella_material_sha256 !== selector.huella_material_sha256))
     || new Set(pendientes.map(p => p.campo)).size !== pendientes.length
     || CAMPOS_REFERENCIA.some(c => !pendientes.some(p => p.campo === c && p.codigo.startsWith('referencia_')))
     || ['documentos_admitidos', 'firma_y_custodia', 'acto_aprobacion', 'publicacion_oficial'].some(c => !pendientes.some(p => p.campo === c && p.codigo === 'circuito_pendiente'))) fallo();
