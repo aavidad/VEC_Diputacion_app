@@ -81,27 +81,27 @@ BEGIN
    origen.procedencia_version,origen.procedencia_huella_sha256,origen.procedencia_autoridad,
    'activo',ahora-interval '1 minute',hasta);
  INSERT INTO vec_contexto_actor_v1.vinculo_contexto_actual(vinculo_ref,version) VALUES(vinculo,1);
+ -- El propietario de Autorización recibe solo la vigencia ya comprobada en esta TX.
+ PERFORM pg_catalog.set_config('vec.f131.docs.ctx_hasta',hasta::text,true);
 END $contexto$;
 RESET ROLE;
 SET LOCAL ROLE vec_autorizacion_propietario;
 DO $asignacion$
 DECLARE
  ahora timestamptz := pg_catalog.date_trunc('second',pg_catalog.clock_timestamp());
+ ctx_hasta timestamptz;
  hasta timestamptz;
  perfil text := current_setting('vec.f131.docs.perfil');
  asignacion text := current_setting('vec.f131.docs.asignacion');
  doc jsonb;
 BEGIN
- SELECT LEAST(p.vigente_hasta,v.vigente_hasta,ra.vigente_hasta)
+ ctx_hasta := NULLIF(current_setting('vec.f131.docs.ctx_hasta',true),'')::timestamptz;
+ IF ctx_hasta IS NULL THEN
+  RAISE EXCEPTION 'F1-131 Documentos: contexto no acreditado en la transacción' USING ERRCODE='55000';
+ END IF;
+ SELECT ra.vigente_hasta
  INTO STRICT hasta
- FROM vec_contexto_actor_v1.perfil_actual pa
- JOIN vec_contexto_actor_v1.perfil_versiones p
-   ON p.perfil_ref=pa.perfil_ref AND p.version=pa.version
- JOIN vec_contexto_actor_v1.vinculo_contexto_actual va
-   ON va.vinculo_ref=current_setting('vec.f131.docs.vinculo')
- JOIN vec_contexto_actor_v1.vinculo_contexto_versiones v
-   ON v.vinculo_ref=va.vinculo_ref AND v.version=va.version
- JOIN vec_autorizacion.version_rol r
+ FROM vec_autorizacion.version_rol r
    ON r.version_rol_ref='rol:ct_cargo_tecnico_documentos_dev:v1'
  JOIN vec_autorizacion.rol_administrable_exacto_v1 ra
    ON ra.version_rol_ref=r.version_rol_ref
@@ -109,10 +109,7 @@ BEGIN
    ON ca.version_rol_ref=r.version_rol_ref
  JOIN vec_autorizacion.control_vigencia_version_rol cv
    ON cv.version_rol_ref=ca.version_rol_ref AND cv.revision=ca.revision
- WHERE pa.perfil_ref=perfil AND p.persona_ref=current_setting('vec.f131.docs.persona')
-   AND v.perfil_ref=perfil AND v.cuenta_ref=current_setting('vec.f131.docs.cuenta')
-   AND v.persona_ref=p.persona_ref AND p.estado='activo' AND v.estado='activo'
-   AND r.rol_id='ct_cargo_tecnico_documentos_dev' AND r.version=1
+ WHERE r.rol_id='ct_cargo_tecnico_documentos_dev' AND r.version=1
    AND r.huella_sha256=current_setting('vec.f131.docs.rol_sha')
    AND r.documento->>'estado'='publicada' AND cv.estado='habilitada'
    AND cv.huella_sha256=current_setting('vec.f131.docs.control_sha')
@@ -121,7 +118,9 @@ BEGIN
      'valores',jsonb_build_array(current_setting('vec.f131.docs.organizacion'))))
    AND NOT EXISTS(SELECT 1 FROM vec_autorizacion.version_rol r2
                   WHERE r2.rol_id=r.rol_id AND r2.version>1);
- IF hasta<ahora+interval '60 days'
+ hasta:=LEAST(hasta,ctx_hasta);
+ IF ctx_hasta<ahora+interval '60 days' OR ctx_hasta>ahora+interval '88 days'
+    OR hasta<ahora+interval '60 days'
     OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil
               WHERE asignacion_id=asignacion OR perfil_activo_ref=perfil)
     OR EXISTS(SELECT 1 FROM vec_autorizacion.asignacion_perfil_actual WHERE perfil_activo_ref=perfil)
