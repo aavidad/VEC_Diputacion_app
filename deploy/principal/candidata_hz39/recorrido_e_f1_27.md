@@ -98,3 +98,8 @@ las cinco actuaciones en Chrome. La instantánea de la fila vigente y de ocho
 recuentos de firma/fiscalización es idéntica antes y después. La ficha no
 desborda horizontalmente a 1440 ni a 390 píxeles. Esta comprobación parcial
 no acredita los pasos 8 a 21.
+
+El técnico nominal volvió a pulsar «Comprobar opciones de firma» en Chrome
+después del reinicio. La recuperación del original devuelve 200 con los mismos
+bytes PDF, referencia, huella y comprobante de custodia que antes. No se
+inició otra firma.
