@@ -39,7 +39,7 @@ lista de 50 con 2.000 solicitudes ficticias. Usó la preimagen B96 y no
 acredita la migración final sobre B97 ni la frontera HTTP.
 
 El 11/10 se extrajo una copia de `base_hz19_pgdata.tar` a
-`/var/tmp/vec-codexi-b99-20261011/fresh/18/docker`. El tar original no se
+`/ruta/privada/docker`. El tar original no se
 modificó. PostgreSQL 18.4 corrió en el contenedor
 `vec-codexi-b99-fresh-20261011`, con `--rm --restart=no --memory=2g`, datos
 en disco y red desactivada. El clon HZ19 ya contenía #962. Se aplicaron las
@@ -57,7 +57,7 @@ segundo intento de B99 se detuvo por la guarda de preimagen y dejó idénticas
 las tres definiciones. Logs de este clon: `fresh/hz20-sql.log`,
 `fresh/chain.log`, `fresh/b99-final.log`, `fresh/b99-fixture.log`,
 `fresh/b97-regression.log` y `fresh/replay.log`, todos bajo
-`/var/tmp/vec-codexi-b99-20261011/`. Es un ensayo con datos sintéticos; aún
+`/ruta/privada/vec-codexi-b99-20261011`. Es un ensayo con datos sintéticos; aún
 faltan publicación de hojas y recorrido con identidad real.
 
 La tarjeta RRHH se inspeccionó en Chrome del sistema con la proyección del
@@ -79,7 +79,7 @@ cadena causal. El LOGIN `vec_b99_migrador` no tenía privilegio de superusuario:
 recibió `CONNECT` sobre la base de ensayo y permiso `SET` sobre
 `vec_bolsa_llamamientos_propietario`. B99 terminó en 0,07 s y conservó el
 dueño y ACL esperados. El registro está en
-`/var/tmp/vec-codexi-b99-20261011/migrator/migrator.log`; el primer intento
+`/ruta/privada/migrator.log`; el primer intento
 de conexión denegado queda en ese log y no ejecutó SQL. No se crearon este
 LOGIN ni estas concesiones en la principal.
 
