@@ -12,7 +12,7 @@
 -- Además: consumidor fino (patrón AD290) solo para el propietario de
 -- convocatorias, que recibe USAGE del esquema para alcanzarlo; la audiencia
 -- entra en la restricción de claves y el origen se copia del pool de Bolsa.
--- BORRADOR para el equipo de permisos. Solo UP; no se reaplica ni se revierte.
+-- Ratificación de R sobre la preimagen vigente. Solo UP; no se reaplica ni se revierte.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog,pg_temp;

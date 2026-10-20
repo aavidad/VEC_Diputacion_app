@@ -214,4 +214,4 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000147_orden_estricto_llamamien
 deploy/postgresql/bolsa_llamamientos/migraciones/000145_ambito_actos_bolsa.up.sql c5092a053a3917b5d9e19ec1a391890e661de0e72c3cf7c2eb2130185893389e
 
 # F1-95 parte B — AD301: perfil de publicación oficial de las bases; tras BC15 y núcleo vigente.
-deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion_oficial_bases.up.sql a6d954810333f0d44b01675f86626910ce9cebb2e3163d8d7565d24a3fb9085a
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion_oficial_bases.up.sql f5e5cbc08364463ba69908722573daa0e614e174d5bf2766ce5dedf1556e63c0
