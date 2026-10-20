@@ -122,7 +122,7 @@ activación y liquidación; sus efectos pendientes se conservan en F4-01.
 | ID propuesto | Tarea acotada | Estado propuesto | Evidencia para la fila |
 | --- | --- | --- | --- |
 | F4-08 | DIE-01: fuentes normativas antes del cálculo | Fusionada; sin recorrer en la web | #838; `dietas_comisiones.go:711`; SQL de base en `04_dietas_migraciones.sh:54`; prueba de fuentes ausentes/incongruentes |
-| F4-09 | Solicitud propia y recuperación de recibos | Fusionada; sin recorrer en la web | `dietas_borradores.go:98`; `portal-composicion-empleado.js:184`; SQL de base en `04_dietas_migraciones.sh:54`; prueba de confirmación antes de exponer |
+| F4-09 | Solicitud propia y recuperación de recibos | Fusionada; sin recorrer en la web | `dietas_borradores.go:98`; `portal-composicion-empleado.js:184`; SQL de base en `04_dietas_migraciones.sh:54` e incremental 000006 en `:83` y `:88`; prueba de confirmación antes de exponer |
 | F4-10 | Ruta y cálculo orientativo versionado | Fusionada; sin recorrer en la web | `bootstrap.go:311`; `dietas_comisiones.go:711`; SQL de base en `04_dietas_migraciones.sh:54`; paquetes OSRM/aplicación positivos |
 | F4-11 | Bandejas, devolución y reenvío | Fusionada como parte de DIE-03; sin recorrer en la web | `dietas_borradores.go:119`; cliente en `portal-composicion-empleado.js:162`; SQL incremental en `04_dietas_migraciones.sh:83`, `:94` y `:95`; prueba HTTP de devolución |
 | F4-12 | Consulta y solicitud de rectificación propia | Pendiente; montaje condicionado | `dietas_borradores.go:161`; `portal-composicion-empleado.js:164` |
