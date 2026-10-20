@@ -35,7 +35,7 @@ IDENTIDAD = 'antonio-reyes'
 CONTACTO = {'correo': 'antonio.reyes@example.test', 'telefono_1': '+34 612 345 678',
             'motivo': 'Contacto del aspirante para los avisos de llamamiento'}
 CLAVE_CONTACTO = 'copia-local:caso-4-0:contacto-antonio:v1'
-REFERENCIA = re.compile(r'[A-Za-z0-9:._-]{1,256}')
+REFERENCIA = re.compile(r'[A-Za-z0-9][A-Za-z0-9:._-]{0,255}')
 
 
 def seleccion(repo):

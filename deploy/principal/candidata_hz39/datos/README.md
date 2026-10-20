@@ -68,7 +68,7 @@ copia de partida antes de usar esta versión; el guion rechaza esa carga
 incompatible y conserva su historia. No se borra ni se reescribe lo instalado.
 
 Cada guion se ejecuta en una transacción. La receta de Personal añade cinco
-filas de historia. La de Bolsa añade una procedencia, la situación de Antonio
+filas de historia. La de Bolsa añade la situación de Antonio
 y la traza que registra el disparador existente. La segunda
 ejecución reconoce las mismas referencias y termina sin cambios. Repetirla
 después del recorrido conserva también sus actuaciones posteriores; no vuelve a
@@ -136,7 +136,7 @@ ligada a `candidato_ref`. El permiso lo publica la aplicación al arrancar. El
 apartado 2 de `LEEME_copia_local.md` explica el resto de la preparación.
 
 Comprobación del ajuste de Antonio en PostgreSQL 18.4, sobre la copia actual de
-HZ37: dos ejecuciones, mismo estado en las 11 tablas comparadas. Con la categoría
+HZ37, con la versión anterior del guion (que aún movía el vínculo): dos ejecuciones, mismo estado en las 11 tablas comparadas. Con la categoría
 de la petición conservada en K, la fuente del llamamiento CT devuelve a Antonio
 como disponible en el turno 1 de la bolsa vigente (19,278 ms). La segunda carga
 tardó 78,59 ms, incluidos Docker y psql. El recorrido completo de pantalla y
