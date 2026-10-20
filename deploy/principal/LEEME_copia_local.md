@@ -517,6 +517,64 @@ Perfiles y asignaciones de la copia:
   categoría queda pendiente de Administración (F0-06).
 - Una asignación retirada no se revive: se otorga una nueva.
 
+### Rol del aspirante con todo lo fusionado (orden `rol-aspirante`)
+
+La copia restaura el rol del aspirante en su versión 1 (siete permisos). Para
+que el aspirante vea la inscripción con la fuente v2, las modalidades y el
+orden de sus bolsas, hay que publicar la versión 3 con dos actos de
+Administración. La orden `rol-aspirante` los hace de principio a fin, justo
+después de crear la copia:
+
+```sh
+deploy/principal/copia_local.sh crear --equipo b --instancia aspirante \
+  --puerto-pg 55481 --puerto-app 18481 --puerto-smtp 11081 --puerto-admin 19481 \
+  --modulos --portal-externo --administracion \
+  --rrhh-original "$VEC_COPIA_ORIGEN/copia-20261014/material" \
+  --lista-sql deploy/principal/lista_sql_main_tras_hz37.txt
+deploy/principal/copia_local.sh rol-aspirante --equipo b --instancia aspirante
+```
+
+Hace tres cosas, por este orden:
+
+1. Admite la versión siguiente del catálogo `catalogo:bolsa:carga_convoca:b1`
+   (AUT58). Parte de la cabeza que haya en la copia y pone
+   `fuentes/inscripcion_bolsa_actos_v2.json` y
+   `fuentes/bolsa_preferencias_bolsas_propias_v2.json` en el sitio de sus
+   versiones anteriores. Los perfiles son los de la base en ese momento. Si el
+   censo de roles no coincide con el publicado, se detiene: un rol nuevo exige
+   decidir si es fijo o administrable.
+2. El administrador 1 propone y el administrador 2 cierra las cinco acciones de
+   inscripción. El rol pasa a v2 con doce permisos.
+3. Otra propuesta y otro cierre con consultar y ordenar las bolsas propias, ya
+   con la consulta de modalidades de diez campos. El rol pasa a v3 con catorce
+   permisos. Inscripción y preferencias nunca van en el mismo plan.
+
+Cada paso se repite una vez con la misma clave y comprueba que la respuesta es
+la misma (mismo recibo y misma fecha). La única escritura SQL es la del DBA de
+la copia: un LOGIN propio del grupo `vec_admin_catalogo_acciones_ejecutor` y su
+aprobación de un día en `config_catalogo_acciones_admin_v1`, como indica el
+README de `cmd/vec-catalogo-acciones-admitir`. Los permisos del rol solo cambian
+por los actos. Plan, aprobación, contraseña, cuerpos y recibos quedan en
+`admin/rol-aspirante` dentro de la instancia, con permisos 0600, y `borrar` los
+retira.
+
+Si se corta, se vuelve a lanzar la misma orden: reanuda con las mismas
+referencias y los mismos bytes, y no repite lo que ya se confirmó. Si la cabeza
+del rol ya tiene las acciones de un acto, ese acto se da por hecho.
+
+Requisitos:
+
+- La copia se crea con `--portal-externo`. Sin esa opción no se montan las
+  rutas del aspirante y Mi Bolsa usa a Antonio con un rol semilla de la copia,
+  que no es el rol que publica esta orden.
+- Administración preparada y en marcha (`--administracion`). El ejecutor privado
+  tiene que registrar también las dos filas de origen AD172 del LOGIN de
+  gobierno externo (propuesta y cierre); sin ellas la propuesta responde 503
+  con `VA172 origen de consumo no acreditado`.
+- AUT104 y AUT105 instaladas, que ya van en `lista_sql_main_tras_hz37.txt`.
+- El árbol limpio en la revisión de la copia: la orden compila
+  `deploy/principal/rol_aspirante_copia` y `cmd/vec-catalogo-acciones-admitir`.
+
 ## 5. Identidad del aspirante externo
 
 La orden `crear --modulos --portal-externo` usa los productores existentes
