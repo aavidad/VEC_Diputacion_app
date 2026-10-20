@@ -1,6 +1,6 @@
 # Confirmar una aceptación directa pendiente — F1-71
 
-Dirección confirmó el 16/10/2026 a las 01:39 este alcance: RRHH confirma una aceptación de llamamiento directo desde la ficha existente. Se reutiliza la lista nominal de candidatos; este corte no añade una bandeja ni otra lectura. La admisión y el rechazo de justificaciones quedan fuera de este corte. El código del justificante PDF de #1147 ya está integrado; su activación y el cotejo nominal de custodia conservan su aceptación propia. CAT15 permanece fuera de esta confirmación.
+El alcance de esta confirmación es el siguiente: RRHH confirma una aceptación de llamamiento directo desde la ficha existente. Se reutiliza la lista nominal de candidatos; este corte no añade una bandeja ni otra lectura. La admisión y el rechazo de justificaciones quedan fuera de este corte. El código del justificante PDF de #1147 ya está integrado; su activación y el cotejo nominal de custodia conservan su aceptación propia. CAT15 permanece fuera de esta confirmación.
 
 Corte de estado del 20/10/2026 sobre `origin/main@3ef7dee0b`: AD288 y B128
 están integradas por #1176 y #1164. El
