@@ -238,7 +238,7 @@ export function montarIncorporacionesCentro({ contenedor, cliente = bandejaCompa
   // cerrado o cancelado ya lo explica la columna de situación.
   function noProcede(e) {
     if (e.estado === "cancelado" || e.estado === "completado") return `<span class="pc-estado">${escapar(t("no_procede_cancelado"))}</span>`;
-    const motivo = e.fase === "nombramiento" && e.estado === "en_curso" ? "motivo_sin_documento" : "motivo_sin_nombramiento";
+    const motivo = e.fase === "nombramiento" && e.estado === "en_curso" ? "motivo_sin_documento" : "motivo_fuera_nombramiento";
     return `<span class="pc-estado">${escapar(t("no_procede"))}</span><span class="pc-motivo">${escapar(t(motivo))}</span>`;
   }
 

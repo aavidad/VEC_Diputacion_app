@@ -264,7 +264,7 @@
     "incorporacion": "Incorporación",
     "pendiente": "Pendiente de confirmar",
     "no_procede": "Aún no procede",
-    "motivo_sin_nombramiento": "RRHH todavía no ha nombrado ni contratado a la persona. Cuando lo haga, podrá confirmar aquí la incorporación.",
+    "motivo_fuera_nombramiento": "La confirmación del centro no está disponible en esta fase. Consulte el expediente con RRHH.",
     "motivo_sin_documento": "Falta indicar qué documento acredita la incorporación. Avise a RRHH para que lo revise.",
     "motivo_sin_permiso": "La confirma la persona del centro que tiene permiso para ello.",
     "confirmada": "Confirmada el {fecha} con {documento}",

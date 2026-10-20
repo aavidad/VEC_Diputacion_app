@@ -264,7 +264,7 @@
     "incorporacion": "Incorporation",
     "pendiente": "Awaiting confirmation",
     "no_procede": "Not yet applicable",
-    "motivo_sin_nombramiento": "HR has not yet appointed or hired the person. Once it does, you can confirm the start of work here.",
+    "motivo_fuera_nombramiento": "The centre cannot confirm the start in this phase. Check the case with HR.",
     "motivo_sin_documento": "The document that proves the start of work has not been set. Ask HR to review it.",
     "motivo_sin_permiso": "It is confirmed by the person at the centre who has permission to do so.",
     "confirmada": "Confirmed on {fecha} with {documento}",
