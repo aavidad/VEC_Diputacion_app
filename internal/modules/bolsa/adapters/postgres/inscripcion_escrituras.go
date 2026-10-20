@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -221,4 +222,102 @@ func (r *RepositorioInscripcionesPostgreSQL) Presentar(ctx context.Context, acto
 		return inscripcion.Recibo{}, inscripcion.ErrNoDisponible
 	}
 	return recibo, nil
+}
+
+const consultaPresentarInscripcionConjunta = `SELECT vec_bolsa_llamamientos.solicitar_inscripcion_conjunta_v1(
+	$1::text,$2::jsonb,$3::bytea[],$4::bytea[],$5::bytea[],$6::bytea[],$7::bytea[],
+	$8::numeric[],$9::numeric[],$10::bytea[],$11::bytea[],$12::bytea[],$13::bytea[])`
+
+type salidaPresentacionConjunta struct {
+	PresentacionRef string    `json:"presentacion_ref"`
+	ReciboRef       string    `json:"recibo_ref"`
+	ConvocatoriaRef string    `json:"convocatoria_ref"`
+	BasesRef        string    `json:"bases_ref"`
+	Estado          string    `json:"estado"`
+	Version         uint64    `json:"version"`
+	Repetida        *bool     `json:"repetida"`
+	RegistradaEn    time.Time `json:"registrada_en"`
+	Categorias      []struct {
+		CategoriaRef   string `json:"categoria_ref"`
+		Categoria      string `json:"categoria"`
+		SolicitudRef   string `json:"solicitud_ref"`
+		ReciboRef      string `json:"recibo_ref"`
+		DeclaracionRef string `json:"declaracion_ref"`
+		AuditoriaRef   string `json:"auditoria_ref"`
+	} `json:"categorias"`
+}
+
+// PresentarConjunta consume en una sola transacción una autorización V3 por
+// categoría y devuelve el recibo único de la presentación.
+func (r *RepositorioInscripcionesPostgreSQL) PresentarConjunta(ctx context.Context, actor inscripcion.Actor, p inscripcion.PresentacionConjunta) (inscripcion.ReciboConjunto, error) {
+	if r == nil || p.Validar() != nil || !actor.EscriturasConjuntasValidas(p) {
+		return inscripcion.ReciboConjunto{}, inscripcion.ErrSolicitudInvalida
+	}
+	if actor.Canal != "externa_personal" {
+		return inscripcion.ReciboConjunto{}, inscripcion.ErrAccesoDenegado
+	}
+	if valorNulo(r.externo) {
+		return inscripcion.ReciboConjunto{}, inscripcion.ErrNoDisponible
+	}
+	material, _, err := inscripcion.MaterialPresentacionConjunta(p)
+	if err != nil {
+		return inscripcion.ReciboConjunto{}, err
+	}
+	var captura []byte
+	var recursos, capacidades, decisiones, motivos, contextos, payloads, sobres, evidencias, raices [][]byte
+	var personas, perfiles []int64
+	for i := range actor.EscriturasConjuntas {
+		e := actor.EscriturasConjuntas[i]
+		porCategoria := actor
+		porCategoria.EscriturasConjuntas = nil
+		porCategoria.MaterialEscritura, porCategoria.RecursoEscrituraCanonico = &e.Material, e.RecursoCanonico
+		c, err := capturaEscrituraInscripcion(porCategoria, inscripcion.AccionPresentar,
+			"vec_bolsa_llamamientos.inscripcion.presentar.v1", actor.Canal)
+		if err != nil || (captura != nil && !bytes.Equal(c, captura)) {
+			return inscripcion.ReciboConjunto{}, inscripcion.ErrAccesoDenegado
+		}
+		captura = c
+		m := e.Material
+		recursos = append(recursos, e.RecursoCanonico)
+		capacidades = append(capacidades, m.CapacidadCanonica())
+		decisiones = append(decisiones, m.DecisionCanonica())
+		motivos = append(motivos, m.MotivoCanonico())
+		contextos = append(contextos, m.ContextoActorCanonico())
+		personas = append(personas, int64(m.PersonaVersion()))
+		perfiles = append(perfiles, int64(m.PerfilVersion()))
+		payloads = append(payloads, m.PayloadVECAD3())
+		sobres = append(sobres, m.SobreCOSESign1())
+		evidencias = append(evidencias, m.EvidenciaVerificacion())
+		raices = append(raices, m.RaizPublicaSPKI())
+	}
+	argumentos := []any{string(material), captura, recursos, capacidades, decisiones, motivos, contextos,
+		personas, perfiles, payloads, sobres, evidencias, raices}
+	var salida salidaPresentacionConjunta
+	_, err = transaccionInscripcion(ctx, r.externo, func(tx pgx.Tx) ([]byte, error) {
+		var respuesta []byte
+		err := tx.QueryRow(ctx, consultaPresentarInscripcionConjunta, argumentos...).Scan(&respuesta)
+		return respuesta, err
+	}, func(respuesta []byte) error {
+		salida = salidaPresentacionConjunta{}
+		if decodificarInscripcionEstricta(respuesta, &salida) != nil || salida.Repetida == nil {
+			return inscripcion.ErrNoDisponible
+		}
+		return reciboConjunto(salida).Validar(actor.PersonaRef, p)
+	})
+	if err != nil {
+		return inscripcion.ReciboConjunto{}, err
+	}
+	return reciboConjunto(salida), nil
+}
+
+func reciboConjunto(s salidaPresentacionConjunta) inscripcion.ReciboConjunto {
+	recibo := inscripcion.ReciboConjunto{PresentacionRef: s.PresentacionRef, ReciboRef: s.ReciboRef,
+		ConvocatoriaRef: s.ConvocatoriaRef, BasesRef: s.BasesRef, Estado: s.Estado, Version: s.Version,
+		RegistradaEn: s.RegistradaEn.UTC(), Repetida: s.Repetida != nil && *s.Repetida}
+	for _, c := range s.Categorias {
+		recibo.Categorias = append(recibo.Categorias, inscripcion.CategoriaReciboConjunto{
+			CategoriaRef: c.CategoriaRef, Categoria: c.Categoria, SolicitudRef: c.SolicitudRef,
+			ReciboRef: c.ReciboRef, DeclaracionRef: c.DeclaracionRef})
+	}
+	return recibo
 }

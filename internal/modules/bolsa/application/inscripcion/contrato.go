@@ -31,7 +31,10 @@ var (
 	ErrDeclaracionInvalida        = errors.New("bolsa inscripcion: declaracion invalida")
 	ErrSolicitudExistente         = errors.New("bolsa inscripcion: solicitud existente")
 	ErrModalidadConjuntaPendiente = errors.New("bolsa inscripcion: modalidad conjunta pendiente")
-	ErrClaveConflicto             = errors.New("bolsa inscripcion: clave en conflicto")
+	// ErrModalidadSeparada: se pidió una solicitud conjunta en una convocatoria
+	// cuya modalidad sellada es una solicitud por categoría (BC13, B9609).
+	ErrModalidadSeparada = errors.New("bolsa inscripcion: modalidad por categoria")
+	ErrClaveConflicto    = errors.New("bolsa inscripcion: clave en conflicto")
 )
 
 const (
@@ -82,6 +85,8 @@ type Actor struct {
 	Lectura                  *CapturaLectura
 	MaterialEscritura        *puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	RecursoEscrituraCanonico []byte
+	// Solicitud conjunta: una concesión por categoría, en orden canónico.
+	EscriturasConjuntas []EscrituraAutorizada
 }
 
 func (a Actor) Valido() bool {
@@ -399,6 +404,15 @@ type BolsaAbierta struct {
 	ImpedimentoEtiqueta  string                                 `json:"impedimento_etiqueta,omitempty"`
 	EstadoPropio         *string                                `json:"estado_solicitud_propia"`
 	SolicitudRef         *string                                `json:"solicitud_ref"`
+	// SolicitudesPropias sólo viaja en la ficha: una por categoría ya
+	// presentada (separada) o las de la presentación conjunta.
+	SolicitudesPropias []SolicitudPropiaCategoria `json:"solicitudes_propias,omitempty"`
+}
+
+type SolicitudPropiaCategoria struct {
+	CategoriaRef string `json:"categoria_ref"`
+	SolicitudRef string `json:"solicitud_ref"`
+	Estado       string `json:"estado"`
 }
 
 type PaginaAbiertas struct {
@@ -425,6 +439,7 @@ type Repositorio interface {
 	Abiertas(context.Context, Actor, int, string) (PaginaAbiertas, error)
 	DetalleAbierta(context.Context, Actor, string) (BolsaAbierta, error)
 	Presentar(context.Context, Actor, Presentacion) (Recibo, error)
+	PresentarConjunta(context.Context, Actor, PresentacionConjunta) (ReciboConjunto, error)
 	Propias(context.Context, Actor, Filtro) (Pagina, error)
 	Propia(context.Context, Actor, string) (Solicitud, error)
 	PendientesRRHH(context.Context, Actor, Filtro) (Pagina, error)
