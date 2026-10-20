@@ -910,7 +910,10 @@ No ejecuta guiones de otros equipos.
 La orden:
 
 1. Crea nueve LOGIN propios, uno por conexión de las tres bases, las cinco de
-   B2 y el relevo del cese, con TLS verificado y vigencia de 90 días.
+   B2 y el relevo del cese, con TLS verificado y vigencia de 90 días. Seis
+   conservan los nombres que ya declaran las 27 filas de origen restauradas
+   (`origen_consumos_ad172/ternas.tsv`, bloque `incorporacionb`), con
+   contraseñas nuevas. Como en Usuarios, no se modifican esas filas.
 2. Aplica `candidata_hz39/personal/datos_plantilla.sql`, la semilla ficticia
    existente de la Plantilla, plaza 2026/0033 y cobertura. Es repetible y
    conserva sus comprobaciones de preimagen.
@@ -925,7 +928,8 @@ La orden:
    el motivo de detalle antes de escribir el material activable.
 5. Activa `personal/material/servidor.json` y los selectores de incorporación
    acreditada, alta B2, seguimiento y cese; conserva el resto del entorno.
-   Reinicia y exige las comprobaciones completas de Contratación y Bolsa.
+   Reinicia y exige las comprobaciones completas de Contratación y Bolsa,
+   la lista de categorías RPT y el catálogo de regímenes de Personal.
 
 Los datos de activación quedan en `<copia>/personal`, con permisos privados.
 Los registros de la fase de publicación no acreditan por sí solos la

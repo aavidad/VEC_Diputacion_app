@@ -1,6 +1,7 @@
 """Contrato focal de Personal en una copia local, sin PostgreSQL ni compilación."""
 
 import json
+import csv
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
@@ -144,7 +145,7 @@ class PersonalLocal(unittest.TestCase):
         self.assertLess(datetime.now(timezone.utc) + timedelta(days=89), vence)
         self.assertLess(vence, datetime.now(timezone.utc) + timedelta(days=91))
         usuarios = set()
-        for url in urls.values():
+        for campo, url in urls.items():
             partes = urlsplit(url)
             self.assertEqual((partes.scheme, partes.hostname, partes.port, partes.path),
                              ('postgresql', 'localhost', 55481, '/postgres'))
@@ -153,11 +154,23 @@ class PersonalLocal(unittest.TestCase):
                               'sslrootcert': [str(self.copia.material / 'ca/ca.crt')]})
             self.assertNotIn(partes.username, usuarios)
             usuarios.add(partes.username)
+            if campo in personal.LOGINS_ORIGEN:
+                self.assertEqual(partes.username, personal.LOGINS_ORIGEN[campo])
             self.assertNotIn('anterior', url)
+        self.assertEqual(len(usuarios & set(personal.LOGINS_ORIGEN.values())), 6)
+        self.assertEqual(len(usuarios - set(personal.LOGINS_ORIGEN.values())), 3)
         self.assertEqual(personal.conexiones(self.copia, carpeta, guardar), urls)
         self.assertEqual(len(self.copia.sql_llamadas), 1)
 
-    def ejecutar(self, *, fallar_productor=False):
+    def test_logins_canonicos_coinciden_con_inventario_ad172(self):
+        ruta = Path(__file__).with_name('origen_consumos_ad172') / 'ternas.tsv'
+        with ruta.open(newline='') as fichero:
+            filas = list(csv.reader(fichero, delimiter='\t'))
+        logins = {fila[1] for fila in filas if fila and fila[0] == 'incorporacionb'}
+        self.assertEqual(len(logins), 6)
+        self.assertEqual(set(personal.LOGINS_ORIGEN.values()), logins)
+
+    def ejecutar(self, *, fallar_productor=False, fallar_comprobacion=False):
         llamadas = []
         gobierno = []
 
@@ -180,6 +193,9 @@ class PersonalLocal(unittest.TestCase):
 
         try:
             with (patch.object(personal.subprocess, 'run', side_effect=proceso),
+                  patch.object(personal, 'comprobar_personal',
+                               side_effect=ValueError('Personal no está listo: HTTP 503')
+                               if fallar_comprobacion else None),
                   patch('copia_local_conexiones.crear_preparador_gobierno', side_effect=crear,
                         create=True),
                   patch('copia_local_conexiones.retirar_preparador_gobierno', side_effect=retirar,
@@ -198,9 +214,11 @@ class PersonalLocal(unittest.TestCase):
         marca = self.raiz / 'personal/preparada.json'
         self.assertTrue(marca.exists())
         anterior = self.copia.entorno_modulos()
-        with patch.object(personal.subprocess, 'run', side_effect=AssertionError('recompilación')):
+        with (patch.object(personal.subprocess, 'run', side_effect=AssertionError('recompilación')),
+              patch.object(personal, 'comprobar_personal') as comprobacion):
             personal.preparar(self.copia, self.origen, repo=self.raiz,
                              go='go-falso', entorno_go={}, guardar=guardar)
+        comprobacion.assert_called_once_with(self.copia)
         self.assertEqual(self.copia.eventos[-1], ('comprobar',))
         self.assertEqual(self.copia.entorno_modulos(), anterior)
         self.assertEqual(len(self.copia.sql_llamadas), 1)
@@ -218,6 +236,39 @@ class PersonalLocal(unittest.TestCase):
         self.assertEqual(self.copia.eventos[-2:], [('parar',), ('arrancar', True)])
         self.assertFalse((self.raiz / 'personal/preparada.json').exists())
         self.assertEqual(len(self.copia.sql_llamadas), 1)
+
+    def test_interrupcion_con_borrador_recupera_entorno_anterior(self):
+        anterior = self.copia.entorno_modulos()
+        carpeta = self.raiz / 'personal'
+        carpeta.mkdir(mode=0o700)
+        guardar(carpeta / 'preparacion.json', {
+            'origen_sha256': personal._sha256(self.origen),
+            'entorno_anterior': anterior})
+        borrador = {**anterior, 'VEC_CT_INCORPORACION_V2_FILE': '/borrador/servidor.json',
+                    'VEC_PERSONAL_B2_GOBIERNO_ENABLED': 'true'}
+        guardar(self.raiz / 'entorno_modulos.json', borrador)
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.ejecutar(fallar_productor=True)
+        self.assertEqual(self.copia.entorno_modulos(), anterior)
+        self.assertFalse((carpeta / 'preparada.json').exists())
+
+    def test_http_503_de_personal_recupera_entorno_y_no_marca_exito(self):
+        anterior = self.copia.entorno_modulos()
+        with self.assertRaisesRegex(ValueError, 'HTTP 503'):
+            self.ejecutar(fallar_comprobacion=True)
+        self.assertEqual(self.copia.entorno_modulos(), anterior)
+        self.assertEqual(self.copia.eventos[-2:], [('parar',), ('arrancar', True)])
+        self.assertFalse((self.raiz / 'personal/preparada.json').exists())
+
+    def test_comprobacion_real_rechaza_respuesta_503(self):
+        with (patch.object(personal.ssl, 'create_default_context') as tls,
+              patch.object(personal.http.client, 'HTTPSConnection') as conexion):
+            conexion.return_value.getresponse.return_value.status = 503
+            self.copia.leer = lambda: {'puerto_app': 18446}
+            with self.assertRaisesRegex(ValueError, 'HTTP 503'):
+                personal.comprobar_personal(self.copia)
+        tls.return_value.load_cert_chain.assert_called_once()
+        conexion.return_value.close.assert_called_once()
 
 
 if __name__ == '__main__':

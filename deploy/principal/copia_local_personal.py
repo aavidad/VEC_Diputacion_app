@@ -2,6 +2,8 @@
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import json
+import http.client
+import ssl
 import secrets
 import subprocess
 from urllib.parse import quote, urlencode
@@ -21,6 +23,17 @@ B2 = {'personal_planes': 'vec_personal_ejecutor',
       'bolsa_persona': 'vec_bolsa_llamamientos_ejecutor',
       'rpt': 'vec_personal_ejecutor'}
 CESE = 'vec_bolsa_llamamientos_relevo_cese'
+# Nombres de las 27 filas AD172 restauradas (origen_consumos_ad172/ternas.tsv).
+# Como en Usuarios, el LOGIN se crea en esta copia con una contraseña nueva;
+# no se altera la fila de origen ni se traslada una conexión de la principal.
+LOGINS_ORIGEN = {
+    'base-registro_ct': 'vec_ct_personal_b2_registro_ct',
+    'b2-personal_planes': 'vec_ct_personal_b2_planes',
+    'b2-personal_actos': 'vec_ct_personal_b2_actos',
+    'b2-personal_consultas': 'vec_ct_personal_b2_consultas',
+    'b2-bolsa_persona': 'vec_ct_personal_b2_bolsa_persona',
+    'b2-rpt': 'vec_ct_personal_b2_rpt',
+}
 OBLIGATORIAS = {'ct_vinculo_registrar', 'rpt_listar', 'personal_hecho',
                 'personal_catalogo_publicar', 'personal_catalogo_retirar'}
 
@@ -59,7 +72,8 @@ def conexiones(copia, carpeta, guardar):
     if marca.exists():
         return json.loads(privado(marca).read_text())
     grupos = [*BASE.values(), *B2.values(), CESE]
-    nombres = [_rol(copia.nombre, i + 90) for i in range(len(grupos))]
+    campos = [*('base-' + k for k in BASE), *('b2-' + k for k in B2), 'cese']
+    nombres = [LOGINS_ORIGEN.get(campo, _rol(copia.nombre, i + 90)) for i, campo in enumerate(campos)]
     claves = [secrets.token_hex(32) for _ in grupos]
     vence = (datetime.now(timezone.utc) + timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ')
     copia.sql_bytes(sql_logins(nombres, claves, grupos, vence), 'personal-conexiones.log')
@@ -67,7 +81,7 @@ def conexiones(copia, carpeta, guardar):
     urls = ['postgresql://' + quote(n) + ':' + quote(c) + '@localhost:' + str(estado['puerto_pg'])
             + '/postgres?' + urlencode({'sslmode': 'verify-full',
                 'sslrootcert': str(copia.material / 'ca/ca.crt')}) for n, c in zip(nombres, claves)]
-    resultado = dict(zip([*('base-' + k for k in BASE), *('b2-' + k for k in B2), 'cese'], urls))
+    resultado = dict(zip(campos, urls))
     # El resultado persiste antes de los archivos derivados para recuperar una
     # interrupción sin generar otras identidades ni cambiar sus credenciales.
     guardar(marca, resultado)
@@ -90,6 +104,23 @@ def entorno_personal(copia, carpeta, urls, repo):
     return entorno
 
 
+def comprobar_personal(copia):
+    """Comprueba consumidores reales, además del arranque general de la copia."""
+    contexto = ssl.create_default_context(cafile=str(copia.material / 'ca/ca.crt'))
+    contexto.load_cert_chain(str(copia.material / 'mtls/cliente.crt'), str(copia.material / 'mtls/cliente.key'))
+    for ruta in ('/api/vec/contratacion-temporal/incorporacion-personal-b2/categorias-rpt/v1',
+                 '/api/vec/personal/catalogos-registro-empleado?tipo=regimen&estado=publicada&limite=25'):
+        conexion = http.client.HTTPSConnection('localhost', copia.leer()['puerto_app'], context=contexto, timeout=30)
+        try:
+            conexion.request('GET', ruta, headers={'Accept': 'application/json'})
+            respuesta = conexion.getresponse()
+            respuesta.read()
+            if respuesta.status != 200:
+                raise ValueError(f'Personal no está listo: HTTP {respuesta.status} en {ruta}')
+        finally:
+            conexion.close()
+
+
 def preparar(copia, origen, *, repo, go, entorno_go, guardar):
     """Publica con vec-server y deriva con el productor B2; no escribe gobierno por SQL."""
     anterior = copia.entorno_modulos()
@@ -110,7 +141,18 @@ def preparar(copia, origen, *, repo, go, entorno_go, guardar):
         if _sha256(privado(salida / 'servidor.json')) != json.loads(privado(marca).read_text())['servidor_sha256']:
             raise ValueError('El material de Personal cambió desde la preparación')
         copia.comprobar()
+        comprobar_personal(copia)
         return
+    # Conservar la configuración sana también si se interrumpe el proceso
+    # durante la publicación y la siguiente llamada encuentra el borrador.
+    recuperacion = carpeta / 'preparacion.json'
+    if recuperacion.exists():
+        previa = json.loads(privado(recuperacion).read_text())
+        if previa['origen_sha256'] != firma:
+            raise ValueError('La preparación pendiente usa otra configuración; conserve la copia')
+        anterior = previa['entorno_anterior']
+    else:
+        guardar(recuperacion, {'origen_sha256': firma, 'entorno_anterior': anterior})
     # Comprobación del material antes de parar una aplicación sana.
     privado(copia.material / 'idempotencia/configuracion.json')
     binario = carpeta / 'preparar-material'
@@ -154,6 +196,7 @@ def preparar(copia, origen, *, repo, go, entorno_go, guardar):
         copia.parar()
         guardar_entorno(copia, entorno_personal(copia, salida, urls, repo), guardar)
         copia.arrancar()
+        comprobar_personal(copia)
         guardar(marca, {'origen_sha256': firma, 'servidor_sha256': _sha256(salida / 'servidor.json')})
     except Exception:
         # El fallo conserva los recibos/material para conciliar; recupera el
