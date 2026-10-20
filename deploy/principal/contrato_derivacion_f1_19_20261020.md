@@ -57,6 +57,6 @@ global; la segunda coteja la fachada, la denegación de material ajeno y la
 ausencia de consumo en el rechazo. Las dos quedan en la puerta de fase 1.
 Estos casos no emiten decisiones falsas ni acreditan un acto permitido.
 
-El archivo SQL generado tiene 3500 líneas; `ad305_cuerpos.diff` muestra el
-cambio de veinte líneas de contexto. La línea base de tamaño registra ese
+El archivo SQL generado tiene 3500 líneas; `ad305_cuerpos.diff` muestra las cinco líneas retiradas
+en 12 líneas de diferencial. La línea base de tamaño registra ese
 cuerpo completo exigido por la guarda estructural, sin ampliar el alcance.

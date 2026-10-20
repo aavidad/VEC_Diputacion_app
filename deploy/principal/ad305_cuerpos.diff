@@ -1,20 +1,12 @@
 --- central_pre
 +++ central_post
-@@ -1181,6 +1181,4 @@
-  AND d#>>'{vinculo_autenticacion_actor,garantia_observada}' IS NOT DISTINCT FROM 'alto'
- 
+@@ -1183,2 +1182,0 @@
 - AND jsonb_typeof(d->'ambitos') IS NOT DISTINCT FROM 'object'
 - AND (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(d->'ambitos') k) IS NOT DISTINCT FROM ARRAY['organizacion_ref','unidad_ref']
-  AND d->'campos_permitidos' IS NOT DISTINCT FROM '[]'::jsonb
-  AND d->'obligaciones' IS NOT DISTINCT FROM '["auditar"]'::jsonb)
 
 --- fachada_pre
 +++ fachada_post
-@@ -32,7 +32,4 @@
-  OR d#>>'{vinculo_autenticacion_actor,metodo_observado}' IS DISTINCT FROM 'certificado'
-  OR d#>>'{vinculo_autenticacion_actor,garantia_observada}' IS DISTINCT FROM 'alto'
+@@ -34,3 +33,0 @@
 - OR jsonb_typeof(d->'ambitos') IS DISTINCT FROM 'object'
 - OR (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(d->'ambitos') k)
 -    IS DISTINCT FROM ARRAY['organizacion_ref','unidad_ref']
-  OR d->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb
-  OR d->'obligaciones' IS DISTINCT FROM '["auditar"]'::jsonb
