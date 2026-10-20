@@ -47,7 +47,30 @@ reescribir los roles para sortear el cotejo.
 
 ## Comprobación de esta candidata
 
-Pendiente de ensayo y de las dos revisiones independientes. Esta guía no
-acredita todavía una admisión, una asignación ni una firma desde la ficha.
-El consumidor web sigue siendo la firma del expediente de Contratación
-Temporal; la corrección permite su preparación administrativa.
+En una copia propia de `main@fb5200b68`, la herramienta existente publicó
+un cargo nuevo cuyo documento omitía `retirada_en`. El plan de admisión,
+generado con el censo completo de Go, fue rechazado antes de AUT106.
+Instalada la migración una sola vez, el mismo plan quedó admitido: catálogo
+versión 7, 68 perfiles y 22 entradas, sin añadir fuentes ni concesiones.
+
+La repetición recuperó el recibo original. Después de reiniciar PostgreSQL y
+la aplicación, la repetición conservó sus bytes y la consulta devolvió el mismo
+catálogo. La prueba SQL contrastó 92 versiones históricas y el constructor
+real de un cargo. El portal y las consultas principales de Contratación
+temporal respondieron 200; Chrome mostró el cuadro sin
+desbordamiento en escritorio y sin excepciones JavaScript de la página.
+La consola registró un error de certificado del service worker
+`/portal-empleado/sw.js` en el origen local de la copia. El aviso persistió
+con la CA importada en un perfil temporal de Chrome; sesión, módulos, cuadro
+y catálogos respondieron 200. No se ha demostrado relación con este cambio
+SQL ni se ha modificado la validación TLS del producto.
+
+Los LOGIN técnicos y la aprobación de la copia son ficticios y están
+declarados como tales en su material privado. No se asignó el cargo a ninguna
+persona ni se firmó un documento. El consumidor web sigue siendo la firma
+del expediente de Contratación temporal; este corte comprueba su preparación
+administrativa, sin atribuirle el recorrido completo de firma.
+
+La prueba SQL y las 15 pruebas focales del preparador son favorables.
+Las revisiones independientes y el resultado de calidad se registran en la
+solicitud de integración.
