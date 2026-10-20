@@ -72,7 +72,7 @@ El panel de **circuito de firma** muestra los pasos y estados que proporciona el
 
 **Las firmas de este entorno son de prueba y carecen de eficacia administrativa.** La formalización real depende del portafirmas corporativo y de las decisiones y documentos que este valide. Un borrador descargado o una firma técnica registrada no acredita nombramiento eficaz, notificación ni entrega.
 
-### Tipos de plantilla y borradores publicados — C3 candidato
+### Tipos de plantilla y borradores publicados — en preparación
 
 Con el permiso correspondiente, abra **Contratación temporal → Plantillas de
 documentos**. La vista **Tipos de plantilla** permite consultar el catálogo y su
@@ -112,7 +112,7 @@ En **Seguimiento del nombramiento**, consulte incorporación, recibos y opciones
 
 Para registrar un **cese**, debe constar la incorporación acreditada. Seleccione causa del catálogo y fecha de efecto, indique la referencia del justificante y elija el archivo para calcular su huella. Revise y confirme: recibo e historial reflejan el cese, y Bolsa recibe el fin del contrato para reponer la disponibilidad conforme a su propia regla.
 
-### Reincorporación de la persona titular y consulta en Bolsa — C3 candidato
+### Reincorporación de la persona titular y consulta en Bolsa — en preparación
 
 Cuando el cese registrado corresponde al **fin de sustitución**, antes del
 cierre abra **Registrar la reincorporación del titular** en el detalle del
@@ -162,12 +162,10 @@ El sistema separa responsabilidades: **Peticiones de personal temporal** coordin
 
 El corte de main y los recorridos documentados usan **datos sintéticos**. La presentación de septiembre incluyó lectura en la principal y escritura, cese, recuperación tras reiniciar aplicación y PostgreSQL y casos negativos en una copia de ensayo. Esto no autoriza datos reales ni uso productivo.
 
-Las funciones **C3** anteriores cuentan con código y pruebas focales en una
-rama candidata; las comprobaciones PostgreSQL citadas en el seguimiento son
-ensayos aislados. Quedan pendientes su integración y la verificación conjunta
-navegador → API → autorización → PostgreSQL → recibo con recuperación tras
-reinicio. No atribuya a la instancia de presentación las pantallas, migraciones
-o datos de esta rama por el hecho de estar descritos aquí.
+En aquel momento, las funciones señaladas como «en preparación» no
+acreditaban un recorrido conjunto ni su conservación después de reiniciar.
+Su descripción no demostraba que estuvieran disponibles en la instancia de
+presentación. El estado actual se consulta en las guías vigentes y el tablero.
 
 Siguen pendientes la firma con validez legal mediante el portafirmas corporativo, la acreditación de envío y entrega del correo, las reglas legales aún no aprobadas por RRHH y la transmisión automática a GINPIX. Una ficha manual o un número confirmado en VEC no son una confirmación del sistema externo obtenida por integración. Consulte la ayuda «?» y el estado del expediente antes de interpretar cualquier recibo.
 
