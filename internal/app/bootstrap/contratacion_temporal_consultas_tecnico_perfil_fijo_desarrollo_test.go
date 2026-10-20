@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"net/http"
 	"reflect"
 	"testing"
 	"time"
@@ -10,6 +11,64 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestDetalleIncorporacionConservaPerfilTecnicoFijoLigado(t *testing.T) {
+	s, _, _, fijo, principal := escenarioConsultasTecnicoFijasPrueba(t)
+	dinamico := s.contexto.Resultado.Contexto.PerfilActivoRef
+	declaraciones := descriptoresFronterasContratacionTemporalDesarrollo(dinamico, []string{dinamico})
+	asignadas, err := asignarPerfilesFijosEnFronterasCTDesarrollo(s, dinamico, declaraciones)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(asignadas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, ok := catalogo.resolver(http.MethodPost, httpinterno.RutaConsultaDetalleRRHH)
+	if !ok || !esDescriptorDetalleContratacionTemporalDesarrollo(d, s) ||
+		len(d.PerfilesActivosRef) == 0 || d.PerfilesActivosRef[0] != fijo.perfilRef() ||
+		d.admitePerfil(dinamico) {
+		t.Fatal("el descriptor no conserva el perfil técnico exacto")
+	}
+	for nombre, mutar := range map[string]func(*descriptorFronteraComunDesarrollo){
+		"fijo_ajeno": func(x *descriptorFronteraComunDesarrollo) {
+			x.PerfilesActivosRef[0] = s.perfilFijoParaRuta(httpinterno.RutaAltaSolicitudes).perfilRef()
+		},
+		"dinamico_retirado": func(x *descriptorFronteraComunDesarrollo) { x.PerfilesActivosRef[0] = dinamico },
+		"sin_perfil":        func(x *descriptorFronteraComunDesarrollo) { x.PerfilesActivosRef = nil },
+		"dinamico_anadido": func(x *descriptorFronteraComunDesarrollo) {
+			x.PerfilesActivosRef = append(x.PerfilesActivosRef, dinamico)
+		},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			alterado := d
+			alterado.PerfilesActivosRef = append([]string(nil), d.PerfilesActivosRef...)
+			mutar(&alterado)
+			if esDescriptorDetalleContratacionTemporalDesarrollo(alterado, s) {
+				t.Fatal("descriptor no ligado admitido")
+			}
+		})
+	}
+	if _, err := asignarPerfilesNominalesIncorporacionEnFronteras(s, asignadas); err != nil {
+		t.Fatal("incorporación V2 rechazó el detalle ligado:", err)
+	}
+	if _, err := asignarPerfilesNominalesB2EnFronteras(s, asignadas); err != nil {
+		t.Fatal("incorporación B2 rechazó el detalle ligado:", err)
+	}
+	ctx := contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaIncorporacionEjercicioV2)
+	c := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+	c.certificadoVerificadoEn = s.reloj.Ahora().Add(-time.Second)
+	c.certificadoValidoHasta = s.reloj.Ahora().Add(time.Minute)
+	ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, c)
+	hijo, err := subconsultaDetalleContratacionTemporalDesarrollo(ctx, s, catalogo)
+	if err != nil {
+		t.Fatal("subconsulta rechazó el detalle ligado:", err)
+	}
+	frontera, ok := hijo.Value(claveFronteraSeguridadComunDesarrollo{}).(fronteraSeguridadComunDesarrollo)
+	if !ok || !frontera.descriptor.admitePerfil(fijo.perfilRef()) || frontera.descriptor.admitePerfil(dinamico) {
+		t.Fatal("subconsulta heredó otro perfil")
+	}
+}
 
 func escenarioConsultasTecnicoFijasPrueba(t *testing.T) (*soporteAltaContratacionTemporalDesarrollo,
 	*autoridadConsultasRRHHDesarrollo, *autoridadAsignacionesContratacionTemporalDesarrolloPrueba,
