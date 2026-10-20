@@ -36,6 +36,10 @@ tiene sellada. Quién declara (`principal_id`) y el motivo salen de la decisión
 consumida. El atributo `material_sha256` del recurso es el SHA-256 de la
 petición normalizada por PostgreSQL (`p::text`), como en F1-09.
 
+El motivo es `motivos_publicacion_oficial_bases_bolsa` v1. La aplicación publica
+ese catálogo al arrancar, como hace carga Convoca; si no puede, la ruta sigue
+montada y responde 503 sin tocar el resto de Bolsa.
+
 ## SQL de la entrega A
 
 `deploy/postgresql/bolsa_convocatorias/migraciones/000015_declaracion_publicacion_oficial_rrhh.up.sql`
