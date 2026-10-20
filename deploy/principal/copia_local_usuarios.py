@@ -177,8 +177,14 @@ def configuracion(original: dict, dsns: dict[str, str], superficie: str) -> dict
 
 
 def entorno_usuarios(entorno: dict) -> dict:
-    """Enciende los dos selectores; un «false» puesto por el kit se respeta."""
+    """Enciende los dos selectores; un «false» puesto por el kit se respeta.
+
+    La imagen depende de las preferencias: si estas se apagan, la imagen no se
+    enciende sola, porque sin ellas el arranque apaga Contratación temporal."""
     nuevo = dict(entorno)
+    if str(nuevo.get("VEC_USUARIOS_PREFERENCIAS_ENABLED", "")).lower() == "false":
+        if not nuevo.get("VEC_USUARIOS_IMAGEN_ENABLED"):
+            nuevo["VEC_USUARIOS_IMAGEN_ENABLED"] = "false"
     for variable, valor in SELECTORES.items():
         if not nuevo.get(variable):
             nuevo[variable] = valor

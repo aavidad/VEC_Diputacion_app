@@ -71,6 +71,9 @@ class UsuariosCopiaTest(unittest.TestCase):
         self.assertEqual(entorno['VEC_USUARIOS_IMAGEN_ENABLED'], 'true')
         apagado = usuarios.entorno_usuarios({'VEC_USUARIOS_IMAGEN_ENABLED': 'false'})
         self.assertEqual(apagado['VEC_USUARIOS_IMAGEN_ENABLED'], 'false')
+        sin_preferencias = usuarios.entorno_usuarios({'VEC_USUARIOS_PREFERENCIAS_ENABLED': 'false'})
+        self.assertEqual(sin_preferencias['VEC_USUARIOS_PREFERENCIAS_ENABLED'], 'false')
+        self.assertEqual(sin_preferencias['VEC_USUARIOS_IMAGEN_ENABLED'], 'false')
 
     def test_sin_material_original_no_se_enciende(self):
         self.assertFalse(usuarios.disponible(None))

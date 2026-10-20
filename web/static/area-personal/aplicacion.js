@@ -269,7 +269,7 @@ function actualizarShell(estado) {
   const nombre = datos.sesion.nombre_visible; const nombreSesion = porId("nombre-sesion"); nombreSesion.textContent = nombre || traducir("areaPersonal.preferencias.miCuenta");
   // La etiqueta del botón tapa su contenido: el nombre va también en ella y en el title del botón.
   const botonSesion = nombreSesion.closest?.(".sesion-usuario");
-  if (botonSesion) { botonSesion.title = nombre; botonSesion.setAttribute("aria-label", nombre ? traducir("areaPersonal.preferencias.menuIdentidadNombre", { nombre }) : traducir("areaPersonal.preferencias.menuIdentidad")); }
+  if (botonSesion) { botonSesion.title = nombre || traducir("areaPersonal.preferencias.miCuenta"); botonSesion.setAttribute("aria-label", nombre ? traducir("areaPersonal.preferencias.menuIdentidadNombre", { nombre }) : traducir("areaPersonal.preferencias.menuIdentidad")); }
   const perfilSesion = porId("perfil-sesion");
   perfilSesion.textContent = datos.sesion.metodo;
   perfilSesion.hidden = !datos.sesion.metodo;

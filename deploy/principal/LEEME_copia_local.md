@@ -154,7 +154,12 @@ principal, que la copia no traslada. Ahora:
   publicado, así que en su área personal «Mis preferencias» y «Mi imagen»
   siguen sin atenderse hasta que Administración se lo asigne;
 - se ponen `VEC_USUARIOS_PREFERENCIAS_ENABLED` y `VEC_USUARIOS_IMAGEN_ENABLED`
-  (un `false` del kit se respeta).
+  (un `false` del kit se respeta; si se apagan las preferencias, la imagen
+  tampoco se enciende, porque sin ellas el arranque apaga Contratación temporal).
+
+Los LOGIN se confirman antes de escribir las configuraciones. Si esa escritura
+falla, el paso no se puede repetir sobre la misma copia: hay que borrarla y
+crearla de nuevo.
 
 Con material nuevo (sin `--rrhh-original`) no hay cuentas con ese permiso y la
 copia sigue sin las dos rutas.
@@ -163,8 +168,8 @@ copia sigue sin las dos rutas.
 el volcado no tiene publicada ninguna versión del rol del aspirante con
 `bolsa.preferencias_bolsas.consultar_propias` y `ordenar_propias`. Esa versión
 la crea un acto de Administración firmado por dos administradores
-(`versionar_rol_bolsa_externa`); sin ella el área personal muestra «No tiene
-permiso para consultar o guardar este orden».
+(`versionar_rol_bolsa_externa`). Sin ella la ruta no se monta y el panel del
+área personal muestra «No se pudo consultar el orden de sus bolsas».
 
 Tras el productor de datos, el guion coteja los 24 LOGIN internos: opciones
 sin privilegios de administración y membresías directas exactas. La conexión
