@@ -616,7 +616,16 @@ se muestra pertenece al registro original. La respuesta ampliada de la ficha
 exige juntos los selectores y su recibo, aun si la lista es `[]`; ausencia de
 uno falla cerrada. El cliente limita a 128 entradas, no muestra canones de
 identidad ni huellas y cancela la consulta al cambiar de expediente. La
-publicación y el recorrido real siguen pendientes.
+consulta y recuperación tras reiniciar se comprobaron en la copia de F1-58;
+el caso completo 4.0 sigue pendiente.
+
+F1-58 utiliza AUT103 y el plan de publicación de cargos v2 para suceder los
+cuatro roles de consulta: conserva cuadro y descarga y sustituye solo la
+operación de detalle por la que concede los selectores. La recuperación R5
+necesita además su propia fila técnica de origen AD172, distinta de la
+descarga y sin permiso humano nuevo. El cotejo del núcleo, la activación y
+los límites del ensayo se describen en
+[`firma_por_cargos_f1_58_20261020.md`](../../deploy/principal/firma_por_cargos_f1_58_20261020.md).
 
 ## 8. Protección de datos
 

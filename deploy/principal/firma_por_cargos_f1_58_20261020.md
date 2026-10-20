@@ -1,9 +1,11 @@
 # F1-58: firma y consulta por cargos
 
-Estado provisional: informe con dos firmas verificadas y resolución con dos
-de sus tres firmas. Los PDF y sus registros se consultan desde la ficha. Faltan
-Secretaría, los cuatro documentos pendientes de firma y el cotejo tras reiniciar.
-La revisión de X y la comprobación automática siguen pendientes.
+Estado: cinco firmas verificadas, dos en el informe y tres en la resolución.
+Tras reiniciar, sus historiales, recibos, fechas y PDF conservan el mismo
+contenido. Los otros cuatro documentos se descargaron en PDF y Word sin firma.
+La revisión y la comprobación automática se consultan en la PR de F1-58. La
+incidencia de descarga desde Técnico queda descrita al final. Firmadoc no está
+confirmado.
 
 ## Piezas que se reutilizan
 
@@ -233,9 +235,10 @@ no acreditan la publicación de roles por dos administradores de F1-106. Las
 cuatro asignaciones sucesoras están aplicadas, con personas, cuentas y perfiles
 cotejados contra la fuente de firmantes. El validador real de Go aceptó las
 16 asignaciones de firma y auxiliares y las dos de Administración: 18 válidas.
-La firma se ejecuta con GrxFirma CLI y se registra por la API nominal. Ya hay
-cuatro registros verificados; el reinicio y la última firma siguen pendientes.
-No se da la tarea por terminada.
+La firma se ejecutó con GrxFirma CLI y se registró por la API nominal, siempre
+con el certificado de la misma persona. Los cinco registros devolvieron 201,
+verificación válida y `ya_registrada=false`. Las cuatro personas y sus cuatro
+certificados son distintos. No se da por recorrido el caso completo 4.0.
 
 Los catorce actos nominales dejaron sus recibos reales en la copia: cinco
 cargos, cinco enlaces y cuatro certificados. La publicación de certificados
@@ -248,8 +251,9 @@ el segundo. La configuración reúne cuatro firmantes y cuatro admisiones, y
 apunta a los recursos propios bajo `material/identidad/firma-recursos`. La
 orden `firma` de la fábrica publicó las plantillas v4, activó el verificador
 GrxFirma 0.0.107 y reinició aplicación y PostgreSQL. El cuadro de Contratación
-y las bolsas respondieron 200 después. Después se registraron las dos firmas
-del informe y las dos primeras de la resolución; falta el último paso.
+y las bolsas respondieron 200 después. Se registraron las dos firmas del
+informe y las tres de la resolución en dos expedientes distintos. La cofirma
+recibió en cada paso exactamente el PDF custodiado del paso anterior.
 
 En el entorno privado de Administración, `VEC_ADMIN_HOST` debe incluir el
 puerto local si es distinto de 443. La salud de Administración devuelve 204.
@@ -264,3 +268,24 @@ cambios y la aplicación añadió una sola fila. Después, «Consultar firma»
 respondió 200 y conservó el recibo original. La verificación criptográfica es
 positiva; `firma_eficaz=false` mantiene separada la confirmación de Firmadoc,
 que no se ha producido en este ejercicio.
+
+El reinicio oficial se ejecutó con la revisión original limpia de la copia;
+la rama documental estaba guardada y subida. Aplicación, PostgreSQL y
+verificador arrancaron de nuevo. Desde Chrome se recuperaron los dos
+historiales con los mismos recibos, referencias, fechas y huellas de historia.
+El informe se descargó como Técnico y la resolución como Secretaría, los
+mismos actores usados antes: ambos PDF son idénticos byte a byte. El recibo
+de cada nueva consulta auditada sí cambia; no sustituye el recibo de firma.
+
+Diligencia, toma de posesión, notificación y comunicación al centro se
+mostraron como borradores sin firmar. Sus ocho descargas, PDF y Word por cada
+documento, tienen formato válido; no se crearon firmas para ellos.
+
+## Incidencia detectada
+
+Después de reiniciar, la descarga de la resolución como Técnico respondió
+503 una vez. El cargo técnico no tiene un paso de firma para la resolución;
+el selector debería denegar esa descarga. No quedó guardado el cuerpo de
+esa respuesta y no se acredita su causa exacta. La consulta histórica como
+Técnico sí respondió 200; la descarga como Secretaría respondió 200 y
+conservó el PDF. No se amplió ningún permiso para resolver la incidencia.
