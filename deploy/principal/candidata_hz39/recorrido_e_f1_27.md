@@ -52,7 +52,7 @@ mediante formularios de Chrome del sistema, con Playwright.
 | Archivo documental de la ficha | Bloqueado | POST de consulta 503; incidencia de gobierno |
 | Borradores de la ficha | Sin montar | Capacidad declarada sin_montaje; no se pide la lista |
 | 8–15 | Pendientes | Requieren completar las firmas del informe |
-| Reinicio y recuperación | Pendiente | — |
+| Reinicio de aplicación y PostgreSQL | Correcto | Chrome conserva v5 e historial; instantáneas iguales |
 
 Las identidades nuevas del centro se llaman Lucía Navarro Molina y Diego
 Serrano Vega, según la receta. No se cambiaron sus nombres para hacerlos
@@ -92,3 +92,9 @@ Se conservan ocho respuestas confirmadas de los pasos recorridos y del PDF
 original, con referencias, versiones y fechas. El informe original quedó
 custodiado; no se ha firmado. No se acredita la resolución, ninguna de sus
 firmas ni los pasos posteriores de F1-27 o F1-28.
+
+Tras reiniciar con el gestor público, el expediente conserva la versión 5 y
+las cinco actuaciones en Chrome. La instantánea de la fila vigente y de ocho
+recuentos de firma/fiscalización es idéntica antes y después. La ficha no
+desborda horizontalmente a 1440 ni a 390 píxeles. Esta comprobación parcial
+no acredita los pasos 8 a 21.
