@@ -120,3 +120,25 @@ class OverlayExterno(unittest.TestCase):
             destino.chmod(0o600)
             self.assertEqual(ejecutor.overlay_externo(run, dia), destino)
             self.assertNotEqual(ejecutor.overlay_externo(run, dia), receta)
+
+
+class CadenaGobierno(unittest.TestCase):
+    def test_reconsulta_solo_verificacion_pendiente_sin_repetir_actos(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = Path(tmp); carpeta.chmod(0o700)
+            log = carpeta / 'admin-gobierno-verificar.log'
+            log.write_text('{"codigo":"verificacion_no_disponible"}\n')
+            log.chmod(0o600)
+            fase = Mock(side_effect=[ValueError('recorrido_operacion_fallida_consulte_registro'), None])
+            with patch.object(ejecutor.time, 'sleep') as esperar:
+                ejecutor.verificar_gobierno(SimpleNamespace(carpeta=carpeta), fase)
+            self.assertEqual([x.args[0] for x in fase.call_args_list], ['verificar', 'verificar'])
+            esperar.assert_called_once_with(1)
+            log.write_text('{"codigo":"cadena_rechazada"}\n')
+            fase.reset_mock(side_effect=True)
+            fase.side_effect = ValueError('recorrido_operacion_fallida_consulte_registro')
+            with self.assertRaises(ValueError):
+                ejecutor.verificar_gobierno(SimpleNamespace(carpeta=carpeta), fase)
+            self.assertEqual(fase.call_count, 1)

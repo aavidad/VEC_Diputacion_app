@@ -188,7 +188,27 @@ def gobierno(c, kit, run, dia, sid):
     fase('aplicar', ('-acuse', 'acuse-aplicar.json'))
     from admin_copia.preparar_runtime import validar_gobierno
     validar_gobierno(run, dia, aplicado=True)
-    fase('verificar', ('-acuse', 'acuse-aplicar.json'))
+    verificar_gobierno(c, fase)
+
+
+def verificar_gobierno(c, fase):
+    """Espera una lectura de la cadena; nunca repite la publicación confirmada."""
+    try:
+        fase('verificar', ('-acuse', 'acuse-aplicar.json'))
+    except ValueError as fallo:
+        if str(fallo) != 'recorrido_operacion_fallida_consulte_registro':
+            raise
+        try:
+            raw = privado(c.carpeta / 'admin-gobierno-verificar.log').read_text().splitlines()
+            ultimo = json.loads(raw[-1])
+        except (ValueError, OSError, IndexError):
+            raise fallo
+        if ultimo.get('codigo') != 'verificacion_no_disponible':
+            raise
+        # El sellador de la aplicación puede no haber consumido aún el evento.
+        # Solo se relee una vez; cualquier otro fallo conserva la copia y sus actos.
+        time.sleep(1)
+        fase('verificar', ('-acuse', 'acuse-aplicar.json'))
 
 
 def runtime(c, kit, run, estado, sid, semilla, dia, sufijo):
