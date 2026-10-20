@@ -144,6 +144,7 @@ type operacionEscrituraInscripcion struct {
 	ref          string
 	material     []byte
 	presentacion *inscripcion.Presentacion
+	conjunta     *inscripcion.PresentacionConjunta
 	alegacion    *inscripcion.PresentacionAlegacion
 }
 
@@ -173,6 +174,16 @@ func (p *preparadorInscripcionBolsa) PrepararPresentacion(r *http.Request, coman
 	}
 	// La solicitud propia queda ligada a la persona después de resolver sesión.
 	return p.preparar(r, false, nil, &operacionEscrituraInscripcion{material: material, presentacion: &comando})
+}
+
+// PrepararPresentacionConjunta obtiene una concesión V3 por categoría, todas
+// ligadas al mismo material conjunto y a la misma sesión.
+func (p *preparadorInscripcionBolsa) PrepararPresentacionConjunta(r *http.Request, comando inscripcion.PresentacionConjunta) (inscripcion.Actor, error) {
+	material, _, err := inscripcion.MaterialPresentacionConjunta(comando)
+	if err != nil {
+		return inscripcion.Actor{}, err
+	}
+	return p.preparar(r, false, nil, &operacionEscrituraInscripcion{material: material, conjunta: &comando})
 }
 
 func (p *preparadorInscripcionBolsa) PrepararDecision(r *http.Request, d inscripcion.Decision) (inscripcion.Actor, error) {
@@ -293,12 +304,20 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 			return vacio, inscripcion.ErrSolicitudInvalida
 		}
 	}
+	var recursosConjunta []string
 	if accion == inscripcion.AccionPresentar {
-		if escritura == nil || escritura.presentacion == nil {
+		if escritura == nil || (escritura.presentacion == nil) == (escritura.conjunta == nil) {
 			return vacio, inscripcion.ErrSolicitudInvalida
 		}
-		recurso, err = inscripcion.ReferenciaSolicitud(actor.PersonaRef, *escritura.presentacion)
-		if err != nil {
+		if escritura.conjunta != nil {
+			for _, categoria := range escritura.conjunta.Categorias() {
+				ref, err := inscripcion.ReferenciaSolicitud(actor.PersonaRef, escritura.conjunta.PorCategoria(categoria))
+				if err != nil {
+					return vacio, inscripcion.ErrSolicitudInvalida
+				}
+				recursosConjunta = append(recursosConjunta, ref)
+			}
+		} else if recurso, err = inscripcion.ReferenciaSolicitud(actor.PersonaRef, *escritura.presentacion); err != nil {
 			return vacio, inscripcion.ErrSolicitudInvalida
 		}
 	}
@@ -337,12 +356,36 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 	if escritura.ref != "" && escritura.ref != recurso {
 		return vacio, inscripcion.ErrSolicitudInvalida
 	}
-	hash := sha256.Sum256(escritura.material)
+	if escritura.conjunta != nil {
+		for _, ref := range recursosConjunta {
+			concesion, err := c.Autoridad.AutorizarEscritura(r.Context(), ctx, acreditacion, accion, ref, escritura.material)
+			if err != nil || !concesionEscrituraInscripcionValida(c, ctx, acreditacion, accion, ref, escritura.material, concesion) {
+				return vacio, inscripcion.ErrAccesoDenegado
+			}
+			actor.EscriturasConjuntas = append(actor.EscriturasConjuntas, inscripcion.EscrituraAutorizada{
+				Material: concesion.Material, RecursoCanonico: bytes.Clone(concesion.RecursoCanonico)})
+		}
+		return actor, nil
+	}
 	concesion, err := c.Autoridad.AutorizarEscritura(r.Context(), ctx, acreditacion, accion, recurso, escritura.material)
+	if err != nil || !concesionEscrituraInscripcionValida(c, ctx, acreditacion, accion, recurso, escritura.material, concesion) {
+		return vacio, inscripcion.ErrAccesoDenegado
+	}
+	actor.MaterialEscritura = &concesion.Material
+	actor.RecursoEscrituraCanonico = bytes.Clone(concesion.RecursoCanonico)
+	return actor, nil
+}
+
+// concesionEscrituraInscripcionValida coteja la concesión con la sesión, la
+// operación, el recurso y el material exactos pedidos.
+func concesionEscrituraInscripcionValida(c ConfiguracionPreparadorInscripcionBolsa, ctx contextoSeguridadComunDesarrollo,
+	acreditacion AcreditacionSesionInscripcionBolsa, accion, recurso string, material []byte,
+	concesion AutorizacionEscrituraInscripcionBolsa) bool {
+	hash := sha256.Sum256(material)
 	ahoraEscritura := c.Reloj.Ahora().UTC().Truncate(time.Microsecond)
 	resumen := concesion.Material.ResumenCapacidad()
 	huellaRecurso := sha256.Sum256(concesion.RecursoCanonico)
-	if err != nil || !ahoraEscritura.Before(acreditacion.ValidaHasta) ||
+	return !(!ahoraEscritura.Before(acreditacion.ValidaHasta) ||
 		!ctx.Vinculo.VigenteEn(ahoraEscritura, ctx.Resultado) ||
 		concesion.Accion != accion || concesion.Recurso != recurso || concesion.MaterialSHA256 != hex.EncodeToString(hash[:]) ||
 		len(concesion.RecursoCanonico) == 0 || len(concesion.RecursoCanonico) > 8192 ||
@@ -352,12 +395,7 @@ func (p *preparadorInscripcionBolsa) preparar(r *http.Request, rrhh bool, lectur
 		ahoraEscritura.Before(resumen.EmitidaEn()) || !ahoraEscritura.Before(resumen.ExpiraEn()) ||
 		!bytes.Equal(concesion.Material.ContextoActorCanonico(), ctx.Resultado.RepresentacionCanonica) ||
 		concesion.Material.PersonaVersion() != ctx.Resultado.Contexto.Instantanea.PersonaVersion ||
-		concesion.Material.PerfilVersion() != ctx.Resultado.Contexto.Instantanea.PerfilVersion {
-		return vacio, inscripcion.ErrAccesoDenegado
-	}
-	actor.MaterialEscritura = &concesion.Material
-	actor.RecursoEscrituraCanonico = bytes.Clone(concesion.RecursoCanonico)
-	return actor, nil
+		concesion.Material.PerfilVersion() != ctx.Resultado.Contexto.Instantanea.PerfilVersion)
 }
 
 func contextoInscripcionBolsaValido(ctx contextoSeguridadComunDesarrollo, persona, perfil, cuenta string, rrhh bool, ahora time.Time) bool {
