@@ -31,6 +31,8 @@ PRUEBAS_SQL = (
     'deploy/postgresql/bolsa_convocatorias/pruebas_sql/bc12_rechazo_inscripcion_conjunta_v1.sql',
     'deploy/postgresql/bolsa_convocatorias/pruebas_sql/bc14_publicacion_oficial_bases.sql',
     'deploy/postgresql/bolsa_convocatorias/pruebas_sql/bc15_declaracion_publicacion_oficial_rrhh.sql',
+    'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad301_publicacion_oficial_bases.sql',
+    'deploy/postgresql/bolsa_convocatorias/pruebas_sql/bc17_recuperacion_mismo_perfil.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b142_modalidad_inscripcion_aspirante.sql',
     'deploy/postgresql/bolsa_llamamientos/pruebas_sql/b146_solicitud_conjunta.sql',
     'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ad302_recibo_comprobacion_precedencia.sql',

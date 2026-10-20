@@ -330,6 +330,13 @@ la rama documental RRHH exige certificado y garantía alta, conservando el
 consumo externo del justificante. F1-13 usa AD296 aparte; los consumidores de
 Cronos, Dietas y denominaciones administrativas esperan contratos posteriores.
 
+F1-95B añade el perfil `publicacion_oficial_bases_rrhh` y su consumidor
+nominal en AD301, exclusivo del propietario de Convocatorias. BC17 conserva
+los permisos de BC15 y compara la huella firmada del recurso con la de la
+petición y los ámbitos de la política vigente; no presupone campos ajenos al
+canon de decisión. La recuperación exige el mismo perfil que el enlace del
+acto original. Activación: `deploy/principal/f1_95_publicacion_bases_web/`.
+
 AD304 (F1-106) añade solo la fila 7 a
 `conjunto_audiencias_capacidad_admin_v1`: conserva el conjunto 6 y suma las
 dos audiencias ya admitidas de propuesta y cierre de roles nuevos. Las claves

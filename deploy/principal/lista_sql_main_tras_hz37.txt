@@ -215,5 +215,10 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000145_ambito_actos_bolsa.up.sq
 # F1-103 — AD302: la lectura auditada del origen CT pone entre paréntesis e#>>... al cotejar el recibo de la comprobación de ofrecimiento; sin ellos daba 22P02 y la selección del llamamiento respondía 409
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000302_recibo_comprobacion_precedencia.up.sql 82e7c55732823d6ca35fd431599fdfafc17ae17527ea8bfcb8d7d7130c2ab71e
 
+# F1-95 parte B — AD301: perfil de publicación oficial de las bases; tras BC15 y núcleo vigente.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000301_perfil_publicacion_oficial_bases.up.sql c1ab7024d2b243cc5de9212f2c46f5eccf63adf8c4b4fadb935e2be7b7d593cb
+# F1-95 parte B — BC17: cotejo de huella firmada y recuperación con el perfil original; tras BC15 y AD301.
+deploy/postgresql/bolsa_convocatorias/migraciones/000017_recuperacion_publicacion_mismo_perfil.up.sql c00e543f89fa22ca498feb797b79d437c7fb6148401b1a01463c5c293b5049d1
+
 # F1-106 — AD304: conjunto ADMIN 7 de solo adición para publicar roles nuevos con AUT60; tras AD248 y AD291.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000304_conjunto_admin_gobierno_roles.up.sql fb8defc9c4ed01b02a2b267df5176418815eaf9283cf993b3a77dc0b92d09a45

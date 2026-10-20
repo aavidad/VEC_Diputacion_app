@@ -76,9 +76,11 @@ exactamente una propuesta, un cierre, un rol y dos asignaciones. El cierre
 conservó recibo, fecha y auditoría, y las dos técnicas volvieron a obtener
 200 y 403 en los mismos ámbitos.
 
-La integración posterior de `main@3c643ce34` no cambia las migraciones, la
-lista SQL, el código Go de producto ni los tres preparadores OH ensayados.
-Conserva las dos órdenes independientes de la fábrica, Personal y
-Organización histórica. Las pruebas focales del ensayador y de la fábrica
-pasan sobre la composición; la integración y el cierre de la tarea
+La integración posterior de `main@3ef7dee0b` incorpora AD301 y BC17, de la
+publicación oficial de bases. La lista mantiene primero las SQL de main y
+AD304 al final. Se conservan el Go de producto, las fachadas AUT60 y los tres
+preparadores OH del recorrido. La fábrica conserva las órdenes independientes
+Personal y Organización histórica. La unión requiere la comprobación SQL de
+las 135 migraciones y 20 pruebas de esta lista; no se reaplica ninguna SQL en
+la copia que conserva los actos. La integración y el cierre de la tarea
 corresponden a dirección.
