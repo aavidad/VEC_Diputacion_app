@@ -9,8 +9,9 @@ lista vacía; el vínculo con una emisión de Bolsa no es requisito de lectura.
 
 1. Crear una copia propia con la receta de `LEEME_copia_local.md`, apartados
    2 y 4, `--modulos`, el material original de RRHH y la lista
-   `lista_sql_main_tras_hz37.txt`. Añadir, después, la lista
-   `lista_sql_codexy_comunicaciones_f1_124.txt` mediante otro `--lista-sql`.
+   `lista_sql_main_tras_hz37.txt`, que ya incluye CT248. Para una copia
+   existente donde CT248 aún no esté instalada, la lista aislada es
+   `lista_sql_codexy_comunicaciones_f1_124.txt`; no combinar ambas listas.
 2. Instalar juntos CT248 y el binario de esta entrega. CT248 exige la
    definición instalada de CT231 y conserva propietario, permisos y
    configuración. Rechaza una segunda instalación. No requiere datos ni
@@ -38,8 +39,8 @@ Cada intento termina su transacción antes de obtener otra autorización;
 consumo y auditoría se confirman junto con la lectura. No se devuelven datos
 del intento abortado.
 
-Los bloqueos `55P03`, las inconsistencias `P1405`, las denegaciones y los
-fallos de conexión conservan su error, sin reintento automático. No se añade
+Los bloqueos `55P03` siguen traduciéndose a `P1405`, sin reintento. Las
+inconsistencias, denegaciones y fallos de conexión tampoco se reintentan. No se añade
 ninguna concesión ni se transforma un fallo en una lista vacía.
 
 ## Validación
