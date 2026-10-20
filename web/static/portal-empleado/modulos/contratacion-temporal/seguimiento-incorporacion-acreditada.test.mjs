@@ -101,7 +101,7 @@ test("cada «pendiente» del seguimiento dice qué falta y quién lo hace", asyn
   const conIncorporacion = await pintar({});
   assert.match(conIncorporacion, /Pendiente: RRHH lo registra cuando termine la relación\./u);
   assert.match(conIncorporacion, /Pendiente: RRHH graba el alta en GINPIX y anota aquí el número\./u);
-  assert.match(await pintar({ cese }), /Pendiente: falta confirmar la ficha de GINPIX\./u);
+  assert.match(await pintar({ cese }), /Pendiente: RRHH anota aquí el número de alta de GINPIX para poder cerrar\./u);
   assert.match(await pintar({ cese, ginpix }), /Pendiente: RRHH ya puede cerrar el expediente\./u);
   for (const html of [sinIncorporacion, conIncorporacion]) assert.doesNotMatch(html, /<dd>Pendiente<\/dd>/u, "ningún pendiente sin motivo");
 });

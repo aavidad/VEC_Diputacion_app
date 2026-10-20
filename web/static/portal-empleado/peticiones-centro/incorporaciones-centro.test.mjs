@@ -90,7 +90,7 @@ test("sin permiso de confirmar solo se ve el estado pendiente", async () => {
   montarIncorporacionesCentro({ contenedor: c, cliente: { bandeja: async () => validarBandejaIncorporaciones(bandeja({ puede_confirmar: false })) } });
   await esperar();
   assert.doesNotMatch(c.innerHTML, /data-ic-abrir/u);
-  assert.match(c.innerHTML, /Pendiente de confirmar<\/span><span class="pc-motivo">La confirma la persona del centro que tiene permiso para ello\.<\/span>/u);
+  assert.match(c.innerHTML, /Pendiente de confirmar<\/span><span class="pc-motivo">Solo puede confirmarla la persona del centro con permiso para ello\.<\/span>/u);
 });
 
 test("cada «no procede» explica el motivo y quién tiene que actuar", async () => {
@@ -100,7 +100,7 @@ test("cada «no procede» explica el motivo y quién tiene que actuar", async ()
     fila({ expediente_ref: "expediente:ct:2", documento_exigido: "" }),
     fila({ expediente_ref: "expediente:ct:3", fase: "nombramiento", estado: "completado", documento_exigido: "" })] })) } });
   await esperar();
-  assert.match(c.innerHTML, /Aún no procede<\/span><span class="pc-motivo">La confirmación del centro no está disponible en esta fase\. Consulte el expediente con RRHH\./u);
+  assert.match(c.innerHTML, /Aún no procede<\/span><span class="pc-motivo">La confirmación del centro no está disponible en esta fase\. No tiene que hacer nada por ahora\./u);
   assert.match(c.innerHTML, /Aún no procede<\/span><span class="pc-motivo">Falta indicar qué documento acredita la incorporación\. Avise a RRHH/u);
   assert.match(c.innerHTML, /<td>Expediente cerrado<\/td><td><span class="pc-estado">No procede<\/span><\/td>/u);
   assert.equal((c.innerHTML.match(/Aún no procede/gu) ?? []).length, 2);
@@ -117,7 +117,7 @@ test("las fases posteriores sin confirmación no niegan el nombramiento ni permi
       assert.match(c.innerHTML, idioma === "es"
         ? /La confirmación del centro no está disponible en esta fase/u
         : /The centre cannot confirm the start in this phase/u);
-      assert.doesNotMatch(c.innerHTML, /todavía no ha nombrado|has not yet appointed|data-ic-abrir/u);
+      assert.doesNotMatch(c.innerHTML, /todavía no ha nombrado|has not yet appointed|llegue al nombramiento|reaches the appointment|data-ic-abrir/u);
     }
   }
 });
