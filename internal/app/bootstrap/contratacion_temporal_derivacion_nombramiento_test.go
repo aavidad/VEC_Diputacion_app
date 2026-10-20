@@ -194,8 +194,21 @@ func TestReplayHijoV5SinReciboNominalQuedaCerrado(t *testing.T) {
 		DerivacionRef: "derivacion:prueba", PadreRef: e.PadreRef, OfertaRef: e.OfertaRef,
 		NumeroPlaza: e.NumeroPlaza, ReciboDerivacionRef: "recibo:derivacion:prueba",
 	}
-	if replayHijoDerivacionNombramientoConfiable(hijo, hijoRef, e) {
+	confiable, err := replayHijoDerivacionNombramientoConfiable(hijo, hijoRef, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if confiable {
 		t.Fatal("la proyección V5 sin recibo nominal acreditó un replay")
+	}
+}
+
+func TestReplayHijoPropagaErrorDeConsulta(t *testing.T) {
+	_, esperado := ports.NuevaSolicitudDetalleRRHH("", 0)
+	confiable, err := replayHijoDerivacionNombramientoConfiable(
+		ports.DetalleExpedienteRRHH{}, "", ports.EntradaDerivacionNombramiento{})
+	if esperado == nil || confiable || !errors.Is(err, esperado) {
+		t.Fatalf("error de consulta perdido: confiable=%v err=%v esperado=%v", confiable, err, esperado)
 	}
 }
 

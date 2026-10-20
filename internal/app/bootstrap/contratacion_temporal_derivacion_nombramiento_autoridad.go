@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -76,7 +77,14 @@ func (p preparadorDerivacionNombramientoDesarrollo) PrepararDerivacionNombramien
 		hijoRef := ports.HijoRefDerivacionNombramiento(
 			organizacionAltaContratacionTemporalDesarrollo, e.PadreRef, e.NumeroPlaza)
 		hijo, fallo := p.leerDetalle(lectura, hijoRef)
-		if fallo != nil || !replayHijoDerivacionNombramientoConfiable(hijo, hijoRef, e) {
+		if fallo != nil {
+			return vacio, ports.ErrDerivacionNombramientoNoDisponible
+		}
+		confiable, err := replayHijoDerivacionNombramientoConfiable(hijo, hijoRef, e)
+		if err != nil {
+			return vacio, fmt.Errorf("%w: %w", ports.ErrDerivacionNombramientoNoDisponible, err)
+		}
+		if !confiable {
 			return vacio, ports.ErrDerivacionNombramientoNoDisponible
 		}
 		unidad = hijo.Resumen.UnidadRef
@@ -119,9 +127,12 @@ func (p preparadorDerivacionNombramientoDesarrollo) leerDetalle(ctx context.Cont
 
 func replayHijoDerivacionNombramientoConfiable(d ports.DetalleExpedienteRRHH,
 	hijoRef string, e ports.EntradaDerivacionNombramiento,
-) bool {
+) (bool, error) {
 	q, err := ports.NuevaSolicitudDetalleRRHH(hijoRef, 0)
-	if err != nil || d.Resumen.ExpedienteRef != hijoRef || d.Resumen.Version != 6 ||
+	if err != nil {
+		return false, err
+	}
+	if d.Resumen.ExpedienteRef != hijoRef || d.Resumen.Version != 6 ||
 		d.Resumen.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 		!domain.ReferenciaOpacaValida(d.Resumen.UnidadRef) ||
 		d.InstruccionCompartida == nil ||
@@ -130,12 +141,12 @@ func replayHijoDerivacionNombramientoConfiable(d ports.DetalleExpedienteRRHH,
 		!domain.InstanteUTCCanonico(d.Lectura.RegistradaEn()) ||
 		d.Lectura.RegistradaEn().Before(d.Resumen.ActualizadoEn) ||
 		d.ValidarContenidoPublicablePara(q) != nil {
-		return false
+		return false, nil
 	}
 	i := d.InstruccionCompartida
 	return hijoRef == ports.HijoRefDerivacionNombramiento(organizacionAltaContratacionTemporalDesarrollo, e.PadreRef, e.NumeroPlaza) &&
 		i.PadreRef == e.PadreRef && i.OfertaRef == e.OfertaRef && i.NumeroPlaza == e.NumeroPlaza &&
-		domain.ReferenciaOpacaValida(i.ReciboDerivacionRef)
+		domain.ReferenciaOpacaValida(i.ReciboDerivacionRef), nil
 }
 
 type autorizadorDerivacionNombramientoDesarrollo struct {
