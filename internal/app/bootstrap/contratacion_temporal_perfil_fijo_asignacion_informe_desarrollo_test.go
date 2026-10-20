@@ -60,18 +60,18 @@ func TestInformeJuridicoPerfilFijoAdmiteSoloParesDelCatalogo(t *testing.T) {
 		{"4", "solicitud", string(domain.EstadoEnCurso), false},
 	} {
 		datos := datosInformeJuridicoPerfilFijoPrueba("expediente:informe:uno", caso.version, caso.fase, caso.estado)
-		if solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(ruta, datos, fase) != caso.valida {
+		if solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ruta, datos, fase) != caso.valida {
 			t.Fatalf("v%s %s/%s: validez distinta de %v", caso.version, caso.fase, caso.estado, caso.valida)
 		}
 	}
 	datos := datosInformeJuridicoPerfilFijoPrueba("expediente:informe:uno", "4", "asignacion_unidad", string(domain.EstadoEnCurso))
 	datos.Recurso.Ambitos["expediente_ref"] = "expediente:informe:uno"
-	if solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(ruta, datos, fase) {
+	if solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ruta, datos, fase) {
 		t.Fatal("aceptado con el expediente en los ámbitos")
 	}
 	// La plantilla del perfil cubre las fases y estados declarados, sin
 	// expediente.
-	plantilla, err := nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(
+	plantilla, err := nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		"persona:tecnica:desarrollo:001", "perfil:tecnico:desarrollo:001", time.Now().UTC(), fase)
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +83,7 @@ func TestInformeJuridicoPerfilFijoAdmiteSoloParesDelCatalogo(t *testing.T) {
 	if len(ambitos) != 3 || len(ambitos["fase_previa"]) != 2 || len(ambitos["estado_previo"]) != 2 || ambitos["expediente_ref"] != nil {
 		t.Fatalf("ámbitos del perfil del informe inesperados: %+v", ambitos)
 	}
-	if _, err := nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(
+	if _, err := nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		"persona:tecnica:desarrollo:001", "perfil:tecnico:desarrollo:001", time.Now().UTC(), faseOperacionCT{}); err == nil {
 		t.Fatal("plantilla creada sin fases")
 	}

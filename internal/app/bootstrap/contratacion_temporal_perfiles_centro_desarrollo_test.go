@@ -91,7 +91,7 @@ func escenarioIdentidadCentroPrueba(t *testing.T, sufijo string) (*identidadPeti
 		TipoRecurso: ports.TipoRecursoPeticionCentro, Finalidades: []string{finalidadPeticionCentro}, GarantiaMinima: vecdomain.AuthAssuranceHigh}},
 		cancelacion.concesiones("solicitante_centro")...)
 	registro := &registroCentroPrueba{}
-	id, err := nuevaIdentidadPeticionCentroDesarrollo(base.sello, registro, nil, principal,
+	id, err := nuevaIdentidadPeticionCentroDesarrollo(referenciaOrganizativaCTMontajePrueba, base.sello, registro, nil, principal,
 		adscripcionCentroDesarrollo{CentroRef: "centro-520", PuestoRef: "rpt-520-735"}, concesiones,
 		cancelacion.concesionCancelar("solicitante_centro"), base.reloj)
 	if err != nil {
@@ -119,7 +119,7 @@ func exigirCentroPrueba(ctx context.Context, p perfilCentroDesarrollo, accion, f
 		Accion: accion, Recurso: recurso, Finalidad: finalidad, Correlacion: correlacion}
 	ctx = context.WithValue(ctx, claveMaterialPeticionCentroDesarrollo{}, materialAutorizacionPeticionCentroDesarrollo{
 		cancelacion: &recursoCancelacionCentroDesarrollo{accion: accion, finalidad: finalidad, recurso: recurso, actor: p.actor}})
-	if !solicitudAutorizacionPeticionCentroDesarrolloValida(ctx, datos) {
+	if !solicitudAutorizacionPeticionCentroDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, datos) {
 		return errors.New("solicitud del centro no válida")
 	}
 	s, err := vecdomain.NuevaSolicitudAutorizacionLigadaV3(datos)

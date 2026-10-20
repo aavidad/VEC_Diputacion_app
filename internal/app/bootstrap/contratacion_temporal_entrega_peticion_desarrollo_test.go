@@ -343,14 +343,14 @@ func TestEntregaPeticionDesarrolloLigaIdentidadMaterialYAltaOriginal(t *testing.
 	}
 	d := vecdomain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: c.Vinculo, ReferenciaMotivo: motivoEntregaPeticionDesarrollo(), Accion: ports.AccionConsultarPeticionesRRHH, Recurso: r, Finalidad: ports.FinalidadEntregaPeticionCentro}
 	ctx := context.WithValue(context.Background(), claveMaterialEntregaPeticionDesarrollo{}, m)
-	if !solicitudAutorizacionEntregaPeticionValida(ctx, d) {
+	if !solicitudAutorizacionEntregaPeticionValida(referenciaOrganizativaCTMontajePrueba, ctx, d) {
 		t.Fatal("consulta propia denegada")
 	}
 	d.Recurso.Atributos["material_sha256"] = strings.Repeat("b", 64)
-	if solicitudAutorizacionEntregaPeticionValida(ctx, d) {
+	if solicitudAutorizacionEntregaPeticionValida(referenciaOrganizativaCTMontajePrueba, ctx, d) {
 		t.Fatal("material alterado autorizado")
 	}
-	if solicitudAutorizacionEntregaPeticionValida(context.Background(), d) {
+	if solicitudAutorizacionEntregaPeticionValida(referenciaOrganizativaCTMontajePrueba, context.Background(), d) {
 		t.Fatal("cliente sin material de servidor autorizado")
 	}
 	for _, rol := range []string{"solicitante_centro", "ratificador_centro", "intervencion"} {
@@ -369,14 +369,14 @@ func TestEntregaPeticionDesarrolloLigaIdentidadMaterialYAltaOriginal(t *testing.
 	d.Accion, d.Finalidad = ports.AccionCrearSolicitud, ports.FinalidadCrearSolicitud
 	d.Recurso = vecdomain.RecursoAutorizable{Referencia: "expediente:001", ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoExpediente, Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo, "centro_ref": "centro-520", "categoria_ref": categoriaAltaContratacionTemporalDesarrollo}}
 	ctx = context.WithValue(context.Background(), claveAltaDePeticionDesarrollo{}, e)
-	if !solicitudAutorizacionAltaDePeticionValida(ctx, d) {
+	if !solicitudAutorizacionAltaDePeticionValida(referenciaOrganizativaCTMontajePrueba, ctx, d) {
 		t.Fatal("alta de original ratificado denegada")
 	}
 	d.Recurso.Ambitos["centro_ref"] = "centro:otro"
-	if solicitudAutorizacionAltaDePeticionValida(ctx, d) {
+	if solicitudAutorizacionAltaDePeticionValida(referenciaOrganizativaCTMontajePrueba, ctx, d) {
 		t.Fatal("alta de otro centro autorizada")
 	}
-	if solicitudAutorizacionAltaDePeticionValida(context.Background(), d) {
+	if solicitudAutorizacionAltaDePeticionValida(referenciaOrganizativaCTMontajePrueba, context.Background(), d) {
 		t.Fatal("alta sin reserva confiable autorizada")
 	}
 }

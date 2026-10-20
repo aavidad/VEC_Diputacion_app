@@ -21,7 +21,7 @@ func soporteFiscalizacionPerfilFijoPrueba(t *testing.T) (
 	if err != nil {
 		t.Fatal(err)
 	}
-	plantilla, err := nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef,
+	plantilla, err := nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba, v.PrincipalID, v.PerfilActivoRef,
 		time.Now().UTC().Truncate(time.Microsecond), faseFiscalizacionPrueba)
 	if err != nil {
 		t.Fatal(err)

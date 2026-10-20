@@ -47,7 +47,7 @@ func TestOrganizacionSirveCatalogoExistenteSinCambiarAlta(t *testing.T) {
 	if conteos["centro"] != 41 || conteos["delegacion"] != 14 || conteos["puesto_responsabilidad"] != 11 || !alfaNumerico {
 		t.Fatalf("conteos/código alfanumérico incorrectos: %v, %v", conteos, alfaNumerico)
 	}
-	alta, err := nuevoOrigenConsultasContratacionTemporalDesarrollo().catalogosAlta()
+	alta, err := nuevoOrigenConsultasContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba).catalogosAlta()
 	if err != nil || len(alta.Centros) != 1 || alta.Centros[0].Referencia != centroAltaContratacionTemporalDesarrollo {
 		t.Fatal("la consulta organizativa no debe ampliar centros autorizados")
 	}

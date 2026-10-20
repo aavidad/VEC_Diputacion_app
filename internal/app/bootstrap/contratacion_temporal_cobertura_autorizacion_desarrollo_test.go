@@ -494,7 +494,7 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 	if err != nil {
 		t.Fatal(err)
 	}
-	alta, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+	alta, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		vinculo.PrincipalID,
 		vinculo.PerfilActivoRef,
 		ahora,
@@ -503,7 +503,7 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 		t.Fatal(err)
 	}
 	coberturaVEC, err :=
-		nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
+		nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 			vinculo.PrincipalID,
 			vinculo.PerfilActivoRef,
 			ahora,
@@ -512,7 +512,7 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 		t.Fatal(err)
 	}
 	analisisVEC, err :=
-		nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
+		nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 			vinculo.PrincipalID,
 			vinculo.PerfilActivoRef,
 			ahora,
@@ -522,6 +522,7 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 		t.Fatal(err)
 	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
+		referenciaCT:      referenciaOrganizativaCTMontajePrueba,
 		sello:             &selloConsultasContratacionTemporalDesarrollo{},
 		principalID:       principal.ID,
 		certificadoSHA256: principal.Attributes["certificate_sha256"],
@@ -601,7 +602,7 @@ func TestRolAnalisisRectificacionNoReutilizaVersionHistorica(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	actual, err := nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, soporte.reloj.Ahora(), fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT])
+	actual, err := nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba, vinculo.PrincipalID, vinculo.PerfilActivoRef, soporte.reloj.Ahora(), fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT])
 	if err != nil {
 		t.Fatal(err)
 	}

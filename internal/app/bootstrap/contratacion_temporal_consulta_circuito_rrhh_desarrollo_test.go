@@ -69,17 +69,17 @@ func TestConsultaCircuitoRRHHV3LigaSolicitudYRecursoExactos(t *testing.T) {
 		Finalidad:        "gestionar_contratacion_temporal",
 		ReferenciaMotivo: motivoConsultaCircuitoRRHHDesarrollo(),
 	}
-	if !solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos) {
+	if !solicitudAutorizacionConsultaCircuitoRRHHValida(referenciaOrganizativaCTMontajePrueba, ctx, datos) {
 		t.Fatal("la consulta exacta se ha denegado")
 	}
 	datos.Recurso.Atributos = maps.Clone(recurso.Atributos)
 	datos.Recurso.Atributos["material_sha256"] = huellaAltaContratacionTemporalDesarrollo("otra-consulta")
-	if solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos) {
+	if solicitudAutorizacionConsultaCircuitoRRHHValida(referenciaOrganizativaCTMontajePrueba, ctx, datos) {
 		t.Fatal("se aceptó otra versión o expediente con el mismo permiso")
 	}
 	datos.Recurso = recurso
 	datos.Accion = ports.AccionConsultarDetalleRRHH
-	if solicitudAutorizacionConsultaCircuitoRRHHValida(ctx, datos) {
+	if solicitudAutorizacionConsultaCircuitoRRHHValida(referenciaOrganizativaCTMontajePrueba, ctx, datos) {
 		t.Fatal("se aceptó un permiso de consulta del detalle antiguo")
 	}
 }

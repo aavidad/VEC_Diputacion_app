@@ -37,7 +37,7 @@ func TestRespuestaRecibidaDesarrolloLigaPermisoPropioYMaterialCompleto(t *testin
 		t.Fatal(err)
 	}
 	d := dominiovec.DatosSolicitudAutorizacionLigadaV3{Finalidad: "gestionar_contratacion_temporal", ReferenciaMotivo: motivoRespuestaRecibidaDesarrollo(), Accion: postgresct.AccionRegistroRespuestaRecibida, Recurso: r}
-	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaRegistroRespuestaRecibida, d) {
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaRegistroRespuestaRecibida, d) {
 		t.Fatal("ligadura válida rechazada")
 	}
 	for nombre, mutar := range map[string]func(*dominiovec.DatosSolicitudAutorizacionLigadaV3){
@@ -55,12 +55,12 @@ func TestRespuestaRecibidaDesarrolloLigaPermisoPropioYMaterialCompleto(t *testin
 		t.Run(nombre, func(t *testing.T) {
 			otro := d
 			mutar(&otro)
-			if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaRegistroRespuestaRecibida, otro) {
+			if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaRegistroRespuestaRecibida, otro) {
 				t.Fatal("ampliación de autoridad")
 			}
 		})
 	}
-	if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaRegistroComunicacionLlamamiento, d) {
+	if solicitudAutorizacionLlamamientoDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, httpinterno.RutaRegistroComunicacionLlamamiento, d) {
 		t.Fatal("respuesta admitida por permiso de aviso")
 	}
 }

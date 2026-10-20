@@ -12,7 +12,7 @@ import (
 // catálogo ya compuesto, sin red ni identidad: solo el contenido de la respuesta.
 func servirCatalogosAltaPrueba(t *testing.T, catalogo *catalogosAltaContratacionTemporalDesarrollo) map[string]json.RawMessage {
 	t.Helper()
-	ruta, err := nuevaRutaCatalogosAltaContratacionTemporalDesarrollo(nuevoOrigenConsultasConCatalogoDesarrollo(catalogo))
+	ruta, err := nuevaRutaCatalogosAltaContratacionTemporalDesarrollo(nuevoOrigenConsultasConCatalogoDesarrollo(referenciaOrganizativaCTMontajePrueba, catalogo))
 	if err != nil {
 		t.Fatal(err)
 	}

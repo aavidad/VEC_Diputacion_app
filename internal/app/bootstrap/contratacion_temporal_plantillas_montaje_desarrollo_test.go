@@ -130,14 +130,14 @@ func TestPlantillasCatalogoCTSolicitudesLimitadasACanalYMotivo(t *testing.T) {
 			Ambitos:   map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo},
 			Atributos: map[string]string{"material_sha256": sha}},
 	}
-	if !solicitudAutorizacionPlantillasCTDesarrolloValida(plantillashttp.RutaEntradas, base) {
+	if !solicitudAutorizacionPlantillasCTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, plantillashttp.RutaEntradas, base) {
 		t.Fatal("edición nominal CT131 rechazada")
 	}
-	if solicitudAutorizacionPlantillasCTDesarrolloValida(plantillashttp.RutaPublicar, base) {
+	if solicitudAutorizacionPlantillasCTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, plantillashttp.RutaPublicar, base) {
 		t.Fatal("edición aceptada en publicación")
 	}
 	base.Recurso.Ambitos["organizacion_ref"] = "organizacion:ajena"
-	if solicitudAutorizacionPlantillasCTDesarrolloValida(plantillashttp.RutaEntradas, base) {
+	if solicitudAutorizacionPlantillasCTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, plantillashttp.RutaEntradas, base) {
 		t.Fatal("organización ajena autorizada")
 	}
 }
@@ -199,7 +199,7 @@ func TestPlantillasCatalogoCTPerfilDedicadoYConcesionesLimitadas(t *testing.T) {
 		documental.contexto.Resultado.Contexto.Instantanea.CuentaRef != dedicado.contexto.Resultado.Contexto.Instantanea.CuentaRef {
 		t.Fatalf("perfil CT133 no segregado de CT131/base: %v", err)
 	}
-	semilla, err := instantaneaInicialPlantillasCatalogoCTDesarrollo(dedicado.contexto.Resultado.Contexto.Principal.ID, perfil, ahora)
+	semilla, err := instantaneaInicialPlantillasCatalogoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, dedicado.contexto.Resultado.Contexto.Principal.ID, perfil, ahora)
 	if err != nil || semilla.Validar() != nil || len(semilla.VersionRol.Concesiones) != 3 ||
 		len(semilla.AsignacionPerfil.Ambitos) != 1 || semilla.AsignacionPerfil.Ambitos[0].Clave != "organizacion_ref" ||
 		semilla.AsignacionPerfil.Ambitos[0].Valores[0] != organizacionAltaContratacionTemporalDesarrollo {
@@ -211,7 +211,7 @@ func TestPlantillasCatalogoCTPerfilDedicadoYConcesionesLimitadas(t *testing.T) {
 			t.Fatalf("concesión CT133 o ajena en CT131: %#v", concesion)
 		}
 	}
-	semillaDocumental, err := instantaneaInicialPlantillasDocumentalCTDesarrollo(
+	semillaDocumental, err := instantaneaInicialPlantillasDocumentalCTDesarrollo(referenciaOrganizativaCTMontajePrueba,
 		documental.contexto.Resultado.Contexto.Principal.ID, perfilDocumental, ahora)
 	if err != nil || semillaDocumental.Validar() != nil || len(semillaDocumental.VersionRol.Concesiones) != 3 ||
 		len(semillaDocumental.AsignacionPerfil.Ambitos) != 3 {
@@ -255,7 +255,7 @@ func (p *publicadorPerfilPlantillasCTPrueba) PublicarInicial(_ context.Context, 
 
 func TestPlantillasCatalogoCTSoloInicialConservaRevocacionRestriccionYReinicio(t *testing.T) {
 	ahora := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
-	semilla, err := instantaneaInicialPlantillasCatalogoCTDesarrollo("per_ct_plantillas", "prf_ct_plantillas", ahora)
+	semilla, err := instantaneaInicialPlantillasCatalogoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, "per_ct_plantillas", "prf_ct_plantillas", ahora)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +298,7 @@ func TestPlantillasCatalogoCTSoloInicialConservaRevocacionRestriccionYReinicio(t
 
 func TestPlantillasDocumentalCTSoloInicialNoRepueblaRevocacion(t *testing.T) {
 	ahora := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
-	semilla, err := instantaneaInicialPlantillasDocumentalCTDesarrollo("per_ct_documental", "prf_ct_documental", ahora)
+	semilla, err := instantaneaInicialPlantillasDocumentalCTDesarrollo(referenciaOrganizativaCTMontajePrueba, "per_ct_documental", "prf_ct_documental", ahora)
 	if err != nil {
 		t.Fatal(err)
 	}

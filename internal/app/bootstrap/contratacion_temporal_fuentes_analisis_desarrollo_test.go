@@ -12,7 +12,7 @@ import (
 func TestFuentesAnalisisDesarrolloPreparanCincoModalidadesAtestadas(t *testing.T) {
 	derivador := nuevoDerivadorIdempotenciaPrueba(t, 2, 1)
 	capacidad, err :=
-		nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
+		nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 			derivador,
 			relojContratacionTemporalDesarrollo{},
 			fuenteRetribucionesTablaAnteriorPrueba(t),
@@ -65,7 +65,7 @@ func TestFuentesAnalisisDesarrolloPreparanCincoModalidadesAtestadas(t *testing.T
 func TestFuentesAnalisisDesarrolloRechazanCatalogoManipulado(t *testing.T) {
 	derivador := nuevoDerivadorIdempotenciaPrueba(t, 2, 1)
 	capacidad, err :=
-		nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
+		nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 			derivador,
 			relojContratacionTemporalDesarrollo{},
 			fuenteRetribucionesTablaAnteriorPrueba(t),

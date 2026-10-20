@@ -293,7 +293,7 @@ func cuerpoAltaDesdeCatalogosContratacionTemporalDesarrolloPrueba(
 
 func TestEtiquetasReferenciasCatalogosAltaDesarrolloNombranCentroCategoriaYContacto(t *testing.T) {
 	t.Parallel()
-	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo()
+	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba)
 	etiquetar := origen.etiquetasReferenciasCatalogosAlta()
 	for referencia, esperado := range map[string]string{
 		centroAltaContratacionTemporalDesarrollo:    "Centro solicitante",
@@ -315,7 +315,7 @@ func TestEtiquetasReferenciasCatalogosAltaDesarrolloNombranCentroCategoriaYConta
 func TestCatalogosAltaDesarrolloConFicheroRPTPublica(t *testing.T) {
 	t.Parallel()
 	rutaRPT := "../../../data/catalogos/estructura-organizativa/v1.rpt-publica.json"
-	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo(rutaRPT)
+	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba, rutaRPT)
 	catalogos, err := origen.catalogosAlta()
 	if err != nil {
 		t.Fatalf("catalogosAlta con RPT fallo: %v", err)
@@ -428,7 +428,7 @@ func TestAltaConCentroRPTeYCategoriaA2RegistraYCentroAjenoSeRechaza(t *testing.T
 func TestSoporteAltaResolverFlujoYAutorizacionConCatalogoRPT(t *testing.T) {
 	t.Parallel()
 	rutaRPT := "../../../data/catalogos/estructura-organizativa/v1.rpt-publica.json"
-	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo(rutaRPT)
+	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba, rutaRPT)
 	flujoEsperado := ports.ConfiguracionAltaFlujo{
 		Flujo: domain.ReferenciaFlujo{
 			DefinicionRef: "flujo:ct:desarrollo",
@@ -543,7 +543,7 @@ func TestSoporteAltaResolverFlujoYAutorizacionConCatalogoRPT(t *testing.T) {
 	})
 
 	t.Run("AmbitoPerfil lista todos los centros de la RPT", func(t *testing.T) {
-		inst, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+		inst, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 			"principal-1", "perfil-1", time.Now().UTC(), origen,
 		)
 		if err != nil {

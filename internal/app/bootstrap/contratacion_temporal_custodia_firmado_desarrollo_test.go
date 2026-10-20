@@ -132,11 +132,11 @@ func TestPredicadoCustodiaFirmadoCTLigadoAlDocumentoYLaDecision(t *testing.T) {
 func TestInstantaneaFirmaIncluyeCustodiaSoloAlComponer(t *testing.T) {
 	v := dominiovec.DatosVinculoAutenticacionActorV2{PrincipalID: "per_0123456789abcdefghijkl", PerfilActivoRef: "perfil:ct:firma"}
 	ahora := time.Now().UTC()
-	sin, err := instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora, false)
+	sin, err := instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, v.PrincipalID, v.PerfilActivoRef, ahora, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	con, err := instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora, true)
+	con, err := instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, v.PrincipalID, v.PerfilActivoRef, ahora, true)
 	if err != nil {
 		t.Fatal(err)
 	}

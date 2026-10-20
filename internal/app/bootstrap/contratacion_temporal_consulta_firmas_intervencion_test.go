@@ -128,7 +128,7 @@ func escenarioLectorFirmasContextoCanonicoPrueba(t *testing.T) (*lectorFirmasInt
 		fijo: &perfilFijoCTDesarrollo{contexto: base, plantilla: dominiovec.InstantaneaAutorizacion{AsignacionPerfil: dominiovec.AsignacionPerfil{PerfilActivoRef: base.Resultado.Contexto.PerfilActivoRef}}}}
 	// Mutar el objeto entregado por la identidad no altera la copia privada.
 	original.Roles[0], original.Attributes["certificate_sha256"] = "rol:ajeno", strings.Repeat("b", 64)
-	perfil, err := prepararPerfilLectorFirmasIntervencionCTDesarrollo(canal)
+	perfil, err := prepararPerfilLectorFirmasIntervencionCTDesarrollo(referenciaOrganizativaCTMontajePrueba, canal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestLectorFirmasIntervencionDeniegaSemillaOContextoCruzados(t *testing.T) {
 			l, ctx := escenarioLectorFirmasContextoCanonicoPrueba(t)
 			caso.alterar(l)
 			if caso.preparar {
-				if _, err := prepararPerfilLectorFirmasIntervencionCTDesarrollo(l.canal); err == nil {
+				if _, err := prepararPerfilLectorFirmasIntervencionCTDesarrollo(referenciaOrganizativaCTMontajePrueba, l.canal); err == nil {
 					t.Fatal("semilla ajena admitida")
 				}
 			} else if _, err := l.contextoOperativo(ctx); !errors.Is(err, ports.ErrAutorizacionDenegada) {
@@ -244,7 +244,7 @@ func TestLectorFirmasIntervencionPerfilSoloLecturaOrganizacion(t *testing.T) {
 	perfil, err := nuevoPerfilFijoCTDesarrollo(principal, base, ahora, clavePerfilFijoLectorFirmasIntervencionCT,
 		[]string{httpinterno.RutaResultadosFiscalizacion},
 		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(actor, ref, ahora)
+			return nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, ref, ahora)
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -320,7 +320,7 @@ func TestLectorFirmasIntervencionDistingueRevocacionDeCaida(t *testing.T) {
 	perfil, err := nuevoPerfilFijoCTDesarrollo(p, base, ahora, clavePerfilFijoLectorFirmasIntervencionCT,
 		[]string{httpinterno.RutaResultadosFiscalizacion},
 		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(actor, ref, ahora)
+			return nuevaInstantaneaLectorFirmasIntervencionCTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, ref, ahora)
 		})
 	if err != nil {
 		t.Fatal(err)

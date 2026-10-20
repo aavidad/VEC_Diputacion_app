@@ -32,7 +32,7 @@ func nuevoEscenarioFirmasR5V2Prueba(t *testing.T) escenarioFirmasR5V2Prueba {
 	p, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmasR5V2CTDesarrollo,
 		[]string{httpinterno.RutaConsultaFirmasR5V2, httpinterno.RutaRecuperacionFirmasR5V2},
 		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaFirmasR5V2CTDesarrollo(actor, ref, ahora)
+			return nuevaInstantaneaFirmasR5V2CTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, ref, ahora)
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -175,12 +175,12 @@ func TestFirmasR5V2PredicadoLigaRutaAccionYAmbito(t *testing.T) {
 		return dominiovec.DatosSolicitudAutorizacionLigadaV3{Accion: accion, Recurso: recurso,
 			Finalidad: ports.FinalidadFirmaDocumento, ReferenciaMotivo: motivoFirmasR5V2CTDesarrollo()}
 	}
-	if !solicitudAutorizacionFirmasR5V2CTDesarrolloValida(httpinterno.RutaConsultaFirmasR5V2, datos(ports.AccionConsultarFirmasR5V2)) ||
-		!solicitudAutorizacionFirmasR5V2CTDesarrolloValida(httpinterno.RutaRecuperacionFirmasR5V2, datos(ports.AccionRecuperarFirmasR5V2)) {
+	if !solicitudAutorizacionFirmasR5V2CTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, httpinterno.RutaConsultaFirmasR5V2, datos(ports.AccionConsultarFirmasR5V2)) ||
+		!solicitudAutorizacionFirmasR5V2CTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, httpinterno.RutaRecuperacionFirmasR5V2, datos(ports.AccionRecuperarFirmasR5V2)) {
 		t.Fatal("solicitud exacta denegada")
 	}
-	if solicitudAutorizacionFirmasR5V2CTDesarrolloValida(httpinterno.RutaConsultaFirmasR5V2, datos(ports.AccionRecuperarFirmasR5V2)) ||
-		solicitudAutorizacionFirmasR5V2CTDesarrolloValida(httpinterno.RutaRecuperacionFirmasR5V2, datos(ports.AccionConsultarFirmasR5V2)) {
+	if solicitudAutorizacionFirmasR5V2CTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, httpinterno.RutaConsultaFirmasR5V2, datos(ports.AccionRecuperarFirmasR5V2)) ||
+		solicitudAutorizacionFirmasR5V2CTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, httpinterno.RutaRecuperacionFirmasR5V2, datos(ports.AccionConsultarFirmasR5V2)) {
 		t.Fatal("la ruta acepta la acción de la otra")
 	}
 	for nombre, alterar := range map[string]func(*dominiovec.DatosSolicitudAutorizacionLigadaV3){
@@ -205,14 +205,14 @@ func TestFirmasR5V2PredicadoLigaRutaAccionYAmbito(t *testing.T) {
 	} {
 		d := datos(ports.AccionConsultarFirmasR5V2)
 		alterar(&d)
-		if solicitudAutorizacionFirmasR5V2CTDesarrolloValida(httpinterno.RutaConsultaFirmasR5V2, d) {
+		if solicitudAutorizacionFirmasR5V2CTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, httpinterno.RutaConsultaFirmasR5V2, d) {
 			t.Fatalf("%s distinto aceptado", nombre)
 		}
 	}
 }
 
 func TestFirmasR5V2InstantaneaConcedeSoloLecturasExactas(t *testing.T) {
-	i, err := nuevaInstantaneaFirmasR5V2CTDesarrollo("per_r5v2_prueba", "prf_r5v2_prueba", time.Now().UTC().Truncate(time.Microsecond))
+	i, err := nuevaInstantaneaFirmasR5V2CTDesarrollo(referenciaOrganizativaCTMontajePrueba, "per_r5v2_prueba", "prf_r5v2_prueba", time.Now().UTC().Truncate(time.Microsecond))
 	if err != nil || i.Validar() != nil {
 		t.Fatal(err)
 	}

@@ -29,7 +29,7 @@ func TestReincorporacionPerfilFijoValidaEvidenciaYFormaCerrada(t *testing.T) {
 	recurso := recursoReincorporacionPerfilFijoPrueba("expediente:arbitrario")
 	datos := vecdomain.DatosSolicitudAutorizacionLigadaV3{Accion: string(domain.AccionRegistrarReincorporacionTitular),
 		Finalidad: ports.FinalidadRegistrarReincorporacionTitular, ReferenciaMotivo: motivoSeguimientoCeseDesarrollo(httpinterno.RutaReincorporacionesTitular), Recurso: recurso}
-	if !solicitudAutorizacionReincorporacionTitularValida(httpinterno.RutaReincorporacionesTitular, datos) {
+	if !solicitudAutorizacionReincorporacionTitularValida(referenciaOrganizativaCTMontajePrueba, httpinterno.RutaReincorporacionesTitular, datos) {
 		t.Fatal("recurso válido rechazado")
 	}
 	for _, caso := range []struct{ clave, valor string }{
@@ -44,18 +44,18 @@ func TestReincorporacionPerfilFijoValidaEvidenciaYFormaCerrada(t *testing.T) {
 			alterada := datos
 			alterada.Recurso.Atributos = maps.Clone(recurso.Atributos)
 			alterada.Recurso.Atributos[caso.clave] = caso.valor
-			if solicitudAutorizacionReincorporacionTitularValida(httpinterno.RutaReincorporacionesTitular, alterada) {
+			if solicitudAutorizacionReincorporacionTitularValida(referenciaOrganizativaCTMontajePrueba, httpinterno.RutaReincorporacionesTitular, alterada) {
 				t.Fatal("evidencia o forma alterada admitida")
 			}
 		})
 	}
 	for _, ruta := range []string{httpinterno.RutaCesesNombramiento, httpinterno.RutaCapacidadReincorporacionTitular} {
-		if solicitudAutorizacionReincorporacionTitularValida(ruta, datos) {
+		if solicitudAutorizacionReincorporacionTitularValida(referenciaOrganizativaCTMontajePrueba, ruta, datos) {
 			t.Fatalf("escritura CT130 admitida por ruta %s", ruta)
 		}
 	}
 	datos.Recurso.Ambitos["expediente_ref"] = recurso.Referencia
-	if solicitudAutorizacionReincorporacionTitularValida(httpinterno.RutaReincorporacionesTitular, datos) {
+	if solicitudAutorizacionReincorporacionTitularValida(referenciaOrganizativaCTMontajePrueba, httpinterno.RutaReincorporacionesTitular, datos) {
 		t.Fatal("expediente en ámbitos admitido")
 	}
 }

@@ -23,7 +23,7 @@ func TestFuentesAsignacionDesarrolloAceptanSoloDestinoSinteticoInicial(t *testin
 		ResponsableRef:    responsableAsignacionContratacionTemporalDesarrollo,
 		Instante:          instante,
 	}
-	destino, err := (resolutorDestinoAsignacionContratacionTemporalDesarrollo{}).
+	destino, err := (resolutorDestinoAsignacionContratacionTemporalDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba}).
 		ResolverDestinoAsignacion(context.Background(), solicitudDestino)
 	if err != nil {
 		t.Fatal(err)
@@ -45,14 +45,14 @@ func TestFuentesAsignacionDesarrolloAceptanSoloDestinoSinteticoInicial(t *testin
 		Destino:      destino,
 		Instante:     instante,
 	}
-	politica, err := (resolutorPoliticaAsignacionContratacionTemporalDesarrollo{fase: fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT]}).
+	politica, err := (resolutorPoliticaAsignacionContratacionTemporalDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba, fase: fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT]}).
 		ResolverPoliticaAsignacion(context.Background(), solicitudPolitica)
 	if err != nil || politica.ValidarPara(solicitudPolitica, instante) != nil {
 		t.Fatalf("política inicial no disponible: %#v / %v", politica, err)
 	}
 
 	solicitudDestino.ResponsableRef = solicitudDestino.ActorRef
-	if _, err := (resolutorDestinoAsignacionContratacionTemporalDesarrollo{}).
+	if _, err := (resolutorDestinoAsignacionContratacionTemporalDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba}).
 		ResolverDestinoAsignacion(
 			context.Background(),
 			solicitudDestino,
@@ -60,7 +60,7 @@ func TestFuentesAsignacionDesarrolloAceptanSoloDestinoSinteticoInicial(t *testin
 		t.Fatal("segregación de funciones no aplicada")
 	}
 	solicitudPolitica.Operacion = ports.OperacionRegistrarReasignacion
-	if _, err := (resolutorPoliticaAsignacionContratacionTemporalDesarrollo{fase: fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT]}).
+	if _, err := (resolutorPoliticaAsignacionContratacionTemporalDesarrollo{referenciaCT: referenciaOrganizativaCTMontajePrueba, fase: fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT]}).
 		ResolverPoliticaAsignacion(
 			context.Background(),
 			solicitudPolitica,
@@ -72,7 +72,7 @@ func TestFuentesAsignacionDesarrolloAceptanSoloDestinoSinteticoInicial(t *testin
 func TestAutoridadAsignacionDesarrolloConcedeSoloSolicitudExacta(t *testing.T) {
 	instante := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
 	instantanea, err :=
-		nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(
+		nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(referenciaOrganizativaCTMontajePrueba,
 			"persona:tecnica:desarrollo:001",
 			"perfil:tecnico:desarrollo:001",
 			instante,
@@ -117,7 +117,7 @@ func TestAutoridadAsignacionDesarrolloConcedeSoloSolicitudExacta(t *testing.T) {
 			},
 		},
 	}
-	if !solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(
+	if !solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba,
 		httpinterno.RutaAsignaciones,
 		datos,
 		fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT],
@@ -133,12 +133,12 @@ func TestAutoridadAsignacionDesarrolloConcedeSoloSolicitudExacta(t *testing.T) {
 			alterada.Recurso.Ambitos[k] = v
 		}
 		alterada.Recurso.Ambitos[clave] = valor
-		if solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(httpinterno.RutaAsignaciones, alterada, fase) {
+		if solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba, httpinterno.RutaAsignaciones, alterada, fase) {
 			t.Fatalf("solicitud con %s=%s aceptada", clave, valor)
 		}
 	}
 	datos.Recurso.Atributos["campo_ajeno"] = "no"
-	if solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(
+	if solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(referenciaOrganizativaCTMontajePrueba,
 		httpinterno.RutaAsignaciones,
 		datos,
 		fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT],

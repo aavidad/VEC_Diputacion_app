@@ -37,7 +37,7 @@ func TestPerfilFijoFirmaCustodiaDeclaradaAntesDePublicar(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, activa := range []bool{false, true} {
-		i, err := instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(v.PrincipalID, v.PerfilActivoRef, s.reloj.Ahora(), activa)
+		i, err := instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, v.PrincipalID, v.PerfilActivoRef, s.reloj.Ahora(), activa)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -113,7 +113,7 @@ func TestConsultaFirmasDocumentoClasificaCaidaPosteriorDelPDP(t *testing.T) {
 			perfil, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
 				[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
 				func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
-					return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, ref, ahora)
+					return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, ref, ahora)
 				})
 			if err != nil || s.registrarPerfilFijoCTDesarrollo(perfil) != nil {
 				t.Fatal("perfil no compuesto", err)
@@ -155,7 +155,7 @@ func TestConsultaFirmasDocumentoFuenteCaidaNoSeConfundeConRevocacion(t *testing.
 	fijo, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
 		[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
 		func(actor, perfil string) (dominiovec.InstantaneaAutorizacion, error) {
-			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, perfil, ahora)
+			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, perfil, ahora)
 		})
 	if err != nil || s.registrarPerfilFijoCTDesarrollo(fijo) != nil {
 		t.Fatal("perfil no compuesto", err)
@@ -225,7 +225,7 @@ func TestConsultaFirmasDocumentoPredicadoNoCruzaExpediente(t *testing.T) {
 	d := dominiovec.DatosSolicitudAutorizacionLigadaV3{Accion: ports.AccionConsultarFirmasDocumento,
 		Finalidad: ports.FinalidadFirmaDocumento, ReferenciaMotivo: motivoConsultaFirmasDocumentoCTDesarrollo(), Recurso: recurso}
 	ctx := context.WithValue(context.Background(), claveConsultaFirmasDocumentoCTDesarrollo{}, m)
-	if !solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx, d) {
+	if !solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, d) {
 		t.Fatal("lectura exacta denegada")
 	}
 	for _, modificar := range []func(*dominiovec.DatosSolicitudAutorizacionLigadaV3){
@@ -241,7 +241,7 @@ func TestConsultaFirmasDocumentoPredicadoNoCruzaExpediente(t *testing.T) {
 	} {
 		otro := d
 		modificar(&otro)
-		if solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(ctx, otro) {
+		if solicitudAutorizacionConsultaFirmasDocumentoCTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, otro) {
 			t.Fatal("lectura divergente admitida")
 		}
 	}
@@ -253,7 +253,7 @@ func TestConsultaFirmasDocumentoPerfilFijoConsumeSinPublicar(t *testing.T) {
 	fijo, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
 		[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
 		func(actor, perfil string) (dominiovec.InstantaneaAutorizacion, error) {
-			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, perfil, ahora)
+			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, perfil, ahora)
 		})
 	if err != nil || s.registrarPerfilFijoCTDesarrollo(fijo) != nil {
 		t.Fatal("perfil de firma no compuesto", err)
@@ -310,25 +310,25 @@ func TestPredicadoFirmaDocumentoLigadoAlMaterial(t *testing.T) {
 	datos := dominiovec.DatosSolicitudAutorizacionLigadaV3{Accion: ports.AccionFirmarDocumento, Finalidad: ports.FinalidadFirmaDocumento,
 		ReferenciaMotivo: motivoFirmaDocumentoCTDesarrollo(), Recurso: recurso}
 	ctx := context.WithValue(context.Background(), claveMaterialFirmaDocumentoCTDesarrollo{}, m)
-	if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) {
+	if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, datos) {
 		t.Fatal("la solicitud exacta no se admite")
 	}
-	if solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(context.Background(), datos) {
+	if solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, context.Background(), datos) {
 		t.Fatal("sin material ligado se admite")
 	}
 	otro := m
 	otro.MotivoDevolucion = "Otro motivo"
-	if solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(context.WithValue(context.Background(), claveMaterialFirmaDocumentoCTDesarrollo{}, otro), datos) {
+	if solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, context.WithValue(context.Background(), claveMaterialFirmaDocumentoCTDesarrollo{}, otro), datos) {
 		t.Fatal("un material distinto reutiliza la solicitud")
 	}
 	cambiada := datos
 	cambiada.Accion = "contratacion_temporal.seguimiento.cerrar"
-	if solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, cambiada) {
+	if solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, ctx, cambiada) {
 		t.Fatal("otra acción admitida")
 	}
 	ajena := m
 	ajena.OrganizacionRef = "organizacion:ajena"
-	if solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(context.WithValue(context.Background(), claveMaterialFirmaDocumentoCTDesarrollo{}, ajena), datos) {
+	if solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(referenciaOrganizativaCTMontajePrueba, context.WithValue(context.Background(), claveMaterialFirmaDocumentoCTDesarrollo{}, ajena), datos) {
 		t.Fatal("organización ajena admitida")
 	}
 }
@@ -339,7 +339,7 @@ func TestFirmaDocumentoDesarrolloRechazaCertificadoDistintoDelCanal(t *testing.T
 	perfil, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
 		[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
 		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
-			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, ref, ahora)
+			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, ref, ahora)
 		})
 	if err != nil || s.registrarPerfilFijoCTDesarrollo(perfil) != nil {
 		t.Fatal("perfil de firma no compuesto", err)
@@ -441,7 +441,7 @@ func TestFirmaDocumentoDesarrolloSinPerfilNominalDeniegaPaso(t *testing.T) {
 	perfil, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
 		[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
 		func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
-			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, ref, ahora)
+			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(referenciaOrganizativaCTMontajePrueba, actor, ref, ahora)
 		})
 	if err != nil || s.registrarPerfilFijoCTDesarrollo(perfil) != nil {
 		t.Fatal("perfil de firma no compuesto", err)
