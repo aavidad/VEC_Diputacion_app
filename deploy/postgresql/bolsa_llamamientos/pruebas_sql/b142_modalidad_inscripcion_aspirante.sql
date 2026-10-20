@@ -11,8 +11,8 @@ DO $huella$
 BEGIN
  IF encode(sha256(convert_to(pg_get_functiondef(to_regprocedure(
    'vec_bolsa_llamamientos.proyectar_abiertas_inscripcion_interna_v1(jsonb,text,text,text,text,boolean,text)')),'UTF8')),'hex')
-   <>'4b0d847f7451f4097ffe8e82e07b4ac4144fb7c5d193b839f59ff87a6dcc63ce'
- THEN RAISE EXCEPTION 'B142: proyección instalada distinta de la declarada'; END IF;
+   <>'94ddb56c8cf79e9a343648d1b3b4fdc721ebf224eb14b299a2b5929f36dda484'
+ THEN RAISE EXCEPTION 'B142: proyección instalada distinta de la declarada (definición final de B146)'; END IF;
 END $huella$;
 
 CREATE OR REPLACE FUNCTION vec_catalogos_configurables.leer_etiquetas_politicas_inscripcion_lote_v1(p_solicitudes jsonb,p_idioma text,p_canal text)

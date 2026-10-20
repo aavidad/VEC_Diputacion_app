@@ -247,6 +247,8 @@ func errorInscripcionPostgreSQL(ctx context.Context, err error, etapa string) er
 			nominal = inscripcion.ErrNoDisponible
 		case "B9608":
 			nominal = inscripcion.ErrModalidadConjuntaPendiente
+		case "B9609":
+			nominal = inscripcion.ErrModalidadSeparada
 		case "B9701":
 			nominal = inscripcion.ErrVinculoIdentidadPendiente
 		case "B9702":

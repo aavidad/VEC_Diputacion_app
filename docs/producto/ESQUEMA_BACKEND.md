@@ -510,6 +510,31 @@ primer día del plazo (hora de Madrid), el comprobador responde B9602 y el
 proyector deja fuera la versión. Sin declaración, el comprobador responde antes
 de mirar modalidad, categoría o plazo. Conserva OID, ACL y configuración. Guía en
 `deploy/principal/f1_61_publicacion_oficial_bases/README.md`.
+F1-41 (servidor) añade la solicitud conjunta. BC13 es una comprobación aparte
+(`comprobar_publicacion_inscripcion_conjunta_v1`) que solo admite convocatorias
+conjuntas y una lista de categorías publicadas, ordenada y sin repetidos. Como
+BC14, exige la declaración vigente de publicación oficial de esa versión y que el
+plazo empiece de uno a cinco días naturales después (hora de Madrid); si no,
+B9602. Parte de la postimagen BC14 del comprobador, que no cambia. B146 crea `solicitud_inscripcion_conjunta` (una por persona y
+convocatoria, con el recibo único) y `solicitud_inscripcion_conjunta_categoria`
+(cada categoría con su solicitud). La función
+`solicitar_inscripcion_conjunta_v1` consume una autorización V3 por categoría en
+la misma transacción y escribe una fila de solicitud por categoría, con su
+versión, historia, outbox y recibo, para que RRHH revise e incorpore igual que
+antes. El reintento con la misma clave y el mismo material devuelve el mismo
+recibo y anota el acceso como repetido; otra clave da B9604 y otro material con
+la misma clave, B9603. Pedirla en una convocatoria por categoría da B9609
+(`409 inscripcion_por_categoria`), distinto del B9608 de BC12. El arranque del
+portal externo admite la función nueva solo si está concedida exactamente junto
+a B96, y la ficha declara sus tres campos nuevos en la concesión de lectura.
+B146 también incluye el contenido de B105, que no se
+instaló: retira la unicidad persona y convocatoria, de modo que la modalidad
+separada admite una solicitud por categoría. El proyector del aspirante agrupa
+las solicitudes propias por categoría y la ficha las devuelve en
+`solicitudes_propias`. La ruta `POST /api/vec/bolsa/inscripciones/propias`
+acepta `categorias_refs` en lugar de `categoria_ref` y responde con el esquema
+`vec.bolsa.inscripcion.recibo_conjunto.v1` (201 la primera vez, 200 en el
+reintento). Activación en `deploy/principal/f1_41_solicitud_conjunta.md`.
 
 Las preferencias entre bolsas guardan versiones y recibos en
 `preferencia_bolsas_version` y publican su evento en
