@@ -176,7 +176,7 @@ VEC no emite un llamamiento que se salte a una persona disponible que aún no ha
 
 El correo avisa del llamamiento. Tras hablar con la persona, RRHH abre su ficha en Bolsa y registra el resultado con «Registrar intento telefónico». El resultado «Contactado» abre la respuesta en Mi Bolsa y el plazo que muestran las reglas vigentes; el envío del correo por sí solo no lo abre. La fecha de la llamada la guarda VEC.
 
-Si VEC no puede confirmar que el contacto se ha guardado, conserva los datos bloqueados. Pulse «Reintentar el mismo registro» para recuperar su justificante sin anotar otra llamada.
+En el formulario «Registrar contacto», si VEC no puede confirmar que se ha guardado, conserva los datos bloqueados. Pulse «Reintentar el mismo registro» para recuperar su justificante sin anotar otra llamada.
 
 La persona responde desde Mi Bolsa: acepta, renuncia o presenta una renuncia justificada, y recibe un justificante. Registrar el contacto no equivale a aceptar. Si no contesta en plazo, se entiende que no acepta, sin consecuencias en la bolsa, y el técnico abre el llamamiento a la siguiente persona.
 
