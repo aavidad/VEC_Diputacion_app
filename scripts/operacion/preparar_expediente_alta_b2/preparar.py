@@ -102,8 +102,8 @@ def mTLS(args, actor):
     directory = args.material / "mtls"
     aliases = {
         "RRHH": ["cliente", "cliente-RRHH", "cliente-rrhh", "rrhh"],
-        "centro-solicitante": ["cliente-centro-solicitante", "centro-solicitante"],
-        "centro-ratificador": ["cliente-centro-ratificador", "centro-ratificador"],
+        "centro-solicitante": ["cliente-centro-solicitante", "centro-solicitante", "solicitante"],
+        "centro-ratificador": ["cliente-centro-ratificador", "centro-ratificador", "ratificador"],
         "intervencion": ["cliente-intervencion", "intervencion"],
         "candidato": ["candidato"],
     }
