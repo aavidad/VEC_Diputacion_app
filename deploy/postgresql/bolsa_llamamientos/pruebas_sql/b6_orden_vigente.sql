@@ -34,7 +34,7 @@ BEGIN
  SELECT orden_vigente INTO STRICT orden2 FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(b,base+interval '5 second') WHERE participacion_ref=p2;
  SELECT count(*),max(posicion_resultante) INTO filas,posicion_registrada FROM vec_bolsa_llamamientos.reposicion_orden_bolsa WHERE situacion_recibo_ref='recibo:b6:repuesta';
  IF orden1<>2 OR orden2<>1 OR posicion_registrada<>orden1 OR v_razon<>'reposicion_tras_contrato' OR filas<>1 THEN RAISE EXCEPTION 'B6: reposición no explicable (%,%,%,%,%)',orden1,orden2,posicion_registrada,v_razon,filas; END IF;
- IF strpos(pg_get_functiondef('vec_bolsa_llamamientos.reservar_llamamiento_v1(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'leer_orden_vigente_bolsa_v1(p_bolsa,p_emitido)')=0 THEN
+ IF strpos(pg_get_functiondef('vec_bolsa_llamamientos.reservar_llamamiento_v2(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,jsonb)'::regprocedure),'leer_orden_vigente_bolsa_v1(p_bolsa,p_emitido)')=0 THEN
   RAISE EXCEPTION 'B6: B7 no reserva contra el orden vigente';
  END IF;
 END $prueba$;

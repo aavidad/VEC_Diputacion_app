@@ -19,6 +19,8 @@ type EntradaEmitirLlamamiento struct {
 	Participaciones   []string
 	Configuracion     ports.ConfiguracionLlamamiento
 	ClaveIdempotencia string
+	// MotivoSalto es opcional: clave «b01.salto.*» del catálogo de reglas.
+	MotivoSalto string
 }
 type PreparadorEmisionLlamamiento interface {
 	PrepararSolicitudEmitirLlamamiento(context.Context, EntradaEmitirLlamamiento) (ports.SolicitudEmitirLlamamiento, error)
@@ -67,6 +69,7 @@ func (h *HandlerEmisionLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.Req
 		BolsaRef        string                         `json:"bolsa_ref"`
 		Participaciones []string                       `json:"participaciones"`
 		Configuracion   ports.ConfiguracionLlamamiento `json:"configuracion"`
+		MotivoSalto     string                         `json:"motivo_salto,omitempty"`
 	}
 	d := json.NewDecoder(io.LimitReader(r.Body, 32769))
 	d.DisallowUnknownFields()
@@ -74,7 +77,7 @@ func (h *HandlerEmisionLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responderEmision(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
 	}
-	q, err := h.preparador.PrepararSolicitudEmitirLlamamiento(r.Context(), EntradaEmitirLlamamiento{cuerpo.BolsaRef, cuerpo.Participaciones, cuerpo.Configuracion, clave})
+	q, err := h.preparador.PrepararSolicitudEmitirLlamamiento(r.Context(), EntradaEmitirLlamamiento{BolsaRef: cuerpo.BolsaRef, Participaciones: cuerpo.Participaciones, Configuracion: cuerpo.Configuracion, ClaveIdempotencia: clave, MotivoSalto: cuerpo.MotivoSalto})
 	if err != nil {
 		responderErrorEmision(w, err)
 		return
@@ -114,7 +117,21 @@ func (h *HandlerEmisionLlamamiento) recuperar(w http.ResponseWriter, r *http.Req
 	responderEmision(w, 200, map[string]any{"data": out})
 }
 func responderErrorEmision(w http.ResponseWriter, err error) {
+	var fuera *ports.LlamamientoFueraDeOrden
 	switch {
+	case errors.As(err, &fuera):
+		// Regla b01: quién va antes (referencia y número de orden, sin datos
+		// personales) y los motivos de salto vigentes, que hoy no hay.
+		detalle := map[string]any{"codigo": "llamamiento_fuera_de_orden", "motivos_salto": []ports.MotivoSaltoOrden{}}
+		if fuera.ParticipacionRef != "" && fuera.OrdenVigente > 0 {
+			detalle["participacion_ref"], detalle["orden_vigente"] = fuera.ParticipacionRef, fuera.OrdenVigente
+		}
+		if len(fuera.Motivos) > 0 {
+			detalle["motivos_salto"] = fuera.Motivos
+		}
+		responderEmision(w, 409, map[string]any{"error": detalle})
+	case errors.Is(err, ports.ErrMotivoSaltoNoAdmitido):
+		responderEmision(w, 422, map[string]any{"error": map[string]string{"codigo": "motivo_salto_no_admitido"}})
 	case errors.Is(err, dominiovec.ErrAutorizacionDenegada), errors.Is(err, dominiovec.ErrPermissionDenied):
 		responderEmision(w, 403, map[string]any{"error": map[string]string{"codigo": "acceso_denegado"}})
 	case errors.Is(err, ports.ErrEmisionLlamamientoConflicto):

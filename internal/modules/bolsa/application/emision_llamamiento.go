@@ -30,6 +30,18 @@ type ServicioEmisionLlamamiento struct {
 	// avisador decide el correo de cada aviso (B59 opcional) y lo envía.
 	avisador         *AvisadorLlamamiento
 	derivadorTokenCT puertosbolsa.DerivadorTokenFinalizacionCT
+	// motivosSalto es opcional: sin catálogo ningún salto de orden se admite.
+	motivosSalto puertosbolsa.CatalogoMotivosSaltoOrden
+}
+
+// EstablecerCatalogoMotivosSalto conecta los motivos «b01.salto.*» del
+// catálogo de reglas con los que RRHH puede justificar saltar el orden.
+func (s *ServicioEmisionLlamamiento) EstablecerCatalogoMotivosSalto(c puertosbolsa.CatalogoMotivosSaltoOrden) error {
+	if s == nil || c == nil {
+		return puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
+	s.motivosSalto = c
+	return nil
 }
 
 // EstablecerDerivadorTokenFinalizacionCT inyecta el secreto persistente por su
@@ -80,6 +92,10 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 	if err != nil || resuelto.Validar() != nil {
 		return puertosbolsa.EmisionLlamamiento{}, errorDependenciaSituacion(err)
 	}
+	salto, err := s.resolverMotivoSalto(ctx, q.MotivoSalto)
+	if err != nil {
+		return puertosbolsa.EmisionLlamamiento{}, err
+	}
 	recurso := dominiovec.RecursoAutorizable{Referencia: q.BolsaRef, ModuloID: puertosbolsa.ModuloBorradorLlamamiento, Tipo: puertosbolsa.TipoRecursoEmision, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
 	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: q.Vinculo, ReferenciaMotivo: q.MotivoAutorizacion, Accion: puertosbolsa.AccionEmitirLlamamiento, Recurso: recurso, Finalidad: puertosbolsa.FinalidadEmitirLlamamiento, Correlacion: q.Correlacion})
 	if err != nil {
@@ -127,9 +143,9 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 		}
 		return puertosbolsa.EmisionLlamamiento{}, err
 	}
-	reservada, err := s.repositorio.Reservar(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material, TokenFinalizacion: tokenFinalizacion, OrigenCT: q.OrigenCT})
+	reservada, err := s.repositorio.Reservar(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material, TokenFinalizacion: tokenFinalizacion, OrigenCT: q.OrigenCT, SaltoOrden: salto})
 	if err != nil {
-		return puertosbolsa.EmisionLlamamiento{}, err
+		return puertosbolsa.EmisionLlamamiento{}, s.conMotivosSalto(ctx, err)
 	}
 	if !mismaSolicitudEmision(reservada, q) {
 		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoConflicto
@@ -167,6 +183,42 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 	}
 	emitido.OrigenCT = reservada.OrigenCT
 	return s.conAvisosContacto(ctx, emitido), nil
+}
+
+// resolverMotivoSalto devuelve nil sin motivo. Con motivo, exige que sea una
+// entrada vigente del catálogo; si no hay catálogo, no se admite ninguno.
+func (s *ServicioEmisionLlamamiento) resolverMotivoSalto(ctx context.Context, clave string) (*puertosbolsa.SaltoOrdenLlamamiento, error) {
+	if clave == "" {
+		return nil, nil
+	}
+	if s.motivosSalto == nil {
+		return nil, fmt.Errorf("%w: %w", puertosbolsa.ErrEmisionLlamamientoInvalida, puertosbolsa.ErrMotivoSaltoNoAdmitido)
+	}
+	salto, err := s.motivosSalto.ResolverMotivoSaltoOrden(ctx, clave)
+	switch {
+	case errors.Is(err, puertosbolsa.ErrMotivoSaltoNoAdmitido):
+		return nil, fmt.Errorf("%w: %w", puertosbolsa.ErrEmisionLlamamientoInvalida, puertosbolsa.ErrMotivoSaltoNoAdmitido)
+	case err != nil:
+		return nil, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	case salto.Clave != clave || salto.ReglaRef == "" || salto.HuellaCatalogo == "":
+		return nil, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
+	return &salto, nil
+}
+
+// conMotivosSalto añade al rechazo por orden los motivos de salto vigentes,
+// para que RRHH sepa si puede justificar el salto. Si el catálogo no se puede
+// leer, el rechazo sigue igual y sin motivos.
+func (s *ServicioEmisionLlamamiento) conMotivosSalto(ctx context.Context, err error) error {
+	var fuera *puertosbolsa.LlamamientoFueraDeOrden
+	if !errors.As(err, &fuera) || s.motivosSalto == nil {
+		return err
+	}
+	copia := *fuera
+	if motivos, errMotivos := s.motivosSalto.MotivosSaltoOrden(ctx); errMotivos == nil {
+		copia.Motivos = motivos
+	}
+	return &copia
 }
 
 func (s *ServicioEmisionLlamamiento) tokenFinalizacion(ctx context.Context, q puertosbolsa.SolicitudEmitirLlamamiento, actor string) ([]byte, *puertosbolsa.OrigenEmisionCT, error) {
@@ -275,6 +327,11 @@ func (s *ServicioEmisionLlamamiento) validarSolicitudEmision(q puertosbolsa.Soli
 			return puertosbolsa.ErrEmisionLlamamientoInvalida
 		}
 		vistos[p] = true
+	}
+	// El motivo de salto solo existe en la emisión general: la de
+	// Contratación ya toma el primer turno de la lectura de Bolsa.
+	if q.MotivoSalto != "" && (q.OrigenCT != nil || len(q.MotivoSalto) > 128 || strings.TrimSpace(q.MotivoSalto) != q.MotivoSalto) {
+		return puertosbolsa.ErrEmisionLlamamientoInvalida
 	}
 	if q.OrigenCT != nil && (q.OrigenCT.BolsaRef != q.BolsaRef || len(q.Participaciones) != 1 ||
 		q.Participaciones[0] != q.OrigenCT.ParticipacionRef || q.OrigenCT.CandidatoRef == "" ||

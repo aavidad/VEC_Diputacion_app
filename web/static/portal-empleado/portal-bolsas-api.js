@@ -21,7 +21,7 @@ import { crearControladorIntentosContacto, prepararTextosTelefono } from "./port
 import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=VEC_WEB_VERSION";
 import { crearControladorComprobacion, prepararTextosComprobacion } from "./portal-bolsas-comprobacion.js?v=VEC_WEB_VERSION";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=VEC_WEB_VERSION";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=VEC_WEB_VERSION";
+import { emitirLlamamiento, crearLlamamientoCandidato, mensajeFueraDeOrden, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=VEC_WEB_VERSION";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=VEC_WEB_VERSION";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=VEC_WEB_VERSION";
 import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=VEC_WEB_VERSION";
@@ -1436,6 +1436,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             flujo.revision_obligatoria = true;
             flujo.error = res.status === 422 ? traducirBolsaInterna("b7_emision_rechazada")
               : res.status === 400 ? traducirPortal("panel_b7_solicitud_rechazada")
+              : res.codigo === "llamamiento_fuera_de_orden" ? mensajeFueraDeOrden(res.antes, estado.datosCandidatos?.datos?.candidatos)
               : res.mensaje;
           } else if (!res.ok && [401, 403].includes(res.status)) {
             registro.estado = "incierto";
